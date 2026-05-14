@@ -173,7 +173,7 @@ Payment trigger: Payslip received → AI detect → Generate Invoice → Admin v
 | CRM         | 🟡 Partial     | Pipeline OK, Customer table basic  |
 | Inbox       | 🟡 Partial     | ยังไม่มี assignment feature         |
 | Calendar    | 🟡 Partial     | ยังไม่มี holiday, summary modal     |
-| Students    | 🟡 Partial     | profile ยังเป็น inline panel        |
+| Students    | 🟢 Complete    | list+filter+sort, 5-tab modal done  |
 | Billing     | 🟡 Partial     | course format ยังไม่ถูก            |
 | Reports     | 🔴 Basic       | ยังไม่มี timeseries, tabs           |
 | Settings    | 🔴 Basic       | form fields ยังไม่ครบ              |
@@ -259,4 +259,4 @@ git checkout -- [filename]
 
 ---
 
-*Last updated: 13 May 2026 | อัพเดทโดย Claude ทุกครั้งที่มีการเปลี่ยนแปลง module status*
+*Last updated: 14 May 2026 | อัพเดทโดย Claude ทุกครั้งที่มีการเปลี่ยนแปลง module status*

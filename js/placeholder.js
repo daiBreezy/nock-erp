@@ -3,8 +3,6 @@
   const placeholders = {
     notifications: { icon:'🔔', title:'Notifications', desc:'Notification center' },
     tasks:         { icon:'☑️', title:'Tasks',         desc:'Task management module' },
-    families:      { icon:'👨‍👩‍👧', title:'Families',      desc:'Family & parent management' },
-    staff:         { icon:'👤', title:'Staff',         desc:'Staff, roles & schedules' },
     courses:       { icon:'📖', title:'Courses',       desc:'Course catalog & packages' },
     classes:       { icon:'🏫', title:'Classes',       desc:'Class scheduling & transfers' },
     sessions:      { icon:'⏱️', title:'Sessions',      desc:'Session tracking & check-in' },
