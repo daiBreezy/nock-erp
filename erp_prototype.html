@@ -1,0 +1,830 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ERP — Education Operations</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Inter',system-ui,sans-serif;background:#f5f6fa;color:#1a1d23;display:flex;height:100vh;overflow:hidden}
+
+/* SIDEBAR */
+#sidebar{width:220px;min-width:220px;background:#1a1d23;display:flex;flex-direction:column;height:100vh;overflow-y:auto}
+.sidebar-logo{padding:20px 18px 14px;border-bottom:1px solid #2d3140}
+.sidebar-logo .brand{font-size:15px;font-weight:700;color:#fff;letter-spacing:.3px}
+.sidebar-logo .sub{font-size:11px;color:#6b7280;margin-top:2px}
+.nav-section{padding:10px 0}
+.nav-label{font-size:10px;font-weight:600;color:#4b5563;text-transform:uppercase;letter-spacing:.8px;padding:8px 18px 4px}
+.nav-item{display:flex;align-items:center;gap:10px;padding:8px 18px;cursor:pointer;color:#9ca3af;font-size:13px;transition:all .15s;border-left:3px solid transparent}
+.nav-item:hover{color:#e5e7eb;background:#232633}
+.nav-item.active{color:#fff;background:#232633;border-left-color:#6366f1}
+.nav-item .icon{font-size:15px;width:18px;text-align:center}
+.nav-badge{margin-left:auto;background:#ef4444;color:#fff;font-size:10px;font-weight:600;padding:1px 6px;border-radius:10px}
+.nav-badge.yellow{background:#f59e0b}
+
+/* TOP NAV */
+#topnav{height:52px;background:#fff;border-bottom:1px solid #e5e7eb;display:flex;align-items:center;padding:0 20px;gap:12px;flex-shrink:0}
+.topnav-title{font-size:15px;font-weight:600;color:#1a1d23;flex:1}
+.search-box{display:flex;align-items:center;gap:8px;background:#f5f6fa;border:1px solid #e5e7eb;border-radius:8px;padding:6px 12px;width:260px}
+.search-box input{border:none;background:transparent;font-size:13px;color:#374151;outline:none;width:100%}
+.search-box input::placeholder{color:#9ca3af}
+.topnav-actions{display:flex;gap:8px;align-items:center}
+.icon-btn{width:34px;height:34px;border-radius:8px;border:1px solid #e5e7eb;background:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:15px;position:relative;transition:background .15s}
+.icon-btn:hover{background:#f5f6fa}
+.badge-dot{position:absolute;top:6px;right:6px;width:7px;height:7px;background:#ef4444;border-radius:50%;border:1.5px solid #fff}
+.avatar{width:32px;height:32px;border-radius:50%;background:#6366f1;color:#fff;font-size:12px;font-weight:600;display:flex;align-items:center;justify-content:center;cursor:pointer}
+
+/* MAIN */
+#main{flex:1;display:flex;flex-direction:column;overflow:hidden}
+#content{flex:1;overflow-y:auto;padding:20px}
+
+/* VIEWS */
+.view{display:none}
+.view.active{display:block}
+
+/* PAGE HEADER */
+.page-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:20px}
+.page-title{font-size:18px;font-weight:700;color:#1a1d23}
+.page-sub{font-size:12px;color:#6b7280;margin-top:2px}
+.btn{padding:7px 14px;border-radius:8px;font-size:13px;font-weight:500;cursor:pointer;border:none;transition:all .15s}
+.btn-primary{background:#6366f1;color:#fff}.btn-primary:hover{background:#5355d1}
+.btn-secondary{background:#fff;color:#374151;border:1px solid #e5e7eb}.btn-secondary:hover{background:#f5f6fa}
+.btn-sm{padding:5px 10px;font-size:12px}
+
+/* KPI CARDS */
+.kpi-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:20px}
+.kpi-card{background:#fff;border-radius:12px;padding:16px;border:1px solid #e5e7eb}
+.kpi-label{font-size:11px;color:#6b7280;font-weight:500;text-transform:uppercase;letter-spacing:.5px}
+.kpi-value{font-size:26px;font-weight:700;color:#1a1d23;margin:6px 0 4px}
+.kpi-change{font-size:12px}.kpi-change.up{color:#10b981}.kpi-change.down{color:#ef4444}
+.kpi-icon{float:right;width:36px;height:36px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:18px}
+
+/* GRID LAYOUT */
+.grid-2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.grid-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px}
+
+/* CARD */
+.card{background:#fff;border-radius:12px;border:1px solid #e5e7eb;overflow:hidden}
+.card-header{padding:14px 16px;border-bottom:1px solid #f3f4f6;display:flex;align-items:center;justify-content:space-between}
+.card-title{font-size:13px;font-weight:600;color:#1a1d23}
+.card-body{padding:0}
+
+/* TABLE */
+.table-wrap{overflow-x:auto}
+table{width:100%;border-collapse:collapse}
+th{font-size:11px;font-weight:600;color:#6b7280;text-transform:uppercase;letter-spacing:.5px;padding:10px 16px;text-align:left;background:#f9fafb;border-bottom:1px solid #f3f4f6}
+td{padding:11px 16px;font-size:13px;color:#374151;border-bottom:1px solid #f9fafb}
+tr:last-child td{border-bottom:none}
+tr:hover td{background:#fafbff}
+
+/* BADGES */
+.badge{display:inline-flex;align-items:center;padding:2px 8px;border-radius:20px;font-size:11px;font-weight:500}
+.badge-green{background:#d1fae5;color:#065f46}
+.badge-yellow{background:#fef3c7;color:#92400e}
+.badge-red{background:#fee2e2;color:#991b1b}
+.badge-blue{background:#dbeafe;color:#1e40af}
+.badge-purple{background:#ede9fe;color:#5b21b6}
+.badge-gray{background:#f3f4f6;color:#374151}
+.badge-orange{background:#ffedd5;color:#c2410c}
+
+/* TABS */
+.tabs{display:flex;gap:0;border-bottom:1px solid #e5e7eb;margin-bottom:16px}
+.tab{padding:8px 16px;font-size:13px;cursor:pointer;color:#6b7280;border-bottom:2px solid transparent;transition:all .15s;white-space:nowrap}
+.tab:hover{color:#374151}
+.tab.active{color:#6366f1;border-bottom-color:#6366f1;font-weight:500}
+
+/* FILTERS */
+.filter-bar{display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap;align-items:center}
+.filter-chip{padding:5px 12px;border-radius:20px;border:1px solid #e5e7eb;font-size:12px;cursor:pointer;background:#fff;color:#374151;transition:all .15s}
+.filter-chip:hover,.filter-chip.active{background:#6366f1;color:#fff;border-color:#6366f1}
+
+/* SESSION CARD */
+.session-card{display:flex;align-items:center;gap:12px;padding:12px 16px;border-bottom:1px solid #f3f4f6;cursor:pointer;transition:background .15s}
+.session-card:last-child{border-bottom:none}
+.session-card:hover{background:#fafbff}
+.session-time{font-size:12px;color:#6b7280;min-width:72px}
+.session-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0}
+.session-dot.green{background:#10b981}
+.session-dot.yellow{background:#f59e0b}
+.session-dot.blue{background:#6366f1}
+.session-info{flex:1}
+.session-name{font-size:13px;font-weight:500;color:#1a1d23}
+.session-meta{font-size:11px;color:#6b7280;margin-top:2px}
+.session-teacher{font-size:12px;color:#6b7280;margin-left:auto}
+
+/* TASK ITEM */
+.task-item{display:flex;align-items:center;gap:10px;padding:10px 16px;border-bottom:1px solid #f3f4f6}
+.task-item:last-child{border-bottom:none}
+.task-check{width:16px;height:16px;border-radius:4px;border:2px solid #d1d5db;cursor:pointer;flex-shrink:0}
+.task-text{font-size:13px;color:#374151;flex:1}
+.task-due{font-size:11px;color:#9ca3af}
+
+/* TIMELINE */
+.timeline-item{display:flex;gap:12px;padding:10px 16px;border-bottom:1px solid #f9fafb}
+.timeline-item:last-child{border-bottom:none}
+.tl-dot{width:8px;height:8px;border-radius:50%;background:#6366f1;margin-top:4px;flex-shrink:0}
+.tl-content{flex:1}
+.tl-text{font-size:13px;color:#374151}
+.tl-time{font-size:11px;color:#9ca3af;margin-top:2px}
+
+/* CRM PIPELINE */
+.pipeline{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-bottom:16px}
+.pipeline-col{background:#f9fafb;border-radius:10px;padding:12px}
+.pipeline-header{font-size:11px;font-weight:600;color:#6b7280;text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px;display:flex;justify-content:space-between}
+.pipeline-count{background:#e5e7eb;border-radius:10px;padding:1px 7px;font-size:11px;color:#374151}
+.lead-card{background:#fff;border-radius:8px;padding:10px;margin-bottom:8px;border:1px solid #e5e7eb;cursor:pointer;transition:all .15s}
+.lead-card:hover{border-color:#6366f1;box-shadow:0 2px 8px rgba(99,102,241,.12)}
+.lead-name{font-size:13px;font-weight:500;color:#1a1d23}
+.lead-meta{font-size:11px;color:#9ca3af;margin-top:3px}
+.lead-tags{display:flex;gap:4px;margin-top:6px;flex-wrap:wrap}
+
+/* PROFILE HEADER */
+.profile-header{display:flex;gap:16px;align-items:flex-start;background:#fff;border-radius:12px;border:1px solid #e5e7eb;padding:20px;margin-bottom:16px}
+.profile-avatar{width:56px;height:56px;border-radius:50%;background:#6366f1;color:#fff;font-size:20px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.profile-name{font-size:18px;font-weight:700;color:#1a1d23}
+.profile-meta{font-size:13px;color:#6b7280;margin-top:4px}
+.profile-tags{display:flex;gap:8px;margin-top:8px;flex-wrap:wrap}
+.profile-stats{margin-left:auto;display:flex;gap:24px;text-align:center}
+.stat-val{font-size:22px;font-weight:700;color:#1a1d23}
+.stat-lbl{font-size:11px;color:#6b7280}
+
+/* CALENDAR */
+.cal-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px}
+.cal-days{display:grid;grid-template-columns:60px repeat(7,1fr);gap:0;border:1px solid #e5e7eb;border-radius:10px;overflow:hidden;background:#fff}
+.cal-day-header{background:#f9fafb;padding:10px 8px;text-align:center;font-size:11px;font-weight:600;color:#6b7280;border-bottom:1px solid #e5e7eb;border-right:1px solid #e5e7eb}
+.cal-day-header:first-child{border-right:1px solid #e5e7eb}
+.cal-day-header.today{background:#ede9fe;color:#6366f1}
+.cal-time{font-size:11px;color:#9ca3af;padding:0 8px;height:56px;display:flex;align-items:flex-start;padding-top:6px;border-bottom:1px solid #f3f4f6;border-right:1px solid #e5e7eb}
+.cal-cell{border-right:1px solid #f3f4f6;border-bottom:1px solid #f3f4f6;height:56px;padding:4px;position:relative}
+.cal-event{background:#ede9fe;color:#5b21b6;font-size:10px;border-radius:4px;padding:2px 5px;cursor:pointer;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;margin-bottom:2px;border-left:3px solid #6366f1}
+.cal-event.green{background:#d1fae5;color:#065f46;border-left-color:#10b981}
+.cal-event.yellow{background:#fef3c7;color:#92400e;border-left-color:#f59e0b}
+.cal-event.orange{background:#ffedd5;color:#c2410c;border-left-color:#f97316}
+
+/* SESSION MODAL */
+.modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:1000;align-items:center;justify-content:center}
+.modal-overlay.open{display:flex}
+.modal{background:#fff;border-radius:16px;width:520px;max-height:85vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,.2)}
+.modal-header{padding:18px 20px;border-bottom:1px solid #e5e7eb;display:flex;justify-content:space-between;align-items:center}
+.modal-title{font-size:15px;font-weight:600}
+.modal-close{cursor:pointer;color:#9ca3af;font-size:18px;padding:2px 6px;border-radius:4px}.modal-close:hover{background:#f3f4f6;color:#374151}
+.modal-body{padding:20px}
+.modal-section{margin-bottom:20px}
+.modal-section-title{font-size:11px;font-weight:600;color:#6b7280;text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px}
+.info-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.info-item{font-size:13px}.info-item .label{color:#9ca3af;font-size:11px;margin-bottom:2px}
+.student-attendance-row{display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid #f3f4f6}
+.student-attendance-row:last-child{border-bottom:none}
+.att-name{font-size:13px;font-weight:500;flex:1}
+.att-buttons{display:flex;gap:4px}
+.att-btn{padding:3px 8px;border-radius:6px;border:1px solid #e5e7eb;font-size:11px;cursor:pointer;background:#fff;transition:all .15s}
+.att-btn.present.sel{background:#d1fae5;border-color:#10b981;color:#065f46}
+.att-btn.leave.sel{background:#fef3c7;border-color:#f59e0b;color:#92400e}
+.att-btn.absent.sel{background:#fee2e2;border-color:#ef4444;color:#991b1b}
+.att-btn:hover{background:#f5f6fa}
+.modal-footer{padding:14px 20px;border-top:1px solid #e5e7eb;display:flex;gap:8px;justify-content:flex-end}
+
+/* INBOX */
+.inbox-layout{display:grid;grid-template-columns:280px 1fr;gap:0;background:#fff;border-radius:12px;border:1px solid #e5e7eb;height:calc(100vh - 140px);overflow:hidden}
+.inbox-list{border-right:1px solid #e5e7eb;overflow-y:auto}
+.inbox-item{padding:12px 14px;border-bottom:1px solid #f3f4f6;cursor:pointer;transition:background .15s}
+.inbox-item:hover{background:#fafbff}
+.inbox-item.active{background:#f0f0ff}
+.inbox-item.unread .inbox-name{font-weight:600}
+.inbox-name{font-size:13px;color:#1a1d23}
+.inbox-preview{font-size:12px;color:#9ca3af;margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.inbox-time{font-size:11px;color:#9ca3af;float:right}
+.chat-area{display:flex;flex-direction:column;height:100%}
+.chat-header{padding:14px 16px;border-bottom:1px solid #e5e7eb;display:flex;align-items:center;gap:10px}
+.chat-messages{flex:1;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:12px}
+.msg{max-width:72%;padding:10px 13px;border-radius:12px;font-size:13px;line-height:1.5}
+.msg.parent{background:#f3f4f6;align-self:flex-start;border-bottom-left-radius:2px}
+.msg.staff{background:#6366f1;color:#fff;align-self:flex-end;border-bottom-right-radius:2px}
+.msg.internal{background:#fef3c7;border:1px dashed #f59e0b;align-self:flex-start;font-style:italic;font-size:12px}
+.msg-meta{font-size:10px;color:#9ca3af;margin-top:3px}
+.msg.staff .msg-meta{color:rgba(255,255,255,.6);text-align:right}
+.chat-input{padding:12px;border-top:1px solid #e5e7eb;display:flex;gap:8px}
+.chat-input input{flex:1;border:1px solid #e5e7eb;border-radius:8px;padding:8px 12px;font-size:13px;outline:none}
+.chat-input input:focus{border-color:#6366f1}
+
+/* BILLING */
+.billing-summary{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:20px}
+
+/* REPORTS */
+.report-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:16px}
+.report-chart{height:140px;background:#f9fafb;border-radius:8px;margin-top:10px;display:flex;align-items:flex-end;gap:6px;padding:16px}
+.bar{background:#6366f1;border-radius:4px 4px 0 0;flex:1;transition:height .3s;min-width:20px}
+.bar.green{background:#10b981}
+.bar.yellow{background:#f59e0b}
+
+/* RENEWAL BADGE */
+.renewal-item{display:flex;align-items:center;gap:10px;padding:10px 16px;border-bottom:1px solid #f9fafb}
+.renewal-item:last-child{border-bottom:none}
+.renewal-name{font-size:13px;font-weight:500;flex:1}
+.renewal-classes{font-size:12px;color:#ef4444;font-weight:600}
+
+/* SCROLL */
+::-webkit-scrollbar{width:5px;height:5px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:#e5e7eb;border-radius:4px}
+
+/* NOTIFICATION */
+.notif-item{display:flex;gap:10px;padding:10px 16px;border-bottom:1px solid #f9fafb;cursor:pointer}
+.notif-item:hover{background:#fafbff}
+.notif-icon{width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0}
+.notif-icon.blue{background:#dbeafe}
+.notif-icon.green{background:#d1fae5}
+.notif-icon.yellow{background:#fef3c7}
+.notif-icon.red{background:#fee2e2}
+.notif-text{font-size:13px;color:#374151;flex:1}
+.notif-time{font-size:11px;color:#9ca3af;margin-top:3px}
+
+.empty-state{text-align:center;padding:40px 20px;color:#9ca3af;font-size:13px}
+</style>
+</head>
+<body>
+
+<!-- SIDEBAR -->
+<nav id="sidebar">
+  <div class="sidebar-logo">
+    <div class="brand">📚 NockERP</div>
+    <div class="sub">Education Operations</div>
+  </div>
+  <div class="nav-section">
+    <div class="nav-label">Main</div>
+    <div class="nav-item active" onclick="showView('dashboard',this)"><span class="icon">🏠</span>Dashboard</div>
+    <div class="nav-item" onclick="showView('crm',this)"><span class="icon">🎯</span>CRM<span class="nav-badge yellow">5</span></div>
+    <div class="nav-item" onclick="showView('inbox',this)"><span class="icon">💬</span>Inbox<span class="nav-badge">3</span></div>
+    <div class="nav-item" onclick="showView('calendar',this)"><span class="icon">📅</span>Calendar</div>
+  </div>
+  <div class="nav-section">
+    <div class="nav-label">People</div>
+    <div class="nav-item" onclick="showView('students',this)"><span class="icon">🎓</span>Students</div>
+    <div class="nav-item" onclick="showView('families',this)"><span class="icon">👨‍👩‍👧</span>Families</div>
+    <div class="nav-item" onclick="showView('staff',this)"><span class="icon">👤</span>Staff</div>
+  </div>
+  <div class="nav-section">
+    <div class="nav-label">Operations</div>
+    <div class="nav-item" onclick="showView('courses',this)"><span class="icon">📖</span>Courses</div>
+    <div class="nav-item" onclick="showView('classes',this)"><span class="icon">🏫</span>Classes</div>
+    <div class="nav-item" onclick="showView('sessions',this)"><span class="icon">⏱️</span>Sessions</div>
+    <div class="nav-item" onclick="showView('attendance',this)"><span class="icon">✅</span>Attendance</div>
+    <div class="nav-item" onclick="showView('summaries',this)"><span class="icon">📝</span>Summaries</div>
+  </div>
+  <div class="nav-section">
+    <div class="nav-label">Finance & Admin</div>
+    <div class="nav-item" onclick="showView('billing',this)"><span class="icon">💳</span>Billing<span class="nav-badge">2</span></div>
+    <div class="nav-item" onclick="showView('notifications',this)"><span class="icon">🔔</span>Notifications</div>
+    <div class="nav-item" onclick="showView('tasks',this)"><span class="icon">☑️</span>Tasks</div>
+    <div class="nav-item" onclick="showView('reports',this)"><span class="icon">📊</span>Reports</div>
+  </div>
+  <div class="nav-section">
+    <div class="nav-label">System</div>
+    <div class="nav-item" onclick="showView('settings',this)"><span class="icon">⚙️</span>Settings</div>
+    <div class="nav-item" onclick="showView('logs',this)"><span class="icon">🕐</span>Logs & Timeline</div>
+  </div>
+</nav>
+
+<!-- MAIN -->
+<div id="main">
+  <!-- TOP NAV -->
+  <div id="topnav">
+    <div class="topnav-title" id="topnav-title">Dashboard</div>
+    <div class="search-box"><span>🔍</span><input type="text" placeholder="Smart search…"></div>
+    <div class="topnav-actions">
+      <div class="icon-btn" onclick="showView('notifications',document.querySelector('[onclick*=notifications]'))">🔔<div class="badge-dot"></div></div>
+      <div class="icon-btn" onclick="showView('tasks',document.querySelector('[onclick*=tasks]'))">☑️</div>
+      <div class="avatar">N</div>
+    </div>
+  </div>
+
+  <!-- CONTENT -->
+  <div id="content">
+
+    <!-- ======== DASHBOARD ======== -->
+    <div class="view active" id="view-dashboard">
+      <div class="page-header">
+        <div><div class="page-title">Good morning, Nock 👋</div><div class="page-sub">Wednesday, 13 May 2026</div></div>
+        <button class="btn btn-primary">+ Quick Action</button>
+      </div>
+      <div class="kpi-grid">
+        <div class="kpi-card"><div class="kpi-icon" style="background:#ede9fe">💰</div><div class="kpi-label">Revenue (May)</div><div class="kpi-value">฿124,500</div><div class="kpi-change up">↑ 12% vs last month</div></div>
+        <div class="kpi-card"><div class="kpi-icon" style="background:#d1fae5">🎓</div><div class="kpi-label">Active Students</div><div class="kpi-value">87</div><div class="kpi-change up">↑ 3 new this week</div></div>
+        <div class="kpi-card"><div class="kpi-icon" style="background:#fef3c7">🔄</div><div class="kpi-label">Renewal Pending</div><div class="kpi-value">6</div><div class="kpi-change down">↓ Action required</div></div>
+        <div class="kpi-card"><div class="kpi-icon" style="background:#fee2e2">📈</div><div class="kpi-label">Conversion Rate</div><div class="kpi-value">68%</div><div class="kpi-change up">↑ 5% this month</div></div>
+      </div>
+      <div class="grid-2" style="margin-bottom:16px">
+        <div class="card">
+          <div class="card-header"><div class="card-title">📅 Today's Classes (8)</div><button class="btn btn-secondary btn-sm" onclick="showView('calendar',document.querySelector('[onclick*=calendar]'))">View Calendar</button></div>
+          <div class="card-body">
+            <div class="session-card"><div class="session-time">09:00–10:30</div><div class="session-dot green"></div><div class="session-info"><div class="session-name">Math Grade 5 — Group A</div><div class="session-meta">Room 2 · 4 students</div></div><span class="badge badge-green">Live</span></div>
+            <div class="session-card" onclick="openSessionModal()"><div class="session-time">10:30–12:00</div><div class="session-dot yellow"></div><div class="session-info"><div class="session-name">English Reading — Group B</div><div class="session-meta">Room 1 · 5 students</div></div><span class="badge badge-yellow">Upcoming</span></div>
+            <div class="session-card"><div class="session-time">13:00–14:30</div><div class="session-dot blue"></div><div class="session-info"><div class="session-name">Science — Private</div><div class="session-meta">Room 3 · 1 student</div></div><span class="badge badge-blue">Scheduled</span></div>
+            <div class="session-card"><div class="session-time">15:00–16:30</div><div class="session-dot blue"></div><div class="session-info"><div class="session-name">Math Grade 6 — Group C</div><div class="session-meta">Room 2 · 6 students</div></div><span class="badge badge-blue">Scheduled</span></div>
+            <div class="session-card"><div class="session-time">16:30–18:00</div><div class="session-dot blue"></div><div class="session-info"><div class="session-name">Thai Language — Group A</div><div class="session-meta">Room 1 · 3 students</div></div><span class="badge badge-blue">Scheduled</span></div>
+          </div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:16px">
+          <div class="card">
+            <div class="card-header"><div class="card-title">🔄 Renewal Pending</div><span class="badge badge-red">6 students</span></div>
+            <div class="card-body">
+              <div class="renewal-item"><div class="renewal-name">Mia Tanaka</div><div class="renewal-classes">2 classes left</div><button class="btn btn-primary btn-sm">Follow Up</button></div>
+              <div class="renewal-item"><div class="renewal-name">James Wilson</div><div class="renewal-classes">1 class left</div><button class="btn btn-primary btn-sm">Follow Up</button></div>
+              <div class="renewal-item"><div class="renewal-name">Ploy Srirak</div><div class="renewal-classes">2 classes left</div><button class="btn btn-primary btn-sm">Follow Up</button></div>
+            </div>
+          </div>
+          <div class="card">
+            <div class="card-header"><div class="card-title">☑️ My Tasks</div><button class="btn btn-secondary btn-sm">+ Add</button></div>
+            <div class="card-body">
+              <div class="task-item"><div class="task-check"></div><div class="task-text">Send invoice to Tanaka family</div><div class="task-due">Today</div></div>
+              <div class="task-item"><div class="task-check"></div><div class="task-text">Review summary for James — Math</div><div class="task-due">Today</div></div>
+              <div class="task-item"><div class="task-check" style="background:#6366f1;border-color:#6366f1"></div><div class="task-text" style="text-decoration:line-through;color:#9ca3af">Confirm schedule for June</div><div class="task-due" style="color:#10b981">Done</div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-header"><div class="card-title">🕐 Recent Activity</div></div>
+        <div class="card-body">
+          <div class="timeline-item"><div class="tl-dot"></div><div class="tl-content"><div class="tl-text"><strong>Summary sent</strong> — Ploy Srirak · Math Grade 5 · Session #42</div><div class="tl-time">10 minutes ago</div></div></div>
+          <div class="timeline-item"><div class="tl-dot" style="background:#10b981"></div><div class="tl-content"><div class="tl-text"><strong>Payment received</strong> — Tanaka family · ฿8,500 · Course renewal</div><div class="tl-time">42 minutes ago</div></div></div>
+          <div class="timeline-item"><div class="tl-dot" style="background:#f59e0b"></div><div class="tl-content"><div class="tl-text"><strong>New lead</strong> — Sarah M. · Referred by Tanaka family · English Reading</div><div class="tl-time">2 hours ago</div></div></div>
+          <div class="timeline-item"><div class="tl-dot"></div><div class="tl-content"><div class="tl-text"><strong>Enrollment created</strong> — Tom Chen · Math Grade 6 · 20 sessions</div><div class="tl-time">Yesterday, 4:30 PM</div></div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ======== CRM ======== -->
+    <div class="view" id="view-crm">
+      <div class="page-header">
+        <div><div class="page-title">CRM</div><div class="page-sub">24 total leads · 5 active</div></div>
+        <button class="btn btn-primary">+ New Lead</button>
+      </div>
+      <div class="tabs">
+        <div class="tab active" onclick="switchTab(this,'crm-leads')">Leads</div>
+        <div class="tab" onclick="switchTab(this,'crm-customers')">Customers</div>
+      </div>
+      <div id="crm-leads">
+        <div class="filter-bar">
+          <span style="font-size:12px;color:#6b7280">Filter:</span>
+          <div class="filter-chip active">All</div>
+          <div class="filter-chip">New Lead</div>
+          <div class="filter-chip">Contacting</div>
+          <div class="filter-chip">Interested</div>
+          <div class="filter-chip">Trial</div>
+          <div class="filter-chip">Enrolled</div>
+          <input type="text" placeholder="Search leads…" style="margin-left:auto;border:1px solid #e5e7eb;border-radius:8px;padding:5px 10px;font-size:12px;outline:none">
+        </div>
+        <div class="pipeline">
+          <div class="pipeline-col">
+            <div class="pipeline-header">New Lead <span class="pipeline-count">3</span></div>
+            <div class="lead-card"><div class="lead-name">Sarah Mitchell</div><div class="lead-meta">English Reading · Age 9</div><div class="lead-tags"><span class="badge badge-blue">Referred</span></div></div>
+            <div class="lead-card"><div class="lead-name">Arjun Patel</div><div class="lead-meta">Math Grade 4 · Age 10</div><div class="lead-tags"><span class="badge badge-purple">Website</span></div></div>
+            <div class="lead-card"><div class="lead-name">Emma Liu</div><div class="lead-meta">Science · Age 12</div><div class="lead-tags"><span class="badge badge-gray">Walk-in</span></div></div>
+          </div>
+          <div class="pipeline-col">
+            <div class="pipeline-header">Contacting <span class="pipeline-count">4</span></div>
+            <div class="lead-card"><div class="lead-name">Kevin Park</div><div class="lead-meta">Thai Language · Age 8</div><div class="lead-tags"><span class="badge badge-yellow">Called</span></div></div>
+            <div class="lead-card"><div class="lead-name">Nadia Sorokin</div><div class="lead-meta">Math Grade 5 · Age 11</div><div class="lead-tags"><span class="badge badge-yellow">LINE</span></div></div>
+            <div class="lead-card"><div class="lead-name">Ben Torres</div><div class="lead-meta">English · Age 7</div><div class="lead-tags"><span class="badge badge-yellow">Called</span></div></div>
+          </div>
+          <div class="pipeline-col">
+            <div class="pipeline-header">Interested (Test) <span class="pipeline-count">2</span></div>
+            <div class="lead-card"><div class="lead-name">Lily Wang</div><div class="lead-meta">Science · Age 13</div><div class="lead-tags"><span class="badge badge-orange">Test: 15 May</span></div></div>
+            <div class="lead-card"><div class="lead-name">Daan Smits</div><div class="lead-meta">Math Grade 6 · Age 12</div><div class="lead-tags"><span class="badge badge-orange">Test: 16 May</span></div></div>
+          </div>
+          <div class="pipeline-col">
+            <div class="pipeline-header">Interested (Trial) <span class="pipeline-count">2</span></div>
+            <div class="lead-card"><div class="lead-name">Hana Yamamoto</div><div class="lead-meta">English Reading · Age 9</div><div class="lead-tags"><span class="badge badge-purple">Trial: 14 May</span></div></div>
+            <div class="lead-card"><div class="lead-name">Luca Romano</div><div class="lead-meta">Thai Language · Age 11</div><div class="lead-tags"><span class="badge badge-purple">Trial: 17 May</span></div></div>
+          </div>
+          <div class="pipeline-col">
+            <div class="pipeline-header">Enrolled <span class="pipeline-count">5</span></div>
+            <div class="lead-card"><div class="lead-name">Tom Chen</div><div class="lead-meta">Math Grade 6 · Active</div><div class="lead-tags"><span class="badge badge-green">Active</span></div></div>
+            <div class="lead-card"><div class="lead-name">Mia Tanaka</div><div class="lead-meta">English · Active</div><div class="lead-tags"><span class="badge badge-green">Active</span></div></div>
+          </div>
+        </div>
+      </div>
+      <div id="crm-customers" style="display:none">
+        <div class="card"><div class="card-header"><div class="card-title">Active Customers (87)</div><button class="btn btn-secondary btn-sm">Export</button></div>
+        <div class="table-wrap"><table><thead><tr><th>Name</th><th>Branch</th><th>Courses</th><th>Since</th><th>Status</th><th>Action</th></tr></thead><tbody>
+          <tr><td><strong>Mia Tanaka</strong></td><td>Sukhumvit</td><td>English Reading</td><td>Jan 2026</td><td><span class="badge badge-yellow">Renewal Pending</span></td><td><button class="btn btn-primary btn-sm">View</button></td></tr>
+          <tr><td><strong>Tom Chen</strong></td><td>Sukhumvit</td><td>Math Grade 6</td><td>Mar 2026</td><td><span class="badge badge-green">Active</span></td><td><button class="btn btn-primary btn-sm">View</button></td></tr>
+          <tr><td><strong>Ploy Srirak</strong></td><td>Silom</td><td>Math Grade 5, Thai</td><td>Nov 2025</td><td><span class="badge badge-green">Active</span></td><td><button class="btn btn-primary btn-sm">View</button></td></tr>
+          <tr><td><strong>James Wilson</strong></td><td>Sukhumvit</td><td>Science</td><td>Feb 2026</td><td><span class="badge badge-red">1 class left</span></td><td><button class="btn btn-primary btn-sm">View</button></td></tr>
+        </tbody></table></div></div>
+      </div>
+    </div>
+
+    <!-- ======== INBOX ======== -->
+    <div class="view" id="view-inbox">
+      <div class="page-header">
+        <div><div class="page-title">Shared Inbox</div><div class="page-sub">3 unread conversations</div></div>
+        <div style="display:flex;gap:8px"><button class="btn btn-secondary btn-sm">Filter</button><button class="btn btn-primary btn-sm">+ Compose</button></div>
+      </div>
+      <div class="inbox-layout">
+        <div class="inbox-list">
+          <div style="padding:10px 12px;border-bottom:1px solid #e5e7eb">
+            <input type="text" placeholder="Search conversations…" style="width:100%;border:1px solid #e5e7eb;border-radius:6px;padding:5px 8px;font-size:12px;outline:none">
+          </div>
+          <div style="padding:8px 12px;border-bottom:1px solid #f3f4f6">
+            <div class="filter-chip active" style="font-size:11px;padding:3px 10px;display:inline-block">All</div>
+            <div class="filter-chip" style="font-size:11px;padding:3px 10px;display:inline-block">Unread</div>
+            <div class="filter-chip" style="font-size:11px;padding:3px 10px;display:inline-block;margin-left:4px">Mine</div>
+          </div>
+          <div class="inbox-item active unread"><span class="inbox-time">10:42</span><div class="inbox-name">Tanaka Family</div><div class="inbox-preview">ขอบคุณมากค่ะ สรุปบทเรียนดีมาก…</div></div>
+          <div class="inbox-item unread"><span class="inbox-time">09:15</span><div class="inbox-name">Wilson Family</div><div class="inbox-preview">Hi, can we reschedule Tuesday's…</div></div>
+          <div class="inbox-item unread"><span class="inbox-time">Yesterday</span><div class="inbox-name">Chen Family</div><div class="inbox-preview">Invoice attached. Please confirm…</div></div>
+          <div class="inbox-item"><span class="inbox-time">Mon</span><div class="inbox-name">Srirak Family</div><div class="inbox-preview">Ploy will be absent this Thursday…</div></div>
+          <div class="inbox-item"><span class="inbox-time">Mon</span><div class="inbox-name">Romano Family</div><div class="inbox-preview">Thank you for the trial session!</div></div>
+          <div class="inbox-item"><span class="inbox-time">Fri</span><div class="inbox-name">Park Family</div><div class="inbox-preview">When is the next class schedule?</div></div>
+        </div>
+        <div class="chat-area">
+          <div class="chat-header">
+            <div class="avatar" style="width:36px;height:36px;font-size:13px">T</div>
+            <div><div style="font-size:14px;font-weight:600">Tanaka Family</div><div style="font-size:11px;color:#9ca3af">Mia Tanaka · Sukhumvit Branch · LINE</div></div>
+            <div style="margin-left:auto;display:flex;gap:6px">
+              <button class="btn btn-secondary btn-sm">📋 Tasks</button>
+              <button class="btn btn-secondary btn-sm">👤 Profile</button>
+            </div>
+          </div>
+          <div class="chat-messages">
+            <div class="msg parent">สวัสดีค่ะ อยากสอบถามเรื่องตารางเรียนสัปดาห์หน้าค่ะ<div class="msg-meta">Tanaka Mom · Mon 09:10</div></div>
+            <div class="msg staff">สวัสดีครับคุณแม่ สัปดาห์หน้า Mia มีเรียนวันอังคาร และพฤหัสบดีครับ เวลา 10:30–12:00 ครับ<div class="msg-meta">Staff · Mon 09:25</div></div>
+            <div class="msg parent">ขอบคุณค่ะ แล้วสรุปบทเรียนส่งได้เมื่อไหร่คะ?<div class="msg-meta">Tanaka Mom · Mon 10:00</div></div>
+            <div class="msg internal">📎 Note (Internal): Summary for last session pending — remind teacher to submit<div class="msg-meta">Staff · Mon 10:05</div></div>
+            <div class="msg staff">คุณแม่ครับ สรุปบทเรียนจะส่งภายในวันนี้เลยครับ<div class="msg-meta">Staff · Mon 10:30</div></div>
+            <div class="msg parent">ขอบคุณมากค่ะ สรุปบทเรียนดีมากเลยนะคะ Mia ชอบมากค่ะ 🙏<div class="msg-meta">Tanaka Mom · Today 10:42</div></div>
+          </div>
+          <div class="chat-input">
+            <input type="text" placeholder="Reply to parent… (or type // for internal note)">
+            <button class="btn btn-primary">Send</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ======== CALENDAR ======== -->
+    <div class="view" id="view-calendar">
+      <div class="page-header">
+        <div><div class="page-title">Calendar</div><div class="page-sub">Week of 11–17 May 2026</div></div>
+        <div style="display:flex;gap:8px">
+          <button class="btn btn-secondary btn-sm">← Prev</button>
+          <button class="btn btn-secondary btn-sm">Today</button>
+          <button class="btn btn-secondary btn-sm">Next →</button>
+          <button class="btn btn-primary btn-sm">+ Session</button>
+        </div>
+      </div>
+      <div class="tabs">
+        <div class="tab active">Week</div><div class="tab">Day</div><div class="tab">Month</div><div class="tab">Teacher</div>
+      </div>
+      <div class="cal-days">
+        <div class="cal-day-header"></div>
+        <div class="cal-day-header">Mon 11</div>
+        <div class="cal-day-header">Tue 12</div>
+        <div class="cal-day-header today">Wed 13 ★</div>
+        <div class="cal-day-header">Thu 14</div>
+        <div class="cal-day-header">Fri 15</div>
+        <div class="cal-day-header">Sat 16</div>
+        <div class="cal-day-header">Sun 17</div>
+        <!-- Row 09:00 -->
+        <div class="cal-time">09:00</div>
+        <div class="cal-cell"><div class="cal-event green">Math G5 · Kru A · Rm1</div></div>
+        <div class="cal-cell"></div>
+        <div class="cal-cell"><div class="cal-event green" onclick="openSessionModal()">Math G5 · Kru A · Rm2</div></div>
+        <div class="cal-cell"></div>
+        <div class="cal-cell"><div class="cal-event green">Math G5 · Kru A · Rm1</div></div>
+        <div class="cal-cell"><div class="cal-event">Eng Read · Kru B</div></div>
+        <div class="cal-cell"></div>
+        <!-- Row 10:30 -->
+        <div class="cal-time">10:30</div>
+        <div class="cal-cell"></div>
+        <div class="cal-cell"><div class="cal-event yellow">Eng Read · Kru B · Rm1</div></div>
+        <div class="cal-cell"><div class="cal-event yellow" onclick="openSessionModal()">Eng Read · Kru B · Rm1</div></div>
+        <div class="cal-cell"><div class="cal-event yellow">Eng Read · Kru B · Rm1</div></div>
+        <div class="cal-cell"></div>
+        <div class="cal-cell"><div class="cal-event">Math G6 · Kru C</div></div>
+        <div class="cal-cell"></div>
+        <!-- Row 13:00 -->
+        <div class="cal-time">13:00</div>
+        <div class="cal-cell"><div class="cal-event orange">Science · Kru D · Rm3</div></div>
+        <div class="cal-cell"><div class="cal-event orange">Science · Kru D · Rm3</div></div>
+        <div class="cal-cell"><div class="cal-event orange">Science · Kru D · Rm3</div></div>
+        <div class="cal-cell"><div class="cal-event orange">Science · Kru D · Rm3</div></div>
+        <div class="cal-cell"></div>
+        <div class="cal-cell"></div>
+        <div class="cal-cell"></div>
+        <!-- Row 15:00 -->
+        <div class="cal-time">15:00</div>
+        <div class="cal-cell"></div>
+        <div class="cal-cell"><div class="cal-event">Math G6 · Kru C</div></div>
+        <div class="cal-cell"><div class="cal-event">Math G6 · Kru C</div></div>
+        <div class="cal-cell"><div class="cal-event">Math G6 · Kru C</div></div>
+        <div class="cal-cell"><div class="cal-event">Math G6 · Kru C</div></div>
+        <div class="cal-cell"><div class="cal-event green">Thai Lang · Kru E</div></div>
+        <div class="cal-cell"></div>
+        <!-- Row 16:30 -->
+        <div class="cal-time">16:30</div>
+        <div class="cal-cell"><div class="cal-event green">Thai Lang · Kru E</div></div>
+        <div class="cal-cell"></div>
+        <div class="cal-cell"><div class="cal-event green">Thai Lang · Kru E</div></div>
+        <div class="cal-cell"></div>
+        <div class="cal-cell"><div class="cal-event green">Thai Lang · Kru E</div></div>
+        <div class="cal-cell"></div>
+        <div class="cal-cell"></div>
+      </div>
+    </div>
+
+    <!-- ======== STUDENTS ======== -->
+    <div class="view" id="view-students">
+      <div class="page-header">
+        <div><div class="page-title">Students</div><div class="page-sub">87 active students</div></div>
+        <button class="btn btn-primary">+ Enroll Student</button>
+      </div>
+      <div class="filter-bar">
+        <div class="filter-chip active">All</div><div class="filter-chip">Active</div><div class="filter-chip">Renewal Pending</div><div class="filter-chip">Inactive</div>
+        <input type="text" placeholder="Search students…" style="margin-left:auto;border:1px solid #e5e7eb;border-radius:8px;padding:5px 10px;font-size:12px;outline:none">
+      </div>
+      <div class="card" style="margin-bottom:16px">
+        <div class="table-wrap"><table><thead><tr><th>Name</th><th>Branch</th><th>Courses</th><th>Classes Left</th><th>Last Session</th><th>Status</th><th></th></tr></thead><tbody>
+          <tr onclick="showStudentProfile()" style="cursor:pointer"><td><strong>Mia Tanaka</strong><div style="font-size:11px;color:#9ca3af">Age 9 · F: Tanaka Family</div></td><td>Sukhumvit</td><td>English Reading</td><td><span style="color:#ef4444;font-weight:600">2</span></td><td>Tue 12 May</td><td><span class="badge badge-yellow">Renewal Pending</span></td><td><button class="btn btn-primary btn-sm">View</button></td></tr>
+          <tr onclick="showStudentProfile()" style="cursor:pointer"><td><strong>Tom Chen</strong><div style="font-size:11px;color:#9ca3af">Age 12 · F: Chen Family</div></td><td>Sukhumvit</td><td>Math Grade 6</td><td>14</td><td>Wed 13 May</td><td><span class="badge badge-green">Active</span></td><td><button class="btn btn-primary btn-sm">View</button></td></tr>
+          <tr onclick="showStudentProfile()" style="cursor:pointer"><td><strong>Ploy Srirak</strong><div style="font-size:11px;color:#9ca3af">Age 10 · F: Srirak Family</div></td><td>Silom</td><td>Math G5, Thai Language</td><td>18</td><td>Mon 11 May</td><td><span class="badge badge-green">Active</span></td><td><button class="btn btn-primary btn-sm">View</button></td></tr>
+          <tr onclick="showStudentProfile()" style="cursor:pointer"><td><strong>James Wilson</strong><div style="font-size:11px;color:#9ca3af">Age 11 · F: Wilson Family</div></td><td>Sukhumvit</td><td>Science</td><td><span style="color:#ef4444;font-weight:600">1</span></td><td>Tue 12 May</td><td><span class="badge badge-red">1 class left</span></td><td><button class="btn btn-primary btn-sm">View</button></td></tr>
+        </tbody></table></div>
+      </div>
+
+      <!-- Student Profile Panel -->
+      <div id="student-profile" style="display:none">
+        <div class="profile-header">
+          <div class="profile-avatar">M</div>
+          <div>
+            <div class="profile-name">Mia Tanaka</div>
+            <div class="profile-meta">Age 9 · Sukhumvit Branch · English Reading</div>
+            <div class="profile-tags">
+              <span class="badge badge-yellow">Renewal Pending</span>
+              <span class="badge badge-blue">LINE: Active</span>
+              <span class="badge badge-purple">Preferred: TH</span>
+            </div>
+          </div>
+          <div class="profile-stats">
+            <div><div class="stat-val">38</div><div class="stat-lbl">Sessions</div></div>
+            <div><div class="stat-val">94%</div><div class="stat-lbl">Attendance</div></div>
+            <div><div class="stat-val">2</div><div class="stat-lbl">Left</div></div>
+            <div><div class="stat-val">฿51,000</div><div class="stat-lbl">Lifetime</div></div>
+          </div>
+          <button class="btn btn-secondary btn-sm" onclick="document.getElementById('student-profile').style.display='none'">✕ Close</button>
+        </div>
+        <div class="tabs">
+          <div class="tab active">Timeline</div><div class="tab">Attendance</div><div class="tab">Summaries</div><div class="tab">Billing</div><div class="tab">Notes</div>
+        </div>
+        <div class="card">
+          <div class="card-body">
+            <div class="timeline-item"><div class="tl-dot"></div><div class="tl-content"><div class="tl-text"><strong>Summary sent</strong> — Session #38 · English Reading · Kru Bee</div><div class="tl-time">Today 10:15</div></div></div>
+            <div class="timeline-item"><div class="tl-dot" style="background:#10b981"></div><div class="tl-content"><div class="tl-text"><strong>Present</strong> — Session #38 · Check-in 10:32, Check-out 12:03</div><div class="tl-time">Tue 12 May</div></div></div>
+            <div class="timeline-item"><div class="tl-dot" style="background:#f59e0b"></div><div class="tl-content"><div class="tl-text"><strong>Renewal alert triggered</strong> — 2 classes remaining</div><div class="tl-time">Tue 12 May</div></div></div>
+            <div class="timeline-item"><div class="tl-dot" style="background:#10b981"></div><div class="tl-content"><div class="tl-text"><strong>Present</strong> — Session #37 · Check-in 10:30, Check-out 12:01</div><div class="tl-time">Thu 7 May</div></div></div>
+            <div class="timeline-item"><div class="tl-dot"></div><div class="tl-content"><div class="tl-text"><strong>Summary sent</strong> — Session #37 · Parent opened</div><div class="tl-time">Thu 7 May, 14:20</div></div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ======== BILLING ======== -->
+    <div class="view" id="view-billing">
+      <div class="page-header">
+        <div><div class="page-title">Billing</div><div class="page-sub">2 invoices pending verification</div></div>
+        <button class="btn btn-primary">+ Generate Invoice</button>
+      </div>
+      <div class="billing-summary">
+        <div class="kpi-card"><div class="kpi-label">This Month Revenue</div><div class="kpi-value">฿124,500</div><div class="kpi-change up">↑ 12% vs last</div></div>
+        <div class="kpi-card"><div class="kpi-label">Pending Invoices</div><div class="kpi-value">฿17,000</div><div class="kpi-change down">2 awaiting</div></div>
+        <div class="kpi-card"><div class="kpi-label">Renewal Value</div><div class="kpi-value">฿51,000</div><div class="kpi-change up">6 renewals</div></div>
+      </div>
+      <div class="tabs">
+        <div class="tab active">All Invoices</div><div class="tab">Pending Verification</div><div class="tab">Paid</div><div class="tab">Payslips</div>
+      </div>
+      <div class="card">
+        <div class="card-header"><div class="card-title">Invoice List</div><button class="btn btn-secondary btn-sm">Export</button></div>
+        <div class="table-wrap"><table><thead><tr><th>Invoice #</th><th>Family</th><th>Student</th><th>Course</th><th>Amount</th><th>Date</th><th>Status</th><th>Action</th></tr></thead><tbody>
+          <tr><td><strong>INV-2026-0051</strong></td><td>Tanaka Family</td><td>Mia Tanaka</td><td>English Reading × 20</td><td>฿8,500</td><td>13 May</td><td><span class="badge badge-yellow">Pending Verification</span></td><td><button class="btn btn-primary btn-sm">Verify</button></td></tr>
+          <tr><td><strong>INV-2026-0050</strong></td><td>Park Family</td><td>Kevin Park</td><td>Thai Language × 10</td><td>฿4,200</td><td>12 May</td><td><span class="badge badge-yellow">Pending</span></td><td><button class="btn btn-primary btn-sm">Verify</button></td></tr>
+          <tr><td><strong>INV-2026-0049</strong></td><td>Chen Family</td><td>Tom Chen</td><td>Math G6 × 20</td><td>฿9,000</td><td>10 May</td><td><span class="badge badge-green">Paid</span></td><td><button class="btn btn-secondary btn-sm">View</button></td></tr>
+          <tr><td><strong>INV-2026-0048</strong></td><td>Srirak Family</td><td>Ploy Srirak</td><td>Math G5 × 20 + Thai × 20</td><td>฿16,500</td><td>8 May</td><td><span class="badge badge-green">Paid</span></td><td><button class="btn btn-secondary btn-sm">View</button></td></tr>
+          <tr><td><strong>INV-2026-0047</strong></td><td>Wilson Family</td><td>James Wilson</td><td>Science × 10</td><td>฿5,500</td><td>5 May</td><td><span class="badge badge-green">Paid</span></td><td><button class="btn btn-secondary btn-sm">View</button></td></tr>
+        </tbody></table></div>
+      </div>
+    </div>
+
+    <!-- ======== REPORTS ======== -->
+    <div class="view" id="view-reports">
+      <div class="page-header"><div class="page-title">Reports</div><div style="display:flex;gap:8px"><button class="btn btn-secondary btn-sm">May 2026</button><button class="btn btn-primary btn-sm">Export</button></div></div>
+      <div class="report-grid">
+        <div class="card"><div class="card-header"><div class="card-title">Revenue (Monthly)</div><span class="badge badge-green">+12%</span></div>
+          <div style="padding:16px"><div class="report-chart"><div class="bar" style="height:60%"></div><div class="bar" style="height:75%"></div><div class="bar" style="height:65%"></div><div class="bar" style="height:80%"></div><div class="bar" style="height:70%"></div><div class="bar" style="height:90%"></div><div class="bar" style="height:100%"></div></div>
+          <div style="display:flex;justify-content:space-between;font-size:11px;color:#9ca3af;margin-top:4px"><span>Nov</span><span>Dec</span><span>Jan</span><span>Feb</span><span>Mar</span><span>Apr</span><span>May</span></div></div></div>
+        <div class="card"><div class="card-header"><div class="card-title">Attendance Rate</div><span class="badge badge-blue">94%</span></div>
+          <div style="padding:16px"><div class="report-chart"><div class="bar green" style="height:90%"></div><div class="bar green" style="height:88%"></div><div class="bar green" style="height:92%"></div><div class="bar green" style="height:85%"></div><div class="bar green" style="height:95%"></div><div class="bar green" style="height:91%"></div><div class="bar green" style="height:94%"></div></div>
+          <div style="display:flex;justify-content:space-between;font-size:11px;color:#9ca3af;margin-top:4px"><span>Nov</span><span>Dec</span><span>Jan</span><span>Feb</span><span>Mar</span><span>Apr</span><span>May</span></div></div></div>
+        <div class="card"><div class="card-header"><div class="card-title">Conversion Rate (Leads)</div><span class="badge badge-purple">68%</span></div>
+          <div style="padding:16px"><div class="report-chart"><div class="bar yellow" style="height:55%"></div><div class="bar yellow" style="height:60%"></div><div class="bar yellow" style="height:65%"></div><div class="bar yellow" style="height:58%"></div><div class="bar yellow" style="height:70%"></div><div class="bar yellow" style="height:72%"></div><div class="bar yellow" style="height:68%"></div></div>
+          <div style="display:flex;justify-content:space-between;font-size:11px;color:#9ca3af;margin-top:4px"><span>Nov</span><span>Dec</span><span>Jan</span><span>Feb</span><span>Mar</span><span>Apr</span><span>May</span></div></div></div>
+        <div class="card"><div class="card-header"><div class="card-title">Student Retention</div><span class="badge badge-green">91%</span></div>
+          <div style="padding:16px">
+            <table style="width:100%"><thead><tr><th>Course</th><th>Students</th><th>Renewed</th><th>Rate</th></tr></thead><tbody>
+            <tr><td>Math Grade 5</td><td>22</td><td>20</td><td><span class="badge badge-green">91%</span></td></tr>
+            <tr><td>English Reading</td><td>18</td><td>17</td><td><span class="badge badge-green">94%</span></td></tr>
+            <tr><td>Science</td><td>12</td><td>10</td><td><span class="badge badge-yellow">83%</span></td></tr>
+            <tr><td>Thai Language</td><td>15</td><td>14</td><td><span class="badge badge-green">93%</span></td></tr>
+            </tbody></table>
+          </div></div>
+      </div>
+    </div>
+
+    <!-- ======== NOTIFICATIONS ======== -->
+    <div class="view" id="view-notifications">
+      <div class="page-header"><div class="page-title">Notifications</div><button class="btn btn-secondary btn-sm">Mark all read</button></div>
+      <div class="card">
+        <div class="notif-item"><div class="notif-icon yellow">🔄</div><div><div class="notif-text"><strong>Renewal Alert</strong> — Mia Tanaka has 2 classes remaining. Action required.</div><div class="notif-time">10 min ago</div></div></div>
+        <div class="notif-item"><div class="notif-icon green">✅</div><div><div class="notif-text"><strong>Summary Sent</strong> — Kru Bee sent summary for Mia Tanaka · Session #38</div><div class="notif-time">25 min ago</div></div></div>
+        <div class="notif-item"><div class="notif-icon blue">💬</div><div><div class="notif-text"><strong>Inbox Message</strong> — Tanaka Family replied to your message</div><div class="notif-time">42 min ago</div></div></div>
+        <div class="notif-item"><div class="notif-icon red">⚠️</div><div><div class="notif-text"><strong>Renewal Alert</strong> — James Wilson has 1 class remaining. Urgent.</div><div class="notif-time">1 hour ago</div></div></div>
+        <div class="notif-item"><div class="notif-icon green">💳</div><div><div class="notif-text"><strong>Payment Received</strong> — ฿8,500 from Tanaka Family · Renewal</div><div class="notif-time">2 hours ago</div></div></div>
+        <div class="notif-item"><div class="notif-icon blue">🎯</div><div><div class="notif-text"><strong>New Lead</strong> — Sarah Mitchell · English Reading · Referred by Tanaka</div><div class="notif-time">3 hours ago</div></div></div>
+      </div>
+    </div>
+
+    <!-- ======== TASKS ======== -->
+    <div class="view" id="view-tasks">
+      <div class="page-header"><div class="page-title">Tasks</div><button class="btn btn-primary">+ New Task</button></div>
+      <div class="tabs"><div class="tab active">All</div><div class="tab">My Tasks</div><div class="tab">System</div><div class="tab">Completed</div></div>
+      <div class="card">
+        <div class="card-header"><div class="card-title">Pending (5)</div></div>
+        <div class="task-item"><div class="task-check"></div><div class="task-text"><strong>Follow up with Tanaka Family</strong> — Renewal pending · Mia Tanaka</div><div class="task-due" style="color:#ef4444">Today</div></div>
+        <div class="task-item"><div class="task-check"></div><div class="task-text"><strong>Verify payment</strong> — INV-2026-0051 · Tanaka Family · ฿8,500</div><div class="task-due" style="color:#ef4444">Today</div></div>
+        <div class="task-item"><div class="task-check"></div><div class="task-text"><strong>Send invoice</strong> — Chen Family · Math G6 renewal</div><div class="task-due">Tomorrow</div></div>
+        <div class="task-item"><div class="task-check"></div><div class="task-text"><strong>Contact Wilson Family</strong> — James has 1 class left</div><div class="task-due">14 May</div></div>
+        <div class="task-item"><div class="task-check"></div><div class="task-text"><strong>Schedule trial session</strong> — Hana Yamamoto · English Reading</div><div class="task-due">14 May</div></div>
+        <div class="card-header" style="border-top:1px solid #f3f4f6"><div class="card-title">Completed (2)</div></div>
+        <div class="task-item"><div class="task-check" style="background:#6366f1;border-color:#6366f1"></div><div class="task-text" style="text-decoration:line-through;color:#9ca3af">Confirm June schedule — Srirak Family</div><div class="task-due" style="color:#10b981">Done</div></div>
+        <div class="task-item"><div class="task-check" style="background:#6366f1;border-color:#6366f1"></div><div class="task-text" style="text-decoration:line-through;color:#9ca3af">Send monthly summary — All active students</div><div class="task-due" style="color:#10b981">Done</div></div>
+      </div>
+    </div>
+
+    <!-- ======== SETTINGS ======== -->
+    <div class="view" id="view-settings">
+      <div class="page-header"><div class="page-title">Settings</div></div>
+      <div class="grid-2">
+        <div class="card"><div class="card-header"><div class="card-title">⚙️ Branch Settings</div></div><div style="padding:16px;font-size:13px;color:#374151">
+          <div style="margin-bottom:12px"><div style="font-size:11px;color:#6b7280;margin-bottom:4px">Branch Name</div><input style="width:100%;border:1px solid #e5e7eb;border-radius:6px;padding:7px 10px;font-size:13px;outline:none" value="Sukhumvit Branch"></div>
+          <div style="margin-bottom:12px"><div style="font-size:11px;color:#6b7280;margin-bottom:4px">Room Capacity</div><input style="width:100%;border:1px solid #e5e7eb;border-radius:6px;padding:7px 10px;font-size:13px;outline:none" value="4 rooms"></div>
+          <button class="btn btn-primary btn-sm">Save Changes</button>
+        </div></div>
+        <div class="card"><div class="card-header"><div class="card-title">👤 Roles & Permissions</div></div><div style="padding:16px">
+          <table style="width:100%"><thead><tr><th>Role</th><th>Scope</th><th>Access</th></tr></thead><tbody>
+          <tr><td>Director</td><td>All Brands</td><td><span class="badge badge-green">Full</span></td></tr>
+          <tr><td>Area Manager</td><td>Multi-branch</td><td><span class="badge badge-blue">High</span></td></tr>
+          <tr><td>Manager</td><td>Single branch</td><td><span class="badge badge-blue">High</span></td></tr>
+          <tr><td>Admin</td><td>Single branch</td><td><span class="badge badge-yellow">Medium</span></td></tr>
+          <tr><td>Teacher</td><td>Assigned</td><td><span class="badge badge-gray">Limited</span></td></tr>
+          </tbody></table>
+        </div></div>
+        <div class="card"><div class="card-header"><div class="card-title">🔔 Notification Settings</div></div><div style="padding:16px;font-size:13px">
+          <div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #f3f4f6"><span>Renewal Alerts</span><span style="color:#10b981;font-weight:500">ON</span></div>
+          <div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #f3f4f6"><span>Summary Reminders</span><span style="color:#10b981;font-weight:500">ON</span></div>
+          <div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #f3f4f6"><span>Task Alerts</span><span style="color:#10b981;font-weight:500">ON</span></div>
+          <div style="display:flex;justify-content:space-between;padding:8px 0"><span>Payment Notifications</span><span style="color:#10b981;font-weight:500">ON</span></div>
+        </div></div>
+        <div class="card"><div class="card-header"><div class="card-title">💳 Payment Methods</div></div><div style="padding:16px;font-size:13px">
+          <div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #f3f4f6"><span>Bank Transfer</span><span class="badge badge-green">Active</span></div>
+          <div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #f3f4f6"><span>PromptPay</span><span class="badge badge-green">Active</span></div>
+          <div style="display:flex;justify-content:space-between;padding:8px 0"><span>Credit Card</span><span class="badge badge-gray">Inactive</span></div>
+        </div></div>
+      </div>
+    </div>
+
+    <!-- ======== LOGS & TIMELINE ======== -->
+    <div class="view" id="view-logs">
+      <div class="page-header"><div class="page-title">Logs & Timeline</div><button class="btn btn-secondary btn-sm">Filter</button></div>
+      <div class="filter-bar">
+        <div class="filter-chip active">All Events</div><div class="filter-chip">Sessions</div><div class="filter-chip">Billing</div><div class="filter-chip">CRM</div><div class="filter-chip">Staff</div>
+      </div>
+      <div class="card">
+        <div class="timeline-item"><div class="tl-dot"></div><div class="tl-content"><div class="tl-text"><strong>[SUMMARY]</strong> Kru Bee sent summary for Mia Tanaka · Session #38 · English Reading</div><div class="tl-time">Today 10:15 · Staff: Kru Bee</div></div></div>
+        <div class="timeline-item"><div class="tl-dot" style="background:#10b981"></div><div class="tl-content"><div class="tl-text"><strong>[SESSION]</strong> Session #38 closed · Mia Tanaka · Check-in 10:32 → Check-out 12:03</div><div class="tl-time">Today 09:03 · Auto-logged</div></div></div>
+        <div class="timeline-item"><div class="tl-dot" style="background:#f59e0b"></div><div class="tl-content"><div class="tl-text"><strong>[BILLING]</strong> Invoice INV-2026-0051 generated · Tanaka Family · ฿8,500</div><div class="tl-time">Today 08:45 · Staff: Admin Nock</div></div></div>
+        <div class="timeline-item"><div class="tl-dot" style="background:#6366f1"></div><div class="tl-content"><div class="tl-text"><strong>[CRM]</strong> New lead created · Sarah Mitchell · English Reading · Source: Referral</div><div class="tl-time">Today 08:20 · Staff: Admin Nock</div></div></div>
+        <div class="timeline-item"><div class="tl-dot" style="background:#ef4444"></div><div class="tl-content"><div class="tl-text"><strong>[RENEWAL]</strong> Alert triggered · Mia Tanaka · 2 classes remaining</div><div class="tl-time">Yesterday 18:00 · System</div></div></div>
+        <div class="timeline-item"><div class="tl-dot" style="background:#10b981"></div><div class="tl-content"><div class="tl-text"><strong>[PAYMENT]</strong> Payment received · Tanaka Family · ฿8,500 confirmed</div><div class="tl-time">Yesterday 14:32 · Staff: Admin Nock</div></div></div>
+        <div class="timeline-item"><div class="tl-dot"></div><div class="tl-content"><div class="tl-text"><strong>[ENROLLMENT]</strong> New enrollment created · Tom Chen · Math Grade 6 · 20 sessions</div><div class="tl-time">Yesterday 11:10 · Staff: Admin Nock</div></div></div>
+      </div>
+    </div>
+
+    <!-- Placeholder views -->
+    <div class="view" id="view-families"><div class="page-header"><div class="page-title">Families</div><button class="btn btn-primary">+ Add Family</button></div><div class="card" style="padding:40px;text-align:center;color:#9ca3af"><div style="font-size:40px">👨‍👩‍👧</div><div style="margin-top:12px;font-size:14px">Family management module<br><span style="font-size:12px">Parents, primary contacts, LINE accounts, billing by family</span></div></div></div>
+    <div class="view" id="view-staff"><div class="page-header"><div class="page-title">Staff</div><button class="btn btn-primary">+ Add Staff</button></div><div class="card" style="padding:40px;text-align:center;color:#9ca3af"><div style="font-size:40px">👤</div><div style="margin-top:12px;font-size:14px">Staff management module<br><span style="font-size:12px">Roles, schedules, branch assignments, activity logs</span></div></div></div>
+    <div class="view" id="view-courses"><div class="page-header"><div class="page-title">Courses</div><button class="btn btn-primary">+ New Course</button></div><div class="card" style="padding:40px;text-align:center;color:#9ca3af"><div style="font-size:40px">📖</div><div style="margin-top:12px;font-size:14px">Course catalog module<br><span style="font-size:12px">Subjects, packages, hours, leave quota, enrollment rules</span></div></div></div>
+    <div class="view" id="view-classes"><div class="page-header"><div class="page-title">Classes</div><button class="btn btn-primary">+ New Class</button></div><div class="card" style="padding:40px;text-align:center;color:#9ca3af"><div style="font-size:40px">🏫</div><div style="margin-top:12px;font-size:14px">Class scheduling module<br><span style="font-size:12px">Recurring schedules, teacher assignment, capacity, transfers</span></div></div></div>
+    <div class="view" id="view-sessions"><div class="page-header"><div class="page-title">Sessions</div></div><div class="card" style="padding:40px;text-align:center;color:#9ca3af"><div style="font-size:40px">⏱️</div><div style="margin-top:12px;font-size:14px">Session management module<br><span style="font-size:12px;margin-top:4px;display:block">Click any session on the Calendar to open the Session Modal</span></div><button class="btn btn-primary" style="margin-top:16px" onclick="openSessionModal()">Open Session Modal Demo</button></div></div>
+    <div class="view" id="view-attendance"><div class="page-header"><div class="page-title">Attendance</div></div><div class="card" style="padding:40px;text-align:center;color:#9ca3af"><div style="font-size:40px">✅</div><div style="margin-top:12px;font-size:14px">Attendance logs module<br><span style="font-size:12px">Present, Leave, Absent, Transfer, Reschedule with consumption rules</span></div></div></div>
+    <div class="view" id="view-summaries"><div class="page-header"><div class="page-title">Summaries</div><button class="btn btn-primary">+ Write Summary</button></div><div class="card" style="padding:40px;text-align:center;color:#9ca3af"><div style="font-size:40px">📝</div><div style="margin-top:12px;font-size:14px">Session summaries module<br><span style="font-size:12px">Write → AI Assist → Translate → Send to Parent</span></div></div></div>
+
+  </div><!-- /content -->
+</div><!-- /main -->
+
+<!-- SESSION MODAL -->
+<div class="modal-overlay" id="session-modal">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title">⏱️ Session — English Reading · Group B</div>
+      <span class="modal-close" onclick="closeSessionModal()">✕</span>
+    </div>
+    <div class="modal-body">
+      <div class="modal-section">
+        <div class="modal-section-title">Session Info</div>
+        <div class="info-grid">
+          <div class="info-item"><div class="label">Subject</div>English Reading</div>
+          <div class="info-item"><div class="label">Teacher</div>Kru Bee</div>
+          <div class="info-item"><div class="label">Time</div>10:30 – 12:00</div>
+          <div class="info-item"><div class="label">Room</div>Room 1 · Sukhumvit</div>
+          <div class="info-item"><div class="label">Status</div><span class="badge badge-yellow">Upcoming</span></div>
+          <div class="info-item"><div class="label">Capacity</div>5 / 8 students</div>
+        </div>
+      </div>
+      <div class="modal-section">
+        <div class="modal-section-title">Student Attendance</div>
+        <div class="student-attendance-row"><div class="att-name">Mia Tanaka</div><div class="att-buttons"><button class="att-btn present sel" onclick="selectAtt(this,'present')">Present</button><button class="att-btn leave" onclick="selectAtt(this,'leave')">Leave</button><button class="att-btn absent" onclick="selectAtt(this,'absent')">Absent</button></div></div>
+        <div class="student-attendance-row"><div class="att-name">Kevin Park</div><div class="att-buttons"><button class="att-btn present sel" onclick="selectAtt(this,'present')">Present</button><button class="att-btn leave" onclick="selectAtt(this,'leave')">Leave</button><button class="att-btn absent" onclick="selectAtt(this,'absent')">Absent</button></div></div>
+        <div class="student-attendance-row"><div class="att-name">Hana Yamamoto</div><div class="att-buttons"><button class="att-btn present" onclick="selectAtt(this,'present')">Present</button><button class="att-btn leave sel" onclick="selectAtt(this,'leave')">Leave</button><button class="att-btn absent" onclick="selectAtt(this,'absent')">Absent</button></div></div>
+        <div class="student-attendance-row"><div class="att-name">Luca Romano</div><div class="att-buttons"><button class="att-btn present sel" onclick="selectAtt(this,'present')">Present</button><button class="att-btn leave" onclick="selectAtt(this,'leave')">Leave</button><button class="att-btn absent" onclick="selectAtt(this,'absent')">Absent</button></div></div>
+        <div class="student-attendance-row"><div class="att-name">Emma Liu</div><div class="att-buttons"><button class="att-btn present" onclick="selectAtt(this,'present')">Present</button><button class="att-btn leave" onclick="selectAtt(this,'leave')">Leave</button><button class="att-btn absent sel" onclick="selectAtt(this,'absent')">Absent</button></div></div>
+      </div>
+      <div class="modal-section">
+        <div class="modal-section-title">Session Timeline</div>
+        <div class="timeline-item" style="padding:6px 0"><div class="tl-dot" style="background:#f59e0b"></div><div class="tl-content"><div class="tl-text">Session scheduled</div><div class="tl-time">Auto · 09:00</div></div></div>
+        <div class="timeline-item" style="padding:6px 0"><div class="tl-dot"></div><div class="tl-content"><div class="tl-text">Attendance updated by Kru Bee</div><div class="tl-time">10:28</div></div></div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeSessionModal()">Cancel</button>
+      <button class="btn btn-secondary">End Class</button>
+      <button class="btn btn-primary">✓ Start Class & Check-In</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const titles = {
+  dashboard:'Dashboard',crm:'CRM',inbox:'Inbox',calendar:'Calendar',students:'Students',
+  families:'Families',staff:'Staff',courses:'Courses',classes:'Classes',sessions:'Sessions',
+  attendance:'Attendance',summaries:'Summaries',billing:'Billing',notifications:'Notifications',
+  tasks:'Tasks',reports:'Reports',settings:'Settings',logs:'Logs & Timeline'
+};
+
+function showView(id, el) {
+  document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
+  const v = document.getElementById('view-'+id);
+  if(v) v.classList.add('active');
+  if(el) el.classList.add('active');
+  document.getElementById('topnav-title').textContent = titles[id]||id;
+}
+
+function switchTab(el, targetId) {
+  const parent = el.closest('.tabs').parentElement;
+  el.closest('.tabs').querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  el.classList.add('active');
+  // CRM tabs
+  if(targetId==='crm-leads'){document.getElementById('crm-leads').style.display='';document.getElementById('crm-customers').style.display='none';}
+  if(targetId==='crm-customers'){document.getElementById('crm-leads').style.display='none';document.getElementById('crm-customers').style.display='';}
+}
+
+function showStudentProfile() {
+  const el = document.getElementById('student-profile');
+  el.style.display = el.style.display==='none'?'block':'none';
+  if(el.style.display==='block') el.scrollIntoView({behavior:'smooth'});
+}
+
+function openSessionModal() {
+  document.getElementById('session-modal').classList.add('open');
+}
+function closeSessionModal() {
+  document.getElementById('session-modal').classList.remove('open');
+}
+document.getElementById('session-modal').addEventListener('click', function(e){
+  if(e.target===this) closeSessionModal();
+});
+
+function selectAtt(btn, type) {
+  const row = btn.closest('.att-buttons');
+  row.querySelectorAll('.att-btn').forEach(b=>{
+    b.classList.remove('sel','present','leave','absent');
+    if(b.textContent.toLowerCase().includes('present')) b.classList.add('present');
+    else if(b.textContent.toLowerCase().includes('leave')) b.classList.add('leave');
+    else if(b.textContent.toLowerCase().includes('absent')) b.classList.add('absent');
+  });
+  btn.classList.add('sel');
+}
+</script>
+</body>
+</html>
