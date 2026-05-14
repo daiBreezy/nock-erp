@@ -224,6 +224,28 @@ tr:hover td{background:#fafbff}
 .cal-event.yellow{background:#fef3c7;color:#92400e;border-left-color:#f59e0b}
 .cal-event.orange{background:#ffedd5;color:#c2410c;border-left-color:#f97316}
 .holiday-event{background:#fee2e2;color:#991b1b;border-left-color:#ef4444;font-weight:600}
+/* month view */
+.cal-month-grid{display:grid;grid-template-columns:repeat(7,1fr);border:1px solid #e5e7eb;border-radius:10px;overflow:hidden;background:#fff}
+.cal-month-head{background:#f9fafb;padding:7px 4px;text-align:center;font-size:11px;font-weight:600;color:#6b7280;border-bottom:1px solid #e5e7eb;border-right:1px solid #e5e7eb}
+.cal-month-cell{min-height:90px;border-right:1px solid #f3f4f6;border-bottom:1px solid #f3f4f6;padding:4px;vertical-align:top;position:relative}
+.cal-month-cell.today .cal-month-num{background:#6366f1;color:#fff;border-radius:50%;width:20px;height:20px;display:inline-flex;align-items:center;justify-content:center}
+.cal-month-cell.holiday{background:#fff9f9}
+.cal-month-cell.other-month{background:#fafafa}
+.cal-month-num{font-size:12px;font-weight:500;color:#374151;display:block;margin-bottom:2px}
+.cal-month-cell.other-month .cal-month-num{color:#d1d5db}
+/* day view */
+.cal-day-grid{display:grid;grid-template-columns:60px 1fr;gap:0;border:1px solid #e5e7eb;border-radius:10px;overflow:hidden;background:#fff}
+/* teacher view */
+.cal-teacher-grid{display:grid;gap:0;border:1px solid #e5e7eb;border-radius:10px;overflow:hidden;background:#fff}
+/* year view */
+.cal-year-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px}
+.cal-mini-month{background:#fff;border:1px solid #e5e7eb;border-radius:8px;padding:10px}
+.cal-mini-title{font-size:11px;font-weight:600;color:#374151;margin-bottom:6px;text-align:center}
+.cal-mini-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:1px}
+.cal-mini-cell{height:16px;width:16px;border-radius:3px;font-size:9px;display:flex;align-items:center;justify-content:center;color:#9ca3af;cursor:default}
+.cal-mini-cell.has-session{background:#ede9fe;color:#6366f1;font-weight:600;cursor:pointer}
+.cal-mini-cell.today-cell{background:#6366f1;color:#fff}
+.cal-mini-cell.holiday-cell{background:#fee2e2;color:#991b1b}
 
 /* ── MODAL ───────────────────────────────────────────────── */
 .modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:1000;align-items:center;justify-content:center}
