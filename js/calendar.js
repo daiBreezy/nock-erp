@@ -14,6 +14,13 @@
     { id:3, start:'18:00', end:'20:00', type:'class' },
   ];
   const CLASS_SLOTS = TIME_SLOTS.filter(s => s.type === 'class');
+  // Day view: hourly grid 08:00–20:00
+  const TIME_HOURS = ['08:00','09:00','10:00','11:00','12:00','13:00','14:00','15:00','16:00','17:00','18:00','19:00'];
+  const BREAK_HOURS = { '12:00':'🍱 Lunch Break', '17:00':'☕ Rest Break' };
+  const SLOT_HOURS  = { 0:{s:'10:00',e:'12:00'}, 1:{s:'13:00',e:'15:00'}, 2:{s:'15:00',e:'17:00'}, 3:{s:'18:00',e:'20:00'} };
+  // row index: header=1, 08:00=2, 09:00=3 … 19:00=13
+  const ROW_MAP = {}; TIME_HOURS.forEach((h,i) => ROW_MAP[h] = i+2);
+
   const SUBJECT_COLOR = { 'Math G5':'green','Math G6':'','Eng Read':'yellow','Science':'orange','Thai Lang':'green' };
   const TEACHERS = ['Kru Arm','Kru Bee','Kru Cat','Kru Dan','Kru Eve'];
   const SUBJECTS = ['Math G5','Math G6','Eng Read','Science','Thai Lang'];
@@ -182,29 +189,98 @@
     return h;
   }
 
-  /* ── DAY VIEW ─────────────────────────────────────────── */
+  /* ── DAY VIEW — Teachers × Hourly grid (like reference) ─ */
   function buildDay() {
-    const d = dayHeaders.find(x=>x.date===selectedDay)||dayHeaders[2];
+    const dh  = dayHeaders.find(x=>x.date===selectedDay)||dayHeaders[2];
     const filtered = getFiltered().filter(s=>s.date===selectedDay);
-    let h = `<div style="font-weight:600;color:#6366f1;margin-bottom:8px">${d.label} — ${d.isHoliday?'🏖️ วันหยุด':'${filtered.length} classes'}</div>`;
-    h += '<div class="cal-fill"><div class="cal-day-grid">';
-    TIME_SLOTS.forEach(slot => {
-      if (slot.type==='break') {
-        h += `<div class="cal-time break-row">${slot.start}</div><div class="cal-cell break-cell" style="border-right:none"><span style="font-size:10px;color:#9ca3af">${slot.label}</span></div>`;
-        return;
-      }
-      const list = filtered.filter(s=>s.slotId===slot.id);
-      h += `<div class="cal-time">${slot.start}<span class="end-time">${slot.end}</span></div>`;
-      h += `<div class="cal-cell" style="height:110px;border-right:none">`;
-      if (d.isHoliday) { if(slot.id===0) h += `<div class="cal-event holiday-event" style="display:inline-block">🏖️ วันวิสาขบูชา — วันหยุดราชการ</div>`; }
-      else if (!list.length) h += `<span style="font-size:11px;color:#d1d5db">No class</span>`;
-      list.forEach(s => {
-        const dot = s.state==='active'?'🟢 ':s.state==='ended'?'✅ ':'📅 ';
-        h += `<div class="cal-event ${s.color}" style="display:inline-block;margin:2px" onclick="openClassModal('${s.id}')">
-          ${dot}${s.subject} · ${s.room} · ${s.teacher} · ${s.studentNames.length} students</div>`;
-      });
-      h += '</div>';
+
+    // Columns: show all teachers; highlight those with sessions today
+    const N = TEACHERS.length;
+    // grid-template-rows: header + one row per hour (breaks = 36px, normal = 1fr)
+    const rowDefs = TIME_HOURS.map(h => BREAK_HOURS[h]?'36px':'1fr').join(' ');
+
+    // Color styles per event color
+    function evStyle(color) {
+      if (color==='green')  return 'background:#d1fae5;border-left:4px solid #10b981;color:#065f46';
+      if (color==='yellow') return 'background:#fef3c7;border-left:4px solid #f59e0b;color:#92400e';
+      if (color==='orange') return 'background:#ffedd5;border-left:4px solid #f97316;color:#c2410c';
+      return 'background:#ede9fe;border-left:4px solid #6366f1;color:#5b21b6';
+    }
+
+    let h = `<div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
+      <button class="btn btn-secondary btn-sm" onclick="selectPrevDay()">←</button>
+      <span style="font-weight:600;color:#6366f1;font-size:14px">${dh.label}${dh.isHoliday?' 🏖️':''}</span>
+      <span style="font-size:12px;color:#9ca3af">${filtered.length} class${filtered.length!==1?'es':''} today</span>
+      <button class="btn btn-secondary btn-sm" onclick="selectNextDay()">→</button>
+    </div>`;
+
+    h += `<div class="cal-fill" style="overflow:auto">
+    <div style="display:grid;grid-template-columns:70px repeat(${N},minmax(130px,1fr));grid-template-rows:42px ${rowDefs};
+      min-height:calc(100vh - 310px);background:#fff;border:1px solid #e5e7eb;border-radius:10px;overflow:hidden;position:relative">`;
+
+    // ── Header row (row 1) ──
+    h += `<div style="grid-row:1;grid-column:1;background:#f9fafb;border-bottom:1px solid #e5e7eb;border-right:1px solid #e5e7eb;padding:10px 8px;font-size:11px;color:#6b7280"></div>`;
+    TEACHERS.forEach((t, ti) => {
+      const hasSessions = filtered.some(s=>s.teacher.includes(t));
+      h += `<div style="grid-row:1;grid-column:${ti+2};background:${hasSessions?'#f5f3ff':'#f9fafb'};
+        border-bottom:1px solid #e5e7eb;border-right:1px solid #f3f4f6;padding:10px 8px;
+        font-size:12px;font-weight:${hasSessions?'600':'400'};
+        color:${hasSessions?'#6366f1':'#9ca3af'};text-align:center">${t}</div>`;
     });
+
+    // ── Hour rows ──
+    TIME_HOURS.forEach((time, ti) => {
+      const row = ti + 2;
+      const brk = BREAK_HOURS[time];
+      if (brk) {
+        // Break: spans ALL columns
+        h += `<div style="grid-row:${row};grid-column:1/${N+2};background:#f3f4f6;
+          border-bottom:1px solid #e5e7eb;display:flex;align-items:center;padding:0 14px;gap:12px">
+          <span style="font-size:11px;font-weight:600;color:#6b7280;min-width:42px">${time}</span>
+          <span style="font-size:11px;color:#9ca3af;font-style:italic">${brk}</span>
+        </div>`;
+      } else {
+        // Time label
+        h += `<div style="grid-row:${row};grid-column:1;border-right:1px solid #e5e7eb;
+          border-bottom:1px solid #f3f4f6;padding:8px;font-size:11px;color:#9ca3af;
+          display:flex;align-items:flex-start">${time}</div>`;
+        // Empty teacher cells (background grid lines)
+        TEACHERS.forEach((t, ti) => {
+          h += `<div style="grid-row:${row};grid-column:${ti+2};border-right:1px solid #f3f4f6;border-bottom:1px solid #f3f4f6"></div>`;
+        });
+      }
+    });
+
+    // ── Holiday overlay ──
+    if (dh.isHoliday) {
+      h += `<div style="grid-row:2/${TIME_HOURS.length+2};grid-column:2/${N+2};
+        background:rgba(254,226,226,.6);display:flex;align-items:center;justify-content:center;z-index:2;pointer-events:none">
+        <div style="text-align:center;color:#991b1b;font-size:20px;font-weight:700">🏖️ วันวิสาขบูชา<br><span style="font-size:13px;font-weight:400">วันหยุดราชการ — ไม่มีคลาส</span></div>
+      </div>`;
+    } else {
+      // ── Place session blocks ──
+      filtered.forEach(s => {
+        const sh = SLOT_HOURS[s.slotId]; if (!sh) return;
+        const startRow = ROW_MAP[sh.s];
+        const endRow   = ROW_MAP[sh.e] || (ROW_MAP[sh.s]+2);
+        const dot = s.state==='active'?'🟢':s.state==='ended'?'✅':'📅';
+        // Each teacher in session gets their own column block
+        s.teacher.split(',').map(t=>t.trim()).forEach(teacher => {
+          const col = TEACHERS.indexOf(teacher)+2; if (col<2) return;
+          h += `<div style="grid-row:${startRow}/${endRow};grid-column:${col};
+            ${evStyle(s.color)};padding:10px 10px;cursor:pointer;border-radius:6px;margin:3px;
+            overflow:hidden;z-index:1;transition:opacity .15s"
+            onclick="openClassModal('${s.id}')"
+            onmouseover="this.style.opacity='.8'" onmouseout="this.style.opacity='1'">
+            <div style="font-weight:600;font-size:13px">${dot} ${s.subject}</div>
+            <div style="font-size:11px;opacity:.8;margin-top:4px">${sh.s} – ${sh.e}</div>
+            <div style="font-size:11px;opacity:.8">${s.room} · ${s.branch}</div>
+            <div style="font-size:11px;opacity:.8;margin-top:2px">👥 ${s.studentNames.length} students</div>
+          </div>`;
+        });
+      });
+    }
+
     h += '</div></div>';
     updateFilterCount(filtered.length);
     return h;
@@ -351,6 +427,15 @@
   window.selectDay = function(ds) {
     selectedDay=ds;
     calTab('day',document.querySelectorAll('#view-calendar .tab')[1]);
+  };
+  // Day prev/next within current week
+  window.selectPrevDay = function() {
+    const idx = dayHeaders.findIndex(d=>d.date===selectedDay);
+    if (idx>0) selectDay(dayHeaders[idx-1].date);
+  };
+  window.selectNextDay = function() {
+    const idx = dayHeaders.findIndex(d=>d.date===selectedDay);
+    if (idx<dayHeaders.length-1) selectDay(dayHeaders[idx+1].date);
   };
   window.setCalFilter = function(type,val) {
     ({teacher:v=>fTeacher=v,subject:v=>fSubject=v,grade:v=>fGrade=v,time:v=>fTime=v})[type]?.(val);
