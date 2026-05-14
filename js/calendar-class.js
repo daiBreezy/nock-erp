@@ -1,30 +1,16 @@
 /* ============================================================
    calendar-class.js — Class Modal: Pre / Active / Ended states
-   Depends on: calendar.js (window.calSessions)
+   Depends on: data.js (window.DB, window.CONST)
    ============================================================ */
 (function () {
 
-  /* ── STUDENT META (family + classes remaining) ────────── */
-  const SMETA = {
-    'Ploy Srirak':  { family:'Srirak Family', left:18, cls:'badge-green'  },
-    'Mia Tanaka':   { family:'Tanaka Family', left:2,  cls:'badge-yellow' },
-    'Tom Chen':     { family:'Chen Family',   left:14, cls:'badge-green'  },
-    'James Wilson': { family:'Wilson Family', left:1,  cls:'badge-red'    },
-    'Kevin Park':   { family:'Park Family',   left:16, cls:'badge-green'  },
-  };
-
-  const TIME_SLOTS=[
-    {id:0,start:'10:00',end:'12:00',type:'class'},
-    {id:'b1',start:'12:00',end:'13:00',type:'break'},
-    {id:1,start:'13:00',end:'15:00',type:'class'},
-    {id:2,start:'15:00',end:'17:00',type:'class'},
-    {id:'b2',start:'17:00',end:'18:00',type:'break'},
-    {id:3,start:'18:00',end:'20:00',type:'class'},
-  ];
+  /* ── DATA (from global DB) ────────────────────────────── */
+  const TIME_SLOTS = CONST.TIME_SLOTS;
   function getSlot(id){ return TIME_SLOTS.find(s=>s.id===id); }
 
   /* ── HELPERS ──────────────────────────────────────────── */
-  function smeta(name){ return SMETA[name]||{family:'—',left:'?',cls:'badge-gray'}; }
+  // Replaces static SMETA — always computed live from DB.students
+  function smeta(name){ return Utils.studentMeta(name); }
   function allSumsDone(s){
     return s.studentNames.every(n=>{
       const att=s.attendance[n]||'present';
@@ -158,7 +144,7 @@
 
   /* ── OPEN CLASS MODAL ─────────────────────────────────── */
   window.openClassModal = function(id) {
-    const s = window.calSessions.find(x=>x.id===id);
+    const s = DB.sessions.find(x=>x.id===id);
     if (!s) return;
     const stateMeta = {
       upcoming:{ badge:'<span class="badge badge-blue">📅 Upcoming</span>',  footer:`
@@ -184,7 +170,7 @@
 
   /* ── STATE TRANSITIONS ────────────────────────────────── */
   window.calStartClass = function(id) {
-    const s = window.calSessions.find(x=>x.id===id);
+    const s = DB.sessions.find(x=>x.id===id);
     if (!s) return;
     // Default attendance to present for all
     s.studentNames.forEach(n=>{ if(!s.attendance[n]) s.attendance[n]='present'; });
@@ -198,7 +184,7 @@
   };
 
   window.calEndClass = function(id) {
-    const s = window.calSessions.find(x=>x.id===id);
+    const s = DB.sessions.find(x=>x.id===id);
     if (!s) return;
     s.state='ended';
     s.endedAt=new Date().toTimeString().slice(0,5);
@@ -219,7 +205,7 @@
 
   /* ── ATTENDANCE ───────────────────────────────────────── */
   window.calSetAtt = function(sessionId, name, type, btn) {
-    const s = window.calSessions.find(x=>x.id===sessionId);
+    const s = DB.sessions.find(x=>x.id===sessionId);
     if (!s) return;
     s.attendance[name]=type;
     btn.closest('.att-btns').querySelectorAll('.att-btn').forEach(b=>b.classList.remove('sel'));
@@ -227,7 +213,7 @@
   };
 
   window.calRemoveStudent = function(sessionId, name) {
-    const s = window.calSessions.find(x=>x.id===sessionId);
+    const s = DB.sessions.find(x=>x.id===sessionId);
     if (!s) return;
     s.studentNames=s.studentNames.filter(n=>n!==name);
     delete s.attendance[name];
@@ -239,7 +225,7 @@
 
   /* ── SUMMARY ACTIONS ──────────────────────────────────── */
   window.calSaveDraft = function(sessionId, name) {
-    const s=window.calSessions.find(x=>x.id===sessionId);
+    const s=DB.sessions.find(x=>x.id===sessionId);
     if(!s) return;
     const key=`sum-${sessionId}-${name.replace(/\s/g,'_')}`;
     const ta=document.getElementById(key);
@@ -250,7 +236,7 @@
   };
 
   window.calSubmitSummary = function(sessionId, name) {
-    const s=window.calSessions.find(x=>x.id===sessionId);
+    const s=DB.sessions.find(x=>x.id===sessionId);
     if(!s) return;
     const key=`sum-${sessionId}-${name.replace(/\s/g,'_')}`;
     const ta=document.getElementById(key);
@@ -261,11 +247,9 @@
     Modal.close('modal-class');
     setTimeout(()=>openClassModal(sessionId),100);
   };
-  function smeta(n){ return {family:'—',left:'?',cls:'badge-gray',...(window.calSessions?{}:{})}; } // local fallback
-
   /* ── ADD STUDENT TO CLASS ─────────────────────────────── */
   window.calAddStudentToClass = function(sessionId) {
-    const s=window.calSessions.find(x=>x.id===sessionId);
+    const s=DB.sessions.find(x=>x.id===sessionId);
     if(!s) return;
     const all=['Mia Tanaka','Tom Chen','Ploy Srirak','James Wilson','Kevin Park'];
     const avail=all.filter(n=>!s.studentNames.includes(n));
@@ -294,7 +278,7 @@
   };
 
   window.calConfirmAddStudent = function(sessionId) {
-    const s=window.calSessions.find(x=>x.id===sessionId);
+    const s=DB.sessions.find(x=>x.id===sessionId);
     if(!s) return;
     const added=[];
     ['Mia Tanaka','Tom Chen','Ploy Srirak','James Wilson','Kevin Park'].forEach(n=>{
@@ -353,7 +337,7 @@
   };
 
   window.openEditClass = function(id) {
-    const s=window.calSessions.find(x=>x.id===id);
+    const s=DB.sessions.find(x=>x.id===id);
     const ts=TIME_SLOTS.find(t=>t.id===s?.slotId&&t.type==='class');
     Modal.create('modal-edit-class','✏️ Edit Class', classForm({
       date:s?.date, time:ts?ts.start+'–'+ts.end:'', subject:s?.subject,

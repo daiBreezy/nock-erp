@@ -3,45 +3,17 @@
    ============================================================ */
 (function () {
 
-/* ── DATA ──────────────────────────────────────────────────── */
-const STAFF = ['Admin Nock','Kru Arm','Kru Bee','Kru Cat','Kru Dan','Kru Eve'];
-
-const leads = [
-  { id:'sarah',  name:'Sarah Mitchell', course:'English Reading', age:9,  source:'Referred', stage:'new',        daysAgo:1, assignee:'Admin Nock', line:'@sarah_mom',   phone:'089-111-2222' },
-  { id:'arjun',  name:'Arjun Patel',    course:'Math Grade 4',    age:10, source:'Website',   stage:'new',        daysAgo:3, assignee:'',           line:'@arjun_dad',   phone:'089-333-4444' },
-  { id:'emma',   name:'Emma Liu',       course:'Science',          age:12, source:'Walk-in',   stage:'new',        daysAgo:5, assignee:'Admin Nock', line:'',             phone:'089-555-6666' },
-  { id:'kevin',  name:'Kevin Park',     course:'Thai Language',    age:8,  source:'Referral',  stage:'contacting', daysAgo:4, assignee:'Kru Eve',    line:'@park_mom',    phone:'089-777-8888' },
-  { id:'nadia',  name:'Nadia Sorokin',  course:'Math Grade 5',    age:11, source:'Website',   stage:'contacting', daysAgo:6, assignee:'Admin Nock', line:'@nadia_mom',   phone:'089-999-0000' },
-  { id:'ben',    name:'Ben Torres',     course:'English',          age:7,  source:'Referral',  stage:'contacting', daysAgo:2, assignee:'',           line:'',             phone:'089-111-3333' },
-  { id:'lily',   name:'Lily Wang',      course:'Science',          age:13, source:'Website',   stage:'test',       daysAgo:7, assignee:'Kru Dan',    line:'@lily_mom',    phone:'089-222-4444', schedDate:'16 May 10:30' },
-  { id:'daan',   name:'Daan Smits',     course:'Math Grade 6',    age:12, source:'Referral',  stage:'test',       daysAgo:5, assignee:'Kru Cat',    line:'@daan_dad',    phone:'089-333-5555', schedDate:'17 May 09:00' },
-  { id:'hana',   name:'Hana Yamamoto',  course:'English Reading',  age:9,  source:'Referral',  stage:'trial',      daysAgo:3, assignee:'Kru Bee',    line:'@hana_mom',    phone:'089-444-6666', schedDate:'15 May 10:30' },
-  { id:'luca',   name:'Luca Romano',    course:'Thai Language',    age:11, source:'Walk-in',   stage:'trial',      daysAgo:2, assignee:'Kru Eve',    line:'@luca_dad',    phone:'089-555-7777', schedDate:'18 May 13:00' },
-  { id:'chris',  name:'Chris Baker',    course:'Math G5',          age:11, source:'Website',   stage:'archived',   daysAgo:20, assignee:'',          line:'',             phone:'', archivedFrom:'test' },
-  { id:'anna',   name:'Anna White',     course:'English',          age:8,  source:'Walk-in',   stage:'archived',   daysAgo:14, assignee:'',          line:'',             phone:'', archivedFrom:'contacting' },
-];
-
-const customers = [
-  { name:'Mia Tanaka',   family:'Tanaka Family', branch:'Sukhumvit', course:'English Reading', pkg:'Eng Active:48h.', teacher:'Kru Bee',  schedule:'Tue/Thu 10:30', remain:2,  total:48, since:'Jan 2026', until:'Jun 2026', status:'renewal',  phone:'089-100-0001', line:'@tanaka_mom', revenue:51000 },
-  { name:'Tom Chen',     family:'Chen Family',   branch:'Sukhumvit', course:'Math Grade 6',    pkg:'Math:24h.',       teacher:'Kru Cat',  schedule:'Mon/Wed 15:00', remain:14, total:20, since:'Mar 2026', until:'Aug 2026', status:'active',   phone:'089-100-0002', line:'@chen_dad',   revenue:18000 },
-  { name:'Ploy Srirak',  family:'Srirak Family', branch:'Silom',     course:'Math G5 + Thai',  pkg:'Math:24h. Thai:20h.', teacher:'Kru Arm / Kru Eve', schedule:'Mon/Thu multi', remain:18, total:44, since:'Nov 2025', until:'Jul 2026', status:'active', phone:'089-100-0003', line:'@srirak_mom', revenue:33000 },
-  { name:'James Wilson', family:'Wilson Family',  branch:'Sukhumvit', course:'Science',          pkg:'Sci:20h.',        teacher:'Kru Dan',  schedule:'Tue/Thu 13:00', remain:1,  total:20, since:'Feb 2026', until:'May 2026', status:'urgent',   phone:'089-100-0004', line:'@wilson_dad', revenue:11000 },
-  { name:'Kevin Park',   family:'Park Family',    branch:'Silom',     course:'Thai Language',    pkg:'Thai:20h.',       teacher:'Kru Eve',  schedule:'Mon/Wed 16:30', remain:9,  total:10, since:'Apr 2026', until:'Jul 2026', status:'active',   phone:'089-100-0005', line:'@park_mom',   revenue:4200 },
-];
-
-const STAGE_META = {
-  new:        { label:'New Lead',          color:'#6366f1', bg:'#ede9fe' },
-  contacting: { label:'Contacting',        color:'#f59e0b', bg:'#fef3c7' },
-  test:       { label:'Interested (Test)', color:'#f97316', bg:'#ffedd5' },
-  trial:      { label:'Interested (Trial)',color:'#8b5cf6', bg:'#f5f3ff' },
-  archived:   { label:'Archived',          color:'#9ca3af', bg:'#f3f4f6' },
-};
+/* ── DATA (from global DB) ──────────────────────────────────── */
+const STAFF      = CONST.STAFF_NAMES;
+const leads      = DB.leads;
+const customers  = DB.customers;
+const STAGE_META = CONST.LEAD_STAGES;
 
 let sortCol = '', sortDir = 1;
 let dragLeadId = null;
 
 /* ── HELPERS ────────────────────────────────────────────── */
-function daysLabel(d) { return d === 0 ? 'Today' : d === 1 ? '1 day ago' : `${d} days ago`; }
+function daysLabel(d) { return Utils.daysLabel(d); }
 function statusBadge(s) {
   return ({
     active:  '<span class="badge badge-green">Active</span>',
@@ -273,15 +245,11 @@ window.openLeadModal = function (idOrNull, _unused, defaultStage) {
 
     <div class="modal-section">
       <div class="modal-section-title">Schedule Appointment</div>
+      ${l.schedDate ? `<div style="margin-bottom:10px;font-size:12px;background:#fefce8;border:1px solid #fde68a;border-radius:6px;padding:8px 10px;color:#92400e">📅 Current: <strong>${l.schedDate}</strong></div>` : ''}
       <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
-        <select class="settings-input" style="width:auto" id="lead-sched-type">
-          <option>Test Session</option><option>Trial Class</option><option>Enrollment Meeting</option>
-        </select>
-        <input type="date" class="settings-input" style="width:auto" id="lead-sched-date">
-        <input type="time" class="settings-input" style="width:auto" id="lead-sched-time">
-        <button class="btn btn-primary btn-sm" onclick="schedLead('${l.id}')">Set Schedule</button>
+        <button class="btn btn-primary btn-sm" onclick="scheduleAppointmentModal('${l.id}')">📅 Open Schedule Calendar</button>
+        <span style="font-size:11px;color:#9ca3af">See available slots · Join or create a class · Auto-notify parent</span>
       </div>
-      ${l.schedDate?`<div style="margin-top:8px;font-size:12px;color:#f59e0b">📅 Current: ${l.schedDate}</div>`:''}
     </div>
 
     <div class="modal-section">
@@ -317,14 +285,6 @@ window.moveLeadStage = function (id, stage, btn) {
   // Update buttons highlight
   if (btn) { btn.closest('.modal-section').querySelectorAll('.btn').forEach(b=>b.classList.replace('btn-primary','btn-secondary')); btn.classList.replace('btn-secondary','btn-primary'); }
   renderPipeline(); showToast(`Moved to ${STAGE_META[stage].label}`,'success');
-};
-window.schedLead = function (id) {
-  const d = document.getElementById('lead-sched-date')?.value;
-  const t = document.getElementById('lead-sched-time')?.value;
-  const type = document.getElementById('lead-sched-type')?.value;
-  if (!d) { showToast('Please select a date','error'); return; }
-  const l = leads.find(x => x.id === id); if (l) l.schedDate = `${d} ${t||''}`.trim();
-  renderPipeline(); showToast(`${type} scheduled ✓`,'success');
 };
 
 /* ══════════════════════════════════════════════════════════
@@ -564,6 +524,9 @@ window.toggleCustEdit = function () {
   const show = v.style.display!=='none';
   v.style.display=show?'none':''; e.style.display=show?'':'none';
 };
+
+/* ── EXPOSE REFRESH FOR crm-schedule.js ────────────────── */
+window._refreshPipeline = renderPipeline;
 
 /* ── INIT ───────────────────────────────────────────────── */
 renderPipeline();

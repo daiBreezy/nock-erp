@@ -3,74 +3,9 @@
    ============================================================ */
 (function () {
 
-  /* ── DATA ─────────────────────────────────────────────── */
-  const families = [
-    {
-      id:'tanaka', name:'Tanaka Family', branch:'Sukhumvit', assignee:'Admin Nock',
-      parents:[
-        { role:'Mom', name:'Nami Tanaka',  line:'@tanaka_mom', phone:'081-234-5678', email:'nami.tanaka@email.com', lineActive:true },
-      ],
-      students:['Mia Tanaka'],
-      lastContact:'Today 10:42', channel:'LINE', unreadCount:1,
-      notes:[
-        { type:'admin', text:'Very responsive on LINE. Always pays on time. Mia is their only child enrolled.', author:'Admin Nock', date:'9 May' },
-      ],
-      totalPaid:14400, invoiceCount:1, status:'active',
-    },
-    {
-      id:'wilson', name:'Wilson Family', branch:'Sukhumvit', assignee:'',
-      parents:[
-        { role:'Dad', name:'Ben Wilson',   line:'@wilson_dad',  phone:'082-345-6789', email:'ben.wilson@email.com', lineActive:true },
-        { role:'Mom', name:'Sara Wilson',  line:'',             phone:'082-345-6780', email:'',                     lineActive:false },
-      ],
-      students:['James Wilson'],
-      lastContact:'Today 09:15', channel:'LINE', unreadCount:1,
-      notes:[
-        { type:'admin', text:'Dad handles all communication. James has 1 class left — URGENT renewal needed.', author:'Admin Nock', date:'9 May' },
-      ],
-      totalPaid:4800, invoiceCount:1, status:'urgent',
-    },
-    {
-      id:'chen', name:'Chen Family', branch:'Sukhumvit', assignee:'Kru Bee',
-      parents:[
-        { role:'Mom', name:'Lisa Chen',    line:'@chen_mom',    phone:'083-456-7890', email:'lisa.chen@email.com',  lineActive:true },
-      ],
-      students:['Tom Chen'],
-      lastContact:'Yesterday', channel:'LINE', unreadCount:0,
-      notes:[
-        { type:'admin', text:'Sent payment slip for INV-2026-0028. Tom attending regularly.', author:'Admin Nock', date:'5 May' },
-      ],
-      totalPaid:10800, invoiceCount:1, status:'active',
-    },
-    {
-      id:'srirak', name:'Srirak Family', branch:'Silom', assignee:'Admin Nock',
-      parents:[
-        { role:'Mom', name:'Wan Srirak',   line:'@srirak_mom',  phone:'084-567-8901', email:'wan.srirak@email.com', lineActive:true },
-      ],
-      students:['Ploy Srirak'],
-      lastContact:'Mon', channel:'LINE', unreadCount:0,
-      notes:[
-        { type:'admin', text:'Requested Wednesday-only schedule. Ploy enrolled in 2 subjects.', author:'Admin Nock', date:'10 May' },
-      ],
-      totalPaid:14400, invoiceCount:2, status:'active',
-    },
-    {
-      id:'park', name:'Park Family', branch:'Silom', assignee:'',
-      parents:[
-        { role:'Dad', name:'Jin Park',     line:'@park_dad',    phone:'085-678-9012', email:'jin.park@email.com',   lineActive:true },
-      ],
-      students:['Kevin Park'],
-      lastContact:'Fri', channel:'LINE', unreadCount:0,
-      notes:[],
-      totalPaid:7200, invoiceCount:1, status:'active',
-    },
-  ];
-
-  const STATUS_META = {
-    active: { cls:'badge-green',  label:'Active'  },
-    urgent: { cls:'badge-red',    label:'Urgent'  },
-    pending:{ cls:'badge-yellow', label:'Pending' },
-  };
+  /* ── DATA (from global DB) ────────────────────────────── */
+  const families   = DB.families;
+  const STATUS_META = CONST.FAMILY_STATUS;
 
   let searchVal = '', filterBranch = '';
 

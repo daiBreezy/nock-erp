@@ -4,91 +4,23 @@
    ============================================================ */
 (function () {
 
-  /* ── TIME SLOTS (2-hr blocks + breaks) ───────────────── */
-  const TIME_SLOTS = [
-    { id:0, start:'10:00', end:'12:00', type:'class' },
-    { id:'b1', start:'12:00', end:'13:00', type:'break', label:'🍱 Lunch Break' },
-    { id:1, start:'13:00', end:'15:00', type:'class' },
-    { id:2, start:'15:00', end:'17:00', type:'class' },
-    { id:'b2', start:'17:00', end:'18:00', type:'break', label:'☕ Rest Break' },
-    { id:3, start:'18:00', end:'20:00', type:'class' },
-  ];
-  const CLASS_SLOTS = TIME_SLOTS.filter(s => s.type === 'class');
-  // Day view: hourly grid 08:00–20:00
-  const TIME_HOURS = ['08:00','09:00','10:00','11:00','12:00','13:00','14:00','15:00','16:00','17:00','18:00','19:00'];
-  const BREAK_HOURS = { '12:00':'🍱 Lunch Break', '17:00':'☕ Rest Break' };
-  const SLOT_HOURS  = { 0:{s:'10:00',e:'12:00'}, 1:{s:'13:00',e:'15:00'}, 2:{s:'15:00',e:'17:00'}, 3:{s:'18:00',e:'20:00'} };
-  // row index: header=1, 08:00=2, 09:00=3 … 19:00=13
+  /* ── DATA & CONFIG (from global DB / CONST) ──────────────── */
+  const TIME_SLOTS    = CONST.TIME_SLOTS;
+  const CLASS_SLOTS   = TIME_SLOTS.filter(s => s.type === 'class');
+  const TIME_HOURS    = CONST.TIME_HOURS;
+  const BREAK_HOURS   = CONST.BREAK_HOURS;
+  const SLOT_HOURS    = CONST.SLOT_HOURS;
+  const SUBJECT_COLOR = CONST.SUBJECT_COLOR;
+  const TEACHERS      = CONST.TEACHERS;
+  const SUBJECTS      = CONST.SUBJECTS;
+  const GRADES        = CONST.GRADES;
+  const ROOMS         = CONST.ROOMS;
+
+  // row index: header=1, 08:00=2 … 19:00=13
   const ROW_MAP = {}; TIME_HOURS.forEach((h,i) => ROW_MAP[h] = i+2);
 
-  const SUBJECT_COLOR = { 'Math G5':'green','Math G6':'','Eng Read':'yellow','Science':'orange','Thai Lang':'green' };
-  const TEACHERS = ['Kru Arm','Kru Bee','Kru Cat','Kru Dan','Kru Eve'];
-  const SUBJECTS = ['Math G5','Math G6','Eng Read','Science','Thai Lang'];
-  const GRADES   = ['G3','G4','G5','G6'];
-  const ROOMS    = ['Room 1','Room 2','Room 3'];
-
-  /* ── SESSIONS DATA ────────────────────────────────────── */
-  // slotId:0=10-12, 1=13-15, 2=15-17, 3=18-20  |  col:1=Mon…7=Sun
-  const sessions = [
-    // Mon 11 — ended
-    {id:'s1', date:'2026-05-11',slotId:0,col:1,subject:'Math G5', grade:'G5',teacher:'Kru Arm',room:'Room 1',color:'green', state:'ended',branch:'Sukhumvit',
-     studentNames:['Ploy Srirak','Nat B','Jay C','Sam D'],
-     attendance:{'Ploy Srirak':'present','Nat B':'present','Jay C':'leave','Sam D':'present'},
-     summaries:{'Ploy Srirak':{text:'Fractions — great progress!',sent:true},'Nat B':{text:'',sent:false},'Sam D':{text:'',sent:false}}},
-    {id:'s2', date:'2026-05-11',slotId:1,col:1,subject:'Science', grade:'G5',teacher:'Kru Dan',room:'Room 3',color:'orange',state:'ended',branch:'Sukhumvit',
-     studentNames:['James Wilson'],attendance:{'James Wilson':'present'},
-     summaries:{'James Wilson':{text:'Plant biology — engaged.',sent:true}}},
-    {id:'s3', date:'2026-05-11',slotId:2,col:1,subject:'Thai Lang',grade:'G5',teacher:'Kru Eve',room:'Room 1',color:'green', state:'ended',branch:'Silom',
-     studentNames:['Ploy Srirak','Pan G','Wan H'],attendance:{'Ploy Srirak':'present','Pan G':'absent','Wan H':'present'},
-     summaries:{'Ploy Srirak':{text:'Thai vowels — excellent!',sent:true},'Pan G':{text:'',sent:false},'Wan H':{text:'',sent:false}}},
-    // Tue 12 — ended
-    {id:'s4', date:'2026-05-12',slotId:0,col:2,subject:'Eng Read',grade:'G4',teacher:'Kru Bee',room:'Room 1',color:'yellow',state:'ended',branch:'Sukhumvit',
-     studentNames:['Mia Tanaka','Kevin Park','Leo E','Ava F','Max G'],
-     attendance:{'Mia Tanaka':'present','Kevin Park':'present','Leo E':'present','Ava F':'leave','Max G':'present'},
-     summaries:{'Mia Tanaka':{text:'Reading comprehension drills.',sent:true},'Kevin Park':{text:'Vocab expansion.',sent:true},'Leo E':{text:'',sent:false},'Max G':{text:'',sent:false}}},
-    {id:'s5', date:'2026-05-12',slotId:1,col:2,subject:'Science', grade:'G5',teacher:'Kru Dan',room:'Room 3',color:'orange',state:'ended',branch:'Sukhumvit',
-     studentNames:['James Wilson'],attendance:{'James Wilson':'absent'},summaries:{'James Wilson':{text:'',sent:false}}},
-    {id:'s6', date:'2026-05-12',slotId:2,col:2,subject:'Math G6', grade:'G6',teacher:'Kru Cat',room:'Room 2',color:'',     state:'ended',branch:'Sukhumvit',
-     studentNames:['Tom Chen','Amy B','Ben C','Cal D','Dan E','Eva F'],
-     attendance:{'Tom Chen':'present','Amy B':'present','Ben C':'present','Cal D':'leave','Dan E':'present','Eva F':'present'},
-     summaries:{'Tom Chen':{text:'Quadratics intro.',sent:true},'Amy B':{text:'',sent:false},'Ben C':{text:'',sent:false},'Dan E':{text:'',sent:false},'Eva F':{text:'',sent:false}}},
-    // Wed 13 — today (mix)
-    {id:'s7', date:'2026-05-13',slotId:0,col:3,subject:'Math G5', grade:'G5',teacher:'Kru Arm',room:'Room 2',color:'green', state:'ended',branch:'Sukhumvit',
-     studentNames:['Ploy Srirak','Nat B','Jay C','Sam D'],
-     attendance:{'Ploy Srirak':'present','Nat B':'present','Jay C':'present','Sam D':'present'},
-     summaries:{'Ploy Srirak':{text:'',sent:false},'Nat B':{text:'',sent:false},'Jay C':{text:'',sent:false},'Sam D':{text:'',sent:false}}},
-    {id:'s8', date:'2026-05-13',slotId:0,col:3,subject:'Eng Read',grade:'G4',teacher:'Kru Bee',room:'Room 1',color:'yellow',state:'ended',branch:'Sukhumvit',
-     studentNames:['Mia Tanaka','Kevin Park','Leo E','Ava F','Max G'],
-     attendance:{'Mia Tanaka':'present','Kevin Park':'leave','Leo E':'present','Ava F':'present','Max G':'present'},
-     summaries:{'Mia Tanaka':{text:'',sent:false},'Leo E':{text:'',sent:false},'Ava F':{text:'',sent:false},'Max G':{text:'',sent:false}}},
-    {id:'s9', date:'2026-05-13',slotId:1,col:3,subject:'Science', grade:'G5',teacher:'Kru Dan',room:'Room 3',color:'orange',state:'active',branch:'Sukhumvit',startedAt:'14:35',
-     studentNames:['James Wilson'],attendance:{'James Wilson':'present'},summaries:{}},
-    {id:'s10',date:'2026-05-13',slotId:2,col:3,subject:'Math G6', grade:'G6',teacher:'Kru Cat',room:'Room 2',color:'',     state:'upcoming',branch:'Sukhumvit',
-     studentNames:['Tom Chen','Amy B','Ben C','Cal D','Dan E','Eva F'],attendance:{},summaries:{}},
-    {id:'s11',date:'2026-05-13',slotId:2,col:3,subject:'Thai Lang',grade:'G5',teacher:'Kru Eve',room:'Room 1',color:'green', state:'upcoming',branch:'Silom',
-     studentNames:['Ploy Srirak','Pan G','Wan H'],attendance:{},summaries:{}},
-    // Thu 14
-    {id:'s12',date:'2026-05-14',slotId:0,col:4,subject:'Eng Read',grade:'G4',teacher:'Kru Bee',room:'Room 1',color:'yellow',state:'upcoming',branch:'Sukhumvit',studentNames:['Mia Tanaka','Kevin Park','Leo E','Ava F','Max G'],attendance:{},summaries:{}},
-    {id:'s13',date:'2026-05-14',slotId:1,col:4,subject:'Science', grade:'G5',teacher:'Kru Dan',room:'Room 3',color:'orange',state:'upcoming',branch:'Sukhumvit',studentNames:['James Wilson'],attendance:{},summaries:{}},
-    {id:'s14',date:'2026-05-14',slotId:2,col:4,subject:'Math G6', grade:'G6',teacher:'Kru Cat',room:'Room 2',color:'',     state:'upcoming',branch:'Sukhumvit',studentNames:['Tom Chen','Amy B','Ben C','Cal D','Dan E','Eva F'],attendance:{},summaries:{}},
-    // Sat 16
-    {id:'s15',date:'2026-05-16',slotId:0,col:6,subject:'Eng Read',grade:'G4',teacher:'Kru Bee',room:'Room 1',color:'',     state:'upcoming',branch:'Sukhumvit',studentNames:['Mia Tanaka','Kevin Park','Leo E','Ava F'],attendance:{},summaries:{}},
-    {id:'s16',date:'2026-05-16',slotId:1,col:6,subject:'Math G6', grade:'G6',teacher:'Kru Cat',room:'Room 2',color:'',     state:'upcoming',branch:'Sukhumvit',studentNames:['Tom Chen','Amy B','Ben C','Cal D','Dan E'],attendance:{},summaries:{}},
-    {id:'s17',date:'2026-05-16',slotId:2,col:6,subject:'Thai Lang',grade:'G5',teacher:'Kru Eve',room:'Room 1',color:'green', state:'upcoming',branch:'Silom',studentNames:['Ploy Srirak','Pan G','Wan H'],attendance:{},summaries:{}},
-  ];
-
-  // Expose sessions globally for calendar-class.js
-  window.calSessions = sessions;
-
-  const dayHeaders = [
-    { label:'Mon 11', date:'2026-05-11', isToday:false, isHoliday:false },
-    { label:'Tue 12', date:'2026-05-12', isToday:false, isHoliday:false },
-    { label:'Wed 13', date:'2026-05-13', isToday:true,  isHoliday:false },
-    { label:'Thu 14', date:'2026-05-14', isToday:false, isHoliday:false },
-    { label:'Fri 15', date:'2026-05-15', isToday:false, isHoliday:true  },
-    { label:'Sat 16', date:'2026-05-16', isToday:false, isHoliday:false },
-    { label:'Sun 17', date:'2026-05-17', isToday:false, isHoliday:false },
-  ];
+  const sessions   = DB.sessions;    // live reference — mutations reflected everywhere
+  const dayHeaders = DB.dayHeaders;
 
   /* ── FILTER STATE ─────────────────────────────────────── */
   let fTeacher='', fSubject='', fGrade='', fTime='', currentView='week', selectedDay='2026-05-13';

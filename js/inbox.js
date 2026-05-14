@@ -3,42 +3,10 @@
    ============================================================ */
 (function () {
 
-  const conversations = [
-    { id:'tanaka',  name:'Tanaka Family',  student:'Mia Tanaka',   branch:'Sukhumvit', channel:'LINE', unread:true,  time:'10:42', assignee:'Admin Nock', preview:'ขอบคุณมากค่ะ สรุปบทเรียนดีมาก…' },
-    { id:'wilson',  name:'Wilson Family',  student:'James Wilson',  branch:'Sukhumvit', channel:'LINE', unread:true,  time:'09:15', assignee:'',           preview:'Hi, can we reschedule Tuesday\'s…' },
-    { id:'chen',    name:'Chen Family',    student:'Tom Chen',      branch:'Sukhumvit', channel:'LINE', unread:true,  time:'Yesterday', assignee:'Kru Bee', preview:'Invoice attached. Please confirm…' },
-    { id:'srirak',  name:'Srirak Family',  student:'Ploy Srirak',   branch:'Silom',     channel:'LINE', unread:false, time:'Mon',   assignee:'Admin Nock', preview:'Ploy will be absent this Thursday…' },
-    { id:'romano',  name:'Romano Family',  student:'Luca Romano',   branch:'Silom',     channel:'LINE', unread:false, time:'Mon',   assignee:'',           preview:'Thank you for the trial session!' },
-    { id:'park',    name:'Park Family',    student:'Kevin Park',    branch:'Silom',     channel:'LINE', unread:false, time:'Fri',   assignee:'',           preview:'When is the next class schedule?' },
-  ];
-
-  const messages = {
-    tanaka: [
-      { type:'parent', text:'สวัสดีค่ะ อยากสอบถามเรื่องตารางเรียนสัปดาห์หน้าค่ะ', time:'Mon 09:10', sender:'Tanaka Mom' },
-      { type:'staff',  text:'สวัสดีครับคุณแม่ สัปดาห์หน้า Mia มีเรียนวันอังคาร และพฤหัสบดีครับ เวลา 10:30–12:00 ครับ', time:'Mon 09:25', sender:'Admin Nock' },
-      { type:'parent', text:'ขอบคุณค่ะ แล้วสรุปบทเรียนส่งได้เมื่อไหร่คะ?', time:'Mon 10:00', sender:'Tanaka Mom' },
-      { type:'internal', text:'📎 Note (Internal): Summary for last session pending — remind teacher to submit', time:'Mon 10:05', sender:'Admin Nock' },
-      { type:'staff',  text:'คุณแม่ครับ สรุปบทเรียนจะส่งภายในวันนี้เลยครับ', time:'Mon 10:30', sender:'Admin Nock' },
-      { type:'parent', text:'ขอบคุณมากค่ะ สรุปบทเรียนดีมากเลยนะคะ Mia ชอบมากค่ะ 🙏', time:'Today 10:42', sender:'Tanaka Mom' },
-    ],
-    wilson: [
-      { type:'parent', text:'Hi, can we reschedule Tuesday\'s class? James has a doctor appointment.', time:'Today 09:15', sender:'Wilson Dad' },
-    ],
-    chen: [
-      { type:'parent', text:'Please find the payment slip attached. Invoice #INV-2026-0049 confirmed.', time:'Yesterday', sender:'Chen Mom' },
-    ],
-    srirak: [
-      { type:'parent', text:'สวัสดีค่ะ แจ้งว่า Ploy จะไม่มาเรียนวันพฤหัสนี้ค่ะ ขอ Leave ค่ะ', time:'Mon', sender:'Srirak Mom' },
-    ],
-    romano: [
-      { type:'parent', text:'Thank you so much for the trial session! Luca really enjoyed it.', time:'Mon', sender:'Romano Dad' },
-    ],
-    park: [
-      { type:'parent', text:'สวัสดีครับ อยากถามว่าตารางเรียนของ Kevin อาทิตย์หน้าเป็นยังไงบ้างครับ?', time:'Fri', sender:'Park Dad' },
-    ],
-  };
-
-  const staffList = ['Admin Nock','Kru Arm','Kru Bee','Kru Cat','Kru Dan','Kru Eve'];
+  /* ── DATA (from global DB) ────────────────────────────── */
+  const conversations = DB.conversations;
+  const messages      = DB.messages;
+  const staffList     = CONST.STAFF_NAMES;
   let activeConv = 'tanaka';
   let filterMode = 'all';
 

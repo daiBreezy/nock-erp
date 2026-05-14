@@ -30,6 +30,9 @@ Storage:    ไม่มี backend — ข้อมูลเป็น mock data
 ```
 /NEW ERP!/
 ├── CLAUDE.md                 ← ไฟล์นี้ — อ่านก่อนเสมอ
+├── Customer.md               ← ⭐ Mock data ทั้งหมด (Students, Staff, Sessions, Leads, Invoices, Inbox)
+├── COMPONENTS.md             ← ⭐ CSS class catalog (badges, buttons, modals, layouts)
+├── FLOWS.md                  ← ⭐ Business logic state machines (Session, Billing, CRM, Renewal)
 ├── BLUEPRINT 2 | ....md      ← Information Architecture ฉบับเต็ม
 │
 ├── index.html                ← Shell: Sidebar + TopNav + view containers (ไม่มี inline CSS/JS)
@@ -43,23 +46,83 @@ Storage:    ไม่มี backend — ข้อมูลเป็น mock data
     ├── crm.js                ← CRM view content + logic
     ├── inbox.js              ← Inbox view content + logic
     ├── calendar.js           ← Calendar view content + logic
+    ├── calendar-class.js     ← Calendar Class Modal (3-state machine)
     ├── students.js           ← Students view content + logic
+    ├── families.js           ← Families view content + logic
+    ├── staff.js              ← Staff view content + logic
     ├── billing.js            ← Billing view content + logic
     ├── reports.js            ← Reports view content + logic
-    └── settings.js           ← Settings view content + logic
+    ├── settings.js           ← Settings view content + logic
+    └── placeholder.js        ← Placeholder views for unbuilt modules
+```
+
+### Script Load Order (สำคัญมาก)
+```
+1. data.js    → window.DB + window.CONST  (ต้องโหลดก่อนเสมอ)
+2. app.js     → navigation + Modal + window.Utils
+3. [modules]  → แต่ละ module อ่านจาก DB/CONST/Utils เท่านั้น
 ```
 
 ### วิธีที่แต่ละ JS module ทำงาน
 ```javascript
 // ทุก module ใช้ pattern นี้
 (function() {
+  // ✅ อ่านข้อมูลจาก DB — ไม่ define data เอง
+  const students = DB.students;
+  const STATUS_META = CONST.STUDENT_STATUS;
+
   const view = document.getElementById('view-[name]');
   view.innerHTML = `...HTML content...`;
   
-  // module-specific functions
-  function init() { ... }
-  init();
+  // module-specific functions only
 })();
+```
+
+### Global Objects ที่ใช้ได้ทุก Module
+```javascript
+// ── Data ──
+DB.students       // Student[] — 5 active students
+DB.families       // Family[] — 5 families
+DB.staff          // Staff[]  — 6 staff/teachers
+DB.sessions       // Session[] — calendar sessions
+DB.leads          // Lead[]   — CRM leads
+DB.customers      // Customer[] — CRM customers
+DB.conversations  // Conversation[] — inbox threads
+DB.messages       // {[id]: Message[]} — inbox messages
+DB.dayHeaders     // DayHeader[] — calendar week config
+
+// ── Constants ──
+CONST.STUDENT_STATUS   // active/renewal/urgent/inactive meta
+CONST.ATTENDANCE_META  // present/leave/absent/reschedule/transfer
+CONST.LEAD_STAGES      // new/contacting/test/trial/archived
+CONST.ROLE_META        // Teacher/Admin badge meta
+CONST.FAMILY_STATUS    // active/urgent/pending
+CONST.SUBJECT_COLOR    // subject → color tag
+CONST.TIME_SLOTS       // 2-hr class blocks + breaks
+CONST.SLOT_HOURS       // slotId → {s, e} time strings
+CONST.TEACHERS         // ['Kru Arm', ...]
+CONST.STAFF_NAMES      // ['Admin Nock', 'Kru Arm', ...]
+CONST.SUBJECTS         // ['Math G5', ...]
+CONST.GRADES           // ['G3', 'G4', 'G5', 'G6']
+CONST.ROOMS            // ['Room 1', 'Room 2', 'Room 3']
+CONST.BRANCHES         // ['Sukhumvit', 'Silom']
+
+// ── Utils ──
+Utils.student(id)            // find student by id
+Utils.studentByName(name)    // find student by name
+Utils.family(id)             // find family by id
+Utils.staffById(id)          // find staff by id
+Utils.classesLeft(studentId) // min classes remaining
+Utils.renewalStatus(id)      // 'active'|'renewal'|'urgent'
+Utils.studentMeta(name)      // {family, left, cls} for Calendar
+Utils.sessionsFor(name)      // all sessions for a student
+Utils.upcomingFor(name)      // upcoming sessions only
+Utils.shouldDeduct(att)      // true if att status deducts a class
+Utils.currency(amt)          // '฿14,400'
+Utils.daysLabel(d)           // 'Today' | '1 day ago' | 'N days ago'
+Utils.statusBadge(status)    // <span class="badge ...">
+Utils.attBadge(status)       // <span class="badge ...">
+Utils.leadStageBadge(stage)  // <span style="...">
 ```
 
 ---
@@ -177,8 +240,8 @@ Payment trigger: Payslip received → AI detect → Generate Invoice → Admin v
 | Billing     | 🟡 Partial     | course format ยังไม่ถูก            |
 | Reports     | 🔴 Basic       | ยังไม่มี timeseries, tabs           |
 | Settings    | 🔴 Basic       | form fields ยังไม่ครบ              |
-| Families    | ⬜ Placeholder  | ยังไม่ได้สร้าง                      |
-| Staff       | ⬜ Placeholder  | ยังไม่ได้สร้าง                      |
+| Families    | 🟢 Complete    | list+filter, modal 3 tabs done      |
+| Staff       | 🟢 Complete    | roster+filter, modal 3 tabs done    |
 | Courses     | ⬜ Placeholder  | ยังไม่ได้สร้าง                      |
 | Classes     | ⬜ Placeholder  | ยังไม่ได้สร้าง                      |
 | Sessions    | ⬜ Placeholder  | ยังไม่ได้สร้าง                      |
@@ -260,3 +323,8 @@ git checkout -- [filename]
 ---
 
 *Last updated: 14 May 2026 | อัพเดทโดย Claude ทุกครั้งที่มีการเปลี่ยนแปลง module status*
+*Architecture refactored: data.js + Utils added — all modules now read from window.DB*
+
+---
+
+> **⭐ Mock Data ทั้งหมดอยู่ใน `Customer.md`** — ดูข้อมูล Students, Families, Staff, Sessions, Leads, Invoices, Inbox จากที่เดียว

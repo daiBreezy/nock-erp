@@ -3,96 +3,9 @@
    ============================================================ */
 (function () {
 
-  /* ── DATA ─────────────────────────────────────────────── */
-  const staff = [
-    {
-      id:'arm', name:'Kru Arm', fullName:'Aranya Sombat', role:'Teacher', subject:'Math G5',
-      branches:['Sukhumvit'], phone:'090-111-2222', line:'@kru_arm', email:'arm@nockacademy.com',
-      status:'active', joinDate:'2024-06-01',
-      schedule:[
-        { day:'Mon', sessions:['Math G5 · 09:00 Rm1','Math G5 · 15:00 Rm2'] },
-        { day:'Wed', sessions:['Math G5 · 15:00 Rm2'] },
-        { day:'Thu', sessions:['Math G6 · 15:00 Rm2 (co-teach)'] },
-      ],
-      students:['Ploy Srirak'],
-      thisWeekSessions:5, totalSessions:87, avgRating:4.8,
-      notes:[
-        { type:'admin', text:'Excellent at making abstract concepts visual. Students love her energy.', author:'Admin Nock', date:'1 May' },
-      ],
-    },
-    {
-      id:'bee', name:'Kru Bee', fullName:'Benyapa Rattana', role:'Teacher', subject:'English Reading',
-      branches:['Sukhumvit'], phone:'090-222-3333', line:'@kru_bee', email:'bee@nockacademy.com',
-      status:'active', joinDate:'2024-03-15',
-      schedule:[
-        { day:'Mon', sessions:['Eng Read · 09:00 Rm1'] },
-        { day:'Tue', sessions:['Eng Read · 10:30 Rm1'] },
-        { day:'Wed', sessions:['Eng Read · 10:30 Rm1'] },
-        { day:'Thu', sessions:['Eng Read · 10:30 Rm1'] },
-        { day:'Sat', sessions:['Eng Read · 09:00 Rm1','Math G6 · 10:00 Rm2'] },
-      ],
-      students:['Mia Tanaka','Kevin Park'],
-      thisWeekSessions:7, totalSessions:142, avgRating:4.9,
-      notes:[
-        { type:'admin', text:'Top performer. Parents frequently request Kru Bee by name. Consider for senior teacher role.', author:'Admin Nock', date:'5 May' },
-      ],
-    },
-    {
-      id:'cat', name:'Kru Cat', fullName:'Chotika Panya', role:'Teacher', subject:'Math Grade 6',
-      branches:['Sukhumvit'], phone:'090-333-4444', line:'@kru_cat', email:'cat@nockacademy.com',
-      status:'active', joinDate:'2025-01-10',
-      schedule:[
-        { day:'Tue', sessions:['Math G6 · 15:00 Rm2'] },
-        { day:'Wed', sessions:['Math G6 · 15:00 Rm2'] },
-        { day:'Thu', sessions:['Math G6 · 15:00 Rm2'] },
-        { day:'Sat', sessions:['Math G6 · 10:00 Rm2'] },
-      ],
-      students:['Tom Chen'],
-      thisWeekSessions:4, totalSessions:63, avgRating:4.7,
-      notes:[],
-    },
-    {
-      id:'dan', name:'Kru Dan', fullName:'Danai Wongkham', role:'Teacher', subject:'Science',
-      branches:['Sukhumvit','Silom'], phone:'090-444-5555', line:'@kru_dan', email:'dan@nockacademy.com',
-      status:'active', joinDate:'2024-09-01',
-      schedule:[
-        { day:'Mon', sessions:['Science · 14:30 Rm3'] },
-        { day:'Tue', sessions:['Science · 14:30 Rm3'] },
-        { day:'Wed', sessions:['Science · 14:30 Rm3'] },
-        { day:'Thu', sessions:['Science · 14:30 Rm3'] },
-      ],
-      students:['James Wilson'],
-      thisWeekSessions:4, totalSessions:58, avgRating:4.6,
-      notes:[
-        { type:'admin', text:'Covers both branches. Check travel schedule to avoid double-booking.', author:'Admin Nock', date:'8 May' },
-      ],
-    },
-    {
-      id:'eve', name:'Kru Eve', fullName:'Evapha Chinarat', role:'Teacher', subject:'Thai Language',
-      branches:['Silom'], phone:'090-555-6666', line:'@kru_eve', email:'eve@nockacademy.com',
-      status:'active', joinDate:'2025-03-01',
-      schedule:[
-        { day:'Mon', sessions:['Thai Lang · 16:30 Rm1'] },
-        { day:'Wed', sessions:['Thai Lang · 16:30 Rm1'] },
-        { day:'Sat', sessions:['Thai Lang · 15:00 Rm1'] },
-      ],
-      students:['Ploy Srirak'],
-      thisWeekSessions:3, totalSessions:34, avgRating:4.8,
-      notes:[],
-    },
-    {
-      id:'nock', name:'Admin Nock', fullName:'Nockacademy Admin', role:'Admin', subject:'—',
-      branches:['Sukhumvit','Silom'], phone:'090-000-1111', line:'@admin_nock', email:'nock@nockacademy.com',
-      status:'active', joinDate:'2024-01-01',
-      schedule:[], students:[], thisWeekSessions:0, totalSessions:0, avgRating:null,
-      notes:[],
-    },
-  ];
-
-  const ROLE_META = {
-    Teacher: { cls:'badge-blue',   label:'Teacher' },
-    Admin:   { cls:'badge-purple', label:'Admin'   },
-  };
+  /* ── DATA (from global DB) ────────────────────────────── */
+  const staff    = DB.staff;
+  const ROLE_META = CONST.ROLE_META;
 
   let searchVal = '', filterBranch = '', filterRole = 'all';
 

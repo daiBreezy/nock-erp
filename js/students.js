@@ -3,146 +3,10 @@
    ============================================================ */
 (function () {
 
-  /* ── MOCK DATA ────────────────────────────────────────── */
-  const students = [
-    {
-      id:'mia', name:'Mia Tanaka', age:9, branch:'Sukhumvit', family:'Tanaka Family',
-      lineId:'@tanaka_mom', phone:'081-234-5678', enrollDate:'2026-02-01',
-      teacher:'Kru Bee', status:'renewal',
-      courses:[{ name:'Eng Active', hours:48, used:46, left:2, price:14400 }],
-      schedule:[
-        { date:'Tue 19 May', time:'10:30', room:'Room 1', teacher:'Kru Bee', status:'upcoming' },
-        { date:'Thu 21 May', time:'10:30', room:'Room 1', teacher:'Kru Bee', status:'upcoming' },
-      ],
-      attendance:[
-        { date:'Tue 13 May', course:'Eng Active', status:'present' },
-        { date:'Thu 8 May',  course:'Eng Active', status:'present' },
-        { date:'Tue 6 May',  course:'Eng Active', status:'leave'   },
-        { date:'Thu 1 May',  course:'Eng Active', status:'present' },
-        { date:'Tue 29 Apr', course:'Eng Active', status:'absent'  },
-        { date:'Thu 24 Apr', course:'Eng Active', status:'present' },
-      ],
-      invoices:[
-        { id:'INV-2026-0032', date:'2026-02-01', amount:14400, status:'paid', course:'Eng Active 48h.' },
-      ],
-      notes:[
-        { type:'teacher', text:'Mia making great progress with reading comprehension. Recommend phonics workbook vol.2.', author:'Kru Bee', date:'13 May' },
-        { type:'admin',   text:'Parent confirmed renewal interest — waiting for payment slip.', author:'Admin Nock', date:'13 May' },
-      ],
-    },
-    {
-      id:'tom', name:'Tom Chen', age:12, branch:'Sukhumvit', family:'Chen Family',
-      lineId:'@chen_mom', phone:'082-345-6789', enrollDate:'2026-01-15',
-      teacher:'Kru Cat', status:'active',
-      courses:[{ name:'Math G6', hours:36, used:22, left:14, price:10800 }],
-      schedule:[
-        { date:'Tue 19 May', time:'15:00', room:'Room 2', teacher:'Kru Cat', status:'upcoming' },
-        { date:'Thu 21 May', time:'15:00', room:'Room 2', teacher:'Kru Cat', status:'upcoming' },
-        { date:'Sat 23 May', time:'10:00', room:'Room 2', teacher:'Kru Cat', status:'upcoming' },
-      ],
-      attendance:[
-        { date:'Tue 13 May', course:'Math G6', status:'present' },
-        { date:'Thu 8 May',  course:'Math G6', status:'present' },
-        { date:'Tue 6 May',  course:'Math G6', status:'present' },
-        { date:'Thu 1 May',  course:'Math G6', status:'present' },
-        { date:'Tue 29 Apr', course:'Math G6', status:'leave'   },
-        { date:'Thu 24 Apr', course:'Math G6', status:'present' },
-      ],
-      invoices:[
-        { id:'INV-2026-0028', date:'2026-01-15', amount:10800, status:'paid', course:'Math G6 36h.' },
-      ],
-      notes:[
-        { type:'teacher', text:'Tom is strong in algebra but needs more practice with geometry proofs.', author:'Kru Cat', date:'6 May' },
-      ],
-    },
-    {
-      id:'ploy', name:'Ploy Srirak', age:10, branch:'Silom', family:'Srirak Family',
-      lineId:'@srirak_mom', phone:'083-456-7890', enrollDate:'2026-01-20',
-      teacher:'Kru Arm / Kru Eve', status:'active',
-      courses:[
-        { name:'Math G5',    hours:24, used:6,  left:18, price:7200 },
-        { name:'Thai Lang',  hours:24, used:6,  left:18, price:7200 },
-      ],
-      schedule:[
-        { date:'Wed 14 May', time:'15:00', room:'Room 2', teacher:'Kru Arm', status:'upcoming' },
-        { date:'Wed 14 May', time:'16:30', room:'Room 1', teacher:'Kru Eve', status:'upcoming' },
-        { date:'Wed 21 May', time:'15:00', room:'Room 2', teacher:'Kru Arm', status:'upcoming' },
-      ],
-      attendance:[
-        { date:'Wed 7 May',  course:'Math G5',   status:'present' },
-        { date:'Wed 7 May',  course:'Thai Lang',  status:'present' },
-        { date:'Wed 30 Apr', course:'Math G5',    status:'present' },
-        { date:'Wed 30 Apr', course:'Thai Lang',  status:'leave'   },
-        { date:'Wed 23 Apr', course:'Math G5',    status:'present' },
-        { date:'Wed 23 Apr', course:'Thai Lang',  status:'present' },
-      ],
-      invoices:[
-        { id:'INV-2026-0029', date:'2026-01-20', amount:7200,  status:'paid', course:'Math G5 24h.'   },
-        { id:'INV-2026-0030', date:'2026-01-20', amount:7200,  status:'paid', course:'Thai Lang 24h.' },
-      ],
-      notes:[
-        { type:'admin',   text:'Parents requested schedule to stay on Wednesdays only.', author:'Admin Nock', date:'10 May' },
-      ],
-    },
-    {
-      id:'james', name:'James Wilson', age:11, branch:'Sukhumvit', family:'Wilson Family',
-      lineId:'@wilson_dad', phone:'084-567-8901', enrollDate:'2026-03-01',
-      teacher:'Kru Dan', status:'urgent',
-      courses:[{ name:'Science', hours:12, used:11, left:1, price:4800 }],
-      schedule:[
-        { date:'Thu 14 May', time:'14:30', room:'Room 3', teacher:'Kru Dan', status:'upcoming' },
-      ],
-      attendance:[
-        { date:'Tue 12 May', course:'Science', status:'present' },
-        { date:'Thu 8 May',  course:'Science', status:'present' },
-        { date:'Tue 6 May',  course:'Science', status:'absent'  },
-        { date:'Thu 1 May',  course:'Science', status:'present' },
-        { date:'Tue 29 Apr', course:'Science', status:'present' },
-      ],
-      invoices:[
-        { id:'INV-2026-0041', date:'2026-03-01', amount:4800, status:'paid', course:'Science 12h.' },
-      ],
-      notes:[
-        { type:'teacher', text:'James missed last Tuesday without notice. Parent should be contacted re: renewal urgently.', author:'Kru Dan', date:'8 May' },
-        { type:'admin',   text:'Called Wilson dad — will send payment slip by Friday.', author:'Admin Nock', date:'9 May' },
-      ],
-    },
-    {
-      id:'kevin', name:'Kevin Park', age:8, branch:'Silom', family:'Park Family',
-      lineId:'@park_dad', phone:'085-678-9012', enrollDate:'2026-04-01',
-      teacher:'Kru Bee', status:'active',
-      courses:[{ name:'Eng Read', hours:24, used:8, left:16, price:7200 }],
-      schedule:[
-        { date:'Mon 18 May', time:'09:00', room:'Room 1', teacher:'Kru Bee', status:'upcoming' },
-        { date:'Wed 20 May', time:'09:00', room:'Room 1', teacher:'Kru Bee', status:'upcoming' },
-      ],
-      attendance:[
-        { date:'Mon 12 May', course:'Eng Read', status:'present' },
-        { date:'Wed 7 May',  course:'Eng Read', status:'present' },
-        { date:'Mon 5 May',  course:'Eng Read', status:'present' },
-        { date:'Wed 30 Apr', course:'Eng Read', status:'leave'   },
-      ],
-      invoices:[
-        { id:'INV-2026-0048', date:'2026-04-01', amount:7200, status:'paid', course:'Eng Read 24h.' },
-      ],
-      notes:[
-        { type:'teacher', text:'Kevin is enthusiastic and picks up vocabulary fast. Consider level-up assessment soon.', author:'Kru Bee', date:'12 May' },
-      ],
-    },
-  ];
-
-  const STATUS_META = {
-    active:   { label:'Active',           cls:'badge-green'  },
-    renewal:  { label:'Renewal Pending',  cls:'badge-yellow' },
-    urgent:   { label:'URGENT Renewal',   cls:'badge-red'    },
-    inactive: { label:'Inactive',         cls:'badge-gray'   },
-  };
-
-  const ATT_META = {
-    present: { label:'Present', cls:'badge-green'  },
-    leave:   { label:'Leave',   cls:'badge-yellow' },
-    absent:  { label:'Absent',  cls:'badge-red'    },
-  };
+  /* ── DATA (from global DB) ────────────────────────────── */
+  const students   = DB.students;
+  const STATUS_META = CONST.STUDENT_STATUS;
+  const ATT_META    = CONST.ATTENDANCE_META;
 
   let sortCol = 'name', sortAsc = true, filterStatus = 'all', searchVal = '';
 
@@ -314,7 +178,7 @@
     <!-- TAB: OVERVIEW -->
     <div id="stab-overview" class="modal-section" style="padding-top:12px">
       <div class="info-grid">
-        <div class="info-item"><div class="label">LINE ID</div>${s.lineId}</div>
+        <div class="info-item"><div class="label">LINE ID</div>${s.line||'—'}</div>
         <div class="info-item"><div class="label">Phone</div>${s.phone}</div>
         <div class="info-item"><div class="label">Branch</div>${s.branch}</div>
         <div class="info-item"><div class="label">Enroll Date</div>${s.enrollDate}</div>
