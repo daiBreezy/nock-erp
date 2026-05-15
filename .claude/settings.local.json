@@ -6,7 +6,8 @@
       "Bash(git commit *)",
       "Bash(./gemini.sh \"Reply with exactly: KEY_OK\")",
       "Bash(./gemini.sh -f \"js/_prompts/dashboard_prompt.txt\" -o \"js/dashboard.js\")",
-      "Bash(open \"/Users/nockacademy/Documents/Claude/Projects/NEW ERP!/index.html\")"
+      "Bash(open \"/Users/nockacademy/Documents/Claude/Projects/NEW ERP!/index.html\")",
+      "Bash(cat ~/.claude/settings.json 2>/dev/null || echo \"ไม่มีไฟล์นี้\")"
     ]
   }
 }

@@ -30,117 +30,44 @@ Storage:    ไม่มี backend — ข้อมูลเป็น mock data
 ```
 /NEW ERP!/
 ├── CLAUDE.md                 ← ไฟล์นี้ — อ่านก่อนเสมอ
-├── Customer.md               ← ⭐ Mock data ทั้งหมด (Students, Staff, Sessions, Leads, Invoices, Inbox)
-├── COMPONENTS.md             ← ⭐ CSS class catalog (badges, buttons, modals, layouts)
-├── FLOWS.md                  ← ⭐ Business logic state machines (Session, Billing, CRM, Renewal)
-├── BLUEPRINT 2 | ....md      ← Information Architecture ฉบับเต็ม
+├── COMPONENTS.md             ← ⭐ Component catalog (CSS classes + JS patterns)
+├── FLOWS.md                  ← Business logic state machines
 │
-├── index.html                ← Shell: Sidebar + TopNav + view containers (ไม่มี inline CSS/JS)
+├── index.html                ← Shell: Sidebar + TopNav + view containers
 │
 ├── css/
-│   └── main.css              ← CSS ทั้งหมดของโปรเจกต์ (Design System)
+│   └── main.css              ← CSS ทั้งหมด (Design System + Components)
 │
 └── js/
-    ├── app.js                ← Navigation, Modal utils, Shared functions
-    ├── session-card.js       ← ⭐ Shared SessionCard renderer (loads early)
-    ├── attendance-picker.js  ← ⭐ Shared AttendancePicker + calSetAtt alias (loads early)
-    ├── dashboard.js          ← Dashboard view content + logic
-    ├── crm.js                ← CRM view content + logic
-    ├── inbox.js              ← Inbox view content + logic
-    ├── calendar.js           ← Calendar view content + logic
-    ├── calendar-class.js     ← Calendar Class Modal (3-state machine)
-    ├── students.js           ← Students view content + logic
-    ├── families.js           ← Families view content + logic (Timeline tab added)
-    ├── staff.js              ← Staff view content + logic
-    ├── billing.js            ← Billing view content + logic
-    ├── reports.js            ← Reports view content + logic
-    ├── settings.js           ← Settings view content + logic
-    ├── timeline.js           ← ⭐ Shared Timeline renderer (loads after settings.js)
-    ├── student-profile.js    ← ⭐ Unified Student/Customer Profile Modal (6 tabs)
-    ├── sessions.js           ← Sessions list view (all DB sessions, filter, class modal)
-    ├── attendance.js         ← Attendance log + consumption bars
-    ├── summaries.js          ← Summary tracking — pending / sent / write / send
-    ├── notifications.js      ← Notification center — generated from DB, read/unread
-    ├── tasks.js              ← Tasks view — DB-driven + manual tasks
-    ├── courses.js            ← Courses catalog — aggregated from DB
-    ├── classes.js            ← Class groups — recurring session slots
-    ├── logs.js               ← Logs & Timeline — full audit trail
-    └── placeholder.js        ← Empty (all modules now built)
+    ├── data.js               ← window.DB + window.CONST  (โหลดก่อนสุด)
+    ├── app.js                ← Navigation + Modal + window.Utils
+    ├── session-card.js       ← ⭐ Shared: SessionCard renderer
+    ├── attendance-picker.js  ← ⭐ Shared: AttendancePicker
+    ├── timeline.js           ← ⭐ Shared: Timeline renderer
+    ├── student-profile.js    ← ⭐ Shared: Unified Profile Modal (6 tabs)
+    ├── dashboard.js
+    ├── crm.js / crm-schedule.js
+    ├── inbox.js
+    ├── calendar.js / calendar-class.js / calendar-widget.js
+    ├── students.js / families.js / staff.js
+    ├── billing.js / reports.js / settings.js
+    ├── sessions.js / attendance.js / summaries.js
+    ├── notifications.js / tasks.js
+    ├── courses.js / classes.js / logs.js
+    └── placeholder.js        ← empty (no-op)
 ```
 
 ### Script Load Order (สำคัญมาก)
 ```
-1. data.js              → window.DB + window.CONST  (ต้องโหลดก่อนเสมอ)
+1. data.js              → window.DB + window.CONST
 2. app.js               → navigation + Modal + window.Utils
-3. session-card.js      → window.SessionCard         (shared util — loads early)
-4. attendance-picker.js → window.AttendancePicker    (shared util — loads early)
-5. [view modules]       → dashboard, crm, inbox, calendar, students, families …
-6. timeline.js          → window.Timeline            (shared util — loads after view modules)
-7. student-profile.js   → window.openProfileModal    (overrides openStudentModal + openCustomerModal)
+3. session-card.js      → window.SessionCard
+4. attendance-picker.js → window.AttendancePicker
+5. [view modules]       → dashboard, crm, inbox, calendar, students …
+6. timeline.js          → window.Timeline
+7. student-profile.js   → window.openProfileModal
 8. sessions, attendance, summaries, notifications, tasks, courses, classes, logs
-9. placeholder.js       (empty — no-op)
-```
-
-### วิธีที่แต่ละ JS module ทำงาน
-```javascript
-// ทุก module ใช้ pattern นี้
-(function() {
-  // ✅ อ่านข้อมูลจาก DB — ไม่ define data เอง
-  const students = DB.students;
-  const STATUS_META = CONST.STUDENT_STATUS;
-
-  const view = document.getElementById('view-[name]');
-  view.innerHTML = `...HTML content...`;
-  
-  // module-specific functions only
-})();
-```
-
-### Global Objects ที่ใช้ได้ทุก Module
-```javascript
-// ── Data ──
-DB.students       // Student[] — 5 active students
-DB.families       // Family[] — 5 families
-DB.staff          // Staff[]  — 6 staff/teachers
-DB.sessions       // Session[] — calendar sessions
-DB.leads          // Lead[]   — CRM leads
-DB.customers      // Customer[] — CRM customers
-DB.conversations  // Conversation[] — inbox threads
-DB.messages       // {[id]: Message[]} — inbox messages
-DB.dayHeaders     // DayHeader[] — calendar week config
-
-// ── Constants ──
-CONST.STUDENT_STATUS   // active/renewal/urgent/inactive meta
-CONST.ATTENDANCE_META  // present/leave/absent/reschedule/transfer
-CONST.LEAD_STAGES      // new/contacting/test/trial/archived
-CONST.ROLE_META        // Teacher/Admin badge meta
-CONST.FAMILY_STATUS    // active/urgent/pending
-CONST.SUBJECT_COLOR    // subject → color tag
-CONST.TIME_SLOTS       // 2-hr class blocks + breaks
-CONST.SLOT_HOURS       // slotId → {s, e} time strings
-CONST.TEACHERS         // ['Kru Arm', ...]
-CONST.STAFF_NAMES      // ['Admin Nock', 'Kru Arm', ...]
-CONST.SUBJECTS         // ['Math G5', ...]
-CONST.GRADES           // ['G3', 'G4', 'G5', 'G6']
-CONST.ROOMS            // ['Room 1', 'Room 2', 'Room 3']
-CONST.BRANCHES         // ['Sukhumvit', 'Silom']
-
-// ── Utils ──
-Utils.student(id)            // find student by id
-Utils.studentByName(name)    // find student by name
-Utils.family(id)             // find family by id
-Utils.staffById(id)          // find staff by id
-Utils.classesLeft(studentId) // min classes remaining
-Utils.renewalStatus(id)      // 'active'|'renewal'|'urgent'
-Utils.studentMeta(name)      // {family, left, cls} for Calendar
-Utils.sessionsFor(name)      // all sessions for a student
-Utils.upcomingFor(name)      // upcoming sessions only
-Utils.shouldDeduct(att)      // true if att status deducts a class
-Utils.currency(amt)          // '฿14,400'
-Utils.daysLabel(d)           // 'Today' | '1 day ago' | 'N days ago'
-Utils.statusBadge(status)    // <span class="badge ...">
-Utils.attBadge(status)       // <span class="badge ...">
-Utils.leadStageBadge(stage)  // <span style="...">
+9. placeholder.js
 ```
 
 ---
@@ -149,209 +76,320 @@ Utils.leadStageBadge(stage)  // <span style="...">
 
 ### Colors
 ```css
---primary:       #6366f1   /* Indigo — ปุ่มหลัก, active state, border accent */
---primary-dark:  #5355d1   /* Hover state ของ primary */
---dark:          #1a1d23   /* Sidebar bg, page title */
+--primary:       #6366f1   /* Indigo */
+--dark:          #1a1d23   /* Sidebar, titles */
 --surface:       #f5f6fa   /* Page background */
---white:         #ffffff
 --border:        #e5e7eb
 --border-light:  #f3f4f6
 
-/* Text */
---text-primary:  #1a1d23
---text-secondary:#374151
---text-muted:    #6b7280
---text-placeholder:#9ca3af
-
 /* Status */
---green:   #10b981  /* Active, Present, Paid, Success */
+--green:   #10b981  /* Active, Present, Paid */
 --yellow:  #f59e0b  /* Pending, Warning, Leave */
---red:     #ef4444  /* Danger, Alert, Absent, Overdue */
+--red:     #ef4444  /* Danger, Urgent, Absent */
 --blue:    #6366f1  /* Info, Scheduled */
---orange:  #f97316  /* Science subject color */
+--orange:  #f97316  /* Science */
+--purple:  #8b5cf6  /* Grammar, Trial */
+```
+
+### Subject Colors
+```javascript
+SUBJECT_COLOR = {
+  'Eng':          'blue',
+  'Math':         'green',
+  'Science':      'orange',
+  'Thai':         'green',
+  'Eng (Active)': 'yellow',
+  'Eng (Grammar)':'purple',
+}
 ```
 
 ### Badge classes
 ```
 .badge-green   = Active, Paid, Present
-.badge-yellow  = Pending, Warning, Leave
-.badge-red     = Danger, Urgent, Absent, 1 class left
-.badge-blue    = Scheduled, Info
-.badge-purple  = Trial, Test scheduled
-.badge-orange  = Science sessions
-.badge-gray    = Inactive, Archived, Walk-in
-```
-
-### Alert severity (Risk & Alert panel)
-```
-danger  = กำลังเกิดขึ้นตอนนี้ ต้องแก้ทันที (สีแดง)
-warning = กำลังจะเกิดในอนาคต ถ้าไม่แก้ = ปัญหา (สีเหลือง)
-info    = ควรรู้ไว้ ไม่ urgent (สีม่วง/น้ำเงิน)
+.badge-yellow  = Pending, Leave, Renewal
+.badge-red     = Urgent, Absent, 1 left
+.badge-blue    = Scheduled, Eng
+.badge-purple  = Trial, Eng (Grammar)
+.badge-orange  = Science
+.badge-gray    = Inactive, Archived
 ```
 
 ---
 
-## 5. Business Rules (สำคัญมาก)
+## 5. ERP UI/UX Design Rules ⭐
+
+> นี่คือ ERP — ไม่ใช่ Marketing website
+> Optimize for: operational speed, information density, fast scanning
+
+### หลักการหลัก
+```
+✅ ใช้: tables, compact analytics, grouped metrics
+✅ ใช้: 2–4 column operational grid
+✅ ใช้: gap 16–20px, padding 16–20px
+✅ ใช้: border-radius subtle
+
+❌ หลีกเลี่ยง: giant hero sections, cinematic spacing
+❌ หลีกเลี่ยง: oversized cards, excessive empty space
+❌ หลีกเลี่ยง: full-width stretched progress bars
+❌ หลีกเลี่ยง: unnecessary vertical spacing
+```
+
+### KPI Cards
+```
+- Height: compact — แค่พอแสดง icon + label + value + sub
+- Grid: repeat(4, 1fr) สำหรับ 4 metrics
+- Padding: 16px ภายใน
+- ห้ามมี dead space
+```
+
+### Tables
+```
+- ใช้ table สำหรับ list data (ไม่ใช่ card ต่อ row)
+- Row height: compact (~40px)
+- Cell padding: 8px 12px
+- เห็น 10+ rows โดยไม่ต้อง scroll
+```
+
+### Dashboard
+```
+- แสดง operational insight ทันทีที่เปิด
+- Minimize scrolling
+- ทุก section ต้องมี data จริง ห้าม empty
+```
+
+### Progress Bars
+```
+- ใช้เฉพาะเมื่อ proportional meaning ชัดเจน
+- ห้าม stretch เต็ม width โดยไม่มีความหมาย
+- Prefer: compact metric rows, segmented display
+```
+
+---
+
+## 6. Component Management System ⭐
+
+> เมื่อ components เยอะขึ้น ต้องมีระบบจัดการ
+
+### หลักการ: 3 ระดับ Component
+
+```
+Level 1 — Design Tokens (css/main.css)
+  CSS variables, base classes (.badge, .btn, .card)
+  → แก้ที่นี่ = เปลี่ยนทุกที่
+
+Level 2 — Shared JS Components (js/*.js แยกไฟล์)
+  SessionCard, AttendancePicker, Timeline, StudentProfile
+  → ใช้ได้จากทุก module ผ่าน window.ComponentName
+
+Level 3 — Module-local HTML (ใน view module แต่ละอัน)
+  inline HTML template เฉพาะ module นั้น
+  → ห้าม copy-paste ข้าม module — ถ้าใช้ซ้ำ 2+ ที่ = ย้ายขึ้น Level 2
+```
+
+### กฎ Component
+```
+1. ก่อนเขียน component ใหม่ → เช็ค COMPONENTS.md ก่อนว่ามีอยู่แล้วไหม
+2. ถ้า HTML pattern เหมือนกัน 2+ module → สร้างเป็น Shared Component
+3. ทุก Shared Component ต้อง document ใน COMPONENTS.md
+4. ห้าม hardcode color/spacing — ใช้ CSS class หรือ CONST เสมอ
+5. หลัง build/แก้ component → update COMPONENTS.md ทันที
+```
+
+### Audit Checklist (รันทุกครั้งก่อน approve)
+```
+□ มี copy-paste HTML ซ้ำกัน 2+ ที่ไหม? → ย้ายเป็น Shared
+□ มี hardcode color (#xxx) ที่ควรใช้ CSS variable ไหม?
+□ มี spacing ที่ใหญ่เกิน ERP rules ไหม?
+□ COMPONENTS.md up-to-date ไหม?
+```
+
+---
+
+## 7. Data Architecture
+
+### Subject + Grade (สำคัญมาก)
+```
+Subject = ชื่อวิชา base เท่านั้น: 'Math', 'Eng', 'Science', 'Thai', 'Eng (Active)', 'Eng (Grammar)'
+Grade   = แยก field: 'ป.1'–'ป.6', 'ม.1'–'ม.3'
+Course  = Subject × Grade (สิ่งที่สาขาเปิดสอน) → display: 'Math ป.5'
+
+// ใน session:
+session.subject = 'Math'       ← base เท่านั้น
+session.grade   = 'ป.5'        ← แยก field
+Utils.subjectLabel(s)          → 'Math ป.5'  ← ใช้สำหรับ display
+```
+
+### Architecture: Subject → Course → Class → Session
+```
+Subject  (Brand catalog)    : Eng, Math, Science, Thai, Eng (Active), Eng (Grammar)
+Course   (Branch creates)   : Subject × Grade × Branch — แต่ละสาขาสร้างเอง
+Class    (Recurring group)  : Course + Teacher + Room + Schedule
+Session  (Each occurrence)  : Class + Date + Attendance + Summary
+```
+
+### Global Objects
+```javascript
+// Data
+DB.students / DB.families / DB.staff / DB.sessions
+DB.leads / DB.customers / DB.conversations / DB.messages / DB.dayHeaders
+
+// Constants
+CONST.SUBJECTS     // ['Eng','Math','Science','Thai','Eng (Active)','Eng (Grammar)']
+CONST.GRADES       // ['ป.1','ป.2',...,'ป.6','ม.1','ม.2','ม.3']
+CONST.BRANCHES     // ['Sukhumvit','Silom']
+CONST.TEACHERS     // ['Kru Arm','Kru Bee','Kru Cat','Kru Dan','Kru Eve']
+CONST.SUBJECT_COLOR // subject → color key
+CONST.SLOT_HOURS   // slotId → {s, e}
+CONST.STUDENT_STATUS / ATTENDANCE_META / LEAD_STAGES
+
+// Utils
+Utils.subjectLabel(session)         → 'Math ป.5'
+Utils.subjectLabel('Math','ป.5')    → 'Math ป.5'
+Utils.currency(amt)                 → '฿14,400'
+Utils.statusBadge(status)           → <span class="badge ...">
+Utils.attBadge(status)              → <span class="badge ...">
+Utils.sessionsFor(name)             → sessions[]
+Utils.studentByName(name)           → student
+Utils.renewalStatus(id)             → 'active'|'renewal'|'urgent'
+```
+
+---
+
+## 8. Business Rules
 
 ### Attendance & Consumption
 ```
-Present               → หักชั่วโมง 1 ครั้ง
-Absent (no notice)    → หักชั่วโมง 1 ครั้ง
-Leave (within quota)  → ไม่หัก
-Leave (over quota)    → หักชั่วโมง 1 ครั้ง
-Transfer              → ไม่หัก (ย้ายไปครั้งอื่น)
-Reschedule            → ไม่หัก (เลื่อนวัน)
+Present            → หัก 1 ครั้ง
+Absent (no notice) → หัก 1 ครั้ง
+Leave (in quota)   → ไม่หัก
+Leave (over quota) → หัก 1 ครั้ง
+Transfer           → ไม่หัก
+Reschedule         → ไม่หัก
 ```
 
-### Renewal Flow
+### Renewal
 ```
-Remaining Classes ≤ 2 → trigger "Renewal Pending" alert
-→ ติดต่อ parent → payment → create new enrollment → continue schedule
-```
-
-### CRM Lead Stages
-```
-New Lead → Contacting → Interested (Test) → Interested (Trial) → [Enrolled]
-                                                                      ↓
-                                                              กลายเป็น Customer
-                                                              (ออกจาก Lead pipeline)
-
-Archived = lead ที่ไม่ได้ต่อ ต้องแสดง source stage เช่น "Archived (Test)"
+sessionsRemaining ≤ 2 → "Renewal Pending"
+sessionsRemaining ≤ 1 → "URGENT"
+Renewal = Enrollment ใหม่เสมอ (ไม่ extend เดิม)
 ```
 
-### Enrollment = Customer
+### CRM Lead Flow
 ```
-เมื่อ Lead จ่ายเงินและ Enroll แล้ว → ย้ายไป Customer tab ทันที
-Lead pipeline จะไม่แสดง "Enrolled" stage
+New Lead → Contacting → Test → Trial → [Enrolled = กลายเป็น Student]
+Archived = lead ที่ drop ออก ต้องบันทึก archivedFrom stage
+Trial/Test = Lead เข้า session จริง (isTrial = true) ไม่ consume enrollment
 ```
 
 ### Session Flow
 ```
-Upcoming → Start Class → Check-In → Teaching → Check-Out → End Class
-→ Summary Pending → Summary Written → Summary Sent → Session Closed
-```
-
-### Summary Flow
-```
-Teacher Check-Out → Write Summary → AI Assist (optional) → Translate (optional)
-→ Send to Parent → Save to: Inbox + Student Timeline + Session Timeline
+Upcoming → Start → ongoing → End → done
+→ Summary Pending → Written → Sent → Closed
+Summary หลัง sent = immutable (ต้อง delete + resend)
 ```
 
 ### Billing
 ```
-Course format ใน table: [Course Name: Xh.] เช่น [Eng Active:48h.] [Math:24h.]
-Invoice status: Draft → Pending Verification → Paid
-Payment trigger: Payslip received → AI detect → Generate Invoice → Admin verify → Active
+Course display: 'Math ป.5 · 24h.'
+Invoice: Draft → Pending → Paid
+Renewal: Invoice ใหม่ต่อ Enrollment ใหม่เสมอ
 ```
 
 ---
 
-## 6. Module Status
+## 9. Mock Data (ข้อมูลปัจจุบัน)
 
-| Module              | Status         | หมายเหตุ                                        |
-|---------------------|---------------|--------------------------------------------------|
-| Dashboard           | 🟡 Partial     | Today's sessions now LIVE from DB via SessionCard |
-| CRM                 | 🟡 Partial     | Pipeline OK, Timeline tab now uses live data      |
-| Inbox               | 🟢 Complete    | Chat bubble UI, channel badges, note mode         |
-| Calendar            | 🟢 Complete    | Search bar, filter chips, card list view          |
-| CRM Schedule        | 🟢 Complete    | Day/Week view, date navigation, slot selection    |
-| Students            | 🟢 Complete    | list+filter+sort, unified via student-profile.js  |
-| Billing             | 🟡 Partial     | course format ยังไม่ถูก                          |
-| Reports             | 🟢 Complete    | 5 tabs (Overview/Revenue/Students/Attendance/CRM), CSS bar charts, live DB |
-| Settings            | 🟢 Complete    | 4 tabs (General/Branches/Teachers/System), all fields, toggle switches     |
-| Notifications       | 🟢 Complete    | Generated from DB — renewals, summaries, leads, billing, filter+mark read  |
-| Families            | 🟢 Complete    | list+filter, modal 4 tabs + Timeline              |
-| Staff               | 🟢 Complete    | roster+filter, modal 3 tabs done                  |
-| **StudentProfile**  | 🟢 Complete    | Unified modal — 6 tabs, works from everywhere     |
-| **Timeline**        | 🟢 Complete    | Shared renderer — Student, Families, CRM modals   |
-| **SessionCard**     | 🟢 Complete    | Shared card row — Dashboard + Calendar            |
-| **AttendancePicker**| 🟢 Complete    | Shared att buttons — CalendarClass + others       |
-| Sessions    | 🟢 Complete    | List all sessions, filter, attendance stats, click → Class Modal |
-| Attendance  | 🟢 Complete    | Full log, consumption bars, deduction tracking                   |
-| Summaries   | 🟢 Complete    | Pending/sent view, send to parent, link to Class Modal           |
-| Tasks       | 🟢 Complete    | DB-driven tasks, dual filter (show/priority), add task modal     |
-| Courses     | 🟢 Complete    | Course catalog from DB, card grid, branch filter, detail modal   |
-| Classes     | 🟢 Complete    | Class groups by slot/teacher, table view, detail modal           |
-| Logs        | 🟢 Complete    | Full audit trail, module filter, search, Timeline renderer       |
-
----
-
-## 7. Mock Data (ข้อมูลตัวอย่างในระบบ)
-
-### Students (active)
+### Students
 ```
-Mia Tanaka     | Age 9  | Sukhumvit | English Reading      | 2 left  | Renewal Pending
-Tom Chen       | Age 12 | Sukhumvit | Math Grade 6         | 14 left | Active
-Ploy Srirak    | Age 10 | Silom     | Math G5 + Thai Lang  | 18 left | Active
-James Wilson   | Age 11 | Sukhumvit | Science              | 1 left  | URGENT renewal
+Mia Tanaka   | ป.4 | Sukhumvit | Eng (Active) ป.4 | 2 left  | Renewal
+Tom Chen     | ป.6 | Sukhumvit | Math ป.6          | 14 left | Active
+Ploy Srirak  | ป.5 | Silom     | Math ป.5 + Thai ป.5 | 18 left | Active
+James Wilson | ป.5 | Sukhumvit | Science ป.5       | 1 left  | URGENT
+Kevin Park   | ป.4 | Sukhumvit | Eng (Active) ป.4  | 16 left | Active
 ```
 
-### Staff / Teachers
+### Staff
 ```
-Kru A  (Kru Arm)  | Math          | Sukhumvit
-Kru B  (Kru Bee)  | English       | Sukhumvit
-Kru D  (Kru Dan)  | Science       | Sukhumvit, Silom
-Kru E  (Kru Eve)  | Thai Language | Silom
-Kru C  (Kru Cat)  | Math Grade 6  | Sukhumvit
+Kru Arm | Math ป.5 / ป.6     | Sukhumvit
+Kru Bee | Eng (Active) / Eng | Sukhumvit
+Kru Cat | Math ป.6            | Sukhumvit
+Kru Dan | Science             | Sukhumvit, Silom
+Kru Eve | Thai                | Silom
 ```
 
 ### Branches
 ```
-Sukhumvit Branch  | 4 rooms | LINE: @nock-sukhumvit
-Silom Branch      | 3 rooms | LINE: @nock-silom
-```
-
-### Holidays (May 2026)
-```
-15 May 2026  | Visakha Bucha Day | วันวิสาขบูชา (วันหยุดราชการ)
+Sukhumvit | Rooms 1–3 | Eng (Active) available
+Silom     | Rooms 1–2 | Thai, Math available
 ```
 
 ---
 
-## 8. วิธีทำงานร่วมกัน (Working Protocol)
+## 10. Module Status
+
+| Module           | Status      | หมายเหตุ |
+|------------------|-------------|----------|
+| Dashboard        | 🟡 Partial  | Sessions live, UI density needs review |
+| CRM              | 🟡 Partial  | Pipeline OK, Timeline live |
+| Inbox            | 🟢 Complete | Chat UI, channel badges |
+| Calendar         | 🟢 Complete | Filter, card list view |
+| CRM Schedule     | 🟢 Complete | Day/Week, date nav |
+| Students         | 🟢 Complete | Filter+sort, unified profile |
+| Families         | 🟢 Complete | Modal 4 tabs + Timeline |
+| Staff            | 🟢 Complete | Roster, modal 3 tabs |
+| Billing          | 🟡 Partial  | course format updated, layout TBD |
+| Reports          | 🟢 Complete | 5 tabs, CSS charts, live DB |
+| Settings         | 🟢 Complete | 4 tabs, all fields |
+| Notifications    | 🟢 Complete | DB-driven, filter+mark read |
+| Sessions         | 🟢 Complete | List, filter, Class Modal |
+| Attendance       | 🟢 Complete | Log, consumption bars |
+| Summaries        | 🟢 Complete | Pending/sent, send to parent |
+| Tasks            | 🟢 Complete | DB-driven, add modal |
+| Courses          | 🟢 Complete | Subject×Grade catalog, branch filter |
+| Classes          | 🟢 Complete | Group by subject+grade+teacher |
+| Logs             | 🟢 Complete | Audit trail, Timeline renderer |
+| StudentProfile   | 🟢 Complete | Unified modal, 6 tabs |
+| Timeline         | 🟢 Complete | Shared renderer |
+| SessionCard      | 🟢 Complete | Shared card row |
+| AttendancePicker | 🟢 Complete | Shared att buttons |
+
+---
+
+## 11. Working Protocol
 
 ### กฎสำหรับ Claude
+```
 1. อ่าน CLAUDE.md ก่อนทำงานทุกครั้ง
-2. แก้ไข **ทีละ module** เท่านั้น — อย่าพยายามแก้หลาย module พร้อมกัน
-3. เขียนไฟล์ทีละไฟล์ — แต่ละไฟล์ต้องไม่เกิน **500 บรรทัด**
-4. ถ้าต้องการข้อมูลเพิ่มเติม ถามก่อน อย่าเดา
-5. หลังทำงาน update module status ใน CLAUDE.md ด้วย
+2. เช็ค COMPONENTS.md ก่อนสร้าง component ใหม่
+3. แก้ทีละ module เท่านั้น
+4. ไฟล์ต้องไม่เกิน 500 บรรทัด
+5. ใช้ Utils.subjectLabel() เสมอ — ห้าม hardcode 'Math ป.5'
+6. หลังแก้ → update CLAUDE.md + COMPONENTS.md
+7. ก่อน approve → รัน Audit Checklist (Section 6)
+```
 
 ### กฎสำหรับ User (Nock)
-1. สั่งงาน **1 module ต่อ session**
-2. บอก acceptance criteria ให้ชัด ("เสร็จแล้วคือ...")
-3. Preview ก่อน approve ทุกครั้ง
-4. ถ้าอยากแก้ระหว่างทาง — บอกก่อน อย่า assume
-
-### Template การสั่งงาน
 ```
-Module: [ชื่อ module]
-ต้องการ: [อธิบาย feature]
-Business rule: [ถ้ามี]
-เสร็จแล้วคือ: [acceptance criteria]
+1. สั่งงาน 1 module ต่อ session
+2. Preview ก่อน approve
+3. บอก acceptance criteria ให้ชัด
 ```
 
----
-
-## 9. คำสั่งที่ใช้บ่อย
-
+### คำสั่งที่ใช้บ่อย
 ```bash
-# เปิด preview ใน browser
-open index.html
+# Preview
+open "/Users/nockacademy/Documents/Claude/Projects/NEW ERP!/index.html"
 
-# Git: save progress
+# Direct link
+file:///Users/nockacademy/Documents/Claude/Projects/NEW%20ERP!/index.html
+
+# Git
 git add -A && git commit -m "feat: [module] description"
-
-# Git: ย้อนกลับถ้าพัง
-git checkout -- [filename]
+git checkout -- [filename]   # ย้อนกลับ
 ```
 
 ---
 
-*Last updated: 15 May 2026 — All 18 modules complete · Prototype feature-complete*
-*Architecture refactored: data.js + Utils added — all modules now read from window.DB*
-*Phase 1–4 complete: all core modules built. Remaining placeholders: Tasks, Courses, Classes, Logs.*
-
----
-
-> **⭐ Mock Data ทั้งหมดอยู่ใน `Customer.md`** — ดูข้อมูล Students, Families, Staff, Sessions, Leads, Invoices, Inbox จากที่เดียว
+*Last updated: 15 May 2026*
+*Subject+Grade architecture: subject และ grade แยก field, ใช้ Utils.subjectLabel() สำหรับ display*
+*ERP Design Rules + Component Management System: added Section 5 & 6*

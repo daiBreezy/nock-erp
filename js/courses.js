@@ -1,47 +1,75 @@
 /* ============================================================
    courses.js — NockERP Courses Module
-   Course catalog built from CONST + live DB aggregation
+   Course = Subject × Grade that a branch offers
+   Aggregated from DB.students (enrollments) + DB.sessions
    ============================================================ */
 (function () {
 
-  /* ── BUILD CATALOG FROM DB ────────────────────────────── */
+  /* ── SUBJECT COLOR (base subject lookup) ─────────────────── */
+  function courseColor(courseName) {
+    // 'Math ป.5' → find base subject → look up color
+    const base = CONST.SUBJECTS.find(s => courseName.startsWith(s)) || '';
+    const hex  = { green:'#10b981', yellow:'#f59e0b', orange:'#f97316',
+                   blue:'#6366f1',  purple:'#8b5cf6' };
+    const key  = CONST.SUBJECT_COLOR?.[base] || 'blue';
+    return hex[key] || '#6366f1';
+  }
+
+  /* ── BUILD CATALOG FROM DB ────────────────────────────────── */
+  // Course = Subject + Grade combination found in real data
+  // Key = 'Math ป.5', 'Eng (Active) ป.4', 'Thai ป.5' etc.
   function buildCatalog() {
     const map = {};
 
-    /* Seed subjects from CONST */
-    CONST.SUBJECTS.forEach(sub => {
-      map[sub] = { name: sub, students: [], sessions: [], teachers: new Set(), branches: new Set() };
-    });
+    function getOrCreate(key, branch) {
+      if (!map[key]) map[key] = {
+        name: key,          // 'Math ป.5'
+        students: [],
+        sessions: [],
+        teachers: new Set(),
+        branches: new Set(),
+      };
+      if (branch) map[key].branches.add(branch);
+      return map[key];
+    }
 
-    /* Aggregate students */
-    DB.students.forEach(s => {
-      (s.courses || []).forEach(c => {
-        const key = c.subject || c.name;
-        if (!map[key]) map[key] = { name: key, students: [], sessions: [], teachers: new Set(), branches: new Set() };
-        map[key].students.push({ name: s.name, enrolled: c.total || 0, left: c.left || 0, status: s.status });
-        if (s.branch) map[key].branches.add(s.branch);
+    /* Aggregate from student enrollments */
+    DB.students.forEach(stu => {
+      (stu.courses || []).forEach(c => {
+        const key = c.name; // already 'Math ป.5', 'Eng (Active) ป.4' etc.
+        if (!key) return;
+        const entry = getOrCreate(key, stu.branch);
+        entry.students.push({
+          name:    stu.name,
+          hours:   c.hours || 0,
+          left:    c.left  || 0,
+          status:  stu.status,
+          branch:  stu.branch,
+        });
       });
     });
 
-    /* Aggregate sessions */
+    /* Aggregate from sessions */
     DB.sessions.forEach(s => {
-      const key = s.subject;
+      const key = Utils.subjectLabel(s); // 'Math ป.5'
       if (!key) return;
-      if (!map[key]) map[key] = { name: key, students: [], sessions: [], teachers: new Set(), branches: new Set() };
-      map[key].sessions.push(s);
-      if (s.teacher) map[key].teachers.add(s.teacher);
-      if (s.branch)  map[key].branches.add(s.branch);
+      const entry = getOrCreate(key, s.branch);
+      entry.sessions.push(s);
+      if (s.teacher) entry.teachers.add(s.teacher);
     });
 
-    return Object.values(map).filter(c => c.students.length > 0 || c.sessions.length > 0);
+    // Sort: by subject name then grade
+    return Object.values(map)
+      .filter(c => c.students.length > 0 || c.sessions.length > 0)
+      .sort((a, b) => a.name.localeCompare(b.name, 'th'));
   }
 
-  /* ── STATE ────────────────────────────────────────────── */
+  /* ── STATE ────────────────────────────────────────────────── */
   let catalog = buildCatalog();
   let fBranch = 'all';
   let search  = '';
 
-  /* ── SHELL ────────────────────────────────────────────── */
+  /* ── SHELL ────────────────────────────────────────────────── */
   document.getElementById('view-courses').innerHTML = `
   <div class="page-header">
     <div>
@@ -65,7 +93,7 @@
   <!-- Grid -->
   <div id="courses-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:12px"></div>`;
 
-  /* ── KPI ──────────────────────────────────────────────── */
+  /* ── KPI ──────────────────────────────────────────────────── */
   function renderKPI() {
     const total    = catalog.length;
     const students = [...new Set(catalog.flatMap(c => c.students.map(s => s.name)))].length;
@@ -76,7 +104,7 @@
         <div class="kpi-icon" style="background:#ede9fe">📖</div>
         <div class="kpi-label">Courses</div>
         <div class="kpi-value">${total}</div>
-        <div class="kpi-change up">Active catalog</div>
+        <div class="kpi-change up">Subject × Grade</div>
       </div>
       <div class="kpi-card">
         <div class="kpi-icon" style="background:#d1fae5">🎓</div>
@@ -98,7 +126,7 @@
       </div>`;
   }
 
-  /* ── RENDER GRID ──────────────────────────────────────── */
+  /* ── RENDER GRID ──────────────────────────────────────────── */
   function renderGrid() {
     let list = [...catalog];
     if (fBranch !== 'all') list = list.filter(c => c.branches.has(fBranch));
@@ -117,23 +145,31 @@
     }
 
     grid.innerHTML = list.map(c => {
-      const col  = CONST.SUBJECT_COLOR?.[c.name] || '#6366f1';
-      const teachers = [...c.teachers].join(', ') || '—';
-      const branches = [...c.branches].join(', ') || '—';
-      const enrolled = c.students.length;
-      const urgent   = c.students.filter(s => s.status === 'urgent').length;
-      const renewal  = c.students.filter(s => s.status === 'renewal').length;
-      const upcomSess = c.sessions.filter(s => s.state === 'upcoming').length;
+      const col        = courseColor(c.name);
+      const teachers   = [...c.teachers].join(', ') || '—';
+      const branches   = [...c.branches].join(', ') || '—';
+      const enrolled   = c.students.length;
+      const urgent     = c.students.filter(s => s.status === 'urgent').length;
+      const renewal    = c.students.filter(s => s.status === 'renewal').length;
+      const upcomSess  = c.sessions.filter(s => s.state === 'upcoming').length;
+
+      // Split display: subject bold + grade muted
+      const gradeMatch = c.name.match(/(ป\.\d+|ม\.\d+)$/);
+      const grade      = gradeMatch ? gradeMatch[0] : '';
+      const subj       = grade ? c.name.replace(grade, '').trim() : c.name;
 
       return `
-      <div class="card" style="cursor:pointer;transition:box-shadow .15s" onclick="openCourseDetail('${c.name}')"
+      <div class="card" style="cursor:pointer;transition:box-shadow .15s" onclick="openCourseDetail('${encodeURIComponent(c.name)}')"
            onmouseover="this.style.boxShadow='0 4px 16px rgba(0,0,0,.1)'"
            onmouseout="this.style.boxShadow=''">
         <div style="height:5px;background:${col};border-radius:8px 8px 0 0;margin:-1px -1px 0"></div>
         <div class="card-body" style="padding:14px">
           <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px">
-            <div style="font-size:14px;font-weight:700;color:#1a1d23">${c.name}</div>
-            <span class="badge" style="background:${col}22;color:${col};border:1px solid ${col}44">
+            <div>
+              <div style="font-size:14px;font-weight:700;color:#1a1d23">${subj}</div>
+              ${grade ? `<div style="font-size:12px;color:#6b7280;margin-top:1px">${grade}</div>` : ''}
+            </div>
+            <span class="badge" style="background:${col}22;color:${col};border:1px solid ${col}44;flex-shrink:0">
               ${enrolled} student${enrolled !== 1 ? 's' : ''}
             </span>
           </div>
@@ -162,11 +198,12 @@
     }).join('');
   }
 
-  /* ── DETAIL MODAL ─────────────────────────────────────── */
-  window.openCourseDetail = function (name) {
-    const c = catalog.find(x => x.name === name);
+  /* ── DETAIL MODAL ─────────────────────────────────────────── */
+  window.openCourseDetail = function (encoded) {
+    const name = decodeURIComponent(encoded);
+    const c    = catalog.find(x => x.name === name);
     if (!c) return;
-    const col = CONST.SUBJECT_COLOR?.[name] || '#6366f1';
+    const col = courseColor(name);
 
     Modal.create('modal-course-detail', `📖 ${name}`,
       `<div class="modal-section">
@@ -174,10 +211,10 @@
         ${c.students.map(s => `
         <div style="display:flex;justify-content:space-between;align-items:center;
                     padding:8px 0;border-bottom:1px solid #f3f4f6">
-          <span class="link-text" onclick="Modal.close('modal-course-detail');openProfileModal('${s.name}')"
+          <span onclick="Modal.close('modal-course-detail');openProfileModal('${s.name}')"
                 style="font-size:13px;font-weight:500;color:#6366f1;cursor:pointer">${s.name}</span>
           <div style="display:flex;gap:6px;align-items:center">
-            <span style="font-size:11px;color:#6b7280">${s.enrolled}h total · ${s.left} left</span>
+            <span style="font-size:11px;color:#6b7280">${s.hours}h · ${s.left} left</span>
             <span class="badge ${s.status === 'urgent' ? 'badge-red' : s.status === 'renewal' ? 'badge-yellow' : 'badge-green'}"
                   style="font-size:9px">${s.status}</span>
           </div>
@@ -186,13 +223,15 @@
       <div class="modal-section">
         <div class="modal-section-title">Teachers</div>
         <div style="display:flex;gap:8px;flex-wrap:wrap">
-          ${[...c.teachers].map(t=>`<span class="badge badge-purple">${t}</span>`).join('') || '<span style="color:#9ca3af;font-size:13px">No teachers assigned</span>'}
+          ${[...c.teachers].map(t=>`<span class="badge badge-purple">${t}</span>`).join('')
+            || '<span style="color:#9ca3af;font-size:13px">No teachers assigned</span>'}
         </div>
       </div>
       <div class="modal-section">
         <div class="modal-section-title">Branches</div>
         <div style="display:flex;gap:8px;flex-wrap:wrap">
-          ${[...c.branches].map(b=>`<span class="badge badge-blue">${b}</span>`).join('') || '<span style="color:#9ca3af;font-size:13px">—</span>'}
+          ${[...c.branches].map(b=>`<span class="badge badge-blue">${b}</span>`).join('')
+            || '<span style="color:#9ca3af;font-size:13px">—</span>'}
         </div>
       </div>`,
       `<button class="btn btn-secondary" onclick="Modal.close('modal-course-detail')">Close</button>`,
@@ -200,7 +239,7 @@
     );
   };
 
-  /* ── ACTIONS ──────────────────────────────────────────── */
+  /* ── ACTIONS ──────────────────────────────────────────────── */
   window.courseFilter = function (val, el) {
     fBranch = val;
     document.querySelectorAll('#view-courses .filter-chip').forEach(c => c.classList.remove('active'));
@@ -217,7 +256,7 @@
     showToast('Course creation coming soon', 'info');
   };
 
-  /* ── INIT ─────────────────────────────────────────────── */
+  /* ── INIT ─────────────────────────────────────────────────── */
   renderKPI();
   renderGrid();
 

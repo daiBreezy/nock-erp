@@ -68,7 +68,7 @@
     const ts = getSlot(s.slotId);
     return `<div class="modal-section">
       <div class="info-grid">
-        <div class="info-item"><div class="label">Subject</div><strong>${s.subject}</strong></div>
+        <div class="info-item"><div class="label">Subject</div><strong>${Utils.subjectLabel(s)}</strong></div>
         <div class="info-item"><div class="label">Time</div>${ts?ts.start+'–'+ts.end:'—'}</div>
         <div class="info-item"><div class="label">Teacher</div>${s.teacher}</div>
         <div class="info-item"><div class="label">Room / Branch</div>${s.room} · ${s.branch}</div>
@@ -92,7 +92,7 @@
       <div style="display:flex;align-items:center;gap:8px;padding:10px 14px;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;margin-bottom:12px">
         <span style="font-size:18px">🟢</span>
         <div><strong style="color:#065f46">Class In Progress</strong>
-          <div style="font-size:12px;color:#6b7280">${s.subject} · ${ts?ts.start+'–'+ts.end:''} · Started ${s.startedAt||'—'}</div>
+          <div style="font-size:12px;color:#6b7280">${Utils.subjectLabel(s)} · ${ts?ts.start+'–'+ts.end:''} · Started ${s.startedAt||'—'}</div>
         </div>
       </div>
       <div class="info-grid">
@@ -121,7 +121,7 @@
       <div style="display:flex;align-items:center;gap:8px;padding:10px 14px;background:#f3f4f6;border-radius:8px;margin-bottom:12px">
         <span style="font-size:18px">✅</span>
         <div><strong>Class Ended</strong>
-          <div style="font-size:12px;color:#6b7280">${s.subject} · ${ts?ts.start+'–'+ts.end:''} · ${s.branch}</div>
+          <div style="font-size:12px;color:#6b7280">${Utils.subjectLabel(s)} · ${ts?ts.start+'–'+ts.end:''} · ${s.branch}</div>
           <div style="font-size:12px;color:#ef4444;margin-top:2px">📝 Summaries: ${sentCount}/${totalRequired} sent · Deadline: ${sumDueDate(s)}</div>
         </div>
         ${done?`<span class="badge badge-green" style="margin-left:auto">All Done ✓</span>`:`<span class="badge badge-red" style="margin-left:auto">${totalRequired-sentCount} pending</span>`}
@@ -158,7 +158,7 @@
     const body = (s.state==='upcoming'?renderPre:s.state==='active'?renderActive:renderEnded)(s);
     const ts = TIME_SLOTS.find(t=>t.id===s.slotId&&t.type==='class');
     Modal.create('modal-class',
-      `📚 ${s.subject} ${m.badge}`,
+      `📚 ${Utils.subjectLabel(s)} ${m.badge}`,
       body, m.footer, 'modal-tabbed modal-lg');
   };
 
@@ -171,7 +171,7 @@
     s.state='active';
     s.startedAt=new Date().toTimeString().slice(0,5);
     Modal.close('modal-class');
-    showToast(`Class started ▶ ${s.subject}`,'success');
+    showToast(`Class started ▶ ${Utils.subjectLabel(s)}`,'success');
     // Re-render calendar
     if (window.calTab) calTab(window.currentViewPublic||'week', document.querySelector('#view-calendar .tab.active'));
     setTimeout(()=>openClassModal(id),100);
@@ -188,7 +188,7 @@
       if(att==='present'||att==='absent') s.summaries[n]=s.summaries[n]||{text:'',sent:false};
     });
     Modal.close('modal-class');
-    showToast(`Class ended · Write summaries for ${s.subject}`,'info');
+    showToast(`Class ended · Write summaries for ${Utils.subjectLabel(s)}`,'info');
     setTimeout(()=>openClassModal(id),100);
   };
 
@@ -244,7 +244,7 @@
     Modal.create('modal-add-student','＋ Add Student to Class',`
       <div class="modal-section">
         <div style="font-size:12px;color:#6b7280;margin-bottom:12px">
-          Adding to: <strong>${s.subject}</strong> · ${s.date} · ${s.room}
+          Adding to: <strong>${Utils.subjectLabel(s)}</strong> · ${s.date} · ${s.room}
         </div>
         ${avail.length ? avail.map(n=>{
           const m=SMETA[n]||{family:'—',left:'?',cls:'badge-gray'};

@@ -228,7 +228,7 @@
             </div>
             <!-- Main info -->
             <div style="flex:1;min-width:0">
-              <div style="font-size:13px;font-weight:600;color:#1a1d23">${s.subject}
+              <div style="font-size:13px;font-weight:600;color:#1a1d23">${Utils.subjectLabel(s)}
                 <span class="badge ${sm.badge}" style="font-size:9px;margin-left:4px">${sm.icon} ${sm.label}</span>
               </div>
               <div style="font-size:11px;color:#6b7280;margin-top:2px">

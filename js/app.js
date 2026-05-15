@@ -201,4 +201,15 @@ window.Utils = {
     const m = CONST.LEAD_STAGES[stage] || {};
     return `<span class="badge" style="background:${m.bg};color:${m.color}">${m.label}</span>`;
   },
+
+  /* ── Subject + Grade label ──
+     Input: session object, or (subject, grade) strings
+     Output: 'Math ป.5', 'Eng Active ป.4', 'Science ป.5' etc. */
+  subjectLabel(sessionOrSubject, grade) {
+    if (typeof sessionOrSubject === 'object') {
+      const g = sessionOrSubject.grade || '';
+      return g ? `${sessionOrSubject.subject} ${g}` : sessionOrSubject.subject;
+    }
+    return grade ? `${sessionOrSubject} ${grade}` : sessionOrSubject;
+  },
 };

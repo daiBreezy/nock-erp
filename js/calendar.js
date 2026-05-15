@@ -231,7 +231,7 @@
         h += '<div class="cal-cell">';
         list.forEach(s => {
           const dh = dayHeaders.find(d => d.date===s.date);
-          h += `<div class="cal-event ${s.color}" onclick="openClassModal('${s.id}')">${s.subject}<br>
+          h += `<div class="cal-event ${s.color}" onclick="openClassModal('${s.id}')">${Utils.subjectLabel(s)}<br>
             <span style="font-size:9px">${dh?.label||s.date} · ${s.room}</span></div>`;
         });
         h += '</div>';
@@ -298,8 +298,7 @@
           <!-- Card body -->
           <div style="flex:1;padding:10px 14px;display:flex;align-items:center;gap:16px;flex-wrap:wrap;min-width:0">
             <div style="min-width:130px">
-              <div style="font-size:13px;font-weight:600;color:#1a1d23">${dot}${s.subject}</div>
-              ${s.grade ? `<div style="font-size:11px;color:#9ca3af;margin-top:1px">${s.grade}</div>` : ''}
+              <div style="font-size:13px;font-weight:600;color:#1a1d23">${dot}${Utils.subjectLabel(s)}</div>
             </div>
             <div style="display:flex;gap:14px;flex-wrap:wrap;flex:1;font-size:12px;color:#6b7280">
               ${ts ? `<span>⏰ ${ts.start}–${ts.end}</span>` : ''}
@@ -419,7 +418,7 @@
       return `<tr ${isH?'style="background:#fff9f9"':''}>
         <td>${dh?.label||s.date}${isH?' 🏖️':''}</td>
         <td style="font-size:11px">${ts?ts.start+'–'+ts.end:''}</td>
-        <td>${s.subject}</td><td>${s.teacher}</td>
+        <td>${Utils.subjectLabel(s)}</td><td>${s.teacher}</td>
         <td style="text-align:center">${s.studentNames.length}</td>
         <td>${isH?'<span class="badge badge-red">Holiday!</span>':'<span class="badge badge-green">OK</span>'}</td></tr>`;
     }).join('');

@@ -360,7 +360,7 @@
     _showSelBar([
       `📅 <strong>${dayLbl}</strong>`,
       `⏰ ${sh.s || '—'}–${sh.e || '—'}`,
-      `📚 ${sess.subject}`,
+      `📚 ${Utils.subjectLabel(sess)}`,
       `👩‍🏫 ${sess.teacher}`,
       `🚪 ${sess.room}`,
       `<span style="color:#10b981;font-weight:600">✓ Join this class</span>`,

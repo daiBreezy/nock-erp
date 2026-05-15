@@ -144,7 +144,7 @@
       return `<tr>
         <td>${dh?.label||s.date}</td>
         <td style="font-size:11px">${sh.s||'—'}–${sh.e||'—'}</td>
-        <td>${s.subject}</td>
+        <td>${Utils.subjectLabel(s)}</td>
         <td style="font-size:11px">${s.teacher.replace(/Kru /g,'')}</td>
         <td>${s.room}</td>
         <td>${dot}</td>

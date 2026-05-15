@@ -112,8 +112,8 @@ window.CalendarWidget = (function () {
 
           h += `<div class="cal-event ${s.color}" style="${outline}cursor:pointer"
                 onclick="CalendarWidget._onSession('${s.id}',${slot.id},${col})"
-                title="${s.subject} · ${s.teacher}">
-            ${dot}${s.subject} · ${s.room}
+                title="${Utils.subjectLabel(s)} · ${s.teacher}">
+            ${dot}${Utils.subjectLabel(s)} · ${s.room}
             <br><span style="font-size:9px;opacity:.8">👩‍🏫${t} · ${s.studentNames.length}👤</span>
             ${isCompat && !isSel ? '<br><span style="font-size:9px;color:#10b981;font-weight:600">✓ Compatible</span>' : ''}
             ${isSel ? '<br><span style="font-size:9px;color:#6366f1;font-weight:600">✓ Selected</span>' : ''}
@@ -252,7 +252,7 @@ window.CalendarWidget = (function () {
             onclick="CalendarWidget._onSession('${s.id}',${s.slotId},${s.col})"
             onmouseover="this.style.opacity='.8'"
             onmouseout="this.style.opacity='1'">
-            <div style="font-weight:600;font-size:13px">${dot} ${s.subject}</div>
+            <div style="font-weight:600;font-size:13px">${dot} ${Utils.subjectLabel(s)}</div>
             <div style="font-size:11px;opacity:.8;margin-top:4px">${sh.s} – ${sh.e}</div>
             <div style="font-size:11px;opacity:.8">${s.room} · ${s.branch}</div>
             <div style="font-size:11px;opacity:.8;margin-top:2px">👥 ${s.studentNames.length} students</div>

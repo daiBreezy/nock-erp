@@ -45,7 +45,7 @@ window.SessionCard = (function () {
       <div class="session-time">${time}</div>
       <div class="session-dot" style="background:${color}"></div>
       <div class="session-info">
-        <div class="session-name">${s.subject}
+        <div class="session-name">${Utils.subjectLabel(s)}
           <span class="badge ${sm.badge}" style="font-size:9px;vertical-align:middle;margin-left:4px">${sm.label}</span>
         </div>
         <div class="session-meta">${s.room} · ${s.branch} · ${count} student${count!==1?'s':''}</div>

@@ -14,7 +14,7 @@
         rows.push({
           sessionId: s.id,
           date:      s.date,
-          subject:   s.subject,
+          subject:   Utils.subjectLabel(s),
           teacher:   s.teacher,
           student:   name,
           text:      sum.text || '',

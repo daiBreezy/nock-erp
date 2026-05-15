@@ -10,11 +10,12 @@
 
     DB.sessions.forEach(s => {
       if (!s.teacher || !s.subject) return;
-      const key = `${s.subject}|${s.teacher}|${s.slotId}|${s.branch}`;
+      const key = `${s.subject}|${s.grade||''}|${s.teacher}|${s.slotId}|${s.branch}`;
       if (!map[key]) {
         map[key] = {
           id:       key,
           subject:  s.subject,
+          grade:    s.grade || '',
           teacher:  s.teacher,
           slotId:   s.slotId,
           branch:   s.branch,
@@ -151,7 +152,7 @@
             <td>
               <div style="display:flex;align-items:center;gap:8px">
                 <div style="width:4px;height:32px;border-radius:2px;background:${col};flex-shrink:0"></div>
-                <span style="font-size:13px;font-weight:600;color:#1a1d23">${g.subject}</span>
+                <span style="font-size:13px;font-weight:600;color:#1a1d23">${Utils.subjectLabel(g.subject, g.grade)}</span>
               </div>
             </td>
             <td style="font-size:13px;color:#374151">${g.teacher}</td>
@@ -200,7 +201,7 @@
       </div>`;
     }).join('');
 
-    Modal.create('modal-class-group', `🏫 ${g.subject} — Class Group`,
+    Modal.create('modal-class-group', `🏫 ${Utils.subjectLabel(g.subject, g.grade)} — Class Group`,
       `<div class="modal-section">
         <div class="modal-section-title">Class Info</div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;font-size:13px">
