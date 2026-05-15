@@ -77,7 +77,7 @@
           <strong style="cursor:pointer;color:#6366f1" onclick="openFamilyModal('${f.id}')">${f.name}</strong>
         </td>
         <td style="font-size:12px">${f.students.map(s =>
-          `<span style="cursor:pointer;color:#6366f1" onclick="openStudentByName('${s}')">${s}</span>`
+          `<span style="cursor:pointer;color:#6366f1" onclick="openProfileModal('${s}')">${s}</span>`
         ).join(', ')}</td>
         <td style="font-size:12px">${f.branch}</td>
         <td style="font-size:12px">${primary.name}<br><span style="color:#9ca3af">${primary.line||primary.phone}</span></td>
@@ -134,6 +134,7 @@
       <div class="tab active" onclick="famTab('profile',this)">👤 Profile</div>
       <div class="tab"        onclick="famTab('students',this)">🎓 Students</div>
       <div class="tab"        onclick="famTab('notes',this)">📝 Notes</div>
+      <div class="tab"        onclick="famTab('timeline',this)">⏱️ Timeline</div>
     </div>
 
     <!-- TAB: PROFILE -->
@@ -171,7 +172,7 @@
           <div style="font-weight:600;font-size:13px">${sName}</div>
           <div style="font-size:11px;color:#9ca3af">${f.branch}</div>
         </div>
-        <button class="btn btn-secondary btn-sm" onclick="openStudentByName('${sName}');Modal.close('modal-family-${f.id}')">View Profile</button>
+        <button class="btn btn-secondary btn-sm" onclick="openProfileModal('${sName}');Modal.close('modal-family-${f.id}')">View Profile</button>
       </div>`).join('')}
     </div>
 
@@ -190,6 +191,17 @@
       <div style="text-align:right;margin-top:6px">
         <button class="btn btn-primary btn-sm" onclick="saveFamNote('${f.id}')">Save Note</button>
       </div>
+    </div>
+
+    <!-- TAB: TIMELINE -->
+    <div id="ftab-timeline" class="modal-section" style="display:none;padding:12px 0 0">
+      <div style="padding:0 16px 8px">
+        <div class="modal-section-title">Family Activity Timeline</div>
+        <div style="font-size:11px;color:#9ca3af">All students · newest first</div>
+      </div>
+      <div style="max-height:400px;overflow-y:auto">
+        ${Timeline.build(Timeline.fromFamily(f))}
+      </div>
     </div>`;
 
     Modal.create(`modal-family-${f.id}`, `👨‍👩‍👧 ${f.name}`, body,
@@ -206,7 +218,7 @@
     if (!modal) return;
     modal.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
     el.classList.add('active');
-    ['profile','students','notes'].forEach(t => {
+    ['profile','students','notes','timeline'].forEach(t => {
       const p = modal.querySelector(`#ftab-${t}`);
       if (p) p.style.display = t === tab ? '' : 'none';
     });

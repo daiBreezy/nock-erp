@@ -30,13 +30,7 @@
         <div style="font-size:13px;font-weight:500">${name}</div>
         <div style="font-size:11px;color:#9ca3af">${m.family} · <span class="badge ${m.cls}" style="font-size:10px">${m.left} left</span></div>
       </div>
-      <div class="att-btns" style="flex-wrap:wrap">
-        <button class="att-btn present ${att==='present'?'sel':''}" onclick="calSetAtt('${s.id}','${name}','present',this)">Present</button>
-        <button class="att-btn leave ${att==='leave'?'sel':''}" onclick="calSetAtt('${s.id}','${name}','leave',this)">Leave</button>
-        <button class="att-btn absent ${att==='absent'?'sel':''}" onclick="calSetAtt('${s.id}','${name}','absent',this)">Absent</button>
-        <button class="att-btn reschedule ${att==='reschedule'?'sel':''}" onclick="calSetAtt('${s.id}','${name}','reschedule',this)">Reschedule</button>
-        <button class="att-btn transfer ${att==='transfer'?'sel':''}" onclick="calSetAtt('${s.id}','${name}','transfer',this)">Transfer</button>
-      </div>
+      ${AttendancePicker.render(s.id, name, att)}
       ${showRemove?`<button class="btn btn-xs" style="color:#ef4444;border-color:#fecaca;margin-left:4px" onclick="calRemoveStudent('${s.id}','${name}')">✕</button>`:''}
     </div>`;
   }
@@ -203,14 +197,8 @@
     Modal.close('modal-class');
   };
 
-  /* ── ATTENDANCE ───────────────────────────────────────── */
-  window.calSetAtt = function(sessionId, name, type, btn) {
-    const s = DB.sessions.find(x=>x.id===sessionId);
-    if (!s) return;
-    s.attendance[name]=type;
-    btn.closest('.att-btns').querySelectorAll('.att-btn').forEach(b=>b.classList.remove('sel'));
-    btn.classList.add('sel');
-  };
+  /* ── ATTENDANCE ── delegated to AttendancePicker ─────── */
+  /* calSetAtt is now defined globally in attendance-picker.js */
 
   window.calRemoveStudent = function(sessionId, name) {
     const s = DB.sessions.find(x=>x.id===sessionId);

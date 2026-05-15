@@ -42,25 +42,43 @@ Storage:    ไม่มี backend — ข้อมูลเป็น mock data
 │
 └── js/
     ├── app.js                ← Navigation, Modal utils, Shared functions
+    ├── session-card.js       ← ⭐ Shared SessionCard renderer (loads early)
+    ├── attendance-picker.js  ← ⭐ Shared AttendancePicker + calSetAtt alias (loads early)
     ├── dashboard.js          ← Dashboard view content + logic
     ├── crm.js                ← CRM view content + logic
     ├── inbox.js              ← Inbox view content + logic
     ├── calendar.js           ← Calendar view content + logic
     ├── calendar-class.js     ← Calendar Class Modal (3-state machine)
     ├── students.js           ← Students view content + logic
-    ├── families.js           ← Families view content + logic
+    ├── families.js           ← Families view content + logic (Timeline tab added)
     ├── staff.js              ← Staff view content + logic
     ├── billing.js            ← Billing view content + logic
     ├── reports.js            ← Reports view content + logic
     ├── settings.js           ← Settings view content + logic
-    └── placeholder.js        ← Placeholder views for unbuilt modules
+    ├── timeline.js           ← ⭐ Shared Timeline renderer (loads after settings.js)
+    ├── student-profile.js    ← ⭐ Unified Student/Customer Profile Modal (6 tabs)
+    ├── sessions.js           ← Sessions list view (all DB sessions, filter, class modal)
+    ├── attendance.js         ← Attendance log + consumption bars
+    ├── summaries.js          ← Summary tracking — pending / sent / write / send
+    ├── notifications.js      ← Notification center — generated from DB, read/unread
+    ├── tasks.js              ← Tasks view — DB-driven + manual tasks
+    ├── courses.js            ← Courses catalog — aggregated from DB
+    ├── classes.js            ← Class groups — recurring session slots
+    ├── logs.js               ← Logs & Timeline — full audit trail
+    └── placeholder.js        ← Empty (all modules now built)
 ```
 
 ### Script Load Order (สำคัญมาก)
 ```
-1. data.js    → window.DB + window.CONST  (ต้องโหลดก่อนเสมอ)
-2. app.js     → navigation + Modal + window.Utils
-3. [modules]  → แต่ละ module อ่านจาก DB/CONST/Utils เท่านั้น
+1. data.js              → window.DB + window.CONST  (ต้องโหลดก่อนเสมอ)
+2. app.js               → navigation + Modal + window.Utils
+3. session-card.js      → window.SessionCard         (shared util — loads early)
+4. attendance-picker.js → window.AttendancePicker    (shared util — loads early)
+5. [view modules]       → dashboard, crm, inbox, calendar, students, families …
+6. timeline.js          → window.Timeline            (shared util — loads after view modules)
+7. student-profile.js   → window.openProfileModal    (overrides openStudentModal + openCustomerModal)
+8. sessions, attendance, summaries, notifications, tasks, courses, classes, logs
+9. placeholder.js       (empty — no-op)
 ```
 
 ### วิธีที่แต่ละ JS module ทำงาน
@@ -230,23 +248,31 @@ Payment trigger: Payslip received → AI detect → Generate Invoice → Admin v
 
 ## 6. Module Status
 
-| Module      | Status         | หมายเหตุ                          |
-|-------------|---------------|-----------------------------------|
-| Dashboard   | 🟡 Partial     | มี layout แต่ยังไม่ครบ interactions |
-| CRM         | 🟡 Partial     | Pipeline OK, Customer table basic  |
-| Inbox       | 🟡 Partial     | ยังไม่มี assignment feature         |
-| Calendar    | 🟡 Partial     | ยังไม่มี holiday, summary modal     |
-| Students    | 🟢 Complete    | list+filter+sort, 5-tab modal done  |
-| Billing     | 🟡 Partial     | course format ยังไม่ถูก            |
-| Reports     | 🔴 Basic       | ยังไม่มี timeseries, tabs           |
-| Settings    | 🔴 Basic       | form fields ยังไม่ครบ              |
-| Families    | 🟢 Complete    | list+filter, modal 3 tabs done      |
-| Staff       | 🟢 Complete    | roster+filter, modal 3 tabs done    |
-| Courses     | ⬜ Placeholder  | ยังไม่ได้สร้าง                      |
-| Classes     | ⬜ Placeholder  | ยังไม่ได้สร้าง                      |
-| Sessions    | ⬜ Placeholder  | ยังไม่ได้สร้าง                      |
-| Attendance  | ⬜ Placeholder  | ยังไม่ได้สร้าง                      |
-| Summaries   | ⬜ Placeholder  | ยังไม่ได้สร้าง                      |
+| Module              | Status         | หมายเหตุ                                        |
+|---------------------|---------------|--------------------------------------------------|
+| Dashboard           | 🟡 Partial     | Today's sessions now LIVE from DB via SessionCard |
+| CRM                 | 🟡 Partial     | Pipeline OK, Timeline tab now uses live data      |
+| Inbox               | 🟢 Complete    | Chat bubble UI, channel badges, note mode         |
+| Calendar            | 🟢 Complete    | Search bar, filter chips, card list view          |
+| CRM Schedule        | 🟢 Complete    | Day/Week view, date navigation, slot selection    |
+| Students            | 🟢 Complete    | list+filter+sort, unified via student-profile.js  |
+| Billing             | 🟡 Partial     | course format ยังไม่ถูก                          |
+| Reports             | 🟢 Complete    | 5 tabs (Overview/Revenue/Students/Attendance/CRM), CSS bar charts, live DB |
+| Settings            | 🟢 Complete    | 4 tabs (General/Branches/Teachers/System), all fields, toggle switches     |
+| Notifications       | 🟢 Complete    | Generated from DB — renewals, summaries, leads, billing, filter+mark read  |
+| Families            | 🟢 Complete    | list+filter, modal 4 tabs + Timeline              |
+| Staff               | 🟢 Complete    | roster+filter, modal 3 tabs done                  |
+| **StudentProfile**  | 🟢 Complete    | Unified modal — 6 tabs, works from everywhere     |
+| **Timeline**        | 🟢 Complete    | Shared renderer — Student, Families, CRM modals   |
+| **SessionCard**     | 🟢 Complete    | Shared card row — Dashboard + Calendar            |
+| **AttendancePicker**| 🟢 Complete    | Shared att buttons — CalendarClass + others       |
+| Sessions    | 🟢 Complete    | List all sessions, filter, attendance stats, click → Class Modal |
+| Attendance  | 🟢 Complete    | Full log, consumption bars, deduction tracking                   |
+| Summaries   | 🟢 Complete    | Pending/sent view, send to parent, link to Class Modal           |
+| Tasks       | 🟢 Complete    | DB-driven tasks, dual filter (show/priority), add task modal     |
+| Courses     | 🟢 Complete    | Course catalog from DB, card grid, branch filter, detail modal   |
+| Classes     | 🟢 Complete    | Class groups by slot/teacher, table view, detail modal           |
+| Logs        | 🟢 Complete    | Full audit trail, module filter, search, Timeline renderer       |
 
 ---
 
@@ -322,8 +348,9 @@ git checkout -- [filename]
 
 ---
 
-*Last updated: 14 May 2026 | อัพเดทโดย Claude ทุกครั้งที่มีการเปลี่ยนแปลง module status*
+*Last updated: 15 May 2026 — All 18 modules complete · Prototype feature-complete*
 *Architecture refactored: data.js + Utils added — all modules now read from window.DB*
+*Phase 1–4 complete: all core modules built. Remaining placeholders: Tasks, Courses, Classes, Logs.*
 
 ---
 

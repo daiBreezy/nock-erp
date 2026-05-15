@@ -482,21 +482,22 @@ window.openCustomerModal = function (name) {
         </table>
       </div>`,
 
-    timeline: `
-      <div class="modal-section">
-        <div class="modal-section-title">Full Activity Timeline</div>
-        ${[
-          {color:'#6366f1', text:'Summary sent — Session #38 · Kru Bee', time:'Today 10:15'},
-          {color:'#10b981', text:'Present — Session #38 · Check-in 10:32', time:'Tue 13 May'},
-          {color:'#f59e0b', text:'Renewal alert triggered — 2 classes remaining', time:'Tue 13 May'},
-          {color:'#10b981', text:'Payment confirmed — ฿8,500 · INV-2026-0039', time:'1 May'},
-          {color:'#10b981', text:'Present — Session #37', time:'Thu 7 May'},
-          {color:'#6366f1', text:'Enrolled — English Reading · 20 sessions', time:'Jan 2026'},
-        ].map(e=>`<div class="timeline-item" style="padding:8px 0">
-          <div class="tl-dot" style="background:${e.color}"></div>
-          <div class="tl-content"><div class="tl-text">${e.text}</div><div class="tl-time">${e.time}</div></div>
-        </div>`).join('')}
-      </div>`,
+    timeline: (() => {
+      const _tlStu = DB.students.find(s => s.name === name);
+      const _events = _tlStu
+        ? Timeline.fromStudent(_tlStu, name)
+        : [];
+      return `
+      <div class="modal-section" style="padding:12px 0 0">
+        <div style="padding:0 16px 8px">
+          <div class="modal-section-title">Full Activity Timeline</div>
+          <div style="font-size:11px;color:#9ca3af">All events · newest first</div>
+        </div>
+        <div style="max-height:420px;overflow-y:auto">
+          ${Timeline.build(_events)}
+        </div>
+      </div>`;
+    })(),
   };
 
   const tabLabels = [['overview','Overview'],['course','Course & Schedule'],['learning','Learning Summary'],['payment','Payment'],['timeline','Timeline']];

@@ -1,14 +1,6 @@
 /* placeholder.js — ใส่ empty state สำหรับ modules ที่ยังไม่ได้ build */
 (function () {
   const placeholders = {
-    notifications: { icon:'🔔', title:'Notifications', desc:'Notification center' },
-    tasks:         { icon:'☑️', title:'Tasks',         desc:'Task management module' },
-    courses:       { icon:'📖', title:'Courses',       desc:'Course catalog & packages' },
-    classes:       { icon:'🏫', title:'Classes',       desc:'Class scheduling & transfers' },
-    sessions:      { icon:'⏱️', title:'Sessions',      desc:'Session tracking & check-in' },
-    attendance:    { icon:'✅', title:'Attendance',    desc:'Attendance logs & consumption' },
-    summaries:     { icon:'📝', title:'Summaries',     desc:'Session summaries & AI assist' },
-    logs:          { icon:'🕐', title:'Logs & Timeline', desc:'Full audit log & event history' },
   };
 
   Object.entries(placeholders).forEach(([id, p]) => {
