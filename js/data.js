@@ -251,10 +251,10 @@ const _leads = [
   {id:'kevin', name:'Kevin Park (Lead)',course:'Thai',  age:8,  source:'Referral',   stage:'contacting', daysAgo:4,  assignee:'Kru Eve',    line:'@park_mom',  phone:'089-777-8888'},
   {id:'nadia', name:'Nadia Sorokin',  course:'Math ป.5',    age:11, source:'Website',    stage:'contacting', daysAgo:6,  assignee:'Admin Nock', line:'@nadia_mom', phone:'089-999-0000'},
   {id:'ben',   name:'Ben Torres',     course:'English',          age:7,  source:'Referral',   stage:'contacting', daysAgo:2,  assignee:'',           line:'',           phone:'089-111-3333'},
-  {id:'lily',  name:'Lily Wang',      course:'Science',          age:13, source:'Website',    stage:'test',       daysAgo:7,  assignee:'Kru Dan',    line:'@lily_mom',  phone:'089-222-4444', schedDate:'16 May 10:30'},
-  {id:'daan',  name:'Daan Smits',     course:'Math ป.6',    age:12, source:'Referral',   stage:'test',       daysAgo:5,  assignee:'Kru Cat',    line:'@daan_dad',  phone:'089-333-5555', schedDate:'17 May 09:00'},
-  {id:'hana',  name:'Hana Yamamoto',  course:'Eng (Active)',  age:9,  source:'Referral',   stage:'trial',      daysAgo:3,  assignee:'Kru Bee',    line:'@hana_mom',  phone:'089-444-6666', schedDate:'15 May 10:30'},
-  {id:'luca',  name:'Luca Romano',    course:'Thai',    age:11, source:'Walk-in',    stage:'trial',      daysAgo:2,  assignee:'Kru Eve',    line:'@luca_dad',  phone:'089-555-7777', schedDate:'18 May 13:00'},
+  {id:'lily',  name:'Lily Wang',      course:'Science',      age:13, source:'Website',  stage:'tested',          daysAgo:7,  assignee:'Kru Dan',    line:'@lily_mom',  phone:'089-222-4444'},
+  {id:'daan',  name:'Daan Smits',     course:'Math ป.6',    age:12, source:'Referral', stage:'tested',          daysAgo:5,  assignee:'Kru Cat',    line:'@daan_dad',  phone:'089-333-5555'},
+  {id:'hana',  name:'Hana Yamamoto',  course:'Eng (Active)', age:9,  source:'Referral', stage:'trial_scheduled', daysAgo:3,  assignee:'Kru Bee',    line:'@hana_mom',  phone:'089-444-6666', schedDate:'22 May 10:30'},
+  {id:'luca',  name:'Luca Romano',    course:'Thai',         age:11, source:'Walk-in',  stage:'payment_pending', daysAgo:2,  assignee:'Kru Eve',    line:'@luca_dad',  phone:'089-555-7777', formPending:true, convId:'romano'},
   {id:'chris', name:'Chris Baker',    course:'Math ป.5',          age:11, source:'Website',    stage:'archived',   daysAgo:20, assignee:'',           line:'',           phone:'', archivedFrom:'test'},
   {id:'anna',  name:'Anna White',     course:'English',          age:8,  source:'Walk-in',    stage:'archived',   daysAgo:14, assignee:'',           line:'',           phone:'', archivedFrom:'contacting'},
 ];
@@ -274,7 +274,7 @@ const _conversations = [
   {id:'wilson', name:'Wilson Family', student:'James Wilson',  branch:'Sukhumvit', channel:'LINE', unread:true,  time:'09:15',     assignee:'',           preview:"Hi, can we reschedule Tuesday's…"},
   {id:'chen',   name:'Chen Family',   student:'Tom Chen',      branch:'Sukhumvit', channel:'LINE', unread:true,  time:'Yesterday', assignee:'Kru Bee',    preview:'Invoice attached. Please confirm…'},
   {id:'srirak', name:'Srirak Family', student:'Ploy Srirak',   branch:'Silom',     channel:'LINE', unread:false, time:'Mon',       assignee:'Admin Nock', preview:'Ploy will be absent this Thursday…'},
-  {id:'romano', name:'Romano Family', student:'Luca Romano',   branch:'Silom',     channel:'LINE', unread:false, time:'Mon',       assignee:'',           preview:'Thank you for the trial session!'},
+  {id:'romano', name:'Romano Family', student:'Luca Romano',   branch:'Silom',     channel:'LINE', unread:true,  time:'Today 08:45', assignee:'Admin Nock', preview:'📋 Enrollment Form submitted — pending review'},
   {id:'park',   name:'Park Family',   student:'Kevin Park',    branch:'Silom',     channel:'LINE', unread:false, time:'Fri',       assignee:'',           preview:'When is the next class schedule?'},
 ];
 
@@ -290,9 +290,35 @@ const _messages = {
   wilson: [{type:'parent', text:"Hi, can we reschedule Tuesday's class? James has a doctor appointment.", time:'Today 09:15', sender:'Wilson Dad'}],
   chen:   [{type:'parent', text:'Please find the payment slip attached. Invoice #INV-2026-0049 confirmed.', time:'Yesterday', sender:'Chen Mom'}],
   srirak: [{type:'parent', text:'สวัสดีค่ะ แจ้งว่า Ploy จะไม่มาเรียนวันพฤหัสนี้ค่ะ ขอ Leave ค่ะ', time:'Mon', sender:'Srirak Mom'}],
-  romano: [{type:'parent', text:'Thank you so much for the trial session! Luca really enjoyed it.', time:'Mon', sender:'Romano Dad'}],
+  romano: [
+    {type:'parent', text:'Thank you so much for the trial session! Luca really enjoyed it.', time:'Mon', sender:'Romano Dad'},
+    {type:'staff',  text:'ยินดีมากครับ! ขอส่ง Enrollment Form ให้กรอกข้อมูลเพื่อสมัครเรียนเลยนะครับ 📋', time:'Today 08:30', sender:'Admin Nock'},
+    {type:'form_submission', subId:'sub_001', formType:'enrollment', text:'📋 Enrollment Form submitted — pending review', time:'Today 08:45', sender:'System'},
+  ],
   park:   [{type:'parent', text:'สวัสดีครับ อยากถามว่าตารางเรียนของ Kevin อาทิตย์หน้าเป็นยังไงบ้างครับ?', time:'Fri', sender:'Park Dad'}],
 };
+
+/* ── FORM TOKENS ──────────────────────────────────────────── */
+const _formTokens = [
+  {token:'tok_abc123', type:'test',       leadId:'emma',  sentBy:'Admin Nock', branch:'Sukhumvit', expiresAt:'2026-05-27', used:false},
+  {token:'tok_def456', type:'trial',      leadId:'hana',  sentBy:'Admin Nock', branch:'Sukhumvit', expiresAt:'2026-05-27', used:false},
+  {token:'tok_ghi789', type:'enrollment', leadId:'luca',  sentBy:'Admin Nock', branch:'Silom',     expiresAt:'2026-05-27', used:true},
+];
+
+/* ── FORM SUBMISSIONS ─────────────────────────────────────── */
+const _formSubmissions = [
+  {
+    id:'sub_001', token:'tok_ghi789', type:'enrollment', leadId:'luca', leadName:'Luca Romano',
+    status:'pending', submittedAt:'Today 08:45',
+    data:{
+      family:{parent1Name:'Romano Dad', parent1Phone:'089-555-7777', parent1Line:'@luca_dad'},
+      students:[{name:'Luca Romano', grade:'ป.5', subject:'Thai', courseHours:24}],
+      schedule:{label:'Every Wednesday 13:00–15:00', teacher:'Kru Eve', room:'Room 1'},
+      course:{name:'Thai ป.5', hours:24, price:7200},
+      payment:{method:'Bank Transfer', slipAttached:true},
+    }
+  }
+];
 
 /* ── CALENDAR CONFIG ──────────────────────────────────────── */
 const _dayHeaders = [
@@ -321,11 +347,15 @@ const _const = {
     transfer:   {label:'Transfer',   cls:'badge-purple', deduct:false},
   },
   LEAD_STAGES: {
-    new:        {label:'New Lead',           color:'#6366f1', bg:'#ede9fe'},
-    contacting: {label:'Contacting',         color:'#f59e0b', bg:'#fef3c7'},
-    test:       {label:'Interested (Test)',  color:'#f97316', bg:'#ffedd5'},
-    trial:      {label:'Interested (Trial)', color:'#8b5cf6', bg:'#f5f3ff'},
-    archived:   {label:'Archived',           color:'#9ca3af', bg:'#f3f4f6'},
+    new:             {label:'New Lead',          color:'#6366f1', bg:'#ede9fe'},
+    contacting:      {label:'Contacting',        color:'#f59e0b', bg:'#fef3c7'},
+    test_scheduled:  {label:'Test Scheduled',    color:'#8b5cf6', bg:'#f5f3ff'},
+    tested:          {label:'Tested',            color:'#d97706', bg:'#fef9c3'},
+    trial_scheduled: {label:'Trial Scheduled',   color:'#10b981', bg:'#d1fae5'},
+    trialed:         {label:'Trialed',           color:'#059669', bg:'#dcfce7'},
+    payment_pending: {label:'Payment Pending',   color:'#b91c1c', bg:'#fee2e2'},
+    enrolled:        {label:'Enrolled ✓',        color:'#065f46', bg:'#dcfce7'},
+    archived:        {label:'Archived',          color:'#9ca3af', bg:'#f3f4f6'},
   },
   ROLE_META: {
     Teacher: {cls:'badge-blue',   label:'Teacher'},
@@ -358,15 +388,17 @@ const _const = {
 
 /* ── EXPOSE GLOBALS ───────────────────────────────────────── */
 window.DB = {
-  students:      _students,
-  families:      _families,
-  staff:         _staff,
-  sessions:      _sessions,
-  leads:         _leads,
-  customers:     _customers,
-  conversations: _conversations,
-  messages:      _messages,
-  dayHeaders:    _dayHeaders,
+  students:        _students,
+  families:        _families,
+  staff:           _staff,
+  sessions:        _sessions,
+  leads:           _leads,
+  customers:       _customers,
+  conversations:   _conversations,
+  messages:        _messages,
+  dayHeaders:      _dayHeaders,
+  formTokens:      _formTokens,
+  formSubmissions: _formSubmissions,
 };
 window.CONST = _const;
 // Legacy alias — calendar-class.js used window.calSessions

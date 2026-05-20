@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sign In — NockERP</title>
+  <link rel="icon" type="image/png" href="img/logo.png">
+<style>
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{font-family:'Inter',system-ui,sans-serif;background:#0e1017;min-height:100vh;
+       display:flex;align-items:center;justify-content:center;overflow:hidden}
+
+  /* Background pattern */
+  body::before{content:'';position:fixed;inset:0;
+    background:radial-gradient(ellipse 80% 60% at 50% -10%,#6366f130 0%,transparent 70%);
+    pointer-events:none}
+
+  /* Card */
+  .signin-card{width:100%;max-width:400px;margin:20px;
+    background:#1a1d23;border:1px solid #252836;border-radius:20px;
+    padding:36px 36px 32px;box-shadow:0 24px 80px rgba(0,0,0,.5)}
+
+  /* Logo */
+  .signin-logo{text-align:center;margin-bottom:28px}
+  .signin-logo-img{width:72px;height:72px;border-radius:18px;object-fit:contain;margin-bottom:12px;
+    box-shadow:0 4px 24px rgba(99,102,241,.25)}
+  .signin-logo-brand{font-size:22px;font-weight:800;color:#fff;letter-spacing:-.3px}
+  .signin-logo-sub{font-size:12px;color:#4b5563;margin-top:3px;letter-spacing:.5px;text-transform:uppercase}
+
+  /* Heading */
+  .signin-heading{font-size:20px;font-weight:700;color:#fff;text-align:center;margin-bottom:6px}
+  .signin-sub{font-size:13px;color:#4b5563;text-align:center;margin-bottom:28px}
+
+  /* Google btn */
+  .btn-google{width:100%;display:flex;align-items:center;justify-content:center;gap:10px;
+    padding:11px 16px;background:#fff;border:none;border-radius:10px;
+    font-size:14px;font-weight:600;color:#1a1d23;cursor:pointer;transition:all .15s;
+    box-shadow:0 2px 8px rgba(0,0,0,.3)}
+  .btn-google:hover{background:#f5f6fa;transform:translateY(-1px);box-shadow:0 4px 16px rgba(0,0,0,.4)}
+  .btn-google:active{transform:none}
+  .google-icon{width:20px;height:20px;flex-shrink:0}
+
+  /* Divider */
+  .divider{display:flex;align-items:center;gap:12px;margin:20px 0}
+  .divider::before,.divider::after{content:'';flex:1;height:1px;background:#252836}
+  .divider span{font-size:12px;color:#3d4150;white-space:nowrap}
+
+  /* Form */
+  .form-group{margin-bottom:14px}
+  .form-label{display:block;font-size:12px;font-weight:500;color:#6b7280;margin-bottom:6px}
+  .form-input{width:100%;padding:11px 14px;background:#13161e;border:1px solid #252836;
+    border-radius:10px;font-size:14px;color:#e5e7eb;outline:none;transition:border-color .15s;
+    font-family:inherit}
+  .form-input::placeholder{color:#3d4150}
+  .form-input:focus{border-color:#6366f150;background:#13161e}
+
+  /* Sign in btn */
+  .btn-signin{width:100%;padding:12px;background:#6366f1;border:none;border-radius:10px;
+    font-size:14px;font-weight:600;color:#fff;cursor:pointer;transition:all .15s;
+    margin-top:6px;font-family:inherit}
+  .btn-signin:hover{background:#5355d1;transform:translateY(-1px);box-shadow:0 4px 20px #6366f140}
+  .btn-signin:active{transform:none}
+
+  /* Links */
+  .signin-links{display:flex;justify-content:space-between;margin-top:16px}
+  .signin-link{font-size:12px;color:#4b5563;cursor:pointer;text-decoration:none;transition:color .15s}
+  .signin-link:hover{color:#6366f1}
+
+  /* Error state */
+  .form-input.error{border-color:#ef444450}
+  .form-error{font-size:11px;color:#ef4444;margin-top:5px;display:none}
+
+  /* Loading spinner */
+  @keyframes spin{to{transform:rotate(360deg)}}
+  .spinner{display:inline-block;width:16px;height:16px;border:2px solid #ffffff40;
+    border-top-color:#fff;border-radius:50%;animation:spin .6s linear infinite;
+    vertical-align:middle;margin-right:6px}
+
+  /* Demo badges */
+  .demo-info{background:#6366f110;border:1px solid #6366f130;border-radius:10px;
+    padding:12px 14px;margin-top:20px}
+  .demo-info-title{font-size:11px;font-weight:700;color:#6366f1;text-transform:uppercase;
+    letter-spacing:.5px;margin-bottom:8px}
+  .demo-account{display:flex;justify-content:space-between;align-items:center;
+    padding:5px 0;border-bottom:1px solid #6366f115}
+  .demo-account:last-child{border-bottom:none;padding-bottom:0}
+  .demo-account-name{font-size:12px;font-weight:500;color:#d1d5db}
+  .demo-account-meta{font-size:11px;color:#4b5563}
+  .demo-account-btn{font-size:11px;color:#6366f1;cursor:pointer;background:none;border:none;
+    font-family:inherit;font-weight:600;padding:2px 6px;border-radius:5px;
+    border:1px solid #6366f130;transition:all .15s}
+  .demo-account-btn:hover{background:#6366f120}
+
+  /* Footer */
+  .signin-footer{text-align:center;margin-top:24px;font-size:11px;color:#3d4150}
+</style>
+</head>
+<body>
+
+<div class="signin-card">
+
+  <!-- Logo -->
+  <div class="signin-logo">
+    <img src="img/logo.png" class="signin-logo-img" alt="NockERP">
+    <div class="signin-logo-brand">NockERP</div>
+    <div class="signin-logo-sub">Education Operations</div>
+  </div>
+
+  <div class="signin-heading">Welcome back</div>
+  <div class="signin-sub">Sign in to your account to continue</div>
+
+  <!-- Google -->
+  <button class="btn-google" onclick="signInWithGoogle()">
+    <svg class="google-icon" viewBox="0 0 24 24">
+      <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+      <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+      <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
+      <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
+    </svg>
+    Continue with Google
+  </button>
+
+  <div class="divider"><span>or sign in with email</span></div>
+
+  <!-- Email form -->
+  <form onsubmit="signInWithEmail(event)">
+    <div class="form-group">
+      <label class="form-label" for="email">Email address</label>
+      <input class="form-input" type="email" id="email"
+             placeholder="nock@nockacademy.com" autocomplete="email">
+      <div class="form-error" id="error-email">Please enter a valid email</div>
+    </div>
+    <div class="form-group">
+      <label class="form-label" for="password">Password</label>
+      <input class="form-input" type="password" id="password"
+             placeholder="••••••••" autocomplete="current-password">
+      <div class="form-error" id="error-password">Incorrect password</div>
+    </div>
+    <button type="submit" class="btn-signin" id="signin-btn">Sign In →</button>
+  </form>
+
+  <div class="signin-links">
+    <a class="signin-link" onclick="showToast('Forgot password feature coming soon','info')">Forgot password?</a>
+    <a class="signin-link" onclick="showToast('Contact: admin@nockacademy.com','info')">Need help?</a>
+  </div>
+
+  <!-- Demo accounts -->
+  <div class="demo-info">
+    <div class="demo-info-title">Demo Accounts</div>
+    <div class="demo-account">
+      <div>
+        <div class="demo-account-name">Admin Nock</div>
+        <div class="demo-account-meta">Director · All branches</div>
+      </div>
+      <button class="demo-account-btn" onclick="quickLogin('nock@nockacademy.com','director','Admin Nock','N')">Use →</button>
+    </div>
+    <div class="demo-account">
+      <div>
+        <div class="demo-account-name">Kru Arm</div>
+        <div class="demo-account-meta">Teacher · Sukhumvit</div>
+      </div>
+      <button class="demo-account-btn" onclick="quickLogin('arm@nockacademy.com','teacher','Kru Arm','A')">Use →</button>
+    </div>
+    <div class="demo-account">
+      <div>
+        <div class="demo-account-name">Branch Manager</div>
+        <div class="demo-account-meta">Manager · Silom</div>
+      </div>
+      <button class="demo-account-btn" onclick="quickLogin('manager@nockacademy.com','manager','Manager','M')">Use →</button>
+    </div>
+  </div>
+
+</div>
+
+<div class="signin-footer">NockERP v1.0 · © 2026 Nock Academy</div>
+
+<script>
+  function signInWithGoogle() {
+    const btn = document.querySelector('.btn-google');
+    btn.innerHTML = '<span class="spinner"></span> Signing in…';
+    btn.disabled = true;
+    // Simulate auth delay
+    setTimeout(() => {
+      sessionStorage.setItem('erp_user', JSON.stringify({
+        name:'Admin Nock', initials:'N', role:'director',
+        branch:'Sukhumvit', email:'nock@nockacademy.com'
+      }));
+      window.location.href = 'index.html';
+    }, 1200);
+  }
+
+  function signInWithEmail(e) {
+    e.preventDefault();
+    const email = document.getElementById('email').value.trim();
+    const pass  = document.getElementById('password').value;
+    let valid = true;
+
+    document.querySelectorAll('.form-error').forEach(el => el.style.display = 'none');
+    document.querySelectorAll('.form-input').forEach(el => el.classList.remove('error'));
+
+    if (!email || !email.includes('@')) {
+      document.getElementById('error-email').style.display = 'block';
+      document.getElementById('email').classList.add('error');
+      valid = false;
+    }
+    if (!pass || pass.length < 4) {
+      document.getElementById('error-password').style.display = 'block';
+      document.getElementById('password').classList.add('error');
+      valid = false;
+    }
+    if (!valid) return;
+
+    const btn = document.getElementById('signin-btn');
+    btn.innerHTML = '<span class="spinner"></span> Signing in…';
+    btn.disabled = true;
+
+    setTimeout(() => {
+      sessionStorage.setItem('erp_user', JSON.stringify({
+        name:'Admin Nock', initials:'N', role:'director',
+        branch:'Sukhumvit', email
+      }));
+      window.location.href = 'index.html';
+    }, 1000);
+  }
+
+  function quickLogin(email, role, name, initials) {
+    sessionStorage.setItem('erp_user', JSON.stringify({ name, initials, role, branch:'Sukhumvit', email }));
+    // Brief flash
+    const btn = document.querySelector(`[onclick*="${email}"]`);
+    if (btn) { btn.textContent = '✓'; btn.style.background = '#10b98120'; btn.style.color = '#10b981'; }
+    setTimeout(() => window.location.href = 'index.html', 600);
+  }
+
+  function showToast(msg, type) {
+    const colors = { info:'#6366f1', success:'#10b981', error:'#ef4444' };
+    const t = document.createElement('div');
+    t.style.cssText = `position:fixed;bottom:24px;right:24px;background:${colors[type]||colors.info};
+      color:#fff;padding:10px 18px;border-radius:10px;font-size:13px;font-weight:500;z-index:9999;
+      box-shadow:0 4px 20px rgba(0,0,0,.3)`;
+    t.textContent = msg;
+    document.body.appendChild(t);
+    setTimeout(() => t.remove(), 2500);
+  }
+
+  // Restore user from sessionStorage if returning to signin from logout
+  const stored = sessionStorage.getItem('erp_user');
+  if (stored) {
+    try {
+      const u = JSON.parse(stored);
+      if (u.email) document.getElementById('email').value = u.email;
+    } catch(e) {}
+  }
+</script>
+</body>
+</html>

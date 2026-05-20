@@ -13,9 +13,6 @@
   const TEACHERS      = CONST.TEACHERS;
   const SUBJECTS      = CONST.SUBJECTS;
   const GRADES        = CONST.GRADES;
-  const ROOMS         = CONST.ROOMS;
-
-  const ROW_MAP = {}; TIME_HOURS.forEach((h,i) => ROW_MAP[h] = i+2);
 
   const sessions   = DB.sessions;
   const dayHeaders = DB.dayHeaders;
@@ -46,33 +43,30 @@
 
   /* ── SHELL ────────────────────────────────────────────── */
   document.getElementById('view-calendar').innerHTML = `
+
+  <!-- Page header -->
   <div class="page-header">
-    <div><div class="page-title">Calendar</div><div class="page-sub" id="cal-sub">Week of 11–17 May 2026</div></div>
-    <div style="display:flex;gap:8px;flex-wrap:wrap">
-      <button class="btn btn-secondary btn-sm" onclick="calNav(-1)">← Prev</button>
-      <button class="btn btn-secondary btn-sm" onclick="calNav(0)">Today</button>
-      <button class="btn btn-secondary btn-sm" onclick="calNav(1)">Next →</button>
+    <div>
+      <div class="page-title">Calendar</div>
+      <div class="page-sub" id="cal-sub">Week of 11–17 May 2026</div>
+    </div>
+    <div style="display:flex;gap:8px;align-items:center">
       <button class="btn btn-secondary btn-sm" onclick="openCalSummary()">📊 Summary</button>
       <button class="btn btn-primary btn-sm" onclick="openCreateClass()">＋ Create Class</button>
     </div>
   </div>
 
-  <!-- Search bar -->
-  <div style="position:relative;margin-bottom:8px">
-    <span style="position:absolute;left:11px;top:50%;transform:translateY(-50%);
-                 font-size:14px;pointer-events:none">🔍</span>
-    <input type="text" id="cal-search" placeholder="Search sessions by subject, teacher, room, student…"
-      style="width:100%;padding:8px 12px 8px 34px;border:1px solid #e5e7eb;border-radius:8px;
-             font-size:13px;outline:none;box-sizing:border-box;transition:border-color .15s"
-      onfocus="this.style.borderColor='#6366f1'"
-      onblur="this.style.borderColor='#e5e7eb'"
-      oninput="setCalFilter('search',this.value)">
-  </div>
-
-  <!-- Filters row -->
-  <div class="table-controls" style="margin-bottom:6px;background:#fff;border:1px solid #e5e7eb;
-       border-radius:8px;flex-wrap:wrap">
-    <span class="ts-label">Filter:</span>
+  <!-- Search + Filters — ONE ROW -->
+  <div class="cal-toolbar">
+    <div class="cal-toolbar-search">
+      <span class="cal-toolbar-search-icon">🔍</span>
+      <input type="text" id="cal-search"
+        placeholder="Search by subject, teacher, room, student…"
+        oninput="setCalFilter('search',this.value)"
+        onfocus="this.closest('.cal-toolbar-search').style.borderColor='#6366f1'"
+        onblur="this.closest('.cal-toolbar-search').style.borderColor='#e5e7eb'">
+    </div>
+    <span class="ts-label" style="flex-shrink:0;color:#6b7280;font-size:12px">Filter:</span>
     <select class="tc-select" onchange="setCalFilter('teacher',this.value)">
       <option value="">All Teachers</option>${TEACHERS.map(t=>`<option>${t}</option>`).join('')}
     </select>
@@ -88,32 +82,70 @@
       <option value="afternoon">Afternoon (13–15)</option>
       <option value="evening">Evening (15+)</option>
     </select>
-    <button class="btn btn-secondary btn-sm" onclick="clearCalFilters()">✕ Clear</button>
-    <span id="cal-filter-count" style="margin-left:auto;font-size:11px;color:#9ca3af"></span>
+    <button class="btn btn-secondary btn-sm" onclick="clearCalFilters()" style="flex-shrink:0">✕ Clear</button>
+    <span id="cal-filter-count" style="flex-shrink:0;font-size:11px;color:#9ca3af;white-space:nowrap"></span>
   </div>
 
   <!-- Active filter chips -->
   <div id="cal-chips" style="display:none;flex-wrap:wrap;gap:5px;margin-bottom:8px"></div>
 
-  <!-- Holiday banner -->
-  <div id="holiday-banner" style="background:#fee2e2;border:1px solid #fca5a5;border-radius:8px;
-       padding:8px 14px;margin-bottom:10px;font-size:13px;color:#991b1b;
-       display:flex;align-items:center;gap:8px">
-    🏖️ <strong>วันหยุด:</strong> ศุกร์ 15 May — วันวิสาขบูชา (ทุกสาขาหยุด)
-    <button class="btn btn-sm" onclick="this.closest('#holiday-banner').style.display='none'"
-            style="margin-left:auto;background:#fee2e2;border:1px solid #fca5a5;color:#991b1b;font-size:11px">✕</button>
+  <!-- View tabs -->
+  <div style="display:flex;align-items:center;border-bottom:1px solid #e5e7eb;margin-bottom:0">
+    <div class="tabs" style="border-bottom:none;margin-bottom:0;flex:1">
+      <div class="tab active" onclick="calTab('week',this)">Week</div>
+      <div class="tab" onclick="calTab('day',this)">Day</div>
+      <div class="tab" onclick="calTab('month',this)">Month</div>
+      <div class="tab" onclick="calTab('teacher',this)">Teacher</div>
+      <div class="tab" onclick="calTab('list',this)">List</div>
+      <div class="tab" onclick="calTab('year',this)">Year</div>
+    </div>
   </div>
 
-  <!-- View tabs -->
-  <div class="tabs" style="margin-bottom:10px">
-    <div class="tab active" onclick="calTab('week',this)">Week</div>
-    <div class="tab" onclick="calTab('day',this)">Day</div>
-    <div class="tab" onclick="calTab('month',this)">Month</div>
-    <div class="tab" onclick="calTab('teacher',this)">Teacher</div>
-    <div class="tab" onclick="calTab('list',this)">List</div>
-    <div class="tab" onclick="calTab('year',this)">Year</div>
-  </div>
-  <div id="cal-view-container"></div>`;
+  <!-- Pagination bar (under tabs, above content) -->
+  <div id="cal-pagination" class="cal-pagination-bar"></div>
+
+  <!-- Calendar view -->
+  <div id="cal-view-container" class="cal-view-container"></div>`;
+
+  /* ── PAGINATION RENDERER ──────────────────────────────── */
+  function renderPagination() {
+    const bar = document.getElementById('cal-pagination');
+    if (!bar) return;
+
+    const filtered = getFiltered();
+    let label = '', count = '';
+
+    if (currentView === 'week') {
+      label = 'Week of 11–17 May 2026';
+      count = `${filtered.length} session${filtered.length!==1?'s':''}`;
+    } else if (currentView === 'day') {
+      const dh = dayHeaders.find(x => x.date === selectedDay) || dayHeaders[2];
+      const n  = filtered.filter(s => s.date === selectedDay).length;
+      label = `${dh.label}${dh.isHoliday?' 🏖️':''}`;
+      count = `${n} class${n!==1?'es':''}`;
+    } else if (currentView === 'month') {
+      label = 'May 2026';
+      count = `${filtered.length} sessions`;
+    } else if (currentView === 'teacher') {
+      label = 'All Teachers';
+      count = `${filtered.length} sessions`;
+    } else if (currentView === 'list') {
+      label = 'All Sessions';
+      count = `${filtered.length} sessions`;
+    } else if (currentView === 'year') {
+      label = 'Year 2026';
+      count = '';
+    }
+
+    bar.innerHTML = `
+      <button class="cal-pag-btn" onclick="calNav(-1)">←</button>
+      <div class="cal-pag-center">
+        <span class="cal-pag-label">${label}</span>
+        ${count ? `<span class="cal-pag-count">${count}</span>` : ''}
+      </div>
+      <button class="cal-pag-btn cal-pag-today" onclick="calNav(0)">Today</button>
+      <button class="cal-pag-btn" onclick="calNav(1)">→</button>`;
+  }
 
   /* ── FILTER CHIPS ─────────────────────────────────────── */
   function updateChips() {
@@ -126,7 +158,6 @@
       fTime    && { label: `⏰ ${fTime}`,        key: 'time'    },
       fSearch  && { label: `🔍 "${fSearch}"`,   key: 'search'  },
     ].filter(Boolean);
-
     chips.style.display = active.length ? 'flex' : 'none';
     chips.innerHTML = active.map(c =>
       `<span style="display:inline-flex;align-items:center;gap:4px;
@@ -148,7 +179,7 @@
     updateChips(); render();
   };
 
-  /* ── WEEK VIEW → CalendarWidget ──────────────────────── */
+  /* ── WEEK VIEW ────────────────────────────────────────── */
   function buildWeek(container) {
     const filtered = getFiltered();
     CalendarWidget.renderWeek(container, {
@@ -158,24 +189,18 @@
     updateFilterCount(filtered.length);
   }
 
-  /* ── DAY VIEW → CalendarWidget ────────────────────────── */
+  /* ── DAY VIEW ─────────────────────────────────────────── */
   function buildDay(container) {
-    const dh      = dayHeaders.find(x => x.date === selectedDay) || dayHeaders[2];
     const filtered = getFiltered().filter(s => s.date === selectedDay);
-
-    const nav = `<div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
-      <button class="btn btn-secondary btn-sm" onclick="selectPrevDay()">←</button>
-      <span style="font-weight:600;color:#6366f1;font-size:14px">${dh.label}${dh.isHoliday?' 🏖️':''}</span>
-      <span style="font-size:12px;color:#9ca3af">${filtered.length} class${filtered.length!==1?'es':''}</span>
-      <button class="btn btn-secondary btn-sm" onclick="selectNextDay()">→</button>
-    </div>`;
-
     const inner = document.createElement('div');
-    container.innerHTML = nav;
     container.appendChild(inner);
     CalendarWidget.renderDay(inner, selectedDay, {
       sessions:       getFiltered(),
+      selectable:     true,
       onClickSession: (id) => openClassModal(id),
+      onClickEmptyDay:(slotId, date, teacher) => {
+        if (typeof openCreateClass === 'function') openCreateClass({ slotId, date, teacher });
+      },
     });
     updateFilterCount(filtered.length);
   }
@@ -242,10 +267,9 @@
     return h;
   }
 
-  /* ── LIST VIEW — card style (EventManager-inspired) ───── */
+  /* ── LIST VIEW ────────────────────────────────────────── */
   function buildList() {
     const filtered = getFiltered().sort((a,b) => a.date.localeCompare(b.date) || a.slotId - b.slotId);
-
     if (filtered.length === 0) {
       updateFilterCount(0);
       return `<div style="padding:40px;text-align:center;color:#9ca3af">
@@ -255,55 +279,41 @@
           ? `<button class="btn btn-secondary btn-sm" style="margin-top:10px" onclick="clearCalFilters()">Clear filters</button>` : ''}
       </div>`;
     }
-
-    /* Group by date */
     const byDate = {};
     filtered.forEach(s => { (byDate[s.date] = byDate[s.date] || []).push(s); });
-
     const sCls   = { upcoming:'badge-blue', active:'badge-green', ended:'badge-gray' };
-    const colMap  = { green:'#10b981', yellow:'#f59e0b', orange:'#f97316', purple:'#6366f1' };
-
+    const colMap = { green:'#10b981', yellow:'#f59e0b', orange:'#f97316', purple:'#6366f1' };
     let h = '<div style="display:flex;flex-direction:column;gap:18px">';
-
     Object.entries(byDate).forEach(([date, sess]) => {
-      const dh      = dayHeaders.find(x => x.date === date);
-      const label   = dh?.label || date;
-      const isHol   = dh?.isHoliday;
-      const isToday = date === '2026-05-13';
-
+      const dh=dayHeaders.find(x=>x.date===date), label=dh?.label||date;
+      const isHol=dh?.isHoliday, isToday=date==='2026-05-13';
       h += `<div>
-        <!-- Date heading -->
         <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
           <div style="font-size:11px;font-weight:700;color:#9ca3af;text-transform:uppercase;letter-spacing:.8px">
             ${label}${isHol?' 🏖️':''}
           </div>
-          ${isToday ? `<span style="font-size:10px;background:#6366f1;color:#fff;border-radius:10px;padding:1px 8px;font-weight:600">Today</span>`:''}
-          ${isHol   ? `<span style="font-size:10px;background:#fee2e2;color:#991b1b;border-radius:10px;padding:1px 8px">Holiday</span>`:''}
+          ${isToday?`<span style="font-size:10px;background:#6366f1;color:#fff;border-radius:10px;padding:1px 8px;font-weight:600">Today</span>`:''}
+          ${isHol?`<span style="font-size:10px;background:#fee2e2;color:#991b1b;border-radius:10px;padding:1px 8px">Holiday</span>`:''}
         </div>
         <div style="display:flex;flex-direction:column;gap:6px">`;
-
       sess.forEach(s => {
-        const ts    = CLASS_SLOTS.find(c => c.id === s.slotId);
-        const color = colMap[s.color] || '#6366f1';
-        const t     = s.teacher.split(',').map(x => x.trim().replace('Kru ','')).join(' + ');
-        const dot   = s.state==='active'?'🟢 ':s.state==='ended'?'✅ ':'';
-
+        const ts=CLASS_SLOTS.find(c=>c.id===s.slotId);
+        const color=colMap[s.color]||'#6366f1';
+        const t=s.teacher.split(',').map(x=>x.trim().replace('Kru ','')).join(' + ');
+        const dot=s.state==='active'?'🟢 ':s.state==='ended'?'✅ ':'';
         h += `<div onclick="openClassModal('${s.id}')"
           style="display:flex;align-items:stretch;border:1px solid #e5e7eb;border-radius:10px;
                  cursor:pointer;overflow:hidden;transition:all .15s;background:#fff"
           onmouseover="this.style.boxShadow='0 4px 14px rgba(0,0,0,.09)';this.style.transform='translateY(-1px)'"
           onmouseout="this.style.boxShadow='';this.style.transform=''">
-          <!-- Color accent bar -->
           <div style="width:4px;background:${color};flex-shrink:0"></div>
-          <!-- Card body -->
           <div style="flex:1;padding:10px 14px;display:flex;align-items:center;gap:16px;flex-wrap:wrap;min-width:0">
             <div style="min-width:130px">
               <div style="font-size:13px;font-weight:600;color:#1a1d23">${dot}${Utils.subjectLabel(s)}</div>
             </div>
             <div style="display:flex;gap:14px;flex-wrap:wrap;flex:1;font-size:12px;color:#6b7280">
-              ${ts ? `<span>⏰ ${ts.start}–${ts.end}</span>` : ''}
-              <span>👩‍🏫 ${t}</span>
-              <span>🚪 ${s.room}</span>
+              ${ts?`<span>⏰ ${ts.start}–${ts.end}</span>`:''}
+              <span>👩‍🏫 ${t}</span><span>🚪 ${s.room}</span>
               <span>👥 ${s.studentNames.length} student${s.studentNames.length!==1?'s':''}</span>
             </div>
             <div style="margin-left:auto;flex-shrink:0">
@@ -312,10 +322,8 @@
           </div>
         </div>`;
       });
-
       h += '</div></div>';
     });
-
     h += '</div>';
     updateFilterCount(filtered.length);
     return h;
@@ -352,6 +360,7 @@
   function render() {
     const c = document.getElementById('cal-view-container');
     if (!c) return;
+    renderPagination();
     if (currentView === 'week') { c.innerHTML = ''; buildWeek(c); return; }
     if (currentView === 'day')  { c.innerHTML = ''; buildDay(c);  return; }
     const fns = { month: buildMonth, teacher: buildTeacher, list: buildList, year: buildYear };
@@ -370,13 +379,27 @@
     currentView = tab;
     document.querySelectorAll('#view-calendar .tab').forEach(t => t.classList.remove('active'));
     if (el) el.classList.add('active');
-    const labels = { week:'Week of 11–17 May 2026', day:`Day View — ${selectedDay}`,
-      month:'May 2026', teacher:'Teacher View', list:'All Sessions', year:'Year 2026' };
-    const sub = document.getElementById('cal-sub'); if(sub) sub.textContent = labels[tab]||'';
+    const labels = {
+      week:'Week of 11–17 May 2026', day:`Day View — ${selectedDay}`,
+      month:'May 2026', teacher:'Teacher View', list:'All Sessions', year:'Year 2026'
+    };
+    const sub = document.getElementById('cal-sub');
+    if (sub) sub.textContent = labels[tab] || '';
     render();
   };
 
-  window.calNav = () => showToast('Week navigation coming soon','info');
+  window.calNav = function(dir) {
+    if (currentView === 'day') {
+      if (dir === -1) selectPrevDay();
+      else if (dir === 1) selectNextDay();
+      else {
+        selectedDay = '2026-05-13';
+        render();
+      }
+    } else {
+      showToast('Navigation coming soon','info');
+    }
+  };
 
   window.selectDay = function(ds) {
     selectedDay = ds;
@@ -384,11 +407,11 @@
   };
   window.selectPrevDay = function() {
     const idx = dayHeaders.findIndex(d => d.date===selectedDay);
-    if (idx > 0) selectDay(dayHeaders[idx-1].date);
+    if (idx > 0) { selectedDay = dayHeaders[idx-1].date; render(); }
   };
   window.selectNextDay = function() {
     const idx = dayHeaders.findIndex(d => d.date===selectedDay);
-    if (idx < dayHeaders.length-1) selectDay(dayHeaders[idx+1].date);
+    if (idx < dayHeaders.length-1) { selectedDay = dayHeaders[idx+1].date; render(); }
   };
 
   window.setCalFilter = function(type, val) {

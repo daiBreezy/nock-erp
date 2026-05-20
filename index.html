@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>NockERP — Education Operations</title>
+<link rel="icon" type="image/png" href="img/logo.png">
 <link rel="stylesheet" href="css/main.css">
 </head>
 <body>
@@ -12,68 +13,101 @@
      SIDEBAR
 ══════════════════════════════════════════════════════════ -->
 <nav id="sidebar">
+
+  <!-- ── LOGO ──────────────────────────────────────────── -->
   <div class="sidebar-logo">
-    <div class="brand">📚 NockERP</div>
-    <div class="sub">Education Operations</div>
+    <div class="sidebar-logo-row">
+      <img src="img/logo.png" class="sidebar-logo-img" alt="NockERP">
+      <div>
+        <div class="brand">NockERP</div>
+        <div class="sub">Education Operations</div>
+      </div>
+    </div>
   </div>
 
-  <div class="nav-section">
-    <div class="nav-label">Main</div>
-    <div class="nav-item active" data-view="dashboard"><span class="icon">🏠</span>Dashboard</div>
-    <div class="nav-item" data-view="crm"><span class="icon">🎯</span>CRM<span class="nav-badge yellow" id="badge-crm">5</span></div>
-    <div class="nav-item" data-view="inbox"><span class="icon">💬</span>Inbox<span class="nav-badge" id="badge-inbox">3</span></div>
-    <div class="nav-item" data-view="calendar"><span class="icon">📅</span>Calendar</div>
+  <!-- ── SEARCH ─────────────────────────────────────────── -->
+  <div class="sidebar-search">
+    <span class="sidebar-search-icon">🔍</span>
+    <input type="text" id="global-search" placeholder="Smart search…" autocomplete="off">
   </div>
 
-  <div class="nav-section">
-    <div class="nav-label">People</div>
-    <div class="nav-item" data-view="students"><span class="icon">🎓</span>Students</div>
-    <div class="nav-item" data-view="families"><span class="icon">👨‍👩‍👧</span>Families</div>
-    <div class="nav-item" data-view="staff"><span class="icon">👤</span>Staff</div>
+  <!-- ── NOTIFICATIONS (prominent top bar) ──────────────── -->
+  <div class="sidebar-noti" onclick="showView('notifications')">
+    <div class="sidebar-noti-bell">
+      🔔
+      <div class="noti-pulse" id="noti-pulse"></div>
+    </div>
+    <div class="sidebar-noti-content">
+      <div class="sidebar-noti-label">Notifications</div>
+      <div class="sidebar-noti-sub" id="noti-sub-text">—</div>
+    </div>
+    <span class="nav-badge" id="badge-notifications" style="display:none"></span>
   </div>
 
-  <div class="nav-section">
-    <div class="nav-label">Operations</div>
-    <div class="nav-item" data-view="courses"><span class="icon">📖</span>Courses</div>
-    <div class="nav-item" data-view="classes"><span class="icon">🏫</span>Classes</div>
-    <div class="nav-item" data-view="sessions"><span class="icon">⏱️</span>Sessions</div>
-    <div class="nav-item" data-view="attendance"><span class="icon">✅</span>Attendance</div>
-    <div class="nav-item" data-view="summaries"><span class="icon">📝</span>Summaries</div>
+  <!-- ── NAV (scrollable middle) ────────────────────────── -->
+  <div class="sidebar-nav">
+
+    <div class="nav-section">
+      <div class="nav-label">Main</div>
+      <div class="nav-item active" data-view="dashboard"><span class="icon">🏠</span>Dashboard</div>
+      <div class="nav-item" data-view="crm"><span class="icon">🎯</span>CRM<span class="nav-badge yellow" id="badge-crm">5</span></div>
+      <div class="nav-item" data-view="inbox"><span class="icon">💬</span>Inbox<span class="nav-badge" id="badge-inbox">3</span></div>
+      <div class="nav-item" data-view="calendar"><span class="icon">📅</span>Calendar</div>
+    </div>
+
+    <div class="nav-section">
+      <div class="nav-label">People</div>
+      <div class="nav-item" data-view="students"><span class="icon">🎓</span>Students</div>
+      <div class="nav-item" data-view="families"><span class="icon">👨‍👩‍👧</span>Families</div>
+      <div class="nav-item" data-view="staff"><span class="icon">👤</span>Staff</div>
+    </div>
+
+    <div class="nav-section">
+      <div class="nav-label">Operations</div>
+      <div class="nav-item" data-view="courses"><span class="icon">📖</span>Courses</div>
+      <div class="nav-item" data-view="classes"><span class="icon">🏫</span>Classes</div>
+      <div class="nav-item" data-view="sessions"><span class="icon">⏱️</span>Sessions</div>
+      <div class="nav-item" data-view="attendance"><span class="icon">✅</span>Attendance</div>
+      <div class="nav-item" data-view="summaries"><span class="icon">📝</span>Summaries</div>
+    </div>
+
+    <div class="nav-section">
+      <div class="nav-label">Finance & Admin</div>
+      <div class="nav-item" data-view="billing"><span class="icon">💳</span>Billing<span class="nav-badge" id="badge-billing">2</span></div>
+      <div class="nav-item" data-view="tasks"><span class="icon">☑️</span>Tasks</div>
+      <div class="nav-item" data-view="reports"><span class="icon">📊</span>Reports</div>
+    </div>
+
+    <div class="nav-section">
+      <div class="nav-label">System</div>
+      <div class="nav-item" data-view="settings"><span class="icon">⚙️</span>Settings</div>
+      <div class="nav-item" data-view="logs"><span class="icon">🕐</span>Logs & Timeline</div>
+    </div>
+
+  </div><!-- /sidebar-nav -->
+
+  <!-- ── USER CARD (pinned bottom) ──────────────────────── -->
+  <div class="sidebar-user">
+    <div class="sidebar-user-av" id="user-av">N</div>
+    <div class="sidebar-user-info">
+      <div class="sidebar-user-name" id="user-name">Admin Nock</div>
+      <div class="sidebar-user-meta">
+        <span class="sidebar-user-role" id="user-role-badge">Director</span>
+        <span class="sidebar-user-branch" id="user-branch-text">Sukhumvit</span>
+      </div>
+    </div>
+    <div class="sidebar-user-actions">
+      <button class="sidebar-user-btn" onclick="openSwitchModal()" title="Switch branch / role">⇄</button>
+      <button class="sidebar-user-btn sidebar-user-btn-logout" onclick="logout()" title="Log out">⏻</button>
+    </div>
   </div>
 
-  <div class="nav-section">
-    <div class="nav-label">Finance & Admin</div>
-    <div class="nav-item" data-view="billing"><span class="icon">💳</span>Billing<span class="nav-badge" id="badge-billing">2</span></div>
-    <div class="nav-item" data-view="notifications"><span class="icon">🔔</span>Notifications</div>
-    <div class="nav-item" data-view="tasks"><span class="icon">☑️</span>Tasks</div>
-    <div class="nav-item" data-view="reports"><span class="icon">📊</span>Reports</div>
-  </div>
-
-  <div class="nav-section">
-    <div class="nav-label">System</div>
-    <div class="nav-item" data-view="settings"><span class="icon">⚙️</span>Settings</div>
-    <div class="nav-item" data-view="logs"><span class="icon">🕐</span>Logs & Timeline</div>
-  </div>
 </nav>
 
 <!-- ══════════════════════════════════════════════════════════
      MAIN
 ══════════════════════════════════════════════════════════ -->
 <div id="main">
-
-  <!-- TOP NAV -->
-  <div id="topnav">
-    <div class="topnav-title" id="topnav-title">Dashboard</div>
-    <div class="search-box">
-      <span>🔍</span>
-      <input type="text" id="global-search" placeholder="Smart search…" autocomplete="off">
-    </div>
-    <div class="topnav-actions">
-      <div class="icon-btn" data-view="notifications" title="Notifications">🔔<div class="badge-dot"></div></div>
-      <div class="icon-btn" data-view="tasks" title="Tasks">☑️</div>
-      <div class="avatar" title="Admin Nock">N</div>
-    </div>
-  </div>
 
   <!-- CONTENT — each view is populated by its JS module -->
   <div id="content">
@@ -113,6 +147,7 @@
 <script src="js/attendance-picker.js"></script>
 <script src="js/dashboard.js"></script>
 <script src="js/crm.js"></script>
+<script src="js/crm-forms.js"></script>
 <script src="js/crm-schedule.js"></script>
 <script src="js/inbox.js"></script>
 <script src="js/calendar-widget.js"></script>

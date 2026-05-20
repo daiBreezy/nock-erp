@@ -162,8 +162,8 @@
 
 ### Pill (package/course tags)
 ```html
-<span class="pill">Eng Active:48h.</span>
-<span class="pill">Math G6:36h.</span>
+<span class="pill">Eng (Active) ป.4 · 48h.</span>
+<span class="pill">Math ป.6 · 36h.</span>
 <!-- Gray rounded rectangle, lighter than badge -->
 ```
 
@@ -480,12 +480,14 @@ Modal.closeAll();
 
 ### Calendar Event Colors
 ```css
-.cal-event          /* default: indigo (Math G6) */
-.cal-event.green    /* Math G5, Thai Lang */
-.cal-event.yellow   /* Eng Read, Eng Active */
+.cal-event          /* default: indigo — Eng */
+.cal-event.green    /* Math, Thai */
+.cal-event.yellow   /* Eng (Active) */
+.cal-event.purple   /* Eng (Grammar) */
 .cal-event.orange   /* Science */
 .holiday-event      /* Red — holiday block */
 ```
+> ⚠️ สีมาจาก `CONST.SUBJECT_COLOR[session.subject]` — ไม่ hardcode
 
 ### Month View
 ```html

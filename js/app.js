@@ -12,30 +12,56 @@ const VIEW_TITLES = {
   reports:'Reports', settings:'Settings', logs:'Logs & Timeline'
 };
 
+/* ── CURRENT USER ─────────────────────────────────────────── */
+window.CURRENT_USER = {
+  name:    'Admin Nock',
+  initials:'N',
+  email:   'nock@nockacademy.com',
+  role:    'director',
+  branch:  'Sukhumvit',
+};
+
+const ROLE_META = {
+  director:     { label:'Director',    color:'#6366f1', bg:'#6366f115', border:'#6366f130' },
+  area_manager: { label:'Area Mgr',    color:'#3b82f6', bg:'#3b82f615', border:'#3b82f630' },
+  manager:      { label:'Manager',     color:'#10b981', bg:'#10b98115', border:'#10b98130' },
+  admin:        { label:'Admin',       color:'#f59e0b', bg:'#f59e0b15', border:'#f59e0b30' },
+  teacher:      { label:'Teacher',     color:'#8b5cf6', bg:'#8b5cf615', border:'#8b5cf630' },
+};
+
+function updateUserCard() {
+  const u = window.CURRENT_USER;
+  const rm = ROLE_META[u.role] || ROLE_META.admin;
+  const av = document.getElementById('user-av');
+  const nameEl = document.getElementById('user-name');
+  const roleEl = document.getElementById('user-role-badge');
+  const branchEl = document.getElementById('user-branch-text');
+  if (av) { av.textContent = u.initials; av.style.background = rm.color; }
+  if (nameEl) nameEl.textContent = u.name;
+  if (roleEl) {
+    roleEl.textContent = rm.label;
+    roleEl.style.color = rm.color;
+    roleEl.style.background = rm.bg;
+    roleEl.style.borderColor = rm.border;
+  }
+  if (branchEl) branchEl.textContent = u.branch;
+}
+
 /* ── NAVIGATION ───────────────────────────────────────────── */
 function showView(id) {
-  // hide all views
   document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
-  // show target
   const target = document.getElementById('view-' + id);
   if (target) target.classList.add('active');
-  // update sidebar active state
   document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
   const navEl = document.querySelector(`.nav-item[data-view="${id}"]`);
   if (navEl) navEl.classList.add('active');
-  // update topnav title
-  document.getElementById('topnav-title').textContent = VIEW_TITLES[id] || id;
-  // scroll content to top
+  // highlight noti bar when viewing notifications
+  document.querySelector('.sidebar-noti')?.classList.toggle('viewing', id === 'notifications');
   document.getElementById('content').scrollTop = 0;
 }
 
 // Wire sidebar nav items
 document.querySelectorAll('.nav-item[data-view]').forEach(el => {
-  el.addEventListener('click', () => showView(el.dataset.view));
-});
-
-// Wire topnav action buttons (notifications, tasks)
-document.querySelectorAll('#topnav .icon-btn[data-view]').forEach(el => {
   el.addEventListener('click', () => showView(el.dataset.view));
 });
 
@@ -118,13 +144,109 @@ function openInboxFor(name) {
   document.dispatchEvent(new CustomEvent('inbox:open', { detail: { name } }));
 }
 
-/* ── GLOBAL SEARCH (basic UX) ────────────────────────────── */
+/* ── GLOBAL SEARCH ────────────────────────────────────────── */
 document.getElementById('global-search').addEventListener('keydown', e => {
   if (e.key === 'Enter' && e.target.value.trim()) {
-    // Future: real search. For now show toast.
     showToast(`Searching "${e.target.value.trim()}"…`, 'info');
   }
 });
+
+/* ── SWITCH MODAL ─────────────────────────────────────────── */
+window.openSwitchModal = function () {
+  const u = window.CURRENT_USER;
+  const branches = CONST.BRANCHES || ['Sukhumvit', 'Silom'];
+
+  const branchBtns = branches.map(b => `
+    <button class="switch-opt-btn ${u.branch===b?'active':''}"
+      onclick="switchBranch('${b}',this)">${b}</button>`).join('');
+
+  const roleBtns = Object.entries(ROLE_META).map(([key, rm]) => `
+    <button class="switch-opt-btn ${u.role===key?'active':''}"
+      style="${u.role===key?`background:${rm.bg};color:${rm.color};border-color:${rm.border}`:''}"
+      onclick="switchRole('${key}',this,'${rm.color}','${rm.bg}','${rm.border}')">${rm.label}</button>`
+  ).join('');
+
+  Modal.create('modal-switch', '⇄ Account & Preferences', `
+    <!-- Profile -->
+    <div style="display:flex;align-items:center;gap:12px;background:#f9fafb;
+                border:1px solid #f3f4f6;border-radius:10px;padding:12px 14px;margin-bottom:4px">
+      <div style="width:40px;height:40px;border-radius:50%;background:${ROLE_META[u.role]?.color||'#6366f1'};
+                  color:#fff;font-size:16px;font-weight:700;display:flex;align-items:center;
+                  justify-content:center;flex-shrink:0" id="switch-av">${u.initials}</div>
+      <div>
+        <div style="font-size:14px;font-weight:600;color:#1a1d23">${u.name}</div>
+        <div style="font-size:12px;color:#6b7280;margin-top:1px">${u.email}</div>
+      </div>
+    </div>
+
+    <div class="modal-section">
+      <!-- Branch -->
+      <div style="margin-bottom:16px">
+        <div style="font-size:11px;font-weight:600;color:#6b7280;text-transform:uppercase;
+                    letter-spacing:.6px;margin-bottom:8px">🏫 Branch</div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap">${branchBtns}</div>
+      </div>
+      <!-- Role -->
+      <div>
+        <div style="font-size:11px;font-weight:600;color:#6b7280;text-transform:uppercase;
+                    letter-spacing:.6px;margin-bottom:8px">👤 View as Role</div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap">${roleBtns}</div>
+        <div style="font-size:11px;color:#9ca3af;margin-top:8px;padding:8px 10px;
+                    background:#f9fafb;border-radius:7px;border:1px solid #f3f4f6">
+          💡 Switching role shows what that role can see (UI preview only)
+        </div>
+      </div>
+    </div>`,
+
+    `<button class="btn btn-secondary" onclick="Modal.close('modal-switch')">Close</button>
+     <button class="btn btn-danger" style="margin-left:auto" onclick="logout()">🚪 Log Out</button>`,
+    'modal-sm');
+};
+
+window.switchBranch = function (branch, btn) {
+  window.CURRENT_USER.branch = branch;
+  btn.closest('.modal-body').querySelectorAll('.switch-opt-btn').forEach((b, i, arr) => {
+    // only reset branch buttons (first group)
+    if (b.closest('[style*="flex-wrap"]') === btn.closest('[style*="flex-wrap"]')) b.classList.remove('active');
+  });
+  btn.classList.add('active');
+  updateUserCard();
+  showToast(`Branch: ${branch} ✓`, 'success');
+};
+
+window.switchRole = function (role, btn, color, bg, border) {
+  window.CURRENT_USER.role = role;
+  const group = btn.closest('div[style*="flex-wrap"]');
+  group?.querySelectorAll('.switch-opt-btn').forEach(b => {
+    b.classList.remove('active');
+    b.style.background = ''; b.style.color = ''; b.style.borderColor = '';
+  });
+  btn.classList.add('active');
+  btn.style.background = bg; btn.style.color = color; btn.style.borderColor = border;
+  // update switch-av color
+  const av = document.getElementById('switch-av');
+  if (av) av.style.background = color;
+  updateUserCard();
+  showToast(`Viewing as ${ROLE_META[role]?.label} ✓`, 'success');
+};
+
+window.logout = function () {
+  Modal.closeAll();
+  window.location.href = 'signin.html';
+};
+
+/* ── INIT USER CARD ───────────────────────────────────────── */
+(function () {
+  // Restore user from signin.html session
+  try {
+    const stored = sessionStorage.getItem('erp_user');
+    if (stored) {
+      const u = JSON.parse(stored);
+      if (u.name) Object.assign(window.CURRENT_USER, u);
+    }
+  } catch (e) {}
+  updateUserCard();
+})();
 
 /* ── TOAST NOTIFICATION ───────────────────────────────────── */
 function showToast(message, type = 'info') {

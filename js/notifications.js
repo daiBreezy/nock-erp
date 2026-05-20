@@ -181,12 +181,20 @@
       ? `${unreadCount} unread notification${unreadCount>1?'s':''}`
       : 'All caught up ✓';
 
-    /* Update sidebar badge */
+    /* Update sidebar badge + notification bar */
     const badge = document.getElementById('badge-notifications');
     if (badge) {
       badge.textContent = unreadCount || '';
       badge.style.display = unreadCount ? '' : 'none';
     }
+    const notiBar = document.querySelector('.sidebar-noti');
+    const notiPulse = document.getElementById('noti-pulse');
+    const notiSub = document.getElementById('noti-sub-text');
+    if (notiBar) notiBar.classList.toggle('has-unread', unreadCount > 0);
+    if (notiPulse) notiPulse.classList.toggle('active', unreadCount > 0);
+    if (notiSub) notiSub.textContent = unreadCount > 0
+      ? `${unreadCount} unread`
+      : 'All caught up ✓';
 
     const container = document.getElementById('notif-list');
     if (!container) return;

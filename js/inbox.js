@@ -185,6 +185,19 @@
           ${staffList.map(s =>
             `<option ${s === conv.assignee ? 'selected' : ''}>${s}</option>`).join('')}
         </select>
+        ${(()=>{
+          const linked = DB.leads.find(l => l.convId === conv.id);
+          if (linked) {
+            const meta = CONST.LEAD_STAGES[linked.stage] || {};
+            return `<button class="btn btn-sm" style="background:${meta.bg||'#ede9fe'};color:${meta.color||'#6366f1'};border:1.5px solid ${meta.color||'#6366f1'}20;font-weight:600"
+              onclick="showView('crm');setTimeout(()=>openLeadModal('${linked.id}'),80)" title="View lead in CRM">
+              🎯 ${linked.name.split(' ')[0]}</button>`;
+          }
+          return `<button class="btn btn-primary btn-sm"
+            onclick="openCreateLeadFromInbox('${conv.id}')">＋ Create Lead</button>`;
+        })()}
+        <button class="btn btn-secondary btn-sm"
+                onclick="openSendFormFromInbox('${conv.id}')">📋 Send Form</button>
         <button class="btn btn-secondary btn-sm"
                 onclick="openCustomerModal('${conv.student}')">👤 Profile</button>
       </div>`;
@@ -209,6 +222,37 @@
       const isStaff    = m.type === 'staff';
       const isInternal = m.type === 'internal';
       const sender     = m.sender || (isStaff ? 'Admin Nock' : conv?.name || 'Parent');
+
+      /* ── Form submission notification ── */
+      if (m.type === 'form_submission') {
+        const ft = m.formType;
+        const ftLabel = ft==='enrollment'?'Enrollment':ft==='trial'?'Trial':'Test';
+        const sub = (DB.formSubmissions||[]).find(s=>s.id===m.subId);
+        const statusBg = sub?.status==='approved' ? '#dcfce7' : sub?.status==='pending' ? '#ede9fe' : '#f3f4f6';
+        const statusColor = sub?.status==='approved' ? '#065f46' : sub?.status==='pending' ? '#4c1d95' : '#6b7280';
+        const statusLabel = sub?.status==='approved' ? '✅ Approved' : sub?.status==='pending' ? '⏳ Pending Review' : 'Reviewed';
+        return `
+        <div style="display:flex;justify-content:center;margin:4px 0">
+          <div style="background:${statusBg};border:1.5px solid #c4b5fd;border-radius:10px;
+                      padding:11px 15px;max-width:82%;cursor:pointer;transition:all .15s"
+               onmouseover="this.style.filter='brightness(.97)'" onmouseout="this.style.filter=''"
+               onclick="${sub?.status==='pending'?`openFormReviewModal('${m.subId}')`:''}" >
+            <div style="font-size:12px;font-weight:700;color:${statusColor};margin-bottom:4px">
+              📋 ${ftLabel} Form Submitted
+            </div>
+            <div style="font-size:11px;color:#6b7280;margin-bottom:8px">
+              ${sub ? sub.data.students?.map(s=>`${s.name} · ${s.subject} ${s.grade}`).join(', ') : '—'}
+            </div>
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:8px">
+              <span style="font-size:10px;font-weight:600;color:${statusColor};background:${statusBg};
+                           border:1px solid #c4b5fd;border-radius:4px;padding:2px 7px">${statusLabel}</span>
+              ${sub?.status==='pending' ? `<button class="btn btn-primary btn-sm"
+                onclick="event.stopPropagation();openFormReviewModal('${m.subId}')">Review →</button>` :
+                `<span style="font-size:10px;color:#9ca3af">${m.time}</span>`}
+            </div>
+          </div>
+        </div>`;
+      }
 
       /* ── Internal note ── */
       if (isInternal) {
@@ -343,6 +387,9 @@
         e.detail.name.split(' ')[0].toLowerCase())));
     if (t) openConversation(t.id);
   });
+
+  /* ── GLOBAL REFRESH (for external modules) ───────────── */
+  window._refreshInboxList = function () { renderList(); };
 
   /* ── INIT ─────────────────────────────────────────────── */
   renderList();

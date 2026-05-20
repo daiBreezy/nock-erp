@@ -7,7 +7,25 @@
       "Bash(./gemini.sh \"Reply with exactly: KEY_OK\")",
       "Bash(./gemini.sh -f \"js/_prompts/dashboard_prompt.txt\" -o \"js/dashboard.js\")",
       "Bash(open \"/Users/nockacademy/Documents/Claude/Projects/NEW ERP!/index.html\")",
-      "Bash(cat ~/.claude/settings.json 2>/dev/null || echo \"ไม่มีไฟล์นี้\")"
+      "Bash(cat ~/.claude/settings.json 2>/dev/null || echo \"ไม่มีไฟล์นี้\")",
+      "mcp__3bf9d403-d54c-4806-a966-0c05b3b15d24__notion-search",
+      "mcp__3bf9d403-d54c-4806-a966-0c05b3b15d24__notion-fetch",
+      "mcp__3bf9d403-d54c-4806-a966-0c05b3b15d24__notion-update-page",
+      "mcp__3bf9d403-d54c-4806-a966-0c05b3b15d24__notion-create-pages",
+      "mcp__Claude_in_Chrome__tabs_context_mcp",
+      "Bash(node --check \"/Users/nockacademy/Documents/Claude/Projects/NEW ERP!/js/crm-forms.js\")",
+      "Bash(node --check \"/Users/nockacademy/Documents/Claude/Projects/NEW ERP!/js/crm.js\")",
+      "Bash(node --check \"/Users/nockacademy/Documents/Claude/Projects/NEW ERP!/js/data.js\")",
+      "Bash(node --check \"/Users/nockacademy/Documents/Claude/Projects/NEW ERP!/js/inbox.js\")",
+      "Bash(node -e ' *)",
+      "Bash(node --input-type=module)",
+      "Bash(node -c \"/Users/nockacademy/Documents/Claude/Projects/NEW ERP!/js/crm.js\")",
+      "Bash(node -c \"/Users/nockacademy/Documents/Claude/Projects/NEW ERP!/js/inbox.js\")",
+      "mcp__Claude_Preview__preview_start",
+      "Bash(find /tmp ~/Downloads ~/Desktop -name \"*.png\" -newer \"/Users/nockacademy/Documents/Claude/Projects/NEW ERP!/index.html\" 2>/dev/null | head -10)",
+      "Bash(find ~/Library/Caches -path \"*Claude*\" -name \"*.png\" 2>/dev/null | head -10 *)",
+      "Bash(# Search more broadly for recent image files *)",
+      "Bash(find ~/Desktop ~/Downloads -maxdepth 2 \\\\\\( -name \"*.png\" -o -name \"*.jpg\" -o -name \"*.jpeg\" \\\\\\) 2>/dev/null | head -10)"
     ]
   }
 }

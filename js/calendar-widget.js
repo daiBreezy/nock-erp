@@ -280,17 +280,21 @@ window.CalendarWidget = (function () {
 
             h += `<div style="grid-row:${startRow}/${endRow};grid-column:${gridCol};
               ${isSel ? 'background:#e0e7ff;border:2px solid #6366f1;'
-                      : 'border:1px dashed #e5e7eb;'}
+                      : 'border:1px dashed transparent;'}
               border-radius:6px;margin:3px;cursor:pointer;z-index:0;
-              display:flex;align-items:center;justify-content:center;
-              font-size:22px;color:#d1d5db;transition:all .15s"
+              display:flex;flex-direction:column;align-items:center;justify-content:center;
+              gap:4px;color:#d1d5db;transition:all .15s;position:relative"
               onclick="CalendarWidget._onEmptyDay(${slot.id},'${date}','${tEncoded}')"
-              onmouseover="if(!this.dataset.sel){this.style.background='#f5f3ff';this.style.borderColor='#a5b4fc';this.style.color='#a5b4fc';}"
-              onmouseout="if(!this.dataset.sel){this.style.background='';this.style.borderColor='#e5e7eb';this.style.color='#d1d5db';}"
+              onmouseover="if(!this.dataset.sel){this.style.background='#f5f3ff';this.style.borderColor='#a5b4fc';this.querySelector('.slot-hint').style.opacity='1';}"
+              onmouseout="if(!this.dataset.sel){this.style.background='';this.style.borderColor='transparent';this.querySelector('.slot-hint').style.opacity='0';}"
               ${isSel ? 'data-sel="1"' : ''}>
               ${isSel
                 ? '<span style="font-size:12px;font-weight:600;color:#6366f1">✓ New</span>'
-                : '＋'}
+                : `<div class="slot-hint" style="opacity:0;transition:opacity .15s;
+                    display:flex;flex-direction:column;align-items:center;gap:3px;pointer-events:none">
+                    <span style="font-size:18px;color:#a5b4fc">＋</span>
+                    <span style="font-size:10px;font-weight:600;color:#6366f1;white-space:nowrap">Create Class</span>
+                  </div>`}
             </div>`;
           });
         });

@@ -1,0 +1,855 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>NockAcademy — Registration Form</title>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  background: #f5f6fa;
+  color: #1a1d23;
+  min-height: 100vh;
+  -webkit-font-smoothing: antialiased;
+}
+.page-wrap { max-width: 520px; margin: 0 auto; padding: 0 0 80px; }
+
+/* Header */
+.form-header {
+  background: #6366f1;
+  color: #fff;
+  padding: 20px 20px 16px;
+  text-align: center;
+}
+.form-header .logo { font-size: 22px; font-weight: 800; letter-spacing: -.5px; }
+.form-header .branch { font-size: 12px; opacity: .8; margin-top: 3px; }
+
+/* Stepper */
+.stepper {
+  display: flex;
+  align-items: center;
+  padding: 14px 20px;
+  background: #fff;
+  border-bottom: 1px solid #e5e7eb;
+  overflow-x: auto;
+  gap: 0;
+}
+.step-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  flex: 1;
+  position: relative;
+  min-width: 56px;
+}
+.step-item:not(:last-child)::after {
+  content: '';
+  position: absolute;
+  top: 13px;
+  left: 50%;
+  width: 100%;
+  height: 2px;
+  background: #e5e7eb;
+  z-index: 0;
+}
+.step-item.done:not(:last-child)::after { background: #6366f1; }
+.step-dot {
+  width: 26px; height: 26px;
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 11px; font-weight: 700;
+  background: #e5e7eb; color: #9ca3af;
+  position: relative; z-index: 1;
+  transition: all .2s;
+}
+.step-item.active .step-dot { background: #6366f1; color: #fff; box-shadow: 0 0 0 3px #c7d2fe; }
+.step-item.done .step-dot   { background: #10b981; color: #fff; }
+.step-label { font-size: 9px; color: #9ca3af; white-space: nowrap; }
+.step-item.active .step-label { color: #6366f1; font-weight: 600; }
+.step-item.done  .step-label  { color: #10b981; }
+
+/* Card */
+.form-card {
+  background: #fff;
+  margin: 14px 14px 0;
+  border-radius: 12px;
+  box-shadow: 0 1px 4px rgba(0,0,0,.06);
+  overflow: hidden;
+}
+.form-card-header {
+  padding: 14px 16px 12px;
+  border-bottom: 1px solid #f3f4f6;
+  font-size: 13px; font-weight: 700; color: #1a1d23;
+  display: flex; align-items: center; gap: 8px;
+}
+.form-card-body { padding: 14px 16px; }
+
+/* Fields */
+.field { margin-bottom: 13px; }
+.field:last-child { margin-bottom: 0; }
+label { display: block; font-size: 11px; font-weight: 600; color: #6b7280; margin-bottom: 5px; text-transform: uppercase; letter-spacing: .4px; }
+label .req { color: #ef4444; margin-left: 2px; }
+input[type=text], input[type=tel], input[type=email], select, textarea {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1.5px solid #e5e7eb;
+  border-radius: 8px;
+  font-size: 14px;
+  font-family: inherit;
+  color: #1a1d23;
+  background: #fff;
+  outline: none;
+  transition: border-color .15s;
+  appearance: none;
+}
+input:focus, select:focus, textarea:focus { border-color: #6366f1; box-shadow: 0 0 0 3px #e0e7ff; }
+textarea { resize: vertical; min-height: 72px; }
+select { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3E%3Cpath stroke='%236b7280' stroke-width='1.5' d='M6 8l4 4 4-4'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 10px center; background-size: 18px; padding-right: 34px; cursor: pointer; }
+.field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.field-row .field { margin-bottom: 0; }
+.hint { font-size: 11px; color: #9ca3af; margin-top: 4px; }
+
+/* Schedule slots */
+.slot-list { display: flex; flex-direction: column; gap: 8px; margin-top: 4px; }
+.slot-option {
+  display: flex; align-items: center; gap: 10px;
+  padding: 11px 13px;
+  border: 1.5px solid #e5e7eb;
+  border-radius: 9px;
+  cursor: pointer;
+  transition: all .15s;
+}
+.slot-option:hover { border-color: #6366f1; background: #f5f3ff; }
+.slot-option.selected { border-color: #6366f1; background: #ede9fe; }
+.slot-option input[type=radio] { accent-color: #6366f1; flex-shrink: 0; }
+.slot-day   { font-size: 13px; font-weight: 600; color: #1a1d23; }
+.slot-time  { font-size: 12px; color: #6b7280; }
+.slot-badge { margin-left: auto; font-size: 10px; color: #6b7280; flex-shrink: 0; }
+
+/* Package options */
+.pkg-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 4px; }
+.pkg-option {
+  border: 2px solid #e5e7eb;
+  border-radius: 9px;
+  padding: 11px 13px;
+  cursor: pointer;
+  transition: all .15s;
+  text-align: center;
+}
+.pkg-option:hover { border-color: #6366f1; }
+.pkg-option.selected { border-color: #6366f1; background: #ede9fe; }
+.pkg-option input[type=radio] { display: none; }
+.pkg-hours { font-size: 18px; font-weight: 800; color: #1a1d23; }
+.pkg-price { font-size: 13px; font-weight: 600; color: #6366f1; margin-top: 3px; }
+.pkg-sub   { font-size: 10px; color: #9ca3af; margin-top: 2px; }
+
+/* Payment */
+.bank-box {
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  border-radius: 9px;
+  padding: 12px 14px;
+  margin-bottom: 12px;
+}
+.bank-box .bank-name { font-size: 12px; font-weight: 700; color: #065f46; }
+.bank-box .bank-num  { font-size: 15px; font-weight: 800; color: #1a1d23; letter-spacing: .5px; margin-top: 3px; }
+.bank-box .bank-acc  { font-size: 11px; color: #6b7280; margin-top: 2px; }
+
+.upload-box {
+  border: 2px dashed #c4b5fd;
+  border-radius: 9px;
+  padding: 20px;
+  text-align: center;
+  cursor: pointer;
+  transition: all .15s;
+  background: #faf5ff;
+}
+.upload-box:hover { border-color: #8b5cf6; background: #f5f3ff; }
+.upload-box .upload-icon { font-size: 28px; margin-bottom: 8px; }
+.upload-box .upload-text { font-size: 13px; font-weight: 600; color: #7c3aed; }
+.upload-box .upload-sub  { font-size: 11px; color: #9ca3af; margin-top: 3px; }
+.upload-done { display: none; align-items: center; gap: 10px; background: #f0fdf4; border: 1.5px solid #86efac; border-radius: 9px; padding: 11px 14px; }
+.upload-done.visible { display: flex; }
+.upload-done .file-name { font-size: 12px; font-weight: 600; color: #059669; }
+
+/* Summary */
+.summary-table { width: 100%; border-collapse: collapse; }
+.summary-table td { padding: 8px 0; font-size: 13px; border-bottom: 1px solid #f3f4f6; }
+.summary-table td:first-child { color: #6b7280; width: 40%; }
+.summary-table td:last-child { font-weight: 600; color: #1a1d23; }
+.summary-total td { font-size: 15px; font-weight: 800; border-bottom: none; padding-top: 12px; }
+.summary-total td:last-child { color: #059669; }
+
+/* Add more row */
+.add-row-btn {
+  display: flex; align-items: center; gap: 6px;
+  padding: 9px 12px;
+  border: 1.5px dashed #c4b5fd;
+  border-radius: 8px;
+  color: #7c3aed;
+  font-size: 12px; font-weight: 600;
+  cursor: pointer;
+  margin-top: 10px;
+  background: none;
+  transition: all .15s;
+}
+.add-row-btn:hover { background: #faf5ff; border-color: #8b5cf6; }
+
+/* Navigation */
+.form-nav {
+  position: fixed;
+  bottom: 0; left: 0; right: 0;
+  background: #fff;
+  border-top: 1px solid #e5e7eb;
+  padding: 12px 16px;
+  display: flex;
+  gap: 10px;
+  max-width: 520px;
+  margin: 0 auto;
+}
+.form-nav.center { justify-content: center; }
+.btn-back {
+  padding: 11px 20px;
+  border: 1.5px solid #e5e7eb;
+  border-radius: 9px;
+  font-size: 14px;
+  font-weight: 600;
+  background: #fff;
+  color: #374151;
+  cursor: pointer;
+  min-width: 80px;
+  transition: all .15s;
+}
+.btn-back:hover { background: #f9fafb; }
+.btn-next {
+  flex: 1;
+  padding: 12px 20px;
+  border: none;
+  border-radius: 9px;
+  font-size: 14px;
+  font-weight: 700;
+  background: #6366f1;
+  color: #fff;
+  cursor: pointer;
+  transition: all .15s;
+}
+.btn-next:hover { background: #4f46e5; }
+.btn-next:disabled { background: #c7d2fe; cursor: not-allowed; }
+.btn-confirm {
+  flex: 1;
+  padding: 12px 20px;
+  border: none;
+  border-radius: 9px;
+  font-size: 14px;
+  font-weight: 700;
+  background: #10b981;
+  color: #fff;
+  cursor: pointer;
+  transition: all .15s;
+}
+.btn-confirm:hover { background: #059669; }
+
+/* Thank you screen */
+.thank-you {
+  display: none;
+  text-align: center;
+  padding: 48px 20px;
+}
+.thank-you.visible { display: block; }
+.ty-icon { font-size: 64px; margin-bottom: 20px; }
+.ty-title { font-size: 22px; font-weight: 800; color: #1a1d23; margin-bottom: 10px; }
+.ty-sub   { font-size: 14px; color: #6b7280; line-height: 1.7; }
+.ty-card  { background: #fff; border-radius: 12px; padding: 18px 20px; margin: 20px 0; text-align: left; }
+.ty-row   { display: flex; justify-content: space-between; padding: 6px 0; font-size: 13px; border-bottom: 1px solid #f3f4f6; }
+.ty-row:last-child { border-bottom: none; }
+.ty-row span:first-child { color: #9ca3af; }
+.ty-row span:last-child  { font-weight: 600; color: #1a1d23; }
+
+/* Alert box */
+.alert-box {
+  margin: 12px 14px 0;
+  background: #ede9fe;
+  border: 1px solid #c4b5fd;
+  border-radius: 9px;
+  padding: 10px 14px;
+  font-size: 12px;
+  color: #4c1d95;
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+}
+
+/* Divider */
+.divider { height: 1px; background: #f3f4f6; margin: 2px 0; }
+</style>
+</head>
+<body>
+<div class="page-wrap">
+
+<!-- HEADER -->
+<div class="form-header">
+  <div class="logo">📚 NockAcademy</div>
+  <div class="branch" id="header-branch">Loading…</div>
+</div>
+
+<!-- DEMO ALERT -->
+<div class="alert-box" id="demo-alert" style="display:none">
+  🧪 <div><strong>Demo Preview Mode</strong> — This is how the form looks to parents when opened via the unique link sent by Admin.</div>
+</div>
+
+<!-- STEPPER (enrollment only) -->
+<div class="stepper" id="stepper" style="display:none">
+  <div class="step-item active" id="step-dot-1"><div class="step-dot" id="sdot1">1</div><div class="step-label">Family</div></div>
+  <div class="step-item" id="step-dot-2"><div class="step-dot" id="sdot2">2</div><div class="step-label">Course</div></div>
+  <div class="step-item" id="step-dot-3"><div class="step-dot" id="sdot3">3</div><div class="step-label">Schedule</div></div>
+  <div class="step-item" id="step-dot-4"><div class="step-dot" id="sdot4">4</div><div class="step-label">Payment</div></div>
+  <div class="step-item" id="step-dot-5"><div class="step-dot" id="sdot5">5</div><div class="step-label">Confirm</div></div>
+</div>
+
+<!-- FORM CONTENT -->
+<div id="form-content"></div>
+
+<!-- THANK YOU -->
+<div class="thank-you" id="thank-you">
+  <div class="ty-icon">🎉</div>
+  <div class="ty-title">Form Submitted!</div>
+  <div class="ty-sub">ขอบคุณมากครับ เราได้รับข้อมูลของคุณแล้ว<br>ทางทีมงาน NockAcademy จะติดต่อกลับภายใน 24 ชั่วโมง</div>
+  <div class="ty-card" id="ty-summary"></div>
+  <div class="ty-sub" style="font-size:12px;margin-top:16px;color:#9ca3af">
+    มีข้อสงสัย? ติดต่อเราได้ที่ LINE: <strong style="color:#06c755">@NockAcademy</strong>
+  </div>
+</div>
+
+<!-- NAV BUTTONS -->
+<div class="form-nav" id="form-nav" style="display:none">
+  <button class="btn-back" id="btn-back" onclick="stepBack()" style="display:none">← Back</button>
+  <button class="btn-next" id="btn-next" onclick="stepNext()">Next →</button>
+</div>
+
+</div><!-- /page-wrap -->
+
+<script>
+/* ── URL PARAMS ────────────────────────────────────────────── */
+const params   = new URLSearchParams(location.search);
+const formType = params.get('type') || 'test';       // test | trial | enrollment
+const leadId   = params.get('lead') || '';
+const isDemo   = params.get('demo') === '1';
+
+/* ── BRANCH (mock) ─────────────────────────────────────────── */
+const branchMap = {sukhumvit:'Sukhumvit Branch', silom:'Silom Branch'};
+const branch    = branchMap[params.get('branch')?.toLowerCase()] || 'Sukhumvit Branch';
+document.getElementById('header-branch').textContent = `📍 ${branch}`;
+document.title = `NockAcademy — ${branch}`;
+
+if (isDemo) document.getElementById('demo-alert').style.display = 'flex';
+
+/* ── STATE ─────────────────────────────────────────────────── */
+let currentStep = 1;
+const TOTAL_STEPS = 5;
+const state = {
+  parent1Name:'', parent1Phone:'', parent1Line:'',
+  studentName:'', grade:'ป.5', subject:'', notes:'',
+  slot:null, course:'', pkg:24, price:7200,
+  scheduleSlot:null, payMethod:'bank', slipName:'', confirmed:false
+};
+
+/* ── MOCK DATA ─────────────────────────────────────────────── */
+const GRADES = ['ป.1','ป.2','ป.3','ป.4','ป.5','ป.6','ม.1','ม.2','ม.3'];
+const SUBJECTS = ['Eng (Active)','Eng (Grammar)','Math','Science','Thai'];
+const PACKAGES = [
+  {hours:12, price:3600,  label:'Starter'},
+  {hours:24, price:7200,  label:'Regular'},
+  {hours:48, price:12960, label:'Value'},
+  {hours:72, price:18900, label:'Premium'},
+];
+
+// Available time slots (mix of existing classes + empty slots)
+const SLOTS_TEST_TRIAL = [
+  {id:'s1', day:'Tue 26 May', time:'10:00–12:00', spots:'3 spots left'},
+  {id:'s2', day:'Tue 26 May', time:'13:00–15:00', spots:'5 spots left'},
+  {id:'s3', day:'Wed 27 May', time:'13:00–15:00', spots:'2 spots left'},
+  {id:'s4', day:'Thu 28 May', time:'10:00–12:00', spots:'Available'},
+  {id:'s5', day:'Sat 30 May', time:'10:00–12:00', spots:'4 spots left'},
+  {id:'s6', day:'Sat 30 May', time:'15:00–17:00', spots:'Available'},
+];
+const SLOTS_REGULAR = [
+  {id:'r1', day:'Every Wednesday', time:'13:00–15:00', teacher:'Kru Eve', room:'Room 1', spots:'2 spots left'},
+  {id:'r2', day:'Every Saturday',  time:'13:00–15:00', teacher:'Kru Eve', room:'Room 2', spots:'6 spots left'},
+  {id:'r3', day:'Every Sunday',    time:'10:00–12:00', teacher:'Kru Eve', room:'Room 1', spots:'2 spots left'},
+];
+
+/* ── INIT ──────────────────────────────────────────────────── */
+window.addEventListener('DOMContentLoaded', function () {
+  if (formType === 'enrollment') {
+    document.getElementById('stepper').style.display = 'flex';
+    renderStep(1);
+  } else {
+    renderTestTrialForm();
+  }
+  document.getElementById('form-nav').style.display = 'flex';
+  if (formType !== 'enrollment') {
+    document.getElementById('btn-next').textContent = 'Submit ✓';
+    document.getElementById('btn-next').classList.add('btn-confirm');
+    document.getElementById('btn-next').classList.remove('btn-next');
+    document.getElementById('btn-next').onclick = submitTestTrial;
+  }
+});
+
+/* ══════════════════════════════════════════════════════════
+   TEST / TRIAL FORM
+══════════════════════════════════════════════════════════ */
+function renderTestTrialForm() {
+  const typeLabel = formType === 'trial' ? 'Trial' : 'Test';
+  document.getElementById('form-content').innerHTML = `
+    <div class="form-card" style="margin-top:14px">
+      <div class="form-card-header">👨‍👩‍👧 Parent / Guardian</div>
+      <div class="form-card-body">
+        <div class="field">
+          <label>Full Name <span class="req">*</span></label>
+          <input type="text" id="p1name" placeholder="e.g. Somchai Jaidee" oninput="state.parent1Name=this.value">
+        </div>
+        <div class="field-row">
+          <div class="field">
+            <label>Phone <span class="req">*</span></label>
+            <input type="tel" id="p1phone" placeholder="089-xxx-xxxx" oninput="state.parent1Phone=this.value">
+          </div>
+          <div class="field">
+            <label>LINE ID</label>
+            <input type="text" id="p1line" placeholder="@lineid" oninput="state.parent1Line=this.value">
+          </div>
+        </div>
+        <button class="add-row-btn">＋ Add Another Parent</button>
+      </div>
+    </div>
+
+    <div class="form-card">
+      <div class="form-card-header">🎓 Student</div>
+      <div class="form-card-body">
+        <div class="field">
+          <label>Student Name <span class="req">*</span></label>
+          <input type="text" id="stname" placeholder="e.g. Somying Jaidee" oninput="state.studentName=this.value">
+        </div>
+        <div class="field-row">
+          <div class="field">
+            <label>Grade / Year <span class="req">*</span></label>
+            <select id="stgrade" onchange="state.grade=this.value">
+              <option value="">Select…</option>
+              ${GRADES.map(g=>`<option value="${g}">${g}</option>`).join('')}
+            </select>
+          </div>
+          <div class="field">
+            <label>Subject Interest <span class="req">*</span></label>
+            <select id="stsubject" onchange="state.subject=this.value">
+              <option value="">Select…</option>
+              ${SUBJECTS.map(s=>`<option value="${s}">${s}</option>`).join('')}
+            </select>
+          </div>
+        </div>
+        <div class="field">
+          <label>Previous Experience / Notes</label>
+          <textarea id="stnotes" placeholder="e.g. Currently at ป.5, strong in reading, needs help with writing…" oninput="state.notes=this.value"></textarea>
+        </div>
+        <button class="add-row-btn">＋ Add Another Student</button>
+      </div>
+    </div>
+
+    <div class="form-card">
+      <div class="form-card-header">📅 Select ${typeLabel} Date & Time</div>
+      <div class="form-card-body">
+        <p style="font-size:12px;color:#6b7280;margin-bottom:10px">
+          Please choose a date and time for your ${typeLabel.toLowerCase()} session:
+        </p>
+        <div class="slot-list" id="slot-list">
+          ${SLOTS_TEST_TRIAL.map(s=>`
+          <label class="slot-option" onclick="selectSlot('${s.id}',this)">
+            <input type="radio" name="slot" value="${s.id}" onchange="state.slot='${s.id}'">
+            <div style="flex:1">
+              <div class="slot-day">${s.day}</div>
+              <div class="slot-time">⏰ ${s.time}</div>
+            </div>
+            <div class="slot-badge">${s.spots}</div>
+          </label>`).join('')}
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function selectSlot(id, el) {
+  state.slot = id;
+  document.querySelectorAll('.slot-option').forEach(o => o.classList.remove('selected'));
+  el.classList.add('selected');
+}
+
+function submitTestTrial() {
+  if (!state.parent1Name) { showFormError('กรุณากรอกชื่อผู้ปกครอง'); return; }
+  if (!state.parent1Phone) { showFormError('กรุณากรอกเบอร์โทรศัพท์'); return; }
+  if (!state.studentName) { showFormError('กรุณากรอกชื่อนักเรียน'); return; }
+  if (!state.grade) { showFormError('กรุณาเลือกชั้นเรียน'); return; }
+  if (!state.subject) { showFormError('กรุณาเลือกวิชา'); return; }
+  if (!state.slot) { showFormError('กรุณาเลือกวัน/เวลาที่สะดวก'); return; }
+  const slotInfo = SLOTS_TEST_TRIAL.find(s => s.id === state.slot);
+  showThankYou({
+    'Form Type': formType === 'trial' ? 'Trial Class' : 'Test Assessment',
+    'Student': state.studentName,
+    'Grade': state.grade,
+    'Subject': state.subject,
+    'Schedule': slotInfo ? `${slotInfo.day}, ${slotInfo.time}` : '—',
+    'Branch': branch,
+  });
+}
+
+/* ══════════════════════════════════════════════════════════
+   ENROLLMENT STEPPER
+══════════════════════════════════════════════════════════ */
+function renderStep(n) {
+  currentStep = n;
+  updateStepper();
+  const render = [null, renderStep1, renderStep2, renderStep3, renderStep4, renderStep5];
+  render[n]?.();
+  document.getElementById('btn-back').style.display = n > 1 ? '' : 'none';
+  document.getElementById('btn-next').textContent = n < TOTAL_STEPS ? 'Next →' : 'Confirm & Submit ✓';
+  document.getElementById('btn-next').onclick = n < TOTAL_STEPS ? stepNext : submitEnrollment;
+  if (n === TOTAL_STEPS) {
+    document.getElementById('btn-next').style.background = '#10b981';
+  } else {
+    document.getElementById('btn-next').style.background = '#6366f1';
+  }
+}
+
+function updateStepper() {
+  for (let i = 1; i <= TOTAL_STEPS; i++) {
+    const item = document.getElementById('step-dot-'+i);
+    const dot  = document.getElementById('sdot'+i);
+    if (!item) continue;
+    item.className = 'step-item';
+    if (i < currentStep) { item.classList.add('done'); dot.textContent = '✓'; }
+    else if (i === currentStep) { item.classList.add('active'); dot.textContent = i; }
+    else { dot.textContent = i; }
+  }
+}
+
+function stepNext() {
+  if (!validateStep(currentStep)) return;
+  if (currentStep < TOTAL_STEPS) renderStep(currentStep + 1);
+}
+function stepBack() {
+  if (currentStep > 1) renderStep(currentStep - 1);
+}
+
+function validateStep(n) {
+  if (n === 1) {
+    if (!document.getElementById('ep1name')?.value) { showFormError('กรุณากรอกชื่อผู้ปกครอง'); return false; }
+    if (!document.getElementById('ep1phone')?.value) { showFormError('กรุณากรอกเบอร์โทรศัพท์'); return false; }
+    state.parent1Name  = document.getElementById('ep1name').value;
+    state.parent1Phone = document.getElementById('ep1phone').value;
+    state.parent1Line  = document.getElementById('ep1line')?.value||'';
+    state.studentName  = document.getElementById('estname')?.value||'';
+    state.grade        = document.getElementById('estgrade')?.value||'';
+    return true;
+  }
+  if (n === 2) {
+    state.course = document.getElementById('ecourse-subject')?.value||'';
+    if (!state.course) { showFormError('กรุณาเลือกวิชา'); return false; }
+    return true;
+  }
+  if (n === 3) {
+    if (!state.scheduleSlot) { showFormError('กรุณาเลือกตารางเรียนประจำ'); return false; }
+    return true;
+  }
+  if (n === 4) {
+    if (!state.slipName) { showFormError('กรุณาแนบสลิปการโอนเงิน'); return false; }
+    return true;
+  }
+  return true;
+}
+
+/* Step 1 — Family Info */
+function renderStep1() {
+  document.getElementById('form-content').innerHTML = `
+    <div class="form-card">
+      <div class="form-card-header">👨‍👩‍👧 Step 1 — Family Info</div>
+      <div class="form-card-body">
+        <div class="field">
+          <label>Parent / Guardian Name <span class="req">*</span></label>
+          <input type="text" id="ep1name" placeholder="Full name" value="${state.parent1Name}"
+            oninput="state.parent1Name=this.value">
+        </div>
+        <div class="field-row">
+          <div class="field">
+            <label>Phone <span class="req">*</span></label>
+            <input type="tel" id="ep1phone" placeholder="089-xxx-xxxx" value="${state.parent1Phone}"
+              oninput="state.parent1Phone=this.value">
+          </div>
+          <div class="field">
+            <label>LINE ID</label>
+            <input type="text" id="ep1line" placeholder="@lineid" value="${state.parent1Line}"
+              oninput="state.parent1Line=this.value">
+          </div>
+        </div>
+        <button class="add-row-btn" type="button">＋ Add Another Parent</button>
+      </div>
+    </div>
+    <div class="form-card">
+      <div class="form-card-header">🎓 Student</div>
+      <div class="form-card-body">
+        <div class="field">
+          <label>Student Name <span class="req">*</span></label>
+          <input type="text" id="estname" placeholder="Student full name" value="${state.studentName}"
+            oninput="state.studentName=this.value">
+        </div>
+        <div class="field">
+          <label>Grade / Year</label>
+          <select id="estgrade" onchange="state.grade=this.value">
+            ${GRADES.map(g=>`<option value="${g}" ${state.grade===g?'selected':''}>${g}</option>`).join('')}
+          </select>
+        </div>
+        <button class="add-row-btn" type="button">＋ Add Another Student</button>
+      </div>
+    </div>`;
+}
+
+/* Step 2 — Course & Package */
+function renderStep2() {
+  const selected = state.pkg;
+  document.getElementById('form-content').innerHTML = `
+    <div class="form-card">
+      <div class="form-card-header">📚 Step 2 — Select Course</div>
+      <div class="form-card-body">
+        <div class="field">
+          <label>Branch</label>
+          <div style="padding:9px 12px;background:#f9fafb;border-radius:8px;font-size:13px;color:#374151">📍 ${branch}</div>
+        </div>
+        <div class="field">
+          <label>Subject <span class="req">*</span></label>
+          <select id="ecourse-subject" onchange="updateCourseLabel()">
+            <option value="">Select subject…</option>
+            ${SUBJECTS.map(s=>`<option value="${s}" ${state.course===s?'selected':''}>${s}</option>`).join('')}
+          </select>
+        </div>
+        <div class="field">
+          <label>Grade</label>
+          <div style="padding:9px 12px;background:#f0fdf4;border-radius:8px;font-size:13px;color:#065f46;font-weight:600">
+            ${state.grade||'ป.5'}
+          </div>
+        </div>
+        <div class="field" id="course-label-wrap" style="${state.course?'':'display:none'}">
+          <label>Course</label>
+          <div style="padding:9px 12px;background:#ede9fe;border-radius:8px;font-size:13px;color:#4c1d95;font-weight:600"
+               id="course-label">${state.course} ${state.grade||'ป.5'}</div>
+        </div>
+      </div>
+    </div>
+    <div class="form-card">
+      <div class="form-card-header">📦 Package</div>
+      <div class="form-card-body">
+        <div class="pkg-grid">
+          ${PACKAGES.map(p=>`
+          <label class="pkg-option ${selected===p.hours?'selected':''}" onclick="selectPkg(${p.hours},${p.price},this)">
+            <input type="radio" name="pkg" value="${p.hours}" ${selected===p.hours?'checked':''}>
+            <div class="pkg-hours">${p.hours}h.</div>
+            <div class="pkg-price">฿${p.price.toLocaleString()}</div>
+            <div class="pkg-sub">${p.label}</div>
+          </label>`).join('')}
+        </div>
+        <div id="pkg-note" style="margin-top:10px;font-size:11px;color:#6b7280">
+          ฿${(state.price/state.pkg).toFixed(0)}/hr · ${state.pkg} sessions total
+        </div>
+      </div>
+    </div>`;
+}
+
+function updateCourseLabel() {
+  const sub = document.getElementById('ecourse-subject')?.value;
+  state.course = sub;
+  const wrap  = document.getElementById('course-label-wrap');
+  const label = document.getElementById('course-label');
+  if (wrap)  wrap.style.display = sub ? '' : 'none';
+  if (label) label.textContent = `${sub} ${state.grade||'ป.5'}`;
+}
+
+function selectPkg(hours, price, el) {
+  state.pkg   = hours;
+  state.price = price;
+  document.querySelectorAll('.pkg-option').forEach(o => o.classList.remove('selected'));
+  el.classList.add('selected');
+  const note = document.getElementById('pkg-note');
+  if (note) note.textContent = `฿${(price/hours).toFixed(0)}/hr · ${hours} sessions total`;
+}
+
+/* Step 3 — Regular Schedule */
+function renderStep3() {
+  document.getElementById('form-content').innerHTML = `
+    <div class="form-card">
+      <div class="form-card-header">📅 Step 3 — Regular Class Schedule</div>
+      <div class="form-card-body">
+        <p style="font-size:12px;color:#6b7280;margin-bottom:12px">
+          Choose your weekly recurring time slot. This will be your regular class every week.
+        </p>
+        <div class="slot-list">
+          ${SLOTS_REGULAR.map(s=>`
+          <label class="slot-option ${state.scheduleSlot===s.id?'selected':''}" onclick="selectRegularSlot('${s.id}',this)">
+            <input type="radio" name="rslot" value="${s.id}" ${state.scheduleSlot===s.id?'checked':''}>
+            <div style="flex:1">
+              <div class="slot-day">${s.day}</div>
+              <div class="slot-time">⏰ ${s.time} · ${s.teacher} · ${s.room}</div>
+            </div>
+            <div class="slot-badge">${s.spots}</div>
+          </label>`).join('')}
+        </div>
+      </div>
+    </div>`;
+}
+
+function selectRegularSlot(id, el) {
+  state.scheduleSlot = id;
+  document.querySelectorAll('.slot-option').forEach(o => o.classList.remove('selected'));
+  el.classList.add('selected');
+}
+
+/* Step 4 — Payment */
+function renderStep4() {
+  const slotInfo = SLOTS_REGULAR.find(s => s.id === state.scheduleSlot)||{};
+  document.getElementById('form-content').innerHTML = `
+    <div class="form-card">
+      <div class="form-card-header">💳 Step 4 — Payment</div>
+      <div class="form-card-body">
+        <div style="background:#ede9fe;border-radius:9px;padding:12px 14px;margin-bottom:14px;display:flex;justify-content:space-between;align-items:center">
+          <div style="font-size:13px;color:#4c1d95">
+            <div style="font-weight:700">${state.course} ${state.grade||'ป.5'} · ${state.pkg}h.</div>
+            <div style="font-size:11px;margin-top:2px">${slotInfo.day||''} · ${slotInfo.time||''}</div>
+          </div>
+          <div style="font-size:20px;font-weight:800;color:#059669">฿${state.price.toLocaleString()}</div>
+        </div>
+
+        <div class="field">
+          <label>Payment Method</label>
+          <div style="display:flex;gap:8px;margin-top:4px">
+            <label style="flex:1;border:2px solid #6366f1;border-radius:9px;padding:10px 13px;cursor:pointer;background:#ede9fe;text-align:center;font-size:12px;font-weight:600;color:#4c1d95">
+              <input type="radio" name="pmethod" value="bank" checked style="display:none">
+              🏦 Bank Transfer
+            </label>
+            <label style="flex:1;border:2px solid #e5e7eb;border-radius:9px;padding:10px 13px;cursor:pointer;text-align:center;font-size:12px;font-weight:600;color:#6b7280">
+              <input type="radio" name="pmethod" value="promptpay" style="display:none">
+              💳 PromptPay
+            </label>
+          </div>
+        </div>
+
+        <div class="bank-box">
+          <div class="bank-name">SCB — Siam Commercial Bank</div>
+          <div class="bank-num">123 - 4 - 56789 - 0</div>
+          <div class="bank-acc">Account: NockAcademy Co., Ltd.</div>
+        </div>
+
+        <div class="field">
+          <label>Upload Payment Slip <span class="req">*</span></label>
+          <div class="upload-box" id="upload-box" onclick="fakeUpload()">
+            <div class="upload-icon">📎</div>
+            <div class="upload-text">Tap to upload slip</div>
+            <div class="upload-sub">JPG, PNG or PDF · max 5MB</div>
+          </div>
+          <div class="upload-done" id="upload-done">
+            <div style="font-size:24px">📄</div>
+            <div style="flex:1">
+              <div class="file-name" id="upload-filename">slip_payment.jpg</div>
+              <div style="font-size:11px;color:#9ca3af">128 KB · Ready to submit</div>
+            </div>
+            <button type="button" onclick="removeUpload()" style="background:none;border:none;color:#ef4444;cursor:pointer;font-size:18px">×</button>
+          </div>
+        </div>
+      </div>
+    </div>`;
+}
+
+function fakeUpload() {
+  state.slipName = 'slip_payment.jpg';
+  document.getElementById('upload-box').style.display = 'none';
+  const done = document.getElementById('upload-done');
+  if (done) { done.classList.add('visible'); done.style.display = 'flex'; }
+}
+function removeUpload() {
+  state.slipName = '';
+  document.getElementById('upload-box').style.display = '';
+  const done = document.getElementById('upload-done');
+  if (done) { done.classList.remove('visible'); done.style.display = 'none'; }
+}
+
+/* Step 5 — Summary */
+function renderStep5() {
+  const slotInfo = SLOTS_REGULAR.find(s => s.id === state.scheduleSlot)||{};
+  document.getElementById('form-content').innerHTML = `
+    <div class="form-card">
+      <div class="form-card-header">✅ Step 5 — Confirm & Submit</div>
+      <div class="form-card-body">
+        <p style="font-size:12px;color:#6b7280;margin-bottom:14px">Please review all information before submitting.</p>
+        <table class="summary-table">
+          <tr><td>Parent</td><td>${state.parent1Name}</td></tr>
+          <tr><td>Phone</td><td>${state.parent1Phone}</td></tr>
+          <tr><td>LINE</td><td>${state.parent1Line||'—'}</td></tr>
+          <tr><td>Student</td><td>${state.studentName||'—'}</td></tr>
+          <tr><td>Grade</td><td>${state.grade||'—'}</td></tr>
+          <tr><td>Course</td><td>${state.course} ${state.grade||'ป.5'} · ${state.pkg}h.</td></tr>
+          <tr><td>Schedule</td><td>${slotInfo.day||'—'}, ${slotInfo.time||''}</td></tr>
+          <tr><td>Teacher</td><td>${slotInfo.teacher||'TBD'}</td></tr>
+          <tr><td>Branch</td><td>${branch}</td></tr>
+          <tr><td>Payment Slip</td><td style="color:#059669">✅ Attached</td></tr>
+          <tr class="summary-total"><td>Total</td><td>฿${state.price.toLocaleString()}</td></tr>
+        </table>
+
+        <label style="display:flex;align-items:flex-start;gap:9px;margin-top:16px;cursor:pointer;font-size:12px;color:#374151;font-weight:normal;letter-spacing:0;text-transform:none">
+          <input type="checkbox" id="confirm-check" style="margin-top:2px;accent-color:#6366f1;flex-shrink:0;width:16px;height:16px"
+                 onchange="state.confirmed=this.checked;document.getElementById('btn-next').disabled=!this.checked">
+          <span>I confirm that all information provided above is correct and I agree to the enrollment terms.</span>
+        </label>
+      </div>
+    </div>`;
+
+  document.getElementById('btn-next').disabled = true;
+}
+
+function submitEnrollment() {
+  if (!state.confirmed) return;
+  const slotInfo = SLOTS_REGULAR.find(s => s.id === state.scheduleSlot)||{};
+  showThankYou({
+    'Form Type': 'Enrollment',
+    'Student': state.studentName||'—',
+    'Grade': state.grade||'—',
+    'Course': `${state.course} ${state.grade} · ${state.pkg}h.`,
+    'Schedule': `${slotInfo.day||'—'}, ${slotInfo.time||''}`,
+    'Branch': branch,
+    'Total': `฿${state.price.toLocaleString()} (slip attached)`,
+  });
+}
+
+/* ── THANK YOU SCREEN ──────────────────────────────────────── */
+function showThankYou(data) {
+  document.getElementById('form-content').style.display = 'none';
+  document.getElementById('stepper').style.display = 'none';
+  document.getElementById('form-nav').style.display = 'none';
+  const ty = document.getElementById('thank-you');
+  ty.classList.add('visible');
+  document.getElementById('ty-summary').innerHTML =
+    Object.entries(data).map(([k,v])=>`
+      <div class="ty-row"><span>${k}</span><span>${v}</span></div>`).join('');
+}
+
+/* ── ERROR ─────────────────────────────────────────────────── */
+function showFormError(msg) {
+  // Simple toast-style alert
+  const existing = document.getElementById('form-err-toast');
+  if (existing) existing.remove();
+  const el = document.createElement('div');
+  el.id = 'form-err-toast';
+  el.style.cssText = `position:fixed;bottom:80px;left:50%;transform:translateX(-50%);
+    background:#ef4444;color:#fff;font-size:13px;font-weight:600;padding:10px 18px;
+    border-radius:9px;box-shadow:0 4px 16px rgba(0,0,0,.15);z-index:9999;white-space:nowrap`;
+  el.textContent = '⚠️ ' + msg;
+  document.body.appendChild(el);
+  setTimeout(() => el.remove(), 2800);
+}
+</script>
+</body>
+</html>
