@@ -290,7 +290,7 @@
     return `<div class="modal-section">
       <div class="settings-row">
         <div class="settings-group"><label class="settings-label">Date</label>
-          <input class="settings-input" type="date" value="${prefill.date||'2026-05-14'}"></div>
+          <input class="settings-input" type="date" value="${prefill.date||new Date().toISOString().slice(0,10)}"></div>
         <div class="settings-group"><label class="settings-label">Time Block</label>
           <select class="settings-input">${TSLOTS.map(t=>`<option ${prefill.time===t?'selected':''}>${t}</option>`).join('')}</select></div>
       </div>
@@ -317,8 +317,19 @@
     </div>`;
   }
 
-  window.openCreateClass = function() {
-    Modal.create('modal-create-class','＋ Create Class', classForm(),
+  window.openCreateClass = function(opts) {
+    opts = opts || {};
+    // Convert slotId → "HH:MM–HH:MM" string for the Time Block dropdown
+    let timePrefill = '';
+    if (opts.slotId !== undefined) {
+      const ts = TIME_SLOTS.find(t => t.id === opts.slotId && t.type === 'class');
+      if (ts) timePrefill = ts.start + '–' + ts.end;
+    }
+    Modal.create('modal-create-class','＋ Create Class', classForm({
+      date:    opts.date    || '',
+      time:    timePrefill,
+      teacher: opts.teacher || '',
+    }),
       `<button class="btn btn-secondary" onclick="Modal.close('modal-create-class')">Cancel</button>
        <button class="btn btn-primary" onclick="showToast('Class created ✓','success');Modal.close('modal-create-class')">✓ Create</button>`
     );
