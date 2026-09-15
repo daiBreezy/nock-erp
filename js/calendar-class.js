@@ -22,16 +22,41 @@
 
   /* ── STUDENT ROW (pre/active) ─────────────────────────── */
   function studentAttRow(s, name, showRemove) {
-    const att = s.attendance[name]||'present';
-    const m = smeta(name);
+    const att     = s.attendance[name] || 'present';
+    const m       = smeta(name);
+    const stu     = DB.students.find(x => x.name === name);
+    const course  = stu?.courses?.find(c => c.name?.startsWith(s.subject)) || stu?.courses?.[0];
+    const leftNum = course?.left ?? m.left;
+    const total   = course?.hours ? Math.round(course.hours / 2) : null;
+    const count   = total ? `(${leftNum}/${total})` : `${leftNum} left`;
+    const ne      = name.replace(/'/g, "\\'");
+    const sid     = s.id.replace(/'/g, "\\'");
+    const isMore  = ['leave','reschedule','transfer'].includes(att);
+    const dropId  = `drop-${s.id}-${name.replace(/\s+/g,'_')}`;
+
     return `<div class="att-row" style="align-items:center;gap:8px">
       <div class="avatar" style="width:30px;height:30px;font-size:11px;flex-shrink:0">${name[0]}</div>
-      <div style="flex:1;min-width:0">
-        <div style="font-size:13px;font-weight:500">${name}</div>
-        <div style="font-size:11px;color:#9ca3af">${m.family} · <span class="badge ${m.cls}" style="font-size:10px">${m.left} left</span></div>
+      <div style="flex:1;min-width:0;overflow:hidden">
+        <div style="font-size:13px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${name}</div>
+        <div style="font-size:11px;color:#9ca3af;white-space:nowrap">${m.family} · <span class="badge ${m.cls}" style="font-size:9px;padding:1px 5px">${count}</span></div>
       </div>
-      ${AttendancePicker.render(s.id, name, att)}
-      ${showRemove?`<button class="btn btn-xs" style="color:#ef4444;border-color:#fecaca;margin-left:4px" onclick="calRemoveStudent('${s.id}','${name}')">✕</button>`:''}
+      <div style="display:flex;gap:3px;flex-shrink:0;align-items:center">
+        <button title="Present" onclick="calSetAttAndRefresh('${sid}','${ne}','present')"
+          style="width:30px;height:28px;border-radius:6px;border:2px solid ${att==='present'?'#10b981':'#e5e7eb'};background:${att==='present'?'#d1fae5':'#fff'};color:${att==='present'?'#065f46':'#9ca3af'};font-size:13px;font-weight:700;cursor:pointer;transition:all .15s">✓</button>
+        <button title="Absent" onclick="calSetAttAndRefresh('${sid}','${ne}','absent')"
+          style="width:30px;height:28px;border-radius:6px;border:2px solid ${att==='absent'?'#ef4444':'#e5e7eb'};background:${att==='absent'?'#fee2e2':'#fff'};color:${att==='absent'?'#991b1b':'#9ca3af'};font-size:13px;font-weight:700;cursor:pointer;transition:all .15s">✗</button>
+        <div style="position:relative">
+          <button title="${isMore ? att : 'More'}" onclick="event.stopPropagation();toggleAttMore('${dropId}')"
+            style="width:30px;height:28px;border-radius:6px;border:2px solid ${isMore?'#6366f1':'#e5e7eb'};background:${isMore?'#ede9fe':'#fff'};color:${isMore?'#4338ca':'#9ca3af'};font-size:10px;letter-spacing:2px;cursor:pointer;transition:all .15s">•••</button>
+          <div id="${dropId}" class="att-more-drop" style="display:none;position:absolute;right:0;top:32px;background:#fff;border:1px solid #e5e7eb;border-radius:8px;box-shadow:0 4px 14px rgba(0,0,0,.12);z-index:300;min-width:140px;overflow:hidden">
+            <button onclick="calSetAttAndRefresh('${sid}','${ne}','leave')" style="display:flex;align-items:center;gap:8px;width:100%;padding:8px 12px;border:none;cursor:pointer;font-size:12px;background:${att==='leave'?'#fef9c3':'#fff'};color:${att==='leave'?'#92400e':'#374151'};text-align:left">📋 Leave</button>
+            <button onclick="calSetAttAndRefresh('${sid}','${ne}','reschedule')" style="display:flex;align-items:center;gap:8px;width:100%;padding:8px 12px;border:none;cursor:pointer;font-size:12px;background:${att==='reschedule'?'#ede9fe':'#fff'};color:${att==='reschedule'?'#6366f1':'#374151'};text-align:left">🔄 Reschedule</button>
+            <button onclick="calSetAttAndRefresh('${sid}','${ne}','transfer')" style="display:flex;align-items:center;gap:8px;width:100%;padding:8px 12px;border:none;cursor:pointer;font-size:12px;background:${att==='transfer'?'#ede9fe':'#fff'};color:${att==='transfer'?'#6366f1':'#374151'};text-align:left">↔️ Transfer</button>
+            ${showRemove ? `<div style="border-top:1px solid #f3f4f6"></div>
+            <button onclick="calRemoveStudent('${sid}','${ne}')" style="display:flex;align-items:center;gap:8px;width:100%;padding:8px 12px;border:none;cursor:pointer;font-size:12px;background:#fff;color:#ef4444;text-align:left">✕ Remove</button>` : ''}
+          </div>
+        </div>
+      </div>
     </div>`;
   }
 
@@ -115,26 +140,56 @@
   function renderEnded(s) {
     const ts = getSlot(s.slotId);
     const done = allSumsDone(s);
-    const sentCount = Object.values(s.summaries).filter(x=>x.sent).length;
+    const sentCount    = Object.values(s.summaries).filter(x=>x.sent).length;
     const totalRequired = s.studentNames.filter(n=>{const a=s.attendance[n]||'present';return a==='present'||a==='absent';}).length;
-    return `<div class="modal-section">
-      <div style="display:flex;align-items:center;gap:8px;padding:10px 14px;background:#f3f4f6;border-radius:8px;margin-bottom:12px">
-        <span style="font-size:18px">✅</span>
-        <div><strong>Class Ended</strong>
-          <div style="font-size:12px;color:#6b7280">${Utils.subjectLabel(s)} · ${ts?ts.start+'–'+ts.end:''} · ${s.branch}</div>
-          <div style="font-size:12px;color:#ef4444;margin-top:2px">📝 Summaries: ${sentCount}/${totalRequired} sent · Deadline: ${sumDueDate(s)}</div>
+
+    /* Sort: pending/draft → no-summary-needed → sent (bottom) */
+    const sorted = [...s.studentNames].sort((a,b) => {
+      const rank = n => {
+        const att = s.attendance[n]||'present';
+        if (['leave','reschedule','transfer'].includes(att)) return 1;
+        if (s.summaries[n]?.sent === true) return 2;
+        return 0;
+      };
+      return rank(a) - rank(b);
+    });
+
+    return `<div class="modal-section" style="padding-bottom:6px">
+      <div style="display:flex;align-items:center;gap:8px;padding:8px 12px;background:#f3f4f6;border-radius:8px;margin-bottom:6px">
+        <span style="font-size:15px">✅</span>
+        <div style="flex:1;min-width:0">
+          <strong style="font-size:13px">Class Ended</strong>
+          <div style="font-size:11px;color:#6b7280">${Utils.subjectLabel(s)} · ${ts?ts.start+'–'+ts.end:''} · ${s.branch}</div>
+          <div style="font-size:11px;color:#ef4444;margin-top:1px">📝 Summaries: ${sentCount}/${totalRequired} sent · Deadline: ${sumDueDate(s)}</div>
         </div>
-        ${done?`<span class="badge badge-green" style="margin-left:auto">All Done ✓</span>`:`<span class="badge badge-red" style="margin-left:auto">${totalRequired-sentCount} pending</span>`}
+        ${done?`<span class="badge badge-green" style="flex-shrink:0;font-size:10px">All Done ✓</span>`:`<span class="badge badge-red" style="flex-shrink:0;font-size:10px">${totalRequired-sentCount} pending</span>`}
       </div>
-      <div style="font-size:12px;color:#9ca3af;background:#fef9c3;border:1px solid #fef08a;border-radius:6px;padding:8px;margin-bottom:12px">
-        ⚠️ Class has ended. Class details cannot be edited. Please complete all summaries and submit to parents.
-      </div>
+      ${!done?`<div style="font-size:11px;color:#92400e;background:#fef9c3;border-radius:6px;padding:5px 10px;margin-bottom:6px">⚠️ Complete all summaries and submit to parents.</div>`:''}
     </div>
     <div class="modal-section">
-      <div class="modal-section-title">📝 Student Summaries</div>
-      ${s.studentNames.map(n=>summaryRow(s,n)).join('')}
+      <div class="modal-section-title" style="font-size:12px;margin-bottom:6px">📝 Student Summaries</div>
+      ${sorted.map(n=>summaryRow(s,n)).join('')}
     </div>`;
   }
+
+  /* ── ATTENDANCE QUICK HELPERS ────────────────────────── */
+  window.calSetAttAndRefresh = function(sessionId, name, type) {
+    AttendancePicker.set(sessionId, name, type, null);
+    Modal.close('modal-class');
+    setTimeout(() => openClassModal(sessionId), 50);
+  };
+
+  window.toggleAttMore = function(dropId) {
+    const drop = document.getElementById(dropId);
+    if (!drop) return;
+    const wasOpen = drop.style.display === 'block';
+    document.querySelectorAll('.att-more-drop').forEach(d => d.style.display = 'none');
+    if (!wasOpen) drop.style.display = 'block';
+  };
+
+  document.addEventListener('click', () => {
+    document.querySelectorAll('.att-more-drop').forEach(d => d.style.display = 'none');
+  });
 
   /* ── OPEN CLASS MODAL ─────────────────────────────────── */
   window.openClassModal = function(id) {

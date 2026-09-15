@@ -5,14 +5,16 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>NockERP — Education Operations</title>
 <link rel="icon" type="image/png" href="img/logo.png">
-<link rel="stylesheet" href="css/main.css">
+
+
 </head>
 <body>
+<div id="shell-root"></div>
 
 <!-- ══════════════════════════════════════════════════════════
      SIDEBAR
 ══════════════════════════════════════════════════════════ -->
-<nav id="sidebar">
+<nav id="sidebar" hidden style="display:none">
 
   <!-- ── LOGO ──────────────────────────────────────────── -->
   <div class="sidebar-logo">
@@ -49,39 +51,39 @@
 
     <div class="nav-section">
       <div class="nav-label">Main</div>
-      <div class="nav-item active" data-view="dashboard"><span class="icon">🏠</span>Dashboard</div>
-      <div class="nav-item" data-view="crm"><span class="icon">🎯</span>CRM<span class="nav-badge yellow" id="badge-crm">5</span></div>
-      <div class="nav-item" data-view="inbox"><span class="icon">💬</span>Inbox<span class="nav-badge" id="badge-inbox">3</span></div>
-      <div class="nav-item" data-view="calendar"><span class="icon">📅</span>Calendar</div>
+      <div class="nav-item active" data-view="dashboard"><span class="icon">home</span>Dashboard</div>
+      <div class="nav-item" data-view="crm"><span class="icon">person_search</span>CRM<span class="nav-badge yellow" id="badge-crm">5</span></div>
+      <div class="nav-item" data-view="inbox"><span class="icon">chat</span>Inbox<span class="nav-badge" id="badge-inbox">3</span></div>
+      <div class="nav-item" data-view="calendar"><span class="icon">calendar_month</span>Calendar</div>
     </div>
 
     <div class="nav-section">
       <div class="nav-label">People</div>
-      <div class="nav-item" data-view="students"><span class="icon">🎓</span>Students</div>
-      <div class="nav-item" data-view="families"><span class="icon">👨‍👩‍👧</span>Families</div>
-      <div class="nav-item" data-view="staff"><span class="icon">👤</span>Staff</div>
+      <div class="nav-item" data-view="students"><span class="icon">school</span>Students</div>
+      <div class="nav-item" data-view="families"><span class="icon">family_restroom</span>Families</div>
+      <div class="nav-item" data-view="staff"><span class="icon">badge</span>Staff</div>
     </div>
 
     <div class="nav-section">
       <div class="nav-label">Operations</div>
-      <div class="nav-item" data-view="courses"><span class="icon">📖</span>Courses</div>
-      <div class="nav-item" data-view="classes"><span class="icon">🏫</span>Classes</div>
-      <div class="nav-item" data-view="sessions"><span class="icon">⏱️</span>Sessions</div>
-      <div class="nav-item" data-view="attendance"><span class="icon">✅</span>Attendance</div>
-      <div class="nav-item" data-view="summaries"><span class="icon">📝</span>Summaries</div>
+      <div class="nav-item" data-view="courses"><span class="icon">menu_book</span>Courses</div>
+      <div class="nav-item" data-view="classes"><span class="icon">class</span>Classes</div>
+      <div class="nav-item" data-view="sessions"><span class="icon">schedule</span>Sessions</div>
+      <div class="nav-item" data-view="attendance"><span class="icon">fact_check</span>Attendance</div>
+      <div class="nav-item" data-view="summaries"><span class="icon">summarize</span>Summaries</div>
     </div>
 
     <div class="nav-section">
       <div class="nav-label">Finance & Admin</div>
-      <div class="nav-item" data-view="billing"><span class="icon">💳</span>Billing<span class="nav-badge" id="badge-billing">2</span></div>
-      <div class="nav-item" data-view="tasks"><span class="icon">☑️</span>Tasks</div>
-      <div class="nav-item" data-view="reports"><span class="icon">📊</span>Reports</div>
+      <div class="nav-item" data-view="billing"><span class="icon">credit_card</span>Billing<span class="nav-badge" id="badge-billing">2</span></div>
+      <div class="nav-item" data-view="tasks"><span class="icon">checklist</span>Tasks</div>
+      <div class="nav-item" data-view="reports"><span class="icon">bar_chart</span>Reports</div>
     </div>
 
     <div class="nav-section">
       <div class="nav-label">System</div>
-      <div class="nav-item" data-view="settings"><span class="icon">⚙️</span>Settings</div>
-      <div class="nav-item" data-view="logs"><span class="icon">🕐</span>Logs & Timeline</div>
+      <div class="nav-item" data-view="settings"><span class="icon">settings</span>Settings</div>
+      <div class="nav-item" data-view="logs"><span class="icon">history</span>Logs & Timeline</div>
     </div>
 
   </div><!-- /sidebar-nav -->
@@ -171,5 +173,6 @@
 <script src="js/logs.js"></script>
 <script src="js/placeholder.js"></script>
 
+<script type="module" src="/src/main.jsx"></script>
 </body>
 </html>

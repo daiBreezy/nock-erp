@@ -79,7 +79,7 @@
           <div style="display:flex;align-items:center;gap:8px">
             <div class="avatar" style="width:28px;height:28px;font-size:10px">${s.name[0]}</div>
             <div>
-              <strong style="cursor:pointer;color:#6366f1" onclick="openStaffModal('${s.id}')">${s.name}</strong>
+              <strong style="cursor:pointer;color:var(--md-primary)" onclick="openStaffModal('${s.id}')">${s.name}</strong>
               <div style="font-size:10px;color:#9ca3af">${s.fullName}</div>
             </div>
           </div>
@@ -125,15 +125,15 @@
           <span class="badge badge-green" style="margin-left:4px">Active</span></div>
       </div>
       <div style="display:flex;gap:6px">
-        <button class="btn btn-secondary btn-sm" onclick="showToast('Calling ${s.phone}…','info')">📞 Call</button>
+        <button class="btn btn-secondary btn-sm" onclick="showToast('Calling ${s.phone}…','info')"><span class="mdi mdi-sm">call</span> Call</button>
       </div>
     </div>
 
     <!-- TABS -->
     <div class="tabs" style="margin-bottom:0">
-      <div class="tab active" onclick="staffTab('profile',this)">👤 Profile</div>
-      <div class="tab"        onclick="staffTab('schedule',this)">📅 Schedule</div>
-      <div class="tab"        onclick="staffTab('notes',this)">📝 Notes</div>
+      <div class="tab active" onclick="staffTab('profile',this)"><span class="mdi mdi-sm">person</span> Profile</div>
+      <div class="tab"        onclick="staffTab('schedule',this)"><span class="mdi mdi-sm">calendar_month</span> Schedule</div>
+      <div class="tab"        onclick="staffTab('notes',this)"><span class="mdi mdi-sm">edit_note</span> Notes</div>
     </div>
 
     <!-- TAB: PROFILE -->
@@ -150,21 +150,21 @@
       </div>
       ${s.role==='Teacher' ? `
       <div class="info-grid" style="margin-top:12px">
-        <div class="info-item" style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:10px;text-align:center">
-          <div style="font-size:22px;font-weight:700;color:#10b981">${s.thisWeekSessions}</div>
-          <div style="font-size:11px;color:#6b7280">This Week</div>
+        <div class="info-item" style="background:var(--md-success-container);border:1px solid var(--md-success);border-radius:8px;padding:10px;text-align:center">
+          <div style="font-size:22px;font-weight:700;color:var(--md-success)">${s.thisWeekSessions}</div>
+          <div style="font-size:11px;color:var(--md-on-surface-variant)">This Week</div>
         </div>
-        <div class="info-item" style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;padding:10px;text-align:center">
-          <div style="font-size:22px;font-weight:700;color:#6366f1">${s.totalSessions}</div>
-          <div style="font-size:11px;color:#6b7280">Total Sessions</div>
+        <div class="info-item" style="background:var(--md-primary-container);border:1px solid var(--md-primary);border-radius:8px;padding:10px;text-align:center">
+          <div style="font-size:22px;font-weight:700;color:var(--md-primary)">${s.totalSessions}</div>
+          <div style="font-size:11px;color:var(--md-on-surface-variant)">Total Sessions</div>
         </div>
-        <div class="info-item" style="background:#fffbeb;border:1px solid #fde68a;border-radius:8px;padding:10px;text-align:center">
-          <div style="font-size:22px;font-weight:700;color:#f59e0b">${s.avgRating||'—'}</div>
-          <div style="font-size:11px;color:#6b7280">Avg Rating</div>
+        <div class="info-item" style="background:var(--md-warning-container);border:1px solid var(--md-warning);border-radius:8px;padding:10px;text-align:center">
+          <div style="font-size:22px;font-weight:700;color:var(--md-warning)">${s.avgRating||'—'}</div>
+          <div style="font-size:11px;color:var(--md-on-surface-variant)">Avg Rating</div>
         </div>
-        <div class="info-item" style="background:#f5f3ff;border:1px solid #ddd6fe;border-radius:8px;padding:10px;text-align:center">
-          <div style="font-size:22px;font-weight:700;color:#7c3aed">${s.students.length}</div>
-          <div style="font-size:11px;color:#6b7280">Active Students</div>
+        <div class="info-item" style="background:var(--md-tertiary-container);border:1px solid var(--md-tertiary);border-radius:8px;padding:10px;text-align:center">
+          <div style="font-size:22px;font-weight:700;color:var(--md-tertiary)">${s.students.length}</div>
+          <div style="font-size:11px;color:var(--md-on-surface-variant)">Active Students</div>
         </div>
       </div>` : ''}
     </div>
@@ -174,10 +174,10 @@
       <div class="modal-section-title">Weekly Schedule (This Week)</div>
       ${s.schedule.length ? s.schedule.map(d => `
       <div style="margin-bottom:10px">
-        <div style="font-size:12px;font-weight:600;color:#6366f1;margin-bottom:4px">${d.day}</div>
+        <div style="font-size:12px;font-weight:600;color:var(--md-primary);margin-bottom:4px">${d.day}</div>
         ${d.sessions.map(sess => `
-        <div style="background:#f9fafb;border:1px solid #f3f4f6;border-radius:6px;padding:7px 10px;font-size:12px;margin-bottom:4px">
-          📚 ${sess}
+        <div style="background:var(--md-surface-mid);border:1px solid var(--md-outline-variant);border-radius:6px;padding:7px 10px;font-size:12px;margin-bottom:4px">
+          <span class="mdi mdi-sm" style="font-size:11px">menu_book</span> ${sess}
         </div>`).join('')}
       </div>`).join('')
       : '<div style="color:#9ca3af;font-size:13px;text-align:center;padding:20px">No sessions scheduled this week</div>'}
@@ -202,8 +202,8 @@
 
     Modal.create(`modal-staff-${s.id}`, `👤 ${s.name}`, body,
       `<button class="btn btn-secondary" onclick="Modal.close('modal-staff-${s.id}')">Close</button>
-       <button class="btn btn-secondary" onclick="showToast('Edit coming soon','info')">✏️ Edit</button>
-       <button class="btn btn-primary" onclick="showToast('View full calendar coming soon','info')">📅 Full Schedule</button>`,
+       <button class="btn btn-secondary" onclick="showToast('Edit coming soon','info')"><span class="mdi mdi-sm">edit</span> Edit</button>
+       <button class="btn btn-primary" onclick="showToast('View full calendar coming soon','info')"><span class="mdi mdi-sm">calendar_month</span> Full Schedule</button>`,
       'modal-lg'
     );
   };

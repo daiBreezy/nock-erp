@@ -40,7 +40,7 @@
       <div class="page-title">Attendance</div>
       <div class="page-sub" id="att-sub">Loading…</div>
     </div>
-    <button class="btn btn-secondary btn-sm" onclick="showView('sessions')">⏱️ Sessions</button>
+    <button class="btn btn-secondary btn-sm" onclick="showView('sessions')"><span class="mdi mdi-sm">schedule</span> Sessions</button>
   </div>
 
   <!-- KPI strip -->
@@ -63,9 +63,9 @@
         oninput="attFilter('search',this.value)">
       <div style="display:flex;gap:4px">
         <div class="filter-chip active" onclick="attFilter('status','all',this)">All</div>
-        <div class="filter-chip" onclick="attFilter('status','present',this)">✅ Present</div>
-        <div class="filter-chip" onclick="attFilter('status','leave',this)">📋 Leave</div>
-        <div class="filter-chip" onclick="attFilter('status','absent',this)">❌ Absent</div>
+        <div class="filter-chip" onclick="attFilter('status','present',this)"><span class="mdi mdi-sm" style="font-size:11px">check_circle</span> Present</div>
+        <div class="filter-chip" onclick="attFilter('status','leave',this)"><span class="mdi mdi-sm" style="font-size:11px">event_busy</span> Leave</div>
+        <div class="filter-chip" onclick="attFilter('status','absent',this)"><span class="mdi mdi-sm" style="font-size:11px">cancel</span> Absent</div>
       </div>
       <select style="border:1px solid #e5e7eb;border-radius:6px;padding:6px 8px;
                      font-size:12px;outline:none;background:#fff"
@@ -105,25 +105,25 @@
 
     document.getElementById('att-kpi').innerHTML = `
       <div class="kpi-card">
-        <div class="kpi-icon" style="background:#d1fae5">✅</div>
+        <div class="kpi-icon success"><span class="mdi">check_circle</span></div>
         <div class="kpi-label">Present</div>
-        <div class="kpi-value" style="color:#10b981">${cnt.present}</div>
+        <div class="kpi-value" style="color:var(--md-success)">${cnt.present}</div>
         <div class="kpi-change up">${rate}% attendance rate</div>
       </div>
       <div class="kpi-card">
-        <div class="kpi-icon" style="background:#fef3c7">📋</div>
+        <div class="kpi-icon warning"><span class="mdi">event_busy</span></div>
         <div class="kpi-label">Leave</div>
-        <div class="kpi-value" style="color:#f59e0b">${cnt.leave}</div>
+        <div class="kpi-value" style="color:var(--md-warning)">${cnt.leave}</div>
         <div class="kpi-change">No deduction</div>
       </div>
       <div class="kpi-card">
-        <div class="kpi-icon" style="background:#fee2e2">❌</div>
+        <div class="kpi-icon error"><span class="mdi">cancel</span></div>
         <div class="kpi-label">Absent</div>
-        <div class="kpi-value" style="color:#ef4444">${cnt.absent}</div>
+        <div class="kpi-value" style="color:var(--md-error)">${cnt.absent}</div>
         <div class="kpi-change down">Class deducted</div>
       </div>
       <div class="kpi-card">
-        <div class="kpi-icon" style="background:#ede9fe">📉</div>
+        <div class="kpi-icon tertiary"><span class="mdi">trending_down</span></div>
         <div class="kpi-label">Total Deducted</div>
         <div class="kpi-value">${deducted}</div>
         <div class="kpi-change">of ${total} records</div>
@@ -140,17 +140,17 @@
       const usedH  = (s.courses||[]).reduce((a,c) => a+c.used,  0);
       const leftH  = (s.courses||[]).reduce((a,c) => a+c.left,  0);
       const pct    = totalH ? Math.round((usedH/totalH)*100) : 0;
-      const color  = leftH<=1?'#ef4444':leftH<=3?'#f59e0b':'#10b981';
+      const color  = leftH<=1?'var(--md-error)':leftH<=3?'var(--md-warning)':'var(--md-success)';
       const sm     = CONST.STUDENT_STATUS[s.status] || {};
       return `
-      <div style="flex:1;min-width:150px;background:#f9fafb;border:1px solid #f3f4f6;
+      <div style="flex:1;min-width:150px;background:var(--md-surface-mid);border:1px solid var(--md-outline-variant);
                   border-radius:8px;padding:12px;cursor:pointer"
            onclick="openProfileModal('${s.id}')">
         <div style="font-size:12px;font-weight:600;color:#1a1d23;margin-bottom:2px">${s.name}</div>
         <div style="font-size:10px;color:#9ca3af;margin-bottom:6px">
           ${usedH}h used / ${totalH}h total
         </div>
-        <div style="background:#e5e7eb;border-radius:4px;height:6px;margin-bottom:4px">
+        <div style="background:var(--md-outline-variant);border-radius:4px;height:6px;margin-bottom:4px">
           <div style="background:${color};width:${pct}%;height:6px;border-radius:4px"></div>
         </div>
         <div style="display:flex;justify-content:space-between;align-items:center">
@@ -190,7 +190,7 @@
       return `<tr>
         <td style="font-size:12px;color:#6b7280">${r.date}</td>
         <td>
-          <span style="cursor:pointer;color:#6366f1;font-weight:500"
+          <span style="cursor:pointer;color:var(--md-primary);font-weight:500"
                 onclick="openProfileModal('${r.studentId||r.student}')">${r.student}</span>
         </td>
         <td style="font-size:12px">${r.course}</td>
@@ -198,7 +198,7 @@
         <td><span class="badge ${am.cls||'badge-gray'}">${am.label||r.status}</span></td>
         <td>
           ${ded
-            ? `<span style="font-size:11px;color:#ef4444;font-weight:500">-1 class</span>`
+            ? `<span style="font-size:11px;color:var(--md-error);font-weight:500">-1 class</span>`
             : `<span style="font-size:11px;color:#9ca3af">—</span>`}
         </td>
       </tr>`;

@@ -54,7 +54,7 @@
                         padding:1px 8px;font-weight:500">👩‍🏫 ${teacher}</span>
         </div>
       </div>
-      <div style="display:flex;flex-direction:column;gap:6px;align-items:flex-end;flex-shrink:0">
+      <div style="display:flex;flex-direction:row;gap:6px;align-items:center;flex-shrink:0">
         <button class="btn btn-secondary btn-sm" onclick="openInboxFor('${family}')">💬 Chat</button>
         ${phone ? `<button class="btn btn-secondary btn-sm" onclick="showToast('Calling ${phone}…','info')">📞 Call</button>` : ''}
       </div>
@@ -103,14 +103,19 @@
 
     /* Renewal alert */
     let alert = '';
-    if (stu && (stu.status === 'urgent' || stu.status === 'renewal')) {
-      const minLeft = Math.min(...stu.courses.map(c => c.left));
+    if (stu && stu.status === 'renewal') {
+      const minLeft  = Math.min(...stu.courses.map(c => c.left));
+      const isUrgent = minLeft <= 1;
       alert = `
-      <div class="alert-item alert-bar ${stu.status==='urgent'?'danger':'warning'}" style="margin-top:12px">
-        ${stu.status==='urgent'?'🚨':'⚠️'}
-        <span><strong>${stu.status==='urgent'?'URGENT:':'Notice:'}</strong>
-          Only ${minLeft} class${minLeft===1?'':'es'} left — contact parent to renew.</span>
-        <button class="btn btn-sm btn-primary" style="margin-left:auto"
+      <div style="display:flex;align-items:center;gap:10px;padding:10px 14px;margin-top:12px;
+        background:${isUrgent?'#fef2f2':'#fffbeb'};
+        border:1px solid ${isUrgent?'#fecaca':'#fde68a'};border-radius:8px">
+        <span style="font-size:16px;flex-shrink:0">${isUrgent?'🚨':'⚠️'}</span>
+        <span style="font-size:12px;flex:1;color:${isUrgent?'#991b1b':'#92400e'}">
+          <strong>${isUrgent?'URGENT:':'Notice:'}</strong>
+          Only ${minLeft} class${minLeft===1?'':'es'} left — contact parent to renew.
+        </span>
+        <button class="btn btn-sm btn-primary" style="flex-shrink:0"
                 onclick="openInboxFor('${stu.family}')">Contact Now</button>
       </div>`;
     }
@@ -324,15 +329,17 @@
           `<div class="tab ${i===0?'active':''}" onclick="profileTab('${id}',this)">${lbl}</div>`
         ).join('')}
       </div>
-      <div id="ptab-overview">  ${buildOverview(stu, cust)}</div>
-      <div id="ptab-sessions"   style="display:none">${buildSessions(name)}</div>
-      <div id="ptab-attendance" style="display:none">${buildAttendance(stu)}</div>
-      <div id="ptab-payment"    style="display:none">${buildPayment(stu, cust)}</div>
-      <div id="ptab-notes"      style="display:none">${buildNotes(stu, mid)}</div>
-      <div id="ptab-timeline"   style="display:none">${buildTimeline(stu, name)}</div>`;
+      <div style="height:420px;overflow-y:auto;border-top:1px solid #f3f4f6">
+        <div id="ptab-overview">  ${buildOverview(stu, cust)}</div>
+        <div id="ptab-sessions"   style="display:none">${buildSessions(name)}</div>
+        <div id="ptab-attendance" style="display:none">${buildAttendance(stu)}</div>
+        <div id="ptab-payment"    style="display:none">${buildPayment(stu, cust)}</div>
+        <div id="ptab-notes"      style="display:none">${buildNotes(stu, mid)}</div>
+        <div id="ptab-timeline"   style="display:none">${buildTimeline(stu, name)}</div>
+      </div>`;
 
     const family = stu?.family || cust?.family || name;
-    Modal.create(`modal-${mid}`, `👤 ${name}`, body,
+    Modal.create(`modal-${mid}`, `👤 Student Profile`, body,
       `<button class="btn btn-secondary" onclick="Modal.close('modal-${mid}')">Close</button>
        <button class="btn btn-secondary" onclick="openInboxFor('${family}');Modal.close('modal-${mid}')">💬 Chat</button>
        <button class="btn btn-primary" onclick="showToast('Renewal flow coming soon','info')">🔄 Renew</button>`,

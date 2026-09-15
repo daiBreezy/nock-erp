@@ -17,9 +17,10 @@
 
   /* KPI: students */
   const allStudents     = DB.students;
-  const activeStudents  = allStudents.filter(s => ['active','renewal','urgent'].includes(s.status));
-  const renewalStudents = allStudents.filter(s => s.status === 'renewal' || s.status === 'urgent');
-  const urgentStudents  = allStudents.filter(s => s.status === 'urgent');
+  const activeStudents  = allStudents.filter(s => ['active','renewal'].includes(s.status));
+  const renewalStudents = allStudents.filter(s => s.status === 'renewal');
+  // "urgent" = renewal นักเรียนที่เหลือ ≤ 1 class (sub-visual, ไม่ใช่ status แยก)
+  const urgentStudents  = renewalStudents.filter(s => Math.min(...(s.courses||[{left:99}]).map(c=>c.left)) <= 1);
 
   /* KPI: revenue this month (May 2026) */
   let revenueThisMonth = 0;
@@ -31,25 +32,26 @@
   const activeLeads = (DB.leads||[]).filter(l => l.stage !== 'archived');
   const newLeads    = (DB.leads||[]).filter(l => l.stage === 'new');
 
-  /* Renewal list — urgent first */
-  const renewalList = [...renewalStudents].sort((a,b) =>
-    (a.status==='urgent'?0:1) - (b.status==='urgent'?0:1));
+  /* Renewal list — 1-class-left first (urgent visual) */
+  const renewalList = [...renewalStudents].sort((a,b) => {
+    const la = Math.min(...(a.courses||[{left:99}]).map(c=>c.left));
+    const lb = Math.min(...(b.courses||[{left:99}]).map(c=>c.left));
+    return la - lb;
+  });
 
   /* Alerts — generated from DB */
   const alerts = [];
-  urgentStudents.forEach(s => {
-    const left = Math.min(...(s.courses||[]).map(c=>c.left));
-    alerts.push({ level:'danger',
-      text: `${s.name} เหลือ <strong>${left} class</strong> — ถ้าไม่ต่อวันนี้จะหมดสัญญา`,
-      time: 'เร่งด่วน',
-      action: `openFollowUpModal('${s.name}')`, label: 'Follow Up →' });
-  });
-  renewalStudents.filter(s=>s.status==='renewal').forEach(s => {
-    const left = Math.min(...(s.courses||[]).map(c=>c.left));
-    alerts.push({ level:'warning',
-      text: `${s.name} เหลือ <strong>${left} class</strong> — ควรติดต่อผู้ปกครองเพื่อ renew`,
-      time: 'ภายใน 7 วัน',
-      action: `openFollowUpModal('${s.name}')`, label: 'Follow Up →' });
+  renewalStudents.forEach(s => {
+    const left = Math.min(...(s.courses||[{left:99}]).map(c=>c.left));
+    const isUrgent = left <= 1;
+    alerts.push({
+      level: isUrgent ? 'danger' : 'warning',
+      text:  isUrgent
+        ? `${s.name} เหลือ <strong>${left} class</strong> — ถ้าไม่ต่อวันนี้จะหมดสัญญา`
+        : `${s.name} เหลือ <strong>${left} class</strong> — ควรติดต่อผู้ปกครองเพื่อ renew`,
+      time:   isUrgent ? 'เร่งด่วน' : 'ภายใน 7 วัน',
+      action: `openFollowUpModal('${s.name}')`, label: 'Follow Up →'
+    });
   });
   if (newLeads.length > 0) {
     alerts.push({ level:'info',
@@ -63,16 +65,16 @@
   allStudents.forEach(s => {
     const lastAtt = [...(s.attendance||[])].sort((a,b)=>b.date.localeCompare(a.date))[0];
     if (lastAtt) {
-      const col = lastAtt.status==='present'?'#10b981':lastAtt.status==='absent'?'#ef4444':'#f59e0b';
+      const col = lastAtt.status==='present'?'var(--md-success)':lastAtt.status==='absent'?'var(--md-error)':'var(--md-warning)';
       const lbl = lastAtt.status==='present'?'Present':lastAtt.status==='absent'?'Absent':'Leave';
       recentEvents.push({ color:col,
         text:`<strong>${lbl}</strong> — ${s.name} · ${lastAtt.course}`, time:lastAtt.date });
     }
     const lastInv = [...(s.invoices||[])].sort((a,b)=>b.date.localeCompare(a.date))[0];
-    if (lastInv) recentEvents.push({ color:'#10b981',
+    if (lastInv) recentEvents.push({ color:'var(--md-success)',
       text:`<strong>Payment</strong> — ${s.family} · ฿${lastInv.amount.toLocaleString()}`, time:lastInv.date });
     const lastNote = (s.notes||[]).slice(-1)[0];
-    if (lastNote) recentEvents.push({ color:'#6b7280',
+    if (lastNote) recentEvents.push({ color:'var(--md-on-surface-variant)',
       text:`<strong>Note</strong> — ${s.name}: ${lastNote.text.slice(0,55)}${lastNote.text.length>55?'…':''}`, time:lastNote.date });
   });
   recentEvents.sort((a,b) => b.time.localeCompare(a.time));
@@ -80,10 +82,10 @@
 
   /* ── HTML HELPERS ─────────────────────────────────────── */
   function renewalRow(s) {
-    const left  = Math.min(...(s.courses||[]).map(c=>c.left));
-    const isUr  = s.status === 'urgent';
+    const left  = Math.min(...(s.courses||[{left:99}]).map(c=>c.left));
+    const isUr  = left <= 1;   // urgent visual = 1 class เหลือ
     return `<div class="renewal-item">
-      <div class="renewal-name">${s.name}${isUr?` <span class="badge badge-red" style="font-size:9px">URGENT</span>`:''}</div>
+      <div class="renewal-name">${s.name}${isUr?` <span class="badge badge-red" style="font-size:9px">1 left!</span>`:''}</div>
       <div class="renewal-classes">${left} class${left===1?'':'es'} left</div>
       <button class="btn ${isUr?'btn-danger':'btn-primary'} btn-sm"
               onclick="openFollowUpModal('${s.name}')">Follow Up</button>
@@ -91,14 +93,14 @@
   }
 
   function alertRow(a) {
-    const lvlColor = a.level==='danger'?'#ef4444':a.level==='warning'?'#f59e0b':'#6366f1';
+    const badgeCls = a.level==='danger'?'badge-red':a.level==='warning'?'badge-yellow':'badge-blue';
     return `<div class="alert-item">
       <div class="alert-bar ${a.level}"></div>
       <div class="alert-body">
-        <span class="alert-level ${a.level}">${a.level.charAt(0).toUpperCase()+a.level.slice(1)}</span>
+        <span class="badge ${badgeCls}" style="margin-bottom:4px">${a.level.charAt(0).toUpperCase()+a.level.slice(1)}</span>
         <div class="alert-text">${a.text}</div>
         <div class="alert-time">${a.time}</div>
-        <div class="alert-action" onclick="${a.action}">${a.label}</div>
+        <button class="btn btn-ghost btn-xs" style="padding:0;height:auto;font-size:12px;color:var(--md-primary)" onclick="${a.action}">${a.label}</button>
       </div>
     </div>`;
   }
@@ -133,27 +135,27 @@
   <!-- KPI GRID -->
   <div class="kpi-grid mb-16">
     <div class="kpi-card">
-      <div class="kpi-icon" style="background:#d1fae5">🎓</div>
+      <div class="kpi-icon success"><span class="mdi">school</span></div>
       <div class="kpi-label">Active Students</div>
-      <div class="kpi-value" id="kpi-active">${activeStudents.length}</div>
+      <div class="kpi-value">${activeStudents.length}</div>
       <div class="kpi-change up">↑ enrolled &amp; active</div>
     </div>
     <div class="kpi-card">
-      <div class="kpi-icon" style="background:#fef3c7">🔄</div>
+      <div class="kpi-icon ${urgentStudents.length>0?'error':'warning'}"><span class="mdi">autorenew</span></div>
       <div class="kpi-label">Renewal Pending</div>
-      <div class="kpi-value" style="color:${renewalStudents.length>0?'#ef4444':'#10b981'}">${renewalStudents.length}</div>
+      <div class="kpi-value" style="color:${renewalStudents.length>0?'var(--md-error)':'var(--md-success)'}">${renewalStudents.length}</div>
       <div class="kpi-change ${renewalStudents.length>0?'down':'up'}">
         ${urgentStudents.length>0?`↓ ${urgentStudents.length} urgent`:'↑ All up to date'}
       </div>
     </div>
     <div class="kpi-card">
-      <div class="kpi-icon" style="background:#ede9fe">💰</div>
+      <div class="kpi-icon tertiary"><span class="mdi">payments</span></div>
       <div class="kpi-label">Revenue (May)</div>
       <div class="kpi-value">${revenueThisMonth>0?`฿${revenueThisMonth.toLocaleString()}`:'฿0'}</div>
       <div class="kpi-change up">↑ invoices paid this month</div>
     </div>
     <div class="kpi-card">
-      <div class="kpi-icon" style="background:#fee2e2">🎯</div>
+      <div class="kpi-icon"><span class="mdi">person_search</span></div>
       <div class="kpi-label">Active Leads</div>
       <div class="kpi-value">${activeLeads.length}</div>
       <div class="kpi-change ${newLeads.length>0?'down':'up'}">
@@ -168,7 +170,7 @@
     <!-- Today's Classes -->
     <div class="card">
       <div class="card-header" id="dash-today-header">
-        <div class="card-title">📅 Today's Classes</div>
+        <div class="card-title"><span class="mdi mdi-sm">calendar_today</span> Today's Classes</div>
         <button class="btn btn-secondary btn-sm" onclick="showView('calendar')">View Calendar</button>
       </div>
       <div class="card-body" id="dash-today-sessions"></div>
@@ -180,7 +182,7 @@
       <!-- Renewal Pending -->
       <div class="card">
         <div class="card-header">
-          <div class="card-title">🔄 Renewal Pending</div>
+          <div class="card-title"><span class="mdi mdi-sm">autorenew</span> Renewal Pending</div>
           <span class="badge ${renewalList.length>0?'badge-red':'badge-green'}">${renewalList.length} student${renewalList.length!==1?'s':''}</span>
         </div>
         <div class="card-body">
@@ -194,7 +196,7 @@
       <!-- My Tasks -->
       <div class="card">
         <div class="card-header">
-          <div class="card-title">☑️ My Tasks</div>
+          <div class="card-title"><span class="mdi mdi-sm">checklist</span> My Tasks</div>
           <button class="btn btn-secondary btn-sm" onclick="showView('tasks')">+ Add</button>
         </div>
         <div class="card-body">
@@ -242,7 +244,7 @@
     <!-- Recent Activity -->
     <div class="card">
       <div class="card-header">
-        <div class="card-title">🕐 Recent Activity</div>
+        <div class="card-title"><span class="mdi mdi-sm">history</span> Recent Activity</div>
       </div>
       <div class="card-body">
         ${top5.length > 0
@@ -254,7 +256,7 @@
     <!-- Risk & Alert -->
     <div class="card">
       <div class="card-header">
-        <div class="card-title">⚡ Risk & Alert</div>
+        <div class="card-title"><span class="mdi mdi-sm">warning</span> Risk & Alert</div>
         ${alertBadge}
       </div>
       <div class="card-body">
@@ -275,7 +277,7 @@
     if (!body) return;
     if (header) {
       const hd = header.querySelector('.card-title');
-      if (hd) hd.textContent = `📅 Today's Classes (${sessions.length})`;
+      if (hd) hd.innerHTML = `<span class="mdi mdi-sm">calendar_today</span> Today's Classes (${sessions.length})`;
     }
     body.innerHTML = SessionCard.renderGroup(sessions);
   })();
@@ -292,7 +294,7 @@
   window.openFollowUpModal = function (name) {
     const s   = DB.students.find(x => x.name === name);
     const left = s ? Math.min(...(s.courses||[]).map(c=>c.left)) : '?';
-    const isUr = s?.status === 'urgent';
+    const isUr = left <= 1;
     Modal.create('modal-followup',
       '📞 Follow Up — ' + name,
       `<div class="modal-section">

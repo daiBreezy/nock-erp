@@ -1,0 +1,747 @@
+/* ============================================================
+   css/md3.css — Material Design 3 Design System
+   NockERP  |  Seed: #2563eb (Blue)  |  Mode: Light
+   Load AFTER main.css — tokens + component overrides
+   ============================================================ */
+
+/* ══════════════════════════════════════════════════════════════
+   1. COLOR TOKENS
+   Tonal palette generated from seed #2563eb
+══════════════════════════════════════════════════════════════ */
+:root {
+  /* ── Primary (Blue) ──────────────────────────────── */
+  --md-primary:               #2563eb;
+  --md-on-primary:            #ffffff;
+  --md-primary-container:     #d9e2ff;
+  --md-on-primary-container:  #001849;
+  --md-primary-fixed:         #d9e2ff;
+  --md-primary-fixed-dim:     #b0c6ff;
+
+  /* ── Secondary (Slate-Blue) ──────────────────────── */
+  --md-secondary:               #566080;
+  --md-on-secondary:            #ffffff;
+  --md-secondary-container:     #dbe2f8;
+  --md-on-secondary-container:  #121c2e;
+
+  /* ── Tertiary (Teal) ─────────────────────────────── */
+  --md-tertiary:               #006876;
+  --md-on-tertiary:            #ffffff;
+  --md-tertiary-container:     #9ef0fc;
+  --md-on-tertiary-container:  #001f24;
+
+  /* ── Error (Red) ─────────────────────────────────── */
+  --md-error:               #ba1a1a;
+  --md-on-error:            #ffffff;
+  --md-error-container:     #ffdad6;
+  --md-on-error-container:  #410002;
+
+  /* ── Semantic: Success ───────────────────────────── */
+  --md-success:               #146c2e;
+  --md-on-success:            #ffffff;
+  --md-success-container:     #b7f1be;
+  --md-on-success-container:  #002109;
+
+  /* ── Semantic: Warning ───────────────────────────── */
+  --md-warning:               #7b5800;
+  --md-on-warning:            #ffffff;
+  --md-warning-container:     #ffdea0;
+  --md-on-warning-container:  #261900;
+
+  /* ── Background & Surface ────────────────────────── */
+  --md-background:     #f8f9ff;
+  --md-on-background:  #1a1c20;
+  --md-surface:        #f8f9ff;
+  --md-on-surface:     #1a1c20;
+
+  /* ── Surface Variant ─────────────────────────────── */
+  --md-surface-variant:    #e0e2ec;
+  --md-on-surface-variant: #44474e;
+
+  /* ── Surface Containers (lightest → darkest) ─────── */
+  --md-surface-lowest:   #ffffff;
+  --md-surface-low:      #f3f4fa;
+  --md-surface-mid:      #eceef4;
+  --md-surface-high:     #e7e8ee;
+  --md-surface-highest:  #e1e2e8;
+
+  /* ── Outline ─────────────────────────────────────── */
+  --md-outline:         #74777f;
+  --md-outline-variant: #c4c6d0;
+
+  /* ── Inverse ─────────────────────────────────────── */
+  --md-inverse-surface:    #2e3036;
+  --md-inverse-on-surface: #eff0f7;
+  --md-inverse-primary:    #b0c6ff;
+
+  /* ── Subject color tokens (NockERP specific) ─────── */
+  --clr-eng:        var(--md-primary-container);
+  --clr-on-eng:     var(--md-on-primary-container);
+  --clr-math:       var(--md-success-container);
+  --clr-on-math:    var(--md-on-success-container);
+  --clr-science:    #ffddcc;
+  --clr-on-science: #8c3a00;
+  --clr-thai:       var(--md-success-container);
+  --clr-on-thai:    var(--md-on-success-container);
+  --clr-active:     var(--md-warning-container);
+  --clr-on-active:  var(--md-on-warning-container);
+  --clr-grammar:    #e8def8;
+  --clr-on-grammar: #4a4458;
+
+  /* ══════════════════════════════════════════════════
+     2. SHAPE SCALE
+  ══════════════════════════════════════════════════ */
+  --shape-none:   0px;
+  --shape-xs:     4px;
+  --shape-sm:     8px;
+  --shape-md:     12px;
+  --shape-lg:     16px;
+  --shape-xl:     28px;
+  --shape-full:   9999px;
+
+  /* ══════════════════════════════════════════════════
+     3. SPACING  (4px grid)
+  ══════════════════════════════════════════════════ */
+  --sp-1:  4px;
+  --sp-2:  8px;
+  --sp-3:  12px;
+  --sp-4:  16px;
+  --sp-5:  20px;
+  --sp-6:  24px;
+  --sp-8:  32px;
+  --sp-10: 40px;
+  --sp-12: 48px;
+
+  /* ══════════════════════════════════════════════════
+     4. ELEVATION (tonal shadow)
+  ══════════════════════════════════════════════════ */
+  --elev-0: none;
+  --elev-1: 0 1px 2px rgba(0,0,0,.10), 0 1px 3px 1px rgba(0,0,0,.05);
+  --elev-2: 0 1px 2px rgba(0,0,0,.10), 0 2px 6px 2px rgba(0,0,0,.06);
+  --elev-3: 0 4px 8px 3px rgba(0,0,0,.07), 0 1px 3px rgba(0,0,0,.10);
+  --elev-4: 0 6px 10px 4px rgba(0,0,0,.07), 0 2px 3px rgba(0,0,0,.10);
+  --elev-5: 0 8px 12px 6px rgba(0,0,0,.07), 0 4px 4px rgba(0,0,0,.10);
+
+  /* ══════════════════════════════════════════════════
+     5. TYPOGRAPHY SCALE
+  ══════════════════════════════════════════════════ */
+  --font: 'Inter', system-ui, -apple-system, sans-serif;
+
+  --fs-display-lg:   57px;  --lh-display-lg:   64px;
+  --fs-display-md:   45px;  --lh-display-md:   52px;
+  --fs-display-sm:   36px;  --lh-display-sm:   44px;
+  --fs-headline-lg:  32px;  --lh-headline-lg:  40px;
+  --fs-headline-md:  28px;  --lh-headline-md:  36px;
+  --fs-headline-sm:  24px;  --lh-headline-sm:  32px;
+  --fs-title-lg:     22px;  --lh-title-lg:     28px;
+  --fs-title-md:     16px;  --lh-title-md:     24px;
+  --fs-title-sm:     14px;  --lh-title-sm:     20px;
+  --fs-body-lg:      16px;  --lh-body-lg:      24px;
+  --fs-body-md:      14px;  --lh-body-md:      20px;
+  --fs-body-sm:      12px;  --lh-body-sm:      16px;
+  --fs-label-lg:     14px;  --lh-label-lg:     20px;
+  --fs-label-md:     12px;  --lh-label-md:     16px;
+  --fs-label-sm:     11px;  --lh-label-sm:     16px;
+}
+
+/* ══════════════════════════════════════════════════════════════
+   6. BASE OVERRIDES
+══════════════════════════════════════════════════════════════ */
+body {
+  font-family: var(--font);
+  background: var(--md-background);
+  color: var(--md-on-surface);
+}
+
+/* ══════════════════════════════════════════════════════════════
+   7. MATERIAL SYMBOLS ICON
+   Usage: <span class="mdi">home</span>
+══════════════════════════════════════════════════════════════ */
+.mdi {
+  font-family: 'Material Symbols Rounded';
+  font-weight: normal;
+  font-style: normal;
+  font-size: 20px;
+  line-height: 1;
+  letter-spacing: normal;
+  text-transform: none;
+  white-space: nowrap;
+  word-wrap: normal;
+  -webkit-font-smoothing: antialiased;
+  font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 20;
+  vertical-align: middle;
+  user-select: none;
+  flex-shrink: 0;
+  display: inline-block;
+}
+.mdi-sm  { font-size: 16px; }
+.mdi-md  { font-size: 20px; }
+.mdi-lg  { font-size: 24px; }
+.mdi-xl  { font-size: 32px; }
+.mdi-fill { font-variation-settings: 'FILL' 1, 'wght' 400, 'GRAD' 0, 'opsz' 20; }
+
+/* ══════════════════════════════════════════════════════════════
+   8. BUTTONS — MD3 compliant
+   Variants: filled (primary), tonal (secondary), outlined,
+             text/ghost, danger, icon-only
+   Sizes: default (40px) · lg (48px) · sm (32px) · xs (26px)
+══════════════════════════════════════════════════════════════ */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--sp-2);
+  height: 40px;
+  min-width: 48px;
+  padding: 0 var(--sp-6);
+  border-radius: var(--shape-full);
+  font-family: var(--font);
+  font-size: var(--fs-label-lg);
+  font-weight: 500;
+  line-height: 1;
+  letter-spacing: 0.1px;
+  border: none;
+  cursor: pointer;
+  text-decoration: none;
+  transition: box-shadow .2s, background-color .1s;
+  white-space: nowrap;
+  user-select: none;
+  box-sizing: border-box;
+}
+.btn:disabled { opacity: .38; cursor: not-allowed; pointer-events: none; }
+
+/* Filled — primary action */
+.btn-primary {
+  background: var(--md-primary);
+  color: var(--md-on-primary);
+}
+.btn-primary:hover {
+  background: color-mix(in srgb, var(--md-primary) 92%, #000);
+  box-shadow: var(--elev-1);
+}
+.btn-primary:active { box-shadow: none; }
+
+/* Tonal — secondary action */
+.btn-secondary {
+  background: var(--md-secondary-container);
+  color: var(--md-on-secondary-container);
+  border: none;
+}
+.btn-secondary:hover {
+  background: color-mix(in srgb, var(--md-secondary-container) 88%, var(--md-on-secondary-container));
+  box-shadow: var(--elev-1);
+}
+
+/* Outlined */
+.btn-outlined {
+  background: transparent;
+  color: var(--md-primary);
+  border: 1.5px solid var(--md-outline);
+  padding: 0 calc(var(--sp-6) - 1.5px);
+}
+.btn-outlined:hover {
+  background: color-mix(in srgb, var(--md-primary) 8%, transparent);
+  border-color: var(--md-primary);
+}
+
+/* Ghost / Text */
+.btn-ghost {
+  background: transparent;
+  color: var(--md-on-surface-variant);
+  border: none;
+  padding: 0 var(--sp-3);
+  min-width: auto;
+}
+.btn-ghost:hover { background: color-mix(in srgb, var(--md-on-surface) 8%, transparent); }
+
+/* Danger */
+.btn-danger {
+  background: var(--md-error);
+  color: var(--md-on-error);
+}
+.btn-danger:hover {
+  background: color-mix(in srgb, var(--md-error) 90%, #000);
+  box-shadow: var(--elev-1);
+}
+
+/* Success */
+.btn-success {
+  background: var(--md-success);
+  color: var(--md-on-success);
+}
+.btn-success:hover {
+  background: color-mix(in srgb, var(--md-success) 90%, #000);
+  box-shadow: var(--elev-1);
+}
+
+/* Sizes */
+.btn-lg { height: 48px; padding: 0 var(--sp-8); font-size: var(--fs-body-md); }
+.btn-sm { height: 32px; padding: 0 var(--sp-4); font-size: var(--fs-label-md); min-width: auto; }
+.btn-xs { height: 26px; padding: 0 var(--sp-3); font-size: var(--fs-label-sm); min-width: auto; }
+
+/* Icon-only button */
+.btn-icon {
+  width: 40px; height: 40px; min-width: 40px;
+  padding: 0; border-radius: var(--shape-full);
+  background: transparent; color: var(--md-on-surface-variant); border: none;
+}
+.btn-icon:hover { background: color-mix(in srgb, var(--md-on-surface) 8%, transparent); }
+.btn-icon.btn-sm { width: 32px; height: 32px; min-width: 32px; }
+.btn-icon.btn-xs { width: 26px; height: 26px; min-width: 26px; }
+
+/* ══════════════════════════════════════════════════════════════
+   9. BADGES — MD3 tonal pill
+══════════════════════════════════════════════════════════════ */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  height: 20px;
+  padding: 0 var(--sp-2);
+  border-radius: var(--shape-full);
+  font-family: var(--font);
+  font-size: var(--fs-label-sm);
+  font-weight: 500;
+  letter-spacing: 0.4px;
+  white-space: nowrap;
+  line-height: 1;
+}
+.badge-green, .badge-success {
+  background: var(--md-success-container);
+  color: var(--md-on-success-container);
+}
+.badge-yellow, .badge-warning {
+  background: var(--md-warning-container);
+  color: var(--md-on-warning-container);
+}
+.badge-red, .badge-error, .badge-danger {
+  background: var(--md-error-container);
+  color: var(--md-on-error-container);
+}
+.badge-blue, .badge-primary {
+  background: var(--md-primary-container);
+  color: var(--md-on-primary-container);
+}
+.badge-purple {
+  background: var(--clr-grammar);
+  color: var(--clr-on-grammar);
+}
+.badge-orange {
+  background: var(--clr-science);
+  color: var(--clr-on-science);
+}
+.badge-gray, .badge-neutral {
+  background: var(--md-surface-high);
+  color: var(--md-on-surface-variant);
+}
+.badge-teal {
+  background: var(--md-tertiary-container);
+  color: var(--md-on-tertiary-container);
+}
+
+/* Count badge (number bubble) */
+.badge-count {
+  min-width: 18px; height: 18px;
+  padding: 0 var(--sp-1);
+  background: var(--md-error);
+  color: var(--md-on-error);
+  border-radius: var(--shape-full);
+  font-size: 10px; font-weight: 700;
+  display: inline-flex; align-items: center; justify-content: center;
+}
+
+/* ══════════════════════════════════════════════════════════════
+   10. CARDS — MD3 variants
+══════════════════════════════════════════════════════════════ */
+/* Elevated card */
+.card {
+  background: var(--md-surface-lowest);
+  border-radius: var(--shape-md);
+  padding: var(--sp-4);
+  box-shadow: var(--elev-1);
+  border: none;
+  overflow: hidden;
+}
+.card:hover { box-shadow: var(--elev-2); }
+.card-header {
+  padding: var(--sp-3) var(--sp-4);
+  border-bottom: 1px solid var(--md-outline-variant);
+  display: flex; align-items: center; justify-content: space-between;
+}
+.card-title { font-size: var(--fs-title-sm); font-weight: 600; color: var(--md-on-surface); display: flex; align-items: center; gap: var(--sp-2); }
+.card-body   { padding: 0; }
+
+/* Filled card */
+.card-filled {
+  background: var(--md-surface-highest);
+  border-radius: var(--shape-md);
+  padding: var(--sp-4);
+}
+
+/* Outlined card */
+.card-outlined {
+  background: var(--md-surface);
+  border: 1px solid var(--md-outline-variant);
+  border-radius: var(--shape-md);
+  padding: var(--sp-4);
+  overflow: hidden;
+}
+
+/* Small variant */
+.card-sm { padding: var(--sp-3); border-radius: var(--shape-sm); }
+
+/* ══════════════════════════════════════════════════════════════
+   11. TEXT FIELDS — MD3 outlined style
+══════════════════════════════════════════════════════════════ */
+.field-label,
+label.form-label,
+label.settings-label {
+  display: block;
+  font-size: var(--fs-label-md);
+  font-weight: 500;
+  color: var(--md-on-surface-variant);
+  margin-bottom: var(--sp-1);
+}
+
+input.form-input,
+input.settings-input,
+select.form-input,
+select.settings-input,
+select.tc-select,
+textarea.form-input,
+textarea.settings-input {
+  background: var(--md-surface-lowest);
+  border: 1.5px solid var(--md-outline-variant);
+  border-radius: var(--shape-xs);
+  padding: 0 var(--sp-3);
+  height: 40px;
+  font-family: var(--font);
+  font-size: var(--fs-body-md);
+  color: var(--md-on-surface);
+  outline: none;
+  transition: border-color .15s, border-width .1s;
+  box-sizing: border-box;
+}
+textarea.form-input,
+textarea.settings-input {
+  height: auto;
+  padding: var(--sp-2) var(--sp-3);
+  resize: vertical;
+  line-height: var(--lh-body-md);
+}
+input.form-input:focus,
+input.settings-input:focus,
+select.form-input:focus,
+select.settings-input:focus,
+textarea.form-input:focus,
+textarea.settings-input:focus {
+  border-color: var(--md-primary);
+  border-width: 2px;
+  outline: none;
+}
+input.form-input::placeholder,
+input.settings-input::placeholder {
+  color: var(--md-on-surface-variant);
+  opacity: .6;
+}
+input.form-input.error,
+input.settings-input.error { border-color: var(--md-error); }
+
+/* Small select for filter bars */
+select.tc-select {
+  height: 34px;
+  padding: 0 var(--sp-2);
+  font-size: var(--fs-label-md);
+  border-radius: var(--shape-xs);
+  min-width: 80px;
+  cursor: pointer;
+}
+
+/* ══════════════════════════════════════════════════════════════
+   12. TABS — MD3 primary indicator
+══════════════════════════════════════════════════════════════ */
+.tabs {
+  display: flex;
+  border-bottom: 1px solid var(--md-outline-variant);
+  margin-bottom: var(--sp-4);
+  gap: 0;
+}
+.tab {
+  padding: var(--sp-2) var(--sp-4);
+  font-size: var(--fs-label-lg);
+  font-weight: 500;
+  color: var(--md-on-surface-variant);
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  transition: color .15s, border-color .15s;
+  white-space: nowrap;
+  user-select: none;
+}
+.tab:hover { color: var(--md-primary); }
+.tab.active {
+  color: var(--md-primary);
+  border-bottom-color: var(--md-primary);
+}
+
+/* ══════════════════════════════════════════════════════════════
+   13. TABLE — MD3 data table
+══════════════════════════════════════════════════════════════ */
+table { width: 100%; border-collapse: collapse; }
+th {
+  font-size: var(--fs-label-md);
+  font-weight: 600;
+  color: var(--md-on-surface-variant);
+  text-transform: uppercase;
+  letter-spacing: .5px;
+  padding: var(--sp-2) var(--sp-4);
+  text-align: left;
+  background: var(--md-surface-low);
+  border-bottom: 1px solid var(--md-outline-variant);
+  white-space: nowrap;
+  cursor: pointer;
+  user-select: none;
+}
+th:hover { color: var(--md-primary); }
+th.sort-asc::after  { content: ' ↑'; color: var(--md-primary); }
+th.sort-desc::after { content: ' ↓'; color: var(--md-primary); }
+td {
+  padding: var(--sp-2) var(--sp-4);
+  font-size: var(--fs-body-sm);
+  color: var(--md-on-surface);
+  border-bottom: 1px solid var(--md-outline-variant);
+  vertical-align: middle;
+}
+tr:last-child td { border-bottom: none; }
+tr:hover td { background: var(--md-surface-low); }
+.tr-click { cursor: pointer; }
+
+/* ══════════════════════════════════════════════════════════════
+   14. KPI CARDS — ERP compact metrics
+══════════════════════════════════════════════════════════════ */
+.kpi-grid { display: grid; grid-template-columns: repeat(4,1fr); gap: var(--sp-4); margin-bottom: var(--sp-5); }
+
+.kpi-card {
+  background: var(--md-surface-lowest);
+  border: none;
+  box-shadow: var(--elev-1);
+  border-radius: var(--shape-md);
+  padding: var(--sp-4);
+  display: flex; flex-direction: column; gap: var(--sp-1);
+  overflow: hidden;
+}
+.kpi-card:hover { box-shadow: var(--elev-2); }
+.kpi-icon {
+  width: 36px; height: 36px; border-radius: var(--shape-sm);
+  background: var(--md-primary-container);
+  color: var(--md-on-primary-container);
+  display: flex; align-items: center; justify-content: center;
+  float: right; margin-left: var(--sp-2); flex-shrink: 0;
+}
+.kpi-icon.success  { background: var(--md-success-container);  color: var(--md-on-success-container); }
+.kpi-icon.warning  { background: var(--md-warning-container);  color: var(--md-on-warning-container); }
+.kpi-icon.error    { background: var(--md-error-container);    color: var(--md-on-error-container); }
+.kpi-icon.tertiary { background: var(--md-tertiary-container); color: var(--md-on-tertiary-container); }
+.kpi-label {
+  font-size: var(--fs-label-sm); font-weight: 500;
+  color: var(--md-on-surface-variant);
+  text-transform: uppercase; letter-spacing: .5px;
+}
+.kpi-value {
+  font-size: var(--fs-headline-sm);
+  font-weight: 700; color: var(--md-on-surface);
+  margin: var(--sp-1) 0 var(--sp-1); line-height: 1;
+}
+.kpi-change { font-size: var(--fs-label-md); }
+.kpi-change.up   { color: var(--md-success); }
+.kpi-change.down { color: var(--md-error); }
+
+/* ══════════════════════════════════════════════════════════════
+   15. FILTER / CHIP BAR
+══════════════════════════════════════════════════════════════ */
+.filter-bar { display: flex; gap: var(--sp-2); margin-bottom: var(--sp-4); flex-wrap: wrap; align-items: center; }
+
+.filter-chip {
+  display: inline-flex; align-items: center; gap: var(--sp-1);
+  height: 32px; padding: 0 var(--sp-4);
+  border-radius: var(--shape-sm);
+  border: 1px solid var(--md-outline-variant);
+  background: var(--md-surface-lowest);
+  font-size: var(--fs-label-md); font-weight: 500;
+  color: var(--md-on-surface-variant);
+  cursor: pointer; transition: background .1s, color .1s;
+}
+.filter-chip:hover { background: var(--md-surface-mid); color: var(--md-on-surface); }
+.filter-chip.active {
+  background: var(--md-secondary-container);
+  color: var(--md-on-secondary-container);
+  border-color: transparent;
+}
+
+/* ══════════════════════════════════════════════════════════════
+   16. AVATAR
+══════════════════════════════════════════════════════════════ */
+.avatar {
+  display: flex; align-items: center; justify-content: center;
+  border-radius: 50%;
+  background: var(--md-primary-container);
+  color: var(--md-on-primary-container);
+  font-weight: 700; font-family: var(--font);
+  flex-shrink: 0; user-select: none;
+}
+/* Size handled inline or by explicit classes */
+.avatar-sm { width: 28px; height: 28px; font-size: 11px; }
+.avatar-md { width: 36px; height: 36px; font-size: 14px; }
+.avatar-lg { width: 48px; height: 48px; font-size: 18px; }
+.avatar-xl { width: 64px; height: 64px; font-size: 24px; }
+
+/* ══════════════════════════════════════════════════════════════
+   17. MODAL — MD3 Dialog
+══════════════════════════════════════════════════════════════ */
+.modal-overlay {
+  position: fixed; inset: 0; z-index: 1000;
+  background: rgba(0,0,0,.38);
+  align-items: center; justify-content: center;
+  padding: var(--sp-4);
+  /* display is controlled by main.css: none by default, flex when .open */
+}
+.modal {
+  background: var(--md-surface-lowest);
+  border-radius: var(--shape-xl);
+  box-shadow: var(--elev-5);
+  width: 100%; max-width: 560px;
+  max-height: calc(100vh - var(--sp-8));
+  display: flex; flex-direction: column;
+  overflow: hidden;
+}
+.modal-lg  { max-width: 700px; }
+.modal-xl  { max-width: 860px; }
+.modal-tabbed { max-width: 700px; }
+
+.modal-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: var(--sp-5) var(--sp-6) var(--sp-4);
+  border-bottom: 1px solid var(--md-outline-variant);
+  flex-shrink: 0;
+}
+.modal-title {
+  font-size: var(--fs-title-md); font-weight: 600;
+  color: var(--md-on-surface); display: flex; align-items: center; gap: var(--sp-2);
+}
+.modal-close {
+  width: 36px; height: 36px; border-radius: var(--shape-full);
+  border: none; background: transparent;
+  color: var(--md-on-surface-variant);
+  cursor: pointer; display: flex; align-items: center; justify-content: center;
+  font-size: 20px; transition: background .1s;
+}
+.modal-close:hover { background: var(--md-surface-mid); }
+
+.modal-body {
+  flex: 1; overflow-y: auto;
+  padding: var(--sp-4) var(--sp-6);
+}
+.modal-footer {
+  display: flex; justify-content: flex-end; gap: var(--sp-2);
+  padding: var(--sp-4) var(--sp-6);
+  border-top: 1px solid var(--md-outline-variant);
+  flex-shrink: 0;
+}
+
+/* Modal section blocks */
+.modal-section { margin-bottom: var(--sp-5); }
+.modal-section:last-child { margin-bottom: 0; }
+.modal-section-title {
+  font-size: var(--fs-label-lg); font-weight: 600;
+  color: var(--md-on-surface-variant);
+  text-transform: uppercase; letter-spacing: .5px;
+  margin-bottom: var(--sp-3);
+}
+
+/* Info grid inside modals */
+.info-grid {
+  display: grid; grid-template-columns: 1fr 1fr;
+  gap: var(--sp-3) var(--sp-6);
+}
+.info-item .label {
+  font-size: var(--fs-label-sm); font-weight: 500;
+  color: var(--md-on-surface-variant);
+  text-transform: uppercase; letter-spacing: .4px;
+  margin-bottom: var(--sp-1);
+}
+.info-item { font-size: var(--fs-body-sm); color: var(--md-on-surface); }
+
+/* ══════════════════════════════════════════════════════════════
+   18. PROGRESS BAR
+══════════════════════════════════════════════════════════════ */
+.progress {
+  background: var(--md-surface-high);
+  border-radius: var(--shape-full);
+  height: 6px; overflow: hidden;
+}
+.progress-fill {
+  height: 100%; border-radius: var(--shape-full);
+  background: var(--md-primary);
+  transition: width .4s ease;
+}
+.progress-fill.success { background: var(--md-success); }
+.progress-fill.warning { background: var(--md-warning); }
+.progress-fill.error   { background: var(--md-error); }
+
+/* ══════════════════════════════════════════════════════════════
+   19. SIDEBAR — light surface
+   Clean light sidebar with primary accent
+══════════════════════════════════════════════════════════════ */
+.nav-item.active {
+  color: var(--md-primary);
+  background: var(--md-primary-container);
+  border-left-color: var(--md-primary);
+  font-weight: 500;
+}
+.nav-item:hover  { color: var(--md-on-surface); background: var(--md-surface-low); }
+.nav-item .icon  { font-size: 16px; width: 20px; font-family: 'Material Symbols Rounded'; font-variation-settings: 'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 20; }
+
+/* Notification bar accent */
+.sidebar-noti:hover     { background: var(--md-primary-container); border-color: color-mix(in srgb, var(--md-primary) 30%, transparent); }
+.sidebar-user-av        { background: var(--md-primary); }
+.sidebar-user-role      { color: var(--md-primary); background: var(--md-primary-container); border-color: color-mix(in srgb, var(--md-primary) 25%, transparent); }
+.sidebar-user-btn:hover { border-color: color-mix(in srgb, var(--md-primary) 40%, transparent); }
+
+/* ══════════════════════════════════════════════════════════════
+   20. PAGE LAYOUT
+══════════════════════════════════════════════════════════════ */
+.page-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: var(--sp-5); }
+.page-title  { font-size: var(--fs-title-lg); font-weight: 700; color: var(--md-on-surface); }
+.page-sub    { font-size: var(--fs-body-sm); color: var(--md-on-surface-variant); margin-top: var(--sp-1); }
+
+/* Section headers inside views */
+.section-title {
+  font-size: var(--fs-title-sm); font-weight: 600;
+  color: var(--md-on-surface); margin-bottom: var(--sp-3);
+}
+
+/* ══════════════════════════════════════════════════════════════
+   21. UTILITY — spacing, color, surface
+══════════════════════════════════════════════════════════════ */
+.text-primary   { color: var(--md-primary) !important; }
+.text-muted     { color: var(--md-on-surface-variant) !important; }
+.text-error     { color: var(--md-error) !important; }
+.text-success   { color: var(--md-success) !important; }
+.text-warning   { color: var(--md-warning) !important; }
+
+.surface-card   { background: var(--md-surface-lowest); }
+.surface-low    { background: var(--md-surface-low); }
+.surface-mid    { background: var(--md-surface-mid); }
+
+.rounded-sm  { border-radius: var(--shape-sm); }
+.rounded-md  { border-radius: var(--shape-md); }
+.rounded-lg  { border-radius: var(--shape-lg); }
+.rounded-full{ border-radius: var(--shape-full); }
+
+.shadow-1 { box-shadow: var(--elev-1); }
+.shadow-2 { box-shadow: var(--elev-2); }
+.shadow-3 { box-shadow: var(--elev-3); }
+
+/* Divider */
+hr, .divider {
+  border: none;
+  border-top: 1px solid var(--md-outline-variant);
+  margin: var(--sp-3) 0;
+}

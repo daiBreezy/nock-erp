@@ -1,11 +1,9 @@
-# Secrets
+node_modules/
+dist/
 .env
-*.env.local
-
-# OS
+.env.*
+!.env.example
 .DS_Store
-Thumbs.db
-
-# Editor
-.vscode/
-*.swp
+.sites-runtime/
+.claude/worktrees/
+.pnpm-store/

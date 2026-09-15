@@ -16,53 +16,85 @@ let dragLeadId = null;
 function daysLabel(d) { return Utils.daysLabel(d); }
 function statusBadge(s) {
   return ({
-    active:  '<span class="badge badge-green">Active</span>',
-    renewal: '<span class="badge badge-yellow">Renewal Pending</span>',
-    urgent:  '<span class="badge badge-red">Urgent — 1 left</span>',
-    inactive:'<span class="badge badge-gray">Inactive</span>',
-    archived:'<span class="badge badge-gray">Archived</span>',
+    active:   '<span class="badge badge-green">Active</span>',
+    renewal:  '<span class="badge badge-yellow">Renewal</span>',
+    pause:    '<span class="badge badge-gray">Pause</span>',
+    archived: '<span class="badge badge-gray">Archived</span>',
   })[s] || '<span class="badge badge-gray">—</span>';
 }
 
 /* ── RENDER SHELL ───────────────────────────────────────── */
 document.getElementById('view-crm').innerHTML = `
 <div class="page-header">
-  <div><div class="page-title">CRM</div><div class="page-sub">87 customers · ${leads.filter(l=>l.stage!=='archived').length} active leads</div></div>
-  <button class="btn btn-primary" onclick="openLeadModal()">＋ New Lead</button>
+  <div>
+    <div class="page-title">CRM</div>
+    <div class="page-sub">87 customers · ${leads.filter(l=>l.stage!=='archived').length} active leads</div>
+  </div>
+  <button class="btn btn-primary" onclick="openLeadModal()"><span class="mdi mdi-sm">add</span> New Lead</button>
 </div>
 
-<!-- STATS -->
-<div class="crm-stats">
-  <div class="crm-stat-card" onclick="switchCrmTab('customers')"><div class="crm-stat-val">87</div><div class="crm-stat-lbl">Total Customers</div><div class="crm-stat-sub">+5 this month</div></div>
-  <div class="crm-stat-card" onclick="switchCrmTab('leads')"><div class="crm-stat-val">${leads.filter(l=>l.stage!=='archived').length}</div><div class="crm-stat-lbl">Active Leads</div><div class="crm-stat-sub">+3 this week</div></div>
-  <div class="crm-stat-card"><div class="crm-stat-val">6</div><div class="crm-stat-lbl">Renewal Pending</div><div class="crm-stat-sub down">Action required</div></div>
-  <div class="crm-stat-card"><div class="crm-stat-val">68%</div><div class="crm-stat-lbl">Conversion Rate</div><div class="crm-stat-sub">↑ 5% MoM</div></div>
-  <div class="crm-stat-card"><div class="crm-stat-val">฿124.5K</div><div class="crm-stat-lbl">Revenue (May)</div><div class="crm-stat-sub">↑ 12% MoM</div></div>
+<!-- KPI CARDS — standard kpi-card (consistent with all other modules) -->
+<div class="kpi-grid mb-16" style="grid-template-columns:repeat(5,1fr)">
+  <div class="kpi-card" onclick="switchCrmTab('customers')" style="cursor:pointer">
+    <div class="kpi-icon success"><span class="mdi">groups</span></div>
+    <div class="kpi-label">Total Customers</div>
+    <div class="kpi-value">87</div>
+    <div class="kpi-change up">+5 this month</div>
+  </div>
+  <div class="kpi-card" onclick="switchCrmTab('leads')" style="cursor:pointer">
+    <div class="kpi-icon"><span class="mdi">person_search</span></div>
+    <div class="kpi-label">Active Leads</div>
+    <div class="kpi-value">${leads.filter(l=>l.stage!=='archived').length}</div>
+    <div class="kpi-change up">+3 this week</div>
+  </div>
+  <div class="kpi-card">
+    <div class="kpi-icon warning"><span class="mdi">autorenew</span></div>
+    <div class="kpi-label">Renewal Pending</div>
+    <div class="kpi-value">6</div>
+    <div class="kpi-change down">Action required</div>
+  </div>
+  <div class="kpi-card">
+    <div class="kpi-icon tertiary"><span class="mdi">trending_up</span></div>
+    <div class="kpi-label">Conversion Rate</div>
+    <div class="kpi-value">68%</div>
+    <div class="kpi-change up">↑ 5% MoM</div>
+  </div>
+  <div class="kpi-card">
+    <div class="kpi-icon success"><span class="mdi">payments</span></div>
+    <div class="kpi-label">Revenue (May)</div>
+    <div class="kpi-value">฿124.5K</div>
+    <div class="kpi-change up">↑ 12% MoM</div>
+  </div>
 </div>
 
 <!-- TABS -->
-<div class="tabs">
-  <div class="tab active" id="crm-tab-leads"     onclick="switchCrmTab('leads')">Leads</div>
-  <div class="tab"        id="crm-tab-customers" onclick="switchCrmTab('customers')">Customers</div>
+<div class="tabs" style="margin-bottom:12px">
+  <div class="tab active" id="crm-tab-leads"     onclick="switchCrmTab('leads')"><span class="mdi mdi-sm">person_search</span> Leads</div>
+  <div class="tab"        id="crm-tab-customers" onclick="switchCrmTab('customers')"><span class="mdi mdi-sm">groups</span> Customers</div>
 </div>
 
 <!-- LEADS PANEL -->
 <div id="crm-leads">
-  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:8px">
-    <div style="display:flex;gap:6px;flex-wrap:wrap" id="lead-chips">
-      <div class="filter-chip active" onclick="setLeadFilter('all',this)">All</div>
-      <div class="filter-chip" onclick="setLeadFilter('new',this)">New</div>
-      <div class="filter-chip" onclick="setLeadFilter('contacting',this)">Contacting</div>
-      <div class="filter-chip" onclick="setLeadFilter('test',this)">Test</div>
-      <div class="filter-chip" onclick="setLeadFilter('trial',this)">Trial</div>
-      <div class="filter-chip" onclick="setLeadFilter('payment_pending',this)">Payment</div>
+  <!-- Toolbar: search + branch filter + assignee filter -->
+  <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;flex-wrap:wrap">
+    <input type="text" class="tc-search" style="width:200px;flex-shrink:0"
+           placeholder="Search leads…" oninput="searchLeads(this.value)">
+    <select class="tc-select" id="lead-branch-filter" onchange="searchLeads(document.querySelector('#crm-leads input').value)">
+      <option value="all">All Branches</option>
+      ${CONST.BRANCHES.map(b=>`<option value="${b}">${b}</option>`).join('')}
+    </select>
+    <select class="tc-select" id="lead-assignee-filter" onchange="searchLeads(document.querySelector('#crm-leads input').value)">
+      <option value="all">All Assignees</option>
+      ${CONST.TEACHERS.map(t=>`<option value="${t}">${t}</option>`).join('')}
+    </select>
+    <div style="margin-left:auto;font-size:11px;color:#9ca3af">
+      <span class="mdi mdi-sm" style="font-size:11px;vertical-align:middle">drag_indicator</span>
+      Drag cards to move stages
     </div>
-    <input type="text" class="tc-search" placeholder="Search leads…" style="width:180px" oninput="searchLeads(this.value)">
   </div>
 
-  <!-- PIPELINE: horizontal scroll, 5 cols incl. Archived -->
-  <div id="crm-pipeline" style="display:flex;gap:12px;overflow-x:auto;padding-bottom:10px;margin-bottom:4px"></div>
-  <div style="font-size:11px;color:#9ca3af;text-align:center;margin-bottom:4px">↔ Scroll to see Archived · Drag cards to move between stages</div>
+  <!-- PIPELINE -->
+  <div id="crm-pipeline" class="crm-pipeline"></div>
 </div>
 
 <!-- CUSTOMERS PANEL -->
@@ -73,17 +105,19 @@ document.getElementById('view-crm').innerHTML = `
       <select class="tc-select" id="cust-status" onchange="renderCustomers()">
         <option value="all">All Status</option>
         <option value="active">Active</option>
-        <option value="renewal">Renewal Pending</option>
-        <option value="urgent">Urgent</option>
-        <option value="inactive">Inactive</option>
+        <option value="renewal">Renewal</option>
+        <option value="pause">Pause</option>
         <option value="archived">Archived</option>
       </select>
       <select class="tc-select" id="cust-branch" onchange="renderCustomers()">
         <option value="all">All Branches</option>
-        <option value="Sukhumvit">Sukhumvit</option>
-        <option value="Silom">Silom</option>
+        ${CONST.BRANCHES.map(b=>`<option value="${b}">${b}</option>`).join('')}
       </select>
-      <div style="margin-left:auto"><button class="btn btn-secondary btn-sm" onclick="showToast('Exporting CSV…','info')">Export CSV</button></div>
+      <div style="margin-left:auto">
+        <button class="btn btn-secondary btn-sm" onclick="showToast('Exporting CSV…','info')">
+          <span class="mdi mdi-sm">upload</span> Export CSV
+        </button>
+      </div>
     </div>
     <div class="table-wrap">
       <table id="cust-table">
@@ -107,20 +141,21 @@ document.getElementById('view-crm').innerHTML = `
    PIPELINE — 6 grouped columns
 ══════════════════════════════════════════════════════════ */
 const PIPELINE_GROUPS = [
-  {key:'new',             stages:['new'],                          label:'New Lead',        color:'#6366f1', bg:'#ede9fe'},
-  {key:'contacting',      stages:['contacting'],                   label:'Contacting',      color:'#f59e0b', bg:'#fef3c7'},
-  {key:'test',            stages:['test_scheduled','tested'],      label:'Test',            color:'#8b5cf6', bg:'#f5f3ff'},
-  {key:'trial',           stages:['trial_scheduled','trialed'],    label:'Trial',           color:'#10b981', bg:'#d1fae5'},
-  {key:'payment_pending', stages:['payment_pending'],              label:'Payment Pending', color:'#b91c1c', bg:'#fee2e2'},
-  {key:'archived',        stages:['archived'],                     label:'Archived',        color:'#9ca3af', bg:'#f3f4f6'},
+  {key:'new',             stages:['new'],                          label:'New Lead',        color:'var(--md-primary)',           bg:'var(--md-primary-container)'},
+  {key:'contacting',      stages:['contacting'],                   label:'Contacting',      color:'var(--md-warning)',            bg:'var(--md-warning-container)'},
+  {key:'test',            stages:['test_scheduled','tested'],      label:'Test',            color:'var(--clr-on-grammar)',        bg:'var(--clr-grammar)'},
+  {key:'trial',           stages:['trial_scheduled','trialed'],    label:'Trial',           color:'var(--md-success)',            bg:'var(--md-success-container)'},
+  {key:'payment_pending', stages:['payment_pending'],              label:'Payment Pending', color:'var(--md-error)',              bg:'var(--md-error-container)'},
+  {key:'enrolled',        stages:['enrolled'],                     label:'Enrolled ✓',      color:'#059669',                     bg:'#d1fae5'},
+  {key:'archived',        stages:['archived'],                     label:'Archived',        color:'var(--md-on-surface-variant)', bg:'var(--md-surface-mid)'},
 ];
 
 // Sub-state badges shown on cards inside grouped columns
 const SUB_STAGE_BADGE = {
-  test_scheduled:  {label:'📅 Scheduled', color:'#8b5cf6'},
-  tested:          {label:'✓ Tested',     color:'#059669'},
-  trial_scheduled: {label:'📅 Scheduled', color:'#10b981'},
-  trialed:         {label:'✓ Trialed',    color:'#059669'},
+  test_scheduled:  {label:'<span class="mdi mdi-sm" style="font-size:12px">calendar_today</span> Scheduled', color:'var(--clr-on-grammar)'},
+  tested:          {label:'<span class="mdi mdi-sm" style="font-size:12px">check_circle</span> Tested',      color:'var(--md-success)'},
+  trial_scheduled: {label:'<span class="mdi mdi-sm" style="font-size:12px">calendar_today</span> Scheduled', color:'var(--md-success)'},
+  trialed:         {label:'<span class="mdi mdi-sm" style="font-size:12px">check_circle</span> Trialed',     color:'var(--md-success)'},
 };
 
 // Days remaining until schedDate (mock today = 20 May 2026)
@@ -132,9 +167,9 @@ function schedDaysLeft(schedDate) {
   const day = parseInt(m[1]), month = MONTHS[m[2]];
   if (isNaN(day) || month === undefined) return '';
   const diff = Math.ceil((new Date(2026, month, day) - new Date(2026, 4, 20)) / 86400000);
-  if (diff < 0)  return `<span style="color:#ef4444;font-weight:700;font-size:10px">overdue</span>`;
-  if (diff === 0) return `<span style="color:#f97316;font-weight:700;font-size:10px">today!</span>`;
-  return `<span style="color:#f59e0b;font-weight:700;font-size:10px">${diff}d</span>`;
+  if (diff < 0)  return `<span style="color:var(--md-error);font-weight:700;font-size:10px">overdue</span>`;
+  if (diff === 0) return `<span style="color:var(--md-warning);font-weight:700;font-size:10px">today!</span>`;
+  return `<span style="color:var(--md-warning);font-weight:700;font-size:10px">${diff}d</span>`;
 }
 
 let leadFilter = 'all', leadSearch = '';
@@ -143,12 +178,20 @@ function renderPipeline() {
   const container = document.getElementById('crm-pipeline');
   if (!container) return;
 
+  // Read branch / assignee filters
+  const branchF   = document.getElementById('lead-branch-filter')?.value   || 'all';
+  const assigneeF = document.getElementById('lead-assignee-filter')?.value || 'all';
+
   container.innerHTML = PIPELINE_GROUPS.map(group => {
     const isArchived = group.key === 'archived';
     const stageLeads = leads.filter(l => {
       if (!group.stages.includes(l.stage)) return false;
-      if (leadFilter !== 'all' && group.key !== leadFilter) return false;
-      if (leadSearch && !(l.name + l.course).toLowerCase().includes(leadSearch.toLowerCase())) return false;
+      if (branchF   !== 'all' && l.branch   !== branchF)   return false;
+      if (assigneeF !== 'all' && l.assignee !== assigneeF) return false;
+      if (leadSearch) {
+        const q = leadSearch.toLowerCase();
+        if (!(l.name + (l.course||'')).toLowerCase().includes(q)) return false;
+      }
       return true;
     });
 
@@ -156,51 +199,126 @@ function renderPipeline() {
     const defaultNewStage = group.stages[0];
 
     return `
-    <div class="pipeline-col" style="min-width:220px;flex-shrink:0;${isArchived?'border:2px dashed #e5e7eb;opacity:.85':''}"
-         ondragover="event.preventDefault();this.style.background='#f0f0ff'"
-         ondragleave="this.style.background=''"
+    <div class="pipeline-col${isArchived?' pipeline-col--archived':''}"
+         ondragover="event.preventDefault();this.classList.add('drag-over')"
+         ondragleave="this.classList.remove('drag-over')"
          ondrop="dropLead(event,'${group.key}')">
-      <div class="pipeline-header" style="color:${group.color}">
-        ${group.label}
+      <!-- Column header with left-accent color bar -->
+      <div class="pipeline-header">
+        <div style="display:flex;align-items:center;gap:6px">
+          <div style="width:3px;height:14px;border-radius:2px;background:${group.color};flex-shrink:0"></div>
+          <span style="font-size:11px;font-weight:600;color:#374151;text-transform:uppercase;letter-spacing:.5px">${group.label}</span>
+        </div>
         <span class="pipeline-count" style="background:${group.bg};color:${group.color}">${stageLeads.length}</span>
       </div>
-      ${cards}
-      ${!isArchived ? `<div style="border:1px dashed #e5e7eb;border-radius:6px;padding:8px;
-        text-align:center;font-size:11px;color:#9ca3af;cursor:pointer;margin-top:4px"
-        onclick="openLeadModal(null,null,'${defaultNewStage}')">＋ Add</div>` : ''}
+      <div class="pipeline-cards">
+        ${cards}
+        ${!isArchived ? `
+        <div class="pipeline-add-btn" onclick="openLeadModal(null,null,'${defaultNewStage}')">
+          <span class="mdi mdi-sm" style="font-size:13px">add</span> Add Lead
+        </div>` : ''}
+      </div>
     </div>`;
   }).join('');
 }
 
 function leadCardHTML(l, group) {
   const isArchived = group.key === 'archived';
+  const isEnrolled = group.key === 'enrolled';
   const pendingSub  = (DB.formSubmissions||[]).find(s => s.leadId === l.id && s.status === 'pending');
   const subBadge    = SUB_STAGE_BADGE[l.stage];
+  const srcCls = ['Referred','Referral'].includes(l.source) ? 'badge-blue'
+               : l.source === 'Website' ? 'badge-purple' : 'badge-gray';
+
+  // ── Enrolled card: special compact green design ──────────
+  if (isEnrolled) {
+    const sub = (DB.formSubmissions||[]).find(s => s.leadId === l.id && s.status === 'approved' && s.type === 'enrollment');
+    const courseName = sub?.data?.course?.name || l.course || '—';
+    const teacherName = sub?.data?.schedule?.teacher || '—';
+    return `
+    <div class="lead-card" style="border:1.5px solid #6ee7b7;background:#f0fdf4;cursor:pointer"
+         onclick="openLeadModal('${l.id}')">
+      <!-- Enrolled banner -->
+      <div style="display:flex;align-items:center;gap:5px;margin-bottom:6px">
+        <span style="font-size:11px;font-weight:700;color:#059669;display:flex;align-items:center;gap:3px">
+          <span class="mdi mdi-sm" style="font-size:12px">check_circle</span> Enrolled
+        </span>
+        <span style="font-size:10px;color:#9ca3af;margin-left:auto">22 May</span>
+      </div>
+      <!-- Name -->
+      <div style="font-size:13px;font-weight:700;color:#1a1d23">${l.name}</div>
+      <!-- Course -->
+      <div style="font-size:11px;color:#059669;font-weight:600;margin-top:2px">${courseName}</div>
+      ${teacherName !== '—' ? `<div style="font-size:10px;color:#6b7280;margin-top:1px">
+        <span class="mdi mdi-sm" style="font-size:10px">person</span> ${teacherName}
+      </div>` : ''}
+      <!-- Actions -->
+      <div style="display:flex;gap:5px;margin-top:8px">
+        <button class="btn btn-sm" style="flex:1;background:#059669;color:#fff;border:none;font-size:11px;padding:5px 0;justify-content:center"
+          onclick="event.stopPropagation();switchCrmTab('customers');setTimeout(()=>openCustomerModal('${l.name}'),80)">
+          <span class="mdi mdi-sm" style="font-size:11px">person</span> View Customer →
+        </button>
+        <button class="chat-btn" style="background:#d1fae5;border-color:#6ee7b7"
+          onclick="event.stopPropagation();openLeadInbox('${l.id}')" title="Chat">
+          <span class="mdi mdi-sm" style="font-size:13px;color:#059669">chat</span>
+        </button>
+      </div>
+    </div>`;
+  }
 
   return `
-  <div class="lead-card ${isArchived?'archived':''}" draggable="true"
+  <div class="lead-card${isArchived?' lead-card--archived':''}" draggable="true"
        ondragstart="startDrag(event,'${l.id}')"
        ondragend="endDrag(event)"
        onclick="openLeadModal('${l.id}')">
-    <div style="display:flex;justify-content:space-between;align-items:flex-start">
+
+    <!-- Row 1: Name + age (right) -->
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:4px">
       <div class="lead-name">${l.name}</div>
-      <span style="font-size:9px;color:#9ca3af;white-space:nowrap;margin-left:4px">${daysLabel(l.daysAgo)}</span>
+      <span style="font-size:10px;color:#9ca3af;white-space:nowrap;flex-shrink:0">Age ${l.age}</span>
     </div>
-    <div class="lead-meta">${l.course} · Age ${l.age}</div>
-    ${l.assignee ? `<div style="font-size:10px;color:#6366f1;margin-top:3px">👤 ${l.assignee}</div>` : `<div style="font-size:10px;color:#9ca3af;margin-top:3px">Unassigned</div>`}
-    ${subBadge ? `<div style="font-size:10px;font-weight:600;color:${subBadge.color};margin-top:3px">${subBadge.label}</div>` : ''}
-    ${l.schedDate ? `<div style="font-size:10px;color:#6b7280;margin-top:2px;display:flex;gap:5px;align-items:center">
-        📅 ${l.schedDate} ${schedDaysLeft(l.schedDate)}</div>` : ''}
-    ${pendingSub ? `<div style="font-size:10px;font-weight:600;color:#b91c1c;background:#fee2e2;
-        border-radius:4px;padding:2px 6px;margin-top:4px;cursor:pointer"
-        onclick="event.stopPropagation();openFormReviewModal('${pendingSub.id}')">⏳ Form Pending →</div>` : ''}
-    ${isArchived ? `<div style="font-size:10px;color:#9ca3af;margin-top:3px">from: ${STAGE_META[l.archivedFrom||'new']?.label||l.archivedFrom}</div>` : ''}
-    <div class="lead-tags" style="margin-top:6px">
-      <span class="badge badge-${['Referred','Referral'].includes(l.source)?'blue':l.source==='Website'?'purple':'gray'}">${l.source}</span>
-      ${l.line  ? `<button class="chat-btn" onclick="event.stopPropagation();openLeadInbox('${l.id}')" title="Chat">💬</button>` : ''}
-      ${l.phone ? `<button class="chat-btn" onclick="event.stopPropagation();showToast('Calling ${l.phone}…','info')" title="Call">📞</button>` : ''}
-      ${isArchived ? `<button class="btn btn-xs btn-ghost" style="font-size:10px;padding:2px 6px"
-          onclick="event.stopPropagation();unarchiveLead('${l.id}')">↩ Restore</button>` : ''}
+
+    <!-- Row 2: Course -->
+    <div class="lead-meta" style="margin-top:2px">${l.course||'—'}</div>
+
+    <!-- Row 3: Sub-stage badge (Scheduled / Tested / Trialed) -->
+    ${subBadge ? `<div style="display:flex;align-items:center;gap:3px;margin-top:4px;font-size:10px;font-weight:600;color:${subBadge.color}">${subBadge.label}</div>` : ''}
+
+    <!-- Row 4: Schedule date -->
+    ${l.schedDate ? `<div style="display:flex;align-items:center;gap:3px;margin-top:3px;font-size:10px;color:#6b7280">
+      <span class="mdi mdi-sm" style="font-size:11px">event</span>
+      ${l.schedDate} ${schedDaysLeft(l.schedDate)}
+    </div>` : ''}
+
+    <!-- Row 5: Form pending alert — payment review CTA -->
+    ${pendingSub ? `<div style="display:flex;align-items:center;gap:4px;margin-top:4px;font-size:10px;font-weight:600;
+        color:var(--md-on-error-container);background:var(--md-error-container);
+        border-radius:4px;padding:3px 7px;cursor:pointer"
+        onclick="event.stopPropagation();openFormReviewModal('${pendingSub.id}')">
+      <span class="mdi mdi-sm" style="font-size:11px">pending</span> ${pendingSub.type === 'enrollment' ? 'Payment received — Review →' : 'Form Pending →'}
+    </div>` : ''}
+
+    <!-- Row 6: Archived from label -->
+    ${isArchived && l.archivedFrom ? `<div style="font-size:10px;color:#9ca3af;margin-top:3px">
+      Archived from: ${STAGE_META[l.archivedFrom]?.label||l.archivedFrom}
+    </div>` : ''}
+
+    <!-- Footer: source badge + assignee + actions -->
+    <div style="display:flex;align-items:center;gap:4px;margin-top:7px;flex-wrap:wrap">
+      <span class="badge ${srcCls}" style="font-size:9px">${l.source}</span>
+      ${l.assignee
+        ? `<span style="font-size:10px;color:var(--md-primary);display:flex;align-items:center;gap:2px;margin-left:2px">
+             <span class="mdi mdi-sm" style="font-size:10px">person</span>${l.assignee}
+           </span>`
+        : `<span style="font-size:10px;color:#9ca3af;margin-left:2px">Unassigned</span>`}
+      <div style="margin-left:auto;display:flex;gap:3px">
+        ${l.line  ? `<button class="chat-btn" onclick="event.stopPropagation();openLeadInbox('${l.id}')" title="Chat">
+          <span class="mdi mdi-sm" style="font-size:13px">chat</span></button>` : ''}
+        ${l.phone ? `<button class="chat-btn" onclick="event.stopPropagation();showToast('Calling…','info')" title="Call">
+          <span class="mdi mdi-sm" style="font-size:13px">call</span></button>` : ''}
+        ${isArchived ? `<button class="btn btn-xs btn-ghost" style="font-size:10px;padding:2px 7px"
+            onclick="event.stopPropagation();unarchiveLead('${l.id}')">↩ Restore</button>` : ''}
+      </div>
     </div>
   </div>`;
 }
@@ -214,7 +332,7 @@ window.startDrag = function (e, id) {
 window.endDrag = function (e) { e.currentTarget.style.opacity = ''; };
 window.dropLead = function (e, groupKey) {
   e.preventDefault();
-  e.currentTarget.style.background = '';
+  e.currentTarget.classList.remove('drag-over');
   if (!dragLeadId) return;
   const lead   = leads.find(l => l.id === dragLeadId);
   const group  = PIPELINE_GROUPS.find(g => g.key === groupKey);
@@ -237,13 +355,8 @@ window.unarchiveLead = function (id) {
   showToast(`${lead.name} restored to ${STAGE_META[lead.stage].label}`, 'success');
 };
 
-window.setLeadFilter = function (f, el) {
-  leadFilter = f;
-  document.querySelectorAll('#lead-chips .filter-chip').forEach(c => c.classList.remove('active'));
-  el.classList.add('active');
-  renderPipeline();
-};
-window.searchLeads = function (v) { leadSearch = v; renderPipeline(); };
+window.setLeadFilter = function (f, el) { /* kept for compatibility */ renderPipeline(); };
+window.searchLeads  = function (v) { leadSearch = v; renderPipeline(); };
 
 /* ── CREATE LEAD FROM INBOX ──────────────────────────────── */
 window.openCreateLeadFromInbox = function (convId) {
@@ -523,21 +636,21 @@ window.openLeadModal = function (idOrNull, _unused, defaultStage) {
 
     <!-- Header: name + stage + quick contact -->
     <div style="display:flex;gap:12px;align-items:flex-start;padding-bottom:14px;border-bottom:1px solid #f3f4f6;margin-bottom:4px">
-      <div style="width:42px;height:42px;border-radius:10px;background:#ede9fe;display:flex;
+      <div style="width:42px;height:42px;border-radius:var(--shape-md);background:var(--md-primary-container);display:flex;
                   align-items:center;justify-content:center;font-size:17px;font-weight:700;
-                  color:#6366f1;flex-shrink:0">${l.name[0]}</div>
+                  color:var(--md-on-primary-container);flex-shrink:0">${l.name[0]}</div>
       <div style="flex:1;min-width:0">
         <div style="font-size:15px;font-weight:700;color:#1a1d23">${l.name}</div>
         <div style="display:flex;gap:6px;align-items:center;margin-top:5px;flex-wrap:wrap">
-          <span style="background:${meta.bg};color:${meta.color};font-size:11px;font-weight:700;
-                       border-radius:5px;padding:3px 9px">${meta.label}</span>
+          <span style="background:${meta.bg};color:${meta.color};font-size:11px;font-weight:600;
+                       border-radius:var(--shape-full);padding:3px 10px">${meta.label}</span>
           ${subBadge ? `<span style="font-size:11px;font-weight:600;color:${subBadge.color}">${subBadge.label}</span>` : ''}
           ${l.schedDate ? `<span style="font-size:11px;color:#6b7280">📅 ${l.schedDate} ${schedDaysLeft(l.schedDate)}</span>` : ''}
         </div>
       </div>
       <div style="display:flex;gap:5px;flex-shrink:0">
-        ${l.line  ? `<button class="btn btn-secondary btn-sm" onclick="Modal.close('modal-lead');openLeadInbox('${l.id}')">💬 Chat</button>` : ''}
-        ${l.phone ? `<button class="btn btn-secondary btn-sm" onclick="showToast('Calling ${l.phone}…','info')">📞</button>` : ''}
+        ${l.line  ? `<button class="btn btn-secondary btn-sm" onclick="Modal.close('modal-lead');openLeadInbox('${l.id}')"><span class="mdi mdi-sm">chat</span> Chat</button>` : ''}
+        ${l.phone ? `<button class="btn btn-secondary btn-sm" onclick="showToast('Calling ${l.phone}…','info')"><span class="mdi mdi-sm">call</span></button>` : ''}
       </div>
     </div>
 
@@ -566,10 +679,9 @@ window.openLeadModal = function (idOrNull, _unused, defaultStage) {
     <div class="modal-section">
       <div class="modal-section-title">Move Stage</div>
       <div style="display:flex;gap:5px;flex-wrap:wrap">
-        ${PIPELINE_GROUPS.filter(g=>g.key!=='archived').map(g => {
+        ${PIPELINE_GROUPS.filter(g=>g.key!=='archived'&&g.key!=='enrolled').map(g => {
           const isActive = g.stages.includes(l.stage);
           return `<button class="btn ${isActive?'btn-primary':'btn-secondary'} btn-sm"
-            style="${isActive?'':''}color:${isActive?'':''};"
             onclick="moveLeadStage('${l.id}','${g.stages[0]}',this,'${g.key}')">${g.label}</button>`;
         }).join('')}
         <button class="btn btn-ghost btn-sm" style="color:#9ca3af"
@@ -734,10 +846,10 @@ window.renderCustomers = function () {
   });
   document.getElementById('cust-tbody').innerHTML = rows.map(c=>{
     const pct=Math.round(c.remain/c.total*100);
-    const col=c.remain<=2?'#ef4444':c.remain<=5?'#f59e0b':'#10b981';
+    const col=c.remain<=2?'var(--md-error)':c.remain<=5?'var(--md-warning)':'var(--md-success)';
     return `<tr class="tr-click" onclick="openCustomerModal('${c.name}')">
       <td><strong>${c.name}</strong>
-        <button class="chat-btn" onclick="event.stopPropagation();openInboxFor('${c.family}')" title="Chat">💬</button></td>
+        <button class="chat-btn" onclick="event.stopPropagation();openInboxFor('${c.family}')" title="Chat"><span class="mdi mdi-sm" style="font-size:14px">chat</span></button></td>
       <td><span class="chat-btn" style="cursor:pointer;background:none;border:none;text-decoration:underline;color:#6366f1;font-size:13px" onclick="event.stopPropagation();showView('families');showToast('Opening ${c.family}…','info')">${c.family}</span></td>
       <td>${c.branch}</td>
       <td><span class="pill">${c.pkg}</span></td>
@@ -891,10 +1003,66 @@ window.openCustomerModal = function (name) {
             <th style="text-align:left;padding:6px;font-size:11px;color:#6b7280;border-bottom:1px solid #f3f4f6">Status</th>
           </tr></thead>
           <tbody>
-            <tr><td style="padding:8px 6px;font-size:13px">INV-2026-0051</td><td style="padding:8px 6px;font-size:13px">${c.pkg}</td><td style="padding:8px 6px;font-size:13px">฿8,500</td><td style="padding:8px 6px;font-size:13px;color:#6b7280">13 May</td><td style="padding:8px 6px"><span class="badge badge-yellow">Pending</span></td></tr>
-            <tr><td style="padding:8px 6px;font-size:13px">INV-2026-0039</td><td style="padding:8px 6px;font-size:13px">${c.pkg}</td><td style="padding:8px 6px;font-size:13px">฿8,500</td><td style="padding:8px 6px;font-size:13px;color:#6b7280">1 May</td><td style="padding:8px 6px"><span class="badge badge-green">Paid</span></td></tr>
+            ${(() => {
+              const stu = DB.students.find(s => s.name === name);
+              const invList = stu?.invoices || [];
+              if (!invList.length) return `<tr><td colspan="5" style="padding:12px 6px;text-align:center;color:#9ca3af;font-size:12px">No invoices yet.</td></tr>`;
+              return invList.map(inv => `
+                <tr>
+                  <td style="padding:8px 6px;font-size:12px;font-weight:600">${inv.id}</td>
+                  <td style="padding:8px 6px;font-size:12px">${inv.course||inv.id}</td>
+                  <td style="padding:8px 6px;font-size:12px;font-weight:700;color:#059669">${inv.amount ? Utils.currency(inv.amount) : '—'}</td>
+                  <td style="padding:8px 6px;font-size:12px;color:#6b7280">${inv.date||'—'}</td>
+                  <td style="padding:8px 6px"><span class="badge badge-green">Paid</span></td>
+                </tr>`).join('');
+            })()}
           </tbody>
         </table>
+      </div>
+
+      <div class="modal-section">
+        <div class="modal-section-title">🧾 Invoice + Receipt History</div>
+        ${(() => {
+          const stu = DB.students.find(s => s.name === name);
+          const invList = stu?.invoices || [];
+          const rcpMap  = {};
+          (stu?.receipts||[]).forEach(r => { rcpMap[r.invoiceId] = r; });
+          if (!invList.length) return `<div style="text-align:center;padding:18px 0;color:#9ca3af;font-size:12px">No records yet.</div>`;
+          return invList.map(inv => {
+            const rcp = rcpMap[inv.id];
+            const slip = inv.payslip;
+            return `
+            <div style="border:1px solid #e5e7eb;border-radius:9px;padding:12px;margin-bottom:10px">
+              <div style="display:flex;align-items:flex-start;gap:12px">
+                ${slip?.dataUrl
+                  ? `<img src="${slip.dataUrl}" alt="slip"
+                          style="width:50px;height:66px;object-fit:cover;border-radius:6px;border:1px solid #e5e7eb;cursor:pointer;flex-shrink:0"
+                          onclick="window.open(this.src,'_blank')" title="View pay slip">`
+                  : `<div style="width:50px;height:66px;display:flex;align-items:center;justify-content:center;background:#f9fafb;border-radius:6px;border:1px solid #e5e7eb;font-size:11px;color:#9ca3af;flex-shrink:0;text-align:center">No<br>Slip</div>`}
+                <div style="flex:1;min-width:0">
+                  <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px">
+                    <span style="font-size:12px;font-weight:700;color:#1a1d23">${inv.id}</span>
+                    <span class="badge badge-green" style="font-size:10px">Paid</span>
+                  </div>
+                  <div style="font-size:12px;color:#374151">${inv.course||'—'} · ${inv.hours||24}h.</div>
+                  <div style="font-size:14px;font-weight:700;color:#059669;margin-top:4px">${inv.amount ? Utils.currency(inv.amount) : '—'}</div>
+                  <div style="font-size:10px;color:#6b7280;margin-top:2px">${inv.method||'Bank Transfer'} · ${inv.date||'—'}</div>
+                  ${slip?.refNo ? `<div style="font-size:10px;color:#9ca3af;margin-top:1px">Ref: ${slip.refNo}</div>` : ''}
+                </div>
+                ${rcp?.dataUrl
+                  ? `<div style="flex-shrink:0;text-align:right">
+                       <img src="${rcp.dataUrl}" alt="receipt"
+                            style="width:44px;height:58px;object-fit:cover;border-radius:5px;border:1px solid #e5e7eb;cursor:pointer;display:block;margin-bottom:4px"
+                            onclick="window.open(this.src,'_blank')" title="View receipt">
+                       <div style="font-size:9px;color:#6366f1;font-weight:600">${rcp.id}</div>
+                       <a href="${rcp.dataUrl}" download="${rcp.id}.svg"
+                          style="font-size:10px;color:#6366f1;text-decoration:none">↓ Save</a>
+                     </div>`
+                  : ''}
+              </div>
+            </div>`;
+          }).join('');
+        })()}
       </div>`,
 
     timeline: (() => {

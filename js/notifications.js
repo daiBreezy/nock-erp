@@ -9,29 +9,31 @@
     const items = [];
     const now   = '2026-05-15';
 
-    /* 1. Urgent renewal alerts */
-    DB.students.filter(s=>s.status==='urgent').forEach(s => {
-      const left = Math.min(...(s.courses||[]).map(c=>c.left));
-      items.push({
-        id:      `renew-urgent-${s.id}`,
-        type:    'danger',
-        icon:    '🚨',
-        title:   `URGENT: ${s.name}`,
-        text:    `เหลือ ${left} class เท่านั้น — ถ้าไม่ต่อจะหมดสัญญา`,
-        time:    'เร่งด่วน',
-        read:    false,
-        action:  `openFollowUpModal('${s.name}')`,
-        aLabel:  'Follow Up',
-      });
-    });
-
-    /* 2. Renewal pending */
+    /* 1 & 2. Renewal alerts — urgent (1 left = red) + warning (2 left = yellow) */
     DB.students.filter(s=>s.status==='renewal').forEach(s => {
-      const left = Math.min(...(s.courses||[]).map(c=>c.left));
+      const left     = Math.min(...(s.courses||[{left:99}]).map(c=>c.left));
+      const isUrgent = left <= 1;
+      if (isUrgent) {
+        items.push({
+          id:      `renew-urgent-${s.id}`,
+          type:    'danger',
+          icon:    '<span class="mdi" style="font-size:16px;color:var(--md-error)">priority_high</span>',
+          title:   `Renewal · Urgent: ${s.name}`,
+          text:    `เหลือ ${left} class เท่านั้น — ถ้าไม่ต่อจะหมดสัญญา`,
+          time:    'เร่งด่วน',
+          read:    false,
+          action:  `openFollowUpModal('${s.name}')`,
+          aLabel:  'Follow Up',
+        });
+        return; // urgent ไม่ต้องสร้าง warning ซ้ำ
+      }
+      // warning (2 left)
+      {
+      const left = Math.min(...(s.courses||[{left:99}]).map(c=>c.left));
       items.push({
         id:      `renew-${s.id}`,
         type:    'warning',
-        icon:    '⚠️',
+        icon:    '<span class="mdi" style="font-size:16px;color:var(--md-warning)">warning</span>',
         title:   `Renewal: ${s.name}`,
         text:    `เหลือ ${left} class — ควรติดต่อผู้ปกครองเพื่อต่อ package`,
         time:    'ภายใน 7 วัน',
@@ -39,6 +41,7 @@
         action:  `openFollowUpModal('${s.name}')`,
         aLabel:  'Follow Up',
       });
+      } // end warning block
     });
 
     /* 3. Summaries not written */
@@ -53,7 +56,7 @@
       items.push({
         id:      'summ-pending',
         type:    'warning',
-        icon:    '📝',
+        icon:    '<span class="mdi" style="font-size:16px;color:var(--md-warning)">edit_note</span>',
         title:   `${pendingSumm.length} Summary Not Written`,
         text:    pendingSumm.map(p=>`${p.name} · ${p.session.subject}`).join(', '),
         time:    'ค้างอยู่',
@@ -75,7 +78,7 @@
       items.push({
         id:      'summ-send',
         type:    'info',
-        icon:    '📨',
+        icon:    '<span class="mdi" style="font-size:16px;color:var(--md-primary)">send</span>',
         title:   `${readyToSend.length} Summary Ready to Send`,
         text:    `Written but not sent to parents: ${readyToSend.join(', ')}`,
         time:    'พร้อมส่ง',
@@ -91,7 +94,7 @@
       items.push({
         id:      'leads-new',
         type:    'info',
-        icon:    '🎯',
+        icon:    '<span class="mdi" style="font-size:16px;color:var(--md-primary)">person_search</span>',
         title:   `${newLeads.length} New Lead${newLeads.length>1?'s':''} Not Contacted`,
         text:    newLeads.map(l=>l.name).join(', '),
         time:    'รอการติดต่อ',
@@ -109,7 +112,7 @@
       items.push({
         id:      'today-sessions',
         type:    'info',
-        icon:    '📅',
+        icon:    '<span class="mdi" style="font-size:16px;color:var(--md-primary)">calendar_today</span>',
         title:   `${todaySess.length} Session${todaySess.length>1?'s':''} Today`,
         text:    `First: ${todaySess[0].subject} at ${sh0.s||'—'} · ${todaySess[0].room}`,
         time:    'วันนี้',
@@ -123,7 +126,7 @@
     items.push({
       id:      'billing-pending',
       type:    'warning',
-      icon:    '💳',
+      icon:    '<span class="mdi" style="font-size:16px;color:var(--md-warning)">payments</span>',
       title:   'INV-2026-0051 รอ Verify',
       text:    'Tanaka Family ส่ง payment slip มา 18 ชม. — ยังไม่ได้ confirm',
       time:    '18 ชม. ที่แล้ว',
@@ -141,9 +144,9 @@
 
   /* ── COLORS ───────────────────────────────────────────── */
   const TYPE_STYLE = {
-    danger:  { border:'#ef4444', bg:'#fef2f2', dot:'#ef4444', badge:'badge-red'    },
-    warning: { border:'#f59e0b', bg:'#fffbeb', dot:'#f59e0b', badge:'badge-yellow' },
-    info:    { border:'#6366f1', bg:'#f5f3ff', dot:'#6366f1', badge:'badge-blue'   },
+    danger:  { border:'var(--md-error)',   bg:'var(--md-error-container)',   dot:'var(--md-error)',   badge:'badge-red'    },
+    warning: { border:'var(--md-warning)', bg:'var(--md-warning-container)', dot:'var(--md-warning)', badge:'badge-yellow' },
+    info:    { border:'var(--md-primary)', bg:'var(--md-primary-container)', dot:'var(--md-primary)', badge:'badge-blue'   },
   };
 
   /* ── SHELL ────────────────────────────────────────────── */
@@ -160,9 +163,9 @@
   <div style="display:flex;gap:5px;margin-bottom:16px">
     <div class="filter-chip active" onclick="notifFilter('all',this)">All</div>
     <div class="filter-chip" onclick="notifFilter('unread',this)">Unread</div>
-    <div class="filter-chip" onclick="notifFilter('danger',this)">🚨 Urgent</div>
-    <div class="filter-chip" onclick="notifFilter('warning',this)">⚠️ Warning</div>
-    <div class="filter-chip" onclick="notifFilter('info',this)">💡 Info</div>
+    <div class="filter-chip" onclick="notifFilter('danger',this)"><span class="mdi mdi-sm" style="font-size:11px">priority_high</span> Urgent</div>
+    <div class="filter-chip" onclick="notifFilter('warning',this)"><span class="mdi mdi-sm" style="font-size:11px">warning</span> Warning</div>
+    <div class="filter-chip" onclick="notifFilter('info',this)"><span class="mdi mdi-sm" style="font-size:11px">info</span> Info</div>
   </div>
 
   <div id="notif-list"></div>`;
@@ -200,8 +203,8 @@
     if (!container) return;
 
     if (items.length === 0) {
-      container.innerHTML = `<div class="card" style="padding:40px;text-align:center;color:#9ca3af">
-        <div style="font-size:32px;margin-bottom:8px">🔔</div>No notifications</div>`;
+      container.innerHTML = `<div class="card" style="padding:40px;text-align:center;color:var(--md-on-surface-variant)">
+        <div style="font-size:32px;margin-bottom:8px"><span class="mdi">notifications</span></div>No notifications</div>`;
       return;
     }
 
@@ -219,7 +222,7 @@
         <!-- Content -->
         <div style="flex:1;min-width:0">
           <div style="display:flex;align-items:center;gap:6px;margin-bottom:3px">
-            <span style="font-size:16px">${n.icon}</span>
+            ${n.icon}
             <span style="font-size:13px;font-weight:${isRead?'500':'700'};color:#1a1d23">${n.title}</span>
             ${!isRead?`<span class="badge ${ts.badge}" style="font-size:9px">${n.type}</span>`:''}
           </div>

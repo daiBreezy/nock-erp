@@ -8,24 +8,27 @@
   function buildTasks() {
     const tasks = [];
 
-    /* Urgent renewal follow-ups */
-    DB.students.filter(s=>s.status==='urgent').forEach(s => {
-      const left = Math.min(...(s.courses||[]).map(c=>c.left));
-      tasks.push({ id:`fu-${s.id}`, done:false, priority:'urgent',
-        text:`Follow up — ${s.name}`,
-        sub: `${left} class left · ${s.family}`,
-        source:'ai', sourceLabel:'🤖 AI', due:'Today',
-        action:`openFollowUpModal('${s.name}')`, aLabel:'Follow Up' });
-    });
-
-    /* Renewal pending */
+    /* Renewal follow-ups — urgent (1 left = red) + warning (2 left) */
     DB.students.filter(s=>s.status==='renewal').forEach(s => {
-      const left = Math.min(...(s.courses||[]).map(c=>c.left));
+      const left     = Math.min(...(s.courses||[{left:99}]).map(c=>c.left));
+      const isUrgent = left <= 1;
+      if (isUrgent) {
+        tasks.push({ id:`fu-${s.id}`, done:false, priority:'urgent',
+          text:`Follow up — ${s.name}`,
+          sub: `${left} class left · ${s.family}`,
+          source:'ai', sourceLabel:'🤖 AI', due:'Today',
+          action:`openFollowUpModal('${s.name}')`, aLabel:'Follow Up' });
+        return;
+      }
+      // warning (2 left)
+      {
+      const left2 = Math.min(...(s.courses||[{left:99}]).map(c=>c.left));
       tasks.push({ id:`renew-${s.id}`, done:false, priority:'warning',
         text:`Renewal reminder — ${s.name}`,
-        sub: `${left} classes left · contact ${s.family}`,
+        sub: `${left2} classes left · contact ${s.family}`,
         source:'system', sourceLabel:'🔧 System', due:'This week',
         action:`openFollowUpModal('${s.name}')`, aLabel:'Follow Up' });
+      } // end warning block
     });
 
     /* Pending invoice verification */
@@ -111,12 +114,12 @@
   <!-- Filters -->
   <div style="display:flex;gap:5px;margin-bottom:16px;flex-wrap:wrap;align-items:center">
     <div class="filter-chip" onclick="taskFilter('show','all',this)">All</div>
-    <div class="filter-chip active" onclick="taskFilter('show','pending',this)">⏳ Pending</div>
-    <div class="filter-chip" onclick="taskFilter('show','done',this)">✅ Done</div>
-    <div style="width:1px;background:#e5e7eb;height:20px;margin:0 4px"></div>
+    <div class="filter-chip active" onclick="taskFilter('show','pending',this)"><span class="mdi mdi-sm" style="font-size:11px">pending_actions</span> Pending</div>
+    <div class="filter-chip" onclick="taskFilter('show','done',this)"><span class="mdi mdi-sm" style="font-size:11px">task_alt</span> Done</div>
+    <div style="width:1px;background:var(--md-outline-variant);height:20px;margin:0 4px"></div>
     <div class="filter-chip active" onclick="taskFilter('prio','all',this)">All Priority</div>
-    <div class="filter-chip" onclick="taskFilter('prio','urgent',this)">🚨 Urgent</div>
-    <div class="filter-chip" onclick="taskFilter('prio','warning',this)">⚠️ Warning</div>
+    <div class="filter-chip" onclick="taskFilter('prio','urgent',this)"><span class="mdi mdi-sm" style="font-size:11px">priority_high</span> Urgent</div>
+    <div class="filter-chip" onclick="taskFilter('prio','warning',this)"><span class="mdi mdi-sm" style="font-size:11px">warning</span> Warning</div>
   </div>
 
   <!-- Task list -->
@@ -131,21 +134,21 @@
     const done    = tasks.filter(t=>t.done).length;
     document.getElementById('tasks-kpi').innerHTML = `
       <div class="kpi-card">
-        <div class="kpi-icon" style="background:#fef3c7">⏳</div>
+        <div class="kpi-icon warning"><span class="mdi">pending_actions</span></div>
         <div class="kpi-label">Pending</div>
-        <div class="kpi-value" style="color:${pending>0?'#f59e0b':'#10b981'}">${pending}</div>
+        <div class="kpi-value" style="color:${pending>0?'var(--md-warning)':'var(--md-success)'}">${pending}</div>
         <div class="kpi-change ${pending>0?'down':'up'}">${urgent} urgent</div>
       </div>
       <div class="kpi-card">
-        <div class="kpi-icon" style="background:#fee2e2">🚨</div>
+        <div class="kpi-icon error"><span class="mdi">priority_high</span></div>
         <div class="kpi-label">Urgent</div>
-        <div class="kpi-value" style="color:${urgent>0?'#ef4444':'#10b981'}">${urgent}</div>
+        <div class="kpi-value" style="color:${urgent>0?'var(--md-error)':'var(--md-success)'}">${urgent}</div>
         <div class="kpi-change ${urgent>0?'down':'up'}">Need action today</div>
       </div>
       <div class="kpi-card">
-        <div class="kpi-icon" style="background:#d1fae5">✅</div>
+        <div class="kpi-icon success"><span class="mdi">task_alt</span></div>
         <div class="kpi-label">Completed</div>
-        <div class="kpi-value" style="color:#10b981">${done}</div>
+        <div class="kpi-value" style="color:var(--md-success)">${done}</div>
         <div class="kpi-change up">of ${tasks.length} total</div>
       </div>`;
   }
@@ -171,12 +174,12 @@
     if (!container) return;
 
     if (list.length === 0) {
-      container.innerHTML = `<div style="padding:40px;text-align:center;color:#9ca3af">
-        <div style="font-size:32px;margin-bottom:8px">☑️</div>All caught up!</div>`;
+      container.innerHTML = `<div style="padding:40px;text-align:center;color:var(--md-on-surface-variant)">
+        <div style="font-size:32px;margin-bottom:8px"><span class="mdi">task_alt</span></div>All caught up!</div>`;
       return;
     }
 
-    const PRIO_COLOR = {urgent:'#ef4444',warning:'#f59e0b',normal:'transparent'};
+    const PRIO_COLOR = {urgent:'var(--md-error)',warning:'var(--md-warning)',normal:'transparent'};
 
     container.innerHTML = list.map(t => `
       <div class="task-item" style="border-left:3px solid ${t.done?'transparent':PRIO_COLOR[t.priority]||'transparent'}">

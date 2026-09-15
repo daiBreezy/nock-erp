@@ -284,6 +284,8 @@ select { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.o
 /* Divider */
 .divider { height: 1px; background: #f3f4f6; margin: 2px 0; }
 </style>
+<link rel="stylesheet" href="css/neutral.css">
+<script>try{document.documentElement.classList.toggle("dark",localStorage.getItem("nockerp-theme")==="dark")}catch(e){}</script>
 </head>
 <body>
 <div class="page-wrap">
@@ -352,7 +354,7 @@ const state = {
   parent1Name:'', parent1Phone:'', parent1Line:'',
   studentName:'', grade:'ป.5', subject:'', notes:'',
   slot:null, course:'', pkg:24, price:7200,
-  scheduleSlot:null, payMethod:'bank', slipName:'', confirmed:false
+  scheduleSlot:null, payMethod:'bank', slipName:'', slipDataUrl:'', slipMime:'', confirmed:false
 };
 
 /* ── MOCK DATA ─────────────────────────────────────────────── */
@@ -560,7 +562,7 @@ function validateStep(n) {
     return true;
   }
   if (n === 4) {
-    if (!state.slipName) { showFormError('กรุณาแนบสลิปการโอนเงิน'); return false; }
+    if (!state.slipName && !state.slipDataUrl) { showFormError('กรุณาแนบสลิปการโอนเงิน'); return false; }
     return true;
   }
   return true;
@@ -746,16 +748,20 @@ function renderStep4() {
 
         <div class="field">
           <label>Upload Payment Slip <span class="req">*</span></label>
-          <div class="upload-box" id="upload-box" onclick="fakeUpload()">
-            <div class="upload-icon">📎</div>
-            <div class="upload-text">Tap to upload slip</div>
-            <div class="upload-sub">JPG, PNG or PDF · max 5MB</div>
-          </div>
-          <div class="upload-done" id="upload-done">
-            <div style="font-size:24px">📄</div>
-            <div style="flex:1">
-              <div class="file-name" id="upload-filename">slip_payment.jpg</div>
-              <div style="font-size:11px;color:#9ca3af">128 KB · Ready to submit</div>
+          <label for="slip-file-input" style="display:block;cursor:pointer">
+            <div class="upload-box" id="upload-box">
+              <div class="upload-icon">📎</div>
+              <div class="upload-text">Tap to upload slip</div>
+              <div class="upload-sub">JPG, PNG or PDF · max 5MB</div>
+            </div>
+          </label>
+          <input type="file" id="slip-file-input" accept="image/*,.pdf" style="display:none"
+                 onchange="handleSlipUpload(this)">
+          <div class="upload-done" id="upload-done" style="display:none">
+            <div id="slip-preview-wrap" style="flex-shrink:0;margin-right:8px"></div>
+            <div style="flex:1;min-width:0">
+              <div class="file-name" id="upload-filename"></div>
+              <div style="font-size:11px;color:#9ca3af" id="upload-size">Ready to submit</div>
             </div>
             <button type="button" onclick="removeUpload()" style="background:none;border:none;color:#ef4444;cursor:pointer;font-size:18px">×</button>
           </div>
@@ -764,17 +770,42 @@ function renderStep4() {
     </div>`;
 }
 
-function fakeUpload() {
-  state.slipName = 'slip_payment.jpg';
-  document.getElementById('upload-box').style.display = 'none';
-  const done = document.getElementById('upload-done');
-  if (done) { done.classList.add('visible'); done.style.display = 'flex'; }
+function handleSlipUpload(input) {
+  const file = input.files[0];
+  if (!file) return;
+  if (file.size > 5 * 1024 * 1024) { showFormError('File must be under 5MB'); input.value = ''; return; }
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    state.slipDataUrl = e.target.result;
+    state.slipName    = file.name;
+    state.slipMime    = file.type;
+    const labelWrap = document.querySelector('label[for="slip-file-input"]');
+    if (labelWrap) labelWrap.style.display = 'none';
+    const done = document.getElementById('upload-done');
+    if (done) { done.style.display = 'flex'; }
+    const fn = document.getElementById('upload-filename');
+    if (fn) fn.textContent = file.name;
+    const sz = document.getElementById('upload-size');
+    if (sz) sz.textContent = (file.size / 1024).toFixed(0) + ' KB · Ready to submit';
+    const preview = document.getElementById('slip-preview-wrap');
+    if (preview) {
+      preview.innerHTML = file.type.startsWith('image/')
+        ? `<img src="${e.target.result}" alt="slip" style="width:44px;height:56px;object-fit:cover;border-radius:5px;border:1px solid #e5e7eb">`
+        : `<div style="width:44px;height:56px;display:flex;align-items:center;justify-content:center;background:#fef3c7;border-radius:5px;font-size:22px">📄</div>`;
+    }
+  };
+  reader.readAsDataURL(file);
 }
 function removeUpload() {
   state.slipName = '';
-  document.getElementById('upload-box').style.display = '';
+  state.slipDataUrl = '';
+  state.slipMime = '';
+  const labelWrap = document.querySelector('label[for="slip-file-input"]');
+  if (labelWrap) labelWrap.style.display = 'block';
   const done = document.getElementById('upload-done');
-  if (done) { done.classList.remove('visible'); done.style.display = 'none'; }
+  if (done) done.style.display = 'none';
+  const inp = document.getElementById('slip-file-input');
+  if (inp) inp.value = '';
 }
 
 /* Step 5 — Summary */
@@ -795,7 +826,12 @@ function renderStep5() {
           <tr><td>Schedule</td><td>${slotInfo.day||'—'}, ${slotInfo.time||''}</td></tr>
           <tr><td>Teacher</td><td>${slotInfo.teacher||'TBD'}</td></tr>
           <tr><td>Branch</td><td>${branch}</td></tr>
-          <tr><td>Payment Slip</td><td style="color:#059669">✅ Attached</td></tr>
+          <tr><td>Payment Slip</td><td>
+            ${state.slipDataUrl && state.slipMime && state.slipMime.startsWith('image/')
+              ? `<img src="${state.slipDataUrl}" style="width:36px;height:46px;object-fit:cover;border-radius:4px;border:1px solid #e5e7eb;vertical-align:middle;margin-right:6px">
+                 <span style="color:#059669;vertical-align:middle">✅ ${state.slipName}</span>`
+              : `<span style="color:#059669">✅ ${state.slipName||'Attached'}</span>`}
+          </td></tr>
           <tr class="summary-total"><td>Total</td><td>฿${state.price.toLocaleString()}</td></tr>
         </table>
 

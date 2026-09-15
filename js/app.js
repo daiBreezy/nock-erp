@@ -289,15 +289,24 @@ window.Utils = {
     return s ? s.courses.reduce((a, c) => a + c.left, 0) : 0;
   },
   renewalStatus(studentId) {
-    const left = Utils.classesLeft(studentId);
-    return left <= 1 ? 'urgent' : left <= 2 ? 'renewal' : 'active';
+    const s = DB.students.find(x => x.id === studentId);
+    if (!s) return 'active';
+    // Manual overrides (pause/archived) take priority
+    if (s.status === 'pause' || s.status === 'archived') return s.status;
+    const left = Math.min(...s.courses.map(c => c.left));
+    if (left === 0) return 'pause';    // auto-pause: sessions หมดแล้ว
+    if (left <= 2)  return 'renewal';  // 1 left = red visual, 2 left = yellow visual
+    return 'active';
   },
   // Get meta for student (used in Calendar class modal roster)
   studentMeta(name) {
     const s = DB.students.find(x => x.name === name);
     if (!s) return { family: '—', left: '?', cls: 'badge-gray' };
     const left = Math.min(...s.courses.map(c => c.left));
-    const cls  = left <= 1 ? 'badge-red' : left <= 2 ? 'badge-yellow' : 'badge-green';
+    const cls  = left === 0 ? 'badge-gray'    // pause / sessions หมด
+               : left <= 1 ? 'badge-red'      // renewal urgent (1 เหลือ)
+               : left <= 2 ? 'badge-yellow'   // renewal warning (2 เหลือ)
+               : 'badge-green';               // active
     return { family: s.family, left, cls };
   },
 
@@ -311,7 +320,11 @@ window.Utils = {
   daysLabel: d  => d === 0 ? 'Today' : d === 1 ? '1 day ago' : `${d} days ago`,
 
   /* ── Badge HTML helpers ── */
-  statusBadge(status) {
+  // sessionsLeft optional: ถ้า renewal + 1 เหลือ → badge แดง (urgent visual)
+  statusBadge(status, sessionsLeft = null) {
+    if (status === 'renewal' && sessionsLeft !== null && sessionsLeft <= 1) {
+      return `<span class="badge badge-red">Renewal · Urgent!</span>`;
+    }
     const m = CONST.STUDENT_STATUS[status] || CONST.STUDENT_STATUS.active;
     return `<span class="badge ${m.cls}">${m.label}</span>`;
   },
@@ -335,3 +348,6 @@ window.Utils = {
     return grade ? `${sessionOrSubject} ${grade}` : sessionOrSubject;
   },
 };
+
+// Shared bridge for the React shell and module-owned dialogs.
+window.Modal = Modal;

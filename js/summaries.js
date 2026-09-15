@@ -43,7 +43,7 @@
       <div class="page-title">Summaries</div>
       <div class="page-sub" id="sum-sub">Loading…</div>
     </div>
-    <button class="btn btn-secondary btn-sm" onclick="showView('sessions')">⏱️ Sessions</button>
+    <button class="btn btn-secondary btn-sm" onclick="showView('sessions')"><span class="mdi mdi-sm">schedule</span> Sessions</button>
   </div>
 
   <!-- KPI -->
@@ -58,8 +58,8 @@
         oninput="sumFilter('search',this.value)">
       <div style="display:flex;gap:4px">
         <div class="filter-chip active" onclick="sumFilter('sent','all',this)">All</div>
-        <div class="filter-chip" onclick="sumFilter('sent','pending',this)">⏳ Pending</div>
-        <div class="filter-chip" onclick="sumFilter('sent','sent',this)">✅ Sent</div>
+        <div class="filter-chip" onclick="sumFilter('sent','pending',this)"><span class="mdi mdi-sm" style="font-size:11px">pending_actions</span> Pending</div>
+        <div class="filter-chip" onclick="sumFilter('sent','sent',this)"><span class="mdi mdi-sm" style="font-size:11px">send</span> Sent</div>
       </div>
       <select style="border:1px solid #e5e7eb;border-radius:6px;padding:6px 8px;
                      font-size:12px;outline:none;background:#fff"
@@ -81,23 +81,23 @@
 
     document.getElementById('sum-kpi').innerHTML = `
       <div class="kpi-card">
-        <div class="kpi-icon" style="background:#d1fae5">📨</div>
+        <div class="kpi-icon success"><span class="mdi">send</span></div>
         <div class="kpi-label">Sent to Parents</div>
-        <div class="kpi-value" style="color:#10b981">${sent.length}</div>
+        <div class="kpi-value" style="color:var(--md-success)">${sent.length}</div>
         <div class="kpi-change up">Completed summaries</div>
       </div>
       <div class="kpi-card">
-        <div class="kpi-icon" style="background:#fef3c7">⏳</div>
+        <div class="kpi-icon warning"><span class="mdi">pending_actions</span></div>
         <div class="kpi-label">Ready to Send</div>
-        <div class="kpi-value" style="color:${pending.length>0?'#f59e0b':'#10b981'}">${pending.length}</div>
+        <div class="kpi-value" style="color:${pending.length>0?'var(--md-warning)':'var(--md-success)'}">${pending.length}</div>
         <div class="kpi-change ${pending.length>0?'down':'up'}">
           ${pending.length>0?'Written but not sent':'All sent ✓'}
         </div>
       </div>
       <div class="kpi-card">
-        <div class="kpi-icon" style="background:#fee2e2">📝</div>
+        <div class="kpi-icon error"><span class="mdi">edit_note</span></div>
         <div class="kpi-label">Not Written Yet</div>
-        <div class="kpi-value" style="color:${empty.length>0?'#ef4444':'#10b981'}">${empty.length}</div>
+        <div class="kpi-value" style="color:${empty.length>0?'var(--md-error)':'var(--md-success)'}">${empty.length}</div>
         <div class="kpi-change ${empty.length>0?'down':'up'}">
           ${empty.length>0?'Needs teacher input':'All written ✓'}
         </div>
@@ -122,14 +122,14 @@
     if (!container) return;
 
     if (rows.length === 0) {
-      container.innerHTML = `<div class="card" style="padding:40px;text-align:center;color:#9ca3af">
-        <div style="font-size:32px;margin-bottom:8px">📝</div>No summaries match</div>`;
+      container.innerHTML = `<div class="card" style="padding:40px;text-align:center;color:var(--md-on-surface-variant)">
+        <div style="font-size:32px;margin-bottom:8px"><span class="mdi">edit_note</span></div>No summaries match</div>`;
       return;
     }
 
     container.innerHTML = rows.map(r => {
       const hasText = !!r.text;
-      const statusIcon  = r.sent ? '✅' : hasText ? '⏳' : '📝';
+      const statusIcon  = r.sent ? '<span class="mdi" style="font-size:11px">task_alt</span>' : hasText ? '<span class="mdi" style="font-size:11px">pending_actions</span>' : '<span class="mdi" style="font-size:11px">edit_note</span>';
       const statusLabel = r.sent ? 'Sent' : hasText ? 'Ready to Send' : 'Not Written';
       const statusCls   = r.sent ? 'badge-green' : hasText ? 'badge-yellow' : 'badge-red';
 
@@ -147,7 +147,7 @@
             </div>
           </div>
           <div style="font-size:13px;font-weight:500;color:#374151">
-            <span style="cursor:pointer;color:#6366f1"
+            <span style="cursor:pointer;color:var(--md-primary)"
                   onclick="openProfileModal('${r.student}')">${r.student}</span>
           </div>
         </div>
@@ -161,9 +161,9 @@
         ${!r.sent ? `
         <div style="padding:10px 16px;border-top:1px solid #f3f4f6;display:flex;gap:8px;justify-content:flex-end">
           <button class="btn btn-secondary btn-sm"
-                  onclick="openClassModal && openClassModal('${r.sessionId}')">✏️ Edit Summary</button>
+                  onclick="openClassModal && openClassModal('${r.sessionId}')"><span class="mdi mdi-sm">edit</span> Edit Summary</button>
           ${hasText ? `<button class="btn btn-primary btn-sm"
-                  onclick="sendSummary('${r.sessionId}','${r.student}')">📨 Send to Parent</button>` : ''}
+                  onclick="sendSummary('${r.sessionId}','${r.student}')"><span class="mdi mdi-sm">send</span> Send to Parent</button>` : ''}
         </div>` : ''}
       </div>`;
     }).join('');

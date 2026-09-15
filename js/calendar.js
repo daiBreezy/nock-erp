@@ -19,7 +19,7 @@
 
   /* ── FILTER STATE ─────────────────────────────────────── */
   let fTeacher='', fSubject='', fGrade='', fTime='', fSearch='';
-  let currentView = 'week', selectedDay = '2026-05-13';
+  let currentView = 'day', selectedDay = '2026-05-13';
 
   function getFiltered() {
     return sessions.filter(s => {
@@ -48,11 +48,11 @@
   <div class="page-header">
     <div>
       <div class="page-title">Calendar</div>
-      <div class="page-sub" id="cal-sub">Week of 11–17 May 2026</div>
+      <div class="page-sub" id="cal-sub">Day View — 2026-05-13</div>
     </div>
     <div style="display:flex;gap:8px;align-items:center">
-      <button class="btn btn-secondary btn-sm" onclick="openCalSummary()">📊 Summary</button>
-      <button class="btn btn-primary btn-sm" onclick="openCreateClass()">＋ Create Class</button>
+      <button class="btn btn-secondary btn-sm" onclick="openCalSummary()"><span class="mdi mdi-sm">bar_chart</span> Summary</button>
+      <button class="btn btn-primary btn-sm" id="cal-create-btn" onclick="openCreateClass()" style="display:none"><span class="mdi mdi-sm">add</span> Create Class</button>
     </div>
   </div>
 
@@ -63,8 +63,8 @@
       <input type="text" id="cal-search"
         placeholder="Search by subject, teacher, room, student…"
         oninput="setCalFilter('search',this.value)"
-        onfocus="this.closest('.cal-toolbar-search').style.borderColor='#6366f1'"
-        onblur="this.closest('.cal-toolbar-search').style.borderColor='#e5e7eb'">
+        onfocus="this.closest('.cal-toolbar-search').style.borderColor='var(--md-primary)'"
+        onblur="this.closest('.cal-toolbar-search').style.borderColor='var(--md-outline-variant)'">
     </div>
     <span class="ts-label" style="flex-shrink:0;color:#6b7280;font-size:12px">Filter:</span>
     <select class="tc-select" onchange="setCalFilter('teacher',this.value)">
@@ -92,8 +92,8 @@
   <!-- View tabs -->
   <div style="display:flex;align-items:center;border-bottom:1px solid #e5e7eb;margin-bottom:0">
     <div class="tabs" style="border-bottom:none;margin-bottom:0;flex:1">
-      <div class="tab active" onclick="calTab('week',this)">Week</div>
-      <div class="tab" onclick="calTab('day',this)">Day</div>
+      <div class="tab active" onclick="calTab('day',this)">Day</div>
+      <div class="tab" onclick="calTab('week',this)">Week</div>
       <div class="tab" onclick="calTab('month',this)">Month</div>
       <div class="tab" onclick="calTab('teacher',this)">Teacher</div>
       <div class="tab" onclick="calTab('list',this)">List</div>
@@ -152,20 +152,20 @@
     const chips = document.getElementById('cal-chips');
     if (!chips) return;
     const active = [
-      fTeacher && { label: `👩‍🏫 ${fTeacher}`, key: 'teacher' },
-      fSubject && { label: `📚 ${fSubject}`,   key: 'subject' },
-      fGrade   && { label: `🎓 ${fGrade}`,      key: 'grade'   },
-      fTime    && { label: `⏰ ${fTime}`,        key: 'time'    },
-      fSearch  && { label: `🔍 "${fSearch}"`,   key: 'search'  },
+      fTeacher && { label: `<span class="mdi mdi-sm" style="font-size:12px">person</span> ${fTeacher}`,       key: 'teacher' },
+      fSubject && { label: `<span class="mdi mdi-sm" style="font-size:12px">menu_book</span> ${fSubject}`,    key: 'subject' },
+      fGrade   && { label: `<span class="mdi mdi-sm" style="font-size:12px">school</span> ${fGrade}`,         key: 'grade'   },
+      fTime    && { label: `<span class="mdi mdi-sm" style="font-size:12px">schedule</span> ${fTime}`,        key: 'time'    },
+      fSearch  && { label: `<span class="mdi mdi-sm" style="font-size:12px">search</span> "${fSearch}"`,      key: 'search'  },
     ].filter(Boolean);
     chips.style.display = active.length ? 'flex' : 'none';
     chips.innerHTML = active.map(c =>
       `<span style="display:inline-flex;align-items:center;gap:4px;
-        background:#ede9fe;color:#5b21b6;border-radius:20px;
+        background:var(--md-secondary-container);color:var(--md-on-secondary-container);border-radius:var(--shape-full);
         padding:3px 10px;font-size:11px;font-weight:500">
         ${c.label}
         <span onclick="clearChip('${c.key}')"
-              style="cursor:pointer;opacity:.6;font-size:14px;line-height:1;margin-left:2px">×</span>
+              style="cursor:pointer;opacity:.7;font-size:14px;line-height:1;margin-left:2px">×</span>
       </span>`
     ).join('');
   }
@@ -272,8 +272,8 @@
     const filtered = getFiltered().sort((a,b) => a.date.localeCompare(b.date) || a.slotId - b.slotId);
     if (filtered.length === 0) {
       updateFilterCount(0);
-      return `<div style="padding:40px;text-align:center;color:#9ca3af">
-        <div style="font-size:40px;margin-bottom:10px">📅</div>
+      return `<div style="padding:40px;text-align:center;color:var(--md-on-surface-variant)">
+        <div style="margin-bottom:10px"><span class="mdi mdi-xl" style="font-size:40px;color:var(--md-outline)">calendar_month</span></div>
         <div style="font-size:14px">No sessions found</div>
         ${fSearch||fTeacher||fSubject||fGrade||fTime
           ? `<button class="btn btn-secondary btn-sm" style="margin-top:10px" onclick="clearCalFilters()">Clear filters</button>` : ''}
@@ -282,7 +282,7 @@
     const byDate = {};
     filtered.forEach(s => { (byDate[s.date] = byDate[s.date] || []).push(s); });
     const sCls   = { upcoming:'badge-blue', active:'badge-green', ended:'badge-gray' };
-    const colMap = { green:'#10b981', yellow:'#f59e0b', orange:'#f97316', purple:'#6366f1' };
+    const colMap = { green:'var(--md-success)', yellow:'var(--md-warning)', orange:'var(--clr-on-science)', blue:'var(--md-primary)', purple:'var(--clr-on-grammar)' };
     let h = '<div style="display:flex;flex-direction:column;gap:18px">';
     Object.entries(byDate).forEach(([date, sess]) => {
       const dh=dayHeaders.find(x=>x.date===date), label=dh?.label||date;
@@ -292,29 +292,29 @@
           <div style="font-size:11px;font-weight:700;color:#9ca3af;text-transform:uppercase;letter-spacing:.8px">
             ${label}${isHol?' 🏖️':''}
           </div>
-          ${isToday?`<span style="font-size:10px;background:#6366f1;color:#fff;border-radius:10px;padding:1px 8px;font-weight:600">Today</span>`:''}
-          ${isHol?`<span style="font-size:10px;background:#fee2e2;color:#991b1b;border-radius:10px;padding:1px 8px">Holiday</span>`:''}
+          ${isToday?`<span style="font-size:10px;background:var(--md-primary);color:var(--md-on-primary);border-radius:var(--shape-full);padding:1px 8px;font-weight:600">Today</span>`:''}
+          ${isHol?`<span style="font-size:10px;background:var(--md-error-container);color:var(--md-on-error-container);border-radius:var(--shape-full);padding:1px 8px">Holiday</span>`:''}
         </div>
         <div style="display:flex;flex-direction:column;gap:6px">`;
       sess.forEach(s => {
         const ts=CLASS_SLOTS.find(c=>c.id===s.slotId);
         const color=colMap[s.color]||'#6366f1';
         const t=s.teacher.split(',').map(x=>x.trim().replace('Kru ','')).join(' + ');
-        const dot=s.state==='active'?'🟢 ':s.state==='ended'?'✅ ':'';
         h += `<div onclick="openClassModal('${s.id}')"
-          style="display:flex;align-items:stretch;border:1px solid #e5e7eb;border-radius:10px;
-                 cursor:pointer;overflow:hidden;transition:all .15s;background:#fff"
-          onmouseover="this.style.boxShadow='0 4px 14px rgba(0,0,0,.09)';this.style.transform='translateY(-1px)'"
-          onmouseout="this.style.boxShadow='';this.style.transform=''">
+          style="display:flex;align-items:stretch;border:1px solid var(--md-outline-variant);border-radius:var(--shape-md);
+                 cursor:pointer;overflow:hidden;transition:box-shadow .15s;background:var(--md-surface-lowest)"
+          onmouseover="this.style.boxShadow='var(--elev-2)'"
+          onmouseout="this.style.boxShadow=''">
           <div style="width:4px;background:${color};flex-shrink:0"></div>
           <div style="flex:1;padding:10px 14px;display:flex;align-items:center;gap:16px;flex-wrap:wrap;min-width:0">
             <div style="min-width:130px">
-              <div style="font-size:13px;font-weight:600;color:#1a1d23">${dot}${Utils.subjectLabel(s)}</div>
+              <div style="font-size:13px;font-weight:600;color:var(--md-on-surface)">${Utils.subjectLabel(s)}</div>
             </div>
-            <div style="display:flex;gap:14px;flex-wrap:wrap;flex:1;font-size:12px;color:#6b7280">
-              ${ts?`<span>⏰ ${ts.start}–${ts.end}</span>`:''}
-              <span>👩‍🏫 ${t}</span><span>🚪 ${s.room}</span>
-              <span>👥 ${s.studentNames.length} student${s.studentNames.length!==1?'s':''}</span>
+            <div style="display:flex;gap:12px;flex-wrap:wrap;flex:1;font-size:12px;color:var(--md-on-surface-variant);align-items:center">
+              ${ts?`<span style="display:flex;align-items:center;gap:3px"><span class="mdi mdi-sm" style="font-size:13px">schedule</span>${ts.start}–${ts.end}</span>`:''}
+              <span style="display:flex;align-items:center;gap:3px"><span class="mdi mdi-sm" style="font-size:13px">person</span>${t}</span>
+              <span style="display:flex;align-items:center;gap:3px"><span class="mdi mdi-sm" style="font-size:13px">meeting_room</span>${s.room}</span>
+              <span style="display:flex;align-items:center;gap:3px"><span class="mdi mdi-sm" style="font-size:13px">group</span>${s.studentNames.length} student${s.studentNames.length!==1?'s':''}</span>
             </div>
             <div style="margin-left:auto;flex-shrink:0">
               <span class="badge ${sCls[s.state]||'badge-gray'}">${s.state}</span>
@@ -346,7 +346,7 @@
         const n=cnt[ds]||0, isTod=ds==='2026-05-13', isHol=ds==='2026-05-15';
         const cls=isTod?'today-cell':isHol?'holiday-cell':n>=3?'has-many':n>0?'has-session':'';
         h += `<div class="cal-mini-cell ${cls}" title="${n?n+' classes':'no class'}"
-          ${n?`onclick="selectDay('${ds}');calTab('day',document.querySelectorAll('#view-calendar .tab')[1])"`:''}>
+          ${n?`onclick="selectDay('${ds}');calTab('day',document.querySelectorAll('#view-calendar .tab')[0])"`:''}>
           ${d}${n?`<span style="font-size:7px;display:block;line-height:1">${n}</span>`:''}
         </div>`;
       }
@@ -361,6 +361,9 @@
     const c = document.getElementById('cal-view-container');
     if (!c) return;
     renderPagination();
+    // Show "＋ Create Class" button only on Day view
+    const createBtn = document.getElementById('cal-create-btn');
+    if (createBtn) createBtn.style.display = currentView === 'day' ? '' : 'none';
     if (currentView === 'week') { c.innerHTML = ''; buildWeek(c); return; }
     if (currentView === 'day')  { c.innerHTML = ''; buildDay(c);  return; }
     const fns = { month: buildMonth, teacher: buildTeacher, list: buildList, year: buildYear };
@@ -403,7 +406,7 @@
 
   window.selectDay = function(ds) {
     selectedDay = ds;
-    calTab('day', document.querySelectorAll('#view-calendar .tab')[1]);
+    calTab('day', document.querySelectorAll('#view-calendar .tab')[0]);
   };
   window.selectPrevDay = function() {
     const idx = dayHeaders.findIndex(d => d.date===selectedDay);

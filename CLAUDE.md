@@ -342,7 +342,8 @@ Utils.statusBadge(status)           → <span class="badge ...">
 Utils.attBadge(status)              → <span class="badge ...">
 Utils.sessionsFor(name)             → sessions[]
 Utils.studentByName(name)           → student
-Utils.renewalStatus(id)             → 'active'|'renewal'|'urgent'
+Utils.renewalStatus(id)             → 'active'|'renewal'|'pause'|'archived'
+Utils.statusBadge(status, left?)    → badge แดงถ้า renewal + left ≤ 1
 ```
 
 ---
@@ -403,10 +404,20 @@ Transfer เกิดขึ้นเมื่อ:
 - AI Assist ช่วย draft ได้ → ครูต้องแก้และ approve ก่อนส่ง
 ```
 
+### Student Status (4 values)
+```
+active   → เรียนปกติ (sessions > 2)
+renewal  → sessions ≤ 2 (badge 🟡 yellow) / sessions ≤ 1 (badge 🔴 red — urgent visual)
+pause    → Auto: sessions = 0 / Manual: Admin กด (เช่น ไปต่างประเทศ)
+archived → Manual: ลาออกถาวร (Restore ได้ → Active)
+```
+ไม่มี status = 'urgent' — ใช้ renewal + sessionsLeft เป็น visual sub-state
+
 ### Renewal
 ```
-sessionsRemaining ≤ 2 → "Renewal Pending"
-sessionsRemaining ≤ 1 → "URGENT"
+sessionsRemaining = 2 → status 'renewal' · badge 🟡 yellow
+sessionsRemaining = 1 → status 'renewal' · badge 🔴 red (urgent visual)
+sessionsRemaining = 0 → status 'pause' (auto)
 Renewal = Enrollment ใหม่เสมอ (ไม่ extend เดิม)
 Class Assignment หลัง Renewal = ขึ้นอยู่กับ Parent
   → ต้องการ Class เดิม: Admin ไม่ต้องทำอะไร (อยู่ใน Class เดิมต่อ)

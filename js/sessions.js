@@ -34,7 +34,7 @@
 
   /* ── COLOR STRIP ──────────────────────────────────────── */
   const COLOR_HEX = {
-    green:'#10b981', yellow:'#f59e0b', orange:'#f97316', purple:'#8b5cf6', '':'#6366f1',
+    green:'var(--md-success)', yellow:'var(--md-warning)', orange:'var(--clr-on-science)', blue:'var(--md-primary)', purple:'var(--clr-on-grammar)', '':'var(--md-primary)',
   };
 
   /* ── SHELL ────────────────────────────────────────────── */
@@ -44,7 +44,7 @@
       <div class="page-title">Sessions</div>
       <div class="page-sub" id="sess-sub">Loading…</div>
     </div>
-    <button class="btn btn-primary btn-sm" onclick="showView('calendar')">📅 Calendar View</button>
+    <button class="btn btn-primary btn-sm" onclick="showView('calendar')"><span class="mdi mdi-sm">calendar_month</span> Calendar View</button>
   </div>
 
   <!-- KPI strip -->
@@ -70,9 +70,9 @@
                      font-size:12px;outline:none;color:#374151;background:#fff"
               onchange="sessFilter('status',this.value)">
         <option value="all">All Status</option>
-        <option value="active">🟢 Live</option>
-        <option value="upcoming">📅 Upcoming</option>
-        <option value="ended">✅ Ended</option>
+        <option value="active">Live</option>
+        <option value="upcoming">Upcoming</option>
+        <option value="ended">Ended</option>
       </select>
 
       <!-- Teacher -->
@@ -106,25 +106,25 @@
 
     document.getElementById('sess-kpi').innerHTML = `
       <div class="kpi-card">
-        <div class="kpi-icon" style="background:#d1fae5">🟢</div>
+        <div class="kpi-icon success"><span class="mdi">radio_button_checked</span></div>
         <div class="kpi-label">Live Now</div>
-        <div class="kpi-value" style="color:${live.length>0?'#10b981':'#9ca3af'}">${live.length}</div>
+        <div class="kpi-value" style="color:${live.length>0?'var(--md-success)':'var(--md-on-surface-variant)'}">${live.length}</div>
         <div class="kpi-change ${live.length>0?'up':''}">Currently active</div>
       </div>
       <div class="kpi-card">
-        <div class="kpi-icon" style="background:#dbeafe">📅</div>
+        <div class="kpi-icon"><span class="mdi">calendar_today</span></div>
         <div class="kpi-label">Today's Sessions</div>
         <div class="kpi-value">${today.length}</div>
         <div class="kpi-change up">${todayDate||'—'}</div>
       </div>
       <div class="kpi-card">
-        <div class="kpi-icon" style="background:#ede9fe">⏭️</div>
+        <div class="kpi-icon tertiary"><span class="mdi">schedule_send</span></div>
         <div class="kpi-label">Upcoming</div>
         <div class="kpi-value">${upcoming.length}</div>
         <div class="kpi-change up">Scheduled ahead</div>
       </div>
       <div class="kpi-card">
-        <div class="kpi-icon" style="background:#f3f4f6">✅</div>
+        <div class="kpi-icon warning"><span class="mdi">task_alt</span></div>
         <div class="kpi-label">Completed</div>
         <div class="kpi-value">${ended.length}</div>
         <div class="kpi-change">This week</div>

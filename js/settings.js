@@ -11,15 +11,15 @@
       <div class="page-title">Settings</div>
       <div class="page-sub">System configuration for NockERP</div>
     </div>
-    <button class="btn btn-primary btn-sm" onclick="saveSettings()">💾 Save All</button>
+    <button class="btn btn-primary btn-sm" onclick="saveSettings()"><span class="mdi mdi-sm">save</span> Save All</button>
   </div>
 
   <!-- Tabs -->
   <div class="tabs" style="margin-bottom:16px">
-    <div class="tab active" onclick="settingsTab('general',this)">🏫 General</div>
-    <div class="tab"        onclick="settingsTab('branches',this)">📍 Branches</div>
-    <div class="tab"        onclick="settingsTab('teachers',this)">👩‍🏫 Teachers</div>
-    <div class="tab"        onclick="settingsTab('system',this)">⚙️ System</div>
+    <div class="tab active" onclick="settingsTab('general',this)"><span class="mdi mdi-sm">home_work</span> General</div>
+    <div class="tab"        onclick="settingsTab('branches',this)"><span class="mdi mdi-sm">location_on</span> Branches</div>
+    <div class="tab"        onclick="settingsTab('teachers',this)"><span class="mdi mdi-sm">person</span> Teachers</div>
+    <div class="tab"        onclick="settingsTab('system',this)"><span class="mdi mdi-sm">settings</span> System</div>
   </div>
 
   <!-- General -->

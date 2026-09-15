@@ -25,7 +25,7 @@
       events.push({
         dateLabel,
         icon:  s.state === 'done' ? '✅' : s.state === 'ongoing' ? '🔴' : '📅',
-        color: s.state === 'done' ? '#10b981' : s.state === 'ongoing' ? '#ef4444' : '#6366f1',
+        color: s.state === 'done' ? 'var(--md-success)' : s.state === 'ongoing' ? 'var(--md-error)' : 'var(--md-primary)',
         tag:   'Session',
         tagCls:'badge-blue',
         title: `${Utils.subjectLabel(s)} — ${s.state}`,
@@ -76,7 +76,7 @@
       events.push({
         dateLabel: l.date || 'This week',
         icon:  '🎯',
-        color: '#6366f1',
+        color: 'var(--md-primary)',
         tag:   'CRM',
         tagCls:'badge-purple',
         title: `Lead: ${l.name} — ${l.stage}`,
@@ -93,7 +93,7 @@
         events.push({
           dateLabel: inv.date || 'This month',
           icon:  inv.status === 'paid' ? '💳' : '📄',
-          color: inv.status === 'paid' ? '#10b981' : '#f59e0b',
+          color: inv.status === 'paid' ? 'var(--md-success)' : 'var(--md-warning)',
           tag:   'Billing',
           tagCls: inv.status === 'paid' ? 'badge-green' : 'badge-yellow',
           title:  `${inv.id || 'Invoice'} — ${stu.name}`,
@@ -139,7 +139,7 @@
       <div class="page-title">Logs & Timeline</div>
       <div class="page-sub" id="logs-sub">Loading…</div>
     </div>
-    <button class="btn btn-secondary btn-sm" onclick="showToast('Export coming soon','info')">📤 Export</button>
+    <button class="btn btn-secondary btn-sm" onclick="showToast('Export coming soon','info')"><span class="mdi mdi-sm">upload</span> Export</button>
   </div>
 
   <!-- KPI -->
@@ -150,12 +150,12 @@
     <input id="logs-search" class="settings-input" style="width:220px;margin:0"
            placeholder="🔍 Search logs…" oninput="logsSearch(this.value)">
     <div class="filter-chip active"  onclick="logFilter('all',this)">All</div>
-    <div class="filter-chip" onclick="logFilter('student',this)">🎓 Student</div>
-    <div class="filter-chip" onclick="logFilter('session',this)">📅 Session</div>
-    <div class="filter-chip" onclick="logFilter('attendance',this)">✅ Attendance</div>
-    <div class="filter-chip" onclick="logFilter('billing',this)">💳 Billing</div>
-    <div class="filter-chip" onclick="logFilter('crm',this)">🎯 CRM</div>
-    <div class="filter-chip" onclick="logFilter('summary',this)">📝 Summary</div>
+    <div class="filter-chip" onclick="logFilter('student',this)"><span class="mdi mdi-sm" style="font-size:11px">school</span> Student</div>
+    <div class="filter-chip" onclick="logFilter('session',this)"><span class="mdi mdi-sm" style="font-size:11px">calendar_today</span> Session</div>
+    <div class="filter-chip" onclick="logFilter('attendance',this)"><span class="mdi mdi-sm" style="font-size:11px">check_circle</span> Attendance</div>
+    <div class="filter-chip" onclick="logFilter('billing',this)"><span class="mdi mdi-sm" style="font-size:11px">payments</span> Billing</div>
+    <div class="filter-chip" onclick="logFilter('crm',this)"><span class="mdi mdi-sm" style="font-size:11px">person_search</span> CRM</div>
+    <div class="filter-chip" onclick="logFilter('summary',this)"><span class="mdi mdi-sm" style="font-size:11px">edit_note</span> Summary</div>
   </div>
 
   <!-- Log -->
@@ -171,25 +171,25 @@
     const billing = allEvents.filter(e => e.module === 'billing').length;
     document.getElementById('logs-kpi').innerHTML = `
       <div class="kpi-card">
-        <div class="kpi-icon" style="background:#ede9fe">📋</div>
+        <div class="kpi-icon tertiary"><span class="mdi">receipt_long</span></div>
         <div class="kpi-label">Total Events</div>
         <div class="kpi-value">${total}</div>
         <div class="kpi-change up">All time</div>
       </div>
       <div class="kpi-card">
-        <div class="kpi-icon" style="background:#d1fae5">🎓</div>
+        <div class="kpi-icon success"><span class="mdi">school</span></div>
         <div class="kpi-label">Student Events</div>
         <div class="kpi-value">${student}</div>
         <div class="kpi-change up">Enrollments & notes</div>
       </div>
       <div class="kpi-card">
-        <div class="kpi-icon" style="background:#fef3c7">📅</div>
+        <div class="kpi-icon warning"><span class="mdi">calendar_today</span></div>
         <div class="kpi-label">Session Events</div>
         <div class="kpi-value">${session}</div>
         <div class="kpi-change up">Classes & attendance</div>
       </div>
       <div class="kpi-card">
-        <div class="kpi-icon" style="background:#e0f2fe">💳</div>
+        <div class="kpi-icon"><span class="mdi">payments</span></div>
         <div class="kpi-label">Billing Events</div>
         <div class="kpi-value">${billing}</div>
         <div class="kpi-change up">Invoices & payments</div>
@@ -216,8 +216,8 @@
     if (!container) return;
 
     if (list.length === 0) {
-      container.innerHTML = `<div style="padding:40px;text-align:center;color:#9ca3af">
-        <div style="font-size:32px;margin-bottom:8px">🕐</div>No events found</div>`;
+      container.innerHTML = `<div style="padding:40px;text-align:center;color:var(--md-on-surface-variant)">
+        <div style="font-size:32px;margin-bottom:8px"><span class="mdi">history</span></div>No events found</div>`;
       return;
     }
 

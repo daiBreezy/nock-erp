@@ -27,7 +27,15 @@
       "Bash(# Search more broadly for recent image files *)",
       "Bash(find ~/Desktop ~/Downloads -maxdepth 2 \\\\\\( -name \"*.png\" -o -name \"*.jpg\" -o -name \"*.jpeg\" \\\\\\) 2>/dev/null | head -10)",
       "Bash(security find-internet-password *)",
-      "Bash(node --check js/calendar-class.js)"
+      "Bash(node --check js/calendar-class.js)",
+      "Bash(node --check js/calendar.js)",
+      "Bash(node --check js/student-profile.js)",
+      "Bash(ls -la \"/Users/nockacademy/Documents/Claude/Projects/NEW ERP!/\" && echo \"---\" && ls -la \"/Users/nockacademy/Documents/Claude/Projects/\")",
+      "Bash(ls -la \"/Users/nockacademy/\" && echo \"---\" && find \"/Users/nockacademy/Documents/Claude/Projects/NEW ERP!\" -name \"*.json\" -o -name \"*.md\" -o -name \"package.json\" 2>/dev/null | head -30)",
+      "Read(//Users/nockacademy/Documents/Liclass/Invoice/**)",
+      "Bash(python3 -c ' *)",
+      "Bash(pip3 install *)",
+      "Bash(python3 -)"
     ]
   }
 }

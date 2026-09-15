@@ -23,7 +23,7 @@
   const attTotal = Object.values(attCnt).reduce((s,v)=>s+v,0);
 
   /* Student status breakdown */
-  const stuStatus = { active:0, renewal:0, urgent:0, inactive:0 };
+  const stuStatus = { active:0, renewal:0, pause:0, archived:0 };
   DB.students.forEach(s => { stuStatus[s.status] = (stuStatus[s.status]||0)+1; });
 
   /* Sessions per subject */
@@ -85,16 +85,16 @@
       <div class="page-title">Reports</div>
       <div class="page-sub">Data from DB · May 2026</div>
     </div>
-    <button class="btn btn-secondary btn-sm" onclick="showToast('Export coming soon','info')">📤 Export</button>
+    <button class="btn btn-secondary btn-sm" onclick="showToast('Export coming soon','info')"><span class="mdi mdi-sm">upload</span> Export</button>
   </div>
 
   <!-- Tabs -->
   <div class="tabs" style="margin-bottom:16px">
-    <div class="tab active"    onclick="reportTab('overview',this)">📊 Overview</div>
-    <div class="tab"           onclick="reportTab('revenue',this)">💰 Revenue</div>
-    <div class="tab"           onclick="reportTab('students',this)">🎓 Students</div>
-    <div class="tab"           onclick="reportTab('attendance',this)">✅ Attendance</div>
-    <div class="tab"           onclick="reportTab('crm',this)">🎯 CRM</div>
+    <div class="tab active"    onclick="reportTab('overview',this)"><span class="mdi mdi-sm">bar_chart</span> Overview</div>
+    <div class="tab"           onclick="reportTab('revenue',this)"><span class="mdi mdi-sm">payments</span> Revenue</div>
+    <div class="tab"           onclick="reportTab('students',this)"><span class="mdi mdi-sm">school</span> Students</div>
+    <div class="tab"           onclick="reportTab('attendance',this)"><span class="mdi mdi-sm">check_circle</span> Attendance</div>
+    <div class="tab"           onclick="reportTab('crm',this)"><span class="mdi mdi-sm">person_search</span> CRM</div>
   </div>
 
   <!-- Tab panels -->
@@ -108,32 +108,32 @@
   function buildOverview() {
     const totalRev   = revenueByMonth.reduce((s,v)=>s+v,0);
     const attRate    = attTotal ? Math.round((attCnt.present/attTotal)*100) : 0;
-    const activeStu  = DB.students.filter(s=>['active','renewal','urgent'].includes(s.status)).length;
+    const activeStu  = DB.students.filter(s=>['active','renewal'].includes(s.status)).length;
     const totalSess  = DB.sessions.length;
 
     return `
     <!-- Top KPIs -->
     <div class="kpi-grid mb-16" style="grid-template-columns:repeat(4,1fr)">
       <div class="kpi-card">
-        <div class="kpi-icon" style="background:#d1fae5">💰</div>
+        <div class="kpi-icon success"><span class="mdi">payments</span></div>
         <div class="kpi-label">Total Revenue</div>
         <div class="kpi-value">฿${totalRev.toLocaleString()}</div>
         <div class="kpi-change up">All invoices paid</div>
       </div>
       <div class="kpi-card">
-        <div class="kpi-icon" style="background:#ede9fe">🎓</div>
+        <div class="kpi-icon tertiary"><span class="mdi">school</span></div>
         <div class="kpi-label">Active Students</div>
         <div class="kpi-value">${activeStu}</div>
         <div class="kpi-change up">In system</div>
       </div>
       <div class="kpi-card">
-        <div class="kpi-icon" style="background:#dbeafe">📅</div>
+        <div class="kpi-icon"><span class="mdi">calendar_today</span></div>
         <div class="kpi-label">Total Sessions</div>
         <div class="kpi-value">${totalSess}</div>
         <div class="kpi-change up">This week</div>
       </div>
       <div class="kpi-card">
-        <div class="kpi-icon" style="background:#fef3c7">📈</div>
+        <div class="kpi-icon warning"><span class="mdi">trending_up</span></div>
         <div class="kpi-label">Attendance Rate</div>
         <div class="kpi-value">${attRate}%</div>
         <div class="kpi-change ${attRate>=80?'up':'down'}">
@@ -146,7 +146,7 @@
       <!-- Revenue trend -->
       <div class="card">
         <div class="card-header">
-          <div class="card-title">💰 Revenue by Month</div>
+          <div class="card-title"><span class="mdi mdi-sm">payments</span> Revenue by Month</div>
         </div>
         <div class="card-body">
           ${barChart(revenueByMonth, MONTH_LABELS, 'green')}
@@ -155,18 +155,18 @@
 
       <!-- Attendance breakdown -->
       <div class="card">
-        <div class="card-header"><div class="card-title">✅ Attendance Breakdown</div></div>
+        <div class="card-header"><div class="card-title"><span class="mdi mdi-sm">check_circle</span> Attendance Breakdown</div></div>
         <div class="card-body">
-          ${statRow('Present', attCnt.present, '#10b981', attTotal?Math.round(attCnt.present/attTotal*100):0)}
-          ${statRow('Leave',   attCnt.leave,   '#f59e0b', attTotal?Math.round(attCnt.leave/attTotal*100):0)}
-          ${statRow('Absent',  attCnt.absent,  '#ef4444', attTotal?Math.round(attCnt.absent/attTotal*100):0)}
-          ${attCnt.reschedule>0?statRow('Reschedule', attCnt.reschedule, '#8b5cf6', attTotal?Math.round(attCnt.reschedule/attTotal*100):0):''}
+          ${statRow('Present', attCnt.present, 'var(--md-success)', attTotal?Math.round(attCnt.present/attTotal*100):0)}
+          ${statRow('Leave',   attCnt.leave,   'var(--md-warning)', attTotal?Math.round(attCnt.leave/attTotal*100):0)}
+          ${statRow('Absent',  attCnt.absent,  'var(--md-error)',   attTotal?Math.round(attCnt.absent/attTotal*100):0)}
+          ${attCnt.reschedule>0?statRow('Reschedule', attCnt.reschedule, 'var(--clr-on-grammar)', attTotal?Math.round(attCnt.reschedule/attTotal*100):0):''}
         </div>
       </div>
 
       <!-- Sessions per subject -->
       <div class="card">
-        <div class="card-header"><div class="card-title">📚 Sessions by Subject</div></div>
+        <div class="card-header"><div class="card-title"><span class="mdi mdi-sm">menu_book</span> Sessions by Subject</div></div>
         <div class="card-body">
           ${barChart(topSubjects.map(s=>s[1]), topSubjects.map(s=>s[0].split(' ').slice(0,2).join(' ')), '')}
         </div>
@@ -174,11 +174,11 @@
 
       <!-- Teacher load -->
       <div class="card">
-        <div class="card-header"><div class="card-title">👩‍🏫 Sessions by Teacher</div></div>
+        <div class="card-header"><div class="card-title"><span class="mdi mdi-sm">person</span> Sessions by Teacher</div></div>
         <div class="card-body">
           ${Object.entries(teachLoad).map(([t,n]) => {
             const max = Math.max(...Object.values(teachLoad));
-            return statRow(t, `${n} sessions`, '#6366f1', Math.round(n/max*100));
+            return statRow(t, `${n} sessions`, 'var(--md-primary)', Math.round(n/max*100));
           }).join('')}
         </div>
       </div>
@@ -197,26 +197,26 @@
     return `
     <div class="kpi-grid mb-16" style="grid-template-columns:repeat(3,1fr)">
       <div class="kpi-card">
-        <div class="kpi-icon" style="background:#d1fae5">💰</div>
+        <div class="kpi-icon success"><span class="mdi">payments</span></div>
         <div class="kpi-label">Total Revenue</div>
         <div class="kpi-value">฿${total.toLocaleString()}</div>
         <div class="kpi-change up">${allInvoices.length} invoices</div>
       </div>
       <div class="kpi-card">
-        <div class="kpi-icon" style="background:#fef3c7">📅</div>
+        <div class="kpi-icon warning"><span class="mdi">calendar_today</span></div>
         <div class="kpi-label">This Month (May)</div>
         <div class="kpi-value">฿${revenueByMonth[4].toLocaleString()}</div>
         <div class="kpi-change up">Invoices paid</div>
       </div>
       <div class="kpi-card">
-        <div class="kpi-icon" style="background:#ede9fe">📊</div>
+        <div class="kpi-icon tertiary"><span class="mdi">bar_chart</span></div>
         <div class="kpi-label">Avg per Invoice</div>
         <div class="kpi-value">฿${allInvoices.length?Math.round(total/allInvoices.length).toLocaleString():0}</div>
         <div class="kpi-change up">Per enrollment</div>
       </div>
     </div>
     <div class="card mb-16">
-      <div class="card-header"><div class="card-title">💰 Revenue by Month (2026)</div></div>
+      <div class="card-header"><div class="card-title"><span class="mdi mdi-sm">payments</span> Revenue by Month (2026)</div></div>
       <div class="card-body">
         ${barChart(revenueByMonth, MONTH_LABELS, 'green')}
       </div>
@@ -227,8 +227,8 @@
         <thead><tr><th>Invoice</th><th>Student</th><th>Family</th><th>Course</th><th>Amount</th><th>Date</th></tr></thead>
         <tbody>
           ${allInvoices.map(inv=>`<tr>
-            <td style="font-size:11px;color:#6366f1;font-weight:600">${inv.id}</td>
-            <td><span style="cursor:pointer;color:#6366f1" onclick="openProfileModal('${inv.student}')">${inv.student}</span></td>
+            <td style="font-size:11px;color:var(--md-primary);font-weight:600">${inv.id}</td>
+            <td><span style="cursor:pointer;color:var(--md-primary)" onclick="openProfileModal('${inv.student}')">${inv.student}</span></td>
             <td style="font-size:12px;color:#6b7280">${inv.family}</td>
             <td style="font-size:12px">${inv.course}</td>
             <td style="font-weight:600">฿${inv.amount.toLocaleString()}</td>
@@ -241,7 +241,7 @@
 
   /* ── STUDENTS TAB ─────────────────────────────────────── */
   function buildStudents() {
-    const STATUS_COLORS = {active:'#10b981',renewal:'#f59e0b',urgent:'#ef4444',inactive:'#9ca3af'};
+    const STATUS_COLORS = {active:'var(--md-success)',renewal:'var(--md-warning)',pause:'var(--md-on-surface-variant)',archived:'#9ca3af'};
     const total = DB.students.length;
 
     return `
@@ -273,10 +273,10 @@
             const usedH  = (s.courses||[]).reduce((a,c)=>a+c.used, 0);
             const leftH  = (s.courses||[]).reduce((a,c)=>a+c.left, 0);
             const pct    = totalH ? Math.round(usedH/totalH*100) : 0;
-            const color  = leftH<=1?'#ef4444':leftH<=3?'#f59e0b':'#10b981';
+            const color  = leftH<=1?'var(--md-error)':leftH<=3?'var(--md-warning)':'var(--md-success)';
             return `<div style="margin-bottom:10px">
               <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:3px">
-                <span style="cursor:pointer;color:#6366f1" onclick="openProfileModal('${s.id}')">${s.name}</span>
+                <span style="cursor:pointer;color:var(--md-primary)" onclick="openProfileModal('${s.id}')">${s.name}</span>
                 <span style="color:${color};font-weight:600">${leftH}h left</span>
               </div>
               <div style="background:#f3f4f6;border-radius:4px;height:6px">
@@ -308,17 +308,17 @@
     <div class="kpi-grid mb-16" style="grid-template-columns:repeat(4,1fr)">
       <div class="kpi-card">
         <div class="kpi-label">Overall Rate</div>
-        <div class="kpi-value" style="color:${attRate>=80?'#10b981':'#ef4444'}">${attRate}%</div>
+        <div class="kpi-value" style="color:${attRate>=80?'var(--md-success)':'var(--md-error)'}">${attRate}%</div>
         <div class="kpi-change ${attRate>=80?'up':'down'}">Target: 80%+</div>
       </div>
       <div class="kpi-card">
         <div class="kpi-label">Present</div>
-        <div class="kpi-value" style="color:#10b981">${attCnt.present}</div>
+        <div class="kpi-value" style="color:var(--md-success)">${attCnt.present}</div>
         <div class="kpi-change up">of ${attTotal} total</div>
       </div>
       <div class="kpi-card">
         <div class="kpi-label">Absent</div>
-        <div class="kpi-value" style="color:#ef4444">${attCnt.absent}</div>
+        <div class="kpi-value" style="color:var(--md-error)">${attCnt.absent}</div>
         <div class="kpi-change down">Class deducted</div>
       </div>
       <div class="kpi-card">
@@ -340,10 +340,10 @@
         <div class="card-header"><div class="card-title">Attendance Rate by Student</div></div>
         <div class="card-body">
           ${stuAttStats.map(s => {
-            const color = s.rate>=80?'#10b981':s.rate>=60?'#f59e0b':'#ef4444';
+            const color = s.rate>=80?'var(--md-success)':s.rate>=60?'var(--md-warning)':'var(--md-error)';
             return `<div style="margin-bottom:10px">
               <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:3px">
-                <span style="cursor:pointer;color:#6366f1" onclick="openProfileModal('${s.id}')">${s.name}</span>
+                <span style="cursor:pointer;color:var(--md-primary)" onclick="openProfileModal('${s.id}')">${s.name}</span>
                 <span style="color:${color};font-weight:600">${s.rate}% (${s.p}/${s.tot})</span>
               </div>
               <div style="background:#f3f4f6;border-radius:4px;height:6px">
@@ -372,17 +372,17 @@
       </div>
       <div class="kpi-card">
         <div class="kpi-label">Active Pipeline</div>
-        <div class="kpi-value" style="color:#6366f1">${leads.filter(l=>l.stage!=='archived').length}</div>
+        <div class="kpi-value" style="color:var(--md-primary)">${leads.filter(l=>l.stage!=='archived').length}</div>
         <div class="kpi-change up">In funnel</div>
       </div>
       <div class="kpi-card">
         <div class="kpi-label">Customers (Enrolled)</div>
-        <div class="kpi-value" style="color:#10b981">${custs.length}</div>
+        <div class="kpi-value" style="color:var(--md-success)">${custs.length}</div>
         <div class="kpi-change up">Converted</div>
       </div>
       <div class="kpi-card">
         <div class="kpi-label">Archived</div>
-        <div class="kpi-value" style="color:#9ca3af">${archived}</div>
+        <div class="kpi-value" style="color:var(--md-on-surface-variant)">${archived}</div>
         <div class="kpi-change">Not converted</div>
       </div>
     </div>
@@ -392,7 +392,7 @@
         ${leadFunnel.map(f => {
           const pct = leads.length ? Math.round(f.count/leads.length*100) : 0;
           const STAGE_META = CONST.LEAD_STAGES?.[f.stage] || {};
-          return statRow(STAGE_META.label||f.stage, `${f.count} leads`, '#6366f1', pct);
+          return statRow(STAGE_META.label||f.stage, `${f.count} leads`, 'var(--md-primary)', pct);
         }).join('')}
       </div>
     </div>`;

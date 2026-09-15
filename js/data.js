@@ -8,7 +8,7 @@
 
 /* ── STUDENTS ─────────────────────────────────────────────── */
 const _students = [
-  { id:'mia', name:'Mia Tanaka', age:9, branch:'Sukhumvit', family:'Tanaka Family',
+  { id:'mia', name:'Mia Tanaka', nick:'มีมี่', age:9, branch:'Sukhumvit', family:'Tanaka Family',
     line:'@tanaka_mom', phone:'081-234-5678', enrollDate:'2026-02-01',
     teacher:'Kru Bee', status:'renewal',
     courses:[{name:'Eng (Active) ป.4',hours:48,used:46,left:2,price:14400}],
@@ -30,7 +30,7 @@ const _students = [
       {type:'admin',  text:'Parent confirmed renewal interest — waiting for payment slip.',author:'Admin Nock',date:'13 May'},
     ]},
 
-  { id:'tom', name:'Tom Chen', age:12, branch:'Sukhumvit', family:'Chen Family',
+  { id:'tom', name:'Tom Chen', nick:'ทอม', age:12, branch:'Sukhumvit', family:'Chen Family',
     line:'@chen_mom', phone:'082-345-6789', enrollDate:'2026-01-15',
     teacher:'Kru Cat', status:'active',
     courses:[{name:'Math ป.6',hours:36,used:22,left:14,price:10800}],
@@ -52,7 +52,7 @@ const _students = [
       {type:'teacher',text:'Tom is strong in algebra but needs more practice with geometry proofs.',author:'Kru Cat',date:'6 May'},
     ]},
 
-  { id:'ploy', name:'Ploy Srirak', age:10, branch:'Silom', family:'Srirak Family',
+  { id:'ploy', name:'Ploy Srirak', nick:'พลอย', age:10, branch:'Silom', family:'Srirak Family',
     line:'@srirak_mom', phone:'083-456-7890', enrollDate:'2026-01-20',
     teacher:'Kru Arm / Kru Eve', status:'active',
     courses:[
@@ -80,9 +80,9 @@ const _students = [
       {type:'admin',text:'Parents requested schedule to stay on Wednesdays only.',author:'Admin Nock',date:'10 May'},
     ]},
 
-  { id:'james', name:'James Wilson', age:11, branch:'Sukhumvit', family:'Wilson Family',
+  { id:'james', name:'James Wilson', nick:'เจมส์', age:11, branch:'Sukhumvit', family:'Wilson Family',
     line:'@wilson_dad', phone:'084-567-8901', enrollDate:'2026-03-01',
-    teacher:'Kru Dan', status:'urgent',
+    teacher:'Kru Dan', status:'renewal',
     courses:[{name:'Science ป.5',hours:12,used:11,left:1,price:4800}],
     schedule:[
       {date:'Thu 14 May',time:'14:30',room:'Room 3',teacher:'Kru Dan',status:'upcoming'},
@@ -100,7 +100,7 @@ const _students = [
       {type:'admin',  text:'Called Wilson dad — will send payment slip by Friday.',author:'Admin Nock',date:'9 May'},
     ]},
 
-  { id:'kevin', name:'Kevin Park', age:8, branch:'Silom', family:'Park Family',
+  { id:'kevin', name:'Kevin Park', nick:'เควิน', age:8, branch:'Silom', family:'Park Family',
     line:'@park_dad', phone:'085-678-9012', enrollDate:'2026-04-01',
     teacher:'Kru Bee', status:'active',
     courses:[{name:'Eng (Active) ป.4',hours:24,used:8,left:16,price:7200}],
@@ -128,7 +128,7 @@ const _families = [
     students:['Mia Tanaka'],
     notes:[{type:'admin',text:'Very responsive on LINE. Always pays on time. Mia is their only child enrolled.',author:'Admin Nock',date:'9 May'}]},
 
-  { id:'wilson', name:'Wilson Family', branch:'Sukhumvit', assignee:'', status:'urgent',
+  { id:'wilson', name:'Wilson Family', branch:'Sukhumvit', assignee:'', status:'renewal',
     totalPaid:4800, invoiceCount:1, lastContact:'Today 09:15', channel:'LINE', unreadCount:1,
     parents:[
       {role:'Dad',name:'Ben Wilson', line:'@wilson_dad',phone:'082-345-6789',email:'ben.wilson@email.com', lineActive:true},
@@ -198,6 +198,53 @@ const _staff = [
     students:[], schedule:[], notes:[]},
 ];
 
+/* ── BRANCH PRICING ───────────────────────────────────────── */
+const _branchPricing = {
+  'Sukhumvit': { h24:7200,  h48:14400, h72:20160, h96:28800 },
+  'Silom':     { h24:6600,  h48:13200, h72:18480, h96:26400 },
+};
+
+/* ── COURSES CATALOG ──────────────────────────────────────── */
+const _courses = [
+  { id:'crs-001', name:'Math ป.5', type:'single',
+    subjects:[{subject:'Math', grade:'ป.5', hours:24}],
+    suggestedTeacher:'Kru Arm', branches:['Sukhumvit','Silom'],
+    promotions:[], createdAt:'2026-01-01' },
+
+  { id:'crs-002', name:'Math ป.6', type:'single',
+    subjects:[{subject:'Math', grade:'ป.6', hours:48}],
+    suggestedTeacher:'Kru Cat', branches:['Sukhumvit'],
+    promotions:[], createdAt:'2026-01-01' },
+
+  { id:'crs-003', name:'Eng (Active) ป.4', type:'single',
+    subjects:[{subject:'Eng (Active)', grade:'ป.4', hours:48}],
+    suggestedTeacher:'Kru Bee', branches:['Sukhumvit'],
+    promotions:[
+      {id:'promo-1', name:'Early Enrollment', discount:10, expiry:'2026-07-31', active:true}
+    ], createdAt:'2026-01-15' },
+
+  { id:'crs-004', name:'Science ป.5', type:'single',
+    subjects:[{subject:'Science', grade:'ป.5', hours:24}],
+    suggestedTeacher:'Kru Dan', branches:['Sukhumvit','Silom'],
+    promotions:[], createdAt:'2026-01-20' },
+
+  { id:'crs-005', name:'Thai ป.5', type:'single',
+    subjects:[{subject:'Thai', grade:'ป.5', hours:24}],
+    suggestedTeacher:'Kru Eve', branches:['Silom'],
+    promotions:[], createdAt:'2026-01-20' },
+
+  { id:'crs-006', name:'สอบเข้า ม.1 Package', type:'bundle',
+    subjects:[
+      {subject:'Math',    grade:'ม.1', hours:48},
+      {subject:'Eng',     grade:'ม.1', hours:48},
+      {subject:'Science', grade:'ม.1', hours:48},
+    ],
+    suggestedTeacher:'', branches:['Sukhumvit'],
+    promotions:[
+      {id:'promo-2', name:'Bundle Discount 15%', discount:15, expiry:'2026-12-31', active:true}
+    ], createdAt:'2026-02-01' },
+];
+
 /* ── SESSIONS (Calendar) ──────────────────────────────────── */
 // slotId: 0=10-12, 1=13-15, 2=15-17, 3=18-20 | col: 1=Mon…7=Sun
 const _sessions = [
@@ -264,7 +311,7 @@ const _customers = [
   {name:'Mia Tanaka',   family:'Tanaka Family', branch:'Sukhumvit', course:'Eng (Active) ป.4', pkg:'Eng (Active) ป.4 · 48h.', teacher:'Kru Bee',         schedule:'Tue/Thu 10:30',  remain:2,  total:48, since:'Jan 2026', until:'Jun 2026', status:'renewal', phone:'089-100-0001', line:'@tanaka_mom', revenue:51000},
   {name:'Tom Chen',     family:'Chen Family',   branch:'Sukhumvit', course:'Math ป.6',         pkg:'Math ป.6 · 36h.',         teacher:'Kru Cat',         schedule:'Tue/Thu 15:00',  remain:14, total:36, since:'Mar 2026', until:'Aug 2026', status:'active',  phone:'089-100-0002', line:'@chen_dad',   revenue:18000},
   {name:'Ploy Srirak',  family:'Srirak Family', branch:'Silom',     course:'Math ป.5 + Thai ป.5', pkg:'Math ป.5 · 24h. + Thai ป.5 · 24h.', teacher:'Kru Arm / Kru Eve', schedule:'Wed multi', remain:18, total:48, since:'Nov 2025', until:'Jul 2026', status:'active', phone:'089-100-0003', line:'@srirak_mom', revenue:33000},
-  {name:'James Wilson', family:'Wilson Family',  branch:'Sukhumvit', course:'Science ป.5',      pkg:'Science ป.5 · 12h.',      teacher:'Kru Dan',         schedule:'Tue/Thu 14:30',  remain:1,  total:12, since:'Feb 2026', until:'May 2026', status:'urgent',  phone:'089-100-0004', line:'@wilson_dad', revenue:11000},
+  {name:'James Wilson', family:'Wilson Family',  branch:'Sukhumvit', course:'Science ป.5',      pkg:'Science ป.5 · 12h.',      teacher:'Kru Dan',         schedule:'Tue/Thu 14:30',  remain:1,  total:12, since:'Feb 2026', until:'May 2026', status:'renewal', phone:'089-100-0004', line:'@wilson_dad', revenue:11000},
   {name:'Kevin Park',   family:'Park Family',    branch:'Sukhumvit', course:'Eng (Active) ป.4', pkg:'Eng (Active) ป.4 · 24h.', teacher:'Kru Bee',         schedule:'Mon/Wed 10:30',  remain:16, total:24, since:'Apr 2026', until:'Jul 2026', status:'active',  phone:'089-100-0005', line:'@park_mom',   revenue:4200},
 ];
 
@@ -334,17 +381,18 @@ const _dayHeaders = [
 /* ── CONSTANTS ────────────────────────────────────────────── */
 const _const = {
   STUDENT_STATUS: {
-    active:   {label:'Active',          cls:'badge-green' },
-    renewal:  {label:'Renewal Pending', cls:'badge-yellow'},
-    urgent:   {label:'URGENT Renewal',  cls:'badge-red'   },
-    inactive: {label:'Inactive',        cls:'badge-gray'  },
+    active:   {label:'Active',    cls:'badge-green' },
+    renewal:  {label:'Renewal',   cls:'badge-yellow'},  // 1 left → red (handled in Utils.statusBadge)
+    pause:    {label:'Pause',     cls:'badge-gray'  },  // sessions หมด (auto) หรือ manual
+    archived: {label:'Archived',  cls:'badge-gray'  },  // ลาออกถาวร (restore ได้)
   },
   ATTENDANCE_META: {
-    present:    {label:'Present',    cls:'badge-green',  deduct:true },
-    leave:      {label:'Leave',      cls:'badge-yellow', deduct:false},
-    absent:     {label:'Absent',     cls:'badge-red',    deduct:true },
-    reschedule: {label:'Reschedule', cls:'badge-blue',   deduct:false},
-    transfer:   {label:'Transfer',   cls:'badge-purple', deduct:false},
+    present:    {label:'Present',         cls:'badge-green',  deduct:true },
+    leave:      {label:'Leave',           cls:'badge-yellow', deduct:false},
+    leave_over: {label:'Leave (Overquota)',cls:'badge-orange', deduct:true },
+    absent:     {label:'Absent',          cls:'badge-red',    deduct:true },
+    reschedule: {label:'Reschedule',      cls:'badge-blue',   deduct:false},
+    transfer:   {label:'Transfer',        cls:'badge-purple', deduct:false},
   },
   LEAD_STAGES: {
     new:             {label:'New Lead',          color:'#6366f1', bg:'#ede9fe'},
@@ -362,9 +410,10 @@ const _const = {
     Admin:   {cls:'badge-purple', label:'Admin'  },
   },
   FAMILY_STATUS: {
-    active:  {cls:'badge-green',  label:'Active' },
-    urgent:  {cls:'badge-red',    label:'Urgent' },
-    pending: {cls:'badge-yellow', label:'Pending'},
+    active:   {cls:'badge-green',  label:'Active'  },
+    renewal:  {cls:'badge-yellow', label:'Renewal' },
+    pause:    {cls:'badge-gray',   label:'Pause'   },
+    archived: {cls:'badge-gray',   label:'Archived'},
   },
   SUBJECT_COLOR: {'Eng':'blue','Math':'green','Science':'orange','Thai':'green','Eng (Active)':'yellow','Eng (Grammar)':'purple'},
   TIME_SLOTS: [
@@ -386,8 +435,44 @@ const _const = {
   BRANCHES:    ['Sukhumvit','Silom'],
 };
 
+/* ── CLASSES ──────────────────────────────────────────────── */
+const _classes = [
+  { id:'cls-001', name:'Eng (Active) ป.4 – Tue/Wed (Kru Bee)',
+    subject:'Eng (Active)', grade:'ป.4', teacher:'Kru Bee',
+    branch:'Sukhumvit', room:'Room 1', days:['Tue','Wed'], slotId:0, courseId:'crs-003',
+    students:['Mia Tanaka','Kevin Park','Leo E','Ava F','Max G'],
+    status:'active', createdAt:'2026-01-15' },
+
+  { id:'cls-002', name:'Math ป.6 – Tue/Wed/Thu (Kru Cat)',
+    subject:'Math', grade:'ป.6', teacher:'Kru Cat',
+    branch:'Sukhumvit', room:'Room 2', days:['Tue','Wed','Thu'], slotId:2, courseId:'crs-002',
+    students:['Tom Chen','Amy B','Ben C','Cal D','Dan E','Eva F'],
+    status:'active', createdAt:'2026-01-15' },
+
+  { id:'cls-003', name:'Math ป.5 – Mon/Wed (Kru Arm)',
+    subject:'Math', grade:'ป.5', teacher:'Kru Arm',
+    branch:'Sukhumvit', room:'Room 1', days:['Mon','Wed'], slotId:0, courseId:'crs-001',
+    students:['Ploy Srirak','Nat B','Jay C','Sam D'],
+    status:'active', createdAt:'2026-01-20' },
+
+  { id:'cls-004', name:'Science ป.5 – Mon–Thu (Kru Dan)',
+    subject:'Science', grade:'ป.5', teacher:'Kru Dan',
+    branch:'Sukhumvit', room:'Room 3', days:['Mon','Tue','Wed','Thu'], slotId:1, courseId:'crs-004',
+    students:['James Wilson'],
+    status:'active', createdAt:'2026-03-01' },
+
+  { id:'cls-005', name:'Thai ป.5 – Mon/Wed (Kru Eve)',
+    subject:'Thai', grade:'ป.5', teacher:'Kru Eve',
+    branch:'Silom', room:'Room 1', days:['Mon','Wed'], slotId:2, courseId:'crs-005',
+    students:['Ploy Srirak','Pan G','Wan H'],
+    status:'active', createdAt:'2026-01-20' },
+];
+
 /* ── EXPOSE GLOBALS ───────────────────────────────────────── */
 window.DB = {
+  courses:         _courses,
+  classes:         _classes,
+  branchPricing:   _branchPricing,
   students:        _students,
   families:        _families,
   staff:           _staff,

@@ -139,10 +139,10 @@ window.Timeline = (function () {
     });
 
     /* Renewal alert */
-    if (stu?.status === 'urgent' || stu?.status === 'renewal') {
-      const left = Math.min(...(stu.courses||[]).map(c=>c.left));
+    if (stu?.status === 'renewal') {
+      const left = Math.min(...(stu.courses||[{left:99}]).map(c=>c.left));
       events.push({
-        type: stu.status === 'urgent' ? 'alert' : 'renewal',
+        type: left <= 1 ? 'alert' : 'renewal',
         text: `${left} class${left===1?'':'es'} remaining — renewal pending`,
         time: TODAY,
         _sk:  TODAY,
