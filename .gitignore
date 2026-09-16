@@ -21,3 +21,6 @@ Thumbs.db
 __pycache__/
 .venv/
 venv/
+
+# === Claude Code config เฉพาะเครื่อง (ไม่ share) ===
+.claude/settings.local.json
