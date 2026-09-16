@@ -5,6 +5,37 @@
 
 ---
 
+## 🏠 คู่มือตั้งเครื่องบ้าน (first-time setup — ทำครั้งเดียว)
+
+> ยืนยันแล้ว: ไฟล์เดิมบนเครื่องบ้าน "ไม่ได้ใช้เลย" ลบทิ้งได้ (ทุกอย่างอยู่บน GitHub ครบแล้ว)
+
+1. **ลบ/เก็บโฟลเดอร์ NockAcademy เก่าบนเครื่องบ้าน** (รวมโฟลเดอร์ที่เคยผูก `nock-erp` แบบเก่า) — เป็นของซ้ำ ปลอดภัยที่จะลบ
+2. **Clone monorepo ลงมาใหม่:**
+   ```bash
+   cd ~/Documents/Claude/Projects   # หรือที่ไหนก็ได้ที่อยากเก็บ
+   git clone https://github.com/daiBreezy/nock-erp.git
+   ```
+3. **สร้างไฟล์ permission** (ให้ Claude สั่ง push/pull แทนได้ — ไฟล์ .local ไม่ตามมากับ git ต้องสร้างเองทุกเครื่อง):
+   ```bash
+   mkdir -p nock-erp/.claude && cat > nock-erp/.claude/settings.local.json << 'EOF'
+   {
+     "permissions": {
+       "allow": [
+         "Bash(git pull:*)", "Bash(git push:*)", "Bash(git add:*)",
+         "Bash(git commit:*)", "Bash(git fetch:*)", "Bash(git status:*)",
+         "Bash(git log:*)", "Bash(git diff:*)", "Bash(git ls-remote:*)", "Bash(git rev-parse:*)"
+       ]
+     }
+   }
+   EOF
+   ```
+4. **โปรเจกต์ React** (`web-app/app`, `teacher-portal/web-teacher-app`) ถ้าจะรัน ต้อง `npm install` ใหม่ (node_modules ไม่ได้ขึ้น git)
+5. เปิด Claude Code ที่โฟลเดอร์ `nock-erp` แล้วทำงานได้เลย — pull ก่อนเริ่ม / push หลังเลิก
+
+> token ของ daiBreezy: push ครั้งแรกบนเครื่องบ้านจะถาม username (`daiBreezy`) + token อีกครั้ง (คนละ keychain) ใส่ครั้งเดียวแล้วจำ
+
+---
+
 ## 2026-09-16 — ตั้งระบบ monorepo + backup ขึ้น GitHub (เครื่องที่ทำงาน)
 
 **ทำอะไร:**
