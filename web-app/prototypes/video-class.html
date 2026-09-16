@@ -1,0 +1,339 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>NockAcademy — Video Class Player (Prototype)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet">
+<style>
+:root{
+  --primary:#3538cd; --accent:#f15a29; --amber:#f0a818; --green:#1d9e75; --gray-st:#b4b2a9;
+  --secondary-container:#e7e8fb; --on-secondary-container:#1f2178;
+  --info-bg:#dbe7fb; --on-info:#15457e;
+  --surface:#fff; --surface-1:#f7f7fb; --surface-2:#f0f1f7;
+  --outline:#e3e3ec; --text:#1b1b21; --text-muted:#5f5f6b; --text-faint:#8e8e9c;
+  --radius-sm:10px; --radius:16px; --radius-lg:22px; --radius-pill:999px;
+  --shadow:0 1px 2px rgba(20,20,40,.04),0 6px 22px rgba(20,20,40,.07);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'IBM Plex Sans Thai',system-ui,sans-serif;background:var(--surface-1);color:var(--text);line-height:1.6;-webkit-font-smoothing:antialiased}
+a{color:inherit;text-decoration:none}
+.mi{font-family:'Material Symbols Outlined';line-height:1;vertical-align:-4px;font-feature-settings:'liga';font-size:18px}
+.mi.s16{font-size:16px;vertical-align:-3px}.mi.s20{font-size:20px;vertical-align:-5px}.mi.s28{font-size:28px}
+
+header{position:sticky;top:0;z-index:60;background:rgba(255,255,255,.92);backdrop-filter:blur(12px);border-bottom:1px solid var(--outline)}
+header .bar{display:flex;align-items:center;gap:16px;height:64px;padding:0 22px}
+.logo{display:flex;align-items:center;gap:10px;font-weight:700;font-size:17px}
+.logo .mark{width:32px;height:32px;border-radius:9px;background:linear-gradient(135deg,var(--primary),var(--accent));display:grid;place-items:center;color:#fff}
+nav{display:flex;gap:2px;margin-left:6px}
+nav a{padding:7px 13px;border-radius:var(--radius-pill);font-size:14px;color:var(--text-muted);font-weight:500}
+nav a.active{color:var(--primary);font-weight:600}
+.spacer{flex:1}
+.me{display:flex;align-items:center;gap:8px;font-size:14px;font-weight:500}
+.me img{width:32px;height:32px;border-radius:50%}
+
+.stage{display:grid;grid-template-columns:minmax(0,1fr) 380px;gap:20px;max-width:1340px;margin:0 auto;padding:18px 22px;align-items:start}
+.back{display:inline-flex;align-items:center;gap:6px;font-size:14px;font-weight:600;color:var(--text-muted);margin-bottom:14px}
+.back:hover{color:var(--text)}
+
+/* status icon (3 stage, single icon, color only) */
+.stat{position:relative;display:inline-flex;cursor:default}
+.stat.enable{color:var(--gray-st)} .stat.pending{color:var(--amber)} .stat.done{color:var(--green)}
+.stat .tip{position:absolute;bottom:130%;left:50%;transform:translateX(-50%);background:#1b1b21;color:#fff;font-size:11px;font-weight:500;white-space:nowrap;padding:4px 9px;border-radius:7px;opacity:0;pointer-events:none;transition:.12s;z-index:9}
+.stat:hover .tip{opacity:1}
+
+/* video */
+.vwrap{position:relative;border-radius:var(--radius-lg);overflow:hidden;background:#000;aspect-ratio:16/9}
+.vwrap video{width:100%;height:100%;object-fit:cover;display:block}
+/* quiz modal overlay */
+.quiz-ov{position:absolute;inset:0;z-index:6;background:rgba(15,15,30,.55);backdrop-filter:blur(2px);display:none;align-items:center;justify-content:center;padding:16px}
+.quiz-ov.show{display:flex}
+.quiz-modal{background:var(--surface);border-radius:var(--radius-lg);box-shadow:var(--shadow);width:100%;max-width:620px;overflow:hidden}
+.qm-head{display:flex;align-items:center;justify-content:space-between;padding:14px 18px;border-bottom:1px solid var(--outline)}
+.qm-head .lab{font-size:12px;font-weight:700;color:var(--amber);display:flex;align-items:center;gap:6px}
+.qm-close{background:none;border:none;cursor:pointer;color:var(--text-muted);width:32px;height:32px;border-radius:50%;display:grid;place-items:center}
+.qm-close:hover{background:var(--surface-2)}
+.qm-body{display:grid;grid-template-columns:1fr 1fr;gap:0}
+.qm-q{padding:20px;border-right:1px solid var(--outline);display:flex;flex-direction:column;gap:12px}
+.qm-q .ex-bar{height:6px;background:var(--surface-2);border-radius:99px;overflow:hidden}
+.qm-q .ex-bar > span{display:block;height:100%;background:var(--amber);width:20%}
+.qm-q .q{font-size:17px;font-weight:600}
+.qm-q .qimg{border-radius:var(--radius-sm);width:100%;aspect-ratio:4/3;object-fit:cover}
+.qm-a{padding:20px;display:flex;flex-direction:column;gap:10px}
+.qm-a.img{display:grid;grid-template-columns:1fr 1fr;gap:10px;align-content:start}
+.opt{display:flex;align-items:center;gap:11px;text-align:left;background:var(--surface-1);border:1.5px solid var(--outline);border-radius:var(--radius);padding:12px 14px;font:inherit;font-size:14.5px;cursor:pointer;transition:.15s}
+.opt:hover{border-color:var(--amber);background:#fffaf0}
+.opt .k{width:24px;height:24px;border-radius:50%;background:var(--surface);border:1px solid var(--outline);display:grid;place-items:center;font-size:12px;font-weight:700;flex-shrink:0}
+.opt.imgc{flex-direction:column;align-items:stretch;gap:8px;padding:8px}
+.opt.imgc img{border-radius:9px;width:100%;aspect-ratio:4/3;object-fit:cover}
+.opt.imgc .cap{display:flex;align-items:center;gap:8px;font-size:13px}
+.qm-foot{grid-column:1/-1;display:flex;justify-content:flex-end;padding:0 20px 20px}
+.qm-next{background:var(--amber);color:#5a3c00;border:none;font-weight:700;border-radius:var(--radius-pill);padding:11px 22px;cursor:pointer;font:inherit;display:inline-flex;align-items:center;gap:6px}
+
+.vtitle{font-size:22px;font-weight:700;letter-spacing:-.3px;margin-top:16px}
+.vsub{font-size:14px;color:var(--text-muted);margin-top:4px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.grade-chip{font-size:11px;font-weight:600;background:var(--secondary-container);color:var(--on-secondary-container);padding:2px 9px;border-radius:var(--radius-pill)}
+
+/* quiz buttons under video */
+.quiz-bar{margin-top:16px;background:var(--surface);border:1px solid var(--outline);border-radius:var(--radius);padding:16px 18px;display:none}
+.quiz-bar.show{display:block}
+.quiz-bar h3{font-size:15px;font-weight:700;margin-bottom:12px;display:flex;align-items:center;gap:8px}
+.quiz-btns{display:flex;flex-wrap:wrap;gap:10px}
+.qbtn{display:inline-flex;align-items:center;gap:8px;background:#fffaf0;border:1.5px solid #f3d79a;color:#7a5300;border-radius:var(--radius-pill);padding:9px 16px;font:inherit;font-size:14px;font-weight:600;cursor:pointer}
+.qbtn:hover{background:#fff3df}
+.qbtn .n{width:22px;height:22px;border-radius:50%;background:var(--amber);color:#fff;display:grid;place-items:center;font-size:12px;font-weight:700}
+.qbtn.done{background:#e9f7f1;border-color:#a9e0cd;color:#0f6e56}
+.qbtn.done .n{background:var(--green)}
+
+.card{background:var(--surface);border:1px solid var(--outline);border-radius:var(--radius);padding:18px;margin-top:16px}
+.card > h3{font-size:16px;font-weight:700;margin-bottom:10px;display:flex;align-items:center;gap:8px}
+.desc{font-size:14.5px;color:var(--text-muted);line-height:1.7}
+.desc.clamp{display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+.showmore{background:none;border:none;cursor:pointer;color:var(--primary);font:inherit;font-weight:600;font-size:13.5px;margin-top:8px;display:inline-flex;align-items:center;gap:4px;padding:0}
+.doc-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.doc{display:flex;align-items:center;gap:12px;background:var(--surface-1);border:1px solid var(--outline);border-radius:var(--radius-sm);padding:12px 14px}
+.doc .ic{width:40px;height:40px;border-radius:9px;background:#fde7ea;color:#c0392b;display:grid;place-items:center;flex-shrink:0}
+.doc .t{font-size:14px;font-weight:600}.doc .s{font-size:12px;color:var(--text-faint)}
+.doc .dl{margin-left:auto;color:var(--text-muted);cursor:pointer}
+.badge-new{font-size:10px;font-weight:700;color:#fff;background:#7a4ddb;padding:2px 8px;border-radius:var(--radius-pill)}
+.ai{background:linear-gradient(120deg,#eef0ff,#f7f0ff);border:1px solid #ddd6fb}
+.ai ul{margin:6px 0 0 2px;padding-left:18px}
+.ai li{font-size:14px;color:var(--text);margin-bottom:7px}
+.ai .keys{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
+.ai .keys .k{font-size:12px;font-weight:600;background:#fff;border:1px solid #ddd6fb;color:#7a4ddb;padding:4px 11px;border-radius:var(--radius-pill)}
+@media(max-width:560px){.doc-grid{grid-template-columns:1fr}}
+
+/* exercise/test */
+.mode-head{display:flex;align-items:center;gap:12px;margin-bottom:16px}
+.mode-head .ic{width:46px;height:46px;border-radius:13px;display:grid;place-items:center;flex-shrink:0;background:var(--info-bg);color:var(--on-info)}
+.mode-head h2{font-size:20px;font-weight:700}
+.mode-head p{font-size:13px;color:var(--text-muted)}
+.test-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.q-card{background:var(--surface);border:1px solid var(--outline);border-radius:var(--radius);padding:20px}
+.q-card .qh{display:flex;gap:10px;margin-bottom:14px}
+.q-card .qn{width:26px;height:26px;border-radius:50%;background:var(--primary);color:#fff;display:grid;place-items:center;font-size:13px;font-weight:700;flex-shrink:0}
+.q-card .qt{font-size:15px;font-weight:600;line-height:1.45}
+.q-card .o{display:flex;align-items:center;gap:11px;padding:9px 6px;border-radius:9px;cursor:pointer}
+.q-card .o:hover{background:var(--surface-1)}
+.q-card .o .n{width:24px;height:24px;border-radius:7px;background:var(--surface-2);display:grid;place-items:center;font-size:12px;font-weight:700;color:var(--text-muted);flex-shrink:0}
+.q-card .o.sel .n{background:var(--primary);color:#fff}
+.submit{width:100%;margin-top:18px;background:var(--primary);color:#fff;border:none;cursor:pointer;font:inherit;font-weight:700;font-size:16px;border-radius:var(--radius);padding:15px}
+
+/* ===== RIGHT: lessons in playlist ===== */
+.lessons{background:var(--surface);border:1px solid var(--outline);border-radius:var(--radius-lg);position:sticky;top:82px;max-height:calc(100vh - 100px);overflow-y:auto}
+.pl-head{padding:18px;border-bottom:1px solid var(--outline)}
+.pl-head .top{display:flex;align-items:flex-start;gap:10px}
+.pl-head h3{font-size:17px;font-weight:700;line-height:1.35;flex:1}
+.pl-head .meta{display:flex;gap:14px;margin-top:10px;font-size:12.5px;color:var(--text-muted)}
+.pl-head .meta span{display:inline-flex;align-items:center;gap:5px}
+.les-list{padding:10px;display:flex;flex-direction:column;gap:8px}
+.les{display:flex;gap:11px;padding:9px;border-radius:var(--radius);cursor:default;border:1px solid transparent}
+.les.on{background:var(--secondary-container);border-color:transparent}
+.les:hover{background:var(--surface-1)}
+.les .lthumb{position:relative;width:92px;flex-shrink:0;border-radius:9px;overflow:hidden;aspect-ratio:16/9}
+.les .lthumb img{width:100%;height:100%;object-fit:cover;display:block}
+.les .lthumb .d{position:absolute;right:4px;bottom:4px;background:rgba(0,0,0,.8);color:#fff;font-size:10px;padding:1px 5px;border-radius:4px}
+.les .info{flex:1;min-width:0}
+.les .info .nm{font-size:13.5px;font-weight:600;line-height:1.35;display:flex;align-items:flex-start;gap:6px}
+.les .info .nm .stat{margin-left:auto;flex-shrink:0}
+.les .info .du{font-size:11.5px;color:var(--text-faint);margin-top:1px}
+.les .acts{display:flex;gap:6px;margin-top:8px}
+.les .acts button{width:30px;height:30px;border-radius:8px;border:1px solid var(--outline);background:var(--surface);cursor:pointer;color:var(--text-muted);display:grid;place-items:center;position:relative}
+.les .acts button:hover{background:var(--surface-2);color:var(--primary)}
+.les .acts button.on{background:var(--secondary-container);border-color:transparent;color:var(--on-secondary-container)}
+.les .acts button .tip{position:absolute;bottom:118%;left:50%;transform:translateX(-50%);background:#1b1b21;color:#fff;font-size:10.5px;white-space:nowrap;padding:3px 7px;border-radius:6px;opacity:0;pointer-events:none;transition:.12s}
+.les .acts button:hover .tip{opacity:1}
+
+.proto-note{background:#1b1b21;color:#cfcfe0;font-size:13px;text-align:center;padding:14px 20px;margin-top:8px}
+.proto-note code{background:rgba(255,255,255,.1);padding:2px 6px;border-radius:5px}
+@media(max-width:900px){.stage{grid-template-columns:1fr}.lessons{position:static;max-height:none}.test-grid{grid-template-columns:1fr}.qm-body{grid-template-columns:1fr}.qm-q{border-right:none;border-bottom:1px solid var(--outline)}nav{display:none}}
+</style>
+</head>
+<body>
+
+<header><div class="bar">
+  <a class="logo" href="clip-page.html"><span class="mark">N</span> NockAcademy</a>
+  <nav><a href="clip-page.html" class="active">คลิป</a><a href="#">คอร์สของเรา</a><a href="#">บทความ</a><a href="#">คำถามที่พบบ่อย</a></nav>
+  <div class="spacer"></div>
+  <div class="me"><img src="https://i.pravatar.cc/64?img=15" alt=""> เฟี้ยวฟ้าว <span class="mi s20">expand_more</span></div>
+</div></header>
+
+<div class="stage">
+  <!-- ===== MAIN ===== -->
+  <div>
+    <a class="back" href="video-class-subject.html"><span class="mi s20">arrow_back</span> กลับไป Playlist ภาษาอังกฤษ</a>
+
+    <!-- video -->
+    <div id="mode-main">
+      <div class="vwrap"><video controls poster="https://picsum.photos/seed/eng-both/1000/562"><source src="https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4" type="video/mp4"></video>
+        <div class="quiz-ov" id="quizOv">
+          <div class="quiz-modal">
+            <div class="qm-head"><span class="lab"><span class="mi s16">quiz</span> Quiz <span id="qmNo">1</span> · ข้อ 1/3</span><button class="qm-close" onclick="closeQuiz()" aria-label="ปิด"><span class="mi s20">close</span></button></div>
+            <div class="qm-body">
+              <div class="qm-q">
+                <div class="ex-bar"><span></span></div>
+                <div class="q">เลือกรูปที่แสดงประโยค <b>not only…but also</b> ได้ถูกต้อง</div>
+                <img class="qimg" src="https://picsum.photos/seed/qimg/400/300" alt="">
+              </div>
+              <div class="qm-a img">
+                <button class="opt imgc"><img src="https://picsum.photos/seed/qa1/200/150" alt=""><span class="cap"><span class="k">A</span> ตัวเลือก A</span></button>
+                <button class="opt imgc"><img src="https://picsum.photos/seed/qa2/200/150" alt=""><span class="cap"><span class="k">B</span> ตัวเลือก B</span></button>
+                <button class="opt imgc"><img src="https://picsum.photos/seed/qa3/200/150" alt=""><span class="cap"><span class="k">C</span> ตัวเลือก C</span></button>
+                <button class="opt imgc"><img src="https://picsum.photos/seed/qa4/200/150" alt=""><span class="cap"><span class="k">D</span> ตัวเลือก D</span></button>
+              </div>
+              <div class="qm-foot"><button class="qm-next">ข้อถัดไป <span class="mi s20">arrow_forward</span></button></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="vtitle">การใช้ both…and, not only…but also</div>
+      <div class="vsub"><span><span class="mi s16">person</span> Teacher Grace · ภาษาอังกฤษ</span><span class="grade-chip">ม.6</span></div>
+
+      <!-- Quiz buttons (โผล่เมื่อเลือก action Quiz) -->
+      <div class="quiz-bar" id="quizBar">
+        <h3><span class="mi s20">quiz</span> แบบฝึกหัด (Quiz) — กดทำได้เลย</h3>
+        <div class="quiz-btns">
+          <button class="qbtn done" onclick="openQuiz(1)"><span class="n">1</span> Quiz 1</button>
+          <button class="qbtn" onclick="openQuiz(2)"><span class="n">2</span> Quiz 2</button>
+          <button class="qbtn" onclick="openQuiz(3)"><span class="n">3</span> Quiz 3</button>
+          <button class="qbtn" onclick="openQuiz(4)"><span class="n">4</span> Quiz 4</button>
+        </div>
+      </div>
+
+      <div class="card"><h3><span class="mi s20">description</span> รายละเอียดบทเรียน</h3>
+        <p class="desc clamp" id="lessonDesc">เรียนรู้การใช้ correlative conjunctions ทั้ง both…and และ not only…but also พร้อมโครงสร้างประโยคและตัวอย่างการใช้งานจริง โดยจะอธิบายหลักการจับคู่ประธาน-กริยาให้สอดคล้องกัน (subject-verb agreement) เมื่อใช้ both…and ที่ทำให้ประธานเป็นพหูพจน์เสมอ และการวางตำแหน่ง not only…but also ในประโยคทั้งแบบปกติและแบบ inversion พร้อมตัวอย่างข้อสอบจริงและจุดที่นักเรียนมักพลาด</p>
+        <button class="showmore" onclick="toggleDesc(this)">แสดงเพิ่มเติม <span class="mi s16">expand_more</span></button>
+      </div>
+
+      <div class="card"><h3><span class="mi s20">folder_open</span> เอกสารประกอบการเรียน</h3>
+        <div class="doc-grid">
+          <div class="doc"><div class="ic"><span class="mi s20">slideshow</span></div><div><div class="t">Teaching Slide</div><div class="s">PDF · 2.1 MB</div></div><span class="mi s20 dl">download</span></div>
+          <div class="doc"><div class="ic"><span class="mi s20">article</span></div><div><div class="t">Lesson Document</div><div class="s">PDF · 980 KB</div></div><span class="mi s20 dl">download</span></div>
+        </div>
+      </div>
+
+      <div class="card ai"><h3><span class="mi s20">auto_awesome</span> AI Summary <span class="badge-new">NEW</span></h3>
+        <ul>
+          <li>both…and ทำให้ประธานเป็นพหูพจน์เสมอ → กริยาต้องผันตามรูปพหูพจน์</li>
+          <li>not only…but also ใช้เน้นข้อมูล 2 ส่วน โดยรักษาโครงสร้างให้ขนานกัน (parallel)</li>
+          <li>กรณี inversion: ขึ้นต้นด้วย Not only + ช่วยกริยา + ประธาน</li>
+        </ul>
+        <div class="keys"><span class="k">#correlative</span><span class="k">#parallel structure</span><span class="k">#inversion</span></div>
+      </div>
+    </div>
+
+    <!-- Exercise (แบบทดสอบ) -->
+    <div id="mode-test" hidden>
+      <div class="mode-head"><div class="ic"><span class="mi s28">assignment</span></div><div><h2>Exercise · แบบทดสอบ</h2><p>ทำให้ครบทุกข้อแล้วกดส่งคำตอบ</p></div></div>
+      <div class="test-grid">
+        <div class="q-card"><div class="qh"><span class="qn">1</span><span class="qt">I have …………… in Bangkok ………… I was born.</span></div>
+          <div class="o" onclick="pick(this)"><span class="n">1</span> a. lived, since</div><div class="o" onclick="pick(this)"><span class="n">2</span> b. live, since</div><div class="o" onclick="pick(this)"><span class="n">3</span> c. lived, for</div><div class="o" onclick="pick(this)"><span class="n">4</span> d. live, for</div>
+        </div>
+        <div class="q-card"><div class="qh"><span class="qn">2</span><span class="qt">We / not / plan / our holiday / yet</span></div>
+          <div class="o" onclick="pick(this)"><span class="n">1</span> a. We hadn't plan our holiday yet.</div><div class="o" onclick="pick(this)"><span class="n">2</span> b. We haven't plan our holiday yet.</div><div class="o" onclick="pick(this)"><span class="n">3</span> c. We haven't planned our holiday yet.</div><div class="o" onclick="pick(this)"><span class="n">4</span> d. We haven't plan our holiday yet.</div>
+        </div>
+        <div class="q-card"><div class="qh"><span class="qn">3</span><span class="qt">My mum's purse ……… just ……… stolen by my brother.</span></div>
+          <div class="o" onclick="pick(this)"><span class="n">1</span> a. has, been</div><div class="o" onclick="pick(this)"><span class="n">2</span> b. had, been</div><div class="o" onclick="pick(this)"><span class="n">3</span> c. have, had</div><div class="o" onclick="pick(this)"><span class="n">4</span> d. has, had</div>
+        </div>
+        <div class="q-card"><div class="qh"><span class="qn">4</span><span class="qt">My father / win / a lottery</span></div>
+          <div class="o" onclick="pick(this)"><span class="n">1</span> a. My father has won a lottery.</div><div class="o" onclick="pick(this)"><span class="n">2</span> b. My father has win a lottery.</div><div class="o" onclick="pick(this)"><span class="n">3</span> c. My father has been won a lottery.</div><div class="o" onclick="pick(this)"><span class="n">4</span> d. My father has been win a lottery.</div>
+        </div>
+      </div>
+      <button class="submit">ส่งคำตอบ</button>
+    </div>
+  </div>
+
+  <!-- ===== RIGHT: Lesson Playlist ===== -->
+  <div class="lessons">
+    <div class="pl-head">
+      <div class="top">
+        <h3>คำเชื่อมในภาษาอังกฤษ (2)</h3>
+        <span class="stat pending"><span class="mi s20">check_circle</span><span class="tip">กำลังเรียน (ยังไม่ครบ)</span></span>
+      </div>
+      <div class="meta">
+        <span><span class="mi s16">video_library</span> 6 บทเรียน</span>
+        <span><span class="mi s16">schedule</span> รวม 4:32:10</span>
+      </div>
+    </div>
+    <div class="les-list">
+      <!-- Lesson 1: done -->
+      <div class="les" id="L1">
+        <div class="lthumb"><img src="https://picsum.photos/seed/les-both/200/120" alt=""><span class="d">42:10</span></div>
+        <div class="info">
+          <div class="nm">การใช้ both…and, not only…but also <span class="stat done"><span class="mi s16">check_circle</span><span class="tip">เรียนครบแล้ว</span></span></div>
+          <div class="du">42:10</div>
+          <div class="acts">
+            <button class="on" onclick="act('video',this)"><span class="mi s16">play_arrow</span><span class="tip">Video</span></button>
+            <button onclick="act('quiz',this)"><span class="mi s16">quiz</span><span class="tip">Quiz</span></button>
+            <button onclick="act('exercise',this)"><span class="mi s16">assignment</span><span class="tip">Exercise</span></button>
+          </div>
+        </div>
+      </div>
+      <!-- Lesson 2: pending -->
+      <div class="les">
+        <div class="lthumb"><img src="https://picsum.photos/seed/les-ind/200/120" alt=""><span class="d">38:55</span></div>
+        <div class="info">
+          <div class="nm">Independent clauses + and, but, or, so, yet <span class="stat pending"><span class="mi s16">check_circle</span><span class="tip">กำลังเรียน (ยังไม่ครบ)</span></span></div>
+          <div class="du">38:55</div>
+          <div class="acts">
+            <button onclick="act('video',this)"><span class="mi s16">play_arrow</span><span class="tip">Video</span></button>
+            <button onclick="act('quiz',this)"><span class="mi s16">quiz</span><span class="tip">Quiz</span></button>
+            <button onclick="act('exercise',this)"><span class="mi s16">assignment</span><span class="tip">Exercise</span></button>
+          </div>
+        </div>
+      </div>
+      <!-- Lesson 3: enable (ยังไม่เริ่ม) -->
+      <div class="les">
+        <div class="lthumb"><img src="https://picsum.photos/seed/les-if/200/120" alt=""><span class="d">51:30</span></div>
+        <div class="info">
+          <div class="nm">การใช้ if, even if, in case, only if, unless <span class="stat enable"><span class="mi s16">check_circle</span><span class="tip">ยังไม่ได้เรียน</span></span></div>
+          <div class="du">51:30</div>
+          <div class="acts">
+            <button onclick="act('video',this)"><span class="mi s16">play_arrow</span><span class="tip">Video</span></button>
+            <button onclick="act('quiz',this)"><span class="mi s16">quiz</span><span class="tip">Quiz</span></button>
+            <button onclick="act('exercise',this)"><span class="mi s16">assignment</span><span class="tip">Exercise</span></button>
+          </div>
+        </div>
+      </div>
+      <div class="les">
+        <div class="lthumb"><img src="https://picsum.photos/seed/les-noun/200/120" alt=""><span class="d">44:18</span></div>
+        <div class="info">
+          <div class="nm">Noun clauses ที่ขึ้นต้นด้วย whether / if <span class="stat enable"><span class="mi s16">check_circle</span><span class="tip">ยังไม่ได้เรียน</span></span></div>
+          <div class="du">44:18</div>
+          <div class="acts">
+            <button onclick="act('video',this)"><span class="mi s16">play_arrow</span><span class="tip">Video</span></button>
+            <button onclick="act('quiz',this)"><span class="mi s16">quiz</span><span class="tip">Quiz</span></button>
+            <button onclick="act('exercise',this)"><span class="mi s16">assignment</span><span class="tip">Exercise</span></button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="proto-note">Prototype — Video Class Player · status 3 stage (เทา/ส้ม/เขียว) + tooltip · Quiz buttons ใต้วิดีโอ + modal 2 ฝั่ง · Exercise responsive · <code>video-class.html</code></div>
+
+<script>
+function act(a,btn){
+  var les=btn.closest('.les');
+  les.querySelectorAll('.acts button').forEach(function(b){b.classList.remove('on');});
+  btn.classList.add('on');
+  document.querySelectorAll('.les').forEach(function(l){l.classList.remove('on');});
+  les.classList.add('on');
+  var main=document.getElementById('mode-main'), test=document.getElementById('mode-test'), qbar=document.getElementById('quizBar');
+  if(a==='exercise'){main.hidden=true;test.hidden=false;}
+  else{main.hidden=false;test.hidden=true;qbar.classList.toggle('show',a==='quiz');}
+  closeQuiz();
+  window.scrollTo({top:0,behavior:'smooth'});
+}
+function openQuiz(n){document.getElementById('qmNo').textContent=n;document.getElementById('quizOv').classList.add('show');}
+function closeQuiz(){document.getElementById('quizOv').classList.remove('show');}
+function pick(o){o.parentNode.querySelectorAll('.o').forEach(function(x){x.classList.remove('sel');});o.classList.add('sel');}
+function toggleDesc(b){var d=document.getElementById('lessonDesc');var c=d.classList.toggle('clamp');b.innerHTML=(c?'แสดงเพิ่มเติม <span class="mi s16">expand_more</span>':'ย่อ <span class="mi s16">expand_less</span>');}
+</script>
+</body>
+</html>

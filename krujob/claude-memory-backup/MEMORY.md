@@ -1,0 +1,2 @@
+- [KruJob redesign project](krujob-redesign-project.md) — teacher job-board prototype: goals, phasing, what's built
+- [oklch color-mix salmon gotcha](oklch-colormix-salmon-gotcha.md) — tint with oklab, not oklch (green→white goes red)

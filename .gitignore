@@ -1,9 +1,23 @@
+# === Dependencies ===
 node_modules/
+
+# === Build output ===
 dist/
-.env
-.env.*
-!.env.example
+build/
+.next/
+out/
+
+# === OS / editor junk ===
 .DS_Store
-.sites-runtime/
-.claude/worktrees/
-.pnpm-store/
+Thumbs.db
+*.log
+
+# === Env / secrets ===
+.env
+.env.local
+.env.*.local
+
+# === Python (เผื่อบางโปรเจกต์มี) ===
+__pycache__/
+.venv/
+venv/

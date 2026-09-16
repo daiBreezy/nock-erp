@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>NockAcademy — Video Class: คณิตศาสตร์ (Prototype)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet">
+<style>
+:root{
+  --primary:#3538cd; --accent:#f15a29; --amber:#f0a818; --green:#1d9e75; --gray-st:#b4b2a9;
+  --secondary-container:#e7e8fb; --on-secondary-container:#1f2178;
+  --surface:#fff; --surface-1:#f7f7fb; --surface-2:#f0f1f7;
+  --outline:#e3e3ec; --text:#1b1b21; --text-muted:#5f5f6b; --text-faint:#8e8e9c;
+  --subj-math-bg:#fde7ee; --subj-math-fg:#b03060;
+  --radius-sm:10px; --radius:16px; --radius-lg:22px; --radius-pill:999px;
+  --shadow:0 1px 2px rgba(20,20,40,.04),0 6px 22px rgba(20,20,40,.07);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'IBM Plex Sans Thai',system-ui,sans-serif;background:var(--surface-1);color:var(--text);line-height:1.6;-webkit-font-smoothing:antialiased}
+a{color:inherit;text-decoration:none}
+.mi{font-family:'Material Symbols Outlined';line-height:1;vertical-align:-4px;font-feature-settings:'liga';font-size:18px}
+.mi.s16{font-size:16px;vertical-align:-3px}.mi.s20{font-size:20px;vertical-align:-5px}.mi.s28{font-size:28px}
+.wrap{max-width:1200px;margin:0 auto;padding:0 22px}
+
+header{position:sticky;top:0;z-index:60;background:rgba(255,255,255,.92);backdrop-filter:blur(12px);border-bottom:1px solid var(--outline)}
+header .bar{display:flex;align-items:center;gap:16px;height:64px;max-width:1200px;margin:0 auto;padding:0 22px}
+.logo{display:flex;align-items:center;gap:10px;font-weight:700;font-size:17px}
+.logo .mark{width:32px;height:32px;border-radius:9px;background:linear-gradient(135deg,var(--primary),var(--accent));display:grid;place-items:center;color:#fff}
+nav{display:flex;gap:2px;margin-left:6px}
+nav a{padding:7px 13px;border-radius:var(--radius-pill);font-size:14px;color:var(--text-muted);font-weight:500}
+nav a.active{color:var(--primary);font-weight:600}
+.spacer{flex:1}
+.me{display:flex;align-items:center;gap:8px;font-size:14px;font-weight:500}
+.me img{width:32px;height:32px;border-radius:50%}
+
+.titlebar{background:var(--surface);border-bottom:1px solid var(--outline)}
+.titlebar .wrap{padding:20px 22px}
+.back{display:inline-flex;align-items:center;gap:6px;font-size:14px;font-weight:600;color:var(--text-muted);margin-bottom:10px}
+.titlebar h1{font-size:24px;font-weight:700;letter-spacing:-.4px;display:flex;align-items:center;gap:10px}
+.titlebar h1 .ic{width:40px;height:40px;border-radius:11px;background:var(--subj-math-bg);color:var(--subj-math-fg);display:grid;place-items:center}
+
+/* filter (สำคัญในหน้านี้) — switch subject/grade */
+.filters{position:sticky;top:64px;z-index:40;background:rgba(255,255,255,.95);backdrop-filter:blur(8px);border-bottom:1px solid var(--outline)}
+.filters .wrap{display:flex;align-items:center;gap:14px 18px;padding:12px 22px;flex-wrap:wrap}
+.fgroup{display:flex;align-items:center;gap:8px}
+.fgroup .lbl{font-size:13px;color:var(--text-faint);font-weight:600;white-space:nowrap}
+.chip{display:inline-flex;align-items:center;gap:5px;white-space:nowrap;background:var(--surface);border:1px solid var(--outline);color:var(--text);border-radius:var(--radius-pill);padding:7px 14px;font-size:13.5px;font-weight:600;cursor:pointer;transition:.12s}
+.chip:hover{background:var(--surface-2)}
+.chip.on{background:var(--primary);border-color:transparent;color:#fff}
+.sep{width:1px;height:24px;background:var(--outline);flex-shrink:0}
+/* grade dropdown */
+.dropdown{position:relative}
+.dropdown .trigger{display:inline-flex;align-items:center;gap:6px}
+.dd-menu{position:absolute;top:calc(100% + 8px);left:0;background:var(--surface);border:1px solid var(--outline);border-radius:var(--radius);box-shadow:var(--shadow);padding:10px;display:none;grid-template-columns:repeat(3,1fr);gap:8px;z-index:30;width:280px}
+.dropdown.open .dd-menu{display:grid}
+.dd-menu .chip{justify-content:center}
+
+/* grade section stats */
+.grade-stats{display:flex;flex-wrap:wrap;gap:6px 14px;font-size:12.5px;color:var(--text-muted);margin-top:4px}
+.grade-stats b{color:var(--text);font-weight:600}
+.badge-newp,.badge-newl{position:absolute;top:8px;left:8px;font-size:10px;font-weight:700;color:#fff;padding:3px 8px;border-radius:var(--radius-pill);display:inline-flex;align-items:center;gap:3px}
+.badge-newp{background:#7a4ddb} .badge-newl{background:#185fa5}
+.showall{display:inline-flex;align-items:center;gap:6px;margin-top:18px;background:var(--surface);border:1px solid var(--outline);border-radius:var(--radius-pill);padding:10px 20px;font:inherit;font-weight:600;font-size:14px;color:var(--text);cursor:pointer}
+.showall:hover{background:var(--surface-2)}
+.hidden-cards{display:contents}
+.grade-grid.collapsed .extra{display:none}
+
+section{padding:30px 0}
+.sec-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;gap:16px}
+.sec-head h2{font-size:20px;font-weight:700;display:flex;align-items:center;gap:9px}
+.sec-head .view-all{font-size:14px;font-weight:600;color:var(--primary);white-space:nowrap;display:inline-flex;align-items:center;gap:4px}
+.grade-label{font-size:12px;font-weight:700;color:var(--on-secondary-container);background:var(--secondary-container);padding:3px 11px;border-radius:var(--radius-pill)}
+
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:20px}
+.row-scroll{display:flex;gap:18px;overflow-x:auto;padding-bottom:6px}
+.row-scroll .pcard{min-width:240px;max-width:240px}
+.pcard{background:var(--surface);border:1px solid var(--outline);border-top:3px solid var(--primary);border-radius:var(--radius);overflow:hidden;cursor:pointer;transition:.18s;display:flex;flex-direction:column}
+.pcard:hover{transform:translateY(-3px);box-shadow:var(--shadow)}
+.pthumb{position:relative;aspect-ratio:16/9}
+.pthumb img{width:100%;height:100%;object-fit:cover;display:block}
+.pthumb .cnt{position:absolute;right:8px;bottom:8px;background:rgba(27,27,33,.82);color:#fff;font-size:11px;font-weight:600;padding:3px 8px;border-radius:6px;display:inline-flex;align-items:center;gap:4px}
+.pthumb .stat{position:absolute;left:8px;top:8px;background:#fff;border-radius:50%;width:24px;height:24px;display:grid;place-items:center}
+.stat.enable{color:var(--gray-st)} .stat.pending{color:var(--amber)} .stat.done{color:var(--green)}
+.pcard .body{padding:13px 15px 15px;display:flex;flex-direction:column;gap:7px;flex:1}
+.pcard h4{font-size:14.5px;font-weight:600;line-height:1.4}
+.pcard .m{margin-top:auto;display:flex;gap:14px;font-size:12px;color:var(--text-muted)}
+.pcard .m span{display:inline-flex;align-items:center;gap:5px}
+.progress{height:4px;background:var(--surface-2)}.progress>span{display:block;height:100%;background:var(--accent)}
+
+.proto-note{background:#1b1b21;color:#cfcfe0;font-size:13px;text-align:center;padding:14px 20px;margin-top:8px}
+.proto-note code{background:rgba(255,255,255,.1);padding:2px 6px;border-radius:5px}
+@media(max-width:780px){nav{display:none}}
+</style>
+</head>
+<body>
+
+<header><div class="bar">
+  <a class="logo" href="clip-page.html"><span class="mark">N</span> NockAcademy</a>
+  <nav><a href="clip-page.html" class="active">คลิป</a><a href="#">คอร์สของเรา</a><a href="#">บทความ</a><a href="#">คำถามที่พบบ่อย</a></nav>
+  <div class="spacer"></div>
+  <div class="me"><img src="https://i.pravatar.cc/64?img=15" alt=""> เฟี้ยวฟ้าว <span class="mi s20">expand_more</span></div>
+</div></header>
+
+<div class="titlebar"><div class="wrap">
+  <a class="back" href="clip-page.html"><span class="mi s20">arrow_back</span> กลับไปหน้าคลิป</a>
+  <h1><span class="ic"><span class="mi s28">functions</span></span> วิดีโอเรียน · คณิตศาสตร์</h1>
+</div></div>
+
+<!-- Filter (switch subject + grade ได้ตลอด) -->
+<div class="filters"><div class="wrap">
+  <div class="fgroup">
+    <button class="chip on">คณิตศาสตร์</button>
+    <button class="chip">ภาษาอังกฤษ</button>
+    <button class="chip">ภาษาไทย</button>
+    <button class="chip">วิทยาศาสตร์</button>
+  </div>
+  <div class="sep"></div>
+  <div class="dropdown" id="gradeDD">
+    <button class="chip on trigger" onclick="document.getElementById('gradeDD').classList.toggle('open')">
+      <span class="mi s16">school</span> <span id="gradeVal">ทุกระดับชั้น</span> <span class="mi s16">expand_more</span>
+    </button>
+    <div class="dd-menu">
+      <button class="chip on" onclick="pickGrade('ทุกระดับชั้น')">ทั้งหมด</button>
+      <button class="chip" onclick="pickGrade('ป.4')">ป.4</button><button class="chip" onclick="pickGrade('ป.5')">ป.5</button>
+      <button class="chip" onclick="pickGrade('ป.6')">ป.6</button><button class="chip" onclick="pickGrade('ม.1')">ม.1</button>
+      <button class="chip" onclick="pickGrade('ม.2')">ม.2</button><button class="chip" onclick="pickGrade('ม.3')">ม.3</button>
+      <button class="chip" onclick="pickGrade('ม.4')">ม.4</button><button class="chip" onclick="pickGrade('ม.5')">ม.5</button>
+      <button class="chip" onclick="pickGrade('ม.6')">ม.6</button>
+    </div>
+  </div>
+</div></div>
+
+<!-- Section 1: รับชมล่าสุด -->
+<section><div class="wrap">
+  <div class="sec-head"><h2><span class="mi s20">history</span> Playlist ที่รับชมล่าสุด</h2></div>
+  <div class="row-scroll">
+    <div class="pcard" onclick="location.href='video-class.html'">
+      <div class="pthumb"><img src="https://picsum.photos/seed/m-real/360/200" alt=""><span class="stat pending"><span class="mi s16">check_circle</span></span><span class="cnt"><span class="mi s16">video_library</span> 8</span></div>
+      <div class="progress"><span style="width:55%"></span></div>
+      <div class="body"><h4>จำนวนจริง</h4><div class="m"><span><span class="mi s16">video_library</span> 8 บทเรียน</span><span><span class="mi s16">schedule</span> 5:12</span></div></div>
+    </div>
+    <div class="pcard" onclick="location.href='video-class.html'">
+      <div class="pthumb"><img src="https://picsum.photos/seed/m-set/360/200" alt=""><span class="stat done"><span class="mi s16">check_circle</span></span><span class="cnt"><span class="mi s16">video_library</span> 6</span></div>
+      <div class="progress"><span style="width:100%"></span></div>
+      <div class="body"><h4>เซต (Set)</h4><div class="m"><span><span class="mi s16">video_library</span> 6 บทเรียน</span><span><span class="mi s16">schedule</span> 3:48</span></div></div>
+    </div>
+    <div class="pcard" onclick="location.href='video-class.html'">
+      <div class="pthumb"><img src="https://picsum.photos/seed/m-frac/360/200" alt=""><span class="stat pending"><span class="mi s16">check_circle</span></span><span class="cnt"><span class="mi s16">video_library</span> 5</span></div>
+      <div class="progress"><span style="width:30%"></span></div>
+      <div class="body"><h4>ทศนิยมและเศษส่วน</h4><div class="m"><span><span class="mi s16">video_library</span> 5 บทเรียน</span><span><span class="mi s16">schedule</span> 2:40</span></div></div>
+    </div>
+  </div>
+</div></section>
+
+<!-- Section: by Grade -->
+<section style="padding-top:6px"><div class="wrap">
+  <div class="sec-head"><div>
+    <h2>Playlist <span class="grade-label">ป.6</span></h2>
+    <div class="grade-stats"><span><b>12</b> Playlist</span><span>ดูแล้ว <b>3</b></span><span>รวม <b>96</b> วิดีโอ</span></div>
+  </div></div>
+  <div class="grid grade-grid collapsed" id="g-p6">
+    <div class="pcard" onclick="location.href='video-class.html'"><div class="pthumb"><img src="https://picsum.photos/seed/m-real/360/200" alt=""><span class="badge-newl"><span class="mi s16">fiber_new</span> Lesson ใหม่</span><span class="cnt"><span class="mi s16">video_library</span> 8</span></div><div class="body"><h4>จำนวนจริง</h4><div class="m"><span><span class="stat pending"><span class="mi s16">check_circle</span></span> ดูแล้ว 4/8</span><span><span class="mi s16">schedule</span> 5:12</span></div></div></div>
+    <div class="pcard" onclick="location.href='video-class.html'"><div class="pthumb"><img src="https://picsum.photos/seed/m-func/360/200" alt=""><span class="badge-newp"><span class="mi s16">auto_awesome</span> Playlist ใหม่</span><span class="cnt"><span class="mi s16">video_library</span> 10</span></div><div class="body"><h4>ฟังก์ชัน</h4><div class="m"><span><span class="stat enable"><span class="mi s16">check_circle</span></span> ดูแล้ว 0/10</span><span><span class="mi s16">schedule</span> 6:05</span></div></div></div>
+    <div class="pcard" onclick="location.href='video-class.html'"><div class="pthumb"><img src="https://picsum.photos/seed/m-trig/360/200" alt=""><span class="cnt"><span class="mi s16">video_library</span> 7</span></div><div class="body"><h4>ตรีโกณมิติ</h4><div class="m"><span><span class="stat done"><span class="mi s16">check_circle</span></span> ดูแล้ว 7/7</span><span><span class="mi s16">schedule</span> 4:20</span></div></div></div>
+    <div class="pcard" onclick="location.href='video-class.html'"><div class="pthumb"><img src="https://picsum.photos/seed/m-mat/360/200" alt=""><span class="cnt"><span class="mi s16">video_library</span> 9</span></div><div class="body"><h4>เมทริกซ์</h4><div class="m"><span><span class="stat enable"><span class="mi s16">check_circle</span></span> ดูแล้ว 0/9</span><span><span class="mi s16">schedule</span> 5:30</span></div></div></div>
+    <div class="pcard extra" onclick="location.href='video-class.html'"><div class="pthumb"><img src="https://picsum.photos/seed/m-vec/360/200" alt=""><span class="cnt"><span class="mi s16">video_library</span> 6</span></div><div class="body"><h4>เวกเตอร์</h4><div class="m"><span><span class="stat enable"><span class="mi s16">check_circle</span></span> ดูแล้ว 0/6</span><span><span class="mi s16">schedule</span> 3:40</span></div></div></div>
+    <div class="pcard extra" onclick="location.href='video-class.html'"><div class="pthumb"><img src="https://picsum.photos/seed/m-comp/360/200" alt=""><span class="cnt"><span class="mi s16">video_library</span> 5</span></div><div class="body"><h4>จำนวนเชิงซ้อน</h4><div class="m"><span><span class="stat enable"><span class="mi s16">check_circle</span></span> ดูแล้ว 0/5</span><span><span class="mi s16">schedule</span> 3:05</span></div></div></div>
+  </div>
+  <button class="showall" onclick="showAll('g-p6',this)">แสดงทั้งหมด (12 Playlist) <span class="mi s16">expand_more</span></button>
+</div></section>
+
+<section style="padding-top:6px"><div class="wrap">
+  <div class="sec-head"><div>
+    <h2>Playlist <span class="grade-label">ม.5</span></h2>
+    <div class="grade-stats"><span><b>9</b> Playlist</span><span>ดูแล้ว <b>1</b></span><span>รวม <b>71</b> วิดีโอ</span></div>
+  </div></div>
+  <div class="grid grade-grid collapsed" id="g-m5">
+    <div class="pcard" onclick="location.href='video-class.html'"><div class="pthumb"><img src="https://picsum.photos/seed/m-prob/360/200" alt=""><span class="cnt"><span class="mi s16">video_library</span> 6</span></div><div class="body"><h4>ความน่าจะเป็น</h4><div class="m"><span><span class="stat done"><span class="mi s16">check_circle</span></span> ดูแล้ว 6/6</span><span><span class="mi s16">schedule</span> 3:55</span></div></div></div>
+    <div class="pcard" onclick="location.href='video-class.html'"><div class="pthumb"><img src="https://picsum.photos/seed/m-seq/360/200" alt=""><span class="badge-newp"><span class="mi s16">auto_awesome</span> Playlist ใหม่</span><span class="cnt"><span class="mi s16">video_library</span> 8</span></div><div class="body"><h4>ลำดับและอนุกรม</h4><div class="m"><span><span class="stat enable"><span class="mi s16">check_circle</span></span> ดูแล้ว 0/8</span><span><span class="mi s16">schedule</span> 4:48</span></div></div></div>
+    <div class="pcard" onclick="location.href='video-class.html'"><div class="pthumb"><img src="https://picsum.photos/seed/m-stat/360/200" alt=""><span class="cnt"><span class="mi s16">video_library</span> 5</span></div><div class="body"><h4>สถิติ</h4><div class="m"><span><span class="stat enable"><span class="mi s16">check_circle</span></span> ดูแล้ว 0/5</span><span><span class="mi s16">schedule</span> 3:10</span></div></div></div>
+    <div class="pcard extra" onclick="location.href='video-class.html'"><div class="pthumb"><img src="https://picsum.photos/seed/m-exp/360/200" alt=""><span class="cnt"><span class="mi s16">video_library</span> 7</span></div><div class="body"><h4>เลขยกกำลัง</h4><div class="m"><span><span class="stat enable"><span class="mi s16">check_circle</span></span> ดูแล้ว 0/7</span><span><span class="mi s16">schedule</span> 4:15</span></div></div></div>
+  </div>
+  <button class="showall" onclick="showAll('g-m5',this)">แสดงทั้งหมด (9 Playlist) <span class="mi s16">expand_more</span></button>
+</div></section>
+
+<script>
+function pickGrade(g){
+  document.getElementById('gradeVal').textContent=g;
+  var dd=document.getElementById('gradeDD');
+  dd.querySelectorAll('.dd-menu .chip').forEach(function(c){c.classList.toggle('on',c.textContent.trim()===g||(g==='ทุกระดับชั้น'&&c.textContent.trim()==='ทั้งหมด'));});
+  dd.classList.remove('open');
+}
+function showAll(id,btn){
+  var g=document.getElementById(id);var c=g.classList.toggle('collapsed');
+  btn.innerHTML=c?btn.dataset.more||btn.innerHTML:'ย่อ <span class="mi s16">expand_less</span>';
+  if(c)btn.innerHTML='แสดงทั้งหมด <span class="mi s16">expand_more</span>';
+}
+document.addEventListener('click',function(e){var dd=document.getElementById('gradeDD');if(dd&&!dd.contains(e.target))dd.classList.remove('open');});
+</script>
+
+<div class="proto-note">Prototype — Video Class browse (คณิตศาสตร์) · filter switch วิชา/ระดับชั้น · Section รับชมล่าสุด + แบ่งตาม Grade · <code>video-class-subject.html</code></div>
+
+</body>
+</html>

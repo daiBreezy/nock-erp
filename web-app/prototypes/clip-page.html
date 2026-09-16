@@ -1,0 +1,549 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>NockAcademy — Clip Page (Prototype v2)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet">
+<style>
+:root{
+  --primary:#ff5a5e; --primary-hover:#e84d51; --on-primary:#fff;
+  --secondary:#121c44;
+  --secondary-container:#ffe7e8; --on-secondary-container:#b3262a;
+  --accent:#121c44;
+  --surface:#ffffff; --surface-1:#fffcfc; --surface-2:#f5eff0;
+  --outline:#efe5e6; --text:#121c44; --text-muted:#5a5f72; --text-faint:#9095a5;
+  --subj-math-bg:#fde7ee; --subj-math-fg:#b03060;
+  --subj-sci-bg:#d8f5ec;  --subj-sci-fg:#0f6e56;
+  --subj-eng-bg:#e8e6fb;  --subj-eng-fg:#4b3fb0;
+  --subj-thai-bg:#fbe9f1; --subj-thai-fg:#993556;
+  --live:#e23b3b; --lesson:#3538cd;
+  --radius-sm:10px; --radius:16px; --radius-lg:22px; --radius-pill:999px;
+  --shadow:0 1px 2px rgba(20,20,40,.04),0 4px 16px rgba(20,20,40,.05);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'IBM Plex Sans Thai',system-ui,sans-serif;background:var(--surface-1);color:var(--text);line-height:1.6;-webkit-font-smoothing:antialiased}
+a{color:inherit;text-decoration:none}
+.material-symbols-outlined{font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24}
+.mi{font-family:'Material Symbols Outlined';font-weight:normal;font-style:normal;line-height:1;vertical-align:-4px;font-feature-settings:'liga';-webkit-font-feature-settings:'liga';font-size:18px}
+.mi.s16{font-size:16px;vertical-align:-3px} .mi.s20{font-size:20px;vertical-align:-5px} .mi.s28{font-size:28px}
+.wrap{max-width:1200px;margin:0 auto;padding:0 20px}
+
+/* Promo */
+.promo{background:var(--secondary-container);color:var(--on-secondary-container);font-size:14px;font-weight:500}
+.promo .wrap{display:flex;align-items:center;justify-content:center;gap:10px;padding:8px 20px}
+.promo a{text-decoration:underline;font-weight:600}
+
+/* Header */
+header{position:sticky;top:0;z-index:50;background:rgba(255,255,255,.85);backdrop-filter:blur(12px);border-bottom:1px solid var(--outline)}
+header .wrap{display:flex;align-items:center;gap:16px;height:68px}
+.logo{display:flex;align-items:center;gap:10px;font-weight:700;font-size:18px;letter-spacing:-.3px}
+.logo .mark{position:relative;width:34px;height:34px;border-radius:10px;background:linear-gradient(135deg,var(--primary),var(--accent));display:grid;place-items:center;color:#fff;font-weight:700;overflow:hidden}
+.logo .mark img{position:absolute;inset:0;width:100%;height:100%;object-fit:contain}
+.logo .logo-full{height:38px;width:auto;display:block}
+nav.main{display:flex;gap:4px;margin-left:8px}
+nav.main a{padding:8px 12px;border-radius:var(--radius-pill);font-size:15px;color:var(--text-muted);font-weight:500;white-space:nowrap}
+nav.main a:hover{background:var(--surface-2);color:var(--text)}
+nav.main a.active{color:var(--primary);font-weight:600}
+.spacer{flex:1}
+.search{display:flex;align-items:center;gap:8px;background:var(--surface-2);border-radius:var(--radius-pill);padding:9px 16px;min-width:230px;color:var(--text-faint)}
+.search input{border:none;background:none;outline:none;font:inherit;font-size:14px;width:100%;color:var(--text)}
+.btn{border:none;cursor:pointer;font:inherit;font-weight:600;border-radius:var(--radius-pill);padding:10px 20px;font-size:14px;transition:.15s;display:inline-flex;align-items:center;gap:6px}
+.btn-filled{background:var(--accent);color:#fff}
+.btn-filled:hover{filter:brightness(.95)}
+.btn-outline{background:none;border:1px solid var(--outline);color:var(--text)}
+.btn-outline:hover{background:var(--surface-2)}
+.icon-btn{display:none;background:none;border:none;cursor:pointer;color:var(--text)}
+.lang{display:inline-flex;background:var(--surface-2);border-radius:var(--radius-pill);padding:3px;flex-shrink:0}
+.lang button{border:none;background:none;cursor:pointer;font:inherit;font-size:13px;font-weight:700;color:var(--text-muted);padding:5px 12px;border-radius:var(--radius-pill);transition:.12s}
+.lang button.on{background:var(--surface);color:var(--primary);box-shadow:var(--shadow)}
+
+/* ===== System announcement bar (48px, ปิดได้) — สีแดงส้มอ่อน มาตรฐานเดียวกับ App ===== */
+.sysbar{height:48px;background:var(--secondary-container);color:var(--on-secondary-container);display:flex;align-items:center}
+.sysbar.hide{display:none}
+.sysbar .wrap{display:flex;align-items:center;gap:12px;width:100%}
+.sysbar .ic{flex:none;width:32px;height:32px;border-radius:50%;background:rgba(179,38,42,.10);display:grid;place-items:center;color:var(--on-secondary-container)}
+.sysbar .msg{flex:1;font-size:14px;line-height:1.4}
+.sysbar .msg b{font-weight:700}
+.sysbar .msg a{text-decoration:underline;font-weight:600;white-space:nowrap;color:var(--on-secondary-container)}
+.sysbar .x{flex:none;background:none;border:none;cursor:pointer;color:var(--on-secondary-container);width:34px;height:34px;border-radius:50%;display:grid;place-items:center}
+.sysbar .x:hover{background:rgba(179,38,42,.12)}
+
+/* ===== Banner marquee (รูป wide 16:9 ไม่มีพื้น/ขอบ) ===== */
+.bnr{background:transparent;padding:12px 0}
+.bnr-view{overflow-x:auto;scrollbar-width:none;-ms-overflow-style:none;cursor:grab}
+.bnr-view::-webkit-scrollbar{display:none}
+.bnr-track{display:flex;gap:14px;width:max-content;padding:0 20px}
+.bnr-item{padding:0;border:none;background:none;border-radius:var(--radius);overflow:hidden;cursor:pointer;flex:none;transition:.18s;position:relative;line-height:0}
+.bnr-item:hover{transform:translateY(-3px);box-shadow:var(--shadow)}
+.bnr-item img{display:block;height:118px;width:auto;aspect-ratio:16/9;object-fit:cover}
+.bnr-item .pin{position:absolute;top:8px;left:8px;font-size:10.5px;font-weight:700;background:var(--primary);color:#fff;padding:3px 9px;border-radius:var(--radius-pill);line-height:1.2}
+
+/* ===== Popup modal ===== */
+.modal-ov{position:fixed;inset:0;background:rgba(18,28,68,.5);backdrop-filter:blur(3px);display:none;align-items:center;justify-content:center;z-index:100;padding:20px}
+.modal-ov.open{display:flex}
+.modal{background:#fff;border-radius:var(--radius-lg);max-width:440px;width:100%;overflow:hidden;box-shadow:0 24px 60px rgba(0,0,0,.25);position:relative}
+.modal .mclose{position:absolute;top:12px;right:12px;width:34px;height:34px;border-radius:50%;border:none;background:rgba(255,255,255,.9);cursor:pointer;display:grid;place-items:center;color:var(--secondary);z-index:2}
+.modal .mimg{width:100%;height:190px;object-fit:cover;background:var(--secondary-container);display:block}
+.modal .mbody{padding:24px}
+.modal .mbody h3{font-size:20px;font-weight:700;letter-spacing:-.3px;margin-bottom:8px}
+.modal .mbody p{font-size:14px;color:var(--text-muted);line-height:1.7;margin-bottom:18px}
+
+/* Filter bar */
+.filterbar{background:var(--surface);border-bottom:1px solid var(--outline)}
+.filterbar .wrap{display:flex;align-items:center;gap:10px;padding:14px 20px;overflow-x:auto}
+.chip{display:inline-flex;align-items:center;gap:6px;white-space:nowrap;background:var(--surface);border:1px solid var(--outline);color:var(--text);border-radius:var(--radius-pill);padding:8px 16px;font-size:14px;font-weight:500;cursor:pointer;transition:.15s}
+.chip:hover{background:var(--surface-2)}
+.chip.on{background:var(--secondary-container);border-color:transparent;color:var(--on-secondary-container)}
+.filterbar .lbl{font-size:13px;color:var(--text-faint);font-weight:500;white-space:nowrap}
+
+/* Sections */
+section{padding:38px 0}
+.sec-head{display:flex;align-items:flex-end;justify-content:space-between;margin-bottom:20px;gap:16px;flex-wrap:wrap}
+.sec-head h2{font-size:23px;font-weight:700;letter-spacing:-.4px;display:flex;align-items:center;gap:10px}
+.sec-head p{font-size:14px;color:var(--text-muted)}
+.sec-head .view-all{font-size:14px;font-weight:600;color:var(--primary);white-space:nowrap;display:inline-flex;align-items:center;gap:4px}
+.tag-live{font-size:12px;font-weight:700;color:#fff;background:var(--live);padding:3px 10px;border-radius:var(--radius-pill);letter-spacing:.3px;display:inline-flex;align-items:center;gap:5px}
+.tag-live .dot{width:7px;height:7px;border-radius:50%;background:#fff;animation:pulse 1.4s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.35}}
+
+/* subject pill */
+.subj-pill{align-self:flex-start;font-size:12px;font-weight:600;padding:3px 10px;border-radius:var(--radius-pill)}
+.subj-pill.math{background:var(--subj-math-bg);color:var(--subj-math-fg)}
+.subj-pill.sci{background:var(--subj-sci-bg);color:var(--subj-sci-fg)}
+.subj-pill.eng{background:var(--subj-eng-bg);color:var(--subj-eng-fg)}
+.subj-pill.thai{background:var(--subj-thai-bg);color:var(--subj-thai-fg)}
+
+/* ===== LIVE NOW (side by side, scales to N channels) ===== */
+.live-zone{background:var(--surface)}
+.live-now{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:18px;margin-bottom:26px}
+.live-card{position:relative;border-radius:var(--radius-lg);overflow:hidden;color:#fff;padding:24px;min-height:230px;display:flex;flex-direction:column;justify-content:space-between}
+.live-card.a{background:#2a2c8a} .live-card.b{background:#0f6e56}
+.live-card .bgvid{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;z-index:0}
+.live-card .shade{position:absolute;inset:0;z-index:1}
+.live-card.a .shade{background:linear-gradient(160deg,rgba(42,44,138,.78),rgba(28,30,90,.55) 45%,rgba(20,20,45,.88))}
+.live-card.b .shade{background:linear-gradient(160deg,rgba(15,110,86,.78),rgba(13,90,72,.5) 45%,rgba(8,40,33,.9))}
+.live-card .top,.live-card .content{position:relative;z-index:2}
+.live-card .chan{font-size:12px;font-weight:700;letter-spacing:.5px;opacity:.95;text-transform:uppercase}
+.live-card .top{display:flex;align-items:center;justify-content:space-between}
+.live-card h3{font-size:21px;font-weight:700;line-height:1.35;margin-top:12px;text-shadow:0 1px 12px rgba(0,0,0,.35)}
+.live-card .by{font-size:13px;opacity:.85;margin-top:4px;display:flex;align-items:center;gap:6px}
+.live-card .viewers{display:inline-flex;align-items:center;gap:5px;font-size:12px;font-weight:600;background:rgba(0,0,0,.4);backdrop-filter:blur(4px);padding:4px 10px;border-radius:var(--radius-pill);color:#fff}
+.live-card .mute-btn{position:absolute;bottom:18px;right:18px;z-index:3;width:40px;height:40px;border-radius:50%;border:none;cursor:pointer;background:rgba(0,0,0,.45);backdrop-filter:blur(4px);color:#fff;display:grid;place-items:center;transition:.15s}
+.live-card .mute-btn:hover{background:rgba(0,0,0,.65)}
+.live-card .mute-btn.live-on{background:#fff;color:#222}
+.live-card .grades{display:flex;flex-wrap:wrap;gap:5px;margin-top:8px}
+.live-card .grades .g{font-size:11px;font-weight:600;background:rgba(255,255,255,.18);backdrop-filter:blur(4px);padding:3px 9px;border-radius:var(--radius-pill)}
+.live-card .cta-row{display:flex;align-items:center;gap:10px;margin-top:16px}
+.live-card .btn-filled{background:#fff;color:#222}
+.live-card .ghost{background:rgba(255,255,255,.16);color:#fff;border:none;border-radius:var(--radius-pill);padding:10px 16px;font:inherit;font-weight:600;font-size:13px;cursor:pointer;display:inline-flex;align-items:center;gap:6px}
+
+/* schedule columns */
+.sched-title{font-size:16px;font-weight:600;margin-bottom:14px;display:flex;align-items:center;gap:8px;color:var(--text-muted)}
+.sched{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:16px}
+.chan-col{background:var(--surface-1);border:1px solid var(--outline);border-radius:var(--radius);padding:14px}
+.chan-col > .ch-head{display:flex;align-items:center;gap:10px;padding-bottom:12px;margin-bottom:8px;border-bottom:1px solid var(--outline);font-weight:600}
+.chan-col .av{width:34px;height:34px;border-radius:50%;display:grid;place-items:center;color:#fff;font-weight:700;font-size:13px}
+.chan-col.a .av{background:var(--primary)} .chan-col.b .av{background:#1d9e75}
+.chan-col .badge-n{margin-left:auto;font-size:12px;background:var(--surface-2);color:var(--text-muted);border-radius:var(--radius-pill);padding:2px 9px;font-weight:600}
+.sess{display:flex;gap:10px;padding:10px;border-radius:var(--radius-sm);align-items:flex-start}
+.sess:hover{background:var(--surface-2)}
+.sess.live{background:#fff;border:1px solid var(--live)}
+.sess .time{font-size:12px;color:var(--text-muted);min-width:42px;font-weight:600;padding-top:2px}
+.sess .body{flex:1;min-width:0}
+.sess .body .t{font-size:14px;font-weight:600;line-height:1.35}
+.sess .body .m{font-size:12px;color:var(--text-muted);display:flex;align-items:center;gap:6px;margin-top:2px}
+.sess .act{align-self:center}
+.mini-live{font-size:11px;font-weight:700;color:var(--live);display:inline-flex;align-items:center;gap:4px}
+.mini-remind{background:none;border:1px solid var(--outline);border-radius:50%;width:32px;height:32px;display:grid;place-items:center;cursor:pointer;color:var(--text-muted)}
+.mini-remind:hover{background:var(--secondary-container);color:var(--on-secondary-container);border-color:transparent}
+
+/* ===== Record single videos ===== */
+.toolbar{display:flex;align-items:center;gap:8px}
+.seg{display:inline-flex;background:var(--surface-2);border-radius:var(--radius-pill);padding:3px}
+.seg button{border:none;background:none;font:inherit;font-size:13px;font-weight:600;color:var(--text-muted);padding:6px 14px;border-radius:var(--radius-pill);cursor:pointer;display:inline-flex;align-items:center;gap:5px}
+.seg button.on{background:var(--surface);color:var(--text);box-shadow:var(--shadow)}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:20px}
+.vcard{background:var(--surface);border:1px solid var(--outline);border-radius:var(--radius);overflow:hidden;cursor:pointer;transition:.18s;display:flex;flex-direction:column}
+.vcard:hover{transform:translateY(-3px);box-shadow:var(--shadow)}
+.vcard.live{border-top:3px solid #5f5e5a}
+.vcard.lesson{border-top:3px solid var(--lesson)}
+.vtype{position:absolute;top:8px;left:8px;z-index:2;font-size:10.5px;font-weight:700;color:#fff;padding:3px 9px;border-radius:var(--radius-pill);display:inline-flex;align-items:center;gap:4px}
+.vtype.live{background:rgba(28,28,26,.82);color:#fff} .vtype.lesson{background:var(--lesson);color:#fff}
+.vcard.lesson .progress{background:var(--surface-2)} .vcard.lesson .progress>span{background:var(--lesson)}
+.thumb{aspect-ratio:16/9;position:relative;display:grid;place-items:center;font-size:30px}
+.thumb.math{background:var(--subj-math-bg);color:var(--subj-math-fg)}
+.thumb.sci{background:var(--subj-sci-bg);color:var(--subj-sci-fg)}
+.thumb.eng{background:var(--subj-eng-bg);color:var(--subj-eng-fg)}
+.thumb.thai{background:var(--subj-thai-bg);color:var(--subj-thai-fg)}
+.thumb .tn{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;z-index:0}
+.thumb .free,.thumb .lock,.thumb .pop,.thumb .dur{z-index:2}
+.sess .sthumb{width:64px;height:42px;border-radius:9px;object-fit:cover;flex-shrink:0}
+.thumb .dur{position:absolute;right:8px;bottom:8px;background:rgba(27,27,33,.82);color:#fff;font-size:11px;font-weight:600;padding:3px 8px;border-radius:6px;display:inline-flex;align-items:center;gap:4px}
+.thumb .free{position:absolute;left:8px;bottom:8px;background:#d8f5ec;color:#0f6e56;font-size:11px;font-weight:700;padding:3px 9px;border-radius:var(--radius-pill)}
+.thumb .lock{position:absolute;left:8px;bottom:8px;background:rgba(255,255,255,.92);color:var(--text-muted);font-size:11px;font-weight:700;padding:3px 9px;border-radius:var(--radius-pill);display:inline-flex;align-items:center;gap:3px}
+.thumb .pop{position:absolute;right:8px;top:8px;background:#fff0e6;color:#c0481b;font-size:11px;font-weight:700;padding:3px 9px;border-radius:var(--radius-pill);display:inline-flex;align-items:center;gap:3px}
+.vcard .body{padding:13px 15px 15px;display:flex;flex-direction:column;gap:8px;flex:1}
+.vcard h4{font-size:14.5px;font-weight:600;line-height:1.4}
+.vcard .when{font-size:12px;color:var(--text-faint);display:flex;align-items:center;gap:5px}
+.tags{display:flex;flex-wrap:wrap;gap:6px;margin-top:auto}
+.tag{font-size:11.5px;color:var(--text-muted);background:var(--surface);border:1px solid var(--outline);border-radius:var(--radius-pill);padding:3px 9px}
+
+/* continue watching */
+.row-scroll{display:flex;gap:18px;overflow-x:auto;padding-bottom:6px}
+.row-scroll .vcard{min-width:240px;max-width:240px}
+.progress{height:4px;background:var(--surface-2)}
+.progress > span{display:block;height:100%;background:var(--accent)}
+
+/* ===== Our service ===== */
+.pricing{background:var(--surface)}
+.price-main{display:grid;grid-template-columns:repeat(3,1fr);gap:20px;max-width:880px;margin:0 auto}
+.price{background:var(--surface-1);border:1px solid var(--outline);border-radius:var(--radius-lg);padding:26px;text-align:center;position:relative}
+.price.best{border:2px solid var(--primary);background:var(--surface)}
+.price .ribbon{position:absolute;top:-12px;left:50%;transform:translateX(-50%);background:var(--primary);color:#fff;font-size:12px;font-weight:700;padding:4px 14px;border-radius:var(--radius-pill)}
+.price .term{font-size:15px;color:var(--text-muted);font-weight:500}
+.price .amt{font-size:33px;font-weight:700;margin:8px 0 2px;letter-spacing:-.5px}
+.price .per{font-size:13px;color:var(--text-faint)}
+.price .btn{width:100%;margin-top:18px;justify-content:center}
+.price-sub{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;max-width:880px;margin:18px auto 0}
+.price-sm{background:var(--surface-1);border:1px solid var(--outline);border-radius:var(--radius);padding:14px 16px;display:flex;align-items:center;justify-content:space-between;cursor:pointer}
+.price-sm:hover{background:var(--surface-2)}
+.price-sm .term{font-size:14px;font-weight:600;color:var(--text)}
+.price-sm .amt{font-size:16px;font-weight:700}
+.price-sm .per{font-size:11px;color:var(--text-faint)}
+
+/* Video class by subject */
+.vc-cats{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:16px}
+.vc-cat{border-radius:var(--radius);padding:22px 18px;cursor:pointer;transition:.18s;display:flex;flex-direction:column;gap:10px;border:1px solid transparent}
+.vc-cat:hover{transform:translateY(-3px);box-shadow:var(--shadow)}
+.vc-cat .ic{width:48px;height:48px;border-radius:14px;display:grid;place-items:center}
+.vc-cat.math{background:var(--subj-math-bg)} .vc-cat.math .ic{background:#fff;color:var(--subj-math-fg)} .vc-cat.math h4{color:var(--subj-math-fg)}
+.vc-cat.eng{background:var(--subj-eng-bg)} .vc-cat.eng .ic{background:#fff;color:var(--subj-eng-fg)} .vc-cat.eng h4{color:var(--subj-eng-fg)}
+.vc-cat.thai{background:var(--subj-thai-bg)} .vc-cat.thai .ic{background:#fff;color:var(--subj-thai-fg)} .vc-cat.thai h4{color:var(--subj-thai-fg)}
+.vc-cat.sci{background:var(--subj-sci-bg)} .vc-cat.sci .ic{background:#fff;color:var(--subj-sci-fg)} .vc-cat.sci h4{color:var(--subj-sci-fg)}
+.vc-cat h4{font-size:16px;font-weight:700}
+.vc-cat .n{font-size:12.5px;color:var(--text-muted)}
+
+/* Personalize Goal entry banner */
+.goal-banner{background:linear-gradient(120deg,#121c44,#1f2c5e 55%,#33305f);border-radius:var(--radius-lg);padding:30px 34px;color:#fff;display:flex;align-items:center;gap:24px;flex-wrap:wrap;position:relative;overflow:hidden}
+.goal-banner .gicon{width:62px;height:62px;border-radius:18px;background:rgba(255,255,255,.16);display:grid;place-items:center;flex-shrink:0}
+.goal-banner .gtext{flex:1;min-width:240px}
+.goal-banner .ntag{font-size:11px;font-weight:700;background:rgba(255,255,255,.2);padding:3px 10px;border-radius:var(--radius-pill);letter-spacing:.3px}
+.goal-banner h2{font-size:24px;font-weight:700;margin:8px 0 4px;letter-spacing:-.4px}
+.goal-banner p{font-size:14px;opacity:.9}
+.goal-banner .gcta{background:#fff;color:var(--primary);border:none;cursor:pointer;font:inherit;font-weight:700;font-size:15px;border-radius:var(--radius-pill);padding:13px 26px;display:inline-flex;align-items:center;gap:8px;white-space:nowrap}
+.goal-banner .gfree{font-size:12px;opacity:.85;margin-top:8px;display:flex;align-items:center;gap:5px;justify-content:center}
+.proto-note{background:#1b1b21;color:#cfcfe0;font-size:13px;text-align:center;padding:14px 20px}
+.proto-note code{background:rgba(255,255,255,.1);padding:2px 6px;border-radius:5px}
+
+@media(max-width:900px){.price-main,.price-sub{grid-template-columns:1fr;max-width:420px}}
+@media(max-width:780px){nav.main,.search{display:none}.icon-btn{display:inline-flex}.sec-head h2{font-size:20px}}
+@media(max-width:1040px){nav.main,.search{display:none}.icon-btn{display:inline-flex}}
+</style>
+</head>
+<body>
+
+<div class="sysbar" id="sysbar"><div class="wrap">
+  <span class="ic"><span class="mi s20">campaign</span></span>
+  <span class="msg"><b>อัปเดตระบบ:</b> เพิ่มฟีเจอร์ Personalize Goal (AI) วิเคราะห์จุดอ่อนรายวิชาแล้ววันนี้ <a href="grade.html">ลองเลย</a></span>
+  <button class="x" onclick="document.getElementById('sysbar').classList.add('hide')" aria-label="ปิด"><span class="mi s20">close</span></button>
+</div></div>
+
+<header><div class="wrap">
+  <button class="icon-btn" aria-label="เมนู"><span class="mi s28">menu</span></button>
+  <a class="logo" href="landing-page.html"><img class="logo-full" src="../assets/Full-Icon.png" alt="NockAcademy"></a>
+  <nav class="main">
+    <a href="landing-page.html" data-th="หน้าแรก" data-en="Home">หน้าแรก</a><a href="grade.html" data-th="ชั้นเรียน" data-en="Grades">ชั้นเรียน</a><a href="clip-page.html" class="active" data-th="คลิป" data-en="Clips">คลิป</a><a href="courses.html" data-th="คอร์สเรียน" data-en="Courses">คอร์สเรียน</a><a href="articles.html" data-th="บทความ" data-en="Articles">บทความ</a><a href="faq.html" data-th="คำถามที่พบบ่อย" data-en="FAQ">คำถามที่พบบ่อย</a>
+  </nav>
+  <div class="spacer"></div>
+  <div class="search"><span class="mi s20">search</span><input placeholder="ค้นหาคลิป วิชา หรือบทเรียน" data-th="ค้นหาคลิป วิชา หรือบทเรียน" data-en="Search clips, subjects, lessons" /></div>
+  <div class="lang"><button class="on" onclick="setLang('th',this)">TH</button><button onclick="setLang('en',this)">EN</button></div>
+  <button class="btn btn-filled" data-th="สมัครฟรี" data-en="Sign up free">สมัครฟรี</button>
+</div></header>
+
+<!-- ===== Banner marquee ===== -->
+<div class="bnr">
+  <div class="bnr-view" id="bnrView">
+    <div class="bnr-track" id="bnrTrack">
+      <button class="bnr-item" data-type="popup" data-title="โปรเปิดเทอม ลด 30%" data-img="https://picsum.photos/seed/promo-term/640/360" data-text="สมัครแพ็กเกจ Premium ภายในเดือนนี้ รับส่วนลดทันที 30% ทุกระยะเวลา พร้อมปลดล็อกคลิปครบทุกวิชาและไลฟ์ย้อนหลัง" data-cta="สมัครเลย" data-href="courses.html#pkg"><span class="pin">ใหม่</span><img src="https://picsum.photos/seed/promo-term/640/360" alt="โปรเปิดเทอม ลด 30%"></button>
+      <button class="bnr-item" data-type="link" data-href="grade.html"><img src="https://picsum.photos/seed/bnr-goal/640/360" alt="ลองทำ Personalize Goal ฟรี"></button>
+      <button class="bnr-item" data-type="popup" data-title="Premium+ ไลฟ์สอนสดทุกวัน" data-img="https://picsum.photos/seed/promo-plus/640/360" data-text="อัปเกรดเป็น Premium+ เพื่อเข้าไลฟ์สอนสดทุกวัน ถาม–ตอบกับติวเตอร์ได้แบบเรียลไทม์ พร้อม Personalize Goal วิเคราะห์ด้วย AI" data-cta="ดูแพ็กเกจ Premium+" data-href="courses.html#pkg"><img src="https://picsum.photos/seed/promo-plus/640/360" alt="Premium+ ไลฟ์สอนสดทุกวัน"></button>
+      <button class="bnr-item" data-type="link" data-href="articles.html"><img src="https://picsum.photos/seed/bnr-article/640/360" alt="บทความเตรียมสอบเข้า ม.1"></button>
+      <button class="bnr-item" data-type="link" data-href="courses.html"><img src="https://picsum.photos/seed/bnr-course/640/360" alt="คอร์สเรียนครบทุกวิชา"></button>
+      <button class="bnr-item" data-type="popup" data-title="แนะนำเพื่อน รับเรียนฟรี 1 เดือน" data-img="https://picsum.photos/seed/promo-ref/640/360" data-text="ชวนเพื่อนมาสมัคร เมื่อเพื่อนสมัครสำเร็จ ทั้งคุณและเพื่อนรับเครดิตเรียนฟรีคนละ 1 เดือน ไม่จำกัดจำนวนเพื่อน" data-cta="รับลิงก์ชวนเพื่อน" data-href="#"><img src="https://picsum.photos/seed/promo-ref/640/360" alt="แนะนำเพื่อน รับเรียนฟรี 1 เดือน"></button>
+    </div>
+  </div>
+</div>
+
+<!-- popup modal -->
+<div class="modal-ov" id="bnrModal">
+  <div class="modal">
+    <button class="mclose" onclick="closeBnr()" aria-label="ปิด"><span class="mi s20">close</span></button>
+    <img class="mimg" id="bnrImg" src="" alt="">
+    <div class="mbody">
+      <h3 id="bnrTitle"></h3>
+      <p id="bnrText"></p>
+      <a class="btn btn-filled" id="bnrCta" href="#" style="background:var(--primary)"></a>
+    </div>
+  </div>
+</div>
+
+<div class="filterbar"><div class="wrap">
+  <span class="lbl">กรองโดย</span>
+  <button class="chip on">ทั้งหมด</button>
+  <button class="chip"><span class="mi s16">school</span> ระดับชั้น <span class="mi s16">expand_more</span></button>
+  <button class="chip">คณิตศาสตร์</button>
+  <button class="chip">วิทยาศาสตร์</button>
+  <button class="chip">ภาษาอังกฤษ</button>
+  <button class="chip">ภาษาไทย</button>
+</div></div>
+
+<!-- 1) LIVE STREAM -->
+<section class="live-zone"><div class="wrap">
+  <div class="sec-head">
+    <h2><span class="tag-live"><span class="dot"></span>LIVE</span> ไลฟ์สอนสด</h2>
+    <a class="view-all" href="#">ดูตารางทั้งหมด <span class="mi s16">arrow_forward</span></a>
+  </div>
+
+  <!-- กำลังไลฟ์ตอนนี้ (วางข้างกัน, scale หลายช่อง) -->
+  <div class="live-now">
+    <div class="live-card a">
+      <video class="bgvid" autoplay muted loop playsinline poster="https://images.unsplash.com/photo-1509062522246-3755977927d7?w=800&q=60"><source src="https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4" type="video/mp4"></video>
+      <div class="shade"></div>
+      <div class="top"><span class="chan">ช่อง A</span><div style="display:flex;gap:8px;align-items:center"><span class="viewers"><span class="mi s16">visibility</span> 1,284 คน</span><span class="tag-live"><span class="dot"></span>LIVE</span></div></div>
+      <div class="content">
+        <h3>ปูพื้นฐานวิทยาศาสตร์ ป.6 พาร์ต 2 ตอนที่ 6</h3>
+        <div class="by"><span class="mi s16">person</span> ครูนนท์ · วิทยาศาสตร์ · 19:00–19:50</div>
+        <div class="grades"><span class="g">ป.5</span><span class="g">ป.6</span><span class="g">ม.1</span></div>
+        <div class="cta-row">
+          <a href="live-stream.html" class="btn btn-filled"><span class="mi s20">play_circle</span> เข้าชมไลฟ์สด</a>
+        </div>
+      </div>
+      <button class="mute-btn" aria-label="เปิด/ปิดเสียง" onclick="toggleMute(this)"><span class="mi s20">volume_off</span></button>
+    </div>
+    <div class="live-card b">
+      <video class="bgvid" autoplay muted loop playsinline poster="https://images.unsplash.com/photo-1503676260728-1c00da094a0b?w=800&q=60"><source src="https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ElephantsDream.mp4" type="video/mp4"></video>
+      <div class="shade"></div>
+      <div class="top"><span class="chan">ช่อง B</span><div style="display:flex;gap:8px;align-items:center"><span class="viewers"><span class="mi s16">visibility</span> 968 คน</span><span class="tag-live"><span class="dot"></span>LIVE</span></div></div>
+      <div class="content">
+        <h3>คณิตศาสตร์ ม.3 ตะลุยโจทย์ก่อนสอบ</h3>
+        <div class="by"><span class="mi s16">person</span> ครูโจ · คณิตศาสตร์ · 19:00–19:50</div>
+        <div class="grades"><span class="g">ม.1</span><span class="g">ม.2</span><span class="g">ม.3</span></div>
+        <div class="cta-row">
+          <a href="live-stream.html" class="btn btn-filled"><span class="mi s20">play_circle</span> เข้าชมไลฟ์สด</a>
+        </div>
+      </div>
+      <button class="mute-btn" aria-label="เปิด/ปิดเสียง" onclick="toggleMute(this)"><span class="mi s20">volume_off</span></button>
+    </div>
+  </div>
+
+  <!-- ตารางไลฟ์วันนี้ แบบคอลัมน์ต่อช่อง -->
+  <div class="sched-title"><span class="mi s20">calendar_today</span> ตารางไลฟ์วันนี้ · 24 Jun 26</div>
+  <div class="sched">
+    <div class="chan-col a">
+      <div class="ch-head"><span class="av">A</span> ช่อง A <span class="badge-n">4 ไลฟ์</span></div>
+      <div class="sess live" style="cursor:pointer" onclick="location.href='live-stream.html'"><div class="time">19:00</div><img class="sthumb" src="https://picsum.photos/seed/nock-sci6/200/130" alt=""><div class="body"><div class="t">วิทยาศาสตร์ ป.6 พาร์ต 2</div><div class="m"><span class="mini-live"><span class="mi s16">sensors</span> กำลังไลฟ์</span></div></div></div>
+      <div class="sess"><div class="time">20:00</div><img class="sthumb" src="https://picsum.photos/seed/nock-sci5/200/130" alt=""><div class="body"><div class="t">วิทยาศาสตร์ ป.5 ประลองข้อสอบ</div><div class="m">ครูนนท์ · ป.5</div></div><button class="mini-remind act" aria-label="ตั้งเตือน"><span class="mi s20">notifications</span></button></div>
+      <div class="sess"><div class="time">21:00</div><img class="sthumb" src="https://picsum.photos/seed/nock-chem4/200/130" alt=""><div class="body"><div class="t">เคมี ม.4 พันธะเคมี</div><div class="m">ครูมิ้น · ม.4</div></div><button class="mini-remind act" aria-label="ตั้งเตือน"><span class="mi s20">notifications</span></button></div>
+    </div>
+    <div class="chan-col b">
+      <div class="ch-head"><span class="av">B</span> ช่อง B <span class="badge-n">4 ไลฟ์</span></div>
+      <div class="sess live" style="cursor:pointer" onclick="location.href='live-stream.html'"><div class="time">19:00</div><img class="sthumb" src="https://picsum.photos/seed/nock-math3/200/130" alt=""><div class="body"><div class="t">คณิตศาสตร์ ม.3 ตะลุยโจทย์</div><div class="m"><span class="mini-live"><span class="mi s16">sensors</span> กำลังไลฟ์</span></div></div></div>
+      <div class="sess"><div class="time">20:00</div><img class="sthumb" src="https://picsum.photos/seed/nock-eng1/200/130" alt=""><div class="body"><div class="t">ภาษาอังกฤษ ม.1 TEDET</div><div class="m">ครูแพท · ม.1</div></div><button class="mini-remind act" aria-label="ตั้งเตือน"><span class="mi s20">notifications</span></button></div>
+      <div class="sess"><div class="time">21:00</div><img class="sthumb" src="https://picsum.photos/seed/nock-thai2/200/130" alt=""><div class="body"><div class="t">ภาษาไทย ม.2 หลักภาษา</div><div class="m">ครูเจน · ม.2</div></div><button class="mini-remind act" aria-label="ตั้งเตือน"><span class="mi s20">notifications</span></button></div>
+    </div>
+  </div>
+</div></section>
+
+<!-- Personalize Goal entry -->
+<section style="padding-top:0"><div class="wrap">
+  <div class="goal-banner">
+    <div class="gicon"><span class="mi s28">target</span></div>
+    <div class="gtext">
+      <span class="ntag">NEW · AI</span>
+      <h2 data-th="อยากรู้จุดอ่อนของลูก แล้วช่วยให้ดีขึ้นไหม?" data-en="Want to find your child's weak points and help them improve?">อยากรู้จุดอ่อนของลูก แล้วช่วยให้ดีขึ้นไหม?</h2>
+      <p data-th="ตั้งเป้าหมายการเรียน ทำแบบทดสอบสั้นๆ แล้วให้ AI วิเคราะห์จุดแข็ง-จุดอ่อน พร้อมแผนการเรียนเฉพาะตัว" data-en="Set a learning goal, take a short test, and let AI analyze strengths & weaknesses with a personalized study plan">ตั้งเป้าหมายการเรียน ทำแบบทดสอบสั้นๆ แล้วให้ AI วิเคราะห์จุดแข็ง-จุดอ่อน พร้อมแผนการเรียนเฉพาะตัว</p>
+    </div>
+    <div style="display:flex;flex-direction:column;align-items:center">
+      <a href="personalize-goal.html" class="gcta">สร้าง Personalize Goal <span class="mi s20">arrow_forward</span></a>
+      <span class="gfree"><span class="mi s16">lock_open</span> ฟรี ไม่ต้องสมัคร</span>
+    </div>
+  </div>
+</div></section>
+
+<!-- 2) LATEST RECORD LIVESTREAM (วิดีโอเดี่ยว + sort + popular tag) -->
+<section><div class="wrap">
+  <div class="sec-head">
+    <div><h2>ไลฟ์ย้อนหลังล่าสุด</h2><p>วิดีโอเดี่ยวจากไลฟ์ที่จบแล้ว ดูย้อนหลังได้ทันที</p></div>
+    <div class="toolbar">
+      <div class="seg">
+        <button class="on" onclick="seg(this)"><span class="mi s16">schedule</span> ใหม่ล่าสุด</button>
+        <button onclick="seg(this)"><span class="mi s16">local_fire_department</span> ยอดนิยม</button>
+      </div>
+      <a class="view-all" href="#">ดูทั้งหมด <span class="mi s16">arrow_forward</span></a>
+    </div>
+  </div>
+  <div class="grid">
+    <div class="vcard live" style="cursor:pointer" onclick="location.href='video-player.html'">
+      <div class="thumb math"><img class="tn" src="https://picsum.photos/seed/nock-rmath/400/225" alt=""><span class="vtype live"><span class="mi s16">history</span> ไลฟ์ย้อนหลัง</span><span class="free">Free</span><span class="dur"><span class="mi s16">schedule</span> 38:00</span></div>
+      <div class="body"><h4>คณิตศาสตร์ ม.6 จำนวนจริง ตอนที่ 1</h4><div class="when"><span class="mi s16">calendar_today</span> 22 Jun 26</div><div class="tags"><span class="tag">+ คณิตศาสตร์</span><span class="tag">+ ม.6</span></div></div>
+    </div>
+    <div class="vcard live" style="cursor:pointer" onclick="location.href='video-player.html'">
+      <div class="thumb sci"><img class="tn" src="https://picsum.photos/seed/nock-rfound/400/225" alt=""><span class="vtype live"><span class="mi s16">history</span> ไลฟ์ย้อนหลัง</span><span class="lock"><span class="mi s16">lock</span> ล็อก</span><span class="pop"><span class="mi s16">trending_up</span> นิยม</span><span class="dur"><span class="mi s16">schedule</span> 53:00</span></div>
+      <div class="body"><h4>High school foundation course</h4><div class="when"><span class="mi s16">calendar_today</span> 21 Jun 26</div><div class="tags"><span class="tag">+ วิทยาศาสตร์</span><span class="tag">+ ม.5</span></div></div>
+    </div>
+    <div class="vcard live" style="cursor:pointer" onclick="location.href='video-player.html'">
+      <div class="thumb eng"><img class="tn" src="https://picsum.photos/seed/nock-rbio/400/225" alt=""><span class="vtype live"><span class="mi s16">history</span> ไลฟ์ย้อนหลัง</span><span class="free">Free</span><span class="dur"><span class="mi s16">schedule</span> 46:00</span></div>
+      <div class="body"><h4>High school biology (Eng)</h4><div class="when"><span class="mi s16">calendar_today</span> 20 Jun 26</div><div class="tags"><span class="tag">+ ภาษาอังกฤษ</span><span class="tag">+ ม.4</span></div></div>
+    </div>
+    <div class="vcard live" style="cursor:pointer" onclick="location.href='video-player.html'">
+      <div class="thumb thai"><img class="tn" src="https://picsum.photos/seed/nock-rlit/400/225" alt=""><span class="vtype live"><span class="mi s16">history</span> ไลฟ์ย้อนหลัง</span><span class="lock"><span class="mi s16">lock</span> ล็อก</span><span class="pop"><span class="mi s16">trending_up</span> นิยม</span><span class="dur"><span class="mi s16">schedule</span> 47:00</span></div>
+      <div class="body"><h4>วรรณคดี เรื่อง กาพย์เห่เรือ</h4><div class="when"><span class="mi s16">calendar_today</span> 18 Jun 26</div><div class="tags"><span class="tag">+ ภาษาไทย</span><span class="tag">+ ม.6</span></div></div>
+    </div>
+  </div>
+</div></section>
+
+<!-- 3) รับชมล่าสุด (Continue watching) -->
+<section><div class="wrap">
+  <div class="sec-head">
+    <div><h2>รับชมล่าสุด</h2><p>ดูต่อจากที่ค้างไว้ — ทั้งไลฟ์ย้อนหลังและบทเรียน</p></div>
+    <a class="view-all" href="#">ดูทั้งหมด <span class="mi s16">arrow_forward</span></a>
+  </div>
+  <div class="row-scroll">
+    <div class="vcard live" style="cursor:pointer" onclick="location.href='video-player.html'">
+      <div class="thumb math"><img class="tn" src="https://picsum.photos/seed/nock-calc/400/225" alt=""><span class="vtype live"><span class="mi s16">history</span> ไลฟ์ย้อนหลัง</span><span class="dur"><span class="mi s16">schedule</span> 12:30</span></div>
+      <div class="progress"><span style="width:64%"></span></div>
+      <div class="body"><h4>A-Level Mathematics 1 (เซต) Part 2</h4><div class="when"><span class="mi s16">play_circle</span> ดูต่อ 64%</div></div>
+    </div>
+    <div class="vcard lesson" style="cursor:pointer" onclick="location.href='video-class.html'">
+      <div class="thumb eng"><img class="tn" src="https://picsum.photos/seed/nock-gram/400/225" alt=""><span class="vtype lesson"><span class="mi s16">school</span> บทเรียน</span><span class="dur"><span class="mi s16">schedule</span> 09:10</span></div>
+      <div class="progress"><span style="width:30%"></span></div>
+      <div class="body"><h4>High School Grammar — Tenses</h4><div class="when"><span class="mi s16">play_circle</span> ดูต่อ 30%</div></div>
+    </div>
+    <div class="vcard lesson" style="cursor:pointer" onclick="location.href='video-class.html'">
+      <div class="thumb sci"><img class="tn" src="https://picsum.photos/seed/nock-solar/400/225" alt=""><span class="vtype lesson"><span class="mi s16">school</span> บทเรียน</span><span class="dur"><span class="mi s16">schedule</span> 15:42</span></div>
+      <div class="progress"><span style="width:88%"></span></div>
+      <div class="body"><h4>ระบบสุริยะและปรากฏการณ์</h4><div class="when"><span class="mi s16">play_circle</span> ดูต่อ 88%</div></div>
+    </div>
+  </div>
+</div></section>
+
+<!-- 4) OUR SERVICE -->
+<section class="pricing"><div class="wrap">
+  <div class="sec-head" style="justify-content:center;text-align:center;flex-direction:column;align-items:center">
+    <h2>บริการของเรา</h2><p>เรียนครบ วิทย์ คณิต อังกฤษ ไทย · ปลดล็อกคลิปทั้งหมด</p>
+  </div>
+
+  <!-- Premium+ : แพ็กเกจพิเศษ (รวมไลฟ์สอนสด) -->
+  <div class="goal-banner" style="margin-bottom:24px">
+    <div class="gicon"><span class="mi s28">workspace_premium</span></div>
+    <div class="gtext">
+      <span class="ntag">PREMIUM +</span>
+      <h2 style="margin-bottom:8px">ครบทุกอย่าง + ไลฟ์สอนสดทุกวัน</h2>
+      <p>ไลฟ์สอนสดทุกวัน · คลิปครบทุกวิชา · แบบฝึกหัด + การสอบ · Personalize Goal (AI)</p>
+    </div>
+    <div style="display:flex;flex-direction:column;align-items:center">
+      <div style="font-size:26px;font-weight:700;letter-spacing:-.5px">658฿<span style="font-size:13px;font-weight:500"> / เดือน</span></div>
+      <div style="font-size:12px;opacity:.85;margin-bottom:10px">เริ่มต้น 7,900฿ / 12 เดือน</div>
+      <a href="#" class="gcta">สมัคร Premium+ <span class="mi s20">arrow_forward</span></a>
+    </div>
+  </div>
+
+  <div style="font-size:14px;font-weight:600;color:var(--text-muted);text-align:center;margin-bottom:14px">Premium — เรียนคลิปครบทุกวิชา (ไม่รวมไลฟ์)</div>
+  <div class="price-main">
+    <div class="price"><div class="term">3 เดือน</div><div class="amt">2,800฿</div><div class="per">933฿ / เดือน</div><button class="btn btn-outline">สมัคร</button></div>
+    <div class="price best"><div class="ribbon">คุ้มที่สุด</div><div class="term">12 เดือน</div><div class="amt">5,300฿</div><div class="per">442฿ / เดือน</div><button class="btn btn-filled" style="background:var(--primary)">สมัคร</button></div>
+    <div class="price"><div class="term">6 เดือน</div><div class="amt">4,100฿</div><div class="per">683฿ / เดือน</div><button class="btn btn-outline">สมัคร</button></div>
+  </div>
+  <div class="price-sub">
+    <div class="price-sm"><div><div class="term">18 เดือน</div><div class="per">383฿ / เดือน</div></div><div class="amt">6,900฿</div></div>
+    <div class="price-sm"><div><div class="term">24 เดือน</div><div class="per">358฿ / เดือน</div></div><div class="amt">8,600฿</div></div>
+    <div class="price-sm"><div><div class="term">36 เดือน</div><div class="per">325฿ / เดือน</div></div><div class="amt">11,700฿</div></div>
+  </div>
+</div></section>
+
+<!-- 5) VIDEO CLASS by subject -->
+<section><div class="wrap">
+  <div class="sec-head">
+    <div><h2>วิดีโอเรียน (Video Class)</h2><p>คอร์สเรียนเต็มรูปแบบ แยกตามวิชา</p></div>
+    <a class="view-all" href="#">ดูทั้งหมด <span class="mi s16">arrow_forward</span></a>
+  </div>
+  <div class="vc-cats">
+    <div class="vc-cat math" onclick="location.href='video-class-subject.html'"><div class="ic"><span class="mi s28">functions</span></div><h4>คณิตศาสตร์</h4><div class="n">128 คอร์ส · ป.4–ม.6</div></div>
+    <div class="vc-cat eng" onclick="location.href='video-class-subject.html'"><div class="ic"><span class="mi s28">translate</span></div><h4>ภาษาอังกฤษ</h4><div class="n">96 คอร์ส · ป.4–ม.6</div></div>
+    <div class="vc-cat thai" onclick="location.href='video-class-subject.html'"><div class="ic"><span class="mi s28">menu_book</span></div><h4>ภาษาไทย</h4><div class="n">74 คอร์ส · ป.4–ม.6</div></div>
+    <div class="vc-cat sci" onclick="location.href='video-class-subject.html'"><div class="ic"><span class="mi s28">science</span></div><h4>วิทยาศาสตร์</h4><div class="n">110 คอร์ส · ป.4–ม.6</div></div>
+  </div>
+</div></section>
+
+<div class="proto-note">Prototype v2 — Clip Page · Material Design 3 + Material Symbols · ตาม <code>docs/discovery/clip-page-IA.md</code> · ย่อหน้าจอเพื่อดู responsive</div>
+
+<script>
+function seg(b){b.parentNode.querySelectorAll('button').forEach(x=>x.classList.remove('on'));b.classList.add('on');}
+
+/* ===== Banner marquee + popup (เหมือน landing) ===== */
+(function(){
+  var view=document.getElementById('bnrView'), track=document.getElementById('bnrTrack');
+  if(!view||!track)return;
+  track.innerHTML+=track.innerHTML;
+  var half=track.scrollWidth/2, speed=0.4, paused=false, dragged=false;
+  function tick(){ if(!paused){ view.scrollLeft+=speed; if(view.scrollLeft>=half)view.scrollLeft-=half; } requestAnimationFrame(tick); }
+  requestAnimationFrame(tick);
+  view.addEventListener('mouseenter',function(){paused=true;});
+  view.addEventListener('mouseleave',function(){paused=false;});
+  view.addEventListener('scroll',function(){ if(view.scrollLeft>=half)view.scrollLeft-=half; });
+  var down=false,sx,sl;
+  view.addEventListener('pointerdown',function(e){down=true;dragged=false;paused=true;sx=e.clientX;sl=view.scrollLeft;view.setPointerCapture(e.pointerId);});
+  view.addEventListener('pointermove',function(e){ if(down){var d=e.clientX-sx; if(Math.abs(d)>4)dragged=true; view.scrollLeft=sl-d;} });
+  view.addEventListener('pointerup',function(){down=false;setTimeout(function(){paused=false;},1000);});
+  track.addEventListener('click',function(e){
+    var b=e.target.closest('.bnr-item'); if(!b||dragged)return;
+    if(b.getAttribute('data-type')==='link'){ location.href=b.getAttribute('data-href'); }
+    else{ openBnr(b); }
+  });
+})();
+function openBnr(b){
+  document.getElementById('bnrImg').src=b.getAttribute('data-img')||'';
+  document.getElementById('bnrTitle').textContent=b.getAttribute('data-title')||'';
+  document.getElementById('bnrText').textContent=b.getAttribute('data-text')||'';
+  var cta=document.getElementById('bnrCta');
+  cta.textContent=b.getAttribute('data-cta')||'ดูเพิ่มเติม'; cta.href=b.getAttribute('data-href')||'#';
+  document.getElementById('bnrModal').classList.add('open');
+}
+function closeBnr(){document.getElementById('bnrModal').classList.remove('open');}
+document.getElementById('bnrModal').addEventListener('click',function(e){if(e.target===this)closeBnr();});
+function setLang(l,btn){
+  btn.parentNode.querySelectorAll('button').forEach(function(b){b.classList.remove('on');});
+  btn.classList.add('on');
+  document.documentElement.lang=l;
+  document.querySelectorAll('[data-'+l+']').forEach(function(e){
+    var t=e.getAttribute('data-'+l);
+    if(e.tagName==='INPUT')e.setAttribute('placeholder',t);
+    else e.textContent=t;
+  });
+}
+
+function toggleMute(btn){
+  var card=btn.closest('.live-card');
+  var vid=card.querySelector('.bgvid');
+  var willUnmute=vid.muted;
+  // มีเสียงได้ทีละไลฟ์: ปิดเสียงทุกไลฟ์ก่อน
+  document.querySelectorAll('.live-card').forEach(function(c){
+    var v=c.querySelector('.bgvid'), b=c.querySelector('.mute-btn');
+    v.muted=true;
+    b.classList.remove('live-on');
+    b.querySelector('.mi').textContent='volume_off';
+  });
+  if(willUnmute){
+    vid.muted=false;
+    vid.play().catch(function(){});
+    btn.classList.add('live-on');
+    btn.querySelector('.mi').textContent='volume_up';
+  }
+}
+</script>
+</body>
+</html>

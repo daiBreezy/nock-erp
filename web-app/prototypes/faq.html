@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>NockAcademy — คำถามที่พบบ่อย (Prototype v1)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet">
+<style>
+/* ===== shared tokens (เหมือน landing/clip) ===== */
+:root{
+  --primary:#ff5a5e; --primary-hover:#e84d51; --on-primary:#fff;
+  --secondary:#121c44;
+  --secondary-container:#ffe7e8; --on-secondary-container:#b3262a;
+  --accent:#121c44;
+  --surface:#ffffff; --surface-1:#fffcfc; --surface-2:#f5eff0;
+  --outline:#efe5e6; --text:#121c44; --text-muted:#5a5f72; --text-faint:#9095a5;
+  --radius-sm:10px; --radius:16px; --radius-lg:22px; --radius-pill:999px;
+  --shadow:0 1px 2px rgba(20,20,40,.04),0 4px 16px rgba(20,20,40,.05);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'IBM Plex Sans Thai',system-ui,sans-serif;background:var(--surface-1);color:var(--text);line-height:1.6;-webkit-font-smoothing:antialiased}
+a{color:inherit;text-decoration:none}
+.mi{font-family:'Material Symbols Outlined';font-weight:normal;font-style:normal;line-height:1;vertical-align:-4px;font-feature-settings:'liga';font-size:18px}
+.mi.s16{font-size:16px;vertical-align:-3px} .mi.s20{font-size:20px;vertical-align:-5px} .mi.s28{font-size:28px}
+.wrap{max-width:1200px;margin:0 auto;padding:0 20px}
+
+/* ===== shared: promo + header ===== */
+.promo{background:var(--secondary-container);color:var(--on-secondary-container);font-size:14px;font-weight:500}
+.promo .wrap{display:flex;align-items:center;justify-content:center;gap:10px;padding:8px 20px}
+.promo a{text-decoration:underline;font-weight:600}
+header{position:sticky;top:0;z-index:50;background:rgba(255,255,255,.85);backdrop-filter:blur(12px);border-bottom:1px solid var(--outline)}
+header .wrap{display:flex;align-items:center;gap:16px;height:68px}
+.logo{display:flex;align-items:center;gap:10px;font-weight:700;font-size:18px;letter-spacing:-.3px}
+.logo .logo-full{height:38px;width:auto;display:block}
+nav.main{display:flex;gap:4px;margin-left:8px}
+nav.main a{padding:8px 12px;border-radius:var(--radius-pill);font-size:15px;color:var(--text-muted);font-weight:500;white-space:nowrap}
+nav.main a:hover{background:var(--surface-2);color:var(--text)}
+nav.main a.active{color:var(--primary);font-weight:600}
+.spacer{flex:1}
+.btn{border:none;cursor:pointer;font:inherit;font-weight:600;border-radius:var(--radius-pill);padding:10px 20px;font-size:14px;transition:.15s;display:inline-flex;align-items:center;gap:6px}
+.btn-filled{background:var(--accent);color:#fff}
+.btn-outline{background:none;border:1px solid var(--outline);color:var(--text)}
+.btn-outline:hover{background:var(--surface-2)}
+.icon-btn{display:none;background:none;border:none;cursor:pointer;color:var(--text)}
+.lang{display:inline-flex;background:var(--surface-2);border-radius:var(--radius-pill);padding:3px;flex-shrink:0}
+.lang button{border:none;background:none;cursor:pointer;font:inherit;font-size:13px;font-weight:700;color:var(--text-muted);padding:5px 12px;border-radius:var(--radius-pill);transition:.12s}
+.lang button.on{background:var(--surface);color:var(--primary);box-shadow:var(--shadow)}
+
+/* ===== FAQ ===== */
+.faq-hero{text-align:center;padding:56px 20px 8px}
+.faq-hero .eyebrow{font-size:13px;font-weight:700;color:var(--primary);letter-spacing:.4px}
+.faq-hero h1{font-size:34px;font-weight:700;letter-spacing:-.6px;margin:10px 0 8px}
+.faq-hero p{font-size:15px;color:var(--text-muted)}
+.faq-wrap{max-width:760px;margin:0 auto;padding:30px 20px 60px}
+.faq-search{display:flex;align-items:center;gap:8px;background:var(--surface);border:1px solid var(--outline);border-radius:var(--radius-pill);padding:11px 18px;margin-bottom:24px;color:var(--text-faint)}
+.faq-search input{border:none;background:none;outline:none;font:inherit;font-size:15px;width:100%;color:var(--text)}
+.faq-item{background:var(--surface);border:1px solid var(--outline);border-radius:var(--radius);margin-bottom:12px;overflow:hidden;transition:.15s}
+.faq-item.open{border-color:var(--primary);box-shadow:var(--shadow)}
+.faq-q{display:flex;align-items:center;gap:14px;width:100%;text-align:left;background:none;border:none;cursor:pointer;font:inherit;font-size:16px;font-weight:600;color:var(--text);padding:18px 20px}
+.faq-q .tog{flex:none;width:26px;height:26px;border-radius:50%;background:var(--secondary-container);color:var(--primary);display:grid;place-items:center;transition:.2s}
+.faq-item.open .faq-q .tog{transform:rotate(45deg)}
+.faq-q .qt{flex:1}
+.faq-a{max-height:0;overflow:hidden;transition:max-height .25s ease}
+.faq-a .inner{padding:0 20px 18px 60px;font-size:14.5px;color:var(--text-muted);line-height:1.7}
+.faq-cta{text-align:center;margin-top:30px;font-size:14px;color:var(--text-muted)}
+.faq-cta a{color:var(--primary);font-weight:600}
+
+/* ===== App showcase (เหมือน landing) ===== */
+.app{background:var(--surface);border-top:1px solid var(--outline);padding:52px 0}
+.app .wrap{display:grid;grid-template-columns:1.1fr 1fr;gap:40px;align-items:center}
+.app .phones{display:flex;justify-content:center;align-items:flex-end}
+.app .ph{background:#1b1b21;border-radius:30px;padding:7px;box-shadow:var(--shadow);flex-shrink:0}
+.app .ph img{display:block;width:170px;height:360px;object-fit:cover;border-radius:24px;background:#000}
+.app .ph.front{z-index:2}
+.app .ph.back{transform:scale(.9);margin-left:-46px;opacity:.96}
+.app .atxt .alogo{position:relative;width:54px;height:54px;border-radius:15px;background:linear-gradient(135deg,var(--primary),var(--secondary));display:grid;place-items:center;color:#fff;font-weight:700;font-size:22px;margin-bottom:16px;overflow:hidden}
+.app .atxt .alogo img{position:absolute;inset:0;width:100%;height:100%;object-fit:contain}
+.app .atxt h2{font-size:26px;font-weight:700;letter-spacing:-.4px}
+.app .atxt p{font-size:15px;color:var(--text-muted);margin:8px 0 22px;max-width:340px}
+.app .dl{background:var(--primary);color:#fff;border:none;cursor:pointer;font:inherit;font-weight:700;font-size:15px;border-radius:var(--radius-pill);padding:14px 28px;display:inline-flex;align-items:center;gap:8px}
+.app .dl:hover{background:var(--primary-hover)}
+
+/* ===== footer (เหมือน landing) ===== */
+footer{background:#15151b;color:#b8b8c4;padding:44px 0 28px;font-size:14px}
+footer .cols{display:grid;grid-template-columns:1.5fr 1fr 1fr 1fr;gap:32px;margin-bottom:30px}
+footer h5{color:#fff;font-size:14px;font-weight:600;margin-bottom:12px}
+footer a{display:block;color:#b8b8c4;padding:4px 0}
+footer a:hover{color:#fff}
+footer .brand .logo{color:#fff;margin-bottom:10px}
+footer .brand .logo .mark{position:relative;width:34px;height:34px;border-radius:10px;background:linear-gradient(135deg,var(--primary),var(--accent));display:grid;place-items:center;color:#fff;font-weight:700;overflow:hidden}
+footer .brand .logo .mark img{position:absolute;inset:0;width:100%;height:100%;object-fit:contain}
+footer .brand p{font-size:13px;max-width:240px}
+footer .store{display:inline-flex;align-items:center;gap:8px;background:#26262f;border-radius:10px;padding:9px 14px;margin-top:8px;color:#fff;font-size:13px;font-weight:600}
+footer .copy{border-top:1px solid #2a2a33;padding-top:18px;font-size:12.5px;color:#7a7a88;text-align:center}
+.proto-note{background:#1b1b21;color:#cfcfe0;font-size:13px;text-align:center;padding:14px 20px}
+.proto-note code{background:rgba(255,255,255,.1);padding:2px 6px;border-radius:5px}
+
+@media(max-width:900px){
+  .app .wrap{grid-template-columns:1fr;gap:30px;text-align:center}
+  .app .phones{order:-1}.app .atxt{display:flex;flex-direction:column;align-items:center}
+  footer .cols{grid-template-columns:1fr 1fr}
+}
+@media(max-width:780px){nav.main{display:none}.icon-btn{display:inline-flex}.faq-hero h1{font-size:27px}}
+@media(max-width:1040px){nav.main,.search{display:none}.icon-btn{display:inline-flex}}
+</style>
+</head>
+<body>
+
+<div class="promo"><div class="wrap"><span class="mi s20">auto_awesome</span><span data-th="สมัครสมาชิกฟรี ดูไลฟ์สอนสดได้ทุกวัน" data-en="Sign up free — watch live classes every day">สมัครสมาชิกฟรี ดูไลฟ์สอนสดได้ทุกวัน</span><a href="#" data-th="สมัครเลย" data-en="Sign up now">สมัครเลย</a></div></div>
+
+<header><div class="wrap">
+  <button class="icon-btn" aria-label="เมนู"><span class="mi s28">menu</span></button>
+  <a class="logo" href="landing-page.html"><img class="logo-full" src="../assets/Full-Icon.png" alt="NockAcademy"></a>
+  <nav class="main">
+    <a href="landing-page.html" data-th="หน้าแรก" data-en="Home">หน้าแรก</a><a href="grade.html" data-th="ชั้นเรียน" data-en="Grades">ชั้นเรียน</a><a href="clip-page.html" data-th="คลิป" data-en="Clips">คลิป</a><a href="courses.html" data-th="คอร์สเรียน" data-en="Courses">คอร์สเรียน</a><a href="articles.html" data-th="บทความ" data-en="Articles">บทความ</a><a href="faq.html" class="active" data-th="คำถามที่พบบ่อย" data-en="FAQ">คำถามที่พบบ่อย</a>
+  </nav>
+  <div class="spacer"></div>
+  <div class="lang"><button class="on" onclick="setLang('th',this)">TH</button><button onclick="setLang('en',this)">EN</button></div>
+  <button class="btn btn-outline" data-th="เข้าสู่ระบบ" data-en="Log in">เข้าสู่ระบบ</button>
+  <button class="btn btn-filled" data-th="สมัครฟรี" data-en="Sign up free">สมัครฟรี</button>
+</div></header>
+
+<div class="faq-hero">
+  <span class="eyebrow" data-th="ศูนย์ช่วยเหลือ" data-en="Help center">ศูนย์ช่วยเหลือ</span>
+  <h1 data-th="คำถามที่พบบ่อย" data-en="Frequently asked questions">คำถามที่พบบ่อย</h1>
+  <p data-th="รวมคำตอบของคำถามที่ผู้ปกครองและนักเรียนถามบ่อยที่สุด" data-en="Answers to the questions parents and students ask most">รวมคำตอบของคำถามที่ผู้ปกครองและนักเรียนถามบ่อยที่สุด</p>
+</div>
+
+<div class="faq-wrap">
+  <div class="faq-search"><span class="mi s20">search</span><input placeholder="ค้นหาคำถาม..." data-th="ค้นหาคำถาม..." data-en="Search questions..."></div>
+
+  <div class="faq-item open">
+    <button class="faq-q" onclick="toggleFaq(this)"><span class="tog"><span class="mi s20">add</span></span><span class="qt">ฉันจะลงทะเบียนใช้งานได้อย่างไร?</span></button>
+    <div class="faq-a"><div class="inner">คุณสามารถลงทะเบียนการใช้งานได้ 2 วิธี คือผ่านทาง SMS หรือทางบัญชีเฟซบุ๊กบนเว็บไซต์นี้หรือบนแอปพลิเคชัน ในกรณีที่เลือกทาง SMS บางครั้งอาจต้องรอเวลาในการรับรหัสผ่านเล็กน้อย ขึ้นอยู่กับผู้ให้บริการของพื้นที่นั้นๆ</div></div>
+  </div>
+
+  <div class="faq-item">
+    <button class="faq-q" onclick="toggleFaq(this)"><span class="tog"><span class="mi s20">add</span></span><span class="qt">อะไรคือความแตกต่างระหว่างโรงเรียนกวดวิชาออนไลน์ที่อื่นๆ?</span></button>
+    <div class="faq-a"><div class="inner">NockAcademy เน้นคลิปบทเรียนสั้น กระชับ เข้าใจง่าย ครบ 4 วิชาหลักทุกระดับชั้น พร้อมแบบฝึกหัด ระบบการสอบ และไลฟ์สอนสด เรียนซ้ำได้ไม่จำกัด ติดตามพัฒนาการได้จริง</div></div>
+  </div>
+
+  <div class="faq-item">
+    <button class="faq-q" onclick="toggleFaq(this)"><span class="tog"><span class="mi s20">add</span></span><span class="qt">ดาวน์โหลดแอปพลิเคชัน NockAcademy ได้อย่างไร?</span></button>
+    <div class="faq-a"><div class="inner">ดาวน์โหลดได้ฟรีทั้งระบบ iOS (App Store) และ Android (Google Play) ค้นหาคำว่า "NockAcademy" แล้วเข้าสู่ระบบด้วยบัญชีเดียวกับเว็บไซต์ได้ทันที</div></div>
+  </div>
+
+  <div class="faq-item">
+    <button class="faq-q" onclick="toggleFaq(this)"><span class="tog"><span class="mi s20">add</span></span><span class="qt">ถ้าหากฉันชำระเงิน ฉันจะสามารถทำอะไรได้บ้าง?</span></button>
+    <div class="faq-a"><div class="inner">เมื่อสมัครแพ็กเกจ คุณจะปลดล็อกคลิปบทเรียนทั้งหมดทุกวิชา ทำแบบฝึกหัดและการสอบได้ไม่จำกัด ดูไลฟ์ย้อนหลัง และใช้งานได้ทุกอุปกรณ์ (สำหรับ Premium+ จะรวมไลฟ์สอนสดทุกวันด้วย)</div></div>
+  </div>
+
+  <div class="faq-item">
+    <button class="faq-q" onclick="toggleFaq(this)"><span class="tog"><span class="mi s20">add</span></span><span class="qt">ชำระค่าเรียนได้อย่างไร?</span></button>
+    <div class="faq-a"><div class="inner">รองรับการชำระผ่านบัตรเครดิต/เดบิต โอนผ่านธนาคาร และช่องทางออนไลน์อื่นๆ เมื่อชำระสำเร็จ ระบบจะเปิดสิทธิ์การเรียนให้ทันที</div></div>
+  </div>
+
+  <div class="faq-item">
+    <button class="faq-q" onclick="toggleFaq(this)"><span class="tog"><span class="mi s20">add</span></span><span class="qt">ฉันสามารถขอคืนเงินได้หรือไม่ ถ้าฉันไม่พอใจกับผลิตภัณฑ์นี้?</span></button>
+    <div class="faq-a"><div class="inner">สามารถดูเงื่อนไขการคืนเงินได้ที่หน้านโยบายการคืนเงิน (Refund Policy) ของเรา หรือสอบถามทีมงานเพิ่มเติมได้ทุกช่องทาง</div></div>
+  </div>
+
+  <div class="faq-item">
+    <button class="faq-q" onclick="toggleFaq(this)"><span class="tog"><span class="mi s20">add</span></span><span class="qt">ฉันจะยกเลิกการแจ้งเตือนทางอีเมลได้อย่างไร?</span></button>
+    <div class="faq-a"><div class="inner">เข้าไปที่ตั้งค่าบัญชี > การแจ้งเตือน แล้วปิดการแจ้งเตือนทางอีเมล หรือกดลิงก์ "ยกเลิกการรับอีเมล" ที่ด้านล่างของอีเมลที่ได้รับ</div></div>
+  </div>
+
+  <div class="faq-cta" data-th="ยังไม่เจอคำตอบที่ต้องการ?" data-en="Didn't find your answer?">ยังไม่เจอคำตอบที่ต้องการ? <a href="#">ติดต่อทีมงาน</a></div>
+</div>
+
+<!-- ===== App showcase ===== -->
+<section class="app"><div class="wrap">
+  <div class="phones">
+    <div class="ph front"><img src="https://picsum.photos/seed/nock-app1/340/720" alt="หน้าจอแอป NockAcademy"></div>
+    <div class="ph back"><img src="https://picsum.photos/seed/nock-app2/340/720" alt="หน้าจอแอป NockAcademy"></div>
+  </div>
+  <div class="atxt">
+    <div class="alogo">N<img src="../assets/Logo-Icon.png" alt="NockAcademy" onerror="this.remove()"></div>
+    <h2>NockAcademy</h2>
+    <p data-th="ยังมีฟีเจอร์อีกมากมายในแอปของเรา เรียน ทำแบบฝึกหัด และติดตามผลได้ทุกที่" data-en="Even more features in our app">ยังมีฟีเจอร์อีกมากมายในแอปของเรา เรียน ทำแบบฝึกหัด และติดตามผลได้ทุกที่</p>
+    <button class="dl"><span class="mi s20">download</span> <span data-th="ดาวน์โหลดฟรี" data-en="Download for free!">ดาวน์โหลดฟรี</span></button>
+  </div>
+</div></section>
+
+<!-- ===== FOOTER ===== -->
+<footer><div class="wrap">
+  <div class="cols">
+    <div class="brand">
+      <div class="logo"><span class="mark">N<img src="../assets/Logo-Icon.png" alt="NockAcademy" onerror="this.remove()"></span> NockAcademy</div>
+      <p data-th="แพลตฟอร์มเรียนพิเศษออนไลน์ สำหรับนักเรียน ป.4 – ม.6" data-en="Online learning platform for grade 4–12 students">แพลตฟอร์มเรียนพิเศษออนไลน์ สำหรับนักเรียน ป.4 – ม.6</p>
+      <div class="store"><span class="mi s20">download</span> ดาวน์โหลดแอป</div>
+    </div>
+    <div><h5>เกี่ยวกับ</h5><a href="#">เกี่ยวกับเรา</a><a href="#">ติดต่อเรา</a><a href="#">ร่วมงานกับเรา</a></div>
+    <div><h5>บริการ</h5><a href="clip-page.html">คลิปเรียน</a><a href="courses.html">คอร์สเรียน</a><a href="courses.html#pkg">แพ็กเกจ</a></div>
+    <div><h5>นโยบาย</h5><a href="#">เงื่อนไขการใช้งาน</a><a href="#">นโยบายความเป็นส่วนตัว</a><a href="faq.html">คำถามที่พบบ่อย</a></div>
+  </div>
+  <div class="copy">© 2026 NockAcademy. All rights reserved.</div>
+</div></footer>
+
+<div class="proto-note">Prototype v1 — FAQ · ใช้ design system + component ร่วมกับ <code>landing-page.html</code></div>
+
+<script>
+function toggleFaq(btn){
+  var item=btn.closest('.faq-item');
+  var open=item.classList.contains('open');
+  document.querySelectorAll('.faq-item').forEach(function(i){
+    i.classList.remove('open');
+    i.querySelector('.faq-a').style.maxHeight=null;
+  });
+  if(!open){
+    item.classList.add('open');
+    var a=item.querySelector('.faq-a');
+    a.style.maxHeight=a.scrollHeight+'px';
+  }
+}
+/* เปิดข้อแรกตอนโหลด */
+window.addEventListener('load',function(){
+  var first=document.querySelector('.faq-item.open .faq-a');
+  if(first)first.style.maxHeight=first.scrollHeight+'px';
+});
+function setLang(l,btn){
+  btn.parentNode.querySelectorAll('button').forEach(function(b){b.classList.remove('on');});
+  btn.classList.add('on');
+  document.documentElement.lang=l;
+  document.querySelectorAll('[data-'+l+']').forEach(function(e){
+    var t=e.getAttribute('data-'+l);
+    if(e.tagName==='INPUT')e.setAttribute('placeholder',t);
+    else if(/[<&]/.test(t))e.innerHTML=t;
+    else e.textContent=t;
+  });
+}
+</script>
+<script>
+/* ===== เชื่อม Learn app ใหม่ แทนหน้า Clip (Learn เก่า) — แก้ APP ตอน deploy (dev=localhost:5199) ===== */
+(function(){
+  var APP='http://localhost:5199/#';
+  var subj=['math','english','thai','science'];
+  document.querySelectorAll('a[href="clip-page.html"]').forEach(function(a){ a.href=APP+'/'; });
+  document.querySelectorAll('[data-href="clip-page.html"]').forEach(function(b){ b.setAttribute('data-href',APP+'/'); });
+  document.querySelectorAll('.vc-cat').forEach(function(d,i){ d.setAttribute('onclick',"location.href='"+APP+'/learn/'+(subj[i]||'math')+"'"); });
+  var btn={ 'เข้าสู่ระบบ':APP+'/auth','สมัครฟรี':APP+'/auth','เริ่มเรียนฟรี':APP+'/auth','ดูตัวอย่างคลิป':APP+'/' };
+  document.querySelectorAll('button[data-th]').forEach(function(b){ var u=btn[b.getAttribute('data-th')]; if(u) b.addEventListener('click',function(){ location.href=u; }); });
+})();
+</script>
+</body>
+</html>

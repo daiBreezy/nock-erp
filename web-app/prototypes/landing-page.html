@@ -1,0 +1,710 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>NockAcademy — Landing Page (Prototype v1)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet">
+<style>
+/* ===== shared tokens (เหมือน clip-page.html) ===== */
+:root{
+  --primary:#ff5a5e; --primary-hover:#e84d51; --on-primary:#fff;
+  --secondary:#121c44;
+  --secondary-container:#ffe7e8; --on-secondary-container:#b3262a;
+  --accent:#121c44;
+  --surface:#ffffff; --surface-1:#fffcfc; --surface-2:#f5eff0;
+  --outline:#efe5e6; --text:#121c44; --text-muted:#5a5f72; --text-faint:#9095a5;
+  --subj-math-bg:#fde7ee; --subj-math-fg:#b03060;
+  --subj-sci-bg:#d8f5ec;  --subj-sci-fg:#0f6e56;
+  --subj-eng-bg:#e8e6fb;  --subj-eng-fg:#4b3fb0;
+  --subj-thai-bg:#fbe9f1; --subj-thai-fg:#993556;
+  --live:#e23b3b; --lesson:#3538cd;
+  --radius-sm:10px; --radius:16px; --radius-lg:22px; --radius-pill:999px;
+  --shadow:0 1px 2px rgba(20,20,40,.04),0 4px 16px rgba(20,20,40,.05);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'IBM Plex Sans Thai',system-ui,sans-serif;background:var(--surface-1);color:var(--text);line-height:1.6;-webkit-font-smoothing:antialiased}
+a{color:inherit;text-decoration:none}
+.mi{font-family:'Material Symbols Outlined';font-weight:normal;font-style:normal;line-height:1;vertical-align:-4px;font-feature-settings:'liga';-webkit-font-feature-settings:'liga';font-size:18px}
+.mi.s16{font-size:16px;vertical-align:-3px} .mi.s20{font-size:20px;vertical-align:-5px} .mi.s28{font-size:28px}
+.wrap{max-width:1200px;margin:0 auto;padding:0 20px}
+
+/* ===== shared: promo + header + lang toggle (เหมือน clip-page.html) ===== */
+.promo{background:var(--secondary-container);color:var(--on-secondary-container);font-size:14px;font-weight:500}
+.promo .wrap{display:flex;align-items:center;justify-content:center;gap:10px;padding:8px 20px}
+.promo a{text-decoration:underline;font-weight:600}
+header{position:sticky;top:0;z-index:50;background:rgba(255,255,255,.85);backdrop-filter:blur(12px);border-bottom:1px solid var(--outline)}
+header .wrap{display:flex;align-items:center;gap:16px;height:68px}
+.logo{display:flex;align-items:center;gap:10px;font-weight:700;font-size:18px;letter-spacing:-.3px}
+.logo .mark{position:relative;width:34px;height:34px;border-radius:10px;background:linear-gradient(135deg,var(--primary),var(--accent));display:grid;place-items:center;color:#fff;font-weight:700;overflow:hidden}
+.logo .mark img{position:absolute;inset:0;width:100%;height:100%;object-fit:contain}
+.logo .logo-full{height:38px;width:auto;display:block}
+nav.main{display:flex;gap:4px;margin-left:8px}
+nav.main a{padding:8px 12px;border-radius:var(--radius-pill);font-size:15px;color:var(--text-muted);font-weight:500;white-space:nowrap}
+nav.main a:hover{background:var(--surface-2);color:var(--text)}
+nav.main a.active{color:var(--primary);font-weight:600}
+.spacer{flex:1}
+.btn{border:none;cursor:pointer;font:inherit;font-weight:600;border-radius:var(--radius-pill);padding:10px 20px;font-size:14px;transition:.15s;display:inline-flex;align-items:center;gap:6px}
+.btn-filled{background:var(--accent);color:#fff}
+.btn-filled:hover{filter:brightness(.95)}
+.btn-outline{background:none;border:1px solid var(--outline);color:var(--text)}
+.btn-outline:hover{background:var(--surface-2)}
+.icon-btn{display:none;background:none;border:none;cursor:pointer;color:var(--text)}
+.lang{display:inline-flex;background:var(--surface-2);border-radius:var(--radius-pill);padding:3px;flex-shrink:0}
+.lang button{border:none;background:none;cursor:pointer;font:inherit;font-size:13px;font-weight:700;color:var(--text-muted);padding:5px 12px;border-radius:var(--radius-pill);transition:.12s}
+.lang button.on{background:var(--surface);color:var(--primary);box-shadow:var(--shadow)}
+
+/* ===== System announcement bar (48px, ปิดได้) — สีแดงส้มอ่อน มาตรฐานเดียวกับ App ===== */
+.sysbar{height:48px;background:var(--secondary-container);color:var(--on-secondary-container);display:flex;align-items:center}
+.sysbar.hide{display:none}
+.sysbar .wrap{display:flex;align-items:center;gap:12px;width:100%}
+.sysbar .ic{flex:none;width:32px;height:32px;border-radius:50%;background:rgba(179,38,42,.10);display:grid;place-items:center;color:var(--on-secondary-container)}
+.sysbar .msg{flex:1;font-size:14px;line-height:1.4}
+.sysbar .msg b{font-weight:700}
+.sysbar .msg a{text-decoration:underline;font-weight:600;white-space:nowrap;color:var(--on-secondary-container)}
+.sysbar .x{flex:none;background:none;border:none;cursor:pointer;color:var(--on-secondary-container);width:34px;height:34px;border-radius:50%;display:grid;place-items:center}
+.sysbar .x:hover{background:rgba(179,38,42,.12)}
+
+/* ===== Banner marquee (รูป wide 16:9 ไม่มีพื้น/ขอบ) ===== */
+.bnr{background:transparent;padding:12px 0}
+.bnr-view{overflow-x:auto;scrollbar-width:none;-ms-overflow-style:none;cursor:grab}
+.bnr-view::-webkit-scrollbar{display:none}
+.bnr-track{display:flex;gap:14px;width:max-content;padding:0 20px}
+.bnr-item{padding:0;border:none;background:none;border-radius:var(--radius);overflow:hidden;cursor:pointer;flex:none;transition:.18s;position:relative;line-height:0}
+.bnr-item:hover{transform:translateY(-3px);box-shadow:var(--shadow)}
+.bnr-item img{display:block;height:118px;width:auto;aspect-ratio:16/9;object-fit:cover}
+.bnr-item .pin{position:absolute;top:8px;left:8px;font-size:10.5px;font-weight:700;background:var(--primary);color:#fff;padding:3px 9px;border-radius:var(--radius-pill);line-height:1.2}
+
+/* ===== Popup modal ===== */
+.modal-ov{position:fixed;inset:0;background:rgba(18,28,68,.5);backdrop-filter:blur(3px);display:none;align-items:center;justify-content:center;z-index:100;padding:20px}
+.modal-ov.open{display:flex}
+.modal{background:#fff;border-radius:var(--radius-lg);max-width:440px;width:100%;overflow:hidden;box-shadow:0 24px 60px rgba(0,0,0,.25);position:relative}
+.modal .mclose{position:absolute;top:12px;right:12px;width:34px;height:34px;border-radius:50%;border:none;background:rgba(255,255,255,.9);cursor:pointer;display:grid;place-items:center;color:var(--secondary);z-index:2}
+.modal .mimg{width:100%;height:190px;object-fit:cover;background:var(--secondary-container);display:block}
+.modal .mbody{padding:24px}
+.modal .mbody h3{font-size:20px;font-weight:700;letter-spacing:-.3px;margin-bottom:8px}
+.modal .mbody p{font-size:14px;color:var(--text-muted);line-height:1.7;margin-bottom:18px}
+.modal .mbody .btn-filled{background:var(--primary)}
+
+/* ===== sections (เหมือน clip-page.html) ===== */
+section{padding:46px 0}
+.sec-head{display:flex;align-items:flex-end;justify-content:space-between;margin-bottom:24px;gap:16px;flex-wrap:wrap}
+.sec-head.center{justify-content:center;text-align:center;flex-direction:column;align-items:center;gap:6px}
+.sec-head h2{font-size:25px;font-weight:700;letter-spacing:-.4px;display:flex;align-items:center;gap:10px}
+.sec-head p{font-size:14px;color:var(--text-muted)}
+.eyebrow{font-size:13px;font-weight:700;color:var(--primary);letter-spacing:.4px}
+.subj-pill{font-size:12px;font-weight:600;padding:3px 10px;border-radius:var(--radius-pill)}
+
+/* ===== HERO (block 2+3 รวมกัน) ===== */
+.hero{background:var(--surface);border-bottom:1px solid var(--outline)}
+.hero .wrap{display:grid;grid-template-columns:1fr 1fr;gap:48px;align-items:center;padding:0 20px 56px}
+.hero .htxt .badge{display:inline-flex;align-items:center;gap:6px;font-size:13px;font-weight:600;color:var(--on-secondary-container);background:var(--secondary-container);padding:6px 14px;border-radius:var(--radius-pill)}
+.hero h1{font-size:42px;line-height:1.18;font-weight:700;letter-spacing:-.8px;margin:18px 0 16px}
+.hero h1 .hl{color:var(--primary)}
+.hero .lead{font-size:16px;color:var(--text-muted);max-width:460px}
+.hero .cta-row{display:flex;gap:12px;margin-top:28px;flex-wrap:wrap}
+.hero .btn-primary{background:var(--primary);color:#fff;font-size:15px;padding:13px 26px}
+.hero .btn-primary:hover{background:var(--primary-hover)}
+.hero .btn-ghost{font-size:15px;padding:13px 24px}
+.hero .anywhere{margin-top:26px;display:flex;align-items:center;gap:10px;font-size:13px;color:var(--text-faint)}
+.hero .anywhere .devs{display:inline-flex;gap:8px;color:var(--text-muted)}
+
+/* device cluster — เล็กๆ พอเห็นว่าดูได้ทุกอุปกรณ์ */
+.devstage{position:relative;display:flex;align-items:center;justify-content:center;min-height:280px}
+.heroimg{width:100%;max-width:560px;display:block}
+.devstage.noimg{border:2px dashed var(--outline);border-radius:var(--radius-lg);color:var(--text-faint);font-size:14px}
+.devstage.noimg:after{content:attr(data-ph)}
+.dev{background:#1b1b21;border-radius:18px;padding:7px;box-shadow:var(--shadow);position:relative}
+.dev video{display:block;object-fit:cover;background:#000}
+.dev.desktop{border-radius:14px;padding:8px 8px 14px;z-index:1}
+.dev.desktop video{width:380px;height:214px;border-radius:6px}
+.dev.desktop:after{content:"";position:absolute;left:50%;bottom:5px;transform:translateX(-50%);width:60px;height:4px;border-radius:2px;background:#3a3a45}
+.dev.tablet{width:150px;border-radius:14px;margin-left:-46px;margin-bottom:14px;z-index:2}
+.dev.tablet video{width:100%;height:184px;border-radius:7px}
+.dev.phone{width:84px;border-radius:16px;margin-left:-40px;margin-bottom:8px;z-index:3}
+.dev.phone video{width:100%;height:150px;border-radius:9px}
+
+/* ===== STATS (count-up) ===== */
+.stats{background:var(--surface)}
+.stat-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:18px;text-align:center}
+.stat .num{font-size:38px;font-weight:700;letter-spacing:-1px;color:var(--primary);line-height:1.1}
+.stat .lbl{font-size:14px;color:var(--text-muted);margin-top:4px}
+
+/* ===== TESTIMONIAL (3-column vertical scroll wall) ===== */
+.tst-cols{display:flex;justify-content:center;gap:8px;max-height:640px;overflow:hidden;
+  -webkit-mask-image:linear-gradient(to bottom,transparent,#000 12%,#000 88%,transparent);
+  mask-image:linear-gradient(to bottom,transparent,#000 12%,#000 88%,transparent)}
+.tst-col{flex:0 0 auto;width:320px}
+.tst-col ul{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px;animation:tstScroll linear infinite}
+.tst-col.c1 ul{animation-duration:34s} .tst-col.c2 ul{animation-duration:42s} .tst-col.c3 ul{animation-duration:38s}
+.tst-cols:hover ul{animation-play-state:paused}
+@keyframes tstScroll{from{transform:translateY(0)}to{transform:translateY(-50%)}}
+.tcard{background:var(--surface);border:1px solid var(--outline);border-radius:var(--radius-lg);padding:26px;display:flex;flex-direction:column;gap:14px;box-shadow:var(--shadow);transition:transform .25s,box-shadow .25s}
+.tcard:hover{transform:translateY(-4px);box-shadow:0 18px 36px rgba(20,20,40,.1)}
+.tcard p{font-size:14.5px;color:var(--text-muted);line-height:1.7;margin:0}
+.tcard .who{display:flex;align-items:center;gap:11px}
+.tcard .av{width:42px;height:42px;border-radius:50%;display:grid;place-items:center;color:#fff;font-weight:700;font-size:15px;flex-shrink:0}
+.tcard .who .nm{font-size:14px;font-weight:600} .tcard .who .rl{font-size:12.5px;color:var(--text-faint)}
+@media(max-width:980px){.tst-col.c3{display:none}}
+@media(max-width:660px){.tst-col.c2{display:none}}
+
+/* ===== CLIP CARDS (เหมือน clip-page.html .vcard) ===== */
+.row-scroll{display:flex;gap:18px;overflow-x:auto;padding-bottom:6px;scrollbar-width:thin}
+.vcard{background:var(--surface);border:1px solid var(--outline);border-radius:var(--radius);overflow:hidden;cursor:pointer;transition:.18s;display:flex;flex-direction:column;min-width:230px;max-width:230px}
+.vcard:hover{transform:translateY(-3px);box-shadow:var(--shadow)}
+.vcard.lesson{border-top:3px solid var(--lesson)}
+.thumb{aspect-ratio:16/9;position:relative;display:grid;place-items:center;font-size:30px}
+.thumb.math{background:var(--subj-math-bg);color:var(--subj-math-fg)}
+.thumb.sci{background:var(--subj-sci-bg);color:var(--subj-sci-fg)}
+.thumb.eng{background:var(--subj-eng-bg);color:var(--subj-eng-fg)}
+.thumb.thai{background:var(--subj-thai-bg);color:var(--subj-thai-fg)}
+.thumb .tn{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;z-index:0}
+.thumb .free,.thumb .dur{z-index:2}
+.thumb .dur{position:absolute;right:8px;bottom:8px;background:rgba(27,27,33,.82);color:#fff;font-size:11px;font-weight:600;padding:3px 8px;border-radius:6px}
+.thumb .free{position:absolute;left:8px;bottom:8px;background:#d8f5ec;color:#0f6e56;font-size:11px;font-weight:700;padding:3px 9px;border-radius:var(--radius-pill)}
+.vtype.lesson{position:absolute;top:8px;left:8px;z-index:2;background:var(--lesson);color:#fff;font-size:10.5px;font-weight:700;padding:3px 9px;border-radius:var(--radius-pill)}
+.vcard .body{padding:13px 15px 15px;display:flex;flex-direction:column;gap:6px;flex:1}
+.vcard h4{font-size:14.5px;font-weight:600;line-height:1.4}
+.vcard .when{font-size:12px;color:var(--text-faint);display:flex;align-items:center;gap:5px}
+.grade-tabs{display:inline-flex;background:var(--surface-2);border-radius:var(--radius-pill);padding:3px;margin-bottom:18px}
+.grade-tabs button{border:none;background:none;font:inherit;font-size:13px;font-weight:600;color:var(--text-muted);padding:6px 16px;border-radius:var(--radius-pill);cursor:pointer}
+.grade-tabs button.on{background:var(--surface);color:var(--text);box-shadow:var(--shadow)}
+
+/* ===== PACKAGES (การ์ดเหมือน clip-page .price, สีไม่แย่งกัน) ===== */
+.pkg{background:var(--surface)}
+.learners{display:flex;align-items:center;justify-content:center;gap:16px;background:var(--secondary-container);border-radius:var(--radius-lg);padding:18px 26px;max-width:560px;margin:0 auto 28px;flex-wrap:wrap}
+.learners .avs{display:flex}
+.learners .av{width:38px;height:38px;border-radius:50%;display:grid;place-items:center;color:#fff;font-weight:700;font-size:14px;border:2px solid var(--secondary-container);margin-left:-10px}
+.learners .av:first-child{margin-left:0}
+.learners .av.more{background:var(--primary)}
+.learners .ltxt{display:flex;flex-direction:column;line-height:1.2}
+.learners .lnum{font-size:28px;font-weight:700;color:var(--primary);letter-spacing:-.5px}
+.learners .llbl{font-size:13.5px;color:var(--on-secondary-container);font-weight:600}
+/* Premium+ special section */
+.pkg-plus{position:relative;overflow:hidden;background:linear-gradient(120deg,#121c44,#1f2c5e 55%,#33305f);border:1px solid rgba(255,255,255,.08);border-radius:var(--radius-lg);padding:32px 36px;color:#fff;display:flex;align-items:center;gap:28px;flex-wrap:wrap;margin-bottom:28px}
+.pkg-plus .pp-icon{width:60px;height:60px;border-radius:18px;background:rgba(255,255,255,.16);display:grid;place-items:center;flex-shrink:0}
+.pkg-plus .pp-body{flex:1;min-width:260px}
+.pkg-plus .ntag{font-size:11px;font-weight:700;background:rgba(255,255,255,.2);padding:3px 10px;border-radius:var(--radius-pill);letter-spacing:.3px}
+.pkg-plus h3{font-size:23px;font-weight:700;margin:8px 0 6px;letter-spacing:-.4px}
+.pkg-plus .feats{display:flex;flex-wrap:wrap;gap:6px 16px;font-size:13.5px;opacity:.95}
+.pkg-plus .feats span{display:inline-flex;align-items:center;gap:5px}
+.pkg-plus .pp-buy{text-align:center;flex-shrink:0}
+.pkg-plus .pp-buy .amt{font-size:30px;font-weight:700;letter-spacing:-.5px}
+.pkg-plus .pp-buy .per{font-size:12px;opacity:.85;margin-bottom:12px}
+.pkg-plus .gcta{background:#fff;color:var(--primary);border:none;cursor:pointer;font:inherit;font-weight:700;font-size:15px;border-radius:var(--radius-pill);padding:12px 26px}
+/* Premium grid */
+.pkg-sub-title{font-size:15px;font-weight:600;color:var(--text-muted);margin-bottom:14px;text-align:center}
+.price-main{display:grid;grid-template-columns:repeat(3,1fr);gap:18px;max-width:920px;margin:0 auto}
+.price{background:var(--surface-1);border:1px solid var(--outline);border-radius:var(--radius-lg);padding:24px;text-align:center;position:relative}
+.price.best{border:1.5px solid var(--primary)}
+.price .ribbon{position:absolute;top:-12px;left:50%;transform:translateX(-50%);background:var(--primary);color:#fff;font-size:12px;font-weight:700;padding:4px 14px;border-radius:var(--radius-pill)}
+.price .term{font-size:15px;color:var(--text-muted);font-weight:600}
+.price .amt{font-size:31px;font-weight:700;margin:6px 0 2px;letter-spacing:-.5px}
+.price .per{font-size:13px;color:var(--text-faint)}
+.price .feat{font-size:12.5px;color:var(--text-muted);margin:12px 0 0;border-top:1px solid var(--outline);padding-top:12px}
+.price .btn{width:100%;margin-top:16px;justify-content:center}
+.price .btn-soft{background:var(--secondary-container);color:var(--on-secondary-container)}
+.price .btn-soft:hover{filter:brightness(.97)}
+.price-sub{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;max-width:920px;margin:16px auto 0}
+.price-sm{background:var(--surface-1);border:1px solid var(--outline);border-radius:var(--radius);padding:14px 16px;display:flex;align-items:center;justify-content:space-between;cursor:pointer}
+.price-sm:hover{background:var(--surface-2)}
+.price-sm .term{font-size:14px;font-weight:600;color:var(--text)}
+.price-sm .amt{font-size:16px;font-weight:700}
+.price-sm .per{font-size:11px;color:var(--text-faint)}
+
+/* ===== FEATURES (compact, ประหยัดพื้นที่) ===== */
+.feat-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
+.fcard{background:var(--surface);border:1px solid var(--outline);border-radius:var(--radius);padding:20px;display:flex;gap:14px;align-items:flex-start}
+.fcard .fi{width:44px;height:44px;border-radius:13px;background:var(--secondary-container);color:var(--primary);display:grid;place-items:center;flex-shrink:0}
+.fcard h4{font-size:15px;font-weight:600;margin-bottom:2px}
+.fcard p{font-size:13px;color:var(--text-muted)}
+
+/* ===== SUBJECTS (เหมือน clip-page .vc-cat) ===== */
+.vc-cats{display:grid;grid-template-columns:repeat(4,1fr);gap:16px}
+.vc-cat{border-radius:var(--radius);padding:22px 18px;cursor:pointer;transition:.18s;display:flex;flex-direction:column;gap:10px}
+.vc-cat:hover{transform:translateY(-3px);box-shadow:var(--shadow)}
+.vc-cat .ic{width:48px;height:48px;border-radius:14px;display:grid;place-items:center;background:#fff}
+.vc-cat.math{background:var(--subj-math-bg)} .vc-cat.math .ic,.vc-cat.math h4{color:var(--subj-math-fg)}
+.vc-cat.eng{background:var(--subj-eng-bg)} .vc-cat.eng .ic,.vc-cat.eng h4{color:var(--subj-eng-fg)}
+.vc-cat.thai{background:var(--subj-thai-bg)} .vc-cat.thai .ic,.vc-cat.thai h4{color:var(--subj-thai-fg)}
+.vc-cat.sci{background:var(--subj-sci-bg)} .vc-cat.sci .ic,.vc-cat.sci h4{color:var(--subj-sci-fg)}
+.vc-cat h4{font-size:16px;font-weight:700}
+.vc-cat .n{font-size:12.5px;color:var(--text-muted)}
+
+/* ===== สถาบันสำหรับคนญี่ปุ่น ===== */
+.campus-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:18px;max-width:820px;margin:0 auto}
+.campus{background:var(--surface);border:1px solid var(--outline);border-radius:var(--radius-lg);padding:22px 24px;display:flex;gap:16px;align-items:flex-start}
+.campus .ci{width:52px;height:52px;border-radius:15px;background:var(--secondary-container);color:var(--primary);display:grid;place-items:center;flex-shrink:0}
+.campus h4{font-size:17px;font-weight:700}
+.campus .addr{font-size:13px;color:var(--text-muted);margin-top:3px}
+.campus .clink{font-size:13px;font-weight:600;color:var(--primary);margin-top:10px;display:inline-flex;align-items:center;gap:4px}
+
+/* ===== App showcase (2 จอมือถือ) ===== */
+.app{background:var(--surface);border-top:1px solid var(--outline)}
+.app .wrap{display:grid;grid-template-columns:1.1fr 1fr;gap:40px;align-items:center}
+.app .phones{display:flex;justify-content:center;align-items:flex-end;gap:0}
+.app .ph{background:#1b1b21;border-radius:30px;padding:7px;box-shadow:var(--shadow);flex-shrink:0}
+.app .ph img{display:block;width:170px;height:360px;object-fit:cover;border-radius:24px;background:#000}
+.app .ph.front{z-index:2}
+.app .ph.back{transform:scale(.9);margin-left:-46px;opacity:.96}
+.app .atxt .alogo{position:relative;width:54px;height:54px;border-radius:15px;background:linear-gradient(135deg,var(--primary),var(--secondary));display:grid;place-items:center;color:#fff;font-weight:700;font-size:22px;margin-bottom:16px;overflow:hidden}
+.app .atxt .alogo img{position:absolute;inset:0;width:100%;height:100%;object-fit:contain}
+.app .atxt h2{font-size:26px;font-weight:700;letter-spacing:-.4px}
+.app .atxt p{font-size:15px;color:var(--text-muted);margin:8px 0 22px;max-width:340px}
+.app .dl{background:var(--primary);color:#fff;border:none;cursor:pointer;font:inherit;font-weight:700;font-size:15px;border-radius:var(--radius-pill);padding:14px 28px;display:inline-flex;align-items:center;gap:8px}
+.app .dl:hover{background:var(--primary-hover)}
+
+/* ===== CTA band + footer ===== */
+.cta-band{background:linear-gradient(120deg,var(--secondary),#2a3568);border-radius:var(--radius-lg);padding:44px;text-align:center;color:#fff}
+.cta-band h2{font-size:27px;font-weight:700;letter-spacing:-.5px}
+.cta-band p{font-size:15px;opacity:.9;margin:8px 0 22px}
+.cta-band .btn-white{background:#fff;color:var(--primary);font-size:15px;padding:14px 30px}
+footer{background:#15151b;color:#b8b8c4;padding:44px 0 28px;font-size:14px}
+footer .cols{display:grid;grid-template-columns:1.5fr 1fr 1fr 1fr;gap:32px;margin-bottom:30px}
+footer h5{color:#fff;font-size:14px;font-weight:600;margin-bottom:12px}
+footer a{display:block;color:#b8b8c4;padding:4px 0}
+footer a:hover{color:#fff}
+footer .brand .logo{color:#fff;margin-bottom:10px}
+footer .brand p{font-size:13px;max-width:240px}
+footer .store{display:inline-flex;align-items:center;gap:8px;background:#26262f;border-radius:10px;padding:9px 14px;margin-top:8px;color:#fff;font-size:13px;font-weight:600}
+footer .copy{border-top:1px solid #2a2a33;padding-top:18px;font-size:12.5px;color:#7a7a88;text-align:center}
+.proto-note{background:#1b1b21;color:#cfcfe0;font-size:13px;text-align:center;padding:14px 20px}
+.proto-note code{background:rgba(255,255,255,.1);padding:2px 6px;border-radius:5px}
+
+/* ===== responsive ===== */
+@media(max-width:900px){
+  .hero .wrap{grid-template-columns:1fr;gap:36px;padding:40px 20px}
+  .hero h1{font-size:34px}
+  .devstage{order:-1;min-height:240px}
+  .dev.desktop video{width:300px;height:169px}
+  .stat-grid{grid-template-columns:repeat(2,1fr);gap:28px 18px}
+  .price-main,.price-sub{grid-template-columns:1fr;max-width:440px}
+  .feat-grid{grid-template-columns:repeat(2,1fr)}
+  .vc-cats{grid-template-columns:repeat(2,1fr)}
+  .campus-grid{grid-template-columns:1fr;max-width:440px}
+  .app .wrap{grid-template-columns:1fr;gap:30px;text-align:center}
+  .app .phones{order:-1}
+  .app .atxt{display:flex;flex-direction:column;align-items:center}
+  footer .cols{grid-template-columns:1fr 1fr}
+}
+@media(max-width:780px){
+  nav.main{display:none}.icon-btn{display:inline-flex}.sec-head h2{font-size:21px}
+  .hero h1{font-size:29px}
+}
+@media(max-width:560px){
+  .feat-grid{grid-template-columns:1fr}.vc-cats{grid-template-columns:1fr 1fr}
+  .pkg-plus{flex-direction:column;text-align:center}.pkg-plus .feats{justify-content:center}
+}
+@media(max-width:1040px){nav.main,.search{display:none}.icon-btn{display:inline-flex}}
+</style>
+</head>
+<body>
+
+<!-- shared promo -->
+<div class="sysbar" id="sysbar"><div class="wrap">
+  <span class="ic"><span class="mi s20">campaign</span></span>
+  <span class="msg"><b>อัปเดตระบบ:</b> เพิ่มฟีเจอร์ Personalize Goal (AI) วิเคราะห์จุดอ่อนรายวิชาแล้ววันนี้ <a href="grade.html">ลองเลย</a></span>
+  <button class="x" onclick="document.getElementById('sysbar').classList.add('hide')" aria-label="ปิด"><span class="mi s20">close</span></button>
+</div></div>
+
+<!-- shared header + language toggle (component เดียวกับ clip-page.html) -->
+<header><div class="wrap">
+  <button class="icon-btn" aria-label="เมนู"><span class="mi s28">menu</span></button>
+  <a class="logo" href="#"><img class="logo-full" src="../assets/Full-Icon.png" alt="NockAcademy"></a>
+  <nav class="main">
+    <a href="#" class="active" data-th="หน้าแรก" data-en="Home">หน้าแรก</a><a href="grade.html" data-th="ชั้นเรียน" data-en="Grades">ชั้นเรียน</a><a href="clip-page.html" data-th="คลิป" data-en="Clips">คลิป</a><a href="courses.html" data-th="คอร์สเรียน" data-en="Courses">คอร์สเรียน</a><a href="articles.html" data-th="บทความ" data-en="Articles">บทความ</a><a href="faq.html" data-th="คำถามที่พบบ่อย" data-en="FAQ">คำถามที่พบบ่อย</a>
+  </nav>
+  <div class="spacer"></div>
+  <div class="lang"><button class="on" onclick="setLang('th',this)">TH</button><button onclick="setLang('en',this)">EN</button></div>
+  <button class="btn btn-outline" data-th="เข้าสู่ระบบ" data-en="Log in">เข้าสู่ระบบ</button>
+  <button class="btn btn-filled" data-th="สมัครฟรี" data-en="Sign up free">สมัครฟรี</button>
+</div></header>
+
+<!-- ===== Banner marquee ===== -->
+<div class="bnr">
+  <div class="bnr-view" id="bnrView">
+    <div class="bnr-track" id="bnrTrack">
+      <button class="bnr-item" data-type="popup" data-title="โปรเปิดเทอม ลด 30%" data-img="https://picsum.photos/seed/promo-term/640/360" data-text="สมัครแพ็กเกจ Premium ภายในเดือนนี้ รับส่วนลดทันที 30% ทุกระยะเวลา พร้อมปลดล็อกคลิปครบทุกวิชาและไลฟ์ย้อนหลัง" data-cta="สมัครเลย" data-href="courses.html#pkg"><span class="pin">ใหม่</span><img src="https://picsum.photos/seed/promo-term/640/360" alt="โปรเปิดเทอม ลด 30%"></button>
+      <button class="bnr-item" data-type="link" data-href="clip-page.html"><img src="https://picsum.photos/seed/bnr-clip/640/360" alt="คลิปใหม่ คณิต ม.4"></button>
+      <button class="bnr-item" data-type="popup" data-title="Premium+ ไลฟ์สอนสดทุกวัน" data-img="https://picsum.photos/seed/promo-plus/640/360" data-text="อัปเกรดเป็น Premium+ เพื่อเข้าไลฟ์สอนสดทุกวัน ถาม–ตอบกับติวเตอร์ได้แบบเรียลไทม์ พร้อม Personalize Goal วิเคราะห์ด้วย AI" data-cta="ดูแพ็กเกจ Premium+" data-href="courses.html#pkg"><img src="https://picsum.photos/seed/promo-plus/640/360" alt="Premium+ ไลฟ์สอนสดทุกวัน"></button>
+      <button class="bnr-item" data-type="link" data-href="articles.html"><img src="https://picsum.photos/seed/bnr-article/640/360" alt="บทความเตรียมสอบเข้า ม.1"></button>
+      <button class="bnr-item" data-type="link" data-href="grade.html"><img src="https://picsum.photos/seed/bnr-goal/640/360" alt="ลองทำ Personalize Goal ฟรี"></button>
+      <button class="bnr-item" data-type="popup" data-title="แนะนำเพื่อน รับเรียนฟรี 1 เดือน" data-img="https://picsum.photos/seed/promo-ref/640/360" data-text="ชวนเพื่อนมาสมัคร เมื่อเพื่อนสมัครสำเร็จ ทั้งคุณและเพื่อนรับเครดิตเรียนฟรีคนละ 1 เดือน ไม่จำกัดจำนวนเพื่อน" data-cta="รับลิงก์ชวนเพื่อน" data-href="#"><img src="https://picsum.photos/seed/promo-ref/640/360" alt="แนะนำเพื่อน รับเรียนฟรี 1 เดือน"></button>
+    </div>
+  </div>
+</div>
+
+<!-- popup modal -->
+<div class="modal-ov" id="bnrModal">
+  <div class="modal">
+    <button class="mclose" onclick="closeBnr()" aria-label="ปิด"><span class="mi s20">close</span></button>
+    <img class="mimg" id="bnrImg" src="" alt="">
+    <div class="mbody">
+      <h3 id="bnrTitle"></h3>
+      <p id="bnrText"></p>
+      <a class="btn btn-filled" id="bnrCta" href="#" style="background:var(--primary)"></a>
+    </div>
+  </div>
+</div>
+
+<!-- ===== HERO (รวม block 2 ไลฟ์ + block 3 hero) ===== -->
+<section class="hero"><div class="wrap">
+  <div class="htxt">
+    <span class="badge"><span class="mi s16">school</span> <span data-th="ติวเตอร์ออนไลน์ ป.4 – ม.6" data-en="Online tutoring · Grade 4–12">ติวเตอร์ออนไลน์ ป.4 – ม.6</span></span>
+    <h1 data-th="เรียนพิเศษออนไลน์<br>ที่ออกแบบมา<span class='hl'>เพื่อลูกคุณ</span>" data-en="Online learning<br>designed <span class='hl'>for your child</span>">เรียนพิเศษออนไลน์<br>ที่ออกแบบมา<span class="hl">เพื่อลูกคุณ</span></h1>
+    <p class="lead" data-th="คลิปบทเรียน 4 วิชาหลัก พร้อมแบบฝึกหัด การสอบ และไลฟ์สอนสด ติดตามผลการเรียนได้จริง" data-en="Video lessons across 4 core subjects, with quizzes, exams and live classes — track real progress.">คลิปบทเรียน 4 วิชาหลัก พร้อมแบบฝึกหัด การสอบ และไลฟ์สอนสด ติดตามผลการเรียนได้จริง</p>
+    <div class="cta-row">
+      <button class="btn btn-primary" data-th="เริ่มเรียนฟรี" data-en="Start free">เริ่มเรียนฟรี</button>
+      <button class="btn btn-ghost btn-outline" data-th="ดูตัวอย่างคลิป" data-en="Watch sample clips">ดูตัวอย่างคลิป</button>
+    </div>
+    <div class="anywhere">
+      <span class="devs"><span class="mi s20">desktop_windows</span><span class="mi s20">tablet_mac</span><span class="mi s20">smartphone</span></span>
+      <span data-th="เรียนได้ทุกที่ ทุกอุปกรณ์ — เว็บ มือถือ แท็บเล็ต" data-en="Learn anywhere, any device — web, mobile, tablet">เรียนได้ทุกที่ ทุกอุปกรณ์ — เว็บ มือถือ แท็บเล็ต</span>
+    </div>
+  </div>
+  <!-- วิดีโอ loop ธรรมดา + device cluster เล็กๆ -->
+  <div class="devstage">
+    <img class="heroimg" src="../assets/hero-devices.png" alt="NockAcademy บนทุกอุปกรณ์ — เว็บ แท็บเล็ต มือถือ" onerror="this.style.display='none';this.parentNode.classList.add('noimg');this.parentNode.setAttribute('data-ph','วางรูปที่ assets/hero-devices.png')">
+  </div>
+</div></section>
+
+<!-- ===== STATS (count-up เมื่อ scroll มาถึง) ===== -->
+<section class="stats" id="stats"><div class="wrap">
+  <div class="stat-grid">
+    <div class="stat"><div class="num" data-count="17279">0</div><div class="lbl" data-th="เพื่อนร่วมเรียน" data-en="Learners">เพื่อนร่วมเรียน</div></div>
+    <div class="stat"><div class="num" data-count="2000" data-suffix="+">0</div><div class="lbl" data-th="คลิปบทเรียน" data-en="Video lessons">คลิปบทเรียน</div></div>
+    <div class="stat"><div class="num" data-count="4000" data-suffix="+">0</div><div class="lbl" data-th="แบบฝึกหัด" data-en="Exercises">แบบฝึกหัด</div></div>
+    <div class="stat"><div class="num" data-count="4" data-suffix=" วิชา">0</div><div class="lbl" data-th="วิชาหลัก" data-en="Core subjects">วิชาหลัก</div></div>
+  </div>
+</div></section>
+
+<!-- ===== TESTIMONIAL (clean + auto horizontal scroll) ===== -->
+<section><div class="wrap">
+  <div class="sec-head center">
+    <span class="eyebrow" data-th="เสียงจากผู้ใช้งานจริง" data-en="Real reviews">เสียงจากผู้ใช้งานจริง</span>
+    <h2 data-th="ผลตอบรับจากผู้ปกครองและนักเรียน" data-en="What parents and students say">ผลตอบรับจากผู้ปกครองและนักเรียน</h2>
+  </div>
+</div>
+<div class="wrap">
+  <div class="tst-cols" role="region" aria-label="รีวิวจากผู้ใช้งาน">
+    <div class="tst-col c1">
+      <ul id="tcol1">
+        <li class="tcard"><p>“ลูกตั้งใจเรียนขึ้นมาก คะแนนสอบดีขึ้นเห็นได้ชัดภายในเทอมเดียว ครูสอนเข้าใจง่าย”</p><div class="who"><span class="av" style="background:#3538cd">ผก</span><div><div class="nm">คุณแม่น้องพอใจ</div><div class="rl">ผู้ปกครอง · ป.6</div></div></div></li>
+        <li class="tcard"><p>“เรียนซ้ำได้เรื่อยๆ มีแบบฝึกหัดให้ลองทำ ราคาคุ้มค่ามากครับ ดูได้ทั้งบนมือถือและคอม”</p><div class="who"><span class="av" style="background:#0f6e56">ธน</span><div><div class="nm">คุณพ่อน้องธนา</div><div class="rl">ผู้ปกครอง · ม.2</div></div></div></li>
+        <li class="tcard"><p>“ชอบที่มีสรุปจุดอ่อนให้ ลูกได้รู้ว่าต้องเสริมตรงไหน เรียนแล้วเห็นพัฒนาการจริง”</p><div class="who"><span class="av" style="background:#993556">ณช</span><div><div class="nm">คุณแม่น้องณิชา</div><div class="rl">ผู้ปกครอง · ป.5</div></div></div></li>
+      </ul>
+    </div>
+    <div class="tst-col c2">
+      <ul id="tcol2">
+        <li class="tcard"><p>“ไลฟ์สอนสดถามตอบได้จริง เหมือนเรียนพิเศษที่สถาบันแต่ไม่ต้องเดินทาง สะดวกมาก”</p><div class="who"><span class="av" style="background:#b03060">ปอ</span><div><div class="nm">น้องปอนด์</div><div class="rl">นักเรียน · ม.5</div></div></div></li>
+        <li class="tcard"><p>“โรงเรียนใช้เป็นสื่อเสริมการสอน เด็กๆ ชอบมาก เพราะคลิปสั้น กระชับ เข้าใจง่าย”</p><div class="who"><span class="av" style="background:#4b3fb0">รร</span><div><div class="nm">คุณครูวิทยาศาสตร์</div><div class="rl">โรงเรียนพันธมิตร</div></div></div></li>
+        <li class="tcard"><p>“แอปใช้ง่าย ลูกเปิดเรียนเองได้เลย มี Study Timer ช่วยให้มีวินัยขึ้นเยอะ”</p><div class="who"><span class="av" style="background:#0f6e56">ฐ</span><div><div class="nm">คุณแม่น้องฐิติ</div><div class="rl">ผู้ปกครอง · ม.1</div></div></div></li>
+      </ul>
+    </div>
+    <div class="tst-col c3">
+      <ul id="tcol3">
+        <li class="tcard"><p>“เนื้อหาตรงตามหลักสูตร เตรียมสอบเข้า ม.1 ได้ดีมาก ลูกสอบติดโรงเรียนที่หวังไว้”</p><div class="who"><span class="av" style="background:#3538cd">วร</span><div><div class="nm">คุณพ่อน้องวรา</div><div class="rl">ผู้ปกครอง · ป.6</div></div></div></li>
+        <li class="tcard"><p>“ราคาเข้าถึงได้ คุ้มกว่าเรียนพิเศษข้างนอกมาก แถมเรียนกี่รอบก็ได้ไม่จำกัด”</p><div class="who"><span class="av" style="background:#b03060">สม</span><div><div class="nm">คุณแม่น้องสมหญิง</div><div class="rl">ผู้ปกครอง · ม.3</div></div></div></li>
+        <li class="tcard"><p>“ชอบที่มีครบทั้ง 4 วิชาในที่เดียว ไม่ต้องสมัครหลายเจ้า ประหยัดเวลาผู้ปกครองมาก”</p><div class="who"><span class="av" style="background:#4b3fb0">ก</span><div><div class="nm">คุณแม่น้องกานต์</div><div class="rl">ผู้ปกครอง · ป.5</div></div></div></li>
+      </ul>
+    </div>
+  </div>
+</div></section>
+
+<!-- ===== บทเรียนพิเศษออนไลน์ — ประถมศึกษาปีที่ 5-6 ===== -->
+<section style="background:var(--surface);border-top:1px solid var(--outline)"><div class="wrap">
+  <div class="sec-head">
+    <div><h2 data-th="บทเรียนพิเศษออนไลน์ · ประถมศึกษาปีที่ 5-6" data-en="Special lessons · Grade 5-6">บทเรียนพิเศษออนไลน์ · ประถมศึกษาปีที่ 5-6</h2><p data-th="ตัวอย่างคลิปเรียน เลือกตามระดับชั้น" data-en="Sample lessons by grade">ตัวอย่างคลิปเรียน เลือกตามระดับชั้น</p></div>
+    <a class="btn btn-outline" href="clip-page.html" data-th="ดูคลิปทั้งหมด" data-en="See all clips">ดูคลิปทั้งหมด</a>
+  </div>
+  <div class="grade-tabs">
+    <button class="on" onclick="seg(this)">ป.5</button><button onclick="seg(this)">ป.6</button>
+  </div>
+  <div class="row-scroll">
+    <div class="vcard lesson"><div class="thumb math"><img class="tn" src="https://picsum.photos/seed/nl-p5math/400/225" alt=""><span class="vtype lesson">บทเรียน</span><span class="free">Free</span><span class="dur">12:30</span></div><div class="body"><h4>คณิตศาสตร์ ป.5 — ทศนิยม</h4><div class="when"><span class="mi s16">play_circle</span> 9 ตอน</div></div></div>
+    <div class="vcard lesson"><div class="thumb sci"><img class="tn" src="https://picsum.photos/seed/nl-p5sci/400/225" alt=""><span class="vtype lesson">บทเรียน</span><span class="free">Free</span><span class="dur">15:42</span></div><div class="body"><h4>วิทยาศาสตร์ ป.5 — ระบบสุริยะ</h4><div class="when"><span class="mi s16">play_circle</span> 6 ตอน</div></div></div>
+    <div class="vcard lesson"><div class="thumb eng"><img class="tn" src="https://picsum.photos/seed/nl-p5eng/400/225" alt=""><span class="vtype lesson">บทเรียน</span><span class="dur">09:10</span></div><div class="body"><h4>ภาษาอังกฤษ ป.5 — Present Simple</h4><div class="when"><span class="mi s16">play_circle</span> 10 ตอน</div></div></div>
+    <div class="vcard lesson"><div class="thumb thai"><img class="tn" src="https://picsum.photos/seed/nl-p5thai/400/225" alt=""><span class="vtype lesson">บทเรียน</span><span class="free">Free</span><span class="dur">11:05</span></div><div class="body"><h4>ภาษาไทย ป.5 — ชนิดของคำ</h4><div class="when"><span class="mi s16">play_circle</span> 7 ตอน</div></div></div>
+    <div class="vcard lesson"><div class="thumb math"><img class="tn" src="https://picsum.photos/seed/nl-p6math/400/225" alt=""><span class="vtype lesson">บทเรียน</span><span class="dur">14:20</span></div><div class="body"><h4>คณิตศาสตร์ ป.6 — บทเศษส่วน</h4><div class="when"><span class="mi s16">play_circle</span> 8 ตอน</div></div></div>
+  </div>
+</div></section>
+
+<!-- ===== บทเรียนพิเศษออนไลน์ — มัธยมศึกษาปีที่ 1-3 ===== -->
+<section style="background:var(--surface);border-bottom:1px solid var(--outline);padding-top:0"><div class="wrap">
+  <div class="sec-head">
+    <div><h2 data-th="บทเรียนพิเศษออนไลน์ · มัธยมศึกษาปีที่ 1-3" data-en="Special lessons · Grade 7-9">บทเรียนพิเศษออนไลน์ · มัธยมศึกษาปีที่ 1-3</h2><p data-th="ตัวอย่างคลิปเรียน เลือกตามระดับชั้น" data-en="Sample lessons by grade">ตัวอย่างคลิปเรียน เลือกตามระดับชั้น</p></div>
+    <a class="btn btn-outline" href="clip-page.html" data-th="ดูคลิปทั้งหมด" data-en="See all clips">ดูคลิปทั้งหมด</a>
+  </div>
+  <div class="grade-tabs">
+    <button class="on" onclick="seg(this)">ม.1</button><button onclick="seg(this)">ม.2</button><button onclick="seg(this)">ม.3</button>
+  </div>
+  <div class="row-scroll">
+    <div class="vcard lesson"><div class="thumb math"><img class="tn" src="https://picsum.photos/seed/nl-m1math/400/225" alt=""><span class="vtype lesson">บทเรียน</span><span class="free">Free</span><span class="dur">13:10</span></div><div class="body"><h4>คณิตศาสตร์ ม.1 — จำนวนเต็ม</h4><div class="when"><span class="mi s16">play_circle</span> 11 ตอน</div></div></div>
+    <div class="vcard lesson"><div class="thumb sci"><img class="tn" src="https://picsum.photos/seed/nl-m2sci/400/225" alt=""><span class="vtype lesson">บทเรียน</span><span class="dur">16:25</span></div><div class="body"><h4>วิทยาศาสตร์ ม.2 — สารและสมบัติ</h4><div class="when"><span class="mi s16">play_circle</span> 8 ตอน</div></div></div>
+    <div class="vcard lesson"><div class="thumb eng"><img class="tn" src="https://picsum.photos/seed/nl-m3eng/400/225" alt=""><span class="vtype lesson">บทเรียน</span><span class="free">Free</span><span class="dur">10:40</span></div><div class="body"><h4>ภาษาอังกฤษ ม.3 — Tenses รวม</h4><div class="when"><span class="mi s16">play_circle</span> 12 ตอน</div></div></div>
+    <div class="vcard lesson"><div class="thumb thai"><img class="tn" src="https://picsum.photos/seed/nl-m2thai/400/225" alt=""><span class="vtype lesson">บทเรียน</span><span class="free">Free</span><span class="dur">12:15</span></div><div class="body"><h4>ภาษาไทย ม.2 — หลักภาษา</h4><div class="when"><span class="mi s16">play_circle</span> 9 ตอน</div></div></div>
+    <div class="vcard lesson"><div class="thumb math"><img class="tn" src="https://picsum.photos/seed/nl-m3math/400/225" alt=""><span class="vtype lesson">บทเรียน</span><span class="dur">15:00</span></div><div class="body"><h4>คณิตศาสตร์ ม.3 — ตะลุยโจทย์</h4><div class="when"><span class="mi s16">play_circle</span> 10 ตอน</div></div></div>
+  </div>
+</div></section>
+
+<!-- ===== PACKAGES (Premium+ special + Premium grid, การ์ดเหมือน clip-page) ===== -->
+<section class="pkg" id="pkg"><div class="wrap">
+  <div class="sec-head center">
+    <span class="eyebrow" data-th="แพ็กเกจของเรา" data-en="Our packages">แพ็กเกจของเรา</span>
+    <h2 data-th="เลือกแพ็กเกจที่ใช่สำหรับลูกคุณ" data-en="Choose the right package">เลือกแพ็กเกจที่ใช่สำหรับลูกคุณ</h2>
+  </div>
+
+  <!-- เพื่อนร่วมเรียน — highlight -->
+  <div class="learners">
+    <div class="avs">
+      <span class="av" style="background:#3538cd">ก</span><span class="av" style="background:#0f6e56">ณ</span><span class="av" style="background:#b03060">พ</span><span class="av" style="background:#4b3fb0">ธ</span><span class="av more">+</span>
+    </div>
+    <div class="ltxt">
+      <span class="lnum" data-count="17279">0</span>
+      <span class="llbl" data-th="เพื่อนร่วมเรียนเลือก NockAcademy แล้ว" data-en="learners already chose NockAcademy">เพื่อนร่วมเรียนเลือก NockAcademy แล้ว</span>
+    </div>
+  </div>
+
+  <!-- Premium+ : section พิเศษ (รวมไลฟ์สอนสด) -->
+  <div class="pkg-plus">
+    <div class="pp-icon"><span class="mi s28">workspace_premium</span></div>
+    <div class="pp-body">
+      <span class="ntag">PREMIUM +</span>
+      <h3 data-th="ครบทุกอย่าง + ไลฟ์สอนสดทุกวัน" data-en="Everything + daily live classes">ครบทุกอย่าง + ไลฟ์สอนสดทุกวัน</h3>
+      <div class="feats">
+        <span><span class="mi s16">sensors</span> ไลฟ์สอนสดทุกวัน</span>
+        <span><span class="mi s16">play_circle</span> คลิปครบทุกวิชา</span>
+        <span><span class="mi s16">quiz</span> แบบฝึกหัด + การสอบ</span>
+        <span><span class="mi s16">target</span> Personalize Goal (AI)</span>
+      </div>
+    </div>
+    <div class="pp-buy">
+      <div class="amt">658฿<span style="font-size:14px;font-weight:500"> / เดือน</span></div>
+      <div class="per" data-th="เริ่มต้น 7,900฿ / 12 เดือน" data-en="from ฿7,900 / 12 months">เริ่มต้น 7,900฿ / 12 เดือน</div>
+      <button class="gcta" data-th="สมัคร Premium+" data-en="Get Premium+">สมัคร Premium+</button>
+    </div>
+  </div>
+
+  <!-- Premium : 3 / 6 / 12 เดือน -->
+  <div class="pkg-sub-title" data-th="Premium — เรียนคลิปครบทุกวิชา (ไม่รวมไลฟ์)" data-en="Premium — all video lessons (live not included)">Premium — เรียนคลิปครบทุกวิชา (ไม่รวมไลฟ์)</div>
+  <div class="price-main">
+    <div class="price"><div class="term">3 เดือน</div><div class="amt">2,800฿</div><div class="per">933฿ / เดือน</div><div class="feat">คลิปครบทุกวิชา · แบบฝึกหัด</div><button class="btn btn-soft">สมัคร</button></div>
+    <div class="price best"><div class="ribbon" data-th="คุ้มที่สุด" data-en="Best value">คุ้มที่สุด</div><div class="term">12 เดือน</div><div class="amt">5,300฿</div><div class="per">442฿ / เดือน</div><div class="feat">คลิปครบทุกวิชา · แบบฝึกหัด</div><button class="btn btn-filled" style="background:var(--primary)">สมัคร</button></div>
+    <div class="price"><div class="term">6 เดือน</div><div class="amt">4,100฿</div><div class="per">683฿ / เดือน</div><div class="feat">คลิปครบทุกวิชา · แบบฝึกหัด</div><button class="btn btn-soft">สมัคร</button></div>
+  </div>
+  <!-- ตัวเลือกระยะยาว 18 / 24 / 36 -->
+  <div class="price-sub">
+    <div class="price-sm"><div><div class="term">18 เดือน</div><div class="per">383฿ / เดือน</div></div><div class="amt">6,900฿</div></div>
+    <div class="price-sm"><div><div class="term">24 เดือน</div><div class="per">358฿ / เดือน</div></div><div class="amt">8,600฿</div></div>
+    <div class="price-sm"><div><div class="term">36 เดือน</div><div class="per">325฿ / เดือน</div></div><div class="amt">11,700฿</div></div>
+  </div>
+</div></section>
+
+<!-- ===== FEATURES (compact) ===== -->
+<section style="background:var(--surface);border-top:1px solid var(--outline)"><div class="wrap">
+  <div class="sec-head center">
+    <span class="eyebrow" data-th="ทำไมต้อง NockAcademy" data-en="Why NockAcademy">ทำไมต้อง NockAcademy</span>
+    <h2 data-th="ทุกเครื่องมือที่ช่วยให้ลูกเก่งขึ้น" data-en="Everything your child needs to improve">ทุกเครื่องมือที่ช่วยให้ลูกเก่งขึ้น</h2>
+  </div>
+  <div class="feat-grid">
+    <div class="fcard"><div class="fi"><span class="mi s28">play_circle</span></div><div><h4 data-th="คลิป 4 วิชาหลัก" data-en="4 core subjects">คลิป 4 วิชาหลัก</h4><p data-th="คณิต วิทย์ อังกฤษ ไทย ครบทุกระดับชั้น" data-en="Math, Science, English, Thai — all grades">คณิต วิทย์ อังกฤษ ไทย ครบทุกระดับชั้น</p></div></div>
+    <div class="fcard"><div class="fi"><span class="mi s28">quiz</span></div><div><h4 data-th="แบบฝึกหัด 4,000+" data-en="4,000+ exercises">แบบฝึกหัด 4,000+</h4><p data-th="ฝึกทำโจทย์พร้อมเฉลยละเอียด" data-en="Practice with detailed solutions">ฝึกทำโจทย์พร้อมเฉลยละเอียด</p></div></div>
+    <div class="fcard"><div class="fi"><span class="mi s28">assignment</span></div><div><h4 data-th="ระบบการสอบ" data-en="Exam system">ระบบการสอบ</h4><p data-th="วัดผลและติดตามพัฒนาการได้จริง" data-en="Assess and track real progress">วัดผลและติดตามพัฒนาการได้จริง</p></div></div>
+    <div class="fcard"><div class="fi"><span class="mi s28">sensors</span></div><div><h4 data-th="ไลฟ์สอนสด" data-en="Live classes">ไลฟ์สอนสด</h4><p data-th="ถาม–ตอบกับติวเตอร์ได้ทุกวัน" data-en="Ask tutors live, every day">ถาม–ตอบกับติวเตอร์ได้ทุกวัน</p></div></div>
+    <div class="fcard"><div class="fi"><span class="mi s28">target</span></div><div><h4 data-th="Personalize Goal (AI)" data-en="Personalize Goal (AI)">Personalize Goal (AI)</h4><p data-th="วิเคราะห์จุดอ่อน วางแผนเฉพาะตัว" data-en="Analyze weak points, personal plan">วิเคราะห์จุดอ่อน วางแผนเฉพาะตัว</p></div></div>
+    <div class="fcard"><div class="fi"><span class="mi s28">devices</span></div><div><h4 data-th="ดูได้ทุกอุปกรณ์" data-en="Any device">ดูได้ทุกอุปกรณ์</h4><p data-th="เว็บ มือถือ แท็บเล็ต เรียนต่อได้ทุกที่" data-en="Web, mobile, tablet — continue anywhere">เว็บ มือถือ แท็บเล็ต เรียนต่อได้ทุกที่</p></div></div>
+  </div>
+</div></section>
+
+<!-- ===== CTA band ===== -->
+<section><div class="wrap">
+  <div class="cta-band">
+    <h2 data-th="เริ่มเรียนวันนี้ ฟรี" data-en="Start learning today, free">เริ่มเรียนวันนี้ ฟรี</h2>
+    <p data-th="ไม่ต้องผูกมัด ทดลองเรียนได้ทุกวิชา" data-en="No commitment — try every subject">ไม่ต้องผูกมัด ทดลองเรียนได้ทุกวิชา</p>
+    <button class="btn btn-white" data-th="สมัครฟรี" data-en="Sign up free">สมัครฟรี</button>
+  </div>
+</div></section>
+
+<!-- ===== SUBJECTS (เหมือน clip-page .vc-cat) ===== -->
+<section><div class="wrap">
+  <div class="sec-head center">
+    <span class="eyebrow" data-th="วิชาเรียนของเรา" data-en="Our subjects">วิชาเรียนของเรา</span>
+    <h2 data-th="เลือกวิชาที่อยากเก่ง" data-en="Pick a subject to master">เลือกวิชาที่อยากเก่ง</h2>
+  </div>
+  <div class="vc-cats">
+    <div class="vc-cat math" onclick="location.href='clip-page.html'"><div class="ic"><span class="mi s28">functions</span></div><h4>คณิตศาสตร์</h4><div class="n">ป.4–ม.6</div></div>
+    <div class="vc-cat eng" onclick="location.href='clip-page.html'"><div class="ic"><span class="mi s28">translate</span></div><h4>ภาษาอังกฤษ</h4><div class="n">ป.4–ม.6</div></div>
+    <div class="vc-cat thai" onclick="location.href='clip-page.html'"><div class="ic"><span class="mi s28">menu_book</span></div><h4>ภาษาไทย</h4><div class="n">ป.4–ม.6</div></div>
+    <div class="vc-cat sci" onclick="location.href='clip-page.html'"><div class="ic"><span class="mi s28">science</span></div><h4>วิทยาศาสตร์</h4><div class="n">ป.4–ม.6</div></div>
+  </div>
+</div></section>
+
+<!-- ===== สถาบันสำหรับคนญี่ปุ่น ===== -->
+<section style="background:var(--surface);border-top:1px solid var(--outline)"><div class="wrap">
+  <div class="sec-head center">
+    <span class="eyebrow" data-th="เรียนแบบ Onsite" data-en="Onsite learning">เรียนแบบ Onsite</span>
+    <h2 data-th="เรียนที่สถาบัน สำหรับคนญี่ปุ่น ของเรา" data-en="Onsite campuses for Japanese students">เรียนที่สถาบัน สำหรับคนญี่ปุ่น ของเรา</h2>
+  </div>
+  <div class="campus-grid">
+    <div class="campus">
+      <div class="ci"><span class="mi s28">location_on</span></div>
+      <div>
+        <h4 data-th="สถาบันทองหล่อ" data-en="Thonglor Campus">สถาบันทองหล่อ</h4>
+        <div class="addr" data-th="ใจกลางทองหล่อ เดินทางสะดวก ใกล้ BTS" data-en="Central Thonglor, near BTS">ใจกลางทองหล่อ เดินทางสะดวก ใกล้ BTS</div>
+        <a href="#" class="clink" data-th="ดูแผนที่ / ติดต่อ" data-en="View map / contact">ดูแผนที่ / ติดต่อ <span class="mi s16">arrow_forward</span></a>
+      </div>
+    </div>
+    <div class="campus">
+      <div class="ci"><span class="mi s28">location_on</span></div>
+      <div>
+        <h4 data-th="สถาบันศรีราชา" data-en="Sriracha Campus">สถาบันศรีราชา</h4>
+        <div class="addr" data-th="ศรีราชา ชลบุรี รองรับครอบครัวชาวญี่ปุ่น" data-en="Sriracha, Chonburi — for Japanese families">ศรีราชา ชลบุรี รองรับครอบครัวชาวญี่ปุ่น</div>
+        <a href="#" class="clink" data-th="ดูแผนที่ / ติดต่อ" data-en="View map / contact">ดูแผนที่ / ติดต่อ <span class="mi s16">arrow_forward</span></a>
+      </div>
+    </div>
+  </div>
+</div></section>
+
+<!-- ===== App showcase ===== -->
+<section class="app"><div class="wrap">
+  <div class="phones">
+    <div class="ph front"><img src="https://picsum.photos/seed/nock-app1/340/720" alt="หน้าจอแอป NockAcademy"></div>
+    <div class="ph back"><img src="https://picsum.photos/seed/nock-app2/340/720" alt="หน้าจอแอป NockAcademy"></div>
+  </div>
+  <div class="atxt">
+    <div class="alogo">N<img src="../assets/Logo-Icon.png" alt="NockAcademy" onerror="this.remove()"></div>
+    <h2>NockAcademy</h2>
+    <p data-th="ยังมีฟีเจอร์อีกมากมายในแอปของเรา เรียน ทำแบบฝึกหัด และติดตามผลได้ทุกที่" data-en="Even more features in our app — learn, practice, and track progress anywhere">ยังมีฟีเจอร์อีกมากมายในแอปของเรา เรียน ทำแบบฝึกหัด และติดตามผลได้ทุกที่</p>
+    <button class="dl"><span class="mi s20">download</span> <span data-th="ดาวน์โหลดฟรี" data-en="Download for free!">ดาวน์โหลดฟรี</span></button>
+  </div>
+</div></section>
+
+<!-- ===== FOOTER ===== -->
+<footer><div class="wrap">
+  <div class="cols">
+    <div class="brand">
+      <div class="logo"><span class="mark">N<img src="../assets/Logo-Icon.png" alt="NockAcademy" onerror="this.remove()"></span> NockAcademy</div>
+      <p data-th="แพลตฟอร์มเรียนพิเศษออนไลน์ สำหรับนักเรียน ป.4 – ม.6" data-en="Online learning platform for grade 4–12 students">แพลตฟอร์มเรียนพิเศษออนไลน์ สำหรับนักเรียน ป.4 – ม.6</p>
+      <div class="store"><span class="mi s20">download</span> ดาวน์โหลดแอป</div>
+    </div>
+    <div><h5>เกี่ยวกับ</h5><a href="#">เกี่ยวกับเรา</a><a href="#">ติดต่อเรา</a><a href="#">ร่วมงานกับเรา</a></div>
+    <div><h5>บริการ</h5><a href="clip-page.html">คลิปเรียน</a><a href="courses.html">คอร์สเรียน</a><a href="courses.html#pkg">แพ็กเกจ</a></div>
+    <div><h5>นโยบาย</h5><a href="#">เงื่อนไขการใช้งาน</a><a href="#">นโยบายความเป็นส่วนตัว</a><a href="faq.html">คำถามที่พบบ่อย</a></div>
+  </div>
+  <div class="copy">© 2026 NockAcademy. All rights reserved.</div>
+</div></footer>
+
+<div class="proto-note">Prototype v1 — Landing Page · ใช้ design system + component ร่วมกับ <code>clip-page.html</code> · ย่อหน้าจอเพื่อดู responsive</div>
+
+<script>
+/* segment control (เหมือน clip-page.html) */
+function seg(b){b.parentNode.querySelectorAll('button').forEach(function(x){x.classList.remove('on');});b.classList.add('on');}
+
+/* ===== Banner marquee: auto-scroll แนวนอน + hover หยุด + เลื่อนเอง + 2 types ===== */
+(function(){
+  var view=document.getElementById('bnrView'), track=document.getElementById('bnrTrack');
+  if(!view||!track)return;
+  track.innerHTML+=track.innerHTML;            /* clone เพื่อ loop ต่อเนื่อง */
+  var half=track.scrollWidth/2, speed=0.4, paused=false, dragged=false;
+  function tick(){ if(!paused){ view.scrollLeft+=speed; if(view.scrollLeft>=half)view.scrollLeft-=half; } requestAnimationFrame(tick); }
+  requestAnimationFrame(tick);
+  view.addEventListener('mouseenter',function(){paused=true;});
+  view.addEventListener('mouseleave',function(){paused=false;});
+  view.addEventListener('scroll',function(){ if(view.scrollLeft>=half)view.scrollLeft-=half; });
+  /* drag เลื่อนเอง */
+  var down=false,sx,sl;
+  view.addEventListener('pointerdown',function(e){down=true;dragged=false;paused=true;sx=e.clientX;sl=view.scrollLeft;view.setPointerCapture(e.pointerId);});
+  view.addEventListener('pointermove',function(e){ if(down){var d=e.clientX-sx; if(Math.abs(d)>4)dragged=true; view.scrollLeft=sl-d;} });
+  view.addEventListener('pointerup',function(){down=false;setTimeout(function(){paused=false;},1000);});
+  /* click: link หรือ popup (ไม่ทำงานถ้าเพิ่ง drag) */
+  track.addEventListener('click',function(e){
+    var b=e.target.closest('.bnr-item'); if(!b||dragged)return;
+    if(b.getAttribute('data-type')==='link'){ location.href=b.getAttribute('data-href'); }
+    else{ openBnr(b); }
+  });
+})();
+function openBnr(b){
+  document.getElementById('bnrImg').src=b.getAttribute('data-img')||'';
+  document.getElementById('bnrTitle').textContent=b.getAttribute('data-title')||'';
+  document.getElementById('bnrText').textContent=b.getAttribute('data-text')||'';
+  var cta=document.getElementById('bnrCta');
+  cta.textContent=b.getAttribute('data-cta')||'ดูเพิ่มเติม';
+  cta.href=b.getAttribute('data-href')||'#';
+  document.getElementById('bnrModal').classList.add('open');
+}
+function closeBnr(){document.getElementById('bnrModal').classList.remove('open');}
+document.getElementById('bnrModal').addEventListener('click',function(e){if(e.target===this)closeBnr();});
+
+/* shared: language toggle (เหมือน clip-page.html) — รองรับ innerHTML สำหรับ data ที่มี tag */
+function setLang(l,btn){
+  btn.parentNode.querySelectorAll('button').forEach(function(b){b.classList.remove('on');});
+  btn.classList.add('on');
+  document.documentElement.lang=l;
+  document.querySelectorAll('[data-'+l+']').forEach(function(e){
+    var t=e.getAttribute('data-'+l);
+    if(e.tagName==='INPUT')e.setAttribute('placeholder',t);
+    else if(/[<&]/.test(t))e.innerHTML=t;
+    else e.textContent=t;
+  });
+}
+
+/* STATS: count-up จาก 1 → ตัวเลขจริง เมื่อ scroll มาถึง section แล้วหยุดค้างไว้ */
+(function(){
+  var ran=false;
+  function animate(el){
+    var target=+el.getAttribute('data-count');
+    var suffix=el.getAttribute('data-suffix')||'';
+    var dur=1400, start=performance.now(), from=1;
+    function step(now){
+      var p=Math.min((now-start)/dur,1);
+      var eased=1-Math.pow(1-p,3);
+      var val=Math.round(from+(target-from)*eased);
+      el.textContent=val.toLocaleString('en-US')+suffix;
+      if(p<1)requestAnimationFrame(step);
+      else el.textContent=target.toLocaleString('en-US')+suffix;
+    }
+    requestAnimationFrame(step);
+  }
+  function observe(container,selector){
+    if(!container)return;
+    var done=false;
+    var io=new IntersectionObserver(function(entries){
+      entries.forEach(function(en){
+        if(en.isIntersecting&&!done){
+          done=true;
+          container.querySelectorAll(selector).forEach(animate);
+          io.disconnect();
+        }
+      });
+    },{threshold:.4});
+    io.observe(container);
+  }
+  observe(document.getElementById('stats'),'.num');
+  observe(document.querySelector('.learners'),'.lnum');
+})();
+
+/* TESTIMONIAL: 3-column vertical loop — โคลนเนื้อหาแต่ละคอลัมน์เพื่อให้ translateY(-50%) ต่อเนื่องไร้รอยต่อ */
+(function(){
+  ['tcol1','tcol2','tcol3'].forEach(function(id){
+    var ul=document.getElementById(id);
+    if(ul)ul.innerHTML+=ul.innerHTML;
+  });
+})();
+
+/* ===== เชื่อม Learn app ใหม่ แทนหน้า Clip (Learn เก่า) =====
+   เก็บหน้า marketing เดิม (Grade/Course/Article/FAQ) · แก้ APP ตอน deploy (dev=localhost:5199) */
+(function(){
+  var APP='http://localhost:5199/#';
+  var subj=['math','english','thai','science'];
+  document.querySelectorAll('a[href="clip-page.html"]').forEach(function(a){ a.href=APP+'/'; });
+  document.querySelectorAll('[data-href="clip-page.html"]').forEach(function(b){ b.setAttribute('data-href',APP+'/'); });
+  document.querySelectorAll('.vc-cat').forEach(function(d,i){ d.setAttribute('onclick',"location.href='"+APP+'/learn/'+(subj[i]||'math')+"'"); });
+  var btn={ 'เข้าสู่ระบบ':APP+'/auth','สมัครฟรี':APP+'/auth','เริ่มเรียนฟรี':APP+'/auth','ดูตัวอย่างคลิป':APP+'/' };
+  document.querySelectorAll('button[data-th]').forEach(function(b){ var u=btn[b.getAttribute('data-th')]; if(u) b.addEventListener('click',function(){ location.href=u; }); });
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,1003 @@
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Web Teacher — Premium Plus Console</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@400;500;600;700&family=Sarabun:wght@400;500;600;700&display=swap');
+
+  :root{
+    --bg:#f4f2fb; --surface:#ffffff; --surface-2:#faf9fe;
+    --ink:#2b2740; --ink-muted:#736e8c; --ink-faint:#a29cbd;
+    --border:#e7e3f6; --border-soft:#efecf9; --sidebar:#ffffff;
+    --primary:#6d5bd0; --primary-ink:#5645b8; --primary-soft:#ece8fb; --primary-soft-border:#dcd5f6;
+    --ai:#0f9188; --ai-ink:#0a6e67; --ai-soft:#e2f5f3; --ai-border:#c3e9e5;
+    --green:#2fa76a; --green-soft:#e5f6ec; --green-border:#c7ebd7;
+    --amber:#e79433; --amber-ink:#a8611a; --amber-soft:#fdf1de; --amber-border:#f6dfb8;
+    --pending:#d7a92e; --pending-soft:#fbf3d8; --pending-border:#f2e2a4;
+    --danger:#dd5b5b; --danger-soft:#fbe6e6; --danger-border:#f3caca;
+    --blue:#3d7fd9; --blue-soft:#e4eefc;
+    --shadow:0 1px 2px rgba(43,39,64,.04),0 10px 26px -14px rgba(43,39,64,.16);
+    --radius:12px;
+  }
+  /* Light mode only — Dark mode ไว้เป็นเรื่องอนาคต */
+
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{background:var(--bg);color:var(--ink);font-family:'Sarabun','IBM Plex Sans Thai',system-ui,sans-serif;font-size:13.5px;line-height:1.55;}
+  h1,h2,h3,button,.pill,.chip,th,.kpi .val,.seg,.tab{font-family:'IBM Plex Sans Thai','Sarabun',system-ui,sans-serif;}
+  table{font-variant-numeric:tabular-nums;}
+  button{font-family:inherit;}
+
+  .notice{background:var(--primary);color:#fff;padding:9px 20px;font-size:12px;display:flex;align-items:center;gap:8px;}
+  .notice .dot{width:6px;height:6px;border-radius:50%;background:#ffce7a;flex:none;}
+  .shell{display:flex;min-height:100vh;}
+
+  /* sidebar */
+  .sidebar{width:230px;flex:none;background:var(--sidebar);border-right:1px solid var(--border);padding:16px 14px;display:flex;flex-direction:column;gap:16px;}
+  .sidebar-top{display:flex;align-items:center;justify-content:space-between;}
+  .logo{width:34px;height:34px;border-radius:9px;background:linear-gradient(135deg,#7c6be0,#b06bff);display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:14px;flex:none;}
+  .brand{font-weight:700;font-size:13.5px;}
+  .brand small{display:block;font-size:10px;color:var(--ink-faint);font-weight:500;}
+  .searchbox{display:flex;align-items:center;gap:8px;background:var(--bg);border:1px solid var(--border);border-radius:9px;padding:8px 10px;color:var(--ink-faint);font-size:12.5px;}
+  .side-link{display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:9px;color:var(--ink-muted);font-size:13px;font-weight:500;cursor:pointer;border:none;background:none;width:100%;text-align:left;position:relative;}
+  .side-link:hover{background:var(--border-soft);color:var(--ink);}
+  .side-link.active{background:var(--primary-soft);color:var(--primary-ink);font-weight:700;}
+  .side-link .ic{width:18px;text-align:center;flex:none;}
+  .side-link .bdg{margin-left:auto;background:var(--danger);color:#fff;font-size:10px;font-weight:700;border-radius:20px;padding:0 6px;min-width:17px;text-align:center;}
+  .side-nav{display:flex;flex-direction:column;gap:2px;}
+  .side-foot{margin-top:auto;display:flex;align-items:center;gap:9px;padding-top:14px;border-top:1px solid var(--border-soft);}
+  .side-foot .av{width:32px;height:32px;border-radius:50%;background:var(--amber-soft);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:var(--amber-ink);flex:none;}
+  .side-foot .role{font-size:10px;font-weight:700;color:var(--green);background:var(--green-soft);padding:1px 7px;border-radius:20px;display:inline-block;}
+  .side-foot .who{font-size:12.5px;font-weight:600;margin-top:2px;}
+
+  /* main */
+  .main{flex:1;min-width:0;padding:20px 26px 70px;}
+  .view{display:none;}
+  .view.active{display:block;}
+  .ph{display:flex;align-items:center;gap:10px;margin-bottom:16px;}
+  .ph-icon{width:34px;height:34px;border-radius:9px;background:var(--primary-soft);color:var(--primary-ink);display:flex;align-items:center;justify-content:center;flex:none;}
+  .ph h1{font-size:19px;font-weight:700;margin:0;}
+  .ph .sub{font-size:12px;color:var(--ink-muted);font-weight:400;}
+
+  /* segmented control */
+  .seg-wrap{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:14px;}
+  .seg-group{display:inline-flex;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:3px;gap:2px;box-shadow:var(--shadow);}
+  .seg{border:none;background:none;color:var(--ink-muted);font-size:12.5px;font-weight:600;padding:7px 14px;border-radius:8px;cursor:pointer;}
+  .seg.active{background:var(--primary);color:#fff;}
+  .seg-label{font-size:11px;color:var(--ink-faint);font-weight:600;text-transform:uppercase;letter-spacing:.3px;}
+
+  .weekrow{display:flex;gap:6px;margin-bottom:16px;flex-wrap:wrap;align-items:center;}
+  .weekpill{background:var(--surface);border:1px solid var(--border);color:var(--ink-faint);padding:7px 12px;border-radius:9px;font-size:12.5px;font-weight:600;cursor:pointer;}
+  .weekpill.active{background:var(--ink);color:#fff;border-color:var(--ink);}
+  .weekpill.cur{border-color:var(--primary);color:var(--primary-ink);}
+  .weekpill.cur.active{background:var(--primary);color:#fff;border-color:var(--primary);}
+  .weekpill[disabled]{opacity:.4;cursor:not-allowed;}
+  .wk-note{font-size:11px;color:var(--ink-faint);}
+
+  .tabrow{display:flex;gap:4px;border-bottom:1px solid var(--border);margin-bottom:16px;flex-wrap:wrap;}
+  .tab{border:none;background:none;color:var(--ink-muted);font-size:12.5px;font-weight:600;padding:9px 14px;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-1px;}
+  .tab.active{color:var(--primary-ink);border-bottom-color:var(--primary);}
+  .tab .mini{font-size:10px;background:var(--border-soft);color:var(--ink-faint);border-radius:20px;padding:0 6px;margin-left:5px;}
+
+  .kpi-row{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:12px;margin-bottom:18px;}
+  .kpi{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:13px 15px;box-shadow:var(--shadow);display:flex;align-items:center;gap:12px;}
+  .kpi .ic{width:36px;height:36px;border-radius:9px;background:var(--primary-soft);color:var(--primary-ink);display:flex;align-items:center;justify-content:center;flex:none;font-size:17px;}
+  .kpi.pending .ic{background:var(--pending-soft);color:var(--amber-ink);}
+  .kpi.ai .ic{background:var(--ai-soft);color:var(--ai-ink);}
+  .kpi.danger .ic{background:var(--danger-soft);color:var(--danger);}
+  .kpi.green .ic{background:var(--green-soft);color:var(--green);}
+  .kpi .lbl{font-size:11px;color:var(--ink-muted);font-weight:500;}
+  .kpi .val{font-size:20px;font-weight:700;margin-top:1px;}
+  .kpi .val small{font-size:12px;color:var(--ink-faint);font-weight:600;}
+
+  .grid2{display:grid;grid-template-columns:1.4fr 1fr;gap:16px;align-items:start;}
+  @media(max-width:900px){.grid2{grid-template-columns:1fr;}}
+
+  .card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow);overflow:hidden;margin-bottom:16px;}
+  .card-h{padding:13px 16px;border-bottom:1px solid var(--border-soft);display:flex;align-items:center;justify-content:space-between;gap:10px;}
+  .card-h h3{font-size:13.5px;margin:0;font-weight:700;}
+  .card-h .sub{font-size:11px;color:var(--ink-faint);font-weight:400;}
+  .card-b{padding:14px 16px;}
+
+  .attn{display:flex;align-items:center;gap:12px;padding:11px 16px;border-bottom:1px solid var(--border-soft);cursor:pointer;}
+  .attn:last-child{border-bottom:none;}
+  .attn:hover{background:var(--border-soft);}
+  .attn .ai2{width:30px;height:30px;border-radius:8px;display:flex;align-items:center;justify-content:center;flex:none;font-size:15px;}
+  .attn.warn .ai2{background:var(--pending-soft);color:var(--amber-ink);}
+  .attn.bad .ai2{background:var(--danger-soft);color:var(--danger);}
+  .attn.ok .ai2{background:var(--green-soft);color:var(--green);}
+  .attn .t{font-size:13px;font-weight:600;}
+  .attn .d{font-size:11.5px;color:var(--ink-muted);}
+  .attn .go{margin-left:auto;color:var(--ink-faint);font-size:12px;font-weight:700;}
+
+  .bar-row{display:flex;align-items:center;gap:10px;margin-bottom:9px;font-size:12px;}
+  .bar-row .nm{width:130px;flex:none;color:var(--ink-muted);}
+  .bar-track{flex:1;height:10px;background:var(--border-soft);border-radius:20px;overflow:hidden;}
+  .bar-fill{height:100%;border-radius:20px;background:var(--primary);}
+  .bar-fill.ai{background:var(--ai);} .bar-fill.green{background:var(--green);} .bar-fill.amber{background:var(--amber);} .bar-fill.red{background:var(--danger);}
+  .bar-row .vv{width:66px;text-align:right;font-weight:700;font-size:11.5px;color:var(--ink);}
+
+  .toolbar{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:12px;flex-wrap:wrap;}
+  .search-wide{display:flex;align-items:center;gap:8px;background:var(--surface);border:1px solid var(--border);border-radius:9px;padding:8px 12px;font-size:12.5px;color:var(--ink);min-width:240px;}
+  .search-wide input{border:none;background:none;outline:none;font-family:inherit;font-size:12.5px;color:var(--ink);width:100%;}
+  .filters{display:flex;gap:8px;flex-wrap:wrap;}
+  .filter-btn{background:var(--surface);border:1px solid var(--border);color:var(--ink-muted);padding:7px 12px;border-radius:8px;font-size:12.5px;font-weight:500;cursor:pointer;}
+  .bulkbar{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:8px;flex-wrap:wrap;}
+  .bulk-left{display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
+  .selcount{font-size:12px;color:var(--ink-faint);}
+  .btn-send{background:var(--primary);color:#fff;border:none;padding:9px 18px;border-radius:9px;font-size:13px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:7px;box-shadow:var(--shadow);}
+  .btn-send:hover{background:var(--primary-ink);}
+
+  .panel{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow);overflow:hidden;margin-bottom:16px;}
+  .table-wrap{overflow-x:auto;}
+  table.data{width:100%;border-collapse:collapse;font-size:12.5px;}
+  table.data th{text-align:left;font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.3px;color:var(--ink-faint);padding:9px 12px;border-bottom:1px solid var(--border);white-space:nowrap;background:var(--surface-2);}
+  table.data td{padding:7px 12px;border-bottom:1px solid var(--border-soft);vertical-align:middle;white-space:nowrap;}
+  table.data th.c,table.data td.c{text-align:center;}
+  table.data th.num,table.data td.num{width:36px;text-align:center;color:var(--ink-faint);}
+  table.data tbody tr:last-child td{border-bottom:none;}
+  table.data tbody tr.clk{cursor:pointer;}
+  table.data tbody tr.clk:hover td{background:var(--border-soft);}
+  table.data tbody tr.sel td{background:var(--primary-soft);}
+  .nmcell{display:flex;align-items:center;gap:8px;}
+  .cpy{display:inline-flex;align-items:center;gap:5px;color:var(--ink);}
+  .cpy .ci{opacity:0;cursor:pointer;display:inline-flex;color:var(--ink-faint);transition:opacity .12s;}
+  tr:hover .cpy .ci{opacity:.5;}
+  .cpy .ci:hover{opacity:1;color:var(--primary);}
+  .av{width:26px;height:26px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#fff;flex:none;}
+  .gchip{font-size:11px;font-weight:700;padding:2px 9px;border-radius:20px;white-space:nowrap;}
+  .g-g{background:var(--green-soft);color:var(--green);}
+  .g-b{background:var(--blue-soft);color:var(--blue);}
+  .g-a{background:var(--amber-soft);color:var(--amber-ink);}
+  .status{display:inline-flex;align-items:center;gap:5px;font-size:11.5px;font-weight:700;padding:4px 11px;border-radius:20px;white-space:nowrap;}
+  .status.prepared{background:var(--amber);color:#fff;}
+  .status.pending{background:var(--pending-soft);color:var(--amber-ink);border:1px solid var(--pending-border);}
+  .status.sended{background:var(--green);color:#fff;}
+  .status.none{background:var(--border-soft);color:var(--ink-faint);}
+  input[type=checkbox].rowchk,input.checkall{width:16px;height:16px;border-radius:5px;accent-color:var(--primary);cursor:pointer;}
+  .cell-edit{border:1px solid transparent;background:none;border-radius:6px;padding:4px 6px;font-family:inherit;font-size:12.5px;color:var(--ink);width:100%;min-width:60px;}
+  .cell-edit:hover{border-color:var(--border);}
+  .cell-edit:focus{border-color:var(--primary);background:var(--surface);outline:none;}
+  .editnote{font-size:11px;color:var(--ai-ink);background:var(--ai-soft);border:1px solid var(--ai-border);padding:6px 10px;border-radius:8px;display:inline-flex;gap:6px;align-items:center;margin-bottom:10px;}
+
+  /* feedback cards */
+  .fbcard{border:1px solid var(--border);border-radius:11px;padding:13px 14px;margin-bottom:12px;background:var(--surface-2);}
+  .fbcard .top{display:flex;justify-content:space-between;align-items:center;margin-bottom:9px;gap:10px;}
+  .fbcard .top b{font-size:13px;}
+  textarea.draft{width:100%;min-height:92px;border:1px solid var(--ai-border);border-radius:9px;padding:10px 11px;font-family:'Sarabun',sans-serif;font-size:12.5px;line-height:1.6;color:var(--ink);background:var(--surface);resize:vertical;}
+  .ai-chip{display:inline-flex;align-items:center;gap:4px;background:var(--ai);color:#fff;font-size:10px;font-weight:700;letter-spacing:.3px;padding:2px 7px;border-radius:20px;}
+  .qa-flag{display:flex;align-items:center;gap:7px;font-size:11.5px;font-weight:700;padding:7px 9px;border-radius:8px;margin-top:9px;}
+  .qa-flag.ok{background:var(--green-soft);color:var(--green);}
+
+  .btn{background:var(--ink);color:#fff;border:none;font-size:12.5px;font-weight:700;padding:8px 14px;border-radius:8px;cursor:pointer;}
+  .btn.primary{background:var(--primary);} .btn.primary:hover{background:var(--primary-ink);}
+  .btn.ai{background:var(--ai);} .btn.ai:hover{background:var(--ai-ink);}
+  .btn.ghost{background:none;border:1px solid var(--border);color:var(--ink-muted);}
+  .btn.ghost:hover{border-color:var(--ink-faint);color:var(--ink);}
+  .btn.sm{padding:6px 11px;font-size:11.5px;}
+
+  /* drawer */
+  .drawer-backdrop{position:fixed;inset:0;background:rgba(30,26,50,.35);display:none;z-index:60;}
+  .drawer-backdrop.open{display:block;}
+  .drawer{position:fixed;top:0;right:0;height:100%;width:540px;max-width:94vw;background:var(--surface);box-shadow:-16px 0 40px -20px rgba(20,16,40,.5);z-index:61;transform:translateX(100%);transition:transform .2s ease;display:flex;flex-direction:column;}
+  .drawer.open{transform:translateX(0);}
+  .drawer-head{padding:15px 20px;border-bottom:1px solid var(--border-soft);display:flex;justify-content:space-between;align-items:flex-start;gap:10px;}
+  .drawer-head .who{display:flex;align-items:center;gap:10px;}
+  .drawer-seg{padding:12px 20px 0;}
+  .drawer-body{padding:14px 20px;overflow-y:auto;flex:1;}
+  .drawer-foot{padding:12px 20px;border-top:1px solid var(--border-soft);display:flex;gap:8px;align-items:center;background:var(--surface-2);}
+  .dclose{background:none;border:none;font-size:20px;color:var(--ink-faint);cursor:pointer;}
+  .dseg{display:none;} .dseg.active{display:block;}
+  .subj-card{border:1px solid var(--border);border-radius:11px;padding:12px 13px;margin-bottom:11px;}
+  .subj-card .top{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;gap:8px;}
+  .row-line{display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-top:1px solid var(--border-soft);font-size:12.5px;gap:8px;}
+  .row-line:first-of-type{border-top:none;}
+  .row-line .k{color:var(--ink-muted);}
+  .fbmini{font-size:11.5px;color:var(--ink-muted);background:var(--surface-2);border:1px solid var(--border-soft);border-radius:8px;padding:8px 10px;margin-top:8px;line-height:1.6;}
+  .sec-title{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.3px;color:var(--ink-faint);margin:16px 0 8px;}
+  .doc-line{display:flex;align-items:center;gap:8px;padding:8px 10px;border:1px solid var(--border);border-radius:9px;margin-bottom:7px;font-size:12.5px;}
+  .doc-line .rm{margin-left:auto;color:var(--danger);cursor:pointer;font-weight:700;font-size:11.5px;}
+  .tag{display:inline-flex;align-items:center;gap:4px;font-size:10.5px;font-weight:700;padding:2px 8px;border-radius:20px;}
+  .tag.late{background:var(--danger-soft);color:var(--danger);}
+  .tag.noclass{background:var(--border-soft);color:var(--ink-faint);}
+  .tag.makeup{background:var(--blue-soft);color:var(--blue);}
+
+  /* ===== รายงานผลการเรียน — A4 page, adaptive 1–5 subjects ===== */
+  .pv-ctrl{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:12px;font-size:11px;color:var(--ink-muted);}
+  .pv-ctrl b{color:var(--ink);font-weight:700;}
+  .pv-ctrl button{border:1px solid var(--border);background:var(--surface);color:var(--ink-muted);border-radius:7px;padding:4px 10px;font-size:11px;font-weight:600;cursor:pointer;font-family:inherit;}
+  .pv-ctrl button.active{background:var(--primary);color:#fff;border-color:var(--primary);}
+  .a4-stage{background:#e7e4f1;padding:16px;border-radius:12px;display:flex;justify-content:center;}
+  .a4{width:100%;max-width:560px;aspect-ratio:210/297;background:#fff;border-radius:5px;box-shadow:0 12px 32px -14px rgba(20,16,40,.45);display:flex;flex-direction:column;overflow:hidden;font-family:'Sarabun',sans-serif;color:#2a2a33;}
+  .a4 .rp-hero{background:linear-gradient(125deg,#443398,#6d5bd0 62%,#8f74e6);color:#fff;padding:16px 18px 14px;flex:none;}
+  .a4 .rp-hero .brand{display:flex;align-items:center;gap:8px;margin-bottom:11px;}
+  .a4 .rp-hero .mark{width:26px;height:26px;border-radius:7px;background:rgba(255,255,255,.18);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:12px;}
+  .a4 .rp-hero .bt{font-weight:700;font-size:11.5px;letter-spacing:.4px;}
+  .a4 .rp-hero .doc{margin-left:auto;font-size:8.5px;text-transform:uppercase;letter-spacing:1.2px;opacity:.85;font-weight:700;border:1px solid rgba(255,255,255,.32);padding:2px 8px;border-radius:20px;}
+  .a4 .rp-hero h2{font-size:18px;font-weight:700;margin:0 0 3px;font-family:'IBM Plex Sans Thai','Sarabun',sans-serif;}
+  .a4 .rp-hero .meta{font-size:11px;opacity:.92;}
+  .rp-body{flex:1;padding:13px 16px;display:flex;flex-direction:column;gap:11px;min-height:0;}
+  .rp-snapshot{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;flex:none;}
+  .rp-snap{background:var(--surface-2);border:1px solid var(--border-soft);border-radius:9px;padding:8px 6px;text-align:center;}
+  .rp-snap .v{font-size:16px;font-weight:800;color:var(--primary-ink);font-family:'IBM Plex Sans Thai','Sarabun',sans-serif;line-height:1.1;}
+  .rp-snap .l{font-size:9px;color:var(--ink-muted);font-weight:600;margin-top:2px;}
+  .rp-grid{flex:1;display:grid;gap:8px;grid-template-columns:1fr;align-content:start;min-height:0;}
+  .a4[data-n="4"] .rp-grid,.a4[data-n="5"] .rp-grid{grid-template-columns:1fr 1fr;}
+  .rp-card{border:1px solid var(--border);border-radius:9px;overflow:hidden;display:flex;flex-direction:column;border-left:3px solid var(--acc,#6d5bd0);}
+  .rp-card .ch{display:flex;align-items:center;gap:6px;padding:7px 10px;background:var(--surface-2);}
+  .rp-card .dot{width:8px;height:8px;border-radius:50%;background:var(--acc);flex:none;}
+  .rp-card .cn{font-weight:700;font-size:12px;font-family:'IBM Plex Sans Thai','Sarabun',sans-serif;}
+  .rp-card .chip{margin-left:auto;}
+  .rp-card .cm{display:flex;gap:5px;padding:7px 10px 0;flex-wrap:wrap;}
+  .rp-metric{font-size:10px;background:var(--surface-2);border:1px solid var(--border-soft);border-radius:6px;padding:2px 7px;color:var(--ink-muted);}
+  .rp-metric b{font-family:'IBM Plex Sans Thai','Sarabun',sans-serif;font-weight:700;}
+  .rp-card .cc{padding:7px 10px 9px;font-size:10.5px;line-height:1.55;color:#555;display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical;overflow:hidden;}
+  .a4[data-n="1"] .cc,.a4[data-n="2"] .cc{-webkit-line-clamp:7;}
+  .a4[data-n="4"] .cc,.a4[data-n="5"] .cc{-webkit-line-clamp:3;}
+  .rp-foot{flex:none;padding:9px 16px;border-top:1px solid var(--border-soft);display:flex;justify-content:space-between;align-items:flex-end;font-size:9.5px;color:var(--ink-faint);}
+  .rp-foot .sig{text-align:center;} .rp-foot .sig .ln{width:110px;border-top:1px solid var(--ink-faint);margin-bottom:4px;}
+
+  /* v3.6 — sortable header / compact status / editable / feedback 2col / charts */
+  th.srt{cursor:pointer;user-select:none;}
+  th.srt:hover{color:var(--primary-ink);}
+  th.srt .ar{opacity:.35;font-size:9px;margin-left:2px;}
+  th.srt.on{color:var(--primary-ink);} th.srt.on .ar{opacity:1;}
+  .tbl-legend{font-size:11px;color:var(--ink-muted);margin-bottom:8px;display:flex;gap:6px;align-items:center;flex-wrap:wrap;}
+  .tbl-legend b{color:var(--ink);font-weight:700;}
+  .tbl-legend .stt2{margin-left:4px;}
+  .stt2{font-size:13px;font-weight:700;}
+  .stt2.prepared{color:var(--amber);} .stt2.sended{color:var(--green);} .stt2.pending{color:var(--ink-faint);} .stt2.none{color:var(--ink-faint);}
+  .sic{width:17px;height:17px;vertical-align:middle;display:inline-block;flex:none;}
+  .sic-dash{color:var(--ink-faint);font-weight:700;}
+  .stmini{font-size:11px;font-weight:700;padding:2px 4px 2px 3px;border-radius:20px;display:inline-flex;align-items:center;gap:5px;background:none;}
+  .stmini .sic{width:16px;height:16px;}
+  .stmini.prepared{color:var(--amber-ink);background:var(--amber-soft);padding:2px 11px 2px 3px;}
+  .stmini.pending{color:var(--ink-muted);}
+  .stmini.sended{color:var(--green);}
+  .stmini.none{color:var(--ink-faint);}
+  /* status column badge */
+  .stbadge{display:inline-flex;align-items:center;gap:6px;font-size:11.5px;font-weight:700;white-space:nowrap;}
+  .stbadge .d{width:8px;height:8px;border-radius:50%;flex:none;}
+  .stbadge.active{color:var(--green);} .stbadge.active .d{background:var(--green);}
+  .stbadge.inactive{color:var(--amber-ink);} .stbadge.inactive .d{background:var(--amber);}
+  .stbadge.churn{color:var(--danger);} .stbadge.churn .d{background:var(--danger);}
+  .stbadge .dur{background:var(--border-soft);color:var(--ink-muted);padding:0 6px;border-radius:20px;font-size:10px;}
+  /* more menu + column manager */
+  .more-btn{background:none;border:none;color:var(--ink-faint);cursor:pointer;font-size:17px;padding:0 6px;border-radius:6px;line-height:1;}
+  .more-btn:hover{background:var(--border-soft);color:var(--ink);}
+  .rowpop{position:fixed;z-index:85;background:var(--surface);border:1px solid var(--border);border-radius:10px;box-shadow:0 12px 30px -10px rgba(20,16,40,.4);padding:5px;display:none;min-width:150px;}
+  .rowpop button{display:flex;align-items:center;gap:9px;width:100%;text-align:left;background:none;border:none;padding:8px 11px;border-radius:7px;font-size:12.5px;color:var(--ink);cursor:pointer;font-family:inherit;}
+  .rowpop button:hover{background:var(--border-soft);}
+  .rowpop button.del{color:var(--danger);}
+  .pos-rel{position:relative;}
+  .colpop{position:absolute;top:38px;right:0;z-index:40;background:var(--surface);border:1px solid var(--border);border-radius:10px;box-shadow:0 12px 30px -10px rgba(20,16,40,.35);padding:10px;min-width:240px;display:none;max-height:360px;overflow-y:auto;}
+  .colpop.open{display:block;}
+  .colpop h4{font-size:10px;text-transform:uppercase;letter-spacing:.3px;color:var(--ink-faint);margin:2px 0 6px;}
+  .colpop label{display:flex;align-items:center;gap:8px;font-size:12.5px;padding:5px 4px;cursor:pointer;border-radius:6px;}
+  .colpop label:hover{background:var(--border-soft);}
+  .colpop label input{accent-color:var(--primary);}
+  .colpop .cdel{margin-left:auto;color:var(--danger);cursor:pointer;font-size:11px;font-weight:700;}
+  .colpop .addrow{display:flex;gap:6px;margin-top:8px;border-top:1px solid var(--border-soft);padding-top:9px;}
+  .colpop .addrow input{flex:1;border:1px solid var(--border);border-radius:7px;padding:6px 8px;font-size:12px;font-family:inherit;background:var(--surface);color:var(--ink);}
+  th .colx{opacity:0;margin-left:5px;color:var(--ink-faint);cursor:pointer;font-weight:700;}
+  th:hover .colx{opacity:.6;} th .colx:hover{opacity:1;color:var(--danger);}
+  /* fixed-width table */
+  table.data.fixed{table-layout:fixed;}
+  table.data.fixed th,table.data.fixed td{overflow:hidden;text-overflow:ellipsis;}
+  table.data.fixed .cell-edit{width:100%;min-width:0;max-width:none;}
+  table.data.fixed .nmcell{overflow:hidden;}
+  /* student photo */
+  .stimg{width:34px;height:34px;border-radius:50%;overflow:hidden;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;border:2px solid transparent;transition:border-color .12s;}
+  .stimg:hover{border-color:var(--primary);}
+  .stimg-img{width:100%;height:100%;object-fit:cover;}
+  .stimg-init{width:100%;height:100%;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:13px;}
+  .imgpop{position:fixed;z-index:90;background:var(--surface);border:1px solid var(--border);border-radius:14px;box-shadow:0 16px 40px -16px rgba(20,16,40,.45);padding:8px;display:none;}
+  .imgpop img,.imgpop .big{width:170px;height:170px;border-radius:11px;object-fit:cover;}
+  .imgpop .big{display:flex;align-items:center;justify-content:center;color:#fff;font-weight:800;font-size:60px;}
+  /* sticky lock + header menu */
+  table.data.fixed th{position:relative;padding-right:20px;}
+  table.data.fixed th.stick{background:var(--surface-2);z-index:3;}
+  table.data.fixed td.stick{position:sticky;z-index:1;background:var(--surface);}
+  table.data.fixed tr:hover td.stick{background:var(--border-soft);}
+  table.data.fixed .stick-edge{box-shadow:6px 0 8px -6px rgba(20,16,40,.2);}
+  .hdr-lbl{cursor:pointer;display:inline-flex;align-items:center;gap:3px;}
+  .hdr-caret{opacity:0;background:none;border:none;color:var(--ink-faint);cursor:pointer;font-size:10px;padding:0 2px;position:absolute;right:5px;top:50%;transform:translateY(-50%);}
+  table.data.fixed th:hover .hdr-caret{opacity:.75;} .hdr-caret:hover{opacity:1;color:var(--primary);}
+  table.data.fixed th[draggable]{cursor:grab;}
+  .hdrpop{position:fixed;z-index:88;background:var(--surface);border:1px solid var(--border);border-radius:10px;box-shadow:0 12px 30px -10px rgba(20,16,40,.4);padding:5px;display:none;min-width:172px;}
+  .hdrpop button{display:flex;align-items:center;gap:9px;width:100%;text-align:left;background:none;border:none;padding:8px 11px;border-radius:7px;font-size:12.5px;color:var(--ink);cursor:pointer;font-family:inherit;}
+  .hdrpop button:hover{background:var(--border-soft);}
+  select.gsel{border:1px solid var(--border);border-radius:6px;padding:3px 7px;font-size:12px;font-family:inherit;background:var(--surface);color:var(--ink);cursor:pointer;}
+  select.gsel:hover{border-color:var(--primary);}
+  .cchip{display:inline-block;font-size:10.5px;font-weight:700;padding:2px 8px;border-radius:20px;background:var(--primary-soft);color:var(--primary-ink);margin:1px 3px 1px 0;}
+  .cchip.alt{background:var(--ai-soft);color:var(--ai-ink);}
+  .fbedit{border:1px solid var(--border);border-radius:11px;padding:13px 14px;}
+  .fbedit.ai{background:var(--ai-soft);border-color:var(--ai-border);}
+  .fbedit.done{background:var(--green-soft);border-color:var(--green-border);}
+  .fbedit .eh{display:flex;align-items:center;gap:7px;font-weight:700;font-size:12px;margin-bottom:9px;}
+  .fbedit.ai .eh{color:var(--ai-ink);} .fbedit.done .eh{color:var(--green);}
+  .fb2{display:grid;grid-template-columns:1.35fr .9fr;gap:14px;align-items:start;margin-bottom:16px;}
+  @media(max-width:820px){.fb2{grid-template-columns:1fr;}}
+  .lesson-card{background:var(--surface);border:1px solid var(--border);border-radius:12px;overflow:hidden;box-shadow:var(--shadow);}
+  .lesson-card .lh{background:var(--primary-soft);color:var(--primary-ink);padding:11px 14px;font-weight:700;font-size:12.5px;display:flex;align-items:center;gap:7px;}
+  .lesson-card .lb{padding:13px 14px;}
+  .lesson-topic{font-size:15px;font-weight:700;font-family:'IBM Plex Sans Thai','Sarabun',sans-serif;margin-bottom:3px;}
+  .lesson-sub{font-size:11px;color:var(--ink-faint);margin-bottom:11px;}
+  .lesson-list{list-style:none;padding:0;margin:0;}
+  .lesson-list li{font-size:12px;color:var(--ink-muted);padding:6px 0 6px 16px;position:relative;border-top:1px solid var(--border-soft);}
+  .lesson-list li:first-child{border-top:none;}
+  .lesson-list li:before{content:'';position:absolute;left:2px;top:12px;width:6px;height:6px;border-radius:50%;background:var(--primary);}
+  .rep-charts{display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:14px;margin-bottom:16px;}
+  .chart-card{background:var(--surface);border:1px solid var(--border);border-radius:12px;box-shadow:var(--shadow);padding:14px 16px;}
+  .chart-card h3{font-size:13.5px;margin:0;}
+  .chart-legend{display:flex;gap:14px;font-size:11px;margin:6px 0 8px;flex-wrap:wrap;}
+  .chart-legend span{display:flex;align-items:center;gap:5px;color:var(--ink-muted);}
+  .chart-legend i{width:13px;height:3px;border-radius:2px;display:inline-block;}
+  .chart svg{width:100%;height:auto;display:block;}
+
+  /* LINE chat mockup */
+  .line{max-width:330px;margin:0 auto;border-radius:14px;overflow:hidden;border:1px solid var(--border);box-shadow:var(--shadow);font-family:'Sarabun',sans-serif;}
+  .line-top{background:#06C755;color:#fff;padding:10px 14px;display:flex;align-items:center;gap:9px;}
+  .line-top .oa{width:30px;height:30px;border-radius:50%;background:#fff;color:#06C755;font-weight:800;font-size:12px;display:flex;align-items:center;justify-content:center;flex:none;}
+  .line-top .nm{font-weight:700;font-size:13px;line-height:1.2;}
+  .line-top .stt{font-size:10px;opacity:.9;}
+  .line-chat{background:#9cb4d4;padding:14px 12px;display:flex;flex-direction:column;gap:9px;max-height:56vh;overflow-y:auto;}
+  .l-row{display:flex;gap:7px;align-items:flex-end;}
+  .l-ava{width:26px;height:26px;border-radius:50%;background:#fff;color:#06C755;font-weight:800;font-size:10px;display:flex;align-items:center;justify-content:center;flex:none;}
+  .l-bubble{background:#fff;border-radius:4px 14px 14px 14px;padding:9px 11px;font-size:12px;color:#333;max-width:78%;line-height:1.55;box-shadow:0 1px 1px rgba(0,0,0,.12);}
+  .l-card{background:#fff;border-radius:10px;padding:6px;box-shadow:0 1px 2px rgba(0,0,0,.18);}
+  .l-time{font-size:9.5px;color:rgba(255,255,255,.95);align-self:flex-end;font-weight:600;}
+  .l-note{font-size:11px;color:var(--ink-muted);text-align:center;margin:12px 0 0;}
+
+  /* modal */
+  .modal-backdrop{position:fixed;inset:0;background:rgba(30,26,50,.4);display:none;align-items:flex-start;justify-content:center;padding:40px 16px;overflow-y:auto;z-index:70;}
+  .modal-backdrop.open{display:flex;}
+  .modal{background:var(--surface);border-radius:14px;max-width:820px;width:100%;box-shadow:0 24px 60px -20px rgba(10,12,20,.4);border:1px solid var(--border);}
+  .modal.sm2{max-width:520px;}
+  .modal-head{padding:16px 20px;border-bottom:1px solid var(--border-soft);display:flex;justify-content:space-between;gap:12px;}
+  .modal-head h3{font-size:15px;margin:0;}
+  .modal-head .sub{font-size:11.5px;color:var(--ink-muted);margin-top:3px;}
+  .modal-body{padding:18px 20px;}
+  .match-table{width:100%;border-collapse:collapse;font-size:12px;}
+  .match-table th{text-align:left;font-size:10px;text-transform:uppercase;color:var(--ink-faint);padding:6px 8px;border-bottom:1px solid var(--border);}
+  .match-table td{padding:6px 8px;border-bottom:1px solid var(--border-soft);}
+  select.sel,input.txt{border:1px solid var(--border);border-radius:6px;padding:6px 8px;font-size:12px;background:var(--surface);color:var(--ink);font-family:inherit;}
+  .field{margin-bottom:12px;}
+  .field label{display:block;font-size:11.5px;font-weight:700;color:var(--ink-muted);margin-bottom:5px;}
+  .radio-list{display:flex;flex-direction:column;gap:7px;}
+  .radio-list label{display:flex;align-items:center;gap:8px;font-size:12.5px;font-weight:500;color:var(--ink);border:1px solid var(--border);border-radius:9px;padding:9px 11px;cursor:pointer;}
+  .radio-list input{accent-color:var(--primary);}
+  .subj-pick{display:flex;flex-wrap:wrap;gap:7px;}
+  .subj-pick label{display:flex;align-items:center;gap:6px;font-size:12px;border:1px solid var(--border);border-radius:20px;padding:6px 12px;cursor:pointer;}
+  .scope-toggle{display:inline-flex;background:var(--bg);border:1px solid var(--border);border-radius:9px;padding:3px;gap:2px;margin-bottom:14px;}
+  .scope-toggle.full{display:flex;width:100%;}
+  .scope-toggle.full button{flex:1;}
+  .scope-toggle button{border:none;background:none;font-size:12px;font-weight:600;color:var(--ink-muted);padding:7px 14px;border-radius:7px;cursor:pointer;}
+  .scope-toggle button.active{background:var(--primary);color:#fff;}
+
+  .oq-toggle{position:fixed;bottom:20px;right:20px;z-index:55;background:var(--ink);color:#fff;border:none;border-radius:24px;padding:11px 16px;font-size:12px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:8px;box-shadow:0 10px 26px -10px rgba(20,24,38,.5);}
+  .oq-toggle .n{background:var(--amber);color:#fff;border-radius:20px;padding:1px 7px;font-size:10.5px;}
+  .oq-panel{position:fixed;bottom:70px;right:20px;width:330px;max-width:calc(100vw - 32px);background:var(--surface);border:1px solid var(--border);border-radius:12px;box-shadow:0 20px 50px -16px rgba(10,12,20,.4);z-index:55;display:none;max-height:70vh;overflow-y:auto;}
+  .oq-panel.open{display:block;}
+  .oq-panel .h{padding:12px 14px;border-bottom:1px solid var(--border-soft);font-size:12.5px;font-weight:700;display:flex;justify-content:space-between;position:sticky;top:0;background:var(--surface);}
+  .oq-item{padding:10px 14px;border-bottom:1px solid var(--border-soft);font-size:11.5px;color:var(--ink-muted);}
+  .oq-item:last-child{border-bottom:none;}
+  .oq-item b{color:var(--ink);display:block;font-size:12px;margin-bottom:2px;}
+  .placeholder{color:var(--ink-muted);font-size:13px;padding:20px;}
+  :focus-visible{outline:2px solid var(--primary);outline-offset:2px;}
+  @media (prefers-reduced-motion: reduce){*{transition:none !important;}}
+</style>
+
+<div class="notice"><span class="dot"></span> Prototype v3.5 — จำลอง Case เต็ม flow · Data ค้างหลัง refresh · กดส่ง → เห็นหน้า LINE ผู้ปกครอง<button onclick="resetDemo()" style="margin-left:auto;background:rgba(255,255,255,.2);color:#fff;border:none;border-radius:7px;padding:4px 11px;font-size:11px;font-weight:600;cursor:pointer;font-family:inherit;">↺ รีเซ็ตข้อมูลตัวอย่าง</button></div>
+
+<div class="shell">
+  <aside class="sidebar">
+    <div class="sidebar-top">
+      <div style="display:flex;align-items:center;gap:9px;"><div class="logo">N</div><div class="brand">Web Teacher<small>Premium Plus Console</small></div></div>
+    </div>
+    <div class="searchbox">🔍 <span>ค้นหานักเรียน / รหัส</span></div>
+    <nav class="side-nav">
+      <button class="side-link" data-view="dashboard"><span class="ic">▤</span> <span>Dashboard</span></button>
+      <button class="side-link" data-view="students"><span class="ic">◕</span> <span>Student list</span></button>
+      <button class="side-link active" data-view="course"><span class="ic">▦</span> <span>Summary</span><span class="bdg" id="navCourseBdg">0</span></button>
+      <button class="side-link" data-view="feedback"><span class="ic">✎</span> <span>Feedback</span><span class="bdg" id="navFbBdg">0</span></button>
+      <button class="side-link" data-view="report"><span class="ic">▮</span> <span>Report</span></button>
+    </nav>
+    <div class="side-foot"><div class="av">NK</div><div><span class="role">Teacher</span><div class="who">Kru Nock</div></div></div>
+  </aside>
+
+  <div class="main">
+    <section class="view" id="v-dashboard"></section>
+    <section class="view" id="v-students"></section>
+    <section class="view active" id="v-course"></section>
+    <section class="view" id="v-feedback"></section>
+    <section class="view" id="v-report"></section>
+  </div>
+</div>
+
+<!-- drawer -->
+<div class="drawer-backdrop" id="drawerBackdrop" onclick="closeDrawer()"></div>
+<div class="drawer" id="drawer">
+  <div class="drawer-head">
+    <div class="who"><div class="av" style="width:38px;height:38px;font-size:13px;" id="drawerAv">A</div>
+      <div><div style="font-weight:700;font-size:14px;" id="drawerName">—</div><div style="font-size:11.5px;color:var(--ink-muted);" id="drawerMeta"></div></div></div>
+    <button class="dclose" onclick="closeDrawer()">×</button>
+  </div>
+  <div class="drawer-seg"><div class="scope-toggle full"><button class="active" id="dtInfo" onclick="drawerTab('info')">Information</button><button id="dtPrev" onclick="drawerTab('preview')">Preview รายงาน</button></div></div>
+  <div class="drawer-body"><div class="dseg active" id="dInfo"></div><div class="dseg" id="dPreview"></div></div>
+  <div class="drawer-foot">
+    <button class="btn primary" style="flex:1;" id="drawerSend">▷ ส่งให้ผู้ปกครอง</button>
+    <button class="btn ghost" onclick="nav('feedback');closeDrawer();">แก้ Feedback</button>
+  </div>
+</div>
+
+<div class="modal-backdrop" id="modal"><div class="modal" id="modalCard"></div></div>
+
+<div class="imgpop" id="imgpop"></div>
+<div class="hdrpop" id="hdrpop"></div>
+
+<div class="rowpop" id="rowpop">
+  <button onclick="rowAct('ignore')">🚫 Ignore</button>
+  <button onclick="rowAct('check')">✓ Check</button>
+  <button onclick="rowAct('summary')">▤ Summary</button>
+  <button class="del" onclick="rowAct('delete')">🗑 Delete</button>
+</div>
+
+<button class="oq-toggle" id="oqToggle">📌 คำถามเปิด <span class="n">5</span></button>
+<div class="oq-panel" id="oqPanel">
+  <div class="h">Scope/logic ที่ผมเดา <button class="dclose" onclick="toggleOQ()">×</button></div>
+  <div class="oq-item"><b>1 · Course tab เดียว</b>All = ภาพรวมทุกวิชา (พร้อม/ส่งยัง) · รายวิชา = ตาราง Att/LQ/HW ของวิชานั้น จัดการแล้วสะท้อนกลับ All</div>
+  <div class="oq-item"><b>2 · Side panel</b>Information = ผล+Feedback ทุกวิชา · Preview = เอกสารรายงานผลการเรียน (ตาม template ที่ส่งมา)</div>
+  <div class="oq-item"><b>3 · Feedback page</b>เลือก Week + วิชา → ช่องแก้บน + ภาพรวม feedback ทุกวิชาด้านล่าง</div>
+  <div class="oq-item"><b>4 · Live/Quiz/HW</b>สร้างที่ Web Admin — หน้านี้เก็บผล/ตรวจ · Homework กรอกมือ (Manual)</div>
+  <div class="oq-item"><b>5 · เคสพิเศษ</b>late/ไม่มีเรียน/ชดเชย · รายคน (drawer) + ทั้งคอร์ส (bulk)</div>
+</div>
+
+<script>
+/* ============================================================ DATA ============================================================ */
+const CUR_WEEK=5, WEEKS=[1,2,3,4,5,6,7];
+const WK_DATE={1:'21–23 ก.ค.',2:'28–30 ก.ค.',3:'4–6 ส.ค.',4:'11–13 ส.ค.',5:'18–20 ส.ค.',6:'25–27 ส.ค.',7:'1–3 ก.ย.'};
+const SUBJ={
+  sci:  {n:'วิทยาศาสตร์',        short:'วิทย์',      ic:'📘', lq:10, hw:10},
+  mathB:{n:'คณิตศาสตร์ (พื้นฐาน)', short:'คณิต พฐ.',  ic:'📐', lq:5,  hw:10},
+  mathA:{n:'คณิตศาสตร์ (เสริม)',  short:'คณิต เสริม', ic:'📊', lq:5,  hw:8},
+  eng:  {n:'ภาษาอังกฤษ',         short:'อังกฤษ',    ic:'📗', lq:8,  hw:10},
+};
+const COURSES=[
+  {id:'c1', n:'สอบเข้า ม.4 MWIT วมว. อจ.', subs:['sci','mathB','mathA']},
+  {id:'c2', n:'สอบเข้า ม.1 รร. จุฬาภรณ์',   subs:['sci','mathB','eng']},
+];
+const NOCLASS={ 'c1|mathA|4':1, 'c2|eng|3':1 };
+const FB_TEXT={
+  sci:'สัปดาห์นี้น้องๆ ได้เรียนรู้เรื่องพันธุศาสตร์ เข้าใจการถ่ายทอดลักษณะทางพันธุกรรมของเมนเดล และอธิบายกฎการแยกตัว/การรวมกลุ่มอย่างอิสระได้อย่างถูกต้อง',
+  mathB:'สัปดาห์นี้ทบทวนเรื่องสมการเชิงเส้นตัวแปรเดียว นักเรียนส่วนใหญ่แก้โจทย์พื้นฐานได้ดี ควรฝึกโจทย์ประยุกต์เพิ่มเติม',
+  mathA:'สัปดาห์นี้เป็นโจทย์แข่งขันเรื่องทฤษฎีจำนวน เน้นการพิสูจน์ นักเรียนเริ่มจับแนวทางได้ แนะนำให้ฝึกโจทย์เก่าเพิ่ม',
+  eng:'This week focused on reading comprehension and tense review. Most students improved on vocabulary usage.',
+};
+let _s=987654321; const rnd=()=>{_s=(_s*1103515245+12345)&0x7fffffff;return _s/0x7fffffff;};
+const pick=a=>a[Math.floor(rnd()*a.length)]; const ri=(a,b)=>a+Math.floor(rnd()*(b-a+1));
+const NICKS=['Alin','Somchai','Kanya','Tee','Ploy','Nut','Mind','Petch','Fah','Bam','Guy','Nink','Prae','Tan','Aom','Bright','View','Jane','Kong','Mook','Nan','Ohm','Pun','Ryu','Gift','Best'];
+const SURN=['Leelapong','Somsuk','Meesuk','Wongsakul','Ratana','Charoen','Srisai','Thongdee','Bunmee','Phakdee','Intira','Kittithad','Saengsuk','Chaiyo'];
+const COLORS=['#d98a4a','#5b8dd6','#9c8fe0','#3fa07a','#d96a9c','#6aa0d9','#c98a3a','#7a9c4a','#b06bd0','#4aa0a0'];
+const GRADES=[['ป.4','g-g'],['ป.5','g-b'],['ป.6','g-a']];
+
+const courseObj=id=>COURSES.find(c=>c.id===id);
+const TOPIC={
+  sci:['ระบบนิเวศ','อาหารและสารอาหาร','ระบบร่างกายมนุษย์','การเจริญเติบโตของสัตว์ & เทคโนโลยีชีวภาพ','พืช','พันธุศาสตร์','ดิน หิน แร่'],
+  mathB:['จำนวนเต็ม','เศษส่วน & ทศนิยม','สมการเชิงเส้นตัวแปรเดียว','อัตราส่วน & ร้อยละ','เรขาคณิตพื้นฐาน','สถิติเบื้องต้น','โจทย์ปัญหาระคน'],
+  mathA:['ทฤษฎีจำนวน','พีชคณิตเชิงแข่งขัน','เรขาคณิตเชิงพิสูจน์','การนับ & ความน่าจะเป็น','อสมการ','ฟังก์ชันเบื้องต้น','โจทย์ประยุกต์'],
+  eng:['Tenses Review','Reading Comprehension','Vocabulary Building','Conditionals','Writing Skills','Listening Practice','Error Identification'],
+};
+const topicOf=(sub,wk)=>(TOPIC[sub]&&TOPIC[sub][wk-1])||'-';
+
+const students=[];
+for(let i=0;i<26;i++){
+  const nick=NICKS[i], g=pick(GRADES), base=i<15?'c1':'c2';
+  const courses=[base];
+  if([13,14,15,24,25].includes(i))courses.push(base==='c1'?'c2':'c1');
+  students.push({idx:i,id:'100000'+String(i+1).padStart(2,'0'),name:nick+' '+pick(SURN),nick,grade:g[0],gc:g[1],
+    phone:'08'+ri(1,9)+'-'+ri(100,999)+'-'+ri(1000,9999),courses,av:COLORS[i%COLORS.length],
+    reg:pick(['20 Apr 26','15 Jun 25','25 Dec 25','15 Aug 25','02 Feb 26','11 Mar 26']),exp:'5 Nov 26',sent:new Set(),lastActiveWk:0});
+}
+const enrollments=[];students.forEach(s=>s.courses.forEach(cid=>enrollments.push({s,course:cid})));
+// ข้อมูลเพิ่มเติมของ Student list (ตามภาพจริง) + Status
+const ADDR=['87/78 ประชาสงเคราะห์ 22','5/64 หมู่บ้านดิเอ็กซ์','151/2 ม.3 ตันหยงลุโละ','56 หมู่ 12 ซอย 2 น้ำใส','144/4 หมู่ 5 บ้านเกาะ','97/31 บ้านไม้งามโครงการ 2','224 ม.7 ต.ท่าพระ','91/107 หมู่ 1 หมู่บ้านสุข'];
+const DELN=['นางมาริกา ศิริกุลชัย','แม่ปูมังกร','กฤษณะ แท่นหิน','น.ส.ศิริวรรณ พิญญุพงษ์','นบตล สุทธิปัญโญ'];
+students.forEach(s=>{
+  s.lineName=pick(['-','-','-',s.nick,'ไอน์สไตล์ ไม่ชอบขี้เกียจ','Mungkorn','JIN(จิน)','Diamond A.D.R.S.']);
+  s.premiumExp='05 Nov, 26'; s.autoRenew=rnd()<0.18; s.premiumPlusExp='05 Nov, 26';
+  s.notes=rnd()<0.22?'✅ ต่อคอร์ส จภ. แล้ว':''; s.examResults=rnd()<0.15?'ผ่านรอบแรก':'';
+  s.deliveryName=rnd()<0.5?pick(DELN):'—'; s.address=pick(ADDR); s.custom={};
+  const r=rnd();
+  if(r<0.66){s.status='active';s.statusDur='';}
+  else if(r<0.87){s.status='inactive';s.statusDur=pick(['7d','14d','21d','30d']);}
+  else{s.status='churn';s.statusDur=pick(['2M','3M','6M']);}
+});
+function unionSubs(s){const set=[];s.courses.forEach(cid=>courseObj(cid).subs.forEach(sub=>{if(!set.includes(sub))set.push(sub);}));return set;}
+const R={}, fbTpl={};
+COURSES.forEach(c=>c.subs.forEach(sub=>{for(const wk of WEEKS){if(wk>CUR_WEEK)continue;const prepared=wk<CUR_WEEK?true:(sub!=='mathA');fbTpl[c.id+'|'+sub+'|'+wk]={prepared,text:prepared?FB_TEXT[sub]:''};}}));
+students.forEach(s=>{
+  R[s.idx]={}; const subs=unionSubs(s);
+  subs.forEach(sub=>{R[s.idx][sub]={};
+    const cid=s.courses.find(c=>courseObj(c).subs.includes(sub));
+    for(const wk of WEEKS){if(wk>CUR_WEEK)continue;
+      if(NOCLASS[cid+'|'+sub+'|'+wk]){R[s.idx][sub][wk]={att:'noclass'};continue;}
+      const present=rnd()>0.14; let att=present?'present':'absent'; if(!present&&rnd()<0.4)att='makeup';
+      const attended=att==='present'||att==='makeup'; if(attended)s.lastActiveWk=Math.max(s.lastActiveWk,wk);
+      const lqT=SUBJ[sub].lq, lqDone=attended?(rnd()<0.85?lqT:ri(Math.ceil(lqT*0.5),lqT)):0, lqCorrect=Math.round(lqDone*(0.5+rnd()*0.48));
+      const hwT=SUBJ[sub].hw, collected=wk<CUR_WEEK?rnd()<0.95:rnd()<0.6, late=collected&&rnd()<0.13, hwScore=collected?ri(Math.floor(hwT*0.4),hwT):null;
+      R[s.idx][sub][wk]={att,lqDone,lqCorrect,lqT,collected,late,hwScore,hwT};
+    }});
+  s.courses.forEach(cid=>{for(const wk of WEEKS){if(wk>=CUR_WEEK)continue;if(rnd()<0.9)s.sent.add(cid+'|'+wk);}if(rnd()<0.14)s.sent.add(cid+'|'+CUR_WEEK);});
+});
+
+/* ============================================================ HELPERS ============================================================ */
+const studentsIn=cid=>students.filter(s=>s.courses.includes(cid));
+const fbPrepared=(cid,sub,wk)=>{const t=fbTpl[cid+'|'+sub+'|'+wk];return t&&t.prepared;};
+const fbText=(cid,sub,wk)=>{const t=fbTpl[cid+'|'+sub+'|'+wk];return t&&t.text?t.text:FB_TEXT[sub];};
+const isNoClass=(cid,sub,wk)=>!!NOCLASS[cid+'|'+sub+'|'+wk];
+const isSent=(s,cid,wk)=>s.sent.has(cid+'|'+wk);
+const addSent=(s,cid,wk)=>s.sent.add(cid+'|'+wk);
+function subjStatus(s,cid,sub,wk){if(isNoClass(cid,sub,wk))return'none';if(isSent(s,cid,wk))return'sended';const r=R[s.idx][sub]&&R[s.idx][sub][wk];if(fbPrepared(cid,sub,wk)&&r&&r.collected)return'prepared';return'pending';}
+function overallStatus(s,cid,wk){if(isSent(s,cid,wk))return'sended';const subs=courseObj(cid).subs;const ready=subs.every(sub=>{if(isNoClass(cid,sub,wk))return true;const r=R[s.idx][sub]&&R[s.idx][sub][wk];return fbPrepared(cid,sub,wk)&&r&&r.collected;});return ready?'prepared':'pending';}
+const IC={
+  pending:'<svg class="sic" viewBox="0 0 24 24" aria-label="รอ"><circle cx="12" cy="12" r="8.5" fill="none" stroke="#8a86a3" stroke-width="2.2"/></svg>',
+  prepared:'<svg class="sic" viewBox="0 0 24 24" aria-label="พร้อมส่ง"><circle cx="12" cy="12" r="11" fill="#b8721e"/><path d="M12 12V7.2M12 12l3.4 2" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+  sended:'<svg class="sic" viewBox="0 0 24 24" fill="#2fa76a" aria-label="ส่งแล้ว"><path d="M23 12l-2.44-2.79.34-3.69-3.61-.82-1.89-3.2L12 2.96 8.6 1.5 6.71 4.69 3.1 5.5l.34 3.7L1 12l2.44 2.79-.34 3.7 3.61.82L8.6 22.5l3.4-1.47 3.4 1.46 1.89-3.19 3.61-.82-.34-3.69L23 12zm-12.91 4.72l-3.8-3.81 1.48-1.48 2.32 2.33 5.85-5.87 1.48 1.48-7.33 7.35z"/></svg>',
+  none:'<span class="sic-dash">—</span>',
+};
+const ST_TXT={prepared:'พร้อมส่ง',pending:'รอ',sended:'ส่งแล้ว',none:'ไม่มีเรียน'};
+const stCell=st=>IC[st];
+const stMini=st=>`<span class="stmini ${st}">${IC[st]}<span>${ST_TXT[st]}</span></span>`;
+const stTag=stCell, stFull=stMini;
+const LEGEND=`<div class="tbl-legend"><b>สถานะรายวิชา:</b>${IC.prepared} พร้อม (feedback+HW ครบ) · ${IC.pending} รอ (ยังขาด) · ${IC.sended} ส่งแล้ว · ${IC.none} ไม่มีเรียน</div>`;
+const courseShort=cid=>courseObj(cid).n.replace('สอบเข้า ','');
+const parseDate=str=>{const M={Jan:0,Feb:1,Mar:2,Apr:3,May:4,Jun:5,Jul:6,Aug:7,Sep:8,Oct:9,Nov:10,Dec:11};const p=String(str).split(' ');return new Date(2000+(+p[2]||0),M[p[1]]||0,+p[0]||1).getTime();};
+const avatar=s=>s.photo?`<div class="av"><img src="${s.photo}" style="width:100%;height:100%;object-fit:cover;border-radius:50%"></div>`:`<div class="av" style="background:${s.av}">${s.nick[0]}</div>`;
+const cIcon=v=>`<span class="ci" onclick="event.stopPropagation();cpy('${v}')"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 012-2h10"/></svg></span>`;
+const pct=(a,b)=>b?Math.round(a/b*100):0;
+
+/* ============================================================ ROUTER ============================================================ */
+const state={course:'c1',week:CUR_WEEK,sub:'all',fbWeek:CUR_WEEK,fbSub:null,search:'',gradeF:'',courseF:'',stuSort:{key:'id',dir:1},sumSort:{key:'nick',dir:1}};
+let curStudent=null;
+function nav(v){document.querySelectorAll('.side-link').forEach(x=>x.classList.toggle('active',x.dataset.view===v));document.querySelectorAll('.view').forEach(x=>x.classList.remove('active'));document.getElementById('v-'+v).classList.add('active');window.scrollTo(0,0);}
+document.querySelectorAll('.side-link').forEach(b=>b.addEventListener('click',()=>nav(b.dataset.view)));
+function goCourse(){nav('course');}
+function courseSeg(cb){return`<div class="seg-wrap"><span class="seg-label">Course</span><div class="seg-group">`+COURSES.map(c=>`<button class="seg ${state.course===c.id?'active':''}" onclick="${cb}('${c.id}')">${c.n}</button>`).join('')+`</div></div>`;}
+function weekRow(cb,cur){return`<div class="weekrow"><span class="seg-label" style="margin-right:4px;">Week</span>`+WEEKS.map(w=>`<button class="weekpill ${w===CUR_WEEK?'cur':''} ${cur===w?'active':''}" ${w>CUR_WEEK?'disabled':''} onclick="${cb}(${w})">W${w}</button>`).join('')+`<span class="wk-note">· W${CUR_WEEK} = ปัจจุบัน</span></div>`;}
+
+/* ============================================================ DASHBOARD ============================================================ */
+function renderDashboard(){
+  const wk=CUR_WEEK,total=students.length,totalRep=enrollments.length;
+  const pendingSend=enrollments.filter(e=>overallStatus(e.s,e.course,wk)!=='sended').length;
+  const ready=enrollments.filter(e=>overallStatus(e.s,e.course,wk)==='prepared').length;
+  let missFb=[];COURSES.forEach(c=>c.subs.forEach(sub=>{if(!isNoClass(c.id,sub,wk)&&!fbPrepared(c.id,sub,wk))missFb.push(`${SUBJ[sub].n}`);}));
+  const hwProg={};Object.keys(SUBJ).forEach(sub=>{let app=0,col=0;students.forEach(s=>{if(!R[s.idx][sub])return;const r=R[s.idx][sub][wk];if(!r||r.att==='noclass')return;app++;if(r.collected)col++;});if(app>0)hwProg[sub]={app,col};});
+  const attn=[
+    missFb.length?`<div class="attn bad" onclick="nav('feedback')"><div class="ai2">✎</div><div><div class="t">Feedback W${wk} ยังไม่เตรียม ${missFb.length} วิชา</div><div class="d">${missFb.join(' · ')} — บล็อกการส่งรายงาน</div></div><span class="go">ไปเตรียม →</span></div>`:'',
+    ...Object.entries(hwProg).filter(([,v])=>v.col<v.app).map(([sub,v])=>`<div class="attn warn" onclick="goCourse()"><div class="ai2">⏳</div><div><div class="t">Homework W${wk} · ${SUBJ[sub].n} ยังเก็บไม่ครบ</div><div class="d">เก็บแล้ว ${v.col}/${v.app} คน (เหลือ ${v.app-v.col})</div></div><span class="go">ไปเก็บ →</span></div>`),
+    ready?`<div class="attn ok" onclick="goCourse()"><div class="ai2">▷</div><div><div class="t">รายงานผลการเรียน W${wk} พร้อมส่ง ${ready} คน</div><div class="d">ครบทุกวิชาแล้ว รอกดส่งผู้ปกครอง</div></div><span class="go">ไปส่ง →</span></div>`:'',
+  ].join('');
+  document.getElementById('v-dashboard').innerHTML=`
+    <div class="ph"><div class="ph-icon">▤</div><div><h1>Dashboard</h1><div class="sub">ภาพรวมนักเรียน Premium Plus — เน้นสิ่งที่ยังไม่เสร็จ</div></div></div>
+    <div class="kpi-row">
+      <div class="kpi"><div class="ic">◕</div><div><div class="lbl">นักเรียน Premium Plus</div><div class="val">${total} <small>คน</small></div></div></div>
+      <div class="kpi"><div class="ic">▦</div><div><div class="lbl">Course ที่ดูแล</div><div class="val">${COURSES.length}</div></div></div>
+      <div class="kpi pending"><div class="ic">⏳</div><div><div class="lbl">รอส่งผู้ปกครอง (W${wk})</div><div class="val">${pendingSend} <small>/ ${totalRep}</small></div></div></div>
+      <div class="kpi danger"><div class="ic">✎</div><div><div class="lbl">วิชายังไม่มี Feedback</div><div class="val">${missFb.length} <small>วิชา</small></div></div></div>
+    </div>
+    <div class="grid2">
+      <div class="card"><div class="card-h"><h3>ต้องจัดการก่อน</h3><span class="sub">เรียงตามความเร่งด่วน</span></div>${attn}<div class="attn bad"><div class="ai2">!</div><div><div class="t">คะแนนไม่ตรง (QA) 2 รายการ</div><div class="d">คะแนนใน Comment ไม่ตรงกับระบบ</div></div><span class="go">ตรวจ →</span></div></div>
+      <div class="card"><div class="card-h"><h3>Homework W${wk} · เก็บคำตอบ</h3></div><div class="card-b">
+        ${Object.entries(hwProg).map(([sub,v])=>{const p=pct(v.col,v.app);return`<div class="bar-row"><span class="nm">${SUBJ[sub].n}</span><div class="bar-track"><div class="bar-fill ${p>80?'green':p>50?'amber':''}" style="width:${p}%"></div></div><span class="vv">${v.col}/${v.app}</span></div>`;}).join('')}
+        <div class="sec-title" style="margin-top:16px;">ส่งรายงานแล้ว (W${wk})</div>
+        <div class="bar-row"><span class="nm">รวมทุกรายงาน</span><div class="bar-track"><div class="bar-fill green" style="width:${pct(totalRep-pendingSend,totalRep)}%"></div></div><span class="vv">${totalRep-pendingSend}/${totalRep}</span></div>
+      </div></div>
+    </div>`;
+}
+
+/* ============================================================ STUDENT LIST ============================================================ */
+function applySort(list,sort){const {key,dir}=sort;const val=s=>{switch(key){case'name':return s.name.toLowerCase();case'nick':return s.nick.toLowerCase();case'id':return s.id;case'register':return parseDate(s.reg);case'expire':return parseDate(s.exp);default:return s.nick.toLowerCase();}};return [...list].sort((a,b)=>{const x=val(a),y=val(b);return (x<y?-1:x>y?1:0)*dir;});}
+function sh(label,key,sk,fn,cls){const on=sk.key===key;return `<th class="srt ${cls||''} ${on?'on':''}" onclick="${fn}('${key}')">${label}<span class="ar">${on?(sk.dir>0?'▲':'▼'):'↕'}</span></th>`;}
+const esc=v=>String(v==null?'':v).replace(/"/g,'&quot;');
+function ecell(idx,field,max){return `<input class="cell-edit" value="${esc(students[idx][field])}" ${max?`style="max-width:${max}px;"`:''} onchange="students[${idx}].${field}=this.value">`;}
+function setCustom(idx,id,val){const s=students[idx];s.custom=s.custom||{};s.custom[id]=val;}
+function statusBadge(s){const L={active:'Active',inactive:'Inactive',churn:'Churn'}[s.status];return `<span class="stbadge ${s.status}"><span class="d"></span>${L}${s.statusDur?`<span class="dur">${s.statusDur}</span>`:''}</span>`;}
+function setGrade(idx,g){const row=GRADES.find(x=>x[0]===g);students[idx].grade=g;students[idx].gc=row?row[1]:'';renderStudents();}
+function thSort(label,key,sk,w,cls){const on=sk.key===key;return `<th class="srt ${cls||''} ${on?'on':''}" style="width:${w}px" onclick="setStuSort('${key}')">${label}<span class="ar">${on?(sk.dir>0?'▲':'▼'):'↕'}</span></th>`;}
+function photoCell(s){const inner=s.photo?`<img src="${s.photo}" class="stimg-img">`:`<span class="stimg-init" style="background:${s.av}">${s.nick[0]}</span>`;return `<div class="stimg" onmouseenter="imgPrev(event,${s.idx})" onmouseleave="imgHide()" onclick="imgChange(${s.idx})" title="Hover = ดูรูปเต็ม · Click = เปลี่ยนรูป">${inner}</div>`;}
+function imgPrev(ev,idx){const s=students[idx],p=document.getElementById('imgpop');p.innerHTML=s.photo?`<img src="${s.photo}">`:`<div class="big" style="background:${s.av}">${s.nick[0]}</div>`;p.style.display='block';const r=ev.currentTarget.getBoundingClientRect();let l=r.right+8;if(l+186>window.innerWidth)l=r.left-194;p.style.left=Math.max(8,l)+'px';p.style.top=Math.max(8,Math.min(r.top-60,window.innerHeight-190))+'px';}
+function imgHide(){const p=document.getElementById('imgpop');if(p)p.style.display='none';}
+function imgChange(idx){const inp=document.createElement('input');inp.type='file';inp.accept='image/*';inp.onchange=e=>{const f=e.target.files[0];if(!f)return;const rd=new FileReader();rd.onload=()=>{students[idx].photo=rd.result;imgHide();renderStudents();};rd.readAsDataURL(f);};inp.click();}
+function thStudent(c,sk,w,locked,left,cls,edge){const arrow=c.sort?`<span class="ar">${sk.key===c.sort?(sk.dir>0?'▲':'▼'):'↕'}</span>`:'';const st=locked?`position:sticky;left:${left}px;z-index:3;`:'';
+  return `<th title="${esc(c.label)}" class="${cls||''} ${locked?'stick':''} ${edge?'stick-edge':''}" style="width:${w}px;${st}" draggable="true" ondragstart="dragStart('${c.id}')" ondragover="event.preventDefault()" ondrop="dropCol('${c.id}')"><span class="hdr-lbl" ${c.sort?`onclick="setStuSort('${c.sort}')"`:''}>${locked?'🔒 ':''}${c.label}${arrow}</span><button class="hdr-caret" onclick="hdrMenu(event,'${c.id}')">▾</button></th>`;}
+function hdrMenu(ev,id){ev.stopPropagation();const c=colById(id),p=document.getElementById('hdrpop');p.dataset.id=id;const locked=state.lockedCols.includes(id);
+  p.innerHTML=`${c.sort?`<button onclick="hdrAct('asc')">↑ เรียง A → Z</button><button onclick="hdrAct('desc')">↓ เรียง Z → A</button>`:''}<button onclick="hdrAct('lock')">${locked?'🔓 ปลดล็อกคอลัมน์':'🔒 Lock ชิดซ้าย'}</button><button onclick="hdrAct('hide')">🚫 ซ่อนคอลัมน์</button>`;
+  p.style.display='block';const r=ev.currentTarget.getBoundingClientRect();p.style.left=Math.min(r.left-40,window.innerWidth-184)+'px';p.style.top=(r.bottom+4)+'px';}
+function hdrAct(a){const p=document.getElementById('hdrpop'),id=p.dataset.id;p.style.display='none';const c=colById(id);
+  if(a==='asc'){state.stuSort={key:c.sort,dir:1};renderStudents();}
+  else if(a==='desc'){state.stuSort={key:c.sort,dir:-1};renderStudents();}
+  else if(a==='lock'){if(state.lockedCols.includes(id))state.lockedCols=state.lockedCols.filter(x=>x!==id);else state.lockedCols.push(id);renderStudents();}
+  else if(a==='hide')hideCol(id);}
+let dragColId=null;
+function dragStart(id){dragColId=id;}
+function dropCol(targetId){if(!dragColId||dragColId===targetId){dragColId=null;return;}const arr=state.stuCols.filter(x=>x!==dragColId);const ti=arr.indexOf(targetId);arr.splice(ti<0?arr.length:ti,0,dragColId);state.stuCols=arr;state.lockedCols=state.stuCols.filter(x=>state.lockedCols.includes(x));dragColId=null;renderStudents();}
+function courseChips(s){return s.courses.map((cid,i)=>`<span class="cchip ${i>0?'alt':''}">${courseShort(cid)}</span>`).join('');}
+const COLDEF=[
+  {id:'name',label:'Name',sort:'name',cell:s=>ecell(s.idx,'name')},
+  {id:'nick',label:'Nickname',sort:'nick',cell:s=>ecell(s.idx,'nick',110)},
+  {id:'lineName',label:'LINE Name',cell:s=>ecell(s.idx,'lineName',120)},
+  {id:'grade',label:'Grade',cell:s=>`<select class="gsel" onchange="setGrade(${s.idx},this.value)">${GRADES.map(g=>`<option ${s.grade===g[0]?'selected':''}>${g[0]}</option>`).join('')}</select>`},
+  {id:'premiumExp',label:'Premium Exp.',cell:s=>ecell(s.idx,'premiumExp',100)},
+  {id:'autoRenew',label:'Premium Auto Renew',cell:s=>`<input type="checkbox" class="rowchk" ${s.autoRenew?'checked':''} onchange="students[${s.idx}].autoRenew=this.checked">`},
+  {id:'premiumPlusExp',label:'Premium Plus Exp.',cell:s=>ecell(s.idx,'premiumPlusExp',100)},
+  {id:'register',label:'Register Date',sort:'register',cell:s=>ecell(s.idx,'reg',100)},
+  {id:'status',label:'Status',cell:s=>statusBadge(s)},
+  {id:'notes',label:'Notes',cell:s=>ecell(s.idx,'notes',190)},
+  {id:'examResults',label:'Exam Results',cell:s=>`<select class="gsel" onchange="students[${s.idx}].examResults=this.value">${['—','รอผล','ผ่านรอบแรก','ผ่านรอบสอง','ไม่ผ่าน'].map(o=>`<option ${(s.examResults||'—')===o?'selected':''}>${o}</option>`).join('')}</select>`},
+  {id:'deliveryName',label:'Delivery Name',cell:s=>ecell(s.idx,'deliveryName',150)},
+  {id:'address',label:'Address',cell:s=>ecell(s.idx,'address',200)},
+  {id:'phone',label:'Phone',cell:s=>ecell(s.idx,'phone',120)},
+  {id:'course',label:'Course',cell:s=>courseChips(s)},
+];
+let customCols=[];
+const colById=id=>COLDEF.find(c=>c.id===id)||customCols.find(c=>c.id===id);
+const DEFAULT_COLS=['name','nick','lineName','grade','premiumExp','autoRenew','premiumPlusExp','register','status','notes','examResults','deliveryName','address','phone'];
+function setStuSort(k){if(state.stuSort.key===k)state.stuSort.dir*=-1;else state.stuSort={key:k,dir:1};renderStudents();}
+function setStuSeg(v){state.stuSeg=v;renderStudents();}
+function toggleColMenu(){document.getElementById('colpop').classList.toggle('open');}
+function toggleCol(id,on){if(on){if(!state.stuCols.includes(id))state.stuCols.push(id);}else state.stuCols=state.stuCols.filter(x=>x!==id);renderStudents();document.getElementById('colpop').classList.add('open');}
+function hideCol(id){state.stuCols=state.stuCols.filter(x=>x!==id);renderStudents();}
+function addCustomCol(){const inp=document.getElementById('newColName');const name=(inp.value||'').trim();if(!name)return;const id='cc_'+Date.now();customCols.push({id,label:name,custom:true,cell:s=>`<input class="cell-edit" value="${esc((s.custom||{})[id]||'')}" onchange="setCustom(${s.idx},'${id}',this.value)">`});state.stuCols.push(id);renderStudents();document.getElementById('colpop').classList.add('open');}
+function delCustomCol(id){customCols=customCols.filter(c=>c.id!==id);state.stuCols=state.stuCols.filter(x=>x!==id);renderStudents();document.getElementById('colpop').classList.add('open');}
+function rowMenu(ev,idx){ev.stopPropagation();const m=document.getElementById('rowpop');m.dataset.idx=idx;m.style.display='block';let l=ev.clientX-150;if(l<8)l=8;m.style.left=l+'px';m.style.top=(ev.clientY+6)+'px';}
+function rowAct(a){const m=document.getElementById('rowpop');const idx=+m.dataset.idx;m.style.display='none';const s=students[idx];
+  if(a==='summary'){state.course=s.courses[0];openDrawer(idx);}
+  else if(a==='delete'){if(confirm('ลบ '+s.nick+' ออกจากรายชื่อ?')){s.deleted=true;renderStudents();}}
+  else if(a==='ignore')alert('Ignore: '+s.nick+' (mock)');
+  else if(a==='check')alert('Check: '+s.nick+' (mock)');}
+function renderStudents(){
+  if(!state.stuCols)state.stuCols=[...DEFAULT_COLS];
+  if(!state.stuSeg)state.stuSeg='all';
+  const sk=state.stuSort, centerIds=['grade','autoRenew'];
+  const segCount=st=>students.filter(s=>!s.deleted&&(st==='all'||s.status===st)).length;
+  let rows=students.filter(s=>{
+    if(s.deleted)return false;
+    if(state.stuSeg!=='all'&&s.status!==state.stuSeg)return false;
+    if(state.search){const q=state.search.toLowerCase();if(!(s.name.toLowerCase().includes(q)||s.nick.toLowerCase().includes(q)||s.id.includes(q)))return false;}
+    if(state.gradeF&&s.grade!==state.gradeF)return false;
+    if(state.courseF&&!s.courses.includes(state.courseF))return false;
+    return true;});
+  rows=applySort(rows,sk);
+  if(!state.lockedCols)state.lockedCols=[];
+  const CW={id:110,name:140,nick:100,lineName:120,grade:100,premiumExp:120,autoRenew:80,premiumPlusExp:120,register:120,status:120,notes:220,examResults:160,deliveryName:120,address:180,phone:120,course:130};
+  const cw=id=>CW[id]||150;
+  const cH=id=>centerIds.includes(id)?'c':'';
+  const visLocked=state.lockedCols.filter(id=>state.stuCols.includes(id));
+  const visUnlocked=state.stuCols.filter(id=>!state.lockedCols.includes(id));
+  const cols=[...visLocked,...visUnlocked].map(colById).filter(Boolean);
+  const total=60+110+cols.reduce((a,c)=>a+cw(c.id),0)+60;
+  let acc=170; const leftOf={}; cols.forEach(c=>{if(state.lockedCols.includes(c.id)){leftOf[c.id]=acc;acc+=cw(c.id);}});
+  const lastLockId=visLocked.length?visLocked[visLocked.length-1]:null, idEdge=!visLocked.length;
+  const seg=`<div class="seg-group">${[['all','All'],['active','Active'],['inactive','Inactive'],['churn','Churn']].map(([v,l])=>`<button class="seg ${state.stuSeg===v?'active':''}" onclick="setStuSeg('${v}')">${l} <span style="opacity:.65">${segCount(v)}</span></button>`).join('')}</div>`;
+  const colmenu=`<div class="pos-rel"><button class="filter-btn" onclick="toggleColMenu()">⚙ คอลัมน์ ▾</button><div class="colpop" id="colpop"><h4>แสดง / ซ่อน คอลัมน์</h4>${COLDEF.map(c=>`<label><input type="checkbox" ${state.stuCols.includes(c.id)?'checked':''} onchange="toggleCol('${c.id}',this.checked)">${c.label}</label>`).join('')}${customCols.length?'<h4 style="margin-top:9px;">คอลัมน์ที่เพิ่มเอง</h4>':''}${customCols.map(c=>`<label><input type="checkbox" ${state.stuCols.includes(c.id)?'checked':''} onchange="toggleCol('${c.id}',this.checked)">${c.label}<span class="cdel" onclick="delCustomCol('${c.id}')">ลบ</span></label>`).join('')}<h4 style="margin-top:9px;">+ เพิ่มคอลัมน์ใหม่</h4><div class="addrow"><input id="newColName" placeholder="ชื่อคอลัมน์ใหม่"><button class="btn primary sm" onclick="addCustomCol()">เพิ่ม</button></div></div></div>`;
+  const head=`<tr><th title="รูปนักเรียน" class="stick" style="width:60px;position:sticky;left:0;z-index:3;">IMG</th><th title="ID" class="srt stick ${idEdge?'stick-edge':''} ${sk.key==='id'?'on':''}" style="width:110px;position:sticky;left:60px;z-index:3;" onclick="setStuSort('id')">ID<span class="ar">${sk.key==='id'?(sk.dir>0?'▲':'▼'):'↕'}</span></th>${cols.map(c=>thStudent(c,sk,cw(c.id),state.lockedCols.includes(c.id),leftOf[c.id],cH(c.id),lastLockId===c.id)).join('')}<th class="c" style="width:60px"></th></tr>`;
+  const body=rows.map(s=>`<tr>
+    <td class="c stick" style="left:0;">${photoCell(s)}</td>
+    <td class="stick ${idEdge?'stick-edge':''}" style="left:60px;"><span class="cpy">${s.id}${cIcon(s.id)}</span></td>
+    ${cols.map(c=>{const lk=state.lockedCols.includes(c.id);return `<td class="${cH(c.id)} ${lk?'stick':''} ${lastLockId===c.id?'stick-edge':''}" ${lk?`style="left:${leftOf[c.id]}px"`:''}>${c.cell(s)}</td>`;}).join('')}
+    <td class="c"><button class="more-btn" onclick="rowMenu(event,${s.idx})">⋯</button></td></tr>`).join('');
+  document.getElementById('v-students').innerHTML=`
+    <div class="ph"><div class="ph-icon">◕</div><div><h1>Student list</h1><div class="sub">แก้ได้ทุกช่อง · กดหัวตาราง = Sort · ⚙ เพิ่ม/ลบ/ซ่อนคอลัมน์ · ⋯ เมนูรายคน</div></div></div>
+    <div class="seg-wrap">${seg}</div>
+    <div class="toolbar"><div class="search-wide">🔍 <input id="stuSearch" placeholder="ค้นหาชื่อ / ชื่อเล่น / รหัส" value="${esc(state.search)}"></div>
+      <div class="filters">
+        <select class="filter-btn" id="stuCourse"><option value="">ทุก Course</option>${COURSES.map(c=>`<option value="${c.id}" ${state.courseF===c.id?'selected':''}>${courseShort(c.id)}</option>`).join('')}</select>
+        <select class="filter-btn" id="stuGrade"><option value="">ทุก Grade</option>${GRADES.map(g=>`<option ${state.gradeF===g[0]?'selected':''}>${g[0]}</option>`).join('')}</select>
+        ${colmenu}
+      </div></div>
+    <div class="panel"><div class="table-wrap"><table class="data fixed" style="width:${total}px"><thead>${head}</thead><tbody>${body}</tbody></table></div></div>
+    <p style="font-size:11px;color:var(--ink-faint);">แสดง ${rows.length} จาก ${students.filter(s=>!s.deleted).length} คน</p>`;
+  const si=document.getElementById('stuSearch');si.oninput=e=>{state.search=e.target.value;const p=si.selectionStart;renderStudents();const n=document.getElementById('stuSearch');n.focus();n.setSelectionRange(p,p);};
+  document.getElementById('stuGrade').onchange=e=>{state.gradeF=e.target.value;renderStudents();};
+  document.getElementById('stuCourse').onchange=e=>{state.courseF=e.target.value;renderStudents();};
+}
+
+/* ============================================================ COURSE ============================================================ */
+function setCourse(id){state.course=id;state.sub='all';renderCourse();renderReport();}
+function setWeek(w){if(w>CUR_WEEK)return;state.week=w;renderCourse();renderReport();}
+function setSub(sub){state.sub=sub;renderCourse();}
+
+function renderCourse(){
+  const c=courseObj(state.course),wk=state.week,subs=c.subs;
+  const tabs=`<div class="tabrow"><button class="tab ${state.sub==='all'?'active':''}" onclick="setSub('all')">All Subjects</button>${subs.map(sub=>`<button class="tab ${state.sub===sub?'active':''}" onclick="setSub('${sub}')">${SUBJ[sub].n}</button>`).join('')}</div>`;
+  const body=state.sub==='all'?courseAllView(c,wk,subs):courseSubjectView(c,wk,state.sub);
+  document.getElementById('v-course').innerHTML=`
+    <div class="ph"><div class="ph-icon">▦</div><div><h1>Summary</h1><div class="sub">หน้าจัดการหลัก — เลือก Course → Week → All (ภาพรวม) หรือ รายวิชา (จัดการ)</div></div></div>
+    ${courseSeg('setCourse')}${weekRow('setWeek',wk)}${tabs}${body}`;
+  document.getElementById('navCourseBdg').textContent=studentsIn(c.id).filter(s=>overallStatus(s,c.id,wk)!=='sended').length;
+  document.getElementById('navFbBdg').textContent=subs.filter(sub=>!isNoClass(c.id,sub,wk)&&!fbPrepared(c.id,sub,wk)).length;
+}
+
+function setSumSort(k){if(state.sumSort.key===k)state.sumSort.dir*=-1;else state.sumSort={key:k,dir:1};renderCourse();}
+function courseAllView(c,wk,subs){
+  let roster=studentsIn(c.id);
+  const sent=roster.filter(s=>isSent(s,c.id,wk)).length;
+  const ready=roster.filter(s=>overallStatus(s,c.id,wk)==='prepared').length;
+  const pend=roster.filter(s=>overallStatus(s,c.id,wk)==='pending').length;
+  const missFb=subs.filter(sub=>!isNoClass(c.id,sub,wk)&&!fbPrepared(c.id,sub,wk)).length;
+  const ORD={prepared:0,pending:1,sended:2,none:3};
+  const sk=state.sumSort;
+  if(sk.key==='status')roster=[...roster].sort((a,b)=>(ORD[overallStatus(a,c.id,wk)]-ORD[overallStatus(b,c.id,wk)])*sk.dir);
+  else roster=applySort(roster,sk);
+  const kpi=`<div class="kpi-row">
+    <div class="kpi"><div class="ic">◕</div><div><div class="lbl">นักเรียนในคอร์ส</div><div class="val">${roster.length}</div></div></div>
+    <div class="kpi ai"><div class="ic">✦</div><div><div class="lbl">พร้อมส่ง</div><div class="val">${ready}</div></div></div>
+    <div class="kpi pending"><div class="ic">⏳</div><div><div class="lbl">รอดำเนินการ</div><div class="val">${pend}</div></div></div>
+    <div class="kpi green"><div class="ic">✓</div><div><div class="lbl">ส่งแล้ว (W${wk})</div><div class="val">${sent}</div></div></div>
+    <div class="kpi danger"><div class="ic">✎</div><div><div class="lbl">วิชายังไม่พร้อม Feedback</div><div class="val">${missFb}</div></div></div>
+  </div>`;
+  const fbCards=subs.map(sub=>{const nc=isNoClass(c.id,sub,wk),prep=fbPrepared(c.id,sub,wk);
+    const st=nc?'<span class="status none">— ไม่มีเรียน</span>':prep?'<span class="status prepared">✦ Prepared</span>':'<span class="status none">ยังไม่เตรียม</span>';
+    const b=nc?'':prep?`<div style="font-size:12px;color:var(--ink-muted);">${fbText(c.id,sub,wk)}</div>`:`<button class="btn ai sm" onclick="nav('feedback')"><span class="ai-chip" style="background:none;padding:0;">✦</span> ไปเตรียมใน Feedback</button>`;
+    return`<div class="fbcard"><div class="top"><b>${SUBJ[sub].n}</b>${st}</div>${b}</div>`;}).join('');
+  const head=`<tr><th class="c"><input type="checkbox" class="checkall" onclick="selectAll(this.checked)"></th><th class="num">#</th>${sh('ID','id',sk,'setSumSort')}${sh('ชื่อเล่น','nick',sk,'setSumSort')}<th class="c">Grade</th>${subs.map(s=>`<th class="c">${SUBJ[s].short}</th>`).join('')}${sh('สถานะรวม','status',sk,'setSumSort','c')}</tr>`;
+  const body=roster.map((s,i)=>{const ov=overallStatus(s,c.id,wk);return`<tr class="clk" onclick="openDrawer(${s.idx})">
+    <td class="c"><input type="checkbox" class="rowchk" ${ov!=='sended'?'checked':''} onclick="event.stopPropagation();syncCount()"></td>
+    <td class="num">${i+1}</td><td><span class="cpy">${s.id}${cIcon(s.id)}</span></td>
+    <td><div class="nmcell">${avatar(s)}${s.nick}</div></td>
+    <td class="c"><span class="gchip ${s.gc}">${s.grade}</span></td>
+    ${subs.map(sub=>`<td class="c">${stCell(subjStatus(s,c.id,sub,wk))}</td>`).join('')}
+    <td class="c">${stMini(ov)}</td></tr>`;}).join('');
+  return kpi+`
+    <div class="card"><div class="card-h"><h3>Feedback Template — W${wk} ทุกวิชา</h3><span class="sub">1 ชุด/วิชา/สัปดาห์ → ใช้กับทุกคนในคอร์ส</span></div><div class="card-b">${fbCards}</div></div>
+    <div class="bulkbar"><div class="bulk-left"><button class="btn ghost sm" onclick="selectAll(true)">Select all</button><span class="selcount"><span id="selN">0</span> เลือกไว้</span><button class="btn ghost sm" onclick="openBulk()">จัดการเคสพิเศษ (ทั้งคอร์ส) ▾</button></div><button class="btn-send" onclick="doSend()">▷ ส่งให้ผู้ปกครอง</button></div>
+    ${LEGEND}
+    <div class="panel"><div class="table-wrap"><table class="data"><thead>${head}</thead><tbody id="rosterBody">${body}</tbody></table></div></div>
+    <p style="font-size:11px;color:var(--ink-faint);">คลิกแถว = เปิดหน้ารายงานผลการเรียนรายคน · คอลัมน์รายวิชา = ความพร้อมแต่ละวิชา</p>`;
+}
+
+function courseSubjectView(c,wk,sub){
+  const nm=SUBJ[sub].n, nc=isNoClass(c.id,sub,wk), roster=studentsIn(c.id);
+  if(nc)return`<div class="card"><div class="card-b"><div class="placeholder">ไม่มีการเรียนการสอน ${nm} ใน W${wk} (ตั้งเป็น "ไม่มีเรียน") — ไม่นับรวมในรายงานสัปดาห์นี้</div></div></div>`;
+  const app=roster;
+  const present=app.filter(s=>{const r=R[s.idx][sub][wk];return r.att==='present'||r.att==='makeup';}).length;
+  const lqDoneN=app.filter(s=>R[s.idx][sub][wk].lqDone>0).length;
+  const totDone=app.reduce((a,s)=>a+R[s.idx][sub][wk].lqDone,0), totCorr=app.reduce((a,s)=>a+R[s.idx][sub][wk].lqCorrect,0);
+  const hwCol=app.filter(s=>R[s.idx][sub][wk].collected).length;
+  const prep=fbPrepared(c.id,sub,wk);
+  const kpi=`<div class="kpi-row">
+    <div class="kpi green"><div class="ic">✓</div><div><div class="lbl">เข้าเรียน</div><div class="val">${present} <small>/${app.length}</small></div></div></div>
+    <div class="kpi"><div class="ic">◔</div><div><div class="lbl">Live Quiz เข้าทำ</div><div class="val">${lqDoneN} <small>/${app.length}</small></div></div></div>
+    <div class="kpi ai"><div class="ic">✦</div><div><div class="lbl">ตอบถูกเฉลี่ย</div><div class="val">${pct(totCorr,totDone)}%</div></div></div>
+    <div class="kpi pending"><div class="ic">⏳</div><div><div class="lbl">Homework เก็บแล้ว</div><div class="val">${hwCol} <small>/${app.length}</small></div></div></div>
+    <div class="kpi ${prep?'green':'danger'}"><div class="ic">✎</div><div><div class="lbl">Feedback วิชานี้</div><div class="val" style="font-size:15px;">${prep?'Prepared':'ยังไม่เตรียม'}</div></div></div>
+  </div>`;
+  const fb=`<div class="card"><div class="card-h"><h3>Feedback — ${nm} · W${wk}</h3><span class="sub">Live topic: ${topicOf(sub,wk)}</span></div><div class="card-b">${fbEditor(c.id,sub,wk)}</div></div>`;
+  const head=`<tr><th class="num">#</th><th>ID</th><th>ชื่อเล่น</th><th class="c">Grade</th><th class="c">เข้าเรียน</th><th class="c">Live Quiz (ถูก/ทำ)</th><th class="c">Homework</th><th class="c">สถานะวิชา</th></tr>`;
+  const body=app.map((s,i)=>{const r=R[s.idx][sub][wk];
+    const a=r.att==='makeup'?'<span class="tag makeup">ชดเชย</span>':r.att==='present'?'<span style="color:var(--green);font-weight:700;">✓</span>':'<span style="color:var(--danger);font-weight:700;">✕ ขาด</span>';
+    return`<tr class="clk" onclick="openDrawer(${s.idx})">
+      <td class="num">${i+1}</td><td><span class="cpy">${s.id}${cIcon(s.id)}</span></td>
+      <td><div class="nmcell">${avatar(s)}${s.nick} ${r.late?'<span class="tag late">ช้า</span>':''}</div></td>
+      <td class="c"><span class="gchip ${s.gc}">${s.grade}</span></td>
+      <td class="c">${a}</td>
+      <td class="c">${r.lqDone?r.lqCorrect+' / '+r.lqDone:'—'}</td>
+      <td class="c">${r.collected?r.hwScore+'/'+r.hwT:`<button class="btn ghost sm" onclick="event.stopPropagation();openHW(${s.idx},'${sub}')">กรอก</button>`}</td>
+      <td class="c">${stCell(subjStatus(s,c.id,sub,wk))}</td></tr>`;}).join('');
+  return kpi+fb+LEGEND+`<div class="panel"><div class="table-wrap"><table class="data"><thead>${head}</thead><tbody>${body}</tbody></table></div></div>
+    <p style="font-size:11px;color:var(--ink-faint);">คลิกแถว = เปิดรายงานรายคน · Homework ที่ยังไม่เก็บ กด "กรอก" เพื่อใส่คำตอบจาก Facebook</p>`;
+}
+/* Feedback editor — แยกสถานะ Submit ชัดเจน (เขียว) vs ยังไม่ Submit (teal AI) */
+function fbEditor(cid,sub,wk){const prep=fbPrepared(cid,sub,wk);
+  return`<div class="fbedit ${prep?'done':'ai'}">
+    <div class="eh">${prep?'✓ Submit แล้ว · Prepared — แก้ไขได้ตลอดเวลา':'✦ ร่างโดย AI · ยังไม่ Submit'}</div>
+    <textarea class="draft" onchange="fbTpl['${cid}|${sub}|${wk}'].text=this.value">${fbText(cid,sub,wk)}</textarea>
+    <div style="display:flex;gap:8px;margin-top:10px;">
+      ${prep?`<button class="btn ghost sm" onclick="submitFb('${cid}','${sub}',${wk},this)">บันทึกการแก้ไข</button><button class="btn ghost sm" onclick="unsubmitFb('${cid}','${sub}',${wk})">ยกเลิก Submit</button>`
+            :`<button class="btn ai sm" onclick="submitFb('${cid}','${sub}',${wk},this)">Submit → Prepared ทั้งห้อง</button><button class="btn ghost sm">สร้างใหม่ (AI)</button>`}
+    </div>
+    <div class="qa-flag ok">✓ คะแนนที่อ้างถึงตรงกับคะแนนจริงของทุกคน</div>
+  </div>`;}
+function submitFb(cid,sub,wk,btn){const t=fbTpl[cid+'|'+sub+'|'+wk];const ta=btn.closest('.fbedit').querySelector('textarea');if(ta)t.text=ta.value;t.prepared=true;persist();renderCourse();renderFeedback();renderDashboard();}
+function unsubmitFb(cid,sub,wk){fbTpl[cid+'|'+sub+'|'+wk].prepared=false;persist();renderCourse();renderFeedback();renderDashboard();}
+
+function syncCount(){const n=document.querySelectorAll('#rosterBody .rowchk:checked').length;const el=document.getElementById('selN');if(el)el.textContent=n;document.querySelectorAll('#rosterBody .rowchk').forEach(cb=>cb.closest('tr').classList.toggle('sel',cb.checked));}
+function selectAll(v){document.querySelectorAll('#rosterBody .rowchk').forEach(cb=>cb.checked=v);syncCount();}
+function doSend(){const rows=[...document.querySelectorAll('#rosterBody .rowchk:checked')];const idxs=rows.map(cb=>+cb.closest('tr').getAttribute('onclick').match(/\d+/)[0]);openLineSendBulk(idxs);}
+
+/* ============================================================ FEEDBACK PAGE ============================================================ */
+function setFbCourse(id){state.course=id;state.fbSub=null;renderFeedback();}
+function setFbWeek(w){if(w>CUR_WEEK)return;state.fbWeek=w;renderFeedback();}
+function setFbSub(sub){state.fbSub=sub;renderFeedback();}
+function lessonCard(sub,wk){const t=topicOf(sub,wk);return`<div class="lesson-card"><div class="lh">📺 Live Lesson Topic · W${wk}</div><div class="lb">
+  <div class="lesson-topic">${t}</div><div class="lesson-sub">${SUBJ[sub].n} · ${WK_DATE[wk]||''}</div>
+  <ul class="lesson-list"><li>แนวคิดหลักของเรื่อง ${t}</li><li>ตัวอย่าง &amp; โจทย์ประยุกต์ในคาบเรียน</li><li>จุดที่นักเรียนมักเข้าใจผิด (ให้เน้นย้ำ)</li></ul>
+  <div style="margin-top:12px;font-size:11px;color:var(--ink-faint);">✦ AI ใช้หัวข้อนี้ + คะแนน Quiz เฉลี่ยของห้อง ร่าง Feedback ให้</div>
+</div></div>`;}
+function renderFeedback(){
+  const c=courseObj(state.course),wk=state.fbWeek,subs=c.subs;
+  if(!state.fbSub||!subs.includes(state.fbSub))state.fbSub=subs[0];
+  const sub=state.fbSub, nc=isNoClass(c.id,sub,wk);
+  const tabs=`<div class="tabrow">${subs.map(x=>{const dc=isNoClass(c.id,x,wk);return`<button class="tab ${sub===x?'active':''}" ${dc?'disabled style="opacity:.4;cursor:not-allowed;"':''} onclick="${dc?'':`setFbSub('${x}')`}">${SUBJ[x].n}${dc?' (ไม่มีเรียน)':''}</button>`;}).join('')}</div>`;
+  const overview=subs.map(x=>{const dc=isNoClass(c.id,x,wk),p=fbPrepared(c.id,x,wk);return`<div class="fbcard" style="${x===sub?'border-color:var(--primary-soft-border);':''}"><div class="top"><b>${SUBJ[x].n} ${x===sub?'<span class="tag makeup">กำลังแก้</span>':''}</b>${dc?'<span class="stmini none">ไม่มีเรียน</span>':p?'<span class="stmini prepared">${IC.prepared}Prepared</span>':'<span class="stmini none">ยังไม่เตรียม</span>'}</div><div style="font-size:12px;color:var(--ink-muted);">${dc?'—':fbText(c.id,x,wk)}</div></div>`;}).join('');
+  document.getElementById('v-feedback').innerHTML=`
+    <div class="ph"><div class="ph-icon">✎</div><div><h1>Feedback</h1><div class="sub">เขียน Summary (ซ้าย) โดยอ้างอิง Live Lesson Topic (ขวา) · เลือกสัปดาห์ + วิชา</div></div></div>
+    ${courseSeg('setFbCourse')}${weekRow('setFbWeek',wk)}${tabs}
+    ${nc?`<div class="card"><div class="card-b"><div class="placeholder">ไม่มีการเรียนการสอน ${SUBJ[sub].n} ใน W${wk} — ไม่ต้องเขียน Feedback</div></div></div>`:`
+    <div class="fb2">
+      <div class="card"><div class="card-h"><h3>Summary — ${SUBJ[sub].n} · W${wk}</h3>${fbPrepared(c.id,sub,wk)?'<span class="stmini prepared">${IC.prepared}Prepared</span>':'<span class="stmini none">ยังไม่ Submit</span>'}</div><div class="card-b">${fbEditor(c.id,sub,wk)}</div></div>
+      ${lessonCard(sub,wk)}
+    </div>`}
+    <div class="card"><div class="card-h"><h3>ภาพรวม Feedback ทุกวิชา · W${wk}</h3><span class="sub">เห็นทั้งคอร์สในหน้าเดียว</span></div><div class="card-b">${overview}</div></div>`;
+}
+
+/* ============================================================ REPORT ============================================================ */
+function subjWeekly(cid,sub){const roster=studentsIn(cid);const att=[],quiz=[],hw=[];
+  for(const wk of WEEKS){if(wk>CUR_WEEK||isNoClass(cid,sub,wk)){att.push(null);quiz.push(null);hw.push(null);continue;}
+    let ap=0,pr=0,qd=0,qc=0,col=0;roster.forEach(s=>{const r=R[s.idx][sub]&&R[s.idx][sub][wk];if(!r||r.att==='noclass')return;ap++;if(r.att==='present'||r.att==='makeup')pr++;qd+=r.lqDone;qc+=r.lqCorrect;if(r.collected)col++;});
+    att.push(pct(pr,ap));quiz.push(pct(qc,qd));hw.push(pct(col,ap));}
+  return{att,quiz,hw};}
+function lineChartSVG(series){const W=320,H=150,pl=26,prr=10,pt=12,pb=22,iw=W-pl-prr,ih=H-pt-pb;
+  const x=i=>pl+i*(iw/6),y=v=>pt+(100-v)/100*ih;
+  const grid=[0,50,100].map(g=>`<line x1="${pl}" y1="${y(g).toFixed(1)}" x2="${W-prr}" y2="${y(g).toFixed(1)}" stroke="var(--border-soft)"/><text x="${pl-5}" y="${(y(g)+3).toFixed(1)}" text-anchor="end" font-size="8" fill="var(--ink-faint)">${g}</text>`).join('');
+  const xl=WEEKS.map((w,i)=>`<text x="${x(i).toFixed(1)}" y="${H-6}" text-anchor="middle" font-size="8" fill="var(--ink-faint)">W${w}</text>`).join('');
+  const lines=series.map(se=>{const pts=se.vals.map((v,i)=>v==null?null:`${x(i).toFixed(1)},${y(v).toFixed(1)}`).filter(Boolean);const poly=pts.length>1?`<polyline fill="none" stroke="${se.color}" stroke-width="2" stroke-linejoin="round" points="${pts.join(' ')}"/>`:'';const dots=se.vals.map((v,i)=>v==null?'':`<circle cx="${x(i).toFixed(1)}" cy="${y(v).toFixed(1)}" r="2.6" fill="${se.color}"/>`).join('');return poly+dots;}).join('');
+  return`<div class="chart"><svg viewBox="0 0 ${W} ${H}">${grid}${xl}${lines}</svg></div>`;}
+function renderReport(){
+  const c=courseObj(state.course),subs=c.subs,roster=studentsIn(c.id);
+  const charts=subs.map(sub=>{const w=subjWeekly(c.id,sub);
+    const series=[{color:'#2fa76a',vals:w.att},{color:'#6d5bd0',vals:w.quiz},{color:'#e79433',vals:w.hw}];
+    return`<div class="chart-card"><h3>${SUBJ[sub].ic} ${SUBJ[sub].n}</h3>
+      <div class="chart-legend"><span><i style="background:#2fa76a"></i>เข้าเรียน %</span><span><i style="background:#6d5bd0"></i>Quiz ตอบถูก %</span><span><i style="background:#e79433"></i>ส่งการบ้าน %</span></div>
+      ${lineChartSVG(series)}</div>`;}).join('');
+  const inact2=roster.filter(s=>CUR_WEEK-s.lastActiveWk===2).length,inact3=roster.filter(s=>CUR_WEEK-s.lastActiveWk===3).length,inact4=roster.filter(s=>CUR_WEEK-s.lastActiveWk>=4).length;
+  document.getElementById('v-report').innerHTML=`
+    <div class="ph"><div class="ph-icon">▮</div><div><h1>Report</h1><div class="sub">เลือก Course → ดูกราฟรายวิชา (Attendance / Live Quiz / Homework) ราย W1–W${CUR_WEEK}</div></div></div>
+    ${courseSeg('setCourse')}
+    <div class="rep-charts">${charts}</div>
+    <div class="card"><div class="card-h"><h3>Retention · ${courseShort(c.id)}</h3><span class="sub">Inactive = ไม่เข้า Live stream</span></div><div class="card-b">
+      <div class="bar-row"><span class="nm">Inactive 2 สัปดาห์</span><div class="bar-track"><div class="bar-fill amber" style="width:${pct(inact2,roster.length)}%"></div></div><span class="vv">${inact2} คน</span></div>
+      <div class="bar-row"><span class="nm">Inactive 3 สัปดาห์</span><div class="bar-track"><div class="bar-fill red" style="width:${pct(inact3,roster.length)}%"></div></div><span class="vv">${inact3} คน</span></div>
+      <div class="bar-row"><span class="nm">Inactive 4 สัปดาห์+</span><div class="bar-track"><div class="bar-fill red" style="width:${pct(inact4,roster.length)}%"></div></div><span class="vv">${inact4} คน</span></div>
+    </div></div>`;
+}
+
+/* ============================================================ DRAWER ============================================================ */
+function openDrawer(idx){
+  curStudent=idx;
+  const s=students[idx],cid=state.course,wk=state.week,subs=courseObj(cid).subs,ov=overallStatus(s,cid,wk);
+  document.getElementById('drawerName').textContent=s.nick;
+  document.getElementById('drawerMeta').textContent=`${s.grade} · ${courseShort(cid)} · รายงานผล W${wk}`;
+  const av=document.getElementById('drawerAv');av.textContent=s.nick[0];av.style.background=s.av;
+  const docSubs=subs.map(sub=>{const nc=isNoClass(cid,sub,wk),r=R[s.idx][sub]&&R[s.idx][sub][wk];let tag='';if(nc)tag='<span class="tag noclass">ไม่มีเรียน</span>';else if(r&&r.att==='makeup')tag='<span class="tag makeup">ชดเชย</span>';else if(r&&r.late)tag='<span class="tag late">HW ช้า</span>';return`<div class="doc-line">${SUBJ[sub].ic} ${SUBJ[sub].n} ${tag}<span class="rm" onclick="this.closest('.doc-line').remove()">ลบ</span></div>`;}).join('');
+  const cards=subs.filter(sub=>!isNoClass(cid,sub,wk)).map(sub=>{const r=R[s.idx][sub][wk];return`<div class="subj-card"><div class="top"><b>${SUBJ[sub].n}</b>${stMini(subjStatus(s,cid,sub,wk))}</div>
+    <div class="row-line"><span class="k">เข้าเรียน</span><span>${r.att==='present'?'✓ เข้า':r.att==='makeup'?'✓ เข้า (ชดเชย)':'✕ ขาด'}</span></div>
+    <div class="row-line"><span class="k">Live Quiz</span><button class="btn ghost sm" onclick="openQuiz(${idx},'${sub}')">${r.lqDone?'ทำ '+r.lqDone+'/'+r.lqT+' · ถูก '+r.lqCorrect:'ไม่ได้ทำ'}</button></div>
+    <div class="row-line"><span class="k">Homework ${r.late?'<span class="tag late">ช้า</span>':''}</span><button class="btn ${r.collected?'ai':'ghost'} sm" onclick="openHW(${idx},'${sub}')">${r.collected?'เก็บแล้ว '+r.hwScore+'/'+r.hwT+' · แก้':'ยังไม่เก็บ · กรอก'}</button></div>
+    <div class="fbmini"><b>Feedback:</b> ${fbPrepared(cid,sub,wk)?fbText(cid,sub,wk):'<span style="color:var(--danger)">ยังไม่เตรียม feedback วิชานี้</span>'}</div>
+  </div>`;}).join('');
+  document.getElementById('dInfo').innerHTML=`
+    <div class="sec-title" style="margin-top:0;">วิชาในเอกสาร (W${wk})</div>${docSubs}
+    <button class="btn ghost sm" onclick="openAddSubj()">+ เพิ่ม/ลบ วิชา</button>
+    <div class="sec-title">ผล + Feedback รายวิชา</div>${cards}
+    <div class="sec-title">เคสพิเศษ (รายคนนี้)</div>
+    <div class="subj-pick"><button class="btn ghost sm" onclick="openCase('late',false)">การบ้านส่งช้า</button><button class="btn ghost sm" onclick="openCase('noclass',false)">ไม่มีเรียน</button><button class="btn ghost sm" onclick="openCase('makeup',false)">วันเรียนชดเชย</button></div>`;
+  previewN=0;
+  document.getElementById('dPreview').innerHTML=buildReport(s,cid,wk);
+  drawerTab('info');
+  const send=document.getElementById('drawerSend');send.textContent=ov==='sended'?'✓ ส่งแล้ว · ส่งซ้ำ':'▷ ส่งให้ผู้ปกครอง';
+  send.onclick=()=>openLineSend(idx);
+  document.getElementById('drawer').classList.add('open');document.getElementById('drawerBackdrop').classList.add('open');
+}
+function drawerTab(t){document.getElementById('dInfo').classList.toggle('active',t==='info');document.getElementById('dPreview').classList.toggle('active',t==='preview');document.getElementById('dtInfo').classList.toggle('active',t==='info');document.getElementById('dtPrev').classList.toggle('active',t==='preview');}
+function closeDrawer(){document.getElementById('drawer').classList.remove('open');document.getElementById('drawerBackdrop').classList.remove('open');}
+
+const RP_ACC={sci:'#2fa76a',mathB:'#3d7fd9',mathA:'#8b5cf6',eng:'#0f9188'};
+let previewN=0; // 0 = ตามจริง · 1-5 = จำลองจำนวนวิชา
+function setPreviewN(n){previewN=n;if(curStudent!=null)document.getElementById('dPreview').innerHTML=buildReport(students[curStudent],state.course,state.week);}
+function actualSubs(s,cid,wk){return courseObj(cid).subs.filter(sub=>!isNoClass(cid,sub,wk));}
+function reportA4(s,cid,wk,list){
+  const c=courseObj(cid),n=list.length;
+  let present=0,qd=0,qc=0,hwc=0;
+  list.forEach(sub=>{const r=R[s.idx][sub][wk];if(r.att==='present'||r.att==='makeup')present++;qd+=r.lqDone;qc+=r.lqCorrect;if(r.collected)hwc++;});
+  const cards=list.map(sub=>{const r=R[s.idx][sub][wk],acc=RP_ACC[sub]||'#6d5bd0';
+    const att=r.att==='makeup'?'<span class="tag makeup">ชดเชย</span>':r.att==='present'?'<span class="status sended" style="font-size:9.5px;">เข้าเรียน</span>':'<span class="status pending" style="font-size:9.5px;">ขาด</span>';
+    return`<div class="rp-card" style="--acc:${acc}">
+      <div class="ch"><span class="dot"></span><span class="cn">${SUBJ[sub].n}</span><span class="chip">${att}</span></div>
+      <div class="cm">
+        <span class="rp-metric">Quiz ตอบถูก <b style="color:${acc}">${r.lqDone?r.lqCorrect+'/'+r.lqT:'–'}</b></span>
+        <span class="rp-metric">ทำ <b>${r.lqDone?r.lqDone+'/'+r.lqT:'–'}</b></span>
+        <span class="rp-metric">การบ้าน <b>${r.collected?r.hwScore+'/'+r.hwT:'ไม่ส่ง'}</b></span>
+      </div>
+      <div class="cc">${fbText(cid,sub,wk)}</div>
+    </div>`;}).join('');
+  return`<div class="a4" data-n="${n}">
+    <div class="rp-hero"><div class="brand"><div class="mark">N</div><div class="bt">NockAcademy</div><div class="doc">รายงานผลการเรียน</div></div><h2>${s.name}</h2><div class="meta">${c.n} · สัปดาห์ที่ ${wk} · ${WK_DATE[wk]||''}</div></div>
+    <div class="rp-body">
+      <div class="rp-snapshot">
+        <div class="rp-snap"><div class="v">${present}/${n}</div><div class="l">เข้าเรียน</div></div>
+        <div class="rp-snap"><div class="v">${pct(qc,qd)}%</div><div class="l">Quiz ถูกเฉลี่ย</div></div>
+        <div class="rp-snap"><div class="v">${hwc}/${n}</div><div class="l">ส่งการบ้าน</div></div>
+      </div>
+      <div class="rp-grid">${cards}</div>
+    </div>
+    <div class="rp-foot"><div>ออกโดยระบบ Web Teacher · NockAcademy</div><div class="sig"><div class="ln"></div>คุณครูผู้สอน</div></div>
+  </div>`;
+}
+function buildReport(s,cid,wk){
+  const base=actualSubs(s,cid,wk);
+  let list=base;
+  if(previewN){list=[];for(let i=0;i<previewN;i++)list.push(base[i%base.length]);}
+  const ctrl=`<div class="pv-ctrl"><b>จำลองจำนวนวิชา:</b>${[1,2,3,4,5].map(k=>`<button class="${previewN===k?'active':''}" onclick="setPreviewN(${k})">${k}</button>`).join('')}<button class="${previewN===0?'active':''}" onclick="setPreviewN(0)">ตามจริง (${base.length})</button></div>`;
+  return ctrl+`<div class="a4-stage">${reportA4(s,cid,wk,list)}</div>`;
+}
+/* ===== จำลองส่ง LINE ===== */
+function lineChat(s,cid,wk,delivered){
+  const list=actualSubs(s,cid,wk);
+  return`<div class="line"><div class="line-top"><div class="oa">N</div><div><div class="nm">NockAcademy</div><div class="stt">Official Account</div></div></div>
+    <div class="line-chat">
+      <div class="l-row"><div class="l-ava">N</div><div class="l-bubble">สวัสดีค่ะ คุณผู้ปกครองน้อง${s.nick} 🙏<br>รายงานผลการเรียนประจำสัปดาห์ที่ ${wk} ค่ะ</div></div>
+      <div class="l-row"><div class="l-ava" style="visibility:hidden"></div><div class="l-bubble" style="padding:0;background:none;box-shadow:none;max-width:212px;"><div class="l-card"><div style="width:200px;">${reportA4(s,cid,wk,list)}</div></div></div></div>
+      <div class="l-row"><div class="l-ava">N</div><div class="l-bubble">หากมีข้อสงสัยทักสอบถามคุณครูได้เลยนะคะ 😊</div></div>
+      ${delivered?'<div class="l-time">ส่งแล้ว · อ่านแล้ว ✓✓</div>':''}
+    </div></div>`;
+}
+function openLineSend(idx){const s=students[idx],cid=state.course,wk=state.week;
+  showModal(`<div class="modal-head"><div><h3>ส่งรายงานให้ผู้ปกครอง</h3><div class="sub">นี่คือสิ่งที่ผู้ปกครองน้อง${s.nick} จะได้รับใน LINE</div></div><button class="dclose" onclick="closeModal()">×</button></div>
+    <div class="modal-body">${lineChat(s,cid,wk,false)}<div class="l-note">* จำลอง — prototype ยังส่ง LINE จริงไม่ได้ (ต้องมี backend + LINE OA)</div>
+    <div style="display:flex;gap:8px;margin-top:16px;"><button class="btn primary" style="flex:1;" onclick="confirmLineSend(${idx})">✓ ยืนยันส่งให้ผู้ปกครอง</button><button class="btn ghost" onclick="closeModal()">ยกเลิก</button></div></div>`,true);}
+function confirmLineSend(idx){const s=students[idx],cid=state.course,wk=state.week;addSent(s,cid,wk);persist();renderCourse();renderDashboard();
+  showModal(`<div class="modal-head"><div><h3>ส่งเรียบร้อย ✓</h3><div class="sub">ผู้ปกครองน้อง${s.nick} ได้รับรายงานแล้ว</div></div><button class="dclose" onclick="closeModal()">×</button></div>
+    <div class="modal-body">${lineChat(s,cid,wk,true)}<div style="margin-top:16px;"><button class="btn primary" style="width:100%;" onclick="closeModal()">เสร็จสิ้น</button></div></div>`,true);
+  if(document.getElementById('drawer').classList.contains('open'))openDrawer(idx);}
+function openLineSendBulk(idxs){if(!idxs.length){alert('ยังไม่ได้เลือกนักเรียน');return;}const s=students[idxs[0]],cid=state.course,wk=state.week;
+  showModal(`<div class="modal-head"><div><h3>ส่งรายงานให้ผู้ปกครอง ${idxs.length} คน</h3><div class="sub">ตัวอย่างที่ผู้ปกครองจะได้รับ (น้อง${s.nick})</div></div><button class="dclose" onclick="closeModal()">×</button></div>
+    <div class="modal-body">${lineChat(s,cid,wk,false)}<div class="l-note">* จำลอง — จะส่งให้ผู้ปกครองทั้ง ${idxs.length} คนพร้อมกัน</div>
+    <div style="display:flex;gap:8px;margin-top:16px;"><button class="btn primary" style="flex:1;" onclick="confirmLineBulk('${idxs.join(',')}')">✓ ยืนยันส่งทั้ง ${idxs.length} คน</button><button class="btn ghost" onclick="closeModal()">ยกเลิก</button></div></div>`,true);}
+function confirmLineBulk(csv){const idxs=csv.split(',').map(Number),cid=state.course,wk=state.week;idxs.forEach(i=>addSent(students[i],cid,wk));persist();closeModal();renderCourse();renderDashboard();
+  showModal(`<div class="modal-head"><div><h3>ส่งเรียบร้อย ✓</h3><div class="sub">ส่งรายงาน W${wk} ให้ผู้ปกครอง ${idxs.length} คนแล้ว (จำลอง)</div></div><button class="dclose" onclick="closeModal()">×</button></div><div class="modal-body" style="text-align:center;padding:30px;"><div style="font-size:40px;">✅</div><p style="color:var(--ink-muted);">รายงานถูกส่งเข้า LINE ของผู้ปกครองทั้ง ${idxs.length} คนแล้ว</p><button class="btn primary" style="width:100%;margin-top:10px;" onclick="closeModal()">เสร็จสิ้น</button></div>`,true);}
+
+/* ============================================================ MODALS ============================================================ */
+function showModal(html,sm){const m=document.getElementById('modal');document.getElementById('modalCard').className='modal'+(sm?' sm2':'');document.getElementById('modalCard').innerHTML=html;m.classList.add('open');}
+function closeModal(){document.getElementById('modal').classList.remove('open');}
+document.getElementById('modal').addEventListener('click',e=>{if(e.target.id==='modal')closeModal();});
+function openHW(idx,sub){const s=students[idx],r=R[s.idx][sub][state.week],wk=state.week;const rows=[];for(let i=1;i<=Math.min(r.hwT,6);i++){const ans=['ก.','ข.','ค.','ง.'];rows.push(`<tr><td>${i}</td><td>${ans[(i*3)%4]}</td><td><select class="sel">${['— เลือก —',...ans].map((o,j)=>`<option ${r.collected&&j===((i+1)%4)+1?'selected':''}>${o}</option>`).join('')}</select></td></tr>`);}
+  showModal(`<div class="modal-head"><div><h3>เก็บ Homework — ${s.nick} · ${SUBJ[sub].n}</h3><div class="sub">โพสต์ Facebook W${wk} · กรอกคำตอบจากคอมเมนต์ทีละข้อ (Manual)</div></div><button class="dclose" onclick="closeModal()">×</button></div>
+    <div class="modal-body"><div style="display:grid;grid-template-columns:1fr 1fr;gap:18px;">
+      <div><div style="font-size:11px;color:var(--ink-muted);margin-bottom:8px;font-weight:700;">คอมเมนต์จาก Facebook (อ่านเอง)</div><div style="background:var(--bg);border:1px solid var(--border-soft);border-radius:9px;padding:11px;font-size:12px;line-height:1.9;"><b>${s.nick}</b> — ${s.nick}/ข.<br><b>${s.nick}</b> — ข้อ2 ก. ข้อ3 ค.<br><b>${s.nick}</b> — ข้อ4 ง. ข้อ5 ข.</div></div>
+      <div><div style="font-size:11px;color:var(--ink-muted);margin-bottom:8px;font-weight:700;">กรอกคำตอบเข้าระบบ</div><table class="match-table"><thead><tr><th>ข้อ</th><th>เฉลย</th><th>คำตอบ</th></tr></thead><tbody>${rows.join('')}</tbody></table>
+        <div style="margin-top:14px;display:flex;gap:8px;"><button class="btn primary sm" onclick="saveHW(${idx},'${sub}')">บันทึกคะแนน</button><button class="btn ghost sm" onclick="closeModal()">ปิด</button></div></div>
+    </div></div>`);
+}
+function saveHW(idx,sub){const r=R[idx][sub][state.week];r.collected=true;if(r.hwScore==null)r.hwScore=Math.round(r.hwT*0.8);persist();closeModal();renderCourse();renderDashboard();if(curStudent===idx)openDrawer(idx);}
+function openQuiz(idx,sub){const r=R[idx][sub][state.week],s=students[idx];const rows=[];for(let i=1;i<=r.lqT;i++){const correct=i<=r.lqCorrect;const ans=['ก.','ข.','ค.','ง.'];const key=ans[i%4];rows.push(`<tr><td>${i}</td><td>${key}</td><td style="color:${i>r.lqDone?'var(--ink-faint)':correct?'var(--green)':'var(--danger)'};font-weight:700;">${i>r.lqDone?'ไม่ได้ทำ':(correct?key+' ✓':ans[(i+1)%4]+' ✕')}</td></tr>`);}
+  showModal(`<div class="modal-head"><div><h3>Live Quiz — ${s.nick} · ${SUBJ[sub].n}</h3><div class="sub">ตรวจอัตโนมัติจากแอประหว่าง Live</div></div><button class="dclose" onclick="closeModal()">×</button></div>
+    <div class="modal-body"><table class="match-table"><thead><tr><th>ข้อ</th><th>เฉลย</th><th>คำตอบ</th></tr></thead><tbody>${rows.join('')}</tbody></table><div style="text-align:right;margin-top:12px;font-weight:700;">ทำ ${r.lqDone}/${r.lqT} · ถูก ${r.lqCorrect}</div></div>`,true);
+}
+function openAddSubj(){const all=Object.keys(SUBJ),c=courseObj(state.course);showModal(`<div class="modal-head"><div><h3>เพิ่ม/ลบ วิชาในเอกสาร</h3><div class="sub">เลือกวิชาที่จะแสดงในรายงานของ ${students[curStudent].nick}</div></div><button class="dclose" onclick="closeModal()">×</button></div><div class="modal-body"><div class="subj-pick">${all.map(sub=>`<label><input type="checkbox" ${c.subs.includes(sub)?'checked':''}>${SUBJ[sub].n}</label>`).join('')}</div><div style="margin-top:16px;display:flex;gap:8px;"><button class="btn primary sm" onclick="closeModal()">บันทึก</button><button class="btn ghost sm" onclick="closeModal()">ยกเลิก</button></div></div>`,true);}
+function openBulk(){openCase('bulk',true);}
+function openCase(type,bulk){const c=courseObj(state.course);const T={late:['การบ้านส่งช้า','เลือกวิชาที่ส่งช้า',false],noclass:['ไม่มีเรียน','เลือกวิชาที่ไม่มีการสอน Live ใน W'+state.week,false],makeup:['วันเรียนชดเชย','เลือกวิชา + วันที่ชดเชย',true],bulk:['จัดการเคสพิเศษ (ทั้งคอร์ส)','เลือกประเภท + วิชา ปรับให้ทุกคน',false]}[type];
+  const scope=bulk?`<div class="scope-toggle"><button>รายคนนี้</button><button class="active">ทั้งคอร์ส</button></div>`:(curStudent!=null?`<div class="scope-toggle"><button class="active">รายคนนี้ (${students[curStudent].nick})</button><button onclick="closeModal();openBulk()">ทั้งคอร์ส</button></div>`:'');
+  const typeSel=type==='bulk'?`<div class="field"><label>ประเภทเคส</label><select class="sel" style="width:100%"><option>การบ้านส่งช้า</option><option>ไม่มีเรียน</option><option>วันเรียนชดเชย</option></select></div>`:'';
+  showModal(`<div class="modal-head"><div><h3>${T[0]}</h3><div class="sub">${T[1]}</div></div><button class="dclose" onclick="closeModal()">×</button></div><div class="modal-body">${scope}${typeSel}<div class="field"><label>เลือกวิชา</label><div class="radio-list">${c.subs.map(sub=>`<label><input type="checkbox">${SUBJ[sub].n}</label>`).join('')}</div></div>${T[2]?`<div class="field"><label>วันที่เรียนชดเชย</label><input type="date" class="txt" value="2026-05-03"></div>`:''}<div style="display:flex;gap:8px;"><button class="btn primary sm" onclick="closeModal()">บันทึก</button><button class="btn ghost sm" onclick="closeModal()">ยกเลิก</button></div></div>`,true);}
+
+function cpy(t){try{navigator.clipboard.writeText(t);}catch(e){}}
+function toggleOQ(){document.getElementById('oqPanel').classList.toggle('open');}
+document.getElementById('oqToggle').addEventListener('click',toggleOQ);
+document.addEventListener('click',e=>{const rp=document.getElementById('rowpop');if(rp&&rp.style.display==='block'&&!e.target.closest('.more-btn')&&!e.target.closest('#rowpop'))rp.style.display='none';const cp=document.getElementById('colpop');if(cp&&cp.classList.contains('open')&&!e.target.closest('.pos-rel'))cp.classList.remove('open');const hp=document.getElementById('hdrpop');if(hp&&hp.style.display==='block'&&!e.target.closest('.hdr-caret')&&!e.target.closest('#hdrpop'))hp.style.display='none';});
+
+/* ===== Persistence (localStorage) — จำลองว่ามี backend ===== */
+const LS='wt_v3_state';
+function persist(){try{const d={fb:{},hw:{},sent:{}};
+  Object.keys(fbTpl).forEach(k=>d.fb[k]={prepared:fbTpl[k].prepared,text:fbTpl[k].text});
+  students.forEach(s=>{d.sent[s.idx]=[...s.sent];Object.keys(R[s.idx]).forEach(sub=>Object.keys(R[s.idx][sub]).forEach(wk=>{const r=R[s.idx][sub][wk];if(r.collected!==undefined)d.hw[s.idx+'|'+sub+'|'+wk]={collected:r.collected,hwScore:r.hwScore};}));});
+  localStorage.setItem(LS,JSON.stringify(d));}catch(e){}}
+function loadPersist(){try{const raw=localStorage.getItem(LS);if(!raw)return;const d=JSON.parse(raw);
+  if(d.fb)Object.keys(d.fb).forEach(k=>{if(fbTpl[k]){fbTpl[k].prepared=d.fb[k].prepared;fbTpl[k].text=d.fb[k].text;}});
+  if(d.hw)Object.keys(d.hw).forEach(k=>{const p=k.split('|');if(R[p[0]]&&R[p[0]][p[1]]&&R[p[0]][p[1]][p[2]]){R[p[0]][p[1]][p[2]].collected=d.hw[k].collected;R[p[0]][p[1]][p[2]].hwScore=d.hw[k].hwScore;}});
+  if(d.sent)Object.keys(d.sent).forEach(idx=>{if(students[idx])students[idx].sent=new Set(d.sent[idx]);});}catch(e){}}
+function resetDemo(){try{localStorage.removeItem(LS);}catch(e){}location.reload();}
+
+loadPersist();
+renderDashboard();renderStudents();renderCourse();renderFeedback();renderReport();syncCount();
+</script>

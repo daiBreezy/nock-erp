@@ -1,0 +1,110 @@
+You are writing dashboard.js for NockERP, an education ERP system.
+
+PATTERN: Every module uses this pattern:
+(function() {
+  document.getElementById('view-dashboard').innerHTML = `...HTML...`;
+  // then local functions
+})();
+
+AVAILABLE CSS CLASSES (from main.css — use exactly these):
+Layout: kpi-grid, kpi-card, kpi-label, kpi-value, kpi-change up/down, kpi-icon
+        grid-2, card, card-header, card-title, card-body, mb-16
+Sessions: session-card, session-time, session-dot green/yellow/blue, session-info, session-name, session-meta, session-teacher
+Tasks: task-item, task-check, task-info, task-text, task-sub, task-right, task-due urgent, task-source ai/manager/admin/system
+Renewal: renewal-item, renewal-name, renewal-classes
+Timeline: timeline-item, tl-dot, tl-content, tl-text, tl-time
+Alert: alert-item, alert-bar danger/warning/info, alert-body, alert-level danger/warning/info, alert-text, alert-time, alert-action
+Badges: badge badge-green/yellow/red/blue/purple/gray/orange
+Buttons: btn btn-primary/secondary/danger/sm/xs
+
+GLOBAL FUNCTIONS available (from app.js):
+- showView(id) — navigate to another view
+- Modal.open(id), Modal.close(id), Modal.create(id, title, body, footer, size)
+- toggleTask(checkEl) — toggle task done state
+- selectAtt(btn, type) — attendance button selection
+- openInboxFor(name) — navigate to inbox for a contact
+- showToast(message, type) — show toast notification
+
+=== DASHBOARD SPEC ===
+
+Section 1 — KPI Grid (4 cards):
+- Revenue (May): ฿124,500 | ↑ 12% vs last month | icon bg #ede9fe | 💰
+- Active Students: 87 | ↑ 3 new this week | icon bg #d1fae5 | 🎓
+- Renewal Pending: 6 | ↓ Action required | icon bg #fef3c7 | 🔄
+- Conversion Rate: 68% | ↑ 5% this month | icon bg #fee2e2 | 📈
+
+Section 2 — grid-2: [Today's Classes] [Right Panel]
+
+TODAY'S CLASSES card (title: "📅 Today's Classes (5)", button "View Calendar" calls showView('calendar')):
+Each session-card is clickable (onclick opens session modal). Show:
+- session-time (e.g. "09:00–10:30")
+- session-dot color
+- session-name (subject + group)
+- session-meta (room + student count)
+- session-teacher (teacher name — supports multiple, comma separated)
+- badge (Live/Upcoming/Scheduled)
+
+Sessions data:
+1. 09:00–10:30 | green/Live    | Math Grade 5 — Group A   | Room 2 · 4 students | Kru Arm          | badge-green "Live"
+2. 10:30–12:00 | yellow/Upc.  | English Reading — Group B | Room 1 · 5 students | Kru Bee          | badge-yellow "Upcoming" — onclick openSessionModal()
+3. 13:00–14:30 | blue/Sched.  | Science — Private         | Room 3 · 1 student  | Kru Dan          | badge-blue "Scheduled"
+4. 15:00–16:30 | blue/Sched.  | Math Grade 6 — Group C    | Room 2 · 6 students | Kru Cat, Kru Arm | badge-blue "Scheduled"  ← 2 teachers
+5. 16:30–18:00 | blue/Sched.  | Thai Language — Group A   | Room 1 · 3 students | Kru Eve          | badge-blue "Scheduled"
+
+RIGHT PANEL (flex column, gap 16px):
+A) Renewal Pending card (title: "🔄 Renewal Pending", badge badge-red "6 students"):
+   renewal-items, each has: name | classes left (red text) | btn btn-primary btn-sm "Follow Up" (onclick calls openFollowUpModal(name))
+   Data: Mia Tanaka 2 left | James Wilson 1 left (URGENT) | Ploy Srirak 2 left
+
+B) My Tasks card (title: "☑️ My Tasks", btn-secondary btn-sm "+ Add"):
+   task-items. Each shows: checkbox | task-info (task-text + task-sub with who/what context) | task-right (task-source badge + task-due)
+   Data:
+   - [ ] "Send renewal invoice — Tanaka Family" | sub: "Mia Tanaka · English Reading" | source:ai "🤖 AI Suggest" | due-urgent "Today"
+   - [ ] "Follow up call — Wilson Family" | sub: "James Wilson · 1 class left" | source:manager "👤 Kru Arm" | due-urgent "Today"
+   - [ ] "Send invoice — Chen Family" | sub: "Math G6 renewal · ฿9,000" | source:admin "⚙️ Admin Nock" | due "Tomorrow"
+   - [✓done] "Confirm June schedule — Srirak Family" | source:system "🔧 System" | due green "Done"
+
+   Checkbox onclick calls toggleTask(this).
+
+Section 3 — grid-2: [Recent Activity] [Risk & Alert]
+
+RECENT ACTIVITY card (title: "🕐 Recent Activity", compact — max 4 items):
+timeline-items with tl-dot colors:
+- #6366f1 | "Summary sent — Ploy Srirak · Math G5 · Session #42" | "10 min ago"
+- #10b981 | "Payment received — Tanaka family · ฿8,500" | "42 min ago"
+- #f59e0b | "New lead — Sarah M. · English Reading · Referred" | "2 hours ago"
+- #6366f1 | "Enrollment — Tom Chen · Math Grade 6 · 20 sessions" | "Yesterday 4:30 PM"
+
+RISK & ALERT card (title: "⚡ Risk & Alert"):
+alert-items sorted by severity (danger first). Each has: alert-bar [severity] | alert-body [alert-level badge + alert-text + alert-time + alert-action link]
+
+Alerts data:
+1. danger | "DANGER" | "James Wilson เหลือ 1 class — ถ้าไม่ต่อวันนี้จะหมดสัญญา" | "เร่งด่วน" | action "Follow Up →" onclick openFollowUpModal('James Wilson')
+2. danger | "DANGER" | "INV-2026-0051 รอ verify มา 18 ชั่วโมงแล้ว — Tanaka Family ฿8,500" | "18 ชม. ที่แล้ว" | action "Verify →" onclick showView('billing')
+3. warning | "WARNING" | "6 นักเรียนใกล้หมด package — ถ้าไม่ติดต่อใน 3 วัน อาจหลุด" | "ต้องติดต่อก่อน 16 May" | action "ดู Renewal →"  onclick showView('students')
+4. warning | "WARNING" | "Hana Yamamoto นัด Trial 14 May พรุ่งนี้ — ยังไม่ confirm ห้อง" | "พรุ่งนี้ 10:30" | action "จัดการ →" onclick showView('calendar')
+5. info | "INFO" | "Sarah M. และ Arjun P. เป็น New Lead มา 3 วันแล้ว ยังไม่มีการติดต่อ" | "3 วันที่แล้ว" | action "ไป CRM →" onclick showView('crm')
+
+=== MODALS ===
+
+Define function openSessionModal() that calls Modal.create() with id 'modal-session':
+Title: "⏱️ Session — English Reading · Group B"
+Body contains:
+- modal-section "Session Info": info-grid with Subject, Teacher (Kru Bee), Time (10:30–12:00), Room (Room 1 · Sukhumvit), Status (badge-yellow Upcoming), Capacity (5/8)
+- modal-section "Student Attendance": att-rows for Mia Tanaka(present sel), Kevin Park(present sel), Hana Yamamoto(leave sel), Luca Romano(present sel), Emma Liu(absent sel)
+  Each att-btn has onclick="selectAtt(this,'present/leave/absent')"
+- modal-section "Session Timeline": 2 timeline items
+Footer: btn-secondary "Cancel" | btn-secondary "End Class" | btn-primary "✓ Start Class & Check-In"
+
+Define function openFollowUpModal(name) that calls Modal.create() with id 'modal-followup':
+Title: "📞 Follow Up — " + name
+Body: simple form with:
+  - "Channel" select: LINE, Phone Call, Email
+  - "Note" textarea placeholder "บันทึกการติดต่อ…"
+  - info showing urgency based on name
+Footer: btn-secondary "Cancel" onclick Modal.close | btn-primary "💾 Save & Create Task"
+
+=== OUTPUT ===
+Write complete, working JavaScript. Wrap in IIFE. No TypeScript. No imports.
+Use template literals for HTML. Keep all onclick attributes as strings calling global functions.
+Total target: under 380 lines.

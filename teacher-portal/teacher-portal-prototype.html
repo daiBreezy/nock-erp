@@ -1,0 +1,586 @@
+<title>Teacher Workload Console</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@400;500;600;700&family=Sarabun:wght@400;500;600&display=swap');
+
+  :root{
+    --bg:#f4f2fb;
+    --surface:#ffffff;
+    --ink:#2b2740;
+    --ink-muted:#736e8c;
+    --ink-faint:#a29cbd;
+    --border:#e7e3f6;
+    --border-soft:#efecf9;
+    --sidebar:#ffffff;
+
+    --primary:#6d5bd0;
+    --primary-ink:#5645b8;
+    --primary-soft:#ece8fb;
+    --primary-soft-border:#dcd5f6;
+
+    --ai:#0f9188;
+    --ai-ink:#0a6e67;
+    --ai-soft:#e2f5f3;
+    --ai-border:#c3e9e5;
+
+    --green:#2fa76a;
+    --green-soft:#e5f6ec;
+    --green-border:#c7ebd7;
+
+    --amber:#e79433;
+    --amber-ink:#a8611a;
+    --amber-soft:#fdf1de;
+    --amber-border:#f6dfb8;
+
+    --pending:#d7a92e;
+    --pending-soft:#fbf3d8;
+    --pending-border:#f2e2a4;
+
+    --danger:#dd5b5b;
+    --danger-soft:#fbe6e6;
+
+    --blue:#3d7fd9; --blue-soft:#e4eefc;
+    --shadow: 0 1px 2px rgba(43,39,64,.04), 0 10px 26px -14px rgba(43,39,64,.16);
+    --radius:12px;
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --bg:#161421; --surface:#1d1a2c; --sidebar:#191627;
+      --ink:#eae7f5; --ink-muted:#a49dc2; --ink-faint:#726c90;
+      --border:#302b47; --border-soft:#282440;
+      --primary:#8b7cea; --primary-ink:#a99bf5; --primary-soft:#28223f; --primary-soft-border:#3a3260;
+      --ai:#3fc7bd; --ai-ink:#7fe0d8; --ai-soft:#132c2a; --ai-border:#1f4b46;
+      --green:#4fc386; --green-soft:#14291f; --green-border:#1f4a34;
+      --amber:#eaa858; --amber-ink:#f3c384; --amber-soft:#332312; --amber-border:#4d3417;
+      --pending:#e1bb52; --pending-soft:#332a12; --pending-border:#4d3f1c;
+      --danger:#e8807f; --danger-soft:#331a1a;
+      --blue:#6ea3ec; --blue-soft:#152238;
+      --shadow: 0 1px 2px rgba(0,0,0,.3), 0 10px 26px -14px rgba(0,0,0,.55);
+    }
+  }
+  :root[data-theme="dark"]{
+    --bg:#161421; --surface:#1d1a2c; --sidebar:#191627;
+    --ink:#eae7f5; --ink-muted:#a49dc2; --ink-faint:#726c90;
+    --border:#302b47; --border-soft:#282440;
+    --primary:#8b7cea; --primary-ink:#a99bf5; --primary-soft:#28223f; --primary-soft-border:#3a3260;
+    --ai:#3fc7bd; --ai-ink:#7fe0d8; --ai-soft:#132c2a; --ai-border:#1f4b46;
+    --green:#4fc386; --green-soft:#14291f; --green-border:#1f4a34;
+    --amber:#eaa858; --amber-ink:#f3c384; --amber-soft:#332312; --amber-border:#4d3417;
+    --pending:#e1bb52; --pending-soft:#332a12; --pending-border:#4d3f1c;
+    --danger:#e8807f; --danger-soft:#331a1a;
+    --blue:#6ea3ec; --blue-soft:#152238;
+    --shadow: 0 1px 2px rgba(0,0,0,.3), 0 10px 26px -14px rgba(0,0,0,.55);
+  }
+
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{background:var(--bg);color:var(--ink);font-family:'Sarabun','IBM Plex Sans Thai',system-ui,sans-serif;font-size:13.5px;line-height:1.55;}
+  h1,h2,h3,button,.nav-item,.pill,.chip,th,.kpi-value{font-family:'IBM Plex Sans Thai','Sarabun',system-ui,sans-serif;}
+  table{font-variant-numeric:tabular-nums;}
+  button{font-family:inherit;}
+
+  .notice{
+    background:var(--primary);color:#fff;padding:9px 20px;font-size:12px;
+    display:flex;align-items:center;gap:8px;
+  }
+  .notice .dot{width:6px;height:6px;border-radius:50%;background:#ffce7a;flex:none;}
+
+  .shell{display:flex;min-height:100vh;}
+
+  /* ---------------- sidebar ---------------- */
+  .sidebar{
+    width:230px;flex:none;background:var(--sidebar);border-right:1px solid var(--border);
+    padding:16px 14px;display:flex;flex-direction:column;gap:16px;transition:width .15s;
+  }
+  .sidebar.collapsed{width:72px;}
+  .sidebar.collapsed .lbl{display:none;}
+  .sidebar-top{display:flex;align-items:center;justify-content:space-between;}
+  .logo{width:34px;height:34px;border-radius:9px;background:linear-gradient(135deg,#ff5f6d,#ff9a44);display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:14px;flex:none;}
+  .collapse-btn{width:30px;height:30px;border-radius:8px;border:1px solid var(--border);background:var(--surface);color:var(--ink-muted);cursor:pointer;display:flex;align-items:center;justify-content:center;}
+  .searchbox{
+    display:flex;align-items:center;gap:8px;background:var(--bg);border:1px solid var(--border);
+    border-radius:9px;padding:8px 10px;color:var(--ink-faint);font-size:12.5px;
+  }
+  .searchbox svg{flex:none;}
+  .side-link{
+    display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:9px;
+    color:var(--ink-muted);font-size:13px;font-weight:500;cursor:pointer;border:none;background:none;width:100%;text-align:left;
+  }
+  .side-link:hover{background:var(--border-soft);color:var(--ink);}
+  .side-link.active{background:var(--primary-soft);color:var(--primary-ink);font-weight:700;}
+  .side-link svg{flex:none;width:16px;height:16px;}
+  .side-nav{display:flex;flex-direction:column;gap:2px;}
+  .side-foot{margin-top:auto;display:flex;align-items:center;gap:9px;padding-top:14px;border-top:1px solid var(--border-soft);}
+  .side-foot .av{width:32px;height:32px;border-radius:50%;background:var(--amber-soft);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:var(--amber-ink);flex:none;}
+  .side-foot .role{font-size:10px;font-weight:700;color:var(--green);background:var(--green-soft);padding:1px 7px;border-radius:20px;display:inline-block;}
+  .side-foot .who{font-size:12.5px;font-weight:600;margin-top:2px;}
+
+  /* ---------------- main ---------------- */
+  .main{flex:1;min-width:0;padding:22px 28px 60px;}
+  .view{display:none;}
+  .view.active{display:block;}
+
+  .ph{display:flex;align-items:center;gap:10px;margin-bottom:16px;}
+  .ph-icon{width:34px;height:34px;border-radius:9px;background:var(--primary-soft);color:var(--primary-ink);display:flex;align-items:center;justify-content:center;flex:none;}
+  .ph h1{font-size:19px;font-weight:700;}
+  .ph .sub{font-size:12px;color:var(--ink-muted);font-weight:400;}
+
+  .pillrow{display:flex;gap:8px;margin-bottom:18px;flex-wrap:wrap;}
+  .pill{background:var(--surface);border:1px solid var(--border);color:var(--ink-muted);padding:8px 16px;border-radius:22px;font-size:12.5px;font-weight:600;cursor:pointer;}
+  .pill.active{background:var(--ink);color:#fff;border-color:var(--ink);}
+
+  .kpi-row{display:flex;gap:12px;margin-bottom:18px;flex-wrap:wrap;}
+  .kpi{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:14px 18px;box-shadow:var(--shadow);display:flex;align-items:center;gap:12px;min-width:190px;}
+  .kpi .ic{width:38px;height:38px;border-radius:9px;background:var(--primary-soft);color:var(--primary-ink);display:flex;align-items:center;justify-content:center;flex:none;}
+  .kpi.pending .ic{background:var(--pending-soft);color:var(--amber-ink);}
+  .kpi.ai .ic{background:var(--ai-soft);color:var(--ai-ink);}
+  .kpi .lbl{font-size:11.5px;color:var(--ink-muted);font-weight:500;}
+  .kpi .val{font-size:21px;font-weight:700;margin-top:1px;}
+
+  .weekrow{display:flex;gap:6px;margin-bottom:16px;}
+  .weekpill{background:var(--surface);border:1px solid var(--border);color:var(--ink-faint);padding:7px 13px;border-radius:9px;font-size:12.5px;font-weight:600;cursor:pointer;}
+  .weekpill.active{background:var(--ink);color:#fff;border-color:var(--ink);}
+
+  .toolbar{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:12px;flex-wrap:wrap;}
+  .search-wide{display:flex;align-items:center;gap:8px;background:var(--surface);border:1px solid var(--border);border-radius:9px;padding:8px 12px;font-size:12.5px;color:var(--ink-faint);min-width:260px;}
+  .filters{display:flex;gap:8px;}
+  .filter-btn{background:var(--surface);border:1px solid var(--border);color:var(--ink-muted);padding:7px 12px;border-radius:8px;font-size:12.5px;font-weight:500;cursor:pointer;display:flex;align-items:center;gap:5px;}
+
+  .bulkbar{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:8px;}
+  .bulk-left{display:flex;align-items:center;gap:10px;}
+  .checkall{width:17px;height:17px;border-radius:5px;border:1.5px solid var(--ink-faint);cursor:pointer;}
+  .txtbtn{background:none;border:none;color:var(--ink-muted);font-size:12.5px;font-weight:600;cursor:pointer;}
+  .selcount{font-size:12px;color:var(--ink-faint);}
+  .btn-send{background:var(--primary);color:#fff;border:none;padding:9px 18px;border-radius:9px;font-size:13px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:7px;box-shadow:var(--shadow);}
+  .btn-send:hover{background:var(--primary-ink);}
+
+  .panel{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow);overflow:hidden;margin-bottom:16px;}
+  .table-wrap{overflow-x:auto;}
+  table.data{width:100%;border-collapse:collapse;font-size:12.5px;min-width:980px;}
+  table.data th{text-align:left;font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.3px;color:var(--ink-faint);padding:11px 12px;border-bottom:1px solid var(--border);}
+  table.data td{padding:10px 12px;border-bottom:1px solid var(--border-soft);vertical-align:middle;}
+  table.data tbody tr{cursor:pointer;}
+  table.data tbody tr:hover td{background:var(--border-soft);}
+  table.data tbody tr.sel td{background:var(--primary-soft);}
+  .cpy{display:inline-flex;align-items:center;gap:5px;}
+  .cpy svg{opacity:.45;cursor:pointer;flex:none;}
+  .cpy svg:hover{opacity:1;}
+  .av{width:30px;height:30px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#fff;flex:none;}
+  .gchip{font-size:11px;font-weight:700;padding:2px 9px;border-radius:20px;}
+  .g-g{background:var(--green-soft);color:var(--green);}
+  .g-b{background:var(--blue-soft);color:var(--blue);}
+  .g-a{background:var(--amber-soft);color:var(--amber-ink);}
+
+  .status{display:inline-flex;align-items:center;gap:5px;font-size:11.5px;font-weight:700;padding:4px 11px;border-radius:20px;white-space:nowrap;}
+  .status.prepared{background:var(--amber);color:#fff;}
+  .status.pending{background:var(--pending-soft);color:var(--amber-ink);border:1px solid var(--pending-border);}
+  .status.sended{background:var(--green);color:#fff;}
+  .status .spark{width:10px;height:10px;}
+
+  input[type=checkbox].rowchk{width:16px;height:16px;border-radius:5px;accent-color:var(--primary);cursor:pointer;}
+
+  /* ---------------- drawer ---------------- */
+  .drawer-backdrop{position:fixed;inset:0;background:rgba(30,26,50,.35);display:none;z-index:60;}
+  .drawer-backdrop.open{display:block;}
+  .drawer{
+    position:fixed;top:0;right:0;height:100%;width:460px;max-width:92vw;background:var(--surface);
+    box-shadow:-16px 0 40px -20px rgba(20,16,40,.5);z-index:61;transform:translateX(100%);transition:transform .2s ease;
+    display:flex;flex-direction:column;
+  }
+  .drawer.open{transform:translateX(0);}
+  .drawer-head{padding:18px 20px;border-bottom:1px solid var(--border-soft);display:flex;justify-content:space-between;align-items:flex-start;gap:10px;}
+  .drawer-head .who{display:flex;align-items:center;gap:10px;}
+  .drawer-body{padding:16px 20px;overflow-y:auto;flex:1;}
+  .dclose{background:none;border:none;font-size:20px;color:var(--ink-faint);cursor:pointer;}
+  .subj-card{border:1px solid var(--border);border-radius:11px;padding:13px 14px;margin-bottom:12px;}
+  .subj-card .top{display:flex;justify-content:space-between;align-items:center;margin-bottom:9px;}
+  .subj-card .top b{font-size:13px;}
+  .row-line{display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-top:1px solid var(--border-soft);font-size:12.5px;}
+  .row-line:first-of-type{border-top:none;}
+  .ai-chip{display:inline-flex;align-items:center;gap:4px;background:var(--ai);color:#fff;font-size:10px;font-weight:700;letter-spacing:.3px;padding:2px 7px 2px 6px;border-radius:20px;}
+  .ai-chip svg{width:10px;height:10px;}
+
+  .ai-panel{background:var(--ai-soft);border:1px solid var(--ai-border);border-radius:11px;padding:13px 14px;}
+  .ai-panel .eyebrow{display:flex;align-items:center;gap:8px;margin-bottom:8px;font-size:12px;font-weight:700;color:var(--ai-ink);}
+  textarea.draft{width:100%;min-height:120px;border:1px solid var(--ai-border);border-radius:9px;padding:10px 11px;font-family:'Sarabun',sans-serif;font-size:12.5px;line-height:1.6;color:var(--ink);background:var(--surface);resize:vertical;}
+  .qa-flag{display:flex;align-items:center;gap:7px;font-size:11.5px;font-weight:700;padding:7px 9px;border-radius:8px;margin-top:9px;}
+  .qa-flag.ok{background:var(--green-soft);color:var(--green);}
+
+  .btn{background:var(--ink);color:#fff;border:none;font-size:12.5px;font-weight:700;padding:8px 14px;border-radius:8px;cursor:pointer;}
+  .btn.primary{background:var(--primary);}
+  .btn.primary:hover{background:var(--primary-ink);}
+  .btn.ai{background:var(--ai);}
+  .btn.ai:hover{background:var(--ai-ink);}
+  .btn.ghost{background:none;border:1px solid var(--border);color:var(--ink-muted);}
+  .btn.sm{padding:6px 11px;font-size:11.5px;}
+
+  /* modal (reused for homework / live quiz) */
+  .modal-backdrop{position:fixed;inset:0;background:rgba(30,26,50,.4);display:none;align-items:flex-start;justify-content:center;padding:40px 16px;overflow-y:auto;z-index:70;}
+  .modal-backdrop.open{display:flex;}
+  .modal{background:var(--surface);border-radius:14px;max-width:880px;width:100%;box-shadow:0 24px 60px -20px rgba(10,12,20,.4);border:1px solid var(--border);}
+  .modal-head{padding:16px 20px;border-bottom:1px solid var(--border-soft);display:flex;justify-content:space-between;gap:12px;}
+  .modal-head h3{font-size:15px;margin:0;}
+  .modal-head .sub{font-size:11.5px;color:var(--ink-muted);margin-top:3px;}
+  .modal-body{padding:18px 20px;}
+  .fb-comment-list{display:flex;flex-direction:column;gap:8px;max-height:360px;overflow-y:auto;}
+  .fb-comment{display:flex;gap:9px;background:var(--bg);border:1px solid var(--border-soft);border-radius:9px;padding:9px 11px;}
+  .fb-comment .av2{width:24px;height:24px;border-radius:50%;background:#4267B2;color:#fff;font-size:9.5px;font-weight:700;display:flex;align-items:center;justify-content:center;flex:none;}
+  .fb-comment .who{font-size:12px;font-weight:700;}
+  .fb-comment .txt{font-size:12px;color:var(--ink-muted);}
+  .match-table{width:100%;border-collapse:collapse;font-size:12px;}
+  .match-table th{text-align:left;font-size:10px;text-transform:uppercase;color:var(--ink-faint);padding:6px 8px;border-bottom:1px solid var(--border);}
+  .match-table td{padding:6px 8px;border-bottom:1px solid var(--border-soft);}
+  select.sel{border:1px solid var(--border);border-radius:6px;padding:4px 7px;font-size:11.5px;background:var(--surface);color:var(--ink);}
+
+  /* open questions */
+  .oq-toggle{position:fixed;bottom:20px;right:20px;z-index:55;background:var(--ink);color:#fff;border:none;border-radius:24px;padding:11px 18px 11px 14px;font-size:12px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:8px;box-shadow:0 10px 26px -10px rgba(20,24,38,.5);}
+  .oq-toggle .n{background:var(--amber);color:#fff;border-radius:20px;padding:1px 7px;font-size:10.5px;}
+  .oq-panel{position:fixed;bottom:74px;right:20px;width:320px;max-width:calc(100vw - 32px);background:var(--surface);border:1px solid var(--border);border-radius:12px;box-shadow:0 20px 50px -16px rgba(10,12,20,.4);z-index:55;display:none;}
+  .oq-panel.open{display:block;}
+  .oq-panel .h{padding:12px 14px;border-bottom:1px solid var(--border-soft);font-size:12.5px;font-weight:700;display:flex;justify-content:space-between;}
+  .oq-item{padding:10px 14px;border-bottom:1px solid var(--border-soft);font-size:11.5px;color:var(--ink-muted);}
+  .oq-item:last-child{border-bottom:none;}
+  .oq-item b{color:var(--ink);display:block;font-size:12px;margin-bottom:2px;}
+
+  .placeholder{color:var(--ink-muted);font-size:13px;padding:20px;}
+  :focus-visible{outline:2px solid var(--primary);outline-offset:2px;}
+  @media (prefers-reduced-motion: reduce){*{transition:none !important;}}
+  @media(max-width:760px){.sidebar{position:fixed;z-index:80;height:100%;}}
+</style>
+
+<div class="notice"><span class="dot"></span> Draft v2 — ปรับตาม Feedback: เปลี่ยนจาก Top-nav ซ้อน Tab เป็น Sidebar + Status รวม เพื่อลดความสับสน</div>
+
+<div class="shell">
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-top">
+      <div class="logo">N</div>
+      <button class="collapse-btn" id="collapseBtn">☰</button>
+    </div>
+    <div class="searchbox">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
+      <span class="lbl">Smart search</span>
+    </div>
+    <nav class="side-nav">
+      <button class="side-link" data-view="dashboard"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/></svg><span class="lbl">Dashboard</span></button>
+      <button class="side-link" data-view="students"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="8" r="3.2"/><path d="M3 20c0-3.3 2.7-6 6-6s6 2.7 6 6"/><circle cx="18" cy="8.5" r="2.4"/><path d="M15.5 14.2c2.6.3 4.5 2.6 4.5 5.3"/></svg><span class="lbl">Student list</span></button>
+      <button class="side-link active" data-view="course"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5V5.5A2.5 2.5 0 016.5 3H20v16H6.5a2.5 2.5 0 000 5H20"/></svg><span class="lbl">Course</span></button>
+      <button class="side-link" data-view="feedback"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 01-2 2H8l-5 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg><span class="lbl">Feedback</span></button>
+      <button class="side-link" data-view="report"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v18h18"/><path d="M7 15l4-5 3 3 5-7"/></svg><span class="lbl">Report</span></button>
+    </nav>
+    <div class="side-foot">
+      <div class="av">NK</div>
+      <div class="lbl"><span class="role">Teacher</span><div class="who">Kru Nock</div></div>
+    </div>
+  </aside>
+
+  <div class="main">
+
+    <!-- ===================== COURSE VIEW ===================== -->
+    <section class="view active" id="v-course">
+      <div class="ph"><div class="ph-icon">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5V5.5A2.5 2.5 0 016.5 3H20v16H6.5a2.5 2.5 0 000 5H20"/></svg>
+      </div><div><h1>Course</h1></div></div>
+
+      <div class="pillrow">
+        <button class="pill active">สอบเข้า ม.4 MWIT วมว. อจ.</button>
+        <button class="pill">สอบเข้า ม.1 รร. จุฬาภรณ์</button>
+      </div>
+
+      <div class="kpi-row">
+        <div class="kpi"><div class="ic"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="8" r="3.2"/><path d="M3 20c0-3.3 2.7-6 6-6s6 2.7 6 6"/></svg></div><div><div class="lbl">Total Students</div><div class="val">74</div></div></div>
+        <div class="kpi pending"><div class="ic"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 3h12M6 21h12M8 3c0 5 8 5 8 9s-8 4-8 9M16 3c0 5-8 5-8 9s8 4 8 9"/></svg></div><div><div class="lbl">Pending Summary</div><div class="val">70</div></div></div>
+        <div class="kpi ai"><div class="ic"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l1.9 5.8L20 10l-6.1 2.2L12 18l-1.9-5.8L4 10l6.1-2.2L12 2z"/></svg></div><div><div class="lbl">AI เตรียมพร้อมให้แล้ว</div><div class="val">42</div></div></div>
+      </div>
+
+      <div class="weekrow">
+        <button class="weekpill">W7</button><button class="weekpill">W6</button><button class="weekpill active">W5</button><button class="weekpill">W4</button><button class="weekpill">W3</button><button class="weekpill">W2</button><button class="weekpill">W1</button>
+      </div>
+
+      <div class="toolbar">
+        <div class="search-wide"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>e.g. Student name, Grade, ID, ...</div>
+        <div class="filters">
+          <button class="filter-btn">Subject ▾</button>
+          <button class="filter-btn">Grade ▾</button>
+          <button class="filter-btn">Status ▾</button>
+        </div>
+      </div>
+
+      <div class="bulkbar">
+        <div class="bulk-left">
+          <input type="checkbox" class="checkall" id="checkAll">
+          <button class="txtbtn">Select all</button>
+          <span class="selcount"><span id="selN">2</span> Selected</span>
+        </div>
+        <button class="btn-send">▷ Sent to Parent</button>
+      </div>
+
+      <div class="panel">
+        <div class="table-wrap">
+          <table class="data">
+            <thead><tr><th></th><th>#</th><th>ID</th><th></th><th>Name</th><th>Nick name</th><th>Grade</th><th>Phone</th><th>Register</th><th>Expire</th><th>Status</th></tr></thead>
+            <tbody id="courseTbody">
+              <tr class="sel" data-name="Alin Leelapongwattana" data-nick="Alin">
+                <td><input type="checkbox" class="rowchk" checked></td><td>1</td>
+                <td class="cpy">10000001 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="12" height="12" rx="2"/><rect x="3" y="3" width="12" height="12" rx="2"/></svg></td>
+                <td><div class="av" style="background:#d98a4a;">A</div></td>
+                <td class="cpy">Alin Leelapongwattana</td>
+                <td class="cpy">Alin</td>
+                <td><span class="gchip g-g">ป.3</span></td>
+                <td class="cpy">081-111-1111</td>
+                <td>20 Apr 26</td><td>5 Nov 26</td>
+                <td><span class="status prepared"><span class="ai-chip" style="padding:0;background:none;"><svg viewBox="0 0 24 24" fill="currentColor" style="width:10px;height:10px;"><path d="M12 2l1.9 5.8L20 10l-6.1 2.2L12 18l-1.9-5.8L4 10l6.1-2.2L12 2z"/></svg></span>Prepared</span></td>
+              </tr>
+              <tr class="sel" data-name="Somchai Somsuk" data-nick="Nick name">
+                <td><input type="checkbox" class="rowchk" checked></td><td>2</td>
+                <td class="cpy">10000002 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="12" height="12" rx="2"/><rect x="3" y="3" width="12" height="12" rx="2"/></svg></td>
+                <td><div class="av" style="background:#5b8dd6;">S</div></td>
+                <td class="cpy">Name Surname</td>
+                <td class="cpy">Nick name</td>
+                <td><span class="gchip g-b">ป.5</span></td>
+                <td class="cpy">081-111-1111</td>
+                <td>15 Jun 25</td><td>5 Nov 26</td>
+                <td><span class="status prepared"><span class="ai-chip" style="padding:0;background:none;"><svg viewBox="0 0 24 24" fill="currentColor" style="width:10px;height:10px;"><path d="M12 2l1.9 5.8L20 10l-6.1 2.2L12 18l-1.9-5.8L4 10l6.1-2.2L12 2z"/></svg></span>Prepared</span></td>
+              </tr>
+              <tr data-name="Kanya Meesuk" data-nick="Nick name">
+                <td><input type="checkbox" class="rowchk"></td><td>3</td>
+                <td class="cpy">10000003 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="12" height="12" rx="2"/><rect x="3" y="3" width="12" height="12" rx="2"/></svg></td>
+                <td><div class="av" style="background:#9c8fe0;">K</div></td>
+                <td class="cpy">Name Surname</td>
+                <td class="cpy">Nick name</td>
+                <td><span class="gchip g-a">ป.6</span></td>
+                <td class="cpy">081-111-1111</td>
+                <td>25 Dec 25</td><td>5 Nov 26</td>
+                <td><span class="status pending">Pending</span></td>
+              </tr>
+              <tr data-name="Tee Wongsakul" data-nick="Nick name">
+                <td><input type="checkbox" class="rowchk"></td><td>4</td>
+                <td class="cpy">10000004 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="12" height="12" rx="2"/><rect x="3" y="3" width="12" height="12" rx="2"/></svg></td>
+                <td><div class="av" style="background:#3fa07a;">T</div></td>
+                <td class="cpy">Name Surname</td>
+                <td class="cpy">Nick name</td>
+                <td><span class="gchip g-g">ป.1</span></td>
+                <td class="cpy">081-111-1111</td>
+                <td>15 Aug 25</td><td>5 Nov 26</td>
+                <td><span class="status sended">✓ Sended</span></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <p style="font-size:11px;color:var(--ink-faint);">"Prepared" ที่มีไอคอน ✦ = AI ร่างให้แล้ว รอ Teacher กดยืนยันส่ง · คลิกที่แถวนักเรียน (ไม่ใช่ checkbox) เพื่อดูรายละเอียดรายวิชา</p>
+    </section>
+
+    <!-- ===================== FEEDBACK VIEW ===================== -->
+    <section class="view" id="v-feedback">
+      <div class="ph"><div class="ph-icon"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 01-2 2H8l-5 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg></div><div><h1>Feedback</h1><div class="sub">เขียน Comment ประจำวิชา/สัปดาห์ — แยกออกจาก Course เพราะเป็นงาน "แต่ง" ไม่ใช่งาน "ติดตามสถานะ"</div></div></div>
+
+      <div class="pillrow">
+        <button class="pill active">สอบเข้า ม.4 MWIT วมว. อจ.</button>
+        <button class="pill">สอบเข้า ม.1 รร. จุฬาภรณ์</button>
+      </div>
+      <div class="weekrow">
+        <button class="weekpill active">W5 · วิทยาศาสตร์</button><button class="weekpill">W5 · คณิต (พื้นฐาน)</button><button class="weekpill">W5 · คณิต (เสริม)</button>
+      </div>
+
+      <div class="panel" style="padding:16px;">
+        <div class="ai-panel">
+          <div class="eyebrow"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--ai-ink)" stroke-width="2"><path d="M12 2l1.9 5.8L20 10l-6.1 2.2L12 18l-1.9-5.8L4 10l6.1-2.2L12 2z"/></svg>AI ร่าง Comment จากหัวข้อบทเรียน + คะแนน Quiz เฉลี่ยของห้อง</div>
+          <textarea class="draft">สัปดาห์นี้น้องๆ ได้เรียนรู้เรื่องพันธุศาสตร์ โดยมีความเข้าใจเป็นอย่างดีเกี่ยวกับการศึกษาการถ่ายทอดลักษณะทางพันธุกรรมของเกรกอร์ เมนเดล และเข้าใจผลในการเลือกใช้ต้นถั่วลันเตาในการทดลอง สามารถอธิบายกฎการแยกตัวและกฎแห่งการรวมกลุ่มอย่างอิสระได้อย่างถูกต้อง</textarea>
+          <div style="display:flex;gap:8px;margin-top:10px;">
+            <button class="btn ai sm">ใช้ Draft นี้ → Prepared ทั้งห้อง</button>
+            <button class="btn ghost sm">สร้างใหม่อีกครั้ง</button>
+          </div>
+          <div class="qa-flag ok">✓ คะแนนที่อ้างถึงใน Comment ตรงกับคะแนนจริงในระบบของทุกคน</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===================== DASHBOARD (light) ===================== -->
+    <section class="view" id="v-dashboard">
+      <div class="ph"><div class="ph-icon"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/></svg></div><div><h1>Dashboard</h1><div class="sub">ภาพรวมทุกคอร์สที่รับผิดชอบ</div></div></div>
+      <div class="kpi-row">
+        <div class="kpi"><div class="ic">📚</div><div><div class="lbl">คอร์สที่ดูแล</div><div class="val">2</div></div></div>
+        <div class="kpi pending"><div class="ic">⏳</div><div><div class="lbl">รอส่งสัปดาห์นี้ (รวม)</div><div class="val">92</div></div></div>
+        <div class="kpi ai"><div class="ic">✦</div><div><div class="lbl">AI ช่วยเตรียมแล้ว</div><div class="val">58%</div></div></div>
+      </div>
+      <div class="placeholder panel">ยังไม่ลงรายละเอียด Layout — โครงเดิมพอเป็นทางผ่านไป Course/Feedback ก่อน ค่อยกลับมาคุยว่าอยากเห็นอะไรที่นี่โดยเฉพาะ</div>
+    </section>
+
+    <!-- ===================== STUDENT LIST (light) ===================== -->
+    <section class="view" id="v-students">
+      <div class="ph"><div class="ph-icon"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="8" r="3.2"/><path d="M3 20c0-3.3 2.7-6 6-6s6 2.7 6 6"/></svg></div><div><h1>Student list</h1><div class="sub">Roster รวมทุกคอร์ส (ไม่แยกตาม Week) — ใช้ Table เดียวกับ Course แต่ไม่มี Status ส่งรายสัปดาห์</div></div></div>
+      <div class="placeholder panel">ใช้โครง Table/Filter เดียวกับหน้า Course ได้เลย ต่างกันแค่ไม่มีคอลัมน์ Status/Send — เดี๋ยวไปสร้างต่อรอบหน้า</div>
+    </section>
+
+    <!-- ===================== REPORT (light) ===================== -->
+    <section class="view" id="v-report">
+      <div class="ph"><div class="ph-icon"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v18h18"/><path d="M7 15l4-5 3 3 5-7"/></svg></div><div><h1>Report</h1><div class="sub">Churn / Renewal / Inactivity</div></div></div>
+      <div class="placeholder panel">คงโครงเดิมไว้ — ยังไม่ใช่ขอบเขตของปัญหา Workload รอบนี้</div>
+    </section>
+
+  </div>
+</div>
+
+<!-- ===================== STUDENT DRAWER ===================== -->
+<div class="drawer-backdrop" id="drawerBackdrop"></div>
+<div class="drawer" id="drawer">
+  <div class="drawer-head">
+    <div class="who"><div class="av" style="background:var(--primary);width:38px;height:38px;font-size:13px;" id="drawerAv">A</div>
+      <div><div style="font-weight:700;font-size:14px;" id="drawerName">Alin Leelapongwattana</div><div style="font-size:11.5px;color:var(--ink-muted);" id="drawerNick">Alin · ป.3 · Week 5</div></div>
+    </div>
+    <button class="dclose" onclick="closeDrawer()">×</button>
+  </div>
+  <div class="drawer-body">
+    <div class="subj-card">
+      <div class="top"><b>วิทยาศาสตร์</b><span class="status sended" style="font-size:10px;">Live ตรวจอัตโนมัติ</span></div>
+      <div class="row-line"><span>Live Quiz</span><button class="btn ghost sm" onclick="openQuiz()">9/10 · ดูรายข้อ</button></div>
+      <div class="row-line"><span>Homework (Facebook)</span><button class="btn sm" style="background:var(--ai);" onclick="openHW()"><span class="ai-chip" style="background:none;padding:0;">✦</span> จับคู่แล้ว 9/10 ข้อ</button></div>
+    </div>
+    <div class="subj-card">
+      <div class="top"><b>คณิตศาสตร์ (พื้นฐาน)</b></div>
+      <div class="row-line"><span>Live Quiz</span><button class="btn ghost sm" onclick="openQuiz()">4/5 · ดูรายข้อ</button></div>
+      <div class="row-line"><span>Homework (Facebook)</span><button class="btn ghost sm" onclick="openHW()">รอยืนยัน 1 ข้อ</button></div>
+    </div>
+
+    <div class="ai-panel" style="margin-top:4px;">
+      <div class="eyebrow"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--ai-ink)" stroke-width="2"><path d="M12 2l1.9 5.8L20 10l-6.1 2.2L12 18l-1.9-5.8L4 10l6.1-2.2L12 2z"/></svg>รายงานผลการเรียน (Draft พร้อมส่ง)</div>
+      <p style="font-size:12px;color:var(--ink-muted);margin:0 0 10px;">รวม Comment ทั้ง 2 วิชา + คะแนน ระบบเช็คให้แล้วว่าตัวเลขตรงกันทุกจุด</p>
+      <div style="display:flex;gap:8px;">
+        <button class="btn primary sm" style="flex:1;">▷ Sent to Parent</button>
+        <button class="btn ghost sm">แก้ไขใน Feedback</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ===================== Homework AI match modal ===================== -->
+<div class="modal-backdrop" id="hwModal">
+  <div class="modal">
+    <div class="modal-head">
+      <div><h3>Homework — <span id="hwName">Alin Leelapongwattana</span></h3><div class="sub">โพสต์ Facebook: 20 เม.ย. 20:41 · AI จับคู่ได้ 9/10 ข้อความ ยืนยันเองอีก 1</div></div>
+      <button class="dclose" onclick="closeModal('hwModal')">×</button>
+    </div>
+    <div class="modal-body">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:18px;">
+        <div>
+          <div style="font-size:11px;color:var(--ink-muted);margin-bottom:8px;font-weight:700;">คอมเมนต์ดิบจาก Facebook</div>
+          <div class="fb-comment-list">
+            <div class="fb-comment"><div class="av2">A</div><div><div class="who">Alin</div><div class="txt">ข้อ 1 ข.</div></div></div>
+            <div class="fb-comment"><div class="av2">A</div><div><div class="who">Alin Leelapongwattana</div><div class="txt">ข้อ2 ก. กับ ข้อ3 ค.</div></div></div>
+          </div>
+        </div>
+        <div>
+          <div style="font-size:11px;color:var(--ink-muted);margin-bottom:8px;font-weight:700;">ผลจับคู่ — แก้ไขได้ก่อนบันทึก</div>
+          <table class="match-table">
+            <thead><tr><th>ข้อ</th><th>เฉลย</th><th>คำตอบ</th><th>สถานะ</th></tr></thead>
+            <tbody>
+              <tr><td>1</td><td>ข.</td><td><select class="sel"><option>ข.</option><option>ก.</option><option>ค.</option></select></td><td><span class="status sended" style="font-size:10px;">Auto</span></td></tr>
+              <tr><td>2</td><td>ค.</td><td><select class="sel"><option selected>— เลือก —</option><option>ก.</option><option>ข.</option><option>ค.</option></select></td><td><span class="status pending" style="font-size:10px;">ชนกัน</span></td></tr>
+            </tbody>
+          </table>
+          <div style="margin-top:14px;display:flex;gap:8px;">
+            <button class="btn ai sm">ยืนยันทั้งหมด</button>
+            <button class="btn ghost sm" onclick="closeModal('hwModal')">ปิด</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ===================== Live quiz modal ===================== -->
+<div class="modal-backdrop" id="quizModal">
+  <div class="modal" style="max-width:600px;">
+    <div class="modal-head"><div><h3>Live Quiz — <span id="qzName">Alin Leelapongwattana</span></h3><div class="sub">ตรวจอัตโนมัติจากแอป</div></div><button class="dclose" onclick="closeModal('quizModal')">×</button></div>
+    <div class="modal-body">
+      <table class="match-table">
+        <thead><tr><th>ข้อ</th><th>เฉลย</th><th>% ถูกทั้งห้อง</th><th>คำตอบ</th></tr></thead>
+        <tbody>
+          <tr><td>1</td><td>ข.</td><td>89.9%</td><td style="color:var(--green);font-weight:700;">ข.</td></tr>
+          <tr><td>2</td><td>ค.</td><td>96.1%</td><td style="color:var(--green);font-weight:700;">ค.</td></tr>
+          <tr><td>3</td><td>ง.</td><td>93.5%</td><td style="color:var(--danger);font-weight:700;">ก.</td></tr>
+        </tbody>
+      </table>
+      <div style="text-align:right;margin-top:12px;font-weight:700;">Score: 9/10</div>
+    </div>
+  </div>
+</div>
+
+<!-- ===================== Open questions ===================== -->
+<button class="oq-toggle" id="oqToggle">📌 คำถามเปิด <span class="n">4</span></button>
+<div class="oq-panel" id="oqPanel">
+  <div class="h">Scope ที่ยังไม่ตัดสินใจ <button class="dclose" onclick="toggleOQ()">×</button></div>
+  <div class="oq-item"><b>1 · ที่อยู่ของการสร้าง Live/Quiz</b>ตอนนี้ทำใน Web Admin — ย้ายมาไว้ที่นี่ หรือ AI ไปช่วยฝั่ง Admin แทน</div>
+  <div class="oq-item"><b>2 · Facebook integration</b>Mock ว่า AI ดึงคอมเมนต์ได้เอง — ของจริงต้องเช็ค FB Graph API/สิทธิ์เข้าถึง Page</div>
+  <div class="oq-item"><b>3 · Suggest Video รายบุคคล</b>ยังไม่ใส่ในนี้ รอ Video Re-structure (Phase แยก)</div>
+  <div class="oq-item"><b>4 · ความหมายของ Status</b>ตีความ "Prepared" = ครบทุกวิชา+AI Draft พร้อมส่ง, "Pending" = ยังขาดบางอย่าง — ถ้าไม่ตรงกับที่คิดไว้บอกได้เลย</div>
+</div>
+
+<script>
+  // sidebar nav
+  document.querySelectorAll('.side-link').forEach(b=>b.addEventListener('click',()=>{
+    document.querySelectorAll('.side-link').forEach(x=>x.classList.remove('active'));
+    b.classList.add('active');
+    document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
+    document.getElementById('v-'+b.getAttribute('data-view')).classList.add('active');
+  }));
+  document.getElementById('collapseBtn').addEventListener('click',()=>{
+    document.getElementById('sidebar').classList.toggle('collapsed');
+  });
+
+  // pills
+  document.querySelectorAll('.pillrow').forEach(row=>{
+    row.querySelectorAll('.pill').forEach(p=>p.addEventListener('click',()=>{
+      row.querySelectorAll('.pill').forEach(x=>x.classList.remove('active'));
+      p.classList.add('active');
+    }));
+  });
+  document.querySelectorAll('.weekrow').forEach(row=>{
+    row.querySelectorAll('.weekpill').forEach(p=>p.addEventListener('click',()=>{
+      row.querySelectorAll('.weekpill').forEach(x=>x.classList.remove('active'));
+      p.classList.add('active');
+    }));
+  });
+
+  // row selection + count
+  function refreshCount(){
+    const n=document.querySelectorAll('#courseTbody .rowchk:checked').length;
+    document.getElementById('selN').textContent=n;
+  }
+  document.querySelectorAll('#courseTbody .rowchk').forEach(cb=>{
+    cb.addEventListener('click',e=>{ e.stopPropagation(); cb.closest('tr').classList.toggle('sel',cb.checked); refreshCount(); });
+  });
+  document.getElementById('checkAll').addEventListener('click',function(){
+    document.querySelectorAll('#courseTbody .rowchk').forEach(cb=>{ cb.checked=this.checked; cb.closest('tr').classList.toggle('sel',this.checked); });
+    refreshCount();
+  });
+
+  // row click -> drawer
+  document.querySelectorAll('#courseTbody tr').forEach(tr=>{
+    tr.addEventListener('click',()=>{
+      document.getElementById('drawerName').textContent=tr.getAttribute('data-name');
+      document.getElementById('drawerNick').textContent=tr.getAttribute('data-nick')+' · Week 5';
+      document.getElementById('drawerAv').textContent=tr.getAttribute('data-name').charAt(0);
+      document.getElementById('drawer').classList.add('open');
+      document.getElementById('drawerBackdrop').classList.add('open');
+    });
+  });
+  function closeDrawer(){ document.getElementById('drawer').classList.remove('open'); document.getElementById('drawerBackdrop').classList.remove('open'); }
+  document.getElementById('drawerBackdrop').addEventListener('click',closeDrawer);
+
+  function openHW(){ document.getElementById('hwModal').classList.add('open'); }
+  function openQuiz(){ document.getElementById('quizModal').classList.add('open'); }
+  function closeModal(id){ document.getElementById(id).classList.remove('open'); }
+  document.querySelectorAll('.modal-backdrop').forEach(m=>m.addEventListener('click',e=>{ if(e.target===m) m.classList.remove('open'); }));
+
+  function toggleOQ(){ document.getElementById('oqPanel').classList.toggle('open'); }
+  document.getElementById('oqToggle').addEventListener('click',toggleOQ);
+
+  // copy affordance (best-effort)
+  document.querySelectorAll('.cpy svg').forEach(icon=>{
+    icon.addEventListener('click', e=>{
+      e.stopPropagation();
+      const txt = icon.closest('.cpy').childNodes[0].textContent.trim();
+      try{ navigator.clipboard.writeText(txt); }catch(err){}
+    });
+  });
+</script>

@@ -1,0 +1,877 @@
+<title>NockERP Phase 1 Guide</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+
+<style>
+  :root{
+    --bg:#f4f6fb; --surface:#ffffff; --surface-2:#fafbfe;
+    --ink:#1b1f2a; --muted:#5c6473; --faint:#9aa2b1;
+    --border:#e6e9f0; --border-2:#eef1f6;
+    --accent:#5b5ef0; --accent-deep:#4239d6; --accent-soft:#ececfe;
+    --ready:#0ea371; --ready-soft:#e2f6ee;
+    --partial:#e08600; --partial-soft:#fdf1dd;
+    --none:#8a92a3; --none-soft:#eef0f4;
+    --create:#0ea371; --edit:#2f6df0; --remove:#e0554b; --view:#7c5cf0;
+    --shadow:0 1px 2px rgba(20,25,40,.05),0 8px 24px -12px rgba(20,25,40,.14);
+    --radius:14px; --maxw:960px;
+  }
+  @media (prefers-color-scheme:dark){
+    :root:not([data-theme="light"]){
+      --bg:#0e1017; --surface:#171a22; --surface-2:#13161d;
+      --ink:#e9ecf3; --muted:#9aa3b3; --faint:#6b7383;
+      --border:#262b36; --border-2:#20242e;
+      --accent:#8f90ff; --accent-deep:#a9a8ff; --accent-soft:#232449;
+      --ready:#38d39a; --ready-soft:#123027;
+      --partial:#f7b955; --partial-soft:#3a2c11;
+      --none:#8a92a3; --none-soft:#232833;
+      --create:#38d39a; --edit:#6ea8ff; --remove:#ff8a80; --view:#b9a6ff;
+      --shadow:0 1px 2px rgba(0,0,0,.4),0 10px 30px -14px rgba(0,0,0,.6);
+    }
+  }
+  :root[data-theme="dark"]{
+    --bg:#0e1017; --surface:#171a22; --surface-2:#13161d;
+    --ink:#e9ecf3; --muted:#9aa3b3; --faint:#6b7383;
+    --border:#262b36; --border-2:#20242e;
+    --accent:#8f90ff; --accent-deep:#a9a8ff; --accent-soft:#232449;
+    --ready:#38d39a; --ready-soft:#123027;
+    --partial:#f7b955; --partial-soft:#3a2c11;
+    --none:#8a92a3; --none-soft:#232833;
+    --create:#38d39a; --edit:#6ea8ff; --remove:#ff8a80; --view:#b9a6ff;
+    --shadow:0 1px 2px rgba(0,0,0,.4),0 10px 30px -14px rgba(0,0,0,.6);
+  }
+
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);
+    font-family:"IBM Plex Sans Thai",system-ui,-apple-system,sans-serif;
+    font-size:16px;line-height:1.7;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:var(--maxw);margin:0 auto;padding:0 22px}
+  h1,h2,h3,h4{text-wrap:balance;line-height:1.25;margin:0}
+  p{margin:0}
+  a{color:var(--accent-deep);text-decoration:none}
+  code,.mono{font-family:"IBM Plex Mono",ui-monospace,monospace}
+
+  /* top bar */
+  .topbar{position:sticky;top:0;z-index:30;background:color-mix(in srgb,var(--bg) 86%,transparent);
+    backdrop-filter:blur(10px);border-bottom:1px solid var(--border)}
+  .topbar-inner{max-width:var(--maxw);margin:0 auto;padding:10px 22px;display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+  .brand{font-weight:700;letter-spacing:-.01em;display:flex;align-items:center;gap:9px;font-size:15px}
+  .brand .dot{width:22px;height:22px;border-radius:7px;background:linear-gradient(135deg,var(--accent),var(--accent-deep));display:grid;place-items:center;color:#fff;font-size:13px}
+  .tabs{display:flex;gap:4px;margin-left:auto}
+  .tabs a{font-size:13.5px;font-weight:600;color:var(--muted);padding:6px 11px;border-radius:9px;cursor:pointer}
+  .tabs a:hover{background:var(--surface);color:var(--ink)}
+  /* language switch */
+  .lang{display:inline-flex;background:var(--surface);border:1px solid var(--border);border-radius:999px;padding:3px;gap:2px}
+  .lang button{border:0;background:transparent;color:var(--muted);font-weight:700;font-size:12.5px;font-family:inherit;
+    padding:5px 12px;border-radius:999px;cursor:pointer;letter-spacing:.03em}
+  .lang button.on{background:var(--accent);color:#fff}
+
+  header.hero{padding:52px 0 26px}
+  .eyebrow{font-family:"IBM Plex Mono",monospace;font-size:12px;font-weight:500;letter-spacing:.16em;text-transform:uppercase;color:var(--accent-deep)}
+  header.hero h1{font-size:clamp(28px,5vw,44px);font-weight:700;letter-spacing:-.02em;margin:14px 0 16px}
+  header.hero .lead{font-size:18px;color:var(--muted);max-width:62ch}
+  .meta-row{display:flex;gap:10px;flex-wrap:wrap;margin-top:22px}
+  .meta-chip{font-size:12.5px;font-family:"IBM Plex Mono",monospace;background:var(--surface);border:1px solid var(--border);border-radius:999px;padding:5px 12px;color:var(--muted)}
+
+  section{padding:24px 0}
+  .sec-head{display:flex;align-items:baseline;gap:12px;margin-bottom:18px;padding-bottom:13px;border-bottom:2px solid var(--border)}
+  .sec-num{font-family:"IBM Plex Mono",monospace;font-size:13px;color:var(--accent-deep);font-weight:600}
+  .sec-head h2{font-size:23px;font-weight:700;letter-spacing:-.01em}
+  h3.blk{font-size:18px;font-weight:700;margin:28px 0 12px;display:flex;align-items:center;gap:9px}
+  h3.blk .b{width:5px;height:20px;border-radius:3px;background:var(--accent)}
+
+  .card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow)}
+  .p20{padding:20px 22px}
+  .callout{border-left:4px solid var(--accent);background:var(--accent-soft);border-radius:0 12px 12px 0;padding:13px 18px;margin:15px 0}
+  .callout .k{font-weight:700;font-size:13px;color:var(--accent-deep);letter-spacing:.02em;display:block;margin-bottom:2px}
+  .callout.warn{border-color:var(--partial);background:var(--partial-soft)}
+  .callout.warn .k{color:var(--partial)}
+
+  .cmp{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin:15px 0}
+  @media(max-width:640px){.cmp{grid-template-columns:1fr}}
+  .cmp .col{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:16px 18px}
+  .cmp .col.bad{border-top:3px solid var(--none)}
+  .cmp .col.good{border-top:3px solid var(--ready)}
+  .cmp h4{font-size:14px;margin-bottom:10px;display:flex;align-items:center;gap:7px}
+  .cmp ul{margin:0;padding-left:18px;color:var(--muted);font-size:14.5px}
+  .cmp li{margin:5px 0}
+
+  .layer{display:flex;align-items:flex-start;gap:16px;padding:14px 0;border-bottom:1px dashed var(--border)}
+  .layer:last-child{border-bottom:0}
+  .layer .lv{flex:0 0 96px;font-family:"IBM Plex Mono",monospace;font-size:12px;font-weight:600;color:#fff;border-radius:8px;padding:6px 8px;text-align:center;margin-top:2px}
+  .layer:nth-child(1) .lv{background:#3730a3}.layer:nth-child(2) .lv{background:#4f46e5}.layer:nth-child(3) .lv{background:#6366f1}
+  .layer .body h4{font-size:16px;margin-bottom:2px}
+  .layer .body p{font-size:14.5px;color:var(--muted)}
+  .layer .body .ex{font-size:13px;color:var(--accent-deep);font-family:"IBM Plex Mono",monospace;margin-top:4px}
+
+  .mods{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:6px}
+  @media(max-width:680px){.mods{grid-template-columns:1fr}}
+  .mod{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:15px 17px;box-shadow:var(--shadow)}
+  .mod .top{display:flex;align-items:center;gap:9px;margin-bottom:6px}
+  .mod .top .n{font-weight:700;font-size:15px}
+  .mod p{font-size:13.5px;color:var(--muted)}
+  .mod .todo{margin-top:8px;font-size:12.5px;color:var(--partial);background:var(--partial-soft);border-radius:8px;padding:6px 10px}
+
+  .chip{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:600;font-family:"IBM Plex Mono",monospace;padding:3px 9px;border-radius:999px;white-space:nowrap}
+  .chip::before{content:"";width:7px;height:7px;border-radius:50%}
+  .chip.ready{background:var(--ready-soft);color:var(--ready)}.chip.ready::before{background:var(--ready)}
+  .chip.partial{background:var(--partial-soft);color:var(--partial)}.chip.partial::before{background:var(--partial)}
+  .chip.none{background:var(--none-soft);color:var(--none)}.chip.none::before{background:var(--none)}
+
+  .steps{counter-reset:s;display:flex;flex-direction:column;gap:2px;margin-top:8px}
+  .step{display:flex;gap:14px;padding:11px 0;border-bottom:1px solid var(--border-2)}
+  .step:last-child{border-bottom:0}
+  .step .num{counter-increment:s;flex:0 0 30px;height:30px;border-radius:50%;background:var(--accent-soft);color:var(--accent-deep);font-weight:700;display:grid;place-items:center;font-size:14px}
+  .step .num::before{content:counter(s)}
+  .step .t{font-weight:600;font-size:15px}
+  .step .d{font-size:14px;color:var(--muted)}
+
+  /* IA */
+  .ia-toolbar{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin:2px 0 16px}
+  .legend{display:flex;gap:8px;flex-wrap:wrap}
+  .btn-mini{font-size:12.5px;font-weight:600;font-family:inherit;background:var(--surface);border:1px solid var(--border);color:var(--muted);border-radius:8px;padding:6px 12px;cursor:pointer}
+  .btn-mini:hover{color:var(--ink);border-color:var(--accent)}
+  .sys-tag{font-family:"IBM Plex Mono",monospace;font-size:12px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin:26px 0 10px;display:flex;align-items:center;gap:8px}
+  .sys-tag .ln{flex:1;height:1px;background:var(--border)}
+
+  details.ia{background:var(--surface);border:1px solid var(--border);border-radius:12px;margin-bottom:10px;overflow:hidden;box-shadow:var(--shadow)}
+  details.ia>summary{list-style:none;cursor:pointer;padding:13px 17px;display:flex;align-items:center;gap:11px;font-weight:700;font-size:15.5px;user-select:none}
+  details.ia>summary::-webkit-details-marker{display:none}
+  details.ia>summary .caret{transition:transform .18s;color:var(--faint);font-family:"IBM Plex Mono",monospace;font-size:12px}
+  details.ia[open]>summary .caret{transform:rotate(90deg)}
+  details.ia>summary .pg{color:var(--faint);font-family:"IBM Plex Mono",monospace;font-size:11.5px;font-weight:500}
+  details.ia>summary .sp{margin-left:auto}
+  .ia-body{padding:6px 17px 15px}
+  .act{border-top:1px solid var(--border-2);padding:11px 0 3px}
+  .act:first-child{border-top:0}
+  .act-h{display:flex;align-items:center;gap:8px;margin-bottom:4px}
+  .act-tag{font-family:"IBM Plex Mono",monospace;font-size:11px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;padding:2px 8px;border-radius:6px;color:#fff}
+  .act-tag.create{background:var(--create)}.act-tag.edit{background:var(--edit)}
+  .act-tag.remove{background:var(--remove)}.act-tag.view{background:var(--view)}.act-tag.action{background:var(--accent)}
+  .act-h .desc{font-size:13px;color:var(--muted)}
+  .act ul{list-style:none;margin:2px 0 8px 6px;padding:0}
+  .act li{padding:3px 0}
+  .feat{display:flex;align-items:flex-start;gap:9px}
+  .feat .mk{color:var(--accent);font-family:"IBM Plex Mono",monospace;font-size:12px;margin-top:3px;flex:0 0 auto}
+  .feat .nm{font-size:14px}
+  .feat .note{font-size:12.5px;color:var(--partial);background:var(--partial-soft);border-radius:6px;padding:1px 7px;margin-left:6px;display:inline-block}
+  ul.sub{margin:3px 0 5px 20px !important;border-left:1px solid var(--border);padding-left:13px !important}
+  ul.sub .feat .mk{color:var(--faint);font-size:10px}
+  ul.sub .feat .nm{font-size:13px;color:var(--muted)}
+  .gap-note{font-size:13px;color:var(--partial);background:var(--partial-soft);border-radius:8px;padding:8px 12px;margin-top:10px;display:flex;gap:8px}
+  .gap-note b{color:var(--partial)}
+
+  footer{padding:38px 0 60px;color:var(--faint);font-size:13px;text-align:center;border-top:1px solid var(--border);margin-top:20px}
+  [hidden]{display:none !important}
+  @media(prefers-reduced-motion:reduce){*{transition:none !important}}
+</style>
+
+<div class="topbar">
+  <div class="topbar-inner">
+    <div class="brand"><span class="dot">N</span> NockERP · Phase 1</div>
+    <div class="lang" role="group" aria-label="Language">
+      <button id="lang-th" onclick="setLang('th')">ไทย</button>
+      <button id="lang-en" onclick="setLang('en')">EN</button>
+    </div>
+    <nav class="tabs">
+      <a onclick="jump('part-a')" data-en="A · Explain to Admin" data-th="A · อธิบายให้ Admin">A · อธิบายให้ Admin</a>
+      <a onclick="jump('part-b')" data-en="B · System map (IA)" data-th="B · แผนผังระบบ (IA)">B · แผนผังระบบ (IA)</a>
+    </nav>
+  </div>
+</div>
+
+<div class="wrap">
+
+  <header class="hero">
+    <div class="eyebrow" data-en="Internal · for Nock" data-th="Internal · สำหรับ Nock">Internal · สำหรับ Nock</div>
+    <h1 data-en="Admin walkthrough + full system map" data-th="คู่มือเล่าให้ Admin ฟัง + แผนผังทั้งระบบ">คู่มือเล่าให้ Admin ฟัง + แผนผังทั้งระบบ</h1>
+    <p class="lead"
+       data-en="Two parts — Part A is a script for explaining the ERP to an Admin who has never used one (big picture first, then the ready-to-test modules). Part B is a detailed map (IA) of the whole system down to each action (Create / Edit / Remove) and its fields — use it to check what's complete and what's missing."
+       data-th="เอกสารนี้มี 2 ส่วน — ส่วน A เป็นสคริปต์อธิบาย ERP ให้ Admin ที่ไม่เคยใช้ระบบ (ภาพใหญ่ → ของที่พร้อม test), ส่วน B เป็นแผนผัง (IA) ละเอียดทั้งระบบ ลงลึกถึงแต่ละ action (Create / Edit / Remove) และ field ย่อย ไว้เช็คว่าอะไรครบ อะไรขาด">
+    </p>
+    <div class="meta-row">
+      <span class="meta-chip">Interactive Prototype</span>
+      <span class="meta-chip">Academy + Finance + HR</span>
+      <span class="meta-chip" data-en="Updated 25 Aug 2026" data-th="อัปเดต 25 ส.ค. 2026">อัปเดต 25 ส.ค. 2026</span>
+    </div>
+  </header>
+
+  <!-- ==================== PART A ==================== -->
+  <section id="part-a">
+    <div class="sec-head"><span class="sec-num">A</span>
+      <h2 data-en="Explaining the ERP to Admin" data-th="อธิบาย ERP ให้ Admin ฟัง">อธิบาย ERP ให้ Admin ฟัง</h2></div>
+
+    <div class="callout">
+      <span class="k" data-en="How to use this" data-th="วิธีใช้เอกสารนี้">วิธีใช้เอกสารนี้</span>
+      <span data-en="Read top to bottom — start with ‘What is an ERP’ (big picture), then the parts Admins usually find confusing (Course/Class/Session, Single/Bundle, Single/Group), and finish with one real working day. Each part is written so you can say it out loud."
+            data-th="อ่านตามลำดับหัวข้อได้เลย — เริ่มจาก ‘ERP คืออะไร’ (ภาพใหญ่) แล้วค่อยลงเรื่องที่ Admin มักงง (Course/Class/Session, Single/Bundle, Single/Group) ปิดท้ายด้วย flow การทำงานจริง 1 วัน แต่ละหัวข้อเขียนแบบเล่าให้ฟังได้ทันที">อ่านตามลำดับหัวข้อได้เลย…</span>
+    </div>
+
+    <h3 class="blk"><span class="b"></span><span data-en="1. What is an ERP (simplest version)" data-th="1. ERP คืออะไร (เล่าแบบง่ายสุด)">1. ERP คืออะไร (เล่าแบบง่ายสุด)</span></h3>
+    <div class="card p20">
+      <p data-en="<b>ERP = one shared notebook for the whole school</b>, where everything is connected automatically."
+         data-th="<b>ERP = สมุดกลางเล่มเดียวของทั้งโรงเรียน</b> ที่ทุกอย่างเชื่อมกันเอง"><b>ERP = สมุดกลางเล่มเดียวของทั้งโรงเรียน</b> ที่ทุกอย่างเชื่อมกันเอง</p>
+      <p style="margin-top:10px;color:var(--muted)"
+         data-en="Today our data is scattered — student list in one Excel file, timetable on paper, money in another book, parent chats in LINE. To find one thing you open many places, and numbers don't match. An ERP <b>puts everything in one place</b> — change it once, and everywhere else updates itself."
+         data-th="ลองนึกว่าวันนี้เราจดข้อมูลกระจายหลายที่ — รายชื่อนักเรียนอยู่ Excel, ตารางเรียนอยู่กระดาษ, เงินอยู่สมุดอีกเล่ม, คุยกับผู้ปกครองอยู่ LINE. หาอะไรทีต้องเปิดหลายที่ ตัวเลขก็ไม่ตรงกัน. <b>ERP คือเอาทุกอย่างมารวมที่เดียว</b> — แก้ที่เดียว ที่อื่นอัปเดตตามเอง">…</p>
+      <div class="callout" style="margin-bottom:0">
+        <span class="k" data-en="Say to Admin" data-th="พูดกับ Admin ได้ว่า">พูดกับ Admin ได้ว่า</span>
+        <span data-en="“From now on you don't have to remember which file holds what — it's all in one system. What is this student studying, have they paid, how many times have they come — all from one screen.”"
+              data-th="“ต่อไปไม่ต้องจำว่าข้อมูลอยู่ไฟล์ไหน — ทุกอย่างอยู่ในระบบเดียว นักเรียนคนนี้เรียนอะไร จ่ายเงินหรือยัง มากี่ครั้ง เปิดดูจากหน้าเดียว”">…</span>
+      </div>
+    </div>
+
+    <h3 class="blk"><span class="b"></span><span data-en="2. With vs without a system" data-th="2. มี vs ไม่มี ระบบ">2. มี vs ไม่มี ระบบ</span></h3>
+    <div class="cmp">
+      <div class="col bad">
+        <h4 data-en="❌ The old way (no system)" data-th="❌ แบบเดิม (ไม่มีระบบ)">❌ แบบเดิม (ไม่มีระบบ)</h4>
+        <ul>
+          <li data-en="Data scattered across Excel / paper / LINE" data-th="ข้อมูลกระจาย Excel / กระดาษ / LINE">ข้อมูลกระจาย Excel / กระดาษ / LINE</li>
+          <li data-en="Numbers don't match — manual reconciling" data-th="ตัวเลขไม่ตรง ต้องนั่งกระทบยอด">ตัวเลขไม่ตรง ต้องนั่งกระทบยอด</li>
+          <li data-en="Open many files to find one student" data-th="หาข้อมูลนักเรียนทีเปิดหลายไฟล์">หาข้อมูลนักเรียนทีเปิดหลายไฟล์</li>
+          <li data-en="Forget to chase fees / who's near course end" data-th="ลืมทวงค่าเรียน / ลืมว่าใครใกล้หมดคอร์ส">ลืมทวงค่าเรียน / ลืมว่าใครใกล้หมดคอร์ส</li>
+          <li data-en="Someone quits = the knowledge leaves too" data-th="คนลาออก = ความรู้หายไปกับคน">คนลาออก = ความรู้หายไปกับคน</li>
+        </ul>
+      </div>
+      <div class="col good">
+        <h4 data-en="✅ With an ERP" data-th="✅ แบบมี ERP">✅ แบบมี ERP</h4>
+        <ul>
+          <li data-en="One source of data, everyone sees the same" data-th="ข้อมูลที่เดียว ทุกคนเห็นตรงกัน">ข้อมูลที่เดียว ทุกคนเห็นตรงกัน</li>
+          <li data-en="System counts hours / totals for you" data-th="ระบบคำนวณ/นับชั่วโมงให้เอง">ระบบคำนวณ/นับชั่วโมงให้เอง</li>
+          <li data-en="One profile shows every angle" data-th="เปิดโปรไฟล์เดียวเห็นครบทุกมิติ">เปิดโปรไฟล์เดียวเห็นครบทุกมิติ</li>
+          <li data-en="System warns on near-end / overdue" data-th="ระบบเตือนเองเมื่อใกล้หมดคอร์ส/ค้างจ่าย">ระบบเตือนเองเมื่อใกล้หมดคอร์ส/ค้างจ่าย</li>
+          <li data-en="Work is systemised, easy to hand over" data-th="งานเป็นระบบ ส่งต่อคนใหม่ได้ง่าย">งานเป็นระบบ ส่งต่อคนใหม่ได้ง่าย</li>
+        </ul>
+      </div>
+    </div>
+    <div class="callout warn">
+      <span class="k" data-en="Be honest about the downside" data-th="พูดตรงๆ เรื่องข้อเสีย">พูดตรงๆ เรื่องข้อเสีย</span>
+      <span data-en="At first it feels ‘slower’ — you must enter data fully and change old habits. That's normal; the payoff comes once the data is complete and the system starts doing work for you. Phase 1 is ‘try it + find bugs’, not the real thing yet."
+            data-th="ช่วงแรกจะ ‘รู้สึกช้าลง’ เพราะต้องกรอกข้อมูลให้ครบและเปลี่ยนความเคยชิน — เป็นเรื่องปกติ. ผลตอบแทนมาทีหลังเมื่อข้อมูลครบแล้วระบบจะทำงานแทนเราหลายอย่าง. Phase 1 นี้คือช่วง ‘ลองใช้ + หา bug’ ยังไม่ใช่ของจริง 100%">…</span>
+    </div>
+
+    <h3 class="blk"><span class="b"></span><span data-en="3. Two worlds + menu groups" data-th="3. ระบบแบ่งเป็น 2 โลก + หมวดเมนู">3. ระบบแบ่งเป็น 2 โลก + หมวดเมนู</span></h3>
+    <div class="card p20">
+      <p data-en="On the far-left rail you switch between 2 ‘worlds’ (HR is coming later):" data-th="แถบไอคอนซ้ายสุดสลับ ‘โลก’ ได้ 2 อัน (อนาคตมี HR เพิ่ม):">แถบไอคอนซ้ายสุดสลับ ‘โลก’ ได้ 2 อัน (อนาคตมี HR):</p>
+      <div class="cmp" style="margin-bottom:6px">
+        <div class="col good">
+          <h4 data-en="🏫 Academy — Admin's daily work" data-th="🏫 Academy — งานประจำวันของ Admin">🏫 Academy — งานประจำวันของ Admin</h4>
+          <ul><li data-en="Students, teachers, classes, timetable, attendance, summaries, billing" data-th="นักเรียน ครู คลาส ตารางเรียน เช็คชื่อ สรุปบทเรียน เก็บเงิน">นักเรียน ครู คลาส ตารางเรียน เช็คชื่อ สรุป เก็บเงิน</li></ul>
+        </div>
+        <div class="col good">
+          <h4 data-en="💰 Finance — money work (finance team)" data-th="💰 Finance — งานเงิน (ทีมการเงิน)">💰 Finance — งานเงิน (ทีมการเงิน)</h4>
+          <ul><li data-en="Expenses, reimbursement, salary, financial reports" data-th="ค่าใช้จ่าย เบิกจ่าย เงินเดือน รายงานการเงิน">ค่าใช้จ่าย เบิกจ่าย เงินเดือน รายงานการเงิน</li></ul>
+        </div>
+      </div>
+      <p style="color:var(--muted);font-size:14.5px"
+         data-en="<b>In Phase 1 Admin focuses on Academy.</b> The left menu is grouped: Main (Dashboard, CRM, Inbox, Calendar) · People (Students, Families, Staff) · Operations (Courses, Classes, Sessions, Attendance, Summaries…) · Finance & Admin (Billing, Tasks, Reports) · System (Settings, Logs)."
+         data-th="<b>Phase 1 Admin โฟกัสที่ Academy เป็นหลัก</b> — เมนูซ้ายจัดเป็นหมวด: Main (Dashboard, CRM, Inbox, Calendar) · People (Students, Families, Staff) · Operations (Courses, Classes, Sessions, Attendance, Summaries…) · Finance & Admin (Billing, Tasks, Reports) · System (Settings, Logs)">…</p>
+    </div>
+
+    <h3 class="blk"><span class="b"></span><span data-en="4. The key idea: Course → Class → Session" data-th="4. หัวใจที่ต้องเข้าใจ: Course → Class → Session">4. หัวใจ: Course → Class → Session</span></h3>
+    <p style="color:var(--muted);margin-bottom:6px" data-en="This is where Admins get most confused. Tell it as ‘3 stacked layers’: what you sell → what you run → what actually happens." data-th="จุดที่ Admin งงที่สุด. เล่าเป็น ‘3 ชั้นซ้อนกัน’ จากสิ่งที่ขาย → สิ่งที่จัด → สิ่งที่เกิดจริง">…</p>
+    <div class="card p20">
+      <div class="layer">
+        <div class="lv">COURSE<br><span data-en="what you sell" data-th="สิ่งที่ขาย">สิ่งที่ขาย</span></div>
+        <div class="body">
+          <h4 data-en="Course = the ‘product’ a parent buys" data-th="Course = ‘สินค้า’ ที่ผู้ปกครองซื้อ">Course = ‘สินค้า’ ที่ผู้ปกครองซื้อ</h4>
+          <p data-en="Just a package on paper, no date/time yet — e.g. ‘Math P.5, 24 hours’." data-th="เป็นแค่แพ็กเกจ/หลักสูตรบนกระดาษ ยังไม่มีวันเวลา เช่น ‘Math ป.5 24 ชั่วโมง’">…</p>
+          <div class="ex" data-en="Like: a menu item (not cooked yet)" data-th="นึกถึง: เมนูอาหารในร้าน (ยังไม่ได้ทำ)">นึกถึง: เมนูอาหาร (ยังไม่ได้ทำ)</div>
+        </div>
+      </div>
+      <div class="layer">
+        <div class="lv">CLASS<br><span data-en="what you run" data-th="สิ่งที่จัด">สิ่งที่จัด</span></div>
+        <div class="body">
+          <h4 data-en="Class = a real ‘session slot’ opened at a branch" data-th="Class = ‘รอบเรียน’ จริงที่เปิดในสาขา">Class = ‘รอบเรียน’ จริงที่เปิดในสาขา</h4>
+          <p data-en="Course + teacher + day + time + room — e.g. ‘Math P.5 with Kru Arm, every Sat 10:00, Room A’." data-th="Course + ครู + วัน + เวลา + ห้อง เช่น ‘Math ป.5 กับครูอาร์ม ทุกเสาร์ 10:00 ห้อง A’">…</p>
+          <div class="ex" data-en="Like: a movie showtime 13:00, screen 2" data-th="นึกถึง: รอบหนัง 13:00 โรง 2">นึกถึง: รอบหนัง 13:00 โรง 2</div>
+        </div>
+      </div>
+      <div class="layer">
+        <div class="lv">SESSION<br><span data-en="what happens" data-th="สิ่งที่เกิดจริง">สิ่งที่เกิดจริง</span></div>
+        <div class="body">
+          <h4 data-en="Session = one class meeting on a real date" data-th="Session = ‘คาบเรียน 1 ครั้ง’ ในวันจริง">Session = ‘คาบเรียน 1 ครั้ง’ ในวันจริง</h4>
+          <p data-en="The actual day a student attends once — for taking attendance + writing a summary. One Class breaks into many Sessions (usually weekly)." data-th="คือวันที่เด็กมาเรียนจริง 1 ครั้ง เอาไว้เช็คชื่อ + เขียนสรุป. Class 1 รอบแตกเป็นหลาย Session (ปกติสัปดาห์ละครั้ง)">…</p>
+          <div class="ex" data-en="Like: one ticket = the Sat 30th, 13:00 show" data-th="นึกถึง: ตั๋วหนัง 1 ใบ = รอบเสาร์ที่ 30, 13:00">นึกถึง: ตั๋วหนัง 1 ใบ = รอบเสาร์ที่ 30</div>
+        </div>
+      </div>
+    </div>
+    <div class="callout">
+      <span class="k" data-en="One-liner for Admin" data-th="ประโยคเดียวจบ (พูดกับ Admin)">ประโยคเดียวจบ</span>
+      <span data-en="“Course is what you sell · Class is the slot you open · Session is each real day a student attends. Admin takes attendance + writes summaries at the Session level.”"
+            data-th="“Course คือสิ่งที่ขาย · Class คือรอบที่เปิดสอน · Session คือวันที่เด็กมาเรียนจริงแต่ละครั้ง. Admin เช็คชื่อ + เขียนสรุปที่ระดับ Session”">…</span>
+    </div>
+
+    <h3 class="blk"><span class="b"></span><span data-en="5. Two ‘Single’ words that mean different things" data-th="5. คลายความสับสน: 2 คำที่คนละเรื่อง">5. คลายความสับสน: 2 คำที่คนละเรื่อง</span></h3>
+    <div class="callout warn" style="margin-top:0">
+      <span class="k" data-en="Careful — ‘Single’ appears in 2 places" data-th="ระวัง — ‘Single’ มี 2 ที่ คนละความหมาย">ระวัง — ‘Single’ มี 2 ที่</span>
+      <span data-en="Single/Bundle is about the <b>Course</b> · Single/Group is about the <b>Class</b> — different layers, don't mix them." data-th="Single/Bundle เป็นเรื่องของ <b>Course</b> · Single/Group เป็นเรื่องของ <b>Class</b> — คนละชั้นกัน อย่าปน">…</span>
+    </div>
+    <div class="cmp">
+      <div class="col">
+        <h4 data-en="📦 At Course level: Regular vs Bundle" data-th="📦 ที่ระดับ Course: Regular vs Bundle">📦 Course: Regular vs Bundle</h4>
+        <ul>
+          <li data-en="<b>Regular (single course):</b> bought by hours (24/48h), one subject, join anytime, reschedulable" data-th="<b>Regular (คอร์สเดี่ยว):</b> ซื้อเป็นชั่วโมง (24/48h) วิชาเดียว เข้าเมื่อไหร่ก็ได้ เลื่อนได้">…</li>
+          <li data-en="<b>Bundle (packaged course):</b> several subjects together, fixed schedule (e.g. ‘M.1 entrance-exam course’), paid per block, miss = miss, no reschedule" data-th="<b>Bundle (คอร์สแพ็กรวม):</b> หลายวิชารวมกัน ตารางตายตัว เช่น ‘คอร์สสอบเข้า ม.1’ จ่ายเป็น block ขาดคือขาด เลื่อนไม่ได้">…</li>
+        </ul>
+      </div>
+      <div class="col">
+        <h4 data-en="👥 At Class level: Group vs Single" data-th="👥 ที่ระดับ Class: Group vs Single">👥 Class: Group vs Single</h4>
+        <ul>
+          <li data-en="<b>Group:</b> many students in one slot (usually ≤ 6)" data-th="<b>Group (เรียนกลุ่ม):</b> หลายคนในรอบเดียว (ปกติ ≤ 6)">…</li>
+          <li data-en="<b>Single:</b> 1–2 students, one-on-one / tiny group" data-th="<b>Single (เรียนเดี่ยว):</b> 1–2 คน ตัวต่อตัว/กลุ่มเล็ก">…</li>
+          <li style="color:var(--faint)" data-en="Same price — it's just a tag for the slot type" data-th="ราคาเท่ากัน — เป็นแค่ป้ายบอกประเภทรอบ">ราคาเท่ากัน — แค่ป้ายบอกประเภท</li>
+        </ul>
+      </div>
+    </div>
+
+    <h3 class="blk"><span class="b"></span><span data-en="6. Ready for Admin to test (Phase 1)" data-th="6. ของที่พร้อมให้ Admin ลอง test (Phase 1)">6. ของที่พร้อมให้ Admin ลอง test</span></h3>
+    <div class="mods" id="mods-a"></div>
+
+    <h3 class="blk"><span class="b"></span><span data-en="7. One real day — what Admin does" data-th="7. ลองใช้จริง 1 วัน — Admin ทำอะไรบ้าง">7. ลองใช้จริง 1 วัน</span></h3>
+    <div class="card p20"><div class="steps" id="steps-a"></div></div>
+    <div class="callout">
+      <span class="k" data-en="Goal of Phase 1 testing" data-th="เป้าหมายของการ test Phase 1">เป้าหมายของการ test Phase 1</span>
+      <span data-en="Not for Admin to use it as the real system yet — but to walk the flow and tell us where it's confusing, where it's stuck, what's missing. That feedback is the most valuable thing in this phase."
+            data-th="ไม่ใช่ให้ Admin ใช้เป็นระบบจริง แต่ให้เดินตาม flow แล้วบอกว่าตรงไหนงง ตรงไหนติด ตรงไหนอยากได้เพิ่ม — feedback พวกนี้มีค่าที่สุดในเฟสนี้">…</span>
+    </div>
+  </section>
+
+  <!-- ==================== PART B ==================== -->
+  <section id="part-b">
+    <div class="sec-head"><span class="sec-num">B</span>
+      <h2 data-en="Full system map (Information Architecture)" data-th="แผนผังทั้งระบบ (Information Architecture)">แผนผังทั้งระบบ (IA)</h2></div>
+    <p style="color:var(--muted);margin-bottom:12px"
+       data-en="Every page broken down by action — Create / Edit / Remove / View — and the fields each action touches. Click a page to expand. Orange = missing / not built. Use this to spot gaps."
+       data-th="แต่ละหน้าแตกตาม action — Create / Edit / Remove / View — พร้อม field ที่เกี่ยวข้อง. คลิกหน้าเพื่อกาง. สีส้ม = ขาด/ยังไม่ทำ. ใช้เช็คว่าอะไรตกหล่น">…</p>
+    <div class="ia-toolbar">
+      <div class="legend">
+        <span class="chip ready" data-en="Ready to test" data-th="พร้อม test">พร้อม test</span>
+        <span class="chip partial" data-en="Partial / unclear" data-th="ยังไม่ครบ/ยังงง">ยังไม่ครบ/ยังงง</span>
+        <span class="chip none" data-en="Not built / future" data-th="ยังไม่เริ่ม/อนาคต">ยังไม่เริ่ม/อนาคต</span>
+      </div>
+      <button class="btn-mini" onclick="toggleAll(true)" data-en="Expand all" data-th="กางทั้งหมด">กางทั้งหมด</button>
+      <button class="btn-mini" onclick="toggleAll(false)" data-en="Collapse all" data-th="พับทั้งหมด">พับทั้งหมด</button>
+    </div>
+    <div id="ia-root"></div>
+  </section>
+
+  <footer><span data-en="NockERP · Phase 1 Test Guide — built from index.html + the real data model · Updated 25 Aug 2026" data-th="NockERP · Phase 1 Test Guide — สร้างจาก index.html + โครงข้อมูลจริง · อัปเดต 25 ส.ค. 2026">NockERP · Phase 1 · อัปเดต 25 ส.ค. 2026</span></footer>
+</div>
+
+<script>
+/* =========================================================
+   NockERP Phase 1 Guide — bilingual + data-driven IA
+   วิธีอัปเดต: แก้ค่าใน DATA ด้านล่าง (ready/partial/none, en/th)
+   ========================================================= */
+function lsGet(k){ try{ return localStorage.getItem(k); }catch(e){ return null; } }
+function lsSet(k,v){ try{ localStorage.setItem(k,v); }catch(e){} }
+var LANG = lsGet('nockGuideLang') || 'th';
+
+/* ---- helper: bilingual pair ---- */
+function P(en,th){ return {en:en, th:th}; }
+function L(o){ return (o && typeof o==='object' && ('en' in o)) ? (o[LANG]||o.en) : o; }
+
+/* ---- Phase-1 ready module cards (section A6) ---- */
+var MODS = [
+  {s:'ready',  n:'Settings',  sub:P('setup','ตั้งค่า'),   d:P('Branch, subjects, grades, packages, pricing, holidays — the foundation to set first','ตั้งค่าสาขา วิชา เกรด แพ็กเกจ ราคา วันหยุด — ‘ฐานราก’ ที่ต้องตั้งก่อน')},
+  {s:'ready',  n:'Staff',     sub:P('teachers/staff','ครู/พนักงาน'), d:P('Add/edit teachers & staff, set subjects + branch + permissions','เพิ่ม/แก้ครูและพนักงาน กำหนดวิชา + สาขา + สิทธิ์')},
+  {s:'partial',n:'Students',  sub:P('students','นักเรียน'), d:P('View/search/open full profile','ดู/ค้นหา/เปิดโปรไฟล์ได้ครบ'), todo:P('No Add-Student form yet — new students edited in data','ยังไม่มีฟอร์ม Add Student — เพิ่มต้องแก้ใน data')},
+  {s:'partial',n:'Courses',   sub:P('curriculum','หลักสูตร'), d:P('Create/view catalog by subject × grade','สร้าง/ดูหลักสูตรตาม วิชา×เกรด'), todo:P('Clarify Regular vs Bundle (see topic 5)','ต้องเคลียร์ Regular vs Bundle (หัวข้อ 5)')},
+  {s:'partial',n:'Classes',   sub:P('slots','รอบเรียน'), d:P('Open slots = teacher × time × day','เปิดรอบเรียน = ครู×เวลา×วัน'), todo:P('Clarify Group vs Single (see topic 5)','ต้องเคลียร์ Group vs Single (หัวข้อ 5)')},
+  {s:'partial',n:'Sessions',  sub:P('meetings','คาบเรียน'), d:P('Per-meeting attendance + roster + generate next week','เช็คชื่อรายครั้ง + roster + สร้างสัปดาห์ถัดไป'), todo:P('Explain Session = one real meeting (topic 4)','อธิบายว่า Session = คาบเรียน 1 ครั้ง (หัวข้อ 4)')},
+  {s:'ready',  n:'Summaries', sub:P('lesson notes','สรุปบทเรียน'), d:P('Write/track per-session + course-end summaries','เขียน/ติดตามสรุปรายคาบ + สรุปจบคอร์ส')},
+  {s:'ready',  n:'Calendar',  sub:P('timetable','ปฏิทิน'), d:P('Branch timetable, day/week views, filters','ดูตารางทั้งสาขา วัน/สัปดาห์ กรองได้')},
+  {s:'partial',n:'Billing',   sub:P('invoice','การเงิน/บิล'), d:P('Create multi-course invoices + schedule picker','ออกใบแจ้งหนี้หลายคอร์ส + เลือกตารางในบิล'), todo:P('Only the Invoice part is open — payment/receipt not in test','พร้อมแค่ Invoice — รับเงิน/ใบเสร็จยังไม่เปิด test')},
+];
+
+var STEPS = [
+  {t:P('Open Dashboard','เปิด Dashboard'), d:P("Today's overview — sessions today, things needing attention",'ภาพรวมวันนี้ — คาบวันนี้ เรื่องที่ต้องสนใจ')},
+  {t:P('Check Calendar','เช็ค Calendar'), d:P('See today\'s slots — which teacher, which room','ดูว่าวันนี้มีรอบไหน ครูใคร ห้องไหน')},
+  {t:P('Go to Sessions, take attendance','เข้า Sessions เช็คชื่อ'), d:P('When class starts, open that Session, mark each student (present/leave/absent)','พอถึงคาบ กดเข้า Session นั้น เช็คชื่อรายคน (มา/ลา/ขาด)')},
+  {t:P('Write the Summary','เขียน Summary'), d:P('After class, record what was taught','หลังเรียนจบ บันทึกว่าคาบนี้เรียนอะไร')},
+  {t:P('New / renewing student → Billing','นักเรียนใหม่/ต่อคอร์ส → Billing'), d:P('Create an Invoice, pick course + schedule for the parent','ออก Invoice เลือกคอร์ส + ตารางเรียนให้ผู้ปกครอง')},
+  {t:P('End of week → Generate next week','สิ้นสัปดาห์ → Generate next week'), d:P('In Sessions, generate next week\'s meetings from the class schedule','ใน Sessions กดสร้างคาบของสัปดาห์ถัดไปจากตารางคลาส')},
+];
+
+/* ---- action helper ---- */
+function A(kind,label,desc,items){ return {kind:kind,label:label,desc:desc,items:items||[]}; }
+function I(t,note,sub){ return {t:t,note:note||null,sub:sub||null}; }
+var CREATE=P('Create','สร้าง'), EDIT=P('Edit','แก้ไข'), REMOVE=P('Remove','ลบ/เก็บ'), VIEW=P('View','ดู'), DO=P('Actions','การทำงาน');
+
+/* =========================================================
+   IA DATA — the detailed system map
+   ========================================================= */
+var IA = [
+/* ================= ACADEMY ================= */
+{sys:'academy', page:P('Dashboard','แดชบอร์ด'), path:'/dashboard', status:'ready', actions:[
+  A('view',VIEW,P('read-only command center','หน้าสรุป อ่านอย่างเดียว'),[
+    I(P('KPI: sessions today · revenue (from paid invoices)','KPI: คาบวันนี้ · รายได้ (จาก invoice ที่จ่ายแล้ว)')),
+    I(P("Today's live sessions",'คาบเรียนวันนี้ (live)')),
+    I(P('Needs-attention list (renewals, unpaid, near course-end)','รายการต้องจัดการ (ต่อคอร์ส/ค้างจ่าย/ใกล้หมด)')),
+  ]),
+]},
+
+{sys:'academy', page:P('CRM (Leads)','CRM (ลูกค้าใหม่)'), path:'/crm', status:'ready', actions:[
+  A('create',CREATE,P('add a new lead','เพิ่ม lead ใหม่'),[
+    I(P('Name','ชื่อ')), I(P('Child grade','เกรดของเด็ก')), I(P('Branch','สาขา')),
+    I(P('Channel (LINE/phone/walk-in)','ช่องทาง (LINE/โทร/walk-in)')), I(P('Assignee','ผู้รับผิดชอบ')),
+    I(P('Source','แหล่งที่มา')),
+  ]),
+  A('edit',EDIT,P('update lead details / move stage','แก้ข้อมูล / เลื่อนสถานะ'),[
+    I(P('Move pipeline stage (New → Contacting → Test → Tested → Trial → Won/Lost)','เลื่อน stage (New → Contacting → Test → Tested → Trial → Won/Lost)')),
+    I(P('Add note / log contact','เพิ่มโน้ต / บันทึกการติดต่อ')),
+    I(P('Schedule Test / Trial (send booking token)','นัด Test / Trial (ส่งลิงก์จอง)')),
+  ]),
+  A('action',DO,P('convert & schedule','แปลง & นัดหมาย'),[
+    I(P('Convert lead → Student + Family','แปลง lead → Student + Family')),
+    I(P('CRM Schedule — day/week booking view','CRM Schedule — มุมมองนัด day/week')),
+  ]),
+  A('remove',REMOVE,P('archive / mark lost','เก็บ / ทำเป็น lost'),[ I(P('Mark Lost with reason (no hard delete)','ทำเป็น Lost พร้อมเหตุผล (ไม่ลบถาวร)')) ]),
+]},
+
+{sys:'academy', page:P('Inbox','กล่องข้อความ'), path:'/inbox', status:'ready', actions:[
+  A('view',VIEW,P('unified chat','แชทรวมช่องทาง'),[
+    I(P('Conversation list + channel badges (LINE etc.)','รายการแชท + ป้ายช่องทาง (LINE ฯลฯ)')),
+    I(P('Unread filter','กรองที่ยังไม่อ่าน')),
+  ]),
+  A('action',DO,P('reply & send','ตอบ & ส่ง'),[
+    I(P('Send message','ส่งข้อความ')),
+    I(P('Send document into chat (summary / course-end PDF)','ส่งเอกสารเข้าแชท (สรุป / course-end PDF)')),
+  ]),
+]},
+
+{sys:'academy', page:P('Calendar','ปฏิทิน'), path:'/calendar', status:'ready', actions:[
+  A('view',VIEW,P('timetable views','มุมมองตาราง'),[
+    I(P('Day / Week / Teacher / Month views','มุมมอง Day / Week / Teacher / Month')),
+    I(P('Day view = minute-accurate (Liclass :30 start, 30/50/75/90 min)','Day view = อิงนาทีจริง (Liclass เริ่ม :30, 30/50/75/90 นาที)')),
+    I(P('Filter by branch / teacher / subject','กรองตามสาขา/ครู/วิชา')),
+  ]),
+  A('action',DO,P('open items','เปิดรายการ'),[ I(P('Click a class → Class modal','คลิก class → Class modal')) ]),
+]},
+
+{sys:'academy', page:P('Students','นักเรียน'), path:'/students', status:'partial',
+  gap:P('No “Add Student” form yet — new students are added by editing data manually.','ยังไม่มีฟอร์ม “Add Student” — เพิ่มนักเรียนใหม่ต้องแก้ data มือ'), actions:[
+  A('create',CREATE,P('add a student — FORM NOT BUILT YET','เพิ่มนักเรียน — ยังไม่มีฟอร์ม',true),[
+    I(P('Name + nickname','ชื่อ + ชื่อเล่น'),P('no form','ยังไม่มีฟอร์ม')),
+    I(P('Age / grade','อายุ / เกรด')), I(P('Branch','สาขา')),
+    I(P('Link to Family','ผูกกับ Family')),
+    I(P('Contact: LINE, phone','ติดต่อ: LINE, เบอร์')),
+    I(P('Enroll date / assigned teacher','วันสมัคร / ครูที่ดูแล')),
+    I(P('Status (active/renewal/pause/archived)','สถานะ (active/renewal/pause/archived)')),
+  ]),
+  A('view',VIEW,P('list + full profile','รายการ + โปรไฟล์เต็ม'),[
+    I(P('Table: search + filter (branch/status/grade) + sort','ตาราง: ค้นหา + กรอง (สาขา/สถานะ/เกรด) + เรียง')),
+    I(P('Unified Profile — 7 tabs','โปรไฟล์รวม — 7 แท็บ'),null,[
+      I(P('Overview / Sessions / Summaries / Attendance / Payment / Notes / Timeline','Overview / Sessions / Summaries / Attendance / Payment / Notes / Timeline')),
+    ]),
+    I(P('Renewal status auto-computed (active/renewal/pause)','สถานะต่อคอร์สคำนวณเอง (active/renewal/pause)')),
+  ]),
+  A('edit',EDIT,P('update profile','แก้โปรไฟล์'),[
+    I(P('Contact info, status, assigned teacher','ข้อมูลติดต่อ สถานะ ครูที่ดูแล')),
+    I(P('Add note (teacher / admin type)','เพิ่มโน้ต (แบบครู / แอดมิน)')),
+    I(P('Enrollments are managed via Billing, not here','ชั่วโมง/คอร์สจัดผ่าน Billing ไม่ใช่ที่นี่')),
+  ]),
+  A('remove',REMOVE,P('archive (soft)','เก็บ (ไม่ลบถาวร)'),[ I(P('Set status = archived','ตั้งสถานะ = archived')) ]),
+]},
+
+{sys:'academy', page:P('Families','ครอบครัว'), path:'/families', status:'ready', actions:[
+  A('create',CREATE,P('add a family','เพิ่มครอบครัว'),[
+    I(P('Family name','ชื่อครอบครัว')), I(P('Branch','สาขา')), I(P('Assignee','ผู้ดูแล')),
+    I(P('Parents[]: role, name, LINE, phone, email, LINE-active','ผู้ปกครอง[]: บทบาท ชื่อ LINE เบอร์ อีเมล สถานะ LINE')),
+  ]),
+  A('view',VIEW,P('profile — 4 tabs + timeline','โปรไฟล์ — 4 แท็บ + ไทม์ไลน์'),[
+    I(P('Linked students (can be many, across branches)','นักเรียนที่ผูก (หลายคน/ข้ามสาขาได้)')),
+    I(P('Total paid, invoice count, owned items (books)','ยอดจ่ายรวม จำนวนบิล ของที่เคยซื้อ (หนังสือ)')),
+  ]),
+  A('edit',EDIT,P('update family','แก้ครอบครัว'),[
+    I(P('Add / remove a parent','เพิ่ม / ลบ ผู้ปกครอง')),
+    I(P('Link / unlink students','ผูก / ยกเลิกผูก นักเรียน')),
+    I(P('Assignee, status, add note','ผู้ดูแล สถานะ เพิ่มโน้ต')),
+  ]),
+  A('remove',REMOVE,P('archive','เก็บ'),[ I(P('Set status = archived (soft)','ตั้งสถานะ archived')) ]),
+]},
+
+{sys:'academy', page:P('Staff','พนักงาน/ครู'), path:'/staff', status:'ready', actions:[
+  A('create',CREATE,P('add staff (Add/Edit modal)','เพิ่มพนักงาน (Add/Edit modal)'),[
+    I(P('Full name / display name / nickname / photo','ชื่อจริง / ชื่อแสดง / ชื่อเล่น / รูป')),
+    I(P('Default branch','สาขาหลัก')),
+    I(P('Role assignments[] — per branch','การมอบหมายบทบาท[] — ต่อสาขา'),null,[
+      I(P('Role (director/area_manager/manager/admin/teacher)','บทบาท (director/area_manager/manager/admin/teacher)')),
+      I(P('Branch','สาขา')), I(P('Working days','วันทำงาน')),
+      I(P('Subjects (teachers) — drives what they can teach','วิชา (ครู) — กำหนดว่าสอนอะไรได้')),
+    ]),
+    I(P('Grade range (ประถม / มัธยมต้น / both)','ช่วงเกรด (ประถม / มัธยมต้น / ทั้งคู่)')),
+    I(P('Contacts: phones[], LINE, email · join date · status','ติดต่อ: เบอร์[] LINE อีเมล · วันเริ่มงาน · สถานะ')),
+    I(P('If role = admin → Admin tier (Master / Normal)','ถ้าเป็น admin → ระดับ (Master / Normal)')),
+    I(P('Master admin → upload digital signature','Master admin → อัปโหลดลายเซ็นดิจิทัล')),
+  ]),
+  A('view',VIEW,P('roster + profile','รายชื่อ + โปรไฟล์'),[
+    I(P('Roster + filter','รายชื่อ + กรอง')),
+    I(P('Profile: info, workload (effective load), notes, activity logs','โปรไฟล์: ข้อมูล ภาระงาน โน้ต ประวัติ')),
+  ]),
+  A('edit',EDIT,P('update staff','แก้พนักงาน'),[
+    I(P('Add/remove role assignments (branch/days/subjects)','เพิ่ม/ลบ การมอบหมาย (สาขา/วัน/วิชา)')),
+    I(P('Transfer Master-admin tier to another person','โอนสิทธิ์ Master admin ให้คนอื่น')),
+    I(P('Cross-branch guard: same day+time+different branch = error','กันชนข้ามสาขา: วัน+เวลาเดียว ต่างสาขา = error')),
+    I(P('Add note','เพิ่มโน้ต')),
+  ]),
+  A('remove',REMOVE,P('deactivate','ปิดใช้งาน'),[ I(P('Set status = inactive (keeps history)','ตั้งสถานะ inactive (เก็บประวัติ)')) ]),
+]},
+
+{sys:'academy', page:P('Courses','หลักสูตร'), path:'/courses', status:'partial',
+  gap:P('Admins still confuse Regular vs Bundle — the create UI should separate/explain them clearly.','Admin ยังงง Regular vs Bundle — UI ตอนสร้างควรแยก/อธิบายให้ชัด'), actions:[
+  A('create',CREATE,P('create a course','สร้างหลักสูตร'),[
+    I(P('Course type: Regular (single) OR Bundle','ประเภท: Regular (เดี่ยว) หรือ Bundle')),
+    I(P('Name','ชื่อคอร์ส')),
+    I(P('Subjects[] — {subject, grade, hours}','วิชา[] — {วิชา, เกรด, ชั่วโมง}'),null,[
+      I(P('Regular = usually 1 subject','Regular = ปกติ 1 วิชา')),
+      I(P('Bundle = multiple subjects','Bundle = หลายวิชา')),
+    ]),
+    I(P('Suggested teacher','ครูที่แนะนำ')),
+    I(P('Branches[] where offered','สาขาที่เปิด[]')),
+    I(P('Course pricing override (else uses Price Matrix)','ราคา override เฉพาะคอร์ส (ไม่งั้นใช้ Price Matrix)')),
+    I(P('Bundle-only fields','เฉพาะ Bundle'),null,[
+      I(P('Start / end date','วันเริ่ม / วันจบ')),
+      I(P('Days offered[] (e.g. Sat, Sun)','วันที่เปิด[] (เช่น เสาร์ อาทิตย์)')),
+      I(P('Bundle subjects[] with time slots','วิชาใน bundle[] พร้อมช่วงเวลา')),
+      I(P('Billing block size (class days/block)','ขนาด block (จำนวนครั้ง/block)')),
+      I(P('Block price + first-time admission fee','ราคา block + ค่าแรกเข้าครั้งแรก')),
+    ]),
+  ]),
+  A('view',VIEW,P('catalog','แคตตาล็อก'),[ I(P('Grouped by subject × grade · branch filter','จัดตาม วิชา × เกรด · กรองสาขา')) ]),
+  A('edit',EDIT,P('edit course + promotions','แก้คอร์ส + โปรโมชั่น'),[
+    I(P('Edit any field above','แก้ field ด้านบนได้')),
+    I(P('Promotions[]: name, discount %, expiry, active','โปรโมชั่น[]: ชื่อ ส่วนลด% วันหมดอายุ เปิด/ปิด')),
+  ]),
+  A('remove',REMOVE,P('archive course','เก็บคอร์ส'),[ I(P('Archive (keeps linked enrollments)','เก็บ (คงข้อมูลที่ผูกไว้)')) ]),
+]},
+
+{sys:'academy', page:P('Classes','คลาส/รอบเรียน'), path:'/classes', status:'partial',
+  gap:P('Clarify Group vs Single, and how it differs from Course Regular/Bundle.','ต้องเคลียร์ Group vs Single และต่างจาก Course Regular/Bundle ยังไง'), actions:[
+  A('create',CREATE,P('create a class (slot)','สร้างคลาส (รอบเรียน)'),[
+    I(P('Course (links subject + grade)','Course (ดึงวิชา + เกรด)')),
+    I(P('Teacher','ครู')),
+    I(P('Branch','สาขา')),
+    I(P('Room','ห้อง')),
+    I(P('Days[] (closed branch days auto-disabled)','วัน[] (วันปิดสาขา disable อัตโนมัติ)')),
+    I(P('Start time + duration (minute-based)','เวลาเริ่ม + ความยาว (อิงนาที)')),
+    I(P('Class type: Group / Single','ประเภทคลาส: Group / Single')),
+    I(P('Students[] (initial roster)','นักเรียน[] (roster เริ่มต้น)')),
+  ]),
+  A('view',VIEW,P('grouped list','รายการจัดกลุ่ม'),[ I(P('Grouped by subject + grade + teacher','จัดกลุ่มตาม วิชา + เกรด + ครู')) ]),
+  A('edit',EDIT,P('edit class + roster','แก้คลาส + roster'),[
+    I(P('Add / remove students in the class','เพิ่ม / ลบ นักเรียนในคลาส')),
+    I(P('Change teacher / room / time / days','เปลี่ยนครู / ห้อง / เวลา / วัน')),
+    I(P('Reschedule (regular = no hour deduction)','เลื่อนตาราง (regular = ไม่หักชั่วโมง)')),
+  ]),
+  A('remove',REMOVE,P('archive class','เก็บคลาส'),[ I(P('Set status = archived','ตั้งสถานะ archived')) ]),
+]},
+
+{sys:'academy', page:P('Sessions','คาบเรียน'), path:'/sessions', status:'partial',
+  gap:P('Sessions are auto-generated (no manual create). Explain to Admin: a Session = one real class meeting.','Session ถูกสร้างอัตโนมัติ (ไม่สร้างมือ). อธิบายให้ Admin: Session = คาบเรียน 1 ครั้งจริง'), actions:[
+  A('create',CREATE,P('generate (not manual)','สร้างอัตโนมัติ (ไม่ใช่มือ)'),[
+    I(P('“Generate next week” from class schedules (SessionGen)','“Generate next week” จากตารางคลาส (SessionGen)')),
+    I(P('Only for students with hours/blocks left · skips holidays','เฉพาะนักเรียนที่มีชั่วโมง/block เหลือ · ข้ามวันหยุด')),
+  ]),
+  A('view',VIEW,P('operations center','ศูนย์ปฏิบัติการ'),[
+    I(P('Group by: Day / Teacher / Branch / Status','จัดกลุ่มตาม: Day / Teacher / Branch / Status')),
+    I(P('Inline accordion per session (attendance + summary)','กางในแถวต่อคาบ (เช็คชื่อ + สรุป)')),
+  ]),
+  A('action',DO,P('run the class','ดำเนินคาบ'),[
+    I(P('Mark attendance per student','เช็คชื่อรายคน'),null,[
+      I(P('Present / Leave / Leave(over-quota) / Absent / Reschedule / Transfer','มา / ลา / ลาเกินโควตา / ขาด / เลื่อน / ย้าย')),
+    ]),
+    I(P('Write session summary','เขียนสรุปคาบ')),
+    I(P('Open full Class modal','เปิด Class modal เต็ม')),
+  ]),
+]},
+
+{sys:'academy', page:P('Attendance','การเข้าเรียน'), path:'/attendance', status:'ready', actions:[
+  A('view',VIEW,P('report / history (marking is in Sessions)','รายงาน/ประวัติ (เช็คชื่อทำที่ Sessions)'),[
+    I(P('Consumption per student (hours used)','การใช้ชั่วโมงรายคน')),
+    I(P('Attendance history — audit log, filterable','ประวัติเข้าเรียน — audit log กรองได้')),
+  ]),
+]},
+
+{sys:'academy', page:P('Summaries','สรุปบทเรียน'), path:'/summaries', status:'ready', actions:[
+  A('view',VIEW,P('Session tab','แท็บ Session'),[
+    I(P('Filter (course/subject/grade/teacher) + status chips + sort','กรอง (คอร์ส/วิชา/เกรด/ครู) + สถานะ + เรียง')),
+    I(P('Status: Awaiting / Draft / Not written / Sent','สถานะ: รอ / ร่าง / ยังไม่เขียน / ส่งแล้ว')),
+  ]),
+  A('create',CREATE,P('Course-End Summary','สรุปจบคอร์ส'),[
+    I(P('Per subject: overall, strengths, improve, session notes[]','ต่อวิชา: ภาพรวม จุดแข็ง จุดพัฒนา สรุปรายคาบ[]')),
+    I(P('Auto-draft when a course/enrollment finishes','สร้างร่างอัตโนมัติเมื่อคอร์สหมด')),
+  ]),
+  A('action',DO,P('lifecycle & send','สถานะ & ส่ง'),[
+    I(P('Flow: draft → pending_teacher → approved → sent (immutable)','สถานะ: ร่าง → รอครูยืนยัน → อนุมัติ → ส่ง (ล็อก)')),
+    I(P('Teacher confirmation required','ต้องให้ครูยืนยัน')),
+    I(P('Generate PDF · send to Inbox','สร้าง PDF · ส่งเข้า Inbox')),
+  ]),
+]},
+
+{sys:'academy', page:P('Bus Route','สายรถ'), path:'/bus-route', status:'none', tag:P('Liclass only','เฉพาะ Liclass'), actions:[
+  A('create',CREATE,P('create/manage routes','สร้าง/จัดการสาย'),[
+    I(P('Route: vehicle × round × pickup/dropoff × days × ordered stops','สาย: คัน × รอบ × รับ/ส่ง × วัน × ลำดับจุด')),
+    I(P('Drag & drop stop order · add student (+parent seat)','ลากจัดลำดับจุด · เพิ่มนักเรียน (+ที่นั่งผู้ปกครอง)')),
+  ]),
+  A('view',VIEW,P('4 tabs','4 แท็บ'),[
+    I(P('Daily / Weekly / Routes / Vehicles · Live tracking · Driver sheet','Daily / Weekly / Routes / Vehicles · Live tracking · ใบขับ')),
+  ]),
+  A('edit',EDIT,P('edit / remove routes','แก้ / ลบ สาย'),[
+    I(P('Edit route, delete route','แก้สาย ลบสาย')),
+    I(P('Missing: real Map view (needs lat/lng), class↔bus reschedule','ขาด: Map จริง (ต้อง lat/lng), reschedule class↔bus'),P('missing','ยังขาด')),
+  ]),
+]},
+
+{sys:'academy', page:P('Inventory','คลังสินค้า'), path:'/inventory', status:'ready', actions:[
+  A('create',CREATE,P('add item / stock','เพิ่มสินค้า / สต็อก'),[
+    I(P('Item, supplier, reorder level','สินค้า ผู้ขาย จุดสั่งซื้อ')),
+    I(P('Stock movements: sale-invoice / standalone / giveaway / restock','การเคลื่อนไหว: ขายผ่านบิล / ขายแยก / แจก / เติมสต็อก')),
+  ]),
+  A('view',VIEW,P('overview','ภาพรวม'),[ I(P('KPI (items/warning/out/value) + table filter + detail','KPI (ชิ้น/เตือน/หมด/มูลค่า) + ตารางกรอง + รายละเอียด')) ]),
+  A('edit',EDIT,P('edit item','แก้สินค้า'),[ I(P('Missing: link Book fee onto Invoice','ขาด: ผูก Book fee เข้า Invoice'),P('missing','ยังขาด')) ]),
+]},
+
+{sys:'academy', page:P('Billing','การเงิน/บิล'), path:'/billing', status:'partial',
+  gap:P('Only Invoice is open for testing. Payment matching + Receipt splitting + Void exist in code but are not in Phase-1 test.','พร้อมเฉพาะ Invoice — จับคู่จ่าย + แตกใบเสร็จ + Void มีโค้ดแล้วแต่ยังไม่เปิด test'), actions:[
+  A('create',CREATE,P('create invoice','สร้างใบแจ้งหนี้'),[
+    I(P('Student / family (or lead pre-enrollment)','นักเรียน / ครอบครัว (หรือ lead ก่อนสมัคร)')),
+    I(P('Line items[] — multi-course (Add/Remove course)','รายการ[] — หลายคอร์ส (เพิ่ม/ลบ)'),null,[
+      I(P('Course, hours, amount','คอร์ส ชั่วโมง จำนวนเงิน')),
+      I(P('Course Schedule picker: pick class/round + frequency','ตัวเลือกตาราง: เลือกคลาส/รอบ + ความถี่/สัปดาห์')),
+      I(P('Start date → auto end date (skips holidays, warns on clashes)','วันเริ่ม → วันจบอัตโนมัติ (ข้ามวันหยุด เตือนชนคลาส)')),
+      I(P('Bus fee / Book fee from the chosen round','ค่ารถ / ค่าหนังสือ จากรอบที่เลือก')),
+    ]),
+    I(P('Discount / promotion → auto subtotal / total','ส่วนลด / โปรโมชั่น → รวมยอดอัตโนมัติ')),
+  ]),
+  A('view',VIEW,P('invoice list + doc preview','รายการบิล + พรีวิวเอกสาร'),[
+    I(P('States: draft → sent → pending → paid','สถานะ: ร่าง → ส่ง → รอ → จ่ายแล้ว')),
+  ]),
+  A('edit',EDIT,P('edit draft / save / send','แก้ร่าง / บันทึก / ส่ง'),[
+    I(P('Save Draft · Create & Send','บันทึกร่าง · สร้าง & ส่ง')),
+  ]),
+  A('action',DO,P('payment & receipt — NOT in Phase-1 test','รับเงิน & ใบเสร็จ — ยังไม่เปิด test',true),[
+    I(P('Upload slip → match KBiz statement → Confirm Paid','แนบสลิป → จับคู่ statement KBiz → ยืนยันจ่าย'),P('not open','ยังไม่เปิด')),
+    I(P('Receipt splitting + RE numbering + customer tax','แตกใบเสร็จ + เลขที่ RE + ภาษีลูกค้า'),P('not open','ยังไม่เปิด')),
+    I(P('Void (reason required) → auto replacement invoice','ยกเลิก (ต้องมีเหตุผล) → ออกใบใหม่ทดแทน'),P('not open','ยังไม่เปิด')),
+  ]),
+]},
+
+{sys:'academy', page:P('Tasks & Notifications','งาน & แจ้งเตือน'), path:'/tasks', status:'ready', actions:[
+  A('create',CREATE,P('add task','เพิ่มงาน'),[ I(P('Task via add modal','เพิ่มงานผ่าน modal')) ]),
+  A('action',DO,P('manage','จัดการ'),[
+    I(P('Mark task done','ทำเครื่องหมายเสร็จ')),
+    I(P('Notifications: filter + mark read','แจ้งเตือน: กรอง + อ่านแล้ว')),
+  ]),
+]},
+
+{sys:'academy', page:P('Reports','รายงาน'), path:'/reports', status:'ready', actions:[
+  A('view',VIEW,P('Executive BI (read-only)','BI ผู้บริหาร (อ่านอย่างเดียว)'),[
+    I(P('Scope switch: Company / Area / Branch','สลับขอบเขต: บริษัท / โซน / สาขา')),
+    I(P('Time engine: period × compare (MoM/QoQ/YoY)','เครื่องมือเวลา: ช่วง × เทียบ (MoM/QoQ/YoY)')),
+    I(P('7 tabs: Overview / Compare / Financial / Students / Acquisition / Courses / Operations','7 แท็บ: Overview / Compare / Financial / Students / Acquisition / Courses / Operations')),
+  ]),
+]},
+
+{sys:'academy', page:P('Settings','ตั้งค่า'), path:'/settings', status:'ready', actions:[
+  A('view',VIEW,P('scope switcher','ตัวสลับขอบเขต'),[ I(P('🌐 Global (Director) / per-branch — whole page changes by scope','🌐 Global (Director) / รายสาขา — ทั้งหน้าเปลี่ยนตาม scope')) ]),
+  A('create',CREATE,P('Global pools (add/edit/remove)','พูลกลาง (เพิ่ม/แก้/ลบ)'),[
+    I(P('Subjects pool','พูลวิชา')), I(P('Grades pool','พูลเกรด')),
+    I(P('Packages & Tiers (+ price)','แพ็กเกจ & tier (+ ราคา)')), I(P('Holidays','วันหยุด')),
+  ]),
+  A('edit',EDIT,P('Branch settings','ตั้งค่าสาขา'),[
+    I(P('Branch info (rooms, operating days)','ข้อมูลสาขา (ห้อง วันเปิด)')),
+    I(P('Scheduling / time slots','ตารางเวลา / slot')),
+    I(P('Enable subjects / grades / packages per branch','เปิดวิชา / เกรด / แพ็กเกจ ต่อสาขา')),
+    I(P('Promotions','โปรโมชั่น')),
+    I(P('Price Matrix (subject|grade|hours) — blank = inherit','Price Matrix (วิชา|เกรด|ชั่วโมง) — ว่าง = inherit')),
+    I(P('Invoice settings','ตั้งค่าใบแจ้งหนี้')),
+  ]),
+]},
+
+{sys:'academy', page:P('Logs & Timeline','ประวัติ & ไทม์ไลน์'), path:'/logs', status:'ready', actions:[
+  A('view',VIEW,P('audit trail','ประวัติการใช้งาน'),[ I(P('System-wide audit log + timeline renderer','audit log ทั้งระบบ + timeline')) ]),
+]},
+
+{sys:'academy', page:P('Login / Authorize','เข้าสู่ระบบ / สิทธิ์'), path:'js/auth.js', status:'partial',
+  gap:P('Front-end only — no backend / real password. Login uses emails Admin added; role-gate hides menus.','front-end เท่านั้น — ยังไม่มี backend / password จริง. Login ด้วย email ที่ Admin เพิ่ม; ซ่อนเมนูตาม role'), actions:[
+  A('action',DO,P('access control','ควบคุมการเข้าถึง'),[
+    I(P('Login by added email · role/branch from role assignments','Login ด้วย email ที่เพิ่ม · role/สาขาจาก role assignments')),
+    I(P('Role gate hides menus (Teacher = teaching set · Settings = Director)','ซ่อนเมนูตาม role (Teacher = ชุดสอน · Settings = Director)')),
+    I(P('Missing: backend + real password','ขาด: backend + password จริง'),P('missing','ยังขาด')),
+  ]),
+]},
+
+/* ================= FINANCE ================= */
+{sys:'finance', page:P('FIN · Dashboard','FIN · แดชบอร์ด'), path:'/fin-dashboard', status:'ready', actions:[
+  A('view',VIEW,P('command center','ศูนย์ควบคุม'),[
+    I(P('KPI: needs attention · pending approvals · spend MoM · central bank + runway','KPI: ต้องจัดการ · รออนุมัติ · ใช้จ่าย MoM · เงินกลาง + runway')),
+    I(P('Needs-attention cards · branch petty (budget/used/remaining) · forecast','การ์ดต้องจัดการ · petty สาขา (งบ/ใช้/เหลือ) · คาดการณ์')),
+  ]),
+]},
+
+{sys:'finance', page:P('FIN · Expenses','FIN · ค่าใช้จ่าย'), path:'/fin-expenses', status:'ready', actions:[
+  A('create',CREATE,P('Record Usage (inline batch editor)','บันทึกค่าใช้จ่าย (batch editor)'),[
+    I(P('Upload receipts → mock-AI reads → editable rows','อัปโหลดใบเสร็จ → mock AI อ่าน → แถวแก้ได้')),
+    I(P('Or +Add Row manually (date/type/category/desc/amount/source/location)','หรือ +Add Row มือ (วันที่/ประเภท/หมวด/คำอธิบาย/ยอด/แหล่ง/สถานที่)')),
+    I(P('Partial save: Ready rows save, incomplete rows stay','บันทึกบางส่วน: แถวพร้อมบันทึก แถวขาดข้อมูลอยู่ต่อ')),
+  ]),
+  A('view',VIEW,P('ledger history','ประวัติ ledger'),[
+    I(P('100%-width table → click row → side drawer (Info / Logs tabs)','ตารางเต็ม → คลิกแถว → drawer (Info / Logs)')),
+    I(P('Filters: source / branch / status / category','กรอง: แหล่ง / สาขา / สถานะ / หมวด')),
+  ]),
+  A('edit',EDIT,P('edit one record','แก้ทีละรายการ'),[
+    I(P('Edit single record (separate from batch)','แก้ทีละรายการ (แยกจาก batch)')),
+  ]),
+  A('remove',REMOVE,P('inactivate (no delete)','ปิดใช้งาน (ไม่ลบ)'),[ I(P('Inactivate only — no hard delete','Inactivate เท่านั้น — ไม่มี delete')) ]),
+]},
+
+{sys:'finance', page:P('FIN · Requests','FIN · คำขอ'), path:'/fin-requests', status:'ready', actions:[
+  A('create',CREATE,P('new request','คำขอใหม่'),[
+    I(P('Direct Paid (vendor + account name/number/PromptPay + invoice)','จ่ายตรง (vendor + ชื่อ/เลขบัญชี/PromptPay + ใบแจ้งหนี้)')),
+    I(P('Petty Top-up','เติม petty cash')),
+  ]),
+  A('view',VIEW,P('3 tabs by “who acts”','3 แท็บตาม “ใครต้องทำ”'),[
+    I(P('Needs your action / Awaiting others / History','ที่ต้องทำ / รอคนอื่น / ประวัติ')),
+  ]),
+  A('action',DO,P('lifecycle & approval','สถานะ & อนุมัติ'),[
+    I(P('Pending → Approved → Paid (slip) → Closed (tax inv → creates ledger)','รอ → อนุมัติ → จ่าย (สลิป) → ปิด (ใบกำกับ → สร้าง ledger)')),
+    I(P('Approval tier: 1k→Mgr / 3k→AreaMgr / 5k→Director','ระดับอนุมัติ: 1k→Mgr / 3k→AreaMgr / 5k→Director')),
+    I(P('Reject requires remark','Reject ต้องมีเหตุผล')),
+  ]),
+]},
+
+{sys:'finance', page:P('FIN · Reimbursement','FIN · เบิกคืน'), path:'/fin-reimburse', status:'ready', actions:[
+  A('create',CREATE,P('claim reimbursement','ยื่นเบิกคืน'),[
+    I(P('Any role incl. Teacher · payslip required','ทุก role รวม Teacher · ต้องแนบใบเสร็จ')),
+    I(P('Payback account: pay-to, bank, account no., PromptPay + QR','บัญชีรับคืน: ชื่อ ธนาคาร เลขบัญชี PromptPay + QR')),
+  ]),
+  A('action',DO,P('2-tier approve','อนุมัติ 2 ชั้น'),[
+    I(P('Branch admin pays from branch petty','แอดมินสาขาจ่ายจาก petty สาขา')),
+    I(P('Forward to Central → Director pays from Central Bank','ส่งต่อ Central → Director จ่ายจากเงินกลาง')),
+    I(P('Pending → Forwarded → Paid / Rejected (remark required)','รอ → ส่งต่อ → จ่าย / ปฏิเสธ (ต้องมีเหตุผล)')),
+  ]),
+]},
+
+{sys:'finance', page:P('FIN · Recurring','FIN · รายจ่ายประจำ'), path:'/fin-recurring', status:'ready', actions:[
+  A('create',CREATE,P('add recurring','เพิ่มรายจ่ายประจำ'),[
+    I(P('Salary: branch → staff lines → payday','เงินเดือน: สาขา → รายชื่อ → วันจ่าย')),
+    I(P('Rent & utilities','ค่าเช่า & สาธารณูปโภค')),
+  ]),
+  A('view',VIEW,P('overview','ภาพรวม'),[
+    I(P('Salary per-branch payee breakdown + status','เงินเดือนแยกสาขา + สถานะ')),
+    I(P('6-month forecast','คาดการณ์ 6 เดือน')),
+  ]),
+]},
+
+{sys:'finance', page:P('FIN · Period Close','FIN · ปิดงวด'), path:'/period-close', status:'partial',
+  gap:P('Some inputs await KMD (bank lines / sales-tax cols / WHT-vendor).','บาง input รอ KMD (bank lines / sales-tax / WHT-vendor)'), actions:[
+  A('action',DO,P('month-end bundle','ชุดปิดเดือน'),[
+    I(P('Month selector · final-gate validation (6 rules) · bundle checklist (6 groups)','เลือกเดือน · ตรวจ 6 กฎ · checklist 6 หมวด')),
+    I(P('Service bills match INV + RE + payslip','จับคู่ INV + RE + payslip')),
+    I(P('Gate the “send to KMD” button until validation passes','ล็อกปุ่มส่ง KMD จนกว่าจะผ่าน')),
+  ]),
+]},
+
+{sys:'finance', page:P('FIN · Reports','FIN · รายงานการเงิน'), path:'/fin-reports', status:'ready', actions:[
+  A('view',VIEW,P('financial BI','BI การเงิน'),[
+    I(P('Period chips · KPI · branch comparison · income vs outcome · spend-by-category','ช่วงเวลา · KPI · เทียบสาขา · รายรับ-รายจ่าย · ใช้จ่ายตามหมวด')),
+  ]),
+]},
+
+{sys:'finance', page:P('FIN · Settings','FIN · ตั้งค่าการเงิน'), path:'/fin-settings', status:'partial',
+  gap:P('Permissions + Payment Methods have UI but are not wired into enforcement yet.','Permissions + Payment Methods มี UI แล้วแต่ยังไม่ต่อ enforcement'), actions:[
+  A('edit',EDIT,P('8 config sections','8 หมวดตั้งค่า'),[
+    I(P('General · Categories · Approval Rules · Petty Cash','ทั่วไป · หมวดหมู่ · กฎอนุมัติ · petty cash')),
+    I(P('Bank Accounts · Payment Methods · Numbering','บัญชีธนาคาร · วิธีจ่าย · เลขที่เอกสาร')),
+    I(P('Permissions (preview/edit only, not enforced)','สิทธิ์ (preview/edit เท่านั้น ยังไม่บังคับใช้)'),P('not wired','ยังไม่ต่อ')),
+  ]),
+]},
+
+/* ================= HR ================= */
+{sys:'hr', page:P('HR Management','จัดการบุคคล'), path:'coming soon', status:'none', actions:[
+  A('view',VIEW,P('placeholder','ยังไม่มีเนื้อหา'),[
+    I(P('Rail button exists but marked “coming soon” — no content yet','มีปุ่มบน rail แต่เป็น “coming soon” — ยังไม่มีเนื้อหา')),
+  ]),
+]},
+];
+
+/* =========================================================
+   RENDER
+   ========================================================= */
+var STAT = { ready:P('Ready','พร้อม'), partial:P('Partial','ยังไม่ครบ'), none:P('Not yet','ยังไม่เริ่ม') };
+function esc(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;'); }
+
+function renderMods(){
+  var el=document.getElementById('mods-a'); el.innerHTML='';
+  MODS.forEach(function(m){
+    var todo = m.todo ? '<div class="todo">⚠️ '+esc(L(m.todo))+'</div>' : '';
+    el.insertAdjacentHTML('beforeend',
+      '<div class="mod"><div class="top"><span class="chip '+m.s+'">'+esc(L(STAT[m.s]))+'</span>'+
+      '<span class="n">'+esc(m.n)+'</span></div><p>'+esc(L(m.d))+'</p>'+todo+'</div>');
+  });
+}
+function renderSteps(){
+  var el=document.getElementById('steps-a'); el.innerHTML='';
+  STEPS.forEach(function(s){
+    el.insertAdjacentHTML('beforeend',
+      '<div class="step"><div class="num"></div><div><div class="t">'+esc(L(s.t))+'</div><div class="d">'+esc(L(s.d))+'</div></div></div>');
+  });
+}
+
+var SYS = { academy:P('🏫 Academy System','🏫 ระบบ Academy'),
+            finance:P('💰 Finance System','💰 ระบบ Finance'),
+            hr:P('🧑‍💼 HR System','🧑‍💼 ระบบ HR') };
+var KIND = { create:'create', edit:'edit', remove:'remove', view:'view', action:'action' };
+
+function renderItem(it){
+  var note = it.note ? '<span class="note">'+esc(L(it.note))+'</span>' : '';
+  var html = '<li><div class="feat"><span class="mk">•</span><span class="nm">'+esc(L(it.t))+note+'</span></div>';
+  if(it.sub && it.sub.length){
+    html += '<ul class="sub">';
+    it.sub.forEach(function(s){ html += '<li><div class="feat"><span class="mk">–</span><span class="nm">'+esc(L(s.t))+(s.note?'<span class="note">'+esc(L(s.note))+'</span>':'')+'</span></div></li>'; });
+    html += '</ul>';
+  }
+  return html+'</li>';
+}
+function renderAction(a){
+  var items = a.items.map(renderItem).join('');
+  return '<div class="act"><div class="act-h"><span class="act-tag '+KIND[a.kind]+'">'+esc(L(a.label))+'</span>'+
+         '<span class="desc">'+esc(L(a.desc))+'</span></div><ul>'+items+'</ul></div>';
+}
+function renderIA(){
+  var root=document.getElementById('ia-root'); root.innerHTML='';
+  var curSys=null;
+  IA.forEach(function(pg){
+    if(pg.sys!==curSys){
+      curSys=pg.sys;
+      root.insertAdjacentHTML('beforeend','<div class="sys-tag">'+esc(L(SYS[curSys]))+'<span class="ln"></span></div>');
+    }
+    var tag = pg.tag ? '<span class="chip none">'+esc(L(pg.tag))+'</span>' : '<span class="chip '+pg.status+'">'+esc(L(STAT[pg.status]))+'</span>';
+    var acts = pg.actions.map(renderAction).join('');
+    var gap = pg.gap ? '<div class="gap-note"><b>▲</b><span>'+esc(L(pg.gap))+'</span></div>' : '';
+    root.insertAdjacentHTML('beforeend',
+      '<details class="ia"><summary><span class="caret">▶</span>'+esc(L(pg.page))+
+      ' <span class="pg">'+esc(pg.path)+'</span><span class="sp"></span>'+tag+'</summary>'+
+      '<div class="ia-body">'+acts+gap+'</div></details>');
+  });
+}
+
+function toggleAll(open){ document.querySelectorAll('details.ia').forEach(function(d){ d.open=open; }); }
+function jump(id){ var t=document.getElementById(id); if(t) t.scrollIntoView({behavior:'smooth',block:'start'}); }
+
+function applyStatic(){
+  document.querySelectorAll('[data-en]').forEach(function(el){
+    var v=el.getAttribute('data-'+LANG); if(v!=null) el.innerHTML=v;
+  });
+  document.documentElement.lang = LANG;
+}
+function setLang(l){
+  LANG=l; lsSet('nockGuideLang',l);
+  document.getElementById('lang-th').classList.toggle('on', l==='th');
+  document.getElementById('lang-en').classList.toggle('on', l==='en');
+  applyStatic(); renderMods(); renderSteps(); renderIA();
+}
+setLang(LANG);
+</script>

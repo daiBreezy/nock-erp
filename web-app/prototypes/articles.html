@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>NockAcademy — บทความ (Prototype v1)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet">
+<style>
+:root{
+  --primary:#ff5a5e; --primary-hover:#e84d51; --on-primary:#fff;
+  --secondary:#121c44;
+  --secondary-container:#ffe7e8; --on-secondary-container:#b3262a;
+  --accent:#121c44;
+  --surface:#ffffff; --surface-1:#fffcfc; --surface-2:#f5eff0;
+  --outline:#efe5e6; --text:#121c44; --text-muted:#5a5f72; --text-faint:#9095a5;
+  --subj-math-bg:#fde7ee; --subj-math-fg:#b03060;
+  --subj-sci-bg:#d8f5ec;  --subj-sci-fg:#0f6e56;
+  --subj-eng-bg:#e8e6fb;  --subj-eng-fg:#4b3fb0;
+  --subj-thai-bg:#fbe9f1; --subj-thai-fg:#993556;
+  --radius-sm:10px; --radius:16px; --radius-lg:22px; --radius-pill:999px;
+  --shadow:0 1px 2px rgba(20,20,40,.04),0 4px 16px rgba(20,20,40,.05);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'IBM Plex Sans Thai',system-ui,sans-serif;background:var(--surface-1);color:var(--text);line-height:1.6;-webkit-font-smoothing:antialiased}
+a{color:inherit;text-decoration:none}
+.mi{font-family:'Material Symbols Outlined';font-weight:normal;font-style:normal;line-height:1;vertical-align:-4px;font-feature-settings:'liga';font-size:18px}
+.mi.s16{font-size:16px;vertical-align:-3px} .mi.s20{font-size:20px;vertical-align:-5px} .mi.s28{font-size:28px}
+.wrap{max-width:1200px;margin:0 auto;padding:0 20px}
+
+/* header */
+.promo{background:var(--secondary-container);color:var(--on-secondary-container);font-size:14px;font-weight:500}
+.promo .wrap{display:flex;align-items:center;justify-content:center;gap:10px;padding:8px 20px}
+.promo a{text-decoration:underline;font-weight:600}
+header{position:sticky;top:0;z-index:50;background:rgba(255,255,255,.85);backdrop-filter:blur(12px);border-bottom:1px solid var(--outline)}
+header .wrap{display:flex;align-items:center;gap:16px;height:68px}
+.logo{display:flex;align-items:center;gap:10px}
+.logo .logo-full{height:38px;width:auto;display:block}
+nav.main{display:flex;gap:4px;margin-left:8px}
+nav.main a{padding:8px 12px;border-radius:var(--radius-pill);font-size:15px;color:var(--text-muted);font-weight:500;white-space:nowrap}
+nav.main a:hover{background:var(--surface-2);color:var(--text)}
+nav.main a.active{color:var(--primary);font-weight:600}
+.spacer{flex:1}
+.btn{border:none;cursor:pointer;font:inherit;font-weight:600;border-radius:var(--radius-pill);padding:10px 20px;font-size:14px;transition:.15s;display:inline-flex;align-items:center;gap:6px}
+.btn-filled{background:var(--accent);color:#fff}
+.btn-outline{background:none;border:1px solid var(--outline);color:var(--text)}
+.btn-outline:hover{background:var(--surface-2)}
+.icon-btn{display:none;background:none;border:none;cursor:pointer;color:var(--text)}
+.lang{display:inline-flex;background:var(--surface-2);border-radius:var(--radius-pill);padding:3px;flex-shrink:0}
+.lang button{border:none;background:none;cursor:pointer;font:inherit;font-size:13px;font-weight:700;color:var(--text-muted);padding:5px 12px;border-radius:var(--radius-pill)}
+.lang button.on{background:var(--surface);color:var(--primary);box-shadow:var(--shadow)}
+
+section{padding:40px 0}
+.sec-head{display:flex;align-items:flex-end;justify-content:space-between;margin-bottom:20px;gap:16px;flex-wrap:wrap}
+.sec-head h2{font-size:22px;font-weight:700;letter-spacing:-.3px}
+.sec-head .view-all{font-size:14px;font-weight:600;color:var(--primary);white-space:nowrap;display:inline-flex;align-items:center;gap:4px}
+
+/* category pill */
+.cat{display:inline-flex;font-size:11.5px;font-weight:700;padding:3px 10px;border-radius:var(--radius-pill)}
+.cat.math{background:var(--subj-math-bg);color:var(--subj-math-fg)}
+.cat.sci{background:var(--subj-sci-bg);color:var(--subj-sci-fg)}
+.cat.eng{background:var(--subj-eng-bg);color:var(--subj-eng-fg)}
+.cat.thai{background:var(--subj-thai-bg);color:var(--subj-thai-fg)}
+.cat.exam{background:var(--secondary-container);color:var(--on-secondary-container)}
+
+/* article card */
+.art-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:20px}
+.acard{background:var(--surface);border:1px solid var(--outline);border-radius:var(--radius);overflow:hidden;cursor:pointer;transition:.18s;display:flex;flex-direction:column}
+.acard:hover{transform:translateY(-3px);box-shadow:var(--shadow)}
+.acard .thumb{aspect-ratio:16/9;position:relative;display:grid;place-items:center;font-size:30px}
+.acard .thumb.math{background:var(--subj-math-bg);color:var(--subj-math-fg)}
+.acard .thumb.sci{background:var(--subj-sci-bg);color:var(--subj-sci-fg)}
+.acard .thumb.eng{background:var(--subj-eng-bg);color:var(--subj-eng-fg)}
+.acard .thumb.thai{background:var(--subj-thai-bg);color:var(--subj-thai-fg)}
+.acard .thumb img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+.acard .body{padding:15px 16px 16px;display:flex;flex-direction:column;gap:8px;flex:1}
+.acard h3{font-size:16px;font-weight:600;line-height:1.45}
+.acard p{font-size:13px;color:var(--text-muted);line-height:1.6;flex:1}
+.acard .meta{font-size:12px;color:var(--text-faint);display:flex;align-items:center;gap:8px;margin-top:auto}
+
+/* hero (featured + popular list) */
+.a-hero{background:var(--surface);border-bottom:1px solid var(--outline)}
+.a-hero .wrap{display:grid;grid-template-columns:1.4fr 1fr;gap:28px;padding:44px 20px;align-items:start}
+.feature{border-radius:var(--radius-lg);overflow:hidden;border:1px solid var(--outline);cursor:pointer;transition:.18s}
+.feature:hover{box-shadow:var(--shadow)}
+.feature .thumb{aspect-ratio:16/8;background:var(--subj-thai-bg);position:relative;display:grid;place-items:center}
+.feature .thumb img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+.feature .body{padding:20px 22px}
+.feature h2{font-size:23px;font-weight:700;line-height:1.35;margin:8px 0}
+.feature p{font-size:14px;color:var(--text-muted)}
+.poplist h3{font-size:15px;font-weight:700;margin-bottom:8px;display:flex;align-items:center;gap:7px}
+.pop{display:flex;gap:12px;padding:12px 0;border-bottom:1px solid var(--outline);cursor:pointer}
+.pop:last-child{border-bottom:none}
+.pop .rank{font-size:20px;font-weight:700;color:var(--primary);min-width:24px}
+.pop .pt{font-size:14px;font-weight:600;line-height:1.4}
+.pop .pm{font-size:12px;color:var(--text-faint);margin-top:2px}
+
+/* clip banner */
+.clip-band{background:linear-gradient(120deg,var(--secondary),#2a3568);border-radius:var(--radius-lg);padding:32px 36px;color:#fff;display:flex;align-items:center;justify-content:space-between;gap:20px;flex-wrap:wrap}
+.clip-band h2{font-size:22px;font-weight:700}
+.clip-band p{font-size:14px;opacity:.9;margin-top:4px}
+.clip-band .btn-white{background:#fff;color:var(--secondary);font-weight:700}
+
+/* latest list */
+.latest{display:flex;flex-direction:column;gap:14px;max-width:820px}
+.lrow{display:flex;gap:16px;background:var(--surface);border:1px solid var(--outline);border-radius:var(--radius);overflow:hidden;cursor:pointer;transition:.15s}
+.lrow:hover{box-shadow:var(--shadow)}
+.lrow .lt{width:160px;flex-shrink:0;aspect-ratio:16/10;display:grid;place-items:center;font-size:26px}
+.lrow .lt.math{background:var(--subj-math-bg);color:var(--subj-math-fg)}
+.lrow .lt.sci{background:var(--subj-sci-bg);color:var(--subj-sci-fg)}
+.lrow .lt.eng{background:var(--subj-eng-bg);color:var(--subj-eng-fg)}
+.lrow .lt.thai{background:var(--subj-thai-bg);color:var(--subj-thai-fg)}
+.lrow .lb{padding:14px 16px;display:flex;flex-direction:column;gap:6px}
+.lrow h3{font-size:16px;font-weight:600;line-height:1.4}
+.lrow p{font-size:13px;color:var(--text-muted);line-height:1.55}
+.lrow .meta{font-size:12px;color:var(--text-faint);margin-top:auto}
+.pager{display:flex;justify-content:center;gap:8px;margin-top:30px}
+.pager a{width:38px;height:38px;border-radius:10px;border:1px solid var(--outline);display:grid;place-items:center;font-size:14px;font-weight:600;color:var(--text-muted)}
+.pager a.on{background:var(--primary);color:#fff;border-color:transparent}
+.pager a:hover:not(.on){background:var(--surface-2)}
+
+/* app + footer (reuse) */
+.app{background:var(--surface);border-top:1px solid var(--outline);padding:52px 0}
+.app .wrap{display:grid;grid-template-columns:1.1fr 1fr;gap:40px;align-items:center}
+.app .phones{display:flex;justify-content:center;align-items:flex-end}
+.app .ph{background:#1b1b21;border-radius:30px;padding:7px;box-shadow:var(--shadow)}
+.app .ph img{display:block;width:170px;height:360px;object-fit:cover;border-radius:24px;background:#000}
+.app .ph.back{transform:scale(.9);margin-left:-46px}
+.app .atxt .alogo{position:relative;width:54px;height:54px;border-radius:15px;background:linear-gradient(135deg,var(--primary),var(--secondary));display:grid;place-items:center;color:#fff;font-weight:700;font-size:22px;margin-bottom:16px;overflow:hidden}
+.app .atxt .alogo img{position:absolute;inset:0;width:100%;height:100%;object-fit:contain}
+.app .atxt h2{font-size:26px;font-weight:700}
+.app .atxt p{font-size:15px;color:var(--text-muted);margin:8px 0 22px;max-width:340px}
+.app .dl{background:var(--primary);color:#fff;border:none;cursor:pointer;font:inherit;font-weight:700;font-size:15px;border-radius:var(--radius-pill);padding:14px 28px;display:inline-flex;align-items:center;gap:8px}
+footer{background:#15151b;color:#b8b8c4;padding:44px 0 28px;font-size:14px}
+footer .cols{display:grid;grid-template-columns:1.5fr 1fr 1fr 1fr;gap:32px;margin-bottom:30px}
+footer h5{color:#fff;font-size:14px;font-weight:600;margin-bottom:12px}
+footer a{display:block;color:#b8b8c4;padding:4px 0}
+footer a:hover{color:#fff}
+footer .brand .logo{color:#fff;margin-bottom:10px;font-weight:700;font-size:18px;display:flex;align-items:center;gap:10px}
+footer .brand .logo .mark{position:relative;width:34px;height:34px;border-radius:10px;background:linear-gradient(135deg,var(--primary),var(--accent));display:grid;place-items:center;color:#fff;overflow:hidden}
+footer .brand .logo .mark img{position:absolute;inset:0;width:100%;height:100%;object-fit:contain}
+footer .brand p{font-size:13px;max-width:240px}
+footer .copy{border-top:1px solid #2a2a33;padding-top:18px;font-size:12.5px;color:#7a7a88;text-align:center}
+.proto-note{background:#1b1b21;color:#cfcfe0;font-size:13px;text-align:center;padding:14px 20px}
+.proto-note code{background:rgba(255,255,255,.1);padding:2px 6px;border-radius:5px}
+
+@media(max-width:980px){.art-grid{grid-template-columns:repeat(2,1fr)}.a-hero .wrap{grid-template-columns:1fr}}
+@media(max-width:760px){nav.main{display:none}.icon-btn{display:inline-flex}.art-grid{grid-template-columns:1fr}
+  .lrow .lt{width:110px}.app .wrap{grid-template-columns:1fr;text-align:center}.app .phones{order:-1}.app .atxt{display:flex;flex-direction:column;align-items:center}footer .cols{grid-template-columns:1fr 1fr}}
+@media(max-width:1040px){nav.main,.search{display:none}.icon-btn{display:inline-flex}}
+</style>
+</head>
+<body>
+
+<div class="promo"><div class="wrap"><span class="mi s20">auto_awesome</span><span>สมัครสมาชิกฟรี ดูไลฟ์สอนสดได้ทุกวัน</span><a href="#">สมัครเลย</a></div></div>
+
+<header><div class="wrap">
+  <button class="icon-btn" aria-label="เมนู"><span class="mi s28">menu</span></button>
+  <a class="logo" href="landing-page.html"><img class="logo-full" src="../assets/Full-Icon.png" alt="NockAcademy"></a>
+  <nav class="main">
+    <a href="landing-page.html">หน้าแรก</a><a href="grade.html">ชั้นเรียน</a><a href="clip-page.html">คลิป</a><a href="courses.html">คอร์สเรียน</a><a href="articles.html" class="active">บทความ</a><a href="faq.html">คำถามที่พบบ่อย</a>
+  </nav>
+  <div class="spacer"></div>
+  <div class="lang"><button class="on" onclick="setLang('th',this)">TH</button><button onclick="setLang('en',this)">EN</button></div>
+  <button class="btn btn-outline">เข้าสู่ระบบ</button>
+  <button class="btn btn-filled">สมัครฟรี</button>
+</div></header>
+
+<!-- HERO: featured + popular -->
+<div class="a-hero"><div class="wrap">
+  <a class="feature">
+    <div class="thumb thai"><img src="https://picsum.photos/seed/art-feat/800/400" alt="" onerror="this.remove()"></div>
+    <div class="body">
+      <span class="cat thai">ภาษาไทย</span>
+      <h2>ความเป็นมาของบทละครเรื่องรามเกียรติ์ ตอน นารายณ์ปราบนนทก</h2>
+      <p>เจาะลึกที่มา ตัวละคร และคุณค่าของวรรณคดีไทยเรื่องสำคัญ พร้อมสรุปประเด็นที่ออกสอบบ่อย เข้าใจง่ายในบทความเดียว</p>
+    </div>
+  </a>
+  <div class="poplist">
+    <h3><span class="mi s20" style="color:var(--primary)">trending_up</span> ยอดนิยม</h3>
+    <div class="pop"><div class="rank">1</div><div><div class="pt">เทคนิคการหาค่าเฉลี่ยและจำนวนคละ</div><div class="pm">คณิตศาสตร์ · 5 นาที</div></div></div>
+    <div class="pop"><div class="rank">2</div><div><div class="pt">การใช้ Passive Modals · be + V.3</div><div class="pm">ภาษาอังกฤษ · 6 นาที</div></div></div>
+    <div class="pop"><div class="rank">3</div><div><div class="pt">วิธีใช้คำราชาศัพท์ให้ถูกต้อง</div><div class="pm">ภาษาไทย · 4 นาที</div></div></div>
+    <div class="pop"><div class="rank">4</div><div><div class="pt">เตรียมสอบเข้า ม.1 โรงเรียนชั้นนำ</div><div class="pm">เตรียมสอบ · 8 นาที</div></div></div>
+    <div class="pop"><div class="rank">5</div><div><div class="pt">ความน่าจะเป็นของเหตุการณ์</div><div class="pm">คณิตศาสตร์ · 7 นาที</div></div></div>
+  </div>
+</div></div>
+
+<!-- หมวด: เตรียมสอบ -->
+<section><div class="wrap">
+  <div class="sec-head"><h2>บทความเตรียมสอบแนะนำ</h2><a class="view-all" href="#">ดูทั้งหมด <span class="mi s16">arrow_forward</span></a></div>
+  <div class="art-grid">
+    <a class="acard"><div class="thumb exam" style="background:var(--secondary-container);color:var(--on-secondary-container)"><img class="" src="https://picsum.photos/seed/art-e1/400/225" alt="" onerror="this.remove()"><span class="mi s28">school</span></div><div class="body"><span class="cat exam">เตรียมสอบ</span><h3>เตรียมสอบเข้า ม.1 โรงเรียนสาธิตจุฬาฯ</h3><p>แนวข้อสอบและเทคนิคทำคะแนนให้ทันเวลา</p><div class="meta"><span class="mi s16">schedule</span> 8 นาที</div></div></a>
+    <a class="acard"><div class="thumb exam" style="background:var(--secondary-container);color:var(--on-secondary-container)"><img src="https://picsum.photos/seed/art-e2/400/225" alt="" onerror="this.remove()"><span class="mi s28">school</span></div><div class="body"><span class="cat exam">เตรียมสอบ</span><h3>เตรียมสอบเข้า ม.1 โรงเรียนสตรีวิทยา</h3><p>สรุปเนื้อหาที่ออกบ่อยทุกวิชา</p><div class="meta"><span class="mi s16">schedule</span> 7 นาที</div></div></a>
+    <a class="acard"><div class="thumb exam" style="background:var(--secondary-container);color:var(--on-secondary-container)"><img src="https://picsum.photos/seed/art-e3/400/225" alt="" onerror="this.remove()"><span class="mi s28">school</span></div><div class="body"><span class="cat exam">เตรียมสอบ</span><h3>เรียนสอบเข้า ม.1 วลีเสนาวิทยา</h3><p>วางแผนอ่านหนังสือก่อนสอบ 30 วัน</p><div class="meta"><span class="mi s16">schedule</span> 6 นาที</div></div></a>
+  </div>
+</div></section>
+
+<!-- หมวด: คณิตศาสตร์ -->
+<section style="padding-top:0"><div class="wrap">
+  <div class="sec-head"><h2>บทความคณิตศาสตร์แนะนำ</h2><a class="view-all" href="#">ดูทั้งหมด <span class="mi s16">arrow_forward</span></a></div>
+  <div class="art-grid">
+    <a class="acard"><div class="thumb math"><img src="https://picsum.photos/seed/art-m1/400/225" alt="" onerror="this.remove()"><span class="mi s28">functions</span></div><div class="body"><span class="cat math">คณิตศาสตร์</span><h3>การตั้งคำถามทางสถิติ</h3><p>เข้าใจหลักการตั้งคำถามและเก็บข้อมูล</p><div class="meta"><span class="mi s16">schedule</span> 5 นาที</div></div></a>
+    <a class="acard"><div class="thumb math"><img src="https://picsum.photos/seed/art-m2/400/225" alt="" onerror="this.remove()"><span class="mi s28">functions</span></div><div class="body"><span class="cat math">คณิตศาสตร์</span><h3>ตัวกลางทางสถิติ มีอะไรบ้าง</h3><p>ค่าเฉลี่ย มัธยฐาน ฐานนิยม ต่างกันยังไง</p><div class="meta"><span class="mi s16">schedule</span> 6 นาที</div></div></a>
+    <a class="acard"><div class="thumb math"><img src="https://picsum.photos/seed/art-m3/400/225" alt="" onerror="this.remove()"><span class="mi s28">functions</span></div><div class="body"><span class="cat math">คณิตศาสตร์</span><h3>ความน่าจะเป็นของเหตุการณ์</h3><p>พื้นฐานความน่าจะเป็นที่ออกสอบบ่อย</p><div class="meta"><span class="mi s16">schedule</span> 7 นาที</div></div></a>
+  </div>
+</div></section>
+
+<!-- หมวด: อังกฤษ -->
+<section style="padding-top:0"><div class="wrap">
+  <div class="sec-head"><h2>บทความภาษาอังกฤษแนะนำ</h2><a class="view-all" href="#">ดูทั้งหมด <span class="mi s16">arrow_forward</span></a></div>
+  <div class="art-grid">
+    <a class="acard"><div class="thumb eng"><img src="https://picsum.photos/seed/art-en1/400/225" alt="" onerror="this.remove()"><span class="mi s28">translate</span></div><div class="body"><span class="cat eng">ภาษาอังกฤษ</span><h3>Passive Modals · be + V.3</h3><p>เรียนรู้โครงสร้างประโยคแบบ Passive</p><div class="meta"><span class="mi s16">schedule</span> 6 นาที</div></div></a>
+    <a class="acard"><div class="thumb eng"><img src="https://picsum.photos/seed/art-en2/400/225" alt="" onerror="this.remove()"><span class="mi s28">translate</span></div><div class="body"><span class="cat eng">ภาษาอังกฤษ</span><h3>การใช้ Adverb of Frequency</h3><p>คำบอกความถี่ที่ใช้บ่อยในชีวิตประจำวัน</p><div class="meta"><span class="mi s16">schedule</span> 5 นาที</div></div></a>
+    <a class="acard"><div class="thumb eng"><img src="https://picsum.photos/seed/art-en3/400/225" alt="" onerror="this.remove()"><span class="mi s28">translate</span></div><div class="body"><span class="cat eng">ภาษาอังกฤษ</span><h3>ประโยคคำสั่งในชีวิตประจำวัน</h3><p>Imperative sentences ที่ใช้ได้จริง</p><div class="meta"><span class="mi s16">schedule</span> 5 นาที</div></div></a>
+  </div>
+</div></section>
+
+<!-- หมวด: ไทย -->
+<section style="padding-top:0"><div class="wrap">
+  <div class="sec-head"><h2>บทความภาษาไทยแนะนำ</h2><a class="view-all" href="#">ดูทั้งหมด <span class="mi s16">arrow_forward</span></a></div>
+  <div class="art-grid">
+    <a class="acard" href="article-detail.html"><div class="thumb thai"><img src="https://picsum.photos/seed/art-t1/400/225" alt="" onerror="this.remove()"><span class="mi s28">menu_book</span></div><div class="body"><span class="cat thai">ภาษาไทย</span><h3>วิธีใช้คำราชาศัพท์ให้ถูกต้อง</h3><p>หลักการใช้คำราชาศัพท์ในระดับต่างๆ</p><div class="meta"><span class="mi s16">schedule</span> 4 นาที</div></div></a>
+    <a class="acard" href="article-detail.html"><div class="thumb thai"><img src="https://picsum.photos/seed/art-t2/400/225" alt="" onerror="this.remove()"><span class="mi s28">menu_book</span></div><div class="body"><span class="cat thai">ภาษาไทย</span><h3>ลิลิตตะเลงพ่าย วรรณคดีที่ควรรู้</h3><p>สรุปเนื้อเรื่องและคุณค่าทางวรรณศิลป์</p><div class="meta"><span class="mi s16">schedule</span> 6 นาที</div></div></a>
+    <a class="acard" href="article-detail.html"><div class="thumb thai"><img src="https://picsum.photos/seed/art-t3/400/225" alt="" onerror="this.remove()"><span class="mi s28">menu_book</span></div><div class="body"><span class="cat thai">ภาษาไทย</span><h3>หลักการใช้คำราชาศัพท์ รู้ไว้ไม่ผิด</h3><p>ตัวอย่างการใช้จริงในบทเรียน</p><div class="meta"><span class="mi s16">schedule</span> 5 นาที</div></div></a>
+  </div>
+</div></section>
+
+<!-- clip banner -->
+<section style="padding-top:0"><div class="wrap">
+  <div class="clip-band">
+    <div><h2>ดูคลิปบทเรียนสั้นๆ แค่ 10 นาที ก็เข้าใจได้</h2><p>เรียนครบทุกวิชา ป.4 – ม.6 ทดลองเรียนฟรี</p></div>
+    <a href="clip-page.html" class="btn btn-white">ดูคลิป</a>
+  </div>
+</div></section>
+
+<!-- ล่าสุด -->
+<section style="padding-top:0"><div class="wrap">
+  <div class="sec-head"><h2>ล่าสุด</h2></div>
+  <div class="latest">
+    <a class="lrow" href="article-detail.html"><div class="lt thai"><span class="mi s28">menu_book</span></div><div class="lb"><span class="cat thai">ภาษาไทย</span><h3>ความเป็นมาของบทละครเรื่องรามเกียรติ์ ตอน นารายณ์ปราบนนทก</h3><p>เจาะลึกที่มา ตัวละคร และคุณค่าของวรรณคดีไทยเรื่องสำคัญ พร้อมสรุปประเด็นที่ออกสอบบ่อย</p><div class="meta">22 มิ.ย. 2026 · 6 นาที</div></div></a>
+    <a class="lrow"><div class="lt eng"><span class="mi s28">translate</span></div><div class="lb"><span class="cat eng">ภาษาอังกฤษ</span><h3>การใช้ Present Simple Tense อย่างเข้าใจ</h3><p>โครงสร้างและตัวอย่างประโยคที่ใช้บ่อยในชีวิตประจำวัน เหมาะสำหรับ ป.5–ม.1</p><div class="meta">20 มิ.ย. 2026 · 5 นาที</div></div></a>
+    <a class="lrow"><div class="lt math"><span class="mi s28">functions</span></div><div class="lb"><span class="cat math">คณิตศาสตร์</span><h3>การพูดและการเขียนทศนิยม</h3><p>เข้าใจค่าประจำหลักของทศนิยม พร้อมแบบฝึกหัดทบทวน</p><div class="meta">18 มิ.ย. 2026 · 6 นาที</div></div></a>
+    <a class="lrow"><div class="lt sci"><span class="mi s28">science</span></div><div class="lb"><span class="cat sci">วิทยาศาสตร์</span><h3>ระบบสุริยะและปรากฏการณ์ทางดาราศาสตร์</h3><p>รู้จักดาวเคราะห์ในระบบสุริยะ และปรากฏการณ์ที่พบได้บ่อย</p><div class="meta">15 มิ.ย. 2026 · 7 นาที</div></div></a>
+  </div>
+  <div class="pager"><a class="on">1</a><a>2</a><a>3</a><a>…</a><a>38</a><a><span class="mi s20">chevron_right</span></a></div>
+</div></section>
+
+<!-- APP -->
+<section class="app"><div class="wrap">
+  <div class="phones">
+    <div class="ph front"><img src="https://picsum.photos/seed/nock-app1/340/720" alt="แอป NockAcademy"></div>
+    <div class="ph back"><img src="https://picsum.photos/seed/nock-app2/340/720" alt="แอป NockAcademy"></div>
+  </div>
+  <div class="atxt">
+    <div class="alogo">N<img src="../assets/Logo-Icon.png" alt="NockAcademy" onerror="this.remove()"></div>
+    <h2>NockAcademy</h2>
+    <p>ยังมีฟีเจอร์อีกมากมายในแอปของเรา เรียน ทำแบบฝึกหัด และติดตามผลได้ทุกที่</p>
+    <button class="dl"><span class="mi s20">download</span> ดาวน์โหลดฟรี</button>
+  </div>
+</div></section>
+
+<footer><div class="wrap">
+  <div class="cols">
+    <div class="brand">
+      <div class="logo"><span class="mark">N<img src="../assets/Logo-Icon.png" alt="NockAcademy" onerror="this.remove()"></span> NockAcademy</div>
+      <p>แพลตฟอร์มเรียนพิเศษออนไลน์ สำหรับนักเรียน ป.4 – ม.6</p>
+    </div>
+    <div><h5>เกี่ยวกับ</h5><a href="#">เกี่ยวกับเรา</a><a href="#">ติดต่อเรา</a><a href="#">ร่วมงานกับเรา</a></div>
+    <div><h5>บริการ</h5><a href="clip-page.html">คลิปเรียน</a><a href="courses.html">คอร์สเรียน</a><a href="articles.html">บทความ</a></div>
+    <div><h5>นโยบาย</h5><a href="#">เงื่อนไขการใช้งาน</a><a href="#">นโยบายความเป็นส่วนตัว</a><a href="faq.html">คำถามที่พบบ่อย</a></div>
+  </div>
+  <div class="copy">© 2026 NockAcademy. All rights reserved.</div>
+</div></footer>
+
+<div class="proto-note">Prototype v1 — บทความ (List) · ใช้ component ร่วมกับ <code>landing-page.html</code></div>
+
+<script>
+function setLang(l,btn){btn.parentNode.querySelectorAll('button').forEach(function(b){b.classList.remove('on');});btn.classList.add('on');document.documentElement.lang=l;document.querySelectorAll('[data-'+l+']').forEach(function(e){var t=e.getAttribute('data-'+l);if(e.tagName==='INPUT')e.setAttribute('placeholder',t);else if(/[<&]/.test(t))e.innerHTML=t;else e.textContent=t;});}
+</script>
+<script>
+/* ===== เชื่อม Learn app ใหม่ แทนหน้า Clip (Learn เก่า) — แก้ APP ตอน deploy (dev=localhost:5199) ===== */
+(function(){
+  var APP='http://localhost:5199/#';
+  var subj=['math','english','thai','science'];
+  document.querySelectorAll('a[href="clip-page.html"]').forEach(function(a){ a.href=APP+'/'; });
+  document.querySelectorAll('[data-href="clip-page.html"]').forEach(function(b){ b.setAttribute('data-href',APP+'/'); });
+  document.querySelectorAll('.vc-cat').forEach(function(d,i){ d.setAttribute('onclick',"location.href='"+APP+'/learn/'+(subj[i]||'math')+"'"); });
+  var btn={ 'เข้าสู่ระบบ':APP+'/auth','สมัครฟรี':APP+'/auth','เริ่มเรียนฟรี':APP+'/auth','ดูตัวอย่างคลิป':APP+'/' };
+  document.querySelectorAll('button[data-th]').forEach(function(b){ var u=btn[b.getAttribute('data-th')]; if(u) b.addEventListener('click',function(){ location.href=u; }); });
+})();
+</script>
+</body>
+</html>

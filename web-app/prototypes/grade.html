@@ -1,0 +1,429 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>NockAcademy — ชั้นเรียน (Grade Page · Prototype v1)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet">
+<style>
+:root{
+  --primary:#ff5a5e; --primary-hover:#e84d51; --on-primary:#fff;
+  --secondary:#121c44;
+  --secondary-container:#ffe7e8; --on-secondary-container:#b3262a;
+  --accent:#121c44;
+  --surface:#ffffff; --surface-1:#fffcfc; --surface-2:#f5eff0;
+  --outline:#efe5e6; --text:#121c44; --text-muted:#5a5f72; --text-faint:#9095a5;
+  --subj-math-bg:#fde7ee; --subj-math-fg:#b03060;
+  --subj-sci-bg:#d8f5ec;  --subj-sci-fg:#0f6e56;
+  --subj-eng-bg:#e8e6fb;  --subj-eng-fg:#4b3fb0;
+  --subj-thai-bg:#fbe9f1; --subj-thai-fg:#993556;
+  --lesson:#3538cd;
+  --radius-sm:10px; --radius:16px; --radius-lg:22px; --radius-pill:999px;
+  --shadow:0 1px 2px rgba(20,20,40,.04),0 4px 16px rgba(20,20,40,.05);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'IBM Plex Sans Thai',system-ui,sans-serif;background:var(--surface-1);color:var(--text);line-height:1.6;-webkit-font-smoothing:antialiased}
+a{color:inherit;text-decoration:none}
+.mi{font-family:'Material Symbols Outlined';font-weight:normal;font-style:normal;line-height:1;vertical-align:-4px;font-feature-settings:'liga';font-size:18px}
+.mi.s16{font-size:16px;vertical-align:-3px} .mi.s20{font-size:20px;vertical-align:-5px} .mi.s28{font-size:28px}
+.wrap{max-width:1200px;margin:0 auto;padding:0 20px}
+
+/* header */
+.promo{background:var(--secondary-container);color:var(--on-secondary-container);font-size:14px;font-weight:500}
+.promo .wrap{display:flex;align-items:center;justify-content:center;gap:10px;padding:8px 20px}
+.promo a{text-decoration:underline;font-weight:600}
+header{position:sticky;top:0;z-index:50;background:rgba(255,255,255,.85);backdrop-filter:blur(12px);border-bottom:1px solid var(--outline)}
+header .wrap{display:flex;align-items:center;gap:16px;height:68px}
+.logo{display:flex;align-items:center;gap:10px}
+.logo .logo-full{height:38px;width:auto;display:block}
+nav.main{display:flex;gap:4px;margin-left:8px}
+nav.main a{padding:8px 12px;border-radius:var(--radius-pill);font-size:15px;color:var(--text-muted);font-weight:500;white-space:nowrap}
+nav.main a:hover{background:var(--surface-2);color:var(--text)}
+nav.main a.active{color:var(--primary);font-weight:600}
+.spacer{flex:1}
+.btn{border:none;cursor:pointer;font:inherit;font-weight:600;border-radius:var(--radius-pill);padding:10px 20px;font-size:14px;transition:.15s;display:inline-flex;align-items:center;gap:6px}
+.btn-filled{background:var(--accent);color:#fff}
+.btn-outline{background:none;border:1px solid var(--outline);color:var(--text)}
+.btn-outline:hover{background:var(--surface-2)}
+.icon-btn{display:none;background:none;border:none;cursor:pointer;color:var(--text)}
+.lang{display:inline-flex;background:var(--surface-2);border-radius:var(--radius-pill);padding:3px;flex-shrink:0}
+.lang button{border:none;background:none;cursor:pointer;font:inherit;font-size:13px;font-weight:700;color:var(--text-muted);padding:5px 12px;border-radius:var(--radius-pill)}
+.lang button.on{background:var(--surface);color:var(--primary);box-shadow:var(--shadow)}
+
+section{padding:46px 0}
+.sec-head{text-align:center;margin-bottom:28px}
+.sec-head .eyebrow{font-size:13px;font-weight:700;color:var(--primary);letter-spacing:.4px}
+.sec-head h2{font-size:25px;font-weight:700;letter-spacing:-.4px;margin-top:6px}
+.sec-head p{font-size:14px;color:var(--text-muted);margin-top:4px}
+.view-all{font-size:14px;font-weight:600;color:var(--primary);display:inline-flex;align-items:center;gap:4px}
+
+/* HERO (dark) + grade selector */
+.ghero{background:linear-gradient(120deg,#121c44,#1f2c50 60%,#33305f);color:#fff;position:relative;overflow:hidden}
+.ghero .wrap{padding:30px 20px 48px}
+.grade-tabs{display:flex;gap:8px;flex-wrap:wrap;justify-content:center;margin-bottom:30px}
+.grade-tabs button{border:1px solid rgba(255,255,255,.25);background:rgba(255,255,255,.08);color:#fff;cursor:pointer;font:inherit;font-size:14px;font-weight:600;padding:8px 18px;border-radius:var(--radius-pill);transition:.15s}
+.grade-tabs button:hover{background:rgba(255,255,255,.16)}
+.grade-tabs button.on{background:#fff;color:var(--secondary)}
+.ghero .row{display:grid;grid-template-columns:1fr 1.05fr;gap:44px;align-items:center}
+.ghero .hvideo{border-radius:var(--radius-lg);overflow:hidden;box-shadow:0 18px 40px rgba(0,0,0,.35);background:#000;border:1px solid rgba(255,255,255,.1)}
+.ghero .hvideo video{display:block;width:100%;aspect-ratio:16/10;object-fit:cover}
+.ghero h1{font-size:38px;font-weight:700;letter-spacing:-.6px;line-height:1.2}
+.ghero h1 .hl{color:#ff8d90}
+.ghero .lead{font-size:15px;opacity:.9;margin:14px 0 24px;max-width:440px}
+.ghero .gcta{display:flex;gap:12px;flex-wrap:wrap}
+.ghero .btn-primary{background:var(--primary);color:#fff;font-size:15px;padding:13px 28px}
+.ghero .btn-glass{background:rgba(255,255,255,.14);color:#fff;font-size:15px;padding:13px 24px}
+.ghero .checks{list-style:none;display:flex;flex-direction:column;gap:12px}
+.ghero .checks li{display:flex;gap:10px;font-size:15px}
+.ghero .checks .ck{flex:none;width:24px;height:24px;border-radius:50%;background:rgba(255,255,255,.18);color:#fff;display:grid;place-items:center}
+
+/* 2 panels side-by-side */
+.pz{background:var(--surface);border-bottom:1px solid var(--outline)}
+.pz-grid{display:grid;grid-template-columns:1fr 1fr;gap:24px;align-items:stretch}
+.pz-panel{background:var(--surface-1);border:1px solid var(--outline);border-radius:var(--radius-lg);padding:32px;display:flex;flex-direction:column;justify-content:center}
+.pz-tag{display:inline-flex;align-items:center;gap:6px;align-self:flex-start;font-size:12px;font-weight:700;color:var(--on-secondary-container);background:var(--secondary-container);padding:5px 12px;border-radius:var(--radius-pill);margin-bottom:14px;letter-spacing:.2px}
+.pz .btn-primary{background:var(--primary);color:#fff}
+.pz .btn-primary:hover{background:var(--primary-hover)}
+.pz-panel h2{font-size:23px;font-weight:700;letter-spacing:-.4px;line-height:1.3}
+.pz-panel p{font-size:14px;color:var(--text-muted);margin:10px 0 18px}
+.pz .bar{height:14px;background:var(--surface-2);border-radius:var(--radius-pill);overflow:hidden;margin-bottom:8px}
+.pz .bar>span{display:block;height:100%;width:0;background:linear-gradient(90deg,var(--primary),#ff8d90);border-radius:var(--radius-pill);transition:width 1.4s ease}
+.pz .barlbl{font-size:13px;color:var(--text-faint);text-align:right}
+.pz-illus{margin-top:8px;border-radius:var(--radius);background:var(--secondary-container);padding:28px 20px;display:flex;flex-direction:column;align-items:center;gap:10px;color:var(--primary);text-align:center}
+.pz-illus-cap{font-size:14px;color:var(--on-secondary-container);font-weight:500}
+.pz-illus-cap b{font-weight:700}
+.scorebar{position:relative;overflow:hidden;background:#1f7a47;border-radius:var(--radius-pill);padding:14px 22px;display:flex;justify-content:space-between;align-items:center;font-weight:700;font-size:15px;color:#fff;margin-top:6px}
+.scorebar .fill{position:absolute;left:0;top:0;bottom:0;width:0;background:#22a45d;transition:width 1.4s ease}
+.scorebar .lbl,.scorebar .val{position:relative;z-index:1}
+/* personalize goal panel */
+.pz-goal{background:linear-gradient(135deg,#121c44,#33305f);border-color:transparent;color:#fff}
+.pz-goal h2{color:#fff}
+.pz-goal p{color:rgba(255,255,255,.85)}
+.pz-goal .pz-tag{background:rgba(255,255,255,.16);color:#fff}
+.pz-goal .pg-icon{width:60px;height:60px;border-radius:18px;background:rgba(255,255,255,.16);display:grid;place-items:center;margin-bottom:16px;color:#fff}
+.pz-goal .btn-primary{background:#fff;color:var(--primary)}
+.pz-goal .btn-primary:hover{background:#fff;filter:brightness(.95)}
+.pz-goal .pg-free{font-size:12.5px;opacity:.85;margin-top:12px;display:inline-flex;align-items:center;gap:5px}
+/* quiz demo */
+.quiz .qnum{width:28px;height:28px;border-radius:50%;background:var(--lesson);color:#fff;display:grid;place-items:center;font-weight:700;font-size:14px;margin-bottom:14px}
+.quiz .qq{font-size:18px;font-weight:700;line-height:1.4;margin-bottom:18px}
+.quiz .qopts{list-style:none;display:flex;flex-direction:column;gap:8px}
+.quiz .qopts li{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:11px 14px;border:1px solid var(--outline);border-radius:10px;font-size:14px;background:var(--surface)}
+.quiz .qopts li .pct{font-size:12px;color:var(--text-faint);font-weight:600}
+.quiz .qopts li.correct{background:#e7f7ee;border-color:#1d9e75;color:#0f6e56;font-weight:600}
+.quiz .qopts li.correct .pct{color:#0f6e56}
+.quiz .qopts li.correct .ck{color:#1d9e75}
+
+/* testimonial wall */
+.tst-cols{display:flex;justify-content:center;gap:8px;max-height:520px;overflow:hidden;
+  -webkit-mask-image:linear-gradient(to bottom,transparent,#000 12%,#000 88%,transparent);mask-image:linear-gradient(to bottom,transparent,#000 12%,#000 88%,transparent)}
+.tst-col{flex:0 0 auto;width:320px}
+.tst-col ul{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px;animation:tstScroll linear infinite}
+.tst-col.c1 ul{animation-duration:34s} .tst-col.c2 ul{animation-duration:42s} .tst-col.c3 ul{animation-duration:38s}
+.tst-cols:hover ul{animation-play-state:paused}
+@keyframes tstScroll{from{transform:translateY(0)}to{transform:translateY(-50%)}}
+.tcard{background:var(--surface);border:1px solid var(--outline);border-radius:var(--radius-lg);padding:24px;display:flex;flex-direction:column;gap:14px;box-shadow:var(--shadow)}
+.tcard p{font-size:14px;color:var(--text-muted);line-height:1.7;margin:0}
+.tcard .who{display:flex;align-items:center;gap:11px}
+.tcard .av{width:40px;height:40px;border-radius:50%;display:grid;place-items:center;color:#fff;font-weight:700;font-size:14px;flex-shrink:0}
+.tcard .who .nm{font-size:14px;font-weight:600} .tcard .who .rl{font-size:12.5px;color:var(--text-faint)}
+@media(max-width:980px){.tst-col.c3{display:none}}
+@media(max-width:660px){.tst-col.c2{display:none}}
+
+/* clip row */
+.row-scroll{display:flex;gap:18px;overflow-x:auto;padding-bottom:6px}
+.vcard{background:var(--surface);border:1px solid var(--outline);border-top:3px solid var(--lesson);border-radius:var(--radius);overflow:hidden;cursor:pointer;transition:.18s;min-width:230px;max-width:230px}
+.vcard:hover{transform:translateY(-3px);box-shadow:var(--shadow)}
+.vcard .thumb{aspect-ratio:16/9;position:relative;display:grid;place-items:center;font-size:28px}
+.vcard .thumb.math{background:var(--subj-math-bg);color:var(--subj-math-fg)}
+.vcard .thumb.sci{background:var(--subj-sci-bg);color:var(--subj-sci-fg)}
+.vcard .thumb.eng{background:var(--subj-eng-bg);color:var(--subj-eng-fg)}
+.vcard .thumb.thai{background:var(--subj-thai-bg);color:var(--subj-thai-fg)}
+.vcard .thumb img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+.vcard .vt{position:absolute;top:8px;left:8px;background:var(--lesson);color:#fff;font-size:10.5px;font-weight:700;padding:3px 9px;border-radius:var(--radius-pill)}
+.vcard .body{padding:12px 14px}
+.vcard h4{font-size:14px;font-weight:600;line-height:1.4}
+.vcard .when{font-size:12px;color:var(--text-faint);margin-top:5px}
+
+/* features */
+.feat-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
+.fcard{background:var(--surface);border:1px solid var(--outline);border-radius:var(--radius);padding:20px;display:flex;gap:14px;align-items:flex-start}
+.fcard .fi{width:44px;height:44px;border-radius:13px;background:var(--secondary-container);color:var(--primary);display:grid;place-items:center;flex-shrink:0}
+.fcard h4{font-size:15px;font-weight:600;margin-bottom:2px}
+.fcard p{font-size:13px;color:var(--text-muted)}
+
+/* pricing */
+.pkg{background:var(--surface);border-top:1px solid var(--outline);border-bottom:1px solid var(--outline)}
+.price-main{display:grid;grid-template-columns:repeat(3,1fr);gap:18px;max-width:920px;margin:0 auto}
+.price{background:var(--surface-1);border:1px solid var(--outline);border-radius:var(--radius-lg);padding:24px;text-align:center;position:relative}
+.price.best{border:1.5px solid var(--primary)}
+.price .ribbon{position:absolute;top:-12px;left:50%;transform:translateX(-50%);background:var(--primary);color:#fff;font-size:12px;font-weight:700;padding:4px 14px;border-radius:var(--radius-pill)}
+.price .term{font-size:15px;color:var(--text-muted);font-weight:600}
+.price .amt{font-size:31px;font-weight:700;margin:6px 0 2px;letter-spacing:-.5px}
+.price .per{font-size:13px;color:var(--text-faint)}
+.price .feat{font-size:12.5px;color:var(--text-muted);margin:12px 0 0;border-top:1px solid var(--outline);padding-top:12px}
+.price .btn{width:100%;margin-top:16px;justify-content:center}
+.price .btn-soft{background:var(--secondary-container);color:var(--on-secondary-container)}
+
+/* steps */
+.steps{display:grid;grid-template-columns:repeat(3,1fr);gap:20px}
+.step{background:var(--surface);border:1px solid var(--outline);border-radius:var(--radius-lg);padding:24px;text-align:center}
+.step .sn{display:inline-block;font-size:12px;font-weight:700;color:var(--primary);background:var(--secondary-container);padding:3px 12px;border-radius:var(--radius-pill);margin-bottom:14px}
+.step .sph{width:120px;height:200px;margin:0 auto 16px;border-radius:18px;background:#1b1b21;padding:6px}
+.step .sph img{width:100%;height:100%;object-fit:cover;border-radius:13px}
+.step h4{font-size:16px;font-weight:600;margin-bottom:6px}
+.step p{font-size:13px;color:var(--text-muted)}
+
+/* article row */
+.art-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:20px}
+.acard{background:var(--surface);border:1px solid var(--outline);border-radius:var(--radius);overflow:hidden;cursor:pointer;transition:.18s;display:flex;flex-direction:column}
+.acard:hover{transform:translateY(-3px);box-shadow:var(--shadow)}
+.acard .thumb{aspect-ratio:16/9;display:grid;place-items:center;font-size:28px}
+.acard .thumb.math{background:var(--subj-math-bg);color:var(--subj-math-fg)}
+.acard .thumb.eng{background:var(--subj-eng-bg);color:var(--subj-eng-fg)}
+.acard .thumb.thai{background:var(--subj-thai-bg);color:var(--subj-thai-fg)}
+.acard .body{padding:14px 16px}
+.acard h3{font-size:15px;font-weight:600;line-height:1.45}
+.acard .meta{font-size:12px;color:var(--text-faint);margin-top:6px}
+
+/* app + footer */
+.app{background:var(--surface);border-top:1px solid var(--outline);padding:52px 0}
+.app .wrap{display:grid;grid-template-columns:1.1fr 1fr;gap:40px;align-items:center}
+.app .phones{display:flex;justify-content:center;align-items:flex-end}
+.app .ph{background:#1b1b21;border-radius:30px;padding:7px;box-shadow:var(--shadow)}
+.app .ph img{display:block;width:170px;height:360px;object-fit:cover;border-radius:24px;background:#000}
+.app .ph.back{transform:scale(.9);margin-left:-46px}
+.app .atxt .alogo{position:relative;width:54px;height:54px;border-radius:15px;background:linear-gradient(135deg,var(--primary),var(--secondary));display:grid;place-items:center;color:#fff;font-weight:700;font-size:22px;margin-bottom:16px;overflow:hidden}
+.app .atxt .alogo img{position:absolute;inset:0;width:100%;height:100%;object-fit:contain}
+.app .atxt h2{font-size:26px;font-weight:700}
+.app .atxt p{font-size:15px;color:var(--text-muted);margin:8px 0 22px;max-width:340px}
+.app .dl{background:var(--primary);color:#fff;border:none;cursor:pointer;font:inherit;font-weight:700;font-size:15px;border-radius:var(--radius-pill);padding:14px 28px;display:inline-flex;align-items:center;gap:8px}
+footer{background:#15151b;color:#b8b8c4;padding:44px 0 28px;font-size:14px}
+footer .cols{display:grid;grid-template-columns:1.5fr 1fr 1fr 1fr;gap:32px;margin-bottom:30px}
+footer h5{color:#fff;font-size:14px;font-weight:600;margin-bottom:12px}
+footer a{display:block;color:#b8b8c4;padding:4px 0}
+footer a:hover{color:#fff}
+footer .brand .logo{color:#fff;margin-bottom:10px;font-weight:700;font-size:18px;display:flex;align-items:center;gap:10px}
+footer .brand .logo .mark{position:relative;width:34px;height:34px;border-radius:10px;background:linear-gradient(135deg,var(--primary),var(--accent));display:grid;place-items:center;color:#fff;overflow:hidden}
+footer .brand .logo .mark img{position:absolute;inset:0;width:100%;height:100%;object-fit:contain}
+footer .brand p{font-size:13px;max-width:240px}
+footer .copy{border-top:1px solid #2a2a33;padding-top:18px;font-size:12.5px;color:#7a7a88;text-align:center}
+.proto-note{background:#1b1b21;color:#cfcfe0;font-size:13px;text-align:center;padding:14px 20px}
+.proto-note code{background:rgba(255,255,255,.1);padding:2px 6px;border-radius:5px}
+
+@media(max-width:900px){
+  .ghero .row{grid-template-columns:1fr;gap:28px}.ghero h1{font-size:30px}
+  .pz-grid{grid-template-columns:1fr}
+  .feat-grid,.steps,.art-grid{grid-template-columns:repeat(2,1fr)}
+  .price-main{grid-template-columns:1fr;max-width:440px}
+  .app .wrap{grid-template-columns:1fr;text-align:center}.app .phones{order:-1}.app .atxt{display:flex;flex-direction:column;align-items:center}
+  footer .cols{grid-template-columns:1fr 1fr}
+}
+@media(max-width:640px){nav.main{display:none}.icon-btn{display:inline-flex}.feat-grid,.steps,.art-grid{grid-template-columns:1fr}}
+@media(max-width:1040px){nav.main,.search{display:none}.icon-btn{display:inline-flex}}
+</style>
+</head>
+<body>
+
+<div class="promo"><div class="wrap"><span class="mi s20">auto_awesome</span><span>สมัครสมาชิกฟรี ดูไลฟ์สอนสดได้ทุกวัน</span><a href="#">สมัครเลย</a></div></div>
+
+<header><div class="wrap">
+  <button class="icon-btn" aria-label="เมนู"><span class="mi s28">menu</span></button>
+  <a class="logo" href="landing-page.html"><img class="logo-full" src="../assets/Full-Icon.png" alt="NockAcademy"></a>
+  <nav class="main">
+    <a href="landing-page.html">หน้าแรก</a><a href="grade.html" class="active">ชั้นเรียน</a><a href="clip-page.html">คลิป</a><a href="courses.html">คอร์สเรียน</a><a href="articles.html">บทความ</a><a href="faq.html">คำถามที่พบบ่อย</a>
+  </nav>
+  <div class="spacer"></div>
+  <div class="lang"><button class="on" onclick="setLang('th',this)">TH</button><button onclick="setLang('en',this)">EN</button></div>
+  <button class="btn btn-outline">เข้าสู่ระบบ</button>
+  <button class="btn btn-filled">สมัครฟรี</button>
+</div></header>
+
+<!-- HERO + grade selector -->
+<section class="ghero"><div class="wrap">
+  <div class="grade-tabs" id="gradeTabs">
+    <button data-g="ป.5">ป.5</button><button data-g="ป.6">ป.6</button>
+    <button data-g="ม.1">ม.1</button><button data-g="ม.2">ม.2</button><button data-g="ม.3">ม.3</button>
+    <button class="on" data-g="ม.4">ม.4</button><button data-g="ม.5">ม.5</button><button data-g="ม.6">ม.6</button>
+  </div>
+  <div class="row">
+    <div class="hvideo"><video autoplay muted loop playsinline poster="https://images.unsplash.com/photo-1588072432836-e10032774350?w=800&q=60"><source src="https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4" type="video/mp4"></video></div>
+    <div class="htxt">
+      <h1>ติว <span class="hl gradeName">ม.4</span> เรียนพิเศษ ออนไลน์</h1>
+      <p class="lead">ติว <span class="gradeName">ม.4</span> ออนไลน์กับ NockAcademy ครบทั้งคลิปบทเรียน แบบฝึกหัด การสอบ และไลฟ์สอนสด ครบ 4 วิชาหลัก เรียนได้ทุกที่ทุกเวลา</p>
+      <ul class="checks">
+        <li><span class="ck"><span class="mi s16">check</span></span> นักเรียนสามารถใช้รับคะแนนสอบที่ดีในการเรียนได้</li>
+        <li><span class="ck"><span class="mi s16">check</span></span> สามารถเรียนซ้ำได้ในการเรียนของระดับชั้น <span class="gradeName">ม.4</span></li>
+        <li><span class="ck"><span class="mi s16">check</span></span> ปลดล็อกคลิปทุกตอน แบบฝึกหัด และไลฟ์สอนสด</li>
+      </ul>
+      <div class="gcta" style="margin-top:24px">
+        <button class="btn btn-primary">เริ่มเรียนฟรี</button>
+        <a href="clip-page.html" class="btn btn-glass">ดูตัวอย่างคลิป</a>
+      </div>
+    </div>
+  </div>
+</div></section>
+
+<!-- PERSONALIZE teaser -->
+<section class="pz"><div class="wrap">
+  <div class="pz-grid">
+    <div class="pz-panel">
+      <h2>ทำไมน้องๆ <span class="gradeName">ม.4</span> สามารถที่จะได้รับคะแนนสอบที่ดี?</h2>
+      <p>บทเรียน 10 นาที คุณครูผู้เชี่ยวชาญจะสอนเนื้อหาบทเรียนที่สามารถเข้าใจได้อย่างชัดเจนและง่ายดาย ทั้ง 4 วิชา ได้แก่ คณิตศาสตร์ ภาษาอังกฤษ ภาษาไทย และวิทยาศาสตร์</p>
+      <div class="pz-illus">
+        <span class="mi" style="font-size:64px">trending_up</span>
+        <div class="pz-illus-cap"><b>คะแนนของคุณดีขึ้น</b> ภายในเทอมเดียว</div>
+      </div>
+    </div>
+    <div class="pz-panel pz-goal">
+      <div class="pg-icon"><span class="mi" style="font-size:34px">target</span></div>
+      <span class="pz-tag"><span class="mi s16">auto_awesome</span> Personalize Goal · AI</span>
+      <h2>วางแผนการเรียนเฉพาะตัว ด้วย AI</h2>
+      <p>ตั้งเป้าหมาย ทำแบบทดสอบสั้นๆ แล้วให้ AI วิเคราะห์จุดอ่อน–จุดแข็ง พร้อมแผนการเรียนที่ออกแบบมาเพื่อน้องๆ <span class="gradeName">ม.4</span> โดยเฉพาะ</p>
+      <a href="personalize-goal.html" class="btn btn-primary" style="margin-top:20px;align-self:flex-start">สร้าง Personalize Goal <span class="mi s20">arrow_forward</span></a>
+      <span class="pg-free"><span class="mi s16">lock_open</span> ฟรี ไม่ต้องสมัคร</span>
+    </div>
+  </div>
+</div></section>
+
+<!-- TESTIMONIAL -->
+<section><div class="wrap">
+  <div class="sec-head"><span class="eyebrow">เสียงจากผู้ใช้งานจริง</span><h2>ผลตอบรับจากผู้ปกครองและนักเรียน</h2></div>
+  <div class="tst-cols">
+    <div class="tst-col c1"><ul id="tcol1">
+      <li class="tcard"><p>“ลูกตั้งใจเรียนขึ้นมาก คะแนนสอบดีขึ้นเห็นได้ชัดภายในเทอมเดียว”</p><div class="who"><span class="av" style="background:#3538cd">ผก</span><div><div class="nm">คุณแม่น้องพอใจ</div><div class="rl">ผู้ปกครอง</div></div></div></li>
+      <li class="tcard"><p>“เรียนซ้ำได้เรื่อยๆ มีแบบฝึกหัดให้ลองทำ ราคาคุ้มค่ามากครับ”</p><div class="who"><span class="av" style="background:#0f6e56">ธน</span><div><div class="nm">คุณพ่อน้องธนา</div><div class="rl">ผู้ปกครอง</div></div></div></li>
+      <li class="tcard"><p>“ชอบที่มีสรุปจุดอ่อนให้ เรียนแล้วเห็นพัฒนาการจริง”</p><div class="who"><span class="av" style="background:#993556">ณช</span><div><div class="nm">คุณแม่น้องณิชา</div><div class="rl">ผู้ปกครอง</div></div></div></li>
+    </ul></div>
+    <div class="tst-col c2"><ul id="tcol2">
+      <li class="tcard"><p>“ไลฟ์สอนสดถามตอบได้จริง เหมือนเรียนพิเศษที่สถาบันแต่ไม่ต้องเดินทาง”</p><div class="who"><span class="av" style="background:#b03060">ปอ</span><div><div class="nm">น้องปอนด์</div><div class="rl">นักเรียน</div></div></div></li>
+      <li class="tcard"><p>“โรงเรียนใช้เป็นสื่อเสริมการสอน เด็กๆ ชอบมาก เพราะคลิปกระชับ”</p><div class="who"><span class="av" style="background:#4b3fb0">รร</span><div><div class="nm">คุณครูวิทยาศาสตร์</div><div class="rl">โรงเรียนพันธมิตร</div></div></div></li>
+      <li class="tcard"><p>“แอปใช้ง่าย ลูกเปิดเรียนเองได้เลย มี Study Timer ช่วยให้มีวินัย”</p><div class="who"><span class="av" style="background:#0f6e56">ฐ</span><div><div class="nm">คุณแม่น้องฐิติ</div><div class="rl">ผู้ปกครอง</div></div></div></li>
+    </ul></div>
+    <div class="tst-col c3"><ul id="tcol3">
+      <li class="tcard"><p>“เนื้อหาตรงตามหลักสูตร เตรียมสอบได้ดีมาก ลูกสอบติดที่หวังไว้”</p><div class="who"><span class="av" style="background:#3538cd">วร</span><div><div class="nm">คุณพ่อน้องวรา</div><div class="rl">ผู้ปกครอง</div></div></div></li>
+      <li class="tcard"><p>“ราคาเข้าถึงได้ คุ้มกว่าเรียนพิเศษข้างนอกมาก เรียนกี่รอบก็ได้”</p><div class="who"><span class="av" style="background:#b03060">สม</span><div><div class="nm">คุณแม่น้องสมหญิง</div><div class="rl">ผู้ปกครอง</div></div></div></li>
+      <li class="tcard"><p>“ครบทั้ง 4 วิชาในที่เดียว ไม่ต้องสมัครหลายเจ้า ประหยัดเวลามาก”</p><div class="who"><span class="av" style="background:#4b3fb0">ก</span><div><div class="nm">คุณแม่น้องกานต์</div><div class="rl">ผู้ปกครอง</div></div></div></li>
+    </ul></div>
+  </div>
+</div></section>
+
+<!-- POPULAR LIVE -->
+<section style="background:var(--surface);border-top:1px solid var(--outline)"><div class="wrap">
+  <div class="sec-head"><h2>ประวัติการไลฟ์สอนยอดนิยม · <span class="gradeName">ม.4</span></h2><p>ดูไลฟ์ย้อนหลังที่นักเรียนเข้าชมมากที่สุด</p></div>
+  <div class="row-scroll">
+    <div class="vcard"><div class="thumb math"><img src="https://picsum.photos/seed/g-m1/400/225" alt="" onerror="this.remove()"><span class="vt">ไลฟ์ย้อนหลัง</span></div><div class="body"><h4>คณิตศาสตร์ — เซตและตรรกศาสตร์</h4><div class="when">ครูโจ · 52 นาที</div></div></div>
+    <div class="vcard"><div class="thumb sci"><img src="https://picsum.photos/seed/g-s1/400/225" alt="" onerror="this.remove()"><span class="vt">ไลฟ์ย้อนหลัง</span></div><div class="body"><h4>เคมี — พันธะเคมี</h4><div class="when">ครูมิ้น · 48 นาที</div></div></div>
+    <div class="vcard"><div class="thumb eng"><img src="https://picsum.photos/seed/g-e1/400/225" alt="" onerror="this.remove()"><span class="vt">ไลฟ์ย้อนหลัง</span></div><div class="body"><h4>อังกฤษ — Reading เทคนิคทำข้อสอบ</h4><div class="when">ครูแพท · 44 นาที</div></div></div>
+    <div class="vcard"><div class="thumb thai"><img src="https://picsum.photos/seed/g-t1/400/225" alt="" onerror="this.remove()"><span class="vt">ไลฟ์ย้อนหลัง</span></div><div class="body"><h4>ภาษาไทย — การอ่านวิเคราะห์</h4><div class="when">ครูอุ้ม · 40 นาที</div></div></div>
+  </div>
+  <div style="text-align:center;margin-top:18px"><a href="clip-page.html" class="btn btn-outline">ดูทั้งหมด</a></div>
+</div></section>
+
+<!-- FEATURES -->
+<section><div class="wrap">
+  <div class="sec-head"><span class="eyebrow">จุดเด่นของเรา</span><h2>จะกระตุ้นนักเรียนได้อย่างไร?</h2></div>
+  <div class="feat-grid">
+    <div class="fcard"><div class="fi"><span class="mi s28">play_circle</span></div><div><h4>คลิป 4 วิชาหลัก</h4><p>คณิต วิทย์ อังกฤษ ไทย ครบทุกบท</p></div></div>
+    <div class="fcard"><div class="fi"><span class="mi s28">quiz</span></div><div><h4>2,000+ คลิป · 4,000+ แบบฝึกหัด</h4><p>ฝึกทำโจทย์พร้อมเฉลยละเอียด</p></div></div>
+    <div class="fcard"><div class="fi"><span class="mi s28">menu_book</span></div><div><h4>บทเรียนโต้ตอบ</h4><p>เรียนสนุก เข้าใจง่าย ไม่น่าเบื่อ</p></div></div>
+    <div class="fcard"><div class="fi"><span class="mi s28">groups</span></div><div><h4>แข่งขันกับเพื่อนๆ</h4><p>ระบบสะสมแต้มกระตุ้นการเรียน</p></div></div>
+    <div class="fcard"><div class="fi"><span class="mi s28">assignment</span></div><div><h4>การสอบและการบ้าน</h4><p>วัดผลและติดตามพัฒนาการได้จริง</p></div></div>
+    <div class="fcard"><div class="fi"><span class="mi s28">devices</span></div><div><h4>ใช้ได้ทุกอุปกรณ์</h4><p>เว็บ มือถือ แท็บเล็ต เรียนต่อได้ทุกที่</p></div></div>
+  </div>
+</div></section>
+
+<!-- PRICING -->
+<section class="pkg" id="pkg"><div class="wrap">
+  <div class="sec-head"><span class="eyebrow">บริการของเรา</span><h2>แพ็กเกจสำหรับ <span class="gradeName">ม.4</span></h2><p>ทดลองใช้ฟรี 3 วัน · มีบทเรียนกว่า 2,000+ คลิป 4,000+ แบบฝึกหัด</p></div>
+  <div class="price-main">
+    <div class="price"><div class="term">3 เดือน</div><div class="amt">2,800฿</div><div class="per">933฿ / เดือน</div><div class="feat">คลิปครบทุกวิชา · แบบฝึกหัด</div><button class="btn btn-soft">สมัคร</button></div>
+    <div class="price best"><div class="ribbon">คุ้มที่สุด</div><div class="term">12 เดือน</div><div class="amt">5,300฿</div><div class="per">442฿ / เดือน</div><div class="feat">คลิปครบทุกวิชา · แบบฝึกหัด</div><button class="btn btn-filled" style="background:var(--primary)">สมัคร</button></div>
+    <div class="price"><div class="term">6 เดือน</div><div class="amt">4,100฿</div><div class="per">683฿ / เดือน</div><div class="feat">คลิปครบทุกวิชา · แบบฝึกหัด</div><button class="btn btn-soft">สมัคร</button></div>
+  </div>
+</div></section>
+
+<!-- STEPS -->
+<section><div class="wrap">
+  <div class="sec-head"><span class="eyebrow">เริ่มต้นง่ายๆ</span><h2>เรียนกับ NockAcademy อย่างไร?</h2></div>
+  <div class="steps">
+    <div class="step"><span class="sn">STEP 1</span><div class="sph"><img src="https://picsum.photos/seed/step1/240/400" alt="" onerror="this.parentNode.remove()"></div><h4>สมัครและเลือกชั้นเรียน</h4><p>สมัครฟรี เลือกระดับชั้น <span class="gradeName">ม.4</span> แล้วเริ่มเรียนได้ทันที</p></div>
+    <div class="step"><span class="sn">STEP 2</span><div class="sph"><img src="https://picsum.photos/seed/step2/240/400" alt="" onerror="this.parentNode.remove()"></div><h4>ดูคลิป + ทำแบบฝึกหัด</h4><p>เรียนตามบทเรียน ทำแบบฝึกหัด และเข้าไลฟ์สอนสด</p></div>
+    <div class="step"><span class="sn">STEP 3</span><div class="sph"><img src="https://picsum.photos/seed/step3/240/400" alt="" onerror="this.parentNode.remove()"></div><h4>ติดตามผลและพัฒนา</h4><p>ดูพัฒนาการ จุดอ่อน–จุดแข็ง พร้อมแผนเรียนเฉพาะตัว</p></div>
+  </div>
+</div></section>
+
+<!-- ARTICLES -->
+<section style="background:var(--surface);border-top:1px solid var(--outline)"><div class="wrap">
+  <div class="sec-head"><h2>บทความ <span class="gradeName">ม.4</span></h2></div>
+  <div class="art-grid">
+    <a class="acard" href="article-detail.html"><div class="thumb math"><span class="mi s28">functions</span></div><div class="body"><h3>ฟังก์ชันเอกซ์โพเนนเชียล</h3><div class="meta">คณิตศาสตร์ · 6 นาที</div></div></a>
+    <a class="acard" href="article-detail.html"><div class="thumb eng"><span class="mi s28">translate</span></div><div class="body"><h3>Exponential Functions in English</h3><div class="meta">ภาษาอังกฤษ · 5 นาที</div></div></a>
+    <a class="acard" href="article-detail.html"><div class="thumb thai"><span class="mi s28">menu_book</span></div><div class="body"><h3>การใช้คำราชาศัพท์ให้ถูกต้อง</h3><div class="meta">ภาษาไทย · 4 นาที</div></div></a>
+  </div>
+  <div style="text-align:center;margin-top:18px"><a href="articles.html" class="btn btn-outline">ดูบทความทั้งหมด</a></div>
+</div></section>
+
+<!-- APP -->
+<section class="app"><div class="wrap">
+  <div class="phones">
+    <div class="ph front"><img src="https://picsum.photos/seed/nock-app1/340/720" alt="แอป NockAcademy"></div>
+    <div class="ph back"><img src="https://picsum.photos/seed/nock-app2/340/720" alt="แอป NockAcademy"></div>
+  </div>
+  <div class="atxt">
+    <div class="alogo">N<img src="../assets/Logo-Icon.png" alt="NockAcademy" onerror="this.remove()"></div>
+    <h2>NockAcademy</h2>
+    <p>ยังมีฟีเจอร์อีกมากมายในแอปของเรา เรียน ทำแบบฝึกหัด และติดตามผลได้ทุกที่</p>
+    <button class="dl"><span class="mi s20">download</span> ดาวน์โหลดฟรี</button>
+  </div>
+</div></section>
+
+<footer><div class="wrap">
+  <div class="cols">
+    <div class="brand"><div class="logo"><span class="mark">N<img src="../assets/Logo-Icon.png" alt="NockAcademy" onerror="this.remove()"></span> NockAcademy</div><p>แพลตฟอร์มเรียนพิเศษออนไลน์ สำหรับนักเรียน ป.4 – ม.6</p></div>
+    <div><h5>เกี่ยวกับ</h5><a href="#">เกี่ยวกับเรา</a><a href="#">ติดต่อเรา</a><a href="#">ร่วมงานกับเรา</a></div>
+    <div><h5>บริการ</h5><a href="clip-page.html">คลิปเรียน</a><a href="courses.html">คอร์สเรียน</a><a href="articles.html">บทความ</a></div>
+    <div><h5>นโยบาย</h5><a href="#">เงื่อนไขการใช้งาน</a><a href="#">นโยบายความเป็นส่วนตัว</a><a href="faq.html">คำถามที่พบบ่อย</a></div>
+  </div>
+  <div class="copy">© 2026 NockAcademy. All rights reserved.</div>
+</div></footer>
+
+<div class="proto-note">Prototype v1 — ชั้นเรียน (Grade template) · กดเลือกชั้น ป.5–ม.6 เพื่อสลับเนื้อหา · ใช้ component ร่วมกับหน้าอื่น</div>
+
+<script>
+function setLang(l,btn){btn.parentNode.querySelectorAll('button').forEach(function(b){b.classList.remove('on');});btn.classList.add('on');}
+/* grade selector — เปลี่ยนชื่อชั้นทุกที่ที่มี .gradeName */
+document.getElementById('gradeTabs').addEventListener('click',function(e){
+  var b=e.target.closest('button'); if(!b)return;
+  this.querySelectorAll('button').forEach(function(x){x.classList.remove('on');});
+  b.classList.add('on');
+  var g=b.getAttribute('data-g');
+  document.querySelectorAll('.gradeName').forEach(function(el){el.textContent=g;});
+  window.scrollTo({top:0,behavior:'smooth'});
+});
+/* progress bar fill เมื่อ scroll ถึง */
+(function(){
+  var bar=document.getElementById('pzbar');
+  var io=new IntersectionObserver(function(es){es.forEach(function(e){if(e.isIntersecting){bar.style.width='100%';io.disconnect();}});},{threshold:.4});
+  io.observe(bar);
+})();
+/* testimonial loop clone */
+['tcol1','tcol2','tcol3'].forEach(function(id){var ul=document.getElementById(id);if(ul)ul.innerHTML+=ul.innerHTML;});
+</script>
+<script>
+/* ===== เชื่อม Learn app ใหม่ แทนหน้า Clip (Learn เก่า) — แก้ APP ตอน deploy (dev=localhost:5199) ===== */
+(function(){
+  var APP='http://localhost:5199/#';
+  var subj=['math','english','thai','science'];
+  document.querySelectorAll('a[href="clip-page.html"]').forEach(function(a){ a.href=APP+'/'; });
+  document.querySelectorAll('[data-href="clip-page.html"]').forEach(function(b){ b.setAttribute('data-href',APP+'/'); });
+  document.querySelectorAll('.vc-cat').forEach(function(d,i){ d.setAttribute('onclick',"location.href='"+APP+'/learn/'+(subj[i]||'math')+"'"); });
+  var btn={ 'เข้าสู่ระบบ':APP+'/auth','สมัครฟรี':APP+'/auth','เริ่มเรียนฟรี':APP+'/auth','ดูตัวอย่างคลิป':APP+'/' };
+  document.querySelectorAll('button[data-th]').forEach(function(b){ var u=btn[b.getAttribute('data-th')]; if(u) b.addEventListener('click',function(){ location.href=u; }); });
+})();
+</script>
+</body>
+</html>

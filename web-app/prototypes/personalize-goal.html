@@ -1,0 +1,573 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>NockAcademy — Personalize Goal (Prototype)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet">
+<style>
+:root{
+  --primary:#3538cd; --accent:#f15a29; --amber:#f0a818; --green:#1d9e75; --new:#7a4ddb; --red:#e23b3b;
+  --secondary-container:#e7e8fb; --on-secondary-container:#1f2178;
+  --surface:#fff; --surface-1:#f7f7fb; --surface-2:#f0f1f7;
+  --outline:#e3e3ec; --text:#1b1b21; --text-muted:#5f5f6b; --text-faint:#8e8e9c;
+  --radius-sm:10px; --radius:16px; --radius-lg:22px; --radius-pill:999px;
+  --shadow:0 1px 2px rgba(20,20,40,.04),0 10px 34px rgba(20,20,40,.10);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'IBM Plex Sans Thai',system-ui,sans-serif;background:var(--surface-1);color:var(--text);line-height:1.6;-webkit-font-smoothing:antialiased;min-height:100vh}
+a{color:inherit;text-decoration:none}
+.mi{font-family:'Material Symbols Outlined';line-height:1;vertical-align:-4px;font-feature-settings:'liga';font-size:18px}
+.mi.s16{font-size:16px;vertical-align:-3px}.mi.s20{font-size:20px;vertical-align:-5px}.mi.s28{font-size:28px}.mi.s40{font-size:40px}
+
+/* top bar */
+.top{position:sticky;top:0;z-index:30;background:var(--surface);border-bottom:1px solid var(--outline)}
+.top .bar{display:flex;align-items:center;gap:14px;height:60px;max-width:1100px;margin:0 auto;padding:0 22px}
+.logo{display:flex;align-items:center;gap:9px;font-weight:700;font-size:16px}
+.logo .mark{width:30px;height:30px;border-radius:9px;background:linear-gradient(135deg,var(--primary),var(--accent));display:grid;place-items:center;color:#fff}
+.spacer{flex:1}
+.closeb{background:none;border:none;cursor:pointer;color:var(--text-muted);width:38px;height:38px;border-radius:50%;display:grid;place-items:center}
+.closeb:hover{background:var(--surface-2)}
+.pbar{height:4px;background:var(--surface-2)}
+.pbar > span{display:block;height:100%;background:var(--primary);width:10%;transition:.3s}
+
+/* wizard */
+.wiz{max-width:640px;margin:0 auto;padding:40px 22px 60px}
+.wiz.wide{max-width:1000px}
+.step{display:none;animation:fade .25s}
+.step.on{display:block}
+@keyframes fade{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+.eyebrow{font-size:12px;font-weight:700;color:var(--new);letter-spacing:.4px;display:flex;align-items:center;gap:6px}
+.qtitle{font-size:26px;font-weight:700;letter-spacing:-.5px;margin:10px 0 6px}
+.qsub{font-size:15px;color:var(--text-muted);margin-bottom:26px}
+
+.opts{display:grid;gap:12px}
+.opts.two{grid-template-columns:1fr 1fr}
+.ocard{display:flex;align-items:center;gap:14px;background:var(--surface);border:1.5px solid var(--outline);border-radius:var(--radius);padding:18px 20px;cursor:pointer;transition:.15s;text-align:left;font:inherit}
+.ocard:hover{border-color:var(--primary);background:#fafaff}
+.ocard.sel{border-color:var(--primary);background:var(--secondary-container)}
+.ocard .ic{width:48px;height:48px;border-radius:14px;background:var(--secondary-container);color:var(--on-secondary-container);display:grid;place-items:center;flex-shrink:0}
+.ocard.sel .ic{background:var(--primary);color:#fff}
+.ocard .t{font-size:16px;font-weight:600}.ocard .s{font-size:13px;color:var(--text-muted)}
+.ocard .check{margin-left:auto;color:var(--primary);opacity:0}
+.ocard.sel .check{opacity:1}
+
+.chips{display:flex;flex-wrap:wrap;gap:10px}
+.chip{background:var(--surface);border:1.5px solid var(--outline);border-radius:var(--radius-pill);padding:11px 20px;font:inherit;font-size:15px;font-weight:600;cursor:pointer;transition:.12s}
+.chip:hover{border-color:var(--primary)}
+.chip.sel{background:var(--primary);border-color:transparent;color:#fff}
+
+/* nav */
+.nav{display:flex;justify-content:space-between;align-items:center;margin-top:30px;gap:12px}
+.btn{border:none;cursor:pointer;font:inherit;font-weight:700;border-radius:var(--radius-pill);padding:13px 26px;font-size:15px;display:inline-flex;align-items:center;gap:8px;transition:.15s}
+.btn-primary{background:var(--primary);color:#fff} .btn-primary:hover{filter:brightness(.95)}
+.btn-primary:disabled{opacity:.4;cursor:not-allowed}
+.btn-ghost{background:none;color:var(--text-muted)} .btn-ghost:hover{color:var(--text)}
+.btn-tonal{background:var(--secondary-container);color:var(--on-secondary-container)}
+
+/* mood scale */
+.moods{display:flex;justify-content:space-between;gap:8px;margin-top:6px}
+.mood{flex:1;background:var(--surface);border:1.5px solid var(--outline);border-radius:var(--radius);padding:14px 6px;cursor:pointer;text-align:center;transition:.12s}
+.mood:hover{border-color:var(--amber)}
+.mood.sel{border-color:var(--amber);background:#fffaf0}
+.mood .e{font-size:26px}.mood .l{font-size:11.5px;color:var(--text-muted);margin-top:4px}
+.insight-q{margin-bottom:24px}
+.insight-q h4{font-size:15.5px;font-weight:600;margin-bottom:10px}
+
+/* test */
+.test-prog{display:flex;align-items:center;gap:12px;font-size:13px;font-weight:600;color:var(--text-muted);margin-bottom:20px}
+.test-prog .bar{flex:1;height:8px;background:var(--surface-2);border-radius:99px;overflow:hidden}
+.test-prog .bar > span{display:block;height:100%;background:var(--primary);transition:.3s}
+.tchip{display:inline-flex;align-items:center;gap:5px;font-size:12.5px;font-weight:600;color:var(--primary);background:var(--secondary-container);padding:4px 10px;border-radius:var(--radius-pill)}
+.toggle{width:46px;height:26px;border-radius:99px;background:var(--surface-2);border:none;cursor:pointer;position:relative;flex-shrink:0;transition:.15s}
+.toggle.on{background:var(--primary)}
+.toggle .knob{position:absolute;top:3px;left:3px;width:20px;height:20px;border-radius:50%;background:#fff;transition:.15s}
+.toggle.on .knob{left:23px}
+.tq{font-size:20px;font-weight:600;margin-bottom:20px;line-height:1.45}
+.tq .badge-subj{font-size:12px;font-weight:700;background:var(--secondary-container);color:var(--on-secondary-container);padding:3px 10px;border-radius:var(--radius-pill);display:inline-block;margin-bottom:10px}
+
+/* cutscene */
+.cut{text-align:center;padding:30px 10px}
+.cut .big{width:96px;height:96px;border-radius:50%;background:linear-gradient(135deg,var(--primary),var(--new));display:grid;place-items:center;color:#fff;margin:0 auto 22px}
+.cut h2{font-size:24px;font-weight:700;margin-bottom:8px}
+.cut p{font-size:15px;color:var(--text-muted);max-width:420px;margin:0 auto 8px}
+.cut .ring{display:inline-flex;align-items:center;gap:8px;background:var(--surface);border:1px solid var(--outline);border-radius:var(--radius-pill);padding:8px 16px;font-size:13px;font-weight:600;margin-top:6px}
+
+/* modal */
+.ovl{position:fixed;inset:0;background:rgba(15,15,30,.5);display:none;align-items:center;justify-content:center;padding:20px;z-index:50}
+.ovl.show{display:flex}
+.modal{background:var(--surface);border-radius:var(--radius-lg);padding:28px;max-width:420px;width:100%;text-align:center}
+.modal .mi.s40{color:var(--amber)}
+.modal h3{font-size:19px;font-weight:700;margin:12px 0 6px}
+.modal p{font-size:14px;color:var(--text-muted);margin-bottom:20px}
+.modal .row{display:flex;gap:10px}.modal .row .btn{flex:1;justify-content:center}
+.modal.lpm{max-width:560px;text-align:left;max-height:86vh;overflow-y:auto;padding:24px;background:var(--surface);color:var(--text)}
+.modal.lpm .mh{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px}
+.modal.lpm h3{font-size:20px;margin:0;color:var(--text)}
+.lpq{margin:16px 0}
+.lpq h4{font-size:14.5px;font-weight:600;margin-bottom:9px}
+.lpq .chips{display:flex;flex-wrap:wrap;gap:8px}
+.lpq .chip{font-size:13.5px;padding:9px 16px}
+.wk{border:1px solid var(--outline);border-radius:var(--radius);padding:14px 16px;margin-bottom:10px}
+.wk.lock{opacity:.6;background:var(--surface-1)}
+.wk .wh{display:flex;align-items:center;gap:8px;font-weight:700;font-size:14.5px;margin-bottom:8px}
+.wk .wh .pill{margin-left:auto;font-size:11px;font-weight:700;padding:2px 9px;border-radius:var(--radius-pill)}
+.wk .wh .pill.ok{background:#e9f7f1;color:var(--green)} .wk .wh .pill.lk{background:var(--surface-2);color:var(--text-muted)}
+.wk .day{display:flex;align-items:center;gap:9px;font-size:13px;color:var(--text-muted);padding:4px 0}
+.wk .day .mi{color:var(--primary)}
+
+/* result page */
+.res-head{text-align:center;margin-bottom:8px}
+.res-head .eyebrow{justify-content:center}
+.res-head h1{font-size:28px;font-weight:700;letter-spacing:-.5px;margin:10px 0 4px}
+.incomplete{background:var(--surface);border:1.5px solid var(--amber);border-radius:var(--radius);padding:14px 18px;display:flex;align-items:center;gap:12px;margin:18px 0}
+.incomplete .mi{color:var(--amber)}.incomplete .t{flex:1;font-size:14px}
+.res-grid{display:grid;grid-template-columns:1.2fr .8fr;gap:18px;margin-top:8px}
+.card{background:var(--surface);border:1px solid var(--outline);border-radius:var(--radius);padding:20px}
+.card h3{font-size:16px;font-weight:700;margin-bottom:14px;display:flex;align-items:center;gap:8px}
+.badge-new{font-size:10px;font-weight:700;color:#fff;background:var(--new);padding:2px 8px;border-radius:var(--radius-pill)}
+/* ai summary */
+.score-ring{display:flex;align-items:center;gap:18px;margin-bottom:16px}
+.ring-num{width:88px;height:88px;border-radius:50%;background:conic-gradient(var(--primary) 0 58%,var(--surface-2) 58% 100%);display:grid;place-items:center;flex-shrink:0}
+.ring-num .inner{width:68px;height:68px;border-radius:50%;background:var(--surface);display:grid;place-items:center;font-size:22px;font-weight:700}
+.ai-pts{display:flex;flex-direction:column;gap:8px}
+.pt{display:flex;align-items:center;gap:10px;font-size:14px}
+.pt .ic{width:30px;height:30px;border-radius:9px;display:grid;place-items:center;flex-shrink:0}
+.pt.str .ic{background:#e9f7f1;color:var(--green)} .pt.weak .ic{background:#fde7ea;color:var(--red)} .pt.imp .ic{background:#fff4e0;color:var(--amber)}
+.pt b{font-weight:600}
+.ai-narrative{background:linear-gradient(120deg,#eef0ff,#f7f0ff);border:1px solid #ddd6fb;border-radius:var(--radius);padding:16px;margin-top:16px;font-size:14px;line-height:1.7}
+.ai-narrative .lab{font-size:11px;font-weight:700;color:var(--new);display:block;margin-bottom:2px}
+/* test result list */
+.tr{display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--outline);font-size:13.5px}
+.tr:last-child{border:none}
+.tr .n{width:24px;height:24px;border-radius:7px;display:grid;place-items:center;flex-shrink:0;font-size:12px;font-weight:700}
+.tr.ok .n{background:#e9f7f1;color:var(--green)} .tr.no .n{background:#fde7ea;color:var(--red)}
+.tr .ans{margin-left:auto;font-size:12px;color:var(--text-faint)}
+/* playlist suggestion */
+.pls{display:flex;flex-direction:column;gap:10px}
+.pl{display:flex;gap:11px;align-items:center;padding:8px;border-radius:var(--radius);cursor:pointer}
+.pl:hover{background:var(--surface-1)}
+.pl img{width:74px;aspect-ratio:16/9;border-radius:8px;object-fit:cover;flex-shrink:0}
+.pl .t{font-size:13.5px;font-weight:600;line-height:1.35}.pl .s{font-size:11.5px;color:var(--text-faint)}
+/* packages */
+.pkgs{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-top:4px}
+.pkg{background:var(--surface-1);border:1px solid var(--outline);border-radius:var(--radius-sm);padding:14px;text-align:center}
+.pkg.best{border:2px solid var(--primary);background:var(--surface)}
+.pkg .term{font-size:13px;color:var(--text-muted)}.pkg .amt{font-size:19px;font-weight:700;margin:2px 0}
+/* learning plan cta */
+.lp{background:linear-gradient(120deg,#2a2c8a,#4b3fb0);color:#fff;border-radius:var(--radius);padding:22px;display:flex;align-items:center;gap:16px;flex-wrap:wrap;margin-top:18px}
+.lp .ic{width:54px;height:54px;border-radius:15px;background:rgba(255,255,255,.16);display:grid;place-items:center;flex-shrink:0}
+.lp .t{flex:1;min-width:200px}.lp h3{font-size:18px;font-weight:700;color:#fff;margin:0 0 2px}.lp p{font-size:13px;opacity:.9}
+.lp .btn{background:#fff;color:var(--primary)}
+/* share (parent) */
+.share-box{background:var(--surface);border:1px dashed var(--outline);border-radius:var(--radius);padding:14px 16px;display:flex;align-items:center;gap:12px;margin-top:8px}
+.share-box .link{flex:1;font-size:13px;color:var(--text-muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.share-ch{display:flex;gap:12px;justify-content:center;margin-top:20px}
+.share-ch a{width:52px;height:52px;border-radius:50%;display:grid;place-items:center;color:#fff}
+.share-ch .line{background:#06c755}.share-ch .fb{background:#1877f2}.share-ch .cp{background:var(--text-muted)}
+
+.contact{text-align:center;font-size:13px;color:var(--text-muted);margin-top:24px}
+.contact a{color:var(--primary);font-weight:600}
+@media(max-width:760px){.res-grid{grid-template-columns:1fr}.pkgs{grid-template-columns:1fr}.opts.two{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+
+<div class="top">
+  <div class="bar">
+    <a class="logo" href="clip-page.html"><span class="mark">N</span> NockAcademy</a>
+    <span style="font-size:14px;font-weight:600;color:var(--text-muted)">· Personalize Goal</span>
+    <div class="spacer"></div>
+    <button class="btn btn-ghost" style="font-size:13px;padding:7px 14px" onclick="showResult(false)">ข้ามไปดู Result (เดโม) <span class="mi s16">fast_forward</span></button>
+    <a class="closeb" href="clip-page.html" aria-label="ปิด"><span class="mi s28">close</span></a>
+  </div>
+  <div class="pbar"><span id="pbar"></span></div>
+</div>
+
+<div class="wiz" id="wiz">
+
+  <!-- STEP: role -->
+  <div class="step on" id="s-role">
+    <div class="eyebrow"><span class="mi s16">target</span> PERSONALIZE GOAL</div>
+    <div class="qtitle">เริ่มสร้างเป้าหมายการเรียน</div>
+    <div class="qsub">คุณกำลังตั้งเป้าหมายให้ใคร?</div>
+    <div class="opts two">
+      <button class="ocard" onclick="setRole('parent',this)"><div class="ic"><span class="mi s28">family_restroom</span></div><div><div class="t">ผู้ปกครอง</div><div class="s">ช่วยลูกให้ดีขึ้น</div></div><span class="check mi s20">check_circle</span></button>
+      <button class="ocard" onclick="setRole('student',this)"><div class="ic"><span class="mi s28">school</span></div><div><div class="t">นักเรียน</div><div class="s">พัฒนาการเรียนของฉัน</div></div><span class="check mi s20">check_circle</span></button>
+    </div>
+  </div>
+
+  <!-- STEP: purpose -->
+  <div class="step" id="s-purpose">
+    <div class="eyebrow"><span class="mi s16">flag</span> เป้าหมาย</div>
+    <div class="qtitle">ทำเพื่ออะไร?</div>
+    <div class="qsub">เลือกเป้าหมายหลักของการเรียนครั้งนี้</div>
+    <div class="opts two">
+      <button class="ocard" onclick="setPurpose('score',this)"><div class="ic"><span class="mi s28">trending_up</span></div><div><div class="t">เพิ่มคะแนนสอบ</div><div class="s">ยกระดับผลการเรียน</div></div><span class="check mi s20">check_circle</span></button>
+      <button class="ocard" onclick="setPurpose('entrance',this)"><div class="ic"><span class="mi s28">stars</span></div><div><div class="t">สอบเข้า</div><div class="s">เตรียมตัวสอบเข้าโรงเรียน</div></div><span class="check mi s20">check_circle</span></button>
+    </div>
+    <div class="nav"><button class="btn btn-ghost" onclick="show('s-role')"><span class="mi s20">arrow_back</span> ย้อนกลับ</button></div>
+  </div>
+
+  <!-- STEP: subject (score path, multi) -->
+  <div class="step" id="s-subject">
+    <div class="eyebrow"><span class="mi s16">menu_book</span> วิชา</div>
+    <div class="qtitle">วิชาไหนที่อยากพัฒนา?</div>
+    <div class="qsub">เลือกได้มากกว่า 1 วิชา</div>
+    <div class="chips" id="subjChips">
+      <button class="chip" onclick="toggleSubj(this,'คณิตศาสตร์')">คณิตศาสตร์</button>
+      <button class="chip" onclick="toggleSubj(this,'ภาษาอังกฤษ')">ภาษาอังกฤษ</button>
+      <button class="chip" onclick="toggleSubj(this,'ภาษาไทย')">ภาษาไทย</button>
+      <button class="chip" onclick="toggleSubj(this,'วิทยาศาสตร์')">วิทยาศาสตร์</button>
+    </div>
+    <div class="nav"><button class="btn btn-ghost" onclick="show('s-purpose')"><span class="mi s20">arrow_back</span> ย้อนกลับ</button><button class="btn btn-primary" id="subj-next" disabled onclick="show('s-grade')">ถัดไป <span class="mi s20">arrow_forward</span></button></div>
+  </div>
+
+  <!-- STEP: school (entrance path, single) -->
+  <div class="step" id="s-school">
+    <div class="eyebrow"><span class="mi s16">apartment</span> โรงเรียน</div>
+    <div class="qtitle">อยากสอบเข้าที่ไหน?</div>
+    <div class="qsub">เลือกโรงเรียนเป้าหมาย</div>
+    <div class="chips" id="schoolChips">
+      <button class="chip" onclick="pickOne(this,'school','เตรียมอุดมศึกษา')">เตรียมอุดมศึกษา</button>
+      <button class="chip" onclick="pickOne(this,'school','มหิดลวิทยานุสรณ์')">มหิดลวิทยานุสรณ์</button>
+      <button class="chip" onclick="pickOne(this,'school','สวนกุหลาบ')">สวนกุหลาบ</button>
+      <button class="chip" onclick="pickOne(this,'school','สาธิตฯ')">สาธิตฯ</button>
+      <button class="chip" onclick="pickOne(this,'school','อื่นๆ')">อื่นๆ</button>
+    </div>
+    <div class="nav"><button class="btn btn-ghost" onclick="show('s-purpose')"><span class="mi s20">arrow_back</span> ย้อนกลับ</button></div>
+  </div>
+
+  <!-- STEP: grade -->
+  <div class="step" id="s-grade">
+    <div class="eyebrow"><span class="mi s16">school</span> ระดับชั้น</div>
+    <div class="qtitle">ระดับชั้นปัจจุบัน?</div>
+    <div class="qsub">เลือก 1 ระดับชั้น</div>
+    <div class="chips" id="gradeChips">
+      <button class="chip" onclick="pickOne(this,'grade','ป.4')">ป.4</button><button class="chip" onclick="pickOne(this,'grade','ป.5')">ป.5</button><button class="chip" onclick="pickOne(this,'grade','ป.6')">ป.6</button>
+      <button class="chip" onclick="pickOne(this,'grade','ม.1')">ม.1</button><button class="chip" onclick="pickOne(this,'grade','ม.2')">ม.2</button><button class="chip" onclick="pickOne(this,'grade','ม.3')">ม.3</button>
+      <button class="chip" onclick="pickOne(this,'grade','ม.4')">ม.4</button><button class="chip" onclick="pickOne(this,'grade','ม.5')">ม.5</button><button class="chip" onclick="pickOne(this,'grade','ม.6')">ม.6</button>
+    </div>
+    <div class="nav"><button class="btn btn-ghost" id="grade-back" onclick="show('s-subject')"><span class="mi s20">arrow_back</span> ย้อนกลับ</button></div>
+  </div>
+
+  <!-- STEP: insight intro -->
+  <div class="step" id="s-insight-intro">
+    <div class="eyebrow"><span class="mi s16">psychology</span> INSIGHT QUIZ · ไม่บังคับ</div>
+    <div class="qtitle">ตอบอีกนิด เพื่อให้ AI เข้าใจมากขึ้น</div>
+    <div class="qsub">คำถามสั้นๆ ช่วยให้คำแนะนำตรงจุดและเป็นส่วนตัวกว่าเดิม — ข้ามได้ถ้าไม่สะดวก</div>
+    <div class="opts">
+      <button class="ocard" onclick="show('s-insight')"><div class="ic"><span class="mi s28">auto_awesome</span></div><div><div class="t">ตอบ Insight Quiz</div><div class="s">ใช้เวลาไม่ถึง 1 นาที</div></div><span class="mi s20" style="margin-left:auto">arrow_forward</span></button>
+      <button class="ocard" onclick="toBranch()"><div class="ic" style="background:var(--surface-2);color:var(--text-muted)"><span class="mi s28">skip_next</span></div><div><div class="t">ข้ามไปก่อน</div><div class="s">ไปทำแบบทดสอบเลย</div></div></button>
+    </div>
+  </div>
+
+  <!-- STEP: insight quiz -->
+  <div class="step" id="s-insight">
+    <div class="eyebrow"><span class="mi s16">psychology</span> INSIGHT QUIZ</div>
+    <div class="qtitle" id="insightTitle">เข้าใจการเรียนให้มากขึ้น</div>
+    <div class="qsub" id="insightSub"></div>
+    <div id="insightBody"></div>
+    <div class="nav"><button class="btn btn-ghost" onclick="show('s-insight-intro')"><span class="mi s20">arrow_back</span></button><button class="btn btn-primary" onclick="toBranch()">เสร็จแล้ว ไปต่อ <span class="mi s20">arrow_forward</span></button></div>
+  </div>
+
+  <!-- STEP: parent share -->
+  <div class="step" id="s-share">
+    <div class="cut">
+      <div class="big"><span class="mi s40">send</span></div>
+      <h2>ส่งแบบทดสอบให้ลูกทำ</h2>
+      <p>เราสร้างลิงก์แบบทดสอบเฉพาะตัวให้แล้ว ส่งให้ลูกทำ เมื่อทำเสร็จผลจะกลับมาหาคุณอัตโนมัติ</p>
+    </div>
+    <div class="share-box"><span class="mi s20" style="color:var(--text-muted)">link</span><span class="link">https://nockacademy.com/goal/t/8fk2-math-m6</span><button class="btn btn-tonal" style="padding:8px 16px"><span class="mi s16">content_copy</span> คัดลอก</button></div>
+    <div class="share-ch">
+      <a class="line" href="#" aria-label="LINE"><span class="mi s28">chat</span></a>
+      <a class="fb" href="#" aria-label="Facebook"><span class="mi s28">thumb_up</span></a>
+      <a class="cp" href="#" aria-label="คัดลอก"><span class="mi s28">content_copy</span></a>
+    </div>
+    <div class="nav" style="justify-content:center"><button class="btn btn-ghost" onclick="showResult()">ดูตัวอย่างผลลัพธ์ (เดโม) <span class="mi s20">arrow_forward</span></button></div>
+  </div>
+
+  <!-- STEP: test intro -->
+  <div class="step" id="s-test-intro">
+    <div class="cut">
+      <div class="big"><span class="mi s40">fact_check</span></div>
+      <h2>ถึงเวลาทำแบบทดสอบ</h2>
+      <p>แบบทดสอบสั้นๆ 10 ข้อ เพื่อให้ AI วิเคราะห์จุดแข็ง–จุดอ่อนได้แม่นยำ · ทำครบ 5 ข้อแล้วพักไว้ก่อนได้</p>
+      <div style="display:flex;align-items:center;gap:12px;background:var(--surface);border:1px solid var(--outline);border-radius:var(--radius);padding:14px 18px;max-width:440px;margin:22px auto 0;text-align:left">
+        <span class="mi s28" style="color:var(--primary)">timer</span>
+        <div style="flex:1"><div style="font-weight:600;font-size:14.5px">จับเวลา</div><div style="font-size:12.5px;color:var(--text-muted)">ช่วยให้ AI วิเคราะห์ละเอียดขึ้น (แนะนำให้เปิด)</div></div>
+        <button class="toggle on" id="timerToggle" onclick="toggleTimer(this)" aria-label="จับเวลา"><span class="knob"></span></button>
+      </div>
+      <div style="margin-top:26px"><button class="btn btn-primary" onclick="startTest()"><span class="mi s20">play_arrow</span> เริ่มทำแบบทดสอบ</button></div>
+    </div>
+  </div>
+
+  <!-- STEP: test -->
+  <div class="step" id="s-test">
+    <div class="test-prog"><span id="testCount">ข้อ 1 / 10</span><span class="tchip" id="testTimer"><span class="mi s16">timer</span> 0:00</span><div class="bar"><span id="testBar"></span></div><button class="btn btn-ghost" id="skipBtn" style="display:none;padding:6px 12px;font-size:13px" onclick="askSkip()">ข้าม</button></div>
+    <div id="testArea"></div>
+  </div>
+
+  <!-- STEP: cutscene -->
+  <div class="step" id="s-cut">
+    <div class="cut">
+      <div class="big"><span class="mi s40" id="cutIcon">insights</span></div>
+      <h2 id="cutTitle"></h2>
+      <p id="cutText"></p>
+      <div class="ring"><span class="mi s16" style="color:var(--primary)">bolt</span> <span id="cutRing"></span></div>
+      <div style="margin-top:26px"><button class="btn btn-primary" id="cutNext">ทำต่อ <span class="mi s20">arrow_forward</span></button></div>
+    </div>
+  </div>
+
+</div>
+
+<!-- RESULT (wide) -->
+<div class="wiz wide" id="resultWrap" style="display:none">
+  <div class="res-head">
+    <div class="eyebrow"><span class="mi s16">auto_awesome</span> ผลการวิเคราะห์ด้วย AI</div>
+    <h1>ผลลัพธ์ของน้อง · คณิตศาสตร์ ม.6</h1>
+    <p class="qsub" style="margin:0">เป้าหมาย: เพิ่มคะแนนสอบ</p>
+  </div>
+
+  <div class="incomplete" id="incompleteNote" style="display:none">
+    <span class="mi s20">warning</span><div class="t"><b>ผลยังไม่สมบูรณ์</b> — ทำแบบทดสอบยังไม่ครบ ผลวิเคราะห์อาจคลาดเคลื่อน</div>
+    <button class="btn btn-tonal" style="padding:8px 16px" onclick="resumeTest()">ทำต่อให้ครบ</button>
+  </div>
+
+  <div class="res-grid">
+    <div>
+      <div class="card"><h3><span class="mi s20">insights</span> AI Summary <span class="badge-new">AI</span></h3>
+        <div class="score-ring">
+          <div class="ring-num"><div class="inner">58%</div></div>
+          <div class="ai-pts">
+            <div class="pt str"><span class="ic"><span class="mi s16">check</span></span><div><b>จุดแข็ง:</b> พีชคณิตพื้นฐาน (ถูก 8/10)</div></div>
+            <div class="pt weak"><span class="ic"><span class="mi s16">priority_high</span></span><div><b>จุดอ่อน:</b> ตรีโกณมิติ (ถูก 2/10)</div></div>
+            <div class="pt imp"><span class="ic"><span class="mi s16">trending_up</span></span><div><b>ควรพัฒนา:</b> การทำโจทย์จับเวลา</div></div>
+          </div>
+        </div>
+        <div class="ai-narrative">
+          <span class="lab">สรุปให้เข้าใจง่าย</span>
+          น้องมีพื้นฐานพีชคณิตดี แต่ <b>ติดเรื่องตรีโกณฯ และทำโจทย์ไม่ทันเวลา</b> (จาก Insight Quiz) — ถ้าเน้นฝึกตรีโกณฯ แบบจับเวลา <b>มีโอกาสเพิ่มคะแนน ~15% ใน 1 เดือน</b> ที่ 15 นาที/วัน
+        </div>
+      </div>
+
+      <div class="card" style="margin-top:18px"><h3><span class="mi s20">fact_check</span> ผลแบบทดสอบ (10 ข้อ · ถูก 6)</h3>
+        <div class="tr ok"><span class="n"><span class="mi s16">check</span></span> ข้อ 1 · พีชคณิต <span class="ans">ตอบถูก</span></div>
+        <div class="tr ok"><span class="n"><span class="mi s16">check</span></span> ข้อ 2 · พีชคณิต <span class="ans">ตอบถูก</span></div>
+        <div class="tr no"><span class="n"><span class="mi s16">close</span></span> ข้อ 3 · ตรีโกณมิติ <span class="ans">เฉลย: ข. sin30°=½</span></div>
+        <div class="tr no"><span class="n"><span class="mi s16">close</span></span> ข้อ 4 · ตรีโกณมิติ <span class="ans">เฉลย: ค.</span></div>
+        <div class="tr ok"><span class="n"><span class="mi s16">check</span></span> ข้อ 5 · ฟังก์ชัน <span class="ans">ตอบถูก</span></div>
+        <div class="tr ok"><span class="n"><span class="mi s16">check</span></span> ข้อ 6 · เซต <span class="ans">ตอบถูก</span></div>
+      </div>
+
+      <div class="lp">
+        <div class="ic"><span class="mi s28">event_note</span></div>
+        <div class="t"><h3>สร้างแผนการเรียนเฉพาะตัว</h3><p>ตอบ 3 คำถามสั้นๆ (ระยะเวลา · ชม./วัน · ช่วงเวลา) ให้ AI จัดแผนตามผลนี้</p></div>
+        <button class="btn" onclick="openLP()">สร้าง Learning Plan <span class="mi s20">arrow_forward</span></button>
+      </div>
+    </div>
+
+    <div>
+      <div class="card"><h3><span class="mi s20">smart_display</span> คลิปแนะนำตาม Goal</h3>
+        <div class="pls">
+          <div class="pl"><img src="https://picsum.photos/seed/trig1/200/120" alt=""><div><div class="t">ตรีโกณมิติ เริ่มจากศูนย์</div><div class="s">8 บทเรียน · ตรงจุดอ่อน</div></div></div>
+          <div class="pl"><img src="https://picsum.photos/seed/trig2/200/120" alt=""><div><div class="t">เทคนิคทำโจทย์จับเวลา</div><div class="s">5 บทเรียน</div></div></div>
+          <div class="pl"><img src="https://picsum.photos/seed/alg1/200/120" alt=""><div><div class="t">พีชคณิต ขั้นสูง</div><div class="s">10 บทเรียน · ต่อยอดจุดแข็ง</div></div></div>
+        </div>
+      </div>
+
+      <div class="card" style="margin-top:18px"><h3><span class="mi s20">workspace_premium</span> ปลดล็อกเต็มรูปแบบ</h3>
+        <p style="font-size:13px;color:var(--text-muted);margin:-6px 0 14px">สมัครเพื่อใช้ Learning Plan + วิเคราะห์ได้ไม่จำกัด</p>
+        <div class="pkgs">
+          <div class="pkg"><div class="term">3 ด.</div><div class="amt">2,800฿</div></div>
+          <div class="pkg best"><div class="term">12 ด.</div><div class="amt">5,300฿</div></div>
+          <div class="pkg"><div class="term">6 ด.</div><div class="amt">4,100฿</div></div>
+        </div>
+        <button class="btn btn-primary" style="width:100%;justify-content:center;margin-top:14px" onclick="location.href='personalize-goal-active.html'">สมัครสมาชิก</button>
+      </div>
+
+      <div class="contact">มีคำถาม? <a href="#"><span class="mi s16">support_agent</span> ติดต่อแอดมิน</a></div>
+    </div>
+  </div>
+</div>
+
+<!-- Skip confirm modal -->
+<div class="ovl" id="skipModal">
+  <div class="modal">
+    <span class="mi s40">warning</span>
+    <h3>ข้ามแบบทดสอบตอนนี้?</h3>
+    <p>คุณทำไป 5 ข้อแล้ว ถ้าข้ามตอนนี้จะได้ <b>ผลลัพธ์แบบไม่สมบูรณ์</b> (กลับมาทำต่อภายหลังได้)</p>
+    <div class="row"><button class="btn btn-ghost" onclick="closeSkip()">ทำต่อ</button><button class="btn btn-primary" onclick="confirmSkip()">ยืนยันข้าม</button></div>
+  </div>
+</div>
+
+<!-- Learning Plan modal -->
+<div class="ovl" id="lpModal">
+  <div class="modal lpm">
+    <div class="mh"><h3 id="lpHead">สร้างแผนการเรียน</h3><button class="closeb" onclick="closeLP()" aria-label="ปิด"><span class="mi s20">close</span></button></div>
+
+    <div id="lpQuestions">
+      <p style="font-size:13.5px;color:var(--text-muted);margin-bottom:4px">ตอบ 3 ข้อ ให้ AI จัดแผนตามผลของน้อง</p>
+      <div class="lpq"><h4>อยากได้แผนระยะไหน?</h4><div class="chips">
+        <button class="chip" onclick="selChip(this)">สั้น (14 วัน–1 เดือน)</button>
+        <button class="chip" onclick="selChip(this)">ยาว (1–3 เดือน)</button>
+      </div></div>
+      <div class="lpq"><h4>มีเวลาเรียนต่อวันเท่าไร?</h4><div class="chips">
+        <button class="chip" onclick="selChip(this)">15 นาที</button><button class="chip" onclick="selChip(this)">30 นาที</button>
+        <button class="chip" onclick="selChip(this)">1 ชม.</button><button class="chip" onclick="selChip(this)">มากกว่า 1 ชม.</button>
+      </div></div>
+      <div class="lpq"><h4>สะดวกเรียนช่วงไหน?</h4><div class="chips">
+        <button class="chip" onclick="selChip(this)">08:00–12:00</button><button class="chip" onclick="selChip(this)">13:00–16:00</button>
+        <button class="chip" onclick="selChip(this)">16:00–18:00</button><button class="chip" onclick="selChip(this)">18:00–20:00</button>
+        <button class="chip" onclick="selChip(this)">20:00–22:00</button>
+      </div></div>
+      <button class="btn btn-primary" style="width:100%;justify-content:center;margin-top:6px" onclick="genPlan()"><span class="mi s20">auto_awesome</span> สร้างแผนการเรียน</button>
+    </div>
+
+    <div id="lpPlan" style="display:none">
+      <div class="ai-narrative" style="margin-top:6px"><span class="lab">แผนที่สร้างตามผลของน้อง</span> เน้น <b>ตรีโกณมิติ</b> (จุดอ่อน) + ฝึกจับเวลา · 15 นาที/วัน · ช่วง 18:00–20:00 · ระยะ 1 เดือน</div>
+      <div class="wk" style="margin-top:14px">
+        <div class="wh"><span class="mi s20" style="color:var(--green)">lock_open</span> สัปดาห์ที่ 1 — ปูพื้นตรีโกณฯ <span class="pill ok">เริ่มได้เลย</span></div>
+        <div class="day"><span class="mi s16">play_circle</span> จ–พ: ตรีโกณฯ เริ่มจากศูนย์ (3 คลิป)</div>
+        <div class="day"><span class="mi s16">quiz</span> พฤ: แบบฝึกหัด sin/cos/tan</div>
+        <div class="day"><span class="mi s16">timer</span> ศ: ทดสอบจับเวลา 10 ข้อ</div>
+      </div>
+      <div class="wk lock">
+        <div class="wh"><span class="mi s20">lock</span> สัปดาห์ที่ 2 — โจทย์ประยุกต์ <span class="pill lk">ต้องสมัคร</span></div>
+        <div class="day"><span class="mi s16">play_circle</span> โจทย์ตรีโกณฯ ระดับสอบ</div>
+      </div>
+      <div class="wk lock">
+        <div class="wh"><span class="mi s20">lock</span> สัปดาห์ที่ 3–4 — ตะลุยโจทย์ + AI Practice <span class="pill lk">ต้องสมัคร</span></div>
+        <div class="day"><span class="mi s16">psychology</span> AI ปรับโจทย์ตามจุดที่ยังพลาด</div>
+      </div>
+      <button class="btn btn-primary" style="width:100%;justify-content:center;margin-top:8px" onclick="location.href='personalize-goal-active.html'"><span class="mi s20">workspace_premium</span> สมัครเพื่อปลดล็อกทั้งแผน</button>
+      <button class="btn btn-ghost" style="width:100%;justify-content:center;margin-top:6px" onclick="closeLP()">ปิด</button>
+    </div>
+  </div>
+</div>
+
+<script>
+var state={role:null,purpose:null,subjects:[],school:null,grade:null};
+function openLP(){document.getElementById('lpQuestions').style.display='block';document.getElementById('lpPlan').style.display='none';document.getElementById('lpHead').textContent='สร้างแผนการเรียน';document.getElementById('lpModal').classList.add('show');}
+function genPlan(){document.getElementById('lpQuestions').style.display='none';document.getElementById('lpPlan').style.display='block';document.getElementById('lpHead').textContent='แผนการเรียนของน้อง';document.getElementById('lpModal').querySelector('.modal').scrollTop=0;}
+function closeLP(){document.getElementById('lpModal').classList.remove('show');}
+var STEPS=['s-role','s-purpose','s-subject','s-school','s-grade','s-insight-intro','s-insight','s-share','s-test','s-cut'];
+function show(id){
+  document.querySelectorAll('.step').forEach(function(s){s.classList.remove('on');});
+  document.getElementById(id).classList.add('on');
+  document.getElementById('resultWrap').style.display='none';
+  document.getElementById('wiz').style.display='block';
+  window.scrollTo({top:0,behavior:'smooth'});
+  var pct={'s-role':10,'s-purpose':22,'s-subject':34,'s-school':34,'s-grade':46,'s-insight-intro':58,'s-insight':64,'s-test-intro':72,'s-share':80,'s-test':80,'s-cut':85}[id]||10;
+  document.getElementById('pbar').style.width=pct+'%';
+}
+function setRole(r,el){state.role=r;sel1(el);setTimeout(function(){show('s-purpose');},180);}
+function setPurpose(p,el){state.purpose=p;sel1(el);setTimeout(afterPurpose,180);}
+function sel1(el){el.parentNode.querySelectorAll('.ocard').forEach(function(o){o.classList.remove('sel');});el.classList.add('sel');}
+function afterPurpose(){ if(state.purpose==='score'){document.getElementById('grade-back').setAttribute('onclick',"show('s-subject')");show('s-subject');} else {document.getElementById('grade-back').setAttribute('onclick',"show('s-school')");show('s-school');} }
+function toggleSubj(el,name){el.classList.toggle('sel');var i=state.subjects.indexOf(name);if(i<0)state.subjects.push(name);else state.subjects.splice(i,1);document.getElementById('subj-next').disabled=state.subjects.length===0;}
+function pickOne(el,key,val){el.parentNode.querySelectorAll('.chip').forEach(function(c){c.classList.remove('sel');});el.classList.add('sel');state[key]=val;
+  setTimeout(function(){ if(key==='school')show('s-grade'); if(key==='grade')show('s-insight-intro'); },180);}
+
+/* insight quiz render (role-based + per subject) */
+function buildInsight(){
+  var parent=state.role==='parent';
+  document.getElementById('insightSub').textContent=parent?'ตอบจากสิ่งที่คุณสังเกตเห็นจากลูก':'ตอบจากความรู้สึกของตัวเอง';
+  var subs=state.subjects.length?state.subjects:['วิชานี้'];
+  var moods=['😟','😕','😐','🙂','😎'],ml=['น้อยมาก','น้อย','กลาง','ดี','ดีมาก'];
+  var h='';
+  if(parent){
+    h+=qBlock('กังวลเรื่องอะไรมากที่สุด?',['คะแนนตก','ไม่มั่นใจ','ตามเพื่อนไม่ทัน','ไม่มีสมาธิ','เครียดตอนสอบ']);
+    h+=qBlock('ลูกทบทวนนอกห้องเรียนแค่ไหน?',['แทบไม่มี','<30 นาที','30–60 นาที','>1 ชม.']);
+    h+=qBlock('อยากเห็นอะไรเปลี่ยนมากที่สุด?',['คะแนนขึ้น','มั่นใจขึ้น','มีวินัย','สอบติด']);
+  }else{
+    h+=qBlock('อยากเก่งขึ้นเพราะอะไร?',['อยากได้คะแนนดี','อยากสอบติด','อยากเข้าใจจริงๆ','ไม่อยากตามเพื่อนไม่ทัน']);
+    h+=qBlock('มีเวลาเรียนเองวันละเท่าไร?',['แทบไม่มี','<30 นาที','30–60 นาที','>1 ชม.']);
+    h+=qBlock('อุปสรรคใหญ่สุดคือ?',['สมาธิ','วินัย','เวลาไม่พอ','ไม่มั่นใจ']);
+  }
+  subs.forEach(function(s){
+    var label=parent?('ลูกดูเป็นยังไงกับวิชา '+s+'?'):('วิชา '+s+' รู้สึกยังไง?');
+    var mh='<div class="insight-q"><h4>'+label+'</h4><div class="moods">';
+    for(var i=0;i<5;i++)mh+='<button class="mood" onclick="selMood(this)"><div class="e">'+moods[i]+'</div><div class="l">'+ml[i]+'</div></button>';
+    mh+='</div></div>';
+    h+=mh;
+    h+=qBlock('วิชา '+s+' ติดตรงไหน?',['พื้นฐานไม่แน่น','จำไม่ได้','ทำโจทย์ไม่ทัน','ไม่มีสมาธิ']);
+  });
+  document.getElementById('insightBody').innerHTML=h;
+}
+function qBlock(q,opts){var h='<div class="insight-q"><h4>'+q+'</h4><div class="chips">';opts.forEach(function(o){h+='<button class="chip" onclick="selChip(this)">'+o+'</button>';});return h+'</div></div>';}
+function selChip(el){el.parentNode.querySelectorAll('.chip').forEach(function(c){c.classList.remove('sel');});el.classList.add('sel');}
+function selMood(el){el.parentNode.querySelectorAll('.mood').forEach(function(c){c.classList.remove('sel');});el.classList.add('sel');}
+
+/* branch to test (student) or share (parent) */
+function toBranch(){ if(state.role==='parent'){show('s-share');} else {show('s-test-intro');} }
+state.timed=true;
+function toggleTimer(el){el.classList.toggle('on');state.timed=el.classList.contains('on');}
+var tmr=null,tsec=0;
+function startTimer(){tsec=0;clearInterval(tmr);if(!state.timed){document.getElementById('testTimer').style.display='none';return;}
+  document.getElementById('testTimer').style.display='inline-flex';
+  tmr=setInterval(function(){tsec++;var m=Math.floor(tsec/60),s=tsec%60;document.getElementById('testTimer').innerHTML='<span class="mi s16">timer</span> '+m+':'+(s<10?'0':'')+s;},1000);}
+function stopTimer(){clearInterval(tmr);}
+
+/* test engine */
+var QS=[
+ {s:'พีชคณิต',q:'ผลของ (x+2)(x−3) คือ?',o:['x²−x−6','x²+x−6','x²−5x','x²−6']},
+ {s:'พีชคณิต',q:'แก้สมการ 2x+4=10, x=?',o:['2','3','4','5']},
+ {s:'ตรีโกณมิติ',q:'sin 30° มีค่าเท่าใด?',o:['1','½','√3/2','0']},
+ {s:'ตรีโกณมิติ',q:'cos 0° มีค่าเท่าใด?',o:['0','½','1','−1']},
+ {s:'ฟังก์ชัน',q:'f(x)=2x+1, f(3)=?',o:['5','6','7','8']},
+ {s:'เซต',q:'จำนวนสมาชิกของ {1,2,3} คือ?',o:['2','3','4','6']},
+ {s:'ตรีโกณมิติ',q:'tan 45° มีค่าเท่าใด?',o:['0','1','√3','½']},
+ {s:'พีชคณิต',q:'(a+b)² = ?',o:['a²+b²','a²+2ab+b²','a²−b²','2ab']},
+ {s:'ฟังก์ชัน',q:'โดเมนของ f(x)=1/x คือ?',o:['x≠0','x>0','ทุกจำนวนจริง','x≥0']},
+ {s:'เซต',q:'A∩A = ?',o:['∅','A','U','2A']}
+];
+var ti=0;
+function startTest(){ti=0;show('s-test');renderQ();startTimer();}
+function renderQ(){
+  var q=QS[ti];
+  document.getElementById('testCount').textContent='ข้อ '+(ti+1)+' / 10';
+  document.getElementById('testBar').style.width=((ti)/10*100)+'%';
+  document.getElementById('skipBtn').style.display=ti>=5?'inline-flex':'none';
+  var h='<div class="tq"><span class="badge-subj">'+q.s+'</span><div>'+q.q+'</div></div><div class="opts">';
+  q.o.forEach(function(o,i){h+='<button class="ocard" onclick="answer()"><span class="ic" style="background:var(--surface-2);color:var(--text-muted)">'+String.fromCharCode(65+i)+'</span><div class="t" style="font-weight:500">'+o+'</div></button>';});
+  document.getElementById('testArea').innerHTML=h+'</div>';
+}
+function answer(){
+  ti++;
+  if(ti===3){cutscene('insights','เริ่มเห็นแนวทางแล้ว! 👀','ทำไป 3 ข้อ ระบบเริ่มจับรูปแบบการเรียนของน้องได้แล้ว ทำต่อเพื่อให้ผลแม่นยำขึ้น','วิเคราะห์ไปแล้ว 30%',function(){show('s-test');renderQ();});return;}
+  if(ti===5){cutscene('lock_open','ปลดล็อกผลเบื้องต้น! 🎉','ทำครบ 5 ข้อแล้ว เห็นแนวโน้มได้คร่าวๆ — ทำต่ออีก 5 ข้อเพื่อผลเต็มและแม่นยำกว่า','วิเคราะห์ไปแล้ว 55%',function(){show('s-test');renderQ();});return;}
+  if(ti>=10){stopTimer();cutscene('verified','เสร็จสมบูรณ์! ✨','Result ของน้องพร้อมแล้ว ไปดูผลวิเคราะห์เต็มรูปแบบกันเลย','วิเคราะห์ครบ 100%',function(){showResult(false);});return;}
+  renderQ();
+}
+function cutscene(icon,title,text,ring,next){
+  document.getElementById('cutIcon').textContent=icon;
+  document.getElementById('cutTitle').textContent=title;
+  document.getElementById('cutText').textContent=text;
+  document.getElementById('cutRing').textContent=ring;
+  document.getElementById('cutNext').onclick=next;
+  show('s-cut');
+}
+/* skip */
+function askSkip(){document.getElementById('skipModal').classList.add('show');}
+function closeSkip(){document.getElementById('skipModal').classList.remove('show');}
+function confirmSkip(){stopTimer();closeSkip();showResult(true);}
+function resumeTest(){renderQ();show('s-test');}
+function showResult(incomplete){
+  document.getElementById('wiz').style.display='none';
+  document.getElementById('resultWrap').style.display='block';
+  document.getElementById('pbar').style.width='100%';
+  document.getElementById('incompleteNote').style.display=incomplete?'flex':'none';
+  window.scrollTo({top:0,behavior:'smooth'});
+}
+buildInsight();
+/* rebuild insight when entering (subjects/role may change) */
+document.querySelectorAll('[onclick*="s-insight"]').forEach(function(){});
+var _origShow=show;
+show=function(id){ if(id==='s-insight')buildInsight(); _origShow(id); };
+</script>
+</body>
+</html>

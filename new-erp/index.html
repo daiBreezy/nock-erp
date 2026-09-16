@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NockERP — Education Operations</title>
+<link rel="icon" type="image/png" href="img/logo.png">
+<link rel="stylesheet" href="css/main.css">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=block">
+<link rel="stylesheet" href="css/md3.css">
+</head>
+<body>
+
+<!-- ══════════════════════════════════════════════════════════
+     APP RAIL — switches top-level systems (Academy / Finance / HR)
+══════════════════════════════════════════════════════════ -->
+<nav class="app-rail">
+  <div class="rail-brand"><img src="img/logo.png" alt="Nock"></div>
+  <button class="rail-item active" data-sys="academy" onclick="switchSystem('academy')">
+    <span class="mdi">school</span><span class="rail-label">Academy</span></button>
+  <button class="rail-item" data-sys="finance" onclick="switchSystem('finance')">
+    <span class="mdi">account_balance_wallet</span><span class="rail-label">Finance</span></button>
+  <button class="rail-item rail-soon" data-sys="hr" onclick="showToast('HR Management — coming soon','info')">
+    <span class="mdi">badge</span><span class="rail-label">HR</span></button>
+  <button class="rail-user" onclick="openSwitchModal()" title="Account & preferences">
+    <div class="rail-av" id="rail-av">N</div>
+    <span class="rail-label" id="rail-user-role">—</span>
+  </button>
+</nav>
+
+<!-- ══════════════════════════════════════════════════════════
+     SIDEBAR
+══════════════════════════════════════════════════════════ -->
+<nav id="sidebar">
+
+  <!-- ── SEARCH ─────────────────────────────────────────── -->
+  <div class="sidebar-search">
+    <span class="mdi mdi-sm" style="opacity:.4">search</span>
+    <input type="text" id="global-search" placeholder="Smart search…" autocomplete="off">
+  </div>
+
+  <!-- ── NOTIFICATIONS (prominent top bar) ──────────────── -->
+  <div class="sidebar-noti" onclick="showView('notifications')">
+    <div class="sidebar-noti-bell">
+      <span class="mdi mdi-md">notifications</span>
+      <div class="noti-pulse" id="noti-pulse"></div>
+    </div>
+    <div class="sidebar-noti-content">
+      <div class="sidebar-noti-label">Notifications</div>
+      <div class="sidebar-noti-sub" id="noti-sub-text">—</div>
+    </div>
+    <span class="nav-badge" id="badge-notifications" style="display:none"></span>
+  </div>
+
+  <!-- ── NAV (scrollable middle) ────────────────────────── -->
+  <div class="sidebar-nav">
+
+   <!-- ══ ACADEMY SYSTEM ══ -->
+   <div id="nav-academy">
+
+    <div class="nav-section">
+      <div class="nav-label">Main</div>
+      <div class="nav-item active" data-view="dashboard"><span class="icon">home</span>Dashboard</div>
+      <div class="nav-item" data-view="crm"><span class="icon">person_search</span>CRM<span class="nav-badge yellow" id="badge-crm">5</span></div>
+      <div class="nav-item" data-view="inbox"><span class="icon">chat</span>Inbox<span class="nav-badge" id="badge-inbox">3</span></div>
+      <div class="nav-item" data-view="calendar"><span class="icon">calendar_month</span>Calendar</div>
+    </div>
+
+    <div class="nav-section">
+      <div class="nav-label">People</div>
+      <div class="nav-item" data-view="students"><span class="icon">school</span>Students</div>
+      <div class="nav-item" data-view="families"><span class="icon">family_restroom</span>Families</div>
+      <div class="nav-item" data-view="staff"><span class="icon">badge</span>Staff</div>
+    </div>
+
+    <div class="nav-section">
+      <div class="nav-label">Operations</div>
+      <div class="nav-item" data-view="courses"><span class="icon">menu_book</span>Courses</div>
+      <div class="nav-item" data-view="classes"><span class="icon">class</span>Classes</div>
+      <div class="nav-item" data-view="sessions"><span class="icon">schedule</span>Sessions</div>
+      <div class="nav-item" data-view="attendance"><span class="icon">fact_check</span>Attendance</div>
+      <div class="nav-item" data-view="summaries"><span class="icon">summarize</span>Summaries</div>
+      <div class="nav-item" data-view="bus-route"><span class="icon">directions_bus</span>Bus Route</div>
+      <div class="nav-item" data-view="inventory"><span class="icon">inventory_2</span>Inventory</div>
+    </div>
+
+    <div class="nav-section">
+      <div class="nav-label">Finance & Admin</div>
+      <div class="nav-item" data-view="billing"><span class="icon">credit_card</span>Billing<span class="nav-badge" id="badge-billing">2</span></div>
+      <div class="nav-item" data-view="tasks"><span class="icon">checklist</span>Tasks</div>
+      <div class="nav-item" data-view="reports"><span class="icon">bar_chart</span>Reports</div>
+    </div>
+
+    <div class="nav-section">
+      <div class="nav-label">System</div>
+      <div class="nav-item" data-view="settings"><span class="icon">settings</span>Settings</div>
+      <div class="nav-item" data-view="logs"><span class="icon">history</span>Logs & Timeline</div>
+    </div>
+
+   </div><!-- /nav-academy -->
+
+   <!-- ══ FINANCE SYSTEM ══ -->
+   <div id="nav-finance" hidden>
+
+    <div class="nav-section">
+      <div class="nav-label">Finance</div>
+      <div class="nav-item" data-view="fin-dashboard"><span class="icon">dashboard</span>Dashboard</div>
+      <div class="nav-item" data-view="fin-expenses"><span class="icon">receipt_long</span>Expenses</div>
+      <div class="nav-item" data-view="fin-requests"><span class="icon">approval</span>Requests<span class="nav-badge" id="badge-fin-requests" style="display:none"></span></div>
+      <div class="nav-item" data-view="fin-reimburse"><span class="icon">request_quote</span>Reimbursement<span class="nav-badge" id="badge-fin-reim" style="display:none"></span></div>
+      <div class="nav-item" data-view="fin-recurring"><span class="icon">event_repeat</span>Recurring</div>
+      <div class="nav-item" data-view="period-close"><span class="icon">event_available</span>Period Close</div>
+    </div>
+
+    <div class="nav-section">
+      <div class="nav-label">Insights</div>
+      <div class="nav-item" data-view="fin-reports"><span class="icon">bar_chart</span>Reports</div>
+    </div>
+
+    <div class="nav-section">
+      <div class="nav-label">System</div>
+      <div class="nav-item" data-view="fin-settings"><span class="icon">settings</span>Settings</div>
+    </div>
+
+   </div><!-- /nav-finance -->
+
+  </div><!-- /sidebar-nav -->
+
+</nav>
+
+<!-- ══════════════════════════════════════════════════════════
+     MAIN
+══════════════════════════════════════════════════════════ -->
+<div id="main">
+
+  <!-- CONTENT — each view is populated by its JS module -->
+  <div id="content">
+    <div class="view active" id="view-dashboard"></div>
+    <div class="view" id="view-crm"></div>
+    <div class="view" id="view-inbox"></div>
+    <div class="view" id="view-calendar"></div>
+    <div class="view" id="view-students"></div>
+    <div class="view" id="view-families"></div>
+    <div class="view" id="view-staff"></div>
+    <div class="view" id="view-courses"></div>
+    <div class="view" id="view-classes"></div>
+    <div class="view" id="view-sessions"></div>
+    <div class="view" id="view-attendance"></div>
+    <div class="view" id="view-summaries"></div>
+    <div class="view" id="view-bus-route"></div>
+    <div class="view" id="view-inventory"></div>
+    <div class="view" id="view-period-close"></div>
+    <div class="view" id="view-billing"></div>
+    <div class="view" id="view-notifications"></div>
+    <div class="view" id="view-tasks"></div>
+    <div class="view" id="view-reports"></div>
+    <div class="view" id="view-settings"></div>
+    <div class="view" id="view-logs"></div>
+    <!-- Finance system views -->
+    <div class="view" id="view-fin-dashboard"></div>
+    <div class="view" id="view-fin-expenses"></div>
+    <div class="view" id="view-fin-requests"></div>
+    <div class="view" id="view-fin-reimburse"></div>
+    <div class="view" id="view-fin-recurring"></div>
+    <div class="view" id="view-fin-reports"></div>
+    <div class="view" id="view-fin-settings"></div>
+  </div>
+
+</div><!-- /main -->
+
+<!-- ══════════════════════════════════════════════════════════
+     GLOBAL MODAL CONTAINER (modules inject modals here)
+══════════════════════════════════════════════════════════ -->
+<div id="modals"></div>
+
+<!-- ══════════════════════════════════════════════════════════
+     SCRIPTS — load order matters
+══════════════════════════════════════════════════════════ -->
+<script src="js/data.js"></script>
+<script src="js/data-settings.js"></script>
+<script src="js/data-bank.js"></script>
+<script src="js/data-reports.js"></script>
+<script src="js/data-finance-settings.js"></script>
+<script src="js/data-finance.js"></script>
+<script src="js/data-sync.js"></script>
+<script src="js/app.js"></script>
+<script src="js/ui.js"></script>
+<script src="js/exports.js"></script>
+<script src="js/auth.js"></script>
+<script src="js/session-card.js"></script>
+<script src="js/attendance-picker.js"></script>
+<script src="js/session-gen.js"></script>
+<script src="js/bus-fee.js"></script>
+<script src="js/course-schedule.js"></script>
+<script src="js/dashboard.js"></script>
+<script src="js/crm.js"></script>
+<script src="js/crm-suggestion.js"></script>
+<script src="js/crm-forms.js"></script>
+<script src="js/crm-review.js"></script>
+<script src="js/crm-invoice.js"></script>
+<script src="js/crm-schedule.js"></script>
+<script src="js/inbox.js"></script>
+<script src="js/calendar-widget.js"></script>
+<script src="js/calendar.js"></script>
+<script src="js/calendar-class.js"></script>
+<script src="js/calendar-modals.js"></script>
+<script src="js/calendar-form.js"></script>
+<script src="js/calendar-ops-new.js"></script>
+<script src="js/students.js"></script>
+<script src="js/families.js"></script>
+<script src="js/staff.js"></script>
+<script src="js/staff-profile.js"></script>
+<script src="js/billing.js"></script>
+<script src="js/billing-payment.js"></script>
+<script src="js/billing-receipt.js"></script>
+<script src="js/reports.js"></script>
+<script src="js/fin-side-panel.js"></script>
+<script src="js/fin-dashboard.js"></script>
+<script src="js/fin-expenses.js"></script>
+<script src="js/fin-requests.js"></script>
+<script src="js/fin-reimburse.js"></script>
+<script src="js/fin-recurring.js"></script>
+<script src="js/fin-reports.js"></script>
+<script src="js/fin-settings.js"></script>
+<script src="js/fin-settings-approval.js"></script>
+<script src="js/fin-settings-accounts.js"></script>
+<script src="js/fin-settings-permissions.js"></script>
+<script src="js/settings.js"></script>
+<script src="js/settings-hours.js"></script>
+<script src="js/settings-catalog.js"></script>
+<script src="js/settings-pricematrix.js"></script>
+<script src="js/settings-promotion.js"></script>
+<script src="js/settings-system.js"></script>
+<script src="js/settings-invoice.js"></script>
+<script src="js/timeline.js"></script>
+<script src="js/enroll-frequency.js"></script>
+<script src="js/student-profile.js"></script>
+<script src="js/sessions.js"></script>
+<script src="js/attendance.js"></script>
+<script src="js/summaries.js"></script>
+<script src="js/bus-route.js"></script>
+<script src="js/bus-views.js"></script>
+<script src="js/bus-report.js"></script>
+<script src="js/inventory.js"></script>
+<script src="js/period-close.js"></script>
+<script src="js/course-end.js"></script>
+<script src="js/course-summary.js"></script>
+<script src="js/notifications.js"></script>
+<script src="js/tasks.js"></script>
+<script src="js/courses.js"></script>
+<script src="js/classes.js"></script>
+<script src="js/logs.js"></script>
+<script src="js/placeholder.js"></script>
+
+</body>
+</html>
