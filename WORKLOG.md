@@ -5,6 +5,20 @@
 
 ---
 
+## ▶️ วิธีเปิด prototype ดู (ทุกวัน)
+
+**ดับเบิลคลิกไฟล์ `start-servers.command`** (อยู่ที่ root ของ `nock-erp/`) → เปิด server ครบ 3 ตัวในทีเดียว
+แล้วเปิดลิงก์ในเบราว์เซอร์:
+- Web App: http://localhost:5199/
+- Web Teacher: http://localhost:5200/
+- ERP: http://localhost:8000/new-erp/index.html
+- KruJob: http://localhost:8000/krujob/krujob-proto.html
+- Web Landing/Learn: http://localhost:8000/web-app/prototypes/landing-page.html
+
+> ปิดหน้าต่าง Terminal ที่เด้งขึ้น = server ดับ (เลิกใช้แล้วค่อยปิด) / ต้อง `npm install` ใน 2 โปรเจกต์ React ก่อนครั้งแรก
+
+---
+
 ## 🏠 คู่มือตั้งเครื่องบ้าน (first-time setup — ทำครั้งเดียว)
 
 > ยืนยันแล้ว: ไฟล์เดิมบนเครื่องบ้าน "ไม่ได้ใช้เลย" ลบทิ้งได้ (ทุกอย่างอยู่บน GitHub ครบแล้ว)
