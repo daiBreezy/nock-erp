@@ -1,4 +1,5 @@
-import { Routes, Route, Navigate, useLocation, Outlet } from 'react-router-dom'
+import { useRef } from 'react'
+import { Routes, Route, Navigate, useLocation, useNavigate, Outlet } from 'react-router-dom'
 import BottomNav from './components/BottomNav'
 import DesktopNav from './components/web/DesktopNav'
 import LearnHub from './pages/LearnHub'
@@ -67,11 +68,19 @@ function MobileFrame() {
   )
 }
 
-/** Auth — desktop = โมดัลกลางจอ, mobile = เต็มจอ */
+/** Auth — overlay modal ทับหน้าเดิม (desktop = การ์ดกลางจอ + ฉากหลังมืด, mobile = เต็มจอ) */
 function AuthFrame() {
+  const navigate = useNavigate()
+  const close = () => navigate(-1)
   return (
-    <div className="flex min-h-screen items-center justify-center bg-surface-2 md:p-6">
-      <div className="w-full max-w-[440px] bg-surface-0 shadow-sm md:overflow-hidden md:rounded-3xl md:shadow-xl md:[&_.min-h-screen]:!min-h-fit">
+    <div
+      className="fixed inset-0 z-[100] flex justify-center bg-black/50 md:items-center md:p-6"
+      onClick={close}
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        className="w-full max-w-[440px] bg-surface-0 shadow-xl md:max-h-[calc(100dvh-3rem)] md:overflow-y-auto md:rounded-3xl md:[&_.min-h-screen]:!min-h-fit"
+      >
         <Outlet />
       </div>
     </div>
@@ -91,9 +100,16 @@ function GoalFrame() {
 }
 
 export default function App() {
+  const location = useLocation()
+  const inAuth = location.pathname.startsWith('/auth')
+  // จำหน้าล่าสุดที่ไม่ใช่ auth ไว้ เพื่อโชว์ auth เป็น overlay ทับหน้านั้น
+  const bgRef = useRef<ReturnType<typeof useLocation> | null>(null)
+  if (!inAuth) bgRef.current = location
+  const background = inAuth ? bgRef.current : null
+
   return (
     <div className="min-h-full bg-surface-2">
-      <Routes>
+      <Routes location={background || location}>
         {/* Learn Hub — responsive web + mobile (shell ของตัวเอง) */}
         <Route path="/" element={<LearnHub />} />
 
@@ -161,6 +177,18 @@ export default function App() {
           <Route path="/auth/welcome" element={<Welcome />} />
         </Route>
       </Routes>
+
+      {/* Auth overlay — โชว์ทับหน้าเดิมเมื่อเข้ามาจากปุ่มในเว็บ (มี background) */}
+      {background && (
+        <Routes>
+          <Route element={<AuthFrame />}>
+            <Route path="/auth" element={<AuthLanding />} />
+            <Route path="/auth/otp" element={<OtpVerify />} />
+            <Route path="/auth/email" element={<EmailAuth />} />
+            <Route path="/auth/welcome" element={<Welcome />} />
+          </Route>
+        </Routes>
+      )}
     </div>
   )
 }

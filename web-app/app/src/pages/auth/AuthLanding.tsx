@@ -24,7 +24,7 @@ export default function AuthLanding() {
       {/* header */}
       <div className="flex items-center justify-between border-b border-line px-5 py-4">
         <h1 className="text-lg font-bold text-ink">ลงชื่อเข้าใช้งาน / สร้างบัญชี ฟรี</h1>
-        <button onClick={() => navigate('/')} aria-label="ปิด" className="text-ink-mute hover:text-ink"><X size={22} /></button>
+        <button onClick={() => navigate(-1)} aria-label="ปิด" className="text-ink-mute hover:text-ink"><X size={22} /></button>
       </div>
 
       <div className="flex-1 px-5 py-6">
