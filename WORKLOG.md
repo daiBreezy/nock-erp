@@ -50,6 +50,25 @@
 
 ---
 
+## 2026-09-16 — Web App: สร้างหน้า Landing (React) ตาม Ref Figma
+
+**ทำอะไร:**
+- เติมหน้า `web-app/app` route `/landing` (เดิมเป็น stub) ให้เต็มทั้งหน้า → `src/pages/marketing/Landing.tsx`
+- 9 ส่วนตาม Ref (`Landing Page.png`): Hero → ผลตอบรับ → Live → Course/ราคา → ฟีเจอร์ → วิชา → คนญี่ปุ่น → App CTA → Footer
+- reuse ของเดิม: `DesktopNav`, `AppShowcase`, `MarketingFooter`, design tokens; ตารางราคาดึงราคาจริงจาก `data/packages.ts`, วิชาจาก `data/learn.ts`
+
+**ตัดสินใจ (สำคัญ):**
+- **Hero ใช้ static image ก้อนเดียว** (`assets/Landing/Full Hero.png` → ย่อเป็น `app/src/assets/landing/hero-visual.png` transparent 2400px) วางบนพื้น `#FFF1F2`
+  → เลิกวิธีให้ Claude จัดวางเลเยอร์ย่อยเอง (พังง่าย + กิน credit) เปลี่ยนเป็น "โครง HTML + static image" แทน
+- แนวทางต่อไป: section อื่นถ้าต้องเป๊ะตาม Ref → export เป็นรูปแล้ววางแบบ static เหมือน Hero
+- source asset Figma เก็บใน `web-app/assets/Landing/` (มี layer ย่อย + Full Hero)
+
+**เหลือทำ (TODO):**
+- [ ] จูน section ที่ยัง mock เอง (ผลตอบรับ/Live/ตารางราคา) ให้ตรง Ref — รอ asset รูป
+- [ ] เนื้อหา mock ที่ต้องแทนด้วยของจริง: testimonial, ตารางไลฟ์, ข้อความ chat, สาขาญี่ปุ่น
+
+---
+
 ## 2026-09-16 — ตั้งระบบ monorepo + backup ขึ้น GitHub (เครื่องที่ทำงาน)
 
 **ทำอะไร:**
