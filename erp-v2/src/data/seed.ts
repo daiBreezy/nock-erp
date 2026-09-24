@@ -1,0 +1,181 @@
+// Mock data generated relative to "today" so the prototype always looks current.
+
+import { addDays, nextWeekday, toDateStr, weekdayOf } from "@/domain/dates"
+import { generateSessions } from "@/domain/rules/scheduling"
+import type {
+  AppNotification, Attendance, Branch, Course, Entitlement, Family, Holiday, Invoice, Klass, LessonSummary,
+  Package, Session, Staff, Student, Weekday,
+} from "@/domain/types"
+
+export interface DB {
+  branches: Branch[]
+  staff: Staff[]
+  holidays: Holiday[]
+  packages: Package[]
+  courses: Course[]
+  classes: Klass[]
+  sessions: Session[]
+  attendance: Attendance[]
+  summaries: LessonSummary[]
+  families: Family[]
+  students: Student[]
+  entitlements: Entitlement[]
+  invoices: Invoice[]
+  notifications: AppNotification[]
+}
+
+let seq = 0
+export const uid = (p: string) => `${p}_${Date.now().toString(36)}${(seq++).toString(36)}`
+
+const wk = (open: string, close: string, closed: Weekday[] = [0]) =>
+  Object.fromEntries(([0, 1, 2, 3, 4, 5, 6] as Weekday[]).map((d) => [d, closed.includes(d) ? null : { open, close }])) as Branch["hours"]
+
+export function buildSeed(now = new Date()): DB {
+  seq = 0
+  const today = toDateStr(now)
+  const monday = addDays(today, -((weekdayOf(today) + 6) % 7))
+  const start = addDays(monday, -14) // classes started two weeks ago
+
+  const branches: Branch[] = [
+    {
+      id: "br_thl", code: "THL", name: "ทองหล่อ", brand: "nockacademy",
+      rooms: [{ id: "rm_1", name: "ห้อง 1" }, { id: "rm_2", name: "ห้อง 2" }, { id: "rm_3", name: "ห้อง 3" }],
+      hours: wk("09:00", "20:00"), subjects: ["คณิต", "อังกฤษ", "วิทย์"], grades: ["ป.4", "ป.5", "ป.6", "ม.1", "ม.2", "ม.3"],
+      defaultSessionMinutes: 60, busFeePerLeg: 150,
+      bankAccount: { bank: "กสิกรไทย", name: "บจก. นกอะคาเดมี่", number: "123-4-56789-0" }, lineOaConnected: true,
+    },
+    {
+      id: "br_ari", code: "ARI", name: "อารีย์", brand: "liclass",
+      rooms: [{ id: "rm_a1", name: "ห้อง A" }, { id: "rm_a2", name: "ห้อง B" }],
+      hours: wk("10:00", "19:00", [0, 1]), subjects: ["คณิต", "อังกฤษ"], grades: ["ป.1", "ป.2", "ป.3", "ป.4", "ป.5", "ป.6"],
+      defaultSessionMinutes: 90, busFeePerLeg: 120,
+      bankAccount: { bank: "ไทยพาณิชย์", name: "บจก. ลิคลาส เอดูเคชั่น", number: "987-6-54321-0" }, lineOaConnected: false,
+    },
+  ]
+
+  const st = (id: string, name: string, nickname: string, roles: Staff["roles"], branchIds: string[], subjects: string[], canLogin = true): Staff =>
+    ({ id, name, nickname, roles, branchIds, subjects, active: true, canLogin, email: canLogin ? `${id}@nockacademy.com` : undefined })
+  const staff: Staff[] = [
+    st("u_nock", "นก ผู้อำนวยการ", "นก", ["director"], ["br_thl", "br_ari"], []),
+    st("u_ploy", "พลอย แอดมิน", "พลอย", ["admin"], ["br_thl"], []),
+    st("u_ton", "ต้น ผู้จัดการ", "ต้น", ["manager"], ["br_thl", "br_ari"], []),
+    st("u_dai", "ได บรีซซี่", "ครูได", ["teacher"], ["br_thl"], ["คณิต", "วิทย์"]),
+    st("u_mint", "มิ้นท์ ศรีสุข", "ครูมิ้นท์", ["teacher"], ["br_thl", "br_ari"], ["อังกฤษ"]),
+    st("u_beam", "บีม ใจดี", "ครูบีม", ["teacher"], ["br_ari"], ["คณิต"], false),
+    { ...st("u_old", "โอ๊ต (ลาออก)", "ครูโอ๊ต", ["teacher"], ["br_thl"], ["คณิต"]), active: false },
+  ]
+
+  const holidays: Holiday[] = [
+    { id: "hol_1", branchId: null, date: addDays(monday, 16), name: "วันหยุดชดเชย" },
+  ]
+
+  const packages: Package[] = [
+    { id: "pk_m_math", branchId: "br_thl", subject: "คณิต", grades: ["ป.4", "ป.5", "ป.6"], unit: "month", price: 4500 },
+    { id: "pk_m_eng", branchId: "br_thl", subject: "อังกฤษ", grades: ["ป.4", "ป.5", "ป.6", "ม.1"], unit: "month", price: 4200 },
+    { id: "pk_h_sci", branchId: "br_thl", subject: "วิทย์", grades: ["ม.1", "ม.2", "ม.3"], unit: "hours", price: 6000, hours: 10 },
+    { id: "pk_m_ari", branchId: "br_ari", subject: "คณิต", grades: ["ป.1", "ป.2", "ป.3"], unit: "month", price: 3800 },
+  ]
+  const courses: Course[] = [
+    { id: "co_math5", branchId: "br_thl", name: "คณิต ป.5 รายเดือน", subject: "คณิต", grades: ["ป.5"], packageId: "pk_m_math" },
+    { id: "co_eng", branchId: "br_thl", name: "อังกฤษ ป.4–ม.1 รายเดือน", subject: "อังกฤษ", grades: ["ป.4", "ป.5", "ป.6", "ม.1"], packageId: "pk_m_eng" },
+    { id: "co_sci", branchId: "br_thl", name: "วิทย์ ม.ต้น 10 ชม.", subject: "วิทย์", grades: ["ม.1", "ม.2", "ม.3"], packageId: "pk_h_sci" },
+    { id: "co_ari", branchId: "br_ari", name: "คณิต ป.ต้น รายเดือน", subject: "คณิต", grades: ["ป.1", "ป.2", "ป.3"], packageId: "pk_m_ari" },
+  ]
+
+  const families: Family[] = [
+    { id: "fa_1", name: "ครอบครัวสุขใจ", parents: [{ name: "คุณแม่ สุดา", phone: "081-234-5678", lineLinked: true, primary: true }, { name: "คุณพ่อ วิชัย", phone: "089-111-2222", lineLinked: false, primary: false }] },
+    { id: "fa_2", name: "ครอบครัวทองดี", parents: [{ name: "คุณแม่ ปราณี", phone: "086-555-1234", lineLinked: false, primary: true }] },
+    { id: "fa_3", name: "ครอบครัวมั่นคง", parents: [{ name: "คุณพ่อ อนันต์", phone: "082-999-8888", lineLinked: true, primary: true }] },
+    { id: "fa_4", name: "ครอบครัวรุ่งเรือง", parents: [{ name: "คุณแม่ จันทร์", phone: "090-123-4567", lineLinked: true, primary: true }] },
+  ]
+  const s = (id: string, familyId: string | null, branchId: string, name: string, nickname: string, grade: string, usesBus = false): Student =>
+    ({ id, familyId, branchId, name, nickname, grade, usesBus })
+  const students: Student[] = [
+    s("stu_1", "fa_1", "br_thl", "ด.ญ. ใบเตย สุขใจ", "ใบเตย", "ป.5", true),
+    s("stu_2", "fa_1", "br_thl", "ด.ช. ภูผา สุขใจ", "ภูผา", "ม.1"),
+    s("stu_3", "fa_2", "br_thl", "ด.ญ. น้ำใส ทองดี", "น้ำใส", "ป.5"),
+    s("stu_4", "fa_3", "br_thl", "ด.ช. ก้อง มั่นคง", "ก้อง", "ป.5", true),
+    s("stu_5", "fa_3", "br_thl", "ด.ญ. ขิม มั่นคง", "ขิม", "ม.2"),
+    s("stu_6", "fa_4", "br_thl", "ด.ช. ตะวัน รุ่งเรือง", "ตะวัน", "ป.6"),
+    s("stu_7", null, "br_thl", "ด.ญ. มายด์ (ทดลองเรียน)", "มายด์", "ป.5"),
+    s("stu_8", "fa_4", "br_ari", "ด.ญ. ดาว รุ่งเรือง", "ดาว", "ป.2"),
+  ]
+
+  const k = (id: string, branchId: string, name: string, subject: string, grades: string[], teacherId: string | null, roomId: string | null, weekday: Weekday, startT: string, minutes: number, studentIds: string[], kind: Klass["kind"] = "learning", type: Klass["type"] = "group"): Klass =>
+    ({ id, branchId, name, subject, grades, kind, type, teacherId, roomId, weekday, start: startT, minutes, startDate: nextWeekday(start, weekday), active: true, studentIds })
+  const classes: Klass[] = [
+    k("cl_math5", "br_thl", "คณิต ป.5 (อ.)", "คณิต", ["ป.5"], "u_dai", "rm_1", 2, "16:00", 60, ["stu_1", "stu_3", "stu_4"]),
+    k("cl_eng", "br_thl", "อังกฤษ Conversation", "อังกฤษ", ["ป.5", "ป.6", "ม.1"], "u_mint", "rm_2", 3, "17:00", 90, ["stu_1", "stu_2", "stu_6"]),
+    k("cl_sci", "br_thl", "วิทย์ ม.ต้น", "วิทย์", ["ม.1", "ม.2"], "u_dai", "rm_2", 6, "10:00", 120, ["stu_2", "stu_5"]),
+    k("cl_math_sat", "br_thl", "คณิต ป.5 (ส.)", "คณิต", ["ป.5"], null, "rm_1", 6, "13:00", 60, ["stu_4"]), // no teacher → must still be visible
+    k("cl_eng_thu", "br_thl", "อังกฤษ ป.6", "อังกฤษ", ["ป.6"], "u_mint", "rm_1", 4, "16:00", 60, ["stu_6"]),
+    k("cl_ari", "br_ari", "คณิต ป.2", "คณิต", ["ป.2"], "u_beam", "rm_a1", 5, "15:00", 90, ["stu_8"]),
+  ]
+
+  const sessions: Session[] = classes.flatMap((c) => generateSessions(c, holidays, () => uid("se"), 10))
+  // one trial session today-ish for stu_7
+  sessions.push({
+    id: uid("se"), branchId: "br_thl", classId: null, subject: "คณิต", date: today, start: "18:00", minutes: 60,
+    teacherId: "u_dai", roomId: "rm_3", studentIds: ["stu_7"], trial: true, customized: true, cancelled: false,
+  })
+
+  // attendance for past sessions
+  const attendance: Attendance[] = []
+  const summaries: LessonSummary[] = []
+  const nowMs = now.getTime()
+  sessions.forEach((se) => {
+    const end = new Date(`${se.date}T${se.start}:00`).getTime() + se.minutes * 60000
+    if (end > nowMs) return
+    se.studentIds.forEach((sid, i) => {
+      const status = (i + se.date.charCodeAt(9)) % 7 === 0 ? "leave" : (i + se.date.charCodeAt(8)) % 9 === 0 ? "absent" : "present"
+      attendance.push({ sessionId: se.id, studentId: sid, status, markedBy: se.teacherId ?? "u_ploy", markedAt: new Date(end - 30 * 60000).toISOString() })
+      if (status === "present" && se.teacherId) {
+        const recent = nowMs - end < 7 * 86400000
+        const statusS: LessonSummary["status"] = recent ? (i % 2 ? "submitted" : "draft") : "sent"
+        summaries.push({
+          id: uid("sm"), sessionId: se.id, studentId: sid, authorId: se.teacherId, lastEditorId: se.teacherId,
+          text: "ตั้งใจเรียนดี ทำโจทย์เศษส่วนได้คล่องขึ้น การบ้านหน้า 12–13", status: statusS,
+          history: [{ at: new Date(end).toISOString(), by: se.teacherId, action: "write" }],
+        })
+      }
+    })
+  })
+
+  const monthStart = today.slice(0, 8) + "01"
+  const ent = (id: string, studentId: string, courseId: string, classId: string, kind: Entitlement["kind"], from: string, to: string, total: number): Entitlement =>
+    ({ id, studentId, courseId, classId, invoiceId: "inv_paid", kind, from, to, sessionsTotal: total })
+  const entitlements: Entitlement[] = [
+    ent("en_1", "stu_1", "co_math5", "cl_math5", "subscription", monthStart, addDays(monthStart, 60), 8),
+    ent("en_2", "stu_3", "co_math5", "cl_math5", "subscription", monthStart, addDays(today, 5), 4),
+    ent("en_3", "stu_4", "co_math5", "cl_math5", "subscription", monthStart, addDays(monthStart, 60), 8),
+    ent("en_4", "stu_2", "co_sci", "cl_sci", "sessions", start, addDays(start, 120), 5),
+    ent("en_5", "stu_5", "co_sci", "cl_sci", "sessions", start, addDays(start, 120), 10),
+    ent("en_6", "stu_6", "co_eng", "cl_eng", "subscription", monthStart, addDays(monthStart, 29), 4),
+    ent("en_7", "stu_1", "co_eng", "cl_eng", "subscription", monthStart, addDays(monthStart, 29), 4),
+    ent("en_8", "stu_8", "co_ari", "cl_ari", "subscription", monthStart, addDays(monthStart, 29), 4),
+  ]
+
+  const iso = (d: string) => new Date(`${d}T10:00:00`).toISOString()
+  const ym = today.slice(2, 4) + today.slice(5, 7)
+  const invoices: Invoice[] = [
+    {
+      id: "inv_paid", branchId: "br_thl", studentId: "stu_1", number: `INV-THL-${ym}-0001`,
+      course: { courseId: "co_math5", classId: "cl_math5", startDate: monthStart, periods: 1 }, bus: [], bookFee: 0, advanceFee: 0,
+      concession: null, noteToParent: "ค่าเรียนคณิตเดือนนี้", status: "paid", pdf: "ready", createdBy: "u_ploy", createdAt: iso(monthStart),
+      approvedBy: "u_nock", sentAt: iso(monthStart), delivery: "delivered", receiptNumber: `RC-THL-${ym}-0001`,
+      payments: [{ id: "pay_1", amount: 4500, method: "transfer", reference: "KBank 1234", recordedBy: "u_ploy", recordedAt: iso(monthStart), confirmedBy: "u_nock" }],
+    },
+    {
+      id: "inv_pending", branchId: "br_thl", studentId: "stu_3", number: `INV-THL-${ym}-0002`,
+      course: { courseId: "co_math5", classId: "cl_math5", startDate: addDays(today, 7), periods: 2 }, bus: [], bookFee: 350, advanceFee: 0,
+      concession: null, noteToParent: "", status: "pending_approval", pdf: "ready", createdBy: "u_ploy", createdAt: iso(today), payments: [],
+    },
+    {
+      id: "inv_draft", branchId: "br_thl", studentId: "stu_6", number: null,
+      course: { courseId: "co_eng", classId: "cl_eng", startDate: today, periods: 1 }, bus: [], bookFee: 0, advanceFee: 0,
+      concession: { amount: 200, remark: "ลูกค้าเก่า ต่อคอร์สต่อเนื่อง" }, noteToParent: "", status: "draft", pdf: "none", createdBy: "u_ploy", createdAt: iso(today), payments: [],
+    },
+  ]
+
+  return { branches, staff, holidays, packages, courses, classes, sessions, attendance, summaries, families, students, entitlements, invoices, notifications: [] }
+}

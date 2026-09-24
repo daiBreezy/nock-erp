@@ -5,11 +5,12 @@
 - **GitHub:** https://github.com/daiBreezy/nock-erp
 - **ภาษาสื่อสาร:** ไทยเป็นหลัก
 
-## โปรเจกต์ในนี้ (4 ก้อน)
+## โปรเจกต์ในนี้
 
 | โฟลเดอร์ | คืออะไร | อ่านต่อ |
 |---|---|---|
-| `new-erp/` | ระบบ ERP หลังบ้าน (นักเรียน/บิล/ตารางเรียน/CRM) | `new-erp/CLAUDE.md` |
+| `erp-v2/` | ⭐ ERP Prototype ใหม่ (Next.js + shadcn) สร้างจากผลเทส Staging | `erp-v2/CLAUDE.md` |
+| `new-erp/` | เอกสาร ERP (spec, ผลเทส Staging) + prototype HTML เก่า | `new-erp/CLAUDE.md` |
 | `web-app/` | NA Web redesign — front-end (Clip Page, Landing) | `web-app/CLAUDE.md` |
 | `teacher-portal/` | Portal ครู (WEB Teacher) | `teacher-portal/` |
 | `krujob/` | หน้าสมัครงานครู (KRU JOB) | `krujob/` |
