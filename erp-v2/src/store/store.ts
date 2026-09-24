@@ -173,7 +173,8 @@ export const useStore = create<Store>()(
         if (Sch.sessionState(cur, s.now()) !== "upcoming") return fail("แก้ได้เฉพาะคาบที่ยังไม่เริ่ม")
         const next = Sch.editSingleSession(cur, patch)
         const branch = s.branches.find((b) => b.id === cur.branchId)!
-        const clash = Sch.findConflicts([...s.sessions.filter((x) => x.id !== id), next], branch, s.staff).find((c) => c.sessionIds.includes(id))
+        const after = s.sessions.map((x) => (x.id === id ? next : x))
+        const clash = Sch.introducedConflicts(s.sessions, after, [id], branch, s.staff).added[0]
         if (clash) return fail(clash.message)
         set({ sessions: s.sessions.map((x) => (x.id === id ? next : x)) })
         return OK
@@ -196,13 +197,13 @@ export const useStore = create<Store>()(
         if (toMinutes(target.start) < toMinutes(hours.open) || toMinutes(target.start) + moved.minutes > toMinutes(hours.close)) return fail(`อยู่นอกเวลาเปิดสาขา (${hours.open}–${hours.close})`)
         if (Sch.isHoliday(target.date, branch.id, s.holidays)) return fail("วันนั้นเป็นวันหยุด")
         const r = Sch.moveSession(s.sessions, id, target, scope, now, s.attendance)
-        const clash = Sch.findConflicts(r.sessions, branch, s.staff).find((c) => c.kind !== "rooms_full" && c.sessionIds.some((x) => r.movedIds.includes(x)))
-        if (clash) return fail(`ย้ายไม่ได้ — ${clash.message}`)
+        const { added, remaining } = Sch.introducedConflicts(s.sessions, r.sessions, r.movedIds, branch, s.staff)
+        if (added[0]) return fail(`ย้ายไม่ได้ — ${added[0].message}`)
         set({
           sessions: r.sessions,
           classes: r.classPatch && src.classId ? s.classes.map((c) => (c.id === src.classId ? { ...c, ...r.classPatch } : c)) : s.classes,
         })
-        return { ok: true, value: { moved: r.movedIds.length, kept: r.kept } }
+        return { ok: true, value: { moved: r.movedIds.length, kept: r.kept }, warnings: [...new Set(remaining.map((c) => `ยังชนอยู่ (ปัญหาเดิม): ${c.message}`))] }
       },
 
       updateSessionTeachers: (id, teacherId, coTeacherIds, scope) => {
@@ -219,7 +220,7 @@ export const useStore = create<Store>()(
         if (inactive) return fail(`${inactive.nickname} ไม่ได้ทำงานแล้ว`)
         const r = Sch.applyToSessions(s.sessions, id, scope, (x) => ({ ...x, teacherId, coTeacherIds: co }), (x) => Sch.editableByClass(x, now, s.attendance))
         const branch = s.branches.find((b) => b.id === src.branchId)!
-        const clash = Sch.findConflicts(r.sessions, branch, s.staff).find((c) => c.kind === "teacher" && c.sessionIds.some((x) => r.changedIds.includes(x)))
+        const clash = Sch.introducedConflicts(s.sessions, r.sessions, r.changedIds, branch, s.staff, ["teacher"]).added[0]
         if (clash) return fail(`เปลี่ยนไม่ได้ — ${clash.message}`)
         set({
           sessions: r.sessions,

@@ -7,7 +7,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { endTime, fmtDate, TH_DAYS_FULL, weekdayOf } from "@/domain/dates"
-import { findConflicts, moveSession, type MoveScope, type MoveTarget } from "@/domain/rules/scheduling"
+import { introducedConflicts, moveSession, type MoveScope, type MoveTarget } from "@/domain/rules/scheduling"
 import { report } from "@/lib/feedback"
 import { useBranch, useLookup, useNow } from "@/lib/hooks"
 import { cn } from "@/lib/utils"
@@ -31,7 +31,7 @@ export function MoveDialog({ sessionId, target, onClose }: { sessionId: string; 
   const preview = (sc: MoveScope) => moveSession(sessions, sessionId, t, sc, now, attendance)
   const following = s.classId ? preview("following") : null
   const chosen = scope === "one" ? preview("one") : following!
-  const clash = findConflicts(chosen.sessions, branch, staff).filter((c) => c.kind !== "rooms_full" && c.sessionIds.some((x) => chosen.movedIds.includes(x)))
+  const { added: clash, remaining } = introducedConflicts(sessions, chosen.sessions, chosen.movedIds, branch, staff)
 
   const changes: [string, string, string][] = []
   if (t.date !== s.date) changes.push(["วัน", fmtDate(s.date, { weekday: true }), fmtDate(t.date, { weekday: true })])
@@ -76,7 +76,10 @@ export function MoveDialog({ sessionId, target, onClose }: { sessionId: string; 
           )}
         </div>
 
-        {clash.length > 0 && <p className="rounded-md bg-red-50 p-2 text-sm text-red-800">ย้ายไม่ได้: {[...new Set(clash.map((c) => c.message))].join(" · ")}</p>}
+        {clash.length > 0 && <p className="rounded-md bg-red-50 p-2 text-sm text-red-800">ย้ายไม่ได้ — จะเกิดปัญหาใหม่: {[...new Set(clash.map((c) => c.message))].join(" · ")}</p>}
+        {clash.length === 0 && remaining.length > 0 && (
+          <p className="rounded-md bg-amber-50 p-2 text-sm text-amber-900">ย้ายได้ แต่ยังมีปัญหาเดิมที่ต้องแก้ต่อ: {[...new Set(remaining.map((c) => c.message))].join(" · ")}</p>
+        )}
 
         <DialogFooter>
           <Button variant="ghost" onClick={onClose}>ยกเลิก</Button>

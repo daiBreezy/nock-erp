@@ -140,6 +140,18 @@ export function findConflicts(sessions: Session[], branch: Branch, staff: Staff[
   return out
 }
 
+/**
+ * Conflicts a change would CREATE. Problems that already existed before the change are not the change's fault —
+ * otherwise an admin could never move a class out of a clash one step at a time.
+ */
+export function introducedConflicts(before: Session[], after: Session[], changedIds: ID[], branch: Branch, staff: Staff[], kinds: Conflict["kind"][] = ["teacher", "room"]) {
+  const key = (c: Conflict) => `${c.kind}|${c.label}|${[...c.sessionIds].sort().join()}`
+  const old = new Set(findConflicts(before, branch, staff).map(key))
+  const touches = (c: Conflict) => kinds.includes(c.kind) && c.sessionIds.some((x) => changedIds.includes(x))
+  const now = findConflicts(after, branch, staff).filter(touches)
+  return { added: now.filter((c) => !old.has(key(c))), remaining: now.filter((c) => old.has(key(c))) }
+}
+
 // ---------- class validation (A3, A4, A5, A6, A7) ----------
 
 export interface ClassDraft {

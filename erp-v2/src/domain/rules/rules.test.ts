@@ -1,7 +1,7 @@
 // Regression tests: each case reproduces a bug found on Dev staging and proves the rule prevents it.
 import { describe, expect, it } from "vitest"
 import type { Attendance, Branch, Holiday, Invoice, Klass, Package, Session, Staff, Weekday } from "../types"
-import { applyClassEdit, applyToSessions, canSave, editSingleSession, findConflicts, generateSessions, moveSession, sessionState, validateClass, workState } from "./scheduling"
+import { applyClassEdit, applyToSessions, canSave, introducedConflicts, editSingleSession, findConflicts, generateSessions, moveSession, sessionState, validateClass, workState } from "./scheduling"
 import { balance, canMark, coveringEntitlement, lowBalanceAlert, removeFromClass } from "./attendance"
 import { canApprove, canConfirmPayment, canSend, canVoid, defaultBusLegs, busTotal, nextInvoiceNumber, quoteCourse } from "./billing"
 import { can } from "./permissions"
@@ -267,5 +267,20 @@ describe("package coverage", () => {
     expect(coveringEntitlement("a", { classId: null, subject: "English", date: "2026-10-01" }, [e])).toBeNull()
     expect(coveringEntitlement("a", { classId: "other", subject: "Maths", date: "2026-10-01" }, [e])).toBeNull()
     expect(coveringEntitlement("a", { classId: "k1", subject: "Maths", date: "2027-01-05" }, [e])).toBeNull() // expired
+  })
+})
+
+describe("moving out of an existing clash", () => {
+  it("only NEW conflicts block; the old teacher clash remains a warning", () => {
+    const a = { ...generateSessions(klass({ id: "a", teacherId: "t1", roomId: "r1" }), [], id)[0] }
+    const b = { ...generateSessions(klass({ id: "b", teacherId: "t1", roomId: "r1" }), [], id)[0] } // teacher + room clash
+    const r = moveSession([a, b], b.id, { date: b.date, start: b.start, roomId: "r2" }, "one", new Date(2026, 8, 28), [])
+    const res = introducedConflicts([a, b], r.sessions, r.movedIds, branch, [teacher])
+    expect(res.added).toHaveLength(0)
+    expect(res.remaining.some((c) => c.kind === "teacher")).toBe(true)
+    // moving into an occupied room is new → blocked
+    const c = { ...generateSessions(klass({ id: "c", teacherId: null, roomId: "r2" }), [], id)[0] }
+    const r2 = moveSession([a, c], a.id, { date: a.date, start: a.start, roomId: "r2" }, "one", new Date(2026, 8, 28), [])
+    expect(introducedConflicts([a, c], r2.sessions, r2.movedIds, branch, [teacher]).added.some((x) => x.kind === "room")).toBe(true)
   })
 })
