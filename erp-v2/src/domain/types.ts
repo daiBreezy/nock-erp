@@ -161,6 +161,10 @@ export interface Family {
   id: ID
   name: string
   parents: Parent[]
+  address?: string
+  postcode?: string
+  /** one LINE link code for the whole family (siblings share it) */
+  lineCode?: { code: string; expiresAt: string }
 }
 
 export interface Student {
@@ -171,6 +175,9 @@ export interface Student {
   nickname: string
   grade: string
   usesBus: boolean
+  birthDate?: DateStr
+  school?: string
+  note?: string
 }
 
 export type EntitlementKind = "subscription" | "sessions"

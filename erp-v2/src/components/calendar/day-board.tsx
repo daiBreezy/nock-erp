@@ -138,11 +138,13 @@ export function DayBoard({
   }
 
   return (
-    <div className="overflow-x-auto rounded-xl border bg-card">
+    <div className="overflow-hidden rounded-xl border bg-card">
+      {/* one scroll box: teacher header sticks to the top (scrolls sideways), time column sticks to the left (scrolls vertically) */}
+      <div className="max-h-[calc(100dvh-15rem)] min-h-96 overflow-auto overscroll-contain">
       <div className="min-w-fit">
         {/* lane headers */}
-        <div className="sticky top-0 z-10 grid border-b bg-card" style={{ gridTemplateColumns: cols }}>
-          <div />
+        <div className="sticky top-0 z-20 grid border-b bg-card shadow-[0_1px_0_var(--border)]" style={{ gridTemplateColumns: cols }}>
+          <div className="sticky left-0 z-30 bg-card" />
           {lanes.map((l) => {
             const n = day.filter((x) => l.primary(x) && !x.cancelled).length
             return (
@@ -172,7 +174,7 @@ export function DayBoard({
             ) : null,
           )}
           {hourList.map((h, r) => !disp.has(r) ? null : (
-            <div key={`t${h}`} className="px-2 py-1.5 text-right text-xs font-medium tabular-nums text-muted-foreground" style={{ gridRow: disp.get(r), gridColumn: 1 }}>
+            <div key={`t${h}`} className="sticky left-0 z-[6] border-r border-b bg-card px-2 py-1.5 text-right text-xs font-medium tabular-nums text-muted-foreground" style={{ gridRow: disp.get(r), gridColumn: 1 }}>
               {fromMinutes(h * 60)}
             </div>
           ))}
@@ -242,6 +244,7 @@ export function DayBoard({
             </div>
           )}
         </div>
+      </div>
       </div>
       <div className="flex flex-wrap gap-x-4 gap-y-1 border-t px-3 py-2 text-xs text-muted-foreground">
         <span>การ์ดยาวตามเวลาเรียนจริง</span>

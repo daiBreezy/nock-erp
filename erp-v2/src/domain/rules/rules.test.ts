@@ -1,11 +1,12 @@
 // Regression tests: each case reproduces a bug found on Dev staging and proves the rule prevents it.
 import { describe, expect, it } from "vitest"
 import type { Attendance, Branch, Holiday, Invoice, Klass, Package, Session, Staff, Weekday } from "../types"
-import { applyClassEdit, canSave, editSingleSession, findConflicts, generateSessions, moveSession, sessionState, validateClass, workState } from "./scheduling"
+import { applyClassEdit, applyToSessions, canSave, editSingleSession, findConflicts, generateSessions, moveSession, sessionState, validateClass, workState } from "./scheduling"
 import { canMark, removeFromClass, lowBalanceAlert, balance } from "./attendance"
 import { canApprove, canConfirmPayment, canSend, canVoid, defaultBusLegs, busTotal, nextInvoiceNumber, quoteCourse } from "./billing"
 import { can } from "./permissions"
 import * as Sum from "./summaries"
+import { futureSessionsOf, validateFamily, validateStaff, validateStudent } from "./people"
 
 const hours = { open: "09:00", close: "20:00" }
 const branch: Branch = {
@@ -227,5 +228,33 @@ describe("rooms full uses simultaneous count", () => {
     expect(c.some((x) => x.kind === "rooms_full")).toBe(false)
     const c2 = findConflicts([mk("a", "10:00", 120), mk("b", "10:00", 60), mk("c", "10:30", 60)], branch, [])
     expect(c2.some((x) => x.kind === "rooms_full")).toBe(true)
+  })
+})
+
+describe("people & session panel rules", () => {
+  it("S4: family validation rejects bad phone / postcode", () => {
+    const base = { name: "ครอบครัวทดสอบ", parents: [{ name: "แม่", phone: "081-234-5678", lineLinked: false, primary: true }] }
+    expect(validateFamily(base)).toHaveLength(0)
+    expect(validateFamily({ ...base, parents: [{ ...base.parents[0], phone: "abc" }] }).length).toBe(1)
+    expect(validateFamily({ ...base, postcode: "abcde" }).length).toBe(1)
+  })
+  it("student birth date cannot be in the future", () => {
+    expect(validateStudent({ name: "ก", nickname: "ก", grade: "ป.5", birthDate: "2030-01-01" }, "2026-09-24").length).toBe(1)
+  })
+  it("S5: no-login staff need no email; login staff need a unique one", () => {
+    const st = { name: "a", nickname: "a", roles: ["teacher" as const], branchIds: ["b1"], canLogin: false }
+    expect(validateStaff(st, [])).toHaveLength(0)
+    expect(validateStaff({ ...st, canLogin: true }, []).length).toBe(1)
+  })
+  it("F2: future sessions of a teacher (primary or co) are found for hand-over", () => {
+    const ss = generateSessions(klass({ teacherId: "t1", coTeacherIds: ["t2"] }), [], id)
+    expect(futureSessionsOf("t2", ss, "2026-10-01").length).toBe(ss.filter((x) => x.date >= "2026-10-01").length)
+  })
+  it("add student to following sessions skips started ones", () => {
+    const ss = generateSessions(klass(), [], id)
+    const now = new Date(2026, 9, 7) // after 2 sessions
+    const r = applyToSessions(ss, ss[2].id, "following", (x) => ({ ...x, studentIds: [...x.studentIds, "z"] }), (x) => sessionState(x, now) === "upcoming")
+    expect(r.sessions[1].studentIds).not.toContain("z")
+    expect(r.sessions.slice(2).every((x) => x.studentIds.includes("z"))).toBe(true)
   })
 })

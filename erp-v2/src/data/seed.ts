@@ -90,6 +90,7 @@ export function buildSeed(now = new Date()): DB {
     { id: "fa_3", name: "ครอบครัวมั่นคง", parents: [{ name: "คุณพ่อ อนันต์", phone: "082-999-8888", lineLinked: true, primary: true }] },
     { id: "fa_4", name: "ครอบครัวรุ่งเรือง", parents: [{ name: "คุณแม่ จันทร์", phone: "090-123-4567", lineLinked: true, primary: true }] },
   ]
+  const SURNAMES = ["ใจสู้", "รักเรียน", "ศรีสว่าง", "ทองคำ", "พูลผล", "มีสุข", "ชัยมงคล", "เพียรดี"]
   const s = (id: string, familyId: string | null, branchId: string, name: string, nickname: string, grade: string, usesBus = false): Student =>
     ({ id, familyId, branchId, name, nickname, grade, usesBus })
   const students: Student[] = [
@@ -106,8 +107,12 @@ export function buildSeed(now = new Date()): DB {
       ["ปันปัน", "ป.5"], ["ข้าวหอม", "ป.5"], ["ภูมิ", "ป.5"], ["แพรวา", "ป.6"], ["ต้นกล้า", "ป.6"], ["เจได", "ป.6"],
       ["มะปราง", "ม.1"], ["ไอซ์", "ม.1"], ["ออมสิน", "ม.2"], ["ธันวา", "ม.2"], ["ใบบัว", "ป.4"], ["คิน", "ป.4"],
       ["น้ำฝน", "ม.3"], ["ปลื้ม", "ม.3"], ["ซันนี่", "ป.5"], ["บุ๊ค", "ป.6"],
-    ].map(([nick, grade], i) => s(`stu_${10 + i}`, null, "br_thl", `ด.${i % 2 ? "ช" : "ญ"}. ${nick} ใจสู้`, nick, grade, i % 4 === 0)),
+    ].map(([nick, grade], i) => s(`stu_${10 + i}`, i === 15 ? null : `fa_g${Math.floor(i / 2)}`, "br_thl", `ด.${i % 2 ? "ช" : "ญ"}. ${nick} ${SURNAMES[Math.floor(i / 2)]}`, nick, grade, i % 4 === 0)),
   ]
+  // siblings share a family; every third family has no LINE yet
+  SURNAMES.forEach((sn, i) =>
+    families.push({ id: `fa_g${i}`, name: `ครอบครัว${sn}`, parents: [{ name: `คุณแม่ ${sn}`, phone: `08${i}-555-01${String(i).padStart(2, "0")}`, lineLinked: i % 3 !== 0, primary: true }] }),
+  )
 
   const k = (id: string, branchId: string, name: string, subject: string, grades: string[], teacherId: string | null, roomId: string | null, weekday: Weekday, startT: string, minutes: number, studentIds: string[], co: string[] = [], kind: Klass["kind"] = "learning", type: Klass["type"] = "group"): Klass =>
     ({ id, branchId, name, subject, grades, kind, type, teacherId, coTeacherIds: co, roomId, weekday, start: startT, minutes, startDate: nextWeekday(start, weekday), active: true, studentIds })
@@ -182,6 +187,15 @@ export function buildSeed(now = new Date()): DB {
     ent("en_7", "stu_1", "co_eng", "cl_eng", "subscription", monthStart, addDays(monthStart, 29), 4),
     ent("en_8", "stu_8", "co_ari", "cl_ari", "subscription", monthStart, addDays(monthStart, 29), 4),
   ]
+  // everyone else enrolled in a class gets a package, except stu_24 (demo: "no package" warning)
+  const courseFor: Record<string, string> = { คณิต: "co_math5", อังกฤษ: "co_eng", วิทย์: "co_sci" }
+  classes.forEach((c) =>
+    c.studentIds.forEach((sid, i) => {
+      if (sid === "stu_24" || c.branchId !== "br_thl" || entitlements.some((e) => e.studentId === sid && e.classId === c.id)) return
+      const hours = c.subject === "วิทย์"
+      entitlements.push(ent(`en_auto_${c.id}_${sid}`, sid, courseFor[c.subject], c.id, hours ? "sessions" : "subscription", start, addDays(monthStart, i % 3 === 0 ? 36 : 60), hours ? 10 : 8))
+    }),
+  )
 
   const iso = (d: string) => new Date(`${d}T10:00:00`).toISOString()
   const ym = today.slice(2, 4) + today.slice(5, 7)

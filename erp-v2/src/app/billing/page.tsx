@@ -42,7 +42,9 @@ function BillingPage() {
   const [filter, setFilter] = useState<Filter>("all")
   const [q, setQ] = useState("")
   const [openId, setOpenId] = useState<string | null>(() => params.get("open"))
-  const [editing, setEditing] = useState<Invoice | "new" | null>(null)
+  // ?new=<studentId> opens the editor pre-filled (from the student panel)
+  const [editing, setEditing] = useState<Invoice | "new" | null>(() => (params.get("new") ? "new" : null))
+  const presetStudent = params.get("new") ?? undefined
 
   const ctx = { branch, courses, packages, classes, holidays }
   const rows = invoices
@@ -128,6 +130,7 @@ function BillingPage() {
       {editing && (
         <InvoiceEditor
           invoice={editing === "new" ? undefined : editing}
+          defaultStudentId={editing === "new" ? presetStudent : undefined}
           onClose={() => setEditing(null)}
           onSaved={(inv) => { setEditing(null); setOpenId(inv.id) }}
         />

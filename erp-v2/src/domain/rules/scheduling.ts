@@ -343,3 +343,37 @@ export const WORK_LABEL: Record<WorkState, string> = {
   done: "เสร็จแล้ว",
   cancelled: "ยกเลิก",
 }
+
+// ---------- apply a change to one / following sessions (teachers, students) ----------
+
+/**
+ * Apply `change` to this session only, or to this and every later session of the same class
+ * that `eligible` allows. Used for teacher changes and adding students from the session panel.
+ */
+export function applyToSessions(
+  sessions: Session[],
+  sessionId: ID,
+  scope: MoveScope,
+  change: (s: Session) => Session,
+  eligible: (s: Session) => boolean,
+): { sessions: Session[]; changedIds: ID[]; kept: number } {
+  const src = sessions.find((s) => s.id === sessionId)!
+  let kept = 0
+  const changedIds: ID[] = []
+  const out = sessions.map((s) => {
+    const inScope = s.id === src.id || (scope === "following" && !!src.classId && s.classId === src.classId && s.date > src.date)
+    if (!inScope) return s
+    if (s.id !== src.id && !eligible(s)) {
+      kept++
+      return s
+    }
+    changedIds.push(s.id)
+    return scope === "one" ? { ...change(s), customized: true } : change(s)
+  })
+  return { sessions: out, changedIds, kept }
+}
+
+/** A10: sessions hit by a new holiday */
+export function holidayImpact(date: DateStr, branchId: ID | null, sessions: Session[]) {
+  return sessions.filter((s) => !s.cancelled && s.date === date && (branchId === null || s.branchId === branchId))
+}

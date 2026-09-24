@@ -1,7 +1,7 @@
 "use client"
 
 import { useMemo, useState } from "react"
-import { AlertTriangleIcon, BanIcon, CheckIcon, PencilIcon, SendIcon, UndoIcon, XIcon } from "lucide-react"
+import { AlertTriangleIcon, BanIcon, CheckIcon, PencilIcon, SearchIcon, SendIcon, StarIcon, UndoIcon, UserPlusIcon, UsersRoundIcon, XIcon } from "lucide-react"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
@@ -22,6 +22,10 @@ import { cn } from "@/lib/utils"
 import { useStore } from "@/store/store"
 import { Pill, SessionStateBadge } from "./badges"
 import { NativeSelect } from "./native-select"
+import { StudentSheet } from "./student-sheet"
+import { gradeTone } from "./subject-color"
+import { TeacherPicker } from "./teacher-picker"
+import { CAPACITY, type MoveScope } from "@/domain/rules/scheduling"
 
 const MARKS: { status: AttendanceStatus; label: string; cls: string }[] = [
   { status: "present", label: "มา", cls: "data-[on=true]:bg-emerald-600 data-[on=true]:text-white" },
@@ -53,6 +57,9 @@ function Body({ id, onClose }: { id: ID; onClose: () => void }) {
   const L = useLookup()
   const [editing, setEditing] = useState(false)
   const [cancelling, setCancelling] = useState(false)
+  const [teachersOpen, setTeachersOpen] = useState(false)
+  const [adding, setAdding] = useState(false)
+  const [studentOpen, setStudentOpen] = useState<string | null>(null)
 
   const conflicts = useMemo(() => (s ? findConflicts(allSessions.filter((x) => x.date === s.date), branch, staff).filter((c) => c.sessionIds.includes(s.id)) : []), [allSessions, s, branch, staff])
   if (!s) return null
@@ -99,9 +106,26 @@ function Body({ id, onClose }: { id: ID; onClose: () => void }) {
           </div>
         )}
 
-        <section>
+        <section className="rounded-lg border p-3">
           <div className="mb-2 flex items-center justify-between">
+            <h3 className="text-sm font-semibold">ครูผู้สอน</h3>
+            {canManage && state === "upcoming" && !s.cancelled && (
+              <Button size="xs" variant="outline" onClick={() => setTeachersOpen(true)}><UsersRoundIcon /> เปลี่ยน / เพิ่มครู</Button>
+            )}
+          </div>
+          <div className="flex flex-wrap gap-1.5">
+            {!s.teacherId && <Pill tone="amber">ยังไม่มีครู</Pill>}
+            {s.teacherId && <Pill tone="blue"><StarIcon className="size-3 fill-current" /> {L.teacher(s.teacherId).label} · ครูหลัก</Pill>}
+            {s.coTeacherIds.map((t) => <Pill key={t}>{L.teacher(t).label} · ผู้ช่วย</Pill>)}
+          </div>
+        </section>
+
+        <section>
+          <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
             <h3 className="text-sm font-semibold">เช็คชื่อ ({s.studentIds.length} คน)</h3>
+            {canManage && state !== "closed" && !s.cancelled && (
+              <Button size="xs" variant="outline" onClick={() => setAdding(true)}><UserPlusIcon /> เพิ่มนักเรียน</Button>
+            )}
             {state === "upcoming" && <span className="text-xs text-muted-foreground">ยังไม่ถึงเวลาเรียน — บันทึกล่วงหน้าได้เฉพาะ &quot;ลา&quot;</span>}
             {state === "closed" && <span className="text-xs text-muted-foreground">ปิดแล้ว แก้ไม่ได้</span>}
           </div>
@@ -115,7 +139,9 @@ function Body({ id, onClose }: { id: ID; onClose: () => void }) {
               return (
                 <li key={sid} className="flex flex-wrap items-center gap-3 p-2.5">
                   <div className="min-w-0 flex-1">
-                    <div className="truncate text-sm font-medium">{stu?.nickname ?? "?"} <span className="text-xs font-normal text-muted-foreground">{stu?.grade}</span></div>
+                    <button onClick={() => setStudentOpen(sid)} className="truncate text-left text-sm font-medium hover:text-primary hover:underline">
+                      {stu?.nickname ?? "?"} <span className="text-xs font-normal text-muted-foreground">{stu?.grade}</span>
+                    </button>
                     <div className="text-xs text-muted-foreground">
                       {s.trial ? "ทดลองเรียน" : !ent ? <span className="text-amber-700">ไม่มีแพ็กเกจที่ครอบคลุมวันนี้</span> : ent.kind === "subscription" ? `รายเดือน ถึง ${fmtDate(ent.to)}` : `เหลือ ${bal!.remaining}/${bal!.total} คาบ`}
                     </div>
@@ -163,6 +189,9 @@ function Body({ id, onClose }: { id: ID; onClose: () => void }) {
       </div>
 
       {editing && <EditSessionDialog id={s.id} onClose={() => setEditing(false)} />}
+      {teachersOpen && <TeachersDialog id={s.id} onClose={() => setTeachersOpen(false)} />}
+      {adding && <AddStudentDialog id={s.id} onClose={() => setAdding(false)} />}
+      <StudentSheet studentId={studentOpen} onClose={() => setStudentOpen(null)} />
       {cancelling && <CancelSessionDialog id={s.id} students={s.studentIds.length} onClose={() => setCancelling(false)} onDone={onClose} />}
     </>
   )
@@ -303,6 +332,104 @@ function CancelSessionDialog({ id, students, onClose, onDone }: { id: ID; studen
             ยืนยันยกเลิก
           </Button>
         </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
+function ScopePick({ value, onChange, hasClass, one, following }: { value: MoveScope; onChange: (v: MoveScope) => void; hasClass: boolean; one: string; following: string }) {
+  if (!hasClass) return null
+  return (
+    <div className="grid gap-2 sm:grid-cols-2">
+      {([["one", one], ["following", following]] as const).map(([k, label]) => (
+        <button key={k} onClick={() => onChange(k)} className={cn("rounded-lg border p-2.5 text-left text-sm", value === k ? "border-primary bg-primary/5 ring-1 ring-primary" : "hover:bg-muted/50")}>
+          {label}
+        </button>
+      ))}
+    </div>
+  )
+}
+
+/** Change the primary teacher and/or add co-teachers — this session or this + following */
+function TeachersDialog({ id, onClose }: { id: ID; onClose: () => void }) {
+  const s = useStore((st) => st.sessions.find((x) => x.id === id)!)
+  const staff = useStore((st) => st.staff)
+  const update = useStore((st) => st.updateSessionTeachers)
+  const branch = useBranch()
+  const [sel, setSel] = useState({ ids: [s.teacherId, ...s.coTeacherIds].filter(Boolean) as string[], primaryId: s.teacherId ?? "" })
+  const [scope, setScope] = useState<MoveScope>("one")
+  const teachers = staff.filter((t) => t.active && t.roles.includes("teacher") && t.branchIds.includes(branch.id))
+  return (
+    <Dialog open onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="sm:max-w-lg">
+        <DialogHeader>
+          <DialogTitle>เปลี่ยน / เพิ่มครู</DialogTitle>
+          <DialogDescription>เลือกได้หลายคน · กด ★ เพื่อเลือกครูหลัก · ระบบตรวจเวลาชนของครูทุกคน</DialogDescription>
+        </DialogHeader>
+        <TeacherPicker teachers={teachers} subject={s.subject} value={sel} onChange={setSel} />
+        <ScopePick value={scope} onChange={setScope} hasClass={!!s.classId} one="เฉพาะคาบนี้" following="คาบนี้และคาบถัดไปทั้งหมด (อัปเดตคลาสด้วย)" />
+        <DialogFooter>
+          <Button variant="ghost" onClick={onClose}>ยกเลิก</Button>
+          <Button
+            onClick={() =>
+              report(update(id, sel.primaryId || null, sel.ids.filter((x) => x !== sel.primaryId), scope), (v) => `อัปเดตครูแล้ว ${v.changed} คาบ${v.kept ? ` (คงเดิม ${v.kept} คาบที่แก้แยก/เช็คชื่อแล้ว)` : ""}`) && onClose()
+            }
+          >
+            บันทึก
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
+/** Add a student to this session (trial / make-up) or to the class from now on */
+function AddStudentDialog({ id, onClose }: { id: ID; onClose: () => void }) {
+  const s = useStore((st) => st.sessions.find((x) => x.id === id)!)
+  const klass = useStore((st) => st.classes.find((c) => c.id === s.classId))
+  const students = useStore((st) => st.students)
+  const entitlements = useStore((st) => st.entitlements)
+  const add = useStore((st) => st.addStudentToSession)
+  const branch = useBranch()
+  const [q, setQ] = useState("")
+  const [scope, setScope] = useState<MoveScope>(s.classId ? "following" : "one")
+  const cap = klass ? CAPACITY[klass.type] : CAPACITY.group
+  const list = students
+    .filter((x) => x.branchId === branch.id && !s.studentIds.includes(x.id))
+    .filter((x) => !q || `${x.nickname} ${x.name} ${x.grade}`.includes(q))
+    .sort((a, b) => Number(!!klass && Att.gradeMismatch(a, klass)) - Number(!!klass && Att.gradeMismatch(b, klass)))
+  return (
+    <Dialog open onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="sm:max-w-lg">
+        <DialogHeader>
+          <DialogTitle>เพิ่มนักเรียน</DialogTitle>
+          <DialogDescription>ตอนนี้ {s.studentIds.length}/{cap} คน{klass ? ` · คลาส ${klass.name} (${klass.grades.join(", ")})` : ""}</DialogDescription>
+        </DialogHeader>
+        <ScopePick value={scope} onChange={setScope} hasClass={!!s.classId} one="เฉพาะคาบนี้ (ทดลอง / ชดเชย)" following="เข้าคลาสถาวร (คาบนี้และถัดไป)" />
+        <div className="relative">
+          <SearchIcon className="absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" />
+          <Input className="pl-8" autoFocus placeholder="ค้นหาชื่อ / ชื่อเล่น / ชั้น" value={q} onChange={(e) => setQ(e.target.value)} />
+        </div>
+        <ul className="max-h-72 divide-y overflow-y-auto rounded-lg border">
+          {list.map((x) => {
+            const mismatch = !!klass && Att.gradeMismatch(x, klass)
+            const hasPkg = Att.activeEntitlements(x.id, entitlements, s.date).some((e) => e.classId === s.classId)
+            return (
+              <li key={x.id} className="flex items-center gap-2 p-2">
+                <span className="min-w-0 flex-1">
+                  <span className="text-sm font-medium">{x.nickname}</span> <span className={cn("rounded px-1 text-[10px] font-semibold", gradeTone(x.grade))}>{x.grade}</span>
+                  <span className="block truncate text-xs text-muted-foreground">
+                    {x.name}
+                    {mismatch && <span className="text-amber-700"> · เกรดไม่ตรงคลาส</span>}
+                    {s.classId && !hasPkg && <span className="text-amber-700"> · ยังไม่มีแพ็กเกจ</span>}
+                  </span>
+                </span>
+                <Button size="xs" disabled={s.studentIds.length >= cap} onClick={() => report(add(id, x.id, scope), (v) => `เพิ่ม ${x.nickname} แล้ว ${v.changed} คาบ`) && onClose()}>เพิ่ม</Button>
+              </li>
+            )
+          })}
+          {list.length === 0 && <li className="p-6 text-center text-sm text-muted-foreground">ไม่พบนักเรียน</li>}
+        </ul>
       </DialogContent>
     </Dialog>
   )

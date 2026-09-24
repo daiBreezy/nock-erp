@@ -9,7 +9,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
-import { fmtDate, fmtMoney, fmtMonth, toDateStr } from "@/domain/dates"
+import { addDays, fmtDate, fmtMoney, fmtMonth, toDateStr } from "@/domain/dates"
 import * as Att from "@/domain/rules/attendance"
 import { busTotal, defaultBusLegs, invoiceTotals, quoteCourse, validateInvoiceDraft } from "@/domain/rules/billing"
 import type { BusLeg, Invoice } from "@/domain/types"
@@ -19,7 +19,7 @@ import { useBranch, useNow } from "@/lib/hooks"
 import { cn } from "@/lib/utils"
 import { useStore } from "@/store/store"
 
-export function InvoiceEditor({ invoice, onClose, onSaved }: { invoice?: Invoice; onClose: () => void; onSaved: (inv: Invoice) => void }) {
+export function InvoiceEditor({ invoice, defaultStudentId, onClose, onSaved }: { invoice?: Invoice; defaultStudentId?: string; onClose: () => void; onSaved: (inv: Invoice) => void }) {
   const branch = useBranch()
   const now = useNow(60_000)
   const today = toDateStr(now)
@@ -35,7 +35,7 @@ export function InvoiceEditor({ invoice, onClose, onSaved }: { invoice?: Invoice
   const save = useStore((s) => s.saveInvoice)
 
   const [newId] = useState(() => invoice?.id ?? uid("inv"))
-  const [studentId, setStudentId] = useState(invoice?.studentId ?? "")
+  const [studentId, setStudentId] = useState(invoice?.studentId ?? defaultStudentId ?? "")
   const [courseId, setCourseId] = useState(invoice?.course?.courseId ?? "")
   const [classId, setClassId] = useState(invoice?.course?.classId ?? "")
   const [startDate, setStartDate] = useState(invoice?.course?.startDate ?? today)
@@ -122,7 +122,18 @@ export function InvoiceEditor({ invoice, onClose, onSaved }: { invoice?: Invoice
           </div>
           <div className="space-y-1">
             <Label className="text-xs">คอร์ส</Label>
-            <NativeSelect value={courseId} onChange={(e) => { setCourseId(e.target.value); setClassId("") }} placeholder="ไม่มีคอร์ส (เฉพาะค่าอื่นๆ)"
+            <NativeSelect
+              value={courseId}
+              onChange={(e) => {
+                const cid = e.target.value
+                setCourseId(cid)
+                setClassId(entitlements.find((x) => x.studentId === studentId && x.courseId === cid && x.to >= today)?.classId ?? "")
+                // renewal: start the day after the current package ends, so periods never overlap
+                const current = entitlements.filter((x) => x.studentId === studentId && x.courseId === cid && x.to >= today).sort((a, b) => b.to.localeCompare(a.to))[0]
+                if (current && !invoice) setStartDate(addDays(current.to, 1))
+                setBusTouched(false)
+              }}
+              placeholder="ไม่มีคอร์ส (เฉพาะค่าอื่นๆ)"
               options={courses.map((c) => {
                 const p = packages.find((x) => x.id === c.packageId)
                 return { value: c.id, label: `${c.name} · ${p ? fmtMoney(p.price) : ""}/${p?.unit === "month" ? "เดือน" : `${p?.hours} ชม.`}` }
