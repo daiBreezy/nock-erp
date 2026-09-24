@@ -6,6 +6,9 @@
 > ที่มา: ผลเทส Staging ของ Dev → `../new-erp/NockERP-Staging-Test-2026-09-24.xlsx` (รหัส BL-x, A1, C2 … ในโค้ดอ้างถึงไฟล์นี้)
 > แผนเดิม: `../new-erp/REBUILD-PLAN.md` · Prototype เก่า (HTML) ยังอยู่ที่ `../new-erp/` ไม่ได้ใช้แล้วสำหรับงานนี้
 
+## บทบาทของโปรเจกต์ (ตัดสินใจ 2026-09-24)
+**erp-v2 = "แบบ" ให้ Dev ทำตาม ไม่ใช่ระบบจริง** → ไม่ต่อ Database / ไม่ทำ Production · ใช้ mock data + localStorage ต่อไป · ระบบจริงเป็นของ Dev (มี DB + Staging แล้ว)
+
 ## Stack
 Next.js 16 (App Router) + React 19 + TypeScript + Tailwind v4 + **shadcn/ui style `base-nova` (Base UI ไม่ใช่ Radix → ใช้ prop `render` แทน `asChild`)** + zustand (persist ลง localStorage) + date-fns + vitest
 - ไม่มี backend — mock data สร้างสัมพันธ์กับ "วันนี้" ทุกครั้ง (`src/data/seed.ts`)

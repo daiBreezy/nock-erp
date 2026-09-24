@@ -73,6 +73,8 @@
 - 🟡 Settings ให้ครบเท่าของเดิม: **ทำไปแค่ชั้นข้อมูล+กฎ** (types: breaks, specialPeriods, fees, promotions, SystemSettings · rules: hoursFor/slotProblem, bestPromotion ใน invoiceTotals, lowBalanceAlert รับ threshold) — **ยังไม่มีหน้าจอ UI** และ seed ยังใส่ fees/promotions ว่าง
 - เจ้าของถามว่า Inbox/CRM/Reports หายไปไหน → ไม่ได้ลบ: เป็น Phase 2 ยังไม่ได้สร้างใน erp-v2 · prototype เก่า `new-erp/` ยังอยู่ครบ 28 หน้า (มี CRM/Inbox/Reports/Finance ให้ดึงสเปก)
 
+**ตัดสินใจ:** erp-v2 เป็น "แบบ" ให้ Dev ทำตาม (ทาง A) — **ไม่ต่อ Database จริง** · ระบบจริง/Staging/Production เป็นของ Dev
+
 **เหลือทำ (TODO) — ลำดับที่ตกลงกับเจ้าของ:**
 - [ ] 1. Settings UI ให้ครบ: แท็บ วิชา&ระดับชั้น · เวลาพัก+ช่วงเวลาพิเศษ · ค่าธรรมเนียม (ค่าแรกเข้า/หนังสือ/สอบ) · โปรโมชัน · System (เปิด-ปิดแจ้งเตือน 10 แบบ, threshold คาบใกล้หมด, วันเตือนต่อคอร์ส) + ใส่ข้อมูลตัวอย่าง fees/promotions ใน seed + แสดงโปรโมชันใน invoice editor/sheet
 - [ ] 2. ใส่เมนู Dashboard/CRM/Inbox/Reports/Tasks/Logs กลับใน sidebar (ป้าย Phase 2)
