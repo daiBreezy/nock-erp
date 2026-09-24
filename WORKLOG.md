@@ -50,6 +50,27 @@
 
 ---
 
+## 2026-09-23 — ERP: ตรวจ Staging ของ Dev ครบทุกหน้า + เทสลึก (เตรียม build ใหม่ให้ตรง Dev)
+
+**ทำอะไร:**
+- เข้า `https://erp-staging.nockacademy.com` (Director) ไล่ทุกเมนู/ฟอร์ม/dialog + สร้างข้อมูลทดสอบในสาขาแยก **TEST-Branch** แล้วเทส flow จริง
+- รายงานเต็ม → **`new-erp/STAGING-AUDIT-2026-09-23.md`** (โครงระบบที่ Dev ทำ + บั๊ก/จุดด้อยเรียงตามความรุนแรง + รายการข้อมูล TEST ที่สร้างไว้)
+
+**ข้อสรุปสำคัญ:**
+- Dev ใช้ **Next.js + React + Tailwind + Clerk** (ไม่ใช่ HTML ล้วนแบบ prototype เรา) · ทำไปแล้ว 11 เมนู · Dashboard/CRM/Inbox/Tasks/Reports/Logs ยังไม่มี · Finance ทั้งระบบยังไม่มี
+- บั๊กหนักสุด: Generate PDF ค้างตลอด (flow เงินเดินไม่ได้), ช่วงเรียนคอร์สคำนวณ 0 ชม., เช็คชื่อ session อนาคตได้ + สถานะ session เพี้ยน, ยอด invoice ไม่ตรงกันระหว่าง detail/edit/PDF
+
+**เหลือทำ (TODO):**
+- [ ] ตัดสินใจ: build ใหม่ด้วย stack ไหน (แนะนำ Next.js ให้ตรง Dev) + ขอบเขต (11 เมนูก่อน หรือรวมโมดูลที่ Dev ยังไม่ทำ)
+- [ ] ส่งรายงานให้ Dev · ลบ/ปิดข้อมูล TEST-Branch บน staging เมื่อ Dev ดูเสร็จ
+- [x] ~~เทส Billing ครบวง~~ ✅ (หลัง Dev แก้ Database) → ผลอยู่ใน audit หัวข้อ 2.5
+- [ ] เทส Class/Session/Attendance/Summary/Calendar → **`new-erp/TEST-MATRIX-SCHEDULING.md`** (เทสแล้ว 35/40 · เหลือ B2, B6, D4, E3, E4, D7)
+- [ ] D7 ต้องให้เจ้าของล็อกอินบัญชีครู Dai Breezy (Teacher, TEST-Branch) ใน Browser pane
+- [ ] Business rules ใหม่จาก Dev (pro-rate รายเดือน 100/60/30%, Concession + remark) บันทึกใน `new-erp/REBUILD-PLAN.md` แล้ว
+- [ ] **แผนหลังเทสครบ:** สรุปปัญหาราย Flow → จัดลำดับความสำคัญ → ออกแบบการปรับปรุง (โดยเฉพาะ UI/UX ให้ใช้ง่ายขึ้น) → ทำ prototype หน้าที่ปรับ → ส่ง Dev
+
+---
+
 ## 2026-09-16 — Web App: สร้างหน้า Landing (React) ตาม Ref Figma
 
 **ทำอะไร:**
