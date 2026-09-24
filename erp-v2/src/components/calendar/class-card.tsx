@@ -116,16 +116,3 @@ export function ClassCard({ s, d }: { s: Session; d: CardData }) {
     </div>
   )
 }
-
-/** Compact card for continuation rows and co-teacher lanes */
-export function MiniCard({ s, d, label }: { s: Session; d: CardData; label: string }) {
-  const c = subjectColor(s.subject)
-  const klass = d.classes.find((k) => k.id === s.classId)
-  return (
-    <button onClick={() => d.onOpen(s.id)} className={cn("flex w-full items-center gap-1.5 rounded-lg border border-dashed px-2 py-1 text-left text-xs", c.soft, d.dim(s) && "opacity-25")}>
-      <span className={cn("size-2 shrink-0 rounded-full", c.bar)} />
-      <span className={cn("truncate font-medium", c.text)}>{klass?.name ?? s.subject}</span>
-      <span className="ml-auto shrink-0 text-muted-foreground">{label}</span>
-    </button>
-  )
-}

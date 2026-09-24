@@ -1,17 +1,17 @@
 "use client"
 
 import { useState } from "react"
-import { AlertTriangleIcon, PlusIcon } from "lucide-react"
-import { avatarTone, initial } from "@/components/app/subject-color"
+import { AlertTriangleIcon, PlusIcon, UsersRoundIcon } from "lucide-react"
+import { avatarTone, initial, subjectColor } from "@/components/app/subject-color"
 import { endTime, fromMinutes, toDateStr, toMinutes, weekdayOf } from "@/domain/dates"
 import { isHoliday } from "@/domain/rules/scheduling"
 import type { DateStr, Session } from "@/domain/types"
-import { useBranch } from "@/lib/hooks"
+import { useBranch, useLookup } from "@/lib/hooks"
 import { cn } from "@/lib/utils"
 import { useStore } from "@/store/store"
 import type { ClassPrefill } from "@/components/app/class-dialog"
 import type { MoveTarget } from "@/domain/rules/scheduling"
-import { ClassCard, MiniCard, type CardData } from "./class-card"
+import { ClassCard, type CardData } from "./class-card"
 
 interface Lane {
   key: string
@@ -73,16 +73,61 @@ export function DayBoard({
   const hourList = Array.from({ length: Math.ceil(endMin / 60) - Math.floor(startMin / 60) }, (_, i) => Math.floor(startMin / 60) + i)
   const cols = `64px repeat(${lanes.length}, minmax(300px, 1fr))`
 
-  const cell = (lane: Lane, h: number) => {
-    const inHour = (s: Session) => Math.floor(toMinutes(s.start) / 60) === h
-    const starting = day.filter((s) => lane.primary(s) && inHour(s)).sort((a, b) => a.start.localeCompare(b.start))
-    const continuing = day.filter((s) => lane.primary(s) && toMinutes(s.start) < h * 60 && toMinutes(s.start) + s.minutes > h * 60)
-    const assisting = day.filter((s) => lane.assist(s) && inHour(s))
-    return { starting, continuing, assisting, empty: !starting.length && !continuing.length && !assisting.length }
+  const firstHour = Math.floor(startMin / 60)
+  const rowOf = (min: number) => Math.floor(min / 60) - firstHour
+  const span = (x: Session) => {
+    const a = toMinutes(x.start)
+    return [rowOf(a), Math.max(rowOf(a) + 1, Math.ceil((a + x.minutes) / 60) - firstHour)] as const // [first row, end row exclusive]
   }
   const nowMin = d.now.getHours() * 60 + d.now.getMinutes()
   const today = toDateStr(d.now)
   const isToday = date === today
+
+  // Per lane: group items whose hour rows touch into one block, so every class is ONE card spanning its real length.
+  type Item = { s: Session; assist: boolean }
+  type Block = { lane: number; from: number; to: number; items: Item[] }
+  const blocks: Block[] = []
+  lanes.forEach((l, li) => {
+    const items: Item[] = day
+      .filter((x) => l.primary(x) || l.assist(x))
+      .map((x) => ({ s: x, assist: !l.primary(x) }))
+      .sort((a, b) => a.s.start.localeCompare(b.s.start))
+    for (const it of items) {
+      const [f, t] = span(it.s)
+      const last = blocks.findLast((b) => b.lane === li)
+      if (last && f < last.to) {
+        last.items.push(it)
+        last.to = Math.max(last.to, t)
+      } else blocks.push({ lane: li, from: f, to: t, items: [it] })
+    }
+  })
+  const covered = (li: number, r: number) => blocks.some((b) => b.lane === li && r >= b.from && r < b.to)
+  const rowBusy = hourList.map((_, r) => lanes.some((_, li) => covered(li, r)))
+  const gridRows = hourList.map((_, r) => (rowBusy[r] ? "minmax(4rem, auto)" : "2rem")).join(" ")
+
+  const dropProps = (key: string, start: (id: string) => string, target: Lane["target"], enabled: boolean) => ({
+    onDragOver: (e: React.DragEvent) => {
+      if (!enabled || !e.dataTransfer.types.includes("text/session")) return
+      e.preventDefault()
+      setOver(key)
+    },
+    onDragLeave: () => setOver((o) => (o === key ? null : o)),
+    onDrop: (e: React.DragEvent) => {
+      setOver(null)
+      const id = e.dataTransfer.getData("text/session")
+      if (id && enabled) onMove(id, { date, start: start(id), ...target })
+    },
+  })
+  const keepMinute = (h: number) => (id: string) => {
+    const src = sessions.find((x) => x.id === id)
+    return fromMinutes(h * 60 + (src ? toMinutes(src.start) % 60 : 0))
+  }
+  const isClosed = (h: number) => !hours || h * 60 < toMinutes(hours.open) || h * 60 >= toMinutes(hours.close) || !!holiday
+  const live = (x: Session) => !x.cancelled
+  const overlapsInTime = (a: Session, b: Session) => {
+    const [as, bs] = [toMinutes(a.start), toMinutes(b.start)]
+    return as < bs + b.minutes && bs < as + a.minutes
+  }
 
   return (
     <div className="overflow-x-auto rounded-xl border bg-card">
@@ -91,7 +136,7 @@ export function DayBoard({
         <div className="sticky top-0 z-10 grid border-b bg-card" style={{ gridTemplateColumns: cols }}>
           <div />
           {lanes.map((l) => {
-            const n = day.filter((s) => l.primary(s) && !s.cancelled).length
+            const n = day.filter((x) => l.primary(x) && !x.cancelled).length
             return (
               <div key={l.key} className="flex items-center gap-2.5 border-l px-3 py-2.5">
                 <span className={cn("grid size-9 shrink-0 place-items-center rounded-full text-sm font-semibold", l.warn ? "bg-amber-100 text-amber-800" : avatarTone(l.key))}>
@@ -110,78 +155,117 @@ export function DayBoard({
         {holiday && <div className="border-b bg-amber-50 px-4 py-2 text-sm text-amber-900">วันหยุด: {holiday.name}</div>}
         {!hours && !holiday && <div className="border-b bg-muted px-4 py-2 text-sm text-muted-foreground">สาขาปิดวันนี้</div>}
 
-        {hourList.map((h) => {
-          const rows = lanes.map((l) => cell(l, h))
-          const emptyRow = rows.every((r) => r.empty)
-          const closed = !hours || h * 60 < toMinutes(hours.open) || h * 60 >= toMinutes(hours.close) || !!holiday
-          const past = isToday ? (h + 1) * 60 <= nowMin : date < today
-          const nowLine = isToday && Math.floor(nowMin / 60) === h
-          return (
-            <div key={h} className={cn("relative grid border-b last:border-0", closed && "bg-muted/40")} style={{ gridTemplateColumns: cols }}>
-              <div className={cn("px-2 py-2 text-right text-xs font-medium tabular-nums text-muted-foreground", emptyRow && "py-1.5")}>{fromMinutes(h * 60)}</div>
-              {lanes.map((l, i) => {
-                const { starting, continuing, assisting, empty } = rows[i]
-                const key = `${l.key}@${h}`
-                // a clash starts in this hour; rows that only continue earlier clashes stay calm
-                const live = (x: Session) => !x.cancelled
-                const clash = starting.filter(live).length > 1 || (starting.some(live) && continuing.some(live))
-                const canDropHere = !closed
-                return (
-                  <div
-                    key={l.key}
-                    onDragOver={(e) => {
-                      if (!canDropHere || !e.dataTransfer.types.includes("text/session")) return
-                      e.preventDefault()
-                      setOver(key)
-                    }}
-                    onDragLeave={() => setOver((o) => (o === key ? null : o))}
-                    onDrop={(e) => {
-                      setOver(null)
-                      const id = e.dataTransfer.getData("text/session")
-                      const src = sessions.find((s) => s.id === id)
-                      if (!id || !canDropHere) return
-                      const minute = src ? toMinutes(src.start) % 60 : 0
-                      onMove(id, { date, start: fromMinutes(h * 60 + minute), ...l.target })
-                    }}
-                    className={cn(
-                      "group/cell relative space-y-1.5 border-l p-1.5",
-                      emptyRow ? "min-h-8" : "min-h-16",
-                      clash && "bg-red-50 ring-2 ring-red-500 ring-inset dark:bg-red-950/30",
-                      over === key && "bg-primary/10 ring-2 ring-primary ring-inset",
-                    )}
-                  >
-                    {clash && (
-                      <div className="flex items-center gap-1 px-1 text-[11px] font-semibold text-red-700">
-                        <AlertTriangleIcon className="size-3" /> ชนกัน {[...starting, ...continuing].filter(live).length} คาบในช่อง{laneMode === "teacher" ? "ครู" : "ห้อง"}นี้
-                      </div>
-                    )}
-                    {continuing.map((s) => <MiniCard key={s.id} s={s} d={d} label={`ต่อถึง ${endTime(s.start, s.minutes)}`} />)}
-                    {starting.map((s) => <ClassCard key={s.id} s={s} d={d} />)}
-                    {assisting.map((s) => <MiniCard key={s.id} s={s} d={d} label={`ช่วยสอน ${s.start}`} />)}
-                    {empty && canCreate && !closed && !past && (
-                      <button
-                        onClick={() => onSlot({ date, start: fromMinutes(h * 60), ...(laneMode === "teacher" ? { teacherId: l.target.teacherId ?? null } : { roomId: l.target.roomId ?? null }) })}
-                        className={cn(
-                          "absolute inset-1 flex items-center justify-center gap-1 rounded-lg border border-dashed border-transparent text-xs text-muted-foreground opacity-0 transition hover:border-primary/40 hover:bg-primary/5 hover:text-primary hover:opacity-100",
-                          over === key && "opacity-100",
-                        )}
-                      >
-                        <PlusIcon className="size-3.5" /> สร้างคลาส {fromMinutes(h * 60)}
-                      </button>
-                    )}
-                  </div>
-                )
-              })}
-              {nowLine && <div className="pointer-events-none absolute inset-x-0 z-[5] border-t-2 border-red-500" style={{ top: `${((nowMin % 60) / 60) * 100}%` }}><span className="absolute -top-1 left-14 size-2 rounded-full bg-red-500" /></div>}
+        <div className="grid" style={{ gridTemplateColumns: cols, gridTemplateRows: gridRows }}>
+          {/* row backgrounds + hour labels */}
+          {hourList.map((h, r) => (
+            <div key={`bg${h}`} className={cn("border-b", isClosed(h) && "bg-muted/40")} style={{ gridRow: r + 1, gridColumn: "1 / -1" }} />
+          ))}
+          {hourList.map((h, r) => (
+            <div key={`t${h}`} className="px-2 py-1.5 text-right text-xs font-medium tabular-nums text-muted-foreground" style={{ gridRow: r + 1, gridColumn: 1 }}>
+              {fromMinutes(h * 60)}
             </div>
-          )
-        })}
+          ))}
+          {lanes.map((l, li) => (
+            <div key={`line${l.key}`} className="border-l" style={{ gridRow: `1 / ${hourList.length + 1}`, gridColumn: li + 2 }} />
+          ))}
+
+          {/* empty cells: click to create, drop to move */}
+          {lanes.flatMap((l, li) =>
+            hourList.map((h, r) => {
+              if (covered(li, r)) return null
+              const key = `${l.key}@${h}`
+              const closed = isClosed(h)
+              const past = isToday ? (h + 1) * 60 <= nowMin : date < today
+              return (
+                <div key={key} className={cn("group/cell relative", over === key && "bg-primary/10 ring-2 ring-primary ring-inset")} style={{ gridRow: r + 1, gridColumn: li + 2 }} {...dropProps(key, keepMinute(h), l.target, !closed)}>
+                  {canCreate && !closed && !past && (
+                    <button
+                      onClick={() => onSlot({ date, start: fromMinutes(h * 60), ...(laneMode === "teacher" ? { teacherId: l.target.teacherId ?? null } : { roomId: l.target.roomId ?? null }) })}
+                      className="absolute inset-1 flex items-center justify-center gap-1 rounded-lg border border-dashed border-transparent text-xs text-muted-foreground opacity-0 transition hover:border-primary/40 hover:bg-primary/5 hover:text-primary hover:opacity-100"
+                    >
+                      <PlusIcon className="size-3.5" /> สร้างคลาส {fromMinutes(h * 60)}
+                    </button>
+                  )}
+                </div>
+              )
+            }),
+          )}
+
+          {/* class blocks: one card per class, spanning all hours it runs */}
+          {blocks.map((b) => {
+            const l = lanes[b.lane]
+            const own = b.items.filter((i) => !i.assist && live(i.s))
+            const busy = b.items.filter((i) => live(i.s))
+            const clash = busy.some((a, i) => busy.some((c, j) => j > i && overlapsInTime(a.s, c.s)))
+            const key = `${l.key}@block${b.from}`
+            const h = hourList[b.from]
+            return (
+              <div
+                key={key}
+                style={{ gridRow: `${b.from + 1} / ${b.to + 1}`, gridColumn: b.lane + 2 }}
+                className={cn("relative z-[1] flex flex-col gap-1.5 p-1.5", clash && "m-0.5 rounded-lg bg-red-50 ring-2 ring-red-500 dark:bg-red-950/30", over === key && "ring-2 ring-primary")}
+                {...dropProps(key, keepMinute(h), l.target, !isClosed(h))}
+              >
+                {clash && (
+                  <div className="flex items-center gap-1 px-1 text-[11px] font-semibold text-red-700">
+                    <AlertTriangleIcon className="size-3" /> ชนกัน {busy.length} คาบ{own.length < busy.length ? " (รวมคาบที่ช่วยสอน)" : ""}ในช่อง{laneMode === "teacher" ? "ครู" : "ห้อง"}นี้
+                  </div>
+                )}
+                {b.items.map((i) =>
+                  i.assist ? (
+                    <AssistBlock key={i.s.id} s={i.s} d={d} teacher={l.title} />
+                  ) : (
+                    <ClassCard key={i.s.id} s={i.s} d={d} />
+                  ),
+                )}
+              </div>
+            )
+          })}
+
+          {/* now line */}
+          {isToday && nowMin >= firstHour * 60 && rowOf(nowMin) < hourList.length && (
+            <div className="pointer-events-none relative z-[5]" style={{ gridRow: rowOf(nowMin) + 1, gridColumn: "1 / -1" }}>
+              <div className="absolute inset-x-0 border-t-2 border-red-500" style={{ top: `${((nowMin % 60) / 60) * 100}%` }}>
+                <span className="absolute -top-1 left-14 size-2 rounded-full bg-red-500" />
+              </div>
+            </div>
+          )}
+        </div>
       </div>
       <div className="flex flex-wrap gap-x-4 gap-y-1 border-t px-3 py-2 text-xs text-muted-foreground">
-        <span>ลากการ์ดไปช่องอื่นเพื่อย้ายเวลา/ครู/ห้อง</span>
-        <span>คลิกช่องว่างเพื่อสร้างคลาส</span>
-        <span>ชั่วโมงที่ไม่มีคลาสจะย่อลง</span>
+        <span>การ์ดยาวตามเวลาเรียนจริง</span>
+        <span>แถบลายทาง = ครูคนนี้ไปช่วยสอนคลาสของครูอื่น</span>
+        <span>ลากการ์ดไปช่องอื่นเพื่อย้ายเวลา/ครู/ห้อง · คลิกช่องว่างเพื่อสร้างคลาส</span>
       </div>
     </div>
+  )
+}
+
+/** Co-teacher lane: shows the teacher is busy, clearly NOT a separate class */
+function AssistBlock({ s, d, teacher }: { s: Session; d: CardData; teacher: string }) {
+  const L = useLookup()
+  const c = subjectColor(s.subject)
+  const klass = d.classes.find((k) => k.id === s.classId)
+  return (
+    <button
+      onClick={() => d.onOpen(s.id)}
+      className={cn(
+        "rounded-xl border border-dashed p-2.5 text-left text-xs",
+        "bg-[repeating-linear-gradient(135deg,transparent,transparent_6px,rgb(0_0_0/0.04)_6px,rgb(0_0_0/0.04)_12px)]",
+        d.dim(s) && "opacity-25",
+      )}
+    >
+      <div className="flex items-center gap-1.5 font-medium">
+        <UsersRoundIcon className="size-3.5 text-muted-foreground" />
+        {teacher} ช่วยสอน
+      </div>
+      <div className="mt-1 flex items-center gap-1.5">
+        <span className={cn("size-2 shrink-0 rounded-full", c.bar)} />
+        <span className={cn("truncate font-semibold", c.text)}>{klass?.name ?? s.subject}</span>
+      </div>
+      <div className="text-muted-foreground">
+        {s.start}–{endTime(s.start, s.minutes)} · ครูหลัก {L.teacher(s.teacherId).label} · {L.room(s.roomId)}
+      </div>
+    </button>
   )
 }
