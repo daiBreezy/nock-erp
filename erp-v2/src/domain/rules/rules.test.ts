@@ -1,7 +1,7 @@
 // Regression tests: each case reproduces a bug found on Dev staging and proves the rule prevents it.
 import { describe, expect, it } from "vitest"
 import type { Attendance, Branch, Holiday, Invoice, Klass, Package, Session, Staff, Weekday } from "../types"
-import { applyClassEdit, canSave, editSingleSession, findConflicts, generateSessions, sessionState, validateClass } from "./scheduling"
+import { applyClassEdit, canSave, editSingleSession, findConflicts, generateSessions, moveSession, sessionState, validateClass, workState } from "./scheduling"
 import { canMark, removeFromClass, lowBalanceAlert, balance } from "./attendance"
 import { canApprove, canConfirmPayment, canSend, canVoid, defaultBusLegs, busTotal, nextInvoiceNumber, quoteCourse } from "./billing"
 import { can } from "./permissions"
@@ -22,7 +22,7 @@ let n = 0
 const id = () => `s${++n}`
 const klass = (p: Partial<Klass> = {}): Klass => ({
   id: "k1", branchId: "b1", name: "Maths", subject: "Maths", grades: ["P5"], kind: "learning", type: "group",
-  teacherId: "t1", roomId: "r1", weekday: 2, start: "10:00", minutes: 60, startDate: "2026-09-29", active: true, studentIds: ["a"], ...p,
+  teacherId: "t1", coTeacherIds: [], roomId: "r1", weekday: 2, start: "10:00", minutes: 60, startDate: "2026-09-29", active: true, studentIds: ["a"], ...p,
 })
 const monthPkg: Package = { id: "p1", branchId: "b1", subject: "Maths", grades: ["P5"], unit: "month", price: 4500 }
 
@@ -176,5 +176,56 @@ describe("permissions & summaries", () => {
     expect(Sum.canSend(summary, []).ok).toBe(false)
     const r = Sum.canSend({ ...summary, status: "approved" }, [{ name: "p", phone: "", lineLinked: false, primary: true }])
     expect(r.ok && r.value.delivered).toBe(false)
+  })
+})
+
+describe("drag & drop, co-teachers, card state", () => {
+  it("move 'one' changes only that session", () => {
+    const sessions = generateSessions(klass(), [], id)
+    const r = moveSession(sessions, sessions[2].id, { date: "2026-10-14", start: "14:00" }, "one", new Date(2026, 8, 28), [])
+    expect(r.sessions.filter((x) => x.start === "14:00")).toHaveLength(1)
+    expect(r.sessions[2]).toMatchObject({ date: "2026-10-14", customized: true })
+    expect(r.sessions[3].date).toBe(sessions[3].date)
+  })
+
+  it("move 'following' shifts this + later sessions, keeps attended ones, updates class template", () => {
+    const sessions = generateSessions(klass(), [], id) // Tuesdays from 29 Sep
+    const att: Attendance[] = [{ sessionId: sessions[4].id, studentId: "a", status: "leave", markedBy: "t1", markedAt: "" }]
+    const r = moveSession(sessions, sessions[2].id, { date: "2026-10-14", start: "15:00", teacherId: "t2" }, "following", new Date(2026, 8, 28), att)
+    expect(r.sessions[1].date).toBe(sessions[1].date) // earlier untouched
+    expect(r.sessions[2]).toMatchObject({ date: "2026-10-14", start: "15:00", teacherId: "t2" })
+    expect(r.sessions[3].date).toBe("2026-10-21") // Tue → Wed
+    expect(r.sessions[4].date).toBe(sessions[4].date) // has attendance → kept
+    expect(r.kept).toBe(1)
+    expect(r.classPatch).toMatchObject({ weekday: 3, start: "15:00", teacherId: "t2" })
+  })
+
+  it("co-teacher double booking is a teacher conflict", () => {
+    const a = generateSessions(klass({ id: "a", teacherId: "t1", coTeacherIds: ["t9"], roomId: "r1" }), [], id)[0]
+    const b = generateSessions(klass({ id: "b", teacherId: "t9", roomId: "r2" }), [], id)[0]
+    expect(findConflicts([a, b], branch, [teacher]).some((c) => c.kind === "teacher")).toBe(true)
+  })
+
+  it("card state: รอเริ่ม → กำลังเรียน → รอเช็คชื่อ → รอสรุป → เสร็จแล้ว", () => {
+    const [s] = generateSessions(klass({ studentIds: ["a", "b"] }), [], id)
+    const after = new Date(2026, 8, 29, 12, 0)
+    expect(workState(s, new Date(2026, 8, 29, 9, 0), [], []).state).toBe("scheduled")
+    expect(workState(s, new Date(2026, 8, 29, 10, 30), [], []).state).toBe("live")
+    expect(workState(s, after, [], []).state).toBe("needs_attendance")
+    const att: Attendance[] = ["a", "b"].map((st) => ({ sessionId: s.id, studentId: st, status: "present", markedBy: "t1", markedAt: "" }))
+    expect(workState(s, after, att, [{ sessionId: s.id, studentId: "a", status: "submitted" }]).state).toBe("needs_summary")
+    expect(workState(s, after, att, ["a", "b"].map((st) => ({ sessionId: s.id, studentId: st, status: "approved" }))).state).toBe("done")
+    expect(workState(s, new Date(2026, 8, 30, 9, 0), [], []).overdue).toBe(true)
+  })
+})
+
+describe("rooms full uses simultaneous count", () => {
+  it("sessions that never run at the same instant do not count together", () => {
+    const mk = (i: string, start: string, minutes: number): Session => ({ ...generateSessions(klass({ id: i, teacherId: null, roomId: null, start, minutes }), [], id)[0] })
+    // 10:00-12:00 overlaps both 10:00-11:00 and 11:00-12:00, but at most 2 run at once (2 rooms) → no conflict
+    const c = findConflicts([mk("a", "10:00", 120), mk("b", "10:00", 60), mk("c", "11:00", 60)], branch, [])
+    expect(c.some((x) => x.kind === "rooms_full")).toBe(false)
+    const c2 = findConflicts([mk("a", "10:00", 120), mk("b", "10:00", 60), mk("c", "10:30", 60)], branch, [])
+    expect(c2.some((x) => x.kind === "rooms_full")).toBe(true)
   })
 })

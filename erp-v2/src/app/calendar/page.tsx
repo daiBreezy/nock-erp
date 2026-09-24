@@ -6,11 +6,16 @@ import { Pill, SessionStateBadge } from "@/components/app/badges"
 import { ClassDialog, type ClassPrefill } from "@/components/app/class-dialog"
 import { NativeSelect } from "@/components/app/native-select"
 import { SessionSheet } from "@/components/app/session-sheet"
+import { subjectColor } from "@/components/app/subject-color"
+import { WorkChip, WorkLegend } from "@/components/app/work-state"
+import { DayBoard } from "@/components/calendar/day-board"
+import { MoveDialog } from "@/components/calendar/move-dialog"
+import type { CardData } from "@/components/calendar/class-card"
 import { Button } from "@/components/ui/button"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 import { addDays, dayShort, endTime, fmtDate, fmtMonth, fromMinutes, parseDate, toDateStr, toMinutes, weekdayOf } from "@/domain/dates"
 import { can, seesAllSessions } from "@/domain/rules/permissions"
-import { findConflicts, isHoliday, sessionState } from "@/domain/rules/scheduling"
+import { findConflicts, isHoliday, sessionState, workState, type MoveTarget, type WorkState } from "@/domain/rules/scheduling"
 import type { DateStr, Session } from "@/domain/types"
 import { useBranch, useLookup, useNow } from "@/lib/hooks"
 import { cn } from "@/lib/utils"
@@ -32,14 +37,18 @@ export default function CalendarPage() {
   const staff = useStore((s) => s.staff)
   const holidays = useStore((s) => s.holidays)
   const classes = useStore((s) => s.classes)
+  const attendance = useStore((s) => s.attendance)
+  const summaries = useStore((s) => s.summaries)
 
-  const [view, setView] = useState<View>("week")
+  const [view, setView] = useState<View>("day")
   const [anchor, setAnchor] = useState(today)
-  const [lane, setLane] = useState<"room" | "teacher">("room")
+  const [lane, setLane] = useState<"room" | "teacher">("teacher")
   const [teacher, setTeacher] = useState(seesAllSessions(me) ? "all" : me.id)
   const [subject, setSubject] = useState("all")
   const [openId, setOpenId] = useState<string | null>(null)
   const [prefill, setPrefill] = useState<ClassPrefill | null>(null)
+  const [moving, setMoving] = useState<{ id: string; target: MoveTarget } | null>(null)
+  const [workFilter, setWorkFilter] = useState<WorkState | null>(null)
 
   const range = useMemo(() => {
     if (view === "day") return { from: anchor, to: anchor, title: fmtDate(anchor, { weekday: true, year: true }) }
@@ -61,10 +70,10 @@ export default function CalendarPage() {
       branchSessions.filter(
         (s) =>
           s.date >= range.from && s.date <= range.to &&
-          (teacher === "all" || (teacher === "none" ? !s.teacherId : s.teacherId === teacher)) &&
+          (teacher === "all" || (teacher === "none" ? !staff.some((t) => t.id === s.teacherId) : s.teacherId === teacher || s.coTeacherIds.includes(teacher))) &&
           (subject === "all" || s.subject === subject),
       ),
-    [branchSessions, range, teacher, subject],
+    [branchSessions, range, teacher, subject, staff],
   )
   // conflicts are computed on ALL branch sessions, not only the filtered ones
   const conflicts = useMemo(() => findConflicts(branchSessions.filter((s) => s.date >= range.from && s.date <= range.to), branch, staff), [branchSessions, range, branch, staff])
@@ -84,7 +93,37 @@ export default function CalendarPage() {
     ...staff.filter((t) => t.roles.includes("teacher") && t.branchIds.includes(branch.id)).map((t) => ({ value: t.id, label: t.active ? t.nickname : `${t.nickname} (ออกแล้ว)` })),
   ]
 
-  const cardProps = { conflictIds, now, onOpen: setOpenId, classes }
+  const cardProps = { conflictIds, now, onOpen: setOpenId, classes, onMove: (id: string, target: MoveTarget) => setMoving({ id, target }), canMove: (s: Session) => canCreate && sessionState(s, now) === "upcoming" }
+  // one short line per conflict kind on each card
+  const conflictMsg = new Map<string, string[]>()
+  const grouped = new Map<string, { teacher: Set<string>; room: Set<string>; full: number }>()
+  conflicts.forEach((c) =>
+    c.sessionIds.forEach((id) => {
+      const g = grouped.get(id) ?? { teacher: new Set<string>(), room: new Set<string>(), full: 0 }
+      if (c.kind === "teacher") g.teacher.add(c.label)
+      if (c.kind === "room") g.room.add(c.label)
+      if (c.kind === "rooms_full") g.full = Math.max(g.full, Number(c.label))
+      grouped.set(id, g)
+    }),
+  )
+  grouped.forEach((g, id) =>
+    conflictMsg.set(id, [
+      ...(g.teacher.size ? [`ครูชน: ${[...g.teacher].join(", ")}`] : []),
+      ...(g.room.size ? [`ห้องซ้ำ: ${[...g.room].join(", ")}`] : []),
+      ...(g.full ? [`ห้องไม่พอ: ${g.full} คาบ/${branch.rooms.length} ห้อง`] : []),
+    ]),
+  )
+  const workCounts: Partial<Record<WorkState, number>> = {}
+  visible.forEach((s) => {
+    const w = workState(s, now, attendance, summaries).state
+    workCounts[w] = (workCounts[w] ?? 0) + 1
+  })
+  const cardData: CardData = {
+    now, attendance, summaries, classes, staff, conflictMsg,
+    dim: (s) => !!workFilter && workState(s, now, attendance, summaries).state !== workFilter,
+    draggable: cardProps.canMove,
+    onOpen: setOpenId,
+  }
 
   return (
     <div className="space-y-3">
@@ -115,8 +154,8 @@ export default function CalendarPage() {
         <NativeSelect className="h-8 w-32" value={subject} onChange={(e) => setSubject(e.target.value)} options={[{ value: "all", label: "ทุกวิชา" }, ...branch.subjects.map((s) => ({ value: s, label: s }))]} />
         {view === "day" && (
           <ToggleGroup value={[lane]} onValueChange={(v) => v[0] && setLane(v[0] as "room" | "teacher")} variant="outline" size="sm">
-            <ToggleGroupItem value="room">แยกตามห้อง</ToggleGroupItem>
             <ToggleGroupItem value="teacher">แยกตามครู</ToggleGroupItem>
+            <ToggleGroupItem value="room">แยกตามห้อง</ToggleGroupItem>
           </ToggleGroup>
         )}
         {/* E4: summary always matches the range on screen */}
@@ -126,6 +165,9 @@ export default function CalendarPage() {
           {holidayDays.length > 0 && <Pill tone="amber"><PalmtreeIcon className="size-3" /> วันหยุด {holidayDays.length} วัน</Pill>}
         </div>
       </div>
+
+      {/* card states: click one to highlight only those cards */}
+      <WorkLegend counts={workCounts} active={workFilter} onToggle={setWorkFilter} />
 
       {conflicts.length > 0 && (
         <details className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-900 dark:border-red-900 dark:bg-red-950/40 dark:text-red-200">
@@ -139,13 +181,14 @@ export default function CalendarPage() {
         </details>
       )}
 
-      {view === "day" && <DayView date={anchor} sessions={visible} lane={lane} canCreate={canCreate} onSlot={setPrefill} {...cardProps} />}
-      {view === "week" && <WeekView from={range.from} sessions={visible} onDay={openDay} today={today} {...cardProps} />}
+      {view === "day" && <DayBoard date={anchor} sessions={visible} laneMode={lane} canCreate={canCreate} onSlot={setPrefill} onMove={cardProps.onMove} d={cardData} />}
+      {view === "week" && <WeekView from={range.from} sessions={visible} onDay={openDay} today={today} {...cardProps} dim={cardData.dim} />}
       {view === "month" && <MonthView from={range.from} month={anchor.slice(0, 7)} sessions={visible} onDay={openDay} today={today} conflictIds={conflictIds} />}
       {view === "list" && <ListView from={range.from} to={range.to} sessions={visible} {...cardProps} />}
 
       <SessionSheet sessionId={openId} onClose={() => setOpenId(null)} />
       {prefill && <ClassDialog prefill={prefill} onClose={() => setPrefill(null)} />}
+      {moving && <MoveDialog sessionId={moving.id} target={moving.target} onClose={() => setMoving(null)} />}
     </div>
   )
 }
@@ -155,35 +198,51 @@ interface CardCtx {
   now: Date
   onOpen: (id: string) => void
   classes: { id: string; name: string }[]
+  onMove: (id: string, target: MoveTarget) => void
+  canMove: (s: Session) => boolean
+  dim?: (s: Session) => boolean
 }
 
-function SessionCard({ s, conflictIds, now, onOpen, classes, compact }: CardCtx & { s: Session; compact?: boolean }) {
+function SessionCard({ s, conflictIds, now, onOpen, classes, compact, canMove, dim }: CardCtx & { s: Session; compact?: boolean }) {
   const L = useLookup()
+  const attendance = useStore((st) => st.attendance)
+  const summaries = useStore((st) => st.summaries)
   const t = L.teacher(s.teacherId)
   const name = classes.find((c) => c.id === s.classId)?.name ?? `${s.subject}${s.trial ? " · ทดลอง" : ""}`
   const conflict = conflictIds.has(s.id)
-  const state = sessionState(s, now)
+  const w = workState(s, now, attendance, summaries)
+  const c = subjectColor(s.subject)
+  const live = w.state === "live"
   return (
     <button
+      draggable={canMove(s)}
+      onDragStart={(e) => { e.dataTransfer.setData("text/session", s.id); e.dataTransfer.effectAllowed = "move" }}
       onClick={(e) => { e.stopPropagation(); onOpen(s.id) }}
       className={cn(
-        "h-full w-full overflow-hidden rounded-md border-l-4 bg-card px-1.5 py-1 text-left text-xs shadow-sm ring-1 ring-foreground/10 transition hover:ring-primary/50",
-        state === "live" ? "border-l-emerald-500" : state === "upcoming" ? "border-l-sky-500" : "border-l-zinc-300",
-        s.cancelled && "opacity-50 line-through",
-        conflict && "ring-2 ring-red-500",
-        t.missing && !s.cancelled && "bg-amber-50 dark:bg-amber-950/30",
+        "relative h-full w-full overflow-hidden rounded-md border px-1.5 py-1 pl-2.5 text-left text-xs shadow-sm transition hover:shadow-md",
+        live ? c.strong : c.soft,
+        w.state === "done" && "opacity-60 saturate-50",
+        w.state === "needs_attendance" && "ring-2 ring-red-500",
+        w.state === "needs_summary" && "ring-2 ring-amber-400",
+        s.cancelled && "line-through opacity-50 grayscale",
+        conflict && "outline-2 outline-red-600 outline-dashed",
+        dim?.(s) && "opacity-25",
       )}
       title={`${name} · ${s.start}–${endTime(s.start, s.minutes)} · ${t.label} · ${L.room(s.roomId)}`}
     >
-      <div className="flex items-center gap-1 font-semibold">
+      {!live && <span className={cn("absolute inset-y-0 left-0 w-1", c.bar)} />}
+      <div className={cn("flex items-center gap-1 font-semibold", !live && c.text)}>
         {conflict && <AlertTriangleIcon className="size-3 shrink-0 text-red-600" />}
         <span className="truncate">{name}</span>
       </div>
-      <div className="truncate text-muted-foreground">{s.start}–{endTime(s.start, s.minutes)}</div>
+      <div className={cn("truncate", live ? "text-white/80" : "text-muted-foreground")}>{s.start}–{endTime(s.start, s.minutes)} · {s.studentIds.length} คน</div>
       {!compact && (
-        <div className="truncate text-muted-foreground">
-          <span className={cn(t.missing && "font-medium text-amber-700")}>{t.label}</span> · {L.room(s.roomId)} · {s.studentIds.length} คน
-        </div>
+        <>
+          <div className={cn("truncate", live ? "text-white/80" : "text-muted-foreground")}>
+            <span className={cn(t.missing && !live && "font-medium text-amber-700")}>{t.label}</span> · {L.room(s.roomId)}
+          </div>
+          {w.state !== "scheduled" && <WorkChip w={w} students={s.studentIds.length} className="mt-0.5 scale-90 origin-left" />}
+        </>
       )}
     </button>
   )
@@ -227,6 +286,7 @@ function TimeGutter() {
 }
 
 function Column({ date, sessions, ctx, onSlot, maxCols = 3, onMore }: { date: DateStr; sessions: Session[]; ctx: CardCtx; onSlot?: (start: string) => void; maxCols?: number; onMore?: () => void }) {
+  const [over, setOver] = useState(false)
   const branch = useBranch()
   const holidays = useStore((s) => s.holidays)
   const hours = branch.hours[weekdayOf(date)]
@@ -236,8 +296,21 @@ function Column({ date, sessions, ctx, onSlot, maxCols = 3, onMore }: { date: Da
   const past = date < toDateStr(ctx.now)
   return (
     <div
-      className={cn("relative flex-1 border-l", (!hours || holiday) && "bg-[repeating-linear-gradient(45deg,transparent,transparent_6px,var(--muted)_6px,var(--muted)_12px)]")}
+      className={cn("relative flex-1 border-l", (!hours || holiday) && "bg-[repeating-linear-gradient(45deg,transparent,transparent_6px,var(--muted)_6px,var(--muted)_12px)]", over && "bg-primary/10")}
       style={{ height }}
+      onDragOver={(e) => {
+        if (!hours || holiday || !e.dataTransfer.types.includes("text/session")) return
+        e.preventDefault()
+        setOver(true)
+      }}
+      onDragLeave={() => setOver(false)}
+      onDrop={(e) => {
+        setOver(false)
+        const id = e.dataTransfer.getData("text/session")
+        if (!id) return
+        const y = e.clientY - e.currentTarget.getBoundingClientRect().top
+        ctx.onMove(id, { date, start: fromMinutes(DAY_START + Math.round(y / (HOUR_PX / 4)) * 15) })
+      }}
       onClick={(e) => {
         if (!onSlot || past || !hours || holiday) return
         const y = e.clientY - e.currentTarget.getBoundingClientRect().top
@@ -278,48 +351,6 @@ function Column({ date, sessions, ctx, onSlot, maxCols = 3, onMore }: { date: Da
         const m = ctx.now.getHours() * 60 + ctx.now.getMinutes()
         return m > DAY_START && m < DAY_END ? <div className="pointer-events-none absolute inset-x-0 z-10 border-t-2 border-primary" style={{ top: ((m - DAY_START) / 60) * HOUR_PX }} /> : null
       })()}
-    </div>
-  )
-}
-
-function DayView({ date, sessions, lane, canCreate, onSlot, ...ctx }: CardCtx & { date: DateStr; sessions: Session[]; lane: "room" | "teacher"; canCreate: boolean; onSlot: (p: ClassPrefill) => void }) {
-  const branch = useBranch()
-  const staff = useStore((s) => s.staff)
-  const day = sessions.filter((s) => s.date === date)
-  // E5: every session lands in a lane — including "no room" / "no teacher" / removed teachers
-  const lanes =
-    lane === "room"
-      ? [...branch.rooms.map((r) => ({ key: r.id, label: r.name, match: (s: Session) => s.roomId === r.id })), { key: "none", label: "ยังไม่ระบุห้อง", match: (s: Session) => !s.roomId || !branch.rooms.some((r) => r.id === s.roomId) }]
-      : [
-          ...staff
-            .filter((t) => t.roles.includes("teacher") && t.branchIds.includes(branch.id) && (t.active || day.some((s) => s.teacherId === t.id)))
-            .map((t) => ({ key: t.id, label: t.active ? t.nickname : `${t.nickname} (ออกแล้ว)`, match: (s: Session) => s.teacherId === t.id })),
-          { key: "none", label: "ยังไม่มีครู", match: (s: Session) => !s.teacherId || !staff.some((t) => t.id === s.teacherId && t.branchIds.includes(branch.id)) },
-        ]
-  const shown = lanes.filter((l) => l.key !== "none" || day.some(l.match) || lane === "room")
-  return (
-    <div className="overflow-x-auto rounded-xl border bg-card">
-      <div className="flex min-w-[640px] border-b text-xs font-medium">
-        <div className="w-12 shrink-0" />
-        {shown.map((l) => (
-          <div key={l.key} className={cn("flex-1 border-l px-2 py-2 text-center", l.key === "none" && "text-amber-700")}>
-            {l.label} <span className="text-muted-foreground">({day.filter(l.match).length})</span>
-          </div>
-        ))}
-      </div>
-      <div className="flex min-w-[640px] pt-2">
-        <TimeGutter />
-        {shown.map((l) => (
-          <Column
-            key={l.key}
-            date={date}
-            sessions={day.filter(l.match)}
-            ctx={ctx}
-            onSlot={canCreate ? (start) => onSlot({ date, start, ...(lane === "room" ? { roomId: l.key === "none" ? null : l.key } : { teacherId: l.key === "none" ? null : l.key }) }) : undefined}
-          />
-        ))}
-      </div>
-      {canCreate && <p className="border-t px-3 py-1.5 text-xs text-muted-foreground">คลิกช่องว่างเพื่อสร้างคลาสในห้อง/ครูและเวลานั้น · พื้นที่เทา = นอกเวลาเปิดสาขา</p>}
     </div>
   )
 }

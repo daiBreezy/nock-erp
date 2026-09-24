@@ -73,7 +73,8 @@ function Body({ id, onClose }: { id: ID; onClose: () => void }) {
         <SheetTitle className="text-lg">{klass?.name ?? `${s.subject} (คาบเดี่ยว)`}</SheetTitle>
         <SheetDescription>
           {fmtDate(s.date, { weekday: true, year: true })} · {s.start}–{endTime(s.start, s.minutes)} · {L.room(s.roomId)} ·{" "}
-          <span className={cn(teacher.missing && "font-medium text-amber-700")}>{teacher.label}</span>
+          <span className={cn(teacher.missing && "font-medium text-amber-700")}>★ {teacher.label}</span>
+          {s.coTeacherIds.length > 0 && <> · ผู้ช่วย {s.coTeacherIds.map((t) => L.teacher(t).label).join(", ")}</>}
         </SheetDescription>
         {s.cancelled && <p className="text-sm text-red-700">ยกเลิกแล้ว: {s.cancelReason}</p>}
       </SheetHeader>

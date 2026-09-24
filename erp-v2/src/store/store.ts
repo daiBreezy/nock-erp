@@ -6,7 +6,7 @@
 import { create } from "zustand"
 import { persist } from "zustand/middleware"
 import { buildSeed, uid, type DB } from "@/data/seed"
-import { toDateStr, weekdayOf } from "@/domain/dates"
+import { at, toDateStr, toMinutes, weekdayOf } from "@/domain/dates"
 import * as Att from "@/domain/rules/attendance"
 import * as Bill from "@/domain/rules/billing"
 import { can, require as requirePerm } from "@/domain/rules/permissions"
@@ -30,7 +30,8 @@ type Store = DB & UIState & {
   resetData: () => void
 
   createClass: (d: Sch.ClassDraft & { name: string; grades: string[] }) => Result<{ klass: Klass; sessions: number }>
-  updateClass: (id: ID, patch: Partial<Pick<Klass, "teacherId" | "roomId" | "start" | "minutes" | "weekday" | "name">>) => Result<{ changed: number; kept: number }>
+  updateClass: (id: ID, patch: Partial<Pick<Klass, "teacherId" | "coTeacherIds" | "roomId" | "start" | "minutes" | "weekday" | "name">>) => Result<{ changed: number; kept: number }>
+  moveSession: (id: ID, target: Sch.MoveTarget, scope: Sch.MoveScope) => Result<{ moved: number; kept: number }>
   deactivateClass: (id: ID, reason: string) => Result<{ cancelled: number }>
   addSession: (s: Omit<Session, "id" | "customized" | "cancelled">) => Result<Session>
   editSession: (id: ID, patch: Partial<Pick<Session, "date" | "start" | "minutes" | "teacherId" | "roomId">>) => Result
@@ -89,7 +90,7 @@ export const useStore = create<Store>()(
         if (!Sch.canSave(issues, d.overrideReason)) return fail(issues.find((i) => i.level !== "warn")?.message ?? "ตรวจสอบข้อมูลอีกครั้ง")
         const klass: Klass = {
           id: uid("cl"), branchId: d.branchId, name: d.name.trim() || `${d.subject} ${d.grades.join(", ")}`, subject: d.subject,
-          grades: d.grades, kind: d.kind, type: d.type, teacherId: d.teacherId, roomId: d.roomId, weekday: d.weekday,
+          grades: d.grades, kind: d.kind, type: d.type, teacherId: d.teacherId, coTeacherIds: d.coTeacherIds ?? [], roomId: d.roomId, weekday: d.weekday,
           start: d.start, minutes: d.minutes, startDate: d.startDate, active: true, studentIds: d.studentIds,
         }
         const sessions = Sch.generateSessions(klass, s.holidays, () => uid("se"))
@@ -159,6 +160,32 @@ export const useStore = create<Store>()(
         if (clash) return fail(clash.message)
         set({ sessions: s.sessions.map((x) => (x.id === id ? next : x)) })
         return OK
+      },
+
+      // drag & drop: validates the resulting schedule before saving
+      moveSession: (id, target, scope) => {
+        const s = get()
+        const perm = requirePerm(s.me(), "session.manage")
+        if (!perm.ok) return perm
+        const src = s.sessions.find((x) => x.id === id)
+        if (!src) return fail("ไม่พบคาบเรียน")
+        const now = s.now()
+        if (Sch.sessionState(src, now) !== "upcoming") return fail("ย้ายได้เฉพาะคาบที่ยังไม่เริ่ม")
+        const branch = s.branches.find((b) => b.id === src.branchId)!
+        const moved = { ...src, date: target.date, start: target.start }
+        if (at(target.date, target.start) < now) return fail("ย้ายไปเวลาที่ผ่านมาแล้วไม่ได้")
+        const hours = branch.hours[weekdayOf(target.date)]
+        if (!hours) return fail("สาขาปิดวันนั้น")
+        if (toMinutes(target.start) < toMinutes(hours.open) || toMinutes(target.start) + moved.minutes > toMinutes(hours.close)) return fail(`อยู่นอกเวลาเปิดสาขา (${hours.open}–${hours.close})`)
+        if (Sch.isHoliday(target.date, branch.id, s.holidays)) return fail("วันนั้นเป็นวันหยุด")
+        const r = Sch.moveSession(s.sessions, id, target, scope, now, s.attendance)
+        const clash = Sch.findConflicts(r.sessions, branch, s.staff).find((c) => c.kind !== "rooms_full" && c.sessionIds.some((x) => r.movedIds.includes(x)))
+        if (clash) return fail(`ย้ายไม่ได้ — ${clash.message}`)
+        set({
+          sessions: r.sessions,
+          classes: r.classPatch && src.classId ? s.classes.map((c) => (c.id === src.classId ? { ...c, ...r.classPatch } : c)) : s.classes,
+        })
+        return { ok: true, value: { moved: r.movedIds.length, kept: r.kept } }
       },
 
       cancelSession: (id, reason) => {
@@ -372,7 +399,9 @@ export const useStore = create<Store>()(
     }),
     {
       name: "nockerp-v2",
-      version: 1,
+      // bump when the data model changes; older saved data is replaced by fresh sample data
+      version: 2,
+      migrate: () => ({ ...buildSeed(), userId: "u_nock", branchId: "br_thl", clockOffset: 0 }) as unknown as Store,
       // persist data + UI state only, never the action functions
       partialize: (s) => Object.fromEntries(Object.entries(s).filter(([, v]) => typeof v !== "function")) as Partial<Store>,
     },

@@ -1,6 +1,6 @@
 // Mock data generated relative to "today" so the prototype always looks current.
 
-import { addDays, nextWeekday, toDateStr, weekdayOf } from "@/domain/dates"
+import { addDays, fromMinutes, nextWeekday, toDateStr, weekdayOf } from "@/domain/dates"
 import { generateSessions } from "@/domain/rules/scheduling"
 import type {
   AppNotification, Attendance, Branch, Course, Entitlement, Family, Holiday, Invoice, Klass, LessonSummary,
@@ -60,7 +60,9 @@ export function buildSeed(now = new Date()): DB {
     st("u_ploy", "พลอย แอดมิน", "พลอย", ["admin"], ["br_thl"], []),
     st("u_ton", "ต้น ผู้จัดการ", "ต้น", ["manager"], ["br_thl", "br_ari"], []),
     st("u_dai", "ได บรีซซี่", "ครูได", ["teacher"], ["br_thl"], ["คณิต", "วิทย์"]),
+    st("u_jo", "โจ ใจเย็น", "ครูโจ", ["teacher"], ["br_thl"], ["คณิต"]),
     st("u_mint", "มิ้นท์ ศรีสุข", "ครูมิ้นท์", ["teacher"], ["br_thl", "br_ari"], ["อังกฤษ"]),
+    st("u_prae", "แพร พากเพียร", "ครูแพร", ["teacher"], ["br_thl"], ["วิทย์", "อังกฤษ"]),
     st("u_beam", "บีม ใจดี", "ครูบีม", ["teacher"], ["br_ari"], ["คณิต"], false),
     { ...st("u_old", "โอ๊ต (ลาออก)", "ครูโอ๊ต", ["teacher"], ["br_thl"], ["คณิต"]), active: false },
   ]
@@ -99,45 +101,71 @@ export function buildSeed(now = new Date()): DB {
     s("stu_6", "fa_4", "br_thl", "ด.ช. ตะวัน รุ่งเรือง", "ตะวัน", "ป.6"),
     s("stu_7", null, "br_thl", "ด.ญ. มายด์ (ทดลองเรียน)", "มายด์", "ป.5"),
     s("stu_8", "fa_4", "br_ari", "ด.ญ. ดาว รุ่งเรือง", "ดาว", "ป.2"),
+    // more THL students so class cards look like a real day
+    ...[
+      ["ปันปัน", "ป.5"], ["ข้าวหอม", "ป.5"], ["ภูมิ", "ป.5"], ["แพรวา", "ป.6"], ["ต้นกล้า", "ป.6"], ["เจได", "ป.6"],
+      ["มะปราง", "ม.1"], ["ไอซ์", "ม.1"], ["ออมสิน", "ม.2"], ["ธันวา", "ม.2"], ["ใบบัว", "ป.4"], ["คิน", "ป.4"],
+      ["น้ำฝน", "ม.3"], ["ปลื้ม", "ม.3"], ["ซันนี่", "ป.5"], ["บุ๊ค", "ป.6"],
+    ].map(([nick, grade], i) => s(`stu_${10 + i}`, null, "br_thl", `ด.${i % 2 ? "ช" : "ญ"}. ${nick} ใจสู้`, nick, grade, i % 4 === 0)),
   ]
 
-  const k = (id: string, branchId: string, name: string, subject: string, grades: string[], teacherId: string | null, roomId: string | null, weekday: Weekday, startT: string, minutes: number, studentIds: string[], kind: Klass["kind"] = "learning", type: Klass["type"] = "group"): Klass =>
-    ({ id, branchId, name, subject, grades, kind, type, teacherId, roomId, weekday, start: startT, minutes, startDate: nextWeekday(start, weekday), active: true, studentIds })
+  const k = (id: string, branchId: string, name: string, subject: string, grades: string[], teacherId: string | null, roomId: string | null, weekday: Weekday, startT: string, minutes: number, studentIds: string[], co: string[] = [], kind: Klass["kind"] = "learning", type: Klass["type"] = "group"): Klass =>
+    ({ id, branchId, name, subject, grades, kind, type, teacherId, coTeacherIds: co, roomId, weekday, start: startT, minutes, startDate: nextWeekday(start, weekday), active: true, studentIds })
   const classes: Klass[] = [
-    k("cl_math5", "br_thl", "คณิต ป.5 (อ.)", "คณิต", ["ป.5"], "u_dai", "rm_1", 2, "16:00", 60, ["stu_1", "stu_3", "stu_4"]),
-    k("cl_eng", "br_thl", "อังกฤษ Conversation", "อังกฤษ", ["ป.5", "ป.6", "ม.1"], "u_mint", "rm_2", 3, "17:00", 90, ["stu_1", "stu_2", "stu_6"]),
-    k("cl_sci", "br_thl", "วิทย์ ม.ต้น", "วิทย์", ["ม.1", "ม.2"], "u_dai", "rm_2", 6, "10:00", 120, ["stu_2", "stu_5"]),
-    k("cl_math_sat", "br_thl", "คณิต ป.5 (ส.)", "คณิต", ["ป.5"], null, "rm_1", 6, "13:00", 60, ["stu_4"]), // no teacher → must still be visible
-    k("cl_eng_thu", "br_thl", "อังกฤษ ป.6", "อังกฤษ", ["ป.6"], "u_mint", "rm_1", 4, "16:00", 60, ["stu_6"]),
+    k("cl_math5", "br_thl", "คณิต ป.5 (อ.)", "คณิต", ["ป.5"], "u_dai", "rm_1", 2, "16:00", 60, ["stu_1", "stu_3", "stu_4", "stu_10", "stu_11", "stu_12"]),
+    k("cl_eng", "br_thl", "อังกฤษ Conversation", "อังกฤษ", ["ป.5", "ป.6", "ม.1"], "u_mint", "rm_2", 3, "17:00", 90, ["stu_1", "stu_2", "stu_6", "stu_13", "stu_16"], ["u_prae"]),
+    k("cl_sci", "br_thl", "วิทย์ ม.ต้น", "วิทย์", ["ม.1", "ม.2"], "u_dai", "rm_2", 6, "10:00", 120, ["stu_2", "stu_5", "stu_17", "stu_18", "stu_19"]),
+    k("cl_math_sat", "br_thl", "คณิต ป.5 (ส.)", "คณิต", ["ป.5"], null, "rm_1", 6, "13:00", 60, ["stu_4", "stu_24"]), // no teacher → must still be visible
+    k("cl_eng_thu", "br_thl", "อังกฤษ ป.6", "อังกฤษ", ["ป.6"], "u_mint", "rm_1", 4, "16:00", 60, ["stu_6", "stu_13", "stu_14", "stu_15", "stu_25"]),
+    k("cl_math_jo", "br_thl", "คณิต ป.4", "คณิต", ["ป.4"], "u_jo", "rm_3", 1, "16:30", 60, ["stu_20", "stu_21"]),
     k("cl_ari", "br_ari", "คณิต ป.2", "คณิต", ["ป.2"], "u_beam", "rm_a1", 5, "15:00", 90, ["stu_8"]),
   ]
 
   const sessions: Session[] = classes.flatMap((c) => generateSessions(c, holidays, () => uid("se"), 10))
-  // one trial session today-ish for stu_7
-  sessions.push({
-    id: uid("se"), branchId: "br_thl", classId: null, subject: "คณิต", date: today, start: "18:00", minutes: 60,
-    teacherId: "u_dai", roomId: "rm_3", studentIds: ["stu_7"], trial: true, customized: true, cancelled: false,
-  })
 
-  // attendance for past sessions
+  // ---- today's showcase: every card state + a teacher clash and a room clash, placed around "now" ----
+  const nowMin = Math.min(17 * 60, Math.max(13 * 60, Math.floor((now.getHours() * 60 + now.getMinutes()) / 30) * 30))
+  const one = (subject: string, startMin: number, minutes: number, teacherId: string | null, roomId: string | null, studentIds: string[], co: string[] = [], trial = false): Session => ({
+    id: uid("se"), branchId: "br_thl", classId: null, subject, date: today, start: fromMinutes(startMin), minutes,
+    teacherId, coTeacherIds: co, roomId, studentIds, trial, customized: true, cancelled: false,
+  })
+  const showDone = one("คณิต", nowMin - 240, 60, "u_jo", "rm_3", ["stu_20", "stu_21", "stu_22", "stu_23"])
+  const showSummary = one("อังกฤษ", nowMin - 180, 90, "u_mint", "rm_1", ["stu_13", "stu_14", "stu_15", "stu_25", "stu_6"], ["u_prae"])
+  const showAttendance = one("วิทย์", nowMin - 90, 60, "u_prae", "rm_2", ["stu_17", "stu_18", "stu_19"])
+  const showLive = one("คณิต", nowMin - 30, 90, "u_dai", "rm_1", ["stu_1", "stu_3", "stu_4", "stu_10", "stu_11", "stu_12"])
+  const clashA = one("อังกฤษ", nowMin + 90, 60, "u_mint", "rm_2", ["stu_2", "stu_16", "stu_24"])
+  const clashB = one("คณิต", nowMin + 90, 60, "u_mint", "rm_3", ["stu_20", "stu_21"]) // same teacher, same time
+  const clashC = one("วิทย์", nowMin + 90, 90, "u_prae", "rm_2", ["stu_5", "stu_19"]) // same room as clashA
+  const trial = one("คณิต", nowMin + 150, 60, "u_jo", "rm_3", ["stu_7"], [], true)
+  sessions.push(showDone, showSummary, showAttendance, showLive, clashA, clashB, clashC, trial)
+
   const attendance: Attendance[] = []
   const summaries: LessonSummary[] = []
   const nowMs = now.getTime()
+  const write = (se: Session, sid: string, status: LessonSummary["status"], at: number) =>
+    summaries.push({
+      id: uid("sm"), sessionId: se.id, studentId: sid, authorId: se.teacherId!, lastEditorId: se.teacherId!,
+      text: "ตั้งใจเรียนดี ทำโจทย์ได้คล่องขึ้น การบ้านหน้า 12–13", status, history: [{ at: new Date(at).toISOString(), by: se.teacherId!, action: "write" }],
+    })
+  const mark = (se: Session, sid: string, status: Attendance["status"], at: number) =>
+    attendance.push({ sessionId: se.id, studentId: sid, status, markedBy: se.teacherId ?? "u_ploy", markedAt: new Date(at).toISOString() })
+
+  // showcase states (only when they are actually in the past)
+  const endOf = (se: Session) => new Date(`${se.date}T${se.start}:00`).getTime() + se.minutes * 60000
+  if (endOf(showDone) < nowMs) showDone.studentIds.forEach((sid) => { mark(showDone, sid, "present", endOf(showDone)); write(showDone, sid, "submitted", endOf(showDone)) })
+  if (endOf(showSummary) < nowMs)
+    showSummary.studentIds.forEach((sid, i) => { mark(showSummary, sid, i === 4 ? "leave" : "present", endOf(showSummary)); if (i < 2) write(showSummary, sid, "submitted", endOf(showSummary)) })
+  const showcase = new Set([showDone, showSummary, showAttendance, showLive, clashA, clashB, clashC, trial].map((x) => x.id))
+
+  // other past sessions: attendance + summaries like a normal history
   sessions.forEach((se) => {
-    const end = new Date(`${se.date}T${se.start}:00`).getTime() + se.minutes * 60000
+    if (showcase.has(se.id)) return
+    const end = endOf(se)
     if (end > nowMs) return
     se.studentIds.forEach((sid, i) => {
       const status = (i + se.date.charCodeAt(9)) % 7 === 0 ? "leave" : (i + se.date.charCodeAt(8)) % 9 === 0 ? "absent" : "present"
-      attendance.push({ sessionId: se.id, studentId: sid, status, markedBy: se.teacherId ?? "u_ploy", markedAt: new Date(end - 30 * 60000).toISOString() })
-      if (status === "present" && se.teacherId) {
-        const recent = nowMs - end < 7 * 86400000
-        const statusS: LessonSummary["status"] = recent ? (i % 2 ? "submitted" : "draft") : "sent"
-        summaries.push({
-          id: uid("sm"), sessionId: se.id, studentId: sid, authorId: se.teacherId, lastEditorId: se.teacherId,
-          text: "ตั้งใจเรียนดี ทำโจทย์เศษส่วนได้คล่องขึ้น การบ้านหน้า 12–13", status: statusS,
-          history: [{ at: new Date(end).toISOString(), by: se.teacherId, action: "write" }],
-        })
-      }
+      mark(se, sid, status, end - 30 * 60000)
+      if (status === "present" && se.teacherId) write(se, sid, nowMs - end < 7 * 86400000 ? (i % 2 ? "submitted" : "draft") : "sent", end)
     })
   })
 

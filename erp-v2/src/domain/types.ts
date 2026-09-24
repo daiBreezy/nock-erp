@@ -87,7 +87,10 @@ export interface Klass {
   grades: string[]
   kind: ClassKind
   type: ClassType
+  /** primary teacher (responsible for attendance + summaries) */
   teacherId: ID | null
+  /** additional teachers / assistants */
+  coTeacherIds: ID[]
   roomId: ID | null
   weekday: Weekday
   start: TimeStr
@@ -105,7 +108,9 @@ export interface Session {
   date: DateStr
   start: TimeStr
   minutes: number
+  /** primary teacher */
   teacherId: ID | null
+  coTeacherIds: ID[]
   roomId: ID | null
   studentIds: ID[]
   trial: boolean

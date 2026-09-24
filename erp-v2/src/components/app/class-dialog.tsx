@@ -46,7 +46,8 @@ export function ClassDialog({ prefill, onClose }: { prefill: ClassPrefill; onClo
   const [grades, setGrades] = useState<string[]>([])
   const [kind, setKind] = useState<ClassKind>("learning")
   const [type, setType] = useState<ClassType>("group")
-  const [teacherId, setTeacherId] = useState<string>(prefill.teacherId ?? "")
+  const [teacherIds, setTeacherIds] = useState<string[]>(prefill.teacherId ? [prefill.teacherId] : [])
+  const [primaryId, setPrimaryId] = useState<string>(prefill.teacherId ?? "")
   const [roomId, setRoomId] = useState<string>(prefill.roomId ?? "")
   const [startDate, setStartDate] = useState<DateStr>(today)
   const [start, setStart] = useState<TimeStr>(prefill.start ?? "16:00")
@@ -55,7 +56,7 @@ export function ClassDialog({ prefill, onClose }: { prefill: ClassPrefill; onClo
   const [overrideReason, setOverrideReason] = useState("")
 
   const weekday = weekdayOf(startDate) as Weekday
-  const draft: ClassDraft = { branchId: branch.id, subject, kind, type, teacherId: teacherId || null, roomId: roomId || null, weekday, start, minutes, startDate, studentIds, overrideReason }
+  const draft: ClassDraft = { branchId: branch.id, subject, kind, type, teacherId: primaryId || null, coTeacherIds: teacherIds.filter((t) => t !== primaryId), roomId: roomId || null, weekday, start, minutes, startDate, studentIds, overrideReason }
   const issues = validateClass(draft, { branch, staff, sessions, holidays, now })
   const blocks = issues.filter((i) => i.level === "block")
   const overrides = issues.filter((i) => i.level === "override")
@@ -115,9 +116,33 @@ export function ClassDialog({ prefill, onClose }: { prefill: ClassPrefill; onClo
               <Input type="number" min={15} step={15} value={minutes} onChange={(e) => setMinutes(Number(e.target.value))} />
             </Field>
           </div>
-          <Field label="ครู" issue={issues.find((i) => i.field === "teacherId" && i.level !== "warn")?.message}>
-            <NativeSelect value={teacherId} onChange={(e) => setTeacherId(e.target.value)} placeholder="ยังไม่กำหนดครู"
-              options={teachers.map((t) => ({ value: t.id, label: `${t.nickname}${t.subjects.includes(subject) ? "" : " (ไม่ได้สอนวิชานี้)"}` }))} />
+          <Field label="ครู (เลือกได้หลายคน · ★ = ครูหลัก)" className="sm:col-span-2" issue={issues.find((i) => i.field === "teacherId" && i.level !== "warn")?.message}>
+            <div className="flex flex-wrap gap-1.5">
+              {teachers.map((t) => {
+                const on = teacherIds.includes(t.id)
+                const primary = primaryId === t.id
+                const toggle = () => {
+                  const next = on ? teacherIds.filter((x) => x !== t.id) : [...teacherIds, t.id]
+                  setTeacherIds(next)
+                  if (on && primary) setPrimaryId(next[0] ?? "")
+                  if (!on && !primaryId) setPrimaryId(t.id)
+                }
+                return (
+                  <span key={t.id} className={cn("inline-flex items-center overflow-hidden rounded-full border text-xs", on ? "border-primary bg-primary/10" : "hover:bg-muted")}>
+                    <button type="button" onClick={toggle} className="px-2.5 py-1">
+                      {t.nickname}
+                      {!t.subjects.includes(subject) && <span className="text-muted-foreground"> · ไม่ได้สอน{subject}</span>}
+                    </button>
+                    {on && (
+                      <button type="button" onClick={() => setPrimaryId(t.id)} title="ตั้งเป็นครูหลัก" className={cn("border-l px-2 py-1", primary ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground")}>
+                        {primary ? "★ ครูหลัก" : "☆"}
+                      </button>
+                    )}
+                  </span>
+                )
+              })}
+            </div>
+            {teacherIds.length > 1 && <p className="text-xs text-muted-foreground">ครูหลักรับผิดชอบเช็คชื่อและสรุปการเรียน · ครูคนอื่นเป็นผู้ช่วยสอน (ระบบเช็คเวลาชนให้ทุกคน)</p>}
           </Field>
           <Field label="ห้อง" issue={issues.find((i) => i.field === "roomId")?.message}>
             <NativeSelect value={roomId} onChange={(e) => setRoomId(e.target.value)} placeholder="ยังไม่ระบุห้อง" options={branch.rooms.map((r) => ({ value: r.id, label: r.name }))} />
