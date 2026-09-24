@@ -10,7 +10,7 @@
 **erp-v2 = "แบบ" ให้ Dev ทำตาม ไม่ใช่ระบบจริง** → ไม่ต่อ Database / ไม่ทำ Production · ใช้ mock data + localStorage ต่อไป · ระบบจริงเป็นของ Dev (มี DB + Staging แล้ว)
 
 ## Stack
-Next.js 16 (App Router) + React 19 + TypeScript + Tailwind v4 + **shadcn/ui style **`base-luma`** (เปลี่ยนจาก base-nova 2026-09-24 ตาม ref ของเจ้าของ · ปุ่ม/ช่องกรอกแบบแคปซูล การ์ดเงานุ่ม radius ใหญ่ · สีหลักคงชมพูแดงแบรนด์) — Base UI ไม่ใช่ Radix → ใช้ prop `render` แทน `asChild`** + zustand (persist ลง localStorage) + date-fns + vitest
+Next.js 16 (App Router) + React 19 + TypeScript + Tailwind v4 + **shadcn/ui style **`base-luma`** (เปลี่ยนจาก base-nova 2026-09-24 ตาม ref ของเจ้าของ · ปุ่ม/ช่องกรอกแบบแคปซูล การ์ดเงานุ่ม · radius Medium (0.625rem — เจ้าของเลือก) · สีหลักคงชมพูแดงแบรนด์) — Base UI ไม่ใช่ Radix → ใช้ prop `render` แทน `asChild`** + zustand (persist ลง localStorage) + date-fns + vitest
 - ไม่มี backend — mock data สร้างสัมพันธ์กับ "วันนี้" ทุกครั้ง (`src/data/seed.ts`)
 - dev: `npm run dev` (หรือ preview config `erp-v2` พอร์ต 3310) · test: `npm test` · lint: `npx eslint src`
 
