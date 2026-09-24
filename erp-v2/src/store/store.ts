@@ -247,8 +247,8 @@ export const useStore = create<Store>()(
         )
         const warnings: string[] = []
         if (klass && Att.gradeMismatch(stu, klass)) warnings.push(`เกรด ${stu.grade} ไม่ตรงกับคลาส (${klass.grades.join(", ")})`)
-        if (!src.trial && !Att.activeEntitlements(studentId, s.entitlements, src.date).some((e) => e.classId === src.classId))
-          warnings.push(`${stu.nickname} ยังไม่มีแพ็กเกจของคลาสนี้ — ออกใบแจ้งหนี้ที่หน้าการเงิน`)
+        if (!src.trial && !Att.coveringEntitlement(studentId, src, s.entitlements))
+          warnings.push(`${stu.nickname} ยังไม่ได้จ่ายค่าเรียนสำหรับคาบนี้ — ออกใบแจ้งหนี้ที่หน้าการเงิน`)
         if (r.kept) warnings.push(`ข้าม ${r.kept} คาบที่เต็มหรือเริ่มไปแล้ว`)
         set({
           sessions: r.sessions,
@@ -440,7 +440,7 @@ export const useStore = create<Store>()(
         set({ attendance: [...rest, { sessionId, studentId, status, markedBy: me.id, markedAt: s.now().toISOString() }] })
         // C5: leave beyond quota is allowed but flagged (quota rule awaiting owner confirmation)
         if (status === "leave") {
-          const ent = Att.activeEntitlements(studentId, s.entitlements, se.date).find((e) => e.classId === se.classId)
+          const ent = Att.coveringEntitlement(studentId, se, s.entitlements)
           if (ent && Att.leavesUsed(ent, s.sessions, s.attendance.filter((a) => !(a.sessionId === sessionId && a.studentId === studentId))) >= Att.leaveQuota(ent))
             return { ok: true, value: undefined, warnings: [`ลาเกินโควตาแล้ว (โควตา ${Att.leaveQuota(ent)} ครั้ง) — แจ้งผู้ปกครองเรื่องการชดเชย`] }
         }
@@ -617,7 +617,7 @@ export const useStore = create<Store>()(
           if (inv.course && totals.quote) {
             const q = totals.quote
             const pkg = s.packages.find((p) => p.id === s.courses.find((c) => c.id === inv.course!.courseId)?.packageId)
-            entitlements = [...entitlements, { id: uid("en"), studentId: inv.studentId, courseId: inv.course.courseId, classId: inv.course.classId, invoiceId: inv.id, kind: pkg?.unit === "hours" ? "sessions" : "subscription", from: q.from, to: q.to, sessionsTotal: q.sessions.length }]
+            entitlements = [...entitlements, { id: uid("en"), studentId: inv.studentId, courseId: inv.course.courseId, subject: s.courses.find((c) => c.id === inv.course!.courseId)!.subject, classId: inv.course.classId, invoiceId: inv.id, kind: pkg?.unit === "hours" ? "sessions" : "subscription", from: q.from, to: q.to, sessionsTotal: q.sessions.length }]
             classes = classes.map((c) => (c.id === inv.course!.classId && !c.studentIds.includes(inv.studentId) ? { ...c, studentIds: [...c.studentIds, inv.studentId] } : c))
             sessions = sessions.map((x) => (x.classId === inv.course!.classId && q.sessions.includes(x.date) && !x.studentIds.includes(inv.studentId) ? { ...x, studentIds: [...x.studentIds, inv.studentId] } : x))
           }
@@ -629,7 +629,7 @@ export const useStore = create<Store>()(
     {
       name: "nockerp-v2",
       // bump when the data model changes; older saved data is replaced by fresh sample data
-      version: 4,
+      version: 6,
       migrate: () => ({ ...buildSeed(), userId: "u_nock", branchId: "br_thl", clockOffset: 0 }) as unknown as Store,
       // persist data + UI state only, never the action functions
       partialize: (s) => Object.fromEntries(Object.entries(s).filter(([, v]) => typeof v !== "function")) as Partial<Store>,

@@ -79,6 +79,7 @@ export function buildSeed(now = new Date()): DB {
   ]
   const courses: Course[] = [
     { id: "co_math5", branchId: "br_thl", name: "คณิต ป.5 รายเดือน", subject: "คณิต", grades: ["ป.5"], packageId: "pk_m_math" },
+    { id: "co_math4", branchId: "br_thl", name: "คณิต ป.4 รายเดือน", subject: "คณิต", grades: ["ป.4"], packageId: "pk_m_math" },
     { id: "co_eng", branchId: "br_thl", name: "อังกฤษ ป.4–ม.1 รายเดือน", subject: "อังกฤษ", grades: ["ป.4", "ป.5", "ป.6", "ม.1"], packageId: "pk_m_eng" },
     { id: "co_sci", branchId: "br_thl", name: "วิทย์ ม.ต้น 10 ชม.", subject: "วิทย์", grades: ["ม.1", "ม.2", "ม.3"], packageId: "pk_h_sci" },
     { id: "co_ari", branchId: "br_ari", name: "คณิต ป.ต้น รายเดือน", subject: "คณิต", grades: ["ป.1", "ป.2", "ป.3"], packageId: "pk_m_ari" },
@@ -176,7 +177,7 @@ export function buildSeed(now = new Date()): DB {
 
   const monthStart = today.slice(0, 8) + "01"
   const ent = (id: string, studentId: string, courseId: string, classId: string, kind: Entitlement["kind"], from: string, to: string, total: number): Entitlement =>
-    ({ id, studentId, courseId, classId, invoiceId: "inv_paid", kind, from, to, sessionsTotal: total })
+    ({ id, studentId, courseId, subject: courses.find((c) => c.id === courseId)!.subject, classId, invoiceId: "inv_paid", kind, from, to, sessionsTotal: total })
   const entitlements: Entitlement[] = [
     ent("en_1", "stu_1", "co_math5", "cl_math5", "subscription", monthStart, addDays(monthStart, 60), 8),
     ent("en_2", "stu_3", "co_math5", "cl_math5", "subscription", monthStart, addDays(today, 5), 4),
@@ -193,7 +194,7 @@ export function buildSeed(now = new Date()): DB {
     c.studentIds.forEach((sid, i) => {
       if (sid === "stu_24" || c.branchId !== "br_thl" || entitlements.some((e) => e.studentId === sid && e.classId === c.id)) return
       const hours = c.subject === "วิทย์"
-      entitlements.push(ent(`en_auto_${c.id}_${sid}`, sid, courseFor[c.subject], c.id, hours ? "sessions" : "subscription", start, addDays(monthStart, i % 3 === 0 ? 36 : 60), hours ? 10 : 8))
+      entitlements.push(ent(`en_auto_${c.id}_${sid}`, sid, c.grades.includes("ป.4") ? "co_math4" : courseFor[c.subject], c.id, hours ? "sessions" : "subscription", start, addDays(monthStart, i % 3 === 0 ? 36 : 60), hours ? 10 : 8))
     }),
   )
 

@@ -22,9 +22,20 @@ export function activeEntitlements(studentId: ID, ents: Entitlement[], date: str
   return ents.filter((e) => e.studentId === studentId && e.from <= date && date <= e.to)
 }
 
+/** A session belongs to a package if it is a session of the package's class, or a one-off (make-up / extra) session of the same subject. */
+export function packageCovers(e: Entitlement, s: Pick<Session, "classId" | "subject" | "date">) {
+  if (s.date < e.from || s.date > e.to) return false
+  return s.classId ? s.classId === e.classId : s.subject === e.subject
+}
+
+/** Which paid package pays for this student's seat in this session (null = unpaid). */
+export function coveringEntitlement(studentId: ID, s: Pick<Session, "classId" | "subject" | "date">, ents: Entitlement[]) {
+  return ents.find((e) => e.studentId === studentId && packageCovers(e, s)) ?? null
+}
+
 /** Sessions used = present + absent (leave does not consume). */
 export function usedSessions(e: Entitlement, sessions: Session[], attendance: Attendance[]) {
-  const ids = new Set(sessions.filter((s) => s.classId === e.classId && s.date >= e.from && s.date <= e.to).map((s) => s.id))
+  const ids = new Set(sessions.filter((s) => packageCovers(e, s)).map((s) => s.id))
   return attendance.filter((a) => a.studentId === e.studentId && ids.has(a.sessionId) && a.status !== "leave").length
 }
 
@@ -48,7 +59,7 @@ export function leaveQuota(e: Entitlement) {
 }
 
 export function leavesUsed(e: Entitlement, sessions: Session[], attendance: Attendance[]) {
-  const ids = new Set(sessions.filter((s) => s.classId === e.classId && s.date >= e.from && s.date <= e.to).map((s) => s.id))
+  const ids = new Set(sessions.filter((s) => packageCovers(e, s)).map((s) => s.id))
   return attendance.filter((a) => a.studentId === e.studentId && ids.has(a.sessionId) && a.status === "leave").length
 }
 

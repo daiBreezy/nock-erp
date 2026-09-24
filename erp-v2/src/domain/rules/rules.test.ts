@@ -2,7 +2,7 @@
 import { describe, expect, it } from "vitest"
 import type { Attendance, Branch, Holiday, Invoice, Klass, Package, Session, Staff, Weekday } from "../types"
 import { applyClassEdit, applyToSessions, canSave, editSingleSession, findConflicts, generateSessions, moveSession, sessionState, validateClass, workState } from "./scheduling"
-import { canMark, removeFromClass, lowBalanceAlert, balance } from "./attendance"
+import { balance, canMark, coveringEntitlement, lowBalanceAlert, removeFromClass } from "./attendance"
 import { canApprove, canConfirmPayment, canSend, canVoid, defaultBusLegs, busTotal, nextInvoiceNumber, quoteCourse } from "./billing"
 import { can } from "./permissions"
 import * as Sum from "./summaries"
@@ -108,7 +108,7 @@ describe("attendance", () => {
   })
 
   it("F4: no low-session alert for subscriptions", () => {
-    const e = { id: "e", studentId: "a", courseId: "c", classId: "k1", invoiceId: "i", kind: "subscription" as const, from: "2026-09-01", to: "2026-12-31", sessionsTotal: 1 }
+    const e = { id: "e", studentId: "a", courseId: "c", subject: "Maths", classId: "k1", invoiceId: "i", kind: "subscription" as const, from: "2026-09-01", to: "2026-12-31", sessionsTotal: 1 }
     expect(lowBalanceAlert(e, balance(e, [], []), "2026-09-24")).toBeNull()
   })
 })
@@ -256,5 +256,16 @@ describe("people & session panel rules", () => {
     const r = applyToSessions(ss, ss[2].id, "following", (x) => ({ ...x, studentIds: [...x.studentIds, "z"] }), (x) => sessionState(x, now) === "upcoming")
     expect(r.sessions[1].studentIds).not.toContain("z")
     expect(r.sessions.slice(2).every((x) => x.studentIds.includes("z"))).toBe(true)
+  })
+})
+
+describe("package coverage", () => {
+  const e = { id: "e", studentId: "a", courseId: "c", subject: "Maths", classId: "k1", invoiceId: "i", kind: "sessions" as const, from: "2026-09-01", to: "2026-12-31", sessionsTotal: 5 }
+  it("covers sessions of its class and one-off make-ups of the same subject", () => {
+    expect(coveringEntitlement("a", { classId: "k1", subject: "Maths", date: "2026-10-01" }, [e])).toBe(e)
+    expect(coveringEntitlement("a", { classId: null, subject: "Maths", date: "2026-10-01" }, [e])).toBe(e) // make-up
+    expect(coveringEntitlement("a", { classId: null, subject: "English", date: "2026-10-01" }, [e])).toBeNull()
+    expect(coveringEntitlement("a", { classId: "other", subject: "Maths", date: "2026-10-01" }, [e])).toBeNull()
+    expect(coveringEntitlement("a", { classId: "k1", subject: "Maths", date: "2027-01-05" }, [e])).toBeNull() // expired
   })
 })

@@ -1,5 +1,6 @@
 "use client"
 
+import Link from "next/link"
 import { useMemo, useState } from "react"
 import { AlertTriangleIcon, BanIcon, CheckIcon, PencilIcon, SearchIcon, SendIcon, StarIcon, UndoIcon, UserPlusIcon, UsersRoundIcon, XIcon } from "lucide-react"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
@@ -49,6 +50,7 @@ function Body({ id, onClose }: { id: ID; onClose: () => void }) {
   const attendance = useStore((st) => st.attendance)
   const summaries = useStore((st) => st.summaries)
   const entitlements = useStore((st) => st.entitlements)
+  const courses = useStore((st) => st.courses)
   const me = useStore((st) => st.staff.find((x) => x.id === st.userId)!)
   const mark = useStore((st) => st.mark)
   const clearMark = useStore((st) => st.clearMark)
@@ -134,7 +136,8 @@ function Body({ id, onClose }: { id: ID; onClose: () => void }) {
             {s.studentIds.map((sid) => {
               const stu = L.student(sid)
               const a = attendance.find((x) => x.sessionId === s.id && x.studentId === sid)
-              const ent = Att.activeEntitlements(sid, entitlements, s.date).find((e) => e.classId === s.classId)
+              const ent = Att.coveringEntitlement(sid, s, entitlements)
+              const pkgName = ent ? courses.find((c) => c.id === ent.courseId)?.name : undefined
               const bal = ent && Att.balance(ent, allSessions, attendance)
               return (
                 <li key={sid} className="flex flex-wrap items-center gap-3 p-2.5">
@@ -143,7 +146,19 @@ function Body({ id, onClose }: { id: ID; onClose: () => void }) {
                       {stu?.nickname ?? "?"} <span className="text-xs font-normal text-muted-foreground">{stu?.grade}</span>
                     </button>
                     <div className="text-xs text-muted-foreground">
-                      {s.trial ? "ทดลองเรียน" : !ent ? <span className="text-amber-700">ไม่มีแพ็กเกจที่ครอบคลุมวันนี้</span> : ent.kind === "subscription" ? `รายเดือน ถึง ${fmtDate(ent.to)}` : `เหลือ ${bal!.remaining}/${bal!.total} คาบ`}
+                      {s.trial ? (
+                        "ทดลองเรียน (ไม่ใช้แพ็กเกจ)"
+                      ) : !ent ? (
+                        <span className="text-amber-700">
+                          ยังไม่ได้จ่ายค่าเรียนสำหรับคาบนี้
+                          {can(me, "billing.manage") && <Link href={`/billing?new=${sid}`} className="ml-1 underline">ออกใบแจ้งหนี้</Link>}
+                        </span>
+                      ) : (
+                        <span title={pkgName}>
+                          {ent.classId !== s.classId && "ใช้แพ็กเกจ "}
+                          {ent.kind === "subscription" ? `${pkgName} · ถึง ${fmtDate(ent.to)}` : `${pkgName} · เหลือ ${bal!.remaining}/${bal!.total} คาบ`}
+                        </span>
+                      )}
                     </div>
                   </div>
                   <div className="flex items-center gap-1">
@@ -413,7 +428,7 @@ function AddStudentDialog({ id, onClose }: { id: ID; onClose: () => void }) {
         <ul className="max-h-72 divide-y overflow-y-auto rounded-lg border">
           {list.map((x) => {
             const mismatch = !!klass && Att.gradeMismatch(x, klass)
-            const hasPkg = Att.activeEntitlements(x.id, entitlements, s.date).some((e) => e.classId === s.classId)
+            const hasPkg = !!Att.coveringEntitlement(x.id, s, entitlements)
             return (
               <li key={x.id} className="flex items-center gap-2 p-2">
                 <span className="min-w-0 flex-1">
@@ -421,7 +436,7 @@ function AddStudentDialog({ id, onClose }: { id: ID; onClose: () => void }) {
                   <span className="block truncate text-xs text-muted-foreground">
                     {x.name}
                     {mismatch && <span className="text-amber-700"> · เกรดไม่ตรงคลาส</span>}
-                    {s.classId && !hasPkg && <span className="text-amber-700"> · ยังไม่มีแพ็กเกจ</span>}
+                    {!s.trial && !hasPkg && <span className="text-amber-700"> · ยังไม่ได้จ่ายค่าเรียน</span>}
                   </span>
                 </span>
                 <Button size="xs" disabled={s.studentIds.length >= cap} onClick={() => report(add(id, x.id, scope), (v) => `เพิ่ม ${x.nickname} แล้ว ${v.changed} คาบ`) && onClose()}>เพิ่ม</Button>

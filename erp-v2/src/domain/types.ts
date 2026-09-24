@@ -186,6 +186,8 @@ export interface Entitlement {
   id: ID
   studentId: ID
   courseId: ID
+  /** subject of the course — lets make-up / one-off sessions of the same subject use this package */
+  subject: string
   classId: ID | null
   invoiceId: ID
   kind: EntitlementKind
