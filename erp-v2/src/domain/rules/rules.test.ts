@@ -7,6 +7,7 @@ import { canApprove, canConfirmPayment, canSend, canVoid, defaultBusLegs, busTot
 import { can } from "./permissions"
 import * as Sum from "./summaries"
 import { futureSessionsOf, validateFamily, validateStaff, validateStudent } from "./people"
+import { suggestFixes } from "./suggest"
 
 const hours = { open: "09:00", close: "20:00" }
 const branch: Branch = {
@@ -282,5 +283,19 @@ describe("moving out of an existing clash", () => {
     const c = { ...generateSessions(klass({ id: "c", teacherId: null, roomId: "r2" }), [], id)[0] }
     const r2 = moveSession([a, c], a.id, { date: a.date, start: a.start, roomId: "r2" }, "one", new Date(2026, 8, 28), [])
     expect(introducedConflicts([a, c], r2.sessions, r2.movedIds, branch, [teacher]).added.some((x) => x.kind === "room")).toBe(true)
+  })
+})
+
+describe("fix suggestions", () => {
+  it("proposes a free room first, and a free teacher, for a double-booked slot", () => {
+    const b3: Branch = { ...branch, rooms: [...branch.rooms, { id: "r3", name: "Room 3" }] }
+    const t2 = { ...teacher, id: "t2", nickname: "t2" }
+    const a = { ...generateSessions(klass({ id: "a", teacherId: "t1", roomId: "r1" }), [], id)[0] }
+    const b = { ...generateSessions(klass({ id: "b", teacherId: "t1", roomId: "r1" }), [], id)[0] }
+    const fixes = suggestFixes(b.id, { sessions: [a, b], branch: b3, staff: [teacher, t2], holidays: [], now: new Date(2026, 8, 28), attendance: [] })
+    expect(fixes.some((f) => f.kind === "teacher" && f.target.teacherId === "t2")).toBe(true)
+    expect(fixes.some((f) => f.kind === "time")).toBe(true)
+    // teacher swap alone leaves the room clash; moving time (with a free room) clears everything
+    expect(fixes[0].clearsAll).toBe(true)
   })
 })

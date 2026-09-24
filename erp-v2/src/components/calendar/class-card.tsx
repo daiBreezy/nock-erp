@@ -86,6 +86,7 @@ export function ClassCard({ s, d }: { s: Session; d: CardData }) {
             {conflicts.map((m) => (
               <li key={m} className="flex items-center gap-1"><AlertTriangleIcon className="size-3 shrink-0" />{m}</li>
             ))}
+            {canDrag && <li className="pt-0.5 font-normal underline underline-offset-2 opacity-90">คลิกดูทางแก้ที่ระบบแนะนำ</li>}
           </ul>
         )}
 

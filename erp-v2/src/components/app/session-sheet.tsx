@@ -23,6 +23,7 @@ import { cn } from "@/lib/utils"
 import { useStore } from "@/store/store"
 import { Pill, SessionStateBadge } from "./badges"
 import { NativeSelect } from "./native-select"
+import { FixSuggestions } from "./fix-suggestions"
 import { StudentSheet } from "./student-sheet"
 import { gradeTone } from "./subject-color"
 import { TeacherPicker } from "./teacher-picker"
@@ -93,7 +94,10 @@ function Body({ id, onClose }: { id: ID; onClose: () => void }) {
           <Alert variant="destructive">
             <AlertTriangleIcon />
             <AlertTitle>คาบนี้ชนกับคาบอื่น</AlertTitle>
-            <AlertDescription>{conflicts.map((c) => c.message).join(" · ")}</AlertDescription>
+            <AlertDescription className="space-y-2">
+              <div>{[...new Set(conflicts.map((c) => c.message))].join(" · ")}</div>
+              {canManage && state === "upcoming" && <FixSuggestions sessionId={s.id} />}
+            </AlertDescription>
           </Alert>
         )}
 
