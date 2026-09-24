@@ -2,7 +2,7 @@
 
 > สถานะ: ✅ ผ่าน · 🔴 บั๊ก · ⚠️ ข้อสังเกต/ข้อจำกัด · ⬜ ยังไม่เทส · 🚫 เทสไม่ได้ (ต้องการเงื่อนไขเพิ่ม)
 > ข้อมูลเทสทั้งหมดอยู่ใน TEST-Branch
-> ความคืบหน้า (2026-09-23): เทสแล้ว 35/40 · เหลือ A6 toast ซ้ำ, B2 Trial, B6 Closed, D4 แก้หลัง Approve, E3 Create Class จาก Calendar · E4 Export PDF (ต้องขออนุญาตดาวน์โหลด) · D7 ต้องล็อกอินบัญชีครู
+> ความคืบหน้า (2026-09-24): เทสแล้ว 37/40 + D7 ครึ่งทาง · **เหลือ (ใช้บัญชี Director): D7 approve summary ของครู, D4 แก้ summary หลัง Approve, E3 Create Class จาก Calendar** · E4 Export PDF ต้องขออนุญาตดาวน์โหลด · A6 toast ซ้ำ
 
 ## A. Class
 | # | กรณี | สถานะ | ผล |
@@ -25,11 +25,11 @@
 | # | กรณี | สถานะ | ผล |
 |---|---|---|---|
 | B1 | Add session attach class | ⚠️ | ไม่ดึงนักเรียนของคลาส |
-| B2 | Add session standalone / Trial session | ⬜ | |
+| B2 | Add session standalone / Trial session | ✅/⚠️ | สร้างได้ มีป้าย Trial · เช็คชื่อ+summary ได้ · ⚠️ สร้างนอกเวลาเปิดสาขาได้ (แค่เตือน) |
 | B3 | Edit session เฉพาะครั้ง (เวลา) | 🔴 | ถาม 'Just this session / This and every future' ✅ แต่ข้อความโชว์เวลาใหม่เป็นตารางเดิม · 🔴 **เลือก Just this session แล้วเกิด session ซ้ำ** (1 ต.ค. มีทั้ง 16:00 เดิม + 17:00 ใหม่) |
 | B4 | Delete session มีนักเรียน → Notification | ✅ | |
 | B5 | สถานะตามเวลา (Upcoming→Live→Ended→Closed) | 🔴 | ไม่เปลี่ยนตามเวลา: 14:00–15:00 ตอน 15:52 ยัง Upcoming · กดแล้วเป็น Live ค้างถึง 16:03+ · 6 ต.ค. Live ค้างหลายชม. · ส่ง summary แล้ว class "ended" 16:05 แต่หัวยัง Live · แสดงเวลา ISO UTC ดิบ `2026-09-23T09:05:05.319Z` |
-| B6 | Closed state เกิดจากอะไร | ⬜ | |
+| B6 | Closed state เกิดจากอะไร | ✅/⚠️ | ปิดอัตโนมัติข้ามคืน (sessions 23 ก.ย. → Closed เช้า 24) · เช็คชื่อถูกล็อก ✅ · ⚠️ ข้อความ 'start 15:52 · end 09:00' ไม่มีวันที่ ดูเหมือนจบก่อนเริ่ม |
 
 ## C. Attendance
 | # | กรณี | สถานะ | ผล |
@@ -53,7 +53,7 @@
 | D4 | แก้หลัง Approve | ⬜ | |
 | D5 | Send to parent (no LINE) | 🔴 | **ส่งได้ขณะยัง 'Awaiting approval' (ข้าม approve)** · ไม่มี confirm · แจ้ง 'Summary sent to parent' + สถานะ Sent ทั้งที่นักเรียนไม่มี family/LINE |
 | D6 | "Not written yet" counter / Staff "Summary Pending" | ⚠️ | Staff Summary Pending = 0 ถูก · 🔴 การ์ด Summaries ไม่กรองตามช่วงวันที่ (นับ summary 29 ก.ย. ในสัปดาห์ 21–27) · รายการเดียวกันแสดง 'Sent' + 'Parent not linked to LINE' |
-| D7 | ครู (Dai) เขียน → Director approve | 🚫 | ต้องล็อกอินบัญชีครู |
+| D7 | ครู (Dai) เขียน → Director approve | 🟡 | ฝั่งครู ✅: เขียน+Submit ได้, เห็นแค่ Withdraw (Approve/Send ไม่ได้) · **ค้าง: Director approve** (trial session 24 ก.ย. 09:00 · TEST-StudentA) |
 
 ## E. Calendar
 | # | กรณี | สถานะ | ผล |
@@ -71,3 +71,16 @@
 | F3 | Claim จาก invoice → นักเรียนเข้าคลาส | ✅ | auto-claim |
 | F4 | Notification นักเรียนคาบใกล้หมด | ⚠️ | ไม่มี notification ทั้งตอน 0 คาบ และ 2 คาบ · ไม่รู้ threshold |
 | F5 | Student profile Schedule/Attendance ตรงกับ session | ⚠️ | Attendance ตรง, หน้า session ไม่โชว์ leave |
+
+## G. สิทธิ์ Role Teacher (บัญชี Dai Breezy, 2026-09-24)
+| หน้า | ผล | สถานะ |
+|---|---|---|
+| Sidebar | เห็นทุกเมนูเหมือน Director | ⚠️ |
+| Staff | อ่านอย่างเดียว ไม่มี Add/Delete · เห็นเฉพาะสาขาตัวเอง | ✅ |
+| Settings | เห็นการ์ดสาขา แต่เปิดหน้าแก้สาขาไม่ได้ (redirect) | ✅ |
+| Courses | ไม่มีปุ่มสร้าง | ✅ |
+| Summary | Submit ได้ · Approve/Send ไม่ได้ (มีแค่ Withdraw) | ✅ |
+| Billing | **เข้าได้เต็ม: เห็นรายได้, New Invoice, Send to accountant, Approve invoice ได้** | 🔴 |
+| Students | **Export ข้อมูลนักเรียนได้** + Add Student | ⚠️ PII |
+| Classes / Sessions | สร้างคลาส/เซสชันได้ · กำหนดครูคนอื่นได้ · เห็น session ครูทุกคน | ⚠️ |
+| Auth | ถ้า Director เคยล็อกอินค้างในเบราว์เซอร์เดียวกัน ครูเปิด /billing แล้ว **ถูกสลับเป็น Director เอง** (Clerk multi-session) | 🔴 |

@@ -64,8 +64,8 @@
 - [ ] ตัดสินใจ: build ใหม่ด้วย stack ไหน (แนะนำ Next.js ให้ตรง Dev) + ขอบเขต (11 เมนูก่อน หรือรวมโมดูลที่ Dev ยังไม่ทำ)
 - [ ] ส่งรายงานให้ Dev · ลบ/ปิดข้อมูล TEST-Branch บน staging เมื่อ Dev ดูเสร็จ
 - [x] ~~เทส Billing ครบวง~~ ✅ (หลัง Dev แก้ Database) → ผลอยู่ใน audit หัวข้อ 2.5
-- [ ] เทส Class/Session/Attendance/Summary/Calendar → **`new-erp/TEST-MATRIX-SCHEDULING.md`** (เทสแล้ว 35/40 · เหลือ B2, B6, D4, E3, E4, D7)
-- [ ] D7 ต้องให้เจ้าของล็อกอินบัญชีครู Dai Breezy (Teacher, TEST-Branch) ใน Browser pane
+- [ ] เทส Class/Session/Attendance/Summary/Calendar → **`new-erp/TEST-MATRIX-SCHEDULING.md`** (2026-09-24: 37/40 · เหลือ **D7 Director approve summary ของครู, D4, E3** — ต้องล็อกอิน Director) · E4 ต้องขออนุญาตดาวน์โหลด
+- [x] ~~เทสสิทธิ์ Role Teacher~~ ✅ → หัวข้อ G ใน test matrix (🔴 Teacher เข้า Billing เต็มสิทธิ์ · 🔴 สลับเป็น Director เองเมื่อมี session ค้าง)
 - [ ] Business rules ใหม่จาก Dev (pro-rate รายเดือน 100/60/30%, Concession + remark) บันทึกใน `new-erp/REBUILD-PLAN.md` แล้ว
 - [ ] **แผนหลังเทสครบ:** สรุปปัญหาราย Flow → จัดลำดับความสำคัญ → ออกแบบการปรับปรุง (โดยเฉพาะ UI/UX ให้ใช้ง่ายขึ้น) → ทำ prototype หน้าที่ปรับ → ส่ง Dev
 
