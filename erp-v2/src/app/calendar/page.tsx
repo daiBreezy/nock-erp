@@ -155,11 +155,11 @@ export default function CalendarPage() {
 
       <div className="flex flex-wrap items-center gap-2">
         {seesAllSessions(me) ? (
-          <NativeSelect className="h-8 w-40" value={teacher} onChange={(e) => setTeacher(e.target.value)} options={teacherOptions} />
+          <NativeSelect className="h-9 w-40" value={teacher} onChange={(e) => setTeacher(e.target.value)} options={teacherOptions} />
         ) : (
           <Pill tone="blue">แสดงเฉพาะคาบของฉัน</Pill>
         )}
-        <NativeSelect className="h-8 w-32" value={subject} onChange={(e) => setSubject(e.target.value)} options={[{ value: "all", label: "ทุกวิชา" }, ...branch.subjects.map((s) => ({ value: s, label: s }))]} />
+        <NativeSelect className="h-9 w-32" value={subject} onChange={(e) => setSubject(e.target.value)} options={[{ value: "all", label: "ทุกวิชา" }, ...branch.subjects.map((s) => ({ value: s, label: s }))]} />
         {view === "day" && (
           <ToggleGroup value={[lane]} onValueChange={(v) => v[0] && setLane(v[0] as "room" | "teacher")} variant="outline" size="sm">
             <ToggleGroupItem value="teacher">แยกตามครู</ToggleGroupItem>
@@ -372,7 +372,7 @@ function Column({ date, sessions, ctx, onSlot, maxCols = 3, onMore }: { date: Da
 function WeekView({ from, sessions, onDay, today, ...ctx }: CardCtx & { from: DateStr; sessions: Session[]; onDay: (d: DateStr) => void; today: DateStr }) {
   const days = Array.from({ length: 7 }, (_, i) => addDays(from, i))
   return (
-    <div className="overflow-x-auto rounded-xl border bg-card">
+    <div className="overflow-x-auto rounded-3xl bg-card shadow-sm ring-1 ring-foreground/5">
       <div className="flex min-w-[760px] border-b text-xs">
         <div className="w-12 shrink-0" />
         {days.map((d) => (
@@ -395,7 +395,7 @@ function MonthView({ from, month, sessions, onDay, today, conflictIds }: { from:
   const holidays = useStore((s) => s.holidays)
   const days = Array.from({ length: 42 }, (_, i) => addDays(from, i))
   return (
-    <div className="overflow-hidden rounded-xl border bg-card">
+    <div className="overflow-hidden rounded-3xl bg-card shadow-sm ring-1 ring-foreground/5">
       <div className="grid grid-cols-7 border-b text-center text-xs text-muted-foreground">
         {[1, 2, 3, 4, 5, 6, 0].map((w) => <div key={w} className="py-2">{dayShort(w as 0)}</div>)}
       </div>
@@ -435,7 +435,7 @@ function ListView({ from, to, sessions, ...ctx }: CardCtx & { from: DateStr; to:
       {dates.map((d) => (
         <div key={d}>
           <h3 className="mb-1 text-sm font-semibold">{fmtDate(d, { weekday: true, year: true })}</h3>
-          <div className="divide-y rounded-xl border bg-card">
+          <div className="divide-y rounded-3xl bg-card shadow-sm ring-1 ring-foreground/5">
             {sessions.filter((s) => s.date === d).sort((a, b) => a.start.localeCompare(b.start)).map((s) => {
               const t = L.teacher(s.teacherId)
               return (

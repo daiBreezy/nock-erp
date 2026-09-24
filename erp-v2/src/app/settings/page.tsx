@@ -153,7 +153,7 @@ function HolidaysSection() {
 
 function Section({ title, hint, children }: { title: string; hint?: string; children: React.ReactNode }) {
   return (
-    <section className="rounded-xl border bg-card p-4">
+    <section className="rounded-3xl bg-card shadow-sm ring-1 ring-foreground/5 p-4">
       <h2 className="font-semibold">{title}</h2>
       {hint && <p className="mb-3 text-xs text-muted-foreground">{hint}</p>}
       <div className={hint ? "" : "mt-3"}>{children}</div>

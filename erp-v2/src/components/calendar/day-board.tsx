@@ -138,7 +138,7 @@ export function DayBoard({
   }
 
   return (
-    <div className="overflow-hidden rounded-xl border bg-card">
+    <div className="overflow-hidden rounded-3xl bg-card shadow-sm ring-1 ring-foreground/5">
       {/* one scroll box: teacher header sticks to the top (scrolls sideways), time column sticks to the left (scrolls vertically) */}
       <div className="max-h-[calc(100dvh-15rem)] min-h-96 overflow-auto overscroll-contain">
       <div className="min-w-fit">

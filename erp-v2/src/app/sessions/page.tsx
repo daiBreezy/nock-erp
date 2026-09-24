@@ -61,7 +61,7 @@ export default function SessionsPage() {
             <ToggleGroupItem value="week">สัปดาห์</ToggleGroupItem>
           </ToggleGroup>
           {seesAllSessions(me) ? (
-            <NativeSelect className="h-8 w-36" value={teacher} onChange={(e) => setTeacher(e.target.value)}
+            <NativeSelect className="h-9 w-36" value={teacher} onChange={(e) => setTeacher(e.target.value)}
               options={[{ value: "all", label: "ครูทุกคน" }, ...staff.filter((t) => t.roles.includes("teacher") && t.branchIds.includes(branch.id)).map((t) => ({ value: t.id, label: t.nickname }))]} />
           ) : <Pill tone="blue">คาบของฉัน</Pill>}
         </div>
@@ -72,7 +72,7 @@ export default function SessionsPage() {
       {dates.map((d) => (
         <section key={d}>
           {range === "week" && <h3 className="mb-1 text-sm font-semibold">{fmtDate(d, { weekday: true })}</h3>}
-          <div className="divide-y overflow-hidden rounded-xl border bg-card">
+          <div className="divide-y overflow-hidden rounded-3xl bg-card shadow-sm ring-1 ring-foreground/5">
             {shown.filter(({ s }) => s.date === d).map(({ s, w }) => {
               const c = subjectColor(s.subject)
               const t = L.teacher(s.teacherId)

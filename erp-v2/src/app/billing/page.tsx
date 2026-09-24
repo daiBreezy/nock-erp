@@ -106,7 +106,7 @@ function BillingPage() {
       </div>
 
       {/* table on desktop, stacked cards on narrow screens (no horizontal overflow — BL-23) */}
-      <div className="overflow-hidden rounded-xl border bg-card">
+      <div className="overflow-hidden rounded-3xl bg-card shadow-sm ring-1 ring-foreground/5">
         <div className="hidden grid-cols-[1.3fr_1.2fr_1.5fr_0.8fr_1.1fr] gap-3 border-b bg-muted/40 px-4 py-2 text-xs font-medium text-muted-foreground md:grid">
           <span>เลขที่</span><span>นักเรียน</span><span>รายการ</span><span className="text-right">ยอด</span><span>สถานะ</span>
         </div>

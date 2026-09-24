@@ -55,7 +55,7 @@ export default function FamiliesPage() {
           const linked = f.parents.some((p) => p.lineLinked)
           const code = f.lineCode && lineCodeValid(f, now).ok ? f.lineCode : null
           return (
-            <div key={f.id} className="space-y-3 rounded-xl border bg-card p-4">
+            <div key={f.id} className="space-y-3 rounded-3xl bg-card shadow-sm ring-1 ring-foreground/5 p-4">
               <div className="flex items-start justify-between gap-2">
                 <div>
                   <div className="font-semibold">{f.name}</div>

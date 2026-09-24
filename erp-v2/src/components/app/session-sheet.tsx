@@ -170,7 +170,7 @@ function Body({ id, onClose }: { id: ID; onClose: () => void }) {
                           data-on={a?.status === m.status}
                           disabled={!allowed}
                           onClick={() => report(mark(s.id, sid, m.status), `${stu?.nickname}: ${m.label}`)}
-                          className={cn("h-8 min-w-11 rounded-md border px-2 text-sm font-medium transition hover:bg-muted disabled:cursor-not-allowed disabled:opacity-40", m.cls)}
+                          className={cn("h-8 min-w-12 rounded-full border px-3 text-sm font-medium transition hover:bg-muted disabled:cursor-not-allowed disabled:opacity-40", m.cls)}
                         >
                           {m.label}
                         </button>

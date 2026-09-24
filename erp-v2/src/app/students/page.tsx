@@ -65,8 +65,8 @@ export default function StudentsPage() {
           <SearchIcon className="absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" />
           <Input className="pl-8" placeholder="ชื่อ / ชื่อเล่น / ครอบครัว / เบอร์" value={q} onChange={(e) => setQ(e.target.value)} />
         </div>
-        <NativeSelect className="h-8 w-28" value={grade} onChange={(e) => setGrade(e.target.value)} placeholder="ทุกชั้น" options={branch.grades.map((g) => ({ value: g, label: g }))} />
-        <NativeSelect className="h-8 w-40" value={status} onChange={(e) => setStatus(e.target.value)} placeholder="ทุกสถานะ" options={Object.entries(STATUS_PILL).map(([k, v]) => ({ value: k, label: v.label }))} />
+        <NativeSelect className="h-9 w-28" value={grade} onChange={(e) => setGrade(e.target.value)} placeholder="ทุกชั้น" options={branch.grades.map((g) => ({ value: g, label: g }))} />
+        <NativeSelect className="h-9 w-40" value={status} onChange={(e) => setStatus(e.target.value)} placeholder="ทุกสถานะ" options={Object.entries(STATUS_PILL).map(([k, v]) => ({ value: k, label: v.label }))} />
         <span className="text-xs text-muted-foreground">{shown.length} คน</span>
         <div className="ml-auto flex gap-2">
           {can(me, "student.export") && <Button variant="outline" onClick={exportCsv}><DownloadIcon /> ส่งออก</Button>}
@@ -74,7 +74,7 @@ export default function StudentsPage() {
         </div>
       </div>
 
-      <div className="overflow-hidden rounded-xl border bg-card">
+      <div className="overflow-hidden rounded-3xl bg-card shadow-sm ring-1 ring-foreground/5">
         <div className="hidden grid-cols-[1.6fr_1.2fr_1.6fr_1.4fr] gap-3 border-b bg-muted/40 px-4 py-2 text-xs font-medium text-muted-foreground md:grid">
           <span>นักเรียน</span><span>ครอบครัว</span><span>คลาส</span><span>แพ็กเกจ</span>
         </div>

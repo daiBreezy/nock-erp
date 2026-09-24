@@ -57,7 +57,7 @@ export default function CoursesPage() {
           <h2 className="font-semibold">คอร์ส</h2>
           <Button size="sm" className="ml-auto" onClick={() => setCourse("new")}><PlusIcon /> เพิ่มคอร์ส</Button>
         </div>
-        <div className="divide-y overflow-hidden rounded-xl border bg-card">
+        <div className="divide-y overflow-hidden rounded-3xl bg-card shadow-sm ring-1 ring-foreground/5">
           {courses.map((c) => {
             const p = packages.find((x) => x.id === c.packageId)
             const sold = invoices.filter((i) => i.course?.courseId === c.id && i.status !== "void").length

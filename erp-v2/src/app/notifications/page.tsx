@@ -70,7 +70,7 @@ export default function NotificationsPage() {
       <section>
         <h2 className="mb-2 font-semibold">ต้องจัดการ ({alerts.length})</h2>
         {alerts.length === 0 && <p className="rounded-xl border border-dashed p-8 text-center text-sm text-muted-foreground">ไม่มีงานค้าง</p>}
-        <div className="divide-y overflow-hidden rounded-xl border bg-card">
+        <div className="divide-y overflow-hidden rounded-3xl bg-card shadow-sm ring-1 ring-foreground/5">
           {alerts.map((a) => (
             <Link key={a.key} href={a.href} className="flex items-start gap-3 p-3 hover:bg-muted/40">
               <a.icon className={cn("mt-0.5 size-5 shrink-0", a.tone)} />
@@ -89,7 +89,7 @@ export default function NotificationsPage() {
           {unread.length > 0 && <Button size="sm" variant="ghost" className="ml-auto" onClick={() => s.markNotificationsRead(unread.map((n) => n.id))}><CheckCheckIcon /> อ่านทั้งหมด</Button>}
         </div>
         {history.length === 0 && <p className="rounded-xl border border-dashed p-8 text-center text-sm text-muted-foreground">ยังไม่มีแจ้งเตือน</p>}
-        <div className="divide-y overflow-hidden rounded-xl border bg-card">
+        <div className="divide-y overflow-hidden rounded-3xl bg-card shadow-sm ring-1 ring-foreground/5">
           {history.map((n) => (
             <button key={n.id} onClick={() => s.markNotificationsRead([n.id])} className={cn("flex w-full items-start gap-3 p-3 text-left hover:bg-muted/40", !n.read && "bg-primary/5")}>
               <span className={cn("mt-1.5 size-2 shrink-0 rounded-full", n.read ? "bg-transparent" : "bg-primary")} />

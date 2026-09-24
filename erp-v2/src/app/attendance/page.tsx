@@ -71,8 +71,8 @@ export default function AttendancePage() {
             <ToggleGroupItem value="week">สัปดาห์</ToggleGroupItem>
             <ToggleGroupItem value="month">เดือน</ToggleGroupItem>
           </ToggleGroup>
-          <NativeSelect className="h-8 w-28" value={subject} onChange={(e) => setSubject(e.target.value)} placeholder="ทุกวิชา" options={branch.subjects.map((s) => ({ value: s, label: s }))} />
-          <NativeSelect className="h-8 w-32" value={teacher} onChange={(e) => setTeacher(e.target.value)} placeholder="ครูทุกคน" options={staff.filter((t) => t.roles.includes("teacher") && t.branchIds.includes(branch.id)).map((t) => ({ value: t.id, label: t.nickname }))} />
+          <NativeSelect className="h-9 w-28" value={subject} onChange={(e) => setSubject(e.target.value)} placeholder="ทุกวิชา" options={branch.subjects.map((s) => ({ value: s, label: s }))} />
+          <NativeSelect className="h-9 w-32" value={teacher} onChange={(e) => setTeacher(e.target.value)} placeholder="ครูทุกคน" options={staff.filter((t) => t.roles.includes("teacher") && t.branchIds.includes(branch.id)).map((t) => ({ value: t.id, label: t.nickname }))} />
         </div>
       </div>
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
@@ -81,7 +81,7 @@ export default function AttendancePage() {
         ))}
       </div>
       <p className="text-xs text-muted-foreground">นับเฉพาะคาบในช่วงที่เลือกที่เริ่มเรียนแล้วเท่านั้น · เรียงจากอัตราเข้าเรียนต่ำสุด</p>
-      <div className="overflow-hidden rounded-xl border bg-card">
+      <div className="overflow-hidden rounded-3xl bg-card shadow-sm ring-1 ring-foreground/5">
         <div className="grid grid-cols-[1.5fr_repeat(4,0.6fr)_1.2fr] gap-2 border-b bg-muted/40 px-4 py-2 text-xs font-medium text-muted-foreground">
           <span>นักเรียน</span><span className="text-right">นัด</span><span className="text-right">มา</span><span className="text-right">ขาด</span><span className="text-right">ลา</span><span>อัตราเข้าเรียน</span>
         </div>

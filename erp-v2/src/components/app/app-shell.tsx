@@ -85,7 +85,7 @@ function Shell({ children }: { children: ReactNode }) {
           <div className="ml-auto flex items-center gap-2">
             <NativeSelect
               aria-label="สาขา"
-              className="h-8 w-36 sm:w-44"
+              className="h-9 w-36 sm:w-44"
               value={branchId}
               onChange={(e) => setBranch(e.target.value)}
               options={branches.filter((b) => me.branchIds.includes(b.id)).map((b) => ({ value: b.id, label: `สาขา${b.name}` }))}

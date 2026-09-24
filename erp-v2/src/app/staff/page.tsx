@@ -40,7 +40,7 @@ export default function StaffPage() {
         <p className="text-sm text-muted-foreground">บุคลากรสาขา{branch.name} {list.filter((s) => s.active).length} คน</p>
         {manage && <Button className="ml-auto" onClick={() => setEditing("new")}><PlusIcon /> เพิ่มบุคลากร</Button>}
       </div>
-      <div className="divide-y overflow-hidden rounded-xl border bg-card">
+      <div className="divide-y overflow-hidden rounded-3xl bg-card shadow-sm ring-1 ring-foreground/5">
         {list.map((s) => {
           const upcoming = futureSessionsOf(s.id, sessions, today).length
           return (

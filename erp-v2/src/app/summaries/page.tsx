@@ -74,7 +74,7 @@ export default function SummariesPage() {
         ))}
       </div>
 
-      <div className="divide-y overflow-hidden rounded-xl border bg-card">
+      <div className="divide-y overflow-hidden rounded-3xl bg-card shadow-sm ring-1 ring-foreground/5">
         {shown.length === 0 && <p className="p-10 text-center text-sm text-muted-foreground">ไม่มีรายการในหมวดนี้</p>}
         {shown.map(({ s, studentId, sm }) => {
           const stu = L.student(studentId)
