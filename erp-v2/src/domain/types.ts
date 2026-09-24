@@ -19,20 +19,79 @@ export interface Room {
   name: string
 }
 
+export interface BreakTime {
+  start: TimeStr
+  end: TimeStr
+  label: string
+}
+
+/** Date-range override of the weekly hours (e.g. summer hours, exam week) */
+export interface SpecialPeriod {
+  id: ID
+  name: string
+  from: DateStr
+  to: DateStr
+  hours: Record<Weekday, OpenHours | null>
+}
+
+export type FeeKind = "entry" | "book" | "exam" | "other"
+
+export interface Fee {
+  id: ID
+  kind: FeeKind
+  name: string
+  price: number
+}
+
+export interface Promotion {
+  id: ID
+  name: string
+  type: "pct" | "amount"
+  value: number
+  /** applies when the invoice buys at least this many periods (months / packs) */
+  minPeriods: number
+  active: boolean
+  from?: DateStr
+  to?: DateStr
+}
+
 export interface Branch {
   id: ID
   code: string
   name: string
   brand: Brand
+  phone?: string
+  email?: string
+  address?: string
+  lineId?: string
   rooms: Room[]
   /** null = closed that weekday */
   hours: Record<Weekday, OpenHours | null>
+  /** breaks block scheduling unless overridden with a reason */
+  breaks: Record<Weekday, BreakTime[]>
+  specialPeriods: SpecialPeriod[]
   subjects: string[]
   grades: string[]
   defaultSessionMinutes: number
   busFeePerLeg: number
+  fees: Fee[]
+  promotions: Promotion[]
   bankAccount: { bank: string; name: string; number: string }
   lineOaConnected: boolean
+}
+
+export type NotifyKey =
+  | "renewal" | "new_lead" | "payslip" | "holiday_conflict" | "summary_deadline"
+  | "student_added" | "starting_soon" | "invoice_sent" | "receipt_sent" | "summary_sent"
+
+export interface SystemSettings {
+  notify: Record<NotifyKey, { inApp: boolean; line: boolean }>
+  /** session packs: alert when remaining ≤ this */
+  lowSessionThreshold: number
+  /** subscriptions: alert this many days before expiry */
+  renewalDaysBefore: number
+  /** teachers must submit summaries within N hours after class */
+  summaryDeadlineHours: number
 }
 
 export interface Staff {
@@ -224,6 +283,8 @@ export interface Invoice {
   bookFee: number
   advanceFee: number
   concession: { amount: number; remark: string } | null
+  /** auto-applied best promotion (id kept so the invoice shows which one) */
+  promotionId?: ID | null
   noteToParent: string
   status: InvoiceStatus
   pdf: "none" | "generating" | "ready" | "failed"

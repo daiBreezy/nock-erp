@@ -91,8 +91,18 @@ export function busTotal(legs: BusLeg[], perLeg: number) {
   return legs.reduce((a, l) => a + (l.pickup ? perLeg : 0) + (l.dropoff ? perLeg : 0), 0)
 }
 
+/** Best active promotion the invoice qualifies for (by number of periods bought) */
+export function bestPromotion(branch: Branch, periods: number, courseAmount: number, date: DateStr) {
+  const eligible = (branch.promotions ?? []).filter((p) => p.active && periods >= p.minPeriods && (!p.from || p.from <= date) && (!p.to || date <= p.to))
+  const value = (p: (typeof eligible)[number]) => (p.type === "pct" ? Math.round((courseAmount * p.value) / 100) : Math.min(p.value, courseAmount))
+  const best = eligible.sort((a, b) => value(b) - value(a))[0]
+  return best ? { promotion: best, discount: value(best) } : null
+}
+
 export interface InvoiceTotals {
   course: number
+  promotion: number
+  promotionName?: string
   bus: number
   book: number
   advance: number
@@ -113,10 +123,12 @@ export function invoiceTotals(inv: Invoice, ctx: { branch: Branch; courses: Cour
     }
   }
   const course = quote?.total ?? 0
+  const promo = inv.course && inv.promotionId !== null ? bestPromotion(ctx.branch, inv.course.periods, course, inv.course.startDate) : null
+  const promotion = promo?.discount ?? 0
   const bus = busTotal(inv.bus, ctx.branch.busFeePerLeg)
   const concession = inv.concession?.amount ?? 0
-  const total = course + bus + inv.bookFee + inv.advanceFee - concession
-  return { course, bus, book: inv.bookFee, advance: inv.advanceFee, concession, total, quote }
+  const total = course - promotion + bus + inv.bookFee + inv.advanceFee - concession
+  return { course, promotion, promotionName: promo?.promotion.name, bus, book: inv.bookFee, advance: inv.advanceFee, concession, total, quote }
 }
 
 // ---------- workflow rules ----------

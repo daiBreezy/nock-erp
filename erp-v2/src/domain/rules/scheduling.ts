@@ -7,6 +7,27 @@ import type { Attendance, Branch, DateStr, Holiday, ID, Klass, Session, Staff, T
 export const GENERATE_WEEKS = 8
 export const CAPACITY = { single: 1, group: 6 } as const
 
+/** Opening hours on a specific date: a special period overrides the weekly hours */
+export function hoursFor(branch: Branch, date: DateStr) {
+  const sp = (branch.specialPeriods ?? []).find((p) => p.from <= date && date <= p.to)
+  return (sp ? sp.hours : branch.hours)[weekdayOf(date)]
+}
+
+export function breaksFor(branch: Branch, date: DateStr) {
+  return (branch.breaks ?? {})[weekdayOf(date)] ?? []
+}
+
+/** Why a slot can't be used on a date (closed / outside hours / break), or null */
+export function slotProblem(branch: Branch, date: DateStr, start: TimeStr, minutes: number): string | null {
+  const h = hoursFor(branch, date)
+  const [s, e] = [toMinutes(start), toMinutes(start) + minutes]
+  if (!h) return "สาขาปิด"
+  if (s < toMinutes(h.open) || e > toMinutes(h.close)) return `นอกเวลาเปิด (${h.open}–${h.close})`
+  const br = breaksFor(branch, date).find((b) => overlaps(s, e, toMinutes(b.start), toMinutes(b.end)))
+  if (br) return `ทับเวลาพัก ${br.label} ${br.start}–${br.end}`
+  return null
+}
+
 export function isHoliday(date: DateStr, branchId: ID, holidays: Holiday[]) {
   return holidays.find((h) => h.date === date && (h.branchId === null || h.branchId === branchId))
 }
@@ -155,11 +176,7 @@ export function validateClass(d: ClassDraft, ctx: { branch: Branch; staff: Staff
   if (d.studentIds.length > cap)
     issues.push({ field: "studentIds", message: `คลาสแบบ ${d.type === "single" ? "เดี่ยว" : "กลุ่ม"} รับได้ไม่เกิน ${cap} คน (ตอนนี้ ${d.studentIds.length})`, level: "block" })
 
-  const hours = branch.hours[d.weekday]
   const [s, e] = [toMinutes(d.start), toMinutes(d.start) + d.minutes]
-  if (!hours) issues.push({ field: "weekday", message: "สาขาปิดวันนี้", level: "override" })
-  else if (s < toMinutes(hours.open) || e > toMinutes(hours.close))
-    issues.push({ field: "start", message: `อยู่นอกเวลาเปิดสาขา (${hours.open}–${hours.close})`, level: "override" })
 
   const teacher = ctx.staff.find((t) => t.id === d.teacherId)
   const allTeachers = teachersOf(d)
@@ -176,6 +193,16 @@ export function validateClass(d: ClassDraft, ctx: { branch: Branch; staff: Staff
   const dates = d.kind === "learning" ? Array.from({ length: GENERATE_WEEKS }, (_, i) => addDays(first, i * 7)) : [first]
   const others = ctx.sessions.filter((x) => !x.cancelled && x.branchId === d.branchId && x.classId !== ctx.ignoreClassId)
   const teacherClash = new Set<DateStr>(), roomClash = new Set<DateStr>(), full = new Set<DateStr>(), clashNames = new Set<string>()
+  // opening hours / special periods / breaks are checked per date
+  const slotIssues = new Map<string, DateStr[]>()
+  for (const date of dates) {
+    if (isHoliday(date, d.branchId, ctx.holidays)) continue
+    const p = slotProblem(branch, date, d.start, d.minutes)
+    if (p) slotIssues.set(p, [...(slotIssues.get(p) ?? []), date])
+  }
+  slotIssues.forEach((ds, p) =>
+    issues.push({ field: "start", message: `${p}: ${ds.slice(0, 3).map((x) => fmtDate(x, { weekday: true })).join(", ")}${ds.length > 3 ? ` +${ds.length - 3} วัน` : ""}`, level: "override" }),
+  )
   for (const date of dates) {
     if (isHoliday(date, d.branchId, ctx.holidays)) continue
     const same = others.filter((x) => x.date === date && overlaps(s, e, ...span(x)))

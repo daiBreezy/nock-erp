@@ -74,13 +74,13 @@ export function studentStatus(studentId: ID, ents: Entitlement[], today: string)
 }
 
 /** F4: low-balance alerts only for session packs — subscriptions alert on expiry instead. */
-export function lowBalanceAlert(e: Entitlement, b: Balance, today: string): string | null {
+export function lowBalanceAlert(e: Entitlement, b: Balance, today: string, opts: { low?: number; days?: number } = {}): string | null {
   if (e.kind === "sessions") {
     if (b.remaining === 0) return "ใช้คาบหมดแล้ว"
-    if (b.remaining <= 2) return `เหลือ ${b.remaining} คาบ`
+    if (b.remaining <= (opts.low ?? 2)) return `เหลือ ${b.remaining} คาบ`
     return null
   }
-  const soon = addDays(today, 7)
+  const soon = addDays(today, opts.days ?? 7)
   return e.to <= soon ? `แพ็กเกจหมดอายุ ${fmtDate(e.to)}` : null
 }
 

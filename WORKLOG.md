@@ -68,8 +68,15 @@
 
 **รอบ 3:** ล็อกหัวครู/คอลัมน์เวลาใน Day view · โหมดเฉพาะที่มีคลาส · Side panel คาบ: เปลี่ยน/เพิ่มครู, เพิ่มนักเรียน, ดูรายละเอียดนักเรียน · สร้างครบทุกหน้า Phase 1 + logic เพิ่ม (วันหยุดยกเลิกคาบ+แจ้งเตือน, ปิดบัญชีครูต้องส่งต่อคาบ, LINE code ระดับครอบครัวหมดอายุ 7 วัน, validate ครอบครัว/นักเรียน/บุคลากร, ต่อคอร์สเริ่มวันถัดจากแพ็กเกจเดิม, เตือนลาเกินโควตา) · 32 tests
 
-**เหลือทำ (TODO):**
-- [ ] Phase 2: Dashboard, CRM, Inbox (LINE), Reports
+**รอบ 4 (หยุดกลางทางตามที่เจ้าของสั่ง — ประหยัด credit):**
+- ✅ แก้ "ไม่มีแพ็กเกจครอบคลุม" ผิด → หาแพ็กเกจจากคลาส หรือวิชาเดียวกัน (คาบชดเชย/คาบเดี่ยว)
+- 🟡 Settings ให้ครบเท่าของเดิม: **ทำไปแค่ชั้นข้อมูล+กฎ** (types: breaks, specialPeriods, fees, promotions, SystemSettings · rules: hoursFor/slotProblem, bestPromotion ใน invoiceTotals, lowBalanceAlert รับ threshold) — **ยังไม่มีหน้าจอ UI** และ seed ยังใส่ fees/promotions ว่าง
+- เจ้าของถามว่า Inbox/CRM/Reports หายไปไหน → ไม่ได้ลบ: เป็น Phase 2 ยังไม่ได้สร้างใน erp-v2 · prototype เก่า `new-erp/` ยังอยู่ครบ 28 หน้า (มี CRM/Inbox/Reports/Finance ให้ดึงสเปก)
+
+**เหลือทำ (TODO) — ลำดับที่ตกลงกับเจ้าของ:**
+- [ ] 1. Settings UI ให้ครบ: แท็บ วิชา&ระดับชั้น · เวลาพัก+ช่วงเวลาพิเศษ · ค่าธรรมเนียม (ค่าแรกเข้า/หนังสือ/สอบ) · โปรโมชัน · System (เปิด-ปิดแจ้งเตือน 10 แบบ, threshold คาบใกล้หมด, วันเตือนต่อคอร์ส) + ใส่ข้อมูลตัวอย่าง fees/promotions ใน seed + แสดงโปรโมชันใน invoice editor/sheet
+- [ ] 2. ใส่เมนู Dashboard/CRM/Inbox/Reports/Tasks/Logs กลับใน sidebar (ป้าย Phase 2)
+- [ ] 3. Phase 2 ตามลำดับ: Dashboard → CRM (สเปก stage: new/contacting/test/trial/payment_pending/enrolled/archived จาก `new-erp/js/crm.js`) → Inbox (`new-erp/js/inbox.js`) → Reports → Tasks → Logs
 - [ ] ให้เจ้าของยืนยัน 15 ข้อ "Business rule" ใน Sheet
 
 ---

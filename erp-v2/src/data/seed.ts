@@ -41,14 +41,14 @@ export function buildSeed(now = new Date()): DB {
       id: "br_thl", code: "THL", name: "ทองหล่อ", brand: "nockacademy",
       rooms: [{ id: "rm_1", name: "ห้อง 1" }, { id: "rm_2", name: "ห้อง 2" }, { id: "rm_3", name: "ห้อง 3" }],
       hours: wk("09:00", "20:00"), subjects: ["คณิต", "อังกฤษ", "วิทย์"], grades: ["ป.4", "ป.5", "ป.6", "ม.1", "ม.2", "ม.3"],
-      defaultSessionMinutes: 60, busFeePerLeg: 150,
+      defaultSessionMinutes: 60, busFeePerLeg: 150, breaks: { 0: [], 1: [], 2: [], 3: [], 4: [], 5: [], 6: [{ start: "12:00", end: "13:00", label: "พักกลางวัน" }] }, specialPeriods: [], fees: [], promotions: [],
       bankAccount: { bank: "กสิกรไทย", name: "บจก. นกอะคาเดมี่", number: "123-4-56789-0" }, lineOaConnected: true,
     },
     {
       id: "br_ari", code: "ARI", name: "อารีย์", brand: "liclass",
       rooms: [{ id: "rm_a1", name: "ห้อง A" }, { id: "rm_a2", name: "ห้อง B" }],
       hours: wk("10:00", "19:00", [0, 1]), subjects: ["คณิต", "อังกฤษ"], grades: ["ป.1", "ป.2", "ป.3", "ป.4", "ป.5", "ป.6"],
-      defaultSessionMinutes: 90, busFeePerLeg: 120,
+      defaultSessionMinutes: 90, busFeePerLeg: 120, breaks: { 0: [], 1: [], 2: [], 3: [], 4: [], 5: [], 6: [{ start: "12:00", end: "13:00", label: "พักกลางวัน" }] }, specialPeriods: [], fees: [], promotions: [],
       bankAccount: { bank: "ไทยพาณิชย์", name: "บจก. ลิคลาส เอดูเคชั่น", number: "987-6-54321-0" }, lineOaConnected: false,
     },
   ]
