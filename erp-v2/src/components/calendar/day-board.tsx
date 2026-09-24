@@ -28,11 +28,13 @@ interface Lane {
  * Hours with no classes collapse, every card lists its students, clashes stack inside one red cell.
  */
 export function DayBoard({
-  date, sessions, laneMode, canCreate, onSlot, onMove, d,
+  date, sessions, laneMode, canCreate, onSlot, onMove, d, onlyBooked = false,
 }: {
   date: DateStr
   sessions: Session[]
   laneMode: "teacher" | "room"
+  /** hide free hours, idle teachers/rooms and empty slots */
+  onlyBooked?: boolean
   canCreate: boolean
   onSlot: (p: ClassPrefill) => void
   onMove: (sessionId: string, target: MoveTarget) => void
@@ -47,7 +49,7 @@ export function DayBoard({
   const hours = branch.hours[weekdayOf(date)]
 
   const knownTeacher = (id: string | null) => !!id && staff.some((t) => t.id === id && t.branchIds.includes(branch.id))
-  const lanes: Lane[] =
+  const allLanes: Lane[] =
     laneMode === "teacher"
       ? [
           ...staff
@@ -67,6 +69,8 @@ export function DayBoard({
           ...branch.rooms.map((r) => ({ key: r.id, title: r.name, subtitle: "ห้องเรียน", primary: (s: Session) => s.roomId === r.id, assist: () => false, target: { roomId: r.id } })),
           { key: "none", title: "ยังไม่ระบุห้อง", subtitle: "ต้องจัดห้อง", warn: true, primary: (s: Session) => !s.roomId || !branch.rooms.some((r) => r.id === s.roomId), assist: () => false, target: { roomId: null } },
         ]
+
+  const lanes = onlyBooked ? allLanes.filter((l) => day.some((x) => l.primary(x) || l.assist(x))) : allLanes
 
   const startMin = Math.min(hours ? toMinutes(hours.open) : 9 * 60, ...day.map((s) => toMinutes(s.start)))
   const endMin = Math.max(hours ? toMinutes(hours.close) : 20 * 60, ...day.map((s) => toMinutes(s.start) + s.minutes))
@@ -103,7 +107,11 @@ export function DayBoard({
   })
   const covered = (li: number, r: number) => blocks.some((b) => b.lane === li && r >= b.from && r < b.to)
   const rowBusy = hourList.map((_, r) => lanes.some((_, li) => covered(li, r)))
-  const gridRows = hourList.map((_, r) => (rowBusy[r] ? "minmax(4rem, auto)" : "2rem")).join(" ")
+  // visible rows → display position (compact mode drops free hours entirely)
+  const shownRows = hourList.map((_, r) => r).filter((r) => !onlyBooked || rowBusy[r])
+  const disp = new Map(shownRows.map((r, i) => [r, i + 1]))
+  const gapBefore = (r: number) => onlyBooked && disp.get(r)! > 1 && !disp.has(r - 1)
+  const gridRows = shownRows.map((r) => (rowBusy[r] ? "minmax(4rem, auto)" : "2rem")).join(" ") || "4rem"
 
   const dropProps = (key: string, start: (id: string) => string, target: Lane["target"], enabled: boolean) => ({
     onDragOver: (e: React.DragEvent) => {
@@ -155,30 +163,33 @@ export function DayBoard({
         {holiday && <div className="border-b bg-amber-50 px-4 py-2 text-sm text-amber-900">วันหยุด: {holiday.name}</div>}
         {!hours && !holiday && <div className="border-b bg-muted px-4 py-2 text-sm text-muted-foreground">สาขาปิดวันนี้</div>}
 
+        {onlyBooked && blocks.length === 0 && <p className="p-10 text-center text-sm text-muted-foreground">วันนี้ไม่มีคลาส</p>}
         <div className="grid" style={{ gridTemplateColumns: cols, gridTemplateRows: gridRows }}>
           {/* row backgrounds + hour labels */}
-          {hourList.map((h, r) => (
-            <div key={`bg${h}`} className={cn("border-b", isClosed(h) && "bg-muted/40")} style={{ gridRow: r + 1, gridColumn: "1 / -1" }} />
-          ))}
-          {hourList.map((h, r) => (
-            <div key={`t${h}`} className="px-2 py-1.5 text-right text-xs font-medium tabular-nums text-muted-foreground" style={{ gridRow: r + 1, gridColumn: 1 }}>
+          {hourList.map((h, r) =>
+            disp.has(r) ? (
+              <div key={`bg${h}`} className={cn("border-b", isClosed(h) && "bg-muted/40", gapBefore(r) && "border-t-4 border-t-muted")} style={{ gridRow: disp.get(r), gridColumn: "1 / -1" }} />
+            ) : null,
+          )}
+          {hourList.map((h, r) => !disp.has(r) ? null : (
+            <div key={`t${h}`} className="px-2 py-1.5 text-right text-xs font-medium tabular-nums text-muted-foreground" style={{ gridRow: disp.get(r), gridColumn: 1 }}>
               {fromMinutes(h * 60)}
             </div>
           ))}
           {lanes.map((l, li) => (
-            <div key={`line${l.key}`} className="border-l" style={{ gridRow: `1 / ${hourList.length + 1}`, gridColumn: li + 2 }} />
+            <div key={`line${l.key}`} className="border-l" style={{ gridRow: `1 / ${shownRows.length + 1}`, gridColumn: li + 2 }} />
           ))}
 
           {/* empty cells: click to create, drop to move */}
           {lanes.flatMap((l, li) =>
             hourList.map((h, r) => {
-              if (covered(li, r)) return null
+              if (covered(li, r) || !disp.has(r)) return null
               const key = `${l.key}@${h}`
               const closed = isClosed(h)
               const past = isToday ? (h + 1) * 60 <= nowMin : date < today
               return (
-                <div key={key} className={cn("group/cell relative", over === key && "bg-primary/10 ring-2 ring-primary ring-inset")} style={{ gridRow: r + 1, gridColumn: li + 2 }} {...dropProps(key, keepMinute(h), l.target, !closed)}>
-                  {canCreate && !closed && !past && (
+                <div key={key} className={cn("group/cell relative", over === key && "bg-primary/10 ring-2 ring-primary ring-inset")} style={{ gridRow: disp.get(r), gridColumn: li + 2 }} {...dropProps(key, keepMinute(h), l.target, !closed)}>
+                  {canCreate && !closed && !past && !onlyBooked && (
                     <button
                       onClick={() => onSlot({ date, start: fromMinutes(h * 60), ...(laneMode === "teacher" ? { teacherId: l.target.teacherId ?? null } : { roomId: l.target.roomId ?? null }) })}
                       className="absolute inset-1 flex items-center justify-center gap-1 rounded-lg border border-dashed border-transparent text-xs text-muted-foreground opacity-0 transition hover:border-primary/40 hover:bg-primary/5 hover:text-primary hover:opacity-100"
@@ -202,7 +213,7 @@ export function DayBoard({
             return (
               <div
                 key={key}
-                style={{ gridRow: `${b.from + 1} / ${b.to + 1}`, gridColumn: b.lane + 2 }}
+                style={{ gridRow: `${disp.get(b.from)} / ${disp.get(b.to - 1)! + 1}`, gridColumn: b.lane + 2 }}
                 className={cn("relative z-[1] flex flex-col gap-1.5 p-1.5", clash && "m-0.5 rounded-lg bg-red-50 ring-2 ring-red-500 dark:bg-red-950/30", over === key && "ring-2 ring-primary")}
                 {...dropProps(key, keepMinute(h), l.target, !isClosed(h))}
               >
@@ -223,8 +234,8 @@ export function DayBoard({
           })}
 
           {/* now line */}
-          {isToday && nowMin >= firstHour * 60 && rowOf(nowMin) < hourList.length && (
-            <div className="pointer-events-none relative z-[5]" style={{ gridRow: rowOf(nowMin) + 1, gridColumn: "1 / -1" }}>
+          {isToday && nowMin >= firstHour * 60 && disp.has(rowOf(nowMin)) && (
+            <div className="pointer-events-none relative z-[5]" style={{ gridRow: disp.get(rowOf(nowMin)), gridColumn: "1 / -1" }}>
               <div className="absolute inset-x-0 border-t-2 border-red-500" style={{ top: `${((nowMin % 60) / 60) * 100}%` }}>
                 <span className="absolute -top-1 left-14 size-2 rounded-full bg-red-500" />
               </div>

@@ -49,6 +49,14 @@ export default function CalendarPage() {
   const [prefill, setPrefill] = useState<ClassPrefill | null>(null)
   const [moving, setMoving] = useState<{ id: string; target: MoveTarget } | null>(null)
   const [workFilter, setWorkFilter] = useState<WorkState | null>(null)
+  // per-viewer preference: show every slot, or only real classes
+  const [onlyBooked, setOnlyBooked] = useState(() => {
+    try { return localStorage.getItem("cal.onlyBooked") === "1" } catch { return false }
+  })
+  const toggleBooked = (v: boolean) => {
+    setOnlyBooked(v)
+    try { localStorage.setItem("cal.onlyBooked", v ? "1" : "0") } catch {}
+  }
 
   const range = useMemo(() => {
     if (view === "day") return { from: anchor, to: anchor, title: fmtDate(anchor, { weekday: true, year: true }) }
@@ -158,6 +166,12 @@ export default function CalendarPage() {
             <ToggleGroupItem value="room">แยกตามห้อง</ToggleGroupItem>
           </ToggleGroup>
         )}
+        {view === "day" && (
+          <ToggleGroup value={[onlyBooked ? "booked" : "all"]} onValueChange={(v) => v[0] && toggleBooked(v[0] === "booked")} variant="outline" size="sm">
+            <ToggleGroupItem value="all">ทุกช่วงเวลา</ToggleGroupItem>
+            <ToggleGroupItem value="booked">เฉพาะที่มีคลาส</ToggleGroupItem>
+          </ToggleGroup>
+        )}
         {/* E4: summary always matches the range on screen */}
         <div className="ml-auto flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
           <span>{visible.filter((s) => !s.cancelled).length} คาบในช่วงนี้</span>
@@ -181,7 +195,7 @@ export default function CalendarPage() {
         </details>
       )}
 
-      {view === "day" && <DayBoard date={anchor} sessions={visible} laneMode={lane} canCreate={canCreate} onSlot={setPrefill} onMove={cardProps.onMove} d={cardData} />}
+      {view === "day" && <DayBoard date={anchor} sessions={visible} laneMode={lane} canCreate={canCreate} onSlot={setPrefill} onMove={cardProps.onMove} d={cardData} onlyBooked={onlyBooked} />}
       {view === "week" && <WeekView from={range.from} sessions={visible} onDay={openDay} today={today} {...cardProps} dim={cardData.dim} />}
       {view === "month" && <MonthView from={range.from} month={anchor.slice(0, 7)} sessions={visible} onDay={openDay} today={today} conflictIds={conflictIds} />}
       {view === "list" && <ListView from={range.from} to={range.to} sessions={visible} {...cardProps} />}
