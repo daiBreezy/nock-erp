@@ -2,7 +2,7 @@
 
 > สถานะ: ✅ ผ่าน · 🔴 บั๊ก · ⚠️ ข้อสังเกต/ข้อจำกัด · ⬜ ยังไม่เทส · 🚫 เทสไม่ได้ (ต้องการเงื่อนไขเพิ่ม)
 > ข้อมูลเทสทั้งหมดอยู่ใน TEST-Branch
-> ความคืบหน้า (2026-09-24): เทสแล้ว 37/40 + D7 ครึ่งทาง · **เหลือ (ใช้บัญชี Director): D7 approve summary ของครู, D4 แก้ summary หลัง Approve, E3 Create Class จาก Calendar** · E4 Export PDF ต้องขออนุญาตดาวน์โหลด · A6 toast ซ้ำ
+> ความคืบหน้า (2026-09-24 บ่าย): เทสแล้ว **39/40** (D7, D4, E3 เสร็จด้วยบัญชี Director — เช็ค sidebar = NockAcademy LMS · DIRECTOR · TEST-Branch ทุกขั้น) · เหลือ: E4 Export PDF ต้องขออนุญาตดาวน์โหลด · A6 toast ซ้ำ
 
 ## A. Class
 | # | กรณี | สถานะ | ผล |
@@ -50,17 +50,17 @@
 | D1 | เกิดเฉพาะคน Present | ✅ | |
 | D2 | Save Draft → Submit → Approve | ✅ | |
 | D3 | Request changes → แก้ → Submit ใหม่ | ✅ | Send back + note → 'Changes requested' → Resubmit |
-| D4 | แก้หลัง Approve | ⬜ | |
+| D4 | แก้หลัง Approve | ✅/⚠️ | Approved แล้วข้อความเป็น read-only ทั้งหน้า Summaries และหน้า session (ไม่มีปุ่ม Edit) · ทางเดียวคือ **Request changes** (บังคับใส่ note) → toast 'Sent back to the teacher' → สถานะ 'Changes requested' → แก้ → Resubmit ('Submitted for approval') → Approve ('Summary approved') ✅ · ⚠️ **Director แก้ + Resubmit + Approve เองได้ทั้งหมด** (ครูไม่ได้แตะ ไม่มีร่องรอยว่าใครแก้ข้อความ = ต่อยอด H6 อนุมัติตัวเอง) · ⚠️ ไม่มี confirm ก่อนดึงกลับ · กรณี summary ที่ Sent ไปแล้วยังไม่ได้เทส (ห้ามส่งจริง) |
 | D5 | Send to parent (no LINE) | 🔴 | **ส่งได้ขณะยัง 'Awaiting approval' (ข้าม approve)** · ไม่มี confirm · แจ้ง 'Summary sent to parent' + สถานะ Sent ทั้งที่นักเรียนไม่มี family/LINE |
 | D6 | "Not written yet" counter / Staff "Summary Pending" | ⚠️ | Staff Summary Pending = 0 ถูก · 🔴 การ์ด Summaries ไม่กรองตามช่วงวันที่ (นับ summary 29 ก.ย. ในสัปดาห์ 21–27) · รายการเดียวกันแสดง 'Sent' + 'Parent not linked to LINE' |
-| D7 | ครู (Dai) เขียน → Director approve | 🟡 | ฝั่งครู ✅: เขียน+Submit ได้, เห็นแค่ Withdraw (Approve/Send ไม่ได้) · **ค้าง: Director approve** (trial session 24 ก.ย. 09:00 · TEST-StudentA) |
+| D7 | ครู (Dai) เขียน → Director approve | ✅/⚠️ | ฝั่งครู ✅: เขียน+Submit ได้, เห็นแค่ Withdraw · ฝั่ง Director ✅: เห็นใน Summaries (Awaiting approval 1) → Approve → toast 'Approved — saved, not sent to TA's parent yet' · การ์ด Awaiting 1→0, Approved-not-sent 1→2 · ⚠️ ระหว่างกด Approve ปุ่ม Send to Parent เปลี่ยนเป็น 'Sending…' ด้วย (ชวนตกใจว่าส่งไปแล้ว — จริงๆ ไม่ได้ส่ง) · ⚠️ ขณะ Awaiting Director แก้ข้อความครูใน textarea ได้ก่อน Approve · ⚠️ ชื่อครูแสดง 'dai Test' (ไม่ใช่ Dai Breezy) · ⚠️ หน้า session: 'Class ended · start 09:07 · end 09:07' (0 นาที) |
 
 ## E. Calendar
 | # | กรณี | สถานะ | ผล |
 |---|---|---|---|
 | E1 | แสดง session ทุกมุมมอง | ✅ | |
 | E2 | สะท้อนการแก้/ลบ/reschedule/customized | ⚠️ | Calendar ตามทัน แต่สะท้อนบั๊ก B3 (session ซ้ำ) + ชื่อครูเป็น UUID · list ในหน้าคลาสไม่ refresh หลังแก้ |
-| E3 | Create Class จากช่องว่าง | ⬜ | |
+| E3 | Create Class จากช่องว่าง | ✅/🔴 | Day view (TEST-Branch, ศ. 25 ก.ย.) คลิกช่อง 14:00 → เปิด Create New Class ที่ **prefill สาขา + ครูของคอลัมน์ + วันที่ + เวลา** ✅ · สร้าง 'TEST-E3 Calendar' (Maths · Test · Single · 1 ชม.) → toast 'Class created' → โผล่ใน Calendar 14:00–15:00 ✅ · ⚠️ ช่องว่างถูกเสนอเป็นช่วง 2 ชม. (ตัดสั้นลงถ้าชนคลาสถัดไป) และ default ความยาว 2 ชม. · ⚠️ ไม่กำหนดห้องให้ (Room ว่าง) · ⚠️ การ์ดใน Calendar โชว์แค่ 'Maths' ไม่โชว์ชื่อคลาส · 🔴 **Day view ซ่อน session ที่ไม่มีครู / ครูถูกลบ (UUID)** — ศ. 25 ก.ย. List view มี 5 sessions (3 conflicts ที่ 11:00 + 17:00) แต่ Day view เห็นแค่ 2 → ช่องที่ดูว่างอาจไม่ว่างจริง และ Create Class จากช่องนั้นจะชนห้อง/เวลาโดยไม่รู้ตัว |
 | E4 | Summary → Export PDF | ⬜ | |
 
 ## F. Cross-module
