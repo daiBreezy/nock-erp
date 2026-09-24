@@ -138,6 +138,21 @@
 | เลข invoice | ⚠️ กระโดด 0003 → 0005 (0004 หายไปตอนที่ server ตอบ 500) — ใบกำกับภาษีควรต่อเนื่อง |
 | ข้อมูลนักเรียน | ⚠️ หน้า Students แสดง "0 left" แม้เป็น subscription ที่จ่ายแล้ว · ยังแสดงครูที่ถูกลบ |
 
+### 2.5.1 Billing retest (2026-09-24 บ่าย, Director, TEST-Branch)
+
+| จุด | ผล |
+|---|---|
+| C1 PDF ค้าง | ✅ **แก้แล้ว** — ใบค้าง 0003/0002 กด **Retry PDF** ในแถว → ~20 วิ gen สำเร็จ → 'Waiting for approval' · ใบใหม่ 0006 Generate PDF ~30 วิ สำเร็จ · ⚠️ ปุ่ม Retry อยู่ในแถว list (ใน drawer มีแค่ icon ไม่ทำงาน/ไม่มี tooltip) · ไม่มี toast ตอน gen เสร็จ |
+| C2 ช่วงเรียน | ✅ **แก้แล้ว** — 2 periods เริ่ม 29 ก.ย. → '29 Sept → 31 Oct' · แยกราคา Sep 30% ฿1,350 + Oct 100% ฿4,500 · ค่ารถคิดตามรอบจริง ×4 (ข้าม holiday 13 ต.ค.) ฿150/ขา · ติ๊กออกรายขาได้ ยอดคำนวณใหม่ถูก · 🔴 บรรทัดสรุปคอร์สเขียน **'5 sessions · 10 hrs'** แต่จริง 4 ครั้ง × 1 ชม. (นับ holiday + ชม.เป็น 2 เท่า) · ⚠️ หน้า Create บอก Oct 'Max 3 sessions' แต่หน้า Edit ใบเดียวกันบอก 'Max 4 sessions' · ⚠️ drawer แสดงคอร์ส '1m' ทั้งที่ซื้อ 2 เดือน · ⚠️ หัวบรรทัดบอก '29 Sept → 27 Oct' แต่ด้านล่าง '→ 31 Oct' |
+| C3 ยอดไม่ตรงกัน | ✅ (ใบใหม่ 0006) list = drawer = edit = ฿6,900 · ขาที่ติ๊กออก/remark ถูกบันทึกครบ |
+| H4 Periods ติดลบ | 🔴 **ยังไม่แก้** — ใส่ -1 → ราคา ฿-4,500 |
+| H5 ค่ารถ auto | 🔴 **ยังไม่แก้** — Bus fee ติ๊ก Pickup + Drop off ทุกรอบให้อัตโนมัติ (฿1,200) |
+| H3 Void ไม่ใส่เหตุผล | ✅/⚠️ มี toast 'Enter a reason for voiding this invoice' (ไม่เงียบแล้ว) · ⚠️ ช่อง Reason ไม่มี * และปุ่ม Void ไม่ disabled · ข้อความ '…0006will' ขาดเว้นวรรค |
+| Save draft (ใหม่) | ✅ toast 'Invoice saved as draft' + list refresh ทันที (M4 ดีขึ้น) · ⚠️ Draft ได้เลขใบกำกับจริงทันที (260924010020006) → ถ้าลบ/void draft เลขจะขาดช่วง · ⚠️ timeline ติ๊ก 'Invoice Created' ✓ ทั้งที่ยังเป็น draft |
+| Filter / cards | ✅ Draft/Pending/Paid/Void กรองถูก · ⚠️ การ์ด **PENDING = 0 ขณะมี 3 ใบรออนุมัติ** (header บอก '3 pending approvals') — ชื่อซ้ำความหมาย · ⚠️ ตารางล้นแนวนอนที่จอ ~1200px (คอลัมน์ Ref # โดนตัด) |
+| Select Class ใน invoice | ⚠️ เสนอคลาส one-off (Test: TEST-Exam, TEST-E3 Calendar) ให้เลือกสำหรับคอร์ส 2 เดือน · คลาสของครูที่ถูกลบ (TEST-Teacher) ยังเลือกได้ และ invoice ลิงก์ไปที่ TEST-Teacher · ชื่อครูใน list นี้ = 'Dai Breezy'/'NockAcademy LMS' แต่ Calendar = 'dai Test'/UUID (ข้อมูลครูไม่ตรงกันข้ามหน้า) |
+| Drawer | ⚠️ Family แสดง '—' ทั้งที่ list บอก 'Family Family' |
+
 > ⚠️ **แก้ไขข้อสรุปเดิม:** toast ของระบบหายภายใน ~4 วิ — หัวข้อที่เคยสรุปว่า "เงียบ ไม่แจ้งอะไร" (H3: สร้างคลาสครูชน, Void ไม่ใส่เหตุผล) อาจมี toast ที่หายไปก่อนตรวจ → **ต้องเทสซ้ำ**
 
 ---

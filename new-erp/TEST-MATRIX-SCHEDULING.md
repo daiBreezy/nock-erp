@@ -61,7 +61,10 @@
 | E1 | แสดง session ทุกมุมมอง | ✅ | |
 | E2 | สะท้อนการแก้/ลบ/reschedule/customized | ⚠️ | Calendar ตามทัน แต่สะท้อนบั๊ก B3 (session ซ้ำ) + ชื่อครูเป็น UUID · list ในหน้าคลาสไม่ refresh หลังแก้ |
 | E3 | Create Class จากช่องว่าง | ✅/🔴 | Day view (TEST-Branch, ศ. 25 ก.ย.) คลิกช่อง 14:00 → เปิด Create New Class ที่ **prefill สาขา + ครูของคอลัมน์ + วันที่ + เวลา** ✅ · สร้าง 'TEST-E3 Calendar' (Maths · Test · Single · 1 ชม.) → toast 'Class created' → โผล่ใน Calendar 14:00–15:00 ✅ · ⚠️ ช่องว่างถูกเสนอเป็นช่วง 2 ชม. (ตัดสั้นลงถ้าชนคลาสถัดไป) และ default ความยาว 2 ชม. · ⚠️ ไม่กำหนดห้องให้ (Room ว่าง) · ⚠️ การ์ดใน Calendar โชว์แค่ 'Maths' ไม่โชว์ชื่อคลาส · 🔴 **Day view ซ่อน session ที่ไม่มีครู / ครูถูกลบ (UUID)** — ศ. 25 ก.ย. List view มี 5 sessions (3 conflicts ที่ 11:00 + 17:00) แต่ Day view เห็นแค่ 2 → ช่องที่ดูว่างอาจไม่ว่างจริง และ Create Class จากช่องนั้นจะชนห้อง/เวลาโดยไม่รู้ตัว |
-| E4 | Summary → Export PDF | ⬜ | |
+| E4 | Summary → Export PDF | 🟡/🔴 | เปิด 'Summary — Week' ได้ (การ์ด Total sessions / Est. students / Teachers / Holiday conflicts + ตาราง) · ยังไม่กด Export PDF (ต้องขออนุญาตดาวน์โหลด) · 🔴 **หัวข้อบอก 'Week' แต่ตารางมี 18 sessions ช่วง 23 ก.ย.–14 ต.ค.** (3 สัปดาห์) · 🔴 3 sessions ที่ชนกัน ศ. 25 ก.ย. 11:00 สถานะ 'OK' ทั้งหมด (เช็คแค่ holiday ไม่เช็คห้อง/เวลาชน) · ครูเป็น UUID ในตาราง + chip นับครู · Est. students = ผลรวมต่อ session (ไม่ใช่จำนวนคนจริง) |
+| E5 | Day view แสดงครบ? | 🔴 | **ซ่อน session ที่ไม่มีครู / ครูถูกลบ (UUID)** — วันนี้ 24 ก.ย. ไม่เห็น 16:00 · 25 ก.ย. Month บอก 'Maths ×5' กดเข้าไป Day view เห็น 2 · filter 'No teacher' ใน Day view = ว่าง (คอลัมน์ยังชื่อ dai Test) แต่ Week view เห็น · ครู UUID ไม่มีใน dropdown → filter ไม่ได้ |
+| E6 | Week view | ✅/⚠️ | แสดงครบทุก session ✅ · ⚠️ session ชนกัน 3 อันบีบจนอ่านไม่ออก ('M… 11…') · ป้าย 'Week 4' ไม่ชัดว่าสัปดาห์ของอะไร |
+| E7 | Month view | ✅/⚠️ | รวมเป็น 'Maths ×N' + จุดแดง conflict + ไฮไลต์ holiday ✅ · ⚠️ Month เริ่มวันอาทิตย์ แต่ Week เริ่มวันจันทร์ · คลิกวัน → ไป Day view (ที่ซ่อน session ตาม E5) · hover popover โผล่ผิดที่ (ทับ sidebar) |
 
 ## F. Cross-module
 | # | กรณี | สถานะ | ผล |
@@ -69,7 +72,7 @@
 | F1 | Remove student จากคลาส (เหตุผล) → หลุดจาก session อนาคต, อดีตคงอยู่ | 🔴 | ครั้งแรก 'An unexpected error occurred' · ครั้งสอง error ดิบ 'Student <uuid> is not on class <uuid>' · สุดท้าย class = No students **แต่ session อนาคตทุกครั้งยังมีนักเรียน 1 คน** (ข้อมูลไม่ตรงกัน) |
 | F2 | ลบครู → คลาสแสดง UUID | 🔴 | |
 | F3 | Claim จาก invoice → นักเรียนเข้าคลาส | ✅ | auto-claim |
-| F4 | Notification นักเรียนคาบใกล้หมด | ⚠️ | ไม่มี notification ทั้งตอน 0 คาบ และ 2 คาบ · ไม่รู้ threshold |
+| F4 | Notification นักเรียนคาบใกล้หมด | ✅/⚠️ | (อัปเดต 24 ก.ย. บ่าย) **มีแล้ว**: หน้า Notifications แสดง Urgent 'TEST-StudentA 1 session left', 'TEST-StudentB 1 session left', 'TEST-StudentB 0 sessions left' + ปุ่ม Send LINE reminder (disabled เพราะไม่มี LINE) · ⚠️ StudentA เป็น subscription แต่ถูกนับเป็น '1 session left' · ⚠️ พิมพ์ /billing ตรงๆ ใน URL แล้วเด้งไปหน้า Notifications |
 | F5 | Student profile Schedule/Attendance ตรงกับ session | ⚠️ | Attendance ตรง, หน้า session ไม่โชว์ leave |
 
 ## G. สิทธิ์ Role Teacher (บัญชี Dai Breezy, 2026-09-24)
