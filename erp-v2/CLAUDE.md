@@ -42,6 +42,7 @@ src/app/<route>/page.tsx     ← หน้าต่างๆ
 ✅ Calendar รอบ 2 (ตาม ref Figma ของ Admin): Day view แบบบอร์ด คอลัมน์=ครู/ห้อง แถว=ชั่วโมง (ชั่วโมงว่างย่อ) การ์ดโชว์รายชื่อนักเรียน+เกรด+เช็คชื่อ · สีตามวิชา (`subject-color.ts`) · สถานะการ์ด `workState`: รอเริ่ม/กำลังเรียน/รอเช็คชื่อ/รอสรุป/เสร็จแล้ว/ยกเลิก (+ค้าง) · Drag & drop → ถาม "เฉพาะคาบนี้ / คาบนี้และถัดไป" (`moveSession`) · ครูหลายคน + ครูหลัก (`coTeacherIds`) · คาบชนกันซ้อนในช่องเดียวกรอบแดง
 ✅ รอบ 3: Day board ล็อกหัวครู (sticky top) + คอลัมน์เวลา (sticky left) · โหมด "เฉพาะที่มีคลาส" · Side panel คาบ: เปลี่ยน/เพิ่มครู (เฉพาะคาบนี้/ถัดไป), เพิ่มนักเรียน (ทดลอง/ถาวร), เปิดรายละเอียดนักเรียน (StudentSheet) · สร้างครบทุกหน้า Phase 1 · 32 tests
 ⬜ ต่อไป: Phase 2 (Dashboard, CRM, Inbox, Reports) · ยืนยัน business rules ที่ตั้งสมมติฐานไว้
+✅ Phase 2 (2026-09-25): Dashboard/CRM/Inbox + LINE OA จริง (webhook+push) · ฟอร์ม Test/Trial ผ่าน LIFF — Admin เลือก time slot (ผสม slot ว่างทั่วไป + คลาสจริงที่มีอยู่) ให้ผู้ปกครองเลือก · อนุมัติ = จองคาบจริงผ่าน `validateClass` conflict engine เดียวกับทั้งระบบ (ผูกเข้าคลาสเดิมหรือสร้างคาบใหม่) · รีวิว/แก้ไข/อนุมัติฟอร์มได้ในแชท Inbox โดยตรง (`src/domain/rules/forms.ts`, `src/lib/forms.ts`, `src/components/inbox/*`) · 44 tests
 
 ## ตารางแก้บั๊ก (รหัสจากไฟล์เทส → จุดที่แก้)
 | รหัส | แก้ที่ |

@@ -1,10 +1,12 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { ArchiveIcon, CheckIcon, FileTextIcon, PhoneIcon, RotateCcwIcon, SendIcon, UserCheckIcon, XIcon } from "lucide-react"
+import { ArchiveIcon, CheckIcon, PhoneIcon, RotateCcwIcon, SendIcon, UserCheckIcon } from "lucide-react"
 import { Pill } from "@/components/app/badges"
 import { avatarTone, gradeTone, initial } from "@/components/app/subject-color"
 import { StudentSheet } from "@/components/app/student-sheet"
+import { SendFormDialog } from "@/components/inbox/send-form-dialog"
+import { SubmissionReviewCard } from "@/components/inbox/submission-review-card"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Label } from "@/components/ui/label"
@@ -13,14 +15,11 @@ import { Textarea } from "@/components/ui/textarea"
 import { fmtDateTime } from "@/domain/dates"
 import { daysAgoLabel, LEAD_SOURCE_LABEL, LEAD_STAGE_LABEL } from "@/domain/rules/crm"
 import { can } from "@/domain/rules/permissions"
-import type { FormSubmission, FormType, ID, LeadStage } from "@/domain/types"
+import type { FormSubmission, ID, LeadStage } from "@/domain/types"
 import { report } from "@/lib/feedback"
 import { useNow } from "@/lib/hooks"
 import { cn } from "@/lib/utils"
 import { useStore } from "@/store/store"
-
-const FORM_TYPE_LABEL: Record<FormType, string> = { test: "สอบวัดระดับ", trial: "ทดลองเรียน" }
-const APPROVE_STAGE: Record<FormType, LeadStage> = { test: "tested", trial: "trialed" }
 
 /** Forward path a lead normally walks — used to suggest the next action button. */
 const NEXT_STAGE: Partial<Record<LeadStage, { stage: LeadStage; label: string }[]>> = {
@@ -52,8 +51,9 @@ function Body({ id }: { id: ID }) {
   const [archiving, setArchiving] = useState(false)
   const [openStudentId, setOpenStudentId] = useState<ID | null>(null)
   const [submissions, setSubmissions] = useState<FormSubmission[]>([])
-  const [sendingForm, setSendingForm] = useState<FormType | null>(null)
+  const [sendingFormOpen, setSendingFormOpen] = useState(false)
 
+  const pollSubmissions = () => fetch("/api/forms/submissions").then((r) => r.json()).then((d) => setSubmissions(d.submissions ?? [])).catch(() => {})
   useEffect(() => {
     let cancelled = false
     const poll = () => fetch("/api/forms/submissions").then((r) => r.json()).then((d) => { if (!cancelled) setSubmissions(d.submissions ?? []) }).catch(() => {})
@@ -69,37 +69,6 @@ function Body({ id }: { id: ID }) {
   const assignee = staff.find((x) => x.id === lead.assigneeId)
   const canManage = can(me, "lead.manage")
   const next = NEXT_STAGE[lead.stage] ?? []
-
-  const sendForm = async (type: FormType) => {
-    if (!lead.lineUserId) return
-    setSendingForm(type)
-    try {
-      const tokenRes = await fetch("/api/forms/token", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ type, leadId: lead.id, branchId: lead.branchId }) })
-      const tokenData = await tokenRes.json()
-      if (!tokenData.ok) { report({ ok: false, error: tokenData.error ?? "สร้างลิงก์ไม่สำเร็จ" }, ""); return }
-      const liffId = process.env.NEXT_PUBLIC_LIFF_ID
-      if (!liffId) { report({ ok: false, error: "ยังไม่ได้ตั้งค่า NEXT_PUBLIC_LIFF_ID ใน .env.local" }, ""); return }
-      const url = `https://liff.line.me/${liffId}?token=${tokenData.token}`
-      const sendRes = await fetch("/api/line/send", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ conversationId: `line_${lead.lineUserId}`, text: `กรุณากรอกแบบฟอร์ม${FORM_TYPE_LABEL[type]}ที่ลิงก์นี้ค่ะ 🙏\n${url}` }) })
-      const sendData = await sendRes.json()
-      report(sendData.ok ? { ok: true, value: undefined } : { ok: false, error: sendData.error ?? "ส่งลิงก์ไม่สำเร็จ" }, `ส่งฟอร์ม${FORM_TYPE_LABEL[type]}ทาง LINE แล้ว`)
-    } catch {
-      report({ ok: false, error: "เรียก API ไม่ได้" }, "")
-    } finally {
-      setSendingForm(null)
-    }
-  }
-
-  const review = async (sub: FormSubmission, status: "approved" | "rejected") => {
-    await fetch("/api/forms/review", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: sub.id, status }) })
-    setSubmissions((prev) => prev.map((s) => (s.id === sub.id ? { ...s, status } : s)))
-    if (status === "approved") {
-      report(moveStage(lead.id, APPROVE_STAGE[sub.type]), `อนุมัติแล้ว — ย้ายไป "${LEAD_STAGE_LABEL[APPROVE_STAGE[sub.type]]}"`)
-      addNote(lead.id, `อนุมัติฟอร์ม${FORM_TYPE_LABEL[sub.type]}: ${sub.studentName} (${sub.studentGrade}, ${sub.subject}) · สะดวก ${sub.preferredTime}`)
-    } else {
-      report({ ok: true, value: undefined }, "ปฏิเสธฟอร์มแล้ว")
-    }
-  }
 
   return (
     <>
@@ -161,28 +130,22 @@ function Body({ id }: { id: ID }) {
             {!lead.lineUserId ? (
               <p className="text-muted-foreground">ยังไม่ได้ผูก LINE — ผูกได้จากหน้า Inbox ก่อนถึงจะส่งฟอร์มได้</p>
             ) : (
-              <div className="flex flex-wrap gap-1.5">
-                <Button size="sm" variant="outline" disabled={sendingForm === "test"} onClick={() => sendForm("test")}><SendIcon /> ส่งฟอร์มสอบวัดระดับ</Button>
-                <Button size="sm" variant="outline" disabled={sendingForm === "trial"} onClick={() => sendForm("trial")}><SendIcon /> ส่งฟอร์มทดลองเรียน</Button>
-              </div>
+              <Button size="sm" variant="outline" onClick={() => setSendingFormOpen(true)}><SendIcon /> ส่งฟอร์ม</Button>
             )}
             {pending.length > 0 && (
               <div className="mt-3 space-y-2">
                 {pending.map((sub) => (
-                  <div key={sub.id} className="rounded-lg border border-amber-300 bg-amber-50 p-2.5">
-                    <div className="flex items-center gap-1.5 text-xs font-semibold text-amber-900"><FileTextIcon className="size-3.5" /> ฟอร์ม{FORM_TYPE_LABEL[sub.type]} — รออนุมัติ</div>
-                    <div className="mt-1.5 space-y-0.5 text-xs text-amber-950">
-                      <div>ผู้ปกครอง: {sub.parentName} · {sub.parentPhone}</div>
-                      <div>นักเรียน: {sub.studentName} · {sub.studentGrade} · {sub.subject}</div>
-                      <div>สะดวก: {sub.preferredTime}</div>
-                    </div>
-                    <div className="mt-2 flex gap-1.5">
-                      <Button size="xs" onClick={() => review(sub, "approved")}><CheckIcon /> อนุมัติ</Button>
-                      <Button size="xs" variant="ghost" className="text-red-700" onClick={() => review(sub, "rejected")}><XIcon /> ปฏิเสธ</Button>
-                    </div>
+                  <div key={sub.id} className="rounded-lg border border-amber-300 bg-amber-50 p-2.5 text-xs">
+                    <SubmissionReviewCard submission={sub} onChanged={pollSubmissions} />
                   </div>
                 ))}
               </div>
+            )}
+            {sendingFormOpen && lead.lineUserId && (
+              <SendFormDialog
+                leadId={lead.id} branchId={lead.branchId} conversationId={`line_${lead.lineUserId}`} lineUserId={lead.lineUserId}
+                onClose={() => setSendingFormOpen(false)}
+              />
             )}
           </Section>
         )}

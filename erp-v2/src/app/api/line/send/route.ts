@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server"
 import { lineUserIdOf, recordOutboundMessage } from "@/server/line-store"
+import type { ChatMessageMeta, MessageKind } from "@/domain/types"
 
 // Sends a staff reply to a real LINE conversation via the Messaging API's push endpoint, then records
 // it in the same store the webhook writes to — so a page refresh still shows what was sent.
@@ -7,7 +8,7 @@ export async function POST(req: Request) {
   const token = process.env.LINE_CHANNEL_ACCESS_TOKEN
   if (!token) return NextResponse.json({ ok: false, error: "LINE_CHANNEL_ACCESS_TOKEN not configured" }, { status: 500 })
 
-  let body: { conversationId?: string; text?: string }
+  let body: { conversationId?: string; text?: string; kind?: MessageKind; meta?: ChatMessageMeta }
   try {
     body = await req.json()
   } catch {
@@ -33,6 +34,6 @@ export async function POST(req: Request) {
     return NextResponse.json({ ok: false, error: "เรียก LINE API ไม่ได้ (เครือข่ายมีปัญหา หรือ timeout)" })
   }
 
-  const message = await recordOutboundMessage(lineUserId, text)
+  const message = await recordOutboundMessage(lineUserId, text, { kind: body.kind, meta: body.meta })
   return NextResponse.json({ ok: true, message })
 }

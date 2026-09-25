@@ -1,6 +1,6 @@
 // Regression tests: each case reproduces a bug found on Dev staging and proves the rule prevents it.
 import { describe, expect, it } from "vitest"
-import type { Attendance, Branch, Holiday, Invoice, Klass, Package, Session, Staff, Weekday } from "../types"
+import type { Attendance, Branch, FormOfferSlot, Holiday, Invoice, Klass, Package, Session, Staff, Weekday } from "../types"
 import { applyClassEdit, applyToSessions, canSave, introducedConflicts, editSingleSession, findConflicts, generateSessions, moveSession, sessionState, validateClass, workState } from "./scheduling"
 import { balance, canMark, coveringEntitlement, lowBalanceAlert, removeFromClass } from "./attendance"
 import { canApprove, canConfirmPayment, canSend, canVoid, defaultBusLegs, busTotal, nextInvoiceNumber, quoteCourse } from "./billing"
@@ -9,6 +9,7 @@ import * as Sum from "./summaries"
 import { futureSessionsOf, validateFamily, validateStaff, validateStudent } from "./people"
 import { suggestFixes } from "./suggest"
 import { canSetStage, daysAgo, groupOf, validateLead } from "./crm"
+import { buildSessionDraftFromSlot, findOfferSlots } from "./forms"
 
 const hours = { open: "09:00", close: "20:00" }
 const branch: Branch = {
@@ -327,5 +328,48 @@ describe("crm", () => {
     const created = new Date(2026, 8, 20).toISOString()
     expect(daysAgo(created, new Date(2026, 8, 23))).toBe(3)
     expect(daysAgo(created, new Date(2026, 8, 20))).toBe(0)
+  })
+})
+
+describe("forms", () => {
+  it("findOfferSlots offers a generic time only when a qualified teacher and a room are both free", () => {
+    const slots = findOfferSlots({ branch, staff: [teacher], sessions: [], classes: [], holidays: [], subject: "Maths", from: "2026-09-29", to: "2026-09-29", now: new Date(2026, 8, 28) })
+    expect(slots.some((s) => s.source === "generic" && s.start === "09:00" && s.teacherId === "t1")).toBe(true)
+
+    const busy: Session = { id: "s_busy", branchId: "b1", classId: null, subject: "Maths", date: "2026-09-29", start: "09:00", minutes: 60, teacherId: "t1", coTeacherIds: [], roomId: "r1", studentIds: [], trial: false, customized: true, cancelled: false }
+    const busySlots = findOfferSlots({ branch, staff: [teacher], sessions: [busy], classes: [], holidays: [], subject: "Maths", from: "2026-09-29", to: "2026-09-29", now: new Date(2026, 8, 28) })
+    expect(busySlots.some((s) => s.source === "generic" && s.start === "09:00")).toBe(false)
+  })
+
+  it("findOfferSlots excludes holiday and closed-day dates from generic candidates", () => {
+    const holidaySlots = findOfferSlots({ branch, staff: [teacher], sessions: [], classes: [], holidays, subject: "Maths", from: "2026-10-13", to: "2026-10-13", now: new Date(2026, 8, 28) })
+    expect(holidaySlots).toHaveLength(0)
+
+    const closedDaySlots = findOfferSlots({ branch, staff: [teacher], sessions: [], classes: [], holidays: [], subject: "Maths", from: "2026-09-27", to: "2026-09-27", now: new Date(2026, 8, 20) }) // Sunday — branch closed
+    expect(closedDaySlots).toHaveLength(0)
+  })
+
+  it("findOfferSlots includes a real class session as a class-sourced offer, and excludes it once full", () => {
+    const [session] = generateSessions(klass(), [], id, 1)
+    const slots = findOfferSlots({ branch, staff: [teacher], sessions: [session], classes: [klass()], holidays: [], subject: "Maths", from: "2026-09-29", to: "2026-09-29", now: new Date(2026, 8, 28) })
+    expect(slots.some((s) => s.source === "class" && s.sessionId === session.id)).toBe(true)
+
+    const full = { ...session, studentIds: ["a", "b", "c", "d", "e", "f"] } // group capacity
+    const fullSlots = findOfferSlots({ branch, staff: [teacher], sessions: [full], classes: [klass()], holidays: [], subject: "Maths", from: "2026-09-29", to: "2026-09-29", now: new Date(2026, 8, 28) })
+    expect(fullSlots.some((s) => s.source === "class")).toBe(false)
+  })
+
+  it("buildSessionDraftFromSlot maps a generic slot into a bookable Session draft", () => {
+    const slot: FormOfferSlot = { id: "off_g0", date: "2026-09-29", start: "09:00", minutes: 60, source: "generic", teacherId: "t1", roomId: "r1", classId: null, sessionId: null }
+    const draft = buildSessionDraftFromSlot(slot, "Maths", "b1", "stu1")
+    expect(draft).toEqual({ branchId: "b1", classId: null, subject: "Maths", date: "2026-09-29", start: "09:00", minutes: 60, teacherId: "t1", coTeacherIds: [], roomId: "r1", studentIds: ["stu1"], trial: true })
+  })
+
+  it("validateClass silently skips a holiday date for a single-date (non-learning) draft — the gap store.addSession's explicit isHoliday check works around", () => {
+    const issues = validateClass(
+      { branchId: "b1", subject: "Maths", kind: "other", type: "group", teacherId: "t1", coTeacherIds: [], roomId: "r1", weekday: 2, start: "10:00", minutes: 60, startDate: "2026-10-13", studentIds: [] },
+      { branch, staff: [teacher], sessions: [], holidays },
+    )
+    expect(issues.some((i) => i.level === "block")).toBe(false)
   })
 })

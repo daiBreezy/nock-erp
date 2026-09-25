@@ -15,7 +15,8 @@ import { can, canDeactivateStaff, require as requirePerm } from "@/domain/rules/
 import * as Sch from "@/domain/rules/scheduling"
 import * as Sum from "@/domain/rules/summaries"
 import * as People from "@/domain/rules/people"
-import type { AttendanceStatus, Branch, ChatMessage, Conversation, Course, Family, Holiday, ID, Invoice, Klass, Lead, LeadStage, LessonSummary, Package, Result, Session, Staff, Student } from "@/domain/types"
+import * as Forms from "@/domain/rules/forms"
+import type { AttendanceStatus, Branch, ChatMessage, Conversation, Course, Family, FormSubmission, Holiday, ID, Invoice, Klass, Lead, LeadStage, LessonSummary, Package, Result, Session, Staff, Student } from "@/domain/types"
 
 export interface UIState {
   userId: ID
@@ -80,6 +81,8 @@ type Store = DB & UIState & {
   addLeadNote: (id: ID, text: string) => Result
   archiveLead: (id: ID, reason: string) => Result
   convertLeadToStudent: (id: ID) => Result<{ studentId: ID }>
+  /** books an approved Test/Trial submission's chosen slot as a real, conflict-checked Session (or joins an existing class's session) */
+  approveTestTrialSubmission: (sub: FormSubmission) => Result<{ sessionId: ID; studentId: ID }>
 
   openConversation: (id: ID) => void
   assignConversation: (id: ID, staffId: ID | null) => Result
@@ -176,9 +179,10 @@ export const useStore = create<Store>()(
         const perm = requirePerm(s.me(), "session.manage")
         if (!perm.ok) return perm
         const branch = s.branches.find((b) => b.id === input.branchId)!
+        if (Sch.isHoliday(input.date, input.branchId, s.holidays)) return fail("วันนั้นเป็นวันหยุด")
         const issues = Sch.validateClass(
           { ...input, kind: "other", type: "group", weekday: weekdayOf(input.date), startDate: input.date, overrideReason: "session" },
-          { branch, staff: s.staff, sessions: s.sessions, holidays: s.holidays },
+          { branch, staff: s.staff, sessions: s.sessions, holidays: s.holidays, now: s.now() },
         ).filter((i) => i.level === "block")
         if (issues.length) return fail(issues[0].message)
         const session: Session = { ...input, id: uid("se"), customized: true, cancelled: false }
@@ -701,6 +705,11 @@ export const useStore = create<Store>()(
         const lead = s.leads.find((x) => x.id === id)
         if (!lead) return fail("ไม่พบ Lead นี้")
         if (lead.stage === "enrolled") return fail("แปลงเป็นนักเรียนไปแล้ว")
+        if (lead.trialStudentId) {
+          // reuse the Student created at test/trial approval time instead of creating a duplicate
+          set({ leads: s.leads.map((x) => (x.id === id ? { ...x, stage: "enrolled", convertedStudentId: lead.trialStudentId! } : x)) })
+          return { ok: true, value: { studentId: lead.trialStudentId } }
+        }
         const student: Student = { id: uid("stu"), familyId: null, branchId: lead.branchId, name: lead.name, nickname: lead.name, grade: lead.childGrade, usesBus: false }
         const errs = People.validateStudent(student, toDateStr(s.now()))
         if (errs.length) return fail(errs[0].message)
@@ -709,6 +718,44 @@ export const useStore = create<Store>()(
           leads: s.leads.map((x) => (x.id === id ? { ...x, stage: "enrolled", convertedStudentId: student.id } : x)),
         })
         return { ok: true, value: { studentId: student.id } }
+      },
+
+      approveTestTrialSubmission: (sub) => {
+        const s = get()
+        const perm = requirePerm(s.me(), "session.manage")
+        if (!perm.ok) return perm
+        const lead = s.leads.find((x) => x.id === sub.leadId)
+        if (!lead) return fail("ไม่พบ Lead นี้")
+
+        // reuse the one Student per lead, created lazily on first approval — persisted immediately
+        // so the addStudentToSession/addSession calls below see it via their own get()
+        let studentId = lead.trialStudentId
+        if (!studentId) {
+          const student: Student = { id: uid("stu"), familyId: null, branchId: lead.branchId, name: sub.studentName, nickname: sub.studentName, grade: sub.studentGrade, usesBus: false }
+          const errs = People.validateStudent(student, toDateStr(s.now()))
+          if (errs.length) return fail(errs[0].message)
+          studentId = student.id
+          set({ students: [...s.students, student] })
+        }
+
+        let sessionId: ID
+        if (sub.chosenSlot.source === "class") {
+          const r = get().addStudentToSession(sub.chosenSlot.sessionId!, studentId, "one")
+          if (!r.ok) return r
+          sessionId = sub.chosenSlot.sessionId!
+        } else {
+          const draft = Forms.buildSessionDraftFromSlot(sub.chosenSlot, sub.chosenSubject, lead.branchId, studentId)
+          const r = get().addSession(draft)
+          if (!r.ok) return r
+          sessionId = r.value.id
+        }
+
+        const stage = Forms.APPROVE_STAGE[sub.type]
+        const guard = CRM.canSetStage(lead.stage, stage)
+        set((cur) => ({
+          leads: cur.leads.map((x) => (x.id === lead.id ? { ...x, trialStudentId: studentId, stage: guard.ok ? stage : x.stage } : x)),
+        }))
+        return { ok: true, value: { sessionId, studentId } }
       },
 
       // ---------------- Inbox ----------------
@@ -837,7 +884,7 @@ export const useStore = create<Store>()(
     {
       name: "nockerp-v2",
       // bump when the data model changes; older saved data is replaced by fresh sample data
-      version: 13,
+      version: 14,
       migrate: () => ({ ...buildSeed(), userId: "u_nock", branchId: "br_thl", clockOffset: 0 }) as unknown as Store,
       // persist data + UI state only, never the action functions
       partialize: (s) => Object.fromEntries(Object.entries(s).filter(([, v]) => typeof v !== "function")) as Partial<Store>,

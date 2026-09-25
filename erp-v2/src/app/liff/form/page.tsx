@@ -6,11 +6,10 @@ import { CheckCircle2Icon, LoaderCircleIcon, XCircleIcon } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import type { FormType } from "@/domain/types"
-
-const GRADES = ["ป.1", "ป.2", "ป.3", "ป.4", "ป.5", "ป.6", "ม.1", "ม.2", "ม.3"]
-const SUBJECTS = ["คณิต", "อังกฤษ", "วิทย์", "ไทย", "สังคม"]
-const TYPE_LABEL: Record<FormType, string> = { test: "สอบวัดระดับ", trial: "ทดลองเรียน" }
+import { fmtDate } from "@/domain/dates"
+import { FORM_TYPE_LABEL } from "@/domain/rules/forms"
+import type { FormOfferSlot, FormSubjectOffer, FormType } from "@/domain/types"
+import { cn } from "@/lib/utils"
 
 type Phase = "init" | "invalid" | "ready" | "submitting" | "done"
 
@@ -23,30 +22,38 @@ export default function LiffFormPage() {
 }
 
 function LiffForm() {
-  const token = useSearchParams().get("token") ?? ""
+  const initialToken = useSearchParams().get("token") ?? ""
+  const [token, setToken] = useState(initialToken)
   const [phase, setPhase] = useState<Phase>("init")
   const [error, setError] = useState("")
   const [formType, setFormType] = useState<FormType>("test")
+  const [offers, setOffers] = useState<FormSubjectOffer[]>([])
+  const [grades, setGrades] = useState<string[]>([])
   const [lineUserId, setLineUserId] = useState("")
   const [displayName, setDisplayName] = useState("")
 
   const [parentName, setParentName] = useState("")
   const [parentPhone, setParentPhone] = useState("")
   const [studentName, setStudentName] = useState("")
-  const [studentGrade, setStudentGrade] = useState(GRADES[0])
-  const [subject, setSubject] = useState(SUBJECTS[0])
-  const [preferredTime, setPreferredTime] = useState("")
+  const [studentGrade, setStudentGrade] = useState("")
+  const [chosen, setChosen] = useState<{ subject: string; slot: FormOfferSlot } | null>(null)
 
   useEffect(() => {
     let cancelled = false
     async function run() {
-      if (!token) return setError("ลิงก์นี้ไม่ถูกต้อง — ไม่มีรหัสฟอร์ม"), setPhase("invalid")
       try {
         // liff SDK is browser-only — dynamic import keeps it out of the server bundle
         const liff = (await import("@line/liff")).default
         const liffId = process.env.NEXT_PUBLIC_LIFF_ID
         if (!liffId) throw new Error("ยังไม่ได้ตั้งค่า LIFF ID")
         await liff.init({ liffId })
+        // liff.init() decodes the "liff.state" param (used after the LINE Login redirect) and
+        // restores the original query string via history.replaceState — so re-read `token` from
+        // the URL only *after* init, not from the pre-init useSearchParams() snapshot above.
+        const currentToken = new URLSearchParams(window.location.search).get("token") ?? initialToken
+        if (cancelled) return
+        setToken(currentToken)
+        if (!currentToken) { setError("ลิงก์นี้ไม่ถูกต้อง — ไม่มีรหัสฟอร์ม"); setPhase("invalid"); return }
         if (!liff.isLoggedIn()) {
           liff.login({ redirectUri: window.location.href })
           return // login() navigates away; this component unmounts
@@ -57,11 +64,15 @@ function LiffForm() {
         setDisplayName(profile.displayName)
         setParentName(profile.displayName)
 
-        const res = await fetch(`/api/forms/token?token=${encodeURIComponent(token)}`)
+        const res = await fetch(`/api/forms/token?token=${encodeURIComponent(currentToken)}`)
         const data = await res.json()
         if (cancelled) return
         if (!data.ok) { setError(data.error ?? "ลิงก์นี้ใช้ไม่ได้แล้ว"); setPhase("invalid"); return }
+        if (!data.offers?.length) { setError("ยังไม่มีช่วงเวลาให้เลือก — ติดต่อสถาบันโดยตรง"); setPhase("invalid"); return }
         setFormType(data.type)
+        setOffers(data.offers)
+        setGrades(data.grades ?? [])
+        setStudentGrade(data.grades?.[0] ?? "")
         setPhase("ready")
       } catch (e) {
         if (cancelled) return
@@ -71,15 +82,18 @@ function LiffForm() {
     }
     run()
     return () => { cancelled = true }
-  }, [token])
+  }, [initialToken])
 
   const submit = async () => {
-    if (!parentName.trim() || !parentPhone.trim() || !studentName.trim() || !preferredTime.trim()) return
+    if (!parentName.trim() || !parentPhone.trim() || !studentName.trim() || !studentGrade || !chosen) return
     setPhase("submitting")
     try {
       const res = await fetch("/api/forms/submit", {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ token, lineUserId, parentName, parentPhone, studentName, studentGrade, subject, preferredTime }),
+        body: JSON.stringify({
+          token, lineUserId, parentName, parentPhone, studentName, studentGrade,
+          chosenSubject: chosen.subject, chosenSlotId: chosen.slot.id,
+        }),
       })
       const data = await res.json()
       if (!data.ok) { setError(data.error ?? "ส่งไม่สำเร็จ"); setPhase("ready"); return }
@@ -110,30 +124,46 @@ function LiffForm() {
   return (
     <div className="mx-auto max-w-md space-y-4 p-5">
       <div className="text-center">
-        <h1 className="text-lg font-semibold">แบบฟอร์ม{TYPE_LABEL[formType]}</h1>
-        <p className="text-xs text-muted-foreground">สวัสดีค่ะ คุณ{displayName} — กรอกข้อมูลด้านล่างเพื่อนัด{TYPE_LABEL[formType]}</p>
+        <h1 className="text-lg font-semibold">แบบฟอร์ม{FORM_TYPE_LABEL[formType]}</h1>
+        <p className="text-xs text-muted-foreground">สวัสดีค่ะ คุณ{displayName} — กรอกข้อมูลด้านล่างเพื่อนัด{FORM_TYPE_LABEL[formType]}</p>
       </div>
 
       <Field label="ชื่อผู้ปกครอง *"><Input value={parentName} onChange={(e) => setParentName(e.target.value)} /></Field>
       <Field label="เบอร์โทรติดต่อ *"><Input inputMode="tel" value={parentPhone} onChange={(e) => setParentPhone(e.target.value)} placeholder="081-234-5678" /></Field>
       <Field label="ชื่อนักเรียน *"><Input value={studentName} onChange={(e) => setStudentName(e.target.value)} /></Field>
-      <div className="grid grid-cols-2 gap-3">
-        <Field label="ระดับชั้น *">
-          <select className="h-9 w-full rounded-lg border bg-background px-2 text-sm" value={studentGrade} onChange={(e) => setStudentGrade(e.target.value)}>
-            {GRADES.map((g) => <option key={g} value={g}>{g}</option>)}
-          </select>
-        </Field>
-        <Field label="วิชาที่สนใจ *">
-          <select className="h-9 w-full rounded-lg border bg-background px-2 text-sm" value={subject} onChange={(e) => setSubject(e.target.value)}>
-            {SUBJECTS.map((s) => <option key={s} value={s}>{s}</option>)}
-          </select>
-        </Field>
+      <Field label="ระดับชั้น *">
+        <select className="h-9 w-full rounded-lg border bg-background px-2 text-sm" value={studentGrade} onChange={(e) => setStudentGrade(e.target.value)}>
+          {grades.map((g) => <option key={g} value={g}>{g}</option>)}
+        </select>
+      </Field>
+
+      <div className="space-y-3">
+        <Label className="text-xs">เลือกวันเวลา *</Label>
+        {offers.map((offer) => (
+          <div key={offer.subject}>
+            <p className="mb-1 text-xs font-medium text-muted-foreground">{offer.subject}</p>
+            <div className="grid grid-cols-2 gap-1.5">
+              {offer.slots.map((slot) => (
+                <button
+                  key={slot.id}
+                  type="button"
+                  onClick={() => setChosen({ subject: offer.subject, slot })}
+                  className={cn(
+                    "rounded-lg border px-2 py-1.5 text-left text-xs transition-colors",
+                    chosen?.slot.id === slot.id ? "border-primary bg-primary/10" : "hover:bg-muted",
+                  )}
+                >
+                  {fmtDate(slot.date, { weekday: true })} · {slot.start} น.
+                </button>
+              ))}
+            </div>
+          </div>
+        ))}
       </div>
-      <Field label="วัน-เวลาที่สะดวก *"><Input value={preferredTime} onChange={(e) => setPreferredTime(e.target.value)} placeholder="เช่น เสาร์บ่าย, อาทิตย์เช้า" /></Field>
 
       {error && <p className="text-sm text-red-600">{error}</p>}
 
-      <Button className="w-full" disabled={phase === "submitting" || !parentName.trim() || !parentPhone.trim() || !studentName.trim() || !preferredTime.trim()} onClick={submit}>
+      <Button className="w-full" disabled={phase === "submitting" || !parentName.trim() || !parentPhone.trim() || !studentName.trim() || !studentGrade || !chosen} onClick={submit}>
         {phase === "submitting" ? <LoaderCircleIcon className="animate-spin" /> : "ส่งฟอร์ม"}
       </Button>
     </div>

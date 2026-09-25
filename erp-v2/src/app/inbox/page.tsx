@@ -1,13 +1,17 @@
 "use client"
 
 import { useCallback, useEffect, useState } from "react"
-import { InfoIcon, PenLineIcon, PlusIcon, RadioIcon, SendIcon, SparklesIcon, UserSearchIcon } from "lucide-react"
+import { FileSignatureIcon, InfoIcon, PenLineIcon, PlusIcon, RadioIcon, SendIcon, SparklesIcon, UserSearchIcon } from "lucide-react"
 import { NativeSelect } from "@/components/app/native-select"
 import { Pill } from "@/components/app/badges"
 import { FamilyForm } from "@/components/app/family-form"
 import { StudentSheet } from "@/components/app/student-sheet"
 import { avatarTone, initial } from "@/components/app/subject-color"
 import { ComposeDialog } from "@/components/inbox/compose-dialog"
+import { FormRequestBubble } from "@/components/inbox/form-request-bubble"
+import { FormSubmissionBubble } from "@/components/inbox/form-submission-bubble"
+import { MessageBubble } from "@/components/inbox/message-bubble"
+import { SendFormDialog } from "@/components/inbox/send-form-dialog"
 import { LeadDialog } from "@/components/crm/lead-dialog"
 import { LeadSheet } from "@/components/crm/lead-sheet"
 import { Button } from "@/components/ui/button"
@@ -15,7 +19,7 @@ import { Input } from "@/components/ui/input"
 import { fmtDateTime } from "@/domain/dates"
 import { CHANNEL_LABEL, CONVERSATION_TYPE_LABEL, conversationType, type ConversationType, unreadCount } from "@/domain/rules/inbox"
 import { can } from "@/domain/rules/permissions"
-import type { ChatMessage, Conversation, ID } from "@/domain/types"
+import type { ChatMessage, Conversation, FormSubmission, ID } from "@/domain/types"
 import { report } from "@/lib/feedback"
 import { useBranch } from "@/lib/hooks"
 import { cn } from "@/lib/utils"
@@ -51,6 +55,8 @@ export default function InboxPage() {
   const [creatingFamily, setCreatingFamily] = useState(false)
   const [linkLeadId, setLinkLeadId] = useState("")
   const [creatingLead, setCreatingLead] = useState(false)
+  const [sendingFormOpen, setSendingFormOpen] = useState(false)
+  const [submissions, setSubmissions] = useState<FormSubmission[]>([])
 
   // Polls the real LINE webhook's server-side store so messages a parent sends show up here without
   // a manual refresh. `/api/line/webhook` is the writer; this page is just a reader.
@@ -65,6 +71,17 @@ export default function InboxPage() {
     const t = setInterval(syncLive, 4000)
     return () => clearInterval(t)
   }, [syncLive])
+
+  // Same live status source form_request/form_submission bubbles below read from — mergeLiveConversations
+  // never patches an existing message, so status always comes from this poll, joined at render time.
+  const pollSubmissions = useCallback(() => {
+    fetch("/api/forms/submissions").then((r) => r.json()).then((d) => setSubmissions(d.submissions ?? [])).catch(() => {})
+  }, [])
+  useEffect(() => {
+    pollSubmissions()
+    const t = setInterval(pollSubmissions, 5000)
+    return () => clearInterval(t)
+  }, [pollSubmissions])
 
   const lastMessage = (id: ID) => [...messages].filter((m) => m.conversationId === id).sort((a, b) => b.at.localeCompare(a.at))[0]
 
@@ -184,6 +201,9 @@ export default function InboxPage() {
                     placeholder="ยังไม่มอบหมาย" options={staff.filter((s) => s.active && s.branchIds.includes(branch.id) && can(s, "inbox.manage")).map((s) => ({ value: s.id, label: s.nickname }))} />
                 </div>
               </div>
+              {lead && (
+                <Button size="sm" variant="outline" onClick={() => setSendingFormOpen(true)}><FileSignatureIcon /> ส่งฟอร์ม</Button>
+              )}
               <Button size="icon-sm" variant={showInfo ? "secondary" : "outline"} aria-label="ข้อมูลติดต่อ" onClick={() => setShowInfo((v) => !v)}><InfoIcon /></Button>
             </div>
 
@@ -192,27 +212,9 @@ export default function InboxPage() {
                 <div className="flex-1 space-y-3 overflow-y-auto p-4">
                   {thread.length === 0 && <p className="py-8 text-center text-sm text-muted-foreground">เริ่มบทสนทนา</p>}
                   {thread.map((m) => {
-                    if (m.author === "internal")
-                      return (
-                        <div key={m.id} className="flex justify-center">
-                          <div className="max-w-[75%] rounded-xl border border-dashed border-amber-400 bg-amber-50 px-3 py-2 text-xs text-amber-900">
-                            <b>โน้ตภายใน</b> — {staff.find((s) => s.id === m.senderId)?.nickname}
-                            <div className="mt-0.5">{m.text}</div>
-                          </div>
-                        </div>
-                      )
-                    const isStaff = m.author === "staff"
-                    return (
-                      <div key={m.id} className={cn("flex items-end gap-2", isStaff && "flex-row-reverse")}>
-                        <span className={cn("grid size-6 shrink-0 place-items-center rounded-full text-[10px] font-semibold", avatarTone(isStaff ? (m.senderId ?? "staff") : selected.id))}>
-                          {isStaff ? initial(staff.find((s) => s.id === m.senderId)?.nickname ?? "A") : initial(selected.name)}
-                        </span>
-                        <div className={cn("max-w-[70%] rounded-2xl px-3 py-2 text-sm", isStaff ? "rounded-br-sm bg-primary text-primary-foreground" : "rounded-bl-sm bg-muted")}>
-                          {m.text}
-                          <div className={cn("mt-1 text-[10px]", isStaff ? "text-primary-foreground/70" : "text-muted-foreground")}>{fmtDateTime(m.at)}</div>
-                        </div>
-                      </div>
-                    )
+                    if (m.kind === "form_request") return <FormRequestBubble key={m.id} message={m} submissions={submissions} />
+                    if (m.kind === "form_submission") return <FormSubmissionBubble key={m.id} message={m} conversation={selected} submissions={submissions} onChanged={pollSubmissions} />
+                    return <MessageBubble key={m.id} message={m} conversation={selected} staff={staff} />
                   })}
                 </div>
                 <div className="space-y-1.5 border-t p-3">
@@ -290,6 +292,12 @@ export default function InboxPage() {
       </div>
 
       {composing && <ComposeDialog onClose={() => setComposing(false)} onSent={(id) => { setComposing(false); if (id) select(id) }} />}
+      {sendingFormOpen && selected && lead && (
+        <SendFormDialog
+          leadId={lead.id} branchId={lead.branchId} conversationId={selected.id} lineUserId={lead.lineUserId ?? ""}
+          onClose={() => setSendingFormOpen(false)}
+        />
+      )}
       {creatingFamily && selected && (
         <FamilyForm
           initialName={selected.name}

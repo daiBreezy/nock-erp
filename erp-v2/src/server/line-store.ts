@@ -1,6 +1,6 @@
 import { promises as fs } from "fs"
 import path from "path"
-import type { ChatMessage, Conversation } from "@/domain/types"
+import type { ChatMessage, ChatMessageMeta, Conversation, MessageKind } from "@/domain/types"
 
 // File-based store for real LINE conversations received via webhook. erp-v2 has no real database
 // (by design — see erp-v2/CLAUDE.md), and this data must live server-side (a webhook handler has no
@@ -62,25 +62,30 @@ export function findOrCreateConversation(store: Store, lineUserId: string, displ
   return conv
 }
 
+export interface MessageExtra {
+  kind?: MessageKind
+  meta?: ChatMessageMeta
+}
+
 /** One webhook "message" event → find/create the conversation, append the message, flag unread. */
-export async function recordInboundMessage(lineUserId: string, displayName: string | null, text: string): Promise<void> {
+export async function recordInboundMessage(lineUserId: string, displayName: string | null, text: string, extra?: MessageExtra): Promise<void> {
   await mutate((store) => {
     const conv = findOrCreateConversation(store, lineUserId, displayName)
     const at = new Date().toISOString()
     conv.lastMessageAt = at
     conv.unread = true
     if (displayName && conv.name !== displayName) conv.name = displayName
-    store.messages.push({ id: `msg_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`, conversationId: conv.id, author: "parent", senderId: null, text, at })
+    store.messages.push({ id: `msg_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`, conversationId: conv.id, author: "parent", senderId: null, text, at, ...extra })
   })
 }
 
 /** Staff reply, sent via the Messaging API and recorded here so a page refresh still shows it. */
-export async function recordOutboundMessage(lineUserId: string, text: string): Promise<ChatMessage> {
+export async function recordOutboundMessage(lineUserId: string, text: string, extra?: MessageExtra): Promise<ChatMessage> {
   return mutate((store) => {
     const conv = findOrCreateConversation(store, lineUserId, null)
     const at = new Date().toISOString()
     conv.lastMessageAt = at
-    const message: ChatMessage = { id: `msg_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`, conversationId: conv.id, author: "staff", senderId: null, text, at }
+    const message: ChatMessage = { id: `msg_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`, conversationId: conv.id, author: "staff", senderId: null, text, at, ...extra }
     store.messages.push(message)
     return message
   })

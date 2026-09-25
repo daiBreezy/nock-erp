@@ -307,6 +307,10 @@ export interface Lead {
   convertedStudentId?: ID | null
   /** real LINE Messaging API user id, once linked via Inbox — lets staff send a real Test/Trial form link */
   lineUserId?: string
+  /** minimal Student created when a test/trial form is approved, before formal enrollment —
+   *  reused by later test/trial approvals and by convertLeadToStudent, so a lead never
+   *  accumulates duplicate Student rows */
+  trialStudentId?: ID | null
 }
 
 // ---------- Inbox ----------
@@ -329,6 +333,23 @@ export interface Conversation {
 
 export type MessageAuthor = "parent" | "staff" | "internal"
 
+export type MessageKind = "text" | "form_request" | "form_submission"
+
+export interface FormRequestMeta {
+  formKind: "form_request"
+  token: string
+  type: FormType
+  subjects: string[]
+}
+
+export interface FormSubmissionMeta {
+  formKind: "form_submission"
+  submissionId: ID
+  type: FormType
+}
+
+export type ChatMessageMeta = FormRequestMeta | FormSubmissionMeta
+
 export interface ChatMessage {
   id: ID
   conversationId: ID
@@ -337,6 +358,9 @@ export interface ChatMessage {
   senderId: ID | null
   text: string
   at: string
+  /** absent/"text" = plain bubble — every existing message stays valid with no migration */
+  kind?: MessageKind
+  meta?: ChatMessageMeta
 }
 
 // ---------- Billing ----------
@@ -409,12 +433,40 @@ export interface AppNotification {
 export type FormType = "test" | "trial"
 export type FormStatus = "pending" | "approved" | "rejected"
 
+/** Where a candidate time slot came from — decides how Approve books it. */
+export type SlotSource = "generic" | "class"
+
+/** One candidate time offered to a parent — either an open admin-defined time ("generic")
+ *  or a real occurrence of an existing class ("class", joins that Session on approve). */
+export interface FormOfferSlot {
+  id: ID
+  date: DateStr
+  start: TimeStr
+  minutes: number
+  source: SlotSource
+  teacherId: ID | null
+  roomId: ID | null
+  /** set only when source === "class" */
+  classId: ID | null
+  /** set only when source === "class" — the real Session to join on approve */
+  sessionId: ID | null
+}
+
+export interface FormSubjectOffer {
+  subject: string
+  slots: FormOfferSlot[]
+}
+
 /** One link a parent can open (in LIFF) to submit a Test/Trial form — single use, expires. */
 export interface FormToken {
   token: string
   type: FormType
   leadId: ID
   branchId: ID
+  conversationId: ID | null
+  offers: FormSubjectOffer[]
+  /** snapshot of branch.grades at send time — the LIFF page has no access to branch master data */
+  grades: string[]
   createdAt: string
   expiresAt: string
   used: boolean
@@ -425,16 +477,20 @@ export interface FormSubmission {
   token: string
   type: FormType
   leadId: ID
+  conversationId: ID | null
   lineUserId: string
   parentName: string
   parentPhone: string
   studentName: string
   studentGrade: string
-  subject: string
-  preferredTime: string
+  chosenSubject: string
+  /** denormalized snapshot — self-contained even if the token's offers later change */
+  chosenSlot: FormOfferSlot
   status: FormStatus
   submittedAt: string
   reviewedAt?: string
+  createdSessionId?: ID | null
+  createdStudentId?: ID | null
 }
 
 /** Result of any action — every action returns one so the UI can always show feedback. */
