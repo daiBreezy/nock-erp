@@ -8,6 +8,7 @@ import { can } from "./permissions"
 import * as Sum from "./summaries"
 import { futureSessionsOf, validateFamily, validateStaff, validateStudent } from "./people"
 import { suggestFixes } from "./suggest"
+import { canSetStage, daysAgo, groupOf, validateLead } from "./crm"
 
 const hours = { open: "09:00", close: "20:00" }
 const branch: Branch = {
@@ -16,6 +17,7 @@ const branch: Branch = {
   hours: { 0: null, 1: hours, 2: hours, 3: hours, 4: hours, 5: hours, 6: hours } as Record<Weekday, typeof hours | null>,
   subjects: ["Maths"], grades: ["P5"], defaultSessionMinutes: 60, busFeePerLeg: 150, breaks: { 0: [], 1: [], 2: [], 3: [], 4: [], 5: [], 6: [] }, specialPeriods: [], fees: [], promotions: [],
   bankAccount: { bank: "", name: "", number: "" }, lineOaConnected: false,
+  lineOa: { channelId: "", botBasicId: "", addFriendUrl: "" },
 }
 const staff = (id: string, roles: Staff["roles"]): Staff => ({ id, name: id, nickname: id, roles, branchIds: ["b1"], subjects: ["Maths"], active: true, canLogin: true })
 const director = staff("dir", ["director"]), admin = staff("adm", ["admin"]), teacher = staff("t1", ["teacher"])
@@ -297,5 +299,33 @@ describe("fix suggestions", () => {
     expect(fixes.some((f) => f.kind === "time")).toBe(true)
     // teacher swap alone leaves the room clash; moving time (with a free room) clears everything
     expect(fixes[0].clearsAll).toBe(true)
+  })
+})
+
+describe("crm", () => {
+  it("groups test/trial sub-stages under one pipeline column", () => {
+    expect(groupOf("test_scheduled").key).toBe("test")
+    expect(groupOf("tested").key).toBe("test")
+    expect(groupOf("new").key).toBe("new")
+  })
+
+  it("drag-and-drop cannot set enrolled/archived directly — those need their own action", () => {
+    expect(canSetStage("contacting", "test_scheduled").ok).toBe(true)
+    expect(canSetStage("payment_pending", "enrolled").ok).toBe(false)
+    expect(canSetStage("new", "archived").ok).toBe(false)
+    expect(canSetStage("archived", "new").ok).toBe(false) // must reactivate via its own flow first
+  })
+
+  it("validateLead requires the fields the pipeline card depends on", () => {
+    expect(validateLead({ name: "", childGrade: "P5", subject: "Math", phone: "08x" })).toMatch(/ชื่อ/)
+    expect(validateLead({ name: "Mom", childGrade: "", subject: "Math", phone: "08x" })).toMatch(/ระดับชั้น/)
+    expect(validateLead({ name: "Mom", childGrade: "P5", subject: "Math", phone: "" })).toMatch(/เบอร์โทร/)
+    expect(validateLead({ name: "Mom", childGrade: "P5", subject: "Math", phone: "08x" })).toBeNull()
+  })
+
+  it("daysAgo counts whole days from createdAt to now", () => {
+    const created = new Date(2026, 8, 20).toISOString()
+    expect(daysAgo(created, new Date(2026, 8, 23))).toBe(3)
+    expect(daysAgo(created, new Date(2026, 8, 20))).toBe(0)
   })
 })

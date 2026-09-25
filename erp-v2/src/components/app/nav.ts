@@ -1,6 +1,6 @@
 import {
-  BellIcon, BookOpenIcon, CalendarDaysIcon, ClipboardCheckIcon, ClockIcon, HomeIcon, NotebookPenIcon, ReceiptIcon,
-  SettingsIcon, SquareLibraryIcon, UserCogIcon, UsersIcon, GraduationCapIcon, type LucideIcon,
+  BellIcon, BookOpenIcon, CalendarDaysIcon, ClipboardCheckIcon, ClockIcon, HomeIcon, InboxIcon, LayoutDashboardIcon, NotebookPenIcon, ReceiptIcon,
+  SettingsIcon, SquareLibraryIcon, UserCogIcon, UserSearchIcon, UsersIcon, GraduationCapIcon, type LucideIcon,
 } from "lucide-react"
 import type { Permission } from "@/domain/rules/permissions"
 
@@ -14,9 +14,14 @@ export interface NavItem {
 
 export const NAV: { group: string; items: NavItem[] }[] = [
   {
+    group: "ภาพรวม",
+    items: [{ href: "/dashboard", label: "Dashboard", icon: LayoutDashboardIcon, perm: "dashboard.view" }],
+  },
+  {
     group: "งานประจำวัน",
     items: [
       { href: "/", label: "วันนี้", icon: HomeIcon, perm: "calendar.view" },
+      { href: "/inbox", label: "Inbox", icon: InboxIcon, perm: "inbox.manage" },
       { href: "/calendar", label: "ปฏิทิน", icon: CalendarDaysIcon, perm: "calendar.view" },
       { href: "/sessions", label: "คาบเรียน & เช็คชื่อ", icon: ClockIcon, perm: ["attendance.mark"] },
       { href: "/summaries", label: "สรุปการเรียน", icon: NotebookPenIcon, perm: ["summary.write", "summary.approve"] },
@@ -36,6 +41,7 @@ export const NAV: { group: string; items: NavItem[] }[] = [
       { href: "/students", label: "นักเรียน", icon: GraduationCapIcon, perm: "student.view" },
       { href: "/families", label: "ครอบครัว", icon: UsersIcon, perm: "family.manage" },
       { href: "/staff", label: "บุคลากร", icon: UserCogIcon, perm: "staff.view" },
+      { href: "/crm", label: "CRM (ลีด)", icon: UserSearchIcon, perm: "lead.manage" },
     ],
   },
   {

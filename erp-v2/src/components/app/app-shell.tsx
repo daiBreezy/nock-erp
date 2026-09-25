@@ -19,8 +19,14 @@ import { NativeSelect } from "./native-select"
 const noopSubscribe = () => () => {}
 
 export function AppShell({ children }: { children: ReactNode }) {
+  const pathname = usePathname()
   // Persisted client-side store → render only after mount to avoid hydration mismatches.
+  // (hook called unconditionally, before any early return, per the rules of hooks)
   const mounted = useSyncExternalStore(noopSubscribe, () => true, () => false)
+  // /liff/* is the parent-facing form, opened inside LINE by people who have never seen this ERP and
+  // have no staff/branch data of their own — it must never render the staff sidebar or touch the
+  // zustand store (that store is this browser's *own* seed data, meaningless to a parent's device).
+  if (pathname.startsWith("/liff")) return <>{children}</>
   if (!mounted)
     return (
       <div className="flex h-screen gap-4 p-4">

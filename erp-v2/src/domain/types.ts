@@ -77,7 +77,20 @@ export interface Branch {
   fees: Fee[]
   promotions: Promotion[]
   bankAccount: { bank: string; name: string; number: string }
+  /** legacy simple flag — kept so existing "delivered via LINE" simulation logic still works; set from the server-side /api/line/status check */
   lineOaConnected: boolean
+  /** non-secret LINE identity — safe to keep in client state. The actual Channel Secret / Access Token live server-side only (.env.local), never here. */
+  lineOa: LineOaConfig
+}
+
+export interface LineOaConfig {
+  channelId: string
+  /** e.g. "@123abcde" — shown to staff so they can find/QR the account, not used by the API itself */
+  botBasicId: string
+  /** short "lin.ee/..." add-friend link — printed on invoices/receipts for parents to scan/tap */
+  addFriendUrl: string
+  /** QR code image for the add-friend link, stored as a data URL (no file storage in this prototype) */
+  qrImageDataUrl?: string
 }
 
 export type NotifyKey =
@@ -224,6 +237,8 @@ export interface Family {
   postcode?: string
   /** one LINE link code for the whole family (siblings share it) */
   lineCode?: { code: string; expiresAt: string }
+  /** real LINE Messaging API user id, once linked via Inbox (see linkConversationToFamily) — enables real delivery, not just the lineLinked simulation flag */
+  lineUserId?: string
 }
 
 export interface Student {
@@ -253,6 +268,75 @@ export interface Entitlement {
   from: DateStr
   to: DateStr
   sessionsTotal: number
+}
+
+// ---------- CRM ----------
+
+export type LeadStage =
+  | "new" | "contacting"
+  | "test_scheduled" | "tested"
+  | "trial_scheduled" | "trialed"
+  | "payment_pending" | "enrolled" | "archived"
+
+export type LeadSource = "line" | "walkin" | "website" | "referral" | "other"
+
+export interface LeadNote {
+  at: string
+  by: ID
+  text: string
+}
+
+export interface Lead {
+  id: ID
+  branchId: ID
+  name: string
+  childGrade: string
+  subject: string
+  source: LeadSource
+  stage: LeadStage
+  assigneeId: ID | null
+  phone: string
+  lineId: string
+  createdAt: string
+  /** test / trial appointment, when scheduled */
+  scheduledAt?: string
+  archivedFrom?: LeadStage
+  archiveReason?: string
+  notes: LeadNote[]
+  /** set once the lead becomes a real Student record */
+  convertedStudentId?: ID | null
+  /** real LINE Messaging API user id, once linked via Inbox — lets staff send a real Test/Trial form link */
+  lineUserId?: string
+}
+
+// ---------- Inbox ----------
+
+export type ConversationChannel = "line" | "walkin" | "phone" | "other"
+
+export interface Conversation {
+  id: ID
+  branchId: ID
+  name: string
+  /** linked to an enrolled family, a CRM lead, or neither ("contact") — decides the info panel + badge */
+  familyId: ID | null
+  leadId: ID | null
+  channel: ConversationChannel
+  assigneeId: ID | null
+  lastMessageAt: string
+  /** true while there's a parent message staff hasn't opened yet */
+  unread: boolean
+}
+
+export type MessageAuthor = "parent" | "staff" | "internal"
+
+export interface ChatMessage {
+  id: ID
+  conversationId: ID
+  author: MessageAuthor
+  /** staff id — set for "staff"/"internal", null for "parent" */
+  senderId: ID | null
+  text: string
+  at: string
 }
 
 // ---------- Billing ----------
@@ -313,11 +397,44 @@ export interface Payment {
 export interface AppNotification {
   id: ID
   at: string
-  kind: "low_sessions" | "session_cancelled" | "approval_needed" | "holiday_impact" | "info"
+  kind: "low_sessions" | "session_cancelled" | "approval_needed" | "holiday_impact" | "info" | "form_submitted"
   title: string
   body: string
   read: boolean
   roles: Role[]
+}
+
+// ---------- Parent-facing forms (Test / Trial) — server-side only, see src/server/form-store.ts ----------
+
+export type FormType = "test" | "trial"
+export type FormStatus = "pending" | "approved" | "rejected"
+
+/** One link a parent can open (in LIFF) to submit a Test/Trial form — single use, expires. */
+export interface FormToken {
+  token: string
+  type: FormType
+  leadId: ID
+  branchId: ID
+  createdAt: string
+  expiresAt: string
+  used: boolean
+}
+
+export interface FormSubmission {
+  id: ID
+  token: string
+  type: FormType
+  leadId: ID
+  lineUserId: string
+  parentName: string
+  parentPhone: string
+  studentName: string
+  studentGrade: string
+  subject: string
+  preferredTime: string
+  status: FormStatus
+  submittedAt: string
+  reviewedAt?: string
 }
 
 /** Result of any action — every action returns one so the UI can always show feedback. */

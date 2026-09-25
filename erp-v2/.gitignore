@@ -32,6 +32,10 @@ yarn-error.log*
 
 # env files (can opt-in for committing if needed)
 .env*
+!.env.local.example
+
+# local file-based store for the LINE Inbox webhook demo (real message content — never commit)
+/.data
 
 # vercel
 .vercel

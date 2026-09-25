@@ -3,7 +3,7 @@
 import { addDays, fromMinutes, nextWeekday, toDateStr, weekdayOf } from "@/domain/dates"
 import { generateSessions } from "@/domain/rules/scheduling"
 import type {
-  AppNotification, Attendance, Branch, Course, Entitlement, Family, Holiday, Invoice, Klass, LessonSummary,
+  AppNotification, Attendance, Branch, ChatMessage, Conversation, Course, Entitlement, Family, Holiday, Invoice, Klass, Lead, LessonSummary,
   Package, Session, Staff, Student, Weekday,
 } from "@/domain/types"
 
@@ -21,6 +21,9 @@ export interface DB {
   students: Student[]
   entitlements: Entitlement[]
   invoices: Invoice[]
+  leads: Lead[]
+  conversations: Conversation[]
+  messages: ChatMessage[]
   notifications: AppNotification[]
 }
 
@@ -43,6 +46,7 @@ export function buildSeed(now = new Date()): DB {
       hours: wk("09:00", "20:00"), subjects: ["คณิต", "อังกฤษ", "วิทย์"], grades: ["ป.4", "ป.5", "ป.6", "ม.1", "ม.2", "ม.3"],
       defaultSessionMinutes: 60, busFeePerLeg: 150, breaks: { 0: [], 1: [], 2: [], 3: [], 4: [], 5: [], 6: [{ start: "12:00", end: "13:00", label: "พักกลางวัน" }] }, specialPeriods: [], fees: [], promotions: [],
       bankAccount: { bank: "กสิกรไทย", name: "บจก. นกอะคาเดมี่", number: "123-4-56789-0" }, lineOaConnected: true,
+      lineOa: { channelId: "1657800001", botBasicId: "@nockacademy", addFriendUrl: "https://lin.ee/p4w3XA7" },
     },
     {
       id: "br_ari", code: "ARI", name: "อารีย์", brand: "liclass",
@@ -50,6 +54,7 @@ export function buildSeed(now = new Date()): DB {
       hours: wk("10:00", "19:00", [0, 1]), subjects: ["คณิต", "อังกฤษ"], grades: ["ป.1", "ป.2", "ป.3", "ป.4", "ป.5", "ป.6"],
       defaultSessionMinutes: 90, busFeePerLeg: 120, breaks: { 0: [], 1: [], 2: [], 3: [], 4: [], 5: [], 6: [{ start: "12:00", end: "13:00", label: "พักกลางวัน" }] }, specialPeriods: [], fees: [], promotions: [],
       bankAccount: { bank: "ไทยพาณิชย์", name: "บจก. ลิคลาส เอดูเคชั่น", number: "987-6-54321-0" }, lineOaConnected: false,
+      lineOa: { channelId: "", botBasicId: "", addFriendUrl: "" },
     },
   ]
 
@@ -199,6 +204,52 @@ export function buildSeed(now = new Date()): DB {
   )
 
   const iso = (d: string) => new Date(`${d}T10:00:00`).toISOString()
+
+  const lead = (id: string, name: string, childGrade: string, subject: string, source: Lead["source"], stage: Lead["stage"], daysBack: number, assigneeId: string | null, phone: string, lineId: string, extra: Partial<Lead> = {}): Lead =>
+    ({ id, branchId: "br_thl", name, childGrade, subject, source, stage, assigneeId, phone, lineId, createdAt: iso(addDays(today, -daysBack)), notes: [], convertedStudentId: null, ...extra })
+  const leads: Lead[] = [
+    lead("ld_1", "คุณแม่นุ่น เจริญวงศ์", "ป.3", "คณิต", "line", "new", 1, "u_ploy", "089-100-1001", "@noon_mom"),
+    lead("ld_2", "คุณพ่อวิโรจน์ บัวขาว", "ป.6", "อังกฤษ", "walkin", "contacting", 3, "u_ploy", "089-100-1002", "@wiroj_dad"),
+    lead("ld_3", "คุณแม่พัชรา สมใจ", "ป.5", "วิทย์", "website", "test_scheduled", 2, "u_ton", "089-100-1003", "@pat_mom", { scheduledAt: iso(addDays(today, 3)) }),
+    lead("ld_4", "คุณแม่เลนา ฟิชเชอร์", "ป.4", "อังกฤษ", "referral", "trialed", 5, "u_ploy", "089-100-1004", "@lena_mom"),
+    lead("ld_5", "คุณพ่อเบน นากามูระ", "ป.4", "อังกฤษ", "referral", "payment_pending", 2, "u_ploy", "089-100-1005", "@ben_dad"),
+    lead("ld_6", "คุณแม่กิ่งแก้ว มั่งมี", "ม.1", "คณิต", "line", "trial_scheduled", 1, "u_ton", "089-100-1006", "@king_mom", { scheduledAt: iso(addDays(today, 1)) }),
+    lead("ld_7", "คุณแม่ดาว รุ่งโรจน์", "ป.6", "วิทย์", "website", "enrolled", 10, "u_ploy", "089-100-1007", "@dao_mom"),
+    lead("ld_8", "คริส เบเกอร์", "ป.5", "คณิต", "website", "archived", 20, null, "081-000-0008", "", { archivedFrom: "test_scheduled", archiveReason: "ไม่ตอบกลับหลังนัดสอบ 2 สัปดาห์" }),
+    lead("ld_9", "แอนนา ไวท์", "ป.3", "อังกฤษ", "walkin", "archived", 14, null, "081-000-0009", "", { archivedFrom: "contacting", archiveReason: "ย้ายไปเรียนที่อื่นแล้ว" }),
+  ]
+
+  const isoAt = (daysBack: number, h: number, m: number) => {
+    const d = new Date(`${addDays(today, -daysBack)}T00:00:00`)
+    d.setHours(h, m, 0, 0)
+    return d.toISOString()
+  }
+  const conversations: Conversation[] = [
+    { id: "cv_1", branchId: "br_thl", name: "ครอบครัวสุขใจ", familyId: "fa_1", leadId: null, channel: "line", assigneeId: "u_ploy", lastMessageAt: isoAt(0, 9, 15), unread: true },
+    { id: "cv_2", branchId: "br_thl", name: "คุณพ่อวิโรจน์ บัวขาว", familyId: null, leadId: "ld_2", channel: "line", assigneeId: "u_ploy", lastMessageAt: isoAt(0, 8, 40), unread: true },
+    { id: "cv_3", branchId: "br_thl", name: "ครอบครัวทองดี", familyId: "fa_2", leadId: null, channel: "line", assigneeId: "u_ton", lastMessageAt: isoAt(1, 16, 0), unread: false },
+    { id: "cv_4", branchId: "br_thl", name: "คุณสมชาย (สอบถามทั่วไป)", familyId: null, leadId: null, channel: "phone", assigneeId: null, lastMessageAt: isoAt(2, 11, 0), unread: false },
+  ]
+  const msg = (id: string, conversationId: string, author: ChatMessage["author"], senderId: string | null, text: string, daysBack: number, h: number, m: number): ChatMessage =>
+    ({ id, conversationId, author, senderId, text, at: isoAt(daysBack, h, m) })
+  const messages: ChatMessage[] = [
+    // cv_1 — customer (fa_1 → ใบเตย/ภูผา)
+    msg("m_1a", "cv_1", "parent", null, "สวัสดีค่ะ อยากสอบถามว่าใบเตยเหลือกี่คาบคะ", 1, 14, 0),
+    msg("m_1b", "cv_1", "staff", "u_ploy", "สวัสดีค่ะ เดี๋ยวเช็คให้นะคะ", 1, 14, 5),
+    msg("m_1c", "cv_1", "internal", "u_ploy", "แม่ใบเตยถามยอดคงเหลือ — เช็ค entitlement ให้ด้วย", 1, 14, 6),
+    msg("m_1d", "cv_1", "parent", null, "ขอบคุณค่ะ รอฟังนะคะ", 0, 9, 15),
+    // cv_2 — lead (ld_2)
+    msg("m_2a", "cv_2", "parent", null, "สวัสดีครับ ลูกชายอยู่ ป.6 สนใจ อังกฤษ ครับ", 3, 14, 0),
+    msg("m_2b", "cv_2", "staff", "u_ploy", "สวัสดีครับ! มีคอร์สอังกฤษ ป.6 พอดีครับ สนใจทดลองเรียนไหมครับ", 3, 14, 20),
+    msg("m_2c", "cv_2", "parent", null, "สนใจครับ ขอราคาด้วยครับ", 0, 8, 40),
+    // cv_3 — customer (fa_2), already read
+    msg("m_3a", "cv_3", "parent", null, "น้ำใสขอลาวันพุธหน้าค่ะ ไม่สบาย", 1, 15, 50),
+    msg("m_3b", "cv_3", "staff", "u_ton", "รับทราบค่ะ พักผ่อนเยอะๆนะคะ", 1, 16, 0),
+    // cv_4 — plain contact, unassigned
+    msg("m_4a", "cv_4", "parent", null, "สวัสดีครับ อยากทราบว่ามีสาขาอารีย์ไหมครับ", 2, 10, 50),
+    msg("m_4b", "cv_4", "staff", "u_ploy", "มีครับ อยู่สาขาอารีย์เลยครับ ติดต่อได้ตามเบอร์สาขานะครับ", 2, 11, 0),
+  ]
+
   const ym = today.slice(2, 4) + today.slice(5, 7)
   const invoices: Invoice[] = [
     {
@@ -220,5 +271,5 @@ export function buildSeed(now = new Date()): DB {
     },
   ]
 
-  return { branches, staff, holidays, packages, courses, classes, sessions, attendance, summaries, families, students, entitlements, invoices, notifications: [] }
+  return { branches, staff, holidays, packages, courses, classes, sessions, attendance, summaries, families, students, entitlements, invoices, leads, conversations, messages, notifications: [] }
 }

@@ -1,13 +1,13 @@
 "use client"
 
-import { useState } from "react"
-import { PlusIcon, TrashIcon } from "lucide-react"
+import { useEffect, useState, type Dispatch, type SetStateAction } from "react"
+import { CheckCircle2Icon, CopyIcon, LoaderCircleIcon, PlusIcon, ShieldAlertIcon, TrashIcon, UploadIcon, XIcon } from "lucide-react"
 import { Pill } from "@/components/app/badges"
 import { Field } from "@/components/app/student-form"
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Input } from "@/components/ui/input"
-import { Switch } from "@/components/ui/switch"
 import { fmtDate, TH_DAYS_FULL, toDateStr } from "@/domain/dates"
 import { holidayImpact } from "@/domain/rules/scheduling"
 import type { Branch, Weekday } from "@/domain/types"
@@ -79,12 +79,7 @@ function BranchSettings({ branch }: { branch: Branch }) {
         </div>
       </Section>
 
-      <Section title="LINE Official Account">
-        <label className="flex items-center gap-3 text-sm">
-          <Switch checked={b.lineOaConnected} onCheckedChange={(v) => setB({ ...b, lineOaConnected: v })} />
-          {b.lineOaConnected ? "เชื่อมแล้ว — ส่งใบแจ้งหนี้/ใบเสร็จ/สรุปการเรียนทาง LINE ได้" : "ยังไม่เชื่อม — ผู้ปกครองสาขานี้ผูก LINE ไม่ได้"}
-        </label>
-      </Section>
+      <LineIntegrationSection b={b} setB={setB} />
 
       <HolidaysSection />
 
@@ -147,6 +142,111 @@ function HolidaysSection() {
           <PlusIcon /> เพิ่มวันหยุด
         </Button>
       </div>
+    </Section>
+  )
+}
+
+interface LineStatus {
+  configured: boolean
+  connected?: boolean
+  channelId?: string
+  displayName?: string
+  basicId?: string
+  maskedToken?: string
+  error?: string
+}
+
+/** Non-secret identity (Channel ID / Bot Basic ID) stays in branch settings like everything else here.
+ *  The Channel Secret / Access Token never enter client state — they live in .env.local and this section
+ *  only reads back a status summary from the server, keyed by GET /api/line/status. */
+function LineIntegrationSection({ b, setB }: { b: Branch; setB: Dispatch<SetStateAction<Branch>> }) {
+  const [status, setStatus] = useState<LineStatus | null>(null)
+  const [loading, setLoading] = useState(true)
+  const setConnected = useStore((s) => s.setLineOaConnected)
+  const webhookUrl = typeof window !== "undefined" ? `${window.location.origin}/api/line/webhook` : "/api/line/webhook"
+  const lo = b.lineOa
+  const setLo = (patch: Partial<Branch["lineOa"]>) => setB({ ...b, lineOa: { ...lo, ...patch } })
+
+  // Writes straight to the store (not the local `b` draft) so checking status never leaves
+  // the Settings form looking "dirty" when nothing was actually edited.
+  const fetchStatus = () =>
+    fetch("/api/line/status")
+      .then((r) => r.json())
+      .then((data: LineStatus) => { setStatus(data); setConnected(b.id, !!data.connected) })
+      .catch(() => setStatus({ configured: false, error: "เรียก /api/line/status ไม่ได้" }))
+      .finally(() => setLoading(false))
+
+  // initial check on mount — loading already starts true, so nothing to set synchronously here
+  useEffect(() => { fetchStatus() }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+  const checkStatus = () => { setLoading(true); fetchStatus() }
+
+  return (
+    <Section title="LINE Integration" hint="Channel ID/Bot Basic ID เก็บไว้ที่นี่ (ไม่ลับ) — ส่วน Channel Secret/Access Token ต้องตั้งฝั่ง Server เท่านั้น ดูคำแนะนำด้านล่าง">
+      <div className="mb-3 flex flex-wrap items-center gap-2">
+        {loading ? (
+          <Pill tone="gray"><LoaderCircleIcon className="size-3 animate-spin" /> กำลังตรวจสอบ...</Pill>
+        ) : status?.connected ? (
+          <Pill tone="green"><CheckCircle2Icon className="size-3" /> เชื่อมต่อแล้ว — {status.displayName} ({status.basicId})</Pill>
+        ) : status?.configured ? (
+          <Pill tone="red">ตั้งค่าไว้แต่เชื่อมไม่สำเร็จ — {status.error}</Pill>
+        ) : (
+          <Pill tone="gray">ยังไม่ได้ตั้งค่าฝั่ง Server</Pill>
+        )}
+        {status?.maskedToken && <span className="text-xs text-muted-foreground">Token {status.maskedToken}</span>}
+        <Button type="button" size="xs" variant="ghost" onClick={checkStatus} disabled={loading}>ตรวจสอบอีกครั้ง</Button>
+      </div>
+
+      <div className="grid gap-3 sm:grid-cols-2">
+        <Field label="Channel ID"><Input value={lo.channelId} onChange={(e) => setLo({ channelId: e.target.value })} placeholder="1657800001" /></Field>
+        <Field label="Bot Basic ID"><Input value={lo.botBasicId} onChange={(e) => setLo({ botBasicId: e.target.value })} placeholder="@nockacademy" /></Field>
+        <Field label="Add-Friend URL (ขึ้นบนใบแจ้งหนี้/ใบเสร็จ)" className="sm:col-span-2">
+          <Input value={lo.addFriendUrl} onChange={(e) => setLo({ addFriendUrl: e.target.value })} placeholder="https://lin.ee/xxxxxxx" />
+        </Field>
+        <Field label="QR รูปแอดไลน์" className="sm:col-span-2">
+          <div className="flex items-center gap-3">
+            {lo.qrImageDataUrl ? (
+              <div className="relative">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={lo.qrImageDataUrl} alt="LINE QR" className="size-20 rounded-lg border object-contain" />
+                <Button type="button" size="icon-xs" variant="destructive" className="absolute -top-1.5 -right-1.5 rounded-full" aria-label="ลบ QR" onClick={() => setLo({ qrImageDataUrl: undefined })}><XIcon /></Button>
+              </div>
+            ) : (
+              <label className="flex size-20 shrink-0 cursor-pointer flex-col items-center justify-center gap-1 rounded-lg border border-dashed text-muted-foreground hover:bg-muted/50">
+                <UploadIcon className="size-4" />
+                <span className="text-[10px]">อัปโหลด</span>
+                <input type="file" accept="image/png,image/jpeg,image/webp,image/gif" className="hidden" onChange={(e) => {
+                  const file = e.target.files?.[0]
+                  if (!file) return
+                  const reader = new FileReader()
+                  reader.onload = () => setLo({ qrImageDataUrl: reader.result as string })
+                  reader.readAsDataURL(file)
+                }} />
+              </label>
+            )}
+            <p className="text-xs text-muted-foreground">PNG/JPG/WEBP/GIF — เว้นว่างได้ ถ้าเว้นว่างใบแจ้งหนี้จะไม่โชว์ QR</p>
+          </div>
+        </Field>
+        <Field label="Webhook URL (เอาไปวางใน LINE Developers Console)" className="sm:col-span-2">
+          <div className="flex gap-1.5">
+            <Input value={webhookUrl} readOnly className="font-mono text-muted-foreground" />
+            <Button type="button" size="icon" variant="outline" aria-label="คัดลอก" onClick={() => { navigator.clipboard.writeText(webhookUrl); report({ ok: true, value: undefined }, "คัดลอกแล้ว") }}><CopyIcon /></Button>
+          </div>
+        </Field>
+      </div>
+
+      <Alert className="mt-4">
+        <ShieldAlertIcon />
+        <AlertTitle>ตั้ง Channel Secret / Access Token ที่ไฟล์ .env.local เท่านั้น</AlertTitle>
+        <AlertDescription>
+          <p>เหตุผล: ค่านี้ลับมาก ส่งข้อความแทน OA คุณได้เลย — จะไม่ถูกเก็บในเบราว์เซอร์หรือ localStorage อีกต่อไป</p>
+          <ol className="mt-1.5 list-decimal space-y-0.5 pl-4">
+            <li>คัดลอก <code className="rounded bg-muted px-1">erp-v2/.env.local.example</code> เป็น <code className="rounded bg-muted px-1">.env.local</code></li>
+            <li>กรอก <code className="rounded bg-muted px-1">LINE_CHANNEL_ID</code>, <code className="rounded bg-muted px-1">LINE_CHANNEL_SECRET</code>, <code className="rounded bg-muted px-1">LINE_CHANNEL_ACCESS_TOKEN</code> จาก LINE Developers Console</li>
+            <li>บันทึกไฟล์ — หน้านี้จะขึ้น &quot;เชื่อมต่อแล้ว&quot; เองภายในไม่กี่วินาที (ไม่ต้อง restart server)</li>
+          </ol>
+        </AlertDescription>
+      </Alert>
     </Section>
   )
 }

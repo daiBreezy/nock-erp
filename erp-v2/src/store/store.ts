@@ -9,11 +9,13 @@ import { buildSeed, uid, type DB } from "@/data/seed"
 import { at, toDateStr, toMinutes, weekdayOf } from "@/domain/dates"
 import * as Att from "@/domain/rules/attendance"
 import * as Bill from "@/domain/rules/billing"
+import * as CRM from "@/domain/rules/crm"
+import * as Inbox from "@/domain/rules/inbox"
 import { can, canDeactivateStaff, require as requirePerm } from "@/domain/rules/permissions"
 import * as Sch from "@/domain/rules/scheduling"
 import * as Sum from "@/domain/rules/summaries"
 import * as People from "@/domain/rules/people"
-import type { AttendanceStatus, Branch, Course, Family, Holiday, ID, Invoice, Klass, LessonSummary, Package, Result, Session, Staff, Student } from "@/domain/types"
+import type { AttendanceStatus, Branch, ChatMessage, Conversation, Course, Family, Holiday, ID, Invoice, Klass, Lead, LeadStage, LessonSummary, Package, Result, Session, Staff, Student } from "@/domain/types"
 
 export interface UIState {
   userId: ID
@@ -53,6 +55,8 @@ type Store = DB & UIState & {
   saveCourse: (c: Course) => Result<Course>
   saveBranch: (b: Branch) => Result
   markNotificationsRead: (ids?: ID[]) => void
+  /** synced from GET /api/line/status, not a user edit — bypasses the Settings draft/save flow */
+  setLineOaConnected: (branchId: ID, connected: boolean) => void
 
   mark: (sessionId: ID, studentId: ID, status: AttendanceStatus) => Result
   clearMark: (sessionId: ID, studentId: ID) => Result
@@ -70,6 +74,24 @@ type Store = DB & UIState & {
   voidInvoice: (id: ID, reason: string) => Result
   recordPayment: (id: ID, p: { amount: number; method: "transfer" | "cash"; reference: string }) => Result
   confirmPayment: (invoiceId: ID, paymentId: ID) => Result<{ paid: boolean }>
+
+  saveLead: (l: Lead) => Result<Lead>
+  moveLeadStage: (id: ID, stage: LeadStage) => Result
+  addLeadNote: (id: ID, text: string) => Result
+  archiveLead: (id: ID, reason: string) => Result
+  convertLeadToStudent: (id: ID) => Result<{ studentId: ID }>
+
+  openConversation: (id: ID) => void
+  assignConversation: (id: ID, staffId: ID | null) => Result
+  sendChatMessage: (conversationId: ID, raw: string) => Result
+  startConversation: (input: { familyId?: ID; leadId?: ID; channel: Conversation["channel"]; text: string }) => Result<{ conversationId: ID }>
+  /** prototype only: pretend the parent replied, so the unread badge + send-flow can be demoed end to end */
+  simulateParentReply: (conversationId: ID, text?: string) => Result
+  /** upserts conversations/messages polled from the real LINE webhook (server-side store) into local state */
+  mergeLiveConversations: (conversations: Conversation[], messages: ChatMessage[]) => void
+  /** attaches an unlinked (LINE-only) conversation to an existing Family, and records that family's real LINE identity */
+  linkConversationToFamily: (conversationId: ID, familyId: ID) => Result
+  linkConversationToLead: (conversationId: ID, leadId: ID) => Result
 }
 
 const OK = { ok: true as const, value: undefined }
@@ -409,6 +431,7 @@ export const useStore = create<Store>()(
       },
 
       markNotificationsRead: (ids) => set((s) => ({ notifications: s.notifications.map((n) => (!ids || ids.includes(n.id) ? { ...n, read: true } : n)) })),
+      setLineOaConnected: (branchId, connected) => set((s) => ({ branches: s.branches.map((b) => (b.id === branchId ? { ...b, lineOaConnected: connected } : b)) })),
 
       cancelSession: (id, reason) => {
         const s = get()
@@ -626,11 +649,195 @@ export const useStore = create<Store>()(
         set({ invoices: s.invoices.map((x) => (x.id === invoiceId ? next : x)), entitlements, classes, sessions })
         return { ok: true, value: { paid } }
       },
+
+      // ---------------- CRM ----------------
+      saveLead: (l) => {
+        const s = get()
+        const perm = requirePerm(s.me(), "lead.manage")
+        if (!perm.ok) return perm
+        const err = CRM.validateLead(l)
+        if (err) return fail(err)
+        set({ leads: s.leads.some((x) => x.id === l.id) ? s.leads.map((x) => (x.id === l.id ? l : x)) : [l, ...s.leads] })
+        return { ok: true, value: l }
+      },
+
+      moveLeadStage: (id, stage) => {
+        const s = get()
+        const perm = requirePerm(s.me(), "lead.manage")
+        if (!perm.ok) return perm
+        const lead = s.leads.find((x) => x.id === id)
+        if (!lead) return fail("ไม่พบ Lead นี้")
+        const guard = CRM.canSetStage(lead.stage, stage)
+        if (!guard.ok) return guard
+        set({ leads: s.leads.map((x) => (x.id === id ? { ...x, stage } : x)) })
+        return OK
+      },
+
+      addLeadNote: (id, text) => {
+        const s = get()
+        const perm = requirePerm(s.me(), "lead.manage")
+        if (!perm.ok) return perm
+        if (!text.trim()) return fail("เขียนโน้ตก่อนบันทึก")
+        set({ leads: s.leads.map((x) => (x.id === id ? { ...x, notes: [...x.notes, { at: s.now().toISOString(), by: s.userId, text }] } : x)) })
+        return OK
+      },
+
+      archiveLead: (id, reason) => {
+        const s = get()
+        const perm = requirePerm(s.me(), "lead.manage")
+        if (!perm.ok) return perm
+        if (!reason.trim()) return fail("กรอกเหตุผลที่เก็บเข้าคลัง")
+        const lead = s.leads.find((x) => x.id === id)
+        if (!lead) return fail("ไม่พบ Lead นี้")
+        if (lead.stage === "archived") return fail("เก็บเข้าคลังไปแล้ว")
+        set({ leads: s.leads.map((x) => (x.id === id ? { ...x, stage: "archived", archivedFrom: x.stage, archiveReason: reason } : x)) })
+        return OK
+      },
+
+      convertLeadToStudent: (id) => {
+        const s = get()
+        const perm = requirePerm(s.me(), "lead.manage")
+        if (!perm.ok) return perm
+        const lead = s.leads.find((x) => x.id === id)
+        if (!lead) return fail("ไม่พบ Lead นี้")
+        if (lead.stage === "enrolled") return fail("แปลงเป็นนักเรียนไปแล้ว")
+        const student: Student = { id: uid("stu"), familyId: null, branchId: lead.branchId, name: lead.name, nickname: lead.name, grade: lead.childGrade, usesBus: false }
+        const errs = People.validateStudent(student, toDateStr(s.now()))
+        if (errs.length) return fail(errs[0].message)
+        set({
+          students: [...s.students, student],
+          leads: s.leads.map((x) => (x.id === id ? { ...x, stage: "enrolled", convertedStudentId: student.id } : x)),
+        })
+        return { ok: true, value: { studentId: student.id } }
+      },
+
+      // ---------------- Inbox ----------------
+      openConversation: (id) => set((s) => ({ conversations: s.conversations.map((c) => (c.id === id ? { ...c, unread: false } : c)) })),
+
+      assignConversation: (id, staffId) => {
+        const s = get()
+        const perm = requirePerm(s.me(), "inbox.manage")
+        if (!perm.ok) return perm
+        set({ conversations: s.conversations.map((c) => (c.id === id ? { ...c, assigneeId: staffId } : c)) })
+        return OK
+      },
+
+      sendChatMessage: (conversationId, raw) => {
+        const s = get()
+        const perm = requirePerm(s.me(), "inbox.manage")
+        if (!perm.ok) return perm
+        const { isNote, text } = Inbox.parseComposerInput(raw)
+        if (!text) return fail("พิมพ์ข้อความก่อน")
+        const conv = s.conversations.find((c) => c.id === conversationId)
+        if (!conv) return fail("ไม่พบบทสนทนานี้")
+        const at = s.now().toISOString()
+        const author: "internal" | "staff" = isNote ? "internal" : "staff"
+        const message = { id: uid("msg"), conversationId, author, senderId: s.userId, text, at }
+        set({
+          messages: [...s.messages, message],
+          conversations: s.conversations.map((c) => (c.id === conversationId ? { ...c, lastMessageAt: at } : c)),
+        })
+        return OK
+      },
+
+      startConversation: (input) => {
+        const s = get()
+        const perm = requirePerm(s.me(), "inbox.manage")
+        if (!perm.ok) return perm
+        if (!input.text.trim()) return fail("พิมพ์ข้อความก่อน")
+        if (!input.familyId && !input.leadId) return fail("เลือกครอบครัวหรือ Lead ก่อน")
+        const existing = s.conversations.find((c) => (input.familyId && c.familyId === input.familyId) || (input.leadId && c.leadId === input.leadId))
+        const at = s.now().toISOString()
+        const family = input.familyId ? s.families.find((f) => f.id === input.familyId) : undefined
+        const lead = input.leadId ? s.leads.find((l) => l.id === input.leadId) : undefined
+        const branchId = family ? s.students.find((st) => st.familyId === family.id)?.branchId ?? s.branchId : (lead?.branchId ?? s.branchId)
+        const conv: Conversation = existing ?? {
+          id: uid("cv"), branchId, name: family?.name ?? lead?.name ?? "บทสนทนาใหม่",
+          familyId: input.familyId ?? null, leadId: input.leadId ?? null, channel: input.channel, assigneeId: s.userId, lastMessageAt: at, unread: false,
+        }
+        const message = { id: uid("msg"), conversationId: conv.id, author: "staff" as const, senderId: s.userId, text: input.text, at }
+        set({
+          conversations: existing ? s.conversations.map((c) => (c.id === conv.id ? { ...c, lastMessageAt: at } : c)) : [conv, ...s.conversations],
+          messages: [...s.messages, message],
+        })
+        return { ok: true, value: { conversationId: conv.id } }
+      },
+
+      simulateParentReply: (conversationId, text) => {
+        const s = get()
+        const conv = s.conversations.find((c) => c.id === conversationId)
+        if (!conv) return fail("ไม่พบบทสนทนานี้")
+        const at = s.now().toISOString()
+        const message = { id: uid("msg"), conversationId, author: "parent" as const, senderId: null, text: text?.trim() || "ขอบคุณค่ะ/ครับ", at }
+        set({
+          messages: [...s.messages, message],
+          conversations: s.conversations.map((c) => (c.id === conversationId ? { ...c, lastMessageAt: at, unread: true } : c)),
+        })
+        return OK
+      },
+
+      mergeLiveConversations: (conversations, messages) => {
+        const s = get()
+        const convMap = new Map(s.conversations.map((c) => [c.id, c] as const))
+        let changed = false
+        conversations.forEach((server) => {
+          const local = convMap.get(server.id)
+          if (local) {
+            // the server only knows raw LINE state (unread/lastMessageAt) — familyId/leadId/assigneeId/name
+            // are business data linked locally (see linkConversationToFamily) and must survive every poll
+            if (local.unread !== server.unread || local.lastMessageAt !== server.lastMessageAt) {
+              convMap.set(server.id, { ...local, unread: server.unread, lastMessageAt: server.lastMessageAt })
+              changed = true
+            }
+          } else {
+            convMap.set(server.id, { ...server, branchId: s.branchId })
+            changed = true
+          }
+        })
+        const seen = new Set(s.messages.map((m) => m.id))
+        const fresh = messages.filter((m) => !seen.has(m.id))
+        if (!fresh.length && !changed) return
+        set({ conversations: Array.from(convMap.values()), messages: fresh.length ? [...s.messages, ...fresh] : s.messages })
+      },
+
+      linkConversationToFamily: (conversationId, familyId) => {
+        const s = get()
+        const perm = requirePerm(s.me(), "inbox.manage")
+        if (!perm.ok) return perm
+        const conv = s.conversations.find((c) => c.id === conversationId)
+        if (!conv) return fail("ไม่พบบทสนทนานี้")
+        const family = s.families.find((f) => f.id === familyId)
+        if (!family) return fail("ไม่พบครอบครัวนี้")
+        const lineUserId = conversationId.startsWith("line_") ? conversationId.slice(5) : undefined
+        set({
+          conversations: s.conversations.map((c) => (c.id === conversationId ? { ...c, familyId, leadId: null, name: family.name } : c)),
+          families: lineUserId
+            ? s.families.map((f) => (f.id === familyId ? { ...f, lineUserId, parents: f.parents.map((p, i) => (i === 0 ? { ...p, lineLinked: true } : p)) } : f))
+            : s.families,
+        })
+        return OK
+      },
+
+      linkConversationToLead: (conversationId, leadId) => {
+        const s = get()
+        const perm = requirePerm(s.me(), "inbox.manage")
+        if (!perm.ok) return perm
+        const conv = s.conversations.find((c) => c.id === conversationId)
+        if (!conv) return fail("ไม่พบบทสนทนานี้")
+        const lead = s.leads.find((l) => l.id === leadId)
+        if (!lead) return fail("ไม่พบ Lead นี้")
+        const lineUserId = conversationId.startsWith("line_") ? conversationId.slice(5) : undefined
+        set({
+          conversations: s.conversations.map((c) => (c.id === conversationId ? { ...c, leadId, familyId: null, name: lead.name } : c)),
+          leads: lineUserId ? s.leads.map((l) => (l.id === leadId ? { ...l, lineUserId } : l)) : s.leads,
+        })
+        return OK
+      },
     }),
     {
       name: "nockerp-v2",
       // bump when the data model changes; older saved data is replaced by fresh sample data
-      version: 7,
+      version: 13,
       migrate: () => ({ ...buildSeed(), userId: "u_nock", branchId: "br_thl", clockOffset: 0 }) as unknown as Store,
       // persist data + UI state only, never the action functions
       partialize: (s) => Object.fromEntries(Object.entries(s).filter(([, v]) => typeof v !== "function")) as Partial<Store>,
