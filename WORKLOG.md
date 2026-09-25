@@ -66,10 +66,12 @@
 - erp-v2 มี **ชั้น server บางๆ แล้ว** (Next.js API routes + ไฟล์ JSON ใต้ `.data/`) — เกินขอบเขตเดิมที่ตกลงว่า "ไม่ต่อ Database จริง" นิดหน่อย แต่จำเป็นสำหรับ Inbox/Form ที่ต้องรับข้อมูลจากคนนอก (ไม่ใช่แค่ demo ในเบราว์เซอร์เดียว) — ยังไม่ใช่ Database จริง แค่ไฟล์ ไม่มี auth/schema
 - ทดสอบผ่าน **localtunnel** (`npx localtunnel`) ชั่วคราว — URL เปลี่ยนทุกครั้งที่ restart ต้องอัปเดต Webhook URL ใน LINE Console ใหม่ทุกครั้ง (เจอ tunnel ตายเงียบมาแล้ว 1 ครั้งระหว่างทดสอบ) — **ถ้าจะใช้ต่อเนื่องจริงต้อง deploy จริง** (Vercel เป็นต้น) ไม่ใช่ tunnel
 - ใช้ **LINE Login channel แยกต่างหาก** สำหรับ LIFF (ชื่อ "NockERP Forms") เพราะ LINE เปลี่ยนนโยบายแล้ว — เพิ่ม LIFF เข้า Messaging API channel ตรงๆ ไม่ได้อีกต่อไป
+- **เลิกใช้ localtunnel เปลี่ยนเป็น `cloudflared` (quick tunnel, ฟรี ไม่ต้องสมัคร)** — เจอบั๊กจริง: localtunnel มีหน้า "Tunnel website ahead!" (ต้องพิมพ์ IP ยืนยันก่อนเข้า) โผล่ให้ browser จริงทุกตัวที่เข้าเว็บ (ผู้ปกครองเปิดลิงก์ผ่าน LINE ก็จะเจอหน้านี้ก่อน) — เจอตอนเทส `/liff/form` จริง จึงสลับ tunnel ทั้งระบบ (webhook + LIFF endpoint) ไปที่ `cloudflared` แทน ไม่มีหน้าเตือนแบบนี้
 
 **เหลือทำ (TODO):**
-- [ ] สร้าง LIFF app ใน LINE Console ให้เสร็จ (ทำค้างอยู่ตอนสั่ง push) แล้วใส่ `NEXT_PUBLIC_LIFF_ID` ใน `.env.local`
-- [ ] ทดสอบฟอร์ม Test/Trial แบบ end-to-end จริงจากมือถือ (เปิดลิงก์ที่ส่งจาก LeadSheet ผ่าน LINE)
+- [x] ~~สร้าง LIFF app ใน LINE Console~~ ✅ เสร็จ (LIFF ID `2011740783-OinXaLm7` ใส่ใน `.env.local` แล้ว) — อัปเดต Endpoint URL + Webhook URL เป็น cloudflared URL แล้วทั้งคู่ verify ผ่าน
+- [ ] ทดสอบฟอร์ม Test/Trial แบบ end-to-end จริงจากมือถือ (เปิดลิงก์ที่ส่งจาก LeadSheet ผ่าน LINE) — ยังไม่ได้ทดสอบจากมือถือจริง รอเจ้าของลอง
+- [ ] cloudflared quick tunnel URL เปลี่ยนทุกครั้งที่ restart เหมือน localtunnel — ต้องอัปเดต Webhook URL + LIFF Endpoint URL ใน LINE Console ใหม่ทุกครั้งที่ restart เครื่อง/tunnel ตาย (ยังไม่ได้ทำ named tunnel แบบถาวร)
 - [ ] Enroll/Billing form (ตามที่ตกลงไว้ว่าจะทำ Test/Trial ก่อน) — ต้องต่อกับ Billing จริงที่มีอยู่แล้ว (ไม่ใช่สร้าง invoice แยกแบบของเก่า)
 - [ ] ผูก Student โดยตรง (ตอนนี้ผูกได้แค่ Family จาก Inbox แล้วต้องไปเพิ่มลูกที่หน้าครอบครัวแยก)
 - [ ] Reports/Tasks/Logs (Phase 2 ที่เหลือ ตามลำดับเดิมใน log ก่อนหน้า)
