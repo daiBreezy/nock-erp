@@ -1,6 +1,7 @@
 "use client"
 
-import { useMemo, useState } from "react"
+import { Suspense, useMemo, useState } from "react"
+import { useSearchParams } from "next/navigation"
 import { AlertTriangleIcon, ChevronLeftIcon, ChevronRightIcon, PalmtreeIcon, PlusIcon } from "lucide-react"
 import { Pill, SessionStateBadge } from "@/components/app/badges"
 import { ClassDialog, type ClassPrefill } from "@/components/app/class-dialog"
@@ -28,7 +29,7 @@ const DAY_END = 21 * 60
 
 const mondayOf = (d: DateStr) => addDays(d, -((weekdayOf(d) + 6) % 7))
 
-export default function CalendarPage() {
+function CalendarView() {
   const now = useNow()
   const today = toDateStr(now)
   const branch = useBranch()
@@ -40,12 +41,16 @@ export default function CalendarPage() {
   const attendance = useStore((s) => s.attendance)
   const summaries = useStore((s) => s.summaries)
 
+  // deep link from elsewhere (e.g. "ดูในปฏิทิน" on an approved Test/Trial submission) — jump
+  // straight to that session's day and open it, read once at mount via lazy initializers
+  const linkedSession = useSearchParams().get("sessionId")
+
   const [view, setView] = useState<View>("day")
-  const [anchor, setAnchor] = useState(today)
+  const [anchor, setAnchor] = useState(() => (linkedSession && allSessions.find((x) => x.id === linkedSession)?.date) || today)
   const [lane, setLane] = useState<"room" | "teacher">("teacher")
   const [teacher, setTeacher] = useState(seesAllSessions(me) ? "all" : me.id)
   const [subject, setSubject] = useState("all")
-  const [openId, setOpenId] = useState<string | null>(null)
+  const [openId, setOpenId] = useState<string | null>(() => (linkedSession && allSessions.some((x) => x.id === linkedSession) ? linkedSession : null))
   const [prefill, setPrefill] = useState<ClassPrefill | null>(null)
   const [moving, setMoving] = useState<{ id: string; target: MoveTarget } | null>(null)
   const [workFilter, setWorkFilter] = useState<WorkState | null>(null)
@@ -204,6 +209,14 @@ export default function CalendarPage() {
       {prefill && <ClassDialog prefill={prefill} onClose={() => setPrefill(null)} />}
       {moving && <MoveDialog sessionId={moving.id} target={moving.target} onClose={() => setMoving(null)} />}
     </div>
+  )
+}
+
+export default function CalendarPage() {
+  return (
+    <Suspense fallback={null}>
+      <CalendarView />
+    </Suspense>
   )
 }
 

@@ -1,7 +1,8 @@
 "use client"
 
 import { useState } from "react"
-import { CheckIcon, PencilIcon, XIcon } from "lucide-react"
+import Link from "next/link"
+import { CalendarIcon, CheckIcon, PencilIcon, XIcon } from "lucide-react"
 import { Pill, type Tone } from "@/components/app/badges"
 import { Button } from "@/components/ui/button"
 import { FORM_TYPE_LABEL } from "@/domain/rules/forms"
@@ -71,7 +72,14 @@ export function SubmissionReviewCard({ submission: sub, onChanged }: { submissio
         <div>นักเรียน: {sub.studentName} · {sub.studentGrade}</div>
         <div>{sub.chosenSubject} · {sub.chosenSlot.date} {sub.chosenSlot.start} น. {sub.chosenSlot.source === "class" ? "(คลาสเดิม)" : ""}</div>
       </div>
-      <div className="mt-1.5"><Pill tone={STATUS_TONE[sub.status]}>{STATUS_LABEL[sub.status]}</Pill></div>
+      <div className="mt-1.5 flex items-center gap-2">
+        <Pill tone={STATUS_TONE[sub.status]}>{STATUS_LABEL[sub.status]}</Pill>
+        {sub.status === "approved" && sub.createdSessionId && (
+          <Link href={`/calendar?sessionId=${sub.createdSessionId}`} className="inline-flex items-center gap-1 text-xs text-sky-700 hover:underline">
+            <CalendarIcon className="size-3" /> ดูในปฏิทิน
+          </Link>
+        )}
+      </div>
 
       {sub.status === "pending" && !editing && (
         <div className="mt-2 flex gap-1.5">
