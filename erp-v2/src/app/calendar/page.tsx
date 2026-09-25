@@ -40,6 +40,7 @@ function CalendarView() {
   const classes = useStore((s) => s.classes)
   const attendance = useStore((s) => s.attendance)
   const summaries = useStore((s) => s.summaries)
+  const leaves = useStore((s) => s.leaves)
 
   // deep link from elsewhere (e.g. "ดูในปฏิทิน" on an approved Test/Trial submission) — jump
   // straight to that session's day and open it, read once at mount via lazy initializers
@@ -132,7 +133,7 @@ function CalendarView() {
     workCounts[w] = (workCounts[w] ?? 0) + 1
   })
   const cardData: CardData = {
-    now, attendance, summaries, classes, staff, conflictMsg,
+    now, attendance, summaries, classes, staff, leaves, conflictMsg,
     dim: (s) => !!workFilter && workState(s, now, attendance, summaries).state !== workFilter,
     draggable: cardProps.canMove,
     onOpen: setOpenId,

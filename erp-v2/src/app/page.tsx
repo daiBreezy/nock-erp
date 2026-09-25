@@ -11,7 +11,7 @@ import * as Att from "@/domain/rules/attendance"
 import { canApprove as canApproveInvoice } from "@/domain/rules/billing"
 import { can, seesAllSessions } from "@/domain/rules/permissions"
 import { findConflicts, sessionState } from "@/domain/rules/scheduling"
-import { useBranch, useLookup, useNow } from "@/lib/hooks"
+import { useBranch, useEntitlements, useLookup, useNow } from "@/lib/hooks"
 import { cn } from "@/lib/utils"
 import { useStore } from "@/store/store"
 
@@ -24,7 +24,7 @@ export default function TodayPage() {
   const attendance = useStore((s) => s.attendance)
   const summaries = useStore((s) => s.summaries)
   const invoices = useStore((s) => s.invoices)
-  const entitlements = useStore((s) => s.entitlements)
+  const entitlements = useEntitlements()
   const staff = useStore((s) => s.staff)
   const students = useStore((s) => s.students)
   const L = useLookup()

@@ -11,7 +11,7 @@ import { fmtDate, fmtDateTime, fmtMoney, monthKey, toDateStr } from "@/domain/da
 import * as Att from "@/domain/rules/attendance"
 import { invoiceTotals } from "@/domain/rules/billing"
 import { LEAD_STAGE_LABEL } from "@/domain/rules/crm"
-import { useBranch, useNow } from "@/lib/hooks"
+import { useBranch, useEntitlements, useNow } from "@/lib/hooks"
 import { cn } from "@/lib/utils"
 import { useStore } from "@/store/store"
 
@@ -21,7 +21,7 @@ export default function DashboardPage() {
   const branch = useBranch()
   const me = useStore((s) => s.staff.find((x) => x.id === s.userId)!)
   const students = useStore((s) => s.students).filter((x) => x.branchId === branch.id)
-  const entitlements = useStore((s) => s.entitlements)
+  const entitlements = useEntitlements()
   const sessions = useStore((s) => s.sessions)
   const attendance = useStore((s) => s.attendance)
   const invoices = useStore((s) => s.invoices).filter((x) => x.branchId === branch.id)

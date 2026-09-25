@@ -8,7 +8,7 @@ import * as Att from "@/domain/rules/attendance"
 import { canApprove } from "@/domain/rules/billing"
 import { can, seesAllSessions } from "@/domain/rules/permissions"
 import { workState } from "@/domain/rules/scheduling"
-import { useBranch, useNow } from "@/lib/hooks"
+import { useBranch, useEntitlements, useNow } from "@/lib/hooks"
 import { cn } from "@/lib/utils"
 import { useStore } from "@/store/store"
 
@@ -31,6 +31,7 @@ export default function NotificationsPage() {
   const branch = useBranch()
   const me = useStore((s) => s.staff.find((x) => x.id === s.userId)!)
   const s = useStore()
+  const entitlements = useEntitlements()
   const mineOnly = !seesAllSessions(me)
 
   const alerts: Alert[] = []
@@ -54,7 +55,7 @@ export default function NotificationsPage() {
     const noTeacher = s.sessions.filter((x) => x.branchId === branch.id && !x.cancelled && x.date >= today && x.date <= addDays(today, 7) && !s.staff.find((t) => t.id === x.teacherId)?.active)
     if (noTeacher.length) alerts.push({ key: "nt", icon: UserXIcon, tone: "text-amber-600", title: `${noTeacher.length} คาบใน 7 วันยังไม่มีครู`, detail: noTeacher.slice(0, 3).map((x) => `${fmtDate(x.date, { weekday: true })} ${x.start}`).join(" · "), href: "/calendar" })
     // F4: session packs running low, subscriptions expiring — each a renewal opportunity
-    s.entitlements.forEach((e) => {
+    entitlements.forEach((e) => {
       const stu = s.students.find((x) => x.id === e.studentId)
       if (!stu || stu.branchId !== branch.id || e.to < today) return
       const msg = Att.lowBalanceAlert(e, Att.balance(e, s.sessions, s.attendance), today)
@@ -62,7 +63,11 @@ export default function NotificationsPage() {
     })
   }
 
-  const history = s.notifications.filter((n) => n.roles.some((r) => me.roles.includes(r)))
+  const history = s.notifications.filter(
+    (n) =>
+      (n.roles.some((r) => me.roles.includes(r)) && (!n.branchId || me.roles.includes("director") || me.branchIds.includes(n.branchId))) ||
+      n.staffIds?.includes(me.id),
+  )
   const unread = history.filter((n) => !n.read)
 
   return (

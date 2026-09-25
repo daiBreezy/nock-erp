@@ -13,8 +13,8 @@ export const TONE = {
 } as const
 export type Tone = keyof typeof TONE
 
-export function Pill({ tone = "gray", children, className }: { tone?: Tone; children: React.ReactNode; className?: string }) {
-  return <span className={cn("inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium whitespace-nowrap", TONE[tone], className)}>{children}</span>
+export function Pill({ tone = "gray", children, className, title }: { tone?: Tone; children: React.ReactNode; className?: string; title?: string }) {
+  return <span title={title} className={cn("inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium whitespace-nowrap", TONE[tone], className)}>{children}</span>
 }
 
 const STATE_TONE: Record<SessionState, Tone> = { upcoming: "blue", live: "green", ended: "gray", closed: "gray", cancelled: "red" }

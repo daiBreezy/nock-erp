@@ -4,7 +4,7 @@ import { addDays, fromMinutes, nextWeekday, toDateStr, weekdayOf } from "@/domai
 import { generateSessions } from "@/domain/rules/scheduling"
 import type {
   AppNotification, Attendance, Branch, ChatMessage, Conversation, Course, Entitlement, Family, Holiday, Invoice, Klass, Lead, LessonSummary,
-  Package, Session, Staff, Student, Weekday,
+  Package, Session, Staff, Student, StudentLeave, Weekday,
 } from "@/domain/types"
 
 export interface DB {
@@ -20,6 +20,7 @@ export interface DB {
   families: Family[]
   students: Student[]
   entitlements: Entitlement[]
+  leaves: StudentLeave[]
   invoices: Invoice[]
   leads: Lead[]
   conversations: Conversation[]
@@ -271,5 +272,5 @@ export function buildSeed(now = new Date()): DB {
     },
   ]
 
-  return { branches, staff, holidays, packages, courses, classes, sessions, attendance, summaries, families, students, entitlements, invoices, leads, conversations, messages, notifications: [] }
+  return { branches, staff, holidays, packages, courses, classes, sessions, attendance, summaries, families, students, entitlements, leaves: [], invoices, leads, conversations, messages, notifications: [] }
 }

@@ -13,7 +13,7 @@ import { toDateStr } from "@/domain/dates"
 import * as Att from "@/domain/rules/attendance"
 import { can } from "@/domain/rules/permissions"
 import type { ID } from "@/domain/types"
-import { useBranch, useNow } from "@/lib/hooks"
+import { useBranch, useEntitlements, useNow } from "@/lib/hooks"
 import { cn } from "@/lib/utils"
 import { useStore } from "@/store/store"
 import { toast } from "sonner"
@@ -25,7 +25,7 @@ export default function StudentsPage() {
   const students = useStore((s) => s.students).filter((s) => s.branchId === branch.id)
   const families = useStore((s) => s.families)
   const classes = useStore((s) => s.classes)
-  const entitlements = useStore((s) => s.entitlements)
+  const entitlements = useEntitlements()
   const sessions = useStore((s) => s.sessions)
   const attendance = useStore((s) => s.attendance)
   const [q, setQ] = useState("")

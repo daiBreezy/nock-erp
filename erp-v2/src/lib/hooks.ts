@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react"
 import { toDateStr } from "@/domain/dates"
+import { resolveEntitlements } from "@/domain/rules/attendance"
 import { useStore } from "@/store/store"
 
 /** Current (demo-adjustable) time, re-rendering every 30 s so session states update live. */
@@ -23,6 +24,13 @@ export function useBranch() {
   const branchId = useStore((s) => s.branchId)
   const branches = useStore((s) => s.branches)
   return branches.find((b) => b.id === branchId)!
+}
+
+/** Entitlements with `to` pushed out by any active no-quota leave — the one place coverage/balance/status math should read from. */
+export function useEntitlements() {
+  const ents = useStore((s) => s.entitlements)
+  const leaves = useStore((s) => s.leaves)
+  return useMemo(() => resolveEntitlements(ents, leaves), [ents, leaves])
 }
 
 export function useLookup() {

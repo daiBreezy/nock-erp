@@ -200,9 +200,19 @@ export interface Attendance {
   status: AttendanceStatus
   markedBy: ID
   markedAt: string
-  /** long leave (abroad/illness/accident) excluded from the leave quota count — remark required */
-  noQuotaLeave?: boolean
-  noQuotaReason?: string
+}
+
+/** Student-level, date-range leave (abroad/illness/accident) that doesn't count against the leave quota and pushes out affected course end dates. */
+export interface StudentLeave {
+  id: ID
+  studentId: ID
+  from: DateStr
+  to: DateStr
+  reason: string
+  createdBy: ID
+  createdAt: string
+  updatedBy?: ID
+  updatedAt?: string
 }
 
 export type SummaryStatus = "draft" | "submitted" | "changes_requested" | "approved" | "sent"
@@ -424,11 +434,15 @@ export interface Payment {
 export interface AppNotification {
   id: ID
   at: string
-  kind: "low_sessions" | "session_cancelled" | "approval_needed" | "holiday_impact" | "info" | "form_submitted"
+  kind: "low_sessions" | "session_cancelled" | "approval_needed" | "holiday_impact" | "info" | "form_submitted" | "student_leave"
   title: string
   body: string
   read: boolean
   roles: Role[]
+  /** only staff at this branch (plus director) see it — unset means org-wide, same as before this field existed */
+  branchId?: ID
+  /** also/only delivered to these specific staff regardless of role */
+  staffIds?: ID[]
 }
 
 // ---------- Parent-facing forms (Test / Trial) — server-side only, see src/server/form-store.ts ----------

@@ -18,7 +18,7 @@ import * as Sum from "@/domain/rules/summaries"
 import { SUMMARY_STATUS_LABEL } from "@/domain/rules/summaries"
 import type { AttendanceStatus, ID, LessonSummary } from "@/domain/types"
 import { report } from "@/lib/feedback"
-import { useBranch, useLookup, useNow } from "@/lib/hooks"
+import { useBranch, useEntitlements, useLookup, useNow } from "@/lib/hooks"
 import { cn } from "@/lib/utils"
 import { useStore } from "@/store/store"
 import { Pill, SessionStateBadge } from "./badges"
@@ -50,12 +50,12 @@ function Body({ id, onClose }: { id: ID; onClose: () => void }) {
   const staff = useStore((st) => st.staff)
   const attendance = useStore((st) => st.attendance)
   const summaries = useStore((st) => st.summaries)
-  const entitlements = useStore((st) => st.entitlements)
+  const entitlements = useEntitlements()
+  const leaves = useStore((st) => st.leaves)
   const courses = useStore((st) => st.courses)
   const me = useStore((st) => st.staff.find((x) => x.id === st.userId)!)
   const mark = useStore((st) => st.mark)
   const clearMark = useStore((st) => st.clearMark)
-  const setLeaveNoQuota = useStore((st) => st.setLeaveNoQuota)
   const now = useNow(10_000)
   const branch = useBranch()
   const L = useLookup()
@@ -64,8 +64,6 @@ function Body({ id, onClose }: { id: ID; onClose: () => void }) {
   const [teachersOpen, setTeachersOpen] = useState(false)
   const [adding, setAdding] = useState(false)
   const [studentOpen, setStudentOpen] = useState<string | null>(null)
-  const [noQuotaOpen, setNoQuotaOpen] = useState<string | null>(null)
-  const [noQuotaReason, setNoQuotaReason] = useState("")
 
   const conflicts = useMemo(() => (s ? findConflicts(allSessions.filter((x) => x.date === s.date), branch, staff).filter((c) => c.sessionIds.includes(s.id)) : []), [allSessions, s, branch, staff])
   if (!s) return null
@@ -74,7 +72,6 @@ function Body({ id, onClose }: { id: ID; onClose: () => void }) {
   const canManage = can(me, "session.manage")
   const mine = s.teacherId === me.id
   const canMarkHere = can(me, "attendance.mark") && (canManage || mine)
-  const canOverrideQuota = can(me, "attendance.leave_override")
 
   return (
     <>
@@ -147,8 +144,9 @@ function Body({ id, onClose }: { id: ID; onClose: () => void }) {
               const ent = Att.coveringEntitlement(sid, s, entitlements)
               const pkgName = ent ? courses.find((c) => c.id === ent.courseId)?.name : undefined
               const bal = ent && Att.balance(ent, allSessions, attendance)
+              const onLeave = Att.activeLeave(sid, s.date, leaves)
               return (
-                <li key={sid} className="flex flex-wrap items-center gap-3 p-2.5">
+                <li key={sid} className={cn("flex flex-wrap items-center gap-3 p-2.5", onLeave && "opacity-50")}>
                   <div className="min-w-0 flex-1">
                     <button onClick={() => setStudentOpen(sid)} className="truncate text-left text-sm font-medium hover:text-primary hover:underline">
                       {stu?.nickname ?? "?"} <span className="text-xs font-normal text-muted-foreground">{stu?.grade}</span>
@@ -169,6 +167,7 @@ function Body({ id, onClose }: { id: ID; onClose: () => void }) {
                       )}
                     </div>
                   </div>
+                  {onLeave && <Pill tone="violet" title={`${fmtDate(onLeave.from)} – ${fmtDate(onLeave.to)} · ${onLeave.reason}`}>ลาพักยาว</Pill>}
                   <div className="flex items-center gap-1">
                     {MARKS.map((m) => {
                       const allowed = canMarkHere && Att.canMark(s, m.status, now).ok
@@ -190,51 +189,6 @@ function Body({ id, onClose }: { id: ID; onClose: () => void }) {
                       </Button>
                     )}
                   </div>
-                  {a?.status === "leave" && (a.noQuotaLeave || canOverrideQuota) && (
-                    <div className="w-full">
-                      {a.noQuotaLeave ? (
-                        <div className="flex flex-wrap items-center gap-2">
-                          <Pill tone="violet" title={a.noQuotaReason}>ไม่หักโควตา</Pill>
-                          {canOverrideQuota && state !== "closed" && (
-                            <Button size="xs" variant="ghost" onClick={() => report(setLeaveNoQuota(s.id, sid, false), `เลิกยกเว้นโควตา ${stu?.nickname}`)}>
-                              ยกเลิก
-                            </Button>
-                          )}
-                        </div>
-                      ) : noQuotaOpen === sid ? (
-                        <div className="flex flex-wrap items-center gap-2">
-                          <Textarea
-                            rows={1}
-                            value={noQuotaReason}
-                            onChange={(e) => setNoQuotaReason(e.target.value)}
-                            placeholder="เหตุผลการลาไม่หักโควตา เช่น ไปต่างประเทศ"
-                            className="min-h-8 flex-1"
-                          />
-                          <Button size="xs" variant="ghost" onClick={() => { setNoQuotaOpen(null); setNoQuotaReason("") }}>
-                            ไม่ระบุ
-                          </Button>
-                          <Button
-                            size="xs"
-                            disabled={!noQuotaReason.trim()}
-                            onClick={() => {
-                              if (report(setLeaveNoQuota(s.id, sid, true, noQuotaReason), `${stu?.nickname}: ลาไม่หักโควตา`)) {
-                                setNoQuotaOpen(null)
-                                setNoQuotaReason("")
-                              }
-                            }}
-                          >
-                            ยืนยัน
-                          </Button>
-                        </div>
-                      ) : (
-                        state !== "closed" && (
-                          <Button size="xs" variant="ghost" onClick={() => setNoQuotaOpen(sid)}>
-                            ไม่หักโควตา (ลาระยะยาว)
-                          </Button>
-                        )
-                      )}
-                    </div>
-                  )}
                 </li>
               )
             })}
@@ -456,7 +410,7 @@ function AddStudentDialog({ id, onClose }: { id: ID; onClose: () => void }) {
   const s = useStore((st) => st.sessions.find((x) => x.id === id)!)
   const klass = useStore((st) => st.classes.find((c) => c.id === s.classId))
   const students = useStore((st) => st.students)
-  const entitlements = useStore((st) => st.entitlements)
+  const entitlements = useEntitlements()
   const add = useStore((st) => st.addStudentToSession)
   const branch = useBranch()
   const [q, setQ] = useState("")

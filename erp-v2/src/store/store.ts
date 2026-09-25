@@ -6,7 +6,7 @@
 import { create } from "zustand"
 import { persist } from "zustand/middleware"
 import { buildSeed, uid, type DB } from "@/data/seed"
-import { at, toDateStr, toMinutes, weekdayOf } from "@/domain/dates"
+import { at, fmtDate, toDateStr, toMinutes, weekdayOf } from "@/domain/dates"
 import * as Att from "@/domain/rules/attendance"
 import * as Bill from "@/domain/rules/billing"
 import * as CRM from "@/domain/rules/crm"
@@ -16,7 +16,7 @@ import * as Sch from "@/domain/rules/scheduling"
 import * as Sum from "@/domain/rules/summaries"
 import * as People from "@/domain/rules/people"
 import * as Forms from "@/domain/rules/forms"
-import type { AttendanceStatus, Branch, ChatMessage, Conversation, Course, Family, FormSubmission, Holiday, ID, Invoice, Klass, Lead, LeadStage, LessonSummary, Package, Result, Session, Staff, Student } from "@/domain/types"
+import type { AttendanceStatus, Branch, ChatMessage, Conversation, Course, DateStr, Family, FormSubmission, Holiday, ID, Invoice, Klass, Lead, LeadStage, LessonSummary, Package, Result, Session, Staff, Student } from "@/domain/types"
 
 export interface UIState {
   userId: ID
@@ -61,7 +61,7 @@ type Store = DB & UIState & {
 
   mark: (sessionId: ID, studentId: ID, status: AttendanceStatus) => Result
   clearMark: (sessionId: ID, studentId: ID) => Result
-  setLeaveNoQuota: (sessionId: ID, studentId: ID, value: boolean, reason?: string) => Result
+  saveStudentLeave: (input: { id?: ID; studentId: ID; from: DateStr; to: DateStr; reason: string }) => Result
   removeStudentFromClass: (classId: ID, studentId: ID) => Result<{ removedFrom: number }>
 
   saveSummary: (sessionId: ID, studentId: ID, text: string, submit: boolean) => Result
@@ -471,24 +471,36 @@ export const useStore = create<Store>()(
         // C5: leave beyond quota is allowed but flagged (quota rule awaiting owner confirmation)
         if (status === "leave") {
           const ent = Att.coveringEntitlement(studentId, se, s.entitlements)
-          if (ent && Att.leavesUsed(ent, s.sessions, s.attendance.filter((a) => !(a.sessionId === sessionId && a.studentId === studentId))) >= Att.leaveQuota(ent))
+          if (ent && Att.leavesUsed(ent, s.sessions, s.attendance.filter((a) => !(a.sessionId === sessionId && a.studentId === studentId)), s.leaves) >= Att.leaveQuota(ent))
             return { ok: true, value: undefined, warnings: [`ลาเกินโควตาแล้ว (โควตา ${Att.leaveQuota(ent)} ครั้ง) — แจ้งผู้ปกครองเรื่องการชดเชย`] }
         }
         return OK
       },
 
-      setLeaveNoQuota: (sessionId, studentId, value, reason) => {
+      saveStudentLeave: (input) => {
         const s = get()
         const me = s.me()
-        const a = s.attendance.find((x) => x.sessionId === sessionId && x.studentId === studentId)
-        const r = Att.canSetLeaveNoQuota(a, value, reason, me)
+        const r = Att.canSaveLeave(me, input.from, input.to, input.reason)
         if (!r.ok) return r
+        const stu = s.students.find((x) => x.id === input.studentId)
+        if (!stu) return fail("ไม่พบนักเรียน")
+        const now = s.now()
+        const editing = input.id ? s.leaves.find((l) => l.id === input.id) : undefined
+        const rec = editing
+          ? { ...editing, from: input.from, to: input.to, reason: input.reason.trim(), updatedBy: me.id, updatedAt: now.toISOString() }
+          : { id: uid("lv"), studentId: input.studentId, from: input.from, to: input.to, reason: input.reason.trim(), createdBy: me.id, createdAt: now.toISOString() }
+        const teacherIds = People.teachersOfStudent(input.studentId, s.sessions, toDateStr(now))
         set({
-          attendance: s.attendance.map((x) =>
-            x.sessionId === sessionId && x.studentId === studentId
-              ? { ...x, noQuotaLeave: value, noQuotaReason: value ? reason!.trim() : undefined }
-              : x
-          ),
+          leaves: editing ? s.leaves.map((l) => (l.id === rec.id ? rec : l)) : [rec, ...s.leaves],
+          notifications: [
+            {
+              id: uid("no"), at: now.toISOString(), kind: "student_leave",
+              title: editing ? "แก้ไขการลาไม่หักโควตา" : "บันทึกการลาไม่หักโควตา",
+              body: `${stu.nickname} ลา ${fmtDate(input.from)} – ${fmtDate(input.to)} · ${input.reason.trim()}`,
+              read: false, roles: ["manager"], branchId: stu.branchId, staffIds: teacherIds,
+            },
+            ...s.notifications,
+          ],
         })
         return OK
       },
@@ -911,7 +923,7 @@ export const useStore = create<Store>()(
     {
       name: "nockerp-v2",
       // bump when the data model changes; older saved data is replaced by fresh sample data
-      version: 14,
+      version: 15,
       migrate: () => ({ ...buildSeed(), userId: "u_nock", branchId: "br_thl", clockOffset: 0 }) as unknown as Store,
       // persist data + UI state only, never the action functions
       partialize: (s) => Object.fromEntries(Object.entries(s).filter(([, v]) => typeof v !== "function")) as Partial<Store>,

@@ -67,6 +67,13 @@ export function futureSessionsOf(teacherId: ID, sessions: Session[], today: Date
   return sessions.filter((s) => !s.cancelled && s.date >= today && teachersOf(s).includes(teacherId))
 }
 
+/** Every teacher currently teaching this student, from upcoming sessions — covers one-off/make-up sessions too, not just their entitlement's class. */
+export function teachersOfStudent(studentId: ID, sessions: Session[], today: DateStr) {
+  const ids = new Set<ID>()
+  sessions.filter((s) => !s.cancelled && s.date >= today && s.studentIds.includes(studentId)).forEach((s) => teachersOf(s).forEach((t) => ids.add(t)))
+  return [...ids]
+}
+
 const CODE_CHARS = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789" // no 0/O/1/I
 
 /** Flow E: one-time family code, valid 7 days */

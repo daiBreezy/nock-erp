@@ -1,8 +1,8 @@
 // Regression tests: each case reproduces a bug found on Dev staging and proves the rule prevents it.
 import { describe, expect, it } from "vitest"
-import type { Attendance, Branch, FormOfferSlot, Holiday, Invoice, Klass, Package, Session, Staff, Weekday } from "../types"
+import type { Attendance, Branch, FormOfferSlot, Holiday, Invoice, Klass, Package, Session, Staff, StudentLeave, Weekday } from "../types"
 import { applyClassEdit, applyToSessions, canSave, introducedConflicts, editSingleSession, findConflicts, generateSessions, moveSession, sessionState, validateClass, workState } from "./scheduling"
-import { balance, canMark, canSetLeaveNoQuota, coveringEntitlement, leavesUsed, lowBalanceAlert, removeFromClass } from "./attendance"
+import { activeLeave, balance, canMark, canSaveLeave, coveringEntitlement, effectiveTo, leavesUsed, lowBalanceAlert, removeFromClass, resolveEntitlements } from "./attendance"
 import { canApprove, canConfirmPayment, canSend, canVoid, defaultBusLegs, busTotal, nextInvoiceNumber, quoteCourse } from "./billing"
 import { can } from "./permissions"
 import * as Sum from "./summaries"
@@ -116,40 +116,55 @@ describe("attendance", () => {
     expect(lowBalanceAlert(e, balance(e, [], []), "2026-09-24")).toBeNull()
   })
 
-  describe("no-quota leave (long leave excluded from leave quota)", () => {
+  describe("student leave (long leave excluded from leave quota, extends course end dates)", () => {
     const sessions = generateSessions(klass(), [], id)
     const e = { id: "e", studentId: "a", courseId: "c", subject: "Maths", classId: "k1", invoiceId: "i", kind: "sessions" as const, from: "2026-09-01", to: "2026-12-31", sessionsTotal: 5 }
-    const leaveAtt: Attendance = { sessionId: sessions[0].id, studentId: "a", status: "leave", markedBy: "t1", markedAt: "" }
+    const leave: StudentLeave = { id: "lv1", studentId: "a", from: "2026-10-01", to: "2026-10-05", reason: "ไปต่างประเทศ", createdBy: "adm", createdAt: "" }
+    const leaveAtt: Attendance = { sessionId: sessions[0].id, studentId: "a", status: "leave", markedBy: "t1", markedAt: "" } // sessions[0] date 2026-09-29, before the leave range
 
-    it("leavesUsed excludes rows flagged noQuotaLeave", () => {
-      expect(leavesUsed(e, sessions, [leaveAtt])).toBe(1)
-      expect(leavesUsed(e, sessions, [{ ...leaveAtt, noQuotaLeave: true, noQuotaReason: "ไปต่างประเทศ" }])).toBe(0)
+    it("effectiveTo extends `to` by the leave's day-span only when the leave overlaps the entitlement's window", () => {
+      expect(effectiveTo(e, [leave])).toBe("2027-01-05") // 5 inclusive days (Oct 1-5) added to Dec 31
+      const outside = { ...leave, from: "2027-02-01", to: "2027-02-05" } // after e.to — no overlap
+      expect(effectiveTo(e, [outside])).toBe(e.to)
+      expect(effectiveTo(e, [])).toBe(e.to)
     })
 
-    it("canSetLeaveNoQuota requires an existing leave record", () => {
-      expect(canSetLeaveNoQuota(undefined, true, "ป่วยหนัก", admin).ok).toBe(false)
-      const present = { ...leaveAtt, status: "present" as const }
-      expect(canSetLeaveNoQuota(present, true, "ป่วยหนัก", admin).ok).toBe(false)
+    it("resolveEntitlements patches `to` on the matching student only", () => {
+      const other = { ...e, id: "e2", studentId: "b" }
+      const [ra, rb] = resolveEntitlements([e, other], [leave])
+      expect(ra.to).toBe("2027-01-05")
+      expect(rb.to).toBe(other.to) // unaffected student
     })
 
-    it("canSetLeaveNoQuota blocks roles without the permission (teacher)", () => {
-      expect(canSetLeaveNoQuota(leaveAtt, true, "ป่วยหนัก", teacher).ok).toBe(false)
+    it("activeLeave matches only within [from, to], inclusive", () => {
+      expect(activeLeave("a", "2026-09-30", [leave])).toBeUndefined()
+      expect(activeLeave("a", "2026-10-01", [leave])).toBe(leave)
+      expect(activeLeave("a", "2026-10-05", [leave])).toBe(leave)
+      expect(activeLeave("a", "2026-10-06", [leave])).toBeUndefined()
     })
 
-    it("canSetLeaveNoQuota requires a non-empty reason when turning the flag on", () => {
-      expect(canSetLeaveNoQuota(leaveAtt, true, "", admin).ok).toBe(false)
-      expect(canSetLeaveNoQuota(leaveAtt, true, "   ", admin).ok).toBe(false)
-      expect(canSetLeaveNoQuota(leaveAtt, true, "อุบัติเหตุ", admin).ok).toBe(true)
+    it("leavesUsed excludes a leave mark whose session date falls inside an active leave range", () => {
+      expect(leavesUsed(e, sessions, [leaveAtt])).toBe(1) // no leaves[] passed — counts normally
+      expect(leavesUsed(e, sessions, [leaveAtt], [leave])).toBe(1) // session date (Sep 29) is outside this leave's range
+      const sessInRange = { ...sessions[0], id: "s_in", date: "2026-10-01" }
+      const attInRange: Attendance = { sessionId: "s_in", studentId: "a", status: "leave", markedBy: "t1", markedAt: "" }
+      expect(leavesUsed(e, [...sessions, sessInRange], [attInRange], [leave])).toBe(0)
     })
 
-    it("Admin or Manager can approve directly — no escalation needed", () => {
-      expect(canSetLeaveNoQuota(leaveAtt, true, "ไปต่างประเทศ", admin).ok).toBe(true)
-      expect(canSetLeaveNoQuota(leaveAtt, true, "ไปต่างประเทศ", manager).ok).toBe(true)
+    it("canSaveLeave blocks roles without the permission (teacher)", () => {
+      expect(canSaveLeave(teacher, "2026-10-01", "2026-10-05", "ป่วยหนัก").ok).toBe(false)
     })
 
-    it("turning the flag off never requires a reason", () => {
-      const flagged = { ...leaveAtt, noQuotaLeave: true, noQuotaReason: "ไปต่างประเทศ" }
-      expect(canSetLeaveNoQuota(flagged, false, undefined, admin).ok).toBe(true)
+    it("canSaveLeave requires a valid date range and a non-empty reason", () => {
+      expect(canSaveLeave(admin, "2026-10-05", "2026-10-01", "อุบัติเหตุ").ok).toBe(false) // to < from
+      expect(canSaveLeave(admin, "2026-10-01", "2026-10-05", "").ok).toBe(false)
+      expect(canSaveLeave(admin, "2026-10-01", "2026-10-05", "   ").ok).toBe(false)
+      expect(canSaveLeave(admin, "2026-10-01", "2026-10-05", "อุบัติเหตุ").ok).toBe(true)
+    })
+
+    it("Admin or Manager can save directly — no escalation needed", () => {
+      expect(canSaveLeave(admin, "2026-10-01", "2026-10-05", "ไปต่างประเทศ").ok).toBe(true)
+      expect(canSaveLeave(manager, "2026-10-01", "2026-10-05", "ไปต่างประเทศ").ok).toBe(true)
     })
   })
 })

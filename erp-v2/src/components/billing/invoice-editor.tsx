@@ -15,7 +15,7 @@ import { busTotal, defaultBusLegs, invoiceTotals, quoteCourse, validateInvoiceDr
 import type { BusLeg, Invoice } from "@/domain/types"
 import { uid } from "@/data/seed"
 import { report } from "@/lib/feedback"
-import { useBranch, useNow } from "@/lib/hooks"
+import { useBranch, useEntitlements, useNow } from "@/lib/hooks"
 import { cn } from "@/lib/utils"
 import { useStore } from "@/store/store"
 
@@ -31,7 +31,7 @@ export function InvoiceEditor({ invoice, defaultStudentId, onClose, onSaved }: {
   const classes = useStore((s) => s.classes)
   const staff = useStore((s) => s.staff)
   const holidays = useStore((s) => s.holidays)
-  const entitlements = useStore((s) => s.entitlements)
+  const entitlements = useEntitlements()
   const save = useStore((s) => s.saveInvoice)
 
   const [newId] = useState(() => invoice?.id ?? uid("inv"))

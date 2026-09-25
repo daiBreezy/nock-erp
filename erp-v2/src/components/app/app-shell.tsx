@@ -115,7 +115,15 @@ function canAny(me: Parameters<typeof can>[0], perm: Permission | Permission[]) 
 
 function NotificationBell() {
   const me = useStore((s) => s.staff.find((x) => x.id === s.userId)!)
-  const count = useStore((s) => s.notifications.filter((n) => !n.read && n.roles.some((r) => me.roles.includes(r))).length)
+  const count = useStore(
+    (s) =>
+      s.notifications.filter(
+        (n) =>
+          !n.read &&
+          ((n.roles.some((r) => me.roles.includes(r)) && (!n.branchId || me.roles.includes("director") || me.branchIds.includes(n.branchId))) ||
+            n.staffIds?.includes(me.id)),
+      ).length,
+  )
   return (
     <Link href="/notifications" className="relative grid size-8 place-items-center rounded-lg hover:bg-muted" aria-label="แจ้งเตือน">
       <BellIcon className="size-4" />

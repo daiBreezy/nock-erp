@@ -43,6 +43,7 @@ src/app/<route>/page.tsx     ← หน้าต่างๆ
 ✅ รอบ 3: Day board ล็อกหัวครู (sticky top) + คอลัมน์เวลา (sticky left) · โหมด "เฉพาะที่มีคลาส" · Side panel คาบ: เปลี่ยน/เพิ่มครู (เฉพาะคาบนี้/ถัดไป), เพิ่มนักเรียน (ทดลอง/ถาวร), เปิดรายละเอียดนักเรียน (StudentSheet) · สร้างครบทุกหน้า Phase 1 · 32 tests
 ⬜ ต่อไป: Phase 2 (Dashboard, CRM, Inbox, Reports) · ยืนยัน business rules ที่ตั้งสมมติฐานไว้
 ✅ Phase 2 (2026-09-25): Dashboard/CRM/Inbox + LINE OA จริง (webhook+push) · ฟอร์ม Test/Trial ผ่าน LIFF — Admin เลือก time slot (ผสม slot ว่างทั่วไป + คลาสจริงที่มีอยู่) ให้ผู้ปกครองเลือก · อนุมัติ = จองคาบจริงผ่าน `validateClass` conflict engine เดียวกับทั้งระบบ (ผูกเข้าคลาสเดิมหรือสร้างคาบใหม่) · รีวิว/แก้ไข/อนุมัติฟอร์มได้ในแชท Inbox โดยตรง (`src/domain/rules/forms.ts`, `src/lib/forms.ts`, `src/components/inbox/*`) · 44 tests
+✅ Business rules เฟส 1 (2026-09-26): "ลาพักยาว ไม่หักโควตา" — ช่วงวันที่ระดับนักเรียน (`StudentLeave`, `src/domain/rules/attendance.ts`: `effectiveTo`/`resolveEntitlements`/`activeLeave`/`canSaveLeave`) จัดการจาก `StudentSheet` ได้ทุกหน้า · ยืดวันจบคอร์สอัตโนมัติ (derive ไม่ store — `useEntitlements()` hook) · แจ้งเตือน Manager สาขา+ครูประจำวิชา (`AppNotification.branchId/staffIds` ใหม่) · โชว์จางๆ+ป้ายใน Session Sheet/Calendar · แก้ไขได้เสมอ (re-notify) · 53 tests (WORKLOG มีรายละเอียดเต็ม)
 
 ## ตารางแก้บั๊ก (รหัสจากไฟล์เทส → จุดที่แก้)
 | รหัส | แก้ที่ |

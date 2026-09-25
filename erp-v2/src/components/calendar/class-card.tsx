@@ -4,8 +4,9 @@ import { AlertTriangleIcon, CheckIcon, DoorOpenIcon, GripVerticalIcon, NotebookP
 import { avatarTone, gradeTone, initial, subjectColor } from "@/components/app/subject-color"
 import { WorkChip } from "@/components/app/work-state"
 import { endTime } from "@/domain/dates"
+import { activeLeave } from "@/domain/rules/attendance"
 import { CAPACITY, workState } from "@/domain/rules/scheduling"
-import type { Attendance, Klass, LessonSummary, Session, Staff } from "@/domain/types"
+import type { Attendance, Klass, LessonSummary, Session, Staff, StudentLeave } from "@/domain/types"
 import { useLookup } from "@/lib/hooks"
 import { cn } from "@/lib/utils"
 
@@ -15,6 +16,7 @@ export interface CardData {
   summaries: LessonSummary[]
   classes: Klass[]
   staff: Staff[]
+  leaves: StudentLeave[]
   conflictMsg: Map<string, string[]>
   dim: (s: Session) => boolean
   draggable: (s: Session) => boolean
@@ -96,13 +98,15 @@ export function ClassCard({ s, d }: { s: Session; d: CardData }) {
               const stu = L.student(sid)
               const a = d.attendance.find((x) => x.sessionId === s.id && x.studentId === sid)
               const wrote = d.summaries.some((x) => x.sessionId === s.id && x.studentId === sid && x.status !== "draft" && x.status !== "changes_requested")
+              const onLeave = activeLeave(sid, s.date, d.leaves)
               return (
-                <li key={sid} className="flex min-w-0 items-center gap-1.5" title={stu?.name}>
+                <li key={sid} className={cn("flex min-w-0 items-center gap-1.5", onLeave && "opacity-50")} title={onLeave ? `${stu?.name} · ลาพักยาว: ${onLeave.reason}` : stu?.name}>
                   <span className={cn("grid size-5 shrink-0 place-items-center rounded-full text-[10px] font-semibold", avatarTone(sid))}>{initial(stu?.nickname ?? "?")}</span>
                   <span className={cn("min-w-0 flex-1 truncate text-xs", a?.status === "absent" && "line-through opacity-60")}>{stu?.nickname}</span>
                   {a?.status === "present" && <CheckIcon className={cn("size-3 shrink-0", live ? "text-white" : "text-emerald-600")} />}
                   {a?.status === "absent" && <XIcon className="size-3 shrink-0 text-red-600" />}
                   {a?.status === "leave" && <span className="shrink-0 text-[10px] font-semibold text-amber-600">ลา</span>}
+                  {onLeave && <span className="shrink-0 text-[10px] font-semibold text-violet-600">ลาพักยาว</span>}
                   {wrote && <NotebookPenIcon className={cn("size-3 shrink-0", live ? "text-white" : "text-sky-600")} />}
                   <span className={cn("shrink-0 rounded px-1 text-[10px] font-semibold", gradeTone(stu?.grade ?? ""))}>{stu?.grade}</span>
                 </li>

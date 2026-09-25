@@ -1,7 +1,7 @@
 // Attendance, entitlements and student status (C1–C7, F4, F7, F8).
 
-import { addDays, fmtDate } from "../dates"
-import type { Attendance, AttendanceStatus, Course, Entitlement, ID, Klass, Result, Session, Staff, Student } from "../types"
+import { addDays, daysBetween, fmtDate } from "../dates"
+import type { Attendance, AttendanceStatus, Course, DateStr, Entitlement, ID, Klass, Result, Session, Staff, Student, StudentLeave } from "../types"
 import { can } from "./permissions"
 import { sessionState } from "./scheduling"
 
@@ -59,16 +59,45 @@ export function leaveQuota(e: Entitlement) {
   return Math.floor(e.sessionsTotal / 4)
 }
 
-export function leavesUsed(e: Entitlement, sessions: Session[], attendance: Attendance[]) {
+/** Leave marks whose session date falls inside an active no-quota leave range don't count toward the quota. */
+export function leavesUsed(e: Entitlement, sessions: Session[], attendance: Attendance[], leaves: StudentLeave[] = []) {
+  const byId = new Map(sessions.map((s) => [s.id, s]))
   const ids = new Set(sessions.filter((s) => packageCovers(e, s)).map((s) => s.id))
-  return attendance.filter((a) => a.studentId === e.studentId && ids.has(a.sessionId) && a.status === "leave" && !a.noQuotaLeave).length
+  return attendance.filter((a) => {
+    if (a.studentId !== e.studentId || !ids.has(a.sessionId) || a.status !== "leave") return false
+    const sess = byId.get(a.sessionId)
+    return !sess || !activeLeave(e.studentId, sess.date, leaves)
+  }).length
 }
 
-/** New: long leave (abroad/illness/accident) can be excluded from the leave-quota count — remark always required; Admin/Manager approve directly, no escalation. */
-export function canSetLeaveNoQuota(a: Attendance | undefined, value: boolean, reason: string | undefined, user: Staff): Result {
-  if (!a || a.status !== "leave") return { ok: false, error: "ต้องเช็คชื่อเป็น \"ลา\" ก่อน" }
-  if (!can(user, "attendance.leave_override")) return { ok: false, error: "คุณไม่มีสิทธิ์ทำรายการนี้" }
-  if (value && !reason?.trim()) return { ok: false, error: "กรอกหมายเหตุการลา" }
+export function leaveDays(l: Pick<StudentLeave, "from" | "to">) {
+  return daysBetween(l.from, l.to) + 1 // inclusive
+}
+
+function rangesOverlap(aFrom: string, aTo: string, bFrom: string, bTo: string) {
+  return aFrom <= bTo && bFrom <= aTo
+}
+
+/** New: a no-quota leave pushes out the coverage window of every entitlement it overlaps, so a student never loses paid sessions to time away. */
+export function effectiveTo(e: Entitlement, leaves: StudentLeave[]): DateStr {
+  const extra = leaves.filter((l) => l.studentId === e.studentId && rangesOverlap(l.from, l.to, e.from, e.to)).reduce((sum, l) => sum + leaveDays(l), 0)
+  return extra > 0 ? addDays(e.to, extra) : e.to
+}
+
+/** Resolve entitlements with their leave-adjusted `to`, so every existing coverage/balance/status check keeps working unmodified against the real end date. */
+export function resolveEntitlements(ents: Entitlement[], leaves: StudentLeave[]): Entitlement[] {
+  return leaves.length === 0 ? ents : ents.map((e) => ({ ...e, to: effectiveTo(e, leaves) }))
+}
+
+export function activeLeave(studentId: ID, date: DateStr, leaves: StudentLeave[]): StudentLeave | undefined {
+  return leaves.find((l) => l.studentId === studentId && l.from <= date && date <= l.to)
+}
+
+/** New: long leave (abroad/illness/accident) excluded from the leave quota, extends course end dates — remark always required; Admin/Manager approve directly, no escalation. */
+export function canSaveLeave(user: Staff, from: DateStr, to: DateStr, reason: string): Result {
+  if (!can(user, "attendance.leave_override")) return { ok: false, error: "คุณไม่มีสิทธิ์บันทึกการลาแบบนี้" }
+  if (!from || !to || to < from) return { ok: false, error: "เลือกช่วงวันที่ให้ถูกต้อง" }
+  if (!reason.trim()) return { ok: false, error: "กรอกหมายเหตุการลา" }
   return { ok: true, value: undefined }
 }
 

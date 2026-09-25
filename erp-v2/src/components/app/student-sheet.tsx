@@ -1,8 +1,8 @@
 "use client"
 
 import Link from "next/link"
-import { useState } from "react"
-import { BusIcon, PencilIcon, PhoneIcon, ReceiptIcon, StickyNoteIcon } from "lucide-react"
+import { useMemo, useState } from "react"
+import { BusIcon, PencilIcon, PhoneIcon, PlaneIcon, ReceiptIcon, StickyNoteIcon } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet"
 import { endTime, fmtDate, fmtMoney, toDateStr } from "@/domain/dates"
@@ -16,6 +16,7 @@ import { useNow } from "@/lib/hooks"
 import { cn } from "@/lib/utils"
 import { useStore } from "@/store/store"
 import { Pill } from "./badges"
+import { LeaveDialog } from "./leave-dialog"
 import { StudentForm } from "./student-form"
 import { avatarTone, gradeTone, initial } from "./subject-color"
 
@@ -38,6 +39,7 @@ function Body({ id }: { id: ID }) {
   const stu = useStore((s) => s.students.find((x) => x.id === id))
   const families = useStore((s) => s.families)
   const entitlements = useStore((s) => s.entitlements)
+  const leaves = useStore((s) => s.leaves)
   const sessions = useStore((s) => s.sessions)
   const attendance = useStore((s) => s.attendance)
   const summaries = useStore((s) => s.summaries)
@@ -51,11 +53,16 @@ function Body({ id }: { id: ID }) {
   const now = useNow()
   const today = toDateStr(now)
   const [editing, setEditing] = useState(false)
+  const [leaveDialog, setLeaveDialog] = useState<{ leave?: (typeof leaves)[number] } | null>(null)
+  const canLeave = can(me, "attendance.leave_override")
+  const resolvedEnts = useMemo(() => Att.resolveEntitlements(entitlements, leaves), [entitlements, leaves])
   if (!stu) return null
 
   const fam = families.find((f) => f.id === stu.familyId)
-  const status = Att.studentStatus(stu.id, entitlements, today)
-  const ents = entitlements.filter((e) => e.studentId === stu.id).sort((a, b) => b.to.localeCompare(a.to))
+  const status = Att.studentStatus(stu.id, resolvedEnts, today)
+  const ents = resolvedEnts.filter((e) => e.studentId === stu.id).sort((a, b) => b.to.localeCompare(a.to))
+  const rawEntById = new Map(entitlements.map((e) => [e.id, e]))
+  const myLeaves = leaves.filter((l) => l.studentId === stu.id).sort((a, b) => b.from.localeCompare(a.from))
   const mine = sessions.filter((s) => s.studentIds.includes(stu.id) && !s.cancelled)
   const upcoming = mine.filter((s) => sessionState(s, now) === "upcoming").sort((a, b) => (a.date + a.start).localeCompare(b.date + b.start)).slice(0, 5)
   const history = attendance
@@ -114,6 +121,7 @@ function Body({ id }: { id: ID }) {
             {ents.map((e) => {
               const b = Att.balance(e, sessions, attendance)
               const expired = e.to < today
+              const extended = rawEntById.get(e.id)?.to !== e.to
               return (
                 <li key={e.id} className={cn("rounded-lg border p-2.5", expired && "opacity-50")}>
                   <div className="flex items-center justify-between gap-2">
@@ -122,15 +130,38 @@ function Body({ id }: { id: ID }) {
                   </div>
                   <div className="text-xs text-muted-foreground">
                     {className(e.classId)} · {fmtDate(e.from)} → {fmtDate(e.to, { year: true })}
+                    {extended && <Pill tone="violet" className="ml-1" title={`เดิมจบ ${fmtDate(rawEntById.get(e.id)!.to, { year: true })}`}>เลื่อนวันจบจากการลา</Pill>}
                   </div>
                   <div className="mt-1 text-xs">
                     {e.kind === "sessions" ? <>เหลือ <b>{b.remaining}</b>/{b.total} คาบ</> : <>เรียนแล้ว {b.used} คาบ</>}
-                    {" · "}ลาแล้ว {Att.leavesUsed(e, sessions, attendance)}/{Att.leaveQuota(e)} ครั้ง
+                    {" · "}ลาแล้ว {Att.leavesUsed(e, sessions, attendance, leaves)}/{Att.leaveQuota(e)} ครั้ง
                   </div>
                 </li>
               )
             })}
           </ul>
+        </Section>
+
+        <Section title="ลาพักยาว (ไม่หักโควตา)">
+          {myLeaves.length === 0 && <p className="text-muted-foreground">ไม่มีการลาแบบนี้</p>}
+          <ul className="space-y-2">
+            {myLeaves.map((l) => (
+              <li key={l.id} className="rounded-lg border p-2.5">
+                <div className="flex items-start justify-between gap-2">
+                  <div>
+                    <div className="font-medium">{fmtDate(l.from)} – {fmtDate(l.to, { year: true })}</div>
+                    <div className="text-xs text-muted-foreground">{l.reason}</div>
+                  </div>
+                  {canLeave && <Button size="xs" variant="outline" onClick={() => setLeaveDialog({ leave: l })}>แก้ไข</Button>}
+                </div>
+              </li>
+            ))}
+          </ul>
+          {canLeave && (
+            <Button size="xs" variant="outline" className="mt-1" onClick={() => setLeaveDialog({})}>
+              <PlaneIcon /> บันทึกการลา
+            </Button>
+          )}
         </Section>
 
         <Section title={`คลาสที่เรียน (${inClasses.length})`}>
@@ -180,6 +211,7 @@ function Body({ id }: { id: ID }) {
         )}
       </div>
       {editing && <StudentForm student={stu} onClose={() => setEditing(false)} />}
+      {leaveDialog && <LeaveDialog studentId={stu.id} leave={leaveDialog.leave} onClose={() => setLeaveDialog(null)} />}
     </>
   )
 }

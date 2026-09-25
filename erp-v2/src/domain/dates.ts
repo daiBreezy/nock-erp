@@ -17,6 +17,10 @@ export function addDays(s: DateStr, days: number): DateStr {
   return toDateStr(d)
 }
 
+export function daysBetween(from: DateStr, to: DateStr): number {
+  return Math.round((parseDate(to).getTime() - parseDate(from).getTime()) / 86_400_000)
+}
+
 export function weekdayOf(s: DateStr): Weekday {
   return parseDate(s).getDay() as Weekday
 }
