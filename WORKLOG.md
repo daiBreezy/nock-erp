@@ -5,6 +5,44 @@
 
 ---
 
+## 2026-09-26 — ERP: วิจัย Settings/Billing ของจริง + feedback สตาฟ + ตัดสินใจ business rules ชุดใหญ่ (ยังไม่ได้ Build)
+
+**สถานะ:** เซสชันนี้เป็น**การวิจัย+ตัดสินใจล้วนๆ ไม่มีโค้ดเปลี่ยนเลย** — เปิดแชทใหม่ให้เริ่ม Plan mode ต่อจากตรงนี้ได้ทันที (context ของแชทเดิมเต็มแล้ว)
+
+### สิ่งที่ไปเก็บมา (reference ห้ามลืม)
+1. **Settings จริงที่ `erp-staging.nockacademy.com`** — Branch Settings มี 11 แท็บ (Info/Bank/LINE/Scheduling/Subjects/Grades/**Packages**/**General Fees**/Promotions/Staff/Holidays) + Settings→System ระดับ brand (Global Subjects/Holidays/Invoice Memos/Preferences) — erp-v2 ขาดไปครึ่งนึง โดยเฉพาะ General Fees (Bus/Entry/Mock — เรามีแค่ `busFeePerLeg` ตัวเดียว) และทั้งหมวด System
+2. **Create Invoice flow จริง** — ผูกกับ Class/Session จริงเสมอ (บังคับ "Select Class" ก่อนคำนวณราคาได้) → pro-rate ตามจำนวนคาบที่เหลือจริงในเดือนนั้น (tier 100/60/30% แบบที่คุยกันไว้ก่อนหน้า ยืนยันด้วยตาแล้ว) → Discount(จาก Promotion catalog) แยกจาก Concession(ลดเฉพาะใบนี้) → Book fee(กรอกอิสระ) → Advance Optional(จาก General Fees, auto-waive ถ้าเคยจ่ายแล้ว)
+3. **Google Sheet feedback จริงจากสตาฟ** (`ERP-test-feedback`, 28 รายการจาก Dear/Pin/Tu. + Dev punch-list 5 ข้อ) — บั๊กใหม่ที่ยืนยันชัด: **session generation ของจริงถูก cap ไว้แค่ 9 ครั้ง** ไม่ครบคอร์ส (erp-v2 ไม่มีปัญหานี้ ปลอดภัยอยู่แล้ว)
+
+### ตัดสินใจ business rules ชุดใหญ่ (เจ้าของยืนยันแล้วทุกข้อ 2026-09-26)
+
+- **Leave ไม่หักโควตา (ฟีเจอร์ใหม่):** สำหรับลาระยะยาว (ต่างประเทศ/ป่วยหนัก/อุบัติเหตุ) บังคับใส่ remark เสมอ · **Admin หรือ Manager ตัดสินใจอนุมัติเองได้เลย** ไม่ต้องขึ้นไปสูงกว่านั้น
+- **สิทธิ์อนุมัติ Invoice:** Admin/Manager/Area Manager/Super Admin/Director อนุมัติได้หมด **แต่เฉพาะสาขาตัวเอง** (Area Manager ขึ้นไปข้ามสาขาได้) · **Teacher สร้าง Invoice ไม่ได้เลย** (ตัดสิทธิ์ทั้งหมด ไม่ใช่แค่ approve ไม่ได้)
+- **ครูเห็นคาบทั้งหมดเป็น default** มี filter กรองเหลือแค่ของตัวเองได้ — **กลับด้านจากสมมติฐานเดิม** ที่ตั้งไว้ตอนสร้าง erp-v2 (เดิมคิดว่าเห็นแค่ของตัวเอง) ต้องแก้ `permissions.ts`
+- **Force Approve:** อนุญาตให้ข้าม maker-checker ได้ในบางกรณี **บังคับ remark ทุกครั้ง** + แจ้งเตือนทั้งสาขา + แจ้งเตือน Director เสมอ
+- **Package price ใน Settings = ข้อมูลอ้างอิง/Optional เท่านั้น** ไม่ใช่ตัวบังคับราคาจริง — แค่ช่วย Admin ตอนตั้งราคา Course เอง (ราคาจริงอยู่ที่ Course) → **ไม่ต้องทำ pricing matrix ซับซ้อน** แบบที่เคยเสนอไว้ ทำแค่ "ราคาแนะนำ" พอ (สวนทางกับที่ผมเข้าใจตอนแรกจากการดู staging เฉยๆ — เชื่อคำตอบเจ้าของ ไม่ใช่ที่สังเกตเอง)
+- **ราคาต่างกันได้เต็มที่ตามสาขา+วิชา+เกรด** — ยืนยัน flexible
+- **Invoice ผูก Class จริงเสมอ** ต้องรู้วันเริ่ม/วันจบคอร์สแจ้งผู้ปกครองได้จริง (ตรงกับที่เจอใน staging)
+- **สร้าง Class จาก Invoice ได้เลย** เป็น fallback — flow ปกติ Admin สร้าง Class ไว้ก่อนอยู่แล้ว
+- **ต้องการระบบ Notification ภายในที่ดีมาก** ให้ทีมสื่อสารกันได้ (reschedule แจ้งครูเป็นแค่ 1 use-case ในภาพใหญ่กว่านี้) — ควรออกแบบเป็นระบบกลาง ไม่ใช่แพทช์ทีละจุด
+- **ลบ Class ได้เสมอ** ถ้ายังไม่เคยมีคนเรียน หรือไม่มีคนเรียนแล้ว — ป้องกันลบพลาดด้วย **popup โจทย์เลขสุ่ม (เช่น "4+3=" ให้พิมพ์คำตอบ)** ก่อนลบจริงทุกครั้ง + **log ทุกการกระทำเสมอ (ใคร ทำอะไร เมื่อไหร่)** — นี่คือที่มาของหน้า **Logs** ที่ erp-v2 ยังไม่มี ต้องสร้างคู่กับฟีเจอร์นี้
+- **Format วันที่ทั้งระบบ = `จ. 24 กย 26`** (ย่อวัน + วันที่ + เดือนย่อไทย + ปี พ.ศ. 2 หลัก) — เช็ค `fmtDate` ปัจจุบันว่าตรงรูปแบบนี้อยู่แล้วหรือต้องแก้
+- **หน้า Student ต้องปรับใหม่:** KPI cards (จำนวนนักเรียน/นักเรียนใหม่/Churn ตาม time period ที่ filter ได้/ใกล้หมดคอร์ส) + Search (boolean) + Filter (Grade/School/Course/Subject/Package[Hour,Week,Month]/Status[Active,Inactive,Renewal,Overdue,Archived]/Branch) + Sort (Name/Grade/Enroll date/Expire date/Status) — วิเคราะห์เชิงลึก (ที่มานักเรียนจากโรงเรียนไหนเยอะสุด ฯลฯ) ยกไปหน้า **Reports** แทน ไม่ต้องอัดในหน้า Student
+
+### เหลือทำ (เริ่มจากตรงนี้ในแชทใหม่)
+
+- [ ] **เข้า Plan mode** ออกแบบ implementation ให้ครบทุกข้อข้างบน — แนะนำแบ่งเฟส เพราะแต่ละอันเป็นคนละฟีเจอร์กัน:
+  1. Leave ไม่หักโควตา (เล็ก, ทำก่อนได้)
+  2. แก้ permission matrix (Invoice approval, ครูเห็นคาบทั้งหมด+filter) — กระทบ `permissions.ts` + `billing.ts` (canApprove)
+  3. Force Approve + Notification ระบบ (ทั้งสองอันผูกกัน เพราะ Force Approve ต้องยิง noti)
+  4. Class deletion (math-captcha confirm) + หน้า **Logs** (audit trail ใหม่ทั้งหน้า)
+  5. Date format ทั้งระบบ → `จ. 24 กย 26`
+  6. หน้า Student ใหม่ (KPI+filter+sort)
+- [ ] ยังไม่ได้ตัดสินใจ: package matrix ที่เคยเสนอ **ยกเลิกแล้ว** ตามคำตอบข้อ 5 — อย่าไปทำ อ่าน WORKLOG นี้ก่อนเริ่ม กัน rebuild ผิดทาง
+- [ ] ของเดิมที่ค้างมาจากรอบก่อนๆ ยังไม่ได้ทำ: Enroll/Billing form ผ่าน LIFF, GENERIC_TIMES ตั้งค่าต่อสาขาไม่ได้, ทดสอบ LIFF จริงจากมือถือให้จบ
+
+---
+
 ## ▶️ วิธีเปิด prototype ดู (ทุกวัน)
 
 **ดับเบิลคลิกไฟล์ `start-servers.command`** (อยู่ที่ root ของ `nock-erp/`) → เปิด server ครบ 3 ตัวในทีเดียว
