@@ -68,9 +68,12 @@
 - ใช้ **LINE Login channel แยกต่างหาก** สำหรับ LIFF (ชื่อ "NockERP Forms") เพราะ LINE เปลี่ยนนโยบายแล้ว — เพิ่ม LIFF เข้า Messaging API channel ตรงๆ ไม่ได้อีกต่อไป
 - **เลิกใช้ localtunnel เปลี่ยนเป็น `cloudflared` (quick tunnel, ฟรี ไม่ต้องสมัคร)** — เจอบั๊กจริง: localtunnel มีหน้า "Tunnel website ahead!" (ต้องพิมพ์ IP ยืนยันก่อนเข้า) โผล่ให้ browser จริงทุกตัวที่เข้าเว็บ (ผู้ปกครองเปิดลิงก์ผ่าน LINE ก็จะเจอหน้านี้ก่อน) — เจอตอนเทส `/liff/form` จริง จึงสลับ tunnel ทั้งระบบ (webhook + LIFF endpoint) ไปที่ `cloudflared` แทน ไม่มีหน้าเตือนแบบนี้
 
+- **แก้บั๊กจริง: หน้า `/liff/form` โหลดค้างตลอด (spinner ไม่หยุด)** — เจอตอนเจ้าของลองกดลิงก์จริงจากมือถือ สาเหตุ: Next.js dev server บล็อก request ไป `/_next/static/*` (JS chunk รวมถึง `@line/liff` SDK) จาก origin ที่ไม่ใช่ localhost โดย default (เห็น warning "Blocked cross-origin request to Next.js dev resource" ใน log server) — พอ chunk โหลดไม่ได้ `import("@line/liff")` ค้างเงียบๆ ไม่ throw ด้วย ทำให้หน้าจอค้างที่ "กำลังเปิดฟอร์ม…" ตลอดไป → แก้ด้วยเพิ่ม `allowedDevOrigins: ["*.trycloudflare.com"]` ใน `erp-v2/next.config.ts` (ต้อง restart dev server ถึงจะมีผล เพราะเป็น config ไม่ hot-reload) → ทดสอบซ้ำแล้ว: หน้าเปิดผ่าน ไปถึงหน้า LINE Login จริงสำเร็จ (เห็นหน้า "Continue as daiBreezy" ของ access.line.me)
+
 **เหลือทำ (TODO):**
 - [x] ~~สร้าง LIFF app ใน LINE Console~~ ✅ เสร็จ (LIFF ID `2011740783-OinXaLm7` ใส่ใน `.env.local` แล้ว) — อัปเดต Endpoint URL + Webhook URL เป็น cloudflared URL แล้วทั้งคู่ verify ผ่าน
-- [ ] ทดสอบฟอร์ม Test/Trial แบบ end-to-end จริงจากมือถือ (เปิดลิงก์ที่ส่งจาก LeadSheet ผ่าน LINE) — ยังไม่ได้ทดสอบจากมือถือจริง รอเจ้าของลอง
+- [x] ~~บั๊ก LIFF โหลดค้าง~~ ✅ แก้แล้ว (ดูหัวข้อด้านบน) — ยืนยันผ่านถึงหน้า LINE Login จริงแล้ว แต่ยังไม่ได้กด Log in จนจบ (ตั้งใจเว้นไว้ให้เจ้าของกดเองจากมือถือจริง)
+- [ ] ทดสอบฟอร์ม Test/Trial แบบ end-to-end จริงจากมือถือให้จบ (กด Log in → กรอกฟอร์ม → submit → staff เห็น "รออนุมัติ" ใน LeadSheet)
 - [ ] cloudflared quick tunnel URL เปลี่ยนทุกครั้งที่ restart เหมือน localtunnel — ต้องอัปเดต Webhook URL + LIFF Endpoint URL ใน LINE Console ใหม่ทุกครั้งที่ restart เครื่อง/tunnel ตาย (ยังไม่ได้ทำ named tunnel แบบถาวร)
 - [ ] Enroll/Billing form (ตามที่ตกลงไว้ว่าจะทำ Test/Trial ก่อน) — ต้องต่อกับ Billing จริงที่มีอยู่แล้ว (ไม่ใช่สร้าง invoice แยกแบบของเก่า)
 - [ ] ผูก Student โดยตรง (ตอนนี้ผูกได้แค่ Family จาก Inbox แล้วต้องไปเพิ่มลูกที่หน้าครอบครัวแยก)
