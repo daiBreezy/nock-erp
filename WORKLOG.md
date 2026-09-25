@@ -50,6 +50,33 @@
 
 ---
 
+## 2026-09-25 — ERP: Dashboard/CRM/Inbox + เชื่อม LINE OA จริง + ฟอร์ม Test/Trial (LIFF)
+
+**ทำอะไร (เรียงตามลำดับที่ทำ):**
+- **Dashboard**: KPI (นักเรียน/รอต่อคอร์ส/รายรับเดือนนี้/ลีด) + renewal list + recent activity
+- **CRM**: pipeline kanban ตาม stage เดิม (new→contacting→test→trial→payment_pending→enrolled/archived) + LeadSheet (โน้ต/เก็บเข้าคลัง/แปลงเป็นนักเรียน)
+- **Inbox**: เดิมเป็น mock ล้วน → **ต่อ LINE Messaging API จริงแล้ว** (webhook รับข้อความเข้า + ส่งออกจริง) เก็บข้อมูลฝั่ง server เป็นไฟล์ (`.data/*.json`, gitignore แล้ว) เพราะ webhook handler แตะ localStorage ของ browser ไม่ได้
+- **Settings → LINE Integration**: Channel ID/Bot Basic ID/Add-Friend URL/QR เก็บที่ branch (ไม่ลับ) — **Channel Secret/Access Token ต้องตั้งใน `.env.local` เท่านั้น** (ไม่มีปุ่ม Save ฝั่ง client เพราะไม่ปลอดภัย) มีปุ่มเช็คสถานะจริงจาก `/api/line/status`
+- **ผูก LINE เข้ากับ Family/Lead**: จากบทสนทนา LINE จริงที่ยังไม่รู้จัก → ผูกกับที่มีอยู่ หรือสร้างใหม่ (prefill ชื่อจาก LINE) ได้เลยจาก Inbox — เก็บ `lineUserId` ไว้ที่ Family/Lead ถาวร (ไม่หลุดตอน sync)
+- **ฟอร์ม Test/Trial ผ่าน LIFF**: ผู้ปกครองกรอกฟอร์มจริงในแอป LINE (รู้ตัวตนอัตโนมัติ ไม่ต้องเดา token) → staff กด "ส่งฟอร์ม" จาก LeadSheet → ผู้ปกครองกรอก → staff เห็น "รออนุมัติ" ใน LeadSheet → Approve = ขยับ stage อัตโนมัติ (อ้างอิง flow จาก `new-erp/js/crm-forms.js` + `crm-review.js` เดิม — ของเก่า "form.html" เป็นแค่ mockup ไม่เคยเขียนกลับจริง)
+
+**ทดสอบแล้วจริงบนเครื่องนี้:** ส่ง/รับข้อความ LINE จริงสำเร็จ (LINE OA ทดสอบชื่อ "Nock Test" @907obckw ในบัญชี LINE Developers ของ daiBreezy) ผูก Family จากข้อความจริงสำเร็จ
+
+**ตัดสินใจสำคัญ (ต้องรู้ก่อนทำต่อ):**
+- erp-v2 มี **ชั้น server บางๆ แล้ว** (Next.js API routes + ไฟล์ JSON ใต้ `.data/`) — เกินขอบเขตเดิมที่ตกลงว่า "ไม่ต่อ Database จริง" นิดหน่อย แต่จำเป็นสำหรับ Inbox/Form ที่ต้องรับข้อมูลจากคนนอก (ไม่ใช่แค่ demo ในเบราว์เซอร์เดียว) — ยังไม่ใช่ Database จริง แค่ไฟล์ ไม่มี auth/schema
+- ทดสอบผ่าน **localtunnel** (`npx localtunnel`) ชั่วคราว — URL เปลี่ยนทุกครั้งที่ restart ต้องอัปเดต Webhook URL ใน LINE Console ใหม่ทุกครั้ง (เจอ tunnel ตายเงียบมาแล้ว 1 ครั้งระหว่างทดสอบ) — **ถ้าจะใช้ต่อเนื่องจริงต้อง deploy จริง** (Vercel เป็นต้น) ไม่ใช่ tunnel
+- ใช้ **LINE Login channel แยกต่างหาก** สำหรับ LIFF (ชื่อ "NockERP Forms") เพราะ LINE เปลี่ยนนโยบายแล้ว — เพิ่ม LIFF เข้า Messaging API channel ตรงๆ ไม่ได้อีกต่อไป
+
+**เหลือทำ (TODO):**
+- [ ] สร้าง LIFF app ใน LINE Console ให้เสร็จ (ทำค้างอยู่ตอนสั่ง push) แล้วใส่ `NEXT_PUBLIC_LIFF_ID` ใน `.env.local`
+- [ ] ทดสอบฟอร์ม Test/Trial แบบ end-to-end จริงจากมือถือ (เปิดลิงก์ที่ส่งจาก LeadSheet ผ่าน LINE)
+- [ ] Enroll/Billing form (ตามที่ตกลงไว้ว่าจะทำ Test/Trial ก่อน) — ต้องต่อกับ Billing จริงที่มีอยู่แล้ว (ไม่ใช่สร้าง invoice แยกแบบของเก่า)
+- [ ] ผูก Student โดยตรง (ตอนนี้ผูกได้แค่ Family จาก Inbox แล้วต้องไปเพิ่มลูกที่หน้าครอบครัวแยก)
+- [ ] Reports/Tasks/Logs (Phase 2 ที่เหลือ ตามลำดับเดิมใน log ก่อนหน้า)
+- [ ] Settings UI ให้ครบ (แท็บวิชา&ระดับชั้น/ค่าธรรมเนียม/โปรโมชัน/System) — ค้างมาตั้งแต่รอบก่อน
+
+---
+
 ## 2026-09-24 (บ่าย) — ERP: เริ่ม Build Prototype ใหม่ `erp-v2/` จากผลเทส Staging
 
 **ทำอะไร:**
