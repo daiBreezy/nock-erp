@@ -81,8 +81,9 @@ type Store = DB & UIState & {
   addLeadNote: (id: ID, text: string) => Result
   archiveLead: (id: ID, reason: string) => Result
   convertLeadToStudent: (id: ID) => Result<{ studentId: ID }>
-  /** books an approved Test/Trial submission's chosen slot as a real, conflict-checked Session (or joins an existing class's session) */
-  approveTestTrialSubmission: (sub: FormSubmission) => Result<{ sessionId: ID; studentId: ID }>
+  /** books an approved Test/Trial submission's chosen slot as a real, conflict-checked Session (or joins an existing class's session);
+   *  pass 2+ same-lead, same-date/time, generic-source submissions together to merge them into one shared 2-hour room block */
+  approveTestTrialSubmission: (subs: FormSubmission[]) => Result<{ sessionId: ID; studentId: ID }>
 
   openConversation: (id: ID) => void
   assignConversation: (id: ID, staffId: ID | null) => Result
@@ -720,18 +721,19 @@ export const useStore = create<Store>()(
         return { ok: true, value: { studentId: student.id } }
       },
 
-      approveTestTrialSubmission: (sub) => {
+      approveTestTrialSubmission: (subs) => {
         const s = get()
         const perm = requirePerm(s.me(), "session.manage")
         if (!perm.ok) return perm
-        const lead = s.leads.find((x) => x.id === sub.leadId)
+        const primary = subs[0]
+        const lead = s.leads.find((x) => x.id === primary.leadId)
         if (!lead) return fail("ไม่พบ Lead นี้")
 
         // reuse the one Student per lead, created lazily on first approval — persisted immediately
         // so the addStudentToSession/addSession calls below see it via their own get()
         let studentId = lead.trialStudentId
         if (!studentId) {
-          const student: Student = { id: uid("stu"), familyId: null, branchId: lead.branchId, name: sub.studentName, nickname: sub.studentName, grade: sub.studentGrade, usesBus: false }
+          const student: Student = { id: uid("stu"), familyId: null, branchId: lead.branchId, name: primary.studentName, nickname: primary.studentName, grade: primary.studentGrade, usesBus: false }
           const errs = People.validateStudent(student, toDateStr(s.now()))
           if (errs.length) return fail(errs[0].message)
           studentId = student.id
@@ -739,18 +741,26 @@ export const useStore = create<Store>()(
         }
 
         let sessionId: ID
-        if (sub.chosenSlot.source === "class") {
-          const r = get().addStudentToSession(sub.chosenSlot.sessionId!, studentId, "one")
+        if (subs.length >= 2) {
+          // 2+ subjects picked for the same date+time — one shared 2-hour room block, not one per subject
+          const branch = s.branches.find((b) => b.id === lead.branchId)!
+          const draft = Forms.buildCombinedSessionDraft(subs.map((sub) => ({ subject: sub.chosenSubject, slot: sub.chosenSlot })), lead.branchId, studentId, branch, s.sessions)
+          if (!draft) return fail("รวมช่วงเวลานี้เป็นคาบเดียวไม่ได้")
+          const r = get().addSession(draft)
           if (!r.ok) return r
-          sessionId = sub.chosenSlot.sessionId!
+          sessionId = r.value.id
+        } else if (primary.chosenSlot.source === "class") {
+          const r = get().addStudentToSession(primary.chosenSlot.sessionId!, studentId, "one")
+          if (!r.ok) return r
+          sessionId = primary.chosenSlot.sessionId!
         } else {
-          const draft = Forms.buildSessionDraftFromSlot(sub.chosenSlot, sub.chosenSubject, lead.branchId, studentId)
+          const draft = Forms.buildSessionDraftFromSlot(primary.chosenSlot, primary.chosenSubject, lead.branchId, studentId)
           const r = get().addSession(draft)
           if (!r.ok) return r
           sessionId = r.value.id
         }
 
-        const stage = Forms.APPROVE_STAGE[sub.type]
+        const stage = Forms.APPROVE_STAGE[primary.type]
         const guard = CRM.canSetStage(lead.stage, stage)
         set((cur) => ({
           leads: cur.leads.map((x) => (x.id === lead.id ? { ...x, trialStudentId: studentId, stage: guard.ok ? stage : x.stage } : x)),

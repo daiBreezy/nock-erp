@@ -36,7 +36,9 @@ function LiffForm() {
   const [parentPhone, setParentPhone] = useState("")
   const [studentName, setStudentName] = useState("")
   const [studentGrade, setStudentGrade] = useState("")
-  const [chosen, setChosen] = useState<{ subject: string; slot: FormOfferSlot } | null>(null)
+  // one pick per subject — 2+ picked for the same date must share the same start time (enforced
+  // below by disabling non-matching options), and get merged into one 2-hour visit at approve time
+  const [chosen, setChosen] = useState<Record<string, FormOfferSlot>>({})
 
   useEffect(() => {
     let cancelled = false
@@ -84,15 +86,17 @@ function LiffForm() {
     return () => { cancelled = true }
   }, [initialToken])
 
+  const picks = Object.entries(chosen)
+
   const submit = async () => {
-    if (!parentName.trim() || !parentPhone.trim() || !studentName.trim() || !studentGrade || !chosen) return
+    if (!parentName.trim() || !parentPhone.trim() || !studentName.trim() || !studentGrade || !picks.length) return
     setPhase("submitting")
     try {
       const res = await fetch("/api/forms/submit", {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           token, lineUserId, parentName, parentPhone, studentName, studentGrade,
-          chosenSubject: chosen.subject, chosenSlotId: chosen.slot.id,
+          picks: picks.map(([subject, slot]) => ({ chosenSubject: subject, chosenSlotId: slot.id })),
         }),
       })
       const data = await res.json()
@@ -102,6 +106,15 @@ function LiffForm() {
       setError("ส่งไม่สำเร็จ — เครือข่ายมีปัญหา ลองอีกครั้ง")
       setPhase("ready")
     }
+  }
+
+  /** if another already-picked subject landed on this same date, only its exact start time stays
+   *  pickable for this subject too — different dates stay fully independent */
+  const lockedTimeFor = (subject: string, date: string): string | null => {
+    for (const [otherSubject, slot] of picks) {
+      if (otherSubject !== subject && slot.date === date) return slot.start
+    }
+    return null
   }
 
   if (phase === "init") return <Centered><Spinner /><p className="mt-3 text-sm text-muted-foreground">กำลังเปิดฟอร์ม…</p></Centered>
@@ -138,32 +151,49 @@ function LiffForm() {
       </Field>
 
       <div className="space-y-3">
-        <Label className="text-xs">เลือกวันเวลา *</Label>
-        {offers.map((offer) => (
-          <div key={offer.subject}>
-            <p className="mb-1 text-xs font-medium text-muted-foreground">{offer.subject}</p>
-            <div className="grid grid-cols-2 gap-1.5">
-              {offer.slots.map((slot) => (
-                <button
-                  key={slot.id}
-                  type="button"
-                  onClick={() => setChosen({ subject: offer.subject, slot })}
-                  className={cn(
-                    "rounded-lg border px-2 py-1.5 text-left text-xs transition-colors",
-                    chosen?.slot.id === slot.id ? "border-primary bg-primary/10" : "hover:bg-muted",
-                  )}
-                >
-                  {fmtDate(slot.date, { weekday: true })} · {slot.start} น.
-                </button>
-              ))}
+        <Label className="text-xs">เลือกวันเวลา * (เลือกได้มากกว่า 1 วิชา)</Label>
+        {offers.length > 1 && <p className="text-[11px] text-muted-foreground">ถ้าเลือกหลายวิชาในวันเดียวกัน ต้องเป็นเวลาเริ่มเดียวกัน (รวมเป็นนัดเดียว ไม่เกิน 2 ชม.)</p>}
+        {offers.map((offer) => {
+          const mine = chosen[offer.subject]
+          return (
+            <div key={offer.subject}>
+              <div className="mb-1 flex items-center gap-1.5">
+                <p className="text-xs font-medium text-muted-foreground">{offer.subject}</p>
+                {mine && (
+                  <button type="button" className="text-[11px] text-red-600 underline" onClick={() => setChosen((c) => { const next = { ...c }; delete next[offer.subject]; return next })}>
+                    ยกเลิก
+                  </button>
+                )}
+              </div>
+              <div className="grid grid-cols-2 gap-1.5">
+                {offer.slots.map((slot) => {
+                  const locked = lockedTimeFor(offer.subject, slot.date)
+                  const disabled = locked !== null && locked !== slot.start
+                  const active = mine?.id === slot.id
+                  return (
+                    <button
+                      key={slot.id}
+                      type="button"
+                      disabled={disabled}
+                      onClick={() => setChosen((c) => ({ ...c, [offer.subject]: slot }))}
+                      className={cn(
+                        "rounded-lg border px-2 py-1.5 text-left text-xs transition-colors",
+                        disabled ? "cursor-not-allowed opacity-40" : active ? "border-primary bg-primary/10" : "hover:bg-muted",
+                      )}
+                    >
+                      {fmtDate(slot.date, { weekday: true })} · {slot.start} น.
+                    </button>
+                  )
+                })}
+              </div>
             </div>
-          </div>
-        ))}
+          )
+        })}
       </div>
 
       {error && <p className="text-sm text-red-600">{error}</p>}
 
-      <Button className="w-full" disabled={phase === "submitting" || !parentName.trim() || !parentPhone.trim() || !studentName.trim() || !studentGrade || !chosen} onClick={submit}>
+      <Button className="w-full" disabled={phase === "submitting" || !parentName.trim() || !parentPhone.trim() || !studentName.trim() || !studentGrade || !picks.length} onClick={submit}>
         {phase === "submitting" ? <LoaderCircleIcon className="animate-spin" /> : "ส่งฟอร์ม"}
       </Button>
     </div>

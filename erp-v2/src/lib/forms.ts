@@ -38,13 +38,24 @@ export async function sendTestTrialForm(input: {
   return { ok: true, value: undefined }
 }
 
-/** Books the chosen slot as a real Session (or joins an existing class) first — only marks the
- *  submission "approved" server-side if that actually succeeds, so a failed booking never shows
- *  as a false "approved" status. */
+/** Books the chosen slot(s) as a real Session (or joins an existing class) first — only marks
+ *  submissions "approved" server-side if that actually succeeds, so a failed booking never shows
+ *  as a false "approved" status. If another still-pending submission for the same lead picked a
+ *  different subject at the exact same date+time (both admin-offered "generic" slots), they're
+ *  approved together into one shared 2-hour room block — the parent only visits once. */
 export async function approveSubmission(sub: FormSubmission): Promise<Result<{ sessionId: ID; studentId: ID }>> {
-  const r = useStore.getState().approveTestTrialSubmission(sub)
+  const listRes = await fetch("/api/forms/submissions").then((r) => r.json()).catch(() => null) as { submissions?: FormSubmission[] } | null
+  const all = listRes?.submissions ?? []
+  const siblings = all.filter((s) =>
+    s.id !== sub.id && s.status === "pending" && s.leadId === sub.leadId &&
+    s.chosenSlot.source === "generic" && sub.chosenSlot.source === "generic" &&
+    s.chosenSlot.date === sub.chosenSlot.date && s.chosenSlot.start === sub.chosenSlot.start,
+  )
+  const group = [sub, ...siblings]
+
+  const r = useStore.getState().approveTestTrialSubmission(group)
   if (!r.ok) return r
-  await postJson("/api/forms/review", { id: sub.id, status: "approved", sessionId: r.value.sessionId, studentId: r.value.studentId })
+  await Promise.all(group.map((s) => postJson("/api/forms/review", { id: s.id, status: "approved", sessionId: r.value.sessionId, studentId: r.value.studentId })))
   return r
 }
 

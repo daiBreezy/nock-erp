@@ -78,36 +78,46 @@ export async function checkToken(token: string): Promise<TokenCheck> {
 
 export async function submitForm(input: {
   token: string; lineUserId: string; parentName: string; parentPhone: string
-  studentName: string; studentGrade: string; chosenSubject: string; chosenSlotId: string
-}): Promise<{ ok: true; submission: FormSubmission } | { ok: false; error: string }> {
+  studentName: string; studentGrade: string
+  picks: { chosenSubject: string; chosenSlotId: string }[]
+}): Promise<{ ok: true; submissions: FormSubmission[] } | { ok: false; error: string }> {
   const check = await checkToken(input.token)
   if (!check.ok) return check
-  // never trust a client-supplied slot payload — look up the actual offered slot server-side
-  const offer = check.token.offers.find((o) => o.subject === input.chosenSubject)
-  const slot = offer?.slots.find((s) => s.id === input.chosenSlotId)
-  if (!slot) return { ok: false, error: "ช่วงเวลานี้ไม่ได้อยู่ในตัวเลือกที่เสนอ" }
+  if (!input.picks.length) return { ok: false, error: "เลือกช่วงเวลาอย่างน้อย 1 ช่วง" }
+  // never trust a client-supplied slot payload — look up each offered slot server-side
+  const resolved: { subject: string; slot: FormOfferSlot }[] = []
+  for (const pick of input.picks) {
+    const offer = check.token.offers.find((o) => o.subject === pick.chosenSubject)
+    const slot = offer?.slots.find((s) => s.id === pick.chosenSlotId)
+    if (!slot) return { ok: false, error: "ช่วงเวลานี้ไม่ได้อยู่ในตัวเลือกที่เสนอ" }
+    resolved.push({ subject: pick.chosenSubject, slot })
+  }
 
-  const result = await mutate((store) => {
+  const submissions = await mutate((store) => {
     const t = store.tokens.find((x) => x.token === input.token)!
     t.used = true
-    const submission: FormSubmission = {
-      id: genId("frm"), token: input.token, type: t.type, leadId: t.leadId, conversationId: t.conversationId,
-      lineUserId: input.lineUserId, parentName: input.parentName, parentPhone: input.parentPhone,
-      studentName: input.studentName, studentGrade: input.studentGrade,
-      chosenSubject: input.chosenSubject, chosenSlot: slot,
-      status: "pending", submittedAt: new Date().toISOString(),
-    }
-    store.submissions.push(submission)
-    return submission
+    return resolved.map(({ subject, slot }) => {
+      const submission: FormSubmission = {
+        id: genId("frm"), token: input.token, type: t.type, leadId: t.leadId, conversationId: t.conversationId,
+        lineUserId: input.lineUserId, parentName: input.parentName, parentPhone: input.parentPhone,
+        studentName: input.studentName, studentGrade: input.studentGrade,
+        chosenSubject: subject, chosenSlot: slot,
+        status: "pending", submittedAt: new Date().toISOString(),
+      }
+      store.submissions.push(submission)
+      return submission
+    })
   })
 
-  // surface the submission inline in Inbox as a rich chat bubble
-  await recordInboundMessage(input.lineUserId, null, `ส่งแบบฟอร์ม${input.chosenSubject} — ${slot.date} ${slot.start} น.`, {
-    kind: "form_submission",
-    meta: { formKind: "form_submission", submissionId: result.id, type: result.type },
-  })
+  // surface each pick inline in Inbox as its own rich chat bubble
+  for (const sub of submissions) {
+    await recordInboundMessage(input.lineUserId, null, `ส่งแบบฟอร์ม${sub.chosenSubject} — ${sub.chosenSlot.date} ${sub.chosenSlot.start} น.`, {
+      kind: "form_submission",
+      meta: { formKind: "form_submission", submissionId: sub.id, type: sub.type },
+    })
+  }
 
-  return { ok: true, submission: result }
+  return { ok: true, submissions }
 }
 
 export async function getAll(): Promise<Store> {

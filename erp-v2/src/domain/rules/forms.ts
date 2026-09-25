@@ -13,6 +13,10 @@ export const APPROVE_STAGE: Record<FormType, LeadStage> = { test: "tested", tria
 /** admin-defined open times offered whenever no existing class already covers a subject/date */
 export const GENERIC_TIMES: TimeStr[] = ["09:00", "12:00", "15:00", "19:00"]
 
+/** Same-day, multi-subject picks share one room for one fixed 2-hour block instead of stacking
+ *  a separate room/time per subject — the parent only has to show up once. */
+export const COMBINED_MINUTES = 120
+
 function slotsOverlap(aStart: TimeStr, aMinutes: number, bStart: TimeStr, bMinutes: number) {
   const a0 = toMinutes(aStart), a1 = a0 + aMinutes
   const b0 = toMinutes(bStart), b1 = b0 + bMinutes
@@ -28,7 +32,7 @@ function freeTeacher(staff: Staff[], sessions: Session[], branchId: ID, subject:
 }
 
 /** First room of the branch with no overlapping session that date. */
-function freeRoom(branch: Branch, sessions: Session[], date: DateStr, start: TimeStr, minutes: number): ID | null {
+export function freeRoom(branch: Branch, sessions: Session[], date: DateStr, start: TimeStr, minutes: number): ID | null {
   const daySessions = sessions.filter((s) => !s.cancelled && s.branchId === branch.id && s.date === date)
   const free = branch.rooms.find((r) => !daySessions.some((s) => s.roomId === r.id && slotsOverlap(s.start, s.minutes, start, minutes)))
   return free?.id ?? null
@@ -100,6 +104,38 @@ export function buildSessionDraftFromSlot(slot: FormOfferSlot, subject: string, 
     teacherId: slot.teacherId,
     coTeacherIds: [],
     roomId: slot.roomId,
+    studentIds: [studentId],
+    trial: true,
+  }
+}
+
+/**
+ * Two or more subjects picked for the same date+start don't stack into separate rooms — they
+ * become one shared 2-hour block in one room instead, so the parent visits once. Only "generic"
+ * slots can combine this way (an existing class's session can't be re-timed/re-roomed to match).
+ */
+export function buildCombinedSessionDraft(
+  picks: { subject: string; slot: FormOfferSlot }[],
+  branchId: ID,
+  studentId: ID,
+  branch: Branch,
+  sessions: Session[],
+): Omit<Session, "id" | "customized" | "cancelled"> | null {
+  if (picks.length < 2) return null
+  if (picks.some((p) => p.slot.source !== "generic")) return null
+  const [first, ...rest] = picks
+  if (rest.some((p) => p.slot.date !== first.slot.date || p.slot.start !== first.slot.start)) return null
+  const roomId = freeRoom(branch, sessions, first.slot.date, first.slot.start, COMBINED_MINUTES) ?? first.slot.roomId
+  return {
+    branchId,
+    classId: null,
+    subject: picks.map((p) => p.subject).join(" + "),
+    date: first.slot.date,
+    start: first.slot.start,
+    minutes: COMBINED_MINUTES,
+    teacherId: first.slot.teacherId,
+    coTeacherIds: picks.slice(1).map((p) => p.slot.teacherId).filter((id): id is ID => !!id),
+    roomId,
     studentIds: [studentId],
     trial: true,
   }

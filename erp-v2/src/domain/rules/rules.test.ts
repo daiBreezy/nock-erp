@@ -9,7 +9,7 @@ import * as Sum from "./summaries"
 import { futureSessionsOf, validateFamily, validateStaff, validateStudent } from "./people"
 import { suggestFixes } from "./suggest"
 import { canSetStage, daysAgo, groupOf, validateLead } from "./crm"
-import { buildSessionDraftFromSlot, findOfferSlots } from "./forms"
+import { buildCombinedSessionDraft, buildSessionDraftFromSlot, findOfferSlots } from "./forms"
 
 const hours = { open: "09:00", close: "20:00" }
 const branch: Branch = {
@@ -371,5 +371,24 @@ describe("forms", () => {
       { branch, staff: [teacher], sessions: [], holidays },
     )
     expect(issues.some((i) => i.level === "block")).toBe(false)
+  })
+
+  it("buildCombinedSessionDraft merges 2 same-day, same-time generic picks into one 2-hour room block", () => {
+    const slotA: FormOfferSlot = { id: "off_g0", date: "2026-09-29", start: "09:00", minutes: 60, source: "generic", teacherId: "t1", roomId: "r1", classId: null, sessionId: null }
+    const slotB: FormOfferSlot = { id: "off_g1", date: "2026-09-29", start: "09:00", minutes: 60, source: "generic", teacherId: "t2", roomId: "r2", classId: null, sessionId: null }
+    const draft = buildCombinedSessionDraft([{ subject: "Maths", slot: slotA }, { subject: "English", slot: slotB }], "b1", "stu1", branch, [])
+    expect(draft?.minutes).toBe(120)
+    expect(draft?.subject).toBe("Maths + English")
+    expect(draft?.teacherId).toBe("t1")
+    expect(draft?.coTeacherIds).toEqual(["t2"])
+  })
+
+  it("buildCombinedSessionDraft refuses to merge picks on different dates or times, or a class-sourced pick", () => {
+    const slotA: FormOfferSlot = { id: "off_g0", date: "2026-09-29", start: "09:00", minutes: 60, source: "generic", teacherId: "t1", roomId: "r1", classId: null, sessionId: null }
+    const slotDiffTime: FormOfferSlot = { ...slotA, id: "off_g1", start: "12:00" }
+    const slotClass: FormOfferSlot = { ...slotA, id: "off_c0", source: "class", classId: "k1", sessionId: "se1" }
+    expect(buildCombinedSessionDraft([{ subject: "Maths", slot: slotA }, { subject: "English", slot: slotDiffTime }], "b1", "stu1", branch, [])).toBeNull()
+    expect(buildCombinedSessionDraft([{ subject: "Maths", slot: slotA }, { subject: "English", slot: slotClass }], "b1", "stu1", branch, [])).toBeNull()
+    expect(buildCombinedSessionDraft([{ subject: "Maths", slot: slotA }], "b1", "stu1", branch, [])).toBeNull()
   })
 })
