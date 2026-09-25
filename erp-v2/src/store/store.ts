@@ -61,6 +61,7 @@ type Store = DB & UIState & {
 
   mark: (sessionId: ID, studentId: ID, status: AttendanceStatus) => Result
   clearMark: (sessionId: ID, studentId: ID) => Result
+  setLeaveNoQuota: (sessionId: ID, studentId: ID, value: boolean, reason?: string) => Result
   removeStudentFromClass: (classId: ID, studentId: ID) => Result<{ removedFrom: number }>
 
   saveSummary: (sessionId: ID, studentId: ID, text: string, submit: boolean) => Result
@@ -473,6 +474,22 @@ export const useStore = create<Store>()(
           if (ent && Att.leavesUsed(ent, s.sessions, s.attendance.filter((a) => !(a.sessionId === sessionId && a.studentId === studentId))) >= Att.leaveQuota(ent))
             return { ok: true, value: undefined, warnings: [`ลาเกินโควตาแล้ว (โควตา ${Att.leaveQuota(ent)} ครั้ง) — แจ้งผู้ปกครองเรื่องการชดเชย`] }
         }
+        return OK
+      },
+
+      setLeaveNoQuota: (sessionId, studentId, value, reason) => {
+        const s = get()
+        const me = s.me()
+        const a = s.attendance.find((x) => x.sessionId === sessionId && x.studentId === studentId)
+        const r = Att.canSetLeaveNoQuota(a, value, reason, me)
+        if (!r.ok) return r
+        set({
+          attendance: s.attendance.map((x) =>
+            x.sessionId === sessionId && x.studentId === studentId
+              ? { ...x, noQuotaLeave: value, noQuotaReason: value ? reason!.trim() : undefined }
+              : x
+          ),
+        })
         return OK
       },
 

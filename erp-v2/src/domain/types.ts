@@ -200,6 +200,9 @@ export interface Attendance {
   status: AttendanceStatus
   markedBy: ID
   markedAt: string
+  /** long leave (abroad/illness/accident) excluded from the leave quota count — remark required */
+  noQuotaLeave?: boolean
+  noQuotaReason?: string
 }
 
 export type SummaryStatus = "draft" | "submitted" | "changes_requested" | "approved" | "sent"

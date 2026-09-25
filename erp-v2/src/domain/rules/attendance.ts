@@ -1,7 +1,8 @@
 // Attendance, entitlements and student status (C1–C7, F4, F7, F8).
 
 import { addDays, fmtDate } from "../dates"
-import type { Attendance, AttendanceStatus, Course, Entitlement, ID, Klass, Result, Session, Student } from "../types"
+import type { Attendance, AttendanceStatus, Course, Entitlement, ID, Klass, Result, Session, Staff, Student } from "../types"
+import { can } from "./permissions"
 import { sessionState } from "./scheduling"
 
 /** C2: present/absent only once the session has started; leave may be recorded in advance. */
@@ -60,7 +61,15 @@ export function leaveQuota(e: Entitlement) {
 
 export function leavesUsed(e: Entitlement, sessions: Session[], attendance: Attendance[]) {
   const ids = new Set(sessions.filter((s) => packageCovers(e, s)).map((s) => s.id))
-  return attendance.filter((a) => a.studentId === e.studentId && ids.has(a.sessionId) && a.status === "leave").length
+  return attendance.filter((a) => a.studentId === e.studentId && ids.has(a.sessionId) && a.status === "leave" && !a.noQuotaLeave).length
+}
+
+/** New: long leave (abroad/illness/accident) can be excluded from the leave-quota count — remark always required; Admin/Manager approve directly, no escalation. */
+export function canSetLeaveNoQuota(a: Attendance | undefined, value: boolean, reason: string | undefined, user: Staff): Result {
+  if (!a || a.status !== "leave") return { ok: false, error: "ต้องเช็คชื่อเป็น \"ลา\" ก่อน" }
+  if (!can(user, "attendance.leave_override")) return { ok: false, error: "คุณไม่มีสิทธิ์ทำรายการนี้" }
+  if (value && !reason?.trim()) return { ok: false, error: "กรอกหมายเหตุการลา" }
+  return { ok: true, value: undefined }
 }
 
 export type StudentStatus = "active" | "expiring" | "inactive"

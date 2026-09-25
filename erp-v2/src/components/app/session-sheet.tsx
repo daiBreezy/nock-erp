@@ -55,6 +55,7 @@ function Body({ id, onClose }: { id: ID; onClose: () => void }) {
   const me = useStore((st) => st.staff.find((x) => x.id === st.userId)!)
   const mark = useStore((st) => st.mark)
   const clearMark = useStore((st) => st.clearMark)
+  const setLeaveNoQuota = useStore((st) => st.setLeaveNoQuota)
   const now = useNow(10_000)
   const branch = useBranch()
   const L = useLookup()
@@ -63,6 +64,8 @@ function Body({ id, onClose }: { id: ID; onClose: () => void }) {
   const [teachersOpen, setTeachersOpen] = useState(false)
   const [adding, setAdding] = useState(false)
   const [studentOpen, setStudentOpen] = useState<string | null>(null)
+  const [noQuotaOpen, setNoQuotaOpen] = useState<string | null>(null)
+  const [noQuotaReason, setNoQuotaReason] = useState("")
 
   const conflicts = useMemo(() => (s ? findConflicts(allSessions.filter((x) => x.date === s.date), branch, staff).filter((c) => c.sessionIds.includes(s.id)) : []), [allSessions, s, branch, staff])
   if (!s) return null
@@ -71,6 +74,7 @@ function Body({ id, onClose }: { id: ID; onClose: () => void }) {
   const canManage = can(me, "session.manage")
   const mine = s.teacherId === me.id
   const canMarkHere = can(me, "attendance.mark") && (canManage || mine)
+  const canOverrideQuota = can(me, "attendance.leave_override")
 
   return (
     <>
@@ -186,6 +190,51 @@ function Body({ id, onClose }: { id: ID; onClose: () => void }) {
                       </Button>
                     )}
                   </div>
+                  {a?.status === "leave" && (a.noQuotaLeave || canOverrideQuota) && (
+                    <div className="w-full">
+                      {a.noQuotaLeave ? (
+                        <div className="flex flex-wrap items-center gap-2">
+                          <Pill tone="violet" title={a.noQuotaReason}>ไม่หักโควตา</Pill>
+                          {canOverrideQuota && state !== "closed" && (
+                            <Button size="xs" variant="ghost" onClick={() => report(setLeaveNoQuota(s.id, sid, false), `เลิกยกเว้นโควตา ${stu?.nickname}`)}>
+                              ยกเลิก
+                            </Button>
+                          )}
+                        </div>
+                      ) : noQuotaOpen === sid ? (
+                        <div className="flex flex-wrap items-center gap-2">
+                          <Textarea
+                            rows={1}
+                            value={noQuotaReason}
+                            onChange={(e) => setNoQuotaReason(e.target.value)}
+                            placeholder="เหตุผลการลาไม่หักโควตา เช่น ไปต่างประเทศ"
+                            className="min-h-8 flex-1"
+                          />
+                          <Button size="xs" variant="ghost" onClick={() => { setNoQuotaOpen(null); setNoQuotaReason("") }}>
+                            ไม่ระบุ
+                          </Button>
+                          <Button
+                            size="xs"
+                            disabled={!noQuotaReason.trim()}
+                            onClick={() => {
+                              if (report(setLeaveNoQuota(s.id, sid, true, noQuotaReason), `${stu?.nickname}: ลาไม่หักโควตา`)) {
+                                setNoQuotaOpen(null)
+                                setNoQuotaReason("")
+                              }
+                            }}
+                          >
+                            ยืนยัน
+                          </Button>
+                        </div>
+                      ) : (
+                        state !== "closed" && (
+                          <Button size="xs" variant="ghost" onClick={() => setNoQuotaOpen(sid)}>
+                            ไม่หักโควตา (ลาระยะยาว)
+                          </Button>
+                        )
+                      )}
+                    </div>
+                  )}
                 </li>
               )
             })}

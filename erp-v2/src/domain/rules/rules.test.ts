@@ -2,7 +2,7 @@
 import { describe, expect, it } from "vitest"
 import type { Attendance, Branch, FormOfferSlot, Holiday, Invoice, Klass, Package, Session, Staff, Weekday } from "../types"
 import { applyClassEdit, applyToSessions, canSave, introducedConflicts, editSingleSession, findConflicts, generateSessions, moveSession, sessionState, validateClass, workState } from "./scheduling"
-import { balance, canMark, coveringEntitlement, lowBalanceAlert, removeFromClass } from "./attendance"
+import { balance, canMark, canSetLeaveNoQuota, coveringEntitlement, leavesUsed, lowBalanceAlert, removeFromClass } from "./attendance"
 import { canApprove, canConfirmPayment, canSend, canVoid, defaultBusLegs, busTotal, nextInvoiceNumber, quoteCourse } from "./billing"
 import { can } from "./permissions"
 import * as Sum from "./summaries"
@@ -21,7 +21,7 @@ const branch: Branch = {
   lineOa: { channelId: "", botBasicId: "", addFriendUrl: "" },
 }
 const staff = (id: string, roles: Staff["roles"]): Staff => ({ id, name: id, nickname: id, roles, branchIds: ["b1"], subjects: ["Maths"], active: true, canLogin: true })
-const director = staff("dir", ["director"]), admin = staff("adm", ["admin"]), teacher = staff("t1", ["teacher"])
+const director = staff("dir", ["director"]), admin = staff("adm", ["admin"]), manager = staff("mgr", ["manager"]), teacher = staff("t1", ["teacher"])
 const holidays: Holiday[] = [{ id: "h1", branchId: "b1", date: "2026-10-13", name: "Holiday" }]
 let n = 0
 const id = () => `s${++n}`
@@ -114,6 +114,43 @@ describe("attendance", () => {
   it("F4: no low-session alert for subscriptions", () => {
     const e = { id: "e", studentId: "a", courseId: "c", subject: "Maths", classId: "k1", invoiceId: "i", kind: "subscription" as const, from: "2026-09-01", to: "2026-12-31", sessionsTotal: 1 }
     expect(lowBalanceAlert(e, balance(e, [], []), "2026-09-24")).toBeNull()
+  })
+
+  describe("no-quota leave (long leave excluded from leave quota)", () => {
+    const sessions = generateSessions(klass(), [], id)
+    const e = { id: "e", studentId: "a", courseId: "c", subject: "Maths", classId: "k1", invoiceId: "i", kind: "sessions" as const, from: "2026-09-01", to: "2026-12-31", sessionsTotal: 5 }
+    const leaveAtt: Attendance = { sessionId: sessions[0].id, studentId: "a", status: "leave", markedBy: "t1", markedAt: "" }
+
+    it("leavesUsed excludes rows flagged noQuotaLeave", () => {
+      expect(leavesUsed(e, sessions, [leaveAtt])).toBe(1)
+      expect(leavesUsed(e, sessions, [{ ...leaveAtt, noQuotaLeave: true, noQuotaReason: "ไปต่างประเทศ" }])).toBe(0)
+    })
+
+    it("canSetLeaveNoQuota requires an existing leave record", () => {
+      expect(canSetLeaveNoQuota(undefined, true, "ป่วยหนัก", admin).ok).toBe(false)
+      const present = { ...leaveAtt, status: "present" as const }
+      expect(canSetLeaveNoQuota(present, true, "ป่วยหนัก", admin).ok).toBe(false)
+    })
+
+    it("canSetLeaveNoQuota blocks roles without the permission (teacher)", () => {
+      expect(canSetLeaveNoQuota(leaveAtt, true, "ป่วยหนัก", teacher).ok).toBe(false)
+    })
+
+    it("canSetLeaveNoQuota requires a non-empty reason when turning the flag on", () => {
+      expect(canSetLeaveNoQuota(leaveAtt, true, "", admin).ok).toBe(false)
+      expect(canSetLeaveNoQuota(leaveAtt, true, "   ", admin).ok).toBe(false)
+      expect(canSetLeaveNoQuota(leaveAtt, true, "อุบัติเหตุ", admin).ok).toBe(true)
+    })
+
+    it("Admin or Manager can approve directly — no escalation needed", () => {
+      expect(canSetLeaveNoQuota(leaveAtt, true, "ไปต่างประเทศ", admin).ok).toBe(true)
+      expect(canSetLeaveNoQuota(leaveAtt, true, "ไปต่างประเทศ", manager).ok).toBe(true)
+    })
+
+    it("turning the flag off never requires a reason", () => {
+      const flagged = { ...leaveAtt, noQuotaLeave: true, noQuotaReason: "ไปต่างประเทศ" }
+      expect(canSetLeaveNoQuota(flagged, false, undefined, admin).ok).toBe(true)
+    })
   })
 })
 
