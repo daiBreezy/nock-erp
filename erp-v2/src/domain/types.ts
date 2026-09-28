@@ -26,6 +26,8 @@ export interface SpecialPeriod {
   from: DateStr
   to: DateStr
   hours: Record<Weekday, OpenHours | null>
+  /** inactive = kept for next year but ignored now (no effect on hours) */
+  active: boolean
 }
 
 /** Settings → General Fees (staging): flat fees Create Invoice charges outside course packages.

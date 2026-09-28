@@ -7,9 +7,19 @@ import type { Attendance, Branch, DateStr, Holiday, ID, Klass, Session, Staff, T
 export const GENERATE_WEEKS = 8
 export const CAPACITY = { single: 1, group: 6 } as const
 
-/** Opening hours on a specific date: a special period overrides the weekly hours */
+/** The active special period (e.g. Summer) covering this date, if any. */
+export function periodOn(branch: Branch, date: DateStr) {
+  return (branch.specialPeriods ?? []).find((p) => p.active && p.from <= date && date <= p.to)
+}
+
+/** Active special periods overlapping a date range — for banners on the calendar / holiday board. */
+export function periodsIn(branch: Branch, from: DateStr, to: DateStr) {
+  return (branch.specialPeriods ?? []).filter((p) => p.active && p.from <= to && from <= p.to).sort((a, b) => a.from.localeCompare(b.from))
+}
+
+/** Opening hours on a specific date: an active special period overrides the weekly hours */
 export function hoursFor(branch: Branch, date: DateStr) {
-  const sp = (branch.specialPeriods ?? []).find((p) => p.from <= date && date <= p.to)
+  const sp = periodOn(branch, date)
   return (sp ? sp.hours : branch.hours)[weekdayOf(date)]
 }
 

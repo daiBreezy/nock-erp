@@ -12,7 +12,8 @@ import { Input } from "@/components/ui/input"
 import { Switch } from "@/components/ui/switch"
 import { addDays, fmtDate, parseDate, toDateStr, weekdayOf } from "@/domain/dates"
 import { can, inBranch } from "@/domain/rules/permissions"
-import { closesBranch, holidayImpact } from "@/domain/rules/scheduling"
+import { closesBranch, holidayImpact, periodsIn } from "@/domain/rules/scheduling"
+import { PeriodBanner } from "@/components/app/period-banner"
 import { HOLIDAY_CATEGORY_LABEL } from "@/domain/rules/settings"
 import type { Branch, Holiday, HolidayCategory } from "@/domain/types"
 import { report } from "@/lib/feedback"
@@ -62,6 +63,9 @@ export function HolidayPlanner({ branch }: { branch?: Branch }) {
   const gridStart = addDays(anchor, -((weekdayOf(anchor) + 6) % 7))
   const cells = Array.from({ length: 42 }, (_, i) => addDays(gridStart, i))
   const rows = cells.slice(35).every((d) => parseDate(d).getMonth() !== first.getMonth()) ? cells.slice(0, 35) : cells
+  // special periods (e.g. Summer) shown on the board so closing decisions account for them
+  const periods = branch ? periodsIn(branch, rows[0], rows[rows.length - 1]) : []
+  const periodOf = (d: string) => periods.find((p) => p.from <= d && d <= p.to)
 
   return (
     <div className="grid gap-4 lg:grid-cols-[minmax(0,22rem)_1fr]">
@@ -119,6 +123,11 @@ export function HolidayPlanner({ branch }: { branch?: Branch }) {
           <Button size="icon-sm" variant="outline" aria-label="เดือนถัดไป" onClick={() => setAnchor(shiftMonth(anchor, 1))}><ChevronRightIcon /></Button>
           <Button size="sm" variant="ghost" className="ml-auto" onClick={() => setAnchor(monthStart(today))}>วันนี้</Button>
         </div>
+        {periods.length > 0 && (
+          <div className="mb-2 space-y-1">
+            {periods.map((p) => <PeriodBanner key={p.id} period={p} />)}
+          </div>
+        )}
         <div className="grid grid-cols-7 overflow-hidden rounded-2xl border text-sm">
           {DOW.map((d) => <div key={d} className="border-b bg-muted/40 py-1.5 text-center text-xs text-muted-foreground">{d}</div>)}
           {rows.map((d) => {
@@ -127,12 +136,15 @@ export function HolidayPlanner({ branch }: { branch?: Branch }) {
             const shut = hs.some(closed)
             const canAdd = (isBranch ? manageBranch : manageCompany) && inMonth && !hs.some((h) => (isBranch ? h.branchId === branch.id : h.branchId === null))
             const n = isBranch ? sessions.filter((s) => !s.cancelled && s.date === d && s.branchId === branch.id).length : 0
+            const sp = periodOf(d)
             return (
-              <div key={d} className={cn("group relative min-h-20 border-r border-b p-1.5 [&:nth-child(7n)]:border-r-0", !inMonth && "bg-muted/20 text-muted-foreground/50", shut && inMonth && "bg-rose-50", d === today && "ring-2 ring-primary ring-inset")}>
+              <div key={d} className={cn("group relative min-h-20 border-r border-b p-1.5 [&:nth-child(7n)]:border-r-0", !inMonth && "bg-muted/20 text-muted-foreground/50", sp && inMonth && "bg-amber-50", shut && inMonth && "bg-rose-50", d === today && "ring-2 ring-primary ring-inset")}>
+                {sp && <span className="absolute inset-x-0 top-0 h-1 bg-amber-400" />}
                 <div className="flex items-center justify-between">
                   <span className={cn("text-xs", shut && "font-semibold text-rose-700")}>{parseDate(d).getDate()}</span>
                   {n > 0 && inMonth && <span className="text-[10px] text-muted-foreground">{n} คาบ</span>}
                 </div>
+                {sp && inMonth && (d === sp.from || parseDate(d).getDate() === 1 || weekdayOf(d) === 1) && <p className="truncate text-[10px] font-medium text-amber-700">☀ {sp.name}</p>}
                 {hs.map((h) => (
                   <p key={h.id} className={cn("mt-0.5 truncate text-[11px]", closed(h) ? "text-rose-700" : "text-muted-foreground line-through")} title={`${h.name} · ${HOLIDAY_CATEGORY_LABEL[h.category]}`}>{h.name}</p>
                 ))}
@@ -147,6 +159,7 @@ export function HolidayPlanner({ branch }: { branch?: Branch }) {
         </div>
         <p className="mt-2 flex flex-wrap gap-3 text-[11px] text-muted-foreground">
           <span className="flex items-center gap-1"><span className="size-2.5 rounded-sm bg-rose-200" /> หยุด</span>
+          {isBranch && <span className="flex items-center gap-1"><span className="size-2.5 rounded-sm bg-amber-300" /> ช่วงเวลาพิเศษ</span>}
           {isBranch && <span className="line-through">ชื่อขีดฆ่า = วันหยุดบริษัทที่สาขานี้เปิดทำการ</span>}
           <span>เอาเมาส์ชี้ช่องว่างเพื่อเพิ่มวันหยุด</span>
         </p>

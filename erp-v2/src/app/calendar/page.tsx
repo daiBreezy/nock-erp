@@ -1,5 +1,6 @@
 "use client"
 
+import { PeriodBanner } from "@/components/app/period-banner"
 import { Suspense, useMemo, useState } from "react"
 import { useSearchParams } from "next/navigation"
 import { AlertTriangleIcon, ChevronLeftIcon, ChevronRightIcon, PalmtreeIcon, PlusIcon } from "lucide-react"
@@ -16,7 +17,7 @@ import { Button } from "@/components/ui/button"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 import { addDays, dayShort, endTime, fmtDate, fmtMonth, fromMinutes, parseDate, toDateStr, toMinutes, weekdayOf } from "@/domain/dates"
 import { can } from "@/domain/rules/permissions"
-import { findConflicts, isHoliday, sessionState, workState, type MoveTarget, type WorkState } from "@/domain/rules/scheduling"
+import { findConflicts, isHoliday, periodsIn, sessionState, workState, type MoveTarget, type WorkState } from "@/domain/rules/scheduling"
 import type { DateStr, Session } from "@/domain/types"
 import { useBranch, useLookup, useNow } from "@/lib/hooks"
 import { cn } from "@/lib/utils"
@@ -185,6 +186,8 @@ function CalendarView() {
       </div>
 
       {/* card states: click one to highlight only those cards */}
+      {/* special periods (e.g. Summer) in the visible range — hours differ from normal while they last */}
+      {periodsIn(branch, range.from, range.to).map((p) => <PeriodBanner key={p.id} period={p} />)}
       <WorkLegend counts={workCounts} active={workFilter} onToggle={setWorkFilter} />
 
       {conflicts.length > 0 && (

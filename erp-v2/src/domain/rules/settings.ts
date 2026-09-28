@@ -131,7 +131,8 @@ export function validateSpecialPeriods(list: SpecialPeriod[]): string | null {
     const bad = validateHours(p.hours)
     if (bad) return `${p.name}: ${bad}`
   }
-  const sorted = [...list].sort((a, b) => a.from.localeCompare(b.from))
+  // only active periods decide hours, so only they must not overlap (an inactive "Summer 2025" can sit beside "Summer 2026")
+  const sorted = list.filter((p) => p.active).sort((a, b) => a.from.localeCompare(b.from))
   for (let i = 1; i < sorted.length; i++)
     if (sorted[i].from <= sorted[i - 1].to) return `${sorted[i - 1].name} กับ ${sorted[i].name} มีวันที่ทับกัน`
   return null

@@ -1,9 +1,13 @@
 "use client"
 
+import { periodHours } from "./period-banner"
+import { periodOn } from "@/domain/rules/scheduling"
+import { fmtDate, toDateStr } from "@/domain/dates"
+import { useBranch, useNow } from "@/lib/hooks"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { useSyncExternalStore, type ReactNode } from "react"
-import { BellIcon, LockIcon } from "lucide-react"
+import { BellIcon, LockIcon, SunIcon } from "lucide-react"
 import {
   Sidebar, SidebarContent, SidebarFooter, SidebarGroup, SidebarGroupLabel, SidebarHeader, SidebarInset, SidebarMenu,
   SidebarMenuButton, SidebarMenuItem, SidebarProvider, SidebarTrigger,
@@ -92,6 +96,7 @@ function Shell({ children }: { children: ReactNode }) {
           <Separator orientation="vertical" className="mx-1 h-5" />
           <h1 className="truncate text-sm font-medium">{current?.label ?? "NockERP"}</h1>
           <div className="ml-auto flex items-center gap-2">
+            <CurrentPeriodChip />
             <NativeSelect
               aria-label="สาขา"
               className="h-9 w-36 sm:w-44"
@@ -114,6 +119,20 @@ function Shell({ children }: { children: ReactNode }) {
 
 function canAny(me: Parameters<typeof can>[0], perm: Permission | Permission[]) {
   return (Array.isArray(perm) ? perm : [perm]).some((p) => can(me, p))
+}
+
+/** Always-visible reminder that today falls in a special period (e.g. Summer) with different hours. */
+function CurrentPeriodChip() {
+  const branch = useBranch()
+  const today = toDateStr(useNow())
+  const p = periodOn(branch, today)
+  if (!p) return null
+  return (
+    <Link href={`/settings/branches/${branch.id}`} title={`${p.name}: ${fmtDate(p.from)} – ${fmtDate(p.to, { year: true })} · ${periodHours(p)}`}
+      className="hidden items-center gap-1 rounded-full bg-amber-50 px-2.5 py-1 text-xs font-medium text-amber-900 ring-1 ring-amber-200 md:flex">
+      <SunIcon className="size-3.5 text-amber-600" /> ช่วง {p.name} · ถึง {fmtDate(p.to)}
+    </Link>
+  )
 }
 
 function NotificationBell() {
