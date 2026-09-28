@@ -5,6 +5,23 @@
 
 ---
 
+## 2026-09-28 (ต่อ 2) — ERP: เทียบกับ Staging ใหม่ทั้งหมด + ขั้นที่ 1 Settings ✅ (เครื่องบ้าน)
+
+**เจ้าของติ:** erp-v2 ตัดข้อมูลไปเยอะเกิน — Create Invoice, Create Course (Package หาย), Settings รวมทุกอย่างไว้หน้าเดียว ทั้งที่ Staging แยกเมนูเป็นเรื่องๆ → **กฎใหม่: เปิด Staging ดูก่อนออกแบบทุกหน้า ห้ามตัดช่อง/รวมเมนูที่ Staging มี** (จดใน `erp-v2/CLAUDE.md` แล้ว)
+
+**สิ่งที่ Staging มี (เปิดดูอย่างเดียว ไม่สร้าง/แก้ข้อมูล — ยอดใบแจ้งหนี้ยัง 22 เท่าเดิม):**
+- **Settings:** รายชื่อสาขา → 11 แท็บ (Branch Info · Bank Account + Invoice Memo · LINE (มีรูป QR) · Scheduling (พรีวิวตามวันที่, คัดลอกไปวันธรรมดา/เสาร์อาทิตย์, Special Schedules — **ไม่เก็บเวลาพัก**) · Subjects · Grades (Primary/Middle-High/Special K1–K3) · **Packages** (Hour 2/2.5/12/24/48/72/96h · Week 4w/8w "Multi class & Hour" · Month; ตารางราคา วิชา×เกรด×ระยะเวลา) · **General Fees** (Bus/Entry/Mock หมวดละหลายประเภท) · **Promotions** (ชื่อ, %/฿, ประเภทแพ็กเกจ, ระยะขั้นต่ำ, ช่วงวันที่, Active) · Staff · Holidays (import จากปฏิทินกลาง)) + **System** (Global Subjects rename, Global Holidays + Broadcast, Invoice Memos ต่อแบรนด์, ภาษา/Timezone/สกุลเงิน/รูปแบบวันที่, Notification prefs "not ready")
+- **Create Course:** การ์ดสาขา + Package plans (ช่วงราคา) · Single/Bundle · ชื่อ (ว่างได้ = ตั้งจากวิชา+เกรด) · วิชา · เกรดหลายระดับ + Select all · Duration type (ไม่มี/Hourly/Weekly/Monthly) + ระยะ · **ราคาเติมอัตโนมัติจากตารางสาขา แก้ได้** · Course fee (ค่าอุปกรณ์) · ช่วงวันที่ (optional) · Active
+- **Create Invoice:** เลือก **Lead หรือลูกค้า** · **หลายคอร์ส** (Add more; Select Course กรองวิชา/ประเภท/ชั่วโมง, สร้างคอร์สใหม่ได้) · ต่อคอร์ส: งวด, เตือนซื้อซ้อน + remark, pro-rate (`Sep 2026 · 1 session → 30%`), **เลือกหลายคลาส** (กรองตามวัน), วันเริ่ม, ช่วงวันที่ + คาบ/ชม. · Discount (โปรอัตโนมัติ + Check Promotion) · Concession (จำนวน+เหตุผล) · **Bus fee ต่อคอร์ส** (ประเภทจาก General Fees × คาบ, ติ๊กรับ/ส่ง) · Book fee · **Advance Optional** (list ค่าแรกเข้า/Mock, ยกเว้นค่าแรกเข้าอัตโนมัติถ้าเคยจ่าย) · Detail: Family, Tax detail · Workflow: Created → PDF Approved (**Approve with Reason**) → Send → **Upload pay slip & Statement checking** → Create Receipt → Send · List กรอง **Accounts status** (Needs reconciliation / Ready for accountant / Sent to accountant / email failed)
+
+**ขั้นที่ 1 เสร็จ — Settings แยกตาม Staging:** `/settings` (สาขา | ระบบ) + `/settings/branches/[id]` 11 แท็บ แต่ละการ์ดมีปุ่มบันทึกของตัวเอง (บันทึกเฉพาะช่องของการ์ดนั้น ไม่ทับกัน) · seed มีค่ารถ 2 ประเภท / ค่าแรกเข้า / Mock, โปร 2 อัน, ตารางราคาครบ · ใบแจ้งหนี้ใช้ค่ารถจาก General Fees แล้ว · โปรโมชันเช็คตามประเภทแพ็กเกจ + ระยะขั้นต่ำ · persist 17→18 · 67 tests · ทดสอบในเบราว์เซอร์: แก้ราคาในตาราง → บันทึกจริง, แท็บค่าธรรมเนียม/โปรโมชัน/เวลาเปิด-ปิด/System แสดงครบ
+
+**❓ รอเจ้าของ:** (1) เวลาพัก — erp-v2 มี แต่ Staging ไม่เก็บ → เก็บหรือตัด (ตอนนี้เก็บไว้ + ป้ายเตือน) (2) แพ็กเกจรายสัปดาห์ "Multi class & Hour" หมายถึงอะไร
+
+**ต่อไป:** ขั้นที่ 2 Create Course ตาม Staging → ขั้นที่ 3 Create Invoice ตาม Staging
+
+---
+
 ## 2026-09-28 (ต่อ) — ERP: เฟส 3 Force Approve + ระบบแจ้งเตือนกลาง + งานเล็กจากคำตอบเจ้าของ ✅ (เครื่องบ้าน)
 
 **เจ้าของตอบคำถามค้าง:**
