@@ -18,7 +18,7 @@ const branch: Branch = {
   id: "b1", code: "TST", name: "Test", brand: "nockacademy",
   rooms: [{ id: "r1", name: "Room 1" }, { id: "r2", name: "Room 2" }],
   hours: { 0: null, 1: hours, 2: hours, 3: hours, 4: hours, 5: hours, 6: hours } as Record<Weekday, typeof hours | null>,
-  subjects: ["Maths"], grades: ["P5"], defaultSessionMinutes: 60, busFeePerLeg: 150, breaks: { 0: [], 1: [], 2: [], 3: [], 4: [], 5: [], 6: [] }, specialPeriods: [], fees: [], promotions: [],
+  subjects: ["Maths"], grades: ["P5"], defaultSessionMinutes: 60, busFeePerLeg: 150, specialPeriods: [], fees: [], promotions: [],
   active: true, phones: [], socials: [], packageDurations: { hour: [12, 24], week: [4] }, priceChart: [],
   bankAccount: { bank: "", branchName: "", name: "", number: "" }, lineOaConnected: false,
   lineOa: { channelId: "", botBasicId: "", addFriendUrl: "" },

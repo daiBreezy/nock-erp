@@ -13,18 +13,12 @@ export function hoursFor(branch: Branch, date: DateStr) {
   return (sp ? sp.hours : branch.hours)[weekdayOf(date)]
 }
 
-export function breaksFor(branch: Branch, date: DateStr) {
-  return (branch.breaks ?? {})[weekdayOf(date)] ?? []
-}
-
 /** Why a slot can't be used on a date (closed / outside hours / break), or null */
 export function slotProblem(branch: Branch, date: DateStr, start: TimeStr, minutes: number): string | null {
   const h = hoursFor(branch, date)
   const [s, e] = [toMinutes(start), toMinutes(start) + minutes]
   if (!h) return "สาขาปิด"
   if (s < toMinutes(h.open) || e > toMinutes(h.close)) return `นอกเวลาเปิด (${h.open}–${h.close})`
-  const br = breaksFor(branch, date).find((b) => overlaps(s, e, toMinutes(b.start), toMinutes(b.end)))
-  if (br) return `ทับเวลาพัก ${br.label} ${br.start}–${br.end}`
   return null
 }
 
@@ -210,7 +204,7 @@ export function validateClass(d: ClassDraft, ctx: { branch: Branch; staff: Staff
   const dates = d.kind === "learning" ? Array.from({ length: GENERATE_WEEKS }, (_, i) => addDays(first, i * 7)) : [first]
   const others = ctx.sessions.filter((x) => !x.cancelled && x.branchId === d.branchId && x.classId !== ctx.ignoreClassId)
   const teacherClash = new Set<DateStr>(), roomClash = new Set<DateStr>(), full = new Set<DateStr>(), clashNames = new Set<string>()
-  // opening hours / special periods / breaks are checked per date
+  // opening hours / special periods are checked per date (no break times — owner 2026-09-28: staff handle breaks themselves)
   const slotIssues = new Map<string, DateStr[]>()
   for (const date of dates) {
     if (isHoliday(date, d.branchId, ctx.holidays)) continue

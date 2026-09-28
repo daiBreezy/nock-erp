@@ -61,7 +61,7 @@ export function buildSeed(now = new Date()): DB {
       id: "br_thl", code: "THL", name: "ทองหล่อ", brand: "nockacademy",
       rooms: [{ id: "rm_1", name: "ห้อง 1" }, { id: "rm_2", name: "ห้อง 2" }, { id: "rm_3", name: "ห้อง 3" }],
       hours: wk("09:00", "20:00"), subjects: ["คณิต", "อังกฤษ", "วิทย์"], grades: ["ป.4", "ป.5", "ป.6", "ม.1", "ม.2", "ม.3"],
-      defaultSessionMinutes: 60, busFeePerLeg: 150, breaks: { 0: [], 1: [], 2: [], 3: [], 4: [], 5: [], 6: [{ start: "12:00", end: "13:00", label: "พักกลางวัน" }] },
+      defaultSessionMinutes: 60, busFeePerLeg: 150,
       specialPeriods: [{ id: "sp_summer", name: "Summer", from: addDays(monday, 42), to: addDays(monday, 69), hours: wk("08:00", "22:00", []) }],
       active: true, email: "thonglor@nockacademy.com", address: "123 ถ.สุขุมวิท 55 แขวงคลองตันเหนือ เขตวัฒนา กทม. 10110", phones: ["02-111-2222", "081-234-5678"], socials: ["https://facebook.com/nockacademy"],
       fees: [
@@ -83,7 +83,7 @@ export function buildSeed(now = new Date()): DB {
       id: "br_ari", code: "ARI", name: "อารีย์", brand: "liclass",
       rooms: [{ id: "rm_a1", name: "ห้อง A" }, { id: "rm_a2", name: "ห้อง B" }],
       hours: wk("10:00", "19:00", [0, 1]), subjects: ["คณิต", "อังกฤษ"], grades: ["ป.1", "ป.2", "ป.3", "ป.4", "ป.5", "ป.6"],
-      defaultSessionMinutes: 90, busFeePerLeg: 120, breaks: { 0: [], 1: [], 2: [], 3: [], 4: [], 5: [], 6: [{ start: "12:00", end: "13:00", label: "พักกลางวัน" }] }, specialPeriods: [],
+      defaultSessionMinutes: 90, busFeePerLeg: 120, specialPeriods: [],
       active: true, email: "ari@liclass.com", address: "45 ซ.อารีย์ 1 แขวงสามเสนใน เขตพญาไท กทม. 10400", phones: ["02-333-4444"], socials: [],
       fees: [{ id: "fee_bus_ari", kind: "bus", name: "Standard", price: 120 }], promotions: [],
       packageDurations: { hour: [12, 24, 48], week: [] },

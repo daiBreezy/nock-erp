@@ -80,7 +80,6 @@ function OperatingHours({ branch }: { branch: Branch }) {
         <SaveRow dirty={dirty} onReset={reset} onSave={() => save("บันทึกเวลาเปิด-ปิดแล้ว")} />
       </SettingsCard>
 
-      <BreaksCard branch={branch} />
     </div>
   )
 }
@@ -105,32 +104,6 @@ export function SchedulingTab({ branch, holidaysOnly = false }: { branch: Branch
       {sub === "special" && <SpecialPeriodsCard branch={branch} />}
       {sub === "holidays" && <HolidayPlanner branch={branch} />}
     </div>
-  )
-}
-
-/** Kept from erp-v2 (staging does not track breaks) — pending owner decision whether to drop it. */
-function BreaksCard({ branch }: { branch: Branch }) {
-  const { b, setB, dirty, reset, save } = useBranchDraft(branch, ["breaks"])
-  const setBreaks = (d: Weekday, list: Branch["breaks"][Weekday]) => setB({ ...b, breaks: { ...b.breaks, [d]: list } })
-  return (
-    <SettingsCard title="เวลาพัก" hint="ห้ามลงคาบทับเวลาพัก (override ได้พร้อมเหตุผล) — ⚠️ Staging ไม่มีส่วนนี้ รอเจ้าของยืนยันว่าจะเก็บไว้ไหม">
-      <div className="space-y-1.5">
-        {WEEK.filter((d) => b.hours[d]).map((d) => (
-          <div key={d} className="flex flex-wrap items-center gap-2 text-sm">
-            <span className="w-28">{TH_DAYS_FULL[d]}</span>
-            {b.breaks[d].map((br, i) => (
-              <span key={i} className="flex items-center gap-1 rounded-full border px-2 py-0.5">
-                <input className="w-16 bg-transparent" type="time" value={br.start} onChange={(e) => setBreaks(d, b.breaks[d].map((x, j) => (j === i ? { ...x, start: e.target.value } : x)))} />–
-                <input className="w-16 bg-transparent" type="time" value={br.end} onChange={(e) => setBreaks(d, b.breaks[d].map((x, j) => (j === i ? { ...x, end: e.target.value } : x)))} />
-                <button aria-label="ลบ" onClick={() => setBreaks(d, b.breaks[d].filter((_, j) => j !== i))}><TrashIcon className="size-3.5" /></button>
-              </span>
-            ))}
-            <Button size="xs" variant="ghost" onClick={() => setBreaks(d, [...b.breaks[d], { start: "12:00", end: "13:00", label: "พัก" }])}><PlusIcon /> เพิ่ม</Button>
-          </div>
-        ))}
-      </div>
-      <SaveRow dirty={dirty} onReset={reset} onSave={() => save("บันทึกเวลาพักแล้ว")} />
-    </SettingsCard>
   )
 }
 

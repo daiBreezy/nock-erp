@@ -19,12 +19,6 @@ export interface Room {
   name: string
 }
 
-export interface BreakTime {
-  start: TimeStr
-  end: TimeStr
-  label: string
-}
-
 /** Date-range override of the weekly hours (e.g. summer hours, exam week) */
 export interface SpecialPeriod {
   id: ID
@@ -87,8 +81,6 @@ export interface Branch {
   rooms: Room[]
   /** null = closed that weekday */
   hours: Record<Weekday, OpenHours | null>
-  /** breaks block scheduling unless overridden with a reason */
-  breaks: Record<Weekday, BreakTime[]>
   specialPeriods: SpecialPeriod[]
   subjects: string[]
   grades: string[]

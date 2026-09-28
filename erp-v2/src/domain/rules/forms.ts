@@ -11,7 +11,7 @@ export const FORM_TYPE_LABEL: Record<FormType, string> = { test: "สอบว�
 export const APPROVE_STAGE: Record<FormType, LeadStage> = { test: "tested", trial: "trialed" }
 
 /** Every whole-hour start inside the branch's opening hours that day (owner 2026-09-28: free slots
- *  come from real availability, not a fixed list) — breaks/closing are filtered later by slotProblem. */
+ *  come from real availability, not a fixed list) — closing time is filtered later by slotProblem. */
 export function openHourStarts(branch: Branch, date: DateStr): TimeStr[] {
   const h = hoursFor(branch, date)
   if (!h) return []
