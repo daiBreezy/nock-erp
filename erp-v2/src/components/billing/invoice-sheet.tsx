@@ -1,7 +1,7 @@
 "use client"
 
 import { ForceApprove } from "@/components/app/force-approve"
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { AlertTriangleIcon, CheckIcon, CircleIcon, FileTextIcon, ImageIcon, Loader2Icon, PencilIcon, RefreshCwIcon, SendIcon, XCircleIcon } from "lucide-react"
 import { Pill } from "@/components/app/badges"
 import { NativeSelect } from "@/components/app/native-select"
@@ -22,15 +22,15 @@ import { useShallow } from "zustand/react/shallow"
 import { useStore } from "@/store/store"
 import { invoiceTone } from "./status"
 
-export function InvoiceSheet({ id, onClose, onEdit }: { id: ID | null; onClose: () => void; onEdit: (inv: Invoice) => void }) {
+export function InvoiceSheet({ id, slipMediaId, onClose, onEdit }: { id: ID | null; slipMediaId?: string; onClose: () => void; onEdit: (inv: Invoice) => void }) {
   return (
     <Sheet open={!!id} onOpenChange={(o) => !o && onClose()}>
-      <SheetContent className="w-full overflow-y-auto sm:max-w-xl">{id && <Body id={id} onEdit={onEdit} />}</SheetContent>
+      <SheetContent className="w-full overflow-y-auto sm:max-w-xl">{id && <Body id={id} slipMediaId={slipMediaId} onEdit={onEdit} />}</SheetContent>
     </Sheet>
   )
 }
 
-function Body({ id, onEdit }: { id: ID; onEdit: (inv: Invoice) => void }) {
+function Body({ id, slipMediaId, onEdit }: { id: ID; slipMediaId?: string; onEdit: (inv: Invoice) => void }) {
   const inv = useStore((s) => s.invoices.find((x) => x.id === id))
   const branch = useBranch()
   const me = useStore((s) => s.staff.find((x) => x.id === s.userId)!)
@@ -48,6 +48,22 @@ function Body({ id, onEdit }: { id: ID; onEdit: (inv: Invoice) => void }) {
   const [method, setMethod] = useState<"transfer" | "cash">("transfer")
   const [ref, setRef] = useState("")
   const [slip, setSlip] = useState<string | undefined>()
+  // "ใช้เป็นสลิป" from the LINE chat: the parent's photo arrives pre-attached, amount = what is still owed
+  useEffect(() => {
+    if (!slipMediaId) return
+    let cancelled = false
+    fetch(`/api/line/media/${slipMediaId}`)
+      .then((r) => (r.ok ? r.blob() : Promise.reject()))
+      .then((b) => slipDataUrl(new File([b], "slip.jpg", { type: b.type })))
+      .then((url) => { if (!cancelled) setSlip(url) })
+      .catch(() => report({ ok: false, error: "ดึงรูปสลิปจากแชทไม่สำเร็จ — แนบรูปเองได้" }, ""))
+    return () => { cancelled = true }
+  }, [slipMediaId])
+  useEffect(() => {
+    if (!slipMediaId || !inv) return
+    const owed = Bill.invoiceTotals(inv, { branch, courses, classes, holidays }).total - inv.payments.reduce((a, p) => a + p.amount, 0)
+    if (owed > 0) setAmount(String(owed)) // eslint-disable-line react-hooks/set-state-in-effect
+  }, [slipMediaId]) // eslint-disable-line react-hooks/exhaustive-deps
   if (!inv) return null
 
   const totals = Bill.invoiceTotals(inv, { branch, courses, classes, holidays })

@@ -1,5 +1,6 @@
 "use client"
 
+import { useRouter } from "next/navigation"
 import { useCallback, useEffect, useState } from "react"
 import { FileSignatureIcon, InfoIcon, PenLineIcon, PlusIcon, RadioIcon, SendIcon, SparklesIcon, UserSearchIcon } from "lucide-react"
 import { NativeSelect } from "@/components/app/native-select"
@@ -103,6 +104,17 @@ export default function InboxPage() {
   const familyStudents = family ? students.filter((s) => s.familyId === family.id) : []
   const isNote = draft.trim().startsWith("//")
   const isLive = (id: ID) => id.startsWith("line_")
+
+  // pay slip sent in LINE → open this family's unpaid invoice with the photo attached to "บันทึกรับเงิน"
+  const invoices = useStore((s) => s.invoices)
+  const router = useRouter()
+  const useAsSlip = (mediaId: string) => {
+    const famId = family?.id ?? (lead?.trialStudentId ? students.find((s) => s.id === lead.trialStudentId)?.familyId : null)
+    const kids = new Set(students.filter((s) => s.familyId && s.familyId === famId).map((s) => s.id))
+    const open = invoices.filter((i) => kids.has(i.studentId) && (i.status === "approved" || i.status === "sent")).sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+    if (!open.length) return report({ ok: false, error: "แชทนี้ยังไม่มีใบแจ้งหนี้ที่รอชำระ — ผูกแชทกับครอบครัว/Lead และส่งใบแจ้งหนี้ก่อน" }, "")
+    router.push(`/billing?open=${open[0].id}&slip=${mediaId}`)
+  }
 
   const select = (id: ID) => {
     setSelectedId(id)
@@ -219,7 +231,7 @@ export default function InboxPage() {
                   {thread.map((m) => {
                     if (m.kind === "form_request") return <FormRequestBubble key={m.id} message={m} submissions={submissions} />
                     if (m.kind === "form_submission") return <FormSubmissionBubble key={m.id} message={m} conversation={selected} submissions={submissions} onChanged={pollSubmissions} />
-                    return <MessageBubble key={m.id} message={m} conversation={selected} staff={staff} />
+                    return <MessageBubble key={m.id} message={m} conversation={selected} staff={staff} onUseAsSlip={useAsSlip} />
                   })}
                 </div>
                 <div className="space-y-1.5 border-t p-3">

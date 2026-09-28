@@ -1,10 +1,10 @@
 import crypto from "crypto"
 import { NextResponse } from "next/server"
-import { getAll, recordInboundMessage } from "@/server/line-store"
+import { getAll, recordInboundMessage, saveLineImage } from "@/server/line-store"
 
 interface LineWebhookEvent {
   type: string
-  message?: { type: string; text?: string }
+  message?: { id?: string; type: string; text?: string }
   source?: { userId?: string }
 }
 interface LineWebhookBody {
@@ -23,8 +23,8 @@ async function fetchDisplayName(userId: string, token: string): Promise<string |
 }
 
 // LINE requires a fast 200 response (a few seconds, or it retries/flags the endpoint as failing), so
-// this stays minimal: verify signature, persist text messages, skip everything else (stickers, images,
-// follow/unfollow, etc. — out of scope for this prototype's Inbox).
+// this stays minimal: verify signature, persist text messages and photos (pay slips), skip everything else
+// (stickers, files, follow/unfollow, etc. — out of scope for this prototype's Inbox).
 export async function POST(req: Request) {
   const secret = process.env.LINE_CHANNEL_SECRET
   const token = process.env.LINE_CHANNEL_ACCESS_TOKEN
@@ -44,12 +44,19 @@ export async function POST(req: Request) {
 
   const known = new Set((await getAll()).conversations.map((c) => c.id))
   for (const event of payload.events ?? []) {
-    if (event.type !== "message" || event.message?.type !== "text" || !event.message.text) continue
+    const msg = event.message
+    const isText = msg?.type === "text" && !!msg.text
+    const isImage = msg?.type === "image" && !!msg.id
+    if (event.type !== "message" || (!isText && !isImage)) continue
     const userId = event.source?.userId
     if (!userId) continue
     const isNew = !known.has(`line_${userId}`)
     const displayName = isNew && token ? await fetchDisplayName(userId, token) : null
-    await recordInboundMessage(userId, displayName, event.message.text)
+    if (isText) await recordInboundMessage(userId, displayName, msg!.text!)
+    else {
+      const saved = token ? await saveLineImage(msg!.id!, token) : false
+      await recordInboundMessage(userId, displayName, saved ? "📷 ส่งรูปภาพ" : "📷 ส่งรูปภาพ (ดึงรูปจาก LINE ไม่สำเร็จ)", saved ? { kind: "image", meta: { formKind: "image", mediaId: msg!.id! } } : undefined)
+    }
   }
 
   return NextResponse.json({ ok: true })

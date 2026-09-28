@@ -45,6 +45,7 @@ function BillingPage() {
   const [editing, setEditing] = useState<Invoice | "new" | null>(() => (params.get("new") ? "new" : null))
   const presetStudent = params.get("new") ?? undefined
   const renewFrom = params.get("renew") ?? undefined
+  const slipFromChat = params.get("slip") ?? undefined
 
   const ctx = { branch, courses, classes, holidays }
   const rows = invoices
@@ -127,7 +128,7 @@ function BillingPage() {
         ))}
       </div>
 
-      <InvoiceSheet id={openId} onClose={() => setOpenId(null)} onEdit={(inv) => { setOpenId(null); setEditing(inv) }} />
+      <InvoiceSheet id={openId} slipMediaId={openId === params.get("open") ? slipFromChat : undefined} onClose={() => setOpenId(null)} onEdit={(inv) => { setOpenId(null); setEditing(inv) }} />
       {editing && (
         <InvoiceEditor
           invoice={editing === "new" ? undefined : editing}

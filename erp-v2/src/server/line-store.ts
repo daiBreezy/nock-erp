@@ -10,6 +10,31 @@ import type { ChatMessage, ChatMessageMeta, Conversation, MessageKind } from "@/
 
 const DATA_DIR = path.join(process.cwd(), ".data")
 const DATA_FILE = path.join(DATA_DIR, "line-inbox.json")
+const MEDIA_DIR = path.join(DATA_DIR, "line-media")
+
+/** LINE message ids are digits — anything else never touches the filesystem */
+const mediaPath = (id: string) => (/^\d{1,30}$/.test(id) ? path.join(MEDIA_DIR, `${id}.jpg`) : null)
+
+/** downloads a photo the parent sent (LINE keeps it only for a while) and stores it next to the inbox data */
+export async function saveLineImage(messageId: string, token: string): Promise<boolean> {
+  const file = mediaPath(messageId)
+  if (!file) return false
+  try {
+    const res = await fetch(`https://api-data.line.me/v2/bot/message/${messageId}/content`, { headers: { Authorization: `Bearer ${token}` }, signal: AbortSignal.timeout(8000) })
+    if (!res.ok) return false
+    await fs.mkdir(MEDIA_DIR, { recursive: true })
+    await fs.writeFile(file, Buffer.from(await res.arrayBuffer()))
+    return true
+  } catch {
+    return false
+  }
+}
+
+export async function readLineImage(messageId: string): Promise<Buffer | null> {
+  const file = mediaPath(messageId)
+  if (!file) return null
+  return fs.readFile(file).catch(() => null)
+}
 
 interface Store {
   conversations: Conversation[]

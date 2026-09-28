@@ -450,7 +450,7 @@ export interface Conversation {
 
 export type MessageAuthor = "parent" | "staff" | "internal"
 
-export type MessageKind = "text" | "form_request" | "form_submission"
+export type MessageKind = "text" | "form_request" | "form_submission" | "image"
 
 export interface FormRequestMeta {
   formKind: "form_request"
@@ -465,7 +465,13 @@ export interface FormSubmissionMeta {
   type: FormType
 }
 
-export type ChatMessageMeta = FormRequestMeta | FormSubmissionMeta
+/** a photo the parent sent in LINE (e.g. a pay slip) — file kept server-side, served by /api/line/media/[id] */
+export interface ImageMeta {
+  formKind: "image"
+  mediaId: string
+}
+
+export type ChatMessageMeta = FormRequestMeta | FormSubmissionMeta | ImageMeta
 
 export interface ChatMessage {
   id: ID
