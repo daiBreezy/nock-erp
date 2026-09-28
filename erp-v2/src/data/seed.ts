@@ -254,7 +254,7 @@ export function buildSeed(now = new Date()): DB {
     msg("m_4b", "cv_4", "staff", "u_ploy", "มีครับ อยู่สาขาอารีย์เลยครับ ติดต่อได้ตามเบอร์สาขานะครับ", 2, 11, 0),
   ]
 
-  const ym = today.slice(2, 4) + today.slice(5, 7)
+  const ym = String((Number(today.slice(0, 4)) + 543) % 100).padStart(2, "0") + today.slice(5, 7) // พ.ศ. 2 หลัก, same as nextInvoiceNumber
   const invoices: Invoice[] = [
     {
       id: "inv_paid", branchId: "br_thl", studentId: "stu_1", number: `INV-THL-${ym}-0001`,

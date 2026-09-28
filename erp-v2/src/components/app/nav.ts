@@ -1,6 +1,6 @@
 import {
   BellIcon, BookOpenIcon, CalendarDaysIcon, ClipboardCheckIcon, ClockIcon, HomeIcon, InboxIcon, LayoutDashboardIcon, NotebookPenIcon, ReceiptIcon,
-  SettingsIcon, SquareLibraryIcon, UserCogIcon, UserSearchIcon, UsersIcon, GraduationCapIcon, type LucideIcon,
+  SettingsIcon, SquareLibraryIcon, ChartColumnIcon, ListTodoIcon, UserCogIcon, UserSearchIcon, UsersIcon, GraduationCapIcon, type LucideIcon,
 } from "lucide-react"
 import type { Permission } from "@/domain/rules/permissions"
 
@@ -10,12 +10,17 @@ export interface NavItem {
   icon: LucideIcon
   /** visible when the user has any of these */
   perm: Permission | Permission[]
+  /** route is a Coming-soon placeholder — spec not agreed yet */
+  soon?: boolean
 }
 
 export const NAV: { group: string; items: NavItem[] }[] = [
   {
     group: "ภาพรวม",
-    items: [{ href: "/dashboard", label: "Dashboard", icon: LayoutDashboardIcon, perm: "dashboard.view" }],
+    items: [
+      { href: "/dashboard", label: "Dashboard", icon: LayoutDashboardIcon, perm: "dashboard.view" },
+      { href: "/reports", label: "Reports", icon: ChartColumnIcon, perm: "dashboard.view", soon: true },
+    ],
   },
   {
     group: "งานประจำวัน",
@@ -25,6 +30,7 @@ export const NAV: { group: string; items: NavItem[] }[] = [
       { href: "/calendar", label: "ปฏิทิน", icon: CalendarDaysIcon, perm: "calendar.view" },
       { href: "/sessions", label: "คาบเรียน & เช็คชื่อ", icon: ClockIcon, perm: ["attendance.mark"] },
       { href: "/summaries", label: "สรุปการเรียน", icon: NotebookPenIcon, perm: ["summary.write", "summary.approve"] },
+      { href: "/tasks", label: "Tasks", icon: ListTodoIcon, perm: "calendar.view", soon: true },
     ],
   },
   {

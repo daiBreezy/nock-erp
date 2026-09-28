@@ -148,9 +148,10 @@ export function validateInvoiceDraft(inv: Invoice, totals: InvoiceTotals): strin
   return errs
 }
 
-/** BL-8, BL-9: numbers are assigned at Generate, sequentially per branch + month, never on draft. */
+/** BL-8, BL-9: numbers are assigned at Generate, sequentially per branch + month, never on draft.
+ *  Year is Buddhist Era, 2 digits (owner 2026-09-28): Sep 2026 → INV-THL-6909-0001 */
 export function nextInvoiceNumber(prefix: "INV" | "RC", branch: Branch, date: DateStr, existing: (string | undefined | null)[]) {
-  const ym = date.slice(2, 4) + date.slice(5, 7)
+  const ym = String((Number(date.slice(0, 4)) + 543) % 100).padStart(2, "0") + date.slice(5, 7)
   const head = `${prefix}-${branch.code}-${ym}-`
   const max = existing.filter((n): n is string => !!n && n.startsWith(head)).reduce((m, n) => Math.max(m, Number(n.slice(head.length))), 0)
   return head + String(max + 1).padStart(4, "0")

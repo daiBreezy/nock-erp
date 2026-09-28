@@ -3,15 +3,22 @@
 // as a real Session. Labels here were previously duplicated between lead-sheet.tsx and
 // liff/form/page.tsx.
 
-import { addDays, at, overlaps, toMinutes } from "../dates"
+import { addDays, at, fromMinutes, overlaps, toMinutes } from "../dates"
 import type { Branch, DateStr, FormOfferSlot, FormType, Holiday, ID, Klass, LeadStage, Session, Staff, TimeStr } from "../types"
-import { CAPACITY, isHoliday, slotProblem, teachersOf } from "./scheduling"
+import { CAPACITY, hoursFor, isHoliday, slotProblem, teachersOf } from "./scheduling"
 
 export const FORM_TYPE_LABEL: Record<FormType, string> = { test: "สอบวัดระดับ", trial: "ทดลองเรียน" }
 export const APPROVE_STAGE: Record<FormType, LeadStage> = { test: "tested", trial: "trialed" }
 
-/** admin-defined open times offered whenever no existing class already covers a subject/date */
-export const GENERIC_TIMES: TimeStr[] = ["09:00", "12:00", "15:00", "19:00"]
+/** Every whole-hour start inside the branch's opening hours that day (owner 2026-09-28: free slots
+ *  come from real availability, not a fixed list) — breaks/closing are filtered later by slotProblem. */
+export function openHourStarts(branch: Branch, date: DateStr): TimeStr[] {
+  const h = hoursFor(branch, date)
+  if (!h) return []
+  const out: TimeStr[] = []
+  for (let m = Math.ceil(toMinutes(h.open) / 60) * 60; m < toMinutes(h.close); m += 60) out.push(fromMinutes(m))
+  return out
+}
 
 /** Same-day, multi-subject picks share one room for one fixed 2-hour block instead of stacking
  *  a separate room/time per subject — the parent only has to show up once. */
@@ -39,7 +46,7 @@ export function freeRoom(branch: Branch, sessions: Session[], date: DateStr, sta
 }
 
 /**
- * Candidate slots to offer a parent for one subject/date-range: admin-defined generic times
+ * Candidate slots to offer a parent for one subject/date-range: every free whole hour
  * (only when a qualified teacher AND a room are genuinely free) plus real occurrences of an
  * existing class in range (only while it still has capacity). Every slot returned is, by
  * construction, feasible at this instant — re-validated for real at approve time.
@@ -60,11 +67,11 @@ export function findOfferSlots(params: {
   const minutes = params.minutes ?? branch.defaultSessionMinutes
   const out: FormOfferSlot[] = []
 
-  // generic, admin-defined open times
+  // free time: every hour the branch is open where a qualified teacher and a room are both free
   let gi = 0
   for (let date = from; date <= to; date = addDays(date, 1)) {
     if (isHoliday(date, branch.id, holidays)) continue
-    for (const start of GENERIC_TIMES) {
+    for (const start of openHourStarts(branch, date)) {
       if (at(date, start) < now) continue
       if (slotProblem(branch, date, start, minutes)) continue
       const teacherId = freeTeacher(staff, sessions, branch.id, subject, date, start, minutes)

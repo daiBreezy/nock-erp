@@ -34,7 +34,8 @@ export function SlotPicker({
 
   const grouped = useMemo(() => {
     const map = new Map<string, FormOfferSlot[]>()
-    slots.forEach((s) => map.set(s.date, [...(map.get(s.date) ?? []), s]))
+    const ordered = slots.toSorted((a, b) => (a.date + a.start).localeCompare(b.date + b.start))
+    ordered.forEach((s) => map.set(s.date, [...(map.get(s.date) ?? []), s]))
     return [...map.entries()]
   }, [slots])
 
@@ -76,7 +77,7 @@ export function SlotPicker({
                   >
                     {slot.start}
                     <Pill tone={slot.source === "class" ? "violet" : "gray"} className="px-1.5 py-0 text-[10px]">
-                      {slot.source === "class" ? "คลาสเดิม" : "ทั่วไป"}
+                      {slot.source === "class" ? "คลาสเดิม" : "ว่าง"}
                     </Pill>
                   </button>
                 )

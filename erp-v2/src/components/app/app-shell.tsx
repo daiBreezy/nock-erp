@@ -12,6 +12,7 @@ import { Separator } from "@/components/ui/separator"
 import { Skeleton } from "@/components/ui/skeleton"
 import { can, inBranch, ROLE_LABEL, type Permission } from "@/domain/rules/permissions"
 import { useStore } from "@/store/store"
+import { Pill } from "./badges"
 import { NAV, navFor } from "./nav"
 import { DemoPanel } from "./demo-panel"
 import { NativeSelect } from "./native-select"
@@ -71,6 +72,7 @@ function Shell({ children }: { children: ReactNode }) {
                       <SidebarMenuButton isActive={current?.href === i.href} tooltip={i.label} render={<Link href={i.href} />}>
                         <i.icon />
                         <span>{i.label}</span>
+                        {i.soon && <Pill className="ml-auto px-1.5 py-0 text-[10px]">เร็วๆ นี้</Pill>}
                       </SidebarMenuButton>
                     </SidebarMenuItem>
                   ))}

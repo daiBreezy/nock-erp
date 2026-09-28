@@ -9,7 +9,7 @@ import * as Sum from "./summaries"
 import { futureSessionsOf, validateFamily, validateStaff, validateStudent } from "./people"
 import { suggestFixes } from "./suggest"
 import { canSetStage, daysAgo, groupOf, validateLead } from "./crm"
-import { buildCombinedSessionDraft, buildSessionDraftFromSlot, findOfferSlots } from "./forms"
+import { buildCombinedSessionDraft, buildSessionDraftFromSlot, findOfferSlots, openHourStarts } from "./forms"
 
 const hours = { open: "09:00", close: "20:00" }
 const branch: Branch = {
@@ -191,8 +191,8 @@ describe("billing", () => {
   })
 
   it("BL-9: sequential numbers per branch and month", () => {
-    expect(nextInvoiceNumber("INV", branch, "2026-09-24", ["INV-TST-2609-0003", "INV-TST-2608-0009", null])).toBe("INV-TST-2609-0004")
-    expect(nextInvoiceNumber("RC", branch, "2026-09-24", ["INV-TST-2609-0003"])).toBe("RC-TST-2609-0001")
+    expect(nextInvoiceNumber("INV", branch, "2026-09-24", ["INV-TST-6909-0003", "INV-TST-6908-0009", null])).toBe("INV-TST-6909-0004")
+    expect(nextInvoiceNumber("RC", branch, "2026-09-24", ["INV-TST-6909-0003"])).toBe("RC-TST-6909-0001")
   })
 
   const inv = (p: Partial<Invoice> = {}): Invoice => ({
@@ -399,6 +399,14 @@ describe("crm", () => {
 })
 
 describe("forms", () => {
+  it("owner 2026-09-28: free slots are every whole hour the branch is open, not a fixed list", () => {
+    expect(openHourStarts(branch, "2026-09-27")).toEqual([]) // Sunday closed
+    const starts = openHourStarts(branch, "2026-09-29")
+    expect(starts[0]).toBe(hours.open)
+    expect(starts.every((t) => t.endsWith(":00") && t < hours.close)).toBe(true)
+    const slots = findOfferSlots({ branch, staff: [teacher], sessions: [], classes: [], holidays: [], subject: "Maths", from: "2026-09-29", to: "2026-09-29", now: new Date(2026, 8, 28) })
+    expect(slots.filter((s) => s.source === "generic").length).toBeGreaterThan(4)
+  })
   it("findOfferSlots offers a generic time only when a qualified teacher and a room are both free", () => {
     const slots = findOfferSlots({ branch, staff: [teacher], sessions: [], classes: [], holidays: [], subject: "Maths", from: "2026-09-29", to: "2026-09-29", now: new Date(2026, 8, 28) })
     expect(slots.some((s) => s.source === "generic" && s.start === "09:00" && s.teacherId === "t1")).toBe(true)
