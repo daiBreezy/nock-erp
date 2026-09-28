@@ -2,7 +2,7 @@
 // brand-wide System). Every tab saves through one of these validators so the UI never re-implements them.
 
 import { toMinutes } from "../dates"
-import type { Branch, Fee, FeeKind, NotifyKey, PriceRow, PriceUnit, Promotion, Weekday } from "../types"
+import type { Branch, Fee, FeeKind, Holiday, HolidayCategory, NotifyKey, PriceRow, PriceUnit, Promotion, Weekday } from "../types"
 
 export const FEE_KIND_LABEL: Record<FeeKind, { title: string; hint: string }> = {
   bus: { title: "ค่ารถ (Bus fee)", hint: "คิดต่อเที่ยว (รับ/ส่ง นับแยกกัน) — แต่ละคอร์สในใบแจ้งหนี้เลือกได้ 1 ประเภท" },
@@ -106,4 +106,18 @@ export const NOTIFY_LABEL: Record<NotifyKey, string> = {
   invoice_sent: "ส่งใบแจ้งหนี้ถึงผู้ปกครอง",
   receipt_sent: "ส่งใบเสร็จถึงผู้ปกครอง",
   summary_sent: "ส่งสรุปการเรียนถึงผู้ปกครอง",
+}
+
+export const HOLIDAY_CATEGORY_LABEL: Record<HolidayCategory, string> = {
+  traditional: "วันหยุดตามประเพณี",
+  company: "วันหยุดบริษัท",
+  branch: "วันหยุดของสาขา",
+}
+
+export function validateHoliday(h: Pick<Holiday, "name" | "date" | "branchId" | "category">): string | null {
+  if (!h.name.trim()) return "ใส่ชื่อวันหยุด"
+  if (!h.date) return "เลือกวันที่"
+  if (h.branchId === null && h.category === "branch") return "วันหยุดของบริษัทต้องเป็นประเภทประเพณีหรือบริษัท"
+  if (h.branchId !== null && h.category !== "branch") return "วันหยุดที่สาขาสร้างเป็นประเภท 'วันหยุดของสาขา' เท่านั้น"
+  return null
 }

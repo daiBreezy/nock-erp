@@ -1,6 +1,5 @@
 "use client"
 
-import Link from "next/link"
 import { useState } from "react"
 import { PlusIcon, TrashIcon } from "lucide-react"
 import { Pill } from "@/components/app/badges"
@@ -8,8 +7,8 @@ import { Field } from "@/components/app/student-form"
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Input } from "@/components/ui/input"
-import { fmtDate, TH_DAYS_FULL, toDateStr, weekdayOf } from "@/domain/dates"
-import { holidayImpact, hoursFor, isHoliday } from "@/domain/rules/scheduling"
+import { fmtDate, TH_DAYS_FULL, toDateStr } from "@/domain/dates"
+import { hoursFor, isHoliday } from "@/domain/rules/scheduling"
 import { copyHours } from "@/domain/rules/settings"
 import type { Branch, OpenHours, Weekday } from "@/domain/types"
 import { uid } from "@/data/seed"
@@ -18,6 +17,7 @@ import { useNow } from "@/lib/hooks"
 import { cn } from "@/lib/utils"
 import { useStore } from "@/store/store"
 import { SaveRow, SettingsCard, useBranchDraft } from "./common"
+import { HolidayPlanner } from "./holiday-planner"
 
 const WEEK: Weekday[] = [1, 2, 3, 4, 5, 6, 0]
 
@@ -35,7 +35,7 @@ function HoursRow({ day, h, onChange }: { day: string; h: OpenHours | null; onCh
   )
 }
 
-export function SchedulingTab({ branch }: { branch: Branch }) {
+function OperatingHours({ branch }: { branch: Branch }) {
   const { b, setB, dirty, reset, save } = useBranchDraft(branch, ["hours", "defaultSessionMinutes"])
   const holidays = useStore((s) => s.holidays)
   const today = toDateStr(useNow())
@@ -81,7 +81,29 @@ export function SchedulingTab({ branch }: { branch: Branch }) {
       </SettingsCard>
 
       <BreaksCard branch={branch} />
-      <SpecialPeriodsCard branch={branch} />
+    </div>
+  )
+}
+
+type Sub = "operating" | "special" | "holidays"
+
+/** Scheduling (owner design 2026-09-28): sub-tabs Operating / Special / Holidays.
+ *  Staff without settings.manage (Admin/Manager) only get the Holidays sub-tab. */
+export function SchedulingTab({ branch, holidaysOnly = false }: { branch: Branch; holidaysOnly?: boolean }) {
+  const [sub, setSub] = useState<Sub>(holidaysOnly ? "holidays" : "operating")
+  const tabs: { id: Sub; label: string }[] = holidaysOnly
+    ? [{ id: "holidays", label: "วันหยุด" }]
+    : [{ id: "operating", label: "เวลาปกติ" }, { id: "special", label: "ช่วงเวลาพิเศษ" }, { id: "holidays", label: "วันหยุด" }]
+  return (
+    <div className="space-y-4">
+      <div className="inline-flex rounded-full bg-muted p-1">
+        {tabs.map((t) => (
+          <button key={t.id} onClick={() => setSub(t.id)} className={cn("rounded-full px-4 py-1 text-sm", sub === t.id ? "bg-background font-medium shadow-sm" : "text-muted-foreground")}>{t.label}</button>
+        ))}
+      </div>
+      {sub === "operating" && <OperatingHours branch={branch} />}
+      {sub === "special" && <SpecialPeriodsCard branch={branch} />}
+      {sub === "holidays" && <HolidayPlanner branch={branch} />}
     </div>
   )
 }
@@ -136,55 +158,6 @@ function SpecialPeriodsCard({ branch }: { branch: Branch }) {
         ))}
       </div>
       <SaveRow dirty={dirty} onReset={reset} onSave={() => (b.specialPeriods.some((p) => p.from > p.to) ? report({ ok: false, error: "วันสิ้นสุดต้องหลังวันเริ่ม" }, "") : save("บันทึกช่วงเวลาพิเศษแล้ว"))} />
-    </SettingsCard>
-  )
-}
-
-/** A10: adding a holiday shows which sessions it hits and can cancel them + notify the team.
- *  Company-wide holidays (branchId null) are managed in Settings → System and show here read-only. */
-export function HolidaysTab({ branch }: { branch: Branch }) {
-  const holidays = useStore((s) => s.holidays)
-  const sessions = useStore((s) => s.sessions)
-  const add = useStore((s) => s.addHoliday)
-  const remove = useStore((s) => s.removeHoliday)
-  const today = toDateStr(useNow())
-  const [date, setDate] = useState("")
-  const [name, setName] = useState("")
-  const [cancel, setCancel] = useState(true)
-  const impact = date ? holidayImpact(date, branch.id, sessions).filter((s) => s.branchId === branch.id) : []
-  const list = holidays.filter((h) => h.branchId === null || h.branchId === branch.id).sort((a, b) => a.date.localeCompare(b.date))
-
-  return (
-    <SettingsCard title="วันหยุด" hint="วันหยุดเฉพาะสาขานี้ + วันหยุดกลางของบริษัท (แก้วันหยุดกลางที่ Settings → System)"
-      action={<Button size="xs" variant="outline" nativeButton={false} render={<Link href="/settings?view=system" />}>จัดการปฏิทินกลาง</Button>}>
-      <div className="divide-y rounded-2xl border">
-        {list.length === 0 && <p className="p-6 text-center text-sm text-muted-foreground">ยังไม่มีวันหยุด</p>}
-        {list.map((h) => (
-          <div key={h.id} className={cn("flex items-center gap-2 p-2.5 text-sm", h.date < today && "opacity-60")}>
-            <span className="w-36">{fmtDate(h.date, { weekday: true, year: true })}</span>
-            <span className="flex-1">{h.name}</span>
-            {h.branchId === null ? <Pill tone="blue">วันหยุดกลาง</Pill> : (
-              <Button size="icon-xs" variant="ghost" aria-label="ลบ" onClick={() => report(remove(h.id), "ลบวันหยุดแล้ว (คาบที่ยกเลิกไปแล้วไม่ถูกคืนอัตโนมัติ)")}><TrashIcon /></Button>
-            )}
-          </div>
-        ))}
-      </div>
-      <div className="mt-3 space-y-2 rounded-2xl border p-3">
-        <p className="text-sm font-medium">เพิ่มวันหยุดของสาขานี้</p>
-        <div className="grid gap-2 sm:grid-cols-[10rem_1fr]">
-          <Input type="date" min={today} value={date} onChange={(e) => setDate(e.target.value)} />
-          <Input placeholder="ชื่อวันหยุด" value={name} onChange={(e) => setName(e.target.value)} />
-        </div>
-        {date && (impact.length ? (
-          <div className="rounded-md bg-amber-50 p-2 text-sm text-amber-900">
-            {TH_DAYS_FULL[weekdayOf(date)]} นี้มี <b>{impact.length} คาบ</b> · นักเรียน {impact.reduce((n, s) => n + s.studentIds.length, 0)} คน
-            <label className="mt-1 flex items-center gap-2"><Checkbox checked={cancel} onCheckedChange={(v) => setCancel(!!v)} /> ยกเลิกคาบเหล่านี้ + แจ้งทีมให้ติดต่อผู้ปกครอง/นัดชดเชย</label>
-          </div>
-        ) : <p className="text-sm text-muted-foreground">ไม่มีคาบในวันนั้น</p>)}
-        <Button size="sm" disabled={!date || !name.trim()} onClick={() => report(add({ date, name, branchId: branch.id }, cancel), (v) => `เพิ่มวันหยุดแล้ว${v.affected ? ` · ${cancel ? "ยกเลิก" : "กระทบ"} ${v.affected} คาบ` : ""}`) && (setDate(""), setName(""))}>
-          <PlusIcon /> เพิ่มวันหยุด
-        </Button>
-      </div>
     </SettingsCard>
   )
 }

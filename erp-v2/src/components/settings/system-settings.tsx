@@ -1,23 +1,19 @@
 "use client"
 
 import { useState } from "react"
-import { CalendarDaysIcon, CheckIcon, PencilIcon, PlusIcon, ReceiptTextIcon, TrashIcon, XIcon } from "lucide-react"
+import { CheckIcon, PencilIcon, PlusIcon, ReceiptTextIcon, XIcon } from "lucide-react"
 import { NativeSelect } from "@/components/app/native-select"
 import { Field } from "@/components/app/student-form"
 import { Button } from "@/components/ui/button"
-import { Checkbox } from "@/components/ui/checkbox"
 import { Input } from "@/components/ui/input"
 import { Switch } from "@/components/ui/switch"
 import { Textarea } from "@/components/ui/textarea"
-import { fmtDate, toDateStr } from "@/domain/dates"
-import { holidayImpact } from "@/domain/rules/scheduling"
 import { NOTIFY_LABEL } from "@/domain/rules/settings"
 import type { Brand, NotifyKey, SystemConfig } from "@/domain/types"
 import { report } from "@/lib/feedback"
-import { useNow } from "@/lib/hooks"
-import { cn } from "@/lib/utils"
 import { useStore } from "@/store/store"
 import { SaveRow, SettingsCard } from "./common"
+import { HolidayPlanner } from "./holiday-planner"
 
 const BRANDS: { id: Brand; label: string }[] = [{ id: "nockacademy", label: "Nockacademy" }, { id: "liclass", label: "Liclass" }]
 
@@ -79,43 +75,11 @@ function SubjectCatalog() {
   )
 }
 
-/** Company-wide calendar (Holiday.branchId === null) — applies to every branch immediately. */
+/** Company-wide calendar — same planner as the branch view, in company mode. */
 function GlobalHolidays() {
-  const holidays = useStore((s) => s.holidays).filter((h) => h.branchId === null).sort((a, b) => a.date.localeCompare(b.date))
-  const sessions = useStore((s) => s.sessions)
-  const add = useStore((s) => s.addHoliday)
-  const remove = useStore((s) => s.removeHoliday)
-  const today = toDateStr(useNow())
-  const [date, setDate] = useState("")
-  const [name, setName] = useState("")
-  const [cancel, setCancel] = useState(true)
-  const impact = date ? holidayImpact(date, null, sessions) : []
   return (
-    <SettingsCard title="วันหยุดกลาง (Holidays)" hint="ปฏิทินวันหยุดของบริษัท — มีผลกับทุกสาขาทันที · วันหยุดเฉพาะสาขาเพิ่มที่แท็บวันหยุดของสาขานั้น">
-      <div className="divide-y rounded-2xl border">
-        {holidays.length === 0 && <p className="p-5 text-center text-sm text-muted-foreground">ยังไม่มีวันหยุดกลาง</p>}
-        {holidays.map((h) => (
-          <div key={h.id} className={cn("flex items-center gap-2 p-2.5 text-sm", h.date < today && "opacity-60")}>
-            <CalendarDaysIcon className="size-4 text-muted-foreground" />
-            <span className="w-36">{fmtDate(h.date, { weekday: true, year: true })}</span>
-            <span className="flex-1">{h.name}</span>
-            <Button size="icon-xs" variant="ghost" aria-label="ลบ" onClick={() => report(remove(h.id), "ลบวันหยุดแล้ว")}><TrashIcon /></Button>
-          </div>
-        ))}
-      </div>
-      <div className="mt-3 space-y-2 rounded-2xl border p-3">
-        <div className="grid gap-2 sm:grid-cols-[10rem_1fr]">
-          <Input type="date" min={today} value={date} onChange={(e) => setDate(e.target.value)} />
-          <Input placeholder="ชื่อวันหยุด" value={name} onChange={(e) => setName(e.target.value)} />
-        </div>
-        {date && impact.length > 0 && (
-          <div className="rounded-md bg-amber-50 p-2 text-sm text-amber-900">
-            ทุกสาขารวม <b>{impact.length} คาบ</b> ในวันนั้น
-            <label className="mt-1 flex items-center gap-2"><Checkbox checked={cancel} onCheckedChange={(v) => setCancel(!!v)} /> ยกเลิกคาบเหล่านี้ + แจ้งทีม</label>
-          </div>
-        )}
-        <Button size="sm" disabled={!date || !name.trim()} onClick={() => report(add({ date, name, branchId: null }, cancel), "เพิ่มวันหยุดกลางแล้ว") && (setDate(""), setName(""))}><PlusIcon /> เพิ่มวันหยุดกลาง</Button>
-      </div>
+    <SettingsCard title="วันหยุดบริษัท (Holidays)" hint="วันหยุดตามประเพณี + วันหยุดบริษัท — ทุกสาขาเห็นในแท็บวันหยุดของตัวเอง และเลือกเปิดทำการเป็นรายสาขาได้">
+      <HolidayPlanner />
     </SettingsCard>
   )
 }

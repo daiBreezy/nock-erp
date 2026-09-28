@@ -153,11 +153,17 @@ export interface Staff {
   email?: string
 }
 
+/** traditional / company = set by the company in Settings → System (branchId null) · branch = created by that branch's Admin/Manager */
+export type HolidayCategory = "traditional" | "company" | "branch"
+
 export interface Holiday {
   id: ID
-  branchId: ID | null // null = all branches
+  branchId: ID | null // null = company-wide (from System)
   date: DateStr
   name: string
+  category: HolidayCategory
+  /** company-wide holidays only: branches that decided to stay OPEN that day (per-branch toggle off) */
+  openBranchIds?: ID[]
 }
 
 export type PackageUnit = "month" | "hours"

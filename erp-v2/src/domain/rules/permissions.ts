@@ -24,11 +24,13 @@ export type Permission =
   | "dashboard.view"
   | "lead.manage"
   | "inbox.manage"
+  /** branch holidays: create own + choose which company holidays the branch closes on (Admin/Manager and up) */
+  | "holiday.manage"
 
 const ALL: Permission[] = [
   "calendar.view", "class.manage", "session.manage", "attendance.mark", "attendance.leave_override", "summary.write", "summary.approve",
   "student.view", "student.manage", "student.export", "family.manage", "staff.view", "staff.manage",
-  "course.manage", "billing.view", "billing.manage", "billing.approve", "settings.manage", "dashboard.view", "lead.manage", "inbox.manage",
+  "course.manage", "billing.view", "billing.manage", "billing.approve", "settings.manage", "dashboard.view", "lead.manage", "inbox.manage", "holiday.manage",
 ]
 
 const MANAGER: Permission[] = ALL.filter((p) => p !== "settings.manage")
@@ -40,7 +42,7 @@ export const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
   area_manager: MANAGER,
   manager: MANAGER,
   // Admin sees the day-to-day CRM pipeline but not the executive Dashboard (matches Reports gate)
-  admin: ["calendar.view", "class.manage", "session.manage", "attendance.mark", "attendance.leave_override", "summary.approve", "student.view", "student.manage", "family.manage", "staff.view", "course.manage", "billing.view", "billing.manage", "billing.approve", "lead.manage", "inbox.manage"],
+  admin: ["calendar.view", "class.manage", "session.manage", "attendance.mark", "attendance.leave_override", "summary.approve", "student.view", "student.manage", "family.manage", "staff.view", "course.manage", "billing.view", "billing.manage", "billing.approve", "lead.manage", "inbox.manage", "holiday.manage"],
   // G2/G3: no billing at all (owner 2026-09-26: teachers never create invoices), no export
   teacher: ["calendar.view", "attendance.mark", "summary.write", "student.view", "staff.view"],
 }

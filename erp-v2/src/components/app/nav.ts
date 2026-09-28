@@ -58,7 +58,7 @@ export const NAV: { group: string; items: NavItem[] }[] = [
     group: "ระบบ",
     items: [
       { href: "/notifications", label: "แจ้งเตือน", icon: BellIcon, perm: "calendar.view" },
-      { href: "/settings", label: "ตั้งค่าสาขา", icon: SettingsIcon, perm: "settings.manage" },
+      { href: "/settings", label: "ตั้งค่า", icon: SettingsIcon, perm: ["settings.manage", "holiday.manage"] },
     ],
   },
 ]

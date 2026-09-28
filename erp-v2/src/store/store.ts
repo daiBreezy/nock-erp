@@ -11,7 +11,7 @@ import * as Att from "@/domain/rules/attendance"
 import * as Bill from "@/domain/rules/billing"
 import * as CRM from "@/domain/rules/crm"
 import * as Inbox from "@/domain/rules/inbox"
-import { can, canDeactivateStaff, OFFICE_ROLES, require as requirePerm } from "@/domain/rules/permissions"
+import { can, canDeactivateStaff, inBranch, OFFICE_ROLES, require as requirePerm } from "@/domain/rules/permissions"
 import * as Sch from "@/domain/rules/scheduling"
 import * as Sum from "@/domain/rules/summaries"
 import * as People from "@/domain/rules/people"
@@ -45,8 +45,12 @@ type Store = DB & UIState & {
   updateSessionTeachers: (id: ID, teacherId: ID | null, coTeacherIds: ID[], scope: Sch.MoveScope) => Result<{ changed: number; kept: number }>
   addStudentToSession: (id: ID, studentId: ID, scope: Sch.MoveScope) => Result<{ changed: number }>
 
+  /** branchId null = company holiday (System, Director) · branchId set = that branch's own holiday (Admin/Manager of the branch) */
   addHoliday: (h: Omit<Holiday, "id">, cancelAffected: boolean) => Result<{ affected: number }>
+  updateHoliday: (id: ID, patch: Pick<Holiday, "name" | "date" | "category">) => Result
   removeHoliday: (id: ID) => Result
+  /** per-branch toggle on a company holiday: open = the branch works that day */
+  setHolidayOpen: (holidayId: ID, branchId: ID, open: boolean, cancelAffected: boolean) => Result<{ affected: number }>
   saveFamily: (f: Family) => Result<Family>
   generateLineCode: (familyId: ID) => Result<{ code: string }>
   simulateLineLink: (familyId: ID, parentIndex: number) => Result
@@ -111,6 +115,28 @@ type Store = DB & UIState & {
 
 const OK = { ok: true as const, value: undefined }
 const fail = (error: string) => ({ ok: false as const, error })
+/** Company holidays = Director (settings.manage); a branch's own holidays = Admin/Manager of that branch. */
+const holidayPerm = (s: DB & { userId: ID }, branchId: ID | null) => {
+  const me = s.staff.find((x) => x.id === s.userId)
+  if (branchId === null) return requirePerm(me, "settings.manage")
+  const r = requirePerm(me, "holiday.manage")
+  if (!r.ok) return r
+  return inBranch(me, branchId) ? r : fail("จัดการวันหยุดได้เฉพาะสาขาของตัวเอง")
+}
+
+/** A10: a day turning into a holiday — optionally cancel its sessions, always tell the office. */
+const closeDay = (s: DB & { userId: ID; now: () => Date }, affected: Session[], name: string, date: DateStr, cancel: boolean, branchId: ID | null) => {
+  if (!affected.length) return {}
+  const ids = new Set(affected.map((x) => x.id))
+  return {
+    sessions: cancel ? s.sessions.map((x) => (ids.has(x.id) ? { ...x, cancelled: true, cancelReason: `วันหยุด: ${name}` } : x)) : s.sessions,
+    notifications: [
+      Notif.notify({ id: uid("no"), at: s.now(), kind: "holiday_impact", title: `วันหยุด ${name} กระทบ ${affected.length} คาบ`, body: `${date} · ${cancel ? "ยกเลิกคาบแล้ว — แจ้งผู้ปกครอง / นัดชดเชย" : "คาบยังอยู่ — ต้องตัดสินใจย้ายหรือยกเลิก"}`, fromId: s.userId, audience: { roles: OFFICE_ROLES, branchId: branchId ?? undefined } }),
+      ...s.notifications,
+    ],
+  }
+}
+
 /** Force Approve always tells the whole branch + every Director who skipped the check and why. */
 const forceNotice = (s: DB & { userId: ID; now: () => Date }, branchId: ID, what: string, detail: string, remark: string) => {
   const actor = s.staff.find((x) => x.id === s.userId)
@@ -309,29 +335,51 @@ export const useStore = create<Store>()(
       // A10: adding a holiday shows affected sessions and can cancel them in one go
       addHoliday: (h, cancelAffected) => {
         const s = get()
-        const perm = requirePerm(s.me(), "settings.manage")
+        const perm = holidayPerm(s, h.branchId)
         if (!perm.ok) return perm
-        if (!h.name.trim()) return fail("ใส่ชื่อวันหยุด")
+        const err = Cfg.validateHoliday(h)
+        if (err) return fail(err)
         if (s.holidays.some((x) => x.date === h.date && x.branchId === h.branchId)) return fail("มีวันหยุดวันนี้แล้ว")
-        const affected = Sch.holidayImpact(h.date, h.branchId, s.sessions)
-        const ids = new Set(affected.map((x) => x.id))
-        const reason = `วันหยุด: ${h.name}`
-        set({
-          holidays: [...s.holidays, { ...h, id: uid("hol") }],
-          sessions: cancelAffected ? s.sessions.map((x) => (ids.has(x.id) ? { ...x, cancelled: true, cancelReason: reason } : x)) : s.sessions,
-          notifications: affected.length
-            ? [Notif.notify({ id: uid("no"), at: s.now(), kind: "holiday_impact", title: `วันหยุด ${h.name} กระทบ ${affected.length} คาบ`, body: `${h.date} · ${cancelAffected ? "ยกเลิกคาบแล้ว — แจ้งผู้ปกครอง / นัดชดเชย" : "คาบยังอยู่ — ต้องตัดสินใจย้ายหรือยกเลิก"}`, fromId: s.userId, audience: { roles: OFFICE_ROLES, branchId: h.branchId ?? undefined } }), ...s.notifications]
-            : s.notifications,
-        })
+        const affected = Sch.holidayImpact(h.date, h.branchId, s.sessions, h.openBranchIds)
+        set({ holidays: [...s.holidays, { ...h, name: h.name.trim(), id: uid("hol") }], ...closeDay(s, affected, h.name, h.date, cancelAffected, h.branchId) })
         return { ok: true, value: { affected: affected.length } }
+      },
+
+      updateHoliday: (id, patch) => {
+        const s = get()
+        const cur = s.holidays.find((h) => h.id === id)
+        if (!cur) return fail("ไม่พบวันหยุด")
+        const perm = holidayPerm(s, cur.branchId)
+        if (!perm.ok) return perm
+        const next = { ...cur, ...patch, name: patch.name.trim() }
+        const err = Cfg.validateHoliday(next)
+        if (err) return fail(err)
+        if (s.holidays.some((x) => x.id !== id && x.date === next.date && x.branchId === next.branchId)) return fail("มีวันหยุดวันนี้แล้ว")
+        set({ holidays: s.holidays.map((h) => (h.id === id ? next : h)) })
+        return OK
       },
 
       removeHoliday: (id) => {
         const s = get()
-        const perm = requirePerm(s.me(), "settings.manage")
+        const cur = s.holidays.find((h) => h.id === id)
+        if (!cur) return fail("ไม่พบวันหยุด")
+        const perm = holidayPerm(s, cur.branchId)
         if (!perm.ok) return perm
         set({ holidays: s.holidays.filter((h) => h.id !== id) })
         return OK
+      },
+
+      setHolidayOpen: (holidayId, branchId, open, cancelAffected) => {
+        const s = get()
+        const perm = holidayPerm(s, branchId)
+        if (!perm.ok) return perm
+        const h = s.holidays.find((x) => x.id === holidayId)
+        if (!h || h.branchId !== null) return fail("เปิด/ปิดได้เฉพาะวันหยุดของบริษัท — วันหยุดของสาขาให้ลบแทน")
+        const openIds = open ? [...new Set([...(h.openBranchIds ?? []), branchId])] : (h.openBranchIds ?? []).filter((x) => x !== branchId)
+        // closing again: the day's sessions at this branch are hit, same as adding a holiday
+        const affected = open ? [] : Sch.holidayImpact(h.date, branchId, s.sessions)
+        set({ holidays: s.holidays.map((x) => (x.id === holidayId ? { ...x, openBranchIds: openIds } : x)), ...closeDay(s, affected, h.name, h.date, cancelAffected, branchId) })
+        return { ok: true, value: { affected: affected.length } }
       },
 
       saveFamily: (f) => {
@@ -1039,7 +1087,7 @@ export const useStore = create<Store>()(
     {
       name: "nockerp-v2",
       // bump when the data model changes; older saved data is replaced by fresh sample data
-      version: 18,
+      version: 19,
       migrate: () => ({ ...buildSeed(), userId: "u_nock", branchId: "br_thl", clockOffset: 0 }) as unknown as Store,
       // persist data + UI state only, never the action functions
       partialize: (s) => Object.fromEntries(Object.entries(s).filter(([, v]) => typeof v !== "function")) as Partial<Store>,

@@ -1,11 +1,11 @@
 // Regression tests: each case reproduces a bug found on Dev staging and proves the rule prevents it.
 import { describe, expect, it } from "vitest"
 import type { Attendance, Branch, FormOfferSlot, Holiday, Invoice, Klass, Package, Session, Staff, StudentLeave, Weekday } from "../types"
-import { applyClassEdit, applyToSessions, canSave, introducedConflicts, editSingleSession, findConflicts, generateSessions, moveSession, sessionState, validateClass, workState } from "./scheduling"
+import { applyClassEdit, applyToSessions, canSave, closesBranch, holidayImpact, isHoliday, introducedConflicts, editSingleSession, findConflicts, generateSessions, moveSession, sessionState, validateClass, workState } from "./scheduling"
 import { activeLeave, balance, canMark, canSaveLeave, coveringEntitlement, effectiveTo, leavesUsed, lowBalanceAlert, removeFromClass, resolveEntitlements } from "./attendance"
 import { bestPromotion, canApprove, canConfirmPayment, canForceApprove, canForceConfirmPayment, canSend, canVoid, defaultBusLegs, busTotal, nextInvoiceNumber, quoteCourse } from "./billing"
 import { can } from "./permissions"
-import { busRate, copyHours, priceOf, priceRange, setPrice, validateBranchInfo, validateDurations, validatePromotion } from "./settings"
+import { busRate, copyHours, priceOf, priceRange, setPrice, validateBranchInfo, validateDurations, validateHoliday, validatePromotion } from "./settings"
 import { forceAudience, isUnread, messageAudience, notify, validateMessage, visibleTo } from "./notifications"
 import * as Sum from "./summaries"
 import { futureSessionsOf, validateFamily, validateStaff, validateStudent } from "./people"
@@ -25,7 +25,7 @@ const branch: Branch = {
 }
 const staff = (id: string, roles: Staff["roles"]): Staff => ({ id, name: id, nickname: id, roles, branchIds: ["b1"], subjects: ["Maths"], active: true, canLogin: true })
 const director = staff("dir", ["director"]), admin = staff("adm", ["admin"]), manager = staff("mgr", ["manager"]), teacher = staff("t1", ["teacher"])
-const holidays: Holiday[] = [{ id: "h1", branchId: "b1", date: "2026-10-13", name: "Holiday" }]
+const holidays: Holiday[] = [{ id: "h1", branchId: "b1", date: "2026-10-13", name: "Holiday", category: "branch" }]
 let n = 0
 const id = () => `s${++n}`
 const klass = (p: Partial<Klass> = {}): Klass => ({
@@ -548,5 +548,24 @@ describe("settings (mirrors staging, 2026-09-28)", () => {
     const h = copyHours({ ...branch.hours, 1: { open: "07:00", close: "20:00" } }, 1, "weekdays")
     expect(h[5]).toEqual({ open: "07:00", close: "20:00" })
     expect(h[0]).toEqual(branch.hours[0])
+  })
+})
+
+describe("holidays: company calendar + per-branch choice (owner 2026-09-28)", () => {
+  const company: Holiday = { id: "c1", branchId: null, date: "2026-10-23", name: "Chulalongkorn Day", category: "traditional", openBranchIds: ["b2"] }
+  it("a company holiday closes every branch except those that chose to open", () => {
+    expect(closesBranch(company, "b1")).toBe(true)
+    expect(closesBranch(company, "b2")).toBe(false)
+    expect(isHoliday("2026-10-23", "b2", [company])).toBeUndefined()
+    expect(isHoliday("2026-10-23", "b1", [company])?.id).toBe("c1")
+  })
+  it("impact of a company holiday skips branches that stay open", () => {
+    const s = (branchId: string) => ({ id: branchId, branchId, date: "2026-10-23", cancelled: false }) as unknown as Session
+    expect(holidayImpact("2026-10-23", null, [s("b1"), s("b2")], ["b2"]).map((x) => x.branchId)).toEqual(["b1"])
+  })
+  it("company holidays are traditional/company; branch-created ones are 'branch'", () => {
+    expect(validateHoliday({ name: "x", date: "2026-10-01", branchId: null, category: "branch" })).toMatch(/บริษัท/)
+    expect(validateHoliday({ name: "x", date: "2026-10-01", branchId: "b1", category: "company" })).toMatch(/สาขา/)
+    expect(validateHoliday({ name: "x", date: "2026-10-01", branchId: "b1", category: "branch" })).toBeNull()
   })
 })

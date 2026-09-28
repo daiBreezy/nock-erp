@@ -110,7 +110,10 @@ export function buildSeed(now = new Date()): DB {
   ]
 
   const holidays: Holiday[] = [
-    { id: "hol_1", branchId: null, date: addDays(monday, 16), name: "วันหยุดชดเชย" },
+    { id: "hol_1", branchId: null, date: addDays(monday, 16), name: "วันหยุดชดเชย", category: "traditional" },
+    { id: "hol_ny", branchId: null, date: `${today.slice(0, 4)}-12-31`, name: "วันสิ้นปี", category: "traditional" },
+    { id: "hol_sport", branchId: null, date: addDays(monday, 25), name: "Sport day", category: "company", openBranchIds: ["br_ari"] },
+    { id: "hol_thl", branchId: "br_thl", date: addDays(monday, 30), name: "ปิดปรับปรุงสาขา", category: "branch" },
   ]
 
   const packages: Package[] = [

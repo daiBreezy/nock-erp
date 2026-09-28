@@ -11,6 +11,7 @@ import { SystemSettingsView } from "@/components/settings/system-settings"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
+import { can, inBranch } from "@/domain/rules/permissions"
 import type { Branch } from "@/domain/types"
 import { report } from "@/lib/feedback"
 import { cn } from "@/lib/utils"
@@ -26,7 +27,11 @@ export default function SettingsPage() {
 
 /** Mirrors staging: Settings → General (branch list → per-branch tabs) | System (brand-wide). */
 function Settings() {
-  const view = useSearchParams().get("view") === "system" ? "system" : "general"
+  const me = useStore((s) => s.staff.find((x) => x.id === s.userId)!)
+  // Admin/Manager reach Settings only to manage their branch's holidays
+  const full = can(me, "settings.manage")
+  const wantsSystem = useSearchParams().get("view") === "system"
+  const view = full && wantsSystem ? "system" : "general"
   const router = useRouter()
   return (
     <div className="mx-auto max-w-5xl space-y-4 pb-16">
@@ -37,7 +42,7 @@ function Settings() {
       <div className="flex gap-1 border-b">
         {[
           { id: "general", label: "สาขา (General)", icon: Building2Icon },
-          { id: "system", label: "ระบบ (System)", icon: SettingsIcon },
+          ...(full ? [{ id: "system", label: "ระบบ (System)", icon: SettingsIcon }] : []),
         ].map((t) => (
           <button key={t.id} onClick={() => router.replace(t.id === "system" ? "/settings?view=system" : "/settings")}
             className={cn("-mb-px flex items-center gap-1.5 border-b-2 px-3 py-2 text-sm", view === t.id ? "border-primary font-medium text-primary" : "border-transparent text-muted-foreground")}>
@@ -51,7 +56,9 @@ function Settings() {
 }
 
 function BranchList() {
-  const branches = useStore((s) => s.branches)
+  const me = useStore((s) => s.staff.find((x) => x.id === s.userId)!)
+  const full = can(me, "settings.manage")
+  const branches = useStore((s) => s.branches).filter((b) => full || inBranch(me, b.id))
   const staff = useStore((s) => s.staff)
   const holidays = useStore((s) => s.holidays)
   const [adding, setAdding] = useState(false)
@@ -76,9 +83,11 @@ function BranchList() {
           <ChevronRightIcon className="size-5 text-muted-foreground" />
         </Link>
       ))}
-      <div className="flex justify-center pt-2">
-        <Button variant="outline" onClick={() => setAdding(true)}><PlusIcon /> เพิ่มสาขา</Button>
-      </div>
+      {full ? (
+        <div className="flex justify-center pt-2">
+          <Button variant="outline" onClick={() => setAdding(true)}><PlusIcon /> เพิ่มสาขา</Button>
+        </div>
+      ) : <p className="pt-2 text-center text-xs text-muted-foreground">บทบาทของคุณจัดการได้เฉพาะวันหยุดของสาขาตัวเอง — ตั้งค่าอื่นเป็นของ Director</p>}
       {adding && <AddBranchDialog onClose={() => setAdding(false)} />}
     </div>
   )

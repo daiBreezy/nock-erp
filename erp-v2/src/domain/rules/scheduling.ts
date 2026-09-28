@@ -28,8 +28,13 @@ export function slotProblem(branch: Branch, date: DateStr, start: TimeStr, minut
   return null
 }
 
+/** A company-wide holiday closes every branch except those that toggled it off (openBranchIds). */
+export function closesBranch(h: Holiday, branchId: ID) {
+  return h.branchId === branchId || (h.branchId === null && !h.openBranchIds?.includes(branchId))
+}
+
 export function isHoliday(date: DateStr, branchId: ID, holidays: Holiday[]) {
-  return holidays.find((h) => h.date === date && (h.branchId === null || h.branchId === branchId))
+  return holidays.find((h) => h.date === date && closesBranch(h, branchId))
 }
 
 /** A1/A12: learning classes repeat weekly for 8 weeks skipping holidays; other kinds are one-off. */
@@ -413,6 +418,7 @@ export function applyToSessions(
 }
 
 /** A10: sessions hit by a new holiday */
-export function holidayImpact(date: DateStr, branchId: ID | null, sessions: Session[]) {
-  return sessions.filter((s) => !s.cancelled && s.date === date && (branchId === null || s.branchId === branchId))
+/** Sessions a holiday would cancel — for a company holiday, only at branches that stay closed. */
+export function holidayImpact(date: DateStr, branchId: ID | null, sessions: Session[], openBranchIds: ID[] = []) {
+  return sessions.filter((s) => !s.cancelled && s.date === date && (branchId === null ? !openBranchIds.includes(s.branchId) : s.branchId === branchId))
 }
