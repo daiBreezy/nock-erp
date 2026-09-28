@@ -6,7 +6,7 @@
 import { create } from "zustand"
 import { persist } from "zustand/middleware"
 import { buildSeed, uid, type DB } from "@/data/seed"
-import { at, fmtDate, toDateStr, toMinutes, weekdayOf } from "@/domain/dates"
+import { at, fmtDate, fmtMoney, toDateStr, toMinutes, weekdayOf } from "@/domain/dates"
 import * as Att from "@/domain/rules/attendance"
 import * as Bill from "@/domain/rules/billing"
 import * as CRM from "@/domain/rules/crm"
@@ -16,6 +16,7 @@ import * as Sch from "@/domain/rules/scheduling"
 import * as Sum from "@/domain/rules/summaries"
 import * as People from "@/domain/rules/people"
 import * as Forms from "@/domain/rules/forms"
+import * as Notif from "@/domain/rules/notifications"
 import type { AttendanceStatus, Branch, ChatMessage, Conversation, Course, DateStr, Family, FormSubmission, Holiday, ID, Invoice, Klass, Lead, LeadStage, LessonSummary, Package, Result, Session, Staff, Student } from "@/domain/types"
 
 export interface UIState {
@@ -55,7 +56,9 @@ type Store = DB & UIState & {
   savePackage: (p: Package) => Result<Package>
   saveCourse: (c: Course) => Result<Course>
   saveBranch: (b: Branch) => Result
+  /** marks as read for the current user only */
   markNotificationsRead: (ids?: ID[]) => void
+  sendTeamMessage: (target: Notif.MessageTarget, title: string, body: string) => Result
   /** synced from GET /api/line/status, not a user edit — bypasses the Settings draft/save flow */
   setLineOaConnected: (branchId: ID, connected: boolean) => void
 
@@ -66,16 +69,17 @@ type Store = DB & UIState & {
 
   saveSummary: (sessionId: ID, studentId: ID, text: string, submit: boolean) => Result
   requestSummaryChanges: (id: ID, note: string) => Result
-  approveSummary: (id: ID) => Result
+  /** forceRemark set = Force Approve (skip maker–checker) */
+  approveSummary: (id: ID, forceRemark?: string) => Result
   sendSummary: (id: ID) => Result<{ delivered: boolean }>
 
   saveInvoice: (inv: Invoice) => Result<Invoice>
   generatePdf: (id: ID) => Result<{ number: string }>
-  approveInvoice: (id: ID) => Result
+  approveInvoice: (id: ID, forceRemark?: string) => Result
   sendInvoice: (id: ID, note: string) => Result<{ delivered: boolean }>
   voidInvoice: (id: ID, reason: string) => Result
   recordPayment: (id: ID, p: { amount: number; method: "transfer" | "cash"; reference: string }) => Result
-  confirmPayment: (invoiceId: ID, paymentId: ID) => Result<{ paid: boolean }>
+  confirmPayment: (invoiceId: ID, paymentId: ID, forceRemark?: string) => Result<{ paid: boolean }>
 
   saveLead: (l: Lead) => Result<Lead>
   moveLeadStage: (id: ID, stage: LeadStage) => Result
@@ -101,6 +105,16 @@ type Store = DB & UIState & {
 
 const OK = { ok: true as const, value: undefined }
 const fail = (error: string) => ({ ok: false as const, error })
+/** Force Approve always tells the whole branch + every Director who skipped the check and why. */
+const forceNotice = (s: DB & { userId: ID; now: () => Date }, branchId: ID, what: string, detail: string, remark: string) => {
+  const actor = s.staff.find((x) => x.id === s.userId)
+  return Notif.notify({
+    id: uid("no"), at: s.now(), kind: "force_approved", fromId: s.userId,
+    title: `Force Approve · ${what}`,
+    body: `${actor?.nickname ?? "?"} อนุมัติงานของตัวเองโดยข้ามผู้ตรวจ — ${detail} · เหตุผล: ${remark.trim()}`,
+    audience: Notif.forceAudience(branchId, s.staff),
+  })
+}
 const ctxOf = (s: DB, branchId: ID) => ({
   branch: s.branches.find((b) => b.id === branchId)!,
   courses: s.courses, packages: s.packages, classes: s.classes, holidays: s.holidays,
@@ -300,7 +314,7 @@ export const useStore = create<Store>()(
           holidays: [...s.holidays, { ...h, id: uid("hol") }],
           sessions: cancelAffected ? s.sessions.map((x) => (ids.has(x.id) ? { ...x, cancelled: true, cancelReason: reason } : x)) : s.sessions,
           notifications: affected.length
-            ? [{ id: uid("no"), at: s.now().toISOString(), kind: "holiday_impact", title: `วันหยุด ${h.name} กระทบ ${affected.length} คาบ`, body: `${h.date} · ${cancelAffected ? "ยกเลิกคาบแล้ว — แจ้งผู้ปกครอง / นัดชดเชย" : "คาบยังอยู่ — ต้องตัดสินใจย้ายหรือยกเลิก"}`, read: false, roles: OFFICE_ROLES }, ...s.notifications]
+            ? [Notif.notify({ id: uid("no"), at: s.now(), kind: "holiday_impact", title: `วันหยุด ${h.name} กระทบ ${affected.length} คาบ`, body: `${h.date} · ${cancelAffected ? "ยกเลิกคาบแล้ว — แจ้งผู้ปกครอง / นัดชดเชย" : "คาบยังอยู่ — ต้องตัดสินใจย้ายหรือยกเลิก"}`, fromId: s.userId, audience: { roles: OFFICE_ROLES, branchId: h.branchId ?? undefined } }), ...s.notifications]
             : s.notifications,
         })
         return { ok: true, value: { affected: affected.length } }
@@ -436,7 +450,18 @@ export const useStore = create<Store>()(
         return OK
       },
 
-      markNotificationsRead: (ids) => set((s) => ({ notifications: s.notifications.map((n) => (!ids || ids.includes(n.id) ? { ...n, read: true } : n)) })),
+      markNotificationsRead: (ids) =>
+        set((s) => ({ notifications: s.notifications.map((n) => ((!ids || ids.includes(n.id)) && !n.readBy.includes(s.userId) ? { ...n, readBy: [...n.readBy, s.userId] } : n)) })),
+
+      sendTeamMessage: (target, title, body) => {
+        const s = get()
+        const err = Notif.validateMessage(target, body)
+        if (err) return fail(err)
+        const me = s.me()
+        const n = Notif.notify({ id: uid("no"), at: s.now(), kind: "message", title: title.trim() || `ข้อความจาก ${me.nickname}`, body: body.trim(), fromId: me.id, audience: Notif.messageAudience(target, s.branchId) })
+        set({ notifications: [n, ...s.notifications] })
+        return OK
+      },
       setLineOaConnected: (branchId, connected) => set((s) => ({ branches: s.branches.map((b) => (b.id === branchId ? { ...b, lineOaConnected: connected } : b)) })),
 
       cancelSession: (id, reason) => {
@@ -449,7 +474,7 @@ export const useStore = create<Store>()(
         set({
           sessions: s.sessions.map((x) => (x.id === id ? { ...x, cancelled: true, cancelReason: reason } : x)),
           notifications: [
-            { id: uid("no"), at: s.now().toISOString(), kind: "session_cancelled", title: "ยกเลิกคาบเรียน", body: `${cur.subject} ${cur.date} ${cur.start} · นักเรียน ${cur.studentIds.length} คน · ${reason}`, read: false, roles: OFFICE_ROLES },
+            Notif.notify({ id: uid("no"), at: s.now(), kind: "session_cancelled", title: "ยกเลิกคาบเรียน", body: `${cur.subject} ${cur.date} ${cur.start} · นักเรียน ${cur.studentIds.length} คน · ${reason}`, fromId: s.userId, audience: { roles: OFFICE_ROLES, branchId: cur.branchId, staffIds: Sch.teachersOf(cur) } }),
             ...s.notifications,
           ],
         })
@@ -493,12 +518,12 @@ export const useStore = create<Store>()(
         set({
           leaves: editing ? s.leaves.map((l) => (l.id === rec.id ? rec : l)) : [rec, ...s.leaves],
           notifications: [
-            {
-              id: uid("no"), at: now.toISOString(), kind: "student_leave",
+            Notif.notify({
+              id: uid("no"), at: now, kind: "student_leave",
               title: editing ? "แก้ไขการลาไม่หักโควตา" : "บันทึกการลาไม่หักโควตา",
               body: `${stu.nickname} ลา ${fmtDate(input.from)} – ${fmtDate(input.to)} · ${input.reason.trim()}`,
-              read: false, roles: ["manager"], branchId: stu.branchId, staffIds: teacherIds,
-            },
+              fromId: me.id, audience: { roles: ["manager"], branchId: stu.branchId, staffIds: teacherIds },
+            }),
             ...s.notifications,
           ],
         })
@@ -557,12 +582,21 @@ export const useStore = create<Store>()(
         return OK
       },
 
-      approveSummary: (id) => {
+      approveSummary: (id, forceRemark) => {
         const s = get()
         const cur = s.summaries.find((x) => x.id === id)!
-        const r = Sum.canApprove(cur, s.me())
+        const forced = forceRemark !== undefined
+        const r = forced ? Sum.canForceApprove(cur, s.me(), forceRemark) : Sum.canApprove(cur, s.me())
         if (!r.ok) return r
-        set({ summaries: s.summaries.map((x) => (x.id === id ? { ...x, status: "approved", history: [...x.history, { at: s.now().toISOString(), by: s.userId, action: "approve" }] } : x)) })
+        const event = { at: s.now().toISOString(), by: s.userId, action: forced ? ("force_approve" as const) : ("approve" as const), note: forced ? forceRemark.trim() : undefined }
+        const se = s.sessions.find((x) => x.id === cur.sessionId)
+        const stu = s.students.find((x) => x.id === cur.studentId)
+        set({
+          summaries: s.summaries.map((x) => (x.id === id ? { ...x, status: "approved", history: [...x.history, event] } : x)),
+          notifications: forced && se
+            ? [forceNotice(s, se.branchId, "สรุปการเรียน", `${stu?.nickname ?? ""} · ${se.subject} ${fmtDate(se.date)}`, forceRemark), ...s.notifications]
+            : s.notifications,
+        })
         return OK
       },
 
@@ -607,19 +641,23 @@ export const useStore = create<Store>()(
           set((st) => ({
             invoices: st.invoices.map((x) => (x.id === id ? { ...x, pdf: ok ? "ready" : "failed", status: ok ? "pending_approval" : "draft" } : x)),
             notifications: ok
-              ? [{ id: uid("no"), at: new Date().toISOString(), kind: "approval_needed", title: "ใบแจ้งหนี้รออนุมัติ", body: `${number} รอคนอนุมัติ (ไม่ใช่คนสร้าง)`, read: false, roles: OFFICE_ROLES }, ...st.notifications]
+              ? [Notif.notify({ id: uid("no"), at: new Date(), kind: "approval_needed", title: "ใบแจ้งหนี้รออนุมัติ", body: `${number} รอคนอนุมัติ (ไม่ใช่คนสร้าง)`, fromId: inv.createdBy, audience: { roles: Bill.APPROVER_ROLES, branchId: inv.branchId } }), ...st.notifications]
               : st.notifications,
           }))
         }, 1800)
         return { ok: true, value: { number } }
       },
 
-      approveInvoice: (id) => {
+      approveInvoice: (id, forceRemark) => {
         const s = get()
         const inv = s.invoices.find((x) => x.id === id)!
-        const r = Bill.canApprove(inv, s.me())
+        const forced = forceRemark !== undefined
+        const r = forced ? Bill.canForceApprove(inv, s.me(), forceRemark) : Bill.canApprove(inv, s.me())
         if (!r.ok) return r
-        set({ invoices: s.invoices.map((x) => (x.id === id ? { ...x, status: "approved", approvedBy: s.userId } : x)) })
+        set({
+          invoices: s.invoices.map((x) => (x.id === id ? { ...x, status: "approved", approvedBy: s.userId, forced: forced ? { by: s.userId, at: s.now().toISOString(), remark: forceRemark.trim() } : undefined } : x)),
+          notifications: forced ? [forceNotice(s, inv.branchId, "ใบแจ้งหนี้", inv.number ?? "", forceRemark), ...s.notifications] : s.notifications,
+        })
         return OK
       },
 
@@ -658,13 +696,17 @@ export const useStore = create<Store>()(
         return OK
       },
 
-      confirmPayment: (invoiceId, paymentId) => {
+      confirmPayment: (invoiceId, paymentId, forceRemark) => {
         const s = get()
         const inv = s.invoices.find((x) => x.id === invoiceId)!
         const pay = inv.payments.find((p) => p.id === paymentId)!
-        const r = Bill.canConfirmPayment(pay, s.me(), inv.branchId)
+        const forced = forceRemark !== undefined
+        const r = forced ? Bill.canForceConfirmPayment(pay, s.me(), inv.branchId, forceRemark) : Bill.canConfirmPayment(pay, s.me(), inv.branchId)
         if (!r.ok) return r
-        const payments = inv.payments.map((p) => (p.id === paymentId ? { ...p, confirmedBy: s.userId } : p))
+        const payments = inv.payments.map((p) =>
+          p.id === paymentId ? { ...p, confirmedBy: s.userId, forced: forced ? { by: s.userId, at: s.now().toISOString(), remark: forceRemark.trim() } : undefined } : p,
+        )
+        if (forced) set({ notifications: [forceNotice(s, inv.branchId, "ยืนยันยอดเงิน", `${inv.number ?? ""} · ${fmtMoney(pay.amount)}`, forceRemark), ...s.notifications] })
         const ctx = ctxOf(s, inv.branchId)
         const totals = Bill.invoiceTotals(inv, ctx)
         const paid = payments.filter((p) => p.confirmedBy).reduce((a, p) => a + p.amount, 0) >= totals.total
@@ -925,7 +967,7 @@ export const useStore = create<Store>()(
     {
       name: "nockerp-v2",
       // bump when the data model changes; older saved data is replaced by fresh sample data
-      version: 16,
+      version: 17,
       migrate: () => ({ ...buildSeed(), userId: "u_nock", branchId: "br_thl", clockOffset: 0 }) as unknown as Store,
       // persist data + UI state only, never the action functions
       partialize: (s) => Object.fromEntries(Object.entries(s).filter(([, v]) => typeof v !== "function")) as Partial<Store>,

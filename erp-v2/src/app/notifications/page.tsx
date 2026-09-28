@@ -1,12 +1,20 @@
 "use client"
 
 import Link from "next/link"
-import { AlertTriangleIcon, BellIcon, CheckCheckIcon, ClipboardListIcon, NotebookPenIcon, ReceiptIcon, UserXIcon, WalletIcon } from "lucide-react"
+import { useState } from "react"
+import { AlertTriangleIcon, BellIcon, CheckCheckIcon, ClipboardListIcon, MessageSquareIcon, NotebookPenIcon, ReceiptIcon, SendIcon, ShieldAlertIcon, UserXIcon, WalletIcon } from "lucide-react"
+import { NativeSelect } from "@/components/app/native-select"
 import { Button } from "@/components/ui/button"
+import { Checkbox } from "@/components/ui/checkbox"
+import { Input } from "@/components/ui/input"
+import { Textarea } from "@/components/ui/textarea"
+import type { Role } from "@/domain/types"
+import { report } from "@/lib/feedback"
 import { addDays, fmtDate, fmtDateTime, toDateStr } from "@/domain/dates"
 import * as Att from "@/domain/rules/attendance"
 import { canApprove } from "@/domain/rules/billing"
-import { can, inBranch, seesAllSessions } from "@/domain/rules/permissions"
+import { isUnread, visibleTo, type MessageTarget } from "@/domain/rules/notifications"
+import { can, ROLE_LABEL, seesAllSessions } from "@/domain/rules/permissions"
 import { workState } from "@/domain/rules/scheduling"
 import { useBranch, useEntitlements, useNow } from "@/lib/hooks"
 import { cn } from "@/lib/utils"
@@ -63,12 +71,9 @@ export default function NotificationsPage() {
     })
   }
 
-  const history = s.notifications.filter(
-    (n) =>
-      (n.roles.some((r) => me.roles.includes(r)) && (!n.branchId || inBranch(me, n.branchId))) ||
-      n.staffIds?.includes(me.id),
-  )
-  const unread = history.filter((n) => !n.read)
+  const history = s.notifications.filter((n) => visibleTo(n, me))
+  const unread = history.filter((n) => isUnread(n, me))
+  const who = (id?: string) => s.staff.find((x) => x.id === id)?.nickname
 
   return (
     <div className="mx-auto max-w-3xl space-y-6">
@@ -88,6 +93,8 @@ export default function NotificationsPage() {
         </div>
       </section>
 
+      <TeamMessage />
+
       <section>
         <div className="mb-2 flex items-center">
           <h2 className="font-semibold">ประวัติแจ้งเตือน</h2>
@@ -95,18 +102,76 @@ export default function NotificationsPage() {
         </div>
         {history.length === 0 && <p className="rounded-xl border border-dashed p-8 text-center text-sm text-muted-foreground">ยังไม่มีแจ้งเตือน</p>}
         <div className="divide-y overflow-hidden rounded-3xl bg-card shadow-sm ring-1 ring-foreground/5">
-          {history.map((n) => (
-            <button key={n.id} onClick={() => s.markNotificationsRead([n.id])} className={cn("flex w-full items-start gap-3 p-3 text-left hover:bg-muted/40", !n.read && "bg-primary/5")}>
-              <span className={cn("mt-1.5 size-2 shrink-0 rounded-full", n.read ? "bg-transparent" : "bg-primary")} />
+          {history.map((n) => {
+            const unreadForMe = isUnread(n, me)
+            return (
+            <button key={n.id} onClick={() => s.markNotificationsRead([n.id])} className={cn("flex w-full items-start gap-3 p-3 text-left hover:bg-muted/40", unreadForMe && "bg-primary/5", n.kind === "force_approved" && "border-l-4 border-amber-400")}>
+              <span className={cn("mt-1.5 size-2 shrink-0 rounded-full", unreadForMe ? "bg-primary" : "bg-transparent")} />
               <span className="min-w-0 flex-1">
-                <span className="block text-sm font-medium">{n.title}</span>
-                <span className="block text-xs text-muted-foreground">{n.body}</span>
+                <span className="flex flex-wrap items-center gap-1.5 text-sm font-medium">
+                  {n.kind === "force_approved" && <ShieldAlertIcon className="size-4 text-amber-600" />}
+                  {n.kind === "message" && <MessageSquareIcon className="size-4 text-sky-600" />}
+                  {n.title}
+                  {n.fromId && <span className="text-xs font-normal text-muted-foreground">· จาก {who(n.fromId) ?? "?"}</span>}
+                </span>
+                <span className="block text-xs whitespace-pre-wrap text-muted-foreground">{n.body}</span>
               </span>
               <span className="shrink-0 text-xs text-muted-foreground">{fmtDateTime(n.at)}</span>
             </button>
-          ))}
+            )
+          })}
         </div>
       </section>
     </div>
+  )
+}
+
+/** Team communication: anyone can message the whole branch, one role, or specific people. */
+function TeamMessage() {
+  const branch = useBranch()
+  const me = useStore((s) => s.staff.find((x) => x.id === s.userId)!)
+  const staff = useStore((s) => s.staff)
+  const sendMsg = useStore((s) => s.sendTeamMessage)
+  const [to, setTo] = useState<string>("branch")
+  const [people, setPeople] = useState<string[]>([])
+  const [title, setTitle] = useState("")
+  const [body, setBody] = useState("")
+  const colleagues = staff.filter((x) => x.active && x.id !== me.id && x.branchIds.includes(branch.id))
+  const roles: Role[] = ["manager", "admin", "teacher"]
+  const target: MessageTarget = to === "branch" ? { kind: "branch" } : to === "people" ? { kind: "people", staffIds: people } : { kind: "role", role: to as Role }
+
+  const send = () => {
+    if (report(sendMsg(target, title, body), "ส่งข้อความถึงทีมแล้ว")) {
+      setTitle("")
+      setBody("")
+      setPeople([])
+    }
+  }
+
+  return (
+    <section className="space-y-2 rounded-3xl bg-card p-4 shadow-sm ring-1 ring-foreground/5">
+      <h2 className="flex items-center gap-2 font-semibold"><MessageSquareIcon className="size-4" /> ส่งข้อความถึงทีม</h2>
+      <div className="flex flex-wrap gap-2">
+        <NativeSelect className="h-9 w-48" value={to} onChange={(e) => setTo(e.target.value)}
+          options={[
+            { value: "branch", label: `ทุกคนในสาขา${branch.name}` },
+            ...roles.map((r) => ({ value: r, label: `${ROLE_LABEL[r]} ทุกคน (สาขานี้)` })),
+            { value: "people", label: "เลือกเป็นรายคน" },
+          ]} />
+        <Input className="h-9 min-w-40 flex-1" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="หัวข้อ (ไม่ใส่ก็ได้)" />
+      </div>
+      {to === "people" && (
+        <div className="flex flex-wrap gap-3 rounded-lg border p-2">
+          {colleagues.map((c) => (
+            <label key={c.id} className="flex items-center gap-1.5 text-sm">
+              <Checkbox checked={people.includes(c.id)} onCheckedChange={() => setPeople(people.includes(c.id) ? people.filter((x) => x !== c.id) : [...people, c.id])} />
+              {c.nickname}
+            </label>
+          ))}
+        </div>
+      )}
+      <Textarea rows={2} value={body} onChange={(e) => setBody(e.target.value)} placeholder="เช่น พรุ่งนี้ห้อง 2 แอร์เสีย ย้ายคาบ 13:00 ไปห้อง 3" />
+      <div className="flex justify-end"><Button size="sm" disabled={!body.trim()} onClick={send}><SendIcon /> ส่ง</Button></div>
+    </section>
   )
 }

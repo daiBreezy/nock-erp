@@ -1,6 +1,7 @@
 // Lesson summary workflow (D1–D8).
 
 import type { Attendance, LessonSummary, Parent, Result, Staff } from "../types"
+import { requireForceRemark } from "./notifications"
 import { can } from "./permissions"
 
 /** D1: a summary slot exists only for students marked present. */
@@ -23,6 +24,15 @@ export function canApprove(s: LessonSummary, user: Staff): Result {
   if (!can(user, "summary.approve")) return { ok: false, error: "คุณไม่มีสิทธิ์อนุมัติสรุปการเรียน" }
   if (s.authorId === user.id || s.lastEditorId === user.id) return { ok: false, error: "คนเขียน/แก้ล่าสุดอนุมัติเองไม่ได้" }
   return { ok: true, value: undefined }
+}
+
+/** Force: author/last editor approves their own summary — remark required, branch + Director notified. */
+export function canForceApprove(s: LessonSummary, user: Staff, remark: string): Result {
+  const r = canApprove(s, user)
+  if (r.ok) return { ok: false, error: "อนุมัติแบบปกติได้ — ไม่ต้อง Force" }
+  if (s.status !== "submitted" || !can(user, "summary.approve")) return r
+  const miss = requireForceRemark(remark)
+  return miss ? { ok: false, error: miss } : { ok: true, value: undefined }
 }
 
 /** D5: send only after approval; tells the truth when no parent is linked to LINE. */

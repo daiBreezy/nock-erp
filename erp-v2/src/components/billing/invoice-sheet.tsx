@@ -1,5 +1,6 @@
 "use client"
 
+import { ForceApprove } from "@/components/app/force-approve"
 import { useState } from "react"
 import { AlertTriangleIcon, CheckIcon, CircleIcon, FileTextIcon, Loader2Icon, PencilIcon, RefreshCwIcon, SendIcon, XCircleIcon } from "lucide-react"
 import { Pill } from "@/components/app/badges"
@@ -57,6 +58,8 @@ function Body({ id, onEdit }: { id: ID; onEdit: (inv: Invoice) => void }) {
   const paidConfirmed = Bill.paidAmount(inv)
   const paidAll = inv.payments.reduce((a, p) => a + p.amount, 0)
   const approveCheck = Bill.canApprove(inv, me)
+  // "x" stands in for the remark — only asks whether Force is available at all
+  const canForce = Bill.canForceApprove(inv, me, "x").ok
   const manage = can(me, "billing.manage")
 
   const steps: { label: string; state: "done" | "current" | "todo" | "warn"; detail: string }[] = [
@@ -69,7 +72,7 @@ function Body({ id, onEdit }: { id: ID; onEdit: (inv: Invoice) => void }) {
     {
       label: "อนุมัติ (คนอื่นที่ไม่ใช่คนสร้าง)",
       state: inv.approvedBy ? "done" : inv.status === "pending_approval" ? "current" : "todo",
-      detail: inv.approvedBy ? `อนุมัติโดย ${who(inv.approvedBy)}` : inv.status === "pending_approval" ? "รออนุมัติ" : "—",
+      detail: inv.approvedBy ? (inv.forced ? `Force Approve โดย ${who(inv.approvedBy)} · เหตุผล: ${inv.forced.remark}` : `อนุมัติโดย ${who(inv.approvedBy)}`) : inv.status === "pending_approval" ? "รออนุมัติ" : "—",
     },
     {
       label: "ส่งถึงผู้ปกครอง",
@@ -168,6 +171,7 @@ function Body({ id, onEdit }: { id: ID; onEdit: (inv: Invoice) => void }) {
             ) : (
               <div className="space-y-2">
                 <p className="text-sm text-muted-foreground">{approveCheck.error}</p>
+                {canForce && <ForceApprove label="Force Approve PDF" onForce={(remark) => act.approve(inv.id, remark)} success="Force Approve แล้ว — แจ้งทั้งสาขา + Director" />}
                 {manage && <Button size="sm" variant="outline" onClick={() => onEdit(inv)}><PencilIcon /> แก้ (กลับเป็นร่าง)</Button>}
               </div>
             )
@@ -210,9 +214,11 @@ function Body({ id, onEdit }: { id: ID; onEdit: (inv: Invoice) => void }) {
                     <span className="text-xs text-muted-foreground">บันทึกโดย {who(p.recordedBy)}</span>
                     <span className="ml-auto">
                       {p.confirmedBy ? (
-                        <Pill tone="green">ยืนยันโดย {who(p.confirmedBy)}</Pill>
+                        <Pill tone={p.forced ? "amber" : "green"} title={p.forced?.remark}>{p.forced ? "Force · " : ""}ยืนยันโดย {who(p.confirmedBy)}</Pill>
                       ) : c.ok ? (
                         <Button size="xs" onClick={() => report(act.confirm(inv.id, p.id), (v) => (v.paid ? "ยืนยันแล้ว · ชำระครบ ออกใบเสร็จ + เพิ่มเข้าคลาสแล้ว" : "ยืนยันยอดแล้ว"))}>ยืนยันยอด</Button>
+                      ) : Bill.canForceConfirmPayment(p, me, inv.branchId, "x").ok ? (
+                        <ForceApprove label="Force ยืนยันยอด" onForce={(remark) => act.confirm(inv.id, p.id, remark)} success="Force ยืนยันยอดแล้ว — แจ้งทั้งสาขา + Director" />
                       ) : (
                         <Pill tone="amber" className="whitespace-normal">รอคนอื่นยืนยัน</Pill>
                       )}

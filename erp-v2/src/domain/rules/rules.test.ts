@@ -3,8 +3,9 @@ import { describe, expect, it } from "vitest"
 import type { Attendance, Branch, FormOfferSlot, Holiday, Invoice, Klass, Package, Session, Staff, StudentLeave, Weekday } from "../types"
 import { applyClassEdit, applyToSessions, canSave, introducedConflicts, editSingleSession, findConflicts, generateSessions, moveSession, sessionState, validateClass, workState } from "./scheduling"
 import { activeLeave, balance, canMark, canSaveLeave, coveringEntitlement, effectiveTo, leavesUsed, lowBalanceAlert, removeFromClass, resolveEntitlements } from "./attendance"
-import { canApprove, canConfirmPayment, canSend, canVoid, defaultBusLegs, busTotal, nextInvoiceNumber, quoteCourse } from "./billing"
+import { canApprove, canConfirmPayment, canForceApprove, canForceConfirmPayment, canSend, canVoid, defaultBusLegs, busTotal, nextInvoiceNumber, quoteCourse } from "./billing"
 import { can } from "./permissions"
+import { forceAudience, isUnread, messageAudience, notify, validateMessage, visibleTo } from "./notifications"
 import * as Sum from "./summaries"
 import { futureSessionsOf, validateFamily, validateStaff, validateStudent } from "./people"
 import { suggestFixes } from "./suggest"
@@ -465,5 +466,53 @@ describe("forms", () => {
     expect(buildCombinedSessionDraft([{ subject: "Maths", slot: slotA }, { subject: "English", slot: slotDiffTime }], "b1", "stu1", branch, [])).toBeNull()
     expect(buildCombinedSessionDraft([{ subject: "Maths", slot: slotA }, { subject: "English", slot: slotClass }], "b1", "stu1", branch, [])).toBeNull()
     expect(buildCombinedSessionDraft([{ subject: "Maths", slot: slotA }], "b1", "stu1", branch, [])).toBeNull()
+  })
+})
+
+describe("force approve & central notifications (owner 2026-09-26)", () => {
+  const inv = (p: Partial<Invoice> = {}): Invoice => ({
+    id: "i", branchId: "b1", studentId: "a", number: "INV-TST-6909-0001", course: null, bus: [], bookFee: 0, advanceFee: 0,
+    concession: null, noteToParent: "", status: "pending_approval", pdf: "ready", createdBy: "adm", createdAt: "", payments: [], ...p,
+  })
+  it("creator can Force Approve their own invoice only with a remark", () => {
+    expect(canForceApprove(inv(), admin, " ").ok).toBe(false)
+    expect(canForceApprove(inv(), admin, "อยู่สาขาคนเดียว").ok).toBe(true)
+  })
+  it("Force never bypasses role, branch or status rules — and is not offered when normal approval works", () => {
+    expect(canForceApprove(inv({ createdBy: "t1" }), teacher, "x").ok).toBe(false)
+    expect(canForceApprove(inv({ createdBy: "adm", branchId: "b2" }), admin, "x").ok).toBe(false)
+    expect(canForceApprove(inv({ pdf: "generating" }), admin, "x").ok).toBe(false)
+    expect(canForceApprove(inv(), director, "x").ok).toBe(false) // director can simply approve
+  })
+  it("payment recorder can Force confirm with a remark", () => {
+    expect(canForceConfirmPayment({ recordedBy: "adm" }, admin, "b1", "").ok).toBe(false)
+    expect(canForceConfirmPayment({ recordedBy: "adm" }, admin, "b1", "ลูกค้ารอ").ok).toBe(true)
+    expect(canForceConfirmPayment({ recordedBy: "adm" }, director, "b1", "x").ok).toBe(false)
+  })
+  it("summary author can Force approve with a remark", () => {
+    const summary = { id: "x", sessionId: "s", studentId: "a", text: "ok", status: "submitted" as const, authorId: "adm", lastEditorId: "adm", history: [] }
+    expect(Sum.canForceApprove(summary, admin, "").ok).toBe(false)
+    expect(Sum.canForceApprove(summary, admin, "x").ok).toBe(true)
+    expect(Sum.canForceApprove({ ...summary, authorId: "t1", lastEditorId: "t1" }, teacher, "x").ok).toBe(false)
+  })
+  it("force notice reaches everyone at the branch + every Director, not the other branch", () => {
+    const d2 = { ...director, id: "dir2", branchIds: ["b2"] }
+    const otherBranchTeacher = { ...teacher, id: "t9", branchIds: ["b2"] }
+    const n = notify({ id: "n", at: new Date(), kind: "force_approved", title: "", body: "", fromId: "adm", audience: forceAudience("b1", [director, d2, admin, teacher]) })
+    expect(visibleTo(n, teacher)).toBe(true)
+    expect(visibleTo(n, manager)).toBe(true)
+    expect(visibleTo(n, d2)).toBe(true)
+    expect(visibleTo(n, otherBranchTeacher)).toBe(false)
+  })
+  it("read state is per person, and the sender never sees their own as unread", () => {
+    const n = notify({ id: "n", at: new Date(), kind: "message", title: "", body: "hi", fromId: "adm", audience: messageAudience({ kind: "branch" }, "b1") })
+    expect(isUnread(n, admin)).toBe(false)
+    expect(isUnread(n, teacher)).toBe(true)
+    expect(isUnread({ ...n, readBy: [...n.readBy, "mgr"] }, teacher)).toBe(true)
+  })
+  it("team message validation", () => {
+    expect(validateMessage({ kind: "branch" }, " ")).toMatch(/ข้อความ/)
+    expect(validateMessage({ kind: "people", staffIds: [] }, "hi")).toMatch(/ผู้รับ/)
+    expect(validateMessage({ kind: "role", role: "teacher" }, "hi")).toBeNull()
   })
 })

@@ -10,7 +10,8 @@ import {
 } from "@/components/ui/sidebar"
 import { Separator } from "@/components/ui/separator"
 import { Skeleton } from "@/components/ui/skeleton"
-import { can, inBranch, ROLE_LABEL, type Permission } from "@/domain/rules/permissions"
+import { isUnread, visibleTo } from "@/domain/rules/notifications"
+import { can, ROLE_LABEL, type Permission } from "@/domain/rules/permissions"
 import { useStore } from "@/store/store"
 import { Pill } from "./badges"
 import { NAV, navFor } from "./nav"
@@ -119,12 +120,7 @@ function NotificationBell() {
   const me = useStore((s) => s.staff.find((x) => x.id === s.userId)!)
   const count = useStore(
     (s) =>
-      s.notifications.filter(
-        (n) =>
-          !n.read &&
-          ((n.roles.some((r) => me.roles.includes(r)) && (!n.branchId || inBranch(me, n.branchId))) ||
-            n.staffIds?.includes(me.id)),
-      ).length,
+      s.notifications.filter((n) => visibleTo(n, me) && isUnread(n, me)).length,
   )
   return (
     <Link href="/notifications" className="relative grid size-8 place-items-center rounded-lg hover:bg-muted" aria-label="แจ้งเตือน">

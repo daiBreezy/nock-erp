@@ -46,6 +46,7 @@ src/app/<route>/page.tsx     ← หน้าต่างๆ
 ✅ Business rules เฟส 1 (2026-09-26): "ลาพักยาว ไม่หักโควตา" — ช่วงวันที่ระดับนักเรียน (`StudentLeave`, `src/domain/rules/attendance.ts`: `effectiveTo`/`resolveEntitlements`/`activeLeave`/`canSaveLeave`) จัดการจาก `StudentSheet` ได้ทุกหน้า · ยืดวันจบคอร์สอัตโนมัติ (derive ไม่ store — `useEntitlements()` hook) · แจ้งเตือน Manager สาขา+ครูประจำวิชา (`AppNotification.branchId/staffIds` ใหม่) · โชว์จางๆ+ป้ายใน Session Sheet/Calendar · แก้ไขได้เสมอ (re-notify) · 53 tests (WORKLOG มีรายละเอียดเต็ม)
 
 ✅ Business rules เฟส 2 (2026-09-28): สิทธิ์ใหม่ — role เพิ่ม `super_admin`/`area_manager` · อนุมัติใบแจ้งหนี้+ยืนยันเงินได้เฉพาะสาขาตัวเอง (`inBranch`/`crossBranch` ใน `permissions.ts` — Area Manager ขึ้นไปข้ามสาขาได้) · ครูสร้าง Invoice ไม่ได้ · ครูเห็นคาบทั้งหมดใน Calendar/รายการคาบ (มีตัวกรอง "เฉพาะคาบของฉัน") แต่คาบคนอื่น = ดูอย่างเดียว · 55 tests
+✅ เฟส 3 (2026-09-28): **Force Approve** (ใบแจ้งหนี้/ยืนยันยอดเงิน/สรุปการเรียน — คนทำงานอนุมัติงานตัวเองได้เมื่อใส่เหตุผล, กฎ role/สาขา/สถานะยังบังคับเหมือนเดิม, `canForce*` ใน billing.ts/summaries.ts, UI `components/app/force-approve.tsx`) · **ระบบแจ้งเตือนกลาง** `domain/rules/notifications.ts`: ทุก action สร้างผ่าน `notify()` · ทุกหน้ากรองผ่าน `visibleTo()` · อ่านแล้วแยกรายคน (`readBy`) · ส่งข้อความถึงทีม (ทั้งสาขา/ตาม role/รายคน) ที่หน้าแจ้งเตือน · เลขใบแจ้งหนี้ปี พ.ศ. (`INV-THL-6909-0001`) · slot ว่างในฟอร์ม Test/Trial = ทุกชั่วโมงที่สาขาเปิด (`openHourStarts`) · Reports/Tasks = Coming soon · 63 tests
 
 ## ตารางแก้บั๊ก (รหัสจากไฟล์เทส → จุดที่แก้)
 | รหัส | แก้ที่ |

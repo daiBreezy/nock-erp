@@ -2,6 +2,7 @@
 
 import { addMonths, endOfMonth, monthKey, nextWeekday, addDays } from "../dates"
 import type { Branch, BusLeg, Course, DateStr, Holiday, ID, Invoice, Klass, Package, Result, Role, Staff } from "../types"
+import { requireForceRemark } from "./notifications"
 import { inBranch } from "./permissions"
 import { isHoliday } from "./scheduling"
 
@@ -167,6 +168,17 @@ export function canApprove(inv: Invoice, user: Staff): Result {
   return { ok: true, value: undefined }
 }
 
+/** Force Approve: the creator approves their own invoice — every other approval rule still applies. */
+export function canForceApprove(inv: Invoice, user: Staff, remark: string): Result {
+  const r = canApprove(inv, user)
+  if (r.ok) return { ok: false, error: "อนุมัติแบบปกติได้ — ไม่ต้อง Force" }
+  if (inv.createdBy !== user.id) return r // blocked for a reason Force does not bypass
+  const rest = canApprove({ ...inv, createdBy: "" }, user)
+  if (!rest.ok) return rest
+  const miss = requireForceRemark(remark)
+  return miss ? { ok: false, error: miss } : { ok: true, value: undefined }
+}
+
 export function canSend(inv: Invoice): Result {
   if (inv.status !== "approved" && inv.status !== "sent") return { ok: false, error: "ต้องอนุมัติ PDF ก่อนส่ง" }
   if (!inv.noteToParent.trim()) return { ok: false, error: "กรอกข้อความถึงผู้ปกครองก่อนส่ง" } // BL-16
@@ -199,6 +211,17 @@ export function canConfirmPayment(p: { recordedBy: ID; confirmedBy?: ID }, user:
   if (!user.roles.some((r) => APPROVER_ROLES.includes(r))) return { ok: false, error: "บทบาทของคุณยืนยันยอดเงินไม่ได้" }
   if (!inBranch(user, branchId)) return { ok: false, error: "ยืนยันยอดเงินได้เฉพาะสาขาตัวเอง" }
   return { ok: true, value: undefined }
+}
+
+/** Force: the recorder confirms their own payment — role and branch rules still apply. */
+export function canForceConfirmPayment(p: { recordedBy: ID; confirmedBy?: ID }, user: Staff, branchId: ID, remark: string): Result {
+  const r = canConfirmPayment(p, user, branchId)
+  if (r.ok) return { ok: false, error: "ยืนยันแบบปกติได้ — ไม่ต้อง Force" }
+  if (p.recordedBy !== user.id) return r
+  const rest = canConfirmPayment({ ...p, recordedBy: "" }, user, branchId)
+  if (!rest.ok) return rest
+  const miss = requireForceRemark(remark)
+  return miss ? { ok: false, error: miss } : { ok: true, value: undefined }
 }
 
 export const INVOICE_STATUS_LABEL: Record<Invoice["status"], string> = {

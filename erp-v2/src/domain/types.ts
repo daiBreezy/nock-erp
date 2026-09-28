@@ -220,7 +220,7 @@ export type SummaryStatus = "draft" | "submitted" | "changes_requested" | "appro
 export interface SummaryEvent {
   at: string
   by: ID
-  action: "write" | "submit" | "request_changes" | "approve" | "send" | "edit"
+  action: "write" | "submit" | "request_changes" | "approve" | "force_approve" | "send" | "edit"
   note?: string
 }
 
@@ -412,6 +412,8 @@ export interface Invoice {
   createdBy: ID
   createdAt: string
   approvedBy?: ID
+  /** set when the approver skipped maker–checker (approved their own invoice) — remark is mandatory */
+  forced?: ForcedAction
   sentAt?: string
   delivery?: "delivered" | "no_line"
   voidReason?: string
@@ -429,15 +431,32 @@ export interface Payment {
   recordedBy: ID
   recordedAt: string
   confirmedBy?: ID
+  /** set when the recorder confirmed their own payment (Force) */
+  forced?: ForcedAction
 }
 
+/** Force Approve (owner 2026-09-26): skip maker–checker, remark always required, whole branch + Director notified. */
+export interface ForcedAction {
+  by: ID
+  at: string
+  remark: string
+}
+
+export type NotificationKind =
+  | "low_sessions" | "session_cancelled" | "approval_needed" | "holiday_impact" | "info" | "form_submitted" | "student_leave"
+  | "force_approved" | "message"
+
+/** One internal notification — the single team-communication channel (see domain/rules/notifications.ts). */
 export interface AppNotification {
   id: ID
   at: string
-  kind: "low_sessions" | "session_cancelled" | "approval_needed" | "holiday_impact" | "info" | "form_submitted" | "student_leave"
+  kind: NotificationKind
   title: string
   body: string
-  read: boolean
+  /** who has read it — per person, so one person reading never clears it for the rest of the team */
+  readBy: ID[]
+  /** staff who caused/sent it (team messages, force approvals) — never notified about their own action */
+  fromId?: ID
   roles: Role[]
   /** only staff at this branch (plus director) see it — unset means org-wide, same as before this field existed */
   branchId?: ID

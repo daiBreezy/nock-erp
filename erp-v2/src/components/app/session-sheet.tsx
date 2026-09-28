@@ -1,5 +1,6 @@
 "use client"
 
+import { ForceApprove } from "./force-approve"
 import Link from "next/link"
 import { useMemo, useState } from "react"
 import { AlertTriangleIcon, BanIcon, CheckIcon, PencilIcon, SearchIcon, SendIcon, StarIcon, UndoIcon, UserPlusIcon, UsersRoundIcon, XIcon } from "lucide-react"
@@ -268,7 +269,10 @@ function SummaryEditor({ sessionId, studentId, summary, viewOnly }: { sessionId:
           </>
         )}
         {status === "submitted" && can(me, "summary.approve") && summary && !Sum.canApprove(summary, me).ok && (
-          <span className="mr-auto self-center text-xs text-muted-foreground">คุณเป็นคนเขียน/แก้ล่าสุด — ต้องให้คนอื่นอนุมัติ</span>
+          <>
+            <span className="mr-auto self-center text-xs text-muted-foreground">คุณเป็นคนเขียน/แก้ล่าสุด — ต้องให้คนอื่นอนุมัติ</span>
+            {Sum.canForceApprove(summary, me, "x").ok && <ForceApprove onForce={(remark) => approve(summary.id, remark)} success="Force Approve แล้ว — แจ้งทั้งสาขา + Director" />}
+          </>
         )}
         {status === "submitted" && summary && Sum.canApprove(summary, me).ok && (
           <>
