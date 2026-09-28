@@ -10,7 +10,8 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { endTime, fmtDate, fmtMoney, TH_DAYS_FULL, toDateStr } from "@/domain/dates"
 import { invoiceTotals } from "@/domain/rules/billing"
-import { packageBadge, priceUnitSuffix } from "@/domain/rules/course"
+import { priceUnitSuffix } from "@/domain/rules/course"
+import { PackageBadge } from "@/components/app/package-badge"
 import { can, inBranch } from "@/domain/rules/permissions"
 import { gradeRanges, PRICE_UNIT_LABEL } from "@/domain/rules/settings"
 import type { Course, PriceUnit } from "@/domain/types"
@@ -158,7 +159,7 @@ export default function CoursesPage() {
                     <td><Pill tone={c.kind === "bundle" ? "violet" : "gray"}>{c.kind === "bundle" ? <><LayersIcon className="size-3" /> Bundle</> : "Single"}</Pill></td>
                     <td className="tabular-nums"><span className="flex items-center gap-1"><UsersIcon className="size-3.5 text-muted-foreground" />{st.students}</span></td>
                     <td className="tabular-nums">{st.classes || "—"}</td>
-                    <td><span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-semibold whitespace-nowrap text-amber-900">{packageBadge(c)}</span></td>
+                    <td><PackageBadge course={c} /></td>
                     <td className="tabular-nums"><span className="font-medium">{fmtMoney(c.price)}</span> <span className="text-xs text-muted-foreground">{priceUnitSuffix(c)}</span></td>
                     <td className="text-xs">{br?.name}</td>
                     <td className="text-xs">{c.from ? fmtDate(c.from, { year: true }) : "—"}{c.to && <span className="block text-muted-foreground">ถึง {fmtDate(c.to, { year: true })}</span>}</td>

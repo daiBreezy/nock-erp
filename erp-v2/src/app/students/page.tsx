@@ -4,6 +4,7 @@ import { useState } from "react"
 import { DownloadIcon, PlusIcon, SearchIcon } from "lucide-react"
 import { Pill } from "@/components/app/badges"
 import { NativeSelect } from "@/components/app/native-select"
+import { PackageBadge } from "@/components/app/package-badge"
 import { StudentForm } from "@/components/app/student-form"
 import { StudentSheet } from "@/components/app/student-sheet"
 import { STATUS_PILL } from "@/components/app/student-status"
@@ -30,6 +31,7 @@ export default function StudentsPage() {
   const sessions = useStore((s) => s.sessions)
   const attendance = useStore((s) => s.attendance)
   const leaves = useStore((s) => s.leaves)
+  const courses = useStore((s) => s.courses)
   const [q, setQ] = useState("")
   const [grade, setGrade] = useState("")
   const [status, setStatus] = useState("")
@@ -39,7 +41,7 @@ export default function StudentsPage() {
   const rows = students.map((s) => {
     const st = Att.studentStatus(s, entitlements, leaves, today)
     const ents = Att.activeEntitlements(s.id, entitlements, today)
-    const packs = ents.map((e) => ({ e, b: Att.balance(e, sessions, attendance) }))
+    const packs = ents.map((e) => ({ e, b: Att.balance(e, sessions, attendance), c: courses.find((c) => c.id === e.courseId) }))
     return { s, st, packs, fam: families.find((f) => f.id === s.familyId), inClasses: classes.filter((c) => c.active && c.studentIds.includes(s.id)) }
   })
   const shown = rows
@@ -96,7 +98,8 @@ export default function StudentsPage() {
             <span className="truncate text-muted-foreground">{inClasses.map((c) => c.name).join(", ") || "—"}</span>
             <span className="flex flex-wrap items-center gap-1">
               <Pill tone={STATUS_PILL[st].tone}>{STATUS_PILL[st].label}</Pill>
-              {packs.filter(({ e }) => e.kind === "sessions").map(({ e, b }) => <span key={e.id} className={cn("text-xs", b.remaining <= 2 && "font-semibold text-red-700")}>เหลือ {b.remaining} คาบ</span>)}
+              {packs.map(({ e, c }) => c && <PackageBadge key={e.id} course={c} />)}
+              {packs.filter(({ e }) => e.kind === "sessions").map(({ e, b }) => <span key={`${e.id}-left`} className={cn("text-xs", b.remaining <= 2 && "font-semibold text-red-700")}>เหลือ {b.remaining} คาบ</span>)}
             </span>
           </button>
         ))}

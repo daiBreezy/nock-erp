@@ -24,6 +24,7 @@ import { useStore } from "@/store/store"
 import { Pill } from "./badges"
 import { Pager, usePage } from "./data-table"
 import { LeaveDialog } from "./leave-dialog"
+import { PackageBadge } from "./package-badge"
 import { StudentForm } from "./student-form"
 import { stateDetail, STATUS_PILL } from "./student-status"
 import { avatarTone, gradeTone, initial, subjectColor } from "./subject-color"
@@ -179,6 +180,7 @@ function Overview({ stu, ents, today }: { stu: Student; ents: Entitlement[]; tod
             {extended && <Pill tone="violet" title={`เดิมจบ ${fmtDate(rawById.get(e.id)!.to, { year: true })}`}>เลื่อนวันจบจากการลา</Pill>}
           </p>
         </div>
+        {c && <PackageBadge course={c} size="md" />}
         <Pill tone={expired ? "gray" : renewal ? "amber" : "green"}>{expired ? "หมดแล้ว" : renewal ? "Renewal" : "Enroll"}</Pill>
         <div className="w-40 shrink-0 text-right">
           <p className="text-xs tabular-nums">{p.label}</p>

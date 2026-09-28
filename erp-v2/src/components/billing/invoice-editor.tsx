@@ -2,6 +2,7 @@
 
 import { StudentSearch } from "@/components/app/student-search"
 import { packageLabel, priceUnitSuffix } from "@/domain/rules/course"
+import { PackageBadge } from "@/components/app/package-badge"
 import { busRate } from "@/domain/rules/settings"
 import { useState } from "react"
 import { AlertTriangleIcon, BusIcon, CalendarIcon } from "lucide-react"
@@ -142,6 +143,7 @@ export function InvoiceEditor({ invoice, defaultStudentId, onClose, onSaved }: {
               }}
               placeholder="ไม่มีคอร์ส (เฉพาะค่าอื่นๆ)"
               options={courses.map((c) => ({ value: c.id, label: `${c.name} · ${fmtMoney(c.price)} ${priceUnitSuffix(c)}` }))} />
+            {course && <p className="flex items-center gap-2 text-xs text-muted-foreground"><PackageBadge course={course} /> แพ็กเกจ {packageLabel(course)} · {fmtMoney(course.price)} {priceUnitSuffix(course)}</p>}
             {mismatch && <p className="flex items-center gap-1 text-xs text-amber-700"><AlertTriangleIcon className="size-3" /> เกรด {student!.grade} ไม่ตรงกับคอร์ส ({course!.grades.join(", ")})</p>}
           </div>
 

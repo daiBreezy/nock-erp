@@ -11,11 +11,6 @@ export function defaultCourseName(subjects: string[], grades: string[]) {
   return [subjects.join(" + "), g].filter(Boolean).join(" ")
 }
 
-/** Short package badge, like staging's "H 24" / "W 4" / "M". */
-export function packageBadge(c: Pick<Course, "unit" | "duration">) {
-  return c.unit === "hour" ? `H ${c.duration}` : c.unit === "week" ? `W ${c.duration}` : "M"
-}
-
 export function packageLabel(c: Pick<Course, "unit" | "duration">) {
   return c.unit === "month" ? "รายเดือน" : durationLabel(c.unit, c.duration)
 }
