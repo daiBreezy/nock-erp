@@ -2,7 +2,7 @@
 // brand-wide System). Every tab saves through one of these validators so the UI never re-implements them.
 
 import { toMinutes } from "../dates"
-import type { Branch, Fee, FeeKind, Holiday, HolidayCategory, NotifyKey, PriceRow, PriceUnit, Promotion, Weekday } from "../types"
+import type { Branch, Fee, FeeKind, Holiday, HolidayCategory, NotifyKey, OpenHours, SpecialPeriod, PriceRow, PriceUnit, Promotion, Weekday } from "../types"
 
 export const FEE_KIND_LABEL: Record<FeeKind, { title: string; hint: string }> = {
   bus: { title: "ค่ารถ (Bus fee)", hint: "คิดต่อเที่ยว (รับ/ส่ง นับแยกกัน) — แต่ละคอร์สในใบแจ้งหนี้เลือกได้ 1 ประเภท" },
@@ -121,3 +121,22 @@ export function validateHoliday(h: Pick<Holiday, "name" | "date" | "branchId" | 
   if (h.branchId !== null && h.category !== "branch") return "วันหยุดที่สาขาสร้างเป็นประเภท 'วันหยุดของสาขา' เท่านั้น"
   return null
 }
+
+/** Special periods (e.g. summer 08:00–22:00 every day): a date range whose hours replace the weekly hours.
+ *  Ranges must not overlap — otherwise it is ambiguous which hours a date gets. */
+export function validateSpecialPeriods(list: SpecialPeriod[]): string | null {
+  for (const p of list) {
+    if (!p.name.trim()) return "ใส่ชื่อช่วงเวลาพิเศษ"
+    if (!p.from || !p.to || p.from > p.to) return `${p.name}: วันสิ้นสุดต้องหลังวันเริ่ม`
+    const bad = validateHours(p.hours)
+    if (bad) return `${p.name}: ${bad}`
+  }
+  const sorted = [...list].sort((a, b) => a.from.localeCompare(b.from))
+  for (let i = 1; i < sorted.length; i++)
+    if (sorted[i].from <= sorted[i - 1].to) return `${sorted[i - 1].name} กับ ${sorted[i].name} มีวันที่ทับกัน`
+  return null
+}
+
+/** "Same hours every day" shortcut. */
+export const everyDay = (h: OpenHours | null): Record<Weekday, OpenHours | null> =>
+  ({ 0: h && { ...h }, 1: h && { ...h }, 2: h && { ...h }, 3: h && { ...h }, 4: h && { ...h }, 5: h && { ...h }, 6: h && { ...h } })

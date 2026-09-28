@@ -494,7 +494,7 @@ export const useStore = create<Store>()(
         const s = get()
         const perm = requirePerm(s.me(), "settings.manage")
         if (!perm.ok) return perm
-        const err = Cfg.validateBranchInfo(b) ?? Cfg.validateHours(b.hours) ?? Cfg.validateDurations([...b.packageDurations.hour, ...b.packageDurations.week])
+        const err = Cfg.validateBranchInfo(b) ?? Cfg.validateHours(b.hours) ?? Cfg.validateSpecialPeriods(b.specialPeriods) ?? Cfg.validateDurations([...b.packageDurations.hour, ...b.packageDurations.week])
         if (err) return fail(err)
         if (s.branches.some((x) => x.id !== b.id && x.code === b.code)) return fail(`รหัสสาขา ${b.code} ถูกใช้แล้ว`)
         const removedRooms = s.branches.find((x) => x.id === b.id)!.rooms.filter((r) => !b.rooms.some((n) => n.id === r.id))
@@ -1087,7 +1087,7 @@ export const useStore = create<Store>()(
     {
       name: "nockerp-v2",
       // bump when the data model changes; older saved data is replaced by fresh sample data
-      version: 19,
+      version: 20,
       migrate: () => ({ ...buildSeed(), userId: "u_nock", branchId: "br_thl", clockOffset: 0 }) as unknown as Store,
       // persist data + UI state only, never the action functions
       partialize: (s) => Object.fromEntries(Object.entries(s).filter(([, v]) => typeof v !== "function")) as Partial<Store>,

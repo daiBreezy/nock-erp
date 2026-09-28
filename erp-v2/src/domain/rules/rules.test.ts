@@ -1,11 +1,11 @@
 // Regression tests: each case reproduces a bug found on Dev staging and proves the rule prevents it.
 import { describe, expect, it } from "vitest"
 import type { Attendance, Branch, FormOfferSlot, Holiday, Invoice, Klass, Package, Session, Staff, StudentLeave, Weekday } from "../types"
-import { applyClassEdit, applyToSessions, canSave, closesBranch, holidayImpact, isHoliday, introducedConflicts, editSingleSession, findConflicts, generateSessions, moveSession, sessionState, validateClass, workState } from "./scheduling"
+import { applyClassEdit, applyToSessions, canSave, closesBranch, holidayImpact, hoursFor, isHoliday, introducedConflicts, editSingleSession, findConflicts, generateSessions, moveSession, sessionState, validateClass, workState } from "./scheduling"
 import { activeLeave, balance, canMark, canSaveLeave, coveringEntitlement, effectiveTo, leavesUsed, lowBalanceAlert, removeFromClass, resolveEntitlements } from "./attendance"
 import { bestPromotion, canApprove, canConfirmPayment, canForceApprove, canForceConfirmPayment, canSend, canVoid, defaultBusLegs, busTotal, nextInvoiceNumber, quoteCourse } from "./billing"
 import { can } from "./permissions"
-import { busRate, copyHours, priceOf, priceRange, setPrice, validateBranchInfo, validateDurations, validateHoliday, validatePromotion } from "./settings"
+import { busRate, copyHours, priceOf, priceRange, setPrice, validateBranchInfo, validateDurations, validateHoliday, validatePromotion, validateSpecialPeriods, everyDay } from "./settings"
 import { forceAudience, isUnread, messageAudience, notify, validateMessage, visibleTo } from "./notifications"
 import * as Sum from "./summaries"
 import { futureSessionsOf, validateFamily, validateStaff, validateStudent } from "./people"
@@ -567,5 +567,19 @@ describe("holidays: company calendar + per-branch choice (owner 2026-09-28)", ()
     expect(validateHoliday({ name: "x", date: "2026-10-01", branchId: null, category: "branch" })).toMatch(/บริษัท/)
     expect(validateHoliday({ name: "x", date: "2026-10-01", branchId: "b1", category: "company" })).toMatch(/สาขา/)
     expect(validateHoliday({ name: "x", date: "2026-10-01", branchId: "b1", category: "branch" })).toBeNull()
+  })
+})
+
+describe("special periods (e.g. summer 08:00–22:00 every day)", () => {
+  const summer = { id: "sp", name: "Summer", from: "2026-04-01", to: "2026-05-15", hours: everyDay({ open: "08:00", close: "22:00" }) }
+  it("replaces the weekly hours inside its date range only — including days normally closed", () => {
+    const b = { ...branch, specialPeriods: [summer] }
+    expect(hoursFor(b, "2026-04-05")).toEqual({ open: "08:00", close: "22:00" }) // Sunday: normally closed
+    expect(hoursFor(b, "2026-05-20")).toEqual(branch.hours[3]) // Wednesday, back to normal hours
+  })
+  it("rejects overlapping ranges and bad hours", () => {
+    expect(validateSpecialPeriods([summer, { ...summer, id: "sp2", name: "Exam", from: "2026-05-10", to: "2026-05-30" }])).toMatch(/ทับกัน/)
+    expect(validateSpecialPeriods([{ ...summer, hours: everyDay({ open: "22:00", close: "08:00" }) }])).toMatch(/เวลาปิด/)
+    expect(validateSpecialPeriods([summer])).toBeNull()
   })
 })
