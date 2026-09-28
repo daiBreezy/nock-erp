@@ -2,7 +2,7 @@
 // brand-wide System). Every tab saves through one of these validators so the UI never re-implements them.
 
 import { toMinutes } from "../dates"
-import type { Branch, Fee, FeeKind, Holiday, HolidayCategory, NotifyKey, OpenHours, SpecialPeriod, PriceRow, PriceUnit, Promotion, Weekday } from "../types"
+import type { Branch, Fee, FeeKind, Holiday, HolidayCategory, NotifyKey, OpenHours, PeriodPriority, SpecialPeriod, PriceRow, PriceUnit, Promotion, Weekday } from "../types"
 
 export const FEE_KIND_LABEL: Record<FeeKind, { title: string; hint: string }> = {
   bus: { title: "ค่ารถ (Bus fee)", hint: "คิดต่อเที่ยว (รับ/ส่ง นับแยกกัน) — แต่ละคอร์สในใบแจ้งหนี้เลือกได้ 1 ประเภท" },
@@ -131,10 +131,13 @@ export function validateSpecialPeriods(list: SpecialPeriod[]): string | null {
     const bad = validateHours(p.hours)
     if (bad) return `${p.name}: ${bad}`
   }
-  // only active periods decide hours, so only they must not overlap (an inactive "Summer 2025" can sit beside "Summer 2026")
-  const sorted = list.filter((p) => p.active).sort((a, b) => a.from.localeCompare(b.from))
-  for (let i = 1; i < sorted.length; i++)
-    if (sorted[i].from <= sorted[i - 1].to) return `${sorted[i - 1].name} กับ ${sorted[i].name} มีวันที่ทับกัน`
+  // overlapping active periods are fine when priorities differ (the higher one wins that day); with the
+  // same priority it would be ambiguous which hours apply. Inactive periods never count.
+  const act = list.filter((p) => p.active)
+  for (let i = 0; i < act.length; i++)
+    for (let j = i + 1; j < act.length; j++)
+      if (act[i].priority === act[j].priority && act[i].from <= act[j].to && act[j].from <= act[i].to)
+        return `${act[i].name} กับ ${act[j].name} วันที่ทับกันและ Priority เท่ากัน — เปลี่ยน Priority หรือวันที่`
   return null
 }
 
@@ -160,3 +163,5 @@ export function gradeRanges(grades: string[]): string[] {
   flush()
   return out
 }
+
+export const PRIORITY_LABEL: Record<PeriodPriority, string> = { high: "สูง", medium: "กลาง", low: "ต่ำ" }

@@ -7,9 +7,13 @@ import type { Attendance, Branch, DateStr, Holiday, ID, Klass, Session, Staff, T
 export const GENERATE_WEEKS = 8
 export const CAPACITY = { single: 1, group: 6 } as const
 
-/** The active special period (e.g. Summer) covering this date, if any. */
+const PRIORITY_RANK = { high: 3, medium: 2, low: 1 } as const
+
+/** The active special period (e.g. Summer) covering this date — the highest priority wins when several overlap. */
 export function periodOn(branch: Branch, date: DateStr) {
-  return (branch.specialPeriods ?? []).find((p) => p.active && p.from <= date && date <= p.to)
+  return (branch.specialPeriods ?? [])
+    .filter((p) => p.active && p.from <= date && date <= p.to)
+    .sort((a, b) => PRIORITY_RANK[b.priority] - PRIORITY_RANK[a.priority])[0]
 }
 
 /** Active special periods overlapping a date range — for banners on the calendar / holiday board. */

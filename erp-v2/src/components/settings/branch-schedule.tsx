@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { ChevronDownIcon, PlusIcon, TrashIcon } from "lucide-react"
+import { ChevronDownIcon, ChevronsDownIcon, ChevronsUpIcon, ChevronUpIcon, PlusIcon, TrashIcon } from "lucide-react"
 import { Pill } from "@/components/app/badges"
 import { Field } from "@/components/app/student-form"
 import { Button } from "@/components/ui/button"
@@ -10,8 +10,8 @@ import { Input } from "@/components/ui/input"
 import { Switch } from "@/components/ui/switch"
 import { fmtDate, TH_DAYS_FULL, toDateStr } from "@/domain/dates"
 import { hoursFor, isHoliday } from "@/domain/rules/scheduling"
-import { copyHours, everyDay, validateSpecialPeriods } from "@/domain/rules/settings"
-import type { Branch, OpenHours, SpecialPeriod, Weekday } from "@/domain/types"
+import { copyHours, everyDay, PRIORITY_LABEL, validateSpecialPeriods } from "@/domain/rules/settings"
+import type { Branch, OpenHours, PeriodPriority, SpecialPeriod, Weekday } from "@/domain/types"
 import { uid } from "@/data/seed"
 import { report } from "@/lib/feedback"
 import { useNow } from "@/lib/hooks"
@@ -113,8 +113,9 @@ function SpecialPeriodsCard({ branch }: { branch: Branch }) {
   const { b, setB, dirty, reset, save } = useBranchDraft(branch, ["specialPeriods"])
   const today = toDateStr(useNow())
   const update = (id: string, patch: Partial<SpecialPeriod>) => setB({ ...b, specialPeriods: b.specialPeriods.map((p) => (p.id === id ? { ...p, ...patch } : p)) })
-  const add = () => setB({ ...b, specialPeriods: [...b.specialPeriods, { id: uid("sp"), name: "Summer", from: today, to: today, hours: everyDay({ open: "08:00", close: "22:00" }), active: true }] })
-  const list = [...b.specialPeriods].sort((x, y) => x.from.localeCompare(y.from))
+  const add = () => setB({ ...b, specialPeriods: [...b.specialPeriods, { id: uid("sp"), name: "Summer", from: today, to: today, hours: everyDay({ open: "08:00", close: "22:00" }), active: true, priority: "medium" }] })
+  const rank = { high: 0, medium: 1, low: 2 }
+  const list = [...b.specialPeriods].sort((x, y) => rank[x.priority] - rank[y.priority] || x.from.localeCompare(y.from))
   const err = validateSpecialPeriods(b.specialPeriods)
   return (
     <SettingsCard title={`ช่วงเวลาพิเศษ (${b.specialPeriods.length})`}
@@ -145,6 +146,7 @@ function SpecialPeriodEditor({ p, normal, today, startOpen, onChange, onRemove }
       <div className="flex flex-wrap items-center gap-2 p-3">
         <button onClick={() => setOpen(!open)} className="flex min-w-0 flex-1 items-center gap-2 text-left" aria-expanded={open}>
           <ChevronDownIcon className={cn("size-4 shrink-0 text-muted-foreground transition-transform", !open && "-rotate-90")} />
+          <PriorityIcon priority={p.priority} dim={!p.active} />
           <span className="min-w-0">
             <span className={cn("block truncate font-medium", !p.active && "text-muted-foreground")}>{p.name || "(ไม่มีชื่อ)"}</span>
             <span className="block text-xs text-muted-foreground">{fmtDate(p.from, { year: true })} – {fmtDate(p.to, { year: true })} · {summary}</span>
@@ -163,6 +165,11 @@ function SpecialPeriodEditor({ p, normal, today, startOpen, onChange, onRemove }
             <Field label="ชื่อช่วง" className="min-w-40 flex-1"><Input value={p.name} onChange={(e) => onChange({ name: e.target.value })} placeholder="เช่น Summer" /></Field>
             <Field label="ตั้งแต่"><Input type="date" value={p.from} onChange={(e) => onChange({ from: e.target.value })} /></Field>
             <Field label="ถึง"><Input type="date" value={p.to} onChange={(e) => onChange({ to: e.target.value })} /></Field>
+            <Field label="Priority (ช่วงทับกัน → สูงกว่าชนะ)">
+              <select className="h-9 rounded-3xl border bg-input/50 px-3 text-sm" value={p.priority} onChange={(e) => onChange({ priority: e.target.value as PeriodPriority })}>
+                {(["high", "medium", "low"] as PeriodPriority[]).map((x) => <option key={x} value={x}>{PRIORITY_LABEL[x]}</option>)}
+              </select>
+            </Field>
           </div>
           <div className="flex flex-wrap items-center gap-2 rounded-xl bg-muted/40 p-2 text-sm">
             เปิดทุกวัน
@@ -183,4 +190,9 @@ function SpecialPeriodEditor({ p, normal, today, startOpen, onChange, onRemove }
       )}
     </div>
   )
+}
+
+function PriorityIcon({ priority, dim }: { priority: PeriodPriority; dim?: boolean }) {
+  const Icon = priority === "high" ? ChevronsUpIcon : priority === "medium" ? ChevronUpIcon : ChevronsDownIcon
+  return <Icon aria-label={`Priority ${PRIORITY_LABEL[priority]}`} className={cn("size-4 shrink-0", priority === "high" ? "text-red-600" : priority === "medium" ? "text-amber-500" : "text-muted-foreground", dim && "opacity-40")} />
 }

@@ -28,7 +28,11 @@ export interface SpecialPeriod {
   hours: Record<Weekday, OpenHours | null>
   /** inactive = kept for next year but ignored now (no effect on hours) */
   active: boolean
+  /** when active periods overlap, the higher priority decides the hours that day */
+  priority: PeriodPriority
 }
+
+export type PeriodPriority = "high" | "medium" | "low"
 
 /** Settings → General Fees (staging): flat fees Create Invoice charges outside course packages.
  *  bus = per leg (pickup / drop-off counted separately) · entry & mock = one-off "Advance Optional" add-ons.

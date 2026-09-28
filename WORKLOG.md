@@ -39,7 +39,9 @@
 
 **ทำแล้ว:** ลบ `Package` ออกทั้งระบบ → `Course` เก็บเอง: `kind` (single/bundle) · `subjects[]` · `grades[]` · `unit` (hour/week/month) + `duration` · `price` (เติมจากตารางราคาสาขา, bundle = รวมราคาทุกวิชา) · `priceReason` (บังคับเมื่อราคาไม่ตรงตาราง) · `courseFee` · `from/to` · `active` · กฎ `domain/rules/course.ts` · ฟอร์ม `components/courses/course-dialog.tsx` ตาม Staging (การ์ดสาขา + ปุ่ม "N แพ็กเกจ" ดูช่วงราคา, Single/Bundle, เกรดแบ่งกลุ่ม + เลือกทั้งหมด, เตือน "ราคาต่างกัน ควรแยกคอร์ส") · **หน้า Course ตามดีไซน์ Course Page.png:** KPI 4 ใบ, ค้นหา + กรอง สาขา/วิชา/ประเภท/แพ็กเกจ, เรียงคอลัมน์ได้, **กดขยายแถวเห็นคลาสที่ผูก** (วิชา วัน เวลา เกรด นักเรียน ครู ห้อง สถานะ), แก้ไข/ทำสำเนา/เปิด-ปิดขาย · `Klass.courseId` (ผูกคลาส↔คอร์ส, optional) · ใบแจ้งหนี้คิดราคาจากคอร์ส: รายสัปดาห์ = ทุกคาบใน N สัปดาห์, รายชั่วโมง = จำนวนคาบตามความยาวคาบจริง, + Course fee · `Entitlement.subjects[]` (bundle ครอบคลุมหลายวิชา) · persist 22→23 · 78 tests · ทดสอบในเบราว์เซอร์แล้ว
 
-**ต่อไป:** Priority ของ Special Period → ขั้นที่ 3 Create Class (หลายแถว วัน+เวลาเริ่ม–จบ, หลายวิชา, Support Teacher, ผูก Course, เตือนชนรายแถว, ความยาวคาบละเอียด 5 นาที) → การนับแพ็กเกจ Hourly (หักชั่วโมง) / Weekly จริงในสิทธิ์เรียน → Create Invoice ตาม Staging
+**+ Priority ของ Special Period ✅:** `SpecialPeriod.priority` (สูง/กลาง/ต่ำ, ไอคอน ⏫/^/⏬ ตามดีไซน์) · ช่วงที่ Active ทับวันกันได้ถ้า Priority ต่างกัน — วันนั้นใช้เวลาของช่วงที่ Priority สูงกว่า (`periodOn`) · Priority เท่ากันแล้วทับกัน = บันทึกไม่ได้ · persist 23→24 · 79 tests
+
+**ต่อไป:** ขั้นที่ 3 Create Class (หลายแถว วัน+เวลาเริ่ม–จบ, หลายวิชา, Support Teacher, ผูก Course, เตือนชนรายแถว, ความยาวคาบละเอียด 5 นาที) → การนับแพ็กเกจ Hourly (หักชั่วโมง) / Weekly จริงในสิทธิ์เรียน → Create Invoice ตาม Staging
 
 **ต่อไป:** ขั้นที่ 2 Create Course ตาม Staging → ขั้นที่ 3 Create Invoice ตาม Staging
 

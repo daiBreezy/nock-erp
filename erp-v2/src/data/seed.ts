@@ -62,7 +62,7 @@ export function buildSeed(now = new Date()): DB {
       rooms: [{ id: "rm_1", name: "ห้อง 1" }, { id: "rm_2", name: "ห้อง 2" }, { id: "rm_3", name: "ห้อง 3" }],
       hours: wk("09:00", "20:00"), subjects: ["คณิต", "อังกฤษ", "วิทย์"], grades: ["ป.4", "ป.5", "ป.6", "ม.1", "ม.2", "ม.3"],
       defaultSessionMinutes: 60, busFeePerLeg: 150,
-      specialPeriods: [{ id: "sp_summer", name: "Summer", from: addDays(monday, 42), to: addDays(monday, 69), hours: wk("08:00", "22:00", []), active: true }],
+      specialPeriods: [{ id: "sp_summer", name: "Summer", from: addDays(monday, 42), to: addDays(monday, 69), hours: wk("08:00", "22:00", []), active: true, priority: "high" }],
       active: true, email: "thonglor@nockacademy.com", address: "123 ถ.สุขุมวิท 55 แขวงคลองตันเหนือ เขตวัฒนา กทม. 10110", phones: ["02-111-2222", "081-234-5678"], socials: ["https://facebook.com/nockacademy"],
       fees: [
         { id: "fee_bus_std", kind: "bus", name: "Standard", price: 150 },
