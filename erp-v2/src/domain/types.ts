@@ -319,6 +319,35 @@ export interface Student {
   birthDate?: DateStr
   school?: string
   note?: string
+  /** the branch and time the student record was created ("สร้างที่สาขาสีลม · 13 ก.ย. 67") */
+  createdAt: string
+  createdBranchId: ID
+  /** left the school for good — set by hand. (Active/Inactive is automatic: packages + long leave) */
+  archived?: { at: string; by: ID; reason: string }
+}
+
+/** Internal staff note on a student (chat-style, never shown to parents). */
+export interface StudentNote {
+  id: ID
+  studentId: ID
+  by: ID
+  at: string
+  text: string
+}
+
+export type LogCategory = "profile" | "class" | "attendance" | "billing" | "note"
+
+/** Audit trail — every change that touches a student (owner 2026-09-28: every edit belongs in the log). */
+export interface ActivityLog {
+  id: ID
+  at: string
+  /** staff who did it; null = system (e.g. auto-enrol after payment) */
+  by: ID | null
+  category: LogCategory
+  studentIds: ID[]
+  /** short verb, e.g. "แก้ข้อมูล" */
+  action: string
+  detail: string
 }
 
 export type EntitlementKind = "subscription" | "sessions"

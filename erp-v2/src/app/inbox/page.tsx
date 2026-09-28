@@ -42,6 +42,11 @@ export default function InboxPage() {
   const linkLead = useStore((s) => s.linkConversationToLead)
 
   const [selectedId, setSelectedId] = useState<ID | null>(conversations[0]?.id ?? null)
+  // deep link from the student modal's chat button: /inbox?conversation=<id>
+  useEffect(() => {
+    const wanted = new URLSearchParams(window.location.search).get("conversation")
+    if (wanted) setSelectedId(wanted) // eslint-disable-line react-hooks/set-state-in-effect
+  }, [])
   const [search, setSearch] = useState("")
   const [typeFilter, setTypeFilter] = useState<"all" | ConversationType>("all")
   const [readFilter, setReadFilter] = useState<"all" | "unread" | "read">("all")

@@ -19,7 +19,7 @@ import * as Forms from "@/domain/rules/forms"
 import * as CourseR from "@/domain/rules/course"
 import * as Notif from "@/domain/rules/notifications"
 import * as Cfg from "@/domain/rules/settings"
-import type { AttendanceStatus, Branch, ChatMessage, Conversation, Course, DateStr, Family, FormSubmission, Holiday, ID, Invoice, Klass, Lead, LeadStage, LessonSummary, Result, Session, Staff, Student, SystemConfig } from "@/domain/types"
+import type { AttendanceStatus, Branch, ChatMessage, Conversation, Course, DateStr, Family, FormSubmission, Holiday, ID, Invoice, Klass, Lead, LeadStage, LessonSummary, LogCategory, Result, Session, Staff, Student, SystemConfig } from "@/domain/types"
 
 export interface UIState {
   userId: ID
@@ -58,6 +58,10 @@ type Store = DB & UIState & {
   generateLineCode: (familyId: ID) => Result<{ code: string }>
   simulateLineLink: (familyId: ID, parentIndex: number) => Result
   saveStudent: (s: Student) => Result<Student>
+  /** left the school for good (manual) — Active/Inactive is automatic */
+  archiveStudent: (id: ID, reason: string) => Result
+  restoreStudent: (id: ID) => Result
+  addStudentNote: (studentId: ID, text: string) => Result
   saveStaff: (s: Staff) => Result<Staff>
   deactivateStaff: (id: ID, replacementId: ID | null) => Result<{ reassigned: number }>
   reactivateStaff: (id: ID) => Result
@@ -157,7 +161,11 @@ const ctxOf = (s: DB, branchId: ID) => ({
 
 export const useStore = create<Store>()(
   persist(
-    (set, get) => ({
+    (set, get) => {
+      /** append to the audit trail — every change touching a student goes through here */
+      const log = (category: LogCategory, studentIds: ID[], action: string, detail: string, system = false) =>
+        set((st) => ({ logs: [{ id: uid("lg"), at: st.now().toISOString(), by: system ? null : st.userId, category, studentIds, action, detail }, ...st.logs] }))
+      return {
       ...buildSeed(),
       userId: "u_nock",
       branchId: "br_thl",
@@ -188,6 +196,7 @@ export const useStore = create<Store>()(
         }
         const sessions = Sch.generateSessions(klass, s.holidays, () => uid("se"))
         set({ classes: [...s.classes, klass], sessions: [...s.sessions, ...sessions] })
+        if (klass.studentIds.length) log("class", klass.studentIds, "เข้าคลาส", `${klass.name} (สร้างคลาสใหม่)`)
         return { ok: true, value: { klass, sessions: sessions.length } }
       },
 
@@ -354,6 +363,7 @@ export const useStore = create<Store>()(
           sessions: r.sessions,
           classes: scope === "following" && klass ? s.classes.map((c) => (c.id === klass.id && !c.studentIds.includes(studentId) ? { ...c, studentIds: [...c.studentIds, studentId] } : c)) : s.classes,
         })
+        log("class", [studentId], scope === "following" && klass ? "เข้าคลาส" : "เข้าคาบ", `${klass?.name ?? src.subject} · ${fmtDate(src.date)} ${src.start}${r.changedIds.length > 1 ? ` · ${r.changedIds.length} คาบ` : ""}${src.trial ? " · ทดลองเรียน" : ""}`)
         return { ok: true, value: { changed: r.changedIds.length }, warnings }
       },
 
@@ -443,8 +453,53 @@ export const useStore = create<Store>()(
         if (!perm.ok) return perm
         const errs = People.validateStudent(st, toDateStr(s.now()))
         if (errs.length) return fail(errs[0].message)
-        set({ students: s.students.some((x) => x.id === st.id) ? s.students.map((x) => (x.id === st.id ? st : x)) : [...s.students, st] })
+        const prev = s.students.find((x) => x.id === st.id)
+        set({ students: prev ? s.students.map((x) => (x.id === st.id ? st : x)) : [...s.students, st] })
+        if (!prev) log("profile", [st.id], "สร้างนักเรียน", `${st.nickname} · ${st.grade} · สาขา${s.branches.find((b) => b.id === st.createdBranchId)?.name ?? ""}`)
+        else {
+          const changes = People.studentChanges(prev, st, (id) => s.families.find((f) => f.id === id)?.name ?? "—")
+          if (changes.length) log("profile", [st.id], "แก้ข้อมูล", changes.join(" · "))
+        }
         return { ok: true, value: st }
+      },
+
+      archiveStudent: (id, reason) => {
+        const s = get()
+        const perm = requirePerm(s.me(), "student.manage")
+        if (!perm.ok) return perm
+        if (!reason.trim()) return fail("ใส่เหตุผลที่นักเรียนเลิกเรียน")
+        const stu = s.students.find((x) => x.id === id)
+        if (!stu) return fail("ไม่พบนักเรียน")
+        const today = toDateStr(s.now())
+        // leaving: out of every class and every session that hasn't started — history stays
+        let { classes, sessions } = s
+        classes.filter((k) => k.studentIds.includes(id)).forEach((k) => {
+          const r = Att.removeFromClass(k, id, sessions, s.now())
+          classes = classes.map((c) => (c.id === k.id ? r.klass : c))
+          sessions = r.sessions
+        })
+        sessions = sessions.map((x) => (x.date >= today && x.studentIds.includes(id) && Sch.sessionState(x, s.now()) === "upcoming" ? { ...x, studentIds: x.studentIds.filter((y) => y !== id) } : x))
+        set({ students: s.students.map((x) => (x.id === id ? { ...x, archived: { at: s.now().toISOString(), by: s.userId, reason: reason.trim() } } : x)), classes, sessions })
+        log("profile", [id], "Archive (เลิกเรียน)", reason.trim())
+        return OK
+      },
+
+      restoreStudent: (id) => {
+        const s = get()
+        const perm = requirePerm(s.me(), "student.manage")
+        if (!perm.ok) return perm
+        set({ students: s.students.map((x) => (x.id === id ? { ...x, archived: undefined } : x)) })
+        log("profile", [id], "กลับมาเรียน", "ยกเลิก Archive — เพิ่มเข้าคลาสใหม่ได้จากปฏิทิน/ใบแจ้งหนี้")
+        return OK
+      },
+
+      addStudentNote: (studentId, text) => {
+        const s = get()
+        if (!can(s.me(), "student.view")) return fail("คุณไม่มีสิทธิ์")
+        if (!text.trim()) return fail("พิมพ์โน้ตก่อน")
+        set({ notes: [...s.notes, { id: uid("nt"), studentId, by: s.userId, at: s.now().toISOString(), text: text.trim() }] })
+        log("note", [studentId], "เพิ่มโน้ต", text.trim().slice(0, 80))
+        return OK
       },
 
       saveStaff: (st) => {
@@ -636,6 +691,9 @@ export const useStore = create<Store>()(
         const rest = s.attendance.filter((a) => !(a.sessionId === sessionId && a.studentId === studentId))
         // C3: summaries only exist for present students; keep text as draft instead of deleting silently
         set({ attendance: [...rest, { sessionId, studentId, status, markedBy: me.id, markedAt: s.now().toISOString() }] })
+        const before = s.attendance.find((a) => a.sessionId === sessionId && a.studentId === studentId)
+        const L = { present: "มา", absent: "ขาด", leave: "ลา" } as const
+        log("attendance", [studentId], before ? "แก้การเช็คชื่อ" : "เช็คชื่อ", `${se.subject} ${fmtDate(se.date)} ${se.start} · ${before ? `${L[before.status]} → ` : ""}${L[status]}`)
         // C5: leave beyond quota is allowed but flagged (quota rule awaiting owner confirmation)
         if (status === "leave") {
           const ent = Att.coveringEntitlement(studentId, se, s.entitlements)
@@ -670,6 +728,7 @@ export const useStore = create<Store>()(
             ...s.notifications,
           ],
         })
+        log("attendance", [input.studentId], editing ? "แก้ลาพักยาว" : "บันทึกลาพักยาว", `${fmtDate(input.from)} – ${fmtDate(input.to, { year: true })} · ${input.reason.trim()}`)
         return OK
       },
 
@@ -681,6 +740,7 @@ export const useStore = create<Store>()(
         const r = Att.canClear(se, s.now())
         if (!r.ok) return r
         set({ attendance: s.attendance.filter((a) => !(a.sessionId === sessionId && a.studentId === studentId)) })
+        log("attendance", [studentId], "ล้างการเช็คชื่อ", `${se.subject} ${fmtDate(se.date)} ${se.start}`)
         return OK
       },
 
@@ -691,6 +751,7 @@ export const useStore = create<Store>()(
         const k = s.classes.find((c) => c.id === classId)!
         const r = Att.removeFromClass(k, studentId, s.sessions, s.now())
         set({ classes: s.classes.map((c) => (c.id === classId ? r.klass : c)), sessions: r.sessions })
+        log("class", [studentId], "ออกจากคลาส", `${k.name} · ${r.removedFrom} คาบที่ยังไม่เริ่ม`)
         return { ok: true, value: { removedFrom: r.removedFrom } }
       },
 
@@ -752,6 +813,7 @@ export const useStore = create<Store>()(
         if (!r.ok) return r
         if (!r.value.delivered) return fail("ผู้ปกครองยังไม่ได้ผูก LINE — ยังไม่ได้ส่ง (สรุปยังอยู่สถานะอนุมัติแล้ว)")
         set({ summaries: s.summaries.map((x) => (x.id === id ? { ...x, status: "sent", history: [...x.history, { at: s.now().toISOString(), by: s.userId, action: "send" }] } : x)) })
+        log("attendance", [cur.studentId], "ส่งสรุปการเรียน", "ส่งถึงผู้ปกครองทาง LINE")
         return { ok: true, value: { delivered: true } }
       },
 
@@ -768,6 +830,7 @@ export const useStore = create<Store>()(
         // editing a generated invoice sends it back to draft (needs new PDF + approval)
         const next: Invoice = existing && existing.status === "pending_approval" ? { ...inv, status: "draft", pdf: "none" } : { ...inv, status: "draft" }
         set({ invoices: existing ? s.invoices.map((x) => (x.id === inv.id ? next : x)) : [next, ...s.invoices] })
+        log("billing", [inv.studentId], existing ? "แก้ใบแจ้งหนี้" : "สร้างใบแจ้งหนี้", `${inv.number ?? "ร่าง"} · ${fmtMoney(totals.total)}`)
         return { ok: true, value: next }
       },
 
@@ -801,6 +864,7 @@ export const useStore = create<Store>()(
           invoices: s.invoices.map((x) => (x.id === id ? { ...x, status: "approved", approvedBy: s.userId, forced: forced ? { by: s.userId, at: s.now().toISOString(), remark: forceRemark.trim() } : undefined } : x)),
           notifications: forced ? [forceNotice(s, inv.branchId, "ใบแจ้งหนี้", inv.number ?? "", forceRemark), ...s.notifications] : s.notifications,
         })
+        log("billing", [inv.studentId], forced ? "Force Approve ใบแจ้งหนี้" : "อนุมัติใบแจ้งหนี้", `${inv.number}${forced ? ` · เหตุผล: ${forceRemark!.trim()}` : ""}`)
         return OK
       },
 
@@ -812,6 +876,7 @@ export const useStore = create<Store>()(
         const stu = s.students.find((x) => x.id === inv.studentId)!
         const delivered = (s.families.find((f) => f.id === stu.familyId)?.parents ?? []).some((p) => p.lineLinked) && s.branches.find((b) => b.id === inv.branchId)!.lineOaConnected
         set({ invoices: s.invoices.map((x) => (x.id === id ? { ...inv, status: "sent", sentAt: s.now().toISOString(), delivery: delivered ? "delivered" : "no_line" } : x)) })
+        log("billing", [inv.studentId], "ส่งใบแจ้งหนี้", `${inv.number} · ${delivered ? "ส่งทาง LINE แล้ว" : "ยังไม่ถึงผู้ปกครอง (ไม่มี LINE)"}`)
         return { ok: true, value: { delivered } }
       },
 
@@ -823,6 +888,7 @@ export const useStore = create<Store>()(
         const r = Bill.canVoid(inv, reason)
         if (!r.ok) return r
         set({ invoices: s.invoices.map((x) => (x.id === id ? { ...x, status: "void", voidReason: reason } : x)) })
+        log("billing", [inv.studentId], "ยกเลิกใบแจ้งหนี้", `${inv.number ?? "ร่าง"} · ${reason}`)
         return OK
       },
 
@@ -869,6 +935,8 @@ export const useStore = create<Store>()(
           }
         }
         set({ invoices: s.invoices.map((x) => (x.id === invoiceId ? next : x)), entitlements, classes, sessions })
+        log("billing", [inv.studentId], forced ? "Force ยืนยันยอดเงิน" : "ยืนยันยอดเงิน", `${inv.number} · ${fmtMoney(pay.amount)}${forced ? ` · เหตุผล: ${forceRemark!.trim()}` : ""}`)
+        if (paid) log("billing", [inv.studentId], "ชำระครบ", `${inv.number} · ออกใบเสร็จ ${next.receiptNumber}${inv.course ? " · ระบบเพิ่มเข้าคลาสอัตโนมัติ" : ""}`, true)
         return { ok: true, value: { paid } }
       },
 
@@ -928,7 +996,7 @@ export const useStore = create<Store>()(
           set({ leads: s.leads.map((x) => (x.id === id ? { ...x, stage: "enrolled", convertedStudentId: lead.trialStudentId! } : x)) })
           return { ok: true, value: { studentId: lead.trialStudentId } }
         }
-        const student: Student = { id: uid("stu"), familyId: null, branchId: lead.branchId, name: lead.name, nickname: lead.name, grade: lead.childGrade, usesBus: false }
+        const student: Student = { id: uid("stu"), familyId: null, branchId: lead.branchId, name: lead.name, nickname: lead.name, grade: lead.childGrade, usesBus: false, createdAt: s.now().toISOString(), createdBranchId: lead.branchId }
         const errs = People.validateStudent(student, toDateStr(s.now()))
         if (errs.length) return fail(errs[0].message)
         set({
@@ -950,7 +1018,7 @@ export const useStore = create<Store>()(
         // so the addStudentToSession/addSession calls below see it via their own get()
         let studentId = lead.trialStudentId
         if (!studentId) {
-          const student: Student = { id: uid("stu"), familyId: null, branchId: lead.branchId, name: primary.studentName, nickname: primary.studentName, grade: primary.studentGrade, usesBus: false }
+          const student: Student = { id: uid("stu"), familyId: null, branchId: lead.branchId, name: primary.studentName, nickname: primary.studentName, grade: primary.studentGrade, usesBus: false, createdAt: s.now().toISOString(), createdBranchId: lead.branchId }
           const errs = People.validateStudent(student, toDateStr(s.now()))
           if (errs.length) return fail(errs[0].message)
           studentId = student.id
@@ -1107,11 +1175,12 @@ export const useStore = create<Store>()(
         })
         return OK
       },
-    }),
+    }
+    },
     {
       name: "nockerp-v2",
       // bump when the data model changes; older saved data is replaced by fresh sample data
-      version: 25,
+      version: 26,
       migrate: () => ({ ...buildSeed(), userId: "u_nock", branchId: "br_thl", clockOffset: 0 }) as unknown as Store,
       // persist data + UI state only, never the action functions
       partialize: (s) => Object.fromEntries(Object.entries(s).filter(([, v]) => typeof v !== "function")) as Partial<Store>,

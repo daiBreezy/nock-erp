@@ -5,7 +5,7 @@ import { chartPrice } from "@/domain/rules/course"
 import { generateSessions } from "@/domain/rules/scheduling"
 import type {
   AppNotification, Attendance, Branch, ChatMessage, Conversation, Course, Entitlement, Family, Holiday, Invoice, Klass, Lead, LessonSummary,
-  PriceRow, Session, Staff, Student, StudentLeave, SystemConfig, Weekday,
+  ActivityLog, PriceRow, Session, StudentNote, Staff, Student, StudentLeave, SystemConfig, Weekday,
 } from "@/domain/types"
 
 export interface DB {
@@ -27,6 +27,8 @@ export interface DB {
   messages: ChatMessage[]
   notifications: AppNotification[]
   system: SystemConfig
+  notes: StudentNote[]
+  logs: ActivityLog[]
 }
 
 let seq = 0
@@ -141,7 +143,7 @@ export function buildSeed(now = new Date()): DB {
   ]
   const SURNAMES = ["ใจสู้", "รักเรียน", "ศรีสว่าง", "ทองคำ", "พูลผล", "มีสุข", "ชัยมงคล", "เพียรดี"]
   const s = (id: string, familyId: string | null, branchId: string, name: string, nickname: string, grade: string, usesBus = false): Student =>
-    ({ id, familyId, branchId, name, nickname, grade, usesBus })
+    ({ id, familyId, branchId, name, nickname, grade, usesBus, createdBranchId: branchId, createdAt: new Date(now.getTime() - (90 + id.length * 37) * 86400000).toISOString() })
   const students: Student[] = [
     s("stu_1", "fa_1", "br_thl", "ด.ญ. ใบเตย สุขใจ", "ใบเตย", "ป.5", true),
     s("stu_2", "fa_1", "br_thl", "ด.ช. ภูผา สุขใจ", "ภูผา", "ม.1"),
@@ -317,6 +319,18 @@ export function buildSeed(now = new Date()): DB {
     },
   ]
 
+  // seed history so every student's Timeline has real entries (created, enrolled, invoices)
+  const logs: ActivityLog[] = []
+  const lg = (at: string, by: string | null, category: ActivityLog["category"], studentIds: string[], action: string, detail: string) =>
+    logs.push({ id: `lg_${logs.length}`, at, by, category, studentIds, action, detail })
+  students.forEach((st) => lg(st.createdAt, "u_ploy", "profile", [st.id], "สร้างนักเรียน", `${st.nickname} · ${st.grade} · สาขา${branches.find((b) => b.id === st.createdBranchId)?.name ?? ""}`))
+  classes.forEach((k) => k.studentIds.forEach((sid) => lg(new Date(now.getTime() - 20 * 86400000).toISOString(), "u_ploy", "class", [sid], "เข้าคลาส", k.name)))
+  invoices.filter((i) => i.status === "paid").forEach((i) => lg(i.createdAt, null, "billing", [i.studentId], "ชำระครบ", `${i.number} · ระบบเพิ่มเข้าคลาสอัตโนมัติ`))
+  logs.sort((a, b) => b.at.localeCompare(a.at))
+  const notes: StudentNote[] = [
+    { id: "nt_1", studentId: "stu_1", by: "u_ploy", at: new Date(now.getTime() - 3 * 86400000).toISOString(), text: "ใบเตยตั้งใจเรียนดี ตอบคำถามในห้องได้เกือบทุกข้อ คุณแม่ขอให้เน้นโจทย์ปัญหาก่อนสอบกลางภาค" },
+  ]
+
   const on = { inApp: true, line: false }
   const system: SystemConfig = {
     subjects: ["คณิต", "อังกฤษ", "วิทย์"],
@@ -336,5 +350,5 @@ export function buildSeed(now = new Date()): DB {
     },
   }
 
-  return { branches, staff, holidays, courses, classes, sessions, attendance, summaries, families, students, entitlements, leaves: [], invoices, leads, conversations, messages, notifications: [], system }
+  return { branches, staff, holidays, courses, classes, sessions, attendance, summaries, families, students, entitlements, leaves: [], invoices, leads, conversations, messages, notifications: [], system, notes, logs }
 }

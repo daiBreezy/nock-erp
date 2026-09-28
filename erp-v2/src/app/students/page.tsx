@@ -5,7 +5,8 @@ import { DownloadIcon, PlusIcon, SearchIcon } from "lucide-react"
 import { Pill } from "@/components/app/badges"
 import { NativeSelect } from "@/components/app/native-select"
 import { StudentForm } from "@/components/app/student-form"
-import { STATUS_PILL, StudentSheet } from "@/components/app/student-sheet"
+import { StudentSheet } from "@/components/app/student-sheet"
+import { STATUS_PILL } from "@/components/app/student-status"
 import { avatarTone, gradeTone, initial } from "@/components/app/subject-color"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -28,6 +29,7 @@ export default function StudentsPage() {
   const entitlements = useEntitlements()
   const sessions = useStore((s) => s.sessions)
   const attendance = useStore((s) => s.attendance)
+  const leaves = useStore((s) => s.leaves)
   const [q, setQ] = useState("")
   const [grade, setGrade] = useState("")
   const [status, setStatus] = useState("")
@@ -35,7 +37,7 @@ export default function StudentsPage() {
   const [adding, setAdding] = useState(false)
 
   const rows = students.map((s) => {
-    const st = Att.studentStatus(s.id, entitlements, today)
+    const st = Att.studentStatus(s, entitlements, leaves, today)
     const ents = Att.activeEntitlements(s.id, entitlements, today)
     const packs = ents.map((e) => ({ e, b: Att.balance(e, sessions, attendance) }))
     return { s, st, packs, fam: families.find((f) => f.id === s.familyId), inClasses: classes.filter((c) => c.active && c.studentIds.includes(s.id)) }

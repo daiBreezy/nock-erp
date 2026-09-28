@@ -29,13 +29,14 @@ export default function DashboardPage() {
   const courses = useStore((s) => s.courses)
   const classes = useStore((s) => s.classes)
   const holidays = useStore((s) => s.holidays)
+  const leaves = useStore((s) => s.leaves)
   const [openId, setOpenId] = useState<string | null>(null)
 
-  const statusOf = new Map(students.map((s) => [s.id, Att.studentStatus(s.id, entitlements, today)]))
-  const activeStudents = [...statusOf.values()].filter((v) => v !== "inactive").length
+  const statusOf = new Map(students.map((s) => [s.id, Att.studentStatus(s, entitlements, leaves, today)]))
+  const activeStudents = [...statusOf.values()].filter((v) => v === "active" || v === "renewal").length
 
   const renewalRows = students
-    .filter((s) => statusOf.get(s.id) === "expiring")
+    .filter((s) => statusOf.get(s.id) === "renewal")
     .map((stu) => {
       const ents = entitlements.filter((e) => e.studentId === stu.id && e.to >= today)
       const messages = ents.map((e) => Att.lowBalanceAlert(e, Att.balance(e, sessions, attendance), today)).filter((m): m is string => !!m)

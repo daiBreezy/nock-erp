@@ -51,7 +51,21 @@ persist 24→25 · 85 tests · ทดสอบในเบราว์เซอ�
 
 **หน้าคลาสปรับตามดีไซน์ `Class Page.png`:** KPI 4 ใบ (คลาสที่เปิดอยู่ / นักเรียน / ครู / ใกล้หมดแพ็กเกจ — ใช้ threshold จาก Settings → System) · ค้นหา (ชื่อครู ชั้น วิชา ห้อง) + ปุ่มสลับลำดับ + กรอง สาขา / วิชา / ประเภทคอร์ส / แพ็กเกจ (อิงคอร์สที่ผูก) · คอลัมน์ วิชา · วัน · เวลา · ชั้น · นักเรียน · ครู (avatar + ชื่อเล่น + ชื่อจริง + support) · ห้อง · สาขา · สถานะ · › — คลาสที่ปิดแล้วอยู่ท้ายตาราง แสดงจางๆ · ชื่อคลาสแสดงใต้วิชาเฉพาะเมื่อตั้งชื่อเอง · สาขายังโชว์รหัส (THL) แทนภูมิภาค (BKK) — รอเจ้าของตอบว่าจะเพิ่มช่องภูมิภาคไหม
 
-**ต่อไป:** การนับแพ็กเกจ Hourly (หักชั่วโมงตอนเช็คชื่อ มา/ขาด) / Weekly ในสิทธิ์เรียน → Create Invoice ตาม Staging (Lead/หลายคอร์ส/หลายคลาส/โปร/ค่ารถตามประเภท/Advance Optional/สลิป) (หลายแถว วัน+เวลาเริ่ม–จบ, หลายวิชา, Support Teacher, ผูก Course, เตือนชนรายแถว, ความยาวคาบละเอียด 5 นาที) → การนับแพ็กเกจ Hourly (หักชั่วโมง) / Weekly จริงในสิทธิ์เรียน → Create Invoice ตาม Staging
+---
+
+### ✅ หน้าต่างนักเรียนใหม่ (2026-09-28 เย็น) — ตรวจแล้ว + commit แล้ว
+
+**ตรวจแล้ว:** tsc ผ่าน · eslint แก้ 4 error (เครื่องหมาย " ในข้อความ Archive) + 1 warning (`window.location.href` → `router.push`) · 85 tests ผ่าน · เบราว์เซอร์ (ล้าง localStorage): เปิดทุก segment ได้ ไม่มี console error · ทดลองเพิ่มโน้ต → Archive (ใส่เหตุผล) → กลับมาเรียน → Timeline บันทึกครบทุกขั้น · หมายเหตุ: หลัง Archive การ์ดคอร์สยังโชว์ (มาจากแพ็กเกจที่จ่ายแล้ว ไม่ใช่สมาชิกคลาส) · ปุ่ม Archive ซ่อนอยู่ในแท็บโน้ต (ช่องพิมพ์โน้ตแทนที่ footer)
+
+**ไฟล์ที่แก้:** `components/app/student-sheet.tsx` (เขียนใหม่ทั้งไฟล์ เป็น Dialog) · `components/app/student-status.ts` (ใหม่ — STATUS_PILL + stateDetail) · `domain/types.ts` (Student.createdAt/createdBranchId/archived, StudentNote, ActivityLog, LogCategory) · `domain/rules/attendance.ts` (StudentStatus = active|renewal|inactive|archived, `studentState()` — ลาพักยาว = Inactive อัตโนมัติ) · `domain/rules/people.ts` (`studentChanges` diff) · `store/store.ts` (helper `log()` ใน store creator, `archiveStudent`/`restoreStudent`/`addStudentNote`, ฝัง log ในทุก action ที่แตะนักเรียน, persist 25→26) · `data/seed.ts` (notes, logs ตัวอย่าง, createdAt) · `app/students/page.tsx`, `app/dashboard/page.tsx` (สถานะใหม่) · `components/app/student-form.tsx` · `app/inbox/page.tsx` (`?conversation=` deep link)
+
+**ดีไซน์ + การตัดสินใจของเจ้าของ (`~/Documents/ERP Screen Shot/Student Modal/`):** Segment ภาพรวม · คลาส (คาบเรียน | การเข้าเรียน) · การเงิน · โน้ต · Timeline · **ตัดแท็บ Claim** (จ่ายครบ = เข้าคลาสอัตโนมัติ, โชว์ "✓ เข้าคลาสแล้ว" ในการเงินแทน) · **Archived = เลิกเรียนแล้ว (กดเองพร้อมเหตุผล)** ≠ **Active/Inactive (ระบบคำนวณเอง: ไม่มีแพ็กเกจ หรือลาพักยาว)** · แถบคอร์สตามแพ็กเกจ (ชั่วโมง = ใช้ x/y ชม., สัปดาห์/เดือน = เหลือ x วัน) · สรุปเช็คชื่อ มา+ขาด+ลา+ยังไม่เช็ค = คาบที่ผ่านไปแล้ว · สถานะคาบใช้ 6 สถานะเดียวกับปฏิทิน · เลขใบแจ้งหนี้แสดงเต็ม กดแถวเปิดใบ · "สร้างที่สาขา X · สร้างเมื่อ dd" · ปุ่มแชท = เปิดแชท LINE ของครอบครัวใน Inbox · ปุ่มโทร = tel: ผู้ปกครองหลัก · **Timeline = Log ทุกการเปลี่ยนแปลง (หัวใจสำคัญ)** · รถรับส่งมีแค่ Liclass (Monthly → อนาคต Weekly) โชว์รับ/ส่งเฉพาะนักเรียนที่ใช้รถ
+
+**❓ รอเจ้าของ:** (1) ตัดโค้ดผูก LINE ออก ใช้ "ผูกแชทใน Inbox" + LIFF แทน? (ผมเสนอให้ตัด) (2) ป้าย Single/Group บนการ์ดคอร์ส — เพิ่มช่องในฟอร์มคอร์ส หรือดูจากคลาสที่ผูก (3) เพิ่มช่อง "ภูมิภาค" (BKK/CBR) ในข้อมูลสาขา (4) เลือก Lead ในใบแจ้งหนี้ → สร้างนักเรียน+ครอบครัวอัตโนมัติ? · ดีไซน์ `Course selection.png` + `Select customer.png` ใช้กับ Create Invoice (วิเคราะห์ไว้ในแชทแล้ว: เลือกคอร์สหลายอันแบบการ์ด + ตัวกรอง, เลือกลูกค้าแบบ radio + ชิปกรอง Lead/ชั้น — ต้องค้นหา+แบ่งหน้า ห้ามโหลดทั้งหมด)
+
+**กฎที่เจ้าของย้ำวันนี้:** ห้ามตัดช่อง/รวมเมนูที่ Staging มี · หน้ารายการใช้ตาราง ไม่ใช่การ์ด · ตัวเลือกข้อมูลที่โตได้ (นักเรียน/ครอบครัว/ลีด) ต้องเป็นช่องค้นหา ต้องรองรับ 100,000 records
+
+**ต่อไป (หลังตรวจหน้าต่างนักเรียน):** การนับแพ็กเกจ Hourly (หักชั่วโมงตอนเช็คชื่อ มา/ขาด) / Weekly ในสิทธิ์เรียน → Create Invoice ตาม Staging (Lead/หลายคอร์ส/หลายคลาส/โปร/ค่ารถตามประเภท/Advance Optional/สลิป) (หลายแถว วัน+เวลาเริ่ม–จบ, หลายวิชา, Support Teacher, ผูก Course, เตือนชนรายแถว, ความยาวคาบละเอียด 5 นาที) → การนับแพ็กเกจ Hourly (หักชั่วโมง) / Weekly จริงในสิทธิ์เรียน → Create Invoice ตาม Staging
 
 **ต่อไป:** ขั้นที่ 2 Create Course ตาม Staging → ขั้นที่ 3 Create Invoice ตาม Staging
 

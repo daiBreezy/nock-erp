@@ -23,7 +23,7 @@ export function StudentForm({ student, familyId, onClose, onSaved }: { student?:
   const save = useStore((s) => s.saveStudent)
   const today = toDateStr(useNow(60_000))
   const [f, setF] = useState<Student>(
-    student ?? { id: uid("stu"), familyId: familyId ?? null, branchId: branch.id, name: "", nickname: "", grade: "", usesBus: false },
+    student ?? { id: uid("stu"), familyId: familyId ?? null, branchId: branch.id, name: "", nickname: "", grade: "", usesBus: false, createdAt: new Date().toISOString(), createdBranchId: branch.id },
   )
   const [touched, setTouched] = useState(false)
   const errs = validateStudent(f, today)

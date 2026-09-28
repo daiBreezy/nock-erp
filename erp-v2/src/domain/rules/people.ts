@@ -113,3 +113,20 @@ export function searchStudents<T extends { id: string; name: string; nickname: s
   hits.sort((a, b) => a.score - b.score || a.s.nickname.localeCompare(b.s.nickname, "th"))
   return { items: hits.slice(0, limit).map((h) => h.s), total: hits.length }
 }
+
+/** Human-readable field changes for the student Timeline ("ชั้น ป.5 → ป.6"). */
+export function studentChanges(a: Student, b: Student, familyName: (id: string) => string): string[] {
+  const out: string[] = []
+  const f = (label: string, x: unknown, y: unknown, show: (v: unknown) => string = (v) => (v === undefined || v === null || v === "" ? "—" : String(v))) => {
+    if (show(x) !== show(y)) out.push(`${label} ${show(x)} → ${show(y)}`)
+  }
+  f("ชื่อ", a.name, b.name)
+  f("ชื่อเล่น", a.nickname, b.nickname)
+  f("ชั้น", a.grade, b.grade)
+  f("โรงเรียน", a.school, b.school)
+  f("วันเกิด", a.birthDate, b.birthDate)
+  f("ใช้รถรับส่ง", a.usesBus, b.usesBus, (v) => (v ? "ใช้" : "ไม่ใช้"))
+  f("ครอบครัว", a.familyId, b.familyId, (v) => (v ? familyName(String(v)) : "—"))
+  f("หมายเหตุ", a.note, b.note)
+  return out
+}

@@ -102,14 +102,37 @@ export function canSaveLeave(user: Staff, from: DateStr, to: DateStr, reason: st
   return { ok: true, value: undefined }
 }
 
-export type StudentStatus = "active" | "expiring" | "inactive"
+/** active = has a running package · renewal = every package ends soon · inactive = automatic (no package, or on a
+ *  long leave) · archived = left the school (set by hand only) — owner 2026-09-28 */
+export type StudentStatus = "active" | "renewal" | "inactive" | "archived"
 
 /** F7: status derived from entitlements, never stored. */
-export function studentStatus(studentId: ID, ents: Entitlement[], today: string): StudentStatus {
-  const active = activeEntitlements(studentId, ents, today)
-  if (!active.length) return "inactive"
-  const soon = addDays(today, 7)
-  return active.every((e) => e.to <= soon) ? "expiring" : "active"
+export interface StudentState {
+  status: StudentStatus
+  /** why inactive */
+  reason?: "leave" | "no_package"
+  /** since when the current status holds (inactive/archived) */
+  since?: DateStr
+}
+
+export function studentState(
+  stu: Pick<Student, "id" | "archived">, ents: Entitlement[], leaves: StudentLeave[], today: string, renewalDays = 7,
+): StudentState {
+  if (stu.archived) return { status: "archived", since: stu.archived.at.slice(0, 10) }
+  const onLeave = activeLeave(stu.id, today, leaves)
+  if (onLeave) return { status: "inactive", reason: "leave", since: onLeave.from }
+  const active = activeEntitlements(stu.id, ents, today)
+  if (!active.length) {
+    const last = ents.filter((e) => e.studentId === stu.id && e.to < today).sort((a, b) => b.to.localeCompare(a.to))[0]
+    return { status: "inactive", reason: "no_package", since: last ? addDays(last.to, 1) : undefined }
+  }
+  const soon = addDays(today, renewalDays)
+  return { status: active.every((e) => e.to <= soon) ? "renewal" : "active" }
+}
+
+/** Status only — for lists and filters. */
+export function studentStatus(stu: Pick<Student, "id" | "archived">, ents: Entitlement[], leaves: StudentLeave[], today: string, renewalDays = 7): StudentStatus {
+  return studentState(stu, ents, leaves, today, renewalDays).status
 }
 
 /** F4: low-balance alerts only for session packs — subscriptions alert on expiry instead. */
