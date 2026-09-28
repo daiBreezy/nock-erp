@@ -165,6 +165,18 @@ export const useStore = create<Store>()(
       /** append to the audit trail — every change touching a student goes through here */
       const log = (category: LogCategory, studentIds: ID[], action: string, detail: string, system = false) =>
         set((st) => ({ logs: [{ id: uid("lg"), at: st.now().toISOString(), by: system ? null : st.userId, category, studentIds, action, detail }, ...st.logs] }))
+      /** the lead's family: reuse one already on the same LINE (siblings), else create it from the lead;
+       *  the lead's chats become that family's chats so invoices/summaries reach the same LINE */
+      const ensureLeadFamily = (lead: Lead, child: { studentName: string; parentName?: string; parentPhone?: string }): ID => {
+        const st = get()
+        const existing = lead.lineUserId ? st.families.find((f) => f.lineUserId === lead.lineUserId) : undefined
+        const family = existing ?? People.familyFromLead(lead, child, uid("fam"))
+        set((cur) => ({
+          families: existing ? cur.families : [...cur.families, family],
+          conversations: cur.conversations.map((c) => (c.leadId === lead.id || (lead.lineUserId && c.id === `line_${lead.lineUserId}`) ? { ...c, familyId: family.id } : c)),
+        }))
+        return family.id
+      }
       return {
       ...buildSeed(),
       userId: "u_nock",
@@ -321,7 +333,8 @@ export const useStore = create<Store>()(
         const src = s.sessions.find((x) => x.id === id)
         if (!src) return fail("ไม่พบคาบเรียน")
         const now = s.now()
-        if (Sch.sessionState(src, now) !== "upcoming") return fail("เปลี่ยนครูได้เฉพาะคาบที่ยังไม่เริ่ม")
+        const allowed = Sch.canChangeTeachers(src, now)
+        if (!allowed.ok) return allowed
         if (!teacherId && coTeacherIds.length) return fail("เลือกครูหลักก่อน")
         const co = coTeacherIds.filter((t) => t !== teacherId)
         const inactive = [teacherId, ...co].map((t) => s.staff.find((x) => x.id === t)).find((t) => t && !t.active)
@@ -991,19 +1004,26 @@ export const useStore = create<Store>()(
         const lead = s.leads.find((x) => x.id === id)
         if (!lead) return fail("ไม่พบ Lead นี้")
         if (lead.stage === "enrolled") return fail("แปลงเป็นนักเรียนไปแล้ว")
-        if (lead.trialStudentId) {
+        const trial = lead.trialStudentId ? s.students.find((x) => x.id === lead.trialStudentId) : undefined
+        let studentId: ID
+        if (trial) {
           // reuse the Student created at test/trial approval time instead of creating a duplicate
-          set({ leads: s.leads.map((x) => (x.id === id ? { ...x, stage: "enrolled", convertedStudentId: lead.trialStudentId! } : x)) })
-          return { ok: true, value: { studentId: lead.trialStudentId } }
+          studentId = trial.id
+          if (!trial.familyId) {
+            const familyId = ensureLeadFamily(lead, { studentName: trial.name })
+            set((cur) => ({ students: cur.students.map((x) => (x.id === trial.id ? { ...x, familyId } : x)) }))
+          }
+        } else {
+          const student: Student = { id: uid("stu"), familyId: null, branchId: lead.branchId, name: lead.name, nickname: People.nicknameFrom(lead.name), grade: lead.childGrade, usesBus: false, createdAt: s.now().toISOString(), createdBranchId: lead.branchId }
+          const errs = People.validateStudent(student, toDateStr(s.now()))
+          if (errs.length) return fail(errs[0].message)
+          student.familyId = ensureLeadFamily(lead, { studentName: lead.name })
+          studentId = student.id
+          set((cur) => ({ students: [...cur.students, student] }))
         }
-        const student: Student = { id: uid("stu"), familyId: null, branchId: lead.branchId, name: lead.name, nickname: lead.name, grade: lead.childGrade, usesBus: false, createdAt: s.now().toISOString(), createdBranchId: lead.branchId }
-        const errs = People.validateStudent(student, toDateStr(s.now()))
-        if (errs.length) return fail(errs[0].message)
-        set({
-          students: [...s.students, student],
-          leads: s.leads.map((x) => (x.id === id ? { ...x, stage: "enrolled", convertedStudentId: student.id } : x)),
-        })
-        return { ok: true, value: { studentId: student.id } }
+        set((cur) => ({ leads: cur.leads.map((x) => (x.id === id ? { ...x, stage: "enrolled", convertedStudentId: studentId } : x)) }))
+        log("profile", [studentId], "แปลงจาก Lead", `${lead.name} · ${lead.phone}`)
+        return { ok: true, value: { studentId } }
       },
 
       approveTestTrialSubmission: (subs) => {
@@ -1018,11 +1038,13 @@ export const useStore = create<Store>()(
         // so the addStudentToSession/addSession calls below see it via their own get()
         let studentId = lead.trialStudentId
         if (!studentId) {
-          const student: Student = { id: uid("stu"), familyId: null, branchId: lead.branchId, name: primary.studentName, nickname: primary.studentName, grade: primary.studentGrade, usesBus: false, createdAt: s.now().toISOString(), createdBranchId: lead.branchId }
+          const student: Student = { id: uid("stu"), familyId: null, branchId: lead.branchId, name: primary.studentName, nickname: People.nicknameFrom(primary.studentName), grade: primary.studentGrade, usesBus: false, createdAt: s.now().toISOString(), createdBranchId: lead.branchId }
           const errs = People.validateStudent(student, toDateStr(s.now()))
           if (errs.length) return fail(errs[0].message)
+          student.familyId = ensureLeadFamily(lead, primary)
           studentId = student.id
-          set({ students: [...s.students, student] })
+          set((cur) => ({ students: [...cur.students, student] }))
+          log("profile", [student.id], "สร้างนักเรียน", `จากฟอร์ม${Forms.FORM_TYPE_LABEL[primary.type]} · Lead ${lead.name} · ${student.grade}`)
         }
 
         let sessionId: ID

@@ -157,6 +157,9 @@ export function InvoiceEditor({ invoice, defaultStudentId, onClose, onSaved }: {
                     const full = k.studentIds.length >= (k.type === "single" ? 1 : 6)
                     return { value: k.id, label: `${k.name} · ${["อา.", "จ.", "อ.", "พ.", "พฤ.", "ศ.", "ส."][k.weekday]} ${k.start} · ${t?.active ? t.nickname : "ยังไม่มีครู"} · ${k.studentIds.length} คน${full ? " (เต็ม)" : ""}`, disabled: full && !k.studentIds.includes(studentId) }
                   })} />
+                {klass && !staff.find((x) => x.id === klass.teacherId)?.active && (
+                  <p className="flex items-center gap-1 text-xs text-amber-700"><AlertTriangleIcon className="size-3" /> คลาสนี้ยังไม่มีครู — ตั้งครูที่หน้าคลาสก่อนวันเรียน ไม่งั้นไม่มีใครเช็คชื่อ/เขียนสรุป</p>
+                )}
               </div>
               <div className="grid grid-cols-2 gap-2">
                 <div className="space-y-1">

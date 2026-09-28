@@ -1,7 +1,7 @@
 // Regression tests: each case reproduces a bug found on Dev staging and proves the rule prevents it.
 import { describe, expect, it } from "vitest"
 import type { Attendance, Branch, Course, FormOfferSlot, Holiday, Invoice, Klass, Session, Staff, StudentLeave, Weekday } from "../types"
-import { applyClassEdit, applyToSessions, canSave, closesBranch, holidayImpact, hoursFor, isHoliday, overlappingRows, periodsIn, introducedConflicts, editSingleSession, findConflicts, generateSessions, moveSession, sessionState, validateClass, workState } from "./scheduling"
+import { applyClassEdit, applyToSessions, canChangeTeachers, canSave, closesBranch, holidayImpact, hoursFor, isHoliday, overlappingRows, periodsIn, introducedConflicts, editSingleSession, findConflicts, generateSessions, moveSession, sessionState, validateClass, workState } from "./scheduling"
 import { activeLeave, balance, canMark, canSaveLeave, coveringEntitlement, effectiveTo, leavesUsed, lowBalanceAlert, removeFromClass, resolveEntitlements } from "./attendance"
 import { bestPromotion, canApprove, canConfirmPayment, canForceApprove, canForceConfirmPayment, canSend, canVoid, defaultBusLegs, busTotal, nextInvoiceNumber, quoteCourse } from "./billing"
 import { can } from "./permissions"
@@ -9,7 +9,7 @@ import { chartPrice, defaultCourseName, validateCourse } from "./course"
 import { busRate, copyHours, priceOf, priceRange, setPrice, validateBranchInfo, validateDurations, validateHoliday, validatePromotion, validateSpecialPeriods, everyDay } from "./settings"
 import { forceAudience, isUnread, messageAudience, notify, validateMessage, visibleTo } from "./notifications"
 import * as Sum from "./summaries"
-import { futureSessionsOf, searchStudents, validateFamily, validateStaff, validateStudent } from "./people"
+import { familyFromLead, futureSessionsOf, nicknameFrom, searchStudents, validateFamily, validateStaff, validateStudent } from "./people"
 import { suggestFixes } from "./suggest"
 import { canSetStage, daysAgo, groupOf, validateLead } from "./crm"
 import { buildCombinedSessionDraft, buildSessionDraftFromSlot, findOfferSlots, openHourStarts } from "./forms"
@@ -677,5 +677,43 @@ describe("student search scales (owner 2026-09-28: 100,000 students)", () => {
     const r = searchStudents(big, "n1", { preferGrades: ["ป.5"], exclude: ["s1"] })
     expect(r.items.every((s) => s.grade === "ป.5")).toBe(true)
     expect(r.items.some((s) => s.id === "s1")).toBe(false)
+  })
+})
+
+// E2E loop test 2026-09-28: Inbox → Lead → Test/Trial → Invoice → Receipt → Student → Class → Summary → Renewal
+describe("end-to-end loop gaps", () => {
+  it("monthly invoice typed on 28 Sep for a Saturday class bills October, not 'September · 0 sessions · ฿0'", () => {
+    const r = quoteCourse({ course: monthPkg, klass: klass({ weekday: 6 }), startDate: "2026-09-28", periods: 1, holidays: [] })
+    expect(r.ok).toBe(true)
+    if (!r.ok) return
+    expect(r.value.from).toBe("2026-10-03")
+    expect(r.value.to).toBe("2026-10-31")
+    expect(r.value.sessions).toHaveLength(5)
+    expect(r.value.total).toBe(4500)
+  })
+
+  it("converting a lead keeps the parent: family named after the child's surname, lead is primary parent, LINE carries over", () => {
+    const f = familyFromLead({ name: "คุณสมชาย ใจดี", phone: "0895551212", lineUserId: "U1" }, { studentName: "ด.ช. ภูมิ ใจดี" }, "f1")
+    expect(f.name).toBe("ครอบครัวใจดี")
+    expect(f.parents).toEqual([{ name: "คุณสมชาย ใจดี", phone: "089-555-1212", lineLinked: true, primary: true }])
+    expect(f.lineUserId).toBe("U1")
+    expect(validateFamily(f)).toEqual([])
+    // no LINE yet → family still created, just not linked
+    expect(familyFromLead({ name: "คุณแม่ดาว", phone: "081-234-5678" }, { studentName: "น้องฟ้า" }, "f2").parents[0].lineLinked).toBe(false)
+  })
+
+  it("student from a parent form gets a nickname, not the full name with title", () => {
+    expect(nicknameFrom("ด.ช. ภูมิ ใจดี")).toBe("ภูมิ")
+    expect(nicknameFrom("เด็กหญิงฟ้า สดใส")).toBe("ฟ้า")
+    expect(nicknameFrom("มะปราง")).toBe("มะปราง")
+  })
+
+  it("a session that started with no teacher can still get one (else nobody can mark/summarise); a staffed one cannot", () => {
+    const base = generateSessions(klass({ teacherId: null }), [], id)[0] // Tue 29 Sep 10:00–11:00
+    const during = new Date("2026-09-29T10:30:00")
+    expect(canChangeTeachers(base, during).ok).toBe(true)
+    expect(canChangeTeachers({ ...base, teacherId: "t1" }, during).ok).toBe(false)
+    expect(canChangeTeachers({ ...base, cancelled: true }, during).ok).toBe(false)
+    expect(canChangeTeachers({ ...base, teacherId: "t1" }, new Date("2026-09-28T10:00:00")).ok).toBe(true)
   })
 })

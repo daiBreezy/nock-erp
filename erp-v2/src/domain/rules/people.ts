@@ -1,7 +1,7 @@
 // Families, students, staff and LINE linking (S4, S5, S6, F2, Flow E).
 
 import { addDays } from "../dates"
-import type { DateStr, Family, ID, Result, Session, Staff, Student } from "../types"
+import type { DateStr, Family, ID, Lead, Result, Session, Staff, Student } from "../types"
 import { teachersOf } from "./scheduling"
 
 const digits = (s: string) => s.replace(/\D/g, "")
@@ -34,6 +34,38 @@ export function validateFamily(f: Pick<Family, "name" | "parents" | "postcode">)
   if (f.parents.filter((p) => p.primary).length !== 1 && f.parents.length) errs.push({ field: "parents", message: "เลือกผู้ปกครองหลัก 1 คน" })
   if (f.postcode && !/^\d{5}$/.test(f.postcode)) errs.push({ field: "postcode", message: "รหัสไปรษณีย์ต้องเป็นตัวเลข 5 หลัก" })
   return errs
+}
+
+const NAME_PREFIX = /^(ด\.ช\.|ด\.ญ\.|เด็กชาย|เด็กหญิง|นางสาว|นาย|นาง|น\.ส\.|คุณแม่|คุณพ่อ|คุณ)\s*/
+
+/** "ด.ช. ภูมิ ใจดี" → ["ภูมิ", "ใจดี"] (title prefix dropped) */
+function nameParts(full: string) {
+  return full.trim().replace(NAME_PREFIX, "").split(/\s+/).filter(Boolean)
+}
+
+/** Nickname guess for a student created from a parent form: the first name without the title ("ด.ช. ภูมิ ใจดี" → "ภูมิ"). Staff can edit it later. */
+export function nicknameFrom(fullName: string) {
+  return nameParts(fullName)[0] ?? fullName.trim()
+}
+
+/**
+ * The family a lead becomes (E2E test 2026-09-28: converting a lead used to drop the parent — no family,
+ * no phone, no LINE — so the first invoice could never reach the parent). Named after the child's surname,
+ * the lead is the primary parent, and the lead's LINE identity carries over.
+ */
+export function familyFromLead(
+  lead: Pick<Lead, "name" | "phone" | "lineUserId">,
+  child: { studentName: string; parentName?: string; parentPhone?: string },
+  id: ID,
+): Family {
+  const parts = nameParts(child.studentName)
+  const surname = parts.length > 1 ? parts[parts.length - 1] : nameParts(lead.name).slice(-1)[0] ?? lead.name
+  return {
+    id,
+    name: `ครอบครัว${surname}`,
+    parents: [{ name: child.parentName?.trim() || lead.name, phone: formatPhone(child.parentPhone?.trim() || lead.phone), lineLinked: !!lead.lineUserId, primary: true }],
+    lineUserId: lead.lineUserId,
+  }
 }
 
 export function validateStudent(s: Pick<Student, "name" | "nickname" | "grade" | "birthDate">, today: DateStr): FieldError[] {

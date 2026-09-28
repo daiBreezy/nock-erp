@@ -14,7 +14,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { endTime, fmtDate, fmtDateTime } from "@/domain/dates"
 import * as Att from "@/domain/rules/attendance"
 import { can } from "@/domain/rules/permissions"
-import { findConflicts, sessionState, subjectsOf } from "@/domain/rules/scheduling"
+import { canChangeTeachers, findConflicts, sessionState, subjectsOf } from "@/domain/rules/scheduling"
 import * as Sum from "@/domain/rules/summaries"
 import { SUMMARY_STATUS_LABEL } from "@/domain/rules/summaries"
 import type { AttendanceStatus, ID, LessonSummary } from "@/domain/types"
@@ -120,8 +120,8 @@ function Body({ id, onClose }: { id: ID; onClose: () => void }) {
         <section className="rounded-lg border p-3">
           <div className="mb-2 flex items-center justify-between">
             <h3 className="text-sm font-semibold">ครูผู้สอน</h3>
-            {canManage && state === "upcoming" && !s.cancelled && (
-              <Button size="xs" variant="outline" onClick={() => setTeachersOpen(true)}><UsersRoundIcon /> เปลี่ยน / เพิ่มครู</Button>
+            {canManage && canChangeTeachers(s, now).ok && (
+              <Button size="xs" variant={s.teacherId ? "outline" : "default"} onClick={() => setTeachersOpen(true)}><UsersRoundIcon /> {s.teacherId ? "เปลี่ยน / เพิ่มครู" : "ตั้งครู"}</Button>
             )}
           </div>
           <div className="flex flex-wrap gap-1.5">

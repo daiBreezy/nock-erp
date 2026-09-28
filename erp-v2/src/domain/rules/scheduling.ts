@@ -2,7 +2,7 @@
 // Test IDs in comments refer to NockERP-Staging-Test-2026-09-24.xlsx.
 
 import { addDays, at, endTime, fmtDate, nextWeekday, overlaps, parseDate, toMinutes, weekdayOf } from "../dates"
-import type { Attendance, Branch, DateStr, Holiday, ID, Klass, Session, Staff, TimeStr, Weekday } from "../types"
+import type { Attendance, Branch, DateStr, Holiday, ID, Klass, Result, Session, Staff, TimeStr, Weekday } from "../types"
 
 export const GENERATE_WEEKS = 8
 export const CAPACITY = { single: 1, group: 6 } as const
@@ -423,6 +423,16 @@ export const WORK_LABEL: Record<WorkState, string> = {
  * Apply `change` to this session only, or to this and every later session of the same class
  * that `eligible` allows. Used for teacher changes and adding students from the session panel.
  */
+/** Teachers change only before class — except a session that started with NO teacher may still get one,
+ *  otherwise nobody can take attendance or write the summaries (E2E 2026-09-28). Closed/cancelled stay locked. */
+export function canChangeTeachers(s: Session, now: Date): Result {
+  const st = sessionState(s, now)
+  if (st === "upcoming") return { ok: true, value: undefined }
+  if (st === "cancelled" || st === "closed") return { ok: false, error: "คาบนี้ปิดหรือยกเลิกแล้ว" }
+  if (!s.teacherId) return { ok: true, value: undefined }
+  return { ok: false, error: "เปลี่ยนครูได้เฉพาะคาบที่ยังไม่เริ่ม" }
+}
+
 export function applyToSessions(
   sessions: Session[],
   sessionId: ID,

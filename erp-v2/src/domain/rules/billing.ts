@@ -49,9 +49,11 @@ export function quoteCourse(opts: {
   let to: DateStr
 
   if (course.unit === "month") {
-    to = endOfMonth(addMonths(startDate, opts.periods - 1))
+    // months count from the first real session, not the typed start date (E2E 2026-09-28: start 28 Sep on a
+    // Saturday class billed "September · 0 sessions · ฿0" because the first class was 3 Oct)
+    to = endOfMonth(addMonths(first, opts.periods - 1))
     for (let d = first; d <= to; d = addDays(d, 7)) (isHoliday(d, klass.branchId, holidays) ? skipped : sessions).push(d)
-    const months = Array.from({ length: opts.periods }, (_, i) => monthKey(addMonths(startDate, i)))
+    const months = Array.from({ length: opts.periods }, (_, i) => monthKey(addMonths(first, i)))
     const periods = months.map((m) => {
       const inMonth = sessions.filter((d) => monthKey(d) === m)
       const factor = prorateFactor(inMonth.length)
@@ -156,6 +158,7 @@ export function validateInvoiceDraft(inv: Invoice, totals: InvoiceTotals): strin
   const errs: string[] = []
   if (!inv.course && totals.total === 0) errs.push("ยังไม่มีรายการในใบแจ้งหนี้")
   if (inv.course && !inv.course.classId) errs.push("เลือกคลาสและวันเริ่มเรียน")
+  if (inv.course?.classId && totals.quote && totals.quote.sessions.length === 0) errs.push("ช่วงที่เลือกไม่มีคาบเรียนเลย (ติดวันหยุดทั้งหมด) — เลื่อนวันเริ่มหรือเพิ่มจำนวนงวด")
   if (inv.course && (!Number.isInteger(inv.course.periods) || inv.course.periods < 1)) errs.push("จำนวนงวดต้องตั้งแต่ 1 ขึ้นไป")
   if (inv.concession && inv.concession.amount > 0 && !inv.concession.remark.trim()) errs.push("ส่วนลดพิเศษ (Concession) ต้องใส่เหตุผล")
   if (inv.concession && inv.concession.amount < 0) errs.push("ส่วนลดติดลบไม่ได้")

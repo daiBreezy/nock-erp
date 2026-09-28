@@ -105,7 +105,7 @@ function Body({ id }: { id: ID }) {
                 </Button>
               ))}
               {lead.stage === "payment_pending" && (
-                <Button size="sm" onClick={() => { const r = convert(lead.id); if (report(r, "แปลงเป็นนักเรียนแล้ว — เปิดใบแจ้งหนี้ต่อได้ที่หน้าการเงิน")) setOpenStudentId(r.ok ? r.value.studentId : null) }}>
+                <Button size="sm" onClick={() => { const r = convert(lead.id); if (report(r, "แปลงเป็นนักเรียนแล้ว — สร้างครอบครัว + ผูก LINE ผู้ปกครองให้แล้ว")) setOpenStudentId(r.ok ? r.value.studentId : null) }}>
                   <UserCheckIcon /> แปลงเป็นนักเรียน
                 </Button>
               )}
