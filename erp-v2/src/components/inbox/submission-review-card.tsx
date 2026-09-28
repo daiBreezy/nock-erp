@@ -5,6 +5,7 @@ import Link from "next/link"
 import { CalendarIcon, CheckIcon, PencilIcon, XIcon } from "lucide-react"
 import { Pill, type Tone } from "@/components/app/badges"
 import { Button } from "@/components/ui/button"
+import { fmtDate } from "@/domain/dates"
 import { FORM_TYPE_LABEL } from "@/domain/rules/forms"
 import type { FormOfferSlot, FormSubmission } from "@/domain/types"
 import { approveSubmission, editSubmissionSlot, rejectSubmission } from "@/lib/forms"
@@ -70,7 +71,7 @@ export function SubmissionReviewCard({ submission: sub, onChanged }: { submissio
       <div className="mt-1 space-y-0.5 text-xs text-muted-foreground">
         <div>ผู้ปกครอง: {sub.parentName} · {sub.parentPhone}</div>
         <div>นักเรียน: {sub.studentName} · {sub.studentGrade}</div>
-        <div>{sub.chosenSubject} · {sub.chosenSlot.date} {sub.chosenSlot.start} น. {sub.chosenSlot.source === "class" ? "(คลาสเดิม)" : ""}</div>
+        <div>{sub.chosenSubject} · {fmtDate(sub.chosenSlot.date, { weekday: true })} {sub.chosenSlot.start} น. {sub.chosenSlot.source === "class" ? "(คลาสเดิม)" : ""}</div>
       </div>
       <div className="mt-1.5 flex items-center gap-2">
         <Pill tone={STATUS_TONE[sub.status]}>{STATUS_LABEL[sub.status]}</Pill>

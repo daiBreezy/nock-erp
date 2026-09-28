@@ -1,18 +1,20 @@
 // Regression tests: each case reproduces a bug found on Dev staging and proves the rule prevents it.
 import { describe, expect, it } from "vitest"
-import type { Attendance, Branch, Course, FormOfferSlot, Holiday, Invoice, Klass, Session, Staff, StudentLeave, Weekday } from "../types"
+import type { Assessment, Attendance, Branch, Course, Entitlement, Family, Lead, Student, FormOfferSlot, Holiday, Invoice, Klass, Session, Staff, StudentLeave, Weekday } from "../types"
 import { applyClassEdit, applyToSessions, canChangeTeachers, canSave, closesBranch, holidayImpact, hoursFor, isHoliday, overlappingRows, periodsIn, introducedConflicts, editSingleSession, findConflicts, generateSessions, moveSession, sessionState, validateClass, workState } from "./scheduling"
-import { activeLeave, balance, canMark, canSaveLeave, coveringEntitlement, effectiveTo, leavesUsed, lowBalanceAlert, removeFromClass, resolveEntitlements } from "./attendance"
-import { bestPromotion, canApprove, canConfirmPayment, canForceApprove, canForceConfirmPayment, canSend, canVoid, defaultBusLegs, busTotal, nextInvoiceNumber, quoteCourse } from "./billing"
+import { activeLeave, balance, studentState, canMark, canSaveLeave, coveringEntitlement, effectiveTo, leavesUsed, lowBalanceAlert, removeFromClass, resolveEntitlements } from "./attendance"
+import { bestPromotion, invoiceTotals, validateInvoiceDraft, canApprove, canConfirmPayment, canForceApprove, canForceConfirmPayment, canSend, canVoid, defaultBusLegs, busTotal, nextInvoiceNumber, quoteCourse } from "./billing"
 import { can } from "./permissions"
 import { chartPrice, defaultCourseName, validateCourse } from "./course"
 import { busRate, copyHours, priceOf, priceRange, setPrice, validateBranchInfo, validateDurations, validateHoliday, validatePromotion, validateSpecialPeriods, everyDay } from "./settings"
 import { forceAudience, isUnread, messageAudience, notify, validateMessage, visibleTo } from "./notifications"
 import * as Sum from "./summaries"
-import { familyFromLead, futureSessionsOf, nicknameFrom, searchStudents, validateFamily, validateStaff, validateStudent } from "./people"
+import { familyFromLead, futureSessionsOf, nicknameFrom, searchStudents, studentLabel, validateFamily, validateStaff, validateStudent } from "./people"
 import { suggestFixes } from "./suggest"
-import { canSetStage, daysAgo, groupOf, validateLead } from "./crm"
-import { buildCombinedSessionDraft, buildSessionDraftFromSlot, findOfferSlots, openHourStarts } from "./forms"
+import { advanceStage, canSetStage, daysAgo, groupOf, validateLead } from "./crm"
+import { APPROVE_STAGE, ATTENDED_STAGE, buildCombinedSessionDraft, buildSessionDraftFromSlot, findOfferSlots, lastAssessmentDate, openHourStarts, sessionKindLabel } from "./forms"
+import { customerRows, filterCustomers } from "./customers"
+import { invoiceMessage } from "./messages"
 
 const hours = { open: "09:00", close: "20:00" }
 const branch: Branch = {
@@ -440,8 +442,8 @@ describe("forms", () => {
 
   it("buildSessionDraftFromSlot maps a generic slot into a bookable Session draft", () => {
     const slot: FormOfferSlot = { id: "off_g0", date: "2026-09-29", start: "09:00", minutes: 60, source: "generic", teacherId: "t1", roomId: "r1", classId: null, sessionId: null }
-    const draft = buildSessionDraftFromSlot(slot, "Maths", "b1", "stu1")
-    expect(draft).toEqual({ branchId: "b1", classId: null, subject: "Maths", date: "2026-09-29", start: "09:00", minutes: 60, teacherId: "t1", coTeacherIds: [], roomId: "r1", studentIds: ["stu1"], trial: true })
+    const draft = buildSessionDraftFromSlot(slot, "Maths", "b1", "stu1", "test")
+    expect(draft).toEqual({ branchId: "b1", classId: null, subject: "Maths", date: "2026-09-29", start: "09:00", minutes: 60, teacherId: "t1", coTeacherIds: [], roomId: "r1", studentIds: ["stu1"], trial: true, assessment: "test" })
   })
 
   it("validateClass silently skips a holiday date for a single-date (non-learning) draft — the gap store.addSession's explicit isHoliday check works around", () => {
@@ -455,7 +457,7 @@ describe("forms", () => {
   it("buildCombinedSessionDraft merges 2 same-day, same-time generic picks into one 2-hour room block", () => {
     const slotA: FormOfferSlot = { id: "off_g0", date: "2026-09-29", start: "09:00", minutes: 60, source: "generic", teacherId: "t1", roomId: "r1", classId: null, sessionId: null }
     const slotB: FormOfferSlot = { id: "off_g1", date: "2026-09-29", start: "09:00", minutes: 60, source: "generic", teacherId: "t2", roomId: "r2", classId: null, sessionId: null }
-    const draft = buildCombinedSessionDraft([{ subject: "Maths", slot: slotA }, { subject: "English", slot: slotB }], "b1", "stu1", branch, [])
+    const draft = buildCombinedSessionDraft([{ subject: "Maths", slot: slotA }, { subject: "English", slot: slotB }], "b1", "stu1", branch, [], "test")
     expect(draft?.minutes).toBe(120)
     expect(draft?.subject).toBe("Maths + English")
     expect(draft?.teacherId).toBe("t1")
@@ -466,9 +468,9 @@ describe("forms", () => {
     const slotA: FormOfferSlot = { id: "off_g0", date: "2026-09-29", start: "09:00", minutes: 60, source: "generic", teacherId: "t1", roomId: "r1", classId: null, sessionId: null }
     const slotDiffTime: FormOfferSlot = { ...slotA, id: "off_g1", start: "12:00" }
     const slotClass: FormOfferSlot = { ...slotA, id: "off_c0", source: "class", classId: "k1", sessionId: "se1" }
-    expect(buildCombinedSessionDraft([{ subject: "Maths", slot: slotA }, { subject: "English", slot: slotDiffTime }], "b1", "stu1", branch, [])).toBeNull()
-    expect(buildCombinedSessionDraft([{ subject: "Maths", slot: slotA }, { subject: "English", slot: slotClass }], "b1", "stu1", branch, [])).toBeNull()
-    expect(buildCombinedSessionDraft([{ subject: "Maths", slot: slotA }], "b1", "stu1", branch, [])).toBeNull()
+    expect(buildCombinedSessionDraft([{ subject: "Maths", slot: slotA }, { subject: "English", slot: slotDiffTime }], "b1", "stu1", branch, [], "test")).toBeNull()
+    expect(buildCombinedSessionDraft([{ subject: "Maths", slot: slotA }, { subject: "English", slot: slotClass }], "b1", "stu1", branch, [], "test")).toBeNull()
+    expect(buildCombinedSessionDraft([{ subject: "Maths", slot: slotA }], "b1", "stu1", branch, [], "test")).toBeNull()
   })
 })
 
@@ -715,5 +717,81 @@ describe("end-to-end loop gaps", () => {
     expect(canChangeTeachers({ ...base, teacherId: "t1" }, during).ok).toBe(false)
     expect(canChangeTeachers({ ...base, cancelled: true }, during).ok).toBe(false)
     expect(canChangeTeachers({ ...base, teacherId: "t1" }, new Date("2026-09-28T10:00:00")).ok).toBe(true)
+  })
+})
+
+// Owner round 2026-09-28 after the E2E test: stages move by themselves, Test → Trial → Invoice, renewals, customer picker
+describe("lead flow runs by itself", () => {
+  it("approving a form books the visit (นัดสอบ/นัดทดลอง); only attending moves to สอบแล้ว/ทดลองแล้ว", () => {
+    expect(APPROVE_STAGE).toEqual({ test: "test_scheduled", trial: "trial_scheduled" })
+    expect(ATTENDED_STAGE).toEqual({ test: "tested", trial: "trialed" })
+  })
+
+  it("automatic moves only go forward — a late test attendance never drags a paying lead back", () => {
+    expect(advanceStage("test_scheduled", "tested")).toBe("tested")
+    expect(advanceStage("payment_pending", "tested")).toBe("payment_pending")
+    expect(advanceStage("trialed", "payment_pending")).toBe("payment_pending")
+    expect(advanceStage("archived", "enrolled")).toBe("archived")
+  })
+
+  it("a test session reads สอบวัดระดับ, not ทดลอง", () => {
+    expect(sessionKindLabel({ trial: true, assessment: "test" })).toBe("สอบวัดระดับ")
+    expect(sessionKindLabel({ trial: true, assessment: "trial" })).toBe("ทดลองเรียน")
+    expect(sessionKindLabel({ trial: false })).toBeNull()
+  })
+
+  it("paid but first class still ahead = Active (from payment confirmation), not Inactive", () => {
+    const ent: Entitlement = { id: "e", studentId: "a", courseId: "c1", subjects: ["Maths"], classId: "k1", invoiceId: "i", kind: "subscription", from: "2026-10-03", to: "2026-10-31", sessionsTotal: 5 }
+    expect(studentState({ id: "a" }, [ent], [], "2026-09-28")).toEqual({ status: "active", startsOn: "2026-10-03" })
+    expect(studentState({ id: "a" }, [], [], "2026-09-28").status).toBe("inactive")
+  })
+
+  it("Test → Trial → Invoice: paid classes must start after the last test/trial", () => {
+    const asm = (date: string): Assessment => ({ id: date, type: "trial", leadId: "l", studentId: "a", sessionId: "s", subject: "Maths", date, start: "13:00" })
+    expect(lastAssessmentDate("a", [asm("2026-09-29"), asm("2026-10-03")])).toBe("2026-10-03")
+    expect(lastAssessmentDate("b", [asm("2026-10-03")])).toBeNull()
+    const k = klass({ id: "k1", weekday: 6 })
+    const draft = (startDate: string): Invoice => ({ id: "i", branchId: "b1", studentId: "a", number: null, course: { courseId: "c1", classId: "k1", startDate, periods: 1 }, bus: [], bookFee: 0, advanceFee: 0, concession: null, noteToParent: "", status: "draft", pdf: "none", createdBy: "adm", createdAt: "", payments: [] })
+    const ctx = { branch, courses: [monthPkg], classes: [k], holidays: [] }
+    // start 1 Oct → first class Sat 3 Oct = the trial day → blocked
+    expect(validateInvoiceDraft(draft("2026-10-01"), invoiceTotals(draft("2026-10-01"), ctx), { lastAssessment: "2026-10-03" }).join()).toContain("หลังวันสอบ/ทดลองเรียน")
+    expect(validateInvoiceDraft(draft("2026-10-04"), invoiceTotals(draft("2026-10-04"), ctx), { lastAssessment: "2026-10-03" })).toEqual([])
+  })
+})
+
+describe("renewals + customer picker tell same-nickname students apart", () => {
+  const fam: Family = { id: "f1", name: "ครอบครัวใจดี", parents: [{ name: "คุณสมชาย", phone: "089-555-1212", lineLinked: true, primary: true }] }
+  const stu = (id: string, name: string, nickname: string, grade: string, familyId: string | null): Student =>
+    ({ id, familyId, branchId: "b1", name, nickname, grade, usesBus: false, createdAt: `2026-09-${id === "s1" ? "01" : "20"}T00:00:00Z`, createdBranchId: "b1" })
+  const students = [stu("s1", "ด.ช. ภูมิ ใจดี", "ภูมิ", "ป.5", "f1"), stu("s2", "ด.ญ. ภูมิ รักเรียน", "ภูมิ", "ป.4", null)]
+  const leads: Lead[] = [{ id: "l1", branchId: "b1", name: "คุณแม่ดาว", childGrade: "ป.5", subject: "Maths", source: "phone", stage: "contacting", assigneeId: null, phone: "081-111-2222", lineId: "", createdAt: "2026-09-25T00:00:00Z", notes: [] }]
+
+  it("labels carry full name, grade and family", () => {
+    expect(studentLabel(students[0], "ครอบครัวใจดี")).toBe("ภูมิ (ด.ช. ภูมิ ใจดี · ป.5 · ครอบครัวใจดี)")
+    expect(studentLabel(students[1])).toBe("ภูมิ (ด.ญ. ภูมิ รักเรียน · ป.4)")
+  })
+
+  it("search by name / family / phone, filter by type and grade, sort", () => {
+    const rows = customerRows({ students, families: [fam], leads }, ["student", "lead", "family"])
+    const f = (q: string, extra: Partial<Parameters<typeof filterCustomers>[1]> = {}) => filterCustomers(rows, { q, kinds: ["student", "lead", "family"], grade: "", sort: "name", ...extra }).map((r) => `${r.kind}:${r.id}`)
+    expect(f("ภูมิ")).toEqual(expect.arrayContaining(["student:s1", "student:s2", "family:f1"]))
+    expect(f("5551212")).toEqual(expect.arrayContaining(["student:s1", "family:f1"]))
+    expect(f("", { kinds: ["lead"] })).toEqual(["lead:l1"])
+    expect(f("ภูมิ", { kinds: ["student"], grade: "ป.4" })).toEqual(["student:s2"])
+    expect(f("", { kinds: ["student"], sort: "recent" })).toEqual(["student:s2", "student:s1"])
+  })
+})
+
+describe("real LINE texts", () => {
+  it("invoice message has the student, the period, the total and where to pay — dates formatted, never ISO", () => {
+    const k = klass({ id: "k1", weekday: 6 })
+    const inv: Invoice = { id: "i", branchId: "b1", studentId: "a", number: "INV-TST-6910-0001", course: { courseId: "c1", classId: "k1", startDate: "2026-10-01", periods: 1 }, bus: [], bookFee: 0, advanceFee: 0, concession: null, noteToParent: "ค่าเรียน ต.ค.", status: "approved", pdf: "ready", createdBy: "adm", createdAt: "", payments: [] }
+    const b = { ...branch, bankAccount: { bank: "กสิกร", branchName: "", name: "NockAcademy", number: "123-4-56789-0" } }
+    const text = invoiceMessage(inv, invoiceTotals(inv, { branch: b, courses: [monthPkg], classes: [k], holidays: [] }), { student: { id: "a", familyId: null, branchId: "b1", name: "ด.ช. ภูมิ ใจดี", nickname: "ภูมิ", grade: "ป.5", usesBus: false, createdAt: "", createdBranchId: "b1" }, course: monthPkg, branch: b })
+    expect(text).toContain("INV-TST-6910-0001")
+    expect(text).toContain("฿4,500")
+    expect(text).toContain("123-4-56789-0")
+    expect(text).toContain("3 ต.ค.")
+    expect(text).not.toMatch(/\d{4}-\d{2}-\d{2}/)
   })
 })

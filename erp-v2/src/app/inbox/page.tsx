@@ -5,6 +5,7 @@ import { FileSignatureIcon, InfoIcon, PenLineIcon, PlusIcon, RadioIcon, SendIcon
 import { NativeSelect } from "@/components/app/native-select"
 import { Pill } from "@/components/app/badges"
 import { FamilyForm } from "@/components/app/family-form"
+import { CustomerPicker } from "@/components/app/customer-picker"
 import { StudentSheet } from "@/components/app/student-sheet"
 import { avatarTone, initial } from "@/components/app/subject-color"
 import { ComposeDialog } from "@/components/inbox/compose-dialog"
@@ -17,7 +18,7 @@ import { LeadSheet } from "@/components/crm/lead-sheet"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { fmtDateTime } from "@/domain/dates"
-import { CHANNEL_LABEL, CONVERSATION_TYPE_LABEL, conversationType, type ConversationType, unreadCount } from "@/domain/rules/inbox"
+import { CHANNEL_LABEL, CONVERSATION_TYPE_LABEL, conversationType, type ConversationType, SOURCE_OF_CHANNEL, unreadCount } from "@/domain/rules/inbox"
 import { can } from "@/domain/rules/permissions"
 import type { ChatMessage, Conversation, FormSubmission, ID } from "@/domain/types"
 import { report } from "@/lib/feedback"
@@ -56,9 +57,8 @@ export default function InboxPage() {
   const [sending, setSending] = useState(false)
   const [openStudentId, setOpenStudentId] = useState<ID | null>(null)
   const [openLeadId, setOpenLeadId] = useState<ID | null>(null)
-  const [linkFamilyId, setLinkFamilyId] = useState("")
+  const [pickingLink, setPickingLink] = useState(false)
   const [creatingFamily, setCreatingFamily] = useState(false)
-  const [linkLeadId, setLinkLeadId] = useState("")
   const [creatingLead, setCreatingLead] = useState(false)
   const [sendingFormOpen, setSendingFormOpen] = useState(false)
   const [submissions, setSubmissions] = useState<FormSubmission[]>([])
@@ -269,23 +269,10 @@ export default function InboxPage() {
                   ) : (
                     <div className="space-y-4">
                       <p className="text-xs text-muted-foreground">ยังไม่ผูกกับครอบครัวหรือ Lead — บทสนทนานี้จะจำการผูกไว้ถาวร (แม้เป็นข้อความ LINE จริง)</p>
-                      <div className="space-y-1.5 border-b pb-3">
-                        <p className="text-xs font-medium text-muted-foreground">ลูกค้า (ครอบครัว)</p>
-                        <div className="flex gap-1.5">
-                          <NativeSelect className="flex-1" value={linkFamilyId} onChange={(e) => setLinkFamilyId(e.target.value)}
-                            placeholder="เลือกครอบครัว" options={families.filter((f) => students.some((s) => s.familyId === f.id && s.branchId === branch.id)).map((f) => ({ value: f.id, label: f.name }))} />
-                          <Button size="xs" disabled={!linkFamilyId} onClick={() => { if (report(linkFamily(selected.id, linkFamilyId), "ผูกครอบครัวแล้ว")) setLinkFamilyId("") }}>ผูก</Button>
-                        </div>
-                        <Button size="xs" variant="outline" className="w-full" onClick={() => setCreatingFamily(true)}><PlusIcon /> สร้างครอบครัวใหม่จากข้อความนี้</Button>
-                      </div>
-                      <div className="space-y-1.5">
-                        <p className="text-xs font-medium text-muted-foreground">ลีด (CRM)</p>
-                        <div className="flex gap-1.5">
-                          <NativeSelect className="flex-1" value={linkLeadId} onChange={(e) => setLinkLeadId(e.target.value)}
-                            placeholder="เลือก Lead" options={leads.filter((l) => l.branchId === branch.id && l.stage !== "archived").map((l) => ({ value: l.id, label: l.name }))} />
-                          <Button size="xs" disabled={!linkLeadId} onClick={() => { if (report(linkLead(selected.id, linkLeadId), "ผูก Lead แล้ว")) setLinkLeadId("") }}>ผูก</Button>
-                        </div>
+                      <Button size="sm" className="w-full" onClick={() => setPickingLink(true)}><UserSearchIcon /> ผูกกับลูกค้าเดิม / Lead</Button>
+                      <div className="grid gap-1.5">
                         <Button size="xs" variant="outline" className="w-full" onClick={() => setCreatingLead(true)}><PlusIcon /> สร้าง Lead ใหม่จากข้อความนี้</Button>
+                        <Button size="xs" variant="outline" className="w-full" onClick={() => setCreatingFamily(true)}><PlusIcon /> สร้างครอบครัวใหม่ (ลูกค้าเก่าที่ยังไม่มีในระบบ)</Button>
                       </div>
                     </div>
                   )}
@@ -303,9 +290,20 @@ export default function InboxPage() {
           onClose={() => setSendingFormOpen(false)}
         />
       )}
+      {pickingLink && selected && (
+        <CustomerPicker kinds={["student", "family", "lead"]} title="ผูกแชทนี้กับลูกค้า / Lead" onClose={() => setPickingLink(false)}
+          onConfirm={(row) => {
+            const familyId = row.kind === "family" ? row.id : row.kind === "student" ? row.familyId : null
+            const ok = row.kind === "lead"
+              ? report(linkLead(selected.id, row.id), `ผูก Lead "${row.title}" แล้ว`)
+              : familyId ? report(linkFamily(selected.id, familyId), "ผูกครอบครัวแล้ว") : report({ ok: false, error: "นักเรียนคนนี้ยังไม่ผูกครอบครัว — ผูกครอบครัวในหน้านักเรียนก่อน" }, "")
+            if (ok) setPickingLink(false)
+          }} />
+      )}
       {creatingFamily && selected && (
         <FamilyForm
-          initialName={selected.name}
+          initialName={`ครอบครัว${selected.name.replace(/^(คุณแม่|คุณพ่อ|คุณ)\s*/, "").split(/\s+/).pop() ?? ""}`}
+          initialParent={{ name: selected.name }}
           onClose={() => setCreatingFamily(false)}
           onSaved={(newFamily) => report(linkFamily(selected.id, newFamily.id), `สร้างและผูก "${newFamily.name}" แล้ว — เพิ่มลูกได้ที่หน้าครอบครัว`)}
         />
@@ -313,6 +311,7 @@ export default function InboxPage() {
       {creatingLead && selected && (
         <LeadDialog
           initialName={selected.name}
+          initial={{ source: SOURCE_OF_CHANNEL[selected.channel], assigneeId: selected.assigneeId }}
           onClose={() => setCreatingLead(false)}
           onSaved={(newLead) => report(linkLead(selected.id, newLead.id), `สร้างและผูก Lead "${newLead.name}" แล้ว`)}
         />

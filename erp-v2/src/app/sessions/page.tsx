@@ -14,6 +14,7 @@ import { workState, type WorkState } from "@/domain/rules/scheduling"
 import { useBranch, useLookup, useNow } from "@/lib/hooks"
 import { cn } from "@/lib/utils"
 import { useStore } from "@/store/store"
+import { sessionKindLabel } from "@/domain/rules/forms"
 
 type Range = "day" | "week"
 
@@ -83,7 +84,7 @@ export default function SessionsPage() {
                   <span className={cn("h-9 w-1 rounded-full", c.bar)} />
                   <span className="w-24 text-sm tabular-nums">{s.start}–{endTime(s.start, s.minutes)}</span>
                   <span className="min-w-40 flex-1">
-                    <span className="block text-sm font-medium">{classes.find((k) => k.id === s.classId)?.name ?? s.subject}{s.trial && <Pill tone="violet" className="ml-2">ทดลอง</Pill>}</span>
+                    <span className="block text-sm font-medium">{classes.find((k) => k.id === s.classId)?.name ?? s.subject}{sessionKindLabel(s) && <Pill tone="violet" className="ml-2">{sessionKindLabel(s)}</Pill>}</span>
                     <span className="block text-xs text-muted-foreground">
                       <span className={cn(t.missing && "text-amber-700")}>{t.label}</span> · {L.room(s.roomId)} · {s.studentIds.length} คน
                     </span>

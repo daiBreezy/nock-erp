@@ -22,6 +22,7 @@ import type { DateStr, Session } from "@/domain/types"
 import { useBranch, useLookup, useNow } from "@/lib/hooks"
 import { cn } from "@/lib/utils"
 import { useStore } from "@/store/store"
+import { sessionKindLabel } from "@/domain/rules/forms"
 
 type View = "day" | "week" | "month" | "list"
 const HOUR_PX = 56
@@ -237,7 +238,7 @@ function SessionCard({ s, conflictIds, now, onOpen, classes, compact, canMove, d
   const attendance = useStore((st) => st.attendance)
   const summaries = useStore((st) => st.summaries)
   const t = L.teacher(s.teacherId)
-  const name = classes.find((c) => c.id === s.classId)?.name ?? `${s.subject}${s.trial ? " · ทดลอง" : ""}`
+  const name = classes.find((c) => c.id === s.classId)?.name ?? `${s.subject}${sessionKindLabel(s) ? ` · ${sessionKindLabel(s)}` : ""}`
   const conflict = conflictIds.has(s.id)
   const w = workState(s, now, attendance, summaries)
   const c = subjectColor(s.subject)
@@ -456,7 +457,7 @@ function ListView({ from, to, sessions, ...ctx }: CardCtx & { from: DateStr; to:
               return (
                 <button key={s.id} onClick={() => ctx.onOpen(s.id)} className="flex w-full flex-wrap items-center gap-3 px-3 py-2 text-left text-sm hover:bg-muted/50">
                   <span className="w-24 tabular-nums text-muted-foreground">{s.start}–{endTime(s.start, s.minutes)}</span>
-                  <span className="min-w-40 flex-1 font-medium">{ctx.classes.find((c) => c.id === s.classId)?.name ?? s.subject}{s.trial && <Pill tone="violet" className="ml-2">ทดลอง</Pill>}</span>
+                  <span className="min-w-40 flex-1 font-medium">{ctx.classes.find((c) => c.id === s.classId)?.name ?? s.subject}{sessionKindLabel(s) && <Pill tone="violet" className="ml-2">{sessionKindLabel(s)}</Pill>}</span>
                   <span className={cn("w-28 truncate", t.missing && "text-amber-700")}>{t.label}</span>
                   <span className="w-24 truncate text-muted-foreground">{L.room(s.roomId)}</span>
                   <span className="w-14 text-muted-foreground">{s.studentIds.length} คน</span>

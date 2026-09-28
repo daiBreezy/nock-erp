@@ -4,7 +4,7 @@ import { addDays, fromMinutes, nextWeekday, toDateStr, weekdayOf } from "@/domai
 import { chartPrice } from "@/domain/rules/course"
 import { generateSessions } from "@/domain/rules/scheduling"
 import type {
-  AppNotification, Attendance, Branch, ChatMessage, Conversation, Course, Entitlement, Family, Holiday, Invoice, Klass, Lead, LessonSummary,
+  Assessment, AppNotification, Attendance, Branch, ChatMessage, Conversation, Course, Entitlement, Family, Holiday, Invoice, Klass, Lead, LessonSummary,
   ActivityLog, PriceRow, Session, StudentNote, Staff, Student, StudentLeave, SystemConfig, Weekday,
 } from "@/domain/types"
 
@@ -29,6 +29,7 @@ export interface DB {
   system: SystemConfig
   notes: StudentNote[]
   logs: ActivityLog[]
+  assessments: Assessment[]
 }
 
 let seq = 0
@@ -350,5 +351,5 @@ export function buildSeed(now = new Date()): DB {
     },
   }
 
-  return { branches, staff, holidays, courses, classes, sessions, attendance, summaries, families, students, entitlements, leaves: [], invoices, leads, conversations, messages, notifications: [], system, notes, logs }
+  return { branches, staff, holidays, courses, classes, sessions, attendance, summaries, families, students, entitlements, leaves: [], invoices, leads, conversations, messages, notifications: [], system, notes, logs, assessments: [] }
 }

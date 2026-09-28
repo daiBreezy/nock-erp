@@ -1,6 +1,8 @@
 import { promises as fs } from "fs"
 import path from "path"
 import type { FormOfferSlot, FormSubjectOffer, FormSubmission, FormToken, FormType, ID } from "@/domain/types"
+import { fmtDate } from "@/domain/dates"
+import { FORM_TYPE_LABEL } from "@/domain/rules/forms"
 import { recordInboundMessage } from "./line-store"
 
 // File-based store for Test/Trial form tokens + submissions — same rationale as line-store.ts
@@ -111,7 +113,7 @@ export async function submitForm(input: {
 
   // surface each pick inline in Inbox as its own rich chat bubble
   for (const sub of submissions) {
-    await recordInboundMessage(input.lineUserId, null, `ส่งแบบฟอร์ม${sub.chosenSubject} — ${sub.chosenSlot.date} ${sub.chosenSlot.start} น.`, {
+    await recordInboundMessage(input.lineUserId, null, `ส่งแบบฟอร์ม${FORM_TYPE_LABEL[sub.type]} ${sub.chosenSubject} — ${fmtDate(sub.chosenSlot.date, { weekday: true })} ${sub.chosenSlot.start} น.`, {
       kind: "form_submission",
       meta: { formKind: "form_submission", submissionId: sub.id, type: sub.type },
     })

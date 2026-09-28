@@ -17,6 +17,7 @@ export const LEAD_STAGE_LABEL: Record<LeadStage, string> = {
 export const LEAD_SOURCE_LABEL: Record<Lead["source"], string> = {
   line: "LINE OA",
   walkin: "Walk-in",
+  phone: "โทรศัพท์",
   website: "เว็บไซต์",
   referral: "คนแนะนำ",
   other: "อื่นๆ",
@@ -55,10 +56,19 @@ export function daysAgoLabel(createdAt: string, now: Date): string {
   return d === 0 ? "วันนี้" : `${d} วันก่อน`
 }
 
+const STAGE_ORDER: LeadStage[] = ["new", "contacting", "test_scheduled", "tested", "trial_scheduled", "trialed", "payment_pending", "enrolled"]
+
+/** Automatic moves (form approved, child attended, invoice sent, payment confirmed) only ever push a lead forward —
+ *  a late event never drags it back, and archived leads stay put. */
+export function advanceStage(current: LeadStage, target: LeadStage): LeadStage {
+  if (current === "archived") return current
+  return STAGE_ORDER.indexOf(target) > STAGE_ORDER.indexOf(current) ? target : current
+}
+
 /** Drag-and-drop only moves between working stages; enrolling/archiving go through their own actions (need a record / a reason). */
 export function canSetStage(current: LeadStage, target: LeadStage): Result {
   if (current === "archived") return { ok: false, error: "Lead นี้เก็บเข้าคลังแล้ว — เปิดรายละเอียดเพื่อกู้คืนก่อน" }
-  if (target === "enrolled") return { ok: false, error: "ใช้ปุ่ม “แปลงเป็นนักเรียน” เพื่อบันทึกลงทะเบียน" }
+  if (target === "enrolled") return { ok: false, error: "เป็นนักเรียนเองเมื่อยืนยันยอดเงินของใบแจ้งหนี้" }
   if (target === "archived") return { ok: false, error: "ใช้ปุ่ม “เก็บเข้าคลัง” เพื่อใส่เหตุผล" }
   return { ok: true, value: undefined }
 }

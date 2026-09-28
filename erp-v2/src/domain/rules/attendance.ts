@@ -113,6 +113,8 @@ export interface StudentState {
   reason?: "leave" | "no_package"
   /** since when the current status holds (inactive/archived) */
   since?: DateStr
+  /** paid, first class still ahead — Active from payment confirmation (owner 2026-09-28) */
+  startsOn?: DateStr
 }
 
 export function studentState(
@@ -122,6 +124,8 @@ export function studentState(
   const onLeave = activeLeave(stu.id, today, leaves)
   if (onLeave) return { status: "inactive", reason: "leave", since: onLeave.from }
   const active = activeEntitlements(stu.id, ents, today)
+  const upcoming = ents.filter((e) => e.studentId === stu.id && e.from > today).sort((a, b) => a.from.localeCompare(b.from))[0]
+  if (!active.length && upcoming) return { status: "active", startsOn: upcoming.from }
   if (!active.length) {
     const last = ents.filter((e) => e.studentId === stu.id && e.to < today).sort((a, b) => b.to.localeCompare(a.to))[0]
     return { status: "inactive", reason: "no_package", since: last ? addDays(last.to, 1) : undefined }

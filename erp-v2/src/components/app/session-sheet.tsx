@@ -13,6 +13,7 @@ import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "
 import { Textarea } from "@/components/ui/textarea"
 import { endTime, fmtDate, fmtDateTime } from "@/domain/dates"
 import * as Att from "@/domain/rules/attendance"
+import { assessmentIn, FORM_TYPE_LABEL, sessionKindLabel } from "@/domain/rules/forms"
 import { can } from "@/domain/rules/permissions"
 import { canChangeTeachers, findConflicts, sessionState, subjectsOf } from "@/domain/rules/scheduling"
 import * as Sum from "@/domain/rules/summaries"
@@ -22,6 +23,7 @@ import { report } from "@/lib/feedback"
 import { useBranch, useEntitlements, useLookup, useNow } from "@/lib/hooks"
 import { cn } from "@/lib/utils"
 import { useStore } from "@/store/store"
+import { AssessmentNote } from "./assessment-note"
 import { Pill, SessionStateBadge } from "./badges"
 import { NativeSelect } from "./native-select"
 import { StudentSearch } from "./student-search"
@@ -54,6 +56,7 @@ function Body({ id, onClose }: { id: ID; onClose: () => void }) {
   const entitlements = useEntitlements()
   const leaves = useStore((st) => st.leaves)
   const courses = useStore((st) => st.courses)
+  const assessments = useStore((st) => st.assessments)
   const me = useStore((st) => st.staff.find((x) => x.id === st.userId)!)
   const mark = useStore((st) => st.mark)
   const clearMark = useStore((st) => st.clearMark)
@@ -81,7 +84,7 @@ function Body({ id, onClose }: { id: ID; onClose: () => void }) {
       <SheetHeader className="border-b pb-3">
         <div className="flex flex-wrap items-center gap-2 pr-8">
           <SessionStateBadge state={state} />
-          {s.trial && <Pill tone="violet">ทดลองเรียน</Pill>}
+          {sessionKindLabel(s) && <Pill tone="violet">{sessionKindLabel(s)}</Pill>}
           {s.customized && s.classId && <Pill>แก้เฉพาะคาบนี้</Pill>}
         </div>
         <SheetTitle className="text-lg">{klass?.name ?? `${subjectsOf(s).join(" + ")} (คาบเดี่ยว)`}</SheetTitle>
@@ -150,6 +153,7 @@ function Body({ id, onClose }: { id: ID; onClose: () => void }) {
               const pkgName = ent ? courses.find((c) => c.id === ent.courseId)?.name : undefined
               const bal = ent && Att.balance(ent, allSessions, attendance)
               const onLeave = Att.activeLeave(sid, s.date, leaves)
+              const asm = assessmentIn(s.id, sid, assessments)
               return (
                 <li key={sid} className={cn("flex flex-wrap items-center gap-3 p-2.5", onLeave && "opacity-50")}>
                   <div className="min-w-0 flex-1">
@@ -157,7 +161,9 @@ function Body({ id, onClose }: { id: ID; onClose: () => void }) {
                       {stu?.nickname ?? "?"} <span className="text-xs font-normal text-muted-foreground">{stu?.grade}</span>
                     </button>
                     <div className="text-xs text-muted-foreground">
-                      {s.trial ? (
+                      {asm ? (
+                        `${FORM_TYPE_LABEL[asm.type]} (ไม่ใช้แพ็กเกจ)`
+                      ) : s.trial ? (
                         "ทดลองเรียน (ไม่ใช้แพ็กเกจ)"
                       ) : !ent ? (
                         <span className="text-amber-700">
@@ -194,6 +200,7 @@ function Body({ id, onClose }: { id: ID; onClose: () => void }) {
                       </Button>
                     )}
                   </div>
+                  {asm && <AssessmentNote a={asm} editable={canManage || mine} className="w-full" />}
                 </li>
               )
             })}

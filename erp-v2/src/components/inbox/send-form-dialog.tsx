@@ -2,6 +2,7 @@
 
 import { useState } from "react"
 import { PlusIcon, SendIcon, Trash2Icon } from "lucide-react"
+import { fmtDate } from "@/domain/dates"
 import { FORM_TYPE_LABEL } from "@/domain/rules/forms"
 import type { FormOfferSlot, FormType, ID } from "@/domain/types"
 import { sendTestTrialForm } from "@/lib/forms"
@@ -114,7 +115,7 @@ export function SendFormDialog({
             {blocks.map((b, i) => (
               <div key={i} className="rounded-lg border p-2.5">
                 <p className="font-medium">{b.subject}</p>
-                <p className="text-xs text-muted-foreground">{[...b.selected.values()].map((s) => `${s.date} ${s.start}`).join(" · ")}</p>
+                <p className="text-xs text-muted-foreground">{[...b.selected.values()].map((s) => `${fmtDate(s.date, { weekday: true })} ${s.start}`).join(" · ")}</p>
               </div>
             ))}
           </div>

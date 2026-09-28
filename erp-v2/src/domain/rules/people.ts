@@ -36,6 +36,14 @@ export function validateFamily(f: Pick<Family, "name" | "parents" | "postcode">)
   return errs
 }
 
+/** "ภูมิ (ด.ช. ภูมิ ใจดี · ป.5 · ครอบครัวใจดี)" — nicknames repeat, so lists that act on a student show enough to tell them apart */
+export function studentLabel(s: Pick<Student, "nickname" | "name" | "grade">, familyName?: string) {
+  return `${s.nickname} (${[s.name, s.grade, familyName].filter(Boolean).join(" · ")})`
+}
+
+/** link that opens Create Invoice pre-filled to renew one package (same course + class, from the day after it ends) */
+export const renewHref = (studentId: ID, entitlementId: ID) => `/billing?new=${studentId}&renew=${entitlementId}`
+
 const NAME_PREFIX = /^(ด\.ช\.|ด\.ญ\.|เด็กชาย|เด็กหญิง|นางสาว|นาย|นาง|น\.ส\.|คุณแม่|คุณพ่อ|คุณ)\s*/
 
 /** "ด.ช. ภูมิ ใจดี" → ["ภูมิ", "ใจดี"] (title prefix dropped) */

@@ -1,0 +1,43 @@
+// Parent-facing LINE texts (E2E 2026-09-28: invoices, receipts and summaries used to be "sent" only as a flag —
+// now they go out as real LINE messages). One builder per document so every screen sends the same words.
+
+import { fmtDate, fmtMoney } from "../dates"
+import type { Branch, Course, Invoice, LessonSummary, Session, Student } from "../types"
+import type { InvoiceTotals } from "./billing"
+
+const bankLine = (b: Branch) =>
+  b.bankAccount.number ? `โอนเข้า ${b.bankAccount.bank} ${b.bankAccount.number} (${b.bankAccount.name})` : "ชำระที่เคาน์เตอร์สาขา"
+
+export function invoiceMessage(inv: Invoice, totals: InvoiceTotals, ctx: { student: Student; course?: Course; branch: Branch }): string {
+  const q = totals.quote
+  return [
+    `📄 ใบแจ้งค่าเรียน ${inv.number ?? ""}`.trim(),
+    `นักเรียน: ${ctx.student.nickname} (${ctx.student.name}) · ${ctx.student.grade}`,
+    ctx.course && q ? `${ctx.course.name} · ${fmtDate(q.from)} – ${fmtDate(q.to, { year: true })} · ${q.sessions.length} คาบ` : null,
+    totals.bus ? `ค่ารถ ${fmtMoney(totals.bus)}` : null,
+    totals.promotion ? `ส่วนลด ${totals.promotionName ?? "โปรโมชัน"} -${fmtMoney(totals.promotion)}` : null,
+    `ยอดชำระ ${fmtMoney(totals.total)}`,
+    bankLine(ctx.branch),
+    inv.noteToParent.trim() || null,
+    "ชำระแล้วส่งรูปสลิปในแชทนี้ได้เลยค่ะ 🙏",
+  ].filter(Boolean).join("\n")
+}
+
+export function receiptMessage(inv: Invoice, total: number, ctx: { student: Student; firstSession?: Pick<Session, "date" | "start"> }): string {
+  return [
+    `🧾 ใบเสร็จรับเงิน ${inv.receiptNumber ?? ""}`.trim(),
+    `ได้รับชำระ ${fmtMoney(total)} สำหรับ ${inv.number} เรียบร้อยแล้วค่ะ`,
+    `นักเรียน: ${ctx.student.nickname} (${ctx.student.name})`,
+    ctx.firstSession ? `เริ่มเรียน ${fmtDate(ctx.firstSession.date, { weekday: true })} เวลา ${ctx.firstSession.start} น.` : null,
+    "ขอบคุณค่ะ 😊",
+  ].filter(Boolean).join("\n")
+}
+
+export function summaryMessage(sum: LessonSummary, ctx: { student: Student; session: Pick<Session, "subject" | "date" | "start"> }): string {
+  return [
+    `📝 สรุปการเรียน ${ctx.student.nickname} · ${ctx.session.subject}`,
+    `${fmtDate(ctx.session.date, { weekday: true })} ${ctx.session.start} น.`,
+    "",
+    sum.text.trim(),
+  ].join("\n")
+}

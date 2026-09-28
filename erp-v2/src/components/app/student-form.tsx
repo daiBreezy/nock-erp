@@ -14,6 +14,7 @@ import { uid } from "@/data/seed"
 import { report } from "@/lib/feedback"
 import { useBranch, useNow } from "@/lib/hooks"
 import { useStore } from "@/store/store"
+import { CustomerPicker } from "./customer-picker"
 import { NativeSelect } from "./native-select"
 
 /** Create / edit a student. Errors show under each field while typing (S4). */
@@ -26,6 +27,7 @@ export function StudentForm({ student, familyId, onClose, onSaved }: { student?:
     student ?? { id: uid("stu"), familyId: familyId ?? null, branchId: branch.id, name: "", nickname: "", grade: "", usesBus: false, createdAt: new Date().toISOString(), createdBranchId: branch.id },
   )
   const [touched, setTouched] = useState(false)
+  const [pickingFamily, setPickingFamily] = useState(false)
   const errs = validateStudent(f, today)
   const err = (field: string) => touched && errs.find((e) => e.field === field)?.message
   const set = <K extends keyof Student>(k: K, v: Student[K]) => setF((x) => ({ ...x, [k]: v }))
@@ -45,7 +47,12 @@ export function StudentForm({ student, familyId, onClose, onSaved }: { student?:
           <Field label="วันเกิด" error={err("birthDate")}><Input type="date" max={today} value={f.birthDate ?? ""} onChange={(e) => set("birthDate", e.target.value || undefined)} /></Field>
           <Field label="โรงเรียน"><Input value={f.school ?? ""} onChange={(e) => set("school", e.target.value)} /></Field>
           <Field label="ครอบครัว" className="sm:col-span-2">
-            <NativeSelect value={f.familyId ?? ""} onChange={(e) => set("familyId", e.target.value || null)} placeholder="ยังไม่ผูกครอบครัว" options={families.map((x) => ({ value: x.id, label: x.name }))} />
+            <div className="flex items-center gap-2 rounded-xl border px-3 py-1.5 text-sm">
+              <span className={f.familyId ? "font-medium" : "text-muted-foreground"}>{families.find((x) => x.id === f.familyId)?.name ?? "ยังไม่ผูกครอบครัว"}</span>
+              <button type="button" className="ml-auto text-xs text-primary underline" onClick={() => setPickingFamily(true)}>{f.familyId ? "เปลี่ยน" : "เลือกครอบครัว"}</button>
+              {f.familyId && <button type="button" className="text-xs text-muted-foreground underline" onClick={() => set("familyId", null)}>เอาออก</button>}
+            </div>
+            {pickingFamily && <CustomerPicker kinds={["family"]} title="เลือกครอบครัว" onClose={() => setPickingFamily(false)} onConfirm={(row) => { set("familyId", row.id); setPickingFamily(false) }} />}
           </Field>
           <label className="flex items-center gap-2 text-sm sm:col-span-2">
             <Checkbox checked={f.usesBus} onCheckedChange={(v) => set("usesBus", !!v)} /> ใช้รถรับส่ง (ใบแจ้งหนี้จะติ๊กค่ารถให้อัตโนมัติ)

@@ -15,6 +15,7 @@ import { daysBetween, endTime, fmtDate, fmtDateTime, fmtMoney, toDateStr } from 
 import * as Att from "@/domain/rules/attendance"
 import { INVOICE_STATUS_LABEL, invoiceTotals } from "@/domain/rules/billing"
 import { can } from "@/domain/rules/permissions"
+import { renewHref } from "@/domain/rules/people"
 import { subjectsOf, workState } from "@/domain/rules/scheduling"
 import type { Entitlement, ID, LogCategory, Session, Student } from "@/domain/types"
 import { report } from "@/lib/feedback"
@@ -23,6 +24,7 @@ import { cn } from "@/lib/utils"
 import { useStore } from "@/store/store"
 import { Pill } from "./badges"
 import { Pager, usePage } from "./data-table"
+import { AssessmentNote } from "./assessment-note"
 import { LeaveDialog } from "./leave-dialog"
 import { PackageBadge } from "./package-badge"
 import { StudentForm } from "./student-form"
@@ -150,6 +152,7 @@ function Overview({ stu, ents, today }: { stu: Student; ents: Entitlement[]; tod
   const sessions = useStore((s) => s.sessions)
   const attendance = useStore((s) => s.attendance)
   const leaves = useStore((s) => s.leaves)
+  const myAssessments = useStore((s) => s.assessments).filter((a) => a.studentId === stu.id).sort((a, b) => a.date.localeCompare(b.date))
   const rawEnts = useStore((s) => s.entitlements)
   const branches = useStore((s) => s.branches)
   const fam = useStore((s) => s.families.find((f) => f.id === stu.familyId))
@@ -182,6 +185,7 @@ function Overview({ stu, ents, today }: { stu: Student; ents: Entitlement[]; tod
         </div>
         {c && <PackageBadge course={c} size="md" />}
         <Pill tone={expired ? "gray" : renewal ? "amber" : "green"}>{expired ? "หมดแล้ว" : renewal ? "Renewal" : "Enroll"}</Pill>
+        {(renewal || expired) && can(me, "billing.manage") && <Button size="xs" variant="outline" nativeButton={false} render={<Link href={renewHref(stu.id, e.id)} />}>ต่ออายุ</Button>}
         <div className="w-40 shrink-0 text-right">
           <p className="text-xs tabular-nums">{p.label}</p>
           <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-muted"><div className={cn("h-full rounded-full", renewal ? "bg-red-600" : "bg-primary")} style={{ width: `${p.ratio * 100}%` }} /></div>
@@ -223,6 +227,12 @@ function Overview({ stu, ents, today }: { stu: Student; ents: Entitlement[]; tod
         </div>
       </section>
 
+      {myAssessments.length > 0 && (
+        <section className="space-y-2 rounded-3xl bg-card p-4 shadow-sm ring-1 ring-foreground/5">
+          <p className="font-semibold">ผลสอบ / ทดลองเรียน</p>
+          {myAssessments.map((a) => <AssessmentNote key={a.id} a={a} editable={can(me, "session.manage")} showWhen />)}
+        </section>
+      )}
       <section className="rounded-3xl bg-card p-4 shadow-sm ring-1 ring-foreground/5">
         <div className="mb-2 flex items-center">
           <p className="font-semibold">ลาพักยาว (ไม่หักโควตา)</p>

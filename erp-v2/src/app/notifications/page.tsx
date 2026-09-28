@@ -19,6 +19,7 @@ import { workState } from "@/domain/rules/scheduling"
 import { useBranch, useEntitlements, useNow } from "@/lib/hooks"
 import { cn } from "@/lib/utils"
 import { useStore } from "@/store/store"
+import { renewHref, studentLabel } from "@/domain/rules/people"
 
 interface Alert {
   key: string
@@ -67,7 +68,8 @@ export default function NotificationsPage() {
       const stu = s.students.find((x) => x.id === e.studentId)
       if (!stu || stu.branchId !== branch.id || e.to < today) return
       const msg = Att.lowBalanceAlert(e, Att.balance(e, s.sessions, s.attendance), today)
-      if (msg) alerts.push({ key: e.id, icon: AlertTriangleIcon, tone: "text-amber-600", title: `${stu.nickname}: ${msg}`, detail: "ติดต่อผู้ปกครองเรื่องต่อคอร์ส → ออกใบแจ้งหนี้", href: `/billing?new=${stu.id}` })
+      const course = s.courses.find((c) => c.id === e.courseId)?.name ?? "คอร์ส"
+      if (msg) alerts.push({ key: e.id, icon: AlertTriangleIcon, tone: "text-amber-600", title: `${studentLabel(stu, s.families.find((f) => f.id === stu.familyId)?.name)}: ${msg}`, detail: `${course} · กดเพื่อออกใบต่ออายุคอร์สนี้`, href: renewHref(stu.id, e.id) })
     })
   }
 

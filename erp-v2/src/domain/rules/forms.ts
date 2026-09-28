@@ -4,11 +4,33 @@
 // liff/form/page.tsx.
 
 import { addDays, at, fromMinutes, overlaps, toMinutes } from "../dates"
-import type { Branch, DateStr, FormOfferSlot, FormType, Holiday, ID, Klass, LeadStage, Session, Staff, TimeStr } from "../types"
+import type { Assessment, Branch, DateStr, FormOfferSlot, FormType, Holiday, ID, Klass, LeadStage, Session, Staff, TimeStr } from "../types"
 import { CAPACITY, hoursFor, isHoliday, slotProblem, teachersOf } from "./scheduling"
 
 export const FORM_TYPE_LABEL: Record<FormType, string> = { test: "สอบวัดระดับ", trial: "ทดลองเรียน" }
-export const APPROVE_STAGE: Record<FormType, LeadStage> = { test: "tested", trial: "trialed" }
+/** approving a form only books the visit — the lead is "นัดสอบ / นัดทดลอง" until the child actually shows up (E2E 2026-09-28) */
+export const APPROVE_STAGE: Record<FormType, LeadStage> = { test: "test_scheduled", trial: "trial_scheduled" }
+/** marked "มา" in that session → the test/trial really happened */
+export const ATTENDED_STAGE: Record<FormType, LeadStage> = { test: "tested", trial: "trialed" }
+
+/** "สอบวัดระดับ" / "ทดลองเรียน" for a session, or null for a normal class session */
+export function sessionKindLabel(s: Pick<Session, "trial" | "assessment">): string | null {
+  if (s.assessment) return FORM_TYPE_LABEL[s.assessment]
+  return s.trial ? "ทดลองเรียน" : null
+}
+
+/** the student's test/trial in this session, if any (also covers a trial inside a real class session) */
+export function assessmentIn(sessionId: ID, studentId: ID, all: Assessment[]) {
+  return all.find((a) => a.sessionId === sessionId && a.studentId === studentId)
+}
+
+/**
+ * Flow is Test → Trial → Invoice, and the parent picks the start date only after both (owner 2026-09-28):
+ * paid classes must start after the last test/trial, so a trial session is never billed.
+ */
+export function lastAssessmentDate(studentId: ID, all: Assessment[]): DateStr | null {
+  return all.filter((a) => a.studentId === studentId).reduce<DateStr | null>((m, a) => (!m || a.date > m ? a.date : m), null)
+}
 
 /** Every whole-hour start inside the branch's opening hours that day (owner 2026-09-28: free slots
  *  come from real availability, not a fixed list) — closing time is filtered later by slotProblem. */
@@ -100,7 +122,7 @@ export function findOfferSlots(params: {
 
 /** Maps an approved "generic" slot to a Session draft ready for store.addSession — trial:true
  *  for both form types since both precede payment. */
-export function buildSessionDraftFromSlot(slot: FormOfferSlot, subject: string, branchId: ID, studentId: ID): Omit<Session, "id" | "customized" | "cancelled"> {
+export function buildSessionDraftFromSlot(slot: FormOfferSlot, subject: string, branchId: ID, studentId: ID, type: FormType): Omit<Session, "id" | "customized" | "cancelled"> {
   return {
     branchId,
     classId: null,
@@ -113,6 +135,7 @@ export function buildSessionDraftFromSlot(slot: FormOfferSlot, subject: string, 
     roomId: slot.roomId,
     studentIds: [studentId],
     trial: true,
+    assessment: type,
   }
 }
 
@@ -127,6 +150,7 @@ export function buildCombinedSessionDraft(
   studentId: ID,
   branch: Branch,
   sessions: Session[],
+  type: FormType,
 ): Omit<Session, "id" | "customized" | "cancelled"> | null {
   if (picks.length < 2) return null
   if (picks.some((p) => p.slot.source !== "generic")) return null
@@ -145,5 +169,6 @@ export function buildCombinedSessionDraft(
     roomId,
     studentIds: [studentId],
     trial: true,
+    assessment: type,
   }
 }

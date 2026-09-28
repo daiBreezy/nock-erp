@@ -13,9 +13,9 @@ import { useBranch, useNow } from "@/lib/hooks"
 import { useStore } from "@/store/store"
 import { NativeSelect } from "../app/native-select"
 
-const SOURCES: Lead["source"][] = ["line", "walkin", "website", "referral", "other"]
+const SOURCES: Lead["source"][] = ["line", "walkin", "phone", "website", "referral", "other"]
 
-export function LeadDialog({ onClose, initialName, onSaved }: { onClose: () => void; initialName?: string; onSaved?: (lead: Lead) => void }) {
+export function LeadDialog({ onClose, initialName, initial, onSaved }: { onClose: () => void; initialName?: string; initial?: Partial<Pick<Lead, "source" | "assigneeId">>; onSaved?: (lead: Lead) => void }) {
   const branch = useBranch()
   const staff = useStore((s) => s.staff)
   const saveLead = useStore((s) => s.saveLead)
@@ -24,10 +24,10 @@ export function LeadDialog({ onClose, initialName, onSaved }: { onClose: () => v
   const [name, setName] = useState(initialName ?? "")
   const [childGrade, setChildGrade] = useState(branch.grades[0] ?? "")
   const [subject, setSubject] = useState(branch.subjects[0] ?? "")
-  const [source, setSource] = useState<Lead["source"]>("line")
+  const [source, setSource] = useState<Lead["source"]>(initial?.source ?? "line")
   const [phone, setPhone] = useState("")
   const [lineId, setLineId] = useState("")
-  const [assigneeId, setAssigneeId] = useState("")
+  const [assigneeId, setAssigneeId] = useState(initial?.assigneeId ?? "")
 
   const assignable = staff.filter((s) => s.active && s.branchIds.includes(branch.id) && can(s, "lead.manage"))
 

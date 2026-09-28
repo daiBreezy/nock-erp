@@ -1,7 +1,9 @@
 "use client"
 
+import Link from "next/link"
 import { useEffect, useState } from "react"
-import { ArchiveIcon, CheckIcon, PhoneIcon, RotateCcwIcon, SendIcon, UserCheckIcon } from "lucide-react"
+import { ArchiveIcon, CheckIcon, PhoneIcon, ReceiptIcon, RotateCcwIcon, SendIcon, UserCheckIcon } from "lucide-react"
+import { AssessmentNote } from "@/components/app/assessment-note"
 import { Pill } from "@/components/app/badges"
 import { avatarTone, gradeTone, initial } from "@/components/app/subject-color"
 import { StudentSheet } from "@/components/app/student-sheet"
@@ -25,10 +27,15 @@ import { useStore } from "@/store/store"
 const NEXT_STAGE: Partial<Record<LeadStage, { stage: LeadStage; label: string }[]>> = {
   new: [{ stage: "contacting", label: "เริ่มติดต่อแล้ว" }],
   contacting: [{ stage: "test_scheduled", label: "นัดสอบวัดระดับ" }, { stage: "trial_scheduled", label: "นัดทดลองเรียน" }],
-  test_scheduled: [{ stage: "tested", label: "สอบแล้ว" }],
-  tested: [{ stage: "trial_scheduled", label: "นัดทดลองเรียน" }, { stage: "payment_pending", label: "พร้อมสมัคร → รอชำระเงิน" }],
-  trial_scheduled: [{ stage: "trialed", label: "ทดลองเรียนแล้ว" }],
-  trialed: [{ stage: "payment_pending", label: "พร้อมสมัคร → รอชำระเงิน" }],
+}
+
+/** Stages that now move by themselves (E2E 2026-09-28) — the sheet says what will move them instead of a button. */
+const AUTO_HINT: Partial<Record<LeadStage, string>> = {
+  test_scheduled: "เช็คชื่อ “มา” ในคาบสอบ → เป็น “สอบแล้ว” เอง",
+  tested: "ส่งฟอร์มทดลองเรียนด้านล่าง",
+  trial_scheduled: "เช็คชื่อ “มา” ในคาบทดลอง → เป็น “ทดลองเรียนแล้ว” เอง",
+  trialed: "ผู้ปกครองเลือกวันเริ่มเรียนแล้ว → ออกใบแจ้งหนี้ · ส่งแล้วเป็น “รอชำระเงิน” เอง",
+  payment_pending: "ยืนยันยอดเงินครบ → เป็นนักเรียน (“ลงทะเบียนแล้ว”) เอง พร้อมส่งใบเสร็จทาง LINE",
 }
 
 export function LeadSheet({ leadId, onClose }: { leadId: ID | null; onClose: () => void }) {
@@ -52,6 +59,7 @@ function Body({ id }: { id: ID }) {
   const [openStudentId, setOpenStudentId] = useState<ID | null>(null)
   const [submissions, setSubmissions] = useState<FormSubmission[]>([])
   const [sendingFormOpen, setSendingFormOpen] = useState(false)
+  const assessments = useStore((s) => s.assessments)
 
   const pollSubmissions = () => fetch("/api/forms/submissions").then((r) => r.json()).then((d) => setSubmissions(d.submissions ?? [])).catch(() => {})
   useEffect(() => {
@@ -63,6 +71,7 @@ function Body({ id }: { id: ID }) {
   }, [])
 
   if (!lead) return null
+  const myAssessments = assessments.filter((a) => a.leadId === lead.id).sort((a, b) => a.date.localeCompare(b.date))
   const mySubmissions = submissions.filter((s) => s.leadId === lead.id)
   const pending = mySubmissions.filter((s) => s.status === "pending")
 
@@ -104,18 +113,30 @@ function Body({ id }: { id: ID }) {
                   <CheckIcon /> {n.label}
                 </Button>
               ))}
-              {lead.stage === "payment_pending" && (
-                <Button size="sm" onClick={() => { const r = convert(lead.id); if (report(r, "แปลงเป็นนักเรียนแล้ว — สร้างครอบครัว + ผูก LINE ผู้ปกครองให้แล้ว")) setOpenStudentId(r.ok ? r.value.studentId : null) }}>
-                  <UserCheckIcon /> แปลงเป็นนักเรียน
+              {lead.trialStudentId ? (
+                <>
+                  <Button size="sm" variant="outline" onClick={() => setOpenStudentId(lead.trialStudentId!)}>เปิดโปรไฟล์นักเรียน</Button>
+                  {can(me, "billing.manage") && <Button size="sm" nativeButton={false} render={<Link href={`/billing?new=${lead.trialStudentId}`} />}><ReceiptIcon /> ออกใบแจ้งหนี้</Button>}
+                </>
+              ) : (
+                <Button size="sm" variant="outline" onClick={() => { const r = convert(lead.id); if (report(r, "สร้างนักเรียน + ครอบครัวแล้ว — ออกใบแจ้งหนี้ได้เลย")) setOpenStudentId(r.ok ? r.value.studentId : null) }}>
+                  <UserCheckIcon /> สร้างนักเรียน (ข้ามสอบ/ทดลอง)
                 </Button>
               )}
             </div>
+            {AUTO_HINT[lead.stage] && <p className="text-xs text-muted-foreground">อัตโนมัติ: {AUTO_HINT[lead.stage]}</p>}
           </Section>
         )}
 
         {lead.stage === "enrolled" && lead.convertedStudentId && (
           <Section title="นักเรียน">
             <Button size="sm" variant="outline" onClick={() => setOpenStudentId(lead.convertedStudentId!)}>เปิดโปรไฟล์นักเรียน</Button>
+          </Section>
+        )}
+
+        {myAssessments.length > 0 && (
+          <Section title="ผลสอบ / ทดลองเรียน">
+            <div className="space-y-2">{myAssessments.map((a) => <AssessmentNote key={a.id} a={a} editable={canManage} showWhen />)}</div>
           </Section>
         )}
 

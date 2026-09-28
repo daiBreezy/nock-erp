@@ -13,9 +13,9 @@ import { useStore } from "@/store/store"
 import { Field } from "./student-form"
 
 /** Shared with families/page.tsx and the Inbox "create family from this conversation" flow. */
-export function FamilyForm({ family, initialName, onClose, onSaved }: { family?: Family; initialName?: string; onClose: () => void; onSaved?: (f: Family) => void }) {
+export function FamilyForm({ family, initialName, initialParent, onClose, onSaved }: { family?: Family; initialName?: string; initialParent?: { name: string; phone?: string }; onClose: () => void; onSaved?: (f: Family) => void }) {
   const save = useStore((s) => s.saveFamily)
-  const [f, setF] = useState<Family>(family ?? { id: uid("fa"), name: initialName ?? "", parents: [{ name: "", phone: "", lineLinked: false, primary: true }] })
+  const [f, setF] = useState<Family>(family ?? { id: uid("fa"), name: initialName ?? "", parents: [{ name: initialParent?.name ?? "", phone: initialParent?.phone ?? "", lineLinked: false, primary: true }] })
   const [touched, setTouched] = useState(false)
   const errs = validateFamily(f)
   const err = (field: string) => touched && errs.find((e) => e.field === field)?.message

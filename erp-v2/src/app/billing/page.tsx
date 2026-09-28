@@ -44,6 +44,7 @@ function BillingPage() {
   // ?new=<studentId> opens the editor pre-filled (from the student panel)
   const [editing, setEditing] = useState<Invoice | "new" | null>(() => (params.get("new") ? "new" : null))
   const presetStudent = params.get("new") ?? undefined
+  const renewFrom = params.get("renew") ?? undefined
 
   const ctx = { branch, courses, classes, holidays }
   const rows = invoices
@@ -119,6 +120,7 @@ function BillingPage() {
             <span className="flex flex-wrap gap-1">
               <Pill tone={invoiceTone(inv)}>{inv.pdf === "generating" ? "กำลังสร้าง PDF" : inv.pdf === "failed" ? "PDF ไม่สำเร็จ" : Bill.INVOICE_STATUS_LABEL[inv.status]}</Pill>
               {inv.delivery === "no_line" && <Pill tone="amber">ไม่ถึงผู้ปกครอง</Pill>}
+              {inv.delivery === "failed" && <Pill tone="red">ส่ง LINE ไม่สำเร็จ</Pill>}
               {toConfirm && <Pill tone="violet">รอยืนยันเงิน</Pill>}
             </span>
           </button>
@@ -130,6 +132,7 @@ function BillingPage() {
         <InvoiceEditor
           invoice={editing === "new" ? undefined : editing}
           defaultStudentId={editing === "new" ? presetStudent : undefined}
+          renewEntitlementId={editing === "new" ? renewFrom : undefined}
           onClose={() => setEditing(null)}
           onSaved={(inv) => { setEditing(null); setOpenId(inv.id) }}
         />

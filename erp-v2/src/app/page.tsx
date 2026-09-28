@@ -14,6 +14,8 @@ import { findConflicts, sessionState } from "@/domain/rules/scheduling"
 import { useBranch, useEntitlements, useLookup, useNow } from "@/lib/hooks"
 import { cn } from "@/lib/utils"
 import { useStore } from "@/store/store"
+import { sessionKindLabel } from "@/domain/rules/forms"
+import { renewHref, studentLabel } from "@/domain/rules/people"
 
 export default function TodayPage() {
   const now = useNow()
@@ -27,6 +29,8 @@ export default function TodayPage() {
   const entitlements = useEntitlements()
   const staff = useStore((s) => s.staff)
   const students = useStore((s) => s.students)
+  const families = useStore((s) => s.families)
+  const courses = useStore((s) => s.courses)
   const L = useLookup()
   const [openId, setOpenId] = useState<string | null>(null)
 
@@ -73,7 +77,8 @@ export default function TodayPage() {
       const stu = students.find((x) => x.id === e.studentId)
       if (!stu || stu.branchId !== branch.id || e.to < today) return
       const msg = Att.lowBalanceAlert(e, Att.balance(e, sessions, attendance), today)
-      if (msg) out.push({ key: `e${e.id}`, text: `${stu.nickname}: ${msg}`, href: "/students" })
+      const course = courses.find((c) => c.id === e.courseId)?.name
+      if (msg) out.push({ key: `e${e.id}`, text: `ต่ออายุ ${studentLabel(stu, families.find((f) => f.id === stu.familyId)?.name)} · ${course ?? "คอร์ส"}: ${msg}`, href: renewHref(stu.id, e.id) })
     })
     return out
   })()
@@ -103,7 +108,7 @@ export default function TodayPage() {
                     <div className="text-xs text-muted-foreground">{endTime(s.start, s.minutes)}</div>
                   </div>
                   <div className="min-w-0 flex-1">
-                    <div className="truncate text-sm font-medium">{s.subject}{s.trial && <Pill tone="violet" className="ml-2">ทดลอง</Pill>}</div>
+                    <div className="truncate text-sm font-medium">{s.subject}{sessionKindLabel(s) && <Pill tone="violet" className="ml-2">{sessionKindLabel(s)}</Pill>}</div>
                     <div className="truncate text-xs text-muted-foreground">
                       <span className={cn(t.missing && "text-amber-700")}>{t.label}</span> · {L.room(s.roomId)} · เช็คชื่อแล้ว {marked}/{s.studentIds.length}
                     </div>

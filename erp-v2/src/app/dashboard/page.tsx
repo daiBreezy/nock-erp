@@ -39,7 +39,7 @@ export default function DashboardPage() {
     .filter((s) => statusOf.get(s.id) === "renewal")
     .map((stu) => {
       const ents = entitlements.filter((e) => e.studentId === stu.id && e.to >= today)
-      const messages = ents.map((e) => Att.lowBalanceAlert(e, Att.balance(e, sessions, attendance), today)).filter((m): m is string => !!m)
+      const messages = ents.map((e) => { const m = Att.lowBalanceAlert(e, Att.balance(e, sessions, attendance), today); return m && `${courses.find((c) => c.id === e.courseId)?.name ?? "คอร์ส"}: ${m}` }).filter((m): m is string => !!m)
       const urgent = ents.some((e) => e.kind === "sessions" && Att.balance(e, sessions, attendance).remaining <= 1) || ents.some((e) => e.to <= fmtDateOffset(today, 2))
       return { stu, messages, urgent }
     })
@@ -91,7 +91,7 @@ export default function DashboardPage() {
               <button key={stu.id} onClick={() => setOpenId(stu.id)} className="flex w-full items-center gap-3 rounded-lg border p-2.5 text-left hover:bg-muted/50">
                 <span className={cn("grid size-9 shrink-0 place-items-center rounded-full text-sm font-semibold", avatarTone(stu.id))}>{initial(stu.nickname)}</span>
                 <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-1.5 truncate text-sm font-medium">{stu.nickname} <span className={cn("rounded px-1.5 py-0.5 text-xs", gradeTone(stu.grade))}>{stu.grade}</span></div>
+                  <div className="flex items-center gap-1.5 truncate text-sm font-medium">{stu.nickname} <span className="font-normal text-muted-foreground">{stu.name}</span> <span className={cn("rounded px-1.5 py-0.5 text-xs", gradeTone(stu.grade))}>{stu.grade}</span></div>
                   <div className="truncate text-xs text-muted-foreground">{messages.join(" · ") || "ใกล้หมดแพ็กเกจ"}</div>
                 </div>
                 {urgent && <Pill tone="red">ด่วน</Pill>}

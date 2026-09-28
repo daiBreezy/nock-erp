@@ -19,7 +19,9 @@ import * as Forms from "@/domain/rules/forms"
 import * as CourseR from "@/domain/rules/course"
 import * as Notif from "@/domain/rules/notifications"
 import * as Cfg from "@/domain/rules/settings"
-import type { AttendanceStatus, Branch, ChatMessage, Conversation, Course, DateStr, Family, FormSubmission, Holiday, ID, Invoice, Klass, Lead, LeadStage, LessonSummary, LogCategory, Result, Session, Staff, Student, SystemConfig } from "@/domain/types"
+import * as Msg from "@/domain/rules/messages"
+import { toast } from "sonner"
+import type { Assessment, AttendanceStatus, Branch, ChatMessage, Conversation, Course, DateStr, Family, FormSubmission, Holiday, ID, Invoice, Klass, Lead, LeadStage, LessonSummary, LineDelivery, LogCategory, Result, Session, Staff, Student, SystemConfig } from "@/domain/types"
 
 export interface UIState {
   userId: ID
@@ -95,14 +97,18 @@ type Store = DB & UIState & {
   approveInvoice: (id: ID, forceRemark?: string) => Result
   sendInvoice: (id: ID, note: string) => Result<{ delivered: boolean }>
   voidInvoice: (id: ID, reason: string) => Result
-  recordPayment: (id: ID, p: { amount: number; method: "transfer" | "cash"; reference: string }) => Result
+  recordPayment: (id: ID, p: { amount: number; method: "transfer" | "cash"; reference: string; slip?: string }) => Result
   confirmPayment: (invoiceId: ID, paymentId: ID, forceRemark?: string) => Result<{ paid: boolean }>
 
   saveLead: (l: Lead) => Result<Lead>
   moveLeadStage: (id: ID, stage: LeadStage) => Result
   addLeadNote: (id: ID, text: string) => Result
   archiveLead: (id: ID, reason: string) => Result
+  /** creates the lead's student + family (if no test/trial did yet) so an invoice can be issued — the lead becomes
+   *  "ลงทะเบียนแล้ว" by itself when that invoice's payment is confirmed */
   convertLeadToStudent: (id: ID) => Result<{ studentId: ID }>
+  /** teacher/office note on a test or trial — optional, always available (owner 2026-09-28) */
+  saveAssessmentNote: (id: ID, patch: { result: string; note: string }) => Result
   /** books an approved Test/Trial submission's chosen slot as a real, conflict-checked Session (or joins an existing class's session);
    *  pass 2+ same-lead, same-date/time, generic-source submissions together to merge them into one shared 2-hour room block */
   approveTestTrialSubmission: (subs: FormSubmission[]) => Result<{ sessionId: ID; studentId: ID }>
@@ -165,6 +171,24 @@ export const useStore = create<Store>()(
       /** append to the audit trail — every change touching a student goes through here */
       const log = (category: LogCategory, studentIds: ID[], action: string, detail: string, system = false) =>
         set((st) => ({ logs: [{ id: uid("lg"), at: st.now().toISOString(), by: system ? null : st.userId, category, studentIds, action, detail }, ...st.logs] }))
+      /** real LINE push to a family (E2E 2026-09-28). Families from the seed have no LINE user id — their
+       *  "LINE แล้ว" is a demo flag, so they stay simulated. Returns immediately; `done` runs when LINE answers. */
+      const pushLine = (familyId: ID | null | undefined, text: string, done: (ok: boolean, error?: string) => void): LineDelivery => {
+        const fam = get().families.find((f) => f.id === familyId)
+        if (fam?.lineUserId) {
+          fetch("/api/line/send", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ conversationId: `line_${fam.lineUserId}`, text }) })
+            .then((r) => r.json())
+            .then((d: { ok: boolean; error?: string }) => done(d.ok, d.error))
+            .catch(() => done(false, "เรียก LINE API ไม่ได้"))
+          return "sending"
+        }
+        return fam?.parents.some((p) => p.lineLinked) ? "delivered" : "no_line"
+      }
+      /** lead whose child this student is (created at test/trial approval or for the first invoice) */
+      const leadOfStudent = (studentId: ID) => get().leads.find((l) => l.trialStudentId === studentId || l.convertedStudentId === studentId)
+      const advanceLead = (leadId: ID, stage: LeadStage, extra: Partial<Lead> = {}) =>
+        set((cur) => ({ leads: cur.leads.map((l) => (l.id === leadId ? { ...l, ...extra, stage: CRM.advanceStage(l.stage, stage) } : l)) }))
+
       /** the lead's family: reuse one already on the same LINE (siblings), else create it from the lead;
        *  the lead's chats become that family's chats so invoices/summaries reach the same LINE */
       const ensureLeadFamily = (lead: Lead, child: { studentName: string; parentName?: string; parentPhone?: string }): ID => {
@@ -707,6 +731,9 @@ export const useStore = create<Store>()(
         const before = s.attendance.find((a) => a.sessionId === sessionId && a.studentId === studentId)
         const L = { present: "มา", absent: "ขาด", leave: "ลา" } as const
         log("attendance", [studentId], before ? "แก้การเช็คชื่อ" : "เช็คชื่อ", `${se.subject} ${fmtDate(se.date)} ${se.start} · ${before ? `${L[before.status]} → ` : ""}${L[status]}`)
+        // the child really came to the test/trial → lead moves on by itself
+        const asm = Forms.assessmentIn(sessionId, studentId, s.assessments)
+        if (asm && status === "present") advanceLead(asm.leadId, Forms.ATTENDED_STAGE[asm.type])
         // C5: leave beyond quota is allowed but flagged (quota rule awaiting owner confirmation)
         if (status === "leave") {
           const ent = Att.coveringEntitlement(studentId, se, s.entitlements)
@@ -824,9 +851,16 @@ export const useStore = create<Store>()(
         const parents = s.families.find((f) => f.id === stu.familyId)?.parents ?? []
         const r = Sum.canSend(cur, parents)
         if (!r.ok) return r
-        if (!r.value.delivered) return fail("ผู้ปกครองยังไม่ได้ผูก LINE — ยังไม่ได้ส่ง (สรุปยังอยู่สถานะอนุมัติแล้ว)")
+        const se = s.sessions.find((x) => x.id === cur.sessionId)!
+        const delivery = pushLine(stu.familyId, Msg.summaryMessage(cur, { student: stu, session: se }), (ok, error) => {
+          if (ok) return log("attendance", [cur.studentId], "ส่งสรุปการเรียน", "ถึงผู้ปกครองทาง LINE แล้ว")
+          // not delivered → back to "approved" so it can be sent again
+          set((st) => ({ summaries: st.summaries.map((x) => (x.id === id ? { ...x, status: "approved", history: x.history.slice(0, -1) } : x)) }))
+          toast.error(`ส่งสรุปของ ${stu.nickname} ทาง LINE ไม่สำเร็จ — ${error ?? ""}`)
+        })
+        if (delivery === "no_line") return fail("ผู้ปกครองยังไม่ได้ผูก LINE — ยังไม่ได้ส่ง (สรุปยังอยู่สถานะอนุมัติแล้ว)")
         set({ summaries: s.summaries.map((x) => (x.id === id ? { ...x, status: "sent", history: [...x.history, { at: s.now().toISOString(), by: s.userId, action: "send" }] } : x)) })
-        log("attendance", [cur.studentId], "ส่งสรุปการเรียน", "ส่งถึงผู้ปกครองทาง LINE")
+        if (delivery === "delivered") log("attendance", [cur.studentId], "ส่งสรุปการเรียน", "ส่งถึงผู้ปกครองทาง LINE")
         return { ok: true, value: { delivered: true } }
       },
 
@@ -838,7 +872,7 @@ export const useStore = create<Store>()(
         const existing = s.invoices.find((x) => x.id === inv.id)
         if (existing && existing.status !== "draft" && existing.status !== "pending_approval") return fail("แก้ได้เฉพาะใบที่ยังไม่อนุมัติ")
         const totals = Bill.invoiceTotals(inv, ctxOf(s, inv.branchId))
-        const errs = Bill.validateInvoiceDraft(inv, totals)
+        const errs = Bill.validateInvoiceDraft(inv, totals, { lastAssessment: Forms.lastAssessmentDate(inv.studentId, s.assessments) })
         if (errs.length) return fail(errs[0])
         // editing a generated invoice sends it back to draft (needs new PDF + approval)
         const next: Invoice = existing && existing.status === "pending_approval" ? { ...inv, status: "draft", pdf: "none" } : { ...inv, status: "draft" }
@@ -887,10 +921,19 @@ export const useStore = create<Store>()(
         const r = Bill.canSend(inv)
         if (!r.ok) return r
         const stu = s.students.find((x) => x.id === inv.studentId)!
-        const delivered = (s.families.find((f) => f.id === stu.familyId)?.parents ?? []).some((p) => p.lineLinked) && s.branches.find((b) => b.id === inv.branchId)!.lineOaConnected
-        set({ invoices: s.invoices.map((x) => (x.id === id ? { ...inv, status: "sent", sentAt: s.now().toISOString(), delivery: delivered ? "delivered" : "no_line" } : x)) })
-        log("billing", [inv.studentId], "ส่งใบแจ้งหนี้", `${inv.number} · ${delivered ? "ส่งทาง LINE แล้ว" : "ยังไม่ถึงผู้ปกครอง (ไม่มี LINE)"}`)
-        return { ok: true, value: { delivered } }
+        const ctx = ctxOf(s, inv.branchId)
+        const text = Msg.invoiceMessage(inv, Bill.invoiceTotals(inv, ctx), { student: stu, course: s.courses.find((c) => c.id === inv.course?.courseId), branch: ctx.branch })
+        const delivery = pushLine(stu.familyId, text, (ok, error) => {
+          set((st) => ({ invoices: st.invoices.map((x) => (x.id === id ? { ...x, delivery: ok ? "delivered" : "failed", deliveryError: ok ? undefined : error } : x)) }))
+          log("billing", [inv.studentId], "ส่งใบแจ้งหนี้", `${inv.number} · ${ok ? "ถึงผู้ปกครองทาง LINE แล้ว" : `ส่ง LINE ไม่สำเร็จ: ${error ?? ""}`}`)
+          if (!ok) toast.error(`ส่งใบแจ้งหนี้ ${inv.number} ทาง LINE ไม่สำเร็จ — ${error ?? ""}`)
+        })
+        set({ invoices: s.invoices.map((x) => (x.id === id ? { ...inv, status: "sent", sentAt: s.now().toISOString(), delivery, deliveryError: undefined } : x)) })
+        if (delivery !== "sending") log("billing", [inv.studentId], "ส่งใบแจ้งหนี้", `${inv.number} · ${delivery === "delivered" ? "ส่งทาง LINE แล้ว" : "ยังไม่ถึงผู้ปกครอง (ไม่มี LINE)"}`)
+        // lead's child got an invoice → the lead is waiting for payment
+        const lead = leadOfStudent(inv.studentId)
+        if (lead) advanceLead(lead.id, "payment_pending")
+        return { ok: true, value: { delivered: delivery !== "no_line" } }
       },
 
       voidInvoice: (id, reason) => {
@@ -949,7 +992,29 @@ export const useStore = create<Store>()(
         }
         set({ invoices: s.invoices.map((x) => (x.id === invoiceId ? next : x)), entitlements, classes, sessions })
         log("billing", [inv.studentId], forced ? "Force ยืนยันยอดเงิน" : "ยืนยันยอดเงิน", `${inv.number} · ${fmtMoney(pay.amount)}${forced ? ` · เหตุผล: ${forceRemark!.trim()}` : ""}`)
-        if (paid) log("billing", [inv.studentId], "ชำระครบ", `${inv.number} · ออกใบเสร็จ ${next.receiptNumber}${inv.course ? " · ระบบเพิ่มเข้าคลาสอัตโนมัติ" : ""}`, true)
+        if (paid) {
+          log("billing", [inv.studentId], "ชำระครบ", `${inv.number} · ออกใบเสร็จ ${next.receiptNumber}${inv.course ? " · ระบบเพิ่มเข้าคลาสอัตโนมัติ" : ""}`, true)
+          // payment confirmed = the lead is a student now — nobody has to press "convert" (owner 2026-09-28)
+          const lead = leadOfStudent(inv.studentId)
+          if (lead && lead.stage !== "enrolled") {
+            const stu = get().students.find((x) => x.id === inv.studentId)!
+            if (!stu.familyId) {
+              const familyId = ensureLeadFamily(lead, { studentName: stu.name })
+              set((cur) => ({ students: cur.students.map((x) => (x.id === stu.id ? { ...x, familyId } : x)) }))
+            }
+            set((cur) => ({ leads: cur.leads.map((l) => (l.id === lead.id ? { ...l, stage: "enrolled", convertedStudentId: inv.studentId } : l)) }))
+            log("profile", [inv.studentId], "ลงทะเบียนเป็นนักเรียน", `อัตโนมัติจากการยืนยันยอด ${inv.number} · Lead ${lead.name}`, true)
+          }
+          // receipt goes to the parent by itself
+          const st = get()
+          const stu = st.students.find((x) => x.id === inv.studentId)!
+          const first = inv.course && totals.quote ? st.sessions.find((x) => x.classId === inv.course!.classId && x.date === totals.quote!.sessions[0]) : undefined
+          const receiptDelivery = pushLine(stu.familyId, Msg.receiptMessage(next, totals.total, { student: stu, firstSession: first }), (ok, error) => {
+            set((cur) => ({ invoices: cur.invoices.map((x) => (x.id === invoiceId ? { ...x, receiptDelivery: ok ? "delivered" : "failed" } : x)) }))
+            if (!ok) toast.error(`ส่งใบเสร็จ ${next.receiptNumber} ทาง LINE ไม่สำเร็จ — ${error ?? ""}`)
+          })
+          set((cur) => ({ invoices: cur.invoices.map((x) => (x.id === invoiceId ? { ...x, receiptDelivery } : x)) }))
+        }
         return { ok: true, value: { paid } }
       },
 
@@ -1003,7 +1068,7 @@ export const useStore = create<Store>()(
         if (!perm.ok) return perm
         const lead = s.leads.find((x) => x.id === id)
         if (!lead) return fail("ไม่พบ Lead นี้")
-        if (lead.stage === "enrolled") return fail("แปลงเป็นนักเรียนไปแล้ว")
+        if (lead.stage === "enrolled") return fail("เป็นนักเรียนแล้ว")
         const trial = lead.trialStudentId ? s.students.find((x) => x.id === lead.trialStudentId) : undefined
         let studentId: ID
         if (trial) {
@@ -1021,9 +1086,21 @@ export const useStore = create<Store>()(
           studentId = student.id
           set((cur) => ({ students: [...cur.students, student] }))
         }
-        set((cur) => ({ leads: cur.leads.map((x) => (x.id === id ? { ...x, stage: "enrolled", convertedStudentId: studentId } : x)) }))
-        log("profile", [studentId], "แปลงจาก Lead", `${lead.name} · ${lead.phone}`)
+        set((cur) => ({ leads: cur.leads.map((x) => (x.id === id ? { ...x, trialStudentId: studentId } : x)) }))
+        if (!trial) log("profile", [studentId], "สร้างนักเรียนจาก Lead", `${lead.name} · ${lead.phone}`)
         return { ok: true, value: { studentId } }
+      },
+
+      saveAssessmentNote: (id, patch) => {
+        const s = get()
+        const a = s.assessments.find((x) => x.id === id)
+        if (!a) return fail("ไม่พบข้อมูลสอบ/ทดลองเรียน")
+        const se = s.sessions.find((x) => x.id === a.sessionId)
+        const me = s.me()
+        if (!can(me, "session.manage") && se?.teacherId !== me.id && !se?.coTeacherIds.includes(me.id)) return fail("บันทึกได้เฉพาะครูของคาบนี้หรือทีมสาขา")
+        set({ assessments: s.assessments.map((x) => (x.id === id ? { ...x, result: patch.result.trim() || undefined, note: patch.note.trim() || undefined, notedBy: s.userId, notedAt: s.now().toISOString() } : x)) })
+        log("attendance", [a.studentId], `บันทึกผล${Forms.FORM_TYPE_LABEL[a.type]}`, [patch.result.trim(), patch.note.trim()].filter(Boolean).join(" · ") || "ล้างบันทึก")
+        return OK
       },
 
       approveTestTrialSubmission: (subs) => {
@@ -1051,7 +1128,7 @@ export const useStore = create<Store>()(
         if (subs.length >= 2) {
           // 2+ subjects picked for the same date+time — one shared 2-hour room block, not one per subject
           const branch = s.branches.find((b) => b.id === lead.branchId)!
-          const draft = Forms.buildCombinedSessionDraft(subs.map((sub) => ({ subject: sub.chosenSubject, slot: sub.chosenSlot })), lead.branchId, studentId, branch, s.sessions)
+          const draft = Forms.buildCombinedSessionDraft(subs.map((sub) => ({ subject: sub.chosenSubject, slot: sub.chosenSlot })), lead.branchId, studentId, branch, s.sessions, primary.type)
           if (!draft) return fail("รวมช่วงเวลานี้เป็นคาบเดียวไม่ได้")
           const r = get().addSession(draft)
           if (!r.ok) return r
@@ -1061,17 +1138,17 @@ export const useStore = create<Store>()(
           if (!r.ok) return r
           sessionId = primary.chosenSlot.sessionId!
         } else {
-          const draft = Forms.buildSessionDraftFromSlot(primary.chosenSlot, primary.chosenSubject, lead.branchId, studentId)
+          const draft = Forms.buildSessionDraftFromSlot(primary.chosenSlot, primary.chosenSubject, lead.branchId, studentId, primary.type)
           const r = get().addSession(draft)
           if (!r.ok) return r
           sessionId = r.value.id
         }
 
-        const stage = Forms.APPROVE_STAGE[primary.type]
-        const guard = CRM.canSetStage(lead.stage, stage)
-        set((cur) => ({
-          leads: cur.leads.map((x) => (x.id === lead.id ? { ...x, trialStudentId: studentId, stage: guard.ok ? stage : x.stage } : x)),
-        }))
+        const booked = get().sessions.find((x) => x.id === sessionId)!
+        const assessments: Assessment[] = subs.map((sub) => ({ id: uid("as"), type: sub.type, leadId: lead.id, studentId: studentId!, sessionId, subject: sub.chosenSubject, date: booked.date, start: booked.start }))
+        set((cur) => ({ assessments: [...cur.assessments, ...assessments] }))
+        advanceLead(lead.id, Forms.APPROVE_STAGE[primary.type], { trialStudentId: studentId, scheduledAt: at(booked.date, booked.start).toISOString() })
+        log("class", [studentId], `นัด${Forms.FORM_TYPE_LABEL[primary.type]}`, `${subs.map((x) => x.chosenSubject).join(" + ")} · ${fmtDate(booked.date, { weekday: true })} ${booked.start}`)
         return { ok: true, value: { sessionId, studentId } }
       },
 
@@ -1192,8 +1269,9 @@ export const useStore = create<Store>()(
         if (!lead) return fail("ไม่พบ Lead นี้")
         const lineUserId = conversationId.startsWith("line_") ? conversationId.slice(5) : undefined
         set({
-          conversations: s.conversations.map((c) => (c.id === conversationId ? { ...c, leadId, familyId: null, name: lead.name } : c)),
-          leads: lineUserId ? s.leads.map((l) => (l.id === leadId ? { ...l, lineUserId } : l)) : s.leads,
+          // one owner for the chat and the lead: whichever side already has one fills the other
+          conversations: s.conversations.map((c) => (c.id === conversationId ? { ...c, leadId, familyId: null, name: lead.name, assigneeId: c.assigneeId ?? lead.assigneeId } : c)),
+          leads: s.leads.map((l) => (l.id === leadId ? { ...l, lineUserId: lineUserId ?? l.lineUserId, assigneeId: l.assigneeId ?? conv.assigneeId } : l)),
         })
         return OK
       },
@@ -1202,7 +1280,7 @@ export const useStore = create<Store>()(
     {
       name: "nockerp-v2",
       // bump when the data model changes; older saved data is replaced by fresh sample data
-      version: 26,
+      version: 27,
       migrate: () => ({ ...buildSeed(), userId: "u_nock", branchId: "br_thl", clockOffset: 0 }) as unknown as Store,
       // persist data + UI state only, never the action functions
       partialize: (s) => Object.fromEntries(Object.entries(s).filter(([, v]) => typeof v !== "function")) as Partial<Store>,

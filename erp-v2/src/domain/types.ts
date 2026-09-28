@@ -239,7 +239,10 @@ export interface Session {
   coTeacherIds: ID[]
   roomId: ID | null
   studentIds: ID[]
+  /** no package used — test/trial or other free session */
   trial: boolean
+  /** set on a session booked from a Test/Trial form so it reads "สอบวัดระดับ" or "ทดลองเรียน", never mixed up */
+  assessment?: FormType
   /** edited individually — class-level edits no longer overwrite it */
   customized: boolean
   cancelled: boolean
@@ -350,6 +353,24 @@ export interface ActivityLog {
   detail: string
 }
 
+/** One placement Test or Trial a lead's child attends (owner 2026-09-28: always a place for the teacher to note
+ *  the result — optional to fill — kept as data for evaluation). Also marks the student as test/trial in a joined class session. */
+export interface Assessment {
+  id: ID
+  type: FormType
+  leadId: ID
+  studentId: ID
+  sessionId: ID
+  subject: string
+  date: DateStr
+  start: TimeStr
+  /** short result line, e.g. "ระดับ ป.5 · 18/25" */
+  result?: string
+  note?: string
+  notedBy?: ID
+  notedAt?: string
+}
+
 export type EntitlementKind = "subscription" | "sessions"
 
 export interface Entitlement {
@@ -374,7 +395,7 @@ export type LeadStage =
   | "trial_scheduled" | "trialed"
   | "payment_pending" | "enrolled" | "archived"
 
-export type LeadSource = "line" | "walkin" | "website" | "referral" | "other"
+export type LeadSource = "line" | "walkin" | "phone" | "website" | "referral" | "other"
 
 export interface LeadNote {
   at: string
@@ -498,11 +519,17 @@ export interface Invoice {
   /** set when the approver skipped maker–checker (approved their own invoice) — remark is mandatory */
   forced?: ForcedAction
   sentAt?: string
-  delivery?: "delivered" | "no_line"
+  /** real LINE push (E2E 2026-09-28): sending → delivered / failed · no_line = family has no LINE */
+  delivery?: LineDelivery
+  deliveryError?: string
   voidReason?: string
   payments: Payment[]
   receiptNumber?: string
+  /** the receipt message to the parent, pushed automatically when the invoice becomes paid */
+  receiptDelivery?: LineDelivery
 }
+
+export type LineDelivery = "sending" | "delivered" | "failed" | "no_line"
 
 export type InvoiceStatus = "draft" | "pending_approval" | "approved" | "sent" | "paid" | "void"
 
@@ -513,6 +540,8 @@ export interface Payment {
   reference: string
   recordedBy: ID
   recordedAt: string
+  /** pay-slip image (downscaled JPEG data URL — prototype has no file storage) */
+  slip?: string
   confirmedBy?: ID
   /** set when the recorder confirmed their own payment (Force) */
   forced?: ForcedAction

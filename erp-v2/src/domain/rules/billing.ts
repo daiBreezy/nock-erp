@@ -1,6 +1,6 @@
 // Billing rules: one pricing function feeds Create, Edit, Detail and PDF (BL-2, BL-3, BL-4).
 
-import { addMonths, endOfMonth, monthKey, nextWeekday, addDays } from "../dates"
+import { addMonths, endOfMonth, fmtDate, monthKey, nextWeekday, addDays } from "../dates"
 import type { Branch, BusLeg, Course, DateStr, Holiday, ID, Invoice, Klass, PriceUnit, Result, Role, Staff } from "../types"
 import { purchaseOf } from "./course"
 import { requireForceRemark } from "./notifications"
@@ -154,10 +154,13 @@ export function invoiceTotals(inv: Invoice, ctx: { branch: Branch; courses: Cour
 /** owner 2026-09-26: every office role approves — but only for its own branch (Area Manager+ any branch) */
 export const APPROVER_ROLES: Role[] = ["super_admin", "director", "area_manager", "manager", "admin"]
 
-export function validateInvoiceDraft(inv: Invoice, totals: InvoiceTotals): string[] {
+export function validateInvoiceDraft(inv: Invoice, totals: InvoiceTotals, opts: { lastAssessment?: DateStr | null } = {}): string[] {
   const errs: string[] = []
   if (!inv.course && totals.total === 0) errs.push("ยังไม่มีรายการในใบแจ้งหนี้")
   if (inv.course && !inv.course.classId) errs.push("เลือกคลาสและวันเริ่มเรียน")
+  // Test → Trial → Invoice: paid classes start after the last test/trial, so a trial is never billed (owner 2026-09-28)
+  if (inv.course && totals.quote && opts.lastAssessment && totals.quote.from <= opts.lastAssessment)
+    errs.push(`วันเริ่มเรียนต้องหลังวันสอบ/ทดลองเรียน (${fmtDate(opts.lastAssessment)}) — เลื่อนวันเริ่มเรียน`)
   if (inv.course?.classId && totals.quote && totals.quote.sessions.length === 0) errs.push("ช่วงที่เลือกไม่มีคาบเรียนเลย (ติดวันหยุดทั้งหมด) — เลื่อนวันเริ่มหรือเพิ่มจำนวนงวด")
   if (inv.course && (!Number.isInteger(inv.course.periods) || inv.course.periods < 1)) errs.push("จำนวนงวดต้องตั้งแต่ 1 ขึ้นไป")
   if (inv.concession && inv.concession.amount > 0 && !inv.concession.remark.trim()) errs.push("ส่วนลดพิเศษ (Concession) ต้องใส่เหตุผล")

@@ -2,7 +2,7 @@
 
 import { ForceApprove } from "@/components/app/force-approve"
 import { useState } from "react"
-import { AlertTriangleIcon, CheckIcon, CircleIcon, FileTextIcon, Loader2Icon, PencilIcon, RefreshCwIcon, SendIcon, XCircleIcon } from "lucide-react"
+import { AlertTriangleIcon, CheckIcon, CircleIcon, FileTextIcon, ImageIcon, Loader2Icon, PencilIcon, RefreshCwIcon, SendIcon, XCircleIcon } from "lucide-react"
 import { Pill } from "@/components/app/badges"
 import { NativeSelect } from "@/components/app/native-select"
 import { Button } from "@/components/ui/button"
@@ -15,6 +15,7 @@ import * as Bill from "@/domain/rules/billing"
 import { can } from "@/domain/rules/permissions"
 import type { ID, Invoice } from "@/domain/types"
 import { report } from "@/lib/feedback"
+import { slipDataUrl } from "@/lib/image"
 import { useBranch } from "@/lib/hooks"
 import { cn } from "@/lib/utils"
 import { useShallow } from "zustand/react/shallow"
@@ -46,6 +47,7 @@ function Body({ id, onEdit }: { id: ID; onEdit: (inv: Invoice) => void }) {
   const [amount, setAmount] = useState("")
   const [method, setMethod] = useState<"transfer" | "cash">("transfer")
   const [ref, setRef] = useState("")
+  const [slip, setSlip] = useState<string | undefined>()
   if (!inv) return null
 
   const totals = Bill.invoiceTotals(inv, { branch, courses, classes, holidays })
@@ -75,15 +77,22 @@ function Body({ id, onEdit }: { id: ID; onEdit: (inv: Invoice) => void }) {
     },
     {
       label: "ส่งถึงผู้ปกครอง",
-      state: inv.delivery === "delivered" ? "done" : inv.delivery === "no_line" ? "warn" : inv.status === "approved" ? "current" : "todo",
-      detail: inv.delivery === "delivered" ? `ส่ง LINE แล้ว · ${fmtDateTime(inv.sentAt!)}` : inv.delivery === "no_line" ? "ยังไม่ถึงผู้ปกครอง — ไม่มี LINE (ต้องส่งทางอื่น)" : "—",
+      state: inv.delivery === "delivered" ? "done" : inv.delivery === "no_line" || inv.delivery === "failed" ? "warn" : inv.status === "approved" || inv.delivery === "sending" ? "current" : "todo",
+      detail: inv.delivery === "delivered" ? `ถึงผู้ปกครองทาง LINE · ${fmtDateTime(inv.sentAt!)}`
+        : inv.delivery === "sending" ? "กำลังส่งทาง LINE…"
+        : inv.delivery === "failed" ? `ส่ง LINE ไม่สำเร็จ — ${inv.deliveryError ?? "ลองส่งอีกครั้ง"}`
+        : inv.delivery === "no_line" ? "ยังไม่ถึงผู้ปกครอง — ไม่มี LINE (ต้องส่งทางอื่น)" : "—",
     },
     {
       label: "รับเงิน (บันทึก + ยืนยันโดยอีกคน)",
       state: inv.status === "paid" ? "done" : paidAll > 0 ? "current" : "todo",
       detail: inv.payments.length ? `ยืนยันแล้ว ${fmtMoney(paidConfirmed)} / ${fmtMoney(totals.total)}` : "—",
     },
-    { label: "ใบเสร็จ + เข้าคลาสอัตโนมัติ", state: inv.receiptNumber ? "done" : "todo", detail: inv.receiptNumber ?? "—" },
+    {
+      label: "ใบเสร็จ + เข้าคลาสอัตโนมัติ",
+      state: !inv.receiptNumber ? "todo" : inv.receiptDelivery === "failed" || inv.receiptDelivery === "no_line" ? "warn" : "done",
+      detail: !inv.receiptNumber ? "—" : `${inv.receiptNumber} · ${inv.receiptDelivery === "delivered" ? "ส่งใบเสร็จทาง LINE แล้ว" : inv.receiptDelivery === "sending" ? "กำลังส่งใบเสร็จทาง LINE…" : inv.receiptDelivery === "failed" ? "ส่งใบเสร็จทาง LINE ไม่สำเร็จ" : inv.receiptDelivery === "no_line" ? "ไม่มี LINE — ส่งใบเสร็จทางอื่น" : "ออกใบเสร็จแล้ว"}`,
+    },
   ]
 
   return (
@@ -92,6 +101,7 @@ function Body({ id, onEdit }: { id: ID; onEdit: (inv: Invoice) => void }) {
         <div className="flex items-center gap-2 pr-8">
           <Pill tone={invoiceTone(inv)}>{Bill.INVOICE_STATUS_LABEL[inv.status]}</Pill>
           {inv.delivery === "no_line" && <Pill tone="amber">ไม่มี LINE</Pill>}
+          {inv.delivery === "failed" && <Pill tone="red">ส่ง LINE ไม่สำเร็จ</Pill>}
         </div>
         <SheetTitle className="text-lg">{inv.number ?? "ใบร่าง (ยังไม่มีเลขที่)"}</SheetTitle>
         <SheetDescription>
@@ -176,10 +186,11 @@ function Body({ id, onEdit }: { id: ID; onEdit: (inv: Invoice) => void }) {
               </div>
             )
           )}
-          {(inv.status === "approved" || (inv.status === "sent" && inv.delivery === "no_line")) && manage && (
+          {(inv.status === "approved" || (inv.status === "sent" && (inv.delivery === "no_line" || inv.delivery === "failed"))) && manage && (
             <div className="space-y-2">
               <Label className="text-xs">ข้อความถึงผู้ปกครอง *</Label>
               <Textarea rows={2} value={note} onChange={(e) => setNote(e.target.value)} placeholder="เช่น ค่าเรียนเดือนตุลาคม ชำระภายใน 5 ต.ค." />
+              {fam?.lineUserId && <p className="text-xs text-emerald-700">ส่งเข้าแชท LINE ของ{fam.name}จริง — ยอด รายการ และเลขบัญชีจะอยู่ในข้อความ</p>}
               {!fam?.parents.some((p) => p.lineLinked) && <p className="text-xs text-amber-700">ผู้ปกครองยังไม่ผูก LINE — ระบบจะบันทึกว่าส่งแล้วแต่ &quot;ยังไม่ถึงผู้ปกครอง&quot; ต้องส่งทางอื่น</p>}
               <Button size="sm" disabled={!note.trim()} onClick={() => report(act.send(inv.id, note), (v) => (v.delivered ? "ส่งทาง LINE แล้ว" : "บันทึกแล้ว แต่ยังไม่ถึงผู้ปกครอง (ไม่มี LINE)"))}>
                 <SendIcon /> {inv.status === "sent" ? "ส่งอีกครั้ง" : "ส่งผู้ปกครอง"}
@@ -192,12 +203,18 @@ function Body({ id, onEdit }: { id: ID; onEdit: (inv: Invoice) => void }) {
               <div className="grid grid-cols-3 gap-2">
                 <Input type="number" min={1} placeholder="จำนวนเงิน" value={amount} onChange={(e) => setAmount(e.target.value)} />
                 <NativeSelect value={method} onChange={(e) => setMethod(e.target.value as "transfer" | "cash")} options={[{ value: "transfer", label: "โอน" }, { value: "cash", label: "เงินสด" }]} />
-                <Input placeholder="เลขอ้างอิง/สลิป" value={ref} onChange={(e) => setRef(e.target.value)} />
+                <Input placeholder="เลขอ้างอิง" value={ref} onChange={(e) => setRef(e.target.value)} />
               </div>
-              <Button size="sm" variant="secondary" onClick={() => report(act.pay(inv.id, { amount: Number(amount), method, reference: ref }), "บันทึกรับเงินแล้ว — รอคนอื่นยืนยันยอด") && (setAmount(""), setRef(""))}>บันทึกรับเงิน</Button>
+              <label className="flex cursor-pointer items-center gap-2 rounded-2xl border border-dashed p-2 text-xs text-muted-foreground hover:bg-muted/40">
+                {/* eslint-disable-next-line @next/next/no-img-element -- data URL, nothing for next/image to optimise */}
+                {slip ? <img src={slip} alt="สลิป" className="size-12 rounded-lg object-cover" /> : <ImageIcon className="size-5" />}
+                {slip ? "เปลี่ยนรูปสลิป" : "แนบรูปสลิป (ไม่บังคับ)"}
+                <input type="file" accept="image/*" className="hidden" onChange={async (e) => { const f = e.target.files?.[0]; if (f) setSlip(await slipDataUrl(f)) }} />
+              </label>
+              <Button size="sm" variant="secondary" onClick={() => report(act.pay(inv.id, { amount: Number(amount), method, reference: ref, slip }), "บันทึกรับเงินแล้ว — รอคนอื่นยืนยันยอด") && (setAmount(""), setRef(""), setSlip(undefined))}>บันทึกรับเงิน</Button>
             </div>
           )}
-          {inv.status === "paid" && <p className="text-sm text-emerald-700">ชำระครบ · ใบเสร็จ {inv.receiptNumber} · นักเรียนถูกเพิ่มเข้าคลาสตามช่วงที่จ่ายแล้ว</p>}
+          {inv.status === "paid" && <p className="text-sm text-emerald-700">ชำระครบ · ใบเสร็จ {inv.receiptNumber} · นักเรียนถูกเพิ่มเข้าคลาสตามช่วงที่จ่ายแล้ว{inv.receiptDelivery === "delivered" ? " · ส่งใบเสร็จทาง LINE แล้ว" : ""}</p>}
           {inv.status === "void" && <p className="text-sm text-muted-foreground">ใบนี้ถูกยกเลิก</p>}
         </section>
 
@@ -212,6 +229,14 @@ function Body({ id, onEdit }: { id: ID; onEdit: (inv: Invoice) => void }) {
                     <span className="font-medium tabular-nums">{fmtMoney(p.amount)}</span>
                     <span className="text-muted-foreground">{p.method === "cash" ? "เงินสด" : "โอน"} {p.reference && `· ${p.reference}`}</span>
                     <span className="text-xs text-muted-foreground">บันทึกโดย {who(p.recordedBy)}</span>
+                    {p.slip && (
+                      <details className="w-full [&[open]>summary]:hidden">
+                        {/* eslint-disable @next/next/no-img-element -- data URL slip */}
+                        <summary className="flex cursor-pointer items-center gap-2 text-xs text-sky-700"><img src={p.slip} alt="สลิป" className="size-10 rounded-md object-cover" /> ดูสลิป</summary>
+                        <img src={p.slip} alt="สลิป" className="mt-1 max-h-96 rounded-lg" />
+                        {/* eslint-enable @next/next/no-img-element */}
+                      </details>
+                    )}
                     <span className="ml-auto">
                       {p.confirmedBy ? (
                         <Pill tone={p.forced ? "amber" : "green"} title={p.forced?.remark}>{p.forced ? "Force · " : ""}ยืนยันโดย {who(p.confirmedBy)}</Pill>

@@ -1,7 +1,7 @@
 // Shared Inbox — conversations linked to a Family (customer), a CRM Lead, or neither (contact).
 // Spec ref: new-erp/js/inbox.js (conversation types, "//" internal-note convention).
 
-import type { Conversation } from "../types"
+import type { Conversation, Lead } from "../types"
 
 export type ConversationType = "customer" | "lead" | "contact"
 
@@ -23,6 +23,9 @@ export function conversationType(c: Pick<Conversation, "familyId" | "leadId">): 
   if (c.leadId) return "lead"
   return "contact"
 }
+
+/** a lead created from a chat starts with the chat's channel as its source (E2E 2026-09-28: phone chats became "LINE") */
+export const SOURCE_OF_CHANNEL: Record<Conversation["channel"], Lead["source"]> = { line: "line", walkin: "walkin", phone: "phone", other: "other" }
 
 /** "// note text" is staff-only — never delivered to the parent (matches legacy inbox.js convention). */
 export function parseComposerInput(raw: string): { isNote: boolean; text: string } {

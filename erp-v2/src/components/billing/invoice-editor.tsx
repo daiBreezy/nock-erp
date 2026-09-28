@@ -1,11 +1,11 @@
 "use client"
 
-import { StudentSearch } from "@/components/app/student-search"
+import { CustomerPicker } from "@/components/app/customer-picker"
 import { packageLabel, priceUnitSuffix } from "@/domain/rules/course"
 import { PackageBadge } from "@/components/app/package-badge"
 import { busRate } from "@/domain/rules/settings"
 import { useState } from "react"
-import { AlertTriangleIcon, BusIcon, CalendarIcon } from "lucide-react"
+import { AlertTriangleIcon, BusIcon, CalendarIcon, HistoryIcon, UserRoundSearchIcon } from "lucide-react"
 import { NativeSelect } from "@/components/app/native-select"
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
@@ -16,14 +16,15 @@ import { Textarea } from "@/components/ui/textarea"
 import { addDays, fmtDate, fmtMoney, fmtMonth, toDateStr } from "@/domain/dates"
 import * as Att from "@/domain/rules/attendance"
 import { busTotal, defaultBusLegs, invoiceTotals, quoteCourse, validateInvoiceDraft } from "@/domain/rules/billing"
-import type { BusLeg, Invoice } from "@/domain/types"
+import { lastAssessmentDate } from "@/domain/rules/forms"
+import type { BusLeg, Entitlement, Invoice } from "@/domain/types"
 import { uid } from "@/data/seed"
 import { report } from "@/lib/feedback"
 import { useBranch, useEntitlements, useNow } from "@/lib/hooks"
 import { cn } from "@/lib/utils"
 import { useStore } from "@/store/store"
 
-export function InvoiceEditor({ invoice, defaultStudentId, onClose, onSaved }: { invoice?: Invoice; defaultStudentId?: string; onClose: () => void; onSaved: (inv: Invoice) => void }) {
+export function InvoiceEditor({ invoice, defaultStudentId, renewEntitlementId, onClose, onSaved }: { invoice?: Invoice; defaultStudentId?: string; renewEntitlementId?: string; onClose: () => void; onSaved: (inv: Invoice) => void }) {
   const branch = useBranch()
   const now = useNow(60_000)
   const today = toDateStr(now)
@@ -35,13 +36,21 @@ export function InvoiceEditor({ invoice, defaultStudentId, onClose, onSaved }: {
   const staff = useStore((s) => s.staff)
   const holidays = useStore((s) => s.holidays)
   const entitlements = useEntitlements()
+  const assessments = useStore((s) => s.assessments)
   const save = useStore((s) => s.saveInvoice)
+  const leadToStudent = useStore((s) => s.convertLeadToStudent)
+  const [picking, setPicking] = useState(false)
+  // Test → Trial → Invoice: the paid period starts after the last test/trial (owner 2026-09-28)
+  const firstStart = (sid: string) => { const last = lastAssessmentDate(sid, assessments); return last && last >= today ? addDays(last, 1) : today }
+  // renewal from a package (dashboard / student window): same course + class, from the day after it ends
+  const renewFrom = renewEntitlementId ? entitlements.find((e) => e.id === renewEntitlementId) : undefined
+  const renewStart = (e: Entitlement) => (addDays(e.to, 1) > today ? addDays(e.to, 1) : today)
 
   const [newId] = useState(() => invoice?.id ?? uid("inv"))
-  const [studentId, setStudentId] = useState(invoice?.studentId ?? defaultStudentId ?? "")
-  const [courseId, setCourseId] = useState(invoice?.course?.courseId ?? "")
-  const [classId, setClassId] = useState(invoice?.course?.classId ?? "")
-  const [startDate, setStartDate] = useState(invoice?.course?.startDate ?? today)
+  const [studentId, setStudentId] = useState(invoice?.studentId ?? renewFrom?.studentId ?? defaultStudentId ?? "")
+  const [courseId, setCourseId] = useState(invoice?.course?.courseId ?? renewFrom?.courseId ?? "")
+  const [classId, setClassId] = useState(invoice?.course?.classId ?? renewFrom?.classId ?? "")
+  const [startDate, setStartDate] = useState(() => invoice?.course?.startDate ?? (renewFrom ? renewStart(renewFrom) : studentId ? firstStart(studentId) : today))
   const [periodsText, setPeriodsText] = useState(String(invoice?.course?.periods ?? 1))
   const [overlapRemark, setOverlapRemark] = useState(invoice?.course?.overlapRemark ?? "")
   const [bus, setBus] = useState<BusLeg[]>(invoice?.bus ?? [])
@@ -52,6 +61,12 @@ export function InvoiceEditor({ invoice, defaultStudentId, onClose, onSaved }: {
   const [concessionRemark, setConcessionRemark] = useState(invoice?.concession?.remark ?? "")
 
   const student = students.find((s) => s.id === studentId)
+  // every package this student ever bought — one chip each, to renew/re-buy like a new invoice
+  const pastPackages = student
+    ? [...new Map(entitlements.filter((e) => e.studentId === student.id).sort((a, b) => a.to.localeCompare(b.to)).map((e) => [`${e.courseId}|${e.classId}`, e])).values()].reverse()
+    : []
+  const pickStudent = (sid: string) => { setStudentId(sid); setBusTouched(false); if (!invoice) setStartDate(firstStart(sid)) }
+  const renewPackage = (e: Entitlement) => { setCourseId(e.courseId); setClassId(e.classId ?? ""); setStartDate(renewStart(e)); setBusTouched(false) }
   const family = families.find((f) => f.id === student?.familyId)
   const course = courses.find((c) => c.id === courseId)
   // BL-12: only active recurring classes with an active teacher for this course's subject
@@ -94,7 +109,7 @@ export function InvoiceEditor({ invoice, defaultStudentId, onClose, onSaved }: {
     ...(!studentId ? ["เลือกนักเรียน"] : []),
     ...(!periodsValid && course ? ["จำนวนงวดต้องเป็นจำนวนเต็มตั้งแต่ 1 ขึ้นไป"] : []),
     ...(overlapping.length && !overlapRemark.trim() ? ["นักเรียนมีแพ็กเกจคอร์สนี้อยู่แล้ว — ใส่เหตุผลที่ซื้อซ้ำ"] : []),
-    ...validateInvoiceDraft(draft, totals),
+    ...validateInvoiceDraft(draft, totals, { lastAssessment: studentId ? lastAssessmentDate(studentId, assessments) : null }),
   ]
 
   const submit = () => {
@@ -116,10 +131,22 @@ export function InvoiceEditor({ invoice, defaultStudentId, onClose, onSaved }: {
             {student ? (
               <div className="flex items-center gap-2 rounded-xl border px-3 py-1.5 text-sm">
                 <span className="font-medium">{student.nickname}</span><span className="text-xs text-muted-foreground">{student.grade} · {student.name}</span>
-                {!invoice && <button type="button" className="ml-auto text-xs text-primary underline" onClick={() => { setStudentId(""); setBusTouched(false) }}>เปลี่ยน</button>}
+                {!invoice && <button type="button" className="ml-auto text-xs text-primary underline" onClick={() => setPicking(true)}>เปลี่ยน</button>}
               </div>
             ) : (
-              <StudentSearch autoFocus students={students} onPick={(s) => { setStudentId(s.id); setBusTouched(false) }} />
+              <Button type="button" variant="outline" className="w-full justify-start" onClick={() => setPicking(true)}><UserRoundSearchIcon /> เลือกนักเรียน / Lead</Button>
+            )}
+            {picking && (
+              <CustomerPicker kinds={["student", "lead"]} title="เลือกลูกค้า" onClose={() => setPicking(false)}
+                onConfirm={(row) => {
+                  if (row.kind === "lead") {
+                    // a lead gets its student + family now; it becomes "ลงทะเบียนแล้ว" when this invoice is paid
+                    const r = leadToStudent(row.id)
+                    if (!report(r, "สร้างนักเรียน + ครอบครัวจาก Lead แล้ว")) return
+                    pickStudent(r.value.studentId)
+                  } else pickStudent(row.id)
+                  setPicking(false)
+                }} />
             )}
             {student && (
               <p className="text-xs text-muted-foreground">
@@ -144,6 +171,23 @@ export function InvoiceEditor({ invoice, defaultStudentId, onClose, onSaved }: {
               placeholder="ไม่มีคอร์ส (เฉพาะค่าอื่นๆ)"
               options={courses.map((c) => ({ value: c.id, label: `${c.name} · ${fmtMoney(c.price)} ${priceUnitSuffix(c)}` }))} />
             {course && <p className="flex items-center gap-2 text-xs text-muted-foreground"><PackageBadge course={course} /> แพ็กเกจ {packageLabel(course)} · {fmtMoney(course.price)} {priceUnitSuffix(course)}</p>}
+            {pastPackages.length > 0 && !invoice && (
+              <div className="space-y-1 pt-1">
+                <p className="flex items-center gap-1 text-xs text-muted-foreground"><HistoryIcon className="size-3" /> คอร์สที่เคยสมัคร — กดเพื่อต่ออายุ / ซื้อซ้ำ</p>
+                <div className="flex flex-wrap gap-1.5">
+                  {pastPackages.map((e) => {
+                    const c = courses.find((x) => x.id === e.courseId)
+                    const on = courseId === e.courseId && classId === (e.classId ?? "")
+                    return (
+                      <button key={e.id} type="button" onClick={() => renewPackage(e)}
+                        className={cn("rounded-full border px-2.5 py-1 text-xs", on ? "border-primary bg-primary/10 text-primary" : "hover:bg-muted")}>
+                        {c?.name ?? "คอร์ส"} · {classes.find((k) => k.id === e.classId)?.name ?? "—"} · {e.to < today ? "หมด" : "ถึง"} {fmtDate(e.to)}
+                      </button>
+                    )
+                  })}
+                </div>
+              </div>
+            )}
             {mismatch && <p className="flex items-center gap-1 text-xs text-amber-700"><AlertTriangleIcon className="size-3" /> เกรด {student!.grade} ไม่ตรงกับคอร์ส ({course!.grades.join(", ")})</p>}
           </div>
 
