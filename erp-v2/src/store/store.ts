@@ -37,6 +37,8 @@ type Store = DB & UIState & {
   resetData: () => void
 
   createClass: (d: Sch.ClassDraft & { name: string; grades: string[] }) => Result<{ klass: Klass; sessions: number }>
+  /** Create New Class (owner design): one form → one class per row of weekday + start–end time */
+  createClasses: (base: Omit<Sch.ClassDraft, "weekday" | "start" | "minutes"> & { name: string; grades: string[] }, rows: { weekday: Klass["weekday"]; start: string; minutes: number }[]) => Result<{ classes: number; sessions: number }>
   updateClass: (id: ID, patch: Partial<Pick<Klass, "teacherId" | "coTeacherIds" | "roomId" | "start" | "minutes" | "weekday" | "name">>) => Result<{ changed: number; kept: number }>
   moveSession: (id: ID, target: Sch.MoveTarget, scope: Sch.MoveScope) => Result<{ moved: number; kept: number }>
   deactivateClass: (id: ID, reason: string) => Result<{ cancelled: number }>
@@ -180,13 +182,35 @@ export const useStore = create<Store>()(
         const issues = Sch.validateClass(d, { branch, staff: s.staff, sessions: s.sessions, holidays: s.holidays, now: s.now() })
         if (!Sch.canSave(issues, d.overrideReason)) return fail(issues.find((i) => i.level !== "warn")?.message ?? "ตรวจสอบข้อมูลอีกครั้ง")
         const klass: Klass = {
-          id: uid("cl"), branchId: d.branchId, name: d.name.trim() || `${d.subject} ${d.grades.join(", ")}`, subject: d.subject,
-          grades: d.grades, kind: d.kind, type: d.type, courseId: d.courseId ?? null, teacherId: d.teacherId, coTeacherIds: d.coTeacherIds ?? [], roomId: d.roomId, weekday: d.weekday,
+          id: uid("cl"), branchId: d.branchId, name: d.name.trim() || `${Sch.subjectsOf(d).join(" + ")} ${d.grades.join(", ")}`.trim(), subject: d.subject,
+          subjects: d.subjects && d.subjects.length > 1 ? d.subjects : undefined, grades: d.grades, kind: d.kind, type: d.type, courseId: d.courseId ?? null, teacherId: d.teacherId, coTeacherIds: d.coTeacherIds ?? [], roomId: d.roomId, weekday: d.weekday,
           start: d.start, minutes: d.minutes, startDate: d.startDate, active: true, studentIds: d.studentIds,
         }
         const sessions = Sch.generateSessions(klass, s.holidays, () => uid("se"))
         set({ classes: [...s.classes, klass], sessions: [...s.sessions, ...sessions] })
         return { ok: true, value: { klass, sessions: sessions.length } }
+      },
+
+      createClasses: (base, rows) => {
+        const s = get()
+        const perm = requirePerm(s.me(), "class.manage")
+        if (!perm.ok) return perm
+        if (!rows.length) return fail("เพิ่มวันและเวลาอย่างน้อย 1 แถว")
+        const clash = Sch.overlappingRows(rows)[0]
+        if (clash) return fail(`แถว ${clash[0] + 1} กับแถว ${clash[1] + 1} เป็นวันเดียวกันและเวลาทับกัน`)
+        const branch = s.branches.find((b) => b.id === base.branchId)!
+        // validate every row first — nothing is created unless all rows pass (or carry an override reason)
+        for (const [i, r] of rows.entries()) {
+          const issues = Sch.validateClass({ ...base, ...r }, { branch, staff: s.staff, sessions: s.sessions, holidays: s.holidays, now: s.now() })
+          if (!Sch.canSave(issues, base.overrideReason)) return fail(`แถว ${i + 1}: ${issues.find((x) => x.level !== "warn")?.message ?? "ตรวจสอบข้อมูลอีกครั้ง"}`)
+        }
+        let sessions = 0
+        for (const r of rows) {
+          const res = get().createClass({ ...base, ...r })
+          if (!res.ok) return res
+          sessions += res.value.sessions
+        }
+        return { ok: true, value: { classes: rows.length, sessions } }
       },
 
       updateClass: (id, patch) => {
@@ -1087,7 +1111,7 @@ export const useStore = create<Store>()(
     {
       name: "nockerp-v2",
       // bump when the data model changes; older saved data is replaced by fresh sample data
-      version: 24,
+      version: 25,
       migrate: () => ({ ...buildSeed(), userId: "u_nock", branchId: "br_thl", clockOffset: 0 }) as unknown as Store,
       // persist data + UI state only, never the action functions
       partialize: (s) => Object.fromEntries(Object.entries(s).filter(([, v]) => typeof v !== "function")) as Partial<Store>,

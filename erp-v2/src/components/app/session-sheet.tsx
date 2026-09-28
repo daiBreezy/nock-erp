@@ -3,7 +3,7 @@
 import { ForceApprove } from "./force-approve"
 import Link from "next/link"
 import { useMemo, useState } from "react"
-import { AlertTriangleIcon, BanIcon, CheckIcon, PencilIcon, SearchIcon, SendIcon, StarIcon, UndoIcon, UserPlusIcon, UsersRoundIcon, XIcon } from "lucide-react"
+import { AlertTriangleIcon, BanIcon, CheckIcon, PencilIcon, SendIcon, StarIcon, UndoIcon, UserPlusIcon, UsersRoundIcon, XIcon } from "lucide-react"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
@@ -14,7 +14,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { endTime, fmtDate, fmtDateTime } from "@/domain/dates"
 import * as Att from "@/domain/rules/attendance"
 import { can } from "@/domain/rules/permissions"
-import { findConflicts, sessionState } from "@/domain/rules/scheduling"
+import { findConflicts, sessionState, subjectsOf } from "@/domain/rules/scheduling"
 import * as Sum from "@/domain/rules/summaries"
 import { SUMMARY_STATUS_LABEL } from "@/domain/rules/summaries"
 import type { AttendanceStatus, ID, LessonSummary } from "@/domain/types"
@@ -24,9 +24,9 @@ import { cn } from "@/lib/utils"
 import { useStore } from "@/store/store"
 import { Pill, SessionStateBadge } from "./badges"
 import { NativeSelect } from "./native-select"
+import { StudentSearch } from "./student-search"
 import { FixSuggestions } from "./fix-suggestions"
 import { StudentSheet } from "./student-sheet"
-import { gradeTone } from "./subject-color"
 import { TeacherPicker } from "./teacher-picker"
 import { CAPACITY, type MoveScope } from "@/domain/rules/scheduling"
 
@@ -84,7 +84,8 @@ function Body({ id, onClose }: { id: ID; onClose: () => void }) {
           {s.trial && <Pill tone="violet">ทดลองเรียน</Pill>}
           {s.customized && s.classId && <Pill>แก้เฉพาะคาบนี้</Pill>}
         </div>
-        <SheetTitle className="text-lg">{klass?.name ?? `${s.subject} (คาบเดี่ยว)`}</SheetTitle>
+        <SheetTitle className="text-lg">{klass?.name ?? `${subjectsOf(s).join(" + ")} (คาบเดี่ยว)`}</SheetTitle>
+        {subjectsOf(s).length > 1 && <p className="text-xs text-muted-foreground">คลาสรวม {subjectsOf(s).join(" + ")} · เขียนสรุปครั้งเดียวต่อคาบ</p>}
         <SheetDescription>
           {fmtDate(s.date, { weekday: true, year: true })} · {s.start}–{endTime(s.start, s.minutes)} · {L.room(s.roomId)} ·{" "}
           <span className={cn(teacher.missing && "font-medium text-amber-700")}>★ {teacher.label}</span>
@@ -420,13 +421,8 @@ function AddStudentDialog({ id, onClose }: { id: ID; onClose: () => void }) {
   const entitlements = useEntitlements()
   const add = useStore((st) => st.addStudentToSession)
   const branch = useBranch()
-  const [q, setQ] = useState("")
   const [scope, setScope] = useState<MoveScope>(s.classId ? "following" : "one")
   const cap = klass ? CAPACITY[klass.type] : CAPACITY.group
-  const list = students
-    .filter((x) => x.branchId === branch.id && !s.studentIds.includes(x.id))
-    .filter((x) => !q || `${x.nickname} ${x.name} ${x.grade}`.includes(q))
-    .sort((a, b) => Number(!!klass && Att.gradeMismatch(a, klass)) - Number(!!klass && Att.gradeMismatch(b, klass)))
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()}>
       <DialogContent className="sm:max-w-lg">
@@ -435,30 +431,20 @@ function AddStudentDialog({ id, onClose }: { id: ID; onClose: () => void }) {
           <DialogDescription>ตอนนี้ {s.studentIds.length}/{cap} คน{klass ? ` · คลาส ${klass.name} (${klass.grades.join(", ")})` : ""}</DialogDescription>
         </DialogHeader>
         <ScopePick value={scope} onChange={setScope} hasClass={!!s.classId} one="เฉพาะคาบนี้ (ทดลอง / ชดเชย)" following="เข้าคลาสถาวร (คาบนี้และถัดไป)" />
-        <div className="relative">
-          <SearchIcon className="absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" />
-          <Input className="pl-8" autoFocus placeholder="ค้นหาชื่อ / ชื่อเล่น / ชั้น" value={q} onChange={(e) => setQ(e.target.value)} />
-        </div>
-        <ul className="max-h-72 divide-y overflow-y-auto rounded-lg border">
-          {list.map((x) => {
-            const mismatch = !!klass && Att.gradeMismatch(x, klass)
-            const hasPkg = !!Att.coveringEntitlement(x.id, s, entitlements)
-            return (
-              <li key={x.id} className="flex items-center gap-2 p-2">
-                <span className="min-w-0 flex-1">
-                  <span className="text-sm font-medium">{x.nickname}</span> <span className={cn("rounded px-1 text-[10px] font-semibold", gradeTone(x.grade))}>{x.grade}</span>
-                  <span className="block truncate text-xs text-muted-foreground">
-                    {x.name}
-                    {mismatch && <span className="text-amber-700"> · เกรดไม่ตรงคลาส</span>}
-                    {!s.trial && !hasPkg && <span className="text-amber-700"> · ยังไม่ได้จ่ายค่าเรียน</span>}
-                  </span>
-                </span>
-                <Button size="xs" disabled={s.studentIds.length >= cap} onClick={() => report(add(id, x.id, scope), (v) => `เพิ่ม ${x.nickname} แล้ว ${v.changed} คาบ`) && onClose()}>เพิ่ม</Button>
-              </li>
-            )
-          })}
-          {list.length === 0 && <li className="p-6 text-center text-sm text-muted-foreground">ไม่พบนักเรียน</li>}
-        </ul>
+        <StudentSearch
+          autoFocus
+          students={students.filter((x) => x.branchId === branch.id)}
+          exclude={s.studentIds}
+          preferGrades={klass?.grades}
+          onPick={(x) => { if (s.studentIds.length < cap && report(add(id, x.id, scope), (v) => `เพิ่ม ${x.nickname} แล้ว ${v.changed} คาบ`)) onClose() }}
+          renderMeta={(x) => (
+            <span className="shrink-0 text-[11px] text-amber-700">
+              {!!klass && Att.gradeMismatch(x, klass) ? "ชั้นไม่ตรงคลาส " : ""}
+              {!s.trial && !Att.coveringEntitlement(x.id, s, entitlements) ? "ยังไม่จ่ายค่าเรียน" : ""}
+            </span>
+          )}
+        />
+        {s.studentIds.length >= cap && <p className="text-xs text-red-700">คาบนี้เต็มแล้ว ({cap} คน)</p>}
       </DialogContent>
     </Dialog>
   )

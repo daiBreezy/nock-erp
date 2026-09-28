@@ -2,7 +2,7 @@
 // Test IDs in comments refer to NockERP-Staging-Test-2026-09-24.xlsx.
 
 import { addDays, at, endTime, fmtDate, nextWeekday, overlaps, parseDate, toMinutes, weekdayOf } from "../dates"
-import type { Attendance, Branch, DateStr, Holiday, ID, Klass, Session, Staff, TimeStr } from "../types"
+import type { Attendance, Branch, DateStr, Holiday, ID, Klass, Session, Staff, TimeStr, Weekday } from "../types"
 
 export const GENERATE_WEEKS = 8
 export const CAPACITY = { single: 1, group: 6 } as const
@@ -46,6 +46,22 @@ export function isHoliday(date: DateStr, branchId: ID, holidays: Holiday[]) {
 }
 
 /** A1/A12: learning classes repeat weekly for 8 weeks skipping holidays; other kinds are one-off. */
+/** Every subject of a class/session (multi-subject classes list several; otherwise just the primary one). */
+export function subjectsOf(x: { subject: string; subjects?: string[] }): string[] {
+  return x.subjects?.length ? x.subjects : [x.subject]
+}
+
+/** Rows of one Create Class form that overlap each other (same weekday, times overlap) — they would clash
+ *  with each other once created, which the existing-session check cannot see yet. */
+export function overlappingRows(rows: { weekday: Weekday; start: TimeStr; minutes: number }[]): [number, number][] {
+  const out: [number, number][] = []
+  rows.forEach((a, i) => rows.forEach((b, j) => {
+    if (j <= i || a.weekday !== b.weekday) return
+    if (overlaps(toMinutes(a.start), toMinutes(a.start) + a.minutes, toMinutes(b.start), toMinutes(b.start) + b.minutes)) out.push([i, j])
+  }))
+  return out
+}
+
 export function generateSessions(k: Klass, holidays: Holiday[], newId: () => ID, weeks = GENERATE_WEEKS): Session[] {
   const first = nextWeekday(k.startDate, k.weekday)
   const dates = k.kind === "learning" ? Array.from({ length: weeks }, (_, i) => addDays(first, i * 7)) : [first]
@@ -60,6 +76,7 @@ export function sessionFromClass(k: Klass, date: DateStr, id: ID): Session {
     branchId: k.branchId,
     classId: k.id,
     subject: k.subject,
+    subjects: k.subjects,
     date,
     start: k.start,
     minutes: k.minutes,
@@ -170,6 +187,7 @@ export function introducedConflicts(before: Session[], after: Session[], changed
 export interface ClassDraft {
   branchId: ID
   subject: string
+  subjects?: string[]
   kind: Klass["kind"]
   courseId?: ID | null
   type: Klass["type"]
@@ -196,7 +214,8 @@ export function validateClass(d: ClassDraft, ctx: { branch: Branch; staff: Staff
   const issues: Issue[] = []
   const { branch } = ctx
   if (!d.subject) issues.push({ field: "subject", message: "เลือกวิชา", level: "block" })
-  if (d.minutes < 15) issues.push({ field: "minutes", message: "ความยาวคาบอย่างน้อย 15 นาที", level: "block" })
+  // owner 2026-09-28: session length is free, in 5-minute steps (it drives hour-package counting)
+  if (!(d.minutes >= 5) || d.minutes % 5 !== 0) issues.push({ field: "minutes", message: "ความยาวคาบต้องอย่างน้อย 5 นาที และลงตัวทีละ 5 นาที", level: "block" })
 
   const cap = CAPACITY[d.type]
   if (d.studentIds.length > cap)
@@ -210,8 +229,9 @@ export function validateClass(d: ClassDraft, ctx: { branch: Branch; staff: Staff
     const t = ctx.staff.find((x) => x.id === tid)
     if (t && !t.active) issues.push({ field: "teacherId", message: `${t.nickname} ไม่ได้ทำงานแล้ว`, level: "block" })
   }
-  if (teacher && !teacher.subjects.includes(d.subject))
-    issues.push({ field: "teacherId", message: `ครูหลัก ${teacher.nickname} ไม่ได้สอนวิชา ${d.subject}`, level: "override" })
+  const missing = teacher ? subjectsOf(d).filter((x) => !teacher.subjects.includes(x)) : []
+  if (missing.length)
+    issues.push({ field: "teacherId", message: `ครูหลัก ${teacher!.nickname} ไม่ได้สอนวิชา ${missing.join(", ")}`, level: "override" })
   if (!d.teacherId) issues.push({ field: "teacherId", message: allTeachers.length ? "ยังไม่ได้เลือกครูหลัก" : "ยังไม่ได้กำหนดครู", level: allTeachers.length ? "block" : "warn" })
 
   // check every date the class will occupy

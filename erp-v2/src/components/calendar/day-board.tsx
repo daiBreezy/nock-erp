@@ -4,7 +4,7 @@ import { useState } from "react"
 import { AlertTriangleIcon, PlusIcon, UsersRoundIcon } from "lucide-react"
 import { avatarTone, initial, subjectColor } from "@/components/app/subject-color"
 import { endTime, fromMinutes, toDateStr, toMinutes, weekdayOf } from "@/domain/dates"
-import { isHoliday } from "@/domain/rules/scheduling"
+import { isHoliday, subjectsOf } from "@/domain/rules/scheduling"
 import type { DateStr, Session } from "@/domain/types"
 import { useBranch, useLookup } from "@/lib/hooks"
 import { cn } from "@/lib/utils"
@@ -275,7 +275,7 @@ function AssistBlock({ s, d, teacher }: { s: Session; d: CardData; teacher: stri
       </div>
       <div className="mt-1 flex items-center gap-1.5">
         <span className={cn("size-2 shrink-0 rounded-full", c.bar)} />
-        <span className={cn("truncate font-semibold", c.text)}>{klass?.name ?? s.subject}</span>
+        <span className={cn("truncate font-semibold", c.text)}>{klass?.name ?? subjectsOf(s).join(" + ")}</span>
       </div>
       <div className="text-muted-foreground">
         {s.start}–{endTime(s.start, s.minutes)} · ครูหลัก {L.teacher(s.teacherId).label} · {L.room(s.roomId)}

@@ -1,5 +1,6 @@
 "use client"
 
+import { StudentSearch } from "@/components/app/student-search"
 import { packageLabel, priceUnitSuffix } from "@/domain/rules/course"
 import { busRate } from "@/domain/rules/settings"
 import { useState } from "react"
@@ -111,8 +112,14 @@ export function InvoiceEditor({ invoice, defaultStudentId, onClose, onSaved }: {
         <div className="grid gap-3 sm:grid-cols-2">
           <div className="space-y-1">
             <Label className="text-xs">นักเรียน *</Label>
-            <NativeSelect value={studentId} onChange={(e) => { setStudentId(e.target.value); setBusTouched(false) }} placeholder="เลือกนักเรียน"
-              options={students.map((s) => ({ value: s.id, label: `${s.nickname} · ${s.grade} · ${s.name}` }))} />
+            {student ? (
+              <div className="flex items-center gap-2 rounded-xl border px-3 py-1.5 text-sm">
+                <span className="font-medium">{student.nickname}</span><span className="text-xs text-muted-foreground">{student.grade} · {student.name}</span>
+                {!invoice && <button type="button" className="ml-auto text-xs text-primary underline" onClick={() => { setStudentId(""); setBusTouched(false) }}>เปลี่ยน</button>}
+              </div>
+            ) : (
+              <StudentSearch autoFocus students={students} onPick={(s) => { setStudentId(s.id); setBusTouched(false) }} />
+            )}
             {student && (
               <p className="text-xs text-muted-foreground">
                 {family ? `${family.name} · ${family.parents.find((p) => p.primary)?.name}` : "ยังไม่ผูกครอบครัว"}

@@ -174,6 +174,8 @@ export function buildSeed(now = new Date()): DB {
     k("cl_eng_thu", "br_thl", "อังกฤษ ป.6", "อังกฤษ", ["ป.6"], "u_mint", "rm_1", 4, "16:00", 60, ["stu_6", "stu_13", "stu_14", "stu_15", "stu_25"]),
     k("cl_math_jo", "br_thl", "คณิต ป.4", "คณิต", ["ป.4"], "u_jo", "rm_3", 1, "16:30", 60, ["stu_20", "stu_21"]),
     k("cl_ari", "br_ari", "คณิต ป.2", "คณิต", ["ป.2"], "u_beam", "rm_a1", 5, "15:00", 90, ["stu_8"]),
+    // multi-subject class (owner 2026-09-28): Math 15 min + Eng 30 min in one session, one summary — monthly bundle course
+    { ...k("cl_combo6", "br_thl", "คณิต + อังกฤษ ป.6", "คณิต", ["ป.6"], "u_prae", "rm_3", 5, "16:00", 45, ["stu_6", "stu_14"], ["u_mint"]), subjects: ["คณิต", "อังกฤษ"], courseId: "co_bundle6" },
   ]
 
   const sessions: Session[] = classes.flatMap((c) => generateSessions(c, holidays, () => uid("se"), 10))

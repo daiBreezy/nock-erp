@@ -87,3 +87,29 @@ export function lineCodeValid(f: Family, now: Date): Result {
   if (new Date(f.lineCode.expiresAt) < now) return { ok: false, error: "โค้ดหมดอายุแล้ว — สร้างใหม่" }
   return { ok: true, value: undefined }
 }
+
+/**
+ * Student search for pickers — never renders the whole school (100,000 students must still be fast):
+ * matches name / nickname / grade / school, best matches first (preferred grades, then starts-with),
+ * capped at `limit`. Empty query returns nothing unless `preferGrades` narrows it to a class's grades.
+ */
+export function searchStudents<T extends { id: string; name: string; nickname: string; grade: string; school?: string }>(
+  all: T[], q: string, opts: { exclude?: string[]; preferGrades?: string[]; limit?: number } = {},
+): { items: T[]; total: number } {
+  const limit = opts.limit ?? 8
+  const needle = q.trim().toLowerCase()
+  const exclude = new Set(opts.exclude ?? [])
+  const prefer = new Set(opts.preferGrades ?? [])
+  if (!needle && !prefer.size) return { items: [], total: 0 }
+  const hits: { s: T; score: number }[] = []
+  for (const s of all) {
+    if (exclude.has(s.id)) continue
+    const hay = `${s.nickname} ${s.name} ${s.grade} ${s.school ?? ""}`.toLowerCase()
+    if (needle && !hay.includes(needle)) continue
+    if (!needle && !prefer.has(s.grade)) continue
+    const score = (prefer.has(s.grade) ? 0 : 2) + (needle && (s.nickname.toLowerCase().startsWith(needle) || s.name.toLowerCase().startsWith(needle)) ? 0 : 1)
+    hits.push({ s, score })
+  }
+  hits.sort((a, b) => a.score - b.score || a.s.nickname.localeCompare(b.s.nickname, "th"))
+  return { items: hits.slice(0, limit).map((h) => h.s), total: hits.length }
+}

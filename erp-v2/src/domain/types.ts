@@ -200,7 +200,11 @@ export interface Klass {
   id: ID
   branchId: ID
   name: string
+  /** primary subject — colour, filters, teacher matching */
   subject: string
+  /** all subjects taught in one session (e.g. Math 15 min + Eng 30 min → one summary). Monthly packages only.
+   *  Unset = just `subject`. */
+  subjects?: string[]
   grades: string[]
   kind: ClassKind
   type: ClassType
@@ -223,7 +227,10 @@ export interface Session {
   id: ID
   branchId: ID
   classId: ID | null
+  /** primary subject */
   subject: string
+  /** every subject taught in this session (multi-subject class); unset = just `subject` */
+  subjects?: string[]
   date: DateStr
   start: TimeStr
   minutes: number

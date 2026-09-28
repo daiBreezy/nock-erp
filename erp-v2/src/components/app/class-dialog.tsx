@@ -1,22 +1,25 @@
 "use client"
 
 import { useState } from "react"
-import { AlertTriangleIcon, BanIcon, InfoIcon } from "lucide-react"
+import { AlertTriangleIcon, BanIcon, BookOpenIcon, CheckIcon, InfoIcon, PlusIcon, TrashIcon } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
-import { addDays, endTime, fmtDate, nextWeekday, TH_DAYS_FULL, toDateStr, weekdayOf } from "@/domain/dates"
+import { addDays, endTime, fmtDate, nextWeekday, TH_DAYS_FULL, toDateStr, toMinutes, weekdayOf, fromMinutes } from "@/domain/dates"
 import * as Att from "@/domain/rules/attendance"
-import { canSave, CAPACITY, GENERATE_WEEKS, isHoliday, validateClass, type ClassDraft } from "@/domain/rules/scheduling"
+import { packageLabel } from "@/domain/rules/course"
+import { canSave, CAPACITY, GENERATE_WEEKS, isHoliday, overlappingRows, validateClass, type ClassDraft, type Issue } from "@/domain/rules/scheduling"
+import { sortGrades } from "@/domain/rules/settings"
 import type { ClassKind, ClassType, DateStr, ID, TimeStr, Weekday } from "@/domain/types"
 import { report } from "@/lib/feedback"
 import { useBranch, useNow } from "@/lib/hooks"
 import { cn } from "@/lib/utils"
 import { useStore } from "@/store/store"
 import { NativeSelect } from "./native-select"
-import { TeacherPicker } from "./teacher-picker"
+import { StudentSearch } from "./student-search"
+import { gradeTone, subjectColor } from "./subject-color"
 
 export interface ClassPrefill {
   date?: DateStr
@@ -26,53 +29,90 @@ export interface ClassPrefill {
 }
 
 const KIND: { value: ClassKind; label: string }[] = [
-  { value: "learning", label: "เรียนประจำ (ทุกสัปดาห์)" },
-  { value: "test", label: "สอบ / Test (ครั้งเดียว)" },
-  { value: "interview", label: "คุยผู้ปกครอง (ครั้งเดียว)" },
+  { value: "learning", label: "เรียน (Learning · ทุกสัปดาห์)" },
+  { value: "test", label: "สอบ (Test · ครั้งเดียว)" },
+  { value: "interview", label: "คุยผู้ปกครอง (Interview · ครั้งเดียว)" },
   { value: "other", label: "อื่นๆ (ครั้งเดียว)" },
 ]
+const WEEK: Weekday[] = [1, 2, 3, 4, 5, 6, 0]
 
+interface Row { key: string; weekday: Weekday; start: TimeStr; end: TimeStr }
+let rowSeq = 0
+const newRow = (weekday: Weekday, start: TimeStr, minutes: number): Row => ({ key: `r${rowSeq++}`, weekday, start, end: endTime(start, minutes) })
+
+/**
+ * Create New Class (owner design 2026-09-28): subject/teachers/grades/type set once, then any number of
+ * weekday + start–end rows → one class per row. Session length is free in 5-minute steps (it drives
+ * hour-package counting). Every row shows its clashes with existing classes before anything is created.
+ */
 export function ClassDialog({ prefill, onClose }: { prefill: ClassPrefill; onClose: () => void }) {
   const branch = useBranch()
   const staff = useStore((s) => s.staff)
   const sessions = useStore((s) => s.sessions)
   const holidays = useStore((s) => s.holidays)
   const students = useStore((s) => s.students)
-  const createClass = useStore((s) => s.createClass)
+  const courses = useStore((s) => s.courses).filter((c) => c.branchId === branch.id && c.active)
+  const createClasses = useStore((s) => s.createClasses)
+  const branchStudents = students.filter((s) => s.branchId === branch.id)
   const now = useNow(60_000)
-  const today = prefill.date ?? toDateStr(now)
+  const startDay = prefill.date ?? toDateStr(now)
 
+  const [courseId, setCourseId] = useState("")
   const [name, setName] = useState("")
-  const [subject, setSubject] = useState(branch.subjects[0])
+  const [subjects, setSubjects] = useState<string[]>(branch.subjects.slice(0, 1))
   const [grades, setGrades] = useState<string[]>([])
   const [kind, setKind] = useState<ClassKind>("learning")
   const [type, setType] = useState<ClassType>("group")
-  const [teacherIds, setTeacherIds] = useState<string[]>(prefill.teacherId ? [prefill.teacherId] : [])
-  const [primaryId, setPrimaryId] = useState<string>(prefill.teacherId ?? "")
+  const [teacherId, setTeacherId] = useState<string>(prefill.teacherId ?? "")
+  const [supportId, setSupportId] = useState<string>("")
   const [roomId, setRoomId] = useState<string>(prefill.roomId ?? "")
-  const [startDate, setStartDate] = useState<DateStr>(today)
-  const [start, setStart] = useState<TimeStr>(prefill.start ?? "16:00")
-  const [minutes, setMinutes] = useState(branch.defaultSessionMinutes) // E3: branch default, not a fixed 2 h
+  const [startDate, setStartDate] = useState<DateStr>(startDay)
+  const [rows, setRows] = useState<Row[]>([newRow(weekdayOf(startDay) as Weekday, prefill.start ?? "16:00", branch.defaultSessionMinutes)])
   const [studentIds, setStudentIds] = useState<string[]>([])
   const [overrideReason, setOverrideReason] = useState("")
 
-  const weekday = weekdayOf(startDate) as Weekday
-  const draft: ClassDraft = { branchId: branch.id, subject, kind, type, teacherId: primaryId || null, coTeacherIds: teacherIds.filter((t) => t !== primaryId), roomId: roomId || null, weekday, start, minutes, startDate, studentIds, overrideReason }
-  const issues = validateClass(draft, { branch, staff, sessions, holidays, now })
-  const blocks = issues.filter((i) => i.level === "block")
-  const overrides = issues.filter((i) => i.level === "override")
-  const warns = issues.filter((i) => i.level === "warn")
-  const ok = canSave(issues, overrideReason)
-
+  const course = courses.find((c) => c.id === courseId)
   const teachers = staff.filter((t) => t.active && t.roles.includes("teacher") && t.branchIds.includes(branch.id))
-  const first = nextWeekday(startDate, weekday)
-  const dates = kind === "learning" ? Array.from({ length: GENERATE_WEEKS }, (_, i) => addDays(first, i * 7)) : [first]
-  const skipped = dates.filter((d) => isHoliday(d, branch.id, holidays))
-  const branchStudents = students.filter((s) => s.branchId === branch.id)
+  const teaches = (t: (typeof teachers)[number]) => subjects.some((s) => t.subjects.includes(s))
+  const minutesOf = (r: Row) => toMinutes(r.end) - toMinutes(r.start)
+  const slot = (r: Row) => ({ weekday: r.weekday, start: r.start, minutes: minutesOf(r) })
+
+  const base: Omit<ClassDraft, "weekday" | "start" | "minutes"> = {
+    branchId: branch.id, subject: subjects[0] ?? "", subjects, kind, type, courseId: courseId || null,
+    teacherId: teacherId || null, coTeacherIds: supportId ? [supportId] : [], roomId: roomId || null, startDate, studentIds, overrideReason,
+  }
+  const rowIssues = rows.map((r) => validateClass({ ...base, ...slot(r) }, { branch, staff, sessions, holidays, now }))
+  // messages every row shares (subject, teacher, capacity…) show once; the rest belong to their row
+  const shared = rowIssues[0]?.filter((i) => rowIssues.every((list) => list.some((x) => x.message === i.message))) ?? []
+  const own = (list: Issue[]) => list.filter((i) => !shared.some((x) => x.message === i.message))
+  const selfClash = overlappingRows(rows.map(slot))
+  const all = rowIssues.flat()
+  const blocked = all.some((i) => i.level === "block") || selfClash.length > 0
+  const needsReason = all.some((i) => i.level === "override")
+  const ok = !blocked && rowIssues.every((list) => canSave(list, overrideReason))
+
+  const occurrences = (r: Row) => {
+    const first = nextWeekday(startDate, r.weekday)
+    const dates = kind === "learning" ? Array.from({ length: GENERATE_WEEKS }, (_, i) => addDays(first, i * 7)) : [first]
+    return dates.filter((d) => !isHoliday(d, branch.id, holidays)).length
+  }
+  const totalSessions = rows.reduce((n, r) => n + occurrences(r), 0)
+
+  const pickCourse = (id: string) => {
+    setCourseId(id)
+    const c = courses.find((x) => x.id === id)
+    if (c) { setSubjects(c.subjects); setGrades(sortGrades(c.grades)) }
+  }
+  const toggleSubject = (s: string) => setSubjects((x) => (x.includes(s) ? (x.length > 1 ? x.filter((y) => y !== s) : x) : [...x, s]))
+  const setRow = (key: string, patch: Partial<Row>) => setRows((rs) => rs.map((r) => (r.key === key ? { ...r, ...patch } : r)))
+  const addRow = () => {
+    const last = rows[rows.length - 1]
+    setRows([...rows, newRow(last ? (((last.weekday + 1) % 7) as Weekday) : 1, last?.start ?? "16:00", last ? minutesOf(last) : branch.defaultSessionMinutes)])
+  }
 
   const submit = () => {
-    const r = createClass({ ...draft, name, grades: grades.length ? grades : [...new Set(studentIds.map((id) => students.find((s) => s.id === id)!.grade))] })
-    if (report(r, (v) => `สร้างคลาส "${v.klass.name}" แล้ว · ${v.sessions} คาบ`)) onClose()
+    const r = createClasses({ ...base, name, grades: grades.length ? grades : [...new Set(studentIds.map((id) => students.find((s) => s.id === id)!.grade))] }, rows.map(slot))
+    if (report(r, (v) => `สร้าง ${v.classes} คลาสแล้ว · รวม ${v.sessions} คาบ`)) onClose()
   }
 
   return (
@@ -80,99 +120,158 @@ export function ClassDialog({ prefill, onClose }: { prefill: ClassPrefill; onClo
       <DialogContent className="max-h-[92vh] overflow-y-auto sm:max-w-2xl">
         <DialogHeader>
           <DialogTitle>สร้างคลาส · สาขา{branch.name}</DialogTitle>
-          <DialogDescription>ระบบตรวจครูชน / ห้องเต็ม / เวลาเปิดสาขา / จำนวนนักเรียน ให้ทันทีขณะกรอก</DialogDescription>
+          <DialogDescription>ตั้งวิชา ครู ระดับชั้นครั้งเดียว แล้วเพิ่มได้หลายวัน/เวลา — ได้ 1 คลาสต่อ 1 แถว · ระบบเช็คชนให้ทุกแถวก่อนสร้าง</DialogDescription>
         </DialogHeader>
 
+        {/* optional course link */}
+        <div className="flex flex-wrap items-center gap-3 rounded-2xl border border-dashed p-3">
+          <BookOpenIcon className="size-5 text-muted-foreground" />
+          <div className="min-w-0 flex-1">
+            <p className="text-sm font-medium">เลือกคอร์ส <span className="text-xs font-normal text-muted-foreground">(ไม่บังคับ)</span></p>
+            <p className="text-xs text-muted-foreground">{course ? `${course.subjects.join(" + ")} · ${packageLabel(course)} — คาบของคลาสนี้หักจากแพ็กเกจของคอร์สนี้` : "ผูกเพื่อให้รู้ว่าคาบนี้หักจากแพ็กเกจไหน และขึ้นในหน้าคอร์ส"}</p>
+          </div>
+          <NativeSelect className="h-9 w-full sm:w-64" value={courseId} onChange={(e) => pickCourse(e.target.value)} placeholder="ไม่ผูกคอร์ส"
+            options={courses.map((c) => ({ value: c.id, label: c.name }))} />
+        </div>
+
+        <Field label="ชื่อคลาส (เว้นว่าง = ตั้งจากวิชา + ระดับชั้น)">
+          <Input value={name} onChange={(e) => setName(e.target.value)} placeholder={`${subjects.join(" + ")} ${grades.join(", ")}`.trim()} />
+        </Field>
+
+        <Field label="วิชา (เลือกได้หลายวิชา)" issue={subjects.length > 1 && course && course.unit !== "month" ? "คลาสหลายวิชาใช้กับคอร์สแพ็กเกจรายเดือนเท่านั้น" : undefined}>
+          <div className="flex flex-wrap gap-2">
+            {branch.subjects.map((s) => {
+              const on = subjects.includes(s)
+              return (
+                <button key={s} type="button" onClick={() => toggleSubject(s)}
+                  className={cn("flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-sm", on ? cn("border-transparent", subjectColor(s).chip) : "hover:bg-muted")}>
+                  {on && <CheckIcon className="size-3.5" />}{s}
+                </button>
+              )
+            })}
+          </div>
+          {subjects.length > 1 && <p className="mt-1 text-xs text-muted-foreground">คลาสรวมหลายวิชา (เช่น Math 15 นาที + Eng 30 นาที) — เขียนสรุปการเรียนครั้งเดียวต่อคาบ ใช้กับแพ็กเกจรายเดือน</p>}
+        </Field>
+
         <div className="grid gap-3 sm:grid-cols-2">
-          <Field label="ประเภท">
+          <Field label="ครู" hint="แสดงครูที่สอนวิชาที่เลือกก่อน">
+            <NativeSelect value={teacherId} onChange={(e) => setTeacherId(e.target.value)} placeholder="ยังไม่เลือกครู"
+              options={[...teachers.filter(teaches), ...teachers.filter((t) => !teaches(t))].map((t) => ({ value: t.id, label: teaches(t) ? t.nickname : `${t.nickname} (ไม่ได้สอนวิชานี้)` }))} />
+          </Field>
+          <Field label="Support Teacher" hint="ไม่บังคับ · เลือกครูคนไหนก็ได้">
+            <NativeSelect value={supportId} onChange={(e) => setSupportId(e.target.value)} placeholder="ไม่มี"
+              options={teachers.filter((t) => t.id !== teacherId).map((t) => ({ value: t.id, label: t.nickname }))} />
+          </Field>
+        </div>
+
+        <Field label="ระดับชั้น" action={grades.length > 0 ? <button type="button" className="text-xs text-primary underline" onClick={() => setGrades([])}>ล้างทั้งหมด</button> : undefined}>
+          <div className="flex flex-wrap gap-1.5">
+            {sortGrades(branch.grades).map((g) => {
+              const on = grades.includes(g)
+              return (
+                <button key={g} type="button" onClick={() => setGrades((x) => sortGrades(on ? x.filter((y) => y !== g) : [...x, g]))}
+                  className={cn("flex items-center gap-1 rounded-full border px-3 py-1 text-sm", on ? cn("border-transparent", gradeTone(g)) : "hover:bg-muted")}>
+                  {on && <CheckIcon className="size-3" />}{g}
+                </button>
+              )
+            })}
+          </div>
+        </Field>
+
+        <div className="grid gap-3 sm:grid-cols-3">
+          <Field label="ใช้สำหรับ (Class for)">
             <NativeSelect value={kind} onChange={(e) => setKind(e.target.value as ClassKind)} options={KIND} />
           </Field>
-          <Field label="ชื่อคลาส (ไม่ใส่ = ตั้งจากวิชา+เกรด)">
-            <Input value={name} onChange={(e) => setName(e.target.value)} placeholder={`${subject} ${grades.join(", ")}`} />
-          </Field>
-          <Field label="วิชา *">
-            <NativeSelect value={subject} onChange={(e) => setSubject(e.target.value)} options={branch.subjects.map((s) => ({ value: s, label: s }))} />
-          </Field>
-          <Field label="รูปแบบ">
+          <Field label="รูปแบบ (Class type)">
             <NativeSelect value={type} onChange={(e) => setType(e.target.value as ClassType)} options={[{ value: "group", label: `กลุ่ม (ไม่เกิน ${CAPACITY.group} คน)` }, { value: "single", label: "เดี่ยว (1 คน)" }]} />
           </Field>
-          <Field label="เกรด" className="sm:col-span-2">
-            <div className="flex flex-wrap gap-1.5">
-              {branch.grades.map((g) => (
-                <button key={g} type="button" onClick={() => setGrades((x) => (x.includes(g) ? x.filter((y) => y !== g) : [...x, g]))}
-                  className={cn("rounded-full border px-2.5 py-0.5 text-xs", grades.includes(g) ? "border-primary bg-primary text-primary-foreground" : "hover:bg-muted")}>
-                  {g}
-                </button>
-              ))}
-            </div>
-          </Field>
-          <Field label={`วันเริ่ม (${TH_DAYS_FULL[weekday]})`}>
-            <Input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
-          </Field>
-          <div className="grid grid-cols-2 gap-2">
-            <Field label="เวลาเริ่ม">
-              <Input type="time" step={300} value={start} onChange={(e) => setStart(e.target.value)} />
-            </Field>
-            <Field label="ความยาว (นาที)">
-              <Input type="number" min={15} step={15} value={minutes} onChange={(e) => setMinutes(Number(e.target.value))} />
-            </Field>
-          </div>
-          <Field label="ครู (เลือกได้หลายคน · ★ = ครูหลัก)" className="sm:col-span-2" issue={issues.find((i) => i.field === "teacherId" && i.level !== "warn")?.message}>
-            <TeacherPicker teachers={teachers} subject={subject} value={{ ids: teacherIds, primaryId }} onChange={(v) => { setTeacherIds(v.ids); setPrimaryId(v.primaryId) }} />
-          </Field>
-          <Field label="ห้อง" issue={issues.find((i) => i.field === "roomId")?.message}>
+          <Field label="ห้อง">
             <NativeSelect value={roomId} onChange={(e) => setRoomId(e.target.value)} placeholder="ยังไม่ระบุห้อง" options={branch.rooms.map((r) => ({ value: r.id, label: r.name }))} />
           </Field>
-          <Field label={`นักเรียน (${studentIds.length}/${CAPACITY[type]})`} className="sm:col-span-2" issue={issues.find((i) => i.field === "studentIds")?.message}>
-            <div className="flex flex-wrap gap-1.5">
-              {branchStudents.map((s) => {
-                const on = studentIds.includes(s.id)
-                const mismatch = grades.length > 0 && Att.gradeMismatch(s, { grades })
-                return (
-                  <button key={s.id} type="button" onClick={() => setStudentIds((x) => (on ? x.filter((y) => y !== s.id) : [...x, s.id]))}
-                    className={cn("rounded-full border px-2.5 py-0.5 text-xs", on ? "border-primary bg-primary text-primary-foreground" : "hover:bg-muted", mismatch && !on && "border-dashed text-muted-foreground")}
-                    title={mismatch ? "เกรดไม่ตรงกับคลาส" : undefined}>
-                    {s.nickname} · {s.grade}{mismatch ? " ⚠" : ""}
-                  </button>
-                )
-              })}
-            </div>
-          </Field>
         </div>
+
+        {/* Date & Time rows */}
+        <div className="space-y-2">
+          <div className="flex flex-wrap items-end gap-3">
+            <p className="text-sm font-semibold">วันและเวลา</p>
+            <Field label="เริ่มตั้งแต่" className="ml-auto"><Input className="h-8 w-40" type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} /></Field>
+          </div>
+          {rows.map((r, i) => {
+            const mins = minutesOf(r)
+            const mine = own(rowIssues[i] ?? [])
+            const clashWith = selfClash.filter(([a, b]) => a === i || b === i).map(([a, b]) => (a === i ? b : a) + 1)
+            return (
+              <div key={r.key} className={cn("rounded-2xl border p-2.5", (mine.some((x) => x.level === "block") || clashWith.length) && "border-red-300 bg-red-50/40")}>
+                <div className="flex flex-wrap items-end gap-2">
+                  <Field label="วัน">
+                    <NativeSelect className="h-9 w-32" value={String(r.weekday)} onChange={(e) => setRow(r.key, { weekday: Number(e.target.value) as Weekday })}
+                      options={WEEK.map((d) => ({ value: String(d), label: TH_DAYS_FULL[d] }))} />
+                  </Field>
+                  <Field label="เวลาเริ่ม"><Input className="h-9 w-28" type="time" step={300} value={r.start} onChange={(e) => setRow(r.key, { start: e.target.value, end: fromMinutes(toMinutes(e.target.value) + Math.max(mins, 5)) })} /></Field>
+                  <span className="pb-2 text-muted-foreground">–</span>
+                  <Field label="เวลาจบ"><Input className="h-9 w-28" type="time" step={300} value={r.end} onChange={(e) => setRow(r.key, { end: e.target.value })} /></Field>
+                  <span className={cn("pb-2 text-xs", mins >= 5 && mins % 5 === 0 ? "text-muted-foreground" : "text-red-700")}>{mins > 0 ? `${mins} นาที` : "เวลาจบต้องหลังเวลาเริ่ม"}</span>
+                  <span className="pb-2 text-xs text-muted-foreground">· {occurrences(r)} คาบ</span>
+                  {rows.length > 1 && <Button size="icon-sm" variant="ghost" className="mb-0.5 ml-auto" aria-label="ลบแถว" onClick={() => setRows(rows.filter((x) => x.key !== r.key))}><TrashIcon /></Button>}
+                </div>
+                {(mine.length > 0 || clashWith.length > 0) && (
+                  <ul className="mt-2 space-y-1 text-xs">
+                    {clashWith.map((n) => <IssueRow key={`self${n}`} icon={<BanIcon />} tone="text-red-700" text={`ทับกับแถว ${n} (วันเดียวกัน เวลาซ้อน)`} />)}
+                    {mine.map((x) => <IssueRow key={x.message} icon={x.level === "block" ? <BanIcon /> : x.level === "override" ? <AlertTriangleIcon /> : <InfoIcon />} tone={x.level === "block" ? "text-red-700" : x.level === "override" ? "text-amber-700" : "text-muted-foreground"} text={x.message} />)}
+                  </ul>
+                )}
+                {mine.length === 0 && clashWith.length === 0 && <p className="mt-1.5 flex items-center gap-1 text-xs text-emerald-700"><CheckIcon className="size-3.5" /> ไม่ชนกับคลาสที่มีอยู่</p>}
+              </div>
+            )
+          })}
+          <button type="button" onClick={addRow} className="flex w-full items-center justify-center gap-1.5 rounded-2xl border border-dashed py-2.5 text-sm text-primary hover:bg-primary/5">
+            <PlusIcon className="size-4" /> เพิ่มวัน/เวลา
+          </button>
+        </div>
+
+        <Field label={`นักเรียน (${studentIds.length}/${CAPACITY[type]}) — ไม่บังคับ เพิ่มทีหลังได้`}>
+          <StudentSearch
+            students={branchStudents}
+            selected={studentIds.map((id) => branchStudents.find((s) => s.id === id)!).filter(Boolean)}
+            preferGrades={grades}
+            onPick={(s) => setStudentIds((x) => [...x, s.id])}
+            onRemove={(s) => setStudentIds((x) => x.filter((y) => y !== s.id))}
+            renderMeta={(s) => grades.length > 0 && Att.gradeMismatch(s, { grades }) ? <span className="text-[11px] text-amber-700">ชั้นไม่ตรงคลาส</span> : null}
+          />
+        </Field>
 
         <div className="rounded-lg bg-muted/50 p-3 text-sm">
-          <b>จะสร้าง {dates.length - skipped.length} คาบ</b> · ทุกวัน{TH_DAYS_FULL[weekday]} {start}–{endTime(start, minutes)} · เริ่ม {fmtDate(first, { weekday: true })}
-          {skipped.length > 0 && <span className="text-muted-foreground"> · ข้ามวันหยุด {skipped.map((d) => fmtDate(d)).join(", ")}</span>}
+          <b>จะสร้าง {rows.length} คลาส · รวม {totalSessions} คาบ</b>
+          <span className="text-muted-foreground"> · {rows.map((r) => `${TH_DAYS_FULL[r.weekday]} ${r.start}–${r.end}`).join(" · ")} · เริ่ม {fmtDate(startDate, { weekday: true })}</span>
         </div>
 
-        {(blocks.length > 0 || overrides.length > 0 || warns.length > 0) && (
+        {shared.length > 0 && (
           <ul className="space-y-1.5 text-sm">
-            {blocks.map((i) => <IssueRow key={i.message} icon={<BanIcon />} tone="text-red-700" text={i.message} />)}
-            {overrides.map((i) => <IssueRow key={i.message} icon={<AlertTriangleIcon />} tone="text-amber-700" text={`${i.message} — สร้างได้ถ้าใส่เหตุผล`} />)}
-            {warns.map((i) => <IssueRow key={i.message} icon={<InfoIcon />} tone="text-muted-foreground" text={i.message} />)}
+            {shared.map((i) => <IssueRow key={i.message} icon={i.level === "block" ? <BanIcon /> : i.level === "override" ? <AlertTriangleIcon /> : <InfoIcon />} tone={i.level === "block" ? "text-red-700" : i.level === "override" ? "text-amber-700" : "text-muted-foreground"} text={i.message} />)}
           </ul>
         )}
-        {overrides.length > 0 && blocks.length === 0 && (
-          <Field label="เหตุผลที่ยืนยันสร้าง *">
+        {needsReason && !blocked && (
+          <Field label="เหตุผลที่ยืนยันสร้าง * (มีรายการสีเหลืองที่ต้องยืนยัน)">
             <Textarea value={overrideReason} onChange={(e) => setOverrideReason(e.target.value)} rows={2} placeholder="เช่น สอนชดเชยวันหยุด" />
           </Field>
         )}
 
         <DialogFooter className="items-center">
-          {!ok && <span className="mr-auto text-xs text-red-700">{blocks[0]?.message ?? "ใส่เหตุผลเพื่อยืนยัน"}</span>}
+          {!ok && <span className="mr-auto text-xs text-red-700">{blocked ? "แก้รายการสีแดงก่อน" : "ใส่เหตุผลเพื่อยืนยัน"}</span>}
           <Button variant="ghost" onClick={onClose}>ยกเลิก</Button>
-          <Button disabled={!ok} onClick={submit}>สร้างคลาส</Button>
+          <Button disabled={!ok} onClick={submit}>สร้าง {rows.length > 1 ? `${rows.length} คลาส` : "คลาส"}</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
   )
 }
 
-function Field({ label, children, className, issue }: { label: string; children: React.ReactNode; className?: string; issue?: string }) {
+function Field({ label, hint, children, className, issue, action }: { label: string; hint?: string; children: React.ReactNode; className?: string; issue?: string; action?: React.ReactNode }) {
   return (
     <div className={cn("space-y-1", className)}>
-      <Label className="text-xs">{label}</Label>
+      <div className="flex items-center gap-2"><Label className="text-xs">{label}</Label>{action && <span className="ml-auto">{action}</span>}</div>
       {children}
+      {hint && <p className="text-[11px] text-muted-foreground">{hint}</p>}
       {issue && <p className="text-xs text-red-700">{issue}</p>}
     </div>
   )

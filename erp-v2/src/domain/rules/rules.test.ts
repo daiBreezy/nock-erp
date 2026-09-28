@@ -1,7 +1,7 @@
 // Regression tests: each case reproduces a bug found on Dev staging and proves the rule prevents it.
 import { describe, expect, it } from "vitest"
 import type { Attendance, Branch, Course, FormOfferSlot, Holiday, Invoice, Klass, Session, Staff, StudentLeave, Weekday } from "../types"
-import { applyClassEdit, applyToSessions, canSave, closesBranch, holidayImpact, hoursFor, isHoliday, periodsIn, introducedConflicts, editSingleSession, findConflicts, generateSessions, moveSession, sessionState, validateClass, workState } from "./scheduling"
+import { applyClassEdit, applyToSessions, canSave, closesBranch, holidayImpact, hoursFor, isHoliday, overlappingRows, periodsIn, introducedConflicts, editSingleSession, findConflicts, generateSessions, moveSession, sessionState, validateClass, workState } from "./scheduling"
 import { activeLeave, balance, canMark, canSaveLeave, coveringEntitlement, effectiveTo, leavesUsed, lowBalanceAlert, removeFromClass, resolveEntitlements } from "./attendance"
 import { bestPromotion, canApprove, canConfirmPayment, canForceApprove, canForceConfirmPayment, canSend, canVoid, defaultBusLegs, busTotal, nextInvoiceNumber, quoteCourse } from "./billing"
 import { can } from "./permissions"
@@ -9,7 +9,7 @@ import { chartPrice, defaultCourseName, validateCourse } from "./course"
 import { busRate, copyHours, priceOf, priceRange, setPrice, validateBranchInfo, validateDurations, validateHoliday, validatePromotion, validateSpecialPeriods, everyDay } from "./settings"
 import { forceAudience, isUnread, messageAudience, notify, validateMessage, visibleTo } from "./notifications"
 import * as Sum from "./summaries"
-import { futureSessionsOf, validateFamily, validateStaff, validateStudent } from "./people"
+import { futureSessionsOf, searchStudents, validateFamily, validateStaff, validateStudent } from "./people"
 import { suggestFixes } from "./suggest"
 import { canSetStage, daysAgo, groupOf, validateLead } from "./crm"
 import { buildCombinedSessionDraft, buildSessionDraftFromSlot, findOfferSlots, openHourStarts } from "./forms"
@@ -635,5 +635,47 @@ describe("course (mirrors staging Create Course, 2026-09-28)", () => {
   })
   it("default name from subjects + grades", () => {
     expect(defaultCourseName(["คณิต", "อังกฤษ"], ["ป.6", "ป.5"])).toBe("คณิต + อังกฤษ ป.5–ป.6")
+  })
+})
+
+describe("create class — many rows, free length, multi-subject (owner 2026-09-28)", () => {
+  it("session length is free in 5-minute steps (min 5)", () => {
+    const d = { branchId: "b1", subject: "Maths", kind: "learning" as const, type: "group" as const, teacherId: "t1", roomId: "r1", weekday: 2 as Weekday, start: "10:00", startDate: "2026-09-29", studentIds: [] }
+    const ctx = { branch, staff: [teacher], sessions: [], holidays: [] }
+    expect(validateClass({ ...d, minutes: 45 }, ctx).some((i) => i.field === "minutes")).toBe(false)
+    expect(validateClass({ ...d, minutes: 5 }, ctx).some((i) => i.field === "minutes")).toBe(false)
+    expect(validateClass({ ...d, minutes: 47 }, ctx).some((i) => i.field === "minutes")).toBe(true)
+  })
+  it("rows of one form that overlap each other are caught before creating", () => {
+    expect(overlappingRows([{ weekday: 1, start: "10:00", minutes: 60 }, { weekday: 1, start: "10:30", minutes: 60 }, { weekday: 3, start: "10:00", minutes: 60 }])).toEqual([[0, 1]])
+    expect(overlappingRows([{ weekday: 1, start: "10:00", minutes: 60 }, { weekday: 1, start: "11:00", minutes: 60 }])).toEqual([])
+  })
+  it("a multi-subject session is covered only by a course that includes every subject", () => {
+    const e = { id: "e", studentId: "a", courseId: "c", subjects: ["Maths"], classId: "other", invoiceId: "i", kind: "subscription" as const, from: "2026-09-01", to: "2026-12-31", sessionsTotal: 1 }
+    const s = { classId: null, subject: "Maths", subjects: ["Maths", "English"], date: "2026-10-01" }
+    expect(coveringEntitlement("a", s, [e])).toBeNull()
+    expect(coveringEntitlement("a", s, [{ ...e, subjects: ["Maths", "English"] }])?.id).toBe("e")
+  })
+  it("teacher must teach every subject of the class (otherwise needs a reason)", () => {
+    const d = { branchId: "b1", subject: "Maths", subjects: ["Maths", "English"], kind: "learning" as const, type: "group" as const, teacherId: "t1", roomId: "r1", weekday: 2 as Weekday, start: "10:00", minutes: 45, startDate: "2026-09-29", studentIds: [] }
+    expect(validateClass(d, { branch, staff: [teacher], sessions: [], holidays: [] }).find((i) => i.field === "teacherId")?.message).toMatch(/English/)
+  })
+})
+
+describe("student search scales (owner 2026-09-28: 100,000 students)", () => {
+  const big = Array.from({ length: 100_000 }, (_, i) => ({ id: `s${i}`, name: `นักเรียน ${i}`, nickname: i === 77_777 ? "ใบเตย" : `n${i}`, grade: i % 2 ? "ป.5" : "ม.1" }))
+  it("returns a capped list fast, never the whole school", () => {
+    const t = performance.now()
+    const r = searchStudents(big, "n1")
+    expect(performance.now() - t).toBeLessThan(200)
+    expect(r.items.length).toBe(8)
+    expect(r.total).toBeGreaterThan(1000)
+    expect(searchStudents(big, "").items).toEqual([])
+    expect(searchStudents(big, "ใบเตย").items.map((s) => s.id)).toEqual(["s77777"])
+  })
+  it("class grades come first; already-chosen students are excluded", () => {
+    const r = searchStudents(big, "n1", { preferGrades: ["ป.5"], exclude: ["s1"] })
+    expect(r.items.every((s) => s.grade === "ป.5")).toBe(true)
+    expect(r.items.some((s) => s.id === "s1")).toBe(false)
   })
 })

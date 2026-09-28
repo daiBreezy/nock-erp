@@ -3,7 +3,7 @@
 import { addDays, daysBetween, fmtDate } from "../dates"
 import type { Attendance, AttendanceStatus, Course, DateStr, Entitlement, ID, Klass, Result, Session, Staff, Student, StudentLeave } from "../types"
 import { can } from "./permissions"
-import { sessionState } from "./scheduling"
+import { sessionState, subjectsOf } from "./scheduling"
 
 /** C2: present/absent only once the session has started; leave may be recorded in advance. */
 export function canMark(s: Session, status: AttendanceStatus, now: Date): Result {
@@ -24,13 +24,14 @@ export function activeEntitlements(studentId: ID, ents: Entitlement[], date: str
 }
 
 /** A session belongs to a package if it is a session of the package's class, or a one-off (make-up / extra) session of the same subject. */
-export function packageCovers(e: Entitlement, s: Pick<Session, "classId" | "subject" | "date">) {
+export function packageCovers(e: Entitlement, s: Pick<Session, "classId" | "subject" | "subjects" | "date">) {
   if (s.date < e.from || s.date > e.to) return false
-  return s.classId ? s.classId === e.classId : e.subjects.includes(s.subject)
+  // multi-subject sessions (monthly only): the student's course must include every subject taught
+  return s.classId ? s.classId === e.classId : subjectsOf(s).every((x) => e.subjects.includes(x))
 }
 
 /** Which paid package pays for this student's seat in this session (null = unpaid). */
-export function coveringEntitlement(studentId: ID, s: Pick<Session, "classId" | "subject" | "date">, ents: Entitlement[]) {
+export function coveringEntitlement(studentId: ID, s: Pick<Session, "classId" | "subject" | "subjects" | "date">, ents: Entitlement[]) {
   return ents.find((e) => e.studentId === studentId && packageCovers(e, s)) ?? null
 }
 

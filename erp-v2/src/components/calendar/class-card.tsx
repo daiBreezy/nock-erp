@@ -5,7 +5,7 @@ import { avatarTone, gradeTone, initial, subjectColor } from "@/components/app/s
 import { WorkChip } from "@/components/app/work-state"
 import { endTime } from "@/domain/dates"
 import { activeLeave } from "@/domain/rules/attendance"
-import { CAPACITY, workState } from "@/domain/rules/scheduling"
+import { CAPACITY, subjectsOf, workState } from "@/domain/rules/scheduling"
 import type { Attendance, Klass, LessonSummary, Session, Staff, StudentLeave } from "@/domain/types"
 import { useLookup } from "@/lib/hooks"
 import { cn } from "@/lib/utils"
@@ -61,7 +61,7 @@ export function ClassCard({ s, d }: { s: Session; d: CardData }) {
           {canDrag && <GripVerticalIcon className="-ml-2 mt-0.5 size-3.5 shrink-0 opacity-0 transition group-hover/card:opacity-50" />}
           <div className="min-w-0 flex-1">
             <div className={cn("truncate text-sm font-semibold", !live && c.text, w.state === "cancelled" && "line-through")}>
-              {klass?.name ?? s.subject}
+              {klass?.name ?? subjectsOf(s).join(" + ")}
               {s.trial && <span className="ml-1.5 rounded bg-violet-600 px-1 py-px text-[10px] font-medium text-white">ทดลองเรียน</span>}
             </div>
             <div className={cn("text-xs tabular-nums", live ? "text-white/80" : "text-muted-foreground")}>
