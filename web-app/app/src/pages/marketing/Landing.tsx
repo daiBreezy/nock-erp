@@ -6,6 +6,7 @@ import {
 import DesktopNav from '../../components/web/DesktopNav'
 import AppShowcase from '../../components/web/AppShowcase'
 import MarketingFooter from '../../components/web/MarketingFooter'
+import ContactFab from '../../components/web/ContactFab'
 import { plusPricing, premiumPlans, perMonth, fmtBaht } from '../../data/packages'
 import { subjectMeta } from '../../data/learn'
 import type { SubjectKey } from '../../data/mock'
@@ -380,6 +381,7 @@ export default function Landing() {
       <ForJapanese />
       <AppShowcase />
       <MarketingFooter />
+      <ContactFab />
     </div>
   )
 }
