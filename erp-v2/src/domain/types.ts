@@ -34,7 +34,10 @@ export interface SpecialPeriod {
   hours: Record<Weekday, OpenHours | null>
 }
 
-export type FeeKind = "entry" | "book" | "exam" | "other"
+/** Settings → General Fees (staging): flat fees Create Invoice charges outside course packages.
+ *  bus = per leg (pickup / drop-off counted separately) · entry & mock = one-off "Advance Optional" add-ons.
+ *  A category can hold several priced types (e.g. bus "Standard" / "Far zone"). */
+export type FeeKind = "bus" | "entry" | "mock"
 
 export interface Fee {
   id: ID
@@ -43,13 +46,28 @@ export interface Fee {
   price: number
 }
 
+/** Package duration unit (Settings → Packages tabs: Hour / Week / Month). */
+export type PriceUnit = "hour" | "week" | "month"
+
+/** One cell of the branch price chart: subject × grade × duration → suggested price.
+ *  Reference only (owner 2026-09-26) — it pre-fills Create Course, the real price lives on the Course. */
+export interface PriceRow {
+  unit: PriceUnit
+  /** hours for "hour", weeks for "week", always 1 for "month" (price per month) */
+  duration: number
+  subject: string
+  grade: string
+  price: number
+}
+
 export interface Promotion {
   id: ID
   name: string
   type: "pct" | "amount"
   value: number
-  /** applies when the invoice buys at least this many periods (months / packs) */
-  minPeriods: number
+  /** which package type it discounts, and the minimum duration bought (hours / weeks / months) */
+  unit: PriceUnit
+  minDuration: number
   active: boolean
   from?: DateStr
   to?: DateStr
@@ -60,10 +78,12 @@ export interface Branch {
   code: string
   name: string
   brand: Brand
-  phone?: string
+  /** inactive branches disappear from the branch switcher and cannot take new work */
+  active: boolean
   email?: string
   address?: string
-  lineId?: string
+  phones: string[]
+  socials: string[]
   rooms: Room[]
   /** null = closed that weekday */
   hours: Record<Weekday, OpenHours | null>
@@ -73,10 +93,14 @@ export interface Branch {
   subjects: string[]
   grades: string[]
   defaultSessionMinutes: number
+  /** fallback bus price per leg when no bus fee type is set in General Fees */
   busFeePerLeg: number
   fees: Fee[]
   promotions: Promotion[]
-  bankAccount: { bank: string; name: string; number: string }
+  /** Settings → Packages: offered durations per unit + the price chart */
+  packageDurations: { hour: number[]; week: number[] }
+  priceChart: PriceRow[]
+  bankAccount: { bank: string; branchName: string; name: string; number: string }
   /** legacy simple flag — kept so existing "delivered via LINE" simulation logic still works; set from the server-side /api/line/status check */
   lineOaConnected: boolean
   /** non-secret LINE identity — safe to keep in client state. The actual Channel Secret / Access Token live server-side only (.env.local), never here. */
@@ -96,6 +120,16 @@ export interface LineOaConfig {
 export type NotifyKey =
   | "renewal" | "new_lead" | "payslip" | "holiday_conflict" | "summary_deadline"
   | "student_added" | "starting_soon" | "invoice_sent" | "receipt_sent" | "summary_sent"
+
+/** Settings → System (brand-wide, Director only): global catalogs + preferences. */
+export interface SystemConfig {
+  /** global subject catalog — branches pick from it; renaming updates every record */
+  subjects: string[]
+  /** one default invoice memo per brand, inherited by every branch of that brand */
+  invoiceMemos: Record<Brand, string>
+  preferences: { language: "th" | "en"; timezone: string; currency: string; dateFormat: "th-short" | "iso" }
+  settings: SystemSettings
+}
 
 export interface SystemSettings {
   notify: Record<NotifyKey, { inApp: boolean; line: boolean }>

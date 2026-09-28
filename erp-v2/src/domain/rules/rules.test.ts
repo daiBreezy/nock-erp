@@ -3,8 +3,9 @@ import { describe, expect, it } from "vitest"
 import type { Attendance, Branch, FormOfferSlot, Holiday, Invoice, Klass, Package, Session, Staff, StudentLeave, Weekday } from "../types"
 import { applyClassEdit, applyToSessions, canSave, introducedConflicts, editSingleSession, findConflicts, generateSessions, moveSession, sessionState, validateClass, workState } from "./scheduling"
 import { activeLeave, balance, canMark, canSaveLeave, coveringEntitlement, effectiveTo, leavesUsed, lowBalanceAlert, removeFromClass, resolveEntitlements } from "./attendance"
-import { canApprove, canConfirmPayment, canForceApprove, canForceConfirmPayment, canSend, canVoid, defaultBusLegs, busTotal, nextInvoiceNumber, quoteCourse } from "./billing"
+import { bestPromotion, canApprove, canConfirmPayment, canForceApprove, canForceConfirmPayment, canSend, canVoid, defaultBusLegs, busTotal, nextInvoiceNumber, quoteCourse } from "./billing"
 import { can } from "./permissions"
+import { busRate, copyHours, priceOf, priceRange, setPrice, validateBranchInfo, validateDurations, validatePromotion } from "./settings"
 import { forceAudience, isUnread, messageAudience, notify, validateMessage, visibleTo } from "./notifications"
 import * as Sum from "./summaries"
 import { futureSessionsOf, validateFamily, validateStaff, validateStudent } from "./people"
@@ -18,7 +19,8 @@ const branch: Branch = {
   rooms: [{ id: "r1", name: "Room 1" }, { id: "r2", name: "Room 2" }],
   hours: { 0: null, 1: hours, 2: hours, 3: hours, 4: hours, 5: hours, 6: hours } as Record<Weekday, typeof hours | null>,
   subjects: ["Maths"], grades: ["P5"], defaultSessionMinutes: 60, busFeePerLeg: 150, breaks: { 0: [], 1: [], 2: [], 3: [], 4: [], 5: [], 6: [] }, specialPeriods: [], fees: [], promotions: [],
-  bankAccount: { bank: "", name: "", number: "" }, lineOaConnected: false,
+  active: true, phones: [], socials: [], packageDurations: { hour: [12, 24], week: [4] }, priceChart: [],
+  bankAccount: { bank: "", branchName: "", name: "", number: "" }, lineOaConnected: false,
   lineOa: { channelId: "", botBasicId: "", addFriendUrl: "" },
 }
 const staff = (id: string, roles: Staff["roles"]): Staff => ({ id, name: id, nickname: id, roles, branchIds: ["b1"], subjects: ["Maths"], active: true, canLogin: true })
@@ -514,5 +516,37 @@ describe("force approve & central notifications (owner 2026-09-26)", () => {
     expect(validateMessage({ kind: "branch" }, " ")).toMatch(/ข้อความ/)
     expect(validateMessage({ kind: "people", staffIds: [] }, "hi")).toMatch(/ผู้รับ/)
     expect(validateMessage({ kind: "role", role: "teacher" }, "hi")).toBeNull()
+  })
+})
+
+describe("settings (mirrors staging, 2026-09-28)", () => {
+  it("price chart upserts / clears one cell and summarises a duration's range", () => {
+    let chart = setPrice([], { unit: "hour", duration: 12, subject: "Maths", grade: "P5" }, 3000)
+    chart = setPrice(chart, { unit: "hour", duration: 12, subject: "Maths", grade: "P6" }, 3200)
+    chart = setPrice(chart, { unit: "hour", duration: 12, subject: "Maths", grade: "P5" }, 3100)
+    const b = { ...branch, priceChart: chart }
+    expect(priceOf(b, "hour", 12, "Maths", "P5")).toBe(3100)
+    expect(priceRange(b, "hour", 12)).toEqual({ min: 3100, max: 3200, count: 2 })
+    expect(priceOf({ ...b, priceChart: setPrice(chart, { unit: "hour", duration: 12, subject: "Maths", grade: "P5" }, null) }, "hour", 12, "Maths", "P5")).toBeNull()
+  })
+  it("bus rate comes from the General Fees bus type, else the legacy per-leg default", () => {
+    expect(busRate(branch)).toBe(150)
+    expect(busRate({ ...branch, fees: [{ id: "f1", kind: "bus", name: "Std", price: 180 }, { id: "f2", kind: "bus", name: "Far", price: 250 }] }, "f2")).toBe(250)
+    expect(busRate({ ...branch, fees: [{ id: "f1", kind: "bus", name: "Std", price: 180 }] })).toBe(180)
+  })
+  it("promotions apply only to their package type once the minimum duration is bought", () => {
+    const b = { ...branch, promotions: [{ id: "p", name: "48h", type: "amount" as const, value: 1000, unit: "hour" as const, minDuration: 48, active: true }] }
+    expect(bestPromotion(b, { unit: "hour", amount: 24 }, 10000, "2026-09-28")).toBeNull()
+    expect(bestPromotion(b, { unit: "hour", amount: 48 }, 10000, "2026-09-28")?.discount).toBe(1000)
+    expect(bestPromotion(b, { unit: "month", amount: 48 }, 10000, "2026-09-28")).toBeNull()
+  })
+  it("validators: branch code, promotion, durations; copy hours to weekdays", () => {
+    expect(validateBranchInfo({ name: "X", code: "th", rooms: branch.rooms, email: "" })).toMatch(/รหัส/)
+    expect(validateBranchInfo({ name: "X", code: "THL", rooms: branch.rooms, email: "a@b.co" })).toBeNull()
+    expect(validatePromotion({ id: "p", name: "x", type: "pct", value: 120, unit: "month", minDuration: 1, active: true })).toMatch(/100/)
+    expect(validateDurations([12, 12])).toMatch(/ซ้ำ/)
+    const h = copyHours({ ...branch.hours, 1: { open: "07:00", close: "20:00" } }, 1, "weekdays")
+    expect(h[5]).toEqual({ open: "07:00", close: "20:00" })
+    expect(h[0]).toEqual(branch.hours[0])
   })
 })

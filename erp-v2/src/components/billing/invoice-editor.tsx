@@ -1,5 +1,6 @@
 "use client"
 
+import { busRate } from "@/domain/rules/settings"
 import { useState } from "react"
 import { AlertTriangleIcon, BusIcon, CalendarIcon } from "lucide-react"
 import { NativeSelect } from "@/components/app/native-select"
@@ -199,8 +200,8 @@ export function InvoiceEditor({ invoice, defaultStudentId, onClose, onSaved }: {
         {q && (
           <details className="rounded-lg border" open={legs.some((l) => l.pickup || l.dropoff)}>
             <summary className="flex cursor-pointer items-center gap-2 px-3 py-2 text-sm">
-              <BusIcon className="size-4" /> ค่ารถ ({fmtMoney(branch.busFeePerLeg)}/เที่ยว)
-              <span className="ml-auto font-medium tabular-nums">{fmtMoney(busTotal(legs, branch.busFeePerLeg))}</span>
+              <BusIcon className="size-4" /> ค่ารถ ({fmtMoney(busRate(branch))}/เที่ยว)
+              <span className="ml-auto font-medium tabular-nums">{fmtMoney(busTotal(legs, busRate(branch)))}</span>
             </summary>
             <div className="border-t px-3 py-2">
               <p className="mb-2 text-xs text-muted-foreground">{student?.usesBus ? "นักเรียนใช้รถ — ติ๊กให้ตามรอบเรียนแล้ว" : "นักเรียนไม่ได้ใช้รถ — ติ๊กเฉพาะรอบที่ต้องการ"}</p>

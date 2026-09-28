@@ -4,7 +4,7 @@ import { addDays, fromMinutes, nextWeekday, toDateStr, weekdayOf } from "@/domai
 import { generateSessions } from "@/domain/rules/scheduling"
 import type {
   AppNotification, Attendance, Branch, ChatMessage, Conversation, Course, Entitlement, Family, Holiday, Invoice, Klass, Lead, LessonSummary,
-  Package, Session, Staff, Student, StudentLeave, Weekday,
+  Package, PriceRow, Session, Staff, Student, StudentLeave, SystemConfig, Weekday,
 } from "@/domain/types"
 
 export interface DB {
@@ -26,6 +26,7 @@ export interface DB {
   conversations: Conversation[]
   messages: ChatMessage[]
   notifications: AppNotification[]
+  system: SystemConfig
 }
 
 let seq = 0
@@ -33,6 +34,21 @@ export const uid = (p: string) => `${p}_${Date.now().toString(36)}${(seq++).toSt
 
 const wk = (open: string, close: string, closed: Weekday[] = [0]) =>
   Object.fromEntries(([0, 1, 2, 3, 4, 5, 6] as Weekday[]).map((d) => [d, closed.includes(d) ? null : { open, close }])) as Branch["hours"]
+
+/** Suggested prices: hour packs ~250 ฿/ชม. (cheaper per hour for bigger packs), 4/8-week packs, monthly; higher grades cost a bit more. */
+function chart(subjects: string[], grades: string[], scale = 1): PriceRow[] {
+  const rows: PriceRow[] = []
+  const r = (n: number) => Math.round((n * scale) / 50) * 50
+  subjects.forEach((subject) =>
+    grades.forEach((grade, gi) => {
+      const g = 1 + gi * 0.04
+      ;[12, 24, 48, 72, 96].forEach((h) => rows.push({ unit: "hour", duration: h, subject, grade, price: r(h * 260 * g * (1 - Math.min(h, 96) / 480)) }))
+      ;[4, 8].forEach((w) => rows.push({ unit: "week", duration: w, subject, grade, price: r(w * 1100 * g) }))
+      rows.push({ unit: "month", duration: 1, subject, grade, price: r(4200 * g) })
+    }),
+  )
+  return rows
+}
 
 export function buildSeed(now = new Date()): DB {
   seq = 0
@@ -45,16 +61,33 @@ export function buildSeed(now = new Date()): DB {
       id: "br_thl", code: "THL", name: "ทองหล่อ", brand: "nockacademy",
       rooms: [{ id: "rm_1", name: "ห้อง 1" }, { id: "rm_2", name: "ห้อง 2" }, { id: "rm_3", name: "ห้อง 3" }],
       hours: wk("09:00", "20:00"), subjects: ["คณิต", "อังกฤษ", "วิทย์"], grades: ["ป.4", "ป.5", "ป.6", "ม.1", "ม.2", "ม.3"],
-      defaultSessionMinutes: 60, busFeePerLeg: 150, breaks: { 0: [], 1: [], 2: [], 3: [], 4: [], 5: [], 6: [{ start: "12:00", end: "13:00", label: "พักกลางวัน" }] }, specialPeriods: [], fees: [], promotions: [],
-      bankAccount: { bank: "กสิกรไทย", name: "บจก. นกอะคาเดมี่", number: "123-4-56789-0" }, lineOaConnected: true,
+      defaultSessionMinutes: 60, busFeePerLeg: 150, breaks: { 0: [], 1: [], 2: [], 3: [], 4: [], 5: [], 6: [{ start: "12:00", end: "13:00", label: "พักกลางวัน" }] }, specialPeriods: [],
+      active: true, email: "thonglor@nockacademy.com", address: "123 ถ.สุขุมวิท 55 แขวงคลองตันเหนือ เขตวัฒนา กทม. 10110", phones: ["02-111-2222", "081-234-5678"], socials: ["https://facebook.com/nockacademy"],
+      fees: [
+        { id: "fee_bus_std", kind: "bus", name: "Standard", price: 150 },
+        { id: "fee_bus_far", kind: "bus", name: "โซนไกล", price: 200 },
+        { id: "fee_entry", kind: "entry", name: "ค่าแรกเข้า", price: 1500 },
+        { id: "fee_mock", kind: "mock", name: "Mock test", price: 800 },
+      ],
+      promotions: [
+        { id: "pr_3m", name: "ต่อ 3 เดือน ลด 5%", type: "pct", value: 5, unit: "month", minDuration: 3, active: true },
+        { id: "pr_48h", name: "48 ชม. ลด 1,000", type: "amount", value: 1000, unit: "hour", minDuration: 48, active: true },
+      ],
+      packageDurations: { hour: [12, 24, 48, 72, 96], week: [4, 8] },
+      priceChart: chart(["คณิต", "อังกฤษ", "วิทย์"], ["ป.4", "ป.5", "ป.6", "ม.1", "ม.2", "ม.3"]),
+      bankAccount: { bank: "กสิกรไทย", branchName: "สาขาทองหล่อ", name: "บจก. นกอะคาเดมี่", number: "123-4-56789-0" }, lineOaConnected: true,
       lineOa: { channelId: "1657800001", botBasicId: "@nockacademy", addFriendUrl: "https://lin.ee/p4w3XA7" },
     },
     {
       id: "br_ari", code: "ARI", name: "อารีย์", brand: "liclass",
       rooms: [{ id: "rm_a1", name: "ห้อง A" }, { id: "rm_a2", name: "ห้อง B" }],
       hours: wk("10:00", "19:00", [0, 1]), subjects: ["คณิต", "อังกฤษ"], grades: ["ป.1", "ป.2", "ป.3", "ป.4", "ป.5", "ป.6"],
-      defaultSessionMinutes: 90, busFeePerLeg: 120, breaks: { 0: [], 1: [], 2: [], 3: [], 4: [], 5: [], 6: [{ start: "12:00", end: "13:00", label: "พักกลางวัน" }] }, specialPeriods: [], fees: [], promotions: [],
-      bankAccount: { bank: "ไทยพาณิชย์", name: "บจก. ลิคลาส เอดูเคชั่น", number: "987-6-54321-0" }, lineOaConnected: false,
+      defaultSessionMinutes: 90, busFeePerLeg: 120, breaks: { 0: [], 1: [], 2: [], 3: [], 4: [], 5: [], 6: [{ start: "12:00", end: "13:00", label: "พักกลางวัน" }] }, specialPeriods: [],
+      active: true, email: "ari@liclass.com", address: "45 ซ.อารีย์ 1 แขวงสามเสนใน เขตพญาไท กทม. 10400", phones: ["02-333-4444"], socials: [],
+      fees: [{ id: "fee_bus_ari", kind: "bus", name: "Standard", price: 120 }], promotions: [],
+      packageDurations: { hour: [12, 24, 48], week: [] },
+      priceChart: chart(["คณิต", "อังกฤษ"], ["ป.1", "ป.2", "ป.3", "ป.4", "ป.5", "ป.6"], 0.85),
+      bankAccount: { bank: "ไทยพาณิชย์", branchName: "สาขาอารีย์", name: "บจก. ลิคลาส เอดูเคชั่น", number: "987-6-54321-0" }, lineOaConnected: false,
       lineOa: { channelId: "", botBasicId: "", addFriendUrl: "" },
     },
   ]
@@ -275,5 +308,24 @@ export function buildSeed(now = new Date()): DB {
     },
   ]
 
-  return { branches, staff, holidays, packages, courses, classes, sessions, attendance, summaries, families, students, entitlements, leaves: [], invoices, leads, conversations, messages, notifications: [] }
+  const on = { inApp: true, line: false }
+  const system: SystemConfig = {
+    subjects: ["คณิต", "อังกฤษ", "วิทย์"],
+    invoiceMemos: {
+      nockacademy: "กรุณาชำระภายใน 5 วันหลังได้รับใบแจ้งหนี้ · โอนแล้วส่งสลิปทาง LINE OA",
+      liclass: "",
+    },
+    preferences: { language: "th", timezone: "Asia/Bangkok (UTC+7)", currency: "THB (฿)", dateFormat: "th-short" },
+    settings: {
+      notify: {
+        renewal: { inApp: true, line: true }, new_lead: on, payslip: on, holiday_conflict: on, summary_deadline: on,
+        student_added: on, starting_soon: on, invoice_sent: { inApp: true, line: true }, receipt_sent: { inApp: true, line: true }, summary_sent: { inApp: true, line: true },
+      },
+      lowSessionThreshold: 2,
+      renewalDaysBefore: 7,
+      summaryDeadlineHours: 24,
+    },
+  }
+
+  return { branches, staff, holidays, packages, courses, classes, sessions, attendance, summaries, families, students, entitlements, leaves: [], invoices, leads, conversations, messages, notifications: [], system }
 }

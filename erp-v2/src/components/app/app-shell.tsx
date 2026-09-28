@@ -97,7 +97,7 @@ function Shell({ children }: { children: ReactNode }) {
               className="h-9 w-36 sm:w-44"
               value={branchId}
               onChange={(e) => setBranch(e.target.value)}
-              options={branches.filter((b) => me.branchIds.includes(b.id)).map((b) => ({ value: b.id, label: `สาขา${b.name}` }))}
+              options={branches.filter((b) => me.branchIds.includes(b.id) && (b.active || b.id === branchId)).map((b) => ({ value: b.id, label: `สาขา${b.name}` }))}
             />
             <NotificationBell />
             <div className="hidden text-right leading-tight sm:block">

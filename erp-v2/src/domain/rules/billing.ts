@@ -1,10 +1,11 @@
 // Billing rules: one pricing function feeds Create, Edit, Detail and PDF (BL-2, BL-3, BL-4).
 
 import { addMonths, endOfMonth, monthKey, nextWeekday, addDays } from "../dates"
-import type { Branch, BusLeg, Course, DateStr, Holiday, ID, Invoice, Klass, Package, Result, Role, Staff } from "../types"
+import type { Branch, BusLeg, Course, DateStr, Holiday, ID, Invoice, Klass, Package, PriceUnit, Result, Role, Staff } from "../types"
 import { requireForceRemark } from "./notifications"
 import { inBranch } from "./permissions"
 import { isHoliday } from "./scheduling"
+import { busRate } from "./settings"
 
 /** Dev rule: monthly price by sessions left in the month — 3+ = 100%, 2 = 60%, 1 = 30%. */
 export function prorateFactor(sessionsInMonth: number) {
@@ -93,9 +94,16 @@ export function busTotal(legs: BusLeg[], perLeg: number) {
   return legs.reduce((a, l) => a + (l.pickup ? perLeg : 0) + (l.dropoff ? perLeg : 0), 0)
 }
 
-/** Best active promotion the invoice qualifies for (by number of periods bought) */
-export function bestPromotion(branch: Branch, periods: number, courseAmount: number, date: DateStr) {
-  const eligible = (branch.promotions ?? []).filter((p) => p.active && periods >= p.minPeriods && (!p.from || p.from <= date) && (!p.to || date <= p.to))
+/** What one course line buys, in promotion terms: months for monthly packages, total hours for hour packs. */
+export function purchaseOf(pkg: Package, periods: number): { unit: PriceUnit; amount: number } {
+  return pkg.unit === "month" ? { unit: "month", amount: periods } : { unit: "hour", amount: (pkg.hours ?? 0) * periods }
+}
+
+/** Best active promotion for this package type whose minimum duration the purchase reaches */
+export function bestPromotion(branch: Branch, purchase: { unit: PriceUnit; amount: number }, courseAmount: number, date: DateStr) {
+  const eligible = (branch.promotions ?? []).filter(
+    (p) => p.active && p.unit === purchase.unit && purchase.amount >= p.minDuration && (!p.from || p.from <= date) && (!p.to || date <= p.to),
+  )
   const value = (p: (typeof eligible)[number]) => (p.type === "pct" ? Math.round((courseAmount * p.value) / 100) : Math.min(p.value, courseAmount))
   const best = eligible.sort((a, b) => value(b) - value(a))[0]
   return best ? { promotion: best, discount: value(best) } : null
@@ -115,9 +123,10 @@ export interface InvoiceTotals {
 
 export function invoiceTotals(inv: Invoice, ctx: { branch: Branch; courses: Course[]; packages: Package[]; classes: Klass[]; holidays: Holiday[] }): InvoiceTotals {
   let quote: CourseQuote | null = null
+  let pkg: Package | undefined
   if (inv.course) {
     const course = ctx.courses.find((c) => c.id === inv.course!.courseId)
-    const pkg = ctx.packages.find((p) => p.id === course?.packageId)
+    pkg = ctx.packages.find((p) => p.id === course?.packageId)
     const k = ctx.classes.find((c) => c.id === inv.course!.classId)
     if (pkg && k) {
       const r = quoteCourse({ pkg, klass: k, startDate: inv.course.startDate, periods: inv.course.periods, holidays: ctx.holidays })
@@ -125,9 +134,9 @@ export function invoiceTotals(inv: Invoice, ctx: { branch: Branch; courses: Cour
     }
   }
   const course = quote?.total ?? 0
-  const promo = inv.course && inv.promotionId !== null ? bestPromotion(ctx.branch, inv.course.periods, course, inv.course.startDate) : null
+  const promo = inv.course && pkg && inv.promotionId !== null ? bestPromotion(ctx.branch, purchaseOf(pkg, inv.course.periods), course, inv.course.startDate) : null
   const promotion = promo?.discount ?? 0
-  const bus = busTotal(inv.bus, ctx.branch.busFeePerLeg)
+  const bus = busTotal(inv.bus, busRate(ctx.branch))
   const concession = inv.concession?.amount ?? 0
   const total = course - promotion + bus + inv.bookFee + inv.advanceFee - concession
   return { course, promotion, promotionName: promo?.promotion.name, bus, book: inv.bookFee, advance: inv.advanceFee, concession, total, quote }

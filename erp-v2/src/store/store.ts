@@ -17,7 +17,8 @@ import * as Sum from "@/domain/rules/summaries"
 import * as People from "@/domain/rules/people"
 import * as Forms from "@/domain/rules/forms"
 import * as Notif from "@/domain/rules/notifications"
-import type { AttendanceStatus, Branch, ChatMessage, Conversation, Course, DateStr, Family, FormSubmission, Holiday, ID, Invoice, Klass, Lead, LeadStage, LessonSummary, Package, Result, Session, Staff, Student } from "@/domain/types"
+import * as Cfg from "@/domain/rules/settings"
+import type { AttendanceStatus, Branch, ChatMessage, Conversation, Course, DateStr, Family, FormSubmission, Holiday, ID, Invoice, Klass, Lead, LeadStage, LessonSummary, Package, Result, Session, Staff, Student, SystemConfig } from "@/domain/types"
 
 export interface UIState {
   userId: ID
@@ -56,6 +57,11 @@ type Store = DB & UIState & {
   savePackage: (p: Package) => Result<Package>
   saveCourse: (c: Course) => Result<Course>
   saveBranch: (b: Branch) => Result
+  addBranch: (input: { name: string; code: string; brand: Branch["brand"] }) => Result<Branch>
+  setBranchActive: (id: ID, active: boolean) => Result
+  saveSystem: (sys: SystemConfig) => Result
+  /** renames a subject in the global catalog and every record that uses it (display name only changes) */
+  renameSubject: (from: string, to: string) => Result
   /** marks as read for the current user only */
   markNotificationsRead: (ids?: ID[]) => void
   sendTeamMessage: (target: Notif.MessageTarget, title: string, body: string) => Result
@@ -440,13 +446,79 @@ export const useStore = create<Store>()(
         const s = get()
         const perm = requirePerm(s.me(), "settings.manage")
         if (!perm.ok) return perm
-        if (!b.name.trim()) return fail("ใส่ชื่อสาขา")
-        if (!b.rooms.length) return fail("ต้องมีห้องอย่างน้อย 1 ห้อง")
-        for (const [, h] of Object.entries(b.hours)) if (h && toMinutes(h.open) >= toMinutes(h.close)) return fail("เวลาปิดต้องหลังเวลาเปิด")
+        const err = Cfg.validateBranchInfo(b) ?? Cfg.validateHours(b.hours) ?? Cfg.validateDurations([...b.packageDurations.hour, ...b.packageDurations.week])
+        if (err) return fail(err)
+        if (s.branches.some((x) => x.id !== b.id && x.code === b.code)) return fail(`รหัสสาขา ${b.code} ถูกใช้แล้ว`)
         const removedRooms = s.branches.find((x) => x.id === b.id)!.rooms.filter((r) => !b.rooms.some((n) => n.id === r.id))
         const inUse = removedRooms.find((r) => s.sessions.some((x) => x.roomId === r.id && !x.cancelled && x.date >= toDateStr(s.now())))
         if (inUse) return fail(`ลบ${inUse.name}ไม่ได้ — ยังมีคาบที่ใช้ห้องนี้`)
         set({ branches: s.branches.map((x) => (x.id === b.id ? b : x)) })
+        return OK
+      },
+
+      addBranch: (input) => {
+        const s = get()
+        const perm = requirePerm(s.me(), "settings.manage")
+        if (!perm.ok) return perm
+        const code = input.code.trim().toUpperCase()
+        const base = s.branches.find((b) => b.id === s.branchId)!
+        const b: Branch = {
+          ...base, id: uid("br"), code, name: input.name.trim(), brand: input.brand, active: true,
+          email: "", address: "", phones: [], socials: [], rooms: [{ id: uid("rm"), name: "ห้อง 1" }],
+          specialPeriods: [], fees: [], promotions: [], priceChart: [], subjects: [], grades: [],
+          bankAccount: { bank: "", branchName: "", name: "", number: "" }, lineOaConnected: false, lineOa: { channelId: "", botBasicId: "", addFriendUrl: "" },
+        }
+        const err = Cfg.validateBranchInfo(b)
+        if (err) return fail(err)
+        if (s.branches.some((x) => x.code === code)) return fail(`รหัสสาขา ${code} ถูกใช้แล้ว`)
+        // the creator must be able to open the new branch from the switcher
+        set({ branches: [...s.branches, b], staff: s.staff.map((x) => (x.id === s.userId ? { ...x, branchIds: [...x.branchIds, b.id] } : x)) })
+        return { ok: true, value: b }
+      },
+
+      setBranchActive: (id, active) => {
+        const s = get()
+        const perm = requirePerm(s.me(), "settings.manage")
+        if (!perm.ok) return perm
+        if (!active && s.branches.filter((b) => b.active).length <= 1) return fail("ต้องมีสาขาที่เปิดอยู่อย่างน้อย 1 สาขา")
+        if (!active && s.sessions.some((x) => x.branchId === id && !x.cancelled && x.date >= toDateStr(s.now()))) return fail("ยังมีคาบในอนาคตที่สาขานี้ — ย้ายหรือยกเลิกก่อนปิดสาขา")
+        const next = s.branches.map((b) => (b.id === id ? { ...b, active } : b))
+        const fallback = next.find((b) => b.active && s.me().branchIds.includes(b.id))
+        set({ branches: next, branchId: !active && s.branchId === id && fallback ? fallback.id : s.branchId })
+        return OK
+      },
+
+      saveSystem: (sys) => {
+        const s = get()
+        const perm = requirePerm(s.me(), "settings.manage")
+        if (!perm.ok) return perm
+        if (sys.subjects.some((x) => !x.trim())) return fail("ชื่อวิชาว่างไม่ได้")
+        if (new Set(sys.subjects).size !== sys.subjects.length) return fail("มีชื่อวิชาซ้ำ")
+        const settings = sys.settings
+        if (!(settings.lowSessionThreshold >= 0) || !(settings.renewalDaysBefore >= 0) || !(settings.summaryDeadlineHours > 0)) return fail("ตัวเลขการแจ้งเตือนไม่ถูกต้อง")
+        set({ system: sys })
+        return OK
+      },
+
+      renameSubject: (from, to) => {
+        const s = get()
+        const perm = requirePerm(s.me(), "settings.manage")
+        if (!perm.ok) return perm
+        const name = to.trim()
+        if (!name) return fail("ชื่อวิชาว่างไม่ได้")
+        if (name !== from && s.system.subjects.includes(name)) return fail(`มีวิชา ${name} อยู่แล้ว`)
+        const r = (x: string) => (x === from ? name : x)
+        set({
+          system: { ...s.system, subjects: s.system.subjects.map(r) },
+          branches: s.branches.map((b) => ({ ...b, subjects: b.subjects.map(r), priceChart: b.priceChart.map((p) => ({ ...p, subject: r(p.subject) })) })),
+          staff: s.staff.map((x) => ({ ...x, subjects: x.subjects.map(r) })),
+          packages: s.packages.map((x) => ({ ...x, subject: r(x.subject) })),
+          courses: s.courses.map((x) => ({ ...x, subject: r(x.subject) })),
+          classes: s.classes.map((x) => ({ ...x, subject: r(x.subject) })),
+          sessions: s.sessions.map((x) => ({ ...x, subject: r(x.subject) })),
+          entitlements: s.entitlements.map((x) => ({ ...x, subject: r(x.subject) })),
+          leads: s.leads.map((x) => ({ ...x, subject: r(x.subject) })),
+        })
         return OK
       },
 
@@ -967,7 +1039,7 @@ export const useStore = create<Store>()(
     {
       name: "nockerp-v2",
       // bump when the data model changes; older saved data is replaced by fresh sample data
-      version: 17,
+      version: 18,
       migrate: () => ({ ...buildSeed(), userId: "u_nock", branchId: "br_thl", clockOffset: 0 }) as unknown as Store,
       // persist data + UI state only, never the action functions
       partialize: (s) => Object.fromEntries(Object.entries(s).filter(([, v]) => typeof v !== "function")) as Partial<Store>,
