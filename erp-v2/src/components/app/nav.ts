@@ -38,7 +38,7 @@ export const NAV: { group: string; items: NavItem[] }[] = [
     items: [
       { href: "/classes", label: "คลาส", icon: SquareLibraryIcon, perm: "class.manage" },
       { href: "/attendance", label: "รายงานเข้าเรียน", icon: ClipboardCheckIcon, perm: "session.manage" },
-      { href: "/courses", label: "คอร์ส & ราคา", icon: BookOpenIcon, perm: "course.manage" },
+      { href: "/courses", label: "คอร์ส", icon: BookOpenIcon, perm: "course.manage" },
     ],
   },
   {

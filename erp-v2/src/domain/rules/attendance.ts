@@ -26,7 +26,7 @@ export function activeEntitlements(studentId: ID, ents: Entitlement[], date: str
 /** A session belongs to a package if it is a session of the package's class, or a one-off (make-up / extra) session of the same subject. */
 export function packageCovers(e: Entitlement, s: Pick<Session, "classId" | "subject" | "date">) {
   if (s.date < e.from || s.date > e.to) return false
-  return s.classId ? s.classId === e.classId : s.subject === e.subject
+  return s.classId ? s.classId === e.classId : e.subjects.includes(s.subject)
 }
 
 /** Which paid package pays for this student's seat in this session (null = unpaid). */

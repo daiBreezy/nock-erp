@@ -47,7 +47,6 @@ function Body({ id }: { id: ID }) {
   const classes = useStore((s) => s.classes)
   const invoices = useStore((s) => s.invoices)
   const branches = useStore((s) => s.branches)
-  const packages = useStore((s) => s.packages)
   const holidays = useStore((s) => s.holidays)
   const me = useStore((s) => s.staff.find((x) => x.id === s.userId)!)
   const now = useNow()
@@ -202,7 +201,7 @@ function Body({ id }: { id: ID }) {
               return (
                 <Link key={i.id} href={`/billing?open=${i.id}`} className="flex items-center gap-2 hover:underline">
                   <span className="w-40 truncate tabular-nums">{i.number ?? "ร่าง"}</span>
-                  <span className="flex-1 tabular-nums">{fmtMoney(invoiceTotals(i, { branch, courses, packages, classes, holidays }).total)}</span>
+                  <span className="flex-1 tabular-nums">{fmtMoney(invoiceTotals(i, { branch, courses, classes, holidays }).total)}</span>
                   <span className="text-xs text-muted-foreground">{INVOICE_STATUS_LABEL[i.status]}</span>
                 </Link>
               )

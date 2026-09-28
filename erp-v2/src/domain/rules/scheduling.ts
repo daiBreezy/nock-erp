@@ -167,6 +167,7 @@ export interface ClassDraft {
   branchId: ID
   subject: string
   kind: Klass["kind"]
+  courseId?: ID | null
   type: Klass["type"]
   teacherId: ID | null
   coTeacherIds?: ID[]

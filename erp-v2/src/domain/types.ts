@@ -160,26 +160,33 @@ export interface Holiday {
   openBranchIds?: ID[]
 }
 
-export type PackageUnit = "month" | "hours"
+export type CourseKind = "single" | "bundle"
 
-export interface Package {
-  id: ID
-  branchId: ID
-  subject: string
-  grades: string[]
-  unit: PackageUnit
-  price: number
-  /** for unit = "hours" */
-  hours?: number
-}
-
+/** Create Course (staging): Single = one subject, Bundle = several · package type + duration from
+ *  Settings → Packages · price pre-filled from the branch price chart (reason required when changed) ·
+ *  optional course fee charged on every purchase · optional start→end window · Active.
+ *  Teachers are NOT on the course — they are set per Class (owner 2026-09-28). */
 export interface Course {
   id: ID
   branchId: ID
   name: string
-  subject: string
+  kind: CourseKind
+  subjects: string[]
   grades: string[]
-  packageId: ID
+  /** hour = buy N hours, used up by real session length · week = N weeks from the start date, any number of sessions ·
+   *  month = calendar month (1st → end of month), any number of sessions */
+  unit: PriceUnit
+  /** hours for "hour", weeks for "week", 1 for "month" */
+  duration: number
+  /** price of one package (one month / one N-hour pack / one N-week pack) */
+  price: number
+  /** required when the price differs from the branch chart (or the chart has no price) */
+  priceReason?: string
+  /** optional equipment fee, charged on top of the price on every purchase */
+  courseFee: number
+  from?: DateStr
+  to?: DateStr
+  active: boolean
 }
 
 export type ClassKind = "learning" | "test" | "interview" | "other"
@@ -193,6 +200,8 @@ export interface Klass {
   grades: string[]
   kind: ClassKind
   type: ClassType
+  /** optional link to the course this class delivers (tells which package a session draws from) */
+  courseId: ID | null
   /** primary teacher (responsible for attendance + summaries) */
   teacherId: ID | null
   /** additional teachers / assistants */
@@ -307,8 +316,8 @@ export interface Entitlement {
   id: ID
   studentId: ID
   courseId: ID
-  /** subject of the course — lets make-up / one-off sessions of the same subject use this package */
-  subject: string
+  /** subjects of the course (a bundle has several) — lets make-up / one-off sessions of the same subject use this package */
+  subjects: string[]
   classId: ID | null
   invoiceId: ID
   kind: EntitlementKind

@@ -37,7 +37,6 @@ function Body({ id, onEdit }: { id: ID; onEdit: (inv: Invoice) => void }) {
   const students = useStore((s) => s.students)
   const families = useStore((s) => s.families)
   const courses = useStore((s) => s.courses)
-  const packages = useStore((s) => s.packages)
   const classes = useStore((s) => s.classes)
   const holidays = useStore((s) => s.holidays)
   const act = useStore(useShallow((s) => ({ gen: s.generatePdf, approve: s.approveInvoice, send: s.sendInvoice, void: s.voidInvoice, pay: s.recordPayment, confirm: s.confirmPayment })))
@@ -49,7 +48,7 @@ function Body({ id, onEdit }: { id: ID; onEdit: (inv: Invoice) => void }) {
   const [ref, setRef] = useState("")
   if (!inv) return null
 
-  const totals = Bill.invoiceTotals(inv, { branch, courses, packages, classes, holidays })
+  const totals = Bill.invoiceTotals(inv, { branch, courses, classes, holidays })
   const stu = students.find((s) => s.id === inv.studentId)
   const fam = families.find((f) => f.id === stu?.familyId)
   const course = courses.find((c) => c.id === inv.course?.courseId)
@@ -125,6 +124,7 @@ function Body({ id, onEdit }: { id: ID; onEdit: (inv: Invoice) => void }) {
                   ))}
                 </>
               )}
+              {totals.courseFee > 0 && <tr><td className="px-3 py-1.5">Course fee (ค่าอุปกรณ์)</td><td className="px-3 py-1.5 text-right">{fmtMoney(totals.courseFee)}</td></tr>}
               {totals.bus > 0 && <tr><td className="px-3 py-1.5">ค่ารถ ({inv.bus.reduce((a, l) => a + +l.pickup + +l.dropoff, 0)} เที่ยว)</td><td className="px-3 py-1.5 text-right">{fmtMoney(totals.bus)}</td></tr>}
               {totals.book > 0 && <tr><td className="px-3 py-1.5">ค่าหนังสือ</td><td className="px-3 py-1.5 text-right">{fmtMoney(totals.book)}</td></tr>}
               {totals.advance > 0 && <tr><td className="px-3 py-1.5">ค่าอื่นๆ</td><td className="px-3 py-1.5 text-right">{fmtMoney(totals.advance)}</td></tr>}

@@ -1,7 +1,8 @@
 // Billing rules: one pricing function feeds Create, Edit, Detail and PDF (BL-2, BL-3, BL-4).
 
 import { addMonths, endOfMonth, monthKey, nextWeekday, addDays } from "../dates"
-import type { Branch, BusLeg, Course, DateStr, Holiday, ID, Invoice, Klass, Package, PriceUnit, Result, Role, Staff } from "../types"
+import type { Branch, BusLeg, Course, DateStr, Holiday, ID, Invoice, Klass, PriceUnit, Result, Role, Staff } from "../types"
+import { purchaseOf } from "./course"
 import { requireForceRemark } from "./notifications"
 import { inBranch } from "./permissions"
 import { isHoliday } from "./scheduling"
@@ -34,40 +35,48 @@ export interface CourseQuote {
 }
 
 export function quoteCourse(opts: {
-  pkg: Package
+  course: Pick<Course, "unit" | "duration" | "price">
   klass: Pick<Klass, "weekday" | "minutes" | "branchId">
   startDate: DateStr
   periods: number
   holidays: Holiday[]
 }): Result<CourseQuote> {
-  const { pkg, klass, startDate, holidays } = opts
+  const { course, klass, startDate, holidays } = opts
   if (!Number.isInteger(opts.periods) || opts.periods < 1) return { ok: false, error: "จำนวนงวดต้องเป็นจำนวนเต็มตั้งแต่ 1 ขึ้นไป" } // BL-5
 
   const first = nextWeekday(startDate, klass.weekday)
   const sessions: DateStr[] = [], skipped: DateStr[] = []
   let to: DateStr
 
-  if (pkg.unit === "month") {
+  if (course.unit === "month") {
     to = endOfMonth(addMonths(startDate, opts.periods - 1))
     for (let d = first; d <= to; d = addDays(d, 7)) (isHoliday(d, klass.branchId, holidays) ? skipped : sessions).push(d)
     const months = Array.from({ length: opts.periods }, (_, i) => monthKey(addMonths(startDate, i)))
     const periods = months.map((m) => {
       const inMonth = sessions.filter((d) => monthKey(d) === m)
       const factor = prorateFactor(inMonth.length)
-      return { month: m, sessions: inMonth, factor, amount: Math.round(pkg.price * factor) }
+      return { month: m, sessions: inMonth, factor, amount: Math.round(course.price * factor) }
     })
     return ok(sessions, skipped, first, to, klass.minutes, periods)
   }
 
-  // hour packs: as many sessions as the hours cover, per period
-  const needed = Math.ceil(((pkg.hours ?? 0) * 60 * opts.periods) / klass.minutes)
+  // week packs: every session inside N weeks from the first session — any number of sessions (owner 2026-09-28)
+  if (course.unit === "week") {
+    to = addDays(first, course.duration * 7 * opts.periods - 1)
+    for (let d = first; d <= to; d = addDays(d, 7)) (isHoliday(d, klass.branchId, holidays) ? skipped : sessions).push(d)
+    return ok(sessions, skipped, first, to, klass.minutes, [{ month: monthKey(first), sessions, factor: opts.periods, amount: course.price * opts.periods }])
+  }
+
+  // hour packs: as many sessions as the hours cover at this class's real session length
+  // (24 h at 2 h/session = 12 sessions, at 90 min = 16)
+  const needed = Math.ceil((course.duration * 60 * opts.periods) / klass.minutes)
   let d = first
   while (sessions.length < needed) {
     ;(isHoliday(d, klass.branchId, holidays) ? skipped : sessions).push(d)
     d = addDays(d, 7)
   }
   to = sessions[sessions.length - 1] ?? first
-  return ok(sessions, skipped, first, to, klass.minutes, [{ month: monthKey(first), sessions, factor: opts.periods, amount: pkg.price * opts.periods }])
+  return ok(sessions, skipped, first, to, klass.minutes, [{ month: monthKey(first), sessions, factor: opts.periods, amount: course.price * opts.periods }])
 
   function ok(s: DateStr[], sk: DateStr[], from: DateStr, until: DateStr, minutes: number, periods: PeriodLine[]): Result<CourseQuote> {
     return {
@@ -94,11 +103,6 @@ export function busTotal(legs: BusLeg[], perLeg: number) {
   return legs.reduce((a, l) => a + (l.pickup ? perLeg : 0) + (l.dropoff ? perLeg : 0), 0)
 }
 
-/** What one course line buys, in promotion terms: months for monthly packages, total hours for hour packs. */
-export function purchaseOf(pkg: Package, periods: number): { unit: PriceUnit; amount: number } {
-  return pkg.unit === "month" ? { unit: "month", amount: periods } : { unit: "hour", amount: (pkg.hours ?? 0) * periods }
-}
-
 /** Best active promotion for this package type whose minimum duration the purchase reaches */
 export function bestPromotion(branch: Branch, purchase: { unit: PriceUnit; amount: number }, courseAmount: number, date: DateStr) {
   const eligible = (branch.promotions ?? []).filter(
@@ -111,6 +115,7 @@ export function bestPromotion(branch: Branch, purchase: { unit: PriceUnit; amoun
 
 export interface InvoiceTotals {
   course: number
+  courseFee: number
   promotion: number
   promotionName?: string
   bus: number
@@ -121,25 +126,25 @@ export interface InvoiceTotals {
   quote: CourseQuote | null
 }
 
-export function invoiceTotals(inv: Invoice, ctx: { branch: Branch; courses: Course[]; packages: Package[]; classes: Klass[]; holidays: Holiday[] }): InvoiceTotals {
+export function invoiceTotals(inv: Invoice, ctx: { branch: Branch; courses: Course[]; classes: Klass[]; holidays: Holiday[] }): InvoiceTotals {
   let quote: CourseQuote | null = null
-  let pkg: Package | undefined
-  if (inv.course) {
-    const course = ctx.courses.find((c) => c.id === inv.course!.courseId)
-    pkg = ctx.packages.find((p) => p.id === course?.packageId)
+  const co = inv.course ? ctx.courses.find((c) => c.id === inv.course!.courseId) : undefined
+  if (inv.course && co) {
     const k = ctx.classes.find((c) => c.id === inv.course!.classId)
-    if (pkg && k) {
-      const r = quoteCourse({ pkg, klass: k, startDate: inv.course.startDate, periods: inv.course.periods, holidays: ctx.holidays })
+    if (k) {
+      const r = quoteCourse({ course: co, klass: k, startDate: inv.course.startDate, periods: inv.course.periods, holidays: ctx.holidays })
       if (r.ok) quote = r.value
     }
   }
   const course = quote?.total ?? 0
-  const promo = inv.course && pkg && inv.promotionId !== null ? bestPromotion(ctx.branch, purchaseOf(pkg, inv.course.periods), course, inv.course.startDate) : null
+  const promo = inv.course && co && inv.promotionId !== null ? bestPromotion(ctx.branch, purchaseOf(co, inv.course.periods), course, inv.course.startDate) : null
+  // course fee (equipment) is charged on top of the price on every purchase
+  const courseFee = inv.course && co ? co.courseFee : 0
   const promotion = promo?.discount ?? 0
   const bus = busTotal(inv.bus, busRate(ctx.branch))
   const concession = inv.concession?.amount ?? 0
-  const total = course - promotion + bus + inv.bookFee + inv.advanceFee - concession
-  return { course, promotion, promotionName: promo?.promotion.name, bus, book: inv.bookFee, advance: inv.advanceFee, concession, total, quote }
+  const total = course + courseFee - promotion + bus + inv.bookFee + inv.advanceFee - concession
+  return { course, courseFee, promotion, promotionName: promo?.promotion.name, bus, book: inv.bookFee, advance: inv.advanceFee, concession, total, quote }
 }
 
 // ---------- workflow rules ----------

@@ -1,144 +1,227 @@
 "use client"
 
-import { useState } from "react"
-import { PlusIcon } from "lucide-react"
+import { Fragment, useMemo, useState } from "react"
+import { ArrowDownUpIcon, BookOpenIcon, CalendarIcon, ChevronDownIcon, ClockIcon, CopyIcon, DoorOpenIcon, LayersIcon, PencilIcon, PlusIcon, SearchIcon, StarIcon, UsersIcon, WalletIcon } from "lucide-react"
 import { Pill } from "@/components/app/badges"
 import { NativeSelect } from "@/components/app/native-select"
-import { Field } from "@/components/app/student-form"
-import { subjectColor } from "@/components/app/subject-color"
+import { gradeTone, subjectColor } from "@/components/app/subject-color"
+import { CourseDialog, emptyCourse } from "@/components/courses/course-dialog"
 import { Button } from "@/components/ui/button"
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
-import { fmtMoney } from "@/domain/dates"
-import { prorateFactor } from "@/domain/rules/billing"
-import type { Course, Package } from "@/domain/types"
-import { uid } from "@/data/seed"
+import { endTime, fmtDate, fmtMoney, TH_DAYS_FULL, toDateStr } from "@/domain/dates"
+import { invoiceTotals } from "@/domain/rules/billing"
+import { packageBadge, priceUnitSuffix } from "@/domain/rules/course"
+import { can, inBranch } from "@/domain/rules/permissions"
+import { gradeRanges, PRICE_UNIT_LABEL } from "@/domain/rules/settings"
+import type { Course, PriceUnit } from "@/domain/types"
 import { report } from "@/lib/feedback"
-import { useBranch } from "@/lib/hooks"
+import { useBranch, useLookup, useNow } from "@/lib/hooks"
 import { cn } from "@/lib/utils"
 import { useStore } from "@/store/store"
 
-/** Prices live in branch packages; courses point at a package (business rule #3). */
+type SortKey = "name" | "price" | "students" | "start"
+
+/** Course page (owner design 2026-09-28): KPIs · search + filters · table with each course's linked classes on expand. */
 export default function CoursesPage() {
   const branch = useBranch()
-  const packages = useStore((s) => s.packages).filter((p) => p.branchId === branch.id)
-  const courses = useStore((s) => s.courses).filter((c) => c.branchId === branch.id)
+  const me = useStore((s) => s.staff.find((x) => x.id === s.userId)!)
+  const branches = useStore((s) => s.branches)
+  const courses = useStore((s) => s.courses)
+  const classes = useStore((s) => s.classes)
   const invoices = useStore((s) => s.invoices)
-  const [pkg, setPkg] = useState<Package | "new" | null>(null)
-  const [course, setCourse] = useState<Course | "new" | null>(null)
-  const unit = (p?: Package) => (p ? (p.unit === "month" ? "/ เดือน" : `/ ${p.hours} ชม.`) : "")
-
-  return (
-    <div className="mx-auto max-w-5xl space-y-6">
-      <section className="space-y-2">
-        <div className="flex items-center">
-          <div>
-            <h2 className="font-semibold">แพ็กเกจราคา</h2>
-            <p className="text-xs text-muted-foreground">รายเดือนคิดตามจำนวนคาบที่เหลือในเดือนที่ซื้อ: 3+ คาบ = {prorateFactor(3) * 100}% · 2 คาบ = {prorateFactor(2) * 100}% · 1 คาบ = {prorateFactor(1) * 100}%</p>
-          </div>
-          <Button size="sm" className="ml-auto" onClick={() => setPkg("new")}><PlusIcon /> เพิ่มแพ็กเกจ</Button>
-        </div>
-        <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-          {packages.map((p) => (
-            <button key={p.id} onClick={() => setPkg(p)} className={cn("rounded-xl border p-3 text-left hover:shadow-sm", subjectColor(p.subject).soft)}>
-              <div className="flex items-center justify-between">
-                <span className={cn("font-semibold", subjectColor(p.subject).text)}>{p.subject}</span>
-                <Pill tone={p.unit === "month" ? "blue" : "violet"}>{p.unit === "month" ? "รายเดือน" : "รายชั่วโมง"}</Pill>
-              </div>
-              <div className="mt-1 text-lg font-semibold tabular-nums">{fmtMoney(p.price)} <span className="text-xs font-normal text-muted-foreground">{unit(p)}</span></div>
-              <div className="text-xs text-muted-foreground">{p.grades.join(", ")}</div>
-            </button>
-          ))}
-        </div>
-      </section>
-
-      <section className="space-y-2">
-        <div className="flex items-center">
-          <h2 className="font-semibold">คอร์ส</h2>
-          <Button size="sm" className="ml-auto" onClick={() => setCourse("new")}><PlusIcon /> เพิ่มคอร์ส</Button>
-        </div>
-        <div className="divide-y overflow-hidden rounded-3xl bg-card shadow-sm ring-1 ring-foreground/5">
-          {courses.map((c) => {
-            const p = packages.find((x) => x.id === c.packageId)
-            const sold = invoices.filter((i) => i.course?.courseId === c.id && i.status !== "void").length
-            return (
-              <button key={c.id} onClick={() => setCourse(c)} className="flex w-full flex-wrap items-center gap-3 px-4 py-3 text-left hover:bg-muted/40">
-                <span className={cn("size-2.5 rounded-full", subjectColor(c.subject).bar)} />
-                <span className="min-w-40 flex-1 text-sm font-medium">{c.name}<span className="block text-xs font-normal text-muted-foreground">{c.grades.join(", ")}</span></span>
-                <span className="text-sm tabular-nums">{p ? `${fmtMoney(p.price)} ${unit(p)}` : <span className="text-red-700">ไม่มีแพ็กเกจ</span>}</span>
-                <span className="w-24 text-right text-xs text-muted-foreground">ขายแล้ว {sold} ใบ</span>
-              </button>
-            )
-          })}
-        </div>
-      </section>
-      {pkg && <PackageForm pkg={pkg === "new" ? undefined : pkg} onClose={() => setPkg(null)} />}
-      {course && <CourseForm course={course === "new" ? undefined : course} onClose={() => setCourse(null)} />}
-    </div>
-  )
-}
-
-function GradePicker({ grades, value, onChange }: { grades: string[]; value: string[]; onChange: (v: string[]) => void }) {
-  return (
-    <div className="flex flex-wrap gap-1.5">
-      {grades.map((g) => (
-        <button key={g} type="button" onClick={() => onChange(value.includes(g) ? value.filter((x) => x !== g) : [...value, g])} className={cn("rounded-full border px-2.5 py-0.5 text-xs", value.includes(g) ? "border-primary bg-primary text-primary-foreground" : "hover:bg-muted")}>{g}</button>
-      ))}
-    </div>
-  )
-}
-
-function PackageForm({ pkg, onClose }: { pkg?: Package; onClose: () => void }) {
-  const branch = useBranch()
-  const save = useStore((s) => s.savePackage)
-  const [p, setP] = useState<Package>(pkg ?? { id: uid("pk"), branchId: branch.id, subject: branch.subjects[0], grades: [], unit: "month", price: 0 })
-  return (
-    <Dialog open onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="sm:max-w-md">
-        <DialogHeader>
-          <DialogTitle>{pkg ? "แก้แพ็กเกจ" : "เพิ่มแพ็กเกจ"}</DialogTitle>
-          {pkg && <DialogDescription>ราคาใหม่มีผลกับใบแจ้งหนี้ที่สร้างหลังจากนี้ ใบเดิมไม่เปลี่ยน</DialogDescription>}
-        </DialogHeader>
-        <div className="grid grid-cols-2 gap-3">
-          <Field label="วิชา"><NativeSelect value={p.subject} onChange={(e) => setP({ ...p, subject: e.target.value })} options={branch.subjects.map((s) => ({ value: s, label: s }))} /></Field>
-          <Field label="แบบ"><NativeSelect value={p.unit} onChange={(e) => setP({ ...p, unit: e.target.value as Package["unit"] })} options={[{ value: "month", label: "รายเดือน" }, { value: "hours", label: "แพ็กชั่วโมง" }]} /></Field>
-          <Field label="ราคา (บาท)"><Input type="number" min={0} value={p.price || ""} onChange={(e) => setP({ ...p, price: Number(e.target.value) })} /></Field>
-          {p.unit === "hours" && <Field label="จำนวนชั่วโมง"><Input type="number" min={1} value={p.hours ?? ""} onChange={(e) => setP({ ...p, hours: Number(e.target.value) })} /></Field>}
-        </div>
-        <Field label="เกรด"><GradePicker grades={branch.grades} value={p.grades} onChange={(grades) => setP({ ...p, grades })} /></Field>
-        <DialogFooter>
-          <Button variant="ghost" onClick={onClose}>ยกเลิก</Button>
-          <Button onClick={() => report(save(p), "บันทึกแพ็กเกจแล้ว") && onClose()}>บันทึก</Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  )
-}
-
-function CourseForm({ course, onClose }: { course?: Course; onClose: () => void }) {
-  const branch = useBranch()
-  const packages = useStore((s) => s.packages).filter((p) => p.branchId === branch.id)
+  const holidays = useStore((s) => s.holidays)
+  const entitlements = useStore((s) => s.entitlements)
+  const duplicate = useStore((s) => s.duplicateCourse)
   const save = useStore((s) => s.saveCourse)
-  const [c, setC] = useState<Course>(course ?? { id: uid("co"), branchId: branch.id, name: "", subject: branch.subjects[0], grades: [], packageId: "" })
-  const options = packages.filter((p) => p.subject === c.subject)
+  const L = useLookup()
+  const today = toDateStr(useNow())
+  const manage = can(me, "course.manage")
+
+  const [q, setQ] = useState("")
+  const [branchF, setBranchF] = useState(branch.id)
+  const [subjectF, setSubjectF] = useState("")
+  const [kindF, setKindF] = useState("")
+  const [unitF, setUnitF] = useState("")
+  const [sort, setSort] = useState<{ key: SortKey; desc: boolean }>({ key: "name", desc: false })
+  const [open, setOpen] = useState<Set<string>>(new Set())
+  const [editing, setEditing] = useState<Course | null>(null)
+
+  const myBranches = branches.filter((b) => inBranch(me, b.id))
+  const scoped = courses.filter((c) => (branchF ? c.branchId === branchF : myBranches.some((b) => b.id === c.branchId)))
+
+  // per-course stats: enrolled = students holding a still-valid package of the course; revenue = paid invoices
+  const stats = useMemo(() => {
+    const m = new Map<string, { students: number; revenue: number; classes: number }>()
+    courses.forEach((c) => {
+      const students = new Set(entitlements.filter((e) => e.courseId === c.id && e.to >= today).map((e) => e.studentId)).size
+      const revenue = invoices
+        .filter((i) => i.status === "paid" && i.course?.courseId === c.id)
+        .reduce((a, i) => { const t = invoiceTotals(i, { branch: branches.find((b) => b.id === i.branchId)!, courses, classes, holidays }); return a + t.course + t.courseFee - t.promotion }, 0)
+      m.set(c.id, { students, revenue, classes: classes.filter((k) => k.courseId === c.id).length })
+    })
+    return m
+  }, [courses, entitlements, invoices, classes, holidays, branches, today])
+
+  const subjects = [...new Set(scoped.flatMap((c) => c.subjects))]
+  const needle = q.trim().toLowerCase()
+  const list = scoped
+    .filter((c) => !needle || [c.name, ...c.subjects, ...c.grades].some((x) => x.toLowerCase().includes(needle)))
+    .filter((c) => !subjectF || c.subjects.includes(subjectF))
+    .filter((c) => !kindF || c.kind === kindF)
+    .filter((c) => !unitF || c.unit === unitF)
+    .sort((a, b) => {
+      const v = sort.key === "name" ? a.name.localeCompare(b.name, "th")
+        : sort.key === "price" ? a.price - b.price
+          : sort.key === "students" ? stats.get(a.id)!.students - stats.get(b.id)!.students
+            : (a.from ?? "9").localeCompare(b.from ?? "9")
+      return sort.desc ? -v : v
+    })
+
+  const kpi = {
+    total: scoped.length,
+    single: scoped.filter((c) => c.kind === "single").length,
+    bundle: scoped.filter((c) => c.kind === "bundle").length,
+    students: new Set(entitlements.filter((e) => e.to >= today && scoped.some((c) => c.id === e.courseId)).map((e) => e.studentId)).size,
+    revenue: scoped.reduce((a, c) => a + stats.get(c.id)!.revenue, 0),
+  }
+
+  const toggle = (id: string) => setOpen((s) => { const n = new Set(s); if (n.has(id)) n.delete(id); else n.add(id); return n })
+  const sortBtn = (key: SortKey, label: string) => (
+    <button className="flex items-center gap-1" onClick={() => setSort({ key, desc: sort.key === key ? !sort.desc : false })}>
+      {label}<ArrowDownUpIcon className={cn("size-3", sort.key === key ? "text-foreground" : "text-muted-foreground/50")} />
+    </button>
+  )
+
   return (
-    <Dialog open onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="sm:max-w-md">
-        <DialogHeader><DialogTitle>{course ? "แก้คอร์ส" : "เพิ่มคอร์ส"}</DialogTitle></DialogHeader>
-        <Field label="ชื่อคอร์ส *"><Input value={c.name} onChange={(e) => setC({ ...c, name: e.target.value })} placeholder="คณิต ป.5 รายเดือน" /></Field>
-        <div className="grid grid-cols-2 gap-3">
-          <Field label="วิชา"><NativeSelect value={c.subject} onChange={(e) => setC({ ...c, subject: e.target.value, packageId: "" })} options={branch.subjects.map((s) => ({ value: s, label: s }))} /></Field>
-          <Field label="แพ็กเกจราคา *">
-            <NativeSelect value={c.packageId} onChange={(e) => setC({ ...c, packageId: e.target.value })} placeholder={options.length ? "เลือก" : "ยังไม่มีแพ็กเกจวิชานี้"}
-              options={options.map((p) => ({ value: p.id, label: `${fmtMoney(p.price)} ${p.unit === "month" ? "/เดือน" : `/${p.hours} ชม.`} · ${p.grades.join(",")}` }))} />
-          </Field>
+    <div className="mx-auto max-w-7xl space-y-5">
+      <div className="flex items-center gap-3">
+        <span className="grid size-10 place-items-center rounded-2xl bg-primary/10 text-primary"><BookOpenIcon className="size-5" /></span>
+        <h1 className="text-xl font-semibold">คอร์ส</h1>
+        {manage && <Button className="ml-auto" onClick={() => setEditing(emptyCourse(branches.find((b) => b.id === (branchF || branch.id))!))}><PlusIcon /> สร้างคอร์ส</Button>}
+      </div>
+
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <Kpi icon={BookOpenIcon} label="คอร์สทั้งหมด" value={kpi.total} />
+        <div className="flex items-center gap-3 rounded-3xl bg-card p-4 shadow-sm ring-1 ring-foreground/5">
+          <span className="grid size-10 place-items-center rounded-2xl bg-primary/10 text-primary"><StarIcon className="size-5" /></span>
+          <div className="flex flex-1 justify-between">
+            <div><p className="text-xs text-muted-foreground">Single</p><p className="text-2xl font-semibold tabular-nums">{kpi.single}</p></div>
+            <div className="text-right"><p className="text-xs text-muted-foreground">Bundle</p><p className="text-2xl font-semibold tabular-nums">{kpi.bundle}</p></div>
+          </div>
         </div>
-        <Field label="เกรด"><GradePicker grades={branch.grades} value={c.grades} onChange={(grades) => setC({ ...c, grades })} /></Field>
-        <DialogFooter>
-          <Button variant="ghost" onClick={onClose}>ยกเลิก</Button>
-          <Button onClick={() => report(save(c), "บันทึกคอร์สแล้ว") && onClose()}>บันทึก</Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+        <Kpi icon={UsersIcon} label="นักเรียนที่ลงเรียน" value={kpi.students} />
+        <Kpi icon={WalletIcon} label="รายได้จากคอร์ส (ชำระแล้ว)" value={fmtMoney(kpi.revenue)} />
+      </div>
+
+      <div className="flex flex-wrap items-center gap-2">
+        <h2 className="mr-auto font-semibold">รายการคอร์ส</h2>
+        <div className="relative">
+          <SearchIcon className="absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
+          <Input className="w-56 pl-9" value={q} onChange={(e) => setQ(e.target.value)} placeholder="ค้นหาชื่อคอร์ส วิชา ระดับชั้น" />
+        </div>
+        <NativeSelect className="h-9 w-36" value={branchF} onChange={(e) => setBranchF(e.target.value)} options={[...(myBranches.length > 1 ? [{ value: "", label: "ทุกสาขา" }] : []), ...myBranches.map((b) => ({ value: b.id, label: `สาขา${b.name}` }))]} />
+        <NativeSelect className="h-9 w-32" value={subjectF} onChange={(e) => setSubjectF(e.target.value)} placeholder="ทุกวิชา" options={subjects.map((s) => ({ value: s, label: s }))} />
+        <NativeSelect className="h-9 w-32" value={kindF} onChange={(e) => setKindF(e.target.value)} placeholder="ทุกประเภท" options={[{ value: "single", label: "Single" }, { value: "bundle", label: "Bundle" }]} />
+        <NativeSelect className="h-9 w-36" value={unitF} onChange={(e) => setUnitF(e.target.value)} placeholder="ทุกแพ็กเกจ" options={(["hour", "week", "month"] as PriceUnit[]).map((u) => ({ value: u, label: PRICE_UNIT_LABEL[u] }))} />
+      </div>
+
+      <div className="overflow-x-auto rounded-3xl bg-card shadow-sm ring-1 ring-foreground/5">
+        <table className="w-full min-w-[960px] text-sm">
+          <thead className="border-b text-xs text-muted-foreground">
+            <tr className="[&>th]:px-3 [&>th]:py-2.5 [&>th]:text-left [&>th]:font-medium">
+              <th className="w-10" /><th>{sortBtn("name", "ชื่อคอร์ส")}</th><th>ระดับชั้น</th><th>ประเภท</th><th>{sortBtn("students", "นักเรียน")}</th>
+              <th>คลาสที่ผูก</th><th>แพ็กเกจ</th><th>{sortBtn("price", "ราคา")}</th><th>สาขา</th><th>{sortBtn("start", "วันเริ่ม")}</th><th />
+            </tr>
+          </thead>
+          <tbody>
+            {list.length === 0 && <tr><td colSpan={11} className="p-10 text-center text-muted-foreground">ไม่มีคอร์สตามเงื่อนไข</td></tr>}
+            {list.map((c) => {
+              const st = stats.get(c.id)!
+              const isOpen = open.has(c.id)
+              const col = subjectColor(c.subjects[0] ?? "")
+              const linked = classes.filter((k) => k.courseId === c.id)
+              const br = branches.find((b) => b.id === c.branchId)
+              return (
+                <Fragment key={c.id}>
+                  <tr className={cn("border-b last:border-0 [&>td]:px-3 [&>td]:py-2.5", isOpen && "bg-primary/5", !c.active && "opacity-50")}>
+                    <td><button aria-label={isOpen ? "ย่อ" : "ขยาย"} onClick={() => toggle(c.id)} className="grid size-7 place-items-center rounded-lg hover:bg-muted"><ChevronDownIcon className={cn("size-4 transition-transform", !isOpen && "-rotate-90")} /></button></td>
+                    <td>
+                      <div className="flex items-center gap-2.5">
+                        <span className={cn("grid size-9 shrink-0 place-items-center rounded-xl text-xs font-semibold", col.chip)}>{c.subjects[0]?.slice(0, 2)}</span>
+                        <div className="min-w-0">
+                          <p className="truncate font-medium">{c.name}</p>
+                          <p className="text-xs text-muted-foreground">{c.subjects.join(" + ")}{c.courseFee > 0 && ` · + Course fee ${fmtMoney(c.courseFee)}`}{!c.active && " · ปิดขาย"}</p>
+                        </div>
+                      </div>
+                    </td>
+                    <td><div className="flex flex-wrap gap-1">{gradeRanges(c.grades).map((g) => <span key={g} className={cn("rounded-full px-2 py-0.5 text-xs", gradeTone(g))}>{g}</span>)}</div></td>
+                    <td><Pill tone={c.kind === "bundle" ? "violet" : "gray"}>{c.kind === "bundle" ? <><LayersIcon className="size-3" /> Bundle</> : "Single"}</Pill></td>
+                    <td className="tabular-nums"><span className="flex items-center gap-1"><UsersIcon className="size-3.5 text-muted-foreground" />{st.students}</span></td>
+                    <td className="tabular-nums">{st.classes || "—"}</td>
+                    <td><span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-semibold whitespace-nowrap text-amber-900">{packageBadge(c)}</span></td>
+                    <td className="tabular-nums"><span className="font-medium">{fmtMoney(c.price)}</span> <span className="text-xs text-muted-foreground">{priceUnitSuffix(c)}</span></td>
+                    <td className="text-xs">{br?.name}</td>
+                    <td className="text-xs">{c.from ? fmtDate(c.from, { year: true }) : "—"}{c.to && <span className="block text-muted-foreground">ถึง {fmtDate(c.to, { year: true })}</span>}</td>
+                    <td>
+                      {manage && (
+                        <div className="flex">
+                          <Button size="icon-sm" variant="ghost" aria-label="แก้ไข" onClick={() => setEditing(c)}><PencilIcon /></Button>
+                          <Button size="icon-sm" variant="ghost" aria-label="ทำสำเนา" onClick={() => report(duplicate(c.id), "ทำสำเนาคอร์สแล้ว — แก้ชื่อ/ระดับชั้นต่อได้")}><CopyIcon /></Button>
+                        </div>
+                      )}
+                    </td>
+                  </tr>
+                  {isOpen && (
+                    <tr className="border-b bg-muted/20">
+                      <td colSpan={11} className="px-3 pt-1 pb-3">
+                        <div className="mb-2 flex flex-wrap gap-2 px-1 text-xs text-muted-foreground">
+                          <span>รายได้ที่เก็บแล้ว <b className="text-foreground">{fmtMoney(st.revenue)}</b></span>
+                          {c.priceReason && <span>· เหตุผลราคา: {c.priceReason}</span>}
+                          {manage && <button className="ml-auto text-primary underline" onClick={() => report(save({ ...c, active: !c.active }), c.active ? "ปิดขายคอร์สแล้ว" : "เปิดขายคอร์สแล้ว")}>{c.active ? "ปิดขาย" : "เปิดขาย"}</button>}
+                        </div>
+                        {linked.length === 0 ? (
+                          <p className="rounded-2xl border border-dashed p-4 text-center text-xs text-muted-foreground">ยังไม่มีคลาสผูกกับคอร์สนี้ — เลือกคอร์สได้ตอน Create Class</p>
+                        ) : (
+                          <table className="w-full overflow-hidden rounded-2xl bg-card text-sm ring-1 ring-foreground/5">
+                            <thead className="text-xs text-muted-foreground">
+                              <tr className="[&>th]:px-3 [&>th]:py-2 [&>th]:text-left [&>th]:font-medium"><th>วิชา</th><th>วัน</th><th>เวลา</th><th>ระดับชั้น</th><th>นักเรียน</th><th>ครู</th><th>ห้อง</th><th>สถานะ</th></tr>
+                            </thead>
+                            <tbody>
+                              {linked.map((k) => (
+                                <tr key={k.id} className="border-t [&>td]:px-3 [&>td]:py-2">
+                                  <td><span className={cn("rounded-full px-2 py-0.5 text-xs", subjectColor(k.subject).chip)}>{k.subject}</span> <span className="text-xs text-muted-foreground">{k.name}</span></td>
+                                  <td><span className="flex items-center gap-1"><CalendarIcon className="size-3.5 text-muted-foreground" />{TH_DAYS_FULL[k.weekday]}</span></td>
+                                  <td className="tabular-nums"><span className="flex items-center gap-1"><ClockIcon className="size-3.5 text-muted-foreground" />{k.start}–{endTime(k.start, k.minutes)}</span></td>
+                                  <td><div className="flex flex-wrap gap-1">{gradeRanges(k.grades).map((g) => <span key={g} className={cn("rounded-full px-2 py-0.5 text-xs", gradeTone(g))}>{g}</span>)}</div></td>
+                                  <td className="tabular-nums">{k.studentIds.length}</td>
+                                  <td>{L.teacher(k.teacherId).label}</td>
+                                  <td><span className="flex items-center gap-1 text-xs"><DoorOpenIcon className="size-3.5 text-muted-foreground" />{br?.rooms.find((r) => r.id === k.roomId)?.name ?? "—"}</span></td>
+                                  <td>{k.active ? <span className="text-xs font-medium text-emerald-700">Active</span> : <span className="text-xs text-muted-foreground">Inactive</span>}</td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        )}
+                      </td>
+                    </tr>
+                  )}
+                </Fragment>
+              )
+            })}
+          </tbody>
+        </table>
+      </div>
+
+      {editing && <CourseDialog key={editing.id} branch={branches.find((b) => b.id === editing.branchId)!} initial={editing} onClose={() => setEditing(null)} />}
+    </div>
+  )
+}
+
+function Kpi({ icon: Icon, label, value }: { icon: typeof BookOpenIcon; label: string; value: React.ReactNode }) {
+  return (
+    <div className="flex items-center gap-3 rounded-3xl bg-card p-4 shadow-sm ring-1 ring-foreground/5">
+      <span className="grid size-10 place-items-center rounded-2xl bg-primary/10 text-primary"><Icon className="size-5" /></span>
+      <div><p className="text-xs text-muted-foreground">{label}</p><p className="text-2xl font-semibold tabular-nums">{value}</p></div>
+    </div>
   )
 }

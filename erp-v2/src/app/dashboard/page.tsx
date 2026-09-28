@@ -27,7 +27,6 @@ export default function DashboardPage() {
   const invoices = useStore((s) => s.invoices).filter((x) => x.branchId === branch.id)
   const leads = useStore((s) => s.leads).filter((x) => x.branchId === branch.id)
   const courses = useStore((s) => s.courses)
-  const packages = useStore((s) => s.packages)
   const classes = useStore((s) => s.classes)
   const holidays = useStore((s) => s.holidays)
   const [openId, setOpenId] = useState<string | null>(null)
@@ -46,7 +45,7 @@ export default function DashboardPage() {
     .sort((a, b) => (a.urgent === b.urgent ? 0 : a.urgent ? -1 : 1))
 
   const paidThisMonth = invoices.filter((i) => i.status === "paid" && i.sentAt && monthKey(toDateStr(new Date(i.sentAt))) === monthKey(today))
-  const revenue = paidThisMonth.reduce((sum, i) => sum + invoiceTotals(i, { branch, courses, packages, classes, holidays }).total, 0)
+  const revenue = paidThisMonth.reduce((sum, i) => sum + invoiceTotals(i, { branch, courses, classes, holidays }).total, 0)
 
   const activeLeads = leads.filter((l) => l.stage !== "archived" && l.stage !== "enrolled")
   const newLeads = leads.filter((l) => l.stage === "new")

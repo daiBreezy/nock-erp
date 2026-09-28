@@ -36,7 +36,6 @@ function BillingPage() {
   const invoices = useStore((s) => s.invoices)
   const students = useStore((s) => s.students)
   const courses = useStore((s) => s.courses)
-  const packages = useStore((s) => s.packages)
   const classes = useStore((s) => s.classes)
   const holidays = useStore((s) => s.holidays)
   const [filter, setFilter] = useState<Filter>("all")
@@ -46,7 +45,7 @@ function BillingPage() {
   const [editing, setEditing] = useState<Invoice | "new" | null>(() => (params.get("new") ? "new" : null))
   const presetStudent = params.get("new") ?? undefined
 
-  const ctx = { branch, courses, packages, classes, holidays }
+  const ctx = { branch, courses, classes, holidays }
   const rows = invoices
     .filter((i) => i.branchId === branch.id)
     .map((i) => {

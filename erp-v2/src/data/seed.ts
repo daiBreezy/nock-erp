@@ -1,17 +1,17 @@
 // Mock data generated relative to "today" so the prototype always looks current.
 
 import { addDays, fromMinutes, nextWeekday, toDateStr, weekdayOf } from "@/domain/dates"
+import { chartPrice } from "@/domain/rules/course"
 import { generateSessions } from "@/domain/rules/scheduling"
 import type {
   AppNotification, Attendance, Branch, ChatMessage, Conversation, Course, Entitlement, Family, Holiday, Invoice, Klass, Lead, LessonSummary,
-  Package, PriceRow, Session, Staff, Student, StudentLeave, SystemConfig, Weekday,
+  PriceRow, Session, Staff, Student, StudentLeave, SystemConfig, Weekday,
 } from "@/domain/types"
 
 export interface DB {
   branches: Branch[]
   staff: Staff[]
   holidays: Holiday[]
-  packages: Package[]
   courses: Course[]
   classes: Klass[]
   sessions: Session[]
@@ -117,18 +117,20 @@ export function buildSeed(now = new Date()): DB {
     { id: "hol_thl", branchId: "br_thl", date: addDays(monday, 30), name: "ปิดปรับปรุงสาขา", category: "branch" },
   ]
 
-  const packages: Package[] = [
-    { id: "pk_m_math", branchId: "br_thl", subject: "คณิต", grades: ["ป.4", "ป.5", "ป.6"], unit: "month", price: 4500 },
-    { id: "pk_m_eng", branchId: "br_thl", subject: "อังกฤษ", grades: ["ป.4", "ป.5", "ป.6", "ม.1"], unit: "month", price: 4200 },
-    { id: "pk_h_sci", branchId: "br_thl", subject: "วิทย์", grades: ["ม.1", "ม.2", "ม.3"], unit: "hours", price: 6000, hours: 10 },
-    { id: "pk_m_ari", branchId: "br_ari", subject: "คณิต", grades: ["ป.1", "ป.2", "ป.3"], unit: "month", price: 3800 },
-  ]
+  // courses carry their own package type + price (staging); prices come from the branch chart unless a reason is given
+  const course = (c: Omit<Course, "price" | "courseFee" | "active"> & { price?: number; courseFee?: number; active?: boolean }): Course => {
+    const branch = branches.find((b) => b.id === c.branchId)!
+    const chart = chartPrice(branch, c).price
+    return { courseFee: 0, active: true, ...c, price: c.price ?? chart ?? 0 }
+  }
   const courses: Course[] = [
-    { id: "co_math5", branchId: "br_thl", name: "คณิต ป.5 รายเดือน", subject: "คณิต", grades: ["ป.5"], packageId: "pk_m_math" },
-    { id: "co_math4", branchId: "br_thl", name: "คณิต ป.4 รายเดือน", subject: "คณิต", grades: ["ป.4"], packageId: "pk_m_math" },
-    { id: "co_eng", branchId: "br_thl", name: "อังกฤษ ป.4–ม.1 รายเดือน", subject: "อังกฤษ", grades: ["ป.4", "ป.5", "ป.6", "ม.1"], packageId: "pk_m_eng" },
-    { id: "co_sci", branchId: "br_thl", name: "วิทย์ ม.ต้น 10 ชม.", subject: "วิทย์", grades: ["ม.1", "ม.2", "ม.3"], packageId: "pk_h_sci" },
-    { id: "co_ari", branchId: "br_ari", name: "คณิต ป.ต้น รายเดือน", subject: "คณิต", grades: ["ป.1", "ป.2", "ป.3"], packageId: "pk_m_ari" },
+    course({ id: "co_math5", branchId: "br_thl", name: "คณิต ป.5 รายเดือน", kind: "single", subjects: ["คณิต"], grades: ["ป.5"], unit: "month", duration: 1 }),
+    course({ id: "co_math4", branchId: "br_thl", name: "คณิต ป.4 รายเดือน", kind: "single", subjects: ["คณิต"], grades: ["ป.4"], unit: "month", duration: 1, courseFee: 300 }),
+    course({ id: "co_eng", branchId: "br_thl", name: "อังกฤษ ป.4–ม.1 รายเดือน", kind: "single", subjects: ["อังกฤษ"], grades: ["ป.4", "ป.5", "ป.6", "ม.1"], unit: "month", duration: 1, price: 4200, priceReason: "ราคาเดียวทุกระดับชั้น (คลาส Conversation รวมชั้น)" }),
+    course({ id: "co_sci", branchId: "br_thl", name: "วิทย์ ม.ต้น 12 ชม.", kind: "single", subjects: ["วิทย์"], grades: ["ม.1", "ม.2", "ม.3"], unit: "hour", duration: 12, price: 3300, priceReason: "ราคาเดียว ม.ต้น" }),
+    course({ id: "co_math_w4", branchId: "br_thl", name: "คณิต ป.5 เข้มข้น 4 สัปดาห์", kind: "single", subjects: ["คณิต"], grades: ["ป.5"], unit: "week", duration: 4, from: addDays(monday, 7), to: addDays(monday, 63) }),
+    course({ id: "co_bundle6", branchId: "br_thl", name: "คณิต + อังกฤษ ป.6", kind: "bundle", subjects: ["คณิต", "อังกฤษ"], grades: ["ป.6"], unit: "month", duration: 1, courseFee: 500 }),
+    course({ id: "co_ari", branchId: "br_ari", name: "คณิต ป.ต้น รายเดือน", kind: "single", subjects: ["คณิต"], grades: ["ป.1", "ป.2", "ป.3"], unit: "month", duration: 1, price: 3800, priceReason: "ราคาเดียว ป.ต้น" }),
   ]
 
   const families: Family[] = [
@@ -162,7 +164,8 @@ export function buildSeed(now = new Date()): DB {
   )
 
   const k = (id: string, branchId: string, name: string, subject: string, grades: string[], teacherId: string | null, roomId: string | null, weekday: Weekday, startT: string, minutes: number, studentIds: string[], co: string[] = [], kind: Klass["kind"] = "learning", type: Klass["type"] = "group"): Klass =>
-    ({ id, branchId, name, subject, grades, kind, type, teacherId, coTeacherIds: co, roomId, weekday, start: startT, minutes, startDate: nextWeekday(start, weekday), active: true, studentIds })
+    ({ id, branchId, name, subject, grades, kind, type, courseId: CLASS_COURSE[id] ?? null, teacherId, coTeacherIds: co, roomId, weekday, start: startT, minutes, startDate: nextWeekday(start, weekday), active: true, studentIds })
+  const CLASS_COURSE: Record<string, string> = { cl_math5: "co_math5", cl_math_sat: "co_math5", cl_eng: "co_eng", cl_eng_thu: "co_eng", cl_sci: "co_sci", cl_math_jo: "co_math4", cl_ari: "co_ari" }
   const classes: Klass[] = [
     k("cl_math5", "br_thl", "คณิต ป.5 (อ.)", "คณิต", ["ป.5"], "u_dai", "rm_1", 2, "16:00", 60, ["stu_1", "stu_3", "stu_4", "stu_10", "stu_11", "stu_12"]),
     k("cl_eng", "br_thl", "อังกฤษ Conversation", "อังกฤษ", ["ป.5", "ป.6", "ม.1"], "u_mint", "rm_2", 3, "17:00", 90, ["stu_1", "stu_2", "stu_6", "stu_13", "stu_16"], ["u_prae"]),
@@ -223,7 +226,7 @@ export function buildSeed(now = new Date()): DB {
 
   const monthStart = today.slice(0, 8) + "01"
   const ent = (id: string, studentId: string, courseId: string, classId: string, kind: Entitlement["kind"], from: string, to: string, total: number): Entitlement =>
-    ({ id, studentId, courseId, subject: courses.find((c) => c.id === courseId)!.subject, classId, invoiceId: "inv_paid", kind, from, to, sessionsTotal: total })
+    ({ id, studentId, courseId, subjects: courses.find((c) => c.id === courseId)!.subjects, classId, invoiceId: "inv_paid", kind, from, to, sessionsTotal: total })
   const entitlements: Entitlement[] = [
     ent("en_1", "stu_1", "co_math5", "cl_math5", "subscription", monthStart, addDays(monthStart, 60), 8),
     ent("en_2", "stu_3", "co_math5", "cl_math5", "subscription", monthStart, addDays(today, 5), 4),
@@ -331,5 +334,5 @@ export function buildSeed(now = new Date()): DB {
     },
   }
 
-  return { branches, staff, holidays, packages, courses, classes, sessions, attendance, summaries, families, students, entitlements, leaves: [], invoices, leads, conversations, messages, notifications: [], system }
+  return { branches, staff, holidays, courses, classes, sessions, attendance, summaries, families, students, entitlements, leaves: [], invoices, leads, conversations, messages, notifications: [], system }
 }

@@ -1,10 +1,11 @@
 // Regression tests: each case reproduces a bug found on Dev staging and proves the rule prevents it.
 import { describe, expect, it } from "vitest"
-import type { Attendance, Branch, FormOfferSlot, Holiday, Invoice, Klass, Package, Session, Staff, StudentLeave, Weekday } from "../types"
+import type { Attendance, Branch, Course, FormOfferSlot, Holiday, Invoice, Klass, Session, Staff, StudentLeave, Weekday } from "../types"
 import { applyClassEdit, applyToSessions, canSave, closesBranch, holidayImpact, hoursFor, isHoliday, periodsIn, introducedConflicts, editSingleSession, findConflicts, generateSessions, moveSession, sessionState, validateClass, workState } from "./scheduling"
 import { activeLeave, balance, canMark, canSaveLeave, coveringEntitlement, effectiveTo, leavesUsed, lowBalanceAlert, removeFromClass, resolveEntitlements } from "./attendance"
 import { bestPromotion, canApprove, canConfirmPayment, canForceApprove, canForceConfirmPayment, canSend, canVoid, defaultBusLegs, busTotal, nextInvoiceNumber, quoteCourse } from "./billing"
 import { can } from "./permissions"
+import { chartPrice, defaultCourseName, validateCourse } from "./course"
 import { busRate, copyHours, priceOf, priceRange, setPrice, validateBranchInfo, validateDurations, validateHoliday, validatePromotion, validateSpecialPeriods, everyDay } from "./settings"
 import { forceAudience, isUnread, messageAudience, notify, validateMessage, visibleTo } from "./notifications"
 import * as Sum from "./summaries"
@@ -29,10 +30,10 @@ const holidays: Holiday[] = [{ id: "h1", branchId: "b1", date: "2026-10-13", nam
 let n = 0
 const id = () => `s${++n}`
 const klass = (p: Partial<Klass> = {}): Klass => ({
-  id: "k1", branchId: "b1", name: "Maths", subject: "Maths", grades: ["P5"], kind: "learning", type: "group",
+  id: "k1", branchId: "b1", name: "Maths", subject: "Maths", grades: ["P5"], kind: "learning", type: "group", courseId: null,
   teacherId: "t1", coTeacherIds: [], roomId: "r1", weekday: 2, start: "10:00", minutes: 60, startDate: "2026-09-29", active: true, studentIds: ["a"], ...p,
 })
-const monthPkg: Package = { id: "p1", branchId: "b1", subject: "Maths", grades: ["P5"], unit: "month", price: 4500 }
+const monthPkg: Course = { id: "c1", branchId: "b1", name: "Maths P5", kind: "single", subjects: ["Maths"], grades: ["P5"], unit: "month", duration: 1, price: 4500, courseFee: 0, active: true }
 
 describe("scheduling", () => {
   it("A1: 8 weekly sessions skipping holidays", () => {
@@ -115,13 +116,13 @@ describe("attendance", () => {
   })
 
   it("F4: no low-session alert for subscriptions", () => {
-    const e = { id: "e", studentId: "a", courseId: "c", subject: "Maths", classId: "k1", invoiceId: "i", kind: "subscription" as const, from: "2026-09-01", to: "2026-12-31", sessionsTotal: 1 }
+    const e = { id: "e", studentId: "a", courseId: "c", subjects: ["Maths"], classId: "k1", invoiceId: "i", kind: "subscription" as const, from: "2026-09-01", to: "2026-12-31", sessionsTotal: 1 }
     expect(lowBalanceAlert(e, balance(e, [], []), "2026-09-24")).toBeNull()
   })
 
   describe("student leave (long leave excluded from leave quota, extends course end dates)", () => {
     const sessions = generateSessions(klass(), [], id)
-    const e = { id: "e", studentId: "a", courseId: "c", subject: "Maths", classId: "k1", invoiceId: "i", kind: "sessions" as const, from: "2026-09-01", to: "2026-12-31", sessionsTotal: 5 }
+    const e = { id: "e", studentId: "a", courseId: "c", subjects: ["Maths"], classId: "k1", invoiceId: "i", kind: "sessions" as const, from: "2026-09-01", to: "2026-12-31", sessionsTotal: 5 }
     const leave: StudentLeave = { id: "lv1", studentId: "a", from: "2026-10-01", to: "2026-10-05", reason: "ไปต่างประเทศ", createdBy: "adm", createdAt: "" }
     const leaveAtt: Attendance = { sessionId: sessions[0].id, studentId: "a", status: "leave", markedBy: "t1", markedAt: "" } // sessions[0] date 2026-09-29, before the leave range
 
@@ -174,7 +175,7 @@ describe("attendance", () => {
 
 describe("billing", () => {
   it("BL-2/BL-3: 2 months from 29 Sep = 4 sessions, 4 hours, 30% + 100%", () => {
-    const r = quoteCourse({ pkg: monthPkg, klass: klass(), startDate: "2026-09-29", periods: 2, holidays })
+    const r = quoteCourse({ course: monthPkg, klass: klass(), startDate: "2026-09-29", periods: 2, holidays })
     expect(r.ok).toBe(true)
     if (!r.ok) return
     expect(r.value.sessions).toEqual(["2026-09-29", "2026-10-06", "2026-10-20", "2026-10-27"])
@@ -185,7 +186,7 @@ describe("billing", () => {
   })
 
   it("BL-5: periods below 1 rejected", () => {
-    expect(quoteCourse({ pkg: monthPkg, klass: klass(), startDate: "2026-09-29", periods: -1, holidays }).ok).toBe(false)
+    expect(quoteCourse({ course: monthPkg, klass: klass(), startDate: "2026-09-29", periods: -1, holidays }).ok).toBe(false)
   })
 
   it("BL-6: bus legs opt-in", () => {
@@ -334,7 +335,7 @@ describe("people & session panel rules", () => {
 })
 
 describe("package coverage", () => {
-  const e = { id: "e", studentId: "a", courseId: "c", subject: "Maths", classId: "k1", invoiceId: "i", kind: "sessions" as const, from: "2026-09-01", to: "2026-12-31", sessionsTotal: 5 }
+  const e = { id: "e", studentId: "a", courseId: "c", subjects: ["Maths"], classId: "k1", invoiceId: "i", kind: "sessions" as const, from: "2026-09-01", to: "2026-12-31", sessionsTotal: 5 }
   it("covers sessions of its class and one-off make-ups of the same subject", () => {
     expect(coveringEntitlement("a", { classId: "k1", subject: "Maths", date: "2026-10-01" }, [e])).toBe(e)
     expect(coveringEntitlement("a", { classId: null, subject: "Maths", date: "2026-10-01" }, [e])).toBe(e) // make-up
@@ -586,5 +587,47 @@ describe("special periods (e.g. summer 08:00–22:00 every day)", () => {
   it("an inactive period is kept but has no effect on hours", () => {
     expect(hoursFor({ ...branch, specialPeriods: [{ ...summer, active: false }] }, "2026-04-05")).toBeNull()
     expect(periodsIn({ ...branch, specialPeriods: [summer] }, "2026-05-10", "2026-06-01").map((p) => p.id)).toEqual(["sp"])
+  })
+})
+
+describe("course (mirrors staging Create Course, 2026-09-28)", () => {
+  const b: Branch = {
+    ...branch, subjects: ["Maths", "English"], grades: ["P5", "P6"],
+    priceChart: [
+      { unit: "month", duration: 1, subject: "Maths", grade: "P5", price: 4000 },
+      { unit: "month", duration: 1, subject: "Maths", grade: "P6", price: 4200 },
+      { unit: "month", duration: 1, subject: "English", grade: "P5", price: 3000 },
+      { unit: "hour", duration: 12, subject: "Maths", grade: "P5", price: 3100 },
+    ],
+  }
+  const c = (p: Partial<Course> = {}): Course => ({ id: "c", branchId: "b1", name: "", kind: "single", subjects: ["Maths"], grades: ["P5"], unit: "month", duration: 1, price: 4000, courseFee: 0, active: true, ...p })
+  it("price comes from the branch chart; a bundle adds its subjects", () => {
+    expect(chartPrice(b, c()).price).toBe(4000)
+    expect(chartPrice(b, c({ kind: "bundle", subjects: ["Maths", "English"] })).price).toBe(7000)
+    expect(chartPrice(b, c({ unit: "hour", duration: 12 })).price).toBe(3100)
+  })
+  it("grades with different chart prices → no single suggestion (consider separate courses)", () => {
+    const r = chartPrice(b, c({ grades: ["P5", "P6"] }))
+    expect(r.mixed).toBe(true)
+    expect(r.price).toBeNull()
+  })
+  it("a price that differs from the chart needs a reason; bundle needs 2+ subjects; hour/week need a duration", () => {
+    expect(validateCourse(b, c())).toBeNull()
+    expect(validateCourse(b, c({ price: 3500 }))).toMatch(/เหตุผล/)
+    expect(validateCourse(b, c({ price: 3500, priceReason: "promo" }))).toBeNull()
+    expect(validateCourse(b, c({ kind: "bundle" }))).toMatch(/Bundle/)
+    expect(validateCourse(b, c({ unit: "hour", duration: 7, price: 3100 }))).toMatch(/ระยะเวลา/)
+  })
+  it("hour packs cover sessions by real session length; week packs are a window", () => {
+    const hour = quoteCourse({ course: { unit: "hour", duration: 24, price: 6000 }, klass: klass({ minutes: 120 }), startDate: "2026-09-29", periods: 1, holidays: [] })
+    const ninety = quoteCourse({ course: { unit: "hour", duration: 24, price: 6000 }, klass: klass({ minutes: 90 }), startDate: "2026-09-29", periods: 1, holidays: [] })
+    expect(hour.ok && hour.value.sessions.length).toBe(12)
+    expect(ninety.ok && ninety.value.sessions.length).toBe(16)
+    const week = quoteCourse({ course: { unit: "week", duration: 4, price: 5000 }, klass: klass(), startDate: "2026-09-29", periods: 1, holidays: [] })
+    expect(week.ok && week.value.sessions.length).toBe(4)
+    expect(week.ok && week.value.total).toBe(5000)
+  })
+  it("default name from subjects + grades", () => {
+    expect(defaultCourseName(["คณิต", "อังกฤษ"], ["ป.6", "ป.5"])).toBe("คณิต + อังกฤษ ป.5–ป.6")
   })
 })

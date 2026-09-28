@@ -1,5 +1,6 @@
 "use client"
 
+import { packageLabel, priceUnitSuffix } from "@/domain/rules/course"
 import { busRate } from "@/domain/rules/settings"
 import { useState } from "react"
 import { AlertTriangleIcon, BusIcon, CalendarIcon } from "lucide-react"
@@ -27,8 +28,7 @@ export function InvoiceEditor({ invoice, defaultStudentId, onClose, onSaved }: {
   const me = useStore((s) => s.userId)
   const students = useStore((s) => s.students).filter((s) => s.branchId === branch.id)
   const families = useStore((s) => s.families)
-  const courses = useStore((s) => s.courses).filter((c) => c.branchId === branch.id)
-  const packages = useStore((s) => s.packages)
+  const courses = useStore((s) => s.courses).filter((c) => c.branchId === branch.id && (c.active || c.id === invoice?.course?.courseId))
   const classes = useStore((s) => s.classes)
   const staff = useStore((s) => s.staff)
   const holidays = useStore((s) => s.holidays)
@@ -52,14 +52,13 @@ export function InvoiceEditor({ invoice, defaultStudentId, onClose, onSaved }: {
   const student = students.find((s) => s.id === studentId)
   const family = families.find((f) => f.id === student?.familyId)
   const course = courses.find((c) => c.id === courseId)
-  const pkg = packages.find((p) => p.id === course?.packageId)
   // BL-12: only active recurring classes with an active teacher for this course's subject
-  const classOptions = classes.filter((k) => k.branchId === branch.id && k.active && k.kind === "learning" && k.subject === course?.subject)
+  const classOptions = classes.filter((k) => k.branchId === branch.id && k.active && k.kind === "learning" && !!course && course.subjects.includes(k.subject))
   const klass = classOptions.find((k) => k.id === classId)
   const periods = Number(periodsText)
   const periodsValid = Number.isInteger(periods) && periods >= 1
 
-  const quote = pkg && klass ? quoteCourse({ pkg, klass, startDate, periods: periodsValid ? periods : 1, holidays }) : null
+  const quote = course && klass ? quoteCourse({ course, klass, startDate, periods: periodsValid ? periods : 1, holidays }) : null
   const q = quote?.ok ? quote.value : null
 
   // bus legs follow the real session dates; default ticked only if the student rides the bus (BL-6)
@@ -88,7 +87,7 @@ export function InvoiceEditor({ invoice, defaultStudentId, onClose, onSaved }: {
     createdAt: invoice?.createdAt ?? now.toISOString(),
     payments: [],
   }
-  const totals = invoiceTotals(draft, { branch, courses, packages, classes, holidays })
+  const totals = invoiceTotals(draft, { branch, courses, classes, holidays })
   const errors = [
     ...(!studentId ? ["เลือกนักเรียน"] : []),
     ...(!periodsValid && course ? ["จำนวนงวดต้องเป็นจำนวนเต็มตั้งแต่ 1 ขึ้นไป"] : []),
@@ -135,10 +134,7 @@ export function InvoiceEditor({ invoice, defaultStudentId, onClose, onSaved }: {
                 setBusTouched(false)
               }}
               placeholder="ไม่มีคอร์ส (เฉพาะค่าอื่นๆ)"
-              options={courses.map((c) => {
-                const p = packages.find((x) => x.id === c.packageId)
-                return { value: c.id, label: `${c.name} · ${p ? fmtMoney(p.price) : ""}/${p?.unit === "month" ? "เดือน" : `${p?.hours} ชม.`}` }
-              })} />
+              options={courses.map((c) => ({ value: c.id, label: `${c.name} · ${fmtMoney(c.price)} ${priceUnitSuffix(c)}` }))} />
             {mismatch && <p className="flex items-center gap-1 text-xs text-amber-700"><AlertTriangleIcon className="size-3" /> เกรด {student!.grade} ไม่ตรงกับคอร์ส ({course!.grades.join(", ")})</p>}
           </div>
 
@@ -159,7 +155,7 @@ export function InvoiceEditor({ invoice, defaultStudentId, onClose, onSaved }: {
                   <Input type="date" value={startDate} onChange={(e) => { setStartDate(e.target.value); setBusTouched(false) }} />
                 </div>
                 <div className="space-y-1">
-                  <Label className="text-xs">จำนวน{pkg?.unit === "month" ? "เดือน" : "แพ็ก"} *</Label>
+                  <Label className="text-xs">จำนวน{course.unit === "month" ? "เดือน" : "แพ็ก"} *</Label>
                   <Input type="number" min={1} step={1} value={periodsText} aria-invalid={!periodsValid} onChange={(e) => setPeriodsText(e.target.value)} />
                   {!periodsValid && <p className="text-xs text-red-700">ต้องเป็นจำนวนเต็ม ≥ 1</p>}
                 </div>
@@ -186,9 +182,9 @@ export function InvoiceEditor({ invoice, defaultStudentId, onClose, onSaved }: {
               <tbody>
                 {q.periods.map((p) => (
                   <tr key={p.month} className="border-b last:border-0">
-                    <td className="px-3 py-1.5">{pkg?.unit === "month" ? fmtMonth(p.month + "-01") : `${pkg?.hours} ชม. × ${periods}`}</td>
+                    <td className="px-3 py-1.5">{course?.unit === "month" ? fmtMonth(p.month + "-01") : `${packageLabel(course!)} × ${periods}`}</td>
                     <td className="px-3 py-1.5 text-muted-foreground">{p.sessions.map((d) => fmtDate(d)).join(", ") || "—"}</td>
-                    <td className="px-3 py-1.5 text-right text-muted-foreground">{pkg?.unit === "month" ? `${p.sessions.length} คาบ → ${Math.round(p.factor * 100)}%` : ""}</td>
+                    <td className="px-3 py-1.5 text-right text-muted-foreground">{course?.unit === "month" ? `${p.sessions.length} คาบ → ${Math.round(p.factor * 100)}%` : `${p.sessions.length} คาบ`}</td>
                     <td className="px-3 py-1.5 text-right font-medium tabular-nums">{fmtMoney(p.amount)}</td>
                   </tr>
                 ))}

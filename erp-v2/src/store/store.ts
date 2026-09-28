@@ -16,9 +16,10 @@ import * as Sch from "@/domain/rules/scheduling"
 import * as Sum from "@/domain/rules/summaries"
 import * as People from "@/domain/rules/people"
 import * as Forms from "@/domain/rules/forms"
+import * as CourseR from "@/domain/rules/course"
 import * as Notif from "@/domain/rules/notifications"
 import * as Cfg from "@/domain/rules/settings"
-import type { AttendanceStatus, Branch, ChatMessage, Conversation, Course, DateStr, Family, FormSubmission, Holiday, ID, Invoice, Klass, Lead, LeadStage, LessonSummary, Package, Result, Session, Staff, Student, SystemConfig } from "@/domain/types"
+import type { AttendanceStatus, Branch, ChatMessage, Conversation, Course, DateStr, Family, FormSubmission, Holiday, ID, Invoice, Klass, Lead, LeadStage, LessonSummary, Result, Session, Staff, Student, SystemConfig } from "@/domain/types"
 
 export interface UIState {
   userId: ID
@@ -58,8 +59,8 @@ type Store = DB & UIState & {
   saveStaff: (s: Staff) => Result<Staff>
   deactivateStaff: (id: ID, replacementId: ID | null) => Result<{ reassigned: number }>
   reactivateStaff: (id: ID) => Result
-  savePackage: (p: Package) => Result<Package>
   saveCourse: (c: Course) => Result<Course>
+  duplicateCourse: (id: ID) => Result<Course>
   saveBranch: (b: Branch) => Result
   addBranch: (input: { name: string; code: string; brand: Branch["brand"] }) => Result<Branch>
   setBranchActive: (id: ID, active: boolean) => Result
@@ -149,7 +150,7 @@ const forceNotice = (s: DB & { userId: ID; now: () => Date }, branchId: ID, what
 }
 const ctxOf = (s: DB, branchId: ID) => ({
   branch: s.branches.find((b) => b.id === branchId)!,
-  courses: s.courses, packages: s.packages, classes: s.classes, holidays: s.holidays,
+  courses: s.courses, classes: s.classes, holidays: s.holidays,
 })
 
 export const useStore = create<Store>()(
@@ -180,7 +181,7 @@ export const useStore = create<Store>()(
         if (!Sch.canSave(issues, d.overrideReason)) return fail(issues.find((i) => i.level !== "warn")?.message ?? "ตรวจสอบข้อมูลอีกครั้ง")
         const klass: Klass = {
           id: uid("cl"), branchId: d.branchId, name: d.name.trim() || `${d.subject} ${d.grades.join(", ")}`, subject: d.subject,
-          grades: d.grades, kind: d.kind, type: d.type, teacherId: d.teacherId, coTeacherIds: d.coTeacherIds ?? [], roomId: d.roomId, weekday: d.weekday,
+          grades: d.grades, kind: d.kind, type: d.type, courseId: d.courseId ?? null, teacherId: d.teacherId, coTeacherIds: d.coTeacherIds ?? [], roomId: d.roomId, weekday: d.weekday,
           start: d.start, minutes: d.minutes, startDate: d.startDate, active: true, studentIds: d.studentIds,
         }
         const sessions = Sch.generateSessions(klass, s.holidays, () => uid("se"))
@@ -464,30 +465,29 @@ export const useStore = create<Store>()(
         return OK
       },
 
-      savePackage: (p) => {
+      saveCourse: (input) => {
         const s = get()
         const perm = requirePerm(s.me(), "course.manage")
         if (!perm.ok) return perm
-        if (!(p.price > 0)) return fail("ราคาต้องมากกว่า 0")
-        if (p.unit === "hours" && !(p.hours && p.hours > 0)) return fail("ใส่จำนวนชั่วโมงของแพ็กเกจ")
-        if (!p.grades.length) return fail("เลือกเกรดอย่างน้อย 1")
-        set({ packages: s.packages.some((x) => x.id === p.id) ? s.packages.map((x) => (x.id === p.id ? p : x)) : [...s.packages, p] })
-        return { ok: true, value: p }
-      },
-
-      saveCourse: (c) => {
-        const s = get()
-        const perm = requirePerm(s.me(), "course.manage")
-        if (!perm.ok) return perm
-        if (!c.name.trim()) return fail("ใส่ชื่อคอร์ส")
-        const pkg = s.packages.find((p) => p.id === c.packageId)
-        if (!pkg) return fail("เลือกแพ็กเกจราคา")
-        if (pkg.subject !== c.subject) return fail("วิชาของคอร์สต้องตรงกับแพ็กเกจ")
-        if (!c.grades.length) return fail("เลือกเกรดอย่างน้อย 1")
-        const outside = c.grades.filter((g) => !pkg.grades.includes(g))
-        if (outside.length) return fail(`แพ็กเกจนี้ไม่มีราคาสำหรับ ${outside.join(", ")}`)
+        const branch = s.branches.find((b) => b.id === input.branchId)!
+        // blank name → "[Subject + Grade]" default, like staging
+        const c: Course = { ...input, name: input.name.trim() || CourseR.defaultCourseName(input.subjects, input.grades), duration: input.unit === "month" ? 1 : input.duration }
+        if (!CourseR.needsPriceReason(branch, c)) delete c.priceReason
+        const err = CourseR.validateCourse(branch, c)
+        if (err) return fail(err)
         set({ courses: s.courses.some((x) => x.id === c.id) ? s.courses.map((x) => (x.id === c.id ? c : x)) : [...s.courses, c] })
         return { ok: true, value: c }
+      },
+
+      duplicateCourse: (id) => {
+        const s = get()
+        const perm = requirePerm(s.me(), "course.manage")
+        if (!perm.ok) return perm
+        const src = s.courses.find((c) => c.id === id)
+        if (!src) return fail("ไม่พบคอร์ส")
+        const copy: Course = { ...src, id: uid("co"), name: `${src.name} (สำเนา)` }
+        set({ courses: [...s.courses, copy] })
+        return { ok: true, value: copy }
       },
 
       saveBranch: (b) => {
@@ -560,11 +560,10 @@ export const useStore = create<Store>()(
           system: { ...s.system, subjects: s.system.subjects.map(r) },
           branches: s.branches.map((b) => ({ ...b, subjects: b.subjects.map(r), priceChart: b.priceChart.map((p) => ({ ...p, subject: r(p.subject) })) })),
           staff: s.staff.map((x) => ({ ...x, subjects: x.subjects.map(r) })),
-          packages: s.packages.map((x) => ({ ...x, subject: r(x.subject) })),
-          courses: s.courses.map((x) => ({ ...x, subject: r(x.subject) })),
+          courses: s.courses.map((x) => ({ ...x, subjects: x.subjects.map(r) })),
           classes: s.classes.map((x) => ({ ...x, subject: r(x.subject) })),
           sessions: s.sessions.map((x) => ({ ...x, subject: r(x.subject) })),
-          entitlements: s.entitlements.map((x) => ({ ...x, subject: r(x.subject) })),
+          entitlements: s.entitlements.map((x) => ({ ...x, subjects: x.subjects.map(r) })),
           leads: s.leads.map((x) => ({ ...x, subject: r(x.subject) })),
         })
         return OK
@@ -838,8 +837,9 @@ export const useStore = create<Store>()(
           // auto-claim: entitlement covers exactly the paid window (BL-19) and the student joins the class sessions in it
           if (inv.course && totals.quote) {
             const q = totals.quote
-            const pkg = s.packages.find((p) => p.id === s.courses.find((c) => c.id === inv.course!.courseId)?.packageId)
-            entitlements = [...entitlements, { id: uid("en"), studentId: inv.studentId, courseId: inv.course.courseId, subject: s.courses.find((c) => c.id === inv.course!.courseId)!.subject, classId: inv.course.classId, invoiceId: inv.id, kind: pkg?.unit === "hours" ? "sessions" : "subscription", from: q.from, to: q.to, sessionsTotal: q.sessions.length }]
+            const co = s.courses.find((c) => c.id === inv.course!.courseId)!
+            // hour packs are counted; week and month packs are a window with any number of sessions
+            entitlements = [...entitlements, { id: uid("en"), studentId: inv.studentId, courseId: co.id, subjects: co.subjects, classId: inv.course.classId, invoiceId: inv.id, kind: co.unit === "hour" ? "sessions" : "subscription", from: q.from, to: q.to, sessionsTotal: q.sessions.length }]
             classes = classes.map((c) => (c.id === inv.course!.classId && !c.studentIds.includes(inv.studentId) ? { ...c, studentIds: [...c.studentIds, inv.studentId] } : c))
             sessions = sessions.map((x) => (x.classId === inv.course!.classId && q.sessions.includes(x.date) && !x.studentIds.includes(inv.studentId) ? { ...x, studentIds: [...x.studentIds, inv.studentId] } : x))
           }
@@ -1087,7 +1087,7 @@ export const useStore = create<Store>()(
     {
       name: "nockerp-v2",
       // bump when the data model changes; older saved data is replaced by fresh sample data
-      version: 22,
+      version: 23,
       migrate: () => ({ ...buildSeed(), userId: "u_nock", branchId: "br_thl", clockOffset: 0 }) as unknown as Store,
       // persist data + UI state only, never the action functions
       partialize: (s) => Object.fromEntries(Object.entries(s).filter(([, v]) => typeof v !== "function")) as Partial<Store>,

@@ -141,3 +141,22 @@ export function validateSpecialPeriods(list: SpecialPeriod[]): string | null {
 /** "Same hours every day" shortcut. */
 export const everyDay = (h: OpenHours | null): Record<Weekday, OpenHours | null> =>
   ({ 0: h && { ...h }, 1: h && { ...h }, 2: h && { ...h }, 3: h && { ...h }, 4: h && { ...h }, 5: h && { ...h }, 6: h && { ...h } })
+
+/** Compress grades into ranges for chips: ["ป.4","ป.5","ป.6","ม.1"] → ["ป.4–6", "ม.1"]. */
+export function gradeRanges(grades: string[]): string[] {
+  const out: string[] = []
+  let run: string[] = []
+  const flush = () => {
+    if (!run.length) return
+    out.push(run.length === 1 ? run[0] : `${run[0]}–${run[run.length - 1].split(".")[1]}`)
+    run = []
+  }
+  for (const g of sortGrades(grades)) {
+    const prev = run[run.length - 1]
+    const next = prev && prev.split(".")[0] === g.split(".")[0] && GRADE_ORDER.indexOf(g) === GRADE_ORDER.indexOf(prev) + 1
+    if (!next) flush()
+    run.push(g)
+  }
+  flush()
+  return out
+}
