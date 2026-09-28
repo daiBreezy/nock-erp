@@ -70,8 +70,10 @@ function Body({ id, onClose }: { id: ID; onClose: () => void }) {
   const state = sessionState(s, now)
   const teacher = L.teacher(s.teacherId)
   const canManage = can(me, "session.manage")
-  const mine = s.teacherId === me.id
+  const mine = s.teacherId === me.id || s.coTeacherIds.includes(me.id)
   const canMarkHere = can(me, "attendance.mark") && (canManage || mine)
+  // teachers can open every session (owner 2026-09-26) but only work on their own
+  const viewOnly = !canManage && !mine
 
   return (
     <>
@@ -130,6 +132,7 @@ function Body({ id, onClose }: { id: ID; onClose: () => void }) {
         <section>
           <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
             <h3 className="text-sm font-semibold">เช็คชื่อ ({s.studentIds.length} คน)</h3>
+            {viewOnly && <Pill tone="gray">ดูอย่างเดียว — ไม่ใช่คาบที่คุณสอน</Pill>}
             {canManage && state !== "closed" && !s.cancelled && (
               <Button size="xs" variant="outline" onClick={() => setAdding(true)}><UserPlusIcon /> เพิ่มนักเรียน</Button>
             )}
@@ -202,7 +205,7 @@ function Body({ id, onClose }: { id: ID; onClose: () => void }) {
             {s.studentIds
               .filter((sid) => attendance.find((x) => x.sessionId === s.id && x.studentId === sid)?.status === "present")
               .map((sid) => (
-                <SummaryEditor key={sid} sessionId={s.id} studentId={sid} summary={summaries.find((x) => x.sessionId === s.id && x.studentId === sid)} />
+                <SummaryEditor key={sid} sessionId={s.id} studentId={sid} summary={summaries.find((x) => x.sessionId === s.id && x.studentId === sid)} viewOnly={viewOnly} />
               ))}
             {!attendance.some((x) => x.sessionId === s.id && x.status === "present") && <p className="text-sm text-muted-foreground">ยังไม่มีนักเรียนที่เช็คว่ามา</p>}
           </div>
@@ -219,7 +222,7 @@ function Body({ id, onClose }: { id: ID; onClose: () => void }) {
   )
 }
 
-function SummaryEditor({ sessionId, studentId, summary }: { sessionId: ID; studentId: ID; summary?: LessonSummary }) {
+function SummaryEditor({ sessionId, studentId, summary, viewOnly }: { sessionId: ID; studentId: ID; summary?: LessonSummary; viewOnly: boolean }) {
   const me = useStore((s) => s.staff.find((x) => x.id === s.userId)!)
   const staff = useStore((s) => s.staff)
   const save = useStore((s) => s.saveSummary)
@@ -231,7 +234,7 @@ function SummaryEditor({ sessionId, studentId, summary }: { sessionId: ID; stude
   const [note, setNote] = useState("")
   const [asking, setAsking] = useState(false)
   const status = summary?.status
-  const editable = !status || status === "draft" || status === "changes_requested"
+  const editable = !viewOnly && (!status || status === "draft" || status === "changes_requested")
   const lastChange = summary?.history.findLast((h) => h.action === "request_changes")
   const who = (id: ID) => staff.find((x) => x.id === id)?.nickname ?? "?"
   const tone = status === "approved" ? "green" : status === "submitted" ? "amber" : status === "changes_requested" ? "red" : status === "sent" ? "blue" : "gray"
@@ -246,7 +249,7 @@ function SummaryEditor({ sessionId, studentId, summary }: { sessionId: ID; stude
       {editable ? (
         <Textarea value={text} onChange={(e) => setText(e.target.value)} placeholder="วันนี้เรียนอะไร / พัฒนาการ / การบ้าน" rows={3} />
       ) : (
-        <p className="rounded-md bg-muted/50 p-2 text-sm whitespace-pre-wrap">{summary?.text}</p>
+        <p className="rounded-md bg-muted/50 p-2 text-sm whitespace-pre-wrap">{summary?.text || "ยังไม่มีสรุป"}</p>
       )}
       {summary && (
         <p className="mt-1 text-[11px] text-muted-foreground">

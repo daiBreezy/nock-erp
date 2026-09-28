@@ -2,6 +2,7 @@
 
 import { addMonths, endOfMonth, monthKey, nextWeekday, addDays } from "../dates"
 import type { Branch, BusLeg, Course, DateStr, Holiday, ID, Invoice, Klass, Package, Result, Role, Staff } from "../types"
+import { inBranch } from "./permissions"
 import { isHoliday } from "./scheduling"
 
 /** Dev rule: monthly price by sessions left in the month — 3+ = 100%, 2 = 60%, 1 = 30%. */
@@ -133,7 +134,8 @@ export function invoiceTotals(inv: Invoice, ctx: { branch: Branch; courses: Cour
 
 // ---------- workflow rules ----------
 
-export const APPROVER_ROLES: Role[] = ["director", "manager", "admin"]
+/** owner 2026-09-26: every office role approves — but only for its own branch (Area Manager+ any branch) */
+export const APPROVER_ROLES: Role[] = ["super_admin", "director", "area_manager", "manager", "admin"]
 
 export function validateInvoiceDraft(inv: Invoice, totals: InvoiceTotals): string[] {
   const errs: string[] = []
@@ -160,6 +162,7 @@ export function canApprove(inv: Invoice, user: Staff): Result {
   if (inv.pdf !== "ready") return { ok: false, error: "PDF ยังไม่พร้อม" }
   if (inv.createdBy === user.id) return { ok: false, error: "คนสร้างใบอนุมัติใบของตัวเองไม่ได้ — ให้คนอื่นอนุมัติ" }
   if (!user.roles.some((r) => APPROVER_ROLES.includes(r))) return { ok: false, error: "บทบาทของคุณไม่มีสิทธิ์อนุมัติใบแจ้งหนี้" }
+  if (!inBranch(user, inv.branchId)) return { ok: false, error: "อนุมัติได้เฉพาะใบแจ้งหนี้ของสาขาตัวเอง" }
   return { ok: true, value: undefined }
 }
 
@@ -189,10 +192,11 @@ export function canRecordPayment(inv: Invoice, amount: number, total: number): R
 }
 
 /** BL-18: the person who recorded a payment cannot confirm it. */
-export function canConfirmPayment(p: { recordedBy: ID; confirmedBy?: ID }, user: Staff): Result {
+export function canConfirmPayment(p: { recordedBy: ID; confirmedBy?: ID }, user: Staff, branchId: ID): Result {
   if (p.confirmedBy) return { ok: false, error: "ยืนยันแล้ว" }
   if (p.recordedBy === user.id) return { ok: false, error: "คนบันทึกยืนยันยอดเงินของตัวเองไม่ได้" }
   if (!user.roles.some((r) => APPROVER_ROLES.includes(r))) return { ok: false, error: "บทบาทของคุณยืนยันยอดเงินไม่ได้" }
+  if (!inBranch(user, branchId)) return { ok: false, error: "ยืนยันยอดเงินได้เฉพาะสาขาตัวเอง" }
   return { ok: true, value: undefined }
 }
 

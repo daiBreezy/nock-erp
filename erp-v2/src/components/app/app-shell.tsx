@@ -10,7 +10,7 @@ import {
 } from "@/components/ui/sidebar"
 import { Separator } from "@/components/ui/separator"
 import { Skeleton } from "@/components/ui/skeleton"
-import { can, ROLE_LABEL, type Permission } from "@/domain/rules/permissions"
+import { can, inBranch, ROLE_LABEL, type Permission } from "@/domain/rules/permissions"
 import { useStore } from "@/store/store"
 import { NAV, navFor } from "./nav"
 import { DemoPanel } from "./demo-panel"
@@ -120,7 +120,7 @@ function NotificationBell() {
       s.notifications.filter(
         (n) =>
           !n.read &&
-          ((n.roles.some((r) => me.roles.includes(r)) && (!n.branchId || me.roles.includes("director") || me.branchIds.includes(n.branchId))) ||
+          ((n.roles.some((r) => me.roles.includes(r)) && (!n.branchId || inBranch(me, n.branchId))) ||
             n.staffIds?.includes(me.id)),
       ).length,
   )

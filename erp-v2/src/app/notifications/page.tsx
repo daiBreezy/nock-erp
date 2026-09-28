@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button"
 import { addDays, fmtDate, fmtDateTime, toDateStr } from "@/domain/dates"
 import * as Att from "@/domain/rules/attendance"
 import { canApprove } from "@/domain/rules/billing"
-import { can, seesAllSessions } from "@/domain/rules/permissions"
+import { can, inBranch, seesAllSessions } from "@/domain/rules/permissions"
 import { workState } from "@/domain/rules/scheduling"
 import { useBranch, useEntitlements, useNow } from "@/lib/hooks"
 import { cn } from "@/lib/utils"
@@ -65,7 +65,7 @@ export default function NotificationsPage() {
 
   const history = s.notifications.filter(
     (n) =>
-      (n.roles.some((r) => me.roles.includes(r)) && (!n.branchId || me.roles.includes("director") || me.branchIds.includes(n.branchId))) ||
+      (n.roles.some((r) => me.roles.includes(r)) && (!n.branchId || inBranch(me, n.branchId))) ||
       n.staffIds?.includes(me.id),
   )
   const unread = history.filter((n) => !n.read)

@@ -6,7 +6,7 @@ export type DateStr = string
 export type TimeStr = string
 
 export type Brand = "nockacademy" | "liclass"
-export type Role = "director" | "manager" | "admin" | "teacher"
+export type Role = "super_admin" | "director" | "area_manager" | "manager" | "admin" | "teacher"
 export type Weekday = 0 | 1 | 2 | 3 | 4 | 5 | 6 // 0 = Sunday
 
 export interface OpenHours {

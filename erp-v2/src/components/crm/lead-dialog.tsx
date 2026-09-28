@@ -6,6 +6,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { LEAD_SOURCE_LABEL } from "@/domain/rules/crm"
+import { can } from "@/domain/rules/permissions"
 import type { Lead } from "@/domain/types"
 import { report } from "@/lib/feedback"
 import { useBranch, useNow } from "@/lib/hooks"
@@ -28,7 +29,7 @@ export function LeadDialog({ onClose, initialName, onSaved }: { onClose: () => v
   const [lineId, setLineId] = useState("")
   const [assigneeId, setAssigneeId] = useState("")
 
-  const assignable = staff.filter((s) => s.active && s.branchIds.includes(branch.id) && (s.roles.includes("admin") || s.roles.includes("manager") || s.roles.includes("director")))
+  const assignable = staff.filter((s) => s.active && s.branchIds.includes(branch.id) && can(s, "lead.manage"))
 
   const submit = () => {
     const lead: Lead = {

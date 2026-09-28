@@ -15,7 +15,7 @@ import type { CardData } from "@/components/calendar/class-card"
 import { Button } from "@/components/ui/button"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 import { addDays, dayShort, endTime, fmtDate, fmtMonth, fromMinutes, parseDate, toDateStr, toMinutes, weekdayOf } from "@/domain/dates"
-import { can, seesAllSessions } from "@/domain/rules/permissions"
+import { can } from "@/domain/rules/permissions"
 import { findConflicts, isHoliday, sessionState, workState, type MoveTarget, type WorkState } from "@/domain/rules/scheduling"
 import type { DateStr, Session } from "@/domain/types"
 import { useBranch, useLookup, useNow } from "@/lib/hooks"
@@ -49,7 +49,8 @@ function CalendarView() {
   const [view, setView] = useState<View>("day")
   const [anchor, setAnchor] = useState(() => (linkedSession && allSessions.find((x) => x.id === linkedSession)?.date) || today)
   const [lane, setLane] = useState<"room" | "teacher">("teacher")
-  const [teacher, setTeacher] = useState(seesAllSessions(me) ? "all" : me.id)
+  // everyone sees every session by default; teachers get a one-tap "only mine" filter
+  const [teacher, setTeacher] = useState("all")
   const [subject, setSubject] = useState("all")
   const [openId, setOpenId] = useState<string | null>(() => (linkedSession && allSessions.some((x) => x.id === linkedSession) ? linkedSession : null))
   const [prefill, setPrefill] = useState<ClassPrefill | null>(null)
@@ -103,8 +104,9 @@ function CalendarView() {
   const canCreate = can(me, "class.manage")
   const teacherOptions = [
     { value: "all", label: "ครูทุกคน" },
+    ...(me.roles.includes("teacher") ? [{ value: me.id, label: "เฉพาะคาบของฉัน" }] : []),
     { value: "none", label: "ยังไม่มีครู" },
-    ...staff.filter((t) => t.roles.includes("teacher") && t.branchIds.includes(branch.id)).map((t) => ({ value: t.id, label: t.active ? t.nickname : `${t.nickname} (ออกแล้ว)` })),
+    ...staff.filter((t) => t.roles.includes("teacher") && t.branchIds.includes(branch.id) && t.id !== me.id).map((t) => ({ value: t.id, label: t.active ? t.nickname : `${t.nickname} (ออกแล้ว)` })),
   ]
 
   const cardProps = { conflictIds, now, onOpen: setOpenId, classes, onMove: (id: string, target: MoveTarget) => setMoving({ id, target }), canMove: (s: Session) => canCreate && sessionState(s, now) === "upcoming" }
@@ -160,11 +162,7 @@ function CalendarView() {
       </div>
 
       <div className="flex flex-wrap items-center gap-2">
-        {seesAllSessions(me) ? (
-          <NativeSelect className="h-9 w-40" value={teacher} onChange={(e) => setTeacher(e.target.value)} options={teacherOptions} />
-        ) : (
-          <Pill tone="blue">แสดงเฉพาะคาบของฉัน</Pill>
-        )}
+        <NativeSelect className="h-9 w-40" value={teacher} onChange={(e) => setTeacher(e.target.value)} options={teacherOptions} />
         <NativeSelect className="h-9 w-32" value={subject} onChange={(e) => setSubject(e.target.value)} options={[{ value: "all", label: "ทุกวิชา" }, ...branch.subjects.map((s) => ({ value: s, label: s }))]} />
         {view === "day" && (
           <ToggleGroup value={[lane]} onValueChange={(v) => v[0] && setLane(v[0] as "room" | "teacher")} variant="outline" size="sm">

@@ -31,12 +31,17 @@ const ALL: Permission[] = [
   "course.manage", "billing.view", "billing.manage", "billing.approve", "settings.manage", "dashboard.view", "lead.manage", "inbox.manage",
 ]
 
+const MANAGER: Permission[] = ALL.filter((p) => p !== "settings.manage")
+
 export const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
+  super_admin: ALL,
   director: ALL,
-  manager: ALL.filter((p) => p !== "settings.manage"),
+  // same powers as a Manager, but across every branch they are assigned to (see crossBranch)
+  area_manager: MANAGER,
+  manager: MANAGER,
   // Admin sees the day-to-day CRM pipeline but not the executive Dashboard (matches Reports gate)
   admin: ["calendar.view", "class.manage", "session.manage", "attendance.mark", "attendance.leave_override", "summary.approve", "student.view", "student.manage", "family.manage", "staff.view", "course.manage", "billing.view", "billing.manage", "billing.approve", "lead.manage", "inbox.manage"],
-  // G2/G3: no billing, no export
+  // G2/G3: no billing at all (owner 2026-09-26: teachers never create invoices), no export
   teacher: ["calendar.view", "attendance.mark", "summary.write", "student.view", "staff.view"],
 }
 
@@ -49,13 +54,31 @@ export function require(user: Staff | undefined, p: Permission): Result {
 }
 
 export const ROLE_LABEL: Record<Role, string> = {
+  super_admin: "Super Admin",
   director: "Director",
+  area_manager: "Area Manager",
   manager: "Manager",
   admin: "Admin",
   teacher: "Teacher",
 }
 
-/** Teachers only see their own sessions by default (G4). */
+/** Office roles that receive branch-wide operational notifications. */
+export const OFFICE_ROLES: Role[] = ["super_admin", "director", "area_manager", "manager", "admin"]
+
+/** Area Manager and above act on any branch; everyone else only on branches in their own branchIds. */
+export function crossBranch(user: Staff | undefined) {
+  return !!user?.roles.some((r) => r === "super_admin" || r === "director" || r === "area_manager")
+}
+
+export function inBranch(user: Staff | undefined, branchId: string) {
+  return crossBranch(user) || !!user?.branchIds.includes(branchId)
+}
+
+/**
+ * Personal work queues (Today, Notifications, Summaries) show only a teacher's own sessions.
+ * Calendar and Sessions list show every session to everyone — teachers filter down to theirs
+ * (owner 2026-09-26, reverses the earlier G4 assumption).
+ */
 export function seesAllSessions(user: Staff | undefined) {
   return can(user, "session.manage")
 }

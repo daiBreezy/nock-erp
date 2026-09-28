@@ -213,8 +213,23 @@ describe("billing", () => {
     expect(canVoid(inv({ payments: [{ id: "p", amount: 1, method: "cash", reference: "", recordedBy: "adm", recordedAt: "" }] }), "x").ok).toBe(false)
   })
   it("BL-18: recorder cannot confirm own payment", () => {
-    expect(canConfirmPayment({ recordedBy: "adm" }, admin).ok).toBe(false)
-    expect(canConfirmPayment({ recordedBy: "adm" }, director).ok).toBe(true)
+    expect(canConfirmPayment({ recordedBy: "adm" }, admin, "b1").ok).toBe(false)
+    expect(canConfirmPayment({ recordedBy: "adm" }, director, "b1").ok).toBe(true)
+  })
+  it("owner 2026-09-26: approvers act only on their own branch — Area Manager and above on any", () => {
+    const other = inv({ branchId: "b2" })
+    const mgr = staff("mgr", ["manager"])
+    expect(canApprove(inv(), mgr).ok).toBe(true)
+    expect(canApprove(other, mgr).ok).toBe(false)
+    expect(canConfirmPayment({ recordedBy: "adm" }, mgr, "b2").ok).toBe(false)
+    expect(canApprove(other, staff("am", ["area_manager"])).ok).toBe(true)
+    expect(canApprove(other, staff("sa", ["super_admin"])).ok).toBe(true)
+    expect(canApprove(other, director).ok).toBe(true)
+  })
+  it("owner 2026-09-26: teachers cannot create invoices at all", () => {
+    expect(can(teacher, "billing.manage")).toBe(false)
+    expect(can(teacher, "billing.approve")).toBe(false)
+    expect(can(staff("am", ["area_manager"]), "billing.manage")).toBe(true)
   })
 })
 

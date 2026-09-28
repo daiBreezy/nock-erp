@@ -11,7 +11,7 @@ import * as Att from "@/domain/rules/attendance"
 import * as Bill from "@/domain/rules/billing"
 import * as CRM from "@/domain/rules/crm"
 import * as Inbox from "@/domain/rules/inbox"
-import { can, canDeactivateStaff, require as requirePerm } from "@/domain/rules/permissions"
+import { can, canDeactivateStaff, OFFICE_ROLES, require as requirePerm } from "@/domain/rules/permissions"
 import * as Sch from "@/domain/rules/scheduling"
 import * as Sum from "@/domain/rules/summaries"
 import * as People from "@/domain/rules/people"
@@ -300,7 +300,7 @@ export const useStore = create<Store>()(
           holidays: [...s.holidays, { ...h, id: uid("hol") }],
           sessions: cancelAffected ? s.sessions.map((x) => (ids.has(x.id) ? { ...x, cancelled: true, cancelReason: reason } : x)) : s.sessions,
           notifications: affected.length
-            ? [{ id: uid("no"), at: s.now().toISOString(), kind: "holiday_impact", title: `วันหยุด ${h.name} กระทบ ${affected.length} คาบ`, body: `${h.date} · ${cancelAffected ? "ยกเลิกคาบแล้ว — แจ้งผู้ปกครอง / นัดชดเชย" : "คาบยังอยู่ — ต้องตัดสินใจย้ายหรือยกเลิก"}`, read: false, roles: ["director", "manager", "admin"] }, ...s.notifications]
+            ? [{ id: uid("no"), at: s.now().toISOString(), kind: "holiday_impact", title: `วันหยุด ${h.name} กระทบ ${affected.length} คาบ`, body: `${h.date} · ${cancelAffected ? "ยกเลิกคาบแล้ว — แจ้งผู้ปกครอง / นัดชดเชย" : "คาบยังอยู่ — ต้องตัดสินใจย้ายหรือยกเลิก"}`, read: false, roles: OFFICE_ROLES }, ...s.notifications]
             : s.notifications,
         })
         return { ok: true, value: { affected: affected.length } }
@@ -449,7 +449,7 @@ export const useStore = create<Store>()(
         set({
           sessions: s.sessions.map((x) => (x.id === id ? { ...x, cancelled: true, cancelReason: reason } : x)),
           notifications: [
-            { id: uid("no"), at: s.now().toISOString(), kind: "session_cancelled", title: "ยกเลิกคาบเรียน", body: `${cur.subject} ${cur.date} ${cur.start} · นักเรียน ${cur.studentIds.length} คน · ${reason}`, read: false, roles: ["director", "manager", "admin"] },
+            { id: uid("no"), at: s.now().toISOString(), kind: "session_cancelled", title: "ยกเลิกคาบเรียน", body: `${cur.subject} ${cur.date} ${cur.start} · นักเรียน ${cur.studentIds.length} คน · ${reason}`, read: false, roles: OFFICE_ROLES },
             ...s.notifications,
           ],
         })
@@ -462,7 +462,7 @@ export const useStore = create<Store>()(
         const me = s.me()
         if (!can(me, "attendance.mark")) return fail("คุณไม่มีสิทธิ์เช็คชื่อ")
         const se = s.sessions.find((x) => x.id === sessionId)!
-        if (!can(me, "session.manage") && se.teacherId !== me.id) return fail("เช็คชื่อได้เฉพาะคาบที่คุณสอน")
+        if (!can(me, "session.manage") && se.teacherId !== me.id && !se.coTeacherIds.includes(me.id)) return fail("เช็คชื่อได้เฉพาะคาบที่คุณสอน")
         const r = Att.canMark(se, status, s.now())
         if (!r.ok) return r
         const rest = s.attendance.filter((a) => !(a.sessionId === sessionId && a.studentId === studentId))
@@ -509,7 +509,7 @@ export const useStore = create<Store>()(
         const s = get()
         const me = s.me()
         const se = s.sessions.find((x) => x.id === sessionId)!
-        if (!can(me, "session.manage") && se.teacherId !== me.id) return fail("แก้การเช็คชื่อได้เฉพาะคาบที่คุณสอน")
+        if (!can(me, "session.manage") && se.teacherId !== me.id && !se.coTeacherIds.includes(me.id)) return fail("แก้การเช็คชื่อได้เฉพาะคาบที่คุณสอน")
         const r = Att.canClear(se, s.now())
         if (!r.ok) return r
         set({ attendance: s.attendance.filter((a) => !(a.sessionId === sessionId && a.studentId === studentId)) })
@@ -536,6 +536,8 @@ export const useStore = create<Store>()(
           const r = Sum.canEdit(existing, me)
           if (!r.ok) return r
         } else if (!can(me, "summary.write") && !can(me, "summary.approve")) return fail("คุณไม่มีสิทธิ์เขียนสรุป")
+        const se = s.sessions.find((x) => x.id === sessionId)
+        if (!can(me, "session.manage") && se && se.teacherId !== me.id && !se.coTeacherIds.includes(me.id)) return fail("เขียนสรุปได้เฉพาะคาบที่คุณสอน")
         const at = s.now().toISOString()
         const next: LessonSummary = existing
           ? { ...existing, text, lastEditorId: me.id, status: submit ? "submitted" : existing.status === "changes_requested" ? "changes_requested" : "draft", history: [...existing.history, { at, by: me.id, action: submit ? "submit" : "edit" }] }
@@ -605,7 +607,7 @@ export const useStore = create<Store>()(
           set((st) => ({
             invoices: st.invoices.map((x) => (x.id === id ? { ...x, pdf: ok ? "ready" : "failed", status: ok ? "pending_approval" : "draft" } : x)),
             notifications: ok
-              ? [{ id: uid("no"), at: new Date().toISOString(), kind: "approval_needed", title: "ใบแจ้งหนี้รออนุมัติ", body: `${number} รอคนอนุมัติ (ไม่ใช่คนสร้าง)`, read: false, roles: ["director", "manager", "admin"] }, ...st.notifications]
+              ? [{ id: uid("no"), at: new Date().toISOString(), kind: "approval_needed", title: "ใบแจ้งหนี้รออนุมัติ", body: `${number} รอคนอนุมัติ (ไม่ใช่คนสร้าง)`, read: false, roles: OFFICE_ROLES }, ...st.notifications]
               : st.notifications,
           }))
         }, 1800)
@@ -660,7 +662,7 @@ export const useStore = create<Store>()(
         const s = get()
         const inv = s.invoices.find((x) => x.id === invoiceId)!
         const pay = inv.payments.find((p) => p.id === paymentId)!
-        const r = Bill.canConfirmPayment(pay, s.me())
+        const r = Bill.canConfirmPayment(pay, s.me(), inv.branchId)
         if (!r.ok) return r
         const payments = inv.payments.map((p) => (p.id === paymentId ? { ...p, confirmedBy: s.userId } : p))
         const ctx = ctxOf(s, inv.branchId)
@@ -923,7 +925,7 @@ export const useStore = create<Store>()(
     {
       name: "nockerp-v2",
       // bump when the data model changes; older saved data is replaced by fresh sample data
-      version: 15,
+      version: 16,
       migrate: () => ({ ...buildSeed(), userId: "u_nock", branchId: "br_thl", clockOffset: 0 }) as unknown as Store,
       // persist data + UI state only, never the action functions
       partialize: (s) => Object.fromEntries(Object.entries(s).filter(([, v]) => typeof v !== "function")) as Partial<Store>,

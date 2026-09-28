@@ -63,8 +63,11 @@ export function buildSeed(now = new Date()): DB {
     ({ id, name, nickname, roles, branchIds, subjects, active: true, canLogin, email: canLogin ? `${id}@nockacademy.com` : undefined })
   const staff: Staff[] = [
     st("u_nock", "นก ผู้อำนวยการ", "นก", ["director"], ["br_thl", "br_ari"], []),
+    st("u_sa", "ซี ซูเปอร์แอดมิน", "ซี", ["super_admin"], ["br_thl", "br_ari"], []),
+    st("u_am", "เอ ผู้จัดการเขต", "เอ", ["area_manager"], ["br_thl", "br_ari"], []),
     st("u_ploy", "พลอย แอดมิน", "พลอย", ["admin"], ["br_thl"], []),
-    st("u_ton", "ต้น ผู้จัดการ", "ต้น", ["manager"], ["br_thl", "br_ari"], []),
+    // branch Manager of ทองหล่อ only — approvals at อารีย์ must be blocked for him
+    st("u_ton", "ต้น ผู้จัดการ", "ต้น", ["manager"], ["br_thl"], []),
     st("u_dai", "ได บรีซซี่", "ครูได", ["teacher"], ["br_thl"], ["คณิต", "วิทย์"]),
     st("u_jo", "โจ ใจเย็น", "ครูโจ", ["teacher"], ["br_thl"], ["คณิต"]),
     st("u_mint", "มิ้นท์ ศรีสุข", "ครูมิ้นท์", ["teacher"], ["br_thl", "br_ari"], ["อังกฤษ"]),

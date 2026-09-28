@@ -202,7 +202,7 @@ function Body({ id, onEdit }: { id: ID; onEdit: (inv: Invoice) => void }) {
             <h3 className="mb-2 text-sm font-semibold">การรับเงิน</h3>
             <ul className="divide-y rounded-lg border text-sm">
               {inv.payments.map((p) => {
-                const c = Bill.canConfirmPayment(p, me)
+                const c = Bill.canConfirmPayment(p, me, inv.branchId)
                 return (
                   <li key={p.id} className="flex flex-wrap items-center gap-2 p-2.5">
                     <span className="font-medium tabular-nums">{fmtMoney(p.amount)}</span>

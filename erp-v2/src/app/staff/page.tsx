@@ -20,7 +20,7 @@ import { useBranch, useNow } from "@/lib/hooks"
 import { cn } from "@/lib/utils"
 import { useStore } from "@/store/store"
 
-const ROLES: Role[] = ["director", "manager", "admin", "teacher"]
+const ROLES: Role[] = ["super_admin", "director", "area_manager", "manager", "admin", "teacher"]
 
 export default function StaffPage() {
   const branch = useBranch()

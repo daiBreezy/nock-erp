@@ -10,7 +10,6 @@ import { WorkChip, WorkLegend } from "@/components/app/work-state"
 import { Button } from "@/components/ui/button"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 import { addDays, endTime, fmtDate, toDateStr, weekdayOf } from "@/domain/dates"
-import { seesAllSessions } from "@/domain/rules/permissions"
 import { workState, type WorkState } from "@/domain/rules/scheduling"
 import { useBranch, useLookup, useNow } from "@/lib/hooks"
 import { cn } from "@/lib/utils"
@@ -32,7 +31,8 @@ export default function SessionsPage() {
   const L = useLookup()
   const [range, setRange] = useState<Range>("day")
   const [anchor, setAnchor] = useState(today)
-  const [teacher, setTeacher] = useState(seesAllSessions(me) ? "all" : me.id)
+  // everyone sees every session by default; teachers get a one-tap "only mine" filter
+  const [teacher, setTeacher] = useState("all")
   const [work, setWork] = useState<WorkState | null>(null)
   const [openId, setOpenId] = useState<string | null>(null)
 
@@ -60,10 +60,12 @@ export default function SessionsPage() {
             <ToggleGroupItem value="day">วัน</ToggleGroupItem>
             <ToggleGroupItem value="week">สัปดาห์</ToggleGroupItem>
           </ToggleGroup>
-          {seesAllSessions(me) ? (
-            <NativeSelect className="h-9 w-36" value={teacher} onChange={(e) => setTeacher(e.target.value)}
-              options={[{ value: "all", label: "ครูทุกคน" }, ...staff.filter((t) => t.roles.includes("teacher") && t.branchIds.includes(branch.id)).map((t) => ({ value: t.id, label: t.nickname }))]} />
-          ) : <Pill tone="blue">คาบของฉัน</Pill>}
+          <NativeSelect className="h-9 w-36" value={teacher} onChange={(e) => setTeacher(e.target.value)}
+            options={[
+              { value: "all", label: "ครูทุกคน" },
+              ...(me.roles.includes("teacher") ? [{ value: me.id, label: "เฉพาะคาบของฉัน" }] : []),
+              ...staff.filter((t) => t.roles.includes("teacher") && t.branchIds.includes(branch.id) && t.id !== me.id).map((t) => ({ value: t.id, label: t.nickname })),
+            ]} />
         </div>
       </div>
       <WorkLegend counts={counts} active={work} onToggle={setWork} />
