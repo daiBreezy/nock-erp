@@ -1,7 +1,7 @@
 // Regression tests: each case reproduces a bug found on Dev staging and proves the rule prevents it.
 import { describe, expect, it } from "vitest"
 import type { Assessment, Attendance, Branch, Course, Entitlement, Family, Lead, Student, FormOfferSlot, Holiday, Invoice, Klass, Session, Staff, StudentLeave, Weekday } from "../types"
-import { applyClassEdit, applyToSessions, canChangeTeachers, canRescheduleStudent, mondayOf, canSave, closesBranch, holidayImpact, hoursFor, isHoliday, overlappingRows, periodsIn, introducedConflicts, editSingleSession, findConflicts, generateSessions, moveSession, sessionState, validateClass, workState } from "./scheduling"
+import { applyClassEdit, applyToSessions, canChangeTeachers, canRescheduleStudent, mondayOf, removedWithClass, canSave, closesBranch, holidayImpact, hoursFor, isHoliday, overlappingRows, periodsIn, introducedConflicts, editSingleSession, findConflicts, generateSessions, moveSession, sessionState, validateClass, workState } from "./scheduling"
 import { activeLeave, balance, studentState, leaveLedger, packageCovers, canMark, canSaveLeave, coveringEntitlement, effectiveTo, leavesUsed, lowBalanceAlert, removeFromClass, resolveEntitlements } from "./attendance"
 import { bestPromotion, invoiceTotals, validateInvoiceDraft, canApprove, canConfirmPayment, canForceApprove, canForceConfirmPayment, canSend, canVoid, defaultBusLegs, busTotal, nextInvoiceNumber, quoteCourse } from "./billing"
 import { can } from "./permissions"
@@ -844,5 +844,14 @@ describe("summary send deadline (owner 2026-09-29)", () => {
   it("must reach the parent within 7 days after the class", () => {
     expect(Sum.sendDeadline({ date: "2026-09-29" }, new Date(2026, 9, 1))).toEqual({ deadline: "2026-10-06", overdue: false, daysLeft: 5 })
     expect(Sum.sendDeadline({ date: "2026-09-29" }, new Date(2026, 9, 8)).overdue).toBe(true)
+  })
+})
+
+describe("deleted class disappears from the calendar (owner 2026-09-29)", () => {
+  it("hides cancelled sessions of a deleted class, keeps a single cancelled session visible", () => {
+    const classes = [{ id: "gone", active: false }, { id: "live", active: true }]
+    expect(removedWithClass({ cancelled: true, classId: "gone" }, classes)).toBe(true)
+    expect(removedWithClass({ cancelled: true, classId: "live" }, classes)).toBe(false)
+    expect(removedWithClass({ cancelled: false, classId: "gone" }, classes)).toBe(false)
   })
 })

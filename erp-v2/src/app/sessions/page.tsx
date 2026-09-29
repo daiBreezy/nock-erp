@@ -15,6 +15,7 @@ import { useBranch, useLookup, useNow } from "@/lib/hooks"
 import { cn } from "@/lib/utils"
 import { useStore } from "@/store/store"
 import { sessionKindLabel } from "@/domain/rules/forms"
+import { removedWithClass } from "@/domain/rules/scheduling"
 
 type Range = "day" | "week"
 
@@ -40,7 +41,7 @@ export default function SessionsPage() {
   const from = range === "day" ? anchor : addDays(anchor, -((weekdayOf(anchor) + 6) % 7))
   const to = range === "day" ? anchor : addDays(from, 6)
   const list = sessions
-    .filter((s) => s.branchId === branch.id && s.date >= from && s.date <= to)
+    .filter((s) => s.branchId === branch.id && s.date >= from && s.date <= to && !removedWithClass(s, classes))
     .filter((s) => teacher === "all" || s.teacherId === teacher || s.coTeacherIds.includes(teacher))
     .sort((a, b) => (a.date + a.start).localeCompare(b.date + b.start))
   const withState = list.map((s) => ({ s, w: workState(s, now, attendance, summaries) }))

@@ -315,12 +315,17 @@ export const useStore = create<Store>()(
         if (!reason.trim()) return fail("กรอกเหตุผล")
         let cancelled = 0
         const now = s.now()
-        const sessions = s.sessions.map((x) => {
-          if (x.classId !== id || Sch.sessionState(x, now) !== "upcoming") return x
+        const marked = new Set(s.attendance.map((a) => a.sessionId))
+        // deleted class (owner 2026-09-29): sessions not started are removed for good — ones already holding a mark
+        // (e.g. leave recorded ahead) are kept cancelled for the record; past sessions stay as history
+        const sessions = s.sessions.flatMap((x) => {
+          if (x.classId !== id || Sch.sessionState(x, now) !== "upcoming") return [x]
           cancelled++
-          return { ...x, cancelled: true, cancelReason: reason }
+          return marked.has(x.id) ? [{ ...x, cancelled: true, cancelReason: reason }] : []
         })
         set({ classes: s.classes.map((c) => (c.id === id ? { ...c, active: false } : c)), sessions })
+        const k = s.classes.find((c) => c.id === id)
+        log("class", k?.studentIds ?? [], "ลบคลาส", `${k?.name ?? ""} · ลบ ${cancelled} คาบที่ยังไม่เริ่ม · ${reason.trim()}`)
         return { ok: true, value: { cancelled } }
       },
 

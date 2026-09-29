@@ -423,6 +423,12 @@ export const WORK_LABEL: Record<WorkState, string> = {
  * Apply `change` to this session only, or to this and every later session of the same class
  * that `eligible` allows. Used for teacher changes and adding students from the session panel.
  */
+/** A deleted class's leftover sessions (cancelled when the class was closed) — hidden from calendars and lists;
+ *  a single session cancelled on its own stays visible (greyed) so the team knows to call the parents. */
+export function removedWithClass(s: Pick<Session, "cancelled" | "classId">, classes: Pick<Klass, "id" | "active">[]) {
+  return s.cancelled && !!s.classId && classes.find((k) => k.id === s.classId)?.active === false
+}
+
 /** Monday of the week a date falls in (weeks start Monday everywhere in this app) */
 export function mondayOf(d: DateStr): DateStr {
   const wd = weekdayOf(d)

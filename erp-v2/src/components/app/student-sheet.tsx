@@ -16,7 +16,7 @@ import * as Att from "@/domain/rules/attendance"
 import { INVOICE_STATUS_LABEL, invoiceTotals } from "@/domain/rules/billing"
 import { can } from "@/domain/rules/permissions"
 import { renewHref } from "@/domain/rules/people"
-import { subjectsOf, workState } from "@/domain/rules/scheduling"
+import { removedWithClass, subjectsOf, workState } from "@/domain/rules/scheduling"
 import type { Entitlement, ID, LogCategory, Session, Student } from "@/domain/types"
 import { report } from "@/lib/feedback"
 import { useEntitlements, useNow } from "@/lib/hooks"
@@ -287,6 +287,7 @@ function Teacher({ id }: { id: ID | null }) {
 /** Sessions grouped by day; pickup/drop-off shown only for bus students (Liclass, from the invoice's bus legs). */
 function SessionList({ stu }: { stu: Student }) {
   const sessions = useStore((s) => s.sessions)
+  const classes = useStore((s) => s.classes)
   const attendance = useStore((s) => s.attendance)
   const summaries = useStore((s) => s.summaries)
   const invoices = useStore((s) => s.invoices)
@@ -296,7 +297,7 @@ function SessionList({ stu }: { stu: Student }) {
   const legs = useMemo(() => new Map(invoices.filter((i) => i.studentId === stu.id && i.status !== "void").flatMap((i) => i.bus.map((l) => [l.date, l] as const))), [invoices, stu.id])
   const mine = sessions
     .filter((s) => s.studentIds.includes(stu.id) || attendance.some((a) => a.sessionId === s.id && a.studentId === stu.id))
-    .filter((s) => daysBetween(s.date, today) <= back && daysBetween(today, s.date) <= 42)
+    .filter((s) => daysBetween(s.date, today) <= back && daysBetween(today, s.date) <= 42 && !removedWithClass(s, classes))
     .sort((a, b) => (a.date + a.start).localeCompare(b.date + b.start))
   const days = [...new Set(mine.map((s) => s.date))]
   const hasOlder = sessions.some((s) => s.studentIds.includes(stu.id) && daysBetween(s.date, today) > back)

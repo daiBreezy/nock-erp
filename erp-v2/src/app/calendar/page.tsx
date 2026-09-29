@@ -24,6 +24,7 @@ import { cn } from "@/lib/utils"
 import { useStore } from "@/store/store"
 import { sessionKindLabel } from "@/domain/rules/forms"
 import { GradeChips } from "@/components/app/grade-chips"
+import { removedWithClass } from "@/domain/rules/scheduling"
 
 type View = "day" | "week" | "month" | "list"
 const HOUR_PX = 56
@@ -82,7 +83,7 @@ function CalendarView() {
     return { from: anchor, to: addDays(anchor, 13), title: `${fmtDate(anchor)} – ${fmtDate(addDays(anchor, 13), { year: true })}` }
   }, [view, anchor])
 
-  const branchSessions = useMemo(() => allSessions.filter((s) => s.branchId === branch.id), [allSessions, branch.id])
+  const branchSessions = useMemo(() => allSessions.filter((s) => s.branchId === branch.id && !removedWithClass(s, classes)), [allSessions, branch.id, classes])
   const visible = useMemo(
     () =>
       branchSessions.filter(
