@@ -423,6 +423,28 @@ export const WORK_LABEL: Record<WorkState, string> = {
  * Apply `change` to this session only, or to this and every later session of the same class
  * that `eligible` allows. Used for teacher changes and adding students from the session panel.
  */
+/** Monday of the week a date falls in (weeks start Monday everywhere in this app) */
+export function mondayOf(d: DateStr): DateStr {
+  const wd = weekdayOf(d)
+  return addDays(d, wd === 0 ? -6 : 1 - wd)
+}
+
+/**
+ * Re-schedule (owner 2026-09-29): a student may move to another session of the same subject only inside the same
+ * week (Mon→Tue ok, Mon→next Mon no — that is a leave). Admin decides after talking to the parent.
+ */
+export function canRescheduleStudent(from: Session, to: Session, studentId: ID, now: Date, capacity: number): Result {
+  if (from.id === to.id) return { ok: false, error: "เลือกคาบอื่นที่ไม่ใช่คาบนี้" }
+  if (!from.studentIds.includes(studentId)) return { ok: false, error: "นักเรียนไม่ได้อยู่ในคาบนี้" }
+  if (sessionState(from, now) === "closed" || from.cancelled) return { ok: false, error: "คาบเดิมปิดหรือยกเลิกแล้ว" }
+  if (to.cancelled || sessionState(to, now) !== "upcoming") return { ok: false, error: "ย้ายไปได้เฉพาะคาบที่ยังไม่เริ่ม" }
+  if (mondayOf(from.date) !== mondayOf(to.date)) return { ok: false, error: "เลื่อนได้ภายในสัปดาห์เดียวกันเท่านั้น — ถ้าข้ามสัปดาห์ให้บันทึกเป็นการลา" }
+  if (!subjectsOf(from).some((x) => subjectsOf(to).includes(x))) return { ok: false, error: "ย้ายได้เฉพาะคาบวิชาเดียวกัน" }
+  if (to.studentIds.includes(studentId)) return { ok: false, error: "นักเรียนอยู่ในคาบนั้นแล้ว" }
+  if (to.studentIds.length >= capacity) return { ok: false, error: `คาบนั้นเต็มแล้ว (${capacity} คน)` }
+  return { ok: true, value: undefined }
+}
+
 /** Teachers change only before class — except a session that started with NO teacher may still get one,
  *  otherwise nobody can take attendance or write the summaries (E2E 2026-09-28). Closed/cancelled stay locked. */
 export function canChangeTeachers(s: Session, now: Date): Result {

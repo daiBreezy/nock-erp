@@ -1,8 +1,8 @@
 // Regression tests: each case reproduces a bug found on Dev staging and proves the rule prevents it.
 import { describe, expect, it } from "vitest"
 import type { Assessment, Attendance, Branch, Course, Entitlement, Family, Lead, Student, FormOfferSlot, Holiday, Invoice, Klass, Session, Staff, StudentLeave, Weekday } from "../types"
-import { applyClassEdit, applyToSessions, canChangeTeachers, canSave, closesBranch, holidayImpact, hoursFor, isHoliday, overlappingRows, periodsIn, introducedConflicts, editSingleSession, findConflicts, generateSessions, moveSession, sessionState, validateClass, workState } from "./scheduling"
-import { activeLeave, balance, studentState, canMark, canSaveLeave, coveringEntitlement, effectiveTo, leavesUsed, lowBalanceAlert, removeFromClass, resolveEntitlements } from "./attendance"
+import { applyClassEdit, applyToSessions, canChangeTeachers, canRescheduleStudent, mondayOf, canSave, closesBranch, holidayImpact, hoursFor, isHoliday, overlappingRows, periodsIn, introducedConflicts, editSingleSession, findConflicts, generateSessions, moveSession, sessionState, validateClass, workState } from "./scheduling"
+import { activeLeave, balance, studentState, leaveLedger, packageCovers, canMark, canSaveLeave, coveringEntitlement, effectiveTo, leavesUsed, lowBalanceAlert, removeFromClass, resolveEntitlements } from "./attendance"
 import { bestPromotion, invoiceTotals, validateInvoiceDraft, canApprove, canConfirmPayment, canForceApprove, canForceConfirmPayment, canSend, canVoid, defaultBusLegs, busTotal, nextInvoiceNumber, quoteCourse } from "./billing"
 import { can } from "./permissions"
 import { chartPrice, defaultCourseName, validateCourse } from "./course"
@@ -793,5 +793,50 @@ describe("real LINE texts", () => {
     expect(text).toContain("123-4-56789-0")
     expect(text).toContain("3 ต.ค.")
     expect(text).not.toMatch(/\d{4}-\d{2}-\d{2}/)
+  })
+})
+
+// Owner 2026-09-29: leave with quota extends the package one class; re-schedule only inside the same week
+describe("leave quota and re-schedule", () => {
+  const k = klass({ id: "k1", weekday: 2, studentIds: ["a"] }) // Tuesdays 10:00
+  const sessions = generateSessions(k, [], id).map((x) => ({ ...x, studentIds: ["a"] })) // 29 Sep, 6 Oct, 13 Oct, 20 Oct …
+  const ent: Entitlement = { id: "e1", studentId: "a", courseId: "c1", subjects: ["Maths"], classId: "k1", invoiceId: "i", kind: "subscription", from: "2026-09-29", to: "2026-10-27", sessionsTotal: 4 }
+  const leave = (date: string): Attendance => ({ sessionId: sessions.find((x) => x.date === date)!.id, studentId: "a", status: "leave", markedBy: "adm", markedAt: "" })
+  const ctx = (attendance: Attendance[]) => ({ sessions, attendance, classes: [k], holidays: [] })
+
+  it("leave with quota left: quota used, package ends one class later (the next Tuesday)", () => {
+    expect(leaveLedger(ent, ctx([leave("2026-10-06")]))).toEqual([{ sessionId: expect.any(String), date: "2026-10-06", quota: true }])
+    expect(resolveEntitlements([ent], [], ctx([leave("2026-10-06")]))[0].to).toBe("2026-11-03")
+  })
+
+  it("leave after the quota is gone adds nothing — end date stays", () => {
+    const two = ctx([leave("2026-10-06"), leave("2026-10-20")])
+    expect(leaveLedger(ent, two).map((l) => l.quota)).toEqual([true, false])
+    expect(resolveEntitlements([ent], [], two)[0].to).toBe("2026-11-03")
+  })
+
+  it("the extra class skips a holiday", () => {
+    const hol: Holiday[] = [{ id: "h", branchId: "b1", date: "2026-11-03", name: "x", category: "branch" }]
+    expect(resolveEntitlements([ent], [], { ...ctx([leave("2026-10-06")]), holidays: hol })[0].to).toBe("2026-11-10")
+  })
+
+  it("re-schedule only inside the same Mon–Sun week, same subject, to a session not started yet", () => {
+    const now = new Date("2026-09-28T08:00:00")
+    const tue = sessions[0] // Tue 29 Sep
+    const thu: Session = { ...tue, id: "thu", classId: "k2", date: "2026-10-01", studentIds: [] }
+    const nextMon: Session = { ...tue, id: "mon", classId: "k2", date: "2026-10-05", studentIds: [] }
+    expect(mondayOf("2026-10-04")).toBe("2026-09-28")
+    expect(canRescheduleStudent(tue, thu, "a", now, 6).ok).toBe(true)
+    const r = canRescheduleStudent(tue, nextMon, "a", now, 6)
+    expect(r.ok).toBe(false)
+    if (!r.ok) expect(r.error).toContain("การลา")
+    expect(canRescheduleStudent(tue, { ...thu, subject: "English" }, "a", now, 6).ok).toBe(false)
+    expect(canRescheduleStudent(tue, { ...thu, studentIds: ["x", "y"] }, "a", now, 2).ok).toBe(false)
+  })
+
+  it("the session a student moved into still draws from their package", () => {
+    const other: Session = { ...sessions[0], id: "o", classId: "k2", date: "2026-10-01" }
+    expect(packageCovers(ent, other)).toBe(false)
+    expect(packageCovers(ent, { ...other, rescheduledIn: ["a"] })).toBe(true)
   })
 })

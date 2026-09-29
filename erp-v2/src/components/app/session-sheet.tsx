@@ -3,46 +3,48 @@
 import { ForceApprove } from "./force-approve"
 import Link from "next/link"
 import { useMemo, useState } from "react"
-import { AlertTriangleIcon, BanIcon, CheckIcon, PencilIcon, SendIcon, StarIcon, UndoIcon, UserPlusIcon, UsersRoundIcon, XIcon } from "lucide-react"
+import {
+  AlertTriangleIcon, BanIcon, CalendarClockIcon, CheckIcon, ChevronLeftIcon, ChevronRightIcon, DoorOpenIcon, EllipsisVerticalIcon, FlameIcon,
+  GraduationCapIcon, LogOutIcon, PencilIcon, SendIcon, StarIcon, Trash2Icon, UserMinusIcon, UserPlusIcon, UsersRoundIcon, XIcon,
+} from "lucide-react"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
+import { Checkbox } from "@/components/ui/checkbox"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet"
 import { Textarea } from "@/components/ui/textarea"
-import { endTime, fmtDate, fmtDateTime } from "@/domain/dates"
+import { addDays, endTime, fmtDate, fmtDateTime } from "@/domain/dates"
 import * as Att from "@/domain/rules/attendance"
 import { assessmentIn, FORM_TYPE_LABEL, sessionKindLabel } from "@/domain/rules/forms"
 import { can } from "@/domain/rules/permissions"
-import { canChangeTeachers, findConflicts, sessionState, subjectsOf } from "@/domain/rules/scheduling"
+import { canChangeTeachers, canRescheduleStudent, findConflicts, mondayOf, sessionState, subjectsOf } from "@/domain/rules/scheduling"
 import * as Sum from "@/domain/rules/summaries"
 import { SUMMARY_STATUS_LABEL } from "@/domain/rules/summaries"
-import type { AttendanceStatus, ID, LessonSummary } from "@/domain/types"
+import type { ID, LessonSummary, Session } from "@/domain/types"
 import { report } from "@/lib/feedback"
 import { useBranch, useEntitlements, useLookup, useNow } from "@/lib/hooks"
 import { cn } from "@/lib/utils"
 import { useStore } from "@/store/store"
 import { AssessmentNote } from "./assessment-note"
 import { Pill, SessionStateBadge } from "./badges"
+import { ClassSheet } from "./class-sheet"
 import { NativeSelect } from "./native-select"
 import { StudentSearch } from "./student-search"
 import { FixSuggestions } from "./fix-suggestions"
 import { StudentSheet } from "./student-sheet"
+import { avatarTone, gradeTone, initial } from "./subject-color"
 import { TeacherPicker } from "./teacher-picker"
 import { CAPACITY, type MoveScope } from "@/domain/rules/scheduling"
 
-const MARKS: { status: AttendanceStatus; label: string; cls: string }[] = [
-  { status: "present", label: "มา", cls: "data-[on=true]:bg-emerald-600 data-[on=true]:text-white" },
-  { status: "absent", label: "ขาด", cls: "data-[on=true]:bg-red-600 data-[on=true]:text-white" },
-  { status: "leave", label: "ลา", cls: "data-[on=true]:bg-amber-500 data-[on=true]:text-white" },
-]
-
+/** Session dialog (owner design 2026-09-29): student list with ✓/✗, per-student ⋮ (Re-schedule · Leave · Remove),
+ *  summary right under each present student, multi-select to submit/approve, class ⋮ (Edit · Postpone · Delete). */
 export function SessionSheet({ sessionId, onClose }: { sessionId: ID | null; onClose: () => void }) {
   return (
-    <Sheet open={!!sessionId} onOpenChange={(o) => !o && onClose()}>
-      <SheetContent className="w-full overflow-y-auto sm:max-w-xl">{sessionId && <Body id={sessionId} onClose={onClose} />}</SheetContent>
-    </Sheet>
+    <Dialog open={!!sessionId} onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="flex max-h-[92vh] flex-col gap-0 p-0 sm:max-w-2xl">{sessionId && <Body id={sessionId} onClose={onClose} />}</DialogContent>
+    </Dialog>
   )
 }
 
@@ -53,21 +55,21 @@ function Body({ id, onClose }: { id: ID; onClose: () => void }) {
   const staff = useStore((st) => st.staff)
   const attendance = useStore((st) => st.attendance)
   const summaries = useStore((st) => st.summaries)
-  const entitlements = useEntitlements()
-  const leaves = useStore((st) => st.leaves)
-  const courses = useStore((st) => st.courses)
-  const assessments = useStore((st) => st.assessments)
   const me = useStore((st) => st.staff.find((x) => x.id === st.userId)!)
-  const mark = useStore((st) => st.mark)
-  const clearMark = useStore((st) => st.clearMark)
+  const save = useStore((st) => st.saveSummary)
+  const approve = useStore((st) => st.approveSummary)
   const now = useNow(10_000)
   const branch = useBranch()
   const L = useLookup()
-  const [editing, setEditing] = useState(false)
-  const [cancelling, setCancelling] = useState(false)
-  const [teachersOpen, setTeachersOpen] = useState(false)
+  const [tab, setTab] = useState<"students" | "info">("students")
   const [adding, setAdding] = useState(false)
-  const [studentOpen, setStudentOpen] = useState<string | null>(null)
+  const [teachersOpen, setTeachersOpen] = useState(false)
+  const [postponing, setPostponing] = useState(false)
+  const [deleting, setDeleting] = useState(false)
+  const [editingClass, setEditingClass] = useState(false)
+  const [drafts, setDrafts] = useState<Record<ID, string>>({})
+  const [picked, setPicked] = useState<Set<ID>>(new Set())
+  const [capHidden, setCapHidden] = useState(false)
 
   const conflicts = useMemo(() => (s ? findConflicts(allSessions.filter((x) => x.date === s.date), branch, staff).filter((c) => c.sessionIds.includes(s.id)) : []), [allSessions, s, branch, staff])
   if (!s) return null
@@ -75,171 +77,488 @@ function Body({ id, onClose }: { id: ID; onClose: () => void }) {
   const teacher = L.teacher(s.teacherId)
   const canManage = can(me, "session.manage")
   const mine = s.teacherId === me.id || s.coTeacherIds.includes(me.id)
-  const canMarkHere = can(me, "attendance.mark") && (canManage || mine)
   // teachers can open every session (owner 2026-09-26) but only work on their own
   const viewOnly = !canManage && !mine
+  const cap = klass ? CAPACITY[klass.type] : CAPACITY.group
+
+  // summaries: text lives here so several students can be submitted in one go
+  const present = s.studentIds.filter((sid) => attendance.find((x) => x.sessionId === s.id && x.studentId === sid)?.status === "present")
+  const summaryOf = (sid: ID) => summaries.find((x) => x.sessionId === s.id && x.studentId === sid)
+  const textOf = (sid: ID) => drafts[sid] ?? summaryOf(sid)?.text ?? ""
+  const submittable = present.filter((sid) => { const st = summaryOf(sid)?.status; return !viewOnly && (!st || st === "draft" || st === "changes_requested") && textOf(sid).trim() })
+  const approvable = present.filter((sid) => { const x = summaryOf(sid); return x?.status === "submitted" && Sum.canApprove(x, me).ok })
+  const selectable = [...new Set([...submittable, ...approvable])]
+  const sel = [...picked].filter((x) => selectable.includes(x))
+  const toggle = (sid: ID) => setPicked((p) => { const n = new Set(p); if (n.has(sid)) n.delete(sid); else n.add(sid); return n })
+  const submitMany = () => {
+    const ids = sel.filter((x) => submittable.includes(x))
+    const fails = ids.map((sid) => save(s.id, sid, textOf(sid), true)).filter((r) => !r.ok)
+    report(fails.length ? fails[0] : { ok: true, value: undefined }, `ส่งอนุมัติสรุป ${ids.length} คนแล้ว`)
+    setPicked(new Set())
+  }
+  const approveMany = () => {
+    const ids = sel.filter((x) => approvable.includes(x))
+    const fails = ids.map((sid) => approve(summaryOf(sid)!.id)).filter((r) => !r.ok)
+    report(fails.length ? fails[0] : { ok: true, value: undefined }, `อนุมัติสรุป ${ids.length} คนแล้ว`)
+    setPicked(new Set())
+  }
 
   return (
     <>
-      <SheetHeader className="border-b pb-3">
-        <div className="flex flex-wrap items-center gap-2 pr-8">
-          <SessionStateBadge state={state} />
-          {sessionKindLabel(s) && <Pill tone="violet">{sessionKindLabel(s)}</Pill>}
-          {s.customized && s.classId && <Pill>แก้เฉพาะคาบนี้</Pill>}
+      <DialogHeader className="border-b px-5 pt-5 pb-3">
+        <div className="flex items-start gap-3 pr-8">
+          <GraduationCapIcon className="mt-1 size-5 shrink-0" />
+          <div className="min-w-0 flex-1">
+            <DialogTitle className="text-lg">{klass?.name ?? `${subjectsOf(s).join(" + ")} (คาบเดี่ยว)`}</DialogTitle>
+            <DialogDescription>
+              {s.start}–{endTime(s.start, s.minutes)} · {fmtDate(s.date, { weekday: true, year: true })} · {L.room(s.roomId)} ·{" "}
+              <span className={cn(teacher.missing && "font-medium text-amber-700")}>★ {teacher.label}</span>
+              {s.coTeacherIds.length > 0 && <> · ผู้ช่วย {s.coTeacherIds.map((t) => L.teacher(t).label).join(", ")}</>}
+            </DialogDescription>
+          </div>
+          <div className="flex flex-wrap justify-end gap-1.5">
+            <SessionStateBadge state={state} />
+            {sessionKindLabel(s) && <Pill tone="violet">{sessionKindLabel(s)}</Pill>}
+            {s.customized && s.classId && <Pill>แก้เฉพาะคาบนี้</Pill>}
+          </div>
         </div>
-        <SheetTitle className="text-lg">{klass?.name ?? `${subjectsOf(s).join(" + ")} (คาบเดี่ยว)`}</SheetTitle>
-        {subjectsOf(s).length > 1 && <p className="text-xs text-muted-foreground">คลาสรวม {subjectsOf(s).join(" + ")} · เขียนสรุปครั้งเดียวต่อคาบ</p>}
-        <SheetDescription>
-          {fmtDate(s.date, { weekday: true, year: true })} · {s.start}–{endTime(s.start, s.minutes)} · {L.room(s.roomId)} ·{" "}
-          <span className={cn(teacher.missing && "font-medium text-amber-700")}>★ {teacher.label}</span>
-          {s.coTeacherIds.length > 0 && <> · ผู้ช่วย {s.coTeacherIds.map((t) => L.teacher(t).label).join(", ")}</>}
-        </SheetDescription>
         {s.cancelled && <p className="text-sm text-red-700">ยกเลิกแล้ว: {s.cancelReason}</p>}
-      </SheetHeader>
+        <div className="flex gap-1.5 pt-2">
+          {([["students", `รายชื่อนักเรียน (${s.studentIds.length})`], ["info", "ข้อมูลคาบ"]] as const).map(([k, label]) => (
+            <button key={k} type="button" onClick={() => setTab(k)} className={cn("rounded-full px-3.5 py-1.5 text-sm", tab === k ? "bg-foreground font-medium text-background" : "bg-muted text-muted-foreground hover:text-foreground")}>{label}</button>
+          ))}
+        </div>
+      </DialogHeader>
 
-      <div className="space-y-5 px-4 pt-5 pb-6">
-        {conflicts.length > 0 && (
-          <Alert variant="destructive">
-            <AlertTriangleIcon />
-            <AlertTitle>คาบนี้ชนกับคาบอื่น</AlertTitle>
-            <AlertDescription className="space-y-2">
-              <div>{[...new Set(conflicts.map((c) => c.message))].join(" · ")}</div>
-              {canManage && state === "upcoming" && <FixSuggestions sessionId={s.id} />}
-            </AlertDescription>
-          </Alert>
-        )}
-
-        {canManage && state === "upcoming" && !s.cancelled && (
-          <div className="flex gap-2">
-            <Button size="sm" variant="outline" onClick={() => setEditing(true)}>
-              <PencilIcon /> แก้คาบนี้
-            </Button>
-            <Button size="sm" variant="destructive" onClick={() => setCancelling(true)}>
-              <BanIcon /> ยกเลิกคาบ
-            </Button>
-          </div>
-        )}
-
-        <section className="rounded-lg border p-3">
-          <div className="mb-2 flex items-center justify-between">
-            <h3 className="text-sm font-semibold">ครูผู้สอน</h3>
-            {canManage && canChangeTeachers(s, now).ok && (
-              <Button size="xs" variant={s.teacherId ? "outline" : "default"} onClick={() => setTeachersOpen(true)}><UsersRoundIcon /> {s.teacherId ? "เปลี่ยน / เพิ่มครู" : "ตั้งครู"}</Button>
+      <div className="min-h-0 flex-1 space-y-3 overflow-y-auto px-5 py-4">
+        {tab === "students" ? (
+          <>
+            {s.studentIds.length > cap && !capHidden && (
+              <div className="flex items-center gap-2 rounded-2xl bg-amber-50 px-3 py-2.5 text-sm text-amber-800 dark:bg-amber-950/40 dark:text-amber-200">
+                <AlertTriangleIcon className="size-4 shrink-0" /> ไม่ควรเกิน {cap} คน/คลาส (ตอนนี้ {s.studentIds.length} คน)
+                <button type="button" className="ml-auto" aria-label="ปิด" onClick={() => setCapHidden(true)}><XIcon className="size-4" /></button>
+              </div>
             )}
-          </div>
-          <div className="flex flex-wrap gap-1.5">
-            {!s.teacherId && <Pill tone="amber">ยังไม่มีครู</Pill>}
-            {s.teacherId && <Pill tone="blue"><StarIcon className="size-3 fill-current" /> {L.teacher(s.teacherId).label} · ครูหลัก</Pill>}
-            {s.coTeacherIds.map((t) => <Pill key={t}>{L.teacher(t).label} · ผู้ช่วย</Pill>)}
-          </div>
-        </section>
-
-        <section>
-          <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
-            <h3 className="text-sm font-semibold">เช็คชื่อ ({s.studentIds.length} คน)</h3>
-            {viewOnly && <Pill tone="gray">ดูอย่างเดียว — ไม่ใช่คาบที่คุณสอน</Pill>}
-            {canManage && state !== "closed" && !s.cancelled && (
-              <Button size="xs" variant="outline" onClick={() => setAdding(true)}><UserPlusIcon /> เพิ่มนักเรียน</Button>
+            {viewOnly && <p className="text-xs text-muted-foreground">ดูอย่างเดียว — ไม่ใช่คาบที่คุณสอน</p>}
+            {state === "upcoming" && <p className="text-xs text-muted-foreground">ยังไม่ถึงเวลาเรียน — บันทึกล่วงหน้าได้เฉพาะ “ลา” และ “ย้ายคาบ”</p>}
+            {state === "closed" && <p className="text-xs text-muted-foreground">คาบนี้ปิดแล้ว แก้การเช็คชื่อไม่ได้</p>}
+            {selectable.length > 0 && (
+              <div className="sticky top-0 z-10 flex flex-wrap items-center gap-2 rounded-2xl border bg-background/95 px-3 py-2 text-sm backdrop-blur">
+                <Checkbox checked={sel.length === selectable.length} onCheckedChange={(v) => setPicked(v ? new Set(selectable) : new Set())} />
+                <span className="text-muted-foreground">{sel.length ? `เลือก ${sel.length} คน` : "เลือกสรุปหลายคนพร้อมกัน"}</span>
+                <span className="ml-auto flex gap-1.5">
+                  {sel.some((x) => submittable.includes(x)) && <Button size="xs" onClick={submitMany}><SendIcon /> ส่งอนุมัติ ({sel.filter((x) => submittable.includes(x)).length})</Button>}
+                  {sel.some((x) => approvable.includes(x)) && <Button size="xs" variant="outline" onClick={approveMany}><CheckIcon /> อนุมัติ ({sel.filter((x) => approvable.includes(x)).length})</Button>}
+                </span>
+              </div>
             )}
-            {state === "upcoming" && <span className="text-xs text-muted-foreground">ยังไม่ถึงเวลาเรียน — บันทึกล่วงหน้าได้เฉพาะ &quot;ลา&quot;</span>}
-            {state === "closed" && <span className="text-xs text-muted-foreground">ปิดแล้ว แก้ไม่ได้</span>}
-          </div>
-          {s.studentIds.length === 0 && <p className="rounded-lg border border-dashed p-4 text-center text-sm text-muted-foreground">ยังไม่มีนักเรียนในคาบนี้</p>}
-          <ul className="divide-y rounded-lg border">
-            {s.studentIds.map((sid) => {
-              const stu = L.student(sid)
-              const a = attendance.find((x) => x.sessionId === s.id && x.studentId === sid)
-              const ent = Att.coveringEntitlement(sid, s, entitlements)
-              const pkgName = ent ? courses.find((c) => c.id === ent.courseId)?.name : undefined
-              const bal = ent && Att.balance(ent, allSessions, attendance)
-              const onLeave = Att.activeLeave(sid, s.date, leaves)
-              const asm = assessmentIn(s.id, sid, assessments)
-              return (
-                <li key={sid} className={cn("flex flex-wrap items-center gap-3 p-2.5", onLeave && "opacity-50")}>
-                  <div className="min-w-0 flex-1">
-                    <button onClick={() => setStudentOpen(sid)} className="truncate text-left text-sm font-medium hover:text-primary hover:underline">
-                      {stu?.nickname ?? "?"} <span className="text-xs font-normal text-muted-foreground">{stu?.grade}</span>
-                    </button>
-                    <div className="text-xs text-muted-foreground">
-                      {asm ? (
-                        `${FORM_TYPE_LABEL[asm.type]} (ไม่ใช้แพ็กเกจ)`
-                      ) : s.trial ? (
-                        "ทดลองเรียน (ไม่ใช้แพ็กเกจ)"
-                      ) : !ent ? (
-                        <span className="text-amber-700">
-                          ยังไม่ได้จ่ายค่าเรียนสำหรับคาบนี้
-                          {can(me, "billing.manage") && <Link href={`/billing?new=${sid}`} className="ml-1 underline">ออกใบแจ้งหนี้</Link>}
-                        </span>
-                      ) : (
-                        <span title={pkgName}>
-                          {ent.classId !== s.classId && "ใช้แพ็กเกจ "}
-                          {ent.kind === "subscription" ? `${pkgName} · ถึง ${fmtDate(ent.to)}` : `${pkgName} · เหลือ ${bal!.remaining}/${bal!.total} คาบ`}
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                  {onLeave && <Pill tone="violet" title={`${fmtDate(onLeave.from)} – ${fmtDate(onLeave.to)} · ${onLeave.reason}`}>ลาพักยาว</Pill>}
-                  <div className="flex items-center gap-1">
-                    {MARKS.map((m) => {
-                      const allowed = canMarkHere && Att.canMark(s, m.status, now).ok
-                      return (
-                        <button
-                          key={m.status}
-                          data-on={a?.status === m.status}
-                          disabled={!allowed}
-                          onClick={() => report(mark(s.id, sid, m.status), `${stu?.nickname}: ${m.label}`)}
-                          className={cn("h-8 min-w-12 rounded-full border px-3 text-sm font-medium transition hover:bg-muted disabled:cursor-not-allowed disabled:opacity-40", m.cls)}
-                        >
-                          {m.label}
-                        </button>
-                      )
-                    })}
-                    {a && canMarkHere && state !== "closed" && (
-                      <Button size="icon-sm" variant="ghost" aria-label="ล้างการเช็คชื่อ" onClick={() => report(clearMark(s.id, sid), `ล้างการเช็คชื่อ ${stu?.nickname}`)}>
-                        <UndoIcon />
-                      </Button>
-                    )}
-                  </div>
-                  {asm && <AssessmentNote a={asm} editable={canManage || mine} className="w-full" />}
-                </li>
-              )
-            })}
-          </ul>
-        </section>
-
-        <section>
-          <h3 className="mb-2 text-sm font-semibold">สรุปการเรียน</h3>
-          <p className="mb-2 text-xs text-muted-foreground">เขียนได้เฉพาะนักเรียนที่ &quot;มา&quot; · ครูเขียน → ส่งอนุมัติ → คนอื่นอนุมัติ → ส่งผู้ปกครอง</p>
-          <div className="space-y-3">
-            {s.studentIds
-              .filter((sid) => attendance.find((x) => x.sessionId === s.id && x.studentId === sid)?.status === "present")
-              .map((sid) => (
-                <SummaryEditor key={sid} sessionId={s.id} studentId={sid} summary={summaries.find((x) => x.sessionId === s.id && x.studentId === sid)} viewOnly={viewOnly} />
+            {s.studentIds.length === 0 && !s.rescheduledOut?.length && <p className="rounded-2xl border border-dashed p-6 text-center text-sm text-muted-foreground">ยังไม่มีนักเรียนในคาบนี้</p>}
+            <ul className="divide-y">
+              {s.studentIds.map((sid) => (
+                <StudentRow key={sid} s={s} sid={sid} viewOnly={viewOnly} canManage={canManage} mine={mine}
+                  text={textOf(sid)} setText={(t) => setDrafts((d) => ({ ...d, [sid]: t }))}
+                  selectable={selectable.includes(sid)} picked={picked.has(sid)} onPick={() => toggle(sid)} />
               ))}
-            {!attendance.some((x) => x.sessionId === s.id && x.status === "present") && <p className="text-sm text-muted-foreground">ยังไม่มีนักเรียนที่เช็คว่ามา</p>}
+              {s.rescheduledOut?.map((m) => <MovedOutRow key={m.studentId} s={s} studentId={m.studentId} toSessionId={m.toSessionId} canManage={canManage} />)}
+            </ul>
+          </>
+        ) : (
+          <div className="space-y-4">
+            {conflicts.length > 0 && (
+              <Alert variant="destructive">
+                <AlertTriangleIcon />
+                <AlertTitle>คาบนี้ชนกับคาบอื่น</AlertTitle>
+                <AlertDescription className="space-y-2">
+                  <div>{[...new Set(conflicts.map((c) => c.message))].join(" · ")}</div>
+                  {canManage && state === "upcoming" && <FixSuggestions sessionId={s.id} />}
+                </AlertDescription>
+              </Alert>
+            )}
+            <section className="rounded-2xl border p-3">
+              <div className="mb-2 flex items-center justify-between">
+                <h3 className="text-sm font-semibold">ครูผู้สอน</h3>
+                {canManage && canChangeTeachers(s, now).ok && (
+                  <Button size="xs" variant={s.teacherId ? "outline" : "default"} onClick={() => setTeachersOpen(true)}><UsersRoundIcon /> {s.teacherId ? "เปลี่ยน / เพิ่มครู" : "ตั้งครู"}</Button>
+                )}
+              </div>
+              <div className="flex flex-wrap gap-1.5">
+                {!s.teacherId && <Pill tone="amber">ยังไม่มีครู</Pill>}
+                {s.teacherId && <Pill tone="blue"><StarIcon className="size-3 fill-current" /> {L.teacher(s.teacherId).label} · ครูหลัก</Pill>}
+                {s.coTeacherIds.map((t) => <Pill key={t}>{L.teacher(t).label} · ผู้ช่วย</Pill>)}
+              </div>
+            </section>
+            <dl className="grid grid-cols-[7rem_1fr] gap-y-1.5 rounded-2xl border p-3 text-sm">
+              <dt className="text-muted-foreground">วันที่</dt><dd>{fmtDate(s.date, { weekday: true, year: true })}</dd>
+              <dt className="text-muted-foreground">เวลา</dt><dd>{s.start}–{endTime(s.start, s.minutes)} ({s.minutes} นาที)</dd>
+              <dt className="text-muted-foreground">ห้อง</dt><dd>{L.room(s.roomId)}</dd>
+              <dt className="text-muted-foreground">วิชา</dt><dd>{subjectsOf(s).join(" + ")}</dd>
+              {klass && <><dt className="text-muted-foreground">คลาส</dt><dd>{klass.name} · {klass.type === "single" ? "เดี่ยว" : "กลุ่ม"} · {klass.grades.join(", ")}</dd></>}
+              <dt className="text-muted-foreground">นักเรียน</dt><dd>{s.studentIds.length}/{cap} คน</dd>
+            </dl>
+            <p className="text-[11px] text-muted-foreground">รหัสคาบ {s.id}</p>
           </div>
-        </section>
-        <p className="text-[11px] text-muted-foreground">รหัสคาบ {s.id}</p>
+        )}
       </div>
 
-      {editing && <EditSessionDialog id={s.id} onClose={() => setEditing(false)} />}
+      <DialogFooter className="flex-row items-center gap-2 border-t px-5 py-3 sm:justify-start">
+        {canManage && !s.cancelled && (
+          <DropdownMenu>
+            <DropdownMenuTrigger render={<Button size="icon" variant="outline" aria-label="จัดการคลาส" />}><EllipsisVerticalIcon /></DropdownMenuTrigger>
+            <DropdownMenuContent align="start" className="w-60">
+              <DropdownMenuItem onClick={() => (klass ? setEditingClass(true) : setPostponing(true))}><PencilIcon /> {klass ? "แก้คลาส" : "แก้คาบนี้"}</DropdownMenuItem>
+              <DropdownMenuItem disabled={state !== "upcoming"} onClick={() => setPostponing(true)}><LogOutIcon /> เลื่อนคาบ (Postpone)</DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem variant="destructive" onClick={() => setDeleting(true)}><Trash2Icon /> ลบ</DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        )}
+        <span className="ml-auto" />
+        {canManage && state !== "closed" && !s.cancelled && (
+          <Button variant="secondary" onClick={() => setAdding(true)}><UserPlusIcon /> เพิ่มนักเรียน</Button>
+        )}
+      </DialogFooter>
+
+      {postponing && <EditSessionDialog id={s.id} onClose={() => setPostponing(false)} />}
       {teachersOpen && <TeachersDialog id={s.id} onClose={() => setTeachersOpen(false)} />}
       {adding && <AddStudentDialog id={s.id} onClose={() => setAdding(false)} />}
-      <StudentSheet studentId={studentOpen} onClose={() => setStudentOpen(null)} />
-      {cancelling && <CancelSessionDialog id={s.id} students={s.studentIds.length} onClose={() => setCancelling(false)} onDone={onClose} />}
+      {deleting && <DeleteDialog s={s} canCancel={state === "upcoming"} onClose={() => setDeleting(false)} onDone={onClose} />}
+      <ClassSheet id={editingClass && klass ? klass.id : null} onClose={() => setEditingClass(false)} />
     </>
   )
 }
 
-function SummaryEditor({ sessionId, studentId, summary, viewOnly }: { sessionId: ID; studentId: ID; summary?: LessonSummary; viewOnly: boolean }) {
+/** One student: avatar · name/family · New · grade · package progress · ✓ ✗ · ⋮ — and the summary right under when "มา" */
+function StudentRow({ s, sid, viewOnly, canManage, mine, text, setText, selectable, picked, onPick }: {
+  s: Session; sid: ID; viewOnly: boolean; canManage: boolean; mine: boolean
+  text: string; setText: (t: string) => void; selectable: boolean; picked: boolean; onPick: () => void
+}) {
+  const allSessions = useStore((st) => st.sessions)
+  const attendance = useStore((st) => st.attendance)
+  const summaries = useStore((st) => st.summaries)
+  const rawEnts = useStore((st) => st.entitlements)
+  const leaves = useStore((st) => st.leaves)
+  const classes = useStore((st) => st.classes)
+  const holidays = useStore((st) => st.holidays)
+  const courses = useStore((st) => st.courses)
+  const assessments = useStore((st) => st.assessments)
+  const families = useStore((st) => st.families)
+  const me = useStore((st) => st.staff.find((x) => x.id === st.userId)!)
+  const mark = useStore((st) => st.mark)
+  const clearMark = useStore((st) => st.clearMark)
+  const entitlements = useEntitlements()
+  const now = useNow(10_000)
+  const L = useLookup()
+  const [open, setOpen] = useState<"student" | "reschedule" | "remove" | null>(null)
+  const [otherSession, setOtherSession] = useState<ID | null>(null)
+
+  const stu = L.student(sid)
+  const fam = families.find((f) => f.id === stu?.familyId)
+  const a = attendance.find((x) => x.sessionId === s.id && x.studentId === sid)
+  const ent = Att.coveringEntitlement(sid, s, entitlements)
+  const asm = assessmentIn(s.id, sid, assessments)
+  const onLongLeave = Att.activeLeave(sid, s.date, leaves)
+  const canMarkHere = can(me, "attendance.mark") && (canManage || mine)
+  const byId = new Map(allSessions.map((x) => [x.id, x]))
+  // first class ever for this student → "ใหม่"
+  const isNew = !attendance.some((x) => x.studentId === sid && (byId.get(x.sessionId)?.date ?? "") < s.date)
+  const movedFrom = s.rescheduledIn?.includes(sid) ? allSessions.find((x) => x.rescheduledOut?.some((m) => m.studentId === sid && m.toSessionId === s.id)) : undefined
+
+  // package progress: sessions = used/bought · month/week = this class's place in the paid window
+  const progress = (() => {
+    if (!ent) return null
+    if (ent.kind === "sessions") { const b = Att.balance(ent, allSessions, attendance); return { n: b.used, of: b.total } }
+    const inPkg = allSessions.filter((x) => !x.cancelled && x.studentIds.includes(sid) && Att.packageCovers(ent, x))
+    return { n: inPkg.filter((x) => x.date <= s.date).length, of: inPkg.length }
+  })()
+
+  // leave: quota used? which day does the package end now?
+  const raw = rawEnts.find((e) => e.id === ent?.id)
+  const ctx = { sessions: allSessions, attendance, classes, holidays }
+  const ledger = raw ? Att.leaveLedger({ ...raw, to: Att.effectiveTo(raw, leaves) }, ctx, leaves) : []
+  const quota = raw ? Att.leaveQuota(raw) : 0
+  const thisLeave = ledger.find((l) => l.sessionId === s.id)
+  const usedQuota = ledger.filter((l) => l.quota).length
+
+  const markAs = (status: "present" | "absent" | "leave") =>
+    a?.status === status ? report(clearMark(s.id, sid), `ล้างการเช็คชื่อ ${stu?.nickname}`) : report(mark(s.id, sid, status), `${stu?.nickname}: ${status === "present" ? "มา" : status === "absent" ? "ขาด" : "ลา"}`)
+
+  return (
+    <li className={cn("space-y-2 py-3", onLongLeave && "opacity-60")}>
+      <div className="flex items-center gap-3">
+        {selectable ? <Checkbox checked={picked} onCheckedChange={onPick} aria-label={`เลือก ${stu?.nickname}`} /> : <span className="w-4 shrink-0" />}
+        <span className="relative shrink-0">
+          <span className={cn("grid size-11 place-items-center rounded-full text-base font-semibold", avatarTone(sid))}>{initial(stu?.nickname ?? "?")}</span>
+          {movedFrom && <span className="absolute -right-1 -bottom-1 grid size-5 place-items-center rounded-full bg-sky-100 text-sky-700 ring-2 ring-background" title="ย้ายมาจากคาบอื่น"><CalendarClockIcon className="size-3" /></span>}
+        </span>
+        <div className="min-w-0 flex-1">
+          <button type="button" onClick={() => setOpen("student")} className="block max-w-full truncate text-left text-sm font-medium hover:text-primary hover:underline">
+            {stu?.name} <span className="text-muted-foreground">({stu?.nickname})</span>
+          </button>
+          <p className="truncate text-xs text-muted-foreground">
+            {fam?.name ?? "ยังไม่ผูกครอบครัว"} ·{" "}
+            {asm ? `${FORM_TYPE_LABEL[asm.type]} (ไม่ใช้แพ็กเกจ)`
+              : s.trial ? "ทดลองเรียน (ไม่ใช้แพ็กเกจ)"
+              : !ent ? <span className="text-amber-700">ยังไม่ได้จ่ายค่าเรียน{can(me, "billing.manage") && <Link href={`/billing?new=${sid}`} className="ml-1 underline">ออกใบแจ้งหนี้</Link>}</span>
+              : <span title={`ถึง ${fmtDate(ent.to, { year: true })}`}>{courses.find((c) => c.id === ent.courseId)?.name} · ถึง {fmtDate(ent.to)}</span>}
+          </p>
+        </div>
+        {isNew && <Pill tone="red" className="shrink-0"><FlameIcon className="size-3" /> ใหม่</Pill>}
+        <span className={cn("shrink-0 rounded-full px-2 py-0.5 text-xs font-medium", gradeTone(stu?.grade ?? ""))}>{stu?.grade}</span>
+        {progress && progress.of > 0 && a?.status !== "leave" && (
+          <span className="hidden shrink-0 items-center gap-1.5 text-xs text-muted-foreground tabular-nums sm:flex" title="ความคืบหน้าแพ็กเกจ">
+            <span className="h-1.5 w-12 overflow-hidden rounded-full bg-muted"><span className="block h-full rounded-full bg-violet-600" style={{ width: `${Math.min(100, (progress.n / progress.of) * 100)}%` }} /></span>
+            {progress.n}/{progress.of}
+          </span>
+        )}
+        {a?.status === "leave" ? (
+          <button type="button" disabled={!canMarkHere || !Att.canClear(s, now).ok} onClick={() => markAs("leave")} className="shrink-0 text-right text-xs text-red-700 disabled:cursor-default" title="กดเพื่อยกเลิกการลา">
+            <span className="flex items-center justify-end gap-1 font-medium"><DoorOpenIcon className="size-4" /> ลา</span>
+            <span className="text-[11px]">{fmtDate(s.date, { weekday: true })} · {s.start}–{endTime(s.start, s.minutes)}</span>
+          </button>
+        ) : (
+          <span className="flex shrink-0 gap-1.5">
+            {(["present", "absent"] as const).map((st) => (
+              <button key={st} type="button" aria-label={st === "present" ? "มา" : "ขาด"} data-on={a?.status === st}
+                disabled={!canMarkHere || !Att.canMark(s, st, now).ok} onClick={() => markAs(st)}
+                className={cn("grid size-9 place-items-center rounded-full border transition hover:bg-muted disabled:cursor-not-allowed disabled:opacity-40",
+                  st === "present" ? "data-[on=true]:border-emerald-600 data-[on=true]:bg-emerald-600 data-[on=true]:text-white" : "data-[on=true]:border-red-600 data-[on=true]:bg-red-600 data-[on=true]:text-white")}>
+                {st === "present" ? <CheckIcon className="size-4" /> : <XIcon className="size-4" />}
+              </button>
+            ))}
+          </span>
+        )}
+        {canManage && state(s, now) !== "closed" && !s.cancelled ? (
+          <DropdownMenu>
+            <DropdownMenuTrigger render={<Button size="icon-sm" variant="ghost" aria-label={`จัดการ ${stu?.nickname}`} />}><EllipsisVerticalIcon /></DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-64">
+              <DropdownMenuItem disabled={state(s, now) !== "upcoming" || !!a} onClick={() => setOpen("reschedule")}>
+                <CalendarClockIcon /><span className="flex flex-col"><span>ย้ายคาบ (Re-schedule)</span><span className="text-xs text-muted-foreground">ภายในสัปดาห์นี้เท่านั้น</span></span>
+              </DropdownMenuItem>
+              <DropdownMenuItem disabled={a?.status === "leave" || !Att.canMark(s, "leave", now).ok} onClick={() => markAs("leave")}>
+                <DoorOpenIcon /><span className="flex flex-1 flex-col"><span>ลา</span><span className="text-xs text-muted-foreground">{!raw ? "ไม่มีแพ็กเกจ — ไม่ใช้โควตา" : usedQuota < quota ? "ใช้โควตา · ยืดวันเรียนจบให้ 1 คาบ" : "โควตาหมดแล้ว · ไม่ชดเชย"}</span></span>
+                {raw && <span className="text-xs tabular-nums">{usedQuota}/{quota}</span>}
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem variant="destructive" onClick={() => setOpen("remove")}><UserMinusIcon /> เอาออกจากคลาส</DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        ) : <span className="w-8 shrink-0" />}
+      </div>
+
+      {movedFrom && (
+        <p className="pl-[4.75rem] text-xs text-sky-700">
+          ย้ายมาจาก <button type="button" className="underline" onClick={() => setOtherSession(movedFrom.id)}>{fmtDate(movedFrom.date, { weekday: true })} {movedFrom.start}–{endTime(movedFrom.start, movedFrom.minutes)}{classes.find((k) => k.id === movedFrom.classId) ? ` · ${classes.find((k) => k.id === movedFrom.classId)!.name}` : ""}</button>
+        </p>
+      )}
+      {a?.status === "leave" && raw && (
+        <p className={cn("pl-[4.75rem] text-xs", thisLeave?.quota ? "text-emerald-700" : "text-muted-foreground")}>
+          {thisLeave?.quota ? `ใช้โควตาลา ${usedQuota}/${quota} · ยืดให้อีก 1 คาบ → เรียนจบ ${fmtDate(ent?.to ?? raw.to, { weekday: true, year: true })}` : `โควตาลาหมดแล้ว (${quota}/${quota}) — ไม่ชดเชยคาบนี้ · เรียนจบ ${fmtDate(ent?.to ?? raw.to, { weekday: true, year: true })} เหมือนเดิม`}
+        </p>
+      )}
+      {asm && <div className="pl-[4.75rem]"><AssessmentNote a={asm} editable={canManage || mine} /></div>}
+      {a?.status === "present" && (
+        <div className="pl-[4.75rem]">
+          <SummaryInline sessionId={s.id} studentId={sid} summary={summaries.find((x) => x.sessionId === s.id && x.studentId === sid)} viewOnly={viewOnly} text={text} setText={setText} />
+        </div>
+      )}
+
+      <StudentSheet studentId={open === "student" ? sid : null} onClose={() => setOpen(null)} />
+      {open === "reschedule" && <RescheduleDialog from={s} studentId={sid} onClose={() => setOpen(null)} />}
+      {open === "remove" && <RemoveDialog s={s} studentId={sid} onClose={() => setOpen(null)} />}
+      <SessionSheet sessionId={otherSession} onClose={() => setOtherSession(null)} />
+    </li>
+  )
+}
+
+const state = sessionState
+
+/** Student moved out of this session — says where to, click opens that session, ⋮ undo */
+function MovedOutRow({ s, studentId, toSessionId, canManage }: { s: Session; studentId: ID; toSessionId: ID; canManage: boolean }) {
+  const to = useStore((st) => st.sessions.find((x) => x.id === toSessionId))
+  const toClass = useStore((st) => st.classes.find((k) => k.id === to?.classId))
+  const undo = useStore((st) => st.undoReschedule)
+  const families = useStore((st) => st.families)
+  const L = useLookup()
+  const [open, setOpen] = useState(false)
+  const stu = L.student(studentId)
+  return (
+    <li className="flex items-center gap-3 py-3">
+      <span className="w-4 shrink-0" />
+      <span className="relative shrink-0">
+        <span className={cn("grid size-11 place-items-center rounded-full text-base font-semibold opacity-60", avatarTone(studentId))}>{initial(stu?.nickname ?? "?")}</span>
+        <span className="absolute -right-1 -bottom-1 grid size-5 place-items-center rounded-full bg-amber-100 text-amber-700 ring-2 ring-background"><LogOutIcon className="size-3" /></span>
+      </span>
+      <div className="min-w-0 flex-1">
+        <p className="truncate text-sm font-medium text-muted-foreground">{stu?.name} ({stu?.nickname})</p>
+        <p className="truncate text-xs text-muted-foreground">{families.find((f) => f.id === stu?.familyId)?.name ?? "—"}</p>
+      </div>
+      <span className={cn("shrink-0 rounded-full px-2 py-0.5 text-xs font-medium", gradeTone(stu?.grade ?? ""))}>{stu?.grade}</span>
+      {to && (
+        <button type="button" onClick={() => setOpen(true)} className="shrink-0 text-right text-xs text-amber-700 hover:underline" title="เปิดคาบที่ย้ายไป">
+          <span className="flex items-center justify-end gap-1 font-medium"><CalendarClockIcon className="size-4" /> ย้ายไป</span>
+          <span className="text-[11px]">{fmtDate(to.date, { weekday: true })} · {to.start}–{endTime(to.start, to.minutes)}{toClass ? ` · ${toClass.name}` : ""}</span>
+        </button>
+      )}
+      {canManage ? (
+        <DropdownMenu>
+          <DropdownMenuTrigger render={<Button size="icon-sm" variant="ghost" aria-label="จัดการการย้าย" />}><EllipsisVerticalIcon /></DropdownMenuTrigger>
+          <DropdownMenuContent align="end"><DropdownMenuItem onClick={() => report(undo(s.id, studentId), `${stu?.nickname} กลับมาเรียนคาบนี้แล้ว`)}><ChevronLeftIcon /> ยกเลิกการย้าย</DropdownMenuItem></DropdownMenuContent>
+        </DropdownMenu>
+      ) : <span className="w-8 shrink-0" />}
+      <SessionSheet sessionId={open ? toSessionId : null} onClose={() => setOpen(false)} />
+    </li>
+  )
+}
+
+/** "Select date for Reschedule" (owner design): same subject, any day of THIS week, sessions grouped by teacher */
+function RescheduleDialog({ from, studentId, onClose }: { from: Session; studentId: ID; onClose: () => void }) {
+  const sessions = useStore((st) => st.sessions)
+  const classes = useStore((st) => st.classes)
+  const move = useStore((st) => st.rescheduleStudent)
+  const branch = useBranch()
+  const now = useNow(30_000)
+  const L = useLookup()
+  const monday = mondayOf(from.date)
+  const [subject, setSubject] = useState(from.subject)
+  const [day, setDay] = useState(from.date)
+  const [pick, setPick] = useState<ID | null>(null)
+  const options = sessions
+    .filter((x) => x.branchId === from.branchId && x.date === day && x.id !== from.id && !x.cancelled && subjectsOf(x).includes(subject))
+    .sort((a, b) => a.start.localeCompare(b.start))
+  const byTeacher = [...new Set(options.map((x) => x.teacherId ?? ""))]
+  return (
+    <Dialog open onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="flex max-h-[90vh] flex-col sm:max-w-lg">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2"><CalendarClockIcon className="size-5" /> เลือกวันสำหรับย้ายคาบ</DialogTitle>
+          <DialogDescription>{L.student(studentId)?.nickname} · ย้ายได้ภายในสัปดาห์นี้เท่านั้น ({fmtDate(monday)} – {fmtDate(addDays(monday, 6), { year: true })}) · ข้ามสัปดาห์ให้บันทึกเป็นการลา</DialogDescription>
+        </DialogHeader>
+        <div className="flex flex-wrap items-center gap-2">
+          <NativeSelect className="h-9 w-32" value={subject} onChange={(e) => { setSubject(e.target.value); setPick(null) }} options={branch.subjects.map((x) => ({ value: x, label: x }))} />
+          <div className="ml-auto flex items-center gap-1 rounded-full bg-muted px-1 py-1">
+            <Button size="icon-sm" variant="ghost" aria-label="วันก่อน" disabled={day <= monday} onClick={() => { setDay(addDays(day, -1)); setPick(null) }}><ChevronLeftIcon /></Button>
+            <span className="min-w-28 text-center text-sm font-medium">{fmtDate(day, { weekday: true })}{day === from.date && <span className="block text-[10px] font-normal text-muted-foreground">วันเดิม</span>}</span>
+            <Button size="icon-sm" variant="ghost" aria-label="วันถัดไป" disabled={day >= addDays(monday, 6)} onClick={() => { setDay(addDays(day, 1)); setPick(null) }}><ChevronRightIcon /></Button>
+          </div>
+        </div>
+        <div className="min-h-0 flex-1 space-y-3 overflow-y-auto">
+          {options.length === 0 && <p className="rounded-2xl border border-dashed p-6 text-center text-sm text-muted-foreground">วันนี้ไม่มีคาบวิชา{subject} — ลองวันอื่นในสัปดาห์</p>}
+          {byTeacher.map((tid) => (
+            <section key={tid || "none"} className="space-y-1.5">
+              <p className="flex items-center gap-2 text-sm font-medium">
+                <span className={cn("grid size-7 place-items-center rounded-full text-xs font-semibold", avatarTone(tid || "none"))}>{initial(L.teacher(tid || null).label)}</span>
+                {L.teacher(tid || null).label} <span className="text-xs font-normal text-muted-foreground">· {options.filter((x) => (x.teacherId ?? "") === tid).length} คาบ</span>
+              </p>
+              {options.filter((x) => (x.teacherId ?? "") === tid).map((x) => {
+                const k = classes.find((c) => c.id === x.classId)
+                const cap = k ? CAPACITY[k.type] : CAPACITY.group
+                const check = canRescheduleStudent(from, x, studentId, now, cap)
+                return (
+                  <button key={x.id} type="button" disabled={!check.ok} onClick={() => setPick(x.id)} title={check.ok ? undefined : check.error}
+                    className={cn("flex w-full items-center gap-3 rounded-2xl p-3 text-left transition", pick === x.id ? "bg-rose-100 ring-2 ring-primary dark:bg-rose-950" : "bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/40", !check.ok && "cursor-not-allowed opacity-50")}>
+                    <span className={cn("grid size-5 shrink-0 place-items-center rounded-full border-2", pick === x.id ? "border-primary" : "border-muted-foreground/50")}>{pick === x.id && <span className="size-2.5 rounded-full bg-primary" />}</span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block text-sm font-medium">{k?.name ?? subjectsOf(x).join(" + ")}</span>
+                      <span className="block text-xs text-muted-foreground">{x.start}–{endTime(x.start, x.minutes)} · {L.room(x.roomId)} · {x.studentIds.length}/{cap} คน{!check.ok ? ` · ${check.error}` : ""}</span>
+                    </span>
+                    <Pill tone={k?.type === "single" ? "gray" : "blue"}>{k?.type === "single" ? "เดี่ยว" : "กลุ่ม"}</Pill>
+                    {k?.grades.slice(0, 2).map((g) => <span key={g} className={cn("rounded-full px-2 py-0.5 text-xs font-medium", gradeTone(g))}>{g}</span>)}
+                  </button>
+                )
+              })}
+            </section>
+          ))}
+        </div>
+        <DialogFooter>
+          <Button variant="ghost" onClick={onClose}>ยกเลิก</Button>
+          <Button disabled={!pick} onClick={() => pick && report(move(from.id, studentId, pick), "ย้ายคาบแล้ว") && onClose()}><CheckIcon /> ยืนยัน</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
+function RemoveDialog({ s, studentId, onClose }: { s: Session; studentId: ID; onClose: () => void }) {
+  const removeOne = useStore((st) => st.removeStudentFromSession)
+  const removeClass = useStore((st) => st.removeStudentFromClass)
+  const L = useLookup()
+  const [scope, setScope] = useState<MoveScope>("one")
+  const name = L.student(studentId)?.nickname
+  return (
+    <Dialog open onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>เอา {name} ออกจากคลาส?</DialogTitle>
+          <DialogDescription>เช่น เพิ่มมาผิดคน · ประวัติการเรียนและการเงินยังอยู่ครบ</DialogDescription>
+        </DialogHeader>
+        <ScopePick value={scope} onChange={setScope} hasClass={!!s.classId} one="เฉพาะคาบนี้" following="ออกจากคลาสนี้ (คาบนี้และคาบถัดไปทั้งหมด)" />
+        <DialogFooter>
+          <Button variant="ghost" onClick={onClose}>ไม่เอาออก</Button>
+          <Button variant="destructive" onClick={() =>
+            (scope === "following" && s.classId
+              ? report(removeClass(s.classId, studentId), (v) => `เอา ${name} ออกจากคลาสแล้ว · ${v.removedFrom} คาบ`)
+              : report(removeOne(s.id, studentId), `เอา ${name} ออกจากคาบนี้แล้ว`)) && onClose()}>
+            <UserMinusIcon /> เอาออก
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
+/** Delete: this session (cancel with reason, team notified) or the whole class (every session not started yet) */
+function DeleteDialog({ s, canCancel, onClose, onDone }: { s: Session; canCancel: boolean; onClose: () => void; onDone: () => void }) {
+  const cancel = useStore((st) => st.cancelSession)
+  const deactivate = useStore((st) => st.deactivateClass)
+  const klass = useStore((st) => st.classes.find((c) => c.id === s.classId))
+  const [what, setWhat] = useState<"session" | "class">(canCancel ? "session" : "class")
+  const [reason, setReason] = useState("")
+  const [q] = useState(() => [2 + Math.floor(Math.random() * 7), 2 + Math.floor(Math.random() * 7)])
+  const [answer, setAnswer] = useState("")
+  const mathOk = Number(answer) === q[0] + q[1]
+  return (
+    <Dialog open onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>ลบ</DialogTitle>
+          <DialogDescription>ระบบแจ้งทีมงานให้ติดต่อผู้ปกครอง · ประวัติที่เรียนไปแล้วยังอยู่</DialogDescription>
+        </DialogHeader>
+        <div className="grid gap-2">
+          <button type="button" disabled={!canCancel} onClick={() => setWhat("session")} className={cn("rounded-2xl border p-3 text-left text-sm disabled:opacity-40", what === "session" && "border-primary bg-primary/5 ring-1 ring-primary")}>
+            <b>ยกเลิกคาบนี้</b> · {fmtDate(s.date, { weekday: true })} {s.start} · นักเรียน {s.studentIds.length} คน{!canCancel && " (คาบเริ่มไปแล้ว)"}
+          </button>
+          {klass?.active && (
+            <button type="button" onClick={() => setWhat("class")} className={cn("rounded-2xl border p-3 text-left text-sm", what === "class" && "border-red-500 bg-red-50 ring-1 ring-red-500 dark:bg-red-950/30")}>
+              <b>ลบทั้งคลาส {klass.name}</b> · ยกเลิกทุกคาบที่ยังไม่เริ่ม
+            </button>
+          )}
+        </div>
+        <div className="space-y-1"><Label>เหตุผล *</Label><Textarea value={reason} onChange={(e) => setReason(e.target.value)} placeholder="เช่น ครูป่วย / ปิดคลาสเพราะนักเรียนไม่พอ" /></div>
+        {what === "class" && (
+          <div className="space-y-1"><Label>ยืนยัน: {q[0]} + {q[1]} = ?</Label><Input inputMode="numeric" value={answer} onChange={(e) => setAnswer(e.target.value)} /></div>
+        )}
+        <DialogFooter>
+          <Button variant="ghost" onClick={onClose}>ไม่ลบ</Button>
+          <Button variant="destructive" disabled={!reason.trim() || (what === "class" && !mathOk)}
+            onClick={() => (what === "session"
+              ? report(cancel(s.id, reason), (v) => `ยกเลิกคาบแล้ว · นักเรียน ${v.students} คน`)
+              : report(deactivate(klass!.id, reason), (v) => `ลบคลาสแล้ว · ยกเลิก ${v.cancelled} คาบ`)) && (onClose(), onDone())}>
+            <BanIcon /> ยืนยันลบ
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
+/** Summary right under a present student (owner 2026-09-29) — text is owned by the dialog for multi-select submit */
+function SummaryInline({ sessionId, studentId, summary, viewOnly, text, setText }: { sessionId: ID; studentId: ID; summary?: LessonSummary; viewOnly: boolean; text: string; setText: (t: string) => void }) {
   const me = useStore((s) => s.staff.find((x) => x.id === s.userId)!)
   const staff = useStore((s) => s.staff)
   const save = useStore((s) => s.saveSummary)
   const approve = useStore((s) => s.approveSummary)
   const requestChanges = useStore((s) => s.requestSummaryChanges)
   const send = useStore((s) => s.sendSummary)
-  const L = useLookup()
-  const [text, setText] = useState(summary?.text ?? "")
   const [note, setNote] = useState("")
   const [asking, setAsking] = useState(false)
   const status = summary?.status
@@ -249,31 +568,23 @@ function SummaryEditor({ sessionId, studentId, summary, viewOnly }: { sessionId:
   const tone = status === "approved" ? "green" : status === "submitted" ? "amber" : status === "changes_requested" ? "red" : status === "sent" ? "blue" : "gray"
 
   return (
-    <div className="rounded-lg border p-3">
-      <div className="mb-2 flex items-center justify-between gap-2">
-        <span className="text-sm font-medium">{L.student(studentId)?.nickname}</span>
+    <div className="rounded-2xl bg-muted/40 p-2.5">
+      <div className="mb-1.5 flex items-center gap-2 text-xs">
+        <span className="font-medium">สรุปการเรียน</span>
         <Pill tone={tone}>{status ? SUMMARY_STATUS_LABEL[status] : "ยังไม่เขียน"}</Pill>
+        {summary && <span className="ml-auto text-[11px] text-muted-foreground">{who(summary.lastEditorId)} · {fmtDateTime(summary.history[summary.history.length - 1]?.at ?? new Date().toISOString())}</span>}
       </div>
-      {status === "changes_requested" && lastChange?.note && <p className="mb-2 rounded-md bg-red-50 p-2 text-xs text-red-800">ขอแก้: {lastChange.note}</p>}
+      {status === "changes_requested" && lastChange?.note && <p className="mb-1.5 rounded-md bg-red-50 p-2 text-xs text-red-800">ขอแก้: {lastChange.note}</p>}
       {editable ? (
-        <Textarea value={text} onChange={(e) => setText(e.target.value)} placeholder="วันนี้เรียนอะไร / พัฒนาการ / การบ้าน" rows={3} />
+        <Textarea value={text} onChange={(e) => setText(e.target.value)} placeholder="วันนี้เรียนอะไร / พัฒนาการ / การบ้าน" rows={2} className="bg-background" />
       ) : (
-        <p className="rounded-md bg-muted/50 p-2 text-sm whitespace-pre-wrap">{summary?.text || "ยังไม่มีสรุป"}</p>
+        <p className="text-sm whitespace-pre-wrap">{summary?.text || "ยังไม่มีสรุป"}</p>
       )}
-      {summary && (
-        <p className="mt-1 text-[11px] text-muted-foreground">
-          เขียนโดย {who(summary.authorId)}
-          {summary.lastEditorId !== summary.authorId && ` · แก้ล่าสุดโดย ${who(summary.lastEditorId)}`}
-          {summary.history.length > 0 && ` · ${fmtDateTime(summary.history[summary.history.length - 1].at)}`}
-        </p>
-      )}
-      <div className="mt-2 flex flex-wrap justify-end gap-2">
+      <div className="mt-1.5 flex flex-wrap justify-end gap-1.5">
         {editable && (
           <>
-            <Button size="sm" variant="ghost" onClick={() => report(save(sessionId, studentId, text, false), "บันทึกร่างแล้ว")}>บันทึกร่าง</Button>
-            <Button size="sm" onClick={() => report(save(sessionId, studentId, text, true), "ส่งให้ผู้อนุมัติแล้ว")}>
-              <SendIcon /> {status === "changes_requested" ? "ส่งอนุมัติอีกครั้ง" : "ส่งอนุมัติ"}
-            </Button>
+            <Button size="xs" variant="ghost" onClick={() => report(save(sessionId, studentId, text, false), "บันทึกร่างแล้ว")}>บันทึกร่าง</Button>
+            <Button size="xs" disabled={!text.trim()} onClick={() => report(save(sessionId, studentId, text, true), "ส่งให้ผู้อนุมัติแล้ว")}><SendIcon /> {status === "changes_requested" ? "ส่งอีกครั้ง" : "ส่งอนุมัติ"}</Button>
           </>
         )}
         {status === "submitted" && can(me, "summary.approve") && summary && !Sum.canApprove(summary, me).ok && (
@@ -284,23 +595,23 @@ function SummaryEditor({ sessionId, studentId, summary, viewOnly }: { sessionId:
         )}
         {status === "submitted" && summary && Sum.canApprove(summary, me).ok && (
           <>
-            <Button size="sm" variant="outline" onClick={() => setAsking(true)}><XIcon /> ขอแก้ไข</Button>
-            <Button size="sm" onClick={() => summary && report(approve(summary.id), "อนุมัติแล้ว — ยังไม่ได้ส่งผู้ปกครอง")}><CheckIcon /> อนุมัติ</Button>
+            <Button size="xs" variant="outline" onClick={() => setAsking(true)}><XIcon /> ขอแก้ไข</Button>
+            <Button size="xs" onClick={() => report(approve(summary.id), "อนุมัติแล้ว — ยังไม่ได้ส่งผู้ปกครอง")}><CheckIcon /> อนุมัติ</Button>
           </>
         )}
-        {status === "approved" && can(me, "summary.approve") && (
+        {status === "approved" && can(me, "summary.approve") && summary && (
           <>
-            <Button size="sm" variant="outline" onClick={() => setAsking(true)}><XIcon /> ดึงกลับไปแก้</Button>
-            <Button size="sm" onClick={() => summary && report(send(summary.id), "ส่งถึงผู้ปกครองทาง LINE แล้ว")}><SendIcon /> ส่งผู้ปกครอง</Button>
+            <Button size="xs" variant="outline" onClick={() => setAsking(true)}><XIcon /> ดึงกลับไปแก้</Button>
+            <Button size="xs" onClick={() => report(send(summary.id), "ส่งผู้ปกครองทาง LINE แล้ว")}><SendIcon /> ส่งผู้ปกครอง</Button>
           </>
         )}
       </div>
       {asking && summary && (
-        <div className="mt-2 space-y-2 rounded-md bg-muted/50 p-2">
-          <Textarea autoFocus value={note} onChange={(e) => setNote(e.target.value)} placeholder="บอกครูว่าต้องแก้อะไร (จำเป็น)" rows={2} />
-          <div className="flex justify-end gap-2">
-            <Button size="sm" variant="ghost" onClick={() => setAsking(false)}>ยกเลิก</Button>
-            <Button size="sm" disabled={!note.trim()} onClick={() => report(requestChanges(summary.id, note), "ส่งกลับให้ครูแก้แล้ว") && setAsking(false)}>ส่งกลับ</Button>
+        <div className="mt-1.5 space-y-1.5">
+          <Textarea autoFocus value={note} onChange={(e) => setNote(e.target.value)} placeholder="บอกครูว่าต้องแก้อะไร (จำเป็น)" rows={2} className="bg-background" />
+          <div className="flex justify-end gap-1.5">
+            <Button size="xs" variant="ghost" onClick={() => setAsking(false)}>ยกเลิก</Button>
+            <Button size="xs" disabled={!note.trim()} onClick={() => report(requestChanges(summary.id, note), "ส่งกลับให้ครูแก้แล้ว") && setAsking(false)}>ส่งกลับ</Button>
           </div>
         </div>
       )}
@@ -341,33 +652,6 @@ function EditSessionDialog({ id, onClose }: { id: ID; onClose: () => void }) {
         <DialogFooter>
           <Button variant="ghost" onClick={onClose}>ยกเลิก</Button>
           <Button onClick={() => report(edit(id, { date, start, teacherId: teacherId || null, roomId: roomId || null }), "แก้คาบนี้แล้ว") && onClose()}>บันทึก</Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  )
-}
-
-function CancelSessionDialog({ id, students, onClose, onDone }: { id: ID; students: number; onClose: () => void; onDone: () => void }) {
-  const cancel = useStore((st) => st.cancelSession)
-  const [reason, setReason] = useState("")
-  return (
-    <Dialog open onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="sm:max-w-md">
-        <DialogHeader>
-          <DialogTitle>ยกเลิกคาบนี้?</DialogTitle>
-          <DialogDescription>
-            มีนักเรียน <b>{students} คน</b> ในคาบนี้ — ระบบจะแจ้งเตือนทีมงานให้ติดต่อผู้ปกครอง
-          </DialogDescription>
-        </DialogHeader>
-        <div className="space-y-1">
-          <Label>เหตุผล *</Label>
-          <Textarea value={reason} onChange={(e) => setReason(e.target.value)} placeholder="เช่น ครูป่วย / น้ำท่วม" />
-        </div>
-        <DialogFooter>
-          <Button variant="ghost" onClick={onClose}>ไม่ยกเลิก</Button>
-          <Button variant="destructive" disabled={!reason.trim()} onClick={() => report(cancel(id, reason), (v) => `ยกเลิกคาบแล้ว · นักเรียน ${v.students} คน`) && (onClose(), onDone())}>
-            ยืนยันยกเลิก
-          </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

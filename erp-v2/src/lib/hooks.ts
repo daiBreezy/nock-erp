@@ -30,7 +30,12 @@ export function useBranch() {
 export function useEntitlements() {
   const ents = useStore((s) => s.entitlements)
   const leaves = useStore((s) => s.leaves)
-  return useMemo(() => resolveEntitlements(ents, leaves), [ents, leaves])
+  const sessions = useStore((s) => s.sessions)
+  const attendance = useStore((s) => s.attendance)
+  const classes = useStore((s) => s.classes)
+  const holidays = useStore((s) => s.holidays)
+  // real end dates: long leave + one extra class per quota leave (owner 2026-09-29)
+  return useMemo(() => resolveEntitlements(ents, leaves, { sessions, attendance, classes, holidays }), [ents, leaves, sessions, attendance, classes, holidays])
 }
 
 export function useLookup() {

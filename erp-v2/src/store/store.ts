@@ -21,7 +21,7 @@ import * as Notif from "@/domain/rules/notifications"
 import * as Cfg from "@/domain/rules/settings"
 import * as Msg from "@/domain/rules/messages"
 import { toast } from "sonner"
-import type { Assessment, AttendanceStatus, Branch, ChatMessage, Conversation, Course, DateStr, Family, FormSubmission, Holiday, ID, Invoice, Klass, Lead, LeadStage, LessonSummary, LineDelivery, LogCategory, Result, Session, Staff, Student, SystemConfig } from "@/domain/types"
+import type { Assessment, AttendanceStatus, Entitlement, Branch, ChatMessage, Conversation, Course, DateStr, Family, FormSubmission, Holiday, ID, Invoice, Klass, Lead, LeadStage, LessonSummary, LineDelivery, LogCategory, Result, Session, Staff, Student, SystemConfig } from "@/domain/types"
 
 export interface UIState {
   userId: ID
@@ -85,6 +85,11 @@ type Store = DB & UIState & {
   clearMark: (sessionId: ID, studentId: ID) => Result
   saveStudentLeave: (input: { id?: ID; studentId: ID; from: DateStr; to: DateStr; reason: string }) => Result
   removeStudentFromClass: (classId: ID, studentId: ID) => Result<{ removedFrom: number }>
+  /** added by mistake etc. — this session only, never one that already has a mark */
+  removeStudentFromSession: (sessionId: ID, studentId: ID) => Result
+  /** Re-schedule inside the same week (owner 2026-09-29) — Admin decides after talking to the parent */
+  rescheduleStudent: (fromSessionId: ID, studentId: ID, toSessionId: ID) => Result
+  undoReschedule: (fromSessionId: ID, studentId: ID) => Result
 
   saveSummary: (sessionId: ID, studentId: ID, text: string, submit: boolean) => Result
   requestSummaryChanges: (id: ID, note: string) => Result
@@ -184,6 +189,33 @@ export const useStore = create<Store>()(
         }
         return fam?.parents.some((p) => p.lineLinked) ? "delivered" : "no_line"
       }
+      /** a student's packages with their real end date (long leave + one class per quota leave) */
+      const resolvedFor = (studentId: ID) => {
+        const st = get()
+        return Att.resolveEntitlements(st.entitlements.filter((e) => e.studentId === studentId), st.leaves, { sessions: st.sessions, attendance: st.attendance, classes: st.classes, holidays: st.holidays })
+      }
+      /** after a leave mark changes: put the student into the extra class(es) the quota bought, or take them back out */
+      const syncMakeUp = (studentId: ID, before: Entitlement[]) => {
+        const after = resolvedFor(studentId)
+        for (const e of after) {
+          const prev = before.find((x) => x.id === e.id)
+          if (!prev || prev.to === e.to || !e.classId) continue
+          const st = get()
+          const now = st.now()
+          const [lo, hi] = e.to > prev.to ? [prev.to, e.to] : [e.to, prev.to]
+          const inRange = (x: Session) => x.classId === e.classId && !x.cancelled && x.date > lo && x.date <= hi && Sch.sessionState(x, now) === "upcoming"
+          const marked = new Set(st.attendance.filter((a) => a.studentId === studentId).map((a) => a.sessionId))
+          set({
+            sessions: st.sessions.map((x) =>
+              !inRange(x) ? x
+              : e.to > prev.to ? (x.studentIds.includes(studentId) ? x : { ...x, studentIds: [...x.studentIds, studentId] })
+              : marked.has(x.id) ? x : { ...x, studentIds: x.studentIds.filter((y) => y !== studentId) },
+            ),
+          })
+          log("class", [studentId], e.to > prev.to ? "ยืดวันเรียนจบ (ลาใช้โควตา)" : "ย้อนวันเรียนจบ", `${fmtDate(prev.to, { year: true })} → ${fmtDate(e.to, { year: true })}`, true)
+        }
+      }
+
       /** lead whose child this student is (created at test/trial approval or for the first invoice) */
       const leadOfStudent = (studentId: ID) => get().leads.find((l) => l.trialStudentId === studentId || l.convertedStudentId === studentId)
       const advanceLead = (leadId: ID, stage: LeadStage, extra: Partial<Lead> = {}) =>
@@ -726,6 +758,7 @@ export const useStore = create<Store>()(
         const r = Att.canMark(se, status, s.now())
         if (!r.ok) return r
         const rest = s.attendance.filter((a) => !(a.sessionId === sessionId && a.studentId === studentId))
+        const beforeEnds = resolvedFor(studentId)
         // C3: summaries only exist for present students; keep text as draft instead of deleting silently
         set({ attendance: [...rest, { sessionId, studentId, status, markedBy: me.id, markedAt: s.now().toISOString() }] })
         const before = s.attendance.find((a) => a.sessionId === sessionId && a.studentId === studentId)
@@ -734,6 +767,7 @@ export const useStore = create<Store>()(
         // the child really came to the test/trial → lead moves on by itself
         const asm = Forms.assessmentIn(sessionId, studentId, s.assessments)
         if (asm && status === "present") advanceLead(asm.leadId, Forms.ATTENDED_STAGE[asm.type])
+        syncMakeUp(studentId, beforeEnds)
         // C5: leave beyond quota is allowed but flagged (quota rule awaiting owner confirmation)
         if (status === "leave") {
           const ent = Att.coveringEntitlement(studentId, se, s.entitlements)
@@ -779,8 +813,66 @@ export const useStore = create<Store>()(
         if (!can(me, "session.manage") && se.teacherId !== me.id && !se.coTeacherIds.includes(me.id)) return fail("แก้การเช็คชื่อได้เฉพาะคาบที่คุณสอน")
         const r = Att.canClear(se, s.now())
         if (!r.ok) return r
+        const beforeEnds = resolvedFor(studentId)
         set({ attendance: s.attendance.filter((a) => !(a.sessionId === sessionId && a.studentId === studentId)) })
         log("attendance", [studentId], "ล้างการเช็คชื่อ", `${se.subject} ${fmtDate(se.date)} ${se.start}`)
+        syncMakeUp(studentId, beforeEnds)
+        return OK
+      },
+
+      removeStudentFromSession: (sessionId, studentId) => {
+        const s = get()
+        const perm = requirePerm(s.me(), "session.manage")
+        if (!perm.ok) return perm
+        const se = s.sessions.find((x) => x.id === sessionId)
+        if (!se || !se.studentIds.includes(studentId)) return fail("นักเรียนไม่ได้อยู่ในคาบนี้")
+        if (Sch.sessionState(se, s.now()) === "closed") return fail("คาบนี้ปิดแล้ว")
+        if (s.attendance.some((a) => a.sessionId === sessionId && a.studentId === studentId)) return fail("เช็คชื่อไปแล้ว — ล้างการเช็คชื่อก่อนถึงจะเอาออกได้")
+        set({ sessions: s.sessions.map((x) => (x.id === sessionId ? { ...x, studentIds: x.studentIds.filter((y) => y !== studentId), rescheduledIn: x.rescheduledIn?.filter((y) => y !== studentId) } : x)) })
+        log("class", [studentId], "เอาออกจากคาบ", `${se.subject} ${fmtDate(se.date, { weekday: true })} ${se.start}`)
+        return OK
+      },
+
+      rescheduleStudent: (fromSessionId, studentId, toSessionId) => {
+        const s = get()
+        const perm = requirePerm(s.me(), "session.manage")
+        if (!perm.ok) return perm
+        const from = s.sessions.find((x) => x.id === fromSessionId)
+        const to = s.sessions.find((x) => x.id === toSessionId)
+        if (!from || !to) return fail("ไม่พบคาบเรียน")
+        const klass = s.classes.find((k) => k.id === to.classId)
+        const r = Sch.canRescheduleStudent(from, to, studentId, s.now(), klass ? Sch.CAPACITY[klass.type] : Sch.CAPACITY.group)
+        if (!r.ok) return r
+        if (s.attendance.some((a) => a.sessionId === fromSessionId && a.studentId === studentId)) return fail("เช็คชื่อคาบเดิมไปแล้ว — ล้างการเช็คชื่อก่อน")
+        set({
+          sessions: s.sessions.map((x) =>
+            x.id === fromSessionId ? { ...x, studentIds: x.studentIds.filter((y) => y !== studentId), rescheduledOut: [...(x.rescheduledOut ?? []).filter((m) => m.studentId !== studentId), { studentId, toSessionId }] }
+            : x.id === toSessionId ? { ...x, studentIds: [...x.studentIds, studentId], rescheduledIn: [...(x.rescheduledIn ?? []), studentId] }
+            : x,
+          ),
+        })
+        log("class", [studentId], "ย้ายคาบ (Re-schedule)", `${from.subject} ${fmtDate(from.date, { weekday: true })} ${from.start} → ${fmtDate(to.date, { weekday: true })} ${to.start}${klass ? ` · ${klass.name}` : ""}`)
+        return OK
+      },
+
+      undoReschedule: (fromSessionId, studentId) => {
+        const s = get()
+        const perm = requirePerm(s.me(), "session.manage")
+        if (!perm.ok) return perm
+        const from = s.sessions.find((x) => x.id === fromSessionId)
+        const move = from?.rescheduledOut?.find((m) => m.studentId === studentId)
+        const to = s.sessions.find((x) => x.id === move?.toSessionId)
+        if (!from || !move) return fail("ไม่พบการย้ายคาบนี้")
+        if (to && s.attendance.some((a) => a.sessionId === to.id && a.studentId === studentId)) return fail("เช็คชื่อในคาบที่ย้ายไปแล้ว — ยกเลิกการย้ายไม่ได้")
+        if (Sch.sessionState(from, s.now()) === "closed") return fail("คาบเดิมปิดแล้ว")
+        set({
+          sessions: s.sessions.map((x) =>
+            x.id === fromSessionId ? { ...x, studentIds: [...x.studentIds, studentId], rescheduledOut: x.rescheduledOut?.filter((m) => m.studentId !== studentId) }
+            : to && x.id === to.id ? { ...x, studentIds: x.studentIds.filter((y) => y !== studentId), rescheduledIn: x.rescheduledIn?.filter((y) => y !== studentId) }
+            : x,
+          ),
+        })
+        log("class", [studentId], "ยกเลิกการย้ายคาบ", `กลับมาเรียน ${fmtDate(from.date, { weekday: true })} ${from.start}`)
         return OK
       },
 
@@ -1280,7 +1372,7 @@ export const useStore = create<Store>()(
     {
       name: "nockerp-v2",
       // bump when the data model changes; older saved data is replaced by fresh sample data
-      version: 27,
+      version: 28,
       migrate: () => ({ ...buildSeed(), userId: "u_nock", branchId: "br_thl", clockOffset: 0 }) as unknown as Store,
       // persist data + UI state only, never the action functions
       partialize: (s) => Object.fromEntries(Object.entries(s).filter(([, v]) => typeof v !== "function")) as Partial<Store>,

@@ -243,6 +243,10 @@ export interface Session {
   trial: boolean
   /** set on a session booked from a Test/Trial form so it reads "สอบวัดระดับ" or "ทดลองเรียน", never mixed up */
   assessment?: FormType
+  /** students moved INTO this session from another one in the same week (Re-schedule) */
+  rescheduledIn?: ID[]
+  /** students moved OUT of this session — kept so the row can say where they went */
+  rescheduledOut?: { studentId: ID; toSessionId: ID }[]
   /** edited individually — class-level edits no longer overwrite it */
   customized: boolean
   cancelled: boolean

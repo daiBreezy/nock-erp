@@ -1,9 +1,9 @@
 // Attendance, entitlements and student status (C1–C7, F4, F7, F8).
 
-import { addDays, daysBetween, fmtDate } from "../dates"
-import type { Attendance, AttendanceStatus, Course, DateStr, Entitlement, ID, Klass, Result, Session, Staff, Student, StudentLeave } from "../types"
+import { addDays, daysBetween, fmtDate, weekdayOf } from "../dates"
+import type { Attendance, AttendanceStatus, Course, DateStr, Entitlement, Holiday, ID, Klass, Result, Session, Staff, Student, StudentLeave } from "../types"
 import { can } from "./permissions"
-import { sessionState, subjectsOf } from "./scheduling"
+import { isHoliday, sessionState, subjectsOf } from "./scheduling"
 
 /** C2: present/absent only once the session has started; leave may be recorded in advance. */
 export function canMark(s: Session, status: AttendanceStatus, now: Date): Result {
@@ -24,14 +24,17 @@ export function activeEntitlements(studentId: ID, ents: Entitlement[], date: str
 }
 
 /** A session belongs to a package if it is a session of the package's class, or a one-off (make-up / extra) session of the same subject. */
-export function packageCovers(e: Entitlement, s: Pick<Session, "classId" | "subject" | "subjects" | "date">) {
+export function packageCovers(e: Entitlement, s: Pick<Session, "classId" | "subject" | "subjects" | "date" | "rescheduledIn">) {
   if (s.date < e.from || s.date > e.to) return false
+  const sameSubjects = subjectsOf(s).every((x) => e.subjects.includes(x))
+  // a session the student was re-scheduled into (another class, same week) still draws from their package
+  if (s.rescheduledIn?.includes(e.studentId)) return sameSubjects
   // multi-subject sessions (monthly only): the student's course must include every subject taught
-  return s.classId ? s.classId === e.classId : subjectsOf(s).every((x) => e.subjects.includes(x))
+  return s.classId ? s.classId === e.classId : sameSubjects
 }
 
 /** Which paid package pays for this student's seat in this session (null = unpaid). */
-export function coveringEntitlement(studentId: ID, s: Pick<Session, "classId" | "subject" | "subjects" | "date">, ents: Entitlement[]) {
+export function coveringEntitlement(studentId: ID, s: Pick<Session, "classId" | "subject" | "subjects" | "date" | "rescheduledIn">, ents: Entitlement[]) {
   return ents.find((e) => e.studentId === studentId && packageCovers(e, s)) ?? null
 }
 
@@ -85,9 +88,48 @@ export function effectiveTo(e: Entitlement, leaves: StudentLeave[]): DateStr {
   return extra > 0 ? addDays(e.to, extra) : e.to
 }
 
-/** Resolve entitlements with their leave-adjusted `to`, so every existing coverage/balance/status check keeps working unmodified against the real end date. */
-export function resolveEntitlements(ents: Entitlement[], leaves: StudentLeave[]): Entitlement[] {
-  return leaves.length === 0 ? ents : ents.map((e) => ({ ...e, to: effectiveTo(e, leaves) }))
+export interface MakeUpCtx {
+  sessions: Session[]
+  attendance: Attendance[]
+  classes: Pick<Klass, "id" | "weekday" | "branchId">[]
+  holidays: Holiday[]
+}
+
+/**
+ * Leave with quota left (owner 2026-09-29): the quota is used and the package runs one class longer, so the
+ * student never loses the session and the parent can be told the real last day. Leave after the quota is gone
+ * adds nothing. Returns the leave sessions in date order, flagged whether the quota covered them.
+ */
+export function leaveLedger(e: Entitlement, ctx: MakeUpCtx, leaves: StudentLeave[] = []): { sessionId: ID; date: DateStr; quota: boolean }[] {
+  const byId = new Map(ctx.sessions.map((s) => [s.id, s]))
+  const q = leaveQuota(e)
+  return ctx.attendance
+    .filter((a) => a.studentId === e.studentId && a.status === "leave")
+    .map((a) => byId.get(a.sessionId))
+    .filter((s): s is Session => !!s && packageCovers(e, s) && !activeLeave(e.studentId, s.date, leaves))
+    .sort((a, b) => (a.date + a.start).localeCompare(b.date + b.start))
+    .map((s, i) => ({ sessionId: s.id, date: s.date, quota: i < q }))
+}
+
+/** the next `n` class days after `after` (same weekday, skipping the branch's holidays) */
+export function nextClassDates(klass: Pick<Klass, "weekday" | "branchId">, after: DateStr, n: number, holidays: Holiday[]): DateStr[] {
+  const out: DateStr[] = []
+  for (let d = addDays(after, 1); out.length < n; d = addDays(d, 1)) {
+    if (weekdayOf(d) === klass.weekday && !isHoliday(d, klass.branchId, holidays)) out.push(d)
+  }
+  return out
+}
+
+/** Resolve entitlements with their real end date — long leave pushes it out by days, each quota leave by one
+ *  more class — so every coverage/balance/status/renewal check works against the real last day. */
+export function resolveEntitlements(ents: Entitlement[], leaves: StudentLeave[], ctx?: MakeUpCtx): Entitlement[] {
+  return ents.map((e) => {
+    const base = leaves.length ? { ...e, to: effectiveTo(e, leaves) } : e
+    const klass = ctx && e.classId ? ctx.classes.find((k) => k.id === e.classId) : undefined
+    if (!ctx || !klass) return base
+    const n = leaveLedger(base, ctx, leaves).filter((l) => l.quota).length
+    return n ? { ...base, to: nextClassDates(klass, base.to, n, ctx.holidays)[n - 1] } : base
+  })
 }
 
 export function activeLeave(studentId: ID, date: DateStr, leaves: StudentLeave[]): StudentLeave | undefined {
