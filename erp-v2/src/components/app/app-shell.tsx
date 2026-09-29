@@ -7,16 +7,17 @@ import { useBranch, useNow } from "@/lib/hooks"
 import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
 import { useEffect, useState, useSyncExternalStore, type ReactNode } from "react"
-import { BellIcon, LockIcon, MapPinIcon, SearchIcon, SunIcon } from "lucide-react"
+import { ArrowLeftRightIcon, BellIcon, CheckIcon, LockIcon, MapPinIcon, SearchIcon, SunIcon } from "lucide-react"
 import {
   Sidebar, SidebarContent, SidebarFooter, SidebarGroup, SidebarGroupLabel, SidebarHeader, SidebarInset, SidebarMenu,
   SidebarMenuBadge, SidebarMenuButton, SidebarMenuItem, SidebarProvider, SidebarTrigger,
 } from "@/components/ui/sidebar"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Separator } from "@/components/ui/separator"
 import { Skeleton } from "@/components/ui/skeleton"
 import { navBadges } from "@/domain/rules/badges"
 import { isUnread, visibleTo } from "@/domain/rules/notifications"
-import { can, ROLE_LABEL, type Permission } from "@/domain/rules/permissions"
+import { can, inBranch, ROLE_LABEL, type Permission } from "@/domain/rules/permissions"
 import { useStore } from "@/store/store"
 import { cn } from "@/lib/utils"
 import { LeadSheet } from "@/components/crm/lead-sheet"
@@ -26,7 +27,6 @@ import { StudentSheet } from "./student-sheet"
 import { avatarTone, initial } from "./subject-color"
 import { NAV, navFor } from "./nav"
 import { DemoPanel } from "./demo-panel"
-import { NativeSelect } from "./native-select"
 
 const noopSubscribe = () => () => {}
 
@@ -191,7 +191,9 @@ function UserCard() {
   const branchId = useStore((s) => s.branchId)
   const setBranch = useStore((s) => s.setBranch)
   const branch = useBranch()
-  const mine = branches.filter((b) => me.branchIds.includes(b.id) && (b.active || b.id === branchId))
+  // Director / Super Admin / Area Manager: every branch · others: their own branches only (same rule as approvals)
+  const mine = branches.filter((b) => inBranch(me, b.id) && (b.active || b.id === branchId)).sort((a, b) => a.name.localeCompare(b.name, "th"))
+  const [open, setOpen] = useState(false)
   return (
     <div className="rounded-2xl border bg-background p-2.5 group-data-[collapsible=icon]:border-0 group-data-[collapsible=icon]:bg-transparent group-data-[collapsible=icon]:p-0"
       title={`${me.name} · ${me.roles.map((r) => ROLE_LABEL[r]).join(", ")} · สาขา${branch.name}`}>
@@ -203,10 +205,31 @@ function UserCard() {
         </div>
       </div>
       <div className="mt-2 space-y-1 group-data-[collapsible=icon]:hidden">
-        <div className="flex items-start gap-1.5 text-sm font-medium text-primary"><MapPinIcon className="mt-0.5 size-4 shrink-0" /><span className="break-words">สาขา{branch.name}</span></div>
-        {mine.length > 1 && (
-          <NativeSelect aria-label="เปลี่ยนสาขา" className="h-8 w-full text-xs" value="" onChange={(e) => e.target.value && setBranch(e.target.value)}
-            placeholder="⇄ เปลี่ยนสาขา" options={mine.filter((b) => b.id !== branchId).map((b) => ({ value: b.id, label: `สาขา${b.name}` }))} />
+        {mine.length > 1 ? (
+          <Popover open={open} onOpenChange={setOpen}>
+            <PopoverTrigger render={<button type="button" className="flex w-full items-start gap-1.5 rounded-xl px-1 py-0.5 text-left text-sm font-medium text-primary hover:bg-primary/10" />}>
+              <MapPinIcon className="mt-0.5 size-4 shrink-0" /><span className="break-words">สาขา{branch.name}</span>
+              <ArrowLeftRightIcon className="mt-0.5 ml-auto size-3.5 shrink-0" />
+            </PopoverTrigger>
+            <PopoverContent side="right" align="end" className="w-64 p-1.5">
+              <p className="px-2 py-1 text-xs text-muted-foreground">เลือกสาขา ({mine.length})</p>
+              <ul className="max-h-80 overflow-y-auto">
+                {mine.map((b) => (
+                  <li key={b.id}>
+                    <button type="button" onClick={() => { setBranch(b.id); setOpen(false) }}
+                      className={cn("flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-sm hover:bg-muted", b.id === branchId && "bg-primary/10 font-medium text-primary")}>
+                      <span className="min-w-0 flex-1 break-words">สาขา{b.name}</span>
+                      <span className="text-[10px] text-muted-foreground">{b.code}</span>
+                      {!b.active && <Pill className="px-1 py-0 text-[10px]">ปิด</Pill>}
+                      {b.id === branchId && <CheckIcon className="size-4" />}
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </PopoverContent>
+          </Popover>
+        ) : (
+          <div className="flex items-start gap-1.5 text-sm font-medium text-primary"><MapPinIcon className="mt-0.5 size-4 shrink-0" /><span className="break-words">สาขา{branch.name}</span></div>
         )}
       </div>
     </div>
