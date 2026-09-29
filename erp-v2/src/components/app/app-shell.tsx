@@ -5,19 +5,25 @@ import { periodOn } from "@/domain/rules/scheduling"
 import { fmtDate, toDateStr } from "@/domain/dates"
 import { useBranch, useNow } from "@/lib/hooks"
 import Link from "next/link"
-import { usePathname } from "next/navigation"
-import { useSyncExternalStore, type ReactNode } from "react"
-import { BellIcon, LockIcon, SunIcon } from "lucide-react"
+import { usePathname, useRouter } from "next/navigation"
+import { useEffect, useState, useSyncExternalStore, type ReactNode } from "react"
+import { BellIcon, LockIcon, MapPinIcon, SearchIcon, SunIcon } from "lucide-react"
 import {
   Sidebar, SidebarContent, SidebarFooter, SidebarGroup, SidebarGroupLabel, SidebarHeader, SidebarInset, SidebarMenu,
-  SidebarMenuButton, SidebarMenuItem, SidebarProvider, SidebarTrigger,
+  SidebarMenuBadge, SidebarMenuButton, SidebarMenuItem, SidebarProvider, SidebarTrigger,
 } from "@/components/ui/sidebar"
 import { Separator } from "@/components/ui/separator"
 import { Skeleton } from "@/components/ui/skeleton"
+import { navBadges } from "@/domain/rules/badges"
 import { isUnread, visibleTo } from "@/domain/rules/notifications"
 import { can, ROLE_LABEL, type Permission } from "@/domain/rules/permissions"
 import { useStore } from "@/store/store"
+import { cn } from "@/lib/utils"
+import { LeadSheet } from "@/components/crm/lead-sheet"
 import { Pill } from "./badges"
+import { CustomerPicker } from "./customer-picker"
+import { StudentSheet } from "./student-sheet"
+import { avatarTone, initial } from "./subject-color"
 import { NAV, navFor } from "./nav"
 import { DemoPanel } from "./demo-panel"
 import { NativeSelect } from "./native-select"
@@ -46,23 +52,31 @@ export function AppShell({ children }: { children: ReactNode }) {
 function Shell({ children }: { children: ReactNode }) {
   const pathname = usePathname()
   const me = useStore((s) => s.staff.find((x) => x.id === s.userId)!)
-  const branches = useStore((s) => s.branches)
-  const branchId = useStore((s) => s.branchId)
-  const setBranch = useStore((s) => s.setBranch)
+  const branch = useBranch()
   const current = navFor(pathname)
   const allowed = !current || canAny(me, current.perm)
+  const now = useNow(30_000)
+  const conversations = useStore((s) => s.conversations)
+  const leads = useStore((s) => s.leads)
+  const sessions = useStore((s) => s.sessions)
+  const attendance = useStore((s) => s.attendance)
+  const summaries = useStore((s) => s.summaries)
+  const invoices = useStore((s) => s.invoices)
+  const badges = navBadges({ conversations, leads, sessions, attendance, summaries, invoices }, me, branch.id, now)
 
   return (
     <SidebarProvider>
       <Sidebar collapsible="icon">
-        <SidebarHeader>
-          <div className="flex items-center gap-2 px-1 py-1.5">
-            <div className="grid size-8 place-items-center rounded-lg bg-primary text-sm font-bold text-primary-foreground">N</div>
-            <div className="leading-tight group-data-[collapsible=icon]:hidden">
-              <div className="text-sm font-semibold">NockERP</div>
-              <div className="text-xs text-muted-foreground">Prototype v2</div>
-            </div>
-          </div>
+        {/* top: logo, then search + notifications — always in sight (owner 2026-09-29) */}
+        <SidebarHeader className="gap-2">
+          <Link href="/" className="flex h-10 items-center px-1.5 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-0" aria-label="NockAcademy">
+            {/* eslint-disable-next-line @next/next/no-img-element -- static brand file */}
+            <img src="/brand/logo-full.png" alt="NockAcademy" className="h-8 w-auto group-data-[collapsible=icon]:hidden" />
+            {/* eslint-disable-next-line @next/next/no-img-element -- static brand file */}
+            <img src="/brand/logo-icon.png" alt="NockAcademy" className="hidden size-8 group-data-[collapsible=icon]:block" />
+          </Link>
+          <SmartSearch />
+          <NotificationCard />
         </SidebarHeader>
         <SidebarContent>
           {NAV.map((g) => {
@@ -72,22 +86,30 @@ function Shell({ children }: { children: ReactNode }) {
               <SidebarGroup key={g.group}>
                 <SidebarGroupLabel>{g.group}</SidebarGroupLabel>
                 <SidebarMenu>
-                  {items.map((i) => (
-                    <SidebarMenuItem key={i.href}>
-                      <SidebarMenuButton isActive={current?.href === i.href} tooltip={i.label} render={<Link href={i.href} />}>
-                        <i.icon />
-                        <span>{i.label}</span>
-                        {i.soon && <Pill className="ml-auto px-1.5 py-0 text-[10px]">เร็วๆ นี้</Pill>}
-                      </SidebarMenuButton>
-                    </SidebarMenuItem>
-                  ))}
+                  {items.map((i) => {
+                    const n = badges[i.href] ?? 0
+                    return (
+                      <SidebarMenuItem key={i.href}>
+                        <SidebarMenuButton isActive={current?.href === i.href} tooltip={n ? `${i.label} · ${n}` : i.label} render={<Link href={i.href} />} className={cn(i.soon && "text-muted-foreground")}>
+                          <span className="relative">
+                            <i.icon className="size-4" />
+                            {n > 0 && <span className="absolute -top-1 -right-1 hidden size-2 rounded-full bg-red-600 ring-2 ring-sidebar group-data-[collapsible=icon]:block" />}
+                          </span>
+                          <span>{i.label}</span>
+                          {i.soon && <Pill className="ml-auto px-1.5 py-0 text-[10px]">เร็วๆ นี้</Pill>}
+                        </SidebarMenuButton>
+                        {n > 0 && <SidebarMenuBadge className="rounded-full bg-red-600 text-white peer-hover/menu-button:text-white peer-data-active/menu-button:text-white">{n > 99 ? "99+" : n}</SidebarMenuBadge>}
+                      </SidebarMenuItem>
+                    )
+                  })}
                 </SidebarMenu>
               </SidebarGroup>
             )
           })}
         </SidebarContent>
-        <SidebarFooter>
+        <SidebarFooter className="gap-2">
           <DemoPanel />
+          <UserCard />
         </SidebarFooter>
       </Sidebar>
       <SidebarInset className="min-w-0">
@@ -97,23 +119,97 @@ function Shell({ children }: { children: ReactNode }) {
           <h1 className="truncate text-sm font-medium">{current?.label ?? "NockERP"}</h1>
           <div className="ml-auto flex items-center gap-2">
             <CurrentPeriodChip />
-            <NativeSelect
-              aria-label="สาขา"
-              className="h-9 w-36 sm:w-44"
-              value={branchId}
-              onChange={(e) => setBranch(e.target.value)}
-              options={branches.filter((b) => me.branchIds.includes(b.id) && (b.active || b.id === branchId)).map((b) => ({ value: b.id, label: `สาขา${b.name}` }))}
-            />
-            <NotificationBell />
-            <div className="hidden text-right leading-tight sm:block">
-              <div className="text-xs font-medium">{me.nickname}</div>
-              <div className="text-[11px] text-muted-foreground">{me.roles.map((r) => ROLE_LABEL[r]).join(", ")}</div>
-            </div>
+            {/* branch stays visible on phones too, where the sidebar is hidden */}
+            <span className="flex items-center gap-1 rounded-full bg-primary/10 px-2.5 py-1 text-xs font-medium text-primary"><MapPinIcon className="size-3.5" />สาขา{branch.name}</span>
           </div>
         </header>
         <main className="min-w-0 flex-1 p-3 md:p-6">{allowed ? children : <NoAccess />}</main>
       </SidebarInset>
     </SidebarProvider>
+  )
+}
+
+/** "Smart search" — one box for students, families and leads (same picker as everywhere else) */
+function SmartSearch() {
+  const [open, setOpen] = useState(false)
+  const [studentId, setStudentId] = useState<string | null>(null)
+  const [leadId, setLeadId] = useState<string | null>(null)
+  const router = useRouter()
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => { if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") { e.preventDefault(); setOpen(true) } }
+    window.addEventListener("keydown", onKey)
+    return () => window.removeEventListener("keydown", onKey)
+  }, [])
+  return (
+    <>
+      <button type="button" onClick={() => setOpen(true)} title="ค้นหา (⌘K)"
+        className="flex h-9 w-full items-center gap-2 rounded-full border bg-background px-3 text-sm text-muted-foreground hover:bg-muted group-data-[collapsible=icon]:size-8 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-0">
+        <SearchIcon className="size-4 shrink-0" />
+        <span className="truncate group-data-[collapsible=icon]:hidden">ค้นหานักเรียน / ครอบครัว / Lead</span>
+        <kbd className="ml-auto rounded border px-1 text-[10px] group-data-[collapsible=icon]:hidden">⌘K</kbd>
+      </button>
+      {open && (
+        <CustomerPicker kinds={["student", "family", "lead"]} title="ค้นหา" onClose={() => setOpen(false)}
+          onConfirm={(r) => {
+            setOpen(false)
+            if (r.kind === "student") setStudentId(r.id)
+            else if (r.kind === "lead") setLeadId(r.id)
+            else router.push("/families")
+          }} />
+      )}
+      <StudentSheet studentId={studentId} onClose={() => setStudentId(null)} />
+      <LeadSheet leadId={leadId} onClose={() => setLeadId(null)} />
+    </>
+  )
+}
+
+function NotificationCard() {
+  const me = useStore((s) => s.staff.find((x) => x.id === s.userId)!)
+  const count = useStore((s) => s.notifications.filter((n) => visibleTo(n, me) && isUnread(n, me)).length)
+  const pathname = usePathname()
+  return (
+    <Link href="/notifications" title={count ? `แจ้งเตือน ${count} เรื่องยังไม่อ่าน` : "แจ้งเตือน"}
+      className={cn("flex items-center gap-2.5 rounded-2xl border px-3 py-2 hover:bg-muted group-data-[collapsible=icon]:size-8 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:rounded-lg group-data-[collapsible=icon]:border-0 group-data-[collapsible=icon]:p-0",
+        pathname === "/notifications" && "bg-sidebar-accent", count > 0 && "border-red-200 bg-red-50/60 dark:border-red-900 dark:bg-red-950/30")}>
+      <span className="relative">
+        <BellIcon className="size-4" />
+        {count > 0 && <span className="absolute -top-1 -right-1 size-2 rounded-full bg-red-600" />}
+      </span>
+      <span className="min-w-0 leading-tight group-data-[collapsible=icon]:hidden">
+        <span className="block text-sm font-semibold">แจ้งเตือน</span>
+        <span className={cn("block text-xs", count ? "text-red-700 dark:text-red-300" : "text-muted-foreground")}>{count ? `${count} เรื่องยังไม่อ่าน` : "ไม่มีเรื่องใหม่"}</span>
+      </span>
+      {count > 0 && <span className="ml-auto grid h-5 min-w-5 place-items-center rounded-full bg-red-600 px-1 text-xs font-semibold text-white group-data-[collapsible=icon]:hidden">{count > 99 ? "99+" : count}</span>}
+    </Link>
+  )
+}
+
+/** bottom: who I am, my role, and — never cut off — which branch I'm working in (owner 2026-09-29) */
+function UserCard() {
+  const me = useStore((s) => s.staff.find((x) => x.id === s.userId)!)
+  const branches = useStore((s) => s.branches)
+  const branchId = useStore((s) => s.branchId)
+  const setBranch = useStore((s) => s.setBranch)
+  const branch = useBranch()
+  const mine = branches.filter((b) => me.branchIds.includes(b.id) && (b.active || b.id === branchId))
+  return (
+    <div className="rounded-2xl border bg-background p-2.5 group-data-[collapsible=icon]:border-0 group-data-[collapsible=icon]:bg-transparent group-data-[collapsible=icon]:p-0"
+      title={`${me.name} · ${me.roles.map((r) => ROLE_LABEL[r]).join(", ")} · สาขา${branch.name}`}>
+      <div className="flex items-center gap-2.5">
+        <span className={cn("grid size-9 shrink-0 place-items-center rounded-full font-semibold group-data-[collapsible=icon]:size-8", avatarTone(me.id))}>{initial(me.nickname)}</span>
+        <div className="min-w-0 leading-tight group-data-[collapsible=icon]:hidden">
+          <div className="text-sm font-semibold break-words">{me.nickname} <span className="font-normal text-muted-foreground">{me.name !== me.nickname ? me.name : ""}</span></div>
+          <div className="mt-0.5 flex flex-wrap gap-1">{me.roles.map((r) => <Pill key={r} tone="blue" className="px-1.5 py-0 text-[10px]">{ROLE_LABEL[r]}</Pill>)}</div>
+        </div>
+      </div>
+      <div className="mt-2 space-y-1 group-data-[collapsible=icon]:hidden">
+        <div className="flex items-start gap-1.5 text-sm font-medium text-primary"><MapPinIcon className="mt-0.5 size-4 shrink-0" /><span className="break-words">สาขา{branch.name}</span></div>
+        {mine.length > 1 && (
+          <NativeSelect aria-label="เปลี่ยนสาขา" className="h-8 w-full text-xs" value="" onChange={(e) => e.target.value && setBranch(e.target.value)}
+            placeholder="⇄ เปลี่ยนสาขา" options={mine.filter((b) => b.id !== branchId).map((b) => ({ value: b.id, label: `สาขา${b.name}` }))} />
+        )}
+      </div>
+    </div>
   )
 }
 
@@ -131,20 +227,6 @@ function CurrentPeriodChip() {
     <Link href={`/settings/branches/${branch.id}`} title={`${p.name}: ${fmtDate(p.from)} – ${fmtDate(p.to, { year: true })} · ${periodHours(p)}`}
       className="hidden items-center gap-1 rounded-full bg-amber-50 px-2.5 py-1 text-xs font-medium text-amber-900 ring-1 ring-amber-200 md:flex">
       <SunIcon className="size-3.5 text-amber-600" /> ช่วง {p.name} · ถึง {fmtDate(p.to)}
-    </Link>
-  )
-}
-
-function NotificationBell() {
-  const me = useStore((s) => s.staff.find((x) => x.id === s.userId)!)
-  const count = useStore(
-    (s) =>
-      s.notifications.filter((n) => visibleTo(n, me) && isUnread(n, me)).length,
-  )
-  return (
-    <Link href="/notifications" className="relative grid size-8 place-items-center rounded-lg hover:bg-muted" aria-label="แจ้งเตือน">
-      <BellIcon className="size-4" />
-      {count > 0 && <span className="absolute -top-0.5 -right-0.5 grid min-w-4 place-items-center rounded-full bg-primary px-1 text-[10px] font-semibold text-primary-foreground">{count}</span>}
     </Link>
   )
 }

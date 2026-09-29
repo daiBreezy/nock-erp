@@ -1,6 +1,6 @@
 import {
   BellIcon, BookOpenIcon, CalendarDaysIcon, ClipboardCheckIcon, ClockIcon, HomeIcon, InboxIcon, LayoutDashboardIcon, NotebookPenIcon, ReceiptIcon,
-  SettingsIcon, SquareLibraryIcon, ChartColumnIcon, ListTodoIcon, UserCogIcon, UserSearchIcon, UsersIcon, GraduationCapIcon, type LucideIcon,
+  HistoryIcon, SettingsIcon, SquareLibraryIcon, ChartColumnIcon, ListTodoIcon, UserCogIcon, UserSearchIcon, UsersIcon, GraduationCapIcon, type LucideIcon,
 } from "lucide-react"
 import type { Permission } from "@/domain/rules/permissions"
 
@@ -14,31 +14,17 @@ export interface NavItem {
   soon?: boolean
 }
 
+/** Order + grouping follow Dev staging's sidebar (owner 2026-09-29). Extra pages staging doesn't have yet
+ *  (วันนี้, Inbox/CRM live) sit where staging will put them. Notifications moved up next to search. */
 export const NAV: { group: string; items: NavItem[] }[] = [
   {
-    group: "ภาพรวม",
+    group: "หลัก",
     items: [
       { href: "/dashboard", label: "Dashboard", icon: LayoutDashboardIcon, perm: "dashboard.view" },
-      { href: "/reports", label: "Reports", icon: ChartColumnIcon, perm: "dashboard.view", soon: true },
-    ],
-  },
-  {
-    group: "งานประจำวัน",
-    items: [
       { href: "/", label: "วันนี้", icon: HomeIcon, perm: "calendar.view" },
+      { href: "/crm", label: "CRM (ลีด)", icon: UserSearchIcon, perm: "lead.manage" },
       { href: "/inbox", label: "Inbox", icon: InboxIcon, perm: "inbox.manage" },
       { href: "/calendar", label: "ปฏิทิน", icon: CalendarDaysIcon, perm: "calendar.view" },
-      { href: "/sessions", label: "คาบเรียน & เช็คชื่อ", icon: ClockIcon, perm: ["attendance.mark"] },
-      { href: "/summaries", label: "สรุปการเรียน", icon: NotebookPenIcon, perm: ["summary.write", "summary.approve"] },
-      { href: "/tasks", label: "Tasks", icon: ListTodoIcon, perm: "calendar.view", soon: true },
-    ],
-  },
-  {
-    group: "การเรียน",
-    items: [
-      { href: "/classes", label: "คลาส", icon: SquareLibraryIcon, perm: "class.manage" },
-      { href: "/attendance", label: "รายงานเข้าเรียน", icon: ClipboardCheckIcon, perm: "session.manage" },
-      { href: "/courses", label: "คอร์ส", icon: BookOpenIcon, perm: "course.manage" },
     ],
   },
   {
@@ -47,23 +33,39 @@ export const NAV: { group: string; items: NavItem[] }[] = [
       { href: "/students", label: "นักเรียน", icon: GraduationCapIcon, perm: "student.view" },
       { href: "/families", label: "ครอบครัว", icon: UsersIcon, perm: "family.manage" },
       { href: "/staff", label: "บุคลากร", icon: UserCogIcon, perm: "staff.view" },
-      { href: "/crm", label: "CRM (ลีด)", icon: UserSearchIcon, perm: "lead.manage" },
     ],
   },
   {
-    group: "การเงิน",
-    items: [{ href: "/billing", label: "ใบแจ้งหนี้ & รับเงิน", icon: ReceiptIcon, perm: "billing.view" }],
+    group: "งานสอน",
+    items: [
+      { href: "/courses", label: "คอร์ส", icon: BookOpenIcon, perm: "course.manage" },
+      { href: "/classes", label: "คลาส", icon: SquareLibraryIcon, perm: "class.manage" },
+      { href: "/sessions", label: "คาบเรียน & เช็คชื่อ", icon: ClockIcon, perm: ["attendance.mark"] },
+      { href: "/attendance", label: "รายงานเข้าเรียน", icon: ClipboardCheckIcon, perm: "session.manage" },
+      { href: "/summaries", label: "สรุปการเรียน", icon: NotebookPenIcon, perm: ["summary.write", "summary.approve"] },
+    ],
+  },
+  {
+    group: "การเงิน & แอดมิน",
+    items: [
+      { href: "/billing", label: "ใบแจ้งหนี้ & รับเงิน", icon: ReceiptIcon, perm: "billing.view" },
+      { href: "/tasks", label: "Tasks", icon: ListTodoIcon, perm: "calendar.view", soon: true },
+      { href: "/reports", label: "Reports", icon: ChartColumnIcon, perm: "dashboard.view", soon: true },
+    ],
   },
   {
     group: "ระบบ",
     items: [
-      { href: "/notifications", label: "แจ้งเตือน", icon: BellIcon, perm: "calendar.view" },
       { href: "/settings", label: "ตั้งค่า", icon: SettingsIcon, perm: ["settings.manage", "holiday.manage"] },
+      { href: "/logs", label: "Logs & Timeline", icon: HistoryIcon, perm: "dashboard.view", soon: true },
     ],
   },
 ]
 
-export const ALL_NAV = NAV.flatMap((g) => g.items)
+/** not in the menu body (it lives at the top of the sidebar) but still a titled route */
+export const NOTIFICATIONS_NAV: NavItem = { href: "/notifications", label: "แจ้งเตือน", icon: BellIcon, perm: "calendar.view" }
+
+export const ALL_NAV = [...NAV.flatMap((g) => g.items), NOTIFICATIONS_NAV]
 
 export function navFor(pathname: string) {
   return [...ALL_NAV].sort((a, b) => b.href.length - a.href.length).find((n) => (n.href === "/" ? pathname === "/" : pathname.startsWith(n.href)))
