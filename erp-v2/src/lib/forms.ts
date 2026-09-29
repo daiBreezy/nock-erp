@@ -38,24 +38,16 @@ export async function sendTestTrialForm(input: {
   return { ok: true, value: undefined }
 }
 
-/** Books the chosen slot(s) as a real Session (or joins an existing class) first — only marks
- *  submissions "approved" server-side if that actually succeeds, so a failed booking never shows
- *  as a false "approved" status. If another still-pending submission for the same lead picked a
- *  different subject at the exact same date+time (both admin-offered "generic" slots), they're
- *  approved together into one shared 2-hour room block — the parent only visits once. */
-export async function approveSubmission(sub: FormSubmission): Promise<Result<{ sessionId: ID; studentId: ID }>> {
-  const listRes = await fetch("/api/forms/submissions").then((r) => r.json()).catch(() => null) as { submissions?: FormSubmission[] } | null
-  const all = listRes?.submissions ?? []
-  const siblings = all.filter((s) =>
-    s.id !== sub.id && s.status === "pending" && s.leadId === sub.leadId &&
-    s.chosenSlot.source === "generic" && sub.chosenSlot.source === "generic" &&
-    s.chosenSlot.date === sub.chosenSlot.date && s.chosenSlot.start === sub.chosenSlot.start,
-  )
-  const group = [sub, ...siblings]
-
-  const r = useStore.getState().approveTestTrialSubmission(group)
+/** Books this one child's chosen slot(s) as a real Session (or joins an existing class) first — only
+ *  marks the submission "approved" server-side if that actually succeeds, so a failed booking never
+ *  shows as a false "approved" status. A child's own multiple same-day/same-time subject picks were
+ *  already merged into one shared 2-hour room block by `submitForm` — no cross-submission grouping is
+ *  needed here since each `FormSubmission` row is already one whole child (see `groupId` for how staff
+ *  can tell "these children arrived together" without approval being forced to happen together too). */
+export async function approveSubmission(sub: FormSubmission): Promise<Result<{ sessionId: ID; studentId: ID; leadId: ID }>> {
+  const r = useStore.getState().approveTestTrialSubmission(sub)
   if (!r.ok) return r
-  await Promise.all(group.map((s) => postJson("/api/forms/review", { id: s.id, status: "approved", sessionId: r.value.sessionId, studentId: r.value.studentId })))
+  await postJson("/api/forms/review", { id: sub.id, status: "approved", sessionId: r.value.sessionId, studentId: r.value.studentId })
   return r
 }
 
@@ -64,9 +56,10 @@ export async function rejectSubmission(sub: FormSubmission): Promise<Result> {
   return { ok: true, value: undefined }
 }
 
-/** Admin correction — free to pick any subject/slot, not constrained to the token's original offers. */
-export async function editSubmissionSlot(sub: FormSubmission, subject: string, slot: FormOfferSlot): Promise<Result> {
-  const r = await postJson<{ ok: boolean; error?: string }>("/api/forms/edit", { id: sub.id, subject, slot })
+/** Admin correction — free to pick any subject/slot for one of this child's picks, not constrained to
+ *  the token's original offers. */
+export async function editSubmissionSlot(sub: FormSubmission, pickIndex: number, subject: string, slot: FormOfferSlot): Promise<Result> {
+  const r = await postJson<{ ok: boolean; error?: string }>("/api/forms/edit", { id: sub.id, pickIndex, subject, slot })
   if (!r.ok) return { ok: false, error: r.error ?? "แก้ไขไม่สำเร็จ" }
   return { ok: true, value: undefined }
 }

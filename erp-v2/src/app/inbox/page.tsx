@@ -6,6 +6,7 @@ import { FileSignatureIcon, InfoIcon, PenLineIcon, PlusIcon, RadioIcon, SendIcon
 import { NativeSelect } from "@/components/app/native-select"
 import { Pill } from "@/components/app/badges"
 import { FamilyForm } from "@/components/app/family-form"
+import { FamilySheet } from "@/components/app/family-sheet"
 import { CustomerPicker } from "@/components/app/customer-picker"
 import { StudentSheet } from "@/components/app/student-sheet"
 import { avatarTone, initial } from "@/components/app/subject-color"
@@ -17,11 +18,12 @@ import { SendFormDialog } from "@/components/inbox/send-form-dialog"
 import { LeadDialog } from "@/components/crm/lead-dialog"
 import { LeadSheet } from "@/components/crm/lead-sheet"
 import { Button } from "@/components/ui/button"
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { fmtDateTime } from "@/domain/dates"
 import { CHANNEL_LABEL, CONVERSATION_TYPE_LABEL, conversationType, type ConversationType, SOURCE_OF_CHANNEL, unreadCount } from "@/domain/rules/inbox"
 import { can } from "@/domain/rules/permissions"
-import type { ChatMessage, Conversation, FormSubmission, ID } from "@/domain/types"
+import type { ChatMessage, Conversation, Family, FormSubmission, ID } from "@/domain/types"
 import { report } from "@/lib/feedback"
 import { useBranch } from "@/lib/hooks"
 import { cn } from "@/lib/utils"
@@ -53,11 +55,13 @@ export default function InboxPage() {
   const [typeFilter, setTypeFilter] = useState<"all" | ConversationType>("all")
   const [readFilter, setReadFilter] = useState<"all" | "unread" | "read">("all")
   const [composing, setComposing] = useState(false)
-  const [showInfo, setShowInfo] = useState(true)
   const [draft, setDraft] = useState("")
   const [sending, setSending] = useState(false)
   const [openStudentId, setOpenStudentId] = useState<ID | null>(null)
   const [openLeadId, setOpenLeadId] = useState<ID | null>(null)
+  const [openFamilyId, setOpenFamilyId] = useState<ID | null>(null)
+  const [editingFamily, setEditingFamily] = useState<Family | null>(null)
+  const [linking, setLinking] = useState(false)
   const [pickingLink, setPickingLink] = useState(false)
   const [creatingFamily, setCreatingFamily] = useState(false)
   const [creatingLead, setCreatingLead] = useState(false)
@@ -101,7 +105,6 @@ export default function InboxPage() {
   const thread = selected ? messages.filter((m) => m.conversationId === selected.id).sort((a, b) => a.at.localeCompare(b.at)) : []
   const family = selected?.familyId ? families.find((f) => f.id === selected.familyId) : null
   const lead = selected?.leadId ? leads.find((l) => l.id === selected.leadId) : null
-  const familyStudents = family ? students.filter((s) => s.familyId === family.id) : []
   const isNote = draft.trim().startsWith("//")
   const isLive = (id: ID) => id.startsWith("line_")
 
@@ -221,75 +224,40 @@ export default function InboxPage() {
               {lead && (
                 <Button size="sm" variant="outline" onClick={() => setSendingFormOpen(true)}><FileSignatureIcon /> ส่งฟอร์ม</Button>
               )}
-              <Button size="icon-sm" variant={showInfo ? "secondary" : "outline"} aria-label="ข้อมูลติดต่อ" onClick={() => setShowInfo((v) => !v)}><InfoIcon /></Button>
+              <Button
+                size="icon-sm" variant="outline" aria-label="ข้อมูลติดต่อ"
+                onClick={() => { if (family) setOpenFamilyId(family.id); else if (lead) setOpenLeadId(lead.id); else setLinking(true) }}
+              >
+                <InfoIcon />
+              </Button>
             </div>
 
-            <div className="flex min-h-0 flex-1">
-              <div className="flex min-w-0 flex-1 flex-col">
-                <div className="flex-1 space-y-3 overflow-y-auto p-4">
-                  {thread.length === 0 && <p className="py-8 text-center text-sm text-muted-foreground">เริ่มบทสนทนา</p>}
-                  {thread.map((m) => {
-                    if (m.kind === "form_request") return <FormRequestBubble key={m.id} message={m} submissions={submissions} />
-                    if (m.kind === "form_submission") return <FormSubmissionBubble key={m.id} message={m} conversation={selected} submissions={submissions} onChanged={pollSubmissions} />
-                    return <MessageBubble key={m.id} message={m} conversation={selected} staff={staff} onUseAsSlip={useAsSlip} />
-                  })}
-                </div>
-                <div className="space-y-1.5 border-t p-3">
-                  <div className="flex gap-2">
-                    <Input value={draft} onChange={(e) => setDraft(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); submit() } }}
-                      placeholder="พิมพ์ตอบผู้ปกครอง… (// สำหรับโน้ตภายใน)" className={cn(isNote && "border-amber-400 bg-amber-50")} />
-                    <Button onClick={submit} disabled={!draft.trim() || sending}>{sending ? "กำลังส่ง…" : <><SendIcon /> ส่ง</>}</Button>
-                  </div>
-                  <div className="flex items-center justify-between text-[11px] text-muted-foreground">
-                    <span>พิมพ์ <code className="rounded bg-muted px-1">{"//"}</code> ขึ้นต้น = โน้ตภายใน ผู้ปกครองไม่เห็น</span>
-                    {isLive(selected.id) ? (
-                      <span className="inline-flex items-center gap-1 text-sky-700"><RadioIcon className="size-3" /> ข้อความไหลจาก LINE จริง — sync ทุก 4 วิ</span>
-                    ) : (
-                      <button className="inline-flex items-center gap-1 hover:text-foreground hover:underline" onClick={() => { if (report(simulateReply(selected.id), "จำลองข้อความตอบกลับแล้ว")) openConversation(selected.id) }}>
-                        <SparklesIcon className="size-3" /> จำลองข้อความจากผู้ปกครอง
-                      </button>
-                    )}
-                  </div>
-                </div>
+            <div className="flex min-h-0 flex-1 flex-col">
+              <div className="flex-1 space-y-3 overflow-y-auto p-4">
+                {thread.length === 0 && <p className="py-8 text-center text-sm text-muted-foreground">เริ่มบทสนทนา</p>}
+                {thread.map((m) => {
+                  if (m.kind === "form_request") return <FormRequestBubble key={m.id} message={m} submissions={submissions} />
+                  if (m.kind === "form_submission") return <FormSubmissionBubble key={m.id} message={m} conversation={selected} submissions={submissions} onChanged={pollSubmissions} />
+                  return <MessageBubble key={m.id} message={m} conversation={selected} staff={staff} onUseAsSlip={useAsSlip} />
+                })}
               </div>
-
-              {showInfo && (
-                <div className="w-64 shrink-0 space-y-4 overflow-y-auto border-l p-3 text-sm">
-                  <h3 className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">ข้อมูลติดต่อ</h3>
-                  {family ? (
-                    <div className="space-y-2">
-                      <div className="font-medium">{family.name}</div>
-                      {family.parents.map((p) => (
-                        <div key={p.name} className="text-xs">
-                          <a href={`tel:${p.phone.replace(/\D/g, "")}`} className="text-sky-700 hover:underline">{p.name} · {p.phone}</a>
-                          <Pill tone={p.lineLinked ? "green" : "amber"} className="ml-1">{p.lineLinked ? "LINE แล้ว" : "ยังไม่ผูก LINE"}</Pill>
-                        </div>
-                      ))}
-                      <div className="pt-1">
-                        <p className="mb-1 text-xs font-medium text-muted-foreground">ลูก ({familyStudents.length})</p>
-                        {familyStudents.map((s) => (
-                          <button key={s.id} onClick={() => setOpenStudentId(s.id)} className="block w-full rounded-lg p-1.5 text-left text-xs hover:bg-muted">{s.nickname} · {s.grade}</button>
-                        ))}
-                      </div>
-                    </div>
-                  ) : lead ? (
-                    <div className="space-y-2">
-                      <div className="font-medium">{lead.name}</div>
-                      <div className="text-xs text-muted-foreground">{lead.subject} · {lead.childGrade}</div>
-                      <Button size="xs" variant="outline" onClick={() => setOpenLeadId(lead.id)}>เปิดรายละเอียด Lead</Button>
-                    </div>
+              <div className="space-y-1.5 border-t p-3">
+                <div className="flex gap-2">
+                  <Input value={draft} onChange={(e) => setDraft(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); submit() } }}
+                    placeholder="พิมพ์ตอบผู้ปกครอง… (// สำหรับโน้ตภายใน)" className={cn(isNote && "border-amber-400 bg-amber-50")} />
+                  <Button onClick={submit} disabled={!draft.trim() || sending}>{sending ? "กำลังส่ง…" : <><SendIcon /> ส่ง</>}</Button>
+                </div>
+                <div className="flex items-center justify-between text-[11px] text-muted-foreground">
+                  <span>พิมพ์ <code className="rounded bg-muted px-1">{"//"}</code> ขึ้นต้น = โน้ตภายใน ผู้ปกครองไม่เห็น</span>
+                  {isLive(selected.id) ? (
+                    <span className="inline-flex items-center gap-1 text-sky-700"><RadioIcon className="size-3" /> ข้อความไหลจาก LINE จริง — sync ทุก 4 วิ</span>
                   ) : (
-                    <div className="space-y-4">
-                      <p className="text-xs text-muted-foreground">ยังไม่ผูกกับครอบครัวหรือ Lead — บทสนทนานี้จะจำการผูกไว้ถาวร (แม้เป็นข้อความ LINE จริง)</p>
-                      <Button size="sm" className="w-full" onClick={() => setPickingLink(true)}><UserSearchIcon /> ผูกกับลูกค้าเดิม / Lead</Button>
-                      <div className="grid gap-1.5">
-                        <Button size="xs" variant="outline" className="w-full" onClick={() => setCreatingLead(true)}><PlusIcon /> สร้าง Lead ใหม่จากข้อความนี้</Button>
-                        <Button size="xs" variant="outline" className="w-full" onClick={() => setCreatingFamily(true)}><PlusIcon /> สร้างครอบครัวใหม่ (ลูกค้าเก่าที่ยังไม่มีในระบบ)</Button>
-                      </div>
-                    </div>
+                    <button className="inline-flex items-center gap-1 hover:text-foreground hover:underline" onClick={() => { if (report(simulateReply(selected.id), "จำลองข้อความตอบกลับแล้ว")) openConversation(selected.id) }}>
+                      <SparklesIcon className="size-3" /> จำลองข้อความจากผู้ปกครอง
+                    </button>
                   )}
                 </div>
-              )}
+              </div>
             </div>
           </>
         )}
@@ -301,6 +269,21 @@ export default function InboxPage() {
           leadId={lead.id} branchId={lead.branchId} conversationId={selected.id} lineUserId={lead.lineUserId ?? ""}
           onClose={() => setSendingFormOpen(false)}
         />
+      )}
+      {linking && selected && (
+        <Dialog open onOpenChange={(o) => !o && setLinking(false)}>
+          <DialogContent className="sm:max-w-sm">
+            <DialogHeader>
+              <DialogTitle>เชื่อมโยงบทสนทนานี้</DialogTitle>
+              <DialogDescription>ยังไม่ผูกกับครอบครัวหรือ Lead — บทสนทนานี้จะจำการผูกไว้ถาวร (แม้เป็นข้อความ LINE จริง)</DialogDescription>
+            </DialogHeader>
+            <div className="grid gap-1.5">
+              <Button className="w-full" onClick={() => { setLinking(false); setPickingLink(true) }}><UserSearchIcon /> ผูกกับลูกค้าเดิม / Lead</Button>
+              <Button variant="outline" className="w-full" onClick={() => { setLinking(false); setCreatingLead(true) }}><PlusIcon /> สร้าง Lead ใหม่จากข้อความนี้</Button>
+              <Button variant="outline" className="w-full" onClick={() => { setLinking(false); setCreatingFamily(true) }}><PlusIcon /> สร้างครอบครัวใหม่ (ลูกค้าเก่าที่ยังไม่มีในระบบ)</Button>
+            </div>
+          </DialogContent>
+        </Dialog>
       )}
       {pickingLink && selected && (
         <CustomerPicker kinds={["student", "family", "lead"]} title="ผูกแชทนี้กับลูกค้า / Lead" onClose={() => setPickingLink(false)}
@@ -330,6 +313,8 @@ export default function InboxPage() {
       )}
       <StudentSheet studentId={openStudentId} onClose={() => setOpenStudentId(null)} />
       <LeadSheet leadId={openLeadId} onClose={() => setOpenLeadId(null)} />
+      <FamilySheet id={openFamilyId} onClose={() => setOpenFamilyId(null)} onEdit={(f) => setEditingFamily(f)} />
+      {editingFamily && <FamilyForm family={editingFamily} onClose={() => setEditingFamily(null)} />}
     </div>
   )
 }

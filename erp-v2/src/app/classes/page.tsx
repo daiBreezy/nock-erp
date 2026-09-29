@@ -5,6 +5,7 @@ import { ArrowDownUpIcon, BookOpenIcon, CalendarIcon, ChevronRightIcon, ClockIco
 import { ClassDialog } from "@/components/app/class-dialog"
 import { ClassSheet } from "@/components/app/class-sheet"
 import { Pager, SortHeader, TableShell, usePage, useSort } from "@/components/app/data-table"
+import { Kpi } from "@/components/app/kpi"
 import { NativeSelect } from "@/components/app/native-select"
 import { avatarTone, gradeTone, initial, subjectColor } from "@/components/app/subject-color"
 import { Button } from "@/components/ui/button"
@@ -98,7 +99,7 @@ export default function ClassesPage() {
         <Kpi icon={BookOpenIcon} label="คลาสที่เปิดอยู่" value={active.length} />
         <Kpi icon={UsersIcon} label="นักเรียน" value={kpiStudents.size} />
         <Kpi icon={UserRoundIcon} label="ครู" value={kpiTeachers.size} />
-        <Kpi icon={RefreshCwIcon} label="ใกล้หมดแพ็กเกจ (ต่อคอร์ส)" value={renewal} tone={renewal ? "text-amber-700" : undefined} />
+        <Kpi icon={RefreshCwIcon} label="ใกล้หมดแพ็กเกจ (ต่อคอร์ส)" value={renewal} valueClassName={renewal ? "text-amber-700" : undefined} />
       </div>
 
       <div className="flex flex-wrap items-center gap-2">
@@ -167,15 +168,6 @@ export default function ClassesPage() {
       <Pager {...pg} unit="คลาส" />
       <ClassSheet id={openId} onClose={() => setOpenId(null)} />
       {creating && <ClassDialog prefill={{}} onClose={() => setCreating(false)} />}
-    </div>
-  )
-}
-
-function Kpi({ icon: Icon, label, value, tone }: { icon: typeof BookOpenIcon; label: string; value: React.ReactNode; tone?: string }) {
-  return (
-    <div className="flex items-center gap-3 rounded-3xl bg-card p-4 shadow-sm ring-1 ring-foreground/5">
-      <span className="grid size-10 place-items-center rounded-2xl bg-primary/10 text-primary"><Icon className="size-5" /></span>
-      <div><p className="text-xs text-muted-foreground">{label}</p><p className={cn("text-2xl font-semibold tabular-nums", tone)}>{value}</p></div>
     </div>
   )
 }

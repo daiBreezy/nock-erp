@@ -9,9 +9,9 @@ import { chartPrice, defaultCourseName, validateCourse } from "./course"
 import { busRate, copyHours, priceOf, priceRange, setPrice, validateBranchInfo, validateDurations, validateHoliday, validatePromotion, validateSpecialPeriods, everyDay } from "./settings"
 import { forceAudience, isUnread, messageAudience, notify, validateMessage, visibleTo } from "./notifications"
 import * as Sum from "./summaries"
-import { familyFromLead, futureSessionsOf, nicknameFrom, searchStudents, studentLabel, validateFamily, validateStaff, validateStudent } from "./people"
+import { familyFromLead, futureSessionsOf, matchExistingFamily, nicknameFrom, searchStudents, studentLabel, validateFamily, validateStaff, validateStudent } from "./people"
 import { suggestFixes } from "./suggest"
-import { advanceStage, canSetStage, daysAgo, groupOf, validateLead } from "./crm"
+import { advanceStage, canSetStage, daysAgo, groupOf, restoreStage, validateLead } from "./crm"
 import { APPROVE_STAGE, ATTENDED_STAGE, buildCombinedSessionDraft, buildSessionDraftFromSlot, findOfferSlots, lastAssessmentDate, openHourStarts, sessionKindLabel } from "./forms"
 import { customerRows, filterCustomers } from "./customers"
 import { invoiceMessage } from "./messages"
@@ -314,6 +314,29 @@ describe("people & session panel rules", () => {
     expect(validateFamily({ ...base, parents: [{ ...base.parents[0], phone: "abc" }] }).length).toBe(1)
     expect(validateFamily({ ...base, postcode: "abcde" }).length).toBe(1)
   })
+  it("family validation also rejects two parents sharing the same phone (owner 2026-09-29: caught in a reference form's own mock data)", () => {
+    const dup = {
+      name: "ครอบครัวทดสอบ",
+      parents: [
+        { name: "แม่", phone: "081-234-5678", lineLinked: false, primary: true },
+        { name: "พ่อ", phone: "081-234-5678", lineLinked: false, primary: false },
+      ],
+    }
+    const errs = validateFamily(dup)
+    expect(errs.some((e) => e.field === "parent1.phone" && e.message.includes("ซ้ำ"))).toBe(true)
+    // different phones (even formatted differently) never trip the duplicate check
+    expect(validateFamily({ ...dup, parents: [dup.parents[0], { ...dup.parents[1], phone: "089-000-1111" }] }).some((e) => e.message.includes("ซ้ำ"))).toBe(false)
+  })
+  it("matchExistingFamily finds a family by LINE identity first, then by any parent's phone, and never both-fails-silently into a false match", () => {
+    const families = [
+      { id: "fa_1", name: "ครอบครัวเอ", parents: [{ name: "แม่เอ", phone: "081-111-1111", lineLinked: true, primary: true }], lineUserId: "U_line_a" },
+      { id: "fa_2", name: "ครอบครัวบี", parents: [{ name: "แม่บี", phone: "082-222-2222", lineLinked: false, primary: true, altPhones: ["083-333-3333"] }] },
+    ]
+    expect(matchExistingFamily(families, { lineUserId: "U_line_a", phones: ["099-999-9999"] })?.id).toBe("fa_1")
+    expect(matchExistingFamily(families, { phones: ["082-222-2222"] })?.id).toBe("fa_2")
+    expect(matchExistingFamily(families, { phones: ["083-333-3333"] })?.id).toBe("fa_2") // matches an altPhone too
+    expect(matchExistingFamily(families, { lineUserId: "U_someone_else", phones: ["099-999-9999"] })).toBeNull()
+  })
   it("student birth date cannot be in the future", () => {
     expect(validateStudent({ name: "ก", nickname: "ก", grade: "ป.5", birthDate: "2030-01-01" }, "2026-09-24").length).toBe(1)
   })
@@ -379,7 +402,7 @@ describe("crm", () => {
   it("groups test/trial sub-stages under one pipeline column", () => {
     expect(groupOf("test_scheduled").key).toBe("test")
     expect(groupOf("tested").key).toBe("test")
-    expect(groupOf("new").key).toBe("new")
+    expect(groupOf("new").key).toBe("contact")
   })
 
   it("drag-and-drop cannot set enrolled/archived directly — those need their own action", () => {
@@ -387,6 +410,12 @@ describe("crm", () => {
     expect(canSetStage("payment_pending", "enrolled").ok).toBe(false)
     expect(canSetStage("new", "archived").ok).toBe(false)
     expect(canSetStage("archived", "new").ok).toBe(false) // must reactivate via its own flow first
+  })
+
+  it("restoreStage sends a lead back to where it was archived from, defaulting to new (the store's restoreLead uses this, not moveLeadStage, so canSetStage's archived guard above never blocks a real restore)", () => {
+    expect(restoreStage({ archivedFrom: "test_scheduled" })).toBe("test_scheduled")
+    expect(restoreStage({ archivedFrom: undefined })).toBe("new")
+    expect(restoreStage({ archivedFrom: "archived" })).toBe("new") // never trap a lead archived-from-archived
   })
 
   it("validateLead requires the fields the pipeline card depends on", () => {

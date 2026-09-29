@@ -259,13 +259,49 @@ export function buildSeed(now = new Date()): DB {
   const leads: Lead[] = [
     lead("ld_1", "คุณแม่นุ่น เจริญวงศ์", "ป.3", "คณิต", "line", "new", 1, "u_ploy", "089-100-1001", "@noon_mom"),
     lead("ld_2", "คุณพ่อวิโรจน์ บัวขาว", "ป.6", "อังกฤษ", "walkin", "contacting", 3, "u_ploy", "089-100-1002", "@wiroj_dad"),
-    lead("ld_3", "คุณแม่พัชรา สมใจ", "ป.5", "วิทย์", "website", "test_scheduled", 2, "u_ton", "089-100-1003", "@pat_mom", { scheduledAt: iso(addDays(today, 3)) }),
-    lead("ld_4", "คุณแม่เลนา ฟิชเชอร์", "ป.4", "อังกฤษ", "referral", "trialed", 5, "u_ploy", "089-100-1004", "@lena_mom"),
+    lead("ld_3", "คุณแม่พัชรา สมใจ", "ป.5", "วิทย์", "website", "test_scheduled", 2, "u_ton", "089-100-1003", "@pat_mom", {
+      scheduledAt: iso(addDays(today, 3)), trialStudentId: "stu_ld3",
+      notes: [{ at: iso(addDays(today, -1)), by: "u_ton", text: "โทรนัดแล้ว ผู้ปกครองสะดวกเช้าวันศุกร์ — ยืนยันวันสอบวัดระดับแล้ว" }],
+    }),
+    lead("ld_4", "คุณแม่เลนา ฟิชเชอร์", "ป.4", "อังกฤษ", "referral", "trialed", 5, "u_ploy", "089-100-1004", "@lena_mom", {
+      scheduledAt: new Date(`${addDays(today, -2)}T14:00:00`).toISOString(), trialStudentId: "stu_ld4",
+      notes: [{ at: iso(addDays(today, -2)), by: "u_ploy", text: "ทดลองเรียนผ่านแล้ว ผู้ปกครองขอเวลาตัดสินใจแพ็กเกจ 2-3 วัน" }],
+    }),
     lead("ld_5", "คุณพ่อเบน นากามูระ", "ป.4", "อังกฤษ", "referral", "payment_pending", 2, "u_ploy", "089-100-1005", "@ben_dad"),
-    lead("ld_6", "คุณแม่กิ่งแก้ว มั่งมี", "ม.1", "คณิต", "line", "trial_scheduled", 1, "u_ton", "089-100-1006", "@king_mom", { scheduledAt: iso(addDays(today, 1)) }),
+    lead("ld_6", "คุณแม่กิ่งแก้ว มั่งมี", "ม.1", "คณิต", "line", "trial_scheduled", 1, "u_ton", "089-100-1006", "@king_mom", { scheduledAt: iso(addDays(today, 1)), trialStudentId: "stu_ld6" }),
     lead("ld_7", "คุณแม่ดาว รุ่งโรจน์", "ป.6", "วิทย์", "website", "enrolled", 10, "u_ploy", "089-100-1007", "@dao_mom"),
     lead("ld_8", "คริส เบเกอร์", "ป.5", "คณิต", "website", "archived", 20, null, "081-000-0008", "", { archivedFrom: "test_scheduled", archiveReason: "ไม่ตอบกลับหลังนัดสอบ 2 สัปดาห์" }),
     lead("ld_9", "แอนนา ไวท์", "ป.3", "อังกฤษ", "walkin", "archived", 14, null, "081-000-0009", "", { archivedFrom: "contacting", archiveReason: "ย้ายไปเรียนที่อื่นแล้ว" }),
+  ]
+
+  // trial/test students — mirrors what approveTestTrialSubmission creates for real (minimal Student +
+  // Family + booked Session + Assessment) so a lead already at "นัดสอบ"/"ทดลองเรียน" looks complete on
+  // the CRM side panel (bookable session to jump to, not just a bare date on the Lead record)
+  families.push(
+    { id: "fam_ld3", name: "ครอบครัวสมใจ", parents: [{ name: "คุณแม่พัชรา สมใจ", phone: "089-100-1003", lineLinked: false, primary: true }] },
+    { id: "fam_ld4", name: "ครอบครัวฟิชเชอร์", parents: [{ name: "คุณแม่เลนา ฟิชเชอร์", phone: "089-100-1004", lineLinked: true, primary: true }] },
+    { id: "fam_ld6", name: "ครอบครัวมั่งมี", parents: [{ name: "คุณแม่กิ่งแก้ว มั่งมี", phone: "089-100-1006", lineLinked: true, primary: true }] },
+  )
+  students.push(
+    s("stu_ld3", "fam_ld3", "br_thl", "ด.ญ. พัช สมใจ", "พัช", "ป.5"),
+    s("stu_ld4", "fam_ld4", "br_thl", "ด.ญ. เลโอนา ฟิชเชอร์", "เลโอนา", "ป.4"),
+    s("stu_ld6", "fam_ld6", "br_thl", "ด.ช. กิ่ง มั่งมี", "กิ่ง", "ม.1"),
+  )
+  const ld3Date = addDays(today, 3)
+  const ld6Date = addDays(today, 1)
+  const ld4Date = addDays(today, -2)
+  const se_ld3: Session = { id: "se_ld3test", branchId: "br_thl", classId: null, subject: "วิทย์", date: ld3Date, start: "10:00", minutes: 60, teacherId: "u_prae", coTeacherIds: [], roomId: "rm_2", studentIds: ["stu_ld3"], trial: true, assessment: "test", customized: true, cancelled: false }
+  const se_ld6: Session = { id: "se_ld6trial", branchId: "br_thl", classId: null, subject: "คณิต", date: ld6Date, start: "10:00", minutes: 60, teacherId: "u_jo", coTeacherIds: [], roomId: "rm_3", studentIds: ["stu_ld6"], trial: true, assessment: "trial", customized: true, cancelled: false }
+  const se_ld4: Session = { id: "se_ld4trial", branchId: "br_thl", classId: null, subject: "อังกฤษ", date: ld4Date, start: "14:00", minutes: 60, teacherId: "u_mint", coTeacherIds: [], roomId: "rm_1", studentIds: ["stu_ld4"], trial: true, assessment: "trial", customized: true, cancelled: false }
+  sessions.push(se_ld3, se_ld6, se_ld4)
+
+  const assessments: Assessment[] = [
+    { id: "as_ld3", type: "test", leadId: "ld_3", studentId: "stu_ld3", sessionId: se_ld3.id, subject: "วิทย์", date: ld3Date, start: "10:00" },
+    { id: "as_ld6", type: "trial", leadId: "ld_6", studentId: "stu_ld6", sessionId: se_ld6.id, subject: "คณิต", date: ld6Date, start: "10:00" },
+    {
+      id: "as_ld4", type: "trial", leadId: "ld_4", studentId: "stu_ld4", sessionId: se_ld4.id, subject: "อังกฤษ", date: ld4Date, start: "14:00",
+      result: "เหมาะกับคลาสกลุ่ม ป.4", note: "ตั้งใจเรียนดี กล้าพูดภาษาอังกฤษ แนะนำเริ่มเรียนได้เลย", notedBy: "u_mint", notedAt: new Date(`${ld4Date}T15:00:00`).toISOString(),
+    },
   ]
 
   const isoAt = (daysBack: number, h: number, m: number) => {
@@ -278,6 +314,7 @@ export function buildSeed(now = new Date()): DB {
     { id: "cv_2", branchId: "br_thl", name: "คุณพ่อวิโรจน์ บัวขาว", familyId: null, leadId: "ld_2", channel: "line", assigneeId: "u_ploy", lastMessageAt: isoAt(0, 8, 40), unread: true },
     { id: "cv_3", branchId: "br_thl", name: "ครอบครัวทองดี", familyId: "fa_2", leadId: null, channel: "line", assigneeId: "u_ton", lastMessageAt: isoAt(1, 16, 0), unread: false },
     { id: "cv_4", branchId: "br_thl", name: "คุณสมชาย (สอบถามทั่วไป)", familyId: null, leadId: null, channel: "phone", assigneeId: null, lastMessageAt: isoAt(2, 11, 0), unread: false },
+    { id: "cv_5", branchId: "br_thl", name: "คุณแม่พัชรา สมใจ", familyId: null, leadId: "ld_3", channel: "phone", assigneeId: "u_ton", lastMessageAt: isoAt(1, 10, 30), unread: false },
   ]
   const msg = (id: string, conversationId: string, author: ChatMessage["author"], senderId: string | null, text: string, daysBack: number, h: number, m: number): ChatMessage =>
     ({ id, conversationId, author, senderId, text, at: isoAt(daysBack, h, m) })
@@ -297,6 +334,9 @@ export function buildSeed(now = new Date()): DB {
     // cv_4 — plain contact, unassigned
     msg("m_4a", "cv_4", "parent", null, "สวัสดีครับ อยากทราบว่ามีสาขาอารีย์ไหมครับ", 2, 10, 50),
     msg("m_4b", "cv_4", "staff", "u_ploy", "มีครับ อยู่สาขาอารีย์เลยครับ ติดต่อได้ตามเบอร์สาขานะครับ", 2, 11, 0),
+    // cv_5 — lead (ld_3), phone contact — no LINE yet
+    msg("m_5a", "cv_5", "staff", "u_ton", "สวัสดีค่ะ โทรนัดสอบวัดระดับให้น้องพัชแล้วนะคะ", 1, 10, 25),
+    msg("m_5b", "cv_5", "internal", "u_ton", "แม่สะดวกเช้าวันศุกร์ นัดไว้ 10:00 วิชาวิทย์แล้วค่ะ", 1, 10, 30),
   ]
 
   const ym = String((Number(today.slice(0, 4)) + 543) % 100).padStart(2, "0") + today.slice(5, 7) // พ.ศ. 2 หลัก, same as nextInvoiceNumber
@@ -351,5 +391,5 @@ export function buildSeed(now = new Date()): DB {
     },
   }
 
-  return { branches, staff, holidays, courses, classes, sessions, attendance, summaries, families, students, entitlements, leaves: [], invoices, leads, conversations, messages, notifications: [], system, notes, logs, assessments: [] }
+  return { branches, staff, holidays, courses, classes, sessions, attendance, summaries, families, students, entitlements, leaves: [], invoices, leads, conversations, messages, notifications: [], system, notes, logs, assessments }
 }

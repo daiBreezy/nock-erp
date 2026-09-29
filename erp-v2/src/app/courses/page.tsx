@@ -3,6 +3,7 @@
 import { Fragment, useMemo, useState } from "react"
 import { ArrowDownUpIcon, BookOpenIcon, CalendarIcon, ChevronDownIcon, ClockIcon, CopyIcon, DoorOpenIcon, LayersIcon, PencilIcon, PlusIcon, SearchIcon, StarIcon, UsersIcon, WalletIcon } from "lucide-react"
 import { Pill } from "@/components/app/badges"
+import { Kpi } from "@/components/app/kpi"
 import { NativeSelect } from "@/components/app/native-select"
 import { gradeTone, subjectColor } from "@/components/app/subject-color"
 import { CourseDialog, emptyCourse } from "@/components/courses/course-dialog"
@@ -214,15 +215,6 @@ export default function CoursesPage() {
       </div>
 
       {editing && <CourseDialog key={editing.id} branch={branches.find((b) => b.id === editing.branchId)!} initial={editing} onClose={() => setEditing(null)} />}
-    </div>
-  )
-}
-
-function Kpi({ icon: Icon, label, value }: { icon: typeof BookOpenIcon; label: string; value: React.ReactNode }) {
-  return (
-    <div className="flex items-center gap-3 rounded-3xl bg-card p-4 shadow-sm ring-1 ring-foreground/5">
-      <span className="grid size-10 place-items-center rounded-2xl bg-primary/10 text-primary"><Icon className="size-5" /></span>
-      <div><p className="text-xs text-muted-foreground">{label}</p><p className="text-2xl font-semibold tabular-nums">{value}</p></div>
     </div>
   )
 }

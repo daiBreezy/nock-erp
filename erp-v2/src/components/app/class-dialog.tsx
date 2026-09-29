@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { AlertTriangleIcon, BanIcon, BookOpenIcon, CheckIcon, InfoIcon, PlusIcon, TrashIcon } from "lucide-react"
+import { AlertTriangleIcon, BanIcon, BookOpenIcon, CheckIcon, InfoIcon, PlusIcon, TrashIcon, XIcon } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
@@ -17,8 +17,8 @@ import { report } from "@/lib/feedback"
 import { useBranch, useNow } from "@/lib/hooks"
 import { cn } from "@/lib/utils"
 import { useStore } from "@/store/store"
+import { CustomerPicker } from "./customer-picker"
 import { NativeSelect } from "./native-select"
-import { StudentSearch } from "./student-search"
 import { gradeTone, subjectColor } from "./subject-color"
 
 export interface ClassPrefill {
@@ -69,6 +69,7 @@ export function ClassDialog({ prefill, onClose }: { prefill: ClassPrefill; onClo
   const [startDate, setStartDate] = useState<DateStr>(startDay)
   const [rows, setRows] = useState<Row[]>([newRow(weekdayOf(startDay) as Weekday, prefill.start ?? "16:00", branch.defaultSessionMinutes)])
   const [studentIds, setStudentIds] = useState<string[]>([])
+  const [pickingStudent, setPickingStudent] = useState(false)
   const [overrideReason, setOverrideReason] = useState("")
 
   const course = courses.find((c) => c.id === courseId)
@@ -230,14 +231,32 @@ export function ClassDialog({ prefill, onClose }: { prefill: ClassPrefill; onClo
         </div>
 
         <Field label={`นักเรียน (${studentIds.length}/${CAPACITY[type]}) — ไม่บังคับ เพิ่มทีหลังได้`}>
-          <StudentSearch
-            students={branchStudents}
-            selected={studentIds.map((id) => branchStudents.find((s) => s.id === id)!).filter(Boolean)}
-            preferGrades={grades}
-            onPick={(s) => setStudentIds((x) => [...x, s.id])}
-            onRemove={(s) => setStudentIds((x) => x.filter((y) => y !== s.id))}
-            renderMeta={(s) => grades.length > 0 && Att.gradeMismatch(s, { grades }) ? <span className="text-[11px] text-amber-700">ชั้นไม่ตรงคลาส</span> : null}
-          />
+          <div className="space-y-2">
+            {studentIds.length > 0 && (
+              <div className="flex flex-wrap gap-1.5">
+                {studentIds.map((id) => {
+                  const s = branchStudents.find((x) => x.id === id)
+                  if (!s) return null
+                  const mismatch = grades.length > 0 && Att.gradeMismatch(s, { grades })
+                  return (
+                    <span key={id} className={cn("flex items-center gap-1 rounded-full py-0.5 pr-1 pl-2.5 text-xs", mismatch ? "bg-amber-100 text-amber-900 dark:bg-amber-950 dark:text-amber-200" : "bg-primary/10 text-primary")}>
+                      {s.nickname} · {s.grade}{mismatch && " · ชั้นไม่ตรงคลาส"}
+                      <button type="button" aria-label={`เอา ${s.nickname} ออก`} onClick={() => setStudentIds((x) => x.filter((y) => y !== id))} className="rounded-full p-0.5 hover:bg-black/10 dark:hover:bg-white/10"><XIcon className="size-3" /></button>
+                    </span>
+                  )
+                })}
+              </div>
+            )}
+            {studentIds.length < CAPACITY[type] && (
+              <button type="button" onClick={() => setPickingStudent(true)} className="flex w-full items-center justify-center gap-1.5 rounded-2xl border border-dashed py-2 text-sm text-primary hover:bg-primary/5">
+                <PlusIcon className="size-4" /> เพิ่มนักเรียน
+              </button>
+            )}
+          </div>
+          {pickingStudent && (
+            <CustomerPicker kinds={["student"]} title="เลือกนักเรียน" excludeIds={studentIds} onClose={() => setPickingStudent(false)}
+              onConfirm={(row) => { setStudentIds((x) => [...x, row.id]); setPickingStudent(false) }} />
+          )}
         </Field>
 
         <div className="rounded-lg bg-muted/50 p-3 text-sm">

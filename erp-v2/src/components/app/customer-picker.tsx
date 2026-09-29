@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { CUSTOMER_KIND_LABEL, customerRows, filterCustomers, type CustomerKind, type CustomerRow, type CustomerSort } from "@/domain/rules/customers"
+import type { ID } from "@/domain/types"
 import { useBranch } from "@/lib/hooks"
 import { cn } from "@/lib/utils"
 import { useStore } from "@/store/store"
@@ -19,11 +20,12 @@ import { avatarTone, gradeTone, initial } from "./subject-color"
  * Only one page of rows is rendered, so it stays usable with 100,000 records.
  */
 export function CustomerPicker({
-  kinds, title = "เลือกลูกค้า", onConfirm, onClose, initialKinds,
+  kinds, title = "เลือกลูกค้า", onConfirm, onClose, initialKinds, excludeIds,
 }: {
   kinds: CustomerKind[]
   title?: string
   initialKinds?: CustomerKind[]
+  excludeIds?: ID[]
   onConfirm: (row: CustomerRow) => void
   onClose: () => void
 }) {
@@ -37,10 +39,10 @@ export function CustomerPicker({
   const [sort, setSort] = useState<CustomerSort>("name")
   const [picked, setPicked] = useState<CustomerRow | null>(null)
 
-  const all = useMemo(
-    () => customerRows({ students: students.filter((s) => s.branchId === branch.id), families, leads: leads.filter((l) => l.branchId === branch.id) }, kinds),
-    [students, families, leads, branch.id, kinds],
-  )
+  const all = useMemo(() => {
+    const rows = customerRows({ students: students.filter((s) => s.branchId === branch.id), families, leads: leads.filter((l) => l.branchId === branch.id) }, kinds)
+    return excludeIds?.length ? rows.filter((r) => !excludeIds.includes(r.id)) : rows
+  }, [students, families, leads, branch.id, kinds, excludeIds])
   const rows = useMemo(() => filterCustomers(all, { q, kinds: on, grade, sort, gradeOrder: branch.grades }), [all, q, on, grade, sort, branch.grades])
   const page = usePage(rows, 30)
   const toggle = (k: CustomerKind) => setOn((cur) => (cur.includes(k) ? (cur.length > 1 ? cur.filter((x) => x !== k) : cur) : [...cur, k]))

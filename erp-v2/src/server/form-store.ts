@@ -1,6 +1,6 @@
 import { promises as fs } from "fs"
 import path from "path"
-import type { FormOfferSlot, FormSubjectOffer, FormSubmission, FormToken, FormType, ID } from "@/domain/types"
+import type { FormOfferSlot, FormParentInput, FormPick, FormSubjectOffer, FormSubmission, FormToken, FormType, ID } from "@/domain/types"
 import { fmtDate } from "@/domain/dates"
 import { FORM_TYPE_LABEL } from "@/domain/rules/forms"
 import { recordInboundMessage } from "./line-store"
@@ -23,10 +23,12 @@ async function readStore(): Promise<Store> {
   try {
     const raw = await fs.readFile(DATA_FILE, "utf8")
     const parsed = JSON.parse(raw) as Store
-    // defensively tolerate records from before offers/conversationId/grades existed
+    // defensively tolerate records from before offers/conversationId/grades existed, and drop any
+    // submission saved under the old flat one-row-per-pick shape (no `picks`/`parents` array) rather
+    // than crash on it — this file is local scratch data (gitignored), never a shared source of truth
     return {
       tokens: parsed.tokens.map((t) => ({ ...t, conversationId: t.conversationId ?? null, offers: t.offers ?? [], grades: t.grades ?? [] })),
-      submissions: parsed.submissions.map((s) => ({ ...s, conversationId: s.conversationId ?? null })),
+      submissions: parsed.submissions.filter((s) => Array.isArray((s as FormSubmission).picks) && Array.isArray((s as FormSubmission).parents)).map((s) => ({ ...s, conversationId: s.conversationId ?? null })),
     }
   } catch {
     return { tokens: [], submissions: [] }
@@ -79,31 +81,44 @@ export async function checkToken(token: string): Promise<TokenCheck> {
 }
 
 export async function submitForm(input: {
-  token: string; lineUserId: string; parentName: string; parentPhone: string
-  studentName: string; studentGrade: string
-  picks: { chosenSubject: string; chosenSlotId: string }[]
+  token: string
+  lineUserId: string
+  parents: FormParentInput[]
+  familyAddress?: string
+  familyPostcode?: string
+  students: {
+    name: string; nickname?: string; grade: string; birthDate?: string; note?: string
+    picks: { chosenSubject: string; chosenSlotId: string }[]
+  }[]
 }): Promise<{ ok: true; submissions: FormSubmission[] } | { ok: false; error: string }> {
   const check = await checkToken(input.token)
   if (!check.ok) return check
-  if (!input.picks.length) return { ok: false, error: "เลือกช่วงเวลาอย่างน้อย 1 ช่วง" }
-  // never trust a client-supplied slot payload — look up each offered slot server-side
-  const resolved: { subject: string; slot: FormOfferSlot }[] = []
-  for (const pick of input.picks) {
-    const offer = check.token.offers.find((o) => o.subject === pick.chosenSubject)
-    const slot = offer?.slots.find((s) => s.id === pick.chosenSlotId)
-    if (!slot) return { ok: false, error: "ช่วงเวลานี้ไม่ได้อยู่ในตัวเลือกที่เสนอ" }
-    resolved.push({ subject: pick.chosenSubject, slot })
+  if (!input.parents.length) return { ok: false, error: "ใส่ข้อมูลผู้ปกครองอย่างน้อย 1 คน" }
+  if (!input.students.length) return { ok: false, error: "เพิ่มนักเรียนอย่างน้อย 1 คน" }
+  // never trust a client-supplied slot payload — look up each offered slot server-side, per student
+  const resolvedStudents: { name: string; nickname?: string; grade: string; birthDate?: string; note?: string; picks: FormPick[] }[] = []
+  for (const student of input.students) {
+    if (!student.picks.length) return { ok: false, error: `เลือกวิชา/เวลาให้ ${student.name || "นักเรียน"} อย่างน้อย 1 วิชา` }
+    const picks: FormPick[] = []
+    for (const pick of student.picks) {
+      const offer = check.token.offers.find((o) => o.subject === pick.chosenSubject)
+      const slot = offer?.slots.find((s) => s.id === pick.chosenSlotId)
+      if (!slot) return { ok: false, error: "ช่วงเวลานี้ไม่ได้อยู่ในตัวเลือกที่เสนอ" }
+      picks.push({ chosenSubject: pick.chosenSubject, chosenSlot: slot })
+    }
+    resolvedStudents.push({ ...student, picks })
   }
 
+  const groupId = genId("grp")
   const submissions = await mutate((store) => {
     const t = store.tokens.find((x) => x.token === input.token)!
     t.used = true
-    return resolved.map(({ subject, slot }) => {
+    return resolvedStudents.map((student, i) => {
       const submission: FormSubmission = {
-        id: genId("frm"), token: input.token, type: t.type, leadId: t.leadId, conversationId: t.conversationId,
-        lineUserId: input.lineUserId, parentName: input.parentName, parentPhone: input.parentPhone,
-        studentName: input.studentName, studentGrade: input.studentGrade,
-        chosenSubject: subject, chosenSlot: slot,
+        id: genId("frm"), token: input.token, type: t.type, groupId, primaryLeadId: t.leadId, leadId: i === 0 ? t.leadId : null, branchId: t.branchId, conversationId: t.conversationId,
+        lineUserId: input.lineUserId, parents: input.parents, familyAddress: input.familyAddress, familyPostcode: input.familyPostcode,
+        studentName: student.name, studentNickname: student.nickname, studentGrade: student.grade, studentBirthDate: student.birthDate, studentNote: student.note,
+        picks: student.picks,
         status: "pending", submittedAt: new Date().toISOString(),
       }
       store.submissions.push(submission)
@@ -111,9 +126,10 @@ export async function submitForm(input: {
     })
   })
 
-  // surface each pick inline in Inbox as its own rich chat bubble
+  // surface each child inline in Inbox as its own rich chat bubble
   for (const sub of submissions) {
-    await recordInboundMessage(input.lineUserId, null, `ส่งแบบฟอร์ม${FORM_TYPE_LABEL[sub.type]} ${sub.chosenSubject} — ${fmtDate(sub.chosenSlot.date, { weekday: true })} ${sub.chosenSlot.start} น.`, {
+    const subjects = sub.picks.map((p) => `${p.chosenSubject} — ${fmtDate(p.chosenSlot.date, { weekday: true })} ${p.chosenSlot.start} น.`).join(", ")
+    await recordInboundMessage(input.lineUserId, null, `ส่งแบบฟอร์ม${FORM_TYPE_LABEL[sub.type]} สำหรับ ${sub.studentName}: ${subjects}`, {
       kind: "form_submission",
       meta: { formKind: "form_submission", submissionId: sub.id, type: sub.type },
     })
@@ -138,13 +154,14 @@ export async function reviewSubmission(id: ID, status: "approved" | "rejected", 
   })
 }
 
-/** Admin correction — free to pick any subject/slot, not constrained to the token's original offers. */
-export async function editSubmissionSlot(id: ID, subject: string, slot: FormOfferSlot): Promise<{ ok: true } | { ok: false; error: string }> {
+/** Admin correction — free to pick any subject/slot for one of this child's picks, not constrained to
+ *  the token's original offers. `pickIndex` selects which of the child's subject picks to replace. */
+export async function editSubmissionSlot(id: ID, pickIndex: number, subject: string, slot: FormOfferSlot): Promise<{ ok: true } | { ok: false; error: string }> {
   return mutate((store) => {
     const sub = store.submissions.find((s) => s.id === id)
     if (!sub) return { ok: false as const, error: "ไม่พบฟอร์มนี้" }
-    sub.chosenSubject = subject
-    sub.chosenSlot = slot
+    if (!sub.picks[pickIndex]) return { ok: false as const, error: "ไม่พบวิชานี้ในฟอร์ม" }
+    sub.picks[pickIndex] = { chosenSubject: subject, chosenSlot: slot }
     return { ok: true as const }
   })
 }

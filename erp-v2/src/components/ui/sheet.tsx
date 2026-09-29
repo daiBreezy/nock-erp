@@ -80,21 +80,25 @@ function SheetContent({
   )
 }
 
+/** Pinned top of the 3-part Header/Body/Footer sheet layout — pair with a `min-h-0 flex-1 overflow-y-auto`
+ *  body div and `SheetFooter` below it (see lead-sheet.tsx). `shrink-0` keeps it from being squashed by
+ *  the scrolling body in the flex column. */
 function SheetHeader({ className, ...props }: React.ComponentProps<"div">) {
   return (
     <div
       data-slot="sheet-header"
-      className={cn("flex flex-col gap-1.5 p-6", className)}
+      className={cn("flex shrink-0 flex-col gap-1.5 p-6", className)}
       {...props}
     />
   )
 }
 
+/** Pinned bottom CTA bar of the 3-part sheet layout — stays visible while the body scrolls behind it. */
 function SheetFooter({ className, ...props }: React.ComponentProps<"div">) {
   return (
     <div
       data-slot="sheet-footer"
-      className={cn("mt-auto flex flex-col gap-2 p-6", className)}
+      className={cn("mt-auto flex shrink-0 flex-col gap-2 border-t bg-popover p-6", className)}
       {...props}
     />
   )

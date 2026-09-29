@@ -1,6 +1,7 @@
 // CRM lead pipeline (Phase 2 rebuild). Spec ref: new-erp/js/crm.js (stage list + grouping).
 
-import type { Lead, LeadStage, Result } from "../types"
+import { daysBetween, fmtDate, toDateStr } from "../dates"
+import type { DateStr, Lead, LeadStage, Result } from "../types"
 
 export const LEAD_STAGE_LABEL: Record<LeadStage, string> = {
   new: "ลูกค้าใหม่",
@@ -29,14 +30,14 @@ export interface PipelineGroup {
   stages: LeadStage[]
 }
 
-/** Sub-stages folded into columns so the board reads as one funnel (test_scheduled+tested = "นัดสอบ", etc). */
+/** Sub-stages folded into columns so the board reads as one funnel, not nine near-empty ones
+ *  (owner 2026-09-29: 5 columns max — matches the reference board). Each card still shows its exact
+ *  sub-stage as a chip when a column covers more than one (see `leadDetail`/LeadCard). */
 export const PIPELINE_GROUPS: PipelineGroup[] = [
-  { key: "new", label: "ลูกค้าใหม่", stages: ["new"] },
-  { key: "contacting", label: "กำลังติดต่อ", stages: ["contacting"] },
+  { key: "contact", label: "ติดต่อ", stages: ["new", "contacting"] },
   { key: "test", label: "นัดสอบ", stages: ["test_scheduled", "tested"] },
   { key: "trial", label: "ทดลองเรียน", stages: ["trial_scheduled", "trialed"] },
-  { key: "payment_pending", label: "รอชำระเงิน", stages: ["payment_pending"] },
-  { key: "enrolled", label: "ลงทะเบียนแล้ว", stages: ["enrolled"] },
+  { key: "closing", label: "ปิดการขาย", stages: ["payment_pending", "enrolled"] },
   { key: "archived", label: "เก็บเข้าคลัง", stages: ["archived"] },
 ]
 
@@ -73,10 +74,93 @@ export function canSetStage(current: LeadStage, target: LeadStage): Result {
   return { ok: true, value: undefined }
 }
 
+/** Where "กู้คืนจากคลัง" sends a lead back to — the stage it was archived from, or "new" when that's unknown
+ *  (older data / archived from "archived" itself shouldn't happen, but never trap a lead there). */
+export function restoreStage(l: Pick<Lead, "archivedFrom">): LeadStage {
+  return l.archivedFrom && l.archivedFrom !== "archived" ? l.archivedFrom : "new"
+}
+
 export function validateLead(l: Pick<Lead, "name" | "childGrade" | "subject" | "phone">): string | null {
   if (!l.name.trim()) return "ใส่ชื่อผู้ปกครองหรือผู้ติดต่อ"
   if (!l.childGrade.trim()) return "ใส่ระดับชั้นของลูก"
   if (!l.subject.trim()) return "เลือกวิชาที่สนใจ"
   if (!l.phone.trim()) return "ใส่เบอร์โทรติดต่อ"
   return null
+}
+
+/** Last time staff actually reached out — the most recent note, or creation if nothing's logged yet.
+ *  "days ago" on a "กำลังติดต่อ" card must count from here, not from createdAt (that's just when the lead arrived). */
+export function lastContactAt(l: Pick<Lead, "notes" | "createdAt">): string {
+  return l.notes.length ? l.notes[l.notes.length - 1].at : l.createdAt
+}
+
+/** Countdown to a test/trial appointment — same day-math as `sendDeadline` in summaries.ts (calendar days, not ms). */
+export function scheduleInfo(scheduledAt: string, now: Date): { date: DateStr; daysLeft: number; overdue: boolean } {
+  const date = toDateStr(new Date(scheduledAt))
+  const daysLeft = daysBetween(toDateStr(now), date)
+  return { date, daysLeft, overdue: daysLeft < 0 }
+}
+
+export interface LeadDetail {
+  text: string
+  /** same fact, without the weekday prefix — fits the Kanban card's narrower row (table/sheet use `text`). */
+  shortText: string
+  /** severity only — no UI/colour knowledge in domain/rules; the component maps this to a Pill tone. */
+  level: "muted" | "info" | "warn" | "danger"
+}
+
+/** The one glanceable fact each pipeline stage needs — shared by the Kanban card, the table row and the
+ *  lead sheet so the three views can never drift out of sync with each other. */
+export function leadDetail(l: Pick<Lead, "stage" | "createdAt" | "notes" | "scheduledAt" | "archiveReason" | "archivedFrom">, now: Date): LeadDetail {
+  const plain = (text: string, level: LeadDetail["level"]): LeadDetail => ({ text, shortText: text, level })
+
+  if (l.stage === "archived") {
+    const from = l.archivedFrom && l.archivedFrom !== "archived" ? LEAD_STAGE_LABEL[l.archivedFrom] : null
+    const reason = l.archiveReason || "ไม่ระบุเหตุผล"
+    return plain(from ? `จาก "${from}" · ${reason}` : reason, "muted")
+  }
+  if (l.stage === "enrolled") return plain("ลงทะเบียนแล้ว", "info")
+
+  if (l.stage === "test_scheduled" || l.stage === "trial_scheduled") {
+    if (!l.scheduledAt) return plain("ยังไม่นัดวัน", "warn")
+    const { date, daysLeft, overdue } = scheduleInfo(l.scheduledAt, now)
+    const long = fmtDate(date, { weekday: true })
+    const short = fmtDate(date)
+    if (overdue) { const suffix = `เลยนัด ${-daysLeft} วัน`; return { text: `${long} · ${suffix}`, shortText: `${short} · ${suffix}`, level: "danger" } }
+    const suffix = daysLeft === 0 ? "วันนี้" : daysLeft === 1 ? "พรุ่งนี้" : `อีก ${daysLeft} วัน`
+    return { text: `${long} · ${suffix}`, shortText: `${short} · ${suffix}`, level: daysLeft <= 1 ? "warn" : "info" }
+  }
+  if (l.stage === "tested") return plain("สอบแล้ว · รอนัดทดลองเรียน", "info")
+  if (l.stage === "trialed") return plain("ทดลองเรียนแล้ว · รอออกใบแจ้งหนี้", "info")
+  if (l.stage === "payment_pending") return plain("รอผู้ปกครองชำระเงิน", "warn")
+
+  // new / contacting: how long since we actually talked to them, not since the lead first arrived
+  const days = daysAgo(lastContactAt(l), now)
+  if (l.stage === "new") return days === 0 ? plain("เพิ่งเข้ามาวันนี้", "info") : plain(`รอติดต่อมา ${days} วัน`, days >= 2 ? "warn" : "info")
+  return days === 0 ? plain("ติดต่อวันนี้", "muted") : plain(`ติดต่อล่าสุด ${days} วันก่อน`, days >= 3 ? "warn" : "muted")
+}
+
+export interface CrmKpis {
+  total: number
+  /** not yet enrolled or archived */
+  active: number
+  /** test/trial appointment due today or tomorrow */
+  dueSoon: number
+  /** test/trial appointment date already passed without a result */
+  overdue: number
+  enrolled: number
+  /** enrolled ÷ total, rounded to the nearest percent */
+  conversionRate: number
+}
+
+export function crmKpis(leads: Lead[], now: Date): CrmKpis {
+  const total = leads.length
+  const active = leads.filter((l) => l.stage !== "enrolled" && l.stage !== "archived").length
+  const appointments = leads
+    .filter((l) => l.scheduledAt && (l.stage === "test_scheduled" || l.stage === "trial_scheduled"))
+    .map((l) => scheduleInfo(l.scheduledAt!, now))
+  const overdue = appointments.filter((a) => a.overdue).length
+  const dueSoon = appointments.filter((a) => !a.overdue && a.daysLeft <= 1).length
+  const enrolled = leads.filter((l) => l.stage === "enrolled").length
+  return { total, active, dueSoon, overdue, enrolled, conversionRate: total ? Math.round((enrolled / total) * 100) : 0 }
 }

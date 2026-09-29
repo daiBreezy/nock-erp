@@ -301,6 +301,12 @@ export interface Parent {
   phone: string
   lineLinked: boolean
   primary: boolean
+  email?: string
+  /** "Mom" / "Dad" / "Guardian" etc — free text, shown next to the name */
+  relationship?: string
+  birthDate?: DateStr
+  /** phone numbers beyond the primary `phone` above — additive so every existing `p.phone` read stays correct */
+  altPhones?: string[]
 }
 
 export interface Family {
@@ -313,6 +319,8 @@ export interface Family {
   lineCode?: { code: string; expiresAt: string }
   /** real LINE Messaging API user id, once linked via Inbox (see linkConversationToFamily) — enables real delivery, not just the lineLinked simulation flag */
   lineUserId?: string
+  /** for receipts — optional, most families never fill this in */
+  taxInfo?: { customerName: string; taxId: string; address: string }
 }
 
 export interface Student {
@@ -630,20 +638,52 @@ export interface FormToken {
   used: boolean
 }
 
+/** A parent as typed into the form — not yet a `Parent` record (no `lineLinked`/`primary`,
+ *  those only make sense once merged into an actual `Family`). */
+export interface FormParentInput {
+  name: string
+  phone: string
+  email?: string
+  relationship?: string
+  birthDate?: DateStr
+}
+
+/** One subject + the exact slot chosen for it — a submission row now holds one of these per subject
+ *  the parent picked for that child, replacing the old one-row-per-pick shape. */
+export interface FormPick {
+  chosenSubject: string
+  /** denormalized snapshot — self-contained even if the token's offers later change */
+  chosenSlot: FormOfferSlot
+}
+
+/** One child in a Test/Trial submission. A parent submitting for 2 children produces 2 `FormSubmission`
+ *  rows sharing one `groupId` — this keeps the existing "1 Lead per child" invariant (types.ts Lead docs)
+ *  instead of inventing a multi-child Lead. */
 export interface FormSubmission {
   id: ID
   token: string
   type: FormType
-  leadId: ID
+  /** every child submitted together in the same parent session shares this — shown to staff so they can
+   *  see "these N children arrived together", but each is still reviewed/approved independently */
+  groupId: ID
+  /** the token's own lead — every child in the group is a sibling of this one, even a child who gets
+   *  their own new Lead below (source for copied subject/assignee/branch context) */
+  primaryLeadId: ID
+  /** this child's own Lead: same as `primaryLeadId` for the first/primary child; null for an additional
+   *  child added via "Add another Student" until approval lazily creates one, same as the Student already does */
+  leadId: ID | null
+  branchId: ID
   conversationId: ID | null
   lineUserId: string
-  parentName: string
-  parentPhone: string
+  parents: FormParentInput[]
+  familyAddress?: string
+  familyPostcode?: string
   studentName: string
+  studentNickname?: string
   studentGrade: string
-  chosenSubject: string
-  /** denormalized snapshot — self-contained even if the token's offers later change */
-  chosenSlot: FormOfferSlot
+  studentBirthDate?: DateStr
+  studentNote?: string
+  picks: FormPick[]
   status: FormStatus
   submittedAt: string
   reviewedAt?: string

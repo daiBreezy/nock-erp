@@ -2,32 +2,27 @@
 
 import Link from "next/link"
 import { useEffect, useState } from "react"
-import { ArchiveIcon, CheckIcon, PhoneIcon, ReceiptIcon, RotateCcwIcon, SendIcon, UserCheckIcon } from "lucide-react"
+import { ArchiveIcon, CalendarIcon, MessageCircleIcon, PhoneIcon, ReceiptIcon, RotateCcwIcon, SendIcon, UserCheckIcon } from "lucide-react"
 import { AssessmentNote } from "@/components/app/assessment-note"
 import { Pill } from "@/components/app/badges"
-import { avatarTone, gradeTone, initial } from "@/components/app/subject-color"
+import { NativeSelect } from "@/components/app/native-select"
+import { gradeTone, avatarTone, initial, subjectColor } from "@/components/app/subject-color"
 import { StudentSheet } from "@/components/app/student-sheet"
 import { SendFormDialog } from "@/components/inbox/send-form-dialog"
 import { SubmissionReviewCard } from "@/components/inbox/submission-review-card"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Label } from "@/components/ui/label"
-import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet"
+import { Sheet, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetTitle } from "@/components/ui/sheet"
 import { Textarea } from "@/components/ui/textarea"
 import { fmtDateTime } from "@/domain/dates"
-import { daysAgoLabel, LEAD_SOURCE_LABEL, LEAD_STAGE_LABEL } from "@/domain/rules/crm"
+import { daysAgoLabel, DRAGGABLE_STAGES, LEAD_SOURCE_LABEL, LEAD_STAGE_LABEL, scheduleInfo } from "@/domain/rules/crm"
 import { can } from "@/domain/rules/permissions"
 import type { FormSubmission, ID, LeadStage } from "@/domain/types"
 import { report } from "@/lib/feedback"
 import { useNow } from "@/lib/hooks"
 import { cn } from "@/lib/utils"
 import { useStore } from "@/store/store"
-
-/** Forward path a lead normally walks — used to suggest the next action button. */
-const NEXT_STAGE: Partial<Record<LeadStage, { stage: LeadStage; label: string }[]>> = {
-  new: [{ stage: "contacting", label: "เริ่มติดต่อแล้ว" }],
-  contacting: [{ stage: "test_scheduled", label: "นัดสอบวัดระดับ" }, { stage: "trial_scheduled", label: "นัดทดลองเรียน" }],
-}
 
 /** Stages that now move by themselves (E2E 2026-09-28) — the sheet says what will move them instead of a button. */
 const AUTO_HINT: Partial<Record<LeadStage, string>> = {
@@ -38,10 +33,15 @@ const AUTO_HINT: Partial<Record<LeadStage, string>> = {
   payment_pending: "ยืนยันยอดเงินครบ → เป็นนักเรียน (“ลงทะเบียนแล้ว”) เอง พร้อมส่งใบเสร็จทาง LINE",
 }
 
+/**
+ * Every side panel in the app follows the same 3-part shell: SheetHeader (pinned) → scrolling body →
+ * SheetFooter (pinned CTA row) — see src/components/ui/sheet.tsx. Keep new sections in the body; the
+ * footer is reserved for the sheet's primary action(s) so it never has to be hunted for while scrolling.
+ */
 export function LeadSheet({ leadId, onClose }: { leadId: ID | null; onClose: () => void }) {
   return (
     <Sheet open={!!leadId} onOpenChange={(o) => !o && onClose()}>
-      <SheetContent className="w-full overflow-y-auto data-[side=right]:sm:max-w-lg">{leadId && <Body id={leadId} />}</SheetContent>
+      <SheetContent className="flex w-full flex-col gap-0 p-0 data-[side=right]:sm:max-w-lg">{leadId && <Body id={leadId} />}</SheetContent>
     </Sheet>
   )
 }
@@ -49,8 +49,12 @@ export function LeadSheet({ leadId, onClose }: { leadId: ID | null; onClose: () 
 function Body({ id }: { id: ID }) {
   const lead = useStore((s) => s.leads.find((x) => x.id === id))
   const staff = useStore((s) => s.staff)
+  const students = useStore((s) => s.students)
+  const families = useStore((s) => s.families)
+  const conversations = useStore((s) => s.conversations)
   const me = useStore((s) => s.staff.find((x) => x.id === s.userId)!)
   const moveStage = useStore((s) => s.moveLeadStage)
+  const restore = useStore((s) => s.restoreLead)
   const addNote = useStore((s) => s.addLeadNote)
   const convert = useStore((s) => s.convertLeadToStudent)
   const now = useNow()
@@ -72,12 +76,21 @@ function Body({ id }: { id: ID }) {
 
   if (!lead) return null
   const myAssessments = assessments.filter((a) => a.leadId === lead.id).sort((a, b) => a.date.localeCompare(b.date))
-  const mySubmissions = submissions.filter((s) => s.leadId === lead.id)
+  const latestAssessment = myAssessments.at(-1)
+  const mySubmissions = submissions.filter((s) => s.leadId === lead.id).sort((a, b) => b.submittedAt.localeCompare(a.submittedAt))
   const pending = mySubmissions.filter((s) => s.status === "pending")
+  const history = mySubmissions.filter((s) => s.status !== "pending")
+
+  // once a lead has a real Student record (trial or fully converted), its family — parents, siblings — is
+  // the fuller, live contact record; show it here too so this panel never falls behind what Inbox knows
+  const linkedStudent = students.find((s) => s.id === (lead.convertedStudentId ?? lead.trialStudentId))
+  const linkedFamily = linkedStudent ? families.find((f) => f.id === linkedStudent.familyId) : undefined
+  const familyChildren = linkedFamily ? students.filter((s) => s.familyId === linkedFamily.id) : []
+  const conversation = conversations.find((c) => c.leadId === lead.id)
 
   const assignee = staff.find((x) => x.id === lead.assigneeId)
   const canManage = can(me, "lead.manage")
-  const next = NEXT_STAGE[lead.stage] ?? []
+  const stageEditable = canManage && lead.stage !== "archived" && lead.stage !== "enrolled"
 
   return (
     <>
@@ -90,53 +103,100 @@ function Body({ id }: { id: ID }) {
           </div>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <Pill tone={lead.stage === "archived" ? "gray" : lead.stage === "enrolled" ? "green" : "blue"}>{LEAD_STAGE_LABEL[lead.stage]}</Pill>
+          {stageEditable ? (
+            <NativeSelect
+              className="h-8 w-44"
+              value={lead.stage}
+              onChange={(e) => {
+                const target = e.target.value as LeadStage
+                if (target !== lead.stage) report(moveStage(lead.id, target), `ย้ายไป "${LEAD_STAGE_LABEL[target]}" แล้ว`)
+              }}
+              options={DRAGGABLE_STAGES.map((st) => ({ value: st, label: LEAD_STAGE_LABEL[st] }))}
+            />
+          ) : (
+            <Pill tone={lead.stage === "archived" ? "gray" : lead.stage === "enrolled" ? "green" : "blue"}>{LEAD_STAGE_LABEL[lead.stage]}</Pill>
+          )}
           {assignee && <Pill tone="gray"><UserCheckIcon className="size-3" /> {assignee.nickname}</Pill>}
         </div>
+        {(conversation || latestAssessment) && (
+          <div className="flex flex-wrap items-center gap-1.5">
+            {conversation && (
+              <Button size="xs" variant="outline" nativeButton={false} render={<Link href={`/inbox?conversation=${conversation.id}`} />}>
+                <MessageCircleIcon /> เปิดแชทใน Inbox
+              </Button>
+            )}
+            {latestAssessment && (
+              <Button size="xs" variant="outline" nativeButton={false} render={<Link href={`/calendar?sessionId=${latestAssessment.sessionId}`} />}>
+                <CalendarIcon /> ดูคาบในปฏิทิน
+              </Button>
+            )}
+          </div>
+        )}
       </SheetHeader>
 
-      <div className="space-y-5 px-4 pt-5 pb-6 text-sm">
+      <div className="min-h-0 flex-1 space-y-5 overflow-y-auto px-4 py-4 text-sm">
+        <Section title="ความสนใจ">
+          <div className="flex flex-wrap items-center gap-1.5">
+            <span className={cn("rounded-full px-2 py-0.5 text-xs font-medium", subjectColor(lead.subject).chip)}>{lead.subject}</span>
+            <span className={cn("rounded-full px-2 py-0.5 text-xs font-medium", gradeTone(lead.childGrade))}>{lead.childGrade}</span>
+            <Pill tone="gray">{LEAD_SOURCE_LABEL[lead.source]}</Pill>
+          </div>
+        </Section>
+
         <Section title="ติดต่อ">
           <div className="space-y-1">
             {lead.phone && <a href={`tel:${lead.phone.replace(/\D/g, "")}`} className="inline-flex items-center gap-1 text-sky-700 hover:underline"><PhoneIcon className="size-3" />{lead.phone}</a>}
             {lead.lineId && <div className="text-muted-foreground">LINE: {lead.lineId}</div>}
             {!lead.phone && !lead.lineId && <p className="text-muted-foreground">ยังไม่มีช่องทางติดต่อ</p>}
-            {lead.scheduledAt && <div className="text-muted-foreground">นัดหมาย: {fmtDateTime(lead.scheduledAt)}</div>}
           </div>
-        </Section>
-
-        {canManage && lead.stage !== "enrolled" && lead.stage !== "archived" && (
-          <Section title="ขั้นตอนถัดไป">
-            <div className="flex flex-wrap gap-1.5">
-              {next.map((n) => (
-                <Button key={n.stage} size="sm" variant="outline" onClick={() => report(moveStage(lead.id, n.stage), `ย้ายไป "${LEAD_STAGE_LABEL[n.stage]}" แล้ว`)}>
-                  <CheckIcon /> {n.label}
-                </Button>
+          {linkedFamily && (
+            <div className="mt-2 space-y-1.5 rounded-lg border bg-muted/30 p-2">
+              <p className="text-xs font-medium">{linkedFamily.name}</p>
+              {linkedFamily.parents.map((p) => (
+                <div key={p.name} className="text-xs">
+                  <a href={`tel:${p.phone.replace(/\D/g, "")}`} className="text-sky-700 hover:underline">{p.name} · {p.phone}</a>
+                  <Pill tone={p.lineLinked ? "green" : "amber"} className="ml-1">{p.lineLinked ? "LINE แล้ว" : "ยังไม่ผูก LINE"}</Pill>
+                </div>
               ))}
-              {lead.trialStudentId ? (
-                <>
-                  <Button size="sm" variant="outline" onClick={() => setOpenStudentId(lead.trialStudentId!)}>เปิดโปรไฟล์นักเรียน</Button>
-                  {can(me, "billing.manage") && <Button size="sm" nativeButton={false} render={<Link href={`/billing?new=${lead.trialStudentId}`} />}><ReceiptIcon /> ออกใบแจ้งหนี้</Button>}
-                </>
-              ) : (
-                <Button size="sm" variant="outline" onClick={() => { const r = convert(lead.id); if (report(r, "สร้างนักเรียน + ครอบครัวแล้ว — ออกใบแจ้งหนี้ได้เลย")) setOpenStudentId(r.ok ? r.value.studentId : null) }}>
-                  <UserCheckIcon /> สร้างนักเรียน (ข้ามสอบ/ทดลอง)
-                </Button>
+              {familyChildren.length > 0 && (
+                <div className="pt-1">
+                  <p className="mb-1 text-xs font-medium text-muted-foreground">ลูก ({familyChildren.length})</p>
+                  <div className="flex flex-wrap gap-1">
+                    {familyChildren.map((s) => (
+                      <button key={s.id} type="button" onClick={() => setOpenStudentId(s.id)} className="rounded-full border bg-background px-2 py-0.5 text-xs hover:bg-muted">{s.nickname} · {s.grade}</button>
+                    ))}
+                  </div>
+                </div>
               )}
             </div>
-            {AUTO_HINT[lead.stage] && <p className="text-xs text-muted-foreground">อัตโนมัติ: {AUTO_HINT[lead.stage]}</p>}
-          </Section>
-        )}
+          )}
+        </Section>
 
-        {lead.stage === "enrolled" && lead.convertedStudentId && (
-          <Section title="นักเรียน">
-            <Button size="sm" variant="outline" onClick={() => setOpenStudentId(lead.convertedStudentId!)}>เปิดโปรไฟล์นักเรียน</Button>
+        {lead.scheduledAt && (
+          <Section title="นัดหมาย Test/Trial">
+            {lead.stage === "test_scheduled" || lead.stage === "trial_scheduled" ? (() => {
+              const due = scheduleInfo(lead.scheduledAt!, now)
+              return (
+                <div className={cn(due.overdue ? "font-medium text-red-700" : due.daysLeft <= 1 ? "text-amber-700" : "text-muted-foreground")}>
+                  {fmtDateTime(lead.scheduledAt!)} · {due.overdue ? `เลยนัด ${-due.daysLeft} วัน` : due.daysLeft === 0 ? "วันนี้" : due.daysLeft === 1 ? "พรุ่งนี้" : `อีก ${due.daysLeft} วัน`}
+                </div>
+              )
+            })() : (
+              <div className="text-muted-foreground">{fmtDateTime(lead.scheduledAt)}</div>
+            )}
           </Section>
         )}
 
         {myAssessments.length > 0 && (
           <Section title="ผลสอบ / ทดลองเรียน">
-            <div className="space-y-2">{myAssessments.map((a) => <AssessmentNote key={a.id} a={a} editable={canManage} showWhen />)}</div>
+            <div className="space-y-2">
+              {myAssessments.map((a) => (
+                <div key={a.id}>
+                  <AssessmentNote a={a} editable={canManage} showWhen />
+                  <Link href={`/calendar?sessionId=${a.sessionId}`} className="mt-1 inline-flex items-center gap-1 text-xs text-sky-700 hover:underline"><CalendarIcon className="size-3" /> ดูคาบนี้ในปฏิทิน</Link>
+                </div>
+              ))}
+            </div>
           </Section>
         )}
 
@@ -161,6 +221,18 @@ function Body({ id }: { id: ID }) {
                   </div>
                 ))}
               </div>
+            )}
+            {history.length > 0 && (
+              <details className="mt-3 rounded-lg border">
+                <summary className="cursor-pointer px-2.5 py-2 text-xs font-medium text-muted-foreground">ประวัติแบบฟอร์มก่อนหน้า ({history.length})</summary>
+                <div className="space-y-2 border-t p-2.5">
+                  {history.map((sub) => (
+                    <div key={sub.id} className="rounded-lg border bg-muted/30 p-2.5 text-xs">
+                      <SubmissionReviewCard submission={sub} onChanged={pollSubmissions} />
+                    </div>
+                  ))}
+                </div>
+              </details>
             )}
             {sendingFormOpen && lead.lineUserId && (
               <SendFormDialog
@@ -188,21 +260,47 @@ function Body({ id }: { id: ID }) {
             </div>
           )}
         </Section>
-
-        {canManage && (
-          <div className="border-t pt-3">
-            {lead.stage === "archived" ? (
-              <Button size="sm" variant="outline" onClick={() => report(moveStage(lead.id, lead.archivedFrom && lead.archivedFrom !== "archived" ? lead.archivedFrom : "new"), "กู้คืนแล้ว")}>
-                <RotateCcwIcon /> กู้คืนจากคลัง
-              </Button>
-            ) : lead.stage !== "enrolled" && (
-              <Button size="sm" variant="outline" className="text-red-700" onClick={() => setArchiving(true)}>
-                <ArchiveIcon /> เก็บเข้าคลัง
-              </Button>
-            )}
-          </div>
-        )}
       </div>
+
+      <SheetFooter className="flex-row flex-wrap items-center justify-between gap-2">
+        {!canManage ? (
+          <p className="text-xs text-muted-foreground">ดูอย่างเดียว — ไม่มีสิทธิ์จัดการ Lead</p>
+        ) : (
+          <>
+            <div>
+              {lead.stage === "archived" ? (
+                <Button size="sm" variant="outline" onClick={() => report(restore(lead.id), "กู้คืนแล้ว")}><RotateCcwIcon /> กู้คืนจากคลัง</Button>
+              ) : lead.stage !== "enrolled" && (
+                <Button size="sm" variant="ghost" className="text-muted-foreground hover:bg-red-50 hover:text-red-700 dark:hover:bg-red-950/30" onClick={() => setArchiving(true)}><ArchiveIcon /> เก็บเข้าคลัง</Button>
+              )}
+            </div>
+            {lead.stage === "enrolled" ? (
+              <div className="flex flex-wrap items-center justify-end gap-1.5">
+                {lead.convertedStudentId ? (
+                  <Button size="sm" variant="outline" onClick={() => setOpenStudentId(lead.convertedStudentId!)}>เปิดโปรไฟล์นักเรียน</Button>
+                ) : (
+                  <p className="text-xs text-muted-foreground">ลงทะเบียนแล้ว — ยังไม่พบโปรไฟล์นักเรียนที่ผูกไว้</p>
+                )}
+              </div>
+            ) : lead.stage !== "archived" && (
+              <div className="flex flex-wrap items-center justify-end gap-1.5">
+                {lead.trialStudentId ? (
+                  <>
+                    <Button size="sm" variant="outline" onClick={() => setOpenStudentId(lead.trialStudentId!)}>เปิดโปรไฟล์นักเรียน</Button>
+                    {can(me, "billing.manage") && <Button size="sm" nativeButton={false} render={<Link href={`/billing?new=${lead.trialStudentId}`} />}><ReceiptIcon /> ออกใบแจ้งหนี้</Button>}
+                  </>
+                ) : (
+                  <Button size="sm" onClick={() => { const r = convert(lead.id); if (report(r, "สร้างนักเรียน + ครอบครัวแล้ว — ออกใบแจ้งหนี้ได้เลย")) setOpenStudentId(r.ok ? r.value.studentId : null) }}>
+                    <UserCheckIcon /> สร้างนักเรียน (ข้ามสอบ/ทดลอง)
+                  </Button>
+                )}
+              </div>
+            )}
+          </>
+        )}
+        {canManage && AUTO_HINT[lead.stage] && <p className="basis-full text-xs text-muted-foreground">อัตโนมัติ: {AUTO_HINT[lead.stage]}</p>}
+      </SheetFooter>
+
       {archiving && <ArchiveDialog id={lead.id} onClose={() => setArchiving(false)} />}
       <StudentSheet studentId={openStudentId} onClose={() => setOpenStudentId(null)} />
     </>

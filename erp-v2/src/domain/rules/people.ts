@@ -1,7 +1,7 @@
 // Families, students, staff and LINE linking (S4, S5, S6, F2, Flow E).
 
 import { addDays } from "../dates"
-import type { DateStr, Family, ID, Lead, Result, Session, Staff, Student } from "../types"
+import type { DateStr, Family, FormParentInput, ID, Lead, Result, Session, Staff, Student } from "../types"
 import { teachersOf } from "./scheduling"
 
 const digits = (s: string) => s.replace(/\D/g, "")
@@ -22,7 +22,9 @@ export interface FieldError {
   message: string
 }
 
-/** S4: family form validated before saving */
+/** S4: family form validated before saving. Also catches same-submission data mistakes (owner
+ *  2026-09-29: a reference form he was shown had two different parents with the identical phone
+ *  number entered by accident) — one phone can't belong to two parents in the same family. */
 export function validateFamily(f: Pick<Family, "name" | "parents" | "postcode">): FieldError[] {
   const errs: FieldError[] = []
   if (!f.name.trim()) errs.push({ field: "name", message: "ใส่ชื่อครอบครัว" })
@@ -30,6 +32,8 @@ export function validateFamily(f: Pick<Family, "name" | "parents" | "postcode">)
   f.parents.forEach((p, i) => {
     if (!p.name.trim()) errs.push({ field: `parent${i}.name`, message: `ผู้ปกครองคนที่ ${i + 1}: ใส่ชื่อ` })
     if (!validPhone(p.phone)) errs.push({ field: `parent${i}.phone`, message: `ผู้ปกครองคนที่ ${i + 1}: เบอร์โทรไม่ถูกต้อง (เช่น 081-234-5678)` })
+    const dup = f.parents.findIndex((other, j) => j < i && digits(other.phone) && digits(other.phone) === digits(p.phone))
+    if (dup !== -1) errs.push({ field: `parent${i}.phone`, message: `ผู้ปกครองคนที่ ${i + 1}: เบอร์โทรซ้ำกับผู้ปกครองคนที่ ${dup + 1}` })
   })
   if (f.parents.filter((p) => p.primary).length !== 1 && f.parents.length) errs.push({ field: "parents", message: "เลือกผู้ปกครองหลัก 1 คน" })
   if (f.postcode && !/^\d{5}$/.test(f.postcode)) errs.push({ field: "postcode", message: "รหัสไปรษณีย์ต้องเป็นตัวเลข 5 หลัก" })
@@ -74,6 +78,42 @@ export function familyFromLead(
     parents: [{ name: child.parentName?.trim() || lead.name, phone: formatPhone(child.parentPhone?.trim() || lead.phone), lineLinked: !!lead.lineUserId, primary: true }],
     lineUserId: lead.lineUserId,
   }
+}
+
+/** Same family a Test/Trial submission becomes, but built from the submission's own `parents[]` instead
+ *  of collapsing to the lead's single name/phone — used once the form actually collected full parent
+ *  details (see approveTestTrialSubmission). The first parent listed is the one who logged into LINE to
+ *  submit, so only they get `lineLinked`/`primary`; others can be corrected by staff afterwards. */
+export function familyFromSubmission(studentName: string, parents: FormParentInput[], family: { address?: string; postcode?: string }, lineUserId: string | undefined, id: ID): Family {
+  const parts = nameParts(studentName)
+  const parentSurname = parents[0] ? nameParts(parents[0].name).slice(-1)[0] : undefined
+  const surname = parts.length > 1 ? parts[parts.length - 1] : parentSurname ?? "ครอบครัวใหม่"
+  return {
+    id,
+    name: `ครอบครัว${surname}`,
+    parents: parents.map((p, i) => ({
+      name: p.name.trim(), phone: formatPhone(p.phone.trim()), email: p.email?.trim() || undefined,
+      relationship: p.relationship?.trim() || undefined, birthDate: p.birthDate,
+      lineLinked: i === 0 && !!lineUserId, primary: i === 0,
+    })),
+    address: family.address?.trim() || undefined,
+    postcode: family.postcode?.trim() || undefined,
+    lineUserId,
+  }
+}
+
+/** Conflict-safe lookup before creating a new Family from a submission: match by LINE identity first
+ *  (same as `ensureLeadFamily` already does), then by any parent phone already on file — so a family that
+ *  submits a second form (different LINE account, same phone) gets found instead of duplicated. Never
+ *  merges automatically; the caller still shows the match to staff before anything is overwritten. */
+export function matchExistingFamily(families: Family[], criteria: { lineUserId?: string; phones: string[] }): Family | null {
+  if (criteria.lineUserId) {
+    const byLine = families.find((f) => f.lineUserId === criteria.lineUserId)
+    if (byLine) return byLine
+  }
+  const wanted = new Set(criteria.phones.map(digits).filter(Boolean))
+  if (!wanted.size) return null
+  return families.find((f) => f.parents.some((p) => wanted.has(digits(p.phone)) || (p.altPhones ?? []).some((x) => wanted.has(digits(x))))) ?? null
 }
 
 export function validateStudent(s: Pick<Student, "name" | "nickname" | "grade" | "birthDate">, today: DateStr): FieldError[] {

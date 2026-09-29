@@ -109,14 +109,19 @@ type Store = DB & UIState & {
   moveLeadStage: (id: ID, stage: LeadStage) => Result
   addLeadNote: (id: ID, text: string) => Result
   archiveLead: (id: ID, reason: string) => Result
+  /** sends an archived lead back to the stage it was archived from — a deliberate action, so unlike
+   *  `moveLeadStage` it doesn't run the drag-and-drop "archived leads can't move" guard */
+  restoreLead: (id: ID) => Result
   /** creates the lead's student + family (if no test/trial did yet) so an invoice can be issued — the lead becomes
    *  "ลงทะเบียนแล้ว" by itself when that invoice's payment is confirmed */
   convertLeadToStudent: (id: ID) => Result<{ studentId: ID }>
   /** teacher/office note on a test or trial — optional, always available (owner 2026-09-28) */
   saveAssessmentNote: (id: ID, patch: { result: string; note: string }) => Result
-  /** books an approved Test/Trial submission's chosen slot as a real, conflict-checked Session (or joins an existing class's session);
-   *  pass 2+ same-lead, same-date/time, generic-source submissions together to merge them into one shared 2-hour room block */
-  approveTestTrialSubmission: (subs: FormSubmission[]) => Result<{ sessionId: ID; studentId: ID }>
+  /** books one child's approved Test/Trial submission as a real, conflict-checked Session (or joins an
+   *  existing class's session); when that child picked 2+ generic subjects at the exact same date/time,
+   *  its own `picks[]` already carries all of them, merged here into one shared 2-hour room block.
+   *  Lazily creates that child's Lead first if this is an "Add another Student" child (`leadId: null`). */
+  approveTestTrialSubmission: (sub: FormSubmission) => Result<{ sessionId: ID; studentId: ID; leadId: ID }>
 
   openConversation: (id: ID) => void
   assignConversation: (id: ID, staffId: ID | null) => Result
@@ -1159,6 +1164,17 @@ export const useStore = create<Store>()(
         return OK
       },
 
+      restoreLead: (id) => {
+        const s = get()
+        const perm = requirePerm(s.me(), "lead.manage")
+        if (!perm.ok) return perm
+        const lead = s.leads.find((x) => x.id === id)
+        if (!lead) return fail("ไม่พบ Lead นี้")
+        if (lead.stage !== "archived") return fail("Lead นี้ไม่ได้อยู่ในคลัง")
+        set({ leads: s.leads.map((x) => (x.id === id ? { ...x, stage: CRM.restoreStage(x) } : x)) })
+        return OK
+      },
+
       convertLeadToStudent: (id) => {
         const s = get()
         const perm = requirePerm(s.me(), "lead.manage")
@@ -1200,53 +1216,86 @@ export const useStore = create<Store>()(
         return OK
       },
 
-      approveTestTrialSubmission: (subs) => {
+      approveTestTrialSubmission: (sub) => {
         const s = get()
         const perm = requirePerm(s.me(), "session.manage")
         if (!perm.ok) return perm
-        const primary = subs[0]
-        const lead = s.leads.find((x) => x.id === primary.leadId)
-        if (!lead) return fail("ไม่พบ Lead นี้")
+        const primaryLead = s.leads.find((x) => x.id === sub.primaryLeadId)
+        if (!primaryLead) return fail("ไม่พบ Lead นี้")
+
+        // resolve/create THIS child's own Lead — the first/primary child already has one; an "Add
+        // another Student" child (leadId: null) gets a new sibling Lead here, copying source/assignee/
+        // branch/LINE identity from the primary lead so it behaves exactly like a hand-created one
+        let lead = sub.leadId ? s.leads.find((x) => x.id === sub.leadId) : undefined
+        if (!lead) {
+          const created: Lead = {
+            id: uid("ld"), branchId: sub.branchId, name: sub.parents[0]?.name || primaryLead.name,
+            childGrade: sub.studentGrade, subject: sub.picks[0]?.chosenSubject ?? primaryLead.subject,
+            source: primaryLead.source, stage: "new", assigneeId: primaryLead.assigneeId,
+            phone: sub.parents[0]?.phone || primaryLead.phone, lineId: primaryLead.lineId,
+            createdAt: s.now().toISOString(), notes: [], convertedStudentId: null, lineUserId: primaryLead.lineUserId,
+          }
+          set((cur) => ({ leads: [created, ...cur.leads] }))
+          log("profile", [], "สร้าง Lead พี่น้อง", `จากฟอร์ม${Forms.FORM_TYPE_LABEL[sub.type]} · ${created.name} · ${created.childGrade}`)
+          lead = created
+        }
+        const leadId = lead.id
 
         // reuse the one Student per lead, created lazily on first approval — persisted immediately
         // so the addStudentToSession/addSession calls below see it via their own get()
         let studentId = lead.trialStudentId
         if (!studentId) {
-          const student: Student = { id: uid("stu"), familyId: null, branchId: lead.branchId, name: primary.studentName, nickname: People.nicknameFrom(primary.studentName), grade: primary.studentGrade, usesBus: false, createdAt: s.now().toISOString(), createdBranchId: lead.branchId }
+          const student: Student = {
+            id: uid("stu"), familyId: null, branchId: lead.branchId,
+            name: sub.studentName, nickname: sub.studentNickname?.trim() || People.nicknameFrom(sub.studentName),
+            grade: sub.studentGrade, usesBus: false, birthDate: sub.studentBirthDate, note: sub.studentNote,
+            createdAt: s.now().toISOString(), createdBranchId: lead.branchId,
+          }
           const errs = People.validateStudent(student, toDateStr(s.now()))
           if (errs.length) return fail(errs[0].message)
-          student.familyId = ensureLeadFamily(lead, primary)
+
+          // conflict-safe: reuse an existing family (matched by LINE identity, then by any parent phone
+          // already on file) instead of creating a duplicate for a returning family or a sibling — never
+          // overwrites what's on file, staff review any differences before this point (SubmissionReviewCard)
+          const matched = People.matchExistingFamily(s.families, { lineUserId: lead.lineUserId, phones: sub.parents.map((p) => p.phone) })
+          const family = matched ?? People.familyFromSubmission(sub.studentName, sub.parents, { address: sub.familyAddress, postcode: sub.familyPostcode }, lead.lineUserId, uid("fam"))
+          set((cur) => ({
+            families: matched ? cur.families : [...cur.families, family],
+            conversations: cur.conversations.map((c) => (c.leadId === leadId || (lead!.lineUserId && c.id === `line_${lead!.lineUserId}`) ? { ...c, familyId: family.id } : c)),
+          }))
+          student.familyId = family.id
+
           studentId = student.id
           set((cur) => ({ students: [...cur.students, student] }))
-          log("profile", [student.id], "สร้างนักเรียน", `จากฟอร์ม${Forms.FORM_TYPE_LABEL[primary.type]} · Lead ${lead.name} · ${student.grade}`)
+          log("profile", [student.id], "สร้างนักเรียน", `จากฟอร์ม${Forms.FORM_TYPE_LABEL[sub.type]} · Lead ${lead!.name} · ${student.grade}`)
         }
 
         let sessionId: ID
-        if (subs.length >= 2) {
+        if (sub.picks.length >= 2) {
           // 2+ subjects picked for the same date+time — one shared 2-hour room block, not one per subject
           const branch = s.branches.find((b) => b.id === lead.branchId)!
-          const draft = Forms.buildCombinedSessionDraft(subs.map((sub) => ({ subject: sub.chosenSubject, slot: sub.chosenSlot })), lead.branchId, studentId, branch, s.sessions, primary.type)
+          const draft = Forms.buildCombinedSessionDraft(sub.picks.map((p) => ({ subject: p.chosenSubject, slot: p.chosenSlot })), lead.branchId, studentId, branch, s.sessions, sub.type)
           if (!draft) return fail("รวมช่วงเวลานี้เป็นคาบเดียวไม่ได้")
           const r = get().addSession(draft)
           if (!r.ok) return r
           sessionId = r.value.id
-        } else if (primary.chosenSlot.source === "class") {
-          const r = get().addStudentToSession(primary.chosenSlot.sessionId!, studentId, "one")
+        } else if (sub.picks[0].chosenSlot.source === "class") {
+          const r = get().addStudentToSession(sub.picks[0].chosenSlot.sessionId!, studentId, "one")
           if (!r.ok) return r
-          sessionId = primary.chosenSlot.sessionId!
+          sessionId = sub.picks[0].chosenSlot.sessionId!
         } else {
-          const draft = Forms.buildSessionDraftFromSlot(primary.chosenSlot, primary.chosenSubject, lead.branchId, studentId, primary.type)
+          const draft = Forms.buildSessionDraftFromSlot(sub.picks[0].chosenSlot, sub.picks[0].chosenSubject, lead.branchId, studentId, sub.type)
           const r = get().addSession(draft)
           if (!r.ok) return r
           sessionId = r.value.id
         }
 
         const booked = get().sessions.find((x) => x.id === sessionId)!
-        const assessments: Assessment[] = subs.map((sub) => ({ id: uid("as"), type: sub.type, leadId: lead.id, studentId: studentId!, sessionId, subject: sub.chosenSubject, date: booked.date, start: booked.start }))
+        const assessments: Assessment[] = sub.picks.map((p) => ({ id: uid("as"), type: sub.type, leadId, studentId: studentId!, sessionId, subject: p.chosenSubject, date: booked.date, start: booked.start }))
         set((cur) => ({ assessments: [...cur.assessments, ...assessments] }))
-        advanceLead(lead.id, Forms.APPROVE_STAGE[primary.type], { trialStudentId: studentId, scheduledAt: at(booked.date, booked.start).toISOString() })
-        log("class", [studentId], `นัด${Forms.FORM_TYPE_LABEL[primary.type]}`, `${subs.map((x) => x.chosenSubject).join(" + ")} · ${fmtDate(booked.date, { weekday: true })} ${booked.start}`)
-        return { ok: true, value: { sessionId, studentId } }
+        advanceLead(leadId, Forms.APPROVE_STAGE[sub.type], { trialStudentId: studentId, scheduledAt: at(booked.date, booked.start).toISOString() })
+        log("class", [studentId], `นัด${Forms.FORM_TYPE_LABEL[sub.type]}`, `${sub.picks.map((p) => p.chosenSubject).join(" + ")} · ${fmtDate(booked.date, { weekday: true })} ${booked.start}`)
+        return { ok: true, value: { sessionId, studentId, leadId } }
       },
 
       // ---------------- Inbox ----------------
