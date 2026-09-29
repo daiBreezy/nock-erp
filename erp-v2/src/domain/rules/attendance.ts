@@ -5,12 +5,12 @@ import type { Attendance, AttendanceStatus, Course, DateStr, Entitlement, Holida
 import { can } from "./permissions"
 import { isHoliday, sessionState, subjectsOf } from "./scheduling"
 
-/** C2: present/absent only once the session has started; leave may be recorded in advance. */
-export function canMark(s: Session, status: AttendanceStatus, now: Date): Result {
+/** Attendance can be prepared any time before the session closes, even before it starts (owner 2026-09-29 —
+ *  replaces staging's C2 "leave only in advance"). Closed/cancelled sessions stay locked. */
+export function canMark(s: Session, _status: AttendanceStatus, now: Date): Result {
   const st = sessionState(s, now)
   if (st === "cancelled") return { ok: false, error: "คาบนี้ถูกยกเลิกแล้ว" }
   if (st === "closed") return { ok: false, error: "คาบนี้ปิดแล้ว แก้ไขการเช็คชื่อไม่ได้" }
-  if (st === "upcoming" && status !== "leave") return { ok: false, error: "ยังไม่ถึงเวลาเรียน — บันทึกล่วงหน้าได้เฉพาะ \"ลา\"" }
   return { ok: true, value: undefined }
 }
 

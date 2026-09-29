@@ -41,7 +41,7 @@ const AUTO_HINT: Partial<Record<LeadStage, string>> = {
 export function LeadSheet({ leadId, onClose }: { leadId: ID | null; onClose: () => void }) {
   return (
     <Sheet open={!!leadId} onOpenChange={(o) => !o && onClose()}>
-      <SheetContent className="w-full overflow-y-auto sm:max-w-lg">{leadId && <Body id={leadId} />}</SheetContent>
+      <SheetContent className="w-full overflow-y-auto data-[side=right]:sm:max-w-lg">{leadId && <Body id={leadId} />}</SheetContent>
     </Sheet>
   )
 }

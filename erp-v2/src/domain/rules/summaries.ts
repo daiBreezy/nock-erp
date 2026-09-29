@@ -1,6 +1,7 @@
 // Lesson summary workflow (D1–D8).
 
-import type { Attendance, LessonSummary, Parent, Result, Staff } from "../types"
+import { addDays, daysBetween, toDateStr } from "../dates"
+import type { Attendance, DateStr, LessonSummary, Parent, Result, Session, Staff } from "../types"
 import { requireForceRemark } from "./notifications"
 import { can } from "./permissions"
 
@@ -33,6 +34,16 @@ export function canForceApprove(s: LessonSummary, user: Staff, remark: string): 
   if (s.status !== "submitted" || !can(user, "summary.approve")) return r
   const miss = requireForceRemark(remark)
   return miss ? { ok: false, error: miss } : { ok: true, value: undefined }
+}
+
+/** Owner 2026-09-29: a summary must reach the parent within 7 days after the class ended. */
+export const SEND_WITHIN_DAYS = 7
+
+/** last moment to send (end of the 7th day after the session) and whether it has passed */
+export function sendDeadline(se: Pick<Session, "date">, now: Date): { deadline: DateStr; overdue: boolean; daysLeft: number } {
+  const deadline = addDays(se.date, SEND_WITHIN_DAYS)
+  const daysLeft = daysBetween(toDateStr(now), deadline)
+  return { deadline, overdue: daysLeft < 0, daysLeft }
 }
 
 /** D5: send only after approval; tells the truth when no parent is linked to LINE. */

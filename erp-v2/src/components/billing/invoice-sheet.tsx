@@ -25,7 +25,7 @@ import { invoiceTone } from "./status"
 export function InvoiceSheet({ id, slipMediaId, onClose, onEdit }: { id: ID | null; slipMediaId?: string; onClose: () => void; onEdit: (inv: Invoice) => void }) {
   return (
     <Sheet open={!!id} onOpenChange={(o) => !o && onClose()}>
-      <SheetContent className="w-full overflow-y-auto sm:max-w-xl">{id && <Body id={id} slipMediaId={slipMediaId} onEdit={onEdit} />}</SheetContent>
+      <SheetContent className="w-full overflow-y-auto data-[side=right]:sm:max-w-xl">{id && <Body id={id} slipMediaId={slipMediaId} onEdit={onEdit} />}</SheetContent>
     </Sheet>
   )
 }

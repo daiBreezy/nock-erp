@@ -103,11 +103,10 @@ describe("scheduling", () => {
 
 describe("attendance", () => {
   const [s] = generateSessions(klass(), [], id)
-  it("C2: cannot mark present before the session; leave allowed", () => {
-    const before = new Date(2026, 8, 28)
-    expect(canMark(s, "present", before).ok).toBe(false)
-    expect(canMark(s, "leave", before).ok).toBe(true)
-    expect(canMark(s, "present", new Date(2026, 8, 29, 10, 5)).ok).toBe(true)
+  it("owner 2026-09-29: attendance can be prepared before class; closed sessions stay locked", () => {
+    expect(canMark(s, "present", new Date(2026, 8, 28, 9, 0)).ok).toBe(true)
+    expect(canMark(s, "leave", new Date(2026, 8, 28, 9, 0)).ok).toBe(true)
+    expect(canMark(s, "present", new Date(2026, 9, 1, 9, 0)).ok).toBe(false)
   })
 
   it("F1: removing a student clears future sessions", () => {
@@ -838,5 +837,12 @@ describe("leave quota and re-schedule", () => {
     const other: Session = { ...sessions[0], id: "o", classId: "k2", date: "2026-10-01" }
     expect(packageCovers(ent, other)).toBe(false)
     expect(packageCovers(ent, { ...other, rescheduledIn: ["a"] })).toBe(true)
+  })
+})
+
+describe("summary send deadline (owner 2026-09-29)", () => {
+  it("must reach the parent within 7 days after the class", () => {
+    expect(Sum.sendDeadline({ date: "2026-09-29" }, new Date(2026, 9, 1))).toEqual({ deadline: "2026-10-06", overdue: false, daysLeft: 5 })
+    expect(Sum.sendDeadline({ date: "2026-09-29" }, new Date(2026, 9, 8)).overdue).toBe(true)
   })
 })

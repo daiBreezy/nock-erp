@@ -23,7 +23,7 @@ import { useStore } from "@/store/store"
 export function ClassSheet({ id, onClose }: { id: ID | null; onClose: () => void }) {
   return (
     <Sheet open={!!id} onOpenChange={(o) => !o && onClose()}>
-      <SheetContent className="w-full overflow-y-auto sm:max-w-lg">{id && <ClassBody id={id} onClose={onClose} />}</SheetContent>
+      <SheetContent className="w-full overflow-y-auto data-[side=right]:sm:max-w-lg">{id && <ClassBody id={id} onClose={onClose} />}</SheetContent>
     </Sheet>
   )
 }

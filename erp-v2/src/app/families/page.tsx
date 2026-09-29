@@ -128,7 +128,7 @@ function FamilySheet({ id, onClose, onEdit }: { id: ID | null; onClose: () => vo
   return (
     <>
       <Sheet open={!!f} onOpenChange={(o) => !o && onClose()}>
-        <SheetContent className="w-full overflow-y-auto sm:max-w-md">
+        <SheetContent className="w-full overflow-y-auto data-[side=right]:sm:max-w-md">
           {f && (
             <>
               <SheetHeader className="border-b pb-3">

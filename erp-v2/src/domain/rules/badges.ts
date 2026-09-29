@@ -33,7 +33,14 @@ export function navBadges(d: BadgeData, me: Staff, branchId: ID, now: Date): Rec
       return w === "needs_attendance" || w === "needs_summary"
     }).length,
     // summaries waiting for my approval + mine sent back for changes
-    "/summaries": d.summaries.filter((x) => sessionIds.has(x.sessionId) && ((x.status === "submitted" && Sum.canApprove(x, me).ok) || (x.status === "changes_requested" && x.authorId === me.id))).length,
+    // + approved but not sent with the 7-day send deadline 2 days away or already passed
+    "/summaries": d.summaries.filter((x) => {
+      if (!sessionIds.has(x.sessionId)) return false
+      if (x.status === "submitted") return Sum.canApprove(x, me).ok
+      if (x.status === "changes_requested") return x.authorId === me.id
+      const se = d.sessions.find((y) => y.id === x.sessionId)
+      return x.status === "approved" && office && !!se && Sum.sendDeadline(se, now).daysLeft <= 2
+    }).length,
     // invoices I can approve, payments I can confirm, invoices LINE could not deliver
     "/billing": invoices.filter((i) =>
       Bill.canApprove(i, me).ok || i.payments.some((p) => !p.confirmedBy && Bill.canConfirmPayment(p, me, i.branchId).ok) || i.delivery === "failed",
