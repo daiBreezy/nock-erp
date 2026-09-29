@@ -23,6 +23,7 @@ import { useBranch, useLookup, useNow } from "@/lib/hooks"
 import { cn } from "@/lib/utils"
 import { useStore } from "@/store/store"
 import { sessionKindLabel } from "@/domain/rules/forms"
+import { GradeChips } from "@/components/app/grade-chips"
 
 type View = "day" | "week" | "month" | "list"
 const HOUR_PX = 56
@@ -227,7 +228,7 @@ interface CardCtx {
   conflictIds: Set<string>
   now: Date
   onOpen: (id: string) => void
-  classes: { id: string; name: string }[]
+  classes: { id: string; name: string; grades?: string[] }[]
   onMove: (id: string, target: MoveTarget) => void
   canMove: (s: Session) => boolean
   dim?: (s: Session) => boolean
@@ -266,6 +267,7 @@ function SessionCard({ s, conflictIds, now, onOpen, classes, compact, canMove, d
         <span className="truncate">{name}</span>
       </div>
       <div className={cn("truncate", live ? "text-white/80" : "text-muted-foreground")}>{s.start}–{endTime(s.start, s.minutes)} · {s.studentIds.length} คน</div>
+      <GradeChips className="mt-0.5" size="xs" max={compact ? 2 : 4} grades={s.studentIds.map((sid) => L.student(sid)?.grade ?? "")} planned={classes.find((c) => c.id === s.classId)?.grades} />
       {!compact && (
         <>
           <div className={cn("truncate", live ? "text-white/80" : "text-muted-foreground")}>

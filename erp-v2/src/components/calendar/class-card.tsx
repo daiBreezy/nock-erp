@@ -2,6 +2,7 @@
 
 import { AlertTriangleIcon, CheckIcon, DoorOpenIcon, GripVerticalIcon, NotebookPenIcon, StarIcon, UsersIcon, XIcon } from "lucide-react"
 import { avatarTone, gradeTone, initial, subjectColor } from "@/components/app/subject-color"
+import { GradeChips } from "@/components/app/grade-chips"
 import { WorkChip } from "@/components/app/work-state"
 import { endTime } from "@/domain/dates"
 import { activeLeave } from "@/domain/rules/attendance"
@@ -68,6 +69,7 @@ export function ClassCard({ s, d }: { s: Session; d: CardData }) {
             <div className={cn("text-xs tabular-nums", live ? "text-white/80" : "text-muted-foreground")}>
               {s.start}–{endTime(s.start, s.minutes)} · {s.minutes} นาที
             </div>
+            <GradeChips className="mt-1" grades={s.studentIds.map((sid) => L.student(sid)?.grade ?? "")} planned={klass?.grades} />
           </div>
           <WorkChip w={w} students={s.studentIds.length} />
         </div>

@@ -4,7 +4,7 @@ import { ForceApprove } from "./force-approve"
 import Link from "next/link"
 import { useMemo, useState } from "react"
 import {
-  AlertTriangleIcon, BanIcon, CalendarClockIcon, CheckIcon, ChevronLeftIcon, ChevronRightIcon, DoorOpenIcon, EllipsisVerticalIcon, FlameIcon,
+  AlertTriangleIcon, BanIcon, CalendarClockIcon, CheckIcon, ChevronLeftIcon, ChevronRightIcon, EllipsisVerticalIcon, FlameIcon,
   GraduationCapIcon, LogOutIcon, PencilIcon, SendIcon, StarIcon, Trash2Icon, UserMinusIcon, UserPlusIcon, UsersRoundIcon, XIcon,
 } from "lucide-react"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
@@ -29,6 +29,7 @@ import { useBranch, useEntitlements, useLookup, useNow } from "@/lib/hooks"
 import { cn } from "@/lib/utils"
 import { useStore } from "@/store/store"
 import { AssessmentNote } from "./assessment-note"
+import { GradeChips } from "./grade-chips"
 import { Pill, SessionStateBadge } from "./badges"
 import { ClassSheet } from "./class-sheet"
 import { NativeSelect } from "./native-select"
@@ -116,6 +117,7 @@ function Body({ id, onClose }: { id: ID; onClose: () => void }) {
               <span className={cn(teacher.missing && "font-medium text-amber-700")}>★ {teacher.label}</span>
               {s.coTeacherIds.length > 0 && <> · ผู้ช่วย {s.coTeacherIds.map((t) => L.teacher(t).label).join(", ")}</>}
             </SheetDescription>
+            <GradeChips className="mt-1.5" max={8} grades={s.studentIds.map((sid) => L.student(sid)?.grade ?? "")} planned={klass?.grades} />
           </div>
           <div className="flex flex-wrap justify-end gap-1.5">
             <SessionStateBadge state={state} />
@@ -292,52 +294,43 @@ function StudentRow({ s, sid, viewOnly, canManage, mine, text, setText, selectab
           {movedFrom && <span className="absolute -right-1 -bottom-1 grid size-5 place-items-center rounded-full bg-sky-100 text-sky-700 ring-2 ring-background" title="ย้ายมาจากคาบอื่น"><CalendarClockIcon className="size-3" /></span>}
         </span>
         <div className="min-w-0 flex-1">
-          <button type="button" onClick={() => setOpen("student")} className="block max-w-full truncate text-left text-sm font-medium hover:text-primary hover:underline">
-            {stu?.name} <span className="text-muted-foreground">({stu?.nickname})</span>
-          </button>
-          <p className="truncate text-xs text-muted-foreground">
-            {fam?.name ?? "ยังไม่ผูกครอบครัว"} ·{" "}
+          <span className="flex min-w-0 items-center gap-1.5">
+            <button type="button" onClick={() => setOpen("student")} className="truncate text-left text-base font-semibold hover:text-primary hover:underline">{stu?.nickname}</button>
+            <span className={cn("shrink-0 rounded-full px-2 py-0.5 text-xs font-semibold", gradeTone(stu?.grade ?? ""))}>{stu?.grade}</span>
+            {isNew && <Pill tone="red" className="shrink-0"><FlameIcon className="size-3" /> ใหม่</Pill>}
+          </span>
+          <p className="truncate text-xs text-muted-foreground" title={fam?.name}>
+            {stu?.name} ·{" "}
             {asm ? `${FORM_TYPE_LABEL[asm.type]} (ไม่ใช้แพ็กเกจ)`
               : s.trial ? "ทดลองเรียน (ไม่ใช้แพ็กเกจ)"
               : !ent ? <span className="text-amber-700">ยังไม่ได้จ่ายค่าเรียน{can(me, "billing.manage") && <Link href={`/billing?new=${sid}`} className="ml-1 underline">ออกใบแจ้งหนี้</Link>}</span>
               : <span title={`ถึง ${fmtDate(ent.to, { year: true })}`}>{courses.find((c) => c.id === ent.courseId)?.name} · ถึง {fmtDate(ent.to)}</span>}
           </p>
         </div>
-        {isNew && <Pill tone="red" className="shrink-0"><FlameIcon className="size-3" /> ใหม่</Pill>}
-        <span className={cn("shrink-0 rounded-full px-2 py-0.5 text-xs font-medium", gradeTone(stu?.grade ?? ""))}>{stu?.grade}</span>
-        {progress && progress.of > 0 && a?.status !== "leave" && (
-          <span className="hidden shrink-0 items-center gap-1.5 text-xs text-muted-foreground tabular-nums sm:flex" title="ความคืบหน้าแพ็กเกจ">
-            <span className="h-1.5 w-12 overflow-hidden rounded-full bg-muted"><span className="block h-full rounded-full bg-violet-600" style={{ width: `${Math.min(100, (progress.n / progress.of) * 100)}%` }} /></span>
-            {progress.n}/{progress.of}
+        {progress && progress.of > 0 && (
+          <span className="hidden shrink-0 items-center gap-1.5 text-xs text-muted-foreground tabular-nums md:flex" title={`คาบนี้เป็นคาบที่ ${progress.n} จาก ${progress.of} คาบของแพ็กเกจ`}>
+            <span className="h-1.5 w-10 overflow-hidden rounded-full bg-muted"><span className="block h-full rounded-full bg-violet-600" style={{ width: `${Math.min(100, (progress.n / progress.of) * 100)}%` }} /></span>
+            คาบ {progress.n}/{progress.of}
           </span>
         )}
-        {a?.status === "leave" ? (
-          <button type="button" disabled={!canMarkHere || !Att.canClear(s, now).ok} onClick={() => markAs("leave")} className="shrink-0 text-right text-xs text-red-700 disabled:cursor-default" title="กดเพื่อยกเลิกการลา">
-            <span className="flex items-center justify-end gap-1 font-medium"><DoorOpenIcon className="size-4" /> ลา</span>
-            <span className="text-[11px]">{fmtDate(s.date, { weekday: true })} · {s.start}–{endTime(s.start, s.minutes)}</span>
-          </button>
-        ) : (
-          <span className="flex shrink-0 gap-1.5">
-            {(["present", "absent"] as const).map((st) => (
-              <button key={st} type="button" aria-label={st === "present" ? "มา" : "ขาด"} data-on={a?.status === st}
-                disabled={!canMarkHere || !Att.canMark(s, st, now).ok} onClick={() => markAs(st)}
-                className={cn("grid size-9 place-items-center rounded-full border transition hover:bg-muted disabled:cursor-not-allowed disabled:opacity-40",
-                  st === "present" ? "data-[on=true]:border-emerald-600 data-[on=true]:bg-emerald-600 data-[on=true]:text-white" : "data-[on=true]:border-red-600 data-[on=true]:bg-red-600 data-[on=true]:text-white")}>
-                {st === "present" ? <CheckIcon className="size-4" /> : <XIcon className="size-4" />}
-              </button>
-            ))}
-          </span>
-        )}
+        {/* one text control for all three marks (owner liked the original มา / ขาด / ลา pills) */}
+        <span className="flex shrink-0 overflow-hidden rounded-full border">
+          {(["present", "absent", "leave"] as const).map((st) => (
+            <button key={st} type="button" data-on={a?.status === st}
+              disabled={!canMarkHere || !Att.canMark(s, st, now).ok} onClick={() => markAs(st)}
+              title={st === "leave" && raw ? (usedQuota < quota || thisLeave?.quota ? `ใช้โควตาลา ${usedQuota}/${quota} · ยืดวันเรียนจบให้ 1 คาบ` : `โควตาลาหมด (${quota}/${quota}) · ไม่ชดเชย`) : undefined}
+              className={cn("h-9 min-w-12 border-l px-3 text-sm font-medium transition first:border-l-0 hover:bg-muted disabled:cursor-not-allowed disabled:opacity-40",
+                st === "present" ? "data-[on=true]:bg-emerald-600 data-[on=true]:text-white" : st === "absent" ? "data-[on=true]:bg-red-600 data-[on=true]:text-white" : "data-[on=true]:bg-amber-500 data-[on=true]:text-white")}>
+              {st === "present" ? "มา" : st === "absent" ? "ขาด" : "ลา"}
+            </button>
+          ))}
+        </span>
         {canManage && state(s, now) !== "closed" && !s.cancelled ? (
           <DropdownMenu>
             <DropdownMenuTrigger render={<Button size="icon-sm" variant="ghost" aria-label={`จัดการ ${stu?.nickname}`} />}><EllipsisVerticalIcon /></DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-64">
               <DropdownMenuItem disabled={state(s, now) !== "upcoming" || !!a} onClick={() => setOpen("reschedule")}>
                 <CalendarClockIcon /><span className="flex flex-col"><span>ย้ายคาบ (Re-schedule)</span><span className="text-xs text-muted-foreground">ภายในสัปดาห์นี้เท่านั้น</span></span>
-              </DropdownMenuItem>
-              <DropdownMenuItem disabled={a?.status === "leave" || !Att.canMark(s, "leave", now).ok} onClick={() => markAs("leave")}>
-                <DoorOpenIcon /><span className="flex flex-1 flex-col"><span>ลา</span><span className="text-xs text-muted-foreground">{!raw ? "ไม่มีแพ็กเกจ — ไม่ใช้โควตา" : usedQuota < quota ? "ใช้โควตา · ยืดวันเรียนจบให้ 1 คาบ" : "โควตาหมดแล้ว · ไม่ชดเชย"}</span></span>
-                {raw && <span className="text-xs tabular-nums">{usedQuota}/{quota}</span>}
               </DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem variant="destructive" onClick={() => setOpen("remove")}><UserMinusIcon /> เอาออกจากคลาส</DropdownMenuItem>

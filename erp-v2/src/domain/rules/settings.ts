@@ -25,6 +25,13 @@ export const GRADE_GROUPS: { name: string; grades: string[] }[] = [
 const GRADE_ORDER = GRADE_GROUPS.flatMap((g) => g.grades)
 export const sortGrades = (gs: string[]) => [...gs].sort((a, b) => GRADE_ORDER.indexOf(a) - GRADE_ORDER.indexOf(b))
 
+/** Grades in one session, lowest first, with head-counts — mixed-grade classes must show every grade (owner 2026-09-29) */
+export function gradeMix(grades: string[]): { grade: string; count: number }[] {
+  const counts = new Map<string, number>()
+  for (const g of grades) if (g) counts.set(g, (counts.get(g) ?? 0) + 1)
+  return sortGrades([...counts.keys()]).map((grade) => ({ grade, count: counts.get(grade)! }))
+}
+
 /** Durations a unit offers — month is always the single "price per month" column. */
 export function durationsOf(branch: Branch, unit: PriceUnit): number[] {
   return unit === "month" ? [1] : [...branch.packageDurations[unit]].sort((a, b) => a - b)
