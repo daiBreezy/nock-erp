@@ -97,7 +97,7 @@ function Body({ id, onClose }: { id: ID; onClose: () => void }) {
         {s.cancelled && <p className="text-sm text-red-700">ยกเลิกแล้ว: {s.cancelReason}</p>}
       </SheetHeader>
 
-      <div className="space-y-5 px-4 pb-6">
+      <div className="space-y-5 px-4 pt-5 pb-6">
         {conflicts.length > 0 && (
           <Alert variant="destructive">
             <AlertTriangleIcon />

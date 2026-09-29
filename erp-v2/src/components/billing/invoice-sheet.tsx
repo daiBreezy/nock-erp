@@ -125,7 +125,7 @@ function Body({ id, slipMediaId, onEdit }: { id: ID; slipMediaId?: string; onEdi
         </SheetDescription>
       </SheetHeader>
 
-      <div className="space-y-5 px-4 pb-6">
+      <div className="space-y-5 px-4 pt-5 pb-6">
         {inv.status === "void" && <p className="rounded-lg bg-red-50 p-3 text-sm text-red-800">ยกเลิกแล้ว: {inv.voidReason}</p>}
 
         <section className="rounded-lg border">

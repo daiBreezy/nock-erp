@@ -95,7 +95,7 @@ function Body({ id }: { id: ID }) {
         </div>
       </SheetHeader>
 
-      <div className="space-y-5 px-4 pb-6 text-sm">
+      <div className="space-y-5 px-4 pt-5 pb-6 text-sm">
         <Section title="ติดต่อ">
           <div className="space-y-1">
             {lead.phone && <a href={`tel:${lead.phone.replace(/\D/g, "")}`} className="inline-flex items-center gap-1 text-sky-700 hover:underline"><PhoneIcon className="size-3" />{lead.phone}</a>}

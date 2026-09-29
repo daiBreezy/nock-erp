@@ -136,7 +136,7 @@ function FamilySheet({ id, onClose, onEdit }: { id: ID | null; onClose: () => vo
                 <SheetDescription>{f.address ? `${f.address}${f.postcode ? ` ${f.postcode}` : ""}` : "ยังไม่มีที่อยู่"}</SheetDescription>
                 <Button size="xs" variant="outline" className="w-fit" onClick={() => onEdit(f)}><PencilIcon /> แก้ไขครอบครัว</Button>
               </SheetHeader>
-              <div className="space-y-5 px-4 pb-6">
+              <div className="space-y-5 px-4 pt-5 pb-6">
                 <section className="space-y-2">
                   <h3 className="text-sm font-semibold">ผู้ปกครอง</h3>
                   <ul className="divide-y rounded-2xl border">

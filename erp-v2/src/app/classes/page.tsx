@@ -223,7 +223,7 @@ function ClassBody({ id, onClose }: { id: ID; onClose: () => void }) {
         <SheetTitle className="text-lg">{k.name}</SheetTitle>
         <SheetDescription>{k.subject} · {k.grades.join(", ")} · {k.type === "single" ? "เดี่ยว" : "กลุ่ม"} · เรียนไปแล้ว {past} คาบ · เหลือ {future.length} คาบ</SheetDescription>
       </SheetHeader>
-      <div className="space-y-5 px-4 pb-6">
+      <div className="space-y-5 px-4 pt-5 pb-6">
         {k.active && (
           <section className="space-y-3 rounded-lg border p-3">
             <h3 className="text-sm font-semibold">ตารางและครู</h3>
