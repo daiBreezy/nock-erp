@@ -83,7 +83,7 @@ export function WeekTeacherBoard({ from, sessions, onOpen, onSlot, canCreate }: 
       .sort((a, b) => a.start.localeCompare(b.start))
   const nowPct = (row: Row) => Math.min(100, Math.max(0, ((nowMin - toMinutes(row.start)) / (endMin(row) - toMinutes(row.start))) * 100))
 
-  const cols = `5.5rem repeat(${Math.max(1, teacherIds.length)}, minmax(22rem, 1fr))`
+  const cols = `5.5rem repeat(${Math.max(1, teacherIds.length)}, minmax(17rem, 1fr))`
 
   return (
     <div className="space-y-5">
@@ -201,7 +201,8 @@ function ClassCard({ s, row, blockLen, state, ended, dayDate, canEdit, onOpen, o
           <St.icon className={cn("size-4", !liveNow && St.tone)} aria-label={St.label} />
         </span>
       </div>
-      <div className="grid gap-x-4 gap-y-1.5 sm:grid-cols-2">
+      {/* one student per line — two columns were too cramped for the note (owner 2026-09-30) */}
+      <div className="space-y-1.5">
         {s.studentIds.map((sid) => {
           const seat = Seats.seatOf(s, sid, klass)
           const a = attendance.find((x) => x.sessionId === s.id && x.studentId === sid)
