@@ -39,10 +39,10 @@ export function CatalogCombo({ label, items, value, onChange, onCreate, disabled
 
   return (
     <div className="relative">
-      <span className="absolute -top-2 left-3 z-10 bg-background px-1 text-[11px] text-muted-foreground">{label}</span>
-      <button type="button" disabled={disabled} onClick={() => setOpen((o) => !o)}
-        className="flex h-10 w-full items-center gap-2 rounded-xl border bg-background px-3 text-left text-sm disabled:opacity-50">
-        <span className={cn("flex-1 truncate", !current && "text-muted-foreground")}>{current?.name ?? placeholder ?? "เลือก / พิมพ์เพื่อสร้าง"}</span>
+      {/* shadcn field look: the label is the placeholder, no floating caption (owner 2026-09-30) */}
+      <button type="button" disabled={disabled} onClick={() => setOpen((o) => !o)} aria-label={label} title={current ? `${label}: ${current.name}` : undefined}
+        className="flex h-9 w-full items-center gap-2 rounded-3xl border border-transparent bg-input/50 px-3 text-left text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/30 disabled:cursor-not-allowed disabled:opacity-50">
+        <span className={cn("flex-1 truncate", !current && "text-muted-foreground")}>{current?.name ?? placeholder ?? label}</span>
         <ChevronDownIcon className="size-4 text-muted-foreground" />
       </button>
       {open && (

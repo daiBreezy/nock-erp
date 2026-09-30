@@ -24,6 +24,8 @@ export function seatOptions(classMinutes: number): Seat[] {
 
 export function seatLabel(seat: Seat, classMinutes: number): string {
   if (!isPartial(seat, classMinutes)) return `เต็มคลาส (${fmtLen(classMinutes)})`
+  // typed by hand (45 / 25 minutes, starting mid-hour) — just the length; the time is in the tooltip
+  if (seat.offset % 60 !== 0 || (seat.minutes % 60 !== 0 && seat.offset + seat.minutes < classMinutes)) return `เรียน ${fmtLen(seat.minutes)}`
   if (seat.offset === 0) return `ชม.แรก (${fmtLen(seat.minutes)})`
   if (seat.offset + seat.minutes >= classMinutes) return `ชม.หลัง (${fmtLen(seat.minutes)})`
   return `ชม.ที่ ${Math.floor(seat.offset / 60) + 1} (${fmtLen(seat.minutes)})`

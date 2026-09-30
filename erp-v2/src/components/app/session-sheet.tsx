@@ -16,9 +16,10 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSepara
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
-import { addDays, endTime, fmtDate, fmtDateTime } from "@/domain/dates"
+import { addDays, endTime, fmtDate, fmtDateTime, fromMinutes, toMinutes } from "@/domain/dates"
 import * as Att from "@/domain/rules/attendance"
 import * as Seats from "@/domain/rules/seats"
+import { shortCourse } from "@/domain/rules/course"
 import * as Les from "@/domain/rules/lessons"
 import type { SummaryLesson } from "@/store/store"
 import { CatalogCombo, CatalogManager } from "./lesson-picker"
@@ -248,7 +249,6 @@ function StudentRow({ s, sid, viewOnly, canManage, mine, text, setText, selectab
   const holidays = useStore((st) => st.holidays)
   const courses = useStore((st) => st.courses)
   const assessments = useStore((st) => st.assessments)
-  const families = useStore((st) => st.families)
   const me = useStore((st) => st.staff.find((x) => x.id === st.userId)!)
   const mark = useStore((st) => st.mark)
   const clearMark = useStore((st) => st.clearMark)
@@ -256,11 +256,9 @@ function StudentRow({ s, sid, viewOnly, canManage, mine, text, setText, selectab
   const now = useNow(10_000)
   const L = useLookup()
   const [open, setOpen] = useState<"student" | "reschedule" | "remove" | "seat" | null>(null)
-  const setAttended = useStore((st) => st.setAttendedMinutes)
   const [otherSession, setOtherSession] = useState<ID | null>(null)
 
   const stu = L.student(sid)
-  const fam = families.find((f) => f.id === stu?.familyId)
   const a = attendance.find((x) => x.sessionId === s.id && x.studentId === sid)
   const ent = Att.coveringEntitlement(sid, s, entitlements)
   const asm = assessmentIn(s.id, sid, assessments)
@@ -291,13 +289,15 @@ function StudentRow({ s, sid, viewOnly, canManage, mine, text, setText, selectab
   const klass = classes.find((k) => k.id === s.classId)
   const seat = Seats.seatOf(s, sid, klass)
   const partial = Seats.isPartial(seat, s.minutes)
+  // text under the name lines up with the name (no empty gutter unless the multi-select checkbox is shown)
+  const indent = selectable ? "pl-[5.25rem]" : "pl-14"
   const markAs = (status: "present" | "absent" | "leave") =>
     a?.status === status ? report(clearMark(s.id, sid), `ล้างการเช็คชื่อ ${stu?.nickname}`) : report(mark(s.id, sid, status), `${stu?.nickname}: ${status === "present" ? "มา" : status === "absent" ? "ขาด" : "ลา"}`)
 
   return (
     <li className={cn("space-y-2 py-3", onLongLeave && "opacity-60")}>
       <div className="flex items-center gap-3">
-        {selectable ? <Checkbox checked={picked} onCheckedChange={onPick} aria-label={`เลือก ${stu?.nickname}`} /> : <span className="w-4 shrink-0" />}
+        {selectable && <Checkbox checked={picked} onCheckedChange={onPick} aria-label={`เลือก ${stu?.nickname}`} />}
         <span className="relative shrink-0">
           <span className={cn("grid size-11 place-items-center rounded-full text-base font-semibold", avatarTone(sid))}>{initial(stu?.nickname ?? "?")}</span>
           {movedFrom && <span className="absolute -right-1 -bottom-1 grid size-5 place-items-center rounded-full bg-sky-100 text-sky-700 ring-2 ring-background" title="ย้ายมาจากคาบอื่น"><CalendarClockIcon className="size-3" /></span>}
@@ -305,31 +305,30 @@ function StudentRow({ s, sid, viewOnly, canManage, mine, text, setText, selectab
         <div className="min-w-0 flex-1">
           <span className="flex min-w-0 items-center gap-1.5">
             <button type="button" onClick={() => setOpen("student")} className="truncate text-left text-base font-semibold hover:text-primary hover:underline">{stu?.nickname}</button>
-            <span className={cn("shrink-0 rounded-full px-2 py-0.5 text-xs font-semibold", gradeTone(stu?.grade ?? ""))}>{stu?.grade}</span>
             {isNew && <Pill tone="red" className="shrink-0"><FlameIcon className="size-3" /> ใหม่</Pill>}
             {/* tap to change which hours this student attends — works before attendance (parent called ahead) */}
-            {s.minutes > 60 && (partial || (canManage && state(s, now) !== "closed" && !s.cancelled)) && (
+            {(partial || (canManage && state(s, now) !== "closed" && !s.cancelled)) && (
               <button type="button" disabled={!canManage || state(s, now) === "closed" || s.cancelled} onClick={() => setOpen("seat")}
                 title={partial ? `เรียนเฉพาะ ${Seats.seatTime(s.start, seat)}${s.seats?.[sid] ? " (คาบนี้)" : " (ทุกคาบ)"} · กดเพื่อเปลี่ยน` : "กดเพื่อตั้งให้เรียนแค่บางชั่วโมง"}
                 className={cn("shrink-0 rounded-full px-2 py-0.5 text-xs font-medium", partial ? "bg-violet-100 text-violet-800 dark:bg-violet-950 dark:text-violet-200" : "border border-dashed text-muted-foreground hover:bg-muted")}>
                 {partial ? Seats.seatLabel(seat, s.minutes) : Seats.fmtLen(s.minutes)}
               </button>
             )}
+            {/* name on the left, grade on the right (owner 2026-09-30) */}
+            <span className={cn("ml-auto shrink-0 rounded-full px-2 py-0.5 text-xs font-semibold", gradeTone(stu?.grade ?? ""))}>{stu?.grade}</span>
           </span>
-          <p className="truncate text-xs text-muted-foreground" title={fam?.name}>
-            {stu?.name} ·{" "}
+          <p className="truncate text-xs text-muted-foreground">
             {asm ? `${FORM_TYPE_LABEL[asm.type]} (ไม่ใช้แพ็กเกจ)`
               : s.trial ? "ทดลองเรียน (ไม่ใช้แพ็กเกจ)"
               : !ent ? <span className="text-amber-700">ยังไม่ได้จ่ายค่าเรียน{can(me, "billing.manage") && <Link href={`/billing?new=${sid}`} className="ml-1 underline">ออกใบแจ้งหนี้</Link>}</span>
-              : <span title={`ถึง ${fmtDate(ent.to, { year: true })}`}>{courses.find((c) => c.id === ent.courseId)?.name} · ถึง {fmtDate(ent.to)}</span>}
+              : (() => {
+                const course = courses.find((c) => c.id === ent.courseId)
+                return <span title={`${course?.name ?? ""} · ถึง ${fmtDate(ent.to, { year: true })}${progress?.of ? ` · คาบที่ ${progress.n} จาก ${progress.of}` : ""}`}>
+                  {course ? shortCourse(course) : "คอร์ส"} · ถึง {fmtDate(ent.to)}{progress && progress.of > 0 ? ` · คาบ ${progress.n}/${progress.of}` : ""}
+                </span>
+              })()}
           </p>
         </div>
-        {progress && progress.of > 0 && (
-          <span className="hidden shrink-0 items-center gap-1.5 text-xs text-muted-foreground tabular-nums md:flex" title={`คาบนี้เป็นคาบที่ ${progress.n} จาก ${progress.of} คาบของแพ็กเกจ`}>
-            <span className="h-1.5 w-10 overflow-hidden rounded-full bg-muted"><span className="block h-full rounded-full bg-violet-600" style={{ width: `${Math.min(100, (progress.n / progress.of) * 100)}%` }} /></span>
-            คาบ {progress.n}/{progress.of}
-          </span>
-        )}
         {/* one text control for all three marks (owner liked the original มา / ขาด / ลา pills) */}
         <span className="flex shrink-0 overflow-hidden rounded-full border">
           {(["present", "absent", "leave"] as const).map((st) => (
@@ -349,7 +348,7 @@ function StudentRow({ s, sid, viewOnly, canManage, mine, text, setText, selectab
               <DropdownMenuItem disabled={state(s, now) !== "upcoming" || !!a} onClick={() => setOpen("reschedule")}>
                 <CalendarClockIcon /><span className="flex flex-col"><span>ย้ายคาบ (Re-schedule)</span><span className="text-xs text-muted-foreground">ภายในสัปดาห์นี้เท่านั้น</span></span>
               </DropdownMenuItem>
-              {s.minutes > 60 && (
+              {(
                 <DropdownMenuItem onClick={() => setOpen("seat")}>
                   <ClockIcon /><span className="flex flex-col"><span>เวลาเรียนของ{stu?.nickname}</span><span className="text-xs text-muted-foreground">เรียนแค่บางชั่วโมง (คาบนี้ / ทุกคาบ)</span></span>
                 </DropdownMenuItem>
@@ -362,28 +361,18 @@ function StudentRow({ s, sid, viewOnly, canManage, mine, text, setText, selectab
       </div>
 
       {movedFrom && (
-        <p className="pl-[4.75rem] text-xs text-sky-700">
+        <p className={cn(indent, "text-xs text-sky-700")}>
           ย้ายมาจาก <button type="button" className="underline" onClick={() => setOtherSession(movedFrom.id)}>{fmtDate(movedFrom.date, { weekday: true })} {movedFrom.start}–{endTime(movedFrom.start, movedFrom.minutes)}{classes.find((k) => k.id === movedFrom.classId) ? ` · ${classes.find((k) => k.id === movedFrom.classId)!.name}` : ""}</button>
         </p>
       )}
       {a?.status === "leave" && raw && (
-        <p className={cn("pl-[4.75rem] text-xs", thisLeave?.quota ? "text-emerald-700" : "text-muted-foreground")}>
+        <p className={cn(indent, "text-xs", thisLeave?.quota ? "text-emerald-700" : "text-muted-foreground")}>
           {thisLeave?.quota ? `ใช้โควตาลา ${usedQuota}/${quota} · ยืดให้อีก 1 คาบ → เรียนจบ ${fmtDate(ent?.to ?? raw.to, { weekday: true, year: true })}` : `โควตาลาหมดแล้ว (${quota}/${quota}) — ไม่ชดเชยคาบนี้ · เรียนจบ ${fmtDate(ent?.to ?? raw.to, { weekday: true, year: true })} เหมือนเดิม`}
         </p>
       )}
-      {a?.status === "present" && s.minutes > 30 && !s.trial && (
-        <p className="flex items-center gap-2 pl-[4.75rem] text-xs text-muted-foreground">
-          <ClockIcon className="size-3.5" /> เรียนจริง
-          <select value={a.minutes ?? seat.minutes} disabled={!canMarkHere || !Att.canMark(s, "present", now).ok} onChange={(e) => report(setAttended(s.id, sid, Number(e.target.value)), `${stu?.nickname}: เรียน ${Seats.fmtLen(Number(e.target.value))}`)}
-            className={cn("rounded-full border bg-background px-2 py-0.5 text-xs", a.minutes !== undefined && "border-violet-400 text-violet-800")}>
-            {Seats.attendedChoices(seat).map((m) => <option key={m} value={m}>{Seats.fmtLen(m)}{m === seat.minutes ? "" : " (มาไม่ครบ)"}</option>)}
-          </select>
-          {ent?.kind === "sessions" && <span>· หักแพ็กชั่วโมงตามเวลาที่เรียนจริง</span>}
-        </p>
-      )}
-      {asm && <div className="pl-[4.75rem]"><AssessmentNote a={asm} editable={canManage || mine} /></div>}
+      {asm && <div className={indent}><AssessmentNote a={asm} editable={canManage || mine} /></div>}
       {a?.status === "present" && (
-        <div className="pl-[4.75rem]">
+        <div className={indent}>
           <SummaryInline key={lessonKey(summaries.find((x) => x.sessionId === s.id && x.studentId === sid))} session={s} sessionId={s.id} studentId={sid} summary={summaries.find((x) => x.sessionId === s.id && x.studentId === sid)} viewOnly={viewOnly} text={text} setText={setText} />
         </div>
       )}
@@ -408,6 +397,14 @@ function SeatDialog({ s, studentId, onClose }: { s: Session; studentId: ID; onCl
   const L = useLookup()
   const current = Seats.seatOf(s, studentId, klass)
   const [pick, setPick] = useState<Seat>(current)
+  // or typed by hand: from what time, for how many minutes (45 / 25 / 30 …)
+  const preset = Seats.seatOptions(s.minutes).some((o) => o.offset === current.offset && o.minutes === current.minutes)
+  const [custom, setCustom] = useState(!preset)
+  const [from, setFrom] = useState(fromMinutes(toMinutes(s.start) + current.offset))
+  const [mins, setMins] = useState(String(current.minutes))
+  const customSeat: Seat = { offset: toMinutes(from) - toMinutes(s.start), minutes: Number(mins) }
+  const customError = !(customSeat.minutes > 0) ? "ใส่จำนวนนาที" : customSeat.offset < 0 || customSeat.offset + customSeat.minutes > s.minutes ? `ต้องอยู่ในเวลาคาบ ${s.start}–${endTime(s.start, s.minutes)}` : null
+  const chosen = custom ? customSeat : pick
   const [scope, setScope] = useState<"session" | "class">(s.seats?.[studentId] || !klass ? "session" : "class")
   const same = (a: Seat, b: Seat) => a.offset === b.offset && a.minutes === b.minutes
   return (
@@ -419,11 +416,22 @@ function SeatDialog({ s, studentId, onClose }: { s: Session; studentId: ID; onCl
         </DialogHeader>
         <div className="grid gap-1.5">
           {Seats.seatOptions(s.minutes).map((o) => (
-            <button key={`${o.offset}-${o.minutes}`} type="button" aria-pressed={same(o, pick)} onClick={() => setPick(o)}
-              className={cn("flex items-center justify-between rounded-xl border px-3 py-2 text-sm", same(o, pick) ? "border-primary bg-primary/5 font-medium" : "hover:bg-muted/50")}>
+            <button key={`${o.offset}-${o.minutes}`} type="button" aria-pressed={!custom && same(o, pick)} onClick={() => { setPick(o); setCustom(false) }}
+              className={cn("flex items-center justify-between rounded-xl border px-3 py-2 text-sm", !custom && same(o, pick) ? "border-primary bg-primary/5 font-medium" : "hover:bg-muted/50")}>
               <span>{Seats.seatLabel(o, s.minutes)}</span><span className="text-xs text-muted-foreground tabular-nums">{Seats.seatTime(s.start, o)}</span>
             </button>
           ))}
+          <div className={cn("space-y-2 rounded-xl border px-3 py-2 text-sm", custom ? "border-primary bg-primary/5" : "")}>
+            <button type="button" className="w-full text-left font-medium" onClick={() => setCustom(true)}>กำหนดเอง</button>
+            {custom && (
+              <div className="flex flex-wrap items-center gap-2">
+                เริ่ม <Input type="time" step={300} className="h-8 w-28" value={from} onChange={(e) => setFrom(e.target.value)} />
+                เรียน <Input type="number" min={5} step={5} className="h-8 w-20" value={mins} onChange={(e) => setMins(e.target.value)} /> นาที
+                {!customError && <span className="text-xs text-muted-foreground tabular-nums">{Seats.seatTime(s.start, customSeat)}</span>}
+                {customError && <span className="w-full text-xs text-red-700">{customError}</span>}
+              </div>
+            )}
+          </div>
         </div>
         {klass && (
           <div className="flex gap-1.5">
@@ -435,7 +443,7 @@ function SeatDialog({ s, studentId, onClose }: { s: Session; studentId: ID; onCl
         )}
         <DialogFooter>
           <Button variant="ghost" onClick={onClose}>ยกเลิก</Button>
-          <Button onClick={() => report(setSeat(scope, scope === "class" ? klass!.id : s.id, studentId, pick), "บันทึกเวลาเรียนแล้ว") && onClose()}>บันทึก</Button>
+          <Button disabled={custom && !!customError} onClick={() => report(setSeat(scope, scope === "class" ? klass!.id : s.id, studentId, chosen), "บันทึกเวลาเรียนแล้ว") && onClose()}>บันทึก</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
@@ -680,6 +688,8 @@ function SummaryInline({ session, sessionId, studentId, summary, viewOnly, text,
     ? { bookId: summary.bookId, topicId: summary.topicId, detail: summary.detail ?? "" }
     : { ...Les.suggestLesson(studentId, allSummaries, new Map(allSessions.map((x) => [x.id, x.date])), topics), detail: "" })
   const [managing, setManaging] = useState<"book" | "topic" | null>(null)
+  const attendance = useStore((s) => s.attendance)
+  const others = attendance.filter((a) => a.sessionId === sessionId && a.status === "present" && a.studentId !== studentId).length
   const branchBooks = Les.booksOf(session.branchId, books)
   const bookTopics = lesson.bookId ? Les.topicsOf(lesson.bookId, topics) : []
   const status = summary?.status
@@ -702,23 +712,24 @@ function SummaryInline({ session, sessionId, studentId, summary, viewOnly, text,
       </div>
       {status === "changes_requested" && lastChange?.note && <p className="mb-1.5 rounded-md bg-red-50 p-2 text-xs text-red-800">ขอแก้: {lastChange.note}</p>}
       {editable ? (
-        <div className="space-y-3 pt-2">
-          <div className="grid gap-3 sm:grid-cols-2">
-            <CatalogCombo label="Book · หนังสือ" items={branchBooks} value={lesson.bookId} placeholder="เลือกหนังสือ"
+        <div className="space-y-2 pt-1">
+          <div className="grid gap-2 sm:grid-cols-2">
+            <CatalogCombo label="Book · หนังสือ" items={branchBooks} value={lesson.bookId} placeholder="Book · เลือก/พิมพ์ชื่อหนังสือ"
               onChange={(bookId) => setLesson((l) => ({ ...l, bookId, topicId: undefined }))}
               onCreate={(name) => addBook(session.branchId, name)} onManage={() => setManaging("book")} />
-            <CatalogCombo label="Lesson Topic · บทเรียน" items={bookTopics} value={lesson.topicId} disabled={!lesson.bookId} placeholder={lesson.bookId ? "เลือกบทเรียน" : "เลือกหนังสือก่อน"}
+            <CatalogCombo label="Lesson Topic · บทเรียน" items={bookTopics} value={lesson.topicId} disabled={!lesson.bookId} placeholder={lesson.bookId ? "Lesson Topic · เลือก/พิมพ์บทเรียน" : "Lesson Topic · เลือกหนังสือก่อน"}
               onChange={(topicId) => setLesson((l) => ({ ...l, topicId }))}
               onCreate={(name) => addTopic(lesson.bookId!, name)} onManage={() => setManaging("topic")} />
           </div>
-          <div className="relative">
-            <span className="absolute -top-2 left-3 bg-background px-1 text-[11px] text-muted-foreground">Lesson Detail · รายละเอียด</span>
-            <Input value={lesson.detail ?? ""} onChange={(e) => setLesson((l) => ({ ...l, detail: e.target.value }))} placeholder="เช่น หน้า 12–15 แบบฝึกหัด 2.1" className="h-10 bg-background" />
-          </div>
-          <div className="relative">
-            <span className="absolute -top-2 left-3 z-10 bg-background px-1 text-[11px] text-muted-foreground">Feedback Summary · รายงานการเรียนคาบนี้</span>
-            <Textarea value={text} onChange={(e) => setText(e.target.value)} placeholder="พัฒนาการ / สิ่งที่ทำได้ดี / สิ่งที่ต้องฝึกเพิ่ม" rows={3} className="bg-background" />
-          </div>
+          <Input value={lesson.detail ?? ""} onChange={(e) => setLesson((l) => ({ ...l, detail: e.target.value }))} placeholder="Lesson Detail · เช่น หน้า 12–15 แบบฝึกหัด 2.1" aria-label="Lesson Detail" />
+          {/* same lesson for the whole class in one tap — anyone different is edited on their own row (owner 2026-09-30) */}
+          {others > 0 && (lesson.bookId || lesson.topicId || lesson.detail?.trim()) && (
+            <button type="button" className="text-xs text-primary underline"
+              onClick={() => report(applyLesson(sessionId, lesson), (v) => `ใช้หนังสือ/บทเรียนนี้กับ ${v.count} คนที่มาเรียนแล้ว — แก้รายคนได้`)}>
+              ใช้หนังสือ / บทเรียน / รายละเอียดนี้กับทุกคนที่มาเรียน ({others + 1} คน)
+            </button>
+          )}
+          <Textarea value={text} onChange={(e) => setText(e.target.value)} placeholder="Feedback Summary · พัฒนาการ / สิ่งที่ทำได้ดี / สิ่งที่ต้องฝึกเพิ่ม" rows={3} aria-label="Feedback Summary" />
         </div>
       ) : (
         <div className="space-y-0.5 text-sm">
@@ -731,8 +742,6 @@ function SummaryInline({ session, sessionId, studentId, summary, viewOnly, text,
       <div className="mt-1.5 flex flex-wrap justify-end gap-1.5">
         {editable && (
           <>
-            <Button size="xs" variant="secondary" className="mr-auto" title="ใช้ Book / Topic / Lesson Detail นี้กับนักเรียนทุกคนที่มาเรียนคาบนี้ (Feedback แยกรายคนเหมือนเดิม)"
-              onClick={() => report(applyLesson(sessionId, lesson), (v) => `ใช้บทเรียนนี้กับ ${v.count} คนที่มาเรียนแล้ว`)}><StarIcon /> Summary Template</Button>
             <Button size="xs" variant="ghost" onClick={() => report(save(sessionId, studentId, text, false, lesson), "บันทึกร่างแล้ว")}>Save Draft</Button>
             <Button size="xs" disabled={!text.trim()} onClick={() => report(save(sessionId, studentId, text, true, lesson), "ส่งให้ผู้อนุมัติแล้ว")}><SendIcon /> {status === "changes_requested" ? "ส่งอีกครั้ง" : "ส่งอนุมัติ"}</Button>
           </>

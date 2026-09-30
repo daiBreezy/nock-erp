@@ -84,3 +84,6 @@ export function filterCourses(courses: Course[], branchId: string, f: CourseFilt
     .filter((c) => !q || [c.name, ...c.subjects, ...c.grades].some((x) => x.toLowerCase().includes(q)))
     .sort((a, b) => a.name.localeCompare(b.name, "th"))
 }
+
+/** Short course name for tight rows — "คณิต · รายเดือน", "วิทย์ · 12 ชม." (full name on hover, owner 2026-09-30). */
+export const shortCourse = (c: Pick<Course, "subjects" | "unit" | "duration">) => `${c.subjects.join("+")} · ${packageLabel(c)}`
