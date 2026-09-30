@@ -3,6 +3,7 @@
 import { CustomerPicker } from "@/components/app/customer-picker"
 import { COURSE_FORMAT_LABEL, packageLabel, priceUnitSuffix } from "@/domain/rules/course"
 import { CoursePicker } from "./course-picker"
+import { autoCredits } from "@/domain/rules/refunds"
 import { PackageBadge } from "@/components/app/package-badge"
 import { busRate } from "@/domain/rules/settings"
 import { useState } from "react"
@@ -63,6 +64,8 @@ export function InvoiceEditor({ invoice, defaultStudentId, renewEntitlementId, o
   const [advancePicked, setAdvancePicked] = useState<AdvanceItem[] | null>(invoice ? invoice.advance : null)
   const invoices = useStore((s) => s.invoices)
   const busAddOns = useStore((s) => s.busAddOns)
+  const creditNotes = useStore((s) => s.creditNotes)
+  const [creditSkip, setCreditSkip] = useState<string[]>([])
   // extra bus days from before: all pulled in by default, untick to leave them for a later invoice
   const [extrasPicked, setExtrasPicked] = useState<string[] | null>(invoice ? (invoice.busExtras ?? []).map((x) => x.addOnId) : null)
   const [concession, setConcession] = useState(invoice?.concession?.amount ?? 0)
@@ -135,9 +138,13 @@ export function InvoiceEditor({ invoice, defaultStudentId, renewEntitlementId, o
   }
   const ctx = { branch, courses, classes, holidays }
   // bus legs follow the real class days of every course, once per day; default ticked only if the student rides the bus (BL-6)
-  const busDates = invoiceSessionDates(invoiceTotals(base, ctx).lines)
+  const baseLines = invoiceTotals(base, ctx).lines
+  const busDates = invoiceSessionDates(baseLines)
+  // course credit from Credit Notes: taken automatically, the admin can untick a course
+  const credits = studentId ? autoCredits(studentId, baseLines, creditNotes, invoices, invoice?.id) : []
+  const creditsUsed = credits.filter((c) => !creditSkip.includes(c.courseId))
   const legs: BusLeg[] = !busTouched ? defaultBusLegs(busDates, !!student?.usesBus) : busDates.map((d) => bus.find((b) => b.date === d) ?? { date: d, pickup: false, dropoff: false })
-  const draft: Invoice = { ...base, bus: legs }
+  const draft: Invoice = { ...base, bus: legs, creditsUsed }
   const totals = invoiceTotals(draft, ctx)
   const errors = [
     ...(!studentId ? ["เลือกนักเรียน"] : []),
@@ -285,6 +292,24 @@ export function InvoiceEditor({ invoice, defaultStudentId, renewEntitlementId, o
           </div>
         )}
 
+        {credits.length > 0 && (
+          <div className="space-y-1.5 rounded-lg border border-violet-200 bg-violet-50/60 p-3 dark:border-violet-900 dark:bg-violet-950/30">
+            <p className="text-sm font-medium">เครดิตคอร์ส (จากใบลดหนี้) — หักให้อัตโนมัติ</p>
+            {[...new Set(credits.map((c) => c.courseId))].map((cid) => {
+              const amount = credits.filter((c) => c.courseId === cid).reduce((a, c) => a + c.amount, 0)
+              const on = !creditSkip.includes(cid)
+              return (
+                <label key={cid} className="flex items-center gap-2 text-sm">
+                  <Checkbox checked={on} onCheckedChange={(v) => setCreditSkip(v ? creditSkip.filter((x) => x !== cid) : [...creditSkip, cid])} />
+                  {courses.find((c) => c.id === cid)?.name}
+                  <span className="ml-auto tabular-nums text-violet-800 dark:text-violet-200">−{fmtMoney(amount)}</span>
+                </label>
+              )
+            })}
+            <p className="text-xs text-muted-foreground">ติ๊กออกถ้ายังไม่ใช้เครดิตในใบนี้</p>
+          </div>
+        )}
+
         {advanceFees.length > 0 && (
           <div className="space-y-1.5">
             <Label className="text-xs">Advance Optional (ค่าแรกเข้า / สอบ)</Label>
@@ -329,6 +354,7 @@ export function InvoiceEditor({ invoice, defaultStudentId, renewEntitlementId, o
             <div key={l as string} className="flex justify-between"><span>{l}</span><span>{fmtMoney(v as number)}</span></div>
           ))}
           {totals.promotion > 0 && <div className="flex justify-between text-emerald-700"><span>โปรโมชัน</span><span>−{fmtMoney(totals.promotion)}</span></div>}
+          {totals.credit > 0 && <div className="flex justify-between text-violet-700"><span>หักเครดิตคอร์ส</span><span>−{fmtMoney(totals.credit)}</span></div>}
           {totals.concession > 0 && <div className="flex justify-between text-emerald-700"><span>ส่วนลดพิเศษ</span><span>−{fmtMoney(totals.concession)}</span></div>}
           <div className={cn("flex justify-between border-t pt-1 text-base font-semibold", totals.total < 0 && "text-red-700")}><span>ยอดรวม</span><span>{fmtMoney(totals.total)}</span></div>
         </div>

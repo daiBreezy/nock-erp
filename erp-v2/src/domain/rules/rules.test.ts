@@ -1,6 +1,6 @@
 // Regression tests: each case reproduces a bug found on Dev staging and proves the rule prevents it.
 import { describe, expect, it } from "vitest"
-import type { Assessment, Attendance, Branch, BusAddOn, Course, Entitlement, Family, FormSubmission, Lead, Student, FormOfferSlot, Holiday, Invoice, Klass, Session, Staff, StudentLeave, Weekday } from "../types"
+import type { Assessment, Attendance, Branch, BusAddOn, CreditNote, Course, Entitlement, Family, FormSubmission, Lead, Student, FormOfferSlot, Holiday, Invoice, Klass, Session, Staff, StudentLeave, Weekday } from "../types"
 import { applyClassEdit, applyToSessions, canChangeTeachers, canRescheduleStudent, mondayOf, removedWithClass, canSave, closesBranch, holidayImpact, hoursFor, isHoliday, overlappingRows, periodsIn, introducedConflicts, editSingleSession, findConflicts, generateSessions, moveSession, sessionState, validateClass, workState } from "./scheduling"
 import { activeLeave, nextClassDates, balance, studentState, leaveLedger, packageCovers, canMark, canSaveLeave, coveringEntitlement, effectiveTo, leavesUsed, lowBalanceAlert, removeFromClass, resolveEntitlements } from "./attendance"
 import { bestPromotion, duplicateBusDay, billedOn, busAddOnAmount, pendingBusAddOns, validateBusAddOn, carriedMinutes, weekKey, classOptionsFor, defaultAdvance, entryFeeWaiver, invoiceSessionDates, invoiceTotals, validateInvoiceDraft, canApprove, canConfirmPayment, canForceApprove, canForceConfirmPayment, canSend, canVoid, defaultBusLegs, busTotal, nextInvoiceNumber, quoteCourse } from "./billing"
@@ -15,6 +15,7 @@ import { advanceStage, canSetStage, daysAgo, groupOf, restoreStage, validateLead
 import { APPROVE_STAGE, ATTENDED_STAGE, buildFormPrefill, commonSlots, buildCombinedSessionDraft, buildSessionDraftFromSlot, findOfferSlots, lastAssessmentDate, openHourStarts, sessionKindLabel } from "./forms"
 import { customerRows, filterCustomers } from "./customers"
 import { invoiceMessage } from "./messages"
+import * as Refund from "./refunds"
 
 const hours = { open: "09:00", close: "20:00" }
 const branch: Branch = {
@@ -1152,5 +1153,65 @@ describe("extra bus days after paying (Liclass, owner 2026-09-30)", () => {
     expect(t.busExtra).toBe(300)
     expect(t.total).toBe(300)
     expect(validateInvoiceDraft(i, t)).toEqual([])
+  })
+})
+
+describe("Credit Note: refund or keep as course credit (owner 2026-09-30)", () => {
+  const k = klass({ id: "k1", weekday: 2 })
+  const ctx = { branch, courses: [monthPkg], classes: [k], holidays: [] }
+  const paid: Invoice = {
+    id: "i1", branchId: "b1", studentId: "a", number: "INV-1", lines: [{ id: "l1", courseId: "c1", classIds: ["k1"], startDate: "2026-10-01", periods: 1 }],
+    bus: [{ date: "2026-10-06", pickup: true, dropoff: true }], bookFee: 350, advance: [], concession: null, noteToParent: "", status: "paid", pdf: "ready", createdBy: "adm", createdAt: "",
+    payments: [{ id: "p", amount: 5150, method: "transfer", reference: "", recordedBy: "adm", recordedAt: "", confirmedBy: "mgr" }],
+  }
+  const totals = invoiceTotals(paid, ctx)
+  const cn = (p: Partial<CreditNote>): CreditNote => ({ id: "cn1", branchId: "b1", studentId: "a", invoiceId: "i1", number: "CN-1", mode: "refund", items: [], reasons: ["ลาออก / เลิกเรียน"], remark: "", status: "pending_approval", createdBy: "adm", createdAt: "", ...p })
+
+  it("lists what can go back, each with its most; earlier notes are taken off", () => {
+    expect(Refund.refundableItems(paid, totals, []).map((i) => [i.key, i.max])).toEqual([["line:l1", 4500], ["bus", 300], ["book", 350]])
+    const earlier = cn({ items: [{ key: "book", label: "ค่าหนังสือ", amount: 350 }], status: "approved" })
+    expect(Refund.refundableItems(paid, totals, [earlier]).map((i) => i.key)).toEqual(["line:l1", "bus"])
+  })
+
+  it("suggests the unused share when the student stops mid-month", () => {
+    // Oct 2026 Tuesdays: 6, 13, 20, 27 → stop from 20 Oct = 2 of 4 unused
+    expect(Refund.unusedShare(totals.lines[0], "2026-10-20")).toEqual({ unused: 2, of: 4, amount: 2250 })
+  })
+
+  it("needs a reason, at least one item, no more than each item and than what was paid", () => {
+    const max = Refund.refundableItems(paid, totals, [])
+    const v = (p: Partial<CreditNote>) => Refund.validateCreditNote(cn(p), paid, max, [])
+    expect(v({ items: [] })).toMatch(/อย่างน้อย/)
+    expect(v({ items: [{ key: "bus", label: "ค่ารถ", amount: 400 }] })).toMatch(/ไม่เกิน 300/)
+    expect(v({ items: [{ key: "bus", label: "ค่ารถ", amount: 300 }], reasons: [], remark: "" })).toMatch(/เหตุผล/)
+    expect(v({ items: [{ key: "bus", label: "ค่ารถ", amount: 300 }] })).toBeNull()
+    expect(Refund.validateCreditNote(cn({ items: [{ key: "bus", label: "ค่ารถ", amount: 300 }] }), { ...paid, status: "sent" }, max, [])).toMatch(/ชำระครบ/)
+  })
+
+  it("maker–checker like invoices", () => {
+    expect(Refund.canApproveCreditNote(cn({}), admin).ok).toBe(false) // created by adm
+    expect(Refund.canApproveCreditNote(cn({}), manager).ok).toBe(true)
+    expect(Refund.canApproveCreditNote(cn({}), teacher).ok).toBe(false)
+    expect(Refund.canForceApproveCreditNote(cn({}), admin, "อยู่คนเดียว").ok).toBe(true)
+  })
+
+  it("refund needs the account it left from (to match the statement)", () => {
+    expect(Refund.validateRefundRecord(cn({ status: "approved" }), { fromAccount: "", date: "2026-10-20", reference: "x" })).toMatch(/บัญชี/)
+    expect(Refund.validateRefundRecord(cn({ status: "approved" }), { fromAccount: "KBank 222", date: "2026-10-20", reference: "x" })).toBeNull()
+    expect(Refund.validateRefundRecord(cn({ status: "approved", mode: "credit" }), { fromAccount: "KBank", date: "2026-10-20", reference: "x" })).toMatch(/เครดิต/)
+  })
+
+  it("credit belongs to student + course, is used once, and never more than that course's charge", () => {
+    const credit = cn({ mode: "credit", status: "approved", items: [{ key: "line:l1", label: "Maths", courseId: "c1", amount: 5000 }] })
+    expect(Refund.availableCredit("a", "c1", [credit], [])).toEqual([{ creditNoteId: "cn1", amount: 5000 }])
+    expect(Refund.availableCredit("a", "c2", [credit], [])).toEqual([])
+    expect(Refund.availableCredit("b", "c1", [credit], [])).toEqual([])
+    const next: Invoice = { ...paid, id: "i2", status: "draft", payments: [], lines: [{ id: "l2", courseId: "c1", classIds: ["k1"], startDate: "2026-11-01", periods: 1 }], bus: [], bookFee: 0 }
+    const use = Refund.autoCredits("a", invoiceTotals(next, ctx).lines, [credit], [])
+    expect(use).toEqual([{ creditNoteId: "cn1", courseId: "c1", amount: 4500 }]) // capped at the course charge
+    const withCredit = { ...next, creditsUsed: use }
+    expect(invoiceTotals(withCredit, ctx).total).toBe(0)
+    expect(Refund.availableCredit("a", "c1", [credit], [withCredit])).toEqual([{ creditNoteId: "cn1", amount: 500 }])
+    expect(Refund.availableCredit("a", "c1", [credit], [{ ...withCredit, status: "void" }])[0].amount).toBe(5000)
   })
 })

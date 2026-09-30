@@ -6,9 +6,10 @@
 import { create } from "zustand"
 import { persist } from "zustand/middleware"
 import { buildSeed, uid, type DB } from "@/data/seed"
-import { at, fmtDate, fmtMoney, toDateStr, toMinutes, weekdayOf } from "@/domain/dates"
+import { addDays, at, fmtDate, fmtMoney, toDateStr, toMinutes, weekdayOf } from "@/domain/dates"
 import * as Att from "@/domain/rules/attendance"
 import * as Bill from "@/domain/rules/billing"
+import * as Refund from "@/domain/rules/refunds"
 import * as CRM from "@/domain/rules/crm"
 import * as Inbox from "@/domain/rules/inbox"
 import { can, canDeactivateStaff, inBranch, OFFICE_ROLES, require as requirePerm } from "@/domain/rules/permissions"
@@ -21,7 +22,7 @@ import * as Notif from "@/domain/rules/notifications"
 import * as Cfg from "@/domain/rules/settings"
 import * as Msg from "@/domain/rules/messages"
 import { toast } from "sonner"
-import type { Assessment, AttendanceStatus, Entitlement, Branch, BusAddOn, ChatMessage, Conversation, Course, DateStr, Family, FormSubmission, Holiday, ID, Invoice, Klass, Lead, LeadStage, LessonSummary, LineDelivery, LogCategory, Result, Session, Staff, Student, SystemConfig } from "@/domain/types"
+import type { Assessment, AttendanceStatus, Entitlement, Branch, BusAddOn, CreditNote, ChatMessage, Conversation, Course, DateStr, Family, FormSubmission, Holiday, ID, Invoice, Klass, Lead, LeadStage, LessonSummary, LineDelivery, LogCategory, Result, Session, Staff, Student, SystemConfig } from "@/domain/types"
 
 export interface UIState {
   userId: ID
@@ -106,6 +107,11 @@ type Store = DB & UIState & {
   addBusAddOns: (studentId: ID, days: { date: DateStr; pickup: boolean; dropoff: boolean }[], busFeeId: ID | null, note: string) => Result<{ count: number; amount: number }>
   /** only while not billed yet */
   removeBusAddOn: (id: ID) => Result
+  /** refund / credit on a paid invoice — the invoice itself never changes */
+  createCreditNote: (input: Pick<CreditNote, "invoiceId" | "mode" | "items" | "reasons" | "remark" | "stopFrom">) => Result<CreditNote>
+  approveCreditNote: (id: ID, forceRemark?: string) => Result
+  voidCreditNote: (id: ID, reason: string) => Result
+  recordRefund: (id: ID, r: { fromAccount: string; date: DateStr; reference: string }) => Result
   recordPayment: (id: ID, p: { amount: number; method: "transfer" | "cash"; reference: string; slip?: string }) => Result
   confirmPayment: (invoiceId: ID, paymentId: ID, forceRemark?: string) => Result<{ paid: boolean }>
 
@@ -985,6 +991,11 @@ export const useStore = create<Store>()(
         // an extra bus day is charged once: it must still be pending (not on another live invoice)
         const open = new Set(Bill.pendingBusAddOns(inv.studentId, s.busAddOns, s.invoices, inv.id).map((x) => x.id))
         if ((inv.busExtras ?? []).some((x) => !open.has(x.addOnId))) return fail("ค่ารถเพิ่มบางวันถูกเรียกเก็บในใบอื่นแล้ว — เปิดใบใหม่อีกครั้ง")
+        // credit can't be used twice or on another course
+        for (const u of inv.creditsUsed ?? []) {
+          const left = Refund.availableCredit(inv.studentId, u.courseId, s.creditNotes, s.invoices, inv.id).find((c) => c.creditNoteId === u.creditNoteId)?.amount ?? 0
+          if (u.amount > left) return fail("เครดิตคอร์สถูกใช้ไปแล้วบางส่วน — เปิดใบใหม่อีกครั้ง")
+        }
         // editing a generated invoice sends it back to draft (needs new PDF + approval)
         const next: Invoice = existing && existing.status === "pending_approval" ? { ...inv, status: "draft", pdf: "none" } : { ...inv, status: "draft" }
         set({ invoices: existing ? s.invoices.map((x) => (x.id === inv.id ? next : x)) : [next, ...s.invoices] })
@@ -1077,6 +1088,79 @@ export const useStore = create<Store>()(
         set({ busAddOns: s.busAddOns.filter((x) => x.id !== id) })
         log("billing", [a.studentId], "ลบรอบรถเพิ่ม", `${fmtDate(a.date)} · ${fmtMoney(a.amount)}`)
         return { ok: true, value: undefined }
+      },
+
+      createCreditNote: (input) => {
+        const s = get()
+        const perm = requirePerm(s.me(), "billing.manage")
+        if (!perm.ok) return perm
+        const inv = s.invoices.find((x) => x.id === input.invoiceId)
+        if (!inv) return fail("ไม่พบใบแจ้งหนี้")
+        const ctx = ctxOf(s, inv.branchId)
+        const items = input.items.filter((i) => i.amount > 0)
+        const err = Refund.validateCreditNote({ ...input, items }, inv, Refund.refundableItems(inv, Bill.invoiceTotals(inv, ctx), s.creditNotes), s.creditNotes)
+        if (err) return fail(err)
+        const number = Bill.nextInvoiceNumber("CN", ctx.branch, toDateStr(s.now()), s.creditNotes.map((x) => x.number))
+        const cn: CreditNote = { id: uid("cn"), branchId: inv.branchId, studentId: inv.studentId, number, ...input, items, remark: input.remark.trim(), status: "pending_approval", createdBy: s.userId, createdAt: s.now().toISOString() }
+        set({ creditNotes: [cn, ...s.creditNotes] })
+        log("billing", [inv.studentId], "สร้างใบลดหนี้", `${number} · ${Refund.CREDIT_MODE_LABEL[cn.mode]} ${fmtMoney(Refund.creditNoteTotal(cn))} · อ้างถึง ${inv.number} · ${[...cn.reasons, cn.remark].filter(Boolean).join(", ")}`)
+        return { ok: true, value: cn }
+      },
+
+      approveCreditNote: (id, forceRemark) => {
+        const s = get()
+        const cn = s.creditNotes.find((x) => x.id === id)!
+        const forced = forceRemark !== undefined
+        const r = forced ? Refund.canForceApproveCreditNote(cn, s.me(), forceRemark) : Refund.canApproveCreditNote(cn, s.me())
+        if (!r.ok) return r
+        const inv = s.invoices.find((x) => x.id === cn.invoiceId)!
+        let { entitlements, sessions, classes } = s
+        // the student stops the refunded courses: packages end the day before, later unmarked sessions let go
+        if (cn.stopFrom) {
+          const stop = cn.stopFrom
+          const totals = Bill.invoiceTotals(inv, ctxOf(s, inv.branchId))
+          const marked = new Set(s.attendance.filter((a) => a.studentId === cn.studentId).map((a) => a.sessionId))
+          for (const item of cn.items.filter((i) => i.key.startsWith("line:"))) {
+            const l = totals.lines.find((x) => `line:${x.line.id}` === item.key)
+            if (!l) continue
+            const kept = (l.quote?.slots ?? []).filter((x) => x.date < stop).length
+            entitlements = entitlements.map((e) => (e.invoiceId === inv.id && e.courseId === l.line.courseId && e.to >= stop ? { ...e, to: addDays(stop, -1), sessionsTotal: e.kind === "sessions" ? kept : e.sessionsTotal } : e))
+            sessions = sessions.map((x) => (x.classId && l.line.classIds.includes(x.classId) && x.date >= stop && !marked.has(x.id) && x.studentIds.includes(cn.studentId) ? { ...x, studentIds: x.studentIds.filter((y) => y !== cn.studentId) } : x))
+            // off the class roster unless another package still pays for this class after the stop day
+            classes = classes.map((k) => (l.line.classIds.includes(k.id) && !entitlements.some((e) => e.studentId === cn.studentId && e.classIds.includes(k.id) && e.to >= stop) ? { ...k, studentIds: k.studentIds.filter((y) => y !== cn.studentId) } : k))
+          }
+        }
+        set({
+          creditNotes: s.creditNotes.map((x) => (x.id === id ? { ...x, status: "approved", approvedBy: s.userId, forced: forced ? { by: s.userId, at: s.now().toISOString(), remark: forceRemark.trim() } : undefined } : x)),
+          entitlements, sessions, classes,
+          notifications: forced ? [forceNotice(s, cn.branchId, "ใบลดหนี้", cn.number, forceRemark), ...s.notifications] : s.notifications,
+        })
+        log("billing", [cn.studentId], forced ? "Force Approve ใบลดหนี้" : "อนุมัติใบลดหนี้", `${cn.number} · ${Refund.CREDIT_MODE_LABEL[cn.mode]} ${fmtMoney(Refund.creditNoteTotal(cn))}${cn.stopFrom ? ` · หยุดเรียนตั้งแต่ ${fmtDate(cn.stopFrom)}` : ""}${cn.mode === "credit" ? " · หักในใบถัดไปของคอร์สเดียวกัน" : " · รอโอนคืน"}`, true)
+        return OK
+      },
+
+      voidCreditNote: (id, reason) => {
+        const s = get()
+        const perm = requirePerm(s.me(), "billing.manage")
+        if (!perm.ok) return perm
+        const cn = s.creditNotes.find((x) => x.id === id)!
+        if (cn.status !== "pending_approval") return fail("ยกเลิกได้เฉพาะใบลดหนี้ที่ยังไม่อนุมัติ")
+        if (!reason.trim()) return fail("กรอกเหตุผลการยกเลิก")
+        set({ creditNotes: s.creditNotes.map((x) => (x.id === id ? { ...x, status: "void", voidReason: reason.trim() } : x)) })
+        log("billing", [cn.studentId], "ยกเลิกใบลดหนี้", `${cn.number} · ${reason.trim()}`)
+        return OK
+      },
+
+      recordRefund: (id, rec) => {
+        const s = get()
+        const perm = requirePerm(s.me(), "billing.manage")
+        if (!perm.ok) return perm
+        const cn = s.creditNotes.find((x) => x.id === id)!
+        const err = Refund.validateRefundRecord(cn, rec)
+        if (err) return fail(err)
+        set({ creditNotes: s.creditNotes.map((x) => (x.id === id ? { ...x, refund: { fromAccount: rec.fromAccount.trim(), date: rec.date, reference: rec.reference.trim(), recordedBy: s.userId, recordedAt: s.now().toISOString() } } : x)) })
+        log("billing", [cn.studentId], "โอนคืนเงิน", `${cn.number} · ${fmtMoney(Refund.creditNoteTotal(cn))} · จาก ${rec.fromAccount.trim()} · ${fmtDate(rec.date)} · ${rec.reference.trim()}`)
+        return OK
       },
 
       voidInvoice: (id, reason) => {
@@ -1489,7 +1573,7 @@ export const useStore = create<Store>()(
     {
       name: "nockerp-v2",
       // bump when the data model changes; older saved data is replaced by fresh sample data
-      version: 34,
+      version: 35,
       migrate: () => ({ ...buildSeed(), userId: "u_nock", branchId: "br_thl", clockOffset: 0 }) as unknown as Store,
       // persist data + UI state only, never the action functions
       partialize: (s) => Object.fromEntries(Object.entries(s).filter(([, v]) => typeof v !== "function")) as Partial<Store>,

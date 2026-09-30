@@ -200,6 +200,8 @@ export interface InvoiceTotals {
   book: number
   advance: number
   concession: number
+  /** course credit from Credit Notes taken off */
+  credit: number
   total: number
   lines: LineQuote[]
 }
@@ -227,8 +229,9 @@ export function invoiceTotals(inv: Invoice, ctx: { branch: Branch; courses: Cour
   const advance = inv.advance.reduce((a, x) => a + x.amount, 0)
   const busExtra = (inv.busExtras ?? []).reduce((a, x) => a + x.amount, 0)
   const concession = inv.concession?.amount ?? 0
-  const total = course + courseFee - promotion + bus + busExtra + inv.bookFee + advance - concession
-  return { course, courseFee, promotion, bus, busExtra, book: inv.bookFee, advance, concession, total, lines }
+  const credit = (inv.creditsUsed ?? []).reduce((a, x) => a + x.amount, 0)
+  const total = course + courseFee - promotion + bus + busExtra + inv.bookFee + advance - concession - credit
+  return { course, courseFee, promotion, bus, busExtra, book: inv.bookFee, advance, concession, credit, total, lines }
 }
 
 /** Classes an invoice line can enrol into: this branch's active recurring classes that teach the course's subject
@@ -333,7 +336,7 @@ export function validateInvoiceDraft(inv: Invoice, totals: InvoiceTotals, opts: 
 
 /** BL-8, BL-9: numbers are assigned at Generate, sequentially per branch + month, never on draft.
  *  Year is Buddhist Era, 2 digits (owner 2026-09-28): Sep 2026 → INV-THL-6909-0001 */
-export function nextInvoiceNumber(prefix: "INV" | "RC", branch: Branch, date: DateStr, existing: (string | undefined | null)[]) {
+export function nextInvoiceNumber(prefix: "INV" | "RC" | "CN", branch: Branch, date: DateStr, existing: (string | undefined | null)[]) {
   const ym = String((Number(date.slice(0, 4)) + 543) % 100).padStart(2, "0") + date.slice(5, 7)
   const head = `${prefix}-${branch.code}-${ym}-`
   const max = existing.filter((n): n is string => !!n && n.startsWith(head)).reduce((m, n) => Math.max(m, Number(n.slice(head.length))), 0)

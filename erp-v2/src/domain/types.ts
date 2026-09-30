@@ -546,6 +546,50 @@ export interface BusAddOn {
   createdAt: string
 }
 
+/** Refund (owner 2026-09-30): a paid invoice is never edited — a Credit Note cancels part of it.
+ *  refund = money goes back (recorded with the account it left from) · credit = kept as credit for the same
+ *  student + course, taken off their next invoice automatically. */
+export type CreditMode = "refund" | "credit"
+
+export interface CreditNoteItem {
+  /** "line:<lineId>" · "bus" · "busExtra" · "book" · "advance:<feeId>" */
+  key: string
+  label: string
+  /** the course this money belongs to — credit is tied to student + course */
+  courseId?: ID
+  amount: number
+}
+
+export interface CreditNote {
+  id: ID
+  branchId: ID
+  studentId: ID
+  invoiceId: ID
+  number: string
+  mode: CreditMode
+  items: CreditNoteItem[]
+  /** chips + free text */
+  reasons: string[]
+  remark: string
+  /** the student stops the chosen courses from this day (packages end, removed from later sessions) */
+  stopFrom?: DateStr
+  status: "pending_approval" | "approved" | "void"
+  createdBy: ID
+  createdAt: string
+  approvedBy?: ID
+  forced?: ForcedAction
+  voidReason?: string
+  /** refund mode: the money actually sent back — from which account, so the statement line has a document */
+  refund?: { fromAccount: string; date: DateStr; reference: string; recordedBy: ID; recordedAt: string }
+}
+
+/** Course credit taken off an invoice */
+export interface CreditUse {
+  creditNoteId: ID
+  courseId: ID
+  amount: number
+}
+
 /** A bus add-on billed on an invoice — a copy, so the invoice total never changes afterwards. */
 export interface BusExtraLine {
   addOnId: ID
@@ -592,6 +636,8 @@ export interface Invoice {
   busFeeId?: ID | null
   /** extra bus days recorded after an earlier invoice, charged here */
   busExtras?: BusExtraLine[]
+  /** course credit (from a Credit Note) taken off this invoice */
+  creditsUsed?: CreditUse[]
   bookFee: number
   /** Advance Optional (Staging): entry / mock fees picked from General Fees — name + price copied so a later price change never rewrites an invoice */
   advance: AdvanceItem[]

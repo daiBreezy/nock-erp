@@ -17,6 +17,7 @@ export function invoiceMessage(inv: Invoice, totals: InvoiceTotals, ctx: { stude
     totals.busExtra ? `ค่ารถเพิ่ม (รอบก่อน ${(inv.busExtras ?? []).map((x) => fmtDate(x.date)).join(", ")}) ${fmtMoney(totals.busExtra)}` : null,
     ...inv.advance.map((a) => `${a.name} ${fmtMoney(a.amount)}`),
     ...totals.lines.filter((l) => l.promotion).map((l) => `ส่วนลด ${l.promotionName ?? "โปรโมชัน"} -${fmtMoney(l.promotion)}`),
+    totals.credit ? `หักเครดิตคอร์ส -${fmtMoney(totals.credit)}` : null,
     `ยอดชำระ ${fmtMoney(totals.total)}`,
     bankLine(ctx.branch),
     inv.noteToParent.trim() || null,
