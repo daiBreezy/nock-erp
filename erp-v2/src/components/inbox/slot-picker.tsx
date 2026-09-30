@@ -81,7 +81,9 @@ export function SlotPicker({
                         {classes.find((k) => k.id === slot.classId)?.name ?? "คลาสเดิม"} · {staff.find((t) => t.id === slot.teacherId)?.nickname ?? "ยังไม่มีครู"}
                       </Pill>
                     ) : (
-                      <Pill tone="gray" className="px-1.5 py-0 text-[10px]">ว่าง</Pill>
+                      <Pill tone="gray" className="px-1.5 py-0 text-[10px]" title={slot.fits2h === false ? "ต่อเป็น 2 ชม. ไม่ได้ (ครู/ห้องไม่ว่างชั่วโมงถัดไป หรือใกล้เวลาปิด) — ใช้ได้เฉพาะวิชาเดียว" : undefined}>
+                        {slot.fits2h === false ? "ว่าง · 1 ชม." : "ว่าง"}
+                      </Pill>
                     )}
                   </button>
                 )

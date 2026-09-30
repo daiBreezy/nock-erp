@@ -912,9 +912,26 @@ describe("one visit for several subjects (owner 2026-09-30)", () => {
   it("1 subject: its own times, 1 hour", () => {
     expect(commonSlots(offers, ["Maths"]).map((x) => `${x.date} ${x.start} ${x.minutes}`)).toEqual(["2026-10-01 10:00 60", "2026-10-01 13:00 60", "2026-10-02 10:00 60"])
   })
+  it("2 subjects: a time whose teacher/room can't stay a 2nd hour (fits2h false) or that is someone's class is not offered", () => {
+    const o2 = [
+      { subject: "Maths", slots: [{ ...slot("Maths", "2026-10-01", "13:00"), fits2h: false }, slot("Maths", "2026-10-02", "10:00")] },
+      { subject: "English", slots: [slot("English", "2026-10-01", "13:00"), { ...slot("English", "2026-10-02", "10:00"), source: "class" as const }] },
+    ]
+    expect(commonSlots(o2, ["Maths", "English"])).toEqual([])
+    expect(commonSlots(o2, ["Maths"]).length).toBe(2) // alone, a 1-hour slot is fine
+  })
+
   it("2 subjects: only the times both are free together, as one 2-hour block, picking sets both", () => {
     const r = commonSlots(offers, ["Maths", "English"])
     expect(r.map((x) => `${x.date} ${x.start} ${x.minutes}`)).toEqual(["2026-10-01 13:00 120"])
     expect(Object.keys(r[0].bySubject)).toEqual(["Maths", "English"])
+  })
+})
+
+describe("admin offers know which hours can become a 2-hour visit", () => {
+  it("the hour before closing can't (branch closes 20:00), a free midday hour can", () => {
+    const slots = findOfferSlots({ branch, staff: [teacher], sessions: [], classes: [], holidays: [], subject: "Maths", from: "2026-10-06", to: "2026-10-06", now: new Date(2026, 9, 1), minutes: 60 })
+    expect(slots.find((x) => x.start === "19:00")?.fits2h).toBe(false)
+    expect(slots.find((x) => x.start === "13:00")?.fits2h).toBe(true)
   })
 })

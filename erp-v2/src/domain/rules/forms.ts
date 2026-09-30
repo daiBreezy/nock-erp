@@ -88,6 +88,8 @@ export function commonSlots(offers: FormSubjectOffer[], subjects: string[]): { d
         if (!match) return []
         bySubject[o.subject] = match
       }
+      // one 2-hour visit: every slot must be a free hour (not someone's class) that can grow to 2 hours
+      if (chosen.length > 1 && Object.values(bySubject).some((x) => x.source !== "generic" || x.fits2h === false)) return []
       return [{ date: s.date, start: s.start, minutes: chosen.length > 1 ? COMBINED_MINUTES : s.minutes, bySubject }]
     })
     .sort((a, b) => (a.date + a.start).localeCompare(b.date + b.start))
@@ -105,6 +107,10 @@ function freeTeacher(staff: Staff[], sessions: Session[], branchId: ID, subject:
   const daySessions = sessions.filter((s) => !s.cancelled && s.branchId === branchId && s.date === date)
   const free = qualified.find((t) => !daySessions.some((s) => teachersOf(s).includes(t.id) && slotsOverlap(s.start, s.minutes, start, minutes)))
   return free?.id ?? null
+}
+
+function teacherFree(sessions: Session[], branchId: ID, teacherId: ID, date: DateStr, start: TimeStr, minutes: number) {
+  return !sessions.some((s) => !s.cancelled && s.branchId === branchId && s.date === date && teachersOf(s).includes(teacherId) && slotsOverlap(s.start, s.minutes, start, minutes))
 }
 
 /** First room of the branch with no overlapping session that date. */
@@ -147,7 +153,9 @@ export function findOfferSlots(params: {
       if (!teacherId) continue
       const roomId = freeRoom(branch, sessions, date, start, minutes)
       if (!roomId) continue
-      out.push({ id: `off_g${gi++}`, date, start, minutes, source: "generic", teacherId, roomId, classId: null, sessionId: null })
+      // can this hour grow into a 2-hour visit (several subjects the same day)? same teacher, any room, still open
+      const fits2h = !slotProblem(branch, date, start, COMBINED_MINUTES) && teacherFree(sessions, branch.id, teacherId, date, start, COMBINED_MINUTES) && !!freeRoom(branch, sessions, date, start, COMBINED_MINUTES)
+      out.push({ id: `off_g${gi++}`, date, start, minutes, source: "generic", teacherId, roomId, classId: null, sessionId: null, fits2h })
     }
   }
 

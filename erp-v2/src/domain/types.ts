@@ -625,6 +625,9 @@ export interface FormOfferSlot {
   classId: ID | null
   /** set only when source === "class" — the real Session to join on approve */
   sessionId: ID | null
+  /** a generic slot whose teacher AND a room are free for a whole 2-hour visit (2+ subjects same day) and the
+   *  branch is still open — only these can be combined (owner 2026-09-30). Unset on old tokens = allowed. */
+  fits2h?: boolean
 }
 
 export interface FormSubjectOffer {
