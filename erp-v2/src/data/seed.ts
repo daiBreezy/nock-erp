@@ -4,7 +4,7 @@ import { addDays, fromMinutes, nextWeekday, toDateStr, weekdayOf } from "@/domai
 import { chartPrice } from "@/domain/rules/course"
 import { generateSessions } from "@/domain/rules/scheduling"
 import type {
-  Assessment, AppNotification, Attendance, Branch, BusAddOn, ChatMessage, CreditNote, Conversation, Course, Entitlement, Family, Holiday, Invoice, Klass, Lead, LessonSummary,
+  Assessment, AppNotification, Attendance, Branch, BusAddOn, ChatMessage, CreditNote, LessonBook, LessonTopic, Conversation, Course, Entitlement, Family, Holiday, Invoice, Klass, Lead, LessonSummary,
   ActivityLog, PriceRow, Session, StudentNote, Staff, Student, StudentLeave, SystemConfig, Weekday,
 } from "@/domain/types"
 
@@ -24,6 +24,8 @@ export interface DB {
   invoices: Invoice[]
   busAddOns: BusAddOn[]
   creditNotes: CreditNote[]
+  lessonBooks: LessonBook[]
+  lessonTopics: LessonTopic[]
   leads: Lead[]
   conversations: Conversation[]
   messages: ChatMessage[]
@@ -370,6 +372,19 @@ export function buildSeed(now = new Date()): DB {
     },
   ]
 
+  // books + topics teachers already typed (demo) — everyone in the branch picks from these
+  const lessonBooks: LessonBook[] = [
+    { id: "bk_m5", branchId: "br_thl", name: "Maths Challenge ป.5 เล่ม 1", createdBy: "u_dai", createdAt: iso(addDays(today, -40)) },
+    { id: "bk_eng", branchId: "br_thl", name: "Active English Book 2", createdBy: "u_mint", createdAt: iso(addDays(today, -40)) },
+  ]
+  const lessonTopics: LessonTopic[] = [
+    { id: "tp_1", bookId: "bk_m5", name: "บทที่ 1 เศษส่วน", createdBy: "u_dai", createdAt: iso(addDays(today, -40)) },
+    { id: "tp_2", bookId: "bk_m5", name: "บทที่ 2 ทศนิยม", createdBy: "u_dai", createdAt: iso(addDays(today, -30)) },
+    { id: "tp_3", bookId: "bk_m5", name: "บทที่ 3 ร้อยละ", createdBy: "u_dai", createdAt: iso(addDays(today, -20)) },
+    { id: "tp_4", bookId: "bk_eng", name: "Unit 1 My Family", createdBy: "u_mint", createdAt: iso(addDays(today, -40)) },
+    { id: "tp_5", bookId: "bk_eng", name: "Unit 2 At School", createdBy: "u_mint", createdAt: iso(addDays(today, -25)) },
+  ]
+
   // extra bus days asked for after paying — waiting for ใบเตย's next invoice (demo)
   const busAddOns: BusAddOn[] = [
     { id: "ba_1", branchId: "br_thl", studentId: "stu_1", date: addDays(today, -3), pickup: false, dropoff: true, busFeeId: "fee_bus_std", amount: 150, note: "แม่ติดประชุม ขอส่งกลับบ้าน", createdBy: "u_ploy", createdAt: iso(addDays(today, -4)) },
@@ -412,5 +427,5 @@ export function buildSeed(now = new Date()): DB {
     },
   }
 
-  return { branches, staff, holidays, courses, classes, sessions, attendance, summaries, families, students, entitlements, leaves: [], invoices, busAddOns, creditNotes: [] as CreditNote[], leads, conversations, messages, notifications: [], system, notes, logs, assessments }
+  return { branches, staff, holidays, courses, classes, sessions, attendance, summaries, families, students, entitlements, leaves: [], invoices, busAddOns, creditNotes: [] as CreditNote[], lessonBooks, lessonTopics, leads, conversations, messages, notifications: [], system, notes, logs, assessments }
 }

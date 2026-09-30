@@ -35,11 +35,16 @@ export function receiptMessage(inv: Invoice, total: number, ctx: { student: Stud
   ].filter(Boolean).join("\n")
 }
 
-export function summaryMessage(sum: LessonSummary, ctx: { student: Student; session: Pick<Session, "subject" | "date" | "start"> }): string {
+/** Parents get the whole lesson (owner 2026-09-30): Book, Topic, Lesson Detail and the per-session feedback. */
+export function summaryMessage(sum: LessonSummary, ctx: { student: Student; session: Pick<Session, "subject" | "date" | "start">; book?: string; topic?: string }): string {
   return [
     `📝 สรุปการเรียน ${ctx.student.nickname} · ${ctx.session.subject}`,
     `${fmtDate(ctx.session.date, { weekday: true })} ${ctx.session.start} น.`,
     "",
+    ctx.book ? `📚 หนังสือ: ${ctx.book}` : null,
+    ctx.topic ? `📖 บทเรียน: ${ctx.topic}` : null,
+    sum.detail?.trim() ? `📝 รายละเอียด: ${sum.detail.trim()}` : null,
+    ctx.book || ctx.topic || sum.detail ? "" : null,
     sum.text.trim(),
-  ].join("\n")
+  ].filter((x) => x !== null).join("\n")
 }

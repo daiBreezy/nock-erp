@@ -11,6 +11,9 @@ import * as Att from "@/domain/rules/attendance"
 import * as Bill from "@/domain/rules/billing"
 import * as Refund from "@/domain/rules/refunds"
 import * as Seats from "@/domain/rules/seats"
+import * as Les from "@/domain/rules/lessons"
+
+export type SummaryLesson = { bookId?: ID; topicId?: ID; detail?: string }
 import * as CRM from "@/domain/rules/crm"
 import * as Inbox from "@/domain/rules/inbox"
 import { can, canDeactivateStaff, inBranch, OFFICE_ROLES, require as requirePerm } from "@/domain/rules/permissions"
@@ -23,7 +26,7 @@ import * as Notif from "@/domain/rules/notifications"
 import * as Cfg from "@/domain/rules/settings"
 import * as Msg from "@/domain/rules/messages"
 import { toast } from "sonner"
-import type { Assessment, AttendanceStatus, Entitlement, Branch, BusAddOn, CreditNote, Seat, ChatMessage, Conversation, Course, DateStr, Family, FormSubmission, Holiday, ID, Invoice, Klass, Lead, LeadStage, LessonSummary, LineDelivery, LogCategory, Result, Session, Staff, Student, SystemConfig } from "@/domain/types"
+import type { Assessment, AttendanceStatus, Entitlement, Branch, BusAddOn, CreditNote, LessonBook, LessonTopic, Seat, ChatMessage, Conversation, Course, DateStr, Family, FormSubmission, Holiday, ID, Invoice, Klass, Lead, LeadStage, LessonSummary, LineDelivery, LogCategory, Result, Session, Staff, Student, SystemConfig } from "@/domain/types"
 
 export interface UIState {
   userId: ID
@@ -97,7 +100,15 @@ type Store = DB & UIState & {
   rescheduleStudent: (fromSessionId: ID, studentId: ID, toSessionId: ID) => Result
   undoReschedule: (fromSessionId: ID, studentId: ID) => Result
 
-  saveSummary: (sessionId: ID, studentId: ID, text: string, submit: boolean) => Result
+  saveSummary: (sessionId: ID, studentId: ID, text: string, submit: boolean, lesson?: SummaryLesson) => Result
+  /** "Summary Template": the same Book / Topic / Lesson Detail for every student present in the session (feedback stays per student) */
+  applyLessonToSession: (sessionId: ID, lesson: SummaryLesson) => Result<{ count: number }>
+  /** Book / Topic catalog — typed once, picked by everyone in the branch; same name (any case/spacing) = the existing one */
+  addLessonBook: (branchId: ID, name: string) => Result<LessonBook>
+  addLessonTopic: (bookId: ID, name: string) => Result<LessonTopic>
+  renameLessonItem: (kind: "book" | "topic", id: ID, name: string) => Result
+  /** duplicates made before: move every summary to the kept one, then remove the other */
+  mergeLessonItem: (kind: "book" | "topic", fromId: ID, intoId: ID) => Result<{ moved: number }>
   requestSummaryChanges: (id: ID, note: string) => Result
   /** forceRemark set = Force Approve (skip maker–checker) */
   approveSummary: (id: ID, forceRemark?: string) => Result
@@ -953,7 +964,94 @@ export const useStore = create<Store>()(
       },
 
       // ---------------- summaries ----------------
-      saveSummary: (sessionId, studentId, text, submit) => {
+      applyLessonToSession: (sessionId, lesson) => {
+        const s = get()
+        const me = s.me()
+        const se = s.sessions.find((x) => x.id === sessionId)!
+        if (!can(me, "session.manage") && se.teacherId !== me.id && !se.coTeacherIds.includes(me.id)) return fail("เขียนสรุปได้เฉพาะคาบที่คุณสอน")
+        const present = s.attendance.filter((a) => a.sessionId === sessionId && a.status === "present").map((a) => a.studentId)
+        const at = s.now().toISOString()
+        const L = { bookId: lesson.bookId || undefined, topicId: lesson.topicId || undefined, detail: lesson.detail?.trim() || undefined }
+        let count = 0
+        let summaries = s.summaries
+        for (const studentId of present) {
+          const ex = summaries.find((x) => x.sessionId === sessionId && x.studentId === studentId)
+          if (ex && ex.status !== "draft" && ex.status !== "changes_requested") continue // already submitted — leave it
+          count++
+          summaries = ex
+            ? summaries.map((x) => (x === ex ? { ...x, ...L, lastEditorId: me.id, history: [...x.history, { at, by: me.id, action: "edit" as const }] } : x))
+            : [...summaries, { id: uid("sm"), sessionId, studentId, ...L, text: "", status: "draft" as const, authorId: me.id, lastEditorId: me.id, history: [{ at, by: me.id, action: "write" as const }] }]
+        }
+        set({ summaries })
+        return { ok: true, value: { count } }
+      },
+
+      addLessonBook: (branchId, name) => {
+        const s = get()
+        if (!Les.canUseCatalog(s.me(), branchId)) return fail("เฉพาะครู/ผู้ตรวจสรุปของสาขานี้")
+        const err = Les.validateCatalogName(name)
+        if (err) return fail(err)
+        const same = Les.findSame(Les.booksOf(branchId, s.lessonBooks), name)
+        if (same) return { ok: true, value: same }
+        const b: LessonBook = { id: uid("bk"), branchId, name: Les.cleanName(name), createdBy: s.userId, createdAt: s.now().toISOString() }
+        set({ lessonBooks: [...s.lessonBooks, b] })
+        return { ok: true, value: b }
+      },
+
+      addLessonTopic: (bookId, name) => {
+        const s = get()
+        const book = s.lessonBooks.find((b) => b.id === bookId)
+        if (!book) return fail("เลือกหนังสือก่อน")
+        if (!Les.canUseCatalog(s.me(), book.branchId)) return fail("เฉพาะครู/ผู้ตรวจสรุปของสาขานี้")
+        const err = Les.validateCatalogName(name)
+        if (err) return fail(err)
+        const same = Les.findSame(Les.topicsOf(bookId, s.lessonTopics), name)
+        if (same) return { ok: true, value: same }
+        const t: LessonTopic = { id: uid("tp"), bookId, name: Les.cleanName(name), createdBy: s.userId, createdAt: s.now().toISOString() }
+        set({ lessonTopics: [...s.lessonTopics, t] })
+        return { ok: true, value: t }
+      },
+
+      renameLessonItem: (kind, id, name) => {
+        const s = get()
+        const err = Les.validateCatalogName(name)
+        if (err) return fail(err)
+        const book = kind === "book" ? s.lessonBooks.find((b) => b.id === id) : s.lessonBooks.find((b) => b.id === s.lessonTopics.find((t) => t.id === id)?.bookId)
+        if (!book || !Les.canUseCatalog(s.me(), book.branchId)) return fail("เฉพาะครู/ผู้ตรวจสรุปของสาขานี้")
+        const siblings = kind === "book" ? Les.booksOf(book.branchId, s.lessonBooks) : Les.topicsOf(book.id, s.lessonTopics)
+        const same = Les.findSame(siblings.filter((x) => x.id !== id), name)
+        if (same) return fail(`มี "${same.name}" อยู่แล้ว — ใช้ "รวมเข้ากับ" แทนการเปลี่ยนชื่อ`)
+        if (kind === "book") set({ lessonBooks: s.lessonBooks.map((b) => (b.id === id ? { ...b, name: Les.cleanName(name) } : b)) })
+        else set({ lessonTopics: s.lessonTopics.map((t) => (t.id === id ? { ...t, name: Les.cleanName(name) } : t)) })
+        return OK
+      },
+
+      mergeLessonItem: (kind, fromId, intoId) => {
+        const s = get()
+        if (fromId === intoId) return fail("เลือกอีกรายการที่จะรวมเข้า")
+        const bookOf = (id: ID) => (kind === "book" ? s.lessonBooks.find((b) => b.id === id) : s.lessonBooks.find((b) => b.id === s.lessonTopics.find((t) => t.id === id)?.bookId))
+        const book = bookOf(intoId)
+        if (!book || bookOf(fromId)?.branchId !== book.branchId || !Les.canUseCatalog(s.me(), book.branchId)) return fail("รวมได้เฉพาะรายการในสาขาเดียวกัน")
+        let { summaries, lessonTopics } = s
+        let moved = 0
+        if (kind === "book") {
+          // topics come along; a topic already in the kept book (same name) takes the summaries of its twin
+          const keep = Les.topicsOf(intoId, lessonTopics)
+          for (const t of Les.topicsOf(fromId, lessonTopics)) {
+            const twin = Les.findSame(keep, t.name)
+            if (twin) { summaries = summaries.map((x) => (x.topicId === t.id ? { ...x, topicId: twin.id } : x)); lessonTopics = lessonTopics.filter((x) => x.id !== t.id) }
+            else lessonTopics = lessonTopics.map((x) => (x.id === t.id ? { ...x, bookId: intoId } : x))
+          }
+          summaries = summaries.map((x) => (x.bookId === fromId ? (moved++, { ...x, bookId: intoId }) : x))
+          set({ summaries, lessonTopics, lessonBooks: s.lessonBooks.filter((b) => b.id !== fromId) })
+        } else {
+          summaries = summaries.map((x) => (x.topicId === fromId ? (moved++, { ...x, topicId: intoId }) : x))
+          set({ summaries, lessonTopics: lessonTopics.filter((t) => t.id !== fromId) })
+        }
+        return { ok: true, value: { moved } }
+      },
+
+      saveSummary: (sessionId, studentId, text, submit, lesson) => {
         const s = get()
         const me = s.me()
         if (!text.trim() && submit) return fail("เขียนสรุปก่อนส่ง")
@@ -965,9 +1063,10 @@ export const useStore = create<Store>()(
         const se = s.sessions.find((x) => x.id === sessionId)
         if (!can(me, "session.manage") && se && se.teacherId !== me.id && !se.coTeacherIds.includes(me.id)) return fail("เขียนสรุปได้เฉพาะคาบที่คุณสอน")
         const at = s.now().toISOString()
+        const L = lesson ? { bookId: lesson.bookId || undefined, topicId: lesson.topicId || undefined, detail: lesson.detail?.trim() || undefined } : {}
         const next: LessonSummary = existing
-          ? { ...existing, text, lastEditorId: me.id, status: submit ? "submitted" : existing.status === "changes_requested" ? "changes_requested" : "draft", history: [...existing.history, { at, by: me.id, action: submit ? "submit" : "edit" }] }
-          : { id: uid("sm"), sessionId, studentId, text, status: submit ? "submitted" : "draft", authorId: me.id, lastEditorId: me.id, history: [{ at, by: me.id, action: submit ? "submit" : "write" }] }
+          ? { ...existing, ...L, text, lastEditorId: me.id, status: submit ? "submitted" : existing.status === "changes_requested" ? "changes_requested" : "draft", history: [...existing.history, { at, by: me.id, action: submit ? "submit" : "edit" }] }
+          : { id: uid("sm"), sessionId, studentId, ...L, text, status: submit ? "submitted" : "draft", authorId: me.id, lastEditorId: me.id, history: [{ at, by: me.id, action: submit ? "submit" : "write" }] }
         set({ summaries: existing ? s.summaries.map((x) => (x.id === existing.id ? next : x)) : [...s.summaries, next] })
         return OK
       },
@@ -1009,7 +1108,7 @@ export const useStore = create<Store>()(
         const r = Sum.canSend(cur, parents)
         if (!r.ok) return r
         const se = s.sessions.find((x) => x.id === cur.sessionId)!
-        const delivery = pushLine(stu.familyId, Msg.summaryMessage(cur, { student: stu, session: se }), (ok, error) => {
+        const delivery = pushLine(stu.familyId, Msg.summaryMessage(cur, { student: stu, session: se, book: s.lessonBooks.find((b) => b.id === cur.bookId)?.name, topic: s.lessonTopics.find((t) => t.id === cur.topicId)?.name }), (ok, error) => {
           if (ok) return log("attendance", [cur.studentId], "ส่งสรุปการเรียน", "ถึงผู้ปกครองทาง LINE แล้ว")
           // not delivered → back to "approved" so it can be sent again
           set((st) => ({ summaries: st.summaries.map((x) => (x.id === id ? { ...x, status: "approved", history: x.history.slice(0, -1) } : x)) }))
@@ -1624,7 +1723,7 @@ export const useStore = create<Store>()(
     {
       name: "nockerp-v2",
       // bump when the data model changes; older saved data is replaced by fresh sample data
-      version: 37,
+      version: 38,
       migrate: () => ({ ...buildSeed(), userId: "u_nock", branchId: "br_thl", clockOffset: 0 }) as unknown as Store,
       // persist data + UI state only, never the action functions
       partialize: (s) => Object.fromEntries(Object.entries(s).filter(([, v]) => typeof v !== "function")) as Partial<Store>,

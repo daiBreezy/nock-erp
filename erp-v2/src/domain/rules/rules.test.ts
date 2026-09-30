@@ -1,6 +1,6 @@
 // Regression tests: each case reproduces a bug found on Dev staging and proves the rule prevents it.
 import { describe, expect, it } from "vitest"
-import type { Assessment, Attendance, Branch, BusAddOn, CreditNote, Course, Entitlement, Family, FormSubmission, Lead, Student, FormOfferSlot, Holiday, Invoice, Klass, Session, Staff, StudentLeave, Weekday } from "../types"
+import type { Assessment, Attendance, Branch, BusAddOn, CreditNote, LessonSummary, Course, Entitlement, Family, FormSubmission, Lead, Student, FormOfferSlot, Holiday, Invoice, Klass, Session, Staff, StudentLeave, Weekday } from "../types"
 import { applyClassEdit, applyToSessions, canChangeTeachers, canRescheduleStudent, mondayOf, removedWithClass, canSave, closesBranch, holidayImpact, hoursFor, isHoliday, overlappingRows, periodsIn, introducedConflicts, editSingleSession, findConflicts, generateSessions, moveSession, sessionState, validateClass, workState } from "./scheduling"
 import { activeLeave, nextClassDates, balance, studentState, leaveLedger, packageCovers, canMark, canSaveLeave, coveringEntitlement, effectiveTo, leavesUsed, lowBalanceAlert, removeFromClass, resolveEntitlements } from "./attendance"
 import { bestPromotion, duplicateBusDay, billedOn, busAddOnAmount, pendingBusAddOns, validateBusAddOn, carriedMinutes, weekKey, classOptionsFor, defaultAdvance, entryFeeWaiver, invoiceSessionDates, invoiceTotals, validateInvoiceDraft, canApprove, canConfirmPayment, canForceApprove, canForceConfirmPayment, canSend, canVoid, defaultBusLegs, busTotal, nextInvoiceNumber, quoteCourse } from "./billing"
@@ -18,6 +18,8 @@ import { invoiceMessage } from "./messages"
 import * as Refund from "./refunds"
 import * as Doc from "./documents"
 import * as Seats from "./seats"
+import * as Les from "./lessons"
+import { summaryMessage } from "./messages"
 
 const hours = { open: "09:00", close: "20:00" }
 const branch: Branch = {
@@ -1285,5 +1287,44 @@ describe("flexible class time: 1 of 2 hours (owner 2026-09-30)", () => {
     expect(b.remaining).toBe(10) // 1260 min ÷ 120 = 10 full sessions, 60 min still there
     expect(Seats.minutesCharged({ status: "absent" }, { offset: 0, minutes: 60 })).toBe(60)
     expect(Seats.attendedChoices({ offset: 0, minutes: 120 })).toEqual([120, 90, 60, 30])
+  })
+})
+
+describe("lesson summary: Book / Topic / Lesson Detail / Feedback (owner 2026-09-30)", () => {
+  const books = [{ id: "b1", branchId: "br", name: "Hello English 1", createdBy: "t", createdAt: "1" }, { id: "b2", branchId: "br", name: "Maths Challenge", createdBy: "t", createdAt: "2" }]
+
+  it("same name in any case/spacing is the same book; near misses are asked about", () => {
+    expect(Les.findSame(books, "  hello   ENGLISH 1 ")?.id).toBe("b1")
+    expect(Les.findSame(books, "Hello English 2")).toBeUndefined()
+    expect(Les.findSimilar(books, "Helo English 1").map((b) => b.id)).toEqual(["b1"])
+    expect(Les.findSimilar(books, "Science")).toEqual([])
+    expect(Les.cleanName("  Unit  3 ")).toBe("Unit 3")
+    expect(Les.validateCatalogName("   ")).toMatch(/พิมพ์/)
+  })
+
+  it("teachers of the branch use and tidy the catalog", () => {
+    expect(Les.canUseCatalog(teacher, "b1")).toBe(true)
+    expect(Les.canUseCatalog(teacher, "other-branch")).toBe(false)
+  })
+
+  it("a new summary starts where the student left off: same book, next topic", () => {
+    const topics = [
+      { id: "t1", bookId: "b1", name: "Unit 1", createdBy: "t", createdAt: "1" },
+      { id: "t2", bookId: "b1", name: "Unit 2", createdBy: "t", createdAt: "2" },
+    ]
+    const sum = (id: string, sessionId: string, topicId: string): LessonSummary => ({ id, sessionId, studentId: "a", text: "", bookId: "b1", topicId, status: "sent", authorId: "t", lastEditorId: "t", history: [] })
+    const dates = new Map([["s1", "2026-09-01"], ["s2", "2026-09-08"]])
+    expect(Les.suggestLesson("a", [sum("x", "s1", "t1")], dates, topics)).toEqual({ bookId: "b1", topicId: "t2" })
+    expect(Les.suggestLesson("a", [sum("x", "s1", "t1"), sum("y", "s2", "t2")], dates, topics)).toEqual({ bookId: "b1", topicId: "t2" }) // last topic: stay
+    expect(Les.suggestLesson("b", [sum("x", "s1", "t1")], dates, topics)).toEqual({})
+  })
+
+  it("parents get Book, Topic, Lesson Detail and the feedback", () => {
+    const text = summaryMessage({ id: "s", sessionId: "x", studentId: "a", text: "ตั้งใจเรียนดีมาก", detail: "หน้า 12–15", status: "approved", authorId: "t", lastEditorId: "t", history: [] },
+      { student: { id: "a", familyId: null, branchId: "b1", name: "ด.ช. โจ้", nickname: "โจ้", grade: "ป.3", usesBus: false, createdAt: "", createdBranchId: "b1" }, session: { subject: "อังกฤษ", date: "2026-10-01", start: "16:00" }, book: "Hello English 1", topic: "Unit 2" })
+    expect(text).toContain("หนังสือ: Hello English 1")
+    expect(text).toContain("บทเรียน: Unit 2")
+    expect(text).toContain("รายละเอียด: หน้า 12–15")
+    expect(text).toContain("ตั้งใจเรียนดีมาก")
   })
 })

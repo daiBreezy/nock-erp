@@ -19,6 +19,9 @@ import { Textarea } from "@/components/ui/textarea"
 import { addDays, endTime, fmtDate, fmtDateTime } from "@/domain/dates"
 import * as Att from "@/domain/rules/attendance"
 import * as Seats from "@/domain/rules/seats"
+import * as Les from "@/domain/rules/lessons"
+import type { SummaryLesson } from "@/store/store"
+import { CatalogCombo, CatalogManager } from "./lesson-picker"
 import { assessmentIn, FORM_TYPE_LABEL, sessionKindLabel } from "@/domain/rules/forms"
 import { can } from "@/domain/rules/permissions"
 import { canChangeTeachers, canRescheduleStudent, findConflicts, mondayOf, sessionState, subjectsOf } from "@/domain/rules/scheduling"
@@ -374,7 +377,7 @@ function StudentRow({ s, sid, viewOnly, canManage, mine, text, setText, selectab
       {asm && <div className="pl-[4.75rem]"><AssessmentNote a={asm} editable={canManage || mine} /></div>}
       {a?.status === "present" && (
         <div className="pl-[4.75rem]">
-          <SummaryInline session={s} sessionId={s.id} studentId={sid} summary={summaries.find((x) => x.sessionId === s.id && x.studentId === sid)} viewOnly={viewOnly} text={text} setText={setText} />
+          <SummaryInline key={lessonKey(summaries.find((x) => x.sessionId === s.id && x.studentId === sid))} session={s} sessionId={s.id} studentId={sid} summary={summaries.find((x) => x.sessionId === s.id && x.studentId === sid)} viewOnly={viewOnly} text={text} setText={setText} />
         </div>
       )}
 
@@ -388,6 +391,8 @@ function StudentRow({ s, sid, viewOnly, canManage, mine, text, setText, selectab
 }
 
 const state = sessionState
+// re-read Book / Topic / Detail when "Summary Template" (or anyone) changes them on the saved summary
+const lessonKey = (x?: LessonSummary) => `${x?.id ?? "new"}|${x?.bookId ?? ""}|${x?.topicId ?? ""}|${x?.detail ?? ""}`
 
 /** Which part of a long class the student attends (owner 2026-09-30): only this session, or every session of the class. */
 function SeatDialog({ s, studentId, onClose }: { s: Session; studentId: ID; onClose: () => void }) {
@@ -656,6 +661,20 @@ function SummaryInline({ session, sessionId, studentId, summary, viewOnly, text,
   const send = useStore((s) => s.sendSummary)
   const [note, setNote] = useState("")
   const [asking, setAsking] = useState(false)
+  // Book / Topic / Lesson Detail (owner 2026-09-30) — a new summary starts where this student left off
+  const books = useStore((s) => s.lessonBooks)
+  const topics = useStore((s) => s.lessonTopics)
+  const allSummaries = useStore((s) => s.summaries)
+  const allSessions = useStore((s) => s.sessions)
+  const addBook = useStore((s) => s.addLessonBook)
+  const addTopic = useStore((s) => s.addLessonTopic)
+  const applyLesson = useStore((s) => s.applyLessonToSession)
+  const [lesson, setLesson] = useState<SummaryLesson>(() => summary?.bookId || summary?.detail
+    ? { bookId: summary.bookId, topicId: summary.topicId, detail: summary.detail ?? "" }
+    : { ...Les.suggestLesson(studentId, allSummaries, new Map(allSessions.map((x) => [x.id, x.date])), topics), detail: "" })
+  const [managing, setManaging] = useState<"book" | "topic" | null>(null)
+  const branchBooks = Les.booksOf(session.branchId, books)
+  const bookTopics = lesson.bookId ? Les.topicsOf(lesson.bookId, topics) : []
   const status = summary?.status
   const editable = !viewOnly && (!status || status === "draft" || status === "changes_requested")
   const lastChange = summary?.history.findLast((h) => h.action === "request_changes")
@@ -676,15 +695,39 @@ function SummaryInline({ session, sessionId, studentId, summary, viewOnly, text,
       </div>
       {status === "changes_requested" && lastChange?.note && <p className="mb-1.5 rounded-md bg-red-50 p-2 text-xs text-red-800">ขอแก้: {lastChange.note}</p>}
       {editable ? (
-        <Textarea value={text} onChange={(e) => setText(e.target.value)} placeholder="วันนี้เรียนอะไร / พัฒนาการ / การบ้าน" rows={2} className="bg-background" />
+        <div className="space-y-3 pt-2">
+          <div className="grid gap-3 sm:grid-cols-2">
+            <CatalogCombo label="Book · หนังสือ" items={branchBooks} value={lesson.bookId} placeholder="เลือกหนังสือ"
+              onChange={(bookId) => setLesson((l) => ({ ...l, bookId, topicId: undefined }))}
+              onCreate={(name) => addBook(session.branchId, name)} onManage={() => setManaging("book")} />
+            <CatalogCombo label="Lesson Topic · บทเรียน" items={bookTopics} value={lesson.topicId} disabled={!lesson.bookId} placeholder={lesson.bookId ? "เลือกบทเรียน" : "เลือกหนังสือก่อน"}
+              onChange={(topicId) => setLesson((l) => ({ ...l, topicId }))}
+              onCreate={(name) => addTopic(lesson.bookId!, name)} onManage={() => setManaging("topic")} />
+          </div>
+          <div className="relative">
+            <span className="absolute -top-2 left-3 bg-background px-1 text-[11px] text-muted-foreground">Lesson Detail · รายละเอียด</span>
+            <Input value={lesson.detail ?? ""} onChange={(e) => setLesson((l) => ({ ...l, detail: e.target.value }))} placeholder="เช่น หน้า 12–15 แบบฝึกหัด 2.1" className="h-10 bg-background" />
+          </div>
+          <div className="relative">
+            <span className="absolute -top-2 left-3 z-10 bg-background px-1 text-[11px] text-muted-foreground">Feedback Summary · รายงานการเรียนคาบนี้</span>
+            <Textarea value={text} onChange={(e) => setText(e.target.value)} placeholder="พัฒนาการ / สิ่งที่ทำได้ดี / สิ่งที่ต้องฝึกเพิ่ม" rows={3} className="bg-background" />
+          </div>
+        </div>
       ) : (
-        <p className="text-sm whitespace-pre-wrap">{summary?.text || "ยังไม่มีสรุป"}</p>
+        <div className="space-y-0.5 text-sm">
+          {(summary?.bookId || summary?.topicId) && <p className="text-xs text-muted-foreground">📚 {books.find((b) => b.id === summary.bookId)?.name ?? "—"}{summary.topicId && ` · ${topics.find((t) => t.id === summary.topicId)?.name ?? ""}`}</p>}
+          {summary?.detail && <p className="text-xs text-muted-foreground">📝 {summary.detail}</p>}
+          <p className="whitespace-pre-wrap">{summary?.text || "ยังไม่มีสรุป"}</p>
+        </div>
       )}
+      {managing && <CatalogManager kind={managing} items={managing === "book" ? branchBooks : bookTopics} onClose={() => setManaging(null)} />}
       <div className="mt-1.5 flex flex-wrap justify-end gap-1.5">
         {editable && (
           <>
-            <Button size="xs" variant="ghost" onClick={() => report(save(sessionId, studentId, text, false), "บันทึกร่างแล้ว")}>บันทึกร่าง</Button>
-            <Button size="xs" disabled={!text.trim()} onClick={() => report(save(sessionId, studentId, text, true), "ส่งให้ผู้อนุมัติแล้ว")}><SendIcon /> {status === "changes_requested" ? "ส่งอีกครั้ง" : "ส่งอนุมัติ"}</Button>
+            <Button size="xs" variant="secondary" className="mr-auto" title="ใช้ Book / Topic / Lesson Detail นี้กับนักเรียนทุกคนที่มาเรียนคาบนี้ (Feedback แยกรายคนเหมือนเดิม)"
+              onClick={() => report(applyLesson(sessionId, lesson), (v) => `ใช้บทเรียนนี้กับ ${v.count} คนที่มาเรียนแล้ว`)}><StarIcon /> Summary Template</Button>
+            <Button size="xs" variant="ghost" onClick={() => report(save(sessionId, studentId, text, false, lesson), "บันทึกร่างแล้ว")}>Save Draft</Button>
+            <Button size="xs" disabled={!text.trim()} onClick={() => report(save(sessionId, studentId, text, true, lesson), "ส่งให้ผู้อนุมัติแล้ว")}><SendIcon /> {status === "changes_requested" ? "ส่งอีกครั้ง" : "ส่งอนุมัติ"}</Button>
           </>
         )}
         {status === "submitted" && can(me, "summary.approve") && summary && !Sum.canApprove(summary, me).ok && (

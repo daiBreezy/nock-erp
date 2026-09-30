@@ -320,11 +320,34 @@ export interface SummaryEvent {
   note?: string
 }
 
+/** Books and their lesson topics, typed by teachers the first time and picked by everyone after (owner 2026-09-30 —
+ *  no inventory yet). Per branch; teachers create and tidy them themselves. */
+export interface LessonBook {
+  id: ID
+  branchId: ID
+  name: string
+  createdBy: ID
+  createdAt: string
+}
+
+export interface LessonTopic {
+  id: ID
+  bookId: ID
+  name: string
+  createdBy: ID
+  createdAt: string
+}
+
 export interface LessonSummary {
   id: ID
   sessionId: ID
   studentId: ID
+  /** Feedback Summary — this student's report for this session */
   text: string
+  bookId?: ID
+  topicId?: ID
+  /** Lesson Detail — what was covered (e.g. pages, exercises) */
+  detail?: string
   status: SummaryStatus
   authorId: ID
   lastEditorId: ID
