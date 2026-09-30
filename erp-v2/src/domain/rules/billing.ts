@@ -1,7 +1,7 @@
 // Billing rules: one pricing function feeds Create, Edit, Detail and PDF (BL-2, BL-3, BL-4).
 
 import { addMonths, endOfMonth, fmtDate, monthKey, nextWeekday, addDays } from "../dates"
-import type { AdvanceItem, Branch, BusLeg, Course, CourseLine, DateStr, Fee, Holiday, ID, Invoice, Klass, PriceUnit, Result, Role, Staff } from "../types"
+import type { AdvanceItem, Branch, Student, BusLeg, Course, CourseLine, DateStr, Fee, Holiday, ID, Invoice, Klass, PriceUnit, Result, Role, Staff } from "../types"
 import { purchaseOf } from "./course"
 import { requireForceRemark } from "./notifications"
 import { inBranch } from "./permissions"
@@ -174,18 +174,22 @@ export function classOptionsFor(course: Course | undefined, classes: Klass[], br
     .sort((a, b) => Number(b.courseId === course.id) - Number(a.courseId === course.id) || a.weekday - b.weekday || a.start.localeCompare(b.start))
 }
 
-/** Advance Optional: the entry fee is charged once — waived automatically (Staging) when a paid invoice of this student
- *  had it, or the student already has a paid invoice at all (an enrolled student joined before). Returns that invoice
- *  so the editor can say where it was paid. */
-export function entryFeePaidOn(studentId: ID, invoices: Invoice[], fees: Fee[], exceptInvoiceId?: ID): Invoice | undefined {
+/** Why this student pays no entry fee: a paid invoice already had it (Staging), or the student came in with the
+ *  import of the old system — an old student who already bought courses with us (owner 2026-09-30). */
+export type EntryWaiver = { reason: "paid"; invoice: Invoice } | { reason: "imported"; at: string; source: string }
+
+export function entryFeeWaiver(student: Pick<Student, "id" | "imported"> | undefined, invoices: Invoice[], fees: Fee[], exceptInvoiceId?: ID): EntryWaiver | null {
+  if (!student) return null
   const entry = new Set(fees.filter((f) => f.kind === "entry").map((f) => f.id))
-  const paid = invoices.filter((i) => i.id !== exceptInvoiceId && i.studentId === studentId && i.status === "paid")
-  return paid.find((i) => i.advance.some((a) => entry.has(a.feeId))) ?? paid[0]
+  const paid = invoices.find((i) => i.id !== exceptInvoiceId && i.studentId === student.id && i.status === "paid" && i.advance.some((a) => entry.has(a.feeId)))
+  if (paid) return { reason: "paid", invoice: paid }
+  if (student.imported) return { reason: "imported", ...student.imported }
+  return null
 }
 
-/** Default Advance Optional items for a new invoice: every entry fee unless it was already paid — mock tests are opt-in. */
-export function defaultAdvance(branch: Branch, studentId: ID, invoices: Invoice[]): AdvanceItem[] {
-  if (!studentId || entryFeePaidOn(studentId, invoices, branch.fees)) return []
+/** Default Advance Optional items for a new invoice: every entry fee unless waived — mock tests are opt-in. */
+export function defaultAdvance(branch: Branch, student: Pick<Student, "id" | "imported"> | undefined, invoices: Invoice[]): AdvanceItem[] {
+  if (!student || entryFeeWaiver(student, invoices, branch.fees)) return []
   return branch.fees.filter((f) => f.kind === "entry").map((f) => ({ feeId: f.id, name: f.name, amount: f.price }))
 }
 

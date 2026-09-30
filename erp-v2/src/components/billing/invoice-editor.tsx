@@ -16,7 +16,7 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { addDays, fmtDate, fmtMoney, fmtMonth, toDateStr } from "@/domain/dates"
 import * as Att from "@/domain/rules/attendance"
-import { busTotal, classOptionsFor, defaultAdvance, defaultBusLegs, entryFeePaidOn, invoiceSessionDates, invoiceTotals, validateInvoiceDraft, type LineQuote } from "@/domain/rules/billing"
+import { busTotal, classOptionsFor, defaultAdvance, defaultBusLegs, entryFeeWaiver, invoiceSessionDates, invoiceTotals, validateInvoiceDraft, type LineQuote } from "@/domain/rules/billing"
 import { lastAssessmentDate } from "@/domain/rules/forms"
 import type { AdvanceItem, BusLeg, CourseLine, Entitlement, Family, Invoice, Klass } from "@/domain/types"
 import { uid } from "@/data/seed"
@@ -95,8 +95,8 @@ export function InvoiceEditor({ invoice, defaultStudentId, renewEntitlementId, o
     else { setLines((ls) => [...ls, { id: uid("ln"), periodsText: "1", overlapRemark: "", ...line }]); setBusTouched(false) }
   }
 
-  const advance = advancePicked ?? defaultAdvance(branch, studentId, invoices)
-  const entryPaid = studentId ? entryFeePaidOn(studentId, invoices, branch.fees, invoice?.id) : undefined
+  const advance = advancePicked ?? defaultAdvance(branch, student, invoices)
+  const waiver = entryFeeWaiver(student, invoices, branch.fees, invoice?.id)
   const advanceFees = branch.fees.filter((f) => f.kind === "entry" || f.kind === "mock")
   const busFees = branch.fees.filter((f) => f.kind === "bus")
   const rate = busRate(branch, busFeeId)
@@ -153,6 +153,7 @@ export function InvoiceEditor({ invoice, defaultStudentId, renewEntitlementId, o
           {student ? (
             <div className="flex items-center gap-2 rounded-xl border px-3 py-1.5 text-sm">
               <span className="font-medium">{student.nickname}</span><span className="text-xs text-muted-foreground">{student.grade} · {student.name}</span>
+              {student.imported && <span className="rounded-full bg-sky-100 px-2 py-0.5 text-[11px] text-sky-800 dark:bg-sky-950 dark:text-sky-200">นักเรียนเก่า</span>}
               {!invoice && <button type="button" className="ml-auto text-xs text-primary underline" onClick={() => setPicking(true)}>เปลี่ยน</button>}
             </div>
           ) : (
@@ -261,19 +262,25 @@ export function InvoiceEditor({ invoice, defaultStudentId, renewEntitlementId, o
             <div className="flex flex-wrap gap-1.5">
               {advanceFees.map((f) => {
                 const on = advance.some((a) => a.feeId === f.id)
-                const paidBefore = f.kind === "entry" && entryPaid
+                const paidBefore = f.kind === "entry" && waiver
                 return (
                   <button key={f.id} type="button" aria-pressed={on}
                     onClick={() => setAdvancePicked(on ? advance.filter((a) => a.feeId !== f.id) : [...advance, { feeId: f.id, name: f.name, amount: f.price }])}
                     className={cn("flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs", on ? "border-primary bg-primary/10 text-primary" : "hover:bg-muted")}>
                     {on && <CheckIcon className="size-3" />}{f.name} · {fmtMoney(advance.find((a) => a.feeId === f.id)?.amount ?? f.price)}
-                    {paidBefore && <span className="text-muted-foreground">(เคยจ่ายแล้ว)</span>}
+                    {paidBefore && <span className="text-muted-foreground">({waiver.reason === "imported" ? "นักเรียนเก่า" : "เคยจ่ายแล้ว"})</span>}
                   </button>
                 )
               })}
             </div>
-            {entryPaid && <p className="text-xs text-muted-foreground">ยกเว้นค่าแรกเข้าให้อัตโนมัติ — {entryPaid.advance.length ? "จ่ายแล้วในใบ" : "เป็นนักเรียนที่ชำระแล้ว (ใบ"} {entryPaid.number}{entryPaid.advance.length ? "" : ")"}</p>}
-            {!entryPaid && studentId && advancePicked === null && advance.length > 0 && <p className="text-xs text-muted-foreground">นักเรียนยังไม่เคยจ่ายค่าแรกเข้า — ใส่ให้แล้ว กดเพื่อเอาออกได้</p>}
+            {waiver?.reason === "imported" && (
+              <p className="flex items-start gap-1.5 rounded-lg bg-sky-50 p-2 text-xs text-sky-900 dark:bg-sky-950 dark:text-sky-200">
+                <HistoryIcon className="mt-0.5 size-3.5 shrink-0" />
+                <span><b>นักเรียนเก่า</b> — นำเข้าจาก{waiver.source} ({fmtDate(waiver.at.slice(0, 10), { year: true })}) เคยซื้อคอร์สกับเราแล้ว <b>ไม่ต้องเก็บค่าแรกเข้า</b></span>
+              </p>
+            )}
+            {waiver?.reason === "paid" && <p className="text-xs text-muted-foreground">ยกเว้นค่าแรกเข้าให้อัตโนมัติ — จ่ายแล้วในใบ {waiver.invoice.number}</p>}
+            {!waiver && studentId && advancePicked === null && advance.length > 0 && <p className="text-xs text-muted-foreground">นักเรียนยังไม่เคยจ่ายค่าแรกเข้า — ใส่ให้แล้ว กดเพื่อเอาออกได้</p>}
           </div>
         )}
 

@@ -145,7 +145,9 @@ export function buildSeed(now = new Date()): DB {
   ]
   const SURNAMES = ["ใจสู้", "รักเรียน", "ศรีสว่าง", "ทองคำ", "พูลผล", "มีสุข", "ชัยมงคล", "เพียรดี"]
   const s = (id: string, familyId: string | null, branchId: string, name: string, nickname: string, grade: string, usesBus = false): Student =>
-    ({ id, familyId, branchId, name, nickname, grade, usesBus, createdBranchId: branchId, createdAt: new Date(now.getTime() - (90 + id.length * 37) * 86400000).toISOString() })
+    ({ id, familyId, branchId, name, nickname, grade, usesBus, createdBranchId: branchId, createdAt: new Date(now.getTime() - (90 + id.length * 37) * 86400000).toISOString(),
+      // the demo's existing students came in with the import of the old system (owner 2026-09-30)
+      imported: { at: new Date(now.getTime() - 120 * 86400000).toISOString(), source: "ระบบเดิม" } })
   const students: Student[] = [
     s("stu_1", "fa_1", "br_thl", "ด.ญ. ใบเตย สุขใจ", "ใบเตย", "ป.5", true),
     s("stu_2", "fa_1", "br_thl", "ด.ช. ภูผา สุขใจ", "ภูผา", "ม.1"),

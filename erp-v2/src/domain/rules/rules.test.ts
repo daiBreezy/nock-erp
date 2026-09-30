@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest"
 import type { Assessment, Attendance, Branch, Course, Entitlement, Family, FormSubmission, Lead, Student, FormOfferSlot, Holiday, Invoice, Klass, Session, Staff, StudentLeave, Weekday } from "../types"
 import { applyClassEdit, applyToSessions, canChangeTeachers, canRescheduleStudent, mondayOf, removedWithClass, canSave, closesBranch, holidayImpact, hoursFor, isHoliday, overlappingRows, periodsIn, introducedConflicts, editSingleSession, findConflicts, generateSessions, moveSession, sessionState, validateClass, workState } from "./scheduling"
 import { activeLeave, balance, studentState, leaveLedger, packageCovers, canMark, canSaveLeave, coveringEntitlement, effectiveTo, leavesUsed, lowBalanceAlert, removeFromClass, resolveEntitlements } from "./attendance"
-import { bestPromotion, classOptionsFor, defaultAdvance, entryFeePaidOn, invoiceSessionDates, invoiceTotals, validateInvoiceDraft, canApprove, canConfirmPayment, canForceApprove, canForceConfirmPayment, canSend, canVoid, defaultBusLegs, busTotal, nextInvoiceNumber, quoteCourse } from "./billing"
+import { bestPromotion, classOptionsFor, defaultAdvance, entryFeeWaiver, invoiceSessionDates, invoiceTotals, validateInvoiceDraft, canApprove, canConfirmPayment, canForceApprove, canForceConfirmPayment, canSend, canVoid, defaultBusLegs, busTotal, nextInvoiceNumber, quoteCourse } from "./billing"
 import { can } from "./permissions"
 import { chartPrice, defaultCourseName, filterCourses, validateCourse } from "./course"
 import { busRate, copyHours, gradeLabel, subjectLabel, priceOf, priceRange, setPrice, validateBranchInfo, validateDurations, validateHoliday, validatePromotion, validateSpecialPeriods, everyDay } from "./settings"
@@ -1037,16 +1037,21 @@ describe("bus fee type + Advance Optional (Staging, owner 2026-09-30)", () => {
     expect(invoiceTotals(inv({ bus }), ctx).bus).toBe(300) // unset = first bus type
   })
 
-  it("advance items add up; the entry fee is charged once — waived when a paid invoice already had it", () => {
+  it("advance items add up; the entry fee is charged once — waived after a paid entry fee, or for an imported old student", () => {
     expect(invoiceTotals(inv({ advance: [{ feeId: "en", name: "ค่าแรกเข้า", amount: 1500 }, { feeId: "mk", name: "Mock", amount: 800 }] }), ctx).advance).toBe(2300)
-    expect(defaultAdvance(b, "a", []).map((x) => x.feeId)).toEqual(["en"])
+    const stu = { id: "a" }
+    expect(defaultAdvance(b, stu, []).map((x) => x.feeId)).toEqual(["en"])
     const paid = inv({ id: "p", status: "paid", number: "INV-1", advance: [{ feeId: "en", name: "ค่าแรกเข้า", amount: 1500 }] })
-    expect(entryFeePaidOn("a", [paid], b.fees)?.number).toBe("INV-1")
-    expect(defaultAdvance(b, "a", [paid])).toEqual([])
+    expect(entryFeeWaiver(stu, [paid], b.fees)).toMatchObject({ reason: "paid", invoice: { number: "INV-1" } })
+    expect(defaultAdvance(b, stu, [paid])).toEqual([])
     // editing that same invoice does not count it against itself
-    expect(entryFeePaidOn("a", [paid], b.fees, "p")).toBeUndefined()
-    expect(defaultAdvance(b, "", [])).toEqual([])
-    // an enrolled student (any paid invoice, even from before Advance Optional) is not charged again
-    expect(defaultAdvance(b, "a", [inv({ id: "old", status: "paid", number: "INV-0" })])).toEqual([])
+    expect(entryFeeWaiver(stu, [paid], b.fees, "p")).toBeNull()
+    expect(defaultAdvance(b, undefined, [])).toEqual([])
+    // strict Staging: a paid invoice without an entry fee does not waive it…
+    expect(defaultAdvance(b, stu, [inv({ id: "old", status: "paid", number: "INV-0" })]).map((x) => x.feeId)).toEqual(["en"])
+    // …but a student from the old-system import does, and the admin is told why (owner 2026-09-30)
+    const old = { id: "a", imported: { at: "2026-06-01T00:00:00Z", source: "ระบบเดิม" } }
+    expect(entryFeeWaiver(old, [], b.fees)).toMatchObject({ reason: "imported", source: "ระบบเดิม" })
+    expect(defaultAdvance(b, old, [])).toEqual([])
   })
 })

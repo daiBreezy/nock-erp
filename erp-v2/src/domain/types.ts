@@ -355,6 +355,9 @@ export interface Student {
   createdBranchId: ID
   /** left the school for good — set by hand. (Active/Inactive is automatic: packages + long leave) */
   archived?: { at: string; by: ID; reason: string }
+  /** brought in by the import of the old system's students (owner 2026-09-30): they already bought courses with us,
+   *  so no entry fee — the invoice tells the admin */
+  imported?: { at: string; source: string }
 }
 
 /** Internal staff note on a student (chat-style, never shown to parents). */
