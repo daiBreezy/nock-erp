@@ -87,7 +87,8 @@ export function WeekTeacherBoard({ from, sessions, onOpen, onSlot, canCreate }: 
 
   return (
     <div className="space-y-5">
-      <nav className="sticky top-0 z-20 flex flex-wrap gap-1.5 bg-background/90 py-1 backdrop-blur">
+      {/* sits right under the app header (h-14) instead of sliding over it */}
+      <nav className="sticky top-14 z-10 -mx-1 flex flex-wrap gap-1.5 border-b bg-background/95 px-1 py-2 backdrop-blur">
         {days.map((d) => (
           <a key={d} href={`#day-${d}`} className={cn("rounded-full border px-3 py-1 text-xs hover:bg-muted", d === today && "border-primary text-primary")}>{DAY_FULL[weekdayOf(d)].slice(0, 3)} {fmtDate(d)}</a>
         ))}
@@ -98,7 +99,7 @@ export function WeekTeacherBoard({ from, sessions, onOpen, onSlot, canCreate }: 
         const closed = !branch.hours[weekdayOf(date)]
         const holiday = isHoliday(date, branch.id, holidays)
         return (
-          <section key={date} id={`day-${date}`} className="scroll-mt-12 overflow-x-auto rounded-3xl bg-card shadow-sm ring-1 ring-foreground/10">
+          <section key={date} id={`day-${date}`} className="scroll-mt-32 overflow-x-auto rounded-3xl bg-card shadow-sm ring-1 ring-foreground/10">
             <div className="min-w-fit">
               <div className={cn("px-4 py-2 text-sm font-semibold", date < today ? "bg-muted text-muted-foreground" : date === today ? "bg-primary text-primary-foreground" : "bg-muted/40")}>
                 {DAY_FULL[weekdayOf(date)]} {fmtDate(date, { year: true })}{date === today ? " · วันนี้" : date < today ? " · ผ่านไปแล้ว" : ""}{holiday ? " · วันหยุด" : closed ? " · สาขาปิด" : ""}
