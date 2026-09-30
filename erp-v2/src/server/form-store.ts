@@ -56,14 +56,14 @@ const genId = (prefix: string) => `${prefix}_${Date.now().toString(36)}${Math.ra
 
 export async function createToken(input: {
   type: FormType; leadId: ID; branchId: ID; conversationId: ID | null; offers: FormSubjectOffer[]; grades: string[]
-  branchName?: string; brand?: Brand; lang?: FormLang; prefill?: FormPrefill
+  branchName?: string; brand?: Brand; lang?: FormLang; prefill?: FormPrefill; subjectNames?: FormToken["subjectNames"]
 }): Promise<FormToken> {
   return mutate((store) => {
     const now = new Date()
     const token: FormToken = {
       token: genToken(), type: input.type, leadId: input.leadId, branchId: input.branchId,
       conversationId: input.conversationId, offers: input.offers, grades: input.grades,
-      branchName: input.branchName, brand: input.brand, lang: input.lang, prefill: input.prefill,
+      branchName: input.branchName, brand: input.brand, lang: input.lang, prefill: input.prefill, subjectNames: input.subjectNames,
       createdAt: now.toISOString(), expiresAt: new Date(now.getTime() + 7 * 86400000).toISOString(), used: false,
     }
     store.tokens.push(token)

@@ -1,11 +1,11 @@
 import { NextResponse } from "next/server"
 import { checkToken, createToken } from "@/server/form-store"
-import type { Brand, FormLang, FormPrefill, FormSubjectOffer, FormType } from "@/domain/types"
+import type { Brand, FormLang, FormToken, FormPrefill, FormSubjectOffer, FormType } from "@/domain/types"
 
 // Staff side: mint a one-time link for a lead, carrying the offered slots the admin picked
 // ("ส่งฟอร์ม" flow in LeadSheet / Inbox).
 export async function POST(req: Request) {
-  let body: { type?: FormType; leadId?: string; branchId?: string; conversationId?: string | null; offers?: FormSubjectOffer[]; grades?: string[]; branchName?: string; brand?: Brand; lang?: FormLang; prefill?: FormPrefill }
+  let body: { type?: FormType; leadId?: string; branchId?: string; conversationId?: string | null; offers?: FormSubjectOffer[]; grades?: string[]; branchName?: string; brand?: Brand; lang?: FormLang; prefill?: FormPrefill; subjectNames?: FormToken["subjectNames"] }
   try {
     body = await req.json()
   } catch {
@@ -15,7 +15,7 @@ export async function POST(req: Request) {
   const token = await createToken({
     type: body.type, leadId: body.leadId, branchId: body.branchId,
     conversationId: body.conversationId ?? null, offers: body.offers, grades: body.grades ?? [],
-    branchName: body.branchName, brand: body.brand, lang: body.lang, prefill: body.prefill,
+    branchName: body.branchName, brand: body.brand, lang: body.lang, prefill: body.prefill, subjectNames: body.subjectNames,
   })
   return NextResponse.json({ ok: true, token })
 }
@@ -27,5 +27,5 @@ export async function GET(req: Request) {
   const check = await checkToken(token)
   if (!check.ok) return NextResponse.json(check)
   const t = check.token
-  return NextResponse.json({ ok: true, type: t.type, offers: t.offers, grades: t.grades, branchName: t.branchName, brand: t.brand ?? "nockacademy", lang: t.lang ?? "th", prefill: t.prefill ?? null })
+  return NextResponse.json({ ok: true, type: t.type, offers: t.offers, grades: t.grades, branchName: t.branchName, brand: t.brand ?? "nockacademy", lang: t.lang ?? "th", subjectNames: t.subjectNames ?? {}, prefill: t.prefill ?? null })
 }

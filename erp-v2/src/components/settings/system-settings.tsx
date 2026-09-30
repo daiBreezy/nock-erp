@@ -48,7 +48,7 @@ function SubjectCatalog() {
   const [name, setName] = useState("")
   const [adding, setAdding] = useState("")
   return (
-    <SettingsCard title="วิชา (Subjects)" hint="เปลี่ยนชื่อวิชาที่สอนทุกสาขา — ชื่อที่แสดงอัปเดตทุกที่ (คอร์ส คลาส คาบ ตารางราคา) · สาขาเลือกวิชาจากรายการนี้">
+    <SettingsCard title="วิชา (Subjects)" hint="เปลี่ยนชื่อวิชาที่สอนทุกสาขา — ชื่อที่แสดงอัปเดตทุกที่ (คอร์ส คลาส คาบ ตารางราคา) · สาขาเลือกวิชาจากรายการนี้ · ช่อง English / 日本語 = ชื่อที่ฟอร์มผู้ปกครองแสดงในภาษานั้น (ว่าง = ใช้ชื่อไทย)">
       <div className="divide-y rounded-2xl border">
         {subjects.map((s) => (
           <div key={s} className="flex items-center gap-2 p-2 text-sm">
@@ -61,6 +61,15 @@ function SubjectCatalog() {
             ) : (
               <>
                 <span className="flex-1">{s}</span>
+                {/* how the parent form shows it in English / Japanese — saved when leaving the box */}
+                {(["en", "ja"] as const).map((l) => (
+                  <Input key={`${s}-${l}-${sys.subjectNames?.[s]?.[l] ?? ""}`} className="h-8 w-28" placeholder={l === "en" ? "English" : "日本語"} defaultValue={sys.subjectNames?.[s]?.[l] ?? ""}
+                    onBlur={(e) => {
+                      const v = e.target.value.trim()
+                      if (v === (sys.subjectNames?.[s]?.[l] ?? "")) return
+                      report(saveSystem({ ...sys, subjectNames: { ...sys.subjectNames, [s]: { ...sys.subjectNames?.[s], [l]: v || undefined } } }), `บันทึกชื่อ${l === "en" ? "ภาษาอังกฤษ" : "ภาษาญี่ปุ่น"}ของ ${s} แล้ว`)
+                    }} />
+                ))}
                 <Button size="icon-sm" variant="ghost" aria-label="เปลี่ยนชื่อ" onClick={() => { setEditing(s); setName(s) }}><PencilIcon /></Button>
               </>
             )}

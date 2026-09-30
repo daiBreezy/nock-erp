@@ -15,12 +15,12 @@ async function postJson<T>(url: string, body: unknown): Promise<T> {
 
 export async function sendTestTrialForm(input: {
   leadId: ID; branchId: ID; conversationId: ID; lineUserId: string; type: FormType; offers: FormSubjectOffer[]; grades: string[]
-  branchName?: string; brand?: Brand; lang?: FormLang; prefill?: FormPrefill
+  branchName?: string; brand?: Brand; lang?: FormLang; prefill?: FormPrefill; subjectNames?: FormToken["subjectNames"]
 }): Promise<Result> {
   const tokenRes = await postJson<{ ok: boolean; token?: FormToken; error?: string }>("/api/forms/token", {
     type: input.type, leadId: input.leadId, branchId: input.branchId,
     conversationId: input.conversationId, offers: input.offers, grades: input.grades,
-    branchName: input.branchName, brand: input.brand, lang: input.lang, prefill: input.prefill,
+    branchName: input.branchName, brand: input.brand, lang: input.lang, prefill: input.prefill, subjectNames: input.subjectNames,
   })
   if (!tokenRes.ok || !tokenRes.token) return { ok: false, error: tokenRes.error ?? "สร้างลิงก์ไม่สำเร็จ" }
 

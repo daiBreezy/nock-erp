@@ -36,6 +36,7 @@ export function SendFormDialog({
   const assessments = useStore((s) => s.assessments)
   const conversations = useStore((s) => s.conversations)
   const lang = useStore((s) => s.system.preferences.language)
+  const subjectNames = useStore((s) => s.system.subjectNames)
   const now = useNow()
   // what we already know about this family → pre-filled in the form, never typed twice
   const trialStudent = students.find((x) => x.id === lead?.trialStudentId)
@@ -73,6 +74,7 @@ export function SendFormDialog({
         offers: blocks.map((b) => ({ subject: b.subject, slots: [...b.selected.values()] })),
         grades: branch.grades,
         branchName: branch.name, brand: branch.brand, lang,
+        subjectNames: Object.fromEntries(blocks.map((b) => [b.subject, subjectNames?.[b.subject] ?? {}])),
         prefill: lead ? buildFormPrefill({ lead, family, students: knownStudents, assessments }) : undefined,
       })
       if (report(r, `ส่งฟอร์ม${FORM_TYPE_LABEL[type]}ทาง LINE แล้ว`)) onClose()

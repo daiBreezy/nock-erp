@@ -123,6 +123,8 @@ export type NotifyKey =
 export interface SystemConfig {
   /** global subject catalog — branches pick from it; renaming updates every record */
   subjects: string[]
+  /** how the parent form shows each subject in English / Japanese (Thai = the subject itself) */
+  subjectNames?: Record<string, { en?: string; ja?: string }>
   /** one default invoice memo per brand, inherited by every branch of that brand */
   invoiceMemos: Record<Brand, string>
   /** language = system default AND the parent form's default (parents can still switch TH/EN/JP on the form) */
@@ -651,6 +653,8 @@ export interface FormToken {
   brand?: Brand
   /** default language (Settings) — parent can switch */
   lang?: FormLang
+  /** EN/JP names of the offered subjects (snapshot of Settings) */
+  subjectNames?: SystemConfig["subjectNames"]
   prefill?: FormPrefill
   createdAt: string
   expiresAt: string

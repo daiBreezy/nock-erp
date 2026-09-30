@@ -2,7 +2,7 @@
 // brand-wide System). Every tab saves through one of these validators so the UI never re-implements them.
 
 import { toMinutes } from "../dates"
-import type { Branch, Fee, FeeKind, Holiday, HolidayCategory, NotifyKey, OpenHours, PeriodPriority, SpecialPeriod, PriceRow, PriceUnit, Promotion, Weekday } from "../types"
+import type { Branch, Fee, FeeKind, FormLang, Holiday, HolidayCategory, NotifyKey, OpenHours, PeriodPriority, PriceRow, PriceUnit, Promotion, SpecialPeriod, SystemConfig, Weekday } from "../types"
 
 export const FEE_KIND_LABEL: Record<FeeKind, { title: string; hint: string }> = {
   bus: { title: "ค่ารถ (Bus fee)", hint: "คิดต่อเที่ยว (รับ/ส่ง นับแยกกัน) — แต่ละคอร์สในใบแจ้งหนี้เลือกได้ 1 ประเภท" },
@@ -24,6 +24,23 @@ export const GRADE_GROUPS: { name: string; grades: string[] }[] = [
 ]
 const GRADE_ORDER = GRADE_GROUPS.flatMap((g) => g.grades)
 export const sortGrades = (gs: string[]) => [...gs].sort((a, b) => GRADE_ORDER.indexOf(a) - GRADE_ORDER.indexOf(b))
+
+/** Grade as a parent reads it (owner 2026-09-30: forms in TH/EN/JP) — automatic, nothing to set up:
+ *  อ.1–3 → K1–K3 / 年少·年中·年長 · ป.1–6 → G1–G6 / 小1–6 · ม.1–3 → G7–G9 / 中1–3 · ม.4–6 → G10–G12 / 高1–3 */
+export function gradeLabel(grade: string, lang: FormLang): string {
+  if (lang === "th") return grade
+  const m = /^(อ|ป|ม)\.(\d+)$/.exec(grade)
+  if (!m) return grade
+  const n = Number(m[2])
+  if (m[1] === "อ") return lang === "en" ? `K${n}` : (["年少", "年中", "年長"][n - 1] ?? grade)
+  if (m[1] === "ป") return lang === "en" ? `G${n}` : `小${n}`
+  return lang === "en" ? `G${n + 6}` : n <= 3 ? `中${n}` : `高${n - 3}`
+}
+
+/** Subject as a parent reads it — the name set in Settings → System for that language, else the Thai name */
+export function subjectLabel(subject: string, lang: FormLang, names?: SystemConfig["subjectNames"]): string {
+  return (lang !== "th" && names?.[subject]?.[lang]?.trim()) || subject
+}
 
 /** Grades in one session, lowest first, with head-counts — mixed-grade classes must show every grade (owner 2026-09-29) */
 export function gradeMix(grades: string[]): { grade: string; count: number }[] {

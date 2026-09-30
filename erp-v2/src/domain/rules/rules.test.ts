@@ -6,7 +6,7 @@ import { activeLeave, balance, studentState, leaveLedger, packageCovers, canMark
 import { bestPromotion, invoiceTotals, validateInvoiceDraft, canApprove, canConfirmPayment, canForceApprove, canForceConfirmPayment, canSend, canVoid, defaultBusLegs, busTotal, nextInvoiceNumber, quoteCourse } from "./billing"
 import { can } from "./permissions"
 import { chartPrice, defaultCourseName, validateCourse } from "./course"
-import { busRate, copyHours, priceOf, priceRange, setPrice, validateBranchInfo, validateDurations, validateHoliday, validatePromotion, validateSpecialPeriods, everyDay } from "./settings"
+import { busRate, copyHours, gradeLabel, subjectLabel, priceOf, priceRange, setPrice, validateBranchInfo, validateDurations, validateHoliday, validatePromotion, validateSpecialPeriods, everyDay } from "./settings"
 import { forceAudience, isUnread, messageAudience, notify, validateMessage, visibleTo } from "./notifications"
 import * as Sum from "./summaries"
 import { familyFromLead, futureSessionsOf, matchExistingFamily, mergeSubmission, nicknameFrom, searchStudents, studentLabel, submissionChanges, validateFamily, validateStaff, validateStudent } from "./people"
@@ -957,5 +957,19 @@ describe("returning family edits details in a form (owner 2026-09-30)", () => {
     expect(m.family?.parents[0].email).toBe("som@mail.com")
     expect(m.family?.sources).toEqual(["walkin", "facebook"])
     expect(m.student?.grade).toBe("ป.6")
+  })
+})
+
+describe("parent form reads grades/subjects in its language (owner 2026-09-30)", () => {
+  it("grades convert automatically", () => {
+    expect(["อ.2", "ป.5", "ม.1", "ม.4"].map((g) => gradeLabel(g, "en"))).toEqual(["K2", "G5", "G7", "G10"])
+    expect(["อ.3", "ป.5", "ม.2", "ม.6"].map((g) => gradeLabel(g, "ja"))).toEqual(["年長", "小5", "中2", "高3"])
+    expect(gradeLabel("ป.5", "th")).toBe("ป.5")
+  })
+  it("subjects use the Settings name for that language, else the Thai name", () => {
+    const names = { "คณิต": { en: "Math", ja: "数学" }, "วิทย์": { en: "" } }
+    expect(subjectLabel("คณิต", "ja", names)).toBe("数学")
+    expect(subjectLabel("วิทย์", "en", names)).toBe("วิทย์")
+    expect(subjectLabel("คณิต", "th", names)).toBe("คณิต")
   })
 })

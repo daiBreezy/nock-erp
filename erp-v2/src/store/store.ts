@@ -716,7 +716,8 @@ export const useStore = create<Store>()(
         if (name !== from && s.system.subjects.includes(name)) return fail(`มีวิชา ${name} อยู่แล้ว`)
         const r = (x: string) => (x === from ? name : x)
         set({
-          system: { ...s.system, subjects: s.system.subjects.map(r) },
+          // the EN/JP names travel with the subject
+          system: { ...s.system, subjects: s.system.subjects.map(r), subjectNames: s.system.subjectNames && Object.fromEntries(Object.entries(s.system.subjectNames).map(([k, v]) => [r(k), v])) },
           branches: s.branches.map((b) => ({ ...b, subjects: b.subjects.map(r), priceChart: b.priceChart.map((p) => ({ ...p, subject: r(p.subject) })) })),
           staff: s.staff.map((x) => ({ ...x, subjects: x.subjects.map(r) })),
           courses: s.courses.map((x) => ({ ...x, subjects: x.subjects.map(r) })),
