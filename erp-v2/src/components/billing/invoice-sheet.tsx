@@ -153,6 +153,7 @@ function Body({ id, slipMediaId, onEdit }: { id: ID; slipMediaId?: string; onEdi
               ))}
               {totals.bus > 0 && <tr><td className="px-3 py-1.5">ค่ารถ {branch.fees.find((f) => f.id === inv.busFeeId)?.name ?? ""} ({inv.bus.reduce((a, l) => a + +l.pickup + +l.dropoff, 0)} เที่ยว)</td><td className="px-3 py-1.5 text-right">{fmtMoney(totals.bus)}</td></tr>}
               {totals.book > 0 && <tr><td className="px-3 py-1.5">ค่าหนังสือ</td><td className="px-3 py-1.5 text-right">{fmtMoney(totals.book)}</td></tr>}
+              {totals.busExtra > 0 && <tr><td className="px-3 py-1.5">ค่ารถเพิ่ม (รอบก่อน) · {(inv.busExtras ?? []).map((x) => fmtDate(x.date)).join(", ")}</td><td className="px-3 py-1.5 text-right">{fmtMoney(totals.busExtra)}</td></tr>}
               {inv.advance.map((a) => <tr key={a.feeId}><td className="px-3 py-1.5">{a.name}</td><td className="px-3 py-1.5 text-right">{fmtMoney(a.amount)}</td></tr>)}
               {totals.concession > 0 && <tr className="text-emerald-700"><td className="px-3 py-1.5">ส่วนลดพิเศษ · {inv.concession?.remark}</td><td className="px-3 py-1.5 text-right">−{fmtMoney(totals.concession)}</td></tr>}
               <tr className="font-semibold"><td className="px-3 py-2">ยอดรวม</td><td className="px-3 py-2 text-right text-base">{fmtMoney(totals.total)}</td></tr>

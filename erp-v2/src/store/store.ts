@@ -21,7 +21,7 @@ import * as Notif from "@/domain/rules/notifications"
 import * as Cfg from "@/domain/rules/settings"
 import * as Msg from "@/domain/rules/messages"
 import { toast } from "sonner"
-import type { Assessment, AttendanceStatus, Entitlement, Branch, ChatMessage, Conversation, Course, DateStr, Family, FormSubmission, Holiday, ID, Invoice, Klass, Lead, LeadStage, LessonSummary, LineDelivery, LogCategory, Result, Session, Staff, Student, SystemConfig } from "@/domain/types"
+import type { Assessment, AttendanceStatus, Entitlement, Branch, BusAddOn, ChatMessage, Conversation, Course, DateStr, Family, FormSubmission, Holiday, ID, Invoice, Klass, Lead, LeadStage, LessonSummary, LineDelivery, LogCategory, Result, Session, Staff, Student, SystemConfig } from "@/domain/types"
 
 export interface UIState {
   userId: ID
@@ -102,6 +102,10 @@ type Store = DB & UIState & {
   approveInvoice: (id: ID, forceRemark?: string) => Result
   sendInvoice: (id: ID, note: string) => Result<{ delivered: boolean }>
   voidInvoice: (id: ID, reason: string) => Result
+  /** extra bus days after paying — the bus runs now, the charge waits for the next invoice */
+  addBusAddOns: (studentId: ID, days: { date: DateStr; pickup: boolean; dropoff: boolean }[], busFeeId: ID | null, note: string) => Result<{ count: number; amount: number }>
+  /** only while not billed yet */
+  removeBusAddOn: (id: ID) => Result
   recordPayment: (id: ID, p: { amount: number; method: "transfer" | "cash"; reference: string; slip?: string }) => Result
   confirmPayment: (invoiceId: ID, paymentId: ID, forceRemark?: string) => Result<{ paid: boolean }>
 
@@ -978,6 +982,9 @@ export const useStore = create<Store>()(
         const totals = Bill.invoiceTotals(inv, ctxOf(s, inv.branchId))
         const errs = Bill.validateInvoiceDraft(inv, totals, { lastAssessment: Forms.lastAssessmentDate(inv.studentId, s.assessments) })
         if (errs.length) return fail(errs[0])
+        // an extra bus day is charged once: it must still be pending (not on another live invoice)
+        const open = new Set(Bill.pendingBusAddOns(inv.studentId, s.busAddOns, s.invoices, inv.id).map((x) => x.id))
+        if ((inv.busExtras ?? []).some((x) => !open.has(x.addOnId))) return fail("ค่ารถเพิ่มบางวันถูกเรียกเก็บในใบอื่นแล้ว — เปิดใบใหม่อีกครั้ง")
         // editing a generated invoice sends it back to draft (needs new PDF + approval)
         const next: Invoice = existing && existing.status === "pending_approval" ? { ...inv, status: "draft", pdf: "none" } : { ...inv, status: "draft" }
         set({ invoices: existing ? s.invoices.map((x) => (x.id === inv.id ? next : x)) : [next, ...s.invoices] })
@@ -1038,6 +1045,38 @@ export const useStore = create<Store>()(
         const lead = leadOfStudent(inv.studentId)
         if (lead) advanceLead(lead.id, "payment_pending")
         return { ok: true, value: { delivered: delivery !== "no_line" } }
+      },
+
+      addBusAddOns: (studentId, days, busFeeId, note) => {
+        const s = get()
+        const perm = requirePerm(s.me(), "billing.manage")
+        if (!perm.ok) return perm
+        if (!days.length) return fail("เพิ่มวันใช้รถอย่างน้อย 1 วัน")
+        for (const d of days) { const err = Bill.validateBusAddOn(d); if (err) return fail(err) }
+        const dup = Bill.duplicateBusDay(studentId, days, s.busAddOns)
+        if (dup) return fail(`${fmtDate(dup)} มีรอบรถนี้อยู่แล้ว`)
+        const stu = s.students.find((x) => x.id === studentId)!
+        const branch = s.branches.find((b) => b.id === stu.branchId)!
+        const rate = Cfg.busRate(branch, busFeeId)
+        const at = s.now().toISOString()
+        const added: BusAddOn[] = days.map((d) => ({ id: uid("ba"), branchId: branch.id, studentId, ...d, busFeeId, amount: Bill.busAddOnAmount(d, rate), note: note.trim() || undefined, createdBy: s.userId, createdAt: at }))
+        const amount = added.reduce((a, x) => a + x.amount, 0)
+        set({ busAddOns: [...s.busAddOns, ...added] })
+        log("billing", [studentId], "เพิ่มรอบรถ", `${added.map((a) => `${fmtDate(a.date)} ${[a.pickup && "รับ", a.dropoff && "ส่ง"].filter(Boolean).join("+")}`).join(", ")} · ${fmtMoney(amount)} รอเรียกเก็บในใบถัดไป${note.trim() ? ` · ${note.trim()}` : ""}`)
+        return { ok: true, value: { count: added.length, amount } }
+      },
+
+      removeBusAddOn: (id) => {
+        const s = get()
+        const perm = requirePerm(s.me(), "billing.manage")
+        if (!perm.ok) return perm
+        const a = s.busAddOns.find((x) => x.id === id)
+        if (!a) return fail("ไม่พบรายการ")
+        const inv = Bill.billedOn(id, s.invoices)
+        if (inv) return fail(`เรียกเก็บในใบ ${inv.number ?? "ร่าง"} แล้ว — เอาออกจากใบนั้นก่อน`)
+        set({ busAddOns: s.busAddOns.filter((x) => x.id !== id) })
+        log("billing", [a.studentId], "ลบรอบรถเพิ่ม", `${fmtDate(a.date)} · ${fmtMoney(a.amount)}`)
+        return { ok: true, value: undefined }
       },
 
       voidInvoice: (id, reason) => {
@@ -1450,7 +1489,7 @@ export const useStore = create<Store>()(
     {
       name: "nockerp-v2",
       // bump when the data model changes; older saved data is replaced by fresh sample data
-      version: 33,
+      version: 34,
       migrate: () => ({ ...buildSeed(), userId: "u_nock", branchId: "br_thl", clockOffset: 0 }) as unknown as Store,
       // persist data + UI state only, never the action functions
       partialize: (s) => Object.fromEntries(Object.entries(s).filter(([, v]) => typeof v !== "function")) as Partial<Store>,

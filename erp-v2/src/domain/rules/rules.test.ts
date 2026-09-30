@@ -1,9 +1,9 @@
 // Regression tests: each case reproduces a bug found on Dev staging and proves the rule prevents it.
 import { describe, expect, it } from "vitest"
-import type { Assessment, Attendance, Branch, Course, Entitlement, Family, FormSubmission, Lead, Student, FormOfferSlot, Holiday, Invoice, Klass, Session, Staff, StudentLeave, Weekday } from "../types"
+import type { Assessment, Attendance, Branch, BusAddOn, Course, Entitlement, Family, FormSubmission, Lead, Student, FormOfferSlot, Holiday, Invoice, Klass, Session, Staff, StudentLeave, Weekday } from "../types"
 import { applyClassEdit, applyToSessions, canChangeTeachers, canRescheduleStudent, mondayOf, removedWithClass, canSave, closesBranch, holidayImpact, hoursFor, isHoliday, overlappingRows, periodsIn, introducedConflicts, editSingleSession, findConflicts, generateSessions, moveSession, sessionState, validateClass, workState } from "./scheduling"
 import { activeLeave, nextClassDates, balance, studentState, leaveLedger, packageCovers, canMark, canSaveLeave, coveringEntitlement, effectiveTo, leavesUsed, lowBalanceAlert, removeFromClass, resolveEntitlements } from "./attendance"
-import { bestPromotion, carriedMinutes, weekKey, classOptionsFor, defaultAdvance, entryFeeWaiver, invoiceSessionDates, invoiceTotals, validateInvoiceDraft, canApprove, canConfirmPayment, canForceApprove, canForceConfirmPayment, canSend, canVoid, defaultBusLegs, busTotal, nextInvoiceNumber, quoteCourse } from "./billing"
+import { bestPromotion, duplicateBusDay, billedOn, busAddOnAmount, pendingBusAddOns, validateBusAddOn, carriedMinutes, weekKey, classOptionsFor, defaultAdvance, entryFeeWaiver, invoiceSessionDates, invoiceTotals, validateInvoiceDraft, canApprove, canConfirmPayment, canForceApprove, canForceConfirmPayment, canSend, canVoid, defaultBusLegs, busTotal, nextInvoiceNumber, quoteCourse } from "./billing"
 import { can } from "./permissions"
 import { chartPrice, defaultCourseName, filterCourses, validateCourse } from "./course"
 import { busRate, copyHours, gradeLabel, subjectLabel, priceOf, priceRange, setPrice, validateBranchInfo, validateDurations, validateHoliday, validatePromotion, validateSpecialPeriods, everyDay } from "./settings"
@@ -1118,5 +1118,39 @@ describe("one course on several classes + weeks pro-rate + hour packs in session
 
   it("a quota leave on a two-class package extends it to the next meeting of either class", () => {
     expect(nextClassDates([tue, thu], "2026-10-20", 2, [])).toEqual(["2026-10-22", "2026-10-27"])
+  })
+})
+
+describe("extra bus days after paying (Liclass, owner 2026-09-30)", () => {
+  const add = (id: string, date: string, studentId = "a"): BusAddOn => ({ id, branchId: "b1", studentId, date, pickup: true, dropoff: false, busFeeId: null, amount: 150, createdBy: "adm", createdAt: "" })
+  const inv = (id: string, status: Invoice["status"], ids: string[]): Invoice => ({ id, branchId: "b1", studentId: "a", number: id, lines: [], bus: [], busExtras: ids.map((x) => ({ addOnId: x, date: "2026-10-01", pickup: true, dropoff: false, amount: 150 })), bookFee: 0, advance: [], concession: null, noteToParent: "", status, pdf: "none", createdBy: "adm", createdAt: "", payments: [] })
+  const addOns = [add("x", "2026-10-02"), add("y", "2026-10-01"), add("z", "2026-10-01", "b")]
+
+  it("legs × bus fee; at least one leg", () => {
+    expect(busAddOnAmount({ pickup: true, dropoff: true }, 150)).toBe(300)
+    expect(validateBusAddOn({ date: "2026-10-01", pickup: false, dropoff: false })).toMatch(/อย่างน้อย/)
+  })
+
+  it("stay pending until a live invoice charges them; a void invoice gives them back", () => {
+    expect(pendingBusAddOns("a", addOns, []).map((x) => x.id)).toEqual(["y", "x"])
+    expect(pendingBusAddOns("a", addOns, [inv("i1", "draft", ["y"])]).map((x) => x.id)).toEqual(["x"])
+    expect(pendingBusAddOns("a", addOns, [inv("i1", "void", ["y"])]).map((x) => x.id)).toEqual(["y", "x"])
+    // the invoice being edited still sees its own
+    expect(pendingBusAddOns("a", addOns, [inv("i1", "draft", ["y"])], "i1").map((x) => x.id)).toEqual(["y", "x"])
+    expect(billedOn("y", [inv("i1", "sent", ["y"])])?.id).toBe("i1")
+  })
+
+  it("the same leg on the same day is added once", () => {
+    expect(duplicateBusDay("a", [{ date: "2026-10-02", pickup: true, dropoff: false }], addOns)).toBe("2026-10-02")
+    expect(duplicateBusDay("a", [{ date: "2026-10-02", pickup: false, dropoff: true }], addOns)).toBeNull()
+    expect(duplicateBusDay("a", [{ date: "2026-10-05", pickup: true, dropoff: false }, { date: "2026-10-05", pickup: true, dropoff: true }], addOns)).toBe("2026-10-05")
+  })
+
+  it("an invoice can carry only the bus charge — and it adds to the total", () => {
+    const i = inv("i2", "draft", ["x", "y"])
+    const t = invoiceTotals(i, { branch, courses: [], classes: [], holidays: [] })
+    expect(t.busExtra).toBe(300)
+    expect(t.total).toBe(300)
+    expect(validateInvoiceDraft(i, t)).toEqual([])
   })
 })

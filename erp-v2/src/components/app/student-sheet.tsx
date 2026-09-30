@@ -1,5 +1,6 @@
 "use client"
 
+import { BusAddOns } from "@/components/billing/bus-addons"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { useMemo, useState } from "react"
@@ -426,7 +427,7 @@ function BillingSeg({ stu }: { stu: Student }) {
             return (
               <tr key={i.id} className="cursor-pointer border-t hover:bg-muted/40 [&>td]:px-3 [&>td]:py-2" onClick={() => router.push(`/billing?open=${i.id}`)}>
                 <td className="whitespace-nowrap tabular-nums"><span className="flex items-center gap-1.5"><FileTextIcon className="size-4 text-muted-foreground" />{i.number ?? "ร่าง (ยังไม่มีเลข)"}</span></td>
-                <td><div className="flex flex-wrap gap-1">{subjects.length ? subjects.map((x) => <span key={x} className={cn("rounded-full px-2 py-0.5 text-xs", subjectColor(x).chip)}>{x}</span>) : <span className="text-xs text-muted-foreground">ค่าอื่นๆ</span>}{i.status === "paid" && subjects.length > 0 && <span className="text-[11px] text-emerald-700">✓ เข้าคลาสแล้ว</span>}</div></td>
+                <td><div className="flex flex-wrap gap-1">{subjects.length ? subjects.map((x) => <span key={x} className={cn("rounded-full px-2 py-0.5 text-xs", subjectColor(x).chip)}>{x}</span>) : <span className="text-xs text-muted-foreground">{i.busExtras?.length ? "ค่ารถเพิ่ม" : "ค่าอื่นๆ"}</span>}{i.status === "paid" && subjects.length > 0 && <span className="text-[11px] text-emerald-700">✓ เข้าคลาสแล้ว</span>}</div></td>
                 <td className="whitespace-nowrap text-xs">{fmtDate(i.createdAt.slice(0, 10), { year: true })}</td>
                 <td className="text-right tabular-nums">{fmtMoney(total)}</td>
                 <td className="text-right"><Pill tone={i.status === "paid" ? "green" : i.status === "void" ? "gray" : i.status === "draft" ? "gray" : "amber"}>{INVOICE_STATUS_LABEL[i.status]}</Pill></td>
@@ -436,6 +437,7 @@ function BillingSeg({ stu }: { stu: Student }) {
           {invoices.length === 0 && <tr><td colSpan={5} className="p-6 text-center text-muted-foreground">ยังไม่มีใบแจ้งหนี้</td></tr>}
         </tbody>
       </table>
+      <BusAddOns stu={stu} />
     </div>
   )
 }

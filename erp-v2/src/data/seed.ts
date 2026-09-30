@@ -4,7 +4,7 @@ import { addDays, fromMinutes, nextWeekday, toDateStr, weekdayOf } from "@/domai
 import { chartPrice } from "@/domain/rules/course"
 import { generateSessions } from "@/domain/rules/scheduling"
 import type {
-  Assessment, AppNotification, Attendance, Branch, ChatMessage, Conversation, Course, Entitlement, Family, Holiday, Invoice, Klass, Lead, LessonSummary,
+  Assessment, AppNotification, Attendance, Branch, BusAddOn, ChatMessage, Conversation, Course, Entitlement, Family, Holiday, Invoice, Klass, Lead, LessonSummary,
   ActivityLog, PriceRow, Session, StudentNote, Staff, Student, StudentLeave, SystemConfig, Weekday,
 } from "@/domain/types"
 
@@ -22,6 +22,7 @@ export interface DB {
   entitlements: Entitlement[]
   leaves: StudentLeave[]
   invoices: Invoice[]
+  busAddOns: BusAddOn[]
   leads: Lead[]
   conversations: Conversation[]
   messages: ChatMessage[]
@@ -367,6 +368,12 @@ export function buildSeed(now = new Date()): DB {
     },
   ]
 
+  // extra bus days asked for after paying — waiting for ใบเตย's next invoice (demo)
+  const busAddOns: BusAddOn[] = [
+    { id: "ba_1", branchId: "br_thl", studentId: "stu_1", date: addDays(today, -3), pickup: false, dropoff: true, busFeeId: "fee_bus_std", amount: 150, note: "แม่ติดประชุม ขอส่งกลับบ้าน", createdBy: "u_ploy", createdAt: iso(addDays(today, -4)) },
+    { id: "ba_2", branchId: "br_thl", studentId: "stu_1", date: addDays(today, 2), pickup: true, dropoff: true, busFeeId: "fee_bus_std", amount: 300, createdBy: "u_ploy", createdAt: iso(addDays(today, -1)) },
+  ]
+
   // seed history so every student's Timeline has real entries (created, enrolled, invoices)
   const logs: ActivityLog[] = []
   const lg = (at: string, by: string | null, category: ActivityLog["category"], studentIds: string[], action: string, detail: string) =>
@@ -398,5 +405,5 @@ export function buildSeed(now = new Date()): DB {
     },
   }
 
-  return { branches, staff, holidays, courses, classes, sessions, attendance, summaries, families, students, entitlements, leaves: [], invoices, leads, conversations, messages, notifications: [], system, notes, logs, assessments }
+  return { branches, staff, holidays, courses, classes, sessions, attendance, summaries, families, students, entitlements, leaves: [], invoices, busAddOns, leads, conversations, messages, notifications: [], system, notes, logs, assessments }
 }

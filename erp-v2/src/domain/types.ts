@@ -529,6 +529,32 @@ export interface BusLeg {
 }
 
 /** One course on an invoice (Staging: an invoice can carry several courses — each with its own class, start and periods). */
+/** Liclass: a parent asks for extra bus days after paying — the bus runs right away and the charge waits for the
+ *  student's next invoice (owner 2026-09-30). Fewer bus days are never refunded. Billed = on a non-void invoice. */
+export interface BusAddOn {
+  id: ID
+  branchId: ID
+  studentId: ID
+  date: DateStr
+  pickup: boolean
+  dropoff: boolean
+  busFeeId: ID | null
+  /** price copied when recorded (legs × bus fee) */
+  amount: number
+  note?: string
+  createdBy: ID
+  createdAt: string
+}
+
+/** A bus add-on billed on an invoice — a copy, so the invoice total never changes afterwards. */
+export interface BusExtraLine {
+  addOnId: ID
+  date: DateStr
+  pickup: boolean
+  dropoff: boolean
+  amount: number
+}
+
 export interface AdvanceItem {
   feeId: ID
   name: string
@@ -564,6 +590,8 @@ export interface Invoice {
   bus: BusLeg[]
   /** bus fee type from General Fees (Standard / โซนไกล …) — unset = the branch's first bus type */
   busFeeId?: ID | null
+  /** extra bus days recorded after an earlier invoice, charged here */
+  busExtras?: BusExtraLine[]
   bookFee: number
   /** Advance Optional (Staging): entry / mock fees picked from General Fees — name + price copied so a later price change never rewrites an invoice */
   advance: AdvanceItem[]

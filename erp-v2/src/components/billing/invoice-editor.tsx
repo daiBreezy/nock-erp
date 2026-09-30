@@ -16,9 +16,9 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { addDays, fmtDate, fmtMoney, fmtMonth, toDateStr } from "@/domain/dates"
 import * as Att from "@/domain/rules/attendance"
-import { busTotal, carriedMinutes, classOptionsFor, defaultAdvance, defaultBusLegs, entryFeeWaiver, invoiceSessionDates, invoiceTotals, validateInvoiceDraft, type LineQuote } from "@/domain/rules/billing"
+import { busTotal, carriedMinutes, pendingBusAddOns, classOptionsFor, defaultAdvance, defaultBusLegs, entryFeeWaiver, invoiceSessionDates, invoiceTotals, validateInvoiceDraft, type LineQuote } from "@/domain/rules/billing"
 import { lastAssessmentDate } from "@/domain/rules/forms"
-import type { AdvanceItem, BusLeg, CourseLine, Entitlement, Family, Invoice, Klass, Leftover } from "@/domain/types"
+import type { AdvanceItem, BusExtraLine, BusLeg, CourseLine, Entitlement, Family, Invoice, Klass, Leftover } from "@/domain/types"
 import { uid } from "@/data/seed"
 import { report } from "@/lib/feedback"
 import { useBranch, useEntitlements, useNow } from "@/lib/hooks"
@@ -62,6 +62,9 @@ export function InvoiceEditor({ invoice, defaultStudentId, renewEntitlementId, o
   // Advance Optional: follows the default (entry fee unless already paid) until the admin ticks something
   const [advancePicked, setAdvancePicked] = useState<AdvanceItem[] | null>(invoice ? invoice.advance : null)
   const invoices = useStore((s) => s.invoices)
+  const busAddOns = useStore((s) => s.busAddOns)
+  // extra bus days from before: all pulled in by default, untick to leave them for a later invoice
+  const [extrasPicked, setExtrasPicked] = useState<string[] | null>(invoice ? (invoice.busExtras ?? []).map((x) => x.addOnId) : null)
   const [concession, setConcession] = useState(invoice?.concession?.amount ?? 0)
   const [concessionRemark, setConcessionRemark] = useState(invoice?.concession?.remark ?? "")
 
@@ -99,6 +102,9 @@ export function InvoiceEditor({ invoice, defaultStudentId, renewEntitlementId, o
   const waiver = entryFeeWaiver(student, invoices, branch.fees, invoice?.id)
   const advanceFees = branch.fees.filter((f) => f.kind === "entry" || f.kind === "mock")
   const busFees = branch.fees.filter((f) => f.kind === "bus")
+  const pendingExtras = studentId ? pendingBusAddOns(studentId, busAddOns, invoices, invoice?.id) : []
+  const extraIds = extrasPicked ?? pendingExtras.map((a) => a.id)
+  const busExtras: BusExtraLine[] = pendingExtras.filter((a) => extraIds.includes(a.id)).map((a) => ({ addOnId: a.id, date: a.date, pickup: a.pickup, dropoff: a.dropoff, amount: a.amount }))
   const rate = busRate(branch, busFeeId)
 
   const courseLines: CourseLine[] = lines.map((l) => {
@@ -117,6 +123,7 @@ export function InvoiceEditor({ invoice, defaultStudentId, renewEntitlementId, o
     lines: courseLines,
     bus: [],
     busFeeId: busFeeId || null,
+    busExtras,
     bookFee, advance,
     concession: concession > 0 ? { amount: concession, remark: concessionRemark } : null,
     noteToParent: invoice?.noteToParent ?? "",
@@ -259,6 +266,25 @@ export function InvoiceEditor({ invoice, defaultStudentId, renewEntitlementId, o
           </details>
         )}
 
+        {pendingExtras.length > 0 && (
+          <div className="space-y-1.5 rounded-lg border border-amber-300 bg-amber-50/60 p-3 dark:bg-amber-950/20">
+            <div className="flex items-center gap-2 text-sm font-medium">
+              <BusIcon className="size-4" /> ค่ารถเพิ่ม (รอบก่อน · รอเรียกเก็บ)
+              <span className="ml-auto tabular-nums">{fmtMoney(busExtras.reduce((a, x) => a + x.amount, 0))}</span>
+            </div>
+            <div className="grid gap-1 sm:grid-cols-2">
+              {pendingExtras.map((a) => (
+                <label key={a.id} className="flex items-center gap-2 text-sm">
+                  <Checkbox checked={extraIds.includes(a.id)} onCheckedChange={(v) => setExtrasPicked(v ? [...extraIds, a.id] : extraIds.filter((x) => x !== a.id))} />
+                  <span>{fmtDate(a.date, { weekday: true })} · {[a.pickup && "รับ", a.dropoff && "ส่ง"].filter(Boolean).join("+")}</span>
+                  <span className="ml-auto tabular-nums text-muted-foreground">{fmtMoney(a.amount)}</span>
+                </label>
+              ))}
+            </div>
+            <p className="text-xs text-muted-foreground">ติ๊กออกเพื่อเก็บไว้เรียกเก็บในใบหลัง</p>
+          </div>
+        )}
+
         {advanceFees.length > 0 && (
           <div className="space-y-1.5">
             <Label className="text-xs">Advance Optional (ค่าแรกเข้า / สอบ)</Label>
@@ -299,7 +325,7 @@ export function InvoiceEditor({ invoice, defaultStudentId, renewEntitlementId, o
         )}
 
         <div className="space-y-1 rounded-lg bg-muted/50 p-3 text-sm tabular-nums">
-          {[["ค่าเรียน", totals.course], ["Course fee", totals.courseFee], ["ค่ารถ", totals.bus], ["ค่าหนังสือ", totals.book], ["Advance (ค่าแรกเข้า/สอบ)", totals.advance]].filter(([, v]) => (v as number) > 0).map(([l, v]) => (
+          {[["ค่าเรียน", totals.course], ["Course fee", totals.courseFee], ["ค่ารถ", totals.bus], ["ค่ารถเพิ่ม (รอบก่อน)", totals.busExtra], ["ค่าหนังสือ", totals.book], ["Advance (ค่าแรกเข้า/สอบ)", totals.advance]].filter(([, v]) => (v as number) > 0).map(([l, v]) => (
             <div key={l as string} className="flex justify-between"><span>{l}</span><span>{fmtMoney(v as number)}</span></div>
           ))}
           {totals.promotion > 0 && <div className="flex justify-between text-emerald-700"><span>โปรโมชัน</span><span>−{fmtMoney(totals.promotion)}</span></div>}

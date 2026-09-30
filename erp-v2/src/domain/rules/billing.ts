@@ -1,7 +1,7 @@
 // Billing rules: one pricing function feeds Create, Edit, Detail and PDF (BL-2, BL-3, BL-4).
 
 import { addMonths, endOfMonth, fmtDate, monthKey, nextWeekday, addDays, weekdayOf } from "../dates"
-import type { AdvanceItem, Branch, Entitlement, Leftover, Student, Weekday, BusLeg, Course, CourseLine, DateStr, Fee, Holiday, ID, Invoice, Klass, PriceUnit, Result, Role, Staff } from "../types"
+import type { AdvanceItem, Branch, BusAddOn, Entitlement, Leftover, Student, Weekday, BusLeg, Course, CourseLine, DateStr, Fee, Holiday, ID, Invoice, Klass, PriceUnit, Result, Role, Staff } from "../types"
 import { purchaseOf } from "./course"
 import { requireForceRemark } from "./notifications"
 import { inBranch } from "./permissions"
@@ -195,6 +195,8 @@ export interface InvoiceTotals {
   courseFee: number
   promotion: number
   bus: number
+  /** extra bus days from earlier (BusAddOn) billed on this invoice */
+  busExtra: number
   book: number
   advance: number
   concession: number
@@ -223,9 +225,10 @@ export function invoiceTotals(inv: Invoice, ctx: { branch: Branch; courses: Cour
   const course = sum((l) => l.amount), courseFee = sum((l) => l.courseFee), promotion = sum((l) => l.promotion)
   const bus = busTotal(inv.bus, busRate(ctx.branch, inv.busFeeId))
   const advance = inv.advance.reduce((a, x) => a + x.amount, 0)
+  const busExtra = (inv.busExtras ?? []).reduce((a, x) => a + x.amount, 0)
   const concession = inv.concession?.amount ?? 0
-  const total = course + courseFee - promotion + bus + inv.bookFee + advance - concession
-  return { course, courseFee, promotion, bus, book: inv.bookFee, advance, concession, total, lines }
+  const total = course + courseFee - promotion + bus + busExtra + inv.bookFee + advance - concession
+  return { course, courseFee, promotion, bus, busExtra, book: inv.bookFee, advance, concession, total, lines }
 }
 
 /** Classes an invoice line can enrol into: this branch's active recurring classes that teach the course's subject
@@ -267,6 +270,34 @@ export function carriedMinutes(studentId: ID, courseId: ID, ents: Entitlement[],
     .flatMap((i) => i.lines).filter((l) => l.courseId === courseId).reduce((a, l) => a + (l.carryIn ?? 0), 0)
   return Math.max(0, kept - used)
 }
+
+/** Legs × the bus fee type's price. */
+export const busAddOnAmount = (a: Pick<BusAddOn, "pickup" | "dropoff">, rate: number) => (Number(a.pickup) + Number(a.dropoff)) * rate
+
+export function validateBusAddOn(a: Pick<BusAddOn, "date" | "pickup" | "dropoff">): string | null {
+  if (!a.date) return "เลือกวันที่ใช้รถ"
+  if (!a.pickup && !a.dropoff) return "ติ๊กรับหรือส่งอย่างน้อย 1 เที่ยว"
+  return null
+}
+
+/** The same leg (pickup / drop-off) on the same day can only be added once per student. */
+export function duplicateBusDay(studentId: ID, days: Pick<BusAddOn, "date" | "pickup" | "dropoff">[], existing: BusAddOn[]): DateStr | null {
+  const seen = existing.filter((a) => a.studentId === studentId).map((a) => ({ ...a }))
+  for (const d of days) {
+    if (seen.some((a) => a.date === d.date && ((a.pickup && d.pickup) || (a.dropoff && d.dropoff)))) return d.date
+    seen.push({ ...d } as BusAddOn)
+  }
+  return null
+}
+
+/** Extra bus days still waiting to be charged: not on any invoice that isn't void (the one being edited doesn't count). */
+export function pendingBusAddOns(studentId: ID, addOns: BusAddOn[], invoices: Invoice[], exceptInvoiceId?: ID): BusAddOn[] {
+  const billed = new Set(invoices.filter((i) => i.id !== exceptInvoiceId && i.status !== "void").flatMap((i) => (i.busExtras ?? []).map((x) => x.addOnId)))
+  return addOns.filter((a) => a.studentId === studentId && !billed.has(a.id)).sort((a, b) => a.date.localeCompare(b.date))
+}
+
+/** Which invoice charged this add-on (undefined = still pending). */
+export const billedOn = (addOnId: ID, invoices: Invoice[]) => invoices.find((i) => i.status !== "void" && (i.busExtras ?? []).some((x) => x.addOnId === addOnId))
 
 /** Every class date the invoice covers, once per day — bus legs follow these (two courses the same day = one trip). */
 export function invoiceSessionDates(lines: LineQuote[]): DateStr[] {
