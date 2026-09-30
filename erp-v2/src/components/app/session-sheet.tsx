@@ -307,7 +307,8 @@ function StudentRow({ s, sid, viewOnly, canManage, mine, text, setText, selectab
             <button type="button" onClick={() => setOpen("student")} className="truncate text-left text-base font-semibold hover:text-primary hover:underline">{stu?.nickname}</button>
             {isNew && <Pill tone="red" className="shrink-0"><FlameIcon className="size-3" /> ใหม่</Pill>}
             {/* tap to change which hours this student attends — works before attendance (parent called ahead) */}
-            {(partial || (canManage && state(s, now) !== "closed" && !s.cancelled)) && (
+            {/* no chip = the whole class (owner 2026-09-30); set a part from ⋮ → เวลาเรียนของ… */}
+            {partial && (
               <button type="button" disabled={!canManage || state(s, now) === "closed" || s.cancelled} onClick={() => setOpen("seat")}
                 title={partial ? `เรียนเฉพาะ ${Seats.seatTime(s.start, seat)}${s.seats?.[sid] ? " (คาบนี้)" : " (ทุกคาบ)"} · กดเพื่อเปลี่ยน` : "กดเพื่อตั้งให้เรียนแค่บางชั่วโมง"}
                 className={cn("shrink-0 rounded-full px-2 py-0.5 text-xs font-medium", partial ? "bg-violet-100 text-violet-800 dark:bg-violet-950 dark:text-violet-200" : "border border-dashed text-muted-foreground hover:bg-muted")}>
