@@ -1,6 +1,6 @@
 // Mock data generated relative to "today" so the prototype always looks current.
 
-import { addDays, fromMinutes, nextWeekday, toDateStr, weekdayOf } from "@/domain/dates"
+import { addDays, fromMinutes, nextWeekday, toDateStr, toMinutes, weekdayOf } from "@/domain/dates"
 import { chartPrice } from "@/domain/rules/course"
 import { generateSessions } from "@/domain/rules/scheduling"
 import type {
@@ -204,10 +204,33 @@ export function buildSeed(now = new Date()): DB {
   const showAttendance = one("วิทย์", nowMin - 90, 60, "u_prae", "rm_2", ["stu_17", "stu_18", "stu_19"])
   const showLive = one("คณิต", nowMin - 30, 90, "u_dai", "rm_1", ["stu_1", "stu_3", "stu_4", "stu_10", "stu_11", "stu_12"])
   const clashA = one("อังกฤษ", nowMin + 90, 60, "u_mint", "rm_2", ["stu_2", "stu_16", "stu_24"])
-  const clashB = one("คณิต", nowMin + 90, 60, "u_mint", "rm_3", ["stu_20", "stu_21"]) // same teacher, same time
-  const clashC = one("วิทย์", nowMin + 90, 90, "u_prae", "rm_2", ["stu_5", "stu_19"]) // same room as clashA
+  const clashB = one("คณิต", nowMin + 90, 60, "u_mint", "rm_3", ["stu_20", "stu_21"]) // the ONE demo clash: same teacher, same time
   const trial = one("คณิต", nowMin + 150, 60, "u_jo", "rm_3", ["stu_7"], [], true)
-  sessions.push(showDone, showSummary, showAttendance, showLive, clashA, clashB, clashC, trial)
+  // the app never lets a clash be created — so apart from clashA/B, every showcase session is fitted around the regular
+  // classes of the day (another room / another teacher), otherwise the calendar looks like clashes are allowed (owner 2026-09-30)
+  const span = (x: Session) => [toMinutes(x.start), toMinutes(x.start) + x.minutes] as const
+  const overlap = (a: Session, b: Session) => a.date === b.date && span(a)[0] < span(b)[1] && span(b)[0] < span(a)[1]
+  const staffOf = (x: Session) => [x.teacherId, ...x.coTeacherIds].filter(Boolean)
+  const clashes = (x: Session, others: Session[]) => others.some((o) => overlap(x, o) && (o.roomId === x.roomId || staffOf(o).some((t) => staffOf(x).includes(t))))
+  const fit = (x: Session) => {
+    const others = sessions.filter((o) => o.date === today && !o.cancelled)
+    for (const roomId of ["rm_1", "rm_2", "rm_3"].sort((r) => (r === x.roomId ? -1 : 1)))
+      for (const teacherId of [x.teacherId, "u_jo", "u_dai", "u_prae", "u_mint"]) {
+        const y = { ...x, roomId, teacherId, coTeacherIds: x.coTeacherIds.filter((t) => t !== teacherId) }
+        if (!clashes(y, others)) return Object.assign(x, y)
+        const solo = { ...y, coTeacherIds: [] }
+        if (!clashes(solo, others)) return Object.assign(x, solo)
+      }
+    return null
+  }
+  const showcaseList: Session[] = []
+  for (const x of [showDone, showSummary, showAttendance, showLive, clashA, trial]) if (fit(x)) { sessions.push(x); showcaseList.push(x) }
+  // clashB may only collide with clashA (same teacher) — find it a room that nothing else uses
+  if (showcaseList.includes(clashA)) {
+    const others = sessions.filter((o) => o.date === today && !o.cancelled && o !== clashA)
+    const room = ["rm_3", "rm_1", "rm_2"].find((r) => r !== clashA.roomId && !clashes({ ...clashB, roomId: r, teacherId: null, coTeacherIds: [] }, others) && !others.some((o) => overlap(o, clashB) && staffOf(o).includes("u_mint")))
+    if (room) { clashB.roomId = room; sessions.push(clashB); showcaseList.push(clashB) }
+  }
 
   const attendance: Attendance[] = []
   const summaries: LessonSummary[] = []
@@ -220,12 +243,12 @@ export function buildSeed(now = new Date()): DB {
   const mark = (se: Session, sid: string, status: Attendance["status"], at: number) =>
     attendance.push({ sessionId: se.id, studentId: sid, status, markedBy: se.teacherId ?? "u_ploy", markedAt: new Date(at).toISOString() })
 
+  const showcase = new Set(showcaseList.map((x) => x.id))
   // showcase states (only when they are actually in the past)
   const endOf = (se: Session) => new Date(`${se.date}T${se.start}:00`).getTime() + se.minutes * 60000
-  if (endOf(showDone) < nowMs) showDone.studentIds.forEach((sid) => { mark(showDone, sid, "present", endOf(showDone)); write(showDone, sid, "submitted", endOf(showDone)) })
-  if (endOf(showSummary) < nowMs)
+  if (showcase.has(showDone.id) && endOf(showDone) < nowMs) showDone.studentIds.forEach((sid) => { mark(showDone, sid, "present", endOf(showDone)); write(showDone, sid, "submitted", endOf(showDone)) })
+  if (showcase.has(showSummary.id) && endOf(showSummary) < nowMs)
     showSummary.studentIds.forEach((sid, i) => { mark(showSummary, sid, i === 4 ? "leave" : "present", endOf(showSummary)); if (i < 2) write(showSummary, sid, "submitted", endOf(showSummary)) })
-  const showcase = new Set([showDone, showSummary, showAttendance, showLive, clashA, clashB, clashC, trial].map((x) => x.id))
 
   // other past sessions: attendance + summaries like a normal history
   sessions.forEach((se) => {
