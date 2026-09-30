@@ -58,3 +58,29 @@ export function validateCourse(branch: Branch, c: Course): string | null {
 export function purchaseOf(c: Pick<Course, "unit" | "duration">, periods: number): { unit: PriceUnit; amount: number } {
   return { unit: c.unit, amount: c.unit === "month" ? periods : c.duration * periods }
 }
+
+export const COURSE_FORMAT_LABEL: Record<Course["format"], string> = { group: "กลุ่ม", single: "เดี่ยว" }
+
+export interface CourseFilter {
+  q: string
+  subject: string
+  format: "" | Course["format"]
+  /** "" = any · "month" · "hour:24" · "week:4" */
+  pack: string
+}
+
+export const packKey = (c: Pick<Course, "unit" | "duration">) => (c.unit === "month" ? "month" : `${c.unit}:${c.duration}`)
+
+/** Select Course (invoice): only this branch's active courses — a Director sees every branch elsewhere, but an
+ *  invoice sells its own branch's courses only (owner 2026-09-30). Filters mirror Staging: subject · course type ·
+ *  package hour + free text on name / subject / grade. */
+export function filterCourses(courses: Course[], branchId: string, f: CourseFilter, today: string): Course[] {
+  const q = f.q.trim().toLowerCase()
+  return courses
+    .filter((c) => c.branchId === branchId && c.active && (!c.to || c.to >= today))
+    .filter((c) => !f.subject || c.subjects.includes(f.subject))
+    .filter((c) => !f.format || c.format === f.format)
+    .filter((c) => !f.pack || packKey(c) === f.pack)
+    .filter((c) => !q || [c.name, ...c.subjects, ...c.grades].some((x) => x.toLowerCase().includes(q)))
+    .sort((a, b) => a.name.localeCompare(b.name, "th"))
+}

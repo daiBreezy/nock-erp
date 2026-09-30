@@ -57,8 +57,9 @@ export default function CoursesPage() {
     courses.forEach((c) => {
       const students = new Set(entitlements.filter((e) => e.courseId === c.id && e.to >= today).map((e) => e.studentId)).size
       const revenue = invoices
-        .filter((i) => i.status === "paid" && i.course?.courseId === c.id)
-        .reduce((a, i) => { const t = invoiceTotals(i, { branch: branches.find((b) => b.id === i.branchId)!, courses, classes, holidays }); return a + t.course + t.courseFee - t.promotion }, 0)
+        .filter((i) => i.status === "paid" && i.lines.some((l) => l.courseId === c.id))
+        .reduce((a, i) => a + invoiceTotals(i, { branch: branches.find((b) => b.id === i.branchId)!, courses, classes, holidays }).lines
+          .filter((l) => l.line.courseId === c.id).reduce((x, l) => x + l.amount + l.courseFee - l.promotion, 0), 0)
       m.set(c.id, { students, revenue, classes: classes.filter((k) => k.courseId === c.id).length })
     })
     return m

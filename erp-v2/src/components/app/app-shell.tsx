@@ -1,5 +1,6 @@
 "use client"
 
+import { branchLabel } from "@/domain/rules/settings"
 import { periodHours } from "./period-banner"
 import { periodOn } from "@/domain/rules/scheduling"
 import { fmtDate, toDateStr } from "@/domain/dates"
@@ -120,7 +121,7 @@ function Shell({ children }: { children: ReactNode }) {
           <div className="ml-auto flex items-center gap-2">
             <CurrentPeriodChip />
             {/* branch stays visible on phones too, where the sidebar is hidden */}
-            <span className="flex items-center gap-1 rounded-full bg-primary/10 px-2.5 py-1 text-xs font-medium text-primary"><MapPinIcon className="size-3.5" />สาขา{branch.name}</span>
+            <span className="flex items-center gap-1 rounded-full bg-primary/10 px-2.5 py-1 text-xs font-medium text-primary"><MapPinIcon className="size-3.5" />สาขา{branchLabel(branch)}</span>
           </div>
         </header>
         <main className="min-w-0 flex-1 p-3 md:p-6">{allowed ? children : <NoAccess />}</main>
@@ -208,7 +209,7 @@ function UserCard() {
         {mine.length > 1 ? (
           <Popover open={open} onOpenChange={setOpen}>
             <PopoverTrigger render={<button type="button" className="flex w-full items-start gap-1.5 rounded-xl px-1 py-0.5 text-left text-sm font-medium text-primary hover:bg-primary/10" />}>
-              <MapPinIcon className="mt-0.5 size-4 shrink-0" /><span className="break-words">สาขา{branch.name}</span>
+              <MapPinIcon className="mt-0.5 size-4 shrink-0" /><span className="break-words">สาขา{branchLabel(branch)}</span>
               <ArrowLeftRightIcon className="mt-0.5 ml-auto size-3.5 shrink-0" />
             </PopoverTrigger>
             <PopoverContent side="right" align="end" className="w-64 p-1.5">
@@ -218,7 +219,7 @@ function UserCard() {
                   <li key={b.id}>
                     <button type="button" onClick={() => { setBranch(b.id); setOpen(false) }}
                       className={cn("flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-sm hover:bg-muted", b.id === branchId && "bg-primary/10 font-medium text-primary")}>
-                      <span className="min-w-0 flex-1 break-words">สาขา{b.name}</span>
+                      <span className="min-w-0 flex-1 break-words">สาขา{branchLabel(b)}</span>
                       <span className="text-[10px] text-muted-foreground">{b.code}</span>
                       {!b.active && <Pill className="px-1 py-0 text-[10px]">ปิด</Pill>}
                       {b.id === branchId && <CheckIcon className="size-4" />}
@@ -229,7 +230,7 @@ function UserCard() {
             </PopoverContent>
           </Popover>
         ) : (
-          <div className="flex items-start gap-1.5 text-sm font-medium text-primary"><MapPinIcon className="mt-0.5 size-4 shrink-0" /><span className="break-words">สาขา{branch.name}</span></div>
+          <div className="flex items-start gap-1.5 text-sm font-medium text-primary"><MapPinIcon className="mt-0.5 size-4 shrink-0" /><span className="break-words">สาขา{branchLabel(branch)}</span></div>
         )}
       </div>
     </div>

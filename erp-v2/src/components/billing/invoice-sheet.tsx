@@ -1,7 +1,7 @@
 "use client"
 
 import { ForceApprove } from "@/components/app/force-approve"
-import { useEffect, useState } from "react"
+import { Fragment, useEffect, useState } from "react"
 import { AlertTriangleIcon, CheckIcon, CircleIcon, FileTextIcon, ImageIcon, Loader2Icon, PencilIcon, RefreshCwIcon, SendIcon, XCircleIcon } from "lucide-react"
 import { Pill } from "@/components/app/badges"
 import { NativeSelect } from "@/components/app/native-select"
@@ -12,6 +12,7 @@ import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "
 import { Textarea } from "@/components/ui/textarea"
 import { fmtDate, fmtDateTime, fmtMoney, fmtMonth } from "@/domain/dates"
 import * as Bill from "@/domain/rules/billing"
+import { packageLabel } from "@/domain/rules/course"
 import { can } from "@/domain/rules/permissions"
 import type { ID, Invoice } from "@/domain/types"
 import { report } from "@/lib/feedback"
@@ -69,8 +70,6 @@ function Body({ id, slipMediaId, onEdit }: { id: ID; slipMediaId?: string; onEdi
   const totals = Bill.invoiceTotals(inv, { branch, courses, classes, holidays })
   const stu = students.find((s) => s.id === inv.studentId)
   const fam = families.find((f) => f.id === stu?.familyId)
-  const course = courses.find((c) => c.id === inv.course?.courseId)
-  const klass = classes.find((k) => k.id === inv.course?.classId)
   const who = (uid?: ID) => staff.find((s) => s.id === uid)?.nickname ?? "—"
   const paidConfirmed = Bill.paidAmount(inv)
   const paidAll = inv.payments.reduce((a, p) => a + p.amount, 0)
@@ -131,26 +130,27 @@ function Body({ id, slipMediaId, onEdit }: { id: ID; slipMediaId?: string; onEdi
         <section className="rounded-lg border">
           <table className="w-full text-sm tabular-nums">
             <tbody className="divide-y">
-              {course && totals.quote && (
-                <>
+              {totals.lines.map(({ line, course, klass, quote, courseFee, promotion, promotionName }) => course && quote && (
+                <Fragment key={line.id}>
                   <tr>
                     <td className="px-3 py-2" colSpan={2}>
                       <div className="font-medium">{course.name}</div>
                       <div className="text-xs text-muted-foreground">
-                        {klass?.name} · {fmtDate(totals.quote.from)} → {fmtDate(totals.quote.to, { year: true })} · {totals.quote.sessions.length} คาบ · {totals.quote.hours} ชม.
-                        {totals.quote.skipped.length > 0 && ` · ข้ามวันหยุด ${totals.quote.skipped.map((d) => fmtDate(d)).join(", ")}`}
+                        {klass?.name} · {fmtDate(quote.from)} → {fmtDate(quote.to, { year: true })} · {quote.sessions.length} คาบ · {quote.hours} ชม.
+                        {quote.skipped.length > 0 && ` · ข้ามวันหยุด ${quote.skipped.map((d) => fmtDate(d)).join(", ")}`}
                       </div>
                     </td>
                   </tr>
-                  {totals.quote.periods.map((p) => (
+                  {quote.periods.map((p) => (
                     <tr key={p.month} className="text-muted-foreground">
-                      <td className="px-3 py-1 pl-6">{fmtMonth(p.month + "-01")} · {p.sessions.length} คาบ ({Math.round(p.factor * 100)}%)</td>
+                      <td className="px-3 py-1 pl-6">{course.unit === "month" ? `${fmtMonth(p.month + "-01")} · ${p.sessions.length} คาบ (${Math.round(p.factor * 100)}%)` : `${packageLabel(course)} × ${line.periods} · ${p.sessions.length} คาบ`}</td>
                       <td className="px-3 py-1 text-right">{fmtMoney(p.amount)}</td>
                     </tr>
                   ))}
-                </>
-              )}
-              {totals.courseFee > 0 && <tr><td className="px-3 py-1.5">Course fee (ค่าอุปกรณ์)</td><td className="px-3 py-1.5 text-right">{fmtMoney(totals.courseFee)}</td></tr>}
+                  {courseFee > 0 && <tr className="text-muted-foreground"><td className="px-3 py-1 pl-6">Course fee (ค่าอุปกรณ์)</td><td className="px-3 py-1 text-right">{fmtMoney(courseFee)}</td></tr>}
+                  {promotion > 0 && <tr className="text-emerald-700"><td className="px-3 py-1 pl-6">โปรโมชัน · {promotionName}</td><td className="px-3 py-1 text-right">−{fmtMoney(promotion)}</td></tr>}
+                </Fragment>
+              ))}
               {totals.bus > 0 && <tr><td className="px-3 py-1.5">ค่ารถ ({inv.bus.reduce((a, l) => a + +l.pickup + +l.dropoff, 0)} เที่ยว)</td><td className="px-3 py-1.5 text-right">{fmtMoney(totals.bus)}</td></tr>}
               {totals.book > 0 && <tr><td className="px-3 py-1.5">ค่าหนังสือ</td><td className="px-3 py-1.5 text-right">{fmtMoney(totals.book)}</td></tr>}
               {totals.advance > 0 && <tr><td className="px-3 py-1.5">ค่าอื่นๆ</td><td className="px-3 py-1.5 text-right">{fmtMoney(totals.advance)}</td></tr>}

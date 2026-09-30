@@ -10,6 +10,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { ROLE_LABEL } from "@/domain/rules/permissions"
+import { KNOWN_PROVINCES } from "@/domain/rules/settings"
 import type { Branch } from "@/domain/types"
 import { uid } from "@/data/seed"
 import { report } from "@/lib/feedback"
@@ -34,7 +35,7 @@ function StringList({ values, onChange, placeholder, addLabel }: { values: strin
 }
 
 export function BranchInfoTab({ branch }: { branch: Branch }) {
-  const { b, setB, dirty, reset, save } = useBranchDraft(branch, ["brand", "code", "name", "email", "address", "phones", "socials", "rooms"])
+  const { b, setB, dirty, reset, save } = useBranchDraft(branch, ["brand", "code", "name", "province", "email", "address", "phones", "socials", "rooms"])
   const hasInvoices = useStore((s) => s.invoices.some((i) => i.branchId === branch.id && i.number))
   return (
     <SettingsCard title="ข้อมูลสาขา" hint="ข้อมูลทั่วไปของสาขา — รหัสสาขาใช้ในเลขใบแจ้งหนี้/ใบเสร็จ">
@@ -46,6 +47,7 @@ export function BranchInfoTab({ branch }: { branch: Branch }) {
           <Input value={b.code} disabled={hasInvoices} onChange={(e) => setB({ ...b, code: e.target.value.toUpperCase() })} />
         </Field>
         <Field label="ชื่อสาขา *"><Input value={b.name} onChange={(e) => setB({ ...b, name: e.target.value })} /></Field>
+        <ProvinceField value={b.province ?? ""} onChange={(province) => setB({ ...b, province })} />
         <Field label="อีเมล"><Input type="email" value={b.email ?? ""} onChange={(e) => setB({ ...b, email: e.target.value })} /></Field>
         <Field label="ที่อยู่" className="sm:col-span-2"><Input value={b.address ?? ""} onChange={(e) => setB({ ...b, address: e.target.value })} /></Field>
         <Field label="เบอร์โทร"><StringList values={b.phones} onChange={(phones) => setB({ ...b, phones })} placeholder="02-xxx-xxxx" addLabel="เพิ่มเบอร์" /></Field>
@@ -198,5 +200,16 @@ export function StaffTab({ branch }: { branch: Branch }) {
         ))}
       </div>
     </SettingsCard>
+  )
+}
+
+/** จังหวัดของสาขา — shown with the branch name everywhere ("ทองหล่อ · BKK"), owner 2026-09-30 */
+export function ProvinceField({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  return (
+    <Field label="จังหวัด * (รหัส)">
+      <Input list="province-codes" value={value} maxLength={4} onChange={(e) => onChange(e.target.value.toUpperCase().replace(/[^A-Z]/g, ""))} placeholder="BKK" />
+      <p className="mt-1 text-xs text-muted-foreground">{KNOWN_PROVINCES[value] ?? "BKK = กรุงเทพฯ · CBR = ชลบุรี · จังหวัดใหม่พิมพ์รหัสเองได้"}</p>
+      <datalist id="province-codes">{Object.entries(KNOWN_PROVINCES).map(([k, v]) => <option key={k} value={k}>{v}</option>)}</datalist>
+    </Field>
   )
 }

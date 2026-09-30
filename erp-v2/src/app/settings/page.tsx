@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation"
 import { Suspense, useState } from "react"
 import { Building2Icon, ChevronRightIcon, MapPinIcon, PlusIcon, SettingsIcon } from "lucide-react"
 import { Pill } from "@/components/app/badges"
+import { ProvinceField } from "@/components/settings/branch-basic"
 import { NativeSelect } from "@/components/app/native-select"
 import { Field } from "@/components/app/student-form"
 import { SystemSettingsView } from "@/components/settings/system-settings"
@@ -96,7 +97,7 @@ function BranchList() {
 function AddBranchDialog({ onClose }: { onClose: () => void }) {
   const add = useStore((s) => s.addBranch)
   const router = useRouter()
-  const [f, setF] = useState<{ name: string; code: string; brand: Branch["brand"] }>({ name: "", code: "", brand: "nockacademy" })
+  const [f, setF] = useState<{ name: string; code: string; brand: Branch["brand"]; province: string }>({ name: "", code: "", brand: "nockacademy", province: "BKK" })
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()}>
       <DialogContent className="sm:max-w-md">
@@ -110,6 +111,7 @@ function AddBranchDialog({ onClose }: { onClose: () => void }) {
           <Field label="แบรนด์">
             <NativeSelect value={f.brand} onChange={(e) => setF({ ...f, brand: e.target.value as Branch["brand"] })} options={[{ value: "nockacademy", label: "Nockacademy" }, { value: "liclass", label: "Liclass" }]} />
           </Field>
+          <ProvinceField value={f.province} onChange={(province) => setF({ ...f, province })} />
         </div>
         <DialogFooter>
           <Button variant="ghost" onClick={onClose}>ยกเลิก</Button>

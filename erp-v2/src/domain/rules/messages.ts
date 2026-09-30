@@ -2,20 +2,19 @@
 // now they go out as real LINE messages). One builder per document so every screen sends the same words.
 
 import { fmtDate, fmtMoney } from "../dates"
-import type { Branch, Course, Invoice, LessonSummary, Session, Student } from "../types"
+import type { Branch, Invoice, LessonSummary, Session, Student } from "../types"
 import type { InvoiceTotals } from "./billing"
 
 const bankLine = (b: Branch) =>
   b.bankAccount.number ? `โอนเข้า ${b.bankAccount.bank} ${b.bankAccount.number} (${b.bankAccount.name})` : "ชำระที่เคาน์เตอร์สาขา"
 
-export function invoiceMessage(inv: Invoice, totals: InvoiceTotals, ctx: { student: Student; course?: Course; branch: Branch }): string {
-  const q = totals.quote
+export function invoiceMessage(inv: Invoice, totals: InvoiceTotals, ctx: { student: Student; branch: Branch }): string {
   return [
     `📄 ใบแจ้งค่าเรียน ${inv.number ?? ""}`.trim(),
     `นักเรียน: ${ctx.student.nickname} (${ctx.student.name}) · ${ctx.student.grade}`,
-    ctx.course && q ? `${ctx.course.name} · ${fmtDate(q.from)} – ${fmtDate(q.to, { year: true })} · ${q.sessions.length} คาบ` : null,
+    ...totals.lines.map((l) => (l.course && l.quote ? `${l.course.name} · ${fmtDate(l.quote.from)} – ${fmtDate(l.quote.to, { year: true })} · ${l.quote.sessions.length} คาบ` : null)),
     totals.bus ? `ค่ารถ ${fmtMoney(totals.bus)}` : null,
-    totals.promotion ? `ส่วนลด ${totals.promotionName ?? "โปรโมชัน"} -${fmtMoney(totals.promotion)}` : null,
+    ...totals.lines.filter((l) => l.promotion).map((l) => `ส่วนลด ${l.promotionName ?? "โปรโมชัน"} -${fmtMoney(l.promotion)}`),
     `ยอดชำระ ${fmtMoney(totals.total)}`,
     bankLine(ctx.branch),
     inv.noteToParent.trim() || null,

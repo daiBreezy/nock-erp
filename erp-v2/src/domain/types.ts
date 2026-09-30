@@ -78,6 +78,8 @@ export interface Branch {
   code: string
   name: string
   brand: Brand
+  /** province code shown next to the branch name (owner 2026-09-30: "Sukhumvit · BKK") — BKK = Bangkok, CBR = Chonburi, more later */
+  province: string
   /** inactive branches disappear from the branch switcher and cannot take new work */
   active: boolean
   email?: string
@@ -178,6 +180,9 @@ export interface Course {
   branchId: ID
   name: string
   kind: CourseKind
+  /** เรียนเดี่ยว / กลุ่ม — each branch decides which course types it offers; the admin picks per the parent's need
+   *  (owner 2026-09-30). Invoice class options only list classes of the same type. */
+  format: ClassType
   subjects: string[]
   grades: string[]
   /** hour = buy N hours, used up by real session length · week = N weeks from the start date, any number of sessions ·
@@ -517,7 +522,9 @@ export interface BusLeg {
   dropoff: boolean
 }
 
+/** One course on an invoice (Staging: an invoice can carry several courses — each with its own class, start and periods). */
 export interface CourseLine {
+  id: ID
   courseId: ID
   classId: ID | null
   startDate: DateStr
@@ -532,7 +539,8 @@ export interface Invoice {
   studentId: ID
   /** assigned only when the PDF is generated — drafts never consume a number */
   number: string | null
-  course: CourseLine | null
+  /** courses bought on this invoice (empty = other fees only) */
+  lines: CourseLine[]
   bus: BusLeg[]
   bookFee: number
   advanceFee: number

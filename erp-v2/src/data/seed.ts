@@ -61,7 +61,7 @@ export function buildSeed(now = new Date()): DB {
 
   const branches: Branch[] = [
     {
-      id: "br_thl", code: "THL", name: "ทองหล่อ", brand: "nockacademy",
+      id: "br_thl", code: "THL", name: "ทองหล่อ", brand: "nockacademy", province: "BKK",
       rooms: [{ id: "rm_1", name: "ห้อง 1" }, { id: "rm_2", name: "ห้อง 2" }, { id: "rm_3", name: "ห้อง 3" }],
       hours: wk("09:00", "20:00"), subjects: ["คณิต", "อังกฤษ", "วิทย์"], grades: ["ป.4", "ป.5", "ป.6", "ม.1", "ม.2", "ม.3"],
       defaultSessionMinutes: 60, busFeePerLeg: 150,
@@ -83,7 +83,7 @@ export function buildSeed(now = new Date()): DB {
       lineOa: { channelId: "1657800001", botBasicId: "@nockacademy", addFriendUrl: "https://lin.ee/p4w3XA7" },
     },
     {
-      id: "br_ari", code: "ARI", name: "อารีย์", brand: "liclass",
+      id: "br_ari", code: "ARI", name: "อารีย์", brand: "liclass", province: "BKK",
       rooms: [{ id: "rm_a1", name: "ห้อง A" }, { id: "rm_a2", name: "ห้อง B" }],
       hours: wk("10:00", "19:00", [0, 1]), subjects: ["คณิต", "อังกฤษ"], grades: ["ป.1", "ป.2", "ป.3", "ป.4", "ป.5", "ป.6"],
       defaultSessionMinutes: 90, busFeePerLeg: 120, specialPeriods: [],
@@ -121,10 +121,10 @@ export function buildSeed(now = new Date()): DB {
   ]
 
   // courses carry their own package type + price (staging); prices come from the branch chart unless a reason is given
-  const course = (c: Omit<Course, "price" | "courseFee" | "active"> & { price?: number; courseFee?: number; active?: boolean }): Course => {
+  const course = (c: Omit<Course, "price" | "courseFee" | "active" | "format"> & { price?: number; courseFee?: number; active?: boolean; format?: Course["format"] }): Course => {
     const branch = branches.find((b) => b.id === c.branchId)!
     const chart = chartPrice(branch, c).price
-    return { courseFee: 0, active: true, ...c, price: c.price ?? chart ?? 0 }
+    return { courseFee: 0, active: true, format: "group", ...c, price: c.price ?? chart ?? 0 }
   }
   const courses: Course[] = [
     course({ id: "co_math5", branchId: "br_thl", name: "คณิต ป.5 รายเดือน", kind: "single", subjects: ["คณิต"], grades: ["ป.5"], unit: "month", duration: 1 }),
@@ -133,6 +133,7 @@ export function buildSeed(now = new Date()): DB {
     course({ id: "co_sci", branchId: "br_thl", name: "วิทย์ ม.ต้น 12 ชม.", kind: "single", subjects: ["วิทย์"], grades: ["ม.1", "ม.2", "ม.3"], unit: "hour", duration: 12, price: 3300, priceReason: "ราคาเดียว ม.ต้น" }),
     course({ id: "co_math_w4", branchId: "br_thl", name: "คณิต ป.5 เข้มข้น 4 สัปดาห์", kind: "single", subjects: ["คณิต"], grades: ["ป.5"], unit: "week", duration: 4, from: addDays(monday, 7), to: addDays(monday, 63) }),
     course({ id: "co_bundle6", branchId: "br_thl", name: "คณิต + อังกฤษ ป.6", kind: "bundle", subjects: ["คณิต", "อังกฤษ"], grades: ["ป.6"], unit: "month", duration: 1, courseFee: 500 }),
+    course({ id: "co_math5_pv", branchId: "br_thl", name: "คณิต ป.5 เรียนเดี่ยว 12 ชม.", kind: "single", format: "single", subjects: ["คณิต"], grades: ["ป.5"], unit: "hour", duration: 12, price: 7200, priceReason: "เรียนเดี่ยว (Private) ราคาต่อชั่วโมงสูงกว่ากลุ่ม" }),
     course({ id: "co_ari", branchId: "br_ari", name: "คณิต ป.ต้น รายเดือน", kind: "single", subjects: ["คณิต"], grades: ["ป.1", "ป.2", "ป.3"], unit: "month", duration: 1, price: 3800, priceReason: "ราคาเดียว ป.ต้น" }),
   ]
 
@@ -168,7 +169,7 @@ export function buildSeed(now = new Date()): DB {
 
   const k = (id: string, branchId: string, name: string, subject: string, grades: string[], teacherId: string | null, roomId: string | null, weekday: Weekday, startT: string, minutes: number, studentIds: string[], co: string[] = [], kind: Klass["kind"] = "learning", type: Klass["type"] = "group"): Klass =>
     ({ id, branchId, name, subject, grades, kind, type, courseId: CLASS_COURSE[id] ?? null, teacherId, coTeacherIds: co, roomId, weekday, start: startT, minutes, startDate: nextWeekday(start, weekday), active: true, studentIds })
-  const CLASS_COURSE: Record<string, string> = { cl_math5: "co_math5", cl_math_sat: "co_math5", cl_eng: "co_eng", cl_eng_thu: "co_eng", cl_sci: "co_sci", cl_math_jo: "co_math4", cl_ari: "co_ari" }
+  const CLASS_COURSE: Record<string, string> = { cl_math5: "co_math5", cl_math_sat: "co_math5", cl_eng: "co_eng", cl_eng_thu: "co_eng", cl_sci: "co_sci", cl_math_jo: "co_math4", cl_ari: "co_ari", cl_math5_pv: "co_math5_pv" }
   const classes: Klass[] = [
     k("cl_math5", "br_thl", "คณิต ป.5 (อ.)", "คณิต", ["ป.5"], "u_dai", "rm_1", 2, "16:00", 60, ["stu_1", "stu_3", "stu_4", "stu_10", "stu_11", "stu_12"]),
     k("cl_eng", "br_thl", "อังกฤษ Conversation", "อังกฤษ", ["ป.5", "ป.6", "ม.1"], "u_mint", "rm_2", 3, "17:00", 90, ["stu_1", "stu_2", "stu_6", "stu_13", "stu_16"], ["u_prae"]),
@@ -176,6 +177,7 @@ export function buildSeed(now = new Date()): DB {
     k("cl_math_sat", "br_thl", "คณิต ป.5 (ส.)", "คณิต", ["ป.5"], null, "rm_1", 6, "13:00", 60, ["stu_4", "stu_24"]), // no teacher → must still be visible
     k("cl_eng_thu", "br_thl", "อังกฤษ ป.6", "อังกฤษ", ["ป.6"], "u_mint", "rm_1", 4, "16:00", 60, ["stu_6", "stu_13", "stu_14", "stu_15", "stu_25"]),
     k("cl_math_jo", "br_thl", "คณิต ป.4", "คณิต", ["ป.4"], "u_jo", "rm_3", 1, "16:30", 60, ["stu_20", "stu_21"]),
+    k("cl_math5_pv", "br_thl", "คณิต ป.5 เดี่ยว", "คณิต", ["ป.5"], "u_dai", "rm_3", 4, "17:30", 60, [], [], "learning", "single"),
     k("cl_ari", "br_ari", "คณิต ป.2", "คณิต", ["ป.2"], "u_beam", "rm_a1", 5, "15:00", 90, ["stu_8"]),
     // multi-subject class (owner 2026-09-28): Math 15 min + Eng 30 min in one session, one summary — monthly bundle course
     { ...k("cl_combo6", "br_thl", "คณิต + อังกฤษ ป.6", "คณิต", ["ป.6"], "u_prae", "rm_3", 5, "16:00", 45, ["stu_6", "stu_14"], ["u_mint"]), subjects: ["คณิต", "อังกฤษ"], courseId: "co_bundle6" },
@@ -343,19 +345,19 @@ export function buildSeed(now = new Date()): DB {
   const invoices: Invoice[] = [
     {
       id: "inv_paid", branchId: "br_thl", studentId: "stu_1", number: `INV-THL-${ym}-0001`,
-      course: { courseId: "co_math5", classId: "cl_math5", startDate: monthStart, periods: 1 }, bus: [], bookFee: 0, advanceFee: 0,
+      lines: [{ id: "ln_1", courseId: "co_math5", classId: "cl_math5", startDate: monthStart, periods: 1 }], bus: [], bookFee: 0, advanceFee: 0,
       concession: null, noteToParent: "ค่าเรียนคณิตเดือนนี้", status: "paid", pdf: "ready", createdBy: "u_ploy", createdAt: iso(monthStart),
       approvedBy: "u_nock", sentAt: iso(monthStart), delivery: "delivered", receiptNumber: `RC-THL-${ym}-0001`,
       payments: [{ id: "pay_1", amount: 4500, method: "transfer", reference: "KBank 1234", recordedBy: "u_ploy", recordedAt: iso(monthStart), confirmedBy: "u_nock" }],
     },
     {
       id: "inv_pending", branchId: "br_thl", studentId: "stu_3", number: `INV-THL-${ym}-0002`,
-      course: { courseId: "co_math5", classId: "cl_math5", startDate: addDays(today, 7), periods: 2 }, bus: [], bookFee: 350, advanceFee: 0,
+      lines: [{ id: "ln_2", courseId: "co_math5", classId: "cl_math5", startDate: addDays(today, 7), periods: 2 }], bus: [], bookFee: 350, advanceFee: 0,
       concession: null, noteToParent: "", status: "pending_approval", pdf: "ready", createdBy: "u_ploy", createdAt: iso(today), payments: [],
     },
     {
       id: "inv_draft", branchId: "br_thl", studentId: "stu_6", number: null,
-      course: { courseId: "co_eng", classId: "cl_eng", startDate: today, periods: 1 }, bus: [], bookFee: 0, advanceFee: 0,
+      lines: [{ id: "ln_3", courseId: "co_eng", classId: "cl_eng", startDate: today, periods: 1 }], bus: [], bookFee: 0, advanceFee: 0,
       concession: { amount: 200, remark: "ลูกค้าเก่า ต่อคอร์สต่อเนื่อง" }, noteToParent: "", status: "draft", pdf: "none", createdBy: "u_ploy", createdAt: iso(today), payments: [],
     },
   ]

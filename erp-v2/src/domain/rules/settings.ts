@@ -77,8 +77,9 @@ export function busRate(branch: Branch, feeId?: string | null): number {
   return (bus.find((f) => f.id === feeId) ?? bus[0])?.price ?? branch.busFeePerLeg
 }
 
-export function validateBranchInfo(b: Pick<Branch, "name" | "code" | "rooms" | "email">): string | null {
+export function validateBranchInfo(b: Pick<Branch, "name" | "code" | "rooms" | "email"> & { province?: string }): string | null {
   if (!b.name.trim()) return "ใส่ชื่อสาขา"
+  if (b.province !== undefined && !/^[A-Z]{2,4}$/.test(b.province)) return "จังหวัดใช้รหัสอังกฤษพิมพ์ใหญ่ 2–4 ตัว เช่น BKK, CBR"
   if (!/^[A-Z0-9]{2,5}$/.test(b.code)) return "รหัสสาขาต้องเป็นตัวอังกฤษพิมพ์ใหญ่/ตัวเลข 2–5 ตัว (ใช้ในเลขใบแจ้งหนี้)"
   if (!b.rooms.length) return "ต้องมีห้องอย่างน้อย 1 ห้อง"
   if (b.email && !/^\S+@\S+\.\S+$/.test(b.email)) return "อีเมลไม่ถูกต้อง"
@@ -189,3 +190,9 @@ export function gradeRanges(grades: string[]): string[] {
 }
 
 export const PRIORITY_LABEL: Record<PeriodPriority, string> = { high: "สูง", medium: "กลาง", low: "ต่ำ" }
+
+/** Province codes in use today (owner 2026-09-30) — the field is free text so a new province needs no code change */
+export const KNOWN_PROVINCES: Record<string, string> = { BKK: "กรุงเทพฯ", CBR: "ชลบุรี" }
+
+/** "ทองหล่อ · BKK" — branch name with its province code (owner 2026-09-30) */
+export const branchLabel = (b: { name: string; province?: string }) => (b.province ? `${b.name} · ${b.province}` : b.name)

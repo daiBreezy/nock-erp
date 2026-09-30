@@ -70,7 +70,7 @@ type Store = DB & UIState & {
   saveCourse: (c: Course) => Result<Course>
   duplicateCourse: (id: ID) => Result<Course>
   saveBranch: (b: Branch) => Result
-  addBranch: (input: { name: string; code: string; brand: Branch["brand"] }) => Result<Branch>
+  addBranch: (input: { name: string; code: string; brand: Branch["brand"]; province: string }) => Result<Branch>
   setBranchActive: (id: ID, active: boolean) => Result
   saveSystem: (sys: SystemConfig) => Result
   /** renames a subject in the global catalog and every record that uses it (display name only changes) */
@@ -670,7 +670,7 @@ export const useStore = create<Store>()(
         const code = input.code.trim().toUpperCase()
         const base = s.branches.find((b) => b.id === s.branchId)!
         const b: Branch = {
-          ...base, id: uid("br"), code, name: input.name.trim(), brand: input.brand, active: true,
+          ...base, id: uid("br"), code, name: input.name.trim(), brand: input.brand, province: input.province, active: true,
           email: "", address: "", phones: [], socials: [], rooms: [{ id: uid("rm"), name: "ห้อง 1" }],
           specialPeriods: [], fees: [], promotions: [], priceChart: [], subjects: [], grades: [],
           bankAccount: { bank: "", branchName: "", name: "", number: "" }, lineOaConnected: false, lineOa: { channelId: "", botBasicId: "", addFriendUrl: "" },
@@ -1026,7 +1026,7 @@ export const useStore = create<Store>()(
         if (!r.ok) return r
         const stu = s.students.find((x) => x.id === inv.studentId)!
         const ctx = ctxOf(s, inv.branchId)
-        const text = Msg.invoiceMessage(inv, Bill.invoiceTotals(inv, ctx), { student: stu, course: s.courses.find((c) => c.id === inv.course?.courseId), branch: ctx.branch })
+        const text = Msg.invoiceMessage(inv, Bill.invoiceTotals(inv, ctx), { student: stu, branch: ctx.branch })
         const delivery = pushLine(stu.familyId, text, (ok, error) => {
           set((st) => ({ invoices: st.invoices.map((x) => (x.id === id ? { ...x, delivery: ok ? "delivered" : "failed", deliveryError: ok ? undefined : error } : x)) }))
           log("billing", [inv.studentId], "ส่งใบแจ้งหนี้", `${inv.number} · ${ok ? "ถึงผู้ปกครองทาง LINE แล้ว" : `ส่ง LINE ไม่สำเร็จ: ${error ?? ""}`}`)
@@ -1085,19 +1085,19 @@ export const useStore = create<Store>()(
           const today = toDateStr(s.now())
           next = { ...next, status: "paid", receiptNumber: Bill.nextInvoiceNumber("RC", ctx.branch, today, s.invoices.map((x) => x.receiptNumber)) }
           // auto-claim: entitlement covers exactly the paid window (BL-19) and the student joins the class sessions in it
-          if (inv.course && totals.quote) {
-            const q = totals.quote
-            const co = s.courses.find((c) => c.id === inv.course!.courseId)!
+          for (const l of totals.lines) {
+            if (!l.course || !l.quote) continue
+            const q = l.quote, co = l.course, classId = l.line.classId
             // hour packs are counted; week and month packs are a window with any number of sessions
-            entitlements = [...entitlements, { id: uid("en"), studentId: inv.studentId, courseId: co.id, subjects: co.subjects, classId: inv.course.classId, invoiceId: inv.id, kind: co.unit === "hour" ? "sessions" : "subscription", from: q.from, to: q.to, sessionsTotal: q.sessions.length }]
-            classes = classes.map((c) => (c.id === inv.course!.classId && !c.studentIds.includes(inv.studentId) ? { ...c, studentIds: [...c.studentIds, inv.studentId] } : c))
-            sessions = sessions.map((x) => (x.classId === inv.course!.classId && q.sessions.includes(x.date) && !x.studentIds.includes(inv.studentId) ? { ...x, studentIds: [...x.studentIds, inv.studentId] } : x))
+            entitlements = [...entitlements, { id: uid("en"), studentId: inv.studentId, courseId: co.id, subjects: co.subjects, classId, invoiceId: inv.id, kind: co.unit === "hour" ? "sessions" : "subscription", from: q.from, to: q.to, sessionsTotal: q.sessions.length }]
+            classes = classes.map((c) => (c.id === classId && !c.studentIds.includes(inv.studentId) ? { ...c, studentIds: [...c.studentIds, inv.studentId] } : c))
+            sessions = sessions.map((x) => (x.classId === classId && q.sessions.includes(x.date) && !x.studentIds.includes(inv.studentId) ? { ...x, studentIds: [...x.studentIds, inv.studentId] } : x))
           }
         }
         set({ invoices: s.invoices.map((x) => (x.id === invoiceId ? next : x)), entitlements, classes, sessions })
         log("billing", [inv.studentId], forced ? "Force ยืนยันยอดเงิน" : "ยืนยันยอดเงิน", `${inv.number} · ${fmtMoney(pay.amount)}${forced ? ` · เหตุผล: ${forceRemark!.trim()}` : ""}`)
         if (paid) {
-          log("billing", [inv.studentId], "ชำระครบ", `${inv.number} · ออกใบเสร็จ ${next.receiptNumber}${inv.course ? " · ระบบเพิ่มเข้าคลาสอัตโนมัติ" : ""}`, true)
+          log("billing", [inv.studentId], "ชำระครบ", `${inv.number} · ออกใบเสร็จ ${next.receiptNumber}${inv.lines.length ? " · ระบบเพิ่มเข้าคลาสอัตโนมัติ" : ""}`, true)
           // payment confirmed = the lead is a student now — nobody has to press "convert" (owner 2026-09-28)
           const lead = leadOfStudent(inv.studentId)
           if (lead && lead.stage !== "enrolled") {
@@ -1112,7 +1112,10 @@ export const useStore = create<Store>()(
           // receipt goes to the parent by itself
           const st = get()
           const stu = st.students.find((x) => x.id === inv.studentId)!
-          const first = inv.course && totals.quote ? st.sessions.find((x) => x.classId === inv.course!.classId && x.date === totals.quote!.sessions[0]) : undefined
+          // the earliest class across every course on the invoice
+          const first = totals.lines
+            .flatMap((l) => (l.quote?.sessions[0] ? st.sessions.filter((x) => x.classId === l.line.classId && x.date === l.quote!.sessions[0]) : []))
+            .sort((a, b) => (a.date + a.start).localeCompare(b.date + b.start))[0]
           const receiptDelivery = pushLine(stu.familyId, Msg.receiptMessage(next, totals.total, { student: stu, firstSession: first }), (ok, error) => {
             set((cur) => ({ invoices: cur.invoices.map((x) => (x.id === invoiceId ? { ...x, receiptDelivery: ok ? "delivered" : "failed" } : x)) }))
             if (!ok) toast.error(`ส่งใบเสร็จ ${next.receiptNumber} ทาง LINE ไม่สำเร็จ — ${error ?? ""}`)
@@ -1446,7 +1449,7 @@ export const useStore = create<Store>()(
     {
       name: "nockerp-v2",
       // bump when the data model changes; older saved data is replaced by fresh sample data
-      version: 28,
+      version: 29,
       migrate: () => ({ ...buildSeed(), userId: "u_nock", branchId: "br_thl", clockOffset: 0 }) as unknown as Store,
       // persist data + UI state only, never the action functions
       partialize: (s) => Object.fromEntries(Object.entries(s).filter(([, v]) => typeof v !== "function")) as Partial<Store>,

@@ -1,7 +1,7 @@
 // Billing rules: one pricing function feeds Create, Edit, Detail and PDF (BL-2, BL-3, BL-4).
 
 import { addMonths, endOfMonth, fmtDate, monthKey, nextWeekday, addDays } from "../dates"
-import type { Branch, BusLeg, Course, DateStr, Holiday, ID, Invoice, Klass, PriceUnit, Result, Role, Staff } from "../types"
+import type { Branch, BusLeg, Course, CourseLine, DateStr, Holiday, ID, Invoice, Klass, PriceUnit, Result, Role, Staff } from "../types"
 import { purchaseOf } from "./course"
 import { requireForceRemark } from "./notifications"
 import { inBranch } from "./permissions"
@@ -115,38 +115,67 @@ export function bestPromotion(branch: Branch, purchase: { unit: PriceUnit; amoun
   return best ? { promotion: best, discount: value(best) } : null
 }
 
+/** One course line priced: the same quote feeds the editor, the invoice sheet, the PDF and enrolment on payment. */
+export interface LineQuote {
+  line: CourseLine
+  course?: Course
+  klass?: Klass
+  quote: CourseQuote | null
+  amount: number
+  courseFee: number
+  promotion: number
+  promotionName?: string
+}
+
 export interface InvoiceTotals {
   course: number
   courseFee: number
   promotion: number
-  promotionName?: string
   bus: number
   book: number
   advance: number
   concession: number
   total: number
-  quote: CourseQuote | null
+  lines: LineQuote[]
+}
+
+export function quoteLine(line: CourseLine, ctx: { branch: Branch; courses: Course[]; classes: Klass[]; holidays: Holiday[] }, promotions = true): LineQuote {
+  const course = ctx.courses.find((c) => c.id === line.courseId)
+  const klass = ctx.classes.find((c) => c.id === line.classId)
+  let quote: CourseQuote | null = null
+  if (course && klass) {
+    const r = quoteCourse({ course, klass, startDate: line.startDate, periods: line.periods, holidays: ctx.holidays })
+    if (r.ok) quote = r.value
+  }
+  const amount = quote?.total ?? 0
+  // each course gets its own best promotion (a promotion is per package type + duration)
+  const promo = course && promotions ? bestPromotion(ctx.branch, purchaseOf(course, line.periods), amount, line.startDate) : null
+  // course fee (equipment) is charged on top of the price on every purchase
+  return { line, course, klass, quote, amount, courseFee: course?.courseFee ?? 0, promotion: promo?.discount ?? 0, promotionName: promo?.promotion.name }
 }
 
 export function invoiceTotals(inv: Invoice, ctx: { branch: Branch; courses: Course[]; classes: Klass[]; holidays: Holiday[] }): InvoiceTotals {
-  let quote: CourseQuote | null = null
-  const co = inv.course ? ctx.courses.find((c) => c.id === inv.course!.courseId) : undefined
-  if (inv.course && co) {
-    const k = ctx.classes.find((c) => c.id === inv.course!.classId)
-    if (k) {
-      const r = quoteCourse({ course: co, klass: k, startDate: inv.course.startDate, periods: inv.course.periods, holidays: ctx.holidays })
-      if (r.ok) quote = r.value
-    }
-  }
-  const course = quote?.total ?? 0
-  const promo = inv.course && co && inv.promotionId !== null ? bestPromotion(ctx.branch, purchaseOf(co, inv.course.periods), course, inv.course.startDate) : null
-  // course fee (equipment) is charged on top of the price on every purchase
-  const courseFee = inv.course && co ? co.courseFee : 0
-  const promotion = promo?.discount ?? 0
+  const lines = inv.lines.map((l) => quoteLine(l, ctx, inv.promotionId !== null))
+  const sum = (f: (l: LineQuote) => number) => lines.reduce((a, l) => a + f(l), 0)
+  const course = sum((l) => l.amount), courseFee = sum((l) => l.courseFee), promotion = sum((l) => l.promotion)
   const bus = busTotal(inv.bus, busRate(ctx.branch))
   const concession = inv.concession?.amount ?? 0
   const total = course + courseFee - promotion + bus + inv.bookFee + inv.advanceFee - concession
-  return { course, courseFee, promotion, promotionName: promo?.promotion.name, bus, book: inv.bookFee, advance: inv.advanceFee, concession, total, quote }
+  return { course, courseFee, promotion, bus, book: inv.bookFee, advance: inv.advanceFee, concession, total, lines }
+}
+
+/** Classes an invoice line can enrol into: this branch's active recurring classes that teach the course's subject
+ *  in the same format (เดี่ยว/กลุ่ม) — classes linked to the course come first. */
+export function classOptionsFor(course: Course | undefined, classes: Klass[], branchId: ID): Klass[] {
+  if (!course) return []
+  return classes
+    .filter((k) => k.branchId === branchId && k.active && k.kind === "learning" && k.type === course.format && course.subjects.includes(k.subject))
+    .sort((a, b) => Number(b.courseId === course.id) - Number(a.courseId === course.id) || a.weekday - b.weekday || a.start.localeCompare(b.start))
+}
+
+/** Every class date the invoice covers, once per day — bus legs follow these (two courses the same day = one trip). */
+export function invoiceSessionDates(lines: LineQuote[]): DateStr[] {
+  return [...new Set(lines.flatMap((l) => l.quote?.sessions ?? []))].sort()
 }
 
 // ---------- workflow rules ----------
@@ -156,13 +185,19 @@ export const APPROVER_ROLES: Role[] = ["super_admin", "director", "area_manager"
 
 export function validateInvoiceDraft(inv: Invoice, totals: InvoiceTotals, opts: { lastAssessment?: DateStr | null } = {}): string[] {
   const errs: string[] = []
-  if (!inv.course && totals.total === 0) errs.push("ยังไม่มีรายการในใบแจ้งหนี้")
-  if (inv.course && !inv.course.classId) errs.push("เลือกคลาสและวันเริ่มเรียน")
-  // Test → Trial → Invoice: paid classes start after the last test/trial, so a trial is never billed (owner 2026-09-28)
-  if (inv.course && totals.quote && opts.lastAssessment && totals.quote.from <= opts.lastAssessment)
-    errs.push(`วันเริ่มเรียนต้องหลังวันสอบ/ทดลองเรียน (${fmtDate(opts.lastAssessment)}) — เลื่อนวันเริ่มเรียน`)
-  if (inv.course?.classId && totals.quote && totals.quote.sessions.length === 0) errs.push("ช่วงที่เลือกไม่มีคาบเรียนเลย (ติดวันหยุดทั้งหมด) — เลื่อนวันเริ่มหรือเพิ่มจำนวนงวด")
-  if (inv.course && (!Number.isInteger(inv.course.periods) || inv.course.periods < 1)) errs.push("จำนวนงวดต้องตั้งแต่ 1 ขึ้นไป")
+  if (!inv.lines.length && totals.total === 0) errs.push("ยังไม่มีรายการในใบแจ้งหนี้")
+  const many = totals.lines.length > 1
+  totals.lines.forEach((l, i) => {
+    const tag = many ? `คอร์สที่ ${i + 1} (${l.course?.name ?? "—"}): ` : ""
+    if (!l.line.classId) errs.push(`${tag}เลือกคลาสและวันเริ่มเรียน`)
+    // Test → Trial → Invoice: paid classes start after the last test/trial, so a trial is never billed (owner 2026-09-28)
+    if (l.quote && opts.lastAssessment && l.quote.from <= opts.lastAssessment)
+      errs.push(`${tag}วันเริ่มเรียนต้องหลังวันสอบ/ทดลองเรียน (${fmtDate(opts.lastAssessment)}) — เลื่อนวันเริ่มเรียน`)
+    if (l.line.classId && l.quote && l.quote.sessions.length === 0) errs.push(`${tag}ช่วงที่เลือกไม่มีคาบเรียนเลย (ติดวันหยุดทั้งหมด) — เลื่อนวันเริ่มหรือเพิ่มจำนวนงวด`)
+    if (!Number.isInteger(l.line.periods) || l.line.periods < 1) errs.push(`${tag}จำนวนงวดต้องตั้งแต่ 1 ขึ้นไป`)
+  })
+  const keys = inv.lines.filter((l) => l.classId).map((l) => `${l.courseId}|${l.classId}`)
+  if (new Set(keys).size < keys.length) errs.push("มีคอร์ส + คลาสเดียวกันซ้ำในใบนี้ — รวมเป็นรายการเดียวแล้วเพิ่มจำนวนงวด")
   if (inv.concession && inv.concession.amount > 0 && !inv.concession.remark.trim()) errs.push("ส่วนลดพิเศษ (Concession) ต้องใส่เหตุผล")
   if (inv.concession && inv.concession.amount < 0) errs.push("ส่วนลดติดลบไม่ได้")
   if (totals.total < 0) errs.push("ยอดรวมติดลบ")

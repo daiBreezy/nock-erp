@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { AlertTriangleIcon, CheckIcon, ChevronDownIcon, LayersIcon, MapPinIcon, StarIcon, TagIcon } from "lucide-react"
+import { AlertTriangleIcon, CheckIcon, ChevronDownIcon, LayersIcon, MapPinIcon, StarIcon, TagIcon, UserIcon, UsersIcon } from "lucide-react"
 import { NativeSelect } from "@/components/app/native-select"
 import { Field } from "@/components/app/student-form"
 import { gradeTone } from "@/components/app/subject-color"
@@ -23,7 +23,7 @@ const UNITS: PriceUnit[] = ["hour", "week", "month"]
 
 export function emptyCourse(branch: Branch): Course {
   return {
-    id: uid("co"), branchId: branch.id, name: "", kind: "single", subjects: branch.subjects.slice(0, 1), grades: [],
+    id: uid("co"), branchId: branch.id, name: "", kind: "single", format: "group", subjects: branch.subjects.slice(0, 1), grades: [],
     unit: "month", duration: 1, price: 0, courseFee: 0, active: true,
   }
 }
@@ -97,6 +97,7 @@ export function CourseDialog({ branch, initial, onClose }: { branch: Branch; ini
           )}
         </div>
 
+        <div className="flex flex-wrap gap-2">
         <div className="inline-flex w-fit rounded-full bg-muted p-1">
           {([["single", "Single", StarIcon], ["bundle", "Bundle", LayersIcon]] as const).map(([k, label, Icon]) => (
             <button key={k} type="button" onClick={() => set({ kind: k, subjects: k === "single" ? c.subjects.slice(0, 1) : c.subjects })}
@@ -104,6 +105,16 @@ export function CourseDialog({ branch, initial, onClose }: { branch: Branch; ini
               <Icon className="size-3.5" /> {label}
             </button>
           ))}
+        </div>
+        {/* owner 2026-09-30: the branch decides which course types it offers — เรียนเดี่ยว (Private) or กลุ่ม */}
+        <div className="inline-flex w-fit rounded-full bg-muted p-1" title="รูปแบบการเรียน — ใบแจ้งหนี้จะเลือกได้เฉพาะคลาสแบบเดียวกัน">
+          {([["group", "กลุ่ม", UsersIcon], ["single", "เดี่ยว", UserIcon]] as const).map(([k, label, Icon]) => (
+            <button key={k} type="button" onClick={() => set({ format: k })}
+              className={cn("flex items-center gap-1.5 rounded-full px-4 py-1 text-sm", c.format === k ? "bg-foreground font-medium text-background" : "text-muted-foreground")}>
+              <Icon className="size-3.5" /> {label}
+            </button>
+          ))}
+        </div>
         </div>
 
         <div className="space-y-4">

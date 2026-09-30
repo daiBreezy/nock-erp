@@ -1,11 +1,12 @@
 "use client"
 
 import { CustomerPicker } from "@/components/app/customer-picker"
-import { packageLabel, priceUnitSuffix } from "@/domain/rules/course"
+import { COURSE_FORMAT_LABEL, packageLabel, priceUnitSuffix } from "@/domain/rules/course"
+import { CoursePicker } from "./course-picker"
 import { PackageBadge } from "@/components/app/package-badge"
 import { busRate } from "@/domain/rules/settings"
 import { useState } from "react"
-import { AlertTriangleIcon, BusIcon, CalendarIcon, HistoryIcon, UserRoundSearchIcon } from "lucide-react"
+import { AlertTriangleIcon, BusIcon, CalendarIcon, HistoryIcon, PlusIcon, UserRoundSearchIcon, XIcon } from "lucide-react"
 import { NativeSelect } from "@/components/app/native-select"
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
@@ -15,14 +16,16 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { addDays, fmtDate, fmtMoney, fmtMonth, toDateStr } from "@/domain/dates"
 import * as Att from "@/domain/rules/attendance"
-import { busTotal, defaultBusLegs, invoiceTotals, quoteCourse, validateInvoiceDraft } from "@/domain/rules/billing"
+import { busTotal, classOptionsFor, defaultBusLegs, invoiceSessionDates, invoiceTotals, validateInvoiceDraft, type LineQuote } from "@/domain/rules/billing"
 import { lastAssessmentDate } from "@/domain/rules/forms"
-import type { BusLeg, Entitlement, Invoice } from "@/domain/types"
+import type { BusLeg, CourseLine, Entitlement, Invoice, Klass } from "@/domain/types"
 import { uid } from "@/data/seed"
 import { report } from "@/lib/feedback"
 import { useBranch, useEntitlements, useNow } from "@/lib/hooks"
 import { cn } from "@/lib/utils"
 import { useStore } from "@/store/store"
+
+type LineDraft = { id: string; courseId: string; classId: string; startDate: string; periodsText: string; overlapRemark: string }
 
 export function InvoiceEditor({ invoice, defaultStudentId, renewEntitlementId, onClose, onSaved }: { invoice?: Invoice; defaultStudentId?: string; renewEntitlementId?: string; onClose: () => void; onSaved: (inv: Invoice) => void }) {
   const branch = useBranch()
@@ -31,15 +34,15 @@ export function InvoiceEditor({ invoice, defaultStudentId, renewEntitlementId, o
   const me = useStore((s) => s.userId)
   const students = useStore((s) => s.students).filter((s) => s.branchId === branch.id)
   const families = useStore((s) => s.families)
-  const courses = useStore((s) => s.courses).filter((c) => c.branchId === branch.id && (c.active || c.id === invoice?.course?.courseId))
+  const courses = useStore((s) => s.courses).filter((c) => c.branchId === branch.id && (c.active || !!invoice?.lines.some((l) => l.courseId === c.id)))
   const classes = useStore((s) => s.classes)
-  const staff = useStore((s) => s.staff)
   const holidays = useStore((s) => s.holidays)
   const entitlements = useEntitlements()
   const assessments = useStore((s) => s.assessments)
   const save = useStore((s) => s.saveInvoice)
   const leadToStudent = useStore((s) => s.convertLeadToStudent)
   const [picking, setPicking] = useState(false)
+  const [pickingCourses, setPickingCourses] = useState(false)
   // Test → Trial → Invoice: the paid period starts after the last test/trial (owner 2026-09-28)
   const firstStart = (sid: string) => { const last = lastAssessmentDate(sid, assessments); return last && last >= today ? addDays(last, 1) : today }
   // renewal from a package (dashboard / student window): same course + class, from the day after it ends
@@ -48,11 +51,10 @@ export function InvoiceEditor({ invoice, defaultStudentId, renewEntitlementId, o
 
   const [newId] = useState(() => invoice?.id ?? uid("inv"))
   const [studentId, setStudentId] = useState(invoice?.studentId ?? renewFrom?.studentId ?? defaultStudentId ?? "")
-  const [courseId, setCourseId] = useState(invoice?.course?.courseId ?? renewFrom?.courseId ?? "")
-  const [classId, setClassId] = useState(invoice?.course?.classId ?? renewFrom?.classId ?? "")
-  const [startDate, setStartDate] = useState(() => invoice?.course?.startDate ?? (renewFrom ? renewStart(renewFrom) : studentId ? firstStart(studentId) : today))
-  const [periodsText, setPeriodsText] = useState(String(invoice?.course?.periods ?? 1))
-  const [overlapRemark, setOverlapRemark] = useState(invoice?.course?.overlapRemark ?? "")
+  const [lines, setLines] = useState<LineDraft[]>(() =>
+    invoice ? invoice.lines.map((l) => ({ id: l.id, courseId: l.courseId, classId: l.classId ?? "", startDate: l.startDate, periodsText: String(l.periods), overlapRemark: l.overlapRemark ?? "" }))
+      : renewFrom ? [{ id: uid("ln"), courseId: renewFrom.courseId, classId: renewFrom.classId ?? "", startDate: renewStart(renewFrom), periodsText: "1", overlapRemark: "" }]
+        : [])
   const [bus, setBus] = useState<BusLeg[]>(invoice?.bus ?? [])
   const [busTouched, setBusTouched] = useState(!!invoice)
   const [bookFee, setBookFee] = useState(invoice?.bookFee ?? 0)
@@ -65,36 +67,43 @@ export function InvoiceEditor({ invoice, defaultStudentId, renewEntitlementId, o
   const pastPackages = student
     ? [...new Map(entitlements.filter((e) => e.studentId === student.id).sort((a, b) => a.to.localeCompare(b.to)).map((e) => [`${e.courseId}|${e.classId}`, e])).values()].reverse()
     : []
-  const pickStudent = (sid: string) => { setStudentId(sid); setBusTouched(false); if (!invoice) setStartDate(firstStart(sid)) }
-  const renewPackage = (e: Entitlement) => { setCourseId(e.courseId); setClassId(e.classId ?? ""); setStartDate(renewStart(e)); setBusTouched(false) }
+  // carry on from the student's current package of this course (same class, the day after it ends)
+  const currentOf = (sid: string, courseId: string) => entitlements.filter((x) => x.studentId === sid && x.courseId === courseId && x.to >= today).sort((a, b) => b.to.localeCompare(a.to))[0]
+  const startFor = (sid: string, courseId: string) => { const cur = sid ? currentOf(sid, courseId) : undefined; return cur ? addDays(cur.to, 1) : sid ? firstStart(sid) : today }
+  const pickStudent = (sid: string) => {
+    setStudentId(sid); setBusTouched(false)
+    if (!invoice) setLines((ls) => ls.map((l) => ({ ...l, startDate: startFor(sid, l.courseId), classId: l.classId || (currentOf(sid, l.courseId)?.classId ?? "") })))
+  }
   const family = families.find((f) => f.id === student?.familyId)
-  const course = courses.find((c) => c.id === courseId)
-  // BL-12: only active recurring classes with an active teacher for this course's subject
-  const classOptions = classes.filter((k) => k.branchId === branch.id && k.active && k.kind === "learning" && !!course && course.subjects.includes(k.subject))
-  const klass = classOptions.find((k) => k.id === classId)
-  const periods = Number(periodsText)
-  const periodsValid = Number.isInteger(periods) && periods >= 1
+  const patchLine = (id: string, patch: Partial<LineDraft>) => { setLines((ls) => ls.map((l) => (l.id === id ? { ...l, ...patch } : l))); setBusTouched(false) }
+  const removeLine = (id: string) => { setLines((ls) => ls.filter((l) => l.id !== id)); setBusTouched(false) }
+  const lineFor = (courseId: string): LineDraft => {
+    const options = classOptionsFor(courses.find((c) => c.id === courseId), classes, branch.id)
+    return {
+      id: uid("ln"), courseId, periodsText: "1", overlapRemark: "",
+      classId: (studentId && currentOf(studentId, courseId)?.classId) || (options.length === 1 ? options[0].id : ""),
+      startDate: startFor(studentId, courseId),
+    }
+  }
+  const renewPackage = (e: Entitlement) => {
+    const line = { courseId: e.courseId, classId: e.classId ?? "", startDate: renewStart(e) }
+    const same = lines.find((l) => l.courseId === e.courseId)
+    if (same) patchLine(same.id, line)
+    else { setLines((ls) => [...ls, { id: uid("ln"), periodsText: "1", overlapRemark: "", ...line }]); setBusTouched(false) }
+  }
 
-  const quote = course && klass ? quoteCourse({ course, klass, startDate, periods: periodsValid ? periods : 1, holidays }) : null
-  const q = quote?.ok ? quote.value : null
-
-  // bus legs follow the real session dates; default ticked only if the student rides the bus (BL-6)
-  const legs: BusLeg[] = !q
-    ? []
-    : !busTouched
-      ? defaultBusLegs(q.sessions, !!student?.usesBus)
-      : q.sessions.map((d) => bus.find((b) => b.date === d) ?? { date: d, pickup: false, dropoff: false })
-
-  const overlapping = course && student ? Att.activeEntitlements(student.id, entitlements, startDate).filter((e) => e.courseId === course.id) : []
-  const mismatch = student && course && Att.gradeMismatch(student, course)
-
-  const draft: Invoice = {
+  const courseLines: CourseLine[] = lines.map((l) => {
+    const periods = Number(l.periodsText)
+    const overlap = studentId && Att.activeEntitlements(studentId, entitlements, l.startDate).some((e) => e.courseId === l.courseId)
+    return { id: l.id, courseId: l.courseId, classId: l.classId || null, startDate: l.startDate, periods: Number.isInteger(periods) && periods >= 1 ? periods : 0, overlapRemark: overlap ? l.overlapRemark : undefined }
+  })
+  const base: Invoice = {
     id: newId,
     branchId: branch.id,
     studentId,
     number: invoice?.number ?? null,
-    course: course ? { courseId, classId, startDate, periods: periodsValid ? periods : 0, overlapRemark: overlapping.length ? overlapRemark : undefined } : null,
-    bus: legs,
+    lines: courseLines,
+    bus: [],
     bookFee, advanceFee,
     concession: concession > 0 ? { amount: concession, remark: concessionRemark } : null,
     noteToParent: invoice?.noteToParent ?? "",
@@ -104,11 +113,15 @@ export function InvoiceEditor({ invoice, defaultStudentId, renewEntitlementId, o
     createdAt: invoice?.createdAt ?? now.toISOString(),
     payments: [],
   }
-  const totals = invoiceTotals(draft, { branch, courses, classes, holidays })
+  const ctx = { branch, courses, classes, holidays }
+  // bus legs follow the real class days of every course, once per day; default ticked only if the student rides the bus (BL-6)
+  const busDates = invoiceSessionDates(invoiceTotals(base, ctx).lines)
+  const legs: BusLeg[] = !busTouched ? defaultBusLegs(busDates, !!student?.usesBus) : busDates.map((d) => bus.find((b) => b.date === d) ?? { date: d, pickup: false, dropoff: false })
+  const draft: Invoice = { ...base, bus: legs }
+  const totals = invoiceTotals(draft, ctx)
   const errors = [
     ...(!studentId ? ["เลือกนักเรียน"] : []),
-    ...(!periodsValid && course ? ["จำนวนงวดต้องเป็นจำนวนเต็มตั้งแต่ 1 ขึ้นไป"] : []),
-    ...(overlapping.length && !overlapRemark.trim() ? ["นักเรียนมีแพ็กเกจคอร์สนี้อยู่แล้ว — ใส่เหตุผลที่ซื้อซ้ำ"] : []),
+    ...courseLines.filter((l) => l.overlapRemark !== undefined && !l.overlapRemark.trim()).map((l) => `นักเรียนมีแพ็กเกจ ${courses.find((c) => c.id === l.courseId)?.name ?? ""} อยู่แล้ว — ใส่เหตุผลที่ซื้อซ้ำ`),
     ...validateInvoiceDraft(draft, totals, { lastAssessment: studentId ? lastAssessmentDate(studentId, assessments) : null }),
   ]
 
@@ -125,131 +138,76 @@ export function InvoiceEditor({ invoice, defaultStudentId, renewEntitlementId, o
           <DialogDescription>ราคาและจำนวนคาบคำนวณจากตารางเรียนจริง (ข้ามวันหยุด) — ตัวเลขชุดเดียวกับที่จะอยู่ใน PDF</DialogDescription>
         </DialogHeader>
 
-        <div className="grid gap-3 sm:grid-cols-2">
-          <div className="space-y-1">
-            <Label className="text-xs">นักเรียน *</Label>
-            {student ? (
-              <div className="flex items-center gap-2 rounded-xl border px-3 py-1.5 text-sm">
-                <span className="font-medium">{student.nickname}</span><span className="text-xs text-muted-foreground">{student.grade} · {student.name}</span>
-                {!invoice && <button type="button" className="ml-auto text-xs text-primary underline" onClick={() => setPicking(true)}>เปลี่ยน</button>}
-              </div>
-            ) : (
-              <Button type="button" variant="outline" className="w-full justify-start" onClick={() => setPicking(true)}><UserRoundSearchIcon /> เลือกนักเรียน / Lead</Button>
-            )}
-            {picking && (
-              <CustomerPicker kinds={["student", "lead"]} title="เลือกลูกค้า" onClose={() => setPicking(false)}
-                onConfirm={(row) => {
-                  if (row.kind === "lead") {
-                    // a lead gets its student + family now; it becomes "ลงทะเบียนแล้ว" when this invoice is paid
-                    const r = leadToStudent(row.id)
-                    if (!report(r, "สร้างนักเรียน + ครอบครัวจาก Lead แล้ว")) return
-                    pickStudent(r.value.studentId)
-                  } else pickStudent(row.id)
-                  setPicking(false)
-                }} />
-            )}
-            {student && (
-              <p className="text-xs text-muted-foreground">
-                {family ? `${family.name} · ${family.parents.find((p) => p.primary)?.name}` : "ยังไม่ผูกครอบครัว"}
-                {family && !family.parents.some((p) => p.lineLinked) && <span className="text-amber-700"> · ยังไม่ผูก LINE</span>}
-              </p>
-            )}
-          </div>
-          <div className="space-y-1">
-            <Label className="text-xs">คอร์ส</Label>
-            <NativeSelect
-              value={courseId}
-              onChange={(e) => {
-                const cid = e.target.value
-                setCourseId(cid)
-                setClassId(entitlements.find((x) => x.studentId === studentId && x.courseId === cid && x.to >= today)?.classId ?? "")
-                // renewal: start the day after the current package ends, so periods never overlap
-                const current = entitlements.filter((x) => x.studentId === studentId && x.courseId === cid && x.to >= today).sort((a, b) => b.to.localeCompare(a.to))[0]
-                if (current && !invoice) setStartDate(addDays(current.to, 1))
-                setBusTouched(false)
-              }}
-              placeholder="ไม่มีคอร์ส (เฉพาะค่าอื่นๆ)"
-              options={courses.map((c) => ({ value: c.id, label: `${c.name} · ${fmtMoney(c.price)} ${priceUnitSuffix(c)}` }))} />
-            {course && <p className="flex items-center gap-2 text-xs text-muted-foreground"><PackageBadge course={course} /> แพ็กเกจ {packageLabel(course)} · {fmtMoney(course.price)} {priceUnitSuffix(course)}</p>}
-            {pastPackages.length > 0 && !invoice && (
-              <div className="space-y-1 pt-1">
-                <p className="flex items-center gap-1 text-xs text-muted-foreground"><HistoryIcon className="size-3" /> คอร์สที่เคยสมัคร — กดเพื่อต่ออายุ / ซื้อซ้ำ</p>
-                <div className="flex flex-wrap gap-1.5">
-                  {pastPackages.map((e) => {
-                    const c = courses.find((x) => x.id === e.courseId)
-                    const on = courseId === e.courseId && classId === (e.classId ?? "")
-                    return (
-                      <button key={e.id} type="button" onClick={() => renewPackage(e)}
-                        className={cn("rounded-full border px-2.5 py-1 text-xs", on ? "border-primary bg-primary/10 text-primary" : "hover:bg-muted")}>
-                        {c?.name ?? "คอร์ส"} · {classes.find((k) => k.id === e.classId)?.name ?? "—"} · {e.to < today ? "หมด" : "ถึง"} {fmtDate(e.to)}
-                      </button>
-                    )
-                  })}
-                </div>
-              </div>
-            )}
-            {mismatch && <p className="flex items-center gap-1 text-xs text-amber-700"><AlertTriangleIcon className="size-3" /> เกรด {student!.grade} ไม่ตรงกับคอร์ส ({course!.grades.join(", ")})</p>}
-          </div>
-
-          {course && (
-            <>
-              <div className="space-y-1">
-                <Label className="text-xs">คลาสที่จะเรียน *</Label>
-                <NativeSelect value={classId} onChange={(e) => { setClassId(e.target.value); setBusTouched(false) }} placeholder={classOptions.length ? "เลือกคลาส" : "ไม่มีคลาสที่เปิดสำหรับวิชานี้"}
-                  options={classOptions.map((k) => {
-                    const t = staff.find((x) => x.id === k.teacherId)
-                    const full = k.studentIds.length >= (k.type === "single" ? 1 : 6)
-                    return { value: k.id, label: `${k.name} · ${["อา.", "จ.", "อ.", "พ.", "พฤ.", "ศ.", "ส."][k.weekday]} ${k.start} · ${t?.active ? t.nickname : "ยังไม่มีครู"} · ${k.studentIds.length} คน${full ? " (เต็ม)" : ""}`, disabled: full && !k.studentIds.includes(studentId) }
-                  })} />
-                {klass && !staff.find((x) => x.id === klass.teacherId)?.active && (
-                  <p className="flex items-center gap-1 text-xs text-amber-700"><AlertTriangleIcon className="size-3" /> คลาสนี้ยังไม่มีครู — ตั้งครูที่หน้าคลาสก่อนวันเรียน ไม่งั้นไม่มีใครเช็คชื่อ/เขียนสรุป</p>
-                )}
-              </div>
-              <div className="grid grid-cols-2 gap-2">
-                <div className="space-y-1">
-                  <Label className="text-xs">เริ่มเรียนตั้งแต่</Label>
-                  <Input type="date" value={startDate} onChange={(e) => { setStartDate(e.target.value); setBusTouched(false) }} />
-                </div>
-                <div className="space-y-1">
-                  <Label className="text-xs">จำนวน{course.unit === "month" ? "เดือน" : "แพ็ก"} *</Label>
-                  <Input type="number" min={1} step={1} value={periodsText} aria-invalid={!periodsValid} onChange={(e) => setPeriodsText(e.target.value)} />
-                  {!periodsValid && <p className="text-xs text-red-700">ต้องเป็นจำนวนเต็ม ≥ 1</p>}
-                </div>
-              </div>
-            </>
+        <div className="space-y-1">
+          <Label className="text-xs">นักเรียน *</Label>
+          {student ? (
+            <div className="flex items-center gap-2 rounded-xl border px-3 py-1.5 text-sm">
+              <span className="font-medium">{student.nickname}</span><span className="text-xs text-muted-foreground">{student.grade} · {student.name}</span>
+              {!invoice && <button type="button" className="ml-auto text-xs text-primary underline" onClick={() => setPicking(true)}>เปลี่ยน</button>}
+            </div>
+          ) : (
+            <Button type="button" variant="outline" className="w-full justify-start" onClick={() => setPicking(true)}><UserRoundSearchIcon /> เลือกนักเรียน / Lead</Button>
+          )}
+          {picking && (
+            <CustomerPicker kinds={["student", "lead"]} title="เลือกลูกค้า" onClose={() => setPicking(false)}
+              onConfirm={(row) => {
+                if (row.kind === "lead") {
+                  // a lead gets its student + family now; it becomes "ลงทะเบียนแล้ว" when this invoice is paid
+                  const r = leadToStudent(row.id)
+                  if (!report(r, "สร้างนักเรียน + ครอบครัวจาก Lead แล้ว")) return
+                  pickStudent(r.value.studentId)
+                } else pickStudent(row.id)
+                setPicking(false)
+              }} />
+          )}
+          {student && (
+            <p className="text-xs text-muted-foreground">
+              {family ? `${family.name} · ${family.parents.find((p) => p.primary)?.name}` : "ยังไม่ผูกครอบครัว"}
+              {family && !family.parents.some((p) => p.lineLinked) && <span className="text-amber-700"> · ยังไม่ผูก LINE</span>}
+            </p>
           )}
         </div>
 
-        {overlapping.length > 0 && (
-          <div className="space-y-1 rounded-lg border border-amber-300 bg-amber-50 p-3 dark:bg-amber-950/30">
-            <p className="text-sm text-amber-900 dark:text-amber-200">นักเรียนมีแพ็กเกจคอร์สนี้อยู่แล้วถึง {fmtDate(overlapping[0].to)} — ซื้อซ้ำได้แต่ต้องใส่เหตุผล</p>
-            <Input value={overlapRemark} onChange={(e) => setOverlapRemark(e.target.value)} placeholder="เช่น ต่อคอร์สล่วงหน้า" />
+        <div className="space-y-2">
+          <div className="flex items-center gap-2">
+            <Label className="text-xs">คอร์ส {lines.length > 0 && `(${lines.length})`}</Label>
+            <Button size="xs" variant="outline" className="ml-auto" onClick={() => setPickingCourses(true)}><PlusIcon /> เลือกคอร์ส</Button>
           </div>
-        )}
-
-        {q && (
-          <div className="rounded-lg border">
-            <div className="flex flex-wrap items-center gap-x-4 gap-y-1 border-b bg-muted/40 px-3 py-2 text-sm">
-              <span className="flex items-center gap-1 font-medium"><CalendarIcon className="size-4" /> {fmtDate(q.from, { weekday: true })} → {fmtDate(q.to, { year: true })}</span>
-              <span>{q.sessions.length} คาบ · {q.hours} ชม.</span>
-              {q.skipped.length > 0 && <span className="text-muted-foreground">ข้ามวันหยุด {q.skipped.map((d) => fmtDate(d)).join(", ")}</span>}
+          {pastPackages.length > 0 && !invoice && (
+            <div className="space-y-1">
+              <p className="flex items-center gap-1 text-xs text-muted-foreground"><HistoryIcon className="size-3" /> คอร์สที่เคยสมัคร — กดเพื่อต่ออายุ / ซื้อซ้ำ</p>
+              <div className="flex flex-wrap gap-1.5">
+                {pastPackages.map((e) => {
+                  const c = courses.find((x) => x.id === e.courseId)
+                  const on = lines.some((l) => l.courseId === e.courseId && l.classId === (e.classId ?? ""))
+                  return (
+                    <button key={e.id} type="button" onClick={() => renewPackage(e)}
+                      className={cn("rounded-full border px-2.5 py-1 text-xs", on ? "border-primary bg-primary/10 text-primary" : "hover:bg-muted")}>
+                      {c?.name ?? "คอร์ส"} · {classes.find((k) => k.id === e.classId)?.name ?? "—"} · {e.to < today ? "หมด" : "ถึง"} {fmtDate(e.to)}
+                    </button>
+                  )
+                })}
+              </div>
             </div>
-            <table className="w-full text-sm">
-              <tbody>
-                {q.periods.map((p) => (
-                  <tr key={p.month} className="border-b last:border-0">
-                    <td className="px-3 py-1.5">{course?.unit === "month" ? fmtMonth(p.month + "-01") : `${packageLabel(course!)} × ${periods}`}</td>
-                    <td className="px-3 py-1.5 text-muted-foreground">{p.sessions.map((d) => fmtDate(d)).join(", ") || "—"}</td>
-                    <td className="px-3 py-1.5 text-right text-muted-foreground">{course?.unit === "month" ? `${p.sessions.length} คาบ → ${Math.round(p.factor * 100)}%` : `${p.sessions.length} คาบ`}</td>
-                    <td className="px-3 py-1.5 text-right font-medium tabular-nums">{fmtMoney(p.amount)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
+          )}
+          {lines.length === 0 && (
+            <button type="button" onClick={() => setPickingCourses(true)} className="w-full rounded-xl border border-dashed p-4 text-center text-sm text-muted-foreground hover:bg-muted/40">
+              ยังไม่มีคอร์ส — กดเพื่อเลือก (เลือกได้หลายคอร์ส) · หรือเว้นไว้ถ้าเก็บเฉพาะค่าอื่นๆ
+            </button>
+          )}
+          {lines.map((l, i) => (
+            <LineCard key={l.id} index={i} draft={l} quote={totals.lines[i]} studentId={studentId} studentGrade={student?.grade}
+              classes={classOptionsFor(totals.lines[i]?.course, classes, branch.id)}
+              overlapTo={studentId ? Att.activeEntitlements(studentId, entitlements, l.startDate).find((e) => e.courseId === l.courseId)?.to : undefined}
+              onChange={(patch) => patchLine(l.id, patch)} onRemove={() => removeLine(l.id)} />
+          ))}
+          {pickingCourses && (
+            <CoursePicker branch={branch} today={today} studentGrade={student?.grade} onInvoice={lines.map((l) => l.courseId)} onClose={() => setPickingCourses(false)}
+              onConfirm={(cs) => { setLines((ls) => [...ls, ...cs.map((c) => lineFor(c.id))]); setBusTouched(false); setPickingCourses(false) }} />
+          )}
+        </div>
 
-        {q && (
+        {busDates.length > 0 && (
           <details className="rounded-lg border" open={legs.some((l) => l.pickup || l.dropoff)}>
             <summary className="flex cursor-pointer items-center gap-2 px-3 py-2 text-sm">
               <BusIcon className="size-4" /> ค่ารถ ({fmtMoney(busRate(branch))}/เที่ยว)
@@ -291,9 +249,10 @@ export function InvoiceEditor({ invoice, defaultStudentId, renewEntitlementId, o
         )}
 
         <div className="space-y-1 rounded-lg bg-muted/50 p-3 text-sm tabular-nums">
-          {[["ค่าเรียน", totals.course], ["ค่ารถ", totals.bus], ["ค่าหนังสือ", totals.book], ["ค่าอื่นๆ", totals.advance]].filter(([, v]) => (v as number) > 0).map(([l, v]) => (
+          {[["ค่าเรียน", totals.course], ["Course fee", totals.courseFee], ["ค่ารถ", totals.bus], ["ค่าหนังสือ", totals.book], ["ค่าอื่นๆ", totals.advance]].filter(([, v]) => (v as number) > 0).map(([l, v]) => (
             <div key={l as string} className="flex justify-between"><span>{l}</span><span>{fmtMoney(v as number)}</span></div>
           ))}
+          {totals.promotion > 0 && <div className="flex justify-between text-emerald-700"><span>โปรโมชัน</span><span>−{fmtMoney(totals.promotion)}</span></div>}
           {totals.concession > 0 && <div className="flex justify-between text-emerald-700"><span>ส่วนลดพิเศษ</span><span>−{fmtMoney(totals.concession)}</span></div>}
           <div className={cn("flex justify-between border-t pt-1 text-base font-semibold", totals.total < 0 && "text-red-700")}><span>ยอดรวม</span><span>{fmtMoney(totals.total)}</span></div>
         </div>
@@ -305,5 +264,91 @@ export function InvoiceEditor({ invoice, defaultStudentId, renewEntitlementId, o
         </DialogFooter>
       </DialogContent>
     </Dialog>
+  )
+}
+
+/** One course on the invoice: its class, start date, periods and the real-schedule quote. */
+function LineCard({ index, draft, quote, studentId, studentGrade, classes, overlapTo, onChange, onRemove }: {
+  index: number; draft: LineDraft; quote?: LineQuote; studentId: string; studentGrade?: string; classes: Klass[]; overlapTo?: string
+  onChange: (patch: Partial<LineDraft>) => void; onRemove: () => void
+}) {
+  const staff = useStore((s) => s.staff)
+  const course = quote?.course
+  const klass = classes.find((k) => k.id === draft.classId)
+  const periods = Number(draft.periodsText)
+  const periodsValid = Number.isInteger(periods) && periods >= 1
+  const q = quote?.quote
+  const mismatch = studentGrade && course && !course.grades.includes(studentGrade)
+  if (!course) return null
+  return (
+    <div className="space-y-2.5 rounded-xl border p-3">
+      <div className="flex items-start gap-2">
+        <span className="grid size-6 shrink-0 place-items-center rounded-full bg-muted text-xs font-semibold">{index + 1}</span>
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-center gap-2 font-medium">{course.name} <PackageBadge course={course} /></div>
+          <p className="text-xs text-muted-foreground">
+            {course.kind === "bundle" ? "Bundle" : "Single"} · เรียน{COURSE_FORMAT_LABEL[course.format]} · {fmtMoney(course.price)} {priceUnitSuffix(course)}
+            {course.courseFee > 0 && ` · Course fee ${fmtMoney(course.courseFee)}`}
+          </p>
+          {mismatch && <p className="flex items-center gap-1 text-xs text-amber-700"><AlertTriangleIcon className="size-3" /> เกรด {studentGrade} ไม่ตรงกับคอร์ส ({course.grades.join(", ")})</p>}
+        </div>
+        <Button size="icon-xs" variant="ghost" aria-label="เอาคอร์สนี้ออก" onClick={onRemove}><XIcon /></Button>
+      </div>
+
+      <div className="grid gap-2 sm:grid-cols-[2fr_1fr_0.8fr]">
+        <div className="space-y-1">
+          <Label className="text-xs">คลาสที่จะเรียน *</Label>
+          <NativeSelect value={draft.classId} onChange={(e) => onChange({ classId: e.target.value })} placeholder={classes.length ? "เลือกคลาส" : `ไม่มีคลาสเรียน${COURSE_FORMAT_LABEL[course.format]}ที่เปิดสำหรับวิชานี้`}
+            options={classes.map((k) => {
+              const t = staff.find((x) => x.id === k.teacherId)
+              const full = k.studentIds.length >= (k.type === "single" ? 1 : 6)
+              return { value: k.id, label: `${k.name} · ${["อา.", "จ.", "อ.", "พ.", "พฤ.", "ศ.", "ส."][k.weekday]} ${k.start} · ${t?.active ? t.nickname : "ยังไม่มีครู"} · ${k.studentIds.length} คน${full ? " (เต็ม)" : ""}`, disabled: full && !k.studentIds.includes(studentId) }
+            })} />
+          {klass && !staff.find((x) => x.id === klass.teacherId)?.active && (
+            <p className="flex items-center gap-1 text-xs text-amber-700"><AlertTriangleIcon className="size-3" /> คลาสนี้ยังไม่มีครู — ตั้งครูที่หน้าคลาสก่อนวันเรียน</p>
+          )}
+        </div>
+        <div className="space-y-1">
+          <Label className="text-xs">เริ่มเรียนตั้งแต่</Label>
+          <Input type="date" value={draft.startDate} onChange={(e) => onChange({ startDate: e.target.value })} />
+        </div>
+        <div className="space-y-1">
+          <Label className="text-xs">จำนวน{course.unit === "month" ? "เดือน" : "แพ็ก"} *</Label>
+          <Input type="number" min={1} step={1} value={draft.periodsText} aria-invalid={!periodsValid} onChange={(e) => onChange({ periodsText: e.target.value })} />
+        </div>
+      </div>
+
+      {overlapTo && (
+        <div className="space-y-1 rounded-lg border border-amber-300 bg-amber-50 p-2 dark:bg-amber-950/30">
+          <p className="text-xs text-amber-900 dark:text-amber-200">นักเรียนมีแพ็กเกจคอร์สนี้อยู่แล้วถึง {fmtDate(overlapTo)} — ซื้อซ้ำได้แต่ต้องใส่เหตุผล</p>
+          <Input value={draft.overlapRemark} onChange={(e) => onChange({ overlapRemark: e.target.value })} placeholder="เช่น ต่อคอร์สล่วงหน้า" />
+        </div>
+      )}
+
+      {q && (
+        <div className="rounded-lg border">
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-1 border-b bg-muted/40 px-3 py-1.5 text-xs">
+            <span className="flex items-center gap-1 font-medium"><CalendarIcon className="size-3.5" /> {fmtDate(q.from, { weekday: true })} → {fmtDate(q.to, { year: true })}</span>
+            <span>{q.sessions.length} คาบ · {q.hours} ชม.</span>
+            {q.skipped.length > 0 && <span className="text-muted-foreground">ข้ามวันหยุด {q.skipped.map((d) => fmtDate(d)).join(", ")}</span>}
+          </div>
+          <table className="w-full text-sm">
+            <tbody>
+              {q.periods.map((p) => (
+                <tr key={p.month} className="border-b last:border-0">
+                  <td className="px-3 py-1.5">{course.unit === "month" ? fmtMonth(p.month + "-01") : `${packageLabel(course)} × ${periods}`}</td>
+                  <td className="px-3 py-1.5 text-xs text-muted-foreground">{p.sessions.map((d) => fmtDate(d)).join(", ") || "—"}</td>
+                  <td className="px-3 py-1.5 text-right text-xs text-muted-foreground">{course.unit === "month" ? `${p.sessions.length} คาบ → ${Math.round(p.factor * 100)}%` : `${p.sessions.length} คาบ`}</td>
+                  <td className="px-3 py-1.5 text-right font-medium tabular-nums">{fmtMoney(p.amount)}</td>
+                </tr>
+              ))}
+              {quote!.promotion > 0 && (
+                <tr className="text-emerald-700"><td className="px-3 py-1.5" colSpan={3}>โปรโมชัน · {quote!.promotionName}</td><td className="px-3 py-1.5 text-right tabular-nums">−{fmtMoney(quote!.promotion)}</td></tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
   )
 }

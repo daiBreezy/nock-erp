@@ -3,9 +3,9 @@ import { describe, expect, it } from "vitest"
 import type { Assessment, Attendance, Branch, Course, Entitlement, Family, FormSubmission, Lead, Student, FormOfferSlot, Holiday, Invoice, Klass, Session, Staff, StudentLeave, Weekday } from "../types"
 import { applyClassEdit, applyToSessions, canChangeTeachers, canRescheduleStudent, mondayOf, removedWithClass, canSave, closesBranch, holidayImpact, hoursFor, isHoliday, overlappingRows, periodsIn, introducedConflicts, editSingleSession, findConflicts, generateSessions, moveSession, sessionState, validateClass, workState } from "./scheduling"
 import { activeLeave, balance, studentState, leaveLedger, packageCovers, canMark, canSaveLeave, coveringEntitlement, effectiveTo, leavesUsed, lowBalanceAlert, removeFromClass, resolveEntitlements } from "./attendance"
-import { bestPromotion, invoiceTotals, validateInvoiceDraft, canApprove, canConfirmPayment, canForceApprove, canForceConfirmPayment, canSend, canVoid, defaultBusLegs, busTotal, nextInvoiceNumber, quoteCourse } from "./billing"
+import { bestPromotion, classOptionsFor, invoiceSessionDates, invoiceTotals, validateInvoiceDraft, canApprove, canConfirmPayment, canForceApprove, canForceConfirmPayment, canSend, canVoid, defaultBusLegs, busTotal, nextInvoiceNumber, quoteCourse } from "./billing"
 import { can } from "./permissions"
-import { chartPrice, defaultCourseName, validateCourse } from "./course"
+import { chartPrice, defaultCourseName, filterCourses, validateCourse } from "./course"
 import { busRate, copyHours, gradeLabel, subjectLabel, priceOf, priceRange, setPrice, validateBranchInfo, validateDurations, validateHoliday, validatePromotion, validateSpecialPeriods, everyDay } from "./settings"
 import { forceAudience, isUnread, messageAudience, notify, validateMessage, visibleTo } from "./notifications"
 import * as Sum from "./summaries"
@@ -18,7 +18,7 @@ import { invoiceMessage } from "./messages"
 
 const hours = { open: "09:00", close: "20:00" }
 const branch: Branch = {
-  id: "b1", code: "TST", name: "Test", brand: "nockacademy",
+  id: "b1", code: "TST", name: "Test", brand: "nockacademy", province: "BKK",
   rooms: [{ id: "r1", name: "Room 1" }, { id: "r2", name: "Room 2" }],
   hours: { 0: null, 1: hours, 2: hours, 3: hours, 4: hours, 5: hours, 6: hours } as Record<Weekday, typeof hours | null>,
   subjects: ["Maths"], grades: ["P5"], defaultSessionMinutes: 60, busFeePerLeg: 150, specialPeriods: [], fees: [], promotions: [],
@@ -35,7 +35,7 @@ const klass = (p: Partial<Klass> = {}): Klass => ({
   id: "k1", branchId: "b1", name: "Maths", subject: "Maths", grades: ["P5"], kind: "learning", type: "group", courseId: null,
   teacherId: "t1", coTeacherIds: [], roomId: "r1", weekday: 2, start: "10:00", minutes: 60, startDate: "2026-09-29", active: true, studentIds: ["a"], ...p,
 })
-const monthPkg: Course = { id: "c1", branchId: "b1", name: "Maths P5", kind: "single", subjects: ["Maths"], grades: ["P5"], unit: "month", duration: 1, price: 4500, courseFee: 0, active: true }
+const monthPkg: Course = { id: "c1", branchId: "b1", name: "Maths P5", kind: "single", format: "group", subjects: ["Maths"], grades: ["P5"], unit: "month", duration: 1, price: 4500, courseFee: 0, active: true }
 
 describe("scheduling", () => {
   it("A1: 8 weekly sessions skipping holidays", () => {
@@ -201,7 +201,7 @@ describe("billing", () => {
   })
 
   const inv = (p: Partial<Invoice> = {}): Invoice => ({
-    id: "i", branchId: "b1", studentId: "a", number: "INV-TST-2609-0001", course: null, bus: [], bookFee: 0, advanceFee: 0,
+    id: "i", branchId: "b1", studentId: "a", number: "INV-TST-2609-0001", lines: [], bus: [], bookFee: 0, advanceFee: 0,
     concession: null, noteToParent: "", status: "pending_approval", pdf: "ready", createdBy: "adm", createdAt: "", payments: [], ...p,
   })
   it("BL-14: creator and teachers cannot approve", () => {
@@ -504,7 +504,7 @@ describe("forms", () => {
 
 describe("force approve & central notifications (owner 2026-09-26)", () => {
   const inv = (p: Partial<Invoice> = {}): Invoice => ({
-    id: "i", branchId: "b1", studentId: "a", number: "INV-TST-6909-0001", course: null, bus: [], bookFee: 0, advanceFee: 0,
+    id: "i", branchId: "b1", studentId: "a", number: "INV-TST-6909-0001", lines: [], bus: [], bookFee: 0, advanceFee: 0,
     concession: null, noteToParent: "", status: "pending_approval", pdf: "ready", createdBy: "adm", createdAt: "", payments: [], ...p,
   })
   it("creator can Force Approve their own invoice only with a remark", () => {
@@ -574,6 +574,8 @@ describe("settings (mirrors staging, 2026-09-28)", () => {
   it("validators: branch code, promotion, durations; copy hours to weekdays", () => {
     expect(validateBranchInfo({ name: "X", code: "th", rooms: branch.rooms, email: "" })).toMatch(/รหัส/)
     expect(validateBranchInfo({ name: "X", code: "THL", rooms: branch.rooms, email: "a@b.co" })).toBeNull()
+    expect(validateBranchInfo({ name: "X", code: "THL", rooms: branch.rooms, email: "", province: "" })).toMatch(/จังหวัด/)
+    expect(validateBranchInfo({ name: "X", code: "THL", rooms: branch.rooms, email: "", province: "CBR" })).toBeNull()
     expect(validatePromotion({ id: "p", name: "x", type: "pct", value: 120, unit: "month", minDuration: 1, active: true })).toMatch(/100/)
     expect(validateDurations([12, 12])).toMatch(/ซ้ำ/)
     const h = copyHours({ ...branch.hours, 1: { open: "07:00", close: "20:00" } }, 1, "weekdays")
@@ -636,7 +638,7 @@ describe("course (mirrors staging Create Course, 2026-09-28)", () => {
       { unit: "hour", duration: 12, subject: "Maths", grade: "P5", price: 3100 },
     ],
   }
-  const c = (p: Partial<Course> = {}): Course => ({ id: "c", branchId: "b1", name: "", kind: "single", subjects: ["Maths"], grades: ["P5"], unit: "month", duration: 1, price: 4000, courseFee: 0, active: true, ...p })
+  const c = (p: Partial<Course> = {}): Course => ({ id: "c", branchId: "b1", name: "", kind: "single", format: "group", subjects: ["Maths"], grades: ["P5"], unit: "month", duration: 1, price: 4000, courseFee: 0, active: true, ...p })
   it("price comes from the branch chart; a bundle adds its subjects", () => {
     expect(chartPrice(b, c()).price).toBe(4000)
     expect(chartPrice(b, c({ kind: "bundle", subjects: ["Maths", "English"] })).price).toBe(7000)
@@ -779,7 +781,7 @@ describe("lead flow runs by itself", () => {
     expect(lastAssessmentDate("a", [asm("2026-09-29"), asm("2026-10-03")])).toBe("2026-10-03")
     expect(lastAssessmentDate("b", [asm("2026-10-03")])).toBeNull()
     const k = klass({ id: "k1", weekday: 6 })
-    const draft = (startDate: string): Invoice => ({ id: "i", branchId: "b1", studentId: "a", number: null, course: { courseId: "c1", classId: "k1", startDate, periods: 1 }, bus: [], bookFee: 0, advanceFee: 0, concession: null, noteToParent: "", status: "draft", pdf: "none", createdBy: "adm", createdAt: "", payments: [] })
+    const draft = (startDate: string): Invoice => ({ id: "i", branchId: "b1", studentId: "a", number: null, lines: [{ id: "l1", courseId: "c1", classId: "k1", startDate, periods: 1 }], bus: [], bookFee: 0, advanceFee: 0, concession: null, noteToParent: "", status: "draft", pdf: "none", createdBy: "adm", createdAt: "", payments: [] })
     const ctx = { branch, courses: [monthPkg], classes: [k], holidays: [] }
     // start 1 Oct → first class Sat 3 Oct = the trial day → blocked
     expect(validateInvoiceDraft(draft("2026-10-01"), invoiceTotals(draft("2026-10-01"), ctx), { lastAssessment: "2026-10-03" }).join()).toContain("หลังวันสอบ/ทดลองเรียน")
@@ -813,9 +815,9 @@ describe("renewals + customer picker tell same-nickname students apart", () => {
 describe("real LINE texts", () => {
   it("invoice message has the student, the period, the total and where to pay — dates formatted, never ISO", () => {
     const k = klass({ id: "k1", weekday: 6 })
-    const inv: Invoice = { id: "i", branchId: "b1", studentId: "a", number: "INV-TST-6910-0001", course: { courseId: "c1", classId: "k1", startDate: "2026-10-01", periods: 1 }, bus: [], bookFee: 0, advanceFee: 0, concession: null, noteToParent: "ค่าเรียน ต.ค.", status: "approved", pdf: "ready", createdBy: "adm", createdAt: "", payments: [] }
+    const inv: Invoice = { id: "i", branchId: "b1", studentId: "a", number: "INV-TST-6910-0001", lines: [{ id: "l1", courseId: "c1", classId: "k1", startDate: "2026-10-01", periods: 1 }], bus: [], bookFee: 0, advanceFee: 0, concession: null, noteToParent: "ค่าเรียน ต.ค.", status: "approved", pdf: "ready", createdBy: "adm", createdAt: "", payments: [] }
     const b = { ...branch, bankAccount: { bank: "กสิกร", branchName: "", name: "NockAcademy", number: "123-4-56789-0" } }
-    const text = invoiceMessage(inv, invoiceTotals(inv, { branch: b, courses: [monthPkg], classes: [k], holidays: [] }), { student: { id: "a", familyId: null, branchId: "b1", name: "ด.ช. ภูมิ ใจดี", nickname: "ภูมิ", grade: "ป.5", usesBus: false, createdAt: "", createdBranchId: "b1" }, course: monthPkg, branch: b })
+    const text = invoiceMessage(inv, invoiceTotals(inv, { branch: b, courses: [monthPkg], classes: [k], holidays: [] }), { student: { id: "a", familyId: null, branchId: "b1", name: "ด.ช. ภูมิ ใจดี", nickname: "ภูมิ", grade: "ป.5", usesBus: false, createdAt: "", createdBranchId: "b1" }, branch: b })
     expect(text).toContain("INV-TST-6910-0001")
     expect(text).toContain("฿4,500")
     expect(text).toContain("123-4-56789-0")
@@ -971,5 +973,52 @@ describe("parent form reads grades/subjects in its language (owner 2026-09-30)",
     expect(subjectLabel("คณิต", "ja", names)).toBe("数学")
     expect(subjectLabel("วิทย์", "en", names)).toBe("วิทย์")
     expect(subjectLabel("คณิต", "th", names)).toBe("คณิต")
+  })
+})
+
+describe("invoice with several courses (Staging, owner 2026-09-30)", () => {
+  const maths = klass({ id: "k1", weekday: 2 })
+  const eng = klass({ id: "k2", subject: "English", weekday: 4, minutes: 90 })
+  const priv = klass({ id: "k3", type: "single", weekday: 5 })
+  const engPkg: Course = { ...monthPkg, id: "c2", name: "English P5", subjects: ["English"], price: 3000, courseFee: 200 }
+  const privPkg: Course = { ...monthPkg, id: "c3", name: "Maths Private", format: "single", unit: "hour", duration: 12, price: 7200 }
+  const ctx = { branch, courses: [monthPkg, engPkg, privPkg], classes: [maths, eng, priv], holidays: [] }
+  const inv = (lines: Invoice["lines"]): Invoice => ({ id: "i", branchId: "b1", studentId: "a", number: null, lines, bus: [], bookFee: 0, advanceFee: 0, concession: null, noteToParent: "", status: "draft", pdf: "none", createdBy: "adm", createdAt: "", payments: [] })
+
+  it("each line is priced on its own and the invoice adds them up", () => {
+    const t = invoiceTotals(inv([
+      { id: "a", courseId: "c1", classId: "k1", startDate: "2026-10-01", periods: 1 },
+      { id: "b", courseId: "c2", classId: "k2", startDate: "2026-10-01", periods: 1 },
+    ]), ctx)
+    expect(t.lines.map((l) => l.amount)).toEqual([4500, 3000])
+    expect(t.courseFee).toBe(200)
+    expect(t.total).toBe(7700)
+    // bus legs follow the union of class days, once per day
+    expect(invoiceSessionDates(t.lines)).toEqual([...new Set([...t.lines[0].quote!.sessions, ...t.lines[1].quote!.sessions])].sort())
+  })
+
+  it("the same course + class twice on one invoice is blocked; a line without a class names which course", () => {
+    const dup = inv([{ id: "a", courseId: "c1", classId: "k1", startDate: "2026-10-01", periods: 1 }, { id: "b", courseId: "c1", classId: "k1", startDate: "2026-11-01", periods: 1 }])
+    expect(validateInvoiceDraft(dup, invoiceTotals(dup, ctx)).join()).toContain("ซ้ำ")
+    const noClass = inv([{ id: "a", courseId: "c1", classId: "k1", startDate: "2026-10-01", periods: 1 }, { id: "b", courseId: "c2", classId: null, startDate: "2026-10-01", periods: 1 }])
+    expect(validateInvoiceDraft(noClass, invoiceTotals(noClass, ctx))).toEqual(["คอร์สที่ 2 (English P5): เลือกคลาสและวันเริ่มเรียน"])
+  })
+
+  it("class options match the course subject and format (เดี่ยว/กลุ่ม)", () => {
+    expect(classOptionsFor(monthPkg, ctx.classes, "b1").map((k) => k.id)).toEqual(["k1"])
+    expect(classOptionsFor(privPkg, ctx.classes, "b1").map((k) => k.id)).toEqual(["k3"])
+    expect(classOptionsFor(monthPkg, ctx.classes, "b2")).toEqual([])
+  })
+
+  it("Select Course lists only this branch's active courses, filtered like Staging", () => {
+    const other: Course = { ...monthPkg, id: "c9", branchId: "b2" }
+    const ended: Course = { ...monthPkg, id: "c8", to: "2026-09-01" }
+    const all = [monthPkg, engPkg, privPkg, other, ended]
+    const f = (p: Partial<Parameters<typeof filterCourses>[2]>) => filterCourses(all, "b1", { q: "", subject: "", format: "", pack: "", ...p }, "2026-09-30").map((c) => c.id)
+    expect(f({}).sort()).toEqual(["c1", "c2", "c3"])
+    expect(f({ subject: "Maths" }).sort()).toEqual(["c1", "c3"])
+    expect(f({ format: "single" })).toEqual(["c3"])
+    expect(f({ pack: "hour:12" })).toEqual(["c3"])
+    expect(f({ q: "english" })).toEqual(["c2"])
   })
 })
