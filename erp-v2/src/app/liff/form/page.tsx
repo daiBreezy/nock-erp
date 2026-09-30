@@ -83,7 +83,6 @@ function LiffForm() {
   const [province, setProvince] = useState("")
   const [postcode, setPostcode] = useState("")
   const [acquisitions, setAcquisitions] = useState<LeadSource[]>([])
-  const [brand, setBrand] = useState<Brand>("nockacademy")
   const [location, setLocation] = useState<{ lat: number; lng: number } | undefined>()
   const [addressNote, setAddressNote] = useState("")
   const [wantTax, setWantTax] = useState(false)
@@ -114,7 +113,7 @@ function LiffForm() {
         const d = previewData(preview)
         setFormType(preview); setOffers(d.offers); setGrades(d.grades); setDisplayName("ผู้ปกครอง"); setLineUserId("preview")
         const b = (params.get("brand") as Brand) || (preview === "trial" ? "liclass" : "nockacademy")
-        setBrand(b); setBranchName(b === "liclass" ? "Liclass บางนา" : "ทองหล่อ")
+        setBranchName(b === "liclass" ? "Liclass บางนา" : "ทองหล่อ")
         applyPrefill(d.prefill, d.grades, d.offers, "")
         setPhase("ready")
         return
@@ -141,7 +140,7 @@ function LiffForm() {
         if (cancelled) return
         if (!data.ok) { setError(data.error ?? "ลิงก์นี้ใช้ไม่ได้แล้ว"); setPhase("invalid"); return }
         if (!data.offers?.length) { setError("ยังไม่มีช่วงเวลาให้เลือก — ติดต่อสถาบันโดยตรง"); setPhase("invalid"); return }
-        setFormType(data.type); setOffers(data.offers); setGrades(data.grades ?? []); setBranchName(data.branchName ?? ""); setBrand(data.brand ?? "nockacademy")
+        setFormType(data.type); setOffers(data.offers); setGrades(data.grades ?? []); setBranchName(data.branchName ?? "")
         if (!params.get("lang") && data.lang) setLang(data.lang)
         applyPrefill(data.prefill, data.grades ?? [], data.offers, profile.displayName)
         setPhase("ready")
@@ -175,7 +174,7 @@ function LiffForm() {
             email: p.email || undefined, lineId: p.lineId || undefined, relationship: p.rel ? relToStored(p.rel) : undefined, birthDate: p.birthDate || undefined, primary: i === primaryIdx,
           })),
           familyAddress: address || undefined, familyPostcode: postcode || undefined, familyProvince: province || undefined, acquisitions: acquisitions.length ? acquisitions : undefined,
-          familyLocation: brand === "liclass" ? location : undefined, familyAddressNote: brand === "liclass" ? addressNote || undefined : undefined,
+          familyLocation: location, familyAddressNote: addressNote || undefined,
           taxInfo: wantTax ? tax : undefined,
           students: students.map((s) => ({
             name: fullName(s), nickname: s.nickname || undefined, grade: s.grade, birthDate: s.birthDate || undefined, school: s.school || undefined, note: s.note || undefined,
@@ -197,7 +196,7 @@ function LiffForm() {
 
   const stepIndex = STEP_KEYS.indexOf(step)
   const summary = (
-    <Summary t={t} lang={lang} parents={parents} primaryIdx={primaryIdx} address={brand === "liclass" ? address : ""} province={brand === "liclass" ? province : ""} postcode={brand === "liclass" ? postcode : ""} addressNote={brand === "liclass" ? addressNote : ""} pinned={brand === "liclass" && !!location} acquisitions={acquisitions} linked={lineUserId ? displayName : undefined}
+    <Summary t={t} lang={lang} parents={parents} primaryIdx={primaryIdx} address={address} province={province} postcode={postcode} addressNote={addressNote} pinned={!!location} acquisitions={acquisitions} linked={lineUserId ? displayName : undefined}
       tax={wantTax ? tax : null} students={students} onEdit={phase === "done" ? undefined : (s) => setStep(s)} />
   )
 
@@ -299,10 +298,9 @@ function LiffForm() {
                   })}
                 </div>
               </div>
-              {/* Liclass runs a school bus → address + pin + directions; NockAcademy has no bus, so no address asked */}
-              {brand === "liclass" && (
-                <div className="space-y-2 border-t pt-3">
-                  <div><p className="text-sm font-semibold">{t.busAddress}</p><p className="text-xs text-muted-foreground">{t.pinSub}</p></div>
+              {/* both brands (owner 2026-09-30) — whether the family rides the bus is decided on the invoice, not here */}
+              <div className="space-y-2 border-t pt-3">
+                  <div><p className="text-sm font-semibold">{t.address}</p><p className="text-xs text-muted-foreground">{t.addressSub} · {t.pinSub}</p></div>
                   <MapPin value={location} onChange={setLocation} locateLabel={t.locate} />
                   <Input value={address} onChange={(e) => setAddress(e.target.value)} placeholder={t.addressLine} />
                   <div className="grid grid-cols-2 gap-2">
@@ -311,7 +309,6 @@ function LiffForm() {
                   </div>
                   <Field label={t.addressNote}><Textarea rows={2} value={addressNote} onChange={(e) => setAddressNote(e.target.value)} placeholder={t.addressNotePh} /></Field>
                 </div>
-              )}
               <div className="border-t pt-3">
                 <label className="flex items-start gap-2 text-sm"><Checkbox checked={wantTax} onCheckedChange={(v) => setWantTax(!!v)} className="mt-0.5" /><span><span className="font-semibold">{t.tax}</span><span className="block text-xs text-muted-foreground">{t.taxSub}</span></span></label>
                 {wantTax && (
