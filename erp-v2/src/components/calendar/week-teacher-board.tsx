@@ -16,6 +16,19 @@ import { cn } from "@/lib/utils"
 import { useStore } from "@/store/store"
 
 const DAY_FULL = ["อาทิตย์", "จันทร์", "อังคาร", "พุธ", "พฤหัสบดี", "ศุกร์", "เสาร์"]
+/** Thai day colours (อา. แดง · จ. เหลือง · อ. ชมพู · พ. เขียว · พฤ. ส้ม · ศ. ฟ้า · ส. ม่วง) — light normally, strong for
+ *  today, lighter still once the day has passed (owner 2026-09-30). Full class strings so Tailwind keeps them. */
+const DAY_TONE: { soft: string; strong: string; faded: string }[] = [
+  { soft: "bg-red-100 text-red-900", strong: "bg-red-600 text-white", faded: "bg-red-50 text-red-900/50" },
+  { soft: "bg-yellow-100 text-yellow-900", strong: "bg-yellow-500 text-yellow-950", faded: "bg-yellow-50 text-yellow-900/50" },
+  { soft: "bg-pink-100 text-pink-900", strong: "bg-pink-600 text-white", faded: "bg-pink-50 text-pink-900/50" },
+  { soft: "bg-green-100 text-green-900", strong: "bg-green-600 text-white", faded: "bg-green-50 text-green-900/50" },
+  { soft: "bg-orange-100 text-orange-900", strong: "bg-orange-500 text-white", faded: "bg-orange-50 text-orange-900/50" },
+  { soft: "bg-sky-100 text-sky-900", strong: "bg-sky-600 text-white", faded: "bg-sky-50 text-sky-900/50" },
+  { soft: "bg-purple-100 text-purple-900", strong: "bg-purple-600 text-white", faded: "bg-purple-50 text-purple-900/50" },
+]
+const dayTone = (date: DateStr, today: DateStr) => { const t = DAY_TONE[weekdayOf(date)]; return date === today ? t.strong : date < today ? t.faded : t.soft }
+
 const MARK_TEXT = { present: "มา", absent: "ขาด", leave: "ลา" } as const
 const MARK_TONE = { present: "text-emerald-700", absent: "text-red-700", leave: "text-amber-700" } as const
 const STATE_ICON: Record<WorkState, { icon: typeof CheckIcon; tone: string; label: string }> = {
@@ -90,7 +103,7 @@ export function WeekTeacherBoard({ from, sessions, onOpen, onSlot, canCreate }: 
       {/* sits right under the app header (h-14) instead of sliding over it */}
       <nav className="sticky top-14 z-10 -mx-1 flex flex-wrap gap-1.5 border-b bg-background/95 px-1 py-2 backdrop-blur">
         {days.map((d) => (
-          <a key={d} href={`#day-${d}`} className={cn("rounded-full border px-3 py-1 text-xs hover:bg-muted", d === today && "border-primary text-primary")}>{DAY_FULL[weekdayOf(d)].slice(0, 3)} {fmtDate(d)}</a>
+          <a key={d} href={`#day-${d}`} className={cn("rounded-full px-3 py-1 text-xs font-medium hover:opacity-80", dayTone(d, today))}>{DAY_FULL[weekdayOf(d)].slice(0, 3)} {fmtDate(d)}</a>
         ))}
       </nav>
 
@@ -101,7 +114,7 @@ export function WeekTeacherBoard({ from, sessions, onOpen, onSlot, canCreate }: 
         return (
           <section key={date} id={`day-${date}`} className="scroll-mt-32 overflow-x-auto rounded-3xl bg-card shadow-sm ring-1 ring-foreground/10">
             <div className="min-w-fit">
-              <div className={cn("px-4 py-2 text-sm font-semibold", date < today ? "bg-muted text-muted-foreground" : date === today ? "bg-primary text-primary-foreground" : "bg-muted/40")}>
+              <div className={cn("px-4 py-2 text-sm font-semibold", dayTone(date, today))}>
                 {DAY_FULL[weekdayOf(date)]} {fmtDate(date, { year: true })}{date === today ? " · วันนี้" : date < today ? " · ผ่านไปแล้ว" : ""}{holiday ? " · วันหยุด" : closed ? " · สาขาปิด" : ""}
               </div>
               {rows.length === 0 || teacherIds.length === 0 ? (
