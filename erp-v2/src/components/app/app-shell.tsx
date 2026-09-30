@@ -126,7 +126,8 @@ function Shell({ children }: { children: ReactNode }) {
             <span className="flex items-center gap-1 rounded-full bg-primary/10 px-2.5 py-1 text-xs font-medium text-primary"><MapPinIcon className="size-3.5" />สาขา{branchLabel(branch)}</span>
           </div>
         </header>
-        <main className="min-w-0 flex-1 p-3 md:p-6">{allowed ? children : <NoAccess />}</main>
+        {/* calendar sits on grey so the boards stand out (owner 2026-09-30) */}
+        <main className={cn("min-w-0 flex-1 p-3 md:p-6", pathname.startsWith("/calendar") && "bg-zinc-100 dark:bg-zinc-900")}>{allowed ? children : <NoAccess />}</main>
       </SidebarInset>
     </SidebarProvider>
   )

@@ -101,7 +101,7 @@ export function WeekTeacherBoard({ from, sessions, onOpen, onSlot, canCreate }: 
   return (
     <div className="space-y-5">
       {/* sits right under the app header (h-14) instead of sliding over it */}
-      <nav className="sticky top-14 z-10 -mx-1 flex flex-wrap gap-1.5 border-b bg-background/95 px-1 py-2 backdrop-blur">
+      <nav className="sticky top-14 z-10 -mx-1 flex flex-wrap gap-1.5 bg-zinc-100/95 px-1 py-2 backdrop-blur dark:bg-zinc-900/95">
         {days.map((d) => (
           <a key={d} href={`#day-${d}`} className={cn("rounded-full px-3 py-1 text-xs font-medium hover:opacity-80", dayTone(d, today))}>{DAY_FULL[weekdayOf(d)].slice(0, 3)} {fmtDate(d)}</a>
         ))}
