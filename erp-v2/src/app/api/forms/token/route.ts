@@ -1,11 +1,11 @@
 import { NextResponse } from "next/server"
 import { checkToken, createToken } from "@/server/form-store"
-import type { FormSubjectOffer, FormType } from "@/domain/types"
+import type { FormLang, FormPrefill, FormSubjectOffer, FormType } from "@/domain/types"
 
 // Staff side: mint a one-time link for a lead, carrying the offered slots the admin picked
 // ("ส่งฟอร์ม" flow in LeadSheet / Inbox).
 export async function POST(req: Request) {
-  let body: { type?: FormType; leadId?: string; branchId?: string; conversationId?: string | null; offers?: FormSubjectOffer[]; grades?: string[] }
+  let body: { type?: FormType; leadId?: string; branchId?: string; conversationId?: string | null; offers?: FormSubjectOffer[]; grades?: string[]; branchName?: string; lang?: FormLang; prefill?: FormPrefill }
   try {
     body = await req.json()
   } catch {
@@ -15,6 +15,7 @@ export async function POST(req: Request) {
   const token = await createToken({
     type: body.type, leadId: body.leadId, branchId: body.branchId,
     conversationId: body.conversationId ?? null, offers: body.offers, grades: body.grades ?? [],
+    branchName: body.branchName, lang: body.lang, prefill: body.prefill,
   })
   return NextResponse.json({ ok: true, token })
 }
@@ -25,5 +26,6 @@ export async function GET(req: Request) {
   if (!token) return NextResponse.json({ ok: false, error: "missing token" }, { status: 400 })
   const check = await checkToken(token)
   if (!check.ok) return NextResponse.json(check)
-  return NextResponse.json({ ok: true, type: check.token.type, offers: check.token.offers, grades: check.token.grades })
+  const t = check.token
+  return NextResponse.json({ ok: true, type: t.type, offers: t.offers, grades: t.grades, branchName: t.branchName, lang: t.lang ?? "th", prefill: t.prefill ?? null })
 }

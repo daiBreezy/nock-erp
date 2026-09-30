@@ -12,7 +12,7 @@ import * as Sum from "./summaries"
 import { familyFromLead, futureSessionsOf, matchExistingFamily, nicknameFrom, searchStudents, studentLabel, validateFamily, validateStaff, validateStudent } from "./people"
 import { suggestFixes } from "./suggest"
 import { advanceStage, canSetStage, daysAgo, groupOf, restoreStage, validateLead } from "./crm"
-import { APPROVE_STAGE, ATTENDED_STAGE, buildCombinedSessionDraft, buildSessionDraftFromSlot, findOfferSlots, lastAssessmentDate, openHourStarts, sessionKindLabel } from "./forms"
+import { APPROVE_STAGE, ATTENDED_STAGE, buildFormPrefill, buildCombinedSessionDraft, buildSessionDraftFromSlot, findOfferSlots, lastAssessmentDate, openHourStarts, sessionKindLabel } from "./forms"
 import { customerRows, filterCustomers } from "./customers"
 import { invoiceMessage } from "./messages"
 
@@ -882,5 +882,23 @@ describe("deleted class disappears from the calendar (owner 2026-09-29)", () => 
     expect(removedWithClass({ cancelled: true, classId: "gone" }, classes)).toBe(true)
     expect(removedWithClass({ cancelled: true, classId: "live" }, classes)).toBe(false)
     expect(removedWithClass({ cancelled: false, classId: "gone" }, classes)).toBe(false)
+  })
+})
+
+describe("next form is pre-filled (owner 2026-09-29: the Trial form must not start empty)", () => {
+  const lead = { name: "คุณสมชาย ใจดี", phone: "089-555-1212", lineId: "@som", childGrade: "ป.5", subject: "คณิต", source: "walkin" as const }
+  it("uses the family on file + every child with the subjects they already tested", () => {
+    const family: Family = { id: "f", name: "ครอบครัวใจดี", parents: [{ name: "สมชาย ใจดี", phone: "089-555-1212", lineLinked: true, primary: true, relationship: "คุณพ่อ" }], address: "123 สุขุมวิท", postcode: "10110" }
+    const kids = [{ id: "s1", name: "ด.ช. ภูมิ ใจดี", nickname: "ภูมิ", grade: "ป.5" }]
+    const p = buildFormPrefill({ lead, family, students: kids, assessments: [{ studentId: "s1", subject: "คณิต" }, { studentId: "s1", subject: "คณิต" }] })
+    expect(p.parents[0]).toMatchObject({ name: "สมชาย ใจดี", relationship: "คุณพ่อ", primary: true })
+    expect(p.address).toBe("123 สุขุมวิท")
+    expect(p.acquisition).toBe("walkin")
+    expect(p.students).toEqual([expect.objectContaining({ name: "ด.ช. ภูมิ ใจดี", grade: "ป.5", interests: ["คณิต"] })])
+  })
+  it("no family yet → the lead's own name/phone/LINE ID, no children", () => {
+    const p = buildFormPrefill({ lead, students: [], assessments: [] })
+    expect(p.parents).toEqual([{ name: "คุณสมชาย ใจดี", phone: "089-555-1212", lineId: "@som", primary: true }])
+    expect(p.students).toEqual([])
   })
 })

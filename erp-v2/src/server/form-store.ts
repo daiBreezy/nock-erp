@@ -1,6 +1,6 @@
 import { promises as fs } from "fs"
 import path from "path"
-import type { FormOfferSlot, FormParentInput, FormPick, FormSubjectOffer, FormSubmission, FormToken, FormType, ID } from "@/domain/types"
+import type { FormLang, FormOfferSlot, FormParentInput, FormPick, FormPrefill, FormSubjectOffer, FormSubmission, FormToken, FormType, ID, LeadSource } from "@/domain/types"
 import { fmtDate } from "@/domain/dates"
 import { FORM_TYPE_LABEL } from "@/domain/rules/forms"
 import { recordInboundMessage } from "./line-store"
@@ -56,12 +56,14 @@ const genId = (prefix: string) => `${prefix}_${Date.now().toString(36)}${Math.ra
 
 export async function createToken(input: {
   type: FormType; leadId: ID; branchId: ID; conversationId: ID | null; offers: FormSubjectOffer[]; grades: string[]
+  branchName?: string; lang?: FormLang; prefill?: FormPrefill
 }): Promise<FormToken> {
   return mutate((store) => {
     const now = new Date()
     const token: FormToken = {
       token: genToken(), type: input.type, leadId: input.leadId, branchId: input.branchId,
       conversationId: input.conversationId, offers: input.offers, grades: input.grades,
+      branchName: input.branchName, lang: input.lang, prefill: input.prefill,
       createdAt: now.toISOString(), expiresAt: new Date(now.getTime() + 7 * 86400000).toISOString(), used: false,
     }
     store.tokens.push(token)
@@ -86,6 +88,9 @@ export async function submitForm(input: {
   parents: FormParentInput[]
   familyAddress?: string
   familyPostcode?: string
+  familyProvince?: string
+  acquisition?: LeadSource
+  taxInfo?: { customerName: string; taxId: string; address: string }
   students: {
     name: string; nickname?: string; grade: string; birthDate?: string; note?: string
     picks: { chosenSubject: string; chosenSlotId: string }[]
@@ -117,6 +122,7 @@ export async function submitForm(input: {
       const submission: FormSubmission = {
         id: genId("frm"), token: input.token, type: t.type, groupId, primaryLeadId: t.leadId, leadId: i === 0 ? t.leadId : null, branchId: t.branchId, conversationId: t.conversationId,
         lineUserId: input.lineUserId, parents: input.parents, familyAddress: input.familyAddress, familyPostcode: input.familyPostcode,
+        familyProvince: input.familyProvince, acquisition: input.acquisition, taxInfo: input.taxInfo,
         studentName: student.name, studentNickname: student.nickname, studentGrade: student.grade, studentBirthDate: student.birthDate, studentNote: student.note,
         picks: student.picks,
         status: "pending", submittedAt: new Date().toISOString(),

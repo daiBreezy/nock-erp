@@ -5,7 +5,7 @@
 // logic lives in one place, not copy-pasted across components).
 
 import { FORM_TYPE_LABEL } from "@/domain/rules/forms"
-import type { FormOfferSlot, FormSubjectOffer, FormSubmission, FormToken, FormType, ID, Result } from "@/domain/types"
+import type { FormLang, FormOfferSlot, FormPrefill, FormSubjectOffer, FormSubmission, FormToken, FormType, ID, Result } from "@/domain/types"
 import { useStore } from "@/store/store"
 
 async function postJson<T>(url: string, body: unknown): Promise<T> {
@@ -15,10 +15,12 @@ async function postJson<T>(url: string, body: unknown): Promise<T> {
 
 export async function sendTestTrialForm(input: {
   leadId: ID; branchId: ID; conversationId: ID; lineUserId: string; type: FormType; offers: FormSubjectOffer[]; grades: string[]
+  branchName?: string; lang?: FormLang; prefill?: FormPrefill
 }): Promise<Result> {
   const tokenRes = await postJson<{ ok: boolean; token?: FormToken; error?: string }>("/api/forms/token", {
     type: input.type, leadId: input.leadId, branchId: input.branchId,
     conversationId: input.conversationId, offers: input.offers, grades: input.grades,
+    branchName: input.branchName, lang: input.lang, prefill: input.prefill,
   })
   if (!tokenRes.ok || !tokenRes.token) return { ok: false, error: tokenRes.error ?? "สร้างลิงก์ไม่สำเร็จ" }
 

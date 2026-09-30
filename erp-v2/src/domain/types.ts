@@ -125,7 +125,8 @@ export interface SystemConfig {
   subjects: string[]
   /** one default invoice memo per brand, inherited by every branch of that brand */
   invoiceMemos: Record<Brand, string>
-  preferences: { language: "th" | "en"; timezone: string; currency: string; dateFormat: "th-short" | "iso" }
+  /** language = system default AND the parent form's default (parents can still switch TH/EN/JP on the form) */
+  preferences: { language: FormLang; timezone: string; currency: string; dateFormat: "th-short" | "iso" }
   settings: SystemSettings
 }
 
@@ -307,6 +308,8 @@ export interface Parent {
   birthDate?: DateStr
   /** phone numbers beyond the primary `phone` above — additive so every existing `p.phone` read stays correct */
   altPhones?: string[]
+  /** LINE ID the parent typed (e.g. "@mom_ploy") — not the Messaging API user id */
+  lineId?: string
 }
 
 export interface Family {
@@ -315,6 +318,9 @@ export interface Family {
   parents: Parent[]
   address?: string
   postcode?: string
+  province?: string
+  /** how the family found us (form "Acquisition") */
+  source?: LeadSource
   /** one LINE link code for the whole family (siblings share it) */
   lineCode?: { code: string; expiresAt: string }
   /** real LINE Messaging API user id, once linked via Inbox (see linkConversationToFamily) — enables real delivery, not just the lineLinked simulation flag */
@@ -407,7 +413,7 @@ export type LeadStage =
   | "trial_scheduled" | "trialed"
   | "payment_pending" | "enrolled" | "archived"
 
-export type LeadSource = "line" | "walkin" | "phone" | "website" | "referral" | "other"
+export type LeadSource = "line" | "facebook" | "walkin" | "phone" | "website" | "referral" | "other"
 
 export interface LeadNote {
   at: string
@@ -633,6 +639,11 @@ export interface FormToken {
   offers: FormSubjectOffer[]
   /** snapshot of branch.grades at send time — the LIFF page has no access to branch master data */
   grades: string[]
+  /** shown in the form header */
+  branchName?: string
+  /** default language (Settings) — parent can switch */
+  lang?: FormLang
+  prefill?: FormPrefill
   createdAt: string
   expiresAt: string
   used: boolean
@@ -646,6 +657,26 @@ export interface FormParentInput {
   email?: string
   relationship?: string
   birthDate?: DateStr
+  lineId?: string
+  /** extra numbers besides `phone` (the default one) */
+  altPhones?: string[]
+  /** the default contact of the family — exactly one per submission */
+  primary?: boolean
+}
+
+/** Parent form languages (owner 2026-09-29): TH / EN / JP, default from Settings, switchable on the form */
+export type FormLang = "th" | "en" | "ja"
+
+/** What the system already knows about this family/child, sent with the form link so the parent never
+ *  types it again (owner 2026-09-29: the Trial form used to start empty after the Test form was filled). */
+export interface FormPrefill {
+  parents: FormParentInput[]
+  address?: string
+  postcode?: string
+  province?: string
+  acquisition?: LeadSource
+  taxInfo?: { customerName: string; taxId: string; address: string }
+  students: { name: string; nickname?: string; grade: string; birthDate?: DateStr; note?: string; interests?: string[] }[]
 }
 
 /** One subject + the exact slot chosen for it — a submission row now holds one of these per subject
@@ -678,6 +709,9 @@ export interface FormSubmission {
   parents: FormParentInput[]
   familyAddress?: string
   familyPostcode?: string
+  familyProvince?: string
+  acquisition?: LeadSource
+  taxInfo?: { customerName: string; taxId: string; address: string }
   studentName: string
   studentNickname?: string
   studentGrade: string

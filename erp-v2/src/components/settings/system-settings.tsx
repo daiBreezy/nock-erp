@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input"
 import { Switch } from "@/components/ui/switch"
 import { Textarea } from "@/components/ui/textarea"
 import { NOTIFY_LABEL } from "@/domain/rules/settings"
-import type { Brand, NotifyKey, SystemConfig } from "@/domain/types"
+import type { Brand, FormLang, NotifyKey, SystemConfig } from "@/domain/types"
 import { report } from "@/lib/feedback"
 import { useStore } from "@/store/store"
 import { SaveRow, SettingsCard } from "./common"
@@ -107,7 +107,7 @@ function Preferences() {
   return (
     <SettingsCard title="System Preferences" hint="ค่าเริ่มต้นของทั้งระบบ">
       <div className="grid gap-3 sm:grid-cols-2">
-        <Field label="ภาษา"><NativeSelect value={p.language} onChange={(e) => set({ language: e.target.value as "th" | "en" })} options={[{ value: "th", label: "ไทย" }, { value: "en", label: "English" }]} /></Field>
+        <Field label="ภาษา (ค่าเริ่มต้นของฟอร์มผู้ปกครองด้วย)"><NativeSelect value={p.language} onChange={(e) => set({ language: e.target.value as FormLang })} options={[{ value: "th", label: "ไทย" }, { value: "en", label: "English" }, { value: "ja", label: "日本語" }]} /></Field>
         <Field label="เขตเวลา"><NativeSelect value={p.timezone} onChange={(e) => set({ timezone: e.target.value })} options={[{ value: "Asia/Bangkok (UTC+7)", label: "Asia/Bangkok (UTC+7)" }]} /></Field>
         <Field label="สกุลเงิน"><NativeSelect value={p.currency} onChange={(e) => set({ currency: e.target.value })} options={[{ value: "THB (฿)", label: "THB (฿)" }]} /></Field>
         <Field label="รูปแบบวันที่">

@@ -3,7 +3,7 @@
 import { useState } from "react"
 import { PlusIcon, SendIcon, Trash2Icon } from "lucide-react"
 import { fmtDate } from "@/domain/dates"
-import { FORM_TYPE_LABEL } from "@/domain/rules/forms"
+import { buildFormPrefill, FORM_TYPE_LABEL } from "@/domain/rules/forms"
 import type { FormOfferSlot, FormType, ID } from "@/domain/types"
 import { sendTestTrialForm } from "@/lib/forms"
 import { report } from "@/lib/feedback"
@@ -30,7 +30,19 @@ export function SendFormDialog({
   const sessions = useStore((s) => s.sessions)
   const classes = useStore((s) => s.classes)
   const holidays = useStore((s) => s.holidays)
+  const lead = useStore((s) => s.leads.find((l) => l.id === leadId))
+  const families = useStore((s) => s.families)
+  const students = useStore((s) => s.students)
+  const assessments = useStore((s) => s.assessments)
+  const conversations = useStore((s) => s.conversations)
+  const lang = useStore((s) => s.system.preferences.language)
   const now = useNow()
+  // what we already know about this family → pre-filled in the form, never typed twice
+  const trialStudent = students.find((x) => x.id === lead?.trialStudentId)
+  const family = families.find((f) => f.id === trialStudent?.familyId)
+    ?? families.find((f) => f.id === conversations.find((c) => c.id === conversationId)?.familyId)
+    ?? (lead?.lineUserId ? families.find((f) => f.lineUserId === lead.lineUserId) : undefined)
+  const knownStudents = family ? students.filter((x) => x.familyId === family.id && !x.archived) : trialStudent ? [trialStudent] : []
 
   const [step, setStep] = useState<"type" | "offers" | "confirm">("type")
   const [type, setType] = useState<FormType>("test")
@@ -60,6 +72,8 @@ export function SendFormDialog({
         leadId, branchId, conversationId, lineUserId, type,
         offers: blocks.map((b) => ({ subject: b.subject, slots: [...b.selected.values()] })),
         grades: branch.grades,
+        branchName: branch.name, lang,
+        prefill: lead ? buildFormPrefill({ lead, family, students: knownStudents, assessments }) : undefined,
       })
       if (report(r, `ส่งฟอร์ม${FORM_TYPE_LABEL[type]}ทาง LINE แล้ว`)) onClose()
     } finally {

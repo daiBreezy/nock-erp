@@ -17,6 +17,7 @@ export const LEAD_STAGE_LABEL: Record<LeadStage, string> = {
 
 export const LEAD_SOURCE_LABEL: Record<Lead["source"], string> = {
   line: "LINE OA",
+  facebook: "Facebook",
   walkin: "Walk-in",
   phone: "โทรศัพท์",
   website: "เว็บไซต์",

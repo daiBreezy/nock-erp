@@ -4,10 +4,36 @@
 // liff/form/page.tsx.
 
 import { addDays, at, fromMinutes, overlaps, toMinutes } from "../dates"
-import type { Assessment, Branch, DateStr, FormOfferSlot, FormType, Holiday, ID, Klass, LeadStage, Session, Staff, TimeStr } from "../types"
+import type { Assessment, Branch, DateStr, Family, FormOfferSlot, FormParentInput, FormPrefill, FormType, Holiday, ID, Klass, Lead, LeadStage, Session, Staff, Student, TimeStr } from "../types"
 import { CAPACITY, hoursFor, isHoliday, slotProblem, teachersOf } from "./scheduling"
 
 export const FORM_TYPE_LABEL: Record<FormType, string> = { test: "สอบวัดระดับ", trial: "ทดลองเรียน" }
+
+/**
+ * What to pre-fill in the next form for this lead (owner 2026-09-29: after the Test form the Trial form must
+ * not start empty). The family on file wins; otherwise the lead's own name/phone. Every child already in the
+ * family comes along with the subjects they showed interest in (their past tests/trials).
+ */
+export function buildFormPrefill(input: {
+  lead: Pick<Lead, "name" | "phone" | "lineId" | "childGrade" | "subject" | "source">
+  family?: Family
+  students: Pick<Student, "id" | "name" | "nickname" | "grade" | "birthDate" | "note">[]
+  assessments: Pick<Assessment, "studentId" | "subject">[]
+}): FormPrefill {
+  const f = input.family
+  const parents: FormParentInput[] = f?.parents.length
+    ? f.parents.map((p) => ({ name: p.name, phone: p.phone, email: p.email, relationship: p.relationship, birthDate: p.birthDate, lineId: p.lineId, altPhones: p.altPhones, primary: p.primary }))
+    : [{ name: input.lead.name, phone: input.lead.phone, lineId: input.lead.lineId || undefined, primary: true }]
+  return {
+    parents,
+    address: f?.address, postcode: f?.postcode, province: f?.province,
+    acquisition: f?.source ?? input.lead.source, taxInfo: f?.taxInfo,
+    students: input.students.map((s) => ({
+      name: s.name, nickname: s.nickname, grade: s.grade, birthDate: s.birthDate, note: s.note,
+      interests: [...new Set(input.assessments.filter((a) => a.studentId === s.id).map((a) => a.subject))],
+    })),
+  }
+}
 /** approving a form only books the visit — the lead is "นัดสอบ / นัดทดลอง" until the child actually shows up (E2E 2026-09-28) */
 export const APPROVE_STAGE: Record<FormType, LeadStage> = { test: "test_scheduled", trial: "trial_scheduled" }
 /** marked "มา" in that session → the test/trial really happened */
