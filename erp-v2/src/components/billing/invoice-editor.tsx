@@ -6,7 +6,7 @@ import { CoursePicker } from "./course-picker"
 import { PackageBadge } from "@/components/app/package-badge"
 import { busRate } from "@/domain/rules/settings"
 import { useState } from "react"
-import { AlertTriangleIcon, BusIcon, CalendarIcon, HistoryIcon, PlusIcon, UserRoundSearchIcon, XIcon } from "lucide-react"
+import { AlertTriangleIcon, BusIcon, CalendarIcon, CheckIcon, HistoryIcon, MapPinIcon, PlusIcon, UserRoundSearchIcon, XIcon } from "lucide-react"
 import { NativeSelect } from "@/components/app/native-select"
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
@@ -16,9 +16,9 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { addDays, fmtDate, fmtMoney, fmtMonth, toDateStr } from "@/domain/dates"
 import * as Att from "@/domain/rules/attendance"
-import { busTotal, classOptionsFor, defaultBusLegs, invoiceSessionDates, invoiceTotals, validateInvoiceDraft, type LineQuote } from "@/domain/rules/billing"
+import { busTotal, classOptionsFor, defaultAdvance, defaultBusLegs, entryFeePaidOn, invoiceSessionDates, invoiceTotals, validateInvoiceDraft, type LineQuote } from "@/domain/rules/billing"
 import { lastAssessmentDate } from "@/domain/rules/forms"
-import type { BusLeg, CourseLine, Entitlement, Invoice, Klass } from "@/domain/types"
+import type { AdvanceItem, BusLeg, CourseLine, Entitlement, Family, Invoice, Klass } from "@/domain/types"
 import { uid } from "@/data/seed"
 import { report } from "@/lib/feedback"
 import { useBranch, useEntitlements, useNow } from "@/lib/hooks"
@@ -58,7 +58,10 @@ export function InvoiceEditor({ invoice, defaultStudentId, renewEntitlementId, o
   const [bus, setBus] = useState<BusLeg[]>(invoice?.bus ?? [])
   const [busTouched, setBusTouched] = useState(!!invoice)
   const [bookFee, setBookFee] = useState(invoice?.bookFee ?? 0)
-  const [advanceFee, setAdvanceFee] = useState(invoice?.advanceFee ?? 0)
+  const [busFeeId, setBusFeeId] = useState(invoice?.busFeeId ?? branch.fees.find((f) => f.kind === "bus")?.id ?? "")
+  // Advance Optional: follows the default (entry fee unless already paid) until the admin ticks something
+  const [advancePicked, setAdvancePicked] = useState<AdvanceItem[] | null>(invoice ? invoice.advance : null)
+  const invoices = useStore((s) => s.invoices)
   const [concession, setConcession] = useState(invoice?.concession?.amount ?? 0)
   const [concessionRemark, setConcessionRemark] = useState(invoice?.concession?.remark ?? "")
 
@@ -92,6 +95,12 @@ export function InvoiceEditor({ invoice, defaultStudentId, renewEntitlementId, o
     else { setLines((ls) => [...ls, { id: uid("ln"), periodsText: "1", overlapRemark: "", ...line }]); setBusTouched(false) }
   }
 
+  const advance = advancePicked ?? defaultAdvance(branch, studentId, invoices)
+  const entryPaid = studentId ? entryFeePaidOn(studentId, invoices, branch.fees, invoice?.id) : undefined
+  const advanceFees = branch.fees.filter((f) => f.kind === "entry" || f.kind === "mock")
+  const busFees = branch.fees.filter((f) => f.kind === "bus")
+  const rate = busRate(branch, busFeeId)
+
   const courseLines: CourseLine[] = lines.map((l) => {
     const periods = Number(l.periodsText)
     const overlap = studentId && Att.activeEntitlements(studentId, entitlements, l.startDate).some((e) => e.courseId === l.courseId)
@@ -104,7 +113,8 @@ export function InvoiceEditor({ invoice, defaultStudentId, renewEntitlementId, o
     number: invoice?.number ?? null,
     lines: courseLines,
     bus: [],
-    bookFee, advanceFee,
+    busFeeId: busFeeId || null,
+    bookFee, advance,
     concession: concession > 0 ? { amount: concession, remark: concessionRemark } : null,
     noteToParent: invoice?.noteToParent ?? "",
     status: "draft",
@@ -210,12 +220,21 @@ export function InvoiceEditor({ invoice, defaultStudentId, renewEntitlementId, o
         {busDates.length > 0 && (
           <details className="rounded-lg border" open={legs.some((l) => l.pickup || l.dropoff)}>
             <summary className="flex cursor-pointer items-center gap-2 px-3 py-2 text-sm">
-              <BusIcon className="size-4" /> ค่ารถ ({fmtMoney(busRate(branch))}/เที่ยว)
-              <span className="ml-auto font-medium tabular-nums">{fmtMoney(busTotal(legs, busRate(branch)))}</span>
+              <BusIcon className="size-4" /> ค่ารถ ({busFees.find((f) => f.id === busFeeId)?.name ?? "ค่ารถ"} {fmtMoney(rate)}/เที่ยว)
+              <span className="ml-auto font-medium tabular-nums">{fmtMoney(busTotal(legs, rate))}</span>
             </summary>
-            <div className="border-t px-3 py-2">
-              <p className="mb-2 text-xs text-muted-foreground">{student?.usesBus ? "นักเรียนใช้รถ — ติ๊กให้ตามรอบเรียนแล้ว" : "นักเรียนไม่ได้ใช้รถ — ติ๊กเฉพาะรอบที่ต้องการ"}</p>
-              <div className="mb-2 flex gap-2">
+            <div className="space-y-2 border-t px-3 py-2">
+              <div className="grid gap-2 sm:grid-cols-[1fr_1.6fr]">
+                <div className="space-y-1">
+                  <Label className="text-xs">ประเภทค่ารถ</Label>
+                  <NativeSelect value={busFeeId} onChange={(e) => setBusFeeId(e.target.value)}
+                    placeholder={busFees.length ? undefined : `ค่าตั้งต้นของสาขา ${fmtMoney(branch.busFeePerLeg)}/เที่ยว`}
+                    options={busFees.map((f) => ({ value: f.id, label: `${f.name} · ${fmtMoney(f.price)}/เที่ยว` }))} />
+                </div>
+                <FamilyPin family={family} />
+              </div>
+              <p className="text-xs text-muted-foreground">{student?.usesBus ? "นักเรียนใช้รถ — ติ๊กให้ตามรอบเรียนแล้ว" : "นักเรียนไม่ได้ใช้รถ — ติ๊กเฉพาะรอบที่ต้องการ"} · วันที่มีหลายคอร์สนับเป็นรอบเดียว</p>
+              <div className="flex gap-2">
                 <Button size="xs" variant="outline" onClick={() => { setBusTouched(true); setBus(legs.map((l) => ({ ...l, pickup: true, dropoff: true }))) }}>ติ๊กทุกรอบ</Button>
                 <Button size="xs" variant="ghost" onClick={() => { setBusTouched(true); setBus(legs.map((l) => ({ ...l, pickup: false, dropoff: false }))) }}>ไม่ใช้รถ</Button>
               </div>
@@ -236,9 +255,30 @@ export function InvoiceEditor({ invoice, defaultStudentId, renewEntitlementId, o
           </details>
         )}
 
-        <div className="grid gap-3 sm:grid-cols-3">
+        {advanceFees.length > 0 && (
+          <div className="space-y-1.5">
+            <Label className="text-xs">Advance Optional (ค่าแรกเข้า / สอบ)</Label>
+            <div className="flex flex-wrap gap-1.5">
+              {advanceFees.map((f) => {
+                const on = advance.some((a) => a.feeId === f.id)
+                const paidBefore = f.kind === "entry" && entryPaid
+                return (
+                  <button key={f.id} type="button" aria-pressed={on}
+                    onClick={() => setAdvancePicked(on ? advance.filter((a) => a.feeId !== f.id) : [...advance, { feeId: f.id, name: f.name, amount: f.price }])}
+                    className={cn("flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs", on ? "border-primary bg-primary/10 text-primary" : "hover:bg-muted")}>
+                    {on && <CheckIcon className="size-3" />}{f.name} · {fmtMoney(advance.find((a) => a.feeId === f.id)?.amount ?? f.price)}
+                    {paidBefore && <span className="text-muted-foreground">(เคยจ่ายแล้ว)</span>}
+                  </button>
+                )
+              })}
+            </div>
+            {entryPaid && <p className="text-xs text-muted-foreground">ยกเว้นค่าแรกเข้าให้อัตโนมัติ — {entryPaid.advance.length ? "จ่ายแล้วในใบ" : "เป็นนักเรียนที่ชำระแล้ว (ใบ"} {entryPaid.number}{entryPaid.advance.length ? "" : ")"}</p>}
+            {!entryPaid && studentId && advancePicked === null && advance.length > 0 && <p className="text-xs text-muted-foreground">นักเรียนยังไม่เคยจ่ายค่าแรกเข้า — ใส่ให้แล้ว กดเพื่อเอาออกได้</p>}
+          </div>
+        )}
+
+        <div className="grid gap-3 sm:grid-cols-2">
           <div className="space-y-1"><Label className="text-xs">ค่าหนังสือ</Label><Input type="number" min={0} value={bookFee} onChange={(e) => setBookFee(Math.max(0, Number(e.target.value)))} /></div>
-          <div className="space-y-1"><Label className="text-xs">ค่าอื่นๆ / สอบ</Label><Input type="number" min={0} value={advanceFee} onChange={(e) => setAdvanceFee(Math.max(0, Number(e.target.value)))} /></div>
           <div className="space-y-1"><Label className="text-xs">ส่วนลดพิเศษ (Concession)</Label><Input type="number" min={0} value={concession} onChange={(e) => setConcession(Math.max(0, Number(e.target.value)))} /></div>
         </div>
         {concession > 0 && (
@@ -249,7 +289,7 @@ export function InvoiceEditor({ invoice, defaultStudentId, renewEntitlementId, o
         )}
 
         <div className="space-y-1 rounded-lg bg-muted/50 p-3 text-sm tabular-nums">
-          {[["ค่าเรียน", totals.course], ["Course fee", totals.courseFee], ["ค่ารถ", totals.bus], ["ค่าหนังสือ", totals.book], ["ค่าอื่นๆ", totals.advance]].filter(([, v]) => (v as number) > 0).map(([l, v]) => (
+          {[["ค่าเรียน", totals.course], ["Course fee", totals.courseFee], ["ค่ารถ", totals.bus], ["ค่าหนังสือ", totals.book], ["Advance (ค่าแรกเข้า/สอบ)", totals.advance]].filter(([, v]) => (v as number) > 0).map(([l, v]) => (
             <div key={l as string} className="flex justify-between"><span>{l}</span><span>{fmtMoney(v as number)}</span></div>
           ))}
           {totals.promotion > 0 && <div className="flex justify-between text-emerald-700"><span>โปรโมชัน</span><span>−{fmtMoney(totals.promotion)}</span></div>}
@@ -348,6 +388,27 @@ function LineCard({ index, draft, quote, studentId, studentGrade, classes, overl
             </tbody>
           </table>
         </div>
+      )}
+    </div>
+  )
+}
+
+/** Where the bus goes: the family's map pin + directions from the parent form (owner 2026-09-30: bus is decided on the invoice). */
+function FamilyPin({ family }: { family?: Family }) {
+  if (!family) return <p className="self-end text-xs text-muted-foreground">เลือกนักเรียนก่อน เพื่อดูหมุดบ้าน</p>
+  const loc = family.location
+  return (
+    <div className={cn("rounded-lg p-2 text-xs", loc ? "bg-muted/60" : "border border-amber-300 bg-amber-50 text-amber-900 dark:bg-amber-950/30 dark:text-amber-200")}>
+      {loc ? (
+        <>
+          <div className="flex items-center gap-1 font-medium"><MapPinIcon className="size-3.5 text-rose-600" /> ปักหมุดบ้านแล้ว
+            <a href={`https://www.google.com/maps?q=${loc.lat},${loc.lng}`} target="_blank" rel="noreferrer" className="ml-auto text-primary underline">เปิดแผนที่</a>
+          </div>
+          {family.addressNote && <p className="mt-0.5 text-muted-foreground">ทาง: {family.addressNote}</p>}
+          {family.address && <p className="text-muted-foreground">{family.address}</p>}
+        </>
+      ) : (
+        <p className="flex items-start gap-1"><AlertTriangleIcon className="mt-0.5 size-3.5 shrink-0" /> ครอบครัวยังไม่ได้ปักหมุดบ้าน{family.address ? ` (มีที่อยู่: ${family.address})` : ""} — ขอให้ผู้ปกครองปักหมุดในฟอร์ม ก่อนจัดรถ</p>
       )}
     </div>
   )

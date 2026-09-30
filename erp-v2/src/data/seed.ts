@@ -138,7 +138,7 @@ export function buildSeed(now = new Date()): DB {
   ]
 
   const families: Family[] = [
-    { id: "fa_1", name: "ครอบครัวสุขใจ", parents: [{ name: "คุณแม่ สุดา", phone: "081-234-5678", lineLinked: true, primary: true }, { name: "คุณพ่อ วิชัย", phone: "089-111-2222", lineLinked: false, primary: false }] },
+    { id: "fa_1", name: "ครอบครัวสุขใจ", parents: [{ name: "คุณแม่ สุดา", phone: "081-234-5678", lineLinked: true, primary: true }, { name: "คุณพ่อ วิชัย", phone: "089-111-2222", lineLinked: false, primary: false }], address: "88/12 หมู่บ้านพฤกษา ซ.สุขุมวิท 71", location: { lat: 13.7236, lng: 100.5972 }, addressNote: "เข้าซอย 2 บ้านหลังที่ 3 ซ้ายมือ ประตูสีขาว" },
     { id: "fa_2", name: "ครอบครัวทองดี", parents: [{ name: "คุณแม่ ปราณี", phone: "086-555-1234", lineLinked: false, primary: true }] },
     { id: "fa_3", name: "ครอบครัวมั่นคง", parents: [{ name: "คุณพ่อ อนันต์", phone: "082-999-8888", lineLinked: true, primary: true }] },
     { id: "fa_4", name: "ครอบครัวรุ่งเรือง", parents: [{ name: "คุณแม่ จันทร์", phone: "090-123-4567", lineLinked: true, primary: true }] },
@@ -345,19 +345,19 @@ export function buildSeed(now = new Date()): DB {
   const invoices: Invoice[] = [
     {
       id: "inv_paid", branchId: "br_thl", studentId: "stu_1", number: `INV-THL-${ym}-0001`,
-      lines: [{ id: "ln_1", courseId: "co_math5", classId: "cl_math5", startDate: monthStart, periods: 1 }], bus: [], bookFee: 0, advanceFee: 0,
+      lines: [{ id: "ln_1", courseId: "co_math5", classId: "cl_math5", startDate: monthStart, periods: 1 }], bus: [], bookFee: 0, advance: [],
       concession: null, noteToParent: "ค่าเรียนคณิตเดือนนี้", status: "paid", pdf: "ready", createdBy: "u_ploy", createdAt: iso(monthStart),
       approvedBy: "u_nock", sentAt: iso(monthStart), delivery: "delivered", receiptNumber: `RC-THL-${ym}-0001`,
       payments: [{ id: "pay_1", amount: 4500, method: "transfer", reference: "KBank 1234", recordedBy: "u_ploy", recordedAt: iso(monthStart), confirmedBy: "u_nock" }],
     },
     {
       id: "inv_pending", branchId: "br_thl", studentId: "stu_3", number: `INV-THL-${ym}-0002`,
-      lines: [{ id: "ln_2", courseId: "co_math5", classId: "cl_math5", startDate: addDays(today, 7), periods: 2 }], bus: [], bookFee: 350, advanceFee: 0,
+      lines: [{ id: "ln_2", courseId: "co_math5", classId: "cl_math5", startDate: addDays(today, 7), periods: 2 }], bus: [], bookFee: 350, advance: [],
       concession: null, noteToParent: "", status: "pending_approval", pdf: "ready", createdBy: "u_ploy", createdAt: iso(today), payments: [],
     },
     {
       id: "inv_draft", branchId: "br_thl", studentId: "stu_6", number: null,
-      lines: [{ id: "ln_3", courseId: "co_eng", classId: "cl_eng", startDate: today, periods: 1 }], bus: [], bookFee: 0, advanceFee: 0,
+      lines: [{ id: "ln_3", courseId: "co_eng", classId: "cl_eng", startDate: today, periods: 1 }], bus: [], bookFee: 0, advance: [],
       concession: { amount: 200, remark: "ลูกค้าเก่า ต่อคอร์สต่อเนื่อง" }, noteToParent: "", status: "draft", pdf: "none", createdBy: "u_ploy", createdAt: iso(today), payments: [],
     },
   ]

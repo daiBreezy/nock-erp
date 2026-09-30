@@ -14,6 +14,7 @@ export function invoiceMessage(inv: Invoice, totals: InvoiceTotals, ctx: { stude
     `นักเรียน: ${ctx.student.nickname} (${ctx.student.name}) · ${ctx.student.grade}`,
     ...totals.lines.map((l) => (l.course && l.quote ? `${l.course.name} · ${fmtDate(l.quote.from)} – ${fmtDate(l.quote.to, { year: true })} · ${l.quote.sessions.length} คาบ` : null)),
     totals.bus ? `ค่ารถ ${fmtMoney(totals.bus)}` : null,
+    ...inv.advance.map((a) => `${a.name} ${fmtMoney(a.amount)}`),
     ...totals.lines.filter((l) => l.promotion).map((l) => `ส่วนลด ${l.promotionName ?? "โปรโมชัน"} -${fmtMoney(l.promotion)}`),
     `ยอดชำระ ${fmtMoney(totals.total)}`,
     bankLine(ctx.branch),

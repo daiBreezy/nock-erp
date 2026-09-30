@@ -523,6 +523,12 @@ export interface BusLeg {
 }
 
 /** One course on an invoice (Staging: an invoice can carry several courses — each with its own class, start and periods). */
+export interface AdvanceItem {
+  feeId: ID
+  name: string
+  amount: number
+}
+
 export interface CourseLine {
   id: ID
   courseId: ID
@@ -542,8 +548,11 @@ export interface Invoice {
   /** courses bought on this invoice (empty = other fees only) */
   lines: CourseLine[]
   bus: BusLeg[]
+  /** bus fee type from General Fees (Standard / โซนไกล …) — unset = the branch's first bus type */
+  busFeeId?: ID | null
   bookFee: number
-  advanceFee: number
+  /** Advance Optional (Staging): entry / mock fees picked from General Fees — name + price copied so a later price change never rewrites an invoice */
+  advance: AdvanceItem[]
   concession: { amount: number; remark: string } | null
   /** auto-applied best promotion (id kept so the invoice shows which one) */
   promotionId?: ID | null
