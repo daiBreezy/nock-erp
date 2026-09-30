@@ -1,6 +1,6 @@
 // Regression tests: each case reproduces a bug found on Dev staging and proves the rule prevents it.
 import { describe, expect, it } from "vitest"
-import type { Assessment, Attendance, Branch, Course, Entitlement, Family, Lead, Student, FormOfferSlot, Holiday, Invoice, Klass, Session, Staff, StudentLeave, Weekday } from "../types"
+import type { Assessment, Attendance, Branch, Course, Entitlement, Family, FormSubmission, Lead, Student, FormOfferSlot, Holiday, Invoice, Klass, Session, Staff, StudentLeave, Weekday } from "../types"
 import { applyClassEdit, applyToSessions, canChangeTeachers, canRescheduleStudent, mondayOf, removedWithClass, canSave, closesBranch, holidayImpact, hoursFor, isHoliday, overlappingRows, periodsIn, introducedConflicts, editSingleSession, findConflicts, generateSessions, moveSession, sessionState, validateClass, workState } from "./scheduling"
 import { activeLeave, balance, studentState, leaveLedger, packageCovers, canMark, canSaveLeave, coveringEntitlement, effectiveTo, leavesUsed, lowBalanceAlert, removeFromClass, resolveEntitlements } from "./attendance"
 import { bestPromotion, invoiceTotals, validateInvoiceDraft, canApprove, canConfirmPayment, canForceApprove, canForceConfirmPayment, canSend, canVoid, defaultBusLegs, busTotal, nextInvoiceNumber, quoteCourse } from "./billing"
@@ -9,7 +9,7 @@ import { chartPrice, defaultCourseName, validateCourse } from "./course"
 import { busRate, copyHours, priceOf, priceRange, setPrice, validateBranchInfo, validateDurations, validateHoliday, validatePromotion, validateSpecialPeriods, everyDay } from "./settings"
 import { forceAudience, isUnread, messageAudience, notify, validateMessage, visibleTo } from "./notifications"
 import * as Sum from "./summaries"
-import { familyFromLead, futureSessionsOf, matchExistingFamily, nicknameFrom, searchStudents, studentLabel, validateFamily, validateStaff, validateStudent } from "./people"
+import { familyFromLead, futureSessionsOf, matchExistingFamily, mergeSubmission, nicknameFrom, searchStudents, studentLabel, submissionChanges, validateFamily, validateStaff, validateStudent } from "./people"
 import { suggestFixes } from "./suggest"
 import { advanceStage, canSetStage, daysAgo, groupOf, restoreStage, validateLead } from "./crm"
 import { APPROVE_STAGE, ATTENDED_STAGE, buildFormPrefill, commonSlots, buildCombinedSessionDraft, buildSessionDraftFromSlot, findOfferSlots, lastAssessmentDate, openHourStarts, sessionKindLabel } from "./forms"
@@ -933,5 +933,29 @@ describe("admin offers know which hours can become a 2-hour visit", () => {
     const slots = findOfferSlots({ branch, staff: [teacher], sessions: [], classes: [], holidays: [], subject: "Maths", from: "2026-10-06", to: "2026-10-06", now: new Date(2026, 9, 1), minutes: 60 })
     expect(slots.find((x) => x.start === "19:00")?.fits2h).toBe(false)
     expect(slots.find((x) => x.start === "13:00")?.fits2h).toBe(true)
+  })
+})
+
+describe("returning family edits details in a form (owner 2026-09-30)", () => {
+  const family: Family = { id: "f", name: "ครอบครัวใจดี", parents: [{ name: "สมชาย ใจดี", phone: "089-555-1212", lineLinked: true, primary: true }], address: "123 สุขุมวิท", sources: ["walkin"] }
+  const student: Student = { id: "s", familyId: "f", branchId: "b1", name: "ภูมิ ใจดี", nickname: "ภูมิ", grade: "ป.5", usesBus: false, createdAt: "", createdBranchId: "b1" }
+  const sub = (p: Partial<FormSubmission>): FormSubmission => ({
+    id: "x", token: "t", type: "trial", groupId: "g", primaryLeadId: "l", leadId: "l", branchId: "b1", conversationId: null, lineUserId: "U",
+    parents: [{ name: "สมชาย ใจดี", phone: "0895551212", email: "som@mail.com" }], studentName: "ภูมิ ใจดี", studentGrade: "ป.6", picks: [], status: "pending", submittedAt: "", ...p,
+  })
+
+  it("lists only what really changed; blanks never erase", () => {
+    const c = submissionChanges(family, student, sub({ familyAddress: "", studentSchool: "สาธิต", acquisitions: ["walkin", "facebook"] }))
+    expect(c.map((x) => x.label)).toEqual(["ผู้ปกครอง สมชาย ใจดี: อีเมล", "รู้จักเราจาก", "นักเรียน: ชั้น", "นักเรียน: โรงเรียน"])
+    expect(submissionChanges(family, student, sub({ parents: [{ name: "สมชาย ใจดี", phone: "089-555-1212" }], studentGrade: "ป.5" }))).toEqual([])
+  })
+
+  it("merge keeps what's on file for blank answers, adds a new parent, unions sources", () => {
+    const m = mergeSubmission(family, student, sub({ parents: [{ name: "สมชาย ใจดี", phone: "0895551212", email: "som@mail.com" }, { name: "สมหญิง ใจดี", phone: "0811112222" }], familyAddress: "", acquisitions: ["facebook"] }))
+    expect(m.family?.address).toBe("123 สุขุมวิท")
+    expect(m.family?.parents.map((p) => p.name)).toEqual(["สมชาย ใจดี", "สมหญิง ใจดี"])
+    expect(m.family?.parents[0].email).toBe("som@mail.com")
+    expect(m.family?.sources).toEqual(["walkin", "facebook"])
+    expect(m.student?.grade).toBe("ป.6")
   })
 })

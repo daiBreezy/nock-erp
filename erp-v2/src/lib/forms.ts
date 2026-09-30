@@ -46,8 +46,8 @@ export async function sendTestTrialForm(input: {
  *  already merged into one shared 2-hour room block by `submitForm` — no cross-submission grouping is
  *  needed here since each `FormSubmission` row is already one whole child (see `groupId` for how staff
  *  can tell "these children arrived together" without approval being forced to happen together too). */
-export async function approveSubmission(sub: FormSubmission): Promise<Result<{ sessionId: ID; studentId: ID; leadId: ID }>> {
-  const r = useStore.getState().approveTestTrialSubmission(sub)
+export async function approveSubmission(sub: FormSubmission, opts?: { applyChanges?: boolean }): Promise<Result<{ sessionId: ID; studentId: ID; leadId: ID }>> {
+  const r = useStore.getState().approveTestTrialSubmission(sub, opts)
   if (!r.ok) return r
   await postJson("/api/forms/review", { id: sub.id, status: "approved", sessionId: r.value.sessionId, studentId: r.value.studentId })
   return r

@@ -1,7 +1,7 @@
 // Families, students, staff and LINE linking (S4, S5, S6, F2, Flow E).
 
 import { addDays } from "../dates"
-import type { DateStr, Family, FormParentInput, ID, Lead, Result, Session, Staff, Student } from "../types"
+import type { DateStr, Family, FormParentInput, FormSubmission, ID, Lead, Result, Session, Staff, Student } from "../types"
 import { teachersOf } from "./scheduling"
 
 const digits = (s: string) => s.replace(/\D/g, "")
@@ -217,4 +217,80 @@ export function studentChanges(a: Student, b: Student, familyName: (id: string) 
   f("ครอบครัว", a.familyId, b.familyId, (v) => (v ? familyName(String(v)) : "—"))
   f("หมายเหตุ", a.note, b.note)
   return out
+}
+
+// ---------- a returning family edits its details in a form (owner 2026-09-30) ----------
+
+export interface FormChange { key: string; label: string; from: string; to: string }
+
+const sameDigits = (a?: string, b?: string) => !!a && !!b && digits(a) === digits(b)
+const put = (out: FormChange[], key: string, label: string, from: string | undefined, to: string | undefined) => {
+  // an empty answer keeps what we have — a form never erases data on file
+  if (to?.trim() && to.trim() !== (from ?? "").trim()) out.push({ key, label, from: from?.trim() || "—", to: to.trim() })
+}
+
+/** What the form says differently from the family/student on file — shown to staff before anything is overwritten. */
+export function submissionChanges(family: Family | undefined, student: Student | undefined, sub: FormSubmission): FormChange[] {
+  const out: FormChange[] = []
+  if (family) {
+    sub.parents.forEach((p, i) => {
+      const cur = family.parents.find((x) => sameDigits(x.phone, p.phone) || x.name.trim() === p.name.trim())
+      if (!cur) return void out.push({ key: `parent${i}`, label: "เพิ่มผู้ปกครอง", from: "—", to: `${p.name} · ${p.phone}` })
+      const who = `ผู้ปกครอง ${cur.name}`
+      put(out, `parent${i}.name`, `${who}: ชื่อ`, cur.name, p.name)
+      if (!sameDigits(cur.phone, p.phone)) put(out, `parent${i}.phone`, `${who}: เบอร์หลัก`, cur.phone, p.phone)
+      put(out, `parent${i}.email`, `${who}: อีเมล`, cur.email, p.email)
+      put(out, `parent${i}.lineId`, `${who}: LINE ID`, cur.lineId, p.lineId)
+      put(out, `parent${i}.relationship`, `${who}: ความสัมพันธ์`, cur.relationship, p.relationship)
+      put(out, `parent${i}.birthDate`, `${who}: วันเกิด`, cur.birthDate, p.birthDate)
+      const added = (p.altPhones ?? []).filter((x) => x.trim() && ![cur.phone, ...(cur.altPhones ?? [])].some((y) => sameDigits(x, y)))
+      if (added.length) out.push({ key: `parent${i}.altPhones`, label: `${who}: เบอร์เพิ่ม`, from: (cur.altPhones ?? []).join(", ") || "—", to: [...(cur.altPhones ?? []), ...added].join(", ") })
+    })
+    put(out, "address", "ที่อยู่", family.address, sub.familyAddress)
+    put(out, "province", "จังหวัด", family.province, sub.familyProvince)
+    put(out, "postcode", "รหัสไปรษณีย์", family.postcode, sub.familyPostcode)
+    put(out, "addressNote", "รายละเอียดที่อยู่", family.addressNote, sub.familyAddressNote)
+    const loc = (l?: { lat: number; lng: number }) => (l ? `${l.lat.toFixed(5)}, ${l.lng.toFixed(5)}` : undefined)
+    put(out, "location", "หมุดแผนที่", loc(family.location), loc(sub.familyLocation))
+    const newSources = (sub.acquisitions ?? []).filter((x) => !(family.sources ?? []).includes(x))
+    if (newSources.length) out.push({ key: "sources", label: "รู้จักเราจาก", from: (family.sources ?? []).join(", ") || "—", to: [...(family.sources ?? []), ...newSources].join(", ") })
+    if (sub.taxInfo?.taxId && sub.taxInfo.taxId !== family.taxInfo?.taxId) out.push({ key: "taxInfo", label: "ใบกำกับภาษี", from: family.taxInfo ? `${family.taxInfo.customerName} · ${family.taxInfo.taxId}` : "—", to: `${sub.taxInfo.customerName} · ${sub.taxInfo.taxId}` })
+  }
+  if (student) {
+    put(out, "student.name", "นักเรียน: ชื่อ", student.name, sub.studentName)
+    put(out, "student.nickname", "นักเรียน: ชื่อเล่น", student.nickname, sub.studentNickname)
+    put(out, "student.grade", "นักเรียน: ชั้น", student.grade, sub.studentGrade)
+    put(out, "student.birthDate", "นักเรียน: วันเกิด", student.birthDate, sub.studentBirthDate)
+    put(out, "student.school", "นักเรียน: โรงเรียน", student.school, sub.studentSchool)
+    put(out, "student.note", "นักเรียน: หมายเหตุ", student.note, sub.studentNote)
+  }
+  return out
+}
+
+/** Apply the form's non-empty answers onto what's on file (after staff confirmed). New parents are appended. */
+export function mergeSubmission(family: Family | undefined, student: Student | undefined, sub: FormSubmission): { family?: Family; student?: Student } {
+  const keep = <T,>(cur: T, next: T | undefined) => (typeof next === "string" ? (next.trim() ? next.trim() : cur) : next ?? cur)
+  let f = family
+  if (f) {
+    const parents = [...f.parents]
+    for (const p of sub.parents) {
+      const i = parents.findIndex((x) => sameDigits(x.phone, p.phone) || x.name.trim() === p.name.trim())
+      if (i < 0) { parents.push({ name: p.name.trim(), phone: formatPhone(p.phone), email: p.email, relationship: p.relationship, birthDate: p.birthDate, lineId: p.lineId, altPhones: p.altPhones, lineLinked: false, primary: false }); continue }
+      const cur = parents[i]
+      const alt = [...(cur.altPhones ?? []), ...(p.altPhones ?? []).filter((x) => x.trim() && ![cur.phone, ...(cur.altPhones ?? [])].some((y) => sameDigits(x, y)))]
+      parents[i] = { ...cur, name: keep(cur.name, p.name), phone: p.phone?.trim() ? formatPhone(p.phone) : cur.phone, email: keep(cur.email, p.email), lineId: keep(cur.lineId, p.lineId), relationship: keep(cur.relationship, p.relationship), birthDate: keep(cur.birthDate, p.birthDate), altPhones: alt.length ? alt : undefined }
+    }
+    f = {
+      ...f, parents,
+      address: keep(f.address, sub.familyAddress), province: keep(f.province, sub.familyProvince), postcode: keep(f.postcode, sub.familyPostcode),
+      addressNote: keep(f.addressNote, sub.familyAddressNote), location: sub.familyLocation ?? f.location,
+      sources: [...new Set([...(f.sources ?? []), ...(sub.acquisitions ?? [])])],
+      taxInfo: sub.taxInfo?.taxId ? sub.taxInfo : f.taxInfo,
+    }
+  }
+  const st = student && {
+    ...student, name: keep(student.name, sub.studentName), nickname: keep(student.nickname, sub.studentNickname), grade: keep(student.grade, sub.studentGrade),
+    birthDate: keep(student.birthDate, sub.studentBirthDate), school: keep(student.school, sub.studentSchool), note: keep(student.note, sub.studentNote),
+  }
+  return { family: f, student: st }
 }

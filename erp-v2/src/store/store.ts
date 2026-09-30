@@ -121,7 +121,8 @@ type Store = DB & UIState & {
    *  existing class's session); when that child picked 2+ generic subjects at the exact same date/time,
    *  its own `picks[]` already carries all of them, merged here into one shared 2-hour room block.
    *  Lazily creates that child's Lead first if this is an "Add another Student" child (`leadId: null`). */
-  approveTestTrialSubmission: (sub: FormSubmission) => Result<{ sessionId: ID; studentId: ID; leadId: ID }>
+  /** applyChanges: the parent edited details of a family/child we already have — staff confirmed updating them */
+  approveTestTrialSubmission: (sub: FormSubmission, opts?: { applyChanges?: boolean }) => Result<{ sessionId: ID; studentId: ID; leadId: ID }>
 
   openConversation: (id: ID) => void
   assignConversation: (id: ID, staffId: ID | null) => Result
@@ -1216,7 +1217,7 @@ export const useStore = create<Store>()(
         return OK
       },
 
-      approveTestTrialSubmission: (sub) => {
+      approveTestTrialSubmission: (sub, opts) => {
         const s = get()
         const perm = requirePerm(s.me(), "session.manage")
         if (!perm.ok) return perm
@@ -1244,6 +1245,7 @@ export const useStore = create<Store>()(
         // reuse the one Student per lead, created lazily on first approval — persisted immediately
         // so the addStudentToSession/addSession calls below see it via their own get()
         let studentId = lead.trialStudentId
+        const returningStudentId = studentId
         if (!studentId) {
           const student: Student = {
             id: uid("stu"), familyId: null, branchId: lead.branchId,
@@ -1268,6 +1270,23 @@ export const useStore = create<Store>()(
           studentId = student.id
           set((cur) => ({ students: [...cur.students, student] }))
           log("profile", [student.id], "สร้างนักเรียน", `จากฟอร์ม${Forms.FORM_TYPE_LABEL[sub.type]} · Lead ${lead!.name} · ${student.grade}`)
+        }
+
+        // returning family/child edited their details in the form → update what's on file (staff confirmed)
+        if (opts?.applyChanges) {
+          const st = get()
+          const stu = returningStudentId ? st.students.find((x) => x.id === returningStudentId) : undefined
+          const famId = (stu ?? st.students.find((x) => x.id === studentId))?.familyId
+          const fam = s.families.find((f) => f.id === famId) ? st.families.find((f) => f.id === famId) : undefined // only a family that existed before this approval
+          const changes = People.submissionChanges(fam, stu, sub)
+          if (changes.length) {
+            const m = People.mergeSubmission(fam, stu, sub)
+            set((cur) => ({
+              families: m.family ? cur.families.map((f) => (f.id === m.family!.id ? m.family! : f)) : cur.families,
+              students: m.student ? cur.students.map((x) => (x.id === m.student!.id ? m.student! : x)) : cur.students,
+            }))
+            log("profile", [studentId], "อัปเดตข้อมูลจากฟอร์ม", changes.map((c) => `${c.label}: ${c.from} → ${c.to}`).join(" · "))
+          }
         }
 
         let sessionId: ID

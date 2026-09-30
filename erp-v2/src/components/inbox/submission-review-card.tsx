@@ -7,7 +7,8 @@ import { Pill, type Tone } from "@/components/app/badges"
 import { Button } from "@/components/ui/button"
 import { fmtDate } from "@/domain/dates"
 import { FORM_TYPE_LABEL } from "@/domain/rules/forms"
-import { matchExistingFamily } from "@/domain/rules/people"
+import { matchExistingFamily, submissionChanges } from "@/domain/rules/people"
+import { Checkbox } from "@/components/ui/checkbox"
 import type { FormOfferSlot, FormSubmission } from "@/domain/types"
 import { approveSubmission, editSubmissionSlot, rejectSubmission } from "@/lib/forms"
 import { report } from "@/lib/feedback"
@@ -31,6 +32,8 @@ export function SubmissionReviewCard({ submission: sub, onChanged }: { submissio
   const classes = useStore((s) => s.classes)
   const holidays = useStore((s) => s.holidays)
   const families = useStore((s) => s.families)
+  const leads = useStore((s) => s.leads)
+  const students = useStore((s) => s.students)
   const now = useNow()
 
   const [editingPick, setEditingPick] = useState<number | null>(null)
@@ -39,11 +42,16 @@ export function SubmissionReviewCard({ submission: sub, onChanged }: { submissio
   const [busy, setBusy] = useState(false)
 
   const matchedFamily = sub.status === "pending" ? matchExistingFamily(families, { lineUserId: sub.lineUserId, phones: sub.parents.map((p) => p.phone) }) : null
+  // a child we already know (test → trial) or a family on file: what did the parent change in this form?
+  const knownStudent = students.find((x) => x.id === leads.find((l) => l.id === sub.leadId)?.trialStudentId)
+  const knownFamily = families.find((f) => f.id === knownStudent?.familyId) ?? matchedFamily ?? undefined
+  const changes = sub.status === "pending" ? submissionChanges(knownFamily, knownStudent, sub) : []
+  const [applyChanges, setApplyChanges] = useState(true)
 
   const approve = async () => {
     setBusy(true)
     try {
-      if (report(await approveSubmission(sub), "อนุมัติแล้ว — สร้างคาบเรียนจริงแล้ว")) onChanged()
+      if (report(await approveSubmission(sub, { applyChanges: changes.length > 0 && applyChanges }), changes.length && applyChanges ? `อนุมัติแล้ว + อัปเดตข้อมูล ${changes.length} รายการ` : "อนุมัติแล้ว — สร้างคาบเรียนจริงแล้ว")) onChanged()
     } finally {
       setBusy(false)
     }
@@ -109,6 +117,16 @@ export function SubmissionReviewCard({ submission: sub, onChanged }: { submissio
         <p className="mt-1.5 flex items-start gap-1 rounded-lg bg-sky-50 p-1.5 text-[11px] text-sky-900 dark:bg-sky-950 dark:text-sky-200">
           <UserRoundSearchIcon className="mt-0.5 size-3 shrink-0" /> พบครอบครัว &quot;{matchedFamily.name}&quot; ที่มีอยู่แล้ว (เบอร์/LINE ตรงกัน) — กดอนุมัติจะผูกนักเรียนคนนี้เข้าครอบครัวเดิม ไม่สร้างซ้ำ
         </p>
+      )}
+
+      {changes.length > 0 && (
+        <div className="mt-1.5 space-y-1 rounded-lg border border-amber-300 bg-amber-50 p-2 text-[11px] text-amber-950 dark:bg-amber-950/40 dark:text-amber-100">
+          <p className="font-semibold">ผู้ปกครองแก้ข้อมูลในฟอร์ม {changes.length} รายการ{knownFamily ? ` · ${knownFamily.name}` : ""}</p>
+          <ul className="space-y-0.5">
+            {changes.map((c) => <li key={c.key}>{c.label}: <span className="line-through opacity-60">{c.from}</span> → <b>{c.to}</b></li>)}
+          </ul>
+          <label className="flex items-center gap-1.5 pt-0.5 font-medium"><Checkbox checked={applyChanges} onCheckedChange={(v) => setApplyChanges(!!v)} /> อัปเดตข้อมูลในระบบตามนี้ตอนอนุมัติ</label>
+        </div>
       )}
 
       {sub.status === "pending" && editingPick === null && (
