@@ -1328,3 +1328,29 @@ describe("lesson summary: Book / Topic / Lesson Detail / Feedback (owner 2026-09
     expect(text).toContain("ตั้งใจเรียนดีมาก")
   })
 })
+
+describe("Sales Tax Report (owner file, 2026-09-30)", () => {
+  const pay = (at: string) => [{ id: "p", amount: 1000, method: "transfer" as const, reference: "", recordedBy: "a", recordedAt: `${at}T09:00:00Z`, confirmedBy: "m" }]
+  const inv = (id: string, number: string, status: Invoice["status"], paidOn: string | null, branchId = "b1"): Invoice => ({ id, branchId, studentId: "s1", number, lines: [], bus: [], bookFee: 1000, advance: [], concession: null, noteToParent: "", status, pdf: "ready", createdBy: "adm", createdAt: "2026-09-01T00:00:00Z", payments: paidOn ? pay(paidOn) : [] })
+  const ctx = (invoices: Invoice[], creditNotes: CreditNote[] = []) => ({
+    invoices, creditNotes, students: [{ id: "s1", name: "ด.ช. ภูมิ ใจดี", familyId: null }], families: [],
+    branches: [{ id: "b1", brand: "nockacademy" as const }, { id: "b2", brand: "liclass" as const }], totalOf: (i: Invoice) => i.bookFee,
+  })
+
+  it("paid invoices on the day the money came in, statement order; unpaid ones are left out", () => {
+    const rows = Doc.salesTaxRows("2026-10", ctx([
+      inv("a", "691001-01-001-0002", "paid", "2026-10-05"), inv("b", "690930-02-001-0001", "paid", "2026-10-02", "b2"),
+      inv("c", "690930-01-001-0001", "paid", "2026-09-30"), inv("d", "691001-01-001-0003", "sent", null),
+    ]))
+    expect(rows.map((r) => [r.date, r.number, r.business])).toEqual([["2026-10-02", "690930-02-001-0001", "liclass"], ["2026-10-05", "691001-01-001-0002", "nockacademy"]])
+    expect(rows[0].customer).toBe("ด.ช. ภูมิ ใจดี")
+  })
+
+  it("approved credit notes are negative rows in the month issued, pointing at the invoice; totals per business", () => {
+    const cn: CreditNote = { id: "cn", branchId: "b1", studentId: "s1", invoiceId: "a", number: "CN-691010-01-001-0001", mode: "refund", items: [{ key: "book", label: "ค่าหนังสือ", amount: 400 }], reasons: [], remark: "x", status: "approved", createdBy: "adm", createdAt: "2026-10-10T00:00:00Z" }
+    const rows = Doc.salesTaxRows("2026-10", ctx([inv("a", "691001-01-001-0002", "paid", "2026-10-05"), inv("b", "690930-02-001-0001", "paid", "2026-10-02", "b2")], [cn, { ...cn, id: "x", status: "pending_approval" }]))
+    expect(rows.find((r) => r.number.startsWith("CN"))).toMatchObject({ amount: -400, ref: "691001-01-001-0002" })
+    expect(rows).toHaveLength(3)
+    expect(Doc.salesTaxTotals(rows)).toEqual({ total: 1600, byBusiness: [{ business: "liclass", amount: 1000 }, { business: "nockacademy", amount: 600 }] })
+  })
+})

@@ -86,3 +86,50 @@ export const preparedBy = (inv: Pick<Invoice, "createdBy">, staff: Pick<Staff, "
 
 /** File name like the template: "<number> <customer name>" */
 export const documentFileName = (number: string, customer: string) => `${number} ${customer}`.replace(/[\\/:*?"<>|]/g, "").trim()
+
+// ---------- Sales Tax Report (owner file "Sales Tax report.xlsx") ----------
+
+export const BUSINESS_LABEL: Record<Branch["brand"], string> = { nockacademy: "NockAcademy", liclass: "Liclass" }
+
+export interface SalesTaxRow {
+  date: DateStr
+  number: string
+  customer: string
+  amount: number
+  business: Branch["brand"]
+  branchId: string
+  /** credit notes: the invoice they reduce */
+  ref?: string
+}
+
+/**
+ * One month of the report, for the whole company (Liclass Education issues every document — owner 2026-09-30):
+ * every invoice paid in the month on the day the money came in, plus approved credit notes as negative rows in the
+ * month they were issued (referring to the invoice they reduce). Sorted like the bank statement: by date, then number.
+ */
+export function salesTaxRows(month: string, ctx: {
+  invoices: Invoice[]; creditNotes: CreditNote[]; students: Pick<Student, "id" | "name" | "familyId">[]; families: Pick<Family, "id" | "taxInfo" | "address" | "postcode">[]
+  branches: Pick<Branch, "id" | "brand">[]; totalOf: (inv: Invoice) => number
+}): SalesTaxRow[] {
+  const who = (studentId: string) => {
+    const stu = ctx.students.find((s) => s.id === studentId)
+    return stu ? customerOf(stu, ctx.families.find((f) => f.id === stu.familyId)).name : "—"
+  }
+  const brand = (branchId: string) => ctx.branches.find((b) => b.id === branchId)?.brand ?? "nockacademy"
+  const paid = ctx.invoices
+    .filter((i) => i.status === "paid" && i.number)
+    .map((i) => ({ i, date: receiptDate(i) }))
+    .filter((x): x is { i: Invoice; date: DateStr } => !!x.date && x.date.startsWith(month))
+    .map(({ i, date }) => ({ date, number: i.number!, customer: who(i.studentId), amount: ctx.totalOf(i), business: brand(i.branchId), branchId: i.branchId }))
+  const credits = ctx.creditNotes
+    .filter((n) => n.status === "approved" && n.createdAt.slice(0, 7) === month)
+    .map((n) => ({ date: n.createdAt.slice(0, 10), number: n.number, customer: who(n.studentId), amount: -n.items.reduce((a, x) => a + x.amount, 0), business: brand(n.branchId), branchId: n.branchId, ref: ctx.invoices.find((i) => i.id === n.invoiceId)?.number ?? undefined }))
+  return [...paid, ...credits].sort((a, b) => a.date.localeCompare(b.date) || a.number.localeCompare(b.number))
+}
+
+/** Totals per business line at the foot of each month (the owner's sheet sums Liclass / NA separately). */
+export function salesTaxTotals(rows: SalesTaxRow[]) {
+  const by = new Map<Branch["brand"], number>()
+  rows.forEach((r) => by.set(r.business, (by.get(r.business) ?? 0) + r.amount))
+  return { total: rows.reduce((a, r) => a + r.amount, 0), byBusiness: [...by.entries()].map(([business, amount]) => ({ business, amount })) }
+}
