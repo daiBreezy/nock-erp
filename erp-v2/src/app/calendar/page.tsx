@@ -10,6 +10,7 @@ import { NativeSelect } from "@/components/app/native-select"
 import { SessionSheet } from "@/components/app/session-sheet"
 import { subjectColor } from "@/components/app/subject-color"
 import { WORK_ORDER, WorkChip } from "@/components/app/work-state"
+import { DayBoard } from "@/components/calendar/day-board"
 import { MoveDialog } from "@/components/calendar/move-dialog"
 import { WeekTeacherBoard } from "@/components/calendar/week-teacher-board"
 import type { CardData } from "@/components/calendar/class-card"
@@ -26,8 +27,8 @@ import { sessionKindLabel } from "@/domain/rules/forms"
 import { GradeChips } from "@/components/app/grade-chips"
 import { removedWithClass } from "@/domain/rules/scheduling"
 
-/** "board" = the teacher × block table for the whole week, shown as "วัน" and the default (owner 2026-09-30 — the
- *  old single-day board was removed) */
+/** "board" = "วัน" (default): two ways to look at days, switchable — the teacher × block table for the whole week, or
+ *  the original single-day board (lanes by teacher/room, drag & drop) — owner 2026-09-30 */
 type View = "week" | "board" | "month" | "list"
 const HOUR_PX = 56
 const DAY_START = 8 * 60
@@ -53,6 +54,17 @@ function CalendarView() {
   const linkedSession = useSearchParams().get("sessionId")
 
   const [view, setView] = useState<View>("board")
+  const [dayMode, setDayMode] = useState<"table" | "single">("table")
+  const [lane, setLane] = useState<"room" | "teacher">("teacher")
+  // per-viewer preference: show every slot, or only real classes
+  const [onlyBooked, setOnlyBooked] = useState(() => {
+    try { return localStorage.getItem("cal.onlyBooked") === "1" } catch { return false }
+  })
+  const toggleBooked = (v: boolean) => {
+    setOnlyBooked(v)
+    try { localStorage.setItem("cal.onlyBooked", v ? "1" : "0") } catch {}
+  }
+  const single = view === "board" && dayMode === "single"
   const [anchor, setAnchor] = useState(() => (linkedSession && allSessions.find((x) => x.id === linkedSession)?.date) || today)
   // everyone sees every session by default; teachers get a one-tap "only mine" filter
   const [teacher, setTeacher] = useState("all")
@@ -63,6 +75,7 @@ function CalendarView() {
   const [workFilter, setWorkFilter] = useState<WorkState | null>(null)
   // per-viewer preference: show every slot, or only real classes
   const range = useMemo(() => {
+    if (single) return { from: anchor, to: anchor, title: fmtDate(anchor, { weekday: true, year: true }) }
     if (view === "week" || view === "board") {
       const m = mondayOf(anchor)
       return { from: m, to: addDays(m, 6), title: `${fmtDate(m)} – ${fmtDate(addDays(m, 6), { year: true })}` } // E6: label = date range
@@ -73,7 +86,7 @@ function CalendarView() {
       return { from, to: addDays(from, 41), title: fmtMonth(first) }
     }
     return { from: anchor, to: addDays(anchor, 13), title: `${fmtDate(anchor)} – ${fmtDate(addDays(anchor, 13), { year: true })}` }
-  }, [view, anchor])
+  }, [view, anchor, single])
 
   const branchSessions = useMemo(() => allSessions.filter((s) => s.branchId === branch.id && !removedWithClass(s, classes)), [allSessions, branch.id, classes])
   const visible = useMemo(
@@ -95,7 +108,7 @@ function CalendarView() {
     return out
   }, [range, branch.id, holidays])
 
-  const step = (dir: number) => setAnchor((a) => (view === "week" || view === "board" ? addDays(a, 7 * dir) : view === "month" ? toDateStr(new Date(parseDate(a).getFullYear(), parseDate(a).getMonth() + dir, 1)) : addDays(a, 14 * dir)))
+  const step = (dir: number) => setAnchor((a) => (single ? addDays(a, dir) : view === "week" || view === "board" ? addDays(a, 7 * dir) : view === "month" ? toDateStr(new Date(parseDate(a).getFullYear(), parseDate(a).getMonth() + dir, 1)) : addDays(a, 14 * dir)))
   // from week/month: open that day on the board (same week) and scroll to it
   const openDay = (d: DateStr) => { setAnchor(d); setView("board"); setTimeout(() => document.getElementById(`day-${d}`)?.scrollIntoView({ behavior: "smooth" }), 80) }
   const canCreate = can(me, "class.manage")
@@ -161,6 +174,24 @@ function CalendarView() {
       <div className="flex flex-wrap items-center gap-2">
         <NativeSelect className="h-9 w-40" value={teacher} onChange={(e) => setTeacher(e.target.value)} options={teacherOptions} />
         <NativeSelect className="h-9 w-32" value={subject} onChange={(e) => setSubject(e.target.value)} options={[{ value: "all", label: "ทุกวิชา" }, ...branch.subjects.map((s) => ({ value: s, label: s }))]} />
+        {view === "board" && (
+          <ToggleGroup value={[dayMode]} onValueChange={(v) => v[0] && setDayMode(v[0] as "table" | "single")} variant="outline" size="sm">
+            <ToggleGroupItem value="table">ตารางครู (ทั้งสัปดาห์)</ToggleGroupItem>
+            <ToggleGroupItem value="single">รายวัน</ToggleGroupItem>
+          </ToggleGroup>
+        )}
+        {single && (
+          <ToggleGroup value={[lane]} onValueChange={(v) => v[0] && setLane(v[0] as "room" | "teacher")} variant="outline" size="sm">
+            <ToggleGroupItem value="teacher">แยกตามครู</ToggleGroupItem>
+            <ToggleGroupItem value="room">แยกตามห้อง</ToggleGroupItem>
+          </ToggleGroup>
+        )}
+        {single && (
+          <ToggleGroup value={[onlyBooked ? "booked" : "all"]} onValueChange={(v) => v[0] && toggleBooked(v[0] === "booked")} variant="outline" size="sm">
+            <ToggleGroupItem value="all">ทุกช่วงเวลา</ToggleGroupItem>
+            <ToggleGroupItem value="booked">เฉพาะที่มีคลาส</ToggleGroupItem>
+          </ToggleGroup>
+        )}
         {/* status as a dropdown chip, like teachers / subjects (owner 2026-09-30) */}
         <NativeSelect className="h-9 w-44" value={workFilter ?? ""} onChange={(e) => setWorkFilter((e.target.value || null) as WorkState | null)}
           placeholder={`ทุกสถานะ (${visible.filter((x) => !x.cancelled).length})`}
@@ -190,7 +221,8 @@ function CalendarView() {
       )}
 
       {view === "week" && <WeekView from={range.from} sessions={visible} onDay={openDay} today={today} {...cardProps} dim={cardData.dim} />}
-      {view === "board" && <WeekTeacherBoard from={range.from} sessions={workFilter ? visible.filter((x) => workState(x, now, attendance, summaries).state === workFilter) : visible} onOpen={setOpenId} onSlot={setPrefill} canCreate={canCreate} />}
+      {single && <DayBoard date={anchor} sessions={visible} laneMode={lane} canCreate={canCreate} onSlot={setPrefill} onMove={cardProps.onMove} d={cardData} onlyBooked={onlyBooked} />}
+      {view === "board" && !single && <WeekTeacherBoard from={range.from} sessions={workFilter ? visible.filter((x) => workState(x, now, attendance, summaries).state === workFilter) : visible} onOpen={setOpenId} onSlot={setPrefill} canCreate={canCreate} />}
       {view === "month" && <MonthView from={range.from} month={anchor.slice(0, 7)} sessions={visible} onDay={openDay} today={today} conflictIds={conflictIds} />}
       {view === "list" && <ListView from={range.from} to={range.to} sessions={visible} {...cardProps} />}
 
