@@ -129,6 +129,16 @@ export function leaveLedger(e: Entitlement, ctx: MakeUpCtx, leaves: StudentLeave
     .map((s) => (marks.get(s.id)?.noQuota ? { sessionId: s.id, date: s.date, quota: false, noQuota: true } : { sessionId: s.id, date: s.date, quota: used++ < q }))
 }
 
+/** A leave for several sessions ("ลา 3 คาบ", owner 2026-09-30): this session and the student's next ones in the same
+ *  classes (the package's classes), in time order, skipping cancelled ones. */
+export function leaveRunSessions(studentId: ID, from: Pick<Session, "date" | "start">, sessions: Session[], classIds: ID[], count: number): Session[] {
+  const key = from.date + from.start
+  return sessions
+    .filter((s) => !s.cancelled && s.studentIds.includes(studentId) && !!s.classId && classIds.includes(s.classId) && s.date + s.start >= key)
+    .sort((a, b) => (a.date + a.start).localeCompare(b.date + b.start))
+    .slice(0, Math.max(0, count))
+}
+
 /** Sessions cancelled because the teacher was on leave with no substitute — each one the student was booked into
  *  makes their package run one class longer (owner 2026-09-30). */
 export function teacherLeaveCancels(e: Entitlement, sessions: Session[]): Session[] {

@@ -91,6 +91,9 @@ type Store = DB & UIState & {
   /** the teacher is on leave: a substitute takes the session, or (no substitute) it is cancelled and every student's
    *  package runs one class longer */
   teacherLeave: (sessionId: ID, input: { reason: string; substituteId: ID | null }) => Result<{ extended: number }>
+  /** leave for N sessions from this one (or the group this session belongs to) — count 0 clears the group.
+   *  Editable any time: fewer = came back early, more = longer leave. Closed sessions keep their marks. */
+  markLeave: (sessionId: ID, studentId: ID, input: { count: number; noQuota: boolean }) => Result<{ marked: number }>
   clearMark: (sessionId: ID, studentId: ID) => Result
   /** present but only part of the time (came 1 of 2 hours) — null = their usual part */
   setAttendedMinutes: (sessionId: ID, studentId: ID, minutes: number | null) => Result
@@ -883,6 +886,38 @@ export const useStore = create<Store>()(
         se.studentIds.forEach((sid) => syncMakeUp(sid, before.get(sid)!))
         log("class", se.studentIds, "ครูลา · ยกเลิกคาบ", `${se.subject} ${fmtDate(se.date)} ${se.start} · ${who} ลา (${reason.trim()}) · เลื่อนวันจบคอร์สให้นักเรียน ${se.studentIds.length} คน`, true)
         return { ok: true, value: { extended: se.studentIds.length } }
+      },
+
+      markLeave: (sessionId, studentId, { count, noQuota }) => {
+        const s = get()
+        const me = s.me()
+        if (!can(me, "attendance.mark")) return fail("คุณไม่มีสิทธิ์เช็คชื่อ")
+        if (!Number.isInteger(count) || count < 0 || count > 60) return fail("จำนวนคาบลา 1–60")
+        const se = s.sessions.find((x) => x.id === sessionId)
+        if (!se) return fail("ไม่พบคาบเรียน")
+        const now = s.now()
+        const cur = s.attendance.find((a) => a.sessionId === sessionId && a.studentId === studentId)
+        const groupId = cur?.leaveGroup ?? uid("lv")
+        const inGroup = s.attendance.filter((a) => a.studentId === studentId && cur?.leaveGroup && a.leaveGroup === cur.leaveGroup)
+        const byId = new Map(s.sessions.map((x) => [x.id, x]))
+        // the group always starts at its first session, so editing from any day of it means the same leave
+        const start = inGroup.map((a) => byId.get(a.sessionId)!).filter(Boolean).sort((a, b) => (a.date + a.start).localeCompare(b.date + b.start))[0] ?? se
+        const ent = Att.coveringEntitlement(studentId, start, s.entitlements)
+        const classIds = ent?.classIds.length ? ent.classIds : start.classId ? [start.classId] : []
+        const run = start.classId ? Att.leaveRunSessions(studentId, start, s.sessions, classIds, count) : count > 0 ? [start] : []
+        const runIds = new Set(run.map((x) => x.id))
+        const closed = (id: ID) => { const x = byId.get(id); return !x || !Att.canMark(x, "leave", now).ok }
+        const beforeEnds = resolvedFor(studentId)
+        // keep: other students' marks, this student's marks outside the group, and group marks on closed sessions
+        const keep = s.attendance.filter((a) => !(a.studentId === studentId && ((cur?.leaveGroup && a.leaveGroup === cur.leaveGroup && !closed(a.sessionId)) || (runIds.has(a.sessionId) && a.status === "leave"))))
+        const taken = new Set(keep.filter((a) => a.studentId === studentId).map((a) => a.sessionId))
+        const added = run.filter((x) => !taken.has(x.id) && !closed(x.id)).map((x) => ({ sessionId: x.id, studentId, status: "leave" as const, markedBy: me.id, markedAt: now.toISOString(), noQuota: noQuota || undefined, leaveGroup: groupId }))
+        set({ attendance: [...keep, ...added] })
+        syncMakeUp(studentId, beforeEnds)
+        const last = run[run.length - 1]
+        log("attendance", [studentId], count ? (inGroup.length ? "แก้การลา" : "ลา") : "ยกเลิกการลา",
+          count ? `${added.length} คาบ ${fmtDate(start.date)}${last && last.id !== start.id ? `–${fmtDate(last.date)}` : ""} · ${noQuota ? "ไม่หักโควตา" : "หักโควตา"}` : `${start.subject} ตั้งแต่ ${fmtDate(start.date)}`)
+        return { ok: true, value: { marked: added.length } }
       },
 
       mark: (sessionId, studentId, status, opts) => {

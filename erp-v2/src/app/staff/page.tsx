@@ -49,7 +49,7 @@ export default function StaffPage() {
               <div className="min-w-40 flex-1">
                 <div className="text-sm font-medium">{s.nickname} <span className="font-normal text-muted-foreground">· {s.name}</span></div>
                 <div className="text-xs text-muted-foreground">
-                  {s.canLogin ? s.email : "ไม่มีบัญชีล็อกอิน (พาร์ทไทม์)"}
+                  {s.partTime && <span className="mr-1 rounded-full bg-amber-100 px-1.5 text-[11px] text-amber-800">Part-time</span>}{s.canLogin ? s.email : "ไม่มีบัญชีล็อกอิน"}
                   {s.subjects.length > 0 && ` · สอน ${s.subjects.join(", ")}`}
                   {s.roles.includes("teacher") && ` · คาบข้างหน้า ${upcoming}`}
                 </div>
@@ -113,6 +113,7 @@ function StaffForm({ staff: initialStaff, onClose }: { staff?: Staff; onClose: (
             </div>
           </Field>
         )}
+        <label className="flex items-center gap-2 text-sm"><Checkbox checked={!!f.partTime} onCheckedChange={(v) => setF({ ...f, partTime: !!v })} /> ครู Part-time (เลือกเป็นครูสอนแทนตอนครูลาได้)</label>
         <label className="flex items-center gap-2 text-sm"><Checkbox checked={f.canLogin} onCheckedChange={(v) => setF({ ...f, canLogin: !!v })} /> มีบัญชีล็อกอินเข้าระบบ</label>
         {f.canLogin ? (
           <Field label="อีเมล *" error={err("email")}><Input type="email" value={f.email ?? ""} onChange={(e) => setF({ ...f, email: e.target.value })} /></Field>

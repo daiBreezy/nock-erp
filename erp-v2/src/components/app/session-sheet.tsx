@@ -265,7 +265,7 @@ function StudentRow({ s, sid, viewOnly, canManage, mine, text, setText, selectab
   const entitlements = useEntitlements()
   const now = useNow(10_000)
   const L = useLookup()
-  const [open, setOpen] = useState<"student" | "reschedule" | "remove" | "seat" | null>(null)
+  const [open, setOpen] = useState<"student" | "reschedule" | "remove" | "seat" | "leave" | null>(null)
   const [otherSession, setOtherSession] = useState<ID | null>(null)
 
   const stu = L.student(sid)
@@ -346,20 +346,8 @@ function StudentRow({ s, sid, viewOnly, canManage, mine, text, setText, selectab
         <span className="flex shrink-0 overflow-hidden rounded-full border">
           <button type="button" data-on={a?.status === "present"} disabled={!canMarkHere || !Att.canMark(s, "present", now).ok} onClick={() => markAs("present")}
             className={pill + " data-[on=true]:bg-emerald-600 data-[on=true]:text-white"}>มา</button>
-          <DropdownMenu>
-            <DropdownMenuTrigger disabled={!canMarkHere || !Att.canMark(s, "leave", now).ok} render={<button type="button" data-on={a?.status === "leave"} className={pill + " data-[on=true]:bg-amber-500 data-[on=true]:text-white"} />}>
-              {a?.status === "leave" ? (a.noQuota ? "ลา*" : "ลา") : "ลา"}
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-64">
-              <DropdownMenuItem onClick={() => report(mark(s.id, sid, "leave"), `${stu?.nickname}: ลา (หักโควตา)`)}>
-                <span className="flex flex-col"><span>ลา · หักโควตา</span><span className="text-xs text-muted-foreground">{raw ? (usedQuota < quota || (thisLeave?.quota ?? false) ? `ใช้โควตา ${usedQuota}/${quota} · ยืดวันเรียนจบให้ 1 คาบ` : `โควตาหมดแล้ว (${quota}/${quota}) · ไม่ชดเชย`) : "ไม่มีแพ็กเกจที่ใช้คาบนี้"}</span></span>
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => report(mark(s.id, sid, "leave", { noQuota: true }), `${stu?.nickname}: ลา (ไม่หักโควตา)`)}>
-                <span className="flex flex-col"><span>ลา · ไม่หักโควตา</span><span className="text-xs text-muted-foreground">ไม่ใช้โควตา แต่ยืดวันเรียนจบให้ 1 คาบ</span></span>
-              </DropdownMenuItem>
-              {a?.status === "leave" && <><DropdownMenuSeparator /><DropdownMenuItem onClick={() => report(clearMark(s.id, sid), `ล้างการลา ${stu?.nickname}`)}>ล้างการลา</DropdownMenuItem></>}
-            </DropdownMenuContent>
-          </DropdownMenu>
+          <button type="button" data-on={a?.status === "leave"} disabled={!canMarkHere || !Att.canMark(s, "leave", now).ok} onClick={() => setOpen("leave")}
+            title="ลา — เลือกหักโควตา / ไม่หักโควตา และจำนวนคาบ" className={pill + " data-[on=true]:bg-amber-500 data-[on=true]:text-white"}>{a?.status === "leave" && a.noQuota ? "ลา*" : "ลา"}</button>
           <button type="button" disabled={!canManage || state(s, now) !== "upcoming" || !!a || s.cancelled} onClick={() => setOpen("reschedule")}
             title="ย้ายไปเรียนวันอื่นในสัปดาห์นี้" className={pill}>ย้ายวัน</button>
         </span>
@@ -389,6 +377,7 @@ function StudentRow({ s, sid, viewOnly, canManage, mine, text, setText, selectab
       )}
       {a?.status === "leave" && raw && (
         <p className={cn(indent, "text-xs", thisLeave?.quota || thisLeave?.noQuota ? "text-emerald-700" : "text-muted-foreground")}>
+          {a.leaveGroup && (() => { const n = attendance.filter((x) => x.studentId === sid && x.leaveGroup === a.leaveGroup).length; return n > 1 ? `ลาชุด ${n} คาบ · ` : "" })()}
           {thisLeave?.noQuota ? `ลาไม่หักโควตา · ยืดให้อีก 1 คาบ → เรียนจบ ${fmtDate(ent?.to ?? raw.to, { weekday: true, year: true })}` : thisLeave?.quota ? `ใช้โควตาลา ${usedQuota}/${quota} · ยืดให้อีก 1 คาบ → เรียนจบ ${fmtDate(ent?.to ?? raw.to, { weekday: true, year: true })}` : `โควตาลาหมดแล้ว (${quota}/${quota}) — ไม่ชดเชยคาบนี้ · เรียนจบ ${fmtDate(ent?.to ?? raw.to, { weekday: true, year: true })} เหมือนเดิม`}
         </p>
       )}
@@ -403,6 +392,7 @@ function StudentRow({ s, sid, viewOnly, canManage, mine, text, setText, selectab
       {open === "reschedule" && <RescheduleDialog from={s} studentId={sid} onClose={() => setOpen(null)} />}
       {open === "remove" && <RemoveDialog s={s} studentId={sid} onClose={() => setOpen(null)} />}
       {open === "seat" && <SeatDialog s={s} studentId={sid} onClose={() => setOpen(null)} />}
+      {open === "leave" && <LeaveDialog s={s} studentId={sid} onClose={() => setOpen(null)} />}
       <SessionSheet sessionId={otherSession} onClose={() => setOtherSession(null)} />
     </li>
   )
@@ -411,6 +401,72 @@ function StudentRow({ s, sid, viewOnly, canManage, mine, text, setText, selectab
 const state = sessionState
 // re-read Book / Topic / Detail when "Summary Template" (or anyone) changes them on the saved summary
 const lessonKey = (x?: LessonSummary) => `${x?.id ?? "new"}|${x?.bookId ?? ""}|${x?.topicId ?? ""}|${x?.detail ?? ""}`
+
+/**
+ * Leave (owner 2026-09-30): no-show = leave, the admin decides the kind — uses the quota, or not (still extends the
+ * package) — and for how many sessions. Editable any time: fewer sessions = back early, more = longer leave.
+ */
+function LeaveDialog({ s, studentId, onClose }: { s: Session; studentId: ID; onClose: () => void }) {
+  const attendance = useStore((st) => st.attendance)
+  const sessions = useStore((st) => st.sessions)
+  const rawEnts = useStore((st) => st.entitlements)
+  const markLeave = useStore((st) => st.markLeave)
+  const L = useLookup()
+  const cur = attendance.find((a) => a.sessionId === s.id && a.studentId === studentId)
+  const group = cur?.leaveGroup ? attendance.filter((a) => a.studentId === studentId && a.leaveGroup === cur.leaveGroup) : cur?.status === "leave" ? [cur] : []
+  const byId = new Map(sessions.map((x) => [x.id, x]))
+  const start = group.map((a) => byId.get(a.sessionId)!).filter(Boolean).sort((a, b) => (a.date + a.start).localeCompare(b.date + b.start))[0] ?? s
+  const [noQuota, setNoQuota] = useState(cur?.status === "leave" ? !!cur.noQuota : false)
+  const [countText, setCountText] = useState(String(group.length || 1))
+  const count = Number(countText)
+  const ok = Number.isInteger(count) && count >= 1 && count <= 60
+  const ent = Att.coveringEntitlement(studentId, start, rawEnts)
+  const classIds = ent?.classIds.length ? ent.classIds : start.classId ? [start.classId] : []
+  const run = ok ? (start.classId ? Att.leaveRunSessions(studentId, start, sessions, classIds, count) : [start]) : []
+  // quota left, not counting this leave's own sessions
+  const quota = ent ? Att.leaveQuota(ent) : 0
+  const groupIds = new Set(group.map((a) => a.sessionId))
+  const usedElsewhere = ent ? attendance.filter((a) => a.studentId === studentId && a.status === "leave" && !a.noQuota && !groupIds.has(a.sessionId) && byId.get(a.sessionId) && Att.packageCovers(ent, byId.get(a.sessionId)!)).length : 0
+  const left = Math.max(0, quota - usedElsewhere)
+  const save = (n: number) => report(markLeave(s.id, studentId, { count: n, noQuota }), n ? (v) => `บันทึกการลาแล้ว · ${v.marked} คาบ` : "ยกเลิกการลาแล้ว") && onClose()
+  return (
+    <Dialog open onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>{group.length ? "แก้การลา" : "ลา"} · {L.student(studentId)?.nickname}</DialogTitle>
+          <DialogDescription>เริ่ม {fmtDate(start.date, { weekday: true })} {start.start} · {group.length ? `ตอนนี้ลา ${group.length} คาบ — ลดจำนวน = กลับมาเรียนก่อน, เพิ่ม = ลาต่อ` : "ไม่มา = ลา เลือกแบบตามดุลพินิจ"}</DialogDescription>
+        </DialogHeader>
+        <div className="grid grid-cols-2 gap-2">
+          {([[false, "หักโควตา", ent ? `เหลือโควตา ${left}/${quota} · ยืดวันจบตามโควตา` : "ไม่มีแพ็กเกจที่ใช้คาบนี้"], [true, "ไม่หักโควตา", "ไม่ใช้โควตา · ยืดวันจบให้ทุกคาบที่ลา"]] as const).map(([k, label, hint]) => (
+            <button key={label} type="button" aria-pressed={noQuota === k} onClick={() => setNoQuota(k)}
+              className={cn("rounded-xl border p-2.5 text-left", noQuota === k ? "border-amber-500 bg-amber-50 dark:bg-amber-950/30" : "hover:bg-muted/50")}>
+              <p className="text-sm font-medium">ลา · {label}</p><p className="text-xs text-muted-foreground">{hint}</p>
+            </button>
+          ))}
+        </div>
+        <label className="flex items-center gap-2 text-sm">
+          จำนวน <Input type="number" min={1} max={60} className="h-9 w-20" value={countText} onChange={(e) => setCountText(e.target.value)} aria-invalid={!ok} /> คาบ
+        </label>
+        {run.length > 0 && (
+          <ul className="max-h-48 space-y-1 overflow-y-auto rounded-xl bg-muted/40 p-2 text-xs">
+            {run.map((x, i) => (
+              <li key={x.id} className="flex justify-between">
+                <span>{fmtDate(x.date, { weekday: true })} {x.start} · {x.subject}</span>
+                <span className={noQuota || i < left ? "text-emerald-700" : "text-muted-foreground"}>{noQuota ? "ยืดวันจบ" : i < left ? "ใช้โควตา · ยืดวันจบ" : "เกินโควตา · ไม่ชดเชย"}</span>
+              </li>
+            ))}
+            {ok && run.length < count && <li className="text-muted-foreground">มีคาบให้ลาแค่ {run.length} คาบในตาราง</li>}
+          </ul>
+        )}
+        <DialogFooter className="items-center">
+          {group.length > 0 && <Button variant="ghost" className="mr-auto text-red-700" onClick={() => save(0)}>ยกเลิกการลา (มาเรียน)</Button>}
+          <Button variant="ghost" onClick={onClose}>ปิด</Button>
+          <Button disabled={!ok} onClick={() => save(count)}>บันทึกการลา</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  )
+}
 
 /** Which part of a long class the student attends (owner 2026-09-30): only this session, or every session of the class. */
 function SeatDialog({ s, studentId, onClose }: { s: Session; studentId: ID; onClose: () => void }) {
@@ -809,7 +865,9 @@ function TeacherLeaveDialog({ s, onClose }: { s: Session; onClose: () => void })
   const [reason, setReason] = useState("")
   const [mode, setMode] = useState<"sub" | "cancel">("sub")
   const [subId, setSubId] = useState("")
+  // regular teachers first, then part-time ones (owner 2026-09-30: a part-time teacher can cover)
   const teachers = staff.filter((t) => t.active && t.roles.includes("teacher") && t.branchIds.includes(s.branchId) && t.id !== s.teacherId)
+    .sort((a, b) => Number(!!a.partTime) - Number(!!b.partTime))
   const teaches = (t: (typeof teachers)[number]) => subjectsOf(s).every((x) => t.subjects.includes(x))
   const submit = () => report(act(s.id, { reason, substituteId: mode === "sub" ? subId || null : null }),
     (v) => (mode === "sub" ? `${L.teacher(subId).label} สอนแทนแล้ว` : `ยกเลิกคาบแล้ว · เลื่อนวันจบคอร์สให้นักเรียน ${v.extended} คน`)) && onClose()
@@ -831,7 +889,7 @@ function TeacherLeaveDialog({ s, onClose }: { s: Session; onClose: () => void })
         </div>
         {mode === "sub" && (
           <NativeSelect value={subId} onChange={(e) => setSubId(e.target.value)} placeholder="เลือกครูสอนแทน"
-            options={[...teachers.filter(teaches), ...teachers.filter((t) => !teaches(t))].map((t) => ({ value: t.id, label: teaches(t) ? t.nickname : `${t.nickname} (ไม่ได้สอน${s.subject})` }))} />
+            options={[...teachers.filter(teaches), ...teachers.filter((t) => !teaches(t))].map((t) => ({ value: t.id, label: `${t.nickname}${t.partTime ? " · Part-time" : ""}${teaches(t) ? "" : ` (ไม่ได้สอน${s.subject})`}` }))} />
         )}
         <DialogFooter>
           <Button variant="ghost" onClick={onClose}>ยกเลิก</Button>

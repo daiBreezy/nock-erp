@@ -171,6 +171,8 @@ export interface Staff {
   active: boolean
   canLogin: boolean
   email?: string
+  /** part-time teacher — offered as a substitute when a teacher is on leave (owner 2026-09-30) */
+  partTime?: boolean
 }
 
 /** traditional / company = set by the company in Settings → System (branchId null) · branch = created by that branch's Admin/Manager */
@@ -309,6 +311,8 @@ export interface Attendance {
   minutes?: number
   /** leave that does NOT use the leave quota (owner 2026-09-30) — the package still runs one class longer */
   noQuota?: boolean
+  /** leave taken for several sessions at once ("ลา 3 คาบ") — the group is edited together: back early / longer */
+  leaveGroup?: ID
   markedBy: ID
   markedAt: string
 }

@@ -116,7 +116,10 @@ export function buildSeed(now = new Date()): DB {
     st("u_jo", "โจ ใจเย็น", "ครูโจ", ["teacher"], ["br_thl"], ["คณิต"]),
     st("u_mint", "มิ้นท์ ศรีสุข", "ครูมิ้นท์", ["teacher"], ["br_thl", "br_ari"], ["อังกฤษ"]),
     st("u_prae", "แพร พากเพียร", "ครูแพร", ["teacher"], ["br_thl"], ["วิทย์", "อังกฤษ"]),
-    st("u_beam", "บีม ใจดี", "ครูบีม", ["teacher"], ["br_ari"], ["คณิต"], false),
+    { ...st("u_beam", "บีม ใจดี", "ครูบีม", ["teacher"], ["br_ari"], ["คณิต"], false), partTime: true },
+    // part-time teachers — substitutes when a teacher is on leave
+    { ...st("u_fon", "ฝน ขยันสอน", "ครูฝน", ["teacher"], ["br_thl"], ["คณิต", "อังกฤษ"], false), partTime: true },
+    { ...st("u_kaew", "แก้ว ใจงาม", "ครูแก้ว", ["teacher"], ["br_thl"], ["วิทย์"], false), partTime: true },
     { ...st("u_old", "โอ๊ต (ลาออก)", "ครูโอ๊ต", ["teacher"], ["br_thl"], ["คณิต"]), active: false },
   ]
 

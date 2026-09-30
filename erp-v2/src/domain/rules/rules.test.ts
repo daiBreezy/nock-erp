@@ -2,7 +2,7 @@
 import { describe, expect, it } from "vitest"
 import type { Assessment, Attendance, Branch, BusAddOn, CreditNote, LessonSummary, Course, Entitlement, Family, FormSubmission, Lead, Student, FormOfferSlot, Holiday, Invoice, Klass, Session, Staff, StudentLeave, Weekday } from "../types"
 import { applyClassEdit, applyToSessions, canChangeTeachers, canRescheduleStudent, mondayOf, removedWithClass, canSave, closesBranch, holidayImpact, hoursFor, isHoliday, overlappingRows, periodsIn, introducedConflicts, editSingleSession, findConflicts, generateSessions, moveSession, sessionState, validateClass, workState } from "./scheduling"
-import { activeLeave, nextClassDates, teacherLeaveCancels, balance, studentState, leaveLedger, packageCovers, canMark, canSaveLeave, coveringEntitlement, effectiveTo, leavesUsed, lowBalanceAlert, removeFromClass, resolveEntitlements } from "./attendance"
+import { activeLeave, nextClassDates, teacherLeaveCancels, leaveRunSessions, balance, studentState, leaveLedger, packageCovers, canMark, canSaveLeave, coveringEntitlement, effectiveTo, leavesUsed, lowBalanceAlert, removeFromClass, resolveEntitlements } from "./attendance"
 import { bestPromotion, duplicateBusDay, billedOn, busAddOnAmount, pendingBusAddOns, validateBusAddOn, carriedMinutes, weekKey, classOptionsFor, defaultAdvance, entryFeeWaiver, invoiceSessionDates, invoiceTotals, validateInvoiceDraft, canApprove, canConfirmPayment, canForceApprove, canForceConfirmPayment, canSend, canVoid, defaultBusLegs, busTotal, nextInvoiceNumber, quoteCourse } from "./billing"
 import { can } from "./permissions"
 import { chartPrice, defaultCourseName, filterCourses, validateCourse } from "./course"
@@ -1375,6 +1375,15 @@ describe("leave with / without quota, teacher leave (owner 2026-09-30)", () => {
     expect(resolveEntitlements([e], [], ctx(att))[0].to).toBe("2026-11-10")
     // a second quota leave after the quota is gone adds nothing
     expect(resolveEntitlements([e], [], ctx([leave("s1"), leave("s2")]))[0].to).toBe("2026-11-03")
+  })
+
+  it("a leave for N sessions takes this one and the next ones of the package's classes, skipping cancelled", () => {
+    const k2 = klass({ id: "k2", weekday: 4 })
+    const ss = [...sessions, sess("t1", "2026-10-08", { classId: "k2" }), sess("t2", "2026-10-15", { classId: "k2", cancelled: true }), sess("x", "2026-10-09", { classId: "other" })]
+    expect(leaveRunSessions("a", ss[0], ss, ["k1", "k2"], 3).map((x) => x.id)).toEqual(["s1", "t1", "s2"])
+    expect(leaveRunSessions("a", ss[0], ss, ["k1"], 10).map((x) => x.id)).toEqual(["s1", "s2", "s3", "s4"])
+    expect(leaveRunSessions("a", ss[0], ss, ["k1"], 0)).toEqual([])
+    void k2
   })
 
   it("a session cancelled because the teacher was on leave (no substitute) extends every student's package", () => {
