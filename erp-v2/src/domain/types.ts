@@ -281,6 +281,8 @@ export interface Session {
   rescheduledIn?: ID[]
   /** students moved OUT of this session — kept so the row can say where they went */
   rescheduledOut?: { studentId: ID; toSessionId: ID }[]
+  /** free-form reminder per student for this session, e.g. "Math Book Lesson 1 Page 2-6" (owner 2026-09-30) */
+  notes?: Record<ID, string>
   /** edited individually — class-level edits no longer overwrite it */
   customized: boolean
   cancelled: boolean

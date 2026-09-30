@@ -92,6 +92,8 @@ type Store = DB & UIState & {
   setAttendedMinutes: (sessionId: ID, studentId: ID, minutes: number | null) => Result
   /** which part of the class the student attends: this session only, or every time (class) — null = the whole class */
   setSeat: (scope: "session" | "class", id: ID, studentId: ID, seat: Seat | null) => Result
+  /** free-form reminder for a student in this session ("Math Book Lesson 1 Page 2-6") — empty text removes it */
+  setSessionNote: (sessionId: ID, studentId: ID, text: string) => Result
   saveStudentLeave: (input: { id?: ID; studentId: ID; from: DateStr; to: DateStr; reason: string }) => Result
   removeStudentFromClass: (classId: ID, studentId: ID) => Result<{ removedFrom: number }>
   /** added by mistake etc. — this session only, never one that already has a mark */
@@ -808,6 +810,20 @@ export const useStore = create<Store>()(
         const value = minutes === null || minutes === seat.minutes ? undefined : minutes
         set({ attendance: s.attendance.map((x) => (x === a ? { ...x, minutes: value } : x)) })
         log("attendance", [studentId], "แก้เวลาเรียนจริง", `${se.subject} ${fmtDate(se.date)} ${se.start} · มาเรียน ${Seats.fmtLen(value ?? seat.minutes)}`)
+        return OK
+      },
+
+      setSessionNote: (sessionId, studentId, text) => {
+        const s = get()
+        const me = s.me()
+        const se = s.sessions.find((x) => x.id === sessionId)
+        if (!se) return fail("ไม่พบคาบเรียน")
+        if (!can(me, "session.manage") && se.teacherId !== me.id && !se.coTeacherIds.includes(me.id)) return fail("แก้โน้ตได้เฉพาะคาบที่คุณสอน")
+        const clean = text.trim().slice(0, 200)
+        const notes = { ...se.notes }
+        if (clean) notes[studentId] = clean
+        else delete notes[studentId]
+        set({ sessions: s.sessions.map((x) => (x.id === sessionId ? { ...x, notes } : x)) })
         return OK
       },
 
@@ -1727,7 +1743,7 @@ export const useStore = create<Store>()(
     {
       name: "nockerp-v2",
       // bump when the data model changes; older saved data is replaced by fresh sample data
-      version: 40,
+      version: 41,
       migrate: () => ({ ...buildSeed(), userId: "u_nock", branchId: "br_thl", clockOffset: 0 }) as unknown as Store,
       // persist data + UI state only, never the action functions
       partialize: (s) => Object.fromEntries(Object.entries(s).filter(([, v]) => typeof v !== "function")) as Partial<Store>,

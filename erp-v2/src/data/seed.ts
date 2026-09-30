@@ -199,6 +199,10 @@ export function buildSeed(now = new Date()): DB {
   ]
 
   const sessions: Session[] = classes.flatMap((c) => generateSessions(c, holidays, () => uid("se"), 10))
+  // free-form reminders on the teacher-block class (owner 2026-09-30: "Math Book Lesson 1 Page 2-6")
+  sessions.filter((x) => x.classId === "cl_block_dai").forEach((x, i) => {
+    x.notes = { stu_10: `Math Book ป.5 เล่ม 2 · Lesson ${i + 1} หน้า ${i * 4 + 2}-${i * 4 + 6}`, stu_17: `ตะลุยโจทย์วิทย์ ชุด ${i + 1}` }
+  })
 
   // ---- today's showcase: every card state + a teacher clash and a room clash, placed around "now" ----
   const nowMin = Math.min(17 * 60, Math.max(13 * 60, Math.floor((now.getHours() * 60 + now.getMinutes()) / 30) * 30))

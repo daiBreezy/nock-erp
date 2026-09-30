@@ -328,6 +328,7 @@ function StudentRow({ s, sid, viewOnly, canManage, mine, text, setText, selectab
                 </span>
               })()}
           </p>
+          {s.notes?.[sid] && <p className="truncate text-xs text-foreground/80" title={s.notes[sid]}>📝 {s.notes[sid]}</p>}
         </div>
         {/* one text control for all three marks (owner liked the original มา / ขาด / ลา pills) */}
         <span className="flex shrink-0 overflow-hidden rounded-full border">
