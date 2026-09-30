@@ -93,7 +93,41 @@
 - ทดสอบในเบราว์เซอร์: สร้าง CN แบบเครดิต ฿2,610 → Force อนุมัติ → Invoice ใหม่คอร์สคณิตหัก −฿2,610 ให้เอง
 - ยังไม่มี: หน้ารวมใบลดหนี้ทั้งหมด (ตอนนี้ดูผ่านใบแจ้งหนี้แต่ละใบ) · PDF ใบลดหนี้ (ทำพร้อม PDF จริง)
 
-**ต่อไป:** (รอไฟล์) PDF Invoice/Receipt/Credit Note + Export บัญชี (Sheet เดียวเรียงตาม Statement) · Import จาก Google Sheet
+**ไฟล์ตัวอย่างจากเจ้าของ (2026-09-30):**
+- `~/Documents/Sheet/INV + REC.xlsx` = แบบใบแจ้งหนี้ + ใบเสร็จจริง
+- `~/Documents/Sheet/Sales Tax report.xlsx` = รายงานภาษีขาย 1 แท็บ/เดือน
+- Google Sheet "BN ⭐📅 Schedule" (อ่านผ่าน Drive connector ได้) — แท็บ `Student_data(copy)` คือรายชื่อนักเรียน ไม่มีแท็บ Course/Class จริง
+
+**เจ้าของเคาะเรื่องเอกสาร:**
+- **เลขเอกสาร `yymmdd-ประเภทธุรกิจ-สาขา-running`** เช่น 690930-01-001-0001
+  - ออกเลขทันทีที่กดสร้าง Invoice = เป็นใบจริงตั้งแต่ตอนนั้น มีปัญหาให้ Void ไม่ลบ
+- ทุกเอกสารออกในนาม **บริษัท ลิคลาส เอ็ดดูเคชั่น จำกัด** (บริษัทแม่)
+- ผู้จัดทำ + ผู้มีอำนาจลงนาม = **Admin ที่สร้าง Invoice ใบนั้น**
+- ทุกสาขาใช้ Google Sheet template เดียวกัน
+
+**Build เลขเอกสาร + PDF จริง ✅**
+- `nextInvoiceNumber("INV" | "CN", branch, date)`:
+  - ประเภทธุรกิจ `BUSINESS_CODE` NockAcademy = 01, Liclass = 02
+  - `Branch.branchNo` 3 หลัก (Settings → ข้อมูลสาขา, ล็อกเมื่อออกเอกสารแล้ว, เพิ่มสาขาใหม่ได้เลขถัดไปของแบรนด์)
+  - running เริ่มใหม่ทุกวันต่อธุรกิจ + สาขา
+- เลขออกตอน **สร้าง** Invoice (store `saveInvoice`) · ใบเสร็จใช้ **เลขเดียวกับใบแจ้งหนี้** (ตาม template) · ใบลดหนี้ `CN-690930-01-001-0001`
+- สถานะ `draft` แสดงเป็น "รอสร้าง PDF" · ตัดคำว่า "ร่าง/ยังไม่มีเลข" ออกทั้งระบบ
+- `SystemConfig.company` (ชื่อ TH/EN, ที่อยู่ TH/EN, Tax ID 0205557003965, สำนักงานใหญ่)
+- กฎ `domain/rules/documents.ts`:
+  - `invoiceItems`: บรรทัดในเอกสาร — รายเดือนแยกเดือนละแถว, แพ็กชั่วโมง/สัปดาห์ qty = จำนวนแพ็ก, Course fee, โปร/ส่วนลด/เครดิตเป็นแถวติดลบ, รวมแล้ว = ยอด Invoice เสมอ (มีเทส)
+  - `customerOf`: ชื่อจริงนักเรียน หรือข้อมูลภาษีของครอบครัว
+  - `invoiceDates`: ครบกำหนดสิ้นเดือน · `receiptDate`: วันที่เงินเข้า
+  - `preparedBy` · `documentFileName` "เลข ชื่อลูกค้า"
+- หน้า **`/print/invoice|receipt|credit-note/[id]`**:
+  - A4 หน้าตาตาม template: หัวบริษัท, ลูกค้า, ตารางรายการ, ช่องทางชำระเงิน, Memo, Sub Total / VAT 7% = 0 / Total, Total Due By, ลายเซ็น
+  - ปุ่ม "พิมพ์ / บันทึก PDF" ชื่อไฟล์ตั้งให้ตาม template
+- InvoiceSheet มีปุ่ม PDF ใบแจ้งหนี้ / PDF ใบเสร็จ · การ์ดใบลดหนี้มีลิงก์ PDF
+- persist 35→36 · 141 tests
+
+**ค้าง/สมมติฐาน:**
+- running รีเซ็ตรายวัน — เดาจากตัวอย่าง
+- ใบลดหนี้ในรายงานภาษีขาย: เสนอเป็นแถวติดลบในเดือนที่ออกใบลดหนี้ อ้างเลข Invoice เดิม — ยังไม่ได้ build
+- **ต่อไป:** Export รายงานภาษีขาย (xlsx แท็บต่อเดือน + โฟลเดอร์ PDF) · Import จาก Google Sheet (`Student_data`)
 
 **📌 งานที่เจ้าของฝากไว้ (2026-09-30):** Import **Student list, Course list, Class list จาก Google Sheet** เข้าระบบ และต้องสร้างบน ERP ได้จริง (นักเรียนที่ Import เข้ามา = `Student.imported` → ไม่เก็บค่าแรกเข้า) — รอตัวอย่าง Sheet จากเจ้าของ
 

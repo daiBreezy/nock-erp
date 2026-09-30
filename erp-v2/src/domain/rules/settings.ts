@@ -77,8 +77,9 @@ export function busRate(branch: Branch, feeId?: string | null): number {
   return (bus.find((f) => f.id === feeId) ?? bus[0])?.price ?? branch.busFeePerLeg
 }
 
-export function validateBranchInfo(b: Pick<Branch, "name" | "code" | "rooms" | "email"> & { province?: string }): string | null {
+export function validateBranchInfo(b: Pick<Branch, "name" | "code" | "rooms" | "email"> & { province?: string; branchNo?: string }): string | null {
   if (!b.name.trim()) return "ใส่ชื่อสาขา"
+  if (b.branchNo !== undefined && !/^\d{3}$/.test(b.branchNo)) return "เลขสาขาต้องเป็นตัวเลข 3 หลัก เช่น 001 (ใช้ในเลขเอกสาร)"
   if (b.province !== undefined && !/^[A-Z]{2,4}$/.test(b.province)) return "จังหวัดใช้รหัสอังกฤษพิมพ์ใหญ่ 2–4 ตัว เช่น BKK, CBR"
   if (!/^[A-Z0-9]{2,5}$/.test(b.code)) return "รหัสสาขาต้องเป็นตัวอังกฤษพิมพ์ใหญ่/ตัวเลข 2–5 ตัว (ใช้ในเลขใบแจ้งหนี้)"
   if (!b.rooms.length) return "ต้องมีห้องอย่างน้อย 1 ห้อง"

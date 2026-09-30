@@ -16,10 +16,11 @@ import { APPROVE_STAGE, ATTENDED_STAGE, buildFormPrefill, commonSlots, buildComb
 import { customerRows, filterCustomers } from "./customers"
 import { invoiceMessage } from "./messages"
 import * as Refund from "./refunds"
+import * as Doc from "./documents"
 
 const hours = { open: "09:00", close: "20:00" }
 const branch: Branch = {
-  id: "b1", code: "TST", name: "Test", brand: "nockacademy", province: "BKK",
+  id: "b1", code: "TST", name: "Test", brand: "nockacademy", branchNo: "002", province: "BKK",
   rooms: [{ id: "r1", name: "Room 1" }, { id: "r2", name: "Room 2" }],
   hours: { 0: null, 1: hours, 2: hours, 3: hours, 4: hours, 5: hours, 6: hours } as Record<Weekday, typeof hours | null>,
   subjects: ["Maths"], grades: ["P5"], defaultSessionMinutes: 60, busFeePerLeg: 150, specialPeriods: [], fees: [], promotions: [],
@@ -197,8 +198,10 @@ describe("billing", () => {
   })
 
   it("BL-9: sequential numbers per branch and month", () => {
-    expect(nextInvoiceNumber("INV", branch, "2026-09-24", ["INV-TST-6909-0003", "INV-TST-6908-0009", null])).toBe("INV-TST-6909-0004")
-    expect(nextInvoiceNumber("RC", branch, "2026-09-24", ["INV-TST-6909-0003"])).toBe("RC-TST-6909-0001")
+    // yymmdd(พ.ศ.)-business-branch-running (owner 2026-09-30): runs per day per business + branch
+    expect(nextInvoiceNumber("INV", branch, "2026-09-30", ["690930-01-002-0003", "690929-01-002-0009", "690930-02-002-0007", null])).toBe("690930-01-002-0004")
+    expect(nextInvoiceNumber("INV", { ...branch, brand: "liclass" }, "2026-09-30", ["690930-01-002-0003"])).toBe("690930-02-002-0001")
+    expect(nextInvoiceNumber("CN", branch, "2026-10-01", ["690930-01-002-0003"])).toBe("CN-691001-01-002-0001")
   })
 
   const inv = (p: Partial<Invoice> = {}): Invoice => ({
@@ -1213,5 +1216,34 @@ describe("Credit Note: refund or keep as course credit (owner 2026-09-30)", () =
     expect(invoiceTotals(withCredit, ctx).total).toBe(0)
     expect(Refund.availableCredit("a", "c1", [credit], [withCredit])).toEqual([{ creditNoteId: "cn1", amount: 500 }])
     expect(Refund.availableCredit("a", "c1", [credit], [{ ...withCredit, status: "void" }])[0].amount).toBe(5000)
+  })
+})
+
+describe("paper invoice / receipt (owner template INV + REC, 2026-09-30)", () => {
+  const k = klass({ id: "k1", weekday: 2 })
+  const b: Branch = { ...branch, fees: [{ id: "bs", kind: "bus", name: "Standard", price: 150 }], promotions: [] }
+  const pkg: Course = { ...monthPkg, courseFee: 300 }
+  const inv: Invoice = {
+    id: "i", branchId: "b1", studentId: "a", number: "690930-01-002-0001", lines: [{ id: "l", courseId: "c1", classIds: ["k1"], startDate: "2026-10-20", periods: 2 }],
+    bus: [{ date: "2026-10-20", pickup: true, dropoff: true }], busFeeId: "bs", busExtras: [{ addOnId: "x", date: "2026-10-01", pickup: true, dropoff: false, amount: 150 }],
+    bookFee: 350, advance: [{ feeId: "en", name: "ค่าแรกเข้า", amount: 1500 }], concession: { amount: 200, remark: "ลูกค้าเก่า" }, creditsUsed: [{ creditNoteId: "cn", courseId: "c1", amount: 100 }],
+    noteToParent: "", status: "approved", pdf: "ready", createdBy: "adm", createdAt: "2026-09-30T03:00:00Z", payments: [],
+  }
+  const totals = invoiceTotals(inv, { branch: b, courses: [pkg], classes: [k], holidays: [] })
+
+  it("the printed lines always add up to the invoice total — a month per row, discounts as negative rows", () => {
+    const items = Doc.invoiceItems(inv, totals, b)
+    expect(items.reduce((a, i) => a + i.amount, 0)).toBe(totals.total)
+    expect(items.filter((i) => i.description.startsWith("ค่าคอร์ส")).length).toBe(2) // Oct (pro-rated) + Nov
+    expect(items.find((i) => i.description.startsWith("ค่ารถรับส่ง"))).toMatchObject({ qty: 2, unitPrice: 150, amount: 300 })
+    expect(items.find((i) => i.description.startsWith("ส่วนลดพิเศษ"))?.amount).toBe(-200)
+  })
+
+  it("customer = student's full name unless the family gave tax details; due at month end; file named like the template", () => {
+    expect(Doc.customerOf({ name: "ด.ช.ภูมิ ใจดี" })).toEqual({ name: "ด.ช.ภูมิ ใจดี", address: "", taxId: "" })
+    expect(Doc.customerOf({ name: "ด.ช.ภูมิ" }, { taxInfo: { customerName: "บจก. ใจดี", taxId: "0105", address: "กทม." } }).name).toBe("บจก. ใจดี")
+    expect(Doc.invoiceDates(inv)).toEqual({ date: "2026-09-30", dueBy: "2026-09-30" })
+    expect(Doc.documentFileName("690930-01-002-0001", "ด.ช.ภูมิ/ใจดี")).toBe("690930-01-002-0001 ด.ช.ภูมิใจดี")
+    expect(Doc.receiptDate({ payments: [{ id: "p", amount: 1, method: "cash", reference: "", recordedBy: "a", recordedAt: "2026-10-02T09:00:00Z", confirmedBy: "m" }] })).toBe("2026-10-02")
   })
 })

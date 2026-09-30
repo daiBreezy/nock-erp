@@ -35,7 +35,7 @@ function StringList({ values, onChange, placeholder, addLabel }: { values: strin
 }
 
 export function BranchInfoTab({ branch }: { branch: Branch }) {
-  const { b, setB, dirty, reset, save } = useBranchDraft(branch, ["brand", "code", "name", "province", "email", "address", "phones", "socials", "rooms"])
+  const { b, setB, dirty, reset, save } = useBranchDraft(branch, ["brand", "code", "branchNo", "name", "province", "email", "address", "phones", "socials", "rooms"])
   const hasInvoices = useStore((s) => s.invoices.some((i) => i.branchId === branch.id && i.number))
   return (
     <SettingsCard title="ข้อมูลสาขา" hint="ข้อมูลทั่วไปของสาขา — รหัสสาขาใช้ในเลขใบแจ้งหนี้/ใบเสร็จ">
@@ -45,6 +45,9 @@ export function BranchInfoTab({ branch }: { branch: Branch }) {
         </Field>
         <Field label="รหัสสาขา (Branch ID)" error={hasInvoices && "ออกใบแจ้งหนี้ไปแล้ว — เปลี่ยนรหัสไม่ได้"}>
           <Input value={b.code} disabled={hasInvoices} onChange={(e) => setB({ ...b, code: e.target.value.toUpperCase() })} />
+        </Field>
+        <Field label="เลขสาขา (ในเลขเอกสาร 690930-01-001-0001)" error={hasInvoices && "ออกเอกสารไปแล้ว — เปลี่ยนเลขไม่ได้"}>
+          <Input value={b.branchNo} disabled={hasInvoices} maxLength={3} onChange={(e) => setB({ ...b, branchNo: e.target.value.replace(/\D/g, "") })} placeholder="001" />
         </Field>
         <Field label="ชื่อสาขา *"><Input value={b.name} onChange={(e) => setB({ ...b, name: e.target.value })} /></Field>
         <ProvinceField value={b.province ?? ""} onChange={(province) => setB({ ...b, province })} />

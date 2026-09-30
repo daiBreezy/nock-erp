@@ -93,7 +93,7 @@ function BillingPage() {
       <div className="flex flex-wrap items-center gap-2">
         <ToggleGroup value={[filter]} onValueChange={(v) => v[0] && setFilter(v[0] as Filter)} variant="outline" size="sm" className="flex-wrap">
           <ToggleGroupItem value="all">ทั้งหมด</ToggleGroupItem>
-          <ToggleGroupItem value="draft">ร่าง</ToggleGroupItem>
+          <ToggleGroupItem value="draft">รอสร้าง PDF</ToggleGroupItem>
           <ToggleGroupItem value="pending_approval">รออนุมัติ</ToggleGroupItem>
           <ToggleGroupItem value="awaiting_payment">รอชำระ</ToggleGroupItem>
           <ToggleGroupItem value="paid">ชำระครบ</ToggleGroupItem>
@@ -114,7 +114,7 @@ function BillingPage() {
         {visible.length === 0 && <p className="p-10 text-center text-sm text-muted-foreground">ไม่มีใบแจ้งหนี้ในหมวดนี้</p>}
         {visible.map(({ inv, total, paid, student, toConfirm }) => (
           <button key={inv.id} onClick={() => setOpenId(inv.id)} className="grid w-full gap-1 border-b px-4 py-3 text-left text-sm last:border-0 hover:bg-muted/40 md:grid-cols-[1.3fr_1.2fr_1.5fr_0.8fr_1.1fr] md:items-center md:gap-3">
-            <span className="font-medium tabular-nums">{inv.number ?? <span className="text-muted-foreground">ร่าง · ยังไม่มีเลข</span>}<span className="block text-xs font-normal text-muted-foreground">{fmtDate(inv.createdAt.slice(0, 10))}</span></span>
+            <span className="font-medium tabular-nums">{inv.number ?? <span className="text-muted-foreground">—</span>}<span className="block text-xs font-normal text-muted-foreground">{fmtDate(inv.createdAt.slice(0, 10))}</span></span>
             <span>{student?.nickname} <span className="text-xs text-muted-foreground">{student?.grade}</span></span>
             <span className="truncate text-muted-foreground">{inv.lines.map((l) => courses.find((c) => c.id === l.courseId)?.name).filter(Boolean).join(", ") || (inv.busExtras?.length ? "ค่ารถเพิ่ม" : "ค่าอื่นๆ")}</span>
             <span className="tabular-nums md:text-right">{fmtMoney(total)}{paid > 0 && paid < total && <span className="block text-xs text-muted-foreground">จ่ายแล้ว {fmtMoney(paid)}</span>}</span>

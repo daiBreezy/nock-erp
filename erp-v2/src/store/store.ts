@@ -681,6 +681,8 @@ export const useStore = create<Store>()(
         const base = s.branches.find((b) => b.id === s.branchId)!
         const b: Branch = {
           ...base, id: uid("br"), code, name: input.name.trim(), brand: input.brand, province: input.province, active: true,
+          // next free branch number within the brand (document numbers: 690930-01-002-0001)
+          branchNo: String(Math.max(0, ...s.branches.filter((x) => x.brand === input.brand).map((x) => Number(x.branchNo) || 0)) + 1).padStart(3, "0"),
           email: "", address: "", phones: [], socials: [], rooms: [{ id: uid("rm"), name: "ห้อง 1" }],
           specialPeriods: [], fees: [], promotions: [], priceChart: [], subjects: [], grades: [],
           bankAccount: { bank: "", branchName: "", name: "", number: "" }, lineOaConnected: false, lineOa: { channelId: "", botBasicId: "", addFriendUrl: "" },
@@ -996,17 +998,19 @@ export const useStore = create<Store>()(
           const left = Refund.availableCredit(inv.studentId, u.courseId, s.creditNotes, s.invoices, inv.id).find((c) => c.creditNoteId === u.creditNoteId)?.amount ?? 0
           if (u.amount > left) return fail("เครดิตคอร์สถูกใช้ไปแล้วบางส่วน — เปิดใบใหม่อีกครั้ง")
         }
-        // editing a generated invoice sends it back to draft (needs new PDF + approval)
-        const next: Invoice = existing && existing.status === "pending_approval" ? { ...inv, status: "draft", pdf: "none" } : { ...inv, status: "draft" }
+        // the number is issued the moment the invoice is created — a real document from then on (void, never delete)
+        const number = existing?.number ?? inv.number ?? Bill.nextInvoiceNumber("INV", ctxOf(s, inv.branchId).branch, toDateStr(s.now()), s.invoices.map((x) => x.number))
+        // editing a generated invoice sends it back (needs new PDF + approval)
+        const next: Invoice = existing && existing.status === "pending_approval" ? { ...inv, number, status: "draft", pdf: "none" } : { ...inv, number, status: "draft" }
         set({ invoices: existing ? s.invoices.map((x) => (x.id === inv.id ? next : x)) : [next, ...s.invoices] })
-        log("billing", [inv.studentId], existing ? "แก้ใบแจ้งหนี้" : "สร้างใบแจ้งหนี้", `${inv.number ?? "ร่าง"} · ${fmtMoney(totals.total)}`)
+        log("billing", [inv.studentId], existing ? "แก้ใบแจ้งหนี้" : "สร้างใบแจ้งหนี้", `${number} · ${fmtMoney(totals.total)}`)
         return { ok: true, value: next }
       },
 
       generatePdf: (id) => {
         const s = get()
         const inv = s.invoices.find((x) => x.id === id)!
-        if (inv.status !== "draft") return fail("สร้าง PDF ได้จากใบร่างเท่านั้น")
+        if (inv.status !== "draft") return fail("สร้าง PDF ได้จากใบที่ยังไม่สร้าง PDF เท่านั้น")
         const branch = s.branches.find((b) => b.id === inv.branchId)!
         const today = toDateStr(s.now())
         const number = inv.number ?? Bill.nextInvoiceNumber("INV", branch, today, s.invoices.map((x) => x.number))
@@ -1205,8 +1209,7 @@ export const useStore = create<Store>()(
         let next: Invoice = { ...inv, payments }
         let { entitlements, classes, sessions } = s
         if (paid) {
-          const today = toDateStr(s.now())
-          next = { ...next, status: "paid", receiptNumber: Bill.nextInvoiceNumber("RC", ctx.branch, today, s.invoices.map((x) => x.receiptNumber)) }
+          next = { ...next, status: "paid", receiptNumber: inv.number ?? undefined } // the receipt carries the invoice's number
           // auto-claim: entitlement covers exactly the paid window (BL-19) and the student joins the class sessions in it
           for (const l of totals.lines) {
             if (!l.course || !l.quote) continue
@@ -1573,7 +1576,7 @@ export const useStore = create<Store>()(
     {
       name: "nockerp-v2",
       // bump when the data model changes; older saved data is replaced by fresh sample data
-      version: 35,
+      version: 36,
       migrate: () => ({ ...buildSeed(), userId: "u_nock", branchId: "br_thl", clockOffset: 0 }) as unknown as Store,
       // persist data + UI state only, never the action functions
       partialize: (s) => Object.fromEntries(Object.entries(s).filter(([, v]) => typeof v !== "function")) as Partial<Store>,

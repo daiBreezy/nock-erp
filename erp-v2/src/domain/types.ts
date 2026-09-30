@@ -78,6 +78,8 @@ export interface Branch {
   code: string
   name: string
   brand: Brand
+  /** 3-digit branch number in document numbers (690930-01-001-0001) */
+  branchNo: string
   /** province code shown next to the branch name (owner 2026-09-30: "Sukhumvit · BKK") — BKK = Bangkok, CBR = Chonburi, more later */
   province: string
   /** inactive branches disappear from the branch switcher and cannot take new work */
@@ -132,6 +134,18 @@ export interface SystemConfig {
   /** language = system default AND the parent form's default (parents can still switch TH/EN/JP on the form) */
   preferences: { language: FormLang; timezone: string; currency: string; dateFormat: "th-short" | "iso" }
   settings: SystemSettings
+  /** the company every invoice / receipt is issued by (Liclass Education = parent company, owner 2026-09-30) */
+  company: CompanyInfo
+}
+
+export interface CompanyInfo {
+  nameTh: string
+  nameEn: string
+  addressTh: string
+  addressEn: string
+  taxId: string
+  /** "สำนักงานใหญ่" / "Head Office" */
+  office: string
 }
 
 export interface SystemSettings {

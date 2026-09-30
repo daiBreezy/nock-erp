@@ -65,6 +65,7 @@ function NoteCard({ n, who, manage }: { n: CreditNote; who: (id?: string) => str
         <Pill tone={n.mode === "refund" ? "blue" : "violet"}>{n.mode === "refund" ? <WalletIcon className="size-3" /> : <ReceiptIcon className="size-3" />}{Refund.CREDIT_MODE_LABEL[n.mode]}</Pill>
         <Pill tone={n.status === "approved" ? "green" : n.status === "void" ? "gray" : "amber"}>{Refund.CREDIT_STATUS_LABEL[n.status]}</Pill>
         <span className="ml-auto font-semibold tabular-nums">{fmtMoney(Refund.creditNoteTotal(n))}</span>
+        {n.status === "approved" && <a href={`/print/credit-note/${n.id}`} target="_blank" rel="noreferrer" className="text-xs text-primary underline">PDF</a>}
       </div>
       <ul className="text-xs text-muted-foreground">
         {n.items.map((i) => <li key={i.key} className="flex justify-between"><span>{i.label}</span><span className="tabular-nums">{fmtMoney(i.amount)}</span></li>)}

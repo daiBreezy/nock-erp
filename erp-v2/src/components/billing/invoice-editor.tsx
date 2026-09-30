@@ -154,14 +154,14 @@ export function InvoiceEditor({ invoice, defaultStudentId, renewEntitlementId, o
 
   const submit = () => {
     const r = save(draft)
-    if (report(r, "บันทึกใบร่างแล้ว — ยังไม่มีเลขที่ จะได้เลขตอนสร้าง PDF")) onSaved(r.value)
+    if (report(r, (v) => `บันทึกแล้ว · เลขที่ ${v.number} (ใบจริง — มีปัญหาให้ยกเลิก ไม่ลบ)`)) onSaved(r.value)
   }
 
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()}>
       <DialogContent className="max-h-[92vh] overflow-y-auto sm:max-w-3xl">
         <DialogHeader>
-          <DialogTitle>{invoice ? `แก้ใบแจ้งหนี้${invoice.number ? ` ${invoice.number}` : " (ร่าง)"}` : "สร้างใบแจ้งหนี้"}</DialogTitle>
+          <DialogTitle>{invoice ? `แก้ใบแจ้งหนี้ ${invoice.number ?? ""}` : "สร้างใบแจ้งหนี้"}</DialogTitle>
           <DialogDescription>ราคาและจำนวนคาบคำนวณจากตารางเรียนจริง (ข้ามวันหยุด) — ตัวเลขชุดเดียวกับที่จะอยู่ใน PDF</DialogDescription>
         </DialogHeader>
 
@@ -362,7 +362,7 @@ export function InvoiceEditor({ invoice, defaultStudentId, renewEntitlementId, o
         <DialogFooter className="items-center">
           {errors.length > 0 && <span className="mr-auto text-xs text-red-700">{errors[0]}</span>}
           <Button variant="ghost" onClick={onClose}>ยกเลิก</Button>
-          <Button disabled={errors.length > 0} onClick={submit}>บันทึกร่าง</Button>
+          <Button disabled={errors.length > 0} onClick={submit}>{invoice ? "บันทึก" : "สร้างใบแจ้งหนี้ (ออกเลขทันที)"}</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

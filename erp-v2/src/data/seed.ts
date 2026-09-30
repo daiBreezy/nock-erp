@@ -63,7 +63,7 @@ export function buildSeed(now = new Date()): DB {
 
   const branches: Branch[] = [
     {
-      id: "br_thl", code: "THL", name: "ทองหล่อ", brand: "nockacademy", province: "BKK",
+      id: "br_thl", code: "THL", branchNo: "001", name: "ทองหล่อ", brand: "nockacademy", province: "BKK",
       rooms: [{ id: "rm_1", name: "ห้อง 1" }, { id: "rm_2", name: "ห้อง 2" }, { id: "rm_3", name: "ห้อง 3" }],
       hours: wk("09:00", "20:00"), subjects: ["คณิต", "อังกฤษ", "วิทย์"], grades: ["ป.4", "ป.5", "ป.6", "ม.1", "ม.2", "ม.3"],
       defaultSessionMinutes: 60, busFeePerLeg: 150,
@@ -85,7 +85,7 @@ export function buildSeed(now = new Date()): DB {
       lineOa: { channelId: "1657800001", botBasicId: "@nockacademy", addFriendUrl: "https://lin.ee/p4w3XA7" },
     },
     {
-      id: "br_ari", code: "ARI", name: "อารีย์", brand: "liclass", province: "BKK",
+      id: "br_ari", code: "ARI", branchNo: "001", name: "อารีย์", brand: "liclass", province: "BKK",
       rooms: [{ id: "rm_a1", name: "ห้อง A" }, { id: "rm_a2", name: "ห้อง B" }],
       hours: wk("10:00", "19:00", [0, 1]), subjects: ["คณิต", "อังกฤษ"], grades: ["ป.1", "ป.2", "ป.3", "ป.4", "ป.5", "ป.6"],
       defaultSessionMinutes: 90, busFeePerLeg: 120, specialPeriods: [],
@@ -348,22 +348,23 @@ export function buildSeed(now = new Date()): DB {
     msg("m_5b", "cv_5", "internal", "u_ton", "แม่สะดวกเช้าวันศุกร์ นัดไว้ 10:00 วิชาวิทย์แล้วค่ะ", 1, 10, 30),
   ]
 
-  const ym = String((Number(today.slice(0, 4)) + 543) % 100).padStart(2, "0") + today.slice(5, 7) // พ.ศ. 2 หลัก, same as nextInvoiceNumber
+  // yymmdd-business-branch-running, พ.ศ. 2 digits — same as nextInvoiceNumber (NockAcademy = 01, ทองหล่อ = 001)
+  const docNo = (d: string, n: number) => `${String((Number(d.slice(0, 4)) + 543) % 100).padStart(2, "0")}${d.slice(5, 7)}${d.slice(8, 10)}-01-001-${String(n).padStart(4, "0")}`
   const invoices: Invoice[] = [
     {
-      id: "inv_paid", branchId: "br_thl", studentId: "stu_1", number: `INV-THL-${ym}-0001`,
+      id: "inv_paid", branchId: "br_thl", studentId: "stu_1", number: docNo(monthStart, 1),
       lines: [{ id: "ln_1", courseId: "co_math5", classIds: ["cl_math5"], startDate: monthStart, periods: 1 }], bus: [], bookFee: 0, advance: [],
       concession: null, noteToParent: "ค่าเรียนคณิตเดือนนี้", status: "paid", pdf: "ready", createdBy: "u_ploy", createdAt: iso(monthStart),
-      approvedBy: "u_nock", sentAt: iso(monthStart), delivery: "delivered", receiptNumber: `RC-THL-${ym}-0001`,
+      approvedBy: "u_nock", sentAt: iso(monthStart), delivery: "delivered", receiptNumber: docNo(monthStart, 1),
       payments: [{ id: "pay_1", amount: 4500, method: "transfer", reference: "KBank 1234", recordedBy: "u_ploy", recordedAt: iso(monthStart), confirmedBy: "u_nock" }],
     },
     {
-      id: "inv_pending", branchId: "br_thl", studentId: "stu_3", number: `INV-THL-${ym}-0002`,
+      id: "inv_pending", branchId: "br_thl", studentId: "stu_3", number: docNo(today, 1),
       lines: [{ id: "ln_2", courseId: "co_math5", classIds: ["cl_math5"], startDate: addDays(today, 7), periods: 2 }], bus: [], bookFee: 350, advance: [],
       concession: null, noteToParent: "", status: "pending_approval", pdf: "ready", createdBy: "u_ploy", createdAt: iso(today), payments: [],
     },
     {
-      id: "inv_draft", branchId: "br_thl", studentId: "stu_6", number: null,
+      id: "inv_draft", branchId: "br_thl", studentId: "stu_6", number: docNo(today, 2),
       lines: [{ id: "ln_3", courseId: "co_eng", classIds: ["cl_eng"], startDate: today, periods: 1 }], bus: [], bookFee: 0, advance: [],
       concession: { amount: 200, remark: "ลูกค้าเก่า ต่อคอร์สต่อเนื่อง" }, noteToParent: "", status: "draft", pdf: "none", createdBy: "u_ploy", createdAt: iso(today), payments: [],
     },
@@ -390,6 +391,11 @@ export function buildSeed(now = new Date()): DB {
   const on = { inApp: true, line: false }
   const system: SystemConfig = {
     subjects: ["คณิต", "อังกฤษ", "วิทย์"],
+    company: {
+      nameTh: "บริษัท ลิคลาส เอ็ดดูเคชั่น จำกัด", nameEn: "Liclass Education Co.,Ltd.",
+      addressTh: "53/30-31 ม.3 ต.บ้านสวน อ.เมืองชลบุรี จ.ชลบุรี 20000", addressEn: "53/30-31 Moo3, Ban Suan, Mueang, Chonburi 20000",
+      taxId: "0205557003965", office: "สำนักงานใหญ่ / Head Office",
+    },
     invoiceMemos: {
       nockacademy: "กรุณาชำระภายใน 5 วันหลังได้รับใบแจ้งหนี้ · โอนแล้วส่งสลิปทาง LINE OA",
       liclass: "",

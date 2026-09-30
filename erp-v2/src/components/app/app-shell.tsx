@@ -40,6 +40,8 @@ export function AppShell({ children }: { children: ReactNode }) {
   // have no staff/branch data of their own — it must never render the staff sidebar or touch the
   // zustand store (that store is this browser's *own* seed data, meaningless to a parent's device).
   if (pathname.startsWith("/liff")) return <>{children}</>
+  // printable documents (invoice / receipt / credit note): just the paper, nothing around it
+  if (pathname.startsWith("/print")) return <>{children}</>
   if (!mounted)
     return (
       <div className="flex h-screen gap-4 p-4">

@@ -82,9 +82,9 @@ function Body({ id, slipMediaId, onEdit }: { id: ID; slipMediaId?: string; onEdi
   const steps: { label: string; state: "done" | "current" | "todo" | "warn"; detail: string }[] = [
     { label: "สร้างใบ", state: "done", detail: `${who(inv.createdBy)} · ${fmtDateTime(inv.createdAt)}` },
     {
-      label: "สร้าง PDF + ออกเลขที่",
+      label: "สร้าง PDF",
       state: inv.pdf === "ready" ? "done" : inv.pdf === "failed" ? "warn" : inv.status === "void" ? "todo" : "current",
-      detail: inv.pdf === "ready" ? inv.number! : inv.pdf === "generating" ? "กำลังสร้าง…" : inv.pdf === "failed" ? "สร้างไม่สำเร็จ — กดลองใหม่" : "ยังเป็นร่าง (ยังไม่มีเลขที่)",
+      detail: inv.pdf === "ready" ? "พร้อม" : inv.pdf === "generating" ? "กำลังสร้าง…" : inv.pdf === "failed" ? "สร้างไม่สำเร็จ — กดลองใหม่" : "ยังไม่สร้าง PDF",
     },
     {
       label: "อนุมัติ (คนอื่นที่ไม่ใช่คนสร้าง)",
@@ -119,10 +119,16 @@ function Body({ id, slipMediaId, onEdit }: { id: ID; slipMediaId?: string; onEdi
           {inv.delivery === "no_line" && <Pill tone="amber">ไม่มี LINE</Pill>}
           {inv.delivery === "failed" && <Pill tone="red">ส่ง LINE ไม่สำเร็จ</Pill>}
         </div>
-        <SheetTitle className="text-lg">{inv.number ?? "ใบร่าง (ยังไม่มีเลขที่)"}</SheetTitle>
+        <SheetTitle className="text-lg">{inv.number ?? "—"}</SheetTitle>
         <SheetDescription>
           {stu?.nickname} ({stu?.grade}) · {fam?.name ?? "ยังไม่ผูกครอบครัว"}
         </SheetDescription>
+        {(inv.pdf === "ready" || inv.receiptNumber) && (
+          <div className="flex flex-wrap gap-2 pt-1">
+            {inv.pdf === "ready" && <Button size="xs" variant="outline" nativeButton={false} render={<a href={`/print/invoice/${inv.id}`} target="_blank" rel="noreferrer" />}><FileTextIcon /> PDF ใบแจ้งหนี้</Button>}
+            {inv.receiptNumber && <Button size="xs" variant="outline" nativeButton={false} render={<a href={`/print/receipt/${inv.id}`} target="_blank" rel="noreferrer" />}><FileTextIcon /> PDF ใบเสร็จ</Button>}
+          </div>
+        )}
       </SheetHeader>
 
       <div className="space-y-5 px-4 pt-5 pb-6">
@@ -195,13 +201,13 @@ function Body({ id, slipMediaId, onEdit }: { id: ID; slipMediaId?: string; onEdi
             approveCheck.ok ? (
               <div className="flex gap-2">
                 <Button size="sm" onClick={() => report(act.approve(inv.id), "อนุมัติแล้ว — พร้อมส่งผู้ปกครอง")}><CheckIcon /> อนุมัติ PDF</Button>
-                {manage && <Button size="sm" variant="outline" onClick={() => onEdit(inv)}><PencilIcon /> แก้ (กลับเป็นร่าง)</Button>}
+                {manage && <Button size="sm" variant="outline" onClick={() => onEdit(inv)}><PencilIcon /> แก้ (ต้องสร้าง PDF ใหม่)</Button>}
               </div>
             ) : (
               <div className="space-y-2">
                 <p className="text-sm text-muted-foreground">{approveCheck.error}</p>
                 {canForce && <ForceApprove label="Force Approve PDF" onForce={(remark) => act.approve(inv.id, remark)} success="Force Approve แล้ว — แจ้งทั้งสาขา + Director" />}
-                {manage && <Button size="sm" variant="outline" onClick={() => onEdit(inv)}><PencilIcon /> แก้ (กลับเป็นร่าง)</Button>}
+                {manage && <Button size="sm" variant="outline" onClick={() => onEdit(inv)}><PencilIcon /> แก้ (ต้องสร้าง PDF ใหม่)</Button>}
               </div>
             )
           )}

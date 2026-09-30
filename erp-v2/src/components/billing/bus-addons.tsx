@@ -102,7 +102,7 @@ export function BusAddOns({ stu }: { stu: Student }) {
                   <td className="whitespace-nowrap">{fmtDate(a.date, { weekday: true })}</td>
                   <td className="text-xs">{[a.pickup && "รับ", a.dropoff && "ส่ง"].filter(Boolean).join(" + ")}{a.note && ` · ${a.note}`}</td>
                   <td className="text-right tabular-nums">{fmtMoney(a.amount)}</td>
-                  <td className="pl-2 text-right">{inv ? <span className="text-xs">ใบ {inv.number ?? "ร่าง"}</span> : <Pill tone="amber">รอเรียกเก็บ</Pill>}</td>
+                  <td className="pl-2 text-right">{inv ? <span className="text-xs">ใบ {inv.number ?? "—"}</span> : <Pill tone="amber">รอเรียกเก็บ</Pill>}</td>
                   <td className="w-7 text-right">{manage && !inv && <Button size="icon-xs" variant="ghost" aria-label="ลบ" onClick={() => report(remove(a.id), "ลบรอบรถเพิ่มแล้ว")}><TrashIcon /></Button>}</td>
                 </tr>
               )

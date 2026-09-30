@@ -334,11 +334,17 @@ export function validateInvoiceDraft(inv: Invoice, totals: InvoiceTotals, opts: 
   return errs
 }
 
-/** BL-8, BL-9: numbers are assigned at Generate, sequentially per branch + month, never on draft.
- *  Year is Buddhist Era, 2 digits (owner 2026-09-28): Sep 2026 → INV-THL-6909-0001 */
-export function nextInvoiceNumber(prefix: "INV" | "RC" | "CN", branch: Branch, date: DateStr, existing: (string | undefined | null)[]) {
-  const ym = String((Number(date.slice(0, 4)) + 543) % 100).padStart(2, "0") + date.slice(5, 7)
-  const head = `${prefix}-${branch.code}-${ym}-`
+/** Business type in document numbers (owner 2026-09-30): NA = NockAcademy, LI = Liclass */
+export const BUSINESS_CODE: Record<Branch["brand"], string> = { nockacademy: "01", liclass: "02" }
+
+/**
+ * Document number = yymmdd-business-branch-running (owner 2026-09-30): 690930-01-001-0001 — พ.ศ. 2 digits, issued the
+ * moment the invoice is created (a real document from then on: problems are voided, never deleted). Running restarts
+ * each day per business + branch. The receipt carries the same number; a Credit Note is "CN-" + the same pattern.
+ */
+export function nextInvoiceNumber(kind: "INV" | "CN", branch: Pick<Branch, "brand" | "branchNo">, date: DateStr, existing: (string | undefined | null)[]) {
+  const ymd = String((Number(date.slice(0, 4)) + 543) % 100).padStart(2, "0") + date.slice(5, 7) + date.slice(8, 10)
+  const head = `${kind === "CN" ? "CN-" : ""}${ymd}-${BUSINESS_CODE[branch.brand]}-${branch.branchNo}-`
   const max = existing.filter((n): n is string => !!n && n.startsWith(head)).reduce((m, n) => Math.max(m, Number(n.slice(head.length))), 0)
   return head + String(max + 1).padStart(4, "0")
 }
@@ -410,7 +416,7 @@ export function canForceConfirmPayment(p: { recordedBy: ID; confirmedBy?: ID }, 
 }
 
 export const INVOICE_STATUS_LABEL: Record<Invoice["status"], string> = {
-  draft: "ร่าง",
+  draft: "รอสร้าง PDF",
   pending_approval: "รออนุมัติ",
   approved: "อนุมัติแล้ว",
   sent: "ส่งแล้ว · รอชำระ",
