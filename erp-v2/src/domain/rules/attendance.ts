@@ -30,7 +30,7 @@ export function packageCovers(e: Entitlement, s: Pick<Session, "classId" | "subj
   // a session the student was re-scheduled into (another class, same week) still draws from their package
   if (s.rescheduledIn?.includes(e.studentId)) return sameSubjects
   // multi-subject sessions (monthly only): the student's course must include every subject taught
-  return s.classId ? s.classId === e.classId : sameSubjects
+  return s.classId ? e.classIds.includes(s.classId) : sameSubjects
 }
 
 /** Which paid package pays for this student's seat in this session (null = unpaid). */
@@ -111,11 +111,11 @@ export function leaveLedger(e: Entitlement, ctx: MakeUpCtx, leaves: StudentLeave
     .map((s, i) => ({ sessionId: s.id, date: s.date, quota: i < q }))
 }
 
-/** the next `n` class days after `after` (same weekday, skipping the branch's holidays) */
-export function nextClassDates(klass: Pick<Klass, "weekday" | "branchId">, after: DateStr, n: number, holidays: Holiday[]): DateStr[] {
+/** the next `n` class meetings after `after` across the package's classes (skipping the branch's holidays) */
+export function nextClassDates(klasses: Pick<Klass, "weekday" | "branchId">[], after: DateStr, n: number, holidays: Holiday[]): DateStr[] {
   const out: DateStr[] = []
-  for (let d = addDays(after, 1); out.length < n; d = addDays(d, 1)) {
-    if (weekdayOf(d) === klass.weekday && !isHoliday(d, klass.branchId, holidays)) out.push(d)
+  for (let d = addDays(after, 1), guard = 0; out.length < n && guard < 3660; d = addDays(d, 1), guard++) {
+    for (const k of klasses) if (out.length < n && weekdayOf(d) === k.weekday && !isHoliday(d, k.branchId, holidays)) out.push(d)
   }
   return out
 }
@@ -125,10 +125,10 @@ export function nextClassDates(klass: Pick<Klass, "weekday" | "branchId">, after
 export function resolveEntitlements(ents: Entitlement[], leaves: StudentLeave[], ctx?: MakeUpCtx): Entitlement[] {
   return ents.map((e) => {
     const base = leaves.length ? { ...e, to: effectiveTo(e, leaves) } : e
-    const klass = ctx && e.classId ? ctx.classes.find((k) => k.id === e.classId) : undefined
-    if (!ctx || !klass) return base
+    const klasses = ctx ? ctx.classes.filter((k) => e.classIds.includes(k.id)) : []
+    if (!ctx || !klasses.length) return base
     const n = leaveLedger(base, ctx, leaves).filter((l) => l.quota).length
-    return n ? { ...base, to: nextClassDates(klass, base.to, n, ctx.holidays)[n - 1] } : base
+    return n ? { ...base, to: nextClassDates(klasses, base.to, n, ctx.holidays)[n - 1] } : base
   })
 }
 

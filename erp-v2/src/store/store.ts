@@ -205,11 +205,11 @@ export const useStore = create<Store>()(
         const after = resolvedFor(studentId)
         for (const e of after) {
           const prev = before.find((x) => x.id === e.id)
-          if (!prev || prev.to === e.to || !e.classId) continue
+          if (!prev || prev.to === e.to || !e.classIds.length) continue
           const st = get()
           const now = st.now()
           const [lo, hi] = e.to > prev.to ? [prev.to, e.to] : [e.to, prev.to]
-          const inRange = (x: Session) => x.classId === e.classId && !x.cancelled && x.date > lo && x.date <= hi && Sch.sessionState(x, now) === "upcoming"
+          const inRange = (x: Session) => !!x.classId && e.classIds.includes(x.classId) && !x.cancelled && x.date > lo && x.date <= hi && Sch.sessionState(x, now) === "upcoming"
           const marked = new Set(st.attendance.filter((a) => a.studentId === studentId).map((a) => a.sessionId))
           set({
             sessions: st.sessions.map((x) =>
@@ -1087,11 +1087,12 @@ export const useStore = create<Store>()(
           // auto-claim: entitlement covers exactly the paid window (BL-19) and the student joins the class sessions in it
           for (const l of totals.lines) {
             if (!l.course || !l.quote) continue
-            const q = l.quote, co = l.course, classId = l.line.classId
+            const q = l.quote, co = l.course, classIds = l.line.classIds
+            const paidSlot = new Set(q.slots.map((x) => `${x.classId}|${x.date}`))
             // hour packs are counted; week and month packs are a window with any number of sessions
-            entitlements = [...entitlements, { id: uid("en"), studentId: inv.studentId, courseId: co.id, subjects: co.subjects, classId, invoiceId: inv.id, kind: co.unit === "hour" ? "sessions" : "subscription", from: q.from, to: q.to, sessionsTotal: q.sessions.length }]
-            classes = classes.map((c) => (c.id === classId && !c.studentIds.includes(inv.studentId) ? { ...c, studentIds: [...c.studentIds, inv.studentId] } : c))
-            sessions = sessions.map((x) => (x.classId === classId && q.sessions.includes(x.date) && !x.studentIds.includes(inv.studentId) ? { ...x, studentIds: [...x.studentIds, inv.studentId] } : x))
+            entitlements = [...entitlements, { id: uid("en"), studentId: inv.studentId, courseId: co.id, subjects: co.subjects, classIds, invoiceId: inv.id, kind: co.unit === "hour" ? "sessions" : "subscription", from: q.from, to: q.to, sessionsTotal: q.slots.length, carryMinutes: q.carryOut || undefined }]
+            classes = classes.map((c) => (classIds.includes(c.id) && !c.studentIds.includes(inv.studentId) ? { ...c, studentIds: [...c.studentIds, inv.studentId] } : c))
+            sessions = sessions.map((x) => (x.classId && paidSlot.has(`${x.classId}|${x.date}`) && !x.studentIds.includes(inv.studentId) ? { ...x, studentIds: [...x.studentIds, inv.studentId] } : x))
           }
         }
         set({ invoices: s.invoices.map((x) => (x.id === invoiceId ? next : x)), entitlements, classes, sessions })
@@ -1114,7 +1115,7 @@ export const useStore = create<Store>()(
           const stu = st.students.find((x) => x.id === inv.studentId)!
           // the earliest class across every course on the invoice
           const first = totals.lines
-            .flatMap((l) => (l.quote?.sessions[0] ? st.sessions.filter((x) => x.classId === l.line.classId && x.date === l.quote!.sessions[0]) : []))
+            .flatMap((l) => (l.quote?.slots[0] ? st.sessions.filter((x) => x.classId === l.quote!.slots[0].classId && x.date === l.quote!.slots[0].date) : []))
             .sort((a, b) => (a.date + a.start).localeCompare(b.date + b.start))[0]
           const receiptDelivery = pushLine(stu.familyId, Msg.receiptMessage(next, totals.total, { student: stu, firstSession: first }), (ok, error) => {
             set((cur) => ({ invoices: cur.invoices.map((x) => (x.id === invoiceId ? { ...x, receiptDelivery: ok ? "delivered" : "failed" } : x)) }))
@@ -1449,7 +1450,7 @@ export const useStore = create<Store>()(
     {
       name: "nockerp-v2",
       // bump when the data model changes; older saved data is replaced by fresh sample data
-      version: 31,
+      version: 33,
       migrate: () => ({ ...buildSeed(), userId: "u_nock", branchId: "br_thl", clockOffset: 0 }) as unknown as Store,
       // persist data + UI state only, never the action functions
       partialize: (s) => Object.fromEntries(Object.entries(s).filter(([, v]) => typeof v !== "function")) as Partial<Store>,

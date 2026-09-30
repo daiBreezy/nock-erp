@@ -410,12 +410,15 @@ export interface Entitlement {
   courseId: ID
   /** subjects of the course (a bundle has several) — lets make-up / one-off sessions of the same subject use this package */
   subjects: string[]
-  classId: ID | null
+  /** the classes this package pays for — one course can run on several classes (อ. + พฤ. = 2 classes, owner 2026-09-30) */
+  classIds: ID[]
   invoiceId: ID
   kind: EntitlementKind
   from: DateStr
   to: DateStr
   sessionsTotal: number
+  /** hour packs: minutes left over that the admin kept for this student's next package of the same course */
+  carryMinutes?: number
 }
 
 // ---------- CRM ----------
@@ -535,12 +538,20 @@ export interface AdvanceItem {
 export interface CourseLine {
   id: ID
   courseId: ID
-  classId: ID | null
+  /** one course, several classes (e.g. Tue + Thu) — each is counted as its own class */
+  classIds: ID[]
   startDate: DateStr
   periods: number
   /** required when the student already has an active entitlement for the course */
   overlapRemark?: string
+  /** hour packs: minutes carried in from the student's previous package of this course */
+  carryIn?: number
+  /** hour packs that don't divide into whole sessions (owner 2026-09-30): keep the minutes for the next package,
+   *  add one more session free, or drop them */
+  leftover?: Leftover
 }
+
+export type Leftover = "carry" | "extra" | "drop"
 
 export interface Invoice {
   id: ID

@@ -134,6 +134,8 @@ export function buildSeed(now = new Date()): DB {
     course({ id: "co_math_w4", branchId: "br_thl", name: "คณิต ป.5 เข้มข้น 4 สัปดาห์", kind: "single", subjects: ["คณิต"], grades: ["ป.5"], unit: "week", duration: 4, from: addDays(monday, 7), to: addDays(monday, 63) }),
     course({ id: "co_bundle6", branchId: "br_thl", name: "คณิต + อังกฤษ ป.6", kind: "bundle", subjects: ["คณิต", "อังกฤษ"], grades: ["ป.6"], unit: "month", duration: 1, courseFee: 500 }),
     course({ id: "co_math5_pv", branchId: "br_thl", name: "คณิต ป.5 เรียนเดี่ยว 12 ชม.", kind: "single", format: "single", subjects: ["คณิต"], grades: ["ป.5"], unit: "hour", duration: 12, price: 7200, priceReason: "เรียนเดี่ยว (Private) ราคาต่อชั่วโมงสูงกว่ากลุ่ม" }),
+    // 10 h on the 90-min Conversation class = 6 sessions + 60 min leftover (demo: the admin decides the leftover)
+    course({ id: "co_eng_h10", branchId: "br_thl", name: "อังกฤษ Conversation 10 ชม.", kind: "single", subjects: ["อังกฤษ"], grades: ["ป.5", "ป.6", "ม.1"], unit: "hour", duration: 10, price: 5500, priceReason: "แพ็กชั่วโมงคลาส Conversation" }),
     course({ id: "co_ari", branchId: "br_ari", name: "คณิต ป.ต้น รายเดือน", kind: "single", subjects: ["คณิต"], grades: ["ป.1", "ป.2", "ป.3"], unit: "month", duration: 1, price: 3800, priceReason: "ราคาเดียว ป.ต้น" }),
   ]
 
@@ -235,13 +237,14 @@ export function buildSeed(now = new Date()): DB {
 
   const monthStart = today.slice(0, 8) + "01"
   const ent = (id: string, studentId: string, courseId: string, classId: string, kind: Entitlement["kind"], from: string, to: string, total: number): Entitlement =>
-    ({ id, studentId, courseId, subjects: courses.find((c) => c.id === courseId)!.subjects, classId, invoiceId: "inv_paid", kind, from, to, sessionsTotal: total })
+    ({ id, studentId, courseId, subjects: courses.find((c) => c.id === courseId)!.subjects, classIds: [classId], invoiceId: "inv_paid", kind, from, to, sessionsTotal: total })
   const entitlements: Entitlement[] = [
     ent("en_1", "stu_1", "co_math5", "cl_math5", "subscription", monthStart, addDays(monthStart, 60), 8),
     ent("en_2", "stu_3", "co_math5", "cl_math5", "subscription", monthStart, addDays(today, 5), 4),
     ent("en_3", "stu_4", "co_math5", "cl_math5", "subscription", monthStart, addDays(monthStart, 60), 8),
-    ent("en_4", "stu_2", "co_sci", "cl_sci", "sessions", start, addDays(start, 120), 5),
-    ent("en_5", "stu_5", "co_sci", "cl_sci", "sessions", start, addDays(start, 120), 10),
+    // วิทย์ 12 ชม. at 2 h/session = 6 sessions per pack (hour packs are counted in sessions, owner 2026-09-30)
+    ent("en_4", "stu_2", "co_sci", "cl_sci", "sessions", start, addDays(start, 120), 6),
+    ent("en_5", "stu_5", "co_sci", "cl_sci", "sessions", start, addDays(start, 120), 12), // 2 packs
     ent("en_6", "stu_6", "co_eng", "cl_eng", "subscription", monthStart, addDays(monthStart, 29), 4),
     ent("en_7", "stu_1", "co_eng", "cl_eng", "subscription", monthStart, addDays(monthStart, 29), 4),
     ent("en_8", "stu_8", "co_ari", "cl_ari", "subscription", monthStart, addDays(monthStart, 29), 4),
@@ -250,9 +253,9 @@ export function buildSeed(now = new Date()): DB {
   const courseFor: Record<string, string> = { คณิต: "co_math5", อังกฤษ: "co_eng", วิทย์: "co_sci" }
   classes.forEach((c) =>
     c.studentIds.forEach((sid, i) => {
-      if (sid === "stu_24" || c.branchId !== "br_thl" || entitlements.some((e) => e.studentId === sid && e.classId === c.id)) return
+      if (sid === "stu_24" || c.branchId !== "br_thl" || entitlements.some((e) => e.studentId === sid && e.classIds.includes(c.id))) return
       const hours = c.subject === "วิทย์"
-      entitlements.push(ent(`en_auto_${c.id}_${sid}`, sid, c.grades.includes("ป.4") ? "co_math4" : courseFor[c.subject], c.id, hours ? "sessions" : "subscription", start, addDays(monthStart, i % 3 === 0 ? 36 : 60), hours ? 10 : 8))
+      entitlements.push(ent(`en_auto_${c.id}_${sid}`, sid, c.grades.includes("ป.4") ? "co_math4" : courseFor[c.subject], c.id, hours ? "sessions" : "subscription", start, addDays(monthStart, i % 3 === 0 ? 36 : 60), hours ? 6 : 8))
     }),
   )
 
@@ -347,19 +350,19 @@ export function buildSeed(now = new Date()): DB {
   const invoices: Invoice[] = [
     {
       id: "inv_paid", branchId: "br_thl", studentId: "stu_1", number: `INV-THL-${ym}-0001`,
-      lines: [{ id: "ln_1", courseId: "co_math5", classId: "cl_math5", startDate: monthStart, periods: 1 }], bus: [], bookFee: 0, advance: [],
+      lines: [{ id: "ln_1", courseId: "co_math5", classIds: ["cl_math5"], startDate: monthStart, periods: 1 }], bus: [], bookFee: 0, advance: [],
       concession: null, noteToParent: "ค่าเรียนคณิตเดือนนี้", status: "paid", pdf: "ready", createdBy: "u_ploy", createdAt: iso(monthStart),
       approvedBy: "u_nock", sentAt: iso(monthStart), delivery: "delivered", receiptNumber: `RC-THL-${ym}-0001`,
       payments: [{ id: "pay_1", amount: 4500, method: "transfer", reference: "KBank 1234", recordedBy: "u_ploy", recordedAt: iso(monthStart), confirmedBy: "u_nock" }],
     },
     {
       id: "inv_pending", branchId: "br_thl", studentId: "stu_3", number: `INV-THL-${ym}-0002`,
-      lines: [{ id: "ln_2", courseId: "co_math5", classId: "cl_math5", startDate: addDays(today, 7), periods: 2 }], bus: [], bookFee: 350, advance: [],
+      lines: [{ id: "ln_2", courseId: "co_math5", classIds: ["cl_math5"], startDate: addDays(today, 7), periods: 2 }], bus: [], bookFee: 350, advance: [],
       concession: null, noteToParent: "", status: "pending_approval", pdf: "ready", createdBy: "u_ploy", createdAt: iso(today), payments: [],
     },
     {
       id: "inv_draft", branchId: "br_thl", studentId: "stu_6", number: null,
-      lines: [{ id: "ln_3", courseId: "co_eng", classId: "cl_eng", startDate: today, periods: 1 }], bus: [], bookFee: 0, advance: [],
+      lines: [{ id: "ln_3", courseId: "co_eng", classIds: ["cl_eng"], startDate: today, periods: 1 }], bus: [], bookFee: 0, advance: [],
       concession: { amount: 200, remark: "ลูกค้าเก่า ต่อคอร์สต่อเนื่อง" }, noteToParent: "", status: "draft", pdf: "none", createdBy: "u_ploy", createdAt: iso(today), payments: [],
     },
   ]

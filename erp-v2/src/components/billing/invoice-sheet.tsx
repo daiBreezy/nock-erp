@@ -130,13 +130,13 @@ function Body({ id, slipMediaId, onEdit }: { id: ID; slipMediaId?: string; onEdi
         <section className="rounded-lg border">
           <table className="w-full text-sm tabular-nums">
             <tbody className="divide-y">
-              {totals.lines.map(({ line, course, klass, quote, courseFee, promotion, promotionName }) => course && quote && (
+              {totals.lines.map(({ line, course, klasses, quote, courseFee, promotion, promotionName }) => course && quote && (
                 <Fragment key={line.id}>
                   <tr>
                     <td className="px-3 py-2" colSpan={2}>
                       <div className="font-medium">{course.name}</div>
                       <div className="text-xs text-muted-foreground">
-                        {klass?.name} · {fmtDate(quote.from)} → {fmtDate(quote.to, { year: true })} · {quote.sessions.length} คาบ · {quote.hours} ชม.
+                        {klasses.map((k) => k.name).join(" + ")} · {fmtDate(quote.from)} → {fmtDate(quote.to, { year: true })} · {quote.sessions.length} คาบ · {quote.hours} ชม.
                         {quote.skipped.length > 0 && ` · ข้ามวันหยุด ${quote.skipped.map((d) => fmtDate(d)).join(", ")}`}
                       </div>
                     </td>

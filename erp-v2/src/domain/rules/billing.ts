@@ -1,7 +1,7 @@
 // Billing rules: one pricing function feeds Create, Edit, Detail and PDF (BL-2, BL-3, BL-4).
 
-import { addMonths, endOfMonth, fmtDate, monthKey, nextWeekday, addDays } from "../dates"
-import type { AdvanceItem, Branch, Student, BusLeg, Course, CourseLine, DateStr, Fee, Holiday, ID, Invoice, Klass, PriceUnit, Result, Role, Staff } from "../types"
+import { addMonths, endOfMonth, fmtDate, monthKey, nextWeekday, addDays, weekdayOf } from "../dates"
+import type { AdvanceItem, Branch, Entitlement, Leftover, Student, Weekday, BusLeg, Course, CourseLine, DateStr, Fee, Holiday, ID, Invoice, Klass, PriceUnit, Result, Role, Staff } from "../types"
 import { purchaseOf } from "./course"
 import { requireForceRemark } from "./notifications"
 import { inBranch } from "./permissions"
@@ -19,12 +19,24 @@ export function prorateFactor(sessionsInMonth: number) {
 export interface PeriodLine {
   month: string // YYYY-MM
   sessions: DateStr[]
+  /** monthly packs: the weeks with class in this month (week keys) — the pro-rate counts weeks, not sessions */
+  weeks?: DateStr[]
   factor: number
   amount: number
 }
 
+/** One real class meeting the package pays for. */
+export interface QuoteSlot {
+  date: DateStr
+  classId: ID
+  start: string
+  minutes: number
+}
+
 export interface CourseQuote {
+  /** one date per class meeting (two classes the same day = the date twice) */
   sessions: DateStr[]
+  slots: QuoteSlot[]
   /** dates skipped because of holidays */
   skipped: DateStr[]
   from: DateStr
@@ -32,65 +44,116 @@ export interface CourseQuote {
   hours: number
   periods: PeriodLine[]
   total: number
+  /** hour packs: minutes bought (incl. carried in) that don't fill a whole next session — the admin decides
+   *  (line.leftover): carry to the next package, one more session free ("extra", already in `slots`), or drop */
+  leftoverMinutes: number
+  /** minutes kept for the student's next package of this course (leftover = "carry") */
+  carryOut: number
+}
+
+type QuoteClass = Pick<Klass, "id" | "weekday" | "minutes" | "branchId" | "start">
+
+/**
+ * Where a week starts for pro-rating: the branch's first open day of that Mon–Sun week (open Mon–Fri → Monday,
+ * opens from Wednesday → Wednesday). The week is billed in the month of that day. Owner 2026-09-30 ("นายตัดสินใจไปก่อน").
+ */
+export function weekKey(date: DateStr, openDays: Weekday[]): DateStr {
+  const monday = addDays(date, -((weekdayOf(date) + 6) % 7))
+  for (let i = 0; i < 7; i++) {
+    const d = addDays(monday, i)
+    if (openDays.includes(weekdayOf(d))) return d
+  }
+  return monday
+}
+
+/** Every meeting of these classes from `from`, skipping holidays, in date + time order, until `stop` says enough. */
+function classSlots(klasses: QuoteClass[], from: DateStr, holidays: Holiday[], stop: (d: DateStr, taken: QuoteSlot[]) => boolean) {
+  const slots: QuoteSlot[] = [], skipped: DateStr[] = []
+  for (let d = from, guard = 0; guard < 3660 && !stop(d, slots); d = addDays(d, 1), guard++) {
+    for (const k of [...klasses].sort((a, b) => a.start.localeCompare(b.start))) {
+      if (weekdayOf(d) !== k.weekday) continue
+      if (isHoliday(d, k.branchId, holidays)) skipped.push(d)
+      else slots.push({ date: d, classId: k.id, start: k.start, minutes: k.minutes })
+    }
+  }
+  return { slots, skipped: [...new Set(skipped)] }
 }
 
 export function quoteCourse(opts: {
   course: Pick<Course, "unit" | "duration" | "price">
-  klass: Pick<Klass, "weekday" | "minutes" | "branchId">
+  /** one or more classes (one course can run on several classes — each counted as its own class) */
+  klasses: QuoteClass[]
   startDate: DateStr
   periods: number
   holidays: Holiday[]
+  /** branch open weekdays — where a pro-rate week starts. Default Mon–Sun. */
+  openDays?: Weekday[]
+  /** hour packs: minutes carried in from the previous package */
+  carryIn?: number
+  leftover?: Leftover
 }): Result<CourseQuote> {
-  const { course, klass, startDate, holidays } = opts
+  const { course, klasses, startDate, holidays } = opts
   if (!Number.isInteger(opts.periods) || opts.periods < 1) return { ok: false, error: "จำนวนงวดต้องเป็นจำนวนเต็มตั้งแต่ 1 ขึ้นไป" } // BL-5
-
-  const first = nextWeekday(startDate, klass.weekday)
-  const sessions: DateStr[] = [], skipped: DateStr[] = []
-  let to: DateStr
+  if (!klasses.length) return { ok: false, error: "เลือกคลาสอย่างน้อย 1 คลาส" }
+  const openDays = opts.openDays ?? ([0, 1, 2, 3, 4, 5, 6] as Weekday[])
+  const first = klasses.map((k) => nextWeekday(startDate, k.weekday)).sort()[0]
 
   if (course.unit === "month") {
-    // months count from the first real session, not the typed start date (E2E 2026-09-28: start 28 Sep on a
-    // Saturday class billed "September · 0 sessions · ฿0" because the first class was 3 Oct)
-    to = endOfMonth(addMonths(first, opts.periods - 1))
-    for (let d = first; d <= to; d = addDays(d, 7)) (isHoliday(d, klass.branchId, holidays) ? skipped : sessions).push(d)
+    // months count from the first real session, not the typed start date (E2E 2026-09-28)
+    const to = endOfMonth(addMonths(first, opts.periods - 1))
+    const { slots, skipped } = classSlots(klasses, first, holidays, (d) => d > to)
     const months = Array.from({ length: opts.periods }, (_, i) => monthKey(addMonths(first, i)))
+    // each class week is billed in the month its week starts (a week starting 30 Sep belongs to September);
+    // weeks that start before the first month count in the first month
+    const monthOf = (d: DateStr) => { const m = monthKey(weekKey(d, openDays)); return m < months[0] ? months[0] : m }
     const periods = months.map((m) => {
-      const inMonth = sessions.filter((d) => monthKey(d) === m)
-      const factor = prorateFactor(inMonth.length)
-      return { month: m, sessions: inMonth, factor, amount: Math.round(course.price * factor) }
+      const inMonth = slots.filter((x) => monthOf(x.date) === m)
+      const weeks = [...new Set(inMonth.map((x) => weekKey(x.date, openDays)))]
+      const factor = prorateFactor(weeks.length) // owner 2026-09-30: count weeks with class, not sessions
+      return { month: m, sessions: inMonth.map((x) => x.date), weeks, factor, amount: Math.round(course.price * factor) }
     })
-    return ok(sessions, skipped, first, to, klass.minutes, periods)
+    return done(slots, skipped, first, to, periods, 0, 0)
   }
 
   // week packs: every session inside N weeks from the first session — any number of sessions (owner 2026-09-28)
   if (course.unit === "week") {
-    to = addDays(first, course.duration * 7 * opts.periods - 1)
-    for (let d = first; d <= to; d = addDays(d, 7)) (isHoliday(d, klass.branchId, holidays) ? skipped : sessions).push(d)
-    return ok(sessions, skipped, first, to, klass.minutes, [{ month: monthKey(first), sessions, factor: opts.periods, amount: course.price * opts.periods }])
+    const to = addDays(first, course.duration * 7 * opts.periods - 1)
+    const { slots, skipped } = classSlots(klasses, first, holidays, (d) => d > to)
+    return done(slots, skipped, first, to, [{ month: monthKey(first), sessions: slots.map((x) => x.date), factor: opts.periods, amount: course.price * opts.periods }], 0, 0)
   }
 
-  // hour packs: as many sessions as the hours cover at this class's real session length
-  // (24 h at 2 h/session = 12 sessions, at 90 min = 16)
-  const needed = Math.ceil((course.duration * 60 * opts.periods) / klass.minutes)
-  let d = first
-  while (sessions.length < needed) {
-    ;(isHoliday(d, klass.branchId, holidays) ? skipped : sessions).push(d)
-    d = addDays(d, 7)
-  }
-  to = sessions[sessions.length - 1] ?? first
-  return ok(sessions, skipped, first, to, klass.minutes, [{ month: monthKey(first), sessions, factor: opts.periods, amount: course.price * opts.periods }])
+  // hour packs: whole sessions the minutes pay for, in real class order across every class, at each class's real
+  // length (24 h at 1:30 = 16 sessions) · what doesn't fill the next session is the leftover (owner 2026-09-30)
+  const bought = course.duration * 60 * opts.periods + (opts.carryIn ?? 0)
+  // scan until the meetings found go past what was bought — the first one over is the "next session"
+  const { slots, skipped } = classSlots(klasses, first, holidays, (_, taken) => taken.reduce((a, x) => a + x.minutes, 0) > bought)
+  let used = 0
+  const fit: QuoteSlot[] = []
+  for (const x of slots) { if (used + x.minutes > bought) break; fit.push(x); used += x.minutes }
+  const next = slots[fit.length]
+  const leftoverMinutes = bought - used
+  const extra = leftoverMinutes > 0 && opts.leftover === "extra" && next ? [next] : []
+  const paid = [...fit, ...extra]
+  const to = paid[paid.length - 1]?.date ?? first
+  const lastDate = paid[paid.length - 1]?.date
+  return done(paid, skipped.filter((d) => !lastDate || d <= lastDate), first, to,
+    [{ month: monthKey(first), sessions: paid.map((x) => x.date), factor: opts.periods, amount: course.price * opts.periods }],
+    leftoverMinutes, opts.leftover === "carry" ? leftoverMinutes : 0)
 
-  function ok(s: DateStr[], sk: DateStr[], from: DateStr, until: DateStr, minutes: number, periods: PeriodLine[]): Result<CourseQuote> {
+  function done(s: QuoteSlot[], sk: DateStr[], from: DateStr, until: DateStr, periods: PeriodLine[], leftoverMinutes: number, carryOut: number): Result<CourseQuote> {
     return {
       ok: true,
       value: {
-        sessions: s,
+        sessions: s.map((x) => x.date),
+        slots: s,
         skipped: sk,
         from,
         to: until,
-        hours: (s.length * minutes) / 60, // BL-2: hours from real sessions × real duration
+        hours: s.reduce((a, x) => a + x.minutes, 0) / 60, // BL-2: hours from real sessions × real duration
         periods,
         total: periods.reduce((a, p) => a + p.amount, 0),
+        leftoverMinutes,
+        carryOut,
       },
     }
   }
@@ -119,7 +182,7 @@ export function bestPromotion(branch: Branch, purchase: { unit: PriceUnit; amoun
 export interface LineQuote {
   line: CourseLine
   course?: Course
-  klass?: Klass
+  klasses: Klass[]
   quote: CourseQuote | null
   amount: number
   courseFee: number
@@ -141,17 +204,17 @@ export interface InvoiceTotals {
 
 export function quoteLine(line: CourseLine, ctx: { branch: Branch; courses: Course[]; classes: Klass[]; holidays: Holiday[] }, promotions = true): LineQuote {
   const course = ctx.courses.find((c) => c.id === line.courseId)
-  const klass = ctx.classes.find((c) => c.id === line.classId)
+  const klasses = line.classIds.map((id) => ctx.classes.find((c) => c.id === id)).filter((k): k is Klass => !!k)
   let quote: CourseQuote | null = null
-  if (course && klass) {
-    const r = quoteCourse({ course, klass, startDate: line.startDate, periods: line.periods, holidays: ctx.holidays })
+  if (course && klasses.length) {
+    const r = quoteCourse({ course, klasses, startDate: line.startDate, periods: line.periods, holidays: ctx.holidays, openDays: openDaysOf(ctx.branch), carryIn: line.carryIn, leftover: line.leftover })
     if (r.ok) quote = r.value
   }
   const amount = quote?.total ?? 0
   // each course gets its own best promotion (a promotion is per package type + duration)
   const promo = course && promotions ? bestPromotion(ctx.branch, purchaseOf(course, line.periods), amount, line.startDate) : null
   // course fee (equipment) is charged on top of the price on every purchase
-  return { line, course, klass, quote, amount, courseFee: course?.courseFee ?? 0, promotion: promo?.discount ?? 0, promotionName: promo?.promotion.name }
+  return { line, course, klasses, quote, amount, courseFee: course?.courseFee ?? 0, promotion: promo?.discount ?? 0, promotionName: promo?.promotion.name }
 }
 
 export function invoiceTotals(inv: Invoice, ctx: { branch: Branch; courses: Course[]; classes: Klass[]; holidays: Holiday[] }): InvoiceTotals {
@@ -193,6 +256,18 @@ export function defaultAdvance(branch: Branch, student: Pick<Student, "id" | "im
   return branch.fees.filter((f) => f.kind === "entry").map((f) => ({ feeId: f.id, name: f.name, amount: f.price }))
 }
 
+/** The branch's regular open weekdays (where a pro-rate week starts). */
+export const openDaysOf = (b: Pick<Branch, "hours">) => (Object.keys(b.hours).map(Number) as Weekday[]).filter((w) => b.hours[w])
+
+/** Hour-pack minutes this student kept on a course (leftover = "carry") and has not used on another invoice yet. */
+export function carriedMinutes(studentId: ID, courseId: ID, ents: Entitlement[], invoices: Invoice[], exceptInvoiceId?: ID): number {
+  const kept = ents.filter((e) => e.studentId === studentId && e.courseId === courseId).reduce((a, e) => a + (e.carryMinutes ?? 0), 0)
+  const used = invoices
+    .filter((i) => i.id !== exceptInvoiceId && i.studentId === studentId && i.status !== "void")
+    .flatMap((i) => i.lines).filter((l) => l.courseId === courseId).reduce((a, l) => a + (l.carryIn ?? 0), 0)
+  return Math.max(0, kept - used)
+}
+
 /** Every class date the invoice covers, once per day — bus legs follow these (two courses the same day = one trip). */
 export function invoiceSessionDates(lines: LineQuote[]): DateStr[] {
   return [...new Set(lines.flatMap((l) => l.quote?.sessions ?? []))].sort()
@@ -209,14 +284,15 @@ export function validateInvoiceDraft(inv: Invoice, totals: InvoiceTotals, opts: 
   const many = totals.lines.length > 1
   totals.lines.forEach((l, i) => {
     const tag = many ? `คอร์สที่ ${i + 1} (${l.course?.name ?? "—"}): ` : ""
-    if (!l.line.classId) errs.push(`${tag}เลือกคลาสและวันเริ่มเรียน`)
+    if (!l.line.classIds.length) errs.push(`${tag}เลือกคลาสและวันเริ่มเรียน`)
+    if (l.quote && l.quote.leftoverMinutes > 0 && !l.line.leftover) errs.push(`${tag}ชั่วโมงเหลือเศษ ${l.quote.leftoverMinutes} นาที — เลือกว่าจะเก็บไว้ / เพิ่ม 1 คาบ / ตัดทิ้ง`)
     // Test → Trial → Invoice: paid classes start after the last test/trial, so a trial is never billed (owner 2026-09-28)
     if (l.quote && opts.lastAssessment && l.quote.from <= opts.lastAssessment)
       errs.push(`${tag}วันเริ่มเรียนต้องหลังวันสอบ/ทดลองเรียน (${fmtDate(opts.lastAssessment)}) — เลื่อนวันเริ่มเรียน`)
-    if (l.line.classId && l.quote && l.quote.sessions.length === 0) errs.push(`${tag}ช่วงที่เลือกไม่มีคาบเรียนเลย (ติดวันหยุดทั้งหมด) — เลื่อนวันเริ่มหรือเพิ่มจำนวนงวด`)
+    if (l.line.classIds.length && l.quote && l.quote.sessions.length === 0) errs.push(`${tag}ช่วงที่เลือกไม่มีคาบเรียนเลย (ติดวันหยุดทั้งหมด) — เลื่อนวันเริ่มหรือเพิ่มจำนวนงวด`)
     if (!Number.isInteger(l.line.periods) || l.line.periods < 1) errs.push(`${tag}จำนวนงวดต้องตั้งแต่ 1 ขึ้นไป`)
   })
-  const keys = inv.lines.filter((l) => l.classId).map((l) => `${l.courseId}|${l.classId}`)
+  const keys = inv.lines.flatMap((l) => l.classIds.map((c) => `${l.courseId}|${c}`))
   if (new Set(keys).size < keys.length) errs.push("มีคอร์ส + คลาสเดียวกันซ้ำในใบนี้ — รวมเป็นรายการเดียวแล้วเพิ่มจำนวนงวด")
   if (inv.concession && inv.concession.amount > 0 && !inv.concession.remark.trim()) errs.push("ส่วนลดพิเศษ (Concession) ต้องใส่เหตุผล")
   if (inv.concession && inv.concession.amount < 0) errs.push("ส่วนลดติดลบไม่ได้")

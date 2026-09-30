@@ -179,7 +179,7 @@ function Overview({ stu, ents, today }: { stu: Student; ents: Entitlement[]; tod
           <p className="truncate font-medium">{c?.name ?? "คอร์ส"}</p>
           <p className="flex flex-wrap items-center gap-1 text-xs text-muted-foreground">
             <CalendarIcon className="size-3" /> {fmtDate(e.from)} → {fmtDate(e.to, { year: true })}
-            {classes.find((k) => k.id === e.classId) && <span>· {classes.find((k) => k.id === e.classId)!.name}</span>}
+            {e.classIds.length > 0 && <span>· {classes.filter((k) => e.classIds.includes(k.id)).map((k) => k.name).join(" + ")}</span>}
             {extended && <Pill tone="violet" title={`เดิมจบ ${fmtDate(rawById.get(e.id)!.to, { year: true })}`}>เลื่อนวันจบจากการลา</Pill>}
           </p>
         </div>

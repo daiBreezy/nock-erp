@@ -16,16 +16,16 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { addDays, fmtDate, fmtMoney, fmtMonth, toDateStr } from "@/domain/dates"
 import * as Att from "@/domain/rules/attendance"
-import { busTotal, classOptionsFor, defaultAdvance, defaultBusLegs, entryFeeWaiver, invoiceSessionDates, invoiceTotals, validateInvoiceDraft, type LineQuote } from "@/domain/rules/billing"
+import { busTotal, carriedMinutes, classOptionsFor, defaultAdvance, defaultBusLegs, entryFeeWaiver, invoiceSessionDates, invoiceTotals, validateInvoiceDraft, type LineQuote } from "@/domain/rules/billing"
 import { lastAssessmentDate } from "@/domain/rules/forms"
-import type { AdvanceItem, BusLeg, CourseLine, Entitlement, Family, Invoice, Klass } from "@/domain/types"
+import type { AdvanceItem, BusLeg, CourseLine, Entitlement, Family, Invoice, Klass, Leftover } from "@/domain/types"
 import { uid } from "@/data/seed"
 import { report } from "@/lib/feedback"
 import { useBranch, useEntitlements, useNow } from "@/lib/hooks"
 import { cn } from "@/lib/utils"
 import { useStore } from "@/store/store"
 
-type LineDraft = { id: string; courseId: string; classId: string; startDate: string; periodsText: string; overlapRemark: string }
+type LineDraft = { id: string; courseId: string; classIds: string[]; startDate: string; periodsText: string; overlapRemark: string; leftover?: Leftover }
 
 export function InvoiceEditor({ invoice, defaultStudentId, renewEntitlementId, onClose, onSaved }: { invoice?: Invoice; defaultStudentId?: string; renewEntitlementId?: string; onClose: () => void; onSaved: (inv: Invoice) => void }) {
   const branch = useBranch()
@@ -52,8 +52,8 @@ export function InvoiceEditor({ invoice, defaultStudentId, renewEntitlementId, o
   const [newId] = useState(() => invoice?.id ?? uid("inv"))
   const [studentId, setStudentId] = useState(invoice?.studentId ?? renewFrom?.studentId ?? defaultStudentId ?? "")
   const [lines, setLines] = useState<LineDraft[]>(() =>
-    invoice ? invoice.lines.map((l) => ({ id: l.id, courseId: l.courseId, classId: l.classId ?? "", startDate: l.startDate, periodsText: String(l.periods), overlapRemark: l.overlapRemark ?? "" }))
-      : renewFrom ? [{ id: uid("ln"), courseId: renewFrom.courseId, classId: renewFrom.classId ?? "", startDate: renewStart(renewFrom), periodsText: "1", overlapRemark: "" }]
+    invoice ? invoice.lines.map((l) => ({ id: l.id, courseId: l.courseId, classIds: l.classIds, startDate: l.startDate, periodsText: String(l.periods), overlapRemark: l.overlapRemark ?? "", leftover: l.leftover }))
+      : renewFrom ? [{ id: uid("ln"), courseId: renewFrom.courseId, classIds: renewFrom.classIds, startDate: renewStart(renewFrom), periodsText: "1", overlapRemark: "" }]
         : [])
   const [bus, setBus] = useState<BusLeg[]>(invoice?.bus ?? [])
   const [busTouched, setBusTouched] = useState(!!invoice)
@@ -68,14 +68,14 @@ export function InvoiceEditor({ invoice, defaultStudentId, renewEntitlementId, o
   const student = students.find((s) => s.id === studentId)
   // every package this student ever bought — one chip each, to renew/re-buy like a new invoice
   const pastPackages = student
-    ? [...new Map(entitlements.filter((e) => e.studentId === student.id).sort((a, b) => a.to.localeCompare(b.to)).map((e) => [`${e.courseId}|${e.classId}`, e])).values()].reverse()
+    ? [...new Map(entitlements.filter((e) => e.studentId === student.id).sort((a, b) => a.to.localeCompare(b.to)).map((e) => [`${e.courseId}|${e.classIds.join("+")}`, e])).values()].reverse()
     : []
   // carry on from the student's current package of this course (same class, the day after it ends)
   const currentOf = (sid: string, courseId: string) => entitlements.filter((x) => x.studentId === sid && x.courseId === courseId && x.to >= today).sort((a, b) => b.to.localeCompare(a.to))[0]
   const startFor = (sid: string, courseId: string) => { const cur = sid ? currentOf(sid, courseId) : undefined; return cur ? addDays(cur.to, 1) : sid ? firstStart(sid) : today }
   const pickStudent = (sid: string) => {
     setStudentId(sid); setBusTouched(false)
-    if (!invoice) setLines((ls) => ls.map((l) => ({ ...l, startDate: startFor(sid, l.courseId), classId: l.classId || (currentOf(sid, l.courseId)?.classId ?? "") })))
+    if (!invoice) setLines((ls) => ls.map((l) => ({ ...l, startDate: startFor(sid, l.courseId), classIds: l.classIds.length ? l.classIds : (currentOf(sid, l.courseId)?.classIds ?? []) })))
   }
   const family = families.find((f) => f.id === student?.familyId)
   const patchLine = (id: string, patch: Partial<LineDraft>) => { setLines((ls) => ls.map((l) => (l.id === id ? { ...l, ...patch } : l))); setBusTouched(false) }
@@ -84,12 +84,12 @@ export function InvoiceEditor({ invoice, defaultStudentId, renewEntitlementId, o
     const options = classOptionsFor(courses.find((c) => c.id === courseId), classes, branch.id)
     return {
       id: uid("ln"), courseId, periodsText: "1", overlapRemark: "",
-      classId: (studentId && currentOf(studentId, courseId)?.classId) || (options.length === 1 ? options[0].id : ""),
+      classIds: (studentId && currentOf(studentId, courseId)?.classIds) || (options.length === 1 ? [options[0].id] : []),
       startDate: startFor(studentId, courseId),
     }
   }
   const renewPackage = (e: Entitlement) => {
-    const line = { courseId: e.courseId, classId: e.classId ?? "", startDate: renewStart(e) }
+    const line = { courseId: e.courseId, classIds: e.classIds, startDate: renewStart(e) }
     const same = lines.find((l) => l.courseId === e.courseId)
     if (same) patchLine(same.id, line)
     else { setLines((ls) => [...ls, { id: uid("ln"), periodsText: "1", overlapRemark: "", ...line }]); setBusTouched(false) }
@@ -104,7 +104,10 @@ export function InvoiceEditor({ invoice, defaultStudentId, renewEntitlementId, o
   const courseLines: CourseLine[] = lines.map((l) => {
     const periods = Number(l.periodsText)
     const overlap = studentId && Att.activeEntitlements(studentId, entitlements, l.startDate).some((e) => e.courseId === l.courseId)
-    return { id: l.id, courseId: l.courseId, classId: l.classId || null, startDate: l.startDate, periods: Number.isInteger(periods) && periods >= 1 ? periods : 0, overlapRemark: overlap ? l.overlapRemark : undefined }
+    // hour packs: minutes this student kept from the previous package of this course come in automatically
+    const course = courses.find((c) => c.id === l.courseId)
+    const carryIn = course?.unit === "hour" && studentId ? carriedMinutes(studentId, l.courseId, entitlements, invoices, invoice?.id) : 0
+    return { id: l.id, courseId: l.courseId, classIds: l.classIds, startDate: l.startDate, periods: Number.isInteger(periods) && periods >= 1 ? periods : 0, overlapRemark: overlap ? l.overlapRemark : undefined, carryIn: carryIn || undefined, leftover: l.leftover }
   })
   const base: Invoice = {
     id: newId,
@@ -190,11 +193,11 @@ export function InvoiceEditor({ invoice, defaultStudentId, renewEntitlementId, o
               <div className="flex flex-wrap gap-1.5">
                 {pastPackages.map((e) => {
                   const c = courses.find((x) => x.id === e.courseId)
-                  const on = lines.some((l) => l.courseId === e.courseId && l.classId === (e.classId ?? ""))
+                  const on = lines.some((l) => l.courseId === e.courseId && l.classIds.join("+") === e.classIds.join("+"))
                   return (
                     <button key={e.id} type="button" onClick={() => renewPackage(e)}
                       className={cn("rounded-full border px-2.5 py-1 text-xs", on ? "border-primary bg-primary/10 text-primary" : "hover:bg-muted")}>
-                      {c?.name ?? "คอร์ส"} · {classes.find((k) => k.id === e.classId)?.name ?? "—"} · {e.to < today ? "หมด" : "ถึง"} {fmtDate(e.to)}
+                      {c?.name ?? "คอร์ส"} · {classes.filter((k) => e.classIds.includes(k.id)).map((k) => k.name).join(" + ") || "—"} · {e.to < today ? "หมด" : "ถึง"} {fmtDate(e.to)}
                     </button>
                   )
                 })}
@@ -315,13 +318,19 @@ export function InvoiceEditor({ invoice, defaultStudentId, renewEntitlementId, o
 }
 
 /** One course on the invoice: its class, start date, periods and the real-schedule quote. */
+const WEEKDAY_SHORT = ["อา.", "จ.", "อ.", "พ.", "พฤ.", "ศ.", "ส."]
+const LEFTOVER_CHOICES: [Leftover, string][] = [["carry", "เก็บไว้กับนักเรียน (รวมแพ็กถัดไป)"], ["extra", "เพิ่ม +1 คาบ (ไม่เก็บเงินเพิ่ม)"], ["drop", "ตัดเศษทิ้ง"]]
+
 function LineCard({ index, draft, quote, studentId, studentGrade, classes, overlapTo, onChange, onRemove }: {
   index: number; draft: LineDraft; quote?: LineQuote; studentId: string; studentGrade?: string; classes: Klass[]; overlapTo?: string
   onChange: (patch: Partial<LineDraft>) => void; onRemove: () => void
 }) {
   const staff = useStore((s) => s.staff)
   const course = quote?.course
-  const klass = classes.find((k) => k.id === draft.classId)
+  const [day, setDay] = useState<number | null>(null)
+  const chosen = classes.filter((k) => draft.classIds.includes(k.id))
+  const days = [...new Set(classes.map((k) => k.weekday))].sort()
+  const toggleClass = (id: string) => onChange({ classIds: draft.classIds.includes(id) ? draft.classIds.filter((x) => x !== id) : [...draft.classIds, id] })
   const periods = Number(draft.periodsText)
   const periodsValid = Number.isInteger(periods) && periods >= 1
   const q = quote?.quote
@@ -342,19 +351,40 @@ function LineCard({ index, draft, quote, studentId, studentGrade, classes, overl
         <Button size="icon-xs" variant="ghost" aria-label="เอาคอร์สนี้ออก" onClick={onRemove}><XIcon /></Button>
       </div>
 
-      <div className="grid gap-2 sm:grid-cols-[2fr_1fr_0.8fr]">
-        <div className="space-y-1">
-          <Label className="text-xs">คลาสที่จะเรียน *</Label>
-          <NativeSelect value={draft.classId} onChange={(e) => onChange({ classId: e.target.value })} placeholder={classes.length ? "เลือกคลาส" : `ไม่มีคลาสเรียน${COURSE_FORMAT_LABEL[course.format]}ที่เปิดสำหรับวิชานี้`}
-            options={classes.map((k) => {
-              const t = staff.find((x) => x.id === k.teacherId)
-              const full = k.studentIds.length >= (k.type === "single" ? 1 : 6)
-              return { value: k.id, label: `${k.name} · ${["อา.", "จ.", "อ.", "พ.", "พฤ.", "ศ.", "ส."][k.weekday]} ${k.start} · ${t?.active ? t.nickname : "ยังไม่มีครู"} · ${k.studentIds.length} คน${full ? " (เต็ม)" : ""}`, disabled: full && !k.studentIds.includes(studentId) }
-            })} />
-          {klass && !staff.find((x) => x.id === klass.teacherId)?.active && (
-            <p className="flex items-center gap-1 text-xs text-amber-700"><AlertTriangleIcon className="size-3" /> คลาสนี้ยังไม่มีครู — ตั้งครูที่หน้าคลาสก่อนวันเรียน</p>
-          )}
+      {/* one course, several classes (อ. + พฤ.) — each counted as its own class (owner 2026-09-30) */}
+      <div className="space-y-1.5">
+        <div className="flex flex-wrap items-center gap-1.5">
+          <Label className="mr-1 text-xs">คลาสที่จะเรียน * {chosen.length > 0 && <span className="text-muted-foreground">({chosen.length} คลาส)</span>}</Label>
+          {days.length > 1 && [null, ...days].map((d) => (
+            <button key={d ?? "all"} type="button" onClick={() => setDay(d)}
+              className={cn("rounded-full px-2 py-0.5 text-[11px]", day === d ? "bg-foreground text-background" : "bg-muted text-muted-foreground hover:text-foreground")}>
+              {d === null ? "ทุกวัน" : WEEKDAY_SHORT[d]}
+            </button>
+          ))}
         </div>
+        {classes.length === 0 && <p className="text-xs text-muted-foreground">ไม่มีคลาสเรียน{COURSE_FORMAT_LABEL[course.format]}ที่เปิดสำหรับวิชานี้</p>}
+        <div className="grid gap-1.5 sm:grid-cols-2">
+          {classes.filter((k) => day === null || k.weekday === day || draft.classIds.includes(k.id)).map((k) => {
+            const t = staff.find((x) => x.id === k.teacherId)
+            const full = k.studentIds.length >= (k.type === "single" ? 1 : 6) && !k.studentIds.includes(studentId)
+            const on = draft.classIds.includes(k.id)
+            return (
+              <button key={k.id} type="button" disabled={full && !on} onClick={() => toggleClass(k.id)} aria-pressed={on}
+                className={cn("flex items-start gap-2 rounded-lg border px-2.5 py-1.5 text-left text-xs disabled:opacity-50", on ? "border-primary bg-primary/5" : "hover:bg-muted/50")}>
+                <span className={cn("mt-0.5 grid size-4 shrink-0 place-items-center rounded border", on && "border-primary bg-primary text-primary-foreground")}>{on && <CheckIcon className="size-3" />}</span>
+                <span className="min-w-0">
+                  <span className="block font-medium">{WEEKDAY_SHORT[k.weekday]} {k.start} · {k.name}</span>
+                  <span className="text-muted-foreground">
+                    {t?.active ? `ครู${t.nickname}` : <span className="text-amber-700">ยังไม่มีครู</span>} · {k.minutes} นาที · {k.studentIds.length} คน{full ? " (เต็ม)" : ""}
+                  </span>
+                </span>
+              </button>
+            )
+          })}
+        </div>
+      </div>
+
+      <div className="grid grid-cols-2 gap-2">
         <div className="space-y-1">
           <Label className="text-xs">เริ่มเรียนตั้งแต่</Label>
           <Input type="date" value={draft.startDate} onChange={(e) => onChange({ startDate: e.target.value })} />
@@ -372,6 +402,25 @@ function LineCard({ index, draft, quote, studentId, studentGrade, classes, overl
         </div>
       )}
 
+      {q && course.unit === "hour" && (quote!.line.carryIn || q.leftoverMinutes > 0) && (
+        <div className="space-y-1.5 rounded-lg border border-sky-200 bg-sky-50 p-2 text-xs text-sky-950 dark:border-sky-900 dark:bg-sky-950/40 dark:text-sky-100">
+          {!!quote!.line.carryIn && <p>รวมเศษ <b>{quote!.line.carryIn} นาที</b> ที่เก็บไว้จากแพ็กก่อนของคอร์สนี้ให้แล้ว</p>}
+          {q.leftoverMinutes > 0 && (
+            <>
+              <p>{course.duration * periods} ชม.{quote!.line.carryIn ? ` + ${quote!.line.carryIn} นาที` : ""} ได้ {q.slots.length - (draft.leftover === "extra" ? 1 : 0)} คาบเต็ม เหลือเศษ <b>{q.leftoverMinutes} นาที</b> — จะทำอย่างไรกับเศษนี้? *</p>
+              <div className="flex flex-wrap gap-1.5">
+                {LEFTOVER_CHOICES.map(([v, label]) => (
+                  <button key={v} type="button" aria-pressed={draft.leftover === v} onClick={() => onChange({ leftover: v })}
+                    className={cn("rounded-full border px-2.5 py-1", draft.leftover === v ? "border-sky-700 bg-sky-700 text-white" : "border-sky-300 bg-background hover:bg-sky-100 dark:hover:bg-sky-900")}>
+                    {label}
+                  </button>
+                ))}
+              </div>
+            </>
+          )}
+        </div>
+      )}
+
       {q && (
         <div className="rounded-lg border">
           <div className="flex flex-wrap items-center gap-x-4 gap-y-1 border-b bg-muted/40 px-3 py-1.5 text-xs">
@@ -385,7 +434,7 @@ function LineCard({ index, draft, quote, studentId, studentGrade, classes, overl
                 <tr key={p.month} className="border-b last:border-0">
                   <td className="px-3 py-1.5">{course.unit === "month" ? fmtMonth(p.month + "-01") : `${packageLabel(course)} × ${periods}`}</td>
                   <td className="px-3 py-1.5 text-xs text-muted-foreground">{p.sessions.map((d) => fmtDate(d)).join(", ") || "—"}</td>
-                  <td className="px-3 py-1.5 text-right text-xs text-muted-foreground">{course.unit === "month" ? `${p.sessions.length} คาบ → ${Math.round(p.factor * 100)}%` : `${p.sessions.length} คาบ`}</td>
+                  <td className="px-3 py-1.5 text-right text-xs text-muted-foreground">{course.unit === "month" ? `${p.weeks?.length ?? 0} สัปดาห์ · ${p.sessions.length} คาบ → ${Math.round(p.factor * 100)}%` : `${p.sessions.length} คาบ`}</td>
                   <td className="px-3 py-1.5 text-right font-medium tabular-nums">{fmtMoney(p.amount)}</td>
                 </tr>
               ))}
