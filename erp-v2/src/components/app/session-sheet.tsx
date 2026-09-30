@@ -307,7 +307,14 @@ function StudentRow({ s, sid, viewOnly, canManage, mine, text, setText, selectab
             <button type="button" onClick={() => setOpen("student")} className="truncate text-left text-base font-semibold hover:text-primary hover:underline">{stu?.nickname}</button>
             <span className={cn("shrink-0 rounded-full px-2 py-0.5 text-xs font-semibold", gradeTone(stu?.grade ?? ""))}>{stu?.grade}</span>
             {isNew && <Pill tone="red" className="shrink-0"><FlameIcon className="size-3" /> ใหม่</Pill>}
-            {partial && <Pill tone="violet" className="shrink-0" title={`เรียนเฉพาะ ${Seats.seatTime(s.start, seat)}${s.seats?.[sid] ? " (คาบนี้)" : " (ทุกคาบ)"}`}>{Seats.seatLabel(seat, s.minutes)}</Pill>}
+            {/* tap to change which hours this student attends — works before attendance (parent called ahead) */}
+            {s.minutes > 60 && (partial || (canManage && state(s, now) !== "closed" && !s.cancelled)) && (
+              <button type="button" disabled={!canManage || state(s, now) === "closed" || s.cancelled} onClick={() => setOpen("seat")}
+                title={partial ? `เรียนเฉพาะ ${Seats.seatTime(s.start, seat)}${s.seats?.[sid] ? " (คาบนี้)" : " (ทุกคาบ)"} · กดเพื่อเปลี่ยน` : "กดเพื่อตั้งให้เรียนแค่บางชั่วโมง"}
+                className={cn("shrink-0 rounded-full px-2 py-0.5 text-xs font-medium", partial ? "bg-violet-100 text-violet-800 dark:bg-violet-950 dark:text-violet-200" : "border border-dashed text-muted-foreground hover:bg-muted")}>
+                {partial ? Seats.seatLabel(seat, s.minutes) : Seats.fmtLen(s.minutes)}
+              </button>
+            )}
           </span>
           <p className="truncate text-xs text-muted-foreground" title={fam?.name}>
             {stu?.name} ·{" "}

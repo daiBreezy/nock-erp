@@ -69,6 +69,8 @@ export function buildSeed(now = new Date()): DB {
       rooms: [{ id: "rm_1", name: "ห้อง 1" }, { id: "rm_2", name: "ห้อง 2" }, { id: "rm_3", name: "ห้อง 3" }],
       hours: wk("09:00", "20:00"), subjects: ["คณิต", "อังกฤษ", "วิทย์"], grades: ["ป.4", "ป.5", "ป.6", "ม.1", "ม.2", "ม.3"],
       defaultSessionMinutes: 60, busFeePerLeg: 150,
+      // standard 2-hour blocks (owner ref: 13–15 / 15–17 / 17–19)
+      blocks: { weekday: ["13:00", "15:00", "17:00"], weekend: ["09:00", "11:00", "13:00", "15:00"], minutes: 120 },
       specialPeriods: [{ id: "sp_summer", name: "Summer", from: addDays(monday, 42), to: addDays(monday, 69), hours: wk("08:00", "22:00", []), active: true, priority: "high" }],
       active: true, email: "thonglor@nockacademy.com", address: "123 ถ.สุขุมวิท 55 แขวงคลองตันเหนือ เขตวัฒนา กทม. 10110", phones: ["02-111-2222", "081-234-5678"], socials: ["https://facebook.com/nockacademy"],
       fees: [
@@ -91,6 +93,7 @@ export function buildSeed(now = new Date()): DB {
       rooms: [{ id: "rm_a1", name: "ห้อง A" }, { id: "rm_a2", name: "ห้อง B" }],
       hours: wk("10:00", "19:00", [0, 1]), subjects: ["คณิต", "อังกฤษ"], grades: ["ป.1", "ป.2", "ป.3", "ป.4", "ป.5", "ป.6"],
       defaultSessionMinutes: 90, busFeePerLeg: 120, specialPeriods: [],
+      blocks: { weekday: ["15:00", "17:00"], weekend: ["10:00", "12:00", "14:00", "16:00"], minutes: 120 },
       active: true, email: "ari@liclass.com", address: "45 ซ.อารีย์ 1 แขวงสามเสนใน เขตพญาไท กทม. 10400", phones: ["02-333-4444"], socials: [],
       fees: [{ id: "fee_bus_ari", kind: "bus", name: "Standard", price: 120 }], promotions: [],
       packageDurations: { hour: [12, 24, 48], week: [] },
@@ -185,6 +188,10 @@ export function buildSeed(now = new Date()): DB {
     k("cl_math_sat", "br_thl", "คณิต ป.5 (ส.)", "คณิต", ["ป.5"], null, "rm_1", 6, "13:00", 60, ["stu_4", "stu_24"]), // no teacher → must still be visible
     k("cl_eng_thu", "br_thl", "อังกฤษ ป.6", "อังกฤษ", ["ป.6"], "u_mint", "rm_1", 4, "16:00", 60, ["stu_6", "stu_13", "stu_14", "stu_15", "stu_25"]),
     k("cl_math_jo", "br_thl", "คณิต ป.4", "คณิต", ["ป.4"], "u_jo", "rm_3", 1, "16:30", 60, ["stu_20", "stu_21"]),
+    // NockAcademy's usual layout (owner ref 2026-09-30): a teacher's 2-hour block, students of different subjects/books
+    // side by side, some for one hour only
+    { ...k("cl_block_dai", "br_thl", "ครูได · ศ. 17:00", "คณิต", [], "u_dai", "rm_1", 5, "17:00", 120, ["stu_10", "stu_11", "stu_17", "stu_18"]),
+      layout: "teacher" as const, subjects: ["คณิต", "วิทย์"], seats: { stu_11: { offset: 0, minutes: 60 }, stu_18: { offset: 60, minutes: 60 } } },
     k("cl_math5_pv", "br_thl", "คณิต ป.5 เดี่ยว", "คณิต", ["ป.5"], "u_dai", "rm_3", 4, "17:30", 60, [], [], "learning", "single"),
     k("cl_ari", "br_ari", "คณิต ป.2", "คณิต", ["ป.2"], "u_beam", "rm_a1", 5, "15:00", 90, ["stu_8"]),
     // multi-subject class (owner 2026-09-28): Math 15 min + Eng 30 min in one session, one summary — monthly bundle course

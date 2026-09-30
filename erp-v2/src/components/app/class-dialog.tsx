@@ -10,9 +10,9 @@ import { Textarea } from "@/components/ui/textarea"
 import { addDays, endTime, fmtDate, nextWeekday, TH_DAYS_FULL, toDateStr, toMinutes, weekdayOf, fromMinutes } from "@/domain/dates"
 import * as Att from "@/domain/rules/attendance"
 import { packageLabel } from "@/domain/rules/course"
-import { canSave, CAPACITY, GENERATE_WEEKS, isHoliday, overlappingRows, validateClass, type ClassDraft, type Issue } from "@/domain/rules/scheduling"
+import { blockStartsFor, canSave, CAPACITY, GENERATE_WEEKS, isHoliday, overlappingRows, validateClass, type ClassDraft, type Issue } from "@/domain/rules/scheduling"
 import { sortGrades } from "@/domain/rules/settings"
-import type { ClassKind, ClassType, DateStr, ID, TimeStr, Weekday } from "@/domain/types"
+import type { ClassKind, ClassLayout, ClassType, DateStr, ID, TimeStr, Weekday } from "@/domain/types"
 import { report } from "@/lib/feedback"
 import { useBranch, useNow } from "@/lib/hooks"
 import { cn } from "@/lib/utils"
@@ -57,6 +57,8 @@ export function ClassDialog({ prefill, onClose }: { prefill: ClassPrefill; onClo
   const now = useNow(60_000)
   const startDay = prefill.date ?? toDateStr(now)
 
+  // NockAcademy mostly lays classes out as a teacher's 2-hour block; both layouts exist for both brands (owner 2026-09-30)
+  const [layout, setLayout] = useState<ClassLayout>(branch.brand === "nockacademy" ? "teacher" : "subject")
   const [courseId, setCourseId] = useState("")
   const [name, setName] = useState("")
   const [subjects, setSubjects] = useState<string[]>(branch.subjects.slice(0, 1))
@@ -78,8 +80,11 @@ export function ClassDialog({ prefill, onClose }: { prefill: ClassPrefill; onClo
   const minutesOf = (r: Row) => toMinutes(r.end) - toMinutes(r.start)
   const slot = (r: Row) => ({ weekday: r.weekday, start: r.start, minutes: minutesOf(r) })
 
+  const teacher = staff.find((t) => t.id === teacherId)
+  // a teacher block teaches whatever its teacher teaches — any subject, any grade
+  const classSubjects = layout === "teacher" ? (teacher?.subjects.filter((x) => branch.subjects.includes(x)) ?? []) : subjects
   const base: Omit<ClassDraft, "weekday" | "start" | "minutes"> = {
-    branchId: branch.id, subject: subjects[0] ?? "", subjects, kind, type, courseId: courseId || null,
+    branchId: branch.id, layout, subject: classSubjects[0] ?? "", subjects: classSubjects, kind, type, courseId: layout === "teacher" ? null : courseId || null,
     teacherId: teacherId || null, coTeacherIds: supportId ? [supportId] : [], roomId: roomId || null, startDate, studentIds, overrideReason,
   }
   const rowIssues = rows.map((r) => validateClass({ ...base, ...slot(r) }, { branch, staff, sessions, holidays, now }))
@@ -88,7 +93,7 @@ export function ClassDialog({ prefill, onClose }: { prefill: ClassPrefill; onClo
   const own = (list: Issue[]) => list.filter((i) => !shared.some((x) => x.message === i.message))
   const selfClash = overlappingRows(rows.map(slot))
   const all = rowIssues.flat()
-  const blocked = all.some((i) => i.level === "block") || selfClash.length > 0
+  const blocked = all.some((i) => i.level === "block") || selfClash.length > 0 || (layout === "teacher" && !teacherId)
   const needsReason = all.some((i) => i.level === "override")
   const ok = !blocked && rowIssues.every((list) => canSave(list, overrideReason))
 
@@ -112,7 +117,7 @@ export function ClassDialog({ prefill, onClose }: { prefill: ClassPrefill; onClo
   }
 
   const submit = () => {
-    const r = createClasses({ ...base, name, grades: grades.length ? grades : [...new Set(studentIds.map((id) => students.find((s) => s.id === id)!.grade))] }, rows.map(slot))
+    const r = createClasses({ ...base, name, grades: layout === "teacher" ? [] : grades.length ? grades : [...new Set(studentIds.map((id) => students.find((s) => s.id === id)!.grade))] }, rows.map(slot))
     if (report(r, (v) => `สร้าง ${v.classes} คลาสแล้ว · รวม ${v.sessions} คาบ`)) onClose()
   }
 
@@ -124,7 +129,18 @@ export function ClassDialog({ prefill, onClose }: { prefill: ClassPrefill; onClo
           <DialogDescription>ตั้งวิชา ครู ระดับชั้นครั้งเดียว แล้วเพิ่มได้หลายวัน/เวลา — ได้ 1 คลาสต่อ 1 แถว · ระบบเช็คชนให้ทุกแถวก่อนสร้าง</DialogDescription>
         </DialogHeader>
 
+        <div className="grid grid-cols-2 gap-2">
+          {([["teacher", "ครู + ช่วงเวลา", "ช่วงสอน 2 ชม. ของครู — นักเรียนหลายวิชา/หลายระดับเรียนด้วยกันได้"], ["subject", "วิชา + ระดับชั้น", "คลาสของวิชาเดียว ระดับชั้นที่กำหนด"]] as const).map(([k, label, hint]) => (
+            <button key={k} type="button" aria-pressed={layout === k} onClick={() => setLayout(k)}
+              className={cn("rounded-2xl border p-3 text-left", layout === k ? "border-primary ring-2 ring-primary/20" : "hover:bg-muted/40")}>
+              <p className="text-sm font-medium">{label}</p>
+              <p className="text-xs text-muted-foreground">{hint}</p>
+            </button>
+          ))}
+        </div>
+
         {/* optional course link */}
+        {layout === "subject" && <>
         <div className="flex flex-wrap items-center gap-3 rounded-2xl border border-dashed p-3">
           <BookOpenIcon className="size-5 text-muted-foreground" />
           <div className="min-w-0 flex-1">
@@ -135,9 +151,11 @@ export function ClassDialog({ prefill, onClose }: { prefill: ClassPrefill; onClo
             options={courses.map((c) => ({ value: c.id, label: c.name }))} />
         </div>
 
-        <Field label="ชื่อคลาส (เว้นว่าง = ตั้งจากวิชา + ระดับชั้น)">
-          <Input value={name} onChange={(e) => setName(e.target.value)} placeholder={`${subjects.join(" + ")} ${grades.join(", ")}`.trim()} />
+        </>}
+        <Field label={layout === "teacher" ? "ชื่อคลาส (เว้นว่าง = ครู + วัน + เวลา)" : "ชื่อคลาส (เว้นว่าง = ตั้งจากวิชา + ระดับชั้น)"}>
+          <Input value={name} onChange={(e) => setName(e.target.value)} placeholder={layout === "teacher" ? `ครู${teacher?.nickname ?? "…"} · พ. 17:00` : `${subjects.join(" + ")} ${grades.join(", ")}`.trim()} />
         </Field>
+        {layout === "subject" && <>
 
         <Field label="วิชา (เลือกได้หลายวิชา)" issue={subjects.length > 1 && course && course.unit !== "month" ? "คลาสหลายวิชาใช้กับคอร์สแพ็กเกจรายเดือนเท่านั้น" : undefined}>
           <div className="flex flex-wrap gap-2">
@@ -154,8 +172,9 @@ export function ClassDialog({ prefill, onClose }: { prefill: ClassPrefill; onClo
           {subjects.length > 1 && <p className="mt-1 text-xs text-muted-foreground">คลาสรวมหลายวิชา (เช่น Math 15 นาที + Eng 30 นาที) — เขียนสรุปการเรียนครั้งเดียวต่อคาบ ใช้กับแพ็กเกจรายเดือน</p>}
         </Field>
 
+        </>}
         <div className="grid gap-3 sm:grid-cols-2">
-          <Field label="ครู" hint="แสดงครูที่สอนวิชาที่เลือกก่อน">
+          <Field label={layout === "teacher" ? "ครู *" : "ครู"} hint={layout === "teacher" ? (teacher ? `สอน: ${classSubjects.join(", ") || "—"}` : "วิชาของคลาสมาจากครู") : "แสดงครูที่สอนวิชาที่เลือกก่อน"}>
             <NativeSelect value={teacherId} onChange={(e) => setTeacherId(e.target.value)} placeholder="ยังไม่เลือกครู"
               options={[...teachers.filter(teaches), ...teachers.filter((t) => !teaches(t))].map((t) => ({ value: t.id, label: teaches(t) ? t.nickname : `${t.nickname} (ไม่ได้สอนวิชานี้)` }))} />
           </Field>
@@ -165,6 +184,7 @@ export function ClassDialog({ prefill, onClose }: { prefill: ClassPrefill; onClo
           </Field>
         </div>
 
+        {layout === "subject" && (
         <Field label="ระดับชั้น" action={grades.length > 0 ? <button type="button" className="text-xs text-primary underline" onClick={() => setGrades([])}>ล้างทั้งหมด</button> : undefined}>
           <div className="flex flex-wrap gap-1.5">
             {sortGrades(branch.grades).map((g) => {
@@ -179,12 +199,14 @@ export function ClassDialog({ prefill, onClose }: { prefill: ClassPrefill; onClo
           </div>
         </Field>
 
+        )}
+
         <div className="grid gap-3 sm:grid-cols-3">
           <Field label="ใช้สำหรับ (Class for)">
             <NativeSelect value={kind} onChange={(e) => setKind(e.target.value as ClassKind)} options={KIND} />
           </Field>
           <Field label="รูปแบบ (Class type)">
-            <NativeSelect value={type} onChange={(e) => setType(e.target.value as ClassType)} options={[{ value: "group", label: `กลุ่ม (ไม่เกิน ${CAPACITY.group} คน)` }, { value: "single", label: "เดี่ยว (1 คน)" }]} />
+            <NativeSelect value={type} onChange={(e) => setType(e.target.value as ClassType)} options={[{ value: "group", label: `ปกติ (แนะนำไม่เกิน ${CAPACITY.group} คน)` }, { value: "single", label: `ป้ายเรียนเดี่ยว (แนะนำไม่เกิน ${CAPACITY.single} คน)` }]} />
           </Field>
           <Field label="ห้อง">
             <NativeSelect value={roomId} onChange={(e) => setRoomId(e.target.value)} placeholder="ยังไม่ระบุห้อง" options={branch.rooms.map((r) => ({ value: r.id, label: r.name }))} />
@@ -213,6 +235,17 @@ export function ClassDialog({ prefill, onClose }: { prefill: ClassPrefill; onClo
                   <Field label="เวลาจบ"><Input className="h-9 w-28" type="time" step={300} value={r.end} onChange={(e) => setRow(r.key, { end: e.target.value })} /></Field>
                   <span className={cn("pb-2 text-xs", mins >= 5 && mins % 5 === 0 ? "text-muted-foreground" : "text-red-700")}>{mins > 0 ? `${mins} นาที` : "เวลาจบต้องหลังเวลาเริ่ม"}</span>
                   <span className="pb-2 text-xs text-muted-foreground">· {occurrences(r)} คาบ</span>
+                  {/* the branch's standard blocks for that day (Settings → เวลาเปิด-ปิด) */}
+                  {blockStartsFor(branch, r.weekday).length > 0 && (
+                    <span className="flex w-full flex-wrap gap-1 pt-1">
+                      {blockStartsFor(branch, r.weekday).map((t) => {
+                        const len = branch.blocks?.minutes ?? 120
+                        const on = r.start === t && mins === len
+                        return <button key={t} type="button" onClick={() => setRow(r.key, { start: t, end: fromMinutes(toMinutes(t) + len) })}
+                          className={cn("rounded-full border px-2.5 py-0.5 text-xs", on ? "border-primary bg-primary/10 text-primary" : "hover:bg-muted")}>{t}–{fromMinutes(toMinutes(t) + len)}</button>
+                      })}
+                    </span>
+                  )}
                   {rows.length > 1 && <Button size="icon-sm" variant="ghost" className="mb-0.5 ml-auto" aria-label="ลบแถว" onClick={() => setRows(rows.filter((x) => x.key !== r.key))}><TrashIcon /></Button>}
                 </div>
                 {(mine.length > 0 || clashWith.length > 0) && (
@@ -230,7 +263,7 @@ export function ClassDialog({ prefill, onClose }: { prefill: ClassPrefill; onClo
           </button>
         </div>
 
-        <Field label={`นักเรียน (${studentIds.length}/${CAPACITY[type]}) — ไม่บังคับ เพิ่มทีหลังได้`}>
+        <Field label={`นักเรียน (${studentIds.length} คน · แนะนำไม่เกิน ${CAPACITY[type]}) — ไม่บังคับ เพิ่มทีหลังได้`}>
           <div className="space-y-2">
             {studentIds.length > 0 && (
               <div className="flex flex-wrap gap-1.5">

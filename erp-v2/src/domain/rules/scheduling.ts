@@ -5,7 +5,9 @@ import { addDays, at, endTime, fmtDate, nextWeekday, overlaps, parseDate, toMinu
 import type { Attendance, Branch, DateStr, Holiday, ID, Klass, Result, Session, Staff, TimeStr, Weekday } from "../types"
 
 export const GENERATE_WEEKS = 8
-export const CAPACITY = { single: 1, group: 6 } as const
+/** Soft limits only (owner 2026-09-30): a class takes any number of students — the app warns above 6, and above 3 for a
+ *  class tagged "เรียนเดี่ยว" (private). Never blocks. */
+export const CAPACITY = { single: 3, group: 6 } as const
 
 const PRIORITY_RANK = { high: 3, medium: 2, low: 1 } as const
 
@@ -191,6 +193,7 @@ export interface ClassDraft {
   kind: Klass["kind"]
   courseId?: ID | null
   type: Klass["type"]
+  layout?: Klass["layout"]
   teacherId: ID | null
   coTeacherIds?: ID[]
   roomId: ID | null
@@ -219,7 +222,7 @@ export function validateClass(d: ClassDraft, ctx: { branch: Branch; staff: Staff
 
   const cap = CAPACITY[d.type]
   if (d.studentIds.length > cap)
-    issues.push({ field: "studentIds", message: `คลาสแบบ ${d.type === "single" ? "เดี่ยว" : "กลุ่ม"} รับได้ไม่เกิน ${cap} คน (ตอนนี้ ${d.studentIds.length})`, level: "block" })
+    issues.push({ field: "studentIds", message: `${d.type === "single" ? "คลาสเรียนเดี่ยว" : "คลาส"}มี ${d.studentIds.length} คน — แนะนำไม่เกิน ${cap} คน`, level: "warn" })
 
   const [s, e] = [toMinutes(d.start), toMinutes(d.start) + d.minutes]
 
@@ -447,8 +450,8 @@ export function canRescheduleStudent(from: Session, to: Session, studentId: ID, 
   if (mondayOf(from.date) !== mondayOf(to.date)) return { ok: false, error: "เลื่อนได้ภายในสัปดาห์เดียวกันเท่านั้น — ถ้าข้ามสัปดาห์ให้บันทึกเป็นการลา" }
   if (!subjectsOf(from).some((x) => subjectsOf(to).includes(x))) return { ok: false, error: "ย้ายได้เฉพาะคาบวิชาเดียวกัน" }
   if (to.studentIds.includes(studentId)) return { ok: false, error: "นักเรียนอยู่ในคาบนั้นแล้ว" }
-  if (to.studentIds.length >= capacity) return { ok: false, error: `คาบนั้นเต็มแล้ว (${capacity} คน)` }
-  return { ok: true, value: undefined }
+  // capacity is a soft limit — moving in is allowed, the admin just gets told (owner 2026-09-30)
+  return to.studentIds.length >= capacity ? { ok: true, value: undefined, warnings: [`คาบนั้นมี ${to.studentIds.length} คนแล้ว (แนะนำไม่เกิน ${capacity})`] } : { ok: true, value: undefined }
 }
 
 /** Teachers change only before class — except a session that started with NO teacher may still get one,
@@ -488,4 +491,21 @@ export function applyToSessions(
 /** Sessions a holiday would cancel — for a company holiday, only at branches that stay closed. */
 export function holidayImpact(date: DateStr, branchId: ID | null, sessions: Session[], openBranchIds: ID[] = []) {
   return sessions.filter((s) => !s.cancelled && s.date === date && (branchId === null ? !openBranchIds.includes(s.branchId) : s.branchId === branchId))
+}
+
+/** The branch's standard class blocks for a weekday (Sat/Sun use the weekend list), only those inside opening hours. */
+export function blockStartsFor(branch: Pick<Branch, "blocks" | "hours">, weekday: Weekday): TimeStr[] {
+  if (!branch.blocks) return []
+  const hours = branch.hours[weekday]
+  if (!hours) return []
+  const len = branch.blocks.minutes
+  return (weekday === 0 || weekday === 6 ? branch.blocks.weekend : branch.blocks.weekday)
+    .filter((t) => toMinutes(t) >= toMinutes(hours.open) && toMinutes(t) + len <= toMinutes(hours.close))
+    .sort()
+}
+
+/** Which block a time falls in (week board rows) — the block that contains it, else null. */
+export function blockOf(starts: TimeStr[], minutes: number, time: TimeStr): TimeStr | null {
+  const m = toMinutes(time)
+  return starts.find((s) => m >= toMinutes(s) && m < toMinutes(s) + minutes) ?? null
 }

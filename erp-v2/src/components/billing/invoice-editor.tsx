@@ -17,10 +17,11 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { addDays, fmtDate, fmtMoney, fmtMonth, toDateStr } from "@/domain/dates"
 import * as Att from "@/domain/rules/attendance"
-import { busTotal, carriedMinutes, pendingBusAddOns, classOptionsFor, defaultAdvance, defaultBusLegs, entryFeeWaiver, invoiceSessionDates, invoiceTotals, validateInvoiceDraft, type LineQuote } from "@/domain/rules/billing"
+import { busTotal, carriedMinutes, pendingBusAddOns, classChoices, classOptionsFor, defaultAdvance, defaultBusLegs, entryFeeWaiver, invoiceSessionDates, invoiceTotals, validateInvoiceDraft, type LineQuote } from "@/domain/rules/billing"
 import { lastAssessmentDate } from "@/domain/rules/forms"
 import type { AdvanceItem, BusExtraLine, BusLeg, CourseLine, Entitlement, Family, Invoice, Klass, Leftover, Seat } from "@/domain/types"
 import { isPartial, seatLabel, seatOptions, seatTime } from "@/domain/rules/seats"
+import { CAPACITY } from "@/domain/rules/scheduling"
 import { uid } from "@/data/seed"
 import { report } from "@/lib/feedback"
 import { useBranch, useEntitlements, useNow } from "@/lib/hooks"
@@ -38,6 +39,7 @@ export function InvoiceEditor({ invoice, defaultStudentId, renewEntitlementId, o
   const families = useStore((s) => s.families)
   const courses = useStore((s) => s.courses).filter((c) => c.branchId === branch.id && (c.active || !!invoice?.lines.some((l) => l.courseId === c.id)))
   const classes = useStore((s) => s.classes)
+  const staff = useStore((s) => s.staff)
   const holidays = useStore((s) => s.holidays)
   const entitlements = useEntitlements()
   const assessments = useStore((s) => s.assessments)
@@ -93,7 +95,7 @@ export function InvoiceEditor({ invoice, defaultStudentId, renewEntitlementId, o
     return Object.keys(out).length ? out : undefined
   }
   const lineFor = (courseId: string): LineDraft => {
-    const options = classOptionsFor(courses.find((c) => c.id === courseId), classes, branch.id)
+    const options = classOptionsFor(courses.find((c) => c.id === courseId), classes, branch.id, staff)
     return {
       id: uid("ln"), courseId, periodsText: "1", overlapRemark: "",
       classIds: (studentId && currentOf(studentId, courseId)?.classIds) || (options.length === 1 ? [options[0].id] : []),
@@ -231,7 +233,7 @@ export function InvoiceEditor({ invoice, defaultStudentId, renewEntitlementId, o
           )}
           {lines.map((l, i) => (
             <LineCard key={l.id} index={i} draft={l} quote={totals.lines[i]} studentId={studentId} studentGrade={student?.grade}
-              classes={classOptionsFor(totals.lines[i]?.course, classes, branch.id)}
+              choices={classChoices(totals.lines[i]?.course, classes, branch.id, staff, student?.grade)}
               overlapTo={studentId ? Att.activeEntitlements(studentId, entitlements, l.startDate).find((e) => e.courseId === l.courseId)?.to : undefined}
               onChange={(patch) => patchLine(l.id, patch)} onRemove={() => removeLine(l.id)} />
           ))}
@@ -379,13 +381,17 @@ export function InvoiceEditor({ invoice, defaultStudentId, renewEntitlementId, o
 const WEEKDAY_SHORT = ["อา.", "จ.", "อ.", "พ.", "พฤ.", "ศ.", "ส."]
 const LEFTOVER_CHOICES: [Leftover, string][] = [["carry", "เก็บไว้กับนักเรียน (รวมแพ็กถัดไป)"], ["extra", "เพิ่ม +1 คาบ (ไม่เก็บเงินเพิ่ม)"], ["drop", "ตัดเศษทิ้ง"]]
 
-function LineCard({ index, draft, quote, studentId, studentGrade, classes, overlapTo, onChange, onRemove }: {
-  index: number; draft: LineDraft; quote?: LineQuote; studentId: string; studentGrade?: string; classes: Klass[]; overlapTo?: string
+function LineCard({ index, draft, quote, studentId, studentGrade, choices, overlapTo, onChange, onRemove }: {
+  index: number; draft: LineDraft; quote?: LineQuote; studentId: string; studentGrade?: string; choices: { klass: Klass; warnings: string[] }[]; overlapTo?: string
   onChange: (patch: Partial<LineDraft>) => void; onRemove: () => void
 }) {
   const staff = useStore((s) => s.staff)
   const course = quote?.course
   const [day, setDay] = useState<number | null>(null)
+  const classes = choices.map((c) => c.klass)
+  // any class is allowed (owner 2026-09-30) — the ones that fit show first, the rest behind one tap, with the reason
+  const [showAll, setShowAll] = useState(false)
+  const fits = choices.filter((c) => !c.warnings.length)
   const chosen = classes.filter((k) => draft.classIds.includes(k.id))
   const days = [...new Set(classes.map((k) => k.weekday))].sort()
   const toggleClass = (id: string) => onChange({ classIds: draft.classIds.includes(id) ? draft.classIds.filter((x) => x !== id) : [...draft.classIds, id] })
@@ -433,27 +439,35 @@ function LineCard({ index, draft, quote, studentId, studentGrade, classes, overl
           </label>
         )
       })}
-      {classes.length === 0 && <p className="text-xs text-muted-foreground">ไม่มีคลาสเรียน{COURSE_FORMAT_LABEL[course.format]}ที่เปิดสำหรับวิชานี้</p>}
+      {fits.length === 0 && !showAll && <p className="text-xs text-muted-foreground">ไม่มีคลาสที่ตรงวิชา/รูปแบบของคอร์สนี้ — กด &quot;แสดงคลาสอื่น&quot; เพื่อเลือกคลาสไหนก็ได้</p>}
         <div className="grid gap-1.5 sm:grid-cols-2">
-          {classes.filter((k) => day === null || k.weekday === day || draft.classIds.includes(k.id)).map((k) => {
+          {choices.filter(({ klass: k, warnings }) => (showAll || !warnings.length || draft.classIds.includes(k.id)) && (day === null || k.weekday === day || draft.classIds.includes(k.id))).map(({ klass: k, warnings }) => {
             const t = staff.find((x) => x.id === k.teacherId)
-            const full = k.studentIds.length >= (k.type === "single" ? 1 : 6) && !k.studentIds.includes(studentId)
+            const cap = CAPACITY[k.type]
+            const over = k.studentIds.length >= cap && !k.studentIds.includes(studentId)
             const on = draft.classIds.includes(k.id)
             return (
-              <button key={k.id} type="button" disabled={full && !on} onClick={() => toggleClass(k.id)} aria-pressed={on}
-                className={cn("flex items-start gap-2 rounded-lg border px-2.5 py-1.5 text-left text-xs disabled:opacity-50", on ? "border-primary bg-primary/5" : "hover:bg-muted/50")}>
+              <button key={k.id} type="button" onClick={() => toggleClass(k.id)} aria-pressed={on}
+                className={cn("flex items-start gap-2 rounded-lg border px-2.5 py-1.5 text-left text-xs", on ? "border-primary bg-primary/5" : "hover:bg-muted/50", warnings.length && !on && "border-dashed")}>
                 <span className={cn("mt-0.5 grid size-4 shrink-0 place-items-center rounded border", on && "border-primary bg-primary text-primary-foreground")}>{on && <CheckIcon className="size-3" />}</span>
                 <span className="min-w-0">
                   <span className="block font-medium">{WEEKDAY_SHORT[k.weekday]} {k.start} · {k.name}</span>
                   <span className="text-muted-foreground">
-                    {t?.active ? `ครู${t.nickname}` : <span className="text-amber-700">ยังไม่มีครู</span>} · {k.minutes} นาที · {k.studentIds.length} คน{full ? " (เต็ม)" : ""}
+                    {t?.active ? `ครู${t.nickname}` : <span className="text-amber-700">ยังไม่มีครู</span>} · {k.minutes} นาที · {k.studentIds.length} คน{over && <span className="text-amber-700"> (เกินที่แนะนำ {cap})</span>}
                   </span>
+                  {warnings.length > 0 && <span className="block text-amber-700">⚠ {warnings.join(" · ")}</span>}
                 </span>
               </button>
             )
           })}
         </div>
       </div>
+
+      {choices.length > fits.length && (
+        <button type="button" className="text-xs text-primary underline" onClick={() => setShowAll((v) => !v)}>
+          {showAll ? "ซ่อนคลาสที่ไม่ตรง" : `แสดงคลาสอื่น (${choices.length - fits.length}) — เลือกได้แต่ไม่ตรงวิชา/ระดับ/รูปแบบ`}
+        </button>
+      )}
 
       <div className="grid grid-cols-2 gap-2">
         <div className="space-y-1">

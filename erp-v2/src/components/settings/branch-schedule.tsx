@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Input } from "@/components/ui/input"
 import { Switch } from "@/components/ui/switch"
-import { fmtDate, TH_DAYS_FULL, toDateStr } from "@/domain/dates"
+import { fmtDate, fromMinutes, TH_DAYS_FULL, toDateStr, toMinutes } from "@/domain/dates"
 import { hoursFor, isHoliday } from "@/domain/rules/scheduling"
 import { copyHours, everyDay, PRIORITY_LABEL, validateSpecialPeriods } from "@/domain/rules/settings"
 import type { Branch, OpenHours, PeriodPriority, SpecialPeriod, Weekday } from "@/domain/types"
@@ -103,9 +103,51 @@ export function SchedulingTab({ branch, holidaysOnly = false }: { branch: Branch
         ))}
       </div>
       {sub === "operating" && <OperatingHours branch={branch} />}
+      {sub === "operating" && <ClassBlocksCard branch={branch} />}
       {sub === "special" && <SpecialPeriodsCard branch={branch} />}
       {sub === "holidays" && <HolidayPlanner branch={branch} />}
     </div>
+  )
+}
+
+/** Standard class blocks (owner 2026-09-30): each branch sets its own, e.g. from 08:00 or from 15:00, 2 hours each. */
+function ClassBlocksCard({ branch }: { branch: Branch }) {
+  const { b, setB, dirty, reset, save } = useBranchDraft(branch, ["blocks"])
+  const blocks = b.blocks ?? { weekday: [], weekend: [], minutes: 120 }
+  const put = (patch: Partial<NonNullable<Branch["blocks"]>>) => setB({ ...b, blocks: { ...blocks, ...patch } })
+  const end = (t: string) => fromMinutes(toMinutes(t) + blocks.minutes)
+  // fill the day with back-to-back blocks from a start time until closing
+  const fill = (key: "weekday" | "weekend", from: string) => {
+    const day = key === "weekday" ? branch.hours[1] ?? branch.hours[2] : branch.hours[6] ?? branch.hours[0]
+    if (!day) return
+    const out: string[] = []
+    for (let m = toMinutes(from); m + blocks.minutes <= toMinutes(day.close); m += blocks.minutes) out.push(fromMinutes(m))
+    put({ [key]: out })
+  }
+  return (
+    <SettingsCard title="ช่วงคลาสมาตรฐาน" hint="ใช้ตอนสร้างคลาสแบบ ครู + ช่วงเวลา และแถวของตารางครูทั้งสัปดาห์ · แต่ละสาขาตั้งเอง">
+      <div className="mb-3 flex items-center gap-2 text-sm">
+        ความยาวช่วง
+        <Input className="w-24" type="number" min={30} step={30} value={blocks.minutes} onChange={(e) => put({ minutes: Math.max(30, Number(e.target.value) || 120) })} /> นาที
+      </div>
+      {(["weekday", "weekend"] as const).map((key) => (
+        <div key={key} className="mb-3 space-y-1.5">
+          <p className="text-sm font-medium">{key === "weekday" ? "จันทร์–ศุกร์" : "เสาร์–อาทิตย์"}</p>
+          <div className="flex flex-wrap items-center gap-1.5">
+            {blocks[key].map((t, i) => (
+              <span key={i} className="flex items-center gap-1 rounded-full border py-0.5 pr-1 pl-2 text-sm">
+                <input type="time" step={900} value={t} className="bg-transparent" onChange={(e) => put({ [key]: blocks[key].map((x, j) => (j === i ? e.target.value : x)).sort() })} />
+                <span className="text-xs text-muted-foreground">–{end(t)}</span>
+                <button type="button" aria-label="ลบช่วง" className="rounded-full p-0.5 text-muted-foreground hover:bg-muted" onClick={() => put({ [key]: blocks[key].filter((_, j) => j !== i) })}><TrashIcon className="size-3.5" /></button>
+              </span>
+            ))}
+            <Button size="xs" variant="outline" onClick={() => put({ [key]: [...blocks[key], blocks[key].length ? end(blocks[key][blocks[key].length - 1]) : "13:00"].sort() })}><PlusIcon /> เพิ่มช่วง</Button>
+            <Button size="xs" variant="ghost" onClick={() => fill(key, blocks[key][0] ?? (key === "weekday" ? "13:00" : "09:00"))}>เติมต่อกันจนปิดสาขา</Button>
+          </div>
+        </div>
+      ))}
+      <SaveRow dirty={dirty} onReset={reset} onSave={save} />
+    </SettingsCard>
   )
 }
 

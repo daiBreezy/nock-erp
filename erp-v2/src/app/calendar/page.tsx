@@ -12,6 +12,7 @@ import { subjectColor } from "@/components/app/subject-color"
 import { WorkChip, WorkLegend } from "@/components/app/work-state"
 import { DayBoard } from "@/components/calendar/day-board"
 import { MoveDialog } from "@/components/calendar/move-dialog"
+import { WeekTeacherBoard } from "@/components/calendar/week-teacher-board"
 import type { CardData } from "@/components/calendar/class-card"
 import { Button } from "@/components/ui/button"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
@@ -26,7 +27,7 @@ import { sessionKindLabel } from "@/domain/rules/forms"
 import { GradeChips } from "@/components/app/grade-chips"
 import { removedWithClass } from "@/domain/rules/scheduling"
 
-type View = "day" | "week" | "month" | "list"
+type View = "day" | "week" | "board" | "month" | "list"
 const HOUR_PX = 56
 const DAY_START = 8 * 60
 const DAY_END = 21 * 60
@@ -71,7 +72,7 @@ function CalendarView() {
 
   const range = useMemo(() => {
     if (view === "day") return { from: anchor, to: anchor, title: fmtDate(anchor, { weekday: true, year: true }) }
-    if (view === "week") {
+    if (view === "week" || view === "board") {
       const m = mondayOf(anchor)
       return { from: m, to: addDays(m, 6), title: `${fmtDate(m)} – ${fmtDate(addDays(m, 6), { year: true })}` } // E6: label = date range
     }
@@ -103,7 +104,7 @@ function CalendarView() {
     return out
   }, [range, branch.id, holidays])
 
-  const step = (dir: number) => setAnchor((a) => (view === "day" ? addDays(a, dir) : view === "week" ? addDays(a, 7 * dir) : view === "month" ? toDateStr(new Date(parseDate(a).getFullYear(), parseDate(a).getMonth() + dir, 1)) : addDays(a, 14 * dir)))
+  const step = (dir: number) => setAnchor((a) => (view === "day" ? addDays(a, dir) : view === "week" || view === "board" ? addDays(a, 7 * dir) : view === "month" ? toDateStr(new Date(parseDate(a).getFullYear(), parseDate(a).getMonth() + dir, 1)) : addDays(a, 14 * dir)))
   const openDay = (d: DateStr) => { setAnchor(d); setView("day") }
   const canCreate = can(me, "class.manage")
   const teacherOptions = [
@@ -158,6 +159,7 @@ function CalendarView() {
           <ToggleGroup value={[view]} onValueChange={(v) => v[0] && setView(v[0] as View)} variant="outline" size="sm">
             <ToggleGroupItem value="day">วัน</ToggleGroupItem>
             <ToggleGroupItem value="week">สัปดาห์</ToggleGroupItem>
+            <ToggleGroupItem value="board">ตารางครูทั้งสัปดาห์</ToggleGroupItem>
             <ToggleGroupItem value="month">เดือน</ToggleGroupItem>
             <ToggleGroupItem value="list">รายการ</ToggleGroupItem>
           </ToggleGroup>
@@ -207,6 +209,7 @@ function CalendarView() {
 
       {view === "day" && <DayBoard date={anchor} sessions={visible} laneMode={lane} canCreate={canCreate} onSlot={setPrefill} onMove={cardProps.onMove} d={cardData} onlyBooked={onlyBooked} />}
       {view === "week" && <WeekView from={range.from} sessions={visible} onDay={openDay} today={today} {...cardProps} dim={cardData.dim} />}
+      {view === "board" && <WeekTeacherBoard from={range.from} sessions={visible} onOpen={setOpenId} onSlot={setPrefill} canCreate={canCreate} />}
       {view === "month" && <MonthView from={range.from} month={anchor.slice(0, 7)} sessions={visible} onDay={openDay} today={today} conflictIds={conflictIds} />}
       {view === "list" && <ListView from={range.from} to={range.to} sessions={visible} {...cardProps} />}
 

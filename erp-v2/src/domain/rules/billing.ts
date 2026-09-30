@@ -236,13 +236,37 @@ export function invoiceTotals(inv: Invoice, ctx: { branch: Branch; courses: Cour
   return { course, courseFee, promotion, bus, busExtra, book: inv.bookFee, advance, concession, credit, total, lines }
 }
 
-/** Classes an invoice line can enrol into: this branch's active recurring classes that teach the course's subject
- *  in the same format (เดี่ยว/กลุ่ม) — classes linked to the course come first. */
-export function classOptionsFor(course: Course | undefined, classes: Klass[], branchId: ID): Klass[] {
+/** Why a class is not an obvious fit for this course — never a block (owner 2026-09-30: "we're very flexible", any
+ *  student can sit in any class); the admin just sees the reasons. A teacher-block class fits any subject its
+ *  teachers teach and any grade; a subject class fits its own subjects and grades. */
+export function classFit(course: Pick<Course, "subjects" | "grades" | "format">, klass: Klass, staff: Pick<Staff, "id" | "subjects">[] = [], studentGrade?: string): string[] {
+  const out: string[] = []
+  if (klass.layout === "teacher") {
+    const taught = new Set([klass.teacherId, ...klass.coTeacherIds].flatMap((id) => staff.find((t) => t.id === id)?.subjects ?? []))
+    const missing = course.subjects.filter((x) => !taught.has(x))
+    if (missing.length) out.push(`ครูในคลาสนี้ไม่ได้สอน${missing.join(", ")}`)
+  } else {
+    const missing = course.subjects.filter((x) => ![klass.subject, ...(klass.subjects ?? [])].includes(x))
+    if (missing.length) out.push(`คลาสนี้เป็นวิชา${[klass.subject, ...(klass.subjects ?? [])].filter((v, i, a) => a.indexOf(v) === i).join(" + ")}`)
+    if (studentGrade && klass.grades.length && !klass.grades.includes(studentGrade)) out.push(`คลาสนี้สำหรับชั้น ${klass.grades.join(", ")}`)
+  }
+  if (course.format === "single" && klass.type !== "single") out.push("คอร์สเรียนเดี่ยว แต่คลาสนี้ไม่ได้ติดป้ายเรียนเดี่ยว")
+  if (course.format === "group" && klass.type === "single") out.push("คลาสนี้ติดป้ายเรียนเดี่ยว")
+  return out
+}
+
+/** Every active class of the branch a line can enrol into, best fits first, each with its warnings. */
+export function classChoices(course: Course | undefined, classes: Klass[], branchId: ID, staff: Pick<Staff, "id" | "subjects">[] = [], studentGrade?: string) {
   if (!course) return []
   return classes
-    .filter((k) => k.branchId === branchId && k.active && k.kind === "learning" && k.type === course.format && course.subjects.includes(k.subject))
-    .sort((a, b) => Number(b.courseId === course.id) - Number(a.courseId === course.id) || a.weekday - b.weekday || a.start.localeCompare(b.start))
+    .filter((k) => k.branchId === branchId && k.active && k.kind === "learning")
+    .map((klass) => ({ klass, warnings: classFit(course, klass, staff, studentGrade) }))
+    .sort((a, b) => a.warnings.length - b.warnings.length || Number(b.klass.courseId === course.id) - Number(a.klass.courseId === course.id) || a.klass.weekday - b.klass.weekday || a.klass.start.localeCompare(b.klass.start))
+}
+
+/** The classes that fit a course with no warning (auto-picked when there is exactly one). */
+export function classOptionsFor(course: Course | undefined, classes: Klass[], branchId: ID, staff: Pick<Staff, "id" | "subjects">[] = []): Klass[] {
+  return classChoices(course, classes, branchId, staff).filter((c) => !c.warnings.length).map((c) => c.klass)
 }
 
 /** Why this student pays no entry fee: a paid invoice already had it (Staging), or the student came in with the

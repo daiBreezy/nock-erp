@@ -58,9 +58,11 @@ describe("scheduling", () => {
     expect(sessionState(s, new Date(2026, 8, 30, 8, 0))).toBe("closed")
   })
 
-  it("A4: single class cannot take 2 students", () => {
-    const issues = validateClass({ ...klass({ type: "single", studentIds: ["a", "b"] }) }, { branch, staff: [teacher], sessions: [], holidays })
-    expect(canSave(issues)).toBe(false)
+  it("A4 (owner 2026-09-30): class size is a soft limit — warn above 3 for private, above 6 otherwise, never block", () => {
+    const issues = validateClass({ ...klass({ type: "single", studentIds: ["a", "b", "c", "d"] }) }, { branch, staff: [teacher], sessions: [], holidays })
+    expect(issues.find((i) => i.field === "studentIds")?.level).toBe("warn")
+    expect(canSave(issues)).toBe(true)
+    expect(validateClass({ ...klass({ type: "single", studentIds: ["a", "b"] }) }, { branch, staff: [teacher], sessions: [], holidays }).some((i) => i.field === "studentIds")).toBe(false)
   })
 
   it("A5: third parallel class blocked when branch has 2 rooms", () => {
@@ -868,7 +870,9 @@ describe("leave quota and re-schedule", () => {
     expect(r.ok).toBe(false)
     if (!r.ok) expect(r.error).toContain("การลา")
     expect(canRescheduleStudent(tue, { ...thu, subject: "English" }, "a", now, 6).ok).toBe(false)
-    expect(canRescheduleStudent(tue, { ...thu, studentIds: ["x", "y"] }, "a", now, 2).ok).toBe(false)
+    // a full session only warns (soft capacity, owner 2026-09-30)
+    const full = canRescheduleStudent(tue, { ...thu, studentIds: ["x", "y"] }, "a", now, 2)
+    expect(full.ok && full.warnings?.[0]).toContain("แนะนำไม่เกิน 2")
   })
 
   it("the session a student moved into still draws from their package", () => {

@@ -95,6 +95,9 @@ export interface Branch {
   subjects: string[]
   grades: string[]
   defaultSessionMinutes: number
+  /** the branch's standard class blocks (owner 2026-09-30: e.g. 13–15 / 15–17 / 17–19) — start times per day type,
+   *  all of one length. Used by Create Class, the week board and Trial slots. */
+  blocks?: { weekday: TimeStr[]; weekend: TimeStr[]; minutes: number }
   /** fallback bus price per leg when no bus fee type is set in General Fees */
   busFeePerLeg: number
   fees: Fee[]
@@ -217,6 +220,7 @@ export interface Course {
 
 export type ClassKind = "learning" | "test" | "interview" | "other"
 export type ClassType = "group" | "single"
+export type ClassLayout = "teacher" | "subject"
 
 export interface Klass {
   id: ID
@@ -245,6 +249,10 @@ export interface Klass {
   studentIds: ID[]
   /** students who attend only part of this class every time (standing arrangement) */
   seats?: Record<ID, Seat>
+  /** how the class is laid out (owner 2026-09-30) — "teacher" = a teacher's 2-hour block: any subject the teacher
+   *  teaches, any grade, students on different courses/books side by side · "subject" = one subject + grades (default).
+   *  Both are used by both brands; either way a student can be put in any class — mismatches only warn. */
+  layout?: ClassLayout
 }
 
 export interface Session {

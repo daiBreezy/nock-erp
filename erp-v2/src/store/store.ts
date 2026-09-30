@@ -289,8 +289,11 @@ export const useStore = create<Store>()(
         const branch = s.branches.find((b) => b.id === d.branchId)!
         const issues = Sch.validateClass(d, { branch, staff: s.staff, sessions: s.sessions, holidays: s.holidays, now: s.now() })
         if (!Sch.canSave(issues, d.overrideReason)) return fail(issues.find((i) => i.level !== "warn")?.message ?? "ตรวจสอบข้อมูลอีกครั้ง")
+        const teacherName = s.staff.find((t) => t.id === d.teacherId)?.nickname
         const klass: Klass = {
-          id: uid("cl"), branchId: d.branchId, name: d.name.trim() || `${Sch.subjectsOf(d).join(" + ")} ${d.grades.join(", ")}`.trim(), subject: d.subject,
+          id: uid("cl"), branchId: d.branchId, layout: d.layout,
+          name: d.name.trim() || (d.layout === "teacher" ? `ครู${teacherName ?? "?"} · ${["อา.", "จ.", "อ.", "พ.", "พฤ.", "ศ.", "ส."][d.weekday]} ${d.start}` : `${Sch.subjectsOf(d).join(" + ")} ${d.grades.join(", ")}`.trim()),
+          subject: d.subject,
           subjects: d.subjects && d.subjects.length > 1 ? d.subjects : undefined, grades: d.grades, kind: d.kind, type: d.type, courseId: d.courseId ?? null, teacherId: d.teacherId, coTeacherIds: d.coTeacherIds ?? [], roomId: d.roomId, weekday: d.weekday,
           start: d.start, minutes: d.minutes, startDate: d.startDate, active: true, studentIds: d.studentIds,
         }
@@ -453,18 +456,19 @@ export const useStore = create<Store>()(
         if (src.studentIds.includes(studentId)) return fail("นักเรียนอยู่ในคาบนี้แล้ว")
         const klass = s.classes.find((c) => c.id === src.classId)
         const cap = klass ? Sch.CAPACITY[klass.type] : Sch.CAPACITY.group
-        if (src.studentIds.length >= cap) return fail(`คาบนี้เต็มแล้ว (${cap} คน)`)
         const stu = s.students.find((x) => x.id === studentId)!
         const r = Sch.applyToSessions(
           s.sessions, id, scope,
           (x) => ({ ...x, studentIds: [...x.studentIds, studentId] }),
-          (x) => Sch.sessionState(x, now) === "upcoming" && !x.studentIds.includes(studentId) && x.studentIds.length < cap,
+          (x) => Sch.sessionState(x, now) === "upcoming" && !x.studentIds.includes(studentId),
         )
         const warnings: string[] = []
-        if (klass && Att.gradeMismatch(stu, klass)) warnings.push(`เกรด ${stu.grade} ไม่ตรงกับคลาส (${klass.grades.join(", ")})`)
+        // any student can join any class (owner 2026-09-30) — the admin is only told what doesn't fit
+        if (src.studentIds.length + 1 > cap) warnings.push(`${klass?.type === "single" ? "คลาสเรียนเดี่ยว" : "คาบนี้"}มี ${src.studentIds.length + 1} คนแล้ว — แนะนำไม่เกิน ${cap} คน`)
+        if (klass && klass.layout !== "teacher" && Att.gradeMismatch(stu, klass)) warnings.push(`เกรด ${stu.grade} ไม่ตรงกับคลาส (${klass.grades.join(", ")})`)
         if (!src.trial && !Att.coveringEntitlement(studentId, src, s.entitlements))
           warnings.push(`${stu.nickname} ยังไม่ได้จ่ายค่าเรียนสำหรับคาบนี้ — ออกใบแจ้งหนี้ที่หน้าการเงิน`)
-        if (r.kept) warnings.push(`ข้าม ${r.kept} คาบที่เต็มหรือเริ่มไปแล้ว`)
+        if (r.kept) warnings.push(`ข้าม ${r.kept} คาบที่เริ่มไปแล้ว`)
         set({
           sessions: r.sessions,
           classes: scope === "following" && klass ? s.classes.map((c) => (c.id === klass.id && !c.studentIds.includes(studentId) ? { ...c, studentIds: [...c.studentIds, studentId] } : c)) : s.classes,
@@ -1723,7 +1727,7 @@ export const useStore = create<Store>()(
     {
       name: "nockerp-v2",
       // bump when the data model changes; older saved data is replaced by fresh sample data
-      version: 39,
+      version: 40,
       migrate: () => ({ ...buildSeed(), userId: "u_nock", branchId: "br_thl", clockOffset: 0 }) as unknown as Store,
       // persist data + UI state only, never the action functions
       partialize: (s) => Object.fromEntries(Object.entries(s).filter(([, v]) => typeof v !== "function")) as Partial<Store>,
