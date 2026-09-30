@@ -19,14 +19,15 @@ import { addDays, fmtDate, fmtMoney, fmtMonth, toDateStr } from "@/domain/dates"
 import * as Att from "@/domain/rules/attendance"
 import { busTotal, carriedMinutes, pendingBusAddOns, classOptionsFor, defaultAdvance, defaultBusLegs, entryFeeWaiver, invoiceSessionDates, invoiceTotals, validateInvoiceDraft, type LineQuote } from "@/domain/rules/billing"
 import { lastAssessmentDate } from "@/domain/rules/forms"
-import type { AdvanceItem, BusExtraLine, BusLeg, CourseLine, Entitlement, Family, Invoice, Klass, Leftover } from "@/domain/types"
+import type { AdvanceItem, BusExtraLine, BusLeg, CourseLine, Entitlement, Family, Invoice, Klass, Leftover, Seat } from "@/domain/types"
+import { isPartial, seatLabel, seatOptions, seatTime } from "@/domain/rules/seats"
 import { uid } from "@/data/seed"
 import { report } from "@/lib/feedback"
 import { useBranch, useEntitlements, useNow } from "@/lib/hooks"
 import { cn } from "@/lib/utils"
 import { useStore } from "@/store/store"
 
-type LineDraft = { id: string; courseId: string; classIds: string[]; startDate: string; periodsText: string; overlapRemark: string; leftover?: Leftover }
+type LineDraft = { id: string; courseId: string; classIds: string[]; startDate: string; periodsText: string; overlapRemark: string; leftover?: Leftover; seats?: Record<string, Seat> }
 
 export function InvoiceEditor({ invoice, defaultStudentId, renewEntitlementId, onClose, onSaved }: { invoice?: Invoice; defaultStudentId?: string; renewEntitlementId?: string; onClose: () => void; onSaved: (inv: Invoice) => void }) {
   const branch = useBranch()
@@ -53,7 +54,7 @@ export function InvoiceEditor({ invoice, defaultStudentId, renewEntitlementId, o
   const [newId] = useState(() => invoice?.id ?? uid("inv"))
   const [studentId, setStudentId] = useState(invoice?.studentId ?? renewFrom?.studentId ?? defaultStudentId ?? "")
   const [lines, setLines] = useState<LineDraft[]>(() =>
-    invoice ? invoice.lines.map((l) => ({ id: l.id, courseId: l.courseId, classIds: l.classIds, startDate: l.startDate, periodsText: String(l.periods), overlapRemark: l.overlapRemark ?? "", leftover: l.leftover }))
+    invoice ? invoice.lines.map((l) => ({ id: l.id, courseId: l.courseId, classIds: l.classIds, startDate: l.startDate, periodsText: String(l.periods), overlapRemark: l.overlapRemark ?? "", leftover: l.leftover, seats: l.seats }))
       : renewFrom ? [{ id: uid("ln"), courseId: renewFrom.courseId, classIds: renewFrom.classIds, startDate: renewStart(renewFrom), periodsText: "1", overlapRemark: "" }]
         : [])
   const [bus, setBus] = useState<BusLeg[]>(invoice?.bus ?? [])
@@ -86,6 +87,11 @@ export function InvoiceEditor({ invoice, defaultStudentId, renewEntitlementId, o
   const family = families.find((f) => f.id === student?.familyId)
   const patchLine = (id: string, patch: Partial<LineDraft>) => { setLines((ls) => ls.map((l) => (l.id === id ? { ...l, ...patch } : l))); setBusTouched(false) }
   const removeLine = (id: string) => { setLines((ls) => ls.filter((l) => l.id !== id)); setBusTouched(false) }
+  // seats only for classes still chosen, and only when they are really part of the class
+  const pickSeats = (l: LineDraft) => {
+    const out = Object.fromEntries(Object.entries(l.seats ?? {}).filter(([cid, seat]) => { const k = classes.find((x) => x.id === cid); return l.classIds.includes(cid) && !!k && isPartial(seat, k.minutes) }))
+    return Object.keys(out).length ? out : undefined
+  }
   const lineFor = (courseId: string): LineDraft => {
     const options = classOptionsFor(courses.find((c) => c.id === courseId), classes, branch.id)
     return {
@@ -116,7 +122,7 @@ export function InvoiceEditor({ invoice, defaultStudentId, renewEntitlementId, o
     // hour packs: minutes this student kept from the previous package of this course come in automatically
     const course = courses.find((c) => c.id === l.courseId)
     const carryIn = course?.unit === "hour" && studentId ? carriedMinutes(studentId, l.courseId, entitlements, invoices, invoice?.id) : 0
-    return { id: l.id, courseId: l.courseId, classIds: l.classIds, startDate: l.startDate, periods: Number.isInteger(periods) && periods >= 1 ? periods : 0, overlapRemark: overlap ? l.overlapRemark : undefined, carryIn: carryIn || undefined, leftover: l.leftover }
+    return { id: l.id, courseId: l.courseId, classIds: l.classIds, startDate: l.startDate, periods: Number.isInteger(periods) && periods >= 1 ? periods : 0, overlapRemark: overlap ? l.overlapRemark : undefined, carryIn: carryIn || undefined, leftover: l.leftover, seats: pickSeats(l) }
   })
   const base: Invoice = {
     id: newId,
@@ -414,7 +420,20 @@ function LineCard({ index, draft, quote, studentId, studentGrade, classes, overl
             </button>
           ))}
         </div>
-        {classes.length === 0 && <p className="text-xs text-muted-foreground">ไม่มีคลาสเรียน{COURSE_FORMAT_LABEL[course.format]}ที่เปิดสำหรับวิชานี้</p>}
+        {chosen.filter((k) => k.minutes > 60).map((k) => {
+        const seat = draft.seats?.[k.id] ?? { offset: 0, minutes: k.minutes }
+        return (
+          <label key={k.id} className="flex flex-wrap items-center gap-2 text-xs">
+            <span className="text-muted-foreground">เวลาเรียนใน {WEEKDAY_SHORT[k.weekday]} {k.name}:</span>
+            <select className="rounded-full border bg-background px-2 py-0.5" value={`${seat.offset}-${seat.minutes}`}
+              onChange={(e) => { const [offset, minutes] = e.target.value.split("-").map(Number); onChange({ seats: { ...draft.seats, [k.id]: { offset, minutes } } }) }}>
+              {seatOptions(k.minutes).map((o) => <option key={`${o.offset}-${o.minutes}`} value={`${o.offset}-${o.minutes}`}>{seatLabel(o, k.minutes)} · {seatTime(k.start, o)}</option>)}
+            </select>
+            {isPartial(seat, k.minutes) && <span className="text-violet-700">ราคาคอร์สเท่าเดิม · แพ็กชั่วโมงนับคาบตามเวลาที่เรียน</span>}
+          </label>
+        )
+      })}
+      {classes.length === 0 && <p className="text-xs text-muted-foreground">ไม่มีคลาสเรียน{COURSE_FORMAT_LABEL[course.format]}ที่เปิดสำหรับวิชานี้</p>}
         <div className="grid gap-1.5 sm:grid-cols-2">
           {classes.filter((k) => day === null || k.weekday === day || draft.classIds.includes(k.id)).map((k) => {
             const t = staff.find((x) => x.id === k.teacherId)

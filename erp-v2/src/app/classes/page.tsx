@@ -58,7 +58,7 @@ export default function ClassesPage() {
   const renewal = new Set(
     entitlements
       .filter((e) => kpiStudents.has(e.studentId) && e.to >= today)
-      .filter((e) => Att.lowBalanceAlert(e, Att.balance(e, sessions, attendance), today, { low: settings.lowSessionThreshold, days: settings.renewalDaysBefore }))
+      .filter((e) => Att.lowBalanceAlert(e, Att.balance(e, sessions, attendance, classes), today, { low: settings.lowSessionThreshold, days: settings.renewalDaysBefore }))
       .map((e) => e.studentId),
   ).size
 

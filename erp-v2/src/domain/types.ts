@@ -243,6 +243,8 @@ export interface Klass {
   startDate: DateStr
   active: boolean
   studentIds: ID[]
+  /** students who attend only part of this class every time (standing arrangement) */
+  seats?: Record<ID, Seat>
 }
 
 export interface Session {
@@ -265,6 +267,8 @@ export interface Session {
   trial: boolean
   /** set on a session booked from a Test/Trial form so it reads "สอบวัดระดับ" or "ทดลองเรียน", never mixed up */
   assessment?: FormType
+  /** this session only: students who attend just part of it (planned — "today only the first hour") */
+  seats?: Record<ID, Seat>
   /** students moved INTO this session from another one in the same week (Re-schedule) */
   rescheduledIn?: ID[]
   /** students moved OUT of this session — kept so the row can say where they went */
@@ -277,10 +281,19 @@ export interface Session {
 
 export type AttendanceStatus = "present" | "absent" | "leave"
 
+/** The part of a longer class a student attends (owner 2026-09-30): a 2-hour class, one student only the first
+ *  hour. offset = minutes after the class start. */
+export interface Seat {
+  offset: number
+  minutes: number
+}
+
 export interface Attendance {
   sessionId: ID
   studentId: ID
   status: AttendanceStatus
+  /** present: minutes actually attended when different from the student's seat (came for 1 of 2 hours today) */
+  minutes?: number
   markedBy: ID
   markedAt: string
 }
@@ -431,6 +444,9 @@ export interface Entitlement {
   from: DateStr
   to: DateStr
   sessionsTotal: number
+  /** hour packs: minutes bought — used up by the minutes really attended, so a 1-hour visit to a 2-hour class takes
+   *  1 hour (owner 2026-09-30). Unset = counted in sessions (older packages). */
+  minutesTotal?: number
   /** hour packs: minutes left over that the admin kept for this student's next package of the same course */
   carryMinutes?: number
 }
@@ -630,6 +646,8 @@ export interface CourseLine {
   overlapRemark?: string
   /** hour packs: minutes carried in from the student's previous package of this course */
   carryIn?: number
+  /** per class: the part of the class this student attends (unset = the whole class) */
+  seats?: Record<ID, Seat>
   /** hour packs that don't divide into whole sessions (owner 2026-09-30): keep the minutes for the next package,
    *  add one more session free, or drop them */
   leftover?: Leftover

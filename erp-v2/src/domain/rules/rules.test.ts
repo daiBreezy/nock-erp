@@ -17,6 +17,7 @@ import { customerRows, filterCustomers } from "./customers"
 import { invoiceMessage } from "./messages"
 import * as Refund from "./refunds"
 import * as Doc from "./documents"
+import * as Seats from "./seats"
 
 const hours = { open: "09:00", close: "20:00" }
 const branch: Branch = {
@@ -1245,5 +1246,44 @@ describe("paper invoice / receipt (owner template INV + REC, 2026-09-30)", () =>
     expect(Doc.invoiceDates(inv)).toEqual({ date: "2026-09-30", dueBy: "2026-09-30" })
     expect(Doc.documentFileName("690930-01-002-0001", "ด.ช.ภูมิ/ใจดี")).toBe("690930-01-002-0001 ด.ช.ภูมิใจดี")
     expect(Doc.receiptDate({ payments: [{ id: "p", amount: 1, method: "cash", reference: "", recordedBy: "a", recordedAt: "2026-10-02T09:00:00Z", confirmedBy: "m" }] })).toBe("2026-10-02")
+  })
+})
+
+describe("flexible class time: 1 of 2 hours (owner 2026-09-30)", () => {
+  const k120 = klass({ id: "k2h", minutes: 120, start: "16:00" })
+  const sess = (id: string, date: string, p: Partial<Session> = {}): Session => ({ id, branchId: "b1", classId: "k2h", subject: "Maths", date, start: "16:00", minutes: 120, teacherId: "t1", coTeacherIds: [], roomId: "r1", studentIds: ["a"], trial: false, customized: false, cancelled: false, ...p })
+
+  it("seat = this session → standing class seat → whole class; options are the whole class then each hour", () => {
+    const withSeat = { ...k120, seats: { a: { offset: 0, minutes: 60 } } }
+    expect(Seats.seatOf(sess("s1", "2026-10-06"), "a", withSeat)).toEqual({ offset: 0, minutes: 60 })
+    expect(Seats.seatOf(sess("s1", "2026-10-06", { seats: { a: { offset: 60, minutes: 60 } } }), "a", withSeat)).toEqual({ offset: 60, minutes: 60 })
+    expect(Seats.seatOf(sess("s1", "2026-10-06"), "b", withSeat)).toEqual({ offset: 0, minutes: 120 })
+    expect(Seats.seatOptions(120).map((o) => Seats.seatLabel(o, 120))).toEqual(["เต็มคลาส (2 ชม.)", "ชม.แรก (1 ชม.)", "ชม.หลัง (1 ชม.)"])
+    expect(Seats.seatTime("16:00", { offset: 60, minutes: 60 })).toBe("17:00–18:00")
+  })
+
+  it("an hour pack on the first hour only gives twice the sessions at the same price", () => {
+    const pkg: Course = { ...monthPkg, id: "h24", unit: "hour", duration: 24, price: 6000 }
+    const inv = (seats?: Record<string, { offset: number; minutes: number }>): Invoice => ({ id: "i", branchId: "b1", studentId: "a", number: null, lines: [{ id: "l", courseId: "h24", classIds: ["k2h"], startDate: "2026-10-06", periods: 1, seats }], bus: [], bookFee: 0, advance: [], concession: null, noteToParent: "", status: "draft", pdf: "none", createdBy: "adm", createdAt: "", payments: [] })
+    const ctx = { branch, courses: [pkg], classes: [k120], holidays: [] }
+    expect(invoiceTotals(inv(), ctx).lines[0].quote?.slots.length).toBe(12)
+    const half = invoiceTotals(inv({ k2h: { offset: 0, minutes: 60 } }), ctx)
+    expect(half.lines[0].quote?.slots.length).toBe(24)
+    expect(half.total).toBe(6000)
+  })
+
+  it("hour packs are used up by minutes really attended; leftover minutes stay in the balance", () => {
+    const e: Entitlement = { id: "e", studentId: "a", courseId: "h", subjects: ["Maths"], classIds: ["k2h"], invoiceId: "i", kind: "sessions", from: "2026-10-01", to: "2026-12-31", sessionsTotal: 12, minutesTotal: 24 * 60 }
+    const sessions = [sess("s1", "2026-10-06"), sess("s2", "2026-10-13"), sess("s3", "2026-10-20")]
+    const att: Attendance[] = [
+      { sessionId: "s1", studentId: "a", status: "present", markedBy: "t1", markedAt: "" },
+      { sessionId: "s2", studentId: "a", status: "present", minutes: 60, markedBy: "t1", markedAt: "" }, // came for 1 of 2 hours
+      { sessionId: "s3", studentId: "a", status: "leave", markedBy: "t1", markedAt: "" },
+    ]
+    const b = balance(e, sessions, att, [k120])
+    expect(b.remainingMinutes).toBe(24 * 60 - 180)
+    expect(b.remaining).toBe(10) // 1260 min ÷ 120 = 10 full sessions, 60 min still there
+    expect(Seats.minutesCharged({ status: "absent" }, { offset: 0, minutes: 60 })).toBe(60)
+    expect(Seats.attendedChoices({ offset: 0, minutes: 120 })).toEqual([120, 90, 60, 30])
   })
 })

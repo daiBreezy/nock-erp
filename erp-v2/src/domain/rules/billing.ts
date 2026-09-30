@@ -1,6 +1,6 @@
 // Billing rules: one pricing function feeds Create, Edit, Detail and PDF (BL-2, BL-3, BL-4).
 
-import { addMonths, endOfMonth, fmtDate, monthKey, nextWeekday, addDays, weekdayOf } from "../dates"
+import { addMonths, endOfMonth, fmtDate, fromMinutes, monthKey, nextWeekday, addDays, toMinutes, weekdayOf } from "../dates"
 import type { AdvanceItem, Branch, BusAddOn, Entitlement, Leftover, Student, Weekday, BusLeg, Course, CourseLine, DateStr, Fee, Holiday, ID, Invoice, Klass, PriceUnit, Result, Role, Staff } from "../types"
 import { purchaseOf } from "./course"
 import { requireForceRemark } from "./notifications"
@@ -208,7 +208,9 @@ export interface InvoiceTotals {
 
 export function quoteLine(line: CourseLine, ctx: { branch: Branch; courses: Course[]; classes: Klass[]; holidays: Holiday[] }, promotions = true): LineQuote {
   const course = ctx.courses.find((c) => c.id === line.courseId)
+  // a student who attends part of a class (1 of 2 hours) is quoted on their own part — sessions follow their minutes
   const klasses = line.classIds.map((id) => ctx.classes.find((c) => c.id === id)).filter((k): k is Klass => !!k)
+    .map((k) => { const seat = line.seats?.[k.id]; return seat ? { ...k, minutes: seat.minutes, start: fromMinutes(toMinutes(k.start) + seat.offset) } : k })
   let quote: CourseQuote | null = null
   if (course && klasses.length) {
     const r = quoteCourse({ course, klasses, startDate: line.startDate, periods: line.periods, holidays: ctx.holidays, openDays: openDaysOf(ctx.branch), carryIn: line.carryIn, leftover: line.leftover })

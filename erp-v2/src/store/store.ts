@@ -10,6 +10,7 @@ import { addDays, at, fmtDate, fmtMoney, toDateStr, toMinutes, weekdayOf } from 
 import * as Att from "@/domain/rules/attendance"
 import * as Bill from "@/domain/rules/billing"
 import * as Refund from "@/domain/rules/refunds"
+import * as Seats from "@/domain/rules/seats"
 import * as CRM from "@/domain/rules/crm"
 import * as Inbox from "@/domain/rules/inbox"
 import { can, canDeactivateStaff, inBranch, OFFICE_ROLES, require as requirePerm } from "@/domain/rules/permissions"
@@ -22,7 +23,7 @@ import * as Notif from "@/domain/rules/notifications"
 import * as Cfg from "@/domain/rules/settings"
 import * as Msg from "@/domain/rules/messages"
 import { toast } from "sonner"
-import type { Assessment, AttendanceStatus, Entitlement, Branch, BusAddOn, CreditNote, ChatMessage, Conversation, Course, DateStr, Family, FormSubmission, Holiday, ID, Invoice, Klass, Lead, LeadStage, LessonSummary, LineDelivery, LogCategory, Result, Session, Staff, Student, SystemConfig } from "@/domain/types"
+import type { Assessment, AttendanceStatus, Entitlement, Branch, BusAddOn, CreditNote, Seat, ChatMessage, Conversation, Course, DateStr, Family, FormSubmission, Holiday, ID, Invoice, Klass, Lead, LeadStage, LessonSummary, LineDelivery, LogCategory, Result, Session, Staff, Student, SystemConfig } from "@/domain/types"
 
 export interface UIState {
   userId: ID
@@ -84,6 +85,10 @@ type Store = DB & UIState & {
 
   mark: (sessionId: ID, studentId: ID, status: AttendanceStatus) => Result
   clearMark: (sessionId: ID, studentId: ID) => Result
+  /** present but only part of the time (came 1 of 2 hours) — null = their usual part */
+  setAttendedMinutes: (sessionId: ID, studentId: ID, minutes: number | null) => Result
+  /** which part of the class the student attends: this session only, or every time (class) — null = the whole class */
+  setSeat: (scope: "session" | "class", id: ID, studentId: ID, seat: Seat | null) => Result
   saveStudentLeave: (input: { id?: ID; studentId: ID; from: DateStr; to: DateStr; reason: string }) => Result
   removeStudentFromClass: (classId: ID, studentId: ID) => Result<{ removedFrom: number }>
   /** added by mistake etc. — this session only, never one that already has a mark */
@@ -773,6 +778,42 @@ export const useStore = create<Store>()(
       },
 
       // ---------------- attendance ----------------
+      setAttendedMinutes: (sessionId, studentId, minutes) => {
+        const s = get()
+        const me = s.me()
+        const se = s.sessions.find((x) => x.id === sessionId)!
+        if (!can(me, "attendance.mark")) return fail("คุณไม่มีสิทธิ์เช็คชื่อ")
+        if (!can(me, "session.manage") && se.teacherId !== me.id && !se.coTeacherIds.includes(me.id)) return fail("เช็คชื่อได้เฉพาะคาบที่คุณสอน")
+        const a = s.attendance.find((x) => x.sessionId === sessionId && x.studentId === studentId)
+        if (a?.status !== "present") return fail("ติ๊ก \"มา\" ก่อน แล้วค่อยเลือกเวลาที่เรียนจริง")
+        const open = Att.canMark(se, "present", s.now())
+        if (!open.ok) return open
+        const seat = Seats.seatOf(se, studentId, s.classes.find((k) => k.id === se.classId))
+        if (minutes !== null && (!(minutes > 0) || minutes > se.minutes)) return fail("เวลาเรียนต้องมากกว่า 0 และไม่เกินความยาวคาบ")
+        const value = minutes === null || minutes === seat.minutes ? undefined : minutes
+        set({ attendance: s.attendance.map((x) => (x === a ? { ...x, minutes: value } : x)) })
+        log("attendance", [studentId], "แก้เวลาเรียนจริง", `${se.subject} ${fmtDate(se.date)} ${se.start} · มาเรียน ${Seats.fmtLen(value ?? seat.minutes)}`)
+        return OK
+      },
+
+      setSeat: (scope, id, studentId, seat) => {
+        const s = get()
+        if (!can(s.me(), "session.manage")) return fail("คุณไม่มีสิทธิ์จัดเวลาเรียนของนักเรียน")
+        const len = scope === "class" ? s.classes.find((k) => k.id === id)?.minutes : s.sessions.find((x) => x.id === id)?.minutes
+        if (!len) return fail("ไม่พบคลาส/คาบ")
+        if (seat && (seat.offset < 0 || seat.minutes <= 0 || seat.offset + seat.minutes > len)) return fail("ช่วงเวลาไม่อยู่ในคาบ")
+        const put = <T extends { seats?: Record<ID, Seat> }>(x: T): T => {
+          const seats = { ...x.seats }
+          if (seat && Seats.isPartial(seat, len)) seats[studentId] = seat
+          else delete seats[studentId]
+          return { ...x, seats }
+        }
+        if (scope === "class") set({ classes: s.classes.map((k) => (k.id === id ? put(k) : k)) })
+        else set({ sessions: s.sessions.map((x) => (x.id === id ? put(x) : x)) })
+        log("class", [studentId], "ตั้งเวลาเรียนในคลาส", `${scope === "class" ? "ทุกคาบ" : "คาบนี้"} · ${seat ? Seats.seatLabel(seat, len) : "เต็มคลาส"}`)
+        return OK
+      },
+
       mark: (sessionId, studentId, status) => {
         const s = get()
         const me = s.me()
@@ -1216,8 +1257,15 @@ export const useStore = create<Store>()(
             const q = l.quote, co = l.course, classIds = l.line.classIds
             const paidSlot = new Set(q.slots.map((x) => `${x.classId}|${x.date}`))
             // hour packs are counted; week and month packs are a window with any number of sessions
-            entitlements = [...entitlements, { id: uid("en"), studentId: inv.studentId, courseId: co.id, subjects: co.subjects, classIds, invoiceId: inv.id, kind: co.unit === "hour" ? "sessions" : "subscription", from: q.from, to: q.to, sessionsTotal: q.slots.length, carryMinutes: q.carryOut || undefined }]
-            classes = classes.map((c) => (classIds.includes(c.id) && !c.studentIds.includes(inv.studentId) ? { ...c, studentIds: [...c.studentIds, inv.studentId] } : c))
+            // hour packs are used up by minutes really attended (owner 2026-09-30)
+            entitlements = [...entitlements, { id: uid("en"), studentId: inv.studentId, courseId: co.id, subjects: co.subjects, classIds, invoiceId: inv.id, kind: co.unit === "hour" ? "sessions" : "subscription", from: q.from, to: q.to, sessionsTotal: q.slots.length, minutesTotal: co.unit === "hour" ? q.slots.reduce((m, x) => m + x.minutes, 0) : undefined, carryMinutes: q.carryOut || undefined }]
+            // join the class — with their part of it when they attend only part (standing seat)
+            classes = classes.map((c) => {
+              if (!classIds.includes(c.id)) return c
+              const seat = l.line.seats?.[c.id]
+              const joined = c.studentIds.includes(inv.studentId) ? c : { ...c, studentIds: [...c.studentIds, inv.studentId] }
+              return seat ? { ...joined, seats: { ...joined.seats, [inv.studentId]: seat } } : joined
+            })
             sessions = sessions.map((x) => (x.classId && paidSlot.has(`${x.classId}|${x.date}`) && !x.studentIds.includes(inv.studentId) ? { ...x, studentIds: [...x.studentIds, inv.studentId] } : x))
           }
         }
@@ -1576,7 +1624,7 @@ export const useStore = create<Store>()(
     {
       name: "nockerp-v2",
       // bump when the data model changes; older saved data is replaced by fresh sample data
-      version: 36,
+      version: 37,
       migrate: () => ({ ...buildSeed(), userId: "u_nock", branchId: "br_thl", clockOffset: 0 }) as unknown as Store,
       // persist data + UI state only, never the action functions
       partialize: (s) => Object.fromEntries(Object.entries(s).filter(([, v]) => typeof v !== "function")) as Partial<Store>,

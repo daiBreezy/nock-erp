@@ -1,5 +1,6 @@
 // Attendance, entitlements and student status (C1–C7, F4, F7, F8).
 
+import { minutesCharged, seatOf } from "./seats"
 import { addDays, daysBetween, fmtDate, weekdayOf } from "../dates"
 import type { Attendance, AttendanceStatus, Course, DateStr, Entitlement, Holiday, ID, Klass, Result, Session, Staff, Student, StudentLeave } from "../types"
 import { can } from "./permissions"
@@ -50,12 +51,27 @@ export interface Balance {
   total: number
   remaining: number
   until: string
+  /** hour packs counted in minutes (Entitlement.minutesTotal) */
+  remainingMinutes?: number
+  totalMinutes?: number
 }
 
-/** C4: one definition of "remaining" used by every screen. */
-export function balance(e: Entitlement, sessions: Session[], attendance: Attendance[]): Balance {
+/** C4: one definition of "remaining" used by every screen. Hour packs with `minutesTotal` are used up by the minutes
+ *  really attended (a 1-hour visit to a 2-hour class takes 1 hour) and "sessions left" = minutes left ÷ the
+ *  student's usual class length (owner 2026-09-30). */
+export function balance(e: Entitlement, sessions: Session[], attendance: Attendance[], classes: Pick<Klass, "id" | "minutes" | "seats">[] = []): Balance {
   const used = usedSessions(e, sessions, attendance)
-  return { kind: e.kind, used, total: e.sessionsTotal, remaining: Math.max(0, e.sessionsTotal - used), until: e.to }
+  if (!e.minutesTotal) return { kind: e.kind, used, total: e.sessionsTotal, remaining: Math.max(0, e.sessionsTotal - used), until: e.to }
+  const byId = new Map(sessions.filter((s) => packageCovers(e, s)).map((s) => [s.id, s]))
+  const klass = (id: string | null) => classes.find((k) => k.id === id)
+  const usedMinutes = attendance
+    .filter((a) => a.studentId === e.studentId && byId.has(a.sessionId))
+    .reduce((m, a) => { const se = byId.get(a.sessionId)!; return m + minutesCharged(a, seatOf(se, e.studentId, klass(se.classId))) }, 0)
+  const first = classes.find((k) => e.classIds.includes(k.id))
+  const usual = (first && seatOf({ minutes: first.minutes }, e.studentId, first).minutes) || [...byId.values()][0]?.minutes || 60
+  const remainingMinutes = Math.max(0, e.minutesTotal - usedMinutes)
+  const remaining = Math.floor(remainingMinutes / usual)
+  return { kind: e.kind, used, total: used + remaining, remaining, until: e.to, remainingMinutes, totalMinutes: e.minutesTotal }
 }
 
 /** C5: leave quota = 1 per 4 sessions bought (min 1 for packs of 4+). Pending owner confirmation. */

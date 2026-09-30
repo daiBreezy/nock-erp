@@ -41,7 +41,7 @@ export default function StudentsPage() {
   const rows = students.map((s) => {
     const st = Att.studentStatus(s, entitlements, leaves, today)
     const ents = Att.activeEntitlements(s.id, entitlements, today)
-    const packs = ents.map((e) => ({ e, b: Att.balance(e, sessions, attendance), c: courses.find((c) => c.id === e.courseId) }))
+    const packs = ents.map((e) => ({ e, b: Att.balance(e, sessions, attendance, classes), c: courses.find((c) => c.id === e.courseId) }))
     return { s, st, packs, fam: families.find((f) => f.id === s.familyId), inClasses: classes.filter((c) => c.active && c.studentIds.includes(s.id)) }
   })
   const shown = rows

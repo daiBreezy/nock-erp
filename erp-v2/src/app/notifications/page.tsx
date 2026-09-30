@@ -67,7 +67,7 @@ export default function NotificationsPage() {
     entitlements.forEach((e) => {
       const stu = s.students.find((x) => x.id === e.studentId)
       if (!stu || stu.branchId !== branch.id || e.to < today) return
-      const msg = Att.lowBalanceAlert(e, Att.balance(e, s.sessions, s.attendance), today)
+      const msg = Att.lowBalanceAlert(e, Att.balance(e, s.sessions, s.attendance, s.classes), today)
       const course = s.courses.find((c) => c.id === e.courseId)?.name ?? "คอร์ส"
       if (msg) alerts.push({ key: e.id, icon: AlertTriangleIcon, tone: "text-amber-600", title: `${studentLabel(stu, s.families.find((f) => f.id === stu.familyId)?.name)}: ${msg}`, detail: `${course} · กดเพื่อออกใบต่ออายุคอร์สนี้`, href: renewHref(stu.id, e.id) })
     })

@@ -39,8 +39,8 @@ export default function DashboardPage() {
     .filter((s) => statusOf.get(s.id) === "renewal")
     .map((stu) => {
       const ents = entitlements.filter((e) => e.studentId === stu.id && e.to >= today)
-      const messages = ents.map((e) => { const m = Att.lowBalanceAlert(e, Att.balance(e, sessions, attendance), today); return m && `${courses.find((c) => c.id === e.courseId)?.name ?? "คอร์ส"}: ${m}` }).filter((m): m is string => !!m)
-      const urgent = ents.some((e) => e.kind === "sessions" && Att.balance(e, sessions, attendance).remaining <= 1) || ents.some((e) => e.to <= fmtDateOffset(today, 2))
+      const messages = ents.map((e) => { const m = Att.lowBalanceAlert(e, Att.balance(e, sessions, attendance, classes), today); return m && `${courses.find((c) => c.id === e.courseId)?.name ?? "คอร์ส"}: ${m}` }).filter((m): m is string => !!m)
+      const urgent = ents.some((e) => e.kind === "sessions" && Att.balance(e, sessions, attendance, classes).remaining <= 1) || ents.some((e) => e.to <= fmtDateOffset(today, 2))
       return { stu, messages, urgent }
     })
     .sort((a, b) => (a.urgent === b.urgent ? 0 : a.urgent ? -1 : 1))

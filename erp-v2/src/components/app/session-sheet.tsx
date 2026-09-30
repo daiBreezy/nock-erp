@@ -4,7 +4,7 @@ import { ForceApprove } from "./force-approve"
 import Link from "next/link"
 import { useMemo, useState } from "react"
 import {
-  AlertTriangleIcon, BanIcon, CalendarClockIcon, CheckIcon, ChevronLeftIcon, ChevronRightIcon, EllipsisVerticalIcon, FlameIcon,
+  AlertTriangleIcon, BanIcon, CalendarClockIcon, CheckIcon, ChevronLeftIcon, ChevronRightIcon, ClockIcon, EllipsisVerticalIcon, FlameIcon,
   GraduationCapIcon, LogOutIcon, PencilIcon, SendIcon, StarIcon, Trash2Icon, UserMinusIcon, UserPlusIcon, UsersRoundIcon, XIcon,
 } from "lucide-react"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
@@ -18,12 +18,13 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { addDays, endTime, fmtDate, fmtDateTime } from "@/domain/dates"
 import * as Att from "@/domain/rules/attendance"
+import * as Seats from "@/domain/rules/seats"
 import { assessmentIn, FORM_TYPE_LABEL, sessionKindLabel } from "@/domain/rules/forms"
 import { can } from "@/domain/rules/permissions"
 import { canChangeTeachers, canRescheduleStudent, findConflicts, mondayOf, sessionState, subjectsOf } from "@/domain/rules/scheduling"
 import * as Sum from "@/domain/rules/summaries"
 import { SUMMARY_STATUS_LABEL } from "@/domain/rules/summaries"
-import type { ID, LessonSummary, Session } from "@/domain/types"
+import type { ID, LessonSummary, Seat, Session } from "@/domain/types"
 import { report } from "@/lib/feedback"
 import { useBranch, useEntitlements, useLookup, useNow } from "@/lib/hooks"
 import { cn } from "@/lib/utils"
@@ -251,7 +252,8 @@ function StudentRow({ s, sid, viewOnly, canManage, mine, text, setText, selectab
   const entitlements = useEntitlements()
   const now = useNow(10_000)
   const L = useLookup()
-  const [open, setOpen] = useState<"student" | "reschedule" | "remove" | null>(null)
+  const [open, setOpen] = useState<"student" | "reschedule" | "remove" | "seat" | null>(null)
+  const setAttended = useStore((st) => st.setAttendedMinutes)
   const [otherSession, setOtherSession] = useState<ID | null>(null)
 
   const stu = L.student(sid)
@@ -269,7 +271,7 @@ function StudentRow({ s, sid, viewOnly, canManage, mine, text, setText, selectab
   // package progress: sessions = used/bought · month/week = this class's place in the paid window
   const progress = (() => {
     if (!ent) return null
-    if (ent.kind === "sessions") { const b = Att.balance(ent, allSessions, attendance); return { n: b.used, of: b.total } }
+    if (ent.kind === "sessions") { const b = Att.balance(ent, allSessions, attendance, classes); return { n: b.used, of: b.total } }
     const inPkg = allSessions.filter((x) => !x.cancelled && x.studentIds.includes(sid) && Att.packageCovers(ent, x))
     return { n: inPkg.filter((x) => x.date <= s.date).length, of: inPkg.length }
   })()
@@ -282,6 +284,10 @@ function StudentRow({ s, sid, viewOnly, canManage, mine, text, setText, selectab
   const thisLeave = ledger.find((l) => l.sessionId === s.id)
   const usedQuota = ledger.filter((l) => l.quota).length
 
+  // the part of the class this student attends (1 of 2 hours) — this session, or every time
+  const klass = classes.find((k) => k.id === s.classId)
+  const seat = Seats.seatOf(s, sid, klass)
+  const partial = Seats.isPartial(seat, s.minutes)
   const markAs = (status: "present" | "absent" | "leave") =>
     a?.status === status ? report(clearMark(s.id, sid), `ล้างการเช็คชื่อ ${stu?.nickname}`) : report(mark(s.id, sid, status), `${stu?.nickname}: ${status === "present" ? "มา" : status === "absent" ? "ขาด" : "ลา"}`)
 
@@ -298,6 +304,7 @@ function StudentRow({ s, sid, viewOnly, canManage, mine, text, setText, selectab
             <button type="button" onClick={() => setOpen("student")} className="truncate text-left text-base font-semibold hover:text-primary hover:underline">{stu?.nickname}</button>
             <span className={cn("shrink-0 rounded-full px-2 py-0.5 text-xs font-semibold", gradeTone(stu?.grade ?? ""))}>{stu?.grade}</span>
             {isNew && <Pill tone="red" className="shrink-0"><FlameIcon className="size-3" /> ใหม่</Pill>}
+            {partial && <Pill tone="violet" className="shrink-0" title={`เรียนเฉพาะ ${Seats.seatTime(s.start, seat)}${s.seats?.[sid] ? " (คาบนี้)" : " (ทุกคาบ)"}`}>{Seats.seatLabel(seat, s.minutes)}</Pill>}
           </span>
           <p className="truncate text-xs text-muted-foreground" title={fam?.name}>
             {stu?.name} ·{" "}
@@ -332,6 +339,11 @@ function StudentRow({ s, sid, viewOnly, canManage, mine, text, setText, selectab
               <DropdownMenuItem disabled={state(s, now) !== "upcoming" || !!a} onClick={() => setOpen("reschedule")}>
                 <CalendarClockIcon /><span className="flex flex-col"><span>ย้ายคาบ (Re-schedule)</span><span className="text-xs text-muted-foreground">ภายในสัปดาห์นี้เท่านั้น</span></span>
               </DropdownMenuItem>
+              {s.minutes > 60 && (
+                <DropdownMenuItem onClick={() => setOpen("seat")}>
+                  <ClockIcon /><span className="flex flex-col"><span>เวลาเรียนของ{stu?.nickname}</span><span className="text-xs text-muted-foreground">เรียนแค่บางชั่วโมง (คาบนี้ / ทุกคาบ)</span></span>
+                </DropdownMenuItem>
+              )}
               <DropdownMenuSeparator />
               <DropdownMenuItem variant="destructive" onClick={() => setOpen("remove")}><UserMinusIcon /> เอาออกจากคลาส</DropdownMenuItem>
             </DropdownMenuContent>
@@ -349,6 +361,16 @@ function StudentRow({ s, sid, viewOnly, canManage, mine, text, setText, selectab
           {thisLeave?.quota ? `ใช้โควตาลา ${usedQuota}/${quota} · ยืดให้อีก 1 คาบ → เรียนจบ ${fmtDate(ent?.to ?? raw.to, { weekday: true, year: true })}` : `โควตาลาหมดแล้ว (${quota}/${quota}) — ไม่ชดเชยคาบนี้ · เรียนจบ ${fmtDate(ent?.to ?? raw.to, { weekday: true, year: true })} เหมือนเดิม`}
         </p>
       )}
+      {a?.status === "present" && s.minutes > 30 && !s.trial && (
+        <p className="flex items-center gap-2 pl-[4.75rem] text-xs text-muted-foreground">
+          <ClockIcon className="size-3.5" /> เรียนจริง
+          <select value={a.minutes ?? seat.minutes} disabled={!canMarkHere || !Att.canMark(s, "present", now).ok} onChange={(e) => report(setAttended(s.id, sid, Number(e.target.value)), `${stu?.nickname}: เรียน ${Seats.fmtLen(Number(e.target.value))}`)}
+            className={cn("rounded-full border bg-background px-2 py-0.5 text-xs", a.minutes !== undefined && "border-violet-400 text-violet-800")}>
+            {Seats.attendedChoices(seat).map((m) => <option key={m} value={m}>{Seats.fmtLen(m)}{m === seat.minutes ? "" : " (มาไม่ครบ)"}</option>)}
+          </select>
+          {ent?.kind === "sessions" && <span>· หักแพ็กชั่วโมงตามเวลาที่เรียนจริง</span>}
+        </p>
+      )}
       {asm && <div className="pl-[4.75rem]"><AssessmentNote a={asm} editable={canManage || mine} /></div>}
       {a?.status === "present" && (
         <div className="pl-[4.75rem]">
@@ -359,12 +381,54 @@ function StudentRow({ s, sid, viewOnly, canManage, mine, text, setText, selectab
       <StudentSheet studentId={open === "student" ? sid : null} onClose={() => setOpen(null)} />
       {open === "reschedule" && <RescheduleDialog from={s} studentId={sid} onClose={() => setOpen(null)} />}
       {open === "remove" && <RemoveDialog s={s} studentId={sid} onClose={() => setOpen(null)} />}
+      {open === "seat" && <SeatDialog s={s} studentId={sid} onClose={() => setOpen(null)} />}
       <SessionSheet sessionId={otherSession} onClose={() => setOtherSession(null)} />
     </li>
   )
 }
 
 const state = sessionState
+
+/** Which part of a long class the student attends (owner 2026-09-30): only this session, or every session of the class. */
+function SeatDialog({ s, studentId, onClose }: { s: Session; studentId: ID; onClose: () => void }) {
+  const klass = useStore((st) => st.classes.find((k) => k.id === s.classId))
+  const setSeat = useStore((st) => st.setSeat)
+  const L = useLookup()
+  const current = Seats.seatOf(s, studentId, klass)
+  const [pick, setPick] = useState<Seat>(current)
+  const [scope, setScope] = useState<"session" | "class">(s.seats?.[studentId] || !klass ? "session" : "class")
+  const same = (a: Seat, b: Seat) => a.offset === b.offset && a.minutes === b.minutes
+  return (
+    <Dialog open onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>เวลาเรียนของ{L.student(studentId)?.nickname}</DialogTitle>
+          <DialogDescription>คาบ {s.start}–{endTime(s.start, s.minutes)} · แพ็กชั่วโมงหักตามเวลาที่เรียนจริง ราคารายเดือนเท่าเดิม</DialogDescription>
+        </DialogHeader>
+        <div className="grid gap-1.5">
+          {Seats.seatOptions(s.minutes).map((o) => (
+            <button key={`${o.offset}-${o.minutes}`} type="button" aria-pressed={same(o, pick)} onClick={() => setPick(o)}
+              className={cn("flex items-center justify-between rounded-xl border px-3 py-2 text-sm", same(o, pick) ? "border-primary bg-primary/5 font-medium" : "hover:bg-muted/50")}>
+              <span>{Seats.seatLabel(o, s.minutes)}</span><span className="text-xs text-muted-foreground tabular-nums">{Seats.seatTime(s.start, o)}</span>
+            </button>
+          ))}
+        </div>
+        {klass && (
+          <div className="flex gap-1.5">
+            {([["session", "เฉพาะคาบนี้"], ["class", "ทุกคาบของคลาสนี้"]] as const).map(([k, label]) => (
+              <button key={k} type="button" aria-pressed={scope === k} onClick={() => setScope(k)}
+                className={cn("flex-1 rounded-full border px-3 py-1.5 text-sm", scope === k ? "border-foreground bg-foreground text-background" : "hover:bg-muted")}>{label}</button>
+            ))}
+          </div>
+        )}
+        <DialogFooter>
+          <Button variant="ghost" onClick={onClose}>ยกเลิก</Button>
+          <Button onClick={() => report(setSeat(scope, scope === "class" ? klass!.id : s.id, studentId, pick), "บันทึกเวลาเรียนแล้ว") && onClose()}>บันทึก</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  )
+}
 
 /** Student moved out of this session — says where to, click opens that session, ⋮ undo */
 function MovedOutRow({ s, studentId, toSessionId, canManage }: { s: Session; studentId: ID; toSessionId: ID; canManage: boolean }) {
