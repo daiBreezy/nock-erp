@@ -1248,7 +1248,7 @@ export const useStore = create<Store>()(
           const student: Student = {
             id: uid("stu"), familyId: null, branchId: lead.branchId,
             name: sub.studentName, nickname: sub.studentNickname?.trim() || People.nicknameFrom(sub.studentName),
-            grade: sub.studentGrade, usesBus: false, birthDate: sub.studentBirthDate, note: sub.studentNote,
+            grade: sub.studentGrade, usesBus: false, birthDate: sub.studentBirthDate, school: sub.studentSchool?.trim() || undefined, note: sub.studentNote,
             createdAt: s.now().toISOString(), createdBranchId: lead.branchId,
           }
           const errs = People.validateStudent(student, toDateStr(s.now()))
@@ -1258,7 +1258,7 @@ export const useStore = create<Store>()(
           // already on file) instead of creating a duplicate for a returning family or a sibling — never
           // overwrites what's on file, staff review any differences before this point (SubmissionReviewCard)
           const matched = People.matchExistingFamily(s.families, { lineUserId: lead.lineUserId, phones: sub.parents.map((p) => p.phone) })
-          const family = matched ?? People.familyFromSubmission(sub.studentName, sub.parents, { address: sub.familyAddress, postcode: sub.familyPostcode, province: sub.familyProvince, source: sub.acquisition, taxInfo: sub.taxInfo }, lead.lineUserId, uid("fam"))
+          const family = matched ?? People.familyFromSubmission(sub.studentName, sub.parents, { address: sub.familyAddress, postcode: sub.familyPostcode, province: sub.familyProvince, location: sub.familyLocation, addressNote: sub.familyAddressNote, sources: sub.acquisitions, taxInfo: sub.taxInfo }, lead.lineUserId, uid("fam"))
           set((cur) => ({
             families: matched ? cur.families : [...cur.families, family],
             conversations: cur.conversations.map((c) => (c.leadId === leadId || (lead!.lineUserId && c.id === `line_${lead!.lineUserId}`) ? { ...c, familyId: family.id } : c)),

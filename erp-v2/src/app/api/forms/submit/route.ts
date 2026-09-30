@@ -9,16 +9,17 @@ export async function POST(req: Request) {
   let body: {
     token?: string; lineUserId?: string
     parents?: FormParentInput[]
-    familyAddress?: string; familyPostcode?: string; familyProvince?: string; acquisition?: LeadSource
+    familyAddress?: string; familyPostcode?: string; familyProvince?: string; acquisitions?: LeadSource[]
+    familyLocation?: { lat: number; lng: number }; familyAddressNote?: string
     taxInfo?: { customerName: string; taxId: string; address: string }
-    students?: { name: string; nickname?: string; grade: string; birthDate?: string; note?: string; picks?: { chosenSubject: string; chosenSlotId: string }[] }[]
+    students?: { name: string; nickname?: string; grade: string; birthDate?: string; school?: string; note?: string; picks?: { chosenSubject: string; chosenSlotId: string }[] }[]
   }
   try {
     body = await req.json()
   } catch {
     return NextResponse.json({ ok: false, error: "invalid json" }, { status: 400 })
   }
-  const { token, lineUserId, parents, familyAddress, familyPostcode, familyProvince, acquisition, taxInfo, students } = body
+  const { token, lineUserId, parents, familyAddress, familyPostcode, familyProvince, acquisitions, familyLocation, familyAddressNote, taxInfo, students } = body
   if (!token || !lineUserId || !parents?.length || !students?.length) {
     return NextResponse.json({ ok: false, error: "กรอกข้อมูลให้ครบทุกช่อง" }, { status: 400 })
   }
@@ -29,9 +30,9 @@ export async function POST(req: Request) {
     return NextResponse.json({ ok: false, error: "ใส่ชื่อ ระดับชั้น และเลือกวิชา/เวลาให้นักเรียนทุกคน" }, { status: 400 })
   }
   const result = await submitForm({
-    token, lineUserId, parents, familyAddress, familyPostcode, familyProvince, acquisition,
+    token, lineUserId, parents, familyAddress, familyPostcode, familyProvince, acquisitions, familyLocation, familyAddressNote,
     taxInfo: taxInfo?.customerName?.trim() || taxInfo?.taxId?.trim() ? taxInfo : undefined,
-    students: students.map((s) => ({ name: s.name, nickname: s.nickname, grade: s.grade, birthDate: s.birthDate, note: s.note, picks: s.picks! })),
+    students: students.map((s) => ({ name: s.name, nickname: s.nickname, grade: s.grade, birthDate: s.birthDate, school: s.school, note: s.note, picks: s.picks! })),
   })
   return NextResponse.json(result)
 }

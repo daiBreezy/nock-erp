@@ -84,7 +84,7 @@ export function familyFromLead(
  *  of collapsing to the lead's single name/phone — used once the form actually collected full parent
  *  details (see approveTestTrialSubmission). The first parent listed is the one who logged into LINE to
  *  submit, so only they get `lineLinked`/`primary`; others can be corrected by staff afterwards. */
-export function familyFromSubmission(studentName: string, parents: FormParentInput[], family: { address?: string; postcode?: string; province?: string; source?: Family["source"]; taxInfo?: Family["taxInfo"] }, lineUserId: string | undefined, id: ID): Family {
+export function familyFromSubmission(studentName: string, parents: FormParentInput[], family: { address?: string; postcode?: string; province?: string; location?: Family["location"]; addressNote?: string; sources?: Family["sources"]; taxInfo?: Family["taxInfo"] }, lineUserId: string | undefined, id: ID): Family {
   const parts = nameParts(studentName)
   const parentSurname = parents[0] ? nameParts(parents[0].name).slice(-1)[0] : undefined
   const surname = parts.length > 1 ? parts[parts.length - 1] : parentSurname ?? "ครอบครัวใหม่"
@@ -102,7 +102,9 @@ export function familyFromSubmission(studentName: string, parents: FormParentInp
     address: family.address?.trim() || undefined,
     postcode: family.postcode?.trim() || undefined,
     province: family.province?.trim() || undefined,
-    source: family.source,
+    location: family.location,
+    addressNote: family.addressNote?.trim() || undefined,
+    sources: family.sources?.length ? family.sources : undefined,
     taxInfo: family.taxInfo,
     lineUserId,
   }

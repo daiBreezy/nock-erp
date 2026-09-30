@@ -72,7 +72,7 @@ export function SendFormDialog({
         leadId, branchId, conversationId, lineUserId, type,
         offers: blocks.map((b) => ({ subject: b.subject, slots: [...b.selected.values()] })),
         grades: branch.grades,
-        branchName: branch.name, lang,
+        branchName: branch.name, brand: branch.brand, lang,
         prefill: lead ? buildFormPrefill({ lead, family, students: knownStudents, assessments }) : undefined,
       })
       if (report(r, `ส่งฟอร์ม${FORM_TYPE_LABEL[type]}ทาง LINE แล้ว`)) onClose()

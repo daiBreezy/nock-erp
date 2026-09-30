@@ -4,7 +4,7 @@
 // liff/form/page.tsx.
 
 import { addDays, at, fromMinutes, overlaps, toMinutes } from "../dates"
-import type { Assessment, Branch, DateStr, Family, FormOfferSlot, FormParentInput, FormPrefill, FormType, Holiday, ID, Klass, Lead, LeadStage, Session, Staff, Student, TimeStr } from "../types"
+import type { Assessment, Branch, DateStr, Family, FormOfferSlot, FormParentInput, FormPrefill, FormSubjectOffer, FormType, Holiday, ID, Klass, Lead, LeadStage, Session, Staff, Student, TimeStr } from "../types"
 import { CAPACITY, hoursFor, isHoliday, slotProblem, teachersOf } from "./scheduling"
 
 export const FORM_TYPE_LABEL: Record<FormType, string> = { test: "สอบวัดระดับ", trial: "ทดลองเรียน" }
@@ -17,7 +17,7 @@ export const FORM_TYPE_LABEL: Record<FormType, string> = { test: "สอบว�
 export function buildFormPrefill(input: {
   lead: Pick<Lead, "name" | "phone" | "lineId" | "childGrade" | "subject" | "source">
   family?: Family
-  students: Pick<Student, "id" | "name" | "nickname" | "grade" | "birthDate" | "note">[]
+  students: Pick<Student, "id" | "name" | "nickname" | "grade" | "birthDate" | "note" | "school">[]
   assessments: Pick<Assessment, "studentId" | "subject">[]
 }): FormPrefill {
   const f = input.family
@@ -26,10 +26,10 @@ export function buildFormPrefill(input: {
     : [{ name: input.lead.name, phone: input.lead.phone, lineId: input.lead.lineId || undefined, primary: true }]
   return {
     parents,
-    address: f?.address, postcode: f?.postcode, province: f?.province,
-    acquisition: f?.source ?? input.lead.source, taxInfo: f?.taxInfo,
+    address: f?.address, postcode: f?.postcode, province: f?.province, location: f?.location, addressNote: f?.addressNote,
+    acquisitions: f?.sources?.length ? f.sources : [input.lead.source], taxInfo: f?.taxInfo,
     students: input.students.map((s) => ({
-      name: s.name, nickname: s.nickname, grade: s.grade, birthDate: s.birthDate, note: s.note,
+      name: s.name, nickname: s.nickname, grade: s.grade, birthDate: s.birthDate, school: s.school, note: s.note,
       interests: [...new Set(input.assessments.filter((a) => a.studentId === s.id).map((a) => a.subject))],
     })),
   }
@@ -71,6 +71,27 @@ export function openHourStarts(branch: Branch, date: DateStr): TimeStr[] {
 /** Same-day, multi-subject picks share one room for one fixed 2-hour block instead of stacking
  *  a separate room/time per subject — the parent only has to show up once. */
 export const COMBINED_MINUTES = 120
+
+/**
+ * Times a child can do several subjects in ONE visit (owner 2026-09-30): only date+start every chosen subject
+ * offers, shown as one list — 1 subject = 1 h, 2+ subjects = one 2-hour block. Picking one sets every subject.
+ */
+export function commonSlots(offers: FormSubjectOffer[], subjects: string[]): { date: DateStr; start: TimeStr; minutes: number; bySubject: Record<string, FormOfferSlot> }[] {
+  const chosen = offers.filter((o) => subjects.includes(o.subject))
+  if (!chosen.length) return []
+  const [first, ...rest] = chosen
+  return first.slots
+    .flatMap((s) => {
+      const bySubject: Record<string, FormOfferSlot> = { [first.subject]: s }
+      for (const o of rest) {
+        const match = o.slots.find((x) => x.date === s.date && x.start === s.start)
+        if (!match) return []
+        bySubject[o.subject] = match
+      }
+      return [{ date: s.date, start: s.start, minutes: chosen.length > 1 ? COMBINED_MINUTES : s.minutes, bySubject }]
+    })
+    .sort((a, b) => (a.date + a.start).localeCompare(b.date + b.start))
+}
 
 function slotsOverlap(aStart: TimeStr, aMinutes: number, bStart: TimeStr, bMinutes: number) {
   const a0 = toMinutes(aStart), a1 = a0 + aMinutes

@@ -319,8 +319,11 @@ export interface Family {
   address?: string
   postcode?: string
   province?: string
-  /** how the family found us (form "Acquisition") */
-  source?: LeadSource
+  /** pin for the bus driver (Liclass) + how to find the house ("หมู่บ้านพฤกษา ซอย 2 หลังซ้ายมือ") */
+  location?: { lat: number; lng: number }
+  addressNote?: string
+  /** how the family found us (form "Acquisition" — several allowed) */
+  sources?: LeadSource[]
   /** one LINE link code for the whole family (siblings share it) */
   lineCode?: { code: string; expiresAt: string }
   /** real LINE Messaging API user id, once linked via Inbox (see linkConversationToFamily) — enables real delivery, not just the lineLinked simulation flag */
@@ -641,6 +644,8 @@ export interface FormToken {
   grades: string[]
   /** shown in the form header */
   branchName?: string
+  /** Liclass runs a school bus → its form asks for the address + map pin; NockAcademy doesn't */
+  brand?: Brand
   /** default language (Settings) — parent can switch */
   lang?: FormLang
   prefill?: FormPrefill
@@ -674,9 +679,11 @@ export interface FormPrefill {
   address?: string
   postcode?: string
   province?: string
-  acquisition?: LeadSource
+  location?: { lat: number; lng: number }
+  addressNote?: string
+  acquisitions?: LeadSource[]
   taxInfo?: { customerName: string; taxId: string; address: string }
-  students: { name: string; nickname?: string; grade: string; birthDate?: DateStr; note?: string; interests?: string[] }[]
+  students: { name: string; nickname?: string; grade: string; birthDate?: DateStr; school?: string; note?: string; interests?: string[] }[]
 }
 
 /** One subject + the exact slot chosen for it — a submission row now holds one of these per subject
@@ -710,12 +717,15 @@ export interface FormSubmission {
   familyAddress?: string
   familyPostcode?: string
   familyProvince?: string
-  acquisition?: LeadSource
+  familyLocation?: { lat: number; lng: number }
+  familyAddressNote?: string
+  acquisitions?: LeadSource[]
   taxInfo?: { customerName: string; taxId: string; address: string }
   studentName: string
   studentNickname?: string
   studentGrade: string
   studentBirthDate?: DateStr
+  studentSchool?: string
   studentNote?: string
   picks: FormPick[]
   status: FormStatus

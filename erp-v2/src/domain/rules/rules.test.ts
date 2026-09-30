@@ -12,7 +12,7 @@ import * as Sum from "./summaries"
 import { familyFromLead, futureSessionsOf, matchExistingFamily, nicknameFrom, searchStudents, studentLabel, validateFamily, validateStaff, validateStudent } from "./people"
 import { suggestFixes } from "./suggest"
 import { advanceStage, canSetStage, daysAgo, groupOf, restoreStage, validateLead } from "./crm"
-import { APPROVE_STAGE, ATTENDED_STAGE, buildFormPrefill, buildCombinedSessionDraft, buildSessionDraftFromSlot, findOfferSlots, lastAssessmentDate, openHourStarts, sessionKindLabel } from "./forms"
+import { APPROVE_STAGE, ATTENDED_STAGE, buildFormPrefill, commonSlots, buildCombinedSessionDraft, buildSessionDraftFromSlot, findOfferSlots, lastAssessmentDate, openHourStarts, sessionKindLabel } from "./forms"
 import { customerRows, filterCustomers } from "./customers"
 import { invoiceMessage } from "./messages"
 
@@ -893,12 +893,28 @@ describe("next form is pre-filled (owner 2026-09-29: the Trial form must not sta
     const p = buildFormPrefill({ lead, family, students: kids, assessments: [{ studentId: "s1", subject: "คณิต" }, { studentId: "s1", subject: "คณิต" }] })
     expect(p.parents[0]).toMatchObject({ name: "สมชาย ใจดี", relationship: "คุณพ่อ", primary: true })
     expect(p.address).toBe("123 สุขุมวิท")
-    expect(p.acquisition).toBe("walkin")
+    expect(p.acquisitions).toEqual(["walkin"])
     expect(p.students).toEqual([expect.objectContaining({ name: "ด.ช. ภูมิ ใจดี", grade: "ป.5", interests: ["คณิต"] })])
   })
   it("no family yet → the lead's own name/phone/LINE ID, no children", () => {
     const p = buildFormPrefill({ lead, students: [], assessments: [] })
     expect(p.parents).toEqual([{ name: "คุณสมชาย ใจดี", phone: "089-555-1212", lineId: "@som", primary: true }])
     expect(p.students).toEqual([])
+  })
+})
+
+describe("one visit for several subjects (owner 2026-09-30)", () => {
+  const slot = (subject: string, date: string, start: string): FormOfferSlot => ({ id: `${subject}${date}${start}`, date, start, minutes: 60, source: "generic", teacherId: null, roomId: null, classId: null, sessionId: null })
+  const offers = [
+    { subject: "Maths", slots: [slot("Maths", "2026-10-01", "10:00"), slot("Maths", "2026-10-01", "13:00"), slot("Maths", "2026-10-02", "10:00")] },
+    { subject: "English", slots: [slot("English", "2026-10-01", "13:00"), slot("English", "2026-10-02", "16:00")] },
+  ]
+  it("1 subject: its own times, 1 hour", () => {
+    expect(commonSlots(offers, ["Maths"]).map((x) => `${x.date} ${x.start} ${x.minutes}`)).toEqual(["2026-10-01 10:00 60", "2026-10-01 13:00 60", "2026-10-02 10:00 60"])
+  })
+  it("2 subjects: only the times both are free together, as one 2-hour block, picking sets both", () => {
+    const r = commonSlots(offers, ["Maths", "English"])
+    expect(r.map((x) => `${x.date} ${x.start} ${x.minutes}`)).toEqual(["2026-10-01 13:00 120"])
+    expect(Object.keys(r[0].bySubject)).toEqual(["Maths", "English"])
   })
 })
