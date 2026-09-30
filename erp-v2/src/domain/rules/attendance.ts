@@ -84,7 +84,7 @@ export function leavesUsed(e: Entitlement, sessions: Session[], attendance: Atte
   const byId = new Map(sessions.map((s) => [s.id, s]))
   const ids = new Set(sessions.filter((s) => packageCovers(e, s)).map((s) => s.id))
   return attendance.filter((a) => {
-    if (a.studentId !== e.studentId || !ids.has(a.sessionId) || a.status !== "leave") return false
+    if (a.studentId !== e.studentId || !ids.has(a.sessionId) || a.status !== "leave" || a.noQuota) return false
     const sess = byId.get(a.sessionId)
     return !sess || !activeLeave(e.studentId, sess.date, leaves)
   }).length
@@ -116,15 +116,23 @@ export interface MakeUpCtx {
  * student never loses the session and the parent can be told the real last day. Leave after the quota is gone
  * adds nothing. Returns the leave sessions in date order, flagged whether the quota covered them.
  */
-export function leaveLedger(e: Entitlement, ctx: MakeUpCtx, leaves: StudentLeave[] = []): { sessionId: ID; date: DateStr; quota: boolean }[] {
+export function leaveLedger(e: Entitlement, ctx: MakeUpCtx, leaves: StudentLeave[] = []): { sessionId: ID; date: DateStr; quota: boolean; noQuota?: boolean }[] {
   const byId = new Map(ctx.sessions.map((s) => [s.id, s]))
   const q = leaveQuota(e)
-  return ctx.attendance
-    .filter((a) => a.studentId === e.studentId && a.status === "leave")
-    .map((a) => byId.get(a.sessionId))
+  const marks = new Map(ctx.attendance.filter((a) => a.studentId === e.studentId && a.status === "leave").map((a) => [a.sessionId, a]))
+  let used = 0
+  return [...marks.keys()]
+    .map((id) => byId.get(id))
     .filter((s): s is Session => !!s && packageCovers(e, s) && !activeLeave(e.studentId, s.date, leaves))
     .sort((a, b) => (a.date + a.start).localeCompare(b.date + b.start))
-    .map((s, i) => ({ sessionId: s.id, date: s.date, quota: i < q }))
+    // leave "ไม่หักโควตา" never uses the quota but still extends the package (owner 2026-09-30)
+    .map((s) => (marks.get(s.id)?.noQuota ? { sessionId: s.id, date: s.date, quota: false, noQuota: true } : { sessionId: s.id, date: s.date, quota: used++ < q }))
+}
+
+/** Sessions cancelled because the teacher was on leave with no substitute — each one the student was booked into
+ *  makes their package run one class longer (owner 2026-09-30). */
+export function teacherLeaveCancels(e: Entitlement, sessions: Session[]): Session[] {
+  return sessions.filter((s) => s.cancelled && s.teacherLeave && !s.teacherLeave.substituteId && s.studentIds.includes(e.studentId) && packageCovers(e, s))
 }
 
 /** the next `n` class meetings after `after` across the package's classes (skipping the branch's holidays) */
@@ -143,7 +151,7 @@ export function resolveEntitlements(ents: Entitlement[], leaves: StudentLeave[],
     const base = leaves.length ? { ...e, to: effectiveTo(e, leaves) } : e
     const klasses = ctx ? ctx.classes.filter((k) => e.classIds.includes(k.id)) : []
     if (!ctx || !klasses.length) return base
-    const n = leaveLedger(base, ctx, leaves).filter((l) => l.quota).length
+    const n = leaveLedger(base, ctx, leaves).filter((l) => l.quota || l.noQuota).length + teacherLeaveCancels(base, ctx.sessions).length
     return n ? { ...base, to: nextClassDates(klasses, base.to, n, ctx.holidays)[n - 1] } : base
   })
 }

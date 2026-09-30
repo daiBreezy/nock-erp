@@ -86,7 +86,11 @@ type Store = DB & UIState & {
   /** synced from GET /api/line/status, not a user edit — bypasses the Settings draft/save flow */
   setLineOaConnected: (branchId: ID, connected: boolean) => void
 
-  mark: (sessionId: ID, studentId: ID, status: AttendanceStatus) => Result
+  /** leave: noQuota = "ลาไม่หักโควตา" (still extends the package) */
+  mark: (sessionId: ID, studentId: ID, status: AttendanceStatus, opts?: { noQuota?: boolean }) => Result
+  /** the teacher is on leave: a substitute takes the session, or (no substitute) it is cancelled and every student's
+   *  package runs one class longer */
+  teacherLeave: (sessionId: ID, input: { reason: string; substituteId: ID | null }) => Result<{ extended: number }>
   clearMark: (sessionId: ID, studentId: ID) => Result
   /** present but only part of the time (came 1 of 2 hours) — null = their usual part */
   setAttendedMinutes: (sessionId: ID, studentId: ID, minutes: number | null) => Result
@@ -845,7 +849,43 @@ export const useStore = create<Store>()(
         return OK
       },
 
-      mark: (sessionId, studentId, status) => {
+      teacherLeave: (sessionId, { reason, substituteId }) => {
+        const s = get()
+        const perm = requirePerm(s.me(), "session.manage")
+        if (!perm.ok) return perm
+        const se = s.sessions.find((x) => x.id === sessionId)
+        if (!se) return fail("ไม่พบคาบเรียน")
+        if (Sch.sessionState(se, s.now()) === "closed" || se.cancelled) return fail("คาบนี้ปิดหรือยกเลิกไปแล้ว")
+        if (!se.teacherId) return fail("คาบนี้ยังไม่มีครูหลัก")
+        if (!reason.trim()) return fail("กรอกเหตุผลที่ครูลา")
+        const record = { teacherId: se.teacherId, reason: reason.trim(), substituteId, by: s.userId, at: s.now().toISOString() }
+        const who = s.staff.find((t) => t.id === se.teacherId)?.nickname ?? "ครู"
+        if (substituteId) {
+          const sub = s.staff.find((t) => t.id === substituteId)
+          if (!sub?.active) return fail("เลือกครูสอนแทนที่ยังทำงานอยู่")
+          const branch = s.branches.find((b) => b.id === se.branchId)!
+          const next = { ...se, teacherId: substituteId, coTeacherIds: se.coTeacherIds.filter((x) => x !== substituteId), teacherLeave: record }
+          const clash = Sch.introducedConflicts(s.sessions, s.sessions.map((x) => (x.id === sessionId ? next : x)), [sessionId], branch, s.staff, ["teacher"]).added[0]
+          if (clash) return fail(`${sub.nickname} สอนแทนไม่ได้ — ${clash.message}`)
+          set({ sessions: s.sessions.map((x) => (x.id === sessionId ? next : x)) })
+          log("class", se.studentIds, "ครูลา · มีครูสอนแทน", `${se.subject} ${fmtDate(se.date)} ${se.start} · ${who} ลา (${reason.trim()}) · ${sub.nickname} สอนแทน`)
+          return { ok: true, value: { extended: 0 } }
+        }
+        // no substitute: cancel — every student's package runs one class longer (resolveEntitlements)
+        const before = new Map(se.studentIds.map((sid) => [sid, resolvedFor(sid)]))
+        set({
+          sessions: s.sessions.map((x) => (x.id === sessionId ? { ...x, cancelled: true, cancelReason: `ครู${who}ลา: ${reason.trim()}`, teacherLeave: record } : x)),
+          notifications: [
+            Notif.notify({ id: uid("no"), at: s.now(), kind: "session_cancelled", title: `ครู${who}ลา · ยกเลิกคาบ`, body: `${se.subject} ${fmtDate(se.date)} ${se.start} · นักเรียน ${se.studentIds.length} คน เลื่อนวันจบคอร์สออกไป 1 คาบ · ${reason.trim()}`, fromId: s.userId, audience: { roles: OFFICE_ROLES, branchId: se.branchId, staffIds: Sch.teachersOf(se) } }),
+            ...s.notifications,
+          ],
+        })
+        se.studentIds.forEach((sid) => syncMakeUp(sid, before.get(sid)!))
+        log("class", se.studentIds, "ครูลา · ยกเลิกคาบ", `${se.subject} ${fmtDate(se.date)} ${se.start} · ${who} ลา (${reason.trim()}) · เลื่อนวันจบคอร์สให้นักเรียน ${se.studentIds.length} คน`, true)
+        return { ok: true, value: { extended: se.studentIds.length } }
+      },
+
+      mark: (sessionId, studentId, status, opts) => {
         const s = get()
         const me = s.me()
         if (!can(me, "attendance.mark")) return fail("คุณไม่มีสิทธิ์เช็คชื่อ")
@@ -856,16 +896,16 @@ export const useStore = create<Store>()(
         const rest = s.attendance.filter((a) => !(a.sessionId === sessionId && a.studentId === studentId))
         const beforeEnds = resolvedFor(studentId)
         // C3: summaries only exist for present students; keep text as draft instead of deleting silently
-        set({ attendance: [...rest, { sessionId, studentId, status, markedBy: me.id, markedAt: s.now().toISOString() }] })
+        set({ attendance: [...rest, { sessionId, studentId, status, markedBy: me.id, markedAt: s.now().toISOString(), noQuota: status === "leave" && opts?.noQuota ? true : undefined }] })
         const before = s.attendance.find((a) => a.sessionId === sessionId && a.studentId === studentId)
         const L = { present: "มา", absent: "ขาด", leave: "ลา" } as const
-        log("attendance", [studentId], before ? "แก้การเช็คชื่อ" : "เช็คชื่อ", `${se.subject} ${fmtDate(se.date)} ${se.start} · ${before ? `${L[before.status]} → ` : ""}${L[status]}`)
+        log("attendance", [studentId], before ? "แก้การเช็คชื่อ" : "เช็คชื่อ", `${se.subject} ${fmtDate(se.date)} ${se.start} · ${before ? `${L[before.status]} → ` : ""}${L[status]}${status === "leave" ? (opts?.noQuota ? " (ไม่หักโควตา)" : " (หักโควตา)") : ""}`)
         // the child really came to the test/trial → lead moves on by itself
         const asm = Forms.assessmentIn(sessionId, studentId, s.assessments)
         if (asm && status === "present") advanceLead(asm.leadId, Forms.ATTENDED_STAGE[asm.type])
         syncMakeUp(studentId, beforeEnds)
         // C5: leave beyond quota is allowed but flagged (quota rule awaiting owner confirmation)
-        if (status === "leave") {
+        if (status === "leave" && !opts?.noQuota) {
           const ent = Att.coveringEntitlement(studentId, se, s.entitlements)
           if (ent && Att.leavesUsed(ent, s.sessions, s.attendance.filter((a) => !(a.sessionId === sessionId && a.studentId === studentId)), s.leaves) >= Att.leaveQuota(ent))
             return { ok: true, value: undefined, warnings: [`ลาเกินโควตาแล้ว (โควตา ${Att.leaveQuota(ent)} ครั้ง) — แจ้งผู้ปกครองเรื่องการชดเชย`] }
@@ -1743,7 +1783,7 @@ export const useStore = create<Store>()(
     {
       name: "nockerp-v2",
       // bump when the data model changes; older saved data is replaced by fresh sample data
-      version: 41,
+      version: 43,
       migrate: () => ({ ...buildSeed(), userId: "u_nock", branchId: "br_thl", clockOffset: 0 }) as unknown as Store,
       // persist data + UI state only, never the action functions
       partialize: (s) => Object.fromEntries(Object.entries(s).filter(([, v]) => typeof v !== "function")) as Partial<Store>,

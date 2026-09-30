@@ -72,6 +72,7 @@ function Body({ id, onClose }: { id: ID; onClose: () => void }) {
   const [adding, setAdding] = useState(false)
   const [teachersOpen, setTeachersOpen] = useState(false)
   const [postponing, setPostponing] = useState(false)
+  const [teacherLeave, setTeacherLeave] = useState(false)
   const [deleting, setDeleting] = useState(false)
   const [editingClass, setEditingClass] = useState(false)
   const [drafts, setDrafts] = useState<Record<ID, string>>({})
@@ -131,6 +132,11 @@ function Body({ id, onClose }: { id: ID; onClose: () => void }) {
           </div>
         </div>
         {s.cancelled && <p className="text-sm text-red-700">ยกเลิกแล้ว: {s.cancelReason}</p>}
+        {s.teacherLeave && (
+          <p className="text-sm text-amber-800 dark:text-amber-300">
+            {L.teacher(s.teacherLeave.teacherId).label}ลา ({s.teacherLeave.reason}){s.teacherLeave.substituteId ? ` · ${L.teacher(s.teacherLeave.substituteId).label} สอนแทน` : " · เลื่อนวันจบคอร์สให้นักเรียนแล้ว"}
+          </p>
+        )}
         <div className="flex gap-1.5 pt-2">
           {([["students", `รายชื่อนักเรียน (${s.studentIds.length})`], ["info", "ข้อมูลคาบ"]] as const).map(([k, label]) => (
             <button key={k} type="button" onClick={() => setTab(k)} className={cn("rounded-full px-3.5 py-1.5 text-sm", tab === k ? "bg-foreground font-medium text-background" : "bg-muted text-muted-foreground hover:text-foreground")}>{label}</button>
@@ -215,6 +221,9 @@ function Body({ id, onClose }: { id: ID; onClose: () => void }) {
             <DropdownMenuContent align="start" className="w-60">
               <DropdownMenuItem onClick={() => (klass ? setEditingClass(true) : setPostponing(true))}><PencilIcon /> {klass ? "แก้คลาส" : "แก้คาบนี้"}</DropdownMenuItem>
               <DropdownMenuItem disabled={state !== "upcoming"} onClick={() => setPostponing(true)}><LogOutIcon /> เลื่อนคาบ (Postpone)</DropdownMenuItem>
+              <DropdownMenuItem disabled={state === "closed" || !s.teacherId} onClick={() => setTeacherLeave(true)}>
+                <UserMinusIcon /><span className="flex flex-col"><span>ครูลา</span><span className="text-xs text-muted-foreground">มีครูสอนแทน หรือยกเลิกคาบ</span></span>
+              </DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem variant="destructive" onClick={() => setDeleting(true)}><Trash2Icon /> ลบ</DropdownMenuItem>
             </DropdownMenuContent>
@@ -227,6 +236,7 @@ function Body({ id, onClose }: { id: ID; onClose: () => void }) {
       </div>
 
       {postponing && <EditSessionDialog id={s.id} onClose={() => setPostponing(false)} />}
+      {teacherLeave && <TeacherLeaveDialog s={s} onClose={() => setTeacherLeave(false)} />}
       {teachersOpen && <TeachersDialog id={s.id} onClose={() => setTeachersOpen(false)} />}
       {adding && <AddStudentDialog id={s.id} onClose={() => setAdding(false)} />}
       {deleting && <DeleteDialog s={s} canCancel={state === "upcoming"} onClose={() => setDeleting(false)} onDone={onClose} />}
@@ -291,6 +301,7 @@ function StudentRow({ s, sid, viewOnly, canManage, mine, text, setText, selectab
   const partial = Seats.isPartial(seat, s.minutes)
   // text under the name lines up with the name (no empty gutter unless the multi-select checkbox is shown)
   const indent = selectable ? "pl-[5.25rem]" : "pl-14"
+  const pill = "h-9 min-w-12 border-l px-3 text-sm font-medium transition first:border-l-0 hover:bg-muted disabled:cursor-not-allowed disabled:opacity-40"
   const markAs = (status: "present" | "absent" | "leave") =>
     a?.status === status ? report(clearMark(s.id, sid), `ล้างการเช็คชื่อ ${stu?.nickname}`) : report(mark(s.id, sid, status), `${stu?.nickname}: ${status === "present" ? "มา" : status === "absent" ? "ขาด" : "ลา"}`)
 
@@ -331,17 +342,26 @@ function StudentRow({ s, sid, viewOnly, canManage, mine, text, setText, selectab
           </p>
           {s.notes?.[sid] && <p className="truncate text-xs text-foreground/80" title={s.notes[sid]}>📝 {s.notes[sid]}</p>}
         </div>
-        {/* one text control for all three marks (owner liked the original มา / ขาด / ลา pills) */}
+        {/* มา · ลา (หักโควตา / ไม่หักโควตา) · ย้ายวัน — no "ขาด" (owner 2026-09-30) */}
         <span className="flex shrink-0 overflow-hidden rounded-full border">
-          {(["present", "absent", "leave"] as const).map((st) => (
-            <button key={st} type="button" data-on={a?.status === st}
-              disabled={!canMarkHere || !Att.canMark(s, st, now).ok} onClick={() => markAs(st)}
-              title={st === "leave" && raw ? (usedQuota < quota || thisLeave?.quota ? `ใช้โควตาลา ${usedQuota}/${quota} · ยืดวันเรียนจบให้ 1 คาบ` : `โควตาลาหมด (${quota}/${quota}) · ไม่ชดเชย`) : undefined}
-              className={cn("h-9 min-w-12 border-l px-3 text-sm font-medium transition first:border-l-0 hover:bg-muted disabled:cursor-not-allowed disabled:opacity-40",
-                st === "present" ? "data-[on=true]:bg-emerald-600 data-[on=true]:text-white" : st === "absent" ? "data-[on=true]:bg-red-600 data-[on=true]:text-white" : "data-[on=true]:bg-amber-500 data-[on=true]:text-white")}>
-              {st === "present" ? "มา" : st === "absent" ? "ขาด" : "ลา"}
-            </button>
-          ))}
+          <button type="button" data-on={a?.status === "present"} disabled={!canMarkHere || !Att.canMark(s, "present", now).ok} onClick={() => markAs("present")}
+            className={pill + " data-[on=true]:bg-emerald-600 data-[on=true]:text-white"}>มา</button>
+          <DropdownMenu>
+            <DropdownMenuTrigger disabled={!canMarkHere || !Att.canMark(s, "leave", now).ok} render={<button type="button" data-on={a?.status === "leave"} className={pill + " data-[on=true]:bg-amber-500 data-[on=true]:text-white"} />}>
+              {a?.status === "leave" ? (a.noQuota ? "ลา*" : "ลา") : "ลา"}
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-64">
+              <DropdownMenuItem onClick={() => report(mark(s.id, sid, "leave"), `${stu?.nickname}: ลา (หักโควตา)`)}>
+                <span className="flex flex-col"><span>ลา · หักโควตา</span><span className="text-xs text-muted-foreground">{raw ? (usedQuota < quota || (thisLeave?.quota ?? false) ? `ใช้โควตา ${usedQuota}/${quota} · ยืดวันเรียนจบให้ 1 คาบ` : `โควตาหมดแล้ว (${quota}/${quota}) · ไม่ชดเชย`) : "ไม่มีแพ็กเกจที่ใช้คาบนี้"}</span></span>
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => report(mark(s.id, sid, "leave", { noQuota: true }), `${stu?.nickname}: ลา (ไม่หักโควตา)`)}>
+                <span className="flex flex-col"><span>ลา · ไม่หักโควตา</span><span className="text-xs text-muted-foreground">ไม่ใช้โควตา แต่ยืดวันเรียนจบให้ 1 คาบ</span></span>
+              </DropdownMenuItem>
+              {a?.status === "leave" && <><DropdownMenuSeparator /><DropdownMenuItem onClick={() => report(clearMark(s.id, sid), `ล้างการลา ${stu?.nickname}`)}>ล้างการลา</DropdownMenuItem></>}
+            </DropdownMenuContent>
+          </DropdownMenu>
+          <button type="button" disabled={!canManage || state(s, now) !== "upcoming" || !!a || s.cancelled} onClick={() => setOpen("reschedule")}
+            title="ย้ายไปเรียนวันอื่นในสัปดาห์นี้" className={pill}>ย้ายวัน</button>
         </span>
         {canManage && state(s, now) !== "closed" && !s.cancelled ? (
           <DropdownMenu>
@@ -368,8 +388,8 @@ function StudentRow({ s, sid, viewOnly, canManage, mine, text, setText, selectab
         </p>
       )}
       {a?.status === "leave" && raw && (
-        <p className={cn(indent, "text-xs", thisLeave?.quota ? "text-emerald-700" : "text-muted-foreground")}>
-          {thisLeave?.quota ? `ใช้โควตาลา ${usedQuota}/${quota} · ยืดให้อีก 1 คาบ → เรียนจบ ${fmtDate(ent?.to ?? raw.to, { weekday: true, year: true })}` : `โควตาลาหมดแล้ว (${quota}/${quota}) — ไม่ชดเชยคาบนี้ · เรียนจบ ${fmtDate(ent?.to ?? raw.to, { weekday: true, year: true })} เหมือนเดิม`}
+        <p className={cn(indent, "text-xs", thisLeave?.quota || thisLeave?.noQuota ? "text-emerald-700" : "text-muted-foreground")}>
+          {thisLeave?.noQuota ? `ลาไม่หักโควตา · ยืดให้อีก 1 คาบ → เรียนจบ ${fmtDate(ent?.to ?? raw.to, { weekday: true, year: true })}` : thisLeave?.quota ? `ใช้โควตาลา ${usedQuota}/${quota} · ยืดให้อีก 1 คาบ → เรียนจบ ${fmtDate(ent?.to ?? raw.to, { weekday: true, year: true })}` : `โควตาลาหมดแล้ว (${quota}/${quota}) — ไม่ชดเชยคาบนี้ · เรียนจบ ${fmtDate(ent?.to ?? raw.to, { weekday: true, year: true })} เหมือนเดิม`}
         </p>
       )}
       {asm && <div className={indent}><AssessmentNote a={asm} editable={canManage || mine} /></div>}
@@ -777,6 +797,50 @@ function SummaryInline({ session, sessionId, studentId, summary, viewOnly, text,
         </div>
       )}
     </div>
+  )
+}
+
+/** Teacher on leave (owner 2026-09-30): a substitute teaches this session, or it is cancelled and every student's
+ *  package end moves out by one class. */
+function TeacherLeaveDialog({ s, onClose }: { s: Session; onClose: () => void }) {
+  const staff = useStore((st) => st.staff)
+  const act = useStore((st) => st.teacherLeave)
+  const L = useLookup()
+  const [reason, setReason] = useState("")
+  const [mode, setMode] = useState<"sub" | "cancel">("sub")
+  const [subId, setSubId] = useState("")
+  const teachers = staff.filter((t) => t.active && t.roles.includes("teacher") && t.branchIds.includes(s.branchId) && t.id !== s.teacherId)
+  const teaches = (t: (typeof teachers)[number]) => subjectsOf(s).every((x) => t.subjects.includes(x))
+  const submit = () => report(act(s.id, { reason, substituteId: mode === "sub" ? subId || null : null }),
+    (v) => (mode === "sub" ? `${L.teacher(subId).label} สอนแทนแล้ว` : `ยกเลิกคาบแล้ว · เลื่อนวันจบคอร์สให้นักเรียน ${v.extended} คน`)) && onClose()
+  return (
+    <Dialog open onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>{L.teacher(s.teacherId).label} ลา</DialogTitle>
+          <DialogDescription>{s.subject} · {fmtDate(s.date, { weekday: true })} {s.start}–{endTime(s.start, s.minutes)} · นักเรียน {s.studentIds.length} คน</DialogDescription>
+        </DialogHeader>
+        <Input value={reason} onChange={(e) => setReason(e.target.value)} placeholder="เหตุผลที่ลา เช่น ป่วย / ลากิจ" />
+        <div className="grid gap-2">
+          {([["sub", "มีครูสอนแทน", "นักเรียนเรียนตามปกติ"], ["cancel", "ไม่มีครูสอนแทน — ยกเลิกคาบ", "วันเรียนจบของนักเรียนทุกคนเลื่อนออกไป 1 คาบ"]] as const).map(([k, label, hint]) => (
+            <button key={k} type="button" aria-pressed={mode === k} onClick={() => setMode(k)}
+              className={cn("rounded-xl border p-3 text-left", mode === k ? (k === "cancel" ? "border-red-400 bg-red-50 dark:bg-red-950/30" : "border-primary bg-primary/5") : "hover:bg-muted/50")}>
+              <p className="text-sm font-medium">{label}</p><p className="text-xs text-muted-foreground">{hint}</p>
+            </button>
+          ))}
+        </div>
+        {mode === "sub" && (
+          <NativeSelect value={subId} onChange={(e) => setSubId(e.target.value)} placeholder="เลือกครูสอนแทน"
+            options={[...teachers.filter(teaches), ...teachers.filter((t) => !teaches(t))].map((t) => ({ value: t.id, label: teaches(t) ? t.nickname : `${t.nickname} (ไม่ได้สอน${s.subject})` }))} />
+        )}
+        <DialogFooter>
+          <Button variant="ghost" onClick={onClose}>ยกเลิก</Button>
+          <Button variant={mode === "cancel" ? "destructive" : "default"} disabled={!reason.trim() || (mode === "sub" && !subId)} onClick={submit}>
+            {mode === "sub" ? "ให้ครูสอนแทน" : "ยกเลิกคาบ + เลื่อนวันจบ"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   )
 }
 

@@ -287,6 +287,9 @@ export interface Session {
   customized: boolean
   cancelled: boolean
   cancelReason?: string
+  /** the teacher is on leave (owner 2026-09-30): a substitute teaches, or the session is cancelled and every
+   *  student's package runs one class longer */
+  teacherLeave?: { teacherId: ID; reason: string; substituteId: ID | null; by: ID; at: string }
 }
 
 export type AttendanceStatus = "present" | "absent" | "leave"
@@ -304,6 +307,8 @@ export interface Attendance {
   status: AttendanceStatus
   /** present: minutes actually attended when different from the student's seat (came for 1 of 2 hours today) */
   minutes?: number
+  /** leave that does NOT use the leave quota (owner 2026-09-30) — the package still runs one class longer */
+  noQuota?: boolean
   markedBy: ID
   markedAt: string
 }

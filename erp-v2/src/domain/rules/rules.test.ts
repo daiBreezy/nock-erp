@@ -2,7 +2,7 @@
 import { describe, expect, it } from "vitest"
 import type { Assessment, Attendance, Branch, BusAddOn, CreditNote, LessonSummary, Course, Entitlement, Family, FormSubmission, Lead, Student, FormOfferSlot, Holiday, Invoice, Klass, Session, Staff, StudentLeave, Weekday } from "../types"
 import { applyClassEdit, applyToSessions, canChangeTeachers, canRescheduleStudent, mondayOf, removedWithClass, canSave, closesBranch, holidayImpact, hoursFor, isHoliday, overlappingRows, periodsIn, introducedConflicts, editSingleSession, findConflicts, generateSessions, moveSession, sessionState, validateClass, workState } from "./scheduling"
-import { activeLeave, nextClassDates, balance, studentState, leaveLedger, packageCovers, canMark, canSaveLeave, coveringEntitlement, effectiveTo, leavesUsed, lowBalanceAlert, removeFromClass, resolveEntitlements } from "./attendance"
+import { activeLeave, nextClassDates, teacherLeaveCancels, balance, studentState, leaveLedger, packageCovers, canMark, canSaveLeave, coveringEntitlement, effectiveTo, leavesUsed, lowBalanceAlert, removeFromClass, resolveEntitlements } from "./attendance"
 import { bestPromotion, duplicateBusDay, billedOn, busAddOnAmount, pendingBusAddOns, validateBusAddOn, carriedMinutes, weekKey, classOptionsFor, defaultAdvance, entryFeeWaiver, invoiceSessionDates, invoiceTotals, validateInvoiceDraft, canApprove, canConfirmPayment, canForceApprove, canForceConfirmPayment, canSend, canVoid, defaultBusLegs, busTotal, nextInvoiceNumber, quoteCourse } from "./billing"
 import { can } from "./permissions"
 import { chartPrice, defaultCourseName, filterCourses, validateCourse } from "./course"
@@ -1356,5 +1356,33 @@ describe("Sales Tax Report (owner file, 2026-09-30)", () => {
     expect(rows.find((r) => r.number.startsWith("CN"))).toMatchObject({ amount: -400, ref: "691001-01-001-0002" })
     expect(rows).toHaveLength(3)
     expect(Doc.salesTaxTotals(rows)).toEqual({ total: 1600, byBusiness: [{ business: "liclass", amount: 1000 }, { business: "nockacademy", amount: 600 }] })
+  })
+})
+
+describe("leave with / without quota, teacher leave (owner 2026-09-30)", () => {
+  const k = klass({ id: "k1", weekday: 2 })
+  const sess = (id: string, date: string, p: Partial<Session> = {}): Session => ({ id, branchId: "b1", classId: "k1", subject: "Maths", date, start: "10:00", minutes: 60, teacherId: "t1", coTeacherIds: [], roomId: "r1", studentIds: ["a"], trial: false, customized: false, cancelled: false, ...p })
+  const sessions = [sess("s1", "2026-10-06"), sess("s2", "2026-10-13"), sess("s3", "2026-10-20"), sess("s4", "2026-10-27")]
+  const e: Entitlement = { id: "e", studentId: "a", courseId: "c1", subjects: ["Maths"], classIds: ["k1"], invoiceId: "i", kind: "subscription", from: "2026-10-01", to: "2026-10-31", sessionsTotal: 4 } // quota 1
+  const ctx = (attendance: Attendance[], ss = sessions) => ({ sessions: ss, attendance, classes: [k], holidays: [] })
+  const leave = (sessionId: string, noQuota?: boolean): Attendance => ({ sessionId, studentId: "a", status: "leave", markedBy: "t1", markedAt: "", noQuota })
+
+  it("leave without quota never uses the quota but still extends the package", () => {
+    const att = [leave("s1", true), leave("s2")]
+    expect(leavesUsed(e, sessions, att)).toBe(1)
+    expect(leaveLedger(e, ctx(att)).map((l) => [l.sessionId, l.quota, !!l.noQuota])).toEqual([["s1", false, true], ["s2", true, false]])
+    // both extend: 31 Oct → two more Tuesdays
+    expect(resolveEntitlements([e], [], ctx(att))[0].to).toBe("2026-11-10")
+    // a second quota leave after the quota is gone adds nothing
+    expect(resolveEntitlements([e], [], ctx([leave("s1"), leave("s2")]))[0].to).toBe("2026-11-03")
+  })
+
+  it("a session cancelled because the teacher was on leave (no substitute) extends every student's package", () => {
+    const withLeave = sessions.map((x) => (x.id === "s2" ? { ...x, cancelled: true, teacherLeave: { teacherId: "t1", reason: "ป่วย", substituteId: null, by: "adm", at: "" } } : x))
+    expect(teacherLeaveCancels(e, withLeave).map((x) => x.id)).toEqual(["s2"])
+    expect(resolveEntitlements([e], [], ctx([], withLeave))[0].to).toBe("2026-11-03")
+    // with a substitute nothing changes
+    const sub = sessions.map((x) => (x.id === "s2" ? { ...x, teacherLeave: { teacherId: "t1", reason: "ป่วย", substituteId: "t2", by: "adm", at: "" } } : x))
+    expect(teacherLeaveCancels(e, sub)).toEqual([])
   })
 })

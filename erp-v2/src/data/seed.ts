@@ -224,7 +224,7 @@ export function buildSeed(now = new Date()): DB {
   const staffOf = (x: Session) => [x.teacherId, ...x.coTeacherIds].filter(Boolean)
   const clashes = (x: Session, others: Session[]) => others.some((o) => overlap(x, o) && (o.roomId === x.roomId || staffOf(o).some((t) => staffOf(x).includes(t))))
   const fit = (x: Session) => {
-    const others = sessions.filter((o) => o.date === today && !o.cancelled)
+    const others = sessions.filter((o) => o.date === x.date && !o.cancelled)
     for (const roomId of ["rm_1", "rm_2", "rm_3"].sort((r) => (r === x.roomId ? -1 : 1)))
       for (const teacherId of [x.teacherId, "u_jo", "u_dai", "u_prae", "u_mint"]) {
         const y = { ...x, roomId, teacherId, coTeacherIds: x.coTeacherIds.filter((t) => t !== teacherId) }
@@ -267,7 +267,7 @@ export function buildSeed(now = new Date()): DB {
     const end = endOf(se)
     if (end > nowMs) return
     se.studentIds.forEach((sid, i) => {
-      const status = (i + se.date.charCodeAt(9)) % 7 === 0 ? "leave" : (i + se.date.charCodeAt(8)) % 9 === 0 ? "absent" : "present"
+      const status = (i + se.date.charCodeAt(9)) % 7 === 0 ? "leave" : "present" // no "absent" any more (owner 2026-09-30): มา · ลา · ย้ายวัน
       mark(se, sid, status, end - 30 * 60000)
       if (status === "present" && se.teacherId) write(se, sid, nowMs - end < 7 * 86400000 ? (i % 2 ? "submitted" : "draft") : "sent", end)
     })
@@ -338,7 +338,8 @@ export function buildSeed(now = new Date()): DB {
   const se_ld3: Session = { id: "se_ld3test", branchId: "br_thl", classId: null, subject: "วิทย์", date: ld3Date, start: "10:00", minutes: 60, teacherId: "u_prae", coTeacherIds: [], roomId: "rm_2", studentIds: ["stu_ld3"], trial: true, assessment: "test", customized: true, cancelled: false }
   const se_ld6: Session = { id: "se_ld6trial", branchId: "br_thl", classId: null, subject: "คณิต", date: ld6Date, start: "10:00", minutes: 60, teacherId: "u_jo", coTeacherIds: [], roomId: "rm_3", studentIds: ["stu_ld6"], trial: true, assessment: "trial", customized: true, cancelled: false }
   const se_ld4: Session = { id: "se_ld4trial", branchId: "br_thl", classId: null, subject: "อังกฤษ", date: ld4Date, start: "14:00", minutes: 60, teacherId: "u_mint", coTeacherIds: [], roomId: "rm_1", studentIds: ["stu_ld4"], trial: true, assessment: "trial", customized: true, cancelled: false }
-  sessions.push(se_ld3, se_ld6, se_ld4)
+  // demo test/trial bookings also get a free room/teacher — the one demo clash stays the only one
+  for (const x of [se_ld3, se_ld6, se_ld4]) if (fit(x)) sessions.push(x)
 
   const assessments: Assessment[] = [
     { id: "as_ld3", type: "test", leadId: "ld_3", studentId: "stu_ld3", sessionId: se_ld3.id, subject: "วิทย์", date: ld3Date, start: "10:00" },
