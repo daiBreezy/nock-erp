@@ -320,21 +320,53 @@ function Families({ rows }: { rows: ReportData["families"] }) {
   )
 }
 
+const PACKAGE_TYPES = [{ suffix: "h", label: "รายชั่วโมง (Hourly)" }, { suffix: "w", label: "รายสัปดาห์ (Weekly)" }, { suffix: "m", label: "รายเดือน (Monthly)" }]
+
+/**
+ * Packages by type (owner 2026-10-01): Hourly / Weekly / Monthly in one table — a type header with its subtotal, then
+ * its packages. A switch per type would leave Weekly/Monthly with 1–3 rows, so all three stay visible together.
+ */
 function PackageMix({ d }: { d: ReportData }) {
   if (!d.packages.length) return <Empty />
   const maxU = Math.max(1, ...d.packages.map((x) => x.units)), maxV = Math.max(1, ...d.packages.map((x) => x.amount))
+  const groups = PACKAGE_TYPES.map((t) => {
+    const list = d.packages.filter((x) => x.key.endsWith(t.suffix))
+    return { ...t, list, units: list.reduce((a, x) => a + x.units, 0), amount: list.reduce((a, x) => a + x.amount, 0), share: list.reduce((a, x) => a + x.share, 0) }
+  }).filter((g) => g.list.length)
+  const cell = (x: number) => cn("h-8 rounded-md text-center tabular-nums", x > 0.55 && "text-primary-foreground")
   return (
-    <table className="w-full border-separate border-spacing-0.5 text-sm">
-      <thead className="text-xs text-muted-foreground"><tr><th className="text-left font-normal">แพ็กเกจ</th><th className="font-normal">จำนวน</th><th className="font-normal">รายได้</th><th className="text-right font-normal">%Mix</th></tr></thead>
-      <tbody>{d.packages.map((x) => (
-        <tr key={x.key}>
-          <td className="py-1 pr-2">{x.label}</td>
-          <td className={cn("h-9 rounded-md text-center tabular-nums", x.units / maxU > 0.55 && "text-primary-foreground")} style={{ background: tint(x.units / maxU) }}>{fmtNum(x.units)}</td>
-          <td className={cn("h-9 rounded-md text-center tabular-nums", x.amount / maxV > 0.55 && "text-primary-foreground")} style={{ background: tint(x.amount / maxV) }}>{fmtShort(x.amount)}</td>
-          <td className="text-right text-muted-foreground tabular-nums">{fmtPct(x.share)}</td>
-        </tr>
-      ))}</tbody>
-    </table>
+    <div className="space-y-3">
+      {/* the three types side by side: how the money splits */}
+      <div>
+        <div className="flex h-2.5 overflow-hidden rounded-full bg-muted">
+          {groups.map((g, i) => <div key={g.suffix} style={{ width: `${g.share * 100}%`, background: donutColor(i) }} title={`${g.label} ${fmtPct(g.share)}`} />)}
+        </div>
+        <div className="mt-1.5 flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
+          {groups.map((g, i) => <span key={g.suffix} className="flex items-center gap-1.5"><span className="size-2 rounded-full" style={{ background: donutColor(i) }} />{g.label.split(" ")[0]} <b className="font-medium text-foreground tabular-nums">{fmtPct(g.share)}</b></span>)}
+        </div>
+      </div>
+      <table className="w-full border-separate border-spacing-0.5 text-sm">
+        <thead className="text-xs text-muted-foreground"><tr><th className="text-left font-normal">แพ็กเกจ</th><th className="font-normal">จำนวน</th><th className="font-normal">รายได้</th><th className="text-right font-normal">%Mix</th></tr></thead>
+        {groups.map((g, i) => (
+          <tbody key={g.suffix}>
+            <tr className="font-medium">
+              <td className="pt-2 pb-1"><span className="flex items-center gap-1.5"><span className="size-2 rounded-full" style={{ background: donutColor(i) }} />{g.label}</span></td>
+              <td className="pt-2 pb-1 text-center tabular-nums">{fmtNum(g.units)}</td>
+              <td className="pt-2 pb-1 text-center tabular-nums">{fmtShort(g.amount)}</td>
+              <td className="pt-2 pb-1 text-right tabular-nums">{fmtPct(g.share)}</td>
+            </tr>
+            {g.list.map((x) => (
+              <tr key={x.key}>
+                <td className="py-0.5 pl-3.5 text-muted-foreground">{x.label}</td>
+                <td className={cell(x.units / maxU)} style={{ background: tint(x.units / maxU) }}>{fmtNum(x.units)}</td>
+                <td className={cell(x.amount / maxV)} style={{ background: tint(x.amount / maxV) }}>{fmtShort(x.amount)}</td>
+                <td className="text-right text-muted-foreground tabular-nums">{fmtPct(x.share)}</td>
+              </tr>
+            ))}
+          </tbody>
+        ))}
+      </table>
+    </div>
   )
 }
 
