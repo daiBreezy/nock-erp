@@ -283,6 +283,10 @@ export interface Session {
   rescheduledIn?: ID[]
   /** students moved OUT of this session — kept so the row can say where they went */
   rescheduledOut?: { studentId: ID; toSessionId: ID }[]
+  /** last change made to this session by someone (owner 2026-10-01: its teachers see a red dot until they open it) */
+  changed?: { at: string; by: ID; what: string }
+  /** when each person last opened this session — the red dot is gone for them once seen */
+  seenBy?: Record<ID, string>
   /** free-form reminder per student for this session, e.g. "Math Book Lesson 1 Page 2-6" (owner 2026-09-30) */
   notes?: Record<ID, string>
   /** edited individually — class-level edits no longer overwrite it */

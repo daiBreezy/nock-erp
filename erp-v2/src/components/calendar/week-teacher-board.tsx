@@ -12,7 +12,7 @@ import type { Attendance, DateStr, Klass, Session, TimeStr } from "@/domain/type
 import { report } from "@/lib/feedback"
 import { useBranch, useLookup, useNow } from "@/lib/hooks"
 import { cn } from "@/lib/utils"
-import { useStore } from "@/store/store"
+import { unseenChange, useStore } from "@/store/store"
 
 const DAY_FULL = ["อาทิตย์", "จันทร์", "อังคาร", "พุธ", "พฤหัสบดี", "ศุกร์", "เสาร์"]
 /** Thai day colours (อา. แดง · จ. เหลือง · อ. ชมพู · พ. เขียว · พฤ. ส้ม · ศ. ฟ้า · ส. ม่วง) — light normally, strong for
@@ -252,15 +252,19 @@ function SessionBlock({ s, row, blockLen, state, ended, dayDate, canEdit, onOpen
   const c = subjectColor(s.subject)
   const St = STATE_ICON[state]
   const own = s.start !== row.start || s.minutes !== blockLen
+  const me = useStore((st) => st.userId)
+  const dot = unseenChange(s, me)
   return (
-    <div className="space-y-1.5 px-3 py-2">
+    <div className="relative space-y-1.5 px-3 py-2">
+      {/* someone changed this session — only its own teachers see it, until they open it */}
+      {dot && <span className="absolute top-2 right-2 size-2.5 rounded-full bg-red-500 ring-2 ring-card" title={`${s.changed!.what} · เปิดคาบเพื่อดู`} />}
       <div className="flex items-center gap-2">
         <span className={cn("size-2 shrink-0 rounded-full", c.bar)} />
         <button type="button" onClick={() => onOpen(s.id)} className="min-w-0 truncate text-left text-xs font-semibold text-muted-foreground hover:text-foreground hover:underline">
           {subjectsOf(s).join(" + ")}{own && <span className="ml-1.5 font-normal">{s.start}–{endTime(s.start, s.minutes)}</span>}
         </button>
         {s.coTeacherIds.length > 0 && <span className="shrink-0 text-[11px] text-muted-foreground" title="ครูช่วยสอน">+{s.coTeacherIds.map((x) => L.teacher(x).label).join(", ")}</span>}
-        <St.icon className={cn("ml-auto size-3.5 shrink-0", state === "live" ? "text-primary" : St.tone)} aria-label={St.label} />
+        <St.icon className={cn("ml-auto size-3.5 shrink-0", dot && "mr-3", state === "live" ? "text-primary" : St.tone)} aria-label={St.label} />
       </div>
       {s.studentIds.map((sid) => {
         const seat = Seats.seatOf(s, sid, klass)

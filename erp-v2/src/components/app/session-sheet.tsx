@@ -2,7 +2,7 @@
 
 import { ForceApprove } from "./force-approve"
 import Link from "next/link"
-import { useMemo, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import {
   AlertTriangleIcon, BanIcon, CalendarClockIcon, CheckIcon, ChevronLeftIcon, ChevronRightIcon, ClockIcon, EllipsisVerticalIcon, FlameIcon,
   GraduationCapIcon, LogOutIcon, PencilIcon, SendIcon, StarIcon, Trash2Icon, UserMinusIcon, UserPlusIcon, UsersRoundIcon, XIcon,
@@ -56,6 +56,9 @@ export function SessionSheet({ sessionId, onClose }: { sessionId: ID | null; onC
 }
 
 function Body({ id, onClose }: { id: ID; onClose: () => void }) {
+  // opening (then closing) the session clears this person's red dot on the teacher board
+  const markSeen = useStore((st) => st.markSessionSeen)
+  useEffect(() => () => markSeen(id), [id, markSeen])
   const s = useStore((st) => st.sessions.find((x) => x.id === id))
   const klass = useStore((st) => st.classes.find((c) => c.id === s?.classId))
   const allSessions = useStore((st) => st.sessions)

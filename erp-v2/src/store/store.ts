@@ -101,6 +101,8 @@ type Store = DB & UIState & {
   setSeat: (scope: "session" | "class", id: ID, studentId: ID, seat: Seat | null) => Result
   /** free-form reminder for a student in this session ("Math Book Lesson 1 Page 2-6") — empty text removes it */
   setSessionNote: (sessionId: ID, studentId: ID, text: string) => Result
+  /** the current user opened (and closed) this session — clears their red dot */
+  markSessionSeen: (sessionId: ID) => void
   saveStudentLeave: (input: { id?: ID; studentId: ID; from: DateStr; to: DateStr; reason: string }) => Result
   removeStudentFromClass: (classId: ID, studentId: ID) => Result<{ removedFrom: number }>
   /** added by mistake etc. — this session only, never one that already has a mark */
@@ -818,6 +820,13 @@ export const useStore = create<Store>()(
         set({ attendance: s.attendance.map((x) => (x === a ? { ...x, minutes: value } : x)) })
         log("attendance", [studentId], "แก้เวลาเรียนจริง", `${se.subject} ${fmtDate(se.date)} ${se.start} · มาเรียน ${Seats.fmtLen(value ?? seat.minutes)}`)
         return OK
+      },
+
+      markSessionSeen: (sessionId) => {
+        const s = get()
+        const se = s.sessions.find((x) => x.id === sessionId)
+        if (!se?.changed) return
+        set({ sessions: s.sessions.map((x) => (x.id === sessionId ? { ...x, seenBy: { ...x.seenBy, [s.userId]: s.now().toISOString() } } : x)) })
       },
 
       setSessionNote: (sessionId, studentId, text) => {
@@ -1818,13 +1827,78 @@ export const useStore = create<Store>()(
     {
       name: "nockerp-v2",
       // bump when the data model changes; older saved data is replaced by fresh sample data
-      version: 43,
+      version: 44,
       migrate: () => ({ ...buildSeed(), userId: "u_nock", branchId: "br_thl", clockOffset: 0 }) as unknown as Store,
       // persist data + UI state only, never the action functions
       partialize: (s) => Object.fromEntries(Object.entries(s).filter(([, v]) => typeof v !== "function")) as Partial<Store>,
     },
   ),
 )
+
+// ---------- change tracking (owner 2026-10-01) ----------
+// Any change made to a session marks it "changed" (its teachers see a red dot on the teacher board until they open it)
+// and notifies those teachers in the app — never the person who made the change. Wrapping the actions keeps every
+// screen consistent without each action remembering to do it.
+type Tracker = (...args: never[]) => { ids: ID[]; what: string }
+const TRACKED: Partial<Record<keyof Store, Tracker>> = {
+  editSession: ((id: ID) => ({ ids: [id], what: "แก้วัน/เวลา/ห้องของคาบ" })) as Tracker,
+  moveSession: ((id: ID) => ({ ids: [id], what: "ย้ายคาบ" })) as Tracker,
+  updateSessionTeachers: ((id: ID) => ({ ids: [id], what: "เปลี่ยนครู" })) as Tracker,
+  addStudentToSession: ((id: ID) => ({ ids: [id], what: "เพิ่มนักเรียน" })) as Tracker,
+  cancelSession: ((id: ID) => ({ ids: [id], what: "ยกเลิกคาบ" })) as Tracker,
+  setSessionNote: ((id: ID) => ({ ids: [id], what: "แก้โน้ตนักเรียน" })) as Tracker,
+  setSeat: ((scope: "session" | "class", id: ID) => ({ ids: scope === "session" ? [id] : [`class:${id}`], what: "เปลี่ยนเวลาเรียนของนักเรียน" })) as Tracker,
+  teacherLeave: ((id: ID) => ({ ids: [id], what: "ครูลา" })) as Tracker,
+  markLeave: ((id: ID) => ({ ids: [id], what: "บันทึกการลา" })) as Tracker,
+  mark: ((id: ID) => ({ ids: [id], what: "เช็คชื่อ" })) as Tracker,
+  clearMark: ((id: ID) => ({ ids: [id], what: "ล้างการเช็คชื่อ" })) as Tracker,
+  removeStudentFromSession: ((id: ID) => ({ ids: [id], what: "เอานักเรียนออก" })) as Tracker,
+  rescheduleStudent: ((from: ID, _sid: ID, to: ID) => ({ ids: [from, to], what: "ย้ายวันเรียนของนักเรียน" })) as Tracker,
+  undoReschedule: ((from: ID) => ({ ids: [from], what: "ยกเลิกการย้ายวัน" })) as Tracker,
+}
+
+function touchSessions(refs: ID[], what: string) {
+  const s = useStore.getState()
+  const at = s.now()
+  const today = toDateStr(at)
+  const ids = new Set(refs.flatMap((r) => {
+    if (!r.startsWith("class:")) return [r]
+    const classId = r.slice(6) // a standing change on a class shows on its next session
+    const next = s.sessions.filter((x) => x.classId === classId && !x.cancelled && x.date >= today).sort((a, b) => (a.date + a.start).localeCompare(b.date + b.start))[0]
+    return next ? [next.id] : []
+  }))
+  if (!ids.size) return
+  const me = s.staff.find((x) => x.id === s.userId)
+  const notes = s.sessions.filter((x) => ids.has(x.id)).flatMap((x) => {
+    const to = Sch.teachersOf(x).filter((t) => t !== s.userId)
+    return to.length ? [Notif.notify({ id: uid("no"), at, kind: "info", title: `มีการเปลี่ยนแปลงในคาบ ${x.subject} ${fmtDate(x.date)} ${x.start}`, body: `${what} · โดย ${me?.nickname ?? "?"}`, fromId: s.userId, audience: { staffIds: to } })] : []
+  })
+  useStore.setState({
+    sessions: s.sessions.map((x) => (ids.has(x.id) ? { ...x, changed: { at: at.toISOString(), by: s.userId, what } } : x)),
+    notifications: [...notes, ...s.notifications],
+  })
+}
+
+{
+  const st = useStore.getState()
+  const wrapped: Partial<Store> = {}
+  for (const [name, track] of Object.entries(TRACKED) as [keyof Store, Tracker][]) {
+    const original = st[name] as unknown as (...a: unknown[]) => Result<unknown>
+    ;(wrapped as Record<string, unknown>)[name] = (...args: unknown[]) => {
+      const r = original(...args)
+      if (r.ok) { const t = (track as (...a: unknown[]) => { ids: ID[]; what: string })(...args); touchSessions(t.ids, t.what) }
+      return r
+    }
+  }
+  useStore.setState(wrapped)
+}
+
+/** Did someone else change this session since this teacher last opened it? (only its own teachers see the dot) */
+export function unseenChange(s: Session, userId: ID): boolean {
+  if (!s.changed || s.changed.by === userId || !Sch.teachersOf(s).includes(userId)) return false
+  const seen = s.seenBy?.[userId]
+  return !seen || seen < s.changed.at
+}
 
 /** Convenience: current user */
 export const useMe = () => useStore((s) => s.staff.find((x) => x.id === s.userId)!)
