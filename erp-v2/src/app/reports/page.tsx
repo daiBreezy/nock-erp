@@ -173,9 +173,9 @@ function Overview({ d, compare, period, onAllRevenue, onAllStudents }: { d: Repo
       </div>
 
       <div className="grid gap-4 lg:grid-cols-2">
-        <Panel title="Subject Engine" hint="รายได้ค่าเรียนแยกวิชา · คอร์สหลายวิชาแบ่งเท่าๆ กัน"><SubjectEngine d={d} /></Panel>
-        <Panel title="ครอบครัว Top 10" hint="ยอดในช่วงนี้ · อายุลูกค้านับจากใบแรก" action={<button type="button" className="text-xs text-primary" onClick={onAllRevenue}>ดูทั้งหมด ›</button>}>
-          <Families rows={d.families.slice(0, 10)} />
+        <Panel title="Subject Engine" hint="รายได้ค่าเรียนแยกวิชา · คอร์สหลายวิชาแบ่งเท่าๆ กัน" center><SubjectEngine d={d} /></Panel>
+        <Panel title="ครอบครัว Top 5" hint="ยอดในช่วงนี้ · อายุลูกค้านับจากใบแรก" action={<button type="button" className="text-xs text-primary" onClick={onAllRevenue}>ดูทั้งหมด ›</button>}>
+          <Families rows={d.families.slice(0, 5)} />
         </Panel>
       </div>
 
@@ -285,7 +285,7 @@ function SubjectEngine({ d }: { d: ReportData }) {
           <li key={x.subject} className="grid grid-cols-[6rem_2.5rem_1fr_4rem] items-center gap-2">
             <span className="flex items-center gap-1.5 truncate"><span className="size-2 shrink-0 rounded-full" style={{ background: donutColor(i) }} />{x.subject}</span>
             <span className="text-xs text-muted-foreground tabular-nums">{fmtPct(x.share)}</span>
-            <ShareBar value={x.share} />
+            <ShareBar value={x.share} color={donutColor(i)} />
             <span className="text-right tabular-nums">{fmtShort(x.amount)}</span>
           </li>
         ))}
@@ -370,7 +370,7 @@ function RevenueTab({ d, compare, period }: { d: ReportData; compare: boolean; p
       </Panel>
       <div className="grid gap-4 lg:grid-cols-2">
         {compare && <Panel title="รายได้ตามสาขา" hint="ทุกสาขาในขอบเขต"><BranchRevenue rows={d.byBranch} /></Panel>}
-        <Panel title="Subject Engine"><SubjectEngine d={d} /></Panel>
+        <Panel title="Subject Engine" center><SubjectEngine d={d} /></Panel>
         <Panel title="แพ็กเกจขายดี" hint="จำนวน (Volume) vs รายได้ (Value)"><PackageMix d={d} /></Panel>
         <Panel title="แพ็กเกจ × ระดับชั้น" hint="จำนวนแพ็กที่แต่ละชั้นซื้อ">
           {pg.grades.length ? <Heatmap rows={pg.grades} cols={pg.keys} rowLabel={(g) => g} colLabel={(k) => k} value={(g, k) => pg.count(g, k)} corner="ชั้น" /> : <Empty />}

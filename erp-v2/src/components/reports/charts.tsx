@@ -29,15 +29,15 @@ export function Delta({ value, invert, className }: { value: number | null; inve
   )
 }
 
-export function Panel({ title, hint, action, children, className }: { title: string; hint?: string; action?: ReactNode; children: ReactNode; className?: string }) {
+export function Panel({ title, hint, action, children, className, center }: { title: string; hint?: string; action?: ReactNode; children: ReactNode; className?: string; center?: boolean }) {
   return (
-    <section className={cn("min-w-0 rounded-3xl bg-card p-4 shadow-sm ring-1 ring-foreground/10 sm:p-5", className)}>
+    <section className={cn("flex min-w-0 flex-col rounded-3xl bg-card p-4 shadow-sm ring-1 ring-foreground/10 sm:p-5", className)}>
       <div className="mb-3 flex flex-wrap items-baseline gap-x-2 gap-y-1">
         <h2 className="text-base font-semibold">{title}</h2>
         {hint && <span className="text-xs text-muted-foreground">{hint}</span>}
         {action && <div className="ml-auto">{action}</div>}
       </div>
-      {children}
+      {center ? <div className="flex flex-1 flex-col justify-center">{children}</div> : children}
     </section>
   )
 }
@@ -79,10 +79,10 @@ export function MonthBars({ thisYear, lastYear, current, fmt = fmtShort }: { thi
 }
 
 /** A thin horizontal share bar */
-export function ShareBar({ value, className }: { value: number; className?: string }) {
+export function ShareBar({ value, className, color }: { value: number; className?: string; color?: string }) {
   return (
     <div className={cn("h-2 w-full overflow-hidden rounded-full bg-muted", className)}>
-      <div className="h-full rounded-full bg-primary" style={{ width: `${Math.max(0, Math.min(1, value)) * 100}%` }} />
+      <div className="h-full rounded-full bg-primary" style={{ width: `${Math.max(0, Math.min(1, value)) * 100}%`, background: color }} />
     </div>
   )
 }
