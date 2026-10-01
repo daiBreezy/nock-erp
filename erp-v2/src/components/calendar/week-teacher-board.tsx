@@ -11,10 +11,11 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { Input } from "@/components/ui/input"
 import { NativeSelect } from "@/components/app/native-select"
 import { addDays, endTime, fmtDate, fromMinutes, toDateStr, toMinutes, weekdayOf } from "@/domain/dates"
-import { blockOf, blockStartsFor, isHoliday, subjectsOf, workState, type WorkState } from "@/domain/rules/scheduling"
+import { blockOf, blockStartsFor, CAPACITY, isHoliday, subjectsOf, workState, type WorkState } from "@/domain/rules/scheduling"
 import * as Seats from "@/domain/rules/seats"
 import type { Attendance, DateStr, Klass, Session, TimeStr } from "@/domain/types"
 import { report } from "@/lib/feedback"
+import { toast } from "sonner"
 import { useBranch, useLookup, useNow } from "@/lib/hooks"
 import { cn } from "@/lib/utils"
 import { unseenChange, useStore } from "@/store/store"
@@ -100,6 +101,7 @@ export function WeekTeacherBoard({ from, sessions, onOpen, onSlot, canCreate }: 
       .sort((a, b) => a.start.localeCompare(b.start))
   const nowPct = (row: Row) => Math.min(100, Math.max(0, ((nowMin - toMinutes(row.start)) / (endMin(row) - toMinutes(row.start))) * 100))
 
+  const [moving, setMoving] = useState<{ from: string; studentId: string; to: string } | null>(null)
   const [dayAction, setDayAction] = useState<{ mode: "substitute" | "cancel"; teacherId: string; date: DateStr } | null>(null)
   const cols = `5.5rem repeat(${Math.max(1, teacherIds.length)}, minmax(17rem, 1fr))`
 
@@ -113,6 +115,7 @@ export function WeekTeacherBoard({ from, sessions, onOpen, onSlot, canCreate }: 
       </nav>
 
       {dayAction && <TeacherDayDialog {...dayAction} onClose={() => setDayAction(null)} />}
+      {moving && <MoveStudentDialog {...moving} onClose={() => setMoving(null)} />}
       {days.map((date) => {
         const rows = rowsFor(date)
         const closed = !branch.hours[weekdayOf(date)]
@@ -200,7 +203,8 @@ export function WeekTeacherBoard({ from, sessions, onOpen, onSlot, canCreate }: 
                                   ended={sessionEnded(s)} dayDate={dayDate}
                                   canEdit={canCreate || s.teacherId === me || s.coTeacherIds.includes(me)}
                                   onOpen={onOpen} onNote={(sid, text) => report(setNote(s.id, sid, text), text.trim() ? "บันทึกโน้ตแล้ว" : "ลบโน้ตแล้ว")}
-                                  klass={classes.find((k) => k.id === s.classId)} attendance={attendance} allSessions={allSessions} />
+                                  klass={classes.find((k) => k.id === s.classId)} attendance={attendance} allSessions={allSessions}
+                                  canDrag={canCreate} onDropStudent={(from, studentId) => from !== s.id && setMoving({ from, studentId, to: s.id })} />
                               ))}
                               {cell.length === 0 && canCreate && row.block && tid && !closed && !holiday && !past && (
                                 <button type="button" onClick={() => onSlot({ date, start: row.start, teacherId: tid })}
@@ -274,6 +278,57 @@ function TeacherDayDialog({ mode, teacherId, date, onClose }: { mode: "substitut
   )
 }
 
+/** After a drop: just this session, the next N of the class, or for good (all following — changes class). Undo in the toast. */
+function MoveStudentDialog({ from, studentId, to, onClose }: { from: string; studentId: string; to: string; onClose: () => void }) {
+  const sessions = useStore((st) => st.sessions)
+  const classes = useStore((st) => st.classes)
+  const move = useStore((st) => st.moveStudent)
+  const undo = useStore((st) => st.undoLastMove)
+  const L = useLookup()
+  const a = sessions.find((x) => x.id === from)!
+  const b = sessions.find((x) => x.id === to)!
+  const [kind, setKind] = useState<"one" | "count" | "following">("one")
+  const [nText, setNText] = useState("2")
+  const both = !!a.classId && !!b.classId && a.classId !== b.classId
+  const k = classes.find((x) => x.id === b.classId)
+  const subjectOff = !subjectsOf(a).some((x) => subjectsOf(b).includes(x))
+  const label = (x: Session) => `${DAY_FULL[weekdayOf(x.date)].slice(0, 3)} ${fmtDate(x.date)} ${x.start} · ${classes.find((c) => c.id === x.classId)?.name ?? x.subject} · ${L.teacher(x.teacherId).label}`
+  const submit = () => {
+    const r = move(from, studentId, to, kind === "count" ? { kind, n: Number(nText) } : { kind })
+    if (!r.ok) return report(r, "")
+    toast.success(`ย้าย${L.student(studentId)?.nickname} ${r.value.moved} คาบแล้ว`, { action: { label: "ย้อนกลับ", onClick: () => report(undo(), "ย้อนกลับแล้ว") }, duration: 10000 })
+    onClose()
+  }
+  return (
+    <Dialog open onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>ย้าย{L.student(studentId)?.nickname}</DialogTitle>
+          <DialogDescription>จาก {label(a)}<br />ไป {label(b)}</DialogDescription>
+        </DialogHeader>
+        <div className="grid gap-2">
+          {([["one", "เฉพาะคาบนี้", "ย้ายครั้งเดียว"], ["count", "หลายคาบ", "ย้ายคาบถัดไปของคลาสเดิม ไปเรียนคาบถัดไปของคลาสใหม่"], ["following", "ทุกคาบที่ตามมา (ย้ายคลาสถาวร)", "ออกจากคลาสเดิม เข้าคลาสใหม่ · แพ็กเกจย้ายตาม"]] as const).map(([v, t, h]) => (
+            <button key={v} type="button" disabled={v !== "one" && !both} aria-pressed={kind === v} onClick={() => setKind(v)}
+              className={cn("rounded-xl border p-2.5 text-left disabled:opacity-40", kind === v ? "border-primary bg-primary/5" : "hover:bg-muted/50")}>
+              <p className="text-sm font-medium">{t}</p><p className="text-xs text-muted-foreground">{h}</p>
+            </button>
+          ))}
+          {kind === "count" && <label className="flex items-center gap-2 text-sm">จำนวน <Input type="number" min={1} className="h-9 w-20" value={nText} onChange={(e) => setNText(e.target.value)} /> คาบ</label>}
+        </div>
+        {(subjectOff || (k && b.studentIds.length >= CAPACITY[k.type])) && (
+          <p className="rounded-xl bg-amber-50 p-2 text-xs text-amber-900 dark:bg-amber-950/40 dark:text-amber-200">
+            {subjectOff && "⚠ วิชาไม่ตรงกับคาบเดิม — เช็คแพ็กเกจของนักเรียน "}{k && b.studentIds.length >= CAPACITY[k.type] && `⚠ คาบปลายทางมี ${b.studentIds.length} คนแล้ว (แนะนำไม่เกิน ${CAPACITY[k.type]})`}
+          </p>
+        )}
+        <DialogFooter>
+          <Button variant="ghost" onClick={onClose}>ยกเลิก</Button>
+          <Button disabled={kind === "count" && !(Number(nText) >= 1)} onClick={submit}>ย้าย</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
 const KIND_ICON = {
   test: { icon: ClipboardCheckIcon, label: "Test" },
   trial: { icon: FlaskConicalIcon, label: "Trial" },
@@ -323,11 +378,13 @@ function RoomLine({ sessions, classes, live }: { sessions: Session[]; classes: K
 }
 
 /** One session inside a block — no card: just the subject line and the students, on the cell itself. */
-function SessionBlock({ s, row, blockLen, state, ended, dayDate, canEdit, onOpen, onNote, klass, attendance, allSessions }: {
+function SessionBlock({ s, row, blockLen, state, ended, dayDate, canEdit, onOpen, onNote, klass, attendance, allSessions, canDrag, onDropStudent }: {
   s: Session; row: Row; blockLen: number; state: WorkState; ended: boolean; dayDate: (d: DateStr) => string; canEdit: boolean
   onOpen: (id: string) => void; onNote: (studentId: string, text: string) => void
   klass?: Klass; attendance: Attendance[]; allSessions: Session[]
+  canDrag: boolean; onDropStudent: (fromSessionId: string, studentId: string) => void
 }) {
+  const [over, setOver] = useState(false)
   const L = useLookup()
   const c = subjectColor(s.subject)
   const St = STATE_ICON[state]
@@ -335,7 +392,10 @@ function SessionBlock({ s, row, blockLen, state, ended, dayDate, canEdit, onOpen
   const me = useStore((st) => st.userId)
   const dot = unseenChange(s, me)
   return (
-    <div className="relative space-y-1.5 px-3 py-2">
+    <div className={cn("relative space-y-1.5 px-3 py-2", over && "bg-primary/5 ring-2 ring-primary/40 ring-inset")}
+      onDragOver={(e) => { if (canDrag && !ended && e.dataTransfer.types.includes("application/x-student")) { e.preventDefault(); setOver(true) } }}
+      onDragLeave={() => setOver(false)}
+      onDrop={(e) => { setOver(false); const raw = e.dataTransfer.getData("application/x-student"); if (raw) { const d = JSON.parse(raw) as { from: string; studentId: string }; onDropStudent(d.from, d.studentId) } }}>
       {/* someone changed this session — only its own teachers see it, until they open it */}
       {dot && <span className="absolute top-2 right-2 size-2.5 rounded-full bg-red-500 ring-2 ring-card" title={`${s.changed!.what} · เปิดคาบเพื่อดู`} />}
       <div className="flex items-center gap-2">
@@ -357,7 +417,7 @@ function SessionBlock({ s, row, blockLen, state, ended, dayDate, canEdit, onOpen
         const moved = s.rescheduledIn?.includes(sid) ? allSessions.find((x) => x.rescheduledOut?.some((m) => m.studentId === sid && m.toSessionId === s.id)) : undefined
         const result = a ? { text: MARK_TEXT[a.status], tone: MARK_TONE[a.status] } : ended && !s.trial ? { text: "ยังไม่เช็ค", tone: "text-amber-700" } : null
         return (
-          <StudentLine key={sid} nickname={L.student(sid)?.nickname ?? "?"} grade={L.student(sid)?.grade ?? ""} avatarKey={sid}
+          <StudentLine key={sid} drag={canDrag && !ended && !a ? JSON.stringify({ from: s.id, studentId: sid }) : undefined} nickname={L.student(sid)?.nickname ?? "?"} grade={L.student(sid)?.grade ?? ""} avatarKey={sid}
             note={s.notes?.[sid]} time={Seats.isPartial(seat, s.minutes) ? Seats.seatTime(s.start, seat) : undefined}
             result={result} movedFrom={moved ? `ย้ายมาจาก ${dayDate(moved.date)}` : undefined} inverted={false}
             onOpen={() => onOpen(s.id)} onNote={(text) => onNote(sid, text)} canEdit={canEdit} />
@@ -378,8 +438,8 @@ function SessionBlock({ s, row, blockLen, state, ended, dayDate, canEdit, onOpen
 }
 
 /** nickname · note (tap to edit) · own time · result · grade — like the ref row "Nickname  Note… ✎  G7" */
-function StudentLine({ nickname, grade, avatarKey, note, time, result, movedFrom, inverted, onOpen, onNote, canEdit }: {
-  nickname: string; grade: string; avatarKey: string; note?: string; time?: string
+function StudentLine({ drag, nickname, grade, avatarKey, note, time, result, movedFrom, inverted, onOpen, onNote, canEdit }: {
+  drag?: string; nickname: string; grade: string; avatarKey: string; note?: string; time?: string
   result: { text: string; tone: string } | null; movedFrom?: string; inverted: boolean
   onOpen: () => void; onNote: (text: string) => void; canEdit: boolean
 }) {
@@ -391,7 +451,8 @@ function StudentLine({ nickname, grade, avatarKey, note, time, result, movedFrom
     <div className="group/line min-w-0">
       <div className="flex items-center gap-2">
         <span className={cn("grid size-6 shrink-0 place-items-center rounded-full text-[11px] font-semibold", avatarTone(avatarKey))}>{initial(nickname)}</span>
-        <button type="button" onClick={onOpen} className="shrink-0 truncate text-left font-medium hover:underline">{nickname}</button>
+        <button type="button" onClick={onOpen} draggable={!!drag} onDragStart={(e) => { if (drag) { e.dataTransfer.setData("application/x-student", drag); e.dataTransfer.effectAllowed = "move" } }}
+          title={drag ? "ลากไปวางที่คาบอื่นเพื่อย้าย" : undefined} className={cn("shrink-0 truncate text-left font-medium hover:underline", drag && "cursor-grab active:cursor-grabbing")}>{nickname}</button>
         {editing ? (
           <input autoFocus value={text} onChange={(e) => setText(e.target.value)} onBlur={save}
             onKeyDown={(e) => { if (e.key === "Enter") save(); if (e.key === "Escape") { setText(note ?? ""); setEditing(false) } }}

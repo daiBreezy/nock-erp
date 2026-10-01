@@ -105,6 +105,10 @@ type Store = DB & UIState & {
   substituteTeacherForDay: (teacherId: ID, date: DateStr, substituteId: ID, reason: string) => Result<{ sessions: number }>
   /** emergency: cancel every session of this teacher on that day — each student's package runs one class longer */
   cancelTeacherDay: (teacherId: ID, date: DateStr, reason: string) => Result<{ sessions: number; students: number }>
+  /** drag & drop on the teacher board (owner 2026-10-01): move a student to another session — just this one, the next
+   *  N of the class, or for good (all following: changes class, the package follows). Undo with undoLastMove. */
+  moveStudent: (fromSessionId: ID, studentId: ID, toSessionId: ID, scope: { kind: "one" } | { kind: "count"; n: number } | { kind: "following" }) => Result<{ moved: number }>
+  undoLastMove: () => Result
   /** the current user opened (and closed) this session — clears their red dot */
   markSessionSeen: (sessionId: ID) => void
   saveStudentLeave: (input: { id?: ID; studentId: ID; from: DateStr; to: DateStr; reason: string }) => Result
@@ -216,6 +220,9 @@ const ctxOf = (s: DB, branchId: ID) => ({
   branch: s.branches.find((b) => b.id === branchId)!,
   courses: s.courses, classes: s.classes, holidays: s.holidays,
 })
+
+/** what the last drag & drop move replaced — one-step undo from the toast (not persisted) */
+let lastMove: { sessions: Session[]; classes: Klass[]; entitlements: Entitlement[] } | null = null
 
 export const useStore = create<Store>()(
   persist(
@@ -860,6 +867,69 @@ export const useStore = create<Store>()(
         let students = 0
         for (const x of day) { const r = get().teacherLeave(x.id, { reason, substituteId: null }); if (!r.ok) return r; students += r.value.extended }
         return { ok: true, value: { sessions: day.length, students } }
+      },
+
+      moveStudent: (fromSessionId, studentId, toSessionId, scope) => {
+        const s = get()
+        const perm = requirePerm(s.me(), "session.manage")
+        if (!perm.ok) return perm
+        const now = s.now()
+        const from = s.sessions.find((x) => x.id === fromSessionId)
+        const to = s.sessions.find((x) => x.id === toSessionId)
+        if (!from || !to) return fail("ไม่พบคาบเรียน")
+        if (from.id === to.id) return fail("วางในคาบเดิม")
+        if (!from.studentIds.includes(studentId)) return fail("นักเรียนไม่ได้อยู่ในคาบนี้")
+        if (to.cancelled || Sch.sessionState(to, now) === "closed") return fail("คาบปลายทางปิดหรือยกเลิกแล้ว")
+        if (Sch.sessionState(from, now) === "closed") return fail("คาบเดิมจบไปแล้ว ย้ายไม่ได้")
+        const marked = new Set(s.attendance.filter((a) => a.studentId === studentId).map((a) => a.sessionId))
+        if (marked.has(from.id)) return fail("เช็คชื่อคาบเดิมไปแล้ว — ล้างการเช็คชื่อก่อน")
+        const upcoming = (classId: ID | null, fromKey: string) => s.sessions
+          .filter((x) => !!classId && x.classId === classId && !x.cancelled && x.date + x.start >= fromKey && Sch.sessionState(x, now) !== "closed")
+          .sort((a, b) => (a.date + a.start).localeCompare(b.date + b.start))
+        // pairs of (old session → new session)
+        let pairs: [Session, Session][] = [[from, to]]
+        if (scope.kind === "count") {
+          if (!Number.isInteger(scope.n) || scope.n < 1) return fail("จำนวนคาบต้องตั้งแต่ 1")
+          const src = upcoming(from.classId, from.date + from.start).filter((x) => x.studentIds.includes(studentId) && !marked.has(x.id)).slice(0, scope.n)
+          const dst = upcoming(to.classId, to.date + to.start).slice(0, scope.n)
+          pairs = src.slice(0, Math.min(src.length, dst.length)).map((x, i) => [x, dst[i]])
+          if (!pairs.length) pairs = [[from, to]]
+        }
+        lastMove = { sessions: s.sessions, classes: s.classes, entitlements: s.entitlements }
+        if (scope.kind === "following") {
+          if (!from.classId || !to.classId) return fail("ย้ายถาวรได้เฉพาะคาบที่เป็นของคลาส")
+          if (from.classId === to.classId) return fail("เป็นคลาสเดียวกันอยู่แล้ว")
+          const oldIds = new Set(upcoming(from.classId, from.date + from.start).filter((x) => !marked.has(x.id)).map((x) => x.id))
+          const newIds = new Set(upcoming(to.classId, to.date + to.start).map((x) => x.id))
+          const fromClass = from.classId, toClass = to.classId
+          set({
+            sessions: s.sessions.map((x) => oldIds.has(x.id) ? { ...x, studentIds: x.studentIds.filter((y) => y !== studentId) }
+              : newIds.has(x.id) && !x.studentIds.includes(studentId) ? { ...x, studentIds: [...x.studentIds, studentId] } : x),
+            classes: s.classes.map((k) => k.id === fromClass ? { ...k, studentIds: k.studentIds.filter((y) => y !== studentId), seats: Object.fromEntries(Object.entries(k.seats ?? {}).filter(([id]) => id !== studentId)) }
+              : k.id === toClass && !k.studentIds.includes(studentId) ? { ...k, studentIds: [...k.studentIds, studentId] } : k),
+            // the package now pays for the new class
+            entitlements: s.entitlements.map((e) => (e.studentId === studentId && e.classIds.includes(fromClass) && e.to >= from.date ? { ...e, classIds: [...new Set(e.classIds.map((c) => (c === fromClass ? toClass : c)))] } : e)),
+          })
+          log("class", [studentId], "ย้ายคลาสถาวร", `${s.classes.find((k) => k.id === fromClass)?.name} → ${s.classes.find((k) => k.id === toClass)?.name} ตั้งแต่ ${fmtDate(to.date)}`)
+          return { ok: true, value: { moved: newIds.size } }
+        }
+        const outIds = new Map(pairs.map(([a, b]) => [a.id, b.id]))
+        const inIds = new Set(pairs.map(([, b]) => b.id))
+        set({
+          sessions: s.sessions.map((x) =>
+            outIds.has(x.id) ? { ...x, studentIds: x.studentIds.filter((y) => y !== studentId), rescheduledOut: [...(x.rescheduledOut ?? []).filter((m) => m.studentId !== studentId), { studentId, toSessionId: outIds.get(x.id)! }] }
+            : inIds.has(x.id) && !x.studentIds.includes(studentId) ? { ...x, studentIds: [...x.studentIds, studentId], rescheduledIn: [...(x.rescheduledIn ?? []), studentId] }
+            : x),
+        })
+        log("class", [studentId], "ย้ายคาบ (ลากวาง)", pairs.map(([a, b]) => `${fmtDate(a.date)} ${a.start} → ${fmtDate(b.date)} ${b.start}`).join(", "))
+        return { ok: true, value: { moved: pairs.length } }
+      },
+
+      undoLastMove: () => {
+        if (!lastMove) return fail("ไม่มีการย้ายให้ย้อนกลับ")
+        set({ sessions: lastMove.sessions, classes: lastMove.classes, entitlements: lastMove.entitlements })
+        lastMove = null
+        return OK
       },
 
       markSessionSeen: (sessionId) => {
@@ -1895,6 +1965,7 @@ const TRACKED: Partial<Record<keyof Store, Tracker>> = {
   removeStudentFromSession: ((id: ID) => ({ ids: [id], what: "เอานักเรียนออก" })) as Tracker,
   rescheduleStudent: ((from: ID, _sid: ID, to: ID) => ({ ids: [from, to], what: "ย้ายวันเรียนของนักเรียน" })) as Tracker,
   undoReschedule: ((from: ID) => ({ ids: [from], what: "ยกเลิกการย้ายวัน" })) as Tracker,
+  moveStudent: ((from: ID, _sid: ID, to: ID) => ({ ids: [from, to], what: "ย้ายนักเรียน" })) as Tracker,
 }
 
 function touchSessions(refs: ID[], what: string) {
