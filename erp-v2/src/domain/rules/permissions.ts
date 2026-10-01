@@ -92,3 +92,8 @@ export function canDeactivateStaff(target: Staff, actor: Staff, all: Staff[]): R
     return { ok: false, error: "ต้องมี Director อย่างน้อย 1 คน" }
   return { ok: true, value: undefined }
 }
+
+/** Class blocks of a branch (owner 2026-10-01): its Admin / Manager (and anyone above who can reach the branch). */
+export function canEditBlocks(user: Staff | undefined, branchId: string) {
+  return !!user && inBranch(user, branchId) && user.roles.some((r) => r === "admin" || r === "manager" || r === "area_manager" || r === "director" || r === "super_admin")
+}

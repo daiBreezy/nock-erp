@@ -1,15 +1,17 @@
 "use client"
 
 import { useState } from "react"
-import { ChevronDownIcon, ChevronsDownIcon, ChevronsUpIcon, ChevronUpIcon, PlusIcon, TrashIcon } from "lucide-react"
+import { ChevronDownIcon, ChevronsDownIcon, ChevronsUpIcon, ChevronUpIcon, PencilIcon, PlusIcon, TrashIcon } from "lucide-react"
 import { Pill } from "@/components/app/badges"
 import { Field } from "@/components/app/student-form"
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Input } from "@/components/ui/input"
 import { Switch } from "@/components/ui/switch"
-import { fmtDate, fromMinutes, TH_DAYS_FULL, toDateStr, toMinutes } from "@/domain/dates"
-import { hoursFor, isHoliday } from "@/domain/rules/scheduling"
+import { fmtDate, nextWeekday, TH_DAYS_FULL, toDateStr } from "@/domain/dates"
+import { blocksOn, hoursFor, isHoliday } from "@/domain/rules/scheduling"
+import { canEditBlocks } from "@/domain/rules/permissions"
+import { BlocksDialog } from "@/components/calendar/blocks-dialog"
 import { copyHours, everyDay, PRIORITY_LABEL, validateSpecialPeriods } from "@/domain/rules/settings"
 import type { Branch, OpenHours, PeriodPriority, SpecialPeriod, Weekday } from "@/domain/types"
 import { uid } from "@/data/seed"
@@ -110,43 +112,45 @@ export function SchedulingTab({ branch, holidaysOnly = false }: { branch: Branch
   )
 }
 
-/** Standard class blocks (owner 2026-09-30): each branch sets its own, e.g. from 08:00 or from 15:00, 2 hours each. */
+/**
+ * Class blocks (owner 2026-10-01): each branch, each weekday its own — edited through the same dialog as the teacher
+ * board (this day only, or from a date on; copy Monday to Mon–Fri or Saturday to the weekend). Admin / Manager only.
+ */
 function ClassBlocksCard({ branch }: { branch: Branch }) {
-  const { b, setB, dirty, reset, save } = useBranchDraft(branch, ["blocks"])
-  const blocks = b.blocks ?? { weekday: [], weekend: [], minutes: 120 }
-  const put = (patch: Partial<NonNullable<Branch["blocks"]>>) => setB({ ...b, blocks: { ...blocks, ...patch } })
-  const end = (t: string) => fromMinutes(toMinutes(t) + blocks.minutes)
-  // fill the day with back-to-back blocks from a start time until closing
-  const fill = (key: "weekday" | "weekend", from: string) => {
-    const day = key === "weekday" ? branch.hours[1] ?? branch.hours[2] : branch.hours[6] ?? branch.hours[0]
-    if (!day) return
-    const out: string[] = []
-    for (let m = toMinutes(from); m + blocks.minutes <= toMinutes(day.close); m += blocks.minutes) out.push(fromMinutes(m))
-    put({ [key]: out })
-  }
+  const today = toDateStr(useNow(60_000))
+  const me = useStore((s) => s.staff.find((x) => x.id === s.userId))
+  const canEdit = canEditBlocks(me, branch.id)
+  const [editing, setEditing] = useState<string | null>(null)
+  // the plan in force for each weekday from today (special periods and one-off days aside)
+  const plain = { ...branch, specialPeriods: [], blockDays: {} }
+  const dayOf = (wd: Weekday) => nextWeekday(today, wd)
+  const oneOffs = Object.entries(branch.blockDays ?? {}).filter(([d]) => d >= today).sort(([a], [b]) => a.localeCompare(b))
+  const planned = (branch.blockPlans ?? []).filter((p) => p.from > today)
   return (
-    <SettingsCard title="ช่วงคลาสมาตรฐาน" hint="ใช้ตอนสร้างคลาสแบบ ครู + ช่วงเวลา และแถวของตารางครูทั้งสัปดาห์ · แต่ละสาขาตั้งเอง">
-      <div className="mb-3 flex items-center gap-2 text-sm">
-        ความยาวช่วง
-        <Input className="w-24" type="number" min={30} step={30} value={blocks.minutes} onChange={(e) => put({ minutes: Math.max(30, Number(e.target.value) || 120) })} /> นาที
-      </div>
-      {(["weekday", "weekend"] as const).map((key) => (
-        <div key={key} className="mb-3 space-y-1.5">
-          <p className="text-sm font-medium">{key === "weekday" ? "จันทร์–ศุกร์" : "เสาร์–อาทิตย์"}</p>
-          <div className="flex flex-wrap items-center gap-1.5">
-            {blocks[key].map((t, i) => (
-              <span key={i} className="flex items-center gap-1 rounded-full border py-0.5 pr-1 pl-2 text-sm">
-                <input type="time" step={900} value={t} className="bg-transparent" onChange={(e) => put({ [key]: blocks[key].map((x, j) => (j === i ? e.target.value : x)).sort() })} />
-                <span className="text-xs text-muted-foreground">–{end(t)}</span>
-                <button type="button" aria-label="ลบช่วง" className="rounded-full p-0.5 text-muted-foreground hover:bg-muted" onClick={() => put({ [key]: blocks[key].filter((_, j) => j !== i) })}><TrashIcon className="size-3.5" /></button>
+    <SettingsCard title="ช่วงคลาส (แถวของตารางครู)" hint="แต่ละสาขา แต่ละวันตั้งเองได้ · ใช้ตอนสร้างคลาสแบบ ครู + ช่วงเวลา · แก้จากตารางครูได้ด้วย (ปุ่ม ตั้งช่วงเวลา ที่หัววัน)">
+      {editing && <BlocksDialog branch={branch} date={editing} scope="following" onClose={() => setEditing(null)} />}
+      <ul className="divide-y rounded-xl border">
+        {WEEK.map((wd) => {
+          const blocks = blocksOn(plain, dayOf(wd))
+          return (
+            <li key={wd} className="flex flex-wrap items-center gap-2 px-3 py-2 text-sm">
+              <span className="w-24 font-medium">{TH_DAYS_FULL[wd]}</span>
+              <span className="flex flex-1 flex-wrap gap-1">
+                {blocks.length ? blocks.map((b) => <span key={b.start} className="rounded-full bg-muted px-2 py-0.5 text-xs tabular-nums">{b.start}–{b.end}</span>)
+                  : <span className="text-xs text-muted-foreground">{branch.hours[wd] ? "ไม่มีช่วง" : "สาขาปิด"}</span>}
               </span>
-            ))}
-            <Button size="xs" variant="outline" onClick={() => put({ [key]: [...blocks[key], blocks[key].length ? end(blocks[key][blocks[key].length - 1]) : "13:00"].sort() })}><PlusIcon /> เพิ่มช่วง</Button>
-            <Button size="xs" variant="ghost" onClick={() => fill(key, blocks[key][0] ?? (key === "weekday" ? "13:00" : "09:00"))}>เติมต่อกันจนปิดสาขา</Button>
-          </div>
+              {canEdit && <Button size="xs" variant="ghost" onClick={() => setEditing(dayOf(wd))}><PencilIcon /> แก้</Button>}
+            </li>
+          )
+        })}
+      </ul>
+      {(oneOffs.length > 0 || planned.length > 0) && (
+        <div className="mt-3 space-y-1 text-xs text-muted-foreground">
+          {planned.map((p) => <p key={p.from}>เปลี่ยนตั้งแต่ {fmtDate(p.from, { weekday: true })} (ตั้งล่วงหน้าไว้)</p>)}
+          {oneOffs.map(([d, b]) => <p key={d}>เฉพาะ {fmtDate(d, { weekday: true })}: {b.map((x) => `${x.start}–${x.end}`).join(", ") || "ไม่มีช่วง"}</p>)}
         </div>
-      ))}
-      <SaveRow dirty={dirty} onReset={reset} onSave={save} />
+      )}
+      {!canEdit && <p className="mt-2 text-xs text-muted-foreground">แก้ได้เฉพาะ Admin / Manager ของสาขา</p>}
     </SettingsCard>
   )
 }

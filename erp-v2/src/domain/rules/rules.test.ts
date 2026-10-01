@@ -19,6 +19,7 @@ import * as Refund from "./refunds"
 import * as Doc from "./documents"
 import * as Seats from "./seats"
 import * as Les from "./lessons"
+import * as Sch from "./scheduling"
 import { summaryMessage } from "./messages"
 
 const hours = { open: "09:00", close: "20:00" }
@@ -1393,5 +1394,59 @@ describe("leave with / without quota, teacher leave (owner 2026-09-30)", () => {
     // with a substitute nothing changes
     const sub = sessions.map((x) => (x.id === "s2" ? { ...x, teacherLeave: { teacherId: "t1", reason: "ป่วย", substituteId: "t2", by: "adm", at: "" } } : x))
     expect(teacherLeaveCancels(e, sub)).toEqual([])
+  })
+})
+
+describe("Class blocks per branch / weekday / date (owner 2026-10-01)", () => {
+  const b2 = (s: string, e: string) => ({ start: s, end: e })
+  const wkday = [b2("13:00", "15:00"), b2("15:00", "17:00")]
+  const wkend = [b2("09:00", "11:00")]
+  const base = {
+    specialPeriods: [] as Branch["specialPeriods"],
+    blockDays: {} as NonNullable<Branch["blockDays"]>,
+    blockPlans: [{ from: "2020-01-01", byDay: { 1: wkday, 2: wkday, 3: wkday, 4: wkday, 5: wkday, 6: wkend, 0: wkend } }],
+  }
+  // 2026-10-05 = Monday, 2026-10-10 = Saturday
+  it("uses the weekday plan, a one-off day wins over it", () => {
+    expect(Sch.blocksOn(base, "2026-10-05")).toEqual(wkday)
+    expect(Sch.blocksOn(base, "2026-10-10")).toEqual(wkend)
+    const r = Sch.applyBlocks(base, "2026-10-05", [b2("14:00", "16:00")], "day", "same")
+    const nb = { ...base, ...r }
+    expect(Sch.blocksOn(nb, "2026-10-05")).toEqual([b2("14:00", "16:00")])
+    expect(Sch.blocksOn(nb, "2026-10-12")).toEqual(wkday)
+  })
+  it("'following' with Mon–Fri starts a new plan from that date; earlier dates keep the old blocks", () => {
+    const nb = { ...base, ...Sch.applyBlocks(base, "2026-10-05", [b2("16:00", "18:00")], "following", "weekdays") }
+    expect(Sch.blocksOn(nb, "2026-10-01")).toEqual(wkday)
+    expect(Sch.blocksOn(nb, "2026-10-08")).toEqual([b2("16:00", "18:00")])
+    expect(Sch.blocksOn(nb, "2026-10-10")).toEqual(wkend)
+    const reach = Sch.blockChangeReaches(base, "2026-10-05", "following", "weekdays")
+    expect([reach("2026-10-04"), reach("2026-10-09"), reach("2026-10-10")]).toEqual([false, true, false])
+  })
+  it("inside a special period the change stays in the period; higher priority period's blocks win", () => {
+    const sp = (id: string, priority: "high" | "low", blocks?: Record<number, { start: string; end: string }[]>) =>
+      ({ id, name: id, from: "2026-10-01", to: "2026-10-31", hours: {}, active: true, priority, blocks }) as unknown as Branch["specialPeriods"][number]
+    const withP = { ...base, specialPeriods: [sp("low", "low", { 1: [b2("08:00", "10:00")] }), sp("high", "high")] }
+    // the high one has no own blocks for Monday → the next period's blocks
+    expect(Sch.blocksOn(withP, "2026-10-05")).toEqual([b2("08:00", "10:00")])
+    const r = Sch.applyBlocks(withP, "2026-10-05", [b2("10:00", "12:00")], "following", "same")
+    expect(r.periodName).toBe("high")
+    const nb = { ...withP, ...r }
+    expect(Sch.blocksOn(nb, "2026-10-12")).toEqual([b2("10:00", "12:00")])
+    expect(Sch.blocksOn(nb, "2026-11-02")).toEqual(wkday)
+    expect(Sch.blocksOn({ ...nb, specialPeriods: nb.specialPeriods.map((p) => ({ ...p, active: false })) }, "2026-10-12")).toEqual(wkday)
+  })
+  it("validates overlaps and end-before-start; maps moved blocks by position", () => {
+    expect(Sch.validateBlocks([b2("13:00", "15:00"), b2("14:00", "16:00")])).toMatch(/ทับ/)
+    expect(Sch.validateBlocks([b2("15:00", "13:00")])).toMatch(/หลังเวลาเริ่ม/)
+    expect(Sch.validateBlocks(wkday)).toBeNull()
+    expect(Sch.blockShifts(wkday, [b2("13:00", "15:00"), b2("15:30", "17:30")])).toEqual([{ from: b2("15:00", "17:00"), to: b2("15:30", "17:30") }])
+    expect(Sch.blockFor(wkday, "14:30")).toEqual(b2("13:00", "15:00"))
+    const moved = [b2("13:00", "15:00"), b2("15:30", "17:30")]
+    expect(Sch.shiftInBlock("15:00", 120, wkday, moved)).toEqual({ start: "15:30", minutes: 120 })
+    expect(Sch.shiftInBlock("16:00", 60, wkday, moved)).toEqual({ start: "16:30", minutes: 60 })
+    expect(Sch.shiftInBlock("15:00", 120, wkday, [b2("13:00", "15:00"), b2("15:00", "16:30")])).toEqual({ start: "15:00", minutes: 90 })
+    expect(Sch.shiftInBlock("13:30", 60, wkday, moved)).toBeNull()
+    expect(Sch.blockFor(wkday, "17:00")).toBeNull()
   })
 })

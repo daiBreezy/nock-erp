@@ -1,9 +1,11 @@
 "use client"
 
 import { Fragment, useMemo, useState } from "react"
-import { AlertTriangleIcon, ArrowLeftRightIcon, BanIcon, CalendarIcon, EllipsisIcon, CheckIcon, ClipboardCheckIcon, FlaskConicalIcon, MessagesSquareIcon, PencilIcon, PencilLineIcon, PlayIcon, PlusIcon, ShapesIcon, UserIcon, UsersIcon, UsersRoundIcon } from "lucide-react"
+import { AlertTriangleIcon, ArrowLeftRightIcon, BanIcon, CalendarIcon, EllipsisIcon, CheckIcon, ClipboardCheckIcon, FlaskConicalIcon, MessagesSquareIcon, PencilIcon, PencilLineIcon, PlayIcon, PlusIcon, ShapesIcon, Settings2Icon, UserIcon, UsersIcon, UsersRoundIcon } from "lucide-react"
 import type { ClassPrefill } from "@/components/app/class-dialog"
 import { ConflictResolver, liveConflicts } from "@/components/app/conflict-resolver"
+import { BlocksDialog } from "@/components/calendar/blocks-dialog"
+import { canEditBlocks } from "@/domain/rules/permissions"
 import { avatarTone, gradeTone, initial, subjectColor } from "@/components/app/subject-color"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -11,8 +13,8 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { Input } from "@/components/ui/input"
 import { NativeSelect } from "@/components/app/native-select"
-import { addDays, endTime, fmtDate, fromMinutes, toDateStr, toMinutes, weekdayOf } from "@/domain/dates"
-import { blockOf, blockStartsFor, CAPACITY, isHoliday, subjectsOf, workState, type WorkState } from "@/domain/rules/scheduling"
+import { addDays, endTime, fmtDate, toDateStr, toMinutes, weekdayOf } from "@/domain/dates"
+import { blockFor, blocksOn, CAPACITY, periodsOn, isHoliday, subjectsOf, workState, type WorkState } from "@/domain/rules/scheduling"
 import * as Seats from "@/domain/rules/seats"
 import type { Attendance, DateStr, Klass, Session, TimeStr } from "@/domain/types"
 import { report } from "@/lib/feedback"
@@ -83,29 +85,32 @@ export function WeekTeacherBoard({ from, sessions, onOpen, onSlot, canCreate }: 
     return ids.sort((a, b) => (a === "" ? 1 : b === "" ? -1 : name(a).localeCompare(name(b), "th")))
   }, [live, staff])
 
-  const blockLen = branch.blocks?.minutes ?? 120
   const endMin = (row: Row) => toMinutes(row.end)
   const rowPast = (date: DateStr, row: Row) => date < today || (date === today && endMin(row) <= nowMin)
   const rowNow = (date: DateStr, row: Row) => date === today && toMinutes(row.start) <= nowMin && nowMin < endMin(row)
   const sessionEnded = (s: Session) => s.date < today || (s.date === today && toMinutes(s.start) + s.minutes <= nowMin)
   const dayDate = (d: DateStr) => `${DAY_FULL[weekdayOf(d)].slice(0, 3)} ${fmtDate(d)}`
   const rowsFor = (date: DateStr): Row[] => {
-    const starts = blockStartsFor(branch, weekdayOf(date))
+    const blocks = blocksOn(branch, date)
     const ofDay = live.filter((s) => s.date === date)
     // sessions outside every block still show — as their own row at their start time
-    const loose = [...new Set(ofDay.filter((s) => !blockOf(starts, blockLen, s.start)).map((s) => s.start))]
-    return [...starts.map((t) => ({ start: t, end: fromMinutes(toMinutes(t) + blockLen), block: true })), ...loose.map((t) => ({ start: t, end: endTime(t, 60), block: false }))]
+    const loose = [...new Set(ofDay.filter((s) => !blockFor(blocks, s.start)).map((s) => s.start))]
+    return [...blocks.map((b) => ({ start: b.start, end: b.end, block: true })), ...loose.map((t) => ({ start: t, end: endTime(t, 60), block: false }))]
       .sort((a, b) => a.start.localeCompare(b.start))
   }
-  const cellSessions = (date: DateStr, teacherId: string, row: Row) =>
-    live.filter((s) => s.date === date && (s.teacherId ?? "") === teacherId && (row.block ? blockOf([row.start], blockLen, s.start) === row.start : s.start === row.start && !blockOf(blockStartsFor(branch, weekdayOf(date)), blockLen, s.start)))
+  const cellSessions = (date: DateStr, teacherId: string, row: Row) => {
+    const blocks = blocksOn(branch, date)
+    return live.filter((s) => s.date === date && (s.teacherId ?? "") === teacherId && (row.block ? blockFor(blocks, s.start)?.start === row.start : s.start === row.start && !blockFor(blocks, s.start)))
       .sort((a, b) => a.start.localeCompare(b.start))
+  }
   const nowPct = (row: Row) => Math.min(100, Math.max(0, ((nowMin - toMinutes(row.start)) / (endMin(row) - toMinutes(row.start))) * 100))
 
   // clashes still ahead (past ones can't be fixed) — red outline + ⚠ to fix them from the cell
   const clashIds = useMemo(() => new Set(liveConflicts(live.map((x) => x.id), allSessions.filter((x) => x.branchId === branch.id), { branch, staff, now }).flatMap((c) => c.sessionIds)), [live, allSessions, branch, staff, now])
   const [resolving, setResolving] = useState<string[] | null>(null)
   const [moving, setMoving] = useState<{ from: string; studentId: string; to: string } | null>(null)
+  const [blocksDate, setBlocksDate] = useState<DateStr | null>(null)
+  const canBlocks = canEditBlocks(staff.find((x) => x.id === me), branch.id)
   const [dayAction, setDayAction] = useState<{ mode: "substitute" | "cancel"; teacherId: string; date: DateStr } | null>(null)
   const cols = `5.5rem repeat(${Math.max(1, teacherIds.length)}, minmax(17rem, 1fr))`
 
@@ -118,6 +123,7 @@ export function WeekTeacherBoard({ from, sessions, onOpen, onSlot, canCreate }: 
         ))}
       </nav>
 
+      {blocksDate && <BlocksDialog branch={branch} date={blocksDate} onClose={() => setBlocksDate(null)} />}
       {dayAction && <TeacherDayDialog {...dayAction} onClose={() => setDayAction(null)} />}
       {moving && <MoveStudentDialog {...moving} onClose={() => setMoving(null)} />}
       {resolving && <ConflictResolver sessionIds={resolving} onClose={() => setResolving(null)} onOpen={(id) => { setResolving(null); onOpen(id) }} />}
@@ -128,8 +134,14 @@ export function WeekTeacherBoard({ from, sessions, onOpen, onSlot, canCreate }: 
         return (
           <section key={date} id={`day-${date}`} className="scroll-mt-32 overflow-x-auto rounded-3xl bg-card shadow-sm ring-1 ring-foreground/10">
             <div className="min-w-fit">
-              <div className={cn("px-4 py-2 text-sm font-semibold", dayTone(date, today))}>
-                {DAY_FULL[weekdayOf(date)]} {fmtDate(date, { year: true })}{date === today ? " · วันนี้" : date < today ? " · ผ่านไปแล้ว" : ""}{holiday ? " · วันหยุด" : closed ? " · สาขาปิด" : ""}
+              <div className={cn("flex items-center gap-2 px-4 py-2 text-sm font-semibold", dayTone(date, today))}>
+                <span>{DAY_FULL[weekdayOf(date)]} {fmtDate(date, { year: true })}{date === today ? " · วันนี้" : date < today ? " · ผ่านไปแล้ว" : ""}{holiday ? " · วันหยุด" : closed ? " · สาขาปิด" : ""}</span>
+                {periodsOn(branch, date)[0] && <span className="rounded-full bg-violet-100 px-2 py-0.5 text-[11px] font-medium text-violet-900 dark:bg-violet-950 dark:text-violet-200">ช่วง {periodsOn(branch, date)[0].name}</span>}
+                {canBlocks && date >= today && (
+                  <button type="button" onClick={() => setBlocksDate(date)} className="ml-auto flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-normal opacity-70 hover:bg-black/5 hover:opacity-100">
+                    <Settings2Icon className="size-3.5" /> ตั้งช่วงเวลา
+                  </button>
+                )}
               </div>
               {rows.length === 0 || teacherIds.length === 0 ? (
                 <p className="p-6 text-center text-sm text-muted-foreground">{closed || holiday ? "ไม่มีคลาส" : "ยังไม่มีคลาสวันนี้"}</p>
@@ -205,7 +217,7 @@ export function WeekTeacherBoard({ from, sessions, onOpen, onSlot, canCreate }: 
                               liveHere && "shadow-[inset_3px_0_0_0_var(--color-primary)]",
                               cell.some((x) => clashIds.has(x.id)) && "ring-2 ring-red-400 ring-inset")}>
                               {cell.map((s) => (
-                                <SessionBlock key={s.id} s={s} row={row} blockLen={blockLen}
+                                <SessionBlock key={s.id} s={s} row={row}
                                   state={workState(s, now, attendance, summaries).state}
                                   ended={sessionEnded(s)} dayDate={dayDate}
                                   canEdit={canCreate || s.teacherId === me || s.coTeacherIds.includes(me)}
@@ -391,8 +403,8 @@ function RoomLine({ sessions, classes, live, clash, onResolve }: { sessions: Ses
 }
 
 /** One session inside a block — no card: just the subject line and the students, on the cell itself. */
-function SessionBlock({ s, row, blockLen, state, ended, dayDate, canEdit, onOpen, onNote, klass, attendance, allSessions, canDrag, onDropStudent }: {
-  s: Session; row: Row; blockLen: number; state: WorkState; ended: boolean; dayDate: (d: DateStr) => string; canEdit: boolean
+function SessionBlock({ s, row, state, ended, dayDate, canEdit, onOpen, onNote, klass, attendance, allSessions, canDrag, onDropStudent }: {
+  s: Session; row: Row; state: WorkState; ended: boolean; dayDate: (d: DateStr) => string; canEdit: boolean
   onOpen: (id: string) => void; onNote: (studentId: string, text: string) => void
   klass?: Klass; attendance: Attendance[]; allSessions: Session[]
   canDrag: boolean; onDropStudent: (fromSessionId: string, studentId: string) => void
@@ -401,7 +413,7 @@ function SessionBlock({ s, row, blockLen, state, ended, dayDate, canEdit, onOpen
   const L = useLookup()
   const c = subjectColor(s.subject)
   const St = STATE_ICON[state]
-  const own = s.start !== row.start || s.minutes !== blockLen
+  const own = s.start !== row.start || s.minutes !== toMinutes(row.end) - toMinutes(row.start)
   const me = useStore((st) => st.userId)
   const dot = unseenChange(s, me)
   return (

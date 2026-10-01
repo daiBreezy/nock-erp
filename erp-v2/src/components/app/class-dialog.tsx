@@ -10,7 +10,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { addDays, endTime, fmtDate, nextWeekday, TH_DAYS_FULL, toDateStr, toMinutes, weekdayOf, fromMinutes } from "@/domain/dates"
 import * as Att from "@/domain/rules/attendance"
 import { packageLabel } from "@/domain/rules/course"
-import { blockStartsFor, canSave, CAPACITY, GENERATE_WEEKS, isHoliday, overlappingRows, validateClass, type ClassDraft, type Issue } from "@/domain/rules/scheduling"
+import { blocksOn, canSave, CAPACITY, GENERATE_WEEKS, isHoliday, overlappingRows, validateClass, type ClassDraft, type Issue } from "@/domain/rules/scheduling"
 import { sortGrades } from "@/domain/rules/settings"
 import type { ClassKind, ClassLayout, ClassType, DateStr, ID, TimeStr, Weekday } from "@/domain/types"
 import { report } from "@/lib/feedback"
@@ -236,13 +236,12 @@ export function ClassDialog({ prefill, onClose }: { prefill: ClassPrefill; onClo
                   <span className={cn("pb-2 text-xs", mins >= 5 && mins % 5 === 0 ? "text-muted-foreground" : "text-red-700")}>{mins > 0 ? `${mins} นาที` : "เวลาจบต้องหลังเวลาเริ่ม"}</span>
                   <span className="pb-2 text-xs text-muted-foreground">· {occurrences(r)} คาบ</span>
                   {/* the branch's standard blocks for that day (Settings → เวลาเปิด-ปิด) */}
-                  {blockStartsFor(branch, r.weekday).length > 0 && (
+                  {blocksOn(branch, nextWeekday(startDate, r.weekday)).length > 0 && (
                     <span className="flex w-full flex-wrap gap-1 pt-1">
-                      {blockStartsFor(branch, r.weekday).map((t) => {
-                        const len = branch.blocks?.minutes ?? 120
-                        const on = r.start === t && mins === len
-                        return <button key={t} type="button" onClick={() => setRow(r.key, { start: t, end: fromMinutes(toMinutes(t) + len) })}
-                          className={cn("rounded-full border px-2.5 py-0.5 text-xs", on ? "border-primary bg-primary/10 text-primary" : "hover:bg-muted")}>{t}–{fromMinutes(toMinutes(t) + len)}</button>
+                      {blocksOn(branch, nextWeekday(startDate, r.weekday)).map((b) => {
+                        const on = r.start === b.start && r.end === b.end
+                        return <button key={b.start} type="button" onClick={() => setRow(r.key, { start: b.start, end: b.end })}
+                          className={cn("rounded-full border px-2.5 py-0.5 text-xs", on ? "border-primary bg-primary/10 text-primary" : "hover:bg-muted")}>{b.start}–{b.end}</button>
                       })}
                     </span>
                   )}

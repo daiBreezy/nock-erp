@@ -30,7 +30,19 @@ export interface SpecialPeriod {
   active: boolean
   /** when active periods overlap, the higher priority decides the hours that day */
   priority: PeriodPriority
+  /** the period's own class blocks per weekday (only while it is active) — unset day = the normal blocks */
+  blocks?: DayBlocks
+  /** "this day only" changes made inside the period — gone with the period */
+  blockDays?: Record<DateStr, ClassBlock[]>
 }
+
+/** One row of the teacher board, e.g. 13:00–15:00 (owner 2026-10-01: each branch sets its own, per weekday) */
+export interface ClassBlock {
+  start: TimeStr
+  end: TimeStr
+}
+
+export type DayBlocks = Partial<Record<Weekday, ClassBlock[]>>
 
 export type PeriodPriority = "high" | "medium" | "low"
 
@@ -95,9 +107,11 @@ export interface Branch {
   subjects: string[]
   grades: string[]
   defaultSessionMinutes: number
-  /** the branch's standard class blocks (owner 2026-09-30: e.g. 13–15 / 15–17 / 17–19) — start times per day type,
-   *  all of one length. Used by Create Class, the week board and Trial slots. */
-  blocks?: { weekday: TimeStr[]; weekend: TimeStr[]; minutes: number }
+  /** class blocks per weekday, versioned — "this day and every week after" adds a plan from that date, so earlier
+   *  weeks keep what they had (owner 2026-10-01). The latest plan starting on/before a date applies. */
+  blockPlans?: { from: DateStr; byDay: DayBlocks }[]
+  /** "this day only" changes on normal days */
+  blockDays?: Record<DateStr, ClassBlock[]>
   /** fallback bus price per leg when no bus fee type is set in General Fees */
   busFeePerLeg: number
   fees: Fee[]

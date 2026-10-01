@@ -6,7 +6,7 @@
 import { create } from "zustand"
 import { persist } from "zustand/middleware"
 import { buildSeed, uid, type DB } from "@/data/seed"
-import { addDays, at, fmtDate, fmtMoney, toDateStr, toMinutes, weekdayOf } from "@/domain/dates"
+import { addDays, at, fmtDate, fmtMoney, nextWeekday, toDateStr, toMinutes, weekdayOf } from "@/domain/dates"
 import * as Att from "@/domain/rules/attendance"
 import * as Bill from "@/domain/rules/billing"
 import * as Refund from "@/domain/rules/refunds"
@@ -16,7 +16,7 @@ import * as Les from "@/domain/rules/lessons"
 export type SummaryLesson = { bookId?: ID; topicId?: ID; detail?: string }
 import * as CRM from "@/domain/rules/crm"
 import * as Inbox from "@/domain/rules/inbox"
-import { can, canDeactivateStaff, inBranch, OFFICE_ROLES, require as requirePerm } from "@/domain/rules/permissions"
+import { can, canDeactivateStaff, canEditBlocks, inBranch, OFFICE_ROLES, require as requirePerm } from "@/domain/rules/permissions"
 import * as Sch from "@/domain/rules/scheduling"
 import * as Sum from "@/domain/rules/summaries"
 import * as People from "@/domain/rules/people"
@@ -26,7 +26,7 @@ import * as Notif from "@/domain/rules/notifications"
 import * as Cfg from "@/domain/rules/settings"
 import * as Msg from "@/domain/rules/messages"
 import { toast } from "sonner"
-import type { Assessment, AttendanceStatus, Entitlement, Branch, BusAddOn, CreditNote, LessonBook, LessonTopic, Seat, ChatMessage, Conversation, Course, DateStr, Family, FormSubmission, Holiday, ID, Invoice, Klass, Lead, LeadStage, LessonSummary, LineDelivery, LogCategory, Result, Session, Staff, Student, SystemConfig } from "@/domain/types"
+import type { Assessment, AttendanceStatus, Entitlement, Branch, BusAddOn, ClassBlock, CreditNote, LessonBook, LessonTopic, Seat, ChatMessage, Conversation, Course, DateStr, Family, FormSubmission, Holiday, ID, Invoice, Klass, Lead, LeadStage, LessonSummary, LineDelivery, LogCategory, Result, Session, Staff, Student, SystemConfig } from "@/domain/types"
 
 export interface UIState {
   userId: ID
@@ -111,6 +111,9 @@ type Store = DB & UIState & {
   undoLastMove: () => Result
   /** clash fix (owner 2026-10-01): the same teacher twice at the same time → one session; the other is cancelled */
   mergeSessions: (keepId: ID, dropId: ID) => Result<{ students: number }>
+  /** class blocks from a date (owner 2026-10-01): "day" = only that date, "following" = that weekday (or group) from then
+   *  on; inside a special period the change stays in the period. shift = move classes sitting in a changed block. */
+  setDayBlocks: (input: { branchId: ID; date: DateStr; blocks: ClassBlock[]; scope: Sch.BlockScope; days: Sch.BlockDays; shift: boolean }) => Result<{ shifted: number; skipped: number; period: string | null }>
   /** the current user opened (and closed) this session — clears their red dot */
   markSessionSeen: (sessionId: ID) => void
   saveStudentLeave: (input: { id?: ID; studentId: ID; from: DateStr; to: DateStr; reason: string }) => Result
@@ -960,6 +963,54 @@ export const useStore = create<Store>()(
         set({ sessions: lastMove.sessions, classes: lastMove.classes, entitlements: lastMove.entitlements })
         lastMove = null
         return OK
+      },
+
+      setDayBlocks: ({ branchId, date, blocks, scope, days, shift }) => {
+        const s = get()
+        if (!canEditBlocks(s.me(), branchId)) return fail("ตั้งช่วงเวลาได้เฉพาะ Admin / Manager ของสาขา")
+        const err = Sch.validateBlocks(blocks)
+        if (err) return fail(err)
+        const branch = s.branches.find((b) => b.id === branchId)!
+        const now = s.now()
+        const patch = Sch.applyBlocks(branch, date, blocks, scope, days)
+        const nextBranch = { ...branch, ...patch }
+        const period = Sch.periodsOn(branch, date)[0]
+        const affected = Sch.blockChangeReaches(branch, date, scope, days)
+        let sessions = s.sessions, classes = s.classes, shifted = 0, skipped = 0
+        const movedIds: ID[] = []
+        if (shift) {
+          const todo = s.sessions.filter((x) => x.branchId === branchId && !x.cancelled && affected(x.date) && Sch.sessionState(x, now) === "upcoming")
+          // move them all together (a block's sessions move as one), then put back only those that now clash
+          const plan = new Map(todo.flatMap((x) => { const to = Sch.shiftInBlock(x.start, x.minutes, Sch.blocksOn(branch, x.date), Sch.blocksOn(nextBranch, x.date)); return to ? [[x.id, to] as const] : [] }))
+          const withPlan = () => s.sessions.map((y) => (plan.has(y.id) ? { ...y, ...plan.get(y.id)!, customized: true } : y))
+          for (let guard = 0; guard < 50 && plan.size; guard++) {
+            const added = Sch.introducedConflicts(s.sessions, withPlan(), [...plan.keys()], nextBranch, s.staff).added
+            const bad = [...new Set(added.flatMap((c) => c.sessionIds))].filter((id) => plan.has(id))
+            if (!bad.length) break
+            for (const id of bad) { plan.delete(id); skipped++ }
+          }
+          sessions = withPlan()
+          movedIds.push(...plan.keys())
+          shifted = plan.size
+          // classes whose weekly slot sat in a moved block follow it for future sessions (normal-day plans only)
+          if (scope === "following" && !period) {
+            classes = classes.map((k) => {
+              if (k.branchId !== branchId || !k.active || !affected(nextWeekday(date, k.weekday))) return k
+              const d = nextWeekday(date, k.weekday)
+              const to = Sch.shiftInBlock(k.start, k.minutes, Sch.blocksOn(branch, d), Sch.blocksOn(nextBranch, d))
+              return to ? { ...k, ...to } : k
+            })
+          }
+        }
+        const label = `${blocks.map((b) => `${b.start}–${b.end}`).join(", ") || "ไม่มีช่วง"}`
+        const where = patch.periodName ? `ช่วง ${patch.periodName}` : scope === "day" ? `เฉพาะ ${fmtDate(date, { weekday: true })}` : `${days === "weekdays" ? "จ.–ศ." : days === "weekend" ? "ส.–อา." : days === "all" ? "ทุกวัน" : `ทุก${["วันอาทิตย์", "วันจันทร์", "วันอังคาร", "วันพุธ", "วันพฤหัส", "วันศุกร์", "วันเสาร์"][weekdayOf(date)]}`} ตั้งแต่ ${fmtDate(date)}`
+        set({
+          branches: s.branches.map((b) => (b.id === branchId ? nextBranch : b)),
+          sessions, classes,
+          notifications: [Notif.notify({ id: uid("no"), at: now, kind: "info", title: "เปลี่ยนช่วงเวลาคลาส", body: `${branch.name} · ${where} · ${label}${shifted ? ` · เลื่อนคาบตาม ${shifted} คาบ` : ""}`, fromId: s.userId, audience: { roles: Notif.ALL_ROLES, branchId } }), ...s.notifications],
+        })
+        if (movedIds.length) touchSessions(movedIds, "เลื่อนเวลาตามช่วงคลาสใหม่")
+        return { ok: true, value: { shifted, skipped, period: patch.periodName } }
       },
 
       markSessionSeen: (sessionId) => {
@@ -1967,7 +2018,7 @@ export const useStore = create<Store>()(
     {
       name: "nockerp-v2",
       // bump when the data model changes; older saved data is replaced by fresh sample data
-      version: 44,
+      version: 45,
       migrate: () => ({ ...buildSeed(), userId: "u_nock", branchId: "br_thl", clockOffset: 0 }) as unknown as Store,
       // persist data + UI state only, never the action functions
       partialize: (s) => Object.fromEntries(Object.entries(s).filter(([, v]) => typeof v !== "function")) as Partial<Store>,

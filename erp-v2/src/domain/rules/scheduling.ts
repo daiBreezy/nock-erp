@@ -1,8 +1,8 @@
 // Scheduling rules: class → sessions, session state by time, conflicts, class validation & edits.
 // Test IDs in comments refer to NockERP-Staging-Test-2026-09-24.xlsx.
 
-import { addDays, at, endTime, fmtDate, nextWeekday, overlaps, parseDate, toMinutes, weekdayOf } from "../dates"
-import type { Attendance, Branch, DateStr, Holiday, ID, Klass, Result, Session, Staff, TimeStr, Weekday } from "../types"
+import { addDays, at, endTime, fmtDate, fromMinutes, nextWeekday, overlaps, parseDate, toMinutes, weekdayOf } from "../dates"
+import type { ClassBlock, DayBlocks, Attendance, Branch, DateStr, Holiday, ID, Klass, Result, Session, Staff, TimeStr, Weekday } from "../types"
 
 export const GENERATE_WEEKS = 8
 /** Soft limits only (owner 2026-09-30): a class takes any number of students — the app warns above 6, and above 3 for a
@@ -493,19 +493,106 @@ export function holidayImpact(date: DateStr, branchId: ID | null, sessions: Sess
   return sessions.filter((s) => !s.cancelled && s.date === date && (branchId === null ? !openBranchIds.includes(s.branchId) : s.branchId === branchId))
 }
 
-/** The branch's standard class blocks for a weekday (Sat/Sun use the weekend list), only those inside opening hours. */
-export function blockStartsFor(branch: Pick<Branch, "blocks" | "hours">, weekday: Weekday): TimeStr[] {
-  if (!branch.blocks) return []
-  const hours = branch.hours[weekday]
-  if (!hours) return []
-  const len = branch.blocks.minutes
-  return (weekday === 0 || weekday === 6 ? branch.blocks.weekend : branch.blocks.weekday)
-    .filter((t) => toMinutes(t) >= toMinutes(hours.open) && toMinutes(t) + len <= toMinutes(hours.close))
-    .sort()
+const PRIO = { high: 3, medium: 2, low: 1 } as const
+
+/** Active special periods covering a date, most important first (equal → the one added later). */
+export function periodsOn(branch: Pick<Branch, "specialPeriods">, date: DateStr) {
+  return branch.specialPeriods
+    .map((p, i) => ({ p, i }))
+    .filter(({ p }) => p.active && p.from <= date && date <= p.to)
+    .sort((a, b) => PRIO[b.p.priority] - PRIO[a.p.priority] || b.i - a.i)
+    .map(({ p }) => p)
 }
 
-/** Which block a time falls in (week board rows) — the block that contains it, else null. */
-export function blockOf(starts: TimeStr[], minutes: number, time: TimeStr): TimeStr | null {
+/**
+ * The class blocks (rows of the teacher board) for a date (owner 2026-10-01):
+ * 1. an active special period covering the date — its "this day only" blocks, else its blocks for that weekday
+ * 2. a "this day only" change on a normal day
+ * 3. the latest weekday plan that started on/before the date
+ */
+export function blocksOn(branch: Pick<Branch, "specialPeriods" | "blockDays" | "blockPlans">, date: DateStr): ClassBlock[] {
+  const wd = weekdayOf(date)
+  for (const p of periodsOn(branch, date)) {
+    const own = p.blockDays?.[date] ?? p.blocks?.[wd]
+    if (own) return sortBlocks(own)
+  }
+  if (branch.blockDays?.[date]) return sortBlocks(branch.blockDays[date])
+  const plan = [...(branch.blockPlans ?? [])].filter((x) => x.from <= date).sort((a, b) => b.from.localeCompare(a.from))[0]
+  return sortBlocks(plan?.byDay[wd] ?? [])
+}
+
+const sortBlocks = (b: ClassBlock[]) => [...b].sort((x, y) => x.start.localeCompare(y.start))
+
+/** Which block a session starting at `time` belongs to. */
+export function blockFor(blocks: ClassBlock[], time: TimeStr): ClassBlock | null {
   const m = toMinutes(time)
-  return starts.find((s) => m >= toMinutes(s) && m < toMinutes(s) + minutes) ?? null
+  return blocks.find((b) => m >= toMinutes(b.start) && m < toMinutes(b.end)) ?? null
+}
+
+export function validateBlocks(blocks: ClassBlock[]): string | null {
+  const s = sortBlocks(blocks)
+  for (const b of s) if (!b.start || !b.end || toMinutes(b.end) <= toMinutes(b.start)) return `ช่วง ${b.start || "?"}–${b.end || "?"} เวลาจบต้องหลังเวลาเริ่ม`
+  for (let i = 1; i < s.length; i++) if (toMinutes(s[i].start) < toMinutes(s[i - 1].end)) return `ช่วง ${s[i - 1].start}–${s[i - 1].end} ทับกับ ${s[i].start}–${s[i].end}`
+  return null
+}
+
+export type BlockScope = "day" | "following"
+export type BlockDays = "same" | "weekdays" | "weekend" | "all"
+
+const DAY_GROUP: Record<BlockDays, (wd: Weekday) => Weekday[]> = {
+  same: (wd) => [wd],
+  weekdays: () => [1, 2, 3, 4, 5],
+  weekend: () => [6, 0],
+  all: () => [0, 1, 2, 3, 4, 5, 6],
+}
+
+/**
+ * Save blocks from a date (owner 2026-10-01). Inside an active special period the change stays in that period;
+ * on normal days "day" = only that date, "following" = a new plan from that date for the chosen weekdays.
+ */
+export function applyBlocks(branch: Pick<Branch, "specialPeriods" | "blockDays" | "blockPlans">, date: DateStr, blocks: ClassBlock[], scope: BlockScope, days: BlockDays) {
+  const clean = sortBlocks(blocks)
+  const wds = DAY_GROUP[days](weekdayOf(date))
+  const period = periodsOn(branch, date)[0]
+  if (period) {
+    const specialPeriods = branch.specialPeriods.map((p) => p.id !== period.id ? p
+      : scope === "day" ? { ...p, blockDays: { ...p.blockDays, [date]: clean } }
+      : { ...p, blocks: { ...p.blocks, ...Object.fromEntries(wds.map((w) => [w, clean])) } })
+    return { specialPeriods, blockPlans: branch.blockPlans, blockDays: branch.blockDays, periodName: period.name }
+  }
+  if (scope === "day") return { specialPeriods: branch.specialPeriods, blockPlans: branch.blockPlans, blockDays: { ...branch.blockDays, [date]: clean }, periodName: null }
+  const plans = branch.blockPlans ?? []
+  const base = [...plans].filter((x) => x.from <= date).sort((a, b) => b.from.localeCompare(a.from))[0]
+  const byDay: DayBlocks = { ...base?.byDay, ...Object.fromEntries(wds.map((w) => [w, clean])) }
+  // later plans keep their own days but take this change for the same weekdays
+  const later = plans.filter((x) => x.from > date).map((x) => ({ ...x, byDay: { ...x.byDay, ...Object.fromEntries(wds.map((w) => [w, clean])) } }))
+  return { specialPeriods: branch.specialPeriods, blockPlans: [...plans.filter((x) => x.from < date), { from: date, byDay }, ...later], blockDays: branch.blockDays, periodName: null }
+}
+
+/** Which dates a block change from `date` reaches: that day, or every chosen weekday ahead (inside the period, if any). */
+export function blockChangeReaches(branch: Pick<Branch, "specialPeriods">, date: DateStr, scope: BlockScope, days: BlockDays) {
+  const wds = DAY_GROUP[days](weekdayOf(date))
+  const period = periodsOn(branch, date)[0]
+  return (d: DateStr) => scope === "day" ? d === date : d >= date && wds.includes(weekdayOf(d)) && (!period || d <= period.to)
+}
+
+/** Old block → new block, matched by position, only where the time actually moved. */
+export function blockShifts(before: ClassBlock[], after: ClassBlock[]): { from: ClassBlock; to: ClassBlock }[] {
+  const a = sortBlocks(before), b = sortBlocks(after)
+  return a.slice(0, b.length).map((x, i) => ({ from: x, to: b[i] })).filter(({ from, to }) => from.start !== to.start || from.end !== to.end)
+}
+
+/**
+ * Where a session/class at `start` (for `minutes`) goes when its block moves: same offset inside the block; one that
+ * filled the whole old block fills the whole new one. null = its block didn't move.
+ */
+export function shiftInBlock(start: TimeStr, minutes: number, before: ClassBlock[], after: ClassBlock[]): { start: TimeStr; minutes: number } | null {
+  const from = blockFor(before, start)
+  if (!from) return null
+  const m = blockShifts(before, after).find((x) => x.from.start === from.start)
+  if (!m) return null
+  const oldLen = toMinutes(m.from.end) - toMinutes(m.from.start)
+  const newLen = toMinutes(m.to.end) - toMinutes(m.to.start)
+  const at = toMinutes(m.to.start) + (toMinutes(start) - toMinutes(m.from.start))
+  return { start: fromMinutes(at), minutes: minutes === oldLen && start === m.from.start ? newLen : minutes }
 }
