@@ -1,12 +1,11 @@
 "use client"
 
 import { Fragment, useMemo, useState } from "react"
-import { BanIcon, CalendarIcon, CheckIcon, ClipboardCheckIcon, PencilIcon, PencilLineIcon, PlayIcon, PlusIcon, UsersRoundIcon } from "lucide-react"
+import { BanIcon, CalendarIcon, CheckIcon, ClipboardCheckIcon, FlaskConicalIcon, MessagesSquareIcon, PencilIcon, PencilLineIcon, PlayIcon, PlusIcon, ShapesIcon, UserIcon, UsersIcon, UsersRoundIcon } from "lucide-react"
 import type { ClassPrefill } from "@/components/app/class-dialog"
 import { avatarTone, gradeTone, initial, subjectColor } from "@/components/app/subject-color"
 import { Badge } from "@/components/ui/badge"
 import { addDays, endTime, fmtDate, fromMinutes, toDateStr, toMinutes, weekdayOf } from "@/domain/dates"
-import { sessionKindLabel } from "@/domain/rules/forms"
 import { blockOf, blockStartsFor, isHoliday, subjectsOf, workState, type WorkState } from "@/domain/rules/scheduling"
 import * as Seats from "@/domain/rules/seats"
 import type { Attendance, DateStr, Klass, Session, TimeStr } from "@/domain/types"
@@ -120,14 +119,15 @@ export function WeekTeacherBoard({ from, sessions, onOpen, onSlot, canCreate }: 
               {rows.length === 0 || teacherIds.length === 0 ? (
                 <p className="p-6 text-center text-sm text-muted-foreground">{closed || holiday ? "ไม่มีคลาส" : "ยังไม่มีคลาสวันนี้"}</p>
               ) : (
-                <div className="grid text-sm" style={{ gridTemplateColumns: cols }}>
+                <div className="grid bg-zinc-50 text-sm dark:bg-zinc-900/40" style={{ gridTemplateColumns: cols }}>
                   {/* teacher headers: avatar · name · subjects · classes that day */}
                   <div className="sticky left-0 z-10 border-b bg-card" />
+
                   {teacherIds.map((tid) => {
                     const t = staff.find((x) => x.id === tid)
                     const n = live.filter((s) => s.date === date && (s.teacherId ?? "") === tid).length
                     return (
-                      <div key={tid || "none"} className="flex items-center gap-3 border-b border-l px-4 py-3">
+                      <div key={tid || "none"} className="flex items-center gap-3 border-b border-l bg-card px-4 py-3">
                         <span className={cn("grid size-11 shrink-0 place-items-center rounded-full text-base font-semibold", avatarTone(tid || "none"))}>{t ? initial(t.nickname) : "?"}</span>
                         <div className="min-w-0 flex-1">
                           <p className="truncate font-semibold">{tid ? L.teacher(tid).label : "ยังไม่มีครู"}</p>
@@ -144,11 +144,10 @@ export function WeekTeacherBoard({ from, sessions, onOpen, onSlot, canCreate }: 
                     return (
                       <Fragment key={row.start}>
                         {/* Room line of the block */}
-                        <div className="sticky left-0 z-10 border-b bg-muted/40 px-3 py-2 text-sm text-muted-foreground">Room</div>
-                        {teacherIds.map((tid) => {
-                          const rooms = [...new Set(cellSessions(date, tid, row).map((s) => L.room(s.roomId)))]
-                          return <div key={`r-${tid}`} className="border-b border-l bg-muted/40 px-3 py-2 text-center text-sm">{rooms.length ? rooms.join(", ") : <span className="text-muted-foreground">-</span>}</div>
-                        })}
+                        <div className="sticky left-0 z-10 border-b bg-zinc-100 px-3 py-1.5 text-xs text-muted-foreground dark:bg-zinc-800">Room</div>
+                        {teacherIds.map((tid) => (
+                          <RoomLine key={`r-${tid}`} sessions={cellSessions(date, tid, row)} classes={classes} live={(x) => workState(x, now, attendance, summaries).state === "live"} />
+                        ))}
 
                         <div className={cn("sticky left-0 z-10 flex flex-col items-center justify-center gap-1 border-b bg-card px-2 py-3 text-sm tabular-nums", past && "text-muted-foreground", nowHere && "font-semibold text-primary")}>
                           <span>{row.start}</span>
@@ -156,10 +155,16 @@ export function WeekTeacherBoard({ from, sessions, onOpen, onSlot, canCreate }: 
                         </div>
                         {teacherIds.map((tid) => {
                           const cell = cellSessions(date, tid, row)
+                          // white = has students · light grey = a session with no students yet · table grey = nothing here
+                          const hasStudents = cell.some((x) => x.studentIds.length > 0)
+                          const liveHere = cell.some((x) => workState(x, now, attendance, summaries).state === "live")
                           return (
-                            <div key={`c-${tid}`} className={cn("group/cell relative min-h-32 space-y-2 border-b border-l p-1.5", past && "bg-muted/30")}>
+                            <div key={`c-${tid}`} className={cn("group/cell relative min-h-28 divide-y border-b border-l",
+                              hasStudents ? "bg-card" : cell.length ? "bg-zinc-100 dark:bg-zinc-800/60" : "",
+                              past && cell.length > 0 && "opacity-75",
+                              liveHere && "shadow-[inset_3px_0_0_0_var(--color-primary)]")}>
                               {cell.map((s) => (
-                                <ClassCard key={s.id} s={s} row={row} blockLen={blockLen}
+                                <SessionBlock key={s.id} s={s} row={row} blockLen={blockLen}
                                   state={workState(s, now, attendance, summaries).state}
                                   ended={sessionEnded(s)} dayDate={dayDate}
                                   canEdit={canCreate || s.teacherId === me || s.coTeacherIds.includes(me)}
@@ -168,7 +173,7 @@ export function WeekTeacherBoard({ from, sessions, onOpen, onSlot, canCreate }: 
                               ))}
                               {cell.length === 0 && canCreate && row.block && tid && !closed && !holiday && !past && (
                                 <button type="button" onClick={() => onSlot({ date, start: row.start, teacherId: tid })}
-                                  className="absolute inset-1.5 hidden items-center justify-center gap-2 rounded-2xl border-2 border-dashed text-sm text-muted-foreground group-hover/cell:flex hover:bg-muted/40">
+                                  className="absolute inset-0 flex items-center justify-center gap-1.5 text-sm text-transparent transition group-hover/cell:bg-card group-hover/cell:text-muted-foreground">
                                   <PlusIcon className="size-4" /> สร้างคลาส
                                 </button>
                               )}
@@ -189,57 +194,96 @@ export function WeekTeacherBoard({ from, sessions, onOpen, onSlot, canCreate }: 
   )
 }
 
-/** One class in a block, in the subject's colour — filled while it's live, dashed for a trial/test. */
-function ClassCard({ s, row, blockLen, state, ended, dayDate, canEdit, onOpen, onNote, klass, attendance, allSessions }: {
+const KIND_ICON = {
+  test: { icon: ClipboardCheckIcon, label: "Test" },
+  trial: { icon: FlaskConicalIcon, label: "Trial" },
+  interview: { icon: MessagesSquareIcon, label: "Interview" },
+  other: { icon: ShapesIcon, label: "Others" },
+} as const
+
+/** What kind of session this is, for the Room line (normal learning sessions show nothing). */
+function kindOf(s: Session, klass?: Klass): keyof typeof KIND_ICON | null {
+  if (s.assessment === "test" || klass?.kind === "test") return "test"
+  if (s.assessment === "trial" || s.trial) return "trial"
+  if (klass?.kind === "interview") return "interview"
+  if (klass?.kind === "other") return "other"
+  return null
+}
+
+/**
+ * The Room line above a block (owner 2026-10-01): room first and boldest, then students · kind · group/single as quiet
+ * grey icons — words appear only when the column is wide enough (container query), so neighbours stay calm.
+ */
+function RoomLine({ sessions, classes, live }: { sessions: Session[]; classes: Klass[]; live: (s: Session) => boolean }) {
+  const L = useLookup()
+  if (!sessions.length) return <div className="border-b border-l bg-zinc-100 px-3 py-1.5 text-center text-xs text-muted-foreground dark:bg-zinc-800">-</div>
+  return (
+    <div className="@container border-b border-l bg-zinc-100 px-3 py-1.5 dark:bg-zinc-800">
+      {sessions.map((s) => {
+        const k = classes.find((c) => c.id === s.classId)
+        const kind = kindOf(s, k)
+        const K = kind ? KIND_ICON[kind] : null
+        const single = k?.type === "single"
+        return (
+          <div key={s.id} className="flex items-center gap-2.5 text-xs text-muted-foreground">
+            {live(s) && <span className="relative flex size-2 shrink-0" title="กำลังเรียน"><span className="absolute inline-flex size-full animate-ping rounded-full bg-primary opacity-60" /><span className="relative inline-flex size-2 rounded-full bg-primary" /></span>}
+            <span className="truncate text-sm font-semibold text-foreground">{L.room(s.roomId)}</span>
+            <span className="ml-auto flex shrink-0 items-center gap-2.5">
+              <span className="flex items-center gap-1" title={`นักเรียน ${s.studentIds.length} คน`}><UsersRoundIcon className="size-3.5" />{s.studentIds.length}</span>
+              {K && <span className="flex items-center gap-1" title={K.label}><K.icon className="size-3.5" /><span className="hidden @[15rem]:inline">{K.label}</span></span>}
+              <span className="flex items-center gap-1" title={single ? "Single (เรียนเดี่ยว)" : "Group"}>
+                {single ? <UserIcon className="size-3.5" /> : <UsersIcon className="size-3.5" />}<span className="hidden @[15rem]:inline">{single ? "Single" : "Group"}</span>
+              </span>
+            </span>
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
+/** One session inside a block — no card: just the subject line and the students, on the cell itself. */
+function SessionBlock({ s, row, blockLen, state, ended, dayDate, canEdit, onOpen, onNote, klass, attendance, allSessions }: {
   s: Session; row: Row; blockLen: number; state: WorkState; ended: boolean; dayDate: (d: DateStr) => string; canEdit: boolean
   onOpen: (id: string) => void; onNote: (studentId: string, text: string) => void
   klass?: Klass; attendance: Attendance[]; allSessions: Session[]
 }) {
   const L = useLookup()
   const c = subjectColor(s.subject)
-  const liveNow = state === "live"
-  const kind = sessionKindLabel(s)
   const St = STATE_ICON[state]
   const own = s.start !== row.start || s.minutes !== blockLen
   return (
-    <div className={cn("rounded-2xl border p-3 shadow-xs", liveNow ? c.strong : c.soft, s.trial && "border-2 border-dashed", ended && !liveNow && "opacity-80")}>
-      <div className="mb-2 flex items-center gap-2">
-        <button type="button" onClick={() => onOpen(s.id)} className={cn("min-w-0 truncate text-left font-semibold hover:underline", !liveNow && c.text)}>
-          {subjectsOf(s).join(" + ")}
-          {own && <span className={cn("ml-1.5 text-xs font-normal", liveNow ? "text-white/80" : "text-muted-foreground")}>{s.start}–{endTime(s.start, s.minutes)}</span>}
+    <div className="space-y-1.5 px-3 py-2">
+      <div className="flex items-center gap-2">
+        <span className={cn("size-2 shrink-0 rounded-full", c.bar)} />
+        <button type="button" onClick={() => onOpen(s.id)} className="min-w-0 truncate text-left text-xs font-semibold text-muted-foreground hover:text-foreground hover:underline">
+          {subjectsOf(s).join(" + ")}{own && <span className="ml-1.5 font-normal">{s.start}–{endTime(s.start, s.minutes)}</span>}
         </button>
-        {kind && <Badge variant="outline" className="shrink-0 rounded-full bg-background/60 text-[11px]">{kind}</Badge>}
-        <span className={cn("ml-auto flex shrink-0 items-center gap-2 text-xs", liveNow ? "text-white/85" : "text-muted-foreground")}>
-          <span className="flex items-center gap-1" title="จำนวนนักเรียน"><UsersRoundIcon className="size-3.5" />{s.studentIds.length}</span>
-          {s.coTeacherIds.length > 0 && <span title="ครูช่วยสอน">+{s.coTeacherIds.map((x) => L.teacher(x).label).join(", ")}</span>}
-          <St.icon className={cn("size-4", !liveNow && St.tone)} aria-label={St.label} />
-        </span>
+        {s.coTeacherIds.length > 0 && <span className="shrink-0 text-[11px] text-muted-foreground" title="ครูช่วยสอน">+{s.coTeacherIds.map((x) => L.teacher(x).label).join(", ")}</span>}
+        <St.icon className={cn("ml-auto size-3.5 shrink-0", state === "live" ? "text-primary" : St.tone)} aria-label={St.label} />
       </div>
-      {/* one student per line — two columns were too cramped for the note (owner 2026-09-30) */}
-      <div className="space-y-1.5">
-        {s.studentIds.map((sid) => {
-          const seat = Seats.seatOf(s, sid, klass)
-          const a = attendance.find((x) => x.sessionId === s.id && x.studentId === sid)
-          const moved = s.rescheduledIn?.includes(sid) ? allSessions.find((x) => x.rescheduledOut?.some((m) => m.studentId === sid && m.toSessionId === s.id)) : undefined
-          const result = a ? { text: MARK_TEXT[a.status], tone: MARK_TONE[a.status] } : ended && !s.trial ? { text: "ยังไม่เช็ค", tone: "text-amber-700" } : null
-          return (
-            <StudentLine key={sid} nickname={L.student(sid)?.nickname ?? "?"} grade={L.student(sid)?.grade ?? ""} avatarKey={sid}
-              note={s.notes?.[sid]} time={Seats.isPartial(seat, s.minutes) ? Seats.seatTime(s.start, seat) : undefined}
-              result={result} movedFrom={moved ? `ย้ายมาจาก ${dayDate(moved.date)}` : undefined} inverted={liveNow}
-              onOpen={() => onOpen(s.id)} onNote={(text) => onNote(sid, text)} canEdit={canEdit} />
-          )
-        })}
-        {(s.rescheduledOut ?? []).map((m) => {
-          const to = allSessions.find((x) => x.id === m.toSessionId)
-          return (
-            <button key={`out-${m.studentId}`} type="button" onClick={() => to && onOpen(to.id)} className={cn("flex items-center gap-2 text-left text-xs", liveNow ? "text-white/80" : "text-muted-foreground")}>
-              <span className="line-through">{L.student(m.studentId)?.nickname}</span>
-              <span className="ml-auto shrink-0">→ {to ? `${dayDate(to.date)} ${to.start}` : "ย้ายแล้ว"}</span>
-            </button>
-          )
-        })}
-        {s.studentIds.length === 0 && <p className={cn("text-xs", liveNow ? "text-white/80" : "text-muted-foreground")}>ยังไม่มีนักเรียน</p>}
-      </div>
+      {s.studentIds.map((sid) => {
+        const seat = Seats.seatOf(s, sid, klass)
+        const a = attendance.find((x) => x.sessionId === s.id && x.studentId === sid)
+        const moved = s.rescheduledIn?.includes(sid) ? allSessions.find((x) => x.rescheduledOut?.some((m) => m.studentId === sid && m.toSessionId === s.id)) : undefined
+        const result = a ? { text: MARK_TEXT[a.status], tone: MARK_TONE[a.status] } : ended && !s.trial ? { text: "ยังไม่เช็ค", tone: "text-amber-700" } : null
+        return (
+          <StudentLine key={sid} nickname={L.student(sid)?.nickname ?? "?"} grade={L.student(sid)?.grade ?? ""} avatarKey={sid}
+            note={s.notes?.[sid]} time={Seats.isPartial(seat, s.minutes) ? Seats.seatTime(s.start, seat) : undefined}
+            result={result} movedFrom={moved ? `ย้ายมาจาก ${dayDate(moved.date)}` : undefined} inverted={false}
+            onOpen={() => onOpen(s.id)} onNote={(text) => onNote(sid, text)} canEdit={canEdit} />
+        )
+      })}
+      {(s.rescheduledOut ?? []).map((m) => {
+        const to = allSessions.find((x) => x.id === m.toSessionId)
+        return (
+          <button key={`out-${m.studentId}`} type="button" onClick={() => to && onOpen(to.id)} className="flex w-full items-center gap-2 text-left text-xs text-muted-foreground">
+            <span className="line-through">{L.student(m.studentId)?.nickname}</span>
+            <span className="ml-auto shrink-0">→ {to ? `${dayDate(to.date)} ${to.start}` : "ย้ายแล้ว"}</span>
+          </button>
+        )
+      })}
+      {s.studentIds.length === 0 && <button type="button" onClick={() => onOpen(s.id)} className="text-xs text-muted-foreground hover:underline">ยังไม่มีนักเรียน · เปิดคาบ</button>}
     </div>
   )
 }
