@@ -1,10 +1,15 @@
 "use client"
 
 import { Fragment, useMemo, useState } from "react"
-import { BanIcon, CalendarIcon, CheckIcon, ClipboardCheckIcon, FlaskConicalIcon, MessagesSquareIcon, PencilIcon, PencilLineIcon, PlayIcon, PlusIcon, ShapesIcon, UserIcon, UsersIcon, UsersRoundIcon } from "lucide-react"
+import { ArrowLeftRightIcon, BanIcon, CalendarIcon, EllipsisIcon, CheckIcon, ClipboardCheckIcon, FlaskConicalIcon, MessagesSquareIcon, PencilIcon, PencilLineIcon, PlayIcon, PlusIcon, ShapesIcon, UserIcon, UsersIcon, UsersRoundIcon } from "lucide-react"
 import type { ClassPrefill } from "@/components/app/class-dialog"
 import { avatarTone, gradeTone, initial, subjectColor } from "@/components/app/subject-color"
 import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
+import { Input } from "@/components/ui/input"
+import { NativeSelect } from "@/components/app/native-select"
 import { addDays, endTime, fmtDate, fromMinutes, toDateStr, toMinutes, weekdayOf } from "@/domain/dates"
 import { blockOf, blockStartsFor, isHoliday, subjectsOf, workState, type WorkState } from "@/domain/rules/scheduling"
 import * as Seats from "@/domain/rules/seats"
@@ -95,6 +100,7 @@ export function WeekTeacherBoard({ from, sessions, onOpen, onSlot, canCreate }: 
       .sort((a, b) => a.start.localeCompare(b.start))
   const nowPct = (row: Row) => Math.min(100, Math.max(0, ((nowMin - toMinutes(row.start)) / (endMin(row) - toMinutes(row.start))) * 100))
 
+  const [dayAction, setDayAction] = useState<{ mode: "substitute" | "cancel"; teacherId: string; date: DateStr } | null>(null)
   const cols = `5.5rem repeat(${Math.max(1, teacherIds.length)}, minmax(17rem, 1fr))`
 
   return (
@@ -106,6 +112,7 @@ export function WeekTeacherBoard({ from, sessions, onOpen, onSlot, canCreate }: 
         ))}
       </nav>
 
+      {dayAction && <TeacherDayDialog {...dayAction} onClose={() => setDayAction(null)} />}
       {days.map((date) => {
         const rows = rowsFor(date)
         const closed = !branch.hours[weekdayOf(date)]
@@ -126,14 +133,38 @@ export function WeekTeacherBoard({ from, sessions, onOpen, onSlot, canCreate }: 
                   {teacherIds.map((tid) => {
                     const t = staff.find((x) => x.id === tid)
                     const n = live.filter((s) => s.date === date && (s.teacherId ?? "") === tid).length
+                    // this teacher's leave on that day: covered by someone, or the day was cancelled
+                    const away = allSessions.filter((x) => x.date === date && x.teacherLeave?.teacherId === tid)
+                    const canMenu = canCreate && !!tid && n > 0 && date >= today
                     return (
-                      <div key={tid || "none"} className="flex items-center gap-3 border-b border-l bg-card px-4 py-3">
+                      <div key={tid || "none"} className="group/head relative flex items-center gap-3 border-b border-l bg-card px-4 py-3">
                         <span className={cn("grid size-11 shrink-0 place-items-center rounded-full text-base font-semibold", avatarTone(tid || "none"))}>{t ? initial(t.nickname) : "?"}</span>
                         <div className="min-w-0 flex-1">
                           <p className="truncate font-semibold">{tid ? L.teacher(tid).label : "ยังไม่มีครู"}</p>
                           <p className="truncate text-xs text-muted-foreground">{t?.subjects.join(", ") ?? "—"}</p>
                         </div>
+                        {away.length > 0 && (
+                          <span className="shrink-0 rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-medium text-amber-900 dark:bg-amber-950 dark:text-amber-200"
+                            title={away.map((x) => `${x.start} ${x.subject}: ${x.teacherLeave!.substituteId ? `${L.teacher(x.teacherLeave!.substituteId).label} สอนแทน` : "ยกเลิก"}`).join("\n")}>
+                            {away.every((x) => !x.teacherLeave!.substituteId) ? "ลา · ยกเลิกคลาส" : "ลา · เปลี่ยนครู"}
+                          </span>
+                        )}
                         <Badge variant="secondary" className="rounded-full tabular-nums">{n}</Badge>
+                        {canMenu && (
+                          <DropdownMenu>
+                            <DropdownMenuTrigger render={<button type="button" aria-label={`จัดการวันของ ${L.teacher(tid).label}`} className="grid size-7 place-items-center rounded-full text-muted-foreground opacity-0 group-hover/head:opacity-100 hover:bg-muted data-[popup-open]:opacity-100" />}>
+                              <EllipsisIcon className="size-4" />
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end" className="w-64">
+                              <DropdownMenuItem onClick={() => setDayAction({ mode: "substitute", teacherId: tid, date })}>
+                                <ArrowLeftRightIcon /><span className="flex flex-col"><span>เปลี่ยนครู (ทั้งวัน)</span><span className="text-xs text-muted-foreground">ทุกคาบของ{L.teacher(tid).label} วันนี้ {n} คาบ</span></span>
+                              </DropdownMenuItem>
+                              <DropdownMenuItem variant="destructive" onClick={() => setDayAction({ mode: "cancel", teacherId: tid, date })}>
+                                <BanIcon /><span className="flex flex-col"><span>ยกเลิกคลาส (ทั้งวัน)</span><span className="text-xs">กรณีฉุกเฉินที่หาครูแทนไม่ได้</span></span>
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        )}
                       </div>
                     )
                   })}
@@ -191,6 +222,55 @@ export function WeekTeacherBoard({ from, sessions, onOpen, onSlot, canCreate }: 
         )
       })}
     </div>
+  )
+}
+
+/** Header menu actions for one teacher's whole day: one substitute for every session, or cancel them all. */
+function TeacherDayDialog({ mode, teacherId, date, onClose }: { mode: "substitute" | "cancel"; teacherId: string; date: DateStr; onClose: () => void }) {
+  const staff = useStore((st) => st.staff)
+  const sessions = useStore((st) => st.sessions)
+  const substitute = useStore((st) => st.substituteTeacherForDay)
+  const cancelDay = useStore((st) => st.cancelTeacherDay)
+  const now = useNow(60_000)
+  const L = useLookup()
+  const [reason, setReason] = useState("")
+  const [subId, setSubId] = useState("")
+  const day = sessions.filter((x) => x.date === date && x.teacherId === teacherId && !x.cancelled && toDateStr(now) <= x.date).sort((a, b) => a.start.localeCompare(b.start))
+  const subjects = [...new Set(day.flatMap((x) => subjectsOf(x)))]
+  const branchId = day[0]?.branchId
+  // regular teachers first, then part-time; the ones who teach every subject of the day first
+  const teachers = staff.filter((t) => t.active && t.roles.includes("teacher") && !!branchId && t.branchIds.includes(branchId) && t.id !== teacherId)
+    .sort((a, b) => Number(!!a.partTime) - Number(!!b.partTime))
+  const fits = (t: (typeof teachers)[number]) => subjects.every((x) => t.subjects.includes(x))
+  const students = new Set(day.flatMap((x) => x.studentIds)).size
+  const submit = () => (mode === "substitute"
+    ? report(substitute(teacherId, date, subId, reason), (v) => `${L.teacher(subId).label} สอนแทน ${v.sessions} คาบแล้ว`)
+    : report(cancelDay(teacherId, date, reason), (v) => `ยกเลิก ${v.sessions} คาบ · เลื่อนวันจบให้นักเรียน ${v.students} คน`)) && onClose()
+  return (
+    <Dialog open onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>{mode === "substitute" ? "เปลี่ยนครู (ทั้งวัน)" : "ยกเลิกคลาส (ทั้งวัน)"} · {L.teacher(teacherId).label}</DialogTitle>
+          <DialogDescription>{DAY_FULL[weekdayOf(date)]} {fmtDate(date, { year: true })} · {day.length} คาบ · นักเรียน {students} คน</DialogDescription>
+        </DialogHeader>
+        <ul className="max-h-40 space-y-1 overflow-y-auto rounded-xl bg-muted/40 p-2 text-xs">
+          {day.map((x) => <li key={x.id}>{x.start}–{endTime(x.start, x.minutes)} · {subjectsOf(x).join(" + ")} · {L.room(x.roomId)} · {x.studentIds.length} คน</li>)}
+        </ul>
+        <Input value={reason} onChange={(e) => setReason(e.target.value)} placeholder={mode === "substitute" ? "เหตุผล เช่น ครูป่วย / ลากิจ" : "เหตุผลการยกเลิก (จำเป็น)"} />
+        {mode === "substitute" ? (
+          <NativeSelect value={subId} onChange={(e) => setSubId(e.target.value)} placeholder="เลือกครูสอนแทน"
+            options={[...teachers.filter(fits), ...teachers.filter((t) => !fits(t))].map((t) => ({ value: t.id, label: `${t.nickname}${t.partTime ? " · Part-time" : ""}${fits(t) ? "" : " (สอนไม่ครบทุกวิชาของวันนี้)"}` }))} />
+        ) : (
+          <p className="rounded-xl bg-red-50 p-2.5 text-xs text-red-900 dark:bg-red-950/40 dark:text-red-200">ทุกคาบของ{L.teacher(teacherId).label}วันนี้จะถูกยกเลิก · วันเรียนจบของนักเรียนทุกคนเลื่อนออกไป 1 คาบ · แจ้งเตือนทีมแล้ว</p>
+        )}
+        <DialogFooter>
+          <Button variant="ghost" onClick={onClose}>ปิด</Button>
+          <Button variant={mode === "cancel" ? "destructive" : "default"} disabled={!reason.trim() || (mode === "substitute" && !subId) || !day.length} onClick={submit}>
+            {mode === "substitute" ? "ให้สอนแทนทั้งวัน" : "ยกเลิกทั้งวัน"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   )
 }
 
@@ -264,6 +344,11 @@ function SessionBlock({ s, row, blockLen, state, ended, dayDate, canEdit, onOpen
           {subjectsOf(s).join(" + ")}{own && <span className="ml-1.5 font-normal">{s.start}–{endTime(s.start, s.minutes)}</span>}
         </button>
         {s.coTeacherIds.length > 0 && <span className="shrink-0 text-[11px] text-muted-foreground" title="ครูช่วยสอน">+{s.coTeacherIds.map((x) => L.teacher(x).label).join(", ")}</span>}
+        {s.teacherLeave?.substituteId && (
+          <span className="flex shrink-0 items-center gap-0.5 text-[11px] text-amber-700" title={`สอนแทน${L.teacher(s.teacherLeave.teacherId).label} · ${s.teacherLeave.reason}`}>
+            <ArrowLeftRightIcon className="size-3" />แทน{L.teacher(s.teacherLeave.teacherId).label}
+          </span>
+        )}
         <St.icon className={cn("ml-auto size-3.5 shrink-0", dot && "mr-3", state === "live" ? "text-primary" : St.tone)} aria-label={St.label} />
       </div>
       {s.studentIds.map((sid) => {

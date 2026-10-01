@@ -101,6 +101,10 @@ type Store = DB & UIState & {
   setSeat: (scope: "session" | "class", id: ID, studentId: ID, seat: Seat | null) => Result
   /** free-form reminder for a student in this session ("Math Book Lesson 1 Page 2-6") — empty text removes it */
   setSessionNote: (sessionId: ID, studentId: ID, text: string) => Result
+  /** teacher header menu (owner 2026-10-01): one substitute for every session of this teacher on that day */
+  substituteTeacherForDay: (teacherId: ID, date: DateStr, substituteId: ID, reason: string) => Result<{ sessions: number }>
+  /** emergency: cancel every session of this teacher on that day — each student's package runs one class longer */
+  cancelTeacherDay: (teacherId: ID, date: DateStr, reason: string) => Result<{ sessions: number; students: number }>
   /** the current user opened (and closed) this session — clears their red dot */
   markSessionSeen: (sessionId: ID) => void
   saveStudentLeave: (input: { id?: ID; studentId: ID; from: DateStr; to: DateStr; reason: string }) => Result
@@ -820,6 +824,42 @@ export const useStore = create<Store>()(
         set({ attendance: s.attendance.map((x) => (x === a ? { ...x, minutes: value } : x)) })
         log("attendance", [studentId], "แก้เวลาเรียนจริง", `${se.subject} ${fmtDate(se.date)} ${se.start} · มาเรียน ${Seats.fmtLen(value ?? seat.minutes)}`)
         return OK
+      },
+
+      substituteTeacherForDay: (teacherId, date, substituteId, reason) => {
+        const s = get()
+        const perm = requirePerm(s.me(), "session.manage")
+        if (!perm.ok) return perm
+        if (!reason.trim()) return fail("กรอกเหตุผล")
+        const now = s.now()
+        const day = s.sessions.filter((x) => x.date === date && x.teacherId === teacherId && !x.cancelled && Sch.sessionState(x, now) !== "closed")
+        if (!day.length) return fail("ไม่มีคาบที่ยังเปลี่ยนครูได้ในวันนั้น")
+        // check every session first so nothing changes unless all of them can move to the substitute
+        const sub = s.staff.find((t) => t.id === substituteId)
+        if (!sub?.active) return fail("เลือกครูแทนที่ยังทำงานอยู่")
+        const branch = s.branches.find((b) => b.id === day[0].branchId)!
+        let trial = s.sessions
+        for (const x of day) {
+          const next = trial.map((y) => (y.id === x.id ? { ...y, teacherId: substituteId, coTeacherIds: y.coTeacherIds.filter((c) => c !== substituteId) } : y))
+          const clash = Sch.introducedConflicts(trial, next, [x.id], branch, s.staff, ["teacher"]).added[0]
+          if (clash) return fail(`${sub.nickname} สอนแทนคาบ ${x.subject} ${x.start} ไม่ได้ — ${clash.message}`)
+          trial = next
+        }
+        for (const x of day) { const r = get().teacherLeave(x.id, { reason, substituteId }); if (!r.ok) return r }
+        return { ok: true, value: { sessions: day.length } }
+      },
+
+      cancelTeacherDay: (teacherId, date, reason) => {
+        const s = get()
+        const perm = requirePerm(s.me(), "session.manage")
+        if (!perm.ok) return perm
+        if (!reason.trim()) return fail("กรอกเหตุผลการยกเลิก")
+        const now = s.now()
+        const day = s.sessions.filter((x) => x.date === date && x.teacherId === teacherId && !x.cancelled && Sch.sessionState(x, now) !== "closed")
+        if (!day.length) return fail("ไม่มีคาบที่ยังยกเลิกได้ในวันนั้น")
+        let students = 0
+        for (const x of day) { const r = get().teacherLeave(x.id, { reason, substituteId: null }); if (!r.ok) return r; students += r.value.extended }
+        return { ok: true, value: { sessions: day.length, students } }
       },
 
       markSessionSeen: (sessionId) => {
