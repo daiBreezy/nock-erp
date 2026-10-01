@@ -1,6 +1,6 @@
 "use client"
 
-import type { ReactNode } from "react"
+import { useState, type ReactNode } from "react"
 import { ArrowDownIcon, ArrowUpIcon } from "lucide-react"
 import { cn } from "@/lib/utils"
 
@@ -50,27 +50,36 @@ export function Empty({ children = "ยังไม่มีข้อมูล�
 
 const TH_MONTH_SHORT = ["ม.ค.", "ก.พ.", "มี.ค.", "เม.ย.", "พ.ค.", "มิ.ย.", "ก.ค.", "ส.ค.", "ก.ย.", "ต.ค.", "พ.ย.", "ธ.ค."]
 
-/** Jan…Dec bars: this year (solid) next to last year (light). Months not reached yet stay empty. */
-export function MonthBars({ thisYear, lastYear, current, fmt = fmtShort }: { thisYear: (number | null)[]; lastYear: (number | null)[]; current: number; fmt?: (n: number) => string }) {
+/** Jan…Dec bars: this year (solid) next to last year (light). Months not reached yet stay empty. Hovering a month
+ *  shows a card with both years and the change (owner ref 2026-10-01). */
+export function MonthBars({ thisYear, lastYear, current, unit = "", currentLastYearToDate, todayLabel }: {
+  thisYear: (number | null)[]; lastYear: (number | null)[]; current: number; unit?: string
+  /** the month in progress compares with the same dates last year (1–N), not last year's whole month */
+  currentLastYearToDate?: number; todayLabel?: string
+}) {
+  const [hover, setHover] = useState<number | null>(null)
   const max = Math.max(1, ...thisYear.map((x) => x ?? 0), ...lastYear.map((x) => x ?? 0))
   const hasLast = lastYear.some((x) => !!x)
   return (
     <div>
-      <div className="flex h-48 items-end gap-1.5 border-b sm:gap-2.5">
+      <div className="relative flex h-48 items-end gap-1.5 border-b sm:gap-2.5" onMouseLeave={() => setHover(null)}>
         {thisYear.map((v, m) => {
           const l = lastYear[m]
+          const on = hover === m
           return (
-            <div key={m} className={cn("group relative flex h-full flex-1 items-end justify-center gap-0.5 rounded-t-lg", m === current && "bg-muted/60")}
-              title={`${TH_MONTH_SHORT[m]} · ปีนี้ ${v === null ? "—" : fmtNum(v)}${hasLast ? ` · ปีที่แล้ว ${l === null ? "—" : fmtNum(l)}` : ""}`}>
-              <div className="w-1/2 max-w-4 rounded-t bg-primary transition-all" style={{ height: `${((v ?? 0) / max) * 100}%` }} />
-              {hasLast && <div className="w-1/2 max-w-4 rounded-t bg-primary/25" style={{ height: `${((l ?? 0) / max) * 100}%` }} />}
-              {v !== null && v > 0 && <span className="pointer-events-none absolute -top-5 hidden rounded bg-foreground px-1 text-[10px] text-background group-hover:block">{fmt(v)}</span>}
+            <div key={m} onMouseEnter={() => setHover(m)}
+              className={cn("relative flex h-full flex-1 items-end justify-center gap-0.5 rounded-t-lg transition-colors", (on || (hover === null && m === current)) && "bg-muted/70")}>
+              <div className={cn("w-1/2 max-w-4 rounded-t bg-primary transition-all", hover !== null && !on && "opacity-50")} style={{ height: `${((v ?? 0) / max) * 100}%` }} />
+              {hasLast && <div className={cn("w-1/2 max-w-4 rounded-t bg-primary/25", hover !== null && !on && "opacity-50")} style={{ height: `${((l ?? 0) / max) * 100}%` }} />}
+              {on && (v !== null || l) && <MonthTip month={m} thisYear={v} lastYear={hasLast ? l : null} fmt={fmtNum} unit={unit}
+                toDate={m === current && currentLastYearToDate !== undefined ? { value: currentLastYearToDate, label: todayLabel ?? "" } : undefined}
+                side={m > 7 ? "left" : "right"} top={Math.min(55, 100 - (Math.max(v ?? 0, l ?? 0) / max) * 100)} />}
             </div>
           )
         })}
       </div>
       <div className="mt-1 flex gap-1.5 text-center text-[10px] text-muted-foreground sm:gap-2.5">
-        {TH_MONTH_SHORT.map((m, i) => <span key={m} className={cn("flex-1", i === current && "font-semibold text-foreground")}>{m}</span>)}
+        {TH_MONTH_SHORT.map((m, i) => <span key={m} className={cn("flex-1", (hover === i || (hover === null && i === current)) && "font-semibold text-foreground")}>{m}</span>)}
       </div>
       <div className="mt-2 flex gap-3 text-xs text-muted-foreground">
         <span className="flex items-center gap-1"><span className="size-2 rounded-full bg-primary" />ปีนี้</span>
@@ -79,6 +88,39 @@ export function MonthBars({ thisYear, lastYear, current, fmt = fmtShort }: { thi
     </div>
   )
 }
+
+/** The hover card: this year with its change vs last year, then last year */
+function MonthTip({ month, thisYear, lastYear, fmt, unit, side, top, toDate }: { month: number; thisYear: number | null; lastYear: number | null; fmt: (n: number) => string; unit: string; side: "left" | "right"; top: number; toDate?: { value: number; label: string } }) {
+  const base = toDate ? toDate.value : lastYear
+  const pct = thisYear !== null && base ? Math.round(((thisYear - base) / base) * 1000) / 10 : null
+  return (
+    // beside the bar, level with its top (like the ref) — never above the chart
+    <div className={cn("pointer-events-none absolute z-20 w-40 rounded-2xl bg-popover p-3 text-left shadow-lg ring-1 ring-foreground/10",
+      side === "right" ? "left-full ml-1" : "right-full mr-1")} style={{ top: `${Math.max(0, top)}%` }}>
+      <p className="mb-1.5 text-[11px] font-medium text-muted-foreground">{TH_MONTH_FULL[month]}</p>
+      <div className="flex items-start gap-2">
+        <span className="mt-1.5 size-1.5 shrink-0 rounded-full bg-primary" />
+        <div className="flex-1">
+          <p className="text-[11px] text-muted-foreground">ปีนี้</p>
+          <p className="text-sm font-semibold tabular-nums">{thisYear === null ? "—" : `${fmt(thisYear)}${unit}`}</p>
+        </div>
+        {pct !== null && <span className={cn("rounded-full px-1.5 py-0.5 text-[10px] font-semibold tabular-nums", pct >= 0 ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300" : "bg-red-100 text-red-700 dark:bg-red-950 dark:text-red-300")}>{pct >= 0 ? "+" : ""}{pct}%</span>}
+      </div>
+      {lastYear !== null && (
+        <div className="mt-2 flex items-start gap-2 border-t border-dashed pt-2">
+          <span className="mt-1.5 size-1.5 shrink-0 rounded-full bg-primary/30" />
+          <div>
+            <p className="text-[11px] text-muted-foreground">ปีที่แล้ว{toDate ? ` (${toDate.label})` : ""}</p>
+            <p className="text-sm tabular-nums">{toDate ? `${fmt(toDate.value)}${unit}` : lastYear ? `${fmt(lastYear)}${unit}` : "—"}</p>
+            {toDate && lastYear ? <p className="text-[10px] text-muted-foreground">ทั้งเดือน {fmt(lastYear)}{unit}</p> : null}
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+const TH_MONTH_FULL = ["มกราคม", "กุมภาพันธ์", "มีนาคม", "เมษายน", "พฤษภาคม", "มิถุนายน", "กรกฎาคม", "สิงหาคม", "กันยายน", "ตุลาคม", "พฤศจิกายน", "ธันวาคม"]
 
 /** A thin horizontal share bar */
 export function ShareBar({ value, className, color }: { value: number; className?: string; color?: string }) {

@@ -87,7 +87,11 @@ export function useReports(branchIds: string[], period: R.PeriodKey) {
         attention: attention.length,
       },
       rev, revPrev, strip, attention,
-      monthly: { thisYear: R.monthlyRevenue(rows, year, today), lastYear: R.monthlyRevenue(rows, year - 1, today), year },
+      monthly: {
+        thisYear: R.monthlyRevenue(rows, year, today), lastYear: R.monthlyRevenue(rows, year - 1, today), year,
+        // this month so far vs the same days last year
+        lastYearToDate: R.revenueIn(rows, { from: `${year - 1}${today.slice(4, 8)}01`, to: `${year - 1}${today.slice(4)}` }).total,
+      },
       byBranch: R.revenueByBranch(allRows.filter((x) => ids.has(x.branchId)), range, branches),
       bySubject: R.revenueBySubject(rows, range),
       packages: R.packageMix(rows, range),

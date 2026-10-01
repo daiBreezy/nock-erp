@@ -161,7 +161,8 @@ function Overview({ d, compare, period, onAllRevenue, onAllStudents }: { d: Repo
 
       <div className="grid gap-4 lg:grid-cols-2">
         <Panel title="รายได้รายเดือน" hint={`ปี ${d.monthly.year + 543} เทียบปีที่แล้ว · Forecast อยู่ในรอบ R3`}>
-          <MonthBars thisYear={d.monthly.thisYear} lastYear={d.monthly.lastYear} current={Number(d.today.slice(5, 7)) - 1} />
+          <MonthBars thisYear={d.monthly.thisYear} lastYear={d.monthly.lastYear} current={Number(d.today.slice(5, 7)) - 1}
+            currentLastYearToDate={d.monthly.lastYearToDate} todayLabel={`${Number(d.today.slice(8)) === 1 ? "" : "1–"}${Number(d.today.slice(8))} ${fmtDate(d.today).split(" ")[1] ?? ""}`} />
         </Panel>
         {compare ? (
           <Panel title="รายได้ตามสาขา" hint={`Top 10 · ${PERIODS.find((p) => p.key === period)!.label}`} action={<button type="button" className="text-xs text-primary" onClick={onAllRevenue}>ดูทั้งหมด ›</button>}>
@@ -418,7 +419,8 @@ function RevenueTab({ d, compare, period }: { d: ReportData; compare: boolean; p
                   <td className="py-1.5">{m}</td>
                   <td className="text-right tabular-nums">{a === null ? "—" : fmtMoney(a)}</td>
                   <td className="text-right text-muted-foreground tabular-nums">{b ? fmtMoney(b) : "—"}</td>
-                  <td className="text-right"><Delta value={a !== null && b ? Math.round(((a - b) / b) * 1000) / 10 : null} /></td>
+                  {/* the month in progress compares with the same days last year */}
+                  <td className="text-right"><Delta value={(() => { const base = i === Number(d.today.slice(5, 7)) - 1 ? d.monthly.lastYearToDate : b; return a !== null && base ? Math.round(((a - base) / base) * 1000) / 10 : null })()} /></td>
                 </tr>
               )
             })}</tbody>
@@ -459,7 +461,7 @@ function StudentsTab({ d, compare, onOpen }: { d: ReportData; compare: boolean; 
         <Stat label="อัตราต่อคอร์ส" value={fmtPct(f.renewal)} sub={<span>ก่อนหน้า {d.comparable ? fmtPct(f.renewalPrev) : "—"}</span>} />
       </div>
       <Panel title="นักเรียน Active รายเดือน" hint="นับ ณ สิ้นเดือน (เดือนนี้ = วันนี้)">
-        <MonthBars thisYear={d.activeMonthly.thisYear} lastYear={d.activeMonthly.lastYear} current={Number(d.today.slice(5, 7)) - 1} fmt={fmtNum} />
+        <MonthBars thisYear={d.activeMonthly.thisYear} lastYear={d.activeMonthly.lastYear} current={Number(d.today.slice(5, 7)) - 1} unit=" คน" />
       </Panel>
       {compare && (
         <Panel title="แยกตามสาขา">
