@@ -284,10 +284,14 @@ export function attendanceRate(sessions: Pick<Session, "id" | "date" | "cancelle
   return { rate: present + leave ? present / (present + leave) : null, present, leave }
 }
 
-/** Demand heatmap: students sitting in sessions, by weekday × start hour. */
+/** Hours the demand heatmap always shows (owner 2026-10-01: 08:00 – 21:00), so weeks compare row for row. */
+export const DEMAND_HOURS = { from: 8, to: 21 }
+
+/** Demand heatmap: students sitting in sessions, by weekday × start hour (fixed rows 08:00–21:00, wider if a
+ *  session starts outside them). */
 export function demandByDayHour(sessions: Pick<Session, "date" | "start" | "cancelled" | "studentIds" | "subject" | "subjects">[], r: Range, filter?: { subject?: string; grade?: string; gradeOf?: (sid: ID) => string }) {
   const cells = new Map<string, number>()
-  let minH = 24, maxH = 0
+  let minH = DEMAND_HOURS.from, maxH = DEMAND_HOURS.to
   for (const s of sessions) {
     if (s.cancelled || !inRange(s.date, r)) continue
     if (filter?.subject && ![s.subject, ...(s.subjects ?? [])].includes(filter.subject)) continue
@@ -298,7 +302,7 @@ export function demandByDayHour(sessions: Pick<Session, "date" | "start" | "canc
     const k = `${weekdayOf(s.date)}|${h}`
     cells.set(k, (cells.get(k) ?? 0) + n)
   }
-  const hours = minH <= maxH ? Array.from({ length: maxH - minH + 1 }, (_, i) => minH + i) : []
+  const hours = Array.from({ length: maxH - minH + 1 }, (_, i) => minH + i)
   return { hours, count: (wd: Weekday, h: number) => cells.get(`${wd}|${h}`) ?? 0, max: Math.max(0, ...cells.values()) }
 }
 

@@ -29,7 +29,9 @@ export function Delta({ value, invert, className }: { value: number | null; inve
   )
 }
 
-export function Panel({ title, hint, action, children, className, center }: { title: string; hint?: string; action?: ReactNode; children: ReactNode; className?: string; center?: boolean }) {
+/** A report card. `center` = content centred in the card's height · `fill` = content stretched to the card's height
+ *  (owner 2026-10-01: cards side by side are the same height — the content should fill it, not leave a gap). */
+export function Panel({ title, hint, action, children, className, center, fill }: { title: string; hint?: string; action?: ReactNode; children: ReactNode; className?: string; center?: boolean; fill?: boolean }) {
   return (
     <section className={cn("flex min-w-0 flex-col rounded-3xl bg-card p-4 shadow-sm ring-1 ring-foreground/10 sm:p-5", className)}>
       <div className="mb-3 flex flex-wrap items-baseline gap-x-2 gap-y-1">
@@ -37,7 +39,7 @@ export function Panel({ title, hint, action, children, className, center }: { ti
         {hint && <span className="text-xs text-muted-foreground">{hint}</span>}
         {action && <div className="ml-auto">{action}</div>}
       </div>
-      {center ? <div className="flex flex-1 flex-col justify-center">{children}</div> : children}
+      {center ? <div className="flex flex-1 flex-col justify-center">{children}</div> : fill ? <div className="flex min-h-0 flex-1 flex-col">{children}</div> : children}
     </section>
   )
 }
@@ -107,10 +109,11 @@ export function Donut({ parts, center, sub }: { parts: { label: string; value: n
 export function Heatmap<R extends string | number, C extends string | number>({ rows, cols, rowLabel, colLabel, value, fmt = fmtNum, corner }: {
   rows: R[]; cols: C[]; rowLabel: (r: R) => ReactNode; colLabel: (c: C) => ReactNode; value: (r: R, c: C) => number; fmt?: (n: number) => string; corner?: string
 }) {
+  // rows stretch to fill the card (inside a Panel with `fill`); never shorter than h-7
   const max = Math.max(1, ...rows.flatMap((r) => cols.map((c) => value(r, c))))
   return (
-    <div className="overflow-x-auto">
-      <table className="w-full border-separate border-spacing-0.5 text-xs">
+    <div className="flex-1 overflow-x-auto">
+      <table className="h-full w-full border-separate border-spacing-0.5 text-xs">
         <thead>
           <tr><th className="px-1 py-1 text-left font-normal text-muted-foreground">{corner}</th>{cols.map((c) => <th key={String(c)} className="px-1 py-1 font-normal text-muted-foreground">{colLabel(c)}</th>)}</tr>
         </thead>

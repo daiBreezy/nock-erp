@@ -180,14 +180,12 @@ function Overview({ d, compare, period, onAllRevenue, onAllStudents }: { d: Repo
       </div>
 
       <div className="grid gap-4 xl:grid-cols-2">
-        <Panel title="Demand Heatmap" hint="จำนวนนักเรียนในคาบ · วัน × เวลาเริ่ม"
+        <Panel title="Demand Heatmap" hint="จำนวนนักเรียนในคาบ · วัน × เวลาเริ่ม · 08:00–21:00" fill
           action={<NativeSelect className="h-8 w-36" value={subject} onChange={(e) => setSubject(e.target.value)} placeholder="ทุกวิชา"
             options={[...new Set(d.bySubject.map((x) => x.subject))].map((x) => ({ value: x, label: x }))} />}>
-          {demand.hours.length ? (
-            <Heatmap rows={demand.hours} cols={DAYS} rowLabel={(h) => `${String(h).padStart(2, "0")}:00`} colLabel={(w) => DAY_SHORT[w]} value={(h, w) => demand.count(w, h)} />
-          ) : <Empty />}
+          <Heatmap rows={demand.hours} cols={DAYS} rowLabel={(h) => `${String(h).padStart(2, "0")}:00`} colLabel={(w) => DAY_SHORT[w]} value={(h, w) => demand.count(w, h)} />
         </Panel>
-        <Panel title="แพ็กเกจขายดี" hint="จำนวน (Volume) vs รายได้ (Value)"><PackageMix d={d} /></Panel>
+        <Panel title="แพ็กเกจขายดี" hint="จำนวน (Volume) vs รายได้ (Value)" fill><PackageMix d={d} /></Panel>
       </div>
 
       <div className="grid gap-4 lg:grid-cols-2">
@@ -355,7 +353,7 @@ function PackageMix({ d }: { d: ReportData }) {
   }).filter((g) => g.list.length)
   const cell = (x: number) => cn("h-8 rounded-md text-center tabular-nums", x > 0.55 && "text-primary-foreground")
   return (
-    <div className="space-y-3">
+    <div className="flex flex-1 flex-col gap-3">
       {/* the three types side by side: how the money splits */}
       <div>
         <div className="flex h-2.5 overflow-hidden rounded-full bg-muted">
@@ -365,7 +363,7 @@ function PackageMix({ d }: { d: ReportData }) {
           {groups.map((g, i) => <span key={g.suffix} className="flex items-center gap-1.5"><span className="size-2 rounded-full" style={{ background: donutColor(i) }} />{g.label.split(" ")[0]} <b className="font-medium text-foreground tabular-nums">{fmtPct(g.share)}</b></span>)}
         </div>
       </div>
-      <table className="w-full border-separate border-spacing-0.5 text-sm">
+      <table className="w-full flex-1 border-separate border-spacing-0.5 text-sm">
         <thead className="text-xs text-muted-foreground"><tr><th className="text-left font-normal">แพ็กเกจ</th><th className="font-normal">จำนวน</th><th className="font-normal">รายได้</th><th className="text-right font-normal">%Mix</th></tr></thead>
         {groups.map((g, i) => (
           <tbody key={g.suffix}>
@@ -430,8 +428,8 @@ function RevenueTab({ d, compare, period }: { d: ReportData; compare: boolean; p
       <div className="grid gap-4 lg:grid-cols-2">
         {compare && <Panel title="รายได้ตามสาขา" hint="ทุกสาขาในขอบเขต"><BranchRevenue rows={d.byBranch} /></Panel>}
         <Panel title="Subject Engine" center><SubjectEngine d={d} /></Panel>
-        <Panel title="แพ็กเกจขายดี" hint="จำนวน (Volume) vs รายได้ (Value)"><PackageMix d={d} /></Panel>
-        <Panel title="แพ็กเกจ × ระดับชั้น" hint="จำนวนแพ็กที่แต่ละชั้นซื้อ">
+        <Panel title="แพ็กเกจขายดี" hint="จำนวน (Volume) vs รายได้ (Value)" fill><PackageMix d={d} /></Panel>
+        <Panel title="แพ็กเกจ × ระดับชั้น" hint="จำนวนแพ็กที่แต่ละชั้นซื้อ" fill>
           {pg.grades.length ? <Heatmap rows={pg.grades} cols={pg.keys} rowLabel={(g) => g} colLabel={(k) => k} value={(g, k) => pg.count(g, k)} corner="ชั้น" /> : <Empty />}
         </Panel>
       </div>
