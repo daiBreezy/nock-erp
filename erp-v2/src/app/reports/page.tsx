@@ -242,20 +242,27 @@ function Stat({ label, value, tone, sub }: { label: string; value: string; tone?
   )
 }
 
+/** Branches ranked by revenue — two columns of five (like the ref) once there are more than five. */
 function BranchRevenue({ rows }: { rows: ReportData["byBranch"] }) {
   if (!rows.some((r) => r.amount)) return <Empty />
+  const half = rows.length > 5 ? Math.ceil(rows.length / 2) : rows.length
+  const cols = rows.length > 5 ? [rows.slice(0, half), rows.slice(half)] : [rows]
   return (
-    <table className="w-full text-sm">
-      <thead className="text-xs text-muted-foreground"><tr><th className="text-left font-normal">สาขา</th><th /><th className="text-right font-normal">ยอด</th><th className="text-right font-normal">%</th></tr></thead>
-      <tbody>{rows.map((b, i) => (
-        <tr key={b.id} className="border-t">
-          <td className="py-2"><span className="flex items-center gap-2"><Rank n={i + 1} />{b.name}</span></td>
-          <td className="w-1/3 px-2"><ShareBar value={b.share} /></td>
-          <td className="text-right tabular-nums">{fmtShort(b.amount)}</td>
-          <td className="text-right text-muted-foreground tabular-nums">{fmtPct(b.share)}</td>
-        </tr>
-      ))}</tbody>
-    </table>
+    <div className={cn("grid gap-x-6", cols.length > 1 && "md:grid-cols-2")}>
+      {cols.map((list, c) => (
+        <table key={c} className="w-full text-sm">
+          <thead className={cn("text-xs text-muted-foreground", c > 0 && "max-md:hidden")}><tr><th className="text-left font-normal">สาขา</th><th /><th className="text-right font-normal">ยอด</th><th className="text-right font-normal">%</th></tr></thead>
+          <tbody>{list.map((b, i) => (
+            <tr key={b.id} className="border-t">
+              <td className="py-2"><span className="flex items-center gap-2"><Rank n={c * half + i + 1} /><span className="truncate">{b.name}</span></span></td>
+              <td className="w-1/4 px-2"><ShareBar value={b.share / (rows[0].share || 1)} /></td>
+              <td className="text-right tabular-nums">{fmtShort(b.amount)}</td>
+              <td className="w-10 text-right text-muted-foreground tabular-nums">{fmtPct(b.share)}</td>
+            </tr>
+          ))}</tbody>
+        </table>
+      ))}
+    </div>
   )
 }
 

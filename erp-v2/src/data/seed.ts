@@ -110,14 +110,38 @@ export function buildSeed(now = new Date()): DB {
       bankAccount: { bank: "ไทยพาณิชย์", branchName: "สาขาอารีย์", name: "บจก. ลิคลาส เอดูเคชั่น", number: "987-6-54321-0" }, lineOaConnected: false,
       lineOa: { channelId: "", botBasicId: "", addFriendUrl: "" },
     },
+    // the rest of the company (owner 2026-10-01: ~12 branches — NockAcademy 10, Liclass 2). Names are placeholders
+    // from the Reports ref; light setup (one class + two courses each) so Reports has every branch to compare
+    ...([
+      ["br_skv", "SKV", "002", "สุขุมวิท", "nockacademy", "BKK"], ["br_slm", "SLM", "003", "สีลม", "nockacademy", "BKK"],
+      ["br_bna", "BNA", "004", "บางนา", "nockacademy", "BKK"], ["br_prd", "PRD", "005", "พาราไดซ์", "nockacademy", "BKK"],
+      ["br_vbv", "VBV", "006", "วิภาวดี", "nockacademy", "BKK"], ["br_src", "SRC", "007", "ศรีราชา", "nockacademy", "CBR"],
+      ["br_pty", "PTY", "008", "พัทยา", "nockacademy", "CBR"], ["br_cbr", "CBR", "009", "ชลบุรี", "nockacademy", "CBR"],
+      ["br_sth", "STH", "010", "สัตหีบ", "nockacademy", "CBR"], ["br_bbg", "BBG", "002", "บ้านบึง", "liclass", "CBR"],
+    ] as const).map(([id, code, branchNo, name, brand, province]): Branch => ({
+      id, code, branchNo, name, brand, province,
+      rooms: [{ id: `${id}_r1`, name: "ห้อง 1" }, { id: `${id}_r2`, name: "ห้อง 2" }],
+      hours: wk("09:00", "20:00"), subjects: ["คณิต", "อังกฤษ", "วิทย์"], grades: ["ป.4", "ป.5", "ป.6", "ม.1", "ม.2", "ม.3"],
+      defaultSessionMinutes: 60, busFeePerLeg: 150, specialPeriods: [],
+      blockPlans: [{ from: "2020-01-01", byDay: blockWeek(["13:00", "15:00", "17:00"], ["09:00", "11:00", "13:00", "15:00"]) }],
+      active: true, email: `${code.toLowerCase()}@${brand}.com`, address: "", phones: [], socials: [],
+      fees: [{ id: `${id}_bus`, kind: "bus", name: "Standard", price: 150 }], promotions: [],
+      packageDurations: { hour: [12, 24, 48], week: [4] },
+      priceChart: chart(["คณิต", "อังกฤษ", "วิทย์"], ["ป.4", "ป.5", "ป.6", "ม.1", "ม.2", "ม.3"], brand === "liclass" ? 0.85 : 1),
+      bankAccount: { bank: "กสิกรไทย", branchName: `สาขา${name}`, name: brand === "liclass" ? "บจก. ลิคลาส เอดูเคชั่น" : "บจก. นกอะคาเดมี่", number: "000-0-00000-0" }, lineOaConnected: false,
+      lineOa: { channelId: "", botBasicId: "", addFriendUrl: "" },
+    })),
   ]
+  const ALL_BRANCHES = branches.map((b) => b.id)
+  // Area Manager เอ looks after the Bangkok zone (owner: Area Manager sees only their area)
+  const BKK_ZONE = branches.filter((b) => b.province === "BKK").map((b) => b.id)
 
   const st = (id: string, name: string, nickname: string, roles: Staff["roles"], branchIds: string[], subjects: string[], canLogin = true): Staff =>
     ({ id, name, nickname, roles, branchIds, subjects, active: true, canLogin, email: canLogin ? `${id}@nockacademy.com` : undefined })
   const staff: Staff[] = [
-    st("u_nock", "นก ผู้อำนวยการ", "นก", ["director"], ["br_thl", "br_ari"], []),
-    st("u_sa", "ซี ซูเปอร์แอดมิน", "ซี", ["super_admin"], ["br_thl", "br_ari"], []),
-    st("u_am", "เอ ผู้จัดการเขต", "เอ", ["area_manager"], ["br_thl", "br_ari"], []),
+    st("u_nock", "นก ผู้อำนวยการ", "นก", ["director"], ALL_BRANCHES, []),
+    st("u_sa", "ซี ซูเปอร์แอดมิน", "ซี", ["super_admin"], ALL_BRANCHES, []),
+    st("u_am", "เอ ผู้จัดการเขต", "เอ", ["area_manager"], BKK_ZONE, []),
     st("u_ploy", "พลอย แอดมิน", "พลอย", ["admin"], ["br_thl"], []),
     // branch Manager of ทองหล่อ only — approvals at อารีย์ must be blocked for him
     st("u_ton", "ต้น ผู้จัดการ", "ต้น", ["manager"], ["br_thl"], []),
@@ -156,6 +180,11 @@ export function buildSeed(now = new Date()): DB {
     // 10 h on the 90-min Conversation class = 6 sessions + 60 min leftover (demo: the admin decides the leftover)
     course({ id: "co_eng_h10", branchId: "br_thl", name: "อังกฤษ Conversation 10 ชม.", kind: "single", subjects: ["อังกฤษ"], grades: ["ป.5", "ป.6", "ม.1"], unit: "hour", duration: 10, price: 5500, priceReason: "แพ็กชั่วโมงคลาส Conversation" }),
     course({ id: "co_ari", branchId: "br_ari", name: "คณิต ป.ต้น รายเดือน", kind: "single", subjects: ["คณิต"], grades: ["ป.1", "ป.2", "ป.3"], unit: "month", duration: 1, price: 3800, priceReason: "ราคาเดียว ป.ต้น" }),
+    // the other branches: a monthly Maths course and a 12-hour English pack each
+    ...branches.slice(2).flatMap((b) => [
+      course({ id: `co_${b.id}_m`, branchId: b.id, name: "คณิต ป.5 รายเดือน", kind: "single", subjects: ["คณิต"], grades: ["ป.5"], unit: "month", duration: 1 }),
+      course({ id: `co_${b.id}_e`, branchId: b.id, name: "อังกฤษ ป.6 12 ชม.", kind: "single", subjects: ["อังกฤษ"], grades: ["ป.6"], unit: "hour", duration: 12 }),
+    ]),
   ]
 
   const families: Family[] = [
@@ -210,6 +239,10 @@ export function buildSeed(now = new Date()): DB {
     { ...k("cl_combo6", "br_thl", "คณิต + อังกฤษ ป.6", "คณิต", ["ป.6"], "u_prae", "rm_3", 5, "16:00", 45, ["stu_6", "stu_14"], ["u_mint"]), subjects: ["คณิต", "อังกฤษ"], courseId: "co_bundle6" },
     // a Summer-only class: sessions only inside the period, gone from the calendar if Summer is switched off
     { ...k("cl_summer_eng", "br_thl", "Summer English Camp", "อังกฤษ", ["ป.5", "ป.6"], "u_mint", "rm_2", 1, "09:00", 120, ["stu_6", "stu_14"]), startDate: addDays(monday, 42), periodId: "sp_summer" },
+    ...branches.slice(2).flatMap((b, i) => [
+      { ...k(`cl_${b.id}_m`, b.id, "คณิต ป.5", "คณิต", ["ป.5"], null, `${b.id}_r1`, ((i % 5) + 1) as Weekday, "16:00", 90, []), courseId: `co_${b.id}_m` },
+      { ...k(`cl_${b.id}_e`, b.id, "อังกฤษ ป.6", "อังกฤษ", ["ป.6"], null, `${b.id}_r2`, 6, "10:00", 120, []), courseId: `co_${b.id}_e` },
+    ]),
   ]
 
   const sessions: Session[] = classes.flatMap((c) => generateSessions(c, holidays, () => uid("se"), 10, c.periodId ? addDays(monday, 69) : undefined))
@@ -498,8 +531,9 @@ function buildHistory(db: { today: string; branches: Branch[]; courses: Course[]
   const classFor = (c: Course) => db.classes.find((k) => k.branchId === c.branchId && k.courseId === c.id)
     ?? db.classes.find((k) => k.branchId === c.branchId && k.active && !k.periodId && k.kind === "learning" && c.subjects.includes(k.subject) && (!k.grades.length || k.grades.some((g) => c.grades.includes(g))))
     ?? db.classes.find((k) => k.branchId === c.branchId && k.active && !k.periodId && k.kind === "learning" && c.subjects.includes(k.subject))
-  for (let i = 0; i < 130; i++) {
-    const branch = i % 10 < 7 ? db.branches[0] : db.branches[1]
+  for (let i = 0; i < 420; i++) {
+    // ทองหล่อ is the biggest; the other branches share the rest, bigger ones first
+    const branch = rnd() < 0.2 ? db.branches[0] : db.branches[1 + Math.floor(Math.pow(rnd(), 1.6) * (db.branches.length - 1))]
     const options = db.courses.filter((c) => c.branchId === branch.id && c.active && classFor(c))
     if (!options.length) continue
     const course = pick(options)

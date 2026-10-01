@@ -30,6 +30,7 @@ Ref: `~/Documents/ERP Screen Shot/Reports.png` (ตัวเลขในภา�
 - สิทธิ์ `reports.view` (Director/Super Admin/Area Manager/Manager) · `reportBranchIds` + `canCompareBranches` (Manager ไม่เห็นตารางเทียบสาขา) · เมนู Reports เปิดแล้ว
 - หน้า `/reports`: KPI 5 ใบ (รายได้, Active+Pause, คาบสัปดาห์นี้, อัตราเข้าเรียน, Need Attention → หน้าต่างรายการแยกกลุ่ม กดไปหน้าที่แก้) · เลือกสาขา · ช่วง วันนี้/สัปดาห์/เดือน/3M/6M/1Y/YTD · แท็บ ภาพรวม / รายได้ / นักเรียน (การเข้าเรียน, Operations = R2 · CRM = R3 ขึ้นป้ายไว้) · Export .xlsx (`lib/reports-export.ts` 11 ชีต) + PDF (พิมพ์หน้า — print CSS ซ่อน sidebar/header)
 - seed: ประวัติ 15 เดือน ~130 นักเรียน / ~540 ใบแจ้งหนี้ที่จ่ายแล้ว + แพ็กเกจ + ลาพักยาว (`buildHistory` ใน seed.ts, deterministic) · persist v48 · 165 tests
+- ปรับตามเจ้าของ: ครอบครัว Top 5 · Subject Engine จัดกึ่งกลาง สีแถบตรงกับวงกลม · **seed เป็น 12 สาขา** (NockAcademy 10 · Liclass 2 — ชื่อสาขาใหม่ 10 แห่งเป็นชื่อชั่วคราวจาก ref รอเจ้าของให้ชื่อจริง) แต่ละสาขามี 2 คอร์ส 2 คลาส · Area Manager เอ = โซน BKK · ประวัติ ~420 นักเรียน / ~2,200 ใบ · รายได้ตามสาขา 2 คอลัมน์ × 5 แถบเทียบสาขาอันดับ 1 · persist v49
 - **โน้ตถึง Dev:** Forecast/Cohort อยู่ R3 · "ยอดเงินเข้า" อิงวันที่ยืนยันเงิน (`receiptDate`)
 
 ---
