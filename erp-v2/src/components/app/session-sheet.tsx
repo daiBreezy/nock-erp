@@ -39,7 +39,7 @@ import { Pill, SessionStateBadge } from "./badges"
 import { ClassSheet } from "./class-sheet"
 import { NativeSelect } from "./native-select"
 import { StudentSearch } from "./student-search"
-import { FixSuggestions } from "./fix-suggestions"
+import { ConflictResolver } from "./conflict-resolver"
 import { StudentSheet } from "./student-sheet"
 import { avatarTone, gradeTone, initial } from "./subject-color"
 import { TeacherPicker } from "./teacher-picker"
@@ -72,6 +72,7 @@ function Body({ id, onClose }: { id: ID; onClose: () => void }) {
   const branch = useBranch()
   const L = useLookup()
   const [tab, setTab] = useState<"students" | "info">("students")
+  const [resolving, setResolving] = useState(false)
   const [adding, setAdding] = useState(false)
   const [teachersOpen, setTeachersOpen] = useState(false)
   const [postponing, setPostponing] = useState(false)
@@ -148,6 +149,18 @@ function Body({ id, onClose }: { id: ID; onClose: () => void }) {
       </SheetHeader>
 
       <div className="min-h-0 flex-1 space-y-3 overflow-y-auto px-5 py-4">
+        {/* a clash is the first thing you see when you open the session (owner 2026-10-01) — past ones aren't shown */}
+        {conflicts.length > 0 && state === "upcoming" && (
+          <Alert variant="destructive">
+            <AlertTriangleIcon />
+            <AlertTitle>คาบนี้ชนกับคาบอื่น</AlertTitle>
+            <AlertDescription className="space-y-2">
+              <div>{[...new Set(conflicts.map((c) => c.message))].join(" · ")}</div>
+              {canManage && <Button size="xs" variant="destructive" onClick={() => setResolving(true)}>แก้ปัญหา</Button>}
+            </AlertDescription>
+          </Alert>
+        )}
+        {resolving && <ConflictResolver sessionIds={[s.id]} onClose={() => setResolving(false)} />}
         {tab === "students" ? (
           <>
             {s.studentIds.length > cap && !capHidden && (
@@ -181,16 +194,6 @@ function Body({ id, onClose }: { id: ID; onClose: () => void }) {
           </>
         ) : (
           <div className="space-y-4">
-            {conflicts.length > 0 && (
-              <Alert variant="destructive">
-                <AlertTriangleIcon />
-                <AlertTitle>คาบนี้ชนกับคาบอื่น</AlertTitle>
-                <AlertDescription className="space-y-2">
-                  <div>{[...new Set(conflicts.map((c) => c.message))].join(" · ")}</div>
-                  {canManage && state === "upcoming" && <FixSuggestions sessionId={s.id} />}
-                </AlertDescription>
-              </Alert>
-            )}
             <section className="rounded-2xl border p-3">
               <div className="mb-2 flex items-center justify-between">
                 <h3 className="text-sm font-semibold">ครูผู้สอน</h3>

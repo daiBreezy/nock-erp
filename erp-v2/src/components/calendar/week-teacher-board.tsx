@@ -1,8 +1,9 @@
 "use client"
 
 import { Fragment, useMemo, useState } from "react"
-import { ArrowLeftRightIcon, BanIcon, CalendarIcon, EllipsisIcon, CheckIcon, ClipboardCheckIcon, FlaskConicalIcon, MessagesSquareIcon, PencilIcon, PencilLineIcon, PlayIcon, PlusIcon, ShapesIcon, UserIcon, UsersIcon, UsersRoundIcon } from "lucide-react"
+import { AlertTriangleIcon, ArrowLeftRightIcon, BanIcon, CalendarIcon, EllipsisIcon, CheckIcon, ClipboardCheckIcon, FlaskConicalIcon, MessagesSquareIcon, PencilIcon, PencilLineIcon, PlayIcon, PlusIcon, ShapesIcon, UserIcon, UsersIcon, UsersRoundIcon } from "lucide-react"
 import type { ClassPrefill } from "@/components/app/class-dialog"
+import { ConflictResolver, liveConflicts } from "@/components/app/conflict-resolver"
 import { avatarTone, gradeTone, initial, subjectColor } from "@/components/app/subject-color"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -101,6 +102,9 @@ export function WeekTeacherBoard({ from, sessions, onOpen, onSlot, canCreate }: 
       .sort((a, b) => a.start.localeCompare(b.start))
   const nowPct = (row: Row) => Math.min(100, Math.max(0, ((nowMin - toMinutes(row.start)) / (endMin(row) - toMinutes(row.start))) * 100))
 
+  // clashes still ahead (past ones can't be fixed) — red outline + ⚠ to fix them from the cell
+  const clashIds = useMemo(() => new Set(liveConflicts(live.map((x) => x.id), allSessions.filter((x) => x.branchId === branch.id), { branch, staff, now }).flatMap((c) => c.sessionIds)), [live, allSessions, branch, staff, now])
+  const [resolving, setResolving] = useState<string[] | null>(null)
   const [moving, setMoving] = useState<{ from: string; studentId: string; to: string } | null>(null)
   const [dayAction, setDayAction] = useState<{ mode: "substitute" | "cancel"; teacherId: string; date: DateStr } | null>(null)
   const cols = `5.5rem repeat(${Math.max(1, teacherIds.length)}, minmax(17rem, 1fr))`
@@ -116,6 +120,7 @@ export function WeekTeacherBoard({ from, sessions, onOpen, onSlot, canCreate }: 
 
       {dayAction && <TeacherDayDialog {...dayAction} onClose={() => setDayAction(null)} />}
       {moving && <MoveStudentDialog {...moving} onClose={() => setMoving(null)} />}
+      {resolving && <ConflictResolver sessionIds={resolving} onClose={() => setResolving(null)} onOpen={(id) => { setResolving(null); onOpen(id) }} />}
       {days.map((date) => {
         const rows = rowsFor(date)
         const closed = !branch.hours[weekdayOf(date)]
@@ -180,7 +185,8 @@ export function WeekTeacherBoard({ from, sessions, onOpen, onSlot, canCreate }: 
                         {/* Room line of the block */}
                         <div className="sticky left-0 z-10 border-b bg-zinc-100 px-3 py-1.5 text-xs text-muted-foreground dark:bg-zinc-800">Room</div>
                         {teacherIds.map((tid) => (
-                          <RoomLine key={`r-${tid}`} sessions={cellSessions(date, tid, row)} classes={classes} live={(x) => workState(x, now, attendance, summaries).state === "live"} />
+                          <RoomLine key={`r-${tid}`} sessions={cellSessions(date, tid, row)} classes={classes} live={(x) => workState(x, now, attendance, summaries).state === "live"}
+                            clash={cellSessions(date, tid, row).filter((x) => clashIds.has(x.id)).map((x) => x.id)} onResolve={canCreate ? setResolving : undefined} />
                         ))}
 
                         <div className={cn("sticky left-0 z-10 flex flex-col items-center justify-center gap-1 border-b bg-card px-2 py-3 text-sm tabular-nums", past && "text-muted-foreground", nowHere && "font-semibold text-primary")}>
@@ -196,7 +202,8 @@ export function WeekTeacherBoard({ from, sessions, onOpen, onSlot, canCreate }: 
                             <div key={`c-${tid}`} className={cn("group/cell relative min-h-28 divide-y border-b border-l",
                               hasStudents ? "bg-card" : cell.length ? "bg-zinc-100 dark:bg-zinc-800/60" : "",
                               past && cell.length > 0 && "opacity-75",
-                              liveHere && "shadow-[inset_3px_0_0_0_var(--color-primary)]")}>
+                              liveHere && "shadow-[inset_3px_0_0_0_var(--color-primary)]",
+                              cell.some((x) => clashIds.has(x.id)) && "ring-2 ring-red-400 ring-inset")}>
                               {cell.map((s) => (
                                 <SessionBlock key={s.id} s={s} row={row} blockLen={blockLen}
                                   state={workState(s, now, attendance, summaries).state}
@@ -349,7 +356,7 @@ function kindOf(s: Session, klass?: Klass): keyof typeof KIND_ICON | null {
  * The Room line above a block (owner 2026-10-01): room first and boldest, then students · kind · group/single as quiet
  * grey icons — words appear only when the column is wide enough (container query), so neighbours stay calm.
  */
-function RoomLine({ sessions, classes, live }: { sessions: Session[]; classes: Klass[]; live: (s: Session) => boolean }) {
+function RoomLine({ sessions, classes, live, clash, onResolve }: { sessions: Session[]; classes: Klass[]; live: (s: Session) => boolean; clash: string[]; onResolve?: (ids: string[]) => void }) {
   const L = useLookup()
   if (!sessions.length) return <div className="border-b border-l bg-zinc-100 px-3 py-1.5 text-center text-xs text-muted-foreground dark:bg-zinc-800">-</div>
   return (
@@ -361,6 +368,12 @@ function RoomLine({ sessions, classes, live }: { sessions: Session[]; classes: K
         const single = k?.type === "single"
         return (
           <div key={s.id} className="flex items-center gap-2.5 text-xs text-muted-foreground">
+            {clash.includes(s.id) && (
+              <button type="button" disabled={!onResolve} onClick={() => onResolve?.(clash)} title="คาบชน · กดเพื่อแก้ปัญหา"
+                className="flex shrink-0 items-center gap-1 rounded-full bg-red-100 px-1.5 py-0.5 text-[11px] font-medium text-red-700 hover:bg-red-200 dark:bg-red-950 dark:text-red-300">
+                <AlertTriangleIcon className="size-3" /><span className="hidden @[15rem]:inline">แก้ปัญหา</span>
+              </button>
+            )}
             {live(s) && <span className="relative flex size-2 shrink-0" title="กำลังเรียน"><span className="absolute inline-flex size-full animate-ping rounded-full bg-primary opacity-60" /><span className="relative inline-flex size-2 rounded-full bg-primary" /></span>}
             <span className="truncate text-sm font-semibold text-foreground">{L.room(s.roomId)}</span>
             <span className="ml-auto flex shrink-0 items-center gap-2.5">

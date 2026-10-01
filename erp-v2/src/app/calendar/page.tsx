@@ -100,7 +100,9 @@ function CalendarView() {
     [branchSessions, range, teacher, subject, staff],
   )
   // conflicts are computed on ALL branch sessions, not only the filtered ones
-  const conflicts = useMemo(() => findConflicts(branchSessions.filter((s) => s.date >= range.from && s.date <= range.to), branch, staff), [branchSessions, range, branch, staff])
+  // only clashes still ahead are worth a warning — past ones can't be fixed (owner 2026-10-01)
+  const conflicts = useMemo(() => findConflicts(branchSessions.filter((s) => s.date >= range.from && s.date <= range.to), branch, staff)
+    .filter((c) => c.sessionIds.every((id) => { const x = branchSessions.find((y) => y.id === id); return !!x && sessionState(x, now) === "upcoming" })), [branchSessions, range, branch, staff, now])
   const conflictIds = useMemo(() => new Set(conflicts.flatMap((c) => c.sessionIds)), [conflicts])
   const holidayDays = useMemo(() => {
     const out: DateStr[] = []

@@ -109,6 +109,8 @@ type Store = DB & UIState & {
    *  N of the class, or for good (all following: changes class, the package follows). Undo with undoLastMove. */
   moveStudent: (fromSessionId: ID, studentId: ID, toSessionId: ID, scope: { kind: "one" } | { kind: "count"; n: number } | { kind: "following" }) => Result<{ moved: number }>
   undoLastMove: () => Result
+  /** clash fix (owner 2026-10-01): the same teacher twice at the same time → one session; the other is cancelled */
+  mergeSessions: (keepId: ID, dropId: ID) => Result<{ students: number }>
   /** the current user opened (and closed) this session — clears their red dot */
   markSessionSeen: (sessionId: ID) => void
   saveStudentLeave: (input: { id?: ID; studentId: ID; from: DateStr; to: DateStr; reason: string }) => Result
@@ -220,6 +222,8 @@ const ctxOf = (s: DB, branchId: ID) => ({
   branch: s.branches.find((b) => b.id === branchId)!,
   courses: s.courses, classes: s.classes, holidays: s.holidays,
 })
+
+const L = (s: { branches: Branch[] }, roomId: ID | null) => s.branches.flatMap((b) => b.rooms).find((r) => r.id === roomId)?.name ?? "ไม่ระบุห้อง"
 
 /** what the last drag & drop move replaced — one-step undo from the toast (not persisted) */
 let lastMove: { sessions: Session[]; classes: Klass[]; entitlements: Entitlement[] } | null = null
@@ -923,6 +927,32 @@ export const useStore = create<Store>()(
         })
         log("class", [studentId], "ย้ายคาบ (ลากวาง)", pairs.map(([a, b]) => `${fmtDate(a.date)} ${a.start} → ${fmtDate(b.date)} ${b.start}`).join(", "))
         return { ok: true, value: { moved: pairs.length } }
+      },
+
+      mergeSessions: (keepId, dropId) => {
+        const s = get()
+        const perm = requirePerm(s.me(), "session.manage")
+        if (!perm.ok) return perm
+        const keep = s.sessions.find((x) => x.id === keepId), drop = s.sessions.find((x) => x.id === dropId)
+        if (!keep || !drop || keep.id === drop.id) return fail("เลือกคาบที่จะรวม")
+        const now = s.now()
+        if (Sch.sessionState(keep, now) !== "upcoming" || Sch.sessionState(drop, now) !== "upcoming") return fail("รวมได้เฉพาะคาบที่ยังไม่เริ่ม")
+        if (s.attendance.some((a) => a.sessionId === drop.id)) return fail("คาบที่จะรวมมีการเช็คชื่อแล้ว")
+        const add = drop.studentIds.filter((x) => !keep.studentIds.includes(x))
+        // each student keeps their own part of the class and note
+        const seats = { ...keep.seats }, notes = { ...keep.notes }
+        for (const sid of add) {
+          const k = s.classes.find((c) => c.id === drop.classId)
+          const seat = Seats.seatOf(drop, sid, k)
+          if (Seats.isPartial(seat, keep.minutes) || keep.minutes !== drop.minutes) seats[sid] = { offset: Math.max(0, toMinutes(drop.start) - toMinutes(keep.start) + seat.offset), minutes: seat.minutes }
+          if (drop.notes?.[sid]) notes[sid] = drop.notes[sid]
+        }
+        set({
+          sessions: s.sessions.map((x) => x.id === keep.id ? { ...x, studentIds: [...x.studentIds, ...add], seats, notes, subjects: [...new Set([...Sch.subjectsOf(x), ...Sch.subjectsOf(drop)])] }
+            : x.id === drop.id ? { ...x, cancelled: true, cancelReason: `รวมเข้ากับคาบ ${keep.subject} ${keep.start} (แก้คาบชน)` } : x),
+        })
+        log("class", add, "รวมคาบ (แก้คาบชน)", `${drop.subject} ${fmtDate(drop.date)} ${drop.start} → ${keep.subject} ${keep.start} · ${L(s, keep.roomId)}`)
+        return { ok: true, value: { students: add.length } }
       },
 
       undoLastMove: () => {
@@ -1966,6 +1996,7 @@ const TRACKED: Partial<Record<keyof Store, Tracker>> = {
   rescheduleStudent: ((from: ID, _sid: ID, to: ID) => ({ ids: [from, to], what: "ย้ายวันเรียนของนักเรียน" })) as Tracker,
   undoReschedule: ((from: ID) => ({ ids: [from], what: "ยกเลิกการย้ายวัน" })) as Tracker,
   moveStudent: ((from: ID, _sid: ID, to: ID) => ({ ids: [from, to], what: "ย้ายนักเรียน" })) as Tracker,
+  mergeSessions: ((keep: ID, drop: ID) => ({ ids: [keep, drop], what: "รวมคาบ (แก้คาบชน)" })) as Tracker,
 }
 
 function touchSessions(refs: ID[], what: string) {
