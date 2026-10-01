@@ -64,10 +64,13 @@ export function overlappingRows(rows: { weekday: Weekday; start: TimeStr; minute
   return out
 }
 
-export function generateSessions(k: Klass, holidays: Holiday[], newId: () => ID, weeks = GENERATE_WEEKS): Session[] {
+export function generateSessions(k: Klass, holidays: Holiday[], newId: () => ID, weeks = GENERATE_WEEKS, until?: DateStr): Session[] {
   const first = nextWeekday(k.startDate, k.weekday)
-  const dates = k.kind === "learning" ? Array.from({ length: weeks }, (_, i) => addDays(first, i * 7)) : [first]
+  // a special-period class runs every week to the end of its period (`until`), however long that is
+  const count = until ? Math.max(0, Math.floor((parseDate(until).getTime() - parseDate(first).getTime()) / (7 * 86_400_000)) + 1) : weeks
+  const dates = k.kind === "learning" ? Array.from({ length: count }, (_, i) => addDays(first, i * 7)) : [first]
   return dates
+    .filter((d) => !until || d <= until)
     .filter((d) => !isHoliday(d, k.branchId, holidays))
     .map((date) => sessionFromClass(k, date, newId()))
 }
@@ -202,6 +205,8 @@ export interface ClassDraft {
   minutes: number
   startDate: DateStr
   studentIds: ID[]
+  /** special-period class: runs only inside that period */
+  periodId?: ID
   /** required to proceed past overridable blockers (closed day, teacher subject) */
   overrideReason?: string
 }
@@ -595,4 +600,37 @@ export function shiftInBlock(start: TimeStr, minutes: number, before: ClassBlock
   const newLen = toMinutes(m.to.end) - toMinutes(m.to.start)
   const at = toMinutes(m.to.start) + (toMinutes(start) - toMinutes(m.from.start))
   return { start: fromMinutes(at), minutes: minutes === oldLen && start === m.from.start ? newLen : minutes }
+}
+
+// ---------- special-period classes (owner 2026-10-01) ----------
+
+/** Why a session sits out because of a special period — the period's id, or null when it runs. */
+export function periodPause(s: Pick<Session, "date">, klass: Pick<Klass, "periodId"> | undefined, branch: Pick<Branch, "specialPeriods">): ID | null {
+  if (!klass) return null // tests / trials / one-offs without a class are never paused
+  if (klass.periodId) {
+    const p = branch.specialPeriods.find((x) => x.id === klass.periodId)
+    return !p || !p.active || s.date < p.from || s.date > p.to ? klass.periodId : null
+  }
+  return periodsOn(branch, s.date).find((p) => p.pauseRegular)?.id ?? null
+}
+
+/**
+ * Bring sessions from today on in line with the branch's special periods: pause the ones that must sit out, bring back
+ * the ones a period paused that may run again. Sessions cancelled for other reasons are left alone.
+ */
+export function syncPeriodSessions(sessions: Session[], classes: Klass[], branch: Branch, today: DateStr) {
+  let paused = 0, restored = 0
+  const out = sessions.map((s) => {
+    if (s.branchId !== branch.id || s.date < today) return s
+    const why = periodPause(s, classes.find((k) => k.id === s.classId), branch)
+    if (why && !s.cancelled) { paused++; return { ...s, cancelled: true, pausedBy: why, cancelReason: `หยุดช่วง ${branch.specialPeriods.find((p) => p.id === why)?.name ?? "พิเศษ"}` } }
+    if (!why && s.pausedBy) { restored++; return { ...s, cancelled: false, pausedBy: undefined, cancelReason: undefined } }
+    return s
+  })
+  return { sessions: out, paused, restored }
+}
+
+/** Special classes of a period that still have students — asked about before the period is switched off or removed. */
+export function periodClassesWithStudents(periodId: ID, classes: Klass[]) {
+  return classes.filter((k) => k.periodId === periodId && k.active && k.studentIds.length > 0)
 }

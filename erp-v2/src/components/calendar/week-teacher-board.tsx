@@ -415,6 +415,8 @@ function SessionBlock({ s, row, state, ended, dayDate, canEdit, onOpen, onNote, 
   const St = STATE_ICON[state]
   const own = s.start !== row.start || s.minutes !== toMinutes(row.end) - toMinutes(row.start)
   const me = useStore((st) => st.userId)
+  const branch = useBranch()
+  const periodName = (id: string) => branch.specialPeriods.find((p) => p.id === id)?.name ?? "พิเศษ"
   const dot = unseenChange(s, me)
   return (
     <div className={cn("relative space-y-1.5 px-3 py-2", over && "bg-primary/5 ring-2 ring-primary/40 ring-inset")}
@@ -428,6 +430,7 @@ function SessionBlock({ s, row, state, ended, dayDate, canEdit, onOpen, onNote, 
         <button type="button" onClick={() => onOpen(s.id)} className="min-w-0 truncate text-left text-xs font-semibold text-muted-foreground hover:text-foreground hover:underline">
           {subjectsOf(s).join(" + ")}{own && <span className="ml-1.5 font-normal">{s.start}–{endTime(s.start, s.minutes)}</span>}
         </button>
+        {klass?.periodId && <span className="shrink-0 rounded-full bg-violet-100 px-1.5 text-[10px] font-medium text-violet-900 dark:bg-violet-950 dark:text-violet-200" title="คลาสพิเศษของช่วงนี้">{periodName(klass.periodId)}</span>}
         {s.coTeacherIds.length > 0 && <span className="shrink-0 text-[11px] text-muted-foreground" title="ครูช่วยสอน">+{s.coTeacherIds.map((x) => L.teacher(x).label).join(", ")}</span>}
         {s.teacherLeave?.substituteId && (
           <span className="flex shrink-0 items-center gap-0.5 text-[11px] text-amber-700" title={`สอนแทน${L.teacher(s.teacherLeave.teacherId).label} · ${s.teacherLeave.reason}`}>

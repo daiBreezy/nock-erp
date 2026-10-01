@@ -10,7 +10,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { addDays, endTime, fmtDate, nextWeekday, TH_DAYS_FULL, toDateStr, toMinutes, weekdayOf, fromMinutes } from "@/domain/dates"
 import * as Att from "@/domain/rules/attendance"
 import { packageLabel } from "@/domain/rules/course"
-import { blocksOn, canSave, CAPACITY, GENERATE_WEEKS, isHoliday, overlappingRows, validateClass, type ClassDraft, type Issue } from "@/domain/rules/scheduling"
+import { blocksOn, canSave, periodsOn, CAPACITY, GENERATE_WEEKS, isHoliday, overlappingRows, validateClass, type ClassDraft, type Issue } from "@/domain/rules/scheduling"
 import { sortGrades } from "@/domain/rules/settings"
 import type { ClassKind, ClassLayout, ClassType, DateStr, ID, TimeStr, Weekday } from "@/domain/types"
 import { report } from "@/lib/feedback"
@@ -69,6 +69,15 @@ export function ClassDialog({ prefill, onClose }: { prefill: ClassPrefill; onClo
   const [supportId, setSupportId] = useState<string>("")
   const [roomId, setRoomId] = useState<string>(prefill.roomId ?? "")
   const [startDate, setStartDate] = useState<DateStr>(startDay)
+  // special-period class (owner 2026-10-01): created on a day inside a period → that period's class by default
+  const periods = branch.specialPeriods.filter((p) => p.active && p.to >= toDateStr(now))
+  const [periodId, setPeriodId] = useState<string>(periodsOn(branch, startDay)[0]?.id ?? "")
+  const period = periods.find((p) => p.id === periodId)
+  const pickPeriod = (id: string) => {
+    setPeriodId(id)
+    const p = periods.find((x) => x.id === id)
+    if (p && (startDate < p.from || startDate > p.to)) setStartDate(p.from < toDateStr(now) ? toDateStr(now) : p.from)
+  }
   const [rows, setRows] = useState<Row[]>([newRow(weekdayOf(startDay) as Weekday, prefill.start ?? "16:00", branch.defaultSessionMinutes)])
   const [studentIds, setStudentIds] = useState<string[]>([])
   const [pickingStudent, setPickingStudent] = useState(false)
@@ -85,7 +94,7 @@ export function ClassDialog({ prefill, onClose }: { prefill: ClassPrefill; onClo
   const classSubjects = layout === "teacher" ? (teacher?.subjects.filter((x) => branch.subjects.includes(x)) ?? []) : subjects
   const base: Omit<ClassDraft, "weekday" | "start" | "minutes"> = {
     branchId: branch.id, layout, subject: classSubjects[0] ?? "", subjects: classSubjects, kind, type, courseId: layout === "teacher" ? null : courseId || null,
-    teacherId: teacherId || null, coTeacherIds: supportId ? [supportId] : [], roomId: roomId || null, startDate, studentIds, overrideReason,
+    teacherId: teacherId || null, coTeacherIds: supportId ? [supportId] : [], roomId: roomId || null, startDate, studentIds, overrideReason, periodId: period?.id,
   }
   const rowIssues = rows.map((r) => validateClass({ ...base, ...slot(r) }, { branch, staff, sessions, holidays, now }))
   // messages every row shares (subject, teacher, capacity…) show once; the rest belong to their row
@@ -99,8 +108,9 @@ export function ClassDialog({ prefill, onClose }: { prefill: ClassPrefill; onClo
 
   const occurrences = (r: Row) => {
     const first = nextWeekday(startDate, r.weekday)
-    const dates = kind === "learning" ? Array.from({ length: GENERATE_WEEKS }, (_, i) => addDays(first, i * 7)) : [first]
-    return dates.filter((d) => !isHoliday(d, branch.id, holidays)).length
+    const weeks = period ? Math.floor((Date.parse(period.to) - Date.parse(first)) / (7 * 86_400_000)) + 1 : GENERATE_WEEKS
+    const dates = kind === "learning" ? Array.from({ length: Math.max(0, weeks) }, (_, i) => addDays(first, i * 7)) : [first]
+    return dates.filter((d) => (!period || d <= period.to) && !isHoliday(d, branch.id, holidays)).length
   }
   const totalSessions = rows.reduce((n, r) => n + occurrences(r), 0)
 
@@ -217,7 +227,13 @@ export function ClassDialog({ prefill, onClose }: { prefill: ClassPrefill; onClo
         <div className="space-y-2">
           <div className="flex flex-wrap items-end gap-3">
             <p className="text-sm font-semibold">วันและเวลา</p>
-            <Field label="เริ่มตั้งแต่" className="ml-auto"><Input className="h-8 w-40" type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} /></Field>
+            {periods.length > 0 && (
+              <Field label="ช่วงเวลาพิเศษ" className="ml-auto">
+                <NativeSelect className="h-8 w-48" value={periodId} onChange={(e) => pickPeriod(e.target.value)} placeholder="คลาสปกติ (ไม่ใช่ช่วงพิเศษ)"
+                  options={periods.map((p) => ({ value: p.id, label: `${p.name} · ${fmtDate(p.from)}–${fmtDate(p.to)}` }))} />
+              </Field>
+            )}
+            <Field label="เริ่มตั้งแต่" className={periods.length ? "" : "ml-auto"}><Input className="h-8 w-40" type="date" value={startDate} min={period?.from} max={period?.to} onChange={(e) => setStartDate(e.target.value)} /></Field>
           </div>
           {rows.map((r, i) => {
             const mins = minutesOf(r)
@@ -293,7 +309,7 @@ export function ClassDialog({ prefill, onClose }: { prefill: ClassPrefill; onClo
 
         <div className="rounded-lg bg-muted/50 p-3 text-sm">
           <b>จะสร้าง {rows.length} คลาส · รวม {totalSessions} คาบ</b>
-          <span className="text-muted-foreground"> · {rows.map((r) => `${TH_DAYS_FULL[r.weekday]} ${r.start}–${r.end}`).join(" · ")} · เริ่ม {fmtDate(startDate, { weekday: true })}</span>
+          <span className="text-muted-foreground"> · {rows.map((r) => `${TH_DAYS_FULL[r.weekday]} ${r.start}–${r.end}`).join(" · ")} · เริ่ม {fmtDate(startDate, { weekday: true })}{period ? ` ถึง ${fmtDate(period.to, { weekday: true })} (คลาสพิเศษช่วง ${period.name} — ปิดช่วงแล้วคลาสนี้หายจากปฏิทิน)` : ""}</span>
         </div>
 
         {shared.length > 0 && (

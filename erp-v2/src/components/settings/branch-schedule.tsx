@@ -9,7 +9,8 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { Input } from "@/components/ui/input"
 import { Switch } from "@/components/ui/switch"
 import { fmtDate, nextWeekday, TH_DAYS_FULL, toDateStr } from "@/domain/dates"
-import { blocksOn, hoursFor, isHoliday } from "@/domain/rules/scheduling"
+import { blocksOn, hoursFor, isHoliday, periodClassesWithStudents } from "@/domain/rules/scheduling"
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog"
 import { canEditBlocks } from "@/domain/rules/permissions"
 import { BlocksDialog } from "@/components/calendar/blocks-dialog"
 import { copyHours, everyDay, PRIORITY_LABEL, validateSpecialPeriods } from "@/domain/rules/settings"
@@ -163,6 +164,15 @@ function SpecialPeriodsCard({ branch }: { branch: Branch }) {
   const rank = { high: 0, medium: 1, low: 2 }
   const list = [...b.specialPeriods].sort((x, y) => rank[x.priority] - rank[y.priority] || x.from.localeCompare(y.from))
   const err = validateSpecialPeriods(b.specialPeriods)
+  const classes = useStore((s) => s.classes)
+  // switching off / removing a period hides its classes — ask first when they still have students (owner 2026-10-01)
+  const [ask, setAsk] = useState<{ p: SpecialPeriod; kind: "off" | "remove"; n: number; students: number } | null>(null)
+  const guarded = (p: SpecialPeriod, kind: "off" | "remove", go: () => void) => {
+    const busy = periodClassesWithStudents(p.id, classes)
+    if (!busy.length || (kind === "off" && !p.active)) return go()
+    setAsk({ p, kind, n: busy.length, students: new Set(busy.flatMap((k) => k.studentIds)).size })
+  }
+  const doIt = (a: NonNullable<typeof ask>) => a.kind === "off" ? update(a.p.id, { active: false }) : setB({ ...b, specialPeriods: b.specialPeriods.filter((x) => x.id !== a.p.id) })
   return (
     <SettingsCard title={`ช่วงเวลาพิเศษ (${b.specialPeriods.length})`}
       hint="ช่วงวันที่ที่โรงเรียนเปิด-ปิดไม่เหมือนปกติ เช่น Summer เปิด 08:00–22:00 ทุกวัน — ระหว่างช่วงนี้ระบบใช้เวลาของช่วงแทนเวลาปกติ (ตอนสร้างคลาส/ย้ายคาบ/ฟอร์ม Trial) · วันปิดทั้งวันใส่ที่แท็บวันหยุด"
@@ -171,17 +181,34 @@ function SpecialPeriodsCard({ branch }: { branch: Branch }) {
       <div className="space-y-3">
         {list.map((p) => (
           <SpecialPeriodEditor key={p.id} p={p} normal={b.hours} today={today} startOpen={!branch.specialPeriods.some((x) => x.id === p.id)}
-            onChange={(patch) => update(p.id, patch)} onRemove={() => setB({ ...b, specialPeriods: b.specialPeriods.filter((x) => x.id !== p.id) })} />
+            classCount={classes.filter((k) => k.periodId === p.id && k.active).length}
+            onChange={(patch) => (patch.active === false ? guarded(p, "off", () => update(p.id, patch)) : update(p.id, patch))}
+            onRemove={() => guarded(p, "remove", () => setB({ ...b, specialPeriods: b.specialPeriods.filter((x) => x.id !== p.id) }))} />
         ))}
       </div>
       {err && list.length > 0 && <p className="mt-2 text-xs text-red-700">{err}</p>}
+      <AlertDialog open={!!ask} onOpenChange={(o) => !o && setAsk(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{ask?.kind === "off" ? "ปิดใช้งาน" : "ลบ"}ช่วง {ask?.p.name}?</AlertDialogTitle>
+            <AlertDialogDescription>
+              ช่วงนี้มีคลาสพิเศษ {ask?.n} คลาสที่ยังมีนักเรียน {ask?.students} คน — คาบของคลาสพิเศษจะถูกพักไว้ (ไม่แสดงในปฏิทิน) และวันในช่วงนี้กลับไปใช้เวลา/ช่วงคลาสปกติ
+              {ask?.kind === "off" ? " · เปิดใช้งานอีกครั้งแล้วคาบกลับมาเอง" : " · ลบแล้วคาบไม่กลับมา"} · มีผลเมื่อกดบันทึก
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>ไม่ทำ</AlertDialogCancel>
+            <AlertDialogAction variant="destructive" onClick={() => { if (ask) doIt(ask); setAsk(null) }}>{ask?.kind === "off" ? "ปิดใช้งาน" : "ลบช่วง"}</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
       <SaveRow dirty={dirty} onReset={reset} onSave={() => (err ? report({ ok: false, error: err }, "") : save("บันทึกช่วงเวลาพิเศษแล้ว"))} />
     </SettingsCard>
   )
 }
 
 /** Collapsed by default (a one-line summary) so a list of yearly periods stays tidy; new ones open expanded. */
-function SpecialPeriodEditor({ p, normal, today, startOpen, onChange, onRemove }: { p: SpecialPeriod; normal: Branch["hours"]; today: string; startOpen: boolean; onChange: (patch: Partial<SpecialPeriod>) => void; onRemove: () => void }) {
+function SpecialPeriodEditor({ p, normal, today, startOpen, classCount, onChange, onRemove }: { p: SpecialPeriod; normal: Branch["hours"]; today: string; startOpen: boolean; classCount: number; onChange: (patch: Partial<SpecialPeriod>) => void; onRemove: () => void }) {
   const [open, setOpen] = useState(startOpen)
   const [all, setAll] = useState<OpenHours>({ open: "08:00", close: "22:00" })
   const status = !p.active ? { tone: "gray" as const, label: "ปิดใช้งาน" } : p.to < today ? { tone: "gray" as const, label: "ผ่านไปแล้ว" } : p.from <= today ? { tone: "green" as const, label: "ใช้อยู่ตอนนี้" } : { tone: "blue" as const, label: "กำลังจะถึง" }
@@ -195,7 +222,7 @@ function SpecialPeriodEditor({ p, normal, today, startOpen, onChange, onRemove }
           <PriorityIcon priority={p.priority} dim={!p.active} />
           <span className="min-w-0">
             <span className={cn("block truncate font-medium", !p.active && "text-muted-foreground")}>{p.name || "(ไม่มีชื่อ)"}</span>
-            <span className="block text-xs text-muted-foreground">{fmtDate(p.from, { year: true })} – {fmtDate(p.to, { year: true })} · {summary}</span>
+            <span className="block text-xs text-muted-foreground">{fmtDate(p.from, { year: true })} – {fmtDate(p.to, { year: true })} · {summary} · คลาสพิเศษ {classCount} คลาส{p.pauseRegular ? " · คลาสปกติหยุด" : ""}</span>
           </span>
         </button>
         <Pill tone={status.tone}>{status.label}</Pill>
@@ -216,6 +243,18 @@ function SpecialPeriodEditor({ p, normal, today, startOpen, onChange, onRemove }
                 {(["high", "medium", "low"] as PeriodPriority[]).map((x) => <option key={x} value={x}>{PRIORITY_LABEL[x]}</option>)}
               </select>
             </Field>
+          </div>
+          <div className="space-y-1.5">
+            <p className="text-sm font-medium">คลาสปกติระหว่างช่วงนี้</p>
+            <div className="flex flex-wrap gap-1.5">
+              {([[false, "เรียนต่อตามปกติ", "คลาสพิเศษเพิ่มเข้ามาด้วย"], [true, "หยุดทั้งหมด", "เหลือแต่คลาสพิเศษของช่วงนี้ · ปิดช่วงแล้วกลับมาเอง"]] as const).map(([v, t, d]) => (
+                <button key={t} type="button" aria-pressed={!!p.pauseRegular === v} onClick={() => onChange({ pauseRegular: v })}
+                  className={cn("rounded-xl border px-3 py-1.5 text-left text-sm", !!p.pauseRegular === v ? "border-primary bg-primary/5 font-medium" : "hover:bg-muted/50")}>
+                  {t}<span className="block text-xs font-normal text-muted-foreground">{d}</span>
+                </button>
+              ))}
+            </div>
+            <p className="text-xs text-muted-foreground">คลาสพิเศษ: สร้างคลาสแล้วเลือก &quot;ช่วงเวลาพิเศษ&quot; = {p.name || "ช่วงนี้"} · ช่วงคลาสของช่วงนี้ตั้งจากตารางครู (ปุ่ม ตั้งช่วงเวลา ที่หัววันในช่วง)</p>
           </div>
           <div className="flex flex-wrap items-center gap-2 rounded-xl bg-muted/40 p-2 text-sm">
             เปิดทุกวัน

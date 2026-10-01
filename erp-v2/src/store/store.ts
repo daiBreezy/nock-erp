@@ -326,8 +326,19 @@ export const useStore = create<Store>()(
           subjects: d.subjects && d.subjects.length > 1 ? d.subjects : undefined, grades: d.grades, kind: d.kind, type: d.type, courseId: d.courseId ?? null, teacherId: d.teacherId, coTeacherIds: d.coTeacherIds ?? [], roomId: d.roomId, weekday: d.weekday,
           start: d.start, minutes: d.minutes, startDate: d.startDate, active: true, studentIds: d.studentIds,
         }
-        const sessions = Sch.generateSessions(klass, s.holidays, () => uid("se"))
-        set({ classes: [...s.classes, klass], sessions: [...s.sessions, ...sessions] })
+        // a special-period class: from the period's first day (or later) to its last day, nothing outside
+        const period = d.periodId ? branch.specialPeriods.find((p) => p.id === d.periodId) : undefined
+        if (d.periodId && !period) return fail("ไม่พบช่วงเวลาพิเศษนี้")
+        if (period) {
+          if (d.startDate > period.to) return fail(`วันเริ่มเลยช่วง ${period.name} (${fmtDate(period.from)}–${fmtDate(period.to)}) ไปแล้ว`)
+          Object.assign(klass, { periodId: period.id, startDate: d.startDate < period.from ? period.from : d.startDate })
+        }
+        const made = Sch.generateSessions(klass, s.holidays, () => uid("se"), undefined, period?.to)
+        if (period && !made.length) return fail(`ไม่มีวัน${["อาทิตย์", "จันทร์", "อังคาร", "พุธ", "พฤหัส", "ศุกร์", "เสาร์"][klass.weekday]}ในช่วง ${period.name} ที่เหลืออยู่`)
+        // regular classes created over a "pause" period sit out there from the start
+        const synced = Sch.syncPeriodSessions(made, [klass], branch, toDateStr(s.now())).sessions
+        const sessions = synced.filter((x) => !x.pausedBy)
+        set({ classes: [...s.classes, klass], sessions: [...s.sessions, ...synced] })
         if (klass.studentIds.length) log("class", klass.studentIds, "เข้าคลาส", `${klass.name} (สร้างคลาสใหม่)`)
         return { ok: true, value: { klass, sessions: sessions.length } }
       },
@@ -718,7 +729,14 @@ export const useStore = create<Store>()(
         const removedRooms = s.branches.find((x) => x.id === b.id)!.rooms.filter((r) => !b.rooms.some((n) => n.id === r.id))
         const inUse = removedRooms.find((r) => s.sessions.some((x) => x.roomId === r.id && !x.cancelled && x.date >= toDateStr(s.now())))
         if (inUse) return fail(`ลบ${inUse.name}ไม่ได้ — ยังมีคาบที่ใช้ห้องนี้`)
-        set({ branches: s.branches.map((x) => (x.id === b.id ? b : x)) })
+        // special periods switched on/off, removed or set to pause regular classes → sessions follow (owner 2026-10-01)
+        const sync = Sch.syncPeriodSessions(s.sessions, s.classes, b, toDateStr(s.now()))
+        set({ branches: s.branches.map((x) => (x.id === b.id ? b : x)), sessions: sync.sessions })
+        if (sync.paused || sync.restored) {
+          const what = [sync.paused && `หยุด ${sync.paused} คาบ`, sync.restored && `กลับมาเรียน ${sync.restored} คาบ`].filter(Boolean).join(" · ")
+          set({ notifications: [Notif.notify({ id: uid("no"), at: s.now(), kind: "info", title: "ช่วงเวลาพิเศษเปลี่ยน", body: `${b.name} · ${what}`, fromId: s.userId, audience: { roles: Notif.ALL_ROLES, branchId: b.id } }), ...get().notifications] })
+          toast.info(`ช่วงเวลาพิเศษ: ${what}`)
+        }
         return OK
       },
 
@@ -2018,7 +2036,7 @@ export const useStore = create<Store>()(
     {
       name: "nockerp-v2",
       // bump when the data model changes; older saved data is replaced by fresh sample data
-      version: 45,
+      version: 46,
       migrate: () => ({ ...buildSeed(), userId: "u_nock", branchId: "br_thl", clockOffset: 0 }) as unknown as Store,
       // persist data + UI state only, never the action functions
       partialize: (s) => Object.fromEntries(Object.entries(s).filter(([, v]) => typeof v !== "function")) as Partial<Store>,

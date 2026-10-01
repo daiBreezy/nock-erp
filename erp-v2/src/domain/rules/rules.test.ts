@@ -1450,3 +1450,34 @@ describe("Class blocks per branch / weekday / date (owner 2026-10-01)", () => {
     expect(Sch.blockFor(wkday, "17:00")).toBeNull()
   })
 })
+
+describe("Special-period classes (owner 2026-10-01)", () => {
+  const period = { id: "sp1", name: "Summer", from: "2026-10-05", to: "2026-10-25", hours: {}, active: true, priority: "high" } as unknown as Branch["specialPeriods"][number]
+  const branch = { id: "b1", specialPeriods: [period] } as unknown as Branch
+  const special = { id: "k1", branchId: "b1", periodId: "sp1", weekday: 1, startDate: "2026-10-05", kind: "learning", start: "09:00", minutes: 120, studentIds: ["s1"], coTeacherIds: [], active: true } as unknown as Klass
+  const regular = { ...special, id: "k2", periodId: undefined } as Klass
+  it("a special class runs only inside its period", () => {
+    const made = generateSessions(special, [], () => Math.random().toString(), 8, period.to)
+    expect(made.map((x) => x.date)).toEqual(["2026-10-05", "2026-10-12", "2026-10-19"])
+  })
+  it("pauses special sessions when the period is off, regular ones only when the period pauses them; both come back", () => {
+    const ses = [
+      { ...generateSessions(special, [], () => "a", 1)[0], id: "a", date: "2026-10-12" },
+      { ...generateSessions(regular, [], () => "b", 1)[0], id: "b", date: "2026-10-12" },
+    ]
+    const off = { ...branch, specialPeriods: [{ ...period, active: false }] } as Branch
+    let r = Sch.syncPeriodSessions(ses, [special, regular], off, "2026-10-01")
+    expect(r.sessions.map((x) => x.cancelled)).toEqual([true, false])
+    expect(r.sessions[0].pausedBy).toBe("sp1")
+    r = Sch.syncPeriodSessions(r.sessions, [special, regular], { ...branch, specialPeriods: [{ ...period, pauseRegular: true }] } as Branch, "2026-10-01")
+    expect(r.sessions.map((x) => x.cancelled)).toEqual([false, true])
+    expect(r.restored).toBe(1)
+    r = Sch.syncPeriodSessions(r.sessions, [special, regular], branch, "2026-10-01")
+    expect(r.sessions.map((x) => x.cancelled)).toEqual([false, false])
+    // past sessions are never touched
+    expect(Sch.syncPeriodSessions(ses, [special, regular], off, "2026-10-20").paused).toBe(0)
+  })
+  it("lists special classes with students before switching a period off", () => {
+    expect(Sch.periodClassesWithStudents("sp1", [special, regular]).map((k) => k.id)).toEqual(["k1"])
+  })
+})

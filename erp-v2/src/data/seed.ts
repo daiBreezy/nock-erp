@@ -77,7 +77,9 @@ export function buildSeed(now = new Date()): DB {
       defaultSessionMinutes: 60, busFeePerLeg: 150,
       // standard 2-hour blocks (owner ref: 13–15 / 15–17 / 17–19)
       blockPlans: [{ from: "2020-01-01", byDay: blockWeek(["13:00", "15:00", "17:00"], ["09:00", "11:00", "13:00", "15:00"]) }],
-      specialPeriods: [{ id: "sp_summer", name: "Summer", from: addDays(monday, 42), to: addDays(monday, 69), hours: wk("08:00", "22:00", []), active: true, priority: "high" }],
+      // Summer has its own blocks and its own classes (owner 2026-10-01); regular classes keep going (default)
+      specialPeriods: [{ id: "sp_summer", name: "Summer", from: addDays(monday, 42), to: addDays(monday, 69), hours: wk("08:00", "22:00", []), active: true, priority: "high",
+        blocks: blockWeek(["09:00", "13:00", "16:00", "18:00"], ["09:00", "13:00"]) }],
       active: true, email: "thonglor@nockacademy.com", address: "123 ถ.สุขุมวิท 55 แขวงคลองตันเหนือ เขตวัฒนา กทม. 10110", phones: ["02-111-2222", "081-234-5678"], socials: ["https://facebook.com/nockacademy"],
       fees: [
         { id: "fee_bus_std", kind: "bus", name: "Standard", price: 150 },
@@ -205,9 +207,11 @@ export function buildSeed(now = new Date()): DB {
     k("cl_ari", "br_ari", "คณิต ป.2", "คณิต", ["ป.2"], "u_beam", "rm_a1", 5, "15:00", 90, ["stu_8"]),
     // multi-subject class (owner 2026-09-28): Math 15 min + Eng 30 min in one session, one summary — monthly bundle course
     { ...k("cl_combo6", "br_thl", "คณิต + อังกฤษ ป.6", "คณิต", ["ป.6"], "u_prae", "rm_3", 5, "16:00", 45, ["stu_6", "stu_14"], ["u_mint"]), subjects: ["คณิต", "อังกฤษ"], courseId: "co_bundle6" },
+    // a Summer-only class: sessions only inside the period, gone from the calendar if Summer is switched off
+    { ...k("cl_summer_eng", "br_thl", "Summer English Camp", "อังกฤษ", ["ป.5", "ป.6"], "u_mint", "rm_2", 1, "09:00", 120, ["stu_6", "stu_14"]), startDate: addDays(monday, 42), periodId: "sp_summer" },
   ]
 
-  const sessions: Session[] = classes.flatMap((c) => generateSessions(c, holidays, () => uid("se"), 10))
+  const sessions: Session[] = classes.flatMap((c) => generateSessions(c, holidays, () => uid("se"), 10, c.periodId ? addDays(monday, 69) : undefined))
   // free-form reminders on the teacher-block class (owner 2026-09-30: "Math Book Lesson 1 Page 2-6")
   sessions.filter((x) => x.classId === "cl_block_dai").forEach((x, i) => {
     x.notes = { stu_10: `Math Book ป.5 เล่ม 2 · Lesson ${i + 1} หน้า ${i * 4 + 2}-${i * 4 + 6}`, stu_17: `ตะลุยโจทย์วิทย์ ชุด ${i + 1}` }

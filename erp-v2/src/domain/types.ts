@@ -34,6 +34,8 @@ export interface SpecialPeriod {
   blocks?: DayBlocks
   /** "this day only" changes made inside the period — gone with the period */
   blockDays?: Record<DateStr, ClassBlock[]>
+  /** regular classes stop during the period (owner 2026-10-01: default = they keep going) */
+  pauseRegular?: boolean
 }
 
 /** One row of the teacher board, e.g. 13:00–15:00 (owner 2026-10-01: each branch sets its own, per weekday) */
@@ -269,6 +271,8 @@ export interface Klass {
    *  teaches, any grade, students on different courses/books side by side · "subject" = one subject + grades (default).
    *  Both are used by both brands; either way a student can be put in any class — mismatches only warn. */
   layout?: ClassLayout
+  /** a special-period class (owner 2026-10-01): sessions only inside the period, hidden while the period is inactive */
+  periodId?: ID
 }
 
 export interface Session {
@@ -307,6 +311,9 @@ export interface Session {
   customized: boolean
   cancelled: boolean
   cancelReason?: string
+  /** sits out because of a special period (its class belongs to an inactive/removed period, or regular classes pause
+   *  during the period) — comes back by itself when the period changes back */
+  pausedBy?: ID
   /** the teacher is on leave (owner 2026-09-30): a substitute teaches, or the session is cancelled and every
    *  student's package runs one class longer */
   teacherLeave?: { teacherId: ID; reason: string; substituteId: ID | null; by: ID; at: string }
