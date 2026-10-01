@@ -126,7 +126,7 @@ export function buildSeed(now = new Date()): DB {
       blockPlans: [{ from: "2020-01-01", byDay: blockWeek(["13:00", "15:00", "17:00"], ["09:00", "11:00", "13:00", "15:00"]) }],
       active: true, email: `${code.toLowerCase()}@${brand}.com`, address: "", phones: [], socials: [],
       fees: [{ id: `${id}_bus`, kind: "bus", name: "Standard", price: 150 }], promotions: [],
-      packageDurations: { hour: [12, 24, 48], week: [4] },
+      packageDurations: { hour: [12, 24, 48, 72, 96], week: [4] },
       priceChart: chart(["คณิต", "อังกฤษ", "วิทย์"], ["ป.4", "ป.5", "ป.6", "ม.1", "ม.2", "ม.3"], brand === "liclass" ? 0.85 : 1),
       bankAccount: { bank: "กสิกรไทย", branchName: `สาขา${name}`, name: brand === "liclass" ? "บจก. ลิคลาส เอดูเคชั่น" : "บจก. นกอะคาเดมี่", number: "000-0-00000-0" }, lineOaConnected: false,
       lineOa: { channelId: "", botBasicId: "", addFriendUrl: "" },
@@ -180,10 +180,13 @@ export function buildSeed(now = new Date()): DB {
     // 10 h on the 90-min Conversation class = 6 sessions + 60 min leftover (demo: the admin decides the leftover)
     course({ id: "co_eng_h10", branchId: "br_thl", name: "อังกฤษ Conversation 10 ชม.", kind: "single", subjects: ["อังกฤษ"], grades: ["ป.5", "ป.6", "ม.1"], unit: "hour", duration: 10, price: 5500, priceReason: "แพ็กชั่วโมงคลาส Conversation" }),
     course({ id: "co_ari", branchId: "br_ari", name: "คณิต ป.ต้น รายเดือน", kind: "single", subjects: ["คณิต"], grades: ["ป.1", "ป.2", "ป.3"], unit: "month", duration: 1, price: 3800, priceReason: "ราคาเดียว ป.ต้น" }),
-    // the other branches: a monthly Maths course and a 12-hour English pack each
+    // hour packs come in many sizes (owner 2026-10-01: 12 / 24 / 48 / 72 / 96 ชม.)
+    ...[24, 48, 72, 96].map((h) => course({ id: `co_eng_h${h}`, branchId: "br_thl", name: `อังกฤษ ป.6 ${h} ชม.`, kind: "single", subjects: ["อังกฤษ"], grades: ["ป.6"], unit: "hour", duration: h })),
+    // the other branches: monthly Maths, a 4-week Maths and English hour packs
     ...branches.slice(2).flatMap((b) => [
       course({ id: `co_${b.id}_m`, branchId: b.id, name: "คณิต ป.5 รายเดือน", kind: "single", subjects: ["คณิต"], grades: ["ป.5"], unit: "month", duration: 1 }),
-      course({ id: `co_${b.id}_e`, branchId: b.id, name: "อังกฤษ ป.6 12 ชม.", kind: "single", subjects: ["อังกฤษ"], grades: ["ป.6"], unit: "hour", duration: 12 }),
+      course({ id: `co_${b.id}_w4`, branchId: b.id, name: "คณิต ป.5 4 สัปดาห์", kind: "single", subjects: ["คณิต"], grades: ["ป.5"], unit: "week", duration: 4 }),
+      ...[12, 24, 48, 72, 96].map((h) => course({ id: h === 12 ? `co_${b.id}_e` : `co_${b.id}_e${h}`, branchId: b.id, name: `อังกฤษ ป.6 ${h} ชม.`, kind: "single", subjects: ["อังกฤษ"], grades: ["ป.6"], unit: "hour", duration: h })),
     ]),
   ]
 
@@ -536,7 +539,14 @@ function buildHistory(db: { today: string; branches: Branch[]; courses: Course[]
     const branch = rnd() < 0.2 ? db.branches[0] : db.branches[1 + Math.floor(Math.pow(rnd(), 1.6) * (db.branches.length - 1))]
     const options = db.courses.filter((c) => c.branchId === branch.id && c.active && classFor(c))
     if (!options.length) continue
-    const course = pick(options)
+    // what families buy: about half monthly, 4 in 10 hour packs (24 / 48 h most), the rest weekly
+    const r0 = rnd()
+    const unit = r0 < 0.5 ? "month" : r0 < 0.9 ? "hour" : "week"
+    const ofUnit = options.filter((c) => c.unit === unit)
+    const weight = (c: Course) => (c.unit !== "hour" ? 1 : ({ 12: 3, 24: 4, 48: 3, 72: 1.5, 96: 1 } as Record<number, number>)[c.duration] ?? 1)
+    const pool = ofUnit.length ? ofUnit : options
+    let w = rnd() * pool.reduce((a, c) => a + weight(c), 0)
+    const course = pool.find((c) => (w -= weight(c)) <= 0) ?? pool[0]
     const klass = classFor(course)!
     const grade = pick(course.grades)
     const joined = addDays(startAt, Math.floor(rnd() * 440))
@@ -549,7 +559,8 @@ function buildHistory(db: { today: string; branches: Branch[]; courses: Course[]
     const sid = `stu_h${i}`
     db.students.push({ id: sid, familyId, branchId: branch.id, name: `ด.${i % 2 ? "ช" : "ญ"}. ${nick} ${surname}`, nickname: nick, grade, usesBus: false, createdBranchId: branch.id, createdAt: iso(joined) })
     // one package after another; each renewal 86% likely, sometimes a 6–12 week break and back
-    const len = course.unit === "month" ? 30 : course.unit === "week" ? course.duration * 7 : 42
+    // a 2-hour class a week: a 24-hour pack lasts 12 weeks
+    const len = course.unit === "month" ? 30 : course.unit === "week" ? course.duration * 7 : Math.round(course.duration * 3.5)
     let at = joined
     for (let k = 0; k < 24 && at <= db.today; k++) {
       const paidOn = addDays(at, Math.floor(rnd() * 3))

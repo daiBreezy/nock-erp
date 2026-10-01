@@ -191,43 +191,63 @@ function Overview({ d, compare, period, onAllRevenue, onAllStudents }: { d: Repo
       </div>
 
       <div className="grid gap-4 lg:grid-cols-2">
-        <Panel title="Net Growth" hint="ใหม่ + กลับมาเรียน − Lost" action={<button type="button" className="text-xs text-primary" onClick={onAllStudents}>ดูทั้งหมด ›</button>}>
-          <div className="grid gap-3 sm:grid-cols-[1fr_9rem]">
-            {compare ? (
-              <table className="w-full text-sm">
-                <thead className="text-xs text-muted-foreground"><tr><th className="text-left font-normal">สาขา</th><th className="text-right font-normal">ใหม่</th><th className="text-right font-normal">กลับมา</th><th className="text-right font-normal">Lost</th></tr></thead>
-                <tbody>{d.perBranch.map((b, i) => (
-                  <tr key={b.id} className="border-t"><td className="py-1.5"><span className="flex items-center gap-2"><Rank n={i + 1} />{b.name}</span></td>
-                    <td className="text-right text-emerald-600 tabular-nums">+{b.newCount}</td><td className="text-right text-emerald-600 tabular-nums">+{b.returning}</td><td className="text-right text-red-600 tabular-nums">−{b.lost}</td></tr>
-                ))}</tbody>
-              </table>
-            ) : (
-              <div className="grid grid-cols-3 gap-2 text-center text-sm">
-                <Stat label="ใหม่" value={`+${d.studentFlow.newCount}`} tone="text-emerald-600" />
-                <Stat label="กลับมาเรียน" value={`+${d.studentFlow.returning}`} tone="text-emerald-600" />
-                <Stat label="Lost" value={`−${d.studentFlow.lost}`} tone="text-red-600" />
-              </div>
-            )}
-            <div className="grid place-items-center rounded-2xl bg-muted/60 p-3 text-center">
-              <div><p className="text-xs text-muted-foreground">Net</p><p className={cn("text-3xl font-semibold tabular-nums", net < 0 && "text-red-600")}>{net > 0 ? "+" : ""}{net}</p>
-                <p className="text-[11px] text-muted-foreground">อัตราต่อคอร์ส {fmtPct(d.studentFlow.renewal)}</p></div>
-            </div>
-          </div>
+        <Panel title="Net Growth" hint="เข้า = ใหม่ + กลับมาเรียน · Net = เข้า − Lost" action={<button type="button" className="text-xs text-primary" onClick={onAllStudents}>ดูทั้งหมด ›</button>}>
+          <SummaryStrip items={[["ใหม่", `+${d.studentFlow.newCount}`, "text-emerald-600"], ["กลับมาเรียน", `+${d.studentFlow.returning}`, "text-emerald-600"], ["Lost", `−${d.studentFlow.lost}`, "text-red-600"], ["Net", `${net > 0 ? "+" : ""}${net}`, net < 0 ? "text-red-600" : ""], ["ต่อคอร์ส", fmtPct(d.studentFlow.renewal), ""]]} />
+          {compare && (
+            <SplitRanks rows={[...d.perBranch].sort((a, b) => (b.newCount + b.returning - b.lost) - (a.newCount + a.returning - a.lost))} cols={[
+              { label: "เข้า", cell: (b) => <span className="text-emerald-600">+{b.newCount + b.returning}</span> },
+              { label: "Lost", cell: (b) => <span className="text-red-600">−{b.lost}</span> },
+              { label: "Net", cell: (b) => { const n = b.newCount + b.returning - b.lost; return <span className={cn("font-medium", n < 0 && "text-red-600")}>{n > 0 ? "+" : ""}{n}</span> } },
+            ]} />
+          )}
         </Panel>
         <Panel title="Churn Split" hint="Lost = หมดแพ็กแล้วไม่ต่อใน 30 วัน · Pause = เริ่มลาพักยาวในช่วงนี้">
-          {compare ? (
-            <table className="w-full text-sm">
-              <thead className="text-xs text-muted-foreground"><tr><th className="text-left font-normal">สาขา</th><th className="text-right font-normal">Lost</th><th className="text-right font-normal">Pause</th></tr></thead>
-              <tbody>{d.perBranch.map((b, i) => (
-                <tr key={b.id} className="border-t"><td className="py-1.5"><span className="flex items-center gap-2"><Rank n={i + 1} />{b.name}</span></td>
-                  <td className="text-right text-red-600 tabular-nums">{b.lost}</td><td className="text-right text-amber-600 tabular-nums">{b.pauses}</td></tr>
-              ))}</tbody>
-            </table>
-          ) : (
-            <div className="grid grid-cols-2 gap-2 text-center"><Stat label="Lost" value={String(d.studentFlow.lost)} tone="text-red-600" /><Stat label="Pause" value={String(d.studentFlow.pauses)} tone="text-amber-600" /></div>
+          <SummaryStrip items={[["Lost", String(d.studentFlow.lost), "text-red-600"], ["Pause", String(d.studentFlow.pauses), "text-amber-600"]]} />
+          {compare && (
+            <SplitRanks rows={[...d.perBranch].sort((a, b) => b.lost + b.pauses - (a.lost + a.pauses))} cols={[
+              { label: "Lost", cell: (b) => <span className="text-red-600">{b.lost}</span> },
+              { label: "Pause", cell: (b) => <span className="text-amber-600">{b.pauses}</span> },
+            ]} />
           )}
         </Panel>
       </div>
+    </div>
+  )
+}
+
+/** A row of totals across the top of a card */
+function SummaryStrip({ items }: { items: [string, string, string][] }) {
+  return (
+    <div className="mb-3 flex divide-x rounded-2xl bg-muted/50 py-2">
+      {items.map(([label, value, tone]) => (
+        <div key={label} className="flex-1 px-2 text-center">
+          <p className="text-[11px] text-muted-foreground">{label}</p>
+          <p className={cn("text-lg font-semibold tabular-nums", tone)}>{value}</p>
+        </div>
+      ))}
+    </div>
+  )
+}
+
+/** Ranked branch rows split into two columns once there are more than five — same layout as revenue by branch. */
+function SplitRanks<T extends { id: string; name: string }>({ rows, cols }: { rows: T[]; cols: { label: string; cell: (r: T) => React.ReactNode }[] }) {
+  const half = rows.length > 5 ? Math.ceil(rows.length / 2) : rows.length
+  const parts = rows.length > 5 ? [rows.slice(0, half), rows.slice(half)] : [rows]
+  return (
+    <div className={cn("grid gap-x-6", parts.length > 1 && "md:grid-cols-2")}>
+      {parts.map((list, c) => (
+        <table key={c} className="w-full text-sm">
+          <thead className={cn("text-xs text-muted-foreground", c > 0 && "max-md:hidden")}>
+            <tr><th className="text-left font-normal">สาขา</th>{cols.map((x) => <th key={x.label} className="text-right font-normal">{x.label}</th>)}</tr>
+          </thead>
+          <tbody>{list.map((r, i) => (
+            <tr key={r.id} className="border-t">
+              <td className="py-1.5"><span className="flex items-center gap-2"><Rank n={c * half + i + 1} /><span className="truncate">{r.name}</span></span></td>
+              {cols.map((x) => <td key={x.label} className="text-right tabular-nums">{x.cell(r)}</td>)}
+            </tr>
+          ))}</tbody>
+        </table>
+      ))}
     </div>
   )
 }
