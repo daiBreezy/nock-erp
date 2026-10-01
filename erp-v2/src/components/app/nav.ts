@@ -50,7 +50,7 @@ export const NAV: { group: string; items: NavItem[] }[] = [
     items: [
       { href: "/billing", label: "ใบแจ้งหนี้ & รับเงิน", icon: ReceiptIcon, perm: "billing.view" },
       { href: "/tasks", label: "Tasks", icon: ListTodoIcon, perm: "calendar.view", soon: true },
-      { href: "/reports", label: "Reports", icon: ChartColumnIcon, perm: "dashboard.view", soon: true },
+      { href: "/reports", label: "Reports", icon: ChartColumnIcon, perm: "reports.view" },
     ],
   },
   {

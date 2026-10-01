@@ -20,6 +20,7 @@ import * as Doc from "./documents"
 import * as Seats from "./seats"
 import * as Les from "./lessons"
 import * as Sch from "./scheduling"
+import * as Rep from "./reports"
 import { summaryMessage } from "./messages"
 
 const hours = { open: "09:00", close: "20:00" }
@@ -1479,5 +1480,45 @@ describe("Special-period classes (owner 2026-10-01)", () => {
   })
   it("lists special classes with students before switching a period off", () => {
     expect(Sch.periodClassesWithStudents("sp1", [special, regular]).map((k) => k.id)).toEqual(["k1"])
+  })
+})
+
+describe("Reports definitions (owner 2026-10-01)", () => {
+  it("periods and what they compare with — YTD against the same dates last year", () => {
+    expect(Rep.periodRange("ytd", "2026-10-01")).toEqual({ from: "2026-01-01", to: "2026-10-01" })
+    expect(Rep.compareRange("ytd", { from: "2026-01-01", to: "2026-10-01" })).toEqual({ from: "2025-01-01", to: "2025-10-01" })
+    expect(Rep.periodRange("week", "2026-10-01")).toEqual({ from: "2026-09-28", to: "2026-10-01" })
+    expect(Rep.compareRange("week", { from: "2026-09-28", to: "2026-10-01" })).toEqual({ from: "2026-09-24", to: "2026-09-27" })
+  })
+  it("no % change when there is no data to compare with", () => {
+    expect(Rep.change(150, 100)).toBe(50)
+    expect(Rep.change(150, 0)).toBeNull()
+    expect(Rep.change(150, 10, { from: "2025-01-01", to: "2025-10-01" }, "2025-07-01")).toBeNull()
+    expect(Rep.change(150, 100, { from: "2025-08-01", to: "2025-10-01" }, "2025-07-01")).toBe(50)
+  })
+  const row = (studentId: string, date: string, amount: number, subjects = ["คณิต"], packageKey = "1m"): Rep.RevenueRow =>
+    ({ date, branchId: "b1", studentId, invoiceId: `i-${studentId}-${date}`, tuition: amount, bus: 0, advance: 0, book: 0, total: amount, lines: [{ courseId: "c", subjects, amount, packageKey, grade: "ป.5", units: 1 }] })
+  it("new = first paid invoice ever (never imported students); lost 30 days after the last package; back = returning", () => {
+    const students = [{ id: "a", branchId: "b1" }, { id: "b", branchId: "b1", imported: { at: "2025-01-01", source: "ระบบเดิม" } }]
+    const ents = [
+      { studentId: "a", from: "2026-01-01", to: "2026-01-31" }, { studentId: "a", from: "2026-02-01", to: "2026-02-28" },
+      { studentId: "a", from: "2026-05-01", to: "2026-05-31" }, { studentId: "b", from: "2026-01-01", to: "2026-01-31" },
+    ]
+    const ev = Rep.studentEvents({ students, entitlements: ents, rows: [row("a", "2026-01-01", 4000), row("b", "2026-01-02", 4000)], today: "2026-10-01" })
+    const of = (sid: string) => ev.filter((e) => e.studentId === sid).map((e) => `${e.kind}@${e.date}`)
+    expect(of("a")).toEqual(["new@2026-01-01", "renewed@2026-02-01", "lost@2026-03-30", "returning@2026-05-01", "lost@2026-06-30"])
+    expect(of("b")).toEqual(["lost@2026-03-02"])
+    expect(Rep.renewalRate(ev, { from: "2026-01-01", to: "2026-12-31" })).toBeCloseTo(1 / 4)
+  })
+  it("multi-subject courses split evenly; packages show volume and value", () => {
+    const r = { from: "2026-01-01", to: "2026-12-31" }
+    const rows = [row("a", "2026-03-01", 6000, ["คณิต", "อังกฤษ"]), row("b", "2026-03-02", 3000, ["คณิต"], "12h")]
+    expect(Rep.revenueBySubject(rows, r)).toEqual([{ subject: "คณิต", amount: 6000, share: 6000 / 9000 }, { subject: "อังกฤษ", amount: 3000, share: 3000 / 9000 }])
+    expect(Rep.packageMix(rows, r).map((x) => [x.key, x.units, x.amount])).toEqual([["12h", 1, 3000], ["1m", 1, 6000]])
+  })
+  it("attendance rate = present ÷ (present + leave), cancelled sessions left out", () => {
+    const sessions = [{ id: "s1", date: "2026-09-01", cancelled: false }, { id: "s2", date: "2026-09-02", cancelled: true }]
+    const att = [{ sessionId: "s1", status: "present" as const }, { sessionId: "s1", status: "leave" as const }, { sessionId: "s2", status: "present" as const }]
+    expect(Rep.attendanceRate(sessions, att, { from: "2026-09-01", to: "2026-09-30" }).rate).toBe(0.5)
   })
 })

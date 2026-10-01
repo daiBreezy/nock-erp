@@ -25,6 +25,13 @@ Ref: `~/Documents/ERP Screen Shot/Reports.png` (ตัวเลขในภา�
 
 **ยังรอ:** รูปแบบ Cohort (แถวสาขา × ปีที่สมัคร ตาม ref ใหม่ หรือแถวรายเดือนที่สมัคร) · นิยาม "นักเรียนใหม่" (อธิบายใหม่แล้ว) · รายการ Need Attention + เกณฑ์ (เสนอแล้ว)
 
+**เจ้าของ: "Build เลย ค่อยมาปรับกัน" → R1 ✅**
+- กฎ `src/domain/rules/reports.ts` (ทุกตัวเลขมาจากที่นี่ คำนวณจากข้อมูลจริง ไม่เก็บยอดสำเร็จ — Dev แปลงเป็น SQL ได้): `periodRange`/`compareRange`/`COMPARE_LABEL` · `change` (ช่วงที่เทียบเริ่มก่อนข้อมูลชิ้นแรก → "—" ไม่โชว์ % ปลอม) · `revenueRows` (ใบที่จ่ายแล้ว ณ วันเงินเข้า + ใบลดหนี้ติดลบ = ตรงกับรายงานภาษีขาย, ส่วนลด/เครดิตกระจายตามสัดส่วนบรรทัดคอร์ส) · `monthlyRevenue`, `revenueByBranch`, `revenueBySubject` (หลายวิชาแบ่งเท่ากัน — ยังไม่มีนาทีต่อวิชา), `packageMix`, `packageByGrade`, `topFamilies` · `studentEvents` (ใหม่ / ต่อคอร์ส / Lost = หมดแพ็ก+30 วัน / กลับมาเรียน · นักเรียน Import ไม่นับเป็นใหม่), `stateOn` (Active/Pause), `renewalRate`, `activeByMonth`, `pausesIn` · `attendanceRate` · `demandByDayHour` · `needsAttention` (13 เรื่อง, เกณฑ์ใน `ATTENTION_THRESHOLDS` — **ยังไม่มี UI ให้ Admin ปรับ** ทำทีหลังใน Settings)
+- สิทธิ์ `reports.view` (Director/Super Admin/Area Manager/Manager) · `reportBranchIds` + `canCompareBranches` (Manager ไม่เห็นตารางเทียบสาขา) · เมนู Reports เปิดแล้ว
+- หน้า `/reports`: KPI 5 ใบ (รายได้, Active+Pause, คาบสัปดาห์นี้, อัตราเข้าเรียน, Need Attention → หน้าต่างรายการแยกกลุ่ม กดไปหน้าที่แก้) · เลือกสาขา · ช่วง วันนี้/สัปดาห์/เดือน/3M/6M/1Y/YTD · แท็บ ภาพรวม / รายได้ / นักเรียน (การเข้าเรียน, Operations = R2 · CRM = R3 ขึ้นป้ายไว้) · Export .xlsx (`lib/reports-export.ts` 11 ชีต) + PDF (พิมพ์หน้า — print CSS ซ่อน sidebar/header)
+- seed: ประวัติ 15 เดือน ~130 นักเรียน / ~540 ใบแจ้งหนี้ที่จ่ายแล้ว + แพ็กเกจ + ลาพักยาว (`buildHistory` ใน seed.ts, deterministic) · persist v48 · 165 tests
+- **โน้ตถึง Dev:** Forecast/Cohort อยู่ R3 · "ยอดเงินเข้า" อิงวันที่ยืนยันเงิน (`receiptDate`)
+
 ---
 
 ## 2026-10-01 — Calendar แบบ Flexible (ตารางครูทั้งสัปดาห์) ✅ ขั้น 1–6a (เครื่องทำงาน)

@@ -2,6 +2,7 @@
 
 import { addDays, fromMinutes, nextWeekday, toDateStr, toMinutes, weekdayOf } from "@/domain/dates"
 import { chartPrice } from "@/domain/rules/course"
+import { invoiceTotals } from "@/domain/rules/billing"
 import { generateSessions } from "@/domain/rules/scheduling"
 import type {
   Assessment, AppNotification, Attendance, Branch, BusAddOn, DayBlocks, ChatMessage, CreditNote, LessonBook, LessonTopic, Conversation, Course, Entitlement, Family, Holiday, Invoice, Klass, Lead, LessonSummary,
@@ -439,6 +440,11 @@ export function buildSeed(now = new Date()): DB {
     { id: "ba_2", branchId: "br_thl", studentId: "stu_1", date: addDays(today, 2), pickup: true, dropoff: true, busFeeId: "fee_bus_std", amount: 300, createdBy: "u_ploy", createdAt: iso(addDays(today, -1)) },
   ]
 
+  // ---- 15 months of history for Reports (owner 2026-10-01) — real records, as if the system had been running:
+  // students who joined, renewed, paused, left and came back; every paid invoice has its package. Deterministic.
+  const history = buildHistory({ today, branches, courses, classes, families, students, invoices, entitlements })
+  const leaves: StudentLeave[] = history.leaves
+
   // seed history so every student's Timeline has real entries (created, enrolled, invoices)
   const logs: ActivityLog[] = []
   const lg = (at: string, by: string | null, category: ActivityLog["category"], studentIds: string[], action: string, detail: string) =>
@@ -475,5 +481,65 @@ export function buildSeed(now = new Date()): DB {
     },
   }
 
-  return { branches, staff, holidays, courses, classes, sessions, attendance, summaries, families, students, entitlements, leaves: [], invoices, busAddOns, creditNotes: [] as CreditNote[], lessonBooks, lessonTopics, leads, conversations, messages, notifications: [], system, notes, logs, assessments }
+  return { branches, staff, holidays, courses, classes, sessions, attendance, summaries, families, students, entitlements, leaves, invoices, busAddOns, creditNotes: [] as CreditNote[], lessonBooks, lessonTopics, leads, conversations, messages, notifications: [], system, notes, logs, assessments }
+}
+
+/** Demo history for Reports: ~130 past/current students over the last 15 months with monthly / hour-pack invoices. */
+function buildHistory(db: { today: string; branches: Branch[]; courses: Course[]; classes: Klass[]; families: Family[]; students: Student[]; invoices: Invoice[]; entitlements: Entitlement[] }) {
+  let seed = 20261001
+  const rnd = () => { seed = (seed * 1103515245 + 12345) % 2147483648; return seed / 2147483648 }
+  const pick = <T,>(xs: T[]) => xs[Math.floor(rnd() * xs.length)]
+  const NICK = ["มิว", "ปุณ", "ต้นข้าว", "ขนุน", "พีช", "ฟ้า", "ใบข้าว", "นะโม", "ภูริ", "กาย", "แพรว", "มีน", "ไข่มุก", "ทอฟฟี่", "ปิงปอง", "จูน", "ข้าวปั้น", "ซอล", "โอบอุ้ม", "ชิน"]
+  const SN = ["วงศ์", "ศรี", "สาย", "บุญ", "แสง", "ชื่น", "นาค", "พรหม", "ทอง", "แก้ว"].flatMap((a) => ["ใหญ่", "ทอง", "สุข", "มี", "ดาว", "ใจ", "ดี", "มา", "งาม", "ชัย"].map((b) => a + b))
+  const leaves: StudentLeave[] = []
+  const iso = (d: string, h = 10) => new Date(`${d}T${String(h).padStart(2, "0")}:00:00`).toISOString()
+  const startAt = addDays(db.today, -456)
+  let running = 5000
+  const classFor = (c: Course) => db.classes.find((k) => k.branchId === c.branchId && k.courseId === c.id)
+    ?? db.classes.find((k) => k.branchId === c.branchId && k.active && !k.periodId && k.kind === "learning" && c.subjects.includes(k.subject) && (!k.grades.length || k.grades.some((g) => c.grades.includes(g))))
+    ?? db.classes.find((k) => k.branchId === c.branchId && k.active && !k.periodId && k.kind === "learning" && c.subjects.includes(k.subject))
+  for (let i = 0; i < 130; i++) {
+    const branch = i % 10 < 7 ? db.branches[0] : db.branches[1]
+    const options = db.courses.filter((c) => c.branchId === branch.id && c.active && classFor(c))
+    if (!options.length) continue
+    const course = pick(options)
+    const klass = classFor(course)!
+    const grade = pick(course.grades)
+    const joined = addDays(startAt, Math.floor(rnd() * 440))
+    // about a quarter are siblings of the previous child (never more than 2 per family)
+    const sib = i > 0 && rnd() < 0.25 ? db.students[db.students.length - 1] : undefined
+    const familyId = sib?.branchId === branch.id && sib.familyId?.startsWith("fa_h") && db.students.filter((x) => x.familyId === sib.familyId).length < 2 ? sib.familyId : `fa_h${i}`
+    const surname = familyId === `fa_h${i}` ? SN[(i * 37) % SN.length] : db.students[db.students.length - 1].name.split(" ").pop()!
+    if (familyId === `fa_h${i}`) db.families.push({ id: familyId, name: `ครอบครัว${surname}`, parents: [{ name: "ผู้ปกครอง", phone: `08${i % 10}-700-${String(1000 + i)}`, lineLinked: rnd() < 0.7, primary: true }] })
+    const nick = pick(NICK)
+    const sid = `stu_h${i}`
+    db.students.push({ id: sid, familyId, branchId: branch.id, name: `ด.${i % 2 ? "ช" : "ญ"}. ${nick} ${surname}`, nickname: nick, grade, usesBus: false, createdBranchId: branch.id, createdAt: iso(joined) })
+    // one package after another; each renewal 86% likely, sometimes a 6–12 week break and back
+    const len = course.unit === "month" ? 30 : course.unit === "week" ? course.duration * 7 : 42
+    let at = joined
+    for (let k = 0; k < 24 && at <= db.today; k++) {
+      const paidOn = addDays(at, Math.floor(rnd() * 3))
+      if (paidOn > db.today) break
+      const id = `inv_h${i}_${k}`
+      const n = ++running
+      const no = `${String((Number(paidOn.slice(0, 4)) + 543) % 100).padStart(2, "0")}${paidOn.slice(5, 7)}${paidOn.slice(8, 10)}-${branch.brand === "liclass" ? "02" : "01"}-${branch.branchNo}-${n}`
+      db.invoices.push({
+        id, branchId: branch.id, studentId: sid, number: no, lines: [{ id: `ln_h${i}_${k}`, courseId: course.id, classIds: [klass.id], startDate: at, periods: 1 }],
+        bus: [], bookFee: k === 0 && rnd() < 0.4 ? 350 : 0, advance: [], concession: rnd() < 0.1 ? { amount: 200, remark: "ส่วนลดพี่น้อง" } : null,
+        noteToParent: "", status: "paid", pdf: "ready", createdBy: "u_ploy", createdAt: iso(addDays(at, -2)), approvedBy: "u_nock", sentAt: iso(addDays(at, -2)), delivery: "delivered",
+        receiptNumber: no, payments: [{ id: `pay_h${i}_${k}`, amount: 0, method: "transfer", reference: "", recordedBy: "u_ploy", recordedAt: iso(paidOn, 11), confirmedBy: "u_nock" }],
+      })
+      db.entitlements.push({ id: `en_h${i}_${k}`, studentId: sid, courseId: course.id, subjects: course.subjects, classIds: [], invoiceId: id, kind: course.unit === "hour" ? "sessions" : "subscription", from: at, to: addDays(at, len - 1), sessionsTotal: course.unit === "hour" ? 6 : 4 })
+      if (rnd() < 0.05) leaves.push({ id: `lv_h${i}_${k}`, studentId: sid, from: addDays(at, 7), to: addDays(at, 35), reason: "ไปต่างประเทศกับครอบครัว", createdBy: "u_ploy", createdAt: iso(at) })
+      const r = rnd()
+      if (r < 0.09) break
+      at = r < 0.14 ? addDays(at, len + 42 + Math.floor(rnd() * 42)) : addDays(at, len)
+    }
+  }
+  // payments = the invoice total (the same quote every page uses)
+  for (const inv of db.invoices) if (inv.id.startsWith("inv_h")) {
+    const branch = db.branches.find((b) => b.id === inv.branchId)!
+    inv.payments[0].amount = invoiceTotals(inv, { branch, courses: db.courses, classes: db.classes, holidays: [] }).total
+  }
+  return { leaves }
 }

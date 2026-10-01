@@ -26,11 +26,13 @@ export type Permission =
   | "inbox.manage"
   /** branch holidays: create own + choose which company holidays the branch closes on (Admin/Manager and up) */
   | "holiday.manage"
+  /** Reports (owner 2026-10-01): Director / Area Manager / Manager — not Admin, not teachers */
+  | "reports.view"
 
 const ALL: Permission[] = [
   "calendar.view", "class.manage", "session.manage", "attendance.mark", "attendance.leave_override", "summary.write", "summary.approve",
   "student.view", "student.manage", "student.export", "family.manage", "staff.view", "staff.manage",
-  "course.manage", "billing.view", "billing.manage", "billing.approve", "settings.manage", "dashboard.view", "lead.manage", "inbox.manage", "holiday.manage",
+  "course.manage", "billing.view", "billing.manage", "billing.approve", "settings.manage", "dashboard.view", "lead.manage", "inbox.manage", "holiday.manage", "reports.view",
 ]
 
 const MANAGER: Permission[] = ALL.filter((p) => p !== "settings.manage")
@@ -97,3 +99,12 @@ export function canDeactivateStaff(target: Staff, actor: Staff, all: Staff[]): R
 export function canEditBlocks(user: Staff | undefined, branchId: string) {
   return !!user && inBranch(user, branchId) && user.roles.some((r) => r === "admin" || r === "manager" || r === "area_manager" || r === "director" || r === "super_admin")
 }
+
+/** Reports scope (owner 2026-10-01): Director sees every branch and can compare them; an Area Manager the branches of
+ *  their area (their branchIds); a Manager only their own branch, without the branch comparison. */
+export function reportBranchIds(user: Staff | undefined, all: { id: string }[]) {
+  if (!user) return []
+  if (user.roles.some((r) => r === "super_admin" || r === "director")) return all.map((b) => b.id)
+  return all.filter((b) => user.branchIds.includes(b.id)).map((b) => b.id)
+}
+export const canCompareBranches = (user: Staff | undefined) => !!user?.roles.some((r) => r === "super_admin" || r === "director" || r === "area_manager")
