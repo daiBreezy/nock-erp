@@ -976,8 +976,8 @@ function SatisfactionTab({ d, compare }: { d: ReportData; compare: boolean }) {
             <table className="w-full text-sm">
               <thead className="text-xs text-muted-foreground"><tr><th className="text-left font-normal">ครอบครัว</th>{compare && <th className="text-left font-normal">สาขา</th>}<th className="px-3 text-right font-normal">แนะนำ</th><th className="px-3 text-left font-normal">ปีหน้า</th><th className="px-3 text-left font-normal">โทรโดย</th><th className="text-left font-normal">ผลการคุย</th></tr></thead>
               <tbody>{unhappy.filter((r) => r.followUp).slice(0, showAllCalls ? undefined : 10).map((r) => (
-                <tr key={r.id} className="border-t align-top">
-                  <td className="py-1.5">{fam(r.familyId)}</td>
+                <tr key={r.id} className="border-t align-middle [&>td]:py-2">
+                  <td>{fam(r.familyId)}</td>
                   {compare && <td className="text-muted-foreground">{branches.find((b) => b.id === r.branchId)?.name}</td>}
                   <td className="px-3 text-right text-red-600 tabular-nums">{r.answers.nps ?? "—"}/10</td>
                   <td className="px-3 whitespace-nowrap">{r.answers.continueNext ? CONT[r.answers.continueNext] : "—"}</td>
