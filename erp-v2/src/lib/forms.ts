@@ -5,7 +5,7 @@
 // logic lives in one place, not copy-pasted across components).
 
 import { FORM_TYPE_LABEL } from "@/domain/rules/forms"
-import type { Brand, FormLang, FormOfferSlot, FormPrefill, FormSubjectOffer, FormSubmission, FormToken, FormType, ID, Result } from "@/domain/types"
+import type { Brand, ExitResponse, ExitToken, FormLang, FormOfferSlot, FormPrefill, FormSubjectOffer, FormSubmission, FormToken, FormType, ID, Result } from "@/domain/types"
 import { useStore } from "@/store/store"
 
 async function postJson<T>(url: string, body: unknown): Promise<T> {
@@ -64,4 +64,28 @@ export async function editSubmissionSlot(sub: FormSubmission, pickIndex: number,
   const r = await postJson<{ ok: boolean; error?: string }>("/api/forms/edit", { id: sub.id, pickIndex, subject, slot })
   if (!r.ok) return { ok: false, error: r.error ?? "แก้ไขไม่สำเร็จ" }
   return { ok: true, value: undefined }
+}
+
+/**
+ * Exit form (owner 2026-10-05): mint the one-time link, then push it in the family's LINE chat when they have one.
+ * Without LINE the admin copies the link (the page works in any browser — the token is all it needs).
+ */
+export async function sendExitForm(input: Omit<ExitToken, "token" | "kind" | "createdAt" | "expiresAt" | "used">): Promise<Result<{ token: string; url: string; sent: boolean }>> {
+  const res = await postJson<{ ok: boolean; token?: ExitToken; error?: string }>("/api/parent-forms/token", input)
+  if (!res.ok || !res.token) return { ok: false, error: res.error ?? "สร้างลิงก์ไม่สำเร็จ" }
+  const liffId = process.env.NEXT_PUBLIC_LIFF_ID
+  const isLine = !!input.conversationId?.startsWith("line_")
+  const url = isLine && liffId ? `https://liff.line.me/${liffId}?token=${res.token.token}` : `${window.location.origin}/liff/exit?token=${res.token.token}`
+  if (!isLine) return { ok: true, value: { token: res.token.token, url, sent: false } }
+  const names = input.students.map((s) => s.nickname).join(", ")
+  const sent = await postJson<{ ok: boolean; error?: string }>("/api/line/send", {
+    conversationId: input.conversationId, text: `รบกวนผู้ปกครองช่วยตอบแบบฟอร์มสั้นๆ เรื่องการหยุดเรียนของ${names}ค่ะ 🙏 (ประมาณ 2 นาที)\n${url}`,
+  })
+  if (!sent.ok) return { ok: false, error: sent.error ?? "ส่งทาง LINE ไม่สำเร็จ — คัดลอกลิงก์ส่งเองได้" }
+  return { ok: true, value: { token: res.token.token, url, sent: true } }
+}
+
+export async function fetchExitResponse(token: string): Promise<ExitResponse | null> {
+  const r = await fetch(`/api/parent-forms/responses?token=${encodeURIComponent(token)}`).then((x) => x.json()).catch(() => null)
+  return r?.responses?.[0] ?? null
 }

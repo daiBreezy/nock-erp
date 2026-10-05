@@ -116,7 +116,8 @@ export function useReports(branchIds: string[], period: R.PeriodKey) {
     }
 
     // ---- R3: CRM, cohort, forecast ----
-    const leads = s.leads.filter((l) => ids.has(l.branchId))
+    // win-back leads are old students to call again, not new leads — kept out of the funnel
+    const leads = s.leads.filter((l) => ids.has(l.branchId) && !l.winBackOf)
     const crm = {
       funnel: R.leadFunnel(leads, range),
       sources: R.leadSources(leads, rows, range),
@@ -149,7 +150,10 @@ export function useReports(branchIds: string[], period: R.PeriodKey) {
       newAvg: R.avgNewRevenue(rows, events, today),
     }
 
+    const exits = R.exitSummary(students, range)
+
     return {
+      exits,
       attendanceTab, operations, crm, cohortByBranchYear, cohortMonthly, forecast,
       today, now, range, prev, rows, events, students, since, comparable: !!since && prev.from >= since,
       kpi: {

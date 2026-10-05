@@ -113,6 +113,9 @@ function LiffForm() {
   useEffect(() => {
     let cancelled = false
     async function run() {
+      // one LIFF app for every parent form: exit-form links ("pf_" tokens) live on their own page
+      const pf = initialToken || new URLSearchParams(window.location.search).get("token") || ""
+      if (pf.startsWith("pf_")) { window.location.replace(`/liff/exit?token=${encodeURIComponent(pf)}`); return }
       if (preview) {
         const d = previewData(preview)
         setFormType(preview); setOffers(d.offers); setGrades(d.grades); setDisplayName("ผู้ปกครอง"); setLineUserId("preview")

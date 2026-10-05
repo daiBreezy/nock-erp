@@ -465,6 +465,8 @@ export interface Student {
   createdBranchId: ID
   /** left the school for good — set by hand. (Active/Inactive is automatic: packages + long leave) */
   archived?: { at: string; by: ID; reason: string }
+  /** leaving (owner 2026-10-05): the parent tells the admin → the admin sends the exit form → closes it */
+  exit?: StudentExit
   /** brought in by the import of the old system's students (owner 2026-09-30): they already bought courses with us,
    *  so no entry fee — the invoice tells the admin */
   imported?: { at: string; source: string }
@@ -550,6 +552,69 @@ export interface LeadNote {
   text: string
 }
 
+/** What a parent answers on the exit form (TH / EN / JP form, stored language-neutral). */
+export interface ExitAnswers {
+  reasonId: ID
+  otherReasonIds: ID[]
+  /** 1–5, null = skipped */
+  scores: { teacher: number | null; content: number | null; admin: number | null; value: number | null }
+  comeBack: "yes" | "maybe" | "no"
+  /** YYYY-MM when they might come back */
+  comeBackMonth?: string
+  /** would recommend us, 0–10 */
+  nps: number | null
+  comment: string
+  /** OK to contact them with offers later */
+  contactOk: boolean
+  lang: FormLang
+}
+
+/** A link sent to a family for the exit form (server-side, like Test/Trial tokens). */
+export interface ExitToken {
+  token: string
+  kind: "exit"
+  branchId: ID
+  branchName: string
+  brand: Brand
+  lang: FormLang
+  conversationId: ID | null
+  familyName: string
+  students: { id: ID; nickname: string; grade: string }[]
+  lastDate: DateStr
+  /** snapshot of the reason list in three languages — the form page has no access to Settings */
+  reasons: { id: ID; label: string; en?: string; ja?: string }[]
+  createdAt: string
+  expiresAt: string
+  used: boolean
+}
+
+export interface ExitResponse {
+  id: ID
+  token: string
+  branchId: ID
+  studentIds: ID[]
+  answers: ExitAnswers
+  submittedAt: string
+}
+
+export interface StudentExit {
+  status: "sent" | "answered" | "closed"
+  lastDate: DateStr
+  token?: string
+  sentAt: string
+  sentBy: ID
+  /** copied from the server when the admin closes it — Reports read it from here */
+  answers?: ExitAnswers
+  /** final reason (the parent's, or the admin's when the parent never answered) */
+  reasonId?: ID
+  otherReasonIds?: ID[]
+  noReply?: boolean
+  money?: "refund" | "credit" | "none"
+  note?: string
+  closedAt?: string
+  closedBy?: ID
+}
+
 export type ContactChannel = "call" | "line" | "other"
 /** talked / replied = they answered · no_answer / no_reply = nothing back · call_back = asked us to try later */
 export type ContactResult = "talked" | "replied" | "no_answer" | "no_reply" | "call_back" | "wrong_number"
@@ -596,6 +661,8 @@ export interface Lead {
   archiveReason?: string
   /** the short close-lead form (owner 2026-10-05) — archiveReason keeps the main reason's label for older screens */
   lost?: LeadLost
+  /** a student who left and said they may come back — a closed lead to call again (not a new lead in the funnel) */
+  winBackOf?: ID
   /** every call / LINE follow-up and what came of it — shows whether a quiet lead is really gone */
   followUps?: LeadFollowUp[]
   notes: LeadNote[]

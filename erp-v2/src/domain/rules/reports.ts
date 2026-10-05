@@ -632,3 +632,30 @@ export function avgNewRevenue(rows: RevenueRow[], events: StudentEvent[], today:
   const sumNew = rows.filter((x) => fresh.has(x.studentId) && x.date >= from && x.date <= to && !x.credit)
   return { perMonth: sumNew.reduce((a, x) => a + x.total, 0) / 3, students: fresh.size / 3 }
 }
+
+// ---------- why students leave (exit form, owner 2026-10-05) ----------
+
+/** Exits closed in the period: reasons (main + other), the parents' scores, come-back intent, recommend score. */
+export function exitSummary(students: Pick<Student, "exit">[], r: Range) {
+  const xs = students.map((s) => s.exit).filter((e): e is NonNullable<Student["exit"]> => !!e && e.status === "closed" && !!e.closedAt && inRange(e.closedAt.slice(0, 10), r))
+  const answered = xs.filter((e) => e.answers).map((e) => e.answers!)
+  const reasons = new Map<string, { main: number; other: number }>()
+  for (const e of xs) {
+    if (e.reasonId) { const c = reasons.get(e.reasonId) ?? { main: 0, other: 0 }; c.main++; reasons.set(e.reasonId, c) }
+    for (const o of e.otherReasonIds ?? []) { const c = reasons.get(o) ?? { main: 0, other: 0 }; c.other++; reasons.set(o, c) }
+  }
+  const mean = (vals: (number | null)[]) => { const v = vals.filter((x): x is number => x !== null); return v.length ? v.reduce((a, b) => a + b, 0) / v.length : null }
+  const npsVals = answered.map((a) => a.nps).filter((x): x is number => x !== null)
+  return {
+    total: xs.length, answered: answered.length, noReply: xs.filter((e) => e.noReply).length,
+    reasons: [...reasons.entries()].map(([id, c]) => ({ id, ...c })).sort((a, b) => b.main - a.main || b.other - a.other),
+    scores: {
+      teacher: mean(answered.map((a) => a.scores.teacher)), content: mean(answered.map((a) => a.scores.content)),
+      admin: mean(answered.map((a) => a.scores.admin)), value: mean(answered.map((a) => a.scores.value)),
+    },
+    comeBack: { yes: answered.filter((a) => a.comeBack === "yes").length, maybe: answered.filter((a) => a.comeBack === "maybe").length, no: answered.filter((a) => a.comeBack === "no").length },
+    // NPS = % promoters (9–10) − % detractors (0–6)
+    nps: npsVals.length ? Math.round(((npsVals.filter((x) => x >= 9).length - npsVals.filter((x) => x <= 6).length) / npsVals.length) * 100) : null,
+    comments: xs.filter((e) => e.answers?.comment).map((e) => ({ text: e.answers!.comment, at: e.closedAt!, reasonId: e.reasonId })).sort((a, b) => b.at.localeCompare(a.at)),
+  }
+}

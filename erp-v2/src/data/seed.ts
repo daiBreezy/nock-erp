@@ -643,6 +643,31 @@ function buildHistory(db: { today: string; branches: Branch[]; courses: Course[]
       at = r < 0.14 ? addDays(at, len + 42 + Math.floor(rnd() * 42)) : addDays(at, len)
     }
   }
+  // students who stopped (last package ended > 30 days ago): most went through the exit form (owner 2026-10-05)
+  const EXIT_REASONS = ["lr_schedule", "lr_schedule", "lr_price", "lr_price", "lr_moved", "lr_travel", "lr_competitor", "lr_results", "lr_child", "lr_goal_met", "lr_goal_met", "lr_teacher"]
+  for (const st of db.students.filter((x) => x.id.startsWith("stu_h"))) {
+    const end = db.entitlements.filter((e) => e.studentId === st.id).map((e) => e.to).sort().at(-1)
+    if (!end || addDays(end, 30) > db.today || rnd() > 0.6) continue
+    const reasonId = pick(EXIT_REASONS)
+    const replied = rnd() < 0.75
+    const happy = !["lr_teacher", "lr_results", "lr_price"].includes(reasonId)
+    const score = () => (rnd() < 0.15 ? null : Math.max(1, Math.min(5, Math.round((happy ? 4.2 : 3) + (rnd() - 0.5) * 2))))
+    const comeBack = reasonId === "lr_goal_met" || reasonId === "lr_moved" ? "no" : pick(["yes", "maybe", "maybe", "no"] as const)
+    const closedAt = iso(addDays(end, 3), 14)
+    st.exit = {
+      status: "closed", lastDate: end, sentAt: iso(addDays(end, -5)), sentBy: "u_ploy", reasonId, otherReasonIds: rnd() < 0.3 ? [pick(EXIT_REASONS)].filter((x) => x !== reasonId) : [],
+      noReply: !replied, money: "none", closedAt, closedBy: "u_ploy",
+      answers: replied ? {
+        reasonId, otherReasonIds: [], scores: { teacher: score(), content: score(), admin: score(), value: score() }, comeBack,
+        comeBackMonth: comeBack !== "no" && rnd() < 0.6 ? addDays(end, 60 + Math.floor(rnd() * 120)).slice(0, 7) : undefined,
+        nps: rnd() < 0.1 ? null : Math.max(0, Math.min(10, Math.round((happy ? 8 : 5.5) + (rnd() - 0.5) * 5))),
+        comment: rnd() < 0.3 ? pick(["ครูใจดี ลูกชอบมาก", "อยากให้มีเวลาเรียนวันเสาร์มากกว่านี้", "ค่าเรียนสูงไปนิด", "ขอบคุณที่ดูแลมาตลอดค่ะ"]) : "",
+        contactOk: rnd() < 0.8, lang: pick(["th", "th", "th", "en", "ja"] as const),
+      } : undefined,
+    }
+    st.archived = { at: closedAt, by: "u_ploy", reason: reasonLabel(reasonId, undefined) }
+  }
+
   // payments = the invoice total (the same quote every page uses)
   for (const inv of db.invoices) if (inv.id.startsWith("inv_h")) {
     const branch = db.branches.find((b) => b.id === inv.branchId)!

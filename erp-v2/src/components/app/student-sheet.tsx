@@ -1,15 +1,16 @@
 "use client"
 
+import { CloseExitDialog, ExitPanel, ExitRequestDialog } from "./student-exit"
 import { BusAddOns } from "@/components/billing/bus-addons"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { useMemo, useState } from "react"
 import {
-  ArchiveIcon, ArchiveRestoreIcon, ArrowUpRightIcon, BusIcon, CakeIcon, CalendarDaysIcon, CalendarIcon, ClockIcon, FileTextIcon, GraduationCapIcon,
+  ArchiveRestoreIcon, DoorOpenIcon, ArrowUpRightIcon, BusIcon, CakeIcon, CalendarDaysIcon, CalendarIcon, ClockIcon, FileTextIcon, GraduationCapIcon,
   MessageSquareIcon, MessagesSquareIcon, PencilIcon, PhoneIcon, PlaneIcon, PlusIcon, ReceiptIcon, SearchIcon, SendIcon, StickyNoteIcon, StoreIcon, UserRoundIcon, UsersIcon,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { daysBetween, endTime, fmtDate, fmtDateTime, fmtMoney, toDateStr } from "@/domain/dates"
@@ -70,6 +71,7 @@ function Body({ id }: { id: ID }) {
   const today = toDateStr(useNow())
   const [seg, setSeg] = useState<Seg>("overview")
   const [archiving, setArchiving] = useState(false)
+  const [closingNow, setClosingNow] = useState(false)
   const restore = useStore((s) => s.restoreStudent)
   if (!stu) return null
 
@@ -100,6 +102,7 @@ function Body({ id }: { id: ID }) {
       </div>
 
       <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4">
+        {stu.exit && <div className="mb-4"><ExitPanel stu={stu} /></div>}
         {seg === "overview" && <Overview stu={stu} ents={ents} today={today} />}
         {seg === "class" && <ClassSeg stu={stu} ents={ents} />}
         {seg === "billing" && <BillingSeg stu={stu} />}
@@ -111,8 +114,8 @@ function Body({ id }: { id: ID }) {
         <div className="flex flex-wrap items-center gap-3 border-t px-5 py-3">
           {can(me, "student.manage") && (stu.archived ? (
             <Button size="sm" variant="ghost" onClick={() => report(restore(stu.id), "กลับมาเรียนแล้ว")}><ArchiveRestoreIcon /> กลับมาเรียน</Button>
-          ) : (
-            <Button size="sm" variant="ghost" onClick={() => setArchiving(true)}><ArchiveIcon /> Archive (เลิกเรียน)</Button>
+          ) : !stu.exit && (
+            <Button size="sm" variant="ghost" onClick={() => setArchiving(true)}><DoorOpenIcon /> แจ้งออก</Button>
           ))}
           <span className="flex items-center gap-2 text-sm">
             <Pill tone={STATUS_PILL[state.status].tone}>{STATUS_PILL[state.status].label}</Pill>
@@ -125,7 +128,8 @@ function Body({ id }: { id: ID }) {
           )}
         </div>
       )}
-      {archiving && <ArchiveDialog stu={stu} onClose={() => setArchiving(false)} />}
+      {archiving && <ExitRequestDialog stu={stu} onClose={() => setArchiving(false)} onCloseNow={() => { setArchiving(false); setClosingNow(true) }} />}
+      {closingNow && <CloseExitDialog stu={stu} response={null} onClose={() => setClosingNow(false)} />}
     </>
   )
 }
@@ -535,22 +539,3 @@ function TimelineSeg({ stu }: { stu: Student }) {
   )
 }
 
-function ArchiveDialog({ stu, onClose }: { stu: Student; onClose: () => void }) {
-  const archive = useStore((s) => s.archiveStudent)
-  const [reason, setReason] = useState("")
-  return (
-    <Dialog open onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="sm:max-w-md">
-        <DialogHeader>
-          <DialogTitle>Archive — {stu.nickname} เลิกเรียนแล้ว?</DialogTitle>
-          <DialogDescription>เอาออกจากทุกคลาสและทุกคาบที่ยังไม่เริ่ม · ประวัติการเรียนและการเงินยังอยู่ครบ · กด “กลับมาเรียน” ได้ภายหลัง · ถ้าแค่ลาพักยาวให้ใช้ “บันทึกการลา” แทน</DialogDescription>
-        </DialogHeader>
-        <Textarea autoFocus rows={2} value={reason} onChange={(e) => setReason(e.target.value)} placeholder="เหตุผล (จำเป็น) เช่น ย้ายโรงเรียนไปต่างจังหวัด" />
-        <DialogFooter>
-          <Button variant="ghost" onClick={onClose}>ยกเลิก</Button>
-          <Button variant="destructive" disabled={!reason.trim()} onClick={() => report(archive(stu.id, reason), `${stu.nickname} ถูก Archive แล้ว`) && onClose()}>ยืนยัน Archive</Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  )
-}

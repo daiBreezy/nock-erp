@@ -2,7 +2,7 @@
 // Reports can line up "lost before" and "lost after" side by side. Plus the follow-up log that tells a quiet lead
 // from a gone one.
 
-import type { ContactChannel, ContactResult, DateStr, ID, Lead, LeadLost, LeadStage, LossReason } from "../types"
+import type { ContactChannel, ContactResult, DateStr, ExitAnswers, ID, Lead, LeadLost, LeadStage, LossReason } from "../types"
 
 export const DEFAULT_LOSS_REASONS: LossReason[] = [
   // couldn't get to talk to them (leads only)
@@ -77,6 +77,16 @@ export function validateLeadLost(x: LeadLostInput, list: LossReason[] | undefine
   if (!lossReasonsOf(list).some((r) => r.id === x.reasonId)) return "ไม่พบเหตุผลนี้"
   if (x.reasonId === "lr_other" && !x.note?.trim()) return "เหตุผล \"อื่นๆ\" ต้องใส่หมายเหตุ"
   if (x.reasonId === "lr_competitor" && !x.competitor?.trim()) return "ระบุว่าไปเรียนที่ไหน (ถ้าไม่รู้ พิมพ์ \"ไม่ทราบ\")"
+  return null
+}
+
+export type ExitCloseInput = { answers?: ExitAnswers; reasonId: ID; otherReasonIds: ID[]; money: "refund" | "credit" | "none"; note?: string; lastDate: DateStr }
+
+export function validateExitClose(x: ExitCloseInput, list: LossReason[] | undefined): string | null {
+  if (!x.reasonId) return "เลือกเหตุผลหลัก"
+  if (!reasonsForStudent(list).some((r) => r.id === x.reasonId) && !lossReasonsOf(list).some((r) => r.id === x.reasonId)) return "ไม่พบเหตุผลนี้"
+  if (!x.lastDate) return "ใส่วันเรียนวันสุดท้าย"
+  if (x.reasonId === "lr_other" && !x.note?.trim() && !x.answers?.comment) return "เหตุผล \"อื่นๆ\" ต้องใส่หมายเหตุ"
   return null
 }
 

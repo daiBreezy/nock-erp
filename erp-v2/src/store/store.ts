@@ -163,6 +163,12 @@ type Store = DB & UIState & {
   archiveLead: (id: ID, input: Loss.LeadLostInput) => Result
   /** a call / LINE follow-up and what came of it — the first one moves a new lead to "กำลังติดต่อ" */
   addLeadFollowUp: (id: ID, input: { channel: ContactChannel; result: ContactResult; note?: string }) => Result
+  /** leaving (owner 2026-10-05): the parent told the admin → the exit form went out (token from the server) */
+  requestExit: (studentIds: ID[], input: { lastDate: DateStr; token?: string }) => Result
+  /** the parent changed their mind */
+  cancelExit: (studentId: ID) => Result
+  /** close it: archive with a structured reason, out of classes after the last day; "may come back" → a win-back lead */
+  closeExit: (studentId: ID, input: Loss.ExitCloseInput) => Result
   /** the reason list (Settings) — one list for lost leads and students who leave */
   saveLossReasons: (list: LossReason[]) => Result
   /** sends an archived lead back to the stage it was archived from — a deliberate action, so unlike
@@ -1782,6 +1788,67 @@ export const useStore = create<Store>()(
         return OK
       },
 
+      requestExit: (studentIds, input) => {
+        const s = get()
+        const perm = requirePerm(s.me(), "student.manage")
+        if (!perm.ok) return perm
+        if (!studentIds.length) return fail("เลือกนักเรียน")
+        if (!input.lastDate) return fail("ใส่วันเรียนวันสุดท้าย")
+        const at = s.now().toISOString()
+        set({ students: s.students.map((x) => (studentIds.includes(x.id) ? { ...x, exit: { status: "sent", lastDate: input.lastDate, token: input.token, sentAt: at, sentBy: s.userId } } : x)) })
+        log("profile", studentIds, "แจ้งออก", `เรียนวันสุดท้าย ${fmtDate(input.lastDate)}${input.token ? " · ส่งฟอร์มให้ผู้ปกครองแล้ว" : ""}`)
+        return OK
+      },
+
+      cancelExit: (studentId) => {
+        const s = get()
+        const perm = requirePerm(s.me(), "student.manage")
+        if (!perm.ok) return perm
+        set({ students: s.students.map((x) => (x.id === studentId ? { ...x, exit: undefined } : x)) })
+        log("profile", [studentId], "ยกเลิกแจ้งออก", "ผู้ปกครองเปลี่ยนใจ — เรียนต่อ")
+        return OK
+      },
+
+      closeExit: (studentId, input) => {
+        const s = get()
+        const perm = requirePerm(s.me(), "student.manage")
+        if (!perm.ok) return perm
+        const stu = s.students.find((x) => x.id === studentId)
+        if (!stu) return fail("ไม่พบนักเรียน")
+        if (stu.archived) return fail("นักเรียนคนนี้ Archive ไปแล้ว")
+        const err = Loss.validateExitClose(input, s.system.lossReasons)
+        if (err) return fail(err)
+        const now = s.now()
+        const label = Loss.reasonLabel(input.reasonId, s.system.lossReasons)
+        // out of every class roster; sessions after the last day (that haven't started) drop the student — history stays
+        const classes = s.classes.map((k) => (k.studentIds.includes(studentId) ? { ...k, studentIds: k.studentIds.filter((y) => y !== studentId) } : k))
+        const sessions = s.sessions.map((x) => (x.date > input.lastDate && x.studentIds.includes(studentId) && Sch.sessionState(x, now) === "upcoming" ? { ...x, studentIds: x.studentIds.filter((y) => y !== studentId) } : x))
+        const exit = {
+          ...(stu.exit ?? { sentAt: now.toISOString(), sentBy: s.userId }), status: "closed" as const, lastDate: input.lastDate, answers: input.answers,
+          reasonId: input.reasonId, otherReasonIds: input.otherReasonIds, noReply: !input.answers, money: input.money, note: input.note?.trim() || undefined, closedAt: now.toISOString(), closedBy: s.userId,
+        }
+        let leads = s.leads
+        const a = input.answers
+        if (a && a.comeBack !== "no" && a.contactOk) {
+          // they may come back: a closed lead with a call-again date (Need Attention brings it back then)
+          const fam = s.families.find((f) => f.id === stu.familyId)
+          const parent = fam?.parents.find((p) => p.primary) ?? fam?.parents[0]
+          const due = a.comeBackMonth ? `${a.comeBackMonth}-01` : addDays(toDateStr(now), 90)
+          leads = [...leads, {
+            id: uid("ld"), branchId: stu.branchId, name: parent?.name ?? fam?.name ?? stu.nickname, childGrade: stu.grade, subject: "", source: "other", stage: "archived", archivedFrom: "new",
+            archiveReason: `นักเรียนเก่า (${stu.nickname}) · ${label}`, assigneeId: null, phone: parent?.phone ?? "", lineId: "", createdAt: now.toISOString(), notes: [], convertedStudentId: studentId, winBackOf: studentId,
+            lost: { stage: "new", reasonId: input.reasonId, otherReasonIds: input.otherReasonIds, followUpOn: due, note: `นักเรียนเก่า ${stu.nickname} — ${a.comeBack === "yes" ? "บอกว่าจะกลับมา" : "อาจกลับมา"}${a.comeBackMonth ? ` ราว ${fmtDate(due, { year: true })}` : ""}`, at: now.toISOString(), by: s.userId },
+          }]
+        }
+        set({
+          students: s.students.map((x) => (x.id === studentId ? { ...x, exit, archived: { at: now.toISOString(), by: s.userId, reason: label + (exit.note ? ` · ${exit.note}` : "") } } : x)),
+          classes, sessions, leads,
+          notifications: [Notif.notify({ id: uid("no"), at: now, kind: "info", title: "นักเรียนออก", body: `${stu.nickname} · เรียนวันสุดท้าย ${fmtDate(input.lastDate)} · ${label}${exit.noReply ? " (ผู้ปกครองไม่ได้ตอบฟอร์ม)" : ""}`, fromId: s.userId, audience: { roles: OFFICE_ROLES, branchId: stu.branchId } }), ...s.notifications],
+        })
+        log("profile", [studentId], "ออก (Archive)", `${label} · เรียนวันสุดท้าย ${fmtDate(input.lastDate)}${input.money !== "none" ? ` · ${input.money === "refund" ? "คืนเงิน" : "เก็บเป็นเครดิต"}` : ""}`)
+        return OK
+      },
+
       saveLossReasons: (list) => {
         const s = get()
         const perm = requirePerm(s.me(), "settings.manage")
@@ -2072,7 +2139,7 @@ export const useStore = create<Store>()(
     {
       name: "nockerp-v2",
       // bump when the data model changes; older saved data is replaced by fresh sample data
-      version: 54,
+      version: 55,
       migrate: () => ({ ...buildSeed(), userId: "u_nock", branchId: "br_thl", clockOffset: 0 }) as unknown as Store,
       // persist data + UI state only, never the action functions
       partialize: (s) => Object.fromEntries(Object.entries(s).filter(([, v]) => typeof v !== "function")) as Partial<Store>,

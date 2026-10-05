@@ -14,6 +14,7 @@ import { fmtDate, fmtMoney } from "@/domain/dates"
 import { can, canCompareBranches, reportBranchIds } from "@/domain/rules/permissions"
 import { PERIODS, type AttentionItem, type PeriodKey } from "@/domain/rules/reports"
 import { LEAD_SOURCE_LABEL } from "@/domain/rules/crm"
+import { reasonLabel } from "@/domain/rules/loss"
 import type { Weekday } from "@/domain/types"
 import { report } from "@/lib/feedback"
 import { downloadReports } from "@/lib/reports-export"
@@ -507,6 +508,7 @@ function StudentsTab({ d, compare, onOpen }: { d: ReportData; compare: boolean; 
           </div>
         ) : <Empty />}
       </Panel>
+      <ExitPanelReport d={d} />
       <CohortPanel d={d} compare={compare} />
       <p className="text-xs text-muted-foreground">นักเรียนที่ Import จากระบบเดิมไม่นับเป็น &quot;ใหม่&quot; และไม่อยู่ใน Cohort (ไม่รู้วันที่เริ่มเรียนจริง)</p>
     </div>
@@ -688,6 +690,44 @@ function ForecastPanel({ d }: { d: ReportData }) {
         </table>
       </div>
     </Panel>
+  )
+}
+
+/** Why students left — from the exit form (owner 2026-10-05): reasons, the parents' scores, will they come back. */
+function ExitPanelReport({ d }: { d: ReportData }) {
+  const e = d.exits
+  const lossReasons = useStore((st) => st.system.lossReasons)
+  const max = Math.max(1, ...e.reasons.map((r) => r.main + r.other))
+  const SC = { teacher: "ครู", content: "เนื้อหา", admin: "แอดมิน", value: "ความคุ้มค่า" } as const
+  return (
+    <div className="grid gap-4 lg:grid-cols-2">
+      <Panel title="ทำไมนักเรียนออก" hint={`จากฟอร์มแจ้งออก · ${e.total} คนในช่วงนี้ · ผู้ปกครองตอบ ${e.answered} · ไม่ตอบ ${e.noReply}`} fill>
+        {e.reasons.length ? (
+          <ul className="space-y-2 text-sm">{e.reasons.map((r) => (
+            <li key={r.id} className="grid grid-cols-[minmax(0,11rem)_1fr_4.5rem] items-center gap-2">
+              <span className="truncate">{reasonLabel(r.id, lossReasons)}</span>
+              <span className="flex h-2 overflow-hidden rounded-full bg-muted"><span className="bg-primary" style={{ width: `${(r.main / max) * 100}%` }} /><span className="bg-primary/30" style={{ width: `${(r.other / max) * 100}%` }} /></span>
+              <span className="text-right text-xs tabular-nums">{r.main}{r.other ? <span className="text-muted-foreground"> +{r.other}</span> : null}</span>
+            </li>
+          ))}</ul>
+        ) : <Empty>ยังไม่มีนักเรียนที่ปิดการออกในช่วงนี้</Empty>}
+        {e.reasons.length > 0 && <p className="mt-2 text-[11px] text-muted-foreground">สีเข้ม = เหตุผลหลัก · สีอ่อน = เหตุผลอื่นที่เลือกด้วย</p>}
+      </Panel>
+      <Panel title="คะแนนจากผู้ปกครองที่ออก" hint="เฉลี่ย 1–5 · NPS = % แนะนำ (9–10) − % ไม่แนะนำ (0–6)" fill>
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+          {(Object.keys(SC) as (keyof typeof SC)[]).map((k) => <Stat key={k} label={SC[k]} value={e.scores[k] === null ? "—" : e.scores[k]!.toFixed(1)} tone={e.scores[k] !== null && e.scores[k]! < 3.5 ? "text-red-600" : undefined} />)}
+        </div>
+        <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-4">
+          <Stat label="NPS" value={e.nps === null ? "—" : `${e.nps > 0 ? "+" : ""}${e.nps}`} tone={e.nps !== null && e.nps < 0 ? "text-red-600" : "text-emerald-600"} />
+          <Stat label="จะกลับมา" value={String(e.comeBack.yes)} tone="text-emerald-600" />
+          <Stat label="อาจจะ" value={String(e.comeBack.maybe)} tone="text-amber-600" />
+          <Stat label="คงไม่" value={String(e.comeBack.no)} />
+        </div>
+        {e.comments.length > 0 && (
+          <ul className="mt-3 max-h-32 space-y-1 overflow-y-auto border-t pt-2 text-xs">{e.comments.slice(0, 8).map((c, i) => <li key={i}>“{c.text}” <span className="text-muted-foreground">· {reasonLabel(c.reasonId, lossReasons)} · {fmtDate(c.at.slice(0, 10))}</span></li>)}</ul>
+        )}
+      </Panel>
+    </div>
   )
 }
 

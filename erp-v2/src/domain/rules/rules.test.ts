@@ -1602,3 +1602,24 @@ describe("Lead follow-ups + close form (owner 2026-10-05)", () => {
     expect(Loss.followUpDue([{ stage: "archived", lost: { stage: "new", reasonId: "x", otherReasonIds: [], at: "", by: "", followUpOn: "2026-09-30" } }], "2026-10-01")).toHaveLength(1)
   })
 })
+
+describe("Student exit form (owner 2026-10-05)", () => {
+  const ans = (reasonId: string, nps: number | null, comeBack: "yes" | "maybe" | "no", teacher: number | null) =>
+    ({ reasonId, otherReasonIds: ["lr_price"], scores: { teacher, content: null, admin: 4, value: 3 }, comeBack, nps, comment: nps === 10 ? "ดีมาก" : "", contactOk: true, lang: "th" as const })
+  const closed = (answers: ReturnType<typeof ans> | undefined, at = "2026-09-10T10:00:00.000Z") =>
+    ({ exit: { status: "closed" as const, lastDate: "2026-09-05", sentAt: at, sentBy: "u", reasonId: answers?.reasonId ?? "lr_moved", otherReasonIds: answers?.otherReasonIds ?? [], noReply: !answers, closedAt: at, answers } })
+  it("sums reasons, scores, come-back and NPS from closed exits in the period", () => {
+    const e = Rep.exitSummary([closed(ans("lr_schedule", 10, "yes", 5)), closed(ans("lr_schedule", 3, "no", 3)), closed(undefined), closed(ans("lr_price", 9, "maybe", null), "2026-08-01T00:00:00.000Z")], { from: "2026-09-01", to: "2026-09-30" })
+    expect([e.total, e.answered, e.noReply]).toEqual([3, 2, 1])
+    expect(e.reasons[0]).toEqual({ id: "lr_schedule", main: 2, other: 0 })
+    expect(e.reasons.find((r) => r.id === "lr_price")).toEqual({ id: "lr_price", main: 0, other: 2 })
+    expect(e.scores.teacher).toBe(4)
+    expect(e.nps).toBe(0) // one promoter (10), one detractor (3)
+    expect(e.comeBack).toEqual({ yes: 1, maybe: 0, no: 1 })
+  })
+  it("closing needs a reason and a last day; student reasons exclude lead-only ones", () => {
+    expect(Loss.validateExitClose({ reasonId: "", otherReasonIds: [], money: "none", lastDate: "2026-09-05" }, undefined)).toMatch(/เหตุผล/)
+    expect(Loss.validateExitClose({ reasonId: "lr_moved", otherReasonIds: [], money: "none", lastDate: "" }, undefined)).toMatch(/วันเรียนวันสุดท้าย/)
+    expect(Loss.reasonsForStudent(undefined).some((r) => r.contactOnly || r.for === "lead")).toBe(false)
+  })
+})
