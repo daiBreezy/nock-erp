@@ -18,18 +18,30 @@ export const LOST_AFTER_DAYS = 30
 
 // ---------- periods ----------
 
-export type PeriodKey = "today" | "week" | "month" | "3m" | "6m" | "1y" | "ytd"
+export type PeriodKey = "today" | "week" | "month" | "3m" | "6m" | "1y" | "ytd" | "mtd" | "qtd" | "yoy" | "mom" | "qoq" | "custom"
 export interface Range { from: DateStr; to: DateStr }
 
-export const PERIODS: { key: PeriodKey; label: string; short: string }[] = [
-  { key: "today", label: "วันนี้", short: "วันนี้" },
-  { key: "week", label: "สัปดาห์นี้", short: "สัปดาห์" },
-  { key: "month", label: "เดือนนี้", short: "เดือน" },
-  { key: "3m", label: "3 เดือน", short: "3M" },
-  { key: "6m", label: "6 เดือน", short: "6M" },
-  { key: "1y", label: "1 ปี", short: "1Y" },
-  { key: "ytd", label: "ตั้งแต่ต้นปี", short: "YTD" },
+/**
+ * Periods (owner 2026-10-05): rolling windows · to-date windows · complete-period comparisons · a custom range.
+ * `group` splits the chips; `hint` says exactly which dates and what they are compared with.
+ */
+export const PERIODS: { key: PeriodKey; label: string; short: string; group: "rolling" | "todate" | "compare" | "custom"; hint: string }[] = [
+  { key: "today", label: "วันนี้", short: "Today", group: "rolling", hint: "วันนี้ เทียบเมื่อวาน" },
+  { key: "week", label: "7 วันล่าสุด", short: "Week", group: "rolling", hint: "7 วันล่าสุด เทียบ 7 วันก่อนหน้า" },
+  { key: "month", label: "30 วันล่าสุด", short: "Month", group: "rolling", hint: "30 วันล่าสุด เทียบ 30 วันก่อนหน้า" },
+  { key: "3m", label: "3 เดือนล่าสุด", short: "3 Months", group: "rolling", hint: "3 เดือนล่าสุด เทียบ 3 เดือนก่อนหน้า" },
+  { key: "6m", label: "6 เดือนล่าสุด", short: "6 Months", group: "rolling", hint: "6 เดือนล่าสุด เทียบ 6 เดือนก่อนหน้า" },
+  { key: "1y", label: "1 ปีล่าสุด", short: "1 Year", group: "rolling", hint: "12 เดือนล่าสุด เทียบ 12 เดือนก่อนหน้า" },
+  { key: "ytd", label: "ตั้งแต่ต้นปี", short: "YTD", group: "todate", hint: "1 ม.ค. ถึงวันนี้ เทียบช่วงเดียวกันปีที่แล้ว" },
+  { key: "mtd", label: "ตั้งแต่ต้นเดือน", short: "MTD", group: "todate", hint: "วันที่ 1 ถึงวันนี้ เทียบช่วงเดียวกันเดือนก่อน" },
+  { key: "qtd", label: "ตั้งแต่ต้นไตรมาส", short: "QTD", group: "todate", hint: "ต้นไตรมาสถึงวันนี้ เทียบช่วงเดียวกันไตรมาสก่อน" },
+  { key: "yoy", label: "เดือนที่แล้ว (YoY)", short: "YoY", group: "compare", hint: "เดือนที่แล้วทั้งเดือน เทียบเดือนเดียวกันปีที่แล้ว" },
+  { key: "mom", label: "เดือนที่แล้ว (MoM)", short: "MoM", group: "compare", hint: "เดือนที่แล้วทั้งเดือน เทียบเดือนก่อนหน้านั้น" },
+  { key: "qoq", label: "ไตรมาสที่แล้ว (QoQ)", short: "QoQ", group: "compare", hint: "ไตรมาสที่แล้วทั้งไตรมาส เทียบไตรมาสก่อนหน้านั้น" },
+  { key: "custom", label: "ช่วงที่เลือก", short: "กำหนดเอง", group: "custom", hint: "เลือกวันเอง เทียบช่วงก่อนหน้าที่ยาวเท่ากัน" },
 ]
+/** the period strip on Overview — one card each */
+export const STRIP_PERIODS: PeriodKey[] = ["today", "week", "month", "3m", "6m", "1y", "ytd"]
 
 const shiftMonths = (d: DateStr, n: number) => {
   const x = parseDate(d)
@@ -40,16 +52,27 @@ const shiftMonths = (d: DateStr, n: number) => {
   x.setDate(Math.min(day, last))
   return toDateStr(x)
 }
+const monthStart = (d: DateStr) => d.slice(0, 8) + "01"
+const quarterStart = (d: DateStr) => `${d.slice(0, 4)}-${String(Math.floor((Number(d.slice(5, 7)) - 1) / 3) * 3 + 1).padStart(2, "0")}-01`
 
-export function periodRange(key: PeriodKey, today: DateStr): Range {
+export function periodRange(key: PeriodKey, today: DateStr, custom?: Range): Range {
   switch (key) {
     case "today": return { from: today, to: today }
-    case "week": { const wd = weekdayOf(today); return { from: addDays(today, wd === 0 ? -6 : 1 - wd), to: today } }
-    case "month": return { from: today.slice(0, 8) + "01", to: today }
+    case "week": return { from: addDays(today, -6), to: today }
+    case "month": return { from: addDays(today, -29), to: today }
     case "3m": return { from: addDays(shiftMonths(today, -3), 1), to: today }
     case "6m": return { from: addDays(shiftMonths(today, -6), 1), to: today }
     case "1y": return { from: addDays(shiftMonths(today, -12), 1), to: today }
     case "ytd": return { from: today.slice(0, 4) + "-01-01", to: today }
+    case "mtd": return { from: monthStart(today), to: today }
+    case "qtd": return { from: quarterStart(today), to: today }
+    case "yoy": case "mom": { const from = shiftMonths(monthStart(today), -1); return { from, to: addDays(monthStart(today), -1) } }
+    case "qoq": { const from = shiftMonths(quarterStart(today), -3); return { from, to: addDays(quarterStart(today), -1) } }
+    case "custom": {
+      if (!custom) return { from: addDays(today, -29), to: today }
+      const to = custom.to > today ? today : custom.to
+      return custom.from <= to ? { from: custom.from, to } : { from: to, to: custom.from > today ? today : custom.from }
+    }
   }
 }
 
@@ -57,14 +80,19 @@ export const daysIn = (r: Range) => Math.round((parseDate(r.to).getTime() - pars
 
 /** What each period is compared with (owner: not "MoM" on every card) — YTD against the same dates last year. */
 export function compareRange(key: PeriodKey, r: Range): Range {
-  if (key === "ytd") return { from: shiftMonths(r.from, -12), to: shiftMonths(r.to, -12) }
-  if (key === "month") { const from = shiftMonths(r.from, -1); return { from, to: shiftMonths(r.to, -1) } }
+  if (key === "ytd" || key === "yoy") return { from: shiftMonths(r.from, -12), to: key === "yoy" ? addDays(shiftMonths(addDays(r.to, 1), -12), -1) : shiftMonths(r.to, -12) }
+  if (key === "mtd") return { from: shiftMonths(r.from, -1), to: shiftMonths(r.to, -1) }
+  if (key === "mom") return { from: shiftMonths(r.from, -1), to: addDays(r.from, -1) }
+  if (key === "qtd") return { from: shiftMonths(r.from, -3), to: shiftMonths(r.to, -3) }
+  if (key === "qoq") return { from: shiftMonths(r.from, -3), to: addDays(r.from, -1) }
   return { from: addDays(r.from, -daysIn(r)), to: addDays(r.from, -1) }
 }
 
 export const COMPARE_LABEL: Record<PeriodKey, string> = {
-  today: "vs เมื่อวาน", week: "vs สัปดาห์ก่อน", month: "vs ช่วงเดียวกันเดือนก่อน", "3m": "vs 3 เดือนก่อนหน้า",
-  "6m": "vs 6 เดือนก่อนหน้า", "1y": "vs ปีก่อนหน้า", ytd: "vs ช่วงเดียวกันปีที่แล้ว",
+  today: "vs เมื่อวาน", week: "vs 7 วันก่อนหน้า", month: "vs 30 วันก่อนหน้า", "3m": "vs 3 เดือนก่อนหน้า",
+  "6m": "vs 6 เดือนก่อนหน้า", "1y": "vs ปีก่อนหน้า", ytd: "vs ช่วงเดียวกันปีที่แล้ว", mtd: "vs ช่วงเดียวกันเดือนก่อน",
+  qtd: "vs ช่วงเดียวกันไตรมาสก่อน", yoy: "vs เดือนเดียวกันปีที่แล้ว", mom: "vs เดือนก่อนหน้า", qoq: "vs ไตรมาสก่อนหน้า",
+  custom: "vs ช่วงก่อนหน้าที่ยาวเท่ากัน",
 }
 
 export const inRange = (d: DateStr, r: Range) => r.from <= d && d <= r.to

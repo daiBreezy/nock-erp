@@ -1489,8 +1489,8 @@ describe("Reports definitions (owner 2026-10-01)", () => {
   it("periods and what they compare with — YTD against the same dates last year", () => {
     expect(Rep.periodRange("ytd", "2026-10-01")).toEqual({ from: "2026-01-01", to: "2026-10-01" })
     expect(Rep.compareRange("ytd", { from: "2026-01-01", to: "2026-10-01" })).toEqual({ from: "2025-01-01", to: "2025-10-01" })
-    expect(Rep.periodRange("week", "2026-10-01")).toEqual({ from: "2026-09-28", to: "2026-10-01" })
-    expect(Rep.compareRange("week", { from: "2026-09-28", to: "2026-10-01" })).toEqual({ from: "2026-09-24", to: "2026-09-27" })
+    expect(Rep.periodRange("week", "2026-10-01")).toEqual({ from: "2026-09-25", to: "2026-10-01" })
+    expect(Rep.compareRange("week", { from: "2026-09-25", to: "2026-10-01" })).toEqual({ from: "2026-09-18", to: "2026-09-24" })
   })
   it("no % change when there is no data to compare with", () => {
     expect(Rep.change(150, 100)).toBe(50)
@@ -1726,5 +1726,28 @@ describe("summary insights", () => {
     expect(r.insights[0].tone).toBe("bad")
     expect(r.headline.length).toBeLessThanOrEqual(3)
     expect(r.insights.find((x) => x.area === "sales")!.actions[0]).toContain("ติดต่อไม่ได้")
+  })
+})
+
+describe("report periods (owner 2026-10-05)", () => {
+  const t = "2026-10-05"
+  it("to-date windows start at the month / quarter", () => {
+    expect(Rep.periodRange("mtd", t)).toEqual({ from: "2026-10-01", to: t })
+    expect(Rep.compareRange("mtd", Rep.periodRange("mtd", t))).toEqual({ from: "2026-09-01", to: "2026-09-05" })
+    expect(Rep.periodRange("qtd", "2026-08-20")).toEqual({ from: "2026-07-01", to: "2026-08-20" })
+    expect(Rep.compareRange("qtd", { from: "2026-07-01", to: "2026-08-20" })).toEqual({ from: "2026-04-01", to: "2026-05-20" })
+  })
+  it("YoY / MoM / QoQ use the last complete month or quarter", () => {
+    expect(Rep.periodRange("mom", t)).toEqual({ from: "2026-09-01", to: "2026-09-30" })
+    expect(Rep.compareRange("mom", { from: "2026-09-01", to: "2026-09-30" })).toEqual({ from: "2026-08-01", to: "2026-08-31" })
+    expect(Rep.compareRange("yoy", { from: "2026-09-01", to: "2026-09-30" })).toEqual({ from: "2025-09-01", to: "2025-09-30" })
+    expect(Rep.compareRange("yoy", { from: "2026-02-01", to: "2026-02-28" })).toEqual({ from: "2025-02-01", to: "2025-02-28" })
+    expect(Rep.periodRange("qoq", t)).toEqual({ from: "2026-07-01", to: "2026-09-30" })
+    expect(Rep.compareRange("qoq", { from: "2026-07-01", to: "2026-09-30" })).toEqual({ from: "2026-04-01", to: "2026-06-30" })
+  })
+  it("a custom range never runs past today and compares with the same length before it", () => {
+    expect(Rep.periodRange("custom", t, { from: "2026-09-20", to: "2026-12-31" })).toEqual({ from: "2026-09-20", to: t })
+    expect(Rep.periodRange("custom", t, { from: "2026-09-10", to: "2026-09-01" })).toEqual({ from: "2026-09-01", to: "2026-09-10" })
+    expect(Rep.compareRange("custom", { from: "2026-09-01", to: "2026-09-10" })).toEqual({ from: "2026-08-22", to: "2026-08-31" })
   })
 })

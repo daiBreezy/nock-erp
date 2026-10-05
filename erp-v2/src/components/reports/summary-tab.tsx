@@ -1,11 +1,11 @@
 "use client"
 
-import { AlertTriangleIcon, BanknoteIcon, CheckCircle2Icon, GraduationCapIcon, HeartHandshakeIcon, LightbulbIcon, MegaphoneIcon, SearchIcon, UserCheckIcon, UsersIcon, type LucideIcon } from "lucide-react"
+import { SparklesIcon, AlertTriangleIcon, BanknoteIcon, CheckCircle2Icon, GraduationCapIcon, HeartHandshakeIcon, LightbulbIcon, MegaphoneIcon, SearchIcon, UserCheckIcon, UsersIcon, type LucideIcon } from "lucide-react"
 import type { ReportData } from "@/components/reports/use-reports"
 import { LEAD_SOURCE_LABEL } from "@/domain/rules/crm"
 import { buildInsights, type Insight, type InsightArea, type InsightInput, type InsightTone } from "@/domain/rules/insights"
 import { reasonLabel } from "@/domain/rules/loss"
-import { COMPARE_LABEL, PERIODS, type PeriodKey } from "@/domain/rules/reports"
+import { COMPARE_LABEL, type PeriodKey } from "@/domain/rules/reports"
 import * as Survey from "@/domain/rules/survey"
 import { cn } from "@/lib/utils"
 import { useStore } from "@/store/store"
@@ -14,7 +14,7 @@ const MONTH = ["ม.ค.", "ก.พ.", "มี.ค.", "เม.ย.", "พ.ค.",
 const DAY = ["อาทิตย์", "จันทร์", "อังคาร", "พุธ", "พฤหัส", "ศุกร์", "เสาร์"]
 
 /** Turn the Reports data into the plain numbers the summary rules read (domain/rules/insights.ts). */
-function toInput(d: ReportData, period: PeriodKey, lossReasons: Parameters<typeof reasonLabel>[1]): InsightInput {
+function toInput(d: ReportData, period: PeriodKey, periodLabel: string, lossReasons: Parameters<typeof reasonLabel>[1]): InsightInput {
   const year = d.monthly.year
   const cur = Number(d.today.slice(5, 7)) - 1
   const evIn = (kind: "new" | "lost", ym: string) => d.events.filter((e) => e.kind === kind && e.date.startsWith(ym) && e.date <= d.today).length
@@ -46,7 +46,7 @@ function toInput(d: ReportData, period: PeriodKey, lossReasons: Parameters<typeo
   const svPrev = y !== undefined ? d.surveyOf(y - 1) : null
   const weakest = sv ? Survey.topicRanking(sv.summary)[0] : undefined
   return {
-    periodLabel: PERIODS.find((p) => p.key === period)!.label,
+    periodLabel,
     vsLabel: COMPARE_LABEL[period].replace(/^vs /, "เทียบ"),
     comparable: d.comparable, periodMonths,
     revenue: { now: d.rev.total, prev: d.revPrev.total },
@@ -101,14 +101,14 @@ const TONE: Record<InsightTone, { label: string; pill: string; bar: string }> = 
  * Reports › สรุป (owner 2026-10-05): one written card per topic — the numbers, the cause, the suggestion — problems
  * first, and the three things to do this week on top. Follows the period / branch picked above like every tab.
  */
-export function SummaryTab({ d, period, scopeLabel }: { d: ReportData; period: PeriodKey; scopeLabel: string }) {
+export function SummaryTab({ d, period, periodLabel, scopeLabel }: { d: ReportData; period: PeriodKey; periodLabel: string; scopeLabel: string }) {
   const lossReasons = useStore((s) => s.system.lossReasons)
-  const { insights, counts, headline } = buildInsights(toInput(d, period, lossReasons))
+  const { insights, counts, headline } = buildInsights(toInput(d, period, periodLabel, lossReasons))
   return (
     <div className="space-y-4">
       <section className="rounded-3xl bg-card p-5 shadow-sm ring-1 ring-foreground/10">
         <div className="flex flex-wrap items-center gap-2">
-          <h2 className="text-base font-semibold">สรุปผู้บริหาร · {scopeLabel} · {PERIODS.find((p) => p.key === period)!.label}</h2>
+          <h2 className="flex items-center gap-2 text-base font-semibold"><span className="grid size-8 place-items-center rounded-xl bg-violet-100 text-violet-700 dark:bg-violet-950 dark:text-violet-300"><SparklesIcon className="size-4" /></span>AI สรุปและประเมิน · {scopeLabel} · {periodLabel}</h2>
           <span className="ml-auto flex gap-1.5 text-xs">
             {(["bad", "watch", "good"] as const).map((t) => <span key={t} className={cn("rounded-full px-2.5 py-0.5", TONE[t].pill)}>{TONE[t].label} {counts[t]}</span>)}
           </span>
@@ -132,7 +132,7 @@ export function SummaryTab({ d, period, scopeLabel }: { d: ReportData; period: P
       <div className="grid gap-4 lg:grid-cols-2">
         {insights.map((x) => <InsightCard key={x.area} x={x} />)}
       </div>
-      <p className="text-xs text-muted-foreground">สรุปนี้เขียนจากตัวเลขในแท็บอื่นด้วยกฎที่ตั้งไว้ (ไม่ได้เดา) — เปลี่ยนช่วงเวลา / สาขาด้านบนแล้วสรุปจะเปลี่ยนตาม · ตัวเลขเทียบช่วงก่อนจะแสดงเมื่อมีข้อมูลช่วงก่อนในระบบ</p>
+      <p className="text-xs text-muted-foreground">Prototype: สรุปเขียนจากตัวเลขในแท็บอื่นด้วยกฎที่ตั้งไว้ (ระบบจริง Dev ต่อ AI ให้ประเมินและเรียบเรียงจากชุดตัวเลข + สาเหตุเดียวกันนี้) — เปลี่ยนช่วงเวลา / สาขาด้านบนแล้วสรุปจะเปลี่ยนตาม · ตัวเลขเทียบช่วงก่อนจะแสดงเมื่อมีข้อมูลช่วงก่อนในระบบ</p>
     </div>
   )
 }

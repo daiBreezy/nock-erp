@@ -3,7 +3,7 @@
 import Link from "next/link"
 import { Suspense, useEffect, useMemo, useState } from "react"
 import { useSearchParams } from "next/navigation"
-import { AlertTriangleIcon, BanknoteIcon, CalendarDaysIcon, ChartColumnIcon, ChevronRightIcon, ClockIcon, DownloadIcon, PrinterIcon, SchoolIcon, SparklesIcon, UsersIcon, UserCheckIcon } from "lucide-react"
+import { AlertTriangleIcon, BanknoteIcon, CalendarDaysIcon, ChartColumnIcon, ChevronRightIcon, ClockIcon, DownloadIcon, PrinterIcon, SchoolIcon, SparklesIcon, CalendarRangeIcon, UsersIcon, UserCheckIcon } from "lucide-react"
 import { NativeSelect } from "@/components/app/native-select"
 import { StudentSheet } from "@/components/app/student-sheet"
 import { Delta, Donut, DonutLegend, Empty, TopList, fmtNum, fmtPct, fmtShort, Heatmap, MonthBars, Panel, Rank, ShareBar, donutColor, tint } from "@/components/reports/charts"
@@ -11,13 +11,14 @@ import { SummaryTab } from "@/components/reports/summary-tab"
 import { useReports, type ReportData } from "@/components/reports/use-reports"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
-import { fmtDate, fmtMoney } from "@/domain/dates"
+import { addDays, fmtDate, fmtMoney, toDateStr } from "@/domain/dates"
 import { can, canCompareBranches, reportBranchIds } from "@/domain/rules/permissions"
-import { PERIODS, type AttentionItem, type PeriodKey } from "@/domain/rules/reports"
+import { COMPARE_LABEL, PERIODS, type AttentionItem, type PeriodKey, type Range } from "@/domain/rules/reports"
 import { LEAD_SOURCE_LABEL } from "@/domain/rules/crm"
 import { reasonLabel } from "@/domain/rules/loss"
 import type { Weekday } from "@/domain/types"
 import { report } from "@/lib/feedback"
+import { useNow } from "@/lib/hooks"
 import { downloadReports } from "@/lib/reports-export"
 import { pullSurveyResponses } from "@/lib/forms"
 import * as Survey from "@/domain/rules/survey"
@@ -57,12 +58,14 @@ function Reports() {
   const branchIds = useMemo(() => (scope === "all" || !allowed.includes(scope) ? allowed : [scope]), [scope, allowed])
   const [tab, setTab] = useState<Tab>((params.get("tab") as Tab) || "overview")
   const [period, setPeriod] = useState<PeriodKey>("ytd")
+  const today = toDateStr(useNow(60_000))
+  const [custom, setCustom] = useState<Range>(() => ({ from: addDays(today, -29), to: today }))
   const [showAttention, setShowAttention] = useState(false)
   const [openId, setOpenId] = useState<string | null>(null)
-  const d = useReports(branchIds, period)
+  const d = useReports(branchIds, period, period === "custom" ? custom : undefined)
   // survey answers live on the form server — pull new ones in (unhappy families notify their managers)
   useEffect(() => { pullSurveyResponses() }, [])
-  const periodLabel = PERIODS.find((p) => p.key === period)!.label
+  const periodLabel = period === "custom" ? `${fmtDate(d.range.from)} – ${fmtDate(d.range.to)}` : PERIODS.find((p) => p.key === period)!.label
   const scopeLabel = branchIds.length === 1 ? branches.find((b) => b.id === branchIds[0])?.name ?? "" : allowed.length === branches.length ? "ทุกสาขา" : "สาขาในเขต"
   const showCompare = compare && branchIds.length > 1
 
@@ -82,7 +85,7 @@ function Reports() {
         <span className="grid size-10 place-items-center rounded-2xl bg-primary/10 text-primary"><ChartColumnIcon className="size-5" /></span>
         <div className="mr-auto">
           <h1 className="text-xl font-semibold">Reports</h1>
-          <p className="text-xs text-muted-foreground">{scopeLabel} · {periodLabel} {fmtDate(d.range.from)} – {fmtDate(d.range.to)} · ข้อมูลจริงจากใบแจ้งหนี้ที่จ่ายแล้ว แพ็กเกจ และการเช็คชื่อ</p>
+          <p className="text-xs text-muted-foreground">{scopeLabel} · {periodLabel}{period !== "custom" && ` ${fmtDate(d.range.from)} – ${fmtDate(d.range.to)}`} · เทียบ {fmtDate(d.prev.from, { year: d.prev.from.slice(0, 4) !== d.range.from.slice(0, 4) })} – {fmtDate(d.prev.to, { year: d.prev.to.slice(0, 4) !== d.range.to.slice(0, 4) })} · ข้อมูลจริงจากใบแจ้งหนี้ที่จ่ายแล้ว แพ็กเกจ และการเช็คชื่อ</p>
         </div>
         {allowed.length > 1 && (
           <NativeSelect className="h-9 w-48 print:hidden" value={scope} onChange={(e) => setScope(e.target.value)}
@@ -94,7 +97,7 @@ function Reports() {
 
       {/* headline numbers */}
       <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-5">
-        <Kpi icon={BanknoteIcon} label={`รายได้ · ${periodLabel}`} value={fmtNum(d.kpi.revenue)} sub={<><Delta value={d.kpi.revenueChange} /> <span>{vsLabel(period)}</span></>} />
+        <Kpi icon={BanknoteIcon} label={`รายได้ · ${periodLabel}`} value={fmtNum(d.kpi.revenue)} sub={<><Delta value={d.kpi.revenueChange} /> <span>{COMPARE_LABEL[period]}</span></>} />
         <Kpi icon={UsersIcon} label="นักเรียน Active" value={fmtNum(d.kpi.active)} sub={<><Delta value={d.kpi.activeChange} /> <span>vs ต้นช่วง · Pause {d.kpi.paused}</span></>} />
         <Kpi icon={CalendarDaysIcon} label="คาบสัปดาห์นี้" value={fmtNum(d.kpi.weekSessions)} sub={<span>ไม่นับคาบที่ยกเลิก</span>} />
         <Kpi icon={UserCheckIcon} label={`อัตราเข้าเรียน · ${periodLabel}`} value={fmtPct(d.kpi.attendance)} sub={<><Delta value={d.kpi.attendanceChange} /> <span>มา ÷ (มา + ลา)</span></>} />
@@ -106,25 +109,37 @@ function Reports() {
         </button>
       </div>
 
-      <div className="flex flex-wrap items-center gap-2 print:hidden">
+      <div className="space-y-3 print:hidden">
         <div className="inline-flex flex-wrap rounded-full bg-muted p-1">
           {TABS.map((t) => (
-            <button key={t.id} type="button" onClick={() => setTab(t.id)} className={cn("rounded-full px-4 py-1 text-sm", tab === t.id ? "bg-background font-medium shadow-sm" : "text-muted-foreground")}>
+            <button key={t.id} type="button" onClick={() => setTab(t.id)} className={cn("flex items-center gap-1.5 rounded-full px-4 py-1 text-sm", tab === t.id ? "bg-background font-medium shadow-sm" : "text-muted-foreground")}>
+              {t.id === "summary" && <SparklesIcon className={cn("size-4", tab === t.id ? "text-violet-600" : "")} />}
               {t.label}{t.soon && <span className="ml-1 text-[10px] text-muted-foreground">{t.soon}</span>}
             </button>
           ))}
         </div>
-        <div className="flex flex-wrap gap-1.5">
-          {PERIODS.map((p) => (
-            <button key={p.key} type="button" onClick={() => setPeriod(p.key)}
-              className={cn("rounded-full border px-3 py-1 text-xs", period === p.key ? "border-primary bg-primary/10 font-medium text-primary" : "bg-card hover:bg-muted")}>{p.short}</button>
+        {/* owner 2026-10-05: periods on their own row — rolling · to-date · complete-period comparisons · custom dates */}
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+          {(["rolling", "todate", "compare"] as const).map((g, gi) => (
+            <div key={g} className={cn("flex flex-wrap items-center gap-1.5", gi > 0 && "border-l pl-3")}>
+              {PERIODS.filter((p) => p.group === g).map((p) => (
+                <button key={p.key} type="button" title={p.hint} onClick={() => setPeriod(p.key)}
+                  className={cn("rounded-full border px-3 py-1 text-xs", period === p.key ? "border-primary bg-primary/10 font-medium text-primary" : "bg-card hover:bg-muted")}>{p.short}</button>
+              ))}
+            </div>
           ))}
+          <div className={cn("flex flex-wrap items-center gap-1.5 rounded-full border py-0.5 pr-1 pl-3 text-xs", period === "custom" ? "border-primary bg-primary/10" : "bg-card")}>
+            <button type="button" title={PERIODS.find((p) => p.key === "custom")!.hint} onClick={() => setPeriod("custom")} className={cn("flex items-center gap-1.5", period === "custom" && "font-medium text-primary")}><CalendarRangeIcon className="size-3.5" /> กำหนดเอง</button>
+            <input type="date" aria-label="ตั้งแต่วันที่" value={custom.from} max={today} onChange={(e) => { if (e.target.value) { setCustom((c) => ({ ...c, from: e.target.value })); setPeriod("custom") } }} className="h-6 rounded-full bg-background px-2 tabular-nums" />
+            <span className="text-muted-foreground">–</span>
+            <input type="date" aria-label="ถึงวันที่" value={custom.to} max={today} onChange={(e) => { if (e.target.value) { setCustom((c) => ({ ...c, to: e.target.value })); setPeriod("custom") } }} className="h-6 rounded-full bg-background px-2 tabular-nums" />
+          </div>
         </div>
       </div>
 
-      {tab === "summary" && <SummaryTab d={d} period={period} scopeLabel={scopeLabel} />}
-      {tab === "overview" && <Overview d={d} compare={showCompare} period={period} onAllRevenue={() => setTab("revenue")} onAllStudents={() => setTab("students")} />}
-      {tab === "revenue" && <RevenueTab d={d} compare={showCompare} period={period} />}
+      {tab === "summary" && <SummaryTab d={d} period={period} periodLabel={periodLabel} scopeLabel={scopeLabel} />}
+      {tab === "overview" && <Overview d={d} compare={showCompare} period={period} periodLabel={periodLabel} onAllRevenue={() => setTab("revenue")} onAllStudents={() => setTab("students")} />}
+      {tab === "revenue" && <RevenueTab d={d} compare={showCompare} period={period} periodLabel={periodLabel} />}
       {tab === "students" && <StudentsTab d={d} compare={showCompare} onOpen={setOpenId} />}
       {tab === "attendance" && <AttendanceTab d={d} compare={showCompare} onOpen={setOpenId} />}
       {tab === "operations" && <OperationsTab d={d} compare={showCompare} />}
@@ -138,7 +153,6 @@ function Reports() {
   )
 }
 
-const vsLabel = (p: PeriodKey) => ({ today: "vs เมื่อวาน", week: "vs สัปดาห์ก่อน", month: "vs เดือนก่อน", "3m": "vs 3 เดือนก่อน", "6m": "vs 6 เดือนก่อน", "1y": "vs ปีก่อน", ytd: "vs ปีที่แล้ว" })[p]
 
 function Kpi({ icon: Icon, label, value, sub }: { icon: typeof BanknoteIcon; label: string; value: string; sub: React.ReactNode }) {
   return (
@@ -155,7 +169,7 @@ function Kpi({ icon: Icon, label, value, sub }: { icon: typeof BanknoteIcon; lab
 
 // ---------------- Overview ----------------
 
-function Overview({ d, compare, period, onAllRevenue, onAllStudents }: { d: ReportData; compare: boolean; period: PeriodKey; onAllRevenue: () => void; onAllStudents: () => void }) {
+function Overview({ d, compare, period, periodLabel, onAllRevenue, onAllStudents }: { d: ReportData; compare: boolean; period: PeriodKey; periodLabel: string; onAllRevenue: () => void; onAllStudents: () => void }) {
   const [subject, setSubject] = useState("")
   const demand = d.demand(subject || undefined)
   const net = d.studentFlow.newCount + d.studentFlow.returning - d.studentFlow.lost
@@ -179,7 +193,7 @@ function Overview({ d, compare, period, onAllRevenue, onAllStudents }: { d: Repo
             currentLastYearToDate={d.monthly.lastYearToDate} todayLabel={`${Number(d.today.slice(8)) === 1 ? "" : "1–"}${Number(d.today.slice(8))} ${fmtDate(d.today).split(" ")[1] ?? ""}`} />
         </Panel>
         {compare ? (
-          <Panel title="รายได้ตามสาขา" hint={`Top 10 · ${PERIODS.find((p) => p.key === period)!.label}`} action={<button type="button" className="text-xs text-primary" onClick={onAllRevenue}>ดูทั้งหมด ›</button>}>
+          <Panel title="รายได้ตามสาขา" hint={`Top 10 · ${periodLabel}`} action={<button type="button" className="text-xs text-primary" onClick={onAllRevenue}>ดูทั้งหมด ›</button>}>
             <BranchRevenue rows={d.byBranch.slice(0, 10)} />
           </Panel>
         ) : (
@@ -421,7 +435,7 @@ function PackageMix({ d }: { d: ReportData }) {
 
 const TH_MONTHS = ["มกราคม", "กุมภาพันธ์", "มีนาคม", "เมษายน", "พฤษภาคม", "มิถุนายน", "กรกฎาคม", "สิงหาคม", "กันยายน", "ตุลาคม", "พฤศจิกายน", "ธันวาคม"]
 
-function RevenueTab({ d, compare, period }: { d: ReportData; compare: boolean; period: PeriodKey }) {
+function RevenueTab({ d, compare, period, periodLabel }: { d: ReportData; compare: boolean; period: PeriodKey; periodLabel: string }) {
   const pg = d.packageGrade
   return (
     <div className="space-y-4">
@@ -455,7 +469,7 @@ function RevenueTab({ d, compare, period }: { d: ReportData; compare: boolean; p
         </Panel>
       </div>
       <div className="grid gap-4 lg:grid-cols-2">
-        <Panel title="ประเภทรายได้" hint={`${PERIODS.find((p) => p.key === period)!.label} ${vsLabel(period)}`}><RevenueParts d={d} /></Panel>
+        <Panel title="ประเภทรายได้" hint={`${periodLabel} ${COMPARE_LABEL[period]}`}><RevenueParts d={d} /></Panel>
         <Panel title="Subject Engine" hint="รายได้ค่าเรียนแยกวิชา" center><SubjectEngine d={d} /></Panel>
       </div>
       {compare && <Panel title="รายได้ตามสาขา" hint="ทุกสาขาในขอบเขต"><BranchRevenue rows={d.byBranch} /></Panel>}

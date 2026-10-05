@@ -17,7 +17,7 @@ import { useStore } from "@/store/store"
 /** taught already: today's finished sessions ("ended") and every earlier one ("closed") */
 const isOver = (st: string) => st === "ended" || st === "closed"
 
-export function useReports(branchIds: string[], period: R.PeriodKey) {
+export function useReports(branchIds: string[], period: R.PeriodKey, custom?: R.Range) {
   const now = useNow(60_000)
   const today = toDateStr(now)
   const s = useStore()
@@ -32,7 +32,7 @@ export function useReports(branchIds: string[], period: R.PeriodKey) {
 
   return useMemo(() => {
     const rows = allRows.filter((x) => ids.has(x.branchId))
-    const range = R.periodRange(period, today)
+    const range = R.periodRange(period, today, custom)
     const prev = R.compareRange(period, range)
     const students = s.students.filter((x) => ids.has(x.branchId))
     const studentIds = new Set(students.map((x) => x.id))
@@ -50,7 +50,7 @@ export function useReports(branchIds: string[], period: R.PeriodKey) {
     const activeAtStart = countState(addDays(range.from, -1), "active")
 
     // the period strip: every period with its own comparison
-    const strip = R.PERIODS.map((p) => {
+    const strip = R.PERIODS.filter((p) => R.STRIP_PERIODS.includes(p.key)).map((p) => {
       const r = R.periodRange(p.key, today)
       const c = R.compareRange(p.key, r)
       const v = R.revenueIn(rows, r).total
@@ -61,8 +61,10 @@ export function useReports(branchIds: string[], period: R.PeriodKey) {
     const revPrev = R.revenueIn(rows, prev)
     const att = R.attendanceRate(sessions.filter((x) => isOver(sessionState(x, now))), s.attendance, range)
     const attPrev = R.attendanceRate(sessions.filter((x) => isOver(sessionState(x, now))), s.attendance, prev)
-    const weekRange = R.periodRange("week", today)
-    const weekSessions = sessions.filter((x) => !x.cancelled && R.inRange(x.date, { from: weekRange.from, to: addDays(weekRange.from, 6) })).length
+    // this calendar week Mon–Sun (the KPI card), not the rolling "Week" period
+    const wd = new Date(`${today}T00:00:00`).getDay()
+    const monday = addDays(today, wd === 0 ? -6 : 1 - wd)
+    const weekSessions = sessions.filter((x) => !x.cancelled && R.inRange(x.date, { from: monday, to: addDays(monday, 6) })).length
 
     const branches = s.branches.filter((b) => ids.has(b.id))
     const conflicts = branches.reduce((n, b) => n + findConflicts(sessions.filter((x) => x.branchId === b.id && x.date >= today && sessionState(x, now) === "upcoming"), b, s.staff).length, 0)
@@ -209,7 +211,7 @@ export function useReports(branchIds: string[], period: R.PeriodKey) {
         return { label: b.name, byWeekday: w }
       }),
     }
-  }, [allRows, ids, period, today, now, s.students, s.leaves, s.sessions, s.attendance, s.branches, s.staff, s.summaries, s.invoices, s.classes, s.leads, s.families, s.holidays, s.system, s.courses, s.surveyCampaigns, s.surveyResponses, entitlementsAll])
+  }, [allRows, ids, period, custom, today, now, s.students, s.leaves, s.sessions, s.attendance, s.branches, s.staff, s.summaries, s.invoices, s.classes, s.leads, s.families, s.holidays, s.system, s.courses, s.surveyCampaigns, s.surveyResponses, entitlementsAll])
 }
 
 export type ReportData = ReturnType<typeof useReports>
