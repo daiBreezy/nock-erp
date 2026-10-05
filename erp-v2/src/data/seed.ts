@@ -482,7 +482,7 @@ export function buildSeed(now = new Date()): DB {
 
   // ---- 15 months of history for Reports (owner 2026-10-01) — real records, as if the system had been running:
   // students who joined, renewed, paused, left and came back; every paid invoice has its package. Deterministic.
-  const history = buildHistory({ today, branches, courses, classes, families, students, invoices, entitlements })
+  const history = buildHistory({ today, branches, courses, classes, families, students, invoices, entitlements, leads })
   const leaves: StudentLeave[] = history.leaves
 
   // the other branches get a teacher each and their current students in class, with the last two weeks of
@@ -551,7 +551,7 @@ export function buildSeed(now = new Date()): DB {
 }
 
 /** Demo history for Reports: ~130 past/current students over the last 15 months with monthly / hour-pack invoices. */
-function buildHistory(db: { today: string; branches: Branch[]; courses: Course[]; classes: Klass[]; families: Family[]; students: Student[]; invoices: Invoice[]; entitlements: Entitlement[] }) {
+function buildHistory(db: { today: string; branches: Branch[]; courses: Course[]; classes: Klass[]; families: Family[]; students: Student[]; invoices: Invoice[]; entitlements: Entitlement[]; leads: Lead[] }) {
   let seed = 20261001
   const rnd = () => { seed = (seed * 1103515245 + 12345) % 2147483648; return seed / 2147483648 }
   const pick = <T,>(xs: T[]) => xs[Math.floor(rnd() * xs.length)]
@@ -587,6 +587,22 @@ function buildHistory(db: { today: string; branches: Branch[]; courses: Course[]
     if (familyId === `fa_h${i}`) db.families.push({ id: familyId, name: `ครอบครัว${surname}`, parents: [{ name: "ผู้ปกครอง", phone: `08${i % 10}-700-${String(1000 + i)}`, lineLinked: rnd() < 0.7, primary: true }] })
     const nick = pick(NICK)
     const sid = `stu_h${i}`
+    // the lead this student came from (CRM report): a few days to a few weeks before the first payment
+    const SOURCES: Lead["source"][] = ["line", "line", "line", "facebook", "facebook", "referral", "referral", "walkin", "website", "phone"]
+    const leadAt = addDays(joined, -(3 + Math.floor(rnd() * 25)))
+    db.leads.push({ id: `ld_h${i}`, branchId: branch.id, name: `ผู้ปกครองน้อง${nick}`, childGrade: grade, subject: course.subjects[0], source: pick(SOURCES), stage: "enrolled", assigneeId: "u_ploy",
+      phone: `08${i % 10}-700-${String(1000 + i)}`, lineId: "", createdAt: iso(leadAt), notes: [], convertedStudentId: sid })
+    // …and leads that never became students, stopped somewhere along the way
+    for (let j = 0; j < (rnd() < 0.5 ? 1 : 2); j++) {
+      const stops: Lead["stage"][] = ["new", "contacting", "contacting", "test_scheduled", "tested", "tested", "trialed", "trialed", "payment_pending"]
+      const from = pick(stops)
+      const at = addDays(leadAt, Math.floor(rnd() * 60) - 30)
+      if (at > db.today) continue
+      const open = addDays(at, 21) > db.today // recent ones are still in the pipeline
+      db.leads.push({ id: `ld_x${i}_${j}`, branchId: branch.id, name: `ผู้ปกครอง ${pick(SN)}`, childGrade: grade, subject: course.subjects[0], source: pick(["facebook", "facebook", "website", "line", "walkin", "phone", "other"] as Lead["source"][]),
+        stage: open ? from : "archived", archivedFrom: open ? undefined : from, archiveReason: open ? undefined : pick(["ราคาสูงไป", "เวลาไม่ตรง", "ไกลบ้าน", "ติดต่อไม่ได้", "ไปที่อื่น"]),
+        assigneeId: "u_ploy", phone: `09${j}-800-${String(1000 + i)}`, lineId: "", createdAt: iso(at), notes: [], convertedStudentId: null })
+    }
     db.students.push({ id: sid, familyId, branchId: branch.id, name: `ด.${i % 2 ? "ช" : "ญ"}. ${nick} ${surname}`, nickname: nick, grade, usesBus: false, createdBranchId: branch.id, createdAt: iso(joined) })
     // one package after another; each renewal 86% likely, sometimes a 6–12 week break and back
     // a 2-hour class a week: a 24-hour pack lasts 12 weeks

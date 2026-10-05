@@ -114,8 +114,36 @@ export function useReports(branchIds: string[], period: R.PeriodKey) {
       fill: R.classFill(classesInScope, CAPACITY),
     }
 
+    // ---- R3: CRM, cohort, forecast ----
+    const leads = s.leads.filter((l) => ids.has(l.branchId))
+    const crm = {
+      funnel: R.leadFunnel(leads, range),
+      sources: R.leadSources(leads, rows, range),
+      lost: R.lostLeads(leads, range),
+      lostReasons: [...leads.filter((l) => l.stage === "archived" && R.inRange(l.createdAt.slice(0, 10), range)).reduce((m, l) => m.set(l.archiveReason || "ไม่ระบุ", (m.get(l.archiveReason || "ไม่ระบุ") ?? 0) + 1), new Map<string, number>())]
+        .map(([reason, count]) => ({ reason, count })).sort((a, b) => b.count - a.count),
+      open: leads.filter((l) => l.stage !== "archived" && l.stage !== "enrolled").length,
+      perBranch: branches.map((b) => { const f = R.leadFunnel(leads.filter((l) => l.branchId === b.id), range); return { id: b.id, name: b.name, leads: f[0].count, enrolled: f[f.length - 1].count, conversion: f[f.length - 1].ofAll } }),
+      monthly: {
+        thisYear: Array.from({ length: 12 }, (_, m) => { const k = `${year}-${String(m + 1).padStart(2, "0")}`; return k > today.slice(0, 7) ? null : leads.filter((l) => l.createdAt.startsWith(k)).length }),
+        lastYear: Array.from({ length: 12 }, (_, m) => leads.filter((l) => l.createdAt.startsWith(`${year - 1}-${String(m + 1).padStart(2, "0")}`)).length || null),
+      },
+    }
+    const cohortByBranchYear = R.cohortRetention({ students, entitlements: ents, rows, today, groupOf: (st, joined) => `${st.branchId}|${joined.slice(0, 4)}` })
+    const cohortMonthly = (branchId: string | null) => R.cohortRetention({ students: branchId ? students.filter((x) => x.branchId === branchId) : students, entitlements: ents, rows, today, groupOf: (_, joined) => joined.slice(0, 7) })
+    // forecast to the end of the year: open invoices + renewals at the renewal rate of the last 6 months
+    const renewalUsed = R.renewalRate(events, R.periodRange("6m", today)) ?? 0.8
+    const openInvoices = s.invoices.filter((i) => ids.has(i.branchId) && (i.status === "approved" || i.status === "sent"))
+      .map((i) => ({ studentId: i.studentId, amount: invoiceTotals(i, { branch: s.branches.find((b) => b.id === i.branchId)!, courses: s.courses, classes: s.classes, holidays: s.holidays }).total, date: (i.sentAt ?? i.createdAt).slice(0, 10) }))
+    const fc = R.forecastRevenue({ today, until: `${year}-12-31`, renewal: renewalUsed, entitlements: ents, rows, openInvoices })
+    const forecast = {
+      renewal: renewalUsed, open: openInvoices.reduce((a, o) => a + o.amount, 0), openCount: openInvoices.length,
+      byMonth: Array.from({ length: 12 }, (_, m) => { const f = fc.get(`${year}-${String(m + 1).padStart(2, "0")}`); return f ? { renewals: f.renewals, open: f.open, total: f.renewals + f.open } : null }),
+      newAvg: R.avgNewRevenue(rows, events, today),
+    }
+
     return {
-      attendanceTab, operations,
+      attendanceTab, operations, crm, cohortByBranchYear, cohortMonthly, forecast,
       today, now, range, prev, rows, events, students, since, comparable: !!since && prev.from >= since,
       kpi: {
         revenue: rev.total, revenueChange: R.change(rev.total, revPrev.total, prev, since),
@@ -147,7 +175,7 @@ export function useReports(branchIds: string[], period: R.PeriodKey) {
       },
       perBranch,
     }
-  }, [allRows, ids, period, today, now, s.students, s.leaves, s.sessions, s.attendance, s.branches, s.staff, s.summaries, s.invoices, s.classes, s.leads, s.families, s.holidays, s.system, entitlementsAll])
+  }, [allRows, ids, period, today, now, s.students, s.leaves, s.sessions, s.attendance, s.branches, s.staff, s.summaries, s.invoices, s.classes, s.leads, s.families, s.holidays, s.system, s.courses, entitlementsAll])
 }
 
 export type ReportData = ReturnType<typeof useReports>

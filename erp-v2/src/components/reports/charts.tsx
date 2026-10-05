@@ -52,13 +52,16 @@ const TH_MONTH_SHORT = ["ม.ค.", "ก.พ.", "มี.ค.", "เม.ย.", "�
 
 /** Jan…Dec bars: this year (solid) next to last year (light). Months not reached yet stay empty. Hovering a month
  *  shows a card with both years and the change (owner ref 2026-10-01). */
-export function MonthBars({ thisYear, lastYear, current, unit = "", currentLastYearToDate, todayLabel }: {
+export function MonthBars({ thisYear, lastYear, current, unit = "", currentLastYearToDate, todayLabel, forecast }: {
   thisYear: (number | null)[]; lastYear: (number | null)[]; current: number; unit?: string
   /** the month in progress compares with the same dates last year (1–N), not last year's whole month */
   currentLastYearToDate?: number; todayLabel?: string
+  /** expected for the rest of the month in progress and the months ahead — drawn striped (on top of this month's actual) */
+  forecast?: (number | null)[]
 }) {
   const [hover, setHover] = useState<number | null>(null)
-  const max = Math.max(1, ...thisYear.map((x) => x ?? 0), ...lastYear.map((x) => x ?? 0))
+  const fc = (m: number) => (forecast?.[m] ?? 0)
+  const max = Math.max(1, ...thisYear.map((x, m) => (x ?? 0) + fc(m)), ...lastYear.map((x) => x ?? 0))
   const hasLast = lastYear.some((x) => !!x)
   return (
     <div>
@@ -69,11 +72,14 @@ export function MonthBars({ thisYear, lastYear, current, unit = "", currentLastY
           return (
             <div key={m} onMouseEnter={() => setHover(m)}
               className={cn("relative flex h-full flex-1 items-end justify-center gap-0.5 rounded-t-lg transition-colors", (on || (hover === null && m === current)) && "bg-muted/70")}>
-              <div className={cn("w-1/2 max-w-4 rounded-t bg-primary transition-all", hover !== null && !on && "opacity-50")} style={{ height: `${((v ?? 0) / max) * 100}%` }} />
+              <div className={cn("flex h-full w-1/2 max-w-4 flex-col justify-end", hover !== null && !on && "opacity-50")}>
+                {fc(m) > 0 && <div className={cn("w-full bg-primary/15", !v && "rounded-t")} style={{ height: `${(fc(m) / max) * 100}%`, backgroundImage: STRIPES }} />}
+                <div className={cn("w-full bg-primary transition-all", !fc(m) && "rounded-t")} style={{ height: `${((v ?? 0) / max) * 100}%` }} />
+              </div>
               {hasLast && <div className={cn("w-1/2 max-w-4 rounded-t bg-primary/25", hover !== null && !on && "opacity-50")} style={{ height: `${((l ?? 0) / max) * 100}%` }} />}
-              {on && (v !== null || l) && <MonthTip month={m} thisYear={v} lastYear={hasLast ? l : null} fmt={fmtNum} unit={unit}
+              {on && (v !== null || l || fc(m) > 0) && <MonthTip month={m} thisYear={v} lastYear={hasLast ? l : null} fmt={fmtNum} unit={unit} forecast={fc(m) > 0 ? (v ?? 0) + fc(m) : undefined}
                 toDate={m === current && currentLastYearToDate !== undefined ? { value: currentLastYearToDate, label: todayLabel ?? "" } : undefined}
-                side={m > 7 ? "left" : "right"} top={Math.min(55, 100 - (Math.max(v ?? 0, l ?? 0) / max) * 100)} />}
+                side={m > 7 ? "left" : "right"} top={Math.min(55, 100 - (Math.max((v ?? 0) + fc(m), l ?? 0) / max) * 100)} />}
             </div>
           )
         })}
@@ -84,14 +90,16 @@ export function MonthBars({ thisYear, lastYear, current, unit = "", currentLastY
       <div className="mt-2 flex gap-3 text-xs text-muted-foreground">
         <span className="flex items-center gap-1"><span className="size-2 rounded-full bg-primary" />ปีนี้</span>
         {hasLast ? <span className="flex items-center gap-1"><span className="size-2 rounded-full bg-primary/25" />ปีที่แล้ว</span> : <span>ยังไม่มีข้อมูลปีที่แล้ว (ไม่ได้ Import)</span>}
+        {forecast && <span className="flex items-center gap-1"><span className="size-2 rounded-full bg-primary/15" style={{ backgroundImage: STRIPES }} />คาดการณ์</span>}
       </div>
     </div>
   )
 }
 
 /** The hover card: this year with its change vs last year, then last year */
-function MonthTip({ month, thisYear, lastYear, fmt, unit, side, top, toDate }: { month: number; thisYear: number | null; lastYear: number | null; fmt: (n: number) => string; unit: string; side: "left" | "right"; top: number; toDate?: { value: number; label: string } }) {
+function MonthTip({ month, thisYear, lastYear, fmt, unit, side, top, toDate, forecast }: { month: number; thisYear: number | null; lastYear: number | null; fmt: (n: number) => string; unit: string; side: "left" | "right"; top: number; toDate?: { value: number; label: string }; forecast?: number }) {
   const base = toDate ? toDate.value : lastYear
+  const fpct = forecast !== undefined && lastYear ? Math.round(((forecast - lastYear) / lastYear) * 1000) / 10 : null
   const pct = thisYear !== null && base ? Math.round(((thisYear - base) / base) * 1000) / 10 : null
   return (
     // beside the bar, level with its top (like the ref) — never above the chart
@@ -106,6 +114,16 @@ function MonthTip({ month, thisYear, lastYear, fmt, unit, side, top, toDate }: {
         </div>
         {pct !== null && <span className={cn("rounded-full px-1.5 py-0.5 text-[10px] font-semibold tabular-nums", pct >= 0 ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300" : "bg-red-100 text-red-700 dark:bg-red-950 dark:text-red-300")}>{pct >= 0 ? "+" : ""}{pct}%</span>}
       </div>
+      {forecast !== undefined && (
+        <div className="mt-2 flex items-start gap-2 border-t border-dashed pt-2">
+          <span className="mt-1.5 size-1.5 shrink-0 rounded-full bg-primary/40" />
+          <div className="flex-1">
+            <p className="text-[11px] text-primary">คาดการณ์ทั้งเดือน</p>
+            <p className="text-sm font-semibold text-primary tabular-nums">{fmt(forecast)}{unit}</p>
+          </div>
+          {fpct !== null && <span className={cn("rounded-full px-1.5 py-0.5 text-[10px] font-semibold tabular-nums", fpct >= 0 ? "bg-emerald-100 text-emerald-700" : "bg-red-100 text-red-700")}>{fpct >= 0 ? "+" : ""}{fpct}%</span>}
+        </div>
+      )}
       {lastYear !== null && (
         <div className="mt-2 flex items-start gap-2 border-t border-dashed pt-2">
           <span className="mt-1.5 size-1.5 shrink-0 rounded-full bg-primary/30" />
@@ -119,6 +137,8 @@ function MonthTip({ month, thisYear, lastYear, fmt, unit, side, top, toDate }: {
     </div>
   )
 }
+
+const STRIPES = "repeating-linear-gradient(135deg, color-mix(in oklab, var(--color-primary) 45%, transparent) 0 3px, transparent 3px 7px)"
 
 const TH_MONTH_FULL = ["มกราคม", "กุมภาพันธ์", "มีนาคม", "เมษายน", "พฤษภาคม", "มิถุนายน", "กรกฎาคม", "สิงหาคม", "กันยายน", "ตุลาคม", "พฤศจิกายน", "ธันวาคม"]
 

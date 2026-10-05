@@ -1556,3 +1556,26 @@ describe("Reports R2 — attendance + operations (owner 2026-10-01)", () => {
     expect(fill[0].fill).toBeCloseTo(4 / 3)
   })
 })
+
+describe("Reports R3 — CRM, cohort, forecast (owner 2026-10-01)", () => {
+  const lead = (stage: Lead["stage"], extra: Partial<Lead> = {}) => ({ stage, createdAt: "2026-09-05T10:00:00.000Z", source: "line", convertedStudentId: null, ...extra }) as Lead
+  it("funnel counts every step a lead reached; archived ones at the step they stopped", () => {
+    const leads = [lead("new"), lead("tested"), lead("archived", { archivedFrom: "trialed" }), lead("enrolled", { convertedStudentId: "a" })]
+    const f = Rep.leadFunnel(leads, { from: "2026-09-01", to: "2026-09-30" })
+    expect(f.map((s) => s.count)).toEqual([4, 3, 3, 2, 1, 1])
+    expect(Rep.lostLeads(leads, { from: "2026-09-01", to: "2026-09-30" }).find((x) => x.key === "trial")!.count).toBe(1)
+  })
+  it("cohort: % of the group still studying N months after joining; future months empty", () => {
+    const rows = [{ date: "2026-06-10", branchId: "b1", studentId: "a", invoiceId: "i1", tuition: 1, bus: 0, advance: 0, book: 0, total: 1, lines: [] }, { date: "2026-06-12", branchId: "b1", studentId: "b", invoiceId: "i2", tuition: 1, bus: 0, advance: 0, book: 0, total: 1, lines: [] }] as Rep.RevenueRow[]
+    const ents = [{ studentId: "a", from: "2026-06-10", to: "2026-09-30" }, { studentId: "b", from: "2026-06-12", to: "2026-07-11" }]
+    const c = Rep.cohortRetention({ students: [{ id: "a", branchId: "b1" }, { id: "b", branchId: "b1" }], entitlements: ents, rows, today: "2026-10-01", groupOf: () => "g" })[0]
+    expect(c.cells.slice(0, 5)).toEqual([1, 0.5, 0.5, 0.5, null])
+  })
+  it("forecast: renewals at the rate, compounding; open invoices in full", () => {
+    const rows = [{ date: "2026-09-01", branchId: "b1", studentId: "a", invoiceId: "i1", tuition: 4000, bus: 0, advance: 0, book: 0, total: 4000, lines: [{ courseId: "c", subjects: [], amount: 4000, packageKey: "1m", grade: "", units: 1 }] }] as Rep.RevenueRow[]
+    const f = Rep.forecastRevenue({ today: "2026-10-01", until: "2026-12-31", renewal: 0.5, entitlements: [{ studentId: "a", invoiceId: "i1", courseId: "c", from: "2026-09-01", to: "2026-09-30" }], rows, openInvoices: [{ studentId: "z", amount: 1000, date: "2026-10-02" }] })
+    // a 30-day package: renews 1 Oct (×0.5) and again 31 Oct (×0.25), then 30 Nov (×0.125)
+    expect(f.get("2026-10")).toEqual({ renewals: 3000, open: 1000 })
+    expect(f.get("2026-11")!.renewals).toBe(500)
+  })
+})

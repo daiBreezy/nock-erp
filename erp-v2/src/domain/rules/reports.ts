@@ -492,3 +492,139 @@ export function classFill(classes: Pick<Klass, "id" | "name" | "branchId" | "act
     return { id: k.id, name: k.name, branchId: k.branchId, teacherId: k.teacherId, students: k.studentIds.length, capacity: cap, fill: k.studentIds.length / cap }
   }).sort((a, b) => a.fill - b.fill)
 }
+
+// ---------- R3: CRM funnel (owner 2026-10-01) ----------
+
+const STAGE_ORDER = ["new", "contacting", "test_scheduled", "tested", "trial_scheduled", "trialed", "payment_pending", "enrolled"] as const
+const stageRank = (l: Pick<Lead, "stage" | "archivedFrom">) => STAGE_ORDER.indexOf((l.stage === "archived" ? l.archivedFrom ?? "new" : l.stage) as (typeof STAGE_ORDER)[number])
+
+/** The steps a lead goes through — a lead counts at every step it reached or passed (archived ones at the step they stopped). */
+export const FUNNEL_STEPS = [
+  { key: "lead", label: "Lead ใหม่", min: 0 },
+  { key: "contacted", label: "ติดต่อแล้ว", min: 1 },
+  { key: "test", label: "นัด Test / Trial", min: 2 },
+  { key: "trial", label: "ทดลองเรียน", min: 4 },
+  { key: "payment", label: "รอชำระ", min: 6 },
+  { key: "enrolled", label: "สมัครแล้ว", min: 7 },
+] as const
+
+/** Leads created in the period, through the funnel: count per step and % of the step before / of all leads. */
+export function leadFunnel(leads: Pick<Lead, "stage" | "archivedFrom" | "createdAt">[], r: Range) {
+  const xs = leads.filter((l) => inRange(l.createdAt.slice(0, 10), r))
+  const steps = FUNNEL_STEPS.map((s) => ({ ...s, count: xs.filter((l) => stageRank(l) >= s.min).length }))
+  return steps.map((s, i) => ({ ...s, ofPrev: i && steps[i - 1].count ? s.count / steps[i - 1].count : null, ofAll: xs.length ? s.count / xs.length : null }))
+}
+
+/** Where leads come from: leads, enrolled, conversion, money paid so far by the students they became, days to enrol. */
+export function leadSources(leads: Pick<Lead, "source" | "stage" | "archivedFrom" | "createdAt" | "convertedStudentId">[], rows: RevenueRow[], r: Range) {
+  const xs = leads.filter((l) => inRange(l.createdAt.slice(0, 10), r))
+  const by = new Map<string, { source: string; leads: number; enrolled: number; revenue: number; days: number[] }>()
+  for (const l of xs) {
+    const row = by.get(l.source) ?? { source: l.source, leads: 0, enrolled: 0, revenue: 0, days: [] }
+    row.leads++
+    if (l.stage === "enrolled" && l.convertedStudentId) {
+      row.enrolled++
+      const paid = rows.filter((x) => x.studentId === l.convertedStudentId && !x.credit)
+      row.revenue += paid.reduce((a, x) => a + x.total, 0)
+      const first = paid.map((x) => x.date).sort()[0]
+      if (first) row.days.push(Math.max(0, daysIn({ from: l.createdAt.slice(0, 10), to: first }) - 1))
+    }
+    by.set(l.source, row)
+  }
+  return [...by.values()].map((x) => ({
+    source: x.source, leads: x.leads, enrolled: x.enrolled, revenue: x.revenue, conversion: x.leads ? x.enrolled / x.leads : null,
+    medianDays: x.days.length ? [...x.days].sort((a, b) => a - b)[Math.floor(x.days.length / 2)] : null,
+  })).sort((a, b) => b.enrolled - a.enrolled || b.leads - a.leads)
+}
+
+/** Why leads were lost: archived leads by the step they stopped at. */
+export function lostLeads(leads: Pick<Lead, "stage" | "archivedFrom" | "createdAt">[], r: Range) {
+  const xs = leads.filter((l) => l.stage === "archived" && inRange(l.createdAt.slice(0, 10), r))
+  return FUNNEL_STEPS.slice(0, -1).map((s, i) => ({ key: s.key, label: s.label, count: xs.filter((l) => stageRank(l) >= s.min && stageRank(l) < FUNNEL_STEPS[i + 1].min).length }))
+}
+
+// ---------- R3: cohort retention ----------
+
+export const COHORT_MONTHS = 12
+
+const addMonthsStr = (d: DateStr, n: number) => shiftMonths(d, n)
+
+/**
+ * Cohort retention: students grouped (by branch × year they joined, or by month they joined) — for each month after
+ * joining (M0…M12), the % of the group still studying (a package covers that day). A month not reached yet for any
+ * student of the group = null (the triangle). Students imported from the old system have no join date → left out.
+ */
+export function cohortRetention(ctx: {
+  students: Pick<Student, "id" | "branchId" | "imported">[]; entitlements: Pick<Entitlement, "studentId" | "from" | "to">[]; rows: RevenueRow[]; today: DateStr
+  groupOf: (s: Pick<Student, "id" | "branchId">, joined: DateStr) => string
+}) {
+  const ents = new Map<ID, { from: DateStr; to: DateStr }[]>()
+  for (const e of ctx.entitlements) { const l = ents.get(e.studentId) ?? []; l.push(e); ents.set(e.studentId, l) }
+  const first = new Map<ID, DateStr>()
+  for (const x of ctx.rows) if (!x.credit && (!first.has(x.studentId) || x.date < first.get(x.studentId)!)) first.set(x.studentId, x.date)
+  const groups = new Map<string, { key: string; size: number; hit: number[]; seen: number[] }>()
+  for (const s of ctx.students) {
+    const joined = first.get(s.id)
+    if (!joined || s.imported) continue
+    const key = ctx.groupOf(s, joined)
+    const g = groups.get(key) ?? { key, size: 0, hit: Array(COHORT_MONTHS + 1).fill(0), seen: Array(COHORT_MONTHS + 1).fill(0) }
+    g.size++
+    for (let n = 0; n <= COHORT_MONTHS; n++) {
+      const at = addMonthsStr(joined, n)
+      if (at > ctx.today) break
+      g.seen[n]++
+      if ((ents.get(s.id) ?? []).some((e) => e.from <= at && at <= e.to)) g.hit[n]++
+    }
+    groups.set(key, g)
+  }
+  return [...groups.values()].map((g) => ({ key: g.key, size: g.size, cells: g.hit.map((h, n) => (g.seen[n] ? h / g.seen[n] : null)) }))
+    .sort((a, b) => a.key.localeCompare(b.key))
+}
+
+// ---------- R3: forecast ----------
+
+/**
+ * Revenue forecast for the months ahead (owner: open invoices + packages ending × renewal rate). Each student's latest
+ * package renews at its end with the renewal rate, again and again, for the price they last paid; invoices already
+ * sent / approved count in full in the month they were sent. New students are left out (shown separately).
+ */
+export function forecastRevenue(ctx: {
+  today: DateStr; until: DateStr; renewal: number
+  entitlements: Pick<Entitlement, "studentId" | "invoiceId" | "from" | "to" | "courseId">[]
+  rows: RevenueRow[]; openInvoices: { studentId: ID; amount: number; date: DateStr }[]
+}) {
+  const hasOpen = new Set(ctx.openInvoices.map((o) => o.studentId))
+  const months = new Map<string, { renewals: number; open: number }>()
+  const add = (d: DateStr, k: "renewals" | "open", v: number) => {
+    const m = d.slice(0, 7)
+    if (d > ctx.until || d <= ctx.today.slice(0, 8) + "00") return
+    const cur = months.get(m) ?? { renewals: 0, open: 0 }
+    cur[k] += v
+    months.set(m, cur)
+  }
+  for (const o of ctx.openInvoices) add(o.date < ctx.today ? ctx.today : o.date, "open", o.amount)
+  // latest package per student + course, still running or ended recently (within the 30-day window)
+  const latest = new Map<string, Pick<Entitlement, "studentId" | "invoiceId" | "from" | "to" | "courseId">>()
+  for (const e of ctx.entitlements) { const k = `${e.studentId}|${e.courseId}`; const cur = latest.get(k); if (!cur || e.to > cur.to) latest.set(k, e) }
+  const paid = new Map(ctx.rows.filter((x) => !x.credit).map((x) => [x.invoiceId, x]))
+  for (const e of latest.values()) {
+    if (addDays(e.to, LOST_AFTER_DAYS) < ctx.today) continue
+    const line = paid.get(e.invoiceId)?.lines.find((l) => l.courseId === e.courseId)
+    if (!line || line.amount <= 0) continue
+    const len = Math.max(7, daysIn({ from: e.from, to: e.to }))
+    // an open invoice already is the next package → the renewals start after it
+    let at = addDays(e.to, 1 + (hasOpen.has(e.studentId) ? len : 0)), p = 1
+    if (at < ctx.today) at = ctx.today
+    while (at <= ctx.until) { p *= ctx.renewal; add(at, "renewals", p * line.amount); at = addDays(at, len) }
+  }
+  return months
+}
+
+/** What new students brought in their first month, averaged over the last 3 full months — the "new" part shown
+ *  next to the forecast (not added to it). */
+export function avgNewRevenue(rows: RevenueRow[], events: StudentEvent[], today: DateStr) {
+  const from = shiftMonths(today.slice(0, 8) + "01", -3), to = addDays(today.slice(0, 8) + "01", -1)
+  const fresh = new Set(events.filter((e) => e.kind === "new" && e.date >= from && e.date <= to).map((e) => e.studentId))
+  const sumNew = rows.filter((x) => fresh.has(x.studentId) && x.date >= from && x.date <= to && !x.credit)
+  return { perMonth: sumNew.reduce((a, x) => a + x.total, 0) / 3, students: fresh.size / 3 }
+}

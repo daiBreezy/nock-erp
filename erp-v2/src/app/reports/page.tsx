@@ -13,6 +13,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { fmtDate, fmtMoney } from "@/domain/dates"
 import { can, canCompareBranches, reportBranchIds } from "@/domain/rules/permissions"
 import { PERIODS, type AttentionItem, type PeriodKey } from "@/domain/rules/reports"
+import { LEAD_SOURCE_LABEL } from "@/domain/rules/crm"
 import type { Weekday } from "@/domain/types"
 import { report } from "@/lib/feedback"
 import { downloadReports } from "@/lib/reports-export"
@@ -26,7 +27,7 @@ const TABS: { id: Tab; label: string; soon?: string }[] = [
   { id: "students", label: "นักเรียน" },
   { id: "attendance", label: "การเข้าเรียน" },
   { id: "operations", label: "Operations" },
-  { id: "crm", label: "CRM", soon: "R3" },
+  { id: "crm", label: "CRM" },
 ]
 const DAYS: Weekday[] = [1, 2, 3, 4, 5, 6, 0]
 const DAY_SHORT = ["อา.", "จ.", "อ.", "พ.", "พฤ.", "ศ.", "ส."]
@@ -118,6 +119,7 @@ function Reports() {
       {tab === "students" && <StudentsTab d={d} compare={showCompare} onOpen={setOpenId} />}
       {tab === "attendance" && <AttendanceTab d={d} compare={showCompare} onOpen={setOpenId} />}
       {tab === "operations" && <OperationsTab d={d} compare={showCompare} />}
+      {tab === "crm" && <CrmTab d={d} compare={showCompare} />}
       {TABS.find((t) => t.id === tab)?.soon && <Empty>แท็บนี้อยู่ในรอบ {TABS.find((t) => t.id === tab)!.soon} — คุยสเปกแล้ว ยังไม่ได้สร้าง</Empty>}
 
       <AttentionDialog open={showAttention} onClose={() => setShowAttention(false)} items={d.attention} />
@@ -162,8 +164,8 @@ function Overview({ d, compare, period, onAllRevenue, onAllStudents }: { d: Repo
       </div>
 
       <div className="grid gap-4 lg:grid-cols-2">
-        <Panel title="รายได้รายเดือน" hint={`ปี ${d.monthly.year + 543} เทียบปีที่แล้ว · Forecast อยู่ในรอบ R3`}>
-          <MonthBars thisYear={d.monthly.thisYear} lastYear={d.monthly.lastYear} current={Number(d.today.slice(5, 7)) - 1}
+        <Panel title="รายได้รายเดือน" hint={`ปี ${d.monthly.year + 543} เทียบปีที่แล้ว · ลายทาง = คาดการณ์ (ต่อคอร์ส ${fmtPct(d.forecast.renewal)} + ใบที่รอจ่าย)`}>
+          <MonthBars thisYear={d.monthly.thisYear} lastYear={d.monthly.lastYear} current={Number(d.today.slice(5, 7)) - 1} forecast={d.forecast.byMonth.map((x) => x?.total ?? null)}
             currentLastYearToDate={d.monthly.lastYearToDate} todayLabel={`${Number(d.today.slice(8)) === 1 ? "" : "1–"}${Number(d.today.slice(8))} ${fmtDate(d.today).split(" ")[1] ?? ""}`} />
         </Panel>
         {compare ? (
@@ -399,6 +401,7 @@ function RevenueTab({ d, compare, period }: { d: ReportData; compare: boolean; p
   const pg = d.packageGrade
   return (
     <div className="space-y-4">
+      <ForecastPanel d={d} />
       <div className="grid gap-4 lg:grid-cols-2">
         <Panel title="ประเภทรายได้" hint={`${PERIODS.find((p) => p.key === period)!.label} ${vsLabel(period)}`}><RevenueParts d={d} /></Panel>
         <Panel title="สรุปการขาย" hint="ใบแจ้งหนี้ที่จ่ายแล้วในช่วงนี้">
@@ -504,7 +507,8 @@ function StudentsTab({ d, compare, onOpen }: { d: ReportData; compare: boolean; 
           </div>
         ) : <Empty />}
       </Panel>
-      <p className="text-xs text-muted-foreground">Cohort Retention อยู่ในรอบ R3 · นักเรียนที่ Import จากระบบเดิมไม่นับเป็น &quot;ใหม่&quot;</p>
+      <CohortPanel d={d} compare={compare} />
+      <p className="text-xs text-muted-foreground">นักเรียนที่ Import จากระบบเดิมไม่นับเป็น &quot;ใหม่&quot; และไม่อยู่ใน Cohort (ไม่รู้วันที่เริ่มเรียนจริง)</p>
     </div>
   )
 }
@@ -649,6 +653,157 @@ function OperationsTab({ d, compare }: { d: ReportData; compare: boolean }) {
           }))} />
           <p className="mt-2 text-[11px] text-muted-foreground"><span className="text-amber-600">■</span> คนน้อย (≤ 1 คน) · <span className="text-red-600">■</span> เกินขนาดแนะนำ (แสดงบนสุด)</p>
         </Panel>
+      </div>
+    </div>
+  )
+}
+
+// ---------------- Forecast / Cohort / CRM (R3) ----------------
+
+/** What is expected to come in until the end of the year — renewals at the recent renewal rate + invoices waiting. */
+function ForecastPanel({ d }: { d: ReportData }) {
+  const f = d.forecast
+  const cur = Number(d.today.slice(5, 7)) - 1
+  const months = f.byMonth.map((x, m) => ({ m, x })).filter((r) => r.x && r.m >= cur)
+  const total = months.reduce((a, r) => a + r.x!.total, 0)
+  const actualYtd = d.monthly.thisYear.reduce<number>((a, v) => a + (v ?? 0), 0)
+  return (
+    <Panel title="คาดการณ์รายได้ถึงสิ้นปี" hint={`ต่อคอร์สตามอัตรา 6 เดือนล่าสุด ${fmtPct(f.renewal)} · ใบแจ้งหนี้ที่ส่งแล้วรอจ่าย ${f.openCount} ใบ · ไม่รวมนักเรียนใหม่`}>
+      <div className="grid gap-4 lg:grid-cols-[16rem_1fr]">
+        <div className="grid grid-cols-2 gap-2 lg:grid-cols-1">
+          <Stat label="คาดว่าจะเข้าอีก" value={fmtShort(total)} tone="text-primary" />
+          <Stat label={`ทั้งปี ${d.monthly.year + 543} (จริง + คาดการณ์)`} value={fmtShort(actualYtd + total)} />
+          <Stat label="นักเรียนใหม่ (ไม่ได้รวม)" value={`+${fmtShort(f.newAvg.perMonth)}/ด.`} sub={<span>เฉลี่ย 3 เดือนล่าสุด · {Math.round(f.newAvg.students)} คน/ด.</span>} />
+        </div>
+        <table className="w-full self-start text-sm">
+          <thead className="text-xs text-muted-foreground"><tr><th className="text-left font-normal">เดือน</th><th className="text-right font-normal">ต่อคอร์ส (คาดการณ์)</th><th className="text-right font-normal">ใบที่รอจ่าย</th><th className="text-right font-normal">รวม</th></tr></thead>
+          <tbody>{months.map(({ m, x }) => (
+            <tr key={m} className="border-t">
+              <td className="py-1.5">{TH_MONTHS[m]}{m === cur && <span className="ml-1 text-xs text-muted-foreground">(ที่เหลือของเดือน)</span>}</td>
+              <td className="text-right tabular-nums">{fmtMoney(x!.renewals)}</td>
+              <td className="text-right tabular-nums">{x!.open ? fmtMoney(x!.open) : "—"}</td>
+              <td className="text-right font-medium tabular-nums">{fmtMoney(x!.total)}</td>
+            </tr>
+          ))}</tbody>
+        </table>
+      </div>
+    </Panel>
+  )
+}
+
+/** Cohort retention (owner's layout): branch × year joined, M0…M12; click a branch for the months it joined. */
+function CohortPanel({ d, compare }: { d: ReportData; compare: boolean }) {
+  const [drill, setDrill] = useState<string | null>(null)
+  const branchName = (id: string) => d.operations.rooms.find((b) => b.id === id)?.name ?? id
+  const rows = drill !== null || !compare
+    ? d.cohortMonthly(drill).map((g) => ({ key: g.key, label: fmtMonthKey(g.key), sub: "", size: g.size, cells: g.cells, branch: "" }))
+    : d.cohortByBranchYear.map((g) => { const [b, y] = g.key.split("|"); return { key: g.key, label: branchName(b), sub: String(Number(y) + 543), size: g.size, cells: g.cells, branch: b } })
+  const months = Array.from({ length: 13 }, (_, n) => n)
+  const avg = months.map((n) => { const xs = rows.filter((r) => r.cells[n] !== null); const size = xs.reduce((a, r) => a + r.size, 0); return size ? xs.reduce((a, r) => a + r.cells[n]! * r.size, 0) / size : null })
+  return (
+    <Panel title="Cohort Retention" hint={drill ? `${branchName(drill)} · แยกตามเดือนที่สมัคร` : compare ? "% นักเรียนที่ยังเรียนอยู่ N เดือนหลังสมัคร · สาขา × ปีที่สมัคร · กดสาขาเพื่อดูรายเดือน" : "% นักเรียนที่ยังเรียนอยู่ N เดือนหลังสมัคร · แยกตามเดือนที่สมัคร"}
+      action={drill && <button type="button" className="text-xs text-primary" onClick={() => setDrill(null)}>‹ ทุกสาขา</button>}>
+      {rows.length ? (
+        <div className="overflow-x-auto">
+          <table className="w-full border-separate border-spacing-0.5 text-xs">
+            <thead className="text-muted-foreground"><tr><th className="px-1 text-left font-normal">Cohort</th><th className="px-1 text-right font-normal">คน</th>{months.map((n) => <th key={n} className="min-w-11 font-normal">M{n}</th>)}</tr></thead>
+            <tbody>
+              {rows.map((r, i) => {
+                const first = i === 0 || rows[i - 1].branch !== r.branch || !r.branch
+                return (
+                  <tr key={r.key}>
+                    <td className="px-1 whitespace-nowrap">
+                      {r.branch ? (
+                        <button type="button" className="flex w-full items-center gap-2 text-left hover:underline" onClick={() => setDrill(r.branch)}>
+                          <span className={cn("min-w-20 text-sm", !first && "invisible")}>{r.label}</span><span className="text-muted-foreground">{r.sub}</span>
+                        </button>
+                      ) : <span className="text-sm">{r.label}</span>}
+                    </td>
+                    <td className="px-1 text-right text-muted-foreground tabular-nums">{r.size}</td>
+                    {r.cells.map((c, n) => (
+                      <td key={n} className={cn("h-7 rounded-md text-center tabular-nums", c !== null && c > 0.55 && "text-primary-foreground")} style={{ background: c === null ? "transparent" : tint(c) }}>{c === null ? "" : `${Math.round(c * 100)}%`}</td>
+                    ))}
+                  </tr>
+                )
+              })}
+              <tr className="font-medium"><td className="px-1 pt-1">เฉลี่ยรวม</td><td className="px-1 text-right tabular-nums">{rows.reduce((a, r) => a + r.size, 0)}</td>{avg.map((c, n) => <td key={n} className="pt-1 text-center tabular-nums">{c === null ? "" : `${Math.round(c * 100)}%`}</td>)}</tr>
+            </tbody>
+          </table>
+        </div>
+      ) : <Empty>ยังไม่มีนักเรียนที่สมัครผ่านระบบ</Empty>}
+    </Panel>
+  )
+}
+
+const TH_MONTH_ABBR = ["ม.ค.", "ก.พ.", "มี.ค.", "เม.ย.", "พ.ค.", "มิ.ย.", "ก.ค.", "ส.ค.", "ก.ย.", "ต.ค.", "พ.ย.", "ธ.ค."]
+const fmtMonthKey = (k: string) => `${TH_MONTH_ABBR[Number(k.slice(5, 7)) - 1]} ${(Number(k.slice(0, 4)) + 543) % 100}`
+
+function CrmTab({ d, compare }: { d: ReportData; compare: boolean }) {
+  const c = d.crm
+  const enrolled = c.funnel[c.funnel.length - 1]
+  const days = c.sources.map((x) => x.medianDays).filter((x): x is number => x !== null).sort((a, b) => a - b)
+  const maxFunnel = Math.max(1, c.funnel[0].count)
+  return (
+    <div className="space-y-4">
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
+        <Stat label="Lead ใหม่" value={fmtNum(c.funnel[0].count)} />
+        <Stat label="สมัครแล้ว" value={fmtNum(enrolled.count)} tone="text-emerald-600" />
+        <Stat label="Conversion" value={fmtPct(enrolled.ofAll)} />
+        <Stat label="วันถึงสมัคร (มัธยฐาน)" value={days.length ? `${days[Math.floor(days.length / 2)]} วัน` : "—"} />
+        <Stat label="Lead ที่ยังเปิดอยู่" value={fmtNum(c.open)} sub={<span>ตอนนี้</span>} />
+      </div>
+      <div className="grid gap-4 lg:grid-cols-2">
+        <Panel title="Funnel" hint="Lead ที่เข้ามาในช่วงนี้ · นับทุกขั้นที่ผ่านมาแล้ว" center>
+          <ul className="space-y-2.5">
+            {c.funnel.map((s, i) => (
+              <li key={s.key} className="grid grid-cols-[7rem_1fr_6rem] items-center gap-2 text-sm">
+                <span>{s.label}</span>
+                <div className="h-6 overflow-hidden rounded-md bg-muted"><div className="flex h-full items-center rounded-md px-2 text-xs text-primary-foreground tabular-nums" style={{ width: `${Math.max(4, (s.count / maxFunnel) * 100)}%`, background: tint(0.35 + (0.65 * (c.funnel.length - i)) / c.funnel.length) }}>{fmtNum(s.count)}</div></div>
+                <span className="text-right text-xs text-muted-foreground tabular-nums">{i ? `${fmtPct(s.ofPrev)} ของขั้นก่อน` : "100%"}</span>
+              </li>
+            ))}
+          </ul>
+        </Panel>
+        <Panel title="Lead รายเดือน" hint={`ปี ${d.monthly.year + 543} เทียบปีที่แล้ว`}>
+          <MonthBars thisYear={c.monthly.thisYear} lastYear={c.monthly.lastYear} current={Number(d.today.slice(5, 7)) - 1} unit=" ราย" />
+        </Panel>
+      </div>
+      <Panel title="แหล่งที่มา (Source)" hint="เรียงตามจำนวนที่สมัคร · รายได้ = เงินที่นักเรียนจาก Lead เหล่านี้จ่ายมาแล้วทั้งหมด">
+        {c.sources.length ? (
+          <table className="w-full text-sm">
+            <thead className="text-xs text-muted-foreground"><tr><th className="text-left font-normal">แหล่ง</th><th className="text-right font-normal">Lead</th><th className="text-right font-normal">สมัคร</th><th className="w-1/4 px-2 text-left font-normal">Conversion</th><th className="text-right font-normal">วันถึงสมัคร</th><th className="text-right font-normal">รายได้</th></tr></thead>
+            <tbody>{c.sources.map((x, i) => (
+              <tr key={x.source} className="border-t">
+                <td className="py-1.5"><span className="flex items-center gap-2"><Rank n={i + 1} />{LEAD_SOURCE_LABEL[x.source as keyof typeof LEAD_SOURCE_LABEL] ?? x.source}</span></td>
+                <td className="text-right tabular-nums">{x.leads}</td>
+                <td className="text-right text-emerald-600 tabular-nums">{x.enrolled}</td>
+                <td className="px-2"><span className="flex items-center gap-2"><ShareBar value={x.conversion ?? 0} /><span className="w-10 text-right text-xs tabular-nums">{fmtPct(x.conversion)}</span></span></td>
+                <td className="text-right text-muted-foreground tabular-nums">{x.medianDays === null ? "—" : `${x.medianDays} วัน`}</td>
+                <td className="text-right tabular-nums">{fmtShort(x.revenue)}</td>
+              </tr>
+            ))}</tbody>
+          </table>
+        ) : <Empty />}
+      </Panel>
+      <div className="grid gap-4 lg:grid-cols-2">
+        <Panel title="Lead ที่หลุด" hint="ปิดไปที่ขั้นไหน · เหตุผล" fill>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <ul className="space-y-1.5 text-sm">{c.lost.map((x) => <li key={x.key} className="flex justify-between gap-2"><span className="text-muted-foreground">หลุดที่ {x.label}</span><span className="tabular-nums text-red-600">{x.count}</span></li>)}</ul>
+            <ul className="space-y-1.5 text-sm">{c.lostReasons.map((x) => <li key={x.reason} className="flex justify-between gap-2"><span>{x.reason}</span><span className="tabular-nums">{x.count}</span></li>)}
+              {!c.lostReasons.length && <li className="text-xs text-muted-foreground">ไม่มี</li>}</ul>
+          </div>
+        </Panel>
+        {compare ? (
+          <Panel title="แยกตามสาขา" hint="Lead · สมัคร · Conversion" fill>
+            <SplitRanks rows={[...c.perBranch].sort((a, b) => b.enrolled - a.enrolled)} cols={[
+              { label: "Lead", cell: (b) => b.leads },
+              { label: "สมัคร", cell: (b) => <span className="text-emerald-600">{b.enrolled}</span> },
+              { label: "%", cell: (b) => fmtPct(b.conversion) },
+            ]} />
+          </Panel>
+        ) : (
+          <Panel title="Pipeline ตอนนี้" hint="Lead ที่ยังเปิดอยู่" center><Stat label="Lead ที่ยังเปิดอยู่" value={fmtNum(c.open)} sub={<Link href="/crm" className="text-primary">ไปหน้า CRM ›</Link>} /></Panel>
+        )}
       </div>
     </div>
   )

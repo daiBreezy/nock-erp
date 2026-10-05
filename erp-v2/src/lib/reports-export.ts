@@ -58,6 +58,13 @@ export async function downloadReports(d: ReportData, opts: { scope: string; peri
   sheet("การใช้ห้อง", ["สาขา", "ห้อง", "ชั่วโมงที่มีคาบ", "ชั่วโมงเปิด", "อัตรา"],
     d.operations.rooms.flatMap((b) => b.rooms.map((r) => [b.name, r.name, Math.round(r.booked / 6) / 10, Math.round(r.open / 6) / 10, r.rate])), [], [5])
   sheet("ความเต็มของคลาส", ["คลาส", "สาขา", "นักเรียน", "ขนาดแนะนำ", "ความเต็ม"], d.operations.fill.map((c) => [c.name, opts.branchOf(c.branchId), c.students, c.capacity, c.fill]), [], [5])
+  // R3
+  sheet("Funnel", ["ขั้น", "จำนวน", "% ของขั้นก่อน", "% ของ Lead ทั้งหมด"], d.crm.funnel.map((x) => [x.label, x.count, x.ofPrev, x.ofAll]), [], [3, 4])
+  sheet("แหล่งที่มา", ["แหล่ง", "Lead", "สมัคร", "Conversion", "วันถึงสมัคร", "รายได้"], d.crm.sources.map((x) => [x.source, x.leads, x.enrolled, x.conversion, x.medianDays, x.revenue]), [6], [4])
+  sheet("Cohort", ["Cohort", "คน", ...Array.from({ length: 13 }, (_, n) => `M${n}`)],
+    d.cohortByBranchYear.map((g) => { const [b, y] = g.key.split("|"); return [`${opts.branchOf(b)} ${Number(y) + 543}`, g.size, ...g.cells] }), [], Array.from({ length: 13 }, (_, n) => n + 3))
+  sheet("คาดการณ์", ["เดือน", "ต่อคอร์ส (คาดการณ์)", "ใบที่รอจ่าย", "รวม"],
+    d.forecast.byMonth.map((x, m) => [m + 1, x?.renewals ?? null, x?.open ?? null, x?.total ?? null]).filter((r) => r[3] !== null), [2, 3, 4])
   sheet("Need Attention", ["เรื่อง", "รายละเอียด", "จำนวน"], d.attention.map((a) => [a.title, a.detail, a.count]))
 
   const buf = await wb.xlsx.writeBuffer()
