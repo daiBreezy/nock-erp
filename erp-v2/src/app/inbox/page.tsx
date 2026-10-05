@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation"
 import { useCallback, useEffect, useRef, useState } from "react"
-import { FileSignatureIcon, InfoIcon, PenLineIcon, PlusIcon, RadioIcon, SendIcon, SparklesIcon, UserSearchIcon, UserCheckIcon, ChevronDownIcon, CheckIcon, ClipboardListIcon, FileTextIcon, GraduationCapIcon, HeartHandshakeIcon, ImageIcon, LogOutIcon, MegaphoneIcon, UserPlusIcon, GripVerticalIcon } from "lucide-react"
+import { FileSignatureIcon, InfoIcon, PenLineIcon, PlusIcon, RadioIcon, SendIcon, SparklesIcon, UserSearchIcon, UserCheckIcon, ChevronDownIcon, CheckIcon, ClipboardListIcon, FileTextIcon, GraduationCapIcon, HeartHandshakeIcon, ImageIcon, LogOutIcon, MegaphoneIcon, UserPlusIcon, GripVerticalIcon, CheckCircle2Icon } from "lucide-react"
 import { NativeSelect } from "@/components/app/native-select"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuSub, DropdownMenuSubContent, DropdownMenuSubTrigger, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { ExitRequestDialog } from "@/components/app/student-exit"
@@ -24,7 +24,7 @@ import { LeadSheet } from "@/components/crm/lead-sheet"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
-import { fmtDateTime } from "@/domain/dates"
+import { fmtDate, fmtDateTime } from "@/domain/dates"
 import { CHANNEL_LABEL, CONVERSATION_TYPE_LABEL, conversationType, type ConversationType, SOURCE_OF_CHANNEL, unreadCount } from "@/domain/rules/inbox"
 import { can } from "@/domain/rules/permissions"
 import type { ChatMessage, Conversation, Family, FormSubmission, FormType, ID, Student } from "@/domain/types"
@@ -142,8 +142,19 @@ export default function InboxPage() {
   const family = selected?.familyId ? families.find((f) => f.id === selected.familyId) : null
   const lead = selected?.leadId ? leads.find((l) => l.id === selected.leadId) : null
   const isNote = draft.trim().startsWith("//")
-  // the family's children still studying — "ลาออก" asks which one
-  const kids = family ? students.filter((x) => x.familyId === family.id && !x.archived && !x.exit) : []
+  // the family's children still studying — "ลาออก" asks which one (a form already sent can be sent again)
+  const kids = family ? students.filter((x) => x.familyId === family.id && !x.archived && x.exit?.status !== "closed") : []
+  // owner 2026-10-05: which forms this chat already got (✓ + date in the "+" menu) — sending again is always allowed
+  const surveyCamps = useStore((s) => s.surveyCampaigns)
+  const lastAt = (xs: (string | undefined)[]) => xs.filter((x): x is string => !!x).sort().at(-1)
+  const linkSent = (prefix: string) => lastAt(thread.filter((m) => m.author === "staff" && m.text.includes(`token=${prefix}`)).map((m) => m.at))
+  const sentAt = {
+    test: lastAt(thread.filter((m) => m.kind === "form_request" && m.meta?.formKind === "form_request" && m.meta.type === "test").map((m) => m.at)),
+    trial: lastAt(thread.filter((m) => m.kind === "form_request" && m.meta?.formKind === "form_request" && m.meta.type === "trial").map((m) => m.at)),
+    enroll: linkSent("pe_"),
+    exit: lastAt([linkSent("pf_"), ...kids.map((k) => k.exit?.sentAt)]),
+    survey: lastAt([linkSent("ps_"), ...surveyCamps.filter((c) => family && c.recipients.some((r) => r.familyId === family.id)).map((c) => c.sentAt)]),
+  }
   const uploadImage = async (file: File) => {
     if (!selected) return
     const body = new FormData()
@@ -335,24 +346,24 @@ export default function InboxPage() {
                     <DropdownMenuContent side="top" align="start" className="w-44">
                       <DropdownMenuSub>
                         <DropdownMenuSubTrigger><FileTextIcon /> ฟอร์ม</DropdownMenuSubTrigger>
-                        <DropdownMenuSubContent className="w-56 whitespace-nowrap">
-                          <DropdownMenuItem disabled={!lead} onClick={() => { setFormType("test"); setSendingFormOpen(true) }}><ClipboardListIcon /> Test Form{!lead && <Hint>เฉพาะ Lead</Hint>}</DropdownMenuItem>
-                          <DropdownMenuItem disabled={!lead} onClick={() => { setFormType("trial"); setSendingFormOpen(true) }}><GraduationCapIcon /> Trial{!lead && <Hint>เฉพาะ Lead</Hint>}</DropdownMenuItem>
-                          <DropdownMenuItem disabled={!lead && !family} onClick={async () => report(await sendEnrollToChat(selected.id), "ส่งใบสมัครเรียนแล้ว")}><UserPlusIcon /> Enroll{!lead && !family && <Hint>ผูกแชทก่อน</Hint>}</DropdownMenuItem>
+                        <DropdownMenuSubContent className="w-64 whitespace-nowrap">
+                          <DropdownMenuItem disabled={!lead} onClick={() => { setFormType("test"); setSendingFormOpen(true) }}><ClipboardListIcon /> Test Form{!lead ? <Hint>เฉพาะ Lead</Hint> : <Sent at={sentAt.test} />}</DropdownMenuItem>
+                          <DropdownMenuItem disabled={!lead} onClick={() => { setFormType("trial"); setSendingFormOpen(true) }}><GraduationCapIcon /> Trial{!lead ? <Hint>เฉพาะ Lead</Hint> : <Sent at={sentAt.trial} />}</DropdownMenuItem>
+                          <DropdownMenuItem disabled={!lead && !family} onClick={async () => report(await sendEnrollToChat(selected.id), "ส่งใบสมัครเรียนแล้ว")}><UserPlusIcon /> Enroll{!lead && !family ? <Hint>ผูกแชทก่อน</Hint> : <Sent at={sentAt.enroll} />}</DropdownMenuItem>
                           {kids.length > 1 ? (
                             <DropdownMenuSub>
-                              <DropdownMenuSubTrigger><LogOutIcon /> ลาออก</DropdownMenuSubTrigger>
+                              <DropdownMenuSubTrigger><LogOutIcon /> ลาออก<Sent at={sentAt.exit} /></DropdownMenuSubTrigger>
                               <DropdownMenuSubContent>
                                 <DropdownMenuGroup>
                                   <DropdownMenuLabel>ลูกคนไหน</DropdownMenuLabel>
-                                  {kids.map((k) => <DropdownMenuItem key={k.id} onClick={() => setExitStudent(k)}>{k.nickname} · {k.grade}</DropdownMenuItem>)}
+                                  {kids.map((k) => <DropdownMenuItem key={k.id} onClick={() => setExitStudent(k)}>{k.nickname} · {k.grade}<Sent at={k.exit?.sentAt} /></DropdownMenuItem>)}
                                 </DropdownMenuGroup>
                               </DropdownMenuSubContent>
                             </DropdownMenuSub>
                           ) : (
-                            <DropdownMenuItem disabled={!kids.length} onClick={() => setExitStudent(kids[0])}><LogOutIcon /> ลาออก{!kids.length && <Hint>เฉพาะลูกค้า</Hint>}</DropdownMenuItem>
+                            <DropdownMenuItem disabled={!kids.length} onClick={() => setExitStudent(kids[0])}><LogOutIcon /> ลาออก{!kids.length ? <Hint>เฉพาะลูกค้า</Hint> : <Sent at={sentAt.exit} />}</DropdownMenuItem>
                           )}
-                          <DropdownMenuItem disabled={!family} onClick={async () => report(await sendSurveyToChat(selected.id), "ส่งแบบสอบถามความพึงพอใจแล้ว")}><HeartHandshakeIcon /> ความพึงพอใจ{!family && <Hint>เฉพาะลูกค้า</Hint>}</DropdownMenuItem>
+                          <DropdownMenuItem disabled={!family} onClick={async () => report(await sendSurveyToChat(selected.id), "ส่งแบบสอบถามความพึงพอใจแล้ว")}><HeartHandshakeIcon /> ความพึงพอใจ{!family ? <Hint>เฉพาะลูกค้า</Hint> : <Sent at={sentAt.survey} />}</DropdownMenuItem>
                         </DropdownMenuSubContent>
                       </DropdownMenuSub>
                       <DropdownMenuItem onClick={() => imageInput.current?.click()}><ImageIcon /> รูปภาพ</DropdownMenuItem>
@@ -440,4 +451,10 @@ export default function InboxPage() {
 /** why a menu item is greyed out — small, on the right, never wraps the label */
 function Hint({ children }: { children: React.ReactNode }) {
   return <span className="ml-auto pl-3 text-[10px] font-normal">{children}</span>
+}
+
+/** ✓ the form already went to this chat (with when) — the item stays clickable to send it again */
+function Sent({ at }: { at?: string }) {
+  if (!at) return null
+  return <span className="ml-auto flex items-center gap-1 pl-3 text-[10px] font-normal text-emerald-700" title="ส่งไปแล้ว — กดเพื่อส่งใหม่"><CheckCircle2Icon className="size-3.5 text-emerald-600" />ส่งแล้ว {fmtDate(at.slice(0, 10))}</span>
 }
