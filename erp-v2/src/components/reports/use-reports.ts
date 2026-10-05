@@ -100,7 +100,7 @@ export function useReports(branchIds: string[], period: R.PeriodKey) {
       bySubject: R.attendanceBy(ended, s.attendance, range, subjectOf).sort((a, b) => (a.rate ?? 1) - (b.rate ?? 1)),
       byWeekday: R.attendanceBy(ended, s.attendance, range, (x) => String(new Date(`${x.date}T00:00:00`).getDay())),
       byClass: R.attendanceBy(ended, s.attendance, range, (x) => s.sessions.find((y) => y.id === x.id)?.classId ?? null)
-        .map((r) => ({ ...r, name: s.classes.find((k) => k.id === r.key)?.name ?? "คาบเดี่ยว" })).filter((r) => r.present + r.leave > 0).sort((a, b) => (a.rate ?? 1) - (b.rate ?? 1)),
+        .map((r) => { const k = s.classes.find((x) => x.id === r.key); return { ...r, name: k?.name ?? "คาบเดี่ยว", branch: s.branches.find((b) => b.id === k?.branchId)?.name ?? "" } }).filter((r) => r.present + r.leave > 0).sort((a, b) => (a.rate ?? 1) - (b.rate ?? 1)),
       monthly: Array.from({ length: 12 }, (_, m) => attMonthly.find((r) => r.key === `${year}-${String(m + 1).padStart(2, "0")}`)?.rate ?? null),
       leavers: R.frequentLeavers(ended, s.attendance, range),
       cancelled: R.cancellations(sessions, range),

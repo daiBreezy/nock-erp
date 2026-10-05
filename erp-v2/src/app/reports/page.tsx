@@ -3,7 +3,7 @@
 import Link from "next/link"
 import { Suspense, useEffect, useMemo, useState } from "react"
 import { useSearchParams } from "next/navigation"
-import { AlertTriangleIcon, BanknoteIcon, CalendarDaysIcon, ChartColumnIcon, ChevronRightIcon, ClockIcon, DownloadIcon, PrinterIcon, SchoolIcon, UsersIcon, UserCheckIcon } from "lucide-react"
+import { AlertTriangleIcon, BanknoteIcon, CalendarDaysIcon, ChartColumnIcon, ChevronRightIcon, ClockIcon, DownloadIcon, PrinterIcon, SchoolIcon, SparklesIcon, UsersIcon, UserCheckIcon } from "lucide-react"
 import { NativeSelect } from "@/components/app/native-select"
 import { StudentSheet } from "@/components/app/student-sheet"
 import { Delta, Donut, DonutLegend, Empty, TopList, fmtNum, fmtPct, fmtShort, Heatmap, MonthBars, Panel, Rank, ShareBar, donutColor, tint } from "@/components/reports/charts"
@@ -244,9 +244,9 @@ function SplitRanks<T extends { id: string; name: string }>({ rows, cols }: { ro
   const half = rows.length > 5 ? Math.ceil(rows.length / 2) : rows.length
   const parts = rows.length > 5 ? [rows.slice(0, half), rows.slice(half)] : [rows]
   return (
-    <div className={cn("grid gap-x-6", parts.length > 1 && "md:grid-cols-2")}>
+    <div className={cn("grid", parts.length > 1 && "md:grid-cols-2 md:divide-x")}>
       {parts.map((list, c) => (
-        <table key={c} className="w-full text-sm">
+        <div key={c} className={cn(parts.length > 1 && (c ? "md:pl-6" : "md:pr-6"))}><table className="w-full text-sm">
           <thead className={cn("text-xs text-muted-foreground", c > 0 && "max-md:hidden")}>
             <tr><th className="text-left font-normal">สาขา</th>{cols.map((x) => <th key={x.label} className="text-right font-normal">{x.label}</th>)}</tr>
           </thead>
@@ -256,7 +256,7 @@ function SplitRanks<T extends { id: string; name: string }>({ rows, cols }: { ro
               {cols.map((x) => <td key={x.label} className="text-right tabular-nums">{x.cell(r)}</td>)}
             </tr>
           ))}</tbody>
-        </table>
+        </table></div>
       ))}
     </div>
   )
@@ -278,9 +278,9 @@ function BranchRevenue({ rows }: { rows: ReportData["byBranch"] }) {
   const half = rows.length > 5 ? Math.ceil(rows.length / 2) : rows.length
   const cols = rows.length > 5 ? [rows.slice(0, half), rows.slice(half)] : [rows]
   return (
-    <div className={cn("grid gap-x-6", cols.length > 1 && "md:grid-cols-2")}>
+    <div className={cn("grid", cols.length > 1 && "md:grid-cols-2 md:divide-x")}>
       {cols.map((list, c) => (
-        <table key={c} className="w-full text-sm">
+        <div key={c} className={cn(cols.length > 1 && (c ? "md:pl-6" : "md:pr-6"))}><table className="w-full text-sm">
           <thead className={cn("text-xs text-muted-foreground", c > 0 && "max-md:hidden")}><tr><th className="text-left font-normal">สาขา</th><th /><th className="text-right font-normal">ยอด</th><th className="text-right font-normal">%</th></tr></thead>
           <tbody>{list.map((b, i) => (
             <tr key={b.id} className="border-t">
@@ -290,7 +290,7 @@ function BranchRevenue({ rows }: { rows: ReportData["byBranch"] }) {
               <td className="w-10 text-right text-muted-foreground tabular-nums">{fmtPct(b.share)}</td>
             </tr>
           ))}</tbody>
-        </table>
+        </table></div>
       ))}
     </div>
   )
@@ -332,21 +332,35 @@ function SubjectEngine({ d }: { d: ReportData }) {
   )
 }
 
-function Families({ rows }: { rows: ReportData["families"] }) {
+/** Families ranked by spend. `split` = two columns of ten + "ดูทั้งหมด" (owner 2026-10-05: no wide half-empty tables). */
+function Families({ rows, split }: { rows: ReportData["families"]; split?: boolean }) {
+  const [open, setOpen] = useState(false)
   if (!rows.length) return <Empty />
+  const list = split && !open ? rows.slice(0, 20) : rows
+  const half = split && list.length > 10 ? Math.ceil(list.length / 2) : list.length
+  const parts = half < list.length ? [list.slice(0, half), list.slice(half)] : [list]
   return (
-    <table className="w-full text-sm">
-      <thead className="text-xs text-muted-foreground"><tr><th className="text-left font-normal">ครอบครัว</th><th className="text-right font-normal">อายุลูกค้า</th><th className="text-right font-normal">ยอด</th><th className="text-right font-normal">ใบ</th><th className="text-right font-normal">ลูก</th></tr></thead>
-      <tbody>{rows.map((f, i) => (
-        <tr key={f.key} className="border-t">
-          <td className="py-1.5"><span className="flex items-center gap-2"><Rank n={i + 1} /><span className="truncate">{f.name}</span></span></td>
-          <td className="text-right text-muted-foreground tabular-nums">{f.tenureMonths} ด.</td>
-          <td className="text-right tabular-nums">{fmtShort(f.amount)}</td>
-          <td className="text-right tabular-nums">{f.invoices}</td>
-          <td className="text-right tabular-nums">{f.kids}</td>
-        </tr>
-      ))}</tbody>
-    </table>
+    <div>
+      <div className={cn("grid", parts.length > 1 && "lg:grid-cols-2 lg:divide-x")}>
+        {parts.map((part, c) => (
+          <div key={c} className={cn(parts.length > 1 && (c ? "lg:pl-6" : "lg:pr-6"))}>
+            <table className="w-full text-sm">
+              <thead className={cn("text-xs text-muted-foreground", c > 0 && "max-lg:hidden")}><tr><th className="text-left font-normal">ครอบครัว</th><th className="text-right font-normal">อายุลูกค้า</th><th className="text-right font-normal">ยอด</th><th className="text-right font-normal">ใบ</th><th className="text-right font-normal">ลูก</th></tr></thead>
+              <tbody>{part.map((f, i) => (
+                <tr key={f.key} className="border-t">
+                  <td className="py-1.5"><span className="flex items-center gap-2"><Rank n={c * half + i + 1} /><span className="truncate">{f.name}</span></span></td>
+                  <td className="w-20 text-right text-muted-foreground tabular-nums">{f.tenureMonths} ด.</td>
+                  <td className="w-20 text-right tabular-nums">{fmtShort(f.amount)}</td>
+                  <td className="w-10 text-right tabular-nums">{f.invoices}</td>
+                  <td className="w-10 text-right tabular-nums">{f.kids}</td>
+                </tr>
+              ))}</tbody>
+            </table>
+          </div>
+        ))}
+      </div>
+      {split && rows.length > 20 && <button type="button" onClick={() => setOpen((o) => !o)} className="mt-3 text-xs text-primary hover:underline">{open ? "ย่อเหลือ 20 อันดับ" : `ดูทั้งหมด ${rows.length} ครอบครัว`}</button>}
+    </div>
   )
 }
 
@@ -408,47 +422,48 @@ function RevenueTab({ d, compare, period }: { d: ReportData; compare: boolean; p
   const pg = d.packageGrade
   return (
     <div className="space-y-4">
-      <ForecastPanel d={d} />
-      <div className="grid gap-4 lg:grid-cols-2">
-        <Panel title="ประเภทรายได้" hint={`${PERIODS.find((p) => p.key === period)!.label} ${vsLabel(period)}`}><RevenueParts d={d} /></Panel>
-        <Panel title="สรุปการขาย" hint="ใบแจ้งหนี้ที่จ่ายแล้วในช่วงนี้">
-          <div className="grid grid-cols-3 gap-2 text-center">
-            <Stat label="ใบแจ้งหนี้" value={fmtNum(d.rev.invoices)} sub={<Delta value={d.comparable && d.revPrev.invoices ? Math.round(((d.rev.invoices - d.revPrev.invoices) / d.revPrev.invoices) * 1000) / 10 : null} />} />
-            <Stat label="นักเรียนที่จ่าย" value={fmtNum(d.rev.students)} />
-            <Stat label="เฉลี่ยต่อใบ" value={fmtShort(d.rev.invoices ? d.rev.total / d.rev.invoices : 0)} />
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+        <Stat label="รายได้รวม" value={fmtShort(d.rev.total)} />
+        <Stat label="ใบแจ้งหนี้ที่จ่ายแล้ว" value={fmtNum(d.rev.invoices)} sub={<Delta value={d.comparable && d.revPrev.invoices ? Math.round(((d.rev.invoices - d.revPrev.invoices) / d.revPrev.invoices) * 1000) / 10 : null} />} />
+        <Stat label="นักเรียนที่จ่าย" value={fmtNum(d.rev.students)} />
+        <Stat label="เฉลี่ยต่อใบ" value={fmtShort(d.rev.invoices ? d.rev.total / d.rev.invoices : 0)} />
+      </div>
+      <div className="grid gap-4 xl:grid-cols-2">
+        <ForecastPanel d={d} />
+        <Panel title="รายได้รายเดือน" hint={`ปี ${d.monthly.year + 543} เทียบปีที่แล้ว`} fill>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead className="text-xs text-muted-foreground"><tr><th className="text-left font-normal">เดือน</th><th className="text-right font-normal">ปีนี้</th><th className="text-right font-normal">ปีที่แล้ว</th><th className="text-right font-normal">เปลี่ยนแปลง</th></tr></thead>
+              <tbody>{TH_MONTHS.map((m, i) => {
+                const a = d.monthly.thisYear[i], b = d.monthly.lastYear[i]
+                if (a === null && !b) return null
+                return (
+                  <tr key={m} className="border-t">
+                    <td className="py-1.5">{m}</td>
+                    <td className="text-right tabular-nums">{a === null ? "—" : fmtMoney(a)}</td>
+                    <td className="text-right text-muted-foreground tabular-nums">{b ? fmtMoney(b) : "—"}</td>
+                    {/* the month in progress compares with the same days last year */}
+                    <td className="text-right"><Delta value={(() => { const base = i === Number(d.today.slice(5, 7)) - 1 ? d.monthly.lastYearToDate : b; return a !== null && base ? Math.round(((a - base) / base) * 1000) / 10 : null })()} /></td>
+                  </tr>
+                )
+              })}</tbody>
+            </table>
           </div>
         </Panel>
       </div>
-      <Panel title="รายได้รายเดือน" hint={`ปี ${d.monthly.year + 543} เทียบปีที่แล้ว`}>
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead className="text-xs text-muted-foreground"><tr><th className="text-left font-normal">เดือน</th><th className="text-right font-normal">ปีนี้</th><th className="text-right font-normal">ปีที่แล้ว</th><th className="text-right font-normal">เปลี่ยนแปลง</th></tr></thead>
-            <tbody>{TH_MONTHS.map((m, i) => {
-              const a = d.monthly.thisYear[i], b = d.monthly.lastYear[i]
-              if (a === null && !b) return null
-              return (
-                <tr key={m} className="border-t">
-                  <td className="py-1.5">{m}</td>
-                  <td className="text-right tabular-nums">{a === null ? "—" : fmtMoney(a)}</td>
-                  <td className="text-right text-muted-foreground tabular-nums">{b ? fmtMoney(b) : "—"}</td>
-                  {/* the month in progress compares with the same days last year */}
-                  <td className="text-right"><Delta value={(() => { const base = i === Number(d.today.slice(5, 7)) - 1 ? d.monthly.lastYearToDate : b; return a !== null && base ? Math.round(((a - base) / base) * 1000) / 10 : null })()} /></td>
-                </tr>
-              )
-            })}</tbody>
-          </table>
-        </div>
-      </Panel>
       <div className="grid gap-4 lg:grid-cols-2">
-        {compare && <Panel title="รายได้ตามสาขา" hint="ทุกสาขาในขอบเขต"><BranchRevenue rows={d.byBranch} /></Panel>}
-        <Panel title="Subject Engine" center><SubjectEngine d={d} /></Panel>
+        <Panel title="ประเภทรายได้" hint={`${PERIODS.find((p) => p.key === period)!.label} ${vsLabel(period)}`}><RevenueParts d={d} /></Panel>
+        <Panel title="Subject Engine" hint="รายได้ค่าเรียนแยกวิชา" center><SubjectEngine d={d} /></Panel>
+      </div>
+      {compare && <Panel title="รายได้ตามสาขา" hint="ทุกสาขาในขอบเขต"><BranchRevenue rows={d.byBranch} /></Panel>}
+      <div className="grid gap-4 lg:grid-cols-2">
         <Panel title="แพ็กเกจขายดี" hint="จำนวน (Volume) vs รายได้ (Value)" fill><PackageMix d={d} /></Panel>
         <Panel title="แพ็กเกจ × ระดับชั้น" hint="จำนวนแพ็กที่แต่ละชั้นซื้อ" fill>
           {pg.grades.length ? <Heatmap rows={pg.grades} cols={pg.keys} rowLabel={(g) => g} colLabel={(k) => k} value={(g, k) => pg.count(g, k)} corner="ชั้น" /> : <Empty />}
         </Panel>
       </div>
       <Panel title="ครอบครัวทั้งหมด" hint={`${d.families.length} ครอบครัวที่จ่ายในช่วงนี้`}>
-        <div className="max-h-[32rem] overflow-y-auto"><Families rows={d.families} /></div>
+        <Families rows={d.families} split />
       </Panel>
     </div>
   )
@@ -493,30 +508,42 @@ function StudentsTab({ d, compare, onOpen }: { d: ReportData; compare: boolean; 
           </table>
         </Panel>
       )}
-      <Panel title="ความเคลื่อนไหวนักเรียน" hint={`${events.length} รายการในช่วงนี้ · กดชื่อเพื่อเปิดข้อมูลนักเรียน`}>
+      <Panel title="ความเคลื่อนไหวนักเรียน" hint={`${events.length} รายการในช่วงนี้ · ล่าสุดอยู่บน · กดชื่อเพื่อเปิดข้อมูลนักเรียน`}>
         {events.length ? (
-          <div className="max-h-[28rem] overflow-y-auto">
-            <table className="w-full text-sm">
-              <thead className="sticky top-0 bg-card text-xs text-muted-foreground"><tr><th className="text-left font-normal">วันที่</th><th className="text-left font-normal">นักเรียน</th><th className="text-left font-normal">ชั้น</th><th className="text-left font-normal">เหตุการณ์</th></tr></thead>
-              <tbody>{events.map((e, i) => {
-                const st = name(e.studentId)
-                return (
-                  <tr key={`${e.studentId}-${e.kind}-${i}`} className="border-t">
-                    <td className="py-1.5 whitespace-nowrap text-muted-foreground">{fmtDate(e.date)}</td>
-                    <td><button type="button" className="text-left hover:underline" onClick={() => onOpen(e.studentId)}>{st?.nickname ?? "—"}</button></td>
-                    <td className="text-muted-foreground">{st?.grade}</td>
-                    <td><span className={cn("rounded-full px-2 py-0.5 text-xs", e.kind === "lost" ? "bg-red-100 text-red-800 dark:bg-red-950 dark:text-red-200" : "bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-200")}>
-                      {e.kind === "new" ? "ใหม่" : e.kind === "returning" ? "กลับมาเรียน" : "Lost"}</span></td>
-                  </tr>
-                )
-              })}</tbody>
-            </table>
+          <div className="grid gap-6 md:grid-cols-3 md:gap-0 md:divide-x">
+            {(["new", "returning", "lost"] as const).map((kind, c) => (
+              <div key={kind} className={cn(c > 0 && "md:pl-6", c < 2 && "md:pr-6")}>
+                <MoveList title={kind === "new" ? "ใหม่" : kind === "returning" ? "กลับมาเรียน" : "Lost"} tone={kind === "lost" ? "text-red-600" : "text-emerald-600"}
+                  rows={events.filter((e) => e.kind === kind).map((e) => ({ id: e.studentId, date: e.date, name: name(e.studentId)?.nickname ?? "—", grade: name(e.studentId)?.grade ?? "" }))} onOpen={onOpen} />
+              </div>
+            ))}
           </div>
         ) : <Empty />}
       </Panel>
       <ExitPanelReport d={d} />
       <CohortPanel d={d} compare={compare} />
       <p className="text-xs text-muted-foreground">นักเรียนที่ Import จากระบบเดิมไม่นับเป็น &quot;ใหม่&quot; และไม่อยู่ใน Cohort (ไม่รู้วันที่เริ่มเรียนจริง)</p>
+    </div>
+  )
+}
+
+/** One kind of student movement: newest ten, then "ดูทั้งหมด" */
+function MoveList({ title, tone, rows, onOpen }: { title: string; tone: string; rows: { id: string; date: string; name: string; grade: string }[]; onOpen: (id: string) => void }) {
+  const [open, setOpen] = useState(false)
+  const list = open ? rows : rows.slice(0, 10)
+  return (
+    <div>
+      <p className="mb-2 flex items-baseline gap-2 text-sm font-medium">{title}<span className={cn("tabular-nums", tone)}>{rows.length}</span></p>
+      {rows.length ? (
+        <ul className="divide-y text-sm">{list.map((r, i) => (
+          <li key={`${r.id}-${i}`} className="grid grid-cols-[4.5rem_minmax(0,1fr)_3rem] items-center gap-3 py-1.5">
+            <span className="text-xs text-muted-foreground">{fmtDate(r.date)}</span>
+            <button type="button" className="truncate text-left hover:underline" onClick={() => onOpen(r.id)}>{r.name}</button>
+            <span className="text-right text-xs text-muted-foreground">{r.grade}</span>
+          </li>
+        ))}</ul>
+      ) : <p className="text-xs text-muted-foreground">ไม่มี</p>}
+      {rows.length > 10 && <button type="button" onClick={() => setOpen((o) => !o)} className="mt-2 text-xs text-primary hover:underline">{open ? "ย่อเหลือ 10 รายการ" : `ดูทั้งหมด ${rows.length} รายการ`}</button>}
     </div>
   )
 }
@@ -529,7 +556,7 @@ function RateRows({ rows, plain }: { rows: { key: string; label: React.ReactNode
   return (
     <ul className="space-y-2 text-sm">
       {rows.map((r) => (
-        <li key={r.key} className="grid grid-cols-[minmax(0,8rem)_1fr_3rem] items-center gap-2">
+        <li key={r.key} className="grid grid-cols-[minmax(0,10rem)_1fr_3rem] items-center gap-3">
           <span className="truncate">{r.label}</span>
           <span className="flex items-center gap-2"><ShareBar value={r.rate ?? 0} color={r.tone ?? (plain ? undefined : r.rate !== null && r.rate < 0.8 ? "#dc2626" : "#10b981")} />{r.sub && <span className="shrink-0 text-[11px] text-muted-foreground tabular-nums">{r.sub}</span>}</span>
           <span className={cn("text-right tabular-nums", !plain && r.rate !== null && r.rate < 0.8 && "font-medium text-red-600")}>{fmtPct(r.rate)}</span>
@@ -573,12 +600,12 @@ function AttendanceTab({ d, compare, onOpen }: { d: ReportData; compare: boolean
         {compare ? (
           <Panel title="แยกตามวัน" center><RateRows rows={days.map((r) => ({ key: r.key, label: DAY_SHORT[Number(r.key)], rate: r.rate, sub: `${r.sessions} คาบ` }))} /></Panel>
         ) : (
-          <Panel title="คลาสที่เข้าเรียนต่ำสุด" center><RateRows rows={a.byClass.slice(0, 7).map((r) => ({ key: r.key, label: r.name, rate: r.rate, sub: `ลา ${r.leave}` }))} /></Panel>
+          <Panel title="คลาสที่เข้าเรียนต่ำสุด" center><RateRows rows={a.byClass.slice(0, 7).map((r) => ({ key: r.key, label: <span title={`${r.name} · ${r.branch}`}>{r.name}{compare && <span className="text-xs text-muted-foreground"> · {r.branch}</span>}</span>, rate: r.rate, sub: `ลา ${r.leave}` }))} /></Panel>
         )}
       </div>
       <div className="grid gap-4 lg:grid-cols-2">
-        {compare && <Panel title="คลาสที่เข้าเรียนต่ำสุด" hint="10 คลาส" fill><RateRows rows={a.byClass.slice(0, 10).map((r) => ({ key: r.key, label: r.name, rate: r.rate, sub: `ลา ${r.leave}` }))} /></Panel>}
-        <Panel title="นักเรียนลาบ่อย" hint="ลา ≥ 2 ครั้งในช่วงนี้ · เสี่ยงหลุด · กดชื่อเพื่อเปิด" fill className={compare ? "" : "lg:col-span-2"}>
+        {compare && <Panel title="คลาสที่เข้าเรียนต่ำสุด" hint="10 คลาส" fill><RateRows rows={a.byClass.slice(0, 10).map((r) => ({ key: r.key, label: <span title={`${r.name} · ${r.branch}`}>{r.name} <span className="text-xs text-muted-foreground">· {r.branch}</span></span>, rate: r.rate, sub: `ลา ${r.leave}` }))} /></Panel>}
+        <Panel title="นักเรียนลาบ่อย" hint="ลา ≥ 2 ครั้งในช่วงนี้ · เสี่ยงหลุด · กดชื่อเพื่อเปิด" center className={compare ? "" : "lg:col-span-2"}>
           {a.leavers.length ? (
             <table className="w-full text-sm">
               <thead className="text-xs text-muted-foreground"><tr><th className="text-left font-normal">นักเรียน</th><th className="text-left font-normal">ชั้น</th><th className="text-right font-normal">มา</th><th className="text-right font-normal">ลา</th><th className="text-right font-normal">ไม่หักโควตา</th><th className="text-right font-normal">อัตรา</th></tr></thead>
@@ -676,14 +703,14 @@ function ForecastPanel({ d }: { d: ReportData }) {
   const total = months.reduce((a, r) => a + r.x!.total, 0)
   const actualYtd = d.monthly.thisYear.reduce<number>((a, v) => a + (v ?? 0), 0)
   return (
-    <Panel title="คาดการณ์รายได้ถึงสิ้นปี" hint={`ต่อคอร์สตามอัตรา 6 เดือนล่าสุด ${fmtPct(f.renewal)} · ใบแจ้งหนี้ที่ส่งแล้วรอจ่าย ${f.openCount} ใบ · ไม่รวมนักเรียนใหม่`}>
-      <div className="grid gap-4 lg:grid-cols-[16rem_1fr]">
-        <div className="grid grid-cols-2 gap-2 lg:grid-cols-1">
+    <Panel title="คาดการณ์รายได้ถึงสิ้นปี" center hint={`ต่อคอร์สตามอัตรา 6 เดือนล่าสุด ${fmtPct(f.renewal)} · ใบแจ้งหนี้ที่ส่งแล้วรอจ่าย ${f.openCount} ใบ · ไม่รวมนักเรียนใหม่`}>
+      <div className="space-y-4">
+        <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
           <Stat label="คาดว่าจะเข้าอีก" value={fmtShort(total)} tone="text-primary" />
           <Stat label={`ทั้งปี ${d.monthly.year + 543} (จริง + คาดการณ์)`} value={fmtShort(actualYtd + total)} />
           <Stat label="นักเรียนใหม่ (ไม่ได้รวม)" value={`+${fmtShort(f.newAvg.perMonth)}/ด.`} sub={<span>เฉลี่ย 3 เดือนล่าสุด · {Math.round(f.newAvg.students)} คน/ด.</span>} />
         </div>
-        <table className="w-full self-start text-sm">
+        <table className="w-full text-sm">
           <thead className="text-xs text-muted-foreground"><tr><th className="text-left font-normal">เดือน</th><th className="text-right font-normal">ต่อคอร์ส (คาดการณ์)</th><th className="text-right font-normal">ใบที่รอจ่าย</th><th className="text-right font-normal">รวม</th></tr></thead>
           <tbody>{months.map(({ m, x }) => (
             <tr key={m} className="border-t">
@@ -710,7 +737,7 @@ function ExitPanelReport({ d }: { d: ReportData }) {
       <Panel title="ทำไมนักเรียนออก" hint={`จากฟอร์มแจ้งออก · ${e.total} คนในช่วงนี้ · ผู้ปกครองตอบ ${e.answered} · ไม่ตอบ ${e.noReply}`} fill>
         {e.reasons.length ? (
           <ul className="space-y-2 text-sm">{e.reasons.map((r) => (
-            <li key={r.id} className="grid grid-cols-[minmax(0,11rem)_1fr_4.5rem] items-center gap-2">
+            <li key={r.id} className="grid grid-cols-[minmax(0,15rem)_1fr_4.5rem] items-center gap-3">
               <span className="truncate">{reasonLabel(r.id, lossReasons)}</span>
               <span className="flex h-2 overflow-hidden rounded-full bg-muted"><span className="bg-primary" style={{ width: `${(r.main / max) * 100}%` }} /><span className="bg-primary/30" style={{ width: `${(r.other / max) * 100}%` }} /></span>
               <span className="text-right text-xs tabular-nums">{r.main}{r.other ? <span className="text-muted-foreground"> +{r.other}</span> : null}</span>
@@ -864,6 +891,7 @@ const CONT = { yes: "เรียนต่อ", maybe: "ยังไม่แน
 /** Yearly parent survey (owner 2026-10-05): NPS vs last year, by branch, weakest topics, teachers, wishes, who to call. */
 function SatisfactionTab({ d, compare }: { d: ReportData; compare: boolean }) {
   const [year, setYear] = useState<number | null>(d.surveyYears[0] ?? null)
+  const [showAllCalls, setShowAllCalls] = useState(false)
   const families = useStore((st) => st.families)
   const branches = useStore((st) => st.branches)
   const staff = useStore((st) => st.staff)
@@ -938,11 +966,7 @@ function SatisfactionTab({ d, compare }: { d: ReportData; compare: boolean }) {
           ) : <Empty>ยังไม่มีคะแนนครู (นักเรียนที่ตอบยังไม่อยู่ในคลาส)</Empty>}
         </Panel>
         <Panel title="อยากให้เปิดเพิ่ม" hint="วิชา / เวลา ที่ผู้ปกครองขอ" fill>
-          {cur.wants.length ? (
-            <ul className="space-y-1.5 text-sm">{cur.wants.map((w) => (
-              <li key={w.want} className="grid grid-cols-[8rem_1fr_2.5rem] items-center gap-2"><span>{w.want}</span><ShareBar value={w.count / Math.max(1, cur.wants[0].count)} /><span className="text-right tabular-nums">{w.count}</span></li>
-            ))}</ul>
-          ) : <Empty />}
+          <TopList title="ผู้ปกครองขอ" icon={<SparklesIcon className="size-4 text-muted-foreground" />} color="#f59e0b" top={8} fill rows={cur.wants.map((w) => ({ label: w.want, value: w.count }))} />
         </Panel>
       </div>
       {/* outcome only (owner 2026-10-05: Reports show what's done — the calls themselves are on CRM) */}
@@ -950,28 +974,29 @@ function SatisfactionTab({ d, compare }: { d: ReportData; compare: boolean }) {
         {unhappy.some((r) => r.followUp) ? (
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
-              <thead className="text-xs text-muted-foreground"><tr><th className="text-left font-normal">ครอบครัว</th>{compare && <th className="text-left font-normal">สาขา</th>}<th className="text-right font-normal">แนะนำ</th><th className="text-left font-normal">ปีหน้า</th><th className="text-left font-normal">โทรเมื่อ</th><th className="text-left font-normal">ผลการคุย</th></tr></thead>
-              <tbody>{unhappy.filter((r) => r.followUp).map((r) => (
+              <thead className="text-xs text-muted-foreground"><tr><th className="text-left font-normal">ครอบครัว</th>{compare && <th className="text-left font-normal">สาขา</th>}<th className="px-3 text-right font-normal">แนะนำ</th><th className="px-3 text-left font-normal">ปีหน้า</th><th className="px-3 text-left font-normal">โทรโดย</th><th className="text-left font-normal">ผลการคุย</th></tr></thead>
+              <tbody>{unhappy.filter((r) => r.followUp).slice(0, showAllCalls ? undefined : 10).map((r) => (
                 <tr key={r.id} className="border-t align-top">
                   <td className="py-1.5">{fam(r.familyId)}</td>
                   {compare && <td className="text-muted-foreground">{branches.find((b) => b.id === r.branchId)?.name}</td>}
-                  <td className="text-right text-red-600 tabular-nums">{r.answers.nps ?? "—"}</td>
-                  <td>{r.answers.continueNext ? CONT[r.answers.continueNext] : "—"}</td>
-                  <td className="whitespace-nowrap text-muted-foreground">{staff.find((x) => x.id === r.followUp!.by)?.nickname} · {fmtDate(r.followUp!.at.slice(0, 10))}</td>
+                  <td className="px-3 text-right text-red-600 tabular-nums">{r.answers.nps ?? "—"}/10</td>
+                  <td className="px-3 whitespace-nowrap">{r.answers.continueNext ? CONT[r.answers.continueNext] : "—"}</td>
+                  <td className="px-3 whitespace-nowrap text-muted-foreground">{staff.find((x) => x.id === r.followUp!.by)?.nickname} · {fmtDate(r.followUp!.at.slice(0, 10))}</td>
                   <td>{r.followUp!.note}</td>
                 </tr>
               ))}</tbody>
             </table>
+            {unhappy.filter((r) => r.followUp).length > 10 && <button type="button" onClick={() => setShowAllCalls((o) => !o)} className="mt-2 text-xs text-primary hover:underline">{showAllCalls ? "ย่อเหลือ 10 รายการ" : `ดูทั้งหมด ${unhappy.filter((r) => r.followUp).length} รายการ`}</button>}
           </div>
         ) : <Empty>{unhappy.length ? "ยังไม่มีการโทรที่บันทึกไว้" : "ไม่มีผู้ปกครองที่ไม่พอใจในปีนี้"}</Empty>}
       </Panel>
       <Panel title="ความเห็นจากผู้ปกครอง" hint={`${comments.length} ข้อความ`}>
         {comments.length ? (
-          <div className="grid gap-4 md:grid-cols-2">
-            {[true, false].map((good) => (
-              <div key={String(good)}>
-                <p className={cn("mb-1.5 text-xs font-medium", good ? "text-emerald-700" : "text-amber-700")}>{good ? "ประทับใจ" : "อยากให้ปรับปรุง"}</p>
-                <ul className="max-h-64 space-y-1.5 overflow-y-auto text-sm">{comments.filter((c) => c.good === good).map((c) => <li key={c.k}>“{c.text}” <span className="text-xs text-muted-foreground">· {fam(c.r.familyId)}</span></li>)}</ul>
+          <div className="grid gap-6 lg:grid-cols-2 lg:gap-0 lg:divide-x">
+            {[true, false].map((good, c) => (
+              <div key={String(good)} className={c ? "lg:pl-6" : "lg:pr-6"}>
+                <TopList title={good ? "ประทับใจ" : "อยากให้ปรับปรุง"} icon={<span className={cn("size-2.5 rounded-full", good ? "bg-emerald-500" : "bg-amber-500")} />} color={good ? "#10b981" : "#f59e0b"} wide
+                  rows={groupComments(comments.filter((x) => x.good === good).map((x) => x.text))} />
               </div>
             ))}
           </div>
@@ -979,6 +1004,13 @@ function SatisfactionTab({ d, compare }: { d: ReportData; compare: boolean }) {
       </Panel>
     </div>
   )
+}
+
+/** Same comment from many families → one row with a count (the survey has many identical short answers) */
+function groupComments(texts: string[]) {
+  const m = new Map<string, number>()
+  for (const t of texts) { const k = t.trim(); m.set(k, (m.get(k) ?? 0) + 1) }
+  return [...m].map(([label, value]) => ({ label: `“${label}”`, value })).sort((a, b) => b.value - a.value)
 }
 
 // ---------------- Needs attention ----------------
