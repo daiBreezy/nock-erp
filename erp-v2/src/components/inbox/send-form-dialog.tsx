@@ -21,9 +21,11 @@ interface Block {
 }
 
 export function SendFormDialog({
-  leadId, branchId, conversationId, lineUserId, onClose,
+  leadId, branchId, conversationId, lineUserId, onClose, initialType,
 }: {
   leadId: ID; branchId: ID; conversationId: ID; lineUserId: string; onClose: () => void
+  /** picked already (Inbox "+" menu → Test / Trial) — skips the type step */
+  initialType?: FormType
 }) {
   const branch = useBranch()
   const staff = useStore((s) => s.staff)
@@ -45,8 +47,8 @@ export function SendFormDialog({
     ?? (lead?.lineUserId ? families.find((f) => f.lineUserId === lead.lineUserId) : undefined)
   const knownStudents = family ? students.filter((x) => x.familyId === family.id && !x.archived) : trialStudent ? [trialStudent] : []
 
-  const [step, setStep] = useState<"type" | "offers" | "confirm">("type")
-  const [type, setType] = useState<FormType>("test")
+  const [step, setStep] = useState<"type" | "offers" | "confirm">(initialType ? "offers" : "type")
+  const [type, setType] = useState<FormType>(initialType ?? "test")
   const [blocks, setBlocks] = useState<Block[]>([{ subject: branch.subjects[0] ?? "", selected: new Map() }])
   const [sending, setSending] = useState(false)
 

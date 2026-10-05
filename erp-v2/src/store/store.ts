@@ -202,6 +202,8 @@ type Store = DB & UIState & {
   openConversation: (id: ID) => void
   assignConversation: (id: ID, staffId: ID | null) => Result
   sendChatMessage: (conversationId: ID, raw: string) => Result
+  /** a photo staff attached (already saved server-side by /api/line/media) — mock chats; live ones sync from the server */
+  sendChatImage: (conversationId: ID, mediaId: string) => Result
   startConversation: (input: { familyId?: ID; leadId?: ID; channel: Conversation["channel"]; text: string }) => Result<{ conversationId: ID }>
   /** prototype only: pretend the parent replied, so the unread badge + send-flow can be demoed end to end */
   simulateParentReply: (conversationId: ID, text?: string) => Result
@@ -2163,6 +2165,17 @@ export const useStore = create<Store>()(
           messages: [...s.messages, message],
           conversations: s.conversations.map((c) => (c.id === conversationId ? { ...c, lastMessageAt: at } : c)),
         })
+        return OK
+      },
+
+      sendChatImage: (conversationId, mediaId) => {
+        const s = get()
+        const perm = requirePerm(s.me(), "inbox.manage")
+        if (!perm.ok) return perm
+        if (!s.conversations.some((c) => c.id === conversationId)) return fail("ไม่พบบทสนทนานี้")
+        const at = s.now().toISOString()
+        const message: ChatMessage = { id: uid("msg"), conversationId, author: "staff", senderId: s.userId, text: "[รูปภาพ]", at, kind: "image", meta: { formKind: "image", mediaId } }
+        set({ messages: [...s.messages, message], conversations: s.conversations.map((c) => (c.id === conversationId ? { ...c, lastMessageAt: at } : c)) })
         return OK
       },
 

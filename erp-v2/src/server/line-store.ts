@@ -30,6 +30,14 @@ export async function saveLineImage(messageId: string, token: string): Promise<b
   }
 }
 
+/** a photo staff attach in the Inbox — digits-only id so it shares the media folder and route with LINE photos */
+export async function saveUploadedImage(data: Buffer): Promise<string> {
+  const id = `9${Date.now()}${Math.floor(Math.random() * 1e6).toString().padStart(6, "0")}`
+  await fs.mkdir(MEDIA_DIR, { recursive: true })
+  await fs.writeFile(mediaPath(id)!, data)
+  return id
+}
+
 export async function readLineImage(messageId: string): Promise<Buffer | null> {
   const file = mediaPath(messageId)
   if (!file) return null

@@ -6,7 +6,7 @@
 
 import { FORM_TYPE_LABEL } from "@/domain/rules/forms"
 import { addDays } from "@/domain/dates"
-import { notAnswered, surveyRecipients } from "@/domain/rules/survey"
+import { notAnswered, surveyRecipients, surveyWindow } from "@/domain/rules/survey"
 import type { Brand, EnrollSubmission, EnrollToken, ExitResponse, ExitToken, SurveyCampaign, SurveyToken, FormLang, FormOfferSlot, FormPrefill, FormSubjectOffer, FormSubmission, FormToken, FormType, ID, Result } from "@/domain/types"
 import { useStore } from "@/store/store"
 
@@ -199,3 +199,73 @@ export async function pullSurveyResponses() {
 }
 
 export const surveyLink = (token: string) => (typeof window === "undefined" ? "" : `${window.location.origin}/liff/survey?token=${token}`)
+
+// ---------------- Inbox "+" menu and Broadcast (owner 2026-10-05) ----------------
+
+/** One message into one chat: pushed in real LINE chats, added to the thread for the prototype's mock chats. */
+export async function postToChat(conversationId: ID, text: string): Promise<Result> {
+  if (conversationId.startsWith("line_")) {
+    const r = await postJson<{ ok: boolean; error?: string }>("/api/line/send", { conversationId, text })
+    return r.ok ? { ok: true, value: undefined } : { ok: false, error: r.error ?? "ส่งทาง LINE ไม่สำเร็จ" }
+  }
+  return useStore.getState().sendChatMessage(conversationId, text)
+}
+
+/** Enroll form for any chat — a lead's or an existing family's (a sibling) — prefilled with what we know. */
+export async function sendEnrollToChat(conversationId: ID): Promise<Result<{ url: string }>> {
+  const s = useStore.getState()
+  const conv = s.conversations.find((c) => c.id === conversationId)
+  if (!conv) return { ok: false, error: "ไม่พบบทสนทนานี้" }
+  const lead = conv.leadId ? s.leads.find((l) => l.id === conv.leadId) : undefined
+  const fam = conv.familyId ? s.families.find((f) => f.id === conv.familyId) : undefined
+  const prefill: FormPrefill = lead
+    ? { parents: lead.phone ? [{ name: lead.name, phone: lead.phone, primary: true }] : [], students: [{ name: "", grade: lead.childGrade }] }
+    : { parents: (fam?.parents ?? []).map((p) => ({ name: p.name, phone: p.phone, primary: !!p.primary })), students: [{ name: "", grade: "" }] }
+  const res = await postJson<{ ok: boolean; token?: EnrollToken; error?: string }>("/api/parent-forms/enroll", { ...enrollSnapshot(conv.branchId), reusable: false, leadId: lead?.id, conversationId: conv.id.startsWith("line_") ? conv.id : null, prefill })
+  if (!res.ok || !res.token) return { ok: false, error: res.error ?? "สร้างลิงก์ไม่สำเร็จ" }
+  const url = enrollUrl(res.token.token)
+  const sent = await postToChat(conv.id, `กรอกใบสมัครเรียนได้ที่ลิงก์นี้เลยค่ะ 🙏 แอดมินจะจัดคลาสและส่งใบแจ้งหนี้ให้ทันที\n${url}`)
+  return sent.ok ? { ok: true, value: { url } } : sent
+}
+
+/** This year's survey link for one family — only once the year's round has been sent (Broadcast / Settings). */
+export async function sendSurveyToChat(conversationId: ID): Promise<Result> {
+  const s = useStore.getState()
+  const conv = s.conversations.find((c) => c.id === conversationId)
+  if (!conv?.familyId) return { ok: false, error: "แบบสอบถามส่งให้ครอบครัวที่เป็นลูกค้า — ผูกแชทนี้กับครอบครัวก่อน" }
+  const year = new Date().getFullYear()
+  const camp = s.surveyCampaigns.find((c) => c.year === year)
+  if (!camp) return { ok: false, error: `ยังไม่ได้เปิดรอบแบบสอบถามปี ${year + 543} — ส่งครั้งแรกด้วย Broadcast` }
+  const rec = camp.recipients.find((r) => r.familyId === conv.familyId)
+  if (!rec) return { ok: false, error: "ครอบครัวนี้ไม่ได้อยู่ในรอบนี้ (ตอนส่งไม่มีลูกที่เรียนอยู่)" }
+  if (s.surveyResponses.some((r) => r.campaignId === camp.id && r.familyId === conv.familyId)) return { ok: false, error: "ครอบครัวนี้ตอบแบบสอบถามปีนี้แล้ว" }
+  return postToChat(conv.id, surveyText(surveyUrl(rec.token)))
+}
+
+/** Broadcast a text to many chats at once — one send per chat, real LINE chats pushed one by one. */
+export async function broadcastText(conversationIds: ID[], text: string): Promise<Result<{ sent: number; failed: number }>> {
+  if (!text.trim()) return { ok: false, error: "พิมพ์ข้อความก่อน" }
+  if (!conversationIds.length) return { ok: false, error: "ไม่มีแชทในกลุ่มที่เลือก" }
+  let sent = 0, failed = 0
+  for (const id of conversationIds) {
+    if ((await postToChat(id, text)).ok) sent++
+    else failed++
+  }
+  return { ok: true, value: { sent, failed } }
+}
+
+/** Broadcast the yearly survey: opens this year's round (one link per family) — mock chats get the link in the thread too. */
+export async function broadcastSurvey(): Promise<Result<{ sent: number; lineSent: number }>> {
+  const s = useStore.getState()
+  const year = new Date().getFullYear()
+  const win = surveyWindow(s.system, year)
+  const today = new Date().toISOString().slice(0, 10)
+  const r = await sendYearlySurvey(year, today < win.from ? today : win.from, win.to < today ? addDays(today, 30) : win.to)
+  if (!r.ok) return r
+  const camp = useStore.getState().surveyCampaigns.find((c) => c.year === year)
+  for (const rec of camp?.recipients ?? []) {
+    const conv = useStore.getState().conversations.find((c) => c.familyId === rec.familyId && !c.id.startsWith("line_"))
+    if (conv) useStore.getState().sendChatMessage(conv.id, surveyText(surveyUrl(rec.token)))
+  }
+  return { ok: true, value: { sent: r.value.sent, lineSent: r.value.lineSent } }
+}

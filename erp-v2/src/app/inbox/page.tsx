@@ -1,10 +1,13 @@
 "use client"
 
 import { useRouter } from "next/navigation"
-import { useCallback, useEffect, useState } from "react"
-import { FileSignatureIcon, InfoIcon, PenLineIcon, PlusIcon, RadioIcon, SendIcon, SparklesIcon, UserSearchIcon, UserCheckIcon, ChevronDownIcon, CheckIcon } from "lucide-react"
+import { useCallback, useEffect, useRef, useState } from "react"
+import { FileSignatureIcon, InfoIcon, PenLineIcon, PlusIcon, RadioIcon, SendIcon, SparklesIcon, UserSearchIcon, UserCheckIcon, ChevronDownIcon, CheckIcon, ClipboardListIcon, FileTextIcon, GraduationCapIcon, HeartHandshakeIcon, ImageIcon, LogOutIcon, MegaphoneIcon, UserPlusIcon } from "lucide-react"
 import { NativeSelect } from "@/components/app/native-select"
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
+import { DropdownMenu, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuSub, DropdownMenuSubContent, DropdownMenuSubTrigger, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
+import { ExitRequestDialog } from "@/components/app/student-exit"
+import { BroadcastDialog } from "@/components/inbox/broadcast-dialog"
+import { sendEnrollToChat, sendSurveyToChat } from "@/lib/forms"
 import { Pill } from "@/components/app/badges"
 import { FamilyForm } from "@/components/app/family-form"
 import { FamilySheet } from "@/components/app/family-sheet"
@@ -24,7 +27,7 @@ import { Input } from "@/components/ui/input"
 import { fmtDateTime } from "@/domain/dates"
 import { CHANNEL_LABEL, CONVERSATION_TYPE_LABEL, conversationType, type ConversationType, SOURCE_OF_CHANNEL, unreadCount } from "@/domain/rules/inbox"
 import { can } from "@/domain/rules/permissions"
-import type { ChatMessage, Conversation, Family, FormSubmission, ID } from "@/domain/types"
+import type { ChatMessage, Conversation, Family, FormSubmission, FormType, ID, Student } from "@/domain/types"
 import { report } from "@/lib/feedback"
 import { useBranch } from "@/lib/hooks"
 import { cn } from "@/lib/utils"
@@ -67,6 +70,11 @@ export default function InboxPage() {
   const [creatingFamily, setCreatingFamily] = useState(false)
   const [creatingLead, setCreatingLead] = useState(false)
   const [sendingFormOpen, setSendingFormOpen] = useState(false)
+  const [formType, setFormType] = useState<FormType | undefined>(undefined)
+  const [exitStudent, setExitStudent] = useState<Student | null>(null)
+  const [broadcasting, setBroadcasting] = useState(false)
+  const sendImage = useStore((s) => s.sendChatImage)
+  const imageInput = useRef<HTMLInputElement>(null)
   const [submissions, setSubmissions] = useState<FormSubmission[]>([])
 
   // Polls the real LINE webhook's server-side store so messages a parent sends show up here without
@@ -107,6 +115,25 @@ export default function InboxPage() {
   const family = selected?.familyId ? families.find((f) => f.id === selected.familyId) : null
   const lead = selected?.leadId ? leads.find((l) => l.id === selected.leadId) : null
   const isNote = draft.trim().startsWith("//")
+  // the family's children still studying — "ลาออก" asks which one
+  const kids = family ? students.filter((x) => x.familyId === family.id && !x.archived && !x.exit) : []
+  const uploadImage = async (file: File) => {
+    if (!selected) return
+    const body = new FormData()
+    body.append("file", file)
+    body.append("conversationId", selected.id)
+    setSending(true)
+    try {
+      const r = await fetch("/api/line/media", { method: "POST", body }).then((x) => x.json())
+      if (!r.ok) return report({ ok: false, error: r.error ?? "อัปโหลดรูปไม่สำเร็จ" }, "")
+      if (isLive(selected.id)) { syncLive(); report({ ok: true, value: undefined }, r.pushed ? "ส่งรูปทาง LINE แล้ว" : (r.note ?? "บันทึกรูปแล้ว")) }
+      else report(sendImage(selected.id, r.mediaId), "ส่งรูปแล้ว")
+    } catch {
+      report({ ok: false, error: "เรียก API ไม่ได้" }, "")
+    } finally {
+      setSending(false)
+    }
+  }
   const isLive = (id: ID) => id.startsWith("line_")
 
   // pay slip sent in LINE → open this family's unpaid invoice with the photo attached to "บันทึกรับเงิน"
@@ -159,7 +186,10 @@ export default function InboxPage() {
               <h2 className="font-semibold">Inbox</h2>
               <p className="text-xs text-muted-foreground">{unreadCount(conversations) > 0 ? `${unreadCount(conversations)} ยังไม่อ่าน` : "อ่านครบแล้ว"}</p>
             </div>
-            <Button size="icon-sm" variant="outline" aria-label="เริ่มบทสนทนาใหม่" onClick={() => setComposing(true)}><PenLineIcon /></Button>
+            <div className="flex gap-1.5">
+              <Button size="icon-sm" variant="outline" aria-label="Broadcast" title="Broadcast — ส่งถึงทุกคน" onClick={() => setBroadcasting(true)}><MegaphoneIcon /></Button>
+              <Button size="icon-sm" variant="outline" aria-label="เริ่มบทสนทนาใหม่" onClick={() => setComposing(true)}><PenLineIcon /></Button>
+            </div>
           </div>
           <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="ค้นหาชื่อ…" />
           <div className="flex gap-1.5">
@@ -254,6 +284,36 @@ export default function InboxPage() {
               </div>
               <div className="space-y-1.5 border-t p-3">
                 <div className="flex gap-2">
+                  {/* owner 2026-10-05: "+" before the type bar — send a form or a photo into this chat */}
+                  <DropdownMenu>
+                    <DropdownMenuTrigger render={<Button size="icon" variant="outline" aria-label="แนบฟอร์ม / รูปภาพ" />}><PlusIcon /></DropdownMenuTrigger>
+                    <DropdownMenuContent side="top" align="start" className="w-44">
+                      <DropdownMenuSub>
+                        <DropdownMenuSubTrigger><FileTextIcon /> ฟอร์ม</DropdownMenuSubTrigger>
+                        <DropdownMenuSubContent className="w-56 whitespace-nowrap">
+                          <DropdownMenuItem disabled={!lead} onClick={() => { setFormType("test"); setSendingFormOpen(true) }}><ClipboardListIcon /> Test Form{!lead && <Hint>เฉพาะ Lead</Hint>}</DropdownMenuItem>
+                          <DropdownMenuItem disabled={!lead} onClick={() => { setFormType("trial"); setSendingFormOpen(true) }}><GraduationCapIcon /> Trial{!lead && <Hint>เฉพาะ Lead</Hint>}</DropdownMenuItem>
+                          <DropdownMenuItem disabled={!lead && !family} onClick={async () => report(await sendEnrollToChat(selected.id), "ส่งใบสมัครเรียนแล้ว")}><UserPlusIcon /> Enroll{!lead && !family && <Hint>ผูกแชทก่อน</Hint>}</DropdownMenuItem>
+                          {kids.length > 1 ? (
+                            <DropdownMenuSub>
+                              <DropdownMenuSubTrigger><LogOutIcon /> ลาออก</DropdownMenuSubTrigger>
+                              <DropdownMenuSubContent>
+                                <DropdownMenuGroup>
+                                  <DropdownMenuLabel>ลูกคนไหน</DropdownMenuLabel>
+                                  {kids.map((k) => <DropdownMenuItem key={k.id} onClick={() => setExitStudent(k)}>{k.nickname} · {k.grade}</DropdownMenuItem>)}
+                                </DropdownMenuGroup>
+                              </DropdownMenuSubContent>
+                            </DropdownMenuSub>
+                          ) : (
+                            <DropdownMenuItem disabled={!kids.length} onClick={() => setExitStudent(kids[0])}><LogOutIcon /> ลาออก{!kids.length && <Hint>เฉพาะลูกค้า</Hint>}</DropdownMenuItem>
+                          )}
+                          <DropdownMenuItem disabled={!family} onClick={async () => report(await sendSurveyToChat(selected.id), "ส่งแบบสอบถามความพึงพอใจแล้ว")}><HeartHandshakeIcon /> ความพึงพอใจ{!family && <Hint>เฉพาะลูกค้า</Hint>}</DropdownMenuItem>
+                        </DropdownMenuSubContent>
+                      </DropdownMenuSub>
+                      <DropdownMenuItem onClick={() => imageInput.current?.click()}><ImageIcon /> รูปภาพ</DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                  <input ref={imageInput} type="file" accept="image/*" hidden onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ""; if (f) uploadImage(f) }} />
                   <Input value={draft} onChange={(e) => setDraft(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); submit() } }}
                     placeholder="พิมพ์ตอบผู้ปกครอง… (// สำหรับโน้ตภายใน)" className={cn(isNote && "border-amber-400 bg-amber-50")} />
                   <Button onClick={submit} disabled={!draft.trim() || sending}>{sending ? "กำลังส่ง…" : <><SendIcon /> ส่ง</>}</Button>
@@ -277,8 +337,8 @@ export default function InboxPage() {
       {composing && <ComposeDialog onClose={() => setComposing(false)} onSent={(id) => { setComposing(false); if (id) select(id) }} />}
       {sendingFormOpen && selected && lead && (
         <SendFormDialog
-          leadId={lead.id} branchId={lead.branchId} conversationId={selected.id} lineUserId={lead.lineUserId ?? ""}
-          onClose={() => setSendingFormOpen(false)}
+          leadId={lead.id} branchId={lead.branchId} conversationId={selected.id} lineUserId={lead.lineUserId ?? ""} initialType={formType}
+          onClose={() => { setSendingFormOpen(false); setFormType(undefined) }}
         />
       )}
       {linking && selected && (
@@ -322,10 +382,17 @@ export default function InboxPage() {
           onSaved={(newLead) => report(linkLead(selected.id, newLead.id), `สร้างและผูก Lead "${newLead.name}" แล้ว`)}
         />
       )}
+      {exitStudent && <ExitRequestDialog stu={exitStudent} onClose={() => setExitStudent(null)} onCloseNow={() => { setExitStudent(null); setOpenStudentId(exitStudent.id) }} />}
+      {broadcasting && <BroadcastDialog conversations={conversations} onClose={() => { setBroadcasting(false); syncLive() }} />}
       <StudentSheet studentId={openStudentId} onClose={() => setOpenStudentId(null)} />
       <LeadSheet leadId={openLeadId} onClose={() => setOpenLeadId(null)} />
       <FamilySheet id={openFamilyId} onClose={() => setOpenFamilyId(null)} onEdit={(f) => setEditingFamily(f)} />
       {editingFamily && <FamilyForm family={editingFamily} onClose={() => setEditingFamily(null)} />}
     </div>
   )
+}
+
+/** why a menu item is greyed out — small, on the right, never wraps the label */
+function Hint({ children }: { children: React.ReactNode }) {
+  return <span className="ml-auto pl-3 text-[10px] font-normal">{children}</span>
 }
