@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation"
 import { useCallback, useEffect, useRef, useState } from "react"
-import { FileSignatureIcon, InfoIcon, PenLineIcon, PlusIcon, RadioIcon, SendIcon, SparklesIcon, UserSearchIcon, UserCheckIcon, ChevronDownIcon, CheckIcon, ClipboardListIcon, FileTextIcon, GraduationCapIcon, HeartHandshakeIcon, ImageIcon, LogOutIcon, MegaphoneIcon, UserPlusIcon } from "lucide-react"
+import { FileSignatureIcon, InfoIcon, PenLineIcon, PlusIcon, RadioIcon, SendIcon, SparklesIcon, UserSearchIcon, UserCheckIcon, ChevronDownIcon, CheckIcon, ClipboardListIcon, FileTextIcon, GraduationCapIcon, HeartHandshakeIcon, ImageIcon, LogOutIcon, MegaphoneIcon, UserPlusIcon, GripVerticalIcon } from "lucide-react"
 import { NativeSelect } from "@/components/app/native-select"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuSub, DropdownMenuSubContent, DropdownMenuSubTrigger, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { ExitRequestDialog } from "@/components/app/student-exit"
@@ -33,6 +33,9 @@ import { useBranch } from "@/lib/hooks"
 import { cn } from "@/lib/utils"
 import { useStore } from "@/store/store"
 
+const LIST_DEFAULT = 288
+const clampWidth = (w: number) => Math.min(480, Math.max(240, Math.round(w)))
+
 export default function InboxPage() {
   const branch = useBranch()
   const conversations = useStore((s) => s.conversations).filter((c) => c.branchId === branch.id)
@@ -58,6 +61,29 @@ export default function InboxPage() {
   const [search, setSearch] = useState("")
   const [typeFilter, setTypeFilter] = useState<"all" | ConversationType>("all")
   const [readFilter, setReadFilter] = useState<"all" | "unread" | "read">("all")
+  const userId = useStore((s) => s.userId)
+  const [assigneeFilter, setAssigneeFilter] = useState<string>("all")
+  const assignees = [...new Set(conversations.map((c) => c.assigneeId).filter((x): x is string => !!x && x !== userId))]
+  const assigneeChips = [
+    { key: "all", label: "ทุกคน", count: conversations.length },
+    { key: "me", label: "ของฉัน", count: conversations.filter((c) => c.assigneeId === userId).length },
+    { key: "none", label: "ยังไม่มอบหมาย", count: conversations.filter((c) => !c.assigneeId).length },
+    ...assignees.map((id) => ({ key: id, label: staff.find((x) => x.id === id)?.nickname ?? "—", count: conversations.filter((c) => c.assigneeId === id).length })),
+  ]
+  // list width: dragged on the divider, remembered on this device only
+  const [listWidth, setListWidth] = useState(LIST_DEFAULT)
+  useEffect(() => { try { const w = Number(localStorage.getItem("inbox.listWidth")); if (w) setListWidth(clampWidth(w)) } catch {} }, []) // eslint-disable-line react-hooks/set-state-in-effect
+  const saveWidth = (w: number) => { const v = clampWidth(w); setListWidth(v); try { localStorage.setItem("inbox.listWidth", String(v)) } catch {} }
+  const startResize = (e: React.PointerEvent) => {
+    e.preventDefault()
+    const x0 = e.clientX, w0 = listWidth
+    let last = w0
+    const move = (ev: PointerEvent) => { last = clampWidth(w0 + ev.clientX - x0); setListWidth(last) }
+    const up = () => { window.removeEventListener("pointermove", move); window.removeEventListener("pointerup", up); document.body.style.cursor = ""; saveWidth(last) }
+    document.body.style.cursor = "col-resize"
+    window.addEventListener("pointermove", move)
+    window.addEventListener("pointerup", up)
+  }
   const [composing, setComposing] = useState(false)
   const [draft, setDraft] = useState("")
   const [sending, setSending] = useState(false)
@@ -107,6 +133,7 @@ export default function InboxPage() {
   const filtered = conversations
     .filter((c) => typeFilter === "all" || conversationType(c) === typeFilter)
     .filter((c) => readFilter === "all" || (readFilter === "unread" ? c.unread : !c.unread))
+    .filter((c) => assigneeFilter === "all" || (assigneeFilter === "none" ? !c.assigneeId : c.assigneeId === (assigneeFilter === "me" ? userId : assigneeFilter)))
     .filter((c) => !search || c.name.toLowerCase().includes(search.toLowerCase()))
     .sort((a, b) => b.lastMessageAt.localeCompare(a.lastMessageAt))
 
@@ -177,9 +204,10 @@ export default function InboxPage() {
   }
 
   return (
-    <div className="mx-auto flex h-[calc(100vh-8rem)] max-w-7xl gap-4">
+    // owner 2026-10-05: list + chat in one card, the divider between them drags to resize the list
+    <div className="mx-auto flex h-[calc(100vh-8rem)] max-w-7xl overflow-hidden rounded-3xl bg-card shadow-sm ring-1 ring-foreground/5">
       {/* Conversation list */}
-      <div className="flex w-72 shrink-0 flex-col rounded-3xl bg-card shadow-sm ring-1 ring-foreground/5">
+      <div className="flex shrink-0 flex-col" style={{ width: listWidth }}>
         <div className="space-y-2 border-b p-3">
           <div className="flex items-center justify-between">
             <div>
@@ -197,6 +225,15 @@ export default function InboxPage() {
               options={[{ value: "all", label: "ทุกประเภท" }, ...(["customer", "lead", "contact"] as const).map((t) => ({ value: t, label: CONVERSATION_TYPE_LABEL[t] }))]} />
             <NativeSelect className="flex-1" value={readFilter} onChange={(e) => setReadFilter(e.target.value as typeof readFilter)}
               options={[{ value: "all", label: "ทั้งหมด" }, { value: "unread", label: "ยังไม่อ่าน" }, { value: "read", label: "อ่านแล้ว" }]} />
+          </div>
+          {/* owner 2026-10-05: filter by who looks after the chat */}
+          <div className="flex flex-wrap gap-1.5">
+            {assigneeChips.map((a) => (
+              <button key={a.key} type="button" onClick={() => setAssigneeFilter(a.key)}
+                className={cn("shrink-0 rounded-full border px-2.5 py-0.5 text-xs whitespace-nowrap", assigneeFilter === a.key ? "border-primary bg-primary/10 font-medium text-primary" : "bg-card text-muted-foreground hover:bg-muted")}>
+                {a.label}<span className="ml-1 tabular-nums opacity-70">{a.count}</span>
+              </button>
+            ))}
           </div>
         </div>
         <div className="flex-1 space-y-1 overflow-y-auto p-2">
@@ -229,8 +266,16 @@ export default function InboxPage() {
         </div>
       </div>
 
+      <div role="separator" aria-orientation="vertical" aria-label="ลากเพื่อปรับความกว้างรายการแชท" tabIndex={0}
+        onPointerDown={startResize} onDoubleClick={() => saveWidth(LIST_DEFAULT)}
+        onKeyDown={(e) => { if (e.key === "ArrowLeft") saveWidth(listWidth - 16); if (e.key === "ArrowRight") saveWidth(listWidth + 16) }}
+        className="group relative w-px shrink-0 cursor-col-resize bg-border outline-none hover:bg-primary/40 focus-visible:bg-primary">
+        <span className="absolute inset-y-0 -right-1.5 -left-1.5" />
+        <span className="absolute top-1/2 left-1/2 grid h-8 w-4 -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full border bg-background text-muted-foreground opacity-0 shadow-sm transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100"><GripVerticalIcon className="size-3.5" /></span>
+      </div>
+
       {/* Chat area */}
-      <div className="flex min-w-0 flex-1 flex-col rounded-3xl bg-card shadow-sm ring-1 ring-foreground/5">
+      <div className="flex min-w-0 flex-1 flex-col">
         {!selected ? (
           <div className="flex flex-1 flex-col items-center justify-center gap-2 text-muted-foreground">
             <UserSearchIcon className="size-8 opacity-40" />
