@@ -16,7 +16,7 @@ import { Input } from "@/components/ui/input"
 import { Switch } from "@/components/ui/switch"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 import { fmtDate, toDateStr } from "@/domain/dates"
-import { crmKpis, DRAGGABLE_STAGES, groupOf, LEAD_SOURCE_LABEL, LEAD_STAGE_LABEL, leadDetail, PIPELINE_GROUPS, type LeadDetail, type PipelineGroup } from "@/domain/rules/crm"
+import { crmKpis, DRAGGABLE_STAGES, groupOf, LEAD_SOURCE_LABEL, leadDetail, stageGroupLabel, PIPELINE_GROUPS, type LeadDetail } from "@/domain/rules/crm"
 import { can } from "@/domain/rules/permissions"
 import type { ID, Lead, Staff } from "@/domain/types"
 import { report } from "@/lib/feedback"
@@ -145,7 +145,7 @@ export default function CrmPage() {
                 </div>
                 <div className="min-h-0 flex-1 space-y-2 overflow-y-auto overscroll-y-contain pr-0.5">
                   {groupLeads.map((l) => (
-                    <LeadCard key={l.id} lead={l} group={group} now={now} staff={staff} draggable={canManage && DRAGGABLE_STAGES.includes(l.stage)} onOpen={() => setOpenLead(l.id)} onRestore={canManage ? () => restoreLead(l.id) : undefined} />
+                    <LeadCard key={l.id} lead={l} now={now} staff={staff} draggable={canManage && DRAGGABLE_STAGES.includes(l.stage)} onOpen={() => setOpenLead(l.id)} onRestore={canManage ? () => restoreLead(l.id) : undefined} />
                   ))}
                   {groupLeads.length === 0 && <p className="px-1 py-3 text-center text-xs text-muted-foreground">ไม่มี</p>}
                 </div>
@@ -194,7 +194,7 @@ export default function CrmPage() {
                     </td>
                     <td><span className={cn("rounded-full px-2 py-0.5 text-xs font-medium whitespace-nowrap", subjectColor(l.subject).chip)}>{l.subject}</span></td>
                     <td className="whitespace-nowrap text-muted-foreground">{LEAD_SOURCE_LABEL[l.source]}</td>
-                    <td><Pill tone={l.stage === "archived" ? "gray" : l.stage === "enrolled" ? "green" : "blue"}>{LEAD_STAGE_LABEL[l.stage]}</Pill></td>
+                    <td><Pill tone={l.stage === "archived" ? "gray" : l.stage === "enrolled" ? "green" : "blue"}>{stageGroupLabel(l.stage)}</Pill></td>
                     <td><span className={cn("text-xs font-medium whitespace-nowrap", DETAIL_TONE[detail.level])}>{detail.text}</span></td>
                     <td className="whitespace-nowrap text-muted-foreground">{assignee?.nickname ?? "ยังไม่มอบหมาย"}</td>
                     <td className="whitespace-nowrap text-muted-foreground">{l.phone || "—"}</td>
@@ -224,8 +224,7 @@ export default function CrmPage() {
 
 /** Owner ref (Contact/Test/Trial/Billing board): 3 fixed rows — who + grade, subject + stage tag,
  *  then the one fact that matters right now — with the assignee pinned at the bottom every time. */
-function LeadCard({ lead, group, now, staff, draggable, onOpen, onRestore }: { lead: Lead; group: PipelineGroup; now: Date; staff: Staff[]; draggable: boolean; onOpen: () => void; onRestore?: () => void }) {
-  const subBadge = group.stages.length > 1 ? LEAD_STAGE_LABEL[lead.stage] : null
+function LeadCard({ lead, now, staff, draggable, onOpen, onRestore }: { lead: Lead; now: Date; staff: Staff[]; draggable: boolean; onOpen: () => void; onRestore?: () => void }) {
   const detail = leadDetail(lead, now)
   const assignee = staff.find((s) => s.id === lead.assigneeId)
   return (
@@ -254,9 +253,7 @@ function LeadCard({ lead, group, now, staff, draggable, onOpen, onRestore }: { l
           <Pill tone="gray">{LEAD_SOURCE_LABEL[lead.source]}</Pill>
         ) : lead.stage === "enrolled" ? (
           <Pill tone="green"><UserCheckIcon className="size-3" /> ลงทะเบียนแล้ว</Pill>
-        ) : subBadge ? (
-          <Pill tone="blue">{subBadge}</Pill>
-        ) : null}
+        ) : null /* no sub-step chip (owner 2026-10-05: 4 states only) — the detail line says what happens next */}
       </div>
 
       <p className={cn("mt-1.5 truncate text-xs font-medium", DETAIL_TONE[detail.level])}>{detail.shortText}</p>

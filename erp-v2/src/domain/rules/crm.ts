@@ -46,6 +46,13 @@ export function groupOf(stage: LeadStage): PipelineGroup {
   return PIPELINE_GROUPS.find((g) => g.stages.includes(stage))!
 }
 
+/** What the admin picks (owner 2026-10-05: "เอาแค่ 4 State" — the sub-steps inside move by themselves) */
+export const BOARD_GROUPS = PIPELINE_GROUPS.filter((g) => g.key !== "archived")
+/** picking a column puts the lead at its first step (the system moves it on from there) */
+export const STAGE_FOR_GROUP: Record<string, LeadStage> = { contact: "contacting", test: "test_scheduled", trial: "trial_scheduled", closing: "payment_pending" }
+/** the label staff see: the column, except for the two end states */
+export const stageGroupLabel = (stage: LeadStage) => (stage === "enrolled" ? LEAD_STAGE_LABEL.enrolled : groupOf(stage).label)
+
 /** Stages the board can drag a card onto directly — enrolled/archived need a dedicated action (student record / reason). */
 export const DRAGGABLE_STAGES: LeadStage[] = ["new", "contacting", "test_scheduled", "tested", "trial_scheduled", "trialed", "payment_pending"]
 

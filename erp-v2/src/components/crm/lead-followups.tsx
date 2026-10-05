@@ -9,7 +9,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { addDays, fmtDate, fmtDateTime, toDateStr } from "@/domain/dates"
-import { LEAD_STAGE_LABEL } from "@/domain/rules/crm"
+import { BOARD_GROUPS, groupOf, STAGE_FOR_GROUP, stageGroupLabel } from "@/domain/rules/crm"
 import * as Loss from "@/domain/rules/loss"
 import type { ContactChannel, ContactResult, ID, Lead, LeadStage } from "@/domain/types"
 import { report } from "@/lib/feedback"
@@ -128,8 +128,9 @@ export function LeadLostDialog({ lead, onClose }: { lead: Lead; onClose: () => v
         </DialogHeader>
         <div className="grid grid-cols-[6rem_1fr] items-center gap-2 text-sm">
           <Label>หยุดที่ขั้น</Label>
-          <NativeSelect className="h-9" value={stage} onChange={(e) => setStage(e.target.value as LeadStage)}
-            options={(["new", "contacting", "test_scheduled", "tested", "trial_scheduled", "trialed", "payment_pending"] as LeadStage[]).map((x) => ({ value: x, label: LEAD_STAGE_LABEL[x] }))} />
+          {/* the 4 columns (owner 2026-10-05) — staying in the lead's own column keeps its exact step */}
+          <NativeSelect className="h-9" value={groupOf(stage).key} onChange={(e) => setStage(e.target.value === groupOf(lead.stage).key ? lead.stage : STAGE_FOR_GROUP[e.target.value])}
+            options={BOARD_GROUPS.map((g) => ({ value: g.key, label: g.label }))} />
         </div>
         <div className="space-y-1.5">
           <Label>เหตุผลหลัก *</Label>
@@ -188,7 +189,7 @@ export function LostSummary({ lead }: { lead: Lead }) {
   if (!l) return lead.archiveReason ? <p className="text-muted-foreground">{lead.archiveReason}</p> : null
   return (
     <dl className="grid grid-cols-[7rem_1fr] gap-x-2 gap-y-1 text-sm">
-      <dt className="text-muted-foreground">หยุดที่ขั้น</dt><dd>{LEAD_STAGE_LABEL[l.stage]}</dd>
+      <dt className="text-muted-foreground">หยุดที่ขั้น</dt><dd>{stageGroupLabel(l.stage)}</dd>
       <dt className="text-muted-foreground">เหตุผลหลัก</dt><dd className="font-medium">{Loss.reasonLabel(l.reasonId, system.lossReasons)}</dd>
       {l.otherReasonIds.length > 0 && <><dt className="text-muted-foreground">เหตุผลอื่น</dt><dd>{l.otherReasonIds.map((x) => Loss.reasonLabel(x, system.lossReasons)).join(", ")}</dd></>}
       {l.competitor && <><dt className="text-muted-foreground">ไปเรียนที่</dt><dd>{l.competitor}</dd></>}

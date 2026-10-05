@@ -17,7 +17,7 @@ import { Button } from "@/components/ui/button"
 import { Sheet, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetTitle } from "@/components/ui/sheet"
 import { Textarea } from "@/components/ui/textarea"
 import { fmtDateTime } from "@/domain/dates"
-import { daysAgoLabel, DRAGGABLE_STAGES, LEAD_SOURCE_LABEL, LEAD_STAGE_LABEL, scheduleInfo } from "@/domain/rules/crm"
+import { BOARD_GROUPS, daysAgoLabel, groupOf, LEAD_SOURCE_LABEL, scheduleInfo, STAGE_FOR_GROUP, stageGroupLabel } from "@/domain/rules/crm"
 import { can } from "@/domain/rules/permissions"
 import type { FormSubmission, ID, Lead, LeadStage } from "@/domain/types"
 import { report } from "@/lib/feedback"
@@ -105,17 +105,18 @@ function Body({ id }: { id: ID }) {
         </div>
         <div className="flex flex-wrap items-center gap-2">
           {stageEditable ? (
+            // 4 choices = the 4 board columns (owner 2026-10-05); the steps inside them move automatically
             <NativeSelect
-              className="h-8 w-44"
-              value={lead.stage}
+              className="h-8 w-40"
+              value={groupOf(lead.stage).key}
               onChange={(e) => {
-                const target = e.target.value as LeadStage
-                if (target !== lead.stage) report(moveStage(lead.id, target), `ย้ายไป "${LEAD_STAGE_LABEL[target]}" แล้ว`)
+                const g = BOARD_GROUPS.find((x) => x.key === e.target.value)
+                if (g && g.key !== groupOf(lead.stage).key) report(moveStage(lead.id, STAGE_FOR_GROUP[g.key]), `ย้ายไป "${g.label}" แล้ว`)
               }}
-              options={DRAGGABLE_STAGES.map((st) => ({ value: st, label: LEAD_STAGE_LABEL[st] }))}
+              options={BOARD_GROUPS.map((g) => ({ value: g.key, label: g.label }))}
             />
           ) : (
-            <Pill tone={lead.stage === "archived" ? "gray" : lead.stage === "enrolled" ? "green" : "blue"}>{LEAD_STAGE_LABEL[lead.stage]}</Pill>
+            <Pill tone={lead.stage === "archived" ? "gray" : lead.stage === "enrolled" ? "green" : "blue"}>{stageGroupLabel(lead.stage)}</Pill>
           )}
           {assignee && <Pill tone="gray"><UserCheckIcon className="size-3" /> {assignee.nickname}</Pill>}
         </div>
