@@ -10,6 +10,7 @@ import { avatarTone, gradeTone, initial, subjectColor } from "@/components/app/s
 import { LeadDialog } from "@/components/crm/lead-dialog"
 import { LeadSheet } from "@/components/crm/lead-sheet"
 import { EnrollInbox } from "@/components/crm/enroll-review"
+import { SurveyCalls } from "@/components/crm/survey-calls"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Switch } from "@/components/ui/switch"
@@ -57,9 +58,10 @@ export default function CrmPage() {
   const assigneeName = (id: ID | null) => staff.find((s) => s.id === id)?.nickname ?? ""
   const restoreLead = (id: ID) => report(restore(id), "กู้คืนแล้ว")
 
-  // archived stays out of both views by default — too many "done" columns was the complaint; the switch below brings it back
+  // finished leads stay out of both views by default (owner 2026-10-05: once paid and a student, the card leaves the
+  // board) — archived ones and ones that became students; the switch below brings them back
   const matches = (l: Lead) => {
-    if (!showArchived && l.stage === "archived") return false
+    if (!showArchived && (l.stage === "archived" || l.stage === "enrolled")) return false
     if (assigneeFilter !== "all" && l.assigneeId !== assigneeFilter) return false
     if (search && !`${l.name} ${l.subject} ${l.childGrade}`.toLowerCase().includes(search.toLowerCase())) return false
     return true
@@ -91,6 +93,7 @@ export default function CrmPage() {
       </div>
 
       {canManage && <EnrollInbox branchId={branch.id} />}
+      {canManage && <SurveyCalls branchId={branch.id} />}
 
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <Kpi icon={UsersIcon} label="Lead ทั้งหมด" value={kpis.total} sub={`${kpis.active} รายกำลังตาม`} />
@@ -109,7 +112,7 @@ export default function CrmPage() {
           <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="ค้นหาชื่อ / วิชา" className="pl-8" />
         </div>
         <NativeSelect value={assigneeFilter} onChange={(e) => setAssigneeFilter(e.target.value)} className="w-44" options={[{ value: "all", label: "ผู้ดูแลทั้งหมด" }, ...assignees.map((s) => ({ value: s.id, label: s.nickname }))]} />
-        <label className="flex items-center gap-1.5 text-sm text-muted-foreground"><Switch checked={showArchived} onCheckedChange={setShowArchived} /> แสดงที่เก็บเข้าคลัง</label>
+        <label className="flex items-center gap-1.5 text-sm text-muted-foreground"><Switch checked={showArchived} onCheckedChange={setShowArchived} /> แสดงที่ปิดแล้ว (เป็นนักเรียน / เก็บเข้าคลัง)</label>
         <span className="ml-auto hidden text-xs text-muted-foreground sm:inline">{view === "kanban" ? "ลากการ์ดเพื่อย้ายขั้นตอน" : `${tableRows.length} รายการ`}</span>
         <ToggleGroup value={[view]} onValueChange={(v) => v[0] && setView(v[0] as ViewMode)} variant="outline" size="sm">
           <ToggleGroupItem value="kanban"><LayoutGridIcon /> Kanban</ToggleGroupItem>
@@ -135,7 +138,9 @@ export default function CrmPage() {
                 className={cn("group/col flex h-[calc(100dvh-20rem)] min-h-[480px] w-72 shrink-0 flex-col rounded-xl border bg-muted/30 p-2", overCol === group.key && "border-primary bg-primary/5")}
               >
                 <div className="flex shrink-0 items-center justify-between px-1 pb-2">
-                  <span className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">{group.label}</span>
+                  <span className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">{group.label}
+                    {group.key === "closing" && !showArchived && <span className="ml-1 font-normal tracking-normal normal-case">· เป็นนักเรียนแล้ว {leads.filter((l) => l.stage === "enrolled").length} (ซ่อน)</span>}
+                  </span>
                   <span className="grid size-5 place-items-center rounded-full bg-background text-xs font-medium">{groupLeads.length}</span>
                 </div>
                 <div className="min-h-0 flex-1 space-y-2 overflow-y-auto overscroll-y-contain pr-0.5">

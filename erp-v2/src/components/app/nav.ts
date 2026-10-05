@@ -1,5 +1,5 @@
 import {
-  BellIcon, BookOpenIcon, CalendarDaysIcon, ClipboardCheckIcon, ClockIcon, HomeIcon, InboxIcon, LayoutDashboardIcon, NotebookPenIcon, ReceiptIcon,
+  BellIcon, BookOpenIcon, FileTextIcon, CalendarDaysIcon, ClipboardCheckIcon, ClockIcon, HomeIcon, InboxIcon, LayoutDashboardIcon, NotebookPenIcon, ReceiptIcon,
   HistoryIcon, SettingsIcon, SquareLibraryIcon, ChartColumnIcon, ListTodoIcon, UserCogIcon, UserSearchIcon, UsersIcon, GraduationCapIcon, type LucideIcon,
 } from "lucide-react"
 import type { Permission } from "@/domain/rules/permissions"
@@ -24,6 +24,7 @@ export const NAV: { group: string; items: NavItem[] }[] = [
       { href: "/", label: "วันนี้", icon: HomeIcon, perm: "calendar.view" },
       { href: "/crm", label: "CRM (ลีด)", icon: UserSearchIcon, perm: "lead.manage" },
       { href: "/inbox", label: "Inbox", icon: InboxIcon, perm: "inbox.manage" },
+      { href: "/forms", label: "ฟอร์มผู้ปกครอง", icon: FileTextIcon, perm: "lead.manage" },
       { href: "/calendar", label: "ปฏิทิน", icon: CalendarDaysIcon, perm: "calendar.view" },
     ],
   },

@@ -872,9 +872,7 @@ function SatisfactionTab({ d, compare }: { d: ReportData; compare: boolean }) {
   const [year, setYear] = useState<number | null>(d.surveyYears[0] ?? null)
   const families = useStore((st) => st.families)
   const branches = useStore((st) => st.branches)
-  const followUp = useStore((st) => st.surveyFollowUp)
   const staff = useStore((st) => st.staff)
-  const [notes, setNotes] = useState<Record<string, string>>({})
   if (year === null) return <Empty>ยังไม่เคยส่งแบบสอบถามความพึงพอใจ — ส่งได้ที่ Settings › ระบบ</Empty>
   const cur = d.surveyOf(year), prev = d.surveyOf(year - 1)
   const s = cur.summary, p = prev.summary
@@ -953,34 +951,25 @@ function SatisfactionTab({ d, compare }: { d: ReportData; compare: boolean }) {
           ) : <Empty />}
         </Panel>
       </div>
-      <Panel title="ผู้ปกครองที่ไม่พอใจ" hint="แนะนำเพื่อน 0–6 หรือไม่เรียนต่อ · Manager โทรคุยภายใน 3 วันแล้วบันทึกผล">
-        {unhappy.length ? (
+      {/* outcome only (owner 2026-10-05: Reports show what's done — the calls themselves are on CRM) */}
+      <Panel title="ผลการติดตามผู้ปกครองที่ไม่พอใจ" hint={`${unhappy.length} ครอบครัว · โทรแล้ว ${unhappy.filter((r) => r.followUp).length} · รอโทร ${unhappy.filter((r) => !r.followUp).length} (รายชื่อที่ต้องโทรอยู่หน้า CRM)`}>
+        {unhappy.some((r) => r.followUp) ? (
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
-              <thead className="text-xs text-muted-foreground"><tr><th className="text-left font-normal">ครอบครัว</th>{compare && <th className="text-left font-normal">สาขา</th>}<th className="text-right font-normal">แนะนำ</th><th className="text-left font-normal">ปีหน้า</th><th className="text-left font-normal">อยากให้ปรับ</th><th className="text-left font-normal">โทรแล้ว</th></tr></thead>
-              <tbody>{unhappy.map((r) => {
-                const overdue = !r.followUp && cur.toCall.find((x) => x.r.id === r.id)?.overdue
-                return (
-                  <tr key={r.id} className="border-t align-top">
-                    <td className="py-1.5">{fam(r.familyId)}<span className="block text-[11px] text-muted-foreground">ตอบ {fmtDate(r.submittedAt.slice(0, 10))}</span></td>
-                    {compare && <td className="text-muted-foreground">{branches.find((b) => b.id === r.branchId)?.name}</td>}
-                    <td className="text-right font-medium text-red-600 tabular-nums">{r.answers.nps ?? "—"}</td>
-                    <td>{r.answers.continueNext ? CONT[r.answers.continueNext] : "—"}</td>
-                    <td className="max-w-56 text-xs">{r.answers.improve || <span className="text-muted-foreground">—</span>}</td>
-                    <td className="min-w-56">
-                      {r.followUp ? <span className="text-xs text-emerald-700">✓ {staff.find((x) => x.id === r.followUp!.by)?.nickname} · {fmtDate(r.followUp.at.slice(0, 10))} · {r.followUp.note}</span> : (
-                        <span className="flex gap-1">
-                          <input className={cn("h-7 min-w-0 flex-1 rounded-full border px-2 text-xs", overdue && "border-red-400")} placeholder={overdue ? "เกิน 3 วันแล้ว — โทรแล้วได้อะไร" : "โทรแล้วได้อะไร"} value={notes[r.id] ?? ""} onChange={(e) => setNotes((n) => ({ ...n, [r.id]: e.target.value }))} />
-                          <Button size="xs" disabled={!notes[r.id]?.trim()} onClick={() => report(followUp(r.id, notes[r.id] ?? ""), "บันทึกการโทรแล้ว")}>บันทึก</Button>
-                        </span>
-                      )}
-                    </td>
-                  </tr>
-                )
-              })}</tbody>
+              <thead className="text-xs text-muted-foreground"><tr><th className="text-left font-normal">ครอบครัว</th>{compare && <th className="text-left font-normal">สาขา</th>}<th className="text-right font-normal">แนะนำ</th><th className="text-left font-normal">ปีหน้า</th><th className="text-left font-normal">โทรเมื่อ</th><th className="text-left font-normal">ผลการคุย</th></tr></thead>
+              <tbody>{unhappy.filter((r) => r.followUp).map((r) => (
+                <tr key={r.id} className="border-t align-top">
+                  <td className="py-1.5">{fam(r.familyId)}</td>
+                  {compare && <td className="text-muted-foreground">{branches.find((b) => b.id === r.branchId)?.name}</td>}
+                  <td className="text-right text-red-600 tabular-nums">{r.answers.nps ?? "—"}</td>
+                  <td>{r.answers.continueNext ? CONT[r.answers.continueNext] : "—"}</td>
+                  <td className="whitespace-nowrap text-muted-foreground">{staff.find((x) => x.id === r.followUp!.by)?.nickname} · {fmtDate(r.followUp!.at.slice(0, 10))}</td>
+                  <td>{r.followUp!.note}</td>
+                </tr>
+              ))}</tbody>
             </table>
           </div>
-        ) : <Empty>ไม่มีผู้ปกครองที่ไม่พอใจในปีนี้</Empty>}
+        ) : <Empty>{unhappy.length ? "ยังไม่มีการโทรที่บันทึกไว้" : "ไม่มีผู้ปกครองที่ไม่พอใจในปีนี้"}</Empty>}
       </Panel>
       <Panel title="ความเห็นจากผู้ปกครอง" hint={`${comments.length} ข้อความ`}>
         {comments.length ? (

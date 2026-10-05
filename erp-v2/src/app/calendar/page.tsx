@@ -10,7 +10,6 @@ import { NativeSelect } from "@/components/app/native-select"
 import { SessionSheet } from "@/components/app/session-sheet"
 import { subjectColor } from "@/components/app/subject-color"
 import { WORK_ORDER, WorkChip } from "@/components/app/work-state"
-import { DayBoard } from "@/components/calendar/day-board"
 import { MoveDialog } from "@/components/calendar/move-dialog"
 import { WeekTeacherBoard } from "@/components/calendar/week-teacher-board"
 import type { CardData } from "@/components/calendar/class-card"
@@ -55,15 +54,6 @@ function CalendarView() {
 
   const [view, setView] = useState<View>("board")
   const [dayMode, setDayMode] = useState<"table" | "single">("table")
-  const [lane, setLane] = useState<"room" | "teacher">("teacher")
-  // per-viewer preference: show every slot, or only real classes
-  const [onlyBooked, setOnlyBooked] = useState(() => {
-    try { return localStorage.getItem("cal.onlyBooked") === "1" } catch { return false }
-  })
-  const toggleBooked = (v: boolean) => {
-    setOnlyBooked(v)
-    try { localStorage.setItem("cal.onlyBooked", v ? "1" : "0") } catch {}
-  }
   const single = view === "board" && dayMode === "single"
   const [anchor, setAnchor] = useState(() => (linkedSession && allSessions.find((x) => x.id === linkedSession)?.date) || today)
   // everyone sees every session by default; teachers get a one-tap "only mine" filter
@@ -182,18 +172,6 @@ function CalendarView() {
             <ToggleGroupItem value="single">รายวัน</ToggleGroupItem>
           </ToggleGroup>
         )}
-        {single && (
-          <ToggleGroup value={[lane]} onValueChange={(v) => v[0] && setLane(v[0] as "room" | "teacher")} variant="outline" size="sm">
-            <ToggleGroupItem value="teacher">แยกตามครู</ToggleGroupItem>
-            <ToggleGroupItem value="room">แยกตามห้อง</ToggleGroupItem>
-          </ToggleGroup>
-        )}
-        {single && (
-          <ToggleGroup value={[onlyBooked ? "booked" : "all"]} onValueChange={(v) => v[0] && toggleBooked(v[0] === "booked")} variant="outline" size="sm">
-            <ToggleGroupItem value="all">ทุกช่วงเวลา</ToggleGroupItem>
-            <ToggleGroupItem value="booked">เฉพาะที่มีคลาส</ToggleGroupItem>
-          </ToggleGroup>
-        )}
         {/* status as a dropdown chip, like teachers / subjects (owner 2026-09-30) */}
         <NativeSelect className="h-9 w-44" value={workFilter ?? ""} onChange={(e) => setWorkFilter((e.target.value || null) as WorkState | null)}
           placeholder={`ทุกสถานะ (${visible.filter((x) => !x.cancelled).length})`}
@@ -223,7 +201,8 @@ function CalendarView() {
       )}
 
       {view === "week" && <WeekView from={range.from} sessions={visible} onDay={openDay} today={today} {...cardProps} dim={cardData.dim} />}
-      {single && <DayBoard date={anchor} sessions={visible} laneMode={lane} canCreate={canCreate} onSlot={setPrefill} onMove={cardProps.onMove} d={cardData} onlyBooked={onlyBooked} />}
+      {/* รายวัน = the teacher board for one day: students listed in the cells, no cards (owner 2026-10-05) */}
+      {single && <WeekTeacherBoard from={anchor} dayCount={1} sessions={workFilter ? visible.filter((x) => workState(x, now, attendance, summaries).state === workFilter) : visible} onOpen={setOpenId} onSlot={setPrefill} canCreate={canCreate} />}
       {view === "board" && !single && <WeekTeacherBoard from={range.from} sessions={workFilter ? visible.filter((x) => workState(x, now, attendance, summaries).state === workFilter) : visible} onOpen={setOpenId} onSlot={setPrefill} canCreate={canCreate} />}
       {view === "month" && <MonthView from={range.from} month={anchor.slice(0, 7)} sessions={visible} onDay={openDay} today={today} conflictIds={conflictIds} />}
       {view === "list" && <ListView from={range.from} to={range.to} sessions={visible} {...cardProps} />}

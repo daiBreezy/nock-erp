@@ -55,8 +55,10 @@ type Row = { start: TimeStr; end: TimeStr; block: boolean }
  * (avatar, subjects, number of classes), a Room line and a row per standard block, and in each block a class card in
  * the subject's colour with the students in two columns: nickname, free-form note, result, grade. Days stack down.
  */
-export function WeekTeacherBoard({ from, sessions, onOpen, onSlot, canCreate }: {
+export function WeekTeacherBoard({ from, sessions, onOpen, onSlot, canCreate, dayCount = 7 }: {
   from: DateStr
+  /** 1 = the day view ("รายวัน", owner 2026-10-05: same cells as the teacher board, no cards) */
+  dayCount?: number
   sessions: Session[]
   onOpen: (id: string) => void
   onSlot: (p: ClassPrefill) => void
@@ -75,7 +77,7 @@ export function WeekTeacherBoard({ from, sessions, onOpen, onSlot, canCreate }: 
   const today = toDateStr(now)
   const nowMin = now.getHours() * 60 + now.getMinutes()
   const L = useLookup()
-  const days = Array.from({ length: 7 }, (_, i) => addDays(from, i))
+  const days = Array.from({ length: dayCount }, (_, i) => addDays(from, i))
   const live = sessions.filter((s) => !s.cancelled)
 
   // same teacher columns every day of the week, so the eye can follow a teacher down the page
@@ -117,11 +119,11 @@ export function WeekTeacherBoard({ from, sessions, onOpen, onSlot, canCreate }: 
   return (
     <div className="space-y-5">
       {/* sits right under the app header (h-14) instead of sliding over it */}
-      <nav className="sticky top-14 z-10 -mx-1 flex flex-wrap gap-1.5 bg-zinc-100/95 px-1 py-2 backdrop-blur dark:bg-zinc-900/95">
+      {days.length > 1 && <nav className="sticky top-14 z-10 -mx-1 flex flex-wrap gap-1.5 bg-zinc-100/95 px-1 py-2 backdrop-blur dark:bg-zinc-900/95">
         {days.map((d) => (
           <a key={d} href={`#day-${d}`} className={cn("rounded-full px-3 py-1 text-xs font-medium hover:opacity-80", dayTone(d, today))}>{DAY_FULL[weekdayOf(d)].slice(0, 3)} {fmtDate(d)}</a>
         ))}
-      </nav>
+      </nav>}
 
       {blocksDate && <BlocksDialog branch={branch} date={blocksDate} onClose={() => setBlocksDate(null)} />}
       {dayAction && <TeacherDayDialog {...dayAction} onClose={() => setDayAction(null)} />}

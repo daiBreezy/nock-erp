@@ -348,7 +348,7 @@ export function needsAttention(ctx: {
   const recent = new Set(ctx.sessions.filter((s) => s.date >= since && s.date <= ctx.today).map((s) => s.id))
   const leaves = new Map<ID, number>()
   ctx.attendance.filter((a) => a.status === "leave" && recent.has(a.sessionId)).forEach((a) => leaves.set(a.studentId, (leaves.get(a.studentId) ?? 0) + 1))
-  add({ key: "survey_call", group: "students", title: "ผู้ปกครองไม่พอใจ ยังไม่ได้โทร", detail: "จากแบบสอบถามประจำปี — โทรภายใน 3 วัน", count: ctx.surveyToCall ?? 0, href: "/reports?tab=satisfaction" })
+  add({ key: "survey_call", group: "students", title: "ผู้ปกครองไม่พอใจ ยังไม่ได้โทร", detail: "จากแบบสอบถามประจำปี — โทรภายใน 3 วัน (รายชื่ออยู่หน้า CRM)", count: ctx.surveyToCall ?? 0, href: "/crm" })
   add({ key: "often_leave", group: "students", title: "นักเรียนลาบ่อย (เสี่ยงหลุด)", detail: `ลา ≥ ${T.leavesIn30} ครั้งใน 30 วัน`, count: [...leaves.values()].filter((n) => n >= T.leavesIn30).length, href: "/attendance" })
 
   const week = addDays(ctx.today, 7)
