@@ -6,7 +6,7 @@ import { useSearchParams } from "next/navigation"
 import { AlertTriangleIcon, BanknoteIcon, CalendarDaysIcon, ChartColumnIcon, ChevronRightIcon, DownloadIcon, PrinterIcon, UsersIcon, UserCheckIcon } from "lucide-react"
 import { NativeSelect } from "@/components/app/native-select"
 import { StudentSheet } from "@/components/app/student-sheet"
-import { Delta, Donut, Empty, fmtNum, fmtPct, fmtShort, Heatmap, MonthBars, Panel, Rank, ShareBar, donutColor, tint } from "@/components/reports/charts"
+import { Delta, Donut, DonutLegend, Empty, fmtNum, fmtPct, fmtShort, Heatmap, MonthBars, Panel, Rank, ShareBar, donutColor, tint } from "@/components/reports/charts"
 import { useReports, type ReportData } from "@/components/reports/use-reports"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
@@ -789,6 +789,7 @@ function CrmTab({ d, compare }: { d: ReportData; compare: boolean }) {
   const enrolled = c.funnel[c.funnel.length - 1]
   const days = c.sources.map((x) => x.medianDays).filter((x): x is number => x !== null).sort((a, b) => a - b)
   const maxFunnel = Math.max(1, c.funnel[0].count)
+  const lostTotal = c.lost.reduce((a, x) => a + x.count, 0)
   return (
     <div className="space-y-4">
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
@@ -796,7 +797,7 @@ function CrmTab({ d, compare }: { d: ReportData; compare: boolean }) {
         <Stat label="สมัครแล้ว" value={fmtNum(enrolled.count)} tone="text-emerald-600" />
         <Stat label="Conversion" value={fmtPct(enrolled.ofAll)} />
         <Stat label="วันถึงสมัคร (มัธยฐาน)" value={days.length ? `${days[Math.floor(days.length / 2)]} วัน` : "—"} />
-        <Stat label="Lead ที่ยังเปิดอยู่" value={fmtNum(c.open)} sub={<span>ตอนนี้</span>} />
+        <Stat label="Lead ที่ยังเปิดอยู่" value={fmtNum(c.open)} sub={<Link href="/crm" className="text-primary">ตอนนี้ · ไปหน้า CRM ›</Link>} />
       </div>
       <div className="grid gap-4 lg:grid-cols-2">
         <Panel title="Funnel" hint="Lead ที่เข้ามาในช่วงนี้ · นับทุกขั้นที่ผ่านมาแล้ว" center>
@@ -814,6 +815,20 @@ function CrmTab({ d, compare }: { d: ReportData; compare: boolean }) {
           <MonthBars thisYear={c.monthly.thisYear} lastYear={c.monthly.lastYear} current={Number(d.today.slice(5, 7)) - 1} unit=" ราย" />
         </Panel>
       </div>
+      <Panel title="Lead ที่หลุด" hint="ปิดไปที่ขั้นไหน · เพราะอะไร — ข้อมูลสำคัญ ดูก่อนแหล่งที่มา">
+        <div className="grid gap-6 lg:grid-cols-2 lg:divide-x">
+          <DonutLegend keepOrder title="หลุดที่ขั้นไหน" parts={c.lost.map((x) => ({ label: x.label, value: x.count }))} center={fmtNum(lostTotal)} sub="Lead ที่หลุด" />
+          <div className="lg:pl-6"><DonutLegend title="เหตุผล" parts={c.lostReasons.map((x) => ({ label: x.reason, value: x.count }))} center={fmtNum(c.lostReasons.reduce((a, x) => a + x.count, 0))} sub="มีเหตุผล" /></div>
+        </div>
+        {(c.competitors.length > 0 || c.wantedTimes.length > 0) && (
+          <div className="mt-4 grid gap-6 border-t pt-4 lg:grid-cols-2">
+            <div><p className="mb-1 text-xs font-medium text-muted-foreground">ไปเรียนที่ไหนแทน</p>
+              <ul className="space-y-1 text-sm">{c.competitors.map((x) => <li key={x.name} className="flex justify-between"><span>{x.name}</span><span className="tabular-nums">{x.count}</span></li>)}</ul></div>
+            <div><p className="mb-1 text-xs font-medium text-muted-foreground">เวลาที่ลูกค้าต้องการแต่เราไม่มี</p>
+              <ul className="space-y-1 text-sm">{c.wantedTimes.map((x) => <li key={x.time} className="flex justify-between"><span>{x.time}</span><span className="tabular-nums">{x.count}</span></li>)}</ul></div>
+          </div>
+        )}
+      </Panel>
       <Panel title="แหล่งที่มา (Source)" hint="เรียงตามจำนวนที่สมัคร · รายได้ = เงินที่นักเรียนจาก Lead เหล่านี้จ่ายมาแล้วทั้งหมด">
         {c.sources.length ? (
           <table className="w-full text-sm">
@@ -831,34 +846,15 @@ function CrmTab({ d, compare }: { d: ReportData; compare: boolean }) {
           </table>
         ) : <Empty />}
       </Panel>
-      <div className="grid gap-4 lg:grid-cols-2">
-        <Panel title="Lead ที่หลุด" hint="ปิดไปที่ขั้นไหน · เหตุผล" fill>
-          <div className="grid gap-4 sm:grid-cols-2">
-            <ul className="space-y-1.5 text-sm">{c.lost.map((x) => <li key={x.key} className="flex justify-between gap-2"><span className="text-muted-foreground">หลุดที่ {x.label}</span><span className="tabular-nums text-red-600">{x.count}</span></li>)}</ul>
-            <ul className="space-y-1.5 text-sm">{c.lostReasons.map((x) => <li key={x.reason} className="flex justify-between gap-2"><span>{x.reason}</span><span className="tabular-nums">{x.count}</span></li>)}
-              {!c.lostReasons.length && <li className="text-xs text-muted-foreground">ไม่มี</li>}</ul>
-          </div>
-          {(c.competitors.length > 0 || c.wantedTimes.length > 0) && (
-            <div className="mt-3 grid gap-4 border-t pt-3 sm:grid-cols-2">
-              <div><p className="mb-1 text-xs font-medium text-muted-foreground">ไปเรียนที่ไหนแทน</p>
-                <ul className="space-y-1 text-sm">{c.competitors.map((x) => <li key={x.name} className="flex justify-between"><span>{x.name}</span><span className="tabular-nums">{x.count}</span></li>)}</ul></div>
-              <div><p className="mb-1 text-xs font-medium text-muted-foreground">เวลาที่ลูกค้าต้องการแต่เราไม่มี</p>
-                <ul className="space-y-1 text-sm">{c.wantedTimes.map((x) => <li key={x.time} className="flex justify-between"><span>{x.time}</span><span className="tabular-nums">{x.count}</span></li>)}</ul></div>
-            </div>
-          )}
+      {compare && (
+        <Panel title="แยกตามสาขา" hint="Lead · สมัคร · Conversion">
+          <SplitRanks rows={[...c.perBranch].sort((a, b) => b.enrolled - a.enrolled)} cols={[
+            { label: "Lead", cell: (b) => b.leads },
+            { label: "สมัคร", cell: (b) => <span className="text-emerald-600">{b.enrolled}</span> },
+            { label: "%", cell: (b) => fmtPct(b.conversion) },
+          ]} />
         </Panel>
-        {compare ? (
-          <Panel title="แยกตามสาขา" hint="Lead · สมัคร · Conversion" fill>
-            <SplitRanks rows={[...c.perBranch].sort((a, b) => b.enrolled - a.enrolled)} cols={[
-              { label: "Lead", cell: (b) => b.leads },
-              { label: "สมัคร", cell: (b) => <span className="text-emerald-600">{b.enrolled}</span> },
-              { label: "%", cell: (b) => fmtPct(b.conversion) },
-            ]} />
-          </Panel>
-        ) : (
-          <Panel title="Pipeline ตอนนี้" hint="Lead ที่ยังเปิดอยู่" center><Stat label="Lead ที่ยังเปิดอยู่" value={fmtNum(c.open)} sub={<Link href="/crm" className="text-primary">ไปหน้า CRM ›</Link>} /></Panel>
-        )}
-      </div>
+      )}
     </div>
   )
 }

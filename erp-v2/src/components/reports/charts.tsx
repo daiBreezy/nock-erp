@@ -151,18 +151,55 @@ export function ShareBar({ value, className, color }: { value: number; className
   )
 }
 
-const DONUT = ["var(--color-primary)", "#8b5cf6", "#06b6d4", "#f59e0b", "#10b981", "#64748b"]
+const DONUT = ["var(--color-primary)", "#8b5cf6", "#06b6d4", "#f59e0b", "#10b981", "#ec4899", "#3b82f6", "#84cc16", "#f97316", "#14b8a6", "#a855f7", "#64748b"]
 export const donutColor = (i: number) => DONUT[i % DONUT.length]
 
-export function Donut({ parts, center, sub }: { parts: { label: string; value: number }[]; center: string; sub: string }) {
+export function Donut({ parts, center, sub, colors }: { parts: { label: string; value: number }[]; center: string; sub: string; colors?: string[] }) {
   const total = parts.reduce((a, p) => a + Math.max(0, p.value), 0) || 1
   const ends = parts.map((_, i) => parts.slice(0, i + 1).reduce((a, p) => a + (Math.max(0, p.value) / total) * 360, 0))
-  const stops = parts.map((_, i) => `${donutColor(i)} ${i ? ends[i - 1] : 0}deg ${ends[i]}deg`).join(", ")
+  const stops = parts.map((_, i) => `${colors?.[i] ?? donutColor(i)} ${i ? ends[i - 1] : 0}deg ${ends[i]}deg`).join(", ")
   return (
     <div className="relative mx-auto grid size-40 place-items-center rounded-full" style={{ background: `conic-gradient(${stops || "var(--color-muted) 0deg 360deg"})` }}>
       <div className="grid size-28 place-items-center rounded-full bg-card text-center">
         <div><p className="text-xl font-semibold tabular-nums">{center}</p><p className="text-[11px] text-muted-foreground">{sub}</p></div>
       </div>
+    </div>
+  )
+}
+
+/**
+ * Donut + its legend side by side (owner 2026-10-05, lost leads). Slivers under 3% (and anything past `top`) fold into
+ * one grey "อื่นๆ" so the colours stay readable; the legend still names what was folded. `keepOrder` keeps the given
+ * order (funnel stages) instead of biggest first.
+ */
+export function DonutLegend({ title, parts, center, sub, top = 12, keepOrder }: { title: string; parts: { label: string; value: number }[]; center: string; sub: string; top?: number; keepOrder?: boolean }) {
+  const shown = parts.filter((p) => p.value > 0)
+  const sum = shown.reduce((a, p) => a + p.value, 0)
+  const sorted = keepOrder ? shown : [...shown].sort((a, b) => b.value - a.value)
+  const big = sorted.filter((p) => p.value / sum >= 0.03)
+  const head = big.length > top ? big.slice(0, top - 1) : big
+  const rest = sorted.filter((p) => !head.includes(p))
+  const slices = rest.length ? [...head, { label: "อื่นๆ", value: rest.reduce((a, p) => a + p.value, 0) }] : head
+  const colors = slices.map((_, i) => (rest.length && i === slices.length - 1 ? "#cbd5e1" : donutColor(i)))
+  const total = slices.reduce((a, p) => a + p.value, 0)
+  return (
+    <div className="flex min-w-0 flex-col gap-3">
+      <p className="text-sm font-medium">{title}</p>
+      {total ? (
+        <div className="grid flex-1 items-center gap-4 sm:grid-cols-[10rem_1fr]">
+          <Donut parts={slices} colors={colors} center={center} sub={sub} />
+          <ul className="space-y-1.5 text-sm">
+            {slices.map((p, i) => (
+              <li key={p.label} className="grid grid-cols-[1fr_2.75rem_2.5rem] items-center gap-2">
+                <span className="flex min-w-0 items-center gap-1.5"><span className="size-2.5 shrink-0 rounded-full" style={{ background: colors[i] }} /><span className="truncate" title={p.label}>{p.label}</span></span>
+                <span className="text-right text-xs text-muted-foreground tabular-nums">{fmtPct(p.value / total)}</span>
+                <span className="text-right tabular-nums">{fmtNum(p.value)}</span>
+              </li>
+            ))}
+            {rest.length > 0 && <li className="pl-4 text-xs text-muted-foreground">อื่นๆ = {rest.map((p) => `${p.label} ${p.value}`).join(" · ")}</li>}
+          </ul>
+        </div>
+      ) : <Empty>ไม่มี</Empty>}
     </div>
   )
 }
