@@ -384,11 +384,13 @@ export function buildSeed(now = new Date()): DB {
     { id: "fam_ld3", name: "ครอบครัวสมใจ", parents: [{ name: "คุณแม่พัชรา สมใจ", phone: "089-100-1003", lineLinked: false, primary: true }] },
     { id: "fam_ld4", name: "ครอบครัวฟิชเชอร์", parents: [{ name: "คุณแม่เลนา ฟิชเชอร์", phone: "089-100-1004", lineLinked: true, primary: true }] },
     { id: "fam_ld6", name: "ครอบครัวมั่งมี", parents: [{ name: "คุณแม่กิ่งแก้ว มั่งมี", phone: "089-100-1006", lineLinked: true, primary: true }] },
+    { id: "fam_ld5", name: "ครอบครัวนากามูระ", parents: [{ name: "คุณพ่อเบน นากามูระ", phone: "089-100-1005", lineLinked: true, primary: true }] },
   )
   students.push(
     s("stu_ld3", "fam_ld3", "br_thl", "ด.ญ. พัช สมใจ", "พัช", "ป.5"),
     s("stu_ld4", "fam_ld4", "br_thl", "ด.ญ. เลโอนา ฟิชเชอร์", "เลโอนา", "ป.4"),
     s("stu_ld6", "fam_ld6", "br_thl", "ด.ช. กิ่ง มั่งมี", "กิ่ง", "ม.1"),
+    s("stu_ld5", "fam_ld5", "br_thl", "ด.ช. เคนตะ นากามูระ", "เคนตะ", "ป.4"),
   )
   const ld3Date = addDays(today, 3)
   const ld6Date = addDays(today, 1)
@@ -396,8 +398,11 @@ export function buildSeed(now = new Date()): DB {
   const se_ld3: Session = { id: "se_ld3test", branchId: "br_thl", classId: null, subject: "วิทย์", date: ld3Date, start: "10:00", minutes: 60, teacherId: "u_prae", coTeacherIds: [], roomId: "rm_2", studentIds: ["stu_ld3"], trial: true, assessment: "test", customized: true, cancelled: false }
   const se_ld6: Session = { id: "se_ld6trial", branchId: "br_thl", classId: null, subject: "คณิต", date: ld6Date, start: "10:00", minutes: 60, teacherId: "u_jo", coTeacherIds: [], roomId: "rm_3", studentIds: ["stu_ld6"], trial: true, assessment: "trial", customized: true, cancelled: false }
   const se_ld4: Session = { id: "se_ld4trial", branchId: "br_thl", classId: null, subject: "อังกฤษ", date: ld4Date, start: "14:00", minutes: 60, teacherId: "u_mint", coTeacherIds: [], roomId: "rm_1", studentIds: ["stu_ld4"], trial: true, assessment: "trial", customized: true, cancelled: false }
+  // ld_5 (ปิดการขาย) went through test + trial last week
+  const se_ld5t: Session = { ...se_ld4, id: "se_ld5test", date: addDays(today, -8), start: "11:00", studentIds: ["stu_ld5"], assessment: "test" }
+  const se_ld5r: Session = { ...se_ld4, id: "se_ld5trial", date: addDays(today, -4), start: "16:00", studentIds: ["stu_ld5"], assessment: "trial" }
   // demo test/trial bookings also get a free room/teacher — the one demo clash stays the only one
-  for (const x of [se_ld3, se_ld6, se_ld4]) if (fit(x)) sessions.push(x)
+  for (const x of [se_ld3, se_ld6, se_ld4, se_ld5t, se_ld5r]) if (fit(x)) sessions.push(x)
 
   const assessments: Assessment[] = [
     { id: "as_ld3", type: "test", leadId: "ld_3", studentId: "stu_ld3", sessionId: se_ld3.id, subject: "วิทย์", date: ld3Date, start: "10:00" },
@@ -406,7 +411,29 @@ export function buildSeed(now = new Date()): DB {
       id: "as_ld4", type: "trial", leadId: "ld_4", studentId: "stu_ld4", sessionId: se_ld4.id, subject: "อังกฤษ", date: ld4Date, start: "14:00",
       result: "เหมาะกับคลาสกลุ่ม ป.4", note: "ตั้งใจเรียนดี กล้าพูดภาษาอังกฤษ แนะนำเริ่มเรียนได้เลย", notedBy: "u_mint", notedAt: new Date(`${ld4Date}T15:00:00`).toISOString(),
     },
+    // the tests before those trials (owner 2026-10-05: a later step shows the earlier steps' results)
+    { id: "as_ld4t", type: "test", leadId: "ld_4", studentId: "stu_ld4", sessionId: se_ld4.id, subject: "อังกฤษ", date: addDays(ld4Date, -5), start: "10:00",
+      result: "ระดับ ป.4 · 21/30", note: "ฟัง-พูดดี ไวยากรณ์ยังสับสน past tense", notedBy: "u_mint", notedAt: new Date(`${addDays(ld4Date, -5)}T11:00:00`).toISOString() },
+    { id: "as_ld6t", type: "test", leadId: "ld_6", studentId: "stu_ld6", sessionId: se_ld6.id, subject: "คณิต", date: addDays(today, -4), start: "13:00",
+      result: "ระดับ ม.1 · 14/25", note: "พื้นฐานเศษส่วนยังไม่แน่น แนะนำทดลองคลาสปรับพื้นฐาน", notedBy: "u_jo", notedAt: new Date(`${addDays(today, -4)}T14:30:00`).toISOString() },
   ]
+  assessments.push(
+    { id: "as_ld5t", type: "test", leadId: "ld_5", studentId: "stu_ld5", sessionId: se_ld5t.id, subject: "อังกฤษ", date: se_ld5t.date, start: se_ld5t.start,
+      result: "ระดับ ป.4 · 24/30", note: "คำศัพท์ดีมาก ฟังจับใจความได้", notedBy: "u_mint", notedAt: new Date(`${se_ld5t.date}T12:00:00`).toISOString() },
+    { id: "as_ld5r", type: "trial", leadId: "ld_5", studentId: "stu_ld5", sessionId: se_ld5r.id, subject: "อังกฤษ", date: se_ld5r.date, start: se_ld5r.start,
+      result: "เข้ากลุ่ม ป.4 ได้", note: "กล้าตอบ เข้ากับเพื่อนในคลาสเร็ว", notedBy: "u_mint", notedAt: new Date(`${se_ld5r.date}T17:00:00`).toISOString() },
+  )
+  const l5 = leads.find((x) => x.id === "ld_5")
+  if (l5) l5.trialStudentId = "stu_ld5"
+  // contact step: the calls / LINE before the test (shown under "ติดต่อ" on later steps)
+  const fu = (leadId: string, list: [number, "call" | "line", "talked" | "replied" | "no_answer", string][]) => {
+    const l = leads.find((x) => x.id === leadId)
+    if (l) l.followUps = list.map(([daysBack, channel, result, note], i) => ({ id: `fu_${leadId}_${i}`, at: iso(addDays(today, -daysBack)), by: l.assigneeId ?? "u_ploy", channel, result, note }))
+  }
+  fu("ld_3", [[2, "call", "no_answer", ""], [2, "line", "replied", "สนใจวิทย์ ป.5 ขอสอบวัดระดับก่อน"]])
+  fu("ld_4", [[9, "call", "talked", "ลูกเรียนโรงเรียนนานาชาติ อยากเสริมอังกฤษ"]])
+  fu("ld_6", [[6, "line", "replied", "อยากให้ลูกปรับพื้นฐานคณิต ม.1"]])
+  fu("ld_5", [[12, "line", "replied", "ลูกย้ายมาจากญี่ปุ่น อยากเรียนอังกฤษเพิ่ม"]])
 
   const isoAt = (daysBack: number, h: number, m: number) => {
     const d = new Date(`${addDays(today, -daysBack)}T00:00:00`)

@@ -19,10 +19,10 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSepara
 import { CHANNEL_LABEL, followUpState, REACHED, RESULT_LABEL } from "@/domain/rules/loss"
 import { Sheet, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetTitle } from "@/components/ui/sheet"
 import { Textarea } from "@/components/ui/textarea"
-import { fmtDateTime } from "@/domain/dates"
+import { fmtDate, fmtDateTime } from "@/domain/dates"
 import { BOARD_GROUPS, daysAgoLabel, groupOf, LEAD_SOURCE_LABEL, scheduleInfo, STAGE_FOR_GROUP, stageGroupLabel } from "@/domain/rules/crm"
 import { can } from "@/domain/rules/permissions"
-import type { FormSubmission, ID, Lead, LeadStage } from "@/domain/types"
+import type { Assessment, FormSubmission, ID, Lead, LeadStage } from "@/domain/types"
 import { report } from "@/lib/feedback"
 import { useNow } from "@/lib/hooks"
 import { cn } from "@/lib/utils"
@@ -181,15 +181,10 @@ function Body({ id }: { id: ID }) {
           </Section>
         )}
 
-        {(lead.scheduledAt || myAssessments.length > 0) && (
-          <Section title="นัดสอบ / ทดลองเรียน">
-            {lead.scheduledAt && (lead.stage === "test_scheduled" || lead.stage === "trial_scheduled") && (() => {
-              const due = scheduleInfo(lead.scheduledAt!, now)
-              return <p className={cn(due.overdue ? "font-medium text-red-700" : due.daysLeft <= 1 ? "text-amber-700" : "")}>{fmtDateTime(lead.scheduledAt!)} · {due.overdue ? `เลยนัด ${-due.daysLeft} วัน` : due.daysLeft === 0 ? "วันนี้" : due.daysLeft === 1 ? "พรุ่งนี้" : `อีก ${due.daysLeft} วัน`}</p>
-            })()}
-            {myAssessments.map((a) => <AssessmentNote key={a.id} a={a} editable={canManage} showWhen />)}
-          </Section>
-        )}
+        {/* each column shows the results of the columns before it (owner 2026-10-05) */}
+        <Section title="ผลแต่ละขั้น">
+          <LeadSteps lead={lead} assessments={myAssessments} canManage={canManage} now={now} />
+        </Section>
 
         <Section title="ติดต่อ">
           <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
@@ -320,6 +315,66 @@ function EnrollLinkButton({ lead }: { lead: Lead }) {
       {url && <Input readOnly value={url} className="h-8 text-xs" onFocus={(e) => { e.target.select(); navigator.clipboard?.writeText(url) }} />}
     </div>
   )
+}
+
+const STEP_KEYS = ["contact", "test", "trial", "closing"] as const
+const INV_STATUS: Record<string, string> = { draft: "ร่าง", pending_approval: "รออนุมัติ", approved: "อนุมัติแล้ว", sent: "ส่งแล้ว · รอชำระ", paid: "ชำระแล้ว", void: "ยกเลิก" }
+
+/**
+ * The lead's path so far (owner 2026-10-05): on Test it shows how the contact went, on Trial also the test result,
+ * on closing also the trial — the step it's on now can be filled in, earlier steps are read only.
+ */
+function LeadSteps({ lead, assessments, canManage, now }: { lead: Lead; assessments: Assessment[]; canManage: boolean; now: Date }) {
+  const invoices = useStore((s) => s.invoices)
+  const staff = useStore((s) => s.staff)
+  const studentId = lead.convertedStudentId ?? lead.trialStudentId
+  const g = lead.stage === "archived" ? groupOf(lead.archivedFrom ?? "new").key : groupOf(lead.stage).key
+  const upTo = lead.stage === "enrolled" ? 3 : STEP_KEYS.indexOf(g as (typeof STEP_KEYS)[number])
+  const ups = [...(lead.followUps ?? [])].sort((a, b) => a.at.localeCompare(b.at))
+  const lastUp = ups.at(-1)
+  const lastNote = [...lead.notes].sort((a, b) => a.at.localeCompare(b.at)).at(-1)
+  const inv = studentId ? [...invoices].filter((i) => i.studentId === studentId && i.status !== "void").sort((a, b) => b.createdAt.localeCompare(a.createdAt))[0] : undefined
+  const step = (key: (typeof STEP_KEYS)[number]) => {
+    const i = STEP_KEYS.indexOf(key), current = i === upTo
+    const label = { contact: "ติดต่อ", test: "สอบวัดระดับ", trial: "ทดลองเรียน", closing: "ปิดการขาย" }[key]
+    let body: React.ReactNode
+    if (key === "contact") {
+      body = ups.length || lastNote ? (
+        <div className="space-y-0.5">
+          {ups.length > 0 && <p>ติดต่อ {ups.length} ครั้ง · ล่าสุด <span className={cn("font-medium", REACHED.includes(lastUp!.result) ? "text-emerald-700" : "text-red-700")}>{CHANNEL_LABEL[lastUp!.channel]} · {RESULT_LABEL[lastUp!.result]}</span> <span className="text-xs text-muted-foreground">{fmtDateTime(lastUp!.at)}</span></p>}
+          {(lastUp?.note || lastNote) && <p className="text-muted-foreground">“{lastUp?.note || lastNote!.text}”</p>}
+        </div>
+      ) : <p className="text-muted-foreground">ยังไม่มีบันทึกการติดต่อ</p>
+    } else if (key === "test" || key === "trial") {
+      const mine = assessments.filter((x) => x.type === key)
+      body = mine.length ? (
+        <div className="space-y-1.5">{mine.map((x) => current && canManage ? <AssessmentNote key={x.id} a={x} editable showWhen /> : (
+          <div key={x.id} className="rounded-xl bg-muted/50 p-2">
+            <p className="text-xs text-muted-foreground">{x.subject} · {fmtDate(x.date, { weekday: true })} {x.start}{x.notedBy ? ` · บันทึกโดย ${staff.find((st) => st.id === x.notedBy)?.nickname ?? "—"}` : ""}</p>
+            <p className="font-medium">{x.result || <span className="font-normal text-muted-foreground">ยังไม่ได้บันทึกผล</span>}</p>
+            {x.note && <p className="text-muted-foreground">{x.note}</p>}
+          </div>
+        ))}</div>
+      ) : current && lead.scheduledAt ? (() => {
+        const due = scheduleInfo(lead.scheduledAt, now)
+        return <p className={cn(due.overdue ? "font-medium text-red-700" : "")}>นัด {fmtDateTime(lead.scheduledAt)} · {due.overdue ? `เลยนัด ${-due.daysLeft} วัน` : due.daysLeft === 0 ? "วันนี้" : due.daysLeft === 1 ? "พรุ่งนี้" : `อีก ${due.daysLeft} วัน`}</p>
+      })() : <p className="text-muted-foreground">{lead.direct ? "สมัครตรง — ไม่ได้" + (key === "test" ? "สอบ" : "ทดลองเรียน") : current ? "ยังไม่ได้นัด — ส่งฟอร์มจากเมนู ⋯" : `ไม่ได้${key === "test" ? "สอบวัดระดับ" : "ทดลองเรียน"} (ข้ามขั้นนี้)`}</p>
+    } else {
+      body = inv ? <p>ใบแจ้งหนี้ {inv.number ?? "ร่าง"} · <span className={cn("font-medium", inv.status === "paid" ? "text-emerald-700" : "")}>{INV_STATUS[inv.status]}</span></p>
+        : <p className="text-muted-foreground">ยังไม่ออกใบแจ้งหนี้</p>
+    }
+    return (
+      <li key={key} className="relative flex gap-3 pb-3 last:pb-0">
+        {i < upTo && <span className="absolute top-6 left-[11px] h-[calc(100%-1.25rem)] w-px bg-border" />}
+        <span className={cn("z-10 grid size-6 shrink-0 place-items-center rounded-full text-[11px] font-semibold", current ? "bg-primary text-primary-foreground" : "bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-200")}>{current ? i + 1 : "✓"}</span>
+        <div className="min-w-0 flex-1 space-y-1">
+          <p className={cn("text-sm font-medium", !current && "text-muted-foreground")}>{label}{current && <span className="ml-1.5 text-xs font-normal text-primary">ขั้นปัจจุบัน</span>}</p>
+          {body}
+        </div>
+      </li>
+    )
+  }
+  return <ol>{STEP_KEYS.filter((_, i) => i <= upTo).map(step)}</ol>
 }
 
 /** One even block per topic — same title style and spacing everywhere in the sheet. */
