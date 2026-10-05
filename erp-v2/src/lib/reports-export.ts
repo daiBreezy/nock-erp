@@ -49,6 +49,15 @@ export async function downloadReports(d: ReportData, opts: { scope: string; peri
   sheet("ความเคลื่อนไหวนักเรียน", ["วันที่", "นักเรียน", "สาขา", "เหตุการณ์"],
     d.events.filter((e) => e.kind !== "renewed" && e.date >= d.range.from && e.date <= d.range.to)
       .map((e) => [fmtDate(e.date), opts.nameOf(e.studentId), opts.branchOf(e.branchId), { new: "ใหม่", returning: "กลับมาเรียน", lost: "Lost", renewed: "ต่อคอร์ส" }[e.kind]]))
+  // R2
+  sheet("การเข้าเรียนตามสาขา", ["สาขา", "คาบ", "มา", "ลา", "ลาไม่หักโควตา", "อัตรา"], d.attendanceTab.byBranch.map((r) => [r.name, r.sessions, r.present, r.leave, r.noQuota, r.rate]), [], [6])
+  sheet("การเข้าเรียนตามวิชา", ["วิชา", "คาบ", "มา", "ลา", "อัตรา"], d.attendanceTab.bySubject.map((r) => [r.key, r.sessions, r.present, r.leave, r.rate]), [], [5])
+  sheet("นักเรียนลาบ่อย", ["นักเรียน", "มา", "ลา", "ไม่หักโควตา", "อัตรา"], d.attendanceTab.leavers.map((x) => [opts.nameOf(x.studentId), x.present, x.leave, x.noQuota, x.rate]), [], [5])
+  sheet("ครู", ["ครู", "Part-time", "คาบ", "ชั่วโมง", "นักเรียน", "อัตราเข้าเรียน", "ยังไม่เช็คชื่อ", "สรุปค้าง", "สรุปตรงเวลา", "สอนแทน", "ลา (คาบ)"],
+    d.operations.teachers.map((t) => [t.staff?.nickname ?? t.teacherId, t.staff?.partTime ? "ใช่" : "", t.sessions, Math.round((t.minutes / 60) * 10) / 10, t.students, t.rate, t.unmarked, t.summariesPending, t.summariesOnTime, t.coverFor, t.awaySessions]), [], [6, 9])
+  sheet("การใช้ห้อง", ["สาขา", "ห้อง", "ชั่วโมงที่มีคาบ", "ชั่วโมงเปิด", "อัตรา"],
+    d.operations.rooms.flatMap((b) => b.rooms.map((r) => [b.name, r.name, Math.round(r.booked / 6) / 10, Math.round(r.open / 6) / 10, r.rate])), [], [5])
+  sheet("ความเต็มของคลาส", ["คลาส", "สาขา", "นักเรียน", "ขนาดแนะนำ", "ความเต็ม"], d.operations.fill.map((c) => [c.name, opts.branchOf(c.branchId), c.students, c.capacity, c.fill]), [], [5])
   sheet("Need Attention", ["เรื่อง", "รายละเอียด", "จำนวน"], d.attention.map((a) => [a.title, a.detail, a.count]))
 
   const buf = await wb.xlsx.writeBuffer()

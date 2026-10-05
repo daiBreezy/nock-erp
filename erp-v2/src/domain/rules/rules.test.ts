@@ -1522,3 +1522,37 @@ describe("Reports definitions (owner 2026-10-01)", () => {
     expect(Rep.attendanceRate(sessions, att, { from: "2026-09-01", to: "2026-09-30" }).rate).toBe(0.5)
   })
 })
+
+describe("Reports R2 — attendance + operations (owner 2026-10-01)", () => {
+  const r = { from: "2026-09-01", to: "2026-09-30" }
+  const ses = (id: string, extra: Partial<Session> = {}) => ({ id, branchId: "b1", classId: null, subject: "คณิต", date: "2026-09-10", start: "10:00", minutes: 60, teacherId: "t1", coTeacherIds: [], roomId: "r1", studentIds: ["a", "b"], trial: false, customized: false, cancelled: false, ...extra }) as Session
+  it("attendance by key and frequent leavers", () => {
+    const sessions = [ses("s1"), ses("s2", { subject: "อังกฤษ" }), ses("s3", { cancelled: true })]
+    const att = [
+      { sessionId: "s1", studentId: "a", status: "present" as const }, { sessionId: "s1", studentId: "b", status: "leave" as const, noQuota: true },
+      { sessionId: "s2", studentId: "a", status: "present" as const }, { sessionId: "s2", studentId: "b", status: "leave" as const },
+      { sessionId: "s3", studentId: "b", status: "leave" as const },
+    ]
+    const by = Rep.attendanceBy(sessions, att, r, (s) => s.subject)
+    expect(by.find((x) => x.key === "คณิต")).toMatchObject({ present: 1, leave: 1, noQuota: 1, rate: 0.5 })
+    expect(Rep.frequentLeavers(sessions, att, r).map((x) => [x.studentId, x.leave])).toEqual([["b", 2]])
+  })
+  it("teacher stats count only taught sessions; summary on time vs deadline", () => {
+    const sessions = [ses("s1"), ses("s2", { date: "2026-09-20", teacherLeave: { teacherId: "t2", substituteId: "t1", reason: "ป่วย" } } as Partial<Session>), ses("s9", { date: "2026-09-29" })]
+    const summaries = [
+      { sessionId: "s1", status: "sent", history: [{ at: "2026-09-10T12:00:00", action: "submit" }] },
+      { sessionId: "s2", status: "sent", history: [{ at: "2026-09-23T12:00:00", action: "submit" }] },
+    ]
+    const st = Rep.teacherStats({ sessions, attendance: [], summaries, range: r, now: new Date("2026-09-25T00:00:00"), deadlineHours: 24 })
+    const t1 = st.find((x) => x.teacherId === "t1")!
+    expect([t1.sessions, t1.minutes, t1.coverFor, t1.unmarked, t1.summariesOnTime]).toEqual([2, 120, 1, 2, 0.5])
+    expect(st.find((x) => x.teacherId === "t2")!.awaySessions).toBe(1)
+  })
+  it("room use = booked ÷ open minutes from go-live; class fill vs suggested size", () => {
+    const branch = { id: "b1", rooms: [{ id: "r1", name: "ห้อง 1" }] } as unknown as Branch
+    const u = Rep.roomUtilization(branch, [ses("s1", { minutes: 120 })], r, { since: "2026-09-10", closed: (d) => d === "2026-09-11", hoursOn: (d) => (d <= "2026-09-12" ? { open: "09:00", close: "19:00" } : null) })
+    expect(u[0]).toMatchObject({ booked: 120, open: 1200, rate: 0.1 })
+    const fill = Rep.classFill([{ id: "k", name: "k", branchId: "b1", active: true, kind: "learning", type: "single", studentIds: ["a", "b", "c", "d"], teacherId: null }], { single: 3, group: 6 })
+    expect(fill[0].fill).toBeCloseTo(4 / 3)
+  })
+})

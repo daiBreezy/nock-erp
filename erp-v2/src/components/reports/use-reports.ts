@@ -4,7 +4,7 @@ import { useMemo } from "react"
 import { addDays, toDateStr } from "@/domain/dates"
 import { invoiceTotals } from "@/domain/rules/billing"
 import * as R from "@/domain/rules/reports"
-import { findConflicts, sessionState } from "@/domain/rules/scheduling"
+import { CAPACITY, findConflicts, hoursFor, isHoliday, sessionState } from "@/domain/rules/scheduling"
 import { useEntitlements, useNow } from "@/lib/hooks"
 import { useStore } from "@/store/store"
 
@@ -12,6 +12,9 @@ import { useStore } from "@/store/store"
  * Everything the Reports page shows for a set of branches and a period — computed from the store through
  * domain/rules/reports.ts only (no numbers made up in components).
  */
+/** taught already: today's finished sessions ("ended") and every earlier one ("closed") */
+const isOver = (st: string) => st === "ended" || st === "closed"
+
 export function useReports(branchIds: string[], period: R.PeriodKey) {
   const now = useNow(60_000)
   const today = toDateStr(now)
@@ -54,8 +57,8 @@ export function useReports(branchIds: string[], period: R.PeriodKey) {
 
     const rev = R.revenueIn(rows, range)
     const revPrev = R.revenueIn(rows, prev)
-    const att = R.attendanceRate(sessions.filter((x) => sessionState(x, now) === "ended"), s.attendance, range)
-    const attPrev = R.attendanceRate(sessions.filter((x) => sessionState(x, now) === "ended"), s.attendance, prev)
+    const att = R.attendanceRate(sessions.filter((x) => isOver(sessionState(x, now))), s.attendance, range)
+    const attPrev = R.attendanceRate(sessions.filter((x) => isOver(sessionState(x, now))), s.attendance, prev)
     const weekRange = R.periodRange("week", today)
     const weekSessions = sessions.filter((x) => !x.cancelled && R.inRange(x.date, { from: weekRange.from, to: addDays(weekRange.from, 6) })).length
 
@@ -78,7 +81,41 @@ export function useReports(branchIds: string[], period: R.PeriodKey) {
       active: students.filter((x) => x.branchId === b.id && R.stateOn(x.id, today, ents, leaves) === "active").length,
     }))
 
+    // ---- R2: attendance + operations (from real sessions; the system's first session = when data starts) ----
+    const ended = sessions.filter((x) => isOver(sessionState(x, now)))
+    const sessionSince = sessions.reduce<string | null>((m, x) => (!m || x.date < m ? x.date : m), null) ?? today
+    const subjectOf = (x: { subject: string }) => x.subject
+    const monthKeyOf = (x: { date: string }) => x.date.slice(0, 7)
+    const attMonthly = R.attendanceBy(ended, s.attendance, { from: `${year}-01-01`, to: today }, monthKeyOf)
+    const classesInScope = s.classes.filter((k) => ids.has(k.branchId))
+    const attendanceTab = {
+      since: sessionSince,
+      total: R.attendanceRate(ended, s.attendance, range),
+      noQuota: R.attendanceBy(ended, s.attendance, range, () => "all")[0]?.noQuota ?? 0,
+      byBranch: R.attendanceBy(ended, s.attendance, range, (x) => s.sessions.find((y) => y.id === x.id)?.branchId ?? null)
+        .map((r) => ({ ...r, name: s.branches.find((b) => b.id === r.key)?.name ?? r.key })).sort((a, b) => (a.rate ?? 1) - (b.rate ?? 1)),
+      bySubject: R.attendanceBy(ended, s.attendance, range, subjectOf).sort((a, b) => (a.rate ?? 1) - (b.rate ?? 1)),
+      byWeekday: R.attendanceBy(ended, s.attendance, range, (x) => String(new Date(`${x.date}T00:00:00`).getDay())),
+      byClass: R.attendanceBy(ended, s.attendance, range, (x) => s.sessions.find((y) => y.id === x.id)?.classId ?? null)
+        .map((r) => ({ ...r, name: s.classes.find((k) => k.id === r.key)?.name ?? "คาบเดี่ยว" })).filter((r) => r.present + r.leave > 0).sort((a, b) => (a.rate ?? 1) - (b.rate ?? 1)),
+      monthly: Array.from({ length: 12 }, (_, m) => attMonthly.find((r) => r.key === `${year}-${String(m + 1).padStart(2, "0")}`)?.rate ?? null),
+      leavers: R.frequentLeavers(ended, s.attendance, range),
+      cancelled: R.cancellations(sessions, range),
+    }
+    const operations = {
+      since: sessionSince,
+      teachers: R.teacherStats({ sessions, attendance: s.attendance, summaries: s.summaries, range, now, deadlineHours: s.system.settings.summaryDeadlineHours })
+        .map((t) => ({ ...t, staff: s.staff.find((x) => x.id === t.teacherId) })),
+      rooms: branches.map((b) => {
+        const rooms = R.roomUtilization(b, sessions, range, { since: sessionSince, closed: (d) => !!isHoliday(d, b.id, s.holidays), hoursOn: (d) => hoursFor(b, d) })
+        const booked = rooms.reduce((a, x) => a + x.booked, 0), open = rooms.reduce((a, x) => a + x.open, 0)
+        return { id: b.id, name: b.name, rooms, rate: open ? booked / open : null, booked }
+      }),
+      fill: R.classFill(classesInScope, CAPACITY),
+    }
+
     return {
+      attendanceTab, operations,
       today, now, range, prev, rows, events, students, since, comparable: !!since && prev.from >= since,
       kpi: {
         revenue: rev.total, revenueChange: R.change(rev.total, revPrev.total, prev, since),
@@ -110,7 +147,7 @@ export function useReports(branchIds: string[], period: R.PeriodKey) {
       },
       perBranch,
     }
-  }, [allRows, ids, period, today, now, s.students, s.leaves, s.sessions, s.attendance, s.branches, s.staff, s.summaries, s.invoices, s.classes, s.leads, s.families, entitlementsAll])
+  }, [allRows, ids, period, today, now, s.students, s.leaves, s.sessions, s.attendance, s.branches, s.staff, s.summaries, s.invoices, s.classes, s.leads, s.families, s.holidays, s.system, entitlementsAll])
 }
 
 export type ReportData = ReturnType<typeof useReports>

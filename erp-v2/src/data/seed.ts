@@ -299,7 +299,11 @@ export function buildSeed(now = new Date()): DB {
   const write = (se: Session, sid: string, status: LessonSummary["status"], at: number) =>
     summaries.push({
       id: uid("sm"), sessionId: se.id, studentId: sid, authorId: se.teacherId!, lastEditorId: se.teacherId!,
-      text: "ตั้งใจเรียนดี ทำโจทย์ได้คล่องขึ้น การบ้านหน้า 12–13", status, history: [{ at: new Date(at).toISOString(), by: se.teacherId!, action: "write" }],
+      text: "ตั้งใจเรียนดี ทำโจทย์ได้คล่องขึ้น การบ้านหน้า 12–13", status, history: [
+        { at: new Date(at).toISOString(), by: se.teacherId!, action: "write" },
+        // submitted within the deadline most of the time; about one in six a day late (Teacher Health shows it)
+        ...(status === "draft" ? [] : [{ at: new Date(at + ((se.id.charCodeAt(se.id.length - 1) + sid.length) % 6 === 0 ? 30 : 2) * 3_600_000).toISOString(), by: se.teacherId!, action: "submit" as const }]),
+      ],
     })
   const mark = (se: Session, sid: string, status: Attendance["status"], at: number) =>
     attendance.push({ sessionId: se.id, studentId: sid, status, markedBy: se.teacherId ?? "u_ploy", markedAt: new Date(at).toISOString() })
@@ -480,6 +484,32 @@ export function buildSeed(now = new Date()): DB {
   // students who joined, renewed, paused, left and came back; every paid invoice has its package. Deterministic.
   const history = buildHistory({ today, branches, courses, classes, families, students, invoices, entitlements })
   const leaves: StudentLeave[] = history.leaves
+
+  // the other branches get a teacher each and their current students in class, with the last two weeks of
+  // attendance + summaries — so Attendance / Operations reports compare every branch (owner 2026-10-01)
+  const TEACHER_NICK = ["ครูเอิร์น", "ครูบอส", "ครูแนน", "ครูเจ", "ครูปาล์ม", "ครูนุ่น", "ครูกอล์ฟ", "ครูเมย์", "ครูต้า", "ครูเบล"]
+  branches.slice(2).forEach((b, i) => {
+    const tid = `u_t_${b.id}`
+    staff.push({ id: tid, name: TEACHER_NICK[i].replace("ครู", "") + " (ครู)", nickname: TEACHER_NICK[i], roles: ["teacher"], branchIds: [b.id], subjects: ["คณิต", "อังกฤษ"], active: true, canLogin: false, partTime: i % 4 === 3 })
+    const current = students.filter((st) => st.branchId === b.id && entitlements.some((e) => e.studentId === st.id && e.from <= today && today <= e.to)).map((st) => st.id)
+    const rosters: Record<string, string[]> = { [`cl_${b.id}_m`]: current.slice(0, 5), [`cl_${b.id}_e`]: current.slice(5, 9) }
+    for (const k of classes.filter((x) => x.branchId === b.id)) {
+      k.teacherId = tid
+      k.studentIds = rosters[k.id] ?? []
+      for (const se of sessions.filter((x) => x.classId === k.id)) {
+        se.teacherId = tid
+        se.studentIds = [...k.studentIds]
+        const end = endOf(se)
+        if (end > nowMs) continue
+        se.studentIds.forEach((sid, j) => {
+          // some branches see more leave than others
+          const status = (j + se.date.charCodeAt(9) + i) % (4 + (i % 4)) === 0 ? "leave" : "present"
+          mark(se, sid, status, end - 30 * 60000)
+          if (status === "present") write(se, sid, nowMs - end < 3 * 86400000 ? "draft" : "sent", end)
+        })
+      }
+    }
+  })
 
   // seed history so every student's Timeline has real entries (created, enrolled, invoices)
   const logs: ActivityLog[] = []

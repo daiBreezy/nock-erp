@@ -361,3 +361,134 @@ export function needsAttention(ctx: {
   add({ key: "trial_idle", group: "sales", title: "ทดลองเรียนแล้ว ยังไม่สมัคร", detail: `เกิน ${T.trialIdleDays} วัน`, count: ctx.leads.filter((l) => l.stage === "trialed" && days(l.scheduledAt ?? l.createdAt) > T.trialIdleDays).length, href: "/crm" })
   return out
 }
+
+// ---------- R2: attendance (owner 2026-10-01) ----------
+
+export interface AttendanceRow { key: string; present: number; leave: number; noQuota: number; rate: number | null; sessions: number }
+
+/** Present / leave split by any key (branch, subject, weekday, class…) for sessions in the period, cancelled left out. */
+export function attendanceBy(sessions: Pick<Session, "id" | "date" | "cancelled" | "subject">[], attendance: Pick<Attendance, "sessionId" | "status" | "noQuota">[], r: Range, keyOf: (s: Pick<Session, "id" | "date" | "cancelled" | "subject">) => string | null): AttendanceRow[] {
+  const by = new Map<string, AttendanceRow>()
+  const byId = new Map(sessions.filter((s) => !s.cancelled && inRange(s.date, r)).map((s) => [s.id, s]))
+  for (const s of byId.values()) {
+    const k = keyOf(s)
+    if (k === null) continue
+    const row = by.get(k) ?? { key: k, present: 0, leave: 0, noQuota: 0, rate: null, sessions: 0 }
+    row.sessions++
+    by.set(k, row)
+  }
+  for (const a of attendance) {
+    const s = byId.get(a.sessionId)
+    if (!s) continue
+    const k = keyOf(s)
+    if (k === null) continue
+    const row = by.get(k)!
+    if (a.status === "present") row.present++
+    else if (a.status === "leave") { row.leave++; if (a.noQuota) row.noQuota++ }
+  }
+  for (const row of by.values()) row.rate = row.present + row.leave ? row.present / (row.present + row.leave) : null
+  return [...by.values()]
+}
+
+/** Students who took the most leave in the period (risk of leaving) — at least `min` leaves. */
+export function frequentLeavers(sessions: Pick<Session, "id" | "date" | "cancelled">[], attendance: Pick<Attendance, "sessionId" | "studentId" | "status" | "noQuota">[], r: Range, min = 2) {
+  const ids = new Set(sessions.filter((s) => !s.cancelled && inRange(s.date, r)).map((s) => s.id))
+  const by = new Map<ID, { studentId: ID; leave: number; noQuota: number; present: number }>()
+  for (const a of attendance) {
+    if (!ids.has(a.sessionId)) continue
+    const row = by.get(a.studentId) ?? { studentId: a.studentId, leave: 0, noQuota: 0, present: 0 }
+    if (a.status === "leave") { row.leave++; if (a.noQuota) row.noQuota++ } else if (a.status === "present") row.present++
+    by.set(a.studentId, row)
+  }
+  return [...by.values()].filter((x) => x.leave >= min).map((x) => ({ ...x, rate: x.present / (x.present + x.leave) })).sort((a, b) => b.leave - a.leave || a.rate - b.rate)
+}
+
+/** Sessions that did not happen: cancelled by reason (teacher leave / special period / other). */
+export function cancellations(sessions: Pick<Session, "date" | "cancelled" | "teacherLeave" | "pausedBy" | "studentIds">[], r: Range) {
+  const xs = sessions.filter((s) => s.cancelled && inRange(s.date, r))
+  const teacher = xs.filter((s) => s.teacherLeave && !s.teacherLeave.substituteId)
+  const period = xs.filter((s) => s.pausedBy)
+  return { total: xs.length, teacher: teacher.length, period: period.length, other: xs.length - teacher.length - period.length, students: xs.reduce((a, s) => a + s.studentIds.length, 0) }
+}
+
+// ---------- R2: operations ----------
+
+export interface TeacherStat {
+  teacherId: ID; sessions: number; minutes: number; students: number; rate: number | null
+  unmarked: number; summariesPending: number; summariesOnTime: number | null
+  coverFor: number; awaySessions: number
+}
+
+/**
+ * Teacher health for the period: what they taught (primary teacher), attendance in their sessions, work still open
+ * (attendance not taken, summaries not sent), summaries on time, sessions they covered for others / were away from.
+ * Minutes drive part-time pay.
+ */
+export function teacherStats(ctx: {
+  sessions: Session[]; attendance: Pick<Attendance, "sessionId" | "studentId" | "status">[]
+  summaries: { sessionId: ID; status: string; history: { at: string; action: string }[] }[]
+  range: Range; now: Date; deadlineHours: number
+}): TeacherStat[] {
+  const { range: r } = ctx
+  const by = new Map<ID, TeacherStat & { studentSet: Set<ID>; present: number; leave: number; onTime: number; due: number }>()
+  const get = (id: ID) => {
+    if (!by.has(id)) by.set(id, { teacherId: id, sessions: 0, minutes: 0, students: 0, rate: null, unmarked: 0, summariesPending: 0, summariesOnTime: null, coverFor: 0, awaySessions: 0, studentSet: new Set(), present: 0, leave: 0, onTime: 0, due: 0 })
+    return by.get(id)!
+  }
+  const marks = new Map<ID, Pick<Attendance, "sessionId" | "studentId" | "status">[]>()
+  for (const a of ctx.attendance) { const l = marks.get(a.sessionId) ?? []; l.push(a); marks.set(a.sessionId, l) }
+  const sums = new Map<ID, (typeof ctx.summaries)[number][]>()
+  for (const x of ctx.summaries) { const l = sums.get(x.sessionId) ?? []; l.push(x); sums.set(x.sessionId, l) }
+  for (const s of ctx.sessions) {
+    if (!inRange(s.date, r)) continue
+    if (s.teacherLeave?.teacherId) get(s.teacherLeave.teacherId).awaySessions++
+    if (s.cancelled || !s.teacherId) continue
+    const end = new Date(`${s.date}T${s.start}:00`).getTime() + s.minutes * 60_000
+    if (end > ctx.now.getTime()) continue // only what has been taught
+    const t = get(s.teacherId)
+    t.sessions++
+    t.minutes += s.minutes
+    if (s.teacherLeave?.substituteId === s.teacherId) t.coverFor++
+    s.studentIds.forEach((id) => t.studentSet.add(id))
+    const m = marks.get(s.id) ?? []
+    t.present += m.filter((a) => a.status === "present").length
+    t.leave += m.filter((a) => a.status === "leave").length
+    if (s.studentIds.some((sid) => !m.some((a) => a.studentId === sid))) t.unmarked++
+    const ss = sums.get(s.id) ?? []
+    t.summariesPending += ss.filter((x) => ["draft", "submitted", "changes_requested"].includes(x.status)).length
+    for (const x of ss) {
+      const sent = x.history.find((h) => h.action === "submit")
+      if (!sent) continue
+      t.due++
+      if (new Date(sent.at).getTime() <= end + ctx.deadlineHours * 3_600_000) t.onTime++
+    }
+  }
+  return [...by.values()].map(({ studentSet, present, leave, onTime, due, ...t }) => ({
+    ...t, students: studentSet.size, rate: present + leave ? present / (present + leave) : null, summariesOnTime: due ? onTime / due : null,
+  })).sort((a, b) => b.minutes - a.minutes)
+}
+
+/**
+ * Room use: booked minutes ÷ open minutes over the days the branch was open (holidays out) — counted from `since`
+ * (go-live) so days without any data do not drag it down.
+ */
+export function roomUtilization(branch: Branch, sessions: Pick<Session, "date" | "roomId" | "minutes" | "cancelled" | "branchId">[], r: Range, opts: { since: DateStr; closed: (date: DateStr) => boolean; hoursOn: (date: DateStr) => { open: string; close: string } | null }) {
+  const from = r.from < opts.since ? opts.since : r.from
+  let openPerRoom = 0
+  for (let d = from; d <= r.to; d = addDays(d, 1)) {
+    const h = opts.hoursOn(d)
+    if (h && !opts.closed(d)) openPerRoom += toMinutes(h.close) - toMinutes(h.open)
+  }
+  return branch.rooms.map((room) => {
+    const booked = sessions.filter((s) => s.branchId === branch.id && s.roomId === room.id && !s.cancelled && s.date >= from && s.date <= r.to).reduce((a, s) => a + s.minutes, 0)
+    return { roomId: room.id, name: room.name, booked, open: openPerRoom, rate: openPerRoom ? booked / openPerRoom : null }
+  })
+}
+
+/** How full each active class is against its suggested size (Single 3 / Group 6). */
+export function classFill(classes: Pick<Klass, "id" | "name" | "branchId" | "active" | "kind" | "type" | "studentIds" | "teacherId" | "periodId">[], capacity: { single: number; group: number }) {
+  return classes.filter((k) => k.active && k.kind === "learning").map((k) => {
+    const cap = capacity[k.type]
+    return { id: k.id, name: k.name, branchId: k.branchId, teacherId: k.teacherId, students: k.studentIds.length, capacity: cap, fill: k.studentIds.length / cap }
+  }).sort((a, b) => a.fill - b.fill)
+}

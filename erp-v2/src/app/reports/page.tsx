@@ -24,8 +24,8 @@ const TABS: { id: Tab; label: string; soon?: string }[] = [
   { id: "overview", label: "ภาพรวม" },
   { id: "revenue", label: "รายได้" },
   { id: "students", label: "นักเรียน" },
-  { id: "attendance", label: "การเข้าเรียน", soon: "R2" },
-  { id: "operations", label: "Operations", soon: "R2" },
+  { id: "attendance", label: "การเข้าเรียน" },
+  { id: "operations", label: "Operations" },
   { id: "crm", label: "CRM", soon: "R3" },
 ]
 const DAYS: Weekday[] = [1, 2, 3, 4, 5, 6, 0]
@@ -116,6 +116,8 @@ function Reports() {
       {tab === "overview" && <Overview d={d} compare={showCompare} period={period} onAllRevenue={() => setTab("revenue")} onAllStudents={() => setTab("students")} />}
       {tab === "revenue" && <RevenueTab d={d} compare={showCompare} period={period} />}
       {tab === "students" && <StudentsTab d={d} compare={showCompare} onOpen={setOpenId} />}
+      {tab === "attendance" && <AttendanceTab d={d} compare={showCompare} onOpen={setOpenId} />}
+      {tab === "operations" && <OperationsTab d={d} compare={showCompare} />}
       {TABS.find((t) => t.id === tab)?.soon && <Empty>แท็บนี้อยู่ในรอบ {TABS.find((t) => t.id === tab)!.soon} — คุยสเปกแล้ว ยังไม่ได้สร้าง</Empty>}
 
       <AttentionDialog open={showAttention} onClose={() => setShowAttention(false)} items={d.attention} />
@@ -503,6 +505,151 @@ function StudentsTab({ d, compare, onOpen }: { d: ReportData; compare: boolean; 
         ) : <Empty />}
       </Panel>
       <p className="text-xs text-muted-foreground">Cohort Retention อยู่ในรอบ R3 · นักเรียนที่ Import จากระบบเดิมไม่นับเป็น &quot;ใหม่&quot;</p>
+    </div>
+  )
+}
+
+// ---------------- Attendance (R2) ----------------
+
+/** label · bar · value rows — the bar is the rate itself (0–100%) */
+function RateRows({ rows, plain }: { rows: { key: string; label: React.ReactNode; rate: number | null; sub?: React.ReactNode; tone?: string }[]; plain?: boolean }) {
+  if (!rows.length) return <Empty />
+  return (
+    <ul className="space-y-2 text-sm">
+      {rows.map((r) => (
+        <li key={r.key} className="grid grid-cols-[minmax(0,8rem)_1fr_3rem] items-center gap-2">
+          <span className="truncate">{r.label}</span>
+          <span className="flex items-center gap-2"><ShareBar value={r.rate ?? 0} color={r.tone ?? (plain ? undefined : r.rate !== null && r.rate < 0.8 ? "#dc2626" : "#10b981")} />{r.sub && <span className="shrink-0 text-[11px] text-muted-foreground tabular-nums">{r.sub}</span>}</span>
+          <span className={cn("text-right tabular-nums", !plain && r.rate !== null && r.rate < 0.8 && "font-medium text-red-600")}>{fmtPct(r.rate)}</span>
+        </li>
+      ))}
+    </ul>
+  )
+}
+
+function AttendanceTab({ d, compare, onOpen }: { d: ReportData; compare: boolean; onOpen: (id: string) => void }) {
+  const a = d.attendanceTab
+  const name = (id: string) => d.students.find((x) => x.id === id)
+  const days = [1, 2, 3, 4, 5, 6, 0].map((w) => a.byWeekday.find((r) => r.key === String(w)) ?? { key: String(w), present: 0, leave: 0, noQuota: 0, rate: null, sessions: 0 })
+  return (
+    <div className="space-y-4">
+      <p className="text-xs text-muted-foreground">ข้อมูลการเข้าเรียนเริ่ม {fmtDate(a.since, { year: true })} (คาบแรกในระบบ) · อัตรา = มา ÷ (มา + ลา) · เขียว = 80% ขึ้นไป · แดง = ต่ำกว่า 80%</p>
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-6">
+        <Stat label="อัตราเข้าเรียน" value={fmtPct(a.total.rate)} tone={a.total.rate !== null && a.total.rate < 0.8 ? "text-red-600" : undefined} />
+        <Stat label="มา" value={fmtNum(a.total.present)} tone="text-emerald-600" />
+        <Stat label="ลา" value={fmtNum(a.total.leave)} tone="text-amber-600" sub={<span>ไม่หักโควตา {a.noQuota}</span>} />
+        <Stat label="คาบยกเลิก" value={fmtNum(a.cancelled.total)} sub={<span>นักเรียนได้รับผล {a.cancelled.students}</span>} />
+        <Stat label="ยกเลิกเพราะครูลา" value={fmtNum(a.cancelled.teacher)} tone={a.cancelled.teacher ? "text-red-600" : undefined} />
+        <Stat label="หยุดช่วงพิเศษ / อื่นๆ" value={`${a.cancelled.period} / ${a.cancelled.other}`} />
+      </div>
+      <div className="grid gap-4 lg:grid-cols-2">
+        <Panel title="อัตราเข้าเรียนรายเดือน" hint={`ปี ${d.monthly.year + 543}`}>
+          <MonthBars thisYear={a.monthly.map((x) => (x === null ? null : Math.round(x * 1000) / 10))} lastYear={a.monthly.map(() => null)} current={Number(d.today.slice(5, 7)) - 1} unit="%" />
+        </Panel>
+        {compare ? (
+          <Panel title="แยกตามสาขา" hint="ต่ำสุดอยู่บน" fill>
+            <RateRows rows={a.byBranch.map((r) => ({ key: r.key, label: r.name, rate: r.rate, sub: `${r.present}/${r.present + r.leave}` }))} />
+          </Panel>
+        ) : (
+          <Panel title="แยกตามวัน" fill>
+            <RateRows rows={days.map((r) => ({ key: r.key, label: DAY_SHORT[Number(r.key)], rate: r.rate, sub: `${r.sessions} คาบ` }))} />
+          </Panel>
+        )}
+      </div>
+      <div className="grid gap-4 lg:grid-cols-2">
+        <Panel title="แยกตามวิชา" center><RateRows rows={a.bySubject.map((r) => ({ key: r.key, label: r.key, rate: r.rate, sub: `ลา ${r.leave}` }))} /></Panel>
+        {compare ? (
+          <Panel title="แยกตามวัน" center><RateRows rows={days.map((r) => ({ key: r.key, label: DAY_SHORT[Number(r.key)], rate: r.rate, sub: `${r.sessions} คาบ` }))} /></Panel>
+        ) : (
+          <Panel title="คลาสที่เข้าเรียนต่ำสุด" center><RateRows rows={a.byClass.slice(0, 7).map((r) => ({ key: r.key, label: r.name, rate: r.rate, sub: `ลา ${r.leave}` }))} /></Panel>
+        )}
+      </div>
+      <div className="grid gap-4 lg:grid-cols-2">
+        {compare && <Panel title="คลาสที่เข้าเรียนต่ำสุด" hint="10 คลาส" fill><RateRows rows={a.byClass.slice(0, 10).map((r) => ({ key: r.key, label: r.name, rate: r.rate, sub: `ลา ${r.leave}` }))} /></Panel>}
+        <Panel title="นักเรียนลาบ่อย" hint="ลา ≥ 2 ครั้งในช่วงนี้ · เสี่ยงหลุด · กดชื่อเพื่อเปิด" fill className={compare ? "" : "lg:col-span-2"}>
+          {a.leavers.length ? (
+            <table className="w-full text-sm">
+              <thead className="text-xs text-muted-foreground"><tr><th className="text-left font-normal">นักเรียน</th><th className="text-left font-normal">ชั้น</th><th className="text-right font-normal">มา</th><th className="text-right font-normal">ลา</th><th className="text-right font-normal">ไม่หักโควตา</th><th className="text-right font-normal">อัตรา</th></tr></thead>
+              <tbody>{a.leavers.slice(0, 10).map((x) => (
+                <tr key={x.studentId} className="border-t">
+                  <td className="py-1.5"><button type="button" className="hover:underline" onClick={() => onOpen(x.studentId)}>{name(x.studentId)?.nickname ?? "—"}</button></td>
+                  <td className="text-muted-foreground">{name(x.studentId)?.grade}</td>
+                  <td className="text-right tabular-nums">{x.present}</td>
+                  <td className="text-right text-amber-600 tabular-nums">{x.leave}</td>
+                  <td className="text-right text-muted-foreground tabular-nums">{x.noQuota}</td>
+                  <td className={cn("text-right tabular-nums", x.rate < 0.8 && "text-red-600")}>{fmtPct(x.rate)}</td>
+                </tr>
+              ))}</tbody>
+            </table>
+          ) : <Empty>ไม่มีนักเรียนที่ลาบ่อยในช่วงนี้</Empty>}
+        </Panel>
+      </div>
+    </div>
+  )
+}
+
+// ---------------- Operations (R2) ----------------
+
+const hrs = (min: number) => `${(min / 60).toLocaleString("th-TH", { maximumFractionDigits: 1 })} ชม.`
+
+function OperationsTab({ d, compare }: { d: ReportData; compare: boolean }) {
+  const o = d.operations
+  const [onlyPartTime, setOnlyPartTime] = useState(false)
+  const teachers = o.teachers.filter((t) => !onlyPartTime || t.staff?.partTime)
+  const partTimeMin = o.teachers.filter((t) => t.staff?.partTime).reduce((a, t) => a + t.minutes, 0)
+  const low = o.fill.filter((c) => c.students <= 1)
+  const over = o.fill.filter((c) => c.fill > 1).sort((a, b) => b.fill - a.fill)
+  const branchOf = (id: string) => d.operations.rooms.find((b) => b.id === id)?.name ?? ""
+  return (
+    <div className="space-y-4">
+      <p className="text-xs text-muted-foreground">นับเฉพาะคาบที่สอนจบแล้ว ตั้งแต่ {fmtDate(o.since, { year: true })} (คาบแรกในระบบ) · ชั่วโมงสอนของครูหลัก ใช้คิดค่าสอน Part-time</p>
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+        <Stat label="ครูที่สอนในช่วงนี้" value={fmtNum(o.teachers.filter((t) => t.sessions).length)} />
+        <Stat label="ชั่วโมงสอนรวม" value={hrs(o.teachers.reduce((a, t) => a + t.minutes, 0))} />
+        <Stat label="ชั่วโมง Part-time" value={hrs(partTimeMin)} tone="text-violet-600" />
+        <Stat label="งานค้างของครู" value={fmtNum(o.teachers.reduce((a, t) => a + t.unmarked + t.summariesPending, 0))} sub={<span>เช็คชื่อ + สรุปการเรียน</span>} />
+      </div>
+      <Panel title="สุขภาพครู (Teacher Health)" hint="เรียงตามชั่วโมงสอน"
+        action={<label className="flex items-center gap-1.5 text-xs text-muted-foreground"><input type="checkbox" checked={onlyPartTime} onChange={(e) => setOnlyPartTime(e.target.checked)} /> เฉพาะ Part-time</label>}>
+        {teachers.length ? (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead className="text-xs text-muted-foreground">
+                <tr><th className="text-left font-normal">ครู</th>{compare && <th className="text-left font-normal">สาขา</th>}<th className="text-right font-normal">คาบ</th><th className="text-right font-normal">ชั่วโมง</th><th className="text-right font-normal">นักเรียน</th><th className="text-right font-normal">อัตราเข้าเรียน</th><th className="text-right font-normal">ยังไม่เช็คชื่อ</th><th className="text-right font-normal">สรุปค้าง</th><th className="text-right font-normal">สรุปตรงเวลา</th><th className="text-right font-normal">สอนแทน</th><th className="text-right font-normal">ลา (คาบ)</th></tr>
+              </thead>
+              <tbody>{teachers.map((t) => (
+                <tr key={t.teacherId} className="border-t">
+                  <td className="py-1.5"><span className="flex items-center gap-1.5">{t.staff?.nickname ?? "—"}{t.staff?.partTime && <span className="rounded-full bg-violet-100 px-1.5 text-[10px] text-violet-800 dark:bg-violet-950 dark:text-violet-200">Part-time</span>}{t.staff && !t.staff.active && <span className="text-[10px] text-muted-foreground">(ออกแล้ว)</span>}</span></td>
+                  {compare && <td className="text-muted-foreground">{(t.staff?.branchIds ?? []).map(branchOf).filter(Boolean).join(", ") || "—"}</td>}
+                  <td className="text-right tabular-nums">{t.sessions}</td>
+                  <td className="text-right font-medium tabular-nums">{hrs(t.minutes)}</td>
+                  <td className="text-right tabular-nums">{t.students}</td>
+                  <td className={cn("text-right tabular-nums", t.rate !== null && t.rate < 0.8 && "text-red-600")}>{fmtPct(t.rate)}</td>
+                  <td className={cn("text-right tabular-nums", t.unmarked && "font-medium text-red-600")}>{t.unmarked || "—"}</td>
+                  <td className={cn("text-right tabular-nums", t.summariesPending && "font-medium text-amber-600")}>{t.summariesPending || "—"}</td>
+                  <td className={cn("text-right tabular-nums", t.summariesOnTime !== null && t.summariesOnTime < 0.8 && "text-red-600")}>{fmtPct(t.summariesOnTime)}</td>
+                  <td className="text-right tabular-nums">{t.coverFor || "—"}</td>
+                  <td className="text-right tabular-nums">{t.awaySessions || "—"}</td>
+                </tr>
+              ))}</tbody>
+            </table>
+          </div>
+        ) : <Empty />}
+      </Panel>
+      <div className="grid gap-4 lg:grid-cols-2">
+        <Panel title={compare ? "การใช้ห้องตามสาขา" : "การใช้ห้อง"} hint="ชั่วโมงที่มีคาบ ÷ ชั่วโมงที่สาขาเปิด" fill>
+          <RateRows plain rows={compare
+            ? [...o.rooms].sort((a, b) => (b.rate ?? 0) - (a.rate ?? 0)).map((b) => ({ key: b.id, label: b.name, rate: b.rate, sub: hrs(b.booked) }))
+            : o.rooms.flatMap((b) => b.rooms.map((r) => ({ key: r.roomId, label: r.name, rate: r.rate, sub: hrs(r.booked) })))} />
+        </Panel>
+        <Panel title="ความเต็มของคลาส" hint={`นักเรียน ÷ ขนาดที่แนะนำ (กลุ่ม 6 · เดี่ยว 3) · ว่างสุดอยู่บน · คนน้อย ${low.length} · เกิน ${over.length} คลาส`} fill>
+          <RateRows plain rows={[...over, ...o.fill.filter((c) => c.fill <= 1)].slice(0, Math.max(12, over.length)).map((c) => ({
+            key: c.id, label: <span title={c.name}>{c.name}{compare && <span className="text-xs text-muted-foreground"> · {branchOf(c.branchId)}</span>}</span>,
+            rate: Math.min(1, c.fill), sub: `${c.students}/${c.capacity}`, tone: c.fill > 1 ? "#dc2626" : c.students <= 1 ? "#f59e0b" : undefined,
+          }))} />
+          <p className="mt-2 text-[11px] text-muted-foreground"><span className="text-amber-600">■</span> คนน้อย (≤ 1 คน) · <span className="text-red-600">■</span> เกินขนาดแนะนำ (แสดงบนสุด)</p>
+        </Panel>
+      </div>
     </div>
   )
 }
