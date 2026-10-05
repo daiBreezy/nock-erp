@@ -6,7 +6,7 @@ import { useSearchParams } from "next/navigation"
 import { AlertTriangleIcon, BanknoteIcon, CalendarDaysIcon, ChartColumnIcon, ChevronRightIcon, DownloadIcon, PrinterIcon, UsersIcon, UserCheckIcon } from "lucide-react"
 import { NativeSelect } from "@/components/app/native-select"
 import { StudentSheet } from "@/components/app/student-sheet"
-import { Delta, Donut, DonutLegend, Empty, fmtNum, fmtPct, fmtShort, Heatmap, MonthBars, Panel, Rank, ShareBar, donutColor, tint } from "@/components/reports/charts"
+import { Delta, Donut, DonutLegend, Empty, TopList, fmtNum, fmtPct, fmtShort, Heatmap, MonthBars, Panel, Rank, ShareBar, donutColor, tint } from "@/components/reports/charts"
 import { useReports, type ReportData } from "@/components/reports/use-reports"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
@@ -821,11 +821,9 @@ function CrmTab({ d, compare }: { d: ReportData; compare: boolean }) {
           <div className="lg:pl-6"><DonutLegend title="เหตุผล" parts={c.lostReasons.map((x) => ({ label: x.reason, value: x.count }))} center={fmtNum(c.lostReasons.reduce((a, x) => a + x.count, 0))} sub="มีเหตุผล" /></div>
         </div>
         {(c.competitors.length > 0 || c.wantedTimes.length > 0) && (
-          <div className="mt-4 grid gap-6 border-t pt-4 lg:grid-cols-2">
-            <div><p className="mb-1 text-xs font-medium text-muted-foreground">ไปเรียนที่ไหนแทน</p>
-              <ul className="space-y-1 text-sm">{c.competitors.map((x) => <li key={x.name} className="flex justify-between"><span>{x.name}</span><span className="tabular-nums">{x.count}</span></li>)}</ul></div>
-            <div><p className="mb-1 text-xs font-medium text-muted-foreground">เวลาที่ลูกค้าต้องการแต่เราไม่มี</p>
-              <ul className="space-y-1 text-sm">{c.wantedTimes.map((x) => <li key={x.time} className="flex justify-between"><span>{x.time}</span><span className="tabular-nums">{x.count}</span></li>)}</ul></div>
+          <div className="mt-5 grid gap-6 border-t pt-4 lg:grid-cols-2">
+            <TopList title="ไปเรียนที่ไหนแทน" rows={c.competitors.map((x) => ({ label: x.name, value: x.count }))} />
+            <div className="lg:pl-6"><TopList title="เวลาที่ลูกค้าต้องการแต่เราไม่มี" rows={c.wantedTimes.map((x) => ({ label: x.time, value: x.count }))} /></div>
           </div>
         )}
       </Panel>

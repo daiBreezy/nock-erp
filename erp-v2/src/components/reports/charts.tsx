@@ -168,38 +168,57 @@ export function Donut({ parts, center, sub, colors }: { parts: { label: string; 
 }
 
 /**
- * Donut + its legend side by side (owner 2026-10-05, lost leads). Slivers under 3% (and anything past `top`) fold into
- * one grey "อื่นๆ" so the colours stay readable; the legend still names what was folded. `keepOrder` keeps the given
- * order (funnel stages) instead of biggest first.
+ * Donut + its legend side by side (owner 2026-10-05, lost leads). Shows the top `top` (5) and folds the rest into one
+ * grey "อื่นๆ"; "ดูทั้งหมด" opens every item (donut too) so a long list never stretches the card. `keepOrder` keeps the
+ * given order (funnel stages) instead of biggest first.
  */
-export function DonutLegend({ title, parts, center, sub, top = 12, keepOrder }: { title: string; parts: { label: string; value: number }[]; center: string; sub: string; top?: number; keepOrder?: boolean }) {
+export function DonutLegend({ title, parts, center, sub, top = 5, keepOrder }: { title: string; parts: { label: string; value: number }[]; center: string; sub: string; top?: number; keepOrder?: boolean }) {
+  const [open, setOpen] = useState(false)
   const shown = parts.filter((p) => p.value > 0)
-  const sum = shown.reduce((a, p) => a + p.value, 0)
   const sorted = keepOrder ? shown : [...shown].sort((a, b) => b.value - a.value)
-  const big = sorted.filter((p) => p.value / sum >= 0.03)
-  const head = big.length > top ? big.slice(0, top - 1) : big
-  const rest = sorted.filter((p) => !head.includes(p))
-  const slices = rest.length ? [...head, { label: "อื่นๆ", value: rest.reduce((a, p) => a + p.value, 0) }] : head
+  const fold = !open && sorted.length > top + 1
+  const head = fold ? sorted.slice(0, top) : sorted
+  const rest = sorted.slice(head.length)
+  const slices = rest.length ? [...head, { label: `อื่นๆ (${rest.length})`, value: rest.reduce((a, p) => a + p.value, 0) }] : head
   const colors = slices.map((_, i) => (rest.length && i === slices.length - 1 ? "#cbd5e1" : donutColor(i)))
   const total = slices.reduce((a, p) => a + p.value, 0)
   return (
-    <div className="flex min-w-0 flex-col gap-3">
+    <div className="flex min-w-0 flex-col gap-4">
       <p className="text-sm font-medium">{title}</p>
       {total ? (
-        <div className="grid flex-1 items-center gap-4 sm:grid-cols-[10rem_1fr]">
-          <Donut parts={slices} colors={colors} center={center} sub={sub} />
-          <ul className="space-y-1.5 text-sm">
-            {slices.map((p, i) => (
-              <li key={p.label} className="grid grid-cols-[1fr_2.75rem_2.5rem] items-center gap-2">
-                <span className="flex min-w-0 items-center gap-1.5"><span className="size-2.5 shrink-0 rounded-full" style={{ background: colors[i] }} /><span className="truncate" title={p.label}>{p.label}</span></span>
-                <span className="text-right text-xs text-muted-foreground tabular-nums">{fmtPct(p.value / total)}</span>
-                <span className="text-right tabular-nums">{fmtNum(p.value)}</span>
-              </li>
-            ))}
-            {rest.length > 0 && <li className="pl-4 text-xs text-muted-foreground">อื่นๆ = {rest.map((p) => `${p.label} ${p.value}`).join(" · ")}</li>}
-          </ul>
+        <div className="flex flex-col items-center gap-6 sm:flex-row sm:items-start">
+          <div className="shrink-0"><Donut parts={slices} colors={colors} center={center} sub={sub} /></div>
+          <div className="w-full max-w-sm min-w-0">
+            <ul className="space-y-2 text-sm">
+              {slices.map((p, i) => (
+                <li key={p.label} className="grid grid-cols-[minmax(0,1fr)_2.5rem_2.5rem] items-center gap-3">
+                  <span className="flex min-w-0 items-center gap-2"><span className="size-2.5 shrink-0 rounded-full" style={{ background: colors[i] }} /><span className="truncate" title={p.label}>{p.label}</span></span>
+                  <span className="text-right text-xs text-muted-foreground tabular-nums">{fmtPct(p.value / total)}</span>
+                  <span className="text-right font-medium tabular-nums">{fmtNum(p.value)}</span>
+                </li>
+              ))}
+            </ul>
+            {sorted.length > top + 1 && (
+              <button type="button" onClick={() => setOpen((o) => !o)} className="mt-2 pl-4.5 text-xs text-primary hover:underline">{open ? "ย่อเหลือ " + top + " อันดับ" : `ดูทั้งหมด ${sorted.length} รายการ`}</button>
+            )}
+          </div>
         </div>
       ) : <Empty>ไม่มี</Empty>}
+    </div>
+  )
+}
+
+/** Name · count list capped at `top` rows with a "ดูทั้งหมด" toggle (owner 2026-10-05: long lists make the card messy). */
+export function TopList({ title, rows, top = 5 }: { title: string; rows: { label: string; value: number }[]; top?: number }) {
+  const [open, setOpen] = useState(false)
+  const list = open ? rows : rows.slice(0, top)
+  return (
+    <div className="min-w-0">
+      <p className="mb-2 text-xs font-medium text-muted-foreground">{title}</p>
+      {rows.length ? (
+        <ul className="max-w-sm space-y-1.5 text-sm">{list.map((x) => <li key={x.label} className="flex justify-between gap-3"><span className="truncate">{x.label}</span><span className="font-medium tabular-nums">{fmtNum(x.value)}</span></li>)}</ul>
+      ) : <p className="text-xs text-muted-foreground">ไม่มี</p>}
+      {rows.length > top && <button type="button" onClick={() => setOpen((o) => !o)} className="mt-2 text-xs text-primary hover:underline">{open ? `ย่อเหลือ ${top} อันดับ` : `ดูทั้งหมด ${rows.length} รายการ`}</button>}
     </div>
   )
 }
