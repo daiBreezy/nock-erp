@@ -1660,3 +1660,71 @@ describe("Yearly parent survey (owner 2026-10-05)", () => {
     expect([Survey.canRemind(c, "2026-09-21"), Survey.canRemind(c, "2026-09-22"), Survey.canRemind({ ...c, remindedAt: "x" }, "2026-09-25")]).toEqual([false, true, false])
   })
 })
+
+// ---------------- Reports › สรุป (owner 2026-10-05) ----------------
+import * as Ins from "./insights"
+
+describe("summary insights", () => {
+  const base: Ins.InsightInput = {
+    periodLabel: "ตั้งแต่ต้นปี", vsLabel: "เทียบช่วงเดียวกันปีที่แล้ว", comparable: true, periodMonths: 9,
+    revenue: { now: 900_000, prev: 1_080_000 },
+    months: [
+      { label: "ส.ค.", now: 120_000, last: 115_000, newNow: 10, newLast: 9, lostNow: 4, lostLast: 4 },
+      { label: "ก.ย.", now: 60_000, last: 140_000, newNow: 2, newLast: 10, lostNow: 9, lostLast: 3 },
+    ],
+    flow: { newNow: 40, newPrev: 55, lostNow: 30, lostPrev: 20, returning: 3, renewal: 0.7, renewalPrev: 0.82, active: 150 },
+    perStudentMonth: 1_340,
+    exitReasons: [{ label: "ตารางเวลาไม่ลงตัว", count: 8 }, { label: "ราคา", count: 3 }],
+    leadLostReasons: [{ label: "ติดต่อไม่ได้ / ไม่รับสาย", count: 20 }, { label: "ราคา", count: 5 }],
+    leadLostStages: [{ label: "นัด Test / Trial", count: 12 }],
+    wantedTimes: [{ label: "หลังเลิกเรียน 15:00–17:00", count: 14 }, { label: "เสาร์เช้า 9–11", count: 3 }],
+    competitors: [{ label: "ไม่ทราบ", count: 9 }, { label: "ติวเตอร์ที่บ้าน", count: 4 }],
+    sales: { leads: 100, enrolled: 20, conversion: 0.2, open: 15 },
+    attendance: { rate: 0.85, prevRate: 0.86, frequentLeavers: 2 },
+    teaching: { pendingWork: 3, lowFill: 1, overFill: 0 },
+    branchLoad: [
+      { label: "สีลม", byWeekday: [0, 9, 9, 9, 9, 9, 20] },
+      { label: "บางนา", byWeekday: [0, 5, 5, 5, 1, 1, 20] },
+      { label: "อารีย์", byWeekday: [0, 6, 6, 6, 2, 2, 20] },
+    ],
+  }
+
+  it("explains a revenue drop with the worst month, its new students, churn and the wanted time", () => {
+    const rev = Ins.buildInsights(base).insights.find((x) => x.area === "revenue")!
+    expect(rev.tone).toBe("bad")
+    expect(rev.title).toContain("ลดลง 17%")
+    expect(rev.facts[0]).toContain("ก.ย.")
+    expect(rev.causes.some((c) => c.includes("นักเรียนใหม่ 2 คน") && c.includes("80%"))).toBe(true)
+    expect(rev.causes.some((c) => c.includes("Churn เพิ่มขึ้น 50%"))).toBe(true)
+    expect(rev.causes.some((c) => c.includes("หลังเลิกเรียน 15:00–17:00"))).toBe(true)
+  })
+
+  it("suggests a pilot on the quietest weekdays at the quietest branches, sized in students", () => {
+    const rev = Ins.buildInsights(base).insights.find((x) => x.area === "revenue")!
+    expect(rev.actions[0]).toContain("พฤหัส และ ศุกร์")
+    expect(rev.actions[0]).toContain("บางนา และ อารีย์")
+    // (1.08M − 0.9M) / 9 months = 20K a month ÷ 1,340 per student ≈ 15 students
+    expect(rev.actions.some((a) => a.includes("ประมาณ 15 คน"))).toBe(true)
+  })
+
+  it("uses the day a wanted time names", () => {
+    expect(Ins.pilotPlan(base.branchLoad, "เสาร์เช้า 9–11").days).toEqual(["เสาร์"])
+    expect(Ins.daysIn("หลังเลิกเรียน 17:30–19:00")).toEqual([])
+  })
+
+  it("does not claim a change when the earlier period has no data — falls back to months that have both years", () => {
+    const byMonth = Ins.buildInsights({ ...base, comparable: false }).insights.find((x) => x.area === "revenue")!
+    expect(byMonth.title).toContain("2 เดือนล่าสุดลดลง")
+    const students = Ins.buildInsights({ ...base, comparable: false }).insights.find((x) => x.area === "students")!
+    expect(students.facts.join(" ")).not.toContain("จากช่วงก่อน")
+    const none = Ins.buildInsights({ ...base, comparable: false, months: base.months.map((m) => ({ ...m, last: null })) }).insights.find((x) => x.area === "revenue")!
+    expect(none.title).toContain("ยังเทียบปีที่แล้วไม่ได้")
+  })
+
+  it("puts problems first and lists their first action as this week's to-do", () => {
+    const r = Ins.buildInsights(base)
+    expect(r.insights[0].tone).toBe("bad")
+    expect(r.headline.length).toBeLessThanOrEqual(3)
+    expect(r.insights.find((x) => x.area === "sales")!.actions[0]).toContain("ติดต่อไม่ได้")
+  })
+})

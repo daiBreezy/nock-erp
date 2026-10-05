@@ -202,6 +202,12 @@ export function useReports(branchIds: string[], period: R.PeriodKey) {
         lastYear: R.activeByMonth(year - 1, today, students.map((x) => x.id), ents, leaves),
       },
       perBranch,
+      // sessions per weekday per branch over the last 8 weeks — the Summary picks the quietest for a pilot slot
+      branchLoad: branches.map((b) => {
+        const w = [0, 0, 0, 0, 0, 0, 0]
+        sessions.forEach((x) => { if (x.branchId === b.id && !x.cancelled && x.date >= addDays(today, -56) && x.date <= today) w[new Date(`${x.date}T00:00:00`).getDay()]++ })
+        return { label: b.name, byWeekday: w }
+      }),
     }
   }, [allRows, ids, period, today, now, s.students, s.leaves, s.sessions, s.attendance, s.branches, s.staff, s.summaries, s.invoices, s.classes, s.leads, s.families, s.holidays, s.system, s.courses, s.surveyCampaigns, s.surveyResponses, entitlementsAll])
 }

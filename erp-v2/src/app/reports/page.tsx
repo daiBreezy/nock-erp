@@ -7,6 +7,7 @@ import { AlertTriangleIcon, BanknoteIcon, CalendarDaysIcon, ChartColumnIcon, Che
 import { NativeSelect } from "@/components/app/native-select"
 import { StudentSheet } from "@/components/app/student-sheet"
 import { Delta, Donut, DonutLegend, Empty, TopList, fmtNum, fmtPct, fmtShort, Heatmap, MonthBars, Panel, Rank, ShareBar, donutColor, tint } from "@/components/reports/charts"
+import { SummaryTab } from "@/components/reports/summary-tab"
 import { useReports, type ReportData } from "@/components/reports/use-reports"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
@@ -23,8 +24,9 @@ import * as Survey from "@/domain/rules/survey"
 import { cn } from "@/lib/utils"
 import { useStore } from "@/store/store"
 
-type Tab = "overview" | "revenue" | "students" | "attendance" | "operations" | "crm" | "satisfaction"
+type Tab = "summary" | "overview" | "revenue" | "students" | "attendance" | "operations" | "crm" | "satisfaction"
 const TABS: { id: Tab; label: string; soon?: string }[] = [
+  { id: "summary", label: "สรุป" },
   { id: "overview", label: "ภาพรวม" },
   { id: "revenue", label: "รายได้" },
   { id: "students", label: "นักเรียน" },
@@ -120,6 +122,7 @@ function Reports() {
         </div>
       </div>
 
+      {tab === "summary" && <SummaryTab d={d} period={period} scopeLabel={scopeLabel} />}
       {tab === "overview" && <Overview d={d} compare={showCompare} period={period} onAllRevenue={() => setTab("revenue")} onAllStudents={() => setTab("students")} />}
       {tab === "revenue" && <RevenueTab d={d} compare={showCompare} period={period} />}
       {tab === "students" && <StudentsTab d={d} compare={showCompare} onOpen={setOpenId} />}
