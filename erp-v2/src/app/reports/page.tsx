@@ -816,14 +816,14 @@ function CrmTab({ d, compare }: { d: ReportData; compare: boolean }) {
         </Panel>
       </div>
       <Panel title="Lead ที่หลุด" hint="ปิดไปที่ขั้นไหน · เพราะอะไร — ข้อมูลสำคัญ ดูก่อนแหล่งที่มา">
-        <div className="grid gap-6 lg:grid-cols-2 lg:divide-x">
-          <DonutLegend keepOrder title="หลุดที่ขั้นไหน" parts={c.lost.map((x) => ({ label: x.label, value: x.count }))} center={fmtNum(lostTotal)} sub="Lead ที่หลุด" />
-          <div className="lg:pl-6"><DonutLegend title="เหตุผล" parts={c.lostReasons.map((x) => ({ label: x.reason, value: x.count }))} center={fmtNum(c.lostReasons.reduce((a, x) => a + x.count, 0))} sub="มีเหตุผล" /></div>
+        <div className="grid gap-6 lg:grid-cols-2 lg:gap-0 lg:divide-x">
+          <div className="lg:pr-8"><DonutLegend keepOrder title="หลุดที่ขั้นไหน" parts={c.lost.map((x) => ({ label: x.label, value: x.count }))} center={fmtNum(lostTotal)} sub="Lead ที่หลุด" /></div>
+          <div className="lg:pl-8"><DonutLegend title="เหตุผล" parts={c.lostReasons.map((x) => ({ label: x.reason, value: x.count }))} center={fmtNum(c.lostReasons.reduce((a, x) => a + x.count, 0))} sub="มีเหตุผล" /></div>
         </div>
         {(c.competitors.length > 0 || c.wantedTimes.length > 0) && (
-          <div className="mt-5 grid gap-6 border-t pt-4 lg:grid-cols-2">
-            <TopList title="ไปเรียนที่ไหนแทน" rows={c.competitors.map((x) => ({ label: x.name, value: x.count }))} />
-            <div className="lg:pl-6"><TopList title="เวลาที่ลูกค้าต้องการแต่เราไม่มี" rows={c.wantedTimes.map((x) => ({ label: x.time, value: x.count }))} /></div>
+          <div className="mt-5 grid gap-6 border-t pt-4 lg:grid-cols-2 lg:gap-0">
+            <div className="lg:pr-8"><TopList title="ไปเรียนที่ไหนแทน" rows={c.competitors.map((x) => ({ label: x.name, value: x.count }))} /></div>
+            <div className="lg:pl-8"><TopList title="เวลาที่ลูกค้าต้องการแต่เราไม่มี" rows={c.wantedTimes.map((x) => ({ label: x.time, value: x.count }))} /></div>
           </div>
         )}
       </Panel>
