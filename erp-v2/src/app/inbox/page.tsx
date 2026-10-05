@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation"
 import { useCallback, useEffect, useState } from "react"
-import { FileSignatureIcon, InfoIcon, PenLineIcon, PlusIcon, RadioIcon, SendIcon, SparklesIcon, UserSearchIcon } from "lucide-react"
+import { FileSignatureIcon, InfoIcon, PenLineIcon, PlusIcon, RadioIcon, SendIcon, SparklesIcon, UserSearchIcon, UserCheckIcon } from "lucide-react"
 import { NativeSelect } from "@/components/app/native-select"
 import { Pill } from "@/components/app/badges"
 import { FamilyForm } from "@/components/app/family-form"
@@ -215,12 +215,13 @@ export default function InboxPage() {
                   {isLive(selected.id) && <Pill tone="blue"><RadioIcon className="size-2.5" /> LIVE — LINE จริง</Pill>}
                   <Pill tone={conversationType(selected) === "customer" ? "green" : conversationType(selected) === "lead" ? "amber" : "gray"}>{CONVERSATION_TYPE_LABEL[conversationType(selected)]}</Pill>
                 </div>
-                <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                  <span>{CHANNEL_LABEL[selected.channel]}</span>
-                  <NativeSelect className="ml-1 h-6 w-32 text-xs" value={selected.assigneeId ?? ""} onChange={(e) => report(assign(selected.id, e.target.value || null), e.target.value ? "มอบหมายแล้ว" : "ยกเลิกมอบหมายแล้ว")}
-                    placeholder="ยังไม่มอบหมาย" options={staff.filter((s) => s.active && s.branchIds.includes(branch.id) && can(s, "inbox.manage")).map((s) => ({ value: s.id, label: s.nickname }))} />
-                </div>
+                <p className="mt-0.5 text-xs text-muted-foreground">{CHANNEL_LABEL[selected.channel]}</p>
               </div>
+              <label className="flex items-center gap-2 text-xs text-muted-foreground">
+                <UserCheckIcon className="size-4" /> ผู้ดูแล
+                <NativeSelect className="h-8 w-36" value={selected.assigneeId ?? ""} onChange={(e) => report(assign(selected.id, e.target.value || null), e.target.value ? "มอบหมายแล้ว" : "ยกเลิกมอบหมายแล้ว")}
+                  placeholder="ยังไม่มอบหมาย" options={staff.filter((s) => s.active && s.branchIds.includes(branch.id) && can(s, "inbox.manage")).map((s) => ({ value: s.id, label: s.nickname }))} />
+              </label>
               {lead && (
                 <Button size="sm" variant="outline" onClick={() => setSendingFormOpen(true)}><FileSignatureIcon /> ส่งฟอร์ม</Button>
               )}

@@ -11,10 +11,11 @@ export interface Option {
 /** Native <select>: reliable on iPad/phones and keyboard, styled like shadcn inputs. */
 export function NativeSelect({ options, placeholder, className, ...props }: ComponentProps<"select"> & { options: Option[]; placeholder?: string }) {
   return (
-    <div className={cn("relative", className)}>
+    // default h-9; a height in className (h-8, h-6 …) really sets it — the select fills the box (no min-height overflow)
+    <div className={cn("relative h-9", className)}>
       <select
         {...props}
-        className="h-full min-h-9 w-full appearance-none rounded-3xl border border-transparent bg-input/50 py-1 pr-8 pl-3 text-sm transition-[color,box-shadow,background-color] outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/30 disabled:opacity-50 aria-invalid:border-destructive"
+        className="h-full w-full appearance-none rounded-3xl border border-transparent bg-input/50 py-1 pr-8 pl-3 text-sm transition-[color,box-shadow,background-color] outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/30 disabled:opacity-50 aria-invalid:border-destructive"
       >
         {placeholder !== undefined && <option value="">{placeholder}</option>}
         {options.map((o) => (
