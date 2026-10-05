@@ -35,11 +35,14 @@ export function reasonLabel(id: ID | undefined, list: LossReason[] | undefined, 
   return (lang === "en" ? r.en : lang === "ja" ? r.ja : undefined) || r.label
 }
 
-/** Reasons a lead closed at this step can have: before we ever talked → "couldn't reach" first, then the rest. */
-export function reasonsForLead(stage: LeadStage, list: LossReason[] | undefined): LossReason[] {
+/**
+ * Reasons for closing a lead. "Couldn't reach / no reply" can happen at any step (owner 2026-10-05: a lead can go
+ * silent after the test too) — they come first when we never talked or the last tries got no answer.
+ */
+export function reasonsForLead(stage: LeadStage, list: LossReason[] | undefined, quiet = false): LossReason[] {
   const all = lossReasonsOf(list).filter((r) => r.active && r.for !== "student")
-  const early = stage === "new" || stage === "contacting"
-  return early ? [...all.filter((r) => r.contactOnly), ...all.filter((r) => !r.contactOnly)] : all.filter((r) => !r.contactOnly)
+  const contactFirst = quiet || stage === "new" || stage === "contacting"
+  return contactFirst ? [...all.filter((r) => r.contactOnly), ...all.filter((r) => !r.contactOnly)] : [...all.filter((r) => !r.contactOnly), ...all.filter((r) => r.contactOnly)]
 }
 
 export const reasonsForStudent = (list: LossReason[] | undefined) => lossReasonsOf(list).filter((r) => r.active && r.for !== "lead")

@@ -105,8 +105,10 @@ export function LeadLostDialog({ lead, onClose }: { lead: Lead; onClose: () => v
   const now = useNow(60_000)
   const st = Loss.followUpState(lead, now)
   const [stage, setStage] = useState<LeadStage>(lead.stage)
-  const reasons = Loss.reasonsForLead(stage, system.lossReasons)
-  const [reasonId, setReasonId] = useState<ID>(st.tries > 0 && (lead.stage === "new" || lead.stage === "contacting") ? (lead.followUps?.at(-1)?.channel === "line" ? "lr_no_reply" : "lr_unreachable") : "")
+  // the last tries got no answer → "couldn't reach / no reply" first and already picked (any step)
+  const quiet = st.tries > 0
+  const reasons = Loss.reasonsForLead(stage, system.lossReasons, quiet)
+  const [reasonId, setReasonId] = useState<ID>(quiet ? (lead.followUps?.at(-1)?.result === "wrong_number" ? "lr_wrong_contact" : lead.followUps?.at(-1)?.channel === "line" ? "lr_no_reply" : "lr_unreachable") : "")
   const [others, setOthers] = useState<ID[]>([])
   const [competitor, setCompetitor] = useState<string | undefined>()
   const [wantedTime, setWantedTime] = useState("")

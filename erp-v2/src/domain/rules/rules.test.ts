@@ -1596,7 +1596,9 @@ describe("Lead follow-ups + close form (owner 2026-10-05)", () => {
   })
   it("reasons depend on the step; competitor / other need details", () => {
     expect(Loss.reasonsForLead("new", undefined)[0].contactOnly).toBe(true)
-    expect(Loss.reasonsForLead("trialed", undefined).some((r) => r.contactOnly)).toBe(false)
+    // "couldn't reach" is there at every step (a lead can go silent after the test) — last when they did talk, first when quiet
+    expect(Loss.reasonsForLead("trialed", undefined).at(-1)!.contactOnly).toBe(true)
+    expect(Loss.reasonsForLead("trialed", undefined, true)[0].id).toBe("lr_unreachable")
     expect(Loss.reasonsForLead("trialed", undefined).some((r) => r.for === "student")).toBe(false)
     expect(Loss.validateLeadLost({ stage: "trialed", reasonId: "lr_competitor", otherReasonIds: [] }, undefined)).toMatch(/ไปเรียนที่ไหน/)
     expect(Loss.validateLeadLost({ stage: "trialed", reasonId: "lr_price", otherReasonIds: [] }, undefined)).toBeNull()
