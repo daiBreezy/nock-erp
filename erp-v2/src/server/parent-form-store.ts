@@ -1,6 +1,6 @@
 import { promises as fs } from "fs"
 import path from "path"
-import type { EnrollSubmission, EnrollToken, ExitAnswers, ExitResponse, ExitToken } from "@/domain/types"
+import type { EnrollSubmission, EnrollToken, ExitAnswers, ExitResponse, ExitToken, SurveyAnswers, SurveyResponse, SurveyToken } from "@/domain/types"
 
 // File-based store for parent forms that are not Test/Trial (owner 2026-10-05: exit form; the yearly survey next) —
 // same reason as form-store.ts: the parent's page runs outside the ERP's localStorage, staff must see the answers.
@@ -146,4 +146,66 @@ export function reviewEnroll(id: string, status: "approved" | "rejected", create
     Object.assign(sub, { status, reviewedAt: new Date().toISOString(), createdStudentIds })
     return true
   })
+}
+
+// ---------- yearly parent survey (owner 2026-10-05) ----------
+
+interface SurveyStore { tokens: SurveyToken[]; responses: SurveyResponse[] }
+const SURVEY_FILE = path.join(DATA_DIR, "surveys.json")
+let surveyQueue: Promise<unknown> = Promise.resolve()
+
+async function readSurvey(): Promise<SurveyStore> {
+  try {
+    const parsed = JSON.parse(await fs.readFile(SURVEY_FILE, "utf8")) as SurveyStore
+    return { tokens: parsed.tokens ?? [], responses: parsed.responses ?? [] }
+  } catch {
+    return { tokens: [], responses: [] }
+  }
+}
+
+function mutateSurvey<T>(fn: (s: SurveyStore) => T): Promise<T> {
+  const result = surveyQueue.then(async () => {
+    const s = await readSurvey()
+    const v = fn(s)
+    await fs.mkdir(DATA_DIR, { recursive: true })
+    await fs.writeFile(SURVEY_FILE, JSON.stringify(s, null, 2), "utf8")
+    return v
+  })
+  surveyQueue = result.catch(() => undefined)
+  return result
+}
+
+/** One link per family for a year's send-out ("ps_" tokens). */
+export function createSurveyTokens(inputs: Omit<SurveyToken, "token" | "kind" | "createdAt" | "used">[]): Promise<SurveyToken[]> {
+  return mutateSurvey((s) => {
+    const now = new Date().toISOString()
+    const made = inputs.map((x, i) => ({ ...x, token: `ps_${Date.now().toString(36)}${i.toString(36)}${Math.random().toString(36).slice(2, 6)}`, kind: "survey" as const, createdAt: now, used: false }))
+    s.tokens.push(...made)
+    return made
+  })
+}
+
+export async function checkSurveyToken(token: string): Promise<{ ok: true; token: SurveyToken } | { ok: false; error: string }> {
+  const s = await readSurvey()
+  const t = s.tokens.find((x) => x.token === token)
+  if (!t) return { ok: false, error: "invalid" }
+  if (t.used) return { ok: false, error: "used" }
+  if (new Date(t.expiresAt) < new Date()) return { ok: false, error: "expired" }
+  return { ok: true, token: t }
+}
+
+export function submitSurvey(token: string, answers: SurveyAnswers, teachers: Record<string, string[]>): Promise<{ ok: true; response: SurveyResponse; token: SurveyToken } | { ok: false; error: string }> {
+  return mutateSurvey((s) => {
+    const t = s.tokens.find((x) => x.token === token)
+    if (!t) return { ok: false as const, error: "invalid" }
+    if (t.used) return { ok: false as const, error: "used" }
+    t.used = true
+    const response: SurveyResponse = { id: `svr_${Date.now().toString(36)}`, token, campaignId: t.campaignId, year: t.year, familyId: t.familyId, branchId: t.branchId, teachers, answers, submittedAt: new Date().toISOString() }
+    s.responses.push(response)
+    return { ok: true as const, response, token: t }
+  })
+}
+
+export async function listSurveyResponses() {
+  return (await readSurvey()).responses
 }

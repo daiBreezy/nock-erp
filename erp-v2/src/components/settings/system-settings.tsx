@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { CheckIcon, PencilIcon, PlusIcon, ReceiptTextIcon, XIcon } from "lucide-react"
 import { NativeSelect } from "@/components/app/native-select"
 import { Field } from "@/components/app/student-form"
@@ -11,6 +11,11 @@ import { Textarea } from "@/components/ui/textarea"
 import { NOTIFY_LABEL } from "@/domain/rules/settings"
 import type { Brand, FormLang, LossReason, NotifyKey, SystemConfig } from "@/domain/types"
 import * as Loss from "@/domain/rules/loss"
+import * as Survey from "@/domain/rules/survey"
+import Link from "next/link"
+import { addDays, fmtDate, toDateStr } from "@/domain/dates"
+import { useNow } from "@/lib/hooks"
+import { pullSurveyResponses, remindSurvey, sendYearlySurvey, surveyLink } from "@/lib/forms"
 import { cn } from "@/lib/utils"
 import { report } from "@/lib/feedback"
 import { useStore } from "@/store/store"
@@ -28,6 +33,7 @@ export function SystemSettingsView() {
       <GlobalHolidays />
       <InvoiceMemos />
       <LossReasons />
+      <YearlySurvey />
       <h2 className="pt-2 text-sm font-semibold text-muted-foreground">ค่าระบบ</h2>
       <Preferences />
       <NotificationPrefs />
@@ -123,6 +129,71 @@ function LossReasons() {
         </table>
       </div>
       <SaveRow dirty={dirty} onReset={() => setList(base)} onSave={() => report(saveList(list), "บันทึกรายการเหตุผลแล้ว")} />
+    </SettingsCard>
+  )
+}
+
+/**
+ * Yearly parent survey (owner 2026-10-05): the window (Sep–Oct), this year's send-out, one reminder after 7 days.
+ * Dev: send automatically on the window's first day — the prototype sends from here.
+ */
+function YearlySurvey() {
+  const system = useStore((s) => s.system)
+  const campaigns = useStore((s) => s.surveyCampaigns)
+  const responses = useStore((s) => s.surveyResponses)
+  const families = useStore((s) => s.families)
+  const saveWindow = useStore((s) => s.saveSurveyWindow)
+  const today = toDateStr(useNow(60_000))
+  const year = Number(today.slice(0, 4))
+  const win = Survey.surveyWindow(system, year)
+  const [from, setFrom] = useState(win.from)
+  const [to, setTo] = useState(win.to)
+  const [busy, setBusy] = useState(false)
+  const [showLinks, setShowLinks] = useState(false)
+  useEffect(() => { pullSurveyResponses() }, [])
+  const current = campaigns.find((c) => c.year === year)
+  const answered = current ? responses.filter((r) => r.campaignId === current.id).length : 0
+  const waiting = current ? Survey.notAnswered(current, responses) : []
+  const dirty = from !== win.from || to !== win.to
+  const send = async () => {
+    setBusy(true)
+    const r = await sendYearlySurvey(year, from, to)
+    setBusy(false)
+    report(r, (v) => `ส่งแบบสอบถามปี ${year + 543} แล้ว · ${v.sent} ครอบครัว (LINE ${v.lineSent})`)
+  }
+  const remind = async () => { if (!current) return; setBusy(true); const r = await remindSurvey(current); setBusy(false); report(r, (v) => `ส่งเตือนแล้ว ${v.reminded} ครอบครัว`) }
+  return (
+    <SettingsCard title="แบบสอบถามความพึงพอใจประจำปี (ผู้ปกครอง)" hint="ปีละครั้ง ส่งให้ทุกครอบครัวที่ลูกยังเรียนอยู่ (1 ฟอร์มต่อครอบครัว ให้คะแนนแยกรายลูก · ไทย / EN / 日本語) · ไม่ตอบใน 7 วัน → เตือน 1 ครั้ง · ไม่พอใจ (แนะนำเพื่อน 0–6 หรือไม่เรียนต่อ) → แจ้ง Manager ให้โทรใน 3 วัน · ผลดูที่ Reports › ความพึงพอใจ">
+      <div className="flex flex-wrap items-end gap-3">
+        <Field label="เริ่มส่ง (ทุกปี)"><Input type="date" value={from} onChange={(e) => setFrom(e.target.value)} className="w-40" /></Field>
+        <Field label="ปิดรับคำตอบ"><Input type="date" value={to} onChange={(e) => setTo(e.target.value)} className="w-40" /></Field>
+        {dirty && <Button size="sm" onClick={() => report(saveWindow({ from: from.slice(5), to: to.slice(5) }), "บันทึกช่วงแบบสอบถามแล้ว")}>บันทึกช่วง</Button>}
+      </div>
+      <div className="mt-4 rounded-2xl bg-muted/50 p-3 text-sm">
+        {current ? (
+          <div className="space-y-2">
+            <p className="font-medium">ปี {year + 543}: ส่งแล้ว {fmtDate(current.sentAt.slice(0, 10))} · {current.recipients.length} ครอบครัว · ตอบแล้ว {answered} ({current.recipients.length ? Math.round((answered / current.recipients.length) * 100) : 0}%)</p>
+            <p className="text-xs text-muted-foreground">ทาง LINE {current.recipients.filter((x) => x.viaLine).length} · ไม่มี LINE {current.recipients.filter((x) => !x.viaLine).length} (ส่งลิงก์เอง) · {current.remindedAt ? `เตือนแล้ว ${fmtDate(current.remindedAt.slice(0, 10))}` : `เตือนได้ตั้งแต่ ${fmtDate(addDays(current.sentAt.slice(0, 10), Survey.REMIND_AFTER_DAYS))}`}</p>
+            <div className="flex flex-wrap gap-2">
+              <Button size="sm" variant="outline" disabled={busy || !Survey.canRemind(current, today)} onClick={remind}>ส่งเตือนคนที่ยังไม่ตอบ ({waiting.filter((x) => x.viaLine).length})</Button>
+              <Button size="sm" variant="ghost" onClick={() => setShowLinks((v) => !v)}>ลิงก์ของครอบครัวที่ไม่มี LINE ({waiting.filter((x) => !x.viaLine).length})</Button>
+              <Button size="sm" variant="ghost" nativeButton={false} render={<Link href="/reports?tab=satisfaction" />}>ดูผล ›</Button>
+            </div>
+            {showLinks && (
+              <ul className="max-h-48 space-y-1 overflow-y-auto text-xs">{waiting.filter((x) => !x.viaLine).map((x) => (
+                <li key={x.token} className="flex items-center gap-2"><span className="w-40 truncate">{families.find((f) => f.id === x.familyId)?.name}</span>
+                  <button type="button" className="text-primary underline" onClick={() => { navigator.clipboard?.writeText(surveyLink(x.token)); report({ ok: true, value: undefined }, "คัดลอกลิงก์แล้ว") }}>คัดลอกลิงก์</button></li>
+              ))}</ul>
+            )}
+          </div>
+        ) : (
+          <div className="flex flex-wrap items-center gap-3">
+            <p>ปี {year + 543} ยังไม่ได้ส่ง {today < from ? `· ถึงช่วงส่ง ${fmtDate(from)}` : ""}</p>
+            <Button size="sm" className="ml-auto" disabled={busy} onClick={send}>ส่งแบบสอบถามปี {year + 543} ตอนนี้</Button>
+          </div>
+        )}
+        <p className="mt-2 text-xs text-muted-foreground">ดูตัวอย่างฟอร์ม: <a className="text-primary underline" href="/liff/survey?preview=1" target="_blank" rel="noreferrer">เปิด</a></p>
+      </div>
     </SettingsCard>
   )
 }

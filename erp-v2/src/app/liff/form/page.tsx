@@ -125,6 +125,7 @@ function LiffForm() {
       // one LIFF app for every parent form: exit-form links ("pf_" tokens) live on their own page
       const pf = initialToken || new URLSearchParams(window.location.search).get("token") || ""
       if (pf.startsWith("pf_")) { window.location.replace(`/liff/exit?token=${encodeURIComponent(pf)}`); return }
+      if (pf.startsWith("ps_")) { window.location.replace(`/liff/survey?token=${encodeURIComponent(pf)}`); return }
       // enroll-now (owner 2026-10-05): from the Rich Menu or a link an admin sent — LINE login only when opened inside LINE
       if (pf.startsWith("pe_") || previewEnroll) {
         let tk: EnrollToken

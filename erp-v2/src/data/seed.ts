@@ -7,7 +7,7 @@ import { reasonLabel } from "@/domain/rules/loss"
 import { generateSessions } from "@/domain/rules/scheduling"
 import type {
   Assessment, AppNotification, Attendance, Branch, BusAddOn, DayBlocks, ChatMessage, CreditNote, LessonBook, LessonTopic, Conversation, Course, Entitlement, Family, Holiday, Invoice, Klass, Lead, LessonSummary,
-  ActivityLog, PriceRow, Session, StudentNote, Staff, Student, StudentLeave, SystemConfig, Weekday,
+  ActivityLog, PriceRow, Session, StudentNote, Staff, Student, StudentLeave, SurveyCampaign, SurveyResponse, SystemConfig, Weekday,
 } from "@/domain/types"
 
 export interface DB {
@@ -36,6 +36,9 @@ export interface DB {
   notes: StudentNote[]
   logs: ActivityLog[]
   assessments: Assessment[]
+  /** yearly parent survey (owner 2026-10-05): each send-out + the answers pulled from the form server */
+  surveyCampaigns: SurveyCampaign[]
+  surveyResponses: SurveyResponse[]
 }
 
 let seq = 0
@@ -537,6 +540,7 @@ export function buildSeed(now = new Date()): DB {
       liclass: "",
     },
     competitors: ["ติวเตอร์ที่บ้าน", "สถาบันใกล้โรงเรียน", "เรียนออนไลน์"],
+    survey: { from: "09-15", to: "10-15" },
     preferences: { language: "th", timezone: "Asia/Bangkok (UTC+7)", currency: "THB (฿)", dateFormat: "th-short" },
     settings: {
       notify: {
@@ -549,7 +553,9 @@ export function buildSeed(now = new Date()): DB {
     },
   }
 
-  return { branches, staff, holidays, courses, classes, sessions, attendance, summaries, families, students, entitlements, leaves, invoices, busAddOns, creditNotes: [] as CreditNote[], lessonBooks, lessonTopics, leads, conversations, messages, notifications: [], system, notes, logs, assessments }
+  const { surveyCampaigns, surveyResponses } = buildSurveys({ today, branches, families, students, entitlements, classes, staff })
+
+  return { branches, staff, holidays, courses, classes, sessions, attendance, summaries, families, students, entitlements, leaves, invoices, busAddOns, creditNotes: [] as CreditNote[], lessonBooks, lessonTopics, leads, conversations, messages, notifications: [], system, notes, logs, assessments, surveyCampaigns, surveyResponses }
 }
 
 /** Demo history for Reports: ~130 past/current students over the last 15 months with monthly / hour-pack invoices. */
@@ -674,4 +680,52 @@ function buildHistory(db: { today: string; branches: Branch[]; courses: Course[]
     inv.payments[0].amount = invoiceTotals(inv, { branch, courses: db.courses, classes: db.classes, holidays: [] }).total
   }
   return { leaves }
+}
+
+/** Two years of the parent survey (owner 2026-10-05): last year's finished, this year's in progress. Deterministic. */
+function buildSurveys(db: { today: string; branches: Branch[]; families: Family[]; students: Student[]; entitlements: Entitlement[]; classes: Klass[]; staff: Staff[] }) {
+  let seed = 4242
+  const rnd = () => { seed = (seed * 1103515245 + 12345) % 2147483648; return seed / 2147483648 }
+  const pick = <T,>(xs: T[]) => xs[Math.floor(rnd() * xs.length)]
+  const year = Number(db.today.slice(0, 4))
+  const campaigns: SurveyCampaign[] = [], responses: SurveyResponse[] = []
+  for (const y of [year - 1, year]) {
+    const from = `${y}-09-15`, to = `${y}-10-15`
+    if (from > db.today) continue
+    const id = `sv_${y}`
+    const active = (sid: string) => db.entitlements.some((e) => e.studentId === sid && e.from <= from && from <= e.to)
+    const fams = db.families.filter((f) => db.students.some((s) => s.familyId === f.id && active(s.id)))
+    const recipients = fams.map((f) => ({ familyId: f.id, branchId: db.students.find((s) => s.familyId === f.id)!.branchId, token: `ps_seed_${y}_${f.id}`, viaLine: f.parents.some((p) => p.lineLinked) }))
+    campaigns.push({ id, year: y, from, to, sentAt: `${from}T09:00:00.000Z`, sentBy: "u_nock", recipients, remindedAt: y < year ? `${y}-09-22T09:00:00.000Z` : undefined })
+    const share = y < year ? 0.68 : 0.5
+    for (const r of recipients) {
+      if (rnd() > share) continue
+      const kids = db.students.filter((s) => s.familyId === r.familyId && active(s.id))
+      const branchMood = (db.branches.findIndex((b) => b.id === r.branchId) % 4) * 0.15 // some branches score a bit lower
+      const base = 4.3 - branchMood + (y === year ? 0.1 : 0)
+      const sc = (bias = 0) => (rnd() < 0.08 ? null : Math.max(1, Math.min(5, Math.round(base + bias + (rnd() - 0.5) * 2))))
+      const nps = Math.max(0, Math.min(10, Math.round(8.3 - branchMood * 3 + (y === year ? 0.4 : 0) + (rnd() - 0.55) * 5)))
+      const teachers: Record<string, string[]> = {}
+      kids.forEach((k) => { teachers[k.id] = [...new Set(db.classes.filter((c) => c.studentIds.includes(k.id) && c.teacherId).map((c) => c.teacherId!))] })
+      const day = Math.floor(rnd() * (y < year ? 25 : 18))
+      const submitted = `${y}-09-${String(15 + Math.min(day, 15)).padStart(2, "0")}T${String(9 + Math.floor(rnd() * 10)).padStart(2, "0")}:00:00.000Z`
+      if (submitted.slice(0, 10) > db.today) continue
+      const cont = nps <= 4 ? pick(["no", "maybe"] as const) : nps <= 6 ? pick(["maybe", "yes"] as const) : "yes"
+      responses.push({
+        id: `svr_${y}_${r.familyId}`, token: r.token, campaignId: id, year: y, familyId: r.familyId, branchId: r.branchId, teachers, submittedAt: submitted,
+        answers: {
+          nps, overall: sc(), continueNext: cont,
+          children: kids.map((k) => ({ studentId: k.id, teacher: sc(0.2), progress: sc(-0.1), level: sc() })),
+          service: { admin: sc(0.1), summary: sc(-0.3), schedule: sc(-0.4), place: sc(0.1), bus: kids.some((k) => k.usesBus) ? sc(-0.2) : null, value: sc(-0.5) },
+          wants: rnd() < 0.5 ? [pick(["วิทย์", "อังกฤษ", "คณิต", "เสาร์เช้า", "อาทิตย์", "เย็นวันธรรมดา"])] : [],
+          praise: rnd() < 0.3 ? pick(["ครูใส่ใจลูกมาก", "ลูกชอบมาเรียน เกรดดีขึ้นชัดเจน", "แอดมินตอบไว", "สรุปการเรียนละเอียดดีค่ะ"]) : "",
+          improve: rnd() < 0.3 ? pick(["อยากให้มีเวลาเรียนวันอาทิตย์", "ที่จอดรถน้อย", "ค่าเรียนขึ้นบ่อย", "อยากได้การบ้านเพิ่ม"]) : "",
+          lang: pick(["th", "th", "th", "en", "ja"] as const),
+        },
+        // last year's unhappy families were all called; this year's some are still waiting
+        followUp: nps <= 6 && (y < year || rnd() < 0.4) ? { at: `${submitted.slice(0, 10)}T15:00:00.000Z`, by: "u_ton", note: pick(["โทรคุยแล้ว ปรับเวลาเรียนให้", "คุณแม่ขอบคุณที่โทรมา จะลองต่ออีกเทอม", "แจ้งผู้จัดการสาขาแล้ว"]) } : undefined,
+      })
+    }
+  }
+  return { surveyCampaigns: campaigns, surveyResponses: responses }
 }

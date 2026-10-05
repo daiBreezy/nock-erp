@@ -5,6 +5,7 @@ import { addDays, toDateStr } from "@/domain/dates"
 import { invoiceTotals } from "@/domain/rules/billing"
 import * as R from "@/domain/rules/reports"
 import * as Loss from "@/domain/rules/loss"
+import * as Survey from "@/domain/rules/survey"
 import { CAPACITY, findConflicts, hoursFor, isHoliday, sessionState } from "@/domain/rules/scheduling"
 import { useEntitlements, useNow } from "@/lib/hooks"
 import { useStore } from "@/store/store"
@@ -72,6 +73,7 @@ export function useReports(branchIds: string[], period: R.PeriodKey) {
       invoices: s.invoices.filter((i) => ids.has(i.branchId)), entitlements: ents, attendance: s.attendance, sessions,
       classes: s.classes.filter((k) => ids.has(k.branchId)), leads: s.leads.filter((l) => ids.has(l.branchId)),
       activeNow: active, activeBefore: activeAtStart, pendingSummaries, conflicts,
+      surveyToCall: Survey.toCall(s.surveyResponses.filter((r) => ids.has(r.branchId)), today).length,
     })
 
     const perBranch = branches.map((b) => ({
@@ -152,8 +154,23 @@ export function useReports(branchIds: string[], period: R.PeriodKey) {
 
     const exits = R.exitSummary(students, range)
 
+    // yearly parent survey (owner 2026-10-05): per year, scoped to the branches in view
+    const surveyYears = [...new Set(s.surveyCampaigns.map((c) => c.year))].sort((a, b) => b - a)
+    const surveyOf = (y: number) => {
+      const c = s.surveyCampaigns.find((x) => x.year === y)
+      const rs = s.surveyResponses.filter((r) => r.year === y && ids.has(r.branchId))
+      const sent = c ? c.recipients.filter((x) => ids.has(x.branchId)).length : 0
+      return {
+        campaign: c, responses: rs, summary: Survey.summarize(rs, sent),
+        byBranch: branches.map((b) => { const br = rs.filter((r) => r.branchId === b.id); return { id: b.id, name: b.name, nps: Survey.nps(br.map((r) => r.answers.nps)), n: br.length, sent: c ? c.recipients.filter((x) => x.branchId === b.id).length : 0 } }),
+        teachers: Survey.teacherScores(rs).map((t) => ({ ...t, staff: s.staff.find((x) => x.id === t.teacherId) })),
+        wants: Survey.wantsCount(rs),
+        toCall: Survey.toCall(rs, today),
+      }
+    }
+
     return {
-      exits,
+      exits, surveyYears, surveyOf,
       attendanceTab, operations, crm, cohortByBranchYear, cohortMonthly, forecast,
       today, now, range, prev, rows, events, students, since, comparable: !!since && prev.from >= since,
       kpi: {
@@ -186,7 +203,7 @@ export function useReports(branchIds: string[], period: R.PeriodKey) {
       },
       perBranch,
     }
-  }, [allRows, ids, period, today, now, s.students, s.leaves, s.sessions, s.attendance, s.branches, s.staff, s.summaries, s.invoices, s.classes, s.leads, s.families, s.holidays, s.system, s.courses, entitlementsAll])
+  }, [allRows, ids, period, today, now, s.students, s.leaves, s.sessions, s.attendance, s.branches, s.staff, s.summaries, s.invoices, s.classes, s.leads, s.families, s.holidays, s.system, s.courses, s.surveyCampaigns, s.surveyResponses, entitlementsAll])
 }
 
 export type ReportData = ReturnType<typeof useReports>

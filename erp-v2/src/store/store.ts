@@ -26,8 +26,9 @@ import * as Notif from "@/domain/rules/notifications"
 import * as Cfg from "@/domain/rules/settings"
 import * as Msg from "@/domain/rules/messages"
 import * as Loss from "@/domain/rules/loss"
+import * as Survey from "@/domain/rules/survey"
 import { toast } from "sonner"
-import type { EnrollSubmission, ContactChannel, ContactResult, LossReason, Assessment, AttendanceStatus, Entitlement, Branch, BusAddOn, ClassBlock, CreditNote, LessonBook, LessonTopic, Seat, ChatMessage, Conversation, Course, DateStr, Family, FormSubmission, Holiday, ID, Invoice, Klass, Lead, LeadStage, LessonSummary, LineDelivery, LogCategory, Result, Session, Staff, Student, SystemConfig } from "@/domain/types"
+import type { SurveyCampaign, SurveyResponse, EnrollSubmission, ContactChannel, ContactResult, LossReason, Assessment, AttendanceStatus, Entitlement, Branch, BusAddOn, ClassBlock, CreditNote, LessonBook, LessonTopic, Seat, ChatMessage, Conversation, Course, DateStr, Family, FormSubmission, Holiday, ID, Invoice, Klass, Lead, LeadStage, LessonSummary, LineDelivery, LogCategory, Result, Session, Staff, Student, SystemConfig } from "@/domain/types"
 
 export interface UIState {
   userId: ID
@@ -169,6 +170,14 @@ type Store = DB & UIState & {
   cancelExit: (studentId: ID) => Result
   /** close it: archive with a structured reason, out of classes after the last day; "may come back" → a win-back lead */
   closeExit: (studentId: ID, input: Loss.ExitCloseInput) => Result
+  /** yearly parent survey (owner 2026-10-05): record a send-out (links minted on the form server) */
+  recordSurveySent: (c: Omit<SurveyCampaign, "sentAt" | "sentBy">) => Result
+  markSurveyReminded: (campaignId: ID) => Result
+  /** answers pulled from the form server (only new ones are added) */
+  syncSurveyResponses: (list: SurveyResponse[]) => Result<{ added: number }>
+  /** a manager called an unhappy family */
+  surveyFollowUp: (responseId: ID, note: string) => Result
+  saveSurveyWindow: (w: { from: string; to: string }) => Result
   /** enroll-now (owner 2026-10-05): the branch's Rich Menu link */
   setEnrollLink: (branchId: ID, link: Branch["enrollLink"]) => Result
   /** enroll-now application → family + students + a "สมัครตรง" lead at รอชำระ + a draft invoice per child */
@@ -1853,6 +1862,55 @@ export const useStore = create<Store>()(
         return OK
       },
 
+      recordSurveySent: (c) => {
+        const s = get()
+        const perm = requirePerm(s.me(), "reports.view")
+        if (!perm.ok) return perm
+        if (s.surveyCampaigns.some((x) => x.year === c.year)) return fail(`ส่งแบบสอบถามปี ${c.year + 543} ไปแล้ว`)
+        set({ surveyCampaigns: [...s.surveyCampaigns, { ...c, sentAt: s.now().toISOString(), sentBy: s.userId }] })
+        return OK
+      },
+
+      markSurveyReminded: (campaignId) => {
+        const s = get()
+        set({ surveyCampaigns: s.surveyCampaigns.map((x) => (x.id === campaignId ? { ...x, remindedAt: s.now().toISOString() } : x)) })
+        return OK
+      },
+
+      syncSurveyResponses: (list) => {
+        const s = get()
+        const known = new Set(s.surveyResponses.map((r) => r.id))
+        const fresh = list.filter((r) => !known.has(r.id))
+        if (fresh.length) {
+          const now = s.now()
+          const unhappy = fresh.filter((r) => Survey.isUnhappy(r.answers))
+          set({
+            surveyResponses: [...s.surveyResponses, ...fresh],
+            // unhappy families → the branch's managers, to call within 3 days
+            notifications: [...unhappy.map((r) => Notif.notify({ id: uid("no"), at: now, kind: "form_submitted", title: "ผู้ปกครองไม่พอใจ (แบบสอบถามประจำปี)", body: `${s.families.find((f) => f.id === r.familyId)?.name ?? "ครอบครัว"} · แนะนำเพื่อน ${r.answers.nps ?? "—"}/10${r.answers.continueNext === "no" ? " · ไม่เรียนต่อ" : ""} — โทรคุยภายใน ${Survey.CALL_WITHIN_DAYS} วัน`, fromId: undefined, audience: { roles: ["manager", "area_manager", "director"], branchId: r.branchId } })), ...s.notifications],
+          })
+        }
+        return { ok: true, value: { added: fresh.length } }
+      },
+
+      surveyFollowUp: (responseId, note) => {
+        const s = get()
+        const perm = requirePerm(s.me(), "reports.view")
+        if (!perm.ok) return perm
+        if (!note.trim()) return fail("บันทึกสั้นๆ ว่าคุยแล้วได้อะไร")
+        set({ surveyResponses: s.surveyResponses.map((r) => (r.id === responseId ? { ...r, followUp: { at: s.now().toISOString(), by: s.userId, note: note.trim() } } : r)) })
+        return OK
+      },
+
+      saveSurveyWindow: (w) => {
+        const s = get()
+        const perm = requirePerm(s.me(), "settings.manage")
+        if (!perm.ok) return perm
+        if (!/^\d\d-\d\d$/.test(w.from) || !/^\d\d-\d\d$/.test(w.to) || w.from >= w.to) return fail("ช่วงวันที่ไม่ถูกต้อง")
+        set({ system: { ...s.system, survey: w } })
+        return OK
+      },
+
       setEnrollLink: (branchId, link) => {
         const s = get()
         const perm = requirePerm(s.me(), "lead.manage")
@@ -2207,7 +2265,7 @@ export const useStore = create<Store>()(
     {
       name: "nockerp-v2",
       // bump when the data model changes; older saved data is replaced by fresh sample data
-      version: 55,
+      version: 56,
       migrate: () => ({ ...buildSeed(), userId: "u_nock", branchId: "br_thl", clockOffset: 0 }) as unknown as Store,
       // persist data + UI state only, never the action functions
       partialize: (s) => Object.fromEntries(Object.entries(s).filter(([, v]) => typeof v !== "function")) as Partial<Store>,

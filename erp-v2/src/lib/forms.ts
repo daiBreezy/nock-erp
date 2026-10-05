@@ -5,7 +5,9 @@
 // logic lives in one place, not copy-pasted across components).
 
 import { FORM_TYPE_LABEL } from "@/domain/rules/forms"
-import type { Brand, EnrollSubmission, EnrollToken, ExitResponse, ExitToken, FormLang, FormOfferSlot, FormPrefill, FormSubjectOffer, FormSubmission, FormToken, FormType, ID, Result } from "@/domain/types"
+import { addDays } from "@/domain/dates"
+import { notAnswered, surveyRecipients } from "@/domain/rules/survey"
+import type { Brand, EnrollSubmission, EnrollToken, ExitResponse, ExitToken, SurveyCampaign, SurveyToken, FormLang, FormOfferSlot, FormPrefill, FormSubjectOffer, FormSubmission, FormToken, FormType, ID, Result } from "@/domain/types"
 import { useStore } from "@/store/store"
 
 async function postJson<T>(url: string, body: unknown): Promise<T> {
@@ -134,3 +136,66 @@ export async function fetchEnrollSubmissions(): Promise<EnrollSubmission[]> {
 export async function markEnrollReviewed(id: ID, status: "approved" | "rejected", createdStudentIds?: ID[]) {
   await postJson("/api/parent-forms/enroll-submissions", { id, status, createdStudentIds })
 }
+
+const surveyUrl = (token: string) => {
+  const liffId = process.env.NEXT_PUBLIC_LIFF_ID
+  return liffId ? `https://liff.line.me/${liffId}?token=${token}` : `${window.location.origin}/liff/survey?token=${token}`
+}
+const surveyText = (url: string) => `ขอเวลา 3 นาทีช่วยตอบแบบสอบถามความพึงพอใจประจำปีหน่อยนะคะ 🙏 ทุกความเห็นช่วยให้เราดูแลน้องๆ ได้ดีขึ้น\n${url}`
+
+/**
+ * Yearly parent survey (owner 2026-10-05): one link per family with a child studying today, pushed in LINE where the
+ * family has a chat. Dev: run this automatically on the window's first day; the prototype sends it from Settings.
+ */
+export async function sendYearlySurvey(year: number, from: string, to: string): Promise<Result<{ campaignId: ID; sent: number; lineSent: number }>> {
+  const s = useStore.getState()
+  const today = new Date().toISOString().slice(0, 10)
+  const recips = surveyRecipients(s.families, s.students, s.entitlements, today)
+  if (!recips.length) return { ok: false, error: "ยังไม่มีครอบครัวที่มีลูกเรียนอยู่" }
+  const campaignId = `sv_${year}`
+  const expiresAt = new Date(`${addDays(to, 7)}T23:59:59`).toISOString()
+  const inputs = recips.map(({ family, kids }) => {
+    const branch = s.branches.find((b) => b.id === kids[0].branchId)!
+    const conv = s.conversations.find((c) => c.familyId === family.id)
+    return {
+      campaignId, year, familyId: family.id, familyName: family.name, branchId: branch.id, branchName: branch.name, brand: branch.brand, lang: s.system.preferences.language,
+      usesBus: kids.some((k) => k.usesBus), conversationId: conv?.id ?? null, expiresAt,
+      children: kids.map((k) => { const ids = [...new Set(s.classes.filter((c) => c.studentIds.includes(k.id) && c.teacherId).map((c) => c.teacherId!))]; return { id: k.id, nickname: k.nickname, grade: k.grade, teacherIds: ids, teacherNames: ids.map((t) => s.staff.find((x) => x.id === t)?.nickname ?? "") } }),
+      wantOptions: [...branch.subjects, "เสาร์เช้า", "เสาร์บ่าย", "อาทิตย์", "เย็นวันธรรมดา"],
+    }
+  })
+  const res = await postJson<{ ok: boolean; tokens?: SurveyToken[]; error?: string }>("/api/parent-forms/survey", { tokens: inputs })
+  if (!res.ok || !res.tokens) return { ok: false, error: res.error ?? "สร้างลิงก์ไม่สำเร็จ" }
+  let lineSent = 0
+  for (const t of res.tokens) {
+    if (!t.conversationId?.startsWith("line_")) continue
+    const r = await postJson<{ ok: boolean }>("/api/line/send", { conversationId: t.conversationId, text: surveyText(surveyUrl(t.token)) })
+    if (r.ok) lineSent++
+  }
+  const rec = s.recordSurveySent({ id: campaignId, year, from, to, recipients: res.tokens.map((t) => ({ familyId: t.familyId, branchId: t.branchId, token: t.token, viaLine: !!t.conversationId?.startsWith("line_") })) })
+  if (!rec.ok) return rec
+  return { ok: true, value: { campaignId, sent: res.tokens.length, lineSent } }
+}
+
+/** One reminder, 7 days after sending, to families who haven't answered (same link). */
+export async function remindSurvey(campaign: SurveyCampaign): Promise<Result<{ reminded: number }>> {
+  const s = useStore.getState()
+  const waiting = notAnswered(campaign, s.surveyResponses).filter((x) => x.viaLine)
+  let n = 0
+  for (const x of waiting) {
+    const conv = s.conversations.find((c) => c.familyId === x.familyId && c.id.startsWith("line_"))
+    if (!conv) continue
+    const r = await postJson<{ ok: boolean }>("/api/line/send", { conversationId: conv.id, text: `แจ้งเตือนอีกครั้งค่ะ — ${surveyText(surveyUrl(x.token))}` })
+    if (r.ok) n++
+  }
+  s.markSurveyReminded(campaign.id)
+  return { ok: true, value: { reminded: n } }
+}
+
+/** Pull answers from the form server into the ERP (new ones only — unhappy families notify their managers). */
+export async function pullSurveyResponses() {
+  const r = await fetch("/api/parent-forms/survey-responses").then((x) => x.json()).catch(() => null)
+  if (r?.responses) useStore.getState().syncSurveyResponses(r.responses)
+}
+
+export const surveyLink = (token: string) => (typeof window === "undefined" ? "" : `${window.location.origin}/liff/survey?token=${token}`)

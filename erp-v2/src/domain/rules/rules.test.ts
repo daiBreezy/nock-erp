@@ -22,6 +22,7 @@ import * as Les from "./lessons"
 import * as Sch from "./scheduling"
 import * as Rep from "./reports"
 import * as Loss from "./loss"
+import * as Survey from "./survey"
 import { summaryMessage } from "./messages"
 
 const hours = { open: "09:00", close: "20:00" }
@@ -1630,5 +1631,30 @@ describe("Enroll-now leads in the funnel (owner 2026-10-05)", () => {
     const f = Rep.leadFunnel([{ stage: "enrolled", createdAt: at, direct: true }, { stage: "enrolled", createdAt: at }] as Lead[], { from: "2026-09-01", to: "2026-09-30" })
     expect(f.map((s) => s.count)).toEqual([2, 2, 1, 1, 2, 2])
     expect(f.find((s) => s.key === "payment")!.direct).toBe(1)
+  })
+})
+
+describe("Yearly parent survey (owner 2026-10-05)", () => {
+  const resp = (id: string, nps: number | null, cont: "yes" | "maybe" | "no", teacher: number | null, extra: Partial<SurveyResponseT> = {}): SurveyResponseT => ({
+    id, token: id, campaignId: "sv", year: 2026, familyId: id, branchId: "b1", teachers: { [`k${id}`]: ["t1"] }, submittedAt: "2026-09-20T10:00:00.000Z",
+    answers: { nps, overall: 4, children: [{ studentId: `k${id}`, teacher, progress: 3, level: 5 }], service: { admin: 5, summary: 2, schedule: 3, place: 4, bus: null, value: 4 }, continueNext: cont, wants: ["วิทย์"], praise: "", improve: "", lang: "th" },
+    ...extra,
+  })
+  type SurveyResponseT = import("../types").SurveyResponse
+  it("NPS, response rate, weakest topic first, teacher averages", () => {
+    const rs = [resp("a", 10, "yes", 5), resp("b", 9, "yes", 4), resp("c", 3, "no", 2)]
+    const s = Survey.summarize(rs, 6)
+    expect([s.nps, s.rate, s.unhappy]).toEqual([33, 0.5, 1])
+    expect(Survey.topicRanking(s)[0].key).toBe("summary")
+    expect(Survey.teacherScores(rs)).toEqual([{ teacherId: "t1", score: 11 / 3, ratings: 3 }])
+    expect(Survey.wantsCount(rs)).toEqual([{ want: "วิทย์", count: 3 }])
+  })
+  it("unhappy families to call within 3 days; reminder once after 7 days to those who haven't answered", () => {
+    const rs = [resp("c", 5, "yes", 3), resp("d", 8, "no", 4), resp("e", 2, "maybe", 1, { followUp: { at: "", by: "u", note: "โทรแล้ว" } })]
+    const call = Survey.toCall(rs, "2026-09-24")
+    expect(call.map((x) => [x.r.id, x.overdue])).toEqual([["c", true], ["d", true]])
+    const c = { id: "sv", year: 2026, from: "2026-09-15", to: "2026-10-15", sentAt: "2026-09-15T09:00:00.000Z", sentBy: "u", recipients: ["c", "x"].map((f) => ({ familyId: f, branchId: "b1", token: f, viaLine: true })) }
+    expect(Survey.notAnswered(c, rs).map((x) => x.familyId)).toEqual(["x"])
+    expect([Survey.canRemind(c, "2026-09-21"), Survey.canRemind(c, "2026-09-22"), Survey.canRemind({ ...c, remindedAt: "x" }, "2026-09-25")]).toEqual([false, true, false])
   })
 })

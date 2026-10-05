@@ -161,6 +161,8 @@ export interface SystemConfig {
   lossReasons?: LossReason[]
   /** where customers went instead — grows as admins type new ones */
   competitors?: string[]
+  /** yearly parent survey window, e.g. 15 Sep – 15 Oct (owner 2026-10-05) — "MM-DD" */
+  survey?: { from: string; to: string }
 }
 
 /** One reason a lead stopped / a student left. `for` = which form shows it; `contactOnly` = a lead we never got to
@@ -552,6 +554,71 @@ export interface LeadNote {
   at: string
   by: ID
   text: string
+}
+
+/** Yearly parent satisfaction survey (owner 2026-10-05): one form per family, child ratings inside, TH/EN/JP. */
+export interface SurveyAnswers {
+  /** would recommend us, 0–10 */
+  nps: number | null
+  /** overall 1–5 */
+  overall: number | null
+  children: { studentId: ID; teacher: number | null; progress: number | null; level: number | null }[]
+  service: { admin: number | null; summary: number | null; schedule: number | null; place: number | null; bus: number | null; value: number | null }
+  continueNext: "yes" | "maybe" | "no" | null
+  /** subjects / times they would like us to open */
+  wants: string[]
+  praise: string
+  improve: string
+  lang: FormLang
+}
+
+export interface SurveyToken {
+  token: string
+  kind: "survey"
+  campaignId: ID
+  year: number
+  familyId: ID
+  familyName: string
+  branchId: ID
+  branchName: string
+  brand: Brand
+  lang: FormLang
+  usesBus: boolean
+  children: { id: ID; nickname: string; grade: string; teacherIds: ID[]; teacherNames: string[] }[]
+  /** subjects + time slots the "what should we open" question offers */
+  wantOptions: string[]
+  conversationId: ID | null
+  createdAt: string
+  expiresAt: string
+  used: boolean
+}
+
+export interface SurveyResponse {
+  id: ID
+  token: string
+  campaignId: ID
+  year: number
+  familyId: ID
+  branchId: ID
+  /** teachers of each child when sent — teacher scores go to them */
+  teachers: Record<ID, ID[]>
+  answers: SurveyAnswers
+  submittedAt: string
+  /** unhappy → a manager calls them (owner: within 3 days) and notes what came of it */
+  followUp?: { at: string; by: ID; note: string }
+}
+
+/** One year's send-out. */
+export interface SurveyCampaign {
+  id: ID
+  year: number
+  from: DateStr
+  to: DateStr
+  sentAt: string
+  sentBy: ID
+  /** every family it went to: by LINE, or only a link (no LINE) */
+  recipients: { familyId: ID; branchId: ID; token: string; viaLine: boolean }[]
+  remindedAt?: string
 }
 
 /** Enroll-now form (owner 2026-10-05): a family that wants to start without a test / trial. */

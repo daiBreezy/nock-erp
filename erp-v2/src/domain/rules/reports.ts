@@ -319,6 +319,8 @@ export function needsAttention(ctx: {
   today: DateStr; now: Date; rows: RevenueRow[]; prevRange: Range; range: Range
   invoices: Invoice[]; entitlements: Entitlement[]; attendance: Attendance[]; sessions: Session[]; classes: Klass[]; leads: Lead[]
   activeNow: number; activeBefore: number; pendingSummaries: number; conflicts: number
+  /** unhappy survey families nobody has called yet (owner 2026-10-05) */
+  surveyToCall?: number
 }): AttentionItem[] {
   const T = ATTENTION_THRESHOLDS
   const out: AttentionItem[] = []
@@ -346,6 +348,7 @@ export function needsAttention(ctx: {
   const recent = new Set(ctx.sessions.filter((s) => s.date >= since && s.date <= ctx.today).map((s) => s.id))
   const leaves = new Map<ID, number>()
   ctx.attendance.filter((a) => a.status === "leave" && recent.has(a.sessionId)).forEach((a) => leaves.set(a.studentId, (leaves.get(a.studentId) ?? 0) + 1))
+  add({ key: "survey_call", group: "students", title: "ผู้ปกครองไม่พอใจ ยังไม่ได้โทร", detail: "จากแบบสอบถามประจำปี — โทรภายใน 3 วัน", count: ctx.surveyToCall ?? 0, href: "/reports?tab=satisfaction" })
   add({ key: "often_leave", group: "students", title: "นักเรียนลาบ่อย (เสี่ยงหลุด)", detail: `ลา ≥ ${T.leavesIn30} ครั้งใน 30 วัน`, count: [...leaves.values()].filter((n) => n >= T.leavesIn30).length, href: "/attendance" })
 
   const week = addDays(ctx.today, 7)

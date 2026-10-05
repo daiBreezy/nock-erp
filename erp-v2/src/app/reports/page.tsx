@@ -1,7 +1,7 @@
 "use client"
 
 import Link from "next/link"
-import { Suspense, useMemo, useState } from "react"
+import { Suspense, useEffect, useMemo, useState } from "react"
 import { useSearchParams } from "next/navigation"
 import { AlertTriangleIcon, BanknoteIcon, CalendarDaysIcon, ChartColumnIcon, ChevronRightIcon, DownloadIcon, PrinterIcon, UsersIcon, UserCheckIcon } from "lucide-react"
 import { NativeSelect } from "@/components/app/native-select"
@@ -18,10 +18,12 @@ import { reasonLabel } from "@/domain/rules/loss"
 import type { Weekday } from "@/domain/types"
 import { report } from "@/lib/feedback"
 import { downloadReports } from "@/lib/reports-export"
+import { pullSurveyResponses } from "@/lib/forms"
+import * as Survey from "@/domain/rules/survey"
 import { cn } from "@/lib/utils"
 import { useStore } from "@/store/store"
 
-type Tab = "overview" | "revenue" | "students" | "attendance" | "operations" | "crm"
+type Tab = "overview" | "revenue" | "students" | "attendance" | "operations" | "crm" | "satisfaction"
 const TABS: { id: Tab; label: string; soon?: string }[] = [
   { id: "overview", label: "ภาพรวม" },
   { id: "revenue", label: "รายได้" },
@@ -29,6 +31,7 @@ const TABS: { id: Tab; label: string; soon?: string }[] = [
   { id: "attendance", label: "การเข้าเรียน" },
   { id: "operations", label: "Operations" },
   { id: "crm", label: "CRM" },
+  { id: "satisfaction", label: "ความพึงพอใจ" },
 ]
 const DAYS: Weekday[] = [1, 2, 3, 4, 5, 6, 0]
 const DAY_SHORT = ["อา.", "จ.", "อ.", "พ.", "พฤ.", "ศ.", "ส."]
@@ -55,6 +58,8 @@ function Reports() {
   const [showAttention, setShowAttention] = useState(false)
   const [openId, setOpenId] = useState<string | null>(null)
   const d = useReports(branchIds, period)
+  // survey answers live on the form server — pull new ones in (unhappy families notify their managers)
+  useEffect(() => { pullSurveyResponses() }, [])
   const periodLabel = PERIODS.find((p) => p.key === period)!.label
   const scopeLabel = branchIds.length === 1 ? branches.find((b) => b.id === branchIds[0])?.name ?? "" : allowed.length === branches.length ? "ทุกสาขา" : "สาขาในเขต"
   const showCompare = compare && branchIds.length > 1
@@ -121,6 +126,7 @@ function Reports() {
       {tab === "attendance" && <AttendanceTab d={d} compare={showCompare} onOpen={setOpenId} />}
       {tab === "operations" && <OperationsTab d={d} compare={showCompare} />}
       {tab === "crm" && <CrmTab d={d} compare={showCompare} />}
+      {tab === "satisfaction" && <SatisfactionTab d={d} compare={showCompare} />}
       {TABS.find((t) => t.id === tab)?.soon && <Empty>แท็บนี้อยู่ในรอบ {TABS.find((t) => t.id === tab)!.soon} — คุยสเปกแล้ว ยังไม่ได้สร้าง</Empty>}
 
       <AttentionDialog open={showAttention} onClose={() => setShowAttention(false)} items={d.attention} />
@@ -853,6 +859,141 @@ function CrmTab({ d, compare }: { d: ReportData; compare: boolean }) {
           <Panel title="Pipeline ตอนนี้" hint="Lead ที่ยังเปิดอยู่" center><Stat label="Lead ที่ยังเปิดอยู่" value={fmtNum(c.open)} sub={<Link href="/crm" className="text-primary">ไปหน้า CRM ›</Link>} /></Panel>
         )}
       </div>
+    </div>
+  )
+}
+
+// ---------------- Satisfaction (yearly parent survey) ----------------
+
+const CONT = { yes: "เรียนต่อ", maybe: "ยังไม่แน่ใจ", no: "ไม่เรียนต่อ" } as const
+
+/** Yearly parent survey (owner 2026-10-05): NPS vs last year, by branch, weakest topics, teachers, wishes, who to call. */
+function SatisfactionTab({ d, compare }: { d: ReportData; compare: boolean }) {
+  const [year, setYear] = useState<number | null>(d.surveyYears[0] ?? null)
+  const families = useStore((st) => st.families)
+  const branches = useStore((st) => st.branches)
+  const followUp = useStore((st) => st.surveyFollowUp)
+  const staff = useStore((st) => st.staff)
+  const [notes, setNotes] = useState<Record<string, string>>({})
+  if (year === null) return <Empty>ยังไม่เคยส่งแบบสอบถามความพึงพอใจ — ส่งได้ที่ Settings › ระบบ</Empty>
+  const cur = d.surveyOf(year), prev = d.surveyOf(year - 1)
+  const s = cur.summary, p = prev.summary
+  const topics = Survey.topicRanking(s)
+  const prevTopic = (k: string) => Survey.topicRanking(p).find((x) => x.key === k)?.score ?? null
+  const unhappy = cur.responses.filter((r) => Survey.isUnhappy(r.answers)).sort((a, b) => Number(!!a.followUp) - Number(!!b.followUp) || a.submittedAt.localeCompare(b.submittedAt))
+  const fam = (id: string) => families.find((f) => f.id === id)?.name ?? "—"
+  const comments = cur.responses.flatMap((r) => [r.answers.praise && { k: `${r.id}p`, text: r.answers.praise, good: true, r }, r.answers.improve && { k: `${r.id}i`, text: r.answers.improve, good: false, r }].filter(Boolean) as { k: string; text: string; good: boolean; r: (typeof cur.responses)[number] }[])
+  const dNps = s.nps !== null && p.nps !== null ? s.nps - p.nps : null
+  return (
+    <div className="space-y-4">
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="text-sm text-muted-foreground">ปี</span>
+        {d.surveyYears.map((y) => <button key={y} type="button" onClick={() => setYear(y)} className={cn("rounded-full border px-3 py-1 text-xs", y === year ? "border-primary bg-primary/10 font-medium text-primary" : "bg-card hover:bg-muted")}>{y + 543}</button>)}
+        {cur.campaign && <span className="ml-auto text-xs text-muted-foreground">ส่ง {fmtDate(cur.campaign.sentAt.slice(0, 10))} · ปิดรับ {fmtDate(cur.campaign.to)} · ไม่ขึ้นกับช่วงเวลาด้านบน</span>}
+      </div>
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-6">
+        <Stat label="NPS" value={s.nps === null ? "—" : `${s.nps > 0 ? "+" : ""}${s.nps}`} tone={s.nps !== null && s.nps < 0 ? "text-red-600" : "text-emerald-600"} sub={dNps === null ? <span>ปีก่อน —</span> : <span className={dNps >= 0 ? "text-emerald-600" : "text-red-600"}>{dNps >= 0 ? "▲" : "▼"} {Math.abs(dNps)} จากปีก่อน ({p.nps})</span>} />
+        <Stat label="ตอบแล้ว" value={`${s.responses}/${s.sent}`} sub={<span>{fmtPct(s.rate)}</span>} />
+        <Stat label="พอใจโดยรวม" value={s.overall === null ? "—" : s.overall.toFixed(1)} sub={<span>ปีก่อน {p.overall === null ? "—" : p.overall.toFixed(1)}</span>} />
+        <Stat label="ปีหน้าเรียนต่อ" value={s.responses ? fmtPct(s.continueNext.yes / s.responses) : "—"} sub={<span>ไม่แน่ใจ {s.continueNext.maybe} · ไม่ต่อ {s.continueNext.no}</span>} />
+        <Stat label="ไม่พอใจ" value={String(s.unhappy)} tone={s.unhappy ? "text-red-600" : undefined} sub={<span>แนะนำ 0–6 หรือไม่เรียนต่อ</span>} />
+        <Stat label="ยังไม่ได้โทร" value={String(cur.toCall.length)} tone={cur.toCall.some((x) => x.overdue) ? "text-red-600" : undefined} sub={<span>เกิน 3 วัน {cur.toCall.filter((x) => x.overdue).length}</span>} />
+      </div>
+      <div className="grid gap-4 lg:grid-cols-2">
+        <Panel title="หัวข้อ (เฉลี่ย 1–5)" hint="ต่ำสุดอยู่บน = ควรปรับก่อน · ตัวเลขเล็ก = ปีก่อน" fill>
+          {topics.length ? (
+            <ul className="space-y-2 text-sm">{topics.map((t) => { const pv = prevTopic(t.key); return (
+              <li key={t.key} className="grid grid-cols-[minmax(0,10rem)_1fr_5rem] items-center gap-2">
+                <span className="truncate">{t.label}</span>
+                <ShareBar value={(t.score! - 1) / 4} color={t.score! < 3.5 ? "#dc2626" : t.score! < 4 ? "#f59e0b" : "#10b981"} />
+                <span className="text-right tabular-nums">{t.score!.toFixed(1)}{pv !== null && <span className="ml-1 text-[11px] text-muted-foreground">{pv.toFixed(1)}</span>}</span>
+              </li>
+            ) })}</ul>
+          ) : <Empty />}
+        </Panel>
+        {compare ? (
+          <Panel title="NPS ตามสาขา" hint="ตัวเลขเล็ก = ปีก่อน · (ตอบ/ส่ง)" fill>
+            <SplitRanks rows={[...cur.byBranch].sort((a, b) => (b.nps ?? -999) - (a.nps ?? -999))} cols={[
+              { label: "NPS", cell: (b) => <span className={cn("font-medium", b.nps !== null && b.nps < 0 && "text-red-600")}>{b.nps === null ? "—" : `${b.nps > 0 ? "+" : ""}${b.nps}`}<span className="ml-1 text-[11px] font-normal text-muted-foreground">{prev.byBranch.find((x) => x.id === b.id)?.nps ?? "—"}</span></span> },
+              { label: "ตอบ", cell: (b) => <span className="text-xs text-muted-foreground">{b.n}/{b.sent}</span> },
+            ]} />
+          </Panel>
+        ) : (
+          <Panel title="คะแนนแนะนำเพื่อน (0–10)" hint="แนะนำ 9–10 · เฉยๆ 7–8 · ไม่แนะนำ 0–6" center>
+            {(() => { const v = cur.responses.map((r) => r.answers.nps).filter((x): x is number => x !== null); const pro = v.filter((x) => x >= 9).length, pas = v.filter((x) => x >= 7 && x <= 8).length, det = v.filter((x) => x <= 6).length; const n = Math.max(1, v.length); return (
+              <div className="space-y-2">
+                <div className="flex h-4 overflow-hidden rounded-full"><span className="bg-emerald-500" style={{ width: `${(pro / n) * 100}%` }} /><span className="bg-amber-400" style={{ width: `${(pas / n) * 100}%` }} /><span className="bg-red-500" style={{ width: `${(det / n) * 100}%` }} /></div>
+                <div className="flex justify-between text-xs"><span className="text-emerald-700">แนะนำ {pro}</span><span className="text-amber-700">เฉยๆ {pas}</span><span className="text-red-700">ไม่แนะนำ {det}</span></div>
+              </div>
+            ) })()}
+          </Panel>
+        )}
+      </div>
+      <div className="grid gap-4 lg:grid-cols-2">
+        <Panel title="คะแนนครู (จากผู้ปกครอง)" hint="เฉลี่ยข้อ “ครูผู้สอน” ของเด็กที่ครูสอน · ครูเห็นแค่ค่าเฉลี่ยของตัวเอง ไม่เห็นว่าใครให้" fill>
+          {cur.teachers.length ? (
+            <table className="w-full text-sm">
+              <thead className="text-xs text-muted-foreground"><tr><th className="text-left font-normal">ครู</th>{compare && <th className="text-left font-normal">สาขา</th>}<th className="text-right font-normal">คะแนน</th><th className="text-right font-normal">จำนวน</th></tr></thead>
+              <tbody>{cur.teachers.map((t) => (
+                <tr key={t.teacherId} className="border-t">
+                  <td className="py-1.5">{t.staff?.nickname ?? "—"}</td>
+                  {compare && <td className="text-muted-foreground">{(t.staff?.branchIds ?? []).map((id) => branches.find((b) => b.id === id)?.name).filter(Boolean).join(", ")}</td>}
+                  <td className={cn("text-right font-medium tabular-nums", t.score < 3.5 && "text-red-600")}>{t.score.toFixed(1)}</td>
+                  <td className="text-right text-muted-foreground tabular-nums">{t.ratings}</td>
+                </tr>
+              ))}</tbody>
+            </table>
+          ) : <Empty>ยังไม่มีคะแนนครู (นักเรียนที่ตอบยังไม่อยู่ในคลาส)</Empty>}
+        </Panel>
+        <Panel title="อยากให้เปิดเพิ่ม" hint="วิชา / เวลา ที่ผู้ปกครองขอ" fill>
+          {cur.wants.length ? (
+            <ul className="space-y-1.5 text-sm">{cur.wants.map((w) => (
+              <li key={w.want} className="grid grid-cols-[8rem_1fr_2.5rem] items-center gap-2"><span>{w.want}</span><ShareBar value={w.count / Math.max(1, cur.wants[0].count)} /><span className="text-right tabular-nums">{w.count}</span></li>
+            ))}</ul>
+          ) : <Empty />}
+        </Panel>
+      </div>
+      <Panel title="ผู้ปกครองที่ไม่พอใจ" hint="แนะนำเพื่อน 0–6 หรือไม่เรียนต่อ · Manager โทรคุยภายใน 3 วันแล้วบันทึกผล">
+        {unhappy.length ? (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead className="text-xs text-muted-foreground"><tr><th className="text-left font-normal">ครอบครัว</th>{compare && <th className="text-left font-normal">สาขา</th>}<th className="text-right font-normal">แนะนำ</th><th className="text-left font-normal">ปีหน้า</th><th className="text-left font-normal">อยากให้ปรับ</th><th className="text-left font-normal">โทรแล้ว</th></tr></thead>
+              <tbody>{unhappy.map((r) => {
+                const overdue = !r.followUp && cur.toCall.find((x) => x.r.id === r.id)?.overdue
+                return (
+                  <tr key={r.id} className="border-t align-top">
+                    <td className="py-1.5">{fam(r.familyId)}<span className="block text-[11px] text-muted-foreground">ตอบ {fmtDate(r.submittedAt.slice(0, 10))}</span></td>
+                    {compare && <td className="text-muted-foreground">{branches.find((b) => b.id === r.branchId)?.name}</td>}
+                    <td className="text-right font-medium text-red-600 tabular-nums">{r.answers.nps ?? "—"}</td>
+                    <td>{r.answers.continueNext ? CONT[r.answers.continueNext] : "—"}</td>
+                    <td className="max-w-56 text-xs">{r.answers.improve || <span className="text-muted-foreground">—</span>}</td>
+                    <td className="min-w-56">
+                      {r.followUp ? <span className="text-xs text-emerald-700">✓ {staff.find((x) => x.id === r.followUp!.by)?.nickname} · {fmtDate(r.followUp.at.slice(0, 10))} · {r.followUp.note}</span> : (
+                        <span className="flex gap-1">
+                          <input className={cn("h-7 min-w-0 flex-1 rounded-full border px-2 text-xs", overdue && "border-red-400")} placeholder={overdue ? "เกิน 3 วันแล้ว — โทรแล้วได้อะไร" : "โทรแล้วได้อะไร"} value={notes[r.id] ?? ""} onChange={(e) => setNotes((n) => ({ ...n, [r.id]: e.target.value }))} />
+                          <Button size="xs" disabled={!notes[r.id]?.trim()} onClick={() => report(followUp(r.id, notes[r.id] ?? ""), "บันทึกการโทรแล้ว")}>บันทึก</Button>
+                        </span>
+                      )}
+                    </td>
+                  </tr>
+                )
+              })}</tbody>
+            </table>
+          </div>
+        ) : <Empty>ไม่มีผู้ปกครองที่ไม่พอใจในปีนี้</Empty>}
+      </Panel>
+      <Panel title="ความเห็นจากผู้ปกครอง" hint={`${comments.length} ข้อความ`}>
+        {comments.length ? (
+          <div className="grid gap-4 md:grid-cols-2">
+            {[true, false].map((good) => (
+              <div key={String(good)}>
+                <p className={cn("mb-1.5 text-xs font-medium", good ? "text-emerald-700" : "text-amber-700")}>{good ? "ประทับใจ" : "อยากให้ปรับปรุง"}</p>
+                <ul className="max-h-64 space-y-1.5 overflow-y-auto text-sm">{comments.filter((c) => c.good === good).map((c) => <li key={c.k}>“{c.text}” <span className="text-xs text-muted-foreground">· {fam(c.r.familyId)}</span></li>)}</ul>
+              </div>
+            ))}
+          </div>
+        ) : <Empty />}
+      </Panel>
     </div>
   )
 }
