@@ -155,6 +155,22 @@ export interface SystemConfig {
   settings: SystemSettings
   /** the company every invoice / receipt is issued by (Liclass Education = parent company, owner 2026-09-30) */
   company: CompanyInfo
+  /** why customers stop — one list for lost leads AND students who leave (owner 2026-10-05), editable in Settings */
+  lossReasons?: LossReason[]
+  /** where customers went instead — grows as admins type new ones */
+  competitors?: string[]
+}
+
+/** One reason a lead stopped / a student left. `for` = which form shows it; `contactOnly` = a lead we never got to
+ *  talk to (couldn't reach / no reply). Labels in TH/EN/JP — the parent's exit form is in three languages. */
+export interface LossReason {
+  id: ID
+  label: string
+  en?: string
+  ja?: string
+  for: "both" | "lead" | "student"
+  contactOnly?: boolean
+  active: boolean
 }
 
 export interface CompanyInfo {
@@ -534,6 +550,34 @@ export interface LeadNote {
   text: string
 }
 
+export type ContactChannel = "call" | "line" | "other"
+/** talked / replied = they answered · no_answer / no_reply = nothing back · call_back = asked us to try later */
+export type ContactResult = "talked" | "replied" | "no_answer" | "no_reply" | "call_back" | "wrong_number"
+
+export interface LeadFollowUp {
+  id: ID
+  at: string
+  by: ID
+  channel: ContactChannel
+  result: ContactResult
+  note?: string
+}
+
+export interface LeadLost {
+  /** the step the lead stopped at (defaults to where it was) */
+  stage: LeadStage
+  reasonId: ID
+  otherReasonIds: ID[]
+  competitor?: string
+  /** the time they wanted that we could not offer (reason = schedule) */
+  wantedTime?: string
+  /** try again on this day — shows in Need Attention */
+  followUpOn?: DateStr
+  note?: string
+  at: string
+  by: ID
+}
+
 export interface Lead {
   id: ID
   branchId: ID
@@ -550,6 +594,10 @@ export interface Lead {
   scheduledAt?: string
   archivedFrom?: LeadStage
   archiveReason?: string
+  /** the short close-lead form (owner 2026-10-05) — archiveReason keeps the main reason's label for older screens */
+  lost?: LeadLost
+  /** every call / LINE follow-up and what came of it — shows whether a quiet lead is really gone */
+  followUps?: LeadFollowUp[]
   notes: LeadNote[]
   /** set once the lead becomes a real Student record */
   convertedStudentId?: ID | null

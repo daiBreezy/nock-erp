@@ -9,10 +9,9 @@ import { NativeSelect } from "@/components/app/native-select"
 import { gradeTone, avatarTone, initial, subjectColor } from "@/components/app/subject-color"
 import { StudentSheet } from "@/components/app/student-sheet"
 import { SendFormDialog } from "@/components/inbox/send-form-dialog"
+import { FollowUpSection, LeadLostDialog, LostSummary } from "@/components/crm/lead-followups"
 import { SubmissionReviewCard } from "@/components/inbox/submission-review-card"
 import { Button } from "@/components/ui/button"
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
-import { Label } from "@/components/ui/label"
 import { Sheet, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetTitle } from "@/components/ui/sheet"
 import { Textarea } from "@/components/ui/textarea"
 import { fmtDateTime } from "@/domain/dates"
@@ -200,11 +199,13 @@ function Body({ id }: { id: ID }) {
           </Section>
         )}
 
-        {lead.stage === "archived" && lead.archiveReason && (
-          <Section title="เหตุผลที่เก็บเข้าคลัง">
-            <p className="text-muted-foreground">{lead.archiveReason}</p>
-          </Section>
+        {lead.stage === "archived" && (lead.lost || lead.archiveReason) && (
+          <Section title="ทำไมถึงปิด Lead"><LostSummary lead={lead} /></Section>
         )}
+
+        <Section title={`การติดตาม (${lead.followUps?.length ?? 0})`}>
+          <FollowUpSection lead={lead} canManage={canManage} onClose={() => setArchiving(true)} />
+        </Section>
 
         {canManage && lead.stage !== "enrolled" && lead.stage !== "archived" && (
           <Section title="แบบฟอร์ม">
@@ -271,7 +272,7 @@ function Body({ id }: { id: ID }) {
               {lead.stage === "archived" ? (
                 <Button size="sm" variant="outline" onClick={() => report(restore(lead.id), "กู้คืนแล้ว")}><RotateCcwIcon /> กู้คืนจากคลัง</Button>
               ) : lead.stage !== "enrolled" && (
-                <Button size="sm" variant="ghost" className="text-muted-foreground hover:bg-red-50 hover:text-red-700 dark:hover:bg-red-950/30" onClick={() => setArchiving(true)}><ArchiveIcon /> เก็บเข้าคลัง</Button>
+                <Button size="sm" variant="ghost" className="text-muted-foreground hover:bg-red-50 hover:text-red-700 dark:hover:bg-red-950/30" onClick={() => setArchiving(true)}><ArchiveIcon /> ปิด Lead</Button>
               )}
             </div>
             {lead.stage === "enrolled" ? (
@@ -301,32 +302,9 @@ function Body({ id }: { id: ID }) {
         {canManage && AUTO_HINT[lead.stage] && <p className="basis-full text-xs text-muted-foreground">อัตโนมัติ: {AUTO_HINT[lead.stage]}</p>}
       </SheetFooter>
 
-      {archiving && <ArchiveDialog id={lead.id} onClose={() => setArchiving(false)} />}
+      {archiving && <LeadLostDialog lead={lead} onClose={() => setArchiving(false)} />}
       <StudentSheet studentId={openStudentId} onClose={() => setOpenStudentId(null)} />
     </>
-  )
-}
-
-function ArchiveDialog({ id, onClose }: { id: ID; onClose: () => void }) {
-  const archive = useStore((s) => s.archiveLead)
-  const [reason, setReason] = useState("")
-  return (
-    <Dialog open onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="sm:max-w-md">
-        <DialogHeader>
-          <DialogTitle>เก็บ Lead นี้เข้าคลัง?</DialogTitle>
-          <DialogDescription>จะย้ายออกจากไปป์ไลน์หลัก — กู้คืนได้ภายหลังจากรายละเอียด Lead</DialogDescription>
-        </DialogHeader>
-        <div className="space-y-1">
-          <Label>เหตุผล *</Label>
-          <Textarea value={reason} onChange={(e) => setReason(e.target.value)} placeholder="เช่น ไม่ตอบกลับ / ย้ายไปเรียนที่อื่น" />
-        </div>
-        <DialogFooter>
-          <Button variant="ghost" onClick={onClose}>ยกเลิก</Button>
-          <Button variant="destructive" disabled={!reason.trim()} onClick={() => report(archive(id, reason), "เก็บเข้าคลังแล้ว") && onClose()}>ยืนยัน</Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
   )
 }
 

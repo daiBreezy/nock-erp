@@ -9,7 +9,9 @@ import { Input } from "@/components/ui/input"
 import { Switch } from "@/components/ui/switch"
 import { Textarea } from "@/components/ui/textarea"
 import { NOTIFY_LABEL } from "@/domain/rules/settings"
-import type { Brand, FormLang, NotifyKey, SystemConfig } from "@/domain/types"
+import type { Brand, FormLang, LossReason, NotifyKey, SystemConfig } from "@/domain/types"
+import * as Loss from "@/domain/rules/loss"
+import { cn } from "@/lib/utils"
 import { report } from "@/lib/feedback"
 import { useStore } from "@/store/store"
 import { SaveRow, SettingsCard } from "./common"
@@ -25,6 +27,7 @@ export function SystemSettingsView() {
       <SubjectCatalog />
       <GlobalHolidays />
       <InvoiceMemos />
+      <LossReasons />
       <h2 className="pt-2 text-sm font-semibold text-muted-foreground">ค่าระบบ</h2>
       <Preferences />
       <NotificationPrefs />
@@ -89,6 +92,37 @@ function GlobalHolidays() {
   return (
     <SettingsCard title="วันหยุดบริษัท (Holidays)" hint="วันหยุดตามประเพณี + วันหยุดบริษัท — ทุกสาขาเห็นในแท็บวันหยุดของตัวเอง และเลือกเปิดทำการเป็นรายสาขาได้">
       <HolidayPlanner />
+    </SettingsCard>
+  )
+}
+
+/** Why customers stop (owner 2026-10-05) — one list for the close-lead form and the student exit form (TH/EN/JP). */
+function LossReasons() {
+  const saved = useStore((s) => s.system.lossReasons)
+  const saveList = useStore((s) => s.saveLossReasons)
+  const base = Loss.lossReasonsOf(saved)
+  const [list, setList] = useState<LossReason[]>(base)
+  const dirty = JSON.stringify(list) !== JSON.stringify(base)
+  const put = (id: string, patch: Partial<LossReason>) => setList((l) => l.map((r) => (r.id === id ? { ...r, ...patch } : r)))
+  const FOR = [{ value: "both", label: "ทั้งสองฝั่ง" }, { value: "lead", label: "เฉพาะ Lead" }, { value: "student", label: "เฉพาะนักเรียนออก" }]
+  return (
+    <SettingsCard title="เหตุผลที่ลูกค้าหยุด / ออก" hint="ใช้ทั้งฟอร์มปิด Lead (Admin กรอก) และฟอร์มนักเรียนออก (ผู้ปกครองกรอก — แสดงตามภาษาที่เลือก) · ปิดใช้แทนการลบ เพื่อให้รายงานย้อนหลังยังอ่านได้"
+      action={<Button size="xs" variant="outline" onClick={() => setList((l) => [...l.filter((r) => r.id !== "lr_other"), { id: `lr_${Date.now().toString(36)}`, label: "", for: "both", active: true }, ...l.filter((r) => r.id === "lr_other")])}><PlusIcon /> เพิ่มเหตุผล</Button>}>
+      <div className="overflow-x-auto">
+        <table className="w-full text-sm">
+          <thead className="text-xs text-muted-foreground"><tr><th className="text-left font-normal">ไทย *</th><th className="text-left font-normal">English</th><th className="text-left font-normal">日本語</th><th className="text-left font-normal">ใช้กับ</th><th className="font-normal">ใช้งาน</th></tr></thead>
+          <tbody>{list.map((r) => (
+            <tr key={r.id} className={cn("border-t", !r.active && "opacity-50")}>
+              <td className="py-1 pr-1"><Input className="h-8" value={r.label} onChange={(e) => put(r.id, { label: e.target.value })} placeholder="ชื่อเหตุผล" />{r.contactOnly && <span className="text-[10px] text-muted-foreground">ใช้เมื่อยังติดต่อไม่ได้</span>}</td>
+              <td className="py-1 pr-1"><Input className="h-8" value={r.en ?? ""} onChange={(e) => put(r.id, { en: e.target.value })} /></td>
+              <td className="py-1 pr-1"><Input className="h-8" value={r.ja ?? ""} onChange={(e) => put(r.id, { ja: e.target.value })} /></td>
+              <td className="py-1 pr-1"><NativeSelect className="h-8 w-40" value={r.for} onChange={(e) => put(r.id, { for: e.target.value as LossReason["for"] })} options={FOR} /></td>
+              <td className="text-center"><Switch size="sm" checked={r.active} onCheckedChange={(v) => put(r.id, { active: v })} aria-label="ใช้งาน" /></td>
+            </tr>
+          ))}</tbody>
+        </table>
+      </div>
+      <SaveRow dirty={dirty} onReset={() => setList(base)} onSave={() => report(saveList(list), "บันทึกรายการเหตุผลแล้ว")} />
     </SettingsCard>
   )
 }

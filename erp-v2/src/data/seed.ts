@@ -3,6 +3,7 @@
 import { addDays, fromMinutes, nextWeekday, toDateStr, toMinutes, weekdayOf } from "@/domain/dates"
 import { chartPrice } from "@/domain/rules/course"
 import { invoiceTotals } from "@/domain/rules/billing"
+import { reasonLabel } from "@/domain/rules/loss"
 import { generateSessions } from "@/domain/rules/scheduling"
 import type {
   Assessment, AppNotification, Attendance, Branch, BusAddOn, DayBlocks, ChatMessage, CreditNote, LessonBook, LessonTopic, Conversation, Course, Entitlement, Family, Holiday, Invoice, Klass, Lead, LessonSummary,
@@ -535,6 +536,7 @@ export function buildSeed(now = new Date()): DB {
       nockacademy: "กรุณาชำระภายใน 5 วันหลังได้รับใบแจ้งหนี้ · โอนแล้วส่งสลิปทาง LINE OA",
       liclass: "",
     },
+    competitors: ["ติวเตอร์ที่บ้าน", "สถาบันใกล้โรงเรียน", "เรียนออนไลน์"],
     preferences: { language: "th", timezone: "Asia/Bangkok (UTC+7)", currency: "THB (฿)", dateFormat: "th-short" },
     settings: {
       notify: {
@@ -599,8 +601,22 @@ function buildHistory(db: { today: string; branches: Branch[]; courses: Course[]
       const at = addDays(leadAt, Math.floor(rnd() * 60) - 30)
       if (at > db.today) continue
       const open = addDays(at, 21) > db.today // recent ones are still in the pipeline
+      // follow-ups: early leads were chased by phone / LINE and never answered; later ones talked at least once
+      const early = from === "new" || from === "contacting"
+      const followUps = Array.from({ length: early ? 1 + Math.floor(rnd() * 3) : Math.floor(rnd() * 2) + 1 }, (_, k) => {
+        const channel: "call" | "line" = rnd() < 0.5 ? "call" : "line"
+        const reached = !early && k === 0
+        return { id: `fu_x${i}_${j}_${k}`, at: iso(addDays(at, 2 + k * 3), 15), by: "u_ploy", channel,
+          result: (reached ? (channel === "call" ? "talked" : "replied") : channel === "call" ? "no_answer" : "no_reply") as "talked" | "replied" | "no_answer" | "no_reply" }
+      })
+      const reasonId = early ? pick(["lr_unreachable", "lr_no_reply", "lr_unreachable", "lr_not_interested"]) : pick(["lr_price", "lr_price", "lr_schedule", "lr_schedule", "lr_travel", "lr_competitor", "lr_results", "lr_child", "lr_not_ready", "lr_no_course"])
+      const competitor = reasonId === "lr_competitor" ? pick(["ติวเตอร์ที่บ้าน", "สถาบันใกล้โรงเรียน", "เรียนออนไลน์", "ไม่ทราบ"]) : undefined
+      const closedAt = addDays(at, 14)
       db.leads.push({ id: `ld_x${i}_${j}`, branchId: branch.id, name: `ผู้ปกครอง ${pick(SN)}`, childGrade: grade, subject: course.subjects[0], source: pick(["facebook", "facebook", "website", "line", "walkin", "phone", "other"] as Lead["source"][]),
-        stage: open ? from : "archived", archivedFrom: open ? undefined : from, archiveReason: open ? undefined : pick(["ราคาสูงไป", "เวลาไม่ตรง", "ไกลบ้าน", "ติดต่อไม่ได้", "ไปที่อื่น"]),
+        stage: open ? from : "archived", archivedFrom: open ? undefined : from, archiveReason: open ? undefined : reasonLabel(reasonId, undefined),
+        lost: open ? undefined : { stage: from, reasonId, otherReasonIds: [], competitor, wantedTime: reasonId === "lr_schedule" ? pick(["เสาร์เช้า 9–11", "หลังเลิกเรียน 17:30–19:00", "อาทิตย์บ่าย"]) : undefined, at: iso(closedAt, 16), by: "u_ploy",
+          followUpOn: reasonId === "lr_not_ready" || reasonId === "lr_schedule" ? addDays(closedAt, 90) : undefined },
+        followUps: followUps.filter((f) => f.at <= iso(open ? db.today : closedAt, 23)),
         assigneeId: "u_ploy", phone: `09${j}-800-${String(1000 + i)}`, lineId: "", createdAt: iso(at), notes: [], convertedStudentId: null })
     }
     db.students.push({ id: sid, familyId, branchId: branch.id, name: `ด.${i % 2 ? "ช" : "ญ"}. ${nick} ${surname}`, nickname: nick, grade, usesBus: false, createdBranchId: branch.id, createdAt: iso(joined) })

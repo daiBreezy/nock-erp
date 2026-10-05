@@ -11,6 +11,7 @@
 import { addDays, parseDate, toDateStr, toMinutes, weekdayOf } from "../dates"
 import type { Attendance, Branch, Course, CreditNote, DateStr, Entitlement, Family, ID, Invoice, Klass, Lead, Session, Student, StudentLeave, Weekday } from "../types"
 import { receiptDate } from "./documents"
+import * as Loss from "./loss"
 import type { InvoiceTotals } from "./billing"
 
 export const LOST_AFTER_DAYS = 30
@@ -358,6 +359,9 @@ export function needsAttention(ctx: {
   add({ key: "small_class", group: "teaching", title: "คลาสคนน้อย", detail: `นักเรียน ≤ ${T.smallClass} คน`, count: ctx.classes.filter((k) => k.active && k.kind === "learning" && k.studentIds.length <= T.smallClass).length, href: "/classes" })
 
   add({ key: "lead_idle", group: "sales", title: "Lead ใหม่ยังไม่ได้ติดต่อ", detail: `เกิน ${T.leadIdleDays} วัน`, count: ctx.leads.filter((l) => l.stage === "new" && days(l.createdAt) > T.leadIdleDays).length, href: "/crm" })
+  const open = ctx.leads.filter((l) => l.stage !== "archived" && l.stage !== "enrolled")
+  add({ key: "lead_quiet", group: "sales", title: "Lead เงียบ ควรตัดสินใจ", detail: "ติดต่อไม่ได้ ≥ 3 ครั้ง หรือเงียบ ≥ 14 วัน — ปิด Lead หรือลองช่องทางอื่น", count: open.filter((l) => Loss.followUpState(l, ctx.now).suggestClose).length, href: "/crm" })
+  add({ key: "lead_follow_again", group: "sales", title: "ถึงวันติดต่อ Lead ที่ปิดไปอีกครั้ง", detail: "ตามวันที่ตั้งไว้ตอนปิด Lead", count: Loss.followUpDue(ctx.leads, ctx.today).length, href: "/crm" })
   add({ key: "trial_idle", group: "sales", title: "ทดลองเรียนแล้ว ยังไม่สมัคร", detail: `เกิน ${T.trialIdleDays} วัน`, count: ctx.leads.filter((l) => l.stage === "trialed" && days(l.scheduledAt ?? l.createdAt) > T.trialIdleDays).length, href: "/crm" })
   return out
 }

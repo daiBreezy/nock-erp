@@ -21,6 +21,7 @@ import * as Seats from "./seats"
 import * as Les from "./lessons"
 import * as Sch from "./scheduling"
 import * as Rep from "./reports"
+import * as Loss from "./loss"
 import { summaryMessage } from "./messages"
 
 const hours = { open: "09:00", close: "20:00" }
@@ -1577,5 +1578,27 @@ describe("Reports R3 — CRM, cohort, forecast (owner 2026-10-01)", () => {
     // a 30-day package: renews 1 Oct (×0.5) and again 31 Oct (×0.25), then 30 Nov (×0.125)
     expect(f.get("2026-10")).toEqual({ renewals: 3000, open: 1000 })
     expect(f.get("2026-11")!.renewals).toBe(500)
+  })
+})
+
+describe("Lead follow-ups + close form (owner 2026-10-05)", () => {
+  const base = { createdAt: "2026-09-01T09:00:00.000Z", notes: [] as Lead["notes"] }
+  const up = (at: string, result: LeadFollowUpT["result"], channel: LeadFollowUpT["channel"] = "call") => ({ id: at, at, by: "u", channel, result })
+  type LeadFollowUpT = NonNullable<Lead["followUps"]>[number]
+  it("counts tries since they last answered; suggests closing after 3 misses or a wrong number", () => {
+    const now = new Date("2026-09-20T09:00:00.000Z")
+    const a = Loss.followUpState({ ...base, followUps: [up("2026-09-02T09:00:00.000Z", "talked"), up("2026-09-10T09:00:00.000Z", "no_answer"), up("2026-09-12T09:00:00.000Z", "no_reply", "line")] }, now)
+    expect([a.tries, a.silentDays, a.suggestClose]).toEqual([2, 18, true])
+    const b = Loss.followUpState({ ...base, followUps: [up("2026-09-19T09:00:00.000Z", "replied", "line")] }, now)
+    expect([b.tries, b.suggestClose]).toEqual([0, false])
+    expect(Loss.followUpState({ ...base, followUps: [up("2026-09-19T09:00:00.000Z", "wrong_number")] }, now).suggestClose).toBe(true)
+  })
+  it("reasons depend on the step; competitor / other need details", () => {
+    expect(Loss.reasonsForLead("new", undefined)[0].contactOnly).toBe(true)
+    expect(Loss.reasonsForLead("trialed", undefined).some((r) => r.contactOnly)).toBe(false)
+    expect(Loss.reasonsForLead("trialed", undefined).some((r) => r.for === "student")).toBe(false)
+    expect(Loss.validateLeadLost({ stage: "trialed", reasonId: "lr_competitor", otherReasonIds: [] }, undefined)).toMatch(/ไปเรียนที่ไหน/)
+    expect(Loss.validateLeadLost({ stage: "trialed", reasonId: "lr_price", otherReasonIds: [] }, undefined)).toBeNull()
+    expect(Loss.followUpDue([{ stage: "archived", lost: { stage: "new", reasonId: "x", otherReasonIds: [], at: "", by: "", followUpOn: "2026-09-30" } }], "2026-10-01")).toHaveLength(1)
   })
 })

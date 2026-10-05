@@ -25,8 +25,9 @@ import * as CourseR from "@/domain/rules/course"
 import * as Notif from "@/domain/rules/notifications"
 import * as Cfg from "@/domain/rules/settings"
 import * as Msg from "@/domain/rules/messages"
+import * as Loss from "@/domain/rules/loss"
 import { toast } from "sonner"
-import type { Assessment, AttendanceStatus, Entitlement, Branch, BusAddOn, ClassBlock, CreditNote, LessonBook, LessonTopic, Seat, ChatMessage, Conversation, Course, DateStr, Family, FormSubmission, Holiday, ID, Invoice, Klass, Lead, LeadStage, LessonSummary, LineDelivery, LogCategory, Result, Session, Staff, Student, SystemConfig } from "@/domain/types"
+import type { ContactChannel, ContactResult, LossReason, Assessment, AttendanceStatus, Entitlement, Branch, BusAddOn, ClassBlock, CreditNote, LessonBook, LessonTopic, Seat, ChatMessage, Conversation, Course, DateStr, Family, FormSubmission, Holiday, ID, Invoice, Klass, Lead, LeadStage, LessonSummary, LineDelivery, LogCategory, Result, Session, Staff, Student, SystemConfig } from "@/domain/types"
 
 export interface UIState {
   userId: ID
@@ -158,7 +159,12 @@ type Store = DB & UIState & {
   saveLead: (l: Lead) => Result<Lead>
   moveLeadStage: (id: ID, stage: LeadStage) => Result
   addLeadNote: (id: ID, text: string) => Result
-  archiveLead: (id: ID, reason: string) => Result
+  /** the short close-lead form (owner 2026-10-05): step, main + other reasons, where they went, follow-up day */
+  archiveLead: (id: ID, input: Loss.LeadLostInput) => Result
+  /** a call / LINE follow-up and what came of it — the first one moves a new lead to "กำลังติดต่อ" */
+  addLeadFollowUp: (id: ID, input: { channel: ContactChannel; result: ContactResult; note?: string }) => Result
+  /** the reason list (Settings) — one list for lost leads and students who leave */
+  saveLossReasons: (list: LossReason[]) => Result
   /** sends an archived lead back to the stage it was archived from — a deliberate action, so unlike
    *  `moveLeadStage` it doesn't run the drag-and-drop "archived leads can't move" guard */
   restoreLead: (id: ID) => Result
@@ -1744,15 +1750,45 @@ export const useStore = create<Store>()(
         return OK
       },
 
-      archiveLead: (id, reason) => {
+      archiveLead: (id, input) => {
         const s = get()
         const perm = requirePerm(s.me(), "lead.manage")
         if (!perm.ok) return perm
-        if (!reason.trim()) return fail("กรอกเหตุผลที่เก็บเข้าคลัง")
         const lead = s.leads.find((x) => x.id === id)
         if (!lead) return fail("ไม่พบ Lead นี้")
         if (lead.stage === "archived") return fail("เก็บเข้าคลังไปแล้ว")
-        set({ leads: s.leads.map((x) => (x.id === id ? { ...x, stage: "archived", archivedFrom: x.stage, archiveReason: reason } : x)) })
+        const err = Loss.validateLeadLost(input, s.system.lossReasons)
+        if (err) return fail(err)
+        const competitor = input.competitor?.trim()
+        const lost = { ...input, competitor: competitor || undefined, note: input.note?.trim() || undefined, at: s.now().toISOString(), by: s.userId }
+        const label = Loss.reasonLabel(input.reasonId, s.system.lossReasons)
+        const known = s.system.competitors ?? []
+        set({
+          leads: s.leads.map((x) => (x.id === id ? { ...x, stage: "archived", archivedFrom: x.stage, archiveReason: label + (lost.note ? ` · ${lost.note}` : ""), lost } : x)),
+          system: competitor && competitor !== "ไม่ทราบ" && !known.some((c) => c.toLowerCase() === competitor.toLowerCase()) ? { ...s.system, competitors: [...known, competitor] } : s.system,
+        })
+        return OK
+      },
+
+      addLeadFollowUp: (id, input) => {
+        const s = get()
+        const perm = requirePerm(s.me(), "lead.manage")
+        if (!perm.ok) return perm
+        const lead = s.leads.find((x) => x.id === id)
+        if (!lead) return fail("ไม่พบ Lead นี้")
+        if (lead.stage === "archived" || lead.stage === "enrolled") return fail("Lead นี้ปิดแล้ว")
+        const up = { id: uid("fu"), at: s.now().toISOString(), by: s.userId, channel: input.channel, result: input.result, note: input.note?.trim() || undefined }
+        set({ leads: s.leads.map((x) => (x.id === id ? { ...x, stage: x.stage === "new" ? "contacting" : x.stage, followUps: [...(x.followUps ?? []), up] } : x)) })
+        return OK
+      },
+
+      saveLossReasons: (list) => {
+        const s = get()
+        const perm = requirePerm(s.me(), "settings.manage")
+        if (!perm.ok) return perm
+        if (list.some((r) => !r.label.trim())) return fail("ทุกเหตุผลต้องมีชื่อภาษาไทย")
+        if (!list.some((r) => r.active && r.for !== "student") || !list.some((r) => r.active && r.for !== "lead")) return fail("ต้องมีเหตุผลที่เปิดใช้ทั้งฝั่ง Lead และฝั่งนักเรียน")
+        set({ system: { ...s.system, lossReasons: list.map((r) => ({ ...r, label: r.label.trim() })) } })
         return OK
       },
 
@@ -2036,7 +2072,7 @@ export const useStore = create<Store>()(
     {
       name: "nockerp-v2",
       // bump when the data model changes; older saved data is replaced by fresh sample data
-      version: 53,
+      version: 54,
       migrate: () => ({ ...buildSeed(), userId: "u_nock", branchId: "br_thl", clockOffset: 0 }) as unknown as Store,
       // persist data + UI state only, never the action functions
       partialize: (s) => Object.fromEntries(Object.entries(s).filter(([, v]) => typeof v !== "function")) as Partial<Store>,

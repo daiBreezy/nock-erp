@@ -91,8 +91,8 @@ export function validateLead(l: Pick<Lead, "name" | "childGrade" | "subject" | "
 
 /** Last time staff actually reached out — the most recent note, or creation if nothing's logged yet.
  *  "days ago" on a "กำลังติดต่อ" card must count from here, not from createdAt (that's just when the lead arrived). */
-export function lastContactAt(l: Pick<Lead, "notes" | "createdAt">): string {
-  return l.notes.length ? l.notes[l.notes.length - 1].at : l.createdAt
+export function lastContactAt(l: Pick<Lead, "notes" | "createdAt" | "followUps">): string {
+  return [l.createdAt, ...l.notes.map((n) => n.at), ...(l.followUps ?? []).map((f) => f.at)].sort().at(-1)!
 }
 
 /** Countdown to a test/trial appointment — same day-math as `sendDeadline` in summaries.ts (calendar days, not ms). */
@@ -112,7 +112,7 @@ export interface LeadDetail {
 
 /** The one glanceable fact each pipeline stage needs — shared by the Kanban card, the table row and the
  *  lead sheet so the three views can never drift out of sync with each other. */
-export function leadDetail(l: Pick<Lead, "stage" | "createdAt" | "notes" | "scheduledAt" | "archiveReason" | "archivedFrom">, now: Date): LeadDetail {
+export function leadDetail(l: Pick<Lead, "stage" | "createdAt" | "notes" | "scheduledAt" | "archiveReason" | "archivedFrom" | "followUps">, now: Date): LeadDetail {
   const plain = (text: string, level: LeadDetail["level"]): LeadDetail => ({ text, shortText: text, level })
 
   if (l.stage === "archived") {

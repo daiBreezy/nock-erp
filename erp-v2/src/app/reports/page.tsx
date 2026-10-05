@@ -792,6 +792,14 @@ function CrmTab({ d, compare }: { d: ReportData; compare: boolean }) {
             <ul className="space-y-1.5 text-sm">{c.lostReasons.map((x) => <li key={x.reason} className="flex justify-between gap-2"><span>{x.reason}</span><span className="tabular-nums">{x.count}</span></li>)}
               {!c.lostReasons.length && <li className="text-xs text-muted-foreground">ไม่มี</li>}</ul>
           </div>
+          {(c.competitors.length > 0 || c.wantedTimes.length > 0) && (
+            <div className="mt-3 grid gap-4 border-t pt-3 sm:grid-cols-2">
+              <div><p className="mb-1 text-xs font-medium text-muted-foreground">ไปเรียนที่ไหนแทน</p>
+                <ul className="space-y-1 text-sm">{c.competitors.map((x) => <li key={x.name} className="flex justify-between"><span>{x.name}</span><span className="tabular-nums">{x.count}</span></li>)}</ul></div>
+              <div><p className="mb-1 text-xs font-medium text-muted-foreground">เวลาที่ลูกค้าต้องการแต่เราไม่มี</p>
+                <ul className="space-y-1 text-sm">{c.wantedTimes.map((x) => <li key={x.time} className="flex justify-between"><span>{x.time}</span><span className="tabular-nums">{x.count}</span></li>)}</ul></div>
+            </div>
+          )}
         </Panel>
         {compare ? (
           <Panel title="แยกตามสาขา" hint="Lead · สมัคร · Conversion" fill>

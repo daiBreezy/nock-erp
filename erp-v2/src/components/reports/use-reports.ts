@@ -4,6 +4,7 @@ import { useMemo } from "react"
 import { addDays, toDateStr } from "@/domain/dates"
 import { invoiceTotals } from "@/domain/rules/billing"
 import * as R from "@/domain/rules/reports"
+import * as Loss from "@/domain/rules/loss"
 import { CAPACITY, findConflicts, hoursFor, isHoliday, sessionState } from "@/domain/rules/scheduling"
 import { useEntitlements, useNow } from "@/lib/hooks"
 import { useStore } from "@/store/store"
@@ -120,8 +121,14 @@ export function useReports(branchIds: string[], period: R.PeriodKey) {
       funnel: R.leadFunnel(leads, range),
       sources: R.leadSources(leads, rows, range),
       lost: R.lostLeads(leads, range),
-      lostReasons: [...leads.filter((l) => l.stage === "archived" && R.inRange(l.createdAt.slice(0, 10), range)).reduce((m, l) => m.set(l.archiveReason || "ไม่ระบุ", (m.get(l.archiveReason || "ไม่ระบุ") ?? 0) + 1), new Map<string, number>())]
+      lostReasons: [...leads.filter((l) => l.stage === "archived" && R.inRange(l.createdAt.slice(0, 10), range))
+        .reduce((m, l) => { const k = l.lost ? Loss.reasonLabel(l.lost.reasonId, s.system.lossReasons) : l.archiveReason || "ไม่ระบุ"; return m.set(k, (m.get(k) ?? 0) + 1) }, new Map<string, number>())]
         .map(([reason, count]) => ({ reason, count })).sort((a, b) => b.count - a.count),
+      // where lost leads went + the times they wanted that we could not offer (owner 2026-10-05)
+      competitors: [...leads.filter((l) => l.lost?.competitor && R.inRange(l.createdAt.slice(0, 10), range))
+        .reduce((m, l) => m.set(l.lost!.competitor!, (m.get(l.lost!.competitor!) ?? 0) + 1), new Map<string, number>())].map(([name, count]) => ({ name, count })).sort((a, b) => b.count - a.count),
+      wantedTimes: [...leads.filter((l) => l.lost?.wantedTime && R.inRange(l.createdAt.slice(0, 10), range))
+        .reduce((m, l) => m.set(l.lost!.wantedTime!, (m.get(l.lost!.wantedTime!) ?? 0) + 1), new Map<string, number>())].map(([time, count]) => ({ time, count })).sort((a, b) => b.count - a.count),
       open: leads.filter((l) => l.stage !== "archived" && l.stage !== "enrolled").length,
       perBranch: branches.map((b) => { const f = R.leadFunnel(leads.filter((l) => l.branchId === b.id), range); return { id: b.id, name: b.name, leads: f[0].count, enrolled: f[f.length - 1].count, conversion: f[f.length - 1].ofAll } }),
       monthly: {
