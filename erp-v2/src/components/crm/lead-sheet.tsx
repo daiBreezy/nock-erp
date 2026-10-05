@@ -171,21 +171,7 @@ function Body({ id }: { id: ID }) {
       </SheetHeader>
 
       <div className="min-h-0 flex-1 space-y-4 overflow-y-auto p-4 text-sm">
-        {pending.length > 0 && (
-          <Section title={`ฟอร์มรอตรวจ (${pending.length})`}>
-            {pending.map((sub) => (
-              <div key={sub.id} className="rounded-xl border border-amber-300 bg-amber-50 p-2.5 text-xs dark:bg-amber-950/30">
-                <SubmissionReviewCard submission={sub} onChanged={pollSubmissions} />
-              </div>
-            ))}
-          </Section>
-        )}
-
-        {/* each column shows the results of the columns before it (owner 2026-10-05) */}
-        <Section title="ผลแต่ละขั้น">
-          <LeadSteps lead={lead} assessments={myAssessments} canManage={canManage} now={now} />
-        </Section>
-
+        {/* contact always first (owner 2026-10-05) */}
         <Section title="ติดต่อ">
           <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
             {lead.phone && <a href={`tel:${lead.phone.replace(/\D/g, "")}`} className="inline-flex items-center gap-1 text-sky-700 hover:underline"><PhoneIcon className="size-3.5" />{lead.phone}</a>}
@@ -211,6 +197,21 @@ function Body({ id }: { id: ID }) {
               )}
             </div>
           )}
+        </Section>
+
+        {pending.length > 0 && (
+          <Section title={`ฟอร์มรอตรวจ (${pending.length})`}>
+            {pending.map((sub) => (
+              <div key={sub.id} className="rounded-xl border border-amber-300 bg-amber-50 p-2.5 text-xs dark:bg-amber-950/30">
+                <SubmissionReviewCard submission={sub} onChanged={pollSubmissions} />
+              </div>
+            ))}
+          </Section>
+        )}
+
+        {/* each column shows the results of the columns before it (owner 2026-10-05) */}
+        <Section title="ผลแต่ละขั้น">
+          <LeadSteps lead={lead} assessments={myAssessments} canManage={canManage} now={now} />
         </Section>
 
         {lead.stage === "archived" && (lead.lost || lead.archiveReason) && (
