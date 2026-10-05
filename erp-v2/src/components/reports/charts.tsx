@@ -52,8 +52,10 @@ const TH_MONTH_SHORT = ["ม.ค.", "ก.พ.", "มี.ค.", "เม.ย.", "�
 
 /** Jan…Dec bars: this year (solid) next to last year (light). Months not reached yet stay empty. Hovering a month
  *  shows a card with both years and the change (owner ref 2026-10-01). */
-export function MonthBars({ thisYear, lastYear, current, unit = "", currentLastYearToDate, todayLabel, forecast }: {
+export function MonthBars({ thisYear, lastYear, current, unit = "", currentLastYearToDate, todayLabel, forecast, height = "h-48" }: {
   thisYear: (number | null)[]; lastYear: (number | null)[]; current: number; unit?: string
+  /** bar area height — shorter when the card sits next to a short one (no empty space in the pair) */
+  height?: string
   /** the month in progress compares with the same dates last year (1–N), not last year's whole month */
   currentLastYearToDate?: number; todayLabel?: string
   /** expected for the rest of the month in progress and the months ahead — drawn striped (on top of this month's actual) */
@@ -65,7 +67,7 @@ export function MonthBars({ thisYear, lastYear, current, unit = "", currentLastY
   const hasLast = lastYear.some((x) => !!x)
   return (
     <div>
-      <div className="relative flex h-48 items-end gap-1.5 border-b sm:gap-2.5" onMouseLeave={() => setHover(null)}>
+      <div className={cn("relative flex items-end gap-1.5 border-b sm:gap-2.5", height)} onMouseLeave={() => setHover(null)}>
         {thisYear.map((v, m) => {
           const l = lastYear[m]
           const on = hover === m

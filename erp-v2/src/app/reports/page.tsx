@@ -585,9 +585,13 @@ function AttendanceTab({ d, compare, onOpen }: { d: ReportData; compare: boolean
         <Stat label="หยุดช่วงพิเศษ / อื่นๆ" value={`${a.cancelled.period} / ${a.cancelled.other}`} />
       </div>
       <div className="grid gap-4 lg:grid-cols-2">
-        <Panel title="อัตราเข้าเรียนรายเดือน" hint={`ปี ${d.monthly.year + 543}`}>
-          <MonthBars thisYear={a.monthly.map((x) => (x === null ? null : Math.round(x * 1000) / 10))} lastYear={a.monthly.map(() => null)} current={Number(d.today.slice(5, 7)) - 1} unit="%" />
+        <Panel title="อัตราเข้าเรียนรายเดือน" hint={`ปี ${d.monthly.year + 543}`} center>
+          <MonthBars height="h-28" thisYear={a.monthly.map((x) => (x === null ? null : Math.round(x * 1000) / 10))} lastYear={a.monthly.map(() => null)} current={Number(d.today.slice(5, 7)) - 1} unit="%" />
         </Panel>
+        <Panel title="แยกตามวิชา" center><RateRows rows={a.bySubject.map((r) => ({ key: r.key, label: r.key, rate: r.rate, sub: `ลา ${r.leave}` }))} /></Panel>
+      </div>
+      {/* owner 2026-10-05: pairs of similar length — branches | lowest classes, weekdays | frequent leavers */}
+      <div className="grid gap-4 lg:grid-cols-2">
         {compare ? (
           <Panel title="แยกตามสาขา" hint="ต่ำสุดอยู่บน" fill>
             <RateRows rows={a.byBranch.map((r) => ({ key: r.key, label: r.name, rate: r.rate, sub: `${r.present}/${r.present + r.leave}` }))} />
@@ -597,17 +601,10 @@ function AttendanceTab({ d, compare, onOpen }: { d: ReportData; compare: boolean
             <RateRows rows={days.map((r) => ({ key: r.key, label: DAY_SHORT[Number(r.key)], rate: r.rate, sub: `${r.sessions} คาบ` }))} />
           </Panel>
         )}
+        <Panel title="คลาสที่เข้าเรียนต่ำสุด" hint={compare ? "ต่ำสุดอยู่บน · บอกสาขา" : "ต่ำสุดอยู่บน"} fill><RateRows rows={a.byClass.slice(0, compare ? Math.max(10, a.byBranch.length) : 7).map((r) => ({ key: r.key, label: <span title={`${r.name} · ${r.branch}`}>{r.name}{compare && <span className="text-xs text-muted-foreground"> · {r.branch}</span>}</span>, rate: r.rate, sub: `ลา ${r.leave}` }))} /></Panel>
       </div>
       <div className="grid gap-4 lg:grid-cols-2">
-        <Panel title="แยกตามวิชา" center><RateRows rows={a.bySubject.map((r) => ({ key: r.key, label: r.key, rate: r.rate, sub: `ลา ${r.leave}` }))} /></Panel>
-        {compare ? (
-          <Panel title="แยกตามวัน" center><RateRows rows={days.map((r) => ({ key: r.key, label: DAY_SHORT[Number(r.key)], rate: r.rate, sub: `${r.sessions} คาบ` }))} /></Panel>
-        ) : (
-          <Panel title="คลาสที่เข้าเรียนต่ำสุด" center><RateRows rows={a.byClass.slice(0, 7).map((r) => ({ key: r.key, label: <span title={`${r.name} · ${r.branch}`}>{r.name}{compare && <span className="text-xs text-muted-foreground"> · {r.branch}</span>}</span>, rate: r.rate, sub: `ลา ${r.leave}` }))} /></Panel>
-        )}
-      </div>
-      <div className="grid gap-4 lg:grid-cols-2">
-        {compare && <Panel title="คลาสที่เข้าเรียนต่ำสุด" hint="10 คลาส" fill><RateRows rows={a.byClass.slice(0, 10).map((r) => ({ key: r.key, label: <span title={`${r.name} · ${r.branch}`}>{r.name} <span className="text-xs text-muted-foreground">· {r.branch}</span></span>, rate: r.rate, sub: `ลา ${r.leave}` }))} /></Panel>}
+        {compare && <Panel title="แยกตามวัน" fill><RateRows rows={days.map((r) => ({ key: r.key, label: DAY_SHORT[Number(r.key)], rate: r.rate, sub: `${r.sessions} คาบ` }))} /></Panel>}
         <Panel title="นักเรียนลาบ่อย" hint="ลา ≥ 2 ครั้งในช่วงนี้ · เสี่ยงหลุด · กดชื่อเพื่อเปิด" center className={compare ? "" : "lg:col-span-2"}>
           {a.leavers.length ? (
             <table className="w-full text-sm">
