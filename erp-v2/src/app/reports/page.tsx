@@ -3,7 +3,7 @@
 import Link from "next/link"
 import { Suspense, useEffect, useMemo, useState } from "react"
 import { useSearchParams } from "next/navigation"
-import { AlertTriangleIcon, BanknoteIcon, CalendarDaysIcon, ChartColumnIcon, ChevronRightIcon, DownloadIcon, PrinterIcon, UsersIcon, UserCheckIcon } from "lucide-react"
+import { AlertTriangleIcon, BanknoteIcon, CalendarDaysIcon, ChartColumnIcon, ChevronRightIcon, ClockIcon, DownloadIcon, PrinterIcon, SchoolIcon, UsersIcon, UserCheckIcon } from "lucide-react"
 import { NativeSelect } from "@/components/app/native-select"
 import { StudentSheet } from "@/components/app/student-sheet"
 import { Delta, Donut, DonutLegend, Empty, TopList, fmtNum, fmtPct, fmtShort, Heatmap, MonthBars, Panel, Rank, ShareBar, donutColor, tint } from "@/components/reports/charts"
@@ -821,9 +821,9 @@ function CrmTab({ d, compare }: { d: ReportData; compare: boolean }) {
           <div className="lg:pl-8"><DonutLegend title="เหตุผล" parts={c.lostReasons.map((x) => ({ label: x.reason, value: x.count }))} center={fmtNum(c.lostReasons.reduce((a, x) => a + x.count, 0))} sub="มีเหตุผล" /></div>
         </div>
         {(c.competitors.length > 0 || c.wantedTimes.length > 0) && (
-          <div className="mt-5 grid gap-6 border-t pt-4 lg:grid-cols-2 lg:gap-0">
-            <div className="lg:pr-8"><TopList title="ไปเรียนที่ไหนแทน" rows={c.competitors.map((x) => ({ label: x.name, value: x.count }))} /></div>
-            <div className="lg:pl-8"><TopList title="เวลาที่ลูกค้าต้องการแต่เราไม่มี" rows={c.wantedTimes.map((x) => ({ label: x.time, value: x.count }))} /></div>
+          <div className="mt-6 grid gap-6 border-t pt-5 lg:grid-cols-2 lg:gap-0 lg:divide-x">
+            <div className="lg:pr-8"><TopList title="ไปเรียนที่ไหนแทน" icon={<SchoolIcon className="size-4 text-muted-foreground" />} color="#64748b" rows={c.competitors.map((x) => ({ label: x.name, value: x.count }))} /></div>
+            <div className="lg:pl-8"><TopList title="เวลาที่ลูกค้าต้องการแต่เราไม่มี" icon={<ClockIcon className="size-4 text-muted-foreground" />} color="#f59e0b" rows={c.wantedTimes.map((x) => ({ label: x.time, value: x.count }))} /></div>
           </div>
         )}
       </Panel>

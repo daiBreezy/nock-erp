@@ -208,17 +208,30 @@ export function DonutLegend({ title, parts, center, sub, top = 5, keepOrder }: {
   )
 }
 
-/** Name · count list capped at `top` rows with a "ดูทั้งหมด" toggle (owner 2026-10-05: long lists make the card messy). */
-export function TopList({ title, rows, top = 5 }: { title: string; rows: { label: string; value: number }[]; top?: number }) {
+/**
+ * Ranked bar list capped at `top` rows with a "ดูทั้งหมด" toggle (owner 2026-10-05: long lists make the card messy).
+ * Each row: rank · name · bar (vs the biggest) · count · share, so the eye reads size before reading numbers.
+ */
+export function TopList({ title, icon, rows, top = 5, color }: { title: string; icon?: ReactNode; rows: { label: string; value: number }[]; top?: number; color?: string }) {
   const [open, setOpen] = useState(false)
   const list = open ? rows : rows.slice(0, top)
+  const max = Math.max(1, ...rows.map((x) => x.value))
+  const sum = rows.reduce((a, x) => a + x.value, 0) || 1
   return (
     <div className="min-w-0">
-      <p className="mb-2 text-xs font-medium text-muted-foreground">{title}</p>
+      <p className="mb-3 flex items-center gap-2 text-sm font-medium">{icon}{title}<span className="text-xs font-normal text-muted-foreground">รวม {fmtNum(sum)}</span></p>
       {rows.length ? (
-        <ul className="max-w-sm space-y-1.5 text-sm">{list.map((x) => <li key={x.label} className="flex justify-between gap-3"><span className="truncate">{x.label}</span><span className="font-medium tabular-nums">{fmtNum(x.value)}</span></li>)}</ul>
+        <ul className="space-y-2.5 text-sm">{list.map((x, i) => (
+          <li key={x.label} className="grid grid-cols-[1.25rem_minmax(0,11rem)_1fr_2rem_2.5rem] items-center gap-3">
+            <Rank n={i + 1} />
+            <span className="truncate" title={x.label}>{x.label}</span>
+            <ShareBar value={x.value / max} color={color} className="h-2.5" />
+            <span className="text-right font-medium tabular-nums">{fmtNum(x.value)}</span>
+            <span className="text-right text-xs text-muted-foreground tabular-nums">{fmtPct(x.value / sum)}</span>
+          </li>
+        ))}</ul>
       ) : <p className="text-xs text-muted-foreground">ไม่มี</p>}
-      {rows.length > top && <button type="button" onClick={() => setOpen((o) => !o)} className="mt-2 text-xs text-primary hover:underline">{open ? `ย่อเหลือ ${top} อันดับ` : `ดูทั้งหมด ${rows.length} รายการ`}</button>}
+      {rows.length > top && <button type="button" onClick={() => setOpen((o) => !o)} className="mt-2 pl-8 text-xs text-primary hover:underline">{open ? `ย่อเหลือ ${top} อันดับ` : `ดูทั้งหมด ${rows.length} รายการ`}</button>}
     </div>
   )
 }
