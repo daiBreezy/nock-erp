@@ -2,8 +2,9 @@
 
 import { useRouter } from "next/navigation"
 import { useCallback, useEffect, useState } from "react"
-import { FileSignatureIcon, InfoIcon, PenLineIcon, PlusIcon, RadioIcon, SendIcon, SparklesIcon, UserSearchIcon, UserCheckIcon } from "lucide-react"
+import { FileSignatureIcon, InfoIcon, PenLineIcon, PlusIcon, RadioIcon, SendIcon, SparklesIcon, UserSearchIcon, UserCheckIcon, ChevronDownIcon, CheckIcon } from "lucide-react"
 import { NativeSelect } from "@/components/app/native-select"
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { Pill } from "@/components/app/badges"
 import { FamilyForm } from "@/components/app/family-form"
 import { FamilySheet } from "@/components/app/family-sheet"
@@ -217,14 +218,23 @@ export default function InboxPage() {
                 </div>
                 <p className="mt-0.5 text-xs text-muted-foreground">{CHANNEL_LABEL[selected.channel]}</p>
               </div>
-              <label className="flex items-center gap-2 text-xs text-muted-foreground">
-                <UserCheckIcon className="size-4" /> ผู้ดูแล
-                <NativeSelect className="h-8 w-36" value={selected.assigneeId ?? ""} onChange={(e) => report(assign(selected.id, e.target.value || null), e.target.value ? "มอบหมายแล้ว" : "ยกเลิกมอบหมายแล้ว")}
-                  placeholder="ยังไม่มอบหมาย" options={staff.filter((s) => s.active && s.branchIds.includes(branch.id) && can(s, "inbox.manage")).map((s) => ({ value: s.id, label: s.nickname }))} />
-              </label>
               {lead && (
                 <Button size="sm" variant="outline" onClick={() => setSendingFormOpen(true)}><FileSignatureIcon /> ส่งฟอร์ม</Button>
               )}
+              {/* owner 2026-10-05: assignee is an action next to the side-panel button, same size as the others */}
+              <DropdownMenu>
+                <DropdownMenuTrigger render={<Button size="sm" variant="outline" aria-label="มอบหมายผู้ดูแล" className={cn(!selected.assigneeId && "text-muted-foreground")} />}>
+                  <UserCheckIcon /> {selected.assigneeId ? staff.find((s) => s.id === selected.assigneeId)?.nickname : "มอบหมาย"} <ChevronDownIcon className="text-muted-foreground" />
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-48">
+                  {staff.filter((s) => s.active && s.branchIds.includes(branch.id) && can(s, "inbox.manage")).map((s) => (
+                    <DropdownMenuItem key={s.id} onClick={() => report(assign(selected.id, s.id), "มอบหมายแล้ว")}>
+                      <CheckIcon className={cn(selected.assigneeId === s.id ? "opacity-100" : "opacity-0")} /> {s.nickname}
+                    </DropdownMenuItem>
+                  ))}
+                  {selected.assigneeId && <><DropdownMenuSeparator /><DropdownMenuItem onClick={() => report(assign(selected.id, null), "ยกเลิกมอบหมายแล้ว")}>ยกเลิกมอบหมาย</DropdownMenuItem></>}
+                </DropdownMenuContent>
+              </DropdownMenu>
               <Button
                 size="icon-sm" variant="outline" aria-label="ข้อมูลติดต่อ"
                 onClick={() => { if (family) setOpenFamilyId(family.id); else if (lead) setOpenLeadId(lead.id); else setLinking(true) }}
