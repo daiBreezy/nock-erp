@@ -27,7 +27,7 @@ import * as Cfg from "@/domain/rules/settings"
 import * as Msg from "@/domain/rules/messages"
 import * as Loss from "@/domain/rules/loss"
 import { toast } from "sonner"
-import type { ContactChannel, ContactResult, LossReason, Assessment, AttendanceStatus, Entitlement, Branch, BusAddOn, ClassBlock, CreditNote, LessonBook, LessonTopic, Seat, ChatMessage, Conversation, Course, DateStr, Family, FormSubmission, Holiday, ID, Invoice, Klass, Lead, LeadStage, LessonSummary, LineDelivery, LogCategory, Result, Session, Staff, Student, SystemConfig } from "@/domain/types"
+import type { EnrollSubmission, ContactChannel, ContactResult, LossReason, Assessment, AttendanceStatus, Entitlement, Branch, BusAddOn, ClassBlock, CreditNote, LessonBook, LessonTopic, Seat, ChatMessage, Conversation, Course, DateStr, Family, FormSubmission, Holiday, ID, Invoice, Klass, Lead, LeadStage, LessonSummary, LineDelivery, LogCategory, Result, Session, Staff, Student, SystemConfig } from "@/domain/types"
 
 export interface UIState {
   userId: ID
@@ -169,6 +169,10 @@ type Store = DB & UIState & {
   cancelExit: (studentId: ID) => Result
   /** close it: archive with a structured reason, out of classes after the last day; "may come back" → a win-back lead */
   closeExit: (studentId: ID, input: Loss.ExitCloseInput) => Result
+  /** enroll-now (owner 2026-10-05): the branch's Rich Menu link */
+  setEnrollLink: (branchId: ID, link: Branch["enrollLink"]) => Result
+  /** enroll-now application → family + students + a "สมัครตรง" lead at รอชำระ + a draft invoice per child */
+  approveEnrollment: (sub: EnrollSubmission, plan: { childIndex: number; courseId: ID; classIds: ID[]; startDate: DateStr; periods: number }[]) => Result<{ studentIds: ID[]; invoiceIds: ID[] }>
   /** the reason list (Settings) — one list for lost leads and students who leave */
   saveLossReasons: (list: LossReason[]) => Result
   /** sends an archived lead back to the stage it was archived from — a deliberate action, so unlike
@@ -1847,6 +1851,70 @@ export const useStore = create<Store>()(
         })
         log("profile", [studentId], "ออก (Archive)", `${label} · เรียนวันสุดท้าย ${fmtDate(input.lastDate)}${input.money !== "none" ? ` · ${input.money === "refund" ? "คืนเงิน" : "เก็บเป็นเครดิต"}` : ""}`)
         return OK
+      },
+
+      setEnrollLink: (branchId, link) => {
+        const s = get()
+        const perm = requirePerm(s.me(), "lead.manage")
+        if (!perm.ok) return perm
+        set({ branches: s.branches.map((b) => (b.id === branchId ? { ...b, enrollLink: link } : b)) })
+        return OK
+      },
+
+      approveEnrollment: (sub, plan) => {
+        const s = get()
+        for (const p of ["student.manage", "billing.manage", "lead.manage"] as const) { const perm = requirePerm(s.me(), p); if (!perm.ok) return perm }
+        if (!plan.length) return fail("เลือกคอร์สอย่างน้อย 1 คน")
+        const branch = s.branches.find((b) => b.id === sub.branchId)
+        if (!branch) return fail("ไม่พบสาขา")
+        const now = s.now()
+        // same family when the LINE account or any parent phone is already on file (siblings, returning families)
+        const matched = People.matchExistingFamily(s.families, { lineUserId: sub.lineUserId, phones: sub.parents.map((p) => p.phone) })
+        const family = matched ?? People.familyFromSubmission(sub.children[0].name, sub.parents, { address: sub.familyAddress, postcode: sub.familyPostcode, province: sub.familyProvince, location: sub.familyLocation, addressNote: sub.familyAddressNote, sources: sub.acquisitions, taxInfo: sub.taxInfo }, sub.lineUserId, uid("fam"))
+        const parent = sub.parents.find((p) => p.primary) ?? sub.parents[0]
+        const students: Student[] = [], leads: Lead[] = [], invoices: Invoice[] = []
+        let leadsNow = s.leads
+        for (const p of plan) {
+          const child = sub.children[p.childIndex]
+          if (!child) return fail("ข้อมูลนักเรียนไม่ครบ")
+          const course = s.courses.find((c) => c.id === p.courseId && c.branchId === branch.id)
+          if (!course) return fail(`เลือกคอร์สให้ ${child.nickname || child.name}`)
+          if (!p.classIds.length) return fail(`เลือกคลาสให้ ${child.nickname || child.name}`)
+          const known = s.students.find((x) => x.familyId === family.id && x.name.trim() === child.name.trim())
+          const note = [child.note, child.placement ? "ผู้ปกครองขอให้ครูประเมินระดับในคาบแรก (ไม่ได้สอบวัดระดับ)" : ""].filter(Boolean).join(" · ")
+          const stu: Student = known ?? { id: uid("stu"), familyId: family.id, branchId: branch.id, name: child.name, nickname: child.nickname || People.nicknameFrom(child.name), grade: child.grade, usesBus: child.bus,
+            birthDate: child.birthDate, school: child.school, note: note || undefined, createdAt: now.toISOString(), createdBranchId: branch.id }
+          if (!known) {
+            const errs = People.validateStudent(stu, toDateStr(now))
+            if (errs.length) return fail(`${child.nickname || child.name}: ${errs[0].message}`)
+            students.push(stu)
+          }
+          // the lead: the one the link was sent to (first child), otherwise a new "สมัครตรง" one — already at รอชำระ
+          const own = p === plan[0] && sub.leadId ? leadsNow.find((l) => l.id === sub.leadId) : undefined
+          if (own) leadsNow = leadsNow.map((l) => (l.id === own.id ? { ...l, stage: "payment_pending", direct: true, trialStudentId: stu.id } : l))
+          else leads.push({ id: uid("ld"), branchId: branch.id, name: parent?.name ?? family.name, childGrade: child.grade, subject: course.subjects[0] ?? "", source: sub.acquisitions?.[0] ?? "line", stage: "payment_pending", direct: true,
+            assigneeId: s.userId, phone: parent?.phone ?? "", lineId: parent?.lineId ?? "", lineUserId: sub.lineUserId, createdAt: sub.submittedAt, notes: [{ at: now.toISOString(), by: s.userId, text: `สมัครทันทีจากฟอร์ม (${child.times.length} ช่วงเวลาที่สะดวก · เริ่ม ${fmtDate(child.startDate)})` }], convertedStudentId: null, trialStudentId: stu.id })
+          // entry fee unless this child already paid one / came from the old system — same rule as the invoice editor
+          const entry = branch.fees.find((f) => f.kind === "entry")
+          const waived = Bill.entryFeeWaiver(stu, s.invoices, branch.fees)
+          invoices.push({
+            id: uid("inv"), branchId: branch.id, studentId: stu.id, number: null,
+            // hour packs: leftover minutes carry to the next pack by default (admin can change on the invoice)
+            lines: [{ id: uid("ln"), courseId: course.id, classIds: p.classIds, startDate: p.startDate, periods: Math.max(1, p.periods), leftover: course.unit === "hour" ? "carry" : undefined }],
+            bus: [], bookFee: 0, advance: entry && !waived ? [{ feeId: entry.id, name: entry.name, amount: entry.price }] : [], concession: null,
+            noteToParent: "", status: "draft", pdf: "none", createdBy: s.userId, createdAt: now.toISOString(), payments: [],
+          })
+        }
+        set({ families: matched ? s.families : [...s.families, family], students: [...s.students, ...students], leads: [...leadsNow, ...leads] })
+        // drafts go through the normal invoice rule (number, validation) — one per child
+        const made: ID[] = []
+        for (const inv of invoices) {
+          const r = get().saveInvoice(inv)
+          if (!r.ok) return fail(`สร้างนักเรียนแล้ว แต่ร่างใบแจ้งหนี้ไม่ผ่าน: ${r.error} — เปิดหน้า Billing สร้างเองได้`)
+          made.push(r.value.id)
+        }
+        if (students.length) log("profile", students.map((x) => x.id), "สมัครทันที", `จากฟอร์มสมัครเรียน · ${family.name}`)
+        return { ok: true, value: { studentIds: plan.map((p, i) => invoices[i].studentId), invoiceIds: made } }
       },
 
       saveLossReasons: (list) => {

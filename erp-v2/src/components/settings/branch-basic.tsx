@@ -16,6 +16,7 @@ import { uid } from "@/data/seed"
 import { report } from "@/lib/feedback"
 import { useStore } from "@/store/store"
 import { SaveRow, SettingsCard, useBranchDraft } from "./common"
+import { RichMenuCard } from "./rich-menu"
 
 const BRAND_LABEL: Record<Branch["brand"], string> = { nockacademy: "Nockacademy", liclass: "Liclass" }
 
@@ -125,6 +126,7 @@ export function LineTab({ branch }: { branch: Branch }) {
   useEffect(() => { fetchStatus() }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
+    <div className="space-y-4">
     <SettingsCard title="LINE Integration" hint="LINE OA ของสาขานี้ — ใช้ส่งสรุปการเรียน/ใบแจ้งหนี้/ใบเสร็จถึงผู้ปกครอง และผูกผู้ปกครองด้วย link code · 1 Messaging API channel ต่อสาขา">
       <div className="mb-3 flex flex-wrap items-center gap-2">
         {loading ? (
@@ -181,6 +183,8 @@ export function LineTab({ branch }: { branch: Branch }) {
       </Alert>
       <SaveRow dirty={dirty} onReset={reset} onSave={() => save("บันทึก LINE Integration แล้ว")} />
     </SettingsCard>
+    <RichMenuCard branch={branch} />
+    </div>
   )
 }
 

@@ -124,6 +124,8 @@ export interface Branch {
   bankAccount: { bank: string; branchName: string; name: string; number: string }
   /** legacy simple flag — kept so existing "delivered via LINE" simulation logic still works; set from the server-side /api/line/status check */
   lineOaConnected: boolean
+  /** the branch's public enroll-now link for the LINE Rich Menu (owner 2026-10-05) — refreshed when courses change */
+  enrollLink?: { token: string; url: string; updatedAt: string }
   /** non-secret LINE identity — safe to keep in client state. The actual Channel Secret / Access Token live server-side only (.env.local), never here. */
   lineOa: LineOaConfig
 }
@@ -552,6 +554,77 @@ export interface LeadNote {
   text: string
 }
 
+/** Enroll-now form (owner 2026-10-05): a family that wants to start without a test / trial. */
+export type EnrollPackage = "hour" | "week" | "month" | "unsure"
+
+/** A course the enroll form offers — a snapshot (the parent's page has no access to ERP data). */
+export interface EnrollCourseOption { id: ID; name: string; subjects: string[]; grades: string[]; unit: PriceUnit; duration: number; price: number }
+
+/** The link: a reusable one per branch (LINE Rich Menu) or a one-time one an admin sends to a lead. */
+export interface EnrollToken {
+  token: string
+  kind: "enroll"
+  reusable: boolean
+  branchId: ID
+  branchName: string
+  brand: Brand
+  lang: FormLang
+  grades: string[]
+  subjects: string[]
+  subjectNames?: SystemConfig["subjectNames"]
+  courses: EnrollCourseOption[]
+  /** set when an admin sent it to a lead */
+  leadId?: ID
+  conversationId: ID | null
+  prefill?: FormPrefill
+  createdAt: string
+  expiresAt?: string
+  used: boolean
+}
+
+export interface EnrollChild {
+  name: string
+  nickname?: string
+  grade: string
+  birthDate?: DateStr
+  school?: string
+  note?: string
+  subjects: string[]
+  courseIds: ID[]
+  pkg: EnrollPackage
+  /** convenient times as "<weekday 0–6>-<am|pm|eve>" */
+  times: string[]
+  startDate: DateStr
+  bus: boolean
+  /** the parent wants the teacher to check the level in the first class (no test before) */
+  placement: boolean
+}
+
+export interface EnrollSubmission {
+  id: ID
+  token: string
+  branchId: ID
+  leadId?: ID
+  conversationId: ID | null
+  lineUserId?: string
+  lineName?: string
+  parents: FormParentInput[]
+  familyAddress?: string
+  familyPostcode?: string
+  familyProvince?: string
+  familyLocation?: { lat: number; lng: number }
+  familyAddressNote?: string
+  acquisitions?: LeadSource[]
+  taxInfo?: { customerName: string; taxId: string; address: string }
+  children: EnrollChild[]
+  acceptedTerms: boolean
+  lang: FormLang
+  status: "pending" | "approved" | "rejected"
+  submittedAt: string
+  reviewedAt?: string
+  createdStudentIds?: ID[]
+}
+
 /** What a parent answers on the exit form (TH / EN / JP form, stored language-neutral). */
 export interface ExitAnswers {
   reasonId: ID
@@ -661,6 +734,8 @@ export interface Lead {
   archiveReason?: string
   /** the short close-lead form (owner 2026-10-05) — archiveReason keeps the main reason's label for older screens */
   lost?: LeadLost
+  /** came through the enroll-now form — no test / trial (the funnel skips those steps for it) */
+  direct?: boolean
   /** a student who left and said they may come back — a closed lead to call again (not a new lead in the funnel) */
   winBackOf?: ID
   /** every call / LINE follow-up and what came of it — shows whether a quiet lead is really gone */

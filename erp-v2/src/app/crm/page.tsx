@@ -9,6 +9,7 @@ import { NativeSelect } from "@/components/app/native-select"
 import { avatarTone, gradeTone, initial, subjectColor } from "@/components/app/subject-color"
 import { LeadDialog } from "@/components/crm/lead-dialog"
 import { LeadSheet } from "@/components/crm/lead-sheet"
+import { EnrollInbox } from "@/components/crm/enroll-review"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Switch } from "@/components/ui/switch"
@@ -88,6 +89,8 @@ export default function CrmPage() {
         </div>
         {canManage && <Button onClick={() => setCreating(true)}><PlusIcon /> เพิ่ม Lead</Button>}
       </div>
+
+      {canManage && <EnrollInbox branchId={branch.id} />}
 
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <Kpi icon={UsersIcon} label="Lead ทั้งหมด" value={kpis.total} sub={`${kpis.active} รายกำลังตาม`} />
@@ -240,7 +243,9 @@ function LeadCard({ lead, group, now, staff, draggable, onOpen, onRestore }: { l
 
       <div className="mt-2 flex items-center justify-between gap-2">
         <span className={cn("shrink-0 rounded-full px-2 py-0.5 text-[11px] font-medium", subjectColor(lead.subject).chip)}>{lead.subject}</span>
-        {lead.stage === "new" || lead.stage === "contacting" ? (
+        {lead.direct && lead.stage !== "enrolled" ? (
+          <Pill tone="green">สมัครตรง</Pill>
+        ) : lead.stage === "new" || lead.stage === "contacting" ? (
           <Pill tone="gray">{LEAD_SOURCE_LABEL[lead.source]}</Pill>
         ) : lead.stage === "enrolled" ? (
           <Pill tone="green"><UserCheckIcon className="size-3" /> ลงทะเบียนแล้ว</Pill>

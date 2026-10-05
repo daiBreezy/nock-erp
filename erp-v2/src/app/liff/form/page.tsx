@@ -14,22 +14,26 @@ import { Textarea } from "@/components/ui/textarea"
 import { addDays, endTime, toDateStr } from "@/domain/dates"
 import { commonSlots } from "@/domain/rules/forms"
 import { gradeLabel, subjectLabel } from "@/domain/rules/settings"
-import type { Brand, FormLang, FormToken, FormOfferSlot, FormPrefill, FormSubjectOffer, FormType, LeadSource } from "@/domain/types"
+import type { Brand, EnrollCourseOption, EnrollToken, FormLang, FormToken, FormOfferSlot, FormPrefill, FormSubjectOffer, FormType, LeadSource } from "@/domain/types"
 import { cn } from "@/lib/utils"
 import { MapPin } from "./map-pin"
 import { DICT, fmtBirth, fmtFormDate, LANGS, REL_KEYS, relFromStored, relToStored, SOURCE_KEYS, type RelKey } from "./i18n"
+import { courseLine, ENROLL_DICT, EnrollFields, enrollValid, timeLabel, type EnrollFieldsValue } from "./enroll"
 
 type Phase = "init" | "invalid" | "ready" | "submitting" | "done"
 type Step = "parent" | "student" | "summary"
 const STEP_KEYS: Step[] = ["parent", "student", "summary"]
 
 interface ParentBlock { first: string; last: string; phones: string[]; email: string; lineId: string; rel: RelKey | ""; birthDate: string; editing: boolean }
-interface StudentBlock { key: string; first: string; last: string; nickname: string; grade: string; birthDate: string; school: string; note: string; activeSubjects: string[]; chosen: Record<string, FormOfferSlot>; editing: boolean }
+interface StudentBlock { key: string; first: string; last: string; nickname: string; grade: string; birthDate: string; school: string; note: string; activeSubjects: string[]; chosen: Record<string, FormOfferSlot>; editing: boolean; enroll: EnrollFieldsValue }
+/** what the enroll-now form needs from the link (courses, subjects…) — null on a Test/Trial link */
+interface EnrollInfo { courses: EnrollCourseOption[]; subjects: string[]; busOffered: boolean }
 
 let seq = 0
 const splitName = (full = "") => { const t = full.trim().split(/\s+/); return t.length > 1 ? { first: t.slice(0, -1).join(" "), last: t[t.length - 1] } : { first: full.trim(), last: "" } }
 const emptyParent = (name = ""): ParentBlock => ({ ...splitName(name), phones: [""], email: "", lineId: "", rel: "", birthDate: "", editing: true })
-const emptyStudent = (grade: string): StudentBlock => ({ key: `st${seq++}`, first: "", last: "", nickname: "", grade, birthDate: "", school: "", note: "", activeSubjects: [], chosen: {}, editing: true })
+const emptyEnroll = (): EnrollFieldsValue => ({ subjects: [], courseIds: [], pkg: "month", times: [], startDate: "", bus: false, placement: true })
+const emptyStudent = (grade: string): StudentBlock => ({ key: `st${seq++}`, first: "", last: "", nickname: "", grade, birthDate: "", school: "", note: "", activeSubjects: [], chosen: {}, editing: true, enroll: emptyEnroll() })
 const fullName = (x: { first: string; last: string }) => `${x.first} ${x.last}`.trim()
 /** the one visit a child's picks make up: same date+start for every subject, 2 h when 2+ subjects */
 const visitOf = (s: Pick<StudentBlock, "chosen">) => {
@@ -63,7 +67,9 @@ export default function LiffFormPage() {
 function LiffForm() {
   const params = useSearchParams()
   const initialToken = params.get("token") ?? ""
-  const preview = params.get("preview") as FormType | null
+  const previewParam = params.get("preview")
+  const preview = previewParam === "enroll" ? null : (previewParam as FormType | null)
+  const previewEnroll = previewParam === "enroll"
   const liffRef = useRef<{ closeWindow: () => void } | null>(null)
   const [token, setToken] = useState(initialToken)
   const [phase, setPhase] = useState<Phase>("init")
@@ -90,7 +96,10 @@ function LiffForm() {
   const [wantTax, setWantTax] = useState(false)
   const [tax, setTax] = useState({ customerName: "", taxId: "", address: "" })
   const [students, setStudents] = useState<StudentBlock[]>([])
+  const [enroll, setEnroll] = useState<EnrollInfo | null>(null)
+  const [terms, setTerms] = useState(false)
   const t = DICT[lang]
+  const te = ENROLL_DICT[lang]
   // parents read subjects/grades in their language; what we store stays the Thai name
   const names: Names = { subject: (x) => subjectLabel(x, lang, subjectNames), grade: (g) => gradeLabel(g, lang) }
 
@@ -116,6 +125,38 @@ function LiffForm() {
       // one LIFF app for every parent form: exit-form links ("pf_" tokens) live on their own page
       const pf = initialToken || new URLSearchParams(window.location.search).get("token") || ""
       if (pf.startsWith("pf_")) { window.location.replace(`/liff/exit?token=${encodeURIComponent(pf)}`); return }
+      // enroll-now (owner 2026-10-05): from the Rich Menu or a link an admin sent — LINE login only when opened inside LINE
+      if (pf.startsWith("pe_") || previewEnroll) {
+        let tk: EnrollToken
+        if (previewEnroll) {
+          tk = { token: "preview", kind: "enroll", reusable: true, branchId: "", branchName: "ทองหล่อ", brand: (params.get("brand") as Brand) || "nockacademy", lang: "th", grades: ["ป.4", "ป.5", "ป.6", "ม.1", "ม.2", "ม.3"], subjects: ["คณิต", "อังกฤษ", "วิทย์"],
+            subjectNames: { "คณิต": { en: "Math", ja: "数学" }, "อังกฤษ": { en: "English", ja: "英語" }, "วิทย์": { en: "Science", ja: "理科" } }, conversationId: null, createdAt: "", used: false,
+            courses: [{ id: "c1", name: "คณิต ป.5 รายเดือน", subjects: ["คณิต"], grades: ["ป.5"], unit: "month", duration: 1, price: 4400 }, { id: "c2", name: "อังกฤษ ป.6 24 ชม.", subjects: ["อังกฤษ"], grades: ["ป.6"], unit: "hour", duration: 24, price: 6300 }] }
+          setLineUserId("preview")
+        } else {
+          const res = await fetch(`/api/parent-forms/enroll?token=${encodeURIComponent(pf)}`).then((r) => r.json()).catch(() => ({ ok: false }))
+          if (cancelled) return
+          if (!res.ok) { setError(res.error ?? "ลิงก์นี้ใช้ไม่ได้แล้ว"); setPhase("invalid"); return }
+          tk = res.token
+          try {
+            const liff = (await import("@line/liff")).default
+            const liffId = process.env.NEXT_PUBLIC_LIFF_ID
+            if (liffId) {
+              await liff.init({ liffId })
+              liffRef.current = liff
+              if (liff.isInClient() && liff.isLoggedIn()) { const pr = await liff.getProfile(); setLineUserId(pr.userId); setDisplayName(pr.displayName) }
+            }
+          } catch { /* outside LINE: the form still works, just without the LINE link */ }
+        }
+        if (cancelled) return
+        setToken(pf)
+        setEnroll({ courses: tk.courses, subjects: tk.subjects, busOffered: tk.brand === "liclass" })
+        setGrades(tk.grades); setBranchName(tk.branchName); setSubjectNames(tk.subjectNames ?? {})
+        if (!params.get("lang") && tk.lang) setLang(tk.lang)
+        applyPrefill(tk.prefill ?? null, tk.grades, [], "")
+        setPhase("ready")
+        return
+      }
       if (preview) {
         const d = previewData(preview)
         setFormType(preview); setOffers(d.offers); setGrades(d.grades); setDisplayName("ผู้ปกครอง"); setLineUserId("preview")
@@ -166,21 +207,38 @@ function LiffForm() {
   const setStudent = (key: string, patch: Partial<StudentBlock>) => setStudents((ss) => ss.map((s) => (s.key === key ? { ...s, ...patch } : s)))
 
   const parentsValid = parents.length > 0 && parents.every((p) => p.first.trim() && p.phones[0]?.trim())
-  const studentsValid = students.length > 0 && students.every((s) => s.first.trim() && s.grade && s.activeSubjects.length > 0 && s.activeSubjects.every((subj) => s.chosen[subj]))
+  const studentsValid = students.length > 0 && students.every((s) => s.first.trim() && s.grade && (enroll ? enrollValid(s.enroll) : s.activeSubjects.length > 0 && s.activeSubjects.every((subj) => s.chosen[subj])))
 
+  const parentsPayload = () => parents.map((p, i) => ({
+    name: fullName(p), phone: p.phones[0], altPhones: p.phones.slice(1).filter((x) => x.trim()),
+    email: p.email || undefined, lineId: p.lineId || undefined, relationship: p.rel ? relToStored(p.rel) : undefined, birthDate: p.birthDate || undefined, primary: i === primaryIdx,
+  }))
   const submit = async () => {
     if (!parentsValid || !studentsValid) return
+    if (enroll && !terms) { setError(te.termsNeed); return }
+    setError("")
     setPhase("submitting")
-    if (preview) { setPhase("done"); return }
+    if (preview || previewEnroll) { setPhase("done"); return }
+    if (enroll) {
+      const res = await fetch("/api/parent-forms/enroll-submit", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          token, lineUserId: lineUserId || undefined, lineName: displayName || undefined, parents: parentsPayload(), lang, acceptedTerms: true,
+          familyAddress: address || undefined, familyPostcode: postcode || undefined, familyProvince: province || undefined, acquisitions: acquisitions.length ? acquisitions : undefined,
+          familyLocation: location, familyAddressNote: addressNote || undefined, taxInfo: wantTax ? tax : undefined,
+          children: students.map((s) => ({ name: fullName(s), nickname: s.nickname || undefined, grade: s.grade, birthDate: s.birthDate || undefined, school: s.school || undefined, note: s.note || undefined, ...s.enroll })),
+        }),
+      }).then((r) => r.json()).catch(() => ({ ok: false, error: "ส่งไม่สำเร็จ — เครือข่ายมีปัญหา ลองอีกครั้ง" }))
+      if (!res.ok) { setError(res.error ?? "ส่งไม่สำเร็จ"); setPhase("ready"); return }
+      setPhase("done")
+      return
+    }
     try {
       const res = await fetch("/api/forms/submit", {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           token, lineUserId,
-          parents: parents.map((p, i) => ({
-            name: fullName(p), phone: p.phones[0], altPhones: p.phones.slice(1).filter((x) => x.trim()),
-            email: p.email || undefined, lineId: p.lineId || undefined, relationship: p.rel ? relToStored(p.rel) : undefined, birthDate: p.birthDate || undefined, primary: i === primaryIdx,
-          })),
+          parents: parentsPayload(),
           familyAddress: address || undefined, familyPostcode: postcode || undefined, familyProvince: province || undefined, acquisitions: acquisitions.length ? acquisitions : undefined,
           familyLocation: location, familyAddressNote: addressNote || undefined,
           taxInfo: wantTax ? tax : undefined,
@@ -205,7 +263,7 @@ function LiffForm() {
   const stepIndex = STEP_KEYS.indexOf(step)
   const summary = (
     <Summary t={t} lang={lang} names={names} parents={parents} primaryIdx={primaryIdx} address={address} province={province} postcode={postcode} addressNote={addressNote} pinned={!!location} acquisitions={acquisitions} linked={lineUserId ? displayName : undefined}
-      tax={wantTax ? tax : null} students={students} onEdit={phase === "done" ? undefined : (s) => setStep(s)} />
+      tax={wantTax ? tax : null} students={students} onEdit={phase === "done" ? undefined : (s) => setStep(s)} enroll={enroll} />
   )
 
   return (
@@ -221,10 +279,10 @@ function LiffForm() {
           </span>
         </header>
         {preview && <p className="rounded-2xl bg-amber-100 px-3 py-2 text-center text-xs text-amber-900">{t.previewBadge}</p>}
-        {phase === "done" && <p className="flex items-center gap-2 rounded-2xl bg-emerald-100 px-3 py-2.5 text-sm text-emerald-900"><CheckCircle2Icon className="size-4 shrink-0" />{t.sent(formType)} · {t.sentSub}</p>}
+        {phase === "done" && <p className="flex items-center gap-2 rounded-2xl bg-emerald-100 px-3 py-2.5 text-sm text-emerald-900"><CheckCircle2Icon className="size-4 shrink-0" />{enroll ? `${te.sent} · ${te.sentSub}` : `${t.sent(formType)} · ${t.sentSub}`}</p>}
 
         <div>
-          <h1 className="text-xl font-semibold">{t.formTitle(formType)}</h1>
+          <h1 className="text-xl font-semibold">{enroll ? te.title : t.formTitle(formType)}</h1>
           {displayName && phase !== "done" && <p className="text-sm text-muted-foreground">{t.hello(displayName)}</p>}
         </div>
 
@@ -331,9 +389,9 @@ function LiffForm() {
           </section>
         ) : step === "student" ? (
           <section className="space-y-3">
-            <SectionHead icon={UserRoundIcon} title={t.studentTitle} sub={t.studentSub} action={<Button size="sm" variant="secondary" onClick={() => setStudents((ss) => [...ss, emptyStudent(grades[0] ?? "")])}><PlusIcon /> {t.addStudent}</Button>} />
+            <SectionHead icon={UserRoundIcon} title={t.studentTitle} sub={enroll ? te.studentSub : t.studentSub} action={<Button size="sm" variant="secondary" onClick={() => setStudents((ss) => [...ss, emptyStudent(grades[0] ?? "")])}><PlusIcon /> {t.addStudent}</Button>} />
             {students.map((s, i) => (
-              <StudentCard key={s.key} t={t} lang={lang} names={names} n={i + 1} formType={formType} student={s} grades={grades} offers={offers}
+              <StudentCard key={s.key} t={t} lang={lang} names={names} n={i + 1} formType={formType} student={s} grades={grades} offers={offers} enroll={enroll}
                 onChange={(patch) => setStudent(s.key, patch)} onRemove={students.length > 1 ? () => setStudents((ss) => ss.filter((x) => x.key !== s.key)) : undefined} />
             ))}
           </section>
@@ -341,6 +399,7 @@ function LiffForm() {
           <section className="space-y-3">
             <SectionHead icon={ClipboardCheckIcon} title={t.summaryTitle} sub={t.summarySub} />
             {summary}
+            {enroll && <label className={cn("flex items-start gap-2 rounded-2xl bg-card p-3 text-sm ring-1", terms ? "ring-foreground/5" : "ring-amber-300")}><Checkbox className="mt-0.5" checked={terms} onCheckedChange={(v) => setTerms(!!v)} />{te.terms}</label>}
           </section>
         )}
 
@@ -389,8 +448,8 @@ function ParentCard({ t, lang, p, primary, linked, onEdit }: { t: T; lang: FormL
   )
 }
 
-function StudentCard({ t, lang, names, n, formType, student: s, grades, offers, onChange, onRemove }: {
-  t: T; lang: FormLang; names: Names; n: number; formType: FormType; student: StudentBlock; grades: string[]; offers: FormSubjectOffer[]
+function StudentCard({ t, lang, names, n, formType, student: s, grades, offers, onChange, onRemove, enroll }: {
+  t: T; lang: FormLang; names: Names; n: number; formType: FormType; student: StudentBlock; grades: string[]; offers: FormSubjectOffer[]; enroll: EnrollInfo | null
   onChange: (patch: Partial<StudentBlock>) => void; onRemove?: () => void
 }) {
   // changing the subjects changes which times fit them all → the old pick is cleared
@@ -437,6 +496,10 @@ function StudentCard({ t, lang, names, n, formType, student: s, grades, offers, 
         </div>
       )}
 
+      {enroll ? (
+        <EnrollFields t={ENROLL_DICT[lang]} lang={lang} grade={s.grade} subjects={enroll.subjects} subjectLabel={names.subject} courses={enroll.courses} busOffered={enroll.busOffered}
+          value={s.enroll} onChange={(patch) => onChange({ enroll: { ...s.enroll, ...patch } })} minDate={toDateStr(new Date())} />
+      ) : (<>
       <div className="space-y-2 border-t pt-3">
         <p className="text-sm font-semibold">{t.subjects} *</p>
         <p className="-mt-1.5 text-xs text-muted-foreground">{t.subjectsSub}</p>
@@ -476,14 +539,16 @@ function StudentCard({ t, lang, names, n, formType, student: s, grades, offers, 
           </div>
         </div>
       )}
+      </>)}
     </Card>
   )
 }
 
-function Summary({ t, lang, names, parents, primaryIdx, address, province, postcode, addressNote, pinned, acquisitions, linked, tax, students, onEdit }: {
+function Summary({ t, lang, names, parents, primaryIdx, address, province, postcode, addressNote, pinned, acquisitions, linked, tax, students, onEdit, enroll }: {
   t: T; lang: FormLang; names: Names; parents: ParentBlock[]; primaryIdx: number; address: string; province: string; postcode: string; addressNote: string; pinned: boolean; acquisitions: LeadSource[]; linked?: string
-  tax: { customerName: string; taxId: string; address: string } | null; students: StudentBlock[]; onEdit?: (s: Step) => void
+  tax: { customerName: string; taxId: string; address: string } | null; students: StudentBlock[]; onEdit?: (s: Step) => void; enroll?: EnrollInfo | null
 }) {
+  const te = ENROLL_DICT[lang]
   return (
     <div className="space-y-3">
       <p className="text-sm font-semibold">{t.parentTitle}</p>
@@ -527,6 +592,14 @@ function Summary({ t, lang, names, parents, primaryIdx, address, province, postc
             {s.birthDate && <Line icon={CakeIcon}>{fmtBirth(s.birthDate, lang)}{age !== null && ` · ${t.age(age)}`}</Line>}
             {s.school && <Line icon={SchoolIcon}>{s.school}</Line>}
             {s.note && <Line icon={StickyNoteIcon}>{s.note}</Line>}
+            {enroll && (
+              <div className="space-y-1 border-t pt-2 text-sm">
+                <Line icon={HeartIcon}>{[...s.enroll.subjects.map(names.subject), ...s.enroll.courseIds.map((id) => enroll.courses.find((c) => c.id === id)).filter((c): c is EnrollCourseOption => !!c).map((c) => `${c.name} (${courseLine(c, te)})`)].join(" · ")}</Line>
+                <Line icon={ReceiptIcon}>{te.pkgs[s.enroll.pkg]}</Line>
+                <Line icon={CalendarClockIcon}>{s.enroll.times.map((k) => timeLabel(k, te)).join(", ")} · {te.start} {fmtFormDate(s.enroll.startDate, lang)}</Line>
+                {(s.enroll.bus || s.enroll.placement) && <Line icon={CheckIcon}>{[s.enroll.bus && te.bus, s.enroll.placement && te.placement].filter(Boolean).join(" · ")}</Line>}
+              </div>
+            )}
             {visitOf(s) && (
               <div className="flex flex-wrap items-center gap-2 text-sm">
                 <HeartIcon className="size-4 fill-red-500 text-red-500" /> <span className="font-medium">{Object.keys(s.chosen).map(names.subject).join(" + ")}</span>

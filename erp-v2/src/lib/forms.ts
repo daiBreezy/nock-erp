@@ -5,7 +5,7 @@
 // logic lives in one place, not copy-pasted across components).
 
 import { FORM_TYPE_LABEL } from "@/domain/rules/forms"
-import type { Brand, ExitResponse, ExitToken, FormLang, FormOfferSlot, FormPrefill, FormSubjectOffer, FormSubmission, FormToken, FormType, ID, Result } from "@/domain/types"
+import type { Brand, EnrollSubmission, EnrollToken, ExitResponse, ExitToken, FormLang, FormOfferSlot, FormPrefill, FormSubjectOffer, FormSubmission, FormToken, FormType, ID, Result } from "@/domain/types"
 import { useStore } from "@/store/store"
 
 async function postJson<T>(url: string, body: unknown): Promise<T> {
@@ -88,4 +88,49 @@ export async function sendExitForm(input: Omit<ExitToken, "token" | "kind" | "cr
 export async function fetchExitResponse(token: string): Promise<ExitResponse | null> {
   const r = await fetch(`/api/parent-forms/responses?token=${encodeURIComponent(token)}`).then((x) => x.json()).catch(() => null)
   return r?.responses?.[0] ?? null
+}
+
+/** What the enroll-now form shows for a branch: its grades, subjects and active courses with today's prices. */
+export function enrollSnapshot(branchId: ID) {
+  const s = useStore.getState()
+  const branch = s.branches.find((b) => b.id === branchId)!
+  const courses = s.courses.filter((c) => c.branchId === branchId && c.active && (!c.to || c.to >= new Date().toISOString().slice(0, 10)))
+  return {
+    branchId, branchName: branch.name, brand: branch.brand, lang: s.system.preferences.language, grades: branch.grades, subjects: branch.subjects, subjectNames: s.system.subjectNames,
+    courses: courses.map((c) => ({ id: c.id, name: c.name, subjects: c.subjects, grades: c.grades, unit: c.unit, duration: c.duration, price: c.price + c.courseFee })),
+  }
+}
+
+const enrollUrl = (token: string) => {
+  const liffId = process.env.NEXT_PUBLIC_LIFF_ID
+  return liffId ? `https://liff.line.me/${liffId}?token=${token}` : `${window.location.origin}/liff/form?token=${token}`
+}
+
+/** The branch's reusable link for the LINE Rich Menu — refreshing keeps the same token (the menu never breaks). */
+export async function publishEnrollLink(branchId: ID, existingToken?: string): Promise<Result<{ token: string; url: string }>> {
+  const res = await postJson<{ ok: boolean; token?: EnrollToken; error?: string }>("/api/parent-forms/enroll", { ...enrollSnapshot(branchId), reusable: true, token: existingToken, conversationId: null })
+  if (!res.ok || !res.token) return { ok: false, error: res.error ?? "สร้างลิงก์ไม่สำเร็จ" }
+  return { ok: true, value: { token: res.token.token, url: enrollUrl(res.token.token) } }
+}
+
+/** A one-time enroll link for one lead — pushed in their LINE chat when linked, else returned to copy. */
+export async function sendEnrollForm(lead: { id: ID; branchId: ID; name: string; phone: string; childGrade: string; lineUserId?: string }): Promise<Result<{ url: string; sent: boolean }>> {
+  const prefill: FormPrefill = { parents: lead.phone ? [{ name: lead.name, phone: lead.phone, primary: true }] : [], students: [{ name: "", grade: lead.childGrade }] }
+  const conversationId = lead.lineUserId ? `line_${lead.lineUserId}` : null
+  const res = await postJson<{ ok: boolean; token?: EnrollToken; error?: string }>("/api/parent-forms/enroll", { ...enrollSnapshot(lead.branchId), reusable: false, leadId: lead.id, conversationId, prefill })
+  if (!res.ok || !res.token) return { ok: false, error: res.error ?? "สร้างลิงก์ไม่สำเร็จ" }
+  const url = enrollUrl(res.token.token)
+  if (!conversationId) return { ok: true, value: { url, sent: false } }
+  const sent = await postJson<{ ok: boolean; error?: string }>("/api/line/send", { conversationId, text: `กรอกใบสมัครเรียนได้ที่ลิงก์นี้เลยค่ะ 🙏 แอดมินจะจัดคลาสและส่งใบแจ้งหนี้ให้ทันที\n${url}` })
+  if (!sent.ok) return { ok: false, error: sent.error ?? "ส่งทาง LINE ไม่สำเร็จ" }
+  return { ok: true, value: { url, sent: true } }
+}
+
+export async function fetchEnrollSubmissions(): Promise<EnrollSubmission[]> {
+  const r = await fetch("/api/parent-forms/enroll-submissions").then((x) => x.json()).catch(() => null)
+  return r?.submissions ?? []
+}
+
+export async function markEnrollReviewed(id: ID, status: "approved" | "rejected", createdStudentIds?: ID[]) {
+  await postJson("/api/parent-forms/enroll-submissions", { id, status, createdStudentIds })
 }

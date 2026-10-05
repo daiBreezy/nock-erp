@@ -10,6 +10,8 @@ import { gradeTone, avatarTone, initial, subjectColor } from "@/components/app/s
 import { StudentSheet } from "@/components/app/student-sheet"
 import { SendFormDialog } from "@/components/inbox/send-form-dialog"
 import { FollowUpSection, LeadLostDialog, LostSummary } from "@/components/crm/lead-followups"
+import { Input } from "@/components/ui/input"
+import { sendEnrollForm } from "@/lib/forms"
 import { SubmissionReviewCard } from "@/components/inbox/submission-review-card"
 import { Button } from "@/components/ui/button"
 import { Sheet, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetTitle } from "@/components/ui/sheet"
@@ -17,7 +19,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { fmtDateTime } from "@/domain/dates"
 import { daysAgoLabel, DRAGGABLE_STAGES, LEAD_SOURCE_LABEL, LEAD_STAGE_LABEL, scheduleInfo } from "@/domain/rules/crm"
 import { can } from "@/domain/rules/permissions"
-import type { FormSubmission, ID, LeadStage } from "@/domain/types"
+import type { FormSubmission, ID, Lead, LeadStage } from "@/domain/types"
 import { report } from "@/lib/feedback"
 import { useNow } from "@/lib/hooks"
 import { cn } from "@/lib/utils"
@@ -139,6 +141,7 @@ function Body({ id }: { id: ID }) {
             <span className={cn("rounded-full px-2 py-0.5 text-xs font-medium", subjectColor(lead.subject).chip)}>{lead.subject}</span>
             <span className={cn("rounded-full px-2 py-0.5 text-xs font-medium", gradeTone(lead.childGrade))}>{lead.childGrade}</span>
             <Pill tone="gray">{LEAD_SOURCE_LABEL[lead.source]}</Pill>
+            {lead.direct && <Pill tone="green">สมัครตรง (ไม่ผ่านสอบ/ทดลอง)</Pill>}
           </div>
         </Section>
 
@@ -206,6 +209,12 @@ function Body({ id }: { id: ID }) {
         <Section title={`การติดตาม (${lead.followUps?.length ?? 0})`}>
           <FollowUpSection lead={lead} canManage={canManage} onClose={() => setArchiving(true)} />
         </Section>
+
+        {canManage && lead.stage !== "enrolled" && lead.stage !== "archived" && (
+          <Section title="สมัครเรียนทันที (ไม่ต้องสอบ / ทดลอง)">
+            <EnrollLinkButton lead={lead} />
+          </Section>
+        )}
 
         {canManage && lead.stage !== "enrolled" && lead.stage !== "archived" && (
           <Section title="แบบฟอร์ม">
@@ -305,6 +314,25 @@ function Body({ id }: { id: ID }) {
       {archiving && <LeadLostDialog lead={lead} onClose={() => setArchiving(false)} />}
       <StudentSheet studentId={openStudentId} onClose={() => setOpenStudentId(null)} />
     </>
+  )
+}
+
+/** Enroll-now form for this lead (owner 2026-10-05) — pushed in LINE when linked, otherwise a link to copy. */
+function EnrollLinkButton({ lead }: { lead: Lead }) {
+  const [busy, setBusy] = useState(false)
+  const [url, setUrl] = useState("")
+  const send = async () => {
+    setBusy(true)
+    const r = await sendEnrollForm(lead)
+    setBusy(false)
+    if (report(r, (v) => (v.sent ? "ส่งใบสมัครเรียนทาง LINE แล้ว" : "สร้างลิงก์แล้ว — คัดลอกส่งให้ผู้ปกครอง")) && !r.value.sent) setUrl(r.value.url)
+  }
+  return (
+    <div className="space-y-1.5">
+      <p className="text-xs text-muted-foreground">ผู้ปกครองกรอกข้อมูล + เลือกคอร์ส/เวลาที่สะดวก → ขึ้นที่หัวหน้า CRM ให้จัดคลาสและออกใบแจ้งหนี้</p>
+      <Button size="sm" variant="outline" disabled={busy} onClick={send}><SendIcon /> {lead.lineUserId ? "ส่งใบสมัครเรียนทาง LINE" : "สร้างลิงก์ใบสมัครเรียน"}</Button>
+      {url && <Input readOnly value={url} className="h-8 text-xs" onFocus={(e) => { e.target.select(); navigator.clipboard?.writeText(url) }} />}
+    </div>
   )
 }
 

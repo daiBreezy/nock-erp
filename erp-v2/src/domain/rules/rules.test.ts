@@ -1623,3 +1623,12 @@ describe("Student exit form (owner 2026-10-05)", () => {
     expect(Loss.reasonsForStudent(undefined).some((r) => r.contactOnly || r.for === "lead")).toBe(false)
   })
 })
+
+describe("Enroll-now leads in the funnel (owner 2026-10-05)", () => {
+  it("a direct lead skips the Test/Trial steps but counts as contacted / payment / enrolled", () => {
+    const at = "2026-09-05T10:00:00.000Z"
+    const f = Rep.leadFunnel([{ stage: "enrolled", createdAt: at, direct: true }, { stage: "enrolled", createdAt: at }] as Lead[], { from: "2026-09-01", to: "2026-09-30" })
+    expect(f.map((s) => s.count)).toEqual([2, 2, 1, 1, 2, 2])
+    expect(f.find((s) => s.key === "payment")!.direct).toBe(1)
+  })
+})

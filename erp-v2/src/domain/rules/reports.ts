@@ -513,9 +513,11 @@ export const FUNNEL_STEPS = [
 ] as const
 
 /** Leads created in the period, through the funnel: count per step and % of the step before / of all leads. */
-export function leadFunnel(leads: Pick<Lead, "stage" | "archivedFrom" | "createdAt">[], r: Range) {
+export function leadFunnel(leads: Pick<Lead, "stage" | "archivedFrom" | "createdAt" | "direct">[], r: Range) {
   const xs = leads.filter((l) => inRange(l.createdAt.slice(0, 10), r))
-  const steps = FUNNEL_STEPS.map((s) => ({ ...s, count: xs.filter((l) => stageRank(l) >= s.min).length }))
+  // enroll-now leads never had a test / trial — they skip those two steps (owner 2026-10-05)
+  const reached = (l: (typeof xs)[number], s: (typeof FUNNEL_STEPS)[number]) => stageRank(l) >= s.min && !(l.direct && (s.key === "test" || s.key === "trial"))
+  const steps = FUNNEL_STEPS.map((s) => ({ ...s, count: xs.filter((l) => reached(l, s)).length, direct: xs.filter((l) => l.direct && reached(l, s)).length }))
   return steps.map((s, i) => ({ ...s, ofPrev: i && steps[i - 1].count ? s.count / steps[i - 1].count : null, ofAll: xs.length ? s.count / xs.length : null }))
 }
 
