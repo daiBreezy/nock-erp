@@ -215,6 +215,13 @@ export function studentStatus(stu: Pick<Student, "id" | "archived">, ents: Entit
   return studentState(stu, ents, leaves, today, renewalDays).status
 }
 
+/** False while a renewal check-in's `nextTryOn` is still in the future — keeps a snoozed student off today's
+ *  renewal list instead of nagging about them every day (owner 2026-10-06). */
+export function renewalFollowUpDue(stu: Pick<Student, "renewalFollowUps">, today: DateStr): boolean {
+  const last = [...(stu.renewalFollowUps ?? [])].sort((a, b) => a.at.localeCompare(b.at)).at(-1)
+  return !last?.nextTryOn || last.nextTryOn <= today
+}
+
 /** F4: low-balance alerts only for session packs — subscriptions alert on expiry instead. */
 export function lowBalanceAlert(e: Entitlement, b: Balance, today: string, opts: { low?: number; days?: number } = {}): string | null {
   if (e.kind === "sessions") {

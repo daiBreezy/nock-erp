@@ -6,7 +6,7 @@ import { invoiceTotals } from "@/domain/rules/billing"
 import { reasonLabel } from "@/domain/rules/loss"
 import { generateSessions } from "@/domain/rules/scheduling"
 import type {
-  Assessment, AppNotification, Attendance, Branch, BusAddOn, DayBlocks, ChatMessage, CreditNote, LessonBook, LessonTopic, Conversation, Course, Entitlement, Family, Holiday, Invoice, Klass, Lead, LessonSummary,
+  Assessment, AppNotification, Attendance, Branch, BusAddOn, DayBlocks, ChatMessage, CourseSummary, CreditNote, LessonBook, LessonTopic, Conversation, Course, Entitlement, Family, Holiday, Invoice, Klass, Lead, LessonSummary,
   ActivityLog, PriceRow, Session, StudentNote, Staff, Student, StudentLeave, SurveyCampaign, SurveyResponse, SystemConfig, Weekday,
 } from "@/domain/types"
 
@@ -19,6 +19,7 @@ export interface DB {
   sessions: Session[]
   attendance: Attendance[]
   summaries: LessonSummary[]
+  courseSummaries: CourseSummary[]
   families: Family[]
   students: Student[]
   entitlements: Entitlement[]
@@ -582,7 +583,7 @@ export function buildSeed(now = new Date()): DB {
 
   const { surveyCampaigns, surveyResponses } = buildSurveys({ today, branches, families, students, entitlements, classes, staff })
 
-  return { branches, staff, holidays, courses, classes, sessions, attendance, summaries, families, students, entitlements, leaves, invoices, busAddOns, creditNotes: [] as CreditNote[], lessonBooks, lessonTopics, leads, conversations, messages, notifications: [], system, notes, logs, assessments, surveyCampaigns, surveyResponses }
+  return { branches, staff, holidays, courses, classes, sessions, attendance, summaries, courseSummaries: [] as CourseSummary[], families, students, entitlements, leaves, invoices, busAddOns, creditNotes: [] as CreditNote[], lessonBooks, lessonTopics, leads, conversations, messages, notifications: [], system, notes, logs, assessments, surveyCampaigns, surveyResponses }
 }
 
 /** Demo history for Reports: ~130 past/current students over the last 15 months with monthly / hour-pack invoices. */

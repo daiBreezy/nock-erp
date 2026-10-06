@@ -16,7 +16,7 @@ import { fmtDate, fmtMoney, toDateStr } from "@/domain/dates"
 import * as Bill from "@/domain/rules/billing"
 import { can } from "@/domain/rules/permissions"
 import type { Invoice } from "@/domain/types"
-import { useBranch } from "@/lib/hooks"
+import { useBranch, useQueryState } from "@/lib/hooks"
 import { cn } from "@/lib/utils"
 import { useStore } from "@/store/store"
 
@@ -39,7 +39,8 @@ function BillingPage() {
   const courses = useStore((s) => s.courses)
   const classes = useStore((s) => s.classes)
   const holidays = useStore((s) => s.holidays)
-  const [filter, setFilter] = useState<Filter>("all")
+  // owner 2026-10-06: sync to the URL (?filter=) so a reload or shared link keeps it — the ?open=/?new=/?renew=/?slip= deep-links above are untouched
+  const [filter, setFilter] = useQueryState<Filter>("filter", "all")
   const [q, setQ] = useState("")
   const [openId, setOpenId] = useState<string | null>(() => params.get("open"))
   // ?new=<studentId> opens the editor pre-filled (from the student panel)

@@ -3,17 +3,17 @@
 import Link from "next/link"
 import { Suspense, useEffect, useMemo, useState } from "react"
 import { useSearchParams } from "next/navigation"
-import { AlertTriangleIcon, BanknoteIcon, CalendarDaysIcon, ChartColumnIcon, ChevronRightIcon, ClockIcon, DownloadIcon, PrinterIcon, SchoolIcon, SparklesIcon, CalendarRangeIcon, UsersIcon, UserCheckIcon } from "lucide-react"
+import { BanknoteIcon, CalendarDaysIcon, ChartColumnIcon, ClockIcon, DownloadIcon, PrinterIcon, SchoolIcon, SparklesIcon, CalendarRangeIcon, UsersIcon, UserCheckIcon } from "lucide-react"
 import { NativeSelect } from "@/components/app/native-select"
 import { StudentSheet } from "@/components/app/student-sheet"
+import { AttentionButton, AttentionDialog } from "@/components/reports/attention-dialog"
 import { Delta, Donut, DonutLegend, Empty, TopList, fmtNum, fmtPct, fmtShort, Heatmap, MonthBars, Panel, Rank, ShareBar, donutColor, tint } from "@/components/reports/charts"
 import { SummaryTab } from "@/components/reports/summary-tab"
 import { useReports, type ReportData } from "@/components/reports/use-reports"
 import { Button } from "@/components/ui/button"
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { addDays, fmtDate, fmtMoney, toDateStr } from "@/domain/dates"
 import { can, canCompareBranches, reportBranchIds } from "@/domain/rules/permissions"
-import { COMPARE_LABEL, PERIODS, type AttentionItem, type PeriodKey, type Range } from "@/domain/rules/reports"
+import { COMPARE_LABEL, PERIODS, type PeriodKey, type Range } from "@/domain/rules/reports"
 import { LEAD_SOURCE_LABEL } from "@/domain/rules/crm"
 import { reasonLabel } from "@/domain/rules/loss"
 import type { Weekday } from "@/domain/types"
@@ -101,12 +101,7 @@ function Reports() {
         <Kpi icon={UsersIcon} label="นักเรียน Active" value={fmtNum(d.kpi.active)} sub={<><Delta value={d.kpi.activeChange} /> <span>vs ต้นช่วง · Pause {d.kpi.paused}</span></>} />
         <Kpi icon={CalendarDaysIcon} label="คาบสัปดาห์นี้" value={fmtNum(d.kpi.weekSessions)} sub={<span>ไม่นับคาบที่ยกเลิก</span>} />
         <Kpi icon={UserCheckIcon} label={`อัตราเข้าเรียน · ${periodLabel}`} value={fmtPct(d.kpi.attendance)} sub={<><Delta value={d.kpi.attendanceChange} /> <span>มา ÷ (มา + ลา)</span></>} />
-        <button type="button" onClick={() => setShowAttention(true)} className={cn("col-span-2 flex items-center gap-3 rounded-3xl p-4 text-left shadow-sm ring-1 md:col-span-1",
-          d.kpi.attention ? "bg-red-50 ring-red-300 dark:bg-red-950/40 dark:ring-red-800" : "bg-card ring-foreground/10")}>
-          <span className={cn("grid size-10 shrink-0 place-items-center rounded-2xl", d.kpi.attention ? "bg-red-600 text-white" : "bg-muted text-muted-foreground")}><AlertTriangleIcon className="size-5" /></span>
-          <span className="min-w-0 flex-1"><span className="block text-xs text-muted-foreground">Need Attention</span><span className="text-2xl font-semibold tabular-nums">{d.kpi.attention}</span></span>
-          <ChevronRightIcon className="size-4 text-muted-foreground" />
-        </button>
+        <AttentionButton count={d.kpi.attention} onClick={() => setShowAttention(true)} className="col-span-2 md:col-span-1" />
       </div>
 
       <div className="space-y-3 print:hidden">
@@ -1029,33 +1024,3 @@ function groupComments(texts: string[]) {
 
 // ---------------- Needs attention ----------------
 
-const GROUP_LABEL: Record<AttentionItem["group"], string> = { trend: "ยอดและแนวโน้ม", money: "เงินค้าง", students: "นักเรียนเสี่ยงหลุด", teaching: "ครูและการสอน", sales: "ขาย (CRM)" }
-
-function AttentionDialog({ open, onClose, items }: { open: boolean; onClose: () => void; items: AttentionItem[] }) {
-  return (
-    <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-lg">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2"><AlertTriangleIcon className="size-5 text-red-600" /> Need Attention</DialogTitle>
-          <DialogDescription>{items.length ? `${items.length} เรื่องที่ควรดู · กดเพื่อไปหน้าที่แก้ได้` : "ไม่มีเรื่องที่ต้องดูตอนนี้"}</DialogDescription>
-        </DialogHeader>
-        {(Object.keys(GROUP_LABEL) as AttentionItem["group"][]).map((g) => {
-          const list = items.filter((x) => x.group === g)
-          if (!list.length) return null
-          return (
-            <section key={g} className="space-y-1.5">
-              <p className="text-xs font-medium text-muted-foreground">{GROUP_LABEL[g]}</p>
-              {list.map((x) => (
-                <Link key={x.key} href={x.href} onClick={onClose} className="flex items-center gap-3 rounded-xl border p-2.5 hover:bg-muted/50">
-                  <span className="min-w-0 flex-1"><span className="block text-sm font-medium">{x.title}</span><span className="block text-xs text-muted-foreground">{x.detail}</span></span>
-                  {x.group !== "trend" && <span className="rounded-full bg-red-100 px-2 py-0.5 text-xs font-semibold text-red-800 tabular-nums dark:bg-red-950 dark:text-red-200">{x.count}</span>}
-                  <ChevronRightIcon className="size-4 text-muted-foreground" />
-                </Link>
-              ))}
-            </section>
-          )
-        })}
-      </DialogContent>
-    </Dialog>
-  )
-}

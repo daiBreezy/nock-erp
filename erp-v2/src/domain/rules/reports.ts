@@ -349,6 +349,10 @@ export function needsAttention(ctx: {
   activeNow: number; activeBefore: number; pendingSummaries: number; conflicts: number
   /** unhappy survey families nobody has called yet (owner 2026-10-05) */
   surveyToCall?: number
+  /** data gaps (owner 2026-10-06): students not linked to a family, and that family's students for the
+   *  address/LINE checks below — pass only the ones in scope (archived students don't need chasing) */
+  students?: Pick<Student, "id" | "familyId" | "archived">[]
+  families?: Pick<Family, "id" | "parents" | "address" | "postcode" | "lineUserId">[]
 }): AttentionItem[] {
   const T = ATTENTION_THRESHOLDS
   const out: AttentionItem[] = []
@@ -378,6 +382,14 @@ export function needsAttention(ctx: {
   ctx.attendance.filter((a) => a.status === "leave" && recent.has(a.sessionId)).forEach((a) => leaves.set(a.studentId, (leaves.get(a.studentId) ?? 0) + 1))
   add({ key: "survey_call", group: "students", title: "ผู้ปกครองไม่พอใจ ยังไม่ได้โทร", detail: "จากแบบสอบถามประจำปี — โทรภายใน 3 วัน (รายชื่ออยู่หน้า CRM)", count: ctx.surveyToCall ?? 0, href: "/crm" })
   add({ key: "often_leave", group: "students", title: "นักเรียนลาบ่อย (เสี่ยงหลุด)", detail: `ลา ≥ ${T.leavesIn30} ครั้งใน 30 วัน`, count: [...leaves.values()].filter((n) => n >= T.leavesIn30).length, href: "/attendance" })
+
+  // data gaps (owner 2026-10-06) — not errors, just things worth filling in before they bite (can't bill/message)
+  const liveStudents = (ctx.students ?? []).filter((s) => !s.archived)
+  add({ key: "no_family", group: "students", title: "นักเรียนไม่ผูกครอบครัว", detail: "ส่งใบแจ้งหนี้ / สรุปการเรียนทาง LINE ไม่ได้ — ผูกที่หน้านักเรียน", count: liveStudents.filter((s) => !s.familyId).length, href: "/students" })
+  const familyIds = new Set(liveStudents.map((s) => s.familyId).filter((x): x is ID => !!x))
+  const relevantFamilies = (ctx.families ?? []).filter((f) => familyIds.has(f.id))
+  add({ key: "no_address", group: "students", title: "ครอบครัวไม่มีที่อยู่", detail: "เติมที่หน้าครอบครัว", count: relevantFamilies.filter((f) => !f.address && !f.postcode).length, href: "/families" })
+  add({ key: "no_line", group: "students", title: "ครอบครัวไม่มีช่องทาง LINE", detail: "ส่งฟอร์ม / ใบแจ้งหนี้ทาง LINE ไม่ได้ — ต้องคัดลอกลิงก์ให้เอง", count: relevantFamilies.filter((f) => !f.lineUserId && !f.parents.some((p) => p.lineLinked)).length, href: "/families" })
 
   const week = addDays(ctx.today, 7)
   const tl = ctx.sessions.filter((s) => s.teacherLeave && s.date >= ctx.today && s.date <= week)

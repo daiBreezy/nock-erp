@@ -2,7 +2,7 @@
 // now they go out as real LINE messages). One builder per document so every screen sends the same words.
 
 import { fmtDate, fmtMoney } from "../dates"
-import type { Branch, Invoice, LessonSummary, Session, Student } from "../types"
+import type { Branch, Course, CourseSummary, Entitlement, Invoice, LessonSummary, Session, Student } from "../types"
 import type { InvoiceTotals } from "./billing"
 
 const bankLine = (b: Branch) =>
@@ -46,5 +46,17 @@ export function summaryMessage(sum: LessonSummary, ctx: { student: Student; sess
     sum.detail?.trim() ? `📝 รายละเอียด: ${sum.detail.trim()}` : null,
     ctx.book || ctx.topic || sum.detail ? "" : null,
     sum.text.trim(),
+  ].filter((x) => x !== null).join("\n")
+}
+
+/** The teacher's whole-course report, sent once per purchase round (owner 2026-10-06). */
+export function courseSummaryMessage(cs: CourseSummary, ctx: { student: Student; course: Pick<Course, "name">; entitlement: Pick<Entitlement, "from" | "to"> }): string {
+  return [
+    `🎓 สรุปจบคอร์ส ${ctx.student.nickname} · ${ctx.course.name}`,
+    `${fmtDate(ctx.entitlement.from)} – ${fmtDate(ctx.entitlement.to, { year: true })}`,
+    "",
+    `📈 ภาพรวมพัฒนาการ: ${cs.overallProgress.trim()}`,
+    cs.strengths.trim() ? `✅ จุดแข็ง: ${cs.strengths.trim()}` : null,
+    cs.toImprove.trim() ? `🎯 สิ่งที่ควรฝึกเพิ่ม: ${cs.toImprove.trim()}` : null,
   ].filter((x) => x !== null).join("\n")
 }

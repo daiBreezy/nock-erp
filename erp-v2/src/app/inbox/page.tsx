@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation"
 import { useCallback, useEffect, useRef, useState } from "react"
 import { FileSignatureIcon, InfoIcon, PenLineIcon, PlusIcon, RadioIcon, SendIcon, SparklesIcon, UserSearchIcon, UserCheckIcon, ChevronDownIcon, CheckIcon, ClipboardListIcon, FileTextIcon, GraduationCapIcon, HeartHandshakeIcon, ImageIcon, LogOutIcon, MegaphoneIcon, UserPlusIcon, GripVerticalIcon, CheckCircle2Icon } from "lucide-react"
+import { FilterChipGroup } from "@/components/app/filter-chip-group"
 import { NativeSelect } from "@/components/app/native-select"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuSub, DropdownMenuSubContent, DropdownMenuSubTrigger, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { ExitRequestDialog } from "@/components/app/student-exit"
@@ -29,7 +30,7 @@ import { CHANNEL_LABEL, CONVERSATION_TYPE_LABEL, conversationType, type Conversa
 import { can } from "@/domain/rules/permissions"
 import type { ChatMessage, Conversation, Family, FormSubmission, FormType, ID, Student } from "@/domain/types"
 import { report } from "@/lib/feedback"
-import { useBranch } from "@/lib/hooks"
+import { useBranch, useQueryState } from "@/lib/hooks"
 import { cn } from "@/lib/utils"
 import { useStore } from "@/store/store"
 
@@ -59,10 +60,11 @@ export default function InboxPage() {
     if (wanted) setSelectedId(wanted) // eslint-disable-line react-hooks/set-state-in-effect
   }, [])
   const [search, setSearch] = useState("")
-  const [typeFilter, setTypeFilter] = useState<"all" | ConversationType>("all")
-  const [readFilter, setReadFilter] = useState<"all" | "unread" | "read">("all")
+  // owner 2026-10-06: filters sync to the URL (?type=&read=&assignee=) so a reload or shared link keeps them
+  const [typeFilter, setTypeFilter] = useQueryState<"all" | ConversationType>("type", "all")
+  const [readFilter, setReadFilter] = useQueryState<"all" | "unread" | "read">("read", "all")
   const userId = useStore((s) => s.userId)
-  const [assigneeFilter, setAssigneeFilter] = useState<string>("all")
+  const [assigneeFilter, setAssigneeFilter] = useQueryState<string>("assignee", "all")
   const assignees = [...new Set(conversations.map((c) => c.assigneeId).filter((x): x is string => !!x && x !== userId))]
   const assigneeChips = [
     { key: "all", label: "ทุกคน", count: conversations.length },
@@ -237,15 +239,8 @@ export default function InboxPage() {
             <NativeSelect className="flex-1" value={readFilter} onChange={(e) => setReadFilter(e.target.value as typeof readFilter)}
               options={[{ value: "all", label: "ทั้งหมด" }, { value: "unread", label: "ยังไม่อ่าน" }, { value: "read", label: "อ่านแล้ว" }]} />
           </div>
-          {/* owner 2026-10-05: filter by who looks after the chat */}
-          <div className="flex flex-wrap gap-1.5">
-            {assigneeChips.map((a) => (
-              <button key={a.key} type="button" onClick={() => setAssigneeFilter(a.key)}
-                className={cn("shrink-0 rounded-full border px-2.5 py-0.5 text-xs whitespace-nowrap", assigneeFilter === a.key ? "border-primary bg-primary/10 font-medium text-primary" : "bg-card text-muted-foreground hover:bg-muted")}>
-                {a.label}<span className="ml-1 tabular-nums opacity-70">{a.count}</span>
-              </button>
-            ))}
-          </div>
+          {/* owner 2026-10-05: filter by who looks after the chat — single scrolling row, keeps the narrow sidebar from wrapping to 2 lines */}
+          <FilterChipGroup layout="scroll" value={assigneeFilter} onChange={setAssigneeFilter} options={assigneeChips.map((a) => ({ value: a.key, label: a.label, count: a.count }))} />
         </div>
         <div className="flex-1 space-y-1 overflow-y-auto p-2">
           {filtered.length === 0 && <p className="py-8 text-center text-sm text-muted-foreground">ไม่พบบทสนทนา</p>}

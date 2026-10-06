@@ -20,7 +20,7 @@ import { crmKpis, DRAGGABLE_STAGES, groupOf, LEAD_SOURCE_LABEL, leadDetail, stag
 import { can } from "@/domain/rules/permissions"
 import type { ID, Lead, Staff } from "@/domain/types"
 import { report } from "@/lib/feedback"
-import { useBranch, useNow } from "@/lib/hooks"
+import { useBranch, useNow, useQueryState } from "@/lib/hooks"
 import { cn } from "@/lib/utils"
 import { useStore } from "@/store/store"
 
@@ -44,9 +44,10 @@ export default function CrmPage() {
   const restore = useStore((s) => s.restoreLead)
   const now = useNow()
 
-  const [view, setView] = useState<ViewMode>("kanban")
+  // owner 2026-10-06: filters sync to the URL (?view=&assignee=) so a reload or shared link keeps them — matches inbox
+  const [view, setView] = useQueryState<ViewMode>("view", "kanban")
   const [search, setSearch] = useState("")
-  const [assigneeFilter, setAssigneeFilter] = useState("all")
+  const [assigneeFilter, setAssigneeFilter] = useQueryState<string>("assignee", "all")
   const [showArchived, setShowArchived] = useState(false)
   const [openLead, setOpenLead] = useState<ID | null>(null)
   const [creating, setCreating] = useState(false)
@@ -56,6 +57,8 @@ export default function CrmPage() {
   const canManage = can(me, "lead.manage")
   const assignees = staff.filter((s) => leads.some((l) => l.assigneeId === s.id))
   const assigneeName = (id: ID | null) => staff.find((s) => s.id === id)?.nickname ?? ""
+  // same scope as the board (archived toggle only, not search/assignee) so the count reads as "how many could I see"
+  const assigneeScope = leads.filter((l) => showArchived || (l.stage !== "archived" && l.stage !== "enrolled"))
   const restoreLead = (id: ID) => report(restore(id), "กู้คืนแล้ว")
 
   // finished leads stay out of both views by default (owner 2026-10-05: once paid and a student, the card leaves the
@@ -111,7 +114,8 @@ export default function CrmPage() {
           <SearchIcon className="absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" />
           <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="ค้นหาชื่อ / วิชา" className="pl-8" />
         </div>
-        <NativeSelect value={assigneeFilter} onChange={(e) => setAssigneeFilter(e.target.value)} className="w-44" options={[{ value: "all", label: "ผู้ดูแลทั้งหมด" }, ...assignees.map((s) => ({ value: s.id, label: s.nickname }))]} />
+        <NativeSelect value={assigneeFilter} onChange={(e) => setAssigneeFilter(e.target.value)} className="w-44"
+          options={[{ value: "all", label: `ผู้ดูแลทั้งหมด (${assigneeScope.length})` }, ...assignees.map((s) => ({ value: s.id, label: `${s.nickname} (${assigneeScope.filter((l) => l.assigneeId === s.id).length})` }))]} />
         <label className="flex items-center gap-1.5 text-sm text-muted-foreground"><Switch checked={showArchived} onCheckedChange={setShowArchived} /> แสดงที่ปิดแล้ว (เป็นนักเรียน / เก็บเข้าคลัง)</label>
         <span className="ml-auto hidden text-xs text-muted-foreground sm:inline">{view === "kanban" ? "ลากการ์ดเพื่อย้ายขั้นตอน" : `${tableRows.length} รายการ`}</span>
         <ToggleGroup value={[view]} onValueChange={(v) => v[0] && setView(v[0] as ViewMode)} variant="outline" size="sm">

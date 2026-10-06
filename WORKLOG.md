@@ -5,6 +5,30 @@
 
 ---
 
+## 2026-10-06 (ค่ำ) — ทำครบ 4 หัวข้อที่ค้างคุยไว้ตอนเช้า
+
+**1. Filter มาตรฐาน** — sync กับ URL ทุกหน้า (`?type=`, `?assignee=`, `?view=` ฯลฯ) เพื่อให้ reload/แชร์ลิงก์แล้ว filter ยังอยู่ — hook กลาง `useQueryState` (`lib/hooks.ts`) + component กลาง `FilterChipGroup` (ดึงจาก chip ผู้ดูแลใน Inbox) ใช้กับ Inbox/CRM/Calendar/Students/Billing
+
+**2. Dashboard รวม "วันนี้"** — ยุบ `/dashboard` (ผู้บริหารเท่านั้น) เข้า `/` (ทุกคน) เป็นหน้าเดียว 3 แท็บ: วันนี้/สัปดาห์นี้/เดือนนี้ (`dashboard.view` คุมว่าเห็น KPI/สัปดาห์/เดือนไหม — Admin/ครูเห็นแค่วันนี้เหมือนเดิม)
+  - Gamify: progress bar ฝังในการ์ดเดิม ("เช็คชื่อวันนี้ X/Y" ใน "งานที่รอคุณ", "ติดต่อวันนี้ X/Y" ใน "รอต่อคอร์ส") เขียวขึ้น+ประกายเมื่อครบ
+  - **Renewal follow-up**: `Student.renewalFollowUps` (เหมือน Lead follow-up) — Admin บันทึกการติดต่อ, "ไม่รับสาย" ตั้งวันนัดใหม่ได้ (snooze ออกจากลิสต์จนถึงวันนั้น), "ยืนยันไม่ต่อ" เปิด flow "แจ้งออก" เดิมตรงๆ
+  - Need Attention ย้ายมาอยู่ Dashboard ด้วย (เดิมมีแค่ Reports) — ดึง component กลาง `attention-dialog.tsx`
+  - เพิ่ม 3 หมวดใน `needsAttention()`: นักเรียนไม่ผูกครอบครัว / ครอบครัวไม่มีที่อยู่ / ครอบครัวไม่มีช่องทาง LINE
+
+**3. Settings › System** — จาก scroll ยาว 7 การ์ด จัดเป็น 5 แท็บซ้าย (เหมือนแท็บ Settings › Branch เดิม): ทั่วไป / วิชาและวันหยุด / การเงิน / ลูกค้าและ CRM / การแจ้งเตือน
+
+**4. Course Summary** (ใหม่ทั้งฟีเจอร์ — แยกจาก Session Summary เดิม, แท็บใหม่ใน `/summaries`)
+  - เขียนเองโดยครู (ไม่ใช่ auto) แต่ **auto-gather จาก Session Summaries ทันทีที่ขยายการ์ด** (ไม่ต้องกดปุ่ม) — 3 ช่อง Overall Progress (รวมข้อความทุกคาบ) / To Improve / Strengths (คัดจาก keyword ตายตัว เช่น "ดี/เก่ง" → Strengths, "ควร/ยังไม่/พลาด" → To Improve)
+  - **1 คอร์ส = 1 รอบต่อเนื่อง ไม่ใช่ 1 entitlement** — แพ็กรายเดือนต่อกันทุกเดือนยังนับเป็นรอบเดียว (`entitlementRounds()`, เกณฑ์ไม่ต่อกัน = ใช้ `LOST_AFTER_DAYS` เดียวกับที่ Reports ใช้นิยาม "หลุดแล้วกลับมา") — มีเจ้าของเทสเจอเองว่านักเรียนคนเดียวโผล่ 11 การ์ดซ้ำกัน (เดือนละรอบ) ก่อนแก้เป็น 3 รอบจริง
+  - popup เปิดเป็นรายนักเรียน เห็นทุกคอร์สค้างพร้อมกัน ย่อ/ขยายทีละใบ + ปุ่มรวม "Submit to Approve (N)" (ครู) / "Submit & Send (N)" (ผู้อนุมัติ — กด Approve แล้วส่ง LINE เลยในคลิกเดียว)
+  - maker-checker ใช้กฎชุดเดียวกับ Session Summary จริงๆ (`canEdit/canApprove/canForceApprove/canSend` ใน `summaries.ts` ทำให้ generic รับได้ทั้ง 2 ชนิด แทนที่จะ copy)
+
+**บั๊กที่เจอระหว่างทาง (แก้แล้ว)**: Zustand infinite-loop (filter ใน selector คืน array ใหม่ทุกครั้ง — ย้าย filter ออกนอก selector), การ์ดแรกเปิดค้างตั้งแต่ต้นข้าม auto-fill logic (ให้เริ่มย่อทุกใบเสมอ), Force Approve แล้วไม่มีปุ่มส่งต่อ (เพิ่ม action แยกสำหรับสถานะ approved), Director มีทั้งสิทธิ์เขียน+อนุมัติแต่เห็นปุ่มได้แค่อันเดียว (โชว์ทั้ง 2 ปุ่มพร้อมกันถ้าเข้าเงื่อนไข)
+
+persist bump → v60 (schema เปลี่ยนหลายรอบ: `courseSummaries` ใหม่, `text` ควบ 3 ช่อง) · 193 tests
+
+---
+
 ## 2026-10-06 — หัวข้อคุยต่อ (เจ้าของสั่ง: คุยก่อน ยังไม่ Build)
 
 1. **Filter ในแต่ละจุดของ ERP** — ไล่ทุกหน้าว่าควรกรองอะไรได้บ้าง ให้รูปแบบเหมือนกันทั้งระบบ (ล่าสุดใช้ชิปกรองแบบ Inbox ผู้ดูแล / Reports ช่วงเวลา)

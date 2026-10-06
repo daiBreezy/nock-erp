@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { CheckIcon, PencilIcon, PlusIcon, ReceiptTextIcon, XIcon } from "lucide-react"
+import { BellIcon, BookOpenIcon, CheckIcon, PencilIcon, PlusIcon, ReceiptTextIcon, SlidersHorizontalIcon, UsersIcon, XIcon } from "lucide-react"
 import { NativeSelect } from "@/components/app/native-select"
 import { Field } from "@/components/app/student-form"
 import { Button } from "@/components/ui/button"
@@ -24,19 +24,31 @@ import { HolidayPlanner } from "./holiday-planner"
 
 const BRANDS: { id: Brand; label: string }[] = [{ id: "nockacademy", label: "Nockacademy" }, { id: "liclass", label: "Liclass" }]
 
-/** Settings → System (staging): brand-wide catalogs + preferences. Each card saves on its own. */
+/** Settings → System (owner 2026-10-06): was one long scroll of 7 cards — split into the same left-nav tab
+ *  layout as Settings → Branch, grouped by what an admin is actually trying to do. */
+const SYSTEM_TABS: { id: string; label: string; icon: typeof SlidersHorizontalIcon; body: () => React.ReactNode }[] = [
+  { id: "general", label: "ทั่วไป", icon: SlidersHorizontalIcon, body: () => <Preferences /> },
+  { id: "catalog", label: "วิชาและวันหยุด", icon: BookOpenIcon, body: () => <><SubjectCatalog /><GlobalHolidays /></> },
+  { id: "billing", label: "การเงิน", icon: ReceiptTextIcon, body: () => <InvoiceMemos /> },
+  { id: "customers", label: "ลูกค้าและ CRM", icon: UsersIcon, body: () => <><LossReasons /><YearlySurvey /></> },
+  { id: "notifications", label: "การแจ้งเตือน", icon: BellIcon, body: () => <NotificationPrefs /> },
+]
+
+/** Settings → System: brand-wide catalogs + preferences. Each card saves on its own. */
 export function SystemSettingsView() {
+  const [tab, setTab] = useState(SYSTEM_TABS[0].id)
+  const current = SYSTEM_TABS.find((t) => t.id === tab)!
   return (
-    <div className="space-y-4">
-      <h2 className="text-sm font-semibold text-muted-foreground">แคตตาล็อกกลาง (Global Catalogs)</h2>
-      <SubjectCatalog />
-      <GlobalHolidays />
-      <InvoiceMemos />
-      <LossReasons />
-      <YearlySurvey />
-      <h2 className="pt-2 text-sm font-semibold text-muted-foreground">ค่าระบบ</h2>
-      <Preferences />
-      <NotificationPrefs />
+    <div className="grid gap-4 md:grid-cols-[13rem_1fr]">
+      <nav className="flex gap-1 overflow-x-auto rounded-3xl bg-card p-2 shadow-sm ring-1 ring-foreground/5 md:flex-col md:self-start">
+        {SYSTEM_TABS.map((t) => (
+          <button key={t.id} onClick={() => setTab(t.id)}
+            className={cn("flex shrink-0 items-center gap-2 rounded-2xl px-3 py-2 text-left text-sm", tab === t.id ? "bg-primary/10 font-medium text-primary" : "text-muted-foreground hover:bg-muted")}>
+            <t.icon className="size-4" /> {t.label}
+          </button>
+        ))}
+      </nav>
+      <div key={tab} className="space-y-4">{current.body()}</div>
     </div>
   )
 }

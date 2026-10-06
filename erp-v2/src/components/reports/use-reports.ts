@@ -70,12 +70,14 @@ export function useReports(branchIds: string[], period: R.PeriodKey, custom?: R.
     const conflicts = branches.reduce((n, b) => n + findConflicts(sessions.filter((x) => x.branchId === b.id && x.date >= today && sessionState(x, now) === "upcoming"), b, s.staff).length, 0)
     const sessionIds = new Set(sessions.map((x) => x.id))
     const pendingSummaries = s.summaries.filter((x) => sessionIds.has(x.sessionId) && ["draft", "submitted", "changes_requested"].includes(x.status)).length
+    const studentFamilyIds = new Set(students.map((x) => x.familyId).filter((x): x is string => !!x))
     const attention = R.needsAttention({
       today, now, rows, range, prevRange: prev,
       invoices: s.invoices.filter((i) => ids.has(i.branchId)), entitlements: ents, attendance: s.attendance, sessions,
       classes: s.classes.filter((k) => ids.has(k.branchId)), leads: s.leads.filter((l) => ids.has(l.branchId)),
       activeNow: active, activeBefore: activeAtStart, pendingSummaries, conflicts,
       surveyToCall: Survey.toCall(s.surveyResponses.filter((r) => ids.has(r.branchId)), today).length,
+      students, families: s.families.filter((f) => studentFamilyIds.has(f.id)),
     })
 
     const perBranch = branches.map((b) => ({

@@ -418,6 +418,25 @@ export interface LessonSummary {
   history: SummaryEvent[]
 }
 
+/**
+ * A whole-course report (owner 2026-10-06) — written by hand, once per entitlement (one per purchase round: a
+ * student who buys the same course again later gets a second one, not a merged one, even if the course has
+ * several subjects — kept as one summary per round, not split per subject). Same write → submit → approve →
+ * send lifecycle as LessonSummary, reusing SummaryStatus/SummaryEvent and the same maker-checker rules.
+ */
+export interface CourseSummary {
+  id: ID
+  entitlementId: ID
+  studentId: ID
+  overallProgress: string
+  toImprove: string
+  strengths: string
+  status: SummaryStatus
+  authorId: ID
+  lastEditorId: ID
+  history: SummaryEvent[]
+}
+
 export interface Parent {
   name: string
   phone: string
@@ -474,6 +493,10 @@ export interface Student {
   /** brought in by the import of the old system's students (owner 2026-09-30): they already bought courses with us,
    *  so no entry fee — the invoice tells the admin */
   imported?: { at: string; source: string }
+  /** renewal check-in log (owner 2026-10-06, same shape as a lead's followUps) — "won't renew" goes through
+   *  `exit` above instead of a separate close step; "couldn't reach" can set `nextTryOn` to drop off today's
+   *  renewal list until that date */
+  renewalFollowUps?: RenewalFollowUp[]
 }
 
 /** Internal staff note on a student (chat-style, never shown to parents). */
@@ -766,6 +789,19 @@ export interface LeadFollowUp {
   channel: ContactChannel
   result: ContactResult
   note?: string
+}
+
+/** A renewal check-in call/message and what came of it (owner 2026-10-06). Unlike a lead follow-up, a result that
+ *  didn't reach anyone can set `nextTryOn` directly — no separate "close" step — so the student drops off today's
+ *  renewal list until that date instead of being nagged about every day. */
+export interface RenewalFollowUp {
+  id: ID
+  at: string
+  by: ID
+  channel: ContactChannel
+  result: ContactResult
+  note?: string
+  nextTryOn?: DateStr
 }
 
 export interface LeadLost {

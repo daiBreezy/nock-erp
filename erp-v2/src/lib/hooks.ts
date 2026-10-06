@@ -1,9 +1,31 @@
 "use client"
 
-import { useEffect, useMemo, useState } from "react"
+import { useCallback, useEffect, useMemo, useState } from "react"
 import { toDateStr } from "@/domain/dates"
 import { resolveEntitlements } from "@/domain/rules/attendance"
 import { useStore } from "@/store/store"
+
+/**
+ * A useState whose value also lives in the URL query string, so a reload or a shared link keeps the filter.
+ * Reads `window.location.search` directly (same approach as the inbox `?conversation=` deep link) instead of
+ * `useSearchParams`, so pages don't need a Suspense boundary just to filter.
+ */
+export function useQueryState<T extends string>(key: string, initial: T): [T, (v: T) => void] {
+  const [value, setValue] = useState<T>(initial)
+  useEffect(() => {
+    const v = new URLSearchParams(window.location.search).get(key)
+    if (v) setValue(v as T) // eslint-disable-line react-hooks/set-state-in-effect
+  }, [key])
+  const set = useCallback((v: T) => {
+    setValue(v)
+    const params = new URLSearchParams(window.location.search)
+    if (v === initial) params.delete(key)
+    else params.set(key, v)
+    const qs = params.toString()
+    window.history.replaceState(null, "", qs ? `?${qs}` : window.location.pathname)
+  }, [key, initial])
+  return [value, set]
+}
 
 /** Current (demo-adjustable) time, re-rendering every 30 s so session states update live. */
 export function useNow(intervalMs = 30_000) {

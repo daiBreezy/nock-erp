@@ -15,7 +15,7 @@ import { toDateStr } from "@/domain/dates"
 import * as Att from "@/domain/rules/attendance"
 import { can } from "@/domain/rules/permissions"
 import type { ID } from "@/domain/types"
-import { useBranch, useEntitlements, useNow } from "@/lib/hooks"
+import { useBranch, useEntitlements, useNow, useQueryState } from "@/lib/hooks"
 import { cn } from "@/lib/utils"
 import { useStore } from "@/store/store"
 import { toast } from "sonner"
@@ -33,8 +33,9 @@ export default function StudentsPage() {
   const leaves = useStore((s) => s.leaves)
   const courses = useStore((s) => s.courses)
   const [q, setQ] = useState("")
-  const [grade, setGrade] = useState("")
-  const [status, setStatus] = useState("")
+  // owner 2026-10-06: filters sync to the URL (?grade=&status=) so a reload or shared link keeps them
+  const [grade, setGrade] = useQueryState<string>("grade", "")
+  const [status, setStatus] = useQueryState<string>("status", "")
   const [openId, setOpenId] = useState<ID | null>(null)
   const [adding, setAdding] = useState(false)
 

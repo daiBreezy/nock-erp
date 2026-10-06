@@ -2,7 +2,7 @@
 import { describe, expect, it } from "vitest"
 import type { Assessment, Attendance, Branch, BusAddOn, CreditNote, LessonSummary, Course, Entitlement, Family, FormSubmission, Lead, Student, FormOfferSlot, Holiday, Invoice, Klass, Session, Staff, StudentLeave, Weekday } from "../types"
 import { applyClassEdit, applyToSessions, canChangeTeachers, canRescheduleStudent, mondayOf, removedWithClass, canSave, closesBranch, holidayImpact, hoursFor, isHoliday, overlappingRows, periodsIn, introducedConflicts, editSingleSession, findConflicts, generateSessions, moveSession, sessionState, validateClass, workState } from "./scheduling"
-import { activeLeave, nextClassDates, teacherLeaveCancels, leaveRunSessions, balance, studentState, leaveLedger, packageCovers, canMark, canSaveLeave, coveringEntitlement, effectiveTo, leavesUsed, lowBalanceAlert, removeFromClass, resolveEntitlements } from "./attendance"
+import { activeLeave, nextClassDates, teacherLeaveCancels, leaveRunSessions, balance, studentState, leaveLedger, packageCovers, canMark, canSaveLeave, coveringEntitlement, effectiveTo, leavesUsed, lowBalanceAlert, removeFromClass, renewalFollowUpDue, resolveEntitlements } from "./attendance"
 import { bestPromotion, duplicateBusDay, billedOn, busAddOnAmount, pendingBusAddOns, validateBusAddOn, carriedMinutes, weekKey, classOptionsFor, defaultAdvance, entryFeeWaiver, invoiceSessionDates, invoiceTotals, validateInvoiceDraft, canApprove, canConfirmPayment, canForceApprove, canForceConfirmPayment, canSend, canVoid, defaultBusLegs, busTotal, nextInvoiceNumber, quoteCourse } from "./billing"
 import { can } from "./permissions"
 import { chartPrice, defaultCourseName, filterCourses, validateCourse } from "./course"
@@ -130,6 +130,14 @@ describe("attendance", () => {
   it("F4: no low-session alert for subscriptions", () => {
     const e = { id: "e", studentId: "a", courseId: "c", subjects: ["Maths"], classIds: ["k1"], invoiceId: "i", kind: "subscription" as const, from: "2026-09-01", to: "2026-12-31", sessionsTotal: 1 }
     expect(lowBalanceAlert(e, balance(e, [], []), "2026-09-24")).toBeNull()
+  })
+
+  it("owner 2026-10-06: renewalFollowUpDue hides a student until the date they asked to be tried again", () => {
+    const fu = (nextTryOn?: string) => ({ id: "rfu1", at: "2026-10-01T10:00:00.000Z", by: "u1", channel: "call" as const, result: "no_answer" as const, nextTryOn })
+    expect(renewalFollowUpDue({ renewalFollowUps: undefined }, "2026-10-06")).toBe(true) // never contacted — always due
+    expect(renewalFollowUpDue({ renewalFollowUps: [fu()] }, "2026-10-06")).toBe(true) // contacted, no date chosen — still due
+    expect(renewalFollowUpDue({ renewalFollowUps: [fu("2026-10-10")] }, "2026-10-06")).toBe(false) // snoozed
+    expect(renewalFollowUpDue({ renewalFollowUps: [fu("2026-10-10")] }, "2026-10-10")).toBe(true) // the day arrives
   })
 
   describe("student leave (long leave excluded from leave quota, extends course end dates)", () => {
@@ -266,6 +274,45 @@ describe("permissions & summaries", () => {
     expect(Sum.canSend(summary, []).ok).toBe(false)
     const r = Sum.canSend({ ...summary, status: "approved" }, [{ name: "p", phone: "", lineLinked: false, primary: true }])
     expect(r.ok && r.value.delivered).toBe(false)
+  })
+  it("owner 2026-10-06: courseSummaryDue — only once the package is ending soon or already over, not partway through", () => {
+    expect(Sum.courseSummaryDue({ to: "2026-11-01" }, "2026-10-06", 14)).toBe(false) // 26 days left — too early
+    expect(Sum.courseSummaryDue({ to: "2026-10-15" }, "2026-10-06", 14)).toBe(true) // 9 days left — within the window
+    expect(Sum.courseSummaryDue({ to: "2026-09-01" }, "2026-10-06", 14)).toBe(true) // already over
+  })
+  it("owner 2026-10-06: a CourseSummary shares the same maker-checker rules as a LessonSummary (same status/authorId/lastEditorId shape)", () => {
+    const cs = { id: "cs1", entitlementId: "e1", studentId: "a", overallProgress: "ok", toImprove: "", strengths: "", status: "submitted" as const, authorId: "dir", lastEditorId: "dir", history: [] }
+    expect(Sum.canApprove(cs, director).ok).toBe(false) // author can't approve own
+    expect(Sum.canApprove(cs, admin).ok).toBe(true)
+  })
+  it("owner 2026-10-06: courseSummaryDeadline — 7 days after the round ends, same shape as sendDeadline", () => {
+    const d = Sum.courseSummaryDeadline({ to: "2026-10-01" }, new Date(2026, 9, 6, 10, 0))
+    expect(d).toEqual({ deadline: "2026-10-08", overdue: false, daysLeft: 2 })
+    expect(Sum.courseSummaryDeadline({ to: "2026-09-01" }, new Date(2026, 9, 6, 10, 0)).overdue).toBe(true)
+  })
+  it("owner 2026-10-06: entitlementRounds collapses back-to-back renewals of the same course into one round — a real gap (> LOST_AFTER_DAYS) starts a new one", () => {
+    // the owner's own case: 11 monthly entitlements for one student/course, 3 real gaps (~2 months each)
+    const e = (id: string, from: string, to: string) => ({ id, studentId: "stu_h222", courseId: "co_math5", from, to })
+    const ents = [
+      e("en_0", "2025-07-10", "2025-08-08"), e("en_1", "2025-08-09", "2025-09-07"), e("en_2", "2025-09-08", "2025-10-07"), e("en_3", "2025-10-08", "2025-11-06"),
+      e("en_4", "2026-01-12", "2026-02-10"), e("en_5", "2026-02-11", "2026-03-12"), e("en_6", "2026-03-13", "2026-04-11"),
+      e("en_7", "2026-06-01", "2026-06-30"), e("en_8", "2026-07-01", "2026-07-30"), e("en_9", "2026-07-31", "2026-08-29"), e("en_10", "2026-08-30", "2026-09-28"),
+    ]
+    const rounds = Sum.entitlementRounds(ents)
+    expect(rounds.length).toBe(3)
+    expect(rounds.map((r) => r.entitlementIds.length)).toEqual([4, 3, 4])
+    expect(rounds.map((r) => r.representativeId)).toEqual(["en_3", "en_6", "en_10"])
+    expect(rounds[0]).toMatchObject({ from: "2025-07-10", to: "2025-11-06" })
+    // two different courses for the same student never merge into one round
+    const twoCourses = [e("en_a", "2026-01-01", "2026-01-31"), { ...e("en_b", "2026-02-01", "2026-02-28"), courseId: "co_eng5" }]
+    expect(Sum.entitlementRounds(twoCourses).length).toBe(2)
+  })
+  it("owner 2026-10-06: draftCourseSummary gathers the session notes into Overall Progress, and sorts the same notes into Strengths / To Improve by a fixed keyword match", () => {
+    expect(Sum.draftCourseSummary([])).toEqual({ overallProgress: "", toImprove: "", strengths: "" })
+    const d = Sum.draftCourseSummary([{ text: "ทำโจทย์ได้ดี มั่นใจขึ้นมาก" }, { text: "  " }, { text: "ยังสับสนเรื่องเศษส่วน ควรฝึกเพิ่ม" }])
+    expect(d.overallProgress).toBe("สรุปจาก 2 คาบ: ทำโจทย์ได้ดี มั่นใจขึ้นมาก · ยังสับสนเรื่องเศษส่วน ควรฝึกเพิ่ม")
+    expect(d.strengths).toBe("ทำโจทย์ได้ดี มั่นใจขึ้นมาก")
+    expect(d.toImprove).toBe("ยังสับสนเรื่องเศษส่วน ควรฝึกเพิ่ม")
   })
 })
 
@@ -1522,6 +1569,24 @@ describe("Reports definitions (owner 2026-10-01)", () => {
     const sessions = [{ id: "s1", date: "2026-09-01", cancelled: false }, { id: "s2", date: "2026-09-02", cancelled: true }]
     const att = [{ sessionId: "s1", status: "present" as const }, { sessionId: "s1", status: "leave" as const }, { sessionId: "s2", status: "present" as const }]
     expect(Rep.attendanceRate(sessions, att, { from: "2026-09-01", to: "2026-09-30" }).rate).toBe(0.5)
+  })
+  it("owner 2026-10-06: needsAttention flags students with no family, and that family's missing address/LINE — archived students aren't chased", () => {
+    const base = {
+      today: "2026-10-06", now: new Date("2026-10-06T10:00:00"), rows: [], range: { from: "2026-10-06", to: "2026-10-06" }, prevRange: { from: "2026-10-05", to: "2026-10-05" },
+      invoices: [], entitlements: [], attendance: [], sessions: [], classes: [], leads: [],
+      activeNow: 0, activeBefore: 0, pendingSummaries: 0, conflicts: 0,
+    }
+    const students = [
+      { id: "s1", familyId: null, archived: undefined },
+      { id: "s2", familyId: "f1", archived: undefined },
+      { id: "s3", familyId: "f2", archived: { at: "2026-01-01", by: "u1", reason: "ออกแล้ว" } },
+    ]
+    const families = [{ id: "f1", parents: [{ name: "a", phone: "0812345678", lineLinked: false, primary: true }], address: undefined, postcode: undefined, lineUserId: undefined }]
+    const out = Rep.needsAttention({ ...base, students, families })
+    const by = (key: string) => out.find((x) => x.key === key)
+    expect(by("no_family")?.count).toBe(1) // s1 only — s3 is archived, no need to chase
+    expect(by("no_address")?.count).toBe(1)
+    expect(by("no_line")?.count).toBe(1)
   })
 })
 

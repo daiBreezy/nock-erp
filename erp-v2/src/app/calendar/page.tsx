@@ -19,7 +19,7 @@ import { addDays, dayShort, endTime, fmtDate, fmtMonth, fromMinutes, parseDate, 
 import { can } from "@/domain/rules/permissions"
 import { findConflicts, isHoliday, periodsIn, sessionState, WORK_LABEL, workState, type MoveTarget, type WorkState } from "@/domain/rules/scheduling"
 import type { DateStr, Session } from "@/domain/types"
-import { useBranch, useLookup, useNow } from "@/lib/hooks"
+import { useBranch, useLookup, useNow, useQueryState } from "@/lib/hooks"
 import { cn } from "@/lib/utils"
 import { useStore } from "@/store/store"
 import { sessionKindLabel } from "@/domain/rules/forms"
@@ -52,17 +52,20 @@ function CalendarView() {
   // straight to that session's day and open it, read once at mount via lazy initializers
   const linkedSession = useSearchParams().get("sessionId")
 
-  const [view, setView] = useState<View>("board")
-  const [dayMode, setDayMode] = useState<"table" | "single">("table")
+  // owner 2026-10-06: filters sync to the URL (?view=&day=&teacher=&subject=&status=) so a reload or shared link keeps them
+  const [view, setView] = useQueryState<View>("view", "board")
+  const [dayMode, setDayMode] = useQueryState<"table" | "single">("day", "table")
   const single = view === "board" && dayMode === "single"
   const [anchor, setAnchor] = useState(() => (linkedSession && allSessions.find((x) => x.id === linkedSession)?.date) || today)
   // everyone sees every session by default; teachers get a one-tap "only mine" filter
-  const [teacher, setTeacher] = useState("all")
-  const [subject, setSubject] = useState("all")
+  const [teacher, setTeacher] = useQueryState<string>("teacher", "all")
+  const [subject, setSubject] = useQueryState<string>("subject", "all")
   const [openId, setOpenId] = useState<string | null>(() => (linkedSession && allSessions.some((x) => x.id === linkedSession) ? linkedSession : null))
   const [prefill, setPrefill] = useState<ClassPrefill | null>(null)
   const [moving, setMoving] = useState<{ id: string; target: MoveTarget } | null>(null)
-  const [workFilter, setWorkFilter] = useState<WorkState | null>(null)
+  const [workFilterParam, setWorkFilterParam] = useQueryState<WorkState | "all">("status", "all")
+  const workFilter = workFilterParam === "all" ? null : workFilterParam
+  const setWorkFilter = (w: WorkState | null) => setWorkFilterParam(w ?? "all")
   // per-viewer preference: show every slot, or only real classes
   const range = useMemo(() => {
     if (single) return { from: anchor, to: anchor, title: fmtDate(anchor, { weekday: true, year: true }) }

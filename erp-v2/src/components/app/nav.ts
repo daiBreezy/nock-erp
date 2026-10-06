@@ -1,5 +1,5 @@
 import {
-  BellIcon, BookOpenIcon, FileTextIcon, CalendarDaysIcon, ClipboardCheckIcon, ClockIcon, HomeIcon, InboxIcon, LayoutDashboardIcon, NotebookPenIcon, ReceiptIcon,
+  BellIcon, BookOpenIcon, FileTextIcon, CalendarDaysIcon, ClipboardCheckIcon, ClockIcon, InboxIcon, LayoutDashboardIcon, NotebookPenIcon, ReceiptIcon,
   HistoryIcon, SettingsIcon, SquareLibraryIcon, ChartColumnIcon, ListTodoIcon, UserCogIcon, UserSearchIcon, UsersIcon, GraduationCapIcon, type LucideIcon,
 } from "lucide-react"
 import type { Permission } from "@/domain/rules/permissions"
@@ -15,13 +15,14 @@ export interface NavItem {
 }
 
 /** Order + grouping follow Dev staging's sidebar (owner 2026-09-29). Extra pages staging doesn't have yet
- *  (วันนี้, Inbox/CRM live) sit where staging will put them. Notifications moved up next to search. */
+ *  (Dashboard, Inbox/CRM live) sit where staging will put them. Notifications moved up next to search. */
 export const NAV: { group: string; items: NavItem[] }[] = [
   {
     group: "หลัก",
     items: [
-      { href: "/dashboard", label: "Dashboard", icon: LayoutDashboardIcon, perm: "dashboard.view" },
-      { href: "/", label: "วันนี้", icon: HomeIcon, perm: "calendar.view" },
+      // owner 2026-10-06: the old executive-only "/dashboard" and the universal "/" "วันนี้" merged into one
+      // page — everyone lands here, with dashboard.view gating the KPI/week/month content inside it
+      { href: "/", label: "Dashboard", icon: LayoutDashboardIcon, perm: "calendar.view" },
       { href: "/crm", label: "CRM (ลีด)", icon: UserSearchIcon, perm: "lead.manage" },
       { href: "/inbox", label: "Inbox", icon: InboxIcon, perm: "inbox.manage" },
       { href: "/forms", label: "ฟอร์มผู้ปกครอง", icon: FileTextIcon, perm: "lead.manage" },

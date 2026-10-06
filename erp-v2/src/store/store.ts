@@ -28,7 +28,7 @@ import * as Msg from "@/domain/rules/messages"
 import * as Loss from "@/domain/rules/loss"
 import * as Survey from "@/domain/rules/survey"
 import { toast } from "sonner"
-import type { SurveyCampaign, SurveyResponse, EnrollSubmission, ContactChannel, ContactResult, LossReason, Assessment, AttendanceStatus, Entitlement, Branch, BusAddOn, ClassBlock, CreditNote, LessonBook, LessonTopic, Seat, ChatMessage, Conversation, Course, DateStr, Family, FormSubmission, Holiday, ID, Invoice, Klass, Lead, LeadStage, LessonSummary, LineDelivery, LogCategory, Result, Session, Staff, Student, SystemConfig } from "@/domain/types"
+import type { SurveyCampaign, SurveyResponse, EnrollSubmission, ContactChannel, ContactResult, LossReason, Assessment, AttendanceStatus, Entitlement, Branch, BusAddOn, ClassBlock, CourseSummary, CreditNote, LessonBook, LessonTopic, Seat, ChatMessage, Conversation, Course, DateStr, Family, FormSubmission, Holiday, ID, Invoice, Klass, Lead, LeadStage, LessonSummary, LineDelivery, LogCategory, Result, Session, Staff, Student, SystemConfig } from "@/domain/types"
 
 export interface UIState {
   userId: ID
@@ -140,6 +140,12 @@ type Store = DB & UIState & {
   approveSummary: (id: ID, forceRemark?: string) => Result
   sendSummary: (id: ID) => Result<{ delivered: boolean }>
 
+  /** Course Summary (owner 2026-10-06) — one per entitlement (purchase round), same lifecycle as a session summary */
+  saveCourseSummary: (entitlementId: ID, studentId: ID, fields: { overallProgress: string; toImprove: string; strengths: string }, submit: boolean) => Result
+  requestCourseSummaryChanges: (id: ID, note: string) => Result
+  approveCourseSummary: (id: ID, forceRemark?: string) => Result
+  sendCourseSummary: (id: ID) => Result<{ delivered: boolean }>
+
   saveInvoice: (inv: Invoice) => Result<Invoice>
   generatePdf: (id: ID) => Result<{ number: string }>
   approveInvoice: (id: ID, forceRemark?: string) => Result
@@ -164,6 +170,8 @@ type Store = DB & UIState & {
   archiveLead: (id: ID, input: Loss.LeadLostInput) => Result
   /** a call / LINE follow-up and what came of it — the first one moves a new lead to "กำลังติดต่อ" */
   addLeadFollowUp: (id: ID, input: { channel: ContactChannel; result: ContactResult; note?: string }) => Result
+  /** a renewal check-in call/message (owner 2026-10-06) — `nextTryOn` snoozes this student off today's renewal list */
+  addRenewalFollowUp: (studentId: ID, input: { channel: ContactChannel; result: ContactResult; note?: string; nextTryOn?: DateStr }) => Result
   /** leaving (owner 2026-10-05): the parent told the admin → the exit form went out (token from the server) */
   requestExit: (studentIds: ID[], input: { lastDate: DateStr; token?: string }) => Result
   /** the parent changed their mind */
@@ -1460,6 +1468,71 @@ export const useStore = create<Store>()(
         return { ok: true, value: { delivered: true } }
       },
 
+      saveCourseSummary: (entitlementId, studentId, fields, submit) => {
+        const s = get()
+        const me = s.me()
+        if (!fields.overallProgress.trim() && submit) return fail("เขียน Overall Progress ก่อนส่ง")
+        const existing = s.courseSummaries.find((x) => x.entitlementId === entitlementId)
+        if (existing) {
+          const r = Sum.canEdit(existing, me)
+          if (!r.ok) return r
+        } else if (!can(me, "summary.write") && !can(me, "summary.approve")) return fail("คุณไม่มีสิทธิ์เขียนสรุป")
+        const at = s.now().toISOString()
+        const next: CourseSummary = existing
+          ? { ...existing, ...fields, lastEditorId: me.id, status: submit ? "submitted" : existing.status === "changes_requested" ? "changes_requested" : "draft", history: [...existing.history, { at, by: me.id, action: submit ? "submit" : "edit" }] }
+          : { id: uid("cs"), entitlementId, studentId, ...fields, status: submit ? "submitted" : "draft", authorId: me.id, lastEditorId: me.id, history: [{ at, by: me.id, action: submit ? "submit" : "write" }] }
+        set({ courseSummaries: existing ? s.courseSummaries.map((x) => (x.id === existing.id ? next : x)) : [...s.courseSummaries, next] })
+        return OK
+      },
+
+      requestCourseSummaryChanges: (id, note) => {
+        const s = get()
+        const me = s.me()
+        if (!can(me, "summary.approve")) return fail("คุณไม่มีสิทธิ์")
+        if (!note.trim()) return fail("บอกครูว่าต้องแก้อะไร")
+        const cur = s.courseSummaries.find((x) => x.id === id)!
+        if (cur.status === "sent") return fail("ส่งถึงผู้ปกครองแล้ว ขอแก้ไม่ได้")
+        set({ courseSummaries: s.courseSummaries.map((x) => (x.id === id ? { ...x, status: "changes_requested", history: [...x.history, { at: s.now().toISOString(), by: me.id, action: "request_changes", note }] } : x)) })
+        return OK
+      },
+
+      approveCourseSummary: (id, forceRemark) => {
+        const s = get()
+        const cur = s.courseSummaries.find((x) => x.id === id)!
+        const forced = forceRemark !== undefined
+        const r = forced ? Sum.canForceApprove(cur, s.me(), forceRemark) : Sum.canApprove(cur, s.me())
+        if (!r.ok) return r
+        const event = { at: s.now().toISOString(), by: s.userId, action: forced ? ("force_approve" as const) : ("approve" as const), note: forced ? forceRemark.trim() : undefined }
+        const stu = s.students.find((x) => x.id === cur.studentId)
+        set({
+          courseSummaries: s.courseSummaries.map((x) => (x.id === id ? { ...x, status: "approved", history: [...x.history, event] } : x)),
+          notifications: forced && stu
+            ? [forceNotice(s, stu.branchId, "สรุปจบคอร์ส", stu.nickname, forceRemark), ...s.notifications]
+            : s.notifications,
+        })
+        return OK
+      },
+
+      sendCourseSummary: (id) => {
+        const s = get()
+        const cur = s.courseSummaries.find((x) => x.id === id)!
+        const stu = s.students.find((x) => x.id === cur.studentId)!
+        const parents = s.families.find((f) => f.id === stu.familyId)?.parents ?? []
+        const r = Sum.canSend(cur, parents)
+        if (!r.ok) return r
+        const ent = s.entitlements.find((x) => x.id === cur.entitlementId)!
+        const course = s.courses.find((x) => x.id === ent.courseId)
+        const delivery = pushLine(stu.familyId, Msg.courseSummaryMessage(cur, { student: stu, course: { name: course?.name ?? "คอร์ส" }, entitlement: ent }), (ok, error) => {
+          if (ok) return log("attendance", [cur.studentId], "ส่งสรุปจบคอร์ส", "ถึงผู้ปกครองทาง LINE แล้ว")
+          set((st) => ({ courseSummaries: st.courseSummaries.map((x) => (x.id === id ? { ...x, status: "approved", history: x.history.slice(0, -1) } : x)) }))
+          toast.error(`ส่งสรุปจบคอร์สของ ${stu.nickname} ทาง LINE ไม่สำเร็จ — ${error ?? ""}`)
+        })
+        if (delivery === "no_line") return fail("ผู้ปกครองยังไม่ได้ผูก LINE — ยังไม่ได้ส่ง (สรุปยังอยู่สถานะอนุมัติแล้ว)")
+        set({ courseSummaries: s.courseSummaries.map((x) => (x.id === id ? { ...x, status: "sent", history: [...x.history, { at: s.now().toISOString(), by: s.userId, action: "send" }] } : x)) })
+        if (delivery === "delivered") log("attendance", [cur.studentId], "ส่งสรุปจบคอร์ส", "ส่งถึงผู้ปกครองทาง LINE")
+        return { ok: true, value: { delivered: true } }
+      },
+
       // ---------------- billing ----------------
       saveInvoice: (inv) => {
         const s = get()
@@ -1800,6 +1873,17 @@ export const useStore = create<Store>()(
         if (lead.stage === "archived" || lead.stage === "enrolled") return fail("Lead นี้ปิดแล้ว")
         const up = { id: uid("fu"), at: s.now().toISOString(), by: s.userId, channel: input.channel, result: input.result, note: input.note?.trim() || undefined }
         set({ leads: s.leads.map((x) => (x.id === id ? { ...x, stage: x.stage === "new" ? "contacting" : x.stage, followUps: [...(x.followUps ?? []), up] } : x)) })
+        return OK
+      },
+
+      addRenewalFollowUp: (studentId, input) => {
+        const s = get()
+        const perm = requirePerm(s.me(), "student.manage")
+        if (!perm.ok) return perm
+        const stu = s.students.find((x) => x.id === studentId)
+        if (!stu) return fail("ไม่พบนักเรียนนี้")
+        const up = { id: uid("rfu"), at: s.now().toISOString(), by: s.userId, channel: input.channel, result: input.result, note: input.note?.trim() || undefined, nextTryOn: input.nextTryOn || undefined }
+        set({ students: s.students.map((x) => (x.id === studentId ? { ...x, renewalFollowUps: [...(x.renewalFollowUps ?? []), up] } : x)) })
         return OK
       },
 
@@ -2278,7 +2362,7 @@ export const useStore = create<Store>()(
     {
       name: "nockerp-v2",
       // bump when the data model changes; older saved data is replaced by fresh sample data
-      version: 58,
+      version: 60,
       migrate: () => ({ ...buildSeed(), userId: "u_nock", branchId: "br_thl", clockOffset: 0 }) as unknown as Store,
       // persist data + UI state only, never the action functions
       partialize: (s) => Object.fromEntries(Object.entries(s).filter(([, v]) => typeof v !== "function")) as Partial<Store>,

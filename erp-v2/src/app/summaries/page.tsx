@@ -3,22 +3,44 @@
 import { useState } from "react"
 import { CheckIcon, SendIcon } from "lucide-react"
 import { Pill } from "@/components/app/badges"
+import { CourseSummaryStudentSheet } from "@/components/app/course-summary-sheet"
 import { SessionSheet } from "@/components/app/session-sheet"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 import { addDays, fmtDate, toDateStr } from "@/domain/dates"
 import { can, seesAllSessions } from "@/domain/rules/permissions"
 import * as Sum from "@/domain/rules/summaries"
 import type { ID } from "@/domain/types"
 import { report } from "@/lib/feedback"
-import { useBranch, useLookup, useNow } from "@/lib/hooks"
+import { useBranch, useLookup, useNow, useQueryState } from "@/lib/hooks"
 import { cn } from "@/lib/utils"
 import { useStore } from "@/store/store"
 
-type Tab = "to_write" | "changes" | "submitted" | "approved" | "sent"
+type Bucket = "to_write" | "changes" | "submitted" | "approved" | "sent"
+const BUCKETS: { key: Bucket; label: string; tone: string }[] = [
+  { key: "to_write", label: "ยังไม่ได้เขียน", tone: "text-red-700" },
+  { key: "changes", label: "ขอแก้ไข", tone: "text-red-700" },
+  { key: "submitted", label: "รออนุมัติ", tone: "text-amber-700" },
+  { key: "approved", label: "อนุมัติแล้ว · ยังไม่ส่ง", tone: "text-sky-700" },
+  { key: "sent", label: "ส่งผู้ปกครองแล้ว", tone: "text-emerald-700" },
+]
 
-/** Summary work queue. Counts only cover the chosen period (D6). */
 export default function SummariesPage() {
+  const [top, setTop] = useQueryState<"session" | "course">("view", "session")
+  return (
+    <div className="mx-auto max-w-5xl space-y-4">
+      <ToggleGroup value={[top]} onValueChange={(v) => v[0] && setTop(v[0] as typeof top)} variant="outline" size="sm">
+        <ToggleGroupItem value="session">Session Summary</ToggleGroupItem>
+        <ToggleGroupItem value="course">Course Summary</ToggleGroupItem>
+      </ToggleGroup>
+      {top === "session" ? <SessionSummaryTab /> : <CourseSummaryTab />}
+    </div>
+  )
+}
+
+/** Per-session work queue (the original /summaries page) — unchanged, D6: counts only cover the chosen period. */
+function SessionSummaryTab() {
   const now = useNow()
   const today = toDateStr(now)
   const branch = useBranch()
@@ -31,7 +53,7 @@ export default function SummariesPage() {
   const send = useStore((s) => s.sendSummary)
   const L = useLookup()
   const [days, setDays] = useState(7)
-  const [tab, setTab] = useState<Tab>(can(me, "summary.approve") ? "submitted" : "to_write")
+  const [tab, setTab] = useState<Bucket>(can(me, "summary.approve") ? "submitted" : "to_write")
   const [openId, setOpenId] = useState<ID | null>(null)
 
   const from = addDays(today, -days + 1)
@@ -42,18 +64,11 @@ export default function SummariesPage() {
       .filter((a) => a.sessionId === s.id && a.status === "present")
       .map((a) => ({ s, studentId: a.studentId, sm: summaries.find((x) => x.sessionId === s.id && x.studentId === a.studentId) })),
   )
-  const bucket = (r: (typeof rows)[number]): Tab => (!r.sm || r.sm.status === "draft" ? "to_write" : r.sm.status === "changes_requested" ? "changes" : r.sm.status)
-  const tabs: { key: Tab; label: string; tone: string }[] = [
-    { key: "to_write", label: "ยังไม่ได้เขียน", tone: "text-red-700" },
-    { key: "changes", label: "ขอแก้ไข", tone: "text-red-700" },
-    { key: "submitted", label: "รออนุมัติ", tone: "text-amber-700" },
-    { key: "approved", label: "อนุมัติแล้ว · ยังไม่ส่ง", tone: "text-sky-700" },
-    { key: "sent", label: "ส่งผู้ปกครองแล้ว", tone: "text-emerald-700" },
-  ]
+  const bucket = (r: (typeof rows)[number]): Bucket => (!r.sm || r.sm.status === "draft" ? "to_write" : r.sm.status === "changes_requested" ? "changes" : r.sm.status)
   const shown = rows.filter((r) => bucket(r) === tab).sort((a, b) => b.s.date.localeCompare(a.s.date))
 
   return (
-    <div className="mx-auto max-w-5xl space-y-4">
+    <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-2">
         <span className="text-sm text-muted-foreground">ช่วงเวลา</span>
         {[7, 14, 30].map((d) => (
@@ -62,7 +77,7 @@ export default function SummariesPage() {
         <span className="ml-auto text-xs text-muted-foreground">{fmtDate(from)} – {fmtDate(today, { year: true })}{mineOnly && " · เฉพาะคาบของฉัน"}</span>
       </div>
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
-        {tabs.map((t) => (
+        {BUCKETS.map((t) => (
           <button key={t.key} onClick={() => setTab(t.key)} className="text-left">
             <Card className={cn(tab === t.key && "ring-2 ring-primary")}>
               <CardContent>
@@ -110,6 +125,83 @@ export default function SummariesPage() {
         })}
       </div>
       <SessionSheet sessionId={openId} onClose={() => setOpenId(null)} />
+    </div>
+  )
+}
+
+/**
+ * Course Summary (owner 2026-10-06): a whole-course report the teacher writes by hand, one per entitlement
+ * (purchase round) — due once the package is ending soon or already over, not partway through. Same
+ * write → submit → approve → send lifecycle and bucket layout as the session queue above, for a familiar UI.
+ */
+function CourseSummaryTab() {
+  const now = useNow()
+  const today = toDateStr(now)
+  const branch = useBranch()
+  const me = useStore((s) => s.staff.find((x) => x.id === s.userId)!)
+  const entitlements = useStore((s) => s.entitlements)
+  const courseSummaries = useStore((s) => s.courseSummaries)
+  const students = useStore((s) => s.students).filter((x) => x.branchId === branch.id)
+  const courses = useStore((s) => s.courses)
+  const sessions = useStore((s) => s.sessions)
+  const renewalDays = useStore((s) => s.system.settings.renewalDaysBefore)
+  const L = useLookup()
+  const [tab, setTab] = useState<Bucket>(can(me, "summary.approve") ? "submitted" : "to_write")
+  const [openStudentId, setOpenStudentId] = useState<ID | null>(null)
+
+  const mineOnly = !seesAllSessions(me)
+  // which classes this teacher actually taught — scopes "เฉพาะคาบของฉัน" the same way the session queue does
+  const myClassIds = new Set(sessions.filter((se) => se.teacherId === me.id || se.coTeacherIds.includes(me.id)).map((se) => se.classId).filter((x): x is string => !!x))
+
+  const studentIds = new Set(students.map((s) => s.id))
+  const entsById = new Map(entitlements.map((e) => [e.id, e]))
+  // owner 2026-10-06: a monthly package renewed back-to-back for a year is still ONE round, not one per billing
+  // cycle — group first, then decide which rounds are due a summary and belong to this branch/teacher
+  const allRounds = Sum.entitlementRounds(entitlements.filter((e) => studentIds.has(e.studentId)))
+  const dueRounds = allRounds.filter((r) => Sum.courseSummaryDue(r, today, renewalDays) && (!mineOnly || r.entitlementIds.some((id) => entsById.get(id)?.classIds.some((cid) => myClassIds.has(cid)))))
+  const bucket = (r: Sum.EntitlementRound): Bucket => {
+    const cs = courseSummaries.find((x) => x.entitlementId === r.representativeId)
+    return !cs || cs.status === "draft" ? "to_write" : cs.status === "changes_requested" ? "changes" : cs.status
+  }
+  const countIn = (b: Bucket) => dueRounds.filter((r) => bucket(r) === b).length
+  // the outer list is per-student: who has at least one course in the chosen bucket — but opening them shows
+  // every due course of theirs (all buckets at once), same as the reference's "handle everything in one visit"
+  const studentRows = [...new Set(dueRounds.filter((r) => bucket(r) === tab).map((r) => r.studentId))]
+    .map((sid) => {
+      const shown = dueRounds.filter((r) => r.studentId === sid && bucket(r) === tab)
+      return { sid, shown, all: dueRounds.filter((r) => r.studentId === sid), stu: L.student(sid), earliest: shown.reduce((m, r) => (r.to < m ? r.to : m), shown[0].to) }
+    })
+    .sort((a, b) => a.earliest.localeCompare(b.earliest))
+
+  return (
+    <div className="space-y-4">
+      <p className="text-xs text-muted-foreground">รอบที่แพ็กเกจใกล้หมด (ภายใน {renewalDays} วัน) หรือหมดแล้ว — สรุปทั้งคอร์สเขียนเมื่อมองย้อนกลับทั้งรอบ · เปิดดูเป็นรายนักเรียน เห็นทุกคอร์สค้างพร้อมกัน</p>
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
+        {BUCKETS.map((t) => (
+          <button key={t.key} onClick={() => setTab(t.key)} className="text-left">
+            <Card className={cn(tab === t.key && "ring-2 ring-primary")}>
+              <CardContent>
+                <div className="text-xs text-muted-foreground">{t.label}</div>
+                <div className={cn("text-2xl font-semibold tabular-nums", t.tone)}>{countIn(t.key)}</div>
+              </CardContent>
+            </Card>
+          </button>
+        ))}
+      </div>
+
+      <div className="divide-y overflow-hidden rounded-3xl bg-card shadow-sm ring-1 ring-foreground/5">
+        {studentRows.length === 0 && <p className="p-10 text-center text-sm text-muted-foreground">ไม่มีรายการในหมวดนี้</p>}
+        {studentRows.map(({ sid, shown, all, stu }) => (
+          <button key={sid} onClick={() => setOpenStudentId(sid)} className="flex w-full items-center gap-3 p-3 text-left hover:bg-muted/40">
+            <div className="min-w-48 flex-1">
+              <div className="text-sm font-medium">{stu?.nickname} <span className="text-xs text-muted-foreground">{stu?.grade}</span></div>
+              <div className="truncate text-xs text-muted-foreground">{shown.map((r) => courses.find((c) => c.id === r.courseId)?.name ?? "คอร์ส").join(" · ")}</div>
+            </div>
+            <Pill>{all.length} คอร์ส{all.length !== shown.length ? ` (${shown.length} ในหมวดนี้)` : ""}</Pill>
+          </button>
+        ))}
+      </div>
+      <CourseSummaryStudentSheet studentId={openStudentId} rounds={studentRows.find((r) => r.sid === openStudentId)?.all ?? []} onClose={() => setOpenStudentId(null)} />
     </div>
   )
 }

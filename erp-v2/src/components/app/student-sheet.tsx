@@ -29,6 +29,7 @@ import { Pager, usePage } from "./data-table"
 import { AssessmentNote } from "./assessment-note"
 import { LeaveDialog } from "./leave-dialog"
 import { PackageBadge } from "./package-badge"
+import { RenewalFollowUpSection } from "./renewal-followup"
 import { StudentForm } from "./student-form"
 import { stateDetail, STATUS_PILL } from "./student-status"
 import { avatarTone, gradeTone, initial, subjectColor } from "./subject-color"
@@ -103,7 +104,7 @@ function Body({ id }: { id: ID }) {
 
       <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4">
         {stu.exit && <div className="mb-4"><ExitPanel stu={stu} /></div>}
-        {seg === "overview" && <Overview stu={stu} ents={ents} today={today} />}
+        {seg === "overview" && <Overview stu={stu} ents={ents} today={today} status={state.status} onNotRenewing={() => setArchiving(true)} />}
         {seg === "class" && <ClassSeg stu={stu} ents={ents} />}
         {seg === "billing" && <BillingSeg stu={stu} />}
         {seg === "note" && <NoteSeg stu={stu} />}
@@ -150,7 +151,7 @@ function packageProgress(e: Entitlement, sessions: Session[], attendance: { sess
   return { ratio: Math.min(1, (total - left) / total), label: e.to < today ? `หมดแล้ว ${fmtDate(e.to)}` : `เหลือ ${left} วัน · ถึง ${fmtDate(e.to)}`, low: left <= 7 }
 }
 
-function Overview({ stu, ents, today }: { stu: Student; ents: Entitlement[]; today: string }) {
+function Overview({ stu, ents, today, status, onNotRenewing }: { stu: Student; ents: Entitlement[]; today: string; status: Att.StudentStatus; onNotRenewing: () => void }) {
   const me = useStore((s) => s.staff.find((x) => x.id === s.userId)!)
   const courses = useStore((s) => s.courses)
   const classes = useStore((s) => s.classes)
@@ -231,6 +232,8 @@ function Overview({ stu, ents, today }: { stu: Student; ents: Entitlement[]; tod
           {can(me, "student.manage") && <Button size="sm" onClick={() => setEditing(true)}><PencilIcon /> แก้ไข</Button>}
         </div>
       </section>
+
+      {status === "renewal" && <RenewalFollowUpSection stu={stu} canManage={can(me, "student.manage")} onNotRenewing={onNotRenewing} />}
 
       {myAssessments.length > 0 && (
         <section className="space-y-2 rounded-3xl bg-card p-4 shadow-sm ring-1 ring-foreground/5">
