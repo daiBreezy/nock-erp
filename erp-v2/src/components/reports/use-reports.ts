@@ -9,6 +9,7 @@ import * as Survey from "@/domain/rules/survey"
 import { CAPACITY, findConflicts, hoursFor, isHoliday, sessionState } from "@/domain/rules/scheduling"
 import { useEntitlements, useNow } from "@/lib/hooks"
 import { useStore } from "@/store/store"
+import { tx, uiLang } from "@/lib/i18n"
 
 /**
  * Everything the Reports page shows for a set of branches and a period — computed from the store through
@@ -78,7 +79,7 @@ export function useReports(branchIds: string[], period: R.PeriodKey, custom?: R.
       activeNow: active, activeBefore: activeAtStart, pendingSummaries, conflicts,
       surveyToCall: Survey.toCall(s.surveyResponses.filter((r) => ids.has(r.branchId)), today).length,
       students, families: s.families.filter((f) => studentFamilyIds.has(f.id)),
-    })
+    }, tx)
 
     const perBranch = branches.map((b) => ({
       id: b.id, name: b.name,
@@ -104,7 +105,7 @@ export function useReports(branchIds: string[], period: R.PeriodKey, custom?: R.
       bySubject: R.attendanceBy(ended, s.attendance, range, subjectOf).sort((a, b) => (a.rate ?? 1) - (b.rate ?? 1)),
       byWeekday: R.attendanceBy(ended, s.attendance, range, (x) => String(new Date(`${x.date}T00:00:00`).getDay())),
       byClass: R.attendanceBy(ended, s.attendance, range, (x) => s.sessions.find((y) => y.id === x.id)?.classId ?? null)
-        .map((r) => { const k = s.classes.find((x) => x.id === r.key); return { ...r, name: k?.name ?? "คาบเดี่ยว", branch: s.branches.find((b) => b.id === k?.branchId)?.name ?? "" } }).filter((r) => r.present + r.leave > 0).sort((a, b) => (a.rate ?? 1) - (b.rate ?? 1)),
+        .map((r) => { const k = s.classes.find((x) => x.id === r.key); return { ...r, name: k?.name ?? tx("คาบเดี่ยว"), branch: s.branches.find((b) => b.id === k?.branchId)?.name ?? "" } }).filter((r) => r.present + r.leave > 0).sort((a, b) => (a.rate ?? 1) - (b.rate ?? 1)),
       monthly: Array.from({ length: 12 }, (_, m) => attMonthly.find((r) => r.key === `${year}-${String(m + 1).padStart(2, "0")}`)?.rate ?? null),
       leavers: R.frequentLeavers(ended, s.attendance, range),
       cancelled: R.cancellations(sessions, range),
@@ -129,7 +130,7 @@ export function useReports(branchIds: string[], period: R.PeriodKey, custom?: R.
       sources: R.leadSources(leads, rows, range),
       lost: R.lostLeads(leads, range),
       lostReasons: [...leads.filter((l) => l.stage === "archived" && R.inRange(l.createdAt.slice(0, 10), range))
-        .reduce((m, l) => { const k = l.lost ? Loss.reasonLabel(l.lost.reasonId, s.system.lossReasons) : l.archiveReason || "ไม่ระบุ"; return m.set(k, (m.get(k) ?? 0) + 1) }, new Map<string, number>())]
+        .reduce((m, l) => { const k = l.lost ? Loss.reasonLabel(l.lost.reasonId, s.system.lossReasons, uiLang()) : l.archiveReason || tx("ไม่ระบุ"); return m.set(k, (m.get(k) ?? 0) + 1) }, new Map<string, number>())]
         .map(([reason, count]) => ({ reason, count })).sort((a, b) => b.count - a.count),
       // where lost leads went + the times they wanted that we could not offer (owner 2026-10-05)
       competitors: [...leads.filter((l) => l.lost?.competitor && R.inRange(l.createdAt.slice(0, 10), range))

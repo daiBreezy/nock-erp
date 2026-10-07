@@ -3,6 +3,8 @@
 import { useState, type ReactNode } from "react"
 import { ArrowDownIcon, ArrowUpIcon } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { tx } from "@/lib/i18n"
+import { monthShort } from "@/domain/dates"
 
 /** 880K · 1.3M · 950 — short money/number for cards and axes */
 export function fmtShort(n: number) {
@@ -44,7 +46,7 @@ export function Panel({ title, hint, action, children, className, center, fill }
   )
 }
 
-export function Empty({ children = "ยังไม่มีข้อมูลในช่วงนี้" }: { children?: ReactNode }) {
+export function Empty({ children = tx("ยังไม่มีข้อมูลในช่วงนี้") }: { children?: ReactNode }) {
   return <p className="rounded-2xl border border-dashed p-6 text-center text-sm text-muted-foreground">{children}</p>
 }
 
@@ -87,12 +89,12 @@ export function MonthBars({ thisYear, lastYear, current, unit = "", currentLastY
         })}
       </div>
       <div className="mt-1 flex gap-1.5 text-center text-[10px] text-muted-foreground sm:gap-2.5">
-        {TH_MONTH_SHORT.map((m, i) => <span key={m} className={cn("flex-1", (hover === i || (hover === null && i === current)) && "font-semibold text-foreground")}>{m}</span>)}
+        {TH_MONTH_SHORT.map((m, i) => <span key={m} className={cn("flex-1", (hover === i || (hover === null && i === current)) && "font-semibold text-foreground")}>{monthShort(i)}</span>)}
       </div>
       <div className="mt-2 flex gap-3 text-xs text-muted-foreground">
-        <span className="flex items-center gap-1"><span className="size-2 rounded-full bg-primary" />ปีนี้</span>
-        {hasLast ? <span className="flex items-center gap-1"><span className="size-2 rounded-full bg-primary/25" />ปีที่แล้ว</span> : <span>ยังไม่มีข้อมูลปีที่แล้ว (ไม่ได้ Import)</span>}
-        {forecast && <span className="flex items-center gap-1"><span className="size-2 rounded-full bg-primary/15" style={{ backgroundImage: STRIPES }} />คาดการณ์</span>}
+        <span className="flex items-center gap-1"><span className="size-2 rounded-full bg-primary" />{tx("ปีนี้")}</span>
+        {hasLast ? <span className="flex items-center gap-1"><span className="size-2 rounded-full bg-primary/25" />{tx("ปีที่แล้ว")}</span> : <span>{tx("ยังไม่มีข้อมูลปีที่แล้ว (ไม่ได้ Import)")}</span>}
+        {forecast && <span className="flex items-center gap-1"><span className="size-2 rounded-full bg-primary/15" style={{ backgroundImage: STRIPES }} />{tx("คาดการณ์")}</span>}
       </div>
     </div>
   )
@@ -107,11 +109,11 @@ function MonthTip({ month, thisYear, lastYear, fmt, unit, side, top, toDate, for
     // beside the bar, level with its top (like the ref) — never above the chart
     <div className={cn("pointer-events-none absolute z-20 w-40 rounded-2xl bg-popover p-3 text-left shadow-lg ring-1 ring-foreground/10",
       side === "right" ? "left-full ml-1" : "right-full mr-1")} style={{ top: `${Math.max(0, top)}%` }}>
-      <p className="mb-1.5 text-[11px] font-medium text-muted-foreground">{TH_MONTH_FULL[month]}</p>
+      <p className="mb-1.5 text-[11px] font-medium text-muted-foreground">{tx(TH_MONTH_FULL[month])}</p>
       <div className="flex items-start gap-2">
         <span className="mt-1.5 size-1.5 shrink-0 rounded-full bg-primary" />
         <div className="flex-1">
-          <p className="text-[11px] text-muted-foreground">ปีนี้</p>
+          <p className="text-[11px] text-muted-foreground">{tx("ปีนี้")}</p>
           <p className="text-sm font-semibold tabular-nums">{thisYear === null ? "—" : `${fmt(thisYear)}${unit}`}</p>
         </div>
         {pct !== null && <span className={cn("rounded-full px-1.5 py-0.5 text-[10px] font-semibold tabular-nums", pct >= 0 ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300" : "bg-red-100 text-red-700 dark:bg-red-950 dark:text-red-300")}>{pct >= 0 ? "+" : ""}{pct}%</span>}
@@ -120,7 +122,7 @@ function MonthTip({ month, thisYear, lastYear, fmt, unit, side, top, toDate, for
         <div className="mt-2 flex items-start gap-2 border-t border-dashed pt-2">
           <span className="mt-1.5 size-1.5 shrink-0 rounded-full bg-primary/40" />
           <div className="flex-1">
-            <p className="text-[11px] text-primary">คาดการณ์ทั้งเดือน</p>
+            <p className="text-[11px] text-primary">{tx("คาดการณ์ทั้งเดือน")}</p>
             <p className="text-sm font-semibold text-primary tabular-nums">{fmt(forecast)}{unit}</p>
           </div>
           {fpct !== null && <span className={cn("rounded-full px-1.5 py-0.5 text-[10px] font-semibold tabular-nums", fpct >= 0 ? "bg-emerald-100 text-emerald-700" : "bg-red-100 text-red-700")}>{fpct >= 0 ? "+" : ""}{fpct}%</span>}
@@ -130,9 +132,9 @@ function MonthTip({ month, thisYear, lastYear, fmt, unit, side, top, toDate, for
         <div className="mt-2 flex items-start gap-2 border-t border-dashed pt-2">
           <span className="mt-1.5 size-1.5 shrink-0 rounded-full bg-primary/30" />
           <div>
-            <p className="text-[11px] text-muted-foreground">ปีที่แล้ว{toDate ? ` (${toDate.label})` : ""}</p>
+            <p className="text-[11px] text-muted-foreground">{tx("ปีที่แล้ว")}{toDate ? ` (${toDate.label})` : ""}</p>
             <p className="text-sm tabular-nums">{toDate ? `${fmt(toDate.value)}${unit}` : lastYear ? `${fmt(lastYear)}${unit}` : "—"}</p>
-            {toDate && lastYear ? <p className="text-[10px] text-muted-foreground">ทั้งเดือน {fmt(lastYear)}{unit}</p> : null}
+            {toDate && lastYear ? <p className="text-[10px] text-muted-foreground">{tx("ทั้งเดือน")} {fmt(lastYear)}{unit}</p> : null}
           </div>
         </div>
       )}
@@ -181,7 +183,7 @@ export function DonutLegend({ title, parts, center, sub, top = 5, keepOrder }: {
   const fold = !open && sorted.length > top + 1
   const head = fold ? sorted.slice(0, top) : sorted
   const rest = sorted.slice(head.length)
-  const slices = rest.length ? [...head, { label: `อื่นๆ (${rest.length})`, value: rest.reduce((a, p) => a + p.value, 0) }] : head
+  const slices = rest.length ? [...head, { label: tx("อื่นๆ ({0})", [rest.length]), value: rest.reduce((a, p) => a + p.value, 0) }] : head
   const colors = slices.map((_, i) => (rest.length && i === slices.length - 1 ? "#cbd5e1" : donutColor(i)))
   const total = slices.reduce((a, p) => a + p.value, 0)
   return (
@@ -201,11 +203,11 @@ export function DonutLegend({ title, parts, center, sub, top = 5, keepOrder }: {
               ))}
             </ul>
             {sorted.length > top + 1 && (
-              <button type="button" onClick={() => setOpen((o) => !o)} className="mt-2 pl-4.5 text-xs text-primary hover:underline">{open ? "ย่อเหลือ " + top + " อันดับ" : `ดูทั้งหมด ${sorted.length} รายการ`}</button>
+              <button type="button" onClick={() => setOpen((o) => !o)} className="mt-2 pl-4.5 text-xs text-primary hover:underline">{open ? tx("ย่อเหลือ ") + top + tx(" อันดับ") : tx("ดูทั้งหมด {0} รายการ", [sorted.length])}</button>
             )}
           </div>
         </div>
-      ) : <Empty>ไม่มี</Empty>}
+      ) : <Empty>{tx("ไม่มี")}</Empty>}
     </div>
   )
 }
@@ -221,7 +223,7 @@ export function TopList({ title, icon, rows, top = 5, color, wide, fill }: { tit
   const sum = rows.reduce((a, x) => a + x.value, 0) || 1
   return (
     <div className={cn("min-w-0", fill && "flex flex-1 flex-col")}>
-      <p className="mb-3 flex items-center gap-2 text-sm font-medium">{icon}{title}<span className="text-xs font-normal text-muted-foreground">รวม {fmtNum(sum)}</span></p>
+      <p className="mb-3 flex items-center gap-2 text-sm font-medium">{icon}{title}<span className="text-xs font-normal text-muted-foreground">{tx("รวม")} {fmtNum(sum)}</span></p>
       {rows.length ? (
         <ul className={cn("text-sm", fill ? "flex flex-1 flex-col justify-around gap-2.5" : "space-y-2.5")}>{list.map((x, i) => (
           <li key={x.label} className={cn("grid items-center gap-3", wide ? "grid-cols-[1.25rem_minmax(0,18rem)_1fr_2rem_2.5rem]" : "grid-cols-[1.25rem_minmax(0,11rem)_1fr_2rem_2.5rem]")}>
@@ -232,8 +234,8 @@ export function TopList({ title, icon, rows, top = 5, color, wide, fill }: { tit
             <span className="text-right text-xs text-muted-foreground tabular-nums">{fmtPct(x.value / sum)}</span>
           </li>
         ))}</ul>
-      ) : <p className="text-xs text-muted-foreground">ไม่มี</p>}
-      {rows.length > top && <button type="button" onClick={() => setOpen((o) => !o)} className="mt-2 pl-8 text-xs text-primary hover:underline">{open ? `ย่อเหลือ ${top} อันดับ` : `ดูทั้งหมด ${rows.length} รายการ`}</button>}
+      ) : <p className="text-xs text-muted-foreground">{tx("ไม่มี")}</p>}
+      {rows.length > top && <button type="button" onClick={() => setOpen((o) => !o)} className="mt-2 pl-8 text-xs text-primary hover:underline">{open ? tx("ย่อเหลือ {0} อันดับ", [top]) : tx("ดูทั้งหมด {0} รายการ", [rows.length])}</button>}
     </div>
   )
 }

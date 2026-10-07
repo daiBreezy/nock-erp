@@ -69,6 +69,7 @@ function Shell({ children }: { children: ReactNode }) {
   const invoices = useStore((s) => s.invoices)
   const badges = navBadges({ conversations, leads, sessions, attendance, summaries, invoices }, me, branch.id, now)
   const t = useT()
+  const lang = useUiLang((s) => s.lang)
 
   return (
     <SidebarProvider>
@@ -131,7 +132,8 @@ function Shell({ children }: { children: ReactNode }) {
           </div>
         </header>
         {/* calendar sits on grey so the boards stand out (owner 2026-09-30) */}
-        <main className={cn("min-w-0 flex-1 p-3 md:p-6", pathname.startsWith("/calendar") && "bg-zinc-100 dark:bg-zinc-900")}>{allowed ? children : <NoAccess />}</main>
+        {/* keyed on the language: switching it re-renders every page so all t() calls pick it up */}
+        <main key={lang} className={cn("min-w-0 flex-1 p-3 md:p-6", pathname.startsWith("/calendar") && "bg-zinc-100 dark:bg-zinc-900")}>{allowed ? children : <NoAccess />}</main>
       </SidebarInset>
     </SidebarProvider>
   )

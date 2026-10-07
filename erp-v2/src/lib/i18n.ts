@@ -2,6 +2,7 @@
 
 import { create } from "zustand"
 import { persist } from "zustand/middleware"
+import { setDateLocale } from "@/domain/dates"
 
 /**
  * Staff UI language (owner 2026-10-07): a chip in the top bar — ไทย / English / 日本語. A per-person preference,
@@ -19,13 +20,18 @@ export const UI_LANGS: { key: UiLang; label: string; short: string }[] = [
 ]
 
 export const useUiLang = create<{ lang: UiLang; setLang: (l: UiLang) => void }>()(
-  persist((set) => ({ lang: "th", setLang: (lang) => set({ lang }) }), { name: "nockerp-ui-lang" }),
+  persist((set) => ({ lang: "th", setLang: (lang) => { setDateLocale(lang); set({ lang }) } }), {
+    name: "nockerp-ui-lang",
+    onRehydrateStorage: () => (st) => { if (st) setDateLocale(st.lang) },
+  }),
 )
 
-type Entry = { en: string; ja: string }
+import { DICT_PAGES } from "./i18n-dict"
+
+export type Entry = { en: string; ja: string }
 
 // shell: menu groups, menu items, top bar, sidebar cards
-const DICT: Record<string, Entry> = {
+const SHELL: Record<string, Entry> = {
   "หลัก": { en: "Main", ja: "メイン" },
   "คน": { en: "People", ja: "人" },
   "งานสอน": { en: "Teaching", ja: "授業" },
@@ -65,12 +71,28 @@ const DICT: Record<string, Entry> = {
   "ภาษา": { en: "Language", ja: "言語" },
 }
 
+const DICT: Record<string, Entry> = { ...DICT_PAGES, ...SHELL }
+
+/** fill {0} {1} … with the values (same placeholders in every language) */
+const fill = (text: string, vars?: (string | number)[]) => (vars ? text.replace(/\{(\d+)\}/g, (m, i) => (vars[Number(i)] ?? m).toString()) : text)
+
 /** translate a Thai UI phrase into the chosen language (unknown phrases stay Thai) */
-export function translate(th: string, lang: UiLang) {
-  return lang === "th" ? th : DICT[th]?.[lang] ?? th
+export function translate(th: string, lang: UiLang, vars?: (string | number)[]) {
+  return fill(lang === "th" ? th : DICT[th]?.[lang] ?? th, vars)
 }
+
+/**
+ * Plain function, usable anywhere in UI code. The shell re-mounts the page when the language changes
+ * (keyed on it), so every tx() call re-runs — no hook needed.
+ */
+export function tx(th: string, vars?: (string | number)[]) {
+  return translate(th, useUiLang.getState().lang, vars)
+}
+
+/** the chosen language right now (for helpers that take a lang, e.g. loss reasons, parent-form labels) */
+export const uiLang = () => useUiLang.getState().lang
 
 export function useT() {
   const lang = useUiLang((s) => s.lang)
-  return (th: string) => translate(th, lang)
+  return (th: string, vars?: (string | number)[]) => translate(th, lang, vars)
 }

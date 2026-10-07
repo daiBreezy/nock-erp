@@ -73,19 +73,40 @@ export function overlaps(aStart: number, aEnd: number, bStart: number, bEnd: num
 const TH_MONTHS = ["ม.ค.", "ก.พ.", "มี.ค.", "เม.ย.", "พ.ค.", "มิ.ย.", "ก.ค.", "ส.ค.", "ก.ย.", "ต.ค.", "พ.ย.", "ธ.ค."]
 const TH_DAYS = ["อา.", "จ.", "อ.", "พ.", "พฤ.", "ศ.", "ส."]
 export const TH_DAYS_FULL = ["อาทิตย์", "จันทร์", "อังคาร", "พุธ", "พฤหัสบดี", "ศุกร์", "เสาร์"]
+const EN_MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
+const EN_DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]
+const JA_DAYS = ["日", "月", "火", "水", "木", "金", "土"]
+
+/**
+ * Staff UI language for dates (owner 2026-10-07: TH / EN / JP chip). Thai = Buddhist year, English / Japanese =
+ * Christian year. Set by the UI language store; everything (and every test) defaults to Thai.
+ */
+export type DateLocale = "th" | "en" | "ja"
+let LOCALE: DateLocale = "th"
+export function setDateLocale(l: DateLocale) { LOCALE = l }
+/** the year as people read it in the chosen language (2026 → 2569 in Thai) */
+export const yearOf = (y: number) => (LOCALE === "th" ? y + 543 : y)
+/** short month name by index 0–11 */
+export const monthShort = (m: number) => (LOCALE === "en" ? EN_MONTHS[m] : LOCALE === "ja" ? `${m + 1}月` : TH_MONTHS[m])
+/** short weekday name by index (0 = Sunday) */
+export const weekdayShort = (w: number) => (LOCALE === "en" ? EN_DAYS[w] : LOCALE === "ja" ? JA_DAYS[w] : TH_DAYS[w])
 
 /** "พ. 24 ก.ย. 69" — always includes the date so times are never ambiguous (B6) */
 export function fmtDate(s: DateStr, opts: { weekday?: boolean; year?: boolean } = {}): string {
   const d = parseDate(s)
-  const parts = [`${d.getDate()} ${TH_MONTHS[d.getMonth()]}`]
-  if (opts.year) parts.push(String((d.getFullYear() + 543) % 100))
+  if (LOCALE === "ja") {
+    const base = `${opts.year ? `${d.getFullYear()}年` : ""}${d.getMonth() + 1}月${d.getDate()}日`
+    return opts.weekday ? `${base}(${JA_DAYS[d.getDay()]})` : base
+  }
+  const parts = [`${d.getDate()} ${monthShort(d.getMonth())}`]
+  if (opts.year) parts.push(String(yearOf(d.getFullYear()) % 100))
   const base = parts.join(" ")
-  return opts.weekday ? `${TH_DAYS[d.getDay()]} ${base}` : base
+  return opts.weekday ? `${weekdayShort(d.getDay())} ${base}` : base
 }
 
 export function fmtMonth(s: DateStr): string {
   const d = parseDate(s)
-  return `${TH_MONTHS[d.getMonth()]} ${d.getFullYear() + 543}`
+  return LOCALE === "ja" ? `${d.getFullYear()}年${d.getMonth() + 1}月` : `${monthShort(d.getMonth())} ${yearOf(d.getFullYear())}`
 }
 
 export function fmtDateTime(iso: string): string {

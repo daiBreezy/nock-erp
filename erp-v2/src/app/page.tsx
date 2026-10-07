@@ -26,6 +26,7 @@ import type { Attendance, Session } from "@/domain/types"
 import { useBranch, useEntitlements, useLookup, useNow, useQueryState } from "@/lib/hooks"
 import { cn } from "@/lib/utils"
 import { useStore } from "@/store/store"
+import { tx } from "@/lib/i18n"
 
 type RangeKey = "today" | "week" | "month"
 const PERIOD_OF: Record<RangeKey, R.PeriodKey> = { today: "today", week: "week", month: "mtd" }
@@ -198,7 +199,7 @@ export default function DashboardPage() {
     activeNow, activeBefore, pendingSummaries, conflicts,
     surveyToCall: Survey.toCall(surveyResponses.filter((r) => r.branchId === branch.id), today).length,
     students, families: families.filter((f) => studentFamilyIds.has(f.id)),
-  }) : []
+  }, tx) : []
 
   return (
     <div className="mx-auto max-w-6xl space-y-4">
