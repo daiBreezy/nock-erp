@@ -8,7 +8,9 @@ import { useBranch, useNow } from "@/lib/hooks"
 import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
 import { useEffect, useState, useSyncExternalStore, type ReactNode } from "react"
-import { ArrowLeftRightIcon, BellIcon, CheckIcon, LockIcon, MapPinIcon, SearchIcon, SunIcon } from "lucide-react"
+import { ArrowLeftRightIcon, BellIcon, CheckIcon, ChevronDownIcon, GlobeIcon, LockIcon, MapPinIcon, SearchIcon, SunIcon } from "lucide-react"
+import { DropdownMenu, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
+import { UI_LANGS, useT, useUiLang } from "@/lib/i18n"
 import {
   Sidebar, SidebarContent, SidebarFooter, SidebarGroup, SidebarGroupLabel, SidebarHeader, SidebarInset, SidebarMenu,
   SidebarMenuBadge, SidebarMenuButton, SidebarMenuItem, SidebarProvider, SidebarTrigger,
@@ -66,6 +68,7 @@ function Shell({ children }: { children: ReactNode }) {
   const summaries = useStore((s) => s.summaries)
   const invoices = useStore((s) => s.invoices)
   const badges = navBadges({ conversations, leads, sessions, attendance, summaries, invoices }, me, branch.id, now)
+  const t = useT()
 
   return (
     <SidebarProvider>
@@ -87,19 +90,19 @@ function Shell({ children }: { children: ReactNode }) {
             if (!items.length) return null
             return (
               <SidebarGroup key={g.group}>
-                <SidebarGroupLabel>{g.group}</SidebarGroupLabel>
+                <SidebarGroupLabel>{t(g.group)}</SidebarGroupLabel>
                 <SidebarMenu>
                   {items.map((i) => {
                     const n = badges[i.href] ?? 0
                     return (
                       <SidebarMenuItem key={i.href}>
-                        <SidebarMenuButton isActive={current?.href === i.href} tooltip={n ? `${i.label} · ${n}` : i.label} render={<Link href={i.href} />} className={cn(i.soon && "text-muted-foreground")}>
+                        <SidebarMenuButton isActive={current?.href === i.href} tooltip={n ? `${t(i.label)} · ${n}` : t(i.label)} render={<Link href={i.href} />} className={cn(i.soon && "text-muted-foreground")}>
                           <span className="relative">
                             <i.icon className="size-4" />
                             {n > 0 && <span className="absolute -top-1 -right-1 hidden size-2 rounded-full bg-red-600 ring-2 ring-sidebar group-data-[collapsible=icon]:block" />}
                           </span>
-                          <span>{i.label}</span>
-                          {i.soon && <Pill className="ml-auto px-1.5 py-0 text-[10px]">เร็วๆ นี้</Pill>}
+                          <span>{t(i.label)}</span>
+                          {i.soon && <Pill className="ml-auto px-1.5 py-0 text-[10px]">{t("เร็วๆ นี้")}</Pill>}
                         </SidebarMenuButton>
                         {n > 0 && <SidebarMenuBadge className="rounded-full bg-red-600 text-white peer-hover/menu-button:text-white peer-data-active/menu-button:text-white">{n > 99 ? "99+" : n}</SidebarMenuBadge>}
                       </SidebarMenuItem>
@@ -119,11 +122,12 @@ function Shell({ children }: { children: ReactNode }) {
         <header className="sticky top-0 z-20 flex h-14 items-center gap-2 border-b bg-background/95 px-3 backdrop-blur md:px-4">
           <SidebarTrigger />
           <Separator orientation="vertical" className="mx-1 h-5" />
-          <h1 className="truncate text-sm font-medium">{current?.label ?? "NockERP"}</h1>
+          <h1 className="truncate text-sm font-medium">{current ? t(current.label) : "NockERP"}</h1>
           <div className="ml-auto flex items-center gap-2">
             <CurrentPeriodChip />
             {/* branch stays visible on phones too, where the sidebar is hidden */}
-            <span className="flex items-center gap-1 rounded-full bg-primary/10 px-2.5 py-1 text-xs font-medium text-primary"><MapPinIcon className="size-3.5" />สาขา{branchLabel(branch)}</span>
+            <span className="flex items-center gap-1 rounded-full bg-primary/10 px-2.5 py-1 text-xs font-medium text-primary"><MapPinIcon className="size-3.5" />{t("สาขา")}{branchLabel(branch)}</span>
+            <LanguageChip />
           </div>
         </header>
         {/* calendar sits on grey so the boards stand out (owner 2026-09-30) */}
@@ -139,6 +143,7 @@ function SmartSearch() {
   const [studentId, setStudentId] = useState<string | null>(null)
   const [leadId, setLeadId] = useState<string | null>(null)
   const router = useRouter()
+  const t = useT()
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => { if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") { e.preventDefault(); setOpen(true) } }
     window.addEventListener("keydown", onKey)
@@ -146,10 +151,10 @@ function SmartSearch() {
   }, [])
   return (
     <>
-      <button type="button" onClick={() => setOpen(true)} title="ค้นหา (⌘K)"
+      <button type="button" onClick={() => setOpen(true)} title={`${t("ค้นหา")} (⌘K)`}
         className="flex h-9 w-full items-center gap-2 rounded-full border bg-background px-3 text-sm text-muted-foreground hover:bg-muted group-data-[collapsible=icon]:size-8 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-0">
         <SearchIcon className="size-4 shrink-0" />
-        <span className="truncate group-data-[collapsible=icon]:hidden">ค้นหานักเรียน / ครอบครัว / Lead</span>
+        <span className="truncate group-data-[collapsible=icon]:hidden">{t("ค้นหานักเรียน / ครอบครัว / Lead")}</span>
         <kbd className="ml-auto rounded border px-1 text-[10px] group-data-[collapsible=icon]:hidden">⌘K</kbd>
       </button>
       {open && (
@@ -171,8 +176,9 @@ function NotificationCard() {
   const me = useStore((s) => s.staff.find((x) => x.id === s.userId)!)
   const count = useStore((s) => s.notifications.filter((n) => visibleTo(n, me) && isUnread(n, me)).length)
   const pathname = usePathname()
+  const t = useT()
   return (
-    <Link href="/notifications" title={count ? `แจ้งเตือน ${count} เรื่องยังไม่อ่าน` : "แจ้งเตือน"}
+    <Link href="/notifications" title={count ? `${t("แจ้งเตือน")} ${count} ${t("เรื่องยังไม่อ่าน")}` : t("แจ้งเตือน")}
       className={cn("flex items-center gap-2.5 rounded-2xl border px-3 py-2 hover:bg-muted group-data-[collapsible=icon]:size-8 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:rounded-lg group-data-[collapsible=icon]:border-0 group-data-[collapsible=icon]:p-0",
         pathname === "/notifications" && "bg-sidebar-accent", count > 0 && "border-red-200 bg-red-50/60 dark:border-red-900 dark:bg-red-950/30")}>
       <span className="relative">
@@ -180,8 +186,8 @@ function NotificationCard() {
         {count > 0 && <span className="absolute -top-1 -right-1 size-2 rounded-full bg-red-600" />}
       </span>
       <span className="min-w-0 leading-tight group-data-[collapsible=icon]:hidden">
-        <span className="block text-sm font-semibold">แจ้งเตือน</span>
-        <span className={cn("block text-xs", count ? "text-red-700 dark:text-red-300" : "text-muted-foreground")}>{count ? `${count} เรื่องยังไม่อ่าน` : "ไม่มีเรื่องใหม่"}</span>
+        <span className="block text-sm font-semibold">{t("แจ้งเตือน")}</span>
+        <span className={cn("block text-xs", count ? "text-red-700 dark:text-red-300" : "text-muted-foreground")}>{count ? `${count} ${t("เรื่องยังไม่อ่าน")}` : t("ไม่มีเรื่องใหม่")}</span>
       </span>
       {count > 0 && <span className="ml-auto grid h-5 min-w-5 place-items-center rounded-full bg-red-600 px-1 text-xs font-semibold text-white group-data-[collapsible=icon]:hidden">{count > 99 ? "99+" : count}</span>}
     </Link>
@@ -198,6 +204,7 @@ function UserCard() {
   // Director / Super Admin / Area Manager: every branch · others: their own branches only (same rule as approvals)
   const mine = branches.filter((b) => inBranch(me, b.id) && (b.active || b.id === branchId)).sort((a, b) => a.name.localeCompare(b.name, "th"))
   const [open, setOpen] = useState(false)
+  const t = useT()
   return (
     <div className="rounded-2xl border bg-background p-2.5 group-data-[collapsible=icon]:border-0 group-data-[collapsible=icon]:bg-transparent group-data-[collapsible=icon]:p-0"
       title={`${me.name} · ${me.roles.map((r) => ROLE_LABEL[r]).join(", ")} · สาขา${branch.name}`}>
@@ -212,19 +219,19 @@ function UserCard() {
         {mine.length > 1 ? (
           <Popover open={open} onOpenChange={setOpen}>
             <PopoverTrigger render={<button type="button" className="flex w-full items-start gap-1.5 rounded-xl px-1 py-0.5 text-left text-sm font-medium text-primary hover:bg-primary/10" />}>
-              <MapPinIcon className="mt-0.5 size-4 shrink-0" /><span className="break-words">สาขา{branchLabel(branch)}</span>
+              <MapPinIcon className="mt-0.5 size-4 shrink-0" /><span className="break-words">{t("สาขา")}{branchLabel(branch)}</span>
               <ArrowLeftRightIcon className="mt-0.5 ml-auto size-3.5 shrink-0" />
             </PopoverTrigger>
             <PopoverContent side="right" align="end" className="w-64 p-1.5">
-              <p className="px-2 py-1 text-xs text-muted-foreground">เลือกสาขา ({mine.length})</p>
+              <p className="px-2 py-1 text-xs text-muted-foreground">{t("เลือกสาขา")} ({mine.length})</p>
               <ul className="max-h-80 overflow-y-auto">
                 {mine.map((b) => (
                   <li key={b.id}>
                     <button type="button" onClick={() => { setBranch(b.id); setOpen(false) }}
                       className={cn("flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-sm hover:bg-muted", b.id === branchId && "bg-primary/10 font-medium text-primary")}>
-                      <span className="min-w-0 flex-1 break-words">สาขา{branchLabel(b)}</span>
+                      <span className="min-w-0 flex-1 break-words">{t("สาขา")}{branchLabel(b)}</span>
                       <span className="text-[10px] text-muted-foreground">{b.code}</span>
-                      {!b.active && <Pill className="px-1 py-0 text-[10px]">ปิด</Pill>}
+                      {!b.active && <Pill className="px-1 py-0 text-[10px]">{t("ปิด")}</Pill>}
                       {b.id === branchId && <CheckIcon className="size-4" />}
                     </button>
                   </li>
@@ -233,7 +240,7 @@ function UserCard() {
             </PopoverContent>
           </Popover>
         ) : (
-          <div className="flex items-start gap-1.5 text-sm font-medium text-primary"><MapPinIcon className="mt-0.5 size-4 shrink-0" /><span className="break-words">สาขา{branchLabel(branch)}</span></div>
+          <div className="flex items-start gap-1.5 text-sm font-medium text-primary"><MapPinIcon className="mt-0.5 size-4 shrink-0" /><span className="break-words">{t("สาขา")}{branchLabel(branch)}</span></div>
         )}
       </div>
     </div>
@@ -249,21 +256,48 @@ function CurrentPeriodChip() {
   const branch = useBranch()
   const today = toDateStr(useNow())
   const p = periodOn(branch, today)
+  const t = useT()
   if (!p) return null
   return (
     <Link href={`/settings/branches/${branch.id}`} title={`${p.name}: ${fmtDate(p.from)} – ${fmtDate(p.to, { year: true })} · ${periodHours(p)}`}
       className="hidden items-center gap-1 rounded-full bg-amber-50 px-2.5 py-1 text-xs font-medium text-amber-900 ring-1 ring-amber-200 md:flex">
-      <SunIcon className="size-3.5 text-amber-600" /> ช่วง {p.name} · ถึง {fmtDate(p.to)}
+      <SunIcon className="size-3.5 text-amber-600" /> {t("ช่วง")} {p.name} · {t("ถึง")} {fmtDate(p.to)}
     </Link>
   )
 }
 
 function NoAccess() {
+  const t = useT()
   return (
     <div className="mx-auto mt-20 max-w-sm text-center">
       <LockIcon className="mx-auto size-8 text-muted-foreground" />
-      <h2 className="mt-3 font-semibold">ไม่มีสิทธิ์เข้าหน้านี้</h2>
-      <p className="mt-1 text-sm text-muted-foreground">บทบาทของคุณไม่ได้รับสิทธิ์ใช้งานส่วนนี้ ติดต่อผู้จัดการสาขาถ้าต้องการสิทธิ์เพิ่ม</p>
+      <h2 className="mt-3 font-semibold">{t("ไม่มีสิทธิ์เข้าหน้านี้")}</h2>
+      <p className="mt-1 text-sm text-muted-foreground">{t("บทบาทของคุณไม่ได้รับสิทธิ์ใช้งานส่วนนี้ ติดต่อผู้จัดการสาขาถ้าต้องการสิทธิ์เพิ่ม")}</p>
     </div>
+  )
+}
+
+/** owner 2026-10-07: language chip after the branch — English / ไทย / 日本語 (this person, this browser) */
+function LanguageChip() {
+  const { lang, setLang } = useUiLang()
+  const t = useT()
+  useEffect(() => { document.documentElement.lang = lang }, [lang])
+  const cur = UI_LANGS.find((l) => l.key === lang)!
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger render={<button type="button" aria-label={t("ภาษา")} className="flex items-center gap-1 rounded-full border bg-background px-2.5 py-1 text-xs font-medium hover:bg-muted" />}>
+        <GlobeIcon className="size-3.5 text-muted-foreground" />{cur.short}<ChevronDownIcon className="size-3 text-muted-foreground" />
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="w-40">
+        <DropdownMenuGroup>
+          <DropdownMenuLabel>{t("ภาษา")}</DropdownMenuLabel>
+          {UI_LANGS.map((l) => (
+            <DropdownMenuItem key={l.key} onClick={() => setLang(l.key)}>
+              {l.label}{l.key === lang && <CheckIcon className="ml-auto size-4 text-primary" />}
+            </DropdownMenuItem>
+          ))}
+        </DropdownMenuGroup>
+      </DropdownMenuContent>
+    </DropdownMenu>
   )
 }
