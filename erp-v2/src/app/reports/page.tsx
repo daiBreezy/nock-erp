@@ -16,7 +16,7 @@ import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { addDays, fmtDate, fmtMoney, monthShort, toDateStr, weekdayShort, yearOf } from "@/domain/dates"
 import { can, canCompareBranches, reportBranchIds } from "@/domain/rules/permissions"
-import { BUSINESS_SHORT, COMPARE_LABEL, PERIODS, scopeBranchIds, type PeriodKey, type Range } from "@/domain/rules/reports"
+import { BUSINESS_SHORT, COMPARE_LABEL, groupFigures, PERIODS, scopeBranchIds, type GroupBy, type PeriodKey, type Range } from "@/domain/rules/reports"
 import { LEAD_SOURCE_LABEL } from "@/domain/rules/crm"
 import { reasonLabel } from "@/domain/rules/loss"
 import type { Branch, Weekday } from "@/domain/types"
@@ -175,6 +175,55 @@ function reportScopeOptions(list: Pick<Branch, "id" | "name" | "code" | "brand" 
   return opts
 }
 
+const GROUP_TABS: { by: GroupBy; label: string }[] = [{ by: "region", label: "ภูมิภาค" }, { by: "biz", label: "ประเภทธุรกิจ" }, { by: "both", label: "ภูมิภาค × ธุรกิจ" }]
+const GROUP_COLORS = ["#be123c", "#0ea5e9", "#f59e0b", "#10b981", "#8b5cf6", "#64748b"]
+
+/**
+ * Region / business side by side (owner 2026-10-07: see the split, not one at a time) — revenue share as a donut,
+ * then each group's revenue, growth, students, movement and attendance in one table. Shown when the scope spans
+ * more than one group.
+ */
+function GroupCompare({ d, periodLabel }: { d: ReportData; periodLabel: string }) {
+  const [by, setBy] = useState<GroupBy>("region")
+  const att = new Map(d.attendanceTab.byBranch.map((r) => [r.key, r]))
+  const rows = d.perBranch.map((b) => ({ ...b, present: att.get(b.id)?.present ?? 0, leave: att.get(b.id)?.leave ?? 0 }))
+  const tabs = GROUP_TABS.filter((t) => new Set(groupFigures(rows, t.by).map((g) => g.key)).size > 1)
+  const use = tabs.some((t) => t.by === by) ? by : tabs[0]?.by
+  if (!use) return null
+  const groups = groupFigures(rows, use)
+  const total = groups.reduce((a, g) => a + g.revenue, 0)
+  return (
+    <Panel title={tx("เปรียบเทียบภูมิภาค / ธุรกิจ")} hint={tx("{0} · รายได้ = เงินเข้า · เติบโต = เทียบช่วงก่อนหน้า · Active = วันนี้ · เข้าเรียน = มา ÷ (มา + ลา)", [periodLabel])}
+      action={<span className="inline-flex rounded-full bg-muted p-0.5 text-xs">{tabs.map((t) => <button key={t.by} type="button" onClick={() => setBy(t.by)} className={cn("rounded-full px-3 py-1", use === t.by ? "bg-background font-medium shadow-sm" : "text-muted-foreground")}>{tx(t.label)}</button>)}</span>}>
+      <div className="grid items-center gap-8 lg:grid-cols-[12rem_1fr]">
+        <Donut colors={GROUP_COLORS} center={fmtShort(total)} sub={tx("รายได้รวม")} parts={groups.map((g) => ({ label: g.key, value: g.revenue }))} />
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead className="text-xs text-muted-foreground"><tr>
+              <th className="text-left font-normal">{tx("กลุ่ม")}</th><th className="w-1/4 text-left font-normal">{tx("รายได้")}</th><th className="text-right font-normal">{tx("เติบโต")}</th>
+              <th className="text-right font-normal">Active</th><th className="text-right font-normal">{tx("เข้า")}</th><th className="text-right font-normal">Lost</th><th className="text-right font-normal">{tx("สุทธิ")}</th>
+              <th className="text-right font-normal">{tx("เข้าเรียน")}</th><th className="text-right font-normal">{tx("รายได้/คน")}</th>
+            </tr></thead>
+            <tbody>{groups.map((g, i) => (
+              <tr key={g.key} className="border-t">
+                <td className="py-2.5 pr-3 whitespace-nowrap"><span className="flex items-center gap-2"><span className="size-2.5 rounded-full" style={{ background: GROUP_COLORS[i % GROUP_COLORS.length] }} /><span className="font-medium">{g.key}</span><span className="text-xs text-muted-foreground">{tx("{0} สาขา", [g.branches])}</span></span></td>
+                <td className="pr-3"><span className="flex items-center gap-2"><ShareBar value={g.share} color={GROUP_COLORS[i % GROUP_COLORS.length]} /><span className="w-24 shrink-0 text-right tabular-nums">{fmtShort(g.revenue)} <span className="text-xs text-muted-foreground">{fmtPct(g.share)}</span></span></span></td>
+                <td className="text-right"><Delta value={g.growth === null || !d.comparable ? null : Math.round(g.growth * 1000) / 10} /></td>
+                <td className="text-right tabular-nums">{fmtNum(g.active)}</td>
+                <td className="text-right text-emerald-600 tabular-nums">+{g.newCount + g.returning}</td>
+                <td className="text-right text-red-600 tabular-nums">−{g.lost}</td>
+                <td className={cn("text-right font-medium tabular-nums", g.net < 0 && "text-red-600")}>{g.net > 0 ? "+" : ""}{g.net}</td>
+                <td className={cn("text-right tabular-nums", g.attendance !== null && g.attendance < 0.8 && "text-red-600")}>{fmtPct(g.attendance)}</td>
+                <td className="text-right tabular-nums">{g.perStudent === null ? "—" : fmtShort(g.perStudent)}</td>
+              </tr>
+            ))}</tbody>
+          </table>
+        </div>
+      </div>
+    </Panel>
+  )
+}
+
 function Kpi({ icon: Icon, label, value, sub }: { icon: typeof BanknoteIcon; label: string; value: string; sub: React.ReactNode }) {
   return (
     <div className="flex items-center gap-3 rounded-3xl bg-card p-4 shadow-sm ring-1 ring-foreground/10">
@@ -207,6 +256,8 @@ function Overview({ d, compare, period, periodLabel, onAllRevenue, onAllStudents
           </div>
         ))}
       </div>
+
+      {compare && <GroupCompare d={d} periodLabel={periodLabel} />}
 
       <div className="grid gap-4 lg:grid-cols-2">
         <Panel title={tx("รายได้รายเดือน")} hint={tx("ปี {0} เทียบปีที่แล้ว · ลายทาง = คาดการณ์ (ต่อคอร์ส {1} + ใบที่รอจ่าย)", [yearOf(d.monthly.year), fmtPct(d.forecast.renewal)])}>
@@ -327,8 +378,8 @@ function BranchRevenue({ rows }: { rows: ReportData["byBranch"] }) {
             <tr key={b.id} className="border-t">
               <td className="py-2"><span className="flex items-center gap-2"><Rank n={c * half + i + 1} /><span className="truncate">{nm(b.name)}</span></span></td>
               <td className="w-1/4 px-2"><ShareBar value={b.share / (rows[0].share || 1)} /></td>
-              <td className="text-right tabular-nums">{fmtShort(b.amount)}</td>
-              <td className="w-10 text-right text-muted-foreground tabular-nums">{fmtPct(b.share)}</td>
+              <td className="pl-2 text-right tabular-nums">{fmtShort(b.amount)}</td>
+              <td className="w-12 pl-2 text-right text-muted-foreground tabular-nums">{fmtPct(b.share)}</td>
             </tr>
           ))}</tbody>
         </table></div>

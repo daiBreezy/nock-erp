@@ -505,4 +505,11 @@ export const REPORTS: Record<string, Entry> = {
   "สาขา {0}": { en: "Branches {0}", ja: "{0}の校舎" },
   "กรุงเทพฯ": { en: "Bangkok", ja: "バンコク" },
   "ชลบุรี": { en: "Chonburi", ja: "チョンブリー" },
+  "เปรียบเทียบภูมิภาค / ธุรกิจ": { en: "Regions / business compared", ja: "地域・事業の比較" },
+  "{0} · รายได้ = เงินเข้า · เติบโต = เทียบช่วงก่อนหน้า · Active = วันนี้ · เข้าเรียน = มา ÷ (มา + ลา)": { en: "{0} · revenue = money in · growth = vs the previous period · active = today · attendance = present ÷ (present + leave)", ja: "{0} · 売上＝入金 · 成長＝前期比 · 在籍＝本日 · 出席率＝出席÷（出席＋欠席）" },
+  "กลุ่ม": { en: "Group", ja: "グループ" },
+  "เติบโต": { en: "Growth", ja: "成長" },
+  "เข้าเรียน": { en: "Attendance", ja: "出席率" },
+  "รายได้/คน": { en: "Revenue/student", ja: "1人あたり売上" },
+  "{0} สาขา": { en: "{0} branches", ja: "{0}校舎" },
 }

@@ -1867,3 +1867,18 @@ describe("report scope", () => {
     expect(Rep.scopeBranchIds("region:CBR", list.slice(0, 2))).toEqual(["tl", "bn"])
   })
 })
+
+describe("compare regions / business types", () => {
+  const f = (id: string, brand: "nockacademy" | "liclass", province: string, revenue: number, revenuePrev: number) => ({ id, brand, province, revenue, revenuePrev, active: 10, newCount: 2, returning: 1, lost: 1, pauses: 0, present: 8, leave: 2 })
+  const rows = [f("tl", "liclass", "BKK", 300, 200), f("bn", "nockacademy", "BKK", 500, 500), f("sr", "nockacademy", "CBR", 200, 400)]
+  it("adds branches up per region, business, or both, biggest first", () => {
+    const r = Rep.groupFigures(rows, "region")
+    expect(r.map((g) => [g.key, g.revenue, g.branches])).toEqual([["BKK", 800, 2], ["CBR", 200, 1]])
+    expect(r[0].share).toBe(0.8)
+    expect(r[1].growth).toBe(-0.5)
+    expect(Rep.groupFigures(rows, "biz").map((g) => g.key)).toEqual(["NAS", "LIS"])
+    expect(Rep.groupFigures(rows, "both").map((g) => g.key)).toEqual(["BKK · NAS", "BKK · LIS", "CBR · NAS"])
+    expect(r[0].attendance).toBe(0.8)
+    expect(r[0].net).toBe(4)
+  })
+})

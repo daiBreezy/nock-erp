@@ -82,8 +82,9 @@ export function useReports(branchIds: string[], period: R.PeriodKey, custom?: R.
     }, tx)
 
     const perBranch = branches.map((b) => ({
-      id: b.id, name: b.name,
+      id: b.id, name: b.name, brand: b.brand, province: b.province ?? "",
       revenue: R.revenueIn(rows.filter((x) => x.branchId === b.id), range).total,
+      revenuePrev: R.revenueIn(rows.filter((x) => x.branchId === b.id), prev).total,
       newCount: R.countEvents(events, range, "new", b.id), returning: R.countEvents(events, range, "returning", b.id),
       lost: R.countEvents(events, range, "lost", b.id), pauses: R.pausesIn(leaves, range, students, b.id),
       active: students.filter((x) => x.branchId === b.id && R.stateOn(x.id, today, ents, leaves) === "active").length,

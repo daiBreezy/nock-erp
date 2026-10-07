@@ -729,3 +729,31 @@ export function scopeBranchIds(scope: string, allowed: Pick<Branch, "id" | "bran
   }
   return allowed.some((b) => b.id === scope) ? [scope] : allowed.map((b) => b.id)
 }
+
+export type GroupBy = "region" | "biz" | "both"
+export interface BranchFigures { id: ID; brand: Branch["brand"]; province: string; revenue: number; revenuePrev: number; active: number; newCount: number; returning: number; lost: number; pauses: number; present: number; leave: number }
+
+/**
+ * Branch figures added up per region, per business type, or per region × business (owner 2026-10-07: compare BKK with
+ * CBR, NAS with LIS, side by side). Shares are of the total in view; attendance = present ÷ (present + leave).
+ */
+export function groupFigures(rows: BranchFigures[], by: GroupBy) {
+  const keyOf = (b: BranchFigures) => (by === "region" ? b.province : by === "biz" ? BUSINESS_SHORT[b.brand] : `${b.province} · ${BUSINESS_SHORT[b.brand]}`)
+  const map = new Map<string, Omit<BranchFigures, "id" | "brand" | "province"> & { key: string; branches: number }>()
+  for (const b of rows) {
+    const k = keyOf(b)
+    const g = map.get(k) ?? { key: k, branches: 0, revenue: 0, revenuePrev: 0, active: 0, newCount: 0, returning: 0, lost: 0, pauses: 0, present: 0, leave: 0 }
+    g.branches++
+    for (const f of ["revenue", "revenuePrev", "active", "newCount", "returning", "lost", "pauses", "present", "leave"] as const) g[f] += b[f]
+    map.set(k, g)
+  }
+  const total = rows.reduce((a, b) => a + b.revenue, 0)
+  return [...map.values()].map((g) => ({
+    ...g,
+    share: total ? g.revenue / total : 0,
+    growth: g.revenuePrev ? (g.revenue - g.revenuePrev) / g.revenuePrev : null,
+    net: g.newCount + g.returning - g.lost,
+    attendance: g.present + g.leave ? g.present / (g.present + g.leave) : null,
+    perStudent: g.active ? g.revenue / g.active : null,
+  })).sort((a, b) => b.revenue - a.revenue)
+}

@@ -121,7 +121,7 @@ export function buildSeed(now = new Date()): DB {
       // owner 2026-10-07: the real branches — BKK: Liclass TL · NAS BN PP GP RH · CBR: Liclass SR · NAS SR CB PT BW
       ["br_prd", "PP", "002", "พาราไดซ์ พาร์ค", "Paradise Park", "nockacademy", "BKK"], ["br_skv", "GP", "003", "กรีนเพลส", "Green Place", "nockacademy", "BKK"],
       ["br_slm", "RH", "004", "รามคำแหง", "Ramkhumhaeng", "nockacademy", "BKK"], ["br_src", "SR", "002", "ศรีราชา", "Sriracha", "liclass", "CBR"],
-      ["br_bna", "SR", "005", "ศรีราชา", "Sriracha", "nockacademy", "CBR"], ["br_cbr", "CB", "006", "ชลบุรี (ทุ่งน้ำ)", "Chonburi (Tuknam)", "nockacademy", "CBR"],
+      ["br_bna", "SR", "005", "ศรีราชา", "Sriracha", "nockacademy", "CBR"], ["br_cbr", "CB", "006", "ชลบุรี (ตึกน้ำ)", "Chonburi (Tuknam)", "nockacademy", "CBR"],
       ["br_pty", "PT", "007", "พัทยา", "Pattaya", "nockacademy", "CBR"], ["br_sth", "BW", "008", "บ่อวิน", "Bowin", "nockacademy", "CBR"],
     ] as const).map(([id, code, branchNo, name, nameEn, brand, province]): Branch => ({
       id, code, branchNo, name, nameEn, brand, province,
