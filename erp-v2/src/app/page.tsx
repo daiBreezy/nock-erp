@@ -26,7 +26,19 @@ import type { Attendance, Session } from "@/domain/types"
 import { useBranch, useEntitlements, useLookup, useNow, useQueryState } from "@/lib/hooks"
 import { cn } from "@/lib/utils"
 import { useStore } from "@/store/store"
-import { tx } from "@/lib/i18n"
+import { tx, nm, sj } from "@/lib/i18n"
+
+/** "ครูมิ้นท์ สอนชนเวลา 14:30" from the scheduling rules → the chosen language */
+const clashText = (m: string) => { const x = m.match(/^(.+) สอนชนเวลา (.+)$/); return x ? tx("{0} สอนชนเวลา {1}", [nm(x[1]), x[2]]) : tx(m) }
+
+/** package alerts come from the rules in Thai — shown in the chosen language */
+const alertText = (m: string) => {
+  const left = m.match(/^เหลือ (\d+) คาบ$/)
+  if (left) return tx("เหลือ {0} คาบ", [left[1]])
+  const exp = m.match(/^แพ็กเกจหมดอายุ (.+)$/)
+  if (exp) return tx("แพ็กเกจหมดอายุ {0}", [exp[1]])
+  return tx(m)
+}
 
 type RangeKey = "today" | "week" | "month"
 const PERIOD_OF: Record<RangeKey, R.PeriodKey> = { today: "today", week: "week", month: "mtd" }
@@ -92,7 +104,7 @@ export default function DashboardPage() {
       .filter((s) => s.date >= addDays(today, -7) && ["ended"].includes(sessionState(s, now)) && (!mineOnly || s.teacherId === me.id))
       .forEach((s) => {
         const missing = s.studentIds.filter((sid) => !attendance.some((a) => a.sessionId === s.id && a.studentId === sid)).length
-        if (missing) out.push({ key: `att${s.id}`, label: tx("ยังไม่เช็คชื่อ {0} คน", [missing]), detail: `${s.subject} ${fmtDate(s.date)} ${s.start}`, onClick: () => setOpenSessionId(s.id), tone: "red" })
+        if (missing) out.push({ key: `att${s.id}`, label: tx("ยังไม่เช็คชื่อ {0} คน", [missing]), detail: `${sj(s.subject)} ${fmtDate(s.date)} ${s.start}`, onClick: () => setOpenSessionId(s.id), tone: "red" })
       })
     const present = attendance.filter((a) => a.status === "present")
     present.forEach((a) => {
@@ -100,13 +112,13 @@ export default function DashboardPage() {
       if (!s || s.date < addDays(today, -7)) return
       const sm = summaries.find((x) => x.sessionId === a.sessionId && x.studentId === a.studentId)
       if (s.teacherId === me.id && (!sm || sm.status === "draft" || sm.status === "changes_requested"))
-        out.push({ key: `sw${s.id}${a.studentId}`, label: sm?.status === "changes_requested" ? tx("สรุปถูกขอแก้") : tx("เขียนสรุปการเรียน"), detail: `${L.student(a.studentId)?.nickname} · ${s.subject} ${fmtDate(s.date)}`, onClick: () => setOpenSessionId(s.id), tone: "amber" })
+        out.push({ key: `sw${s.id}${a.studentId}`, label: sm?.status === "changes_requested" ? tx("สรุปถูกขอแก้") : tx("เขียนสรุปการเรียน"), detail: `${nm(L.student(a.studentId)?.nickname)} · ${sj(s.subject)} ${fmtDate(s.date)}`, onClick: () => setOpenSessionId(s.id), tone: "amber" })
       if (sm?.status === "submitted" && can(me, "summary.approve") && sm.authorId !== me.id && sm.lastEditorId !== me.id)
-        out.push({ key: `sa${sm.id}`, label: tx("สรุปรออนุมัติ"), detail: `${L.student(a.studentId)?.nickname} · ${s.subject} ${fmtDate(s.date)}`, onClick: () => setOpenSessionId(s.id), tone: "blue" })
+        out.push({ key: `sa${sm.id}`, label: tx("สรุปรออนุมัติ"), detail: `${nm(L.student(a.studentId)?.nickname)} · ${sj(s.subject)} ${fmtDate(s.date)}`, onClick: () => setOpenSessionId(s.id), tone: "blue" })
     })
     if (can(me, "billing.approve"))
       invoices.filter((i) => canApproveInvoice(i, me).ok).forEach((i) =>
-        out.push({ key: `inv${i.id}`, label: tx("ใบแจ้งหนี้รออนุมัติ"), detail: `${i.number} · ${students.find((s) => s.id === i.studentId)?.nickname}`, href: `/billing?open=${i.id}`, tone: "blue" }))
+        out.push({ key: `inv${i.id}`, label: tx("ใบแจ้งหนี้รออนุมัติ"), detail: `${i.number} · ${nm(students.find((s) => s.id === i.studentId)?.nickname)}`, href: `/billing?open=${i.id}`, tone: "blue" }))
     return out
   })()
 
@@ -116,9 +128,9 @@ export default function DashboardPage() {
     const out: { key: string; text: string; href: string; kind: "conflict" | "no_teacher" | "renewal" }[] = []
     findConflicts(next7, branch, staff).forEach((c, i) => {
       const s = next7.find((x) => x.id === c.sessionIds[0])!
-      out.push({ key: `c${i}`, text: `${fmtDate(s.date, { weekday: true })}: ${c.message}`, href: "/calendar", kind: "conflict" })
+      out.push({ key: `c${i}`, text: `${fmtDate(s.date, { weekday: true })}: ${clashText(c.message)}`, href: "/calendar", kind: "conflict" })
     })
-    next7.filter((s) => !s.teacherId || !staff.find((t) => t.id === s.teacherId)?.active).forEach((s) => out.push({ key: `t${s.id}`, text: tx("{0} {1} {2}: ยังไม่มีครูสอน", [fmtDate(s.date, { weekday: true }), s.start, s.subject]), href: "/calendar", kind: "no_teacher" }))
+    next7.filter((s) => !s.teacherId || !staff.find((t) => t.id === s.teacherId)?.active).forEach((s) => out.push({ key: `t${s.id}`, text: tx("{0} {1} {2}: ยังไม่มีครูสอน", [fmtDate(s.date, { weekday: true }), s.start, sj(s.subject)]), href: "/calendar", kind: "no_teacher" }))
     // owner 2026-10-06: the full renewal list below already covers this for dashboard.view roles — avoid saying it twice
     if (!hasOverview) entitlements.forEach((e) => {
       const stu = students.find((x) => x.id === e.studentId)
@@ -139,7 +151,7 @@ export default function DashboardPage() {
     .filter((s) => statusOf.get(s.id) === "renewal" && Att.renewalFollowUpDue(s, today))
     .map((stu) => {
       const ents = entitlements.filter((e) => e.studentId === stu.id && e.to >= today)
-      const messages = ents.map((e) => { const m = Att.lowBalanceAlert(e, Att.balance(e, sessions, attendance, classes), today); return m && `${courses.find((c) => c.id === e.courseId)?.name ?? tx("คอร์ส")}: ${m}` }).filter((m): m is string => !!m)
+      const messages = ents.map((e) => { const m = Att.lowBalanceAlert(e, Att.balance(e, sessions, attendance, classes), today); return m && `${nm(courses.find((c) => c.id === e.courseId)?.name) || tx("คอร์ส")}: ${alertText(m)}` }).filter((m): m is string => !!m)
       const urgent = ents.some((e) => e.kind === "sessions" && Att.balance(e, sessions, attendance, classes).remaining <= 1) || ents.some((e) => e.to <= addDays(today, 2))
       return { stu, messages, urgent }
     })
@@ -153,7 +165,7 @@ export default function DashboardPage() {
   const newLeads = leads.filter((l) => l.stage === "new")
   const recentActivity = (() => {
     if (!hasOverview) return []
-    const payments = invoices.flatMap((i) => i.payments.filter((p) => p.confirmedBy).map((p) => ({ at: p.recordedAt, text: tx("ชำระเงิน · {0} · {1}", [students.find((s) => s.id === i.studentId)?.nickname ?? "-", fmtMoney(invoiceTotals(i, { branch, courses, classes, holidays }).total)]), tone: "green" as const })))
+    const payments = invoices.flatMap((i) => i.payments.filter((p) => p.confirmedBy).map((p) => ({ at: p.recordedAt, text: tx("ชำระเงิน · {0} · {1}", [nm(students.find((s) => s.id === i.studentId)?.nickname ?? "-"), fmtMoney(invoiceTotals(i, { branch, courses, classes, holidays }).total)]), tone: "green" as const })))
     const att = attendance
       .filter((a) => a.status !== "leave")
       .slice(-60)
@@ -161,7 +173,7 @@ export default function DashboardPage() {
         const se = sessions.find((x) => x.id === a.sessionId)
         const stu = students.find((x) => x.id === a.studentId)
         if (!se || !stu || se.branchId !== branch.id) return null
-        return { at: a.markedAt, text: `${a.status === "present" ? tx("เข้าเรียน") : tx("ขาดเรียน")} · ${stu.nickname} · ${se.subject}`, tone: a.status === "present" ? ("blue" as const) : ("red" as const) }
+        return { at: a.markedAt, text: `${a.status === "present" ? tx("เข้าเรียน") : tx("ขาดเรียน")} · ${nm(stu.nickname)} · ${sj(se.subject)}`, tone: a.status === "present" ? ("blue" as const) : ("red" as const) }
       })
       .filter((x): x is { at: string; text: string; tone: "blue" | "red" } => !!x)
     return [...payments, ...att].sort((a, b) => b.at.localeCompare(a.at)).slice(0, 8)
@@ -204,7 +216,7 @@ export default function DashboardPage() {
   return (
     <div className="mx-auto max-w-6xl space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <DashboardHeader name={me.nickname} today={today} branchName={branch.name} />
+        <DashboardHeader name={nm(me.nickname)} today={today} branchName={nm(branch.name)} />
         {hasOverview && (
           <ToggleGroup value={[range]} onValueChange={(v) => v[0] && setRangeParam(v[0] as RangeKey)} variant="outline" size="sm">
             <ToggleGroupItem value="today">{tx("วันนี้")}</ToggleGroupItem>
@@ -298,7 +310,7 @@ export default function DashboardPage() {
                     <button key={stu.id} onClick={() => setOpenStudentId(stu.id)} className="flex w-full items-center gap-3 rounded-lg border p-2.5 text-left hover:bg-muted/50">
                       <span className={cn("grid size-9 shrink-0 place-items-center rounded-full text-sm font-semibold", avatarTone(stu.id))}>{initial(stu.nickname)}</span>
                       <div className="min-w-0 flex-1">
-                        <div className="flex items-center gap-1.5 truncate text-sm font-medium">{stu.nickname} <span className="font-normal text-muted-foreground">{stu.name}</span> <span className={cn("rounded px-1.5 py-0.5 text-xs", gradeTone(stu.grade))}>{stu.grade}</span></div>
+                        <div className="flex items-center gap-1.5 truncate text-sm font-medium">{nm(stu.nickname)} <span className="font-normal text-muted-foreground">{nm(stu.name)}</span> <span className={cn("rounded px-1.5 py-0.5 text-xs", gradeTone(stu.grade))}>{nm(stu.grade)}</span></div>
                         <div className="truncate text-xs text-muted-foreground">{messages.join(" · ") || tx("ใกล้หมดแพ็กเกจ")}{stu.renewalFollowUps?.length ? tx(" · ติดตามแล้ว {0} ครั้ง", [stu.renewalFollowUps.length]) : ""}</div>
                       </div>
                       {urgent && <Pill tone="red">{tx("ด่วน")}</Pill>}
@@ -317,7 +329,7 @@ export default function DashboardPage() {
                   {newLeads.length === 0 && <p className="py-6 text-center text-sm text-muted-foreground">{tx("ยังไม่มีลีดใหม่วันนี้")}</p>}
                   {newLeads.slice(0, 6).map((l) => (
                     <Link key={l.id} href="/crm" className="flex items-center gap-2 rounded-lg p-2 hover:bg-muted/60">
-                      <span className="min-w-0 flex-1 truncate text-sm">{l.name} <span className="text-xs text-muted-foreground">· {l.subject} {l.childGrade}</span></span>
+                      <span className="min-w-0 flex-1 truncate text-sm">{nm(l.name)} <span className="text-xs text-muted-foreground">· {sj(l.subject)} {nm(l.childGrade)}</span></span>
                       <Pill tone="blue">{tx(LEAD_STAGE_LABEL[l.stage])}</Pill>
                     </Link>
                   ))}
@@ -419,9 +431,9 @@ function TodaySessionRow({ s, now, L, attendance, onOpen, muted }: { s: Session;
         <span className="text-sm font-semibold text-foreground">{s.start}</span>–{endTime(s.start, s.minutes)}
       </div>
       <div className="min-w-0 flex-1">
-        <div className="truncate text-sm font-medium">{s.subject}{sessionKindLabel(s) && <Pill tone="violet" className="ml-2">{tx(sessionKindLabel(s)!)}</Pill>}</div>
+        <div className="truncate text-sm font-medium">{sj(s.subject)}{sessionKindLabel(s) && <Pill tone="violet" className="ml-2">{tx(sessionKindLabel(s)!)}</Pill>}</div>
         <div className="truncate text-xs text-muted-foreground">
-          <span className={cn(t.missing && "text-amber-700")}>{t.label}</span> · {L.room(s.roomId)}  {tx("· เช็คชื่อแล้ว")} {marked}/{s.studentIds.length}
+          <span className={cn(t.missing && "text-amber-700")}>{nm(t.label)}</span> · {nm(L.room(s.roomId))}  {tx("· เช็คชื่อแล้ว")} {marked}/{s.studentIds.length}
         </div>
       </div>
       {st === "live" ? <SessionStateBadge state={st} /> : <span className="shrink-0 text-xs text-muted-foreground">{tx(STATE_LABEL[st])}</span>}

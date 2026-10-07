@@ -1,6 +1,5 @@
 "use client"
 
-import { branchLabel } from "@/domain/rules/settings"
 import { periodHours } from "./period-banner"
 import { periodOn } from "@/domain/rules/scheduling"
 import { fmtDate, toDateStr } from "@/domain/dates"
@@ -10,7 +9,7 @@ import { usePathname, useRouter } from "next/navigation"
 import { useEffect, useState, useSyncExternalStore, type ReactNode } from "react"
 import { ArrowLeftRightIcon, BellIcon, CheckIcon, ChevronDownIcon, GlobeIcon, LockIcon, MapPinIcon, SearchIcon, SunIcon } from "lucide-react"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
-import { UI_LANGS, useT, useUiLang } from "@/lib/i18n"
+import { branchText, nm, UI_LANGS, useT, useUiLang } from "@/lib/i18n"
 import {
   Sidebar, SidebarContent, SidebarFooter, SidebarGroup, SidebarGroupLabel, SidebarHeader, SidebarInset, SidebarMenu,
   SidebarMenuBadge, SidebarMenuButton, SidebarMenuItem, SidebarProvider, SidebarTrigger,
@@ -127,7 +126,7 @@ function Shell({ children }: { children: ReactNode }) {
           <div className="ml-auto flex items-center gap-2">
             <CurrentPeriodChip />
             {/* branch stays visible on phones too, where the sidebar is hidden */}
-            <span className="flex items-center gap-1 rounded-full bg-primary/10 px-2.5 py-1 text-xs font-medium text-primary"><MapPinIcon className="size-3.5" />{t("สาขา")}{branchLabel(branch)}</span>
+            <span className="flex items-center gap-1 rounded-full bg-primary/10 px-2.5 py-1 text-xs font-medium text-primary"><MapPinIcon className="size-3.5" />{t("สาขา")}{branchText(branch)}</span>
             <LanguageChip />
           </div>
         </header>
@@ -213,7 +212,7 @@ function UserCard() {
       <div className="flex items-center gap-2.5">
         <span className={cn("grid size-9 shrink-0 place-items-center rounded-full font-semibold group-data-[collapsible=icon]:size-8", avatarTone(me.id))}>{initial(me.nickname)}</span>
         <div className="min-w-0 leading-tight group-data-[collapsible=icon]:hidden">
-          <div className="text-sm font-semibold break-words">{me.nickname} <span className="font-normal text-muted-foreground">{me.name !== me.nickname ? me.name : ""}</span></div>
+          <div className="text-sm font-semibold break-words">{nm(me.nickname)} <span className="font-normal text-muted-foreground">{me.name !== me.nickname ? nm(me.name) : ""}</span></div>
           <div className="mt-0.5 flex flex-wrap gap-1">{me.roles.map((r) => <Pill key={r} tone="blue" className="px-1.5 py-0 text-[10px]">{ROLE_LABEL[r]}</Pill>)}</div>
         </div>
       </div>
@@ -221,7 +220,7 @@ function UserCard() {
         {mine.length > 1 ? (
           <Popover open={open} onOpenChange={setOpen}>
             <PopoverTrigger render={<button type="button" className="flex w-full items-start gap-1.5 rounded-xl px-1 py-0.5 text-left text-sm font-medium text-primary hover:bg-primary/10" />}>
-              <MapPinIcon className="mt-0.5 size-4 shrink-0" /><span className="break-words">{t("สาขา")}{branchLabel(branch)}</span>
+              <MapPinIcon className="mt-0.5 size-4 shrink-0" /><span className="break-words">{t("สาขา")}{branchText(branch)}</span>
               <ArrowLeftRightIcon className="mt-0.5 ml-auto size-3.5 shrink-0" />
             </PopoverTrigger>
             <PopoverContent side="right" align="end" className="w-64 p-1.5">
@@ -231,7 +230,7 @@ function UserCard() {
                   <li key={b.id}>
                     <button type="button" onClick={() => { setBranch(b.id); setOpen(false) }}
                       className={cn("flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-sm hover:bg-muted", b.id === branchId && "bg-primary/10 font-medium text-primary")}>
-                      <span className="min-w-0 flex-1 break-words">{t("สาขา")}{branchLabel(b)}</span>
+                      <span className="min-w-0 flex-1 break-words">{t("สาขา")}{branchText(b)}</span>
                       <span className="text-[10px] text-muted-foreground">{b.code}</span>
                       {!b.active && <Pill className="px-1 py-0 text-[10px]">{t("ปิด")}</Pill>}
                       {b.id === branchId && <CheckIcon className="size-4" />}
@@ -242,7 +241,7 @@ function UserCard() {
             </PopoverContent>
           </Popover>
         ) : (
-          <div className="flex items-start gap-1.5 text-sm font-medium text-primary"><MapPinIcon className="mt-0.5 size-4 shrink-0" /><span className="break-words">{t("สาขา")}{branchLabel(branch)}</span></div>
+          <div className="flex items-start gap-1.5 text-sm font-medium text-primary"><MapPinIcon className="mt-0.5 size-4 shrink-0" /><span className="break-words">{t("สาขา")}{branchText(branch)}</span></div>
         )}
       </div>
     </div>

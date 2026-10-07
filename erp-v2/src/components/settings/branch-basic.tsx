@@ -16,8 +16,9 @@ import { uid } from "@/data/seed"
 import { report } from "@/lib/feedback"
 import { useStore } from "@/store/store"
 import { SaveRow, SettingsCard, useBranchDraft } from "./common"
+import { romanizeName } from "@/domain/rules/romanize"
 import { RichMenuCard } from "./rich-menu"
-import { tx } from "@/lib/i18n"
+import { tx, nm } from "@/lib/i18n"
 
 const BRAND_LABEL: Record<Branch["brand"], string> = { nockacademy: "Nockacademy", liclass: "Liclass" }
 
@@ -37,7 +38,7 @@ function StringList({ values, onChange, placeholder, addLabel }: { values: strin
 }
 
 export function BranchInfoTab({ branch }: { branch: Branch }) {
-  const { b, setB, dirty, reset, save } = useBranchDraft(branch, ["brand", "code", "branchNo", "name", "province", "email", "address", "phones", "socials", "rooms"])
+  const { b, setB, dirty, reset, save } = useBranchDraft(branch, ["brand", "code", "branchNo", "name", "nameEn", "province", "email", "address", "phones", "socials", "rooms"])
   const hasInvoices = useStore((s) => s.invoices.some((i) => i.branchId === branch.id && i.number))
   return (
     <SettingsCard title={tx("ข้อมูลสาขา")} hint={tx("ข้อมูลทั่วไปของสาขา — รหัสสาขาใช้ในเลขใบแจ้งหนี้/ใบเสร็จ")}>
@@ -52,6 +53,8 @@ export function BranchInfoTab({ branch }: { branch: Branch }) {
           <Input value={b.branchNo} disabled={hasInvoices} maxLength={3} onChange={(e) => setB({ ...b, branchNo: e.target.value.replace(/\D/g, "") })} placeholder="001" />
         </Field>
         <Field label={tx("ชื่อสาขา *")}><Input value={b.name} onChange={(e) => setB({ ...b, name: e.target.value })} /></Field>
+        {/* owner 2026-10-07: shown when the UI is English / Japanese — empty = the standard spelling of the place (placeholder) */}
+        <Field label={tx("ชื่อภาษาอังกฤษ")}><Input value={b.nameEn ?? ""} placeholder={romanizeName(b.name)} onChange={(e) => setB({ ...b, nameEn: e.target.value })} /></Field>
         <ProvinceField value={b.province ?? ""} onChange={(province) => setB({ ...b, province })} />
         <Field label={tx("อีเมล")}><Input type="email" value={b.email ?? ""} onChange={(e) => setB({ ...b, email: e.target.value })} /></Field>
         <Field label={tx("ที่อยู่")} className="sm:col-span-2"><Input value={b.address ?? ""} onChange={(e) => setB({ ...b, address: e.target.value })} /></Field>
@@ -197,8 +200,8 @@ export function StaffTab({ branch }: { branch: Branch }) {
       <div className="divide-y rounded-2xl border">
         {staff.map((x) => (
           <div key={x.id} className="flex flex-wrap items-center gap-2 p-2.5 text-sm">
-            <span className="font-medium">{x.name}</span>
-            <span className="text-muted-foreground">&quot;{x.nickname}&quot;</span>
+            <span className="font-medium">{nm(x.name)}</span>
+            <span className="text-muted-foreground">&quot;{nm(x.nickname)}&quot;</span>
             {x.email && <span className="text-xs text-muted-foreground">{x.email}</span>}
             <span className="ml-auto flex flex-wrap gap-1">
               {x.roles.map((r) => <Pill key={r} tone="blue">{ROLE_LABEL[r]}</Pill>)}
@@ -216,7 +219,7 @@ export function ProvinceField({ value, onChange }: { value: string; onChange: (v
   return (
     <Field label={tx("จังหวัด * (รหัส)")}>
       <Input list="province-codes" value={value} maxLength={4} onChange={(e) => onChange(e.target.value.toUpperCase().replace(/[^A-Z]/g, ""))} placeholder="BKK" />
-      <p className="mt-1 text-xs text-muted-foreground">{KNOWN_PROVINCES[value] ?? tx("BKK = กรุงเทพฯ · CBR = ชลบุรี · จังหวัดใหม่พิมพ์รหัสเองได้")}</p>
+      <p className="mt-1 text-xs text-muted-foreground">{nm(KNOWN_PROVINCES[value]) || tx("BKK = กรุงเทพฯ · CBR = ชลบุรี · จังหวัดใหม่พิมพ์รหัสเองได้")}</p>
       <datalist id="province-codes">{Object.entries(KNOWN_PROVINCES).map(([k, v]) => <option key={k} value={k}>{v}</option>)}</datalist>
     </Field>
   )

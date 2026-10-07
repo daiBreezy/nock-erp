@@ -3,6 +3,8 @@
 import { create } from "zustand"
 import { persist } from "zustand/middleware"
 import { setDateLocale } from "@/domain/dates"
+import { romanizeName, SUBJECTS } from "@/domain/rules/romanize"
+import { useStore } from "@/store/store"
 
 /**
  * Staff UI language (owner 2026-10-07): a chip in the top bar — ไทย / English / 日本語. A per-person preference,
@@ -99,3 +101,27 @@ export function useT() {
 
 /** "12 ชม." / "12 hrs" / "12時間" — package durations in the chosen language */
 export const durationText = (unit: "hour" | "week" | "month", d: number) => tx(unit === "hour" ? "{0} ชม." : unit === "week" ? "{0} สัปดาห์" : "{0} เดือน", [d])
+
+/**
+ * Names in the chosen language (owner 2026-10-07): Thai as typed; English / Japanese = Latin letters — a branch's
+ * English name from Settings first, else the standard place spelling, else the rule-based romanization.
+ */
+export function nm(name: string | null | undefined): string {
+  if (!name || useUiLang.getState().lang === "th") return name ?? ""
+  const b = useStore.getState().branches.find((x) => x.name === name)
+  return b?.nameEn?.trim() || romanizeName(name)
+}
+
+/** a branch with its province code, e.g. "ทองหล่อ · BKK" → "Thonglor · BKK" */
+export const branchText = (b: { name: string; province?: string }) => (b.province ? `${nm(b.name)} · ${b.province}` : nm(b.name))
+
+/** subject names: Settings › System (English / 日本語 columns) first, else the standard names; `short` = Eng / Sci / Jpn */
+export function sj(subject: string | null | undefined, short = false): string {
+  const lang = useUiLang.getState().lang
+  if (!subject || lang === "th") return subject ?? ""
+  const own = useStore.getState().system.subjectNames?.[subject]?.[lang]
+  if (own && !short) return own
+  const std = SUBJECTS[subject]
+  if (std) return lang === "ja" ? std.ja : short ? std.short : std.en
+  return own || romanizeName(subject)
+}

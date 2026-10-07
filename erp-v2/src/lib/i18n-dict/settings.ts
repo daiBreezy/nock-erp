@@ -375,4 +375,5 @@ export const SETTINGS: Record<string, Entry> = {
   "อนุบาล": { en: "Kindergarten", ja: "幼稚園" },
   "ประถม": { en: "Primary", ja: "小学校" },
   "มัธยม": { en: "Secondary", ja: "中学・高校" },
+  "ชื่อภาษาอังกฤษ": { en: "English name", ja: "英語名" },
 }

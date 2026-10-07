@@ -1,3 +1,4 @@
+import { nm, useUiLang } from "@/lib/i18n"
 // One colour per subject so a day can be scanned at a glance.
 // Class strings are written out in full so Tailwind can see them.
 
@@ -39,7 +40,8 @@ export function gradeTone(grade: string) {
 
 /** First visible letter of a Thai/English name (skips "ครู" and leading vowels เ แ โ ใ ไ) */
 export function initial(name: string) {
-  const n = name.replace(/^ครู/, "").trim()
+  // English / Japanese UI: the first letter of the romanized name (owner 2026-10-07)
+  const n = (useUiLang.getState().lang === "th" ? name.replace(/^ครู/, "") : nm(name.replace(/^ครู/, ""))).trim()
   return /^[เแโใไ]/.test(n) ? n.slice(1, 2) : n.slice(0, 1)
 }
 

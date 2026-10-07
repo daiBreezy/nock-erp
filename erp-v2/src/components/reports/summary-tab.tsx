@@ -9,7 +9,7 @@ import { COMPARE_LABEL, type PeriodKey } from "@/domain/rules/reports"
 import * as Survey from "@/domain/rules/survey"
 import { cn } from "@/lib/utils"
 import { useStore } from "@/store/store"
-import { tx, uiLang } from "@/lib/i18n"
+import { tx, uiLang, nm } from "@/lib/i18n"
 import { monthShort } from "@/domain/dates"
 
 const DAY = ["อาทิตย์", "จันทร์", "อังคาร", "พุธ", "พฤหัส", "ศุกร์", "เสาร์"]
@@ -58,7 +58,7 @@ function toInput(d: ReportData, period: PeriodKey, periodLabel: string, lossReas
     leadLostReasons: d.crm.lostReasons.map((r) => ({ label: r.reason, count: r.count })),
     leadLostStages: d.crm.lost.map((r) => ({ label: tx(r.label), count: r.count })),
     wantedTimes: d.crm.wantedTimes.map((r) => ({ label: r.time, count: r.count })),
-    competitors: d.crm.competitors.map((r) => ({ label: r.name, count: r.count })),
+    competitors: d.crm.competitors.map((r) => ({ label: nm(r.name), count: r.count })),
     sales: {
       leads: d.crm.funnel[0].count, enrolled: d.crm.funnel[d.crm.funnel.length - 1].count, conversion: d.crm.funnel[d.crm.funnel.length - 1].ofAll, open: d.crm.open,
       bestSource: best && { label: label(best.source), conversion: best.conversion! },
@@ -66,14 +66,14 @@ function toInput(d: ReportData, period: PeriodKey, periodLabel: string, lossReas
     },
     attendance: {
       rate: a.total.rate, prevRate: a.total.rate !== null && d.kpi.attendanceChange !== null ? a.total.rate - d.kpi.attendanceChange / 100 : null,
-      worstBranch: a.byBranch[0]?.rate != null && a.byBranch.length > 1 ? { label: a.byBranch[0].name, rate: a.byBranch[0].rate } : undefined,
+      worstBranch: a.byBranch[0]?.rate != null && a.byBranch.length > 1 ? { label: nm(a.byBranch[0].name), rate: a.byBranch[0].rate } : undefined,
       worstDay: wd ? { label: tx(DAY[Number(wd.key)]), rate: wd.rate! } : undefined,
       frequentLeavers: a.leavers.length,
     },
     teaching: {
       pendingWork: o.teachers.reduce((n, t) => n + t.unmarked + t.summariesPending, 0),
       lowFill: o.fill.filter((c) => c.students <= 1).length, overFill: o.fill.filter((c) => c.fill > 1).length,
-      busiestTeacher: busiest?.minutes ? { label: busiest.staff?.nickname ?? "—", hours: Math.round(busiest.minutes / 6) / 10 } : undefined,
+      busiestTeacher: busiest?.minutes ? { label: nm(busiest.staff?.nickname ?? "—"), hours: Math.round(busiest.minutes / 6) / 10 } : undefined,
     },
     survey: sv && y !== undefined ? {
       year: y, nps: sv.summary.nps, npsPrev: svPrev?.summary.responses ? svPrev.summary.nps : null,

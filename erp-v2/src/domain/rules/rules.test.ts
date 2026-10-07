@@ -1816,3 +1816,35 @@ describe("report periods (owner 2026-10-05)", () => {
     expect(Rep.compareRange("custom", { from: "2026-09-01", to: "2026-09-10" })).toEqual({ from: "2026-08-22", to: "2026-08-31" })
   })
 })
+
+// ---------------- names in Latin letters (owner 2026-10-07) ----------------
+import { branchNameEn, romanizeName } from "./romanize"
+
+describe("romanize names", () => {
+  it("follows the owner's examples", () => {
+    expect(romanizeName("ครอบครัว แสงใจ")).toBe("Sangjai Family")
+    expect(romanizeName("ครอบครัวทองชัย")).toBe("Thongchai Family")
+    expect(romanizeName("น้องต้น")).toBe("N'Ton")
+    expect(romanizeName("ครูแอน")).toBe("T'Ann")
+  })
+  it("uses the standard spelling for places and branches, unless Settings has an English name", () => {
+    expect(romanizeName("กรุงเทพ")).toBe("Bangkok")
+    expect(romanizeName("ทองหล่อ")).toBe("Thonglor")
+    expect(branchNameEn({ name: "ทองหล่อ" })).toBe("Thonglor")
+    expect(branchNameEn({ name: "ทองหล่อ", nameEn: "Thong Lo" })).toBe("Thong Lo")
+  })
+  it("reads common Thai names", () => {
+    expect(romanizeName("สมชาย")).toBe("Somchai")
+    expect(romanizeName("กิตติพงษ์")).toBe("Kittiphong")
+    expect(romanizeName("รุ่งเรือง")).toBe("Rungrueang")
+    expect(romanizeName("แก้วใจ")).toBe("Kaewjai")
+    expect(romanizeName("ศรีสุข")).toBe("Srisuk")
+    expect(romanizeName("คุณแม่ จันทร์")).toBe("Mom Jan")
+  })
+  it("keeps subjects, grades and rooms readable inside names", () => {
+    expect(romanizeName("คณิต ป.5")).toBe("Math P.5")
+    expect(romanizeName("อังกฤษ ม.3")).toBe("English M.3")
+    expect(romanizeName("ห้อง 3")).toBe("Room 3")
+    expect(romanizeName("Summer English")).toBe("Summer English")
+  })
+})

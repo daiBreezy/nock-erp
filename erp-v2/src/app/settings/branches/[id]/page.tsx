@@ -18,7 +18,7 @@ import type { Branch } from "@/domain/types"
 import { report } from "@/lib/feedback"
 import { cn } from "@/lib/utils"
 import { useStore } from "@/store/store"
-import { tx } from "@/lib/i18n"
+import { tx, nm } from "@/lib/i18n"
 
 /** The 11 per-branch tabs of staging's Settings → Branch, in the same order. */
 const TABS: { id: string; label: string; icon: typeof BuildingIcon; body: (b: Branch) => React.ReactNode }[] = [
@@ -51,7 +51,7 @@ export default function BranchSettingsPage() {
     <div className="mx-auto max-w-6xl space-y-4 pb-16">
       <div>
         <Link href="/settings" className="flex items-center gap-1 text-xs text-muted-foreground hover:underline"><ChevronLeftIcon className="size-3.5" />  {tx("กลับไปรายชื่อสาขา")}</Link>
-        <h1 className="mt-1 text-xl font-semibold">{branch.name}</h1>
+        <h1 className="mt-1 text-xl font-semibold">{nm(branch.name)}</h1>
         <p className="text-sm text-muted-foreground">{branch.address || tx("ยังไม่มีที่อยู่")}</p>
       </div>
 

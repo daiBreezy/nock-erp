@@ -17,7 +17,7 @@ import type { Branch } from "@/domain/types"
 import { report } from "@/lib/feedback"
 import { cn } from "@/lib/utils"
 import { useStore } from "@/store/store"
-import { tx } from "@/lib/i18n"
+import { tx, nm } from "@/lib/i18n"
 
 export default function SettingsPage() {
   return (
@@ -72,7 +72,7 @@ function BranchList() {
           <span className="grid size-10 place-items-center rounded-2xl bg-primary/10 text-primary"><MapPinIcon className="size-5" /></span>
           <span className="min-w-0 flex-1">
             <span className="flex flex-wrap items-center gap-1.5">
-              <span className="font-semibold">{b.name}</span>
+              <span className="font-semibold">{nm(b.name)}</span>
               <Pill tone="violet">{b.brand === "nockacademy" ? "Nockacademy" : "Liclass"}</Pill>
               <Pill tone={b.active ? "green" : "gray"}>{b.active ? tx("เปิดอยู่") : tx("ปิดแล้ว")}</Pill>
               <span className="text-xs text-muted-foreground">{b.code}</span>
@@ -116,7 +116,7 @@ function AddBranchDialog({ onClose }: { onClose: () => void }) {
         </div>
         <DialogFooter>
           <Button variant="ghost" onClick={onClose}>{tx("ยกเลิก")}</Button>
-          <Button onClick={() => { const r = add(f); if (report(r, tx("เพิ่มสาขา{0}แล้ว", [f.name]))) router.push(`/settings/branches/${r.value.id}`) }}>{tx("เพิ่มสาขา")}</Button>
+          <Button onClick={() => { const r = add(f); if (report(r, tx("เพิ่มสาขา{0}แล้ว", [nm(f.name)]))) router.push(`/settings/branches/${r.value.id}`) }}>{tx("เพิ่มสาขา")}</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

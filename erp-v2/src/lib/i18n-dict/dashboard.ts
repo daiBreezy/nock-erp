@@ -88,4 +88,8 @@ export const DASHBOARD: Record<string, Entry> = {
   "ไม่ตอบ": { en: "No reply", ja: "返信なし" },
   "ให้ติดต่อใหม่": { en: "Call back", ja: "折り返し希望" },
   "เบอร์ / LINE ผิด": { en: "Wrong number / LINE", ja: "番号・LINE誤り" },
+  "เหลือ {0} คาบ": { en: "{0} sessions left", ja: "残り{0}コマ" },
+  "แพ็กเกจหมดอายุ {0}": { en: "package ends {0}", ja: "{0}にパッケージ終了" },
+  "ใช้คาบหมดแล้ว": { en: "all sessions used", ja: "全コマ消化済み" },
+  "{0} สอนชนเวลา {1}": { en: "{0} double-booked at {1}", ja: "{0}は{1}に授業が重複" },
 }

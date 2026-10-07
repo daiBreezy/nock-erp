@@ -21,7 +21,7 @@ import { report } from "@/lib/feedback"
 import { useStore } from "@/store/store"
 import { SaveRow, SettingsCard } from "./common"
 import { HolidayPlanner } from "./holiday-planner"
-import { tx } from "@/lib/i18n"
+import { tx, nm } from "@/lib/i18n"
 
 const BRANDS: { id: Brand; label: string }[] = [{ id: "nockacademy", label: "Nockacademy" }, { id: "liclass", label: "Liclass" }]
 
@@ -194,7 +194,7 @@ function YearlySurvey() {
             </div>
             {showLinks && (
               <ul className="max-h-48 space-y-1 overflow-y-auto text-xs">{waiting.filter((x) => !x.viaLine).map((x) => (
-                <li key={x.token} className="flex items-center gap-2"><span className="w-40 truncate">{families.find((f) => f.id === x.familyId)?.name}</span>
+                <li key={x.token} className="flex items-center gap-2"><span className="w-40 truncate">{nm(families.find((f) => f.id === x.familyId)?.name)}</span>
                   <button type="button" className="text-primary underline" onClick={() => { navigator.clipboard?.writeText(surveyLink(x.token)); report({ ok: true, value: undefined }, tx("คัดลอกลิงก์แล้ว")) }}>{tx("คัดลอกลิงก์")}</button></li>
               ))}</ul>
             )}

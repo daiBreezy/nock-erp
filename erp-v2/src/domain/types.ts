@@ -91,6 +91,8 @@ export interface Branch {
   id: ID
   code: string
   name: string
+  /** English name (owner 2026-10-07) — shown when the UI is English / Japanese; empty = standard spelling of the place */
+  nameEn?: string
   brand: Brand
   /** 3-digit branch number in document numbers (690930-01-001-0001) */
   branchNo: string
