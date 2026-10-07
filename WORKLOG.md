@@ -5,6 +5,12 @@
 
 ---
 
+## 2026-10-07 — เตรียมขึ้น Vercel (แชร์ลิงก์ prototype)
+
+- **รหัสผ่านหน้าแรก**: `src/proxy.ts` (Next 16 เรียก middleware ว่า Proxy) — ทำงานเมื่อมี env `DEMO_PASSWORD` เท่านั้น (เครื่องเราไม่เปลี่ยน) · ชื่อผู้ใช้ `DEMO_USER` (ค่าเริ่ม `nock`) · เบราว์เซอร์ขึ้นกล่องล็อกอินเอง · ยกเว้น /liff, API ฟอร์มผู้ปกครอง และ LINE webhook (ผู้ปกครอง/LINE ใส่รหัสไม่ได้)
+- **ไฟล์ฝั่ง server** (ฟอร์มผู้ปกครอง, LINE inbox, รูป): บน Vercel เขียนที่ `/tmp` แทน `.data/` (`src/server/data-dir.ts`) — ใช้ได้แต่ข้อมูลหายได้เมื่อ Vercel รีสตาร์ท · ไม่ใส่ LINE keys บน Vercel → ส่ง LINE จริงไม่ได้ (ตั้งใจ — กันคนมีลิงก์ส่งข้อความถึงผู้ปกครองจริง)
+- ขั้นตอนฝั่งเจ้าของ: vercel.com → Continue with GitHub → Add New Project → nock-erp → **Root Directory = erp-v2** → Environment Variables: `DEMO_PASSWORD` (+ `DEMO_USER`) → Deploy · push main = อัปเดตลิงก์เอง · `next build` ผ่านแล้ว
+
 ## 2026-10-07 — ชิปเลือกภาษา (เริ่ม)
 
 - **ชิปภาษาบนแถบบน หลังชื่อสาขา** (เจ้าของสั่ง) — 🌐 TH ▾ → English / ไทย / 日本語 · จำต่อคนต่อเบราว์เซอร์ (`lib/i18n.ts`, zustand persist `nockerp-ui-lang`) · ตั้ง `<html lang>` ตาม

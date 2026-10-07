@@ -4,12 +4,12 @@ import type { Brand, FormLang, FormOfferSlot, FormParentInput, FormPick, FormPre
 import { fmtDate } from "@/domain/dates"
 import { FORM_TYPE_LABEL } from "@/domain/rules/forms"
 import { recordInboundMessage } from "./line-store"
+import { DATA_DIR } from "./data-dir"
 
 // File-based store for Test/Trial form tokens + submissions — same rationale as line-store.ts
 // (a LIFF page runs server-side with no access to the browser's localStorage, and this data must
 // be visible to staff across reloads/devices).
 
-const DATA_DIR = path.join(process.cwd(), ".data")
 const DATA_FILE = path.join(DATA_DIR, "forms.json")
 
 interface Store {

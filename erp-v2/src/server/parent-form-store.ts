@@ -1,11 +1,11 @@
 import { promises as fs } from "fs"
 import path from "path"
 import type { EnrollSubmission, EnrollToken, ExitAnswers, ExitResponse, ExitToken, SurveyAnswers, SurveyResponse, SurveyToken } from "@/domain/types"
+import { DATA_DIR } from "./data-dir"
 
 // File-based store for parent forms that are not Test/Trial (owner 2026-10-05: exit form; the yearly survey next) —
 // same reason as form-store.ts: the parent's page runs outside the ERP's localStorage, staff must see the answers.
 
-const DATA_DIR = path.join(process.cwd(), ".data")
 const DATA_FILE = path.join(DATA_DIR, "parent-forms.json")
 
 interface Store { tokens: ExitToken[]; responses: ExitResponse[] }

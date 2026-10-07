@@ -1,6 +1,7 @@
 import { promises as fs } from "fs"
 import path from "path"
 import type { ChatMessage, ChatMessageMeta, Conversation, MessageKind } from "@/domain/types"
+import { DATA_DIR } from "./data-dir"
 
 // File-based store for real LINE conversations received via webhook. erp-v2 has no real database
 // (by design — see erp-v2/CLAUDE.md), and this data must live server-side (a webhook handler has no
@@ -8,7 +9,6 @@ import type { ChatMessage, ChatMessageMeta, Conversation, MessageKind } from "@/
 // prototype demo. Conversation ids are "line_<LINE userId>" throughout so the client can tell a live
 // conversation apart from the seeded mock ones and route actions (send/read) accordingly.
 
-const DATA_DIR = path.join(process.cwd(), ".data")
 const DATA_FILE = path.join(DATA_DIR, "line-inbox.json")
 const MEDIA_DIR = path.join(DATA_DIR, "line-media")
 
