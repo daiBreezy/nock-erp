@@ -483,4 +483,6 @@ export const REPORTS: Record<string, Entry> = {
   "คณิต": { en: "Math", ja: "数学" },
   "อังกฤษ": { en: "English", ja: "英語" },
   "วิทย์": { en: "Science", ja: "理科" },
+  "เลือกวันสุดท้าย": { en: "Now pick the last day", ja: "最終日を選択" },
+  "เลือกวันแรก แล้วเลือกวันสุดท้าย · เทียบกับช่วงก่อนหน้าที่ยาวเท่ากัน": { en: "Pick the first day, then the last · compared with the same length before", ja: "開始日、次に最終日を選択 · 同じ長さの直前期間と比較" },
 }

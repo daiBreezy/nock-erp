@@ -9,6 +9,7 @@
 
 - **รหัสผ่านหน้าแรก**: `src/proxy.ts` (Next 16 เรียก middleware ว่า Proxy) — ทำงานเมื่อมี env `DEMO_PASSWORD` เท่านั้น (เครื่องเราไม่เปลี่ยน) · ชื่อผู้ใช้ `DEMO_USER` (ค่าเริ่ม `nock`) · เบราว์เซอร์ขึ้นกล่องล็อกอินเอง · ยกเว้น /liff, API ฟอร์มผู้ปกครอง และ LINE webhook (ผู้ปกครอง/LINE ใส่รหัสไม่ได้)
 - **ไฟล์ฝั่ง server** (ฟอร์มผู้ปกครอง, LINE inbox, รูป): บน Vercel เขียนที่ `/tmp` แทน `.data/` (`src/server/data-dir.ts`) — ใช้ได้แต่ข้อมูลหายได้เมื่อ Vercel รีสตาร์ท · ไม่ใส่ LINE keys บน Vercel → ส่ง LINE จริงไม่ได้ (ตั้งใจ — กันคนมีลิงก์ส่งข้อความถึงผู้ปกครองจริง)
+- **Reports ช่วงวันที่กำหนดเอง → ปฏิทินเลือกช่วงของ shadcn** (เจ้าของสั่ง) — ชิปเดียว กดแล้วเปิดปฏิทิน 2 เดือน (ภาษาตามที่เลือก) คลิกวันแรก → วันสุดท้าย แล้วปิดเอง · เลือกเกินวันนี้ไม่ได้ · ชิปแสดงช่วงที่เลือก · `components/app/date-range-picker.tsx` (ใช้ซ้ำหน้าอื่นได้) · แก้ import ผิดใน `ui/calendar.tsx`
 - **ขึ้นแล้ว: https://nock-erp-three.vercel.app** (Vercel ทีม "Nock", Hobby, โปรเจกต์ nock-erp, root `erp-v2`) — ถามรหัสก่อนเข้า (ทดสอบ 401 แล้ว) · หน้า /liff เปิดได้ไม่ต้องรหัส · ลิงก์แบบ `nock-xxxx-nock3.vercel.app` ของแต่ละ deploy ติดล็อกของ Vercel (ต้องล็อกอิน Vercel) — แชร์ลิงก์ nock-erp-three เท่านั้น · ชื่อผู้ใช้ตอนนี้ = รหัสเดียวกับรหัสผ่าน (เจ้าของใส่ซ้ำทั้งสองช่อง) แก้ได้ที่ Settings › Environment Variables แล้ว Redeploy
 - ขั้นตอนฝั่งเจ้าของ: vercel.com → Continue with GitHub → Add New Project → nock-erp → **Root Directory = erp-v2** → Environment Variables: `DEMO_PASSWORD` (+ `DEMO_USER`) → Deploy · push main = อัปเดตลิงก์เอง · `next build` ผ่านแล้ว
 

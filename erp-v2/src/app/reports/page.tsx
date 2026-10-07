@@ -3,11 +3,12 @@
 import Link from "next/link"
 import { Suspense, useEffect, useMemo, useState } from "react"
 import { useSearchParams } from "next/navigation"
-import { BanknoteIcon, CalendarDaysIcon, ChartColumnIcon, ClockIcon, DownloadIcon, PrinterIcon, SchoolIcon, SparklesIcon, CalendarRangeIcon, UsersIcon, UserCheckIcon } from "lucide-react"
+import { BanknoteIcon, CalendarDaysIcon, ChartColumnIcon, ClockIcon, DownloadIcon, PrinterIcon, SchoolIcon, SparklesIcon, UsersIcon, UserCheckIcon } from "lucide-react"
 import { NativeSelect } from "@/components/app/native-select"
 import { StudentSheet } from "@/components/app/student-sheet"
 import { AttentionButton, AttentionDialog } from "@/components/reports/attention-dialog"
 import { Delta, Donut, DonutLegend, Empty, TopList, fmtNum, fmtPct, fmtShort, Heatmap, MonthBars, Panel, Rank, ShareBar, donutColor, tint } from "@/components/reports/charts"
+import { DateRangePicker } from "@/components/app/date-range-picker"
 import { SummaryTab } from "@/components/reports/summary-tab"
 import { useReports, type ReportData } from "@/components/reports/use-reports"
 import { Button } from "@/components/ui/button"
@@ -123,12 +124,8 @@ function Reports() {
               ))}
             </div>
           ))}
-          <div className={cn("flex flex-wrap items-center gap-1.5 rounded-full border py-0.5 pr-1 pl-3 text-xs", period === "custom" ? "border-primary bg-primary/10" : "bg-card")}>
-            <button type="button" title={tx(PERIODS.find((p) => p.key === "custom")!.hint)} onClick={() => setPeriod("custom")} className={cn("flex items-center gap-1.5", period === "custom" && "font-medium text-primary")}><CalendarRangeIcon className="size-3.5" />  {tx("กำหนดเอง")}</button>
-            <input type="date" aria-label={tx("ตั้งแต่วันที่")} value={custom.from} max={today} onChange={(e) => { if (e.target.value) { setCustom((c) => ({ ...c, from: e.target.value })); setPeriod("custom") } }} className="h-6 rounded-full bg-background px-2 tabular-nums" />
-            <span className="text-muted-foreground">–</span>
-            <input type="date" aria-label={tx("ถึงวันที่")} value={custom.to} max={today} onChange={(e) => { if (e.target.value) { setCustom((c) => ({ ...c, to: e.target.value })); setPeriod("custom") } }} className="h-6 rounded-full bg-background px-2 tabular-nums" />
-          </div>
+          {/* owner 2026-10-07: shadcn range picker instead of two native date boxes */}
+          <DateRangePicker from={custom.from} to={custom.to} max={today} active={period === "custom"} onChange={(r) => { setCustom(r); setPeriod("custom") }} />
         </div>
       </div>
 
