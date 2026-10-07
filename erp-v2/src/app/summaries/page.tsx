@@ -26,6 +26,9 @@ const BUCKETS: { key: Bucket; label: string; tone: string }[] = [
   { key: "sent", label: "ส่งผู้ปกครองแล้ว", tone: "text-emerald-700" },
 ]
 
+/** which Dashboard topic each pile answers (`?focus=` highlights it) */
+const FOCUS_OF: Partial<Record<Bucket, string>> = { to_write: "summary_write", changes: "summary_write", submitted: "summary_approve" }
+
 export default function SummariesPage() {
   const [top, setTop] = useQueryState<"session" | "course">("view", "session")
   return (
@@ -53,7 +56,8 @@ function SessionSummaryTab() {
   const send = useStore((s) => s.sendSummary)
   const L = useLookup()
   const [days, setDays] = useState(7)
-  const [tab, setTab] = useState<Bucket>(can(me, "summary.approve") ? "submitted" : "to_write")
+  // ?bucket= — the Dashboard opens the right pile (owner 2026-10-07)
+  const [tab, setTab] = useQueryState<Bucket>("bucket", can(me, "summary.approve") ? "submitted" : "to_write")
   const [openId, setOpenId] = useState<ID | null>(null)
 
   const from = addDays(today, -days + 1)
@@ -78,7 +82,7 @@ function SessionSummaryTab() {
       </div>
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
         {BUCKETS.map((t) => (
-          <button key={t.key} onClick={() => setTab(t.key)} className="text-left">
+          <button key={t.key} onClick={() => setTab(t.key)} data-focus={FOCUS_OF[t.key]} className="rounded-4xl text-left">
             <Card className={cn(tab === t.key && "ring-2 ring-primary")}>
               <CardContent>
                 <div className="text-xs text-muted-foreground">{t.label}</div>
@@ -95,7 +99,7 @@ function SessionSummaryTab() {
           const stu = L.student(studentId)
           const approveCheck = sm && Sum.canApprove(sm, me)
           return (
-            <div key={s.id + studentId} className="flex flex-wrap items-start gap-3 p-3">
+            <div key={s.id + studentId} data-focus={FOCUS_OF[tab]} className="flex flex-wrap items-start gap-3 p-3">
               <div className="w-24 text-sm">
                 <div className="font-medium">{fmtDate(s.date, { weekday: true })}</div>
                 <div className="text-xs text-muted-foreground">{s.start}</div>

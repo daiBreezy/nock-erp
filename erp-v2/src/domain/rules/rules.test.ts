@@ -1882,3 +1882,49 @@ describe("compare regions / business types", () => {
     expect(r[0].net).toBe(4)
   })
 })
+
+import { attentionTopics, dailyBrief, focusHref, type Topic } from "./today"
+
+describe("dashboard brief (owner 2026-10-07)", () => {
+  const topic = (key: string, count: number, extra: Partial<Topic> = {}): Topic => ({ key, group: "today", title: key, detail: "", count, href: "/x", ...extra })
+
+  it("orders work by what costs most to wait, urgent renewals split out", () => {
+    const b = dailyBrief({
+      topics: [topic("no_family", 4), topic("summary_approve", 2), topic("renewal", 5, { urgent: 2, href: "/students?status=renewal" }), topic("unmarked", 3), topic("lead_new", 1)],
+      trend: [], sessions: [], nowTime: "10:00",
+    })
+    expect(b.steps.map((s) => s.key)).toEqual(["unmarked", "renewal_urgent", "lead_new", "summary_approve", "renewal"])
+    expect(b.steps[1]).toMatchObject({ count: 2, href: "/students?status=renewal&focus=renewal", when: "today" })
+    expect(b.more).toBe(1) // no_family left for the board
+    expect(b.headline).toContain("งานวันนี้ 8 เรื่อง (ด่วน 5)") // renewal 3 (not urgent) + no_family 4 are not today
+  })
+
+  it("topics with nothing to do are not steps", () => {
+    const b = dailyBrief({ topics: [topic("unmarked", 0)], trend: [], sessions: [], nowTime: "10:00" })
+    expect(b.steps).toEqual([])
+    expect(b.headline).toContain("ไม่มีงานค้าง")
+  })
+
+  it("notes the free time before the next session, or that one is running", () => {
+    const free = dailyBrief({ topics: [topic("unmarked", 1)], trend: [], sessions: [{ start: "16:30", minutes: 90, state: "upcoming" }], nowTime: "14:00" })
+    expect(free.notes[0].text).toContain("ว่างอีก 2 ชม. 30 นาที ก่อนคาบ 16:30")
+    const live = dailyBrief({ topics: [], trend: [], sessions: [{ start: "14:00", minutes: 90, state: "live" }], nowTime: "14:30" })
+    expect(live.notes[0].text).toContain("กำลังเรียน")
+    const done = dailyBrief({ topics: [], trend: [], sessions: [{ start: "09:00", minutes: 60, state: "ended" }], nowTime: "18:00" })
+    expect(done.notes[0].text).toContain("จบหมดแล้ว")
+  })
+
+  it("Need Attention items the dashboard already counts are not repeated; trend items stay out of the board", () => {
+    const items = [
+      { key: "summaries", group: "teaching" as const, title: "", detail: "", count: 3, href: "/summaries" },
+      { key: "revenue_drop", group: "trend" as const, title: "", detail: "", count: 1, href: "/reports" },
+      { key: "unpaid", group: "money" as const, title: "", detail: "", count: 0, href: "/billing" },
+    ]
+    expect(attentionTopics(items).map((t) => t.key)).toEqual(["unpaid"])
+  })
+
+  it("focus links keep existing filters", () => {
+    expect(focusHref("/billing?filter=pending_approval", "invoice_approve")).toBe("/billing?filter=pending_approval&focus=invoice_approve")
+    expect(focusHref("/students", "no_family")).toBe("/students?focus=no_family")
+  })
+})

@@ -346,6 +346,24 @@ export const ATTENTION_THRESHOLDS = {
   dropPct: 10, unpaidDays: 5, unconfirmedDays: 2, expiringDays: 14, leavesIn30: 3, overdueWorkDays: 1, smallClass: 1, leadIdleDays: 2, trialIdleDays: 7,
 }
 
+/** sent, still unpaid after ATTENTION_THRESHOLDS.unpaidDays — shared by Need Attention and the billing list highlight */
+export const invoiceOverdue = (i: Pick<Invoice, "status" | "sentAt">, now: Date) =>
+  i.status === "sent" && !!i.sentAt && (now.getTime() - new Date(i.sentAt).getTime()) / 86_400_000 > ATTENTION_THRESHOLDS.unpaidDays
+/** a payment recorded but not confirmed after ATTENTION_THRESHOLDS.unconfirmedDays */
+export const paymentUnconfirmed = (i: Pick<Invoice, "payments">, now: Date) =>
+  i.payments.some((p) => !p.confirmedBy && (now.getTime() - new Date(p.recordedAt).getTime()) / 86_400_000 > ATTENTION_THRESHOLDS.unconfirmedDays)
+/** which Need Attention / Dashboard topics a lead belongs to (lead_new, lead_idle, lead_quiet, lead_follow_again, trial_idle) */
+export function leadFlags(l: Lead, now: Date, today: DateStr): string[] {
+  const T = ATTENTION_THRESHOLDS
+  const days = (iso: string) => (now.getTime() - new Date(iso).getTime()) / 86_400_000
+  const out: string[] = []
+  if (l.stage === "new") { out.push("lead_new"); if (days(l.createdAt) > T.leadIdleDays) out.push("lead_idle") }
+  if (l.stage !== "archived" && l.stage !== "enrolled" && Loss.followUpState(l, now).suggestClose) out.push("lead_quiet")
+  if (Loss.followUpDue([l], today).length) out.push("lead_follow_again")
+  if (l.stage === "trialed" && days(l.scheduledAt ?? l.createdAt) > T.trialIdleDays) out.push("trial_idle")
+  return out
+}
+
 export interface AttentionItem { key: string; group: "trend" | "money" | "students" | "teaching" | "sales"; title: string; detail: string; count: number; href: string }
 
 export function needsAttention(ctx: {
@@ -358,11 +376,12 @@ export function needsAttention(ctx: {
    *  address/LINE checks below — pass only the ones in scope (archived students don't need chasing) */
   students?: Pick<Student, "id" | "familyId" | "archived">[]
   families?: Pick<Family, "id" | "parents" | "address" | "postcode" | "lineUserId">[]
-}, tr?: Tr): AttentionItem[] {
+}, tr?: Tr, opts: { keepZero?: boolean } = {}): AttentionItem[] {
   TR = tr ?? plainTr
   const T = ATTENTION_THRESHOLDS
   const out: AttentionItem[] = []
-  const add = (x: AttentionItem) => { if (x.count > 0) out.push(x) }
+  // keepZero (owner 2026-10-07): the Dashboard board lists every topic, done ones ticked off
+  const add = (x: AttentionItem) => { if (x.count > 0 || opts.keepZero) out.push(x) }
   const now = revenueIn(ctx.rows, ctx.range), before = revenueIn(ctx.rows, ctx.prevRange)
   const drop = (a: number, b: number) => (b > 0 && (b - a) / b * 100 >= T.dropPct ? Math.round((b - a) / b * 100) : 0)
   const rd = drop(now.total, before.total)
@@ -371,11 +390,10 @@ export function needsAttention(ctx: {
   add({ key: "invoice_drop", group: "trend", title: TR("จำนวนใบแจ้งหนี้ที่จ่ายแล้วลดลง"), detail: TR("{0} ใบ (ก่อนหน้า {1}) · −{2}%", [now.invoices, before.invoices, id]), count: id ? 1 : 0, href: "/billing" })
   add({ key: "active_drop", group: "trend", title: TR("นักเรียน Active ลดลง"), detail: TR("{0} คน (ต้นช่วง {1})", [ctx.activeNow, ctx.activeBefore]), count: ctx.activeNow < ctx.activeBefore ? 1 : 0, href: "/reports?tab=students" })
 
-  const days = (iso: string) => (ctx.now.getTime() - new Date(iso).getTime()) / 86_400_000
-  const unpaid = ctx.invoices.filter((i) => i.status === "sent" && i.sentAt && days(i.sentAt) > T.unpaidDays)
-  add({ key: "unpaid", group: "money", title: TR("ใบแจ้งหนี้เลยกำหนดจ่าย"), detail: TR("ส่งไปเกิน {0} วันแล้วยังไม่จ่าย", [T.unpaidDays]), count: unpaid.length, href: "/billing" })
-  const unconfirmed = ctx.invoices.filter((i) => i.payments.some((p) => !p.confirmedBy && days(p.recordedAt) > T.unconfirmedDays))
-  add({ key: "unconfirmed", group: "money", title: TR("เงินเข้าแล้วแต่ยังไม่ยืนยัน"), detail: TR("ค้างเกิน {0} วัน", [T.unconfirmedDays]), count: unconfirmed.length, href: "/billing" })
+  const unpaid = ctx.invoices.filter((i) => invoiceOverdue(i, ctx.now))
+  add({ key: "unpaid", group: "money", title: TR("ใบแจ้งหนี้เลยกำหนดจ่าย"), detail: TR("ส่งไปเกิน {0} วันแล้วยังไม่จ่าย", [T.unpaidDays]), count: unpaid.length, href: "/billing?filter=awaiting_payment" })
+  const unconfirmed = ctx.invoices.filter((i) => paymentUnconfirmed(i, ctx.now))
+  add({ key: "unconfirmed", group: "money", title: TR("เงินเข้าแล้วแต่ยังไม่ยืนยัน"), detail: TR("ค้างเกิน {0} วัน", [T.unconfirmedDays]), count: unconfirmed.length, href: "/billing?filter=to_confirm" })
   const soon = addDays(ctx.today, T.expiringDays)
   const expiring = ctx.entitlements.filter((e) => e.to >= ctx.today && e.to <= soon
     && !ctx.entitlements.some((x) => x.studentId === e.studentId && x.from > e.to)
@@ -399,7 +417,7 @@ export function needsAttention(ctx: {
 
   const week = addDays(ctx.today, 7)
   const tl = ctx.sessions.filter((s) => s.teacherLeave && s.date >= ctx.today && s.date <= week)
-  add({ key: "teacher_leave", group: "teaching", title: TR("ครูลา 7 วันข้างหน้า"), detail: TR("{0} คาบยังไม่มีครูแทน · {1} คาบมีครูแทนแล้ว", [tl.filter((s) => !s.teacherLeave!.substituteId && !s.cancelled).length, tl.filter((s) => s.teacherLeave!.substituteId).length]), count: tl.length, href: "/calendar" })
+  add({ key: "teacher_leave", group: "teaching", title: TR("ครูลา 7 วันข้างหน้า"), detail: TR("{0} คาบยังไม่มีครูแทน · {1} คาบมีครูแทนแล้ว", [tl.filter((s) => !s.teacherLeave!.substituteId && !s.cancelled).length, tl.filter((s) => s.teacherLeave!.substituteId).length]), count: tl.length, href: "/calendar?view=list" })
   const unmarked = ctx.sessions.filter((s) => !s.cancelled && s.studentIds.length && s.date < addDays(ctx.today, -T.overdueWorkDays + 1) && s.date >= addDays(ctx.today, -30)
     && s.studentIds.some((sid) => !ctx.attendance.some((a) => a.sessionId === s.id && a.studentId === sid)))
   add({ key: "unmarked", group: "teaching", title: TR("คาบรอเช็คชื่อ"), detail: TR("ค้างเกิน {0} วัน", [T.overdueWorkDays]), count: unmarked.length, href: "/attendance" })
@@ -407,11 +425,12 @@ export function needsAttention(ctx: {
   add({ key: "conflicts", group: "teaching", title: TR("คาบชน"), detail: TR("คาบที่ยังไม่ถึงเวลา"), count: ctx.conflicts, href: "/calendar" })
   add({ key: "small_class", group: "teaching", title: TR("คลาสคนน้อย"), detail: TR("นักเรียน ≤ {0} คน", [T.smallClass]), count: ctx.classes.filter((k) => k.active && k.kind === "learning" && k.studentIds.length <= T.smallClass).length, href: "/classes" })
 
-  add({ key: "lead_idle", group: "sales", title: TR("Lead ใหม่ยังไม่ได้ติดต่อ"), detail: TR("เกิน {0} วัน", [T.leadIdleDays]), count: ctx.leads.filter((l) => l.stage === "new" && days(l.createdAt) > T.leadIdleDays).length, href: "/crm" })
-  const open = ctx.leads.filter((l) => l.stage !== "archived" && l.stage !== "enrolled")
-  add({ key: "lead_quiet", group: "sales", title: TR("Lead เงียบ ควรตัดสินใจ"), detail: TR("ติดต่อไม่ได้ ≥ 3 ครั้ง หรือเงียบ ≥ 14 วัน — ปิด Lead หรือลองช่องทางอื่น"), count: open.filter((l) => Loss.followUpState(l, ctx.now).suggestClose).length, href: "/crm" })
-  add({ key: "lead_follow_again", group: "sales", title: TR("ถึงวันติดต่อ Lead ที่ปิดไปอีกครั้ง"), detail: TR("ตามวันที่ตั้งไว้ตอนปิด Lead"), count: Loss.followUpDue(ctx.leads, ctx.today).length, href: "/crm" })
-  add({ key: "trial_idle", group: "sales", title: TR("ทดลองเรียนแล้ว ยังไม่สมัคร"), detail: TR("เกิน {0} วัน", [T.trialIdleDays]), count: ctx.leads.filter((l) => l.stage === "trialed" && days(l.scheduledAt ?? l.createdAt) > T.trialIdleDays).length, href: "/crm" })
+  const flags = ctx.leads.map((l) => leadFlags(l, ctx.now, ctx.today))
+  const nFlag = (k: string) => flags.filter((f) => f.includes(k)).length
+  add({ key: "lead_idle", group: "sales", title: TR("Lead ใหม่ยังไม่ได้ติดต่อ"), detail: TR("เกิน {0} วัน", [T.leadIdleDays]), count: nFlag("lead_idle"), href: "/crm" })
+  add({ key: "lead_quiet", group: "sales", title: TR("Lead เงียบ ควรตัดสินใจ"), detail: TR("ติดต่อไม่ได้ ≥ 3 ครั้ง หรือเงียบ ≥ 14 วัน — ปิด Lead หรือลองช่องทางอื่น"), count: nFlag("lead_quiet"), href: "/crm?view=table" })
+  add({ key: "lead_follow_again", group: "sales", title: TR("ถึงวันติดต่อ Lead ที่ปิดไปอีกครั้ง"), detail: TR("ตามวันที่ตั้งไว้ตอนปิด Lead"), count: Loss.followUpDue(ctx.leads, ctx.today).length, href: "/crm?view=table&archived=1" })
+  add({ key: "trial_idle", group: "sales", title: TR("ทดลองเรียนแล้ว ยังไม่สมัคร"), detail: TR("เกิน {0} วัน", [T.trialIdleDays]), count: nFlag("trial_idle"), href: "/crm?view=table" })
   return out
 }
 

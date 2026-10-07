@@ -1,55 +1,46 @@
 "use client"
 
 import Link from "next/link"
-import { useEffect, useState, type ReactNode } from "react"
-import { AlertTriangleIcon, ArrowRightIcon, BanknoteIcon, CheckCircle2Icon, ChartColumnIcon, ChevronRightIcon, GraduationCapIcon, RefreshCwIcon, SparklesIcon, UserMinusIcon, UserPlusIcon, UserSearchIcon, UserXIcon, XCircleIcon } from "lucide-react"
+import { useState, type ReactNode } from "react"
+import { ArrowRightIcon, BanknoteIcon, CheckCircle2Icon, ChartColumnIcon, ChevronRightIcon, GraduationCapIcon, HistoryIcon, SparklesIcon, UserMinusIcon, UserPlusIcon, UserSearchIcon, XCircleIcon } from "lucide-react"
 import { Pill, SessionStateBadge } from "@/components/app/badges"
 import { DashboardHeader } from "@/components/app/dashboard-header"
 import { SessionSheet } from "@/components/app/session-sheet"
-import { StudentSheet } from "@/components/app/student-sheet"
-import { avatarTone, gradeTone, initial, subjectColor } from "@/components/app/subject-color"
-import { AttentionButton, AttentionDialog } from "@/components/reports/attention-dialog"
+import { subjectColor } from "@/components/app/subject-color"
+import { DailyBriefCard } from "@/components/dashboard/daily-brief"
+import { TaskBoard } from "@/components/dashboard/task-board"
 import { Delta, fmtNum } from "@/components/reports/charts"
+import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { addDays, endTime, fmtDate, fmtMoney, toDateStr } from "@/domain/dates"
 import * as Att from "@/domain/rules/attendance"
 import { canApprove as canApproveInvoice, invoiceTotals } from "@/domain/rules/billing"
-import { LEAD_STAGE_LABEL } from "@/domain/rules/crm"
 import { sessionKindLabel } from "@/domain/rules/forms"
 import { can, seesAllSessions } from "@/domain/rules/permissions"
-import { renewHref, studentLabel } from "@/domain/rules/people"
 import * as R from "@/domain/rules/reports"
-import { findConflicts, sessionState, STATE_LABEL } from "@/domain/rules/scheduling"
+import { findConflicts, sessionState, STATE_LABEL, workState } from "@/domain/rules/scheduling"
 import * as Survey from "@/domain/rules/survey"
+import * as Today from "@/domain/rules/today"
+import type { Topic } from "@/domain/rules/today"
 import type { Attendance, Session } from "@/domain/types"
 import { useBranch, useEntitlements, useLookup, useNow, useQueryState } from "@/lib/hooks"
 import { cn } from "@/lib/utils"
 import { useStore } from "@/store/store"
 import { tx, nm, sj } from "@/lib/i18n"
 
-/** "ครูมิ้นท์ สอนชนเวลา 14:30" from the scheduling rules → the chosen language */
-const clashText = (m: string) => { const x = m.match(/^(.+) สอนชนเวลา (.+)$/); return x ? tx("{0} สอนชนเวลา {1}", [nm(x[1]), x[2]]) : tx(m) }
-
-/** package alerts come from the rules in Thai — shown in the chosen language */
-const alertText = (m: string) => {
-  const left = m.match(/^เหลือ (\d+) คาบ$/)
-  if (left) return tx("เหลือ {0} คาบ", [left[1]])
-  const exp = m.match(/^แพ็กเกจหมดอายุ (.+)$/)
-  if (exp) return tx("แพ็กเกจหมดอายุ {0}", [exp[1]])
-  return tx(m)
-}
-
 type RangeKey = "today" | "week" | "month"
 const PERIOD_OF: Record<RangeKey, R.PeriodKey> = { today: "today", week: "week", month: "mtd" }
 const RANGE_LABEL: Record<RangeKey, string> = { today: "วันนี้", week: "สัปดาห์นี้", month: "เดือนนี้" }
 
 /**
- * Dashboard (owner 2026-10-06): merges the old executive-only `/dashboard` and the universal `/` "วันนี้"
- * page into one — everyone lands here, content adapts per role. `dashboard.view` (Director/Area Manager/
- * Manager/Super Admin, not Admin/teacher) gates the KPI strip, the week/month tabs and the management cards
- * (renewals, leads, activity) — everyone else only ever sees the "วันนี้" personal work queue, unchanged
- * from the old Today page.
+ * Dashboard (owner 2026-10-06): everyone lands here, content adapts per role. `dashboard.view` (Director/Area
+ * Manager/Manager/Super Admin) gets the KPI strip, week/month tabs and the activity log.
+ * Owner 2026-10-07 ("รกและโล่งในเวลาเดียวกัน"): today = AI brief (what to do first, and why) beside today's
+ * sessions, then one "ต้องจัดการ" board — every kind of work as a counted row linking to its list (?focus=
+ * highlights it there) — instead of separate long lists that repeated each other.
  */
 export default function DashboardPage() {
   const now = useNow()
@@ -73,9 +64,7 @@ export default function DashboardPage() {
   const leads = useStore((s) => s.leads).filter((x) => x.branchId === branch.id)
   const L = useLookup()
   const [openSessionId, setOpenSessionId] = useState<string | null>(null)
-  const [openStudentId, setOpenStudentId] = useState<string | null>(null)
   const [showPast, setShowPast] = useState(false)
-  const [showAttention, setShowAttention] = useState(false)
 
   const hasOverview = can(me, "dashboard.view")
   const [rangeParam, setRangeParam] = useQueryState<RangeKey>("range", "today")
@@ -97,70 +86,33 @@ export default function DashboardPage() {
     return sm && sm.status !== "draft" && sm.status !== "changes_requested"
   }).length
 
-  // ---------- everyone: today's personal work queue (unchanged from the old Today page) ----------
-  const todo = (() => {
-    const out: { key: string; label: string; detail: string; href?: string; onClick?: () => void; tone: "amber" | "red" | "blue" }[] = []
-    branchSessions
-      .filter((s) => s.date >= addDays(today, -7) && ["ended"].includes(sessionState(s, now)) && (!mineOnly || s.teacherId === me.id))
-      .forEach((s) => {
-        const missing = s.studentIds.filter((sid) => !attendance.some((a) => a.sessionId === s.id && a.studentId === sid)).length
-        if (missing) out.push({ key: `att${s.id}`, label: tx("ยังไม่เช็คชื่อ {0} คน", [missing]), detail: `${sj(s.subject)} ${fmtDate(s.date)} ${s.start}`, onClick: () => setOpenSessionId(s.id), tone: "red" })
-      })
-    const present = attendance.filter((a) => a.status === "present")
-    present.forEach((a) => {
-      const s = branchSessions.find((x) => x.id === a.sessionId)
-      if (!s || s.date < addDays(today, -7)) return
-      const sm = summaries.find((x) => x.sessionId === a.sessionId && x.studentId === a.studentId)
-      if (s.teacherId === me.id && (!sm || sm.status === "draft" || sm.status === "changes_requested"))
-        out.push({ key: `sw${s.id}${a.studentId}`, label: sm?.status === "changes_requested" ? tx("สรุปถูกขอแก้") : tx("เขียนสรุปการเรียน"), detail: `${nm(L.student(a.studentId)?.nickname)} · ${sj(s.subject)} ${fmtDate(s.date)}`, onClick: () => setOpenSessionId(s.id), tone: "amber" })
-      if (sm?.status === "submitted" && can(me, "summary.approve") && sm.authorId !== me.id && sm.lastEditorId !== me.id)
-        out.push({ key: `sa${sm.id}`, label: tx("สรุปรออนุมัติ"), detail: `${nm(L.student(a.studentId)?.nickname)} · ${sj(s.subject)} ${fmtDate(s.date)}`, onClick: () => setOpenSessionId(s.id), tone: "blue" })
-    })
-    if (can(me, "billing.approve"))
-      invoices.filter((i) => canApproveInvoice(i, me).ok).forEach((i) =>
-        out.push({ key: `inv${i.id}`, label: tx("ใบแจ้งหนี้รออนุมัติ"), detail: `${i.number} · ${nm(students.find((s) => s.id === i.studentId)?.nickname)}`, href: `/billing?open=${i.id}`, tone: "blue" }))
-    return out
-  })()
+  // ---------- the work, as topics (owner 2026-10-07): one row per kind of work, the list itself lives on its page ----------
+  const mine = (s: Session) => !mineOnly || s.teacherId === me.id
+  const unmarked = branchSessions.filter((s) => s.date >= addDays(today, -29) && s.date <= today && mine(s) && workState(s, now, attendance, summaries).state === "needs_attendance").length
+  // same 7 days and scope as the Summaries page opens with, so the count there matches
+  const summaryRows = branchSessions
+    .filter((s) => s.date >= addDays(today, -6) && s.date <= today && mine(s))
+    .flatMap((s) => attendance.filter((a) => a.sessionId === s.id && a.status === "present").map((a) => summaries.find((x) => x.sessionId === s.id && x.studentId === a.studentId)))
+  const toWrite = summaryRows.filter((sm) => !sm || sm.status === "draft" || sm.status === "changes_requested").length
+  const toApprove = summaryRows.filter((sm) => sm?.status === "submitted" && sm.authorId !== me.id && sm.lastEditorId !== me.id).length
+  const invoicesToApprove = invoices.filter((i) => canApproveInvoice(i, me).ok).length
 
-  const alerts = (() => {
-    if (mineOnly) return []
-    const next7 = branchSessions.filter((s) => s.date >= today && s.date <= addDays(today, 7))
-    const out: { key: string; text: string; href: string; kind: "conflict" | "no_teacher" | "renewal" }[] = []
-    findConflicts(next7, branch, staff).forEach((c, i) => {
-      const s = next7.find((x) => x.id === c.sessionIds[0])!
-      out.push({ key: `c${i}`, text: `${fmtDate(s.date, { weekday: true })}: ${clashText(c.message)}`, href: "/calendar", kind: "conflict" })
-    })
-    next7.filter((s) => !s.teacherId || !staff.find((t) => t.id === s.teacherId)?.active).forEach((s) => out.push({ key: `t${s.id}`, text: tx("{0} {1} {2}: ยังไม่มีครูสอน", [fmtDate(s.date, { weekday: true }), s.start, sj(s.subject)]), href: "/calendar", kind: "no_teacher" }))
-    // owner 2026-10-06: the full renewal list below already covers this for dashboard.view roles — avoid saying it twice
-    if (!hasOverview) entitlements.forEach((e) => {
-      const stu = students.find((x) => x.id === e.studentId)
-      if (!stu || e.to < today) return
-      const msg = Att.lowBalanceAlert(e, Att.balance(e, sessions, attendance, classes), today)
-      const course = courses.find((c) => c.id === e.courseId)?.name
-      if (msg) out.push({ key: `e${e.id}`, text: tx("ต่ออายุ {0} · {1}: {2}", [studentLabel(stu, families.find((f) => f.id === stu.familyId)?.name), course ?? tx("คอร์ส"), msg]), href: renewHref(stu.id, e.id), kind: "renewal" })
-    })
-    return out
-  })()
+  const next7 = branchSessions.filter((s) => s.date >= today && s.date <= addDays(today, 7) && sessionState(s, now) === "upcoming")
+  const clashes = mineOnly ? 0 : findConflicts(next7, branch, staff).length
+  const noTeacher = mineOnly ? 0 : next7.filter((s) => !s.teacherId || !staff.find((t) => t.id === s.teacherId)?.active).length
 
-  // ---------- dashboard.view only: current-state management cards ----------
+  // ---------- current-state numbers ----------
   const statusOf = new Map(students.map((s) => [s.id, Att.studentStatus(s, entitlements, leaves, today)]))
   const activeStudents = [...statusOf.values()].filter((v) => v === "active" || v === "renewal").length
   // owner 2026-10-06: a renewal check-in that got no answer can be snoozed to a later date (renewalFollowUpDue) —
-  // keeps this list to "needs doing today", not an ever-growing pile of names already being chased
-  const renewalRows = students
+  // keeps this to "needs doing today", not an ever-growing pile of names already being chased
+  const renewals = students
     .filter((s) => statusOf.get(s.id) === "renewal" && Att.renewalFollowUpDue(s, today))
     .map((stu) => {
       const ents = entitlements.filter((e) => e.studentId === stu.id && e.to >= today)
-      const messages = ents.map((e) => { const m = Att.lowBalanceAlert(e, Att.balance(e, sessions, attendance, classes), today); return m && `${nm(courses.find((c) => c.id === e.courseId)?.name) || tx("คอร์ส")}: ${alertText(m)}` }).filter((m): m is string => !!m)
-      const urgent = ents.some((e) => e.kind === "sessions" && Att.balance(e, sessions, attendance, classes).remaining <= 1) || ents.some((e) => e.to <= addDays(today, 2))
-      return { stu, messages, urgent }
+      return ents.some((e) => e.kind === "sessions" && Att.balance(e, sessions, attendance, classes).remaining <= 1) || ents.some((e) => e.to <= addDays(today, 2))
     })
-    .sort((a, b) => (a.urgent === b.urgent ? 0 : a.urgent ? -1 : 1))
-  // owner 2026-10-06: "ติดต่อวันนี้ X/Y" on the renewal card — Y is the most students seen on the list this
-  // visit (grows if a new one shows up, never shrinks), X = how many of those have since been contacted/snoozed
-  const [renewalStart, setRenewalStart] = useState(() => renewalRows.length)
-  useEffect(() => { if (renewalRows.length > renewalStart) setRenewalStart(renewalRows.length) }, [renewalRows.length, renewalStart]) // eslint-disable-line react-hooks/set-state-in-effect
-  const renewalDone = Math.max(0, renewalStart - renewalRows.length)
+  const renewalUrgent = renewals.filter(Boolean).length
   const activeLeads = leads.filter((l) => l.stage !== "archived" && l.stage !== "enrolled")
   const newLeads = leads.filter((l) => l.stage === "new")
   const recentActivity = (() => {
@@ -168,7 +120,7 @@ export default function DashboardPage() {
     const payments = invoices.flatMap((i) => i.payments.filter((p) => p.confirmedBy).map((p) => ({ at: p.recordedAt, text: tx("ชำระเงิน · {0} · {1}", [nm(students.find((s) => s.id === i.studentId)?.nickname ?? "-"), fmtMoney(invoiceTotals(i, { branch, courses, classes, holidays }).total)]), tone: "green" as const })))
     const att = attendance
       .filter((a) => a.status !== "leave")
-      .slice(-60)
+      .slice(-150)
       .map((a) => {
         const se = sessions.find((x) => x.id === a.sessionId)
         const stu = students.find((x) => x.id === a.studentId)
@@ -176,7 +128,7 @@ export default function DashboardPage() {
         return { at: a.markedAt, text: `${a.status === "present" ? tx("เข้าเรียน") : tx("ขาดเรียน")} · ${nm(stu.nickname)} · ${sj(se.subject)}`, tone: a.status === "present" ? ("blue" as const) : ("red" as const) }
       })
       .filter((x): x is { at: string; text: string; tone: "blue" | "red" } => !!x)
-    return [...payments, ...att].sort((a, b) => b.at.localeCompare(a.at)).slice(0, 8)
+    return [...payments, ...att].sort((a, b) => b.at.localeCompare(a.at)).slice(0, 40)
   })()
 
   // ---------- dashboard.view only: period KPI (รายรับ strip + week/month tabs) ----------
@@ -194,55 +146,83 @@ export default function DashboardPage() {
   const leadsInRange = leads.filter((l) => R.inRange(l.createdAt.slice(0, 10), periodRange)).length
   const leadsPrevRange = leads.filter((l) => R.inRange(l.createdAt.slice(0, 10), prevRange)).length
 
-  // owner 2026-10-06: same Need Attention list as Reports (domain/rules/reports.ts needsAttention — the one
-  // source of truth), scoped to this branch — so an admin/director catches these without a trip to Reports
+  // owner 2026-10-06: same Need Attention rules as Reports (domain/rules/reports.ts needsAttention — the one
+  // source of truth), scoped to this branch; from 2026-10-07 they are rows of the "ต้องจัดการ" board
   const studentIds = new Set(students.map((s) => s.id))
   const scopedEnts = entitlements.filter((e) => studentIds.has(e.studentId))
   const studentFamilyIds = new Set(students.map((s) => s.familyId).filter((x): x is string => !!x))
   const activeNow = hasOverview ? students.filter((s) => R.stateOn(s.id, today, scopedEnts, leaves) === "active").length : 0
-  const activeBefore = hasOverview ? students.filter((s) => R.stateOn(s.id, addDays(periodRange.from, -1), scopedEnts, leaves) === "active").length : 0
-  const branchSessionIds = new Set(branchSessions.map((s) => s.id))
-  const pendingSummaries = hasOverview ? summaries.filter((x) => branchSessionIds.has(x.sessionId) && ["draft", "submitted", "changes_requested"].includes(x.status)).length : 0
-  const conflicts = hasOverview ? findConflicts(sessions.filter((s) => s.branchId === branch.id && s.date >= today && sessionState(s, now) === "upcoming"), branch, staff).length : 0
+  const activeBefore = hasOverview ? students.filter((s) => R.stateOn(s.id, addDays(R.periodRange("mtd", today).from, -1), scopedEnts, leaves) === "active").length : 0
+  // trend items (the brief's notes) compare month-to-date — "today vs yesterday" swings 100% on a quiet morning
+  const mtd = R.periodRange("mtd", today)
   const attentionItems = hasOverview ? R.needsAttention({
-    today, now, rows: revRows, range: periodRange, prevRange,
+    today, now, rows: revRows, range: mtd, prevRange: R.compareRange("mtd", mtd),
     invoices, entitlements: scopedEnts, attendance, sessions: sessions.filter((s) => s.branchId === branch.id),
     classes: classes.filter((k) => k.branchId === branch.id), leads,
-    activeNow, activeBefore, pendingSummaries, conflicts,
+    activeNow, activeBefore, pendingSummaries: 0, conflicts: 0,
     surveyToCall: Survey.toCall(surveyResponses.filter((r) => r.branchId === branch.id), today).length,
     students, families: families.filter((f) => studentFamilyIds.has(f.id)),
-  }, tx) : []
+  }, tx, { keepZero: true }) : []
+
+  const topics: Topic[] = [
+    { key: "unmarked", group: "today", title: tx("ยังไม่เช็คชื่อ"), detail: tx("คาบที่จบแล้วใน 30 วัน"), count: unmarked, href: "/sessions?range=recent&work=needs_attendance" },
+    { key: "summary_write", group: "today", title: tx("สรุปการเรียนยังไม่ได้เขียน"), detail: tx("7 วันล่าสุด รวมที่ถูกขอแก้"), count: toWrite, href: "/summaries?bucket=to_write" },
+    ...(can(me, "summary.approve") ? [{ key: "summary_approve", group: "today" as const, title: tx("สรุปการเรียนรออนุมัติ"), detail: tx("ครูส่งมาแล้ว รอคุณตรวจ"), count: toApprove, href: "/summaries?bucket=submitted" }] : []),
+    ...(can(me, "billing.approve") ? [{ key: "invoice_approve", group: "today" as const, title: tx("ใบแจ้งหนี้รออนุมัติ"), detail: tx("อนุมัติแล้วจึงส่งผู้ปกครองได้"), count: invoicesToApprove, href: "/billing?filter=pending_approval" }] : []),
+    ...(!mineOnly ? [
+      { key: "renewal", group: "customers" as const, title: tx("รอต่อคอร์ส"), detail: tx("แพ็กใกล้หมด / เหลือน้อย · ด่วน = หมดใน 2 วัน"), count: renewals.length, urgent: renewalUrgent, href: "/students?status=renewal" },
+      { key: "lead_new", group: "customers" as const, title: tx("ลีดใหม่รอติดต่อ"), detail: tx("กำลังตามทั้งหมด {0} ราย", [activeLeads.length]), count: newLeads.length, href: "/crm?view=table" },
+      { key: "conflict", group: "teaching" as const, title: tx("คาบชน"), detail: tx("7 วันข้างหน้า"), count: clashes, href: "/calendar?view=list" },
+      { key: "no_teacher", group: "teaching" as const, title: tx("คาบยังไม่มีครู"), detail: tx("7 วันข้างหน้า"), count: noTeacher, href: "/calendar?view=list&teacher=none" },
+    ] : []),
+    ...Today.attentionTopics(attentionItems),
+  ]
+  const brief = Today.dailyBrief({
+    topics,
+    trend: attentionItems.filter((x) => x.group === "trend" && x.count > 0),
+    sessions: todays.map((s) => ({ start: s.start, minutes: s.minutes, state: sessionState(s, now) })),
+    nowTime: `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`,
+  }, tx)
 
   return (
     <div className="mx-auto max-w-6xl space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <DashboardHeader name={nm(me.nickname)} today={today} branchName={nm(branch.name)} />
-        {hasOverview && (
-          <ToggleGroup value={[range]} onValueChange={(v) => v[0] && setRangeParam(v[0] as RangeKey)} variant="outline" size="sm">
-            <ToggleGroupItem value="today">{tx("วันนี้")}</ToggleGroupItem>
-            <ToggleGroupItem value="week">{tx("สัปดาห์นี้")}</ToggleGroupItem>
-            <ToggleGroupItem value="month">{tx("เดือนนี้")}</ToggleGroupItem>
-          </ToggleGroup>
-        )}
+        <div className="flex items-center gap-2">
+          {hasOverview && (
+            <ToggleGroup value={[range]} onValueChange={(v) => v[0] && setRangeParam(v[0] as RangeKey)} variant="outline" size="sm">
+              <ToggleGroupItem value="today">{tx("วันนี้")}</ToggleGroupItem>
+              <ToggleGroupItem value="week">{tx("สัปดาห์นี้")}</ToggleGroupItem>
+              <ToggleGroupItem value="month">{tx("เดือนนี้")}</ToggleGroupItem>
+            </ToggleGroup>
+          )}
+          {hasOverview && <ActivityButton items={recentActivity} today={today} />}
+        </div>
       </div>
 
       {hasOverview && (
-        <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-5">
+        <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
           <Kpi icon={<GraduationCapIcon className="size-4" />} label={tx("นักเรียนที่เรียนอยู่")} value={String(activeStudents)} tone="emerald" sub={tx("จากทั้งหมด {0} คน", [students.length])} />
-          <Kpi icon={<AlertTriangleIcon className="size-4" />} label={tx("รอต่อคอร์ส")} value={String(renewalRows.length)} tone={renewalRows.some((r) => r.urgent) ? "red" : "amber"} sub={renewalRows.some((r) => r.urgent) ? tx("{0} คนด่วน", [renewalRows.filter((r) => r.urgent).length]) : renewalRows.length ? tx("ยังไม่ด่วน") : tx("เรียบร้อยหมด")} />
           <Kpi icon={<BanknoteIcon className="size-4" />} label={tx("รายรับ{0}", [tx(RANGE_LABEL[range])])} value={fmtMoney(rev.total)} tone="violet" sub={<span className="flex items-center gap-1"><Delta value={revChange} /> {tx(R.COMPARE_LABEL[periodKey])}</span>} />
-          <Kpi icon={<UserSearchIcon className="size-4" />} label={tx("ลีดที่กำลังตาม")} value={String(activeLeads.length)} tone={newLeads.length ? "sky" : "emerald"} sub={newLeads.length ? tx("{0} รายใหม่ยังไม่ติดต่อ", [newLeads.length]) : tx("ติดต่อครบแล้ว")} />
-          <AttentionButton count={attentionItems.length} onClick={() => setShowAttention(true)} className="col-span-2 md:col-span-1" />
+          <Kpi icon={<UserPlusIcon className="size-4" />} label={tx("นักเรียนใหม่ · {0}", [tx(RANGE_LABEL[range])])} value={`+${fmtNum(newCount)}`} tone="sky" sub={<span className="flex items-center gap-1"><Delta value={R.change(newCount, newPrev, prevRange, since)} /> {tx(R.COMPARE_LABEL[periodKey])}</span>} />
+          <Kpi icon={<UserSearchIcon className="size-4" />} label={tx("ลีดที่กำลังตาม")} value={String(activeLeads.length)} tone={newLeads.length ? "amber" : "emerald"} sub={newLeads.length ? tx("{0} รายใหม่ยังไม่ติดต่อ", [newLeads.length]) : tx("ติดต่อครบแล้ว")} />
         </div>
       )}
 
       {range === "today" ? (
         <>
-          <div className="grid gap-4 lg:grid-cols-5">
-            <Card className="lg:col-span-3">
+          <div className="grid items-stretch gap-4 lg:grid-cols-5">
+            <DailyBriefCard brief={brief} className="lg:col-span-3" />
+            <Card className="lg:col-span-2">
               <CardHeader>
                 <CardTitle>{mineOnly ? tx("คาบของฉันวันนี้") : tx("คาบเรียนวันนี้")}</CardTitle>
                 <CardDescription>{todays.length}  {tx("คาบ · สถานะเปลี่ยนตามเวลาจริงอัตโนมัติ")}</CardDescription>
+                {endedToday.length > 0 && (
+                  <div className="mt-1 grid gap-2.5 sm:grid-cols-2">
+                    <HeaderProgress label={tx("เช็คชื่อวันนี้")} done={attendanceDone} total={endedToday.length} />
+                    <HeaderProgress label={tx("สรุปการเรียนวันนี้")} done={summaryDone} total={presentToday.length} />
+                  </div>
+                )}
               </CardHeader>
               <CardContent className="space-y-0.5">
                 {todays.length === 0 && <p className="py-6 text-center text-sm text-muted-foreground">{tx("วันนี้ไม่มีคาบเรียน")}</p>}
@@ -265,122 +245,9 @@ export default function DashboardPage() {
                 })()}
               </CardContent>
             </Card>
-            <Card className="lg:col-span-2">
-              <CardHeader>
-                <CardTitle>{tx("งานที่รอคุณ")}</CardTitle>
-                <CardDescription>{todo.length ? tx("{0} รายการ", [todo.length]) : tx("ไม่มีงานค้าง")}</CardDescription>
-                {endedToday.length > 0 && (
-                  <div className="mt-1 grid gap-2.5 sm:grid-cols-2">
-                    <HeaderProgress label={tx("เช็คชื่อวันนี้")} done={attendanceDone} total={endedToday.length} />
-                    <HeaderProgress label={tx("สรุปการเรียนวันนี้")} done={summaryDone} total={presentToday.length} />
-                  </div>
-                )}
-              </CardHeader>
-              <CardContent className="space-y-1.5">
-                {todo.length === 0 && <p className="flex items-center justify-center gap-2 py-6 text-sm text-muted-foreground"><CheckCircle2Icon className="size-4 text-emerald-600" />  {tx("เคลียร์หมดแล้ว")}</p>}
-                {todo.slice(0, 12).map((t) => {
-                  const inner = (
-                    <>
-                      <Pill tone={t.tone}>{t.label}</Pill>
-                      <span className="min-w-0 flex-1 truncate text-sm">{t.detail}</span>
-                      <ArrowRightIcon className="size-4 text-muted-foreground" />
-                    </>
-                  )
-                  return t.href ? (
-                    <Link key={t.key} href={t.href} className="flex items-center gap-2 rounded-lg p-2 hover:bg-muted/60">{inner}</Link>
-                  ) : (
-                    <button key={t.key} onClick={t.onClick} className="flex w-full items-center gap-2 rounded-lg p-2 text-left hover:bg-muted/60">{inner}</button>
-                  )
-                })}
-              </CardContent>
-            </Card>
           </div>
 
-          {hasOverview && (
-            <div className="grid gap-4 lg:grid-cols-5">
-              <Card className="lg:col-span-3">
-                <CardHeader>
-                  <CardTitle>{tx("รอต่อคอร์ส")}</CardTitle>
-                  <CardDescription>{renewalRows.length ? tx("{0} คน — เรียงตามความด่วน", [renewalRows.length]) : tx("ไม่มีใครรอต่อคอร์ส")}</CardDescription>
-                  {renewalStart > 0 && <div className="mt-1"><HeaderProgress label={tx("ติดต่อวันนี้")} done={renewalDone} total={renewalStart} /></div>}
-                </CardHeader>
-                <CardContent className="space-y-1.5">
-                  {renewalRows.length === 0 && <p className="flex items-center justify-center gap-2 py-6 text-sm text-muted-foreground"><CheckCircle2Icon className="size-4 text-emerald-600" />  {tx("ทุกคนต่อคอร์สเรียบร้อย")}</p>}
-                  {renewalRows.slice(0, 8).map(({ stu, messages, urgent }) => (
-                    <button key={stu.id} onClick={() => setOpenStudentId(stu.id)} className="flex w-full items-center gap-3 rounded-lg border p-2.5 text-left hover:bg-muted/50">
-                      <span className={cn("grid size-9 shrink-0 place-items-center rounded-full text-sm font-semibold", avatarTone(stu.id))}>{initial(stu.nickname)}</span>
-                      <div className="min-w-0 flex-1">
-                        <div className="flex items-center gap-1.5 truncate text-sm font-medium">{nm(stu.nickname)} <span className="font-normal text-muted-foreground">{nm(stu.name)}</span> <span className={cn("rounded px-1.5 py-0.5 text-xs", gradeTone(stu.grade))}>{nm(stu.grade)}</span></div>
-                        <div className="truncate text-xs text-muted-foreground">{messages.join(" · ") || tx("ใกล้หมดแพ็กเกจ")}{stu.renewalFollowUps?.length ? tx(" · ติดตามแล้ว {0} ครั้ง", [stu.renewalFollowUps.length]) : ""}</div>
-                      </div>
-                      {urgent && <Pill tone="red">{tx("ด่วน")}</Pill>}
-                      <ArrowRightIcon className="size-4 shrink-0 text-muted-foreground" />
-                    </button>
-                  ))}
-                </CardContent>
-              </Card>
-
-              <Card className="lg:col-span-2">
-                <CardHeader>
-                  <CardTitle>{tx("ลีดใหม่")}</CardTitle>
-                  <CardDescription>{newLeads.length ? tx("{0} รายรอติดต่อ", [newLeads.length]) : tx("ไม่มีลีดใหม่")}</CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-1.5">
-                  {newLeads.length === 0 && <p className="py-6 text-center text-sm text-muted-foreground">{tx("ยังไม่มีลีดใหม่วันนี้")}</p>}
-                  {newLeads.slice(0, 6).map((l) => (
-                    <Link key={l.id} href="/crm" className="flex items-center gap-2 rounded-lg p-2 hover:bg-muted/60">
-                      <span className="min-w-0 flex-1 truncate text-sm">{nm(l.name)} <span className="text-xs text-muted-foreground">· {sj(l.subject)} {nm(l.childGrade)}</span></span>
-                      <Pill tone="blue">{tx(LEAD_STAGE_LABEL[l.stage])}</Pill>
-                    </Link>
-                  ))}
-                  <Link href="/crm" className="flex items-center justify-center gap-1 pt-1 text-xs text-primary hover:underline">
-                    
-                    {tx("ไปที่ CRM")} <ArrowRightIcon className="size-3" />
-                  </Link>
-                </CardContent>
-              </Card>
-            </div>
-          )}
-
-          {alerts.length > 0 && (
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2"><AlertTriangleIcon className="size-4 text-amber-600" />  {tx("ต้องจัดการ (7 วันข้างหน้า)")}</CardTitle>
-              </CardHeader>
-              <CardContent className="grid gap-0.5 sm:grid-cols-2">
-                {alerts.map((a) => {
-                  const Icon = ALERT_ICON[a.kind]
-                  return (
-                    <Link key={a.key} href={a.href} className="flex items-center gap-2.5 rounded-lg px-2 py-1.5 text-sm hover:bg-muted/50">
-                      <span className={cn("grid size-6 shrink-0 place-items-center rounded-md", ALERT_TONE[a.kind])}><Icon className="size-3.5" /></span>
-                      <span className="min-w-0 flex-1 truncate">{a.text}</span>
-                    </Link>
-                  )
-                })}
-              </CardContent>
-            </Card>
-          )}
-
-          {hasOverview && (
-            <Card>
-              <CardHeader>
-                <CardTitle>{tx("กิจกรรมล่าสุด")}</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-0.5">
-                {recentActivity.length === 0 && <p className="py-6 text-center text-sm text-muted-foreground">{tx("ยังไม่มีกิจกรรม")}</p>}
-                {recentActivity.map((e, i) => {
-                  const Icon = e.tone === "green" ? BanknoteIcon : e.tone === "red" ? XCircleIcon : CheckCircle2Icon
-                  return (
-                    <div key={i} className="flex items-center gap-2.5 rounded-lg px-2 py-1.5 text-sm">
-                      <span className={cn("grid size-6 shrink-0 place-items-center rounded-md", e.tone === "green" ? "bg-emerald-100 text-emerald-700" : e.tone === "red" ? "bg-red-100 text-red-700" : "bg-sky-100 text-sky-700")}><Icon className="size-3.5" /></span>
-                      <span className="min-w-0 flex-1 truncate">{e.text}</span>
-                      <span className="shrink-0 text-xs text-muted-foreground">{fmtDate(e.at.slice(0, 10))}</span>
-                    </div>
-                  )
-                })}
-              </CardContent>
-            </Card>
-          )}
+          <TaskBoard topics={topics} />
         </>
       ) : (
         // week/month (dashboard.view only): how the period went, not a task queue — for the operational
@@ -398,14 +265,59 @@ export default function DashboardPage() {
       )}
 
       <SessionSheet sessionId={openSessionId} onClose={() => setOpenSessionId(null)} />
-      <StudentSheet studentId={openStudentId} onClose={() => setOpenStudentId(null)} />
-      {hasOverview && <AttentionDialog open={showAttention} onClose={() => setShowAttention(false)} items={attentionItems} />}
     </div>
   )
 }
 
-const ALERT_ICON = { conflict: AlertTriangleIcon, no_teacher: UserXIcon, renewal: RefreshCwIcon } as const
-const ALERT_TONE = { conflict: "bg-red-100 text-red-700", no_teacher: "bg-amber-100 text-amber-700", renewal: "bg-sky-100 text-sky-700" } as const
+type Activity = { at: string; text: string; tone: "green" | "blue" | "red" }
+
+/**
+ * กิจกรรมล่าสุด (owner 2026-10-07): a log that flows all day — an icon button in the header (badge = today's count)
+ * opening a popup grouped by day, instead of a card taking space on the page.
+ */
+function ActivityButton({ items, today }: { items: Activity[]; today: string }) {
+  const [open, setOpen] = useState(false)
+  // timestamps are ISO (UTC) — group and show them in local time
+  const dayOf = (at: string) => toDateStr(new Date(at))
+  const timeOf = (at: string) => { const d = new Date(at); return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}` }
+  const todayCount = items.filter((e) => dayOf(e.at) === today).length
+  const days = [...new Set(items.map((e) => dayOf(e.at)))]
+  return (
+    <>
+      <Tooltip>
+        <TooltipTrigger render={<Button variant="outline" size="icon-sm" className="relative" aria-label={tx("กิจกรรมล่าสุด")} onClick={() => setOpen(true)} />}>
+          <HistoryIcon />
+          {todayCount > 0 && <span className="absolute -top-1.5 -right-1.5 min-w-4 rounded-full bg-primary px-1 text-[10px] leading-4 font-semibold text-primary-foreground tabular-nums">{todayCount}</span>}
+        </TooltipTrigger>
+        <TooltipContent>{tx("กิจกรรมล่าสุด")}</TooltipContent>
+      </Tooltip>
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2"><HistoryIcon className="size-5" /> {tx("กิจกรรมล่าสุด")}</DialogTitle>
+            <DialogDescription>{tx("เช็คชื่อและการชำระเงินล่าสุดของสาขา")}</DialogDescription>
+          </DialogHeader>
+          {items.length === 0 && <p className="py-6 text-center text-sm text-muted-foreground">{tx("ยังไม่มีกิจกรรม")}</p>}
+          {days.map((d) => (
+            <section key={d} className="space-y-0.5">
+              <p className="px-2 pb-1 text-xs font-medium text-muted-foreground">{d === today ? tx("วันนี้") : fmtDate(d, { weekday: true })}</p>
+              {items.filter((e) => dayOf(e.at) === d).map((e, i) => {
+                const Icon = e.tone === "green" ? BanknoteIcon : e.tone === "red" ? XCircleIcon : CheckCircle2Icon
+                return (
+                  <div key={i} className="flex items-center gap-2.5 rounded-lg px-2 py-1.5 text-sm">
+                    <span className={cn("grid size-6 shrink-0 place-items-center rounded-md", e.tone === "green" ? "bg-emerald-100 text-emerald-700" : e.tone === "red" ? "bg-red-100 text-red-700" : "bg-sky-100 text-sky-700")}><Icon className="size-3.5" /></span>
+                    <span className="min-w-0 flex-1 truncate">{e.text}</span>
+                    <span className="shrink-0 text-xs text-muted-foreground tabular-nums">{timeOf(e.at)}</span>
+                  </div>
+                )
+              })}
+            </section>
+          ))}
+        </DialogContent>
+      </Dialog>
+    </>
+  )
+}
 
 const KPI_TONE = {
   emerald: "bg-emerald-100 text-emerald-700",

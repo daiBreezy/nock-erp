@@ -192,7 +192,7 @@ function CalendarView() {
       {periodsIn(branch, range.from, range.to).map((p) => <PeriodBanner key={p.id} period={p} />)}
 
       {conflicts.length > 0 && (
-        <details className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-900 dark:border-red-900 dark:bg-red-950/40 dark:text-red-200">
+        <details data-focus="conflict" className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-900 dark:border-red-900 dark:bg-red-950/40 dark:text-red-200">
           <summary className="cursor-pointer font-medium">พบคาบที่ชนกัน {conflicts.length} จุด — กดเพื่อดู</summary>
           <ul className="mt-1 list-disc pl-5">
             {conflicts.map((c, i) => {
@@ -458,7 +458,7 @@ function ListView({ from, to, sessions, ...ctx }: CardCtx & { from: DateStr; to:
             {sessions.filter((s) => s.date === d).sort((a, b) => a.start.localeCompare(b.start)).map((s) => {
               const t = L.teacher(s.teacherId)
               return (
-                <button key={s.id} onClick={() => ctx.onOpen(s.id)} className="flex w-full flex-wrap items-center gap-3 px-3 py-2 text-left text-sm hover:bg-muted/50">
+                <button key={s.id} onClick={() => ctx.onOpen(s.id)} data-focus={[ctx.conflictIds.has(s.id) && "conflict", t.missing && "no_teacher", s.teacherLeave && "teacher_leave"].filter(Boolean).join(" ") || undefined} className="flex w-full flex-wrap items-center gap-3 px-3 py-2 text-left text-sm hover:bg-muted/50">
                   <span className="w-24 tabular-nums text-muted-foreground">{s.start}–{endTime(s.start, s.minutes)}</span>
                   <span className="min-w-40 flex-1 font-medium">{ctx.classes.find((c) => c.id === s.classId)?.name ?? s.subject}{sessionKindLabel(s) && <Pill tone="violet" className="ml-2">{sessionKindLabel(s)}</Pill>}</span>
                   <span className={cn("w-28 truncate", t.missing && "text-amber-700")}>{t.label}</span>

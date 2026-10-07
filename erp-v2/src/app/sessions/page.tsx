@@ -11,13 +11,13 @@ import { Button } from "@/components/ui/button"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 import { addDays, endTime, fmtDate, toDateStr, weekdayOf } from "@/domain/dates"
 import { workState, type WorkState } from "@/domain/rules/scheduling"
-import { useBranch, useLookup, useNow } from "@/lib/hooks"
+import { useBranch, useLookup, useNow, useQueryState } from "@/lib/hooks"
 import { cn } from "@/lib/utils"
 import { useStore } from "@/store/store"
 import { sessionKindLabel } from "@/domain/rules/forms"
 import { removedWithClass } from "@/domain/rules/scheduling"
 
-type Range = "day" | "week"
+type Range = "day" | "week" | "recent"
 
 /** Session list for daily operations: what needs attendance / summaries right now. */
 export default function SessionsPage() {
@@ -31,15 +31,18 @@ export default function SessionsPage() {
   const classes = useStore((s) => s.classes)
   const staff = useStore((s) => s.staff)
   const L = useLookup()
-  const [range, setRange] = useState<Range>("day")
+  // ?range=recent&work=needs_attendance — the Dashboard's "ยังไม่เช็คชื่อ" lands here (owner 2026-10-07)
+  const [range, setRange] = useQueryState<Range>("range", "day")
   const [anchor, setAnchor] = useState(today)
   // everyone sees every session by default; teachers get a one-tap "only mine" filter
   const [teacher, setTeacher] = useState("all")
-  const [work, setWork] = useState<WorkState | null>(null)
+  const [workParam, setWorkParam] = useQueryState<WorkState | "all">("work", "all")
+  const work = workParam === "all" ? null : workParam
+  const setWork = (w: WorkState | null) => setWorkParam(w ?? "all")
   const [openId, setOpenId] = useState<string | null>(null)
 
-  const from = range === "day" ? anchor : addDays(anchor, -((weekdayOf(anchor) + 6) % 7))
-  const to = range === "day" ? anchor : addDays(from, 6)
+  const from = range === "day" ? anchor : range === "recent" ? addDays(today, -29) : addDays(anchor, -((weekdayOf(anchor) + 6) % 7))
+  const to = range === "day" ? anchor : range === "recent" ? today : addDays(from, 6)
   const list = sessions
     .filter((s) => s.branchId === branch.id && s.date >= from && s.date <= to && !removedWithClass(s, classes))
     .filter((s) => teacher === "all" || s.teacherId === teacher || s.coTeacherIds.includes(teacher))
@@ -61,6 +64,7 @@ export default function SessionsPage() {
           <ToggleGroup value={[range]} onValueChange={(v) => v[0] && setRange(v[0] as Range)} variant="outline" size="sm">
             <ToggleGroupItem value="day">วัน</ToggleGroupItem>
             <ToggleGroupItem value="week">สัปดาห์</ToggleGroupItem>
+            <ToggleGroupItem value="recent">30 วันที่ผ่านมา</ToggleGroupItem>
           </ToggleGroup>
           <NativeSelect className="h-9 w-36" value={teacher} onChange={(e) => setTeacher(e.target.value)}
             options={[
@@ -75,13 +79,13 @@ export default function SessionsPage() {
       {shown.length === 0 && <p className="rounded-xl border border-dashed p-10 text-center text-sm text-muted-foreground">ไม่มีคาบในช่วงนี้</p>}
       {dates.map((d) => (
         <section key={d}>
-          {range === "week" && <h3 className="mb-1 text-sm font-semibold">{fmtDate(d, { weekday: true })}</h3>}
+          {range !== "day" && <h3 className="mb-1 text-sm font-semibold">{fmtDate(d, { weekday: true })}</h3>}
           <div className="divide-y overflow-hidden rounded-3xl bg-card shadow-sm ring-1 ring-foreground/5">
             {shown.filter(({ s }) => s.date === d).map(({ s, w }) => {
               const c = subjectColor(s.subject)
               const t = L.teacher(s.teacherId)
               return (
-                <button key={s.id} onClick={() => setOpenId(s.id)} className="flex w-full flex-wrap items-center gap-3 px-3 py-2.5 text-left hover:bg-muted/40">
+                <button key={s.id} onClick={() => setOpenId(s.id)} data-focus={w.state === "needs_attendance" ? "unmarked" : undefined} className="flex w-full flex-wrap items-center gap-3 px-3 py-2.5 text-left hover:bg-muted/40">
                   <span className={cn("h-9 w-1 rounded-full", c.bar)} />
                   <span className="w-24 text-sm tabular-nums">{s.start}–{endTime(s.start, s.minutes)}</span>
                   <span className="min-w-40 flex-1">

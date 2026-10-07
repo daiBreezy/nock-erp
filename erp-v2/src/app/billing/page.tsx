@@ -16,7 +16,8 @@ import { fmtDate, fmtMoney, toDateStr } from "@/domain/dates"
 import * as Bill from "@/domain/rules/billing"
 import { can } from "@/domain/rules/permissions"
 import type { Invoice } from "@/domain/types"
-import { useBranch, useQueryState } from "@/lib/hooks"
+import { useBranch, useNow, useQueryState } from "@/lib/hooks"
+import { invoiceOverdue, paymentUnconfirmed } from "@/domain/rules/reports"
 import { cn } from "@/lib/utils"
 import { useStore } from "@/store/store"
 
@@ -50,6 +51,7 @@ function BillingPage() {
   const slipFromChat = params.get("slip") ?? undefined
 
   const ctx = { branch, courses, classes, holidays }
+  const now = useNow()
   const rows = invoices
     .filter((i) => i.branchId === branch.id)
     .map((i) => {
@@ -116,7 +118,7 @@ function BillingPage() {
         </div>
         {visible.length === 0 && <p className="p-10 text-center text-sm text-muted-foreground">ไม่มีใบแจ้งหนี้ในหมวดนี้</p>}
         {visible.map(({ inv, total, paid, student, toConfirm }) => (
-          <button key={inv.id} onClick={() => setOpenId(inv.id)} className="grid w-full gap-1 border-b px-4 py-3 text-left text-sm last:border-0 hover:bg-muted/40 md:grid-cols-[1.3fr_1.2fr_1.5fr_0.8fr_1.1fr] md:items-center md:gap-3">
+          <button key={inv.id} onClick={() => setOpenId(inv.id)} data-focus={[Bill.canApprove(inv, me).ok && "invoice_approve", invoiceOverdue(inv, now) && "unpaid", paymentUnconfirmed(inv, now) && "unconfirmed"].filter(Boolean).join(" ") || undefined} className="grid w-full gap-1 border-b px-4 py-3 text-left text-sm last:border-0 hover:bg-muted/40 md:grid-cols-[1.3fr_1.2fr_1.5fr_0.8fr_1.1fr] md:items-center md:gap-3">
             <span className="font-medium tabular-nums">{inv.number ?? <span className="text-muted-foreground">—</span>}<span className="block text-xs font-normal text-muted-foreground">{fmtDate(inv.createdAt.slice(0, 10))}</span></span>
             <span>{student?.nickname} <span className="text-xs text-muted-foreground">{student?.grade}</span></span>
             <span className="truncate text-muted-foreground">{inv.lines.map((l) => courses.find((c) => c.id === l.courseId)?.name).filter(Boolean).join(", ") || (inv.busExtras?.length ? "ค่ารถเพิ่ม" : "ค่าอื่นๆ")}</span>

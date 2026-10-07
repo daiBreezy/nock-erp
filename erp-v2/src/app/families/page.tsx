@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import type { Family, ID, Student } from "@/domain/types"
 import { useBranch } from "@/lib/hooks"
+import { useFocusFirst } from "@/components/app/focus-banner"
 import { cn } from "@/lib/utils"
 import { useStore } from "@/store/store"
 
@@ -48,7 +49,8 @@ export default function FamiliesPage() {
           : linkedCount(a) / a.parents.length - linkedCount(b) / b.parents.length
       return sort.desc ? -v : v
     })
-  const pg = usePage(rows)
+  const focusKeys = (f: (typeof rows)[number]) => [!f.address && !f.postcode && "no_address", !f.lineUserId && !f.parents.some((p) => p.lineLinked) && "no_line"].filter(Boolean).join(" ") || undefined
+  const pg = usePage(useFocusFirst(rows, focusKeys))
   const orphans = students.filter((s) => s.branchId === branch.id && !s.familyId).length
 
   return (
@@ -80,7 +82,7 @@ export default function FamiliesPage() {
             const kids = kidsOf.get(f.id) ?? []
             const lc = linkedCount(f)
             return (
-              <tr key={f.id} onClick={() => setOpenId(f.id)} className="cursor-pointer border-b last:border-0 hover:bg-muted/40 [&>td]:px-3 [&>td]:py-2.5">
+              <tr key={f.id} onClick={() => setOpenId(f.id)} data-focus={focusKeys(f)} className="cursor-pointer border-b last:border-0 hover:bg-muted/40 [&>td]:px-3 [&>td]:py-2.5">
                 <td className="font-medium">{f.name}</td>
                 <td>{primary?.name}{f.parents.length > 1 && <span className="text-xs text-muted-foreground"> +{f.parents.length - 1}</span>}</td>
                 <td className="whitespace-nowrap tabular-nums text-muted-foreground">{primary?.phone}</td>

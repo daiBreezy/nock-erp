@@ -29,7 +29,7 @@ export function SurveyCalls({ branchId }: { branchId: ID }) {
   const list = Survey.toCall(responses.filter((r) => r.branchId === branchId), today)
   if (!list.length) return null
   return (
-    <section className="rounded-3xl bg-red-50 p-4 ring-1 ring-red-200 dark:bg-red-950/30 dark:ring-red-900">
+    <section data-focus="survey_call" className="rounded-3xl bg-red-50 p-4 ring-1 ring-red-200 dark:bg-red-950/30 dark:ring-red-900">
       <p className="mb-2 flex items-center gap-2 font-semibold text-red-900 dark:text-red-100"><PhoneIcon className="size-5" /> ผู้ปกครองไม่พอใจ — โทรคุยภายใน {Survey.CALL_WITHIN_DAYS} วัน ({list.length})</p>
       <ul className="space-y-1.5">
         {list.map(({ r, due, overdue }) => {

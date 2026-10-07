@@ -17,6 +17,8 @@ import { inBranch } from "@/domain/rules/permissions"
 import { gradeRanges, PRICE_UNIT_LABEL, sortGrades } from "@/domain/rules/settings"
 import type { ID, Klass, PriceUnit } from "@/domain/types"
 import { useBranch, useEntitlements, useLookup, useNow } from "@/lib/hooks"
+import { ATTENTION_THRESHOLDS } from "@/domain/rules/reports"
+import { useFocusFirst } from "@/components/app/focus-banner"
 import { cn } from "@/lib/utils"
 import { useStore } from "@/store/store"
 
@@ -85,7 +87,8 @@ export default function ClassesPage() {
       // inactive classes always sink below active ones (shown greyed, like the design)
       return Number(b.active) - Number(a.active) || (sort.desc ? -v : v) || byDay
     })
-  const pg = usePage(rows)
+  const focusKeys = (c: (typeof rows)[number]) => (c.active && c.kind === "learning" && c.studentIds.length <= ATTENTION_THRESHOLDS.smallClass ? "small_class" : undefined)
+  const pg = usePage(useFocusFirst(rows, focusKeys))
 
   return (
     <div className="mx-auto max-w-7xl space-y-5">
@@ -137,7 +140,7 @@ export default function ClassesPage() {
             const br = branches.find((b) => b.id === c.branchId)
             const autoName = `${subjectsOf(c).join(" + ")} ${c.grades.join(", ")}`.trim()
             return (
-              <tr key={c.id} onClick={() => setOpenId(c.id)} className={cn("group cursor-pointer border-b last:border-0 hover:bg-primary/5 [&>td]:px-3 [&>td]:py-2.5", !c.active && "opacity-45")}>
+              <tr key={c.id} onClick={() => setOpenId(c.id)} data-focus={focusKeys(c)} className={cn("group cursor-pointer border-b last:border-0 hover:bg-primary/5 [&>td]:px-3 [&>td]:py-2.5", !c.active && "opacity-45")}>
                 <td>
                   <div className="flex flex-wrap gap-1">{subjectsOf(c).map((x) => <span key={x} className={cn("rounded-full px-2 py-0.5 text-xs font-medium", subjectColor(x).chip)}>{x}</span>)}</div>
                   {c.name !== autoName && <p className="mt-0.5 max-w-48 truncate text-[11px] text-muted-foreground">{c.name}</p>}

@@ -16,6 +16,8 @@ import { Input } from "@/components/ui/input"
 import { Switch } from "@/components/ui/switch"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 import { fmtDate, toDateStr } from "@/domain/dates"
+import { leadFlags } from "@/domain/rules/reports"
+import { useFocusFirst } from "@/components/app/focus-banner"
 import { crmKpis, DRAGGABLE_STAGES, groupOf, LEAD_SOURCE_LABEL, leadDetail, stageGroupLabel, PIPELINE_GROUPS, type LeadDetail } from "@/domain/rules/crm"
 import { can } from "@/domain/rules/permissions"
 import type { ID, Lead, Staff } from "@/domain/types"
@@ -48,7 +50,10 @@ export default function CrmPage() {
   const [view, setView] = useQueryState<ViewMode>("view", "kanban")
   const [search, setSearch] = useState("")
   const [assigneeFilter, setAssigneeFilter] = useQueryState<string>("assignee", "all")
-  const [showArchived, setShowArchived] = useState(false)
+  // ?archived=1 — the Dashboard's "ถึงวันติดต่อ Lead ที่ปิดไปอีกครั้ง" needs the closed ones shown (owner 2026-10-07)
+  const [archivedParam, setArchivedParam] = useQueryState<"0" | "1">("archived", "0")
+  const showArchived = archivedParam === "1"
+  const setShowArchived = (v: boolean) => setArchivedParam(v ? "1" : "0")
   const [openLead, setOpenLead] = useState<ID | null>(null)
   const [creating, setCreating] = useState(false)
   const [overCol, setOverCol] = useState<string | null>(null)
@@ -83,7 +88,8 @@ export default function CrmPage() {
             : a.createdAt.localeCompare(b.createdAt)
     return sort.desc ? -v : v
   })
-  const pg = usePage(tableRows)
+  const focusKeys = (l: Lead) => leadFlags(l, now, toDateStr(now)).join(" ") || undefined
+  const pg = usePage(useFocusFirst(tableRows, focusKeys))
 
   return (
     <div className="mx-auto max-w-7xl space-y-4">
@@ -186,7 +192,7 @@ export default function CrmPage() {
                 const detail = leadDetail(l, now)
                 const assignee = staff.find((s) => s.id === l.assigneeId)
                 return (
-                  <tr key={l.id} onClick={() => setOpenLead(l.id)} className="group cursor-pointer border-b last:border-0 hover:bg-primary/5 [&>td]:px-3 [&>td]:py-2.5">
+                  <tr key={l.id} onClick={() => setOpenLead(l.id)} data-focus={focusKeys(l)} className="group cursor-pointer border-b last:border-0 hover:bg-primary/5 [&>td]:px-3 [&>td]:py-2.5">
                     <td>
                       <div className="flex min-w-0 items-center gap-2">
                         <span className={cn("grid size-8 shrink-0 place-items-center rounded-full text-xs font-semibold", avatarTone(l.id))}>{initial(l.name)}</span>
@@ -239,6 +245,7 @@ function LeadCard({ lead, now, staff, draggable, onOpen, onRestore }: { lead: Le
       onDragStart={(e) => e.dataTransfer.setData("text/lead", lead.id)}
       onClick={onOpen}
       onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onOpen() } }}
+      data-focus={leadFlags(lead, now, toDateStr(now)).join(" ") || undefined}
       className={cn("w-full rounded-xl border bg-background p-2.5 text-left shadow-sm outline-none hover:border-primary/50 focus-visible:border-primary", draggable && "cursor-grab active:cursor-grabbing", lead.stage === "enrolled" && "border-emerald-300 bg-emerald-50 dark:bg-emerald-950/30", lead.stage === "archived" && "opacity-80")}
     >
       <div className="flex items-start justify-between gap-2">

@@ -84,7 +84,7 @@ export default function StudentsPage() {
           <span>นักเรียน</span><span>ครอบครัว</span><span>คลาส</span><span>แพ็กเกจ</span>
         </div>
         {shown.map(({ s, st, packs, fam, inClasses }) => (
-          <button key={s.id} onClick={() => setOpenId(s.id)} className="grid w-full gap-1 border-b px-4 py-2.5 text-left text-sm last:border-0 hover:bg-muted/40 md:grid-cols-[1.6fr_1.2fr_1.6fr_1.4fr] md:items-center md:gap-3">
+          <button key={s.id} onClick={() => setOpenId(s.id)} data-focus={[st === "renewal" && Att.renewalFollowUpDue(s, today) && "renewal", !s.familyId && "no_family"].filter(Boolean).join(" ") || undefined} className="grid w-full gap-1 border-b px-4 py-2.5 text-left text-sm last:border-0 hover:bg-muted/40 md:grid-cols-[1.6fr_1.2fr_1.6fr_1.4fr] md:items-center md:gap-3">
             <span className="flex min-w-0 items-center gap-2">
               <span className={cn("grid size-8 shrink-0 place-items-center rounded-full text-sm font-semibold", avatarTone(s.id))}>{initial(s.nickname)}</span>
               <span className="min-w-0">

@@ -29,6 +29,7 @@ import { StudentSheet } from "./student-sheet"
 import { avatarTone, initial } from "./subject-color"
 import { NAV, navFor } from "./nav"
 import { DemoPanel } from "./demo-panel"
+import { FocusBanner } from "./focus-banner"
 
 const noopSubscribe = () => () => {}
 
@@ -132,7 +133,7 @@ function Shell({ children }: { children: ReactNode }) {
         </header>
         {/* calendar sits on grey so the boards stand out (owner 2026-09-30) */}
         {/* keyed on the language: switching it re-renders every page so all t() calls pick it up */}
-        <main key={lang} className={cn("min-w-0 flex-1 p-3 md:p-6", pathname.startsWith("/calendar") && "bg-zinc-100 dark:bg-zinc-900")}>{allowed ? children : <NoAccess />}</main>
+        <main key={lang} className={cn("min-w-0 flex-1 p-3 md:p-6", pathname.startsWith("/calendar") && "bg-zinc-100 dark:bg-zinc-900")}>{allowed ? <><FocusBanner />{children}</> : <NoAccess />}</main>
       </SidebarInset>
     </SidebarProvider>
   )
