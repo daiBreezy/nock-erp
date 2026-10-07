@@ -3,7 +3,7 @@
 import { SalesTaxDialog } from "@/components/billing/sales-tax-dialog"
 import { Suspense, useState } from "react"
 import { useSearchParams } from "next/navigation"
-import { PlusIcon, SearchIcon } from "lucide-react"
+import { EyeIcon, EyeOffIcon, PlusIcon, SearchIcon } from "lucide-react"
 import { Pill } from "@/components/app/badges"
 import { InvoiceEditor } from "@/components/billing/invoice-editor"
 import { InvoiceSheet } from "@/components/billing/invoice-sheet"
@@ -17,7 +17,7 @@ import * as Bill from "@/domain/rules/billing"
 import { can } from "@/domain/rules/permissions"
 import type { Invoice } from "@/domain/types"
 import { useBranch, useNow, useQueryState } from "@/lib/hooks"
-import { GradeCell, gradeCompare, HEAD, Pager, ROW, SortHeader, TableShell, Th, usePage, useSort } from "@/components/app/data-table"
+import { GradeCell, gradeCompare, HEAD, MidText, Pager, ROW, SortHeader, TableShell, Th, usePage, useSort } from "@/components/app/data-table"
 import { gradeTone } from "@/components/app/subject-color"
 import { invoiceOverdue, paymentUnconfirmed } from "@/domain/rules/reports"
 import { cn } from "@/lib/utils"
@@ -45,6 +45,7 @@ function BillingPage() {
   const holidays = useStore((s) => s.holidays)
   // owner 2026-10-06: sync to the URL (?filter=) so a reload or shared link keeps it — the ?open=/?new=/?renew=/?slip= deep-links above are untouched
   const [filter, setFilter] = useQueryState<Filter>("filter", "all")
+  const [showVoid, setShowVoid] = useQueryState<"0" | "1">("void", "0")
   const [q, setQ] = useState("")
   const [openId, setOpenId] = useState<string | null>(() => params.get("open"))
   // ?new=<studentId> opens the editor pre-filled (from the student panel)
@@ -74,7 +75,10 @@ function BillingPage() {
     { key: "paid" as Filter, label: "รับเงินแล้วเดือนนี้", value: fmtMoney(rows.flatMap((r) => r.inv.payments).filter((p) => p.confirmedBy && p.recordedAt.slice(0, 7) === month).reduce((a, p) => a + p.amount, 0)), unit: "" },
   ]
 
+  const voidCount = rows.filter((r) => r.inv.status === "void").length
   const visible = rows
+    // owner 2026-10-07: voided invoices hidden unless "แสดงใบที่ยกเลิก" is on (or the ยกเลิก filter is picked)
+    .filter((r) => showVoid === "1" || filter === "void" || r.inv.status !== "void")
     .filter((r) => {
       if (filter === "all") return true
       if (filter === "awaiting_payment") return ["approved", "sent"].includes(r.inv.status)
@@ -118,7 +122,10 @@ function BillingPage() {
           <ToggleGroupItem value="paid">ชำระครบ</ToggleGroupItem>
           <ToggleGroupItem value="void">ยกเลิก</ToggleGroupItem>
         </ToggleGroup>
-        <div className="relative ml-auto w-full sm:w-64">
+        <Button variant="ghost" size="sm" className="text-muted-foreground" onClick={() => setShowVoid(showVoid === "1" ? "0" : "1")} title={showVoid === "1" ? "ซ่อนใบแจ้งหนี้ที่ยกเลิกแล้ว" : "แสดงใบแจ้งหนี้ที่ยกเลิกแล้วในรายการ"}>
+          {showVoid === "1" ? <EyeOffIcon /> : <EyeIcon />} {showVoid === "1" ? "ซ่อน Void" : "แสดง Void"}{voidCount > 0 && <span className="rounded-full bg-muted px-1.5 text-xs tabular-nums text-muted-foreground">{voidCount}</span>}
+        </Button>
+        <div className="relative ml-auto w-full sm:w-56">
           <SearchIcon className="absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" />
           <Input className="pl-8" placeholder="ค้นหาเลขที่ / ชื่อนักเรียน" value={q} onChange={(e) => setQ(e.target.value)} />
         </div>
@@ -128,7 +135,7 @@ function BillingPage() {
 
       {/* owner 2026-10-07: a real table — number, date, student, grade, amounts and status each in their own column
           (fixed widths, so a long status never pushes the row out of line); scrolls inside the card on phones (BL-23) */}
-      <TableShell minWidth={1080} cols={["184px", "92px", "120px", "76px", "auto", "120px", "104px", "130px", "130px"]}>
+      <TableShell minWidth={1080} cols={["136px", "92px", "120px", "76px", "auto", "120px", "104px", "130px", "130px"]}>
         <thead className={HEAD}>
           <tr>
             <SortHeader label="เลขที่" k="number" sort={sort} onSort={toggle} />
@@ -145,7 +152,7 @@ function BillingPage() {
         <tbody>
           {pg.rows.map(({ inv, total, paid, student, toConfirm }) => (
             <tr key={inv.id} onClick={() => setOpenId(inv.id)} data-focus={[Bill.canApprove(inv, me).ok && "invoice_approve", invoiceOverdue(inv, now) && "unpaid", paymentUnconfirmed(inv, now) && "unconfirmed"].filter(Boolean).join(" ") || undefined} className={ROW}>
-              <td className="truncate font-medium tabular-nums">{inv.number ?? <span className="text-muted-foreground">—</span>}</td>
+              <td className="font-medium tabular-nums">{inv.number ? <MidText text={inv.number} /> : <span className="text-muted-foreground">—</span>}</td>
               <td className="truncate text-muted-foreground tabular-nums">{fmtDate(inv.createdAt.slice(0, 10))}</td>
               <td className="truncate">{student?.nickname ?? "—"}</td>
               <td>{student && <GradeCell grade={student.grade} tone={gradeTone(student.grade)} />}</td>

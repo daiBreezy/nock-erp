@@ -3,6 +3,7 @@
 import { useState } from "react"
 import { ArrowDownIcon, ArrowUpDownIcon, ArrowUpIcon, ChevronLeftIcon, ChevronRightIcon } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { cn } from "@/lib/utils"
 
 /** Shared bits for list pages shown as data tables (owner 2026-09-28: tables, not cards — easier to scan).
@@ -90,4 +91,18 @@ export function gradeCompare(grades: string[]) {
 /** the grade pill used in every table's own "ชั้น" column */
 export function GradeCell({ grade, tone }: { grade: string; tone: string }) {
   return grade ? <span className={cn("rounded-md px-1.5 py-0.5 text-xs font-semibold whitespace-nowrap", tone)}>{grade}</span> : <span className="text-muted-foreground/60">—</span>
+}
+
+/**
+ * Long codes shortened in the middle (owner 2026-10-07): "690401-02-001-0001" → "690401…0001" — the start (date)
+ * and the end (running number) are what people scan for; hover shows the whole thing.
+ */
+export function MidText({ text, head = 6, tail = 4, className }: { text: string; head?: number; tail?: number; className?: string }) {
+  if (text.length <= head + tail + 1) return <span className={className}>{text}</span>
+  return (
+    <Tooltip>
+      <TooltipTrigger render={<span className={cn("cursor-default whitespace-nowrap", className)} />}>{text.slice(0, head)}…{text.slice(-tail)}</TooltipTrigger>
+      <TooltipContent>{text}</TooltipContent>
+    </Tooltip>
+  )
 }
