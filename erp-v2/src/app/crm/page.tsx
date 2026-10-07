@@ -3,7 +3,8 @@
 import { useState } from "react"
 import { CalendarClockIcon, ChevronRightIcon, LayoutGridIcon, PlusIcon, RotateCcwIcon, SearchIcon, TableIcon, TrendingUpIcon, UserCheckIcon, UserSearchIcon, UsersIcon } from "lucide-react"
 import { Pill } from "@/components/app/badges"
-import { Pager, SortHeader, TableShell, usePage, useSort } from "@/components/app/data-table"
+import { GradeCell, gradeCompare, HEAD, Pager, ROW, SortHeader, TableShell, Th, usePage, useSort } from "@/components/app/data-table"
+import { EditCell } from "@/components/app/inline-edit"
 import { Kpi } from "@/components/app/kpi"
 import { NativeSelect } from "@/components/app/native-select"
 import { avatarTone, gradeTone, initial, subjectColor } from "@/components/app/subject-color"
@@ -27,7 +28,7 @@ import { cn } from "@/lib/utils"
 import { useStore } from "@/store/store"
 
 type ViewMode = "kanban" | "table"
-type LeadSort = "name" | "subject" | "stage" | "assignee" | "created"
+type LeadSort = "name" | "grade" | "subject" | "source" | "stage" | "assignee" | "created"
 
 /** Maps the domain layer's plain severity (`LeadDetail.level`, no UI knowledge per rule #1) to how it reads on screen. */
 const DETAIL_TONE: Record<LeadDetail["level"], string> = {
@@ -80,8 +81,15 @@ export default function CrmPage() {
   const activeCount = leads.filter((l) => l.stage !== "archived" && l.stage !== "enrolled").length
   const kpis = crmKpis(leads, now)
 
+  const byGrade = gradeCompare(branch.grades)
+  const saveLead = useStore((s) => s.saveLead)
+  // inline edit (owner 2026-10-07): one field at a time, same rules as the lead form
+  const edit = (l: Lead, patch: Partial<Lead>) => report(saveLead({ ...l, ...patch }), "บันทึกแล้ว")
+  const staffOptions = [{ value: "", label: "ยังไม่มอบหมาย" }, ...staff.filter((s) => s.active && s.branchIds.includes(branch.id)).map((s) => ({ value: s.id, label: s.nickname }))]
   const tableRows = [...shown].sort((a, b) => {
     const v = sort.key === "name" ? a.name.localeCompare(b.name, "th")
+      : sort.key === "grade" ? byGrade(a.childGrade, b.childGrade)
+      : sort.key === "source" ? LEAD_SOURCE_LABEL[a.source].localeCompare(LEAD_SOURCE_LABEL[b.source])
       : sort.key === "subject" ? a.subject.localeCompare(b.subject, "th")
         : sort.key === "stage" ? PIPELINE_GROUPS.indexOf(groupOf(a.stage)) - PIPELINE_GROUPS.indexOf(groupOf(b.stage))
           : sort.key === "assignee" ? assigneeName(a.assigneeId).localeCompare(assigneeName(b.assigneeId), "th")
@@ -173,53 +181,53 @@ export default function CrmPage() {
         </div>
       ) : (
         <>
-          <TableShell minWidth={1000}>
-            <thead className="border-b text-xs text-muted-foreground">
+          {/* owner 2026-10-07: grade has its own (sortable) column; every editable cell edits in place on hover —
+              click ขั้นตอน / รายละเอียด / สร้างเมื่อ (not editable here) to open the lead panel */}
+          <TableShell minWidth={1100} cols={["196px", "76px", "96px", "104px", "104px", "auto", "96px", "140px", "88px", "44px"]}>
+            <thead className={HEAD}>
               <tr>
                 <SortHeader label="ชื่อ" k="name" sort={sort} onSort={toggle} />
+                <SortHeader label="ชั้น" k="grade" sort={sort} onSort={toggle} />
                 <SortHeader label="วิชา" k="subject" sort={sort} onSort={toggle} />
-                <th className="px-3 py-2.5 text-left font-medium">ช่องทาง</th>
+                <SortHeader label="ช่องทาง" k="source" sort={sort} onSort={toggle} />
                 <SortHeader label="ขั้นตอน" k="stage" sort={sort} onSort={toggle} />
-                <th className="px-3 py-2.5 text-left font-medium">รายละเอียด</th>
+                <Th>รายละเอียด</Th>
                 <SortHeader label="ผู้ดูแล" k="assignee" sort={sort} onSort={toggle} />
-                <th className="px-3 py-2.5 text-left font-medium">เบอร์โทร</th>
+                <Th>เบอร์โทร</Th>
                 <SortHeader label="สร้างเมื่อ" k="created" sort={sort} onSort={toggle} />
-                <th className="w-10" />
+                <Th />
               </tr>
             </thead>
             <tbody>
               {pg.rows.map((l) => {
                 const detail = leadDetail(l, now)
                 const assignee = staff.find((s) => s.id === l.assigneeId)
+                const ro = !canManage || l.stage === "archived"
                 return (
-                  <tr key={l.id} onClick={() => setOpenLead(l.id)} data-focus={focusKeys(l)} className="group cursor-pointer border-b last:border-0 hover:bg-primary/5 [&>td]:px-3 [&>td]:py-2.5">
+                  <tr key={l.id} onClick={() => setOpenLead(l.id)} data-focus={focusKeys(l)} className={cn("group", ROW)}>
                     <td>
                       <div className="flex min-w-0 items-center gap-2">
                         <span className={cn("grid size-8 shrink-0 place-items-center rounded-full text-xs font-semibold", avatarTone(l.id))}>{initial(l.name)}</span>
-                        <div className="min-w-0">
-                          <p className="truncate text-sm font-medium">{l.name}</p>
-                          <span className={cn("rounded px-1 text-[10px] font-semibold", gradeTone(l.childGrade))}>{l.childGrade}</span>
-                        </div>
+                        <EditCell value={l.name} disabled={ro} className="flex-1 font-medium" onSave={(v) => edit(l, { name: v })} />
                       </div>
                     </td>
-                    <td><span className={cn("rounded-full px-2 py-0.5 text-xs font-medium whitespace-nowrap", subjectColor(l.subject).chip)}>{l.subject}</span></td>
-                    <td className="whitespace-nowrap text-muted-foreground">{LEAD_SOURCE_LABEL[l.source]}</td>
-                    <td><Pill tone={l.stage === "archived" ? "gray" : l.stage === "enrolled" ? "green" : "blue"}>{stageGroupLabel(l.stage)}</Pill></td>
-                    <td><span className={cn("text-xs font-medium whitespace-nowrap", DETAIL_TONE[detail.level])}>{detail.text}</span></td>
-                    <td className="whitespace-nowrap text-muted-foreground">{assignee?.nickname ?? "ยังไม่มอบหมาย"}</td>
-                    <td className="whitespace-nowrap text-muted-foreground">{l.phone || "—"}</td>
-                    <td className="whitespace-nowrap text-muted-foreground">{fmtDate(toDateStr(new Date(l.createdAt)))}</td>
-                    <td>
+                    <td><EditCell kind="select" value={l.childGrade} disabled={ro} display={<GradeCell grade={l.childGrade} tone={gradeTone(l.childGrade)} />} options={branch.grades.map((g) => ({ value: g, label: g }))} onSave={(v) => edit(l, { childGrade: v })} /></td>
+                    <td><EditCell kind="select" value={l.subject} disabled={ro} display={<span className={cn("rounded-full px-2 py-0.5 text-xs font-medium whitespace-nowrap", subjectColor(l.subject).chip)}>{l.subject}</span>} options={branch.subjects.map((x) => ({ value: x, label: x }))} onSave={(v) => edit(l, { subject: v })} /></td>
+                    <td className="text-muted-foreground"><EditCell kind="select" value={l.source} disabled={ro} display={LEAD_SOURCE_LABEL[l.source]} options={Object.entries(LEAD_SOURCE_LABEL).map(([value, label]) => ({ value, label }))} onSave={(v) => edit(l, { source: v as Lead["source"] })} /></td>
+                    <td className="truncate"><Pill tone={l.stage === "archived" ? "gray" : l.stage === "enrolled" ? "green" : "blue"}>{stageGroupLabel(l.stage)}</Pill></td>
+                    <td className="truncate"><span className={cn("text-xs font-medium", DETAIL_TONE[detail.level])} title={detail.text}>{detail.text}</span></td>
+                    <td className="text-muted-foreground"><EditCell kind="select" value={l.assigneeId ?? ""} disabled={ro} display={assignee?.nickname ?? "ยังไม่มอบหมาย"} options={staffOptions} onSave={(v) => edit(l, { assigneeId: v || null })} /></td>
+                    <td className="text-muted-foreground tabular-nums"><EditCell kind="tel" value={l.phone} disabled={ro} placeholder="ใส่เบอร์" onSave={(v) => edit(l, { phone: v })} /></td>
+                    <td className="truncate text-muted-foreground tabular-nums">{fmtDate(toDateStr(new Date(l.createdAt)))}</td>
+                    <td className="text-right">
                       {l.stage === "archived" && canManage ? (
-                        <button type="button" onClick={(e) => { e.stopPropagation(); restoreLead(l.id) }} className="flex items-center gap-1 text-xs font-medium text-primary hover:underline"><RotateCcwIcon className="size-3.5" /> กู้คืน</button>
-                      ) : l.stage !== "archived" ? (
-                        <ChevronRightIcon className="size-4 text-muted-foreground opacity-0 group-hover:opacity-100" />
-                      ) : null}
+                        <button type="button" onClick={(e) => { e.stopPropagation(); restoreLead(l.id) }} className="inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline"><RotateCcwIcon className="size-3.5" /> กู้คืน</button>
+                      ) : <ChevronRightIcon className="ml-auto size-4 text-muted-foreground opacity-0 group-hover:opacity-100" />}
                     </td>
                   </tr>
                 )
               })}
-              {tableRows.length === 0 && <tr><td colSpan={9} className="p-10 text-center text-muted-foreground">ไม่พบ Lead ตามเงื่อนไข</td></tr>}
+              {tableRows.length === 0 && <tr><td colSpan={10} className="p-10 text-center text-muted-foreground">ไม่พบ Lead ตามเงื่อนไข</td></tr>}
             </tbody>
           </TableShell>
           <Pager {...pg} unit="Lead" />

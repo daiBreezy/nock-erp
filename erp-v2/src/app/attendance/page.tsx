@@ -12,12 +12,15 @@ import { addDays, endOfMonth, fmtDate, fmtMonth, toDateStr, weekdayOf } from "@/
 import { sessionState } from "@/domain/rules/scheduling"
 import type { ID } from "@/domain/types"
 import { useBranch, useNow } from "@/lib/hooks"
+import { GradeCell, gradeCompare, HEAD, Pager, ROW, SortHeader, TableShell, usePage, useSort } from "@/components/app/data-table"
 import { cn } from "@/lib/utils"
 import { useStore } from "@/store/store"
 
 type Range = "week" | "month"
 
 /** Attendance report — every number is limited to the chosen period (C8) and real subjects (C9). */
+type AttSort = "name" | "grade" | "booked" | "present" | "absent" | "leave" | "rate"
+
 export default function AttendancePage() {
   const now = useNow()
   const today = toDateStr(now)
@@ -31,6 +34,8 @@ export default function AttendancePage() {
   const [subject, setSubject] = useState("")
   const [teacher, setTeacher] = useState("")
   const [openId, setOpenId] = useState<ID | null>(null)
+  const { sort, toggle } = useSort<AttSort>("rate")
+  const byGrade = gradeCompare(branch.grades)
 
   const from = range === "week" ? addDays(anchor, -((weekdayOf(anchor) + 6) % 7)) : anchor.slice(0, 8) + "01"
   const to = range === "week" ? addDays(from, 6) : endOfMonth(anchor)
@@ -57,7 +62,15 @@ export default function AttendancePage() {
       return { s, booked, present: mine.filter((a) => a.status === "present").length, absent: mine.filter((a) => a.status === "absent").length, leave: mine.filter((a) => a.status === "leave").length }
     })
     .filter((r) => r.booked > 0)
-    .sort((a, b) => a.present / a.booked - b.present / b.booked)
+    .sort((a, b) => {
+      const k = sort.key
+      const v = k === "name" ? a.s.nickname.localeCompare(b.s.nickname, "th")
+        : k === "grade" ? byGrade(a.s.grade, b.s.grade)
+          : k === "rate" ? a.present / a.booked - b.present / b.booked
+            : a[k] - b[k]
+      return sort.desc ? -v : v
+    })
+  const pg = usePage(perStudent)
 
   return (
     <div className="mx-auto max-w-5xl space-y-4">
@@ -80,28 +93,45 @@ export default function AttendancePage() {
           <Card key={c.label}><CardContent><div className="text-xs text-muted-foreground">{c.label}</div><div className={cn("text-2xl font-semibold tabular-nums", c.tone)}>{c.value}</div></CardContent></Card>
         ))}
       </div>
-      <p className="text-xs text-muted-foreground">นับเฉพาะคาบในช่วงที่เลือกที่เริ่มเรียนแล้วเท่านั้น · เรียงจากอัตราเข้าเรียนต่ำสุด</p>
-      <div data-focus="often_leave" className="overflow-hidden rounded-3xl bg-card shadow-sm ring-1 ring-foreground/5">
-        <div className="grid grid-cols-[1.5fr_repeat(4,0.6fr)_1.2fr] gap-2 border-b bg-muted/40 px-4 py-2 text-xs font-medium text-muted-foreground">
-          <span>นักเรียน</span><span className="text-right">นัด</span><span className="text-right">มา</span><span className="text-right">ขาด</span><span className="text-right">ลา</span><span>อัตราเข้าเรียน</span>
-        </div>
-        {perStudent.map((r) => {
-          const rate = r.booked ? r.present / r.booked : 0
-          return (
-            <button key={r.s.id} onClick={() => setOpenId(r.s.id)} className="grid w-full grid-cols-[1.5fr_repeat(4,0.6fr)_1.2fr] items-center gap-2 border-b px-4 py-2 text-left text-sm tabular-nums last:border-0 hover:bg-muted/40">
-              <span className="truncate">{r.s.nickname} <span className={cn("rounded px-1 text-[10px]", gradeTone(r.s.grade))}>{r.s.grade}</span></span>
-              <span className="text-right">{r.booked}</span>
-              <span className="text-right text-emerald-700">{r.present}</span>
-              <span className="text-right text-red-700">{r.absent}</span>
-              <span className="text-right text-amber-700">{r.leave}</span>
-              <span className="flex items-center gap-2">
-                <span className="h-1.5 flex-1 overflow-hidden rounded-full bg-muted"><span className={cn("block h-full", rate < 0.6 ? "bg-red-500" : rate < 0.8 ? "bg-amber-500" : "bg-emerald-500")} style={{ width: `${rate * 100}%` }} /></span>
-                <span className="w-9 text-right text-xs">{Math.round(rate * 100)}%</span>
-              </span>
-            </button>
-          )
-        })}
-        {perStudent.length === 0 && <p className="p-10 text-center text-sm text-muted-foreground">ไม่มีข้อมูลในช่วงนี้</p>}
+      <p className="text-xs text-muted-foreground">นับเฉพาะคาบในช่วงที่เลือกที่เริ่มเรียนแล้วเท่านั้น · เริ่มเรียงจากอัตราเข้าเรียนต่ำสุด (กดหัวคอลัมน์เพื่อเรียงใหม่)</p>
+      {/* owner 2026-10-07: a real sortable table — grade in its own column, numbers right-aligned */}
+      <div data-focus="often_leave" className="rounded-3xl">
+        <TableShell minWidth={760} cols={["auto", "84px", "84px", "84px", "84px", "84px", "200px"]}>
+          <thead className={HEAD}>
+            <tr>
+              <SortHeader label="นักเรียน" k="name" sort={sort} onSort={toggle} />
+              <SortHeader label="ชั้น" k="grade" sort={sort} onSort={toggle} />
+              <SortHeader label="นัด" k="booked" sort={sort} onSort={toggle} right />
+              <SortHeader label="มา" k="present" sort={sort} onSort={toggle} right />
+              <SortHeader label="ขาด" k="absent" sort={sort} onSort={toggle} right />
+              <SortHeader label="ลา" k="leave" sort={sort} onSort={toggle} right />
+              <SortHeader label="อัตราเข้าเรียน" k="rate" sort={sort} onSort={toggle} />
+            </tr>
+          </thead>
+          <tbody>
+            {pg.rows.map((r) => {
+              const rate = r.booked ? r.present / r.booked : 0
+              return (
+                <tr key={r.s.id} onClick={() => setOpenId(r.s.id)} className={ROW}>
+                  <td className="truncate font-medium">{r.s.nickname} <span className="font-normal text-muted-foreground">{r.s.name}</span></td>
+                  <td><GradeCell grade={r.s.grade} tone={gradeTone(r.s.grade)} /></td>
+                  <td className="text-right tabular-nums">{r.booked}</td>
+                  <td className="text-right tabular-nums text-emerald-700">{r.present}</td>
+                  <td className="text-right tabular-nums text-red-700">{r.absent}</td>
+                  <td className="text-right tabular-nums text-amber-700">{r.leave}</td>
+                  <td>
+                    <span className="flex items-center gap-2">
+                      <span className="h-1.5 flex-1 overflow-hidden rounded-full bg-muted"><span className={cn("block h-full", rate < 0.6 ? "bg-red-500" : rate < 0.8 ? "bg-amber-500" : "bg-emerald-500")} style={{ width: `${rate * 100}%` }} /></span>
+                      <span className="w-10 text-right text-xs tabular-nums">{Math.round(rate * 100)}%</span>
+                    </span>
+                  </td>
+                </tr>
+              )
+            })}
+            {perStudent.length === 0 && <tr><td colSpan={7} className="p-10 text-center text-muted-foreground">ไม่มีข้อมูลในช่วงนี้</td></tr>}
+          </tbody>
+        </TableShell>
+        <Pager {...pg} unit="คน" />
       </div>
       <StudentSheet studentId={openId} onClose={() => setOpenId(null)} />
     </div>

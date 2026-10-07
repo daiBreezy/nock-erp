@@ -16,11 +16,11 @@ export function useSort<K extends string>(initial: K, desc = false) {
   return { sort, toggle }
 }
 
-export function SortHeader<K extends string>({ label, k, sort, onSort, className }: { label: string; k: K; sort: SortState<K>; onSort: (k: K) => void; className?: string }) {
+export function SortHeader<K extends string>({ label, k, sort, onSort, className, right }: { label: string; k: K; sort: SortState<K>; onSort: (k: K) => void; className?: string; right?: boolean }) {
   const active = sort.key === k
   const Icon = !active ? ArrowUpDownIcon : sort.desc ? ArrowDownIcon : ArrowUpIcon
   return (
-    <th className={cn("px-3 py-2.5 text-left font-medium", className)}>
+    <th className={cn("px-3 py-2.5 text-left font-medium", right && "text-right", className)}>
       <button type="button" onClick={() => onSort(k)} className={cn("inline-flex items-center gap-1 whitespace-nowrap", active && "text-foreground")}>
         {label}<Icon className={cn("size-3", !active && "opacity-40")} />
       </button>
@@ -53,12 +53,41 @@ export function Pager({ page, pages, total, size, setPage, unit = "รายก�
   )
 }
 
-export function TableShell({ children, minWidth = 900 }: { children: React.ReactNode; minWidth?: number }) {
+/**
+ * `cols` (owner 2026-10-07 — "status สั้นยาวไม่เท่ากันดัน alignment"): fixed column widths (CSS widths, "auto" = take
+ * the rest). The table is then table-fixed: a long pill or name truncates inside its own column instead of
+ * shifting the others, so every row lines up.
+ */
+export function TableShell({ children, minWidth = 900, cols }: { children: React.ReactNode; minWidth?: number; cols?: string[] }) {
   return (
     <div className="overflow-hidden rounded-3xl bg-card shadow-sm ring-1 ring-foreground/5">
       <div className="overflow-x-auto">
-        <table className="w-full text-sm" style={{ minWidth }}>{children}</table>
+        <table className={cn("w-full text-sm [&_td]:align-middle [&_th]:align-middle", cols && "table-fixed")} style={{ minWidth }}>
+          {cols && <colgroup>{cols.map((w, i) => <col key={i} style={w === "auto" ? undefined : { width: w }} />)}</colgroup>}
+          {children}
+        </table>
       </div>
     </div>
   )
+}
+
+/** a plain (not sortable) header cell, same padding as SortHeader */
+export function Th({ children, className, right }: { children?: React.ReactNode; className?: string; right?: boolean }) {
+  return <th className={cn("px-3 py-2.5 text-left font-medium whitespace-nowrap", right && "text-right", className)}>{children}</th>
+}
+
+/** row classes for every data table: middle-aligned, one height, cells padded the same */
+export const ROW = "cursor-pointer border-b last:border-0 hover:bg-muted/40 [&>td]:h-14 [&>td]:px-3 [&>td]:py-1.5"
+/** header row */
+export const HEAD = "border-b bg-muted/40 text-xs text-muted-foreground"
+
+/** grade order for sorting (อ.1 … ป.6 … ม.6 as the branch lists them; unknown grades last, by name) */
+export function gradeCompare(grades: string[]) {
+  const rank = (g: string) => { const i = grades.indexOf(g); return i < 0 ? grades.length : i }
+  return (a: string, b: string) => rank(a) - rank(b) || a.localeCompare(b, "th")
+}
+
+/** the grade pill used in every table's own "ชั้น" column */
+export function GradeCell({ grade, tone }: { grade: string; tone: string }) {
+  return grade ? <span className={cn("rounded-md px-1.5 py-0.5 text-xs font-semibold whitespace-nowrap", tone)}>{grade}</span> : <span className="text-muted-foreground/60">—</span>
 }

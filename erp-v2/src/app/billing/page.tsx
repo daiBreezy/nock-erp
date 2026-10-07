@@ -17,10 +17,13 @@ import * as Bill from "@/domain/rules/billing"
 import { can } from "@/domain/rules/permissions"
 import type { Invoice } from "@/domain/types"
 import { useBranch, useNow, useQueryState } from "@/lib/hooks"
+import { GradeCell, gradeCompare, HEAD, Pager, ROW, SortHeader, TableShell, Th, usePage, useSort } from "@/components/app/data-table"
+import { gradeTone } from "@/components/app/subject-color"
 import { invoiceOverdue, paymentUnconfirmed } from "@/domain/rules/reports"
 import { cn } from "@/lib/utils"
 import { useStore } from "@/store/store"
 
+type BillSort = "number" | "created" | "student" | "grade" | "total" | "status"
 type Filter = "all" | "draft" | "pending_approval" | "awaiting_payment" | "to_confirm" | "paid" | "void"
 
 export default function Page() {
@@ -50,6 +53,8 @@ function BillingPage() {
   const renewFrom = params.get("renew") ?? undefined
   const slipFromChat = params.get("slip") ?? undefined
 
+  const { sort, toggle } = useSort<BillSort>("created", true)
+  const byGrade = gradeCompare(branch.grades)
   const ctx = { branch, courses, classes, holidays }
   const now = useNow()
   const rows = invoices
@@ -77,10 +82,20 @@ function BillingPage() {
       return r.inv.status === filter
     })
     .filter((r) => !q || `${r.inv.number} ${r.student?.nickname} ${r.student?.name}`.toLowerCase().includes(q.toLowerCase()))
-    .sort((a, b) => b.inv.createdAt.localeCompare(a.inv.createdAt))
+    .sort((a, b) => {
+      const k = sort.key
+      const v = k === "number" ? (a.inv.number ?? "").localeCompare(b.inv.number ?? "")
+        : k === "student" ? (a.student?.nickname ?? "").localeCompare(b.student?.nickname ?? "", "th")
+          : k === "grade" ? byGrade(a.student?.grade ?? "", b.student?.grade ?? "")
+            : k === "total" ? a.total - b.total
+              : k === "status" ? Bill.INVOICE_STATUS_LABEL[a.inv.status].localeCompare(Bill.INVOICE_STATUS_LABEL[b.inv.status], "th")
+                : a.inv.createdAt.localeCompare(b.inv.createdAt)
+      return sort.desc ? -v : v
+    })
+  const pg = usePage(visible)
 
   return (
-    <div className="mx-auto max-w-6xl space-y-4">
+    <div className="mx-auto max-w-7xl space-y-4">
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         {cards.map((c) => (
           <button key={c.key} onClick={() => setFilter(c.key)} className="text-left">
@@ -111,27 +126,45 @@ function BillingPage() {
         {can(me, "billing.manage") && <Button onClick={() => setEditing("new")}><PlusIcon /> สร้างใบแจ้งหนี้</Button>}
       </div>
 
-      {/* table on desktop, stacked cards on narrow screens (no horizontal overflow — BL-23) */}
-      <div className="overflow-hidden rounded-3xl bg-card shadow-sm ring-1 ring-foreground/5">
-        <div className="hidden grid-cols-[1.3fr_1.2fr_1.5fr_0.8fr_1.1fr] gap-3 border-b bg-muted/40 px-4 py-2 text-xs font-medium text-muted-foreground md:grid">
-          <span>เลขที่</span><span>นักเรียน</span><span>รายการ</span><span className="text-right">ยอด</span><span>สถานะ</span>
-        </div>
-        {visible.length === 0 && <p className="p-10 text-center text-sm text-muted-foreground">ไม่มีใบแจ้งหนี้ในหมวดนี้</p>}
-        {visible.map(({ inv, total, paid, student, toConfirm }) => (
-          <button key={inv.id} onClick={() => setOpenId(inv.id)} data-focus={[Bill.canApprove(inv, me).ok && "invoice_approve", invoiceOverdue(inv, now) && "unpaid", paymentUnconfirmed(inv, now) && "unconfirmed"].filter(Boolean).join(" ") || undefined} className="grid w-full gap-1 border-b px-4 py-3 text-left text-sm last:border-0 hover:bg-muted/40 md:grid-cols-[1.3fr_1.2fr_1.5fr_0.8fr_1.1fr] md:items-center md:gap-3">
-            <span className="font-medium tabular-nums">{inv.number ?? <span className="text-muted-foreground">—</span>}<span className="block text-xs font-normal text-muted-foreground">{fmtDate(inv.createdAt.slice(0, 10))}</span></span>
-            <span>{student?.nickname} <span className="text-xs text-muted-foreground">{student?.grade}</span></span>
-            <span className="truncate text-muted-foreground">{inv.lines.map((l) => courses.find((c) => c.id === l.courseId)?.name).filter(Boolean).join(", ") || (inv.busExtras?.length ? "ค่ารถเพิ่ม" : "ค่าอื่นๆ")}</span>
-            <span className="tabular-nums md:text-right">{fmtMoney(total)}{paid > 0 && paid < total && <span className="block text-xs text-muted-foreground">จ่ายแล้ว {fmtMoney(paid)}</span>}</span>
-            <span className="flex flex-wrap gap-1">
-              <Pill tone={invoiceTone(inv)}>{inv.pdf === "generating" ? "กำลังสร้าง PDF" : inv.pdf === "failed" ? "PDF ไม่สำเร็จ" : Bill.INVOICE_STATUS_LABEL[inv.status]}</Pill>
-              {inv.delivery === "no_line" && <Pill tone="amber">ไม่ถึงผู้ปกครอง</Pill>}
-              {inv.delivery === "failed" && <Pill tone="red">ส่ง LINE ไม่สำเร็จ</Pill>}
-              {toConfirm && <Pill tone="violet">รอยืนยันเงิน</Pill>}
-            </span>
-          </button>
-        ))}
-      </div>
+      {/* owner 2026-10-07: a real table — number, date, student, grade, amounts and status each in their own column
+          (fixed widths, so a long status never pushes the row out of line); scrolls inside the card on phones (BL-23) */}
+      <TableShell minWidth={1080} cols={["184px", "92px", "120px", "76px", "auto", "120px", "104px", "130px", "130px"]}>
+        <thead className={HEAD}>
+          <tr>
+            <SortHeader label="เลขที่" k="number" sort={sort} onSort={toggle} />
+            <SortHeader label="สร้างเมื่อ" k="created" sort={sort} onSort={toggle} />
+            <SortHeader label="นักเรียน" k="student" sort={sort} onSort={toggle} />
+            <SortHeader label="ชั้น" k="grade" sort={sort} onSort={toggle} />
+            <Th>รายการ</Th>
+            <SortHeader label="ยอด" k="total" sort={sort} onSort={toggle} right />
+            <Th right>จ่ายแล้ว</Th>
+            <SortHeader label="สถานะ" k="status" sort={sort} onSort={toggle} />
+            <Th>การส่ง / เงิน</Th>
+          </tr>
+        </thead>
+        <tbody>
+          {pg.rows.map(({ inv, total, paid, student, toConfirm }) => (
+            <tr key={inv.id} onClick={() => setOpenId(inv.id)} data-focus={[Bill.canApprove(inv, me).ok && "invoice_approve", invoiceOverdue(inv, now) && "unpaid", paymentUnconfirmed(inv, now) && "unconfirmed"].filter(Boolean).join(" ") || undefined} className={ROW}>
+              <td className="truncate font-medium tabular-nums">{inv.number ?? <span className="text-muted-foreground">—</span>}</td>
+              <td className="truncate text-muted-foreground tabular-nums">{fmtDate(inv.createdAt.slice(0, 10))}</td>
+              <td className="truncate">{student?.nickname ?? "—"}</td>
+              <td>{student && <GradeCell grade={student.grade} tone={gradeTone(student.grade)} />}</td>
+              <td className="truncate text-muted-foreground">{inv.lines.map((l) => courses.find((c) => c.id === l.courseId)?.name).filter(Boolean).join(", ") || (inv.busExtras?.length ? "ค่ารถเพิ่ม" : "ค่าอื่นๆ")}</td>
+              <td className="text-right font-medium tabular-nums">{fmtMoney(total)}</td>
+              <td className="text-right text-muted-foreground tabular-nums">{paid > 0 ? fmtMoney(paid) : "—"}</td>
+              <td className="truncate"><Pill tone={invoiceTone(inv)}>{inv.pdf === "generating" ? "กำลังสร้าง PDF" : inv.pdf === "failed" ? "PDF ไม่สำเร็จ" : Bill.INVOICE_STATUS_LABEL[inv.status]}</Pill></td>
+              <td className="truncate">
+                {inv.delivery === "no_line" && <Pill tone="amber">ไม่ถึงผู้ปกครอง</Pill>}
+                {inv.delivery === "failed" && <Pill tone="red">ส่ง LINE ไม่สำเร็จ</Pill>}
+                {toConfirm && <Pill tone="violet">รอยืนยันเงิน</Pill>}
+                {inv.delivery !== "no_line" && inv.delivery !== "failed" && !toConfirm && <span className="text-muted-foreground">—</span>}
+              </td>
+            </tr>
+          ))}
+          {visible.length === 0 && <tr><td colSpan={9} className="p-10 text-center text-muted-foreground">ไม่มีใบแจ้งหนี้ในหมวดนี้</td></tr>}
+        </tbody>
+      </TableShell>
+      <Pager {...pg} unit="ใบ" />
 
       <InvoiceSheet id={openId} slipMediaId={openId === params.get("open") ? slipFromChat : undefined} onClose={() => setOpenId(null)} onEdit={(inv) => { setOpenId(null); setEditing(inv) }} />
       {editing && (

@@ -3,6 +3,8 @@
 import { useState } from "react"
 import { PlusIcon } from "lucide-react"
 import { Pill } from "@/components/app/badges"
+import { HEAD, ROW, SortHeader, TableShell, Th, useSort } from "@/components/app/data-table"
+import { EditCell } from "@/components/app/inline-edit"
 import { NativeSelect } from "@/components/app/native-select"
 import { Field } from "@/components/app/student-form"
 import { avatarTone, initial } from "@/components/app/subject-color"
@@ -20,6 +22,8 @@ import { useBranch, useNow } from "@/lib/hooks"
 import { cn } from "@/lib/utils"
 import { useStore } from "@/store/store"
 
+type StaffSort = "nickname" | "name" | "role" | "type" | "upcoming"
+
 const ROLES: Role[] = ["super_admin", "director", "area_manager", "manager", "admin", "teacher"]
 
 export default function StaffPage() {
@@ -32,44 +36,75 @@ export default function StaffPage() {
   const [editing, setEditing] = useState<Staff | "new" | null>(null)
   const [leaving, setLeaving] = useState<Staff | null>(null)
   const manage = can(me, "staff.manage")
-  const list = staff.filter((s) => s.branchIds.includes(branch.id)).sort((a, b) => Number(b.active) - Number(a.active) || a.nickname.localeCompare(b.nickname, "th"))
+  const saveStaff = useStore((s) => s.saveStaff)
+  const { sort, toggle } = useSort<StaffSort>("nickname")
+  // inline edit (owner 2026-10-07) — same validation as the staff form
+  const edit = (st: Staff, patch: Partial<Staff>) => report(saveStaff({ ...st, ...patch }), "บันทึกแล้ว")
+  const upcomingOf = (id: string) => futureSessionsOf(id, sessions, today).length
+  const list = staff
+    .filter((s) => s.branchIds.includes(branch.id))
+    .sort((a, b) => {
+      const k = sort.key
+      const v = k === "nickname" ? a.nickname.localeCompare(b.nickname, "th")
+        : k === "name" ? a.name.localeCompare(b.name, "th")
+          : k === "role" ? ROLE_LABEL[a.roles[0]].localeCompare(ROLE_LABEL[b.roles[0]], "th")
+            : k === "type" ? Number(!!a.partTime) - Number(!!b.partTime)
+              : upcomingOf(a.id) - upcomingOf(b.id)
+      return Number(b.active) - Number(a.active) || (sort.desc ? -v : v)
+    })
 
   return (
-    <div className="mx-auto max-w-5xl space-y-3">
+    <div className="mx-auto max-w-7xl space-y-3">
       <div className="flex items-center">
         <p className="text-sm text-muted-foreground">บุคลากรสาขา{branch.name} {list.filter((s) => s.active).length} คน</p>
         {manage && <Button className="ml-auto" onClick={() => setEditing("new")}><PlusIcon /> เพิ่มบุคลากร</Button>}
       </div>
-      <div className="divide-y overflow-hidden rounded-3xl bg-card shadow-sm ring-1 ring-foreground/5">
-        {list.map((s) => {
-          const upcoming = futureSessionsOf(s.id, sessions, today).length
-          return (
-            <div key={s.id} className={cn("flex flex-wrap items-center gap-3 px-4 py-3", !s.active && "opacity-50")}>
-              <span className={cn("grid size-9 place-items-center rounded-full text-sm font-semibold", avatarTone(s.id))}>{initial(s.nickname)}</span>
-              <div className="min-w-40 flex-1">
-                <div className="text-sm font-medium">{s.nickname} <span className="font-normal text-muted-foreground">· {s.name}</span></div>
-                <div className="text-xs text-muted-foreground">
-                  {s.partTime && <span className="mr-1 rounded-full bg-amber-100 px-1.5 text-[11px] text-amber-800">Part-time</span>}{s.canLogin ? s.email : "ไม่มีบัญชีล็อกอิน"}
-                  {s.subjects.length > 0 && ` · สอน ${s.subjects.join(", ")}`}
-                  {s.roles.includes("teacher") && ` · คาบข้างหน้า ${upcoming}`}
-                </div>
-              </div>
-              <div className="flex flex-wrap gap-1">{s.roles.map((r) => <Pill key={r} tone={r === "teacher" ? "blue" : "violet"}>{ROLE_LABEL[r]}</Pill>)}</div>
-              {!s.active && <Pill>ปิดบัญชีแล้ว</Pill>}
-              {manage && (
-                <div className="flex gap-1">
-                  {s.active && <Button size="xs" variant="outline" onClick={() => setEditing(s)}>แก้ไข</Button>}
-                  {s.active ? (
-                    <Button size="xs" variant="ghost" className="text-red-700" disabled={!canDeactivateStaff(s, me, staff).ok} title={canDeactivateStaff(s, me, staff).ok ? undefined : (canDeactivateStaff(s, me, staff) as { error: string }).error} onClick={() => setLeaving(s)}>ปิดบัญชี</Button>
-                  ) : (
-                    <Button size="xs" variant="ghost" onClick={() => report(reactivate(s.id), `เปิดบัญชี ${s.nickname} แล้ว`)}>เปิดใหม่</Button>
-                  )}
-                </div>
-              )}
-            </div>
-          )
-        })}
-      </div>
+      {/* owner 2026-10-07: a real table — names / email / full- or part-time edit in place on hover; role, subjects
+          and branches (several at once) are edited in the popup: click the other cells or "แก้ไข" */}
+      <TableShell minWidth={1100} cols={["150px", "190px", "150px", "auto", "180px", "110px", "88px", "150px"]}>
+        <thead className={HEAD}>
+          <tr>
+            <SortHeader label="ชื่อเล่น" k="nickname" sort={sort} onSort={toggle} />
+            <SortHeader label="ชื่อ-นามสกุล" k="name" sort={sort} onSort={toggle} />
+            <SortHeader label="ตำแหน่ง" k="role" sort={sort} onSort={toggle} />
+            <Th>วิชาที่สอน</Th>
+            <Th>อีเมลเข้าระบบ</Th>
+            <SortHeader label="ประเภท" k="type" sort={sort} onSort={toggle} />
+            <SortHeader label="คาบข้างหน้า" k="upcoming" sort={sort} onSort={toggle} right />
+            <Th />
+          </tr>
+        </thead>
+        <tbody>
+          {list.map((s) => {
+            const ro = !manage || !s.active
+            const deact = canDeactivateStaff(s, me, staff)
+            return (
+              <tr key={s.id} onClick={() => !ro && setEditing(s)} className={cn(ROW, ro && "cursor-default", !s.active && "opacity-50")}>
+                <td>
+                  <div className="flex min-w-0 items-center gap-2">
+                    <span className={cn("grid size-8 shrink-0 place-items-center rounded-full text-sm font-semibold", avatarTone(s.id))}>{initial(s.nickname)}</span>
+                    <EditCell value={s.nickname} disabled={ro} className="flex-1 font-medium" onSave={(v) => edit(s, { nickname: v })} />
+                  </div>
+                </td>
+                <td className="text-muted-foreground"><EditCell value={s.name} disabled={ro} onSave={(v) => edit(s, { name: v })} /></td>
+                <td className="truncate">{s.roles.map((r) => <Pill key={r} tone={r === "teacher" ? "blue" : "violet"} className="mr-1">{ROLE_LABEL[r]}</Pill>)}{!s.active && <Pill>ปิดบัญชีแล้ว</Pill>}</td>
+                <td className="truncate text-muted-foreground" title={s.subjects.join(", ")}>{s.subjects.join(", ") || "—"}</td>
+                <td className="text-muted-foreground">{s.canLogin ? <EditCell kind="email" value={s.email ?? ""} disabled={ro} placeholder="ใส่อีเมล" onSave={(v) => edit(s, { email: v })} /> : <span className="text-xs">ไม่มีบัญชีล็อกอิน</span>}</td>
+                <td><EditCell kind="select" value={s.partTime ? "part" : "full"} disabled={ro} display={s.partTime ? <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs text-amber-800">Part-time</span> : <span className="text-muted-foreground">Full-time</span>} options={[{ value: "full", label: "Full-time" }, { value: "part", label: "Part-time" }]} onSave={(v) => edit(s, { partTime: v === "part" })} /></td>
+                <td className="text-right tabular-nums text-muted-foreground">{s.roles.includes("teacher") ? upcomingOf(s.id) : "—"}</td>
+                <td className="text-right" onClick={(e) => e.stopPropagation()}>
+                  {manage && (s.active ? (
+                    <span className="inline-flex gap-1">
+                      <Button size="xs" variant="outline" onClick={() => setEditing(s)}>แก้ไข</Button>
+                      <Button size="xs" variant="ghost" className="text-red-700" disabled={!deact.ok} title={deact.ok ? undefined : (deact as { error: string }).error} onClick={() => setLeaving(s)}>ปิดบัญชี</Button>
+                    </span>
+                  ) : <Button size="xs" variant="ghost" onClick={() => report(reactivate(s.id), `เปิดบัญชี ${s.nickname} แล้ว`)}>เปิดใหม่</Button>)}
+                </td>
+              </tr>
+            )
+          })}
+        </tbody>
+      </TableShell>
       {editing && <StaffForm staff={editing === "new" ? undefined : editing} onClose={() => setEditing(null)} />}
       {leaving && <DeactivateDialog s={leaving} onClose={() => setLeaving(null)} />}
     </div>

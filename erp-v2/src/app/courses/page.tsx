@@ -129,11 +129,13 @@ export default function CoursesPage() {
       </div>
 
       <div className="overflow-x-auto rounded-3xl bg-card shadow-sm ring-1 ring-foreground/5">
-        <table className="w-full min-w-[960px] text-sm">
-          <thead className="border-b text-xs text-muted-foreground">
-            <tr className="[&>th]:px-3 [&>th]:py-2.5 [&>th]:text-left [&>th]:font-medium">
-              <th className="w-10" /><th>{sortBtn("name", "ชื่อคอร์ส")}</th><th>ระดับชั้น</th><th>ประเภท</th><th>{sortBtn("students", "นักเรียน")}</th>
-              <th>คลาสที่ผูก</th><th>แพ็กเกจ</th><th>{sortBtn("price", "ราคา")}</th><th>สาขา</th><th>{sortBtn("start", "วันเริ่ม")}</th><th />
+        {/* owner 2026-10-07: fixed column widths + one line per cell so every row lines up */}
+        <table className="w-full min-w-[1200px] table-fixed text-sm [&_td]:align-middle">
+          <colgroup>{["48px", "auto", "110px", "96px", "84px", "88px", "96px", "140px", "96px", "112px", "96px"].map((w, i) => <col key={i} style={w === "auto" ? undefined : { width: w }} />)}</colgroup>
+          <thead className="border-b bg-muted/40 text-xs text-muted-foreground">
+            <tr className="[&>th]:px-3 [&>th]:py-2.5 [&>th]:text-left [&>th]:font-medium [&>th]:whitespace-nowrap">
+              <th /><th>{sortBtn("name", "ชื่อคอร์ส")}</th><th>ระดับชั้น</th><th>ประเภท</th><th className="text-right!">{sortBtn("students", "นักเรียน")}</th>
+              <th className="text-right!">คลาสที่ผูก</th><th>แพ็กเกจ</th><th className="text-right!">{sortBtn("price", "ราคา")}</th><th>สาขา</th><th>{sortBtn("start", "วันเริ่ม")}</th><th />
             </tr>
           </thead>
           <tbody>
@@ -146,25 +148,25 @@ export default function CoursesPage() {
               const br = branches.find((b) => b.id === c.branchId)
               return (
                 <Fragment key={c.id}>
-                  <tr className={cn("border-b last:border-0 [&>td]:px-3 [&>td]:py-2.5", isOpen && "bg-primary/5", !c.active && "opacity-50")}>
+                  <tr className={cn("border-b last:border-0 [&>td]:h-14 [&>td]:px-3 [&>td]:py-1.5", isOpen && "bg-primary/5", !c.active && "opacity-50")}>
                     <td><button aria-label={isOpen ? "ย่อ" : "ขยาย"} onClick={() => toggle(c.id)} className="grid size-7 place-items-center rounded-lg hover:bg-muted"><ChevronDownIcon className={cn("size-4 transition-transform", !isOpen && "-rotate-90")} /></button></td>
                     <td>
                       <div className="flex items-center gap-2.5">
                         <span className={cn("grid size-9 shrink-0 place-items-center rounded-xl text-xs font-semibold", col.chip)}>{c.subjects[0]?.slice(0, 2)}</span>
                         <div className="min-w-0">
                           <p className="truncate font-medium">{c.name}</p>
-                          <p className="text-xs text-muted-foreground">{c.subjects.join(" + ")}{c.courseFee > 0 && ` · + Course fee ${fmtMoney(c.courseFee)}`}{!c.active && " · ปิดขาย"}</p>
+                          <p className="truncate text-xs text-muted-foreground">{c.subjects.join(" + ")}{c.courseFee > 0 && ` · + Course fee ${fmtMoney(c.courseFee)}`}{!c.active && " · ปิดขาย"}</p>
                         </div>
                       </div>
                     </td>
-                    <td><div className="flex flex-wrap gap-1">{gradeRanges(c.grades).map((g) => <span key={g} className={cn("rounded-full px-2 py-0.5 text-xs", gradeTone(g))}>{g}</span>)}</div></td>
+                    <td><div className="flex gap-1 overflow-hidden" title={c.grades.join(", ")}>{gradeRanges(c.grades).map((g) => <span key={g} className={cn("rounded-md px-1.5 py-0.5 text-xs font-semibold whitespace-nowrap", gradeTone(g))}>{g}</span>)}</div></td>
                     <td><Pill tone={c.kind === "bundle" ? "violet" : "gray"}>{c.kind === "bundle" ? <><LayersIcon className="size-3" /> Bundle</> : "Single"}</Pill></td>
-                    <td className="tabular-nums"><span className="flex items-center gap-1"><UsersIcon className="size-3.5 text-muted-foreground" />{st.students}</span></td>
-                    <td className="tabular-nums">{st.classes || "—"}</td>
-                    <td><PackageBadge course={c} /></td>
-                    <td className="tabular-nums"><span className="font-medium">{fmtMoney(c.price)}</span> <span className="text-xs text-muted-foreground">{priceUnitSuffix(c)}</span></td>
-                    <td className="text-xs">{br?.name}</td>
-                    <td className="text-xs">{c.from ? fmtDate(c.from, { year: true }) : "—"}{c.to && <span className="block text-muted-foreground">ถึง {fmtDate(c.to, { year: true })}</span>}</td>
+                    <td className="text-right tabular-nums"><span className="inline-flex items-center gap-1"><UsersIcon className="size-3.5 text-muted-foreground" />{st.students}</span></td>
+                    <td className="text-right tabular-nums">{st.classes || "—"}</td>
+                    <td className="truncate"><PackageBadge course={c} /></td>
+                    <td className="truncate text-right tabular-nums"><span className="font-medium">{fmtMoney(c.price)}</span> <span className="text-xs text-muted-foreground">{priceUnitSuffix(c)}</span></td>
+                    <td className="truncate text-xs">{br?.name}</td>
+                    <td className="text-xs whitespace-nowrap">{c.from ? fmtDate(c.from, { year: true }) : "—"}{c.to && <span className="block text-muted-foreground">ถึง {fmtDate(c.to, { year: true })}</span>}</td>
                     <td>
                       {manage && (
                         <div className="flex">

@@ -4,7 +4,7 @@ import { useState } from "react"
 import { ArrowDownUpIcon, BookOpenIcon, CalendarIcon, ChevronRightIcon, ClockIcon, DoorOpenIcon, GraduationCapIcon, PlusIcon, RefreshCwIcon, SearchIcon, UserRoundIcon, UsersIcon } from "lucide-react"
 import { ClassDialog } from "@/components/app/class-dialog"
 import { ClassSheet } from "@/components/app/class-sheet"
-import { Pager, SortHeader, TableShell, usePage, useSort } from "@/components/app/data-table"
+import { HEAD, Pager, ROW, SortHeader, TableShell, Th, usePage, useSort } from "@/components/app/data-table"
 import { Kpi } from "@/components/app/kpi"
 import { NativeSelect } from "@/components/app/native-select"
 import { avatarTone, gradeTone, initial, subjectColor } from "@/components/app/subject-color"
@@ -118,8 +118,8 @@ export default function ClassesPage() {
         <NativeSelect className="h-9 w-32" value={unitF} onChange={(e) => setUnitF(e.target.value)} placeholder="แพ็กเกจ" options={(["hour", "week", "month"] as PriceUnit[]).map((u) => ({ value: u, label: PRICE_UNIT_LABEL[u] }))} />
       </div>
 
-      <TableShell minWidth={1050}>
-        <thead className="border-b text-xs text-muted-foreground">
+      <TableShell minWidth={1100} cols={["auto", "124px", "124px", "120px", "96px", "180px", "112px", "120px", "92px", "40px"]}>
+        <thead className={HEAD}>
           <tr>
             <SortHeader label="วิชา" k="subject" sort={sort} onSort={toggle} />
             <SortHeader label="วัน" k="day" sort={sort} onSort={toggle} />
@@ -128,9 +128,9 @@ export default function ClassesPage() {
             <SortHeader label="นักเรียน" k="students" sort={sort} onSort={toggle} />
             <SortHeader label="ครู" k="teacher" sort={sort} onSort={toggle} />
             <SortHeader label="ห้อง" k="room" sort={sort} onSort={toggle} />
-            <th className="px-3 py-2.5 text-left font-medium">สาขา</th>
+            <Th>สาขา</Th>
             <SortHeader label="สถานะ" k="status" sort={sort} onSort={toggle} />
-            <th className="w-8" />
+            <Th />
           </tr>
         </thead>
         <tbody>
@@ -140,14 +140,14 @@ export default function ClassesPage() {
             const br = branches.find((b) => b.id === c.branchId)
             const autoName = `${subjectsOf(c).join(" + ")} ${c.grades.join(", ")}`.trim()
             return (
-              <tr key={c.id} onClick={() => setOpenId(c.id)} data-focus={focusKeys(c)} className={cn("group cursor-pointer border-b last:border-0 hover:bg-primary/5 [&>td]:px-3 [&>td]:py-2.5", !c.active && "opacity-45")}>
+              <tr key={c.id} onClick={() => setOpenId(c.id)} data-focus={focusKeys(c)} className={cn("group", ROW, !c.active && "opacity-45")}>
                 <td>
-                  <div className="flex flex-wrap gap-1">{subjectsOf(c).map((x) => <span key={x} className={cn("rounded-full px-2 py-0.5 text-xs font-medium", subjectColor(x).chip)}>{x}</span>)}</div>
-                  {c.name !== autoName && <p className="mt-0.5 max-w-48 truncate text-[11px] text-muted-foreground">{c.name}</p>}
+                  <div className="flex gap-1 overflow-hidden">{subjectsOf(c).map((x) => <span key={x} className={cn("rounded-full px-2 py-0.5 text-xs font-medium whitespace-nowrap", subjectColor(x).chip)}>{x}</span>)}</div>
+                  {c.name !== autoName && <p className="mt-0.5 truncate text-[11px] text-muted-foreground">{c.name}</p>}
                 </td>
                 <td className="whitespace-nowrap"><span className="flex items-center gap-1.5"><CalendarIcon className="size-4 text-muted-foreground" />{c.kind === "learning" ? TH_DAYS_FULL[c.weekday] : fmtDate(c.startDate, { weekday: true })}</span></td>
                 <td className="whitespace-nowrap tabular-nums"><span className="flex items-center gap-1.5"><ClockIcon className="size-4 text-muted-foreground" />{c.start}–{endTime(c.start, c.minutes)}</span></td>
-                <td><div className="flex flex-wrap gap-1">{gradeRanges(c.grades).map((g) => <span key={g} className={cn("rounded-full px-2 py-0.5 text-xs", gradeTone(g))}>{g}</span>)}</div></td>
+                <td><div className="flex gap-1 overflow-hidden" title={c.grades.join(", ")}>{gradeRanges(c.grades).map((g) => <span key={g} className={cn("rounded-md px-1.5 py-0.5 text-xs font-semibold whitespace-nowrap", gradeTone(g))}>{g}</span>)}</div></td>
                 <td className="tabular-nums"><span className={cn("flex items-center gap-1", c.studentIds.length >= cap && "font-semibold text-amber-700")}><UsersIcon className="size-3.5 text-muted-foreground" />{c.studentIds.length}<span className="text-xs text-muted-foreground">/{cap}</span></span></td>
                 <td>
                   <div className="flex items-center gap-2">
@@ -159,9 +159,9 @@ export default function ClassesPage() {
                   </div>
                 </td>
                 <td className="whitespace-nowrap"><span className="flex items-center gap-1.5 text-xs"><DoorOpenIcon className="size-4 text-muted-foreground" />{L.room(c.roomId)}</span></td>
-                <td className="leading-tight"><p className="text-sm">{br?.name}</p><p className="text-[11px] text-muted-foreground">{br?.code}</p></td>
+                <td className="leading-tight"><p className="truncate text-sm">{br?.name}</p><p className="text-[11px] text-muted-foreground">{br?.code}</p></td>
                 <td>{c.active ? <span className="text-sm font-medium text-emerald-700">เปิดอยู่</span> : <span className="text-sm text-muted-foreground">ปิดแล้ว</span>}</td>
-                <td><ChevronRightIcon className="size-4 text-muted-foreground opacity-0 group-hover:opacity-100" /></td>
+                <td className="text-right"><ChevronRightIcon className="ml-auto size-4 text-muted-foreground opacity-0 group-hover:opacity-100" /></td>
               </tr>
             )
           })}
