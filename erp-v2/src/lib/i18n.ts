@@ -96,3 +96,6 @@ export function useT() {
   const lang = useUiLang((s) => s.lang)
   return (th: string, vars?: (string | number)[]) => translate(th, lang, vars)
 }
+
+/** "12 ชม." / "12 hrs" / "12時間" — package durations in the chosen language */
+export const durationText = (unit: "hour" | "week" | "month", d: number) => tx(unit === "hour" ? "{0} ชม." : unit === "week" ? "{0} สัปดาห์" : "{0} เดือน", [d])

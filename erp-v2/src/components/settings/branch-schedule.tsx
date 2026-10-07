@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Input } from "@/components/ui/input"
 import { Switch } from "@/components/ui/switch"
-import { fmtDate, nextWeekday, TH_DAYS_FULL, toDateStr } from "@/domain/dates"
+import { fmtDate, nextWeekday, toDateStr, weekdayLong } from "@/domain/dates"
 import { blocksOn, hoursFor, isHoliday, periodClassesWithStudents } from "@/domain/rules/scheduling"
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog"
 import { canEditBlocks } from "@/domain/rules/permissions"
@@ -23,6 +23,7 @@ import { useStore } from "@/store/store"
 import { periodHours } from "@/components/app/period-banner"
 import { SaveRow, SettingsCard, useBranchDraft } from "./common"
 import { HolidayPlanner } from "./holiday-planner"
+import { tx } from "@/lib/i18n"
 
 const WEEK: Weekday[] = [1, 2, 3, 4, 5, 6, 0]
 
@@ -32,10 +33,10 @@ function HoursRow({ day, h, onChange }: { day: string; h: OpenHours | null; onCh
       <label className="flex w-28 items-center gap-2"><Checkbox checked={!!h} onCheckedChange={(v) => onChange(v ? { open: "09:00", close: "18:00" } : null)} />{day}</label>
       {h ? (
         <>
-          <Input className="w-28" type="time" step={900} value={h.open} onChange={(e) => onChange({ ...h, open: e.target.value })} /> ถึง
+          <Input className="w-28" type="time" step={900} value={h.open} onChange={(e) => onChange({ ...h, open: e.target.value })} />  {tx("ถึง")}
           <Input className="w-28" type="time" step={900} value={h.close} onChange={(e) => onChange({ ...h, close: e.target.value })} />
         </>
-      ) : <span className="text-muted-foreground">ปิด</span>}
+      ) : <span className="text-muted-foreground">{tx("ปิด")}</span>}
     </div>
   )
 }
@@ -55,34 +56,36 @@ function OperatingHours({ branch }: { branch: Branch }) {
 
   return (
     <div className="space-y-4">
-      <SettingsCard title="พรีวิว" hint="เลือกวันที่เพื่อดูว่าสาขาเปิดกี่โมงในวันนั้นจริงๆ (รวมวันหยุด/ช่วงเวลาพิเศษ)">
+      <SettingsCard title={tx("พรีวิว")} hint={tx("เลือกวันที่เพื่อดูว่าสาขาเปิดกี่โมงในวันนั้นจริงๆ (รวมวันหยุด/ช่วงเวลาพิเศษ)")}>
         <div className="flex flex-wrap items-center gap-3 text-sm">
           <Input type="date" className="w-44" value={preview} onChange={(e) => setPreview(e.target.value || today)} />
           <span>{fmtDate(preview, { weekday: true, year: true })}</span>
-          {phHoliday ? <Pill tone="red">วันหยุด: {phHoliday.name}</Pill> : ph ? <Pill tone="green">เปิด {ph.open}–{ph.close}</Pill> : <Pill>ปิด</Pill>}
-          {phSpecial && !phHoliday && <Pill tone="violet">ช่วงพิเศษ: {phSpecial.name}</Pill>}
+          {phHoliday ? <Pill tone="red">{tx("วันหยุด:")} {phHoliday.name}</Pill> : ph ? <Pill tone="green">{tx("เปิด")} {ph.open}–{ph.close}</Pill> : <Pill>{tx("ปิด")}</Pill>}
+          {phSpecial && !phHoliday && <Pill tone="violet">{tx("ช่วงพิเศษ:")} {phSpecial.name}</Pill>}
         </div>
       </SettingsCard>
 
-      <SettingsCard title="เวลาเปิด-ปิด (Operating Hours)" hint="เวลาเปิดรายวัน — ใช้ตรวจตอนสร้างคลาส/ย้ายคาบ และแรเงาในปฏิทิน">
+      <SettingsCard title={tx("เวลาเปิด-ปิด (Operating Hours)")} hint={tx("เวลาเปิดรายวัน — ใช้ตรวจตอนสร้างคลาส/ย้ายคาบ และแรเงาในปฏิทิน")}>
         <div className="space-y-1.5">
-          {WEEK.map((d) => <HoursRow key={d} day={TH_DAYS_FULL[d]} h={b.hours[d]} onChange={(h) => setHours(d, h)} />)}
+          {WEEK.map((d) => <HoursRow key={d} day={weekdayLong(d)} h={b.hours[d]} onChange={(h) => setHours(d, h)} />)}
         </div>
         <div className="mt-3 flex flex-wrap items-center gap-2 rounded-lg bg-muted/40 p-2 text-sm">
-          คัดลอกเวลาของ
+          
+          {tx("คัดลอกเวลาของ")}
           <select className="h-8 rounded-full border bg-background px-2" value={copyFrom} onChange={(e) => setCopyFrom(Number(e.target.value) as Weekday)}>
-            {WEEK.map((d) => <option key={d} value={d}>{TH_DAYS_FULL[d]}</option>)}
+            {WEEK.map((d) => <option key={d} value={d}>{weekdayLong(d)}</option>)}
           </select>
-          ไปที่
-          <Button size="xs" variant="outline" onClick={() => setB({ ...b, hours: copyHours(b.hours, copyFrom, "weekdays") })}>วันธรรมดา (จ.–ศ.)</Button>
-          <Button size="xs" variant="outline" onClick={() => setB({ ...b, hours: copyHours(b.hours, copyFrom, "weekend") })}>เสาร์–อาทิตย์</Button>
+          
+          {tx("ไปที่")}
+          <Button size="xs" variant="outline" onClick={() => setB({ ...b, hours: copyHours(b.hours, copyFrom, "weekdays") })}>{tx("วันธรรมดา (จ.–ศ.)")}</Button>
+          <Button size="xs" variant="outline" onClick={() => setB({ ...b, hours: copyHours(b.hours, copyFrom, "weekend") })}>{tx("เสาร์–อาทิตย์")}</Button>
         </div>
         <div className="mt-3 grid gap-3 sm:grid-cols-2">
-          <Field label="ความยาวคาบมาตรฐาน (นาที)">
+          <Field label={tx("ความยาวคาบมาตรฐาน (นาที)")}>
             <Input type="number" min={15} step={15} value={b.defaultSessionMinutes} onChange={(e) => setB({ ...b, defaultSessionMinutes: Number(e.target.value) })} />
           </Field>
         </div>
-        <SaveRow dirty={dirty} onReset={reset} onSave={() => save("บันทึกเวลาเปิด-ปิดแล้ว")} />
+        <SaveRow dirty={dirty} onReset={reset} onSave={() => save(tx("บันทึกเวลาเปิด-ปิดแล้ว"))} />
       </SettingsCard>
 
     </div>
@@ -96,8 +99,8 @@ type Sub = "operating" | "special" | "holidays"
 export function SchedulingTab({ branch, holidaysOnly = false }: { branch: Branch; holidaysOnly?: boolean }) {
   const [sub, setSub] = useState<Sub>(holidaysOnly ? "holidays" : "operating")
   const tabs: { id: Sub; label: string }[] = holidaysOnly
-    ? [{ id: "holidays", label: "วันหยุด" }]
-    : [{ id: "operating", label: "เวลาปกติ" }, { id: "special", label: "ช่วงเวลาพิเศษ" }, { id: "holidays", label: "วันหยุด" }]
+    ? [{ id: "holidays", label: tx("วันหยุด") }]
+    : [{ id: "operating", label: tx("เวลาปกติ") }, { id: "special", label: tx("ช่วงเวลาพิเศษ") }, { id: "holidays", label: tx("วันหยุด") }]
   return (
     <div className="space-y-4">
       <div className="inline-flex rounded-full bg-muted p-1">
@@ -128,30 +131,30 @@ function ClassBlocksCard({ branch }: { branch: Branch }) {
   const oneOffs = Object.entries(branch.blockDays ?? {}).filter(([d]) => d >= today).sort(([a], [b]) => a.localeCompare(b))
   const planned = (branch.blockPlans ?? []).filter((p) => p.from > today)
   return (
-    <SettingsCard title="ช่วงคลาส (แถวของตารางครู)" hint="แต่ละสาขา แต่ละวันตั้งเองได้ · ใช้ตอนสร้างคลาสแบบ ครู + ช่วงเวลา · แก้จากตารางครูได้ด้วย (ปุ่ม ตั้งช่วงเวลา ที่หัววัน)">
+    <SettingsCard title={tx("ช่วงคลาส (แถวของตารางครู)")} hint={tx("แต่ละสาขา แต่ละวันตั้งเองได้ · ใช้ตอนสร้างคลาสแบบ ครู + ช่วงเวลา · แก้จากตารางครูได้ด้วย (ปุ่ม ตั้งช่วงเวลา ที่หัววัน)")}>
       {editing && <BlocksDialog branch={branch} date={editing} scope="following" onClose={() => setEditing(null)} />}
       <ul className="divide-y rounded-xl border">
         {WEEK.map((wd) => {
           const blocks = blocksOn(plain, dayOf(wd))
           return (
             <li key={wd} className="flex flex-wrap items-center gap-2 px-3 py-2 text-sm">
-              <span className="w-24 font-medium">{TH_DAYS_FULL[wd]}</span>
+              <span className="w-24 font-medium">{weekdayLong(wd)}</span>
               <span className="flex flex-1 flex-wrap gap-1">
                 {blocks.length ? blocks.map((b) => <span key={b.start} className="rounded-full bg-muted px-2 py-0.5 text-xs tabular-nums">{b.start}–{b.end}</span>)
-                  : <span className="text-xs text-muted-foreground">{branch.hours[wd] ? "ไม่มีช่วง" : "สาขาปิด"}</span>}
+                  : <span className="text-xs text-muted-foreground">{branch.hours[wd] ? tx("ไม่มีช่วง") : tx("สาขาปิด")}</span>}
               </span>
-              {canEdit && <Button size="xs" variant="ghost" onClick={() => setEditing(dayOf(wd))}><PencilIcon /> แก้</Button>}
+              {canEdit && <Button size="xs" variant="ghost" onClick={() => setEditing(dayOf(wd))}><PencilIcon />  {tx("แก้")}</Button>}
             </li>
           )
         })}
       </ul>
       {(oneOffs.length > 0 || planned.length > 0) && (
         <div className="mt-3 space-y-1 text-xs text-muted-foreground">
-          {planned.map((p) => <p key={p.from}>เปลี่ยนตั้งแต่ {fmtDate(p.from, { weekday: true })} (ตั้งล่วงหน้าไว้)</p>)}
-          {oneOffs.map(([d, b]) => <p key={d}>เฉพาะ {fmtDate(d, { weekday: true })}: {b.map((x) => `${x.start}–${x.end}`).join(", ") || "ไม่มีช่วง"}</p>)}
+          {planned.map((p) => <p key={p.from}>{tx("เปลี่ยนตั้งแต่")} {fmtDate(p.from, { weekday: true })}  {tx("(ตั้งล่วงหน้าไว้)")}</p>)}
+          {oneOffs.map(([d, b]) => <p key={d}>{tx("เฉพาะ")} {fmtDate(d, { weekday: true })}: {b.map((x) => `${x.start}–${x.end}`).join(", ") || tx("ไม่มีช่วง")}</p>)}
         </div>
       )}
-      {!canEdit && <p className="mt-2 text-xs text-muted-foreground">แก้ได้เฉพาะ Admin / Manager ของสาขา</p>}
+      {!canEdit && <p className="mt-2 text-xs text-muted-foreground">{tx("แก้ได้เฉพาะ Admin / Manager ของสาขา")}</p>}
     </SettingsCard>
   )
 }
@@ -174,10 +177,10 @@ function SpecialPeriodsCard({ branch }: { branch: Branch }) {
   }
   const doIt = (a: NonNullable<typeof ask>) => a.kind === "off" ? update(a.p.id, { active: false }) : setB({ ...b, specialPeriods: b.specialPeriods.filter((x) => x.id !== a.p.id) })
   return (
-    <SettingsCard title={`ช่วงเวลาพิเศษ (${b.specialPeriods.length})`}
-      hint="ช่วงวันที่ที่โรงเรียนเปิด-ปิดไม่เหมือนปกติ เช่น Summer เปิด 08:00–22:00 ทุกวัน — ระหว่างช่วงนี้ระบบใช้เวลาของช่วงแทนเวลาปกติ (ตอนสร้างคลาส/ย้ายคาบ/ฟอร์ม Trial) · วันปิดทั้งวันใส่ที่แท็บวันหยุด"
-      action={<Button size="xs" variant="outline" onClick={add}><PlusIcon /> เพิ่มช่วง</Button>}>
-      {list.length === 0 && <p className="rounded-xl border border-dashed p-6 text-center text-sm text-muted-foreground">ยังไม่มีช่วงเวลาพิเศษ</p>}
+    <SettingsCard title={tx("ช่วงเวลาพิเศษ ({0})", [b.specialPeriods.length])}
+      hint={tx("ช่วงวันที่ที่โรงเรียนเปิด-ปิดไม่เหมือนปกติ เช่น Summer เปิด 08:00–22:00 ทุกวัน — ระหว่างช่วงนี้ระบบใช้เวลาของช่วงแทนเวลาปกติ (ตอนสร้างคลาส/ย้ายคาบ/ฟอร์ม Trial) · วันปิดทั้งวันใส่ที่แท็บวันหยุด")}
+      action={<Button size="xs" variant="outline" onClick={add}><PlusIcon />  {tx("เพิ่มช่วง")}</Button>}>
+      {list.length === 0 && <p className="rounded-xl border border-dashed p-6 text-center text-sm text-muted-foreground">{tx("ยังไม่มีช่วงเวลาพิเศษ")}</p>}
       <div className="space-y-3">
         {list.map((p) => (
           <SpecialPeriodEditor key={p.id} p={p} normal={b.hours} today={today} startOpen={!branch.specialPeriods.some((x) => x.id === p.id)}
@@ -190,19 +193,20 @@ function SpecialPeriodsCard({ branch }: { branch: Branch }) {
       <AlertDialog open={!!ask} onOpenChange={(o) => !o && setAsk(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>{ask?.kind === "off" ? "ปิดใช้งาน" : "ลบ"}ช่วง {ask?.p.name}?</AlertDialogTitle>
+            <AlertDialogTitle>{ask?.kind === "off" ? tx("ปิดใช้งาน") : tx("ลบ")}{tx("ช่วง")} {ask?.p.name}?</AlertDialogTitle>
             <AlertDialogDescription>
-              ช่วงนี้มีคลาสพิเศษ {ask?.n} คลาสที่ยังมีนักเรียน {ask?.students} คน — คาบของคลาสพิเศษจะถูกพักไว้ (ไม่แสดงในปฏิทิน) และวันในช่วงนี้กลับไปใช้เวลา/ช่วงคลาสปกติ
-              {ask?.kind === "off" ? " · เปิดใช้งานอีกครั้งแล้วคาบกลับมาเอง" : " · ลบแล้วคาบไม่กลับมา"} · มีผลเมื่อกดบันทึก
+              
+              {tx("ช่วงนี้มีคลาสพิเศษ")} {ask?.n}  {tx("คลาสที่ยังมีนักเรียน")} {ask?.students}  {tx("คน — คาบของคลาสพิเศษจะถูกพักไว้ (ไม่แสดงในปฏิทิน) และวันในช่วงนี้กลับไปใช้เวลา/ช่วงคลาสปกติ")}
+              {ask?.kind === "off" ? tx(" · เปิดใช้งานอีกครั้งแล้วคาบกลับมาเอง") : tx(" · ลบแล้วคาบไม่กลับมา")}  {tx("· มีผลเมื่อกดบันทึก")}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>ไม่ทำ</AlertDialogCancel>
-            <AlertDialogAction variant="destructive" onClick={() => { if (ask) doIt(ask); setAsk(null) }}>{ask?.kind === "off" ? "ปิดใช้งาน" : "ลบช่วง"}</AlertDialogAction>
+            <AlertDialogCancel>{tx("ไม่ทำ")}</AlertDialogCancel>
+            <AlertDialogAction variant="destructive" onClick={() => { if (ask) doIt(ask); setAsk(null) }}>{ask?.kind === "off" ? tx("ปิดใช้งาน") : tx("ลบช่วง")}</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-      <SaveRow dirty={dirty} onReset={reset} onSave={() => (err ? report({ ok: false, error: err }, "") : save("บันทึกช่วงเวลาพิเศษแล้ว"))} />
+      <SaveRow dirty={dirty} onReset={reset} onSave={() => (err ? report({ ok: false, error: err }, "") : save(tx("บันทึกช่วงเวลาพิเศษแล้ว")))} />
     </SettingsCard>
   )
 }
@@ -211,8 +215,8 @@ function SpecialPeriodsCard({ branch }: { branch: Branch }) {
 function SpecialPeriodEditor({ p, normal, today, startOpen, classCount, onChange, onRemove }: { p: SpecialPeriod; normal: Branch["hours"]; today: string; startOpen: boolean; classCount: number; onChange: (patch: Partial<SpecialPeriod>) => void; onRemove: () => void }) {
   const [open, setOpen] = useState(startOpen)
   const [all, setAll] = useState<OpenHours>({ open: "08:00", close: "22:00" })
-  const status = !p.active ? { tone: "gray" as const, label: "ปิดใช้งาน" } : p.to < today ? { tone: "gray" as const, label: "ผ่านไปแล้ว" } : p.from <= today ? { tone: "green" as const, label: "ใช้อยู่ตอนนี้" } : { tone: "blue" as const, label: "กำลังจะถึง" }
-  const fmt = (h: OpenHours | null) => (h ? `${h.open}–${h.close}` : "ปิด")
+  const status = !p.active ? { tone: "gray" as const, label: tx("ปิดใช้งาน") } : p.to < today ? { tone: "gray" as const, label: tx("ผ่านไปแล้ว") } : p.from <= today ? { tone: "green" as const, label: tx("ใช้อยู่ตอนนี้") } : { tone: "blue" as const, label: tx("กำลังจะถึง") }
+  const fmt = (h: OpenHours | null) => (h ? `${h.open}–${h.close}` : tx("ปิด"))
   const summary = periodHours(p)
   return (
     <div className={cn("rounded-2xl border", !p.active && "bg-muted/30")}>
@@ -221,53 +225,54 @@ function SpecialPeriodEditor({ p, normal, today, startOpen, classCount, onChange
           <ChevronDownIcon className={cn("size-4 shrink-0 text-muted-foreground transition-transform", !open && "-rotate-90")} />
           <PriorityIcon priority={p.priority} dim={!p.active} />
           <span className="min-w-0">
-            <span className={cn("block truncate font-medium", !p.active && "text-muted-foreground")}>{p.name || "(ไม่มีชื่อ)"}</span>
-            <span className="block text-xs text-muted-foreground">{fmtDate(p.from, { year: true })} – {fmtDate(p.to, { year: true })} · {summary} · คลาสพิเศษ {classCount} คลาส{p.pauseRegular ? " · คลาสปกติหยุด" : ""}</span>
+            <span className={cn("block truncate font-medium", !p.active && "text-muted-foreground")}>{p.name || tx("(ไม่มีชื่อ)")}</span>
+            <span className="block text-xs text-muted-foreground">{fmtDate(p.from, { year: true })} – {fmtDate(p.to, { year: true })} · {summary}  {tx("· คลาสพิเศษ")} {classCount}  {tx("คลาส")}{p.pauseRegular ? tx(" · คลาสปกติหยุด") : ""}</span>
           </span>
         </button>
         <Pill tone={status.tone}>{status.label}</Pill>
         <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
-          <Switch size="sm" checked={p.active} onCheckedChange={(v) => onChange({ active: v })} aria-label="เปิดใช้งานช่วงนี้" />
+          <Switch size="sm" checked={p.active} onCheckedChange={(v) => onChange({ active: v })} aria-label={tx("เปิดใช้งานช่วงนี้")} />
           {p.active ? "Active" : "Inactive"}
         </label>
-        <Button size="icon-sm" variant="ghost" aria-label="ลบช่วง" onClick={onRemove}><TrashIcon /></Button>
+        <Button size="icon-sm" variant="ghost" aria-label={tx("ลบช่วง")} onClick={onRemove}><TrashIcon /></Button>
       </div>
       {open && (
         <div className="space-y-3 border-t p-3">
           <div className="flex flex-wrap items-end gap-2">
-            <Field label="ชื่อช่วง" className="min-w-40 flex-1"><Input value={p.name} onChange={(e) => onChange({ name: e.target.value })} placeholder="เช่น Summer" /></Field>
-            <Field label="ตั้งแต่"><Input type="date" value={p.from} onChange={(e) => onChange({ from: e.target.value })} /></Field>
-            <Field label="ถึง"><Input type="date" value={p.to} onChange={(e) => onChange({ to: e.target.value })} /></Field>
-            <Field label="Priority (ช่วงทับกัน → สูงกว่าชนะ)">
+            <Field label={tx("ชื่อช่วง")} className="min-w-40 flex-1"><Input value={p.name} onChange={(e) => onChange({ name: e.target.value })} placeholder={tx("เช่น Summer")} /></Field>
+            <Field label={tx("ตั้งแต่")}><Input type="date" value={p.from} onChange={(e) => onChange({ from: e.target.value })} /></Field>
+            <Field label={tx("ถึง")}><Input type="date" value={p.to} onChange={(e) => onChange({ to: e.target.value })} /></Field>
+            <Field label={tx("Priority (ช่วงทับกัน → สูงกว่าชนะ)")}>
               <select className="h-9 rounded-3xl border bg-input/50 px-3 text-sm" value={p.priority} onChange={(e) => onChange({ priority: e.target.value as PeriodPriority })}>
-                {(["high", "medium", "low"] as PeriodPriority[]).map((x) => <option key={x} value={x}>{PRIORITY_LABEL[x]}</option>)}
+                {(["high", "medium", "low"] as PeriodPriority[]).map((x) => <option key={x} value={x}>{tx(PRIORITY_LABEL[x])}</option>)}
               </select>
             </Field>
           </div>
           <div className="space-y-1.5">
-            <p className="text-sm font-medium">คลาสปกติระหว่างช่วงนี้</p>
+            <p className="text-sm font-medium">{tx("คลาสปกติระหว่างช่วงนี้")}</p>
             <div className="flex flex-wrap gap-1.5">
-              {([[false, "เรียนต่อตามปกติ", "คลาสพิเศษเพิ่มเข้ามาด้วย"], [true, "หยุดทั้งหมด", "เหลือแต่คลาสพิเศษของช่วงนี้ · ปิดช่วงแล้วกลับมาเอง"]] as const).map(([v, t, d]) => (
+              {([[false, tx("เรียนต่อตามปกติ"), tx("คลาสพิเศษเพิ่มเข้ามาด้วย")], [true, tx("หยุดทั้งหมด"), tx("เหลือแต่คลาสพิเศษของช่วงนี้ · ปิดช่วงแล้วกลับมาเอง")]] as const).map(([v, t, d]) => (
                 <button key={t} type="button" aria-pressed={!!p.pauseRegular === v} onClick={() => onChange({ pauseRegular: v })}
                   className={cn("rounded-xl border px-3 py-1.5 text-left text-sm", !!p.pauseRegular === v ? "border-primary bg-primary/5 font-medium" : "hover:bg-muted/50")}>
                   {t}<span className="block text-xs font-normal text-muted-foreground">{d}</span>
                 </button>
               ))}
             </div>
-            <p className="text-xs text-muted-foreground">คลาสพิเศษ: สร้างคลาสแล้วเลือก &quot;ช่วงเวลาพิเศษ&quot; = {p.name || "ช่วงนี้"} · ช่วงคลาสของช่วงนี้ตั้งจากตารางครู (ปุ่ม ตั้งช่วงเวลา ที่หัววันในช่วง)</p>
+            <p className="text-xs text-muted-foreground">{tx("คลาสพิเศษ: สร้างคลาสแล้วเลือก \"ช่วงเวลาพิเศษ\" =")} {p.name || tx("ช่วงนี้")}  {tx("· ช่วงคลาสของช่วงนี้ตั้งจากตารางครู (ปุ่ม ตั้งช่วงเวลา ที่หัววันในช่วง)")}</p>
           </div>
           <div className="flex flex-wrap items-center gap-2 rounded-xl bg-muted/40 p-2 text-sm">
-            เปิดทุกวัน
-            <Input className="h-8 w-28" type="time" step={900} value={all.open} onChange={(e) => setAll({ ...all, open: e.target.value })} /> ถึง
+            
+            {tx("เปิดทุกวัน")}
+            <Input className="h-8 w-28" type="time" step={900} value={all.open} onChange={(e) => setAll({ ...all, open: e.target.value })} />  {tx("ถึง")}
             <Input className="h-8 w-28" type="time" step={900} value={all.close} onChange={(e) => setAll({ ...all, close: e.target.value })} />
-            <Button size="xs" onClick={() => onChange({ hours: everyDay(all) })}>ใช้กับทุกวัน</Button>
-            <span className="text-xs text-muted-foreground">หรือปรับรายวันด้านล่าง</span>
+            <Button size="xs" onClick={() => onChange({ hours: everyDay(all) })}>{tx("ใช้กับทุกวัน")}</Button>
+            <span className="text-xs text-muted-foreground">{tx("หรือปรับรายวันด้านล่าง")}</span>
           </div>
           <div className="space-y-1.5">
             {WEEK.map((d) => (
               <div key={d} className="flex flex-wrap items-center gap-2">
-                <HoursRow day={TH_DAYS_FULL[d]} h={p.hours[d]} onChange={(h) => onChange({ hours: { ...p.hours, [d]: h } })} />
-                {fmt(p.hours[d]) !== fmt(normal[d]) && <span className="text-[11px] text-muted-foreground">ปกติ {fmt(normal[d])}</span>}
+                <HoursRow day={weekdayLong(d)} h={p.hours[d]} onChange={(h) => onChange({ hours: { ...p.hours, [d]: h } })} />
+                {fmt(p.hours[d]) !== fmt(normal[d]) && <span className="text-[11px] text-muted-foreground">{tx("ปกติ")} {fmt(normal[d])}</span>}
               </div>
             ))}
           </div>
@@ -279,5 +284,5 @@ function SpecialPeriodEditor({ p, normal, today, startOpen, classCount, onChange
 
 function PriorityIcon({ priority, dim }: { priority: PeriodPriority; dim?: boolean }) {
   const Icon = priority === "high" ? ChevronsUpIcon : priority === "medium" ? ChevronUpIcon : ChevronsDownIcon
-  return <Icon aria-label={`Priority ${PRIORITY_LABEL[priority]}`} className={cn("size-4 shrink-0", priority === "high" ? "text-red-600" : priority === "medium" ? "text-amber-500" : "text-muted-foreground", dim && "opacity-40")} />
+  return <Icon aria-label={`Priority ${tx(PRIORITY_LABEL[priority])}`} className={cn("size-4 shrink-0", priority === "high" ? "text-red-600" : priority === "medium" ? "text-amber-500" : "text-muted-foreground", dim && "opacity-40")} />
 }

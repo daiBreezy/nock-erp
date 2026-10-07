@@ -10,7 +10,7 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Switch } from "@/components/ui/switch"
-import { addDays, fmtDate, parseDate, toDateStr, weekdayOf } from "@/domain/dates"
+import { addDays, fmtDate, parseDate, toDateStr, weekdayOf, yearOf, weekdayShort } from "@/domain/dates"
 import { can, inBranch } from "@/domain/rules/permissions"
 import { closesBranch, holidayImpact, periodsIn } from "@/domain/rules/scheduling"
 import { PeriodBanner } from "@/components/app/period-banner"
@@ -20,6 +20,7 @@ import { report } from "@/lib/feedback"
 import { useNow } from "@/lib/hooks"
 import { cn } from "@/lib/utils"
 import { useStore } from "@/store/store"
+import { tx } from "@/lib/i18n"
 
 const TH_MONTH = ["มกราคม", "กุมภาพันธ์", "มีนาคม", "เมษายน", "พฤษภาคม", "มิถุนายน", "กรกฎาคม", "สิงหาคม", "กันยายน", "ตุลาคม", "พฤศจิกายน", "ธันวาคม"]
 const DOW = ["จ.", "อ.", "พ.", "พฤ.", "ศ.", "ส.", "อา."]
@@ -72,17 +73,17 @@ export function HolidayPlanner({ branch }: { branch?: Branch }) {
       <section className="space-y-3">
         <div className="flex items-start gap-2">
           <div className="flex-1">
-            <h3 className="font-semibold">{isBranch ? "วันหยุด" : "ปฏิทินวันหยุดบริษัท"}</h3>
+            <h3 className="font-semibold">{isBranch ? tx("วันหยุด") : tx("ปฏิทินวันหยุดบริษัท")}</h3>
             <p className="text-xs text-muted-foreground">
-              {isBranch ? "วันหยุดบริษัท (จาก System) เปิด/ปิดได้ต่อสาขา + วันหยุดของสาขาเอง" : "มีผลกับทุกสาขา — แต่ละสาขาเลือกเปิดทำการในวันไหนก็ได้"}
+              {isBranch ? tx("วันหยุดบริษัท (จาก System) เปิด/ปิดได้ต่อสาขา + วันหยุดของสาขาเอง") : tx("มีผลกับทุกสาขา — แต่ละสาขาเลือกเปิดทำการในวันไหนก็ได้")}
             </p>
           </div>
-          {(isBranch ? manageBranch : manageCompany) && <Button size="sm" variant="outline" onClick={() => openAdd()}><PlusIcon /> เพิ่ม</Button>}
+          {(isBranch ? manageBranch : manageCompany) && <Button size="sm" variant="outline" onClick={() => openAdd()}><PlusIcon />  {tx("เพิ่ม")}</Button>}
         </div>
         <NativeSelect className="h-9 w-44" value={scope} onChange={(e) => setScope(e.target.value as "year" | "month")}
-          options={[{ value: "year", label: `ทั้งปี ${Number(year) + 543}` }, { value: "month", label: `เฉพาะ${TH_MONTH[first.getMonth()]}` }]} />
+          options={[{ value: "year", label: tx("ทั้งปี {0}", [yearOf(Number(year))]) }, { value: "month", label: tx("เฉพาะ{0}", [tx(TH_MONTH[first.getMonth()])]) }]} />
         <div className="max-h-[32rem] space-y-1.5 overflow-y-auto pr-1">
-          {listed.length === 0 && <p className="rounded-xl border border-dashed p-6 text-center text-sm text-muted-foreground">ไม่มีวันหยุดในช่วงนี้</p>}
+          {listed.length === 0 && <p className="rounded-xl border border-dashed p-6 text-center text-sm text-muted-foreground">{tx("ไม่มีวันหยุดในช่วงนี้")}</p>}
           {listed.map((h) => {
             const isClosed = closed(h)
             return (
@@ -92,22 +93,22 @@ export function HolidayPlanner({ branch }: { branch?: Branch }) {
                   <CalendarDaysIcon className="size-4" />
                 </span>
                 <span className="min-w-0 flex-1">
-                  <span className="block text-[11px] text-muted-foreground">{HOLIDAY_CATEGORY_LABEL[h.category]}</span>
+                  <span className="block text-[11px] text-muted-foreground">{tx(HOLIDAY_CATEGORY_LABEL[h.category])}</span>
                   <span className="block truncate text-sm font-medium">{h.name}</span>
                   <span className="block text-xs text-muted-foreground">{fmtDate(h.date, { weekday: true, year: true })}</span>
                 </span>
                 {isBranch && h.branchId === null ? (
                   manageBranch ? (
                     <span className="flex items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
-                      <span className="text-[11px] text-muted-foreground">{isClosed ? "หยุด" : "เปิดทำการ"}</span>
-                      <Switch checked={isClosed} aria-label="สาขานี้หยุดวันนี้"
-                        onCheckedChange={(v) => (v ? setClosing(h) : report(act.setOpen(h.id, branch.id, true, false), `${branch.name}เปิดทำการวัน${h.name} — คาบที่ยกเลิกไปแล้วไม่ถูกคืนอัตโนมัติ`))} />
+                      <span className="text-[11px] text-muted-foreground">{isClosed ? tx("หยุด") : tx("เปิดทำการ")}</span>
+                      <Switch checked={isClosed} aria-label={tx("สาขานี้หยุดวันนี้")}
+                        onCheckedChange={(v) => (v ? setClosing(h) : report(act.setOpen(h.id, branch.id, true, false), tx("{0}เปิดทำการวัน{1} — คาบที่ยกเลิกไปแล้วไม่ถูกคืนอัตโนมัติ", [branch.name, h.name])))} />
                     </span>
-                  ) : <span className="text-[11px] text-muted-foreground">{isClosed ? "หยุด" : "เปิดทำการ"}</span>
+                  ) : <span className="text-[11px] text-muted-foreground">{isClosed ? tx("หยุด") : tx("เปิดทำการ")}</span>
                 ) : canEdit(h) && (
                   <span className="flex" onClick={(e) => e.stopPropagation()}>
-                    <Button size="icon-sm" variant="ghost" aria-label="แก้" onClick={() => setDraft({ id: h.id, name: h.name, date: h.date, category: h.category })}><PencilIcon /></Button>
-                    <Button size="icon-sm" variant="ghost" aria-label="ลบ" onClick={() => report(act.remove(h.id), "ลบวันหยุดแล้ว (คาบที่ยกเลิกไปแล้วไม่ถูกคืนอัตโนมัติ)")}><TrashIcon /></Button>
+                    <Button size="icon-sm" variant="ghost" aria-label={tx("แก้")} onClick={() => setDraft({ id: h.id, name: h.name, date: h.date, category: h.category })}><PencilIcon /></Button>
+                    <Button size="icon-sm" variant="ghost" aria-label={tx("ลบ")} onClick={() => report(act.remove(h.id), tx("ลบวันหยุดแล้ว (คาบที่ยกเลิกไปแล้วไม่ถูกคืนอัตโนมัติ)"))}><TrashIcon /></Button>
                   </span>
                 )}
               </div>
@@ -118,10 +119,10 @@ export function HolidayPlanner({ branch }: { branch?: Branch }) {
 
       <section className="rounded-3xl bg-card p-3 shadow-sm ring-1 ring-foreground/5">
         <div className="mb-2 flex items-center gap-2">
-          <Button size="icon-sm" variant="outline" aria-label="เดือนก่อน" onClick={() => setAnchor(shiftMonth(anchor, -1))}><ChevronLeftIcon /></Button>
-          <span className="min-w-36 text-center font-medium">{TH_MONTH[first.getMonth()]} {first.getFullYear() + 543}</span>
-          <Button size="icon-sm" variant="outline" aria-label="เดือนถัดไป" onClick={() => setAnchor(shiftMonth(anchor, 1))}><ChevronRightIcon /></Button>
-          <Button size="sm" variant="ghost" className="ml-auto" onClick={() => setAnchor(monthStart(today))}>วันนี้</Button>
+          <Button size="icon-sm" variant="outline" aria-label={tx("เดือนก่อน")} onClick={() => setAnchor(shiftMonth(anchor, -1))}><ChevronLeftIcon /></Button>
+          <span className="min-w-36 text-center font-medium">{tx(TH_MONTH[first.getMonth()])} {yearOf(first.getFullYear())}</span>
+          <Button size="icon-sm" variant="outline" aria-label={tx("เดือนถัดไป")} onClick={() => setAnchor(shiftMonth(anchor, 1))}><ChevronRightIcon /></Button>
+          <Button size="sm" variant="ghost" className="ml-auto" onClick={() => setAnchor(monthStart(today))}>{tx("วันนี้")}</Button>
         </div>
         {periods.length > 0 && (
           <div className="mb-2 space-y-1">
@@ -129,7 +130,7 @@ export function HolidayPlanner({ branch }: { branch?: Branch }) {
           </div>
         )}
         <div className="grid grid-cols-7 overflow-hidden rounded-2xl border text-sm">
-          {DOW.map((d) => <div key={d} className="border-b bg-muted/40 py-1.5 text-center text-xs text-muted-foreground">{d}</div>)}
+          {DOW.map((d) => <div key={d} className="border-b bg-muted/40 py-1.5 text-center text-xs text-muted-foreground">{weekdayShort((DOW.indexOf(d) + 1) % 7)}</div>)}
           {rows.map((d) => {
             const inMonth = parseDate(d).getMonth() === first.getMonth()
             const hs = visible.filter((h) => h.date === d)
@@ -142,15 +143,15 @@ export function HolidayPlanner({ branch }: { branch?: Branch }) {
                 {sp && <span className="absolute inset-x-0 top-0 h-1 bg-amber-400" />}
                 <div className="flex items-center justify-between">
                   <span className={cn("text-xs", shut && "font-semibold text-rose-700")}>{parseDate(d).getDate()}</span>
-                  {n > 0 && inMonth && <span className="text-[10px] text-muted-foreground">{n} คาบ</span>}
+                  {n > 0 && inMonth && <span className="text-[10px] text-muted-foreground">{n}  {tx("คาบ")}</span>}
                 </div>
                 {sp && inMonth && (d === sp.from || parseDate(d).getDate() === 1 || weekdayOf(d) === 1) && <p className="truncate text-[10px] font-medium text-amber-700">☀ {sp.name}</p>}
                 {hs.map((h) => (
-                  <p key={h.id} className={cn("mt-0.5 truncate text-[11px]", closed(h) ? "text-rose-700" : "text-muted-foreground line-through")} title={`${h.name} · ${HOLIDAY_CATEGORY_LABEL[h.category]}`}>{h.name}</p>
+                  <p key={h.id} className={cn("mt-0.5 truncate text-[11px]", closed(h) ? "text-rose-700" : "text-muted-foreground line-through")} title={`${h.name} · ${tx(HOLIDAY_CATEGORY_LABEL[h.category])}`}>{h.name}</p>
                 ))}
                 {canAdd && (
                   <button onClick={() => openAdd(d)} className="absolute inset-x-1.5 bottom-1.5 hidden items-center justify-center gap-1 rounded-lg border border-dashed border-primary/40 py-0.5 text-[11px] text-primary group-hover:flex">
-                    <PlusIcon className="size-3" /> เพิ่ม
+                    <PlusIcon className="size-3" />  {tx("เพิ่ม")}
                   </button>
                 )}
               </div>
@@ -158,10 +159,10 @@ export function HolidayPlanner({ branch }: { branch?: Branch }) {
           })}
         </div>
         <p className="mt-2 flex flex-wrap gap-3 text-[11px] text-muted-foreground">
-          <span className="flex items-center gap-1"><span className="size-2.5 rounded-sm bg-rose-200" /> หยุด</span>
-          {isBranch && <span className="flex items-center gap-1"><span className="size-2.5 rounded-sm bg-amber-300" /> ช่วงเวลาพิเศษ</span>}
-          {isBranch && <span className="line-through">ชื่อขีดฆ่า = วันหยุดบริษัทที่สาขานี้เปิดทำการ</span>}
-          <span>เอาเมาส์ชี้ช่องว่างเพื่อเพิ่มวันหยุด</span>
+          <span className="flex items-center gap-1"><span className="size-2.5 rounded-sm bg-rose-200" />  {tx("หยุด")}</span>
+          {isBranch && <span className="flex items-center gap-1"><span className="size-2.5 rounded-sm bg-amber-300" />  {tx("ช่วงเวลาพิเศษ")}</span>}
+          {isBranch && <span className="line-through">{tx("ชื่อขีดฆ่า = วันหยุดบริษัทที่สาขานี้เปิดทำการ")}</span>}
+          <span>{tx("เอาเมาส์ชี้ช่องว่างเพื่อเพิ่มวันหยุด")}</span>
         </p>
       </section>
 
@@ -169,14 +170,14 @@ export function HolidayPlanner({ branch }: { branch?: Branch }) {
         <HolidayDialog draft={draft} branch={branch} onClose={() => setDraft(null)}
           onSave={(d, cancel) => {
             const ok = d.id
-              ? report(act.update(d.id, { name: d.name, date: d.date, category: d.category }), "แก้วันหยุดแล้ว")
-              : report(act.add({ name: d.name, date: d.date, category: d.category, branchId: branch?.id ?? null }, cancel), (v) => `เพิ่มวันหยุดแล้ว${v.affected ? ` · ${cancel ? "ยกเลิก" : "กระทบ"} ${v.affected} คาบ` : ""}`)
+              ? report(act.update(d.id, { name: d.name, date: d.date, category: d.category }), tx("แก้วันหยุดแล้ว"))
+              : report(act.add({ name: d.name, date: d.date, category: d.category, branchId: branch?.id ?? null }, cancel), (v) => tx("เพิ่มวันหยุดแล้ว{0}", [v.affected ? tx(" · {0} {1} คาบ", [cancel ? tx("ยกเลิก") : tx("กระทบ"), v.affected]) : ""]))
             if (ok) setDraft(null)
           }} />
       )}
       {closing && branch && (
         <CloseDayDialog holiday={closing} branch={branch} affected={holidayImpact(closing.date, branch.id, sessions).length} onClose={() => setClosing(null)}
-          onConfirm={(cancel) => report(act.setOpen(closing.id, branch.id, false, cancel), `${branch.name}หยุดวัน${closing.name}แล้ว`) && setClosing(null)} />
+          onConfirm={(cancel) => report(act.setOpen(closing.id, branch.id, false, cancel), tx("{0}หยุดวัน{1}แล้ว", [branch.name, closing.name])) && setClosing(null)} />
       )}
     </div>
   )
@@ -191,28 +192,29 @@ function HolidayDialog({ draft, branch, onClose, onSave }: { draft: Draft; branc
     <Dialog open onOpenChange={(o) => !o && onClose()}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>{d.id ? "แก้วันหยุด" : branch ? `เพิ่มวันหยุดของสาขา${branch.name}` : "เพิ่มวันหยุดบริษัท"}</DialogTitle>
-          <DialogDescription>{branch ? "มีผลเฉพาะสาขานี้" : "มีผลกับทุกสาขา — สาขาเลือกเปิดทำการเองได้ที่หน้าสาขา"}</DialogDescription>
+          <DialogTitle>{d.id ? tx("แก้วันหยุด") : branch ? tx("เพิ่มวันหยุดของสาขา{0}", [branch.name]) : tx("เพิ่มวันหยุดบริษัท")}</DialogTitle>
+          <DialogDescription>{branch ? tx("มีผลเฉพาะสาขานี้") : tx("มีผลกับทุกสาขา — สาขาเลือกเปิดทำการเองได้ที่หน้าสาขา")}</DialogDescription>
         </DialogHeader>
         <div className="grid gap-3 sm:grid-cols-2">
-          <Field label="ชื่อวันหยุด *" className="sm:col-span-2"><Input autoFocus value={d.name} onChange={(e) => setD({ ...d, name: e.target.value })} placeholder="เช่น วันสงกรานต์" /></Field>
-          <Field label="วันที่ *"><Input type="date" value={d.date} onChange={(e) => setD({ ...d, date: e.target.value })} /></Field>
-          <Field label="ประเภท">
+          <Field label={tx("ชื่อวันหยุด *")} className="sm:col-span-2"><Input autoFocus value={d.name} onChange={(e) => setD({ ...d, name: e.target.value })} placeholder={tx("เช่น วันสงกรานต์")} /></Field>
+          <Field label={tx("วันที่ *")}><Input type="date" value={d.date} onChange={(e) => setD({ ...d, date: e.target.value })} /></Field>
+          <Field label={tx("ประเภท")}>
             {branch ? <Input value={HOLIDAY_CATEGORY_LABEL.branch} disabled /> : (
               <NativeSelect value={d.category} onChange={(e) => setD({ ...d, category: e.target.value as HolidayCategory })}
-                options={(["traditional", "company"] as HolidayCategory[]).map((c) => ({ value: c, label: HOLIDAY_CATEGORY_LABEL[c] }))} />
+                options={(["traditional", "company"] as HolidayCategory[]).map((c) => ({ value: c, label: tx(HOLIDAY_CATEGORY_LABEL[c]) }))} />
             )}
           </Field>
         </div>
         {affected.length > 0 && (
           <div className="rounded-md bg-amber-50 p-2 text-sm text-amber-900">
-            วันนั้นมี <b>{affected.length} คาบ</b>{branch ? "" : " (ทุกสาขา)"} · นักเรียน {affected.reduce((n, s) => n + s.studentIds.length, 0)} คน
-            <label className="mt-1 flex items-center gap-2"><Checkbox checked={cancel} onCheckedChange={(v) => setCancel(!!v)} /> ยกเลิกคาบเหล่านี้ + แจ้งทีมให้ติดต่อผู้ปกครอง/นัดชดเชย</label>
+            
+            {tx("วันนั้นมี")} <b>{affected.length}  {tx("คาบ")}</b>{branch ? "" : tx(" (ทุกสาขา)")}  {tx("· นักเรียน")} {affected.reduce((n, s) => n + s.studentIds.length, 0)}  {tx("คน")}
+            <label className="mt-1 flex items-center gap-2"><Checkbox checked={cancel} onCheckedChange={(v) => setCancel(!!v)} />  {tx("ยกเลิกคาบเหล่านี้ + แจ้งทีมให้ติดต่อผู้ปกครอง/นัดชดเชย")}</label>
           </div>
         )}
         <DialogFooter>
-          <Button variant="ghost" onClick={onClose}>ยกเลิก</Button>
-          <Button disabled={!d.name.trim() || !d.date} onClick={() => onSave(d, cancel)}>{d.id ? "บันทึก" : "เพิ่มวันหยุด"}</Button>
+          <Button variant="ghost" onClick={onClose}>{tx("ยกเลิก")}</Button>
+          <Button disabled={!d.name.trim() || !d.date} onClick={() => onSave(d, cancel)}>{d.id ? tx("บันทึก") : tx("เพิ่มวันหยุด")}</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
@@ -225,18 +227,19 @@ function CloseDayDialog({ holiday, branch, affected, onClose, onConfirm }: { hol
     <Dialog open onOpenChange={(o) => !o && onClose()}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>สาขา{branch.name}หยุดวัน{holiday.name}?</DialogTitle>
+          <DialogTitle>{tx("สาขา")}{branch.name}{tx("หยุดวัน")}{holiday.name}?</DialogTitle>
           <DialogDescription>{fmtDate(holiday.date, { weekday: true, year: true })}</DialogDescription>
         </DialogHeader>
         {affected > 0 ? (
           <div className="rounded-md bg-amber-50 p-2 text-sm text-amber-900">
-            วันนั้นสาขานี้มี <b>{affected} คาบ</b>
-            <label className="mt-1 flex items-center gap-2"><Checkbox checked={cancel} onCheckedChange={(v) => setCancel(!!v)} /> ยกเลิกคาบเหล่านี้ + แจ้งทีม</label>
+            
+            {tx("วันนั้นสาขานี้มี")} <b>{affected}  {tx("คาบ")}</b>
+            <label className="mt-1 flex items-center gap-2"><Checkbox checked={cancel} onCheckedChange={(v) => setCancel(!!v)} />  {tx("ยกเลิกคาบเหล่านี้ + แจ้งทีม")}</label>
           </div>
-        ) : <p className="text-sm text-muted-foreground">วันนั้นสาขานี้ไม่มีคาบ</p>}
+        ) : <p className="text-sm text-muted-foreground">{tx("วันนั้นสาขานี้ไม่มีคาบ")}</p>}
         <DialogFooter>
-          <Button variant="ghost" onClick={onClose}>ยกเลิก</Button>
-          <Button onClick={() => onConfirm(cancel)}>ยืนยันหยุด</Button>
+          <Button variant="ghost" onClick={onClose}>{tx("ยกเลิก")}</Button>
+          <Button onClick={() => onConfirm(cancel)}>{tx("ยืนยันหยุด")}</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

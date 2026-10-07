@@ -88,6 +88,10 @@ export function setDateLocale(l: DateLocale) { LOCALE = l }
 export const yearOf = (y: number) => (LOCALE === "th" ? y + 543 : y)
 /** short month name by index 0–11 */
 export const monthShort = (m: number) => (LOCALE === "en" ? EN_MONTHS[m] : LOCALE === "ja" ? `${m + 1}月` : TH_MONTHS[m])
+const EN_DAYS_FULL = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"]
+const JA_DAYS_FULL = ["日曜日", "月曜日", "火曜日", "水曜日", "木曜日", "金曜日", "土曜日"]
+/** full weekday name by index (0 = Sunday) in the chosen language */
+export const weekdayLong = (w: number) => (LOCALE === "en" ? EN_DAYS_FULL[w] : LOCALE === "ja" ? JA_DAYS_FULL[w] : TH_DAYS_FULL[w])
 /** short weekday name by index (0 = Sunday) */
 export const weekdayShort = (w: number) => (LOCALE === "en" ? EN_DAYS[w] : LOCALE === "ja" ? JA_DAYS[w] : TH_DAYS[w])
 

@@ -5,11 +5,12 @@ import { useState } from "react"
 import { CheckIcon, PlusIcon, XIcon } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { durationLabel, durationsOf, GRADE_GROUPS, PRICE_UNIT_LABEL, priceOf, setPrice, sortGrades } from "@/domain/rules/settings"
+import { durationsOf, GRADE_GROUPS, PRICE_UNIT_LABEL, priceOf, setPrice, sortGrades } from "@/domain/rules/settings"
 import type { Branch, PriceUnit } from "@/domain/types"
 import { cn } from "@/lib/utils"
 import { useStore } from "@/store/store"
 import { SaveRow, SettingsCard, useBranchDraft } from "./common"
+import { durationText, tx } from "@/lib/i18n"
 
 function Chip({ on, children, onClick }: { on: boolean; children: React.ReactNode; onClick: () => void }) {
   return (
@@ -25,12 +26,12 @@ export function SubjectsTab({ branch }: { branch: Branch }) {
   const { b, setB, dirty, reset, save } = useBranchDraft(branch, ["subjects"])
   const catalog = useStore((s) => s.system.subjects)
   return (
-    <SettingsCard title="วิชา (Subjects)" hint="วิชาที่สาขานี้สอน — กำหนดว่าวิชาไหนขึ้นในตารางราคา คอร์ส และคลาส · เพิ่ม/เปลี่ยนชื่อวิชาที่ Settings → System"
-      action={<Button size="xs" variant="outline" nativeButton={false} render={<Link href="/settings?view=system" />}>แคตตาล็อกวิชา</Button>}>
+    <SettingsCard title={tx("วิชา (Subjects)")} hint={tx("วิชาที่สาขานี้สอน — กำหนดว่าวิชาไหนขึ้นในตารางราคา คอร์ส และคลาส · เพิ่ม/เปลี่ยนชื่อวิชาที่ Settings → System")}
+      action={<Button size="xs" variant="outline" nativeButton={false} render={<Link href="/settings?view=system" />}>{tx("แคตตาล็อกวิชา")}</Button>}>
       <div className="flex flex-wrap gap-2">
         {catalog.map((s) => <Chip key={s} on={b.subjects.includes(s)} onClick={() => setB({ ...b, subjects: toggle(b.subjects, s) })}>{s}</Chip>)}
       </div>
-      <SaveRow dirty={dirty} onReset={reset} onSave={() => save("บันทึกวิชาแล้ว")} />
+      <SaveRow dirty={dirty} onReset={reset} onSave={() => save(tx("บันทึกวิชาแล้ว"))} />
     </SettingsCard>
   )
 }
@@ -38,13 +39,13 @@ export function SubjectsTab({ branch }: { branch: Branch }) {
 export function GradesTab({ branch }: { branch: Branch }) {
   const { b, setB, dirty, reset, save } = useBranchDraft(branch, ["grades"])
   return (
-    <SettingsCard title="ระดับชั้น (Grades)" hint="ระดับชั้นที่สาขานี้สอน">
+    <SettingsCard title={tx("ระดับชั้น (Grades)")} hint={tx("ระดับชั้นที่สาขานี้สอน")}>
       <div className="space-y-3">
         {GRADE_GROUPS.map((g) => (
           <div key={g.name}>
             <div className="mb-1.5 flex items-center gap-2">
-              <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">{g.name}</p>
-              <button className="text-xs text-primary underline" onClick={() => setB({ ...b, grades: sortGrades([...new Set([...b.grades, ...g.grades])]) })}>เลือกทั้งหมด</button>
+              <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">{tx(g.name)}</p>
+              <button className="text-xs text-primary underline" onClick={() => setB({ ...b, grades: sortGrades([...new Set([...b.grades, ...g.grades])]) })}>{tx("เลือกทั้งหมด")}</button>
             </div>
             <div className="flex flex-wrap gap-2">
               {g.grades.map((gr) => <Chip key={gr} on={b.grades.includes(gr)} onClick={() => setB({ ...b, grades: sortGrades(toggle(b.grades, gr)) })}>{gr}</Chip>)}
@@ -52,7 +53,7 @@ export function GradesTab({ branch }: { branch: Branch }) {
           </div>
         ))}
       </div>
-      <SaveRow dirty={dirty} onReset={reset} onSave={() => save("บันทึกระดับชั้นแล้ว")} />
+      <SaveRow dirty={dirty} onReset={reset} onSave={() => save(tx("บันทึกระดับชั้นแล้ว"))} />
     </SettingsCard>
   )
 }
@@ -80,10 +81,10 @@ export function PackagesTab({ branch }: { branch: Branch }) {
   }
 
   return (
-    <SettingsCard title="แพ็กเกจ & ตารางราคา (Packages)" hint="ราคาแนะนำต่อ วิชา × ระดับชั้น × ระยะเวลา — ใช้เติมราคาอัตโนมัติตอนสร้างคอร์ส (แก้ราคาจริงที่คอร์สได้)">
+    <SettingsCard title={tx("แพ็กเกจ & ตารางราคา (Packages)")} hint={tx("ราคาแนะนำต่อ วิชา × ระดับชั้น × ระยะเวลา — ใช้เติมราคาอัตโนมัติตอนสร้างคอร์ส (แก้ราคาจริงที่คอร์สได้)")}>
       <div className="mb-3 inline-flex rounded-full bg-muted p-1">
         {(["hour", "week", "month"] as PriceUnit[]).map((u) => (
-          <button key={u} onClick={() => setUnit(u)} className={cn("rounded-full px-4 py-1 text-sm", unit === u ? "bg-background font-medium shadow-sm" : "text-muted-foreground")}>{PRICE_UNIT_LABEL[u]}</button>
+          <button key={u} onClick={() => setUnit(u)} className={cn("rounded-full px-4 py-1 text-sm", unit === u ? "bg-background font-medium shadow-sm" : "text-muted-foreground")}>{tx(PRICE_UNIT_LABEL[u])}</button>
         ))}
       </div>
 
@@ -91,20 +92,20 @@ export function PackagesTab({ branch }: { branch: Branch }) {
         <div className="mb-4 flex flex-wrap items-center gap-2">
           {durations.map((d) => (
             <span key={d} className="flex items-center gap-1 rounded-full border px-3 py-1 text-sm">
-              {durationLabel(unit, d)}
-              <span className="text-xs text-muted-foreground">{unit === "hour" ? `· ${d * 60} นาที` : "· หลายคลาส & ชั่วโมง"}</span>
-              <button aria-label="ลบระยะเวลา" onClick={() => removeDuration(d)}><XIcon className="size-3.5" /></button>
+              {durationText(unit, d)}
+              <span className="text-xs text-muted-foreground">{unit === "hour" ? tx("· {0} นาที", [d * 60]) : tx("· หลายคลาส & ชั่วโมง")}</span>
+              <button aria-label={tx("ลบระยะเวลา")} onClick={() => removeDuration(d)}><XIcon className="size-3.5" /></button>
             </span>
           ))}
           <span className="flex items-center gap-1">
-            <Input className="h-8 w-20" type="number" min={1} step={unit === "hour" ? 0.5 : 1} value={newDur} onChange={(e) => setNewDur(e.target.value)} placeholder={unit === "hour" ? "ชม." : "สัปดาห์"} />
-            <Button size="xs" variant="outline" onClick={addDuration}><PlusIcon /> เพิ่ม</Button>
+            <Input className="h-8 w-20" type="number" min={1} step={unit === "hour" ? 0.5 : 1} value={newDur} onChange={(e) => setNewDur(e.target.value)} placeholder={unit === "hour" ? tx("ชม.") : tx("สัปดาห์")} />
+            <Button size="xs" variant="outline" onClick={addDuration}><PlusIcon />  {tx("เพิ่ม")}</Button>
           </span>
         </div>
       )}
 
       {b.subjects.length === 0 ? (
-        <p className="rounded-xl border border-dashed p-6 text-center text-sm text-muted-foreground">เลือกวิชาที่แท็บ Subjects ก่อน</p>
+        <p className="rounded-xl border border-dashed p-6 text-center text-sm text-muted-foreground">{tx("เลือกวิชาที่แท็บ Subjects ก่อน")}</p>
       ) : (
         <>
           <div className="mb-2 flex flex-wrap gap-1.5">
@@ -114,13 +115,13 @@ export function PackagesTab({ branch }: { branch: Branch }) {
             <table className="w-full text-sm">
               <thead className="bg-muted/50 text-xs text-muted-foreground">
                 <tr>
-                  <th className="p-2 text-left font-medium">ระดับชั้น</th>
-                  {durations.map((d) => <th key={d} className="p-2 text-right font-medium">{unit === "month" ? "ราคา / เดือน" : durationLabel(unit, d)}</th>)}
+                  <th className="p-2 text-left font-medium">{tx("ระดับชั้น")}</th>
+                  {durations.map((d) => <th key={d} className="p-2 text-right font-medium">{unit === "month" ? tx("ราคา / เดือน") : durationText(unit, d)}</th>)}
                 </tr>
               </thead>
               <tbody>
                 {groups.map((g) => (
-                  <GradeGroupRows key={g.name} name={g.name} grades={g.grades} cols={durations.length}>
+                  <GradeGroupRows key={g.name} name={tx(g.name)} grades={g.grades} cols={durations.length}>
                     {(grade) => durations.map((d) => {
                       const v = priceOf(b, unit, d, subject, grade)
                       return (
@@ -137,7 +138,7 @@ export function PackagesTab({ branch }: { branch: Branch }) {
           </div>
         </>
       )}
-      <SaveRow dirty={dirty} onReset={reset} onSave={() => save("บันทึกตารางราคาแล้ว")} label="บันทึกราคา" />
+      <SaveRow dirty={dirty} onReset={reset} onSave={() => save(tx("บันทึกตารางราคาแล้ว"))} label={tx("บันทึกราคา")} />
     </SettingsCard>
   )
 }

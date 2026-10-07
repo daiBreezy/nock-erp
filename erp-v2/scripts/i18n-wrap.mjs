@@ -94,7 +94,7 @@ for (const f of files) {
     ts.forEachChild(n, visit)
   }
   visit(sf)
-  if (!edits.length) { console.log(`${f}: nothing to wrap`); continue }
+  if (!edits.length) { console.log(`${f}: nothing to wrap`); for (const x of skipped) console.log("  SKIP " + x); continue }
   edits.sort((a, b) => b.start - a.start)
   let out = src
   for (const e of edits) out = out.slice(0, e.start) + e.text + out.slice(e.end)

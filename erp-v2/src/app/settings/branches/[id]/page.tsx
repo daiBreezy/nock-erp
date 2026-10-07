@@ -18,6 +18,7 @@ import type { Branch } from "@/domain/types"
 import { report } from "@/lib/feedback"
 import { cn } from "@/lib/utils"
 import { useStore } from "@/store/store"
+import { tx } from "@/lib/i18n"
 
 /** The 11 per-branch tabs of staging's Settings → Branch, in the same order. */
 const TABS: { id: string; label: string; icon: typeof BuildingIcon; body: (b: Branch) => React.ReactNode }[] = [
@@ -41,26 +42,26 @@ export default function BranchSettingsPage() {
   const full = can(me, "settings.manage")
   const [tab, setTab] = useState(full ? "info" : "scheduling")
 
-  if (!branch || (!full && !inBranch(me, branch.id))) return <p className="p-10 text-center text-sm text-muted-foreground">ไม่พบสาขานี้ — <Link href="/settings" className="underline">กลับไปรายชื่อสาขา</Link></p>
+  if (!branch || (!full && !inBranch(me, branch.id))) return <p className="p-10 text-center text-sm text-muted-foreground">{tx("ไม่พบสาขานี้ —")} <Link href="/settings" className="underline">{tx("กลับไปรายชื่อสาขา")}</Link></p>
   // Admin/Manager: only the holidays part of Scheduling
-  const tabs = full ? TABS : [{ ...TABS.find((t) => t.id === "scheduling")!, label: "วันหยุด", body: (b: Branch) => <SchedulingTab branch={b} holidaysOnly /> }]
+  const tabs = full ? TABS : [{ ...TABS.find((t) => t.id === "scheduling")!, label: tx("วันหยุด"), body: (b: Branch) => <SchedulingTab branch={b} holidaysOnly /> }]
   const current = tabs.find((t) => t.id === tab)!
 
   return (
     <div className="mx-auto max-w-6xl space-y-4 pb-16">
       <div>
-        <Link href="/settings" className="flex items-center gap-1 text-xs text-muted-foreground hover:underline"><ChevronLeftIcon className="size-3.5" /> กลับไปรายชื่อสาขา</Link>
+        <Link href="/settings" className="flex items-center gap-1 text-xs text-muted-foreground hover:underline"><ChevronLeftIcon className="size-3.5" />  {tx("กลับไปรายชื่อสาขา")}</Link>
         <h1 className="mt-1 text-xl font-semibold">{branch.name}</h1>
-        <p className="text-sm text-muted-foreground">{branch.address || "ยังไม่มีที่อยู่"}</p>
+        <p className="text-sm text-muted-foreground">{branch.address || tx("ยังไม่มีที่อยู่")}</p>
       </div>
 
       {full && <div className="flex flex-wrap items-center gap-3 rounded-3xl bg-card p-4 shadow-sm ring-1 ring-foreground/5">
-        <span className="font-medium">สถานะ</span>
-        <Pill tone={branch.active ? "green" : "gray"}>{branch.active ? "เปิดอยู่" : "ปิดแล้ว"}</Pill>
-        <span className="flex-1 text-xs text-muted-foreground">สาขาที่ปิดจะไม่ขึ้นในตัวเลือกสาขา และรับงานใหม่ไม่ได้</span>
+        <span className="font-medium">{tx("สถานะ")}</span>
+        <Pill tone={branch.active ? "green" : "gray"}>{branch.active ? tx("เปิดอยู่") : tx("ปิดแล้ว")}</Pill>
+        <span className="flex-1 text-xs text-muted-foreground">{tx("สาขาที่ปิดจะไม่ขึ้นในตัวเลือกสาขา และรับงานใหม่ไม่ได้")}</span>
         <Button size="sm" variant={branch.active ? "outline" : "default"}
-          onClick={() => report(setActive(branch.id, !branch.active), branch.active ? "ปิดสาขาแล้ว" : "เปิดสาขาแล้ว")}>
-          {branch.active ? "ปิดสาขา" : "เปิดสาขา"}
+          onClick={() => report(setActive(branch.id, !branch.active), branch.active ? tx("ปิดสาขาแล้ว") : tx("เปิดสาขาแล้ว"))}>
+          {branch.active ? tx("ปิดสาขา") : tx("เปิดสาขา")}
         </Button>
       </div>}
 
@@ -69,7 +70,7 @@ export default function BranchSettingsPage() {
           {tabs.map((t) => (
             <button key={t.id} onClick={() => setTab(t.id)}
               className={cn("flex shrink-0 items-center gap-2 rounded-2xl px-3 py-2 text-left text-sm", tab === t.id ? "bg-primary/10 font-medium text-primary" : "text-muted-foreground hover:bg-muted")}>
-              <t.icon className="size-4" /> {t.label}
+              <t.icon className="size-4" /> {tx(t.label)}
             </button>
           ))}
         </nav>

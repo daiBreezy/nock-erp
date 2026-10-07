@@ -17,6 +17,7 @@ import type { Branch } from "@/domain/types"
 import { report } from "@/lib/feedback"
 import { cn } from "@/lib/utils"
 import { useStore } from "@/store/store"
+import { tx } from "@/lib/i18n"
 
 export default function SettingsPage() {
   return (
@@ -38,12 +39,12 @@ function Settings() {
     <div className="mx-auto max-w-5xl space-y-4 pb-16">
       <div>
         <h1 className="text-xl font-semibold">Settings</h1>
-        <p className="text-sm text-muted-foreground">ตั้งค่าระบบ NockERP</p>
+        <p className="text-sm text-muted-foreground">{tx("ตั้งค่าระบบ NockERP")}</p>
       </div>
       <div className="flex gap-1 border-b">
         {[
-          { id: "general", label: "สาขา (General)", icon: Building2Icon },
-          ...(full ? [{ id: "system", label: "ระบบ (System)", icon: SettingsIcon }] : []),
+          { id: "general", label: tx("สาขา (General)"), icon: Building2Icon },
+          ...(full ? [{ id: "system", label: tx("ระบบ (System)"), icon: SettingsIcon }] : []),
         ].map((t) => (
           <button key={t.id} onClick={() => router.replace(t.id === "system" ? "/settings?view=system" : "/settings")}
             className={cn("-mb-px flex items-center gap-1.5 border-b-2 px-3 py-2 text-sm", view === t.id ? "border-primary font-medium text-primary" : "border-transparent text-muted-foreground")}>
@@ -73,12 +74,12 @@ function BranchList() {
             <span className="flex flex-wrap items-center gap-1.5">
               <span className="font-semibold">{b.name}</span>
               <Pill tone="violet">{b.brand === "nockacademy" ? "Nockacademy" : "Liclass"}</Pill>
-              <Pill tone={b.active ? "green" : "gray"}>{b.active ? "เปิดอยู่" : "ปิดแล้ว"}</Pill>
+              <Pill tone={b.active ? "green" : "gray"}>{b.active ? tx("เปิดอยู่") : tx("ปิดแล้ว")}</Pill>
               <span className="text-xs text-muted-foreground">{b.code}</span>
             </span>
-            <span className="block truncate text-sm text-muted-foreground">{b.address || "ยังไม่มีที่อยู่"}</span>
+            <span className="block truncate text-sm text-muted-foreground">{b.address || tx("ยังไม่มีที่อยู่")}</span>
             <span className="mt-1 block text-xs text-muted-foreground">
-              {b.rooms.length} ห้อง · เปิด {Object.values(b.hours).filter(Boolean).length} วัน · ช่วงพิเศษ {b.specialPeriods.length} · วันหยุด {holidays.filter((h) => h.branchId === b.id).length} · ครู {count(b, "teacher")} · แอดมิน {count(b, "admin")} · ผู้จัดการ {count(b, "manager")}
+              {b.rooms.length}  {tx("ห้อง · เปิด")} {Object.values(b.hours).filter(Boolean).length}  {tx("วัน · ช่วงพิเศษ")} {b.specialPeriods.length}  {tx("· วันหยุด")} {holidays.filter((h) => h.branchId === b.id).length}  {tx("· ครู")} {count(b, "teacher")}  {tx("· แอดมิน")} {count(b, "admin")}  {tx("· ผู้จัดการ")} {count(b, "manager")}
             </span>
           </span>
           <ChevronRightIcon className="size-5 text-muted-foreground" />
@@ -86,9 +87,9 @@ function BranchList() {
       ))}
       {full ? (
         <div className="flex justify-center pt-2">
-          <Button variant="outline" onClick={() => setAdding(true)}><PlusIcon /> เพิ่มสาขา</Button>
+          <Button variant="outline" onClick={() => setAdding(true)}><PlusIcon />  {tx("เพิ่มสาขา")}</Button>
         </div>
-      ) : <p className="pt-2 text-center text-xs text-muted-foreground">บทบาทของคุณจัดการได้เฉพาะวันหยุดของสาขาตัวเอง — ตั้งค่าอื่นเป็นของ Director</p>}
+      ) : <p className="pt-2 text-center text-xs text-muted-foreground">{tx("บทบาทของคุณจัดการได้เฉพาะวันหยุดของสาขาตัวเอง — ตั้งค่าอื่นเป็นของ Director")}</p>}
       {adding && <AddBranchDialog onClose={() => setAdding(false)} />}
     </div>
   )
@@ -102,20 +103,20 @@ function AddBranchDialog({ onClose }: { onClose: () => void }) {
     <Dialog open onOpenChange={(o) => !o && onClose()}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>เพิ่มสาขา</DialogTitle>
-          <DialogDescription>ตั้งค่าที่เหลือ (เวลาเปิด วิชา ราคา ฯลฯ) ต่อได้ในหน้าสาขา — เวลาเปิดตั้งต้นคัดลอกจากสาขาปัจจุบัน</DialogDescription>
+          <DialogTitle>{tx("เพิ่มสาขา")}</DialogTitle>
+          <DialogDescription>{tx("ตั้งค่าที่เหลือ (เวลาเปิด วิชา ราคา ฯลฯ) ต่อได้ในหน้าสาขา — เวลาเปิดตั้งต้นคัดลอกจากสาขาปัจจุบัน")}</DialogDescription>
         </DialogHeader>
         <div className="grid gap-3 sm:grid-cols-2">
-          <Field label="ชื่อสาขา *" className="sm:col-span-2"><Input value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} placeholder="เช่น สีลม" /></Field>
-          <Field label="รหัสสาขา * (ในเลขใบแจ้งหนี้)"><Input value={f.code} onChange={(e) => setF({ ...f, code: e.target.value.toUpperCase() })} placeholder="SLM" /></Field>
-          <Field label="แบรนด์">
+          <Field label={tx("ชื่อสาขา *")} className="sm:col-span-2"><Input value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} placeholder={tx("เช่น สีลม")} /></Field>
+          <Field label={tx("รหัสสาขา * (ในเลขใบแจ้งหนี้)")}><Input value={f.code} onChange={(e) => setF({ ...f, code: e.target.value.toUpperCase() })} placeholder="SLM" /></Field>
+          <Field label={tx("แบรนด์")}>
             <NativeSelect value={f.brand} onChange={(e) => setF({ ...f, brand: e.target.value as Branch["brand"] })} options={[{ value: "nockacademy", label: "Nockacademy" }, { value: "liclass", label: "Liclass" }]} />
           </Field>
           <ProvinceField value={f.province} onChange={(province) => setF({ ...f, province })} />
         </div>
         <DialogFooter>
-          <Button variant="ghost" onClick={onClose}>ยกเลิก</Button>
-          <Button onClick={() => { const r = add(f); if (report(r, `เพิ่มสาขา${f.name}แล้ว`)) router.push(`/settings/branches/${r.value.id}`) }}>เพิ่มสาขา</Button>
+          <Button variant="ghost" onClick={onClose}>{tx("ยกเลิก")}</Button>
+          <Button onClick={() => { const r = add(f); if (report(r, tx("เพิ่มสาขา{0}แล้ว", [f.name]))) router.push(`/settings/branches/${r.value.id}`) }}>{tx("เพิ่มสาขา")}</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

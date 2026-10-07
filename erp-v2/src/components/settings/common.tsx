@@ -7,6 +7,7 @@ import type { Branch } from "@/domain/types"
 import { report } from "@/lib/feedback"
 import { cn } from "@/lib/utils"
 import { useStore } from "@/store/store"
+import { tx } from "@/lib/i18n"
 
 export function SettingsCard({ title, hint, action, children, className }: { title: string; hint?: string; action?: ReactNode; children: ReactNode; className?: string }) {
   return (
@@ -35,21 +36,21 @@ export function useBranchDraft<K extends keyof Branch>(branch: Branch, keys: K[]
     setB: (next: Branch) => setDraft(pick(next)),
     dirty: JSON.stringify(pick(branch)) !== JSON.stringify(draft),
     reset: () => setDraft(pick(branch)),
-    save: (msg = "บันทึกแล้ว") => report(saveBranch(b), msg),
+    save: (msg = tx("บันทึกแล้ว")) => report(saveBranch(b), msg),
   }
 }
 
-export function SaveRow({ dirty, onSave, onReset, label = "บันทึก" }: { dirty: boolean; onSave: () => void; onReset: () => void; label?: string }) {
+export function SaveRow({ dirty, onSave, onReset, label = tx("บันทึก") }: { dirty: boolean; onSave: () => void; onReset: () => void; label?: string }) {
   return (
     <div className="mt-4 flex items-center justify-end gap-2">
       {dirty ? (
         <>
-          <span className="mr-auto text-xs text-amber-700">มีการแก้ไขที่ยังไม่บันทึก</span>
-          <Button variant="ghost" size="sm" onClick={onReset}>ยกเลิก</Button>
+          <span className="mr-auto text-xs text-amber-700">{tx("มีการแก้ไขที่ยังไม่บันทึก")}</span>
+          <Button variant="ghost" size="sm" onClick={onReset}>{tx("ยกเลิก")}</Button>
           <Button size="sm" onClick={onSave}>{label}</Button>
         </>
       ) : (
-        <span className="flex items-center gap-1 text-xs text-muted-foreground"><CheckIcon className="size-3.5" /> บันทึกครบแล้ว</span>
+        <span className="flex items-center gap-1 text-xs text-muted-foreground"><CheckIcon className="size-3.5" />  {tx("บันทึกครบแล้ว")}</span>
       )}
     </div>
   )
