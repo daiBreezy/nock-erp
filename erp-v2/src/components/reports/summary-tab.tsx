@@ -1,12 +1,13 @@
 "use client"
 
-import { SparklesIcon, AlertTriangleIcon, BanknoteIcon, CheckCircle2Icon, GraduationCapIcon, HeartHandshakeIcon, LightbulbIcon, MegaphoneIcon, SearchIcon, UserCheckIcon, UsersIcon, type LucideIcon } from "lucide-react"
+import { AlertTriangleIcon, BanknoteIcon, CheckCircle2Icon, GraduationCapIcon, HeartHandshakeIcon, LightbulbIcon, MegaphoneIcon, SearchIcon, UserCheckIcon, UsersIcon, type LucideIcon } from "lucide-react"
 import type { ReportData } from "@/components/reports/use-reports"
 import { LEAD_SOURCE_LABEL } from "@/domain/rules/crm"
 import { buildInsights, type Insight, type InsightArea, type InsightInput, type InsightTone } from "@/domain/rules/insights"
 import { reasonLabel } from "@/domain/rules/loss"
 import { COMPARE_LABEL, type PeriodKey } from "@/domain/rules/reports"
 import * as Survey from "@/domain/rules/survey"
+import { AI_TONE, AiChip, AiIcon } from "@/components/app/ai"
 import { cn } from "@/lib/utils"
 import { useStore } from "@/store/store"
 import { tx, uiLang, nm } from "@/lib/i18n"
@@ -107,9 +108,9 @@ export function SummaryTab({ d, period, periodLabel, scopeLabel }: { d: ReportDa
   const { insights, counts, headline } = buildInsights(toInput(d, period, periodLabel, lossReasons), tx)
   return (
     <div className="space-y-4">
-      <section className="rounded-3xl bg-card p-5 shadow-sm ring-1 ring-foreground/10">
+      <section className={cn("rounded-3xl p-5 shadow-sm", AI_TONE.surface)}>
         <div className="flex flex-wrap items-center gap-2">
-          <h2 className="flex items-center gap-2 text-base font-semibold"><span className="grid size-8 place-items-center rounded-xl bg-violet-100 text-violet-700 dark:bg-violet-950 dark:text-violet-300"><SparklesIcon className="size-4" /></span>{tx("AI สรุปและประเมิน ·")} {scopeLabel} · {periodLabel}</h2>
+          <h2 className="flex items-center gap-2 text-base font-semibold"><AiIcon /><span className={AI_TONE.text}>{tx("AI สรุปและประเมิน ·")}</span> {scopeLabel} · {periodLabel}</h2>
           <span className="ml-auto flex gap-1.5 text-xs">
             {(["bad", "watch", "good"] as const).map((t) => <span key={t} className={cn("rounded-full px-2.5 py-0.5", TONE[t].pill)}>{tx(TONE[t].label)} {counts[t]}</span>)}
           </span>
@@ -120,7 +121,7 @@ export function SummaryTab({ d, period, periodLabel, scopeLabel }: { d: ReportDa
             <ol className="space-y-2 text-sm">
               {headline.map((h, i) => (
                 <li key={h.area} className="grid grid-cols-[1.5rem_6.5rem_1fr] items-baseline gap-2">
-                  <span className="grid size-5 place-items-center rounded-full bg-primary text-[11px] font-medium text-primary-foreground">{i + 1}</span>
+                  <span className={cn("grid size-5 place-items-center rounded-full text-[11px] font-medium", AI_TONE.solid)}>{i + 1}</span>
                   <span className="text-xs text-muted-foreground">{tx(AREA[h.area].label)}</span>
                   <span>{h.action}</span>
                 </li>
@@ -145,7 +146,8 @@ function InsightCard({ x }: { x: Insight }) {
       <span className={cn("absolute inset-y-0 left-0 w-1.5", TONE[x.tone].bar)} />
       <div className="mb-2 flex items-center gap-2 text-xs text-muted-foreground">
         <A.icon className="size-4" />{tx(A.label)}
-        <span className={cn("ml-auto rounded-full px-2.5 py-0.5 font-medium", TONE[x.tone].pill)}>{tx(TONE[x.tone].label)}</span>
+        <AiChip className="ml-auto" />
+        <span className={cn(" rounded-full px-2.5 py-0.5 font-medium", TONE[x.tone].pill)}>{tx(TONE[x.tone].label)}</span>
       </div>
       <h3 className="text-base leading-snug font-semibold">{x.title}</h3>
       <div className="mt-4 space-y-4 text-sm">
@@ -161,7 +163,7 @@ function Part({ icon: Icon, title, items, strong }: { icon: LucideIcon; title: s
   return (
     <div>
       <p className="mb-1.5 flex items-center gap-1.5 text-xs font-medium text-muted-foreground"><Icon className="size-3.5" />{title}</p>
-      <ul className={cn("space-y-1.5", strong && "rounded-2xl bg-primary/5 p-3")}>
+      <ul className={cn("space-y-1.5", strong && cn("rounded-2xl p-3", AI_TONE.soft))}>
         {items.map((t) => <li key={t} className="flex gap-2 leading-relaxed"><span className="mt-2 size-1 shrink-0 rounded-full bg-foreground/40" />{t}</li>)}
       </ul>
     </div>

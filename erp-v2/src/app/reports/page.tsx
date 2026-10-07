@@ -121,7 +121,7 @@ function Reports() {
         <div className="inline-flex flex-wrap rounded-full bg-muted p-1">
           {TABS.map((t) => (
             <button key={t.id} type="button" onClick={() => setTab(t.id)} className={cn("flex items-center gap-1.5 rounded-full px-4 py-1 text-sm", tab === t.id ? "bg-background font-medium shadow-sm" : "text-muted-foreground")}>
-              {t.id === "summary" && <SparklesIcon className={cn("size-4", tab === t.id ? "text-violet-600" : "")} />}
+              {t.id === "summary" && <SparklesIcon className="size-4 text-sky-600 dark:text-sky-400" />}
               {tx(t.label)}{t.soon && <span className="ml-1 text-[10px] text-muted-foreground">{t.soon}</span>}
             </button>
           ))}

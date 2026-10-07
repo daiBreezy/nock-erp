@@ -17,6 +17,7 @@ import { SUMMARY_STATUS_LABEL } from "@/domain/rules/summaries"
 import type { CourseSummary, ID, Staff } from "@/domain/types"
 import { report } from "@/lib/feedback"
 import { useNow } from "@/lib/hooks"
+import { AI_TONE } from "./ai"
 import { cn } from "@/lib/utils"
 import { useStore } from "@/store/store"
 import { toast } from "sonner"
@@ -203,7 +204,7 @@ function CourseCard({ round, studentId, expanded, onToggle, draft, setDraft, can
               Required · due: {fmtDate(due.deadline, { weekday: true })} · <span className={cn("font-medium", due.overdue ? "text-red-700" : due.daysLeft <= 2 ? "text-red-700" : "text-foreground")}>{due.overdue ? `เลย ${-due.daysLeft} วัน` : `${due.daysLeft} วัน`}</span>
             </p>
             {editable && (
-              <Button size="xs" variant="outline" className="gap-1 border-primary/30 text-primary" disabled={!sessionSummaries.length} onClick={generate}>
+              <Button size="xs" variant="outline" className={cn("gap-1", AI_TONE.button)} disabled={!sessionSummaries.length} onClick={generate}>
                 <SparklesIcon className="size-3.5" /> Generate Summary
               </Button>
             )}

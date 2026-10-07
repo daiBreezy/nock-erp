@@ -174,25 +174,25 @@ function SmartSearch() {
   )
 }
 
+/** แจ้งเตือน (owner 2026-10-07): a plain menu row like every other item — one line, no outline, red count badge */
 function NotificationCard() {
   const me = useStore((s) => s.staff.find((x) => x.id === s.userId)!)
   const count = useStore((s) => s.notifications.filter((n) => visibleTo(n, me) && isUnread(n, me)).length)
   const pathname = usePathname()
   const t = useT()
   return (
-    <Link href="/notifications" title={count ? `${t("แจ้งเตือน")} ${count} ${t("เรื่องยังไม่อ่าน")}` : t("แจ้งเตือน")}
-      className={cn("flex items-center gap-2.5 rounded-2xl border px-3 py-2 hover:bg-muted group-data-[collapsible=icon]:size-8 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:rounded-lg group-data-[collapsible=icon]:border-0 group-data-[collapsible=icon]:p-0",
-        pathname === "/notifications" && "bg-sidebar-accent", count > 0 && "border-red-200 bg-red-50/60 dark:border-red-900 dark:bg-red-950/30")}>
-      <span className="relative">
-        <BellIcon className="size-4" />
-        {count > 0 && <span className="absolute -top-1 -right-1 size-2 rounded-full bg-red-600" />}
-      </span>
-      <span className="min-w-0 leading-tight group-data-[collapsible=icon]:hidden">
-        <span className="block text-sm font-semibold">{t("แจ้งเตือน")}</span>
-        <span className={cn("block text-xs", count ? "text-red-700 dark:text-red-300" : "text-muted-foreground")}>{count ? `${count} ${t("เรื่องยังไม่อ่าน")}` : t("ไม่มีเรื่องใหม่")}</span>
-      </span>
-      {count > 0 && <span className="ml-auto grid h-5 min-w-5 place-items-center rounded-full bg-red-600 px-1 text-xs font-semibold text-white group-data-[collapsible=icon]:hidden">{count > 99 ? "99+" : count}</span>}
-    </Link>
+    <SidebarMenu>
+      <SidebarMenuItem>
+        <SidebarMenuButton isActive={pathname === "/notifications"} tooltip={count ? `${t("แจ้งเตือน")} · ${count}` : t("แจ้งเตือน")} render={<Link href="/notifications" />}>
+          <span className="relative">
+            <BellIcon className="size-4" />
+            {count > 0 && <span className="absolute -top-1 -right-1 hidden size-2 rounded-full bg-red-600 ring-2 ring-sidebar group-data-[collapsible=icon]:block" />}
+          </span>
+          <span>{t("แจ้งเตือน")}</span>
+        </SidebarMenuButton>
+        {count > 0 && <SidebarMenuBadge className="rounded-full bg-red-600 text-white peer-hover/menu-button:text-white peer-data-active/menu-button:text-white">{count > 99 ? "99+" : count}</SidebarMenuBadge>}
+      </SidebarMenuItem>
+    </SidebarMenu>
   )
 }
 
