@@ -4,9 +4,9 @@ import type { Tone } from "./badges"
 
 export const STATUS_PILL: Record<StudentStatus, { tone: Tone; label: string }> = {
   active: { tone: "green", label: "Active" },
-  renewal: { tone: "amber", label: "Renewal (ใกล้หมด)" },
+  renewal: { tone: "amber", label: "Renewal" },
   inactive: { tone: "gray", label: "Inactive" },
-  archived: { tone: "red", label: "Archived (ออกแล้ว)" },
+  archived: { tone: "red", label: "Archived" },
 }
 
 /** "Inactive · พักยาว · 24 วันแล้ว" */

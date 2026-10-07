@@ -8,19 +8,19 @@ import { PackageBadge } from "@/components/app/package-badge"
 import { StudentForm } from "@/components/app/student-form"
 import { StudentSheet } from "@/components/app/student-sheet"
 import { STATUS_PILL } from "@/components/app/student-status"
-import { GradeCell, gradeCompare, HEAD, Pager, ROW, SortHeader, TableShell, Th, usePage, useSort } from "@/components/app/data-table"
+import { GradeCell, gradeCompare, HEAD, Pager, ROW, SortHeader, TableShell, usePage, useSort } from "@/components/app/data-table"
 import { EditCell } from "@/components/app/inline-edit"
 import { useFocusFirst } from "@/components/app/focus-banner"
 import { report } from "@/lib/feedback"
 import { avatarTone, gradeTone, initial } from "@/components/app/subject-color"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { toDateStr } from "@/domain/dates"
+import { addDays, fmtDate, toDateStr } from "@/domain/dates"
 import * as Att from "@/domain/rules/attendance"
 import { can } from "@/domain/rules/permissions"
 import type { ID, Student } from "@/domain/types"
 
-type StudentSort = "nickname" | "name" | "grade" | "school" | "family" | "status" | "left"
+type StudentSort = "nickname" | "name" | "grade" | "family" | "course" | "enroll" | "end" | "status" | "left"
 import { useBranch, useEntitlements, useNow, useQueryState } from "@/lib/hooks"
 import { cn } from "@/lib/utils"
 import { useStore } from "@/store/store"
@@ -57,7 +57,11 @@ export default function StudentsPage() {
     const st = Att.studentStatus(s, entitlements, leaves, today)
     const ents = Att.activeEntitlements(s.id, entitlements, today)
     const packs = ents.map((e) => ({ e, b: Att.balance(e, sessions, attendance, classes), c: courses.find((c) => c.id === e.courseId) }))
-    return { s, st, packs, fam: families.find((f) => f.id === s.familyId), inClasses: classes.filter((c) => c.active && c.studentIds.includes(s.id)) }
+    // the course shown in the table (owner 2026-10-07: Course + Enroll / End date instead of classes): the current
+    // package that ends first (the one renewals are about) — or, for students with none now, the last one they had
+    const main = [...ents].sort((a, b) => a.to.localeCompare(b.to))[0]
+      ?? entitlements.filter((e) => e.studentId === s.id && e.from <= today).sort((a, b) => b.to.localeCompare(a.to))[0]
+    return { s, st, packs, main, mainCourse: main && courses.find((c) => c.id === main.courseId), fam: families.find((f) => f.id === s.familyId) }
   })
   const shown = rows
     .filter((r) => !grade || r.s.grade === grade)
@@ -68,7 +72,9 @@ export default function StudentsPage() {
       const v = k === "nickname" ? a.s.nickname.localeCompare(b.s.nickname, "th")
         : k === "name" ? a.s.name.localeCompare(b.s.name, "th")
           : k === "grade" ? byGrade(a.s.grade, b.s.grade)
-            : k === "school" ? (a.s.school ?? "").localeCompare(b.s.school ?? "", "th")
+            : k === "course" ? (a.mainCourse?.name ?? "\uffff").localeCompare(b.mainCourse?.name ?? "\uffff", "th")
+              : k === "enroll" ? (a.main?.from ?? "9").localeCompare(b.main?.from ?? "9")
+                : k === "end" ? (a.main?.to ?? "9").localeCompare(b.main?.to ?? "9")
               : k === "family" ? (a.fam?.name ?? "").localeCompare(b.fam?.name ?? "", "th")
                 : k === "status" ? STATUS_PILL[a.st].label.localeCompare(STATUS_PILL[b.st].label, "th")
                   : left(a) - left(b)
@@ -106,25 +112,28 @@ export default function StudentsPage() {
       </div>
 
       {/* owner 2026-10-07: one fact per column (grade sortable on its own), fixed widths so pills never push a row
-          out of line; name / nickname / grade / school edit in place — click the other cells to open the student */}
-      <TableShell minWidth={1100} cols={["140px", "180px", "76px", "124px", "auto", "140px", "140px", "100px", "72px"]}>
+          out of line; Course + Enroll / End date instead of classes, school only in the student panel (the overall
+          picture is in Reports › นักเรียน). Name / nickname / grade edit in place — click the other cells to open */}
+      <TableShell minWidth={1100} cols={["140px", "180px", "76px", "auto", "220px", "100px", "100px", "104px", "80px"]}>
         <thead className={HEAD}>
           <tr>
             <SortHeader label="ชื่อเล่น" k="nickname" sort={sort} onSort={toggle} />
             <SortHeader label="ชื่อ-นามสกุล" k="name" sort={sort} onSort={toggle} />
             <SortHeader label="ชั้น" k="grade" sort={sort} onSort={toggle} />
-            <SortHeader label="โรงเรียน" k="school" sort={sort} onSort={toggle} />
             <SortHeader label="ครอบครัว" k="family" sort={sort} onSort={toggle} />
-            <Th>คลาส</Th>
+            <SortHeader label="Course" k="course" sort={sort} onSort={toggle} />
+            <SortHeader label="Enroll date" k="enroll" sort={sort} onSort={toggle} />
+            <SortHeader label="End date" k="end" sort={sort} onSort={toggle} />
             <SortHeader label="สถานะ" k="status" sort={sort} onSort={toggle} />
-            <Th>แพ็กเกจ</Th>
             <SortHeader label="เหลือ" k="left" sort={sort} onSort={toggle} right />
           </tr>
         </thead>
         <tbody>
           {pg.rows.map((r) => {
-            const { s, st, packs, fam, inClasses } = r
+            const { s, st, packs, fam, main, mainCourse } = r
             const n = left(r)
+            const more = packs.length - 1
+            const ended = main && main.to < today
             return (
               <tr key={s.id} onClick={() => setOpenId(s.id)} data-focus={focusKeys(r)} className={ROW}>
                 <td>
@@ -135,13 +144,21 @@ export default function StudentsPage() {
                 </td>
                 <td className="text-muted-foreground"><EditCell value={s.name} disabled={!manage} onSave={(v) => edit(s, { name: v })} /></td>
                 <td><EditCell kind="select" value={s.grade} disabled={!manage} display={<GradeCell grade={s.grade} tone={gradeTone(s.grade)} />} options={branch.grades.map((g) => ({ value: g, label: g }))} onSave={(v) => edit(s, { grade: v })} /></td>
-                <td className="text-muted-foreground"><EditCell value={s.school ?? ""} disabled={!manage} placeholder="ใส่โรงเรียน" onSave={(v) => edit(s, { school: v || undefined })} /></td>
                 <td className="truncate text-muted-foreground">
                   {fam ? <>{fam.name}{!fam.parents.some((p) => p.lineLinked) && <span className="text-xs text-amber-700"> · ไม่มี LINE</span>}</> : <span className="text-amber-700">ยังไม่ผูกครอบครัว</span>}
                 </td>
-                <td className="truncate text-muted-foreground" title={inClasses.map((c) => c.name).join(", ")}>{inClasses.map((c) => c.name).join(", ") || "—"}</td>
+                <td>
+                  {mainCourse ? (
+                    <span className={cn("flex min-w-0 items-center gap-1.5", ended && "text-muted-foreground")} title={packs.map((p) => p.c?.name).filter(Boolean).join(", ") || mainCourse.name}>
+                      <PackageBadge course={mainCourse} />
+                      <span className="min-w-0 truncate">{mainCourse.name}</span>
+                      {more > 0 && <span className="shrink-0 text-xs text-muted-foreground">+{more}</span>}
+                    </span>
+                  ) : <span className="text-muted-foreground">—</span>}
+                </td>
+                <td className="truncate text-muted-foreground tabular-nums">{main ? fmtDate(main.from) : "—"}</td>
+                <td className={cn("truncate tabular-nums", ended ? "text-muted-foreground" : main && main.to <= addDays(today, 7) ? "font-medium text-amber-700" : "text-muted-foreground")}>{main ? fmtDate(main.to) : "—"}</td>
                 <td className="truncate"><Pill tone={STATUS_PILL[st].tone}>{STATUS_PILL[st].label}</Pill></td>
-                <td className="truncate">{packs.map(({ e, c }) => c && <PackageBadge key={e.id} course={c} />)}{!packs.length && <span className="text-muted-foreground">—</span>}</td>
                 <td className={cn("text-right tabular-nums", n <= 2 && "font-semibold text-red-700")}>{Number.isFinite(n) ? `${n} คาบ` : <span className="text-muted-foreground">—</span>}</td>
               </tr>
             )

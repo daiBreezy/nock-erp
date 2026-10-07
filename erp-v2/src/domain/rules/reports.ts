@@ -776,3 +776,28 @@ export function groupFigures(rows: BranchFigures[], by: GroupBy) {
     perStudent: g.active ? g.revenue / g.active : null,
   })).sort((a, b) => b.revenue - a.revenue)
 }
+
+// ---------- schools (owner 2026-10-07: where our students study — the table no longer shows it per student) ----------
+
+export interface SchoolBreakdown {
+  rows: { label: string; value: number }[]
+  /** how many different schools */
+  schools: number
+  /** students counted */
+  students: number
+  /** of those, no school filled in */
+  unknown: number
+}
+
+/** Students per school, most first; names are trimmed so "สาธิตจุฬาฯ " and "สาธิตจุฬาฯ" count as one. */
+export function schoolBreakdown(students: Pick<Student, "school">[]): SchoolBreakdown {
+  const by = new Map<string, number>()
+  let unknown = 0
+  for (const s of students) {
+    const name = s.school?.trim()
+    if (!name) { unknown++; continue }
+    by.set(name, (by.get(name) ?? 0) + 1)
+  }
+  const rows = [...by].map(([label, value]) => ({ label, value })).sort((a, b) => b.value - a.value || a.label.localeCompare(b.label, "th"))
+  return { rows, schools: rows.length, students: students.length, unknown }
+}

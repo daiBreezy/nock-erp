@@ -627,9 +627,33 @@ function StudentsTab({ d, compare, onOpen }: { d: ReportData; compare: boolean; 
           </div>
         </DialogContent>
       </Dialog>
+      <SchoolsPanel d={d} />
       <ExitPanelReport d={d} />
       <p className="text-xs text-muted-foreground">{tx("นักเรียนที่ Import จากระบบเดิมไม่นับเป็น \"ใหม่\" และไม่อยู่ใน Cohort (ไม่รู้วันที่เริ่มเรียนจริง)")}</p>
     </div>
+  )
+}
+
+/** โรงเรียนของนักเรียน (owner 2026-10-07): how many schools, which ones dominate — ranked bars, top 5 + expand */
+function SchoolsPanel({ d }: { d: ReportData }) {
+  const x = d.schools
+  const top = x.rows[0]
+  const top3 = x.rows.slice(0, 3).reduce((n, r) => n + r.value, 0)
+  const known = x.students - x.unknown
+  const pct = (n: number) => (known ? Math.round((n / known) * 100) : 0)
+  return (
+    <Panel title={tx("โรงเรียนของนักเรียน")} hint={tx("นักเรียน Active ตอนนี้ ตามสาขาที่เลือก · ไม่ขึ้นกับช่วงเวลา · แก้ชื่อโรงเรียนได้ที่ข้อมูลนักเรียน")}>
+      <div className="grid gap-6 lg:grid-cols-[14rem_1fr] lg:gap-0 lg:divide-x">
+        <div className="grid grid-cols-3 gap-4 lg:grid-cols-1 lg:content-center lg:pr-6">
+          <div><p className="text-xs text-muted-foreground">{tx("จำนวนโรงเรียน")}</p><p className="text-2xl font-semibold tabular-nums">{fmtNum(x.schools)}</p></div>
+          <div><p className="text-xs text-muted-foreground">{tx("3 โรงเรียนแรก")}</p><p className="text-2xl font-semibold tabular-nums">{pct(top3)}%</p><p className="truncate text-xs text-muted-foreground" title={top?.label}>{top ? tx("มากสุด {0}", [top.label]) : "—"}</p></div>
+          <div><p className="text-xs text-muted-foreground">{tx("ยังไม่ระบุโรงเรียน")}</p><p className={cn("text-2xl font-semibold tabular-nums", x.unknown > 0 && "text-amber-600")}>{fmtNum(x.unknown)}</p><p className="text-xs text-muted-foreground">{tx("จาก {0} คน", [fmtNum(x.students)])}</p></div>
+        </div>
+        <div className="lg:pl-6">
+          <TopList title={tx("นักเรียนต่อโรงเรียน")} icon={<SchoolIcon className="size-4 text-muted-foreground" />} color="#0ea5e9" rows={x.rows} wide />
+        </div>
+      </div>
+    </Panel>
   )
 }
 

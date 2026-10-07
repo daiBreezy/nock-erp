@@ -1928,3 +1928,13 @@ describe("dashboard brief (owner 2026-10-07)", () => {
     expect(focusHref("/students", "no_family")).toBe("/students?focus=no_family")
   })
 })
+
+import { schoolBreakdown } from "./reports"
+
+describe("schools (owner 2026-10-07)", () => {
+  it("counts students per school, most first, blanks apart", () => {
+    const b = schoolBreakdown([{ school: "A" }, { school: "B " }, { school: "B" }, {}, { school: "  " }])
+    expect(b.rows).toEqual([{ label: "B", value: 2 }, { label: "A", value: 1 }])
+    expect(b).toMatchObject({ schools: 2, students: 5, unknown: 2 })
+  })
+})

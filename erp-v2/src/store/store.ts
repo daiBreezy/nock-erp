@@ -2362,7 +2362,7 @@ export const useStore = create<Store>()(
     {
       name: "nockerp-v2",
       // bump when the data model changes; older saved data is replaced by fresh sample data
-      version: 62, // 61: real branches (owner 2026-10-07) · 62: CB = ตึกน้ำ
+      version: 63, // 61: real branches (owner 2026-10-07) · 62: CB = ตึกน้ำ · 63: sample schools
       migrate: () => ({ ...buildSeed(), userId: "u_nock", branchId: "br_thl", clockOffset: 0 }) as unknown as Store,
       // persist data + UI state only, never the action functions
       partialize: (s) => Object.fromEntries(Object.entries(s).filter(([, v]) => typeof v !== "function")) as Partial<Store>,

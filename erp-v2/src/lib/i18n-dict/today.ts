@@ -86,4 +86,12 @@ export const TODAY: Record<string, Entry> = {
   "ติดต่อแล้วเปิด Lead ใหม่ หรือเลื่อนวัน": { en: "Contact them, then reopen the lead or push the date", ja: "連絡後にリードを再開するか日付を延期" },
   "ทักผู้ปกครองแล้วส่งลิงก์สมัคร": { en: "Message the parent and send the enrolment link", ja: "保護者に連絡して申込リンクを送信" },
   "ทำเลย": { en: "Now", ja: "今すぐ" },
+  "โรงเรียนของนักเรียน": { en: "Students' schools", ja: "生徒の学校" },
+  "นักเรียน Active ตอนนี้ ตามสาขาที่เลือก · ไม่ขึ้นกับช่วงเวลา · แก้ชื่อโรงเรียนได้ที่ข้อมูลนักเรียน": { en: "Active students now, in the chosen branches · not tied to the period · edit a school on the student's record", ja: "現在のアクティブ生徒（選択した校舎）· 期間に関係なし · 学校名は生徒情報で編集" },
+  "จำนวนโรงเรียน": { en: "Schools", ja: "学校数" },
+  "3 โรงเรียนแรก": { en: "Top 3 schools", ja: "上位3校" },
+  "มากสุด {0}": { en: "Most: {0}", ja: "最多: {0}" },
+  "ยังไม่ระบุโรงเรียน": { en: "School not set", ja: "学校未入力" },
+  "จาก {0} คน": { en: "of {0} students", ja: "{0}人中" },
+  "นักเรียนต่อโรงเรียน": { en: "Students per school", ja: "学校別の生徒数" },
 }

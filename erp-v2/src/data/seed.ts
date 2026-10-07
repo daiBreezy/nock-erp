@@ -582,6 +582,7 @@ export function buildSeed(now = new Date()): DB {
   }
 
   const { surveyCampaigns, surveyResponses } = buildSurveys({ today, branches, families, students, entitlements, classes, staff })
+  assignSchools(students, branches)
 
   return { branches, staff, holidays, courses, classes, sessions, attendance, summaries, courseSummaries: [] as CourseSummary[], families, students, entitlements, leaves, invoices, busAddOns, creditNotes: [] as CreditNote[], lessonBooks, lessonTopics, leads, conversations, messages, notifications: [], system, notes, logs, assessments, surveyCampaigns, surveyResponses }
 }
@@ -711,6 +712,26 @@ function buildHistory(db: { today: string; branches: Branch[]; courses: Course[]
 }
 
 /** Two years of the parent survey (owner 2026-10-05): last year's finished, this year's in progress. Deterministic. */
+/**
+ * Sample schools (owner 2026-10-07: Reports shows which schools our students come from) — by the branch's
+ * province, weighted so a few schools dominate like real catchments; ~1 in 10 left blank (not asked yet).
+ * Uses a hash of the id, not the seeded random, so the rest of the demo data stays exactly the same.
+ */
+const SCHOOLS: Record<string, string[]> = {
+  BKK: ["เซนต์คาเบรียล", "เซนต์คาเบรียล", "สาธิตประสานมิตร", "สาธิตประสานมิตร", "มาแตร์เดอี", "อัสสัมชัญ", "สารสาสน์วิเทศ", "ราชินีบน", "บางกอกพัฒนา", "สาธิตจุฬาฯ", "ร่วมฤดีวิเทศศึกษา", "เตรียมอุดมศึกษาพัฒนาการ"],
+  CBR: ["อัสสัมชัญศรีราชา", "อัสสัมชัญศรีราชา", "ดาราสมุทร ศรีราชา", "ดาราสมุทร ศรีราชา", "ชลกันยานุกูล", "ชลราษฎรอำรุง", "เซนต์ปอลคอนแวนต์", "สาธิตพิบูลบำเพ็ญ", "อนุบาลชลบุรี", "บ่อวินวิทยา", "Regents International Pattaya"],
+}
+function assignSchools(students: Student[], branches: Branch[]) {
+  const hash = (x: string) => [...x].reduce((h, c) => (h * 31 + c.charCodeAt(0)) >>> 0, 7)
+  for (const st of students) {
+    if (st.school) continue
+    const h = hash(st.id)
+    if (h % 10 === 0) continue
+    const list = SCHOOLS[branches.find((b) => b.id === st.branchId)?.province === "CBR" ? "CBR" : "BKK"]
+    st.school = list[h % list.length]
+  }
+}
+
 function buildSurveys(db: { today: string; branches: Branch[]; families: Family[]; students: Student[]; entitlements: Entitlement[]; classes: Klass[]; staff: Staff[] }) {
   let seed = 4242
   const rnd = () => { seed = (seed * 1103515245 + 12345) % 2147483648; return seed / 2147483648 }
