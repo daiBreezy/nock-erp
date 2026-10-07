@@ -1943,3 +1943,49 @@ describe("schools (owner 2026-10-07)", () => {
     expect(b).toMatchObject({ schools: 2, students: 6, unknown: 2 })
   })
 })
+
+import { normSchool, schoolKey, searchSchools } from "./schools"
+
+describe("school list search (owner 2026-10-07)", () => {
+  const list = [
+    { id: "1", name: "โรงเรียนสาธิตจุฬาลงกรณ์มหาวิทยาลัย (ฝ่ายประถม)", p: "BKK", d: "ปทุมวัน", a: "อว." },
+    { id: "2", name: "อัสสัมชัญศรีราชา", p: "CBR", d: "ศรีราชา", a: "เอกชน" },
+    { id: "3", name: "อัสสัมชัญ", p: "BKK", d: "บางรัก", a: "เอกชน" },
+    { id: "4", name: "บ้านอัสสัมชัญ", p: "CBR", d: "เมืองชลบุรี", a: "สพฐ." },
+  ]
+  it("ignores โรงเรียน / spaces / brackets", () => {
+    expect(normSchool("โรงเรียนสาธิต จุฬาฯ")).toBe(normSchool("สาธิตจุฬาฯ"))
+    expect(searchSchools(list, "สาธิต จุฬา").map((x) => x.id)).toEqual(["1"])
+  })
+  it("names starting with the text first, the branch's province before others", () => {
+    expect(searchSchools(list, "อัสสัมชัญ", { province: "CBR" }).map((x) => x.id)).toEqual(["2", "3", "4"])
+    expect(searchSchools(list, "อัสสัมชัญ", { province: "BKK" }).map((x) => x.id)).toEqual(["3", "2", "4"])
+  })
+  it("matches the district too", () => {
+    expect(searchSchools(list, "ศรีราชา").map((x) => x.id)).toEqual(["2"])
+  })
+  it("groups by Ministry code, typed names by their normalised form", () => {
+    expect(schoolKey({ school: "x", schoolId: "123" })).toBe("123")
+    expect(schoolKey({ school: "โรงเรียน ABC " })).toBe(schoolKey({ school: "abc" }))
+    expect(schoolKey({})).toBe("")
+  })
+})
+
+import { schoolsByGroup } from "./reports"
+
+describe("schools by branch / region (owner 2026-10-07)", () => {
+  const b = schoolBreakdown(
+    [{ school: "A", branchId: "x" }, { school: "A", branchId: "x" }, { school: "A", branchId: "z" }, { school: "B", branchId: "x" }, { school: "C", branchId: "z" }],
+    (id) => (id === "z" ? "CBR" : "BKK"),
+  )
+  it("branch → schools", () => {
+    const g = schoolsByGroup(b, (id) => id)
+    expect(g.map((x) => [x.key, x.students])).toEqual([["x", 3], ["z", 2]])
+    expect(g[0].rows.map((r) => [r.label, r.value])).toEqual([["A", 2], ["B", 1]])
+    expect(g[0].top3).toBe(1)
+  })
+  it("region → schools adds the branches of a region together", () => {
+    const g = schoolsByGroup(b, (id) => (id === "z" ? "CBR" : "BKK"))
+    expect(g.find((x) => x.key === "CBR")!.rows.map((r) => [r.label, r.value])).toEqual([["A", 1], ["C", 1]])
+  })
+})

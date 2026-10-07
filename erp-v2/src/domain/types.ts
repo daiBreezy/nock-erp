@@ -484,6 +484,9 @@ export interface Student {
   usesBus: boolean
   birthDate?: DateStr
   school?: string
+  /** the Ministry of Education school code when picked from the national list (owner 2026-10-07) — reports group
+   *  by it, so spelling differences never split one school in two. Unset = typed by hand (not in the list). */
+  schoolId?: string
   note?: string
   /** the branch and time the student record was created ("สร้างที่สาขาสีลม · 13 ก.ย. 67") */
   createdAt: string

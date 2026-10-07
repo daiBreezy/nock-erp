@@ -717,9 +717,20 @@ function buildHistory(db: { today: string; branches: Branch[]; courses: Course[]
  * province, weighted so a few schools dominate like real catchments; ~1 in 10 left blank (not asked yet).
  * Uses a hash of the id, not the seeded random, so the rest of the demo data stays exactly the same.
  */
-const SCHOOLS: Record<string, string[]> = {
-  BKK: ["เซนต์คาเบรียล", "เซนต์คาเบรียล", "สาธิตประสานมิตร", "สาธิตประสานมิตร", "มาแตร์เดอี", "อัสสัมชัญ", "สารสาสน์วิเทศ", "ราชินีบน", "บางกอกพัฒนา", "สาธิตจุฬาฯ", "ร่วมฤดีวิเทศศึกษา", "เตรียมอุดมศึกษาพัฒนาการ"],
-  CBR: ["อัสสัมชัญศรีราชา", "อัสสัมชัญศรีราชา", "ดาราสมุทร ศรีราชา", "ดาราสมุทร ศรีราชา", "ชลกันยานุกูล", "ชลราษฎรอำรุง", "เซนต์ปอลคอนแวนต์", "สาธิตพิบูลบำเพ็ญ", "อนุบาลชลบุรี", "บ่อวินวิทยา", "Regents International Pattaya"],
+// real schools from the Ministry list (public/data/schools-bkk-cbr.json) — id = Ministry school code; repeats = weight
+const SCHOOLS: Record<string, [string, string][]> = {
+  BKK: [
+    ["1110100025", "เซนต์คาเบรียล"], ["1110100025", "เซนต์คาเบรียล"],
+    ["1410391101", "โรงเรียนสาธิตมหาวิทยาลัยศรีนครินทรวิโรฒ ประสานมิตร (ฝ่ายประถม)"], ["1410391101", "โรงเรียนสาธิตมหาวิทยาลัยศรีนครินทรวิโรฒ ประสานมิตร (ฝ่ายประถม)"],
+    ["1110100111", "มาแตร์เดอีวิทยาลัย"], ["1110100048", "อัสสัมชัญ"], ["1110100030", "ราชินีบน"], ["1110700070", "บางกอกพัฒนา"],
+    ["1410071101", "โรงเรียนสาธิตจุฬาลงกรณ์มหาวิทยาลัย (ฝ่ายประถม)"], ["1110700024", "ร่วมฤดีวิเทศศึกษา"], ["1010720146", "เตรียมอุดมศึกษาน้อมเกล้า"],
+    ["1110100682", "สารสาสน์ธนบุรี"], ["1110700091", "นานาชาติรีเจ้นท์-พระราม 9"],
+  ],
+  CBR: [
+    ["1120100082", "อัสสัมชัญศรีราชา"], ["1120100082", "อัสสัมชัญศรีราชา"], ["1120100074", "ดาราสมุทร"], ["1120100074", "ดาราสมุทร"],
+    ["1020080310", "ชลกันยานุกูล"], ["1020080309", "ชลราษฎรอำรุง"], ["1120100084", "เซนต์ปอลคอนแวนต์"],
+    ["1420011101", "โรงเรียนสาธิต \"พิบูลบำเพ็ญ\" มหาวิทยาลัยบูรพา"], ["1020080001", "อนุบาลชลบุรี"], ["1120100161", "มารีวิทย์บ่อวิน"],
+  ],
 }
 function assignSchools(students: Student[], branches: Branch[]) {
   const hash = (x: string) => [...x].reduce((h, c) => (h * 31 + c.charCodeAt(0)) >>> 0, 7)
@@ -728,7 +739,9 @@ function assignSchools(students: Student[], branches: Branch[]) {
     const h = hash(st.id)
     if (h % 10 === 0) continue
     const list = SCHOOLS[branches.find((b) => b.id === st.branchId)?.province === "CBR" ? "CBR" : "BKK"]
-    st.school = list[h % list.length]
+    const [id, name] = list[h % list.length]
+    st.schoolId = id
+    st.school = name
   }
 }
 

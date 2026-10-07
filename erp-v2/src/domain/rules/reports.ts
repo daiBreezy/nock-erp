@@ -9,6 +9,7 @@
 // - A multi-subject course splits its money evenly across its subjects (no per-subject minutes recorded yet)
 
 import { addDays, parseDate, toDateStr, toMinutes, weekdayOf } from "../dates"
+import { schoolKey } from "./schools"
 import type { Attendance, Branch, Course, CreditNote, DateStr, Entitlement, Family, ID, Invoice, Klass, Lead, Session, Student, StudentLeave, Weekday } from "../types"
 import { receiptDate } from "./documents"
 import * as Loss from "./loss"
@@ -780,6 +781,8 @@ export function groupFigures(rows: BranchFigures[], by: GroupBy) {
 // ---------- schools (owner 2026-10-07: where our students study — the table no longer shows it per student) ----------
 
 export interface SchoolRow {
+  /** Ministry code, or "name:…" for a typed-in school */
+  key: string
   label: string
   value: number
   /** where those students study with us (owner 2026-10-07: "มาจาก Region, Branch ไหน") — most first */
@@ -800,21 +803,59 @@ export interface SchoolBreakdown {
 
 /** Students per school, most first, with the branches (and regions) they study at; names are trimmed so
  *  "สาธิตจุฬาฯ " and "สาธิตจุฬาฯ" count as one. `regionOf` = the branch's province code. */
-export function schoolBreakdown(students: Pick<Student, "school" | "branchId">[], regionOf: (branchId: ID) => string | undefined = () => undefined): SchoolBreakdown {
+export function schoolBreakdown(students: Pick<Student, "school" | "schoolId" | "branchId">[], regionOf: (branchId: ID) => string | undefined = () => undefined): SchoolBreakdown {
+  // grouped by the Ministry school code when picked from the list, else by the typed name (normalised)
   const by = new Map<string, Map<ID, number>>()
+  const names = new Map<string, string>()
   let unknown = 0
   for (const s of students) {
-    const name = s.school?.trim()
-    if (!name) { unknown++; continue }
-    const m = by.get(name) ?? new Map<ID, number>()
+    const key = schoolKey(s)
+    if (!key) { unknown++; continue }
+    if (!names.has(key)) names.set(key, s.school!.trim())
+    const m = by.get(key) ?? new Map<ID, number>()
     m.set(s.branchId, (m.get(s.branchId) ?? 0) + 1)
-    by.set(name, m)
+    by.set(key, m)
   }
-  const rows: SchoolRow[] = [...by].map(([label, m]) => {
+  const rows: SchoolRow[] = [...by].map(([key, m]) => {
+    const label = names.get(key)!
     const branches = [...m].map(([id, count]) => ({ id, count })).sort((a, b) => b.count - a.count)
     const reg = new Map<string, number>()
     branches.forEach((b) => { const r = regionOf(b.id); if (r) reg.set(r, (reg.get(r) ?? 0) + b.count) })
-    return { label, value: branches.reduce((n, b) => n + b.count, 0), branches, regions: [...reg].sort((a, b) => b[1] - a[1]).map(([r]) => r) }
+    return { key, label, value: branches.reduce((n, b) => n + b.count, 0), branches, regions: [...reg].sort((a, b) => b[1] - a[1]).map(([r]) => r) }
   }).sort((a, b) => b.value - a.value || a.label.localeCompare(b.label, "th"))
   return { rows, schools: rows.length, students: students.length, unknown }
+}
+
+export interface SchoolGroup {
+  key: string
+  /** students with a school filled in */
+  students: number
+  /** schools, most students first */
+  rows: { key: string; label: string; value: number }[]
+  /** share of the students coming from the top 3 schools (0–1) — high = the group leans on a few schools */
+  top3: number
+}
+
+/**
+ * The same school counts turned around (owner 2026-10-07: Branch → School, Region → School): one group per
+ * branch (`groupOf` = id) or per region (`groupOf` = province), each with its own school ranking. Groups by size.
+ */
+export function schoolsByGroup(b: SchoolBreakdown, groupOf: (branchId: ID) => string | undefined): SchoolGroup[] {
+  const groups = new Map<string, Map<string, { label: string; value: number }>>()
+  for (const r of b.rows) {
+    for (const br of r.branches) {
+      const g = groupOf(br.id)
+      if (!g) continue
+      const m = groups.get(g) ?? new Map<string, { label: string; value: number }>()
+      const cur = m.get(r.key) ?? { label: r.label, value: 0 }
+      cur.value += br.count
+      m.set(r.key, cur)
+      groups.set(g, m)
+    }
+  }
+  return [...groups].map(([key, m]) => {
+    const rows = [...m].map(([k, v]) => ({ key: k, ...v })).sort((a, c) => c.value - a.value || a.label.localeCompare(c.label, "th"))
+    const students = rows.reduce((n, x) => n + x.value, 0)
+    return { key, students, rows, top3: students ? rows.slice(0, 3).reduce((n, x) => n + x.value, 0) / students : 0 }
+  }).sort((a, c) => c.students - a.students)
 }

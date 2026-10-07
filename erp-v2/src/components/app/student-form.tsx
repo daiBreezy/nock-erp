@@ -16,6 +16,7 @@ import { useBranch, useNow } from "@/lib/hooks"
 import { useStore } from "@/store/store"
 import { CustomerPicker } from "./customer-picker"
 import { NativeSelect } from "./native-select"
+import { SchoolPicker } from "./school-picker"
 
 /** Create / edit a student. Errors show under each field while typing (S4). */
 export function StudentForm({ student, familyId, onClose, onSaved }: { student?: Student; familyId?: string; onClose: () => void; onSaved?: (s: Student) => void }) {
@@ -45,7 +46,7 @@ export function StudentForm({ student, familyId, onClose, onSaved }: { student?:
             <NativeSelect value={f.grade} onChange={(e) => set("grade", e.target.value)} placeholder="เลือก" options={branch.grades.map((g) => ({ value: g, label: g }))} />
           </Field>
           <Field label="วันเกิด" error={err("birthDate")}><Input type="date" max={today} value={f.birthDate ?? ""} onChange={(e) => set("birthDate", e.target.value || undefined)} /></Field>
-          <Field label="โรงเรียน"><Input value={f.school ?? ""} onChange={(e) => set("school", e.target.value)} /></Field>
+          <Field label="โรงเรียน"><SchoolPicker value={f.school} schoolId={f.schoolId} province={branch.province} onChange={(v) => setF((x) => ({ ...x, ...v }))} /></Field>
           <Field label="ครอบครัว" className="sm:col-span-2">
             <div className="flex items-center gap-2 rounded-xl border px-3 py-1.5 text-sm">
               <span className={f.familyId ? "font-medium" : "text-muted-foreground"}>{families.find((x) => x.id === f.familyId)?.name ?? "ยังไม่ผูกครอบครัว"}</span>

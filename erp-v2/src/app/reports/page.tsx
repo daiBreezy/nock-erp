@@ -1,7 +1,7 @@
 "use client"
 
 import Link from "next/link"
-import { Suspense, useEffect, useMemo, useState } from "react"
+import { Fragment, Suspense, useEffect, useMemo, useState } from "react"
 import { useSearchParams } from "next/navigation"
 import { BanknoteIcon, CalendarDaysIcon, ChartColumnIcon, ChevronDownIcon, ClockIcon, DownloadIcon, FileSpreadsheetIcon, PrinterIcon, SchoolIcon, SparklesIcon, UsersIcon, UserCheckIcon } from "lucide-react"
 import { NativeSelect, type Option } from "@/components/app/native-select"
@@ -16,7 +16,7 @@ import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { addDays, fmtDate, fmtMoney, monthShort, toDateStr, weekdayShort, yearOf } from "@/domain/dates"
 import { can, canCompareBranches, reportBranchIds } from "@/domain/rules/permissions"
-import { BUSINESS_SHORT, COMPARE_LABEL, groupFigures, PERIODS, scopeBranchIds, type GroupBy, type PeriodKey, type Range, type SchoolRow } from "@/domain/rules/reports"
+import { BUSINESS_SHORT, COMPARE_LABEL, groupFigures, PERIODS, scopeBranchIds, type GroupBy, type PeriodKey, type Range, type SchoolGroup, type SchoolRow, schoolsByGroup } from "@/domain/rules/reports"
 import { LEAD_SOURCE_LABEL } from "@/domain/rules/crm"
 import { reasonLabel } from "@/domain/rules/loss"
 import type { Branch, Weekday } from "@/domain/types"
@@ -648,28 +648,99 @@ function SchoolWhere({ row, branches }: { row: SchoolRow; branches: Branch[] }) 
   )
 }
 
-/** โรงเรียนของนักเรียน (owner 2026-10-07): how many schools, which ones dominate — ranked bars, top 5 + expand */
+type SchoolView = "school" | "branch" | "region"
+const SCHOOL_VIEWS: { key: SchoolView; label: string }[] = [{ key: "school", label: "โรงเรียน → สาขา" }, { key: "branch", label: "สาขา → โรงเรียน" }, { key: "region", label: "ภูมิภาค → โรงเรียน" }]
+
+/**
+ * โรงเรียนของนักเรียน (owner 2026-10-07) — three ways round: School → Branch (Region), Branch → School,
+ * Region → School. Branch / Region views only show when the scope above has more than one of them.
+ */
 function SchoolsPanel({ d }: { d: ReportData }) {
   const branches = useStore((s) => s.branches)
+  const [view, setView] = useState<SchoolView>("school")
   const x = d.schools
+  const byBranch = schoolsByGroup(x, (id) => id)
+  const byRegion = schoolsByGroup(x, (id) => branches.find((b) => b.id === id)?.province)
+  const views = SCHOOL_VIEWS.filter((v) => v.key === "school" || (v.key === "branch" ? byBranch.length > 1 : byRegion.length > 1))
+  const use = views.some((v) => v.key === view) ? view : "school"
   const top = x.rows[0]
-  const top3 = x.rows.slice(0, 3).reduce((n, r) => n + r.value, 0)
   const known = x.students - x.unknown
   const pct = (n: number) => (known ? Math.round((n / known) * 100) : 0)
   return (
-    <Panel title={tx("โรงเรียนของนักเรียน")} hint={tx("นักเรียน Active ตอนนี้ ตามสาขาที่เลือก · ไม่ขึ้นกับช่วงเวลา · แก้ชื่อโรงเรียนได้ที่ข้อมูลนักเรียน")}>
+    <Panel title={tx("โรงเรียนของนักเรียน")} hint={tx("นักเรียน Active ตอนนี้ ตามสาขาที่เลือก · ไม่ขึ้นกับช่วงเวลา · แก้ชื่อโรงเรียนได้ที่ข้อมูลนักเรียน")}
+      action={views.length > 1 ? <span className="inline-flex rounded-full bg-muted p-0.5 text-xs">{views.map((v) => <button key={v.key} type="button" onClick={() => setView(v.key)} className={cn("rounded-full px-3 py-1", use === v.key ? "bg-background font-medium shadow-sm" : "text-muted-foreground")}>{tx(v.label)}</button>)}</span> : undefined}>
       <div className="grid gap-6 lg:grid-cols-[14rem_1fr] lg:gap-0 lg:divide-x">
         <div className="grid grid-cols-3 gap-4 lg:grid-cols-1 lg:content-center lg:pr-6">
           <div><p className="text-xs text-muted-foreground">{tx("จำนวนโรงเรียน")}</p><p className="text-2xl font-semibold tabular-nums">{fmtNum(x.schools)}</p></div>
-          <div><p className="text-xs text-muted-foreground">{tx("3 โรงเรียนแรก")}</p><p className="text-2xl font-semibold tabular-nums">{pct(top3)}%</p><p className="truncate text-xs text-muted-foreground" title={top?.label}>{top ? tx("มากสุด {0}", [top.label]) : "—"}</p></div>
+          <div><p className="text-xs text-muted-foreground">{tx("3 โรงเรียนแรก")}</p><p className="text-2xl font-semibold tabular-nums">{pct(x.rows.slice(0, 3).reduce((n, r) => n + r.value, 0))}%</p><p className="truncate text-xs text-muted-foreground" title={top?.label}>{top ? tx("มากสุด {0}", [top.label]) : "—"}</p></div>
           <div><p className="text-xs text-muted-foreground">{tx("ยังไม่ระบุโรงเรียน")}</p><p className={cn("text-2xl font-semibold tabular-nums", x.unknown > 0 && "text-amber-600")}>{fmtNum(x.unknown)}</p><p className="text-xs text-muted-foreground">{tx("จาก {0} คน", [fmtNum(x.students)])}</p></div>
         </div>
-        <div className="lg:pl-6">
-          <TopList title={tx("นักเรียนต่อโรงเรียน")} icon={<SchoolIcon className="size-4 text-muted-foreground" />} color="#0ea5e9" wide
-            rows={x.rows.map((r) => ({ label: r.label, value: r.value, sub: <SchoolWhere row={r} branches={branches} /> }))} />
+        <div className="min-w-0 lg:pl-6">
+          {use === "school" && (
+            <TopList title={tx("นักเรียนต่อโรงเรียน")} icon={<SchoolIcon className="size-4 text-muted-foreground" />} color="#0ea5e9" wide
+              rows={x.rows.map((r) => ({ label: r.label, value: r.value, sub: <SchoolWhere row={r} branches={branches} /> }))} />
+          )}
+          {use === "branch" && <SchoolsByBranch groups={byBranch} branches={branches} />}
+          {use === "region" && (
+            <div className={cn("grid gap-6", byRegion.length > 1 && "md:grid-cols-2 md:gap-0 md:divide-x")}>
+              {byRegion.map((g, i) => (
+                <div key={g.key} className={cn("min-w-0", byRegion.length > 1 && (i === 0 ? "md:pr-6" : "md:pl-6"))}>
+                  <div className="mb-3 flex flex-wrap items-baseline gap-x-3 gap-y-1">
+                    <span className="rounded bg-sky-100 px-1.5 text-xs font-semibold text-sky-800 dark:bg-sky-950 dark:text-sky-200">{g.key}</span>
+                    <span className="text-sm">{tx("{0} คน · {1} โรงเรียน", [fmtNum(g.students), fmtNum(g.rows.length)])}</span>
+                    <Top3 share={g.top3} />
+                  </div>
+                  <TopList title={tx("นักเรียนต่อโรงเรียน")} color="#0ea5e9" rows={g.rows} />
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       </div>
     </Panel>
+  )
+}
+
+/** "3 แรก 72%" — amber when over 60%: the group leans on a few schools (one school changing its hours hurts) */
+function Top3({ share, bare }: { share: number; bare?: boolean }) {
+  return <span className={cn("text-xs tabular-nums", share > 0.6 ? "font-medium text-amber-600" : "text-muted-foreground")} title={tx("สัดส่วนนักเรียนจาก 3 โรงเรียนแรก — เกิน 60% = พึ่งไม่กี่โรงเรียน")}>{bare ? fmtPct(share) : tx("3 แรก {0}", [fmtPct(share)])}</span>
+}
+
+/** Branch → School: one row per branch — its students, schools, top 3 schools; click a row for the whole list */
+function SchoolsByBranch({ groups, branches }: { groups: SchoolGroup[]; branches: Branch[] }) {
+  const [open, setOpen] = useState<string | null>(null)
+  return (
+    <table className="w-full table-fixed text-sm">
+      <colgroup><col style={{ width: "13rem" }} /><col style={{ width: "4.5rem" }} /><col style={{ width: "5rem" }} /><col /><col style={{ width: "5.5rem" }} /></colgroup>
+      <thead className="text-xs text-muted-foreground">
+        <tr className="[&>th]:pb-2 [&>th]:font-normal">
+          <th className="text-left">{tx("สาขา")}</th><th className="text-right">{tx("นักเรียน")}</th><th className="text-right">{tx("โรงเรียน")}</th><th className="pl-4 text-left">{tx("3 โรงเรียนหลัก")}</th><th className="text-right">{tx("3 แรก")}</th>
+        </tr>
+      </thead>
+      <tbody>
+        {groups.map((g) => {
+          const br = branches.find((b) => b.id === g.key)
+          const isOpen = open === g.key
+          return (
+            <Fragment key={g.key}>
+              <tr onClick={() => setOpen(isOpen ? null : g.key)} className="cursor-pointer border-t hover:bg-muted/40 [&>td]:h-11">
+                <td className="truncate">
+                  <ChevronDownIcon className={cn("mr-1 inline size-3.5 text-muted-foreground transition-transform", !isOpen && "-rotate-90")} />
+                  {br ? <>{br.code} {nm(br.name)} <span className="text-xs text-muted-foreground">({BUSINESS_SHORT[br.brand]} · {br.province})</span></> : g.key}
+                </td>
+                <td className="text-right tabular-nums">{fmtNum(g.students)}</td>
+                <td className="text-right tabular-nums">{fmtNum(g.rows.length)}</td>
+                <td className="truncate pl-4">{g.rows.slice(0, 3).map((r) => <span key={r.key} className="mr-1.5 inline-flex max-w-[12rem] items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-xs" title={r.label}><span className="truncate">{r.label}</span><b className="font-semibold tabular-nums">{r.value}</b></span>)}</td>
+                <td className="text-right"><Top3 share={g.top3} bare /></td>
+              </tr>
+              {isOpen && (
+                <tr><td colSpan={5} className="pb-4 pl-6"><TopList title={tx("ทุกโรงเรียนของสาขานี้")} color="#0ea5e9" rows={g.rows} wide /></td></tr>
+              )}
+            </Fragment>
+          )
+        })}
+      </tbody>
+    </table>
   )
 }
 
