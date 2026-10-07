@@ -779,8 +779,17 @@ export function groupFigures(rows: BranchFigures[], by: GroupBy) {
 
 // ---------- schools (owner 2026-10-07: where our students study — the table no longer shows it per student) ----------
 
+export interface SchoolRow {
+  label: string
+  value: number
+  /** where those students study with us (owner 2026-10-07: "มาจาก Region, Branch ไหน") — most first */
+  branches: { id: ID; count: number }[]
+  /** BKK / CBR … of those branches, most students first */
+  regions: string[]
+}
+
 export interface SchoolBreakdown {
-  rows: { label: string; value: number }[]
+  rows: SchoolRow[]
   /** how many different schools */
   schools: number
   /** students counted */
@@ -789,15 +798,23 @@ export interface SchoolBreakdown {
   unknown: number
 }
 
-/** Students per school, most first; names are trimmed so "สาธิตจุฬาฯ " and "สาธิตจุฬาฯ" count as one. */
-export function schoolBreakdown(students: Pick<Student, "school">[]): SchoolBreakdown {
-  const by = new Map<string, number>()
+/** Students per school, most first, with the branches (and regions) they study at; names are trimmed so
+ *  "สาธิตจุฬาฯ " and "สาธิตจุฬาฯ" count as one. `regionOf` = the branch's province code. */
+export function schoolBreakdown(students: Pick<Student, "school" | "branchId">[], regionOf: (branchId: ID) => string | undefined = () => undefined): SchoolBreakdown {
+  const by = new Map<string, Map<ID, number>>()
   let unknown = 0
   for (const s of students) {
     const name = s.school?.trim()
     if (!name) { unknown++; continue }
-    by.set(name, (by.get(name) ?? 0) + 1)
+    const m = by.get(name) ?? new Map<ID, number>()
+    m.set(s.branchId, (m.get(s.branchId) ?? 0) + 1)
+    by.set(name, m)
   }
-  const rows = [...by].map(([label, value]) => ({ label, value })).sort((a, b) => b.value - a.value || a.label.localeCompare(b.label, "th"))
+  const rows: SchoolRow[] = [...by].map(([label, m]) => {
+    const branches = [...m].map(([id, count]) => ({ id, count })).sort((a, b) => b.count - a.count)
+    const reg = new Map<string, number>()
+    branches.forEach((b) => { const r = regionOf(b.id); if (r) reg.set(r, (reg.get(r) ?? 0) + b.count) })
+    return { label, value: branches.reduce((n, b) => n + b.count, 0), branches, regions: [...reg].sort((a, b) => b[1] - a[1]).map(([r]) => r) }
+  }).sort((a, b) => b.value - a.value || a.label.localeCompare(b.label, "th"))
   return { rows, schools: rows.length, students: students.length, unknown }
 }

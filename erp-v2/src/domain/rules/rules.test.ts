@@ -1933,8 +1933,13 @@ import { schoolBreakdown } from "./reports"
 
 describe("schools (owner 2026-10-07)", () => {
   it("counts students per school, most first, blanks apart", () => {
-    const b = schoolBreakdown([{ school: "A" }, { school: "B " }, { school: "B" }, {}, { school: "  " }])
-    expect(b.rows).toEqual([{ label: "B", value: 2 }, { label: "A", value: 1 }])
-    expect(b).toMatchObject({ schools: 2, students: 5, unknown: 2 })
+    const b = schoolBreakdown(
+      [{ school: "A", branchId: "x" }, { school: "B ", branchId: "y" }, { school: "B", branchId: "z" }, { school: "B", branchId: "y" }, { branchId: "x" }, { school: "  ", branchId: "x" }],
+      (id) => (id === "z" ? "CBR" : "BKK"),
+    )
+    expect(b.rows.map((r) => [r.label, r.value])).toEqual([["B", 3], ["A", 1]])
+    expect(b.rows[0].branches).toEqual([{ id: "y", count: 2 }, { id: "z", count: 1 }])
+    expect(b.rows[0].regions).toEqual(["BKK", "CBR"])
+    expect(b).toMatchObject({ schools: 2, students: 6, unknown: 2 })
   })
 })

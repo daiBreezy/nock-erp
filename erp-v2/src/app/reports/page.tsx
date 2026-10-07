@@ -16,7 +16,7 @@ import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { addDays, fmtDate, fmtMoney, monthShort, toDateStr, weekdayShort, yearOf } from "@/domain/dates"
 import { can, canCompareBranches, reportBranchIds } from "@/domain/rules/permissions"
-import { BUSINESS_SHORT, COMPARE_LABEL, groupFigures, PERIODS, scopeBranchIds, type GroupBy, type PeriodKey, type Range } from "@/domain/rules/reports"
+import { BUSINESS_SHORT, COMPARE_LABEL, groupFigures, PERIODS, scopeBranchIds, type GroupBy, type PeriodKey, type Range, type SchoolRow } from "@/domain/rules/reports"
 import { LEAD_SOURCE_LABEL } from "@/domain/rules/crm"
 import { reasonLabel } from "@/domain/rules/loss"
 import type { Branch, Weekday } from "@/domain/types"
@@ -634,8 +634,23 @@ function StudentsTab({ d, compare, onOpen }: { d: ReportData; compare: boolean; 
   )
 }
 
+/** "BKK · TL ทองหล่อ (LIS) 20 · BN บางนา (NAS) 14" — which region / branches a school's students study at */
+function SchoolWhere({ row, branches }: { row: SchoolRow; branches: Branch[] }) {
+  const text = row.branches.map((b) => {
+    const br = branches.find((x) => x.id === b.id)
+    return br ? `${br.code} ${nm(br.name)} (${BUSINESS_SHORT[br.brand]}) ${b.count}` : `${b.count}`
+  }).join(" · ")
+  return (
+    <span title={`${row.regions.join(" + ")} · ${text}`}>
+      {row.regions.map((r) => <span key={r} className="mr-1 rounded bg-sky-100 px-1 text-[10px] font-semibold text-sky-800 dark:bg-sky-950 dark:text-sky-200">{r}</span>)}
+      {text}
+    </span>
+  )
+}
+
 /** โรงเรียนของนักเรียน (owner 2026-10-07): how many schools, which ones dominate — ranked bars, top 5 + expand */
 function SchoolsPanel({ d }: { d: ReportData }) {
+  const branches = useStore((s) => s.branches)
   const x = d.schools
   const top = x.rows[0]
   const top3 = x.rows.slice(0, 3).reduce((n, r) => n + r.value, 0)
@@ -650,7 +665,8 @@ function SchoolsPanel({ d }: { d: ReportData }) {
           <div><p className="text-xs text-muted-foreground">{tx("ยังไม่ระบุโรงเรียน")}</p><p className={cn("text-2xl font-semibold tabular-nums", x.unknown > 0 && "text-amber-600")}>{fmtNum(x.unknown)}</p><p className="text-xs text-muted-foreground">{tx("จาก {0} คน", [fmtNum(x.students)])}</p></div>
         </div>
         <div className="lg:pl-6">
-          <TopList title={tx("นักเรียนต่อโรงเรียน")} icon={<SchoolIcon className="size-4 text-muted-foreground" />} color="#0ea5e9" rows={x.rows} wide />
+          <TopList title={tx("นักเรียนต่อโรงเรียน")} icon={<SchoolIcon className="size-4 text-muted-foreground" />} color="#0ea5e9" wide
+            rows={x.rows.map((r) => ({ label: r.label, value: r.value, sub: <SchoolWhere row={r} branches={branches} /> }))} />
         </div>
       </div>
     </Panel>

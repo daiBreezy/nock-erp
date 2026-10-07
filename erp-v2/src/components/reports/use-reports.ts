@@ -187,7 +187,7 @@ export function useReports(branchIds: string[], period: R.PeriodKey, custom?: R.
       },
       rev, revPrev, strip, attention,
       // students studying now (active today) by school — Reports › นักเรียน (owner 2026-10-07)
-      schools: R.schoolBreakdown(students.filter((x) => !x.archived && R.stateOn(x.id, today, ents, leaves) === "active")),
+      schools: R.schoolBreakdown(students.filter((x) => !x.archived && R.stateOn(x.id, today, ents, leaves) === "active"), (id) => s.branches.find((b) => b.id === id)?.province),
       monthly: {
         thisYear: R.monthlyRevenue(rows, year, today), lastYear: R.monthlyRevenue(rows, year - 1, today), year,
         // this month so far vs the same days last year

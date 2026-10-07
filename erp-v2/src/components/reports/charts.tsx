@@ -230,19 +230,23 @@ export function DonutLegend({ title, parts, center, sub, top = 5, keepOrder, col
  * Ranked bar list capped at `top` rows with a "ดูทั้งหมด" toggle (owner 2026-10-05: long lists make the card messy).
  * Each row: rank · name · bar (vs the biggest) · count · share, so the eye reads size before reading numbers.
  */
-export function TopList({ title, icon, rows, top = 5, color, wide, fill }: { title: string; icon?: ReactNode; rows: { label: string; value: number }[]; top?: number; color?: string; wide?: boolean; fill?: boolean }) {
+export function TopList({ title, icon, rows, top = 5, color, wide, fill }: { title: string; icon?: ReactNode; rows: { label: string; value: number; sub?: ReactNode }[]; top?: number; color?: string; wide?: boolean; fill?: boolean }) {
   const [open, setOpen] = useState(false)
   const list = open ? rows : rows.slice(0, top)
   const max = Math.max(1, ...rows.map((x) => x.value))
   const sum = rows.reduce((a, x) => a + x.value, 0) || 1
+  // rows with a second line (e.g. a school's branches) get a wider name column
+  const hasSub = rows.some((x) => x.sub)
   return (
     <div className={cn("min-w-0", fill && "flex flex-1 flex-col")}>
       <p className="mb-3 flex items-center gap-2 text-sm font-medium">{icon}{title}<span className="text-xs font-normal text-muted-foreground">{tx("รวม")} {fmtNum(sum)}</span></p>
       {rows.length ? (
         <ul className={cn("text-sm", fill ? "flex flex-1 flex-col justify-around gap-2.5" : "space-y-2.5")}>{list.map((x, i) => (
-          <li key={x.label} className={cn("grid items-center gap-3", wide ? "grid-cols-[1.25rem_minmax(0,18rem)_1fr_2rem_2.5rem]" : "grid-cols-[1.25rem_minmax(0,11rem)_1fr_2rem_2.5rem]")}>
+          <li key={x.label} className={cn("grid items-center gap-3", hasSub ? "grid-cols-[1.25rem_minmax(0,30rem)_1fr_2rem_2.5rem]" : wide ? "grid-cols-[1.25rem_minmax(0,18rem)_1fr_2rem_2.5rem]" : "grid-cols-[1.25rem_minmax(0,11rem)_1fr_2rem_2.5rem]")}>
             <Rank n={i + 1} />
-            <span className="truncate" title={x.label}>{x.label}</span>
+            {x.sub ? (
+              <span className="min-w-0 leading-tight"><span className="block truncate" title={x.label}>{x.label}</span><span className="block truncate text-xs text-muted-foreground">{x.sub}</span></span>
+            ) : <span className="truncate" title={x.label}>{x.label}</span>}
             <ShareBar value={x.value / max} color={color} className="h-2.5" />
             <span className="text-right font-medium tabular-nums">{fmtNum(x.value)}</span>
             <span className="text-right text-xs text-muted-foreground tabular-nums">{fmtPct(x.value / sum)}</span>
