@@ -92,7 +92,7 @@ export default function DashboardPage() {
       .filter((s) => s.date >= addDays(today, -7) && ["ended"].includes(sessionState(s, now)) && (!mineOnly || s.teacherId === me.id))
       .forEach((s) => {
         const missing = s.studentIds.filter((sid) => !attendance.some((a) => a.sessionId === s.id && a.studentId === sid)).length
-        if (missing) out.push({ key: `att${s.id}`, label: `ยังไม่เช็คชื่อ ${missing} คน`, detail: `${s.subject} ${fmtDate(s.date)} ${s.start}`, onClick: () => setOpenSessionId(s.id), tone: "red" })
+        if (missing) out.push({ key: `att${s.id}`, label: tx("ยังไม่เช็คชื่อ {0} คน", [missing]), detail: `${s.subject} ${fmtDate(s.date)} ${s.start}`, onClick: () => setOpenSessionId(s.id), tone: "red" })
       })
     const present = attendance.filter((a) => a.status === "present")
     present.forEach((a) => {
@@ -100,13 +100,13 @@ export default function DashboardPage() {
       if (!s || s.date < addDays(today, -7)) return
       const sm = summaries.find((x) => x.sessionId === a.sessionId && x.studentId === a.studentId)
       if (s.teacherId === me.id && (!sm || sm.status === "draft" || sm.status === "changes_requested"))
-        out.push({ key: `sw${s.id}${a.studentId}`, label: sm?.status === "changes_requested" ? "สรุปถูกขอแก้" : "เขียนสรุปการเรียน", detail: `${L.student(a.studentId)?.nickname} · ${s.subject} ${fmtDate(s.date)}`, onClick: () => setOpenSessionId(s.id), tone: "amber" })
+        out.push({ key: `sw${s.id}${a.studentId}`, label: sm?.status === "changes_requested" ? tx("สรุปถูกขอแก้") : tx("เขียนสรุปการเรียน"), detail: `${L.student(a.studentId)?.nickname} · ${s.subject} ${fmtDate(s.date)}`, onClick: () => setOpenSessionId(s.id), tone: "amber" })
       if (sm?.status === "submitted" && can(me, "summary.approve") && sm.authorId !== me.id && sm.lastEditorId !== me.id)
-        out.push({ key: `sa${sm.id}`, label: "สรุปรออนุมัติ", detail: `${L.student(a.studentId)?.nickname} · ${s.subject} ${fmtDate(s.date)}`, onClick: () => setOpenSessionId(s.id), tone: "blue" })
+        out.push({ key: `sa${sm.id}`, label: tx("สรุปรออนุมัติ"), detail: `${L.student(a.studentId)?.nickname} · ${s.subject} ${fmtDate(s.date)}`, onClick: () => setOpenSessionId(s.id), tone: "blue" })
     })
     if (can(me, "billing.approve"))
       invoices.filter((i) => canApproveInvoice(i, me).ok).forEach((i) =>
-        out.push({ key: `inv${i.id}`, label: "ใบแจ้งหนี้รออนุมัติ", detail: `${i.number} · ${students.find((s) => s.id === i.studentId)?.nickname}`, href: `/billing?open=${i.id}`, tone: "blue" }))
+        out.push({ key: `inv${i.id}`, label: tx("ใบแจ้งหนี้รออนุมัติ"), detail: `${i.number} · ${students.find((s) => s.id === i.studentId)?.nickname}`, href: `/billing?open=${i.id}`, tone: "blue" }))
     return out
   })()
 
@@ -118,14 +118,14 @@ export default function DashboardPage() {
       const s = next7.find((x) => x.id === c.sessionIds[0])!
       out.push({ key: `c${i}`, text: `${fmtDate(s.date, { weekday: true })}: ${c.message}`, href: "/calendar", kind: "conflict" })
     })
-    next7.filter((s) => !s.teacherId || !staff.find((t) => t.id === s.teacherId)?.active).forEach((s) => out.push({ key: `t${s.id}`, text: `${fmtDate(s.date, { weekday: true })} ${s.start} ${s.subject}: ยังไม่มีครูสอน`, href: "/calendar", kind: "no_teacher" }))
+    next7.filter((s) => !s.teacherId || !staff.find((t) => t.id === s.teacherId)?.active).forEach((s) => out.push({ key: `t${s.id}`, text: tx("{0} {1} {2}: ยังไม่มีครูสอน", [fmtDate(s.date, { weekday: true }), s.start, s.subject]), href: "/calendar", kind: "no_teacher" }))
     // owner 2026-10-06: the full renewal list below already covers this for dashboard.view roles — avoid saying it twice
     if (!hasOverview) entitlements.forEach((e) => {
       const stu = students.find((x) => x.id === e.studentId)
       if (!stu || e.to < today) return
       const msg = Att.lowBalanceAlert(e, Att.balance(e, sessions, attendance, classes), today)
       const course = courses.find((c) => c.id === e.courseId)?.name
-      if (msg) out.push({ key: `e${e.id}`, text: `ต่ออายุ ${studentLabel(stu, families.find((f) => f.id === stu.familyId)?.name)} · ${course ?? "คอร์ส"}: ${msg}`, href: renewHref(stu.id, e.id), kind: "renewal" })
+      if (msg) out.push({ key: `e${e.id}`, text: tx("ต่ออายุ {0} · {1}: {2}", [studentLabel(stu, families.find((f) => f.id === stu.familyId)?.name), course ?? tx("คอร์ส"), msg]), href: renewHref(stu.id, e.id), kind: "renewal" })
     })
     return out
   })()
@@ -139,7 +139,7 @@ export default function DashboardPage() {
     .filter((s) => statusOf.get(s.id) === "renewal" && Att.renewalFollowUpDue(s, today))
     .map((stu) => {
       const ents = entitlements.filter((e) => e.studentId === stu.id && e.to >= today)
-      const messages = ents.map((e) => { const m = Att.lowBalanceAlert(e, Att.balance(e, sessions, attendance, classes), today); return m && `${courses.find((c) => c.id === e.courseId)?.name ?? "คอร์ส"}: ${m}` }).filter((m): m is string => !!m)
+      const messages = ents.map((e) => { const m = Att.lowBalanceAlert(e, Att.balance(e, sessions, attendance, classes), today); return m && `${courses.find((c) => c.id === e.courseId)?.name ?? tx("คอร์ส")}: ${m}` }).filter((m): m is string => !!m)
       const urgent = ents.some((e) => e.kind === "sessions" && Att.balance(e, sessions, attendance, classes).remaining <= 1) || ents.some((e) => e.to <= addDays(today, 2))
       return { stu, messages, urgent }
     })
@@ -153,7 +153,7 @@ export default function DashboardPage() {
   const newLeads = leads.filter((l) => l.stage === "new")
   const recentActivity = (() => {
     if (!hasOverview) return []
-    const payments = invoices.flatMap((i) => i.payments.filter((p) => p.confirmedBy).map((p) => ({ at: p.recordedAt, text: `ชำระเงิน · ${students.find((s) => s.id === i.studentId)?.nickname ?? "-"} · ${fmtMoney(invoiceTotals(i, { branch, courses, classes, holidays }).total)}`, tone: "green" as const })))
+    const payments = invoices.flatMap((i) => i.payments.filter((p) => p.confirmedBy).map((p) => ({ at: p.recordedAt, text: tx("ชำระเงิน · {0} · {1}", [students.find((s) => s.id === i.studentId)?.nickname ?? "-", fmtMoney(invoiceTotals(i, { branch, courses, classes, holidays }).total)]), tone: "green" as const })))
     const att = attendance
       .filter((a) => a.status !== "leave")
       .slice(-60)
@@ -161,7 +161,7 @@ export default function DashboardPage() {
         const se = sessions.find((x) => x.id === a.sessionId)
         const stu = students.find((x) => x.id === a.studentId)
         if (!se || !stu || se.branchId !== branch.id) return null
-        return { at: a.markedAt, text: `${a.status === "present" ? "เข้าเรียน" : "ขาดเรียน"} · ${stu.nickname} · ${se.subject}`, tone: a.status === "present" ? ("blue" as const) : ("red" as const) }
+        return { at: a.markedAt, text: `${a.status === "present" ? tx("เข้าเรียน") : tx("ขาดเรียน")} · ${stu.nickname} · ${se.subject}`, tone: a.status === "present" ? ("blue" as const) : ("red" as const) }
       })
       .filter((x): x is { at: string; text: string; tone: "blue" | "red" } => !!x)
     return [...payments, ...att].sort((a, b) => b.at.localeCompare(a.at)).slice(0, 8)
@@ -207,19 +207,19 @@ export default function DashboardPage() {
         <DashboardHeader name={me.nickname} today={today} branchName={branch.name} />
         {hasOverview && (
           <ToggleGroup value={[range]} onValueChange={(v) => v[0] && setRangeParam(v[0] as RangeKey)} variant="outline" size="sm">
-            <ToggleGroupItem value="today">วันนี้</ToggleGroupItem>
-            <ToggleGroupItem value="week">สัปดาห์นี้</ToggleGroupItem>
-            <ToggleGroupItem value="month">เดือนนี้</ToggleGroupItem>
+            <ToggleGroupItem value="today">{tx("วันนี้")}</ToggleGroupItem>
+            <ToggleGroupItem value="week">{tx("สัปดาห์นี้")}</ToggleGroupItem>
+            <ToggleGroupItem value="month">{tx("เดือนนี้")}</ToggleGroupItem>
           </ToggleGroup>
         )}
       </div>
 
       {hasOverview && (
         <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-5">
-          <Kpi icon={<GraduationCapIcon className="size-4" />} label="นักเรียนที่เรียนอยู่" value={String(activeStudents)} tone="emerald" sub={`จากทั้งหมด ${students.length} คน`} />
-          <Kpi icon={<AlertTriangleIcon className="size-4" />} label="รอต่อคอร์ส" value={String(renewalRows.length)} tone={renewalRows.some((r) => r.urgent) ? "red" : "amber"} sub={renewalRows.some((r) => r.urgent) ? `${renewalRows.filter((r) => r.urgent).length} คนด่วน` : renewalRows.length ? "ยังไม่ด่วน" : "เรียบร้อยหมด"} />
-          <Kpi icon={<BanknoteIcon className="size-4" />} label={`รายรับ${RANGE_LABEL[range]}`} value={fmtMoney(rev.total)} tone="violet" sub={<span className="flex items-center gap-1"><Delta value={revChange} /> {R.COMPARE_LABEL[periodKey]}</span>} />
-          <Kpi icon={<UserSearchIcon className="size-4" />} label="ลีดที่กำลังตาม" value={String(activeLeads.length)} tone={newLeads.length ? "sky" : "emerald"} sub={newLeads.length ? `${newLeads.length} รายใหม่ยังไม่ติดต่อ` : "ติดต่อครบแล้ว"} />
+          <Kpi icon={<GraduationCapIcon className="size-4" />} label={tx("นักเรียนที่เรียนอยู่")} value={String(activeStudents)} tone="emerald" sub={tx("จากทั้งหมด {0} คน", [students.length])} />
+          <Kpi icon={<AlertTriangleIcon className="size-4" />} label={tx("รอต่อคอร์ส")} value={String(renewalRows.length)} tone={renewalRows.some((r) => r.urgent) ? "red" : "amber"} sub={renewalRows.some((r) => r.urgent) ? tx("{0} คนด่วน", [renewalRows.filter((r) => r.urgent).length]) : renewalRows.length ? tx("ยังไม่ด่วน") : tx("เรียบร้อยหมด")} />
+          <Kpi icon={<BanknoteIcon className="size-4" />} label={tx("รายรับ{0}", [tx(RANGE_LABEL[range])])} value={fmtMoney(rev.total)} tone="violet" sub={<span className="flex items-center gap-1"><Delta value={revChange} /> {tx(R.COMPARE_LABEL[periodKey])}</span>} />
+          <Kpi icon={<UserSearchIcon className="size-4" />} label={tx("ลีดที่กำลังตาม")} value={String(activeLeads.length)} tone={newLeads.length ? "sky" : "emerald"} sub={newLeads.length ? tx("{0} รายใหม่ยังไม่ติดต่อ", [newLeads.length]) : tx("ติดต่อครบแล้ว")} />
           <AttentionButton count={attentionItems.length} onClick={() => setShowAttention(true)} className="col-span-2 md:col-span-1" />
         </div>
       )}
@@ -229,11 +229,11 @@ export default function DashboardPage() {
           <div className="grid gap-4 lg:grid-cols-5">
             <Card className="lg:col-span-3">
               <CardHeader>
-                <CardTitle>{mineOnly ? "คาบของฉันวันนี้" : "คาบเรียนวันนี้"}</CardTitle>
-                <CardDescription>{todays.length} คาบ · สถานะเปลี่ยนตามเวลาจริงอัตโนมัติ</CardDescription>
+                <CardTitle>{mineOnly ? tx("คาบของฉันวันนี้") : tx("คาบเรียนวันนี้")}</CardTitle>
+                <CardDescription>{todays.length}  {tx("คาบ · สถานะเปลี่ยนตามเวลาจริงอัตโนมัติ")}</CardDescription>
               </CardHeader>
               <CardContent className="space-y-0.5">
-                {todays.length === 0 && <p className="py-6 text-center text-sm text-muted-foreground">วันนี้ไม่มีคาบเรียน</p>}
+                {todays.length === 0 && <p className="py-6 text-center text-sm text-muted-foreground">{tx("วันนี้ไม่มีคาบเรียน")}</p>}
                 {todays.filter((s) => !["ended", "closed"].includes(sessionState(s, now))).map((s) => (
                   <TodaySessionRow key={s.id} s={s} now={now} L={L} attendance={attendance} onOpen={() => setOpenSessionId(s.id)} />
                 ))}
@@ -243,7 +243,7 @@ export default function DashboardPage() {
                   return (
                     <>
                       <button onClick={() => setShowPast((v) => !v)} className="flex w-full items-center gap-1.5 rounded-lg px-2 py-1.5 text-xs text-muted-foreground hover:bg-muted/40">
-                        <ChevronRightIcon className={cn("size-3.5 transition-transform", showPast && "rotate-90")} /> จบแล้ว {past.length} คาบ
+                        <ChevronRightIcon className={cn("size-3.5 transition-transform", showPast && "rotate-90")} />  {tx("จบแล้ว")} {past.length}  {tx("คาบ")}
                       </button>
                       {showPast && past.map((s) => (
                         <TodaySessionRow key={s.id} s={s} now={now} L={L} attendance={attendance} onOpen={() => setOpenSessionId(s.id)} muted />
@@ -255,17 +255,17 @@ export default function DashboardPage() {
             </Card>
             <Card className="lg:col-span-2">
               <CardHeader>
-                <CardTitle>งานที่รอคุณ</CardTitle>
-                <CardDescription>{todo.length ? `${todo.length} รายการ` : "ไม่มีงานค้าง"}</CardDescription>
+                <CardTitle>{tx("งานที่รอคุณ")}</CardTitle>
+                <CardDescription>{todo.length ? tx("{0} รายการ", [todo.length]) : tx("ไม่มีงานค้าง")}</CardDescription>
                 {endedToday.length > 0 && (
                   <div className="mt-1 grid gap-2.5 sm:grid-cols-2">
-                    <HeaderProgress label="เช็คชื่อวันนี้" done={attendanceDone} total={endedToday.length} />
-                    <HeaderProgress label="สรุปการเรียนวันนี้" done={summaryDone} total={presentToday.length} />
+                    <HeaderProgress label={tx("เช็คชื่อวันนี้")} done={attendanceDone} total={endedToday.length} />
+                    <HeaderProgress label={tx("สรุปการเรียนวันนี้")} done={summaryDone} total={presentToday.length} />
                   </div>
                 )}
               </CardHeader>
               <CardContent className="space-y-1.5">
-                {todo.length === 0 && <p className="flex items-center justify-center gap-2 py-6 text-sm text-muted-foreground"><CheckCircle2Icon className="size-4 text-emerald-600" /> เคลียร์หมดแล้ว</p>}
+                {todo.length === 0 && <p className="flex items-center justify-center gap-2 py-6 text-sm text-muted-foreground"><CheckCircle2Icon className="size-4 text-emerald-600" />  {tx("เคลียร์หมดแล้ว")}</p>}
                 {todo.slice(0, 12).map((t) => {
                   const inner = (
                     <>
@@ -288,20 +288,20 @@ export default function DashboardPage() {
             <div className="grid gap-4 lg:grid-cols-5">
               <Card className="lg:col-span-3">
                 <CardHeader>
-                  <CardTitle>รอต่อคอร์ส</CardTitle>
-                  <CardDescription>{renewalRows.length ? `${renewalRows.length} คน — เรียงตามความด่วน` : "ไม่มีใครรอต่อคอร์ส"}</CardDescription>
-                  {renewalStart > 0 && <div className="mt-1"><HeaderProgress label="ติดต่อวันนี้" done={renewalDone} total={renewalStart} /></div>}
+                  <CardTitle>{tx("รอต่อคอร์ส")}</CardTitle>
+                  <CardDescription>{renewalRows.length ? tx("{0} คน — เรียงตามความด่วน", [renewalRows.length]) : tx("ไม่มีใครรอต่อคอร์ส")}</CardDescription>
+                  {renewalStart > 0 && <div className="mt-1"><HeaderProgress label={tx("ติดต่อวันนี้")} done={renewalDone} total={renewalStart} /></div>}
                 </CardHeader>
                 <CardContent className="space-y-1.5">
-                  {renewalRows.length === 0 && <p className="flex items-center justify-center gap-2 py-6 text-sm text-muted-foreground"><CheckCircle2Icon className="size-4 text-emerald-600" /> ทุกคนต่อคอร์สเรียบร้อย</p>}
+                  {renewalRows.length === 0 && <p className="flex items-center justify-center gap-2 py-6 text-sm text-muted-foreground"><CheckCircle2Icon className="size-4 text-emerald-600" />  {tx("ทุกคนต่อคอร์สเรียบร้อย")}</p>}
                   {renewalRows.slice(0, 8).map(({ stu, messages, urgent }) => (
                     <button key={stu.id} onClick={() => setOpenStudentId(stu.id)} className="flex w-full items-center gap-3 rounded-lg border p-2.5 text-left hover:bg-muted/50">
                       <span className={cn("grid size-9 shrink-0 place-items-center rounded-full text-sm font-semibold", avatarTone(stu.id))}>{initial(stu.nickname)}</span>
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-1.5 truncate text-sm font-medium">{stu.nickname} <span className="font-normal text-muted-foreground">{stu.name}</span> <span className={cn("rounded px-1.5 py-0.5 text-xs", gradeTone(stu.grade))}>{stu.grade}</span></div>
-                        <div className="truncate text-xs text-muted-foreground">{messages.join(" · ") || "ใกล้หมดแพ็กเกจ"}{stu.renewalFollowUps?.length ? ` · ติดตามแล้ว ${stu.renewalFollowUps.length} ครั้ง` : ""}</div>
+                        <div className="truncate text-xs text-muted-foreground">{messages.join(" · ") || tx("ใกล้หมดแพ็กเกจ")}{stu.renewalFollowUps?.length ? tx(" · ติดตามแล้ว {0} ครั้ง", [stu.renewalFollowUps.length]) : ""}</div>
                       </div>
-                      {urgent && <Pill tone="red">ด่วน</Pill>}
+                      {urgent && <Pill tone="red">{tx("ด่วน")}</Pill>}
                       <ArrowRightIcon className="size-4 shrink-0 text-muted-foreground" />
                     </button>
                   ))}
@@ -310,19 +310,20 @@ export default function DashboardPage() {
 
               <Card className="lg:col-span-2">
                 <CardHeader>
-                  <CardTitle>ลีดใหม่</CardTitle>
-                  <CardDescription>{newLeads.length ? `${newLeads.length} รายรอติดต่อ` : "ไม่มีลีดใหม่"}</CardDescription>
+                  <CardTitle>{tx("ลีดใหม่")}</CardTitle>
+                  <CardDescription>{newLeads.length ? tx("{0} รายรอติดต่อ", [newLeads.length]) : tx("ไม่มีลีดใหม่")}</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-1.5">
-                  {newLeads.length === 0 && <p className="py-6 text-center text-sm text-muted-foreground">ยังไม่มีลีดใหม่วันนี้</p>}
+                  {newLeads.length === 0 && <p className="py-6 text-center text-sm text-muted-foreground">{tx("ยังไม่มีลีดใหม่วันนี้")}</p>}
                   {newLeads.slice(0, 6).map((l) => (
                     <Link key={l.id} href="/crm" className="flex items-center gap-2 rounded-lg p-2 hover:bg-muted/60">
                       <span className="min-w-0 flex-1 truncate text-sm">{l.name} <span className="text-xs text-muted-foreground">· {l.subject} {l.childGrade}</span></span>
-                      <Pill tone="blue">{LEAD_STAGE_LABEL[l.stage]}</Pill>
+                      <Pill tone="blue">{tx(LEAD_STAGE_LABEL[l.stage])}</Pill>
                     </Link>
                   ))}
                   <Link href="/crm" className="flex items-center justify-center gap-1 pt-1 text-xs text-primary hover:underline">
-                    ไปที่ CRM <ArrowRightIcon className="size-3" />
+                    
+                    {tx("ไปที่ CRM")} <ArrowRightIcon className="size-3" />
                   </Link>
                 </CardContent>
               </Card>
@@ -332,7 +333,7 @@ export default function DashboardPage() {
           {alerts.length > 0 && (
             <Card>
               <CardHeader>
-                <CardTitle className="flex items-center gap-2"><AlertTriangleIcon className="size-4 text-amber-600" /> ต้องจัดการ (7 วันข้างหน้า)</CardTitle>
+                <CardTitle className="flex items-center gap-2"><AlertTriangleIcon className="size-4 text-amber-600" />  {tx("ต้องจัดการ (7 วันข้างหน้า)")}</CardTitle>
               </CardHeader>
               <CardContent className="grid gap-0.5 sm:grid-cols-2">
                 {alerts.map((a) => {
@@ -351,10 +352,10 @@ export default function DashboardPage() {
           {hasOverview && (
             <Card>
               <CardHeader>
-                <CardTitle>กิจกรรมล่าสุด</CardTitle>
+                <CardTitle>{tx("กิจกรรมล่าสุด")}</CardTitle>
               </CardHeader>
               <CardContent className="space-y-0.5">
-                {recentActivity.length === 0 && <p className="py-6 text-center text-sm text-muted-foreground">ยังไม่มีกิจกรรม</p>}
+                {recentActivity.length === 0 && <p className="py-6 text-center text-sm text-muted-foreground">{tx("ยังไม่มีกิจกรรม")}</p>}
                 {recentActivity.map((e, i) => {
                   const Icon = e.tone === "green" ? BanknoteIcon : e.tone === "red" ? XCircleIcon : CheckCircle2Icon
                   return (
@@ -374,12 +375,12 @@ export default function DashboardPage() {
         // detail (alerts, pending renewals) switch back to "วันนี้", for a full breakdown go to Reports
         <div className="space-y-4">
           <div className="grid gap-3 sm:grid-cols-3">
-            <Kpi icon={<UserPlusIcon className="size-4" />} label={`นักเรียนใหม่ · ${RANGE_LABEL[range]}`} value={`+${fmtNum(newCount)}`} tone="emerald" sub={<span className="flex items-center gap-1"><Delta value={R.change(newCount, newPrev, prevRange, since)} /> {R.COMPARE_LABEL[periodKey]}</span>} />
-            <Kpi icon={<UserMinusIcon className="size-4" />} label={`นักเรียนหลุด · ${RANGE_LABEL[range]}`} value={`−${fmtNum(lostCount)}`} tone={lostCount ? "red" : "emerald"} sub={<span className="flex items-center gap-1"><Delta value={R.change(lostCount, lostPrev, prevRange, since)} invert /> {R.COMPARE_LABEL[periodKey]}</span>} />
-            <Kpi icon={<UserSearchIcon className="size-4" />} label={`Lead ใหม่ · ${RANGE_LABEL[range]}`} value={fmtNum(leadsInRange)} tone="sky" sub={<span className="flex items-center gap-1"><Delta value={R.change(leadsInRange, leadsPrevRange, prevRange, since)} /> {R.COMPARE_LABEL[periodKey]}</span>} />
+            <Kpi icon={<UserPlusIcon className="size-4" />} label={tx("นักเรียนใหม่ · {0}", [tx(RANGE_LABEL[range])])} value={`+${fmtNum(newCount)}`} tone="emerald" sub={<span className="flex items-center gap-1"><Delta value={R.change(newCount, newPrev, prevRange, since)} /> {tx(R.COMPARE_LABEL[periodKey])}</span>} />
+            <Kpi icon={<UserMinusIcon className="size-4" />} label={tx("นักเรียนหลุด · {0}", [tx(RANGE_LABEL[range])])} value={`−${fmtNum(lostCount)}`} tone={lostCount ? "red" : "emerald"} sub={<span className="flex items-center gap-1"><Delta value={R.change(lostCount, lostPrev, prevRange, since)} invert /> {tx(R.COMPARE_LABEL[periodKey])}</span>} />
+            <Kpi icon={<UserSearchIcon className="size-4" />} label={tx("Lead ใหม่ · {0}", [tx(RANGE_LABEL[range])])} value={fmtNum(leadsInRange)} tone="sky" sub={<span className="flex items-center gap-1"><Delta value={R.change(leadsInRange, leadsPrevRange, prevRange, since)} /> {tx(R.COMPARE_LABEL[periodKey])}</span>} />
           </div>
           <Link href="/reports" className="flex items-center justify-center gap-1.5 rounded-xl border border-dashed p-3 text-sm text-muted-foreground hover:bg-muted/40 hover:text-foreground">
-            <ChartColumnIcon className="size-4" /> ดูรายละเอียดเพิ่มที่ Reports <ArrowRightIcon className="size-3.5" />
+            <ChartColumnIcon className="size-4" />  {tx("ดูรายละเอียดเพิ่มที่ Reports")} <ArrowRightIcon className="size-3.5" />
           </Link>
         </div>
       )}
@@ -418,12 +419,12 @@ function TodaySessionRow({ s, now, L, attendance, onOpen, muted }: { s: Session;
         <span className="text-sm font-semibold text-foreground">{s.start}</span>–{endTime(s.start, s.minutes)}
       </div>
       <div className="min-w-0 flex-1">
-        <div className="truncate text-sm font-medium">{s.subject}{sessionKindLabel(s) && <Pill tone="violet" className="ml-2">{sessionKindLabel(s)}</Pill>}</div>
+        <div className="truncate text-sm font-medium">{s.subject}{sessionKindLabel(s) && <Pill tone="violet" className="ml-2">{tx(sessionKindLabel(s)!)}</Pill>}</div>
         <div className="truncate text-xs text-muted-foreground">
-          <span className={cn(t.missing && "text-amber-700")}>{t.label}</span> · {L.room(s.roomId)} · เช็คชื่อแล้ว {marked}/{s.studentIds.length}
+          <span className={cn(t.missing && "text-amber-700")}>{t.label}</span> · {L.room(s.roomId)}  {tx("· เช็คชื่อแล้ว")} {marked}/{s.studentIds.length}
         </div>
       </div>
-      {st === "live" ? <SessionStateBadge state={st} /> : <span className="shrink-0 text-xs text-muted-foreground">{STATE_LABEL[st]}</span>}
+      {st === "live" ? <SessionStateBadge state={st} /> : <span className="shrink-0 text-xs text-muted-foreground">{tx(STATE_LABEL[st])}</span>}
     </button>
   )
 }

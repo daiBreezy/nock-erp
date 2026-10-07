@@ -1,6 +1,6 @@
 import type { Entry } from "../i18n"
 
-// Reports (owner 2026-10-07) — keys are the Thai text the page shows; {0} {1} … are filled in order
+// keys are the Thai text the page shows; {0} {1} … are filled in order
 export const REPORTS: Record<string, Entry> = {
   "ทุกสาขา": { en: "All branches", ja: "全校舎" },
   "สาขาในเขต": { en: "Branches in area", ja: "エリア内の校舎" },
@@ -456,7 +456,7 @@ export const REPORTS: Record<string, Entry> = {
   "vs ช่วงก่อนหน้าที่ยาวเท่ากัน": { en: "vs previous period of the same length", ja: "同期間長の直前期間比" },
   "ติดต่อแล้ว": { en: "Contacted", ja: "連絡済み" },
   "นัด Test / Trial": { en: "Test / Trial booked", ja: "テスト・体験予約" },
-  "ทดลองเรียน": { en: "Trialled", ja: "体験済み" },
+  "ทดลองเรียน": { en: "Trial", ja: "体験" },
   "รอชำระ": { en: "Awaiting payment", ja: "支払待ち" },
   "โทรศัพท์": { en: "Phone", ja: "電話" },
   "เว็บไซต์": { en: "Website", ja: "ウェブサイト" },

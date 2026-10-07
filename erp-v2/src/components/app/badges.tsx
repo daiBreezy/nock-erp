@@ -1,6 +1,7 @@
 import { cn } from "@/lib/utils"
 import type { SessionState } from "@/domain/rules/scheduling"
 import { STATE_LABEL } from "@/domain/rules/scheduling"
+import { tx } from "@/lib/i18n"
 
 // One colour language for statuses across the whole app (UX rule #4).
 export const TONE = {
@@ -23,7 +24,7 @@ export function SessionStateBadge({ state }: { state: SessionState }) {
   return (
     <Pill tone={STATE_TONE[state]}>
       {state === "live" && <span className="size-1.5 animate-pulse rounded-full bg-emerald-600" />}
-      {STATE_LABEL[state]}
+      {tx(STATE_LABEL[state])}
     </Pill>
   )
 }
