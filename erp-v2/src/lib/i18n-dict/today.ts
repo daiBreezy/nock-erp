@@ -104,4 +104,5 @@ export const TODAY: Record<string, Entry> = {
   "3 โรงเรียนหลัก": { en: "Top 3 schools", ja: "主な3校" },
   "3 แรก": { en: "Top 3", ja: "上位3校" },
   "ทุกโรงเรียนของสาขานี้": { en: "All schools at this branch", ja: "この校舎の全学校" },
+  "{0} คน": { en: "{0} students", ja: "{0}人" },
 }

@@ -27,6 +27,7 @@ import { pullSurveyResponses } from "@/lib/forms"
 import * as Survey from "@/domain/rules/survey"
 import { cn } from "@/lib/utils"
 import { useStore } from "@/store/store"
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { tx, uiLang, nm, sj } from "@/lib/i18n"
 
 type Tab = "summary" | "overview" | "revenue" | "students" | "attendance" | "operations" | "crm" | "satisfaction"
@@ -634,17 +635,32 @@ function StudentsTab({ d, compare, onOpen }: { d: ReportData; compare: boolean; 
   )
 }
 
-/** "BKK · TL ทองหล่อ (LIS) 20 · BN บางนา (NAS) 14" — which region / branches a school's students study at */
+/**
+ * "BKK  TL 11 · PP 5 · BN 5" — region + branch codes with counts (owner 2026-10-07: codes only, no full names or
+ * business type on the row); hovering the line lists every branch in full.
+ */
 function SchoolWhere({ row, branches }: { row: SchoolRow; branches: Branch[] }) {
-  const text = row.branches.map((b) => {
-    const br = branches.find((x) => x.id === b.id)
-    return br ? `${br.code} ${nm(br.name)} (${BUSINESS_SHORT[br.brand]}) ${b.count}` : `${b.count}`
-  }).join(" · ")
+  const list = row.branches.map((b) => ({ ...b, br: branches.find((x) => x.id === b.id) }))
   return (
-    <span title={`${row.regions.join(" + ")} · ${text}`}>
-      {row.regions.map((r) => <span key={r} className="mr-1 rounded bg-sky-100 px-1 text-[10px] font-semibold text-sky-800 dark:bg-sky-950 dark:text-sky-200">{r}</span>)}
-      {text}
-    </span>
+    <Tooltip>
+      <TooltipTrigger render={<span className="block cursor-default truncate" />}>
+        {row.regions.map((r) => <span key={r} className="mr-1 rounded bg-sky-100 px-1 text-[10px] font-semibold text-sky-800 dark:bg-sky-950 dark:text-sky-200">{r}</span>)}
+        {list.map((b, i) => <span key={b.id}>{i > 0 && " · "}{b.br?.code ?? "?"} <span className="tabular-nums">{b.count}</span></span>)}
+      </TooltipTrigger>
+      <TooltipContent side="bottom" align="start" className="p-2.5">
+        <table className="text-xs">
+          <tbody>
+            {list.map((b) => (
+              <tr key={b.id}>
+                <td className="pr-2 font-semibold">{b.br?.code}</td>
+                <td className="pr-3">{b.br ? `${nm(b.br.name)} · ${BUSINESS_SHORT[b.br.brand]} · ${b.br.province}` : b.id}</td>
+                <td className="text-right tabular-nums">{tx("{0} คน", [b.count])}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </TooltipContent>
+    </Tooltip>
   )
 }
 
