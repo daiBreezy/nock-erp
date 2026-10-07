@@ -196,4 +196,6 @@ export const PRIORITY_LABEL: Record<PeriodPriority, string> = { high: "สูง
 export const KNOWN_PROVINCES: Record<string, string> = { BKK: "กรุงเทพฯ", CBR: "ชลบุรี" }
 
 /** "ทองหล่อ · BKK" — branch name with its province code (owner 2026-09-30) */
-export const branchLabel = (b: { name: string; province?: string }) => (b.province ? `${b.name} · ${b.province}` : b.name)
+export const branchLabel = (b: { name: string; province?: string; brand?: Branch["brand"] }) =>
+  // owner 2026-10-07: branches are read by business + region too ("ศรีราชา · LIS · CBR" vs "ศรีราชา · NAS · CBR")
+  [b.name, b.brand ? (b.brand === "liclass" ? "LIS" : "NAS") : null, b.province].filter(Boolean).join(" · ")

@@ -113,7 +113,7 @@ export function nm(name: string | null | undefined): string {
 }
 
 /** a branch with its province code, e.g. "ทองหล่อ · BKK" → "Thonglor · BKK" */
-export const branchText = (b: { name: string; province?: string }) => (b.province ? `${nm(b.name)} · ${b.province}` : nm(b.name))
+export const branchText = (b: { name: string; province?: string; brand?: "nockacademy" | "liclass" }) => [nm(b.name), b.brand ? (b.brand === "liclass" ? "LIS" : "NAS") : null, b.province].filter(Boolean).join(" · ")
 
 /** subject names: Settings › System (English / 日本語 columns) first, else the standard names; `short` = Eng / Sci / Jpn */
 export function sj(subject: string | null | undefined, short = false): string {

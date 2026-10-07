@@ -4,7 +4,7 @@ import Link from "next/link"
 import { Suspense, useEffect, useMemo, useState } from "react"
 import { useSearchParams } from "next/navigation"
 import { BanknoteIcon, CalendarDaysIcon, ChartColumnIcon, ChevronDownIcon, ClockIcon, DownloadIcon, FileSpreadsheetIcon, PrinterIcon, SchoolIcon, SparklesIcon, UsersIcon, UserCheckIcon } from "lucide-react"
-import { NativeSelect } from "@/components/app/native-select"
+import { NativeSelect, type Option } from "@/components/app/native-select"
 import { StudentSheet } from "@/components/app/student-sheet"
 import { AttentionButton, AttentionDialog } from "@/components/reports/attention-dialog"
 import { Delta, Donut, DonutLegend, Empty, InfoTip, TopList, fmtNum, fmtPct, fmtShort, Heatmap, MonthBars, Panel, Rank, ShareBar, donutColor, tint } from "@/components/reports/charts"
@@ -16,10 +16,10 @@ import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { addDays, fmtDate, fmtMoney, monthShort, toDateStr, weekdayShort, yearOf } from "@/domain/dates"
 import { can, canCompareBranches, reportBranchIds } from "@/domain/rules/permissions"
-import { COMPARE_LABEL, PERIODS, type PeriodKey, type Range } from "@/domain/rules/reports"
+import { BUSINESS_SHORT, COMPARE_LABEL, PERIODS, scopeBranchIds, type PeriodKey, type Range } from "@/domain/rules/reports"
 import { LEAD_SOURCE_LABEL } from "@/domain/rules/crm"
 import { reasonLabel } from "@/domain/rules/loss"
-import type { Weekday } from "@/domain/types"
+import type { Branch, Weekday } from "@/domain/types"
 import { report } from "@/lib/feedback"
 import { useNow } from "@/lib/hooks"
 import { downloadReports } from "@/lib/reports-export"
@@ -58,7 +58,9 @@ function Reports() {
   const allowed = useMemo(() => reportBranchIds(me, branches), [me, branches])
   const compare = canCompareBranches(me) && allowed.length > 1
   const [scope, setScope] = useState<string>("all")
-  const branchIds = useMemo(() => (scope === "all" || !allowed.includes(scope) ? allowed : [scope]), [scope, allowed])
+  const allowedBranches = useMemo(() => branches.filter((b) => allowed.includes(b.id)), [branches, allowed])
+  // owner 2026-10-07: read by region (BKK / CBR), by business (NAS / LIS), both, or one branch
+  const branchIds = useMemo(() => scopeBranchIds(scope, allowedBranches), [scope, allowedBranches])
   const [tab, setTab] = useState<Tab>((params.get("tab") as Tab) || "overview")
   const [period, setPeriod] = useState<PeriodKey>("ytd")
   const today = toDateStr(useNow(60_000))
@@ -69,7 +71,8 @@ function Reports() {
   // survey answers live on the form server — pull new ones in (unhappy families notify their managers)
   useEffect(() => { pullSurveyResponses() }, [])
   const periodLabel = period === "custom" ? `${fmtDate(d.range.from)} – ${fmtDate(d.range.to)}` : tx(PERIODS.find((p) => p.key === period)!.label)
-  const scopeLabel = branchIds.length === 1 ? nm(branches.find((b) => b.id === branchIds[0])?.name ?? "") : allowed.length === branches.length ? tx("ทุกสาขา") : tx("สาขาในเขต")
+  const scopeOptions = reportScopeOptions(allowedBranches, allowed.length === branches.length)
+  const scopeLabel = scope === "all" ? scopeOptions[0].label : scopeOptions.find((o) => o.value === scope)?.label ?? ""
   const showCompare = compare && branchIds.length > 1
 
   if (!can(me, "reports.view")) return <Empty>{tx("Reports ดูได้เฉพาะ Director / Area Manager / Manager")}</Empty>
@@ -91,8 +94,8 @@ function Reports() {
           <p className="text-xs text-muted-foreground">{scopeLabel} · {periodLabel}{period !== "custom" && ` ${fmtDate(d.range.from)} – ${fmtDate(d.range.to)}`}  {tx("· เทียบ")} {fmtDate(d.prev.from, { year: d.prev.from.slice(0, 4) !== d.range.from.slice(0, 4) })} – {fmtDate(d.prev.to, { year: d.prev.to.slice(0, 4) !== d.range.to.slice(0, 4) })}  {tx("· ข้อมูลจริงจากใบแจ้งหนี้ที่จ่ายแล้ว แพ็กเกจ และการเช็คชื่อ")}</p>
         </div>
         {allowed.length > 1 && (
-          <NativeSelect className="h-9 w-48 print:hidden" value={scope} onChange={(e) => setScope(e.target.value)}
-            options={[{ value: "all", label: allowed.length === branches.length ? tx("ทุกสาขา") : tx("ทุกสาขาในเขต") }, ...branches.filter((b) => allowed.includes(b.id)).map((b) => ({ value: b.id, label: nm(b.name) }))]} />
+          <NativeSelect className="h-9 w-60 print:hidden" value={scope} onChange={(e) => setScope(e.target.value)}
+            options={scopeOptions} />
         )}
         {/* owner 2026-10-07: one download button, pick the format */}
         <DropdownMenu>
@@ -154,6 +157,23 @@ function Reports() {
   )
 }
 
+
+const REGION_NAME: Record<string, string> = { BKK: "กรุงเทพฯ", CBR: "ชลบุรี" }
+const BIZ_NAME: Record<string, string> = { nockacademy: "Nockacademy", liclass: "Liclass" }
+
+/** Reports scope picker: everything · regions · business types · region × business · each branch (grouped by region) */
+function reportScopeOptions(list: Pick<Branch, "id" | "name" | "code" | "brand" | "province">[], everything: boolean): Option[] {
+  const regions = [...new Set(list.map((b) => b.province ?? ""))].filter(Boolean).sort()
+  const bizes = (["nockacademy", "liclass"] as const).filter((z) => list.some((b) => b.brand === z))
+  const opts: Option[] = [{ value: "all", label: everything ? tx("ทุกสาขา") : tx("ทุกสาขาในเขต") }]
+  if (regions.length > 1) regions.forEach((r) => opts.push({ value: `region:${r}`, label: `${r} · ${tx(REGION_NAME[r] ?? r)}`, group: tx("ภูมิภาค") }))
+  if (bizes.length > 1) bizes.forEach((z) => opts.push({ value: `biz:${z}`, label: `${BUSINESS_SHORT[z]} · ${BIZ_NAME[z]}`, group: tx("ประเภทธุรกิจ") }))
+  if (regions.length > 1 && bizes.length > 1)
+    regions.forEach((r) => bizes.forEach((z) => { if (list.some((b) => b.province === r && b.brand === z)) opts.push({ value: `region:${r}|biz:${z}`, label: `${r} · ${BUSINESS_SHORT[z]}`, group: tx("ภูมิภาค × ธุรกิจ") }) }))
+  regions.forEach((r) => list.filter((b) => b.province === r).sort((a, b) => a.brand.localeCompare(b.brand) || a.code.localeCompare(b.code))
+    .forEach((b) => opts.push({ value: b.id, label: `${b.code} · ${nm(b.name)} (${BUSINESS_SHORT[b.brand]})`, group: tx("สาขา {0}", [r]) })))
+  return opts
+}
 
 function Kpi({ icon: Icon, label, value, sub }: { icon: typeof BanknoteIcon; label: string; value: string; sub: React.ReactNode }) {
   return (

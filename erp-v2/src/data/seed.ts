@@ -77,7 +77,7 @@ export function buildSeed(now = new Date()): DB {
 
   const branches: Branch[] = [
     {
-      id: "br_thl", code: "THL", branchNo: "001", name: "ทองหล่อ", brand: "nockacademy", province: "BKK",
+      id: "br_thl", code: "TL", branchNo: "001", name: "ทองหล่อ", nameEn: "Thonglor", brand: "liclass", province: "BKK",
       rooms: [{ id: "rm_1", name: "ห้อง 1" }, { id: "rm_2", name: "ห้อง 2" }, { id: "rm_3", name: "ห้อง 3" }],
       hours: wk("09:00", "20:00"), subjects: ["คณิต", "อังกฤษ", "วิทย์"], grades: ["ป.4", "ป.5", "ป.6", "ม.1", "ม.2", "ม.3"],
       defaultSessionMinutes: 60, busFeePerLeg: 150,
@@ -86,7 +86,7 @@ export function buildSeed(now = new Date()): DB {
       // Summer has its own blocks and its own classes (owner 2026-10-01); regular classes keep going (default)
       specialPeriods: [{ id: "sp_summer", name: "Summer", from: addDays(monday, 42), to: addDays(monday, 69), hours: wk("08:00", "22:00", []), active: true, priority: "high",
         blocks: blockWeek(["09:00", "13:00", "16:00", "18:00"], ["09:00", "13:00"]) }],
-      active: true, email: "thonglor@nockacademy.com", address: "123 ถ.สุขุมวิท 55 แขวงคลองตันเหนือ เขตวัฒนา กทม. 10110", phones: ["02-111-2222", "081-234-5678"], socials: ["https://facebook.com/nockacademy"],
+      active: true, email: "thonglor@liclass.com", address: "123 ถ.สุขุมวิท 55 แขวงคลองตันเหนือ เขตวัฒนา กทม. 10110", phones: ["02-111-2222", "081-234-5678"], socials: ["https://facebook.com/nockacademy"],
       fees: [
         { id: "fee_bus_std", kind: "bus", name: "Standard", price: 150 },
         { id: "fee_bus_far", kind: "bus", name: "โซนไกล", price: 200 },
@@ -99,32 +99,32 @@ export function buildSeed(now = new Date()): DB {
       ],
       packageDurations: { hour: [12, 24, 48, 72, 96], week: [4, 8] },
       priceChart: chart(["คณิต", "อังกฤษ", "วิทย์"], ["ป.4", "ป.5", "ป.6", "ม.1", "ม.2", "ม.3"]),
-      bankAccount: { bank: "กสิกรไทย", branchName: "สาขาทองหล่อ", name: "บจก. นกอะคาเดมี่", number: "123-4-56789-0" }, lineOaConnected: true,
+      bankAccount: { bank: "กสิกรไทย", branchName: "สาขาทองหล่อ", name: "บจก. ลิคลาส เอดูเคชั่น", number: "123-4-56789-0" }, lineOaConnected: true,
       lineOa: { channelId: "1657800001", botBasicId: "@nockacademy", addFriendUrl: "https://lin.ee/p4w3XA7" },
     },
     {
-      id: "br_ari", code: "ARI", branchNo: "001", name: "อารีย์", brand: "liclass", province: "BKK",
+      id: "br_ari", code: "BN", branchNo: "001", name: "บางนา", nameEn: "Bangna", brand: "nockacademy", province: "BKK",
       rooms: [{ id: "rm_a1", name: "ห้อง A" }, { id: "rm_a2", name: "ห้อง B" }],
       hours: wk("10:00", "19:00", [0, 1]), subjects: ["คณิต", "อังกฤษ"], grades: ["ป.1", "ป.2", "ป.3", "ป.4", "ป.5", "ป.6"],
       defaultSessionMinutes: 90, busFeePerLeg: 120, specialPeriods: [],
       blockPlans: [{ from: "2020-01-01", byDay: blockWeek(["15:00", "17:00"], ["10:00", "12:00", "14:00", "16:00"]) }],
-      active: true, email: "ari@liclass.com", address: "45 ซ.อารีย์ 1 แขวงสามเสนใน เขตพญาไท กทม. 10400", phones: ["02-333-4444"], socials: [],
+      active: true, email: "bangna@nockacademy.com", address: "45 ซ.บางนา-ตราด 25 แขวงบางนาใต้ เขตบางนา กทม. 10400", phones: ["02-333-4444"], socials: [],
       fees: [{ id: "fee_bus_ari", kind: "bus", name: "Standard", price: 120 }], promotions: [],
       packageDurations: { hour: [12, 24, 48], week: [] },
       priceChart: chart(["คณิต", "อังกฤษ"], ["ป.1", "ป.2", "ป.3", "ป.4", "ป.5", "ป.6"], 0.85),
-      bankAccount: { bank: "ไทยพาณิชย์", branchName: "สาขาอารีย์", name: "บจก. ลิคลาส เอดูเคชั่น", number: "987-6-54321-0" }, lineOaConnected: false,
+      bankAccount: { bank: "ไทยพาณิชย์", branchName: "สาขาบางนา", name: "บจก. นกอะคาเดมี่", number: "987-6-54321-0" }, lineOaConnected: false,
       lineOa: { channelId: "", botBasicId: "", addFriendUrl: "" },
     },
     // the rest of the company (owner 2026-10-01: ~12 branches — NockAcademy 10, Liclass 2). Names are placeholders
     // from the Reports ref; light setup (one class + two courses each) so Reports has every branch to compare
     ...([
-      ["br_skv", "SKV", "002", "สุขุมวิท", "nockacademy", "BKK"], ["br_slm", "SLM", "003", "สีลม", "nockacademy", "BKK"],
-      ["br_bna", "BNA", "004", "บางนา", "nockacademy", "BKK"], ["br_prd", "PRD", "005", "พาราไดซ์", "nockacademy", "BKK"],
-      ["br_vbv", "VBV", "006", "วิภาวดี", "nockacademy", "BKK"], ["br_src", "SRC", "007", "ศรีราชา", "nockacademy", "CBR"],
-      ["br_pty", "PTY", "008", "พัทยา", "nockacademy", "CBR"], ["br_cbr", "CBR", "009", "ชลบุรี", "nockacademy", "CBR"],
-      ["br_sth", "STH", "010", "สัตหีบ", "nockacademy", "CBR"], ["br_bbg", "BBG", "002", "บ้านบึง", "liclass", "CBR"],
-    ] as const).map(([id, code, branchNo, name, brand, province]): Branch => ({
-      id, code, branchNo, name, brand, province,
+      // owner 2026-10-07: the real branches — BKK: Liclass TL · NAS BN PP GP RH · CBR: Liclass SR · NAS SR CB PT BW
+      ["br_prd", "PP", "002", "พาราไดซ์ พาร์ค", "Paradise Park", "nockacademy", "BKK"], ["br_skv", "GP", "003", "กรีนเพลส", "Green Place", "nockacademy", "BKK"],
+      ["br_slm", "RH", "004", "รามคำแหง", "Ramkhumhaeng", "nockacademy", "BKK"], ["br_src", "SR", "002", "ศรีราชา", "Sriracha", "liclass", "CBR"],
+      ["br_bna", "SR", "005", "ศรีราชา", "Sriracha", "nockacademy", "CBR"], ["br_cbr", "CB", "006", "ชลบุรี (ทุ่งน้ำ)", "Chonburi (Tuknam)", "nockacademy", "CBR"],
+      ["br_pty", "PT", "007", "พัทยา", "Pattaya", "nockacademy", "CBR"], ["br_sth", "BW", "008", "บ่อวิน", "Bowin", "nockacademy", "CBR"],
+    ] as const).map(([id, code, branchNo, name, nameEn, brand, province]): Branch => ({
+      id, code, branchNo, name, nameEn, brand, province,
       rooms: [{ id: `${id}_r1`, name: "ห้อง 1" }, { id: `${id}_r2`, name: "ห้อง 2" }],
       hours: wk("09:00", "20:00"), subjects: ["คณิต", "อังกฤษ", "วิทย์"], grades: ["ป.4", "ป.5", "ป.6", "ม.1", "ม.2", "ม.3"],
       defaultSessionMinutes: 60, busFeePerLeg: 150, specialPeriods: [],
@@ -148,7 +148,7 @@ export function buildSeed(now = new Date()): DB {
     st("u_sa", "ซี ซูเปอร์แอดมิน", "ซี", ["super_admin"], ALL_BRANCHES, []),
     st("u_am", "เอ ผู้จัดการเขต", "เอ", ["area_manager"], BKK_ZONE, []),
     st("u_ploy", "พลอย แอดมิน", "พลอย", ["admin"], ["br_thl"], []),
-    // branch Manager of ทองหล่อ only — approvals at อารีย์ must be blocked for him
+    // branch Manager of ทองหล่อ only — approvals at บางนา must be blocked for him
     st("u_ton", "ต้น ผู้จัดการ", "ต้น", ["manager"], ["br_thl"], []),
     st("u_dai", "ได บรีซซี่", "ครูได", ["teacher"], ["br_thl"], ["คณิต", "วิทย์"]),
     st("u_jo", "โจ ใจเย็น", "ครูโจ", ["teacher"], ["br_thl"], ["คณิต"]),
@@ -464,15 +464,15 @@ export function buildSeed(now = new Date()): DB {
     msg("m_3a", "cv_3", "parent", null, "น้ำใสขอลาวันพุธหน้าค่ะ ไม่สบาย", 1, 15, 50),
     msg("m_3b", "cv_3", "staff", "u_ton", "รับทราบค่ะ พักผ่อนเยอะๆนะคะ", 1, 16, 0),
     // cv_4 — plain contact, unassigned
-    msg("m_4a", "cv_4", "parent", null, "สวัสดีครับ อยากทราบว่ามีสาขาอารีย์ไหมครับ", 2, 10, 50),
-    msg("m_4b", "cv_4", "staff", "u_ploy", "มีครับ อยู่สาขาอารีย์เลยครับ ติดต่อได้ตามเบอร์สาขานะครับ", 2, 11, 0),
+    msg("m_4a", "cv_4", "parent", null, "สวัสดีครับ อยากทราบว่ามีสาขาบางนาไหมครับ", 2, 10, 50),
+    msg("m_4b", "cv_4", "staff", "u_ploy", "มีครับ อยู่สาขาบางนาเลยครับ ติดต่อได้ตามเบอร์สาขานะครับ", 2, 11, 0),
     // cv_5 — lead (ld_3), phone contact — no LINE yet
     msg("m_5a", "cv_5", "staff", "u_ton", "สวัสดีค่ะ โทรนัดสอบวัดระดับให้น้องพัชแล้วนะคะ", 1, 10, 25),
     msg("m_5b", "cv_5", "internal", "u_ton", "แม่สะดวกเช้าวันศุกร์ นัดไว้ 10:00 วิชาวิทย์แล้วค่ะ", 1, 10, 30),
   ]
 
-  // yymmdd-business-branch-running, พ.ศ. 2 digits — same as nextInvoiceNumber (NockAcademy = 01, ทองหล่อ = 001)
-  const docNo = (d: string, n: number) => `${String((Number(d.slice(0, 4)) + 543) % 100).padStart(2, "0")}${d.slice(5, 7)}${d.slice(8, 10)}-01-001-${String(n).padStart(4, "0")}`
+  // yymmdd-business-branch-running, พ.ศ. 2 digits — same as nextInvoiceNumber (Liclass = 02, ทองหล่อ = 001)
+  const docNo = (d: string, n: number) => `${String((Number(d.slice(0, 4)) + 543) % 100).padStart(2, "0")}${d.slice(5, 7)}${d.slice(8, 10)}-02-001-${String(n).padStart(4, "0")}`
   const invoices: Invoice[] = [
     {
       id: "inv_paid", branchId: "br_thl", studentId: "stu_1", number: docNo(monthStart, 1),

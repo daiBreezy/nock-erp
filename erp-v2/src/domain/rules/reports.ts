@@ -710,3 +710,22 @@ export function exitSummary(students: Pick<Student, "exit">[], r: Range) {
     comments: xs.filter((e) => e.answers?.comment).map((e) => ({ text: e.answers!.comment, at: e.closedAt!, reasonId: e.reasonId })).sort((a, b) => b.at.localeCompare(a.at)),
   }
 }
+
+// ---------- scope: region / business type (owner 2026-10-07) ----------
+
+/** business type short codes the company uses: NockAcademy = NAS, Liclass = LIS */
+export const BUSINESS_SHORT: Record<Branch["brand"], string> = { nockacademy: "NAS", liclass: "LIS" }
+
+/**
+ * Which branches a Reports scope covers. Scope ids: "all" · "region:BKK" · "biz:liclass" · "region:CBR|biz:nockacademy"
+ * · a branch id. Always within the branches this person may see (`allowed`).
+ */
+export function scopeBranchIds(scope: string, allowed: Pick<Branch, "id" | "brand" | "province">[]): string[] {
+  if (scope === "all") return allowed.map((b) => b.id)
+  if (scope.startsWith("region:") || scope.startsWith("biz:")) {
+    const parts = Object.fromEntries(scope.split("|").map((x) => x.split(":") as [string, string]))
+    const ids = allowed.filter((b) => (!parts.region || b.province === parts.region) && (!parts.biz || b.brand === parts.biz)).map((b) => b.id)
+    return ids.length ? ids : allowed.map((b) => b.id)
+  }
+  return allowed.some((b) => b.id === scope) ? [scope] : allowed.map((b) => b.id)
+}

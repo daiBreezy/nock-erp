@@ -499,4 +499,10 @@ export const REPORTS: Record<string, Entry> = {
   "จาก {0} ครอบครัวที่ตอบ · เฉลี่ยทุกหัวข้อ {1}/5": { en: "from {0} families who answered · all topics average {1}/5", ja: "回答した{0}家族 · 全項目平均 {1}/5" },
   "จะกลับมาเรียนไหม": { en: "Will they come back?", ja: "戻ってくるか" },
   "ยังไม่มีผู้ปกครองตอบฟอร์มแจ้งออกในช่วงนี้": { en: "No parent answered the exit form this period", ja: "この期間に退会フォームの回答はありません" },
+  "ภูมิภาค": { en: "Region", ja: "地域" },
+  "ประเภทธุรกิจ": { en: "Business type", ja: "事業タイプ" },
+  "ภูมิภาค × ธุรกิจ": { en: "Region × business", ja: "地域×事業" },
+  "สาขา {0}": { en: "Branches {0}", ja: "{0}の校舎" },
+  "กรุงเทพฯ": { en: "Bangkok", ja: "バンコク" },
+  "ชลบุรี": { en: "Chonburi", ja: "チョンブリー" },
 }

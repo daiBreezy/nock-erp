@@ -1848,3 +1848,22 @@ describe("romanize names", () => {
     expect(romanizeName("Summer English")).toBe("Summer English")
   })
 })
+
+// ---------- Reports scope: region / business (owner 2026-10-07) ----------
+describe("report scope", () => {
+  const list = [
+    { id: "tl", brand: "liclass" as const, province: "BKK" }, { id: "bn", brand: "nockacademy" as const, province: "BKK" },
+    { id: "sr_l", brand: "liclass" as const, province: "CBR" }, { id: "sr_n", brand: "nockacademy" as const, province: "CBR" }, { id: "pt", brand: "nockacademy" as const, province: "CBR" },
+  ]
+  it("reads by region, by business, by both, or one branch", () => {
+    expect(Rep.scopeBranchIds("all", list)).toHaveLength(5)
+    expect(Rep.scopeBranchIds("region:CBR", list)).toEqual(["sr_l", "sr_n", "pt"])
+    expect(Rep.scopeBranchIds("biz:liclass", list)).toEqual(["tl", "sr_l"])
+    expect(Rep.scopeBranchIds("region:CBR|biz:nockacademy", list)).toEqual(["sr_n", "pt"])
+    expect(Rep.scopeBranchIds("bn", list)).toEqual(["bn"])
+  })
+  it("never shows branches outside what the person may see", () => {
+    expect(Rep.scopeBranchIds("nope", list)).toHaveLength(5)
+    expect(Rep.scopeBranchIds("region:CBR", list.slice(0, 2))).toEqual(["tl", "bn"])
+  })
+})
