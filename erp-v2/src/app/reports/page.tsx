@@ -13,6 +13,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { SummaryTab } from "@/components/reports/summary-tab"
 import { useReports, type ReportData } from "@/components/reports/use-reports"
 import { Button } from "@/components/ui/button"
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { addDays, fmtDate, fmtMoney, monthShort, toDateStr, weekdayShort, yearOf } from "@/domain/dates"
 import { can, canCompareBranches, reportBranchIds } from "@/domain/rules/permissions"
 import { COMPARE_LABEL, PERIODS, type PeriodKey, type Range } from "@/domain/rules/reports"
@@ -238,6 +239,9 @@ function Overview({ d, compare, period, periodLabel, onAllRevenue, onAllStudents
           )}
         </Panel>
       </div>
+
+      {/* owner 2026-10-07: retention is a big-picture number — it lives on the overview */}
+      <CohortPanel d={d} compare={compare} />
     </div>
   )
 }
@@ -496,6 +500,7 @@ function StudentsTab({ d, compare, onOpen }: { d: ReportData; compare: boolean; 
   const net = f.newCount + f.returning - f.lost
   const name = (id: string) => d.students.find((x) => x.id === id)
   const events = d.events.filter((e) => e.kind !== "renewed" && e.date >= d.range.from && e.date <= d.range.to).reverse()
+  const [listOpen, setListOpen] = useState(false)
   return (
     <div className="space-y-4">
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 xl:grid-cols-7">
@@ -507,9 +512,19 @@ function StudentsTab({ d, compare, onOpen }: { d: ReportData; compare: boolean; 
         <Stat label="Net" value={`${net > 0 ? "+" : ""}${net}`} tone={net < 0 ? "text-red-600" : undefined} />
         <Stat label={tx("อัตราต่อคอร์ส")} value={fmtPct(f.renewal)} sub={<span>{tx("ก่อนหน้า")} {d.comparable ? fmtPct(f.renewalPrev) : "—"}</span>} />
       </div>
-      <Panel title={tx("นักเรียน Active รายเดือน")} hint={tx("นับ ณ สิ้นเดือน (เดือนนี้ = วันนี้)")}>
-        <MonthBars thisYear={d.activeMonthly.thisYear} lastYear={d.activeMonthly.lastYear} current={Number(d.today.slice(5, 7)) - 1} unit={tx(" คน")} />
-      </Panel>
+      {/* owner 2026-10-07: what moved, not just how many — monthly in / out + the share of each in the period */}
+      <div className="grid gap-4 xl:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
+        <Panel title={tx("ความเคลื่อนไหวรายเดือน")} hint={tx("ปี {0} · เหนือเส้น = เข้า (ใหม่ + กลับมาเรียน) · ใต้เส้น = ออก (Lost + Pause) · ชี้ที่เดือนเพื่อดูตัวเลข", [yearOf(d.monthly.year)])} fill>
+          <MovementBars months={d.movementMonthly} current={Number(d.today.slice(5, 7)) - 1} />
+        </Panel>
+        <Panel title={tx("สัดส่วนในช่วงนี้")} hint={periodLabelOf(d)} fill
+          action={events.length > 0 && <button type="button" className="text-xs text-primary hover:underline" onClick={() => setListOpen(true)}>{tx("ดูรายชื่อ ›")}</button>}>
+          <div className="flex flex-1 flex-col justify-center">
+            <DonutLegend keepOrder stack title="" colors={MOVE_COLORS} center={`${net > 0 ? "+" : ""}${net}`} sub={tx("สุทธิ")}
+              parts={[{ label: tx("ใหม่"), value: f.newCount }, { label: tx("กลับมาเรียน"), value: f.returning }, { label: "Pause", value: f.pauses }, { label: "Lost", value: f.lost }]} />
+          </div>
+        </Panel>
+      </div>
       {compare && (
         <Panel title={tx("แยกตามสาขา")}>
           <table className="w-full text-sm">
@@ -528,21 +543,63 @@ function StudentsTab({ d, compare, onOpen }: { d: ReportData; compare: boolean; 
           </table>
         </Panel>
       )}
-      <Panel title={tx("ความเคลื่อนไหวนักเรียน")} hint={tx("{0} รายการในช่วงนี้ · ล่าสุดอยู่บน · กดชื่อเพื่อเปิดข้อมูลนักเรียน", [events.length])}>
-        {events.length ? (
+      <Dialog open={listOpen} onOpenChange={setListOpen}>
+        <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-4xl">
+          <DialogHeader><DialogTitle>{tx("ความเคลื่อนไหวนักเรียน")}</DialogTitle><DialogDescription>{tx("{0} รายการในช่วงนี้ · ล่าสุดอยู่บน · กดชื่อเพื่อเปิดข้อมูลนักเรียน", [events.length])}</DialogDescription></DialogHeader>
           <div className="grid gap-6 md:grid-cols-3 md:gap-0 md:divide-x">
             {(["new", "returning", "lost"] as const).map((kind, c) => (
               <div key={kind} className={cn(c > 0 && "md:pl-6", c < 2 && "md:pr-6")}>
                 <MoveList title={kind === "new" ? tx("ใหม่") : kind === "returning" ? tx("กลับมาเรียน") : "Lost"} tone={kind === "lost" ? "text-red-600" : "text-emerald-600"}
-                  rows={events.filter((e) => e.kind === kind).map((e) => ({ id: e.studentId, date: e.date, name: nm(name(e.studentId)?.nickname ?? "—"), grade: name(e.studentId)?.grade ?? "" }))} onOpen={onOpen} />
+                  rows={events.filter((e) => e.kind === kind).map((e) => ({ id: e.studentId, date: e.date, name: nm(name(e.studentId)?.nickname ?? "—"), grade: name(e.studentId)?.grade ?? "" }))} onOpen={(id) => { setListOpen(false); onOpen(id) }} />
               </div>
             ))}
           </div>
-        ) : <Empty />}
-      </Panel>
+        </DialogContent>
+      </Dialog>
       <ExitPanelReport d={d} />
-      <CohortPanel d={d} compare={compare} />
       <p className="text-xs text-muted-foreground">{tx("นักเรียนที่ Import จากระบบเดิมไม่นับเป็น \"ใหม่\" และไม่อยู่ใน Cohort (ไม่รู้วันที่เริ่มเรียนจริง)")}</p>
+    </div>
+  )
+}
+
+const MOVE_COLORS = ["#10b981", "#0ea5e9", "#f59e0b", "#dc2626"] // ใหม่ · กลับมาเรียน · Pause · Lost
+const periodLabelOf = (d: ReportData) => `${fmtDate(d.range.from)} – ${fmtDate(d.range.to)}`
+
+/** Diverging monthly bars: in (new + returning) above the line, out (lost + long leave) below; hover = the numbers */
+function MovementBars({ months, current }: { months: ReportData["movementMonthly"]; current: number }) {
+  const [hover, setHover] = useState<number | null>(null)
+  const maxIn = Math.max(1, ...months.map((m) => (m ? m.newCount + m.returning : 0)))
+  const maxOut = Math.max(1, ...months.map((m) => (m ? m.lost + m.pauses : 0)))
+  const scale = Math.max(maxIn, maxOut)
+  const h = (n: number) => `${(n / scale) * 100}%`
+  const show = hover ?? current
+  const m = months[show]
+  return (
+    <div className="flex flex-1 flex-col gap-3">
+      <div className="grid flex-1 grid-cols-12 gap-1.5 sm:gap-2.5" onMouseLeave={() => setHover(null)}>
+        {months.map((x, i) => (
+          <div key={i} onMouseEnter={() => setHover(i)} className={cn("flex min-h-56 flex-col rounded-lg px-0.5", (hover === i || (hover === null && i === current)) && "bg-muted/60")}>
+            <div className="flex flex-1 flex-col justify-end">
+              {x && <><div className="rounded-t-sm" style={{ height: h(x.returning), background: MOVE_COLORS[1] }} /><div style={{ height: h(x.newCount), background: MOVE_COLORS[0] }} className={cn(!x.returning && "rounded-t-sm")} /></>}
+            </div>
+            <div className="h-px bg-foreground/30" />
+            <div className="flex flex-1 flex-col">
+              {x && <><div style={{ height: h(x.lost), background: MOVE_COLORS[3] }} className={cn(!x.pauses && "rounded-b-sm")} /><div className="rounded-b-sm" style={{ height: h(x.pauses), background: MOVE_COLORS[2] }} /></>}
+            </div>
+            <p className={cn("mt-1 text-center text-[11px] text-muted-foreground", i === current && "font-semibold text-foreground")}>{monthShort(i)}</p>
+          </div>
+        ))}
+      </div>
+      <div className="flex flex-wrap items-center gap-x-5 gap-y-1 rounded-2xl bg-muted/50 px-3 py-2 text-xs">
+        <span className="font-medium">{monthShort(show)}</span>
+        {m ? <>
+          <span className="flex items-center gap-1.5"><span className="size-2 rounded-full" style={{ background: MOVE_COLORS[0] }} />{tx("ใหม่")} <b className="tabular-nums">+{m.newCount}</b></span>
+          <span className="flex items-center gap-1.5"><span className="size-2 rounded-full" style={{ background: MOVE_COLORS[1] }} />{tx("กลับมาเรียน")} <b className="tabular-nums">+{m.returning}</b></span>
+          <span className="flex items-center gap-1.5"><span className="size-2 rounded-full" style={{ background: MOVE_COLORS[3] }} />Lost <b className="tabular-nums">−{m.lost}</b></span>
+          <span className="flex items-center gap-1.5"><span className="size-2 rounded-full" style={{ background: MOVE_COLORS[2] }} />Pause <b className="tabular-nums">{m.pauses}</b></span>
+          <span className="ml-auto">{tx("สุทธิ")} <b className={cn("tabular-nums", m.newCount + m.returning - m.lost < 0 ? "text-red-600" : "text-emerald-600")}>{m.newCount + m.returning - m.lost > 0 ? "+" : ""}{m.newCount + m.returning - m.lost}</b></span>
+        </> : <span className="text-muted-foreground">{tx("ยังไม่ถึงเดือนนี้")}</span>}
+      </div>
     </div>
   )
 }
@@ -749,6 +806,10 @@ function ExitPanelReport({ d }: { d: ReportData }) {
   const lossReasons = useStore((st) => st.system.lossReasons)
   const max = Math.max(1, ...e.reasons.map((r) => r.main + r.other))
   const SC = { teacher: tx("ครู"), content: tx("เนื้อหา"), admin: tx("แอดมิน"), value: tx("ความคุ้มค่า") } as const
+  const [open, setOpen] = useState(false)
+  const scores = Object.values(e.scores).filter((x): x is number => x !== null)
+  const avgScore = scores.length ? scores.reduce((a, x) => a + x, 0) / scores.length : null
+  const back = Math.max(1, e.comeBack.yes + e.comeBack.maybe + e.comeBack.no)
   return (
     <div className="grid gap-4 lg:grid-cols-2">
       <Panel title={tx("ทำไมนักเรียนออก")} hint={tx("จากฟอร์มแจ้งออก · {0} คนในช่วงนี้ · ผู้ปกครองตอบ {1} · ไม่ตอบ {2}", [e.total, e.answered, e.noReply])} fill>
@@ -763,7 +824,28 @@ function ExitPanelReport({ d }: { d: ReportData }) {
         ) : <Empty>{tx("ยังไม่มีนักเรียนที่ปิดการออกในช่วงนี้")}</Empty>}
         {e.reasons.length > 0 && <p className="mt-2 text-[11px] text-muted-foreground">{tx("สีเข้ม = เหตุผลหลัก · สีอ่อน = เหตุผลอื่นที่เลือกด้วย")}</p>}
       </Panel>
-      <Panel title={tx("คะแนนจากผู้ปกครองที่ออก")} hint={tx("เฉลี่ย 1–5 · NPS = % แนะนำ (9–10) − % ไม่แนะนำ (0–6)")} fill>
+      {/* owner 2026-10-07: the headline only — NPS + will they come back; the rest opens in a popup */}
+      <Panel title={tx("คะแนนจากผู้ปกครองที่ออก")} hint={tx("เฉลี่ย 1–5 · NPS = % แนะนำ (9–10) − % ไม่แนะนำ (0–6)")} fill
+        action={e.answered > 0 && <button type="button" className="text-xs text-primary hover:underline" onClick={() => setOpen(true)}>{tx("ดูรายละเอียด ›")}</button>}>
+        {e.answered ? (
+          <button type="button" onClick={() => setOpen(true)} className="flex flex-1 flex-col justify-center gap-5 rounded-2xl text-left hover:bg-muted/40">
+            <div className="flex items-end gap-6 px-2">
+              <div><p className="text-xs text-muted-foreground">NPS</p><p className={cn("text-5xl font-semibold tabular-nums", e.nps !== null && e.nps < 0 ? "text-red-600" : "text-emerald-600")}>{e.nps === null ? "—" : `${e.nps > 0 ? "+" : ""}${e.nps}`}</p></div>
+              <div className="pb-1.5 text-sm text-muted-foreground">{tx("จาก {0} ครอบครัวที่ตอบ · เฉลี่ยทุกหัวข้อ {1}/5", [e.answered, avgScore === null ? "—" : avgScore.toFixed(1)])}</div>
+            </div>
+            <div className="px-2">
+              <p className="mb-1.5 text-xs text-muted-foreground">{tx("จะกลับมาเรียนไหม")}</p>
+              <div className="flex h-3 overflow-hidden rounded-full bg-muted">
+                <span className="bg-emerald-500" style={{ width: `${(e.comeBack.yes / back) * 100}%` }} /><span className="bg-amber-400" style={{ width: `${(e.comeBack.maybe / back) * 100}%` }} /><span className="bg-slate-300" style={{ width: `${(e.comeBack.no / back) * 100}%` }} />
+              </div>
+              <div className="mt-1.5 flex flex-wrap gap-x-4 text-xs"><span className="text-emerald-700">{tx("จะกลับมา")} {e.comeBack.yes}</span><span className="text-amber-700">{tx("อาจจะ")} {e.comeBack.maybe}</span><span className="text-muted-foreground">{tx("คงไม่")} {e.comeBack.no}</span></div>
+            </div>
+          </button>
+        ) : <Empty>{tx("ยังไม่มีผู้ปกครองตอบฟอร์มแจ้งออกในช่วงนี้")}</Empty>}
+      </Panel>
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-2xl">
+          <DialogHeader><DialogTitle>{tx("คะแนนจากผู้ปกครองที่ออก")}</DialogTitle><DialogDescription>{tx("เฉลี่ย 1–5 · NPS = % แนะนำ (9–10) − % ไม่แนะนำ (0–6)")}</DialogDescription></DialogHeader>
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
           {(Object.keys(SC) as (keyof typeof SC)[]).map((k) => <Stat key={k} label={SC[k]} value={e.scores[k] === null ? "—" : e.scores[k]!.toFixed(1)} tone={e.scores[k] !== null && e.scores[k]! < 3.5 ? "text-red-600" : undefined} />)}
         </div>
@@ -774,9 +856,10 @@ function ExitPanelReport({ d }: { d: ReportData }) {
           <Stat label={tx("คงไม่")} value={String(e.comeBack.no)} />
         </div>
         {e.comments.length > 0 && (
-          <ul className="mt-3 max-h-32 space-y-1 overflow-y-auto border-t pt-2 text-xs">{e.comments.slice(0, 8).map((c, i) => <li key={i}>“{c.text}” <span className="text-muted-foreground">· {reasonLabel(c.reasonId, lossReasons, uiLang())} · {fmtDate(c.at.slice(0, 10))}</span></li>)}</ul>
+          <ul className="mt-3 max-h-72 space-y-1 overflow-y-auto border-t pt-2 text-xs">{e.comments.slice(0, 40).map((c, i) => <li key={i}>“{c.text}” <span className="text-muted-foreground">· {reasonLabel(c.reasonId, lossReasons, uiLang())} · {fmtDate(c.at.slice(0, 10))}</span></li>)}</ul>
         )}
-      </Panel>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
@@ -784,15 +867,20 @@ function ExitPanelReport({ d }: { d: ReportData }) {
 /** Cohort retention (owner's layout): branch × year joined, M0…M12; click a branch for the months it joined. */
 function CohortPanel({ d, compare }: { d: ReportData; compare: boolean }) {
   const [drill, setDrill] = useState<string | null>(null)
+  // owner 2026-10-07: up to 24 months after joining — switch 12 / 24
+  const [span, setSpan] = useState<12 | 24>(12)
   const branchName = (id: string) => nm(d.operations.rooms.find((b) => b.id === id)?.name ?? id)
   const rows = drill !== null || !compare
     ? d.cohortMonthly(drill).map((g) => ({ key: g.key, label: fmtMonthKey(g.key), sub: "", size: g.size, cells: g.cells, branch: "" }))
     : d.cohortByBranchYear.map((g) => { const [b, y] = g.key.split("|"); return { key: g.key, label: branchName(b), sub: String(yearOf(Number(y))), size: g.size, cells: g.cells, branch: b } })
-  const months = Array.from({ length: 13 }, (_, n) => n)
+  const months = Array.from({ length: span + 1 }, (_, n) => n)
   const avg = months.map((n) => { const xs = rows.filter((r) => r.cells[n] !== null); const size = xs.reduce((a, r) => a + r.size, 0); return size ? xs.reduce((a, r) => a + r.cells[n]! * r.size, 0) / size : null })
   return (
     <Panel title="Cohort Retention" hint={drill ? tx("{0} · แยกตามเดือนที่สมัคร", [branchName(drill)]) : compare ? tx("% นักเรียนที่ยังเรียนอยู่ N เดือนหลังสมัคร · สาขา × ปีที่สมัคร · กดสาขาเพื่อดูรายเดือน") : tx("% นักเรียนที่ยังเรียนอยู่ N เดือนหลังสมัคร · แยกตามเดือนที่สมัคร")}
-      action={drill && <button type="button" className="text-xs text-primary" onClick={() => setDrill(null)}>{tx("‹ ทุกสาขา")}</button>}>
+      action={<span className="flex items-center gap-2">
+        {drill && <button type="button" className="text-xs text-primary" onClick={() => setDrill(null)}>{tx("‹ ทุกสาขา")}</button>}
+        <span className="inline-flex rounded-full bg-muted p-0.5 text-xs">{([12, 24] as const).map((n) => <button key={n} type="button" onClick={() => setSpan(n)} className={cn("rounded-full px-3 py-0.5", span === n ? "bg-background font-medium shadow-sm" : "text-muted-foreground")}>{n}M</button>)}</span>
+      </span>}>
       {rows.length ? (
         <div className="overflow-x-auto">
           <table className="w-full border-separate border-spacing-0.5 text-xs">
@@ -810,7 +898,7 @@ function CohortPanel({ d, compare }: { d: ReportData; compare: boolean }) {
                       ) : <span className="text-sm">{r.label}</span>}
                     </td>
                     <td className="px-1 text-right text-muted-foreground tabular-nums">{r.size}</td>
-                    {r.cells.map((c, n) => (
+                    {r.cells.slice(0, span + 1).map((c, n) => (
                       <td key={n} className={cn("h-7 rounded-md text-center tabular-nums", c !== null && c > 0.55 && "text-primary-foreground")} style={{ background: c === null ? "transparent" : tint(c) }}>{c === null ? "" : `${Math.round(c * 100)}%`}</td>
                     ))}
                   </tr>

@@ -202,6 +202,13 @@ export function useReports(branchIds: string[], period: R.PeriodKey, custom?: R.
         renewal: R.renewalRate(events, range), renewalPrev: R.renewalRate(events, prev),
         newPrev: R.countEvents(events, prev, "new"), lostPrev: R.countEvents(events, prev, "lost"),
       },
+      // owner 2026-10-07: what moved each month this year — in (new, returning) vs out (lost, long leave)
+      movementMonthly: Array.from({ length: 12 }, (_, m) => {
+        const ym = `${year}-${String(m + 1).padStart(2, "0")}`
+        if (ym > today.slice(0, 7)) return null
+        const of = (k: "new" | "returning" | "lost") => events.filter((e) => e.kind === k && e.date.startsWith(ym) && e.date <= today).length
+        return { newCount: of("new"), returning: of("returning"), lost: of("lost"), pauses: leaves.filter((l) => l.from.startsWith(ym) && l.from <= today).length }
+      }),
       activeMonthly: {
         thisYear: R.activeByMonth(year, today, students.map((x) => x.id), ents, leaves),
         lastYear: R.activeByMonth(year - 1, today, students.map((x) => x.id), ents, leaves),

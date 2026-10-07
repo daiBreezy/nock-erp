@@ -190,7 +190,7 @@ export function Donut({ parts, center, sub, colors }: { parts: { label: string; 
  * grey "อื่นๆ"; "ดูทั้งหมด" opens every item (donut too) so a long list never stretches the card. `keepOrder` keeps the
  * given order (funnel stages) instead of biggest first.
  */
-export function DonutLegend({ title, parts, center, sub, top = 5, keepOrder }: { title: string; parts: { label: string; value: number }[]; center: string; sub: string; top?: number; keepOrder?: boolean }) {
+export function DonutLegend({ title, parts, center, sub, top = 5, keepOrder, colors: fixed, stack }: { title: string; parts: { label: string; value: number }[]; center: string; sub: string; top?: number; keepOrder?: boolean; colors?: string[]; stack?: boolean }) {
   const [open, setOpen] = useState(false)
   const shown = parts.filter((p) => p.value > 0)
   const sorted = keepOrder ? shown : [...shown].sort((a, b) => b.value - a.value)
@@ -198,13 +198,13 @@ export function DonutLegend({ title, parts, center, sub, top = 5, keepOrder }: {
   const head = fold ? sorted.slice(0, top) : sorted
   const rest = sorted.slice(head.length)
   const slices = rest.length ? [...head, { label: tx("อื่นๆ ({0})", [rest.length]), value: rest.reduce((a, p) => a + p.value, 0) }] : head
-  const colors = slices.map((_, i) => (rest.length && i === slices.length - 1 ? "#cbd5e1" : donutColor(i)))
+  const colors = slices.map((p, i) => (rest.length && i === slices.length - 1 ? "#cbd5e1" : fixed?.[parts.findIndex((x) => x.label === p.label)] ?? donutColor(i)))
   const total = slices.reduce((a, p) => a + p.value, 0)
   return (
     <div className="flex min-w-0 flex-col gap-4">
-      <p className="text-sm font-medium">{title}</p>
+      {title && <p className="text-sm font-medium">{title}</p>}
       {total ? (
-        <div className="flex flex-col items-center gap-6 sm:flex-row sm:items-start">
+        <div className={cn("flex flex-col items-center gap-6", !stack && "sm:flex-row sm:items-start")}>
           <div className="shrink-0"><Donut parts={slices} colors={colors} center={center} sub={sub} /></div>
           <div className="w-full max-w-sm min-w-0">
             <ul className="space-y-2 text-sm">

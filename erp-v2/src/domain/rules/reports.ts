@@ -600,7 +600,7 @@ export function lostLeads(leads: Pick<Lead, "stage" | "archivedFrom" | "createdA
 
 // ---------- R3: cohort retention ----------
 
-export const COHORT_MONTHS = 12
+export const COHORT_MONTHS = 24 // owner 2026-10-07: up to 24 months (the page switches 12 / 24)
 
 const addMonthsStr = (d: DateStr, n: number) => shiftMonths(d, n)
 
