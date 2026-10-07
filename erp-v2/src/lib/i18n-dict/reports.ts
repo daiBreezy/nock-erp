@@ -485,4 +485,8 @@ export const REPORTS: Record<string, Entry> = {
   "วิทย์": { en: "Science", ja: "理科" },
   "เลือกวันสุดท้าย": { en: "Now pick the last day", ja: "最終日を選択" },
   "เลือกวันแรก แล้วเลือกวันสุดท้าย · เทียบกับช่วงก่อนหน้าที่ยาวเท่ากัน": { en: "Pick the first day, then the last · compared with the same length before", ja: "開始日、次に最終日を選択 · 同じ長さの直前期間と比較" },
+  "ดาวน์โหลด": { en: "Download", ja: "ダウンロード" },
+  "หน้าที่เปิดอยู่": { en: "this page", ja: "表示中のページ" },
+  "ทุกแท็บ": { en: "all tabs", ja: "全タブ" },
+  "อัตราเข้าเรียน = มา ÷ (มา + ลา)": { en: "Attendance = present ÷ (present + leave)", ja: "出席率＝出席÷（出席＋欠席）" },
 }

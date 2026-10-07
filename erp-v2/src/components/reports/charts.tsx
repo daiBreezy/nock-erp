@@ -1,7 +1,8 @@
 "use client"
 
 import { useState, type ReactNode } from "react"
-import { ArrowDownIcon, ArrowUpIcon } from "lucide-react"
+import { ArrowDownIcon, ArrowUpIcon, CircleHelpIcon } from "lucide-react"
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { cn } from "@/lib/utils"
 import { tx } from "@/lib/i18n"
 import { monthShort } from "@/domain/dates"
@@ -33,12 +34,25 @@ export function Delta({ value, invert, className }: { value: number | null; inve
 
 /** A report card. `center` = content centred in the card's height · `fill` = content stretched to the card's height
  *  (owner 2026-10-01: cards side by side are the same height — the content should fill it, not leave a gap). */
+/** a small "?" that shows an explanation on hover (or tap / keyboard focus) */
+export function InfoTip({ text }: { text: string }) {
+  return (
+    <Tooltip>
+      <TooltipTrigger render={<button type="button" aria-label={text} className="grid size-5 place-items-center self-center rounded-full text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/40 focus-visible:outline-none" />}>
+        <CircleHelpIcon className="size-4" />
+      </TooltipTrigger>
+      <TooltipContent side="bottom" align="start" className="leading-relaxed">{text}</TooltipContent>
+    </Tooltip>
+  )
+}
+
 export function Panel({ title, hint, action, children, className, center, fill }: { title: string; hint?: string; action?: ReactNode; children: ReactNode; className?: string; center?: boolean; fill?: boolean }) {
   return (
     <section className={cn("flex min-w-0 flex-col rounded-3xl bg-card p-4 shadow-sm ring-1 ring-foreground/10 sm:p-5", className)}>
       <div className="mb-3 flex flex-wrap items-baseline gap-x-2 gap-y-1">
         <h2 className="text-base font-semibold">{title}</h2>
-        {hint && <span className="text-xs text-muted-foreground">{hint}</span>}
+        {/* owner 2026-10-07: formulas / definitions behind a "?" — read on hover, the card stays clean */}
+        {hint && <InfoTip text={hint} />}
         {action && <div className="ml-auto">{action}</div>}
       </div>
       {center ? <div className="flex flex-1 flex-col justify-center">{children}</div> : fill ? <div className="flex min-h-0 flex-1 flex-col">{children}</div> : children}

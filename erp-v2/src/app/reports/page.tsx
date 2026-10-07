@@ -3,12 +3,13 @@
 import Link from "next/link"
 import { Suspense, useEffect, useMemo, useState } from "react"
 import { useSearchParams } from "next/navigation"
-import { BanknoteIcon, CalendarDaysIcon, ChartColumnIcon, ClockIcon, DownloadIcon, PrinterIcon, SchoolIcon, SparklesIcon, UsersIcon, UserCheckIcon } from "lucide-react"
+import { BanknoteIcon, CalendarDaysIcon, ChartColumnIcon, ChevronDownIcon, ClockIcon, DownloadIcon, FileSpreadsheetIcon, PrinterIcon, SchoolIcon, SparklesIcon, UsersIcon, UserCheckIcon } from "lucide-react"
 import { NativeSelect } from "@/components/app/native-select"
 import { StudentSheet } from "@/components/app/student-sheet"
 import { AttentionButton, AttentionDialog } from "@/components/reports/attention-dialog"
-import { Delta, Donut, DonutLegend, Empty, TopList, fmtNum, fmtPct, fmtShort, Heatmap, MonthBars, Panel, Rank, ShareBar, donutColor, tint } from "@/components/reports/charts"
+import { Delta, Donut, DonutLegend, Empty, InfoTip, TopList, fmtNum, fmtPct, fmtShort, Heatmap, MonthBars, Panel, Rank, ShareBar, donutColor, tint } from "@/components/reports/charts"
 import { DateRangePicker } from "@/components/app/date-range-picker"
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { SummaryTab } from "@/components/reports/summary-tab"
 import { useReports, type ReportData } from "@/components/reports/use-reports"
 import { Button } from "@/components/ui/button"
@@ -92,8 +93,14 @@ function Reports() {
           <NativeSelect className="h-9 w-48 print:hidden" value={scope} onChange={(e) => setScope(e.target.value)}
             options={[{ value: "all", label: allowed.length === branches.length ? tx("ทุกสาขา") : tx("ทุกสาขาในเขต") }, ...branches.filter((b) => allowed.includes(b.id)).map((b) => ({ value: b.id, label: nm(b.name) }))]} />
         )}
-        <Button variant="outline" className="print:hidden" onClick={exportXlsx}><DownloadIcon /> Export .xlsx</Button>
-        <Button variant="outline" className="print:hidden" onClick={() => window.print()}><PrinterIcon /> PDF</Button>
+        {/* owner 2026-10-07: one download button, pick the format */}
+        <DropdownMenu>
+          <DropdownMenuTrigger render={<Button variant="outline" className="print:hidden" />}><DownloadIcon /> {tx("ดาวน์โหลด")} <ChevronDownIcon className="text-muted-foreground" /></DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-52">
+            <DropdownMenuItem onClick={() => window.print()}><PrinterIcon /> .PDF <span className="ml-auto text-[11px] text-muted-foreground">{tx("หน้าที่เปิดอยู่")}</span></DropdownMenuItem>
+            <DropdownMenuItem onClick={exportXlsx}><FileSpreadsheetIcon /> .xlsx <span className="ml-auto text-[11px] text-muted-foreground">{tx("ทุกแท็บ")}</span></DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
 
       {/* headline numbers */}
@@ -101,11 +108,12 @@ function Reports() {
         <Kpi icon={BanknoteIcon} label={tx("รายได้ · {0}", [periodLabel])} value={fmtNum(d.kpi.revenue)} sub={<><Delta value={d.kpi.revenueChange} /> <span>{tx(COMPARE_LABEL[period])}</span></>} />
         <Kpi icon={UsersIcon} label={tx("นักเรียน Active")} value={fmtNum(d.kpi.active)} sub={<><Delta value={d.kpi.activeChange} /> <span>{tx("vs ต้นช่วง · Pause")} {d.kpi.paused}</span></>} />
         <Kpi icon={CalendarDaysIcon} label={tx("คาบสัปดาห์นี้")} value={fmtNum(d.kpi.weekSessions)} sub={<span>{tx("ไม่นับคาบที่ยกเลิก")}</span>} />
-        <Kpi icon={UserCheckIcon} label={tx("อัตราเข้าเรียน · {0}", [periodLabel])} value={fmtPct(d.kpi.attendance)} sub={<><Delta value={d.kpi.attendanceChange} /> <span>{tx("มา ÷ (มา + ลา)")}</span></>} />
+        <Kpi icon={UserCheckIcon} label={tx("อัตราเข้าเรียน · {0}", [periodLabel])} value={fmtPct(d.kpi.attendance)} sub={<><Delta value={d.kpi.attendanceChange} /> <span>{tx(COMPARE_LABEL[period])}</span> <InfoTip text={tx("อัตราเข้าเรียน = มา ÷ (มา + ลา)")} /></>} />
         <AttentionButton count={d.kpi.attention} onClick={() => setShowAttention(true)} className="col-span-2 md:col-span-1" />
       </div>
 
-      <div className="space-y-3 print:hidden">
+      {/* owner 2026-10-07: tabs + periods stick under the top bar while scrolling — always one tap away */}
+      <div className="sticky top-14 z-10 -mx-3 space-y-3 border-b border-transparent bg-background/95 px-3 py-2 backdrop-blur md:-mx-6 md:px-6 print:hidden">
         <div className="inline-flex flex-wrap rounded-full bg-muted p-1">
           {TABS.map((t) => (
             <button key={t.id} type="button" onClick={() => setTab(t.id)} className={cn("flex items-center gap-1.5 rounded-full px-4 py-1 text-sm", tab === t.id ? "bg-background font-medium shadow-sm" : "text-muted-foreground")}>
