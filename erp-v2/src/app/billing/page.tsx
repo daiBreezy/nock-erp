@@ -3,7 +3,8 @@
 import { SalesTaxDialog } from "@/components/billing/sales-tax-dialog"
 import { Suspense, useState } from "react"
 import { useSearchParams } from "next/navigation"
-import { EyeIcon, EyeOffIcon, PlusIcon, SearchIcon } from "lucide-react"
+import { EyeIcon, EyeOffIcon, PlusIcon, SearchIcon, SendIcon, WalletIcon, type LucideIcon } from "lucide-react"
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { Pill } from "@/components/app/badges"
 import { InvoiceEditor } from "@/components/billing/invoice-editor"
 import { InvoiceSheet } from "@/components/billing/invoice-sheet"
@@ -24,7 +25,7 @@ import { cn } from "@/lib/utils"
 import { useStore } from "@/store/store"
 
 type BillSort = "number" | "created" | "student" | "grade" | "total" | "status"
-type Filter = "all" | "draft" | "pending_approval" | "awaiting_payment" | "to_confirm" | "paid" | "void"
+type Filter = "all" | "pending" | "draft" | "pending_approval" | "awaiting_payment" | "to_confirm" | "paid" | "void"
 
 export default function Page() {
   return (
@@ -46,6 +47,7 @@ function BillingPage() {
   // owner 2026-10-06: sync to the URL (?filter=) so a reload or shared link keeps it — the ?open=/?new=/?renew=/?slip= deep-links above are untouched
   const [filter, setFilter] = useQueryState<Filter>("filter", "all")
   const [showVoid, setShowVoid] = useQueryState<"0" | "1">("void", "0")
+  const [showDone, setShowDone] = useQueryState<"0" | "1">("done", "1")
   const [q, setQ] = useState("")
   const [openId, setOpenId] = useState<string | null>(() => params.get("open"))
   // ?new=<studentId> opens the editor pre-filled (from the student panel)
@@ -76,11 +78,17 @@ function BillingPage() {
   ]
 
   const voidCount = rows.filter((r) => r.inv.status === "void").length
+  const doneCount = rows.filter((r) => r.inv.status === "paid").length
+  /** still needs someone to act: not yet PDF / approved / paid, or money in but not confirmed */
+  const isPending = (r: (typeof rows)[number]) => ["draft", "pending_approval", "approved", "sent"].includes(r.inv.status) || r.toConfirm
+  const pendingCount = rows.filter(isPending).length
   const visible = rows
-    // owner 2026-10-07: voided invoices hidden unless "แสดงใบที่ยกเลิก" is on (or the ยกเลิก filter is picked)
+    // owner 2026-10-07: Done (paid) and Void are show / hide toggles — picking that status on a card always shows it
     .filter((r) => showVoid === "1" || filter === "void" || r.inv.status !== "void")
+    .filter((r) => showDone === "1" || filter === "paid" || r.inv.status !== "paid" || r.toConfirm)
     .filter((r) => {
       if (filter === "all") return true
+      if (filter === "pending") return isPending(r)
       if (filter === "awaiting_payment") return ["approved", "sent"].includes(r.inv.status)
       if (filter === "to_confirm") return r.toConfirm
       return r.inv.status === filter
@@ -114,17 +122,14 @@ function BillingPage() {
       </div>
 
       <div className="flex flex-wrap items-center gap-2">
-        <ToggleGroup value={[filter]} onValueChange={(v) => v[0] && setFilter(v[0] as Filter)} variant="outline" size="sm" className="flex-wrap">
-          <ToggleGroupItem value="all">ทั้งหมด</ToggleGroupItem>
-          <ToggleGroupItem value="draft">รอสร้าง PDF</ToggleGroupItem>
-          <ToggleGroupItem value="pending_approval">รออนุมัติ</ToggleGroupItem>
-          <ToggleGroupItem value="awaiting_payment">รอชำระ</ToggleGroupItem>
-          <ToggleGroupItem value="paid">ชำระครบ</ToggleGroupItem>
-          <ToggleGroupItem value="void">ยกเลิก</ToggleGroupItem>
+        {/* owner 2026-10-07: All / Pending, and Done / Void as show-hide toggles (the cards above still filter one status) */}
+        <ToggleGroup value={[filter]} onValueChange={(v) => v[0] && setFilter(v[0] as Filter)} variant="outline" size="sm">
+          <ToggleGroupItem value="all">All</ToggleGroupItem>
+          <ToggleGroupItem value="pending">Pending{pendingCount > 0 && <span className="rounded-full bg-amber-100 px-1.5 text-xs text-amber-800 tabular-nums">{pendingCount}</span>}</ToggleGroupItem>
         </ToggleGroup>
-        <Button variant="ghost" size="sm" className="text-muted-foreground" onClick={() => setShowVoid(showVoid === "1" ? "0" : "1")} title={showVoid === "1" ? "ซ่อนใบแจ้งหนี้ที่ยกเลิกแล้ว" : "แสดงใบแจ้งหนี้ที่ยกเลิกแล้วในรายการ"}>
-          {showVoid === "1" ? <EyeOffIcon /> : <EyeIcon />} {showVoid === "1" ? "ซ่อน Void" : "แสดง Void"}{voidCount > 0 && <span className="rounded-full bg-muted px-1.5 text-xs tabular-nums text-muted-foreground">{voidCount}</span>}
-        </Button>
+        <span className="h-5 w-px bg-border" />
+        <ShowToggle label="Done" on={showDone === "1"} count={doneCount} onChange={(v) => setShowDone(v ? "1" : "0")} />
+        <ShowToggle label="Void" on={showVoid === "1"} count={voidCount} onChange={(v) => setShowVoid(v ? "1" : "0")} />
         <div className="relative ml-auto w-full sm:w-56">
           <SearchIcon className="absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" />
           <Input className="pl-8" placeholder="ค้นหาเลขที่ / ชื่อนักเรียน" value={q} onChange={(e) => setQ(e.target.value)} />
@@ -135,7 +140,7 @@ function BillingPage() {
 
       {/* owner 2026-10-07: a real table — number, date, student, grade, amounts and status each in their own column
           (fixed widths, so a long status never pushes the row out of line); scrolls inside the card on phones (BL-23) */}
-      <TableShell minWidth={1080} cols={["136px", "92px", "120px", "76px", "auto", "120px", "104px", "130px", "130px"]}>
+      <TableShell minWidth={1080} cols={["136px", "100px", "140px", "76px", "auto", "120px", "112px", "190px"]}>
         <thead className={HEAD}>
           <tr>
             <SortHeader label="เลขที่" k="number" sort={sort} onSort={toggle} />
@@ -146,7 +151,6 @@ function BillingPage() {
             <SortHeader label="ยอด" k="total" sort={sort} onSort={toggle} right />
             <Th right>จ่ายแล้ว</Th>
             <SortHeader label="สถานะ" k="status" sort={sort} onSort={toggle} />
-            <Th>การส่ง / เงิน</Th>
           </tr>
         </thead>
         <tbody>
@@ -159,16 +163,18 @@ function BillingPage() {
               <td className="truncate text-muted-foreground">{inv.lines.map((l) => courses.find((c) => c.id === l.courseId)?.name).filter(Boolean).join(", ") || (inv.busExtras?.length ? "ค่ารถเพิ่ม" : "ค่าอื่นๆ")}</td>
               <td className="text-right font-medium tabular-nums">{fmtMoney(total)}</td>
               <td className="text-right text-muted-foreground tabular-nums">{paid > 0 ? fmtMoney(paid) : "—"}</td>
-              <td className="truncate"><Pill tone={invoiceTone(inv)}>{inv.pdf === "generating" ? "กำลังสร้าง PDF" : inv.pdf === "failed" ? "PDF ไม่สำเร็จ" : Bill.INVOICE_STATUS_LABEL[inv.status]}</Pill></td>
-              <td className="truncate">
-                {inv.delivery === "no_line" && <Pill tone="amber">ไม่ถึงผู้ปกครอง</Pill>}
-                {inv.delivery === "failed" && <Pill tone="red">ส่ง LINE ไม่สำเร็จ</Pill>}
-                {toConfirm && <Pill tone="violet">รอยืนยันเงิน</Pill>}
-                {inv.delivery !== "no_line" && inv.delivery !== "failed" && !toConfirm && <span className="text-muted-foreground">—</span>}
+              <td>
+                {/* owner 2026-10-07: the old "การส่ง / เงิน" column folded in — a small icon after the status, hover = what's wrong */}
+                <span className="flex items-center gap-1.5">
+                  <Pill tone={invoiceTone(inv)}>{inv.pdf === "generating" ? "กำลังสร้าง PDF" : inv.pdf === "failed" ? "PDF ไม่สำเร็จ" : Bill.INVOICE_STATUS_LABEL[inv.status]}</Pill>
+                  {inv.delivery === "no_line" && <Flag icon={SendIcon} tone="text-amber-600" text="ไม่ถึงผู้ปกครอง — ครอบครัวยังไม่ผูก LINE ต้องส่งใบเอง" />}
+                  {inv.delivery === "failed" && <Flag icon={SendIcon} tone="text-red-600" text="ส่ง LINE ไม่สำเร็จ — เช่น ผู้ปกครอง block OA" />}
+                  {toConfirm && <Flag icon={WalletIcon} tone="text-violet-600" text="รอยืนยันเงิน — บันทึกรับเงินแล้ว รออีกคนตรวจยืนยัน" />}
+                </span>
               </td>
             </tr>
           ))}
-          {visible.length === 0 && <tr><td colSpan={9} className="p-10 text-center text-muted-foreground">ไม่มีใบแจ้งหนี้ในหมวดนี้</td></tr>}
+          {visible.length === 0 && <tr><td colSpan={8} className="p-10 text-center text-muted-foreground">ไม่มีใบแจ้งหนี้ในหมวดนี้</td></tr>}
         </tbody>
       </TableShell>
       <Pager {...pg} unit="ใบ" />
@@ -184,5 +190,26 @@ function BillingPage() {
         />
       )}
     </div>
+  )
+}
+
+/** Done / Void show-hide toggle: pressed = shown in the list, with how many there are */
+function ShowToggle({ label, on, count, onChange }: { label: string; on: boolean; count: number; onChange: (v: boolean) => void }) {
+  return (
+    <button type="button" aria-pressed={on} onClick={() => onChange(!on)} title={on ? `ซ่อน ${label}` : `แสดง ${label}`}
+      className={cn("inline-flex h-8 items-center gap-1.5 rounded-full border px-3 text-sm transition-colors", on ? "border-foreground/20 bg-muted font-medium" : "border-dashed text-muted-foreground hover:bg-muted/50")}>
+      {on ? <EyeIcon className="size-3.5" /> : <EyeOffIcon className="size-3.5" />}{label}
+      <span className="text-xs tabular-nums text-muted-foreground">{count}</span>
+    </button>
+  )
+}
+
+/** a small warning icon after the status; hover says what it means */
+function Flag({ icon: Icon, tone, text }: { icon: LucideIcon; tone: string; text: string }) {
+  return (
+    <Tooltip>
+      <TooltipTrigger render={<span className={cn("grid size-5 cursor-default place-items-center", tone)} aria-label={text} />}><Icon className="size-3.5" /></TooltipTrigger>
+      <TooltipContent>{text}</TooltipContent>
+    </Tooltip>
   )
 }
