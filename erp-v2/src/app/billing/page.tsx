@@ -140,7 +140,7 @@ function BillingPage() {
 
       {/* owner 2026-10-07: a real table — number, date, student, grade, amounts and status each in their own column
           (fixed widths, so a long status never pushes the row out of line); scrolls inside the card on phones (BL-23) */}
-      <TableShell minWidth={1080} cols={["136px", "100px", "140px", "76px", "auto", "120px", "112px", "190px"]}>
+      <TableShell minWidth={1080} cols={["136px", "100px", "140px", "76px", "auto", "120px", "112px", "156px"]}>
         <thead className={HEAD}>
           <tr>
             <SortHeader label="เลขที่" k="number" sort={sort} onSort={toggle} />
@@ -150,7 +150,7 @@ function BillingPage() {
             <Th>รายการ</Th>
             <SortHeader label="ยอด" k="total" sort={sort} onSort={toggle} right />
             <Th right>จ่ายแล้ว</Th>
-            <SortHeader label="สถานะ" k="status" sort={sort} onSort={toggle} />
+            <SortHeader label="สถานะ" k="status" sort={sort} onSort={toggle} right />
           </tr>
         </thead>
         <tbody>
@@ -165,7 +165,7 @@ function BillingPage() {
               <td className="text-right text-muted-foreground tabular-nums">{paid > 0 ? fmtMoney(paid) : "—"}</td>
               <td>
                 {/* owner 2026-10-07: the old "การส่ง / เงิน" column folded in — a small icon after the status, hover = what's wrong */}
-                <span className="flex items-center gap-1.5">
+                <span className="flex items-center justify-end gap-1">
                   <Pill tone={invoiceTone(inv)}>{inv.pdf === "generating" ? "กำลังสร้าง PDF" : inv.pdf === "failed" ? "PDF ไม่สำเร็จ" : Bill.INVOICE_STATUS_LABEL[inv.status]}</Pill>
                   {inv.delivery === "no_line" && <Flag icon={SendIcon} tone="text-amber-600" text="ไม่ถึงผู้ปกครอง — ครอบครัวยังไม่ผูก LINE ต้องส่งใบเอง" />}
                   {inv.delivery === "failed" && <Flag icon={SendIcon} tone="text-red-600" text="ส่ง LINE ไม่สำเร็จ — เช่น ผู้ปกครอง block OA" />}
