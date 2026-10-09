@@ -122,6 +122,9 @@ export interface Branch {
   promotions: Promotion[]
   /** Settings → Packages: offered durations per unit + the price chart */
   packageDurations: { hour: number[]; week: number[] }
+  /** leave quota per package (owner 2026-10-09) — key = duration (month: 1). Unset = the default rule
+   *  (`defaultLeaveQuota`: 1 session = 2 hrs, 4 sessions = 1 leave). 0 = no leave allowed. */
+  leaveQuotas?: Partial<Record<PriceUnit, Record<number, number>>>
   priceChart: PriceRow[]
   bankAccount: { bank: string; branchName: string; name: string; number: string }
   /** legacy simple flag — kept so existing "delivered via LINE" simulation logic still works; set from the server-side /api/line/status check */
@@ -561,6 +564,9 @@ export interface Entitlement {
   from: DateStr
   to: DateStr
   sessionsTotal: number
+  /** leave quota copied from Settings › Packages when bought — later edits don't change it (owner 2026-10-09).
+   *  Unset (older packages) = sessions bought ÷ 4. */
+  leaveQuota?: number
   /** hour packs: minutes bought — used up by the minutes really attended, so a 1-hour visit to a 2-hour class takes
    *  1 hour (owner 2026-09-30). Unset = counted in sessions (older packages). */
   minutesTotal?: number

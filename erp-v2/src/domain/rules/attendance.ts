@@ -74,9 +74,10 @@ export function balance(e: Entitlement, sessions: Session[], attendance: Attenda
   return { kind: e.kind, used, total: used + remaining, remaining, until: e.to, remainingMinutes, totalMinutes: e.minutesTotal }
 }
 
-/** C5: leave quota = 1 per 4 sessions bought (min 1 for packs of 4+). Pending owner confirmation. */
+/** C5: leave quota — the number set in Settings › Packages, copied onto the package when bought (owner 2026-10-09).
+ *  Older packages without one: 1 leave per 4 sessions bought. */
 export function leaveQuota(e: Entitlement) {
-  return Math.floor(e.sessionsTotal / 4)
+  return e.leaveQuota ?? Math.floor(e.sessionsTotal / 4)
 }
 
 /** Leave marks whose session date falls inside an active no-quota leave range don't count toward the quota. */
@@ -233,7 +234,7 @@ export function lowBalanceAlert(e: Entitlement, b: Balance, today: string, opts:
   return e.to <= soon ? `แพ็กเกจหมดอายุ ${fmtDate(e.to)}` : null
 }
 
-/** F8: grade mismatch is a warning with override, not silent. */
+/** F8 (owner 2026-10-09): only a soft hint when picking a Course on an invoice — never when joining a class. */
 export function gradeMismatch(student: Student, target: Pick<Course | Klass, "grades">) {
   return target.grades.length > 0 && !target.grades.includes(student.grade)
 }

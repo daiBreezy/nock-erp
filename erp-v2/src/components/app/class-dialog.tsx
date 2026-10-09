@@ -266,7 +266,7 @@ export function ClassDialog({ prefill, onClose }: { prefill: ClassPrefill; onClo
                 {(mine.length > 0 || clashWith.length > 0) && (
                   <ul className="mt-2 space-y-1 text-xs">
                     {clashWith.map((n) => <IssueRow key={`self${n}`} icon={<BanIcon />} tone="text-red-700" text={`ทับกับแถว ${n} (วันเดียวกัน เวลาซ้อน)`} />)}
-                    {mine.map((x) => <IssueRow key={x.message} icon={x.level === "block" ? <BanIcon /> : x.level === "override" ? <AlertTriangleIcon /> : <InfoIcon />} tone={x.level === "block" ? "text-red-700" : x.level === "override" ? "text-amber-700" : "text-muted-foreground"} text={x.message} />)}
+                    {mine.map((x) => <IssueLine key={x.message} issue={x} />)}
                   </ul>
                 )}
                 {mine.length === 0 && clashWith.length === 0 && <p className="mt-1.5 flex items-center gap-1 text-xs text-emerald-700"><CheckIcon className="size-3.5" /> ไม่ชนกับคลาสที่มีอยู่</p>}
@@ -285,10 +285,10 @@ export function ClassDialog({ prefill, onClose }: { prefill: ClassPrefill; onClo
                 {studentIds.map((id) => {
                   const s = branchStudents.find((x) => x.id === id)
                   if (!s) return null
-                  const mismatch = grades.length > 0 && Att.gradeMismatch(s, { grades })
+                  // F8 (owner 2026-10-09): no grade warning when putting students into a class — the admin decides
                   return (
-                    <span key={id} className={cn("flex items-center gap-1 rounded-full py-0.5 pr-1 pl-2.5 text-xs", mismatch ? "bg-amber-100 text-amber-900 dark:bg-amber-950 dark:text-amber-200" : "bg-primary/10 text-primary")}>
-                      {s.nickname} · {s.grade}{mismatch && " · ชั้นไม่ตรงคลาส"}
+                    <span key={id} className="flex items-center gap-1 rounded-full bg-primary/10 py-0.5 pr-1 pl-2.5 text-xs text-primary">
+                      {s.nickname} · {s.grade}
                       <button type="button" aria-label={`เอา ${s.nickname} ออก`} onClick={() => setStudentIds((x) => x.filter((y) => y !== id))} className="rounded-full p-0.5 hover:bg-black/10 dark:hover:bg-white/10"><XIcon className="size-3" /></button>
                     </span>
                   )
@@ -314,7 +314,7 @@ export function ClassDialog({ prefill, onClose }: { prefill: ClassPrefill; onClo
 
         {shared.length > 0 && (
           <ul className="space-y-1.5 text-sm">
-            {shared.map((i) => <IssueRow key={i.message} icon={i.level === "block" ? <BanIcon /> : i.level === "override" ? <AlertTriangleIcon /> : <InfoIcon />} tone={i.level === "block" ? "text-red-700" : i.level === "override" ? "text-amber-700" : "text-muted-foreground"} text={i.message} />)}
+            {shared.map((i) => <IssueLine key={i.message} issue={i} />)}
           </ul>
         )}
         {needsReason && !blocked && (
@@ -342,6 +342,12 @@ function Field({ label, hint, children, className, issue, action }: { label: str
       {issue && <p className="text-xs text-red-700">{issue}</p>}
     </div>
   )
+}
+
+/** block = red ban · override = amber triangle · warn = grey info, or red / amber triangle when the rule gives it a tone */
+function IssueLine({ issue: i }: { issue: Issue }) {
+  const tone = i.level === "block" || i.tone === "red" ? "text-red-700" : i.level === "override" || i.tone === "amber" ? "text-amber-700" : "text-muted-foreground"
+  return <IssueRow icon={i.level === "block" ? <BanIcon /> : i.level === "override" || i.tone ? <AlertTriangleIcon /> : <InfoIcon />} tone={tone} text={i.message} />
 }
 
 function IssueRow({ icon, tone, text }: { icon: React.ReactNode; tone: string; text: string }) {

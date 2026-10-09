@@ -844,7 +844,6 @@ function SummaryInline({ session, sessionId, studentId, summary, viewOnly, text,
         )}
         {status === "approved" && can(me, "summary.approve") && summary && (
           <>
-            <Button size="xs" variant="outline" onClick={() => setAsking(true)}><XIcon /> ดึงกลับไปแก้</Button>
             <Button size="xs" onClick={() => report(send(summary.id), "ส่งผู้ปกครองทาง LINE แล้ว")}><SendIcon /> ส่งผู้ปกครอง</Button>
           </>
         )}
@@ -1019,7 +1018,6 @@ function AddStudentDialog({ id, onClose }: { id: ID; onClose: () => void }) {
           onPick={(x) => { if (s.studentIds.length < cap && report(add(id, x.id, scope), (v) => `เพิ่ม ${x.nickname} แล้ว ${v.changed} คาบ`)) onClose() }}
           renderMeta={(x) => (
             <span className="shrink-0 text-[11px] text-amber-700">
-              {!!klass && Att.gradeMismatch(x, klass) ? "ชั้นไม่ตรงคลาส " : ""}
               {!s.trial && !Att.coveringEntitlement(x.id, s, entitlements) ? "ยังไม่จ่ายค่าเรียน" : ""}
             </span>
           )}

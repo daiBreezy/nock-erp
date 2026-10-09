@@ -216,6 +216,8 @@ export interface Issue {
   message: string
   /** "block" = cannot save · "override" = can save with a reason · "warn" = info only */
   level: "block" | "override" | "warn"
+  /** how loud a "warn" reads — red = closed day (A7), amber = outside opening hours (B2) (owner 2026-10-09) */
+  tone?: "red" | "amber"
 }
 
 export function validateClass(d: ClassDraft, ctx: { branch: Branch; staff: Staff[]; sessions: Session[]; holidays: Holiday[]; ignoreClassId?: ID; now?: Date }): Issue[] {
@@ -254,8 +256,9 @@ export function validateClass(d: ClassDraft, ctx: { branch: Branch; staff: Staff
     const p = slotProblem(branch, date, d.start, d.minutes)
     if (p) slotIssues.set(p, [...(slotIssues.get(p) ?? []), date])
   }
+  // A7 / B2 (owner 2026-10-09): both can be created — closed day warns in red, outside opening hours in amber
   slotIssues.forEach((ds, p) =>
-    issues.push({ field: "start", message: `${p}: ${ds.slice(0, 3).map((x) => fmtDate(x, { weekday: true })).join(", ")}${ds.length > 3 ? ` +${ds.length - 3} วัน` : ""}`, level: "override" }),
+    issues.push({ field: "start", message: `${p}: ${ds.slice(0, 3).map((x) => fmtDate(x, { weekday: true })).join(", ")}${ds.length > 3 ? ` +${ds.length - 3} วัน` : ""}`, level: "warn", tone: p === "สาขาปิด" ? "red" : "amber" }),
   )
   for (const date of dates) {
     if (isHoliday(date, d.branchId, ctx.holidays)) continue

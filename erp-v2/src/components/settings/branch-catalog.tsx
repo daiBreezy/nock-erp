@@ -5,7 +5,7 @@ import { useState } from "react"
 import { CheckIcon, PlusIcon, XIcon } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { durationsOf, GRADE_GROUPS, PRICE_UNIT_LABEL, priceOf, setPrice, sortGrades } from "@/domain/rules/settings"
+import { defaultLeaveQuota, durationsOf, GRADE_GROUPS, LEAVE_EVERY_SESSIONS, HOURS_PER_SESSION, setLeaveQuota, PRICE_UNIT_LABEL, priceOf, setPrice, sortGrades } from "@/domain/rules/settings"
 import type { Branch, PriceUnit } from "@/domain/types"
 import { cn } from "@/lib/utils"
 import { useStore } from "@/store/store"
@@ -61,7 +61,7 @@ export function GradesTab({ branch }: { branch: Branch }) {
 /** Packages (staging): Hour / Week / Month tabs · a list of offered durations · price chart
  *  subject × grade × duration. Reference prices that pre-fill Create Course (owner 2026-09-26). */
 export function PackagesTab({ branch }: { branch: Branch }) {
-  const { b, setB, dirty, reset, save } = useBranchDraft(branch, ["packageDurations", "priceChart"])
+  const { b, setB, dirty, reset, save } = useBranchDraft(branch, ["packageDurations", "priceChart", "leaveQuotas"])
   const [unit, setUnit] = useState<PriceUnit>("hour")
   const [subject, setSubject] = useState(branch.subjects[0] ?? "")
   const [newDur, setNewDur] = useState("")
@@ -77,7 +77,12 @@ export function PackagesTab({ branch }: { branch: Branch }) {
   }
   const removeDuration = (d: number) => {
     if (unit === "month") return
-    setB({ ...b, packageDurations: { ...b.packageDurations, [unit]: b.packageDurations[unit].filter((x) => x !== d) }, priceChart: b.priceChart.filter((r) => !(r.unit === unit && r.duration === d)) })
+    const { [d]: _gone, ...quotas } = b.leaveQuotas?.[unit] ?? {}
+    setB({ ...b, packageDurations: { ...b.packageDurations, [unit]: b.packageDurations[unit].filter((x) => x !== d) }, priceChart: b.priceChart.filter((r) => !(r.unit === unit && r.duration === d)), leaveQuotas: { ...b.leaveQuotas, [unit]: quotas } })
+  }
+  const setQuota = (d: number, v: string) => {
+    const { [d]: _old, ...rest } = b.leaveQuotas?.[unit] ?? {}
+    setB({ ...b, leaveQuotas: { ...b.leaveQuotas, [unit]: v === "" ? rest : { ...rest, [d]: Math.max(0, Math.floor(Number(v))) } } })
   }
 
   return (
@@ -103,6 +108,36 @@ export function PackagesTab({ branch }: { branch: Branch }) {
           </span>
         </div>
       )}
+
+      {/* leave quota per package (owner 2026-10-09) — under the package list, every tab */}
+      <div className="mb-4 rounded-2xl border bg-muted/30 p-3">
+        <div className="mb-2 flex flex-wrap items-baseline gap-x-2">
+          <p className="text-sm font-medium">{tx("โควตาลา (ครั้ง)")}</p>
+          <p className="text-xs text-muted-foreground">
+            {unit === "hour"
+              ? tx("ค่าเริ่มต้น: 1 คาบ = {0} ชม. · ทุก {1} คาบ ลาได้ 1 ครั้ง · ใส่ 0 = ลาไม่ได้", [HOURS_PER_SESSION, LEAVE_EVERY_SESSIONS])
+              : tx("ค่าเริ่มต้น (ช่องว่าง): คาบที่ซื้อจริง ÷ {0} เช่น 8 คาบ = ลา 2 ครั้ง · ใส่ 0 = ลาไม่ได้", [LEAVE_EVERY_SESSIONS])}
+          </p>
+        </div>
+        {durations.length === 0 ? (
+          <p className="text-xs text-muted-foreground">{tx("ยังไม่มีแพ็กเกจ — เพิ่มระยะเวลาด้านบนก่อน")}</p>
+        ) : (
+          <div className="flex flex-wrap gap-2">
+            {durations.map((d) => {
+              const set = setLeaveQuota(b, unit, d)
+              const def = defaultLeaveQuota(unit, d)
+              return (
+                <label key={d} className="flex items-center gap-2 rounded-full border bg-background py-1 pr-1 pl-3 text-sm">
+                  <span className="text-muted-foreground">{unit === "month" ? tx("รายเดือน") : durationText(unit, d)}</span>
+                  <Input className="h-7 w-20 text-right tabular-nums" type="number" min={0} step={1} value={set ?? ""}
+                    placeholder={def != null ? String(def) : tx("อัตโนมัติ")} aria-label={tx("โควตาลา")}
+                    onChange={(e) => setQuota(d, e.target.value)} />
+                </label>
+              )
+            })}
+          </div>
+        )}
+      </div>
 
       {b.subjects.length === 0 ? (
         <p className="rounded-xl border border-dashed p-6 text-center text-sm text-muted-foreground">{tx("เลือกวิชาที่แท็บ Subjects ก่อน")}</p>
@@ -138,7 +173,7 @@ export function PackagesTab({ branch }: { branch: Branch }) {
           </div>
         </>
       )}
-      <SaveRow dirty={dirty} onReset={reset} onSave={() => save(tx("บันทึกตารางราคาแล้ว"))} label={tx("บันทึกราคา")} />
+      <SaveRow dirty={dirty} onReset={reset} onSave={() => save(tx("บันทึกแพ็กเกจแล้ว"))} label={tx("บันทึก")} />
     </SettingsCard>
   )
 }

@@ -254,6 +254,21 @@ export async function broadcastText(conversationIds: ID[], text: string): Promis
   return { ok: true, value: { sent, failed } }
 }
 
+/** The chat of each family whose children are in these sessions — real LINE chat first, else the demo chat. */
+export function familyChatsOf(sessions: { studentIds: ID[] }[]): ID[] {
+  const s = useStore.getState()
+  const fams = new Set(sessions.flatMap((x) => x.studentIds).map((id) => s.students.find((st) => st.id === id)?.familyId).filter((f): f is ID => !!f))
+  return [...fams].map((f) => {
+    const convs = s.conversations.filter((c) => c.familyId === f)
+    return (convs.find((c) => c.id.startsWith("line_")) ?? convs[0])?.id
+  }).filter((c): c is ID => !!c)
+}
+
+/** A10 (owner 2026-10-09): the admin decides whether parents hear about a new holiday — default message to edit. */
+export function holidayParentText(name: string, date: string, cancelled: boolean) {
+  return `แจ้งวันหยุด: ${name} (${date}) สถาบันปิดทำการค่ะ${cancelled ? " คาบเรียนวันนั้นงดเรียน แอดมินจะติดต่อเพื่อนัดเรียนชดเชยนะคะ" : ""} 🙏`
+}
+
 /** Broadcast the yearly survey: opens this year's round (one link per family) — mock chats get the link in the thread too. */
 export async function broadcastSurvey(): Promise<Result<{ sent: number; lineSent: number }>> {
   const s = useStore.getState()

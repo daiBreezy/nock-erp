@@ -234,7 +234,7 @@ function CourseCard({ round, studentId, expanded, onToggle, draft, setDraft, can
             )}
             {(status === "submitted" || status === "approved") && canManage && cs && (
               <>
-                <Button size="sm" variant="outline" onClick={() => setAsking(true)}><XIcon /> Recall</Button>
+                {status === "submitted" && <Button size="sm" variant="outline" onClick={() => setAsking(true)}><XIcon /> Recall</Button>}
                 {status === "submitted" && approveCheck?.ok && <Button size="sm" onClick={() => onApproveAndSend(cs)}><SendIcon /> Approve</Button>}
                 {status === "approved" && <Button size="sm" onClick={() => onSend(cs)}><SendIcon /> ส่งผู้ปกครอง</Button>}
               </>

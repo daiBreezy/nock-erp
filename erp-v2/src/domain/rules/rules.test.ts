@@ -79,10 +79,13 @@ describe("scheduling", () => {
     expect(canSave(issues)).toBe(false)
   })
 
-  it("A7: closed day needs an override reason", () => {
-    const issues = validateClass(klass({ weekday: 0, startDate: "2026-10-04" }), { branch, staff: [teacher], sessions: [], holidays: [] })
-    expect(canSave(issues)).toBe(false)
-    expect(canSave(issues, "สอนชดเชย")).toBe(true)
+  it("A7 / B2: closed day warns red, outside hours warns amber — both can be saved (owner 2026-10-09)", () => {
+    const closed = validateClass(klass({ weekday: 0, startDate: "2026-10-04" }), { branch, staff: [teacher], sessions: [], holidays: [] })
+    expect(closed.find((i) => i.field === "start")).toMatchObject({ level: "warn", tone: "red" })
+    expect(canSave(closed)).toBe(true)
+    const late = validateClass(klass({ start: "19:30" }), { branch, staff: [teacher], sessions: [], holidays: [] })
+    expect(late.find((i) => i.field === "start")).toMatchObject({ level: "warn", tone: "amber" })
+    expect(canSave(late)).toBe(true)
   })
 
   it("A8: class edit never rewrites started or attended sessions", () => {
@@ -269,6 +272,12 @@ describe("permissions & summaries", () => {
   it("D8: author cannot approve own summary", () => {
     expect(Sum.canApprove(summary, director).ok).toBe(false)
     expect(Sum.canApprove(summary, admin).ok).toBe(true)
+  })
+  it("D4 (owner 2026-10-09): an approved summary is locked — no edit, no sending back", () => {
+    const approved = { ...summary, status: "approved" as const }
+    expect(Sum.canEdit(approved, director).ok).toBe(false)
+    expect(Sum.canRequestChanges(approved, admin).ok).toBe(false)
+    expect(Sum.canRequestChanges(summary, admin).ok).toBe(true)
   })
   it("D5: cannot send before approval; reports undelivered without LINE", () => {
     expect(Sum.canSend(summary, []).ok).toBe(false)
@@ -1987,5 +1996,29 @@ describe("schools by branch / region (owner 2026-10-07)", () => {
   it("region → schools adds the branches of a region together", () => {
     const g = schoolsByGroup(b, (id) => (id === "z" ? "CBR" : "BKK"))
     expect(g.find((x) => x.key === "CBR")!.rows.map((r) => [r.label, r.value])).toEqual([["A", 1], ["C", 1]])
+  })
+})
+
+import { defaultLeaveQuota, leaveQuotaFor } from "./settings"
+import { leaveQuota } from "./attendance"
+
+describe("C5 leave quota per package (owner 2026-10-09)", () => {
+  it("default: 1 session = 2 hrs, 4 sessions = 1 leave", () => {
+    expect(defaultLeaveQuota("hour", 12)).toBe(1)
+    expect(defaultLeaveQuota("hour", 24)).toBe(3)
+    expect(defaultLeaveQuota("week", 8)).toBeNull()
+    expect(defaultLeaveQuota("month", 1, 8)).toBe(2)
+  })
+  it("the number set in Settings wins, × periods — 0 means no leave", () => {
+    const b = { ...branch, leaveQuotas: { hour: { 12: 2 }, month: { 1: 0 } } }
+    expect(leaveQuotaFor(b, "hour", 12, 2, 12)).toBe(4)
+    expect(leaveQuotaFor(b, "month", 1, 1, 8)).toBe(0)
+    expect(leaveQuotaFor(b, "week", 4, 1, 8)).toBe(2)
+    expect(leaveQuotaFor(b, "hour", 24, 1, 12)).toBe(3)
+  })
+  it("a package keeps the quota it was bought with", () => {
+    const e = { sessionsTotal: 8, leaveQuota: 0 } as Entitlement
+    expect(leaveQuota(e)).toBe(0)
+    expect(leaveQuota({ ...e, leaveQuota: undefined })).toBe(2)
   })
 })

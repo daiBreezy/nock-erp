@@ -540,7 +540,7 @@ export const useStore = create<Store>()(
         const warnings: string[] = []
         // any student can join any class (owner 2026-09-30) — the admin is only told what doesn't fit
         if (src.studentIds.length + 1 > cap) warnings.push(`${klass?.type === "single" ? "คลาสเรียนเดี่ยว" : "คาบนี้"}มี ${src.studentIds.length + 1} คนแล้ว — แนะนำไม่เกิน ${cap} คน`)
-        if (klass && klass.layout !== "teacher" && Att.gradeMismatch(stu, klass)) warnings.push(`เกรด ${stu.grade} ไม่ตรงกับคลาส (${klass.grades.join(", ")})`)
+        // F8 (owner 2026-10-09): no grade warning here — NA leaves it to the admin, Liclass runs mixed-grade classes
         if (!src.trial && !Att.coveringEntitlement(studentId, src, s.entitlements))
           warnings.push(`${stu.nickname} ยังไม่ได้จ่ายค่าเรียนสำหรับคาบนี้ — ออกใบแจ้งหนี้ที่หน้าการเงิน`)
         if (r.kept) warnings.push(`ข้าม ${r.kept} คาบที่เริ่มไปแล้ว`)
@@ -1422,10 +1422,10 @@ export const useStore = create<Store>()(
       requestSummaryChanges: (id, note) => {
         const s = get()
         const me = s.me()
-        if (!can(me, "summary.approve")) return fail("คุณไม่มีสิทธิ์")
         if (!note.trim()) return fail("บอกครูว่าต้องแก้อะไร")
         const cur = s.summaries.find((x) => x.id === id)!
-        if (cur.status === "sent") return fail("ส่งถึงผู้ปกครองแล้ว ขอแก้ไม่ได้")
+        const ok = Sum.canRequestChanges(cur, me)
+        if (!ok.ok) return ok
         set({ summaries: s.summaries.map((x) => (x.id === id ? { ...x, status: "changes_requested", history: [...x.history, { at: s.now().toISOString(), by: me.id, action: "request_changes", note }] } : x)) })
         return OK
       },
@@ -1488,10 +1488,10 @@ export const useStore = create<Store>()(
       requestCourseSummaryChanges: (id, note) => {
         const s = get()
         const me = s.me()
-        if (!can(me, "summary.approve")) return fail("คุณไม่มีสิทธิ์")
         if (!note.trim()) return fail("บอกครูว่าต้องแก้อะไร")
         const cur = s.courseSummaries.find((x) => x.id === id)!
-        if (cur.status === "sent") return fail("ส่งถึงผู้ปกครองแล้ว ขอแก้ไม่ได้")
+        const ok = Sum.canRequestChanges(cur, me)
+        if (!ok.ok) return ok
         set({ courseSummaries: s.courseSummaries.map((x) => (x.id === id ? { ...x, status: "changes_requested", history: [...x.history, { at: s.now().toISOString(), by: me.id, action: "request_changes", note }] } : x)) })
         return OK
       },
@@ -1764,13 +1764,14 @@ export const useStore = create<Store>()(
         if (paid) {
           next = { ...next, status: "paid", receiptNumber: inv.number ?? undefined } // the receipt carries the invoice's number
           // auto-claim: entitlement covers exactly the paid window (BL-19) and the student joins the class sessions in it
+          const invBranch = s.branches.find((b) => b.id === inv.branchId)
           for (const l of totals.lines) {
             if (!l.course || !l.quote) continue
             const q = l.quote, co = l.course, classIds = l.line.classIds
             const paidSlot = new Set(q.slots.map((x) => `${x.classId}|${x.date}`))
             // hour packs are counted; week and month packs are a window with any number of sessions
             // hour packs are used up by minutes really attended (owner 2026-09-30)
-            entitlements = [...entitlements, { id: uid("en"), studentId: inv.studentId, courseId: co.id, subjects: co.subjects, classIds, invoiceId: inv.id, kind: co.unit === "hour" ? "sessions" : "subscription", from: q.from, to: q.to, sessionsTotal: q.slots.length, minutesTotal: co.unit === "hour" ? q.slots.reduce((m, x) => m + x.minutes, 0) : undefined, carryMinutes: q.carryOut || undefined }]
+            entitlements = [...entitlements, { id: uid("en"), studentId: inv.studentId, courseId: co.id, subjects: co.subjects, classIds, invoiceId: inv.id, kind: co.unit === "hour" ? "sessions" : "subscription", from: q.from, to: q.to, sessionsTotal: q.slots.length, leaveQuota: invBranch ? Cfg.leaveQuotaFor(invBranch, co.unit, co.duration, l.line.periods, q.slots.length) : undefined, minutesTotal: co.unit === "hour" ? q.slots.reduce((m, x) => m + x.minutes, 0) : undefined, carryMinutes: q.carryOut || undefined }]
             // join the class — with their part of it when they attend only part (standing seat)
             classes = classes.map((c) => {
               if (!classIds.includes(c.id)) return c

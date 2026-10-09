@@ -89,7 +89,10 @@ export default function StaffPage() {
                 <td className="text-muted-foreground"><EditCell value={s.name} disabled={ro} onSave={(v) => edit(s, { name: v })} /></td>
                 <td className="truncate">{s.roles.map((r) => <Pill key={r} tone={r === "teacher" ? "blue" : "violet"} className="mr-1">{ROLE_LABEL[r]}</Pill>)}{!s.active && <Pill>ปิดบัญชีแล้ว</Pill>}</td>
                 <td className="truncate text-muted-foreground" title={s.subjects.join(", ")}>{s.subjects.join(", ") || "—"}</td>
-                <td className="text-muted-foreground">{s.canLogin ? <EditCell kind="email" value={s.email ?? ""} disabled={ro} placeholder="ใส่อีเมล" onSave={(v) => edit(s, { email: v })} /> : <span className="text-xs">ไม่มีบัญชีล็อกอิน</span>}</td>
+                <td className="text-muted-foreground" title={s.canLogin ? undefined : "เก็บข้อมูลเท่านั้น — ไม่มีสิทธิ์เข้าระบบ"}>
+                  {/* S5 (owner 2026-10-09): everyone has an email field — no-login staff keep it as data only */}
+                  <span className="flex items-center gap-1.5"><EditCell kind="email" value={s.email ?? ""} disabled={ro} placeholder={s.canLogin ? "ใส่อีเมล" : "ไม่บังคับ"} onSave={(v) => edit(s, { email: v })} />{!s.canLogin && <span className="shrink-0 rounded-full bg-muted px-1.5 text-[10px]">ไม่ล็อกอิน</span>}</span>
+                </td>
                 <td><EditCell kind="select" value={s.partTime ? "part" : "full"} disabled={ro} display={s.partTime ? <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs text-amber-800">Part-time</span> : <span className="text-muted-foreground">Full-time</span>} options={[{ value: "full", label: "Full-time" }, { value: "part", label: "Part-time" }]} onSave={(v) => edit(s, { partTime: v === "part" })} /></td>
                 <td className="text-right tabular-nums text-muted-foreground">{s.roles.includes("teacher") ? upcomingOf(s.id) : "—"}</td>
                 <td className="text-right" onClick={(e) => e.stopPropagation()}>
@@ -150,11 +153,9 @@ function StaffForm({ staff: initialStaff, onClose }: { staff?: Staff; onClose: (
         )}
         <label className="flex items-center gap-2 text-sm"><Checkbox checked={!!f.partTime} onCheckedChange={(v) => setF({ ...f, partTime: !!v })} /> ครู Part-time (เลือกเป็นครูสอนแทนตอนครูลาได้)</label>
         <label className="flex items-center gap-2 text-sm"><Checkbox checked={f.canLogin} onCheckedChange={(v) => setF({ ...f, canLogin: !!v })} /> มีบัญชีล็อกอินเข้าระบบ</label>
-        {f.canLogin ? (
-          <Field label="อีเมล *" error={err("email")}><Input type="email" value={f.email ?? ""} onChange={(e) => setF({ ...f, email: e.target.value })} /></Field>
-        ) : (
-          <p className="text-xs text-muted-foreground">ครูพาร์ทไทม์ที่ไม่ใช้ระบบ ไม่ต้องมีอีเมล — แอดมินเช็คชื่อ/เขียนสรุปแทนได้</p>
-        )}
+        {/* S5 (owner 2026-10-09): email is always there — required only for a login; otherwise kept as data (may log in later) */}
+        <Field label={f.canLogin ? "อีเมล *" : "อีเมล (ไม่บังคับ)"} error={err("email")}><Input type="email" value={f.email ?? ""} onChange={(e) => setF({ ...f, email: e.target.value })} /></Field>
+        {!f.canLogin && <p className="text-xs text-muted-foreground">ไม่มีสิทธิ์เข้าระบบ — เก็บข้อมูลไว้เฉยๆ (เปิดบัญชีล็อกอินภายหลังได้) · แอดมินเช็คชื่อ/เขียนสรุปแทนได้</p>}
         <DialogFooter>
           <Button variant="ghost" onClick={onClose}>ยกเลิก</Button>
           <Button onClick={() => { setTouched(true); if (report(save(f), "บันทึกแล้ว")) onClose() }}>บันทึก</Button>

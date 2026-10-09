@@ -74,7 +74,7 @@ export function CoursePicker({ branch, today, studentGrade, onInvoice, onClose, 
                 const on = already || picked.includes(c.id)
                 const color = subjectColor(c.subjects[0])
                 const nClasses = classes.filter((k) => k.courseId === c.id && k.active).length
-                const gradeOff = studentGrade && !c.grades.includes(studentGrade)
+                const gradeOff = studentGrade && c.grades.length > 0 && !c.grades.includes(studentGrade)
                 return (
                   <button key={c.id} type="button" disabled={already} onClick={() => toggle(c.id)} aria-pressed={on}
                     className={cn("relative flex flex-col gap-2 rounded-2xl border bg-card p-3 text-left transition", on ? "border-primary ring-2 ring-primary/30" : "hover:border-foreground/30", already && "opacity-60")}>
@@ -101,7 +101,7 @@ export function CoursePicker({ branch, today, studentGrade, onInvoice, onClose, 
                     <div className="flex items-center justify-between border-t pt-2">
                       <span className="font-semibold tabular-nums">{fmtMoney(c.price)} <span className="text-xs font-normal text-muted-foreground">{priceUnitSuffix(c)}</span></span>
                       {already ? <span className="text-xs text-muted-foreground">อยู่ในใบแล้ว</span>
-                        : gradeOff ? <span className="flex items-center gap-1 text-xs text-amber-700"><AlertTriangleIcon className="size-3" /> ไม่ตรงชั้น {studentGrade}</span> : null}
+                        : gradeOff ? <span className="flex items-center gap-1 text-xs text-amber-700"><AlertTriangleIcon className="size-3" /> อาจไม่ตรงชั้น {studentGrade}</span> : null}
                     </div>
                   </button>
                 )
@@ -115,6 +115,16 @@ export function CoursePicker({ branch, today, studentGrade, onInvoice, onClose, 
           </div>
 
           <DialogFooter className="items-center">
+            {/* F8 (owner 2026-10-09): a gentle heads-up only — the admin may still pick it */}
+            {(() => {
+              const off = studentGrade ? picked.map((id) => allCourses.find((c) => c.id === id)).filter((c) => c && c.grades.length > 0 && !c.grades.includes(studentGrade)) : []
+              return off.length > 0 && (
+                <p className="mr-auto flex items-center gap-1.5 text-xs text-amber-700">
+                  <AlertTriangleIcon className="size-3.5 shrink-0" />
+                  {off.length === 1 ? `คอร์ส ${off[0]!.name}` : `${off.length} คอร์สที่เลือก`} อาจไม่ตรงกับชั้น {studentGrade} ของนักเรียน
+                </p>
+              )
+            })()}
             <Button variant="ghost" onClick={onClose}>ยกเลิก</Button>
             {me && can(me, "course.manage") && <Button variant="outline" onClick={() => setCreating(emptyCourse(branch))}><PlusIcon /> สร้างคอร์สใหม่</Button>}
             <Button disabled={!picked.length} onClick={() => onConfirm(picked.map((id) => allCourses.find((c) => c.id === id)!).filter(Boolean))}>

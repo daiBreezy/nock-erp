@@ -54,6 +54,29 @@ export function durationsOf(branch: Branch, unit: PriceUnit): number[] {
   return unit === "month" ? [1] : [...branch.packageDurations[unit]].sort((a, b) => a - b)
 }
 
+/** Leave quota default (owner 2026-10-09): 1 session = 2 hrs, every 4 sessions = 1 leave. */
+export const LEAVE_EVERY_SESSIONS = 4
+export const HOURS_PER_SESSION = 2
+
+/** Default leave quota of one package. Hour packs: hours ÷ 2 ÷ 4. Week / month packs have any number of sessions,
+ *  so the default needs the sessions really bought (null when not known yet — e.g. in Settings). */
+export function defaultLeaveQuota(unit: PriceUnit, duration: number, sessions?: number): number | null {
+  if (unit === "hour") return Math.floor(duration / HOURS_PER_SESSION / LEAVE_EVERY_SESSIONS)
+  return sessions == null ? null : Math.floor(sessions / LEAVE_EVERY_SESSIONS)
+}
+
+/** The number typed in Settings › Packages for this package, or null = use the default */
+export function setLeaveQuota(branch: Branch, unit: PriceUnit, duration: number): number | null {
+  return branch.leaveQuotas?.[unit]?.[duration] ?? null
+}
+
+/** Leave quota a purchase gets: the package's own number × periods bought, else the default. */
+export function leaveQuotaFor(branch: Branch, unit: PriceUnit, duration: number, periods: number, sessions: number): number {
+  const set = setLeaveQuota(branch, unit, duration)
+  if (set != null) return set * Math.max(1, periods)
+  return unit === "hour" ? defaultLeaveQuota(unit, duration)! * Math.max(1, periods) : defaultLeaveQuota(unit, duration, sessions)!
+}
+
 export function priceOf(branch: Branch, unit: PriceUnit, duration: number, subject: string, grade: string): number | null {
   return branch.priceChart.find((r) => r.unit === unit && r.duration === duration && r.subject === subject && r.grade === grade)?.price ?? null
 }

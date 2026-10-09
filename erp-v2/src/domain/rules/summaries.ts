@@ -16,10 +16,17 @@ type SummaryLike = Pick<LessonSummary, "status" | "authorId" | "lastEditorId">
 
 export function canEdit(s: SummaryLike, user: Staff): Result {
   if (s.status === "sent") return { ok: false, error: "ส่งถึงผู้ปกครองแล้ว แก้ไม่ได้" }
-  if (s.status === "approved" || s.status === "submitted") {
-    return { ok: false, error: "สรุปนี้รออนุมัติ/อนุมัติแล้ว — กด \"ขอแก้ไข\" เพื่อส่งกลับก่อน" }
-  }
+  // D4 (owner 2026-10-09): once approved a summary is locked for good
+  if (s.status === "approved") return { ok: false, error: "สรุปนี้อนุมัติแล้ว แก้ไม่ได้อีก" }
+  if (s.status === "submitted") return { ok: false, error: "สรุปนี้รออนุมัติ — ผู้อนุมัติกด \"ขอแก้ไข\" เพื่อส่งกลับก่อน" }
   if (s.authorId !== user.id && !can(user, "summary.approve")) return { ok: false, error: "แก้ได้เฉพาะครูผู้เขียน" }
+  return { ok: true, value: undefined }
+}
+
+/** D4 (owner 2026-10-09): only a summary still waiting for approval can be sent back — approved / sent are locked. */
+export function canRequestChanges(s: SummaryLike, user: Staff): Result {
+  if (!can(user, "summary.approve")) return { ok: false, error: "คุณไม่มีสิทธิ์" }
+  if (s.status !== "submitted") return { ok: false, error: s.status === "approved" || s.status === "sent" ? "สรุปนี้อนุมัติแล้ว แก้ไม่ได้อีก" : "สรุปนี้ไม่ได้รออนุมัติ" }
   return { ok: true, value: undefined }
 }
 

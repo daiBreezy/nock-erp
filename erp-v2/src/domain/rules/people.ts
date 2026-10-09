@@ -143,8 +143,10 @@ export function validateStaff(s: Pick<Staff, "name" | "nickname" | "roles" | "br
   if (!s.nickname.trim()) errs.push({ field: "nickname", message: "ใส่ชื่อเล่น" })
   if (!s.roles.length) errs.push({ field: "roles", message: "เลือกบทบาทอย่างน้อย 1" })
   if (!s.branchIds.length) errs.push({ field: "branchIds", message: "เลือกสาขาอย่างน้อย 1" })
-  if (s.canLogin) {
-    if (!s.email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(s.email)) errs.push({ field: "email", message: "บัญชีที่ล็อกอินได้ต้องมีอีเมลที่ถูกต้อง" })
+  // S5 (owner 2026-10-09): email optional without a login, but a typed one must still be valid
+  if (s.canLogin && !s.email?.trim()) errs.push({ field: "email", message: "บัญชีที่ล็อกอินได้ต้องมีอีเมลที่ถูกต้อง" })
+  else if (s.email?.trim()) {
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(s.email)) errs.push({ field: "email", message: "อีเมลไม่ถูกต้อง" })
     else if (all.some((x) => x.id !== selfId && x.email?.toLowerCase() === s.email!.toLowerCase())) errs.push({ field: "email", message: "อีเมลนี้มีคนใช้แล้ว" })
   }
   return errs
