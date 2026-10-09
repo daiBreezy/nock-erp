@@ -47,7 +47,8 @@ export function StaffPanel({ target, onClose }: { target: ID | "new" | null; onC
   const close = () => { setCreatedId(null); setEditing(false); onClose() }
   return (
     <Sheet open={target !== null} onOpenChange={(o) => !o && close()}>
-      <SheetContent className="flex w-full flex-col gap-0 overflow-y-auto p-0 data-[side=right]:sm:max-w-xl">
+      {/* Header · Body · Bottom — only the body scrolls (owner 2026-10-09) */}
+      <SheetContent className="flex h-full w-full flex-col gap-0 overflow-hidden p-0 data-[side=right]:sm:max-w-xl">
         {editing || !s ? (
           <StaffEdit staff={s} onCancel={() => (s ? setEditing(false) : close())}
             onSaved={(saved) => { if (target === "new") setCreatedId(saved.id); setEditing(false) }} />
@@ -69,7 +70,7 @@ function StaffView({ s, onEdit }: { s: Staff; onEdit: () => void }) {
   const roles = rolesAt(s, branch.id)
   return (
     <>
-      <SheetHeader className="border-b pb-3">
+      <SheetHeader className="shrink-0 border-b pb-3">
         <div className="flex items-center gap-3">
           <span className={cn("grid size-11 shrink-0 place-items-center rounded-full text-lg font-semibold", avatarTone(s.id))}>{initial(s.nickname)}</span>
           <div className="min-w-0">
@@ -83,18 +84,18 @@ function StaffView({ s, onEdit }: { s: Staff; onEdit: () => void }) {
           {!s.canLogin && <Pill>ไม่ล็อกอิน</Pill>}
         </div>
       </SheetHeader>
-      <div className="flex gap-1 overflow-x-auto border-b px-3 py-2">
+      <div className="flex shrink-0 gap-1 overflow-x-auto border-b px-3 py-2">
         {TABS.map((t) => (
           <button key={t.key} type="button" onClick={() => setTab(t.key)} className={cn("shrink-0 rounded-full px-3 py-1 text-sm", tab === t.key ? "bg-primary/10 font-medium text-primary" : "text-muted-foreground hover:bg-muted")}>{t.label}</button>
         ))}
       </div>
-      <div className="flex-1 space-y-3 px-4 pt-4 pb-6">
+      <div className="min-h-0 flex-1 space-y-3 overflow-y-auto px-4 pt-4 pb-6">
         {tab === "info" ? <InfoTab s={s} /> : tab === "classes" ? <ClassesTab s={s} /> : tab === "sessions" ? <SessionsTab s={s} />
           : tab === "summaries" ? <SummariesTab s={s} /> : tab === "notes" ? <NotesTab s={s} canAdd={manage} /> : <LogTab s={s} />}
       </div>
       {/* Panel = Header · Body · Bottom — actions (CTA) live in the bottom bar (owner 2026-10-09) */}
       {manage && (
-        <div className="sticky bottom-0 flex items-center gap-2 border-t bg-background px-4 py-3">
+        <div className="flex shrink-0 items-center gap-2 border-t bg-background px-4 py-3">
           {s.active ? (
             <>
               <Button variant="ghost" className="text-red-700" disabled={!deact.ok} title={deact.ok ? undefined : (deact as { error: string }).error} onClick={() => setLeaving(true)}><UserXIcon /> ปิดบัญชี</Button>
@@ -120,7 +121,8 @@ function Row({ label, children }: { label: string; children: React.ReactNode }) 
 function InfoTab({ s }: { s: Staff }) {
   const branches = useStore((st) => st.branches)
   const global = s.roles.filter((r) => GLOBAL_ROLES.includes(r))
-  const rows = branches.map((b) => ({ b, a: assignmentAt(s, b.id) })).filter((x) => x.a)
+  // branches where they actually have a role — a Director with no branch work shows none
+  const rows = branches.map((b) => ({ b, a: assignmentAt(s, b.id) })).filter((x) => x.a && x.a.roles.length > 0)
   return (
     <>
       <section className="divide-y rounded-2xl border px-3">
@@ -135,7 +137,7 @@ function InfoTab({ s }: { s: Staff }) {
       </section>
       <section className="space-y-2">
         <h3 className="text-sm font-semibold">งานแต่ละสาขา</h3>
-        {rows.length === 0 && <p className="text-sm text-muted-foreground">ยังไม่ได้กำหนดสาขา</p>}
+        {rows.length === 0 && <p className="text-sm text-muted-foreground">{allBranches(s) ? "ไม่ได้ประจำสาขาใด — ดูแลทุกสาขา" : "ยังไม่ได้กำหนดสาขา"}</p>}
         {rows.map(({ b, a }) => (
           <div key={b.id} className="rounded-2xl border p-3 text-sm">
             <div className="flex flex-wrap items-center gap-1.5">
@@ -283,7 +285,7 @@ function Empty({ text }: { text: string }) {
 
 /** Assignment rows for the form — older records get one row per branch from their flat roles / subjects */
 const rowsOf = (s: Staff): StaffAssignment[] => s.assignments?.length ? s.assignments
-  : s.branchIds.map((b) => ({ branchId: b, roles: s.roles.filter((r) => BRANCH_ROLES.includes(r)), subjects: s.subjects, weekdays: [] }))
+  : s.roles.some((r) => BRANCH_ROLES.includes(r)) ? s.branchIds.map((b) => ({ branchId: b, roles: s.roles.filter((r) => BRANCH_ROLES.includes(r)), subjects: s.subjects, weekdays: [] })) : []
 
 function StaffEdit({ staff: initial, onCancel, onSaved }: { staff?: Staff; onCancel: () => void; onSaved: (s: Staff) => void }) {
   const branch = useBranch()
@@ -309,11 +311,11 @@ function StaffEdit({ staff: initial, onCancel, onSaved }: { staff?: Staff; onCan
 
   return (
     <>
-      <SheetHeader className="border-b pb-3">
+      <SheetHeader className="shrink-0 border-b pb-3">
         <SheetTitle className="text-lg">{initial ? `แก้ไข ${initial.nickname}` : "เพิ่มบุคลากร"}</SheetTitle>
         <SheetDescription>บทบาท วิชา และวันทำงาน แยกตามสาขา</SheetDescription>
       </SheetHeader>
-      <div className="flex-1 space-y-4 px-4 pt-4 pb-4">
+      <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-4 pt-4 pb-4">
         <div className="grid gap-3 sm:grid-cols-2">
           <Field label={nativeLabel(branch.brand, "ชื่อ-นามสกุล")} error={err("name")}><Input value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} /></Field>
           <EnNameField label="ชื่อ-นามสกุล" native={f.name} value={f.nameEn} onChange={(v) => setF({ ...f, nameEn: v })} />
@@ -372,7 +374,7 @@ function StaffEdit({ staff: initial, onCancel, onSaved }: { staff?: Staff; onCan
         <Field label={f.canLogin ? "อีเมล *" : "อีเมล (ไม่บังคับ)"} error={err("email")}><Input type="email" value={f.email ?? ""} onChange={(e) => setF({ ...f, email: e.target.value })} /></Field>
         {!f.canLogin && <p className="text-xs text-muted-foreground">ไม่มีสิทธิ์เข้าระบบ — เก็บข้อมูลไว้เฉยๆ (เปิดบัญชีล็อกอินภายหลังได้)</p>}
       </div>
-      <div className="sticky bottom-0 flex justify-end gap-2 border-t bg-background px-4 py-3">
+      <div className="flex shrink-0 justify-end gap-2 border-t bg-background px-4 py-3">
         <Button variant="ghost" onClick={onCancel}>ยกเลิก</Button>
         <Button onClick={submit}>{initial ? "บันทึก" : "เพิ่มบุคลากร"}</Button>
       </div>
