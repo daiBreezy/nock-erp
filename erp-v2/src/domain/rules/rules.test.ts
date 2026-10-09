@@ -245,13 +245,14 @@ describe("billing", () => {
     expect(canConfirmPayment({ recordedBy: "adm" }, admin, "b1").ok).toBe(false)
     expect(canConfirmPayment({ recordedBy: "adm" }, director, "b1").ok).toBe(true)
   })
-  it("owner 2026-09-26: approvers act only on their own branch — Area Manager and above on any", () => {
+  it("owner 2026-09-26: approvers act only on their own branch — Director / Super Admin on any, Area Manager in their area (2026-10-09)", () => {
     const other = inv({ branchId: "b2" })
     const mgr = staff("mgr", ["manager"])
     expect(canApprove(inv(), mgr).ok).toBe(true)
     expect(canApprove(other, mgr).ok).toBe(false)
     expect(canConfirmPayment({ recordedBy: "adm" }, mgr, "b2").ok).toBe(false)
-    expect(canApprove(other, staff("am", ["area_manager"])).ok).toBe(true)
+    expect(canApprove(other, { ...staff("am", ["area_manager"]), areaBranchIds: ["b1", "b2"] }).ok).toBe(true)
+    expect(canApprove(other, { ...staff("am", ["area_manager"]), areaBranchIds: ["b1"] }).ok).toBe(false)
     expect(canApprove(other, staff("sa", ["super_admin"])).ok).toBe(true)
     expect(canApprove(other, director).ok).toBe(true)
   })
@@ -2154,5 +2155,13 @@ describe("staff overview — one teacher's week (owner 2026-10-09)", () => {
   })
   it("students in hand = their classes + their sessions ahead", () => {
     expect(studentsOfTeacher("t1", { sessions, classes: [], today: "2026-10-09" }).sort()).toEqual(["a", "b"])
+  })
+})
+
+describe("Area Manager never sees branches outside their area (owner 2026-10-09)", () => {
+  it("no list yet = only the branches they are in, not every branch", () => {
+    const am = { id: "a", name: "a", nickname: "a", roles: ["area_manager"], branchIds: ["b1"], subjects: [], active: true, canLogin: true } as Staff
+    expect(inBranch(am, "b1")).toBe(true)
+    expect(inBranch(am, "b9")).toBe(false)
   })
 })

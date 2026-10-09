@@ -146,7 +146,7 @@ export function buildSeed(now = new Date()): DB {
   const staff: Staff[] = [
     st("u_nock", "นก ผู้อำนวยการ", "นก", ["director"], ALL_BRANCHES, []),
     st("u_sa", "ซี ซูเปอร์แอดมิน", "ซี", ["super_admin"], ALL_BRANCHES, []),
-    st("u_am", "เอ ผู้จัดการเขต", "เอ", ["area_manager"], BKK_ZONE, []),
+    { ...st("u_am", "เอ ผู้จัดการเขต", "เอ", ["area_manager"], BKK_ZONE, []), areaBranchIds: BKK_ZONE },
     st("u_ploy", "พลอย แอดมิน", "พลอย", ["admin"], ["br_thl"], []),
     // branch Manager of ทองหล่อ only — approvals at บางนา must be blocked for him
     st("u_ton", "ต้น ผู้จัดการ", "ต้น", ["manager"], ["br_thl"], []),

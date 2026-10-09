@@ -221,7 +221,7 @@ function InfoTab({ s, week, onTab }: { s: Staff; week: string; onTab: (t: Tab) =
         <Row label="ประเภท">{s.partTime ? "Part-time (เป็นครูสอนแทนได้)" : "Full-time"}</Row>
         {allBranches(s) && <Row label="ดูแล">ทุกสาขา ({global.filter((r) => r !== "area_manager").map((r) => ROLE_LABEL[r]).join(", ")})</Row>}
         {s.roles.includes("area_manager") && (
-          <Row label="Area Manager">{(() => { const area = areaOf(s); return area === null ? "ทุกสาขา (ยังไม่ได้เลือก)" : branches.filter((b) => area.includes(b.id)).map((b) => b.name).join(", ") })()}</Row>
+          <Row label="Area Manager">{branches.filter((b) => areaOf(s).includes(b.id)).map((b) => b.name).join(", ") || "ยังไม่ได้เลือกสาขาที่ดูแล"}</Row>
         )}
       </section>
       <section className="space-y-2">

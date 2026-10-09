@@ -67,7 +67,7 @@ export function assignmentAt(s: Staff, branchId: ID): StaffAssignment | null {
 export function rolesAt(s: Staff, branchId: ID): Role[] {
   const area = areaOf(s)
   // an Area Manager is one only in the branches they look after (owner 2026-10-09)
-  const global = s.roles.filter((r) => GLOBAL_ROLES.includes(r) && (r !== "area_manager" || area === null || area.includes(branchId)))
+  const global = s.roles.filter((r) => GLOBAL_ROLES.includes(r) && (r !== "area_manager" || area.includes(branchId)))
   if (!s.assignments?.length) return [...global, ...s.roles.filter((r) => !GLOBAL_ROLES.includes(r))]
   return [...new Set([...global, ...(assignmentAt(s, branchId)?.roles ?? [])])]
 }
@@ -127,10 +127,11 @@ export function allBranches(user: Pick<Staff, "roles"> | undefined) {
   return !!user?.roles.some((r) => r === "super_admin" || r === "director")
 }
 
-/** Branches an Area / Region Manager looks after — null = every branch (older records without a list) */
-export function areaOf(user: Pick<Staff, "roles" | "areaBranchIds"> | undefined): ID[] | null {
+/** Branches an Area / Region Manager looks after — only those (owner 2026-10-09: never the ones they don't).
+ *  Older records without a list = the branches they are in. */
+export function areaOf(user: Pick<Staff, "roles" | "areaBranchIds" | "branchIds"> | undefined): ID[] {
   if (!user?.roles.includes("area_manager")) return []
-  return user.areaBranchIds ?? null
+  return user.areaBranchIds ?? user.branchIds
 }
 
 /** May act in more than one branch: Director / Super Admin anywhere, an Area Manager in their area */
@@ -142,7 +143,7 @@ export function inBranch(user: Pick<Staff, "roles" | "areaBranchIds" | "branchId
   if (!user) return false
   if (allBranches(user)) return true
   const area = areaOf(user)
-  return area === null || area.includes(branchId) || user.branchIds.includes(branchId)
+  return area.includes(branchId) || user.branchIds.includes(branchId)
 }
 
 /**
