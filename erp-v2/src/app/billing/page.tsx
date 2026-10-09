@@ -124,7 +124,6 @@ function BillingPage() {
       </KpiRow>
 
       <div className="flex flex-wrap items-center gap-2">
-        {scope.select}
         {/* owner 2026-10-07: All / Pending, and Done / Void as show-hide toggles (the cards above still filter one status) */}
         <Segmented label="สถานะ" value={filter} onChange={(v) => setFilter(v)}
           options={[{ value: "all" as Filter, label: "All" }, { value: "pending" as Filter, label: <>Pending{pendingCount > 0 && <span className="rounded-full bg-amber-100 px-1.5 text-xs text-amber-800 tabular-nums">{pendingCount}</span>}</> }]} />
@@ -135,6 +134,8 @@ function BillingPage() {
           <SearchIcon className="absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" />
           <Input className="pl-8" placeholder="ค้นหาเลขที่ / ชื่อนักเรียน" value={q} onChange={(e) => setQ(e.target.value)} />
         </div>
+        {/* owner 2026-10-09: branch chip always last in the row */}
+        {scope.select}
       </div>
 
       {/* owner 2026-10-07: a real table — number, date, student, grade, amounts and status each in their own column

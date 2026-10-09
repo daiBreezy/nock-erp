@@ -306,3 +306,9 @@ export function mergeSubmission(family: Family | undefined, student: Student | u
   }
   return { family: f, student: st }
 }
+
+/** A family's own name for lists (owner 2026-10-09): "ครอบครัวแก้วงาม" → "แก้วงาม" — the column already says
+ *  ครอบครัว, and the leading word made every row sort the same. The stored name is unchanged. */
+export function familyShortName(name: string) {
+  return name.replace(/^ครอบครัว\s*/, "").trim() || name
+}

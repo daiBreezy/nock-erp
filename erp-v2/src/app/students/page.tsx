@@ -1,5 +1,6 @@
 "use client"
 
+import { familyShortName } from "@/domain/rules/people"
 import { Page, PageHeader, KpiRow, Toolbar } from "@/components/app/page-layout"
 import { Kpi } from "@/components/app/kpi"
 import { useState } from "react"
@@ -76,7 +77,7 @@ export default function StudentsPage() {
             : k === "course" ? (a.mainCourse?.name ?? "\uffff").localeCompare(b.mainCourse?.name ?? "\uffff", "th")
               : k === "enroll" ? (a.main?.from ?? "9").localeCompare(b.main?.from ?? "9")
                 : k === "end" ? (a.main?.to ?? "9").localeCompare(b.main?.to ?? "9")
-              : k === "family" ? (a.fam?.name ?? "").localeCompare(b.fam?.name ?? "", "th")
+              : k === "family" ? familyShortName(a.fam?.name ?? "").localeCompare(familyShortName(b.fam?.name ?? ""), "th")
                 : k === "status" ? STATUS_PILL[a.st].label.localeCompare(STATUS_PILL[b.st].label, "th")
                   : left(a) - left(b)
       return sort.desc ? -v : v
@@ -119,8 +120,7 @@ export default function StudentsPage() {
         <Kpi icon={SparklesIcon} label="นักเรียนใหม่เดือนนี้" value={kpi.fresh} tone="sky" />
         <Kpi icon={UnlinkIcon} label="ยังไม่ผูกครอบครัว" value={kpi.noFamily} tone="red" valueClassName={kpi.noFamily ? "text-red-700" : undefined} onClick={() => setNoFamily(noFamily ? "" : "none")} active={noFamily === "none"} />
       </KpiRow>
-      <Toolbar end={<span className="text-xs text-muted-foreground">{shown.length} คน</span>}>
-        {scope.select}
+      <Toolbar end={<><span className="text-xs text-muted-foreground">{shown.length} คน</span>{scope.select}</>}>
         <div className="relative w-full sm:w-72">
           <SearchIcon className="absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" />
           <Input className="pl-8" placeholder="ชื่อ / ชื่อเล่น / ครอบครัว / เบอร์" value={q} onChange={(e) => setQ(e.target.value)} />
@@ -164,7 +164,7 @@ export default function StudentsPage() {
                 <td className="truncate text-muted-foreground">{s.name}</td>
                 <td><GradeCell grade={s.grade} tone={gradeTone(s.grade)} /></td>
                 <td className="truncate text-muted-foreground">
-                  {fam ? <>{fam.name}{!fam.parents.some((p) => p.lineLinked) && <span className="text-xs text-amber-700"> · ไม่มี LINE</span>}</> : <span className="text-amber-700">ยังไม่ผูกครอบครัว</span>}
+                  {fam ? <>{familyShortName(fam.name)}{!fam.parents.some((p) => p.lineLinked) && <span className="text-xs text-amber-700"> · ไม่มี LINE</span>}</> : <span className="text-amber-700">ยังไม่ผูกครอบครัว</span>}
                 </td>
                 <td>
                   {mainCourse ? (

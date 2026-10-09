@@ -96,7 +96,7 @@ function SessionSummaryTab() {
       <BucketRow active={tab} onPick={setTab} count={(b) => rows.filter((r) => bucket(r) === b).length} focus />
       <Toolbar end={<>
         {mineOnly && <span className="text-xs text-muted-foreground">เฉพาะคาบของฉัน</span>}
-        {/* owner 2026-10-09: branch sits with the other filters */}
+        {/* owner 2026-10-09: branch chip always last in the row */}
         {scope.select}
       </>}>
         {period.control}

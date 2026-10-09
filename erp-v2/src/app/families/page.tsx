@@ -1,5 +1,6 @@
 "use client"
 
+import { familyShortName } from "@/domain/rules/people"
 import { useMemo, useState } from "react"
 import { MapPinOffIcon, MessageCircleIcon, PlusIcon, SearchIcon, UnlinkIcon, UsersIcon } from "lucide-react"
 import { Page, PageHeader, KpiRow, Toolbar } from "@/components/app/page-layout"
@@ -51,7 +52,7 @@ export default function FamiliesPage() {
     .filter((f) => !lineF || (lineF === "linked" ? linkedCount(f) === f.parents.length : linkedCount(f) < f.parents.length))
     .filter((f) => !needle || `${f.name} ${f.parents.map((p) => `${p.name} ${p.phone}`).join(" ")} ${(kidsOf.get(f.id) ?? []).map((s) => `${s.nickname} ${s.name}`).join(" ")}`.toLowerCase().includes(needle))
     .sort((a, b) => {
-      const v = sort.key === "name" ? a.name.localeCompare(b.name, "th")
+      const v = sort.key === "name" ? familyShortName(a.name).localeCompare(familyShortName(b.name), "th")
         : sort.key === "parent" ? (primaryOf(a)?.name ?? "").localeCompare(primaryOf(b)?.name ?? "", "th")
         : sort.key === "address" ? (a.address ?? "").localeCompare(b.address ?? "", "th")
         : sort.key === "kids" ? (kidsOf.get(a.id)?.length ?? 0) - (kidsOf.get(b.id)?.length ?? 0)
@@ -74,8 +75,7 @@ export default function FamiliesPage() {
         <Kpi icon={UnlinkIcon} label="ยังผูก LINE ไม่ครบ" value={kpi.missing} tone="amber" valueClassName={kpi.missing ? "text-amber-700" : undefined} onClick={() => setLineF(lineF === "missing" ? "" : "missing")} active={lineF === "missing"} />
         <Kpi icon={MapPinOffIcon} label="ยังไม่มีที่อยู่" value={kpi.noAddr} tone="red" valueClassName={kpi.noAddr ? "text-red-700" : undefined} onClick={() => setNoAddr(!noAddr)} active={noAddr} />
       </KpiRow>
-      <Toolbar end={<span className="text-xs text-muted-foreground">{rows.length} ครอบครัว</span>}>
-        {scope.select}
+      <Toolbar end={<><span className="text-xs text-muted-foreground">{rows.length} ครอบครัว</span>{scope.select}</>}>
         <div className="relative w-full sm:w-80">
           <SearchIcon className="absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" />
           <Input className="pl-8" placeholder="ครอบครัว / ผู้ปกครอง / เบอร์ / ชื่อลูก" value={q} onChange={(e) => setQ(e.target.value)} />
@@ -104,7 +104,7 @@ export default function FamiliesPage() {
             const lc = linkedCount(f)
             return (
               <tr key={f.id} onClick={() => setOpenId(f.id)} data-focus={focusKeys(f)} className={ROW}>
-                <td className="truncate font-medium">{f.name}{scope.multi && <span className="ml-1.5 inline-flex gap-1 align-middle">{[...new Set((kidsOf.get(f.id) ?? []).map((k) => k.branchId))].map((b) => <BranchCode key={b} code={scope.code(b)} />)}</span>}</td>
+                <td className="truncate font-medium" title={f.name}>{familyShortName(f.name)}{scope.multi && <span className="ml-1.5 inline-flex gap-1 align-middle">{[...new Set((kidsOf.get(f.id) ?? []).map((k) => k.branchId))].map((b) => <BranchCode key={b} code={scope.code(b)} />)}</span>}</td>
                 <td>
                   <div className="flex min-w-0 items-center gap-1">
                     <span className="flex-1 truncate">{primary?.name ?? "—"}</span>

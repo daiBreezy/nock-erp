@@ -123,8 +123,9 @@ function Reports() {
         {/* owner 2026-10-09: underline = which topic · grey boxes = which period */}
         <Tabs value={tab} onChange={setTab}
           options={TABS.map((t) => ({ value: t.id, icon: t.id === "summary" ? AiSparkles : undefined, label: <>{tx(t.label)}{t.soon && <span className="ml-1 text-[10px] text-muted-foreground">{t.soon}</span>}</> }))} />
-        {/* periods: rolling · to-date · complete-period comparisons · custom dates */}
-        <div className="flex flex-wrap items-center gap-2">
+        {/* periods: rolling · to-date · complete-period comparisons · custom dates — not on Satisfaction, which is one
+            survey round a year (owner 2026-10-09: a year switch AND a period made no sense together) */}
+        <div className={cn("flex flex-wrap items-center gap-2", tab === "satisfaction" && "hidden")}>
           {(["rolling", "todate", "compare"] as const).map((g) => (
             <Segmented key={g} value={period} onChange={setPeriod}
               options={PERIODS.filter((p) => p.group === g).map((p) => ({ value: p.key, label: p.short, title: tx(p.hint) }))} />
@@ -1177,9 +1178,9 @@ function SatisfactionTab({ d, compare }: { d: ReportData; compare: boolean }) {
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-2">
-        <span className="text-sm text-muted-foreground">{tx("ปี")}</span>
-        {d.surveyYears.map((y) => <button key={y} type="button" onClick={() => setYear(y)} className={cn("h-9 rounded-3xl border px-3 text-sm", y === year ? "border-primary bg-primary/10 font-medium text-primary" : "bg-card hover:bg-muted")}>{yearOf(y)}</button>)}
-        {cur.campaign && <span className="ml-auto text-xs text-muted-foreground">{tx("ส่ง")} {fmtDate(cur.campaign.sentAt.slice(0, 10))}  {tx("· ปิดรับ")} {fmtDate(cur.campaign.to)}  {tx("· ไม่ขึ้นกับช่วงเวลาด้านบน")}</span>}
+        <span className="text-sm text-muted-foreground">{tx("รอบแบบสอบถามปี")}</span>
+        <Segmented label={tx("ปี")} value={String(year)} onChange={(v) => setYear(Number(v))} options={d.surveyYears.map((y) => ({ value: String(y), label: String(yearOf(y)) }))} />
+        {cur.campaign && <InfoTip text={`${tx("ส่ง")} ${fmtDate(cur.campaign.sentAt.slice(0, 10))} ${tx("· ปิดรับ")} ${fmtDate(cur.campaign.to)} · ${tx("แบบสอบถามส่งปีละครั้ง จึงเลือกเป็นปี ไม่ใช้ช่วงเวลาด้านบน")}`} />}
       </div>
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-6">
         <Stat label="NPS" value={s.nps === null ? "—" : `${s.nps > 0 ? "+" : ""}${s.nps}`} tone={s.nps !== null && s.nps < 0 ? "text-red-600" : "text-emerald-600"} sub={dNps === null ? <span>{tx("ปีก่อน —")}</span> : <span className={dNps >= 0 ? "text-emerald-600" : "text-red-600"}>{dNps >= 0 ? "▲" : "▼"} {Math.abs(dNps)}  {tx("จากปีก่อน (")}{p.nps})</span>} />

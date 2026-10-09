@@ -128,7 +128,6 @@ export default function CrmPage() {
       </KpiRow>
 
       <div className="flex flex-wrap items-center gap-2">
-        {scope.select}
         <div className="relative w-56">
           <SearchIcon className="absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" />
           <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="ค้นหาชื่อ / วิชา" className="pl-8" />
@@ -142,6 +141,8 @@ export default function CrmPage() {
           <Segmented label="มุมมอง" value={view} onChange={(v) => setView(v)}
             options={[{ value: "kanban", label: "Kanban", icon: LayoutGridIcon }, { value: "table", label: "ตาราง", icon: TableIcon }]} />
         </div>
+        {/* owner 2026-10-09: branch chip always last in the row */}
+        {scope.select}
       </div>
 
       <Dialog open={workOpen} onOpenChange={setWorkOpen}>

@@ -77,10 +77,10 @@ export default function AttendancePage() {
         <Kpi icon={ClipboardCheckIcon} label="ยังไม่เช็คชื่อ" value={notMarked} tone="amber" valueClassName={notMarked ? "text-red-700" : undefined} />
       </KpiRow>
       <Toolbar end={<>
-        {/* owner 2026-10-09: branch sits with the other filters */}
-        {scope.select}
         <NativeSelect className="h-9 w-28" value={subject} onChange={(e) => setSubject(e.target.value)} placeholder="ทุกวิชา" options={branch.subjects.map((s) => ({ value: s, label: s }))} />
         <NativeSelect className="h-9 w-32" value={teacher} onChange={(e) => setTeacher(e.target.value)} placeholder="ครูทุกคน" options={staff.map((t) => staffAt(t, branch.id)).filter((t) => t.roles.includes("teacher") && t.branchIds.includes(branch.id)).map((t) => ({ value: t.id, label: t.nickname }))} />
+        {/* owner 2026-10-09: branch chip always last in the row */}
+        {scope.select}
       </>}>
         {period.control}
       </Toolbar>

@@ -72,8 +72,7 @@ export default function StaffPage() {
         <Kpi icon={ClockIcon} label="Part-time" value={kpi.part} tone="amber" onClick={() => setKind(kind === "part" ? "" : "part")} active={kind === "part"} />
         <Kpi icon={CalendarDaysIcon} label="คาบสอนสัปดาห์นี้" value={kpi.week} tone="emerald" />
       </KpiRow>
-      <Toolbar end={<span className="text-xs text-muted-foreground">{list.filter((x) => x.s.active).length} คน</span>}>
-        {scope.select}
+      <Toolbar end={<><span className="text-xs text-muted-foreground">{list.filter((x) => x.s.active).length} คน</span>{scope.select}</>}>
         <div className="relative w-full sm:w-72">
           <SearchIcon className="absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" />
           <Input className="pl-8" placeholder="ชื่อ / ชื่อเล่น / อีเมล / วิชา" value={q} onChange={(e) => setQ(e.target.value)} />

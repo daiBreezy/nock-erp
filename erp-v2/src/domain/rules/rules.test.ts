@@ -2182,3 +2182,12 @@ describe("date period — วันนี้ / สัปดาห์นี้ / 
     expect(isCurrent("week", "2026-10-12", "2026-10-09")).toBe(false)
   })
 })
+
+import { familyShortName } from "./people"
+describe("family name in lists (owner 2026-10-09)", () => {
+  it("drops the leading ครอบครัว so names sort by the family name", () => {
+    expect(familyShortName("ครอบครัวแก้วงาม")).toBe("แก้วงาม")
+    expect(familyShortName("ครอบครัว ใจดี")).toBe("ใจดี")
+    expect(familyShortName("Somjai Family")).toBe("Somjai Family")
+  })
+})

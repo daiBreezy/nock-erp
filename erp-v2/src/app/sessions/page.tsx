@@ -66,8 +66,6 @@ export default function SessionsPage() {
         <Kpi icon={CircleCheckIcon} label="เสร็จแล้ว" value={counts.done ?? 0} tone="emerald" onClick={() => pick("done")} active={work === "done"} />
       </KpiRow>
       <Toolbar end={<>
-        {/* owner 2026-10-09: branch sits with the other filters */}
-        {scope.select}
         <NativeSelect className="h-9 w-36" value={teacher} onChange={(e) => setTeacher(e.target.value)}
           options={[
             { value: "all", label: "ครูทุกคน" },
@@ -77,6 +75,8 @@ export default function SessionsPage() {
         {/* every state, incl. the ones without a card (รอเริ่ม / กำลังเรียน / ยกเลิก) */}
         <NativeSelect className="h-9 w-40" value={work ?? ""} onChange={(e) => setWork((e.target.value || null) as WorkState | null)} placeholder={`ทุกสถานะ (${withState.length})`}
           options={WORK_ORDER.map((w) => ({ value: w, label: `${WORK_LABEL[w]} (${counts[w] ?? 0})` }))} />
+        {/* owner 2026-10-09: branch chip always last in the row */}
+        {scope.select}
       </>}>
         {period.control}
       </Toolbar>

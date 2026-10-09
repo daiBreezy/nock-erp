@@ -3,7 +3,7 @@
 import { Page, PageHeader, KpiRow } from "@/components/app/page-layout"
 import { useBranchScope } from "@/components/app/branch-scope"
 import { useState } from "react"
-import { BookOpenIcon, CalendarIcon, ChevronRightIcon, ClockIcon, DoorOpenIcon, PlusIcon, RefreshCwIcon, SearchIcon, UserRoundIcon, UsersIcon } from "lucide-react"
+import { BookOpenIcon, CalendarIcon, ClockIcon, DoorOpenIcon, PlusIcon, RefreshCwIcon, SearchIcon, UserRoundIcon, UsersIcon } from "lucide-react"
 import { ClassDialog } from "@/components/app/class-dialog"
 import { ClassSheet } from "@/components/app/class-sheet"
 import { HEAD, Pager, ROW, SortHeader, TableShell, Th, usePage, useSort } from "@/components/app/data-table"
@@ -102,7 +102,6 @@ export default function ClassesPage() {
       </KpiRow>
 
       <div className="flex flex-wrap items-center gap-2">
-        {scope.select}
         <div className="relative">
           <SearchIcon className="absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
           <Input className="w-60 pl-9" placeholder="เช่น ชื่อครู, ชั้น, วิชา, ห้อง" value={q} onChange={(e) => setQ(e.target.value)} />
@@ -110,9 +109,11 @@ export default function ClassesPage() {
         <NativeSelect className="h-9 w-28" value={subjectF} onChange={(e) => setSubjectF(e.target.value)} placeholder="ทุกวิชา" options={[...new Set(classes.flatMap((c) => subjectsOf(c)))].map((x) => ({ value: x, label: x }))} />
         <NativeSelect className="h-9 w-32" value={kindF} onChange={(e) => setKindF(e.target.value)} placeholder="ประเภทคอร์ส" options={[{ value: "single", label: "Single" }, { value: "bundle", label: "Bundle" }]} />
         <NativeSelect className="h-9 w-32" value={unitF} onChange={(e) => setUnitF(e.target.value)} placeholder="แพ็กเกจ" options={(["hour", "week", "month"] as PriceUnit[]).map((u) => ({ value: u, label: PRICE_UNIT_LABEL[u] }))} />
+        {/* owner 2026-10-09: branch chip always last in the row */}
+        {scope.select}
       </div>
 
-      <TableShell minWidth={1100} cols={["auto", "124px", "124px", "120px", "96px", "180px", "112px", "120px", "92px", "40px"]}>
+      <TableShell minWidth={1100} cols={["auto", "124px", "124px", "120px", "96px", "180px", "112px", "120px", "100px"]}>
         <thead className={HEAD}>
           <tr>
             <SortHeader label="วิชา" k="subject" sort={sort} onSort={toggle} />
@@ -124,7 +125,6 @@ export default function ClassesPage() {
             <SortHeader label="ห้อง" k="room" sort={sort} onSort={toggle} />
             <Th>สาขา</Th>
             <SortHeader label="สถานะ" k="status" sort={sort} onSort={toggle} />
-            <Th />
           </tr>
         </thead>
         <tbody>
@@ -155,11 +155,10 @@ export default function ClassesPage() {
                 <td className="whitespace-nowrap"><span className="flex items-center gap-1.5 text-xs"><DoorOpenIcon className="size-4 text-muted-foreground" />{L.room(c.roomId)}</span></td>
                 <td className="leading-tight"><p className="truncate text-sm">{br?.name}</p><p className="text-[11px] text-muted-foreground">{br?.code}</p></td>
                 <td>{c.active ? <span className="text-sm font-medium text-emerald-700">เปิดอยู่</span> : <span className="text-sm text-muted-foreground">ปิดแล้ว</span>}</td>
-                <td className="text-right"><ChevronRightIcon className="ml-auto size-4 text-muted-foreground opacity-0 group-hover:opacity-100" /></td>
               </tr>
             )
           })}
-          {rows.length === 0 && <tr><td colSpan={10} className="p-10 text-center text-muted-foreground">ไม่มีคลาสตามเงื่อนไข</td></tr>}
+          {rows.length === 0 && <tr><td colSpan={9} className="p-10 text-center text-muted-foreground">ไม่มีคลาสตามเงื่อนไข</td></tr>}
         </tbody>
       </TableShell>
       <Pager {...pg} unit="คลาส" />

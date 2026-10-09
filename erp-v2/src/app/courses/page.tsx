@@ -110,7 +110,6 @@ export default function CoursesPage() {
       </KpiRow>
 
       <div className="flex flex-wrap items-center gap-2">
-        {scope.select}
         <div className="relative">
           <SearchIcon className="absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
           <Input className="w-56 pl-9" value={q} onChange={(e) => setQ(e.target.value)} placeholder="ค้นหาชื่อคอร์ส วิชา ระดับชั้น" />
@@ -118,6 +117,8 @@ export default function CoursesPage() {
         <NativeSelect className="h-9 w-32" value={subjectF} onChange={(e) => setSubjectF(e.target.value)} placeholder="ทุกวิชา" options={subjects.map((s) => ({ value: s, label: s }))} />
         <NativeSelect className="h-9 w-32" value={kindF} onChange={(e) => setKindF(e.target.value)} placeholder="ทุกประเภท" options={[{ value: "single", label: "Single" }, { value: "bundle", label: "Bundle" }]} />
         <NativeSelect className="h-9 w-36" value={unitF} onChange={(e) => setUnitF(e.target.value)} placeholder="ทุกแพ็กเกจ" options={(["hour", "week", "month"] as PriceUnit[]).map((u) => ({ value: u, label: PRICE_UNIT_LABEL[u] }))} />
+        {/* owner 2026-10-09: branch chip always last in the row */}
+        {scope.select}
       </div>
 
       <div className="overflow-x-auto rounded-3xl bg-card shadow-sm ring-1 ring-foreground/5">
