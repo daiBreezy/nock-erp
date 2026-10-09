@@ -382,7 +382,7 @@ export function buildSeed(now = new Date()): DB {
   // Family + booked Session + Assessment) so a lead already at "นัดสอบ"/"ทดลองเรียน" looks complete on
   // the CRM side panel (bookable session to jump to, not just a bare date on the Lead record)
   families.push(
-    { id: "fam_ld3", name: "ครอบครัวสมใจ", parents: [{ name: "คุณแม่พัชรา สมใจ", phone: "089-100-1003", lineLinked: false, primary: true }] },
+    { id: "fam_ld3", name: "ครอบครัวสมใจ", nameEn: "Somjai Family", parents: [{ name: "คุณแม่พัชรา สมใจ", nameEn: "Mom Patchara Somjai", phone: "089-100-1003", lineLinked: false, primary: true }] },
     { id: "fam_ld4", name: "ครอบครัวฟิชเชอร์", parents: [{ name: "คุณแม่เลนา ฟิชเชอร์", phone: "089-100-1004", lineLinked: true, primary: true }] },
     { id: "fam_ld6", name: "ครอบครัวมั่งมี", parents: [{ name: "คุณแม่กิ่งแก้ว มั่งมี", phone: "089-100-1006", lineLinked: true, primary: true }] },
     { id: "fam_ld5", name: "ครอบครัวนากามูระ", parents: [{ name: "คุณพ่อเบน นากามูระ", phone: "089-100-1005", lineLinked: true, primary: true }] },

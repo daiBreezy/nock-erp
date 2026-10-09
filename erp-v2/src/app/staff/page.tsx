@@ -21,6 +21,7 @@ import { report } from "@/lib/feedback"
 import { useBranch, useNow } from "@/lib/hooks"
 import { cn } from "@/lib/utils"
 import { useStore } from "@/store/store"
+import { EnNameField, nativeLabel } from "@/components/app/name-fields"
 
 type StaffSort = "nickname" | "name" | "role" | "type" | "upcoming"
 
@@ -131,8 +132,10 @@ function StaffForm({ staff: initialStaff, onClose }: { staff?: Staff; onClose: (
       <DialogContent className="sm:max-w-lg">
         <DialogHeader><DialogTitle>{initialStaff ? `แก้ ${initialStaff.nickname}` : "เพิ่มบุคลากร"}</DialogTitle></DialogHeader>
         <div className="grid gap-3 sm:grid-cols-2">
-          <Field label="ชื่อ-นามสกุล *" error={err("name")}><Input value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} /></Field>
-          <Field label="ชื่อที่แสดง *" error={err("nickname")}><Input value={f.nickname} onChange={(e) => setF({ ...f, nickname: e.target.value })} placeholder="ครูมิ้นท์" /></Field>
+          <Field label={nativeLabel(branch.brand, "ชื่อ-นามสกุล")} error={err("name")}><Input value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} /></Field>
+          <EnNameField label="ชื่อ-นามสกุล" native={f.name} value={f.nameEn} onChange={(v) => setF({ ...f, nameEn: v })} />
+          <Field label={nativeLabel(branch.brand, "ชื่อที่แสดง")} error={err("nickname")}><Input value={f.nickname} onChange={(e) => setF({ ...f, nickname: e.target.value })} placeholder="ครูมิ้นท์" /></Field>
+          <EnNameField label="ชื่อที่แสดง" native={f.nickname} value={f.nicknameEn} onChange={(v) => setF({ ...f, nicknameEn: v })} />
         </div>
         <Field label="บทบาท (เลือกได้หลายอัน)" error={err("roles")}>
           <div className="flex flex-wrap gap-3">

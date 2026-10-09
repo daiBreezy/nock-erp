@@ -11,12 +11,15 @@ import { uid } from "@/data/seed"
 import { report } from "@/lib/feedback"
 import { useStore } from "@/store/store"
 import { Field } from "./student-form"
+import { EnNameField, nativeLabel } from "./name-fields"
+import { useBranch } from "@/lib/hooks"
 
 /** Shared with families/page.tsx and the Inbox "create family from this conversation" flow. Same field
  *  set as the parent-facing Test/Trial form (email/relationship/birthdate/tax info) — staff fill this in
  *  by hand for a walk-in who can't submit the LINE form themselves. */
 export function FamilyForm({ family, initialName, initialParent, onClose, onSaved }: { family?: Family; initialName?: string; initialParent?: { name: string; phone?: string }; onClose: () => void; onSaved?: (f: Family) => void }) {
   const save = useStore((s) => s.saveFamily)
+  const branch = useBranch()
   const [f, setF] = useState<Family>(family ?? { id: uid("fa"), name: initialName ?? "", parents: [{ name: initialParent?.name ?? "", phone: initialParent?.phone ?? "", lineLinked: false, primary: true }] })
   const [touched, setTouched] = useState(false)
   const errs = validateFamily(f)
@@ -36,7 +39,10 @@ export function FamilyForm({ family, initialName, initialParent, onClose, onSave
     <Dialog open onOpenChange={(o) => !o && onClose()}>
       <DialogContent className="max-h-[92vh] overflow-y-auto sm:max-w-xl">
         <DialogHeader><DialogTitle>{family ? `แก้ ${family.name}` : "เพิ่มครอบครัว"}</DialogTitle></DialogHeader>
-        <Field label="ชื่อครอบครัว *" error={err("name")}><Input value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} placeholder="ครอบครัวสุขใจ" /></Field>
+        <div className="grid grid-cols-2 gap-2">
+          <Field label={nativeLabel(branch.brand, "ชื่อครอบครัว")} error={err("name")}><Input value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} placeholder={branch.brand === "liclass" ? "山田家" : "ครอบครัวสุขใจ"} /></Field>
+          <EnNameField label="ชื่อครอบครัว" native={f.name} value={f.nameEn} onChange={(v) => setF({ ...f, nameEn: v })} />
+        </div>
 
         <div className="space-y-2">
           {f.parents.map((p, i) => (
@@ -49,14 +55,15 @@ export function FamilyForm({ family, initialName, initialParent, onClose, onSave
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-2">
-                <Field label="ชื่อ *" error={err(`parent${i}.name`)}><Input value={p.name} onChange={(e) => setParent(i, { name: e.target.value })} placeholder="คุณแม่ สุดา" /></Field>
-                <Field label="เบอร์โทร *" error={err(`parent${i}.phone`)}><Input inputMode="tel" value={p.phone} onChange={(e) => setParent(i, { phone: e.target.value })} placeholder="081-234-5678" /></Field>
+                <Field label={nativeLabel(branch.brand, "ชื่อ")} error={err(`parent${i}.name`)}><Input value={p.name} onChange={(e) => setParent(i, { name: e.target.value })} placeholder="คุณแม่ สุดา" /></Field>
+                <EnNameField label="ชื่อ" native={p.name} value={p.nameEn} onChange={(v) => setParent(i, { nameEn: v })} />
               </div>
               <div className="grid grid-cols-2 gap-2">
+                <Field label="เบอร์โทร *" error={err(`parent${i}.phone`)}><Input inputMode="tel" value={p.phone} onChange={(e) => setParent(i, { phone: e.target.value })} placeholder="081-234-5678" /></Field>
                 <Field label="ความสัมพันธ์"><Input value={p.relationship ?? ""} onChange={(e) => setParent(i, { relationship: e.target.value || undefined })} placeholder="คุณแม่ / คุณพ่อ" /></Field>
                 <Field label="อีเมล"><Input type="email" value={p.email ?? ""} onChange={(e) => setParent(i, { email: e.target.value || undefined })} /></Field>
+                <Field label="วันเกิด"><Input type="date" value={p.birthDate ?? ""} onChange={(e) => setParent(i, { birthDate: e.target.value || undefined })} /></Field>
               </div>
-              <Field label="วันเกิด"><Input type="date" value={p.birthDate ?? ""} onChange={(e) => setParent(i, { birthDate: e.target.value || undefined })} /></Field>
             </div>
           ))}
           <Button size="xs" variant="outline" onClick={() => setF({ ...f, parents: [...f.parents, { name: "", phone: "", lineLinked: false, primary: false }] })}><PlusIcon /> เพิ่มผู้ปกครอง</Button>

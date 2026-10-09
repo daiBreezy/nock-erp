@@ -209,6 +209,10 @@ export interface Staff {
   id: ID
   name: string
   nickname: string
+  /** name in English (owner 2026-10-09) — optional; NockAcademy = TH + EN, Liclass = JP + EN. Empty = auto romanized */
+  nameEn?: string
+  /** nickname in English (optional, owner 2026-10-09) */
+  nicknameEn?: string
   roles: Role[]
   branchIds: ID[]
   subjects: string[]
@@ -449,6 +453,8 @@ export interface CourseSummary {
 
 export interface Parent {
   name: string
+  /** name in English (owner 2026-10-09) — optional; NockAcademy = TH + EN, Liclass = JP + EN. Empty = auto romanized */
+  nameEn?: string
   phone: string
   lineLinked: boolean
   primary: boolean
@@ -465,6 +471,8 @@ export interface Parent {
 export interface Family {
   id: ID
   name: string
+  /** name in English (owner 2026-10-09) — optional; NockAcademy = TH + EN, Liclass = JP + EN. Empty = auto romanized */
+  nameEn?: string
   parents: Parent[]
   address?: string
   postcode?: string
@@ -488,6 +496,10 @@ export interface Student {
   branchId: ID
   name: string
   nickname: string
+  /** name in English (owner 2026-10-09) — optional; NockAcademy = TH + EN, Liclass = JP + EN. Empty = auto romanized */
+  nameEn?: string
+  /** nickname in English (optional, owner 2026-10-09) */
+  nicknameEn?: string
   grade: string
   usesBus: boolean
   birthDate?: DateStr

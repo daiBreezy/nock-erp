@@ -17,6 +17,7 @@ import { useStore } from "@/store/store"
 import { CustomerPicker } from "./customer-picker"
 import { NativeSelect } from "./native-select"
 import { SchoolPicker } from "./school-picker"
+import { EnNameField, nativeLabel } from "./name-fields"
 
 /** Create / edit a student. Errors show under each field while typing (S4). */
 export function StudentForm({ student, familyId, onClose, onSaved }: { student?: Student; familyId?: string; onClose: () => void; onSaved?: (s: Student) => void }) {
@@ -40,8 +41,10 @@ export function StudentForm({ student, familyId, onClose, onSaved }: { student?:
           <DialogTitle>{student ? `แก้ข้อมูล ${student.nickname}` : "เพิ่มนักเรียน"}</DialogTitle>
         </DialogHeader>
         <div className="grid gap-3 sm:grid-cols-2">
-          <Field label="ชื่อ-นามสกุล *" error={err("name")} className="sm:col-span-2"><Input value={f.name} onChange={(e) => set("name", e.target.value)} placeholder="ด.ญ. ใบเตย สุขใจ" /></Field>
-          <Field label="ชื่อเล่น *" error={err("nickname")}><Input value={f.nickname} onChange={(e) => set("nickname", e.target.value)} /></Field>
+          <Field label={nativeLabel(branch.brand, "ชื่อ-นามสกุล")} error={err("name")}><Input value={f.name} onChange={(e) => set("name", e.target.value)} placeholder={branch.brand === "liclass" ? "山田 花子" : "ด.ญ. ใบเตย สุขใจ"} /></Field>
+          <EnNameField label="ชื่อ-นามสกุล" native={f.name} value={f.nameEn} onChange={(v) => set("nameEn", v)} />
+          <Field label={nativeLabel(branch.brand, "ชื่อเล่น")} error={err("nickname")}><Input value={f.nickname} onChange={(e) => set("nickname", e.target.value)} /></Field>
+          <EnNameField label="ชื่อเล่น" native={f.nickname} value={f.nicknameEn} onChange={(v) => set("nicknameEn", v)} />
           <Field label="ระดับชั้น *" error={err("grade")}>
             <NativeSelect value={f.grade} onChange={(e) => set("grade", e.target.value)} placeholder="เลือก" options={branch.grades.map((g) => ({ value: g, label: g }))} />
           </Field>

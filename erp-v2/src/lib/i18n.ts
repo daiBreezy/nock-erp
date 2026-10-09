@@ -107,9 +107,29 @@ export const durationText = (unit: "hour" | "week" | "month", d: number) => tx(u
  * English name from Settings first, else the standard place spelling, else the rule-based romanization.
  */
 export function nm(name: string | null | undefined): string {
-  if (!name || useUiLang.getState().lang === "th") return name ?? ""
+  const lang = useUiLang.getState().lang
+  if (!name || lang === "th") return name ?? ""
+  // Liclass names are typed in Japanese — the Japanese screen shows them as typed (owner 2026-10-09)
+  if (lang === "ja" && JAPANESE.test(name)) return name
+  const own = englishNames().get(name)
+  if (own) return own
   const b = useStore.getState().branches.find((x) => x.name === name)
   return b?.nameEn?.trim() || romanizeName(name)
+}
+
+const JAPANESE = /[\u3040-\u30ff\u4e00-\u9fff]/
+
+/** typed name → its English name (students, staff, families, parents) — rebuilt only when that data changes */
+let namesCache: { key: unknown[]; map: Map<string, string> } | null = null
+function englishNames(): Map<string, string> {
+  const { students, staff, families } = useStore.getState()
+  if (namesCache && namesCache.key[0] === students && namesCache.key[1] === staff && namesCache.key[2] === families) return namesCache.map
+  const map = new Map<string, string>()
+  const put = (native: string | undefined, en: string | undefined) => { if (native && en?.trim() && !map.has(native)) map.set(native, en.trim()) }
+  for (const x of [...students, ...staff]) { put(x.name, x.nameEn); put(x.nickname, x.nicknameEn) }
+  for (const f of families) { put(f.name, f.nameEn); f.parents.forEach((p) => put(p.name, p.nameEn)) }
+  namesCache = { key: [students, staff, families], map }
+  return map
 }
 
 /** a branch with its province code, e.g. "ทองหล่อ · BKK" → "Thonglor · BKK" */
