@@ -5,7 +5,6 @@ import { CopyIcon, MessageCircleIcon, PencilIcon, SmartphoneIcon, UserPlusIcon }
 import { ParentPreview } from "@/components/parent/parent-preview"
 import { toast } from "sonner"
 import { Pill } from "@/components/app/badges"
-import { StudentForm } from "@/components/app/student-form"
 import { StudentSheet } from "@/components/app/student-sheet"
 import { gradeTone } from "@/components/app/subject-color"
 import { Button } from "@/components/ui/button"
@@ -27,7 +26,7 @@ import { useStore } from "@/store/store"
  */
 export function FamilySheet({ id: target, onClose }: { id: ID | "new" | null; onClose: () => void }) {
   // owner 2026-10-09: View → แก้ไข → back in the same panel; "new" opens the empty form and becomes the view once saved
-  const [createdId, setCreatedId] = useState<ID | null>(null)
+  const [createdId, setCreatedId] = useState<ID | "new" | null>(null)
   const [editing, setEditing] = useState(target === "new")
   const id = target === "new" ? createdId : target
   const branch = useBranch()
@@ -36,7 +35,6 @@ export function FamilySheet({ id: target, onClose }: { id: ID | "new" | null; on
   const genCode = useStore((s) => s.generateLineCode)
   const simulate = useStore((s) => s.simulateLineLink)
   const now = useNow()
-  const [addChild, setAddChild] = useState(false)
   const [studentOpen, setStudentOpen] = useState<ID | null>(null)
   const [parentApp, setParentApp] = useState(false)
   const code = f?.lineCode && lineCodeValid(f, now).ok ? f.lineCode : null
@@ -85,7 +83,7 @@ export function FamilySheet({ id: target, onClose }: { id: ID | "new" | null; on
                   )}
                 </section>
                 <section className="space-y-2">
-                  <div className="flex items-center"><h3 className="text-sm font-semibold">ลูก ({kids.length})</h3><Button size="xs" variant="ghost" className="ml-auto" onClick={() => setAddChild(true)}><UserPlusIcon /> เพิ่มลูก</Button></div>
+                  <div className="flex items-center"><h3 className="text-sm font-semibold">ลูก ({kids.length})</h3><Button size="xs" variant="ghost" className="ml-auto" onClick={() => setStudentOpen("new")}><UserPlusIcon /> เพิ่มลูก</Button></div>
                   <ul className="divide-y rounded-2xl border">
                     {kids.map((s) => (
                       <li key={s.id}>
@@ -108,8 +106,7 @@ export function FamilySheet({ id: target, onClose }: { id: ID | "new" | null; on
             </>
           )}
       </EntityPanel>
-      {addChild && f && <StudentForm familyId={f.id} onClose={() => setAddChild(false)} />}
-      <StudentSheet studentId={studentOpen} onClose={() => setStudentOpen(null)} />
+      <StudentSheet studentId={studentOpen} familyId={f?.id} onClose={() => setStudentOpen(null)} />
     </>
   )
 }

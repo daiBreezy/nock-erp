@@ -10,7 +10,9 @@ import {
   MessageSquareIcon, MessagesSquareIcon, PencilIcon, PhoneIcon, PlaneIcon, PlusIcon, ReceiptIcon, SearchIcon, SendIcon, StickyNoteIcon, StoreIcon, UserRoundIcon, UsersIcon,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet"
+import { EntityPanel, PanelFooter, PanelForm } from "./form-shell"
+import { Tabs } from "./page-layout"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { daysBetween, endTime, fmtDate, fmtDateTime, fmtMoney, toDateStr } from "@/domain/dates"
@@ -47,21 +49,34 @@ const SEGS: { id: Seg; label: string }[] = [
 ]
 
 /**
- * Student modal (owner design "Student Modal", 2026-09-28): segments Overview · Class (Session | Attendance) ·
- * Billing · Note · Timeline. Active/Inactive is automatic (packages + long leave); only Archive is manual.
- * No "Claim" tab (staging) — paying enrols the student automatically.
+ * Student side panel (owner 2026-10-09 — same pattern as every entity): information with tabs Overview · Class ·
+ * Billing · Note · Timeline; แก้ไข switches the panel to the form; "new" opens the empty form and becomes the
+ * information view once saved. Active/Inactive is automatic (packages + long leave); only Archive is manual.
  */
-export function StudentSheet({ studentId, onClose }: { studentId: ID | null; onClose: () => void }) {
+export function StudentSheet({ studentId, familyId, onClose }: { studentId: ID | "new" | null; familyId?: ID; onClose: () => void }) {
   return (
-    <Dialog open={!!studentId} onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="flex h-[88vh] flex-col gap-0 overflow-hidden p-0 sm:max-w-3xl">
-        {studentId && <Body id={studentId} />}
-      </DialogContent>
-    </Dialog>
+    <EntityPanel open={!!studentId} onClose={onClose} wide>
+      {studentId && <Panel key={studentId} studentId={studentId} familyId={familyId} onClose={onClose} />}
+    </EntityPanel>
   )
 }
 
-function Body({ id }: { id: ID }) {
+function Panel({ studentId, familyId, onClose }: { studentId: ID | "new"; familyId?: ID; onClose: () => void }) {
+  const [createdId, setCreatedId] = useState<ID | null>(null)
+  const isNew = studentId === "new"
+  const [editing, setEditing] = useState(isNew)
+  const id = isNew ? createdId : studentId
+  const stu = useStore((s) => (id ? s.students.find((x) => x.id === id) : undefined))
+  return (editing && (isNew && !createdId ? true : !!stu)) ? (
+        <PanelForm>
+          <StudentForm key={stu?.id ?? "new"} student={stu} familyId={familyId}
+            onClose={() => (stu ? setEditing(false) : onClose())}
+            onSaved={(x) => { if (isNew) setCreatedId(x.id); setEditing(false) }} />
+        </PanelForm>
+      ) : id ? <Body id={id} onEdit={() => setEditing(true)} /> : null
+}
+
+function Body({ id, onEdit }: { id: ID; onEdit: () => void }) {
   const stu = useStore((s) => s.students.find((x) => x.id === id))
   const fam = useStore((s) => s.families.find((f) => f.id === stu?.familyId))
   const conv = useStore((s) => s.conversations.find((c) => c.familyId && c.familyId === stu?.familyId))
@@ -81,28 +96,31 @@ function Body({ id }: { id: ID }) {
 
   return (
     <>
-      <DialogHeader className="flex-row items-center gap-3 border-b px-5 py-3 pr-12">
-        <GraduationCapIcon className="size-5 text-muted-foreground" />
-        <DialogTitle className="text-base">นักเรียน</DialogTitle>
-        <DialogDescription className="sr-only">{stu.name}</DialogDescription>
-        {fam && (
-          <span className="ml-auto flex items-center gap-1.5 rounded-full border py-1 pr-1 pl-1 text-sm">
-            <span className={cn("grid size-7 place-items-center rounded-full text-xs font-semibold", avatarTone(fam.id))}>{initial(fam.name.replace(/^ครอบครัว/, ""))}</span>
-            <Link href="/families" className="max-w-40 truncate hover:underline">{fam.name}</Link>
-            {primary && (
-              <a href={`tel:${primary.phone.replace(/\D/g, "")}`} title={`โทร ${primary.name} ${primary.phone}`} className="grid size-7 place-items-center rounded-full bg-primary/10 text-primary hover:bg-primary/20"><PhoneIcon className="size-3.5" /></a>
-            )}
-          </span>
-        )}
-      </DialogHeader>
+      <SheetHeader className="shrink-0 gap-2 border-b pb-0">
+        <div className="flex items-center gap-3 pr-8">
+          <span className={cn("grid size-11 shrink-0 place-items-center rounded-full text-sm font-semibold", avatarTone(stu.id))}><GraduationCapIcon className="size-5" /></span>
+          <div className="min-w-0">
+            <SheetTitle className="truncate text-lg">{stu.nickname} <span className="font-normal text-muted-foreground">{stu.name}</span></SheetTitle>
+            <SheetDescription className="flex flex-wrap items-center gap-1.5">
+              {stu.grade && <span className={cn("rounded-md px-1.5 py-0.5 text-xs font-semibold", gradeTone(stu.grade))}>{stu.grade}</span>}
+              <Pill tone={STATUS_PILL[state.status].tone}>{STATUS_PILL[state.status].label}</Pill>
+              <span className="text-xs">{stateDetail(state, today) || "สถานะคำนวณอัตโนมัติจากแพ็กเกจและการลา"}</span>
+            </SheetDescription>
+          </div>
+          {fam && (
+            <span className="ml-auto flex shrink-0 items-center gap-1.5 rounded-full border py-1 pr-1 pl-1 text-sm">
+              <span className={cn("grid size-7 place-items-center rounded-full text-xs font-semibold", avatarTone(fam.id))}>{initial(fam.name.replace(/^ครอบครัว/, ""))}</span>
+              <Link href="/families" className="max-w-32 truncate hover:underline">{fam.name.replace(/^ครอบครัว\s*/, "")}</Link>
+              {primary && (
+                <a href={`tel:${primary.phone.replace(/\D/g, "")}`} title={`โทร ${primary.name} ${primary.phone}`} className="grid size-7 place-items-center rounded-full bg-primary/10 text-primary hover:bg-primary/20"><PhoneIcon className="size-3.5" /></a>
+              )}
+            </span>
+          )}
+        </div>
+        <Tabs className="-mx-4 border-b-0 px-3" value={seg} onChange={setSeg} options={SEGS.filter((x) => x.id !== "billing" || can(me, "billing.view")).map((x) => ({ value: x.id, label: x.label }))} />
+      </SheetHeader>
 
-      <div className="flex flex-wrap gap-1 px-5 pt-3">
-        {SEGS.filter((x) => x.id !== "billing" || can(me, "billing.view")).map((x) => (
-          <button key={x.id} onClick={() => setSeg(x.id)} className={cn("rounded-full px-4 py-1.5 text-sm", seg === x.id ? "bg-foreground font-medium text-background" : "bg-muted text-muted-foreground hover:bg-muted/70")}>{x.label}</button>
-        ))}
-      </div>
-
-      <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4">
+      <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4">
         {stu.exit && <div className="mb-4"><ExitPanel stu={stu} /></div>}
         {seg === "overview" && <Overview stu={stu} ents={ents} today={today} status={state.status} onNotRenewing={() => setArchiving(true)} />}
         {seg === "class" && <ClassSeg stu={stu} ents={ents} />}
@@ -111,23 +129,22 @@ function Body({ id }: { id: ID }) {
         {seg === "timeline" && <TimelineSeg stu={stu} />}
       </div>
 
+      {/* Header · Body · Bottom — CTAs live here: destructive left, primary right (owner 2026-10-09) */}
       {seg !== "note" && (
-        <div className="flex flex-wrap items-center gap-3 border-t px-5 py-3">
+        <PanelFooter>
           {can(me, "student.manage") && (stu.archived ? (
-            <Button size="sm" variant="ghost" onClick={() => report(restore(stu.id), "กลับมาเรียนแล้ว")}><ArchiveRestoreIcon /> กลับมาเรียน</Button>
+            <Button variant="ghost" onClick={() => report(restore(stu.id), "กลับมาเรียนแล้ว")}><ArchiveRestoreIcon /> กลับมาเรียน</Button>
           ) : !stu.exit && (
-            <Button size="sm" variant="ghost" onClick={() => setArchiving(true)}><DoorOpenIcon /> แจ้งออก</Button>
+            <Button variant="ghost" className="text-red-700" onClick={() => setArchiving(true)}><DoorOpenIcon /> แจ้งออก</Button>
           ))}
-          <span className="flex items-center gap-2 text-sm">
-            <Pill tone={STATUS_PILL[state.status].tone}>{STATUS_PILL[state.status].label}</Pill>
-            <span className="text-xs text-muted-foreground">{stateDetail(state, today) || "สถานะคำนวณอัตโนมัติจากแพ็กเกจและการลา"}</span>
-          </span>
           {conv ? (
             <Button size="icon" variant="outline" className="ml-auto rounded-full" aria-label="แชท LINE กับผู้ปกครอง" title="เปิดแชท LINE กับผู้ปกครองใน Inbox" nativeButton={false} render={<Link href={`/inbox?conversation=${conv.id}`} />}><MessagesSquareIcon /></Button>
           ) : (
             <Button size="icon" variant="outline" className="ml-auto rounded-full" disabled aria-label="ยังไม่มีแชท" title="ครอบครัวนี้ยังไม่มีแชท LINE ใน Inbox"><MessagesSquareIcon /></Button>
           )}
-        </div>
+          {can(me, "billing.manage") && <Button variant="outline" nativeButton={false} render={<Link href={`/billing?new=${stu.id}`} />}><ReceiptIcon /> ออกใบแจ้งหนี้</Button>}
+          {can(me, "student.manage") && <Button onClick={onEdit}><PencilIcon /> แก้ไข</Button>}
+        </PanelFooter>
       )}
       {archiving && <ExitRequestDialog stu={stu} onClose={() => setArchiving(false)} onCloseNow={() => { setArchiving(false); setClosingNow(true) }} />}
       {closingNow && <CloseExitDialog stu={stu} response={null} onClose={() => setClosingNow(false)} />}
@@ -162,7 +179,6 @@ function Overview({ stu, ents, today, status, onNotRenewing }: { stu: Student; e
   const rawEnts = useStore((s) => s.entitlements)
   const branches = useStore((s) => s.branches)
   const fam = useStore((s) => s.families.find((f) => f.id === stu.familyId))
-  const [editing, setEditing] = useState(false)
   const [leaveDialog, setLeaveDialog] = useState<{ leave?: (typeof leaves)[number] } | null>(null)
   const mine = ents.filter((e) => e.studentId === stu.id).sort((a, b) => b.to.localeCompare(a.to))
   const current = mine.filter((e) => e.to >= today)
@@ -227,10 +243,6 @@ function Overview({ stu, ents, today, status, onNotRenewing }: { stu: Student; e
           {past.length > 0 && <ul className="divide-y border-t">{past.map((e) => <Row key={e.id} e={e} />)}</ul>}
         </div>
 
-        <div className="mt-2 flex flex-wrap justify-end gap-2 border-t pt-3">
-          {can(me, "billing.manage") && <Button size="sm" variant="outline" nativeButton={false} render={<Link href={`/billing?new=${stu.id}`} />}><ReceiptIcon /> ออกใบแจ้งหนี้</Button>}
-          {can(me, "student.manage") && <Button size="sm" onClick={() => setEditing(true)}><PencilIcon /> แก้ไข</Button>}
-        </div>
       </section>
 
       {status === "renewal" && <RenewalFollowUpSection stu={stu} canManage={can(me, "student.manage")} onNotRenewing={onNotRenewing} />}
@@ -260,7 +272,6 @@ function Overview({ stu, ents, today, status, onNotRenewing }: { stu: Student; e
           </ul>
         )}
       </section>
-      {editing && <StudentForm student={stu} onClose={() => setEditing(false)} />}
       {leaveDialog && <LeaveDialog studentId={stu.id} leave={leaveDialog.leave} onClose={() => setLeaveDialog(null)} />}
     </div>
   )

@@ -8,7 +8,6 @@ import { DownloadIcon, GraduationCapIcon, PlusIcon, RefreshCwIcon, SearchIcon, S
 import { Pill } from "@/components/app/badges"
 import { NativeSelect } from "@/components/app/native-select"
 import { PackageBadge } from "@/components/app/package-badge"
-import { StudentForm } from "@/components/app/student-form"
 import { StudentSheet } from "@/components/app/student-sheet"
 import { STATUS_PILL } from "@/components/app/student-status"
 import { GradeCell, gradeCompare, HEAD, Pager, ROW, SortHeader, TableShell, usePage, useSort } from "@/components/app/data-table"
@@ -47,8 +46,7 @@ export default function StudentsPage() {
   const [grade, setGrade] = useQueryState<string>("grade", "")
   const [status, setStatus] = useQueryState<string>("status", "")
   const [noFamily, setNoFamily] = useQueryState<string>("family", "")
-  const [openId, setOpenId] = useState<ID | null>(null)
-  const [adding, setAdding] = useState(false)
+  const [openId, setOpenId] = useState<ID | "new" | null>(null)
 
   const { sort, toggle } = useSort<StudentSort>("nickname")
   const byGrade = gradeCompare(branch.grades)
@@ -112,7 +110,7 @@ export default function StudentsPage() {
       <PageHeader title="นักเรียน" description="นักเรียนทั้งหมด คอร์สที่เรียนอยู่ และวันจบแพ็กเกจ"
         actions={<>
           {can(me, "student.export") && <Button variant="outline" onClick={exportCsv}><DownloadIcon /> ส่งออก</Button>}
-          {can(me, "student.manage") && <Button onClick={() => setAdding(true)}><PlusIcon /> เพิ่มนักเรียน</Button>}
+          {can(me, "student.manage") && <Button onClick={() => setOpenId("new")}><PlusIcon /> เพิ่มนักเรียน</Button>}
         </>} />
       <KpiRow>
         <Kpi icon={GraduationCapIcon} label="กำลังเรียน" value={kpi.active} tone="emerald" onClick={() => pick("active")} active={status === "active"} />
@@ -187,7 +185,6 @@ export default function StudentsPage() {
       </TableShell>
       <Pager {...pg} unit="คน" />
       <StudentSheet studentId={openId} onClose={() => setOpenId(null)} />
-      {adding && <StudentForm onClose={() => setAdding(false)} onSaved={(s) => setOpenId(s.id)} />}
     </Page>
   )
 }

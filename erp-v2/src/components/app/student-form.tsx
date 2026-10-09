@@ -3,7 +3,6 @@
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
@@ -18,6 +17,7 @@ import { CustomerPicker } from "./customer-picker"
 import { NativeSelect } from "./native-select"
 import { SchoolPicker } from "./school-picker"
 import { EnNameField, nativeLabel } from "./name-fields"
+import { FormShell, useInPanel } from "./form-shell"
 
 /** Create / edit a student. Errors show under each field while typing (S4). */
 export function StudentForm({ student, familyId, onClose, onSaved }: { student?: Student; familyId?: string; onClose: () => void; onSaved?: (s: Student) => void }) {
@@ -33,13 +33,26 @@ export function StudentForm({ student, familyId, onClose, onSaved }: { student?:
   const errs = validateStudent(f, today)
   const err = (field: string) => touched && errs.find((e) => e.field === field)?.message
   const set = <K extends keyof Student>(k: K, v: Student[K]) => setF((x) => ({ ...x, [k]: v }))
+  const inPanel = useInPanel()
 
   return (
-    <Dialog open onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="sm:max-w-lg">
-        <DialogHeader>
-          <DialogTitle>{student ? `แก้ข้อมูล ${student.nickname}` : "เพิ่มนักเรียน"}</DialogTitle>
-        </DialogHeader>
+    <FormShell className="sm:max-w-lg" onClose={onClose} title={student ? `แก้ข้อมูล ${student.nickname}` : "เพิ่มนักเรียน"}
+      footer={<>
+        <Button variant="ghost" onClick={onClose}>ยกเลิก</Button>
+        <Button
+          onClick={() => {
+            setTouched(true)
+            const r = save(f)
+            if (report(r, student ? "บันทึกแล้ว" : `เพิ่ม ${f.nickname} แล้ว`)) {
+              onSaved?.(r.value)
+              // in a side panel the panel switches back to the information view itself
+              if (!inPanel) onClose()
+            }
+          }}
+        >
+          บันทึก
+        </Button>
+      </>}>
         <div className="grid gap-3 sm:grid-cols-2">
           <Field label={nativeLabel(branch.brand, "ชื่อ-นามสกุล")} error={err("name")}><Input value={f.name} onChange={(e) => set("name", e.target.value)} placeholder={branch.brand === "liclass" ? "山田 花子" : "ด.ญ. ใบเตย สุขใจ"} /></Field>
           <EnNameField label="ชื่อ-นามสกุล" native={f.name} value={f.nameEn} onChange={(v) => set("nameEn", v)} />
@@ -63,23 +76,7 @@ export function StudentForm({ student, familyId, onClose, onSaved }: { student?:
           </label>
           <Field label="หมายเหตุ (แพ้อาหาร, ข้อควรระวัง ฯลฯ)" className="sm:col-span-2"><Textarea rows={2} value={f.note ?? ""} onChange={(e) => set("note", e.target.value)} /></Field>
         </div>
-        <DialogFooter>
-          <Button variant="ghost" onClick={onClose}>ยกเลิก</Button>
-          <Button
-            onClick={() => {
-              setTouched(true)
-              const r = save(f)
-              if (report(r, student ? "บันทึกแล้ว" : `เพิ่ม ${f.nickname} แล้ว`)) {
-                onSaved?.(r.value)
-                onClose()
-              }
-            }}
-          >
-            บันทึก
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+    </FormShell>
   )
 }
 
