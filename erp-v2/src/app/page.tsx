@@ -46,7 +46,7 @@ export default function DashboardPage() {
   const now = useNow()
   const today = toDateStr(now)
   const branch = useBranch()
-  const me = useStore((s) => s.staff.find((x) => x.id === s.userId)!)
+  const me = useStore((s) => s.me())
   const sessions = useStore((s) => s.sessions)
   const attendance = useStore((s) => s.attendance)
   const summaries = useStore((s) => s.summaries)

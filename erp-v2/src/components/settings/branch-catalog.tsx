@@ -77,11 +77,13 @@ export function PackagesTab({ branch }: { branch: Branch }) {
   }
   const removeDuration = (d: number) => {
     if (unit === "month") return
-    const { [d]: _gone, ...quotas } = b.leaveQuotas?.[unit] ?? {}
+    const quotas = { ...b.leaveQuotas?.[unit] }
+    delete quotas[d]
     setB({ ...b, packageDurations: { ...b.packageDurations, [unit]: b.packageDurations[unit].filter((x) => x !== d) }, priceChart: b.priceChart.filter((r) => !(r.unit === unit && r.duration === d)), leaveQuotas: { ...b.leaveQuotas, [unit]: quotas } })
   }
   const setQuota = (d: number, v: string) => {
-    const { [d]: _old, ...rest } = b.leaveQuotas?.[unit] ?? {}
+    const rest = { ...b.leaveQuotas?.[unit] }
+    delete rest[d]
     setB({ ...b, leaveQuotas: { ...b.leaveQuotas, [unit]: v === "" ? rest : { ...rest, [d]: Math.max(0, Math.floor(Number(v))) } } })
   }
 

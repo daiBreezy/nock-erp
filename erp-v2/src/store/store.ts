@@ -16,7 +16,7 @@ import * as Les from "@/domain/rules/lessons"
 export type SummaryLesson = { bookId?: ID; topicId?: ID; detail?: string }
 import * as CRM from "@/domain/rules/crm"
 import * as Inbox from "@/domain/rules/inbox"
-import { can, canDeactivateStaff, canEditBlocks, inBranch, OFFICE_ROLES, require as requirePerm } from "@/domain/rules/permissions"
+import { can, canDeactivateStaff, canEditBlocks, inBranch, OFFICE_ROLES, require as requirePerm, staffAt } from "@/domain/rules/permissions"
 import * as Sch from "@/domain/rules/scheduling"
 import * as Sum from "@/domain/rules/summaries"
 import * as People from "@/domain/rules/people"
@@ -74,6 +74,8 @@ type Store = DB & UIState & {
   saveStaff: (s: Staff) => Result<Staff>
   deactivateStaff: (id: ID, replacementId: ID | null) => Result<{ reassigned: number }>
   reactivateStaff: (id: ID) => Result
+  /** Staff panel › Note (owner 2026-10-09) */
+  addStaffNote: (staffId: ID, text: string) => Result
   saveCourse: (c: Course) => Result<Course>
   duplicateCourse: (id: ID) => Result<Course>
   saveBranch: (b: Branch) => Result
@@ -225,12 +227,20 @@ type Store = DB & UIState & {
 const OK = { ok: true as const, value: undefined }
 const fail = (error: string) => ({ ok: false as const, error })
 /** Company holidays = Director (settings.manage); a branch's own holidays = Admin/Manager of that branch. */
-const holidayPerm = (s: DB & { userId: ID }, branchId: ID | null) => {
-  const me = s.staff.find((x) => x.id === s.userId)
+const holidayPerm = (s: DB & { userId: ID; branchId: ID }, branchId: ID | null) => {
+  const u = s.staff.find((x) => x.id === s.userId)
+  const me = u && staffAt(u, branchId ?? s.branchId)
   if (branchId === null) return requirePerm(me, "settings.manage")
   const r = requirePerm(me, "holiday.manage")
   if (!r.ok) return r
   return inBranch(me, branchId) ? r : fail("จัดการวันหยุดได้เฉพาะสาขาของตัวเอง")
+}
+
+let meCache: { u: Staff; b: ID; v: Staff } | null = null
+const meAt = (u: Staff, b: ID): Staff => {
+  if (meCache && meCache.u === u && meCache.b === b) return meCache.v
+  meCache = { u, b, v: staffAt(u, b) }
+  return meCache.v
 }
 
 /** A10: a day turning into a holiday — optionally cancel its sessions, always tell the office. */
@@ -336,7 +346,8 @@ export const useStore = create<Store>()(
       clockOffset: 0,
 
       now: () => new Date(Date.now() + get().clockOffset),
-      me: () => get().staff.find((s) => s.id === get().userId)!,
+      // roles / subjects of the branch picked in the top bar (owner 2026-10-09) — cached so selectors stay stable
+      me: () => meAt(get().staff.find((s) => s.id === get().userId)!, get().branchId),
       setUser: (userId) => {
         const u = get().staff.find((s) => s.id === userId)!
         set({ userId, branchId: u.branchIds.includes(get().branchId) ? get().branchId : u.branchIds[0] })
@@ -696,6 +707,16 @@ export const useStore = create<Store>()(
         const clean = st.canLogin ? st : { ...st, email: st.email || undefined }
         set({ staff: s.staff.some((x) => x.id === st.id) ? s.staff.map((x) => (x.id === st.id ? clean : x)) : [...s.staff, clean] })
         return { ok: true, value: clean }
+      },
+
+      addStaffNote: (staffId, text) => {
+        const s = get()
+        const perm = requirePerm(s.me(), "staff.manage")
+        if (!perm.ok) return perm
+        if (!text.trim()) return fail("พิมพ์โน้ตก่อน")
+        const note = { id: uid("sn"), at: s.now().toISOString(), by: s.userId, text: text.trim() }
+        set({ staff: s.staff.map((x) => (x.id === staffId ? { ...x, notes: [note, ...(x.notes ?? [])] } : x)) })
+        return OK
       },
 
       // F2 + S6: hand over future sessions first, never lock the school out
@@ -2441,4 +2462,4 @@ export function unseenChange(s: Session, userId: ID): boolean {
 }
 
 /** Convenience: current user */
-export const useMe = () => useStore((s) => s.staff.find((x) => x.id === s.userId)!)
+export const useMe = () => useStore((s) => s.me())

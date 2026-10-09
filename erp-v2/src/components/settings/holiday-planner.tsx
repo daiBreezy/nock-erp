@@ -39,7 +39,7 @@ type Draft = { id?: string; name: string; date: string; category: HolidayCategor
  *   plus the branch's own holidays that its Admin/Manager create — so they can judge which days to close.
  */
 export function HolidayPlanner({ branch }: { branch?: Branch }) {
-  const me = useStore((s) => s.staff.find((x) => x.id === s.userId)!)
+  const me = useStore((s) => s.me())
   const all = useStore((s) => s.holidays)
   const sessions = useStore((s) => s.sessions)
   const act = useStore(useShallow((s) => ({ add: s.addHoliday, update: s.updateHoliday, remove: s.removeHoliday, setOpen: s.setHolidayOpen })))

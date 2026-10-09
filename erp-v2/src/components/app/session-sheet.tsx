@@ -1,5 +1,6 @@
 "use client"
 
+import { staffAt } from "@/domain/rules/permissions"
 import { ForceApprove } from "./force-approve"
 import Link from "next/link"
 import { useEffect, useMemo, useState } from "react"
@@ -65,7 +66,7 @@ function Body({ id, onClose }: { id: ID; onClose: () => void }) {
   const staff = useStore((st) => st.staff)
   const attendance = useStore((st) => st.attendance)
   const summaries = useStore((st) => st.summaries)
-  const me = useStore((st) => st.staff.find((x) => x.id === st.userId)!)
+  const me = useStore((st) => st.me())
   const save = useStore((st) => st.saveSummary)
   const approve = useStore((st) => st.approveSummary)
   const now = useNow(10_000)
@@ -265,7 +266,7 @@ function StudentRow({ s, sid, viewOnly, canManage, mine, text, setText, selectab
   const holidays = useStore((st) => st.holidays)
   const courses = useStore((st) => st.courses)
   const assessments = useStore((st) => st.assessments)
-  const me = useStore((st) => st.staff.find((x) => x.id === st.userId)!)
+  const me = useStore((st) => st.me())
   const mark = useStore((st) => st.mark)
   const clearMark = useStore((st) => st.clearMark)
   const entitlements = useEntitlements()
@@ -593,7 +594,7 @@ function RescheduleDialog({ from, studentId, onClose }: { from: Session; student
   const [nTeacher, setNTeacher] = useState(from.teacherId ?? "")
   const [nRoom, setNRoom] = useState(from.roomId ?? "")
   const [agreed, setAgreed] = useState(false)
-  const teachers = staff.filter((t) => t.active && t.roles.includes("teacher") && t.branchIds.includes(branch.id))
+  const teachers = staff.map((t) => staffAt(t, branch.id)).filter((t) => t.active && t.roles.includes("teacher") && t.branchIds.includes(branch.id))
   const createAndMove = () => {
     const r = addSession({ branchId: from.branchId, classId: null, subject: from.subject, subjects: from.subjects, date: day, start: nStart, minutes: nMinutes, teacherId: nTeacher || null, coTeacherIds: [], roomId: nRoom || null, studentIds: [], trial: false })
     if (!r.ok) return report(r, "")
@@ -752,7 +753,7 @@ function DeleteDialog({ s, canCancel, onClose, onDone }: { s: Session; canCancel
 function SummaryInline({ session, sessionId, studentId, summary, viewOnly, text, setText }: { session: Session; sessionId: ID; studentId: ID; summary?: LessonSummary; viewOnly: boolean; text: string; setText: (t: string) => void }) {
   const now = useNow(60_000)
   const due = Sum.sendDeadline(session, now)
-  const me = useStore((s) => s.staff.find((x) => x.id === s.userId)!)
+  const me = useStore((s) => s.me())
   const staff = useStore((s) => s.staff)
   const save = useStore((s) => s.saveSummary)
   const approve = useStore((s) => s.approveSummary)
@@ -871,7 +872,7 @@ function TeacherLeaveDialog({ s, onClose }: { s: Session; onClose: () => void })
   const [mode, setMode] = useState<"sub" | "cancel">("sub")
   const [subId, setSubId] = useState("")
   // regular teachers first, then part-time ones (owner 2026-09-30: a part-time teacher can cover)
-  const teachers = staff.filter((t) => t.active && t.roles.includes("teacher") && t.branchIds.includes(s.branchId) && t.id !== s.teacherId)
+  const teachers = staff.map((t) => staffAt(t, s.branchId)).filter((t) => t.active && t.roles.includes("teacher") && t.branchIds.includes(s.branchId) && t.id !== s.teacherId)
     .sort((a, b) => Number(!!a.partTime) - Number(!!b.partTime))
   const teaches = (t: (typeof teachers)[number]) => subjectsOf(s).every((x) => t.subjects.includes(x))
   const submit = () => report(act(s.id, { reason, substituteId: mode === "sub" ? subId || null : null }),
@@ -929,7 +930,7 @@ function EditSessionDialog({ id, onClose }: { id: ID; onClose: () => void }) {
           <div className="space-y-1">
             <Label>ครู</Label>
             <NativeSelect value={teacherId} onChange={(e) => setTeacherId(e.target.value)} placeholder="ยังไม่มีครู"
-              options={staff.filter((t) => t.active && t.roles.includes("teacher") && t.branchIds.includes(branch.id)).map((t) => ({ value: t.id, label: t.nickname }))} />
+              options={staff.map((t) => staffAt(t, branch.id)).filter((t) => t.active && t.roles.includes("teacher") && t.branchIds.includes(branch.id)).map((t) => ({ value: t.id, label: t.nickname }))} />
           </div>
           <div className="space-y-1">
             <Label>ห้อง</Label>
@@ -967,7 +968,7 @@ function TeachersDialog({ id, onClose }: { id: ID; onClose: () => void }) {
   const branch = useBranch()
   const [sel, setSel] = useState({ ids: [s.teacherId, ...s.coTeacherIds].filter(Boolean) as string[], primaryId: s.teacherId ?? "" })
   const [scope, setScope] = useState<MoveScope>("one")
-  const teachers = staff.filter((t) => t.active && t.roles.includes("teacher") && t.branchIds.includes(branch.id))
+  const teachers = staff.map((t) => staffAt(t, branch.id)).filter((t) => t.active && t.roles.includes("teacher") && t.branchIds.includes(branch.id))
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()}>
       <DialogContent className="sm:max-w-lg">

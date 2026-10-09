@@ -25,7 +25,7 @@ type Day = { date: string; pickup: boolean; dropoff: boolean }
  * charge waits for the student's next invoice (or an invoice for the bus only). Fewer bus days are never refunded.
  */
 export function BusAddOns({ stu }: { stu: Student }) {
-  const me = useStore((s) => s.staff.find((x) => x.id === s.userId)!)
+  const me = useStore((s) => s.me())
   const branch = useStore((s) => s.branches.find((b) => b.id === stu.branchId)!)
   const addOns = useStore((s) => s.busAddOns).filter((a) => a.studentId === stu.id).sort((a, b) => b.date.localeCompare(a.date))
   const invoices = useStore((s) => s.invoices)

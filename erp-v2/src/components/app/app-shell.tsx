@@ -63,7 +63,7 @@ export function AppShell({ children }: { children: ReactNode }) {
 
 function Shell({ children }: { children: ReactNode }) {
   const pathname = usePathname()
-  const me = useStore((s) => s.staff.find((x) => x.id === s.userId)!)
+  const me = useStore((s) => s.me())
   const branch = useBranch()
   const current = navFor(pathname)
   const allowed = !current || canAny(me, current.perm)
@@ -183,7 +183,7 @@ function SmartSearch() {
 
 /** แจ้งเตือน (owner 2026-10-07): a plain menu row like every other item — one line, no outline, red count badge */
 function NotificationCard() {
-  const me = useStore((s) => s.staff.find((x) => x.id === s.userId)!)
+  const me = useStore((s) => s.me())
   const count = useStore((s) => s.notifications.filter((n) => visibleTo(n, me) && isUnread(n, me)).length)
   const pathname = usePathname()
   const t = useT()
@@ -205,7 +205,7 @@ function NotificationCard() {
 
 /** bottom: who I am, my role, and — never cut off — which branch I'm working in (owner 2026-09-29) */
 function UserCard() {
-  const me = useStore((s) => s.staff.find((x) => x.id === s.userId)!)
+  const me = useStore((s) => s.me())
   const branches = useStore((s) => s.branches)
   const branchId = useStore((s) => s.branchId)
   const setBranch = useStore((s) => s.setBranch)

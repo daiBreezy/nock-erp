@@ -1,5 +1,6 @@
 "use client"
 
+import { staffAt } from "@/domain/rules/permissions"
 import { PeriodBanner } from "@/components/app/period-banner"
 import { Suspense, useMemo, useState } from "react"
 import { useSearchParams } from "next/navigation"
@@ -40,7 +41,7 @@ function CalendarView() {
   const now = useNow()
   const today = toDateStr(now)
   const branch = useBranch()
-  const me = useStore((s) => s.staff.find((x) => x.id === s.userId)!)
+  const me = useStore((s) => s.me())
   const allSessions = useStore((s) => s.sessions)
   const staff = useStore((s) => s.staff)
   const holidays = useStore((s) => s.holidays)
@@ -113,7 +114,7 @@ function CalendarView() {
     { value: "all", label: "ครูทุกคน" },
     ...(me.roles.includes("teacher") ? [{ value: me.id, label: "เฉพาะคาบของฉัน" }] : []),
     { value: "none", label: "ยังไม่มีครู" },
-    ...staff.filter((t) => t.roles.includes("teacher") && t.branchIds.includes(branch.id) && t.id !== me.id).map((t) => ({ value: t.id, label: t.active ? t.nickname : `${t.nickname} (ออกแล้ว)` })),
+    ...staff.map((t) => staffAt(t, branch.id)).filter((t) => t.roles.includes("teacher") && t.branchIds.includes(branch.id) && t.id !== me.id).map((t) => ({ value: t.id, label: t.active ? t.nickname : `${t.nickname} (ออกแล้ว)` })),
   ]
 
   const cardProps = { conflictIds, now, onOpen: setOpenId, classes, onMove: (id: string, target: MoveTarget) => setMoving({ id, target }), canMove: (s: Session) => canCreate && sessionState(s, now) === "upcoming" }

@@ -9,16 +9,14 @@ import { StudentForm } from "@/components/app/student-form"
 import { StudentSheet } from "@/components/app/student-sheet"
 import { STATUS_PILL } from "@/components/app/student-status"
 import { GradeCell, gradeCompare, HEAD, Pager, ROW, SortHeader, TableShell, usePage, useSort } from "@/components/app/data-table"
-import { EditCell } from "@/components/app/inline-edit"
 import { useFocusFirst } from "@/components/app/focus-banner"
-import { report } from "@/lib/feedback"
 import { avatarTone, gradeTone, initial } from "@/components/app/subject-color"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { addDays, fmtDate, toDateStr } from "@/domain/dates"
 import * as Att from "@/domain/rules/attendance"
 import { can } from "@/domain/rules/permissions"
-import type { ID, Student } from "@/domain/types"
+import type { ID } from "@/domain/types"
 
 type StudentSort = "nickname" | "name" | "grade" | "family" | "course" | "enroll" | "end" | "status" | "left"
 import { useBranch, useEntitlements, useNow, useQueryState } from "@/lib/hooks"
@@ -29,7 +27,7 @@ import { toast } from "sonner"
 export default function StudentsPage() {
   const branch = useBranch()
   const today = toDateStr(useNow())
-  const me = useStore((s) => s.staff.find((x) => x.id === s.userId)!)
+  const me = useStore((s) => s.me())
   const students = useStore((s) => s.students).filter((s) => s.branchId === branch.id)
   const families = useStore((s) => s.families)
   const classes = useStore((s) => s.classes)
@@ -47,10 +45,6 @@ export default function StudentsPage() {
 
   const { sort, toggle } = useSort<StudentSort>("nickname")
   const byGrade = gradeCompare(branch.grades)
-  const saveStudent = useStore((s) => s.saveStudent)
-  const manage = can(me, "student.manage")
-  // inline edit (owner 2026-10-07) — same validation as the student form
-  const edit = (st: Student, patch: Partial<Student>) => report(saveStudent({ ...st, ...patch }), "บันทึกแล้ว")
   /** sessions left on the lowest session pack (subscriptions count as plenty) */
   const left = (r: (typeof rows)[number]) => Math.min(Infinity, ...r.packs.filter(({ e }) => e.kind === "sessions").map(({ b }) => b.remaining))
   const rows = students.map((s) => {
@@ -139,11 +133,11 @@ export default function StudentsPage() {
                 <td>
                   <div className="flex min-w-0 items-center gap-2">
                     <span className={cn("grid size-8 shrink-0 place-items-center rounded-full text-sm font-semibold", avatarTone(s.id))}>{initial(s.nickname)}</span>
-                    <EditCell value={s.nickname} disabled={!manage} className="flex-1 font-medium" onSave={(v) => edit(s, { nickname: v })} />
+                    <span className="flex-1 truncate font-medium">{s.nickname}</span>
                   </div>
                 </td>
-                <td className="text-muted-foreground"><EditCell value={s.name} disabled={!manage} onSave={(v) => edit(s, { name: v })} /></td>
-                <td><EditCell kind="select" value={s.grade} disabled={!manage} display={<GradeCell grade={s.grade} tone={gradeTone(s.grade)} />} options={branch.grades.map((g) => ({ value: g, label: g }))} onSave={(v) => edit(s, { grade: v })} /></td>
+                <td className="truncate text-muted-foreground">{s.name}</td>
+                <td><GradeCell grade={s.grade} tone={gradeTone(s.grade)} /></td>
                 <td className="truncate text-muted-foreground">
                   {fam ? <>{fam.name}{!fam.parents.some((p) => p.lineLinked) && <span className="text-xs text-amber-700"> · ไม่มี LINE</span>}</> : <span className="text-amber-700">ยังไม่ผูกครอบครัว</span>}
                 </td>

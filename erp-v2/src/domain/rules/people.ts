@@ -1,5 +1,6 @@
 // Families, students, staff and LINE linking (S4, S5, S6, F2, Flow E).
 
+import { GLOBAL_ROLES } from "./permissions"
 import { addDays } from "../dates"
 import type { DateStr, Family, FormParentInput, FormSubmission, ID, Lead, Result, Session, Staff, Student } from "../types"
 import { teachersOf } from "./scheduling"
@@ -137,12 +138,18 @@ export function validateStudent(s: Pick<Student, "name" | "nickname" | "grade" |
 }
 
 /** S5: no-login part-timers do not need an email */
-export function validateStaff(s: Pick<Staff, "name" | "nickname" | "roles" | "branchIds" | "canLogin" | "email">, all: Staff[], selfId?: ID): FieldError[] {
+export function validateStaff(s: Pick<Staff, "name" | "nickname" | "roles" | "branchIds" | "canLogin" | "email" | "assignments">, all: Staff[], selfId?: ID): FieldError[] {
   const errs: FieldError[] = []
   if (!s.name.trim()) errs.push({ field: "name", message: "ใส่ชื่อ" })
   if (!s.nickname.trim()) errs.push({ field: "nickname", message: "ใส่ชื่อเล่น" })
   if (!s.roles.length) errs.push({ field: "roles", message: "เลือกบทบาทอย่างน้อย 1" })
   if (!s.branchIds.length) errs.push({ field: "branchIds", message: "เลือกสาขาอย่างน้อย 1" })
+  // owner 2026-10-09: per branch — a branch row needs a role (unless company-wide), a teacher there needs a subject
+  const global = s.roles.some((r) => GLOBAL_ROLES.includes(r))
+  for (const a of s.assignments ?? []) {
+    if (!a.roles.length && !global) errs.push({ field: `branch:${a.branchId}`, message: "เลือกบทบาทของสาขานี้อย่างน้อย 1" })
+    if (a.roles.includes("teacher") && !a.subjects.length) errs.push({ field: `branch:${a.branchId}`, message: "ครูต้องมีวิชาที่สอนในสาขานี้อย่างน้อย 1 วิชา" })
+  }
   // S5 (owner 2026-10-09): email optional without a login, but a typed one must still be valid
   if (s.canLogin && !s.email?.trim()) errs.push({ field: "email", message: "บัญชีที่ล็อกอินได้ต้องมีอีเมลที่ถูกต้อง" })
   else if (s.email?.trim()) {

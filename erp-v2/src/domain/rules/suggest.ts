@@ -1,6 +1,7 @@
 // Conflict resolver: proposes concrete, pre-validated fixes instead of making the admin puzzle it out.
 // Order = least disruptive first: room → teacher → time same day → another day.
 
+import { staffAt } from "./permissions"
 import { addDays, endTime, fmtDate, fromMinutes, toMinutes } from "../dates"
 import type { Attendance, Branch, Holiday, ID, Session, Staff } from "../types"
 import { findConflicts, hoursFor, introducedConflicts, isHoliday, moveSession, sessionState, slotProblem, type MoveTarget } from "./scheduling"
@@ -69,7 +70,7 @@ export function suggestFixes(sessionId: ID, ctx: Ctx, perKind = 2): FixSuggestio
   }
 
   // 2. another teacher who teaches the subject and is free
-  const teachers = ctx.staff.filter((t) => t.active && t.roles.includes("teacher") && t.branchIds.includes(s.branchId) && t.subjects.includes(s.subject) && t.id !== s.teacherId && !s.coTeacherIds.includes(t.id))
+  const teachers = ctx.staff.map((t) => staffAt(t, s.branchId)).filter((t) => t.active && t.roles.includes("teacher") && t.branchIds.includes(s.branchId) && t.subjects.includes(s.subject) && t.id !== s.teacherId && !s.coTeacherIds.includes(t.id))
   for (const t of teachers) {
     const target = { date: s.date, start: s.start, teacherId: t.id }
     const ok = evaluate(target)

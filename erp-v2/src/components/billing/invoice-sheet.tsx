@@ -35,7 +35,7 @@ export function InvoiceSheet({ id, slipMediaId, onClose, onEdit }: { id: ID | nu
 function Body({ id, slipMediaId, onEdit }: { id: ID; slipMediaId?: string; onEdit: (inv: Invoice) => void }) {
   const inv = useStore((s) => s.invoices.find((x) => x.id === id))
   const branch = useBranch()
-  const me = useStore((s) => s.staff.find((x) => x.id === s.userId)!)
+  const me = useStore((s) => s.me())
   const staff = useStore((s) => s.staff)
   const students = useStore((s) => s.students)
   const families = useStore((s) => s.families)

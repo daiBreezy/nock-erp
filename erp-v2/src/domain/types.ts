@@ -221,6 +221,22 @@ export interface Staff {
   email?: string
   /** part-time teacher — offered as a substitute when a teacher is on leave (owner 2026-09-30) */
   partTime?: boolean
+  /** what this person does at each branch (owner 2026-10-09): e.g. Bangna = Teacher (Eng, Math) Mon–Wed, Paradise =
+   *  Admin + Teacher (Science) Thu–Fri. Branch roles follow the branch picked in the top bar; Director / Super Admin /
+   *  Area Manager stay company-wide in `roles`. Unset (older records) = `roles` / `subjects` everywhere in `branchIds`.
+   *  `roles`, `branchIds` and `subjects` are kept as the union of these so older code keeps working. */
+  assignments?: StaffAssignment[]
+  /** notes about this person, newest first (owner 2026-10-09: Staff panel › Note) */
+  notes?: { id: ID; at: string; by: ID; text: string }[]
+}
+
+export interface StaffAssignment {
+  branchId: ID
+  /** branch roles only: manager / admin / teacher */
+  roles: Role[]
+  subjects: string[]
+  /** days they work at this branch — empty = any day */
+  weekdays: Weekday[]
 }
 
 /** traditional / company = set by the company in Settings → System (branchId null) · branch = created by that branch's Admin/Manager */

@@ -2090,3 +2090,33 @@ describe("parent app v1 (owner 2026-10-09)", () => {
     expect([...m.entries()]).toEqual([["2026-10-12", { pickup: true, dropoff: true }]])
   })
 })
+
+import { rolesAt, staffAt, subjectsAt, withAssignments, worksOn } from "./permissions"
+
+describe("staff roles per branch (owner 2026-10-09)", () => {
+  const base = { id: "p", name: "พลอย", nickname: "พลอย", roles: [], branchIds: [], subjects: [], active: true, canLogin: true } as Staff
+  const p = withAssignments(base, [
+    { branchId: "bn", roles: ["teacher"], subjects: ["อังกฤษ", "คณิต"], weekdays: [1, 2, 3] },
+    { branchId: "pp", roles: ["admin", "teacher"], subjects: ["วิทย์"], weekdays: [4, 5] },
+  ])
+  it("roles, subjects and days follow the branch", () => {
+    expect(rolesAt(p, "bn")).toEqual(["teacher"])
+    expect(rolesAt(p, "pp").sort()).toEqual(["admin", "teacher"])
+    expect(subjectsAt(p, "pp")).toEqual(["วิทย์"])
+    expect(worksOn(p, "bn", 1)).toBe(true)
+    expect(worksOn(p, "bn", 4)).toBe(false)
+    expect(can(staffAt(p, "pp"), "billing.manage")).toBe(true)
+    expect(can(staffAt(p, "bn"), "billing.manage")).toBe(false)
+  })
+  it("flat fields stay the union so older code keeps working; company-wide roles stay everywhere", () => {
+    expect(p.branchIds).toEqual(["bn", "pp"])
+    expect([...p.subjects].sort()).toEqual(["คณิต", "วิทย์", "อังกฤษ"].sort())
+    const am = withAssignments({ ...base, roles: ["area_manager"] }, [{ branchId: "bn", roles: [], subjects: [], weekdays: [] }])
+    expect(rolesAt(am, "bn")).toEqual(["area_manager"])
+  })
+  it("a teacher booked on a day they don't work at that branch is an amber warning, not a block", () => {
+    const t = withAssignments({ ...base, id: "t1", nickname: "ครูพลอย" }, [{ branchId: "b1", roles: ["teacher"], subjects: ["คณิต"], weekdays: [3] }])
+    const issues = validateClass(klass({ teacherId: "t1" }), { branch, staff: [t], sessions: [], holidays: [] })
+    expect(issues.find((i) => i.message.includes("ไม่ได้ทำงาน"))).toMatchObject({ level: "warn", tone: "amber" })
+  })
+})

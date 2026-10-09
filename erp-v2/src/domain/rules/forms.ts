@@ -3,6 +3,7 @@
 // as a real Session. Labels here were previously duplicated between lead-sheet.tsx and
 // liff/form/page.tsx.
 
+import { staffAt } from "./permissions"
 import { addDays, at, fromMinutes, overlaps, toMinutes } from "../dates"
 import type { Assessment, Branch, DateStr, Family, FormOfferSlot, FormParentInput, FormPrefill, FormSubjectOffer, FormType, Holiday, ID, Klass, Lead, LeadStage, Session, Staff, Student, TimeStr } from "../types"
 import { CAPACITY, hoursFor, isHoliday, slotProblem, teachersOf } from "./scheduling"
@@ -103,7 +104,7 @@ function slotsOverlap(aStart: TimeStr, aMinutes: number, bStart: TimeStr, bMinut
 
 /** First subject-qualified, active teacher of this branch with no overlapping session that date. */
 function freeTeacher(staff: Staff[], sessions: Session[], branchId: ID, subject: string, date: DateStr, start: TimeStr, minutes: number): ID | null {
-  const qualified = staff.filter((t) => t.active && t.roles.includes("teacher") && t.branchIds.includes(branchId) && t.subjects.includes(subject))
+  const qualified = staff.map((t) => staffAt(t, branchId)).filter((t) => t.active && t.roles.includes("teacher") && t.branchIds.includes(branchId) && t.subjects.includes(subject))
   const daySessions = sessions.filter((s) => !s.cancelled && s.branchId === branchId && s.date === date)
   const free = qualified.find((t) => !daySessions.some((s) => teachersOf(s).includes(t.id) && slotsOverlap(s.start, s.minutes, start, minutes)))
   return free?.id ?? null

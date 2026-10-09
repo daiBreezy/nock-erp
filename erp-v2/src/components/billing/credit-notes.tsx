@@ -23,7 +23,7 @@ import { useStore } from "@/store/store"
 
 /** Credit Notes of one paid invoice: create (refund / keep as credit), approve (maker–checker), record the transfer back. */
 export function CreditNotes({ inv }: { inv: Invoice }) {
-  const me = useStore((s) => s.staff.find((x) => x.id === s.userId)!)
+  const me = useStore((s) => s.me())
   const staff = useStore((s) => s.staff)
   const notes = useStore((s) => s.creditNotes).filter((n) => n.invoiceId === inv.id)
   const [creating, setCreating] = useState(false)
@@ -48,7 +48,7 @@ export function CreditNotes({ inv }: { inv: Invoice }) {
 
 function NoteCard({ n, who, manage }: { n: CreditNote; who: (id?: string) => string; manage: boolean }) {
   const act = useStore(useShallow((s) => ({ approve: s.approveCreditNote, void: s.voidCreditNote, refund: s.recordRefund })))
-  const me = useStore((s) => s.staff.find((x) => x.id === s.userId)!)
+  const me = useStore((s) => s.me())
   const branch = useStore((s) => s.branches.find((b) => b.id === n.branchId)!)
   const today = toDateStr(useNow(60_000))
   const [voiding, setVoiding] = useState(false)

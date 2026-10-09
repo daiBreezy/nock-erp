@@ -45,7 +45,7 @@ function Body({ studentId, rounds, onClose }: { studentId: ID; rounds: Sum.Entit
   const student = useStore((s) => s.students.find((x) => x.id === studentId))
   const family = useStore((s) => s.families.find((f) => f.id === student?.familyId))
   const courseSummaries = useStore((s) => s.courseSummaries)
-  const me = useStore((s) => s.staff.find((x) => x.id === s.userId)!)
+  const me = useStore((s) => s.me())
   const canManage = can(me, "summary.approve")
   const approve = useStore((s) => s.approveCourseSummary)
   const send = useStore((s) => s.sendCourseSummary)

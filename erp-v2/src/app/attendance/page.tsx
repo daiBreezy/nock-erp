@@ -1,5 +1,6 @@
 "use client"
 
+import { staffAt } from "@/domain/rules/permissions"
 import { useState } from "react"
 import { ChevronLeftIcon, ChevronRightIcon } from "lucide-react"
 import { NativeSelect } from "@/components/app/native-select"
@@ -85,7 +86,7 @@ export default function AttendancePage() {
             <ToggleGroupItem value="month">เดือน</ToggleGroupItem>
           </ToggleGroup>
           <NativeSelect className="h-9 w-28" value={subject} onChange={(e) => setSubject(e.target.value)} placeholder="ทุกวิชา" options={branch.subjects.map((s) => ({ value: s, label: s }))} />
-          <NativeSelect className="h-9 w-32" value={teacher} onChange={(e) => setTeacher(e.target.value)} placeholder="ครูทุกคน" options={staff.filter((t) => t.roles.includes("teacher") && t.branchIds.includes(branch.id)).map((t) => ({ value: t.id, label: t.nickname }))} />
+          <NativeSelect className="h-9 w-32" value={teacher} onChange={(e) => setTeacher(e.target.value)} placeholder="ครูทุกคน" options={staff.map((t) => staffAt(t, branch.id)).filter((t) => t.roles.includes("teacher") && t.branchIds.includes(branch.id)).map((t) => ({ value: t.id, label: t.nickname }))} />
         </div>
       </div>
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">

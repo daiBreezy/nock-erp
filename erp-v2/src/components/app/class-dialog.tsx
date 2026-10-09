@@ -1,5 +1,6 @@
 "use client"
 
+import { staffAt } from "@/domain/rules/permissions"
 import { useState } from "react"
 import { AlertTriangleIcon, BanIcon, BookOpenIcon, CheckIcon, InfoIcon, PlusIcon, TrashIcon, XIcon } from "lucide-react"
 import { Button } from "@/components/ui/button"
@@ -8,7 +9,6 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { addDays, endTime, fmtDate, nextWeekday, TH_DAYS_FULL, toDateStr, toMinutes, weekdayOf, fromMinutes } from "@/domain/dates"
-import * as Att from "@/domain/rules/attendance"
 import { packageLabel } from "@/domain/rules/course"
 import { blocksOn, canSave, periodsOn, CAPACITY, GENERATE_WEEKS, isHoliday, overlappingRows, validateClass, type ClassDraft, type Issue } from "@/domain/rules/scheduling"
 import { sortGrades } from "@/domain/rules/settings"
@@ -84,7 +84,7 @@ export function ClassDialog({ prefill, onClose }: { prefill: ClassPrefill; onClo
   const [overrideReason, setOverrideReason] = useState("")
 
   const course = courses.find((c) => c.id === courseId)
-  const teachers = staff.filter((t) => t.active && t.roles.includes("teacher") && t.branchIds.includes(branch.id))
+  const teachers = staff.map((t) => staffAt(t, branch.id)).filter((t) => t.active && t.roles.includes("teacher") && t.branchIds.includes(branch.id))
   const teaches = (t: (typeof teachers)[number]) => subjects.some((s) => t.subjects.includes(s))
   const minutesOf = (r: Row) => toMinutes(r.end) - toMinutes(r.start)
   const slot = (r: Row) => ({ weekday: r.weekday, start: r.start, minutes: minutesOf(r) })

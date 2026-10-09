@@ -30,7 +30,7 @@ function monthsBetween(from: string, to: string) {
  */
 export function SalesTaxDialog() {
   const s = useStore()
-  const me = s.staff.find((x) => x.id === s.userId)
+  const me = s.me()
   const thisMonth = toDateStr(useNow(60_000)).slice(0, 7)
   const [from, setFrom] = useState(thisMonth)
   const [to, setTo] = useState(thisMonth)

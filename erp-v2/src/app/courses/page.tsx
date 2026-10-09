@@ -26,7 +26,7 @@ type SortKey = "name" | "price" | "students" | "start"
 /** Course page (owner design 2026-09-28): KPIs · search + filters · table with each course's linked classes on expand. */
 export default function CoursesPage() {
   const branch = useBranch()
-  const me = useStore((s) => s.staff.find((x) => x.id === s.userId)!)
+  const me = useStore((s) => s.me())
   const branches = useStore((s) => s.branches)
   const courses = useStore((s) => s.courses)
   const classes = useStore((s) => s.classes)

@@ -55,7 +55,7 @@ export default function NotificationsPage() {
   const now = useNow()
   const today = toDateStr(now)
   const branch = useBranch()
-  const me = useStore((s) => s.staff.find((x) => x.id === s.userId)!)
+  const me = useStore((s) => s.me())
   const s = useStore()
   const entitlements = useEntitlements()
   const mineOnly = !seesAllSessions(me)
@@ -176,7 +176,7 @@ function Chip({ on, onClick, label, count, icon: Icon }: { on: boolean; onClick:
  *  "ส่งข้อความถึงทีม" button (owner 2026-10-07), closes after sending. */
 function TeamMessage({ onClose }: { onClose: () => void }) {
   const branch = useBranch()
-  const me = useStore((s) => s.staff.find((x) => x.id === s.userId)!)
+  const me = useStore((s) => s.me())
   const staff = useStore((s) => s.staff)
   const sendMsg = useStore((s) => s.sendTeamMessage)
   const [to, setTo] = useState<string>("branch")

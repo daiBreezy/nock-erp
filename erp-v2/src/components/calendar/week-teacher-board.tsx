@@ -1,5 +1,6 @@
 "use client"
 
+import { staffAt } from "@/domain/rules/permissions"
 import { Fragment, useMemo, useState } from "react"
 import { AlertTriangleIcon, ArrowLeftRightIcon, BanIcon, CalendarIcon, EllipsisIcon, CheckIcon, ClipboardCheckIcon, FlaskConicalIcon, MessagesSquareIcon, PencilIcon, PencilLineIcon, PlayIcon, PlusIcon, ShapesIcon, Settings2Icon, UserIcon, UsersIcon, UsersRoundIcon } from "lucide-react"
 import type { ClassPrefill } from "@/components/app/class-dialog"
@@ -264,7 +265,7 @@ function TeacherDayDialog({ mode, teacherId, date, onClose }: { mode: "substitut
   const subjects = [...new Set(day.flatMap((x) => subjectsOf(x)))]
   const branchId = day[0]?.branchId
   // regular teachers first, then part-time; the ones who teach every subject of the day first
-  const teachers = staff.filter((t) => t.active && t.roles.includes("teacher") && !!branchId && t.branchIds.includes(branchId) && t.id !== teacherId)
+  const teachers = staff.map((t) => staffAt(t, branchId)).filter((t) => t.active && t.roles.includes("teacher") && !!branchId && t.branchIds.includes(branchId) && t.id !== teacherId)
     .sort((a, b) => Number(!!a.partTime) - Number(!!b.partTime))
   const fits = (t: (typeof teachers)[number]) => subjects.every((x) => t.subjects.includes(x))
   const students = new Set(day.flatMap((x) => x.studentIds)).size

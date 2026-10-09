@@ -1,5 +1,6 @@
 "use client"
 
+import { staffAt } from "@/domain/rules/permissions"
 import { useState } from "react"
 import { UserMinusIcon } from "lucide-react"
 import { NativeSelect } from "@/components/app/native-select"
@@ -49,7 +50,7 @@ function ClassBody({ id, onClose }: { id: ID; onClose: () => void }) {
   const [studentOpen, setStudentOpen] = useState<ID | null>(null)
   const future = sessions.filter((s) => s.classId === k.id && !s.cancelled && sessionState(s, now) === "upcoming")
   const past = sessions.filter((s) => s.classId === k.id && s.date < toDateStr(now)).length
-  const teachers = staff.filter((t) => t.active && t.roles.includes("teacher") && t.branchIds.includes(branch.id))
+  const teachers = staff.map((t) => staffAt(t, branch.id)).filter((t) => t.active && t.roles.includes("teacher") && t.branchIds.includes(branch.id))
   const dirty = weekday !== k.weekday || start !== k.start || minutes !== k.minutes || (roomId || null) !== k.roomId || sel.primaryId !== (k.teacherId ?? "") || sel.ids.filter((x) => x !== sel.primaryId).join() !== k.coTeacherIds.join()
 
   return (

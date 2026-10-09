@@ -29,7 +29,7 @@ export default function SettingsPage() {
 
 /** Mirrors staging: Settings → General (branch list → per-branch tabs) | System (brand-wide). */
 function Settings() {
-  const me = useStore((s) => s.staff.find((x) => x.id === s.userId)!)
+  const me = useStore((s) => s.me())
   // Admin/Manager reach Settings only to manage their branch's holidays
   const full = can(me, "settings.manage")
   const wantsSystem = useSearchParams().get("view") === "system"
@@ -58,7 +58,7 @@ function Settings() {
 }
 
 function BranchList() {
-  const me = useStore((s) => s.staff.find((x) => x.id === s.userId)!)
+  const me = useStore((s) => s.me())
   const full = can(me, "settings.manage")
   const branches = useStore((s) => s.branches).filter((b) => full || inBranch(me, b.id))
   const staff = useStore((s) => s.staff)

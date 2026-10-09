@@ -38,7 +38,7 @@ export default function Page() {
 function BillingPage() {
   const params = useSearchParams()
   const branch = useBranch()
-  const me = useStore((s) => s.staff.find((x) => x.id === s.userId)!)
+  const me = useStore((s) => s.me())
   const invoices = useStore((s) => s.invoices)
   const students = useStore((s) => s.students)
   const courses = useStore((s) => s.courses)

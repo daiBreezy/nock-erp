@@ -56,7 +56,7 @@ function Body({ id }: { id: ID }) {
   const students = useStore((s) => s.students)
   const families = useStore((s) => s.families)
   const conversations = useStore((s) => s.conversations)
-  const me = useStore((s) => s.staff.find((x) => x.id === s.userId)!)
+  const me = useStore((s) => s.me())
   const moveStage = useStore((s) => s.moveLeadStage)
   const restore = useStore((s) => s.restoreLead)
   const addNote = useStore((s) => s.addLeadNote)

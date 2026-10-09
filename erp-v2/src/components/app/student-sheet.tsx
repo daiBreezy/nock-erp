@@ -67,7 +67,7 @@ function Body({ id }: { id: ID }) {
   const conv = useStore((s) => s.conversations.find((c) => c.familyId && c.familyId === stu?.familyId))
   const leaves = useStore((s) => s.leaves)
   const renewalDays = useStore((s) => s.system.settings.renewalDaysBefore)
-  const me = useStore((s) => s.staff.find((x) => x.id === s.userId)!)
+  const me = useStore((s) => s.me())
   const ents = useEntitlements()
   const today = toDateStr(useNow())
   const [seg, setSeg] = useState<Seg>("overview")
@@ -152,7 +152,7 @@ function packageProgress(e: Entitlement, sessions: Session[], attendance: { sess
 }
 
 function Overview({ stu, ents, today, status, onNotRenewing }: { stu: Student; ents: Entitlement[]; today: string; status: Att.StudentStatus; onNotRenewing: () => void }) {
-  const me = useStore((s) => s.staff.find((x) => x.id === s.userId)!)
+  const me = useStore((s) => s.me())
   const courses = useStore((s) => s.courses)
   const classes = useStore((s) => s.classes)
   const sessions = useStore((s) => s.sessions)
@@ -411,7 +411,7 @@ function AttendanceList({ stu, ents }: { stu: Student; ents: Entitlement[] }) {
 
 function BillingSeg({ stu }: { stu: Student }) {
   const router = useRouter()
-  const me = useStore((s) => s.staff.find((x) => x.id === s.userId)!)
+  const me = useStore((s) => s.me())
   const invoices = useStore((s) => s.invoices).filter((i) => i.studentId === stu.id).sort((a, b) => b.createdAt.localeCompare(a.createdAt))
   const branches = useStore((s) => s.branches)
   const courses = useStore((s) => s.courses)

@@ -18,7 +18,8 @@ export function buildParentView(family: Family): ParentView {
 let last = ""
 async function publish() {
   const views = useStore.getState().families.filter((f) => f.lineUserId).map(buildParentView)
-  const key = JSON.stringify(views.map(({ generatedAt: _, ...v }) => v))
+  // compare without the timestamp — only real changes are sent
+  const key = JSON.stringify(views.map((v) => ({ ...v, generatedAt: "" })))
   if (key === last) return
   last = key
   await fetch("/api/parent-app/publish", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ views }) }).catch(() => { last = "" })

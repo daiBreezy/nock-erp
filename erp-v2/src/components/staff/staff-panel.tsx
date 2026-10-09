@@ -1,0 +1,381 @@
+"use client"
+
+// Staff side panel (owner 2026-10-09): click a person → their information with tabs (Info · Classes · Sessions ·
+// Summaries · Note · Log). "แก้ไข" switches the same panel to the edit form; "เพิ่มบุคลากร" opens it empty and turns
+// into the information view once saved. Roles / subjects / working days are set per branch.
+import { useMemo, useState } from "react"
+import { CalendarDaysIcon, PencilIcon, PlusIcon, TrashIcon, UserXIcon } from "lucide-react"
+import { Pill } from "@/components/app/badges"
+import { NativeSelect } from "@/components/app/native-select"
+import { EnNameField, nativeLabel } from "@/components/app/name-fields"
+import { Field } from "@/components/app/student-form"
+import { avatarTone, initial } from "@/components/app/subject-color"
+import { Button } from "@/components/ui/button"
+import { Checkbox } from "@/components/ui/checkbox"
+import { Input } from "@/components/ui/input"
+import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet"
+import { Textarea } from "@/components/ui/textarea"
+import { addDays, dayShort, endTime, fmtDate, fmtDateTime, toDateStr, weekdayOf } from "@/domain/dates"
+import { validateStaff } from "@/domain/rules/people"
+import { assignmentAt, BRANCH_ROLES, can, canDeactivateStaff, GLOBAL_ROLES, rolesAt, ROLE_LABEL, withAssignments } from "@/domain/rules/permissions"
+import { subjectsOf, teachersOf } from "@/domain/rules/scheduling"
+import { SUMMARY_STATUS_LABEL } from "@/domain/rules/summaries"
+import type { ID, Staff, StaffAssignment, Weekday } from "@/domain/types"
+import { uid } from "@/data/seed"
+import { report } from "@/lib/feedback"
+import { useBranch, useNow } from "@/lib/hooks"
+import { cn } from "@/lib/utils"
+import { useStore } from "@/store/store"
+import { DeactivateDialog } from "./deactivate-dialog"
+
+const WEEK: Weekday[] = [1, 2, 3, 4, 5, 6, 0]
+type Tab = "info" | "classes" | "sessions" | "summaries" | "notes" | "log"
+const TABS: { key: Tab; label: string }[] = [
+  { key: "info", label: "ข้อมูล" }, { key: "classes", label: "คลาส" }, { key: "sessions", label: "คาบสอน" },
+  { key: "summaries", label: "สรุปการเรียน" }, { key: "notes", label: "โน้ต" }, { key: "log", label: "Log" },
+]
+
+/** Monday of the week a date falls in */
+export const mondayOf = (d: string) => addDays(d, -((weekdayOf(d) + 6) % 7))
+
+/** "new" = create · an id = that person · null = closed */
+export function StaffPanel({ target, onClose }: { target: ID | "new" | null; onClose: () => void }) {
+  const [createdId, setCreatedId] = useState<ID | null>(null)
+  const [editing, setEditing] = useState(target === "new")
+  const id = target === "new" ? createdId : target
+  const s = useStore((st) => (id ? st.staff.find((x) => x.id === id) : undefined))
+  const close = () => { setCreatedId(null); setEditing(false); onClose() }
+  return (
+    <Sheet open={target !== null} onOpenChange={(o) => !o && close()}>
+      <SheetContent className="flex w-full flex-col gap-0 overflow-y-auto p-0 data-[side=right]:sm:max-w-xl">
+        {editing || !s ? (
+          <StaffEdit staff={s} onCancel={() => (s ? setEditing(false) : close())}
+            onSaved={(saved) => { if (target === "new") setCreatedId(saved.id); setEditing(false) }} />
+        ) : <StaffView s={s} onEdit={() => setEditing(true)} />}
+      </SheetContent>
+    </Sheet>
+  )
+}
+
+function StaffView({ s, onEdit }: { s: Staff; onEdit: () => void }) {
+  const branch = useBranch()
+  const me = useStore((st) => st.me())
+  const staff = useStore((st) => st.staff)
+  const reactivate = useStore((st) => st.reactivateStaff)
+  const [tab, setTab] = useState<Tab>("info")
+  const [leaving, setLeaving] = useState(false)
+  const manage = can(me, "staff.manage")
+  const deact = canDeactivateStaff(s, me, staff)
+  const roles = rolesAt(s, branch.id)
+  return (
+    <>
+      <SheetHeader className="border-b pb-3">
+        <div className="flex items-center gap-3">
+          <span className={cn("grid size-11 shrink-0 place-items-center rounded-full text-lg font-semibold", avatarTone(s.id))}>{initial(s.nickname)}</span>
+          <div className="min-w-0">
+            <SheetTitle className="text-lg">{s.nickname}{!s.active && <span className="ml-2 text-sm font-normal text-muted-foreground">(ปิดบัญชีแล้ว)</span>}</SheetTitle>
+            <SheetDescription className="truncate">{s.name}{s.nameEn ? ` · ${s.nameEn}` : ""}</SheetDescription>
+          </div>
+        </div>
+        <div className="flex flex-wrap items-center gap-1">
+          {roles.map((r) => <Pill key={r} tone={r === "teacher" ? "blue" : "violet"}>{ROLE_LABEL[r]}</Pill>)}
+          {s.partTime && <Pill tone="amber">Part-time</Pill>}
+          {!s.canLogin && <Pill>ไม่ล็อกอิน</Pill>}
+        </div>
+        {manage && (
+          <div className="flex flex-wrap gap-1.5">
+            {s.active ? (
+              <>
+                <Button size="xs" variant="outline" onClick={onEdit}><PencilIcon /> แก้ไข</Button>
+                <Button size="xs" variant="ghost" className="text-red-700" disabled={!deact.ok} title={deact.ok ? undefined : (deact as { error: string }).error} onClick={() => setLeaving(true)}><UserXIcon /> ปิดบัญชี</Button>
+              </>
+            ) : <Button size="xs" variant="outline" onClick={() => report(reactivate(s.id), `เปิดบัญชี ${s.nickname} แล้ว`)}>เปิดบัญชีใหม่</Button>}
+          </div>
+        )}
+      </SheetHeader>
+      <div className="flex gap-1 overflow-x-auto border-b px-3 py-2">
+        {TABS.map((t) => (
+          <button key={t.key} type="button" onClick={() => setTab(t.key)} className={cn("shrink-0 rounded-full px-3 py-1 text-sm", tab === t.key ? "bg-primary/10 font-medium text-primary" : "text-muted-foreground hover:bg-muted")}>{t.label}</button>
+        ))}
+      </div>
+      <div className="space-y-3 px-4 pt-4 pb-6">
+        {tab === "info" ? <InfoTab s={s} /> : tab === "classes" ? <ClassesTab s={s} /> : tab === "sessions" ? <SessionsTab s={s} />
+          : tab === "summaries" ? <SummariesTab s={s} /> : tab === "notes" ? <NotesTab s={s} canAdd={manage} /> : <LogTab s={s} />}
+      </div>
+      {leaving && <DeactivateDialog s={s} onClose={() => setLeaving(false)} />}
+    </>
+  )
+}
+
+function Row({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div className="flex gap-3 py-1.5 text-sm">
+      <span className="w-28 shrink-0 text-muted-foreground">{label}</span>
+      <span className="min-w-0 flex-1">{children}</span>
+    </div>
+  )
+}
+
+function InfoTab({ s }: { s: Staff }) {
+  const branches = useStore((st) => st.branches)
+  const global = s.roles.filter((r) => GLOBAL_ROLES.includes(r))
+  const rows = branches.map((b) => ({ b, a: assignmentAt(s, b.id) })).filter((x) => x.a)
+  return (
+    <>
+      <section className="divide-y rounded-2xl border px-3">
+        <Row label="ชื่อ-นามสกุล">{s.name}{s.nameEn && <span className="text-muted-foreground"> · {s.nameEn}</span>}</Row>
+        <Row label="ชื่อที่แสดง">{s.nickname}{s.nicknameEn && <span className="text-muted-foreground"> · {s.nicknameEn}</span>}</Row>
+        <Row label="อีเมล">{s.email || <span className="text-muted-foreground">—</span>}{!s.canLogin && <span className="text-xs text-muted-foreground"> · ไม่มีสิทธิ์เข้าระบบ</span>}</Row>
+        <Row label="ประเภท">{s.partTime ? "Part-time (เป็นครูสอนแทนได้)" : "Full-time"}</Row>
+        {global.length > 0 && <Row label="ทุกสาขา">{global.map((r) => ROLE_LABEL[r]).join(", ")}</Row>}
+      </section>
+      <section className="space-y-2">
+        <h3 className="text-sm font-semibold">งานแต่ละสาขา</h3>
+        {rows.length === 0 && <p className="text-sm text-muted-foreground">ยังไม่ได้กำหนดสาขา</p>}
+        {rows.map(({ b, a }) => (
+          <div key={b.id} className="rounded-2xl border p-3 text-sm">
+            <div className="flex flex-wrap items-center gap-1.5">
+              <span className="font-medium">{b.name}</span>
+              {a!.roles.map((r) => <Pill key={r} tone={r === "teacher" ? "blue" : "violet"}>{ROLE_LABEL[r]}</Pill>)}
+            </div>
+            {a!.subjects.length > 0 && <p className="mt-1 text-muted-foreground">วิชา: {a!.subjects.join(", ")}</p>}
+            <p className="mt-1 flex flex-wrap gap-1">
+              {a!.weekdays.length ? WEEK.filter((d) => a!.weekdays.includes(d)).map((d) => <span key={d} className="rounded-full bg-muted px-2 py-0.5 text-xs">{dayShort(d)}</span>)
+                : <span className="text-xs text-muted-foreground">ทุกวัน</span>}
+            </p>
+          </div>
+        ))}
+      </section>
+    </>
+  )
+}
+
+function ClassesTab({ s }: { s: Staff }) {
+  const classes = useStore((st) => st.classes)
+  const branches = useStore((st) => st.branches)
+  const mine = classes.filter((k) => k.active && (k.teacherId === s.id || k.coTeacherIds.includes(s.id)))
+  if (!mine.length) return <Empty text="ไม่มีคลาสที่สอนอยู่" />
+  return (
+    <ul className="divide-y rounded-2xl border">
+      {mine.map((k) => (
+        <li key={k.id} className="flex items-center gap-2 p-2.5 text-sm">
+          <div className="min-w-0 flex-1">
+            <p className="truncate font-medium">{k.name}</p>
+            <p className="text-xs text-muted-foreground">{branches.find((b) => b.id === k.branchId)?.name} · {dayShort(k.weekday)} {k.start}–{endTime(k.start, k.minutes)} · {k.studentIds.length} คน</p>
+          </div>
+          {k.teacherId !== s.id && <Pill>ครูร่วม</Pill>}
+        </li>
+      ))}
+    </ul>
+  )
+}
+
+function SessionsTab({ s }: { s: Staff }) {
+  const sessions = useStore((st) => st.sessions)
+  const classes = useStore((st) => st.classes)
+  const today = toDateStr(useNow())
+  const mine = useMemo(() => sessions.filter((x) => !x.cancelled && teachersOf(x).includes(s.id)), [sessions, s.id])
+  const week = mine.filter((x) => x.date >= mondayOf(today) && x.date <= addDays(mondayOf(today), 6))
+  const next = mine.filter((x) => x.date >= today).sort((a, b) => (a.date + a.start).localeCompare(b.date + b.start)).slice(0, 20)
+  const past = mine.filter((x) => x.date < today).sort((a, b) => (b.date + b.start).localeCompare(a.date + a.start)).slice(0, 10)
+  const name = (x: (typeof mine)[number]) => classes.find((k) => k.id === x.classId)?.name ?? subjectsOf(x).join(" + ")
+  const list = (xs: typeof mine) => (
+    <ul className="divide-y rounded-2xl border">
+      {xs.map((x) => (
+        <li key={x.id} className="flex items-center gap-2 p-2 text-sm">
+          <span className="w-28 shrink-0 text-xs text-muted-foreground tabular-nums">{fmtDate(x.date, { weekday: true })}</span>
+          <span className="w-24 shrink-0 text-xs tabular-nums">{x.start}–{endTime(x.start, x.minutes)}</span>
+          <span className="truncate">{name(x)}</span>
+          <span className="ml-auto shrink-0 text-xs text-muted-foreground">{x.studentIds.length} คน</span>
+        </li>
+      ))}
+    </ul>
+  )
+  return (
+    <>
+      <div className="flex divide-x rounded-2xl bg-muted/50 py-2 text-center">
+        <div className="flex-1"><p className="text-[11px] text-muted-foreground">สอนสัปดาห์นี้</p><p className="text-lg font-semibold tabular-nums">{week.length} คาบ</p></div>
+        <div className="flex-1"><p className="text-[11px] text-muted-foreground">ชั่วโมงสัปดาห์นี้</p><p className="text-lg font-semibold tabular-nums">{Math.round(week.reduce((m, x) => m + x.minutes, 0) / 6) / 10}</p></div>
+        <div className="flex-1"><p className="text-[11px] text-muted-foreground">คาบต่อจากนี้</p><p className="text-lg font-semibold tabular-nums">{mine.filter((x) => x.date >= today).length}</p></div>
+      </div>
+      <h3 className="flex items-center gap-1.5 text-sm font-semibold"><CalendarDaysIcon className="size-4" /> คาบถัดไป</h3>
+      {next.length ? list(next) : <Empty text="ไม่มีคาบถัดไป" />}
+      {past.length > 0 && <><h3 className="text-sm font-semibold">ที่ผ่านมา</h3>{list(past)}</>}
+    </>
+  )
+}
+
+function SummariesTab({ s }: { s: Staff }) {
+  const summaries = useStore((st) => st.summaries)
+  const sessions = useStore((st) => st.sessions)
+  const students = useStore((st) => st.students)
+  const mine = summaries.filter((x) => x.authorId === s.id).map((x) => ({ x, ses: sessions.find((y) => y.id === x.sessionId) }))
+    .sort((a, b) => (b.ses?.date ?? "").localeCompare(a.ses?.date ?? "")).slice(0, 30)
+  if (!mine.length) return <Empty text="ยังไม่มีสรุปการเรียนที่เขียน" />
+  return (
+    <ul className="divide-y rounded-2xl border">
+      {mine.map(({ x, ses }) => (
+        <li key={x.id} className="space-y-0.5 p-2.5 text-sm">
+          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+            <span>{ses ? fmtDate(ses.date, { weekday: true }) : "—"}</span>
+            <span>· {students.find((y) => y.id === x.studentId)?.nickname ?? ""}</span>
+            <Pill className="ml-auto">{SUMMARY_STATUS_LABEL[x.status]}</Pill>
+          </div>
+          <p className="line-clamp-2">{x.text || <span className="text-muted-foreground">—</span>}</p>
+        </li>
+      ))}
+    </ul>
+  )
+}
+
+function NotesTab({ s, canAdd }: { s: Staff; canAdd: boolean }) {
+  const add = useStore((st) => st.addStaffNote)
+  const staff = useStore((st) => st.staff)
+  const [text, setText] = useState("")
+  return (
+    <>
+      {canAdd && (
+        <div className="space-y-1.5">
+          <Textarea rows={2} value={text} onChange={(e) => setText(e.target.value)} placeholder="บันทึกเกี่ยวกับบุคลากรคนนี้ เช่น ขอสอนแค่ช่วงเย็น" />
+          <div className="flex justify-end"><Button size="sm" disabled={!text.trim()} onClick={() => report(add(s.id, text), "บันทึกโน้ตแล้ว") && setText("")}><PlusIcon /> เพิ่มโน้ต</Button></div>
+        </div>
+      )}
+      {!s.notes?.length ? <Empty text="ยังไม่มีโน้ต" /> : (
+        <ul className="divide-y rounded-2xl border">
+          {s.notes.map((n) => (
+            <li key={n.id} className="p-2.5 text-sm">
+              <p className="text-xs text-muted-foreground">{fmtDateTime(n.at)} · {staff.find((x) => x.id === n.by)?.nickname ?? "?"}</p>
+              <p className="whitespace-pre-line">{n.text}</p>
+            </li>
+          ))}
+        </ul>
+      )}
+    </>
+  )
+}
+
+function LogTab({ s }: { s: Staff }) {
+  const logs = useStore((st) => st.logs)
+  const students = useStore((st) => st.students)
+  const mine = logs.filter((l) => l.by === s.id).slice(0, 50)
+  if (!mine.length) return <Empty text="ยังไม่มีประวัติการทำงานในระบบ" />
+  return (
+    <ul className="divide-y rounded-2xl border">
+      {mine.map((l) => (
+        <li key={l.id} className="p-2.5 text-sm">
+          <p className="text-xs text-muted-foreground">{fmtDateTime(l.at)}{l.studentIds.length ? ` · ${l.studentIds.map((id) => students.find((x) => x.id === id)?.nickname).filter(Boolean).join(", ")}` : ""}</p>
+          <p><span className="font-medium">{l.action}</span> {l.detail}</p>
+        </li>
+      ))}
+    </ul>
+  )
+}
+
+function Empty({ text }: { text: string }) {
+  return <p className="rounded-2xl border border-dashed p-6 text-center text-sm text-muted-foreground">{text}</p>
+}
+
+// ---------------- edit ----------------
+
+/** Assignment rows for the form — older records get one row per branch from their flat roles / subjects */
+const rowsOf = (s: Staff): StaffAssignment[] => s.assignments?.length ? s.assignments
+  : s.branchIds.map((b) => ({ branchId: b, roles: s.roles.filter((r) => BRANCH_ROLES.includes(r)), subjects: s.subjects, weekdays: [] }))
+
+function StaffEdit({ staff: initial, onCancel, onSaved }: { staff?: Staff; onCancel: () => void; onSaved: (s: Staff) => void }) {
+  const branch = useBranch()
+  const all = useStore((st) => st.staff)
+  const branches = useStore((st) => st.branches)
+  const save = useStore((st) => st.saveStaff)
+  const [f, setF] = useState<Staff>(initial ?? { id: uid("u"), name: "", nickname: "", roles: [], branchIds: [], subjects: [], active: true, canLogin: true, email: "" })
+  const [rows, setRows] = useState<StaffAssignment[]>(() => (initial ? rowsOf(initial) : [{ branchId: branch.id, roles: ["teacher"], subjects: [], weekdays: [] }]))
+  const [touched, setTouched] = useState(false)
+  const next = withAssignments(f, rows)
+  const errs = validateStaff(next, all, f.id)
+  const err = (k: string) => touched && errs.find((e) => e.field === k)?.message
+  const toggle = <T,>(list: T[], v: T) => (list.includes(v) ? list.filter((x) => x !== v) : [...list, v])
+  const setRow = (i: number, patch: Partial<StaffAssignment>) => setRows(rows.map((r, j) => (j === i ? { ...r, ...patch } : r)))
+  const free = branches.filter((b) => b.active !== false && !rows.some((r) => r.branchId === b.id))
+
+  const submit = () => {
+    setTouched(true)
+    const r = save(next)
+    if (report(r, initial ? "บันทึกแล้ว" : `เพิ่ม ${next.nickname} แล้ว`)) onSaved(r.value)
+  }
+
+  return (
+    <>
+      <SheetHeader className="border-b pb-3">
+        <SheetTitle className="text-lg">{initial ? `แก้ไข ${initial.nickname}` : "เพิ่มบุคลากร"}</SheetTitle>
+        <SheetDescription>บทบาท วิชา และวันทำงาน แยกตามสาขา</SheetDescription>
+      </SheetHeader>
+      <div className="flex-1 space-y-4 px-4 pt-4 pb-4">
+        <div className="grid gap-3 sm:grid-cols-2">
+          <Field label={nativeLabel(branch.brand, "ชื่อ-นามสกุล")} error={err("name")}><Input value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} /></Field>
+          <EnNameField label="ชื่อ-นามสกุล" native={f.name} value={f.nameEn} onChange={(v) => setF({ ...f, nameEn: v })} />
+          <Field label={nativeLabel(branch.brand, "ชื่อที่แสดง")} error={err("nickname")}><Input value={f.nickname} onChange={(e) => setF({ ...f, nickname: e.target.value })} placeholder="ครูมิ้นท์" /></Field>
+          <EnNameField label="ชื่อที่แสดง" native={f.nickname} value={f.nicknameEn} onChange={(v) => setF({ ...f, nicknameEn: v })} />
+        </div>
+
+        <Field label="บทบาททุกสาขา (ถ้ามี)">
+          <div className="flex flex-wrap gap-3">
+            {GLOBAL_ROLES.map((r) => <label key={r} className="flex items-center gap-1.5 text-sm"><Checkbox checked={f.roles.includes(r)} onCheckedChange={() => setF({ ...f, roles: toggle(f.roles, r) })} />{ROLE_LABEL[r]}</label>)}
+          </div>
+        </Field>
+
+        <section className="space-y-2">
+          <div className="flex items-center gap-2">
+            <h3 className="text-sm font-semibold">งานแต่ละสาขา</h3>
+            {free.length > 0 && (
+              <NativeSelect className="ml-auto h-8 w-48" value="" placeholder="+ เพิ่มสาขา"
+                onChange={(e) => e.target.value && setRows([...rows, { branchId: e.target.value, roles: ["teacher"], subjects: [], weekdays: [] }])}
+                options={free.map((b) => ({ value: b.id, label: b.name }))} />
+            )}
+          </div>
+          {(err("roles") || err("branchIds")) && <p className="text-xs text-red-700">{err("roles") || err("branchIds")}</p>}
+          {rows.map((r, i) => {
+            const b = branches.find((x) => x.id === r.branchId)
+            const e = err(`branch:${r.branchId}`)
+            return (
+              <div key={r.branchId} className={cn("space-y-2 rounded-2xl border p-3", e && "border-red-300")}>
+                <div className="flex items-center gap-2">
+                  <span className="font-medium">{b?.name ?? r.branchId}</span>
+                  <Button size="icon-sm" variant="ghost" className="ml-auto" aria-label="เอาสาขานี้ออก" onClick={() => setRows(rows.filter((_, j) => j !== i))}><TrashIcon /></Button>
+                </div>
+                <Chips label="บทบาท" items={BRANCH_ROLES.map((x) => ({ key: x, label: ROLE_LABEL[x] }))} on={(k) => r.roles.includes(k as never)} toggle={(k) => setRow(i, { roles: toggle(r.roles, k as never) })} />
+                {r.roles.includes("teacher") && (
+                  <Chips label="วิชาที่สอน" items={(b?.subjects ?? []).map((x) => ({ key: x, label: x }))} on={(k) => r.subjects.includes(k)} toggle={(k) => setRow(i, { subjects: toggle(r.subjects, k) })} />
+                )}
+                <Chips label="วันทำงาน (ไม่เลือก = ทุกวัน)" items={WEEK.map((d) => ({ key: String(d), label: dayShort(d) }))} on={(k) => r.weekdays.includes(Number(k) as Weekday)} toggle={(k) => setRow(i, { weekdays: toggle(r.weekdays, Number(k) as Weekday) })} />
+                {e && <p className="text-xs text-red-700">{e}</p>}
+              </div>
+            )
+          })}
+        </section>
+
+        <label className="flex items-center gap-2 text-sm"><Checkbox checked={!!f.partTime} onCheckedChange={(v) => setF({ ...f, partTime: !!v })} /> ครู Part-time (เลือกเป็นครูสอนแทนตอนครูลาได้)</label>
+        <label className="flex items-center gap-2 text-sm"><Checkbox checked={f.canLogin} onCheckedChange={(v) => setF({ ...f, canLogin: !!v })} /> มีบัญชีล็อกอินเข้าระบบ</label>
+        {/* S5 (owner 2026-10-09): email is always there — required only for a login */}
+        <Field label={f.canLogin ? "อีเมล *" : "อีเมล (ไม่บังคับ)"} error={err("email")}><Input type="email" value={f.email ?? ""} onChange={(e) => setF({ ...f, email: e.target.value })} /></Field>
+        {!f.canLogin && <p className="text-xs text-muted-foreground">ไม่มีสิทธิ์เข้าระบบ — เก็บข้อมูลไว้เฉยๆ (เปิดบัญชีล็อกอินภายหลังได้)</p>}
+      </div>
+      <div className="sticky bottom-0 flex justify-end gap-2 border-t bg-background px-4 py-3">
+        <Button variant="ghost" onClick={onCancel}>ยกเลิก</Button>
+        <Button onClick={submit}>{initial ? "บันทึก" : "เพิ่มบุคลากร"}</Button>
+      </div>
+    </>
+  )
+}
+
+function Chips({ label, items, on, toggle }: { label: string; items: { key: string; label: string }[]; on: (k: string) => boolean; toggle: (k: string) => void }) {
+  return (
+    <div>
+      <p className="mb-1 text-xs text-muted-foreground">{label}</p>
+      <div className="flex flex-wrap gap-1.5">
+        {items.map((x) => (
+          <button key={x.key} type="button" aria-pressed={on(x.key)} onClick={() => toggle(x.key)}
+            className={cn("rounded-full border px-2.5 py-0.5 text-xs", on(x.key) ? "border-primary bg-primary/10 font-medium text-primary" : "hover:bg-muted")}>{x.label}</button>
+        ))}
+      </div>
+    </div>
+  )
+}

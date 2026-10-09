@@ -28,7 +28,7 @@ type ClassSort = "subject" | "day" | "time" | "grade" | "students" | "teacher" |
  *  filters · data table. Inactive classes stay in the list, greyed. Click a row → edit panel. */
 export default function ClassesPage() {
   const branch = useBranch()
-  const me = useStore((s) => s.staff.find((x) => x.id === s.userId)!)
+  const me = useStore((s) => s.me())
   const branches = useStore((s) => s.branches)
   const allClasses = useStore((s) => s.classes)
   const sessions = useStore((s) => s.sessions)

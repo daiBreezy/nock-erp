@@ -4,9 +4,6 @@ import { useMemo, useState } from "react"
 import { PlusIcon, SearchIcon } from "lucide-react"
 import { Pill } from "@/components/app/badges"
 import { HEAD, Pager, ROW, SortHeader, TableShell, Th, usePage, useSort } from "@/components/app/data-table"
-import { EditCell } from "@/components/app/inline-edit"
-import { can } from "@/domain/rules/permissions"
-import { report } from "@/lib/feedback"
 import { FamilyForm } from "@/components/app/family-form"
 import { FamilySheet } from "@/components/app/family-sheet"
 import { NativeSelect } from "@/components/app/native-select"
@@ -41,15 +38,6 @@ export default function FamiliesPage() {
 
   const linkedCount = (f: Family) => f.parents.filter((p) => p.lineLinked).length
   const primaryOf = (f: Family) => f.parents.find((p) => p.primary) ?? f.parents[0]
-  const me = useStore((s) => s.staff.find((x) => x.id === s.userId)!)
-  const saveFamily = useStore((s) => s.saveFamily)
-  const manage = can(me, "family.manage")
-  // inline edit (owner 2026-10-07) — same validation as the family form
-  const edit = (f: Family, patch: Partial<Family>) => report(saveFamily({ ...f, ...patch }), "บันทึกแล้ว")
-  const editPrimary = (f: Family, patch: Partial<Family["parents"][number]>) => {
-    const p = primaryOf(f)
-    return edit(f, { parents: f.parents.map((x) => (x === p ? { ...x, ...patch } : x)) })
-  }
   const needle = q.trim().toLowerCase()
   const rows = families
     // a family belongs to this branch if one of its children studies here (or it has no children yet)
@@ -100,22 +88,22 @@ export default function FamiliesPage() {
             const lc = linkedCount(f)
             return (
               <tr key={f.id} onClick={() => setOpenId(f.id)} data-focus={focusKeys(f)} className={ROW}>
-                <td><EditCell value={f.name} disabled={!manage} className="font-medium" onSave={(v) => edit(f, { name: v })} /></td>
+                <td className="truncate font-medium">{f.name}</td>
                 <td>
                   <div className="flex min-w-0 items-center gap-1">
-                    <EditCell value={primary?.name ?? ""} disabled={!manage || !primary} className="flex-1" onSave={(v) => editPrimary(f, { name: v })} />
+                    <span className="flex-1 truncate">{primary?.name ?? "—"}</span>
                     {f.parents.length > 1 && <span className="shrink-0 text-xs text-muted-foreground">+{f.parents.length - 1}</span>}
                   </div>
                 </td>
-                <td className="text-muted-foreground tabular-nums"><EditCell kind="tel" value={primary?.phone ?? ""} disabled={!manage || !primary} placeholder="ใส่เบอร์" onSave={(v) => editPrimary(f, { phone: v })} /></td>
+                <td className="text-muted-foreground tabular-nums">{primary?.phone || "—"}</td>
                 <td className="truncate"><Pill tone={lc === f.parents.length ? "green" : lc > 0 ? "amber" : "red"}>{lc}/{f.parents.length} ผูกแล้ว</Pill></td>
                 <td className="truncate">
                   {kids.slice(0, 3).map((s) => <span key={s.id} className="mr-1 inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs">{s.nickname} <span className={cn("rounded px-1 text-[10px]", gradeTone(s.grade))}>{s.grade}</span></span>)}
                   {kids.length > 3 && <span className="text-xs text-muted-foreground">+{kids.length - 3}</span>}
                   {kids.length === 0 && <span className="text-xs text-muted-foreground">—</span>}
                 </td>
-                <td className="text-xs text-muted-foreground"><EditCell value={f.address ?? ""} disabled={!manage} placeholder="ใส่ที่อยู่" onSave={(v) => edit(f, { address: v || undefined })} /></td>
-                <td className="text-xs text-muted-foreground tabular-nums"><EditCell value={f.postcode ?? ""} disabled={!manage} placeholder="—" onSave={(v) => edit(f, { postcode: v || undefined })} /></td>
+                <td className="truncate text-xs text-muted-foreground" title={f.address}>{f.address || "—"}</td>
+                <td className="text-xs text-muted-foreground tabular-nums">{f.postcode || "—"}</td>
               </tr>
             )
           })}

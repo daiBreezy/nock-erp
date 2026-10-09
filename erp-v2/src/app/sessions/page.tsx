@@ -1,5 +1,6 @@
 "use client"
 
+import { staffAt } from "@/domain/rules/permissions"
 import { useState } from "react"
 import { ChevronLeftIcon, ChevronRightIcon } from "lucide-react"
 import { Pill } from "@/components/app/badges"
@@ -24,7 +25,7 @@ export default function SessionsPage() {
   const now = useNow()
   const today = toDateStr(now)
   const branch = useBranch()
-  const me = useStore((s) => s.staff.find((x) => x.id === s.userId)!)
+  const me = useStore((s) => s.me())
   const sessions = useStore((s) => s.sessions)
   const attendance = useStore((s) => s.attendance)
   const summaries = useStore((s) => s.summaries)
@@ -70,7 +71,7 @@ export default function SessionsPage() {
             options={[
               { value: "all", label: "ครูทุกคน" },
               ...(me.roles.includes("teacher") ? [{ value: me.id, label: "เฉพาะคาบของฉัน" }] : []),
-              ...staff.filter((t) => t.roles.includes("teacher") && t.branchIds.includes(branch.id) && t.id !== me.id).map((t) => ({ value: t.id, label: t.nickname })),
+              ...staff.map((t) => staffAt(t, branch.id)).filter((t) => t.roles.includes("teacher") && t.branchIds.includes(branch.id) && t.id !== me.id).map((t) => ({ value: t.id, label: t.nickname })),
             ]} />
         </div>
       </div>

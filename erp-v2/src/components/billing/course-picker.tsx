@@ -36,7 +36,7 @@ export function CoursePicker({ branch, today, studentGrade, onInvoice, onClose, 
 }) {
   const allCourses = useStore((s) => s.courses)
   const classes = useStore((s) => s.classes)
-  const me = useStore((s) => s.staff.find((x) => x.id === s.userId))
+  const me = useStore((s) => s.me())
   const [f, setF] = useState<CourseFilter>({ q: "", subject: "", format: "", pack: "" })
   const [picked, setPicked] = useState<ID[]>([])
   const [limit, setLimit] = useState(PAGE)

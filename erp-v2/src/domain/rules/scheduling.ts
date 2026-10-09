@@ -1,6 +1,7 @@
 // Scheduling rules: class → sessions, session state by time, conflicts, class validation & edits.
 // Test IDs in comments refer to NockERP-Staging-Test-2026-09-24.xlsx.
 
+import { subjectsAt, worksOn } from "./permissions"
 import { addDays, at, endTime, fmtDate, fromMinutes, nextWeekday, overlaps, parseDate, toMinutes, weekdayOf } from "../dates"
 import type { ClassBlock, DayBlocks, Attendance, Branch, DateStr, Holiday, ID, Klass, Result, Session, SpecialPeriod, Staff, TimeStr, Weekday } from "../types"
 
@@ -239,9 +240,16 @@ export function validateClass(d: ClassDraft, ctx: { branch: Branch; staff: Staff
     const t = ctx.staff.find((x) => x.id === tid)
     if (t && !t.active) issues.push({ field: "teacherId", message: `${t.nickname} ไม่ได้ทำงานแล้ว`, level: "block" })
   }
-  const missing = teacher ? subjectsOf(d).filter((x) => !teacher.subjects.includes(x)) : []
+  // subjects this teacher teaches at THIS branch (owner 2026-10-09: roles / subjects / days per branch)
+  const missing = teacher ? subjectsOf(d).filter((x) => !subjectsAt(teacher, d.branchId).includes(x)) : []
   if (missing.length)
     issues.push({ field: "teacherId", message: `ครูหลัก ${teacher!.nickname} ไม่ได้สอนวิชา ${missing.join(", ")}`, level: "override" })
+  // a teacher booked on a day they don't work at this branch — amber, still allowed (owner 2026-10-09)
+  for (const tid of allTeachers) {
+    const t = ctx.staff.find((x) => x.id === tid)
+    if (t?.active && t.assignments?.length && !worksOn(t, d.branchId, d.weekday))
+      issues.push({ field: "teacherId", message: `${t.nickname} ไม่ได้ทำงานที่สาขานี้วัน${["อาทิตย์", "จันทร์", "อังคาร", "พุธ", "พฤหัสบดี", "ศุกร์", "เสาร์"][d.weekday]}`, level: "warn", tone: "amber" })
+  }
   if (!d.teacherId) issues.push({ field: "teacherId", message: allTeachers.length ? "ยังไม่ได้เลือกครูหลัก" : "ยังไม่ได้กำหนดครู", level: allTeachers.length ? "block" : "warn" })
 
   // check every date the class will occupy

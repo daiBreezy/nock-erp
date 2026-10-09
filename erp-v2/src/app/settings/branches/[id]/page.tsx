@@ -38,7 +38,7 @@ export default function BranchSettingsPage() {
   const { id } = useParams<{ id: string }>()
   const branch = useStore((s) => s.branches.find((b) => b.id === id))
   const setActive = useStore((s) => s.setBranchActive)
-  const me = useStore((s) => s.staff.find((x) => x.id === s.userId)!)
+  const me = useStore((s) => s.me())
   const full = can(me, "settings.manage")
   const [tab, setTab] = useState(full ? "info" : "scheduling")
 

@@ -16,7 +16,7 @@ import { Field } from "./student-form"
 /** Create / edit a student-level, date-range "ลาพักยาว ไม่หักโควตา" record — editable any time, always re-notifies. */
 export function LeaveDialog({ studentId, leave, onClose }: { studentId: ID; leave?: StudentLeave; onClose: () => void }) {
   const today = toDateStr(useNow(60_000))
-  const me = useStore((s) => s.staff.find((x) => x.id === s.userId)!)
+  const me = useStore((s) => s.me())
   const save = useStore((s) => s.saveStudentLeave)
   const [from, setFrom] = useState(leave?.from ?? today)
   const [to, setTo] = useState(leave?.to ?? today)

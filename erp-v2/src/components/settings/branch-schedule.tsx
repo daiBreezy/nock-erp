@@ -122,7 +122,7 @@ export function SchedulingTab({ branch, holidaysOnly = false }: { branch: Branch
  */
 function ClassBlocksCard({ branch }: { branch: Branch }) {
   const today = toDateStr(useNow(60_000))
-  const me = useStore((s) => s.staff.find((x) => x.id === s.userId))
+  const me = useStore((s) => s.me())
   const canEdit = canEditBlocks(me, branch.id)
   const [editing, setEditing] = useState<string | null>(null)
   // the plan in force for each weekday from today (special periods and one-off days aside)

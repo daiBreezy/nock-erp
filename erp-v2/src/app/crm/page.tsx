@@ -4,7 +4,6 @@ import { useState } from "react"
 import { CalendarClockIcon, ChevronRightIcon, LayoutGridIcon, PlusIcon, RotateCcwIcon, SearchIcon, TableIcon, TrendingUpIcon, UserCheckIcon, UserSearchIcon, UsersIcon } from "lucide-react"
 import { Pill } from "@/components/app/badges"
 import { GradeCell, gradeCompare, HEAD, Pager, ROW, SortHeader, TableShell, Th, usePage, useSort } from "@/components/app/data-table"
-import { EditCell } from "@/components/app/inline-edit"
 import { Kpi } from "@/components/app/kpi"
 import { NativeSelect } from "@/components/app/native-select"
 import { avatarTone, gradeTone, initial, subjectColor } from "@/components/app/subject-color"
@@ -40,7 +39,7 @@ const DETAIL_TONE: Record<LeadDetail["level"], string> = {
 
 export default function CrmPage() {
   const branch = useBranch()
-  const me = useStore((s) => s.staff.find((x) => x.id === s.userId)!)
+  const me = useStore((s) => s.me())
   const staff = useStore((s) => s.staff)
   const leads = useStore((s) => s.leads).filter((l) => l.branchId === branch.id)
   const moveStage = useStore((s) => s.moveLeadStage)
@@ -82,10 +81,6 @@ export default function CrmPage() {
   const kpis = crmKpis(leads, now)
 
   const byGrade = gradeCompare(branch.grades)
-  const saveLead = useStore((s) => s.saveLead)
-  // inline edit (owner 2026-10-07): one field at a time, same rules as the lead form
-  const edit = (l: Lead, patch: Partial<Lead>) => report(saveLead({ ...l, ...patch }), "บันทึกแล้ว")
-  const staffOptions = [{ value: "", label: "ยังไม่มอบหมาย" }, ...staff.filter((s) => s.active && s.branchIds.includes(branch.id)).map((s) => ({ value: s.id, label: s.nickname }))]
   const tableRows = [...shown].sort((a, b) => {
     const v = sort.key === "name" ? a.name.localeCompare(b.name, "th")
       : sort.key === "grade" ? byGrade(a.childGrade, b.childGrade)
@@ -202,22 +197,21 @@ export default function CrmPage() {
               {pg.rows.map((l) => {
                 const detail = leadDetail(l, now)
                 const assignee = staff.find((s) => s.id === l.assigneeId)
-                const ro = !canManage || l.stage === "archived"
                 return (
                   <tr key={l.id} onClick={() => setOpenLead(l.id)} data-focus={focusKeys(l)} className={cn("group", ROW)}>
                     <td>
                       <div className="flex min-w-0 items-center gap-2">
                         <span className={cn("grid size-8 shrink-0 place-items-center rounded-full text-xs font-semibold", avatarTone(l.id))}>{initial(l.name)}</span>
-                        <EditCell value={l.name} disabled={ro} className="flex-1 font-medium" onSave={(v) => edit(l, { name: v })} />
+                        <span className="flex-1 truncate font-medium">{l.name}</span>
                       </div>
                     </td>
-                    <td><EditCell kind="select" value={l.childGrade} disabled={ro} display={<GradeCell grade={l.childGrade} tone={gradeTone(l.childGrade)} />} options={branch.grades.map((g) => ({ value: g, label: g }))} onSave={(v) => edit(l, { childGrade: v })} /></td>
-                    <td><EditCell kind="select" value={l.subject} disabled={ro} display={<span className={cn("rounded-full px-2 py-0.5 text-xs font-medium whitespace-nowrap", subjectColor(l.subject).chip)}>{l.subject}</span>} options={branch.subjects.map((x) => ({ value: x, label: x }))} onSave={(v) => edit(l, { subject: v })} /></td>
-                    <td className="text-muted-foreground"><EditCell kind="select" value={l.source} disabled={ro} display={LEAD_SOURCE_LABEL[l.source]} options={Object.entries(LEAD_SOURCE_LABEL).map(([value, label]) => ({ value, label }))} onSave={(v) => edit(l, { source: v as Lead["source"] })} /></td>
+                    <td><GradeCell grade={l.childGrade} tone={gradeTone(l.childGrade)} /></td>
+                    <td><span className={cn("rounded-full px-2 py-0.5 text-xs font-medium whitespace-nowrap", subjectColor(l.subject).chip)}>{l.subject}</span></td>
+                    <td className="truncate text-muted-foreground">{LEAD_SOURCE_LABEL[l.source]}</td>
                     <td className="truncate"><Pill tone={l.stage === "archived" ? "gray" : l.stage === "enrolled" ? "green" : "blue"}>{stageGroupLabel(l.stage)}</Pill></td>
                     <td className="truncate"><span className={cn("text-xs font-medium", DETAIL_TONE[detail.level])} title={detail.text}>{detail.text}</span></td>
-                    <td className="text-muted-foreground"><EditCell kind="select" value={l.assigneeId ?? ""} disabled={ro} display={assignee?.nickname ?? "ยังไม่มอบหมาย"} options={staffOptions} onSave={(v) => edit(l, { assigneeId: v || null })} /></td>
-                    <td className="text-muted-foreground tabular-nums"><EditCell kind="tel" value={l.phone} disabled={ro} placeholder="ใส่เบอร์" onSave={(v) => edit(l, { phone: v })} /></td>
+                    <td className="truncate text-muted-foreground">{assignee?.nickname ?? "ยังไม่มอบหมาย"}</td>
+                    <td className="text-muted-foreground tabular-nums">{l.phone || "—"}</td>
                     <td className="truncate text-muted-foreground tabular-nums">{fmtDate(toDateStr(new Date(l.createdAt)))}</td>
                     <td className="text-right">
                       {l.stage === "archived" && canManage ? (

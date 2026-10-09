@@ -53,7 +53,7 @@ export default function ReportsPage() {
  */
 function Reports() {
   const params = useSearchParams()
-  const me = useStore((s) => s.staff.find((x) => x.id === s.userId))
+  const me = useStore((s) => s.me())
   const branches = useStore((s) => s.branches)
   const students = useStore((s) => s.students)
   const allowed = useMemo(() => reportBranchIds(me, branches), [me, branches])
