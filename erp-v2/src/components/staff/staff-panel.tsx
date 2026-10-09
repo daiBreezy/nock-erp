@@ -4,7 +4,9 @@
 // Summaries · Note · Log). "แก้ไข" switches the same panel to the edit form; "เพิ่มบุคลากร" opens it empty and turns
 // into the information view once saved. Roles / subjects / working days are set per branch.
 import { useMemo, useState } from "react"
-import { CalendarDaysIcon, PencilIcon, PlusIcon, TrashIcon, UserXIcon } from "lucide-react"
+import { ChevronLeftIcon, ChevronRightIcon, PencilIcon, PlusIcon, TrashIcon, UserXIcon } from "lucide-react"
+import { SessionSheet } from "@/components/app/session-sheet"
+import { WorkChip } from "@/components/app/work-state"
 import { Pill } from "@/components/app/badges"
 import { NativeSelect } from "@/components/app/native-select"
 import { EnNameField, nativeLabel } from "@/components/app/name-fields"
@@ -15,28 +17,29 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { Input } from "@/components/ui/input"
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet"
 import { Textarea } from "@/components/ui/textarea"
-import { addDays, dayShort, endTime, fmtDate, fmtDateTime, toDateStr, weekdayOf } from "@/domain/dates"
+import { addDays, dayShort, endTime, fmtDate, fmtDateTime, toDateStr } from "@/domain/dates"
+import * as Att from "@/domain/rules/attendance"
+import { mondayOf, studentsOfTeacher, teacherWeek, type TeacherSessionRow } from "@/domain/rules/staff-overview"
 import { validateStaff } from "@/domain/rules/people"
 import { allBranches, areaOf, assignmentAt, BRANCH_ROLES, can, canDeactivateStaff, GLOBAL_ROLES, rolesAt, ROLE_LABEL, withAssignments } from "@/domain/rules/permissions"
-import { subjectsOf, teachersOf } from "@/domain/rules/scheduling"
-import { SUMMARY_STATUS_LABEL } from "@/domain/rules/summaries"
-import type { ID, Staff, StaffAssignment, Weekday } from "@/domain/types"
+import { sessionState, subjectsOf, workState } from "@/domain/rules/scheduling"
+import type { ID, Session, Staff, StaffAssignment, Weekday } from "@/domain/types"
 import { uid } from "@/data/seed"
 import { report } from "@/lib/feedback"
-import { useBranch, useNow } from "@/lib/hooks"
+import { useBranch, useEntitlements, useNow } from "@/lib/hooks"
 import { cn } from "@/lib/utils"
 import { useStore } from "@/store/store"
 import { DeactivateDialog } from "./deactivate-dialog"
 
 const WEEK: Weekday[] = [1, 2, 3, 4, 5, 6, 0]
-type Tab = "info" | "classes" | "sessions" | "summaries" | "notes" | "log"
+type Tab = "info" | "sessions" | "summaries" | "notes" | "log"
 const TABS: { key: Tab; label: string }[] = [
-  { key: "info", label: "ข้อมูล" }, { key: "classes", label: "คลาส" }, { key: "sessions", label: "คาบสอน" },
+  { key: "info", label: "ข้อมูล" }, { key: "sessions", label: "คาบสอน" },
   { key: "summaries", label: "สรุปการเรียน" }, { key: "notes", label: "โน้ต" }, { key: "log", label: "Log" },
 ]
 
 /** Monday of the week a date falls in */
-export const mondayOf = (d: string) => addDays(d, -((weekdayOf(d) + 6) % 7))
+export { mondayOf }
 
 /** "new" = create · an id = that person · null = closed */
 export function StaffPanel({ target, onClose }: { target: ID | "new" | null; onClose: () => void }) {
@@ -65,6 +68,10 @@ function StaffView({ s, onEdit }: { s: Staff; onEdit: () => void }) {
   const reactivate = useStore((st) => st.reactivateStaff)
   const [tab, setTab] = useState<Tab>("info")
   const [leaving, setLeaving] = useState(false)
+  // one week for the overview / sessions / summaries tabs, and the session panel opened from them
+  const today = toDateStr(useNow())
+  const [week, setWeek] = useState(() => mondayOf(today))
+  const [openSession, setOpenSession] = useState<ID | null>(null)
   const manage = can(me, "staff.manage")
   const deact = canDeactivateStaff(s, me, staff)
   const roles = rolesAt(s, branch.id)
@@ -90,8 +97,9 @@ function StaffView({ s, onEdit }: { s: Staff; onEdit: () => void }) {
         ))}
       </div>
       <div className="min-h-0 flex-1 space-y-3 overflow-y-auto px-4 pt-4 pb-6">
-        {tab === "info" ? <InfoTab s={s} /> : tab === "classes" ? <ClassesTab s={s} /> : tab === "sessions" ? <SessionsTab s={s} />
-          : tab === "summaries" ? <SummariesTab s={s} /> : tab === "notes" ? <NotesTab s={s} canAdd={manage} /> : <LogTab s={s} />}
+        {(tab === "info" || tab === "sessions" || tab === "summaries") && <WeekNav week={week} today={today} onChange={setWeek} />}
+        {tab === "info" ? <InfoTab s={s} week={week} onTab={setTab} /> : tab === "sessions" ? <SessionsTab s={s} week={week} onOpen={setOpenSession} />
+          : tab === "summaries" ? <SummariesTab s={s} week={week} onOpen={setOpenSession} /> : tab === "notes" ? <NotesTab s={s} canAdd={manage} /> : <LogTab s={s} />}
       </div>
       {/* Panel = Header · Body · Bottom — actions (CTA) live in the bottom bar (owner 2026-10-09) */}
       {manage && (
@@ -105,7 +113,39 @@ function StaffView({ s, onEdit }: { s: Staff; onEdit: () => void }) {
         </div>
       )}
       {leaving && <DeactivateDialog s={s} onClose={() => setLeaving(false)} />}
+      {/* the session's own panel — check attendance / write summaries right there (owner 2026-10-09) */}
+      <SessionSheet sessionId={openSession} onClose={() => setOpenSession(null)} />
     </>
+  )
+}
+
+function WeekNav({ week, today, onChange }: { week: string; today: string; onChange: (w: string) => void }) {
+  const current = week === mondayOf(today)
+  return (
+    <div className="flex items-center gap-1">
+      <Button size="icon-sm" variant="outline" aria-label="สัปดาห์ก่อน" onClick={() => onChange(addDays(week, -7))}><ChevronLeftIcon /></Button>
+      <Button size="sm" variant="outline" disabled={current} onClick={() => onChange(mondayOf(today))}>สัปดาห์นี้</Button>
+      <Button size="icon-sm" variant="outline" aria-label="สัปดาห์ถัดไป" onClick={() => onChange(addDays(week, 7))}><ChevronRightIcon /></Button>
+      <span className="ml-2 text-sm font-medium">{fmtDate(week)} – {fmtDate(addDays(week, 6), { year: true })}</span>
+    </div>
+  )
+}
+
+function useWeek(teacherId: ID, week: string) {
+  const sessions = useStore((st) => st.sessions)
+  const attendance = useStore((st) => st.attendance)
+  const summaries = useStore((st) => st.summaries)
+  const now = useNow()
+  return useMemo(() => teacherWeek(teacherId, week, { sessions, attendance, summaries, now }), [teacherId, week, sessions, attendance, summaries, now])
+}
+
+function Stat({ label, value, sub, tone }: { label: string; value: React.ReactNode; sub?: React.ReactNode; tone?: string }) {
+  return (
+    <div className="flex-1 px-2 text-center">
+      <p className="text-[11px] text-muted-foreground">{label}</p>
+      <p className={cn("text-lg font-semibold tabular-nums", tone)}>{value}</p>
+      {sub && <p className="text-[11px] text-muted-foreground">{sub}</p>}
+    </div>
   )
 }
 
@@ -118,13 +158,62 @@ function Row({ label, children }: { label: string; children: React.ReactNode }) 
   )
 }
 
-function InfoTab({ s }: { s: Staff }) {
+function InfoTab({ s, week, onTab }: { s: Staff; week: string; onTab: (t: Tab) => void }) {
   const branches = useStore((st) => st.branches)
+  const w = useWeek(s.id, week)
+  const sessions = useStore((st) => st.sessions)
+  const classes = useStore((st) => st.classes)
+  const students = useStore((st) => st.students)
+  const leaves = useStore((st) => st.leaves)
+  const ents = useEntitlements()
+  const today = toDateStr(useNow())
+  const mine = studentsOfTeacher(s.id, { sessions, classes, today })
+  const renew = mine.map((id) => students.find((x) => x.id === id)).filter((x): x is NonNullable<typeof x> => !!x && Att.studentStatus(x, ents, leaves, today) === "renewal")
+  const teaches = s.roles.includes("teacher")
   const global = s.roles.filter((r) => GLOBAL_ROLES.includes(r))
   // branches where they actually have a role — a Director with no branch work shows none
   const rows = branches.map((b) => ({ b, a: assignmentAt(s, b.id) })).filter((x) => x.a && x.a.roles.length > 0)
   return (
     <>
+      {/* overview of this teacher's week (owner 2026-10-09) */}
+      {teaches && (
+        <>
+          <div className="grid gap-2 sm:grid-cols-2">
+            <button type="button" onClick={() => onTab("sessions")} className="rounded-2xl border p-3 text-left hover:bg-muted/40">
+              <p className="text-xs text-muted-foreground">คาบสอนสัปดาห์นี้</p>
+              <p className="text-2xl font-semibold tabular-nums">{w.sessions.total} <span className="text-sm font-normal text-muted-foreground">คาบ · {Math.round(w.minutes / 6) / 10} ชม.</span></p>
+              <Progress done={w.sessions.done} total={w.sessions.total} />
+              <p className="mt-1 text-xs"><span className="text-emerald-700">เสร็จ {w.sessions.done}</span> · <span className={w.sessions.left ? "text-amber-700" : "text-muted-foreground"}>เหลือ {w.sessions.left}</span></p>
+            </button>
+            <button type="button" onClick={() => onTab("summaries")} className="rounded-2xl border p-3 text-left hover:bg-muted/40">
+              <p className="text-xs text-muted-foreground">สรุปการเรียนสัปดาห์นี้</p>
+              <p className="text-2xl font-semibold tabular-nums">{w.summaries.total} <span className="text-sm font-normal text-muted-foreground">ฉบับ</span></p>
+              <Progress done={w.summaries.written} total={w.summaries.total} />
+              <p className="mt-1 text-xs"><span className="text-emerald-700">เขียนแล้ว {w.summaries.written}</span> · <span className={w.summaries.left ? "text-amber-700" : "text-muted-foreground"}>เหลือ {w.summaries.left}</span></p>
+            </button>
+          </div>
+          <div className="flex divide-x rounded-2xl bg-muted/50 py-2">
+            <Stat label="นักเรียนในมือ" value={mine.length} sub="คน" />
+            <Stat label="ต้องต่อคอร์ส" value={renew.length} sub="คน" tone={renew.length ? "text-amber-700" : undefined} />
+          </div>
+          {renew.length > 0 && (
+            <section className="space-y-1.5">
+              <h3 className="text-sm font-semibold">ต้องต่อคอร์ส</h3>
+              <ul className="divide-y rounded-2xl border">
+                {renew.map((x) => {
+                  const end = ents.filter((e) => e.studentId === x.id && e.to >= today).map((e) => e.to).sort().at(-1)
+                  return (
+                    <li key={x.id} className="flex items-center gap-2 p-2.5 text-sm">
+                      <span className="font-medium">{x.nickname}</span><span className="text-xs text-muted-foreground">{x.grade}</span>
+                      {end && <span className="ml-auto text-xs text-amber-700">แพ็กหมด {fmtDate(end)}</span>}
+                    </li>
+                  )
+                })}
+              </ul>
+            </section>
+          )}
+        </>
+      )}
       <section className="divide-y rounded-2xl border px-3">
         <Row label="ชื่อ-นามสกุล">{s.name}{s.nameEn && <span className="text-muted-foreground"> · {s.nameEn}</span>}</Row>
         <Row label="ชื่อที่แสดง">{s.nickname}{s.nicknameEn && <span className="text-muted-foreground"> · {s.nicknameEn}</span>}</Row>
@@ -156,81 +245,91 @@ function InfoTab({ s }: { s: Staff }) {
   )
 }
 
-function ClassesTab({ s }: { s: Staff }) {
-  const classes = useStore((st) => st.classes)
-  const branches = useStore((st) => st.branches)
-  const mine = classes.filter((k) => k.active && (k.teacherId === s.id || k.coTeacherIds.includes(s.id)))
-  if (!mine.length) return <Empty text="ไม่มีคลาสที่สอนอยู่" />
+function Progress({ done, total }: { done: number; total: number }) {
   return (
-    <ul className="divide-y rounded-2xl border">
-      {mine.map((k) => (
-        <li key={k.id} className="flex items-center gap-2 p-2.5 text-sm">
-          <div className="min-w-0 flex-1">
-            <p className="truncate font-medium">{k.name}</p>
-            <p className="text-xs text-muted-foreground">{branches.find((b) => b.id === k.branchId)?.name} · {dayShort(k.weekday)} {k.start}–{endTime(k.start, k.minutes)} · {k.studentIds.length} คน</p>
-          </div>
-          {k.teacherId !== s.id && <Pill>ครูร่วม</Pill>}
-        </li>
-      ))}
-    </ul>
+    <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-muted">
+      <div className="h-full rounded-full bg-emerald-500 transition-all" style={{ width: `${total ? Math.round((done / total) * 100) : 0}%` }} />
+    </div>
   )
 }
 
-function SessionsTab({ s }: { s: Staff }) {
-  const sessions = useStore((st) => st.sessions)
+/** the week split by day — what each day has (owner 2026-10-09) */
+function byDay(rows: TeacherSessionRow[], week: string) {
+  return Array.from({ length: 7 }, (_, i) => addDays(week, i)).map((date) => ({ date, rows: rows.filter((r) => r.session.date === date) }))
+}
+
+function SessionsTab({ s, week, onOpen }: { s: Staff; week: string; onOpen: (id: ID) => void }) {
+  const w = useWeek(s.id, week)
   const classes = useStore((st) => st.classes)
-  const today = toDateStr(useNow())
-  const mine = useMemo(() => sessions.filter((x) => !x.cancelled && teachersOf(x).includes(s.id)), [sessions, s.id])
-  const week = mine.filter((x) => x.date >= mondayOf(today) && x.date <= addDays(mondayOf(today), 6))
-  const next = mine.filter((x) => x.date >= today).sort((a, b) => (a.date + a.start).localeCompare(b.date + b.start)).slice(0, 20)
-  const past = mine.filter((x) => x.date < today).sort((a, b) => (b.date + b.start).localeCompare(a.date + a.start)).slice(0, 10)
-  const name = (x: (typeof mine)[number]) => classes.find((k) => k.id === x.classId)?.name ?? subjectsOf(x).join(" + ")
-  const list = (xs: typeof mine) => (
-    <ul className="divide-y rounded-2xl border">
-      {xs.map((x) => (
-        <li key={x.id} className="flex items-center gap-2 p-2 text-sm">
-          <span className="w-28 shrink-0 text-xs text-muted-foreground tabular-nums">{fmtDate(x.date, { weekday: true })}</span>
-          <span className="w-24 shrink-0 text-xs tabular-nums">{x.start}–{endTime(x.start, x.minutes)}</span>
-          <span className="truncate">{name(x)}</span>
-          <span className="ml-auto shrink-0 text-xs text-muted-foreground">{x.studentIds.length} คน</span>
-        </li>
-      ))}
-    </ul>
-  )
+  const attendance = useStore((st) => st.attendance)
+  const summaries = useStore((st) => st.summaries)
+  const now = useNow()
+  const today = toDateStr(now)
+  const name = (x: Session) => classes.find((k) => k.id === x.classId)?.name ?? subjectsOf(x).join(" + ")
   return (
     <>
-      <div className="flex divide-x rounded-2xl bg-muted/50 py-2 text-center">
-        <div className="flex-1"><p className="text-[11px] text-muted-foreground">สอนสัปดาห์นี้</p><p className="text-lg font-semibold tabular-nums">{week.length} คาบ</p></div>
-        <div className="flex-1"><p className="text-[11px] text-muted-foreground">ชั่วโมงสัปดาห์นี้</p><p className="text-lg font-semibold tabular-nums">{Math.round(week.reduce((m, x) => m + x.minutes, 0) / 6) / 10}</p></div>
-        <div className="flex-1"><p className="text-[11px] text-muted-foreground">คาบต่อจากนี้</p><p className="text-lg font-semibold tabular-nums">{mine.filter((x) => x.date >= today).length}</p></div>
+      <div className="flex divide-x rounded-2xl bg-muted/50 py-2">
+        <Stat label="คาบสัปดาห์นี้" value={w.sessions.total} />
+        <Stat label="ชั่วโมง" value={Math.round(w.minutes / 6) / 10} />
+        <Stat label="เสร็จแล้ว" value={w.sessions.done} tone="text-emerald-700" />
+        <Stat label="เหลือ" value={w.sessions.left} tone={w.sessions.left ? "text-amber-700" : undefined} />
       </div>
-      <h3 className="flex items-center gap-1.5 text-sm font-semibold"><CalendarDaysIcon className="size-4" /> คาบถัดไป</h3>
-      {next.length ? list(next) : <Empty text="ไม่มีคาบถัดไป" />}
-      {past.length > 0 && <><h3 className="text-sm font-semibold">ที่ผ่านมา</h3>{list(past)}</>}
+      {byDay(w.rows, week).map(({ date, rows }) => (
+        <section key={date} className="space-y-1">
+          <p className={cn("text-xs font-semibold", date === today ? "text-primary" : "text-muted-foreground")}>{fmtDate(date, { weekday: true })}{date === today && " · วันนี้"}</p>
+          {rows.length === 0 ? <p className="rounded-xl border border-dashed px-3 py-1.5 text-xs text-muted-foreground">ไม่มีคาบ</p> : (
+            <ul className="divide-y rounded-2xl border">
+              {rows.map((r) => (
+                <li key={r.session.id}>
+                  <button type="button" onClick={() => onOpen(r.session.id)} className="flex w-full items-center gap-2 p-2 text-left text-sm hover:bg-muted/40">
+                    <span className="w-24 shrink-0 text-xs tabular-nums">{r.session.start}–{endTime(r.session.start, r.session.minutes)}</span>
+                    <span className="min-w-0 flex-1 truncate">{name(r.session)}</span>
+                    <span className="shrink-0 text-xs text-muted-foreground">{r.session.studentIds.length} คน</span>
+                    <WorkChip w={workState(r.session, now, attendance, summaries)} students={r.session.studentIds.length} />
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+      ))}
     </>
   )
 }
 
-function SummariesTab({ s }: { s: Staff }) {
-  const summaries = useStore((st) => st.summaries)
-  const sessions = useStore((st) => st.sessions)
-  const students = useStore((st) => st.students)
-  const mine = summaries.filter((x) => x.authorId === s.id).map((x) => ({ x, ses: sessions.find((y) => y.id === x.sessionId) }))
-    .sort((a, b) => (b.ses?.date ?? "").localeCompare(a.ses?.date ?? "")).slice(0, 30)
-  if (!mine.length) return <Empty text="ยังไม่มีสรุปการเรียนที่เขียน" />
+/** the week's sessions with how many summaries are written — click to open the session and write (owner 2026-10-09) */
+function SummariesTab({ s, week, onOpen }: { s: Staff; week: string; onOpen: (id: ID) => void }) {
+  const w = useWeek(s.id, week)
+  const classes = useStore((st) => st.classes)
+  const now = useNow()
+  const name = (x: Session) => classes.find((k) => k.id === x.classId)?.name ?? subjectsOf(x).join(" + ")
+  const started = (x: Session) => sessionState(x, now) !== "upcoming"
   return (
-    <ul className="divide-y rounded-2xl border">
-      {mine.map(({ x, ses }) => (
-        <li key={x.id} className="space-y-0.5 p-2.5 text-sm">
-          <div className="flex items-center gap-2 text-xs text-muted-foreground">
-            <span>{ses ? fmtDate(ses.date, { weekday: true }) : "—"}</span>
-            <span>· {students.find((y) => y.id === x.studentId)?.nickname ?? ""}</span>
-            <Pill className="ml-auto">{SUMMARY_STATUS_LABEL[x.status]}</Pill>
-          </div>
-          <p className="line-clamp-2">{x.text || <span className="text-muted-foreground">—</span>}</p>
-        </li>
-      ))}
-    </ul>
+    <>
+      <div className="flex divide-x rounded-2xl bg-muted/50 py-2">
+        <Stat label="สรุปสัปดาห์นี้" value={w.summaries.total} />
+        <Stat label="เขียนแล้ว" value={w.summaries.written} tone="text-emerald-700" />
+        <Stat label="ยังไม่ได้เขียน" value={w.summaries.left} tone={w.summaries.left ? "text-amber-700" : undefined} />
+      </div>
+      {w.rows.length === 0 ? <Empty text="ไม่มีคาบในสัปดาห์นี้" /> : (
+        <ul className="divide-y rounded-2xl border">
+          {w.rows.map((r) => {
+            const all = r.needed > 0 && r.written >= r.needed
+            const state = !started(r.session) ? { t: "ยังไม่ถึงคาบ", c: "bg-muted text-muted-foreground" } : all ? { t: "เขียนครบ", c: "bg-emerald-100 text-emerald-800" } : r.needed === 0 ? { t: "ไม่มีนักเรียนมาเรียน", c: "bg-muted text-muted-foreground" } : { t: "ยังไม่ได้เขียน", c: "bg-amber-100 text-amber-900" }
+            return (
+              <li key={r.session.id}>
+                <button type="button" onClick={() => onOpen(r.session.id)} className="flex w-full items-center gap-2 p-2.5 text-left text-sm hover:bg-muted/40">
+                  <span className="w-28 shrink-0 text-xs text-muted-foreground tabular-nums">{fmtDate(r.session.date, { weekday: true })} {r.session.start}</span>
+                  <span className="min-w-0 flex-1 truncate">{name(r.session)}</span>
+                  <span className="shrink-0 text-xs tabular-nums">{r.written}/{r.needed}</span>
+                  <span className={cn("shrink-0 rounded-full px-2 py-0.5 text-[11px]", state.c)}>{state.t}</span>
+                </button>
+              </li>
+            )
+          })}
+        </ul>
+      )}
+    </>
   )
 }
 

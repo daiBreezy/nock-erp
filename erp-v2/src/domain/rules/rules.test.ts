@@ -2138,3 +2138,21 @@ describe("Area Manager picks branches, Director / Super Admin see all (owner 202
     expect(validateStaff(d, []).some((e) => e.field === "branchIds")).toBe(false)
   })
 })
+
+import { studentsOfTeacher, teacherWeek } from "./staff-overview"
+
+describe("staff overview — one teacher's week (owner 2026-10-09)", () => {
+  const ses = (id: string, date: string, over: Partial<Session> = {}): Session => ({ id, branchId: "b1", classId: null, subject: "คณิต", date, start: "10:00", minutes: 90, teacherId: "t1", coTeacherIds: [], roomId: null, studentIds: ["a", "b"], trial: false, customized: false, cancelled: false, ...over })
+  const now = new Date(2026, 9, 9, 12, 0) // Fri 9 Oct
+  const sessions = [ses("mon", "2026-10-05"), ses("fri", "2026-10-09", { start: "15:00" }), ses("next", "2026-10-12"), ses("other", "2026-10-06", { teacherId: "t2" })]
+  const att = [{ sessionId: "mon", studentId: "a", status: "present" as const, markedBy: "t1", markedAt: "" }, { sessionId: "mon", studentId: "b", status: "absent" as const, markedBy: "t1", markedAt: "" }]
+  it("counts this week's sessions and summaries — marked students need one if present, unmarked ones are expected", () => {
+    const w = teacherWeek("t1", "2026-10-09", { sessions, attendance: att, summaries: [{ sessionId: "mon", studentId: "a", status: "submitted" }], now })
+    expect(w.rows.map((r) => r.session.id)).toEqual(["mon", "fri"])
+    expect(w.sessions).toEqual({ total: 2, done: 1, left: 1 })
+    expect(w.summaries).toEqual({ total: 3, written: 1, left: 2 })
+  })
+  it("students in hand = their classes + their sessions ahead", () => {
+    expect(studentsOfTeacher("t1", { sessions, classes: [], today: "2026-10-09" }).sort()).toEqual(["a", "b"])
+  })
+})
