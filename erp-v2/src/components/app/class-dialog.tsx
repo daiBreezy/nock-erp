@@ -4,7 +4,7 @@ import { staffAt } from "@/domain/rules/permissions"
 import { useState } from "react"
 import { AlertTriangleIcon, BanIcon, BookOpenIcon, CheckIcon, InfoIcon, PlusIcon, TrashIcon, XIcon } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { FormShell } from "@/components/app/form-shell"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
@@ -132,12 +132,13 @@ export function ClassDialog({ prefill, onClose }: { prefill: ClassPrefill; onClo
   }
 
   return (
-    <Dialog open onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="max-h-[92vh] overflow-y-auto sm:max-w-2xl">
-        <DialogHeader>
-          <DialogTitle>สร้างคลาส · สาขา{branch.name}</DialogTitle>
-          <DialogDescription>ตั้งวิชา ครู ระดับชั้นครั้งเดียว แล้วเพิ่มได้หลายวัน/เวลา — ได้ 1 คลาสต่อ 1 แถว · ระบบเช็คชนให้ทุกแถวก่อนสร้าง</DialogDescription>
-        </DialogHeader>
+    <FormShell className="max-h-[92vh] sm:max-w-2xl" onClose={onClose} title={`สร้างคลาส · สาขา${branch.name}`}
+      description="ตั้งวิชา ครู ระดับชั้นครั้งเดียว แล้วเพิ่มได้หลายวัน/เวลา — ได้ 1 คลาสต่อ 1 แถว · ระบบเช็คชนให้ทุกแถวก่อนสร้าง"
+      footer={<>
+        {!ok && <span className="mr-auto text-xs text-red-700">{blocked ? "แก้รายการสีแดงก่อน" : "ใส่เหตุผลเพื่อยืนยัน"}</span>}
+        <Button variant="ghost" onClick={onClose}>ยกเลิก</Button>
+        <Button disabled={!ok} onClick={submit}>สร้าง {rows.length > 1 ? `${rows.length} คลาส` : "คลาส"}</Button>
+      </>}>
 
         <div className="grid grid-cols-2 gap-2">
           {([["teacher", "ครู + ช่วงเวลา", "ช่วงสอน 2 ชม. ของครู — นักเรียนหลายวิชา/หลายระดับเรียนด้วยกันได้"], ["subject", "วิชา + ระดับชั้น", "คลาสของวิชาเดียว ระดับชั้นที่กำหนด"]] as const).map(([k, label, hint]) => (
@@ -323,13 +324,7 @@ export function ClassDialog({ prefill, onClose }: { prefill: ClassPrefill; onClo
           </Field>
         )}
 
-        <DialogFooter className="items-center">
-          {!ok && <span className="mr-auto text-xs text-red-700">{blocked ? "แก้รายการสีแดงก่อน" : "ใส่เหตุผลเพื่อยืนยัน"}</span>}
-          <Button variant="ghost" onClick={onClose}>ยกเลิก</Button>
-          <Button disabled={!ok} onClick={submit}>สร้าง {rows.length > 1 ? `${rows.length} คลาส` : "คลาส"}</Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+    </FormShell>
   )
 }
 

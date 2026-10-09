@@ -4,7 +4,6 @@ import { Page, PageHeader, KpiRow } from "@/components/app/page-layout"
 import { useBranchScope } from "@/components/app/branch-scope"
 import { useState } from "react"
 import { BookOpenIcon, CalendarIcon, ClockIcon, DoorOpenIcon, PlusIcon, RefreshCwIcon, SearchIcon, UserRoundIcon, UsersIcon } from "lucide-react"
-import { ClassDialog } from "@/components/app/class-dialog"
 import { ClassSheet } from "@/components/app/class-sheet"
 import { HEAD, Pager, ROW, SortHeader, TableShell, Th, usePage, useSort } from "@/components/app/data-table"
 import { Kpi } from "@/components/app/kpi"
@@ -45,7 +44,6 @@ export default function ClassesPage() {
   const [kindF, setKindF] = useState("")
   const [unitF, setUnitF] = useState("")
   const [openId, setOpenId] = useState<ID | null>(null)
-  const [creating, setCreating] = useState(false)
   const { sort, toggle } = useSort<ClassSort>("day")
 
   const classes = allClasses.filter((c) => scope.ids.includes(c.branchId))
@@ -92,7 +90,7 @@ export default function ClassesPage() {
   return (
     <Page>
       <PageHeader title="คลาส" description="คลาสประจำ ครู ห้อง และนักเรียนในแต่ละคลาส"
-        actions={<Button onClick={() => setCreating(true)}><PlusIcon /> สร้างคลาส</Button>} />
+        actions={<Button onClick={() => setOpenId("new")}><PlusIcon /> สร้างคลาส</Button>} />
 
       <KpiRow>
         <Kpi icon={BookOpenIcon} label="คลาสที่เปิดอยู่" value={active.length} />
@@ -162,8 +160,7 @@ export default function ClassesPage() {
         </tbody>
       </TableShell>
       <Pager {...pg} unit="คลาส" />
-      <ClassSheet id={openId} onClose={() => setOpenId(null)} />
-      {creating && <ClassDialog prefill={{}} onClose={() => setCreating(false)} />}
+      <ClassSheet key={openId ?? "none"} id={openId} onClose={() => setOpenId(null)} />
     </Page>
   )
 }

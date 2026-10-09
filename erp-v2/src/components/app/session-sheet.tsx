@@ -247,7 +247,7 @@ function Body({ id, onClose }: { id: ID; onClose: () => void }) {
       {teachersOpen && <TeachersDialog id={s.id} onClose={() => setTeachersOpen(false)} />}
       {adding && <AddStudentDialog id={s.id} onClose={() => setAdding(false)} />}
       {deleting && <DeleteDialog s={s} canCancel={state === "upcoming"} onClose={() => setDeleting(false)} onDone={onClose} />}
-      <ClassSheet id={editingClass && klass ? klass.id : null} onClose={() => setEditingClass(false)} />
+      <ClassSheet key={editingClass ? "edit" : "closed"} startEditing id={editingClass && klass ? klass.id : null} onClose={() => setEditingClass(false)} />
     </>
   )
 }
