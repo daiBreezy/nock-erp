@@ -89,7 +89,7 @@ function SessionSummaryTab() {
       .map((a) => ({ s, studentId: a.studentId, sm: summaries.find((x) => x.sessionId === s.id && x.studentId === a.studentId) })),
   )
   const bucket = (r: (typeof rows)[number]): Bucket => (!r.sm || r.sm.status === "draft" ? "to_write" : r.sm.status === "changes_requested" ? "changes" : r.sm.status)
-  const shown = rows.filter((r) => bucket(r) === tab).sort((a, b) => b.s.date.localeCompare(a.s.date))
+  const shown = rows.filter((r) => bucket(r) === tab).sort((a, b) => (a.s.date + a.s.start).localeCompare(b.s.date + b.s.start))
 
   return (
     <div className="space-y-4">
@@ -102,17 +102,18 @@ function SessionSummaryTab() {
         {period.control}
       </Toolbar>
 
-      <div className="divide-y overflow-hidden rounded-3xl bg-card shadow-sm ring-1 ring-foreground/5">
-        {shown.length === 0 && <p className="p-10 text-center text-sm text-muted-foreground">ไม่มีรายการในหมวดนี้</p>}
-        {shown.map(({ s, studentId, sm }) => {
+      {/* owner 2026-10-09: one section per day, like Sessions — easier to see what each day still needs */}
+      {shown.length === 0 && <p className="rounded-3xl border border-dashed p-10 text-center text-sm text-muted-foreground">ไม่มีรายการในหมวดนี้</p>}
+      {[...new Set(shown.map((r) => r.s.date))].map((day) => (
+        <section key={day}>
+          <h3 className="mb-1 text-sm font-semibold">{fmtDate(day, { weekday: true })}</h3>
+          <div className="divide-y overflow-hidden rounded-3xl bg-card shadow-sm ring-1 ring-foreground/5">
+            {shown.filter((r) => r.s.date === day).map(({ s, studentId, sm }) => {
           const stu = L.student(studentId)
           const approveCheck = sm && Sum.canApprove(sm, me)
           return (
             <div key={s.id + studentId} data-focus={FOCUS_OF[tab]} className="flex flex-wrap items-start gap-3 p-3">
-              <div className="w-24 text-sm">
-                <div className="font-medium">{fmtDate(s.date, { weekday: true })}</div>
-                <div className="text-xs text-muted-foreground">{s.start}</div>
-              </div>
+              <div className="w-14 pt-0.5 text-sm font-medium tabular-nums">{s.start}</div>
               <div className="min-w-48 flex-1">
                 <div className="text-sm font-medium">{stu?.nickname} <span className="text-xs text-muted-foreground">{stu?.grade}</span> · {classes.find((c) => c.id === s.classId)?.name ?? s.subject}{scope.multi && <span className="ml-1.5 align-middle"><BranchCode code={scope.code(s.branchId)} /></span>}</div>
                 <div className="text-xs text-muted-foreground">ครู {L.teacher(sm?.authorId ?? s.teacherId).label}</div>
@@ -135,8 +136,10 @@ function SessionSummaryTab() {
               </div>
             </div>
           )
-        })}
-      </div>
+            })}
+          </div>
+        </section>
+      ))}
       <SessionSheet sessionId={openId} onClose={() => setOpenId(null)} />
     </div>
   )

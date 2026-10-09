@@ -5,14 +5,16 @@ import { BranchCode, useBranchScope } from "@/components/app/branch-scope"
 import { staffAt } from "@/domain/rules/permissions"
 import { useState } from "react"
 import { CalendarDaysIcon, ClipboardCheckIcon, UserCheckIcon, UserXIcon } from "lucide-react"
-import { Page, PageHeader, KpiRow, Toolbar } from "@/components/app/page-layout"
+import { Page, PageHeader, KpiRow, Segmented, Toolbar } from "@/components/app/page-layout"
+import { SessionSheet } from "@/components/app/session-sheet"
+import { endTime, fmtDate } from "@/domain/dates"
 import { Kpi } from "@/components/app/kpi"
 import { NativeSelect } from "@/components/app/native-select"
 import { StudentSheet } from "@/components/app/student-sheet"
 import { gradeTone } from "@/components/app/subject-color"
 import { sessionState } from "@/domain/rules/scheduling"
-import type { ID } from "@/domain/types"
-import { useBranch, useNow } from "@/lib/hooks"
+import type { Attendance, ID, Session } from "@/domain/types"
+import { useBranch, useLookup, useNow, useQueryState } from "@/lib/hooks"
 import { GradeCell, gradeCompare, HEAD, Pager, ROW, SortHeader, TableShell, usePage, useSort } from "@/components/app/data-table"
 import { cn } from "@/lib/utils"
 import { useStore } from "@/store/store"
@@ -32,6 +34,8 @@ export default function AttendancePage() {
   const staff = useStore((s) => s.staff)
   // owner 2026-10-09: the shared date control — default this week (same on Sessions / Attendance / Summaries)
   const period = usePeriod("week")
+  const [view, setView] = useQueryState<"day" | "student">("view", "day")
+  const [sessionId, setSessionId] = useState<ID | null>(null)
   const [subject, setSubject] = useState("")
   const [teacher, setTeacher] = useState("")
   const [openId, setOpenId] = useState<ID | null>(null)
@@ -83,7 +87,10 @@ export default function AttendancePage() {
         {scope.select}
       </>}>
         {period.control}
+        {/* owner 2026-10-09: day by day like Sessions; the per-student table is the other view */}
+        <Segmented label="มุมมอง" value={view} onChange={setView} options={[{ value: "day", label: "รายวัน" }, { value: "student", label: "รายนักเรียน" }]} />
       </Toolbar>
+      {view === "day" ? <ByDay sessions={inRange} attendance={att} multi={scope.multi} code={scope.code} onOpen={setSessionId} /> : (<>
       <p className="text-xs text-muted-foreground">นับเฉพาะคาบในช่วงที่เลือกที่เริ่มเรียนแล้วเท่านั้น · เริ่มเรียงจากอัตราเข้าเรียนต่ำสุด (กดหัวคอลัมน์เพื่อเรียงใหม่)</p>
       {/* owner 2026-10-07: a real sortable table — grade in its own column, numbers right-aligned */}
       <div data-focus="often_leave" className="rounded-3xl">
@@ -124,7 +131,50 @@ export default function AttendancePage() {
         </TableShell>
         <Pager {...pg} unit="คน" />
       </div>
+      </>)}
       <StudentSheet studentId={openId} onClose={() => setOpenId(null)} />
+      <SessionSheet sessionId={sessionId} onClose={() => setSessionId(null)} />
     </Page>
+  )
+}
+
+
+/** One section per day: each session with มา / ขาด / ลา / ยังไม่เช็ค — click to open it (owner 2026-10-09) */
+function ByDay({ sessions, attendance, multi, code, onOpen }: { sessions: Session[]; attendance: Attendance[]; multi: boolean; code: (id: ID) => string; onOpen: (id: ID) => void }) {
+  const classes = useStore((s) => s.classes)
+  const L = useLookup()
+  const sorted = [...sessions].sort((a, b) => (a.date + a.start).localeCompare(b.date + b.start))
+  const days = [...new Set(sorted.map((s) => s.date))]
+  if (!days.length) return <p className="rounded-3xl border border-dashed p-10 text-center text-sm text-muted-foreground">ไม่มีคาบที่เรียนไปแล้วในช่วงนี้</p>
+  const n = (sid: ID, st: Attendance["status"]) => attendance.filter((a) => a.sessionId === sid && a.status === st).length
+  return (
+    <>
+      {days.map((d) => (
+        <section key={d}>
+          <h3 className="mb-1 text-sm font-semibold">{fmtDate(d, { weekday: true })}</h3>
+          <div className="divide-y overflow-hidden rounded-3xl bg-card shadow-sm ring-1 ring-foreground/5">
+            {sorted.filter((s) => s.date === d).map((s) => {
+              const marked = attendance.filter((a) => a.sessionId === s.id).length
+              const left = Math.max(0, s.studentIds.length - marked)
+              return (
+                <button key={s.id} type="button" onClick={() => onOpen(s.id)} className="grid w-full grid-cols-[6.5rem_1fr_auto] items-center gap-3 px-3 py-2.5 text-left text-sm hover:bg-muted/40">
+                  <span className="tabular-nums">{s.start}–{endTime(s.start, s.minutes)}</span>
+                  <span className="min-w-0">
+                    <span className="block truncate font-medium">{classes.find((k) => k.id === s.classId)?.name ?? s.subject}{multi && <span className="ml-1.5 align-middle"><BranchCode code={code(s.branchId)} /></span>}</span>
+                    <span className="block truncate text-xs text-muted-foreground">{L.teacher(s.teacherId).label} · {s.studentIds.length} คน</span>
+                  </span>
+                  <span className="flex flex-wrap justify-end gap-1 text-xs">
+                    <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-emerald-800">มา {n(s.id, "present")}</span>
+                    <span className="rounded-full bg-red-100 px-2 py-0.5 text-red-800">ขาด {n(s.id, "absent")}</span>
+                    <span className="rounded-full bg-amber-100 px-2 py-0.5 text-amber-900">ลา {n(s.id, "leave")}</span>
+                    {left > 0 && <span className="rounded-full border border-red-300 px-2 py-0.5 text-red-700">ยังไม่เช็ค {left}</span>}
+                  </span>
+                </button>
+              )
+            })}
+          </div>
+        </section>
+      ))}
+    </>
   )
 }
