@@ -1,7 +1,8 @@
 "use client"
 
+import { Page, PageHeader } from "@/components/app/page-layout"
 import { useState } from "react"
-import { ArrowRightIcon, ExternalLinkIcon, FileTextIcon, RotateCwIcon, SendIcon, SmartphoneIcon, UserRoundIcon } from "lucide-react"
+import { ArrowRightIcon, ExternalLinkIcon, RotateCwIcon, SendIcon, SmartphoneIcon, UserRoundIcon } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import type { FormLang } from "@/domain/types"
 import { cn } from "@/lib/utils"
@@ -85,12 +86,9 @@ export default function FormsPage() {
   const f = FORMS.find((x) => x.key === key)!
   const url = f.url(lang, brand)
   return (
-    <div className="mx-auto max-w-7xl space-y-4">
+    <Page>
       <title>ฟอร์มผู้ปกครอง · NockERP</title>
-      <div>
-        <h1 className="flex items-center gap-2 text-xl font-semibold"><FileTextIcon className="size-5 text-primary" /> ฟอร์มผู้ปกครอง</h1>
-        <p className="text-sm text-muted-foreground">เปิดดูทุกฟอร์มได้ทันที (โหมดตัวอย่าง — กดส่งได้ แต่ไม่มีข้อมูลไปจริง) · ดูว่าแต่ละฟอร์มถามอะไร และข้อมูลไปลงตรงไหนในระบบ</p>
-      </div>
+      <PageHeader title="ฟอร์มผู้ปกครอง" description="เปิดดูทุกฟอร์มได้ทันที (โหมดตัวอย่าง — กดส่งได้ แต่ไม่มีข้อมูลไปจริง) · ดูว่าแต่ละฟอร์มถามอะไร และข้อมูลไปลงตรงไหนในระบบ" />
       <div className="flex flex-wrap gap-2">
         {FORMS.map((x) => (
           <button key={x.key} type="button" onClick={() => setKey(x.key)}
@@ -138,7 +136,7 @@ export default function FormsPage() {
           </div>
         </section>
       </div>
-    </div>
+    </Page>
   )
 }
 

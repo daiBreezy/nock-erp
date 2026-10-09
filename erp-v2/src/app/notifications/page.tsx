@@ -1,5 +1,6 @@
 "use client"
 
+import { Page, PageHeader } from "@/components/app/page-layout"
 import Link from "next/link"
 import { useState } from "react"
 import { AlertTriangleIcon, BellIcon, CalendarDaysIcon, CheckCheckIcon, ClipboardListIcon, FileTextIcon, MessageSquareIcon, MessageSquarePlusIcon, NotebookPenIcon, ReceiptIcon, RefreshCwIcon, SendIcon, ShieldAlertIcon, UserXIcon, WalletIcon, XIcon } from "lucide-react"
@@ -100,12 +101,10 @@ export default function NotificationsPage() {
   const who = (id?: string) => s.staff.find((x) => x.id === id)?.nickname
 
   return (
-    <div className="mx-auto max-w-4xl space-y-6">
+    <Page className="max-w-4xl space-y-6">
       <div className="space-y-3">
-        <div className="flex items-center gap-2">
-          <h2 className="text-xl font-semibold">แจ้งเตือน</h2>
-          {!composing && <Button size="sm" className="ml-auto" onClick={() => setComposing(true)}><MessageSquarePlusIcon /> ส่งข้อความถึงทีม</Button>}
-        </div>
+        <PageHeader title="แจ้งเตือน" description="งานที่ต้องจัดการ และประวัติแจ้งเตือนของคุณ"
+          actions={!composing && <Button onClick={() => setComposing(true)}><MessageSquarePlusIcon /> ส่งข้อความถึงทีม</Button>} />
         <div className="flex flex-wrap gap-1.5">
           <Chip on={topic === "all"} onClick={() => setTopic("all")} label="ทั้งหมด" count={alerts.length + allHistory.length} />
           {TOPICS.filter((t) => countOf(t.key) > 0 || topic === t.key).map((t) => (
@@ -159,7 +158,7 @@ export default function NotificationsPage() {
           })}
         </div>
       </section>
-    </div>
+    </Page>
   )
 }
 

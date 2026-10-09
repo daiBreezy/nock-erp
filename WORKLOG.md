@@ -57,7 +57,17 @@
 - [ ] **เวลารถรับ-ส่ง** ยังไม่มีในระบบ — แอปบอกแค่ "รับ/ส่ง วันไหน" + ข้อความว่าแอดมินจะแจ้งเวลาทาง LINE · ต้องทำโมดูล Bus Route (เส้นทาง/ETA) ตาม LOGIC-SPEC-15 ก่อน
 - [ ] ข้อมูลตัวอย่างยังไม่มีนักเรียนที่ซื้อรถ — แท็บ "รถรับส่ง" จึงไม่โผล่ใน preview (มี test ครอบคลุม)
 - [ ] Liclass ยื่นลาจากแอป (Version ถัดไป)
-- [ ] ยังไม่ได้รัน `next build` (dev server ใช้ `.next` อยู่) — tsc + eslint + 222 tests ผ่าน
+- [ ] ยังไม่ได้รัน `next build` (dev server ใช้ `.next` อยู่) — tsc + eslint + 230 tests ผ่าน
+
+### ✅ รอบเทส (บ่าย 9 ต.ค.) — เจ้าของเทสแล้วสั่งแก้
+- **LINE:** สร้าง Rich Menu ใน OA "Nock Test" แล้ว (ช่อง A = `liff.line.me/2011740783-OinXaLm7?app=parent`) · App ผู้ปกครองเปิดได้จริงบนมือถือ ✅ · tunnel ตอนนี้ = cloudflared quick tunnel (URL เปลี่ยนทุกครั้ง → แก้ Endpoint ใน LINE Developers) · ผูก daiBreezy กับครอบครัวใจสู้ในเครื่องนี้ · ปิด hydration warning จาก LINE Android (`suppressHydrationWarning` ที่ `<html>`) · รูป Rich Menu ที่ทำให้: `erp-v2/public/brand/line-richmenu-2500x1686.jpg`
+- **บุคลากร:** ตารางดูอย่างเดียว → กดแถวเปิด **Side Panel** (Header · Body scroll อย่างเดียว · Bottom = ปิดบัญชี / แก้ไข) · แท็บ **ข้อมูล** (ภาพรวมสัปดาห์: คาบเสร็จ/เหลือ, สรุปเขียนแล้ว/เหลือ, นักเรียนในมือ, ต้องต่อคอร์ส) · **คาบสอน** (1 สัปดาห์ แยกวัน, ◀▶) · **สรุปการเรียน** (ทุกคาบในสัปดาห์ เขียนแล้ว x/y → กดเปิด Session panel เขียนได้เลย) · โน้ต · Log · กฎ `domain/rules/staff-overview.ts`
+- **บทบาทแยกตามสาขา** (`Staff.assignments`: สาขา → บทบาท Manager/Admin/Teacher + วิชา + วันทำงาน) · สิทธิ์เปลี่ยนตามสาขาที่เลือก (`staffAt`, `me()` cached) · จัดครูนอกวันทำงาน = เตือนส้ม · **Area Manager เลือกสาขาที่ดูแล** (`areaBranchIds`) เห็น/ทำได้เฉพาะเขต · **Director / Super Admin ไม่ต้องเลือกสาขา** เห็นทุกสาขา · Admin Export นักเรียนได้แล้ว
+- **เลิกแก้ในตารางทุกหน้า** (นักเรียน/ครอบครัว/CRM/บุคลากร) — ลบ `inline-edit.tsx`
+- **Chip สาขา** (`components/app/branch-scope.tsx`) ทุกหน้ารายการ + Reports · ตัวเลือก: สาขานี้ · ทุกสาขา · ภูมิภาค · ธุรกิจ · ภูมิภาค×ธุรกิจ · "LIS · ทองหล่อ" · เห็นเฉพาะ Director/Super Admin (ทุกสาขา) + Area Manager (เขตตัวเอง) — สาขาเดียว/Admin/ครูไม่เห็น · ดูหลายสาขา = ป้ายรหัสสาขาต่อท้ายแถว · `?branch=` ใน URL
+- **โครงหน้ามาตรฐาน** (`components/app/page-layout.tsx`): แถบบน = Breadcrumb · `PageHeader` (ชื่อ · คำอธิบาย · CTA) · `KpiRow` (4 ใบ, กดกรองได้ — `Kpi onClick/active`) · `Toolbar` (Chip สาขาซ้ายสุด) · ตาราง · กว้าง max-w-7xl ทุกหน้า (แจ้งเตือน 4xl เพราะเป็น feed, ปฏิทิน/Inbox เต็มจอ) · ใช้แล้ว: นักเรียน, ครอบครัว, บุคลากร, คอร์ส, คลาส, CRM, ใบแจ้งหนี้, คาบเรียน, รายงานเข้าเรียน, สรุปการเรียน, Reports, ฟอร์มผู้ปกครอง, แจ้งเตือน
+
+**กฎที่เจ้าของย้ำ (จดใน memory แล้ว):** Panel = Header · Body · Bottom · CTA อยู่ Bottom · scroll แค่ Body · หลังแก้ UI ต้องรีโหลดแท็บเจ้าของเสมอ
 
 ---
 

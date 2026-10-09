@@ -67,7 +67,7 @@ export default function StaffPage() {
       <PageHeader title="บุคลากร" description="บทบาท วิชาที่สอน และวันทำงานแต่ละสาขา · กดที่แถวเพื่อดูข้อมูล / แก้ไข"
         actions={manage && <Button onClick={() => setOpen("new")}><PlusIcon /> เพิ่มบุคลากร</Button>} />
       <KpiRow>
-        <Kpi icon={UsersIcon} label="บุคลากร" value={kpi.staff} onClick={() => setKind("")} active={!kind} />
+        <Kpi icon={UsersIcon} label="บุคลากร" value={kpi.staff} onClick={() => setKind("")} />
         <Kpi icon={GraduationCapIcon} label="ครู" value={kpi.teachers} tone="sky" onClick={() => setKind(kind === "teacher" ? "" : "teacher")} active={kind === "teacher"} />
         <Kpi icon={ClockIcon} label="Part-time" value={kpi.part} tone="amber" onClick={() => setKind(kind === "part" ? "" : "part")} active={kind === "part"} />
         <Kpi icon={CalendarDaysIcon} label="คาบสอนสัปดาห์นี้" value={kpi.week} tone="emerald" />

@@ -1,10 +1,11 @@
 "use client"
 
+import { Page, PageHeader } from "@/components/app/page-layout"
 import { BranchChip, scopeOptions as buildScopeOptions } from "@/components/app/branch-scope"
 import Link from "next/link"
 import { Fragment, Suspense, useEffect, useMemo, useState } from "react"
 import { useSearchParams } from "next/navigation"
-import { BanknoteIcon, CalendarDaysIcon, ChartColumnIcon, ChevronDownIcon, ClockIcon, DownloadIcon, FileSpreadsheetIcon, PrinterIcon, SchoolIcon, SparklesIcon, UsersIcon, UserCheckIcon } from "lucide-react"
+import { BanknoteIcon, CalendarDaysIcon, ChevronDownIcon, ClockIcon, DownloadIcon, FileSpreadsheetIcon, PrinterIcon, SchoolIcon, SparklesIcon, UsersIcon, UserCheckIcon } from "lucide-react"
 import { NativeSelect } from "@/components/app/native-select"
 import { StudentSheet } from "@/components/app/student-sheet"
 import { AttentionButton, AttentionDialog } from "@/components/reports/attention-dialog"
@@ -89,26 +90,21 @@ function Reports() {
   }
 
   return (
-    <div className="space-y-5 print:space-y-3">
+    <Page className="space-y-5 print:max-w-none print:space-y-3">
       <title>Reports · NockERP</title>
-      <div className="flex flex-wrap items-center gap-3">
-        <span className="grid size-10 place-items-center rounded-2xl bg-primary/10 text-primary"><ChartColumnIcon className="size-5" /></span>
-        <div className="mr-auto">
-          <h1 className="text-xl font-semibold">Reports</h1>
-          <p className="text-xs text-muted-foreground">{scopeLabel} · {periodLabel}{period !== "custom" && ` ${fmtDate(d.range.from)} – ${fmtDate(d.range.to)}`}  {tx("· เทียบ")} {fmtDate(d.prev.from, { year: d.prev.from.slice(0, 4) !== d.range.from.slice(0, 4) })} – {fmtDate(d.prev.to, { year: d.prev.to.slice(0, 4) !== d.range.to.slice(0, 4) })}  {tx("· ข้อมูลจริงจากใบแจ้งหนี้ที่จ่ายแล้ว แพ็กเกจ และการเช็คชื่อ")}</p>
-        </div>
-        {allowed.length > 1 && (
-          <BranchChip className="print:hidden" value={scope} onChange={setScope} options={scopeOptions} active={scope !== "all"} />
-        )}
-        {/* owner 2026-10-07: one download button, pick the format */}
-        <DropdownMenu>
-          <DropdownMenuTrigger render={<Button variant="outline" className="print:hidden" />}><DownloadIcon /> {tx("ดาวน์โหลด")} <ChevronDownIcon className="text-muted-foreground" /></DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-52">
-            <DropdownMenuItem onClick={() => window.print()}><PrinterIcon /> .PDF <span className="ml-auto text-[11px] text-muted-foreground">{tx("หน้าที่เปิดอยู่")}</span></DropdownMenuItem>
-            <DropdownMenuItem onClick={exportXlsx}><FileSpreadsheetIcon /> .xlsx <span className="ml-auto text-[11px] text-muted-foreground">{tx("ทุกแท็บ")}</span></DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
-      </div>
+      <PageHeader title="Reports"
+        description={<>{scopeLabel} · {periodLabel}{period !== "custom" && ` ${fmtDate(d.range.from)} – ${fmtDate(d.range.to)}`}  {tx("· เทียบ")} {fmtDate(d.prev.from, { year: d.prev.from.slice(0, 4) !== d.range.from.slice(0, 4) })} – {fmtDate(d.prev.to, { year: d.prev.to.slice(0, 4) !== d.range.to.slice(0, 4) })}  {tx("· ข้อมูลจริงจากใบแจ้งหนี้ที่จ่ายแล้ว แพ็กเกจ และการเช็คชื่อ")}</>}
+        actions={<>
+          {allowed.length > 1 && <BranchChip className="print:hidden" value={scope} onChange={setScope} options={scopeOptions} active={scope !== "all"} />}
+          {/* owner 2026-10-07: one download button, pick the format */}
+          <DropdownMenu>
+            <DropdownMenuTrigger render={<Button variant="outline" className="print:hidden" />}><DownloadIcon /> {tx("ดาวน์โหลด")} <ChevronDownIcon className="text-muted-foreground" /></DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-52">
+              <DropdownMenuItem onClick={() => window.print()}><PrinterIcon /> .PDF <span className="ml-auto text-[11px] text-muted-foreground">{tx("หน้าที่เปิดอยู่")}</span></DropdownMenuItem>
+              <DropdownMenuItem onClick={exportXlsx}><FileSpreadsheetIcon /> .xlsx <span className="ml-auto text-[11px] text-muted-foreground">{tx("ทุกแท็บ")}</span></DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </>} />
 
       {/* headline numbers */}
       <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-5">
@@ -156,7 +152,7 @@ function Reports() {
 
       <AttentionDialog open={showAttention} onClose={() => setShowAttention(false)} items={d.attention} />
       {openId && <StudentSheet studentId={openId} onClose={() => setOpenId(null)} />}
-    </div>
+    </Page>
   )
 }
 
