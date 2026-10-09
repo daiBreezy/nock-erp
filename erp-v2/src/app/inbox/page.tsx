@@ -2,8 +2,7 @@
 
 import { useRouter } from "next/navigation"
 import { useCallback, useEffect, useRef, useState } from "react"
-import { FileSignatureIcon, InfoIcon, PenLineIcon, PlusIcon, RadioIcon, SendIcon, SparklesIcon, UserSearchIcon, UserCheckIcon, ChevronDownIcon, CheckIcon, ClipboardListIcon, FileTextIcon, GraduationCapIcon, HeartHandshakeIcon, ImageIcon, LogOutIcon, MegaphoneIcon, UserPlusIcon, GripVerticalIcon, CheckCircle2Icon } from "lucide-react"
-import { FilterChipGroup } from "@/components/app/filter-chip-group"
+import { FileSignatureIcon, InfoIcon, PenLineIcon, PlusIcon, RadioIcon, SendIcon, SparklesIcon, UserSearchIcon, UserCheckIcon, ChevronDownIcon, CheckIcon, ClipboardListIcon, FileTextIcon, GraduationCapIcon, HeartHandshakeIcon, ImageIcon, LogOutIcon, MegaphoneIcon, SearchIcon, UserPlusIcon, XIcon, GripVerticalIcon, CheckCircle2Icon } from "lucide-react"
 import { NativeSelect } from "@/components/app/native-select"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuSub, DropdownMenuSubContent, DropdownMenuSubTrigger, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { ExitRequestDialog } from "@/components/app/student-exit"
@@ -60,6 +59,7 @@ export default function InboxPage() {
     if (wanted) setSelectedId(wanted) // eslint-disable-line react-hooks/set-state-in-effect
   }, [])
   const [search, setSearch] = useState("")
+  const [searching, setSearching] = useState(false)
   // owner 2026-10-06: filters sync to the URL (?type=&read=&assignee=) so a reload or shared link keeps them
   const [typeFilter, setTypeFilter] = useQueryState<"all" | ConversationType>("type", "all")
   const [readFilter, setReadFilter] = useQueryState<"all" | "unread" | "read">("read", "all")
@@ -228,19 +228,27 @@ export default function InboxPage() {
               <p className="text-xs text-muted-foreground">{unreadCount(conversations) > 0 ? `${unreadCount(conversations)} ยังไม่อ่าน` : "อ่านครบแล้ว"}</p>
             </div>
             <div className="flex gap-1.5">
+              {/* owner 2026-10-09: search is an icon like Broadcast — opens the box only when needed */}
+              <Button size="icon-sm" variant={searching || search ? "default" : "outline"} aria-label="ค้นหา" title="ค้นหาชื่อ" onClick={() => { if (searching && !search) setSearching(false); else setSearching(true) }}><SearchIcon /></Button>
               <Button size="icon-sm" variant="outline" aria-label="Broadcast" title="Broadcast — ส่งถึงทุกคน" onClick={() => setBroadcasting(true)}><MegaphoneIcon /></Button>
               <Button size="icon-sm" variant="outline" aria-label="เริ่มบทสนทนาใหม่" onClick={() => setComposing(true)}><PenLineIcon /></Button>
             </div>
           </div>
-          <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="ค้นหาชื่อ…" />
-          <div className="flex gap-1.5">
-            <NativeSelect className="flex-1" value={typeFilter} onChange={(e) => setTypeFilter(e.target.value as typeof typeFilter)}
+          {(searching || search) && (
+            <div className="relative">
+              <Input autoFocus value={search} onChange={(e) => setSearch(e.target.value)} placeholder="ค้นหาชื่อ…" className="pr-8" onKeyDown={(e) => { if (e.key === "Escape") { setSearch(""); setSearching(false) } }} />
+              {search && <button type="button" aria-label="ล้าง" className="absolute top-1/2 right-2.5 -translate-y-1/2 text-muted-foreground hover:text-foreground" onClick={() => { setSearch(""); setSearching(false) }}><XIcon className="size-4" /></button>}
+            </div>
+          )}
+          {/* owner 2026-10-09: three dropdowns in one row — type · read · who looks after it (was a row of chips) */}
+          <div className="grid grid-cols-3 gap-1.5">
+            <NativeSelect value={typeFilter} onChange={(e) => setTypeFilter(e.target.value as typeof typeFilter)}
               options={[{ value: "all", label: "ทุกประเภท" }, ...(["customer", "lead", "contact"] as const).map((t) => ({ value: t, label: CONVERSATION_TYPE_LABEL[t] }))]} />
-            <NativeSelect className="flex-1" value={readFilter} onChange={(e) => setReadFilter(e.target.value as typeof readFilter)}
+            <NativeSelect value={readFilter} onChange={(e) => setReadFilter(e.target.value as typeof readFilter)}
               options={[{ value: "all", label: "ทั้งหมด" }, { value: "unread", label: "ยังไม่อ่าน" }, { value: "read", label: "อ่านแล้ว" }]} />
+            <NativeSelect value={assigneeFilter} onChange={(e) => setAssigneeFilter(e.target.value)} aria-label="ผู้ดูแล"
+              options={assigneeChips.map((a) => ({ value: a.key, label: `${a.label} (${a.count})` }))} />
           </div>
-          {/* owner 2026-10-05: filter by who looks after the chat — single scrolling row, keeps the narrow sidebar from wrapping to 2 lines */}
-          <FilterChipGroup layout="scroll" value={assigneeFilter} onChange={setAssigneeFilter} options={assigneeChips.map((a) => ({ value: a.key, label: a.label, count: a.count }))} />
         </div>
         <div className="flex-1 space-y-1 overflow-y-auto p-2">
           {filtered.length === 0 && <p className="py-8 text-center text-sm text-muted-foreground">ไม่พบบทสนทนา</p>}

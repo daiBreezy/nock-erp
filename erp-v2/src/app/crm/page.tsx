@@ -1,9 +1,9 @@
 "use client"
 
-import { Page, PageHeader, KpiRow } from "@/components/app/page-layout"
+import { Page, PageHeader, KpiRow, ShowChip } from "@/components/app/page-layout"
 import { BranchCode, useBranchScope } from "@/components/app/branch-scope"
-import { useState } from "react"
-import { CalendarClockIcon, ChevronRightIcon, LayoutGridIcon, PlusIcon, RotateCcwIcon, SearchIcon, TableIcon, TrendingUpIcon, UserCheckIcon, UserSearchIcon, UsersIcon } from "lucide-react"
+import { useEffect, useState } from "react"
+import { BellRingIcon, CalendarClockIcon, ChevronRightIcon, LayoutGridIcon, PlusIcon, RotateCcwIcon, SearchIcon, TableIcon, TrendingUpIcon, UserCheckIcon, UserSearchIcon, UsersIcon } from "lucide-react"
 import { Pill } from "@/components/app/badges"
 import { GradeCell, gradeCompare, HEAD, Pager, ROW, SortHeader, TableShell, Th, usePage, useSort } from "@/components/app/data-table"
 import { Kpi } from "@/components/app/kpi"
@@ -15,7 +15,10 @@ import { EnrollInbox } from "@/components/crm/enroll-review"
 import { SurveyCalls } from "@/components/crm/survey-calls"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Switch } from "@/components/ui/switch"
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { InfoTip } from "@/components/reports/charts"
+import * as Survey from "@/domain/rules/survey"
+import { fetchEnrollSubmissions } from "@/lib/forms"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 import { fmtDate, toDateStr } from "@/domain/dates"
 import { leadFlags } from "@/domain/rules/reports"
@@ -45,6 +48,11 @@ export default function CrmPage() {
   const staff = useStore((s) => s.staff)
   // owner 2026-10-09: Director / Area Manager can list several branches at once
   const scope = useBranchScope()
+  const [workOpen, setWorkOpen] = useState(false)
+  const surveyResponses = useStore((s) => s.surveyResponses)
+  const [enrollPending, setEnrollPending] = useState(0)
+  useEffect(() => { fetchEnrollSubmissions().then((xs) => setEnrollPending(xs.filter((x) => x.status === "pending" && x.branchId === branch.id).length)).catch(() => {}) }, [branch.id, workOpen])
+  const todo = { enroll: enrollPending, calls: Survey.toCall(surveyResponses.filter((r) => r.branchId === branch.id), toDateStr(new Date())).length }
   const leads = useStore((s) => s.leads).filter((l) => scope.ids.includes(l.branchId))
   const moveStage = useStore((s) => s.moveLeadStage)
   const restore = useStore((s) => s.restoreLead)
@@ -103,7 +111,7 @@ export default function CrmPage() {
       <PageHeader title="CRM" description={`${leads.length} Lead ทั้งหมด · ${activeCount} รายกำลังตาม`}
         actions={canManage && <Button onClick={() => setCreating(true)}><PlusIcon /> เพิ่ม Lead</Button>} />
 
-      <KpiRow>
+      <KpiRow className={canManage ? "lg:grid-cols-5" : undefined}>
         <Kpi icon={UsersIcon} label="Lead ทั้งหมด" value={kpis.total} sub={`${kpis.active} รายกำลังตาม`} />
         <Kpi icon={UserSearchIcon} label="กำลังตาม" value={kpis.active} tone="sky" sub={activeCount ? "ยังไม่ปิดการขาย" : "เคลียร์หมดแล้ว"} />
         <Kpi
@@ -112,11 +120,13 @@ export default function CrmPage() {
           sub={kpis.overdue ? `เลยนัดแล้ว ${kpis.overdue} ราย` : kpis.dueSoon ? "วันนี้ / พรุ่งนี้" : "ไม่มีนัดใกล้ถึง"}
         />
         <Kpi icon={TrendingUpIcon} label="อัตราปิดการขาย" value={`${kpis.conversionRate}%`} tone="emerald" sub={`ลงทะเบียนแล้ว ${kpis.enrolled} จาก ${kpis.total} ราย`} />
+        {/* owner 2026-10-09: work waiting for the admin is a KPI card — open it to handle in a popup, the page stays tidy */}
+        {canManage && (
+          <Kpi icon={BellRingIcon} label="ต้องจัดการ" value={todo.enroll + todo.calls} tone={todo.enroll + todo.calls ? "red" : "primary"}
+            valueClassName={todo.enroll + todo.calls ? "text-red-700" : undefined}
+            sub={todo.enroll + todo.calls ? `ใบสมัคร ${todo.enroll} · โทรผู้ปกครอง ${todo.calls}` : "ไม่มีงานค้าง"} onClick={() => setWorkOpen(true)} />
+        )}
       </KpiRow>
-
-      {/* work waiting for the admin — under the numbers, above the list */}
-      {canManage && <EnrollInbox branchId={branch.id} />}
-      {canManage && <SurveyCalls branchId={branch.id} />}
 
       <div className="flex flex-wrap items-center gap-2">
         {scope.select}
@@ -126,13 +136,30 @@ export default function CrmPage() {
         </div>
         <NativeSelect value={assigneeFilter} onChange={(e) => setAssigneeFilter(e.target.value)} className="w-44"
           options={[{ value: "all", label: `ผู้ดูแลทั้งหมด (${assigneeScope.length})` }, ...assignees.map((s) => ({ value: s.id, label: `${s.nickname} (${assigneeScope.filter((l) => l.assigneeId === s.id).length})` }))]} />
-        <label className="flex items-center gap-1.5 text-sm text-muted-foreground"><Switch checked={showArchived} onCheckedChange={setShowArchived} /> แสดงที่ปิดแล้ว (เป็นนักเรียน / เก็บเข้าคลัง)</label>
-        <span className="ml-auto hidden text-xs text-muted-foreground sm:inline">{view === "kanban" ? "ลากการ์ดเพื่อย้ายขั้นตอน" : `${tableRows.length} รายการ`}</span>
-        <ToggleGroup value={[view]} onValueChange={(v) => v[0] && setView(v[0] as ViewMode)} variant="outline" size="sm">
-          <ToggleGroupItem value="kanban"><LayoutGridIcon /> Kanban</ToggleGroupItem>
-          <ToggleGroupItem value="table"><TableIcon /> ตาราง</ToggleGroupItem>
-        </ToggleGroup>
+        {/* same show / hide chip as Billing (owner 2026-10-09) — closed = became students or archived */}
+        <ShowChip label="ที่ปิดแล้ว" on={showArchived} onChange={setShowArchived} />
+        <div className="ml-auto flex items-center gap-2">
+          {view === "kanban" ? <InfoTip text="ลากการ์ดไปคอลัมน์อื่นเพื่อย้ายขั้นตอน · ที่ปิดแล้ว = เป็นนักเรียนแล้ว หรือเก็บเข้าคลัง" /> : <span className="text-xs text-muted-foreground">{tableRows.length} รายการ</span>}
+          <ToggleGroup value={[view]} onValueChange={(v) => v[0] && setView(v[0] as ViewMode)} variant="outline">
+            <ToggleGroupItem value="kanban"><LayoutGridIcon /> Kanban</ToggleGroupItem>
+            <ToggleGroupItem value="table"><TableIcon /> ตาราง</ToggleGroupItem>
+          </ToggleGroup>
+        </div>
       </div>
+
+      <Dialog open={workOpen} onOpenChange={setWorkOpen}>
+        <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-3xl">
+          <DialogHeader>
+            <DialogTitle>ต้องจัดการ</DialogTitle>
+            <DialogDescription>ใบสมัครเรียนที่รอตรวจ และผู้ปกครองที่ไม่พอใจซึ่งต้องโทรคุย</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <EnrollInbox branchId={branch.id} />
+            <SurveyCalls branchId={branch.id} />
+            {todo.enroll + todo.calls === 0 && <p className="rounded-2xl border border-dashed p-8 text-center text-sm text-muted-foreground">ไม่มีงานค้าง</p>}
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {view === "kanban" ? (
         <div className="flex gap-3 overflow-x-auto pb-2">

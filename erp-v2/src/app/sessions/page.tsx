@@ -3,15 +3,14 @@
 import { BranchCode, useBranchScope } from "@/components/app/branch-scope"
 import { staffAt } from "@/domain/rules/permissions"
 import { useState } from "react"
-import { CalendarDaysIcon, ChevronLeftIcon, ChevronRightIcon, CircleCheckIcon, ClipboardCheckIcon, PenLineIcon } from "lucide-react"
-import { Page, PageHeader, KpiRow, Toolbar } from "@/components/app/page-layout"
+import { CalendarDaysIcon, CircleCheckIcon, ClipboardCheckIcon, PenLineIcon } from "lucide-react"
+import { DateNav, Page, PageHeader, KpiRow, Toolbar } from "@/components/app/page-layout"
 import { Kpi } from "@/components/app/kpi"
 import { Pill } from "@/components/app/badges"
 import { NativeSelect } from "@/components/app/native-select"
 import { SessionSheet } from "@/components/app/session-sheet"
 import { subjectColor } from "@/components/app/subject-color"
 import { WORK_ORDER, WorkChip } from "@/components/app/work-state"
-import { Button } from "@/components/ui/button"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 import { addDays, endTime, fmtDate, toDateStr, weekdayOf } from "@/domain/dates"
 import { WORK_LABEL, workState, type WorkState } from "@/domain/rules/scheduling"
@@ -82,11 +81,9 @@ export default function SessionsPage() {
           options={WORK_ORDER.map((w) => ({ value: w, label: `${WORK_LABEL[w]} (${counts[w] ?? 0})` }))} />
       </>}>
         {scope.select}
-        <Button size="icon-sm" variant="outline" aria-label="ก่อนหน้า" onClick={() => setAnchor(addDays(anchor, range === "day" ? -1 : -7))}><ChevronLeftIcon /></Button>
-        <Button size="sm" variant="outline" onClick={() => setAnchor(today)}>วันนี้</Button>
-        <Button size="icon-sm" variant="outline" aria-label="ถัดไป" onClick={() => setAnchor(addDays(anchor, range === "day" ? 1 : 7))}><ChevronRightIcon /></Button>
-        <span className="text-sm font-semibold">{range === "day" ? fmtDate(anchor, { weekday: true, year: true }) : `${fmtDate(from)} – ${fmtDate(to, { year: true })}`}</span>
-        <ToggleGroup value={[range]} onValueChange={(v) => v[0] && setRange(v[0] as Range)} variant="outline" size="sm">
+        <DateNav label={range === "day" ? fmtDate(anchor, { weekday: true, year: true }) : `${fmtDate(from)} – ${fmtDate(to, { year: true })}`}
+          onPrev={() => setAnchor(addDays(anchor, range === "day" ? -1 : -7))} onToday={() => setAnchor(today)} onNext={() => setAnchor(addDays(anchor, range === "day" ? 1 : 7))} />
+        <ToggleGroup value={[range]} onValueChange={(v) => v[0] && setRange(v[0] as Range)} variant="outline">
           <ToggleGroupItem value="day">วัน</ToggleGroupItem>
           <ToggleGroupItem value="week">สัปดาห์</ToggleGroupItem>
           <ToggleGroupItem value="recent">30 วันที่ผ่านมา</ToggleGroupItem>

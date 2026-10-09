@@ -1,10 +1,11 @@
 "use client"
 
+import { Kpi } from "@/components/app/kpi"
 import Link from "next/link"
-import { useState, type ReactNode } from "react"
+import { useState } from "react"
 import { ArrowRightIcon, BanknoteIcon, CheckCircle2Icon, ChartColumnIcon, ChevronRightIcon, GraduationCapIcon, HistoryIcon, SparklesIcon, UserMinusIcon, UserPlusIcon, UserSearchIcon, XCircleIcon } from "lucide-react"
 import { Pill, SessionStateBadge } from "@/components/app/badges"
-import { DashboardHeader } from "@/components/app/dashboard-header"
+import { KpiRow, Page, PageHeader } from "@/components/app/page-layout"
 import { SessionSheet } from "@/components/app/session-sheet"
 import { subjectColor } from "@/components/app/subject-color"
 import { DailyBriefCard } from "@/components/dashboard/daily-brief"
@@ -185,28 +186,25 @@ export default function DashboardPage() {
   }, tx)
 
   return (
-    <div className="mx-auto max-w-6xl space-y-4">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <DashboardHeader name={nm(me.nickname)} today={today} branchName={nm(branch.name)} />
-        <div className="flex items-center gap-2">
-          {hasOverview && (
-            <ToggleGroup value={[range]} onValueChange={(v) => v[0] && setRangeParam(v[0] as RangeKey)} variant="outline" size="sm">
-              <ToggleGroupItem value="today">{tx("วันนี้")}</ToggleGroupItem>
-              <ToggleGroupItem value="week">{tx("สัปดาห์นี้")}</ToggleGroupItem>
-              <ToggleGroupItem value="month">{tx("เดือนนี้")}</ToggleGroupItem>
-            </ToggleGroup>
-          )}
-          {hasOverview && <ActivityButton items={recentActivity} today={today} />}
-        </div>
-      </div>
+    <Page>
+      {/* owner 2026-10-09: same header and width as every page */}
+      <PageHeader title={`${tx("สวัสดี")} ${nm(me.nickname)}`} description={`${fmtDate(today, { weekday: true, year: true })} ${tx("· สาขา")}${nm(branch.name)}`}
+        actions={hasOverview && <>
+          <ToggleGroup value={[range]} onValueChange={(v) => v[0] && setRangeParam(v[0] as RangeKey)} variant="outline">
+            <ToggleGroupItem value="today">{tx("วันนี้")}</ToggleGroupItem>
+            <ToggleGroupItem value="week">{tx("สัปดาห์นี้")}</ToggleGroupItem>
+            <ToggleGroupItem value="month">{tx("เดือนนี้")}</ToggleGroupItem>
+          </ToggleGroup>
+          <ActivityButton items={recentActivity} today={today} />
+        </>} />
 
       {hasOverview && (
-        <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-          <Kpi icon={<GraduationCapIcon className="size-4" />} label={tx("นักเรียนที่เรียนอยู่")} value={String(activeStudents)} tone="emerald" sub={tx("จากทั้งหมด {0} คน", [students.length])} />
-          <Kpi icon={<BanknoteIcon className="size-4" />} label={tx("รายรับ{0}", [tx(RANGE_LABEL[range])])} value={fmtMoney(rev.total)} tone="violet" sub={<span className="flex items-center gap-1"><Delta value={revChange} /> {tx(R.COMPARE_LABEL[periodKey])}</span>} />
-          <Kpi icon={<UserPlusIcon className="size-4" />} label={tx("นักเรียนใหม่ · {0}", [tx(RANGE_LABEL[range])])} value={`+${fmtNum(newCount)}`} tone="sky" sub={<span className="flex items-center gap-1"><Delta value={R.change(newCount, newPrev, prevRange, since)} /> {tx(R.COMPARE_LABEL[periodKey])}</span>} />
-          <Kpi icon={<UserSearchIcon className="size-4" />} label={tx("ลีดที่กำลังตาม")} value={String(activeLeads.length)} tone={newLeads.length ? "amber" : "emerald"} sub={newLeads.length ? tx("{0} รายใหม่ยังไม่ติดต่อ", [newLeads.length]) : tx("ติดต่อครบแล้ว")} />
-        </div>
+        <KpiRow>
+          <Kpi icon={GraduationCapIcon} label={tx("นักเรียนที่เรียนอยู่")} value={String(activeStudents)} tone="emerald" sub={tx("จากทั้งหมด {0} คน", [students.length])} />
+          <Kpi icon={BanknoteIcon} label={tx("รายรับ{0}", [tx(RANGE_LABEL[range])])} value={fmtMoney(rev.total)} tone="violet" sub={<span className="flex items-center gap-1"><Delta value={revChange} /> {tx(R.COMPARE_LABEL[periodKey])}</span>} />
+          <Kpi icon={UserPlusIcon} label={tx("นักเรียนใหม่ · {0}", [tx(RANGE_LABEL[range])])} value={`+${fmtNum(newCount)}`} tone="sky" sub={<span className="flex items-center gap-1"><Delta value={R.change(newCount, newPrev, prevRange, since)} /> {tx(R.COMPARE_LABEL[periodKey])}</span>} />
+          <Kpi icon={UserSearchIcon} label={tx("ลีดที่กำลังตาม")} value={String(activeLeads.length)} tone={newLeads.length ? "amber" : "emerald"} sub={newLeads.length ? tx("{0} รายใหม่ยังไม่ติดต่อ", [newLeads.length]) : tx("ติดต่อครบแล้ว")} />
+        </KpiRow>
       )}
 
       {range === "today" ? (
@@ -254,9 +252,9 @@ export default function DashboardPage() {
         // detail (alerts, pending renewals) switch back to "วันนี้", for a full breakdown go to Reports
         <div className="space-y-4">
           <div className="grid gap-3 sm:grid-cols-3">
-            <Kpi icon={<UserPlusIcon className="size-4" />} label={tx("นักเรียนใหม่ · {0}", [tx(RANGE_LABEL[range])])} value={`+${fmtNum(newCount)}`} tone="emerald" sub={<span className="flex items-center gap-1"><Delta value={R.change(newCount, newPrev, prevRange, since)} /> {tx(R.COMPARE_LABEL[periodKey])}</span>} />
-            <Kpi icon={<UserMinusIcon className="size-4" />} label={tx("นักเรียนหลุด · {0}", [tx(RANGE_LABEL[range])])} value={`−${fmtNum(lostCount)}`} tone={lostCount ? "red" : "emerald"} sub={<span className="flex items-center gap-1"><Delta value={R.change(lostCount, lostPrev, prevRange, since)} invert /> {tx(R.COMPARE_LABEL[periodKey])}</span>} />
-            <Kpi icon={<UserSearchIcon className="size-4" />} label={tx("Lead ใหม่ · {0}", [tx(RANGE_LABEL[range])])} value={fmtNum(leadsInRange)} tone="sky" sub={<span className="flex items-center gap-1"><Delta value={R.change(leadsInRange, leadsPrevRange, prevRange, since)} /> {tx(R.COMPARE_LABEL[periodKey])}</span>} />
+            <Kpi icon={UserPlusIcon} label={tx("นักเรียนใหม่ · {0}", [tx(RANGE_LABEL[range])])} value={`+${fmtNum(newCount)}`} tone="emerald" sub={<span className="flex items-center gap-1"><Delta value={R.change(newCount, newPrev, prevRange, since)} /> {tx(R.COMPARE_LABEL[periodKey])}</span>} />
+            <Kpi icon={UserMinusIcon} label={tx("นักเรียนหลุด · {0}", [tx(RANGE_LABEL[range])])} value={`−${fmtNum(lostCount)}`} tone={lostCount ? "red" : "emerald"} sub={<span className="flex items-center gap-1"><Delta value={R.change(lostCount, lostPrev, prevRange, since)} invert /> {tx(R.COMPARE_LABEL[periodKey])}</span>} />
+            <Kpi icon={UserSearchIcon} label={tx("Lead ใหม่ · {0}", [tx(RANGE_LABEL[range])])} value={fmtNum(leadsInRange)} tone="sky" sub={<span className="flex items-center gap-1"><Delta value={R.change(leadsInRange, leadsPrevRange, prevRange, since)} /> {tx(R.COMPARE_LABEL[periodKey])}</span>} />
           </div>
           <Link href="/reports" className="flex items-center justify-center gap-1.5 rounded-xl border border-dashed p-3 text-sm text-muted-foreground hover:bg-muted/40 hover:text-foreground">
             <ChartColumnIcon className="size-4" />  {tx("ดูรายละเอียดเพิ่มที่ Reports")} <ArrowRightIcon className="size-3.5" />
@@ -265,7 +263,7 @@ export default function DashboardPage() {
       )}
 
       <SessionSheet sessionId={openSessionId} onClose={() => setOpenSessionId(null)} />
-    </div>
+    </Page>
   )
 }
 
@@ -319,13 +317,6 @@ function ActivityButton({ items, today }: { items: Activity[]; today: string }) 
   )
 }
 
-const KPI_TONE = {
-  emerald: "bg-emerald-100 text-emerald-700",
-  red: "bg-red-100 text-red-700",
-  amber: "bg-amber-100 text-amber-700",
-  violet: "bg-violet-100 text-violet-700",
-  sky: "bg-sky-100 text-sky-700",
-} as const
 
 /**
  * A quiet agenda row for the today-sessions list (owner 2026-10-06: the old bordered-card-per-row list
@@ -374,17 +365,3 @@ function HeaderProgress({ label, done, total }: { label: string; done: number; t
   )
 }
 
-function Kpi({ icon, label, value, sub, tone }: { icon: ReactNode; label: string; value: string; sub: ReactNode; tone: keyof typeof KPI_TONE }) {
-  return (
-    <Card className="gap-2 py-4">
-      <CardContent className="space-y-1 px-4">
-        <div className="flex items-center gap-2 text-xs font-medium text-muted-foreground">
-          <span className={cn("grid size-6 place-items-center rounded-md", KPI_TONE[tone])}>{icon}</span>
-          {label}
-        </div>
-        <div className="text-2xl font-semibold tabular-nums">{value}</div>
-        <div className="text-xs text-muted-foreground">{sub}</div>
-      </CardContent>
-    </Card>
-  )
-}

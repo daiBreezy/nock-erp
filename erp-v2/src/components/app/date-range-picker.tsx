@@ -29,7 +29,7 @@ export function DateRangePicker({ from, to, max, active, onChange, className }: 
   const selected: DateRange = draft ?? { from: parseDate(from), to: parseDate(to) }
   return (
     <Popover open={open} onOpenChange={(o) => { setOpen(o); if (!o) setDraft(undefined) }}>
-      <PopoverTrigger render={<button type="button" className={cn("flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs tabular-nums", active ? "border-primary bg-primary/10 font-medium text-primary" : "bg-card hover:bg-muted", className)} />}>
+      <PopoverTrigger render={<button type="button" className={cn("flex h-9 items-center gap-1.5 rounded-3xl border px-3 text-sm tabular-nums", active ? "border-primary bg-primary/10 font-medium text-primary" : "bg-card hover:bg-muted", className)} />}>
         <CalendarRangeIcon className="size-3.5" />
         {active ? `${fmtDate(from, { year: from.slice(0, 4) !== to.slice(0, 4) })} – ${fmtDate(to, { year: true })}` : tx("กำหนดเอง")}
       </PopoverTrigger>

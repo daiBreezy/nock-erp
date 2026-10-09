@@ -1,12 +1,12 @@
 "use client"
 
-import { Page as PageShell, PageHeader, KpiRow } from "@/components/app/page-layout"
+import { Page as PageShell, PageHeader, KpiRow, ShowChip } from "@/components/app/page-layout"
 import { Kpi } from "@/components/app/kpi"
 import { BranchCode, useBranchScope } from "@/components/app/branch-scope"
 import { SalesTaxDialog } from "@/components/billing/sales-tax-dialog"
 import { Suspense, useState } from "react"
 import { useSearchParams } from "next/navigation"
-import { BadgeCheckIcon, EyeIcon, FileClockIcon, HourglassIcon, EyeOffIcon, PlusIcon, SearchIcon, SendIcon, WalletIcon, type LucideIcon } from "lucide-react"
+import { BadgeCheckIcon, FileClockIcon, HourglassIcon, PlusIcon, SearchIcon, SendIcon, WalletIcon, type LucideIcon } from "lucide-react"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { Pill } from "@/components/app/badges"
 import { InvoiceEditor } from "@/components/billing/invoice-editor"
@@ -127,13 +127,13 @@ function BillingPage() {
       <div className="flex flex-wrap items-center gap-2">
         {scope.select}
         {/* owner 2026-10-07: All / Pending, and Done / Void as show-hide toggles (the cards above still filter one status) */}
-        <ToggleGroup value={[filter]} onValueChange={(v) => v[0] && setFilter(v[0] as Filter)} variant="outline" size="sm">
+        <ToggleGroup value={[filter]} onValueChange={(v) => v[0] && setFilter(v[0] as Filter)} variant="outline">
           <ToggleGroupItem value="all">All</ToggleGroupItem>
           <ToggleGroupItem value="pending">Pending{pendingCount > 0 && <span className="rounded-full bg-amber-100 px-1.5 text-xs text-amber-800 tabular-nums">{pendingCount}</span>}</ToggleGroupItem>
         </ToggleGroup>
         <span className="h-5 w-px bg-border" />
-        <ShowToggle label="Done" on={showDone === "1"} count={doneCount} onChange={(v) => setShowDone(v ? "1" : "0")} />
-        <ShowToggle label="Void" on={showVoid === "1"} count={voidCount} onChange={(v) => setShowVoid(v ? "1" : "0")} />
+        <ShowChip label="Done" on={showDone === "1"} count={doneCount} onChange={(v) => setShowDone(v ? "1" : "0")} />
+        <ShowChip label="Void" on={showVoid === "1"} count={voidCount} onChange={(v) => setShowVoid(v ? "1" : "0")} />
         <div className="relative ml-auto w-full sm:w-56">
           <SearchIcon className="absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" />
           <Input className="pl-8" placeholder="ค้นหาเลขที่ / ชื่อนักเรียน" value={q} onChange={(e) => setQ(e.target.value)} />
@@ -195,16 +195,6 @@ function BillingPage() {
   )
 }
 
-/** Done / Void show-hide toggle: pressed = shown in the list, with how many there are */
-function ShowToggle({ label, on, count, onChange }: { label: string; on: boolean; count: number; onChange: (v: boolean) => void }) {
-  return (
-    <button type="button" aria-pressed={on} onClick={() => onChange(!on)} title={on ? `ซ่อน ${label}` : `แสดง ${label}`}
-      className={cn("inline-flex h-8 items-center gap-1.5 rounded-full border px-3 text-sm transition-colors", on ? "border-foreground/20 bg-muted font-medium" : "border-dashed text-muted-foreground hover:bg-muted/50")}>
-      {on ? <EyeIcon className="size-3.5" /> : <EyeOffIcon className="size-3.5" />}{label}
-      <span className="text-xs tabular-nums text-muted-foreground">{count}</span>
-    </button>
-  )
-}
 
 /** a small warning icon after the status; hover says what it means */
 function Flag({ icon: Icon, tone, text }: { icon: LucideIcon; tone: string; text: string }) {

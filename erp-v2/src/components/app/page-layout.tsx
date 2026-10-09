@@ -6,6 +6,8 @@
 //   Toolbar — branch chip first · search · filters · (right) view switch / count
 //   Content — the table, full width
 // Same width and spacing everywhere; Calendar and Inbox stay full-screen work areas.
+import { ChevronLeftIcon, ChevronRightIcon, EyeIcon, EyeOffIcon } from "lucide-react"
+import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 
 export function Page({ children, className }: { children: React.ReactNode; className?: string }) {
@@ -36,5 +38,28 @@ export function Toolbar({ children, end }: { children: React.ReactNode; end?: Re
       {children}
       {end && <div className="ml-auto flex flex-wrap items-center gap-2">{end}</div>}
     </div>
+  )
+}
+
+/** ◀ วันนี้ ▶ + the range on screen — the one date navigator for every page (owner 2026-10-09) */
+export function DateNav({ label, todayLabel = "วันนี้", onPrev, onToday, onNext }: { label: React.ReactNode; todayLabel?: string; onPrev: () => void; onToday: () => void; onNext: () => void }) {
+  return (
+    <div className="flex items-center gap-1">
+      <Button size="icon" variant="outline" aria-label="ก่อนหน้า" onClick={onPrev}><ChevronLeftIcon /></Button>
+      <Button variant="outline" onClick={onToday}>{todayLabel}</Button>
+      <Button size="icon" variant="outline" aria-label="ถัดไป" onClick={onNext}><ChevronRightIcon /></Button>
+      <span className="ml-1.5 text-sm font-semibold whitespace-nowrap">{label}</span>
+    </div>
+  )
+}
+
+/** show / hide toggle with a dashed outline when off (Billing Done / Void, CRM closed leads …) — same h-9 as every chip */
+export function ShowChip({ label, on, count, onChange }: { label: string; on: boolean; count?: number; onChange: (v: boolean) => void }) {
+  return (
+    <button type="button" aria-pressed={on} onClick={() => onChange(!on)}
+      className={cn("inline-flex h-9 items-center gap-1.5 rounded-3xl border px-3 text-sm transition-colors", on ? "border-primary bg-primary/10 font-medium text-primary" : "border-dashed text-muted-foreground hover:bg-muted/50")}>
+      {on ? <EyeIcon className="size-4" /> : <EyeOffIcon className="size-4" />}{label}
+      {count !== undefined && <span className="rounded-full bg-muted px-1.5 text-xs tabular-nums text-muted-foreground">{count}</span>}
+    </button>
   )
 }

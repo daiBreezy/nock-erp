@@ -1,6 +1,7 @@
 "use client"
 
-import { Page, PageHeader } from "@/components/app/page-layout"
+import { KpiRow, Page, PageHeader } from "@/components/app/page-layout"
+import { Kpi } from "@/components/app/kpi"
 import { BranchChip, scopeOptions as buildScopeOptions } from "@/components/app/branch-scope"
 import Link from "next/link"
 import { Fragment, Suspense, useEffect, useMemo, useState } from "react"
@@ -107,13 +108,13 @@ function Reports() {
         </>} />
 
       {/* headline numbers */}
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-5">
+      <KpiRow className="md:grid-cols-3 lg:grid-cols-5">
         <Kpi icon={BanknoteIcon} label={tx("รายได้ · {0}", [periodLabel])} value={fmtNum(d.kpi.revenue)} sub={<><Delta value={d.kpi.revenueChange} /> <span>{tx(COMPARE_LABEL[period])}</span></>} />
         <Kpi icon={UsersIcon} label={tx("นักเรียน Active")} value={fmtNum(d.kpi.active)} sub={<><Delta value={d.kpi.activeChange} /> <span>{tx("vs ต้นช่วง · Pause")} {d.kpi.paused}</span></>} />
         <Kpi icon={CalendarDaysIcon} label={tx("คาบสัปดาห์นี้")} value={fmtNum(d.kpi.weekSessions)} sub={<span>{tx("ไม่นับคาบที่ยกเลิก")}</span>} />
         <Kpi icon={UserCheckIcon} label={tx("อัตราเข้าเรียน · {0}", [periodLabel])} value={fmtPct(d.kpi.attendance)} sub={<><Delta value={d.kpi.attendanceChange} /> <span>{tx(COMPARE_LABEL[period])}</span> <InfoTip text={tx("อัตราเข้าเรียน = มา ÷ (มา + ลา)")} /></>} />
-        <AttentionButton count={d.kpi.attention} onClick={() => setShowAttention(true)} className="col-span-2 md:col-span-1" />
-      </div>
+        <AttentionButton count={d.kpi.attention} onClick={() => setShowAttention(true)} />
+      </KpiRow>
 
       {/* owner 2026-10-07: tabs + periods stick under the top bar while scrolling — always one tap away */}
       <div className="sticky top-14 z-10 -mx-3 space-y-3 border-b border-transparent bg-background/95 px-3 py-2 backdrop-blur md:-mx-6 md:px-6 print:hidden">
@@ -131,7 +132,7 @@ function Reports() {
             <div key={g} className={cn("flex flex-wrap items-center gap-1.5", gi > 0 && "border-l pl-3")}>
               {PERIODS.filter((p) => p.group === g).map((p) => (
                 <button key={p.key} type="button" title={tx(p.hint)} onClick={() => setPeriod(p.key)}
-                  className={cn("rounded-full border px-3 py-1 text-xs", period === p.key ? "border-primary bg-primary/10 font-medium text-primary" : "bg-card hover:bg-muted")}>{p.short}</button>
+                  className={cn("h-9 rounded-3xl border px-3 text-sm", period === p.key ? "border-primary bg-primary/10 font-medium text-primary" : "bg-card hover:bg-muted")}>{p.short}</button>
               ))}
             </div>
           ))}
@@ -209,18 +210,6 @@ function GroupCompare({ d, periodLabel }: { d: ReportData; periodLabel: string }
   )
 }
 
-function Kpi({ icon: Icon, label, value, sub }: { icon: typeof BanknoteIcon; label: string; value: string; sub: React.ReactNode }) {
-  return (
-    <div className="flex items-center gap-3 rounded-3xl bg-card p-4 shadow-sm ring-1 ring-foreground/10">
-      <span className="grid size-10 shrink-0 place-items-center rounded-2xl bg-primary/10 text-primary"><Icon className="size-5" /></span>
-      <div className="min-w-0">
-        <p className="truncate text-xs text-muted-foreground">{label}</p>
-        <p className="text-2xl font-semibold tabular-nums">{value}</p>
-        <p className="flex flex-wrap items-center gap-1 text-[11px] text-muted-foreground">{sub}</p>
-      </div>
-    </div>
-  )
-}
 
 // ---------------- Overview ----------------
 
@@ -1194,7 +1183,7 @@ function SatisfactionTab({ d, compare }: { d: ReportData; compare: boolean }) {
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-2">
         <span className="text-sm text-muted-foreground">{tx("ปี")}</span>
-        {d.surveyYears.map((y) => <button key={y} type="button" onClick={() => setYear(y)} className={cn("rounded-full border px-3 py-1 text-xs", y === year ? "border-primary bg-primary/10 font-medium text-primary" : "bg-card hover:bg-muted")}>{yearOf(y)}</button>)}
+        {d.surveyYears.map((y) => <button key={y} type="button" onClick={() => setYear(y)} className={cn("h-9 rounded-3xl border px-3 text-sm", y === year ? "border-primary bg-primary/10 font-medium text-primary" : "bg-card hover:bg-muted")}>{yearOf(y)}</button>)}
         {cur.campaign && <span className="ml-auto text-xs text-muted-foreground">{tx("ส่ง")} {fmtDate(cur.campaign.sentAt.slice(0, 10))}  {tx("· ปิดรับ")} {fmtDate(cur.campaign.to)}  {tx("· ไม่ขึ้นกับช่วงเวลาด้านบน")}</span>}
       </div>
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-6">

@@ -104,13 +104,7 @@ export default function CoursesPage() {
 
       <KpiRow>
         <Kpi icon={BookOpenIcon} label="คอร์สทั้งหมด" value={kpi.total} />
-        <div className="flex items-center gap-3 rounded-3xl bg-card p-4 shadow-sm ring-1 ring-foreground/5">
-          <span className="grid size-10 place-items-center rounded-2xl bg-primary/10 text-primary"><StarIcon className="size-5" /></span>
-          <div className="flex flex-1 justify-between">
-            <div><p className="text-xs text-muted-foreground">Single</p><p className="text-2xl font-semibold tabular-nums">{kpi.single}</p></div>
-            <div className="text-right"><p className="text-xs text-muted-foreground">Bundle</p><p className="text-2xl font-semibold tabular-nums">{kpi.bundle}</p></div>
-          </div>
-        </div>
+        <Kpi icon={StarIcon} label="Single / Bundle" value={<>{kpi.single} <span className="text-base text-muted-foreground">/</span> {kpi.bundle}</>} sub="คอร์สวิชาเดียว / หลายวิชา" tone="violet" />
         <Kpi icon={UsersIcon} label="นักเรียนที่ลงเรียน" value={kpi.students} />
         <Kpi icon={WalletIcon} label="รายได้จากคอร์ส (ชำระแล้ว)" value={fmtMoney(kpi.revenue)} />
       </KpiRow>

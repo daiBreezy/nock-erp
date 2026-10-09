@@ -2,9 +2,10 @@
 
 import { staffAt } from "@/domain/rules/permissions"
 import { PeriodBanner } from "@/components/app/period-banner"
+import { DateNav, PageHeader, Toolbar } from "@/components/app/page-layout"
 import { Suspense, useMemo, useState } from "react"
 import { useSearchParams } from "next/navigation"
-import { AlertTriangleIcon, ChevronLeftIcon, ChevronRightIcon, ClipboardListIcon, PalmtreeIcon, PlusIcon } from "lucide-react"
+import { AlertTriangleIcon, ClipboardListIcon, PalmtreeIcon, PlusIcon } from "lucide-react"
 import { SummaryPanel } from "@/components/calendar/summary-panel"
 import { Pill, SessionStateBadge } from "@/components/app/badges"
 import { ClassDialog, type ClassPrefill } from "@/components/app/class-dialog"
@@ -150,47 +151,42 @@ function CalendarView() {
   }
 
   return (
-    <div className="space-y-3">
-      <div className="flex flex-wrap items-center gap-2">
-        <div className="flex items-center gap-1">
-          <Button size="icon-sm" variant="outline" onClick={() => step(-1)} aria-label="ก่อนหน้า"><ChevronLeftIcon /></Button>
-          <Button size="sm" variant="outline" onClick={() => setAnchor(today)}>วันนี้</Button>
-          <Button size="icon-sm" variant="outline" onClick={() => step(1)} aria-label="ถัดไป"><ChevronRightIcon /></Button>
-        </div>
-        <h2 className="text-base font-semibold">{range.title}</h2>
-        <div className="ml-auto flex flex-wrap items-center gap-2">
-          <ToggleGroup value={[view]} onValueChange={(v) => v[0] && setView(v[0] as View)} variant="outline" size="sm">
-            <ToggleGroupItem value="board">วัน</ToggleGroupItem>
-            <ToggleGroupItem value="week">สัปดาห์</ToggleGroupItem>
-            <ToggleGroupItem value="month">เดือน</ToggleGroupItem>
-            <ToggleGroupItem value="list">รายการ</ToggleGroupItem>
-          </ToggleGroup>
-          {canCreate && <Button size="sm" onClick={() => setPrefill({ date: anchor })}><PlusIcon /> สร้างคลาส</Button>}
-        </div>
-      </div>
+    <div className="space-y-4">
+      {/* owner 2026-10-09: same structure as every page — header (name · what's in view · CTA), then one toolbar */}
+      <PageHeader title="ปฏิทิน"
+        description={<span className="flex flex-wrap items-center gap-1.5">
+          {visible.filter((s) => !s.cancelled).length} คาบในช่วงนี้
+          {conflicts.length > 0 && <Pill tone="red"><AlertTriangleIcon className="size-3" /> ชนกัน {conflicts.length} จุด</Pill>}
+          {holidayDays.length > 0 && <Pill tone="amber"><PalmtreeIcon className="size-3" /> วันหยุด {holidayDays.length} วัน</Pill>}
+        </span>}
+        actions={<>
+          {/* the whole picture of the range + everything to handle */}
+          <Button variant="outline" onClick={() => setSummaryOpen(true)}><ClipboardListIcon /> Summary</Button>
+          {canCreate && <Button onClick={() => setPrefill({ date: anchor })}><PlusIcon /> สร้างคลาส</Button>}
+        </>} />
 
-      <div className="flex flex-wrap items-center gap-2">
+      <Toolbar end={<>
         <NativeSelect className="h-9 w-40" value={teacher} onChange={(e) => setTeacher(e.target.value)} options={teacherOptions} />
         <NativeSelect className="h-9 w-32" value={subject} onChange={(e) => setSubject(e.target.value)} options={[{ value: "all", label: "ทุกวิชา" }, ...branch.subjects.map((s) => ({ value: s, label: s }))]} />
-        {view === "board" && (
-          <ToggleGroup value={[dayMode]} onValueChange={(v) => v[0] && setDayMode(v[0] as "table" | "single")} variant="outline" size="sm">
-            <ToggleGroupItem value="table">ตารางครู (ทั้งสัปดาห์)</ToggleGroupItem>
-            <ToggleGroupItem value="single">รายวัน</ToggleGroupItem>
-          </ToggleGroup>
-        )}
         {/* status as a dropdown chip, like teachers / subjects (owner 2026-09-30) */}
         <NativeSelect className="h-9 w-44" value={workFilter ?? ""} onChange={(e) => setWorkFilter((e.target.value || null) as WorkState | null)}
           placeholder={`ทุกสถานะ (${visible.filter((x) => !x.cancelled).length})`}
           options={WORK_ORDER.map((w) => ({ value: w, label: `${WORK_LABEL[w]} (${workCounts[w] ?? 0})` }))} />
-        {/* E4: summary always matches the range on screen */}
-        <div className="ml-auto flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
-          <span>{visible.filter((s) => !s.cancelled).length} คาบในช่วงนี้</span>
-          {conflicts.length > 0 && <Pill tone="red"><AlertTriangleIcon className="size-3" /> ชนกัน {conflicts.length} จุด</Pill>}
-          {holidayDays.length > 0 && <Pill tone="amber"><PalmtreeIcon className="size-3" /> วันหยุด {holidayDays.length} วัน</Pill>}
-          {/* owner 2026-10-09: the whole picture of the range + everything to handle */}
-          <Button size="sm" variant="outline" onClick={() => setSummaryOpen(true)}><ClipboardListIcon /> Summary</Button>
-        </div>
-      </div>
+      </>}>
+        <DateNav label={range.title} onPrev={() => step(-1)} onToday={() => setAnchor(today)} onNext={() => step(1)} />
+        <ToggleGroup value={[view]} onValueChange={(v) => v[0] && setView(v[0] as View)} variant="outline">
+          <ToggleGroupItem value="board">วัน</ToggleGroupItem>
+          <ToggleGroupItem value="week">สัปดาห์</ToggleGroupItem>
+          <ToggleGroupItem value="month">เดือน</ToggleGroupItem>
+          <ToggleGroupItem value="list">รายการ</ToggleGroupItem>
+        </ToggleGroup>
+        {view === "board" && (
+          <ToggleGroup value={[dayMode]} onValueChange={(v) => v[0] && setDayMode(v[0] as "table" | "single")} variant="outline">
+            <ToggleGroupItem value="table">ตารางครู (ทั้งสัปดาห์)</ToggleGroupItem>
+            <ToggleGroupItem value="single">รายวัน</ToggleGroupItem>
+          </ToggleGroup>
+        )}
+      </Toolbar>
 
       {/* card states: click one to highlight only those cards */}
       {/* special periods (e.g. Summer) in the visible range — hours differ from normal while they last */}

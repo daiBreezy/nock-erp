@@ -3,13 +3,12 @@
 import { BranchCode, useBranchScope } from "@/components/app/branch-scope"
 import { staffAt } from "@/domain/rules/permissions"
 import { useState } from "react"
-import { CalendarDaysIcon, ChevronLeftIcon, ChevronRightIcon, ClipboardCheckIcon, UserCheckIcon, UserXIcon } from "lucide-react"
-import { Page, PageHeader, KpiRow, Toolbar } from "@/components/app/page-layout"
+import { CalendarDaysIcon, ClipboardCheckIcon, UserCheckIcon, UserXIcon } from "lucide-react"
+import { DateNav, Page, PageHeader, KpiRow, Toolbar } from "@/components/app/page-layout"
 import { Kpi } from "@/components/app/kpi"
 import { NativeSelect } from "@/components/app/native-select"
 import { StudentSheet } from "@/components/app/student-sheet"
 import { gradeTone } from "@/components/app/subject-color"
-import { Button } from "@/components/ui/button"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 import { addDays, endOfMonth, fmtDate, fmtMonth, toDateStr, weekdayOf } from "@/domain/dates"
 import { sessionState } from "@/domain/rules/scheduling"
@@ -87,11 +86,9 @@ export default function AttendancePage() {
         <NativeSelect className="h-9 w-32" value={teacher} onChange={(e) => setTeacher(e.target.value)} placeholder="ครูทุกคน" options={staff.map((t) => staffAt(t, branch.id)).filter((t) => t.roles.includes("teacher") && t.branchIds.includes(branch.id)).map((t) => ({ value: t.id, label: t.nickname }))} />
       </>}>
         {scope.select}
-        <Button size="icon-sm" variant="outline" aria-label="ก่อนหน้า" onClick={() => step(-1)}><ChevronLeftIcon /></Button>
-        <Button size="sm" variant="outline" onClick={() => setAnchor(today)}>ปัจจุบัน</Button>
-        <Button size="icon-sm" variant="outline" aria-label="ถัดไป" onClick={() => step(1)}><ChevronRightIcon /></Button>
-        <span className="text-sm font-semibold">{range === "week" ? `${fmtDate(from)} – ${fmtDate(to, { year: true })}` : fmtMonth(from)}</span>
-        <ToggleGroup value={[range]} onValueChange={(v) => v[0] && setRange(v[0] as Range)} variant="outline" size="sm">
+        <DateNav label={range === "week" ? `${fmtDate(from)} – ${fmtDate(to, { year: true })}` : fmtMonth(from)} todayLabel="ปัจจุบัน"
+          onPrev={() => step(-1)} onToday={() => setAnchor(today)} onNext={() => step(1)} />
+        <ToggleGroup value={[range]} onValueChange={(v) => v[0] && setRange(v[0] as Range)} variant="outline">
           <ToggleGroupItem value="week">สัปดาห์</ToggleGroupItem>
           <ToggleGroupItem value="month">เดือน</ToggleGroupItem>
         </ToggleGroup>

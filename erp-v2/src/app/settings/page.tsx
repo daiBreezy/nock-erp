@@ -1,5 +1,6 @@
 "use client"
 
+import { Page, PageHeader } from "@/components/app/page-layout"
 import Link from "next/link"
 import { useRouter, useSearchParams } from "next/navigation"
 import { Suspense, useState } from "react"
@@ -36,11 +37,8 @@ function Settings() {
   const view = full && wantsSystem ? "system" : "general"
   const router = useRouter()
   return (
-    <div className="mx-auto max-w-5xl space-y-4 pb-16">
-      <div>
-        <h1 className="text-xl font-semibold">Settings</h1>
-        <p className="text-sm text-muted-foreground">{tx("ตั้งค่าระบบ NockERP")}</p>
-      </div>
+    <Page className="pb-16">
+      <PageHeader title="Settings" description={tx("ตั้งค่าระบบ NockERP")} />
       <div className="flex gap-1 border-b">
         {[
           { id: "general", label: tx("สาขา (General)"), icon: Building2Icon },
@@ -53,7 +51,7 @@ function Settings() {
         ))}
       </div>
       {view === "system" ? <SystemSettingsView /> : <BranchList />}
-    </div>
+    </Page>
   )
 }
 

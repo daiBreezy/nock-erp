@@ -3,7 +3,7 @@
 import { Page, PageHeader, KpiRow } from "@/components/app/page-layout"
 import { useBranchScope } from "@/components/app/branch-scope"
 import { useState } from "react"
-import { ArrowDownUpIcon, BookOpenIcon, CalendarIcon, ChevronRightIcon, ClockIcon, DoorOpenIcon, PlusIcon, RefreshCwIcon, SearchIcon, UserRoundIcon, UsersIcon } from "lucide-react"
+import { BookOpenIcon, CalendarIcon, ChevronRightIcon, ClockIcon, DoorOpenIcon, PlusIcon, RefreshCwIcon, SearchIcon, UserRoundIcon, UsersIcon } from "lucide-react"
 import { ClassDialog } from "@/components/app/class-dialog"
 import { ClassSheet } from "@/components/app/class-sheet"
 import { HEAD, Pager, ROW, SortHeader, TableShell, Th, usePage, useSort } from "@/components/app/data-table"
@@ -107,7 +107,6 @@ export default function ClassesPage() {
           <SearchIcon className="absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
           <Input className="w-60 pl-9" placeholder="เช่น ชื่อครู, ชั้น, วิชา, ห้อง" value={q} onChange={(e) => setQ(e.target.value)} />
         </div>
-        <Button size="icon" variant="outline" aria-label="สลับลำดับ" onClick={() => toggle(sort.key)}><ArrowDownUpIcon /></Button>
         <NativeSelect className="h-9 w-28" value={subjectF} onChange={(e) => setSubjectF(e.target.value)} placeholder="ทุกวิชา" options={[...new Set(classes.flatMap((c) => subjectsOf(c)))].map((x) => ({ value: x, label: x }))} />
         <NativeSelect className="h-9 w-32" value={kindF} onChange={(e) => setKindF(e.target.value)} placeholder="ประเภทคอร์ส" options={[{ value: "single", label: "Single" }, { value: "bundle", label: "Bundle" }]} />
         <NativeSelect className="h-9 w-32" value={unitF} onChange={(e) => setUnitF(e.target.value)} placeholder="แพ็กเกจ" options={(["hour", "week", "month"] as PriceUnit[]).map((u) => ({ value: u, label: PRICE_UNIT_LABEL[u] }))} />

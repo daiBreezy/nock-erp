@@ -1,5 +1,6 @@
 "use client"
 
+import { Page, PageHeader } from "@/components/app/page-layout"
 import Link from "next/link"
 import { useParams } from "next/navigation"
 import { useState } from "react"
@@ -48,11 +49,10 @@ export default function BranchSettingsPage() {
   const current = tabs.find((t) => t.id === tab)!
 
   return (
-    <div className="mx-auto max-w-6xl space-y-4 pb-16">
-      <div>
+    <Page className="pb-16">
+      <div className="space-y-1">
         <Link href="/settings" className="flex items-center gap-1 text-xs text-muted-foreground hover:underline"><ChevronLeftIcon className="size-3.5" />  {tx("กลับไปรายชื่อสาขา")}</Link>
-        <h1 className="mt-1 text-xl font-semibold">{nm(branch.name)}</h1>
-        <p className="text-sm text-muted-foreground">{branch.address || tx("ยังไม่มีที่อยู่")}</p>
+        <PageHeader title={nm(branch.name)} description={branch.address || tx("ยังไม่มีที่อยู่")} />
       </div>
 
       {full && <div className="flex flex-wrap items-center gap-3 rounded-3xl bg-card p-4 shadow-sm ring-1 ring-foreground/5">
@@ -77,6 +77,6 @@ export default function BranchSettingsPage() {
         {/* keyed by branch+tab so every tab starts its draft from the saved branch */}
         <div key={`${branch.id}-${tab}`}>{current.body(branch)}</div>
       </div>
-    </div>
+    </Page>
   )
 }

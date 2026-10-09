@@ -35,7 +35,7 @@ function BucketRow({ active, onPick, count, focus }: { active: Bucket; onPick: (
   return (
     <KpiRow className="lg:grid-cols-5">
       {BUCKETS.map((t) => (
-        <div key={t.key} data-focus={focus ? FOCUS_OF[t.key] : undefined} className="rounded-3xl">
+        <div key={t.key} data-focus={focus ? FOCUS_OF[t.key] : undefined} className="h-full rounded-3xl">
           <Kpi icon={BUCKET_ICON[t.key]} tone={BUCKET_TONE[t.key]} label={t.label} value={count(t.key)} valueClassName={t.tone} onClick={() => onPick(t.key)} active={active === t.key} />
         </div>
       ))}
@@ -52,7 +52,7 @@ export default function SummariesPage() {
     <Page>
       <PageHeader title="สรุปการเรียน" description={top === "session" ? "สรุปรายคาบ: เขียน → อนุมัติ → ส่งผู้ปกครอง" : "สรุปทั้งคอร์ส เมื่อแพ็กเกจใกล้หมดหรือหมดแล้ว"}
         actions={
-          <ToggleGroup value={[top]} onValueChange={(v) => v[0] && setTop(v[0] as typeof top)} variant="outline" size="sm">
+          <ToggleGroup value={[top]} onValueChange={(v) => v[0] && setTop(v[0] as typeof top)} variant="outline">
             <ToggleGroupItem value="session">Session Summary</ToggleGroupItem>
             <ToggleGroupItem value="course">Course Summary</ToggleGroupItem>
           </ToggleGroup>
@@ -97,7 +97,7 @@ function SessionSummaryTab() {
       <BucketRow active={tab} onPick={setTab} count={(b) => rows.filter((r) => bucket(r) === b).length} focus />
       <Toolbar end={<span className="text-xs text-muted-foreground">{fmtDate(from)} – {fmtDate(today, { year: true })}{mineOnly && " · เฉพาะคาบของฉัน"}</span>}>
         {scope.select}
-        <ToggleGroup value={[String(days)]} onValueChange={(v) => v[0] && setDays(Number(v[0]))} variant="outline" size="sm">
+        <ToggleGroup value={[String(days)]} onValueChange={(v) => v[0] && setDays(Number(v[0]))} variant="outline">
           {[7, 14, 30].map((d) => <ToggleGroupItem key={d} value={String(d)}>{d} วันล่าสุด</ToggleGroupItem>)}
         </ToggleGroup>
       </Toolbar>

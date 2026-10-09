@@ -2,6 +2,7 @@
 
 import Link from "next/link"
 import { AlertTriangleIcon, ChevronRightIcon } from "lucide-react"
+import { Kpi } from "@/components/app/kpi"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import type { AttentionItem } from "@/domain/rules/reports"
 import { cn } from "@/lib/utils"
@@ -11,13 +12,10 @@ export const GROUP_LABEL: Record<AttentionItem["group"], string> = { trend: "ย
 
 /** The red "Need Attention" KPI button (owner 2026-10-01, shared with Dashboard from 2026-10-06) — opens AttentionDialog. */
 export function AttentionButton({ count, onClick, className }: { count: number; onClick: () => void; className?: string }) {
+  // the standard KPI card (owner 2026-10-09) — red while there is something to look at
   return (
-    <button type="button" onClick={onClick} className={cn("flex items-center gap-3 rounded-3xl p-4 text-left shadow-sm ring-1",
-      count ? "bg-red-50 ring-red-300 dark:bg-red-950/40 dark:ring-red-800" : "bg-card ring-foreground/10", className)}>
-      <span className={cn("grid size-10 shrink-0 place-items-center rounded-2xl", count ? "bg-red-600 text-white" : "bg-muted text-muted-foreground")}><AlertTriangleIcon className="size-5" /></span>
-      <span className="min-w-0 flex-1"><span className="block text-xs text-muted-foreground">Need Attention</span><span className="text-2xl font-semibold tabular-nums">{count}</span></span>
-      <ChevronRightIcon className="size-4 text-muted-foreground" />
-    </button>
+    <Kpi icon={AlertTriangleIcon} tone={count ? "red" : "primary"} label="Need Attention" value={count} sub={count ? tx("กดเพื่อดูรายการ") : tx("ไม่มีเรื่องต้องดู")} onClick={onClick}
+      className={cn(count && "bg-red-50 ring-red-300 hover:ring-red-400 dark:bg-red-950/40 dark:ring-red-800", className)} />
   )
 }
 
