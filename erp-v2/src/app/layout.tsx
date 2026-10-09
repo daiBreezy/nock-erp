@@ -15,7 +15,9 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
-    <html lang="th" className={`${inter.variable} ${thai.variable} h-full antialiased`}>
+    // LINE's in-app browser (Android) writes safe-area styles onto <html> before React loads — not our markup, so
+    // don't flag it as a hydration mismatch (only this element's own attributes are exempt)
+    <html lang="th" className={`${inter.variable} ${thai.variable} h-full antialiased`} suppressHydrationWarning>
       <body className="min-h-full" style={{ fontFamily: "var(--font-inter), var(--font-thai), system-ui, sans-serif" }}>
         <TooltipProvider>
           <AppShell>{children}</AppShell>
