@@ -3,7 +3,8 @@
 import { PeriodBanner } from "@/components/app/period-banner"
 import { Suspense, useMemo, useState } from "react"
 import { useSearchParams } from "next/navigation"
-import { AlertTriangleIcon, ChevronLeftIcon, ChevronRightIcon, PalmtreeIcon, PlusIcon } from "lucide-react"
+import { AlertTriangleIcon, ChevronLeftIcon, ChevronRightIcon, ClipboardListIcon, PalmtreeIcon, PlusIcon } from "lucide-react"
+import { SummaryPanel } from "@/components/calendar/summary-panel"
 import { Pill, SessionStateBadge } from "@/components/app/badges"
 import { ClassDialog, type ClassPrefill } from "@/components/app/class-dialog"
 import { NativeSelect } from "@/components/app/native-select"
@@ -63,6 +64,7 @@ function CalendarView() {
   const [openId, setOpenId] = useState<string | null>(() => (linkedSession && allSessions.some((x) => x.id === linkedSession) ? linkedSession : null))
   const [prefill, setPrefill] = useState<ClassPrefill | null>(null)
   const [moving, setMoving] = useState<{ id: string; target: MoveTarget } | null>(null)
+  const [summaryOpen, setSummaryOpen] = useState(false)
   const [workFilterParam, setWorkFilterParam] = useQueryState<WorkState | "all">("status", "all")
   const workFilter = workFilterParam === "all" ? null : workFilterParam
   const setWorkFilter = (w: WorkState | null) => setWorkFilterParam(w ?? "all")
@@ -184,6 +186,8 @@ function CalendarView() {
           <span>{visible.filter((s) => !s.cancelled).length} คาบในช่วงนี้</span>
           {conflicts.length > 0 && <Pill tone="red"><AlertTriangleIcon className="size-3" /> ชนกัน {conflicts.length} จุด</Pill>}
           {holidayDays.length > 0 && <Pill tone="amber"><PalmtreeIcon className="size-3" /> วันหยุด {holidayDays.length} วัน</Pill>}
+          {/* owner 2026-10-09: the whole picture of the range + everything to handle */}
+          <Button size="sm" variant="outline" onClick={() => setSummaryOpen(true)}><ClipboardListIcon /> Summary</Button>
         </div>
       </div>
 
@@ -211,6 +215,8 @@ function CalendarView() {
       {view === "list" && <ListView from={range.from} to={range.to} sessions={visible} {...cardProps} />}
 
       <SessionSheet sessionId={openId} onClose={() => setOpenId(null)} />
+      <SummaryPanel open={summaryOpen} onClose={() => setSummaryOpen(false)} title={range.title} sessions={visible} conflicts={conflicts} now={now}
+        onOpenSession={(id) => { setSummaryOpen(false); setOpenId(id) }} />
       {prefill && <ClassDialog prefill={prefill} onClose={() => setPrefill(null)} />}
       {moving && <MoveDialog sessionId={moving.id} target={moving.target} onClose={() => setMoving(null)} />}
     </div>

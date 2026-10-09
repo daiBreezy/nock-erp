@@ -2022,3 +2022,23 @@ describe("C5 leave quota per package (owner 2026-10-09)", () => {
     expect(leaveQuota({ ...e, leaveQuota: undefined })).toBe(2)
   })
 })
+
+import { calendarSummary, groupSummaryRows } from "./calendar-summary"
+
+describe("calendar Summary panel (owner 2026-10-09)", () => {
+  const mk = (id: string, over: Partial<Session> = {}): Session => ({ id, branchId: "b1", classId: null, subject: "คณิต", date: "2026-10-12", start: "10:00", minutes: 60, teacherId: "t1", coTeacherIds: [], roomId: "r1", studentIds: ["a"], trial: false, customized: false, cancelled: false, ...over })
+  const now = new Date(2026, 9, 9, 9, 0)
+  const ctx = { branch, classes: [], staff: [teacher], holidays: [], conflicts: [], attendance: [], summaries: [], now }
+  it("counts what will happen and lists every problem", () => {
+    const sum = calendarSummary([mk("s1"), mk("s2", { teacherId: null, subject: "อังกฤษ" }), mk("s3", { roomId: null }), mk("s4", { cancelled: true })], ctx)
+    expect(sum.sessions).toBe(3)
+    expect(sum.cancelled).toBe(1)
+    expect(sum.issues.find((i) => i.kind === "no_teacher")).toMatchObject({ level: "red", sessionIds: ["s2"] })
+    expect(sum.issues.find((i) => i.kind === "no_room")?.sessionIds).toEqual(["s3"])
+  })
+  it("groups classes by teacher or subject — no teacher goes last", () => {
+    const sum = calendarSummary([mk("s1"), mk("s2", { teacherId: null, subject: "อังกฤษ" })], ctx)
+    expect(groupSummaryRows(sum.rows, "teacher").map((g) => g.key)).toEqual(["t1", ""])
+    expect(groupSummaryRows(sum.rows, "subject").map((g) => g.key).sort()).toEqual(["คณิต", "อังกฤษ"].sort())
+  })
+})
