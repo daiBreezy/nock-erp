@@ -1,8 +1,10 @@
 "use client"
 
+import { PanelForm } from "@/components/app/form-shell"
+import { LeadDialog } from "./lead-dialog"
 import Link from "next/link"
 import { useEffect, useState } from "react"
-import { ArchiveIcon, CalendarIcon, EllipsisIcon, MessageCircleIcon, PhoneIcon, ReceiptIcon, RotateCcwIcon, SendIcon, StickyNoteIcon, UserCheckIcon, UserPlusIcon } from "lucide-react"
+import { ArchiveIcon, CalendarIcon, EllipsisIcon, MessageCircleIcon, PhoneIcon, ReceiptIcon, RotateCcwIcon, SendIcon, StickyNoteIcon, UserCheckIcon, PencilIcon, UserPlusIcon } from "lucide-react"
 import { AssessmentNote } from "@/components/app/assessment-note"
 import { Pill } from "@/components/app/badges"
 import { NativeSelect } from "@/components/app/native-select"
@@ -42,15 +44,27 @@ const AUTO_HINT: Partial<Record<LeadStage, string>> = {
  * SheetFooter (pinned CTA row) — see src/components/ui/sheet.tsx. Keep new sections in the body; the
  * footer is reserved for the sheet's primary action(s) so it never has to be hunted for while scrolling.
  */
-export function LeadSheet({ leadId, onClose }: { leadId: ID | null; onClose: () => void }) {
+/** owner 2026-10-09: View → แก้ไข → back in the same panel; "new" = the empty form, then the new lead's view */
+export function LeadSheet({ leadId: target, onClose }: { leadId: ID | "new" | null; onClose: () => void }) {
+  const [createdId, setCreatedId] = useState<ID | null>(null)
+  const [editing, setEditing] = useState(target === "new")
+  const id = target === "new" ? createdId : target
+  const lead = useStore((s) => (id ? s.leads.find((x) => x.id === id) : undefined))
   return (
-    <Sheet open={!!leadId} onOpenChange={(o) => !o && onClose()}>
-      <SheetContent className="flex w-full flex-col gap-0 p-0 data-[side=right]:sm:max-w-lg">{leadId && <Body id={leadId} />}</SheetContent>
+    <Sheet open={target !== null} onOpenChange={(o) => !o && onClose()}>
+      <SheetContent className="flex h-full w-full flex-col gap-0 overflow-hidden p-0 data-[side=right]:sm:max-w-lg">
+        {editing ? (
+          <PanelForm>
+            <LeadDialog key={lead?.id ?? "new"} lead={lead} onClose={() => (lead ? setEditing(false) : onClose())}
+              onSaved={(l) => { if (target === "new") setCreatedId(l.id); setEditing(false) }} />
+          </PanelForm>
+        ) : id && <Body id={id} onEdit={() => setEditing(true)} />}
+      </SheetContent>
     </Sheet>
   )
 }
 
-function Body({ id }: { id: ID }) {
+function Body({ id, onEdit }: { id: ID; onEdit: () => void }) {
   const lead = useStore((s) => s.leads.find((x) => x.id === id))
   const staff = useStore((s) => s.staff)
   const students = useStore((s) => s.students)
@@ -139,27 +153,7 @@ function Body({ id }: { id: ID }) {
           <span className="ml-auto flex items-center gap-1">
             {conversation && <Button size="icon-sm" variant="outline" aria-label="เปิดแชทใน Inbox" title="เปิดแชทใน Inbox" nativeButton={false} render={<Link href={`/inbox?conversation=${conversation.id}`} />}><MessageCircleIcon /></Button>}
             {latestAssessment && <Button size="icon-sm" variant="outline" aria-label="ดูคาบในปฏิทิน" title="ดูคาบสอบ / ทดลองในปฏิทิน" nativeButton={false} render={<Link href={`/calendar?sessionId=${latestAssessment.sessionId}`} />}><CalendarIcon /></Button>}
-            {canManage && (
-              // everything that isn't needed every time lives here (owner 2026-10-05)
-              <DropdownMenu>
-                <DropdownMenuTrigger render={<Button size="icon-sm" variant="outline" aria-label="เพิ่มเติม" />}><EllipsisIcon /></DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-60">
-                  {isOpen ? (
-                    <>
-                      <DropdownMenuItem onClick={() => setFollowingUp(true)}><PhoneIcon /> บันทึกการติดตาม (โทร / LINE)</DropdownMenuItem>
-                      <DropdownMenuItem disabled={!lead.lineUserId} onClick={() => setSendingFormOpen(true)}>
-                        <SendIcon /><span className="flex flex-col"><span>ส่งฟอร์มสอบ / ทดลองเรียน</span>{!lead.lineUserId && <span className="text-xs text-muted-foreground">ต้องผูก LINE ใน Inbox ก่อน</span>}</span>
-                      </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => setEnrolling(true)}><UserPlusIcon /> ส่งใบสมัครเรียน (สมัครทันที)</DropdownMenuItem>
-                      <DropdownMenuSeparator />
-                      <DropdownMenuItem variant="destructive" onClick={() => setArchiving(true)}><ArchiveIcon /> ปิด Lead</DropdownMenuItem>
-                    </>
-                  ) : lead.stage === "archived" ? (
-                    <DropdownMenuItem onClick={() => report(restore(lead.id), "กู้คืนแล้ว")}><RotateCcwIcon /> กู้คืนจากคลัง</DropdownMenuItem>
-                  ) : <DropdownMenuItem disabled>ลงทะเบียนแล้ว</DropdownMenuItem>}
-                </DropdownMenuContent>
-              </DropdownMenu>
-            )}
+
           </span>
         </div>
         {canManage && isOpen && quiet.suggestClose && (
@@ -254,6 +248,31 @@ function Body({ id }: { id: ID }) {
       </div>
 
       <SheetFooter className="flex-row flex-wrap items-center justify-end gap-2">
+        {/* owner 2026-10-09: CTAs live in the bottom bar — the "more" menu on the left, แก้ไข next to the main action */}
+        <span className="mr-auto flex items-center gap-2">
+            {canManage && (
+              // everything that isn't needed every time lives here (owner 2026-10-05)
+              <DropdownMenu>
+                <DropdownMenuTrigger render={<Button size="icon-sm" variant="outline" aria-label="เพิ่มเติม" />}><EllipsisIcon /></DropdownMenuTrigger>
+                <DropdownMenuContent align="start" side="top" className="w-60">
+                  {isOpen ? (
+                    <>
+                      <DropdownMenuItem onClick={() => setFollowingUp(true)}><PhoneIcon /> บันทึกการติดตาม (โทร / LINE)</DropdownMenuItem>
+                      <DropdownMenuItem disabled={!lead.lineUserId} onClick={() => setSendingFormOpen(true)}>
+                        <SendIcon /><span className="flex flex-col"><span>ส่งฟอร์มสอบ / ทดลองเรียน</span>{!lead.lineUserId && <span className="text-xs text-muted-foreground">ต้องผูก LINE ใน Inbox ก่อน</span>}</span>
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => setEnrolling(true)}><UserPlusIcon /> ส่งใบสมัครเรียน (สมัครทันที)</DropdownMenuItem>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem variant="destructive" onClick={() => setArchiving(true)}><ArchiveIcon /> ปิด Lead</DropdownMenuItem>
+                    </>
+                  ) : lead.stage === "archived" ? (
+                    <DropdownMenuItem onClick={() => report(restore(lead.id), "กู้คืนแล้ว")}><RotateCcwIcon /> กู้คืนจากคลัง</DropdownMenuItem>
+                  ) : <DropdownMenuItem disabled>ลงทะเบียนแล้ว</DropdownMenuItem>}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            )}
+          {canManage && <Button size="sm" variant="outline" onClick={onEdit}><PencilIcon /> แก้ไข</Button>}
+        </span>
         {!canManage ? (
           <p className="mr-auto text-xs text-muted-foreground">ดูอย่างเดียว — ไม่มีสิทธิ์จัดการ Lead</p>
         ) : lead.stage === "enrolled" ? (

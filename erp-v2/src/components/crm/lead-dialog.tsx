@@ -2,7 +2,7 @@
 
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { FormShell, useInPanel } from "@/components/app/form-shell"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { LEAD_SOURCE_LABEL } from "@/domain/rules/crm"
@@ -15,41 +15,42 @@ import { NativeSelect } from "../app/native-select"
 
 const SOURCES: Lead["source"][] = ["line", "walkin", "phone", "website", "referral", "other"]
 
-export function LeadDialog({ onClose, initialName, initial, onSaved }: { onClose: () => void; initialName?: string; initial?: Partial<Pick<Lead, "source" | "assigneeId">>; onSaved?: (lead: Lead) => void }) {
+/** create a lead, or edit one (`lead`) — owner 2026-10-09: leads are edited in their panel, not in the table */
+export function LeadDialog({ onClose, initialName, initial, onSaved, lead: editing }: { onClose: () => void; initialName?: string; initial?: Partial<Pick<Lead, "source" | "assigneeId">>; onSaved?: (lead: Lead) => void; lead?: Lead }) {
   const branch = useBranch()
   const staff = useStore((s) => s.staff)
   const saveLead = useStore((s) => s.saveLead)
   const now = useNow()
 
-  const [name, setName] = useState(initialName ?? "")
-  const [childGrade, setChildGrade] = useState(branch.grades[0] ?? "")
-  const [subject, setSubject] = useState(branch.subjects[0] ?? "")
-  const [source, setSource] = useState<Lead["source"]>(initial?.source ?? "line")
-  const [phone, setPhone] = useState("")
-  const [lineId, setLineId] = useState("")
-  const [assigneeId, setAssigneeId] = useState(initial?.assigneeId ?? "")
+  const [name, setName] = useState(editing?.name ?? initialName ?? "")
+  const [childGrade, setChildGrade] = useState(editing?.childGrade ?? branch.grades[0] ?? "")
+  const [subject, setSubject] = useState(editing?.subject ?? branch.subjects[0] ?? "")
+  const [source, setSource] = useState<Lead["source"]>(editing?.source ?? initial?.source ?? "line")
+  const [phone, setPhone] = useState(editing?.phone ?? "")
+  const [lineId, setLineId] = useState(editing?.lineId ?? "")
+  const [assigneeId, setAssigneeId] = useState(editing?.assigneeId ?? initial?.assigneeId ?? "")
+  const inPanel = useInPanel()
 
   const assignable = staff.filter((s) => s.active && s.branchIds.includes(branch.id) && can(s, "lead.manage"))
 
   const submit = () => {
-    const lead: Lead = {
-      id: `ld_${Date.now().toString(36)}`, branchId: branch.id, name, childGrade, subject, source,
-      stage: "new", assigneeId: assigneeId || null, phone, lineId, createdAt: now.toISOString(), notes: [], convertedStudentId: null,
-    }
+    const lead: Lead = editing
+      ? { ...editing, name, childGrade, subject, source, assigneeId: assigneeId || null, phone, lineId }
+      : {
+        id: `ld_${Date.now().toString(36)}`, branchId: branch.id, name, childGrade, subject, source,
+        stage: "new", assigneeId: assigneeId || null, phone, lineId, createdAt: now.toISOString(), notes: [], convertedStudentId: null,
+      }
     const r = saveLead(lead)
-    if (report(r, `เพิ่ม Lead "${name}" แล้ว`)) {
+    if (report(r, editing ? "บันทึก Lead แล้ว" : `เพิ่ม Lead "${name}" แล้ว`)) {
       onSaved?.(lead)
-      onClose()
+      if (!inPanel) onClose()
     }
   }
 
   return (
-    <Dialog open onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="sm:max-w-md">
-        <DialogHeader>
-          <DialogTitle>เพิ่ม Lead ใหม่</DialogTitle>
-          <DialogDescription>สาขา{branch.name} — เข้าไปป์ไลน์ที่คอลัมน์ &quot;ลูกค้าใหม่&quot;</DialogDescription>
-        </DialogHeader>
+    <FormShell className="sm:max-w-md" onClose={onClose} title={editing ? `แก้ไข ${editing.name}` : "เพิ่ม Lead ใหม่"}
+      description={editing ? undefined : <>สาขา{branch.name} — เข้าไปป์ไลน์ที่คอลัมน์ &quot;ลูกค้าใหม่&quot;</>}
+      footer={<><Button variant="ghost" onClick={onClose}>ยกเลิก</Button><Button disabled={!name.trim() || !phone.trim()} onClick={submit}>{editing ? "บันทึก" : "เพิ่ม Lead"}</Button></>}>
         <div className="grid gap-3 sm:grid-cols-2">
           <Field label="ชื่อผู้ปกครอง/ผู้ติดต่อ *" className="sm:col-span-2">
             <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="เช่น คุณแม่ ปราณี" />
@@ -73,12 +74,7 @@ export function LeadDialog({ onClose, initialName, initial, onSaved }: { onClose
             <Input value={lineId} onChange={(e) => setLineId(e.target.value)} placeholder="@line_id" />
           </Field>
         </div>
-        <DialogFooter>
-          <Button variant="ghost" onClick={onClose}>ยกเลิก</Button>
-          <Button disabled={!name.trim() || !phone.trim()} onClick={submit}>เพิ่ม Lead</Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+    </FormShell>
   )
 }
 

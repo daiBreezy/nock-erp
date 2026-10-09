@@ -9,7 +9,6 @@ import { GradeCell, gradeCompare, HEAD, Pager, ROW, SortHeader, TableShell, Th, 
 import { Kpi } from "@/components/app/kpi"
 import { NativeSelect } from "@/components/app/native-select"
 import { avatarTone, gradeTone, initial, subjectColor } from "@/components/app/subject-color"
-import { LeadDialog } from "@/components/crm/lead-dialog"
 import { LeadSheet } from "@/components/crm/lead-sheet"
 import { EnrollInbox } from "@/components/crm/enroll-review"
 import { SurveyCalls } from "@/components/crm/survey-calls"
@@ -66,7 +65,6 @@ export default function CrmPage() {
   const showArchived = archivedParam === "1"
   const setShowArchived = (v: boolean) => setArchivedParam(v ? "1" : "0")
   const [openLead, setOpenLead] = useState<ID | null>(null)
-  const [creating, setCreating] = useState(false)
   const [overCol, setOverCol] = useState<string | null>(null)
   const { sort, toggle } = useSort<LeadSort>("created", true)
 
@@ -108,7 +106,7 @@ export default function CrmPage() {
   return (
     <Page>
       <PageHeader title="CRM" description={`${leads.length} Lead ทั้งหมด · ${activeCount} รายกำลังตาม`}
-        actions={canManage && <Button onClick={() => setCreating(true)}><PlusIcon /> เพิ่ม Lead</Button>} />
+        actions={canManage && <Button onClick={() => setOpenLead("new")}><PlusIcon /> เพิ่ม Lead</Button>} />
 
       <KpiRow className={canManage ? "lg:grid-cols-5" : undefined}>
         <Kpi icon={UsersIcon} label="Lead ทั้งหมด" value={kpis.total} sub={`${kpis.active} รายกำลังตาม`} />
@@ -190,7 +188,7 @@ export default function CrmPage() {
                 </div>
                 {canManage && group.key !== "archived" && (
                   <button
-                    onClick={() => setCreating(true)}
+                    onClick={() => setOpenLead("new")}
                     className="mt-2 flex shrink-0 items-center justify-center gap-1 rounded-lg border border-dashed py-1.5 text-xs text-muted-foreground opacity-0 transition-opacity group-hover/col:opacity-100 hover:bg-muted focus-visible:opacity-100"
                   >
                     <PlusIcon className="size-3" /> เพิ่ม Lead
@@ -255,8 +253,7 @@ export default function CrmPage() {
         </>
       )}
 
-      <LeadSheet leadId={openLead} onClose={() => setOpenLead(null)} />
-      {creating && <LeadDialog onClose={() => setCreating(false)} />}
+      <LeadSheet key={openLead ?? "none"} leadId={openLead} onClose={() => setOpenLead(null)} />
     </Page>
   )
 }
