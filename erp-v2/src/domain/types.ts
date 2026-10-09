@@ -36,6 +36,9 @@ export interface SpecialPeriod {
   blockDays?: Record<DateStr, ClassBlock[]>
   /** regular classes stop during the period (owner 2026-10-01: default = they keep going) */
   pauseRegular?: boolean
+  /** why regular classes stop (owner 2026-10-09): "school" = NockAcademy / Liclass closes them itself → every
+   *  student's package runs one class longer per paused session · "other" = no extension. Unset = "school". */
+  pauseCause?: "school" | "other"
 }
 
 /** One row of the teacher board, e.g. 13:00–15:00 (owner 2026-10-01: each branch sets its own, per weekday) */
@@ -339,6 +342,8 @@ export interface Session {
   /** sits out because of a special period (its class belongs to an inactive/removed period, or regular classes pause
    *  during the period) — comes back by itself when the period changes back */
   pausedBy?: ID
+  /** paused by a period the school chose (pauseCause "school") — the students' packages run one class longer */
+  pausedSchool?: boolean
   /** the teacher is on leave (owner 2026-09-30): a substitute teaches, or the session is cancelled and every
    *  student's package runs one class longer */
   teacherLeave?: { teacherId: ID; reason: string; substituteId: ID | null; by: ID; at: string }

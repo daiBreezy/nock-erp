@@ -765,10 +765,12 @@ export const useStore = create<Store>()(
         const inUse = removedRooms.find((r) => s.sessions.some((x) => x.roomId === r.id && !x.cancelled && x.date >= toDateStr(s.now())))
         if (inUse) return fail(`ลบ${inUse.name}ไม่ได้ — ยังมีคาบที่ใช้ห้องนี้`)
         // special periods switched on/off, removed or set to pause regular classes → sessions follow (owner 2026-10-01)
-        const sync = Sch.syncPeriodSessions(s.sessions, s.classes, b, toDateStr(s.now()))
+        // a longer period gives its classes the sessions they are missing (owner 2026-10-09)
+        const filled = Sch.fillPeriodClasses(s.sessions, s.classes, b, s.holidays, toDateStr(s.now()), () => uid("se"))
+        const sync = Sch.syncPeriodSessions([...s.sessions, ...filled], s.classes, b, toDateStr(s.now()))
         set({ branches: s.branches.map((x) => (x.id === b.id ? b : x)), sessions: sync.sessions })
-        if (sync.paused || sync.restored) {
-          const what = [sync.paused && `หยุด ${sync.paused} คาบ`, sync.restored && `กลับมาเรียน ${sync.restored} คาบ`].filter(Boolean).join(" · ")
+        if (sync.paused || sync.restored || filled.length) {
+          const what = [filled.length && `เพิ่มคาบคลาสพิเศษ ${filled.length} คาบ`, sync.paused && `หยุด ${sync.paused} คาบ`, sync.restored && `กลับมาเรียน ${sync.restored} คาบ`].filter(Boolean).join(" · ")
           set({ notifications: [Notif.notify({ id: uid("no"), at: s.now(), kind: "info", title: "ช่วงเวลาพิเศษเปลี่ยน", body: `${b.name} · ${what}`, fromId: s.userId, audience: { roles: Notif.ALL_ROLES, branchId: b.id } }), ...get().notifications] })
           toast.info(`ช่วงเวลาพิเศษ: ${what}`)
         }

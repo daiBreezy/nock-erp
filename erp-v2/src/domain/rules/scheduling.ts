@@ -2,7 +2,7 @@
 // Test IDs in comments refer to NockERP-Staging-Test-2026-09-24.xlsx.
 
 import { addDays, at, endTime, fmtDate, fromMinutes, nextWeekday, overlaps, parseDate, toMinutes, weekdayOf } from "../dates"
-import type { ClassBlock, DayBlocks, Attendance, Branch, DateStr, Holiday, ID, Klass, Result, Session, Staff, TimeStr, Weekday } from "../types"
+import type { ClassBlock, DayBlocks, Attendance, Branch, DateStr, Holiday, ID, Klass, Result, Session, SpecialPeriod, Staff, TimeStr, Weekday } from "../types"
 
 export const GENERATE_WEEKS = 8
 /** Soft limits only (owner 2026-09-30): a class takes any number of students — the app warns above 6, and above 3 for a
@@ -625,12 +625,38 @@ export function syncPeriodSessions(sessions: Session[], classes: Klass[], branch
   let paused = 0, restored = 0
   const out = sessions.map((s) => {
     if (s.branchId !== branch.id || s.date < today) return s
-    const why = periodPause(s, classes.find((k) => k.id === s.classId), branch)
-    if (why && !s.cancelled) { paused++; return { ...s, cancelled: true, pausedBy: why, cancelReason: `หยุดช่วง ${branch.specialPeriods.find((p) => p.id === why)?.name ?? "พิเศษ"}` } }
-    if (!why && s.pausedBy) { restored++; return { ...s, cancelled: false, pausedBy: undefined, cancelReason: undefined } }
+    const k = classes.find((x) => x.id === s.classId)
+    const why = periodPause(s, k, branch)
+    // regular classes the school itself stops extend the students' packages (owner 2026-10-09)
+    const school = !!why && !k?.periodId && branch.specialPeriods.find((p) => p.id === why)?.pauseCause !== "other"
+    if (why && !s.cancelled) { paused++; return { ...s, cancelled: true, pausedBy: why, pausedSchool: school || undefined, cancelReason: `หยุดช่วง ${branch.specialPeriods.find((p) => p.id === why)?.name ?? "พิเศษ"}` } }
+    if (why && s.pausedBy === why && !!s.pausedSchool !== school) return { ...s, pausedSchool: school || undefined }
+    if (!why && s.pausedBy) { restored++; return { ...s, cancelled: false, pausedBy: undefined, pausedSchool: undefined, cancelReason: undefined } }
     return s
   })
   return { sessions: out, paused, restored }
+}
+
+/** A special period got longer (owner 2026-10-09): its classes get the sessions they are missing up to the new end —
+ *  every week from the class start (or today) on, skipping holidays and dates the class already has. */
+export function fillPeriodClasses(sessions: Session[], classes: Klass[], branch: Branch, holidays: Holiday[], today: DateStr, newId: () => ID): Session[] {
+  const added: Session[] = []
+  for (const k of classes) {
+    const p = k.periodId ? branch.specialPeriods.find((x) => x.id === k.periodId) : undefined
+    if (!p || !p.active || !k.active || k.branchId !== branch.id || k.kind !== "learning") continue
+    const have = new Set(sessions.filter((s) => s.classId === k.id).map((s) => s.date))
+    for (let d = nextWeekday(k.startDate > today ? k.startDate : today, k.weekday); d <= p.to; d = addDays(d, 7))
+      if (d >= p.from && !have.has(d) && !isHoliday(d, k.branchId, holidays)) added.push(sessionFromClass(k, d, newId()))
+  }
+  return added
+}
+
+/** A special period got shorter / moved (owner 2026-10-09): sessions of its classes that fall outside the new dates
+ *  and still have students — the admin is warned before they are cancelled (paused). */
+export function periodShrinkImpact(before: SpecialPeriod, after: SpecialPeriod, classes: Klass[], sessions: Session[], today: DateStr): Session[] {
+  if (after.from <= before.from && after.to >= before.to) return []
+  const ids = new Set(classes.filter((k) => k.periodId === before.id).map((k) => k.id))
+  return sessions.filter((s) => !!s.classId && ids.has(s.classId) && !s.cancelled && s.date >= today && s.studentIds.length > 0 && (s.date < after.from || s.date > after.to))
 }
 
 /** Special classes of a period that still have students — asked about before the period is switched off or removed. */

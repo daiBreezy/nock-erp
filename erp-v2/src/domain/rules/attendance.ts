@@ -146,6 +146,12 @@ export function teacherLeaveCancels(e: Entitlement, sessions: Session[]): Sessio
   return sessions.filter((s) => s.cancelled && s.teacherLeave && !s.teacherLeave.substituteId && s.studentIds.includes(e.studentId) && packageCovers(e, s))
 }
 
+/** Regular sessions the school itself stopped for a special period (pauseCause "school") — each one the student was
+ *  booked into makes their package run one class longer (owner 2026-10-09). */
+export function schoolPauseCancels(e: Entitlement, sessions: Session[]): Session[] {
+  return sessions.filter((s) => s.cancelled && s.pausedBy && s.pausedSchool && s.studentIds.includes(e.studentId) && packageCovers(e, s))
+}
+
 /** the next `n` class meetings after `after` across the package's classes (skipping the branch's holidays) */
 export function nextClassDates(klasses: Pick<Klass, "weekday" | "branchId">[], after: DateStr, n: number, holidays: Holiday[]): DateStr[] {
   const out: DateStr[] = []
@@ -162,7 +168,7 @@ export function resolveEntitlements(ents: Entitlement[], leaves: StudentLeave[],
     const base = leaves.length ? { ...e, to: effectiveTo(e, leaves) } : e
     const klasses = ctx ? ctx.classes.filter((k) => e.classIds.includes(k.id)) : []
     if (!ctx || !klasses.length) return base
-    const n = leaveLedger(base, ctx, leaves).filter((l) => l.quota || l.noQuota).length + teacherLeaveCancels(base, ctx.sessions).length
+    const n = leaveLedger(base, ctx, leaves).filter((l) => l.quota || l.noQuota).length + teacherLeaveCancels(base, ctx.sessions).length + schoolPauseCancels(base, ctx.sessions).length
     return n ? { ...base, to: nextClassDates(klasses, base.to, n, ctx.holidays)[n - 1] } : base
   })
 }

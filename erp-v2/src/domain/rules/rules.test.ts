@@ -1539,6 +1539,25 @@ describe("Special-period classes (owner 2026-10-01)", () => {
   it("lists special classes with students before switching a period off", () => {
     expect(Sch.periodClassesWithStudents("sp1", [special, regular]).map((k) => k.id)).toEqual(["k1"])
   })
+  it("owner 2026-10-09: a longer period adds the missing sessions, a shorter one lists the booked sessions it cancels", () => {
+    let n = 0
+    const have = generateSessions(special, [], () => `x${n++}`, 8, period.to)
+    const longer = { ...branch, specialPeriods: [{ ...period, to: "2026-11-08" }] } as Branch
+    expect(Sch.fillPeriodClasses(have, [special], longer, [], "2026-10-01", () => "new").map((x) => x.date)).toEqual(["2026-10-26", "2026-11-02"])
+    expect(Sch.fillPeriodClasses(have, [special], branch, [], "2026-10-01", () => "new")).toEqual([])
+    const cut = Sch.periodShrinkImpact(period, { ...period, to: "2026-10-12" }, [special], have, "2026-10-01")
+    expect(cut.map((x) => x.date)).toEqual(["2026-10-19"])
+  })
+  it("owner 2026-10-09: regular classes stopped by the school extend packages — another cause does not", () => {
+    const ses = [{ ...generateSessions(regular, [], () => "b", 1)[0], id: "b", date: "2026-10-12" }]
+    const school = Sch.syncPeriodSessions(ses, [special, regular], { ...branch, specialPeriods: [{ ...period, pauseRegular: true }] } as Branch, "2026-10-01").sessions
+    expect(school[0].pausedSchool).toBe(true)
+    const other = Sch.syncPeriodSessions(school, [special, regular], { ...branch, specialPeriods: [{ ...period, pauseRegular: true, pauseCause: "other" }] } as Branch, "2026-10-01").sessions
+    expect(other[0].pausedSchool).toBeUndefined()
+    const e = { studentId: "s1", classIds: ["k2"], subjects: [], from: "2026-10-01", to: "2026-10-31" } as unknown as Entitlement
+    expect(schoolPauseCancels(e, school).length).toBe(1)
+    expect(schoolPauseCancels(e, other).length).toBe(0)
+  })
 })
 
 describe("Reports definitions (owner 2026-10-01)", () => {
@@ -2000,7 +2019,7 @@ describe("schools by branch / region (owner 2026-10-07)", () => {
 })
 
 import { defaultLeaveQuota, leaveQuotaFor } from "./settings"
-import { leaveQuota } from "./attendance"
+import { leaveQuota, schoolPauseCancels } from "./attendance"
 
 describe("C5 leave quota per package (owner 2026-10-09)", () => {
   it("default: 1 session = 2 hrs, 4 sessions = 1 leave", () => {
