@@ -166,10 +166,10 @@ function CalendarView() {
         </>} />
 
       <Toolbar end={<>
-        <NativeSelect className="h-9 w-40" value={teacher} onChange={(e) => setTeacher(e.target.value)} options={teacherOptions} />
-        <NativeSelect className="h-9 w-32" value={subject} onChange={(e) => setSubject(e.target.value)} options={[{ value: "all", label: "ทุกวิชา" }, ...branch.subjects.map((s) => ({ value: s, label: s }))]} />
+        <NativeSelect className="h-9 w-36" value={teacher} onChange={(e) => setTeacher(e.target.value)} options={teacherOptions} />
+        <NativeSelect className="h-9 w-28" value={subject} onChange={(e) => setSubject(e.target.value)} options={[{ value: "all", label: "ทุกวิชา" }, ...branch.subjects.map((s) => ({ value: s, label: s }))]} />
         {/* status as a dropdown chip, like teachers / subjects (owner 2026-09-30) */}
-        <NativeSelect className="h-9 w-44" value={workFilter ?? ""} onChange={(e) => setWorkFilter((e.target.value || null) as WorkState | null)}
+        <NativeSelect className="h-9 w-40" value={workFilter ?? ""} onChange={(e) => setWorkFilter((e.target.value || null) as WorkState | null)}
           placeholder={`ทุกสถานะ (${visible.filter((x) => !x.cancelled).length})`}
           options={WORK_ORDER.map((w) => ({ value: w, label: `${WORK_LABEL[w]} (${workCounts[w] ?? 0})` }))} />
       </>}>
@@ -182,7 +182,7 @@ function CalendarView() {
         </ToggleGroup>
         {view === "board" && (
           <ToggleGroup value={[dayMode]} onValueChange={(v) => v[0] && setDayMode(v[0] as "table" | "single")} variant="outline">
-            <ToggleGroupItem value="table">ตารางครู (ทั้งสัปดาห์)</ToggleGroupItem>
+            <ToggleGroupItem value="table" title="ตารางครูทั้งสัปดาห์">ตารางครู</ToggleGroupItem>
             <ToggleGroupItem value="single">รายวัน</ToggleGroupItem>
           </ToggleGroup>
         )}
