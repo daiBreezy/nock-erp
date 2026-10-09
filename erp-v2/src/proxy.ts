@@ -27,5 +27,5 @@ export function proxy(req: NextRequest) {
 
 export const config = {
   // everything except Next's own files, the brand images, parents' forms and the LINE webhook
-  matcher: ["/((?!_next/static|_next/image|favicon.ico|brand/|liff|api/line/webhook|api/parent-forms|api/forms).*)"],
+  matcher: ["/((?!_next/static|_next/image|favicon.ico|brand/|liff|api/line/webhook|api/parent-forms|api/parent-view|api/forms).*)"],
 }

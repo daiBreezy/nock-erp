@@ -2061,3 +2061,32 @@ describe("calendar Summary panel (owner 2026-10-09)", () => {
     expect(groupSummaryRows(sum.rows, "subject").map((g) => g.key).sort()).toEqual(["คณิต", "อังกฤษ"].sort())
   })
 })
+
+import { busDaysOf, parentView } from "./parent-view"
+
+describe("parent app v1 (owner 2026-10-09)", () => {
+  const now = new Date(2026, 9, 9, 9, 0)
+  const ses = (id: string, date: string, over: Partial<Session> = {}): Session => ({ id, branchId: "b1", classId: null, subject: "คณิต", date, start: "10:00", minutes: 60, teacherId: "t1", coTeacherIds: [], roomId: null, studentIds: ["a"], trial: false, customized: false, cancelled: false, ...over })
+  const fam = { id: "f1", name: "ครอบครัวสุขใจ", parents: [], lineUserId: "U1" } as unknown as Family
+  const kid = { id: "a", familyId: "f1", branchId: "b1", name: "ด.ญ. ใบเตย", nickname: "ใบเตย", grade: "ป.5" } as unknown as Student
+  const base = { students: [kid], branches: [branch], classes: [], staff: [teacher], entitlements: [], courses: [], invoices: [], busAddOns: [], now }
+  it("shows the next 30 days, only summaries already sent, and attendance so far", () => {
+    const sessions = [ses("past", "2026-10-05"), ses("soon", "2026-10-12"), ses("far", "2026-12-01")]
+    const v = parentView(fam, { ...base, sessions,
+      attendance: [{ sessionId: "past", studentId: "a", status: "present", markedBy: "t1", markedAt: "" }],
+      summaries: [
+        { id: "x1", sessionId: "past", studentId: "a", text: "ดีมาก", status: "sent", authorId: "t1", lastEditorId: "t1", history: [] },
+        { id: "x2", sessionId: "past", studentId: "a", text: "ร่าง", status: "submitted", authorId: "t1", lastEditorId: "t1", history: [] },
+      ] as LessonSummary[] })
+    const c = v.children[0]
+    expect(c.upcoming.map((x) => x.sessionId)).toEqual(["soon"])
+    expect(c.summaries.map((x) => x.text)).toEqual(["ดีมาก"])
+    expect(c.attendance).toHaveLength(1)
+    expect(v.lineUserIds).toEqual(["U1"])
+  })
+  it("bus days come from paid / sent invoices and extra days — never drafts or void", () => {
+    const inv = (status: Invoice["status"], date: string) => ({ studentId: "a", status, bus: [{ date, pickup: true, dropoff: false }] }) as unknown as Invoice
+    const m = busDaysOf("a", [inv("paid", "2026-10-12"), inv("draft", "2026-10-13"), inv("void", "2026-10-14")], [{ studentId: "a", date: "2026-10-12", pickup: false, dropoff: true } as BusAddOn])
+    expect([...m.entries()]).toEqual([["2026-10-12", { pickup: true, dropoff: true }]])
+  })
+})

@@ -1,5 +1,6 @@
 "use client"
 
+import { ParentLiff } from "@/components/parent/parent-liff"
 import { Suspense, useEffect, useRef, useState } from "react"
 import { useSearchParams } from "next/navigation"
 import {
@@ -59,9 +60,17 @@ function previewData(type: FormType): { offers: FormSubjectOffer[]; grades: stri
 export default function LiffFormPage() {
   return (
     <Suspense fallback={<Centered><Spinner /></Centered>}>
-      <LiffForm />
+      <LiffEntry />
     </Suspense>
   )
+}
+
+/** One LIFF app for everything parents open: ?app=parent = the parent app (owner 2026-10-09), else a form.
+ *  LINE first opens the endpoint with ?liff.state=<original query> — read `app` from there too. */
+function LiffEntry() {
+  const params = useSearchParams()
+  const state = new URLSearchParams((params.get("liff.state") ?? "").replace(/^[^?]*\?/, ""))
+  return params.get("app") === "parent" || state.get("app") === "parent" ? <ParentLiff /> : <LiffForm />
 }
 
 function LiffForm() {

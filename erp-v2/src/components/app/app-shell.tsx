@@ -6,6 +6,7 @@ import { fmtDate, toDateStr } from "@/domain/dates"
 import { useBranch, useNow } from "@/lib/hooks"
 import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
+import { usePublishParentViews } from "@/lib/parent-app"
 import { useEffect, useState, useSyncExternalStore, type ReactNode } from "react"
 import { ArrowLeftRightIcon, BellIcon, CheckIcon, ChevronDownIcon, GlobeIcon, LockIcon, MapPinIcon, SearchIcon, SunIcon } from "lucide-react"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
@@ -33,6 +34,12 @@ import { FocusBanner } from "./focus-banner"
 
 const noopSubscribe = () => () => {}
 
+/** keeps the parent app (LINE) up to date with this ERP's data — staff screens only */
+function ParentAppPublisher() {
+  usePublishParentViews()
+  return null
+}
+
 export function AppShell({ children }: { children: ReactNode }) {
   const pathname = usePathname()
   // Persisted client-side store → render only after mount to avoid hydration mismatches.
@@ -51,7 +58,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         <Skeleton className="h-full flex-1" />
       </div>
     )
-  return <Shell>{children}</Shell>
+  return <><ParentAppPublisher /><Shell>{children}</Shell></>
 }
 
 function Shell({ children }: { children: ReactNode }) {

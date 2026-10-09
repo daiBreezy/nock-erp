@@ -1,7 +1,8 @@
 "use client"
 
 import { useState } from "react"
-import { CopyIcon, MessageCircleIcon, PencilIcon, UserPlusIcon } from "lucide-react"
+import { CopyIcon, MessageCircleIcon, PencilIcon, SmartphoneIcon, UserPlusIcon } from "lucide-react"
+import { ParentPreview } from "@/components/parent/parent-preview"
 import { toast } from "sonner"
 import { Pill } from "@/components/app/badges"
 import { StudentForm } from "@/components/app/student-form"
@@ -31,10 +32,12 @@ export function FamilySheet({ id, onClose, onEdit }: { id: ID | null; onClose: (
   const now = useNow()
   const [addChild, setAddChild] = useState(false)
   const [studentOpen, setStudentOpen] = useState<ID | null>(null)
+  const [parentApp, setParentApp] = useState(false)
   const code = f?.lineCode && lineCodeValid(f, now).ok ? f.lineCode : null
 
   return (
     <>
+      {parentApp && f && <ParentPreview family={f} onClose={() => setParentApp(false)} />}
       <Sheet open={!!f} onOpenChange={(o) => !o && onClose()}>
         <SheetContent className="w-full overflow-y-auto data-[side=right]:sm:max-w-md">
           {f && (
@@ -42,7 +45,10 @@ export function FamilySheet({ id, onClose, onEdit }: { id: ID | null; onClose: (
               <SheetHeader className="border-b pb-3">
                 <SheetTitle className="text-lg">{f.name}</SheetTitle>
                 <SheetDescription>{f.address ? `${f.address}${f.postcode ? ` ${f.postcode}` : ""}` : "ยังไม่มีที่อยู่"}</SheetDescription>
-                <Button size="xs" variant="outline" className="w-fit" onClick={() => onEdit(f)}><PencilIcon /> แก้ไขครอบครัว</Button>
+                <div className="flex flex-wrap gap-1.5">
+                  <Button size="xs" variant="outline" className="w-fit" onClick={() => onEdit(f)}><PencilIcon /> แก้ไขครอบครัว</Button>
+                  <Button size="xs" variant="outline" className="w-fit" onClick={() => setParentApp(true)}><SmartphoneIcon /> ดูแบบผู้ปกครอง</Button>
+                </div>
               </SheetHeader>
               <div className="space-y-5 px-4 pt-5 pb-6">
                 <section className="space-y-2">
