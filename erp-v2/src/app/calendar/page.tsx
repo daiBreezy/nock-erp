@@ -165,6 +165,25 @@ function CalendarView() {
           {canCreate && <Button onClick={() => setPrefill({ date: anchor })}><PlusIcon /> สร้างคลาส</Button>}
         </>} />
 
+      {/* owner 2026-10-09: three rows — header · which view · date + filters */}
+      <div className="flex flex-wrap items-center gap-2">
+        <ToggleGroup value={[view]} onValueChange={(v) => v[0] && setView(v[0] as View)} variant="outline">
+          <ToggleGroupItem value="board">วัน</ToggleGroupItem>
+          <ToggleGroupItem value="week">สัปดาห์</ToggleGroupItem>
+          <ToggleGroupItem value="month">เดือน</ToggleGroupItem>
+          <ToggleGroupItem value="list">รายการ</ToggleGroupItem>
+        </ToggleGroup>
+        {view === "board" && (
+          <>
+            <span className="h-5 w-px bg-border" />
+            <ToggleGroup value={[dayMode]} onValueChange={(v) => v[0] && setDayMode(v[0] as "table" | "single")} variant="outline">
+              <ToggleGroupItem value="table">ตารางครูทั้งสัปดาห์</ToggleGroupItem>
+              <ToggleGroupItem value="single">รายวัน</ToggleGroupItem>
+            </ToggleGroup>
+          </>
+        )}
+      </div>
+
       <Toolbar end={<>
         <NativeSelect className="h-9 w-36" value={teacher} onChange={(e) => setTeacher(e.target.value)} options={teacherOptions} />
         <NativeSelect className="h-9 w-28" value={subject} onChange={(e) => setSubject(e.target.value)} options={[{ value: "all", label: "ทุกวิชา" }, ...branch.subjects.map((s) => ({ value: s, label: s }))]} />
@@ -174,18 +193,6 @@ function CalendarView() {
           options={WORK_ORDER.map((w) => ({ value: w, label: `${WORK_LABEL[w]} (${workCounts[w] ?? 0})` }))} />
       </>}>
         <DateNav label={range.title} onPrev={() => step(-1)} onToday={() => setAnchor(today)} onNext={() => step(1)} />
-        <ToggleGroup value={[view]} onValueChange={(v) => v[0] && setView(v[0] as View)} variant="outline">
-          <ToggleGroupItem value="board">วัน</ToggleGroupItem>
-          <ToggleGroupItem value="week">สัปดาห์</ToggleGroupItem>
-          <ToggleGroupItem value="month">เดือน</ToggleGroupItem>
-          <ToggleGroupItem value="list">รายการ</ToggleGroupItem>
-        </ToggleGroup>
-        {view === "board" && (
-          <ToggleGroup value={[dayMode]} onValueChange={(v) => v[0] && setDayMode(v[0] as "table" | "single")} variant="outline">
-            <ToggleGroupItem value="table" title="ตารางครูทั้งสัปดาห์">ตารางครู</ToggleGroupItem>
-            <ToggleGroupItem value="single">รายวัน</ToggleGroupItem>
-          </ToggleGroup>
-        )}
       </Toolbar>
 
       {/* card states: click one to highlight only those cards */}
