@@ -9,7 +9,6 @@ import { useSearchParams } from "next/navigation"
 import { BadgeCheckIcon, FileClockIcon, HourglassIcon, PlusIcon, SearchIcon, SendIcon, WalletIcon, type LucideIcon } from "lucide-react"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { Pill } from "@/components/app/badges"
-import { InvoiceEditor } from "@/components/billing/invoice-editor"
 import { InvoiceSheet } from "@/components/billing/invoice-sheet"
 import { invoiceTone } from "@/components/billing/status"
 import { Button } from "@/components/ui/button"
@@ -17,7 +16,6 @@ import { Input } from "@/components/ui/input"
 import { fmtDate, fmtMoney, toDateStr } from "@/domain/dates"
 import * as Bill from "@/domain/rules/billing"
 import { can } from "@/domain/rules/permissions"
-import type { Invoice } from "@/domain/types"
 import { useBranch, useNow, useQueryState } from "@/lib/hooks"
 import { GradeCell, gradeCompare, HEAD, MidText, Pager, ROW, SortHeader, TableShell, Th, usePage, useSort } from "@/components/app/data-table"
 import { gradeTone } from "@/components/app/subject-color"
@@ -50,9 +48,8 @@ function BillingPage() {
   const [showVoid, setShowVoid] = useQueryState<"0" | "1">("void", "0")
   const [showDone, setShowDone] = useQueryState<"0" | "1">("done", "1")
   const [q, setQ] = useState("")
-  const [openId, setOpenId] = useState<string | null>(() => params.get("open"))
-  // ?new=<studentId> opens the editor pre-filled (from the student panel)
-  const [editing, setEditing] = useState<Invoice | "new" | null>(() => (params.get("new") ? "new" : null))
+  // ?new=<studentId> opens the panel on a new invoice pre-filled (from the student panel)
+  const [openId, setOpenId] = useState<string | null>(() => params.get("open") ?? (params.get("new") ? "new" : null))
   const presetStudent = params.get("new") ?? undefined
   const renewFrom = params.get("renew") ?? undefined
   const slipFromChat = params.get("slip") ?? undefined
@@ -114,7 +111,7 @@ function BillingPage() {
       <PageHeader title="ใบแจ้งหนี้ & รับเงิน" description="ออกใบแจ้งหนี้ อนุมัติ ส่งผู้ปกครอง รับเงิน และยืนยันยอด"
         actions={<>
           {can(me, "billing.view") && <SalesTaxDialog />}
-          {can(me, "billing.manage") && <Button onClick={() => setEditing("new")}><PlusIcon /> สร้างใบแจ้งหนี้</Button>}
+          {can(me, "billing.manage") && <Button onClick={() => setOpenId("new")}><PlusIcon /> สร้างใบแจ้งหนี้</Button>}
         </>} />
       <KpiRow>
         {cards.map((c) => (
@@ -179,16 +176,7 @@ function BillingPage() {
       </TableShell>
       <Pager {...pg} unit="ใบ" />
 
-      <InvoiceSheet id={openId} slipMediaId={openId === params.get("open") ? slipFromChat : undefined} onClose={() => setOpenId(null)} onEdit={(inv) => { setOpenId(null); setEditing(inv) }} />
-      {editing && (
-        <InvoiceEditor
-          invoice={editing === "new" ? undefined : editing}
-          defaultStudentId={editing === "new" ? presetStudent : undefined}
-          renewEntitlementId={editing === "new" ? renewFrom : undefined}
-          onClose={() => setEditing(null)}
-          onSaved={(inv) => { setEditing(null); setOpenId(inv.id) }}
-        />
-      )}
+      <InvoiceSheet id={openId} slipMediaId={openId === params.get("open") ? slipFromChat : undefined} defaultStudentId={presetStudent} renewEntitlementId={renewFrom} onClose={() => setOpenId(null)} />
     </PageShell>
   )
 }

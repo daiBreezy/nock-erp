@@ -11,7 +11,7 @@ import { AlertTriangleIcon, BusIcon, CalendarIcon, CheckIcon, HistoryIcon, MapPi
 import { NativeSelect } from "@/components/app/native-select"
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { FormShell } from "@/components/app/form-shell"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
@@ -166,12 +166,13 @@ export function InvoiceEditor({ invoice, defaultStudentId, renewEntitlementId, o
   }
 
   return (
-    <Dialog open onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="max-h-[92vh] overflow-y-auto sm:max-w-3xl">
-        <DialogHeader>
-          <DialogTitle>{invoice ? `แก้ใบแจ้งหนี้ ${invoice.number ?? ""}` : "สร้างใบแจ้งหนี้"}</DialogTitle>
-          <DialogDescription>ราคาและจำนวนคาบคำนวณจากตารางเรียนจริง (ข้ามวันหยุด) — ตัวเลขชุดเดียวกับที่จะอยู่ใน PDF</DialogDescription>
-        </DialogHeader>
+    <FormShell className="max-h-[92vh] sm:max-w-3xl" onClose={onClose} title={invoice ? `แก้ใบแจ้งหนี้ ${invoice.number ?? ""}` : "สร้างใบแจ้งหนี้"}
+      description="ราคาและจำนวนคาบคำนวณจากตารางเรียนจริง (ข้ามวันหยุด) — ตัวเลขชุดเดียวกับที่จะอยู่ใน PDF"
+      footer={<>
+        {errors.length > 0 && <span className="mr-auto text-xs text-red-700">{errors[0]}</span>}
+        <Button variant="ghost" onClick={onClose}>ยกเลิก</Button>
+        <Button disabled={errors.length > 0} onClick={submit}>{invoice ? "บันทึก" : "สร้างใบแจ้งหนี้ (ออกเลขทันที)"}</Button>
+      </>}>
 
         <div className="space-y-1">
           <Label className="text-xs">นักเรียน *</Label>
@@ -367,13 +368,7 @@ export function InvoiceEditor({ invoice, defaultStudentId, renewEntitlementId, o
           <div className={cn("flex justify-between border-t pt-1 text-base font-semibold", totals.total < 0 && "text-red-700")}><span>ยอดรวม</span><span>{fmtMoney(totals.total)}</span></div>
         </div>
 
-        <DialogFooter className="items-center">
-          {errors.length > 0 && <span className="mr-auto text-xs text-red-700">{errors[0]}</span>}
-          <Button variant="ghost" onClick={onClose}>ยกเลิก</Button>
-          <Button disabled={errors.length > 0} onClick={submit}>{invoice ? "บันทึก" : "สร้างใบแจ้งหนี้ (ออกเลขทันที)"}</Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+    </FormShell>
   )
 }
 

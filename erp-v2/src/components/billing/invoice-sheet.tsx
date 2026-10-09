@@ -8,13 +8,15 @@ import { NativeSelect } from "@/components/app/native-select"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet"
+import { SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet"
+import { EntityPanel, PanelBody, PanelFooter, PanelForm } from "@/components/app/form-shell"
+import { InvoiceEditor } from "./invoice-editor"
 import { Textarea } from "@/components/ui/textarea"
 import { fmtDate, fmtDateTime, fmtMoney, fmtMonth } from "@/domain/dates"
 import * as Bill from "@/domain/rules/billing"
 import { packageLabel } from "@/domain/rules/course"
 import { can } from "@/domain/rules/permissions"
-import type { ID, Invoice } from "@/domain/types"
+import type { ID } from "@/domain/types"
 import { report } from "@/lib/feedback"
 import { slipDataUrl } from "@/lib/image"
 import { useBranch } from "@/lib/hooks"
@@ -24,15 +26,35 @@ import { useStore } from "@/store/store"
 import { invoiceTone } from "./status"
 import { CreditNotes } from "./credit-notes"
 
-export function InvoiceSheet({ id, slipMediaId, onClose, onEdit }: { id: ID | null; slipMediaId?: string; onClose: () => void; onEdit: (inv: Invoice) => void }) {
+/**
+ * Invoice side panel (owner 2026-10-09 — same pattern as every entity): the invoice and its next step; แก้ไข switches
+ * the panel to the editor; "new" opens the editor and becomes the invoice view once saved. Header · Body · Bottom.
+ */
+export function InvoiceSheet({ id, slipMediaId, defaultStudentId, renewEntitlementId, onClose }: { id: ID | "new" | null; slipMediaId?: string; defaultStudentId?: ID; renewEntitlementId?: ID; onClose: () => void }) {
   return (
-    <Sheet open={!!id} onOpenChange={(o) => !o && onClose()}>
-      <SheetContent className="w-full overflow-y-auto data-[side=right]:sm:max-w-xl">{id && <Body id={id} slipMediaId={slipMediaId} onEdit={onEdit} />}</SheetContent>
-    </Sheet>
+    <EntityPanel open={!!id} onClose={onClose} wide>
+      {id && <Panel key={id} id={id} slipMediaId={slipMediaId} defaultStudentId={defaultStudentId} renewEntitlementId={renewEntitlementId} onClose={onClose} />}
+    </EntityPanel>
   )
 }
 
-function Body({ id, slipMediaId, onEdit }: { id: ID; slipMediaId?: string; onEdit: (inv: Invoice) => void }) {
+function Panel({ id, slipMediaId, defaultStudentId, renewEntitlementId, onClose }: { id: ID | "new"; slipMediaId?: string; defaultStudentId?: ID; renewEntitlementId?: ID; onClose: () => void }) {
+  const isNew = id === "new"
+  const [createdId, setCreatedId] = useState<ID | null>(null)
+  const [editing, setEditing] = useState(isNew)
+  const shownId = isNew ? createdId : id
+  const inv = useStore((s) => (shownId ? s.invoices.find((x) => x.id === shownId) : undefined))
+  if (editing && (inv || (isNew && !createdId))) return (
+    <PanelForm>
+      <InvoiceEditor invoice={inv} defaultStudentId={inv ? undefined : defaultStudentId} renewEntitlementId={inv ? undefined : renewEntitlementId}
+        onClose={() => (inv ? setEditing(false) : onClose())}
+        onSaved={(v) => { if (isNew) setCreatedId(v.id); setEditing(false) }} />
+    </PanelForm>
+  )
+  return shownId ? <Body id={shownId} slipMediaId={slipMediaId} onEdit={() => setEditing(true)} /> : null
+}
+
+function Body({ id, slipMediaId, onEdit }: { id: ID; slipMediaId?: string; onEdit: () => void }) {
   const inv = useStore((s) => s.invoices.find((x) => x.id === id))
   const branch = useBranch()
   const me = useStore((s) => s.me())
@@ -113,7 +135,7 @@ function Body({ id, slipMediaId, onEdit }: { id: ID; slipMediaId?: string; onEdi
 
   return (
     <>
-      <SheetHeader className="border-b pb-3">
+      <SheetHeader className="shrink-0 border-b pb-3">
         <div className="flex items-center gap-2 pr-8">
           <Pill tone={invoiceTone(inv)}>{Bill.INVOICE_STATUS_LABEL[inv.status]}</Pill>
           {inv.delivery === "no_line" && <Pill tone="amber">ไม่มี LINE</Pill>}
@@ -131,7 +153,7 @@ function Body({ id, slipMediaId, onEdit }: { id: ID; slipMediaId?: string; onEdi
         )}
       </SheetHeader>
 
-      <div className="space-y-5 px-4 pt-5 pb-6">
+      <PanelBody>
         {inv.status === "void" && <p className="rounded-lg bg-red-50 p-3 text-sm text-red-800">ยกเลิกแล้ว: {inv.voidReason}</p>}
 
         <section className="rounded-lg border">
@@ -188,26 +210,14 @@ function Body({ id, slipMediaId, onEdit }: { id: ID; slipMediaId?: string; onEdi
 
         {/* ---------- next action for the current state ---------- */}
         <section className="space-y-2 rounded-lg border p-3">
-          {inv.status === "draft" && manage && (
-            <div className="flex flex-wrap gap-2">
-              <Button variant="outline" size="sm" onClick={() => onEdit(inv)}><PencilIcon /> แก้ไข</Button>
-              <Button size="sm" disabled={inv.pdf === "generating"} onClick={() => report(act.gen(inv.id), (v) => `กำลังสร้าง PDF · เลขที่ ${v.number}`)}>
-                {inv.pdf === "generating" ? <Loader2Icon className="animate-spin" /> : inv.pdf === "failed" ? <RefreshCwIcon /> : <FileTextIcon />}
-                {inv.pdf === "generating" ? "กำลังสร้าง PDF…" : inv.pdf === "failed" ? "ลองสร้าง PDF อีกครั้ง" : "สร้าง PDF"}
-              </Button>
-            </div>
-          )}
+          {inv.status === "draft" && manage && <p className="text-sm text-muted-foreground">ร่าง — ตรวจรายการแล้วกด “สร้าง PDF” ด้านล่าง เพื่อส่งให้คนอื่นอนุมัติ</p>}
           {inv.status === "pending_approval" && (
             approveCheck.ok ? (
-              <div className="flex gap-2">
-                <Button size="sm" onClick={() => report(act.approve(inv.id), "อนุมัติแล้ว — พร้อมส่งผู้ปกครอง")}><CheckIcon /> อนุมัติ PDF</Button>
-                {manage && <Button size="sm" variant="outline" onClick={() => onEdit(inv)}><PencilIcon /> แก้ (ต้องสร้าง PDF ใหม่)</Button>}
-              </div>
+              <p className="text-sm text-muted-foreground">รออนุมัติ — ตรวจ PDF แล้วกด “อนุมัติ PDF” ด้านล่าง</p>
             ) : (
               <div className="space-y-2">
                 <p className="text-sm text-muted-foreground">{approveCheck.error}</p>
                 {canForce && <ForceApprove label="Force Approve PDF" onForce={(remark) => act.approve(inv.id, remark)} success="Force Approve แล้ว — แจ้งทั้งสาขา + Director" />}
-                {manage && <Button size="sm" variant="outline" onClick={() => onEdit(inv)}><PencilIcon /> แก้ (ต้องสร้าง PDF ใหม่)</Button>}
               </div>
             )
           )}
@@ -282,24 +292,32 @@ function Body({ id, slipMediaId, onEdit }: { id: ID; slipMediaId?: string; onEdi
 
         <CreditNotes inv={inv} />
 
-        {manage && inv.status !== "void" && inv.status !== "paid" && (
-          <section>
-            {!voiding ? (
-              <Button size="sm" variant="ghost" className="text-red-700" onClick={() => setVoiding(true)}><XCircleIcon /> ยกเลิกใบแจ้งหนี้</Button>
-            ) : (
-              <div className="space-y-2 rounded-lg border border-red-200 p-3">
-                <Label className="text-xs">เหตุผลการยกเลิก *</Label>
-                <Textarea rows={2} value={reason} onChange={(e) => setReason(e.target.value)} placeholder="เช่น ใส่คอร์สผิด จะออกใบใหม่" />
-                {inv.payments.length > 0 && <p className="text-xs text-red-700">มีการรับเงินแล้ว ยกเลิกไม่ได้</p>}
-                <div className="flex justify-end gap-2">
-                  <Button size="sm" variant="ghost" onClick={() => setVoiding(false)}>ไม่ยกเลิก</Button>
-                  <Button size="sm" variant="destructive" disabled={!reason.trim() || inv.payments.length > 0} onClick={() => report(act.void(inv.id, reason), "ยกเลิกใบแจ้งหนี้แล้ว") && setVoiding(false)}>ยืนยันยกเลิก</Button>
-                </div>
-              </div>
-            )}
+        {voiding && (
+          <section className="space-y-2 rounded-lg border border-red-200 p-3">
+            <Label className="text-xs">เหตุผลการยกเลิก *</Label>
+            <Textarea rows={2} autoFocus value={reason} onChange={(e) => setReason(e.target.value)} placeholder="เช่น ใส่คอร์สผิด จะออกใบใหม่" />
+            {inv.payments.length > 0 && <p className="text-xs text-red-700">มีการรับเงินแล้ว ยกเลิกไม่ได้</p>}
+            <div className="flex justify-end gap-2">
+              <Button size="sm" variant="ghost" onClick={() => setVoiding(false)}>ไม่ยกเลิก</Button>
+              <Button size="sm" variant="destructive" disabled={!reason.trim() || inv.payments.length > 0} onClick={() => report(act.void(inv.id, reason), "ยกเลิกใบแจ้งหนี้แล้ว") && setVoiding(false)}>ยืนยันยกเลิก</Button>
+            </div>
           </section>
         )}
-      </div>
+      </PanelBody>
+      {/* Header · Body · Bottom — destructive left, edit right (owner 2026-10-09) */}
+      {(manage || (inv.status === "pending_approval" && approveCheck.ok)) && inv.status !== "void" && inv.status !== "paid" && (
+        <PanelFooter>
+          {manage && !voiding && <Button variant="ghost" className="text-red-700" onClick={() => setVoiding(true)}><XCircleIcon /> ยกเลิกใบแจ้งหนี้</Button>}
+          {manage && (inv.status === "draft" || inv.status === "pending_approval") && <Button className="ml-auto" variant="outline" onClick={onEdit}><PencilIcon /> {inv.status === "draft" ? "แก้ไข" : "แก้ (ต้องสร้าง PDF ใหม่)"}</Button>}
+          {inv.status === "pending_approval" && approveCheck.ok && <Button className={manage ? undefined : "ml-auto"} onClick={() => report(act.approve(inv.id), "อนุมัติแล้ว — พร้อมส่งผู้ปกครอง")}><CheckIcon /> อนุมัติ PDF</Button>}
+          {inv.status === "draft" && (
+            <Button disabled={inv.pdf === "generating"} onClick={() => report(act.gen(inv.id), (v) => `กำลังสร้าง PDF · เลขที่ ${v.number}`)}>
+              {inv.pdf === "generating" ? <Loader2Icon className="animate-spin" /> : inv.pdf === "failed" ? <RefreshCwIcon /> : <FileTextIcon />}
+              {inv.pdf === "generating" ? "กำลังสร้าง PDF…" : inv.pdf === "failed" ? "ลองสร้าง PDF อีกครั้ง" : "สร้าง PDF"}
+            </Button>
+          )}
+        </PanelFooter>
+      )}
     </>
   )
 }
