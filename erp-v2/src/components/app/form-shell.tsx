@@ -15,6 +15,9 @@ export function PanelForm({ children }: { children: React.ReactNode }) {
   return <InPanel.Provider value>{children}</InPanel.Provider>
 }
 
+/** true inside <PanelForm> — a form saved there hands back to the panel instead of closing */
+export const useInPanel = () => useContext(InPanel)
+
 export function FormShell({ title, description, onClose, footer, children, className }: {
   title: React.ReactNode; description?: React.ReactNode; onClose: () => void; footer: React.ReactNode; children: React.ReactNode
   /** popup width / height (ignored in a panel) */

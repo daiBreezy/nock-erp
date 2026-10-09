@@ -9,10 +9,12 @@ import { StudentForm } from "@/components/app/student-form"
 import { StudentSheet } from "@/components/app/student-sheet"
 import { gradeTone } from "@/components/app/subject-color"
 import { Button } from "@/components/ui/button"
-import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet"
+import { SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet"
+import { EntityPanel, PanelBody, PanelFooter, PanelForm } from "./form-shell"
+import { FamilyForm } from "./family-form"
 import { fmtDateTime } from "@/domain/dates"
 import { lineCodeValid } from "@/domain/rules/people"
-import type { Family, ID } from "@/domain/types"
+import type { ID } from "@/domain/types"
 import { report } from "@/lib/feedback"
 import { useBranch, useNow } from "@/lib/hooks"
 import { cn } from "@/lib/utils"
@@ -23,7 +25,11 @@ import { useStore } from "@/store/store"
  * Shared by /families and the Inbox side-panel button so a family's contact info lives in exactly one
  * place, never a second hand-rolled summary that can drift out of sync with it.
  */
-export function FamilySheet({ id, onClose, onEdit }: { id: ID | null; onClose: () => void; onEdit: (f: Family) => void }) {
+export function FamilySheet({ id: target, onClose }: { id: ID | "new" | null; onClose: () => void }) {
+  // owner 2026-10-09: View → แก้ไข → back in the same panel; "new" opens the empty form and becomes the view once saved
+  const [createdId, setCreatedId] = useState<ID | null>(null)
+  const [editing, setEditing] = useState(target === "new")
+  const id = target === "new" ? createdId : target
   const branch = useBranch()
   const f = useStore((s) => s.families.find((x) => x.id === id))
   const kids = useStore((s) => s.students).filter((s) => s.familyId === id)
@@ -38,19 +44,19 @@ export function FamilySheet({ id, onClose, onEdit }: { id: ID | null; onClose: (
   return (
     <>
       {parentApp && f && <ParentPreview family={f} onClose={() => setParentApp(false)} />}
-      <Sheet open={!!f} onOpenChange={(o) => !o && onClose()}>
-        <SheetContent className="w-full overflow-y-auto data-[side=right]:sm:max-w-md">
-          {f && (
+      <EntityPanel open={target !== null} onClose={onClose}>
+          {editing ? (
+            <PanelForm>
+              <FamilyForm key={f?.id ?? "new"} family={f} onClose={() => (f ? setEditing(false) : onClose())}
+                onSaved={(saved) => { if (target === "new") setCreatedId(saved.id); setEditing(false) }} />
+            </PanelForm>
+          ) : f && (
             <>
-              <SheetHeader className="border-b pb-3">
+              <SheetHeader className="shrink-0 border-b pb-3">
                 <SheetTitle className="text-lg">{f.name}</SheetTitle>
                 <SheetDescription>{f.address ? `${f.address}${f.postcode ? ` ${f.postcode}` : ""}` : "ยังไม่มีที่อยู่"}</SheetDescription>
-                <div className="flex flex-wrap gap-1.5">
-                  <Button size="xs" variant="outline" className="w-fit" onClick={() => onEdit(f)}><PencilIcon /> แก้ไขครอบครัว</Button>
-                  <Button size="xs" variant="outline" className="w-fit" onClick={() => setParentApp(true)}><SmartphoneIcon /> ดูแบบผู้ปกครอง</Button>
-                </div>
               </SheetHeader>
-              <div className="space-y-5 px-4 pt-5 pb-6">
+              <PanelBody>
                 <section className="space-y-2">
                   <h3 className="text-sm font-semibold">ผู้ปกครอง</h3>
                   <ul className="divide-y rounded-2xl border">
@@ -93,11 +99,15 @@ export function FamilySheet({ id, onClose, onEdit }: { id: ID | null; onClose: (
                     {kids.length === 0 && <li className="p-4 text-center text-xs text-muted-foreground">ยังไม่มีลูกในครอบครัวนี้</li>}
                   </ul>
                 </section>
-              </div>
+              </PanelBody>
+              {/* Bottom = actions (owner 2026-10-09) */}
+              <PanelFooter>
+                <Button variant="outline" onClick={() => setParentApp(true)}><SmartphoneIcon /> ดูแบบผู้ปกครอง</Button>
+                <Button className="ml-auto" onClick={() => setEditing(true)}><PencilIcon /> แก้ไข</Button>
+              </PanelFooter>
             </>
           )}
-        </SheetContent>
-      </Sheet>
+      </EntityPanel>
       {addChild && f && <StudentForm familyId={f.id} onClose={() => setAddChild(false)} />}
       <StudentSheet studentId={studentOpen} onClose={() => setStudentOpen(null)} />
     </>

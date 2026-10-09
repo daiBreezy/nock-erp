@@ -27,7 +27,7 @@ import { Input } from "@/components/ui/input"
 import { fmtDate, fmtDateTime } from "@/domain/dates"
 import { CHANNEL_LABEL, CONVERSATION_TYPE_LABEL, conversationType, type ConversationType, SOURCE_OF_CHANNEL, unreadCount } from "@/domain/rules/inbox"
 import { can } from "@/domain/rules/permissions"
-import type { ChatMessage, Conversation, Family, FormSubmission, FormType, ID, Student } from "@/domain/types"
+import type { ChatMessage, Conversation, FormSubmission, FormType, ID, Student } from "@/domain/types"
 import { report } from "@/lib/feedback"
 import { useBranch, useQueryState } from "@/lib/hooks"
 import { cn } from "@/lib/utils"
@@ -92,7 +92,6 @@ export default function InboxPage() {
   const [openStudentId, setOpenStudentId] = useState<ID | null>(null)
   const [openLeadId, setOpenLeadId] = useState<ID | null>(null)
   const [openFamilyId, setOpenFamilyId] = useState<ID | null>(null)
-  const [editingFamily, setEditingFamily] = useState<Family | null>(null)
   const [linking, setLinking] = useState(false)
   const [pickingLink, setPickingLink] = useState(false)
   const [creatingFamily, setCreatingFamily] = useState(false)
@@ -445,8 +444,7 @@ export default function InboxPage() {
       {broadcasting && <BroadcastDialog conversations={conversations} onClose={() => { setBroadcasting(false); syncLive() }} />}
       <StudentSheet studentId={openStudentId} onClose={() => setOpenStudentId(null)} />
       <LeadSheet leadId={openLeadId} onClose={() => setOpenLeadId(null)} />
-      <FamilySheet id={openFamilyId} onClose={() => setOpenFamilyId(null)} onEdit={(f) => setEditingFamily(f)} />
-      {editingFamily && <FamilyForm family={editingFamily} onClose={() => setEditingFamily(null)} />}
+      <FamilySheet key={openFamilyId ?? "none"} id={openFamilyId} onClose={() => setOpenFamilyId(null)} />
     </div>
   )
 }

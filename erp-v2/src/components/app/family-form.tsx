@@ -3,7 +3,7 @@
 import { useState } from "react"
 import { PlusIcon, TrashIcon } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { FormShell, useInPanel } from "./form-shell"
 import { Input } from "@/components/ui/input"
 import { validateFamily } from "@/domain/rules/people"
 import type { Family } from "@/domain/types"
@@ -26,19 +26,19 @@ export function FamilyForm({ family, initialName, initialParent, onClose, onSave
   const err = (field: string) => touched && errs.find((e) => e.field === field)?.message
   const setParent = (i: number, patch: Partial<Family["parents"][number]>) => setF((x) => ({ ...x, parents: x.parents.map((p, j) => (j === i ? { ...p, ...patch } : patch.primary ? { ...p, primary: false } : p)) }))
 
+  const inPanel = useInPanel()
   const submit = () => {
     setTouched(true)
     const r = save(f)
     if (report(r, "บันทึกครอบครัวแล้ว")) {
       onSaved?.(r.value)
-      onClose()
+      if (!inPanel) onClose()
     }
   }
 
   return (
-    <Dialog open onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="max-h-[92vh] overflow-y-auto sm:max-w-xl">
-        <DialogHeader><DialogTitle>{family ? `แก้ ${family.name}` : "เพิ่มครอบครัว"}</DialogTitle></DialogHeader>
+    <FormShell className="max-h-[92vh] sm:max-w-xl" onClose={onClose} title={family ? `แก้ไข ${family.name}` : "เพิ่มครอบครัว"}
+      footer={<><Button variant="ghost" onClick={onClose}>ยกเลิก</Button><Button onClick={submit}>{family ? "บันทึก" : "เพิ่มครอบครัว"}</Button></>}>
         <div className="grid grid-cols-2 gap-2">
           <Field label={nativeLabel(branch.brand, "ชื่อครอบครัว")} error={err("name")}><Input value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} placeholder={branch.brand === "liclass" ? "山田家" : "ครอบครัวสุขใจ"} /></Field>
           <EnNameField label="ชื่อครอบครัว" native={f.name} value={f.nameEn} onChange={(v) => setF({ ...f, nameEn: v })} />
@@ -83,11 +83,6 @@ export function FamilyForm({ family, initialName, initialParent, onClose, onSave
           </div>
         </details>
 
-        <DialogFooter>
-          <Button variant="ghost" onClick={onClose}>ยกเลิก</Button>
-          <Button onClick={submit}>บันทึก</Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+    </FormShell>
   )
 }

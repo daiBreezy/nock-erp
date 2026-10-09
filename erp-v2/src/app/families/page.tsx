@@ -8,7 +8,6 @@ import { Kpi } from "@/components/app/kpi"
 import { BranchCode, useBranchScope } from "@/components/app/branch-scope"
 import { Pill } from "@/components/app/badges"
 import { HEAD, Pager, ROW, SortHeader, TableShell, Th, usePage, useSort } from "@/components/app/data-table"
-import { FamilyForm } from "@/components/app/family-form"
 import { FamilySheet } from "@/components/app/family-sheet"
 import { NativeSelect } from "@/components/app/native-select"
 import { gradeTone } from "@/components/app/subject-color"
@@ -30,7 +29,6 @@ export default function FamiliesPage() {
   const [q, setQ] = useState("")
   const [lineF, setLineF] = useState("")
   const [noAddr, setNoAddr] = useState(false)
-  const [editing, setEditing] = useState<Family | "new" | null>(null)
   const [openId, setOpenId] = useState<ID | null>(null)
   const { sort, toggle } = useSort<FamSort>("name")
 
@@ -68,7 +66,7 @@ export default function FamiliesPage() {
   return (
     <Page>
       <PageHeader title="ครอบครัว" description="ผู้ปกครอง ช่องทางติดต่อ LINE และลูกที่เรียนอยู่"
-        actions={<Button onClick={() => setEditing("new")}><PlusIcon /> เพิ่มครอบครัว</Button>} />
+        actions={<Button onClick={() => setOpenId("new")}><PlusIcon /> เพิ่มครอบครัว</Button>} />
       <KpiRow>
         <Kpi icon={UsersIcon} label="ครอบครัวทั้งหมด" value={kpi.all} onClick={() => { setLineF(""); setNoAddr(false) }} />
         <Kpi icon={MessageCircleIcon} label="ผูก LINE ครบ" value={kpi.linked} tone="emerald" onClick={() => setLineF(lineF === "linked" ? "" : "linked")} active={lineF === "linked"} />
@@ -128,8 +126,7 @@ export default function FamiliesPage() {
       </TableShell>
       <Pager {...pg} unit="ครอบครัว" />
 
-      <FamilySheet id={openId} onClose={() => setOpenId(null)} onEdit={(f) => setEditing(f)} />
-      {editing && <FamilyForm family={editing === "new" ? undefined : editing} onClose={() => setEditing(null)} />}
+      <FamilySheet key={openId ?? "none"} id={openId} onClose={() => setOpenId(null)} />
     </Page>
   )
 }
