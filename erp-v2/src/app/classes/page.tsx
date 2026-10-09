@@ -104,13 +104,13 @@ export default function ClassesPage() {
       </div>
 
       <div className="flex flex-wrap items-center gap-2">
-        <h2 className="mr-auto font-semibold">รายการคลาส</h2>
-        <div className="relative">
+        <h2 className="font-semibold">รายการคลาส</h2>
+        {scope.select}
+        <div className="relative ml-auto">
           <SearchIcon className="absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
           <Input className="w-60 pl-9" placeholder="เช่น ชื่อครู, ชั้น, วิชา, ห้อง" value={q} onChange={(e) => setQ(e.target.value)} />
         </div>
         <Button size="icon" variant="outline" aria-label="สลับลำดับ" onClick={() => toggle(sort.key)}><ArrowDownUpIcon /></Button>
-        {scope.select}
         <NativeSelect className="h-9 w-28" value={subjectF} onChange={(e) => setSubjectF(e.target.value)} placeholder="ทุกวิชา" options={[...new Set(classes.flatMap((c) => subjectsOf(c)))].map((x) => ({ value: x, label: x }))} />
         <NativeSelect className="h-9 w-32" value={kindF} onChange={(e) => setKindF(e.target.value)} placeholder="ประเภทคอร์ส" options={[{ value: "single", label: "Single" }, { value: "bundle", label: "Bundle" }]} />
         <NativeSelect className="h-9 w-32" value={unitF} onChange={(e) => setUnitF(e.target.value)} placeholder="แพ็กเกจ" options={(["hour", "week", "month"] as PriceUnit[]).map((u) => ({ value: u, label: PRICE_UNIT_LABEL[u] }))} />

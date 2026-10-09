@@ -1,6 +1,6 @@
 "use client"
 
-import { scopeOptions as buildScopeOptions } from "@/components/app/branch-scope"
+import { BranchChip, scopeOptions as buildScopeOptions } from "@/components/app/branch-scope"
 import Link from "next/link"
 import { Fragment, Suspense, useEffect, useMemo, useState } from "react"
 import { useSearchParams } from "next/navigation"
@@ -16,7 +16,7 @@ import { useReports, type ReportData } from "@/components/reports/use-reports"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { addDays, fmtDate, fmtMoney, monthShort, toDateStr, weekdayShort, yearOf } from "@/domain/dates"
-import { can, canCompareBranches, reportBranchIds } from "@/domain/rules/permissions"
+import { can, canCompareBranches, crossBranch, reportBranchIds } from "@/domain/rules/permissions"
 import { BUSINESS_SHORT, COMPARE_LABEL, groupFigures, PERIODS, scopeBranchIds, type GroupBy, type PeriodKey, type Range, type SchoolGroup, type SchoolRow, schoolsByGroup } from "@/domain/rules/reports"
 import { LEAD_SOURCE_LABEL } from "@/domain/rules/crm"
 import { reasonLabel } from "@/domain/rules/loss"
@@ -57,7 +57,9 @@ function Reports() {
   const me = useStore((s) => s.me())
   const branches = useStore((s) => s.branches)
   const students = useStore((s) => s.students)
-  const allowed = useMemo(() => reportBranchIds(me, branches), [me, branches])
+  // owner 2026-10-09: branch staff (Manager) read their sidebar branch — only Director / Super Admin / Area Manager pick
+  const sidebarBranch = useStore((s) => s.branchId)
+  const allowed = useMemo(() => (crossBranch(me) ? reportBranchIds(me, branches) : [sidebarBranch]), [me, branches, sidebarBranch])
   const compare = canCompareBranches(me) && allowed.length > 1
   const [scope, setScope] = useState<string>("all")
   const allowedBranches = useMemo(() => branches.filter((b) => allowed.includes(b.id)), [branches, allowed])
@@ -96,8 +98,7 @@ function Reports() {
           <p className="text-xs text-muted-foreground">{scopeLabel} · {periodLabel}{period !== "custom" && ` ${fmtDate(d.range.from)} – ${fmtDate(d.range.to)}`}  {tx("· เทียบ")} {fmtDate(d.prev.from, { year: d.prev.from.slice(0, 4) !== d.range.from.slice(0, 4) })} – {fmtDate(d.prev.to, { year: d.prev.to.slice(0, 4) !== d.range.to.slice(0, 4) })}  {tx("· ข้อมูลจริงจากใบแจ้งหนี้ที่จ่ายแล้ว แพ็กเกจ และการเช็คชื่อ")}</p>
         </div>
         {allowed.length > 1 && (
-          <NativeSelect className="h-9 w-60 print:hidden" value={scope} onChange={(e) => setScope(e.target.value)}
-            options={scopeOptions} />
+          <BranchChip className="print:hidden" value={scope} onChange={setScope} options={scopeOptions} active={scope !== "all"} />
         )}
         {/* owner 2026-10-07: one download button, pick the format */}
         <DropdownMenu>
