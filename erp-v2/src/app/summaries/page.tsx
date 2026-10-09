@@ -1,5 +1,6 @@
 "use client"
 
+import { BranchCode, useBranchScope } from "@/components/app/branch-scope"
 import { useState } from "react"
 import { CheckIcon, SendIcon } from "lucide-react"
 import { Pill } from "@/components/app/badges"
@@ -13,7 +14,7 @@ import { can, seesAllSessions } from "@/domain/rules/permissions"
 import * as Sum from "@/domain/rules/summaries"
 import type { ID } from "@/domain/types"
 import { report } from "@/lib/feedback"
-import { useBranch, useLookup, useNow, useQueryState } from "@/lib/hooks"
+import { useLookup, useNow, useQueryState } from "@/lib/hooks"
 import { cn } from "@/lib/utils"
 import { useStore } from "@/store/store"
 
@@ -46,7 +47,8 @@ export default function SummariesPage() {
 function SessionSummaryTab() {
   const now = useNow()
   const today = toDateStr(now)
-  const branch = useBranch()
+  // owner 2026-10-09: Director / Area Manager can list several branches at once
+  const scope = useBranchScope()
   const me = useStore((s) => s.me())
   const sessions = useStore((s) => s.sessions)
   const attendance = useStore((s) => s.attendance)
@@ -62,7 +64,7 @@ function SessionSummaryTab() {
 
   const from = addDays(today, -days + 1)
   const mineOnly = !seesAllSessions(me)
-  const inRange = sessions.filter((s) => s.branchId === branch.id && s.date >= from && s.date <= today && (!mineOnly || s.teacherId === me.id))
+  const inRange = sessions.filter((s) => scope.ids.includes(s.branchId) && s.date >= from && s.date <= today && (!mineOnly || s.teacherId === me.id))
   const rows = inRange.flatMap((s) =>
     attendance
       .filter((a) => a.sessionId === s.id && a.status === "present")
@@ -74,6 +76,7 @@ function SessionSummaryTab() {
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-2">
+        {scope.select}
         <span className="text-sm text-muted-foreground">ช่วงเวลา</span>
         {[7, 14, 30].map((d) => (
           <Button key={d} size="sm" variant={days === d ? "default" : "outline"} onClick={() => setDays(d)}>{d} วันล่าสุด</Button>
@@ -105,7 +108,7 @@ function SessionSummaryTab() {
                 <div className="text-xs text-muted-foreground">{s.start}</div>
               </div>
               <div className="min-w-48 flex-1">
-                <div className="text-sm font-medium">{stu?.nickname} <span className="text-xs text-muted-foreground">{stu?.grade}</span> · {classes.find((c) => c.id === s.classId)?.name ?? s.subject}</div>
+                <div className="text-sm font-medium">{stu?.nickname} <span className="text-xs text-muted-foreground">{stu?.grade}</span> · {classes.find((c) => c.id === s.classId)?.name ?? s.subject}{scope.multi && <span className="ml-1.5 align-middle"><BranchCode code={scope.code(s.branchId)} /></span>}</div>
                 <div className="text-xs text-muted-foreground">ครู {L.teacher(sm?.authorId ?? s.teacherId).label}</div>
                 {sm?.text && <p className="mt-1 line-clamp-2 text-sm">{sm.text}</p>}
                 {sm?.status === "changes_requested" && <p className="mt-1 text-xs text-red-700">ขอแก้: {sm.history.findLast((h) => h.action === "request_changes")?.note}</p>}
@@ -141,11 +144,11 @@ function SessionSummaryTab() {
 function CourseSummaryTab() {
   const now = useNow()
   const today = toDateStr(now)
-  const branch = useBranch()
   const me = useStore((s) => s.me())
   const entitlements = useStore((s) => s.entitlements)
   const courseSummaries = useStore((s) => s.courseSummaries)
-  const students = useStore((s) => s.students).filter((x) => x.branchId === branch.id)
+  const scope = useBranchScope()
+  const students = useStore((s) => s.students).filter((x) => scope.ids.includes(x.branchId))
   const courses = useStore((s) => s.courses)
   const sessions = useStore((s) => s.sessions)
   const renewalDays = useStore((s) => s.system.settings.renewalDaysBefore)
@@ -179,6 +182,7 @@ function CourseSummaryTab() {
 
   return (
     <div className="space-y-4">
+      {scope.select}
       <p className="text-xs text-muted-foreground">รอบที่แพ็กเกจใกล้หมด (ภายใน {renewalDays} วัน) หรือหมดแล้ว — สรุปทั้งคอร์สเขียนเมื่อมองย้อนกลับทั้งรอบ · เปิดดูเป็นรายนักเรียน เห็นทุกคอร์สค้างพร้อมกัน</p>
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
         {BUCKETS.map((t) => (

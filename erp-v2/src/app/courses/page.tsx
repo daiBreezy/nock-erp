@@ -1,5 +1,6 @@
 "use client"
 
+import { useBranchScope } from "@/components/app/branch-scope"
 import { Fragment, useMemo, useState } from "react"
 import { ArrowDownUpIcon, BookOpenIcon, CalendarIcon, ChevronDownIcon, ClockIcon, CopyIcon, DoorOpenIcon, LayersIcon, PencilIcon, PlusIcon, SearchIcon, StarIcon, UsersIcon, WalletIcon } from "lucide-react"
 import { Pill } from "@/components/app/badges"
@@ -13,7 +14,7 @@ import { endTime, fmtDate, fmtMoney, TH_DAYS_FULL, toDateStr } from "@/domain/da
 import { invoiceTotals } from "@/domain/rules/billing"
 import { priceUnitSuffix } from "@/domain/rules/course"
 import { PackageBadge } from "@/components/app/package-badge"
-import { can, inBranch } from "@/domain/rules/permissions"
+import { can } from "@/domain/rules/permissions"
 import { gradeRanges, PRICE_UNIT_LABEL } from "@/domain/rules/settings"
 import type { Course, PriceUnit } from "@/domain/types"
 import { report } from "@/lib/feedback"
@@ -40,7 +41,8 @@ export default function CoursesPage() {
   const manage = can(me, "course.manage")
 
   const [q, setQ] = useState("")
-  const [branchF, setBranchF] = useState(branch.id)
+  // owner 2026-10-09: the shared branch filter (sidebar branch by default, several for Director / Area Manager)
+  const scope = useBranchScope()
   const [subjectF, setSubjectF] = useState("")
   const [kindF, setKindF] = useState("")
   const [unitF, setUnitF] = useState("")
@@ -48,8 +50,7 @@ export default function CoursesPage() {
   const [open, setOpen] = useState<Set<string>>(new Set())
   const [editing, setEditing] = useState<Course | null>(null)
 
-  const myBranches = branches.filter((b) => inBranch(me, b.id))
-  const scoped = courses.filter((c) => (branchF ? c.branchId === branchF : myBranches.some((b) => b.id === c.branchId)))
+  const scoped = courses.filter((c) => scope.ids.includes(c.branchId))
 
   // per-course stats: enrolled = students holding a still-valid package of the course; revenue = paid invoices
   const stats = useMemo(() => {
@@ -100,7 +101,7 @@ export default function CoursesPage() {
       <div className="flex items-center gap-3">
         <span className="grid size-10 place-items-center rounded-2xl bg-primary/10 text-primary"><BookOpenIcon className="size-5" /></span>
         <h1 className="text-xl font-semibold">คอร์ส</h1>
-        {manage && <Button className="ml-auto" onClick={() => setEditing(emptyCourse(branches.find((b) => b.id === (branchF || branch.id))!))}><PlusIcon /> สร้างคอร์ส</Button>}
+        {manage && <Button className="ml-auto" onClick={() => setEditing(emptyCourse(branch))}><PlusIcon /> สร้างคอร์ส</Button>}
       </div>
 
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
@@ -122,7 +123,7 @@ export default function CoursesPage() {
           <SearchIcon className="absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
           <Input className="w-56 pl-9" value={q} onChange={(e) => setQ(e.target.value)} placeholder="ค้นหาชื่อคอร์ส วิชา ระดับชั้น" />
         </div>
-        <NativeSelect className="h-9 w-36" value={branchF} onChange={(e) => setBranchF(e.target.value)} options={[...(myBranches.length > 1 ? [{ value: "", label: "ทุกสาขา" }] : []), ...myBranches.map((b) => ({ value: b.id, label: `สาขา${b.name}` }))]} />
+        {scope.select}
         <NativeSelect className="h-9 w-32" value={subjectF} onChange={(e) => setSubjectF(e.target.value)} placeholder="ทุกวิชา" options={subjects.map((s) => ({ value: s, label: s }))} />
         <NativeSelect className="h-9 w-32" value={kindF} onChange={(e) => setKindF(e.target.value)} placeholder="ทุกประเภท" options={[{ value: "single", label: "Single" }, { value: "bundle", label: "Bundle" }]} />
         <NativeSelect className="h-9 w-36" value={unitF} onChange={(e) => setUnitF(e.target.value)} placeholder="ทุกแพ็กเกจ" options={(["hour", "week", "month"] as PriceUnit[]).map((u) => ({ value: u, label: PRICE_UNIT_LABEL[u] }))} />

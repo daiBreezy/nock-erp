@@ -1,5 +1,6 @@
 "use client"
 
+import { BranchCode, useBranchScope } from "@/components/app/branch-scope"
 import { staffAt } from "@/domain/rules/permissions"
 import { useState } from "react"
 import { ChevronLeftIcon, ChevronRightIcon } from "lucide-react"
@@ -26,6 +27,8 @@ export default function AttendancePage() {
   const now = useNow()
   const today = toDateStr(now)
   const branch = useBranch()
+  // owner 2026-10-09: Director / Area Manager can list several branches at once
+  const scope = useBranchScope()
   const sessions = useStore((s) => s.sessions)
   const attendance = useStore((s) => s.attendance)
   const students = useStore((s) => s.students)
@@ -42,7 +45,7 @@ export default function AttendancePage() {
   const to = range === "week" ? addDays(from, 6) : endOfMonth(anchor)
   const step = (dir: number) => setAnchor(range === "week" ? addDays(anchor, 7 * dir) : toDateStr(new Date(Number(anchor.slice(0, 4)), Number(anchor.slice(5, 7)) - 1 + dir, 1)))
 
-  const inRange = sessions.filter((s) => s.branchId === branch.id && !s.cancelled && s.date >= from && s.date <= to && sessionState(s, now) !== "upcoming" && (!subject || s.subject === subject) && (!teacher || s.teacherId === teacher))
+  const inRange = sessions.filter((s) => scope.ids.includes(s.branchId) && !s.cancelled && s.date >= from && s.date <= to && sessionState(s, now) !== "upcoming" && (!subject || s.subject === subject) && (!teacher || s.teacherId === teacher))
   const ids = new Set(inRange.map((s) => s.id))
   const att = attendance.filter((a) => ids.has(a.sessionId))
   const expected = inRange.reduce((n, s) => n + s.studentIds.length, 0)
@@ -56,7 +59,7 @@ export default function AttendancePage() {
   ]
 
   const perStudent = students
-    .filter((s) => s.branchId === branch.id)
+    .filter((s) => scope.ids.includes(s.branchId))
     .map((s) => {
       const mine = att.filter((a) => a.studentId === s.id)
       const booked = inRange.filter((x) => x.studentIds.includes(s.id)).length
@@ -76,6 +79,7 @@ export default function AttendancePage() {
   return (
     <div className="mx-auto max-w-5xl space-y-4">
       <div className="flex flex-wrap items-center gap-2">
+        {scope.select}
         <Button size="icon-sm" variant="outline" aria-label="ก่อนหน้า" onClick={() => step(-1)}><ChevronLeftIcon /></Button>
         <Button size="sm" variant="outline" onClick={() => setAnchor(today)}>ปัจจุบัน</Button>
         <Button size="icon-sm" variant="outline" aria-label="ถัดไป" onClick={() => step(1)}><ChevronRightIcon /></Button>
@@ -114,7 +118,7 @@ export default function AttendancePage() {
               const rate = r.booked ? r.present / r.booked : 0
               return (
                 <tr key={r.s.id} onClick={() => setOpenId(r.s.id)} className={ROW}>
-                  <td className="truncate font-medium">{r.s.nickname} <span className="font-normal text-muted-foreground">{r.s.name}</span></td>
+                  <td className="truncate font-medium">{r.s.nickname} <span className="font-normal text-muted-foreground">{r.s.name}</span>{scope.multi && <span className="ml-1.5 align-middle"><BranchCode code={scope.code(r.s.branchId)} /></span>}</td>
                   <td><GradeCell grade={r.s.grade} tone={gradeTone(r.s.grade)} /></td>
                   <td className="text-right tabular-nums">{r.booked}</td>
                   <td className="text-right tabular-nums text-emerald-700">{r.present}</td>

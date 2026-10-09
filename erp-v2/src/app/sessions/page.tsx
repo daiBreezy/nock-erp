@@ -1,5 +1,6 @@
 "use client"
 
+import { BranchCode, useBranchScope } from "@/components/app/branch-scope"
 import { staffAt } from "@/domain/rules/permissions"
 import { useState } from "react"
 import { ChevronLeftIcon, ChevronRightIcon } from "lucide-react"
@@ -25,6 +26,8 @@ export default function SessionsPage() {
   const now = useNow()
   const today = toDateStr(now)
   const branch = useBranch()
+  // owner 2026-10-09: Director / Area Manager can list several branches at once
+  const scope = useBranchScope()
   const me = useStore((s) => s.me())
   const sessions = useStore((s) => s.sessions)
   const attendance = useStore((s) => s.attendance)
@@ -45,7 +48,7 @@ export default function SessionsPage() {
   const from = range === "day" ? anchor : range === "recent" ? addDays(today, -29) : addDays(anchor, -((weekdayOf(anchor) + 6) % 7))
   const to = range === "day" ? anchor : range === "recent" ? today : addDays(from, 6)
   const list = sessions
-    .filter((s) => s.branchId === branch.id && s.date >= from && s.date <= to && !removedWithClass(s, classes))
+    .filter((s) => scope.ids.includes(s.branchId) && s.date >= from && s.date <= to && !removedWithClass(s, classes))
     .filter((s) => teacher === "all" || s.teacherId === teacher || s.coTeacherIds.includes(teacher))
     .sort((a, b) => (a.date + a.start).localeCompare(b.date + b.start))
   const withState = list.map((s) => ({ s, w: workState(s, now, attendance, summaries) }))
@@ -57,6 +60,7 @@ export default function SessionsPage() {
   return (
     <div className="mx-auto max-w-5xl space-y-3">
       <div className="flex flex-wrap items-center gap-2">
+        {scope.select}
         <Button size="icon-sm" variant="outline" aria-label="ก่อนหน้า" onClick={() => setAnchor(addDays(anchor, range === "day" ? -1 : -7))}><ChevronLeftIcon /></Button>
         <Button size="sm" variant="outline" onClick={() => setAnchor(today)}>วันนี้</Button>
         <Button size="icon-sm" variant="outline" aria-label="ถัดไป" onClick={() => setAnchor(addDays(anchor, range === "day" ? 1 : 7))}><ChevronRightIcon /></Button>
@@ -90,7 +94,7 @@ export default function SessionsPage() {
                   <span className={cn("h-9 w-1 rounded-full", c.bar)} />
                   <span className="w-24 text-sm tabular-nums">{s.start}–{endTime(s.start, s.minutes)}</span>
                   <span className="min-w-40 flex-1">
-                    <span className="block text-sm font-medium">{classes.find((k) => k.id === s.classId)?.name ?? s.subject}{sessionKindLabel(s) && <Pill tone="violet" className="ml-2">{sessionKindLabel(s)}</Pill>}</span>
+                    <span className="block text-sm font-medium">{classes.find((k) => k.id === s.classId)?.name ?? s.subject}{sessionKindLabel(s) && <Pill tone="violet" className="ml-2">{sessionKindLabel(s)}</Pill>}{scope.multi && <span className="ml-2 align-middle"><BranchCode code={scope.code(s.branchId)} /></span>}</span>
                     <span className="block text-xs text-muted-foreground">
                       <span className={cn(t.missing && "text-amber-700")}>{t.label}</span> · {L.room(s.roomId)} · {s.studentIds.length} คน
                     </span>

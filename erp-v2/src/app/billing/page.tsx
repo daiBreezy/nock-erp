@@ -1,5 +1,6 @@
 "use client"
 
+import { BranchCode, useBranchScope } from "@/components/app/branch-scope"
 import { SalesTaxDialog } from "@/components/billing/sales-tax-dialog"
 import { Suspense, useState } from "react"
 import { useSearchParams } from "next/navigation"
@@ -58,12 +59,14 @@ function BillingPage() {
 
   const { sort, toggle } = useSort<BillSort>("created", true)
   const byGrade = gradeCompare(branch.grades)
-  const ctx = { branch, courses, classes, holidays }
+  // owner 2026-10-09: Director / Area Manager can list several branches at once — totals use each invoice's own branch
+  const scope = useBranchScope()
+  const allBranches = useStore((s) => s.branches)
   const now = useNow()
   const rows = invoices
-    .filter((i) => i.branchId === branch.id)
+    .filter((i) => scope.ids.includes(i.branchId))
     .map((i) => {
-      const total = Bill.invoiceTotals(i, ctx).total
+      const total = Bill.invoiceTotals(i, { branch: allBranches.find((b) => b.id === i.branchId) ?? branch, courses, classes, holidays }).total
       const paid = i.payments.reduce((a, p) => a + p.amount, 0)
       return { inv: i, total, paid, toConfirm: i.payments.some((p) => !p.confirmedBy), student: students.find((s) => s.id === i.studentId) }
     })
@@ -122,6 +125,7 @@ function BillingPage() {
       </div>
 
       <div className="flex flex-wrap items-center gap-2">
+        {scope.select}
         {/* owner 2026-10-07: All / Pending, and Done / Void as show-hide toggles (the cards above still filter one status) */}
         <ToggleGroup value={[filter]} onValueChange={(v) => v[0] && setFilter(v[0] as Filter)} variant="outline" size="sm">
           <ToggleGroupItem value="all">All</ToggleGroupItem>
@@ -158,7 +162,7 @@ function BillingPage() {
             <tr key={inv.id} onClick={() => setOpenId(inv.id)} data-focus={[Bill.canApprove(inv, me).ok && "invoice_approve", invoiceOverdue(inv, now) && "unpaid", paymentUnconfirmed(inv, now) && "unconfirmed"].filter(Boolean).join(" ") || undefined} className={ROW}>
               <td className="font-medium tabular-nums">{inv.number ? <MidText text={inv.number} /> : <span className="text-muted-foreground">—</span>}</td>
               <td className="truncate text-muted-foreground tabular-nums">{fmtDate(inv.createdAt.slice(0, 10))}</td>
-              <td className="truncate">{student?.nickname ?? "—"}</td>
+              <td className="truncate">{student?.nickname ?? "—"}{scope.multi && <span className="ml-1.5 align-middle"><BranchCode code={scope.code(inv.branchId)} /></span>}</td>
               <td>{student && <GradeCell grade={student.grade} tone={gradeTone(student.grade)} />}</td>
               <td className="truncate text-muted-foreground">{inv.lines.map((l) => courses.find((c) => c.id === l.courseId)?.name).filter(Boolean).join(", ") || (inv.busExtras?.length ? "ค่ารถเพิ่ม" : "ค่าอื่นๆ")}</td>
               <td className="text-right font-medium tabular-nums">{fmtMoney(total)}</td>

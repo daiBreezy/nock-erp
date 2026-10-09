@@ -1,10 +1,11 @@
 "use client"
 
+import { scopeOptions as buildScopeOptions } from "@/components/app/branch-scope"
 import Link from "next/link"
 import { Fragment, Suspense, useEffect, useMemo, useState } from "react"
 import { useSearchParams } from "next/navigation"
 import { BanknoteIcon, CalendarDaysIcon, ChartColumnIcon, ChevronDownIcon, ClockIcon, DownloadIcon, FileSpreadsheetIcon, PrinterIcon, SchoolIcon, SparklesIcon, UsersIcon, UserCheckIcon } from "lucide-react"
-import { NativeSelect, type Option } from "@/components/app/native-select"
+import { NativeSelect } from "@/components/app/native-select"
 import { StudentSheet } from "@/components/app/student-sheet"
 import { AttentionButton, AttentionDialog } from "@/components/reports/attention-dialog"
 import { Delta, Donut, DonutLegend, Empty, InfoTip, TopList, fmtNum, fmtPct, fmtShort, Heatmap, MonthBars, Panel, Rank, ShareBar, donutColor, tint } from "@/components/reports/charts"
@@ -72,7 +73,7 @@ function Reports() {
   // survey answers live on the form server — pull new ones in (unhappy families notify their managers)
   useEffect(() => { pullSurveyResponses() }, [])
   const periodLabel = period === "custom" ? `${fmtDate(d.range.from)} – ${fmtDate(d.range.to)}` : tx(PERIODS.find((p) => p.key === period)!.label)
-  const scopeOptions = reportScopeOptions(allowedBranches, allowed.length === branches.length)
+  const scopeOptions = buildScopeOptions(allowedBranches, allowed.length === branches.length)
   const scopeLabel = scope === "all" ? scopeOptions[0].label : scopeOptions.find((o) => o.value === scope)?.label ?? ""
   const showCompare = compare && branchIds.length > 1
 
@@ -159,22 +160,8 @@ function Reports() {
 }
 
 
-const REGION_NAME: Record<string, string> = { BKK: "กรุงเทพฯ", CBR: "ชลบุรี" }
-const BIZ_NAME: Record<string, string> = { nockacademy: "Nockacademy", liclass: "Liclass" }
 
 /** Reports scope picker: everything · regions · business types · region × business · each branch (grouped by region) */
-function reportScopeOptions(list: Pick<Branch, "id" | "name" | "code" | "brand" | "province">[], everything: boolean): Option[] {
-  const regions = [...new Set(list.map((b) => b.province ?? ""))].filter(Boolean).sort()
-  const bizes = (["nockacademy", "liclass"] as const).filter((z) => list.some((b) => b.brand === z))
-  const opts: Option[] = [{ value: "all", label: everything ? tx("ทุกสาขา") : tx("ทุกสาขาในเขต") }]
-  if (regions.length > 1) regions.forEach((r) => opts.push({ value: `region:${r}`, label: `${r} · ${tx(REGION_NAME[r] ?? r)}`, group: tx("ภูมิภาค") }))
-  if (bizes.length > 1) bizes.forEach((z) => opts.push({ value: `biz:${z}`, label: `${BUSINESS_SHORT[z]} · ${BIZ_NAME[z]}`, group: tx("ประเภทธุรกิจ") }))
-  if (regions.length > 1 && bizes.length > 1)
-    regions.forEach((r) => bizes.forEach((z) => { if (list.some((b) => b.province === r && b.brand === z)) opts.push({ value: `region:${r}|biz:${z}`, label: `${r} · ${BUSINESS_SHORT[z]}`, group: tx("ภูมิภาค × ธุรกิจ") }) }))
-  regions.forEach((r) => list.filter((b) => b.province === r).sort((a, b) => a.brand.localeCompare(b.brand) || a.code.localeCompare(b.code))
-    .forEach((b) => opts.push({ value: b.id, label: `${b.code} · ${nm(b.name)} (${BUSINESS_SHORT[b.brand]})`, group: tx("สาขา {0}", [r]) })))
-  return opts
-}
 
 const GROUP_TABS: { by: GroupBy; label: string }[] = [{ by: "region", label: "ภูมิภาค" }, { by: "biz", label: "ประเภทธุรกิจ" }, { by: "both", label: "ภูมิภาค × ธุรกิจ" }]
 const GROUP_COLORS = ["#be123c", "#0ea5e9", "#f59e0b", "#10b981", "#8b5cf6", "#64748b"]

@@ -1,5 +1,6 @@
 "use client"
 
+import { BranchCode, useBranchScope } from "@/components/app/branch-scope"
 import { useState } from "react"
 import { CalendarClockIcon, ChevronRightIcon, LayoutGridIcon, PlusIcon, RotateCcwIcon, SearchIcon, TableIcon, TrendingUpIcon, UserCheckIcon, UserSearchIcon, UsersIcon } from "lucide-react"
 import { Pill } from "@/components/app/badges"
@@ -41,7 +42,9 @@ export default function CrmPage() {
   const branch = useBranch()
   const me = useStore((s) => s.me())
   const staff = useStore((s) => s.staff)
-  const leads = useStore((s) => s.leads).filter((l) => l.branchId === branch.id)
+  // owner 2026-10-09: Director / Area Manager can list several branches at once
+  const scope = useBranchScope()
+  const leads = useStore((s) => s.leads).filter((l) => scope.ids.includes(l.branchId))
   const moveStage = useStore((s) => s.moveLeadStage)
   const restore = useStore((s) => s.restoreLead)
   const now = useNow()
@@ -119,6 +122,7 @@ export default function CrmPage() {
       </div>
 
       <div className="flex flex-wrap items-center gap-2">
+        {scope.select}
         <div className="relative w-56">
           <SearchIcon className="absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" />
           <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="ค้นหาชื่อ / วิชา" className="pl-8" />
@@ -158,7 +162,7 @@ export default function CrmPage() {
                 </div>
                 <div className="min-h-0 flex-1 space-y-2 overflow-y-auto overscroll-y-contain pr-0.5">
                   {groupLeads.map((l) => (
-                    <LeadCard key={l.id} lead={l} now={now} staff={staff} draggable={canManage && DRAGGABLE_STAGES.includes(l.stage)} onOpen={() => setOpenLead(l.id)} onRestore={canManage ? () => restoreLead(l.id) : undefined} />
+                    <LeadCard branchCode={scope.multi ? scope.code(l.branchId) : undefined} key={l.id} lead={l} now={now} staff={staff} draggable={canManage && DRAGGABLE_STAGES.includes(l.stage)} onOpen={() => setOpenLead(l.id)} onRestore={canManage ? () => restoreLead(l.id) : undefined} />
                   ))}
                   {groupLeads.length === 0 && <p className="px-1 py-3 text-center text-xs text-muted-foreground">ไม่มี</p>}
                 </div>
@@ -203,6 +207,7 @@ export default function CrmPage() {
                       <div className="flex min-w-0 items-center gap-2">
                         <span className={cn("grid size-8 shrink-0 place-items-center rounded-full text-xs font-semibold", avatarTone(l.id))}>{initial(l.name)}</span>
                         <span className="flex-1 truncate font-medium">{l.name}</span>
+                        {scope.multi && <BranchCode code={scope.code(l.branchId)} />}
                       </div>
                     </td>
                     <td><GradeCell grade={l.childGrade} tone={gradeTone(l.childGrade)} /></td>
@@ -236,7 +241,7 @@ export default function CrmPage() {
 
 /** Owner ref (Contact/Test/Trial/Billing board): 3 fixed rows — who + grade, subject + stage tag,
  *  then the one fact that matters right now — with the assignee pinned at the bottom every time. */
-function LeadCard({ lead, now, staff, draggable, onOpen, onRestore }: { lead: Lead; now: Date; staff: Staff[]; draggable: boolean; onOpen: () => void; onRestore?: () => void }) {
+function LeadCard({ lead, now, staff, draggable, onOpen, onRestore, branchCode }: { lead: Lead; now: Date; staff: Staff[]; draggable: boolean; onOpen: () => void; onRestore?: () => void; branchCode?: string }) {
   const detail = leadDetail(lead, now)
   const assignee = staff.find((s) => s.id === lead.assigneeId)
   return (
@@ -254,6 +259,7 @@ function LeadCard({ lead, now, staff, draggable, onOpen, onRestore }: { lead: Le
         <span className="flex min-w-0 items-center gap-1.5">
           <span className={cn("grid size-6 shrink-0 place-items-center rounded-full text-[11px] font-semibold", avatarTone(lead.id))}>{initial(lead.name)}</span>
           <span className="truncate text-sm font-medium">{lead.name}</span>
+          {branchCode && <BranchCode code={branchCode} />}
         </span>
         <span className={cn("shrink-0 rounded px-1.5 py-0.5 text-[10px] font-semibold", gradeTone(lead.childGrade))}>{lead.childGrade}</span>
       </div>

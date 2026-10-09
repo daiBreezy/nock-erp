@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react"
 import { PlusIcon, SearchIcon } from "lucide-react"
+import { BranchCode, useBranchScope } from "@/components/app/branch-scope"
 import { Pill } from "@/components/app/badges"
 import { HEAD, Pager, ROW, SortHeader, TableShell, Th, usePage, useSort } from "@/components/app/data-table"
 import { FamilyForm } from "@/components/app/family-form"
@@ -11,7 +12,6 @@ import { gradeTone } from "@/components/app/subject-color"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import type { Family, ID, Student } from "@/domain/types"
-import { useBranch } from "@/lib/hooks"
 import { useFocusFirst } from "@/components/app/focus-banner"
 import { cn } from "@/lib/utils"
 import { useStore } from "@/store/store"
@@ -20,7 +20,8 @@ type FamSort = "name" | "parent" | "kids" | "line" | "address"
 
 /** Families as a data table (owner 2026-09-28: cards were hard to scan). Click a row → detail panel. */
 export default function FamiliesPage() {
-  const branch = useBranch()
+  // owner 2026-10-09: Director / Area Manager can list several branches at once
+  const scope = useBranchScope()
   const families = useStore((s) => s.families)
   const students = useStore((s) => s.students)
   const [q, setQ] = useState("")
@@ -41,7 +42,7 @@ export default function FamiliesPage() {
   const needle = q.trim().toLowerCase()
   const rows = families
     // a family belongs to this branch if one of its children studies here (or it has no children yet)
-    .filter((f) => { const k = kidsOf.get(f.id) ?? []; return k.length === 0 || k.some((s) => s.branchId === branch.id) })
+    .filter((f) => { const k = kidsOf.get(f.id) ?? []; return k.length === 0 || k.some((s) => scope.ids.includes(s.branchId)) })
     .filter((f) => !lineF || (lineF === "linked" ? linkedCount(f) === f.parents.length : linkedCount(f) < f.parents.length))
     .filter((f) => !needle || `${f.name} ${f.parents.map((p) => `${p.name} ${p.phone}`).join(" ")} ${(kidsOf.get(f.id) ?? []).map((s) => `${s.nickname} ${s.name}`).join(" ")}`.toLowerCase().includes(needle))
     .sort((a, b) => {
@@ -54,11 +55,12 @@ export default function FamiliesPage() {
     })
   const focusKeys = (f: (typeof rows)[number]) => [!f.address && !f.postcode && "no_address", !f.lineUserId && !f.parents.some((p) => p.lineLinked) && "no_line"].filter(Boolean).join(" ") || undefined
   const pg = usePage(useFocusFirst(rows, focusKeys))
-  const orphans = students.filter((s) => s.branchId === branch.id && !s.familyId).length
+  const orphans = students.filter((s) => scope.ids.includes(s.branchId) && !s.familyId).length
 
   return (
     <div className="mx-auto max-w-7xl space-y-3">
       <div className="flex flex-wrap items-center gap-2">
+        {scope.select}
         <div className="relative w-full sm:w-80">
           <SearchIcon className="absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" />
           <Input className="pl-8" placeholder="ครอบครัว / ผู้ปกครอง / เบอร์ / ชื่อลูก" value={q} onChange={(e) => setQ(e.target.value)} />
@@ -88,7 +90,7 @@ export default function FamiliesPage() {
             const lc = linkedCount(f)
             return (
               <tr key={f.id} onClick={() => setOpenId(f.id)} data-focus={focusKeys(f)} className={ROW}>
-                <td className="truncate font-medium">{f.name}</td>
+                <td className="truncate font-medium">{f.name}{scope.multi && <span className="ml-1.5 inline-flex gap-1 align-middle">{[...new Set((kidsOf.get(f.id) ?? []).map((k) => k.branchId))].map((b) => <BranchCode key={b} code={scope.code(b)} />)}</span>}</td>
                 <td>
                   <div className="flex min-w-0 items-center gap-1">
                     <span className="flex-1 truncate">{primary?.name ?? "—"}</span>

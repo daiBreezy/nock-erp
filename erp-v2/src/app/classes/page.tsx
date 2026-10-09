@@ -1,5 +1,6 @@
 "use client"
 
+import { useBranchScope } from "@/components/app/branch-scope"
 import { useState } from "react"
 import { ArrowDownUpIcon, BookOpenIcon, CalendarIcon, ChevronRightIcon, ClockIcon, DoorOpenIcon, GraduationCapIcon, PlusIcon, RefreshCwIcon, SearchIcon, UserRoundIcon, UsersIcon } from "lucide-react"
 import { ClassDialog } from "@/components/app/class-dialog"
@@ -13,10 +14,9 @@ import { Input } from "@/components/ui/input"
 import { endTime, fmtDate, TH_DAYS_FULL, toDateStr } from "@/domain/dates"
 import { CAPACITY, subjectsOf } from "@/domain/rules/scheduling"
 import * as Att from "@/domain/rules/attendance"
-import { inBranch } from "@/domain/rules/permissions"
 import { gradeRanges, PRICE_UNIT_LABEL, sortGrades } from "@/domain/rules/settings"
 import type { ID, Klass, PriceUnit } from "@/domain/types"
-import { useBranch, useEntitlements, useLookup, useNow } from "@/lib/hooks"
+import { useEntitlements, useLookup, useNow } from "@/lib/hooks"
 import { ATTENTION_THRESHOLDS } from "@/domain/rules/reports"
 import { useFocusFirst } from "@/components/app/focus-banner"
 import { cn } from "@/lib/utils"
@@ -27,8 +27,6 @@ type ClassSort = "subject" | "day" | "time" | "grade" | "students" | "teacher" |
 /** Class page (owner design "Class Page.png", 2026-09-28): KPIs · search + Branch/Subject/Course type/Package
  *  filters · data table. Inactive classes stay in the list, greyed. Click a row → edit panel. */
 export default function ClassesPage() {
-  const branch = useBranch()
-  const me = useStore((s) => s.me())
   const branches = useStore((s) => s.branches)
   const allClasses = useStore((s) => s.classes)
   const sessions = useStore((s) => s.sessions)
@@ -40,7 +38,8 @@ export default function ClassesPage() {
   const L = useLookup()
   const today = toDateStr(useNow())
   const [q, setQ] = useState("")
-  const [branchF, setBranchF] = useState(branch.id)
+  // owner 2026-10-09: the shared branch filter (sidebar branch by default, several for Director / Area Manager)
+  const scope = useBranchScope()
   const [subjectF, setSubjectF] = useState("")
   const [kindF, setKindF] = useState("")
   const [unitF, setUnitF] = useState("")
@@ -48,8 +47,7 @@ export default function ClassesPage() {
   const [creating, setCreating] = useState(false)
   const { sort, toggle } = useSort<ClassSort>("day")
 
-  const myBranches = branches.filter((b) => inBranch(me, b.id))
-  const classes = allClasses.filter((c) => (branchF ? c.branchId === branchF : myBranches.some((b) => b.id === c.branchId)))
+  const classes = allClasses.filter((c) => scope.ids.includes(c.branchId))
   const courseOf = (c: Klass) => courses.find((x) => x.id === c.courseId)
   const teacherOf = (id: ID | null) => staff.find((t) => t.id === id)
 
@@ -112,7 +110,7 @@ export default function ClassesPage() {
           <Input className="w-60 pl-9" placeholder="เช่น ชื่อครู, ชั้น, วิชา, ห้อง" value={q} onChange={(e) => setQ(e.target.value)} />
         </div>
         <Button size="icon" variant="outline" aria-label="สลับลำดับ" onClick={() => toggle(sort.key)}><ArrowDownUpIcon /></Button>
-        <NativeSelect className="h-9 w-36" value={branchF} onChange={(e) => setBranchF(e.target.value)} options={[...(myBranches.length > 1 ? [{ value: "", label: "ทุกสาขา" }] : []), ...myBranches.map((b) => ({ value: b.id, label: `สาขา${b.name}` }))]} />
+        {scope.select}
         <NativeSelect className="h-9 w-28" value={subjectF} onChange={(e) => setSubjectF(e.target.value)} placeholder="ทุกวิชา" options={[...new Set(classes.flatMap((c) => subjectsOf(c)))].map((x) => ({ value: x, label: x }))} />
         <NativeSelect className="h-9 w-32" value={kindF} onChange={(e) => setKindF(e.target.value)} placeholder="ประเภทคอร์ส" options={[{ value: "single", label: "Single" }, { value: "bundle", label: "Bundle" }]} />
         <NativeSelect className="h-9 w-32" value={unitF} onChange={(e) => setUnitF(e.target.value)} placeholder="แพ็กเกจ" options={(["hour", "week", "month"] as PriceUnit[]).map((u) => ({ value: u, label: PRICE_UNIT_LABEL[u] }))} />

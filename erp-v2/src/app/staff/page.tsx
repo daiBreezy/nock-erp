@@ -7,6 +7,7 @@ import { HEAD, ROW, SortHeader, TableShell, Th, useSort } from "@/components/app
 import { avatarTone, initial } from "@/components/app/subject-color"
 import { mondayOf, StaffPanel } from "@/components/staff/staff-panel"
 import { Button } from "@/components/ui/button"
+import { BranchCode, useBranchScope } from "@/components/app/branch-scope"
 import { addDays, toDateStr } from "@/domain/dates"
 import { can, rolesAt, ROLE_LABEL, staffInBranch, subjectsAt } from "@/domain/rules/permissions"
 import { teachersOf } from "@/domain/rules/scheduling"
@@ -29,10 +30,12 @@ export default function StaffPage() {
   const { sort, toggle } = useSort<StaffSort>("nickname")
   // "สอนสัปดาห์นี้" (owner 2026-10-09) — sessions this Monday–Sunday at this branch
   const from = mondayOf(today), to = addDays(from, 6)
-  const weekOf = (id: string) => sessions.filter((x) => !x.cancelled && x.branchId === branch.id && x.date >= from && x.date <= to && teachersOf(x).includes(id))
+  // owner 2026-10-09: Director / Area Manager can list several branches at once — then roles / subjects are all of theirs
+  const scope = useBranchScope()
+  const weekOf = (id: string) => sessions.filter((x) => !x.cancelled && scope.ids.includes(x.branchId) && x.date >= from && x.date <= to && teachersOf(x).includes(id))
   const list = staff
-    .filter((s) => staffInBranch(s, branch.id))
-    .map((s) => ({ s, roles: rolesAt(s, branch.id), subjects: subjectsAt(s, branch.id), week: weekOf(s.id) }))
+    .filter((s) => scope.ids.some((b) => staffInBranch(s, b)))
+    .map((s) => ({ s, roles: scope.multi ? s.roles : rolesAt(s, branch.id), subjects: scope.multi ? s.subjects : subjectsAt(s, branch.id), week: weekOf(s.id) }))
     .sort((a, b) => {
       const k = sort.key
       const v = k === "nickname" ? a.s.nickname.localeCompare(b.s.nickname, "th")
@@ -45,8 +48,9 @@ export default function StaffPage() {
 
   return (
     <div className="mx-auto max-w-7xl space-y-3">
-      <div className="flex items-center">
-        <p className="text-sm text-muted-foreground">บุคลากรสาขา{branch.name} {list.filter((x) => x.s.active).length} คน · กดที่แถวเพื่อดูข้อมูล / แก้ไข</p>
+      <div className="flex flex-wrap items-center gap-2">
+        {scope.select}
+        <p className="text-sm text-muted-foreground">{scope.multi ? "บุคลากร" : `บุคลากรสาขา${branch.name}`} {list.filter((x) => x.s.active).length} คน · กดที่แถวเพื่อดูข้อมูล / แก้ไข</p>
         {manage && <Button className="ml-auto" onClick={() => setOpen("new")}><PlusIcon /> เพิ่มบุคลากร</Button>}
       </div>
       <TableShell minWidth={1000} cols={["160px", "200px", "170px", "auto", "200px", "110px", "120px"]}>
@@ -54,7 +58,7 @@ export default function StaffPage() {
           <tr>
             <SortHeader label="ชื่อเล่น" k="nickname" sort={sort} onSort={toggle} />
             <SortHeader label="ชื่อ-นามสกุล" k="name" sort={sort} onSort={toggle} />
-            <SortHeader label="ตำแหน่ง (สาขานี้)" k="role" sort={sort} onSort={toggle} />
+            <SortHeader label={scope.multi ? "ตำแหน่ง" : "ตำแหน่ง (สาขานี้)"} k="role" sort={sort} onSort={toggle} />
             <Th>วิชาที่สอน</Th>
             <Th>อีเมล</Th>
             <SortHeader label="ประเภท" k="type" sort={sort} onSort={toggle} />
@@ -68,6 +72,7 @@ export default function StaffPage() {
                 <div className="flex min-w-0 items-center gap-2">
                   <span className={cn("grid size-8 shrink-0 place-items-center rounded-full text-sm font-semibold", avatarTone(s.id))}>{initial(s.nickname)}</span>
                   <span className="truncate font-medium">{s.nickname}</span>
+                  {scope.multi && s.branchIds.filter((b) => scope.ids.includes(b)).slice(0, 3).map((b) => <BranchCode key={b} code={scope.code(b)} />)}
                 </div>
               </td>
               <td className="truncate text-muted-foreground">{s.name}</td>

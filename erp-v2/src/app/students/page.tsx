@@ -23,12 +23,15 @@ import { useBranch, useEntitlements, useNow, useQueryState } from "@/lib/hooks"
 import { cn } from "@/lib/utils"
 import { useStore } from "@/store/store"
 import { toast } from "sonner"
+import { BranchCode, useBranchScope } from "@/components/app/branch-scope"
 
 export default function StudentsPage() {
   const branch = useBranch()
   const today = toDateStr(useNow())
   const me = useStore((s) => s.me())
-  const students = useStore((s) => s.students).filter((s) => s.branchId === branch.id)
+  // owner 2026-10-09: Director / Area Manager can list several branches at once
+  const scope = useBranchScope()
+  const students = useStore((s) => s.students).filter((s) => scope.ids.includes(s.branchId))
   const families = useStore((s) => s.families)
   const classes = useStore((s) => s.classes)
   const entitlements = useEntitlements()
@@ -92,6 +95,7 @@ export default function StudentsPage() {
   return (
     <div className="mx-auto max-w-7xl space-y-3">
       <div className="flex flex-wrap items-center gap-2">
+        {scope.select}
         <div className="relative w-full sm:w-72">
           <SearchIcon className="absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" />
           <Input className="pl-8" placeholder="ชื่อ / ชื่อเล่น / ครอบครัว / เบอร์" value={q} onChange={(e) => setQ(e.target.value)} />
@@ -134,6 +138,7 @@ export default function StudentsPage() {
                   <div className="flex min-w-0 items-center gap-2">
                     <span className={cn("grid size-8 shrink-0 place-items-center rounded-full text-sm font-semibold", avatarTone(s.id))}>{initial(s.nickname)}</span>
                     <span className="flex-1 truncate font-medium">{s.nickname}</span>
+                    {scope.multi && <BranchCode code={scope.code(s.branchId)} />}
                   </div>
                 </td>
                 <td className="truncate text-muted-foreground">{s.name}</td>
