@@ -1,5 +1,6 @@
 "use client"
 
+import { Page, PageHeader, KpiRow } from "@/components/app/page-layout"
 import { BranchCode, useBranchScope } from "@/components/app/branch-scope"
 import { useState } from "react"
 import { CalendarClockIcon, ChevronRightIcon, LayoutGridIcon, PlusIcon, RotateCcwIcon, SearchIcon, TableIcon, TrendingUpIcon, UserCheckIcon, UserSearchIcon, UsersIcon } from "lucide-react"
@@ -98,19 +99,11 @@ export default function CrmPage() {
   const pg = usePage(useFocusFirst(tableRows, focusKeys))
 
   return (
-    <div className="mx-auto max-w-7xl space-y-4">
-      <div className="flex items-center justify-between gap-2">
-        <div>
-          <h2 className="text-xl font-semibold">CRM</h2>
-          <p className="text-sm text-muted-foreground">{leads.length} Lead ทั้งหมด · {activeCount} รายกำลังตาม</p>
-        </div>
-        {canManage && <Button onClick={() => setCreating(true)}><PlusIcon /> เพิ่ม Lead</Button>}
-      </div>
+    <Page>
+      <PageHeader title="CRM" description={`${leads.length} Lead ทั้งหมด · ${activeCount} รายกำลังตาม`}
+        actions={canManage && <Button onClick={() => setCreating(true)}><PlusIcon /> เพิ่ม Lead</Button>} />
 
-      {canManage && <EnrollInbox branchId={branch.id} />}
-      {canManage && <SurveyCalls branchId={branch.id} />}
-
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      <KpiRow>
         <Kpi icon={UsersIcon} label="Lead ทั้งหมด" value={kpis.total} sub={`${kpis.active} รายกำลังตาม`} />
         <Kpi icon={UserSearchIcon} label="กำลังตาม" value={kpis.active} tone="sky" sub={activeCount ? "ยังไม่ปิดการขาย" : "เคลียร์หมดแล้ว"} />
         <Kpi
@@ -119,7 +112,11 @@ export default function CrmPage() {
           sub={kpis.overdue ? `เลยนัดแล้ว ${kpis.overdue} ราย` : kpis.dueSoon ? "วันนี้ / พรุ่งนี้" : "ไม่มีนัดใกล้ถึง"}
         />
         <Kpi icon={TrendingUpIcon} label="อัตราปิดการขาย" value={`${kpis.conversionRate}%`} tone="emerald" sub={`ลงทะเบียนแล้ว ${kpis.enrolled} จาก ${kpis.total} ราย`} />
-      </div>
+      </KpiRow>
+
+      {/* work waiting for the admin — under the numbers, above the list */}
+      {canManage && <EnrollInbox branchId={branch.id} />}
+      {canManage && <SurveyCalls branchId={branch.id} />}
 
       <div className="flex flex-wrap items-center gap-2">
         {scope.select}
@@ -235,7 +232,7 @@ export default function CrmPage() {
 
       <LeadSheet leadId={openLead} onClose={() => setOpenLead(null)} />
       {creating && <LeadDialog onClose={() => setCreating(false)} />}
-    </div>
+    </Page>
   )
 }
 

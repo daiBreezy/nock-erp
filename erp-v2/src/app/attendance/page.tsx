@@ -3,12 +3,13 @@
 import { BranchCode, useBranchScope } from "@/components/app/branch-scope"
 import { staffAt } from "@/domain/rules/permissions"
 import { useState } from "react"
-import { ChevronLeftIcon, ChevronRightIcon } from "lucide-react"
+import { CalendarDaysIcon, ChevronLeftIcon, ChevronRightIcon, ClipboardCheckIcon, UserCheckIcon, UserXIcon } from "lucide-react"
+import { Page, PageHeader, KpiRow, Toolbar } from "@/components/app/page-layout"
+import { Kpi } from "@/components/app/kpi"
 import { NativeSelect } from "@/components/app/native-select"
 import { StudentSheet } from "@/components/app/student-sheet"
 import { gradeTone } from "@/components/app/subject-color"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent } from "@/components/ui/card"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 import { addDays, endOfMonth, fmtDate, fmtMonth, toDateStr, weekdayOf } from "@/domain/dates"
 import { sessionState } from "@/domain/rules/scheduling"
@@ -50,13 +51,6 @@ export default function AttendancePage() {
   const att = attendance.filter((a) => ids.has(a.sessionId))
   const expected = inRange.reduce((n, s) => n + s.studentIds.length, 0)
   const count = (st: string) => att.filter((a) => a.status === st).length
-  const cards = [
-    { label: "คาบที่เรียนไปแล้ว", value: inRange.length, tone: "" },
-    { label: "มา", value: count("present"), tone: "text-emerald-700" },
-    { label: "ขาด", value: count("absent"), tone: "text-red-700" },
-    { label: "ลา", value: count("leave"), tone: "text-amber-700" },
-    { label: "ยังไม่เช็คชื่อ", value: Math.max(0, expected - att.length), tone: "text-red-700" },
-  ]
 
   const perStudent = students
     .filter((s) => scope.ids.includes(s.branchId))
@@ -76,28 +70,32 @@ export default function AttendancePage() {
     })
   const pg = usePage(perStudent)
 
+  const marked = count("present") + count("absent") + count("leave")
+  const notMarked = Math.max(0, expected - att.length)
+
   return (
-    <div className="mx-auto max-w-5xl space-y-4">
-      <div className="flex flex-wrap items-center gap-2">
+    <Page>
+      <PageHeader title="รายงานเข้าเรียน" description="มา ขาด ลา ของนักเรียนแต่ละคน ในช่วงที่เลือก" />
+      <KpiRow>
+        <Kpi icon={CalendarDaysIcon} label="คาบที่เรียนไปแล้ว" value={inRange.length} />
+        <Kpi icon={UserCheckIcon} label="มาเรียน" value={count("present")} tone="emerald" sub={marked ? `${Math.round((count("present") / marked) * 100)}% ของที่เช็คชื่อแล้ว` : undefined} />
+        <Kpi icon={UserXIcon} label="ขาด / ลา" value={<><span className="text-red-700">{count("absent")}</span> <span className="text-base text-muted-foreground">/</span> <span className="text-amber-700">{count("leave")}</span></>} tone="red" />
+        <Kpi icon={ClipboardCheckIcon} label="ยังไม่เช็คชื่อ" value={notMarked} tone="amber" valueClassName={notMarked ? "text-red-700" : undefined} />
+      </KpiRow>
+      <Toolbar end={<>
+        <NativeSelect className="h-9 w-28" value={subject} onChange={(e) => setSubject(e.target.value)} placeholder="ทุกวิชา" options={branch.subjects.map((s) => ({ value: s, label: s }))} />
+        <NativeSelect className="h-9 w-32" value={teacher} onChange={(e) => setTeacher(e.target.value)} placeholder="ครูทุกคน" options={staff.map((t) => staffAt(t, branch.id)).filter((t) => t.roles.includes("teacher") && t.branchIds.includes(branch.id)).map((t) => ({ value: t.id, label: t.nickname }))} />
+      </>}>
         {scope.select}
         <Button size="icon-sm" variant="outline" aria-label="ก่อนหน้า" onClick={() => step(-1)}><ChevronLeftIcon /></Button>
         <Button size="sm" variant="outline" onClick={() => setAnchor(today)}>ปัจจุบัน</Button>
         <Button size="icon-sm" variant="outline" aria-label="ถัดไป" onClick={() => step(1)}><ChevronRightIcon /></Button>
-        <h2 className="font-semibold">{range === "week" ? `${fmtDate(from)} – ${fmtDate(to, { year: true })}` : fmtMonth(from)}</h2>
-        <div className="ml-auto flex flex-wrap gap-2">
-          <ToggleGroup value={[range]} onValueChange={(v) => v[0] && setRange(v[0] as Range)} variant="outline" size="sm">
-            <ToggleGroupItem value="week">สัปดาห์</ToggleGroupItem>
-            <ToggleGroupItem value="month">เดือน</ToggleGroupItem>
-          </ToggleGroup>
-          <NativeSelect className="h-9 w-28" value={subject} onChange={(e) => setSubject(e.target.value)} placeholder="ทุกวิชา" options={branch.subjects.map((s) => ({ value: s, label: s }))} />
-          <NativeSelect className="h-9 w-32" value={teacher} onChange={(e) => setTeacher(e.target.value)} placeholder="ครูทุกคน" options={staff.map((t) => staffAt(t, branch.id)).filter((t) => t.roles.includes("teacher") && t.branchIds.includes(branch.id)).map((t) => ({ value: t.id, label: t.nickname }))} />
-        </div>
-      </div>
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
-        {cards.map((c) => (
-          <Card key={c.label}><CardContent><div className="text-xs text-muted-foreground">{c.label}</div><div className={cn("text-2xl font-semibold tabular-nums", c.tone)}>{c.value}</div></CardContent></Card>
-        ))}
-      </div>
+        <span className="text-sm font-semibold">{range === "week" ? `${fmtDate(from)} – ${fmtDate(to, { year: true })}` : fmtMonth(from)}</span>
+        <ToggleGroup value={[range]} onValueChange={(v) => v[0] && setRange(v[0] as Range)} variant="outline" size="sm">
+          <ToggleGroupItem value="week">สัปดาห์</ToggleGroupItem>
+          <ToggleGroupItem value="month">เดือน</ToggleGroupItem>
+        </ToggleGroup>
+      </Toolbar>
       <p className="text-xs text-muted-foreground">นับเฉพาะคาบในช่วงที่เลือกที่เริ่มเรียนแล้วเท่านั้น · เริ่มเรียงจากอัตราเข้าเรียนต่ำสุด (กดหัวคอลัมน์เพื่อเรียงใหม่)</p>
       {/* owner 2026-10-07: a real sortable table — grade in its own column, numbers right-aligned */}
       <div data-focus="often_leave" className="rounded-3xl">
@@ -139,6 +137,6 @@ export default function AttendancePage() {
         <Pager {...pg} unit="คน" />
       </div>
       <StudentSheet studentId={openId} onClose={() => setOpenId(null)} />
-    </div>
+    </Page>
   )
 }

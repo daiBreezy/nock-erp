@@ -1,8 +1,9 @@
 "use client"
 
+import { Page, PageHeader, KpiRow } from "@/components/app/page-layout"
 import { useBranchScope } from "@/components/app/branch-scope"
 import { useState } from "react"
-import { ArrowDownUpIcon, BookOpenIcon, CalendarIcon, ChevronRightIcon, ClockIcon, DoorOpenIcon, GraduationCapIcon, PlusIcon, RefreshCwIcon, SearchIcon, UserRoundIcon, UsersIcon } from "lucide-react"
+import { ArrowDownUpIcon, BookOpenIcon, CalendarIcon, ChevronRightIcon, ClockIcon, DoorOpenIcon, PlusIcon, RefreshCwIcon, SearchIcon, UserRoundIcon, UsersIcon } from "lucide-react"
 import { ClassDialog } from "@/components/app/class-dialog"
 import { ClassSheet } from "@/components/app/class-sheet"
 import { HEAD, Pager, ROW, SortHeader, TableShell, Th, usePage, useSort } from "@/components/app/data-table"
@@ -89,24 +90,20 @@ export default function ClassesPage() {
   const pg = usePage(useFocusFirst(rows, focusKeys))
 
   return (
-    <div className="mx-auto max-w-7xl space-y-5">
-      <div className="flex items-center gap-3">
-        <span className="grid size-10 place-items-center rounded-2xl bg-primary/10 text-primary"><GraduationCapIcon className="size-5" /></span>
-        <h1 className="text-xl font-semibold">คลาส</h1>
-        <Button className="ml-auto" onClick={() => setCreating(true)}><PlusIcon /> สร้างคลาส</Button>
-      </div>
+    <Page>
+      <PageHeader title="คลาส" description="คลาสประจำ ครู ห้อง และนักเรียนในแต่ละคลาส"
+        actions={<Button onClick={() => setCreating(true)}><PlusIcon /> สร้างคลาส</Button>} />
 
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      <KpiRow>
         <Kpi icon={BookOpenIcon} label="คลาสที่เปิดอยู่" value={active.length} />
         <Kpi icon={UsersIcon} label="นักเรียน" value={kpiStudents.size} />
         <Kpi icon={UserRoundIcon} label="ครู" value={kpiTeachers.size} />
         <Kpi icon={RefreshCwIcon} label="ใกล้หมดแพ็กเกจ (ต่อคอร์ส)" value={renewal} valueClassName={renewal ? "text-amber-700" : undefined} />
-      </div>
+      </KpiRow>
 
       <div className="flex flex-wrap items-center gap-2">
-        <h2 className="font-semibold">รายการคลาส</h2>
         {scope.select}
-        <div className="relative ml-auto">
+        <div className="relative">
           <SearchIcon className="absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
           <Input className="w-60 pl-9" placeholder="เช่น ชื่อครู, ชั้น, วิชา, ห้อง" value={q} onChange={(e) => setQ(e.target.value)} />
         </div>
@@ -169,7 +166,7 @@ export default function ClassesPage() {
       <Pager {...pg} unit="คลาส" />
       <ClassSheet id={openId} onClose={() => setOpenId(null)} />
       {creating && <ClassDialog prefill={{}} onClose={() => setCreating(false)} />}
-    </div>
+    </Page>
   )
 }
 

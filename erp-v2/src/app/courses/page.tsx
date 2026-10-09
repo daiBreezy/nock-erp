@@ -1,5 +1,6 @@
 "use client"
 
+import { Page, PageHeader, KpiRow } from "@/components/app/page-layout"
 import { useBranchScope } from "@/components/app/branch-scope"
 import { Fragment, useMemo, useState } from "react"
 import { ArrowDownUpIcon, BookOpenIcon, CalendarIcon, ChevronDownIcon, ClockIcon, CopyIcon, DoorOpenIcon, LayersIcon, PencilIcon, PlusIcon, SearchIcon, StarIcon, UsersIcon, WalletIcon } from "lucide-react"
@@ -97,14 +98,11 @@ export default function CoursesPage() {
   )
 
   return (
-    <div className="mx-auto max-w-7xl space-y-5">
-      <div className="flex items-center gap-3">
-        <span className="grid size-10 place-items-center rounded-2xl bg-primary/10 text-primary"><BookOpenIcon className="size-5" /></span>
-        <h1 className="text-xl font-semibold">คอร์ส</h1>
-        {manage && <Button className="ml-auto" onClick={() => setEditing(emptyCourse(branch))}><PlusIcon /> สร้างคอร์ส</Button>}
-      </div>
+    <Page>
+      <PageHeader title="คอร์ส" description="คอร์สที่เปิดขาย แพ็กเกจ ราคา และคลาสที่ผูก"
+        actions={manage && <Button onClick={() => setEditing(emptyCourse(branch))}><PlusIcon /> สร้างคอร์ส</Button>} />
 
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      <KpiRow>
         <Kpi icon={BookOpenIcon} label="คอร์สทั้งหมด" value={kpi.total} />
         <div className="flex items-center gap-3 rounded-3xl bg-card p-4 shadow-sm ring-1 ring-foreground/5">
           <span className="grid size-10 place-items-center rounded-2xl bg-primary/10 text-primary"><StarIcon className="size-5" /></span>
@@ -115,12 +113,11 @@ export default function CoursesPage() {
         </div>
         <Kpi icon={UsersIcon} label="นักเรียนที่ลงเรียน" value={kpi.students} />
         <Kpi icon={WalletIcon} label="รายได้จากคอร์ส (ชำระแล้ว)" value={fmtMoney(kpi.revenue)} />
-      </div>
+      </KpiRow>
 
       <div className="flex flex-wrap items-center gap-2">
-        <h2 className="font-semibold">รายการคอร์ส</h2>
         {scope.select}
-        <div className="relative ml-auto">
+        <div className="relative">
           <SearchIcon className="absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
           <Input className="w-56 pl-9" value={q} onChange={(e) => setQ(e.target.value)} placeholder="ค้นหาชื่อคอร์ส วิชา ระดับชั้น" />
         </div>
@@ -219,6 +216,6 @@ export default function CoursesPage() {
       </div>
 
       {editing && <CourseDialog key={editing.id} branch={branches.find((b) => b.id === editing.branchId)!} initial={editing} onClose={() => setEditing(null)} />}
-    </div>
+    </Page>
   )
 }

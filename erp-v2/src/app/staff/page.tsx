@@ -1,7 +1,10 @@
 "use client"
 
 import { useState } from "react"
-import { PlusIcon } from "lucide-react"
+import { CalendarDaysIcon, ClockIcon, GraduationCapIcon, PlusIcon, SearchIcon, UsersIcon } from "lucide-react"
+import { Input } from "@/components/ui/input"
+import { Page, PageHeader, KpiRow, Toolbar } from "@/components/app/page-layout"
+import { Kpi } from "@/components/app/kpi"
 import { Pill } from "@/components/app/badges"
 import { HEAD, ROW, SortHeader, TableShell, Th, useSort } from "@/components/app/data-table"
 import { avatarTone, initial } from "@/components/app/subject-color"
@@ -33,7 +36,9 @@ export default function StaffPage() {
   // owner 2026-10-09: Director / Area Manager can list several branches at once — then roles / subjects are all of theirs
   const scope = useBranchScope()
   const weekOf = (id: string) => sessions.filter((x) => !x.cancelled && scope.ids.includes(x.branchId) && x.date >= from && x.date <= to && teachersOf(x).includes(id))
-  const list = staff
+  const [kind, setKind] = useState<"" | "teacher" | "part">("")
+  const [q, setQ] = useState("")
+  const all = staff
     .filter((s) => scope.ids.some((b) => staffInBranch(s, b)))
     .map((s) => ({ s, roles: scope.multi ? s.roles : rolesAt(s, branch.id), subjects: scope.multi ? s.subjects : subjectsAt(s, branch.id), week: weekOf(s.id) }))
     .sort((a, b) => {
@@ -45,14 +50,35 @@ export default function StaffPage() {
               : a.week.length - b.week.length
       return Number(b.s.active) - Number(a.s.active) || (sort.desc ? -v : v)
     })
+  const needle = q.trim().toLowerCase()
+  const list = all
+    .filter((x) => !kind || (kind === "teacher" ? x.roles.includes("teacher") : !!x.s.partTime))
+    .filter((x) => !needle || `${x.s.nickname} ${x.s.name} ${x.s.nameEn ?? ""} ${x.s.email ?? ""} ${x.subjects.join(" ")}`.toLowerCase().includes(needle))
+  const active = all.filter((x) => x.s.active)
+  const kpi = {
+    staff: active.length,
+    teachers: active.filter((x) => x.roles.includes("teacher")).length,
+    part: active.filter((x) => x.s.partTime).length,
+    week: new Set(active.flatMap((x) => x.week.map((w) => w.id))).size,
+  }
 
   return (
-    <div className="mx-auto max-w-7xl space-y-3">
-      <div className="flex flex-wrap items-center gap-2">
+    <Page>
+      <PageHeader title="บุคลากร" description="บทบาท วิชาที่สอน และวันทำงานแต่ละสาขา · กดที่แถวเพื่อดูข้อมูล / แก้ไข"
+        actions={manage && <Button onClick={() => setOpen("new")}><PlusIcon /> เพิ่มบุคลากร</Button>} />
+      <KpiRow>
+        <Kpi icon={UsersIcon} label="บุคลากร" value={kpi.staff} onClick={() => setKind("")} active={!kind} />
+        <Kpi icon={GraduationCapIcon} label="ครู" value={kpi.teachers} tone="sky" onClick={() => setKind(kind === "teacher" ? "" : "teacher")} active={kind === "teacher"} />
+        <Kpi icon={ClockIcon} label="Part-time" value={kpi.part} tone="amber" onClick={() => setKind(kind === "part" ? "" : "part")} active={kind === "part"} />
+        <Kpi icon={CalendarDaysIcon} label="คาบสอนสัปดาห์นี้" value={kpi.week} tone="emerald" />
+      </KpiRow>
+      <Toolbar end={<span className="text-xs text-muted-foreground">{list.filter((x) => x.s.active).length} คน</span>}>
         {scope.select}
-        <p className="text-sm text-muted-foreground">{scope.multi ? "บุคลากร" : `บุคลากรสาขา${branch.name}`} {list.filter((x) => x.s.active).length} คน · กดที่แถวเพื่อดูข้อมูล / แก้ไข</p>
-        {manage && <Button className="ml-auto" onClick={() => setOpen("new")}><PlusIcon /> เพิ่มบุคลากร</Button>}
-      </div>
+        <div className="relative w-full sm:w-72">
+          <SearchIcon className="absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" />
+          <Input className="pl-8" placeholder="ชื่อ / ชื่อเล่น / อีเมล / วิชา" value={q} onChange={(e) => setQ(e.target.value)} />
+        </div>
+      </Toolbar>
       <TableShell minWidth={1000} cols={["160px", "200px", "170px", "auto", "200px", "110px", "120px"]}>
         <thead className={HEAD}>
           <tr>
@@ -90,6 +116,6 @@ export default function StaffPage() {
         </tbody>
       </TableShell>
       <StaffPanel key={String(open)} target={open} onClose={() => setOpen(null)} />
-    </div>
+    </Page>
   )
 }

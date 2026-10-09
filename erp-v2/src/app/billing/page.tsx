@@ -1,17 +1,18 @@
 "use client"
 
+import { Page as PageShell, PageHeader, KpiRow } from "@/components/app/page-layout"
+import { Kpi } from "@/components/app/kpi"
 import { BranchCode, useBranchScope } from "@/components/app/branch-scope"
 import { SalesTaxDialog } from "@/components/billing/sales-tax-dialog"
 import { Suspense, useState } from "react"
 import { useSearchParams } from "next/navigation"
-import { EyeIcon, EyeOffIcon, PlusIcon, SearchIcon, SendIcon, WalletIcon, type LucideIcon } from "lucide-react"
+import { BadgeCheckIcon, EyeIcon, FileClockIcon, HourglassIcon, EyeOffIcon, PlusIcon, SearchIcon, SendIcon, WalletIcon, type LucideIcon } from "lucide-react"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { Pill } from "@/components/app/badges"
 import { InvoiceEditor } from "@/components/billing/invoice-editor"
 import { InvoiceSheet } from "@/components/billing/invoice-sheet"
 import { invoiceTone } from "@/components/billing/status"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 import { fmtDate, fmtMoney, toDateStr } from "@/domain/dates"
@@ -74,10 +75,10 @@ function BillingPage() {
   // BL-10: every card says exactly what it counts
   const month = toDateStr(new Date()).slice(0, 7)
   const cards = [
-    { key: "pending_approval" as Filter, label: "รออนุมัติ PDF", value: rows.filter((r) => r.inv.status === "pending_approval").length, unit: "ใบ" },
-    { key: "awaiting_payment" as Filter, label: "รอชำระ", value: fmtMoney(rows.filter((r) => ["approved", "sent"].includes(r.inv.status)).reduce((a, r) => a + r.total - r.paid, 0)), unit: "" },
-    { key: "to_confirm" as Filter, label: "รอยืนยันยอดเงิน", value: rows.filter((r) => r.toConfirm).length, unit: "รายการ" },
-    { key: "paid" as Filter, label: "รับเงินแล้วเดือนนี้", value: fmtMoney(rows.flatMap((r) => r.inv.payments).filter((p) => p.confirmedBy && p.recordedAt.slice(0, 7) === month).reduce((a, p) => a + p.amount, 0)), unit: "" },
+    { key: "pending_approval" as Filter, icon: FileClockIcon, tone: "amber" as const, label: "รออนุมัติ PDF", value: rows.filter((r) => r.inv.status === "pending_approval").length, unit: "ใบ" },
+    { key: "awaiting_payment" as Filter, icon: HourglassIcon, tone: "sky" as const, label: "รอชำระ", value: fmtMoney(rows.filter((r) => ["approved", "sent"].includes(r.inv.status)).reduce((a, r) => a + r.total - r.paid, 0)), unit: "" },
+    { key: "to_confirm" as Filter, icon: WalletIcon, tone: "violet" as const, label: "รอยืนยันยอดเงิน", value: rows.filter((r) => r.toConfirm).length, unit: "รายการ" },
+    { key: "paid" as Filter, icon: BadgeCheckIcon, tone: "emerald" as const, label: "รับเงินแล้วเดือนนี้", value: fmtMoney(rows.flatMap((r) => r.inv.payments).filter((p) => p.confirmedBy && p.recordedAt.slice(0, 7) === month).reduce((a, p) => a + p.amount, 0)), unit: "" },
   ]
 
   const voidCount = rows.filter((r) => r.inv.status === "void").length
@@ -110,19 +111,18 @@ function BillingPage() {
   const pg = usePage(visible)
 
   return (
-    <div className="mx-auto max-w-7xl space-y-4">
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+    <PageShell>
+      <PageHeader title="ใบแจ้งหนี้ & รับเงิน" description="ออกใบแจ้งหนี้ อนุมัติ ส่งผู้ปกครอง รับเงิน และยืนยันยอด"
+        actions={<>
+          {can(me, "billing.view") && <SalesTaxDialog />}
+          {can(me, "billing.manage") && <Button onClick={() => setEditing("new")}><PlusIcon /> สร้างใบแจ้งหนี้</Button>}
+        </>} />
+      <KpiRow>
         {cards.map((c) => (
-          <button key={c.key} onClick={() => setFilter(c.key)} className="text-left">
-            <Card className={cn("transition hover:ring-primary/40", filter === c.key && "ring-2 ring-primary")}>
-              <CardContent>
-                <div className="text-xs text-muted-foreground">{c.label}</div>
-                <div className="mt-1 text-xl font-semibold tabular-nums">{c.value} <span className="text-xs font-normal text-muted-foreground">{c.unit}</span></div>
-              </CardContent>
-            </Card>
-          </button>
+          <Kpi key={c.key} icon={c.icon} tone={c.tone} label={c.label} value={<>{c.value} {c.unit && <span className="text-xs font-normal text-muted-foreground">{c.unit}</span>}</>}
+            onClick={() => setFilter(filter === c.key ? "all" : c.key)} active={filter === c.key} />
         ))}
-      </div>
+      </KpiRow>
 
       <div className="flex flex-wrap items-center gap-2">
         {scope.select}
@@ -138,8 +138,6 @@ function BillingPage() {
           <SearchIcon className="absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" />
           <Input className="pl-8" placeholder="ค้นหาเลขที่ / ชื่อนักเรียน" value={q} onChange={(e) => setQ(e.target.value)} />
         </div>
-        {can(me, "billing.view") && <SalesTaxDialog />}
-        {can(me, "billing.manage") && <Button onClick={() => setEditing("new")}><PlusIcon /> สร้างใบแจ้งหนี้</Button>}
       </div>
 
       {/* owner 2026-10-07: a real table — number, date, student, grade, amounts and status each in their own column
@@ -193,7 +191,7 @@ function BillingPage() {
           onSaved={(inv) => { setEditing(null); setOpenId(inv.id) }}
         />
       )}
-    </div>
+    </PageShell>
   )
 }
 

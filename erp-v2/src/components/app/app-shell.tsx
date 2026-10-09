@@ -8,7 +8,7 @@ import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
 import { usePublishParentViews } from "@/lib/parent-app"
 import { useEffect, useState, useSyncExternalStore, type ReactNode } from "react"
-import { ArrowLeftRightIcon, BellIcon, CheckIcon, ChevronDownIcon, GlobeIcon, LockIcon, MapPinIcon, SearchIcon, SunIcon } from "lucide-react"
+import { ArrowLeftRightIcon, BellIcon, CheckIcon, ChevronDownIcon, ChevronRightIcon, GlobeIcon, LockIcon, MapPinIcon, SearchIcon, SunIcon } from "lucide-react"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { branchText, nm, UI_LANGS, useT, useUiLang } from "@/lib/i18n"
 import {
@@ -66,6 +66,7 @@ function Shell({ children }: { children: ReactNode }) {
   const me = useStore((s) => s.me())
   const branch = useBranch()
   const current = navFor(pathname)
+  const currentGroup = current && NAV.find((g) => g.items.includes(current))?.group
   const allowed = !current || canAny(me, current.perm)
   const now = useNow(30_000)
   const conversations = useStore((s) => s.conversations)
@@ -130,7 +131,11 @@ function Shell({ children }: { children: ReactNode }) {
         <header className="sticky top-0 z-20 flex h-14 items-center gap-2 border-b bg-background/95 px-3 backdrop-blur md:px-4">
           <SidebarTrigger />
           <Separator orientation="vertical" className="mx-1 h-5" />
-          <h1 className="truncate text-sm font-medium">{current ? t(current.label) : "NockERP"}</h1>
+          {/* breadcrumb only — the page's own header carries the big title (owner 2026-10-09) */}
+          <nav aria-label="breadcrumb" className="flex min-w-0 items-center gap-1.5 text-sm">
+            {currentGroup && <><span className="truncate text-muted-foreground">{t(currentGroup)}</span><ChevronRightIcon className="size-3.5 shrink-0 text-muted-foreground" /></>}
+            <span className="truncate font-medium">{current ? t(current.label) : "NockERP"}</span>
+          </nav>
           <div className="ml-auto flex items-center gap-2">
             <CurrentPeriodChip />
             {/* branch stays visible on phones too, where the sidebar is hidden */}

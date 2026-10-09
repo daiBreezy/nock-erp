@@ -1,13 +1,14 @@
 "use client"
 
+import { Page, PageHeader, KpiRow, Toolbar } from "@/components/app/page-layout"
+import { Kpi, type KpiTone } from "@/components/app/kpi"
 import { BranchCode, useBranchScope } from "@/components/app/branch-scope"
 import { useState } from "react"
-import { CheckIcon, SendIcon } from "lucide-react"
+import { BadgeCheckIcon, CheckIcon, HourglassIcon, PenLineIcon, SendIcon, Undo2Icon, type LucideIcon } from "lucide-react"
 import { Pill } from "@/components/app/badges"
 import { CourseSummaryStudentSheet } from "@/components/app/course-summary-sheet"
 import { SessionSheet } from "@/components/app/session-sheet"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent } from "@/components/ui/card"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 import { addDays, fmtDate, toDateStr } from "@/domain/dates"
 import { can, seesAllSessions } from "@/domain/rules/permissions"
@@ -15,7 +16,6 @@ import * as Sum from "@/domain/rules/summaries"
 import type { ID } from "@/domain/types"
 import { report } from "@/lib/feedback"
 import { useLookup, useNow, useQueryState } from "@/lib/hooks"
-import { cn } from "@/lib/utils"
 import { useStore } from "@/store/store"
 
 type Bucket = "to_write" | "changes" | "submitted" | "approved" | "sent"
@@ -27,19 +27,38 @@ const BUCKETS: { key: Bucket; label: string; tone: string }[] = [
   { key: "sent", label: "ส่งผู้ปกครองแล้ว", tone: "text-emerald-700" },
 ]
 
+const BUCKET_ICON: Record<Bucket, LucideIcon> = { to_write: PenLineIcon, changes: Undo2Icon, submitted: HourglassIcon, approved: BadgeCheckIcon, sent: SendIcon }
+const BUCKET_TONE: Record<Bucket, KpiTone> = { to_write: "red", changes: "red", submitted: "amber", approved: "sky", sent: "emerald" }
+
+/** the 5 stages as KPI cards — click one to list it (standard page: KPI row above the toolbar) */
+function BucketRow({ active, onPick, count, focus }: { active: Bucket; onPick: (b: Bucket) => void; count: (b: Bucket) => number; focus?: boolean }) {
+  return (
+    <KpiRow className="lg:grid-cols-5">
+      {BUCKETS.map((t) => (
+        <div key={t.key} data-focus={focus ? FOCUS_OF[t.key] : undefined} className="rounded-3xl">
+          <Kpi icon={BUCKET_ICON[t.key]} tone={BUCKET_TONE[t.key]} label={t.label} value={count(t.key)} valueClassName={t.tone} onClick={() => onPick(t.key)} active={active === t.key} />
+        </div>
+      ))}
+    </KpiRow>
+  )
+}
+
 /** which Dashboard topic each pile answers (`?focus=` highlights it) */
 const FOCUS_OF: Partial<Record<Bucket, string>> = { to_write: "summary_write", changes: "summary_write", submitted: "summary_approve" }
 
 export default function SummariesPage() {
   const [top, setTop] = useQueryState<"session" | "course">("view", "session")
   return (
-    <div className="mx-auto max-w-5xl space-y-4">
-      <ToggleGroup value={[top]} onValueChange={(v) => v[0] && setTop(v[0] as typeof top)} variant="outline" size="sm">
-        <ToggleGroupItem value="session">Session Summary</ToggleGroupItem>
-        <ToggleGroupItem value="course">Course Summary</ToggleGroupItem>
-      </ToggleGroup>
+    <Page>
+      <PageHeader title="สรุปการเรียน" description={top === "session" ? "สรุปรายคาบ: เขียน → อนุมัติ → ส่งผู้ปกครอง" : "สรุปทั้งคอร์ส เมื่อแพ็กเกจใกล้หมดหรือหมดแล้ว"}
+        actions={
+          <ToggleGroup value={[top]} onValueChange={(v) => v[0] && setTop(v[0] as typeof top)} variant="outline" size="sm">
+            <ToggleGroupItem value="session">Session Summary</ToggleGroupItem>
+            <ToggleGroupItem value="course">Course Summary</ToggleGroupItem>
+          </ToggleGroup>
+        } />
       {top === "session" ? <SessionSummaryTab /> : <CourseSummaryTab />}
-    </div>
+    </Page>
   )
 }
 
@@ -75,26 +94,13 @@ function SessionSummaryTab() {
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-center gap-2">
+      <BucketRow active={tab} onPick={setTab} count={(b) => rows.filter((r) => bucket(r) === b).length} focus />
+      <Toolbar end={<span className="text-xs text-muted-foreground">{fmtDate(from)} – {fmtDate(today, { year: true })}{mineOnly && " · เฉพาะคาบของฉัน"}</span>}>
         {scope.select}
-        <span className="text-sm text-muted-foreground">ช่วงเวลา</span>
-        {[7, 14, 30].map((d) => (
-          <Button key={d} size="sm" variant={days === d ? "default" : "outline"} onClick={() => setDays(d)}>{d} วันล่าสุด</Button>
-        ))}
-        <span className="ml-auto text-xs text-muted-foreground">{fmtDate(from)} – {fmtDate(today, { year: true })}{mineOnly && " · เฉพาะคาบของฉัน"}</span>
-      </div>
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
-        {BUCKETS.map((t) => (
-          <button key={t.key} onClick={() => setTab(t.key)} data-focus={FOCUS_OF[t.key]} className="rounded-4xl text-left">
-            <Card className={cn(tab === t.key && "ring-2 ring-primary")}>
-              <CardContent>
-                <div className="text-xs text-muted-foreground">{t.label}</div>
-                <div className={cn("text-2xl font-semibold tabular-nums", t.tone)}>{rows.filter((r) => bucket(r) === t.key).length}</div>
-              </CardContent>
-            </Card>
-          </button>
-        ))}
-      </div>
+        <ToggleGroup value={[String(days)]} onValueChange={(v) => v[0] && setDays(Number(v[0]))} variant="outline" size="sm">
+          {[7, 14, 30].map((d) => <ToggleGroupItem key={d} value={String(d)}>{d} วันล่าสุด</ToggleGroupItem>)}
+        </ToggleGroup>
+      </Toolbar>
 
       <div className="divide-y overflow-hidden rounded-3xl bg-card shadow-sm ring-1 ring-foreground/5">
         {shown.length === 0 && <p className="p-10 text-center text-sm text-muted-foreground">ไม่มีรายการในหมวดนี้</p>}
@@ -182,20 +188,10 @@ function CourseSummaryTab() {
 
   return (
     <div className="space-y-4">
-      {scope.select}
-      <p className="text-xs text-muted-foreground">รอบที่แพ็กเกจใกล้หมด (ภายใน {renewalDays} วัน) หรือหมดแล้ว — สรุปทั้งคอร์สเขียนเมื่อมองย้อนกลับทั้งรอบ · เปิดดูเป็นรายนักเรียน เห็นทุกคอร์สค้างพร้อมกัน</p>
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
-        {BUCKETS.map((t) => (
-          <button key={t.key} onClick={() => setTab(t.key)} className="text-left">
-            <Card className={cn(tab === t.key && "ring-2 ring-primary")}>
-              <CardContent>
-                <div className="text-xs text-muted-foreground">{t.label}</div>
-                <div className={cn("text-2xl font-semibold tabular-nums", t.tone)}>{countIn(t.key)}</div>
-              </CardContent>
-            </Card>
-          </button>
-        ))}
-      </div>
+      <BucketRow active={tab} onPick={setTab} count={countIn} />
+      <Toolbar end={<span className="text-xs text-muted-foreground">แพ็กเกจใกล้หมด (ภายใน {renewalDays} วัน) หรือหมดแล้ว · เปิดดูเป็นรายนักเรียน</span>}>
+        {scope.select}
+      </Toolbar>
 
       <div className="divide-y overflow-hidden rounded-3xl bg-card shadow-sm ring-1 ring-foreground/5">
         {studentRows.length === 0 && <p className="p-10 text-center text-sm text-muted-foreground">ไม่มีรายการในหมวดนี้</p>}

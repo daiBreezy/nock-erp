@@ -1,7 +1,9 @@
 "use client"
 
 import { useMemo, useState } from "react"
-import { PlusIcon, SearchIcon } from "lucide-react"
+import { MapPinOffIcon, MessageCircleIcon, PlusIcon, SearchIcon, UnlinkIcon, UsersIcon } from "lucide-react"
+import { Page, PageHeader, KpiRow, Toolbar } from "@/components/app/page-layout"
+import { Kpi } from "@/components/app/kpi"
 import { BranchCode, useBranchScope } from "@/components/app/branch-scope"
 import { Pill } from "@/components/app/badges"
 import { HEAD, Pager, ROW, SortHeader, TableShell, Th, usePage, useSort } from "@/components/app/data-table"
@@ -26,6 +28,7 @@ export default function FamiliesPage() {
   const students = useStore((s) => s.students)
   const [q, setQ] = useState("")
   const [lineF, setLineF] = useState("")
+  const [noAddr, setNoAddr] = useState(false)
   const [editing, setEditing] = useState<Family | "new" | null>(null)
   const [openId, setOpenId] = useState<ID | null>(null)
   const { sort, toggle } = useSort<FamSort>("name")
@@ -40,9 +43,11 @@ export default function FamiliesPage() {
   const linkedCount = (f: Family) => f.parents.filter((p) => p.lineLinked).length
   const primaryOf = (f: Family) => f.parents.find((p) => p.primary) ?? f.parents[0]
   const needle = q.trim().toLowerCase()
-  const rows = families
-    // a family belongs to this branch if one of its children studies here (or it has no children yet)
-    .filter((f) => { const k = kidsOf.get(f.id) ?? []; return k.length === 0 || k.some((s) => scope.ids.includes(s.branchId)) })
+  // a family belongs to this branch if one of its children studies here (or it has no children yet)
+  const inScope = families.filter((f) => { const k = kidsOf.get(f.id) ?? []; return k.length === 0 || k.some((s) => scope.ids.includes(s.branchId)) })
+  const lineDone = (f: Family) => linkedCount(f) === f.parents.length
+  const rows = inScope
+    .filter((f) => !noAddr || (!f.address && !f.postcode))
     .filter((f) => !lineF || (lineF === "linked" ? linkedCount(f) === f.parents.length : linkedCount(f) < f.parents.length))
     .filter((f) => !needle || `${f.name} ${f.parents.map((p) => `${p.name} ${p.phone}`).join(" ")} ${(kidsOf.get(f.id) ?? []).map((s) => `${s.nickname} ${s.name}`).join(" ")}`.toLowerCase().includes(needle))
     .sort((a, b) => {
@@ -57,17 +62,26 @@ export default function FamiliesPage() {
   const pg = usePage(useFocusFirst(rows, focusKeys))
   const orphans = students.filter((s) => scope.ids.includes(s.branchId) && !s.familyId).length
 
+  const kpi = { all: inScope.length, linked: inScope.filter(lineDone).length, missing: inScope.filter((f) => !lineDone(f)).length, noAddr: inScope.filter((f) => !f.address && !f.postcode).length }
+
   return (
-    <div className="mx-auto max-w-7xl space-y-3">
-      <div className="flex flex-wrap items-center gap-2">
+    <Page>
+      <PageHeader title="ครอบครัว" description="ผู้ปกครอง ช่องทางติดต่อ LINE และลูกที่เรียนอยู่"
+        actions={<Button onClick={() => setEditing("new")}><PlusIcon /> เพิ่มครอบครัว</Button>} />
+      <KpiRow>
+        <Kpi icon={UsersIcon} label="ครอบครัวทั้งหมด" value={kpi.all} onClick={() => { setLineF(""); setNoAddr(false) }} active={!lineF && !noAddr} />
+        <Kpi icon={MessageCircleIcon} label="ผูก LINE ครบ" value={kpi.linked} tone="emerald" onClick={() => setLineF(lineF === "linked" ? "" : "linked")} active={lineF === "linked"} />
+        <Kpi icon={UnlinkIcon} label="ยังผูก LINE ไม่ครบ" value={kpi.missing} tone="amber" valueClassName={kpi.missing ? "text-amber-700" : undefined} onClick={() => setLineF(lineF === "missing" ? "" : "missing")} active={lineF === "missing"} />
+        <Kpi icon={MapPinOffIcon} label="ยังไม่มีที่อยู่" value={kpi.noAddr} tone="red" valueClassName={kpi.noAddr ? "text-red-700" : undefined} onClick={() => setNoAddr(!noAddr)} active={noAddr} />
+      </KpiRow>
+      <Toolbar end={<span className="text-xs text-muted-foreground">{rows.length} ครอบครัว</span>}>
         {scope.select}
         <div className="relative w-full sm:w-80">
           <SearchIcon className="absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" />
           <Input className="pl-8" placeholder="ครอบครัว / ผู้ปกครอง / เบอร์ / ชื่อลูก" value={q} onChange={(e) => setQ(e.target.value)} />
         </div>
         <NativeSelect className="h-9 w-40" value={lineF} onChange={(e) => setLineF(e.target.value)} placeholder="LINE ทั้งหมด" options={[{ value: "linked", label: "ผูก LINE ครบ" }, { value: "missing", label: "ยังผูกไม่ครบ" }]} />
-        <Button className="ml-auto" onClick={() => setEditing("new")}><PlusIcon /> เพิ่มครอบครัว</Button>
-      </div>
+      </Toolbar>
       {orphans > 0 && <p className="rounded-lg bg-amber-50 p-2.5 text-sm text-amber-900">นักเรียน {orphans} คนยังไม่ผูกครอบครัว — ส่งใบแจ้งหนี้/สรุปทาง LINE ไม่ได้ (ดูได้ที่หน้านักเรียน)</p>}
 
       {/* owner 2026-10-07: family / parent / phone / address edit in place on hover; LINE and children open the panel */}
@@ -116,6 +130,6 @@ export default function FamiliesPage() {
 
       <FamilySheet id={openId} onClose={() => setOpenId(null)} onEdit={(f) => setEditing(f)} />
       {editing && <FamilyForm family={editing === "new" ? undefined : editing} onClose={() => setEditing(null)} />}
-    </div>
+    </Page>
   )
 }

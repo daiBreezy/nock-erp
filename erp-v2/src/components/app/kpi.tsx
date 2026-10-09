@@ -13,7 +13,7 @@ export const KPI_TONE = {
 export type KpiTone = keyof typeof KPI_TONE
 
 export function Kpi({
-  icon: Icon, label, value, sub, tone = "primary", valueClassName,
+  icon: Icon, label, value, sub, tone = "primary", valueClassName, onClick, active,
 }: {
   icon: React.ComponentType<{ className?: string }>
   label: string
@@ -21,15 +21,20 @@ export function Kpi({
   sub?: React.ReactNode
   tone?: KpiTone
   valueClassName?: string
+  /** a KPI that filters the list below (owner 2026-10-09) — click again to clear */
+  onClick?: () => void
+  active?: boolean
 }) {
+  const Tag = onClick ? "button" : "div"
   return (
-    <div className="flex items-center gap-3 rounded-3xl bg-card p-4 shadow-sm ring-1 ring-foreground/5">
+    <Tag type={onClick ? "button" : undefined} onClick={onClick} aria-pressed={onClick ? !!active : undefined}
+      className={cn("flex items-center gap-3 rounded-3xl bg-card p-4 text-left shadow-sm ring-1 ring-foreground/5", onClick && "transition hover:ring-foreground/20", active && "ring-2 ring-primary hover:ring-primary")}>
       <span className={cn("grid size-10 shrink-0 place-items-center rounded-2xl", KPI_TONE[tone])}><Icon className="size-5" /></span>
       <div className="min-w-0">
         <p className="text-xs text-muted-foreground">{label}</p>
         <p className={cn("text-2xl font-semibold tabular-nums", valueClassName)}>{value}</p>
         {sub && <p className="text-xs text-muted-foreground">{sub}</p>}
       </div>
-    </div>
+    </Tag>
   )
 }

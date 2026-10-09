@@ -3,16 +3,18 @@
 import { BranchCode, useBranchScope } from "@/components/app/branch-scope"
 import { staffAt } from "@/domain/rules/permissions"
 import { useState } from "react"
-import { ChevronLeftIcon, ChevronRightIcon } from "lucide-react"
+import { CalendarDaysIcon, ChevronLeftIcon, ChevronRightIcon, CircleCheckIcon, ClipboardCheckIcon, PenLineIcon } from "lucide-react"
+import { Page, PageHeader, KpiRow, Toolbar } from "@/components/app/page-layout"
+import { Kpi } from "@/components/app/kpi"
 import { Pill } from "@/components/app/badges"
 import { NativeSelect } from "@/components/app/native-select"
 import { SessionSheet } from "@/components/app/session-sheet"
 import { subjectColor } from "@/components/app/subject-color"
-import { WorkChip, WorkLegend } from "@/components/app/work-state"
+import { WORK_ORDER, WorkChip } from "@/components/app/work-state"
 import { Button } from "@/components/ui/button"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 import { addDays, endTime, fmtDate, toDateStr, weekdayOf } from "@/domain/dates"
-import { workState, type WorkState } from "@/domain/rules/scheduling"
+import { WORK_LABEL, workState, type WorkState } from "@/domain/rules/scheduling"
 import { useBranch, useLookup, useNow, useQueryState } from "@/lib/hooks"
 import { cn } from "@/lib/utils"
 import { useStore } from "@/store/store"
@@ -57,29 +59,39 @@ export default function SessionsPage() {
   const shown = withState.filter(({ w }) => !work || w.state === work)
   const dates = [...new Set(shown.map(({ s }) => s.date))]
 
+  const pick = (w: WorkState) => setWork(work === w ? null : w)
+
   return (
-    <div className="mx-auto max-w-5xl space-y-3">
-      <div className="flex flex-wrap items-center gap-2">
+    <Page>
+      <PageHeader title="คาบเรียน & เช็คชื่อ" description="คาบที่ต้องเช็คชื่อและเขียนสรุป — กดคาบเพื่อเปิดทำงาน" />
+      <KpiRow>
+        <Kpi icon={CalendarDaysIcon} label="คาบในช่วงนี้" value={withState.filter(({ w }) => w.state !== "cancelled").length} onClick={() => setWork(null)} active={!work} />
+        <Kpi icon={ClipboardCheckIcon} label="รอเช็คชื่อ" value={counts.needs_attendance ?? 0} tone="red" valueClassName={counts.needs_attendance ? "text-red-700" : undefined} onClick={() => pick("needs_attendance")} active={work === "needs_attendance"} />
+        <Kpi icon={PenLineIcon} label="รอสรุป" value={counts.needs_summary ?? 0} tone="amber" valueClassName={counts.needs_summary ? "text-amber-700" : undefined} onClick={() => pick("needs_summary")} active={work === "needs_summary"} />
+        <Kpi icon={CircleCheckIcon} label="เสร็จแล้ว" value={counts.done ?? 0} tone="emerald" onClick={() => pick("done")} active={work === "done"} />
+      </KpiRow>
+      <Toolbar end={<>
+        <NativeSelect className="h-9 w-36" value={teacher} onChange={(e) => setTeacher(e.target.value)}
+          options={[
+            { value: "all", label: "ครูทุกคน" },
+            ...(me.roles.includes("teacher") ? [{ value: me.id, label: "เฉพาะคาบของฉัน" }] : []),
+            ...staff.map((t) => staffAt(t, branch.id)).filter((t) => t.roles.includes("teacher") && t.branchIds.includes(branch.id) && t.id !== me.id).map((t) => ({ value: t.id, label: t.nickname })),
+          ]} />
+        {/* every state, incl. the ones without a card (รอเริ่ม / กำลังเรียน / ยกเลิก) */}
+        <NativeSelect className="h-9 w-40" value={work ?? ""} onChange={(e) => setWork((e.target.value || null) as WorkState | null)} placeholder={`ทุกสถานะ (${withState.length})`}
+          options={WORK_ORDER.map((w) => ({ value: w, label: `${WORK_LABEL[w]} (${counts[w] ?? 0})` }))} />
+      </>}>
         {scope.select}
         <Button size="icon-sm" variant="outline" aria-label="ก่อนหน้า" onClick={() => setAnchor(addDays(anchor, range === "day" ? -1 : -7))}><ChevronLeftIcon /></Button>
         <Button size="sm" variant="outline" onClick={() => setAnchor(today)}>วันนี้</Button>
         <Button size="icon-sm" variant="outline" aria-label="ถัดไป" onClick={() => setAnchor(addDays(anchor, range === "day" ? 1 : 7))}><ChevronRightIcon /></Button>
-        <h2 className="font-semibold">{range === "day" ? fmtDate(anchor, { weekday: true, year: true }) : `${fmtDate(from)} – ${fmtDate(to, { year: true })}`}</h2>
-        <div className="ml-auto flex flex-wrap gap-2">
-          <ToggleGroup value={[range]} onValueChange={(v) => v[0] && setRange(v[0] as Range)} variant="outline" size="sm">
-            <ToggleGroupItem value="day">วัน</ToggleGroupItem>
-            <ToggleGroupItem value="week">สัปดาห์</ToggleGroupItem>
-            <ToggleGroupItem value="recent">30 วันที่ผ่านมา</ToggleGroupItem>
-          </ToggleGroup>
-          <NativeSelect className="h-9 w-36" value={teacher} onChange={(e) => setTeacher(e.target.value)}
-            options={[
-              { value: "all", label: "ครูทุกคน" },
-              ...(me.roles.includes("teacher") ? [{ value: me.id, label: "เฉพาะคาบของฉัน" }] : []),
-              ...staff.map((t) => staffAt(t, branch.id)).filter((t) => t.roles.includes("teacher") && t.branchIds.includes(branch.id) && t.id !== me.id).map((t) => ({ value: t.id, label: t.nickname })),
-            ]} />
-        </div>
-      </div>
-      <WorkLegend counts={counts} active={work} onToggle={setWork} />
+        <span className="text-sm font-semibold">{range === "day" ? fmtDate(anchor, { weekday: true, year: true }) : `${fmtDate(from)} – ${fmtDate(to, { year: true })}`}</span>
+        <ToggleGroup value={[range]} onValueChange={(v) => v[0] && setRange(v[0] as Range)} variant="outline" size="sm">
+          <ToggleGroupItem value="day">วัน</ToggleGroupItem>
+          <ToggleGroupItem value="week">สัปดาห์</ToggleGroupItem>
+          <ToggleGroupItem value="recent">30 วันที่ผ่านมา</ToggleGroupItem>
+        </ToggleGroup>
+      </Toolbar>
 
       {shown.length === 0 && <p className="rounded-xl border border-dashed p-10 text-center text-sm text-muted-foreground">ไม่มีคาบในช่วงนี้</p>}
       {dates.map((d) => (
@@ -107,6 +119,6 @@ export default function SessionsPage() {
         </section>
       ))}
       <SessionSheet sessionId={openId} onClose={() => setOpenId(null)} />
-    </div>
+    </Page>
   )
 }

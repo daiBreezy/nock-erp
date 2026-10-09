@@ -1,7 +1,9 @@
 "use client"
 
+import { Page, PageHeader, KpiRow, Toolbar } from "@/components/app/page-layout"
+import { Kpi } from "@/components/app/kpi"
 import { useState } from "react"
-import { DownloadIcon, PlusIcon, SearchIcon } from "lucide-react"
+import { DownloadIcon, GraduationCapIcon, PlusIcon, RefreshCwIcon, SearchIcon, SparklesIcon, UnlinkIcon } from "lucide-react"
 import { Pill } from "@/components/app/badges"
 import { NativeSelect } from "@/components/app/native-select"
 import { PackageBadge } from "@/components/app/package-badge"
@@ -43,6 +45,7 @@ export default function StudentsPage() {
   // owner 2026-10-06: filters sync to the URL (?grade=&status=) so a reload or shared link keeps them
   const [grade, setGrade] = useQueryState<string>("grade", "")
   const [status, setStatus] = useQueryState<string>("status", "")
+  const [noFamily, setNoFamily] = useQueryState<string>("family", "")
   const [openId, setOpenId] = useState<ID | null>(null)
   const [adding, setAdding] = useState(false)
 
@@ -63,6 +66,7 @@ export default function StudentsPage() {
   const shown = rows
     .filter((r) => !grade || r.s.grade === grade)
     .filter((r) => !status || r.st === status)
+    .filter((r) => noFamily !== "none" || !r.s.familyId)
     .filter((r) => !q || `${r.s.name} ${r.s.nickname} ${r.fam?.name ?? ""} ${r.fam?.parents.map((p) => p.phone).join(" ") ?? ""}`.includes(q))
     .sort((a, b) => {
       const k = sort.key
@@ -92,9 +96,30 @@ export default function StudentsPage() {
     toast.success(`ส่งออก ${shown.length} รายชื่อแล้ว (ไม่รวมเบอร์โทร/ที่อยู่)`)
   }
 
+  const month = today.slice(0, 7)
+  const kpi = {
+    active: rows.filter((r) => r.st === "active").length,
+    renewal: rows.filter((r) => r.st === "renewal").length,
+    // new = their very first package starts this month (same idea as Reports — paying students, not records added)
+    fresh: rows.filter((r) => entitlements.filter((e) => e.studentId === r.s.id).map((e) => e.from).sort()[0]?.slice(0, 7) === month).length,
+    noFamily: rows.filter((r) => !r.s.familyId).length,
+  }
+  const pick = (v: string) => setStatus(status === v ? "" : v)
+
   return (
-    <div className="mx-auto max-w-7xl space-y-3">
-      <div className="flex flex-wrap items-center gap-2">
+    <Page>
+      <PageHeader title="นักเรียน" description="นักเรียนทั้งหมด คอร์สที่เรียนอยู่ และวันจบแพ็กเกจ"
+        actions={<>
+          {can(me, "student.export") && <Button variant="outline" onClick={exportCsv}><DownloadIcon /> ส่งออก</Button>}
+          {can(me, "student.manage") && <Button onClick={() => setAdding(true)}><PlusIcon /> เพิ่มนักเรียน</Button>}
+        </>} />
+      <KpiRow>
+        <Kpi icon={GraduationCapIcon} label="กำลังเรียน" value={kpi.active} tone="emerald" onClick={() => pick("active")} active={status === "active"} />
+        <Kpi icon={RefreshCwIcon} label="รอต่อคอร์ส" value={kpi.renewal} tone="amber" valueClassName={kpi.renewal ? "text-amber-700" : undefined} onClick={() => pick("renewal")} active={status === "renewal"} />
+        <Kpi icon={SparklesIcon} label="นักเรียนใหม่เดือนนี้" value={kpi.fresh} tone="sky" />
+        <Kpi icon={UnlinkIcon} label="ยังไม่ผูกครอบครัว" value={kpi.noFamily} tone="red" valueClassName={kpi.noFamily ? "text-red-700" : undefined} onClick={() => setNoFamily(noFamily ? "" : "none")} active={noFamily === "none"} />
+      </KpiRow>
+      <Toolbar end={<span className="text-xs text-muted-foreground">{shown.length} คน</span>}>
         {scope.select}
         <div className="relative w-full sm:w-72">
           <SearchIcon className="absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" />
@@ -102,12 +127,7 @@ export default function StudentsPage() {
         </div>
         <NativeSelect className="h-9 w-28" value={grade} onChange={(e) => setGrade(e.target.value)} placeholder="ทุกชั้น" options={branch.grades.map((g) => ({ value: g, label: g }))} />
         <NativeSelect className="h-9 w-40" value={status} onChange={(e) => setStatus(e.target.value)} placeholder="ทุกสถานะ" options={Object.entries(STATUS_PILL).map(([k, v]) => ({ value: k, label: v.label }))} />
-        <span className="text-xs text-muted-foreground">{shown.length} คน</span>
-        <div className="ml-auto flex gap-2">
-          {can(me, "student.export") && <Button variant="outline" onClick={exportCsv}><DownloadIcon /> ส่งออก</Button>}
-          {can(me, "student.manage") && <Button onClick={() => setAdding(true)}><PlusIcon /> เพิ่มนักเรียน</Button>}
-        </div>
-      </div>
+      </Toolbar>
 
       {/* owner 2026-10-07: one fact per column (grade sortable on its own), fixed widths so pills never push a row
           out of line; Course + Enroll / End date instead of classes, school only in the student panel (the overall
@@ -168,6 +188,6 @@ export default function StudentsPage() {
       <Pager {...pg} unit="คน" />
       <StudentSheet studentId={openId} onClose={() => setOpenId(null)} />
       {adding && <StudentForm onClose={() => setAdding(false)} onSaved={(s) => setOpenId(s.id)} />}
-    </div>
+    </Page>
   )
 }
