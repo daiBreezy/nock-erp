@@ -7,7 +7,7 @@ import { Field } from "@/components/app/student-form"
 import { gradeTone } from "@/components/app/subject-color"
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { FormShell } from "@/components/app/form-shell"
 import { Input } from "@/components/ui/input"
 import { Switch } from "@/components/ui/switch"
 import { fmtMoney } from "@/domain/dates"
@@ -29,7 +29,7 @@ export function emptyCourse(branch: Branch): Course {
 }
 
 /** Create / Edit Course — same fields as staging (teachers are set per Class, not here). */
-export function CourseDialog({ branch, initial, onClose }: { branch: Branch; initial: Course; onClose: () => void }) {
+export function CourseDialog({ branch, initial, onClose, onSaved }: { branch: Branch; initial: Course; onClose: () => void; onSaved?: (c: Course) => void }) {
   const save = useStore((s) => s.saveCourse)
   const isNew = !useStore((s) => s.courses.some((c) => c.id === initial.id))
   const [c, setC] = useState<Course>(initial)
@@ -53,16 +53,18 @@ export function CourseDialog({ branch, initial, onClose }: { branch: Branch; ini
 
   const submit = () => {
     const out = dated ? c : { ...c, from: undefined, to: undefined }
-    if (report(save(out), isNew ? "สร้างคอร์สแล้ว" : "บันทึกคอร์สแล้ว")) onClose()
+    const r = save(out)
+    if (report(r, isNew ? "สร้างคอร์สแล้ว" : "บันทึกคอร์สแล้ว")) { if (onSaved) onSaved(r.value); else onClose() }
   }
 
   return (
-    <Dialog open onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
-        <DialogHeader>
-          <DialogTitle>{isNew ? "สร้างคอร์ส" : "แก้ไขคอร์ส"}</DialogTitle>
-          <DialogDescription>ครูผู้สอนตั้งที่ Create Class — คอร์สกำหนดวิชา ระดับชั้น แพ็กเกจ และราคา</DialogDescription>
-        </DialogHeader>
+    <FormShell className="sm:max-w-2xl" onClose={onClose} title={isNew ? "สร้างคอร์ส" : "แก้ไขคอร์ส"}
+      description="ครูผู้สอนตั้งที่ Create Class — คอร์สกำหนดวิชา ระดับชั้น แพ็กเกจ และราคา"
+      footer={<>
+        <label className="mr-auto flex items-center gap-2 text-sm"><Switch checked={c.active} onCheckedChange={(v) => setC({ ...c, active: v })} /> {c.active ? "เปิดขาย (Active)" : "ปิดขาย (Inactive)"}</label>
+        <Button variant="ghost" onClick={onClose}>ยกเลิก</Button>
+        <Button onClick={submit}>{isNew ? "สร้างคอร์ส" : "บันทึก"}</Button>
+      </>}>
 
         {/* branch card + package plans (staging) */}
         <div className="rounded-2xl bg-muted/40 p-3 text-sm">
@@ -221,12 +223,6 @@ export function CourseDialog({ branch, initial, onClose }: { branch: Branch; ini
           </div>
         </div>
 
-        <DialogFooter className="items-center">
-          <label className="mr-auto flex items-center gap-2 text-sm"><Switch checked={c.active} onCheckedChange={(v) => setC({ ...c, active: v })} /> {c.active ? "เปิดขาย (Active)" : "ปิดขาย (Inactive)"}</label>
-          <Button variant="ghost" onClick={onClose}>ยกเลิก</Button>
-          <Button onClick={submit}>{isNew ? "สร้างคอร์ส" : "บันทึก"}</Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+    </FormShell>
   )
 }
