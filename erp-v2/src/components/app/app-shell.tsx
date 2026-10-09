@@ -143,9 +143,8 @@ function Shell({ children }: { children: ReactNode }) {
             <LanguageChip />
           </div>
         </header>
-        {/* calendar sits on grey so the boards stand out (owner 2026-09-30) */}
         {/* keyed on the language: switching it re-renders every page so all t() calls pick it up */}
-        <main key={lang} className={cn("min-w-0 flex-1 p-3 md:p-6", pathname.startsWith("/calendar") && "bg-zinc-100 dark:bg-zinc-900")}>{allowed ? <><FocusBanner />{children}</> : <NoAccess />}</main>
+        <main key={lang} className="min-w-0 flex-1 p-3 md:p-6">{allowed ? <><FocusBanner />{children}</> : <NoAccess />}</main>
       </SidebarInset>
     </SidebarProvider>
   )

@@ -7,7 +7,6 @@
 //   Content — the table, full width
 // Same width and spacing everywhere; Calendar and Inbox stay full-screen work areas.
 import { ChevronLeftIcon, ChevronRightIcon, EyeIcon, EyeOffIcon } from "lucide-react"
-import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 
 export function Page({ children, className }: { children: React.ReactNode; className?: string }) {
@@ -41,14 +40,19 @@ export function Toolbar({ children, end }: { children: React.ReactNode; end?: Re
   )
 }
 
-/** ◀ วันนี้ ▶ + the range on screen — the one date navigator for every page (owner 2026-10-09) */
-export function DateNav({ label, todayLabel = "วันนี้", onPrev, onToday, onNext }: { label: React.ReactNode; todayLabel?: string; onPrev: () => void; onToday: () => void; onNext: () => void }) {
+/**
+ * ( ‹  range  › ) — the one date stepper (owner 2026-10-09): Sessions / Attendance / Summaries (inside PeriodControl)
+ * and Calendar. Off the current period the range turns pink and a "กลับวันนี้" link appears.
+ */
+export function RangeStepper({ label, current = true, onPrev, onNext, onToday }: { label: React.ReactNode; current?: boolean; onPrev: () => void; onNext: () => void; onToday?: () => void }) {
   return (
-    <div className="flex items-center gap-1">
-      <Button size="icon" variant="outline" aria-label="ก่อนหน้า" onClick={onPrev}><ChevronLeftIcon /></Button>
-      <Button variant="outline" onClick={onToday}>{todayLabel}</Button>
-      <Button size="icon" variant="outline" aria-label="ถัดไป" onClick={onNext}><ChevronRightIcon /></Button>
-      <span className="ml-1.5 text-sm font-semibold whitespace-nowrap">{label}</span>
+    <div className="flex items-center gap-2">
+      <div className="inline-flex h-9 items-center rounded-full border bg-background">
+        <button type="button" aria-label="ก่อนหน้า" onClick={onPrev} className="grid h-full w-9 place-items-center rounded-l-full hover:bg-muted"><ChevronLeftIcon className="size-4" /></button>
+        <span className={cn("min-w-36 px-1 text-center text-sm font-medium whitespace-nowrap tabular-nums", !current && "text-primary")}>{label}</span>
+        <button type="button" aria-label="ถัดไป" onClick={onNext} className="grid h-full w-9 place-items-center rounded-r-full hover:bg-muted"><ChevronRightIcon className="size-4" /></button>
+      </div>
+      {!current && onToday && <button type="button" onClick={onToday} className="text-sm text-primary hover:underline">กลับวันนี้</button>}
     </div>
   )
 }

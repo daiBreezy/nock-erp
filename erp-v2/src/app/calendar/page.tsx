@@ -2,7 +2,7 @@
 
 import { staffAt } from "@/domain/rules/permissions"
 import { PeriodBanner } from "@/components/app/period-banner"
-import { DateNav, PageHeader, Toolbar, Segmented } from "@/components/app/page-layout"
+import { RangeStepper, PageHeader, Toolbar, Segmented } from "@/components/app/page-layout"
 import { Suspense, useMemo, useState } from "react"
 import { useSearchParams } from "next/navigation"
 import { AlertTriangleIcon, ClipboardListIcon, PalmtreeIcon, PlusIcon } from "lucide-react"
@@ -185,7 +185,7 @@ function CalendarView() {
           placeholder={`ทุกสถานะ (${visible.filter((x) => !x.cancelled).length})`}
           options={WORK_ORDER.map((w) => ({ value: w, label: `${WORK_LABEL[w]} (${workCounts[w] ?? 0})` }))} />
       </>}>
-        <DateNav label={range.title} onPrev={() => step(-1)} onToday={() => setAnchor(today)} onNext={() => step(1)} />
+        <RangeStepper label={range.title} current={range.from <= today && today <= range.to} onPrev={() => step(-1)} onNext={() => step(1)} onToday={() => setAnchor(today)} />
       </Toolbar>
 
       {/* card states: click one to highlight only those cards */}
