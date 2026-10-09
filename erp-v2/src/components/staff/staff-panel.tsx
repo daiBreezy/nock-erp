@@ -274,25 +274,31 @@ function SessionsTab({ s, week, onOpen }: { s: Staff; week: string; onOpen: (id:
         <Stat label="เสร็จแล้ว" value={w.sessions.done} tone="text-emerald-700" />
         <Stat label="เหลือ" value={w.sessions.left} tone={w.sessions.left ? "text-amber-700" : undefined} />
       </div>
-      {byDay(w.rows, week).map(({ date, rows }) => (
-        <section key={date} className="space-y-1">
-          <p className={cn("text-xs font-semibold", date === today ? "text-primary" : "text-muted-foreground")}>{fmtDate(date, { weekday: true })}{date === today && " · วันนี้"}</p>
-          {rows.length === 0 ? <p className="rounded-xl border border-dashed px-3 py-1.5 text-xs text-muted-foreground">ไม่มีคาบ</p> : (
-            <ul className="divide-y rounded-2xl border">
-              {rows.map((r) => (
-                <li key={r.session.id}>
-                  <button type="button" onClick={() => onOpen(r.session.id)} className="flex w-full items-center gap-2 p-2 text-left text-sm hover:bg-muted/40">
-                    <span className="w-24 shrink-0 text-xs tabular-nums">{r.session.start}–{endTime(r.session.start, r.session.minutes)}</span>
-                    <span className="min-w-0 flex-1 truncate">{name(r.session)}</span>
-                    <span className="shrink-0 text-xs text-muted-foreground">{r.session.studentIds.length} คน</span>
-                    <WorkChip w={workState(r.session, now, attendance, summaries)} students={r.session.studentIds.length} />
-                  </button>
-                </li>
-              ))}
-            </ul>
-          )}
-        </section>
-      ))}
+      {/* one column grid for every row: time · class · students · status — the status column is fixed so they line up */}
+      <div className="space-y-4 pt-1">
+        {byDay(w.rows, week).map(({ date, rows }) => (
+          <section key={date}>
+            <div className="mb-1.5 flex items-baseline gap-2 px-1">
+              <p className={cn("text-xs font-semibold", date === today ? "text-primary" : "text-foreground/80")}>{fmtDate(date, { weekday: true })}{date === today && " · วันนี้"}</p>
+              {rows.length === 0 && <span className="text-xs text-muted-foreground">— ไม่มีคาบ</span>}
+            </div>
+            {rows.length > 0 && (
+              <ul className="divide-y overflow-hidden rounded-2xl border">
+                {rows.map((r) => (
+                  <li key={r.session.id}>
+                    <button type="button" onClick={() => onOpen(r.session.id)} className="grid w-full grid-cols-[6.5rem_1fr_3rem_9rem] items-center gap-3 px-3 py-2.5 text-left text-sm hover:bg-muted/40">
+                      <span className="text-xs tabular-nums">{r.session.start}–{endTime(r.session.start, r.session.minutes)}</span>
+                      <span className="truncate">{name(r.session)}</span>
+                      <span className="text-right text-xs text-muted-foreground tabular-nums">{r.session.studentIds.length} คน</span>
+                      <span className="flex justify-end"><WorkChip w={workState(r.session, now, attendance, summaries)} students={r.session.studentIds.length} /></span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
+        ))}
+      </div>
     </>
   )
 }
@@ -312,17 +318,17 @@ function SummariesTab({ s, week, onOpen }: { s: Staff; week: string; onOpen: (id
         <Stat label="ยังไม่ได้เขียน" value={w.summaries.left} tone={w.summaries.left ? "text-amber-700" : undefined} />
       </div>
       {w.rows.length === 0 ? <Empty text="ไม่มีคาบในสัปดาห์นี้" /> : (
-        <ul className="divide-y rounded-2xl border">
+        <ul className="divide-y overflow-hidden rounded-2xl border">
           {w.rows.map((r) => {
             const all = r.needed > 0 && r.written >= r.needed
             const state = !started(r.session) ? { t: "ยังไม่ถึงคาบ", c: "bg-muted text-muted-foreground" } : all ? { t: "เขียนครบ", c: "bg-emerald-100 text-emerald-800" } : r.needed === 0 ? { t: "ไม่มีนักเรียนมาเรียน", c: "bg-muted text-muted-foreground" } : { t: "ยังไม่ได้เขียน", c: "bg-amber-100 text-amber-900" }
             return (
               <li key={r.session.id}>
-                <button type="button" onClick={() => onOpen(r.session.id)} className="flex w-full items-center gap-2 p-2.5 text-left text-sm hover:bg-muted/40">
-                  <span className="w-28 shrink-0 text-xs text-muted-foreground tabular-nums">{fmtDate(r.session.date, { weekday: true })} {r.session.start}</span>
-                  <span className="min-w-0 flex-1 truncate">{name(r.session)}</span>
-                  <span className="shrink-0 text-xs tabular-nums">{r.written}/{r.needed}</span>
-                  <span className={cn("shrink-0 rounded-full px-2 py-0.5 text-[11px]", state.c)}>{state.t}</span>
+                <button type="button" onClick={() => onOpen(r.session.id)} className="grid w-full grid-cols-[8rem_1fr_2.5rem_7.5rem] items-center gap-3 px-3 py-2.5 text-left text-sm hover:bg-muted/40">
+                  <span className="text-xs text-muted-foreground tabular-nums">{fmtDate(r.session.date, { weekday: true })} {r.session.start}</span>
+                  <span className="truncate">{name(r.session)}</span>
+                  <span className="text-right text-xs tabular-nums">{r.written}/{r.needed}</span>
+                  <span className="flex justify-end"><span className={cn("rounded-full px-2 py-0.5 text-[11px] whitespace-nowrap", state.c)}>{state.t}</span></span>
                 </button>
               </li>
             )
