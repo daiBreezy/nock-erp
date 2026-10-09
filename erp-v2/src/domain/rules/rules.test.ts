@@ -2165,3 +2165,20 @@ describe("Area Manager never sees branches outside their area (owner 2026-10-09)
     expect(inBranch(am, "b9")).toBe(false)
   })
 })
+
+import { isCurrent, periodRange, shiftPeriod } from "./period"
+
+describe("date period — วันนี้ / สัปดาห์นี้ / เดือนนี้ / กำหนดเอง (owner 2026-10-09)", () => {
+  it("covers the right days", () => {
+    expect(periodRange("day", "2026-10-09")).toEqual({ from: "2026-10-09", to: "2026-10-09" })
+    expect(periodRange("week", "2026-10-09")).toEqual({ from: "2026-10-05", to: "2026-10-11" })
+    expect(periodRange("month", "2026-10-09")).toEqual({ from: "2026-10-01", to: "2026-10-31" })
+  })
+  it("moves by one step; a custom range by its own length", () => {
+    expect(shiftPeriod("week", "2026-10-09", 1).anchor).toBe("2026-10-16")
+    expect(shiftPeriod("month", "2026-10-09", -1).anchor).toBe("2026-09-01")
+    expect(shiftPeriod("custom", "2026-10-09", 1, { from: "2026-10-01", to: "2026-10-03" }).custom).toEqual({ from: "2026-10-04", to: "2026-10-06" })
+    expect(isCurrent("week", "2026-10-05", "2026-10-09")).toBe(true)
+    expect(isCurrent("week", "2026-10-12", "2026-10-09")).toBe(false)
+  })
+})

@@ -1,5 +1,6 @@
 "use client"
 
+import { usePeriod } from "@/components/app/period-control"
 import { Page, PageHeader, KpiRow, Toolbar } from "@/components/app/page-layout"
 import { Kpi, type KpiTone } from "@/components/app/kpi"
 import { BranchCode, useBranchScope } from "@/components/app/branch-scope"
@@ -10,7 +11,7 @@ import { CourseSummaryStudentSheet } from "@/components/app/course-summary-sheet
 import { SessionSheet } from "@/components/app/session-sheet"
 import { Button } from "@/components/ui/button"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
-import { addDays, fmtDate, toDateStr } from "@/domain/dates"
+import { fmtDate, toDateStr } from "@/domain/dates"
 import { can, seesAllSessions } from "@/domain/rules/permissions"
 import * as Sum from "@/domain/rules/summaries"
 import type { ID } from "@/domain/types"
@@ -76,14 +77,15 @@ function SessionSummaryTab() {
   const approve = useStore((s) => s.approveSummary)
   const send = useStore((s) => s.sendSummary)
   const L = useLookup()
-  const [days, setDays] = useState(7)
+  // owner 2026-10-09: the shared date control — default this week (same on Sessions / Attendance / Summaries)
+  const period = usePeriod("week")
   // ?bucket= — the Dashboard opens the right pile (owner 2026-10-07)
   const [tab, setTab] = useQueryState<Bucket>("bucket", can(me, "summary.approve") ? "submitted" : "to_write")
   const [openId, setOpenId] = useState<ID | null>(null)
 
-  const from = addDays(today, -days + 1)
+  const { from, to } = period
   const mineOnly = !seesAllSessions(me)
-  const inRange = sessions.filter((s) => scope.ids.includes(s.branchId) && s.date >= from && s.date <= today && (!mineOnly || s.teacherId === me.id))
+  const inRange = sessions.filter((s) => scope.ids.includes(s.branchId) && s.date >= from && s.date <= to && s.date <= today && (!mineOnly || s.teacherId === me.id))
   const rows = inRange.flatMap((s) =>
     attendance
       .filter((a) => a.sessionId === s.id && a.status === "present")
@@ -95,11 +97,12 @@ function SessionSummaryTab() {
   return (
     <div className="space-y-4">
       <BucketRow active={tab} onPick={setTab} count={(b) => rows.filter((r) => bucket(r) === b).length} focus />
-      <Toolbar end={<span className="text-xs text-muted-foreground">{fmtDate(from)} – {fmtDate(today, { year: true })}{mineOnly && " · เฉพาะคาบของฉัน"}</span>}>
+      <Toolbar end={<>
+        {mineOnly && <span className="text-xs text-muted-foreground">เฉพาะคาบของฉัน</span>}
+        {/* owner 2026-10-09: branch sits with the other filters */}
         {scope.select}
-        <ToggleGroup value={[String(days)]} onValueChange={(v) => v[0] && setDays(Number(v[0]))} variant="outline">
-          {[7, 14, 30].map((d) => <ToggleGroupItem key={d} value={String(d)}>{d} วันล่าสุด</ToggleGroupItem>)}
-        </ToggleGroup>
+      </>}>
+        {period.control}
       </Toolbar>
 
       <div className="divide-y overflow-hidden rounded-3xl bg-card shadow-sm ring-1 ring-foreground/5">
@@ -189,8 +192,8 @@ function CourseSummaryTab() {
   return (
     <div className="space-y-4">
       <BucketRow active={tab} onPick={setTab} count={countIn} />
-      <Toolbar end={<span className="text-xs text-muted-foreground">แพ็กเกจใกล้หมด (ภายใน {renewalDays} วัน) หรือหมดแล้ว · เปิดดูเป็นรายนักเรียน</span>}>
-        {scope.select}
+      <Toolbar end={scope.select}>
+        <span className="text-sm text-muted-foreground">แพ็กเกจใกล้หมด (ภายใน {renewalDays} วัน) หรือหมดแล้ว · เปิดดูเป็นรายนักเรียน</span>
       </Toolbar>
 
       <div className="divide-y overflow-hidden rounded-3xl bg-card shadow-sm ring-1 ring-foreground/5">

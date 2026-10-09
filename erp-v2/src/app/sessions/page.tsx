@@ -1,18 +1,18 @@
 "use client"
 
+import { usePeriod } from "@/components/app/period-control"
 import { BranchCode, useBranchScope } from "@/components/app/branch-scope"
 import { staffAt } from "@/domain/rules/permissions"
 import { useState } from "react"
 import { CalendarDaysIcon, CircleCheckIcon, ClipboardCheckIcon, PenLineIcon } from "lucide-react"
-import { DateNav, Page, PageHeader, KpiRow, Toolbar } from "@/components/app/page-layout"
+import { Page, PageHeader, KpiRow, Toolbar } from "@/components/app/page-layout"
 import { Kpi } from "@/components/app/kpi"
 import { Pill } from "@/components/app/badges"
 import { NativeSelect } from "@/components/app/native-select"
 import { SessionSheet } from "@/components/app/session-sheet"
 import { subjectColor } from "@/components/app/subject-color"
 import { WORK_ORDER, WorkChip } from "@/components/app/work-state"
-import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
-import { addDays, endTime, fmtDate, toDateStr, weekdayOf } from "@/domain/dates"
+import { endTime, fmtDate } from "@/domain/dates"
 import { WORK_LABEL, workState, type WorkState } from "@/domain/rules/scheduling"
 import { useBranch, useLookup, useNow, useQueryState } from "@/lib/hooks"
 import { cn } from "@/lib/utils"
@@ -20,12 +20,10 @@ import { useStore } from "@/store/store"
 import { sessionKindLabel } from "@/domain/rules/forms"
 import { removedWithClass } from "@/domain/rules/scheduling"
 
-type Range = "day" | "week" | "recent"
 
 /** Session list for daily operations: what needs attendance / summaries right now. */
 export default function SessionsPage() {
   const now = useNow()
-  const today = toDateStr(now)
   const branch = useBranch()
   // owner 2026-10-09: Director / Area Manager can list several branches at once
   const scope = useBranchScope()
@@ -36,9 +34,8 @@ export default function SessionsPage() {
   const classes = useStore((s) => s.classes)
   const staff = useStore((s) => s.staff)
   const L = useLookup()
-  // ?range=recent&work=needs_attendance — the Dashboard's "ยังไม่เช็คชื่อ" lands here (owner 2026-10-07)
-  const [range, setRange] = useQueryState<Range>("range", "day")
-  const [anchor, setAnchor] = useState(today)
+  // owner 2026-10-09: the shared date control — default this week (same on Sessions / Attendance / Summaries)
+  const period = usePeriod("week")
   // everyone sees every session by default; teachers get a one-tap "only mine" filter
   const [teacher, setTeacher] = useState("all")
   const [workParam, setWorkParam] = useQueryState<WorkState | "all">("work", "all")
@@ -46,8 +43,7 @@ export default function SessionsPage() {
   const setWork = (w: WorkState | null) => setWorkParam(w ?? "all")
   const [openId, setOpenId] = useState<string | null>(null)
 
-  const from = range === "day" ? anchor : range === "recent" ? addDays(today, -29) : addDays(anchor, -((weekdayOf(anchor) + 6) % 7))
-  const to = range === "day" ? anchor : range === "recent" ? today : addDays(from, 6)
+  const { from, to } = period
   const list = sessions
     .filter((s) => scope.ids.includes(s.branchId) && s.date >= from && s.date <= to && !removedWithClass(s, classes))
     .filter((s) => teacher === "all" || s.teacherId === teacher || s.coTeacherIds.includes(teacher))
@@ -70,6 +66,8 @@ export default function SessionsPage() {
         <Kpi icon={CircleCheckIcon} label="เสร็จแล้ว" value={counts.done ?? 0} tone="emerald" onClick={() => pick("done")} active={work === "done"} />
       </KpiRow>
       <Toolbar end={<>
+        {/* owner 2026-10-09: branch sits with the other filters */}
+        {scope.select}
         <NativeSelect className="h-9 w-36" value={teacher} onChange={(e) => setTeacher(e.target.value)}
           options={[
             { value: "all", label: "ครูทุกคน" },
@@ -80,20 +78,13 @@ export default function SessionsPage() {
         <NativeSelect className="h-9 w-40" value={work ?? ""} onChange={(e) => setWork((e.target.value || null) as WorkState | null)} placeholder={`ทุกสถานะ (${withState.length})`}
           options={WORK_ORDER.map((w) => ({ value: w, label: `${WORK_LABEL[w]} (${counts[w] ?? 0})` }))} />
       </>}>
-        {scope.select}
-        <DateNav label={range === "day" ? fmtDate(anchor, { weekday: true, year: true }) : `${fmtDate(from)} – ${fmtDate(to, { year: true })}`}
-          onPrev={() => setAnchor(addDays(anchor, range === "day" ? -1 : -7))} onToday={() => setAnchor(today)} onNext={() => setAnchor(addDays(anchor, range === "day" ? 1 : 7))} />
-        <ToggleGroup value={[range]} onValueChange={(v) => v[0] && setRange(v[0] as Range)} variant="outline">
-          <ToggleGroupItem value="day">วัน</ToggleGroupItem>
-          <ToggleGroupItem value="week">สัปดาห์</ToggleGroupItem>
-          <ToggleGroupItem value="recent">30 วันที่ผ่านมา</ToggleGroupItem>
-        </ToggleGroup>
+        {period.control}
       </Toolbar>
 
       {shown.length === 0 && <p className="rounded-xl border border-dashed p-10 text-center text-sm text-muted-foreground">ไม่มีคาบในช่วงนี้</p>}
       {dates.map((d) => (
         <section key={d}>
-          {range !== "day" && <h3 className="mb-1 text-sm font-semibold">{fmtDate(d, { weekday: true })}</h3>}
+          {period.mode !== "day" && <h3 className="mb-1 text-sm font-semibold">{fmtDate(d, { weekday: true })}</h3>}
           <div className="divide-y overflow-hidden rounded-3xl bg-card shadow-sm ring-1 ring-foreground/5">
             {shown.filter(({ s }) => s.date === d).map(({ s, w }) => {
               const c = subjectColor(s.subject)

@@ -1,16 +1,15 @@
 "use client"
 
+import { usePeriod } from "@/components/app/period-control"
 import { BranchCode, useBranchScope } from "@/components/app/branch-scope"
 import { staffAt } from "@/domain/rules/permissions"
 import { useState } from "react"
 import { CalendarDaysIcon, ClipboardCheckIcon, UserCheckIcon, UserXIcon } from "lucide-react"
-import { DateNav, Page, PageHeader, KpiRow, Toolbar } from "@/components/app/page-layout"
+import { Page, PageHeader, KpiRow, Toolbar } from "@/components/app/page-layout"
 import { Kpi } from "@/components/app/kpi"
 import { NativeSelect } from "@/components/app/native-select"
 import { StudentSheet } from "@/components/app/student-sheet"
 import { gradeTone } from "@/components/app/subject-color"
-import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
-import { addDays, endOfMonth, fmtDate, fmtMonth, toDateStr, weekdayOf } from "@/domain/dates"
 import { sessionState } from "@/domain/rules/scheduling"
 import type { ID } from "@/domain/types"
 import { useBranch, useNow } from "@/lib/hooks"
@@ -18,14 +17,12 @@ import { GradeCell, gradeCompare, HEAD, Pager, ROW, SortHeader, TableShell, useP
 import { cn } from "@/lib/utils"
 import { useStore } from "@/store/store"
 
-type Range = "week" | "month"
 
 /** Attendance report — every number is limited to the chosen period (C8) and real subjects (C9). */
 type AttSort = "name" | "grade" | "booked" | "present" | "absent" | "leave" | "rate"
 
 export default function AttendancePage() {
   const now = useNow()
-  const today = toDateStr(now)
   const branch = useBranch()
   // owner 2026-10-09: Director / Area Manager can list several branches at once
   const scope = useBranchScope()
@@ -33,17 +30,15 @@ export default function AttendancePage() {
   const attendance = useStore((s) => s.attendance)
   const students = useStore((s) => s.students)
   const staff = useStore((s) => s.staff)
-  const [range, setRange] = useState<Range>("week")
-  const [anchor, setAnchor] = useState(today)
+  // owner 2026-10-09: the shared date control — default this week (same on Sessions / Attendance / Summaries)
+  const period = usePeriod("week")
   const [subject, setSubject] = useState("")
   const [teacher, setTeacher] = useState("")
   const [openId, setOpenId] = useState<ID | null>(null)
   const { sort, toggle } = useSort<AttSort>("rate")
   const byGrade = gradeCompare(branch.grades)
 
-  const from = range === "week" ? addDays(anchor, -((weekdayOf(anchor) + 6) % 7)) : anchor.slice(0, 8) + "01"
-  const to = range === "week" ? addDays(from, 6) : endOfMonth(anchor)
-  const step = (dir: number) => setAnchor(range === "week" ? addDays(anchor, 7 * dir) : toDateStr(new Date(Number(anchor.slice(0, 4)), Number(anchor.slice(5, 7)) - 1 + dir, 1)))
+  const { from, to } = period
 
   const inRange = sessions.filter((s) => scope.ids.includes(s.branchId) && !s.cancelled && s.date >= from && s.date <= to && sessionState(s, now) !== "upcoming" && (!subject || s.subject === subject) && (!teacher || s.teacherId === teacher))
   const ids = new Set(inRange.map((s) => s.id))
@@ -82,16 +77,12 @@ export default function AttendancePage() {
         <Kpi icon={ClipboardCheckIcon} label="ยังไม่เช็คชื่อ" value={notMarked} tone="amber" valueClassName={notMarked ? "text-red-700" : undefined} />
       </KpiRow>
       <Toolbar end={<>
+        {/* owner 2026-10-09: branch sits with the other filters */}
+        {scope.select}
         <NativeSelect className="h-9 w-28" value={subject} onChange={(e) => setSubject(e.target.value)} placeholder="ทุกวิชา" options={branch.subjects.map((s) => ({ value: s, label: s }))} />
         <NativeSelect className="h-9 w-32" value={teacher} onChange={(e) => setTeacher(e.target.value)} placeholder="ครูทุกคน" options={staff.map((t) => staffAt(t, branch.id)).filter((t) => t.roles.includes("teacher") && t.branchIds.includes(branch.id)).map((t) => ({ value: t.id, label: t.nickname }))} />
       </>}>
-        {scope.select}
-        <DateNav label={range === "week" ? `${fmtDate(from)} – ${fmtDate(to, { year: true })}` : fmtMonth(from)} todayLabel="ปัจจุบัน"
-          onPrev={() => step(-1)} onToday={() => setAnchor(today)} onNext={() => step(1)} />
-        <ToggleGroup value={[range]} onValueChange={(v) => v[0] && setRange(v[0] as Range)} variant="outline">
-          <ToggleGroupItem value="week">สัปดาห์</ToggleGroupItem>
-          <ToggleGroupItem value="month">เดือน</ToggleGroupItem>
-        </ToggleGroup>
+        {period.control}
       </Toolbar>
       <p className="text-xs text-muted-foreground">นับเฉพาะคาบในช่วงที่เลือกที่เริ่มเรียนแล้วเท่านั้น · เริ่มเรียงจากอัตราเข้าเรียนต่ำสุด (กดหัวคอลัมน์เพื่อเรียงใหม่)</p>
       {/* owner 2026-10-07: a real sortable table — grade in its own column, numbers right-aligned */}

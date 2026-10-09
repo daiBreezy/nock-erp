@@ -166,8 +166,8 @@ export default function DashboardPage() {
   }, tx, { keepZero: true }) : []
 
   const topics: Topic[] = [
-    { key: "unmarked", group: "today", title: tx("ยังไม่เช็คชื่อ"), detail: tx("คาบที่จบแล้วใน 30 วัน"), count: unmarked, href: "/sessions?range=recent&work=needs_attendance" },
-    { key: "summary_write", group: "today", title: tx("สรุปการเรียนยังไม่ได้เขียน"), detail: tx("7 วันล่าสุด รวมที่ถูกขอแก้"), count: toWrite, href: "/summaries?bucket=to_write" },
+    { key: "unmarked", group: "today", title: tx("ยังไม่เช็คชื่อ"), detail: tx("คาบที่จบแล้วใน 30 วัน"), count: unmarked, href: `/sessions?period=custom&from=${addDays(today, -29)}&to=${today}&work=needs_attendance` },
+    { key: "summary_write", group: "today", title: tx("สรุปการเรียนยังไม่ได้เขียน"), detail: tx("7 วันล่าสุด รวมที่ถูกขอแก้"), count: toWrite, href: `/summaries?bucket=to_write&period=custom&from=${addDays(today, -6)}&to=${today}` },
     ...(can(me, "summary.approve") ? [{ key: "summary_approve", group: "today" as const, title: tx("สรุปการเรียนรออนุมัติ"), detail: tx("ครูส่งมาแล้ว รอคุณตรวจ"), count: toApprove, href: "/summaries?bucket=submitted" }] : []),
     ...(can(me, "billing.approve") ? [{ key: "invoice_approve", group: "today" as const, title: tx("ใบแจ้งหนี้รออนุมัติ"), detail: tx("อนุมัติแล้วจึงส่งผู้ปกครองได้"), count: invoicesToApprove, href: "/billing?filter=pending_approval" }] : []),
     ...(!mineOnly ? [

@@ -13,8 +13,9 @@ export const KPI_TONE = {
 export type KpiTone = keyof typeof KPI_TONE
 
 /**
- * KPI card — one structure everywhere (owner 2026-10-09): icon (always) · label · number · sub text (the line is kept
- * even when empty so every card in a row is the same height) · optional body below that may make the card taller.
+ * KPI card — one structure everywhere (owner 2026-10-09): icon (always) · label · number · sub text (optional) ·
+ * optional body below that may make the card taller. Same minimum height everywhere and the content is centred
+ * vertically, so a card without sub text never looks stuck at the top.
  * Fills its grid cell. Clickable when it filters the list below.
  */
 export function Kpi({
@@ -36,13 +37,13 @@ export function Kpi({
   const Tag = onClick ? "button" : "div"
   return (
     <Tag type={onClick ? "button" : undefined} onClick={onClick} aria-pressed={onClick ? !!active : undefined}
-      className={cn("flex h-full w-full flex-col gap-2 rounded-3xl bg-card p-4 text-left shadow-sm ring-1 ring-foreground/5", onClick && "transition hover:ring-foreground/20", active && "ring-2 ring-primary hover:ring-primary", className)}>
+      className={cn("flex h-full min-h-24 w-full flex-col justify-center gap-2 rounded-3xl bg-card p-4 text-left shadow-sm ring-1 ring-foreground/5", onClick && "transition hover:ring-foreground/20", active && "ring-2 ring-primary hover:ring-primary", className)}>
       <div className="flex w-full items-center gap-3">
         <span className={cn("grid size-10 shrink-0 place-items-center rounded-2xl", KPI_TONE[tone])}><Icon className="size-5" /></span>
         <div className="min-w-0 flex-1">
           <p className="truncate text-xs text-muted-foreground">{label}</p>
           <p className={cn("truncate text-2xl leading-tight font-semibold tabular-nums", valueClassName)}>{value}</p>
-          <p className="min-h-4 truncate text-xs leading-4 text-muted-foreground">{sub}</p>
+          {sub && <p className="truncate text-xs leading-4 text-muted-foreground">{sub}</p>}
         </div>
       </div>
       {children && <div className="w-full text-sm">{children}</div>}
