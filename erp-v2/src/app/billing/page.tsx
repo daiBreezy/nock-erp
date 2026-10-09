@@ -1,6 +1,6 @@
 "use client"
 
-import { Page as PageShell, PageHeader, KpiRow, ShowChip } from "@/components/app/page-layout"
+import { Page as PageShell, PageHeader, KpiRow, ShowChip, Segmented } from "@/components/app/page-layout"
 import { Kpi } from "@/components/app/kpi"
 import { BranchCode, useBranchScope } from "@/components/app/branch-scope"
 import { SalesTaxDialog } from "@/components/billing/sales-tax-dialog"
@@ -14,7 +14,6 @@ import { InvoiceSheet } from "@/components/billing/invoice-sheet"
 import { invoiceTone } from "@/components/billing/status"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 import { fmtDate, fmtMoney, toDateStr } from "@/domain/dates"
 import * as Bill from "@/domain/rules/billing"
 import { can } from "@/domain/rules/permissions"
@@ -127,10 +126,8 @@ function BillingPage() {
       <div className="flex flex-wrap items-center gap-2">
         {scope.select}
         {/* owner 2026-10-07: All / Pending, and Done / Void as show-hide toggles (the cards above still filter one status) */}
-        <ToggleGroup value={[filter]} onValueChange={(v) => v[0] && setFilter(v[0] as Filter)} variant="outline">
-          <ToggleGroupItem value="all">All</ToggleGroupItem>
-          <ToggleGroupItem value="pending">Pending{pendingCount > 0 && <span className="rounded-full bg-amber-100 px-1.5 text-xs text-amber-800 tabular-nums">{pendingCount}</span>}</ToggleGroupItem>
-        </ToggleGroup>
+        <Segmented label="สถานะ" value={filter} onChange={(v) => setFilter(v)}
+          options={[{ value: "all" as Filter, label: "All" }, { value: "pending" as Filter, label: <>Pending{pendingCount > 0 && <span className="rounded-full bg-amber-100 px-1.5 text-xs text-amber-800 tabular-nums">{pendingCount}</span>}</> }]} />
         <span className="h-5 w-px bg-border" />
         <ShowChip label="Done" on={showDone === "1"} count={doneCount} onChange={(v) => setShowDone(v ? "1" : "0")} />
         <ShowChip label="Void" on={showVoid === "1"} count={voidCount} onChange={(v) => setShowVoid(v ? "1" : "0")} />

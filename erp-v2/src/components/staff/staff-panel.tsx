@@ -30,6 +30,7 @@ import { useBranch, useEntitlements, useNow } from "@/lib/hooks"
 import { cn } from "@/lib/utils"
 import { useStore } from "@/store/store"
 import { DeactivateDialog } from "./deactivate-dialog"
+import { Tabs } from "@/components/app/page-layout"
 
 const WEEK: Weekday[] = [1, 2, 3, 4, 5, 6, 0]
 type Tab = "info" | "sessions" | "summaries" | "notes" | "log"
@@ -91,11 +92,7 @@ function StaffView({ s, onEdit }: { s: Staff; onEdit: () => void }) {
           {!s.canLogin && <Pill>ไม่ล็อกอิน</Pill>}
         </div>
       </SheetHeader>
-      <div className="flex shrink-0 gap-1 overflow-x-auto border-b px-3 py-2">
-        {TABS.map((t) => (
-          <button key={t.key} type="button" onClick={() => setTab(t.key)} className={cn("shrink-0 rounded-full px-3 py-1 text-sm", tab === t.key ? "bg-primary/10 font-medium text-primary" : "text-muted-foreground hover:bg-muted")}>{t.label}</button>
-        ))}
-      </div>
+      <Tabs className="shrink-0 px-3" value={tab} onChange={setTab} options={TABS.map((t) => ({ value: t.key, label: t.label }))} />
       <div className="min-h-0 flex-1 space-y-3 overflow-y-auto px-4 pt-4 pb-6">
         {(tab === "info" || tab === "sessions" || tab === "summaries") && <WeekNav week={week} today={today} onChange={setWeek} />}
         {tab === "info" ? <InfoTab s={s} week={week} onTab={setTab} /> : tab === "sessions" ? <SessionsTab s={s} week={week} onOpen={setOpenSession} />

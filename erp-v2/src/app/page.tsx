@@ -5,7 +5,7 @@ import Link from "next/link"
 import { useState } from "react"
 import { ArrowRightIcon, BanknoteIcon, CheckCircle2Icon, ChartColumnIcon, ChevronRightIcon, GraduationCapIcon, HistoryIcon, SparklesIcon, UserMinusIcon, UserPlusIcon, UserSearchIcon, XCircleIcon } from "lucide-react"
 import { Pill, SessionStateBadge } from "@/components/app/badges"
-import { KpiRow, Page, PageHeader } from "@/components/app/page-layout"
+import { KpiRow, Page, PageHeader, Segmented } from "@/components/app/page-layout"
 import { SessionSheet } from "@/components/app/session-sheet"
 import { subjectColor } from "@/components/app/subject-color"
 import { DailyBriefCard } from "@/components/dashboard/daily-brief"
@@ -14,7 +14,6 @@ import { Delta, fmtNum } from "@/components/reports/charts"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
-import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { addDays, endTime, fmtDate, fmtMoney, toDateStr } from "@/domain/dates"
 import * as Att from "@/domain/rules/attendance"
@@ -190,11 +189,8 @@ export default function DashboardPage() {
       {/* owner 2026-10-09: same header and width as every page */}
       <PageHeader title={`${tx("สวัสดี")} ${nm(me.nickname)}`} description={`${fmtDate(today, { weekday: true, year: true })} ${tx("· สาขา")}${nm(branch.name)}`}
         actions={hasOverview && <>
-          <ToggleGroup value={[range]} onValueChange={(v) => v[0] && setRangeParam(v[0] as RangeKey)} variant="outline">
-            <ToggleGroupItem value="today">{tx("วันนี้")}</ToggleGroupItem>
-            <ToggleGroupItem value="week">{tx("สัปดาห์นี้")}</ToggleGroupItem>
-            <ToggleGroupItem value="month">{tx("เดือนนี้")}</ToggleGroupItem>
-          </ToggleGroup>
+          <Segmented label={tx("ช่วงเวลา")} value={range} onChange={(v) => setRangeParam(v as RangeKey)}
+            options={[{ value: "today", label: tx("วันนี้") }, { value: "week", label: tx("สัปดาห์นี้") }, { value: "month", label: tx("เดือนนี้") }]} />
           <ActivityButton items={recentActivity} today={today} />
         </>} />
 

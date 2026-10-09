@@ -63,3 +63,37 @@ export function ShowChip({ label, on, count, onChange }: { label: string; on: bo
     </button>
   )
 }
+
+export interface SegmentOption<T extends string> { value: T; label: React.ReactNode; icon?: React.ComponentType<{ className?: string }>; title?: string }
+
+/**
+ * Grey segmented switch (owner 2026-10-09) — for "pick one, the whole view changes": view, range, mode.
+ * h-9 like every toolbar control; the picked one is a white pill. Filters stay dropdowns, show / hide stays ShowChip.
+ */
+export function Segmented<T extends string>({ value, onChange, options, className, label }: { value: T; onChange: (v: T) => void; options: SegmentOption<T>[]; className?: string; label?: string }) {
+  return (
+    <div role="group" aria-label={label} className={cn("inline-flex h-9 shrink-0 items-center rounded-full bg-muted p-1", className)}>
+      {options.map((o) => (
+        <button key={o.value} type="button" aria-pressed={value === o.value} title={o.title} onClick={() => onChange(o.value)}
+          className={cn("flex h-7 items-center gap-1.5 rounded-full px-3 text-sm whitespace-nowrap", value === o.value ? "bg-background font-medium shadow-sm" : "text-muted-foreground hover:text-foreground")}>
+          {o.icon && <o.icon className="size-4" />}{o.label}
+        </button>
+      ))}
+    </div>
+  )
+}
+
+/** Section tabs with an underline (owner 2026-10-09) — for "which topic": Reports sections, Settings, panel tabs.
+ *  Different from Segmented on purpose: underline = change topic, grey box = change view / range. */
+export function Tabs<T extends string>({ value, onChange, options, className }: { value: T; onChange: (v: T) => void; options: SegmentOption<T>[]; className?: string }) {
+  return (
+    <div role="tablist" className={cn("flex gap-1 overflow-x-auto border-b", className)}>
+      {options.map((o) => (
+        <button key={o.value} type="button" role="tab" aria-selected={value === o.value} title={o.title} onClick={() => onChange(o.value)}
+          className={cn("-mb-px flex shrink-0 items-center gap-1.5 border-b-2 px-3 py-2 text-sm whitespace-nowrap", value === o.value ? "border-primary font-medium text-primary" : "border-transparent text-muted-foreground hover:text-foreground")}>
+          {o.icon && <o.icon className="size-4" />}{o.label}
+        </button>
+      ))}
+    </div>
+  )
+}

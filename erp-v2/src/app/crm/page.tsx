@@ -1,6 +1,6 @@
 "use client"
 
-import { Page, PageHeader, KpiRow, ShowChip } from "@/components/app/page-layout"
+import { Page, PageHeader, KpiRow, ShowChip, Segmented } from "@/components/app/page-layout"
 import { BranchCode, useBranchScope } from "@/components/app/branch-scope"
 import { useEffect, useState } from "react"
 import { BellRingIcon, CalendarClockIcon, ChevronRightIcon, LayoutGridIcon, PlusIcon, RotateCcwIcon, SearchIcon, TableIcon, TrendingUpIcon, UserCheckIcon, UserSearchIcon, UsersIcon } from "lucide-react"
@@ -19,7 +19,6 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { InfoTip } from "@/components/reports/charts"
 import * as Survey from "@/domain/rules/survey"
 import { fetchEnrollSubmissions } from "@/lib/forms"
-import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 import { fmtDate, toDateStr } from "@/domain/dates"
 import { leadFlags } from "@/domain/rules/reports"
 import { useFocusFirst } from "@/components/app/focus-banner"
@@ -140,10 +139,8 @@ export default function CrmPage() {
         <ShowChip label="ที่ปิดแล้ว" on={showArchived} onChange={setShowArchived} />
         <div className="ml-auto flex items-center gap-2">
           {view === "kanban" ? <InfoTip text="ลากการ์ดไปคอลัมน์อื่นเพื่อย้ายขั้นตอน · ที่ปิดแล้ว = เป็นนักเรียนแล้ว หรือเก็บเข้าคลัง" /> : <span className="text-xs text-muted-foreground">{tableRows.length} รายการ</span>}
-          <ToggleGroup value={[view]} onValueChange={(v) => v[0] && setView(v[0] as ViewMode)} variant="outline">
-            <ToggleGroupItem value="kanban"><LayoutGridIcon /> Kanban</ToggleGroupItem>
-            <ToggleGroupItem value="table"><TableIcon /> ตาราง</ToggleGroupItem>
-          </ToggleGroup>
+          <Segmented label="มุมมอง" value={view} onChange={(v) => setView(v)}
+            options={[{ value: "kanban", label: "Kanban", icon: LayoutGridIcon }, { value: "table", label: "ตาราง", icon: TableIcon }]} />
         </div>
       </div>
 

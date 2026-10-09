@@ -1,7 +1,7 @@
 "use client"
 
 import { usePeriod } from "@/components/app/period-control"
-import { Page, PageHeader, KpiRow, Toolbar } from "@/components/app/page-layout"
+import { Page, PageHeader, KpiRow, Toolbar, Segmented } from "@/components/app/page-layout"
 import { Kpi, type KpiTone } from "@/components/app/kpi"
 import { BranchCode, useBranchScope } from "@/components/app/branch-scope"
 import { useState } from "react"
@@ -10,7 +10,6 @@ import { Pill } from "@/components/app/badges"
 import { CourseSummaryStudentSheet } from "@/components/app/course-summary-sheet"
 import { SessionSheet } from "@/components/app/session-sheet"
 import { Button } from "@/components/ui/button"
-import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 import { fmtDate, toDateStr } from "@/domain/dates"
 import { can, seesAllSessions } from "@/domain/rules/permissions"
 import * as Sum from "@/domain/rules/summaries"
@@ -53,10 +52,8 @@ export default function SummariesPage() {
     <Page>
       <PageHeader title="สรุปการเรียน" description={top === "session" ? "สรุปรายคาบ: เขียน → อนุมัติ → ส่งผู้ปกครอง" : "สรุปทั้งคอร์ส เมื่อแพ็กเกจใกล้หมดหรือหมดแล้ว"}
         actions={
-          <ToggleGroup value={[top]} onValueChange={(v) => v[0] && setTop(v[0] as typeof top)} variant="outline">
-            <ToggleGroupItem value="session">Session Summary</ToggleGroupItem>
-            <ToggleGroupItem value="course">Course Summary</ToggleGroupItem>
-          </ToggleGroup>
+          <Segmented label="ชนิดสรุป" value={top} onChange={(v) => setTop(v)}
+            options={[{ value: "session", label: "Session Summary" }, { value: "course", label: "Course Summary" }]} />
         } />
       {top === "session" ? <SessionSummaryTab /> : <CourseSummaryTab />}
     </Page>

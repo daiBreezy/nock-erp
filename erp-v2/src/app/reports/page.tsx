@@ -1,6 +1,6 @@
 "use client"
 
-import { KpiRow, Page, PageHeader } from "@/components/app/page-layout"
+import { KpiRow, Page, PageHeader, Segmented, Tabs } from "@/components/app/page-layout"
 import { Kpi } from "@/components/app/kpi"
 import { BranchChip, scopeOptions as buildScopeOptions } from "@/components/app/branch-scope"
 import Link from "next/link"
@@ -34,6 +34,8 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { tx, uiLang, nm, sj } from "@/lib/i18n"
 
 type Tab = "summary" | "overview" | "revenue" | "students" | "attendance" | "operations" | "crm" | "satisfaction"
+/** the sky-blue sparkle that marks AI-written content */
+const AiSparkles = ({ className }: { className?: string }) => <SparklesIcon className={cn(className, "text-sky-600 dark:text-sky-400")} />
 const TABS: { id: Tab; label: string; soon?: string }[] = [
   { id: "summary", label: "สรุป" },
   { id: "overview", label: "ภาพรวม" },
@@ -118,26 +120,19 @@ function Reports() {
 
       {/* owner 2026-10-07: tabs + periods stick under the top bar while scrolling — always one tap away */}
       <div className="sticky top-14 z-10 -mx-3 space-y-3 border-b border-transparent bg-background/95 px-3 py-2 backdrop-blur md:-mx-6 md:px-6 print:hidden">
-        <div className="inline-flex flex-wrap rounded-full bg-muted p-1">
-          {TABS.map((t) => (
-            <button key={t.id} type="button" onClick={() => setTab(t.id)} className={cn("flex items-center gap-1.5 rounded-full px-4 py-1 text-sm", tab === t.id ? "bg-background font-medium shadow-sm" : "text-muted-foreground")}>
-              {t.id === "summary" && <SparklesIcon className="size-4 text-sky-600 dark:text-sky-400" />}
-              {tx(t.label)}{t.soon && <span className="ml-1 text-[10px] text-muted-foreground">{t.soon}</span>}
-            </button>
+        {/* owner 2026-10-09: underline = which topic · grey boxes = which period */}
+        <Tabs value={tab} onChange={setTab}
+          options={TABS.map((t) => ({ value: t.id, icon: t.id === "summary" ? AiSparkles : undefined, label: <>{tx(t.label)}{t.soon && <span className="ml-1 text-[10px] text-muted-foreground">{t.soon}</span>}</> }))} />
+        {/* periods: rolling · to-date · complete-period comparisons · custom dates */}
+        <div className="flex flex-wrap items-center gap-2">
+          {(["rolling", "todate", "compare"] as const).map((g) => (
+            <Segmented key={g} value={period} onChange={setPeriod}
+              options={PERIODS.filter((p) => p.group === g).map((p) => ({ value: p.key, label: p.short, title: tx(p.hint) }))} />
           ))}
-        </div>
-        {/* owner 2026-10-05: periods on their own row — rolling · to-date · complete-period comparisons · custom dates */}
-        <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
-          {(["rolling", "todate", "compare"] as const).map((g, gi) => (
-            <div key={g} className={cn("flex flex-wrap items-center gap-1.5", gi > 0 && "border-l pl-3")}>
-              {PERIODS.filter((p) => p.group === g).map((p) => (
-                <button key={p.key} type="button" title={tx(p.hint)} onClick={() => setPeriod(p.key)}
-                  className={cn("h-9 rounded-3xl border px-3 text-sm", period === p.key ? "border-primary bg-primary/10 font-medium text-primary" : "bg-card hover:bg-muted")}>{p.short}</button>
-              ))}
-            </div>
-          ))}
-          {/* owner 2026-10-07: shadcn range picker instead of two native date boxes */}
-          <DateRangePicker from={custom.from} to={custom.to} max={today} active={period === "custom"} onChange={(r) => { setCustom(r); setPeriod("custom") }} />
+          <div className="inline-flex h-9 items-center rounded-full bg-muted p-1">
+            <DateRangePicker segment from={custom.from} to={custom.to} max={today} active={period === "custom"} onChange={(r) => { setCustom(r); setPeriod("custom") }} />
+          </div>
+          {period === "custom" && <span className="text-sm font-medium tabular-nums">{fmtDate(custom.from, { year: custom.from.slice(0, 4) !== custom.to.slice(0, 4) })} – {fmtDate(custom.to, { year: true })}</span>}
         </div>
       </div>
 

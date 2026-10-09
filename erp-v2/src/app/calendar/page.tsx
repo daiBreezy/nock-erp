@@ -2,7 +2,7 @@
 
 import { staffAt } from "@/domain/rules/permissions"
 import { PeriodBanner } from "@/components/app/period-banner"
-import { DateNav, PageHeader, Toolbar } from "@/components/app/page-layout"
+import { DateNav, PageHeader, Toolbar, Segmented } from "@/components/app/page-layout"
 import { Suspense, useMemo, useState } from "react"
 import { useSearchParams } from "next/navigation"
 import { AlertTriangleIcon, ClipboardListIcon, PalmtreeIcon, PlusIcon } from "lucide-react"
@@ -17,7 +17,6 @@ import { MoveDialog } from "@/components/calendar/move-dialog"
 import { WeekTeacherBoard } from "@/components/calendar/week-teacher-board"
 import type { CardData } from "@/components/calendar/class-card"
 import { Button } from "@/components/ui/button"
-import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 import { addDays, dayShort, endTime, fmtDate, fmtMonth, fromMinutes, parseDate, toDateStr, toMinutes, weekdayOf } from "@/domain/dates"
 import { can } from "@/domain/rules/permissions"
 import { findConflicts, isHoliday, periodsIn, sessionState, WORK_LABEL, workState, type MoveTarget, type WorkState } from "@/domain/rules/scheduling"
@@ -167,19 +166,13 @@ function CalendarView() {
 
       {/* owner 2026-10-09: three rows — header · which view · date + filters */}
       <div className="flex flex-wrap items-center gap-2">
-        <ToggleGroup value={[view]} onValueChange={(v) => v[0] && setView(v[0] as View)} variant="outline">
-          <ToggleGroupItem value="board">วัน</ToggleGroupItem>
-          <ToggleGroupItem value="week">สัปดาห์</ToggleGroupItem>
-          <ToggleGroupItem value="month">เดือน</ToggleGroupItem>
-          <ToggleGroupItem value="list">รายการ</ToggleGroupItem>
-        </ToggleGroup>
+        <Segmented label="มุมมอง" value={view} onChange={(v) => setView(v)}
+          options={[{ value: "board", label: "วัน" }, { value: "week", label: "สัปดาห์" }, { value: "month", label: "เดือน" }, { value: "list", label: "รายการ" }]} />
         {view === "board" && (
           <>
             <span className="h-5 w-px bg-border" />
-            <ToggleGroup value={[dayMode]} onValueChange={(v) => v[0] && setDayMode(v[0] as "table" | "single")} variant="outline">
-              <ToggleGroupItem value="table">ตารางครูทั้งสัปดาห์</ToggleGroupItem>
-              <ToggleGroupItem value="single">รายวัน</ToggleGroupItem>
-            </ToggleGroup>
+            <Segmented label="แบบตาราง" value={dayMode} onChange={(v) => setDayMode(v)}
+              options={[{ value: "table", label: "ตารางครูทั้งสัปดาห์" }, { value: "single", label: "รายวัน" }]} />
           </>
         )}
       </div>

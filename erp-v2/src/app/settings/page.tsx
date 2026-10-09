@@ -1,6 +1,6 @@
 "use client"
 
-import { Page, PageHeader } from "@/components/app/page-layout"
+import { Page, PageHeader, Tabs } from "@/components/app/page-layout"
 import Link from "next/link"
 import { useRouter, useSearchParams } from "next/navigation"
 import { Suspense, useState } from "react"
@@ -16,7 +16,6 @@ import { Input } from "@/components/ui/input"
 import { can, inBranch } from "@/domain/rules/permissions"
 import type { Branch } from "@/domain/types"
 import { report } from "@/lib/feedback"
-import { cn } from "@/lib/utils"
 import { useStore } from "@/store/store"
 import { tx, nm } from "@/lib/i18n"
 
@@ -39,17 +38,8 @@ function Settings() {
   return (
     <Page className="pb-16">
       <PageHeader title="Settings" description={tx("ตั้งค่าระบบ NockERP")} />
-      <div className="flex gap-1 border-b">
-        {[
-          { id: "general", label: tx("สาขา (General)"), icon: Building2Icon },
-          ...(full ? [{ id: "system", label: tx("ระบบ (System)"), icon: SettingsIcon }] : []),
-        ].map((t) => (
-          <button key={t.id} onClick={() => router.replace(t.id === "system" ? "/settings?view=system" : "/settings")}
-            className={cn("-mb-px flex items-center gap-1.5 border-b-2 px-3 py-2 text-sm", view === t.id ? "border-primary font-medium text-primary" : "border-transparent text-muted-foreground")}>
-            <t.icon className="size-4" /> {t.label}
-          </button>
-        ))}
-      </div>
+      <Tabs value={view} onChange={(v) => router.replace(v === "system" ? "/settings?view=system" : "/settings")}
+        options={[{ value: "general", label: tx("สาขา (General)"), icon: Building2Icon }, ...(full ? [{ value: "system", label: tx("ระบบ (System)"), icon: SettingsIcon }] : [])]} />
       {view === "system" ? <SystemSettingsView /> : <BranchList />}
     </Page>
   )
