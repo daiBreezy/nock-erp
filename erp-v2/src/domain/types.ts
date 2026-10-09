@@ -226,6 +226,9 @@ export interface Staff {
    *  Area Manager stay company-wide in `roles`. Unset (older records) = `roles` / `subjects` everywhere in `branchIds`.
    *  `roles`, `branchIds` and `subjects` are kept as the union of these so older code keeps working. */
   assignments?: StaffAssignment[]
+  /** Area / Region Manager (owner 2026-10-09): the branches they look after. Director / Super Admin need none — they
+   *  see every branch. Unset on an older Area Manager record = every branch (as before). */
+  areaBranchIds?: ID[]
   /** notes about this person, newest first (owner 2026-10-09: Staff panel › Note) */
   notes?: { id: ID; at: string; by: ID; text: string }[]
 }

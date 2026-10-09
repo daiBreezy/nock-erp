@@ -350,7 +350,9 @@ export const useStore = create<Store>()(
       me: () => meAt(get().staff.find((s) => s.id === get().userId)!, get().branchId),
       setUser: (userId) => {
         const u = get().staff.find((s) => s.id === userId)!
-        set({ userId, branchId: u.branchIds.includes(get().branchId) ? get().branchId : u.branchIds[0] })
+        // Director / Super Admin may have no branch of their own — keep the current one (owner 2026-10-09)
+        const cur = get().branchId
+        set({ userId, branchId: inBranch(u, cur) ? cur : u.branchIds[0] ?? get().branches.find((b) => b.active && inBranch(u, b.id))?.id ?? cur })
       },
       setBranch: (branchId) => set({ branchId }),
       setClockOffset: (clockOffset) => set({ clockOffset }),
@@ -827,7 +829,7 @@ export const useStore = create<Store>()(
         if (!active && s.branches.filter((b) => b.active).length <= 1) return fail("ต้องมีสาขาที่เปิดอยู่อย่างน้อย 1 สาขา")
         if (!active && s.sessions.some((x) => x.branchId === id && !x.cancelled && x.date >= toDateStr(s.now()))) return fail("ยังมีคาบในอนาคตที่สาขานี้ — ย้ายหรือยกเลิกก่อนปิดสาขา")
         const next = s.branches.map((b) => (b.id === id ? { ...b, active } : b))
-        const fallback = next.find((b) => b.active && s.me().branchIds.includes(b.id))
+        const fallback = next.find((b) => b.active && b.id !== id && inBranch(s.me(), b.id))
         set({ branches: next, branchId: !active && s.branchId === id && fallback ? fallback.id : s.branchId })
         return OK
       },

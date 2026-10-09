@@ -17,7 +17,7 @@ import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "
 import { Textarea } from "@/components/ui/textarea"
 import { addDays, dayShort, endTime, fmtDate, fmtDateTime, toDateStr, weekdayOf } from "@/domain/dates"
 import { validateStaff } from "@/domain/rules/people"
-import { assignmentAt, BRANCH_ROLES, can, canDeactivateStaff, GLOBAL_ROLES, rolesAt, ROLE_LABEL, withAssignments } from "@/domain/rules/permissions"
+import { allBranches, areaOf, assignmentAt, BRANCH_ROLES, can, canDeactivateStaff, GLOBAL_ROLES, rolesAt, ROLE_LABEL, withAssignments } from "@/domain/rules/permissions"
 import { subjectsOf, teachersOf } from "@/domain/rules/scheduling"
 import { SUMMARY_STATUS_LABEL } from "@/domain/rules/summaries"
 import type { ID, Staff, StaffAssignment, Weekday } from "@/domain/types"
@@ -82,26 +82,27 @@ function StaffView({ s, onEdit }: { s: Staff; onEdit: () => void }) {
           {s.partTime && <Pill tone="amber">Part-time</Pill>}
           {!s.canLogin && <Pill>ไม่ล็อกอิน</Pill>}
         </div>
-        {manage && (
-          <div className="flex flex-wrap gap-1.5">
-            {s.active ? (
-              <>
-                <Button size="xs" variant="outline" onClick={onEdit}><PencilIcon /> แก้ไข</Button>
-                <Button size="xs" variant="ghost" className="text-red-700" disabled={!deact.ok} title={deact.ok ? undefined : (deact as { error: string }).error} onClick={() => setLeaving(true)}><UserXIcon /> ปิดบัญชี</Button>
-              </>
-            ) : <Button size="xs" variant="outline" onClick={() => report(reactivate(s.id), `เปิดบัญชี ${s.nickname} แล้ว`)}>เปิดบัญชีใหม่</Button>}
-          </div>
-        )}
       </SheetHeader>
       <div className="flex gap-1 overflow-x-auto border-b px-3 py-2">
         {TABS.map((t) => (
           <button key={t.key} type="button" onClick={() => setTab(t.key)} className={cn("shrink-0 rounded-full px-3 py-1 text-sm", tab === t.key ? "bg-primary/10 font-medium text-primary" : "text-muted-foreground hover:bg-muted")}>{t.label}</button>
         ))}
       </div>
-      <div className="space-y-3 px-4 pt-4 pb-6">
+      <div className="flex-1 space-y-3 px-4 pt-4 pb-6">
         {tab === "info" ? <InfoTab s={s} /> : tab === "classes" ? <ClassesTab s={s} /> : tab === "sessions" ? <SessionsTab s={s} />
           : tab === "summaries" ? <SummariesTab s={s} /> : tab === "notes" ? <NotesTab s={s} canAdd={manage} /> : <LogTab s={s} />}
       </div>
+      {/* Panel = Header · Body · Bottom — actions (CTA) live in the bottom bar (owner 2026-10-09) */}
+      {manage && (
+        <div className="sticky bottom-0 flex items-center gap-2 border-t bg-background px-4 py-3">
+          {s.active ? (
+            <>
+              <Button variant="ghost" className="text-red-700" disabled={!deact.ok} title={deact.ok ? undefined : (deact as { error: string }).error} onClick={() => setLeaving(true)}><UserXIcon /> ปิดบัญชี</Button>
+              <Button className="ml-auto" onClick={onEdit}><PencilIcon /> แก้ไข</Button>
+            </>
+          ) : <Button className="ml-auto" onClick={() => report(reactivate(s.id), `เปิดบัญชี ${s.nickname} แล้ว`)}>เปิดบัญชีใหม่</Button>}
+        </div>
+      )}
       {leaving && <DeactivateDialog s={s} onClose={() => setLeaving(false)} />}
     </>
   )
@@ -127,7 +128,10 @@ function InfoTab({ s }: { s: Staff }) {
         <Row label="ชื่อที่แสดง">{s.nickname}{s.nicknameEn && <span className="text-muted-foreground"> · {s.nicknameEn}</span>}</Row>
         <Row label="อีเมล">{s.email || <span className="text-muted-foreground">—</span>}{!s.canLogin && <span className="text-xs text-muted-foreground"> · ไม่มีสิทธิ์เข้าระบบ</span>}</Row>
         <Row label="ประเภท">{s.partTime ? "Part-time (เป็นครูสอนแทนได้)" : "Full-time"}</Row>
-        {global.length > 0 && <Row label="ทุกสาขา">{global.map((r) => ROLE_LABEL[r]).join(", ")}</Row>}
+        {allBranches(s) && <Row label="ดูแล">ทุกสาขา ({global.filter((r) => r !== "area_manager").map((r) => ROLE_LABEL[r]).join(", ")})</Row>}
+        {s.roles.includes("area_manager") && (
+          <Row label="Area Manager">{(() => { const area = areaOf(s); return area === null ? "ทุกสาขา (ยังไม่ได้เลือก)" : branches.filter((b) => area.includes(b.id)).map((b) => b.name).join(", ") })()}</Row>
+        )}
       </section>
       <section className="space-y-2">
         <h3 className="text-sm font-semibold">งานแต่ละสาขา</h3>
@@ -288,6 +292,7 @@ function StaffEdit({ staff: initial, onCancel, onSaved }: { staff?: Staff; onCan
   const save = useStore((st) => st.saveStaff)
   const [f, setF] = useState<Staff>(initial ?? { id: uid("u"), name: "", nickname: "", roles: [], branchIds: [], subjects: [], active: true, canLogin: true, email: "" })
   const [rows, setRows] = useState<StaffAssignment[]>(() => (initial ? rowsOf(initial) : [{ branchId: branch.id, roles: ["teacher"], subjects: [], weekdays: [] }]))
+  // older Area Manager records had no list — start from the branches they were in
   const [touched, setTouched] = useState(false)
   const next = withAssignments(f, rows)
   const errs = validateStaff(next, all, f.id)
@@ -316,15 +321,24 @@ function StaffEdit({ staff: initial, onCancel, onSaved }: { staff?: Staff; onCan
           <EnNameField label="ชื่อที่แสดง" native={f.nickname} value={f.nicknameEn} onChange={(v) => setF({ ...f, nicknameEn: v })} />
         </div>
 
-        <Field label="บทบาททุกสาขา (ถ้ามี)">
+        <Field label="บทบาทระดับบริษัท (ถ้ามี)">
           <div className="flex flex-wrap gap-3">
             {GLOBAL_ROLES.map((r) => <label key={r} className="flex items-center gap-1.5 text-sm"><Checkbox checked={f.roles.includes(r)} onCheckedChange={() => setF({ ...f, roles: toggle(f.roles, r) })} />{ROLE_LABEL[r]}</label>)}
           </div>
+          {allBranches(f) && <p className="mt-1 text-xs text-muted-foreground">Director / Super Admin ดูแลทุกสาขา — ไม่ต้องเลือกสาขา</p>}
         </Field>
+        {/* owner 2026-10-09: an Area / Region Manager looks after chosen branches only */}
+        {f.roles.includes("area_manager") && !allBranches(f) && (
+          <div className={cn("space-y-1 rounded-2xl border p-3", err("area") && "border-red-300")}>
+            <Chips label="สาขาที่ดูแล (Area Manager)" items={branches.filter((b) => b.active !== false).map((b) => ({ key: b.id, label: b.name }))}
+              on={(k) => !!f.areaBranchIds?.includes(k)} toggle={(k) => setF({ ...f, areaBranchIds: toggle(f.areaBranchIds ?? [], k) })} />
+            {err("area") && <p className="text-xs text-red-700">{err("area")}</p>}
+          </div>
+        )}
 
         <section className="space-y-2">
           <div className="flex items-center gap-2">
-            <h3 className="text-sm font-semibold">งานแต่ละสาขา</h3>
+            <h3 className="text-sm font-semibold">งานแต่ละสาขา{f.roles.some((r) => GLOBAL_ROLES.includes(r)) && <span className="font-normal text-muted-foreground"> (ถ้าสอน / ทำงานประจำสาขาด้วย)</span>}</h3>
             {free.length > 0 && (
               <NativeSelect className="ml-auto h-8 w-48" value="" placeholder="+ เพิ่มสาขา"
                 onChange={(e) => e.target.value && setRows([...rows, { branchId: e.target.value, roles: ["teacher"], subjects: [], weekdays: [] }])}

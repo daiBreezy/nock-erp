@@ -138,12 +138,15 @@ export function validateStudent(s: Pick<Student, "name" | "nickname" | "grade" |
 }
 
 /** S5: no-login part-timers do not need an email */
-export function validateStaff(s: Pick<Staff, "name" | "nickname" | "roles" | "branchIds" | "canLogin" | "email" | "assignments">, all: Staff[], selfId?: ID): FieldError[] {
+export function validateStaff(s: Pick<Staff, "name" | "nickname" | "roles" | "branchIds" | "canLogin" | "email" | "assignments" | "areaBranchIds">, all: Staff[], selfId?: ID): FieldError[] {
   const errs: FieldError[] = []
   if (!s.name.trim()) errs.push({ field: "name", message: "ใส่ชื่อ" })
   if (!s.nickname.trim()) errs.push({ field: "nickname", message: "ใส่ชื่อเล่น" })
   if (!s.roles.length) errs.push({ field: "roles", message: "เลือกบทบาทอย่างน้อย 1" })
-  if (!s.branchIds.length) errs.push({ field: "branchIds", message: "เลือกสาขาอย่างน้อย 1" })
+  // Director / Super Admin see every branch — no branch needed (owner 2026-10-09)
+  const everywhere = s.roles.some((r) => r === "director" || r === "super_admin")
+  if (!s.branchIds.length && !everywhere) errs.push({ field: "branchIds", message: "เลือกสาขาอย่างน้อย 1" })
+  if (s.roles.includes("area_manager") && !s.areaBranchIds?.length) errs.push({ field: "area", message: "Area Manager ต้องเลือกสาขาที่ดูแลอย่างน้อย 1 สาขา" })
   // owner 2026-10-09: per branch — a branch row needs a role (unless company-wide), a teacher there needs a subject
   const global = s.roles.some((r) => GLOBAL_ROLES.includes(r))
   for (const a of s.assignments ?? []) {

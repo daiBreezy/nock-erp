@@ -2120,3 +2120,21 @@ describe("staff roles per branch (owner 2026-10-09)", () => {
     expect(issues.find((i) => i.message.includes("ไม่ได้ทำงาน"))).toMatchObject({ level: "warn", tone: "amber" })
   })
 })
+
+import { inBranch, reportBranchIds } from "./permissions"
+
+describe("Area Manager picks branches, Director / Super Admin see all (owner 2026-10-09)", () => {
+  const base = { id: "x", name: "x", nickname: "x", branchIds: [], subjects: [], active: true, canLogin: true } as unknown as Staff
+  it("area manager only in their branches", () => {
+    const am = { ...base, roles: ["area_manager"], areaBranchIds: ["b1", "b2"] } as Staff
+    expect(inBranch(am, "b2")).toBe(true)
+    expect(inBranch(am, "b3")).toBe(false)
+    expect(reportBranchIds(am, [{ id: "b1" }, { id: "b3" }])).toEqual(["b1"])
+    expect(validateStaff({ ...am, areaBranchIds: [] }, [])).toContainEqual(expect.objectContaining({ field: "area" }))
+  })
+  it("director needs no branch", () => {
+    const d = { ...base, roles: ["director"] } as Staff
+    expect(inBranch(d, "anything")).toBe(true)
+    expect(validateStaff(d, []).some((e) => e.field === "branchIds")).toBe(false)
+  })
+})

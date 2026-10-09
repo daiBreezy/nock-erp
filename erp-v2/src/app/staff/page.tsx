@@ -8,7 +8,7 @@ import { avatarTone, initial } from "@/components/app/subject-color"
 import { mondayOf, StaffPanel } from "@/components/staff/staff-panel"
 import { Button } from "@/components/ui/button"
 import { addDays, toDateStr } from "@/domain/dates"
-import { can, rolesAt, ROLE_LABEL, subjectsAt } from "@/domain/rules/permissions"
+import { can, rolesAt, ROLE_LABEL, staffInBranch, subjectsAt } from "@/domain/rules/permissions"
 import { teachersOf } from "@/domain/rules/scheduling"
 import type { ID } from "@/domain/types"
 import { useBranch, useNow } from "@/lib/hooks"
@@ -31,7 +31,7 @@ export default function StaffPage() {
   const from = mondayOf(today), to = addDays(from, 6)
   const weekOf = (id: string) => sessions.filter((x) => !x.cancelled && x.branchId === branch.id && x.date >= from && x.date <= to && teachersOf(x).includes(id))
   const list = staff
-    .filter((s) => s.branchIds.includes(branch.id))
+    .filter((s) => staffInBranch(s, branch.id))
     .map((s) => ({ s, roles: rolesAt(s, branch.id), subjects: subjectsAt(s, branch.id), week: weekOf(s.id) }))
     .sort((a, b) => {
       const k = sort.key

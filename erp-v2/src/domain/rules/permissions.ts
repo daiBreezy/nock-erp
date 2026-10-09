@@ -65,8 +65,11 @@ export function assignmentAt(s: Staff, branchId: ID): StaffAssignment | null {
 
 /** Roles in force while working at this branch: company-wide roles + that branch's roles. */
 export function rolesAt(s: Staff, branchId: ID): Role[] {
-  if (!s.assignments?.length) return s.roles
-  return [...new Set([...s.roles.filter((r) => GLOBAL_ROLES.includes(r)), ...(assignmentAt(s, branchId)?.roles ?? [])])]
+  const area = areaOf(s)
+  // an Area Manager is one only in the branches they look after (owner 2026-10-09)
+  const global = s.roles.filter((r) => GLOBAL_ROLES.includes(r) && (r !== "area_manager" || area === null || area.includes(branchId)))
+  if (!s.assignments?.length) return [...global, ...s.roles.filter((r) => !GLOBAL_ROLES.includes(r))]
+  return [...new Set([...global, ...(assignmentAt(s, branchId)?.roles ?? [])])]
 }
 
 /** Subjects this person teaches at this branch */
@@ -82,17 +85,18 @@ export function worksOn(s: Staff, branchId: ID, weekday: Weekday): boolean {
 
 /** The person as seen at a branch — roles / subjects of that branch. Same object back when nothing changes. */
 export function staffAt(s: Staff, branchId: ID): Staff {
-  if (!s.assignments?.length) return s
+  if (!s.assignments?.length && !s.areaBranchIds) return s
   return { ...s, roles: rolesAt(s, branchId), subjects: subjectsAt(s, branchId) }
 }
 
 /** Keep the flat fields (roles / branchIds / subjects) as the union of the assignments — older code reads them. */
 export function withAssignments(s: Staff, assignments: StaffAssignment[]): Staff {
-  if (!assignments.length) return { ...s, assignments: undefined }
+  const area = s.roles.includes("area_manager") ? s.areaBranchIds ?? [] : []
+  if (!assignments.length) return { ...s, assignments: undefined, roles: s.roles.filter((r) => GLOBAL_ROLES.includes(r)), branchIds: area, subjects: [] }
   return {
     ...s, assignments,
     roles: [...new Set([...s.roles.filter((r) => GLOBAL_ROLES.includes(r)), ...assignments.flatMap((a) => a.roles)])],
-    branchIds: [...new Set(assignments.map((a) => a.branchId))],
+    branchIds: [...new Set([...assignments.map((a) => a.branchId), ...(s.roles.includes("area_manager") ? s.areaBranchIds ?? [] : [])])],
     subjects: [...new Set(assignments.flatMap((a) => a.subjects))],
   }
 }
@@ -118,12 +122,27 @@ export const ROLE_LABEL: Record<Role, string> = {
 export const OFFICE_ROLES: Role[] = ["super_admin", "director", "area_manager", "manager", "admin"]
 
 /** Area Manager and above act on any branch; everyone else only on branches in their own branchIds. */
-export function crossBranch(user: Staff | undefined) {
-  return !!user?.roles.some((r) => r === "super_admin" || r === "director" || r === "area_manager")
+/** Director / Super Admin — every branch, no branch to pick (owner 2026-10-09) */
+export function allBranches(user: Pick<Staff, "roles"> | undefined) {
+  return !!user?.roles.some((r) => r === "super_admin" || r === "director")
 }
 
-export function inBranch(user: Staff | undefined, branchId: string) {
-  return crossBranch(user) || !!user?.branchIds.includes(branchId)
+/** Branches an Area / Region Manager looks after — null = every branch (older records without a list) */
+export function areaOf(user: Pick<Staff, "roles" | "areaBranchIds"> | undefined): ID[] | null {
+  if (!user?.roles.includes("area_manager")) return []
+  return user.areaBranchIds ?? null
+}
+
+/** May act in more than one branch: Director / Super Admin anywhere, an Area Manager in their area */
+export function crossBranch(user: Staff | undefined) {
+  return allBranches(user) || !!user?.roles.includes("area_manager")
+}
+
+export function inBranch(user: Pick<Staff, "roles" | "areaBranchIds" | "branchIds"> | undefined, branchId: string) {
+  if (!user) return false
+  if (allBranches(user)) return true
+  const area = areaOf(user)
+  return area === null || area.includes(branchId) || user.branchIds.includes(branchId)
 }
 
 /**
@@ -152,7 +171,11 @@ export function canEditBlocks(user: Staff | undefined, branchId: string) {
  *  their area (their branchIds); a Manager only their own branch, without the branch comparison. */
 export function reportBranchIds(user: Staff | undefined, all: { id: string }[]) {
   if (!user) return []
-  if (user.roles.some((r) => r === "super_admin" || r === "director")) return all.map((b) => b.id)
-  return all.filter((b) => user.branchIds.includes(b.id)).map((b) => b.id)
+  return all.filter((b) => inBranch(user, b.id)).map((b) => b.id)
 }
 export const canCompareBranches = (user: Staff | undefined) => !!user?.roles.some((r) => r === "super_admin" || r === "director" || r === "area_manager")
+
+/** Listed on a branch's staff page: works there, looks after it (Area Manager), or sees every branch (Director / Super Admin) */
+export function staffInBranch(s: Staff, branchId: ID) {
+  return s.branchIds.includes(branchId) || inBranch(s, branchId)
+}
