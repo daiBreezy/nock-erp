@@ -2,7 +2,7 @@
 
 import { staffAt } from "@/domain/rules/permissions"
 import { Fragment, useMemo, useState } from "react"
-import { AlertTriangleIcon, ArrowLeftRightIcon, BanIcon, CalendarIcon, EllipsisIcon, CheckIcon, ClipboardCheckIcon, FlaskConicalIcon, MessagesSquareIcon, PencilIcon, PencilLineIcon, PlayIcon, PlusIcon, ShapesIcon, Settings2Icon, UserIcon, UsersIcon, UsersRoundIcon } from "lucide-react"
+import { AlertTriangleIcon, ArrowLeftRightIcon, BanIcon, CalendarIcon, EllipsisIcon, CheckIcon, ClipboardCheckIcon, FlaskConicalIcon, ListCollapseIcon, RotateCcwIcon, MessagesSquareIcon, PencilLineIcon, PlayIcon, PlusIcon, ShapesIcon, Settings2Icon, UserIcon, UsersIcon, UsersRoundIcon } from "lucide-react"
 import type { ClassPrefill } from "@/components/app/class-dialog"
 import { ConflictResolver, liveConflicts } from "@/components/app/conflict-resolver"
 import { BlocksDialog } from "@/components/calendar/blocks-dialog"
@@ -58,7 +58,9 @@ type Row = { start: TimeStr; end: TimeStr; block: boolean }
  */
 export function WeekTeacherBoard({ from, sessions, onOpen, onSlot, canCreate, dayCount = 7 }: {
   from: DateStr
-  /** 1 = the day view ("รายวัน", owner 2026-10-05: same cells as the teacher board, no cards) */
+  /** 1 = the day view ("รายวัน"). owner 2026-10-12: same cells as the teacher board (students listed), but the time
+   *  column is plain hours one after another, no Room bars between them — the room sits inside each class cell —
+   *  and a button to show only the hours that have classes */
   dayCount?: number
   sessions: Session[]
   onOpen: (id: string) => void
@@ -73,13 +75,16 @@ export function WeekTeacherBoard({ from, sessions, onOpen, onSlot, canCreate, da
   const allSessions = useStore((s) => s.sessions)
   const holidays = useStore((s) => s.holidays)
   const me = useStore((s) => s.userId)
-  const setNote = useStore((s) => s.setSessionNote)
+  const addNote = useStore((s) => s.addStudentNote)
+  const undoLeave = useStore((s) => s.undoTeacherLeave)
   const now = useNow(60_000)
   const today = toDateStr(now)
   const nowMin = now.getHours() * 60 + now.getMinutes()
   const L = useLookup()
   const days = Array.from({ length: dayCount }, (_, i) => addDays(from, i))
   const live = sessions.filter((s) => !s.cancelled)
+  const plain = dayCount === 1
+  const [onlyBusy, setOnlyBusy] = useState(false)
 
   // same teacher columns every day of the week, so the eye can follow a teacher down the page
   const teacherIds = useMemo(() => {
@@ -93,7 +98,18 @@ export function WeekTeacherBoard({ from, sessions, onOpen, onSlot, canCreate, da
   const rowNow = (date: DateStr, row: Row) => date === today && toMinutes(row.start) <= nowMin && nowMin < endMin(row)
   const sessionEnded = (s: Session) => s.date < today || (s.date === today && toMinutes(s.start) + s.minutes <= nowMin)
   const dayDate = (d: DateStr) => `${DAY_FULL[weekdayOf(d)].slice(0, 3)} ${fmtDate(d)}`
+  const hourRows = (date: DateStr): Row[] => {
+    const ofDay = live.filter((s) => s.date === date)
+    const hours = branch.hours[weekdayOf(date)]
+    const starts = [hours?.open, ...ofDay.map((s) => s.start)].filter(Boolean).map((t) => Math.floor(toMinutes(t!) / 60))
+    const ends = [hours?.close, ...ofDay.map((s) => endTime(s.start, s.minutes))].filter(Boolean).map((t) => Math.ceil(toMinutes(t!) / 60))
+    if (!starts.length) return []
+    const rows: Row[] = []
+    for (let h = Math.min(...starts); h < Math.max(...ends); h++) rows.push({ start: `${String(h).padStart(2, "0")}:00`, end: `${String(h + 1).padStart(2, "0")}:00`, block: true })
+    return onlyBusy ? rows.filter((r) => ofDay.some((s) => s.start >= r.start && s.start < r.end)) : rows
+  }
   const rowsFor = (date: DateStr): Row[] => {
+    if (plain) return hourRows(date)
     const blocks = blocksOn(branch, date)
     const ofDay = live.filter((s) => s.date === date)
     // sessions outside every block still show — as their own row at their start time
@@ -102,6 +118,7 @@ export function WeekTeacherBoard({ from, sessions, onOpen, onSlot, canCreate, da
       .sort((a, b) => a.start.localeCompare(b.start))
   }
   const cellSessions = (date: DateStr, teacherId: string, row: Row) => {
+    if (plain) return live.filter((s) => s.date === date && (s.teacherId ?? "") === teacherId && s.start >= row.start && s.start < row.end).sort((a, b) => a.start.localeCompare(b.start))
     const blocks = blocksOn(branch, date)
     return live.filter((s) => s.date === date && (s.teacherId ?? "") === teacherId && (row.block ? blockFor(blocks, s.start)?.start === row.start : s.start === row.start && !blockFor(blocks, s.start)))
       .sort((a, b) => a.start.localeCompare(b.start))
@@ -140,7 +157,14 @@ export function WeekTeacherBoard({ from, sessions, onOpen, onSlot, canCreate, da
               <div className={cn("flex items-center gap-2 px-4 py-2 text-sm font-semibold", dayTone(date, today))}>
                 <span>{DAY_FULL[weekdayOf(date)]} {fmtDate(date, { year: true })}{date === today ? " · วันนี้" : date < today ? " · ผ่านไปแล้ว" : ""}{holiday ? " · วันหยุด" : closed ? " · สาขาปิด" : ""}</span>
                 {periodsOn(branch, date)[0] && <span className="rounded-full bg-violet-100 px-2 py-0.5 text-[11px] font-medium text-violet-900 dark:bg-violet-950 dark:text-violet-200">ช่วง {periodsOn(branch, date)[0].name}</span>}
-                {canBlocks && date >= today && (
+                {plain && (
+                  <button type="button" onClick={() => setOnlyBusy(!onlyBusy)} aria-pressed={onlyBusy}
+                    title={onlyBusy ? "แสดงทุกชั่วโมง" : "แสดงเฉพาะเวลาที่มีคลาส"}
+                    className={cn("ml-auto flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-normal hover:bg-black/5", onlyBusy ? "bg-black/10 opacity-100" : "opacity-70 hover:opacity-100")}>
+                    <ListCollapseIcon className="size-3.5" /> {onlyBusy ? "เฉพาะเวลาที่มีคลาส" : "ทุกชั่วโมง"}
+                  </button>
+                )}
+                {canBlocks && date >= today && !plain && (
                   <button type="button" onClick={() => setBlocksDate(date)} className="ml-auto flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-normal opacity-70 hover:bg-black/5 hover:opacity-100">
                     <Settings2Icon className="size-3.5" /> ตั้งช่วงเวลา
                   </button>
@@ -158,7 +182,7 @@ export function WeekTeacherBoard({ from, sessions, onOpen, onSlot, canCreate, da
                     const n = live.filter((s) => s.date === date && (s.teacherId ?? "") === tid).length
                     // this teacher's leave on that day: covered by someone, or the day was cancelled
                     const away = allSessions.filter((x) => x.date === date && x.teacherLeave?.teacherId === tid)
-                    const canMenu = canCreate && !!tid && n > 0 && date >= today
+                    const canMenu = canCreate && !!tid && (n > 0 || away.length > 0) && date >= today
                     return (
                       <div key={tid || "none"} className="group/head relative flex items-center gap-3 border-b border-l bg-card px-4 py-3">
                         <span className={cn("grid size-11 shrink-0 place-items-center rounded-full text-base font-semibold", avatarTone(tid || "none"))}>{t ? initial(t.nickname) : "?"}</span>
@@ -175,16 +199,30 @@ export function WeekTeacherBoard({ from, sessions, onOpen, onSlot, canCreate, da
                         <Badge variant="secondary" className="rounded-full tabular-nums">{n}</Badge>
                         {canMenu && (
                           <DropdownMenu>
-                            <DropdownMenuTrigger render={<button type="button" aria-label={`จัดการวันของ ${L.teacher(tid).label}`} className="grid size-7 place-items-center rounded-full text-muted-foreground opacity-0 group-hover/head:opacity-100 hover:bg-muted data-[popup-open]:opacity-100" />}>
+                            {/* owner 2026-10-12: takes no room until the header is hovered — then it slides in and pushes the count aside */}
+                            <DropdownMenuTrigger render={<button type="button" aria-label={`จัดการวันของ ${L.teacher(tid).label}`} className="-ml-3 grid h-7 w-0 shrink-0 place-items-center overflow-hidden rounded-full text-muted-foreground opacity-0 transition-[width,margin,opacity] duration-150 group-hover/head:ml-0 group-hover/head:w-7 group-hover/head:opacity-100 hover:bg-muted focus-visible:ml-0 focus-visible:w-7 focus-visible:opacity-100 data-[popup-open]:ml-0 data-[popup-open]:w-7 data-[popup-open]:opacity-100" />}>
                               <EllipsisIcon className="size-4" />
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end" className="w-64">
+                              {/* owner 2026-10-12: take the day's leave back — the teacher teaches their classes again */}
+                              {away.length > 0 && (
+                                <DropdownMenuItem onClick={() => {
+                                  const results = away.map((x) => undoLeave(x.id))
+                                  const failed = results.find((r) => !r.ok)
+                                  if (failed) report(failed, "")
+                                  else toast.success(`${L.teacher(tid).label} กลับมาสอนแล้ว · ${away.length} คาบ`)
+                                }}>
+                                  <RotateCcwIcon /><span className="flex flex-col"><span>ยกเลิกการลา (ทั้งวัน)</span><span className="text-xs text-muted-foreground">{L.teacher(tid).label}กลับมาสอน {away.length} คาบ</span></span>
+                                </DropdownMenuItem>
+                              )}
+                              {n > 0 && <>
                               <DropdownMenuItem onClick={() => setDayAction({ mode: "substitute", teacherId: tid, date })}>
                                 <ArrowLeftRightIcon /><span className="flex flex-col"><span>เปลี่ยนครู (ทั้งวัน)</span><span className="text-xs text-muted-foreground">ทุกคาบของ{L.teacher(tid).label} วันนี้ {n} คาบ</span></span>
                               </DropdownMenuItem>
                               <DropdownMenuItem variant="destructive" onClick={() => setDayAction({ mode: "cancel", teacherId: tid, date })}>
                                 <BanIcon /><span className="flex flex-col"><span>ยกเลิกคลาส (ทั้งวัน)</span><span className="text-xs">กรณีฉุกเฉินที่หาครูแทนไม่ได้</span></span>
                               </DropdownMenuItem>
+                              </>}
                             </DropdownMenuContent>
                           </DropdownMenu>
                         )}
@@ -197,16 +235,20 @@ export function WeekTeacherBoard({ from, sessions, onOpen, onSlot, canCreate, da
                     const nowHere = rowNow(date, row)
                     return (
                       <Fragment key={row.start}>
-                        {/* Room line of the block */}
-                        <div className="sticky left-0 z-10 border-b bg-zinc-100 px-3 py-1.5 text-xs text-muted-foreground dark:bg-zinc-800">Room</div>
-                        {teacherIds.map((tid) => (
-                          <RoomLine key={`r-${tid}`} sessions={cellSessions(date, tid, row)} classes={classes} live={(x) => workState(x, now, attendance, summaries).state === "live"}
-                            clash={cellSessions(date, tid, row).filter((x) => clashIds.has(x.id)).map((x) => x.id)} onResolve={canCreate ? setResolving : undefined} />
-                        ))}
+                        {/* Room line of the block (week board) — the day board puts the room inside each class cell */}
+                        {!plain && (
+                          <>
+                            <div className="sticky left-0 z-10 border-b bg-zinc-100 px-3 py-1.5 text-xs text-muted-foreground dark:bg-zinc-800">Room</div>
+                            {teacherIds.map((tid) => (
+                              <RoomLine key={`r-${tid}`} sessions={cellSessions(date, tid, row)} classes={classes} live={(x) => workState(x, now, attendance, summaries).state === "live"}
+                                clash={cellSessions(date, tid, row).filter((x) => clashIds.has(x.id)).map((x) => x.id)} onResolve={canCreate ? setResolving : undefined} />
+                            ))}
+                          </>
+                        )}
 
-                        <div className={cn("sticky left-0 z-10 flex flex-col items-center justify-center gap-1 border-b bg-card px-2 py-3 text-sm tabular-nums", past && "text-muted-foreground", nowHere && "font-semibold text-primary")}>
+                        <div className={cn("sticky left-0 z-10 flex flex-col items-center gap-1 border-b bg-card px-2 py-3 text-sm tabular-nums", plain ? "justify-start" : "justify-center", past && "text-muted-foreground", nowHere && "font-semibold text-primary")}>
                           <span>{row.start}</span>
-                          <span>{row.block ? row.end : "นอกช่วง"}</span>
+                          {!plain && <span>{row.block ? row.end : "นอกช่วง"}</span>}
                         </div>
                         {teacherIds.map((tid) => {
                           const cell = cellSessions(date, tid, row)
@@ -214,19 +256,23 @@ export function WeekTeacherBoard({ from, sessions, onOpen, onSlot, canCreate, da
                           const hasStudents = cell.some((x) => x.studentIds.length > 0)
                           const liveHere = cell.some((x) => workState(x, now, attendance, summaries).state === "live")
                           return (
-                            <div key={`c-${tid}`} className={cn("group/cell relative min-h-28 divide-y border-b border-l",
+                            <div key={`c-${tid}`} className={cn("group/cell relative divide-y border-b border-l", plain ? "min-h-14" : "min-h-28",
                               hasStudents ? "bg-card" : cell.length ? "bg-zinc-100 dark:bg-zinc-800/60" : "",
                               past && cell.length > 0 && "opacity-75",
                               liveHere && "shadow-[inset_3px_0_0_0_var(--color-primary)]",
                               cell.some((x) => clashIds.has(x.id)) && "ring-2 ring-red-400 ring-inset")}>
                               {cell.map((s) => (
-                                <SessionBlock key={s.id} s={s} row={row}
+                                <Fragment key={s.id}>
+                                {plain && <RoomLine inCell sessions={[s]} classes={classes} live={(x) => workState(x, now, attendance, summaries).state === "live"}
+                                  clash={clashIds.has(s.id) ? [s.id] : []} onResolve={canCreate ? setResolving : undefined} />}
+                                <SessionBlock s={s} row={row}
                                   state={workState(s, now, attendance, summaries).state}
                                   ended={sessionEnded(s)} dayDate={dayDate}
                                   canEdit={canCreate || s.teacherId === me || s.coTeacherIds.includes(me)}
-                                  onOpen={onOpen} onNote={(sid, text) => report(setNote(s.id, sid, text), text.trim() ? "บันทึกโน้ตแล้ว" : "ลบโน้ตแล้ว")}
+                                  onOpen={onOpen} onNote={(sid, text) => report(addNote(sid, text, s.id), "บันทึกโน้ตแล้ว")}
                                   klass={classes.find((k) => k.id === s.classId)} attendance={attendance} allSessions={allSessions}
                                   canDrag={canCreate} onDropStudent={(from, studentId) => from !== s.id && setMoving({ from, studentId, to: s.id })} />
+                                </Fragment>
                               ))}
                               {cell.length === 0 && canCreate && row.block && tid && !closed && !holiday && !past && (
                                 <button type="button" onClick={() => onSlot({ date, start: row.start, teacherId: tid })}
@@ -371,11 +417,11 @@ function kindOf(s: Session, klass?: Klass): keyof typeof KIND_ICON | null {
  * The Room line above a block (owner 2026-10-01): room first and boldest, then students · kind · group/single as quiet
  * grey icons — words appear only when the column is wide enough (container query), so neighbours stay calm.
  */
-function RoomLine({ sessions, classes, live, clash, onResolve }: { sessions: Session[]; classes: Klass[]; live: (s: Session) => boolean; clash: string[]; onResolve?: (ids: string[]) => void }) {
+function RoomLine({ sessions, classes, live, clash, onResolve, inCell }: { sessions: Session[]; classes: Klass[]; live: (s: Session) => boolean; clash: string[]; onResolve?: (ids: string[]) => void; inCell?: boolean }) {
   const L = useLookup()
   if (!sessions.length) return <div className="border-b border-l bg-zinc-100 px-3 py-1.5 text-center text-xs text-muted-foreground dark:bg-zinc-800">-</div>
   return (
-    <div className="@container border-b border-l bg-zinc-100 px-3 py-1.5 dark:bg-zinc-800">
+    <div className={cn("@container bg-zinc-100 px-3 py-1.5 dark:bg-zinc-800", inCell ? "border-b" : "border-b border-l")}>
       {sessions.map((s) => {
         const k = classes.find((c) => c.id === s.classId)
         const kind = kindOf(s, k)
@@ -421,6 +467,8 @@ function SessionBlock({ s, row, state, ended, dayDate, canEdit, onOpen, onNote, 
   const branch = useBranch()
   const periodName = (id: string) => branch.specialPeriods.find((p) => p.id === id)?.name ?? "พิเศษ"
   const dot = unseenChange(s, me)
+  const allNotes = useStore((st) => st.notes)
+  const now = useNow(60_000)
   return (
     <div className={cn("relative space-y-1.5 px-3 py-2", over && "bg-primary/5 ring-2 ring-primary/40 ring-inset")}
       onDragOver={(e) => { if (canDrag && !ended && e.dataTransfer.types.includes("application/x-student")) { e.preventDefault(); setOver(true) } }}
@@ -449,7 +497,8 @@ function SessionBlock({ s, row, state, ended, dayDate, canEdit, onOpen, onNote, 
         const result = a ? { text: MARK_TEXT[a.status], tone: MARK_TONE[a.status] } : ended && !s.trial ? { text: "ยังไม่เช็ค", tone: "text-amber-700" } : null
         return (
           <StudentLine key={sid} drag={canDrag && !ended && !a ? JSON.stringify({ from: s.id, studentId: sid }) : undefined} nickname={L.student(sid)?.nickname ?? "?"} grade={L.student(sid)?.grade ?? ""} avatarKey={sid}
-            note={s.notes?.[sid]} time={Seats.isPartial(seat, s.minutes) ? Seats.seatTime(s.start, seat) : undefined}
+            notes={[...(s.notes?.[sid] ? [{ text: s.notes[sid] }] : []), ...allNotes.filter((n) => n.sessionId === s.id && n.studentId === sid).sort((a, b) => b.at.localeCompare(a.at)).map((n) => ({ text: n.text, when: noteWhen(n.at, now) }))]}
+            time={Seats.isPartial(seat, s.minutes) ? Seats.seatTime(s.start, seat) : undefined}
             result={result} movedFrom={moved ? `ย้ายมาจาก ${dayDate(moved.date)}` : undefined} inverted={false}
             onOpen={() => onOpen(s.id)} onNote={(text) => onNote(sid, text)} canEdit={canEdit} />
         )
@@ -468,15 +517,26 @@ function SessionBlock({ s, row, state, ended, dayDate, canEdit, onOpen, onNote, 
   )
 }
 
-/** nickname · note (tap to edit) · own time · result · grade — like the ref row "Nickname  Note… ✎  G7" */
-function StudentLine({ drag, nickname, grade, avatarKey, note, time, result, movedFrom, inverted, onOpen, onNote, canEdit }: {
-  drag?: string; nickname: string; grade: string; avatarKey: string; note?: string; time?: string
+/** "13:00" for today, "2d" for older (owner 2026-10-12: Note 1 (13:00) · Note 2 (08:00) · Note 3 (2d)) */
+function noteWhen(at: string, now: Date) {
+  const d = new Date(at)
+  if (toDateStr(d) === toDateStr(now)) return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`
+  const days = Math.max(1, Math.round((now.getTime() - d.getTime()) / 86_400_000))
+  return `${days}d`
+}
+
+/**
+ * nickname · + Note · own time · result · grade, then every note on its own line, newest first (owner 2026-10-12: more
+ * than one note per student; each note also lands in the student's Note tab)
+ */
+function StudentLine({ drag, nickname, grade, avatarKey, notes, time, result, movedFrom, inverted, onOpen, onNote, canEdit }: {
+  drag?: string; nickname: string; grade: string; avatarKey: string; notes: { text: string; when?: string }[]; time?: string
   result: { text: string; tone: string } | null; movedFrom?: string; inverted: boolean
   onOpen: () => void; onNote: (text: string) => void; canEdit: boolean
 }) {
   const [editing, setEditing] = useState(false)
-  const [text, setText] = useState(note ?? "")
-  const save = () => { setEditing(false); if (text.trim() !== (note ?? "")) onNote(text) }
+  const [text, setText] = useState("")
+  const save = () => { setEditing(false); if (text.trim()) onNote(text); setText("") }
   const muted = inverted ? "text-white/75" : "text-muted-foreground"
   return (
     <div className="group/line min-w-0">
@@ -486,19 +546,22 @@ function StudentLine({ drag, nickname, grade, avatarKey, note, time, result, mov
           title={drag ? "ลากไปวางที่คาบอื่นเพื่อย้าย" : undefined} className={cn("shrink-0 truncate text-left font-medium hover:underline", drag && "cursor-grab active:cursor-grabbing")}>{nickname}</button>
         {editing ? (
           <input autoFocus value={text} onChange={(e) => setText(e.target.value)} onBlur={save}
-            onKeyDown={(e) => { if (e.key === "Enter") save(); if (e.key === "Escape") { setText(note ?? ""); setEditing(false) } }}
+            onKeyDown={(e) => { if (e.key === "Enter") save(); if (e.key === "Escape") { setText(""); setEditing(false) } }}
             placeholder="Note เช่น MBook 1 (2-4)" className="h-6 min-w-0 flex-1 rounded-full border bg-background px-2 text-xs text-foreground outline-none focus:ring-2 focus:ring-ring/30" />
-        ) : (
-          <button type="button" disabled={!canEdit} onClick={() => { setText(note ?? ""); setEditing(true) }} title={note}
-            className={cn("flex min-w-0 flex-1 items-center gap-1 truncate text-left text-xs italic", muted, !note && "opacity-0 group-hover/line:opacity-100")}>
-            <span className="truncate">{note ?? (canEdit ? "Note…" : "")}</span>
-            {canEdit && <PencilIcon className="size-3 shrink-0" />}
+        ) : canEdit ? (
+          <button type="button" onClick={() => setEditing(true)} className={cn("flex min-w-0 flex-1 items-center gap-1 truncate text-left text-xs italic opacity-0 group-hover/line:opacity-100", muted)}>
+            <PlusIcon className="size-3 shrink-0" /><span className="truncate">Note</span>
           </button>
-        )}
+        ) : <span className="flex-1" />}
         {time && <span className={cn("shrink-0 text-[11px] tabular-nums", inverted ? "text-white" : "text-violet-700 dark:text-violet-300")}>{time}</span>}
         {result && <span className={cn("shrink-0 text-[11px] font-semibold", inverted ? "text-white" : result.tone)}>{result.text}</span>}
         {grade && <span className={cn("shrink-0 rounded-full px-2 py-0.5 text-xs font-semibold", gradeTone(grade))}>{grade}</span>}
       </div>
+      {notes.map((n, i) => (
+        <p key={i} className={cn("truncate pl-8 text-xs", inverted ? "text-white/90" : "text-foreground/80")} title={n.text}>
+          {n.text}{n.when && <span className={cn("ml-1 tabular-nums", muted)}>({n.when})</span>}
+        </p>
+      ))}
       {movedFrom && <p className={cn("pl-8 text-[11px]", inverted ? "text-white/80" : "text-sky-700")}>↩ {movedFrom}</p>}
     </div>
   )

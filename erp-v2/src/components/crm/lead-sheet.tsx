@@ -29,6 +29,7 @@ import { report } from "@/lib/feedback"
 import { useNow } from "@/lib/hooks"
 import { cn } from "@/lib/utils"
 import { useStore } from "@/store/store"
+import { InfoTip } from "@/components/reports/charts"
 
 /** Stages that now move by themselves (E2E 2026-09-28) — the sheet says what will move them instead of a button. */
 const AUTO_HINT: Partial<Record<LeadStage, string>> = {
@@ -95,6 +96,7 @@ function Body({ id, onEdit }: { id: ID; onEdit: () => void }) {
   }, [])
 
   if (!lead) return null
+  const convertNow = () => { const r = convert(lead.id); if (report(r, "สร้างนักเรียน + ครอบครัวแล้ว — ออกใบแจ้งหนี้ได้เลย")) setOpenStudentId(r.ok ? r.value.studentId : null) }
   const myAssessments = assessments.filter((a) => a.leadId === lead.id).sort((a, b) => a.date.localeCompare(b.date))
   const latestAssessment = myAssessments.at(-1)
   const mySubmissions = submissions.filter((s) => s.leadId === lead.id).sort((a, b) => b.submittedAt.localeCompare(a.submittedAt))
@@ -262,6 +264,8 @@ function Body({ id, onEdit }: { id: ID; onEdit: () => void }) {
                         <SendIcon /><span className="flex flex-col"><span>ส่งฟอร์มสอบ / ทดลองเรียน</span>{!lead.lineUserId && <span className="text-xs text-muted-foreground">ต้องผูก LINE ใน Inbox ก่อน</span>}</span>
                       </DropdownMenuItem>
                       <DropdownMenuItem onClick={() => setEnrolling(true)}><UserPlusIcon /> ส่งใบสมัครเรียน (สมัครทันที)</DropdownMenuItem>
+                      {/* owner 2026-10-12: the skip-ahead shortcut is not the next step — it lives here, not as the main button */}
+                      {!lead.trialStudentId && <DropdownMenuItem onClick={convertNow}><UserCheckIcon /> สร้างนักเรียนทันที (ข้ามสอบ/ทดลอง)</DropdownMenuItem>}
                       <DropdownMenuSeparator />
                       <DropdownMenuItem variant="destructive" onClick={() => setArchiving(true)}><ArchiveIcon /> ปิด Lead</DropdownMenuItem>
                     </>
@@ -285,12 +289,12 @@ function Body({ id, onEdit }: { id: ID; onEdit: () => void }) {
             <Button size="sm" variant="outline" onClick={() => setOpenStudentId(lead.trialStudentId!)}>เปิดโปรไฟล์นักเรียน</Button>
             {can(me, "billing.manage") && <Button size="sm" nativeButton={false} render={<Link href={`/billing?new=${lead.trialStudentId}`} />}><ReceiptIcon /> ออกใบแจ้งหนี้</Button>}
           </>
-        ) : (
-          <Button size="sm" onClick={() => { const r = convert(lead.id); if (report(r, "สร้างนักเรียน + ครอบครัวแล้ว — ออกใบแจ้งหนี้ได้เลย")) setOpenStudentId(r.ok ? r.value.studentId : null) }}>
-            <UserCheckIcon /> สร้างนักเรียน (ข้ามสอบ/ทดลอง)
-          </Button>
-        )}
-        {canManage && AUTO_HINT[lead.stage] && <p className="basis-full text-right text-xs text-muted-foreground">อัตโนมัติ: {AUTO_HINT[lead.stage]}</p>}
+        ) : (lead.stage === "new" || lead.stage === "contacting") ? (
+          // the next step for a fresh lead is reaching the parent — not converting
+          <Button size="sm" onClick={() => setFollowingUp(true)}><PhoneIcon /> บันทึกการติดตาม</Button>
+        ) : null}
+        {/* owner 2026-10-12: what moves the stage by itself — an ⓘ to hover, not a line of text under the buttons */}
+        {canManage && AUTO_HINT[lead.stage] && <InfoTip text={`อัตโนมัติ: ${AUTO_HINT[lead.stage]}`} />}
       </SheetFooter>
 
       {archiving && <LeadLostDialog lead={lead} onClose={() => setArchiving(false)} />}

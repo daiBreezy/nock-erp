@@ -17,7 +17,8 @@ import { fmtDate, fmtMoney, toDateStr } from "@/domain/dates"
 import * as Bill from "@/domain/rules/billing"
 import { can } from "@/domain/rules/permissions"
 import { useBranch, useNow, useQueryState } from "@/lib/hooks"
-import { GradeCell, gradeCompare, HEAD, MidText, Pager, ROW, SortHeader, TableShell, Th, usePage, useSort } from "@/components/app/data-table"
+import { GradeCell, gradeCompare, MidText, Pager, usePage, useSort } from "@/components/app/data-table"
+import { ColumnsMenu, DataTable, type Column } from "@/components/app/data-grid"
 import { gradeTone } from "@/components/app/subject-color"
 import { invoiceOverdue, paymentUnconfirmed } from "@/domain/rules/reports"
 import { cn } from "@/lib/utils"
@@ -106,6 +107,26 @@ function BillingPage() {
     })
   const pg = usePage(visible)
 
+  type Row = (typeof visible)[number]
+  const columns: Column<Row>[] = [
+    { id: "number", label: "เลขที่", width: "130px", sort: "number", required: true, className: "font-medium tabular-nums", cell: ({ inv }) => (inv.number ? <MidText text={inv.number} /> : <span className="text-muted-foreground">—</span>) },
+    { id: "created", label: "สร้างเมื่อ", width: "96px", sort: "created", className: "text-muted-foreground tabular-nums", cell: ({ inv }) => fmtDate(inv.createdAt.slice(0, 10)) },
+    { id: "student", label: "นักเรียน", width: "120px", sort: "student", cell: ({ inv, student }) => <>{student?.nickname ?? "—"}{scope.multi && <span className="ml-1.5"><BranchCode code={scope.code(inv.branchId)} /></span>}</> },
+    { id: "grade", label: "ชั้น", width: "76px", sort: "grade", cell: ({ student }) => student && <GradeCell grade={student.grade} tone={gradeTone(student.grade)} /> },
+    { id: "lines", label: "รายการ", width: "200px", className: "text-muted-foreground", cell: ({ inv }) => inv.lines.map((l) => courses.find((c) => c.id === l.courseId)?.name).filter(Boolean).join(", ") || (inv.busExtras?.length ? "ค่ารถเพิ่ม" : "ค่าอื่นๆ") },
+    { id: "total", label: "ยอด", width: "110px", sort: "total", align: "right", className: "font-medium tabular-nums", cell: ({ total }) => fmtMoney(total) },
+    { id: "paid", label: "จ่ายแล้ว", width: "110px", align: "right", className: "text-muted-foreground tabular-nums", cell: ({ paid }) => (paid > 0 ? fmtMoney(paid) : "—") },
+    // owner 2026-10-07: the old "การส่ง / เงิน" column folded in — a small icon after the status, hover = what's wrong
+    { id: "status", label: "สถานะ", width: "150px", sort: "status", align: "right", cell: ({ inv, toConfirm }) => (
+      <span className="flex items-center justify-end gap-1">
+        <Pill tone={invoiceTone(inv)}>{inv.pdf === "generating" ? "กำลังสร้าง PDF" : inv.pdf === "failed" ? "PDF ไม่สำเร็จ" : Bill.INVOICE_STATUS_LABEL[inv.status]}</Pill>
+        {inv.delivery === "no_line" && <Flag icon={SendIcon} tone="text-amber-600" text="ไม่ถึงผู้ปกครอง — ครอบครัวยังไม่ผูก LINE ต้องส่งใบเอง" />}
+        {inv.delivery === "failed" && <Flag icon={SendIcon} tone="text-red-600" text="ส่ง LINE ไม่สำเร็จ — เช่น ผู้ปกครอง block OA" />}
+        {toConfirm && <Flag icon={WalletIcon} tone="text-violet-600" text="รอยืนยันเงิน — บันทึกรับเงินแล้ว รออีกคนตรวจยืนยัน" />}
+      </span>
+    ) },
+  ]
+
   return (
     <PageShell>
       <PageHeader title="ใบแจ้งหนี้ & รับเงิน" description="ออกใบแจ้งหนี้ อนุมัติ ส่งผู้ปกครอง รับเงิน และยืนยันยอด"
@@ -131,49 +152,16 @@ function BillingPage() {
           <SearchIcon className="absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" />
           <Input className="pl-8" placeholder="ค้นหาเลขที่ / ชื่อนักเรียน" value={q} onChange={(e) => setQ(e.target.value)} />
         </div>
+        <ColumnsMenu id="billing" columns={columns} />
         {/* owner 2026-10-09: branch chip always last in the row */}
         {scope.select}
       </div>
 
-      {/* owner 2026-10-07: a real table — number, date, student, grade, amounts and status each in their own column
-          (fixed widths, so a long status never pushes the row out of line); scrolls inside the card on phones (BL-23) */}
-      <TableShell minWidth={1080} cols={["136px", "100px", "140px", "76px", "auto", "120px", "112px", "156px"]}>
-        <thead className={HEAD}>
-          <tr>
-            <SortHeader label="เลขที่" k="number" sort={sort} onSort={toggle} />
-            <SortHeader label="สร้างเมื่อ" k="created" sort={sort} onSort={toggle} />
-            <SortHeader label="นักเรียน" k="student" sort={sort} onSort={toggle} />
-            <SortHeader label="ชั้น" k="grade" sort={sort} onSort={toggle} />
-            <Th>รายการ</Th>
-            <SortHeader label="ยอด" k="total" sort={sort} onSort={toggle} right />
-            <Th right>จ่ายแล้ว</Th>
-            <SortHeader label="สถานะ" k="status" sort={sort} onSort={toggle} right />
-          </tr>
-        </thead>
-        <tbody>
-          {pg.rows.map(({ inv, total, paid, student, toConfirm }) => (
-            <tr key={inv.id} onClick={() => setOpenId(inv.id)} data-focus={[Bill.canApprove(inv, me).ok && "invoice_approve", invoiceOverdue(inv, now) && "unpaid", paymentUnconfirmed(inv, now) && "unconfirmed"].filter(Boolean).join(" ") || undefined} className={ROW}>
-              <td className="font-medium tabular-nums">{inv.number ? <MidText text={inv.number} /> : <span className="text-muted-foreground">—</span>}</td>
-              <td className="truncate text-muted-foreground tabular-nums">{fmtDate(inv.createdAt.slice(0, 10))}</td>
-              <td className="truncate">{student?.nickname ?? "—"}{scope.multi && <span className="ml-1.5 align-middle"><BranchCode code={scope.code(inv.branchId)} /></span>}</td>
-              <td>{student && <GradeCell grade={student.grade} tone={gradeTone(student.grade)} />}</td>
-              <td className="truncate text-muted-foreground">{inv.lines.map((l) => courses.find((c) => c.id === l.courseId)?.name).filter(Boolean).join(", ") || (inv.busExtras?.length ? "ค่ารถเพิ่ม" : "ค่าอื่นๆ")}</td>
-              <td className="text-right font-medium tabular-nums">{fmtMoney(total)}</td>
-              <td className="text-right text-muted-foreground tabular-nums">{paid > 0 ? fmtMoney(paid) : "—"}</td>
-              <td>
-                {/* owner 2026-10-07: the old "การส่ง / เงิน" column folded in — a small icon after the status, hover = what's wrong */}
-                <span className="flex items-center justify-end gap-1">
-                  <Pill tone={invoiceTone(inv)}>{inv.pdf === "generating" ? "กำลังสร้าง PDF" : inv.pdf === "failed" ? "PDF ไม่สำเร็จ" : Bill.INVOICE_STATUS_LABEL[inv.status]}</Pill>
-                  {inv.delivery === "no_line" && <Flag icon={SendIcon} tone="text-amber-600" text="ไม่ถึงผู้ปกครอง — ครอบครัวยังไม่ผูก LINE ต้องส่งใบเอง" />}
-                  {inv.delivery === "failed" && <Flag icon={SendIcon} tone="text-red-600" text="ส่ง LINE ไม่สำเร็จ — เช่น ผู้ปกครอง block OA" />}
-                  {toConfirm && <Flag icon={WalletIcon} tone="text-violet-600" text="รอยืนยันเงิน — บันทึกรับเงินแล้ว รออีกคนตรวจยืนยัน" />}
-                </span>
-              </td>
-            </tr>
-          ))}
-          {visible.length === 0 && <tr><td colSpan={8} className="p-10 text-center text-muted-foreground">ไม่มีใบแจ้งหนี้ในหมวดนี้</td></tr>}
-        </tbody>
-      </TableShell>
+      {/* owner 2026-10-07: a real table — number, date, student, grade, amounts and status each in their own column;
+          scrolls inside the card on phones (BL-23) · owner 2026-10-12: columns arranged per person (DataTable) */}
+      <DataTable id="billing" columns={columns} rows={pg.rows} rowKey={(r) => r.inv.id} onRowClick={(r) => setOpenId(r.inv.id)}
+        rowProps={({ inv }) => ({ "data-focus": [Bill.canApprove(inv, me).ok && "invoice_approve", invoiceOverdue(inv, now) && "unpaid", paymentUnconfirmed(inv, now) && "unconfirmed"].filter(Boolean).join(" ") || undefined })}
+        sort={sort} onSort={toggle} minWidth={1080} empty="ไม่มีใบแจ้งหนี้ในหมวดนี้" />
       <Pager {...pg} unit="ใบ" />
 
       <InvoiceSheet id={openId} slipMediaId={openId === params.get("open") ? slipFromChat : undefined} defaultStudentId={presetStudent} renewEntitlementId={renewFrom} onClose={() => setOpenId(null)} />

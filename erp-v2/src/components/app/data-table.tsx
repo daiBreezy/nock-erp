@@ -1,32 +1,26 @@
 "use client"
 
 import { useState } from "react"
-import { ArrowDownIcon, ArrowUpDownIcon, ArrowUpIcon, ChevronLeftIcon, ChevronRightIcon } from "lucide-react"
+import { ChevronLeftIcon, ChevronRightIcon } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { cn } from "@/lib/utils"
 
 /** Shared bits for list pages shown as data tables (owner 2026-09-28: tables, not cards — easier to scan).
- *  Lists are always paged so a branch with thousands of rows stays fast. */
+ *  Lists are always paged so a branch with thousands of rows stays fast. The table itself is `DataTable` (data-grid.tsx). */
 
-export interface SortState<K extends string> { key: K; desc: boolean }
+/** `custom` = the person picked this column; false = the page's default order (no arrow shown on any header) */
+export interface SortState<K extends string> { key: K; desc: boolean; custom?: boolean }
 
+/**
+ * Three states per header (owner 2026-10-12): default → ↑ ascending → ↓ descending → default again.
+ * In the default state the rows keep the page's own order (`initial` / `desc`).
+ */
 export function useSort<K extends string>(initial: K, desc = false) {
-  const [sort, setSort] = useState<SortState<K>>({ key: initial, desc })
-  const toggle = (key: K) => setSort((s) => ({ key, desc: s.key === key ? !s.desc : false }))
+  const base: SortState<K> = { key: initial, desc, custom: false }
+  const [sort, setSort] = useState<SortState<K>>(base)
+  const toggle = (key: K) => setSort((s) => (!s.custom || s.key !== key ? { key, desc: false, custom: true } : !s.desc ? { key, desc: true, custom: true } : base))
   return { sort, toggle }
-}
-
-export function SortHeader<K extends string>({ label, k, sort, onSort, className, right }: { label: string; k: K; sort: SortState<K>; onSort: (k: K) => void; className?: string; right?: boolean }) {
-  const active = sort.key === k
-  const Icon = !active ? ArrowUpDownIcon : sort.desc ? ArrowDownIcon : ArrowUpIcon
-  return (
-    <th className={cn("px-3 py-2.5 text-left font-medium", right && "text-right", className)}>
-      <button type="button" onClick={() => onSort(k)} className={cn("inline-flex items-center gap-1 whitespace-nowrap", active && "text-foreground")}>
-        {label}<Icon className={cn("size-3", !active && "opacity-40")} />
-      </button>
-    </th>
-  )
 }
 
 export function usePage<T>(rows: T[], size = 25) {
@@ -52,29 +46,6 @@ export function Pager({ page, pages, total, size, setPage, unit = "รายก�
       )}
     </div>
   )
-}
-
-/**
- * `cols` (owner 2026-10-07 — "status สั้นยาวไม่เท่ากันดัน alignment"): fixed column widths (CSS widths, "auto" = take
- * the rest). The table is then table-fixed: a long pill or name truncates inside its own column instead of
- * shifting the others, so every row lines up.
- */
-export function TableShell({ children, minWidth = 900, cols }: { children: React.ReactNode; minWidth?: number; cols?: string[] }) {
-  return (
-    <div className="overflow-hidden rounded-3xl bg-card shadow-sm ring-1 ring-foreground/5">
-      <div className="overflow-x-auto">
-        <table className={cn("w-full text-sm [&_td]:align-middle [&_th]:align-middle", cols && "table-fixed")} style={{ minWidth }}>
-          {cols && <colgroup>{cols.map((w, i) => <col key={i} style={w === "auto" ? undefined : { width: w }} />)}</colgroup>}
-          {children}
-        </table>
-      </div>
-    </div>
-  )
-}
-
-/** a plain (not sortable) header cell, same padding as SortHeader */
-export function Th({ children, className, right }: { children?: React.ReactNode; className?: string; right?: boolean }) {
-  return <th className={cn("px-3 py-2.5 text-left font-medium whitespace-nowrap", right && "text-right", className)}>{children}</th>
 }
 
 /** row classes for every data table: middle-aligned, one height, cells padded the same */

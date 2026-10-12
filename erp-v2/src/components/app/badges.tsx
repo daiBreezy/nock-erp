@@ -1,3 +1,4 @@
+import { MarsIcon, VenusIcon } from "lucide-react"
 import { cn } from "@/lib/utils"
 import type { SessionState } from "@/domain/rules/scheduling"
 import { STATE_LABEL } from "@/domain/rules/scheduling"
@@ -27,4 +28,21 @@ export function SessionStateBadge({ state }: { state: SessionState }) {
       {tx(STATE_LABEL[state])}
     </Pill>
   )
+}
+
+/** owner 2026-10-12: student gender as a small icon next to the name (names carry no ด.ช. / ด.ญ.) */
+export function GenderIcon({ gender, className }: { gender?: "male" | "female"; className?: string }) {
+  if (!gender) return null
+  const Icon = gender === "male" ? MarsIcon : VenusIcon
+  return <Icon role="img" aria-label={gender === "male" ? "ชาย" : "หญิง"} className={cn("size-3.5 shrink-0", gender === "male" ? "text-sky-600" : "text-pink-500", className)}><title>{gender === "male" ? "ชาย" : "หญิง"}</title></Icon>
+}
+
+/** owner 2026-10-12: one colour per role, so a person with several roles reads at a glance */
+export const ROLE_TONE: Record<"super_admin" | "director" | "area_manager" | "manager" | "admin" | "teacher", string> = {
+  super_admin: "bg-slate-800 text-white dark:bg-slate-200 dark:text-slate-900",
+  director: "bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-200",
+  area_manager: "bg-orange-100 text-orange-800 dark:bg-orange-950 dark:text-orange-200",
+  manager: "bg-violet-100 text-violet-800 dark:bg-violet-950 dark:text-violet-200",
+  admin: "bg-amber-100 text-amber-900 dark:bg-amber-950 dark:text-amber-200",
+  teacher: "bg-sky-100 text-sky-800 dark:bg-sky-950 dark:text-sky-200",
 }

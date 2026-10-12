@@ -5,7 +5,8 @@ import { PeriodBanner } from "@/components/app/period-banner"
 import { RangeStepper, PageHeader, Toolbar, Segmented } from "@/components/app/page-layout"
 import { Suspense, useMemo, useState } from "react"
 import { useSearchParams } from "next/navigation"
-import { AlertTriangleIcon, ClipboardListIcon, PalmtreeIcon, PlusIcon } from "lucide-react"
+import { AlertTriangleIcon, ClipboardListIcon, ListCollapseIcon, PalmtreeIcon, PlusIcon } from "lucide-react"
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { SummaryPanel } from "@/components/calendar/summary-panel"
 import { Pill, SessionStateBadge } from "@/components/app/badges"
 import { ClassDialog, type ClassPrefill } from "@/components/app/class-dialog"
@@ -164,29 +165,32 @@ function CalendarView() {
           {canCreate && <Button onClick={() => setPrefill({ date: anchor })}><PlusIcon /> สร้างคลาส</Button>}
         </>} />
 
-      {/* owner 2026-10-09: three rows — header · which view · date + filters */}
-      <div className="flex flex-wrap items-center gap-2">
-        <Segmented label="มุมมอง" value={view} onChange={(v) => setView(v)}
-          options={[{ value: "board", label: "วัน" }, { value: "week", label: "สัปดาห์" }, { value: "month", label: "เดือน" }, { value: "list", label: "รายการ" }]} />
+      <div className="space-y-3">
+        <Toolbar end={<div className="flex flex-wrap items-center gap-2">
+        {/* owner 2026-10-12: the board's own switch sits in front of the period switch */}
         {view === "board" && (
           <>
-            <span className="h-5 w-px bg-border" />
             <Segmented label="แบบตาราง" value={dayMode} onChange={(v) => setDayMode(v)}
               options={[{ value: "table", label: "ตารางครูทั้งสัปดาห์" }, { value: "single", label: "รายวัน" }]} />
+            <span className="h-5 w-px bg-border" />
           </>
         )}
-      </div>
+        <Segmented label="มุมมอง" value={view} onChange={(v) => setView(v)}
+          options={[{ value: "board", label: "วัน" }, { value: "week", label: "สัปดาห์" }, { value: "month", label: "เดือน" }, { value: "list", label: "รายการ" }]} />
+        </div>}>
 
-      <Toolbar end={<>
+        <RangeStepper label={range.title} current={range.from <= today && today <= range.to} onPrev={() => step(-1)} onNext={() => step(1)} onToday={() => setAnchor(today)} />
+              </Toolbar>
+        <div className="flex flex-wrap items-center gap-2" role="group" aria-label="ตัวกรองปฏิทิน">
         <NativeSelect className="h-9 w-36" value={teacher} onChange={(e) => setTeacher(e.target.value)} options={teacherOptions} />
         <NativeSelect className="h-9 w-28" value={subject} onChange={(e) => setSubject(e.target.value)} options={[{ value: "all", label: "ทุกวิชา" }, ...branch.subjects.map((s) => ({ value: s, label: s }))]} />
         {/* status as a dropdown chip, like teachers / subjects (owner 2026-09-30) */}
         <NativeSelect className="h-9 w-40" value={workFilter ?? ""} onChange={(e) => setWorkFilter((e.target.value || null) as WorkState | null)}
           placeholder={`ทุกสถานะ (${visible.filter((x) => !x.cancelled).length})`}
           options={WORK_ORDER.map((w) => ({ value: w, label: `${WORK_LABEL[w]} (${workCounts[w] ?? 0})` }))} />
-      </>}>
-        <RangeStepper label={range.title} current={range.from <= today && today <= range.to} onPrev={() => step(-1)} onNext={() => step(1)} onToday={() => setAnchor(today)} />
-      </Toolbar>
+
+        </div>
+      </div>
 
       {/* card states: click one to highlight only those cards */}
       {/* special periods (e.g. Summer) in the visible range — hours differ from normal while they last */}
@@ -205,7 +209,7 @@ function CalendarView() {
       )}
 
       {view === "week" && <WeekView from={range.from} sessions={visible} onDay={openDay} today={today} {...cardProps} dim={cardData.dim} />}
-      {/* รายวัน = the teacher board for one day: students listed in the cells, no cards (owner 2026-10-05) */}
+      {/* รายวัน = the teacher board for one day (students in the cells), plain hours down the side (owner 2026-10-12) */}
       {single && <WeekTeacherBoard from={anchor} dayCount={1} sessions={workFilter ? visible.filter((x) => workState(x, now, attendance, summaries).state === workFilter) : visible} onOpen={setOpenId} onSlot={setPrefill} canCreate={canCreate} />}
       {view === "board" && !single && <WeekTeacherBoard from={range.from} sessions={workFilter ? visible.filter((x) => workState(x, now, attendance, summaries).state === workFilter) : visible} onOpen={setOpenId} onSlot={setPrefill} canCreate={canCreate} />}
       {view === "month" && <MonthView from={range.from} month={anchor.slice(0, 7)} sessions={visible} onDay={openDay} today={today} conflictIds={conflictIds} />}
@@ -392,11 +396,23 @@ function Column({ date, sessions, ctx, onSlot, maxCols = 3, onMore }: { date: Da
 }
 
 function WeekView({ from, sessions, onDay, today, ...ctx }: CardCtx & { from: DateStr; sessions: Session[]; onDay: (d: DateStr) => void; today: DateStr }) {
-  const days = Array.from({ length: 7 }, (_, i) => addDays(from, i))
+  // owner 2026-10-12: hide the days with no classes — fewer, wider columns
+  const [hideEmpty, setHideEmpty] = useQueryState<string>("hideEmpty", "")
+  const all = Array.from({ length: 7 }, (_, i) => addDays(from, i))
+  const busy = all.filter((d) => sessions.some((s) => s.date === d && !s.cancelled))
+  const days = hideEmpty && busy.length ? busy : all
   return (
     <div className="overflow-x-auto rounded-3xl bg-card shadow-sm ring-1 ring-foreground/5">
       <div className="flex min-w-[760px] border-b text-xs">
-        <div className="w-12 shrink-0" />
+        <div className="grid w-12 shrink-0 place-items-center">
+          <Tooltip>
+            <TooltipTrigger render={<button type="button" aria-pressed={!!hideEmpty} aria-label={hideEmpty ? "แสดงทุกวัน" : "ซ่อนวันที่ไม่มีคลาส"} onClick={() => setHideEmpty(hideEmpty ? "" : "1")}
+              className={cn("grid size-7 place-items-center rounded-full hover:bg-muted", hideEmpty ? "bg-primary/10 text-primary" : "text-muted-foreground")} />}>
+              <ListCollapseIcon className="size-4" />
+            </TooltipTrigger>
+            <TooltipContent>{hideEmpty ? `แสดงทุกวัน (ซ่อนอยู่ ${7 - days.length} วัน)` : "ซ่อนวันที่ไม่มีคลาส"}</TooltipContent>
+          </Tooltip>
+        </div>
         {days.map((d) => (
           <button key={d} onClick={() => onDay(d)} className={cn("flex-1 border-l py-2 text-center hover:bg-muted", d === today && "font-semibold text-primary")}>
             {dayShort(weekdayOf(d))} {parseDate(d).getDate()}

@@ -3,7 +3,10 @@
 // One form, two homes (owner 2026-10-09): every create / edit form renders as a popup by default, or — wrapped in
 // <PanelForm> — inside the record's side panel as Header · Body (scrolls) · Bottom (CTA). That gives each page the
 // same View → Edit → Create flow in one panel without writing every form twice.
-import { createContext, useContext } from "react"
+import { createContext, useContext, type ComponentType, type ReactNode } from "react"
+import { EllipsisIcon } from "lucide-react"
+import { Button } from "@/components/ui/button"
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet"
 import { cn } from "@/lib/utils"
@@ -66,4 +69,31 @@ export function PanelBody({ children }: { children: React.ReactNode }) {
 /** bottom bar of a view-mode panel — destructive left, primary right */
 export function PanelFooter({ children }: { children: React.ReactNode }) {
   return <div className="flex shrink-0 flex-wrap items-center gap-2 border-t bg-background px-4 py-3">{children}</div>
+}
+
+export interface MoreItem { label: ReactNode; icon?: ComponentType; onClick: () => void; destructive?: boolean; disabled?: boolean; title?: string }
+
+/**
+ * ⋯ on the left of a panel's bottom bar (owner 2026-10-12): every negative / rarely-used action (แจ้งออก, ปิดบัญชี,
+ * ปิดขาย, ปิดคลาส, ยกเลิกใบ …) lives here — nothing red sits next to the main buttons, so it can't be hit by mistake.
+ * Renders nothing when there is nothing to show.
+ */
+export function PanelMore({ items }: { items: (MoreItem | false | null | undefined)[] }) {
+  const list = items.filter(Boolean) as MoreItem[]
+  if (!list.length) return null
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger render={<Button size="icon" variant="outline" className="rounded-full" aria-label="เพิ่มเติม" />}><EllipsisIcon /></DropdownMenuTrigger>
+      <DropdownMenuContent align="start" side="top" className="w-52">
+        {list.map((it, i) => {
+          const Icon = it.icon
+          return (
+            <DropdownMenuItem key={i} variant={it.destructive ? "destructive" : "default"} disabled={it.disabled} title={it.title} onClick={it.onClick}>
+              {Icon && <Icon />}{it.label}
+            </DropdownMenuItem>
+          )
+        })}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  )
 }

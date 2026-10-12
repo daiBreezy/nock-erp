@@ -239,14 +239,25 @@ export default function InboxPage() {
               {search && <button type="button" aria-label="ล้าง" className="absolute top-1/2 right-2.5 -translate-y-1/2 text-muted-foreground hover:text-foreground" onClick={() => { setSearch(""); setSearching(false) }}><XIcon className="size-4" /></button>}
             </div>
           )}
-          {/* owner 2026-10-09: three dropdowns in one row — type · read · who looks after it (was a row of chips) */}
-          <div className="grid grid-cols-3 gap-1.5">
+          {/* Conversation type and assignee selectors; read status as directly accessible chips. */}
+          <div className="grid grid-cols-2 gap-1.5">
             <NativeSelect value={typeFilter} onChange={(e) => setTypeFilter(e.target.value as typeof typeFilter)}
               options={[{ value: "all", label: "ทุกประเภท" }, ...(["customer", "lead", "contact"] as const).map((t) => ({ value: t, label: CONVERSATION_TYPE_LABEL[t] }))]} />
-            <NativeSelect value={readFilter} onChange={(e) => setReadFilter(e.target.value as typeof readFilter)}
-              options={[{ value: "all", label: "ทั้งหมด" }, { value: "unread", label: "ยังไม่อ่าน" }, { value: "read", label: "อ่านแล้ว" }]} />
             <NativeSelect value={assigneeFilter} onChange={(e) => setAssigneeFilter(e.target.value)} aria-label="ผู้ดูแล"
               options={assigneeChips.map((a) => ({ value: a.key, label: `${a.label} (${a.count})` }))} />
+          </div>
+          <div className="flex flex-wrap gap-1.5" role="group" aria-label="สถานะการอ่าน">
+            {([{ value: "all", label: "ทั้งหมด" }, { value: "unread", label: "ยังไม่อ่าน" }, { value: "read", label: "อ่านแล้ว" }] as const).map((item) => (
+              <button
+                key={item.value}
+                type="button"
+                aria-pressed={readFilter === item.value}
+                onClick={() => setReadFilter(item.value)}
+                className={cn("rounded-full border px-3 py-1.5 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring", readFilter === item.value ? "border-primary/20 bg-primary/10 text-primary" : "border-transparent bg-muted text-muted-foreground hover:bg-muted/70 hover:text-foreground")}
+              >
+                {item.label}
+              </button>
+            ))}
           </div>
         </div>
         <div className="flex-1 space-y-1 overflow-y-auto p-2">

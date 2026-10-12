@@ -10,7 +10,8 @@ import { usePublishParentViews } from "@/lib/parent-app"
 import { useEffect, useState, useSyncExternalStore, type ReactNode } from "react"
 import { ArrowLeftRightIcon, BellIcon, CheckIcon, ChevronDownIcon, ChevronRightIcon, GlobeIcon, LockIcon, MapPinIcon, SearchIcon, SunIcon } from "lucide-react"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
-import { branchText, nm, UI_LANGS, useT, useUiLang } from "@/lib/i18n"
+import { branchShort, nm, tx, UI_LANGS, useT, useUiLang } from "@/lib/i18n"
+import { BUSINESS_SHORT } from "@/domain/rules/reports"
 import {
   Sidebar, SidebarContent, SidebarFooter, SidebarGroup, SidebarGroupLabel, SidebarHeader, SidebarInset, SidebarMenu,
   SidebarMenuBadge, SidebarMenuButton, SidebarMenuItem, SidebarProvider, SidebarTrigger,
@@ -24,7 +25,7 @@ import { can, inBranch, ROLE_LABEL, type Permission } from "@/domain/rules/permi
 import { useStore } from "@/store/store"
 import { cn } from "@/lib/utils"
 import { LeadSheet } from "@/components/crm/lead-sheet"
-import { Pill } from "./badges"
+import { Pill, ROLE_TONE } from "./badges"
 import { CustomerPicker } from "./customer-picker"
 import { StudentSheet } from "./student-sheet"
 import { avatarTone, initial } from "./subject-color"
@@ -139,7 +140,7 @@ function Shell({ children }: { children: ReactNode }) {
           <div className="ml-auto flex items-center gap-2">
             <CurrentPeriodChip />
             {/* branch stays visible on phones too, where the sidebar is hidden */}
-            <span className="flex items-center gap-1 rounded-full bg-primary/10 px-2.5 py-1 text-xs font-medium text-primary"><MapPinIcon className="size-3.5" />{t("สาขา")}{branchText(branch)}</span>
+            <span className="flex items-center gap-1 rounded-full bg-primary/10 px-2.5 py-1 text-xs font-medium text-primary"><MapPinIcon className="size-3.5" />{branchShort(branch)}</span>
             <LanguageChip />
           </div>
         </header>
@@ -225,35 +226,43 @@ function UserCard() {
         <span className={cn("grid size-9 shrink-0 place-items-center rounded-full font-semibold group-data-[collapsible=icon]:size-8", avatarTone(me.id))}>{initial(me.nickname)}</span>
         <div className="min-w-0 leading-tight group-data-[collapsible=icon]:hidden">
           <div className="text-sm font-semibold break-words">{nm(me.nickname)} <span className="font-normal text-muted-foreground">{me.name !== me.nickname ? nm(me.name) : ""}</span></div>
-          <div className="mt-0.5 flex flex-wrap gap-1">{me.roles.map((r) => <Pill key={r} tone="blue" className="px-1.5 py-0 text-[10px]">{ROLE_LABEL[r]}</Pill>)}</div>
+          <div className="mt-0.5 flex flex-wrap gap-1">{me.roles.map((r) => <span key={r} className={cn("rounded-full px-1.5 text-[10px] font-medium", ROLE_TONE[r])}>{ROLE_LABEL[r]}</span>)}</div>
         </div>
       </div>
       <div className="mt-2 space-y-1 group-data-[collapsible=icon]:hidden">
         {mine.length > 1 ? (
           <Popover open={open} onOpenChange={setOpen}>
             <PopoverTrigger render={<button type="button" className="flex w-full items-start gap-1.5 rounded-xl px-1 py-0.5 text-left text-sm font-medium text-primary hover:bg-primary/10" />}>
-              <MapPinIcon className="mt-0.5 size-4 shrink-0" /><span className="break-words">{t("สาขา")}{branchText(branch)}</span>
+              <MapPinIcon className="mt-0.5 size-4 shrink-0" /><span className="break-words">{branchShort(branch)}</span>
               <ArrowLeftRightIcon className="mt-0.5 ml-auto size-3.5 shrink-0" />
             </PopoverTrigger>
             <PopoverContent side="right" align="end" className="w-64 p-1.5">
               <p className="px-2 py-1 text-xs text-muted-foreground">{t("เลือกสาขา")} ({mine.length})</p>
-              <ul className="max-h-80 overflow-y-auto">
-                {mine.map((b) => (
-                  <li key={b.id}>
-                    <button type="button" onClick={() => { setBranch(b.id); setOpen(false) }}
-                      className={cn("flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-sm hover:bg-muted", b.id === branchId && "bg-primary/10 font-medium text-primary")}>
-                      <span className="min-w-0 flex-1 break-words">{t("สาขา")}{branchText(b)}</span>
-                      <span className="text-[10px] text-muted-foreground">{b.code}</span>
-                      {!b.active && <Pill className="px-1 py-0 text-[10px]">{t("ปิด")}</Pill>}
-                      {b.id === branchId && <CheckIcon className="size-4" />}
-                    </button>
-                  </li>
+              {/* owner 2026-10-12: same structure as the branch filter — grouped by region, "LIS · ทองหล่อ" + code */}
+              <div className="max-h-80 overflow-y-auto">
+                {[...new Set(mine.map((b) => b.province))].sort().map((r) => (
+                  <div key={r}>
+                    <p className="px-2 pt-2 pb-1 text-xs text-muted-foreground">{tx("สาขา {0}", [r])}</p>
+                    <ul>
+                      {mine.filter((b) => b.province === r).sort((a, b) => a.brand.localeCompare(b.brand) || a.code.localeCompare(b.code)).map((b) => (
+                        <li key={b.id}>
+                          <button type="button" onClick={() => { setBranch(b.id); setOpen(false) }}
+                            className={cn("flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-sm hover:bg-muted", b.id === branchId && "bg-primary/10 font-medium text-primary")}>
+                            <span className="min-w-0 flex-1 break-words">{BUSINESS_SHORT[b.brand]} · {nm(b.name)}</span>
+                            {!b.active && <Pill className="px-1 py-0 text-[10px]">{t("ปิด")}</Pill>}
+                            <span className="text-[10px] text-muted-foreground">{b.code}</span>
+                            <CheckIcon className={cn("size-4", b.id !== branchId && "invisible")} />
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
                 ))}
-              </ul>
+              </div>
             </PopoverContent>
           </Popover>
         ) : (
-          <div className="flex items-start gap-1.5 text-sm font-medium text-primary"><MapPinIcon className="mt-0.5 size-4 shrink-0" /><span className="break-words">{t("สาขา")}{branchText(branch)}</span></div>
+          <div className="flex items-start gap-1.5 text-sm font-medium text-primary"><MapPinIcon className="mt-0.5 size-4 shrink-0" /><span className="break-words">{branchShort(branch)}</span></div>
         )}
       </div>
     </div>

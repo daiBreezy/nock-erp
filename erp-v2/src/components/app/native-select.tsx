@@ -1,31 +1,45 @@
+"use client"
+
 import type { ComponentProps } from "react"
-import { ChevronDownIcon } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from "@/components/ui/select"
 
 export interface Option {
   value: string
   label: string
   disabled?: boolean
-  /** options with the same group show under one heading (<optgroup>) */
   group?: string
 }
 
-/** Native <select>: reliable on iPad/phones and keyboard, styled like shadcn inputs. */
-export function NativeSelect({ options, placeholder, className, ...props }: ComponentProps<"select"> & { options: Option[]; placeholder?: string }) {
+type Props = Pick<ComponentProps<"button">, "id" | "disabled" | "className" | "aria-label" | "aria-labelledby" | "aria-describedby" | "aria-invalid" | "title" | "tabIndex"> & {
+  value?: string
+  defaultValue?: string
+  name?: string
+  required?: boolean
+  options: Option[]
+  placeholder?: string
+  onChange?: (event: { target: { value: string } }) => void
+}
+
+/** Shared Luma select. Keep the existing call-site API while using shadcn for the popup. */
+export function NativeSelect({ options, placeholder, className, value, defaultValue, onChange, name, required, disabled, ...props }: Props) {
+  const items = placeholder === undefined ? options : [{ value: "", label: placeholder }, ...options.filter((o) => o.value !== "")]
   return (
-    // default h-9; a height in className (h-8, h-6 …) really sets it — the select fills the box (no min-height overflow)
     <div className={cn("relative h-9", className)}>
-      <select
-        {...props}
-        className="h-full w-full appearance-none rounded-3xl border border-transparent bg-input/50 py-1 pr-8 pl-3 text-sm transition-[color,box-shadow,background-color] outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/30 disabled:opacity-50 aria-invalid:border-destructive"
-      >
-        {placeholder !== undefined && <option value="">{placeholder}</option>}
-        {groupsOf(options).map(([group, list]) => {
-          const items = list.map((o) => <option key={o.value} value={o.value} disabled={o.disabled}>{o.label}</option>)
-          return group ? <optgroup key={group} label={group}>{items}</optgroup> : items
-        })}
-      </select>
-      <ChevronDownIcon className="pointer-events-none absolute top-1/2 right-3 size-4 -translate-y-1/2 text-muted-foreground" />
+      <Select value={value} defaultValue={defaultValue} name={name} required={required} disabled={disabled}
+        items={items} onValueChange={(next) => onChange?.({ target: { value: next ?? "" } })}>
+        <SelectTrigger {...props} className="h-full! w-full min-w-0" aria-label={props["aria-label"] ?? placeholder}>
+          <SelectValue className="min-w-0 truncate" />
+        </SelectTrigger>
+        <SelectContent align="start" alignItemWithTrigger={false} className="max-h-80">
+          {groupsOf(items).map(([group, list], index) => (
+            <SelectGroup key={group ?? index}>
+              {group && <SelectLabel>{group}</SelectLabel>}
+              {list.map((o) => <SelectItem key={o.value} value={o.value} disabled={o.disabled}>{o.label}</SelectItem>)}
+            </SelectGroup>
+          ))}
+        </SelectContent>
+      </Select>
     </div>
   )
 }

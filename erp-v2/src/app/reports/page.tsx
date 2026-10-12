@@ -6,7 +6,7 @@ import { BranchChip, scopeOptions as buildScopeOptions } from "@/components/app/
 import Link from "next/link"
 import { Fragment, Suspense, useEffect, useMemo, useState } from "react"
 import { useSearchParams } from "next/navigation"
-import { BanknoteIcon, CalendarDaysIcon, ChevronDownIcon, ClockIcon, DownloadIcon, FileSpreadsheetIcon, PrinterIcon, SchoolIcon, SparklesIcon, UsersIcon, UserCheckIcon } from "lucide-react"
+import { InfoIcon, BanknoteIcon, CalendarDaysIcon, ChevronDownIcon, ClockIcon, DownloadIcon, FileSpreadsheetIcon, PrinterIcon, SchoolIcon, SparklesIcon, UsersIcon, UserCheckIcon } from "lucide-react"
 import { NativeSelect } from "@/components/app/native-select"
 import { StudentSheet } from "@/components/app/student-sheet"
 import { AttentionButton, AttentionDialog } from "@/components/reports/attention-dialog"
@@ -95,8 +95,8 @@ function Reports() {
   return (
     <Page className="space-y-5 print:max-w-none print:space-y-3">
       <title>Reports · NockERP</title>
-      <PageHeader title="Reports"
-        description={<>{scopeLabel} · {periodLabel}{period !== "custom" && ` ${fmtDate(d.range.from)} – ${fmtDate(d.range.to)}`}  {tx("· เทียบ")} {fmtDate(d.prev.from, { year: d.prev.from.slice(0, 4) !== d.range.from.slice(0, 4) })} – {fmtDate(d.prev.to, { year: d.prev.to.slice(0, 4) !== d.range.to.slice(0, 4) })}  {tx("· ข้อมูลจริงจากใบแจ้งหนี้ที่จ่ายแล้ว แพ็กเกจ และการเช็คชื่อ")}</>}
+      <PageHeader title={<span className="inline-flex items-center gap-2">Reports <Tooltip><TooltipTrigger render={<button type="button" aria-label="รายละเอียดรายงาน" className="rounded-full text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" />}><InfoIcon className="size-4" /></TooltipTrigger><TooltipContent className="max-w-sm">{scopeLabel} · {periodLabel}{period !== "custom" && ` ${fmtDate(d.range.from)} – ${fmtDate(d.range.to)}`}  {tx("· เทียบ")} {fmtDate(d.prev.from, { year: d.prev.from.slice(0, 4) !== d.range.from.slice(0, 4) })} – {fmtDate(d.prev.to, { year: d.prev.to.slice(0, 4) !== d.range.to.slice(0, 4) })}  {tx("· ข้อมูลจริงจากใบแจ้งหนี้ที่จ่ายแล้ว แพ็กเกจ และการเช็คชื่อ")}</TooltipContent></Tooltip></span>}
+        description="รายงานสรุปข้อมูลในหัวข้อต่างๆ"
         actions={<>
           {allowed.length > 1 && <BranchChip className="print:hidden" value={scope} onChange={setScope} options={scopeOptions} active={scope !== "all"} />}
           {/* owner 2026-10-07: one download button, pick the format */}
@@ -1228,7 +1228,7 @@ function SatisfactionTab({ d, compare }: { d: ReportData; compare: boolean }) {
               <tbody>{cur.teachers.map((t) => (
                 <tr key={t.teacherId} className="border-t">
                   <td className="py-1.5">{nm(t.staff?.nickname ?? "—")}</td>
-                  {compare && <td className="text-muted-foreground">{(t.staff?.branchIds ?? []).map((id) => nm(branches.find((b) => b.id === id)?.name)).filter(Boolean).join(", ")}</td>}
+                  {compare && <td className="text-muted-foreground">{(t.staff?.branchIds ?? []).map((id) => branches.find((b) => b.id === id)?.code).filter(Boolean).join(", ")}</td>}
                   <td className={cn("text-right font-medium tabular-nums", t.score < 3.5 && "text-red-600")}>{t.score.toFixed(1)}</td>
                   <td className="text-right text-muted-foreground tabular-nums">{t.ratings}</td>
                 </tr>
@@ -1249,7 +1249,7 @@ function SatisfactionTab({ d, compare }: { d: ReportData; compare: boolean }) {
               <tbody>{unhappy.filter((r) => r.followUp).slice(0, showAllCalls ? undefined : 10).map((r) => (
                 <tr key={r.id} className="border-t align-middle [&>td]:py-2">
                   <td>{fam(r.familyId)}</td>
-                  {compare && <td className="text-muted-foreground">{nm(branches.find((b) => b.id === r.branchId)?.name)}</td>}
+                  {compare && <td className="text-muted-foreground">{branches.find((b) => b.id === r.branchId)?.code}</td>}
                   <td className="px-3 text-right text-red-600 tabular-nums">{r.answers.nps ?? "—"}/10</td>
                   <td className="px-3 whitespace-nowrap">{r.answers.continueNext ? tx(CONT[r.answers.continueNext]) : "—"}</td>
                   <td className="px-3 whitespace-nowrap text-muted-foreground">{nm(staff.find((x) => x.id === r.followUp!.by)?.nickname)} · {fmtDate(r.followUp!.at.slice(0, 10))}</td>

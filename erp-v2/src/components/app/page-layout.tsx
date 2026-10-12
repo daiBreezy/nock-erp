@@ -8,6 +8,7 @@
 // Same width and spacing everywhere; Calendar and Inbox stay full-screen work areas.
 import { ChevronLeftIcon, ChevronRightIcon, EyeIcon, EyeOffIcon } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 
 export function Page({ children, className }: { children: React.ReactNode; className?: string }) {
   return <div className={cn("mx-auto max-w-7xl space-y-4", className)}>{children}</div>
@@ -74,15 +75,30 @@ export interface SegmentOption<T extends string> { value: T; label: React.ReactN
  * Grey segmented switch (owner 2026-10-09) — for "pick one, the whole view changes": view, range, mode.
  * h-9 like every toolbar control; the picked one is a white pill. Filters stay dropdowns, show / hide stays ShowChip.
  */
-export function Segmented<T extends string>({ value, onChange, options, className, label }: { value: T; onChange: (v: T) => void; options: SegmentOption<T>[]; className?: string; label?: string }) {
+export function Segmented<T extends string>({ value, onChange, options, className, label, iconOnly }: { value: T; onChange: (v: T) => void; options: SegmentOption<T>[]; className?: string; label?: string
+  /** owner 2026-10-12: icons only (e.g. Kanban / ตาราง) — the name shows on hover */
+  iconOnly?: boolean }) {
   return (
     <div role="group" aria-label={label} className={cn("inline-flex h-9 shrink-0 items-center rounded-full bg-muted p-1", className)}>
-      {options.map((o) => (
-        <button key={o.value} type="button" aria-pressed={value === o.value} title={o.title} onClick={() => onChange(o.value)}
-          className={cn("flex h-7 items-center gap-1.5 rounded-full px-3 text-sm whitespace-nowrap", value === o.value ? "bg-background font-medium shadow-sm" : "text-muted-foreground hover:text-foreground")}>
-          {o.icon && <o.icon className="size-4" />}{o.label}
-        </button>
-      ))}
+      {options.map((o) => {
+        const cls = cn("flex h-7 items-center gap-1.5 rounded-full text-sm whitespace-nowrap", iconOnly && o.icon ? "w-8 justify-center" : "px-3", value === o.value ? "bg-background font-medium shadow-sm" : "text-muted-foreground hover:text-foreground")
+        if (iconOnly && o.icon) {
+          const Icon = o.icon
+          return (
+            <Tooltip key={o.value}>
+              <TooltipTrigger render={<button type="button" aria-pressed={value === o.value} aria-label={typeof o.label === "string" ? o.label : undefined} onClick={() => onChange(o.value)} className={cls} />}>
+                <Icon className="size-4" />
+              </TooltipTrigger>
+              <TooltipContent>{o.title ?? o.label}</TooltipContent>
+            </Tooltip>
+          )
+        }
+        return (
+          <button key={o.value} type="button" aria-pressed={value === o.value} title={o.title} onClick={() => onChange(o.value)} className={cls}>
+            {o.icon && <o.icon className="size-4" />}{o.label}
+          </button>
+        )
+      })}
     </div>
   )
 }

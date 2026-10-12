@@ -8,10 +8,11 @@ import { useMemo, useState } from "react"
 import {
   ArchiveRestoreIcon, DoorOpenIcon, ArrowUpRightIcon, BusIcon, CakeIcon, CalendarDaysIcon, CalendarIcon, ClockIcon, FileTextIcon, GraduationCapIcon,
   MessageSquareIcon, MessagesSquareIcon, PencilIcon, PhoneIcon, PlaneIcon, PlusIcon, ReceiptIcon, SearchIcon, SendIcon, StickyNoteIcon, StoreIcon, UserRoundIcon, UsersIcon,
+  ChevronRightIcon, HistoryIcon,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet"
-import { EntityPanel, PanelFooter, PanelForm } from "./form-shell"
+import { EntityPanel, PanelFooter, PanelForm, PanelMore } from "./form-shell"
 import { Tabs } from "./page-layout"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
@@ -21,7 +22,7 @@ import { INVOICE_STATUS_LABEL, invoiceTotals } from "@/domain/rules/billing"
 import { can } from "@/domain/rules/permissions"
 import { renewHref } from "@/domain/rules/people"
 import { removedWithClass, subjectsOf, workState } from "@/domain/rules/scheduling"
-import type { Entitlement, ID, LogCategory, Session, Student } from "@/domain/types"
+import type { Entitlement, ID, LogCategory, Session, Student, StudentLeave } from "@/domain/types"
 import { report } from "@/lib/feedback"
 import { useEntitlements, useNow } from "@/lib/hooks"
 import { cn } from "@/lib/utils"
@@ -86,6 +87,9 @@ function Body({ id, onEdit }: { id: ID; onEdit: () => void }) {
   const ents = useEntitlements()
   const today = toDateStr(useNow())
   const [seg, setSeg] = useState<Seg>("overview")
+  const [classSub, setClassSub] = useState<ClassSub>("session")
+  const [leaveDialog, setLeaveDialog] = useState<{ leave?: StudentLeave } | null>(null)
+  const canLeave = can(me, "attendance.leave_override")
   const [archiving, setArchiving] = useState(false)
   const [closingNow, setClosingNow] = useState(false)
   const restore = useStore((s) => s.restoreStudent)
@@ -122,8 +126,8 @@ function Body({ id, onEdit }: { id: ID; onEdit: () => void }) {
 
       <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4">
         {stu.exit && <div className="mb-4"><ExitPanel stu={stu} /></div>}
-        {seg === "overview" && <Overview stu={stu} ents={ents} today={today} status={state.status} onNotRenewing={() => setArchiving(true)} />}
-        {seg === "class" && <ClassSeg stu={stu} ents={ents} />}
+        {seg === "overview" && <Overview stu={stu} ents={ents} today={today} status={state.status} onNotRenewing={() => setArchiving(true)} onHistory={() => { setClassSub("history"); setSeg("class") }} onEditLeave={(leave) => setLeaveDialog({ leave })} />}
+        {seg === "class" && <ClassSeg stu={stu} ents={ents} sub={classSub} setSub={setClassSub} />}
         {seg === "billing" && <BillingSeg stu={stu} />}
         {seg === "note" && <NoteSeg stu={stu} />}
         {seg === "timeline" && <TimelineSeg stu={stu} />}
@@ -132,11 +136,12 @@ function Body({ id, onEdit }: { id: ID; onEdit: () => void }) {
       {/* Header · Body · Bottom — CTAs live here: destructive left, primary right (owner 2026-10-09) */}
       {seg !== "note" && (
         <PanelFooter>
-          {can(me, "student.manage") && (stu.archived ? (
-            <Button variant="ghost" onClick={() => report(restore(stu.id), "กลับมาเรียนแล้ว")}><ArchiveRestoreIcon /> กลับมาเรียน</Button>
-          ) : !stu.exit && (
-            <Button variant="ghost" className="text-red-700" onClick={() => setArchiving(true)}><DoorOpenIcon /> แจ้งออก</Button>
-          ))}
+          {/* owner 2026-10-12: the less-used actions sit behind ⋯ — แจ้งออก · ลาพักยาว */}
+          <PanelMore items={[
+            can(me, "student.manage") && stu.archived && { label: "กลับมาเรียน", icon: ArchiveRestoreIcon, onClick: () => report(restore(stu.id), "กลับมาเรียนแล้ว") },
+            canLeave && { label: "ลาพักยาว", icon: PlaneIcon, onClick: () => setLeaveDialog({}) },
+            can(me, "student.manage") && !stu.archived && !stu.exit && { label: "แจ้งออก", icon: DoorOpenIcon, destructive: true, onClick: () => setArchiving(true) },
+          ]} />
           {conv ? (
             <Button size="icon" variant="outline" className="ml-auto rounded-full" aria-label="แชท LINE กับผู้ปกครอง" title="เปิดแชท LINE กับผู้ปกครองใน Inbox" nativeButton={false} render={<Link href={`/inbox?conversation=${conv.id}`} />}><MessagesSquareIcon /></Button>
           ) : (
@@ -148,6 +153,7 @@ function Body({ id, onEdit }: { id: ID; onEdit: () => void }) {
       )}
       {archiving && <ExitRequestDialog stu={stu} onClose={() => setArchiving(false)} onCloseNow={() => { setArchiving(false); setClosingNow(true) }} />}
       {closingNow && <CloseExitDialog stu={stu} response={null} onClose={() => setClosingNow(false)} />}
+      {leaveDialog && <LeaveDialog studentId={stu.id} leave={leaveDialog.leave} onClose={() => setLeaveDialog(null)} />}
     </>
   )
 }
@@ -168,53 +174,52 @@ function packageProgress(e: Entitlement, sessions: Session[], attendance: { sess
   return { ratio: Math.min(1, (total - left) / total), label: e.to < today ? `หมดแล้ว ${fmtDate(e.to)}` : `เหลือ ${left} วัน · ถึง ${fmtDate(e.to)}`, low: left <= 7 }
 }
 
-function Overview({ stu, ents, today, status, onNotRenewing }: { stu: Student; ents: Entitlement[]; today: string; status: Att.StudentStatus; onNotRenewing: () => void }) {
+function PackageRow({ e, stu, today }: { e: Entitlement; stu: Student; today: string }) {
+const me = useStore((s) => s.me())
+const courses = useStore((s) => s.courses)
+const classes = useStore((s) => s.classes)
+const sessions = useStore((s) => s.sessions)
+const attendance = useStore((s) => s.attendance)
+const rawTo = useStore((s) => s.entitlements.find((x) => x.id === e.id)?.to)
+  const c = courses.find((x) => x.id === e.courseId)
+  const p = packageProgress(e, sessions, attendance, today)
+  const expired = e.to < today
+  const renewal = !expired && p.low
+  const extended = rawTo !== undefined && rawTo !== e.to
+  return (
+    <li className={cn("flex items-center gap-3 py-2.5", expired && "opacity-50")}>
+      <span className={cn("grid size-11 shrink-0 place-items-center rounded-xl text-sm font-semibold", subjectColor(c?.subjects[0] ?? "").chip)}>{(c?.subjects[0] ?? "?").slice(0, 2)}</span>
+      <div className="min-w-0 flex-1">
+        <p className="truncate font-medium">{c?.name ?? "คอร์ส"}</p>
+        <p className="flex flex-wrap items-center gap-1 text-xs text-muted-foreground">
+          <CalendarIcon className="size-3" /> {fmtDate(e.from)} → {fmtDate(e.to, { year: true })}
+          {e.classIds.length > 0 && <span>· {classes.filter((k) => e.classIds.includes(k.id)).map((k) => k.name).join(" + ")}</span>}
+          {extended && <Pill tone="violet" title={`เดิมจบ ${fmtDate(rawTo!, { year: true })}`}>เลื่อนวันจบจากการลา</Pill>}
+        </p>
+      </div>
+      {c && <PackageBadge course={c} size="md" />}
+      <Pill tone={expired ? "gray" : renewal ? "amber" : "green"}>{expired ? "หมดแล้ว" : renewal ? "Renewal" : "Enroll"}</Pill>
+      {(renewal || expired) && can(me, "billing.manage") && <Button size="xs" variant="outline" nativeButton={false} render={<Link href={renewHref(stu.id, e.id)} />}>ต่ออายุ</Button>}
+      <div className="w-40 shrink-0 text-right">
+        <p className="text-xs tabular-nums">{p.label}</p>
+        <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-muted"><div className={cn("h-full rounded-full", renewal ? "bg-red-600" : "bg-primary")} style={{ width: `${p.ratio * 100}%` }} /></div>
+      </div>
+    </li>
+  )
+}
+
+function Overview({ stu, ents, today, status, onNotRenewing, onHistory, onEditLeave }: { stu: Student; ents: Entitlement[]; today: string; status: Att.StudentStatus; onNotRenewing: () => void; onHistory: () => void; onEditLeave: (l: StudentLeave) => void }) {
   const me = useStore((s) => s.me())
-  const courses = useStore((s) => s.courses)
-  const classes = useStore((s) => s.classes)
-  const sessions = useStore((s) => s.sessions)
-  const attendance = useStore((s) => s.attendance)
   const leaves = useStore((s) => s.leaves)
   const myAssessments = useStore((s) => s.assessments).filter((a) => a.studentId === stu.id).sort((a, b) => a.date.localeCompare(b.date))
-  const rawEnts = useStore((s) => s.entitlements)
   const branches = useStore((s) => s.branches)
   const fam = useStore((s) => s.families.find((f) => f.id === stu.familyId))
-  const [leaveDialog, setLeaveDialog] = useState<{ leave?: (typeof leaves)[number] } | null>(null)
   const mine = ents.filter((e) => e.studentId === stu.id).sort((a, b) => b.to.localeCompare(a.to))
   const current = mine.filter((e) => e.to >= today)
-  const past = mine.filter((e) => e.to < today).slice(0, 3)
-  const rawById = new Map(rawEnts.map((e) => [e.id, e]))
+  const pastCount = mine.length - current.length
   const myLeaves = leaves.filter((l) => l.studentId === stu.id).sort((a, b) => b.from.localeCompare(a.from))
   const created = branches.find((b) => b.id === stu.createdBranchId)
   const age = stu.birthDate ? Math.floor(daysBetween(stu.birthDate, today) / 365.25) : null
-
-  const Row = ({ e }: { e: Entitlement }) => {
-    const c = courses.find((x) => x.id === e.courseId)
-    const p = packageProgress(e, sessions, attendance, today)
-    const expired = e.to < today
-    const renewal = !expired && p.low
-    const extended = rawById.get(e.id)?.to !== e.to
-    return (
-      <li className={cn("flex items-center gap-3 py-2.5", expired && "opacity-50")}>
-        <span className={cn("grid size-11 shrink-0 place-items-center rounded-xl text-sm font-semibold", subjectColor(c?.subjects[0] ?? "").chip)}>{(c?.subjects[0] ?? "?").slice(0, 2)}</span>
-        <div className="min-w-0 flex-1">
-          <p className="truncate font-medium">{c?.name ?? "คอร์ส"}</p>
-          <p className="flex flex-wrap items-center gap-1 text-xs text-muted-foreground">
-            <CalendarIcon className="size-3" /> {fmtDate(e.from)} → {fmtDate(e.to, { year: true })}
-            {e.classIds.length > 0 && <span>· {classes.filter((k) => e.classIds.includes(k.id)).map((k) => k.name).join(" + ")}</span>}
-            {extended && <Pill tone="violet" title={`เดิมจบ ${fmtDate(rawById.get(e.id)!.to, { year: true })}`}>เลื่อนวันจบจากการลา</Pill>}
-          </p>
-        </div>
-        {c && <PackageBadge course={c} size="md" />}
-        <Pill tone={expired ? "gray" : renewal ? "amber" : "green"}>{expired ? "หมดแล้ว" : renewal ? "Renewal" : "Enroll"}</Pill>
-        {(renewal || expired) && can(me, "billing.manage") && <Button size="xs" variant="outline" nativeButton={false} render={<Link href={renewHref(stu.id, e.id)} />}>ต่ออายุ</Button>}
-        <div className="w-40 shrink-0 text-right">
-          <p className="text-xs tabular-nums">{p.label}</p>
-          <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-muted"><div className={cn("h-full rounded-full", renewal ? "bg-red-600" : "bg-primary")} style={{ width: `${p.ratio * 100}%` }} /></div>
-        </div>
-      </li>
-    )
-  }
 
   return (
     <div className="space-y-4">
@@ -238,9 +243,14 @@ function Overview({ stu, ents, today, status, onNotRenewing }: { stu: Student; e
 
         <div className="mt-3 border-t pt-1">
           <p className="pt-2 text-xs font-semibold tracking-wide text-muted-foreground uppercase">คอร์สที่ลงเรียน</p>
+          {/* owner 2026-10-12: only packages still running here — finished ones live in คลาส › ประวัติคอร์ส */}
           {current.length === 0 && <p className="py-3 text-sm text-muted-foreground">ไม่มีคอร์สที่ใช้อยู่</p>}
-          <ul className="divide-y">{current.map((e) => <Row key={e.id} e={e} />)}</ul>
-          {past.length > 0 && <ul className="divide-y border-t">{past.map((e) => <Row key={e.id} e={e} />)}</ul>}
+          <ul className="divide-y">{current.map((e) => <PackageRow key={e.id} e={e} stu={stu} today={today} />)}</ul>
+          {pastCount > 0 && (
+            <button type="button" onClick={onHistory} className="mt-1 flex w-full items-center gap-1 border-t pt-2.5 text-xs text-muted-foreground hover:text-foreground">
+              <HistoryIcon className="size-3.5" />ประวัติคอร์สที่หมดแล้ว {pastCount} รายการ<ChevronRightIcon className="ml-auto size-3.5" />
+            </button>
+          )}
         </div>
 
       </section>
@@ -253,44 +263,51 @@ function Overview({ stu, ents, today, status, onNotRenewing }: { stu: Student; e
           {myAssessments.map((a) => <AssessmentNote key={a.id} a={a} editable={can(me, "session.manage")} showWhen />)}
         </section>
       )}
+      {/* owner 2026-10-12: only once a long leave exists — new ones are added from ⋯ › ลาพักยาว in the bottom bar */}
+      {myLeaves.length > 0 && (
       <section className="rounded-3xl bg-card p-4 shadow-sm ring-1 ring-foreground/5">
-        <div className="mb-2 flex items-center">
-          <p className="font-semibold">ลาพักยาว (ไม่หักโควตา)</p>
-          {can(me, "attendance.leave_override") && <Button size="xs" variant="outline" className="ml-auto" onClick={() => setLeaveDialog({})}><PlaneIcon /> บันทึกการลา</Button>}
-        </div>
+        <p className="mb-1 font-semibold">ลาพักยาว (ไม่หักโควตา)</p>
         <p className="mb-2 text-xs text-muted-foreground">ช่วงที่ลาพักยาว สถานะจะเป็น Inactive อัตโนมัติ และวันจบคอร์สเลื่อนออกไปให้</p>
-        {myLeaves.length === 0 ? <p className="text-sm text-muted-foreground">ไม่มีการลาแบบนี้</p> : (
+        {(
           <ul className="divide-y rounded-2xl border">
             {myLeaves.map((l) => (
               <li key={l.id} className="flex items-center gap-2 p-2.5 text-sm">
                 <span className="font-medium">{fmtDate(l.from)} – {fmtDate(l.to, { year: true })}</span>
                 <span className="truncate text-muted-foreground">{l.reason}</span>
                 {l.from <= today && today <= l.to && <Pill tone="violet">กำลังลา</Pill>}
-                {can(me, "attendance.leave_override") && <Button size="xs" variant="ghost" className="ml-auto" onClick={() => setLeaveDialog({ leave: l })}>แก้ไข</Button>}
+                {can(me, "attendance.leave_override") && <Button size="xs" variant="ghost" className="ml-auto" onClick={() => onEditLeave(l)}>แก้ไข</Button>}
               </li>
             ))}
           </ul>
         )}
       </section>
-      {leaveDialog && <LeaveDialog studentId={stu.id} leave={leaveDialog.leave} onClose={() => setLeaveDialog(null)} />}
+      )}
     </div>
   )
 }
 
 // ---------------------------------------------------------------- Class (Session | Attendance)
 
-function ClassSeg({ stu, ents }: { stu: Student; ents: Entitlement[] }) {
-  const [sub, setSub] = useState<"session" | "attendance">("session")
+type ClassSub = "session" | "attendance" | "history"
+function ClassSeg({ stu, ents, sub, setSub }: { stu: Student; ents: Entitlement[]; sub: ClassSub; setSub: (s: ClassSub) => void }) {
   return (
     <div className="space-y-3">
       <div className="flex gap-4 border-b text-sm">
-        {([["session", "คาบเรียน"], ["attendance", "การเข้าเรียน"]] as const).map(([k, l]) => (
+        {([["session", "คาบเรียน"], ["attendance", "การเข้าเรียน"], ["history", "ประวัติคอร์ส"]] as const).map(([k, l]) => (
           <button key={k} onClick={() => setSub(k)} className={cn("-mb-px border-b-2 pb-2", sub === k ? "border-primary font-medium text-primary" : "border-transparent text-muted-foreground")}>{l}</button>
         ))}
       </div>
-      {sub === "session" ? <SessionList stu={stu} /> : <AttendanceList stu={stu} ents={ents} />}
+      {sub === "session" ? <SessionList stu={stu} /> : sub === "attendance" ? <AttendanceList stu={stu} ents={ents} /> : <CourseHistory stu={stu} ents={ents} />}
     </div>
   )
+}
+
+/** owner 2026-10-12: packages that have ended — kept as history here, not on the overview */
+function CourseHistory({ stu, ents }: { stu: Student; ents: Entitlement[] }) {
+  const today = toDateStr(useNow())
+  const past = ents.filter((e) => e.studentId === stu.id && e.to < today).sort((a, b) => b.to.localeCompare(a.to))
+  if (!past.length) return <p className="py-6 text-center text-sm text-muted-foreground">ยังไม่มีคอร์สที่หมดแล้ว</p>
+  return <ul className="divide-y">{past.map((e) => <PackageRow key={e.id} e={e} stu={stu} today={today} />)}</ul>
 }
 
 function Teacher({ id }: { id: ID | null }) {
@@ -467,6 +484,7 @@ function NoteSeg({ stu }: { stu: Student }) {
   const staff = useStore((s) => s.staff)
   const userId = useStore((s) => s.userId)
   const add = useStore((s) => s.addStudentNote)
+  const sessions = useStore((s) => s.sessions)
   const [text, setText] = useState("")
   const send = () => { if (report(add(stu.id, text), "บันทึกโน้ตแล้ว")) setText("") }
   return (
@@ -482,6 +500,8 @@ function NoteSeg({ stu }: { stu: Student }) {
               <div className={cn("max-w-[80%] rounded-2xl p-3 text-sm", mineN ? "bg-primary/10" : "bg-muted")}>
                 <p className="mb-1 flex gap-3 text-[11px] text-muted-foreground"><span>{by?.nickname ?? "?"}</span><span className="ml-auto">{fmtDateTime(n.at)}</span></p>
                 <p className="whitespace-pre-wrap">{n.text}</p>
+                {/* written on a class in the calendar board (owner 2026-10-12) */}
+                {n.sessionId && (() => { const se = sessions.find((x) => x.id === n.sessionId); return se ? <p className="mt-1 text-[11px] text-muted-foreground">จากคาบ {se.subject} · {fmtDate(se.date)} {se.start}</p> : null })()}
               </div>
             </div>
           )

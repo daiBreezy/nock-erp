@@ -2,6 +2,7 @@
 // can switch on the form. Stored values stay language-neutral (codes) or Thai (what staff read in the ERP).
 
 import type { FormLang, FormType, LeadSource } from "@/domain/types"
+import { normalizeRelation } from "@/domain/rules/people"
 
 export const LANGS: { key: FormLang; label: string }[] = [{ key: "th", label: "TH" }, { key: "en", label: "EN" }, { key: "ja", label: "JP" }]
 
@@ -27,7 +28,7 @@ const th = {
   sent: (t: FormType) => `ส่ง${t === "test" ? "แบบฟอร์มสอบวัดระดับ" : "แบบฟอร์มทดลองเรียน"}แล้ว`, sentSub: "ขอบคุณค่ะ ทางสถาบันจะยืนยันนัดทาง LINE เร็วๆ นี้",
   opening: "กำลังเปิดฟอร์ม…", previewBadge: "โหมดดูตัวอย่าง — ไม่ส่งข้อมูลจริง",
   required: "ช่องที่มี * ต้องกรอก",
-  rel: { mom: "คุณแม่", dad: "คุณพ่อ", guardian: "ผู้ปกครอง", grandparent: "ปู่ย่าตายาย", other: "อื่นๆ" },
+  rel: { guardian: "ผู้ปกครอง", dad: "พ่อ", mom: "แม่", relative: "ญาติ" },
   src: { line: "LINE OA", facebook: "Facebook", walkin: "Walk-in", phone: "โทรศัพท์", website: "เว็บไซต์", referral: "คนแนะนำ", other: "อื่นๆ" } as Record<LeadSource, string>,
 }
 
@@ -55,7 +56,7 @@ const en: Dict = {
   sent: (t) => `Your ${t === "test" ? "test" : "trial"} form has been sent`, sentSub: "Thank you! We will confirm the appointment on LINE shortly.",
   opening: "Opening form…", previewBadge: "Preview mode — nothing is sent",
   required: "Fields marked * are required",
-  rel: { mom: "Mother", dad: "Father", guardian: "Guardian", grandparent: "Grandparent", other: "Other" },
+  rel: { guardian: "Guardian", dad: "Father", mom: "Mother", relative: "Relative" },
   src: { line: "LINE OA", facebook: "Facebook", walkin: "Walk-in", phone: "Phone", website: "Website", referral: "Referral", other: "Other" },
 }
 
@@ -81,19 +82,20 @@ const ja: Dict = {
   sent: (t) => (t === "test" ? "レベルチェックの申込を送信しました" : "体験レッスンの申込を送信しました"), sentSub: "ありがとうございます。LINEで日時を確定いたします。",
   opening: "フォームを開いています…", previewBadge: "プレビュー — 送信されません",
   required: "* は必須項目です",
-  rel: { mom: "母", dad: "父", guardian: "保護者", grandparent: "祖父母", other: "その他" },
+  rel: { guardian: "保護者", dad: "父", mom: "母", relative: "親族" },
   src: { line: "LINE OA", facebook: "Facebook", walkin: "来校", phone: "電話", website: "ウェブサイト", referral: "ご紹介", other: "その他" },
 }
 
 export const DICT: Record<FormLang, Dict> = { th, en, ja }
 export type RelKey = keyof Dict["rel"]
-export const REL_KEYS: RelKey[] = ["mom", "dad", "guardian", "grandparent", "other"]
+/** owner 2026-10-12: the same four as staff see (ผู้ปกครอง · พ่อ · แม่ · ญาติ) */
+export const REL_KEYS: RelKey[] = ["guardian", "dad", "mom", "relative"]
 export const SOURCE_KEYS: LeadSource[] = ["line", "facebook", "walkin", "referral", "website", "phone", "other"]
 
 /** staff read relationships in Thai — store the Thai word whatever language the parent used */
 export const relToStored = (k: RelKey) => th.rel[k]
 /** stored (Thai or free text) → key, so a pre-filled "คุณแม่" shows as "Mother" on an English form */
-export const relFromStored = (v?: string): RelKey | "" => (REL_KEYS.find((k) => th.rel[k] === v || en.rel[k] === v || ja.rel[k] === v) ?? (v ? "other" : ""))
+export const relFromStored = (v?: string): RelKey | "" => { const n = normalizeRelation(v); return n ? REL_KEYS.find((k) => th.rel[k] === n) ?? "" : "" }
 
 const LOCALE: Record<FormLang, string> = { th: "th-TH", en: "en-GB", ja: "ja-JP" }
 /** "อ. 30 ก.ย." / "Tue 30 Sep" / "9月30日(火)" */

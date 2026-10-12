@@ -21,6 +21,8 @@ import { report } from "@/lib/feedback"
 import { useStore } from "@/store/store"
 import { SaveRow, SettingsCard } from "./common"
 import { HolidayPlanner } from "./holiday-planner"
+import { SubjectColorPicker } from "./subject-color-picker"
+import { SUBJECT_PALETTE, subjectColor, subjectColorKey } from "@/components/app/subject-color"
 import { tx, nm } from "@/lib/i18n"
 
 const BRANDS: { id: Brand; label: string }[] = [{ id: "nockacademy", label: "Nockacademy" }, { id: "liclass", label: "Liclass" }]
@@ -69,6 +71,10 @@ function SubjectCatalog() {
   const [editing, setEditing] = useState<string | null>(null)
   const [name, setName] = useState("")
   const [adding, setAdding] = useState("")
+  // a new subject starts on a colour no other subject uses yet
+  const freeColor = Object.keys(SUBJECT_PALETTE).find((k) => !subjects.some((x) => subjectColorKey(x) === k)) ?? "slate"
+  const [addColor, setAddColor] = useState<string | null>(null)
+  const setColor = (subject: string, key: string) => report(saveSystem({ ...sys, subjectColors: { ...sys.subjectColors, [subject]: key } }), tx("เปลี่ยนสีวิชา {0} แล้ว", [subject]))
   return (
     <SettingsCard title={tx("วิชา (Subjects)")} hint={tx("เปลี่ยนชื่อวิชาที่สอนทุกสาขา — ชื่อที่แสดงอัปเดตทุกที่ (คอร์ส คลาส คาบ ตารางราคา) · สาขาเลือกวิชาจากรายการนี้ · ช่อง English / 日本語 = ชื่อที่ฟอร์มผู้ปกครองแสดงในภาษานั้น (ว่าง = ใช้ชื่อไทย)")}>
       <div className="divide-y rounded-2xl border">
@@ -82,7 +88,8 @@ function SubjectCatalog() {
               </>
             ) : (
               <>
-                <span className="flex-1">{s}</span>
+                <SubjectColorPicker label={s} value={subjectColorKey(s)} onChange={(k) => setColor(s, k)} />
+                <span className="flex-1"><span className={cn("rounded-full px-2 py-0.5 text-xs font-medium", subjectColor(s).chip)}>{s}</span></span>
                 {/* how the parent form shows it in English / Japanese — saved when leaving the box */}
                 {(["en", "ja"] as const).map((l) => (
                   <Input key={`${s}-${l}-${sys.subjectNames?.[s]?.[l] ?? ""}`} className="h-8 w-28" placeholder={l === "en" ? "English" : "日本語"} defaultValue={sys.subjectNames?.[s]?.[l] ?? ""}
@@ -99,8 +106,9 @@ function SubjectCatalog() {
         ))}
       </div>
       <div className="mt-2 flex gap-2">
+        <SubjectColorPicker label={adding.trim() || tx("วิชาใหม่")} value={addColor ?? freeColor} onChange={setAddColor} />
         <Input className="h-8 max-w-60" value={adding} onChange={(e) => setAdding(e.target.value)} placeholder={tx("เพิ่มวิชาใหม่ เช่น Eng (Grammar)")} />
-        <Button size="sm" variant="outline" disabled={!adding.trim()} onClick={() => report(saveSystem({ ...sys, subjects: [...subjects, adding.trim()] }), tx("เพิ่มวิชา {0} แล้ว — เปิดใช้ที่แท็บ Subjects ของแต่ละสาขา", [adding.trim()])) && setAdding("")}><PlusIcon />  {tx("เพิ่ม")}</Button>
+        <Button size="sm" variant="outline" disabled={!adding.trim()} onClick={() => report(saveSystem({ ...sys, subjects: [...subjects, adding.trim()], subjectColors: { ...sys.subjectColors, [adding.trim()]: addColor ?? freeColor } }), tx("เพิ่มวิชา {0} แล้ว — เปิดใช้ที่แท็บ Subjects ของแต่ละสาขา", [adding.trim()])) && (setAdding(""), setAddColor(null))}><PlusIcon />  {tx("เพิ่ม")}</Button>
       </div>
     </SettingsCard>
   )

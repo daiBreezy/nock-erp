@@ -7,6 +7,7 @@ import { useEffect, useMemo, useState } from "react"
 import {
   AlertTriangleIcon, BanIcon, CalendarClockIcon, CheckIcon, ChevronLeftIcon, ChevronRightIcon, ClockIcon, EllipsisVerticalIcon, FlameIcon,
   GraduationCapIcon, LogOutIcon, PencilIcon, SendIcon, StarIcon, Trash2Icon, UserMinusIcon, UserPlusIcon, UsersRoundIcon, XIcon,
+  RotateCcwIcon,
 } from "lucide-react"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
@@ -17,6 +18,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSepara
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
+import { LongLeaveFields } from "@/components/app/leave-dialog"
 import { addDays, endTime, fmtDate, fmtDateTime, fromMinutes, toMinutes } from "@/domain/dates"
 import * as Att from "@/domain/rules/attendance"
 import * as Seats from "@/domain/rules/seats"
@@ -83,6 +85,7 @@ function Body({ id, onClose }: { id: ID; onClose: () => void }) {
   const [drafts, setDrafts] = useState<Record<ID, string>>({})
   const [picked, setPicked] = useState<Set<ID>>(new Set())
   const [capHidden, setCapHidden] = useState(false)
+  const undoTeacherLeave = useStore((st) => st.undoTeacherLeave)
 
   const conflicts = useMemo(() => (s ? findConflicts(allSessions.filter((x) => x.date === s.date), branch, staff).filter((c) => c.sessionIds.includes(s.id)) : []), [allSessions, s, branch, staff])
   if (!s) return null
@@ -138,8 +141,12 @@ function Body({ id, onClose }: { id: ID; onClose: () => void }) {
         </div>
         {s.cancelled && <p className="text-sm text-red-700">ยกเลิกแล้ว: {s.cancelReason}</p>}
         {s.teacherLeave && (
-          <p className="text-sm text-amber-800 dark:text-amber-300">
-            {L.teacher(s.teacherLeave.teacherId).label}ลา ({s.teacherLeave.reason}){s.teacherLeave.substituteId ? ` · ${L.teacher(s.teacherLeave.substituteId).label} สอนแทน` : " · เลื่อนวันจบคอร์สให้นักเรียนแล้ว"}
+          <p className="flex flex-wrap items-center gap-2 text-sm text-amber-800 dark:text-amber-300">
+            <span>{L.teacher(s.teacherLeave.teacherId).label}ลา ({s.teacherLeave.reason}){s.teacherLeave.substituteId ? ` · ${L.teacher(s.teacherLeave.substituteId).label} สอนแทน` : " · เลื่อนวันจบคอร์สให้นักเรียนแล้ว"}</span>
+            {/* owner 2026-10-12: a teacher leave can be taken back while the class hasn't closed */}
+            {canManage && state !== "closed" && (
+              <Button size="xs" variant="outline" onClick={() => report(undoTeacherLeave(s.id), `${L.teacher(s.teacherLeave!.teacherId).label} กลับมาสอนแล้ว`)}><RotateCcwIcon /> ยกเลิกการลา</Button>
+            )}
           </p>
         )}
         <div className="flex gap-1.5 pt-2">
@@ -280,6 +287,7 @@ function StudentRow({ s, sid, viewOnly, canManage, mine, text, setText, selectab
   const ent = Att.coveringEntitlement(sid, s, entitlements)
   const asm = assessmentIn(s.id, sid, assessments)
   const onLongLeave = Att.activeLeave(sid, s.date, leaves)
+  const sessionNotes = useStore((st) => st.notes).filter((n) => n.sessionId === s.id && n.studentId === sid).sort((x, y) => y.at.localeCompare(x.at))
   const canMarkHere = can(me, "attendance.mark") && (canManage || mine)
   const byId = new Map(allSessions.map((x) => [x.id, x]))
   // first class ever for this student → "ใหม่"
@@ -324,6 +332,7 @@ function StudentRow({ s, sid, viewOnly, canManage, mine, text, setText, selectab
           <span className="flex min-w-0 items-center gap-1.5">
             <button type="button" onClick={() => setOpen("student")} className="truncate text-left text-base font-semibold hover:text-primary hover:underline">{stu?.nickname}</button>
             {isNew && <Pill tone="red" className="shrink-0"><FlameIcon className="size-3" /> ใหม่</Pill>}
+            {onLongLeave && <Pill tone="violet" className="shrink-0" title={`${fmtDate(onLongLeave.from)} – ${fmtDate(onLongLeave.to, { year: true })} · ${onLongLeave.reason}`}>ลาพักยาว</Pill>}
             {/* tap to change which hours this student attends — works before attendance (parent called ahead) */}
             {/* default = the whole class (owner 2026-09-30); tap to set a part of it */}
             {(partial || (canManage && state(s, now) !== "closed" && !s.cancelled)) && (
@@ -348,6 +357,8 @@ function StudentRow({ s, sid, viewOnly, canManage, mine, text, setText, selectab
               })()}
           </p>
           {s.notes?.[sid] && <p className="truncate text-xs text-foreground/80" title={s.notes[sid]}>📝 {s.notes[sid]}</p>}
+          {/* notes written on this class from the calendar board (owner 2026-10-12) */}
+          {sessionNotes.map((n) => <p key={n.id} className="truncate text-xs text-foreground/80" title={n.text}>📝 {n.text}</p>)}
         </div>
         {/* มา · ลา (หักโควตา / ไม่หักโควตา) · ย้ายวัน — no "ขาด" (owner 2026-09-30) */}
         <span className="flex shrink-0 overflow-hidden rounded-full border">
@@ -418,7 +429,12 @@ function LeaveDialog({ s, studentId, onClose }: { s: Session; studentId: ID; onC
   const sessions = useStore((st) => st.sessions)
   const rawEnts = useStore((st) => st.entitlements)
   const markLeave = useStore((st) => st.markLeave)
+  const saveLongLeave = useStore((st) => st.saveStudentLeave)
+  const me = useStore((st) => st.me())
   const L = useLookup()
+  const [reason, setReason] = useState("")
+  const [longFrom, setLongFrom] = useState(s.date)
+  const [longTo, setLongTo] = useState(s.date)
   const cur = attendance.find((a) => a.sessionId === s.id && a.studentId === studentId)
   const group = cur?.leaveGroup ? attendance.filter((a) => a.studentId === studentId && a.leaveGroup === cur.leaveGroup) : cur?.status === "leave" ? [cur] : []
   const byId = new Map(sessions.map((x) => [x.id, x]))
@@ -435,7 +451,19 @@ function LeaveDialog({ s, studentId, onClose }: { s: Session; studentId: ID; onC
   const groupIds = new Set(group.map((a) => a.sessionId))
   const usedElsewhere = ent ? attendance.filter((a) => a.studentId === studentId && a.status === "leave" && !a.noQuota && !groupIds.has(a.sessionId) && byId.get(a.sessionId) && Att.packageCovers(ent, byId.get(a.sessionId)!)).length : 0
   const left = Math.max(0, quota - usedElsewhere)
-  const save = (n: number) => report(markLeave(s.id, studentId, { count: n, noQuota }), n ? (v) => `บันทึกการลาแล้ว · ${v.marked} คาบ` : "ยกเลิกการลาแล้ว") && onClose()
+  // owner 2026-10-12: "ลาไม่หักโควตา" IS ลาพักยาว — one record on the student (date range, from this session to the last
+  // one picked), the same as ⋯ › ลาพักยาว: shows on the student's card, status Inactive meanwhile, every package extended
+  const longOk = Att.canSaveLeave(me, longFrom, longTo, reason)
+  const save = (n: number) => {
+    if (n && noQuota) {
+      if (!report(saveLongLeave({ studentId, from: longFrom, to: longTo, reason }), "บันทึกการลาแล้ว")) return
+      // an older per-session "ไม่หักโควตา" leave on these sessions is replaced by the ลาพักยาว record
+      if (group.length) markLeave(s.id, studentId, { count: 0, noQuota: false })
+      onClose()
+      return
+    }
+    if (report(markLeave(s.id, studentId, { count: n, noQuota: false }), n ? (v) => `บันทึกการลาแล้ว · ${v.marked} คาบ` : "ยกเลิกการลาแล้ว")) onClose()
+  }
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()}>
       <DialogContent className="sm:max-w-md">
@@ -444,17 +472,23 @@ function LeaveDialog({ s, studentId, onClose }: { s: Session; studentId: ID; onC
           <DialogDescription>เริ่ม {fmtDate(start.date, { weekday: true })} {start.start} · {group.length ? `ตอนนี้ลา ${group.length} คาบ — ลดจำนวน = กลับมาเรียนก่อน, เพิ่ม = ลาต่อ` : "ไม่มา = ลา เลือกแบบตามดุลพินิจ"}</DialogDescription>
         </DialogHeader>
         <div className="grid grid-cols-2 gap-2">
-          {([[false, "หักโควตา", ent ? `เหลือโควตา ${left}/${quota} · ยืดวันจบตามโควตา` : "ไม่มีแพ็กเกจที่ใช้คาบนี้"], [true, "ไม่หักโควตา", "ไม่ใช้โควตา · ยืดวันจบให้ทุกคาบที่ลา"]] as const).map(([k, label, hint]) => (
+          {([[false, "ลา · หักโควตา", ent ? `เหลือโควตา ${left}/${quota} · ยืดวันจบตามโควตา` : "ไม่มีแพ็กเกจที่ใช้คาบนี้"], [true, "ลาพักยาว · ไม่หักโควตา", "ทุกวิชาในช่วงนี้ · ยืดวันจบทุกคอร์ส · ดูได้ที่หน้านักเรียน"]] as const).map(([k, label, hint]) => (
             <button key={label} type="button" aria-pressed={noQuota === k} onClick={() => setNoQuota(k)}
               className={cn("rounded-xl border p-2.5 text-left", noQuota === k ? "border-amber-500 bg-amber-50 dark:bg-amber-950/30" : "hover:bg-muted/50")}>
-              <p className="text-sm font-medium">ลา · {label}</p><p className="text-xs text-muted-foreground">{hint}</p>
+              <p className="text-sm font-medium">{label}</p><p className="text-xs text-muted-foreground">{hint}</p>
             </button>
           ))}
         </div>
-        <label className="flex items-center gap-2 text-sm">
-          จำนวน <Input type="number" min={1} max={60} className="h-9 w-20" value={countText} onChange={(e) => setCountText(e.target.value)} aria-invalid={!ok} /> คาบ
-        </label>
-        {run.length > 0 && (
+        {/* owner 2026-10-12: ลาพักยาว here = the same form as the student's ⋯ › ลาพักยาว (LongLeaveFields) */}
+        {noQuota ? (
+          <LongLeaveFields studentId={studentId} from={longFrom} to={longTo} reason={reason}
+            onChange={(v) => { if (v.from !== undefined) setLongFrom(v.from); if (v.to !== undefined) setLongTo(v.to); if (v.reason !== undefined) setReason(v.reason) }} />
+        ) : (
+          <label className="flex items-center gap-2 text-sm">
+            จำนวน <Input type="number" min={1} max={60} className="h-9 w-20" value={countText} onChange={(e) => setCountText(e.target.value)} aria-invalid={!ok} /> คาบ
+          </label>
+        )}
+        {!noQuota && run.length > 0 && (
           <ul className="max-h-48 space-y-1 overflow-y-auto rounded-xl bg-muted/40 p-2 text-xs">
             {run.map((x, i) => (
               <li key={x.id} className="flex justify-between">
@@ -467,8 +501,8 @@ function LeaveDialog({ s, studentId, onClose }: { s: Session; studentId: ID; onC
         )}
         <DialogFooter className="items-center">
           {group.length > 0 && <Button variant="ghost" className="mr-auto text-red-700" onClick={() => save(0)}>ยกเลิกการลา (มาเรียน)</Button>}
-          <Button variant="ghost" onClick={onClose}>ปิด</Button>
-          <Button disabled={!ok} onClick={() => save(count)}>บันทึกการลา</Button>
+          <Button variant="ghost" onClick={onClose}>ยกเลิก</Button>
+          <Button disabled={noQuota ? !longOk.ok : !ok} title={noQuota && !longOk.ok ? longOk.error : undefined} onClick={() => save(noQuota ? 1 : count)}>บันทึก</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

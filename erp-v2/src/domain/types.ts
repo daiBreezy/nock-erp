@@ -158,6 +158,8 @@ export interface SystemConfig {
   subjects: string[]
   /** how the parent form shows each subject in English / Japanese (Thai = the subject itself) */
   subjectNames?: Record<string, { en?: string; ja?: string }>
+  /** owner 2026-10-12: the colour picked for each subject in Settings → System (key of the subject palette) */
+  subjectColors?: Record<string, string>
   /** one default invoice memo per brand, inherited by every branch of that brand */
   invoiceMemos: Record<Brand, string>
   /** language = system default AND the parent form's default (parents can still switch TH/EN/JP on the form) */
@@ -221,6 +223,8 @@ export interface Staff {
   email?: string
   /** part-time teacher — offered as a substitute when a teacher is on leave (owner 2026-09-30) */
   partTime?: boolean
+  /** profile photo (owner 2026-10-12) — small JPEG data URL in the prototype; unset = initial on a coloured circle */
+  photo?: string
   /** what this person does at each branch (owner 2026-10-09): e.g. Bangna = Teacher (Eng, Math) Mon–Wed, Paradise =
    *  Admin + Teacher (Science) Thu–Fri. Branch roles follow the branch picked in the top bar; Director / Super Admin /
    *  Area Manager stay company-wide in `roles`. Unset (older records) = `roles` / `subjects` everywhere in `branchIds`.
@@ -478,7 +482,7 @@ export interface Parent {
   lineLinked: boolean
   primary: boolean
   email?: string
-  /** "Mom" / "Dad" / "Guardian" etc — free text, shown next to the name */
+  /** owner 2026-10-12: one of PARENT_RELATIONS (ผู้ปกครอง · พ่อ · แม่ · ญาติ) — names carry no คุณพ่อ / คุณแม่ */
   relationship?: string
   birthDate?: DateStr
   /** phone numbers beyond the primary `phone` above — additive so every existing `p.phone` read stays correct */
@@ -509,6 +513,8 @@ export interface Family {
   taxInfo?: { customerName: string; taxId: string; address: string }
 }
 
+export type Gender = "male" | "female"
+
 export interface Student {
   id: ID
   familyId: ID | null
@@ -520,6 +526,10 @@ export interface Student {
   /** nickname in English (optional, owner 2026-10-09) */
   nicknameEn?: string
   grade: string
+  /** owner 2026-10-12: names carry no ด.ช. / ด.ญ. (sorting, reading) — the gender is its own field, shown as a small icon */
+  gender?: Gender
+  /** profile photo (owner 2026-10-12) — small JPEG data URL in the prototype; unset = initial on a coloured circle */
+  photo?: string
   usesBus: boolean
   birthDate?: DateStr
   school?: string
@@ -550,6 +560,8 @@ export interface StudentNote {
   by: ID
   at: string
   text: string
+  /** written on a class in the calendar board (owner 2026-10-12) — shown there under the student AND in the student's Note tab */
+  sessionId?: ID
 }
 
 export type LogCategory = "profile" | "class" | "attendance" | "billing" | "note"

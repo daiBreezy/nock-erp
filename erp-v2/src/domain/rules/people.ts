@@ -2,7 +2,7 @@
 
 import { GLOBAL_ROLES } from "./permissions"
 import { addDays } from "../dates"
-import type { DateStr, Family, FormParentInput, FormSubmission, ID, Lead, Result, Session, Staff, Student } from "../types"
+import type { DateStr, Family, FormParentInput, FormSubmission, Gender, ID, Lead, Parent, Result, Session, Staff, Student } from "../types"
 import { teachersOf } from "./scheduling"
 
 const digits = (s: string) => s.replace(/\D/g, "")
@@ -13,9 +13,56 @@ export function validPhone(p: string) {
   return /^0\d{8,9}$/.test(d) && /^[\d\s-]+$/.test(p.trim())
 }
 
+/** owner 2026-10-12: phones are stored and shown as plain digits ("0812345678") — no dashes */
 export function formatPhone(p: string) {
   const d = digits(p)
-  return d.length === 10 ? `${d.slice(0, 3)}-${d.slice(3, 6)}-${d.slice(6)}` : d.length === 9 ? `${d.slice(0, 2)}-${d.slice(2, 5)}-${d.slice(5)}` : p
+  return d.length === 9 || d.length === 10 ? d : p.trim()
+}
+
+/** owner 2026-10-12: the parent column "ความสัมพันธ์" — the only choices */
+export const PARENT_RELATIONS = ["ผู้ปกครอง", "พ่อ", "แม่", "ญาติ"] as const
+export type ParentRelation = (typeof PARENT_RELATIONS)[number]
+
+/** any older / typed / English value → one of PARENT_RELATIONS (unknown → ผู้ปกครอง) */
+export function normalizeRelation(v?: string): ParentRelation | undefined {
+  const s = v?.trim().toLowerCase()
+  if (!s) return undefined
+  if (/แม่|mom|mother|母/.test(s)) return "แม่"
+  if (/พ่อ|dad|father|父/.test(s)) return "พ่อ"
+  if (/ญาติ|ปู่|ย่า|ตา|ยาย|ลุง|ป้า|น้า|อา|พี่|grand|relative|aunt|uncle|祖|親族/.test(s)) return "ญาติ"
+  return "ผู้ปกครอง"
+}
+
+const STUDENT_TITLE = /^(ด\.ช\.|ด\.ญ\.|เด็กชาย|เด็กหญิง|นางสาว|น\.ส\.|นาย|นาง)\s*/
+const PARENT_TITLE = /^(คุณแม่|คุณพ่อ|คุณ|นางสาว|น\.ส\.|นาย|นาง)\s*/
+
+/** "ด.ช. ก้อง มั่นคง" → { name: "ก้อง มั่นคง", gender: "male" } (owner 2026-10-12: no titles in names) */
+export function splitStudentTitle(full: string): { name: string; gender?: Gender } {
+  const m = full.trim().match(STUDENT_TITLE)
+  if (!m) return { name: full.trim() }
+  const t = m[1]
+  const gender: Gender | undefined = /ช|ชาย|นาย/.test(t) && !/หญิง/.test(t) ? "male" : "female"
+  return { name: full.trim().slice(m[0].length).trim(), gender }
+}
+
+/** "คุณแม่ สุดา" → { name: "สุดา", relationship: "แม่" } */
+export function splitParentTitle(full: string): { name: string; relationship?: ParentRelation } {
+  const m = full.trim().match(PARENT_TITLE)
+  if (!m) return { name: full.trim() }
+  const relationship = m[1] === "คุณแม่" ? "แม่" : m[1] === "คุณพ่อ" ? "พ่อ" : undefined
+  return { name: full.trim().slice(m[0].length).trim() || full.trim(), relationship }
+}
+
+/** a parent as stored: no title in the name, relationship from the list, phone digits only */
+export function cleanParent(p: Parent): Parent {
+  const t = splitParentTitle(p.name)
+  return { ...p, name: t.name, relationship: normalizeRelation(p.relationship) ?? t.relationship, phone: formatPhone(p.phone), altPhones: p.altPhones?.map(formatPhone) }
+}
+
+/** a student as stored: no ด.ช. / ด.ญ. in the name; the title, if typed, fills the gender */
+export function cleanStudent<S extends Pick<Student, "name" | "gender">>(s: S): S {
+  const t = splitStudentTitle(s.name)
+  return { ...s, name: t.name, gender: s.gender ?? t.gender }
 }
 
 export interface FieldError {

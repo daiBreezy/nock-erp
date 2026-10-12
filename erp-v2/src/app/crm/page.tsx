@@ -5,7 +5,8 @@ import { BranchCode, useBranchScope } from "@/components/app/branch-scope"
 import { useEffect, useState } from "react"
 import { BellRingIcon, CalendarClockIcon, ChevronRightIcon, LayoutGridIcon, PlusIcon, RotateCcwIcon, SearchIcon, TableIcon, TrendingUpIcon, UserCheckIcon, UserSearchIcon, UsersIcon } from "lucide-react"
 import { Pill } from "@/components/app/badges"
-import { GradeCell, gradeCompare, HEAD, Pager, ROW, SortHeader, TableShell, Th, usePage, useSort } from "@/components/app/data-table"
+import { GradeCell, gradeCompare, Pager, usePage, useSort } from "@/components/app/data-table"
+import { ColumnsMenu, DataTable, type Column } from "@/components/app/data-grid"
 import { Kpi } from "@/components/app/kpi"
 import { NativeSelect } from "@/components/app/native-select"
 import { avatarTone, gradeTone, initial, subjectColor } from "@/components/app/subject-color"
@@ -25,6 +26,7 @@ import { crmKpis, DRAGGABLE_STAGES, groupOf, LEAD_SOURCE_LABEL, leadDetail, stag
 import { can } from "@/domain/rules/permissions"
 import type { ID, Lead, Staff } from "@/domain/types"
 import { report } from "@/lib/feedback"
+import { EditCell } from "@/components/app/inline-edit"
 import { useBranch, useNow, useQueryState } from "@/lib/hooks"
 import { cn } from "@/lib/utils"
 import { useStore } from "@/store/store"
@@ -38,6 +40,16 @@ const DETAIL_TONE: Record<LeadDetail["level"], string> = {
   info: "text-sky-700 dark:text-sky-400",
   warn: "text-amber-700 dark:text-amber-400",
   danger: "font-semibold text-red-700 dark:text-red-400",
+}
+
+/** owner 2026-10-12: stage tags in their own colours — contact → test → trial → closing → enrolled / archived */
+const STAGE_TONE: Record<string, string> = {
+  contact: "bg-sky-100 text-sky-800",
+  test: "bg-violet-100 text-violet-800",
+  trial: "bg-amber-100 text-amber-900",
+  closing: "bg-orange-100 text-orange-800",
+  enrolled: "bg-emerald-100 text-emerald-800",
+  archived: "bg-muted text-muted-foreground",
 }
 
 export default function CrmPage() {
@@ -74,6 +86,10 @@ export default function CrmPage() {
   // same scope as the board (archived toggle only, not search/assignee) so the count reads as "how many could I see"
   const assigneeScope = leads.filter((l) => showArchived || (l.stage !== "archived" && l.stage !== "enrolled"))
   const restoreLead = (id: ID) => report(restore(id), "กู้คืนแล้ว")
+  const saveLead = useStore((s) => s.saveLead)
+  // inline edit (owner 2026-10-07, back 2026-10-12): one field at a time, same rules as the lead form; only some cells — the rest open the side panel
+  const edit = (l: Lead, patch: Partial<Lead>) => report(saveLead({ ...l, ...patch }), "บันทึกแล้ว")
+  const staffOptions = [{ value: "", label: "ยังไม่มอบหมาย" }, ...staff.filter((s) => s.active && s.branchIds.includes(branch.id)).map((s) => ({ value: s.id, label: s.nickname }))]
 
   // finished leads stay out of both views by default (owner 2026-10-05: once paid and a student, the card leaves the
   // board) — archived ones and ones that became students; the switch below brings them back
@@ -102,6 +118,27 @@ export default function CrmPage() {
   })
   const focusKeys = (l: Lead) => leadFlags(l, now, toDateStr(now)).join(" ") || undefined
   const pg = usePage(useFocusFirst(tableRows, focusKeys))
+
+  const ro = (l: Lead) => !canManage || l.stage === "archived"
+  const columns: Column<Lead>[] = [
+    // owner 2026-10-12: picture and name in their own columns (every table)
+    { id: "photo", label: "รูป", width: "56px", cell: (l) => <span className={cn("grid size-8 place-items-center rounded-full text-xs font-semibold", avatarTone(l.id))}>{initial(l.name)}</span> },
+    { id: "name", label: "ชื่อ", width: "170px", sort: "name", required: true, cell: (l) => (
+      <div className="flex min-w-0 items-center gap-2">
+        <EditCell value={l.name} disabled={ro(l)} className="flex-1 font-medium" onSave={(v) => edit(l, { name: v })} />
+        {scope.multi && <BranchCode code={scope.code(l.branchId)} />}
+      </div>
+    ) },
+    { id: "grade", label: "ชั้น", width: "76px", sort: "grade", cell: (l) => <EditCell kind="select" value={l.childGrade} disabled={ro(l)} display={<GradeCell grade={l.childGrade} tone={gradeTone(l.childGrade)} />} options={branch.grades.map((g) => ({ value: g, label: g }))} onSave={(v) => edit(l, { childGrade: v })} /> },
+    { id: "subject", label: "วิชา", width: "96px", sort: "subject", cell: (l) => <EditCell kind="select" value={l.subject} disabled={ro(l)} display={<span className={cn("rounded-full px-2 py-0.5 text-xs font-medium", subjectColor(l.subject).chip)}>{l.subject}</span>} options={branch.subjects.map((x) => ({ value: x, label: x }))} onSave={(v) => edit(l, { subject: v })} /> },
+    { id: "source", label: "ช่องทาง", width: "104px", sort: "source", className: "text-muted-foreground", cell: (l) => <EditCell kind="select" value={l.source} disabled={ro(l)} display={LEAD_SOURCE_LABEL[l.source]} options={Object.entries(LEAD_SOURCE_LABEL).map(([value, label]) => ({ value, label }))} onSave={(v) => edit(l, { source: v as Lead["source"] })} /> },
+    // owner 2026-10-12: one colour per step of the funnel
+    { id: "stage", label: "ขั้นตอน", width: "104px", sort: "stage", cell: (l) => <span className={cn("rounded-full px-2 py-0.5 text-xs font-medium", STAGE_TONE[l.stage === "enrolled" ? "enrolled" : groupOf(l.stage).key])}>{stageGroupLabel(l.stage)}</span> },
+    { id: "detail", label: "รายละเอียด", width: "180px", cell: (l) => { const d = leadDetail(l, now); return <span className={cn("text-xs font-medium", DETAIL_TONE[d.level])}>{d.text}</span> } },
+    { id: "assignee", label: "ผู้ดูแล", width: "110px", sort: "assignee", className: "text-muted-foreground", cell: (l) => <EditCell kind="select" value={l.assigneeId ?? ""} disabled={ro(l)} display={staff.find((s) => s.id === l.assigneeId)?.nickname ?? "ยังไม่มอบหมาย"} options={staffOptions} onSave={(v) => edit(l, { assigneeId: v || null })} /> },
+    { id: "phone", label: "เบอร์โทร", width: "120px", className: "text-muted-foreground tabular-nums", cell: (l) => <EditCell kind="tel" value={l.phone} disabled={ro(l)} placeholder="ใส่เบอร์" onSave={(v) => edit(l, { phone: v })} /> },
+    { id: "created", label: "สร้างเมื่อ", width: "96px", sort: "created", className: "text-muted-foreground tabular-nums", cell: (l) => fmtDate(toDateStr(new Date(l.createdAt))) },
+  ]
 
   return (
     <Page>
@@ -135,8 +172,11 @@ export default function CrmPage() {
         {/* same show / hide chip as Billing (owner 2026-10-09) — closed = became students or archived */}
         <ShowChip label="ที่ปิดแล้ว" on={showArchived} onChange={setShowArchived} />
         <div className="ml-auto flex items-center gap-2">
-          {view === "kanban" ? <InfoTip text="ลากการ์ดไปคอลัมน์อื่นเพื่อย้ายขั้นตอน · ที่ปิดแล้ว = เป็นนักเรียนแล้ว หรือเก็บเข้าคลัง" /> : <span className="text-xs text-muted-foreground">{tableRows.length} รายการ</span>}
-          <Segmented label="มุมมอง" value={view} onChange={(v) => setView(v)}
+          {/* owner 2026-10-12: the toolbar keeps one line when switching view — the count lives in the pager below */}
+          {view === "kanban" && <InfoTip text="ลากการ์ดไปคอลัมน์อื่นเพื่อย้ายขั้นตอน · ที่ปิดแล้ว = เป็นนักเรียนแล้ว หรือเก็บเข้าคลัง" />}
+          {/* owner 2026-10-12: in front of the view switch, so the switch never moves when this appears */}
+          {view === "table" && <ColumnsMenu id="crm" columns={columns} />}
+          <Segmented iconOnly label="มุมมอง" value={view} onChange={(v) => setView(v)}
             options={[{ value: "kanban", label: "Kanban", icon: LayoutGridIcon }, { value: "table", label: "ตาราง", icon: TableIcon }]} />
         </div>
         {/* owner 2026-10-09: branch chip always last in the row */}
@@ -201,54 +241,10 @@ export default function CrmPage() {
       ) : (
         <>
           {/* owner 2026-10-07: grade has its own (sortable) column; every editable cell edits in place on hover —
-              click ขั้นตอน / รายละเอียด / สร้างเมื่อ (not editable here) to open the lead panel */}
-          <TableShell minWidth={1100} cols={["196px", "76px", "96px", "104px", "104px", "auto", "96px", "140px", "88px", "44px"]}>
-            <thead className={HEAD}>
-              <tr>
-                <SortHeader label="ชื่อ" k="name" sort={sort} onSort={toggle} />
-                <SortHeader label="ชั้น" k="grade" sort={sort} onSort={toggle} />
-                <SortHeader label="วิชา" k="subject" sort={sort} onSort={toggle} />
-                <SortHeader label="ช่องทาง" k="source" sort={sort} onSort={toggle} />
-                <SortHeader label="ขั้นตอน" k="stage" sort={sort} onSort={toggle} />
-                <Th>รายละเอียด</Th>
-                <SortHeader label="ผู้ดูแล" k="assignee" sort={sort} onSort={toggle} />
-                <Th>เบอร์โทร</Th>
-                <SortHeader label="สร้างเมื่อ" k="created" sort={sort} onSort={toggle} />
-                <Th />
-              </tr>
-            </thead>
-            <tbody>
-              {pg.rows.map((l) => {
-                const detail = leadDetail(l, now)
-                const assignee = staff.find((s) => s.id === l.assigneeId)
-                return (
-                  <tr key={l.id} onClick={() => setOpenLead(l.id)} data-focus={focusKeys(l)} className={cn("group", ROW)}>
-                    <td>
-                      <div className="flex min-w-0 items-center gap-2">
-                        <span className={cn("grid size-8 shrink-0 place-items-center rounded-full text-xs font-semibold", avatarTone(l.id))}>{initial(l.name)}</span>
-                        <span className="flex-1 truncate font-medium">{l.name}</span>
-                        {scope.multi && <BranchCode code={scope.code(l.branchId)} />}
-                      </div>
-                    </td>
-                    <td><GradeCell grade={l.childGrade} tone={gradeTone(l.childGrade)} /></td>
-                    <td><span className={cn("rounded-full px-2 py-0.5 text-xs font-medium whitespace-nowrap", subjectColor(l.subject).chip)}>{l.subject}</span></td>
-                    <td className="truncate text-muted-foreground">{LEAD_SOURCE_LABEL[l.source]}</td>
-                    <td className="truncate"><Pill tone={l.stage === "archived" ? "gray" : l.stage === "enrolled" ? "green" : "blue"}>{stageGroupLabel(l.stage)}</Pill></td>
-                    <td className="truncate"><span className={cn("text-xs font-medium", DETAIL_TONE[detail.level])} title={detail.text}>{detail.text}</span></td>
-                    <td className="truncate text-muted-foreground">{assignee?.nickname ?? "ยังไม่มอบหมาย"}</td>
-                    <td className="text-muted-foreground tabular-nums">{l.phone || "—"}</td>
-                    <td className="truncate text-muted-foreground tabular-nums">{fmtDate(toDateStr(new Date(l.createdAt)))}</td>
-                    <td className="text-right">
-                      {l.stage === "archived" && canManage ? (
-                        <button type="button" onClick={(e) => { e.stopPropagation(); restoreLead(l.id) }} className="inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline"><RotateCcwIcon className="size-3.5" /> กู้คืน</button>
-                      ) : <ChevronRightIcon className="ml-auto size-4 text-muted-foreground opacity-0 group-hover:opacity-100" />}
-                    </td>
-                  </tr>
-                )
-              })}
-              {tableRows.length === 0 && <tr><td colSpan={10} className="p-10 text-center text-muted-foreground">ไม่พบ Lead ตามเงื่อนไข</td></tr>}
-            </tbody>
-          </TableShell>
+              click ขั้นตอน / รายละเอียด / สร้างเมื่อ (not editable here) to open the lead panel ·
+              owner 2026-10-12: columns arranged per person (DataTable) */}
+          <DataTable id="crm" columns={columns} rows={pg.rows} rowKey={(l) => l.id} onRowClick={(l) => setOpenLead(l.id)}
+            rowProps={(l) => ({ "data-focus": focusKeys(l) })} rowClassName={(l) => l.stage === "archived" && "opacity-50"} sort={sort} onSort={toggle} minWidth={1100} empty="ไม่พบ Lead ตามเงื่อนไข" />
           <Pager {...pg} unit="Lead" />
         </>
       )}

@@ -5,7 +5,8 @@ import { PlusIcon, TrashIcon } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { FormShell, useInPanel } from "./form-shell"
 import { Input } from "@/components/ui/input"
-import { validateFamily } from "@/domain/rules/people"
+import { PARENT_RELATIONS, validateFamily } from "@/domain/rules/people"
+import { NativeSelect } from "./native-select"
 import type { Family } from "@/domain/types"
 import { uid } from "@/data/seed"
 import { report } from "@/lib/feedback"
@@ -55,12 +56,12 @@ export function FamilyForm({ family, initialName, initialParent, onClose, onSave
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-2">
-                <Field label={nativeLabel(branch.brand, "ชื่อ")} error={err(`parent${i}.name`)}><Input value={p.name} onChange={(e) => setParent(i, { name: e.target.value })} placeholder="คุณแม่ สุดา" /></Field>
+                <Field label={nativeLabel(branch.brand, "ชื่อ")} error={err(`parent${i}.name`)}><Input value={p.name} onChange={(e) => setParent(i, { name: e.target.value })} placeholder="สุดา ใจดี" /></Field>
                 <EnNameField label="ชื่อ" native={p.name} value={p.nameEn} onChange={(v) => setParent(i, { nameEn: v })} />
               </div>
               <div className="grid grid-cols-2 gap-2">
-                <Field label="เบอร์โทร *" error={err(`parent${i}.phone`)}><Input inputMode="tel" value={p.phone} onChange={(e) => setParent(i, { phone: e.target.value })} placeholder="081-234-5678" /></Field>
-                <Field label="ความสัมพันธ์"><Input value={p.relationship ?? ""} onChange={(e) => setParent(i, { relationship: e.target.value || undefined })} placeholder="คุณแม่ / คุณพ่อ" /></Field>
+                <Field label="เบอร์โทร *" error={err(`parent${i}.phone`)}><Input inputMode="tel" value={p.phone} onChange={(e) => setParent(i, { phone: e.target.value })} placeholder="0812345678" /></Field>
+                <Field label="ความสัมพันธ์"><NativeSelect value={p.relationship ?? ""} onChange={(e) => setParent(i, { relationship: e.target.value || undefined })} placeholder="เลือก" options={PARENT_RELATIONS.map((r) => ({ value: r, label: r }))} /></Field>
                 <Field label="อีเมล"><Input type="email" value={p.email ?? ""} onChange={(e) => setParent(i, { email: e.target.value || undefined })} /></Field>
                 <Field label="วันเกิด"><Input type="date" value={p.birthDate ?? ""} onChange={(e) => setParent(i, { birthDate: e.target.value || undefined })} /></Field>
               </div>

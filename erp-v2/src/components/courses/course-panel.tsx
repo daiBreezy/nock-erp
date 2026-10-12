@@ -5,7 +5,7 @@
 import { useState } from "react"
 import { CalendarIcon, ClockIcon, CopyIcon, DoorOpenIcon, LayersIcon, PencilIcon, PowerIcon } from "lucide-react"
 import { Pill } from "@/components/app/badges"
-import { EntityPanel, PanelBody, PanelFooter, PanelForm } from "@/components/app/form-shell"
+import { EntityPanel, PanelBody, PanelFooter, PanelForm, PanelMore } from "@/components/app/form-shell"
 import { PackageBadge } from "@/components/app/package-badge"
 import { gradeTone, subjectColor } from "@/components/app/subject-color"
 import { Button } from "@/components/ui/button"
@@ -115,7 +115,8 @@ function CourseView({ c, st, onEdit }: { c: Course; st?: CourseStats; onEdit: ()
       </PanelBody>
       {manage && (
         <PanelFooter>
-          <Button variant="ghost" className={c.active ? "text-red-700" : undefined} onClick={() => report(save({ ...c, active: !c.active }), c.active ? "ปิดขายคอร์สแล้ว" : "เปิดขายคอร์สแล้ว")}><PowerIcon /> {c.active ? "ปิดขาย" : "เปิดขาย"}</Button>
+          {/* owner 2026-10-12: negative actions behind ⋯ */}
+          <PanelMore items={[{ label: c.active ? "ปิดขาย" : "เปิดขายอีกครั้ง", icon: PowerIcon, destructive: c.active, onClick: () => report(save({ ...c, active: !c.active }), c.active ? "ปิดขายคอร์สแล้ว" : "เปิดขายคอร์สแล้ว") }]} />
           <Button variant="outline" className="ml-auto" onClick={() => report(duplicate(c.id), "ทำสำเนาคอร์สแล้ว — แก้ชื่อ/ระดับชั้นต่อได้")}><CopyIcon /> ทำสำเนา</Button>
           <Button onClick={onEdit}><PencilIcon /> แก้ไข</Button>
         </PanelFooter>

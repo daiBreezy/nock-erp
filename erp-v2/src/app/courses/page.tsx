@@ -1,9 +1,11 @@
 "use client"
 
-import { Page, PageHeader, KpiRow } from "@/components/app/page-layout"
-import { useBranchScope } from "@/components/app/branch-scope"
-import { Fragment, useMemo, useState } from "react"
-import { ArrowDownUpIcon, BookOpenIcon, LayersIcon, PlusIcon, SearchIcon, StarIcon, UsersIcon, WalletIcon } from "lucide-react"
+import { Page, PageHeader, KpiRow, Toolbar } from "@/components/app/page-layout"
+import { BranchCode, useBranchScope } from "@/components/app/branch-scope"
+import { Pager, usePage, useSort } from "@/components/app/data-table"
+import { ColumnsMenu, DataTable, type Column } from "@/components/app/data-grid"
+import { useMemo, useState } from "react"
+import { BookOpenIcon, LayersIcon, PlusIcon, SearchIcon, StarIcon, UsersIcon, WalletIcon } from "lucide-react"
 import { Pill } from "@/components/app/badges"
 import { Kpi } from "@/components/app/kpi"
 import { NativeSelect } from "@/components/app/native-select"
@@ -14,8 +16,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { fmtDate, fmtMoney, toDateStr } from "@/domain/dates"
 import { invoiceTotals } from "@/domain/rules/billing"
-import { priceUnitSuffix } from "@/domain/rules/course"
-import { PackageBadge } from "@/components/app/package-badge"
+import { PACKAGE_LEGEND, PackageBadge } from "@/components/app/package-badge"
 import { can } from "@/domain/rules/permissions"
 import { gradeRanges, PRICE_UNIT_LABEL } from "@/domain/rules/settings"
 import type { Course, ID, PriceUnit } from "@/domain/types"
@@ -23,7 +24,7 @@ import { useBranch, useNow } from "@/lib/hooks"
 import { cn } from "@/lib/utils"
 import { useStore } from "@/store/store"
 
-type SortKey = "name" | "price" | "students" | "start"
+type SortKey = "subject" | "name" | "kind" | "package" | "price" | "students" | "classes" | "start"
 
 /** Course page (owner design 2026-09-28): KPIs · search + filters · table with each course's linked classes on expand. */
 export default function CoursesPage() {
@@ -44,7 +45,7 @@ export default function CoursesPage() {
   const [subjectF, setSubjectF] = useState("")
   const [kindF, setKindF] = useState("")
   const [unitF, setUnitF] = useState("")
-  const [sort, setSort] = useState<{ key: SortKey; desc: boolean }>({ key: "name", desc: false })
+  const { sort, toggle } = useSort<SortKey>("subject")
   // the course panel: an id = that course, a Course = a new one being created
   const [panel, setPanel] = useState<ID | Course | null>(null)
 
@@ -72,12 +73,18 @@ export default function CoursesPage() {
     .filter((c) => !kindF || c.kind === kindF)
     .filter((c) => !unitF || c.unit === unitF)
     .sort((a, b) => {
-      const v = sort.key === "name" ? a.name.localeCompare(b.name, "th")
-        : sort.key === "price" ? a.price - b.price
-          : sort.key === "students" ? stats.get(a.id)!.students - stats.get(b.id)!.students
-            : (a.from ?? "9").localeCompare(b.from ?? "9")
+      const unitRank = { hour: 0, week: 1, month: 2 }
+      const v = sort.key === "subject" ? (a.subjects.join("+")).localeCompare(b.subjects.join("+"), "th") || a.name.localeCompare(b.name, "th")
+        : sort.key === "name" ? a.name.localeCompare(b.name, "th")
+          : sort.key === "kind" ? a.kind.localeCompare(b.kind)
+            : sort.key === "package" ? unitRank[a.unit] - unitRank[b.unit] || a.duration - b.duration
+              : sort.key === "price" ? a.price - b.price
+                : sort.key === "students" ? stats.get(a.id)!.students - stats.get(b.id)!.students
+                  : sort.key === "classes" ? stats.get(a.id)!.classes - stats.get(b.id)!.classes
+                    : (a.from ?? "9").localeCompare(b.from ?? "9")
       return sort.desc ? -v : v
     })
+  const pg = usePage(list)
 
   const kpi = {
     total: scoped.length,
@@ -87,11 +94,23 @@ export default function CoursesPage() {
     revenue: scoped.reduce((a, c) => a + stats.get(c.id)!.revenue, 0),
   }
 
-  const sortBtn = (key: SortKey, label: string) => (
-    <button className="flex items-center gap-1" onClick={() => setSort({ key, desc: sort.key === key ? !sort.desc : false })}>
-      {label}<ArrowDownUpIcon className={cn("size-3", sort.key === key ? "text-foreground" : "text-muted-foreground/50")} />
-    </button>
-  )
+  const columns: Column<Course>[] = [
+    { id: "subject", label: "วิชา", width: "120px", sort: "subject", cell: (c) => <div className="flex gap-1">{c.subjects.map((x) => <span key={x} className={cn("rounded-full px-2 py-0.5 text-xs font-medium", subjectColor(x).chip)}>{x}</span>)}</div> },
+    { id: "name", label: "ชื่อคอร์ส", width: "200px", sort: "name", required: true, cell: (c) => (
+      <span className="flex items-center gap-1.5"><span className="font-medium">{c.name}</span>{!c.active && <Pill>ปิดขาย</Pill>}</span>
+    ) },
+    { id: "grades", label: "ระดับชั้น", width: "110px", cell: (c) => <div className="flex gap-1" title={c.grades.join(", ")}>{gradeRanges(c.grades).map((g) => <span key={g} className={cn("rounded-md px-1.5 py-0.5 text-xs font-semibold", gradeTone(g))}>{g}</span>)}</div> },
+    { id: "kind", label: "ประเภท", width: "100px", sort: "kind", cell: (c) => <Pill tone={c.kind === "bundle" ? "violet" : "gray"}>{c.kind === "bundle" ? <><LayersIcon className="size-3" /> Bundle</> : "Single"}</Pill> },
+    { id: "package", label: "Package", width: "96px", sort: "package", info: PACKAGE_LEGEND, cell: (c) => <PackageBadge course={c} /> },
+    { id: "price", label: "ราคา", width: "110px", sort: "price", align: "right", className: "tabular-nums", cell: (c) => <span className="font-medium" title={c.courseFee > 0 ? `+ Course fee ${fmtMoney(c.courseFee)}` : undefined}>{fmtMoney(c.price)}</span> },
+    // owner 2026-10-12: counts centred, start date right-aligned
+    { id: "students", label: "นักเรียน", width: "96px", sort: "students", align: "center", className: "tabular-nums", cell: (c) => stats.get(c.id)!.students || <span className="text-muted-foreground">—</span> },
+    { id: "classes", label: "คลาสที่ผูก", width: "100px", sort: "classes", align: "center", className: "tabular-nums", cell: (c) => stats.get(c.id)!.classes || <span className="text-muted-foreground">—</span> },
+    { id: "branch", label: "สาขา", width: "72px", cell: (c) => <BranchCode code={scope.code(c.branchId)} /> },
+    { id: "start", label: "วันเริ่ม", width: "150px", sort: "start", align: "right", className: "text-xs tabular-nums", cell: (c) => (
+      c.from ? <>{fmtDate(c.from, { year: true })}{c.to && <span className="text-muted-foreground"> – {fmtDate(c.to, { year: true })}</span>}</> : <span className="text-muted-foreground">—</span>
+    ) },
+  ]
 
   return (
     <Page>
@@ -105,60 +124,25 @@ export default function CoursesPage() {
         <Kpi icon={WalletIcon} label="รายได้จากคอร์ส (ชำระแล้ว)" value={fmtMoney(kpi.revenue)} />
       </KpiRow>
 
-      <div className="flex flex-wrap items-center gap-2">
-        <div className="relative">
-          <SearchIcon className="absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
-          <Input className="w-56 pl-9" value={q} onChange={(e) => setQ(e.target.value)} placeholder="ค้นหาชื่อคอร์ส วิชา ระดับชั้น" />
-        </div>
+      <Toolbar end={<>
         <NativeSelect className="h-9 w-32" value={subjectF} onChange={(e) => setSubjectF(e.target.value)} placeholder="ทุกวิชา" options={subjects.map((s) => ({ value: s, label: s }))} />
         <NativeSelect className="h-9 w-32" value={kindF} onChange={(e) => setKindF(e.target.value)} placeholder="ทุกประเภท" options={[{ value: "single", label: "Single" }, { value: "bundle", label: "Bundle" }]} />
         <NativeSelect className="h-9 w-36" value={unitF} onChange={(e) => setUnitF(e.target.value)} placeholder="ทุกแพ็กเกจ" options={(["hour", "week", "month"] as PriceUnit[]).map((u) => ({ value: u, label: PRICE_UNIT_LABEL[u] }))} />
         {/* owner 2026-10-09: branch chip always last in the row */}
+        <ColumnsMenu id="courses" columns={columns} />
         {scope.select}
-      </div>
+      </>}>
+        <div className="relative">
+          <SearchIcon className="absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
+          <Input className="w-56 pl-9" value={q} onChange={(e) => setQ(e.target.value)} placeholder="ค้นหาชื่อคอร์ส วิชา ระดับชั้น" />
+        </div>
+      </Toolbar>
 
-      <div className="overflow-x-auto rounded-3xl bg-card shadow-sm ring-1 ring-foreground/5">
-        {/* owner 2026-10-07: fixed column widths + one line per cell so every row lines up */}
-        <table className="w-full min-w-[1200px] table-fixed text-sm [&_td]:align-middle">
-          <colgroup>{["48px", "auto", "110px", "96px", "84px", "88px", "96px", "140px", "96px", "112px", "96px"].map((w, i) => <col key={i} style={w === "auto" ? undefined : { width: w }} />)}</colgroup>
-          <thead className="border-b bg-muted/40 text-xs text-muted-foreground">
-            <tr className="[&>th]:px-3 [&>th]:py-2.5 [&>th]:text-left [&>th]:font-medium [&>th]:whitespace-nowrap">
-              <th>{sortBtn("name", "ชื่อคอร์ส")}</th><th>ระดับชั้น</th><th>ประเภท</th><th className="text-right!">{sortBtn("students", "นักเรียน")}</th>
-              <th className="text-right!">คลาสที่ผูก</th><th>แพ็กเกจ</th><th className="text-right!">{sortBtn("price", "ราคา")}</th><th>สาขา</th><th>{sortBtn("start", "วันเริ่ม")}</th>
-            </tr>
-          </thead>
-          <tbody>
-            {list.length === 0 && <tr><td colSpan={9} className="p-10 text-center text-muted-foreground">ไม่มีคอร์สตามเงื่อนไข</td></tr>}
-            {list.map((c) => {
-              const st = stats.get(c.id)!
-              const col = subjectColor(c.subjects[0] ?? "")
-              const br = branches.find((b) => b.id === c.branchId)
-              // owner 2026-10-09: the row opens the course panel — no expand arrow, no action icons
-              return (
-                <tr key={c.id} onClick={() => setPanel(c.id)} className={cn("cursor-pointer border-b last:border-0 hover:bg-muted/40 [&>td]:h-14 [&>td]:px-3 [&>td]:py-1.5", panel === c.id && "bg-primary/5", !c.active && "opacity-50")}>
-                  <td>
-                    <div className="flex items-center gap-2.5">
-                      <span className={cn("grid size-9 shrink-0 place-items-center rounded-xl text-xs font-semibold", col.chip)}>{c.subjects[0]?.slice(0, 2)}</span>
-                      <div className="min-w-0">
-                        <p className="truncate font-medium">{c.name}</p>
-                        <p className="truncate text-xs text-muted-foreground">{c.subjects.join(" + ")}{c.courseFee > 0 && ` · + Course fee ${fmtMoney(c.courseFee)}`}{!c.active && " · ปิดขาย"}</p>
-                      </div>
-                    </div>
-                  </td>
-                  <td><div className="flex gap-1 overflow-hidden" title={c.grades.join(", ")}>{gradeRanges(c.grades).map((g) => <span key={g} className={cn("rounded-md px-1.5 py-0.5 text-xs font-semibold whitespace-nowrap", gradeTone(g))}>{g}</span>)}</div></td>
-                  <td><Pill tone={c.kind === "bundle" ? "violet" : "gray"}>{c.kind === "bundle" ? <><LayersIcon className="size-3" /> Bundle</> : "Single"}</Pill></td>
-                  <td className="text-right tabular-nums"><span className="inline-flex items-center gap-1"><UsersIcon className="size-3.5 text-muted-foreground" />{st.students}</span></td>
-                  <td className="text-right tabular-nums">{st.classes || "—"}</td>
-                  <td className="truncate"><PackageBadge course={c} /></td>
-                  <td className="truncate text-right tabular-nums"><span className="font-medium">{fmtMoney(c.price)}</span> <span className="text-xs text-muted-foreground">{priceUnitSuffix(c)}</span></td>
-                  <td className="truncate text-xs">{br?.name}</td>
-                  <td className="text-xs whitespace-nowrap">{c.from ? fmtDate(c.from, { year: true }) : "—"}{c.to && <span className="block text-muted-foreground">ถึง {fmtDate(c.to, { year: true })}</span>}</td>
-                </tr>
-              )
-            })}
-          </tbody>
-        </table>
-      </div>
+      {/* owner 2026-10-12: subject and course name in their own columns, branch as its code only, package as the badge
+          (legend on the header ⓘ) · columns arranged per person (DataTable) */}
+      <DataTable id="courses" columns={columns} rows={pg.rows} rowKey={(c) => c.id} onRowClick={(c) => setPanel(c.id)}
+        rowClassName={(c) => cn(panel === c.id && "bg-primary/5", !c.active && "opacity-50")} sort={sort} onSort={toggle} minWidth={1180} empty="ไม่มีคอร์สตามเงื่อนไข" />
+      <Pager {...pg} unit="คอร์ส" />
 
       <CoursePanel key={typeof panel === "string" ? panel : panel?.id ?? "none"} target={panel} stats={(id) => stats.get(id)} onClose={() => setPanel(null)} />
     </Page>

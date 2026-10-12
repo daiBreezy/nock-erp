@@ -133,6 +133,8 @@ function englishNames(): Map<string, string> {
 }
 
 /** a branch with its province code, e.g. "ทองหล่อ · BKK" → "Thonglor · BKK" */
+/** owner 2026-10-12: the one way a branch is named in the shell — business first, then the branch: "LIS · ทองหล่อ" */
+export const branchShort = (b: { name: string; brand?: "nockacademy" | "liclass" }) => [b.brand ? (b.brand === "liclass" ? "LIS" : "NAS") : null, nm(b.name)].filter(Boolean).join(" · ")
 export const branchText = (b: { name: string; province?: string; brand?: "nockacademy" | "liclass" }) => [nm(b.name), b.brand ? (b.brand === "liclass" ? "LIS" : "NAS") : null, b.province].filter(Boolean).join(" · ")
 
 /** subject names: Settings › System (English / 日本語 columns) first, else the standard names; `short` = Eng / Sci / Jpn */

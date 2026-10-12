@@ -797,7 +797,7 @@ describe("end-to-end loop gaps", () => {
   it("converting a lead keeps the parent: family named after the child's surname, lead is primary parent, LINE carries over", () => {
     const f = familyFromLead({ name: "คุณสมชาย ใจดี", phone: "0895551212", lineUserId: "U1" }, { studentName: "ด.ช. ภูมิ ใจดี" }, "f1")
     expect(f.name).toBe("ครอบครัวใจดี")
-    expect(f.parents).toEqual([{ name: "คุณสมชาย ใจดี", phone: "089-555-1212", lineLinked: true, primary: true }])
+    expect(f.parents).toEqual([{ name: "คุณสมชาย ใจดี", phone: "0895551212", lineLinked: true, primary: true }])
     expect(f.lineUserId).toBe("U1")
     expect(validateFamily(f)).toEqual([])
     // no LINE yet → family still created, just not linked

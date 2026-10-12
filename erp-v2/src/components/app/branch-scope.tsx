@@ -62,9 +62,9 @@ export function useBranchScope(): BranchScope {
 /** The branch chip — the one look for every page that picks branches (lists, Reports) */
 export function BranchChip({ value, onChange, options, active, className }: { value: string; onChange: (v: string) => void; options: Option[]; active?: boolean; className?: string }) {
   return (
-    <div className={cn("relative", active && "[&_select]:bg-primary/10 [&_select]:font-medium [&_select]:text-primary", className)}>
+    <div className={cn("relative", active && "[&_[data-slot=select-trigger]]:bg-primary/10 [&_[data-slot=select-trigger]]:font-medium [&_[data-slot=select-trigger]]:text-primary", className)}>
       <MapPinIcon className="pointer-events-none absolute top-1/2 left-3 z-10 size-3.5 -translate-y-1/2 text-muted-foreground" />
-      <NativeSelect className="h-9 w-52 [&_select]:pl-8" value={value} onChange={(e) => onChange(e.target.value)} options={options} aria-label={tx("สาขา")} />
+      <NativeSelect className="h-9 w-52 [&_[data-slot=select-trigger]]:pl-8" value={value} onChange={(e) => onChange(e.target.value)} options={options} aria-label={tx("สาขา")} />
     </div>
   )
 }

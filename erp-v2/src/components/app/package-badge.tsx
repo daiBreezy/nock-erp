@@ -19,3 +19,17 @@ export function PackageBadge({ course, size = "sm", className }: { course: Pick<
     </span>
   )
 }
+
+/** header ⓘ for every Package column (owner 2026-10-12): the badge legend — cells show only the badge */
+export const PACKAGE_LEGEND = (
+  <div className="space-y-1">
+    <div className="font-medium">ประเภทแพ็กเกจ</div>
+    {(["hour", "week", "month"] as const).map((u) => (
+      <div key={u} className="flex items-center gap-1.5">
+        <span className={cn("grid size-4 place-items-center rounded-full text-[10px] font-extrabold text-white", STYLE[u].bg)}>{STYLE[u].letter}</span>
+        {u === "hour" ? "รายชั่วโมง — ตัวเลข = จำนวนชั่วโมง" : u === "week" ? "รายสัปดาห์ — ตัวเลข = จำนวนสัปดาห์" : "รายเดือน"}
+      </div>
+    ))}
+    <div className="opacity-70">สีจาง = แพ็กเกจหมดแล้ว</div>
+  </div>
+)

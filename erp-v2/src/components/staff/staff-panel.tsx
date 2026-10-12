@@ -4,7 +4,9 @@
 // Summaries · Note · Log). "แก้ไข" switches the same panel to the edit form; "เพิ่มบุคลากร" opens it empty and turns
 // into the information view once saved. Roles / subjects / working days are set per branch.
 import { useMemo, useState } from "react"
-import { ChevronLeftIcon, ChevronRightIcon, PencilIcon, PlusIcon, TrashIcon, UserXIcon } from "lucide-react"
+import { PencilIcon, PlusIcon, TrashIcon, UserXIcon } from "lucide-react"
+import { PanelMore } from "@/components/app/form-shell"
+import { RangeStepper } from "@/components/app/page-layout"
 import { SessionSheet } from "@/components/app/session-sheet"
 import { WorkChip } from "@/components/app/work-state"
 import { Pill } from "@/components/app/badges"
@@ -103,7 +105,8 @@ function StaffView({ s, onEdit }: { s: Staff; onEdit: () => void }) {
         <div className="flex shrink-0 items-center gap-2 border-t bg-background px-4 py-3">
           {s.active ? (
             <>
-              <Button variant="ghost" className="text-red-700" disabled={!deact.ok} title={deact.ok ? undefined : (deact as { error: string }).error} onClick={() => setLeaving(true)}><UserXIcon /> ปิดบัญชี</Button>
+              {/* owner 2026-10-12: negative actions behind ⋯ */}
+              <PanelMore items={[{ label: "ปิดบัญชี", icon: UserXIcon, destructive: true, disabled: !deact.ok, title: deact.ok ? undefined : (deact as { error: string }).error, onClick: () => setLeaving(true) }]} />
               <Button className="ml-auto" onClick={onEdit}><PencilIcon /> แก้ไข</Button>
             </>
           ) : <Button className="ml-auto" onClick={() => report(reactivate(s.id), `เปิดบัญชี ${s.nickname} แล้ว`)}>เปิดบัญชีใหม่</Button>}
@@ -118,13 +121,10 @@ function StaffView({ s, onEdit }: { s: Staff; onEdit: () => void }) {
 
 function WeekNav({ week, today, onChange }: { week: string; today: string; onChange: (w: string) => void }) {
   const current = week === mondayOf(today)
+  // owner 2026-10-12: the same ‹ range › stepper as every list page (page-layout RangeStepper)
   return (
-    <div className="flex items-center gap-1">
-      <Button size="icon-sm" variant="outline" aria-label="สัปดาห์ก่อน" onClick={() => onChange(addDays(week, -7))}><ChevronLeftIcon /></Button>
-      <Button size="sm" variant="outline" disabled={current} onClick={() => onChange(mondayOf(today))}>สัปดาห์นี้</Button>
-      <Button size="icon-sm" variant="outline" aria-label="สัปดาห์ถัดไป" onClick={() => onChange(addDays(week, 7))}><ChevronRightIcon /></Button>
-      <span className="ml-2 text-sm font-medium">{fmtDate(week)} – {fmtDate(addDays(week, 6), { year: true })}</span>
-    </div>
+    <RangeStepper label={`${fmtDate(week)} – ${fmtDate(addDays(week, 6), { year: true })}`} current={current}
+      onPrev={() => onChange(addDays(week, -7))} onNext={() => onChange(addDays(week, 7))} onToday={() => onChange(mondayOf(today))} />
   )
 }
 

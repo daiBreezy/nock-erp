@@ -12,7 +12,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet"
 import { ClassDialog } from "@/components/app/class-dialog"
-import { EntityPanel, FormShell, PanelBody, PanelFooter, PanelForm } from "@/components/app/form-shell"
+import { EntityPanel, FormShell, PanelBody, PanelFooter, PanelForm, PanelMore } from "@/components/app/form-shell"
 import { Textarea } from "@/components/ui/textarea"
 import { endTime, TH_DAYS_FULL, toDateStr } from "@/domain/dates"
 import { can } from "@/domain/rules/permissions"
@@ -120,7 +120,8 @@ function ClassView({ id, onEdit, onClose }: { id: ID; onEdit: () => void; onClos
       </PanelBody>
       {manage && k.active && (
         <PanelFooter>
-          <Button variant="ghost" className="text-red-700" onClick={() => setClosing(true)}><PowerIcon /> ปิดคลาส</Button>
+          {/* owner 2026-10-12: negative actions behind ⋯ */}
+          <PanelMore items={[{ label: "ปิดคลาส", icon: PowerIcon, destructive: true, onClick: () => setClosing(true) }]} />
           <Button className="ml-auto" onClick={onEdit}><PencilIcon /> แก้ไข</Button>
         </PanelFooter>
       )}

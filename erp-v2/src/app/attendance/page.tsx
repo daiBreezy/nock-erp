@@ -15,7 +15,8 @@ import { gradeTone } from "@/components/app/subject-color"
 import { sessionState } from "@/domain/rules/scheduling"
 import type { Attendance, ID, Session } from "@/domain/types"
 import { useBranch, useLookup, useNow, useQueryState } from "@/lib/hooks"
-import { GradeCell, gradeCompare, HEAD, Pager, ROW, SortHeader, TableShell, usePage, useSort } from "@/components/app/data-table"
+import { GradeCell, gradeCompare, Pager, usePage, useSort } from "@/components/app/data-table"
+import { ColumnsMenu, DataTable, type Column } from "@/components/app/data-grid"
 import { cn } from "@/lib/utils"
 import { useStore } from "@/store/store"
 
@@ -67,6 +68,26 @@ export default function AttendancePage() {
       return sort.desc ? -v : v
     })
   const pg = usePage(perStudent)
+  type Row = (typeof perStudent)[number]
+  const rateOf = (r: Row) => (r.booked ? r.present / r.booked : 0)
+  const columns: Column<Row>[] = [
+    { id: "nickname", label: "ชื่อเล่น", width: "120px", sort: "name", required: true, className: "font-medium", cell: (r) => <>{r.s.nickname}{scope.multi && <span className="ml-1.5"><BranchCode code={scope.code(r.s.branchId)} /></span>}</> },
+    { id: "name", label: "ชื่อ-นามสกุล", width: "170px", className: "text-muted-foreground", cell: (r) => r.s.name },
+    { id: "grade", label: "ชั้น", width: "76px", sort: "grade", cell: (r) => <GradeCell grade={r.s.grade} tone={gradeTone(r.s.grade)} /> },
+    { id: "booked", label: "นัด", width: "70px", sort: "booked", align: "right", className: "tabular-nums", cell: (r) => r.booked },
+    { id: "present", label: "มา", width: "70px", sort: "present", align: "right", className: "tabular-nums text-emerald-700", cell: (r) => r.present },
+    { id: "absent", label: "ขาด", width: "70px", sort: "absent", align: "right", className: "tabular-nums text-red-700", cell: (r) => r.absent },
+    { id: "leave", label: "ลา", width: "70px", sort: "leave", align: "right", className: "tabular-nums text-amber-700", cell: (r) => r.leave },
+    { id: "rate", label: "อัตราเข้าเรียน", width: "200px", sort: "rate", cell: (r) => {
+      const rate = rateOf(r)
+      return (
+        <span className="flex items-center gap-2">
+          <span className="h-1.5 flex-1 overflow-hidden rounded-full bg-muted"><span className={cn("block h-full", rate < 0.6 ? "bg-red-500" : rate < 0.8 ? "bg-amber-500" : "bg-emerald-500")} style={{ width: `${rate * 100}%` }} /></span>
+          <span className="w-10 text-right text-xs tabular-nums">{Math.round(rate * 100)}%</span>
+        </span>
+      )
+    } },
+  ]
 
   const marked = count("present") + count("absent") + count("leave")
   const notMarked = Math.max(0, expected - att.length)
@@ -80,55 +101,25 @@ export default function AttendancePage() {
         <Kpi icon={UserXIcon} label="ขาด / ลา" value={<><span className="text-red-700">{count("absent")}</span> <span className="text-base text-muted-foreground">/</span> <span className="text-amber-700">{count("leave")}</span></>} tone="red" />
         <Kpi icon={ClipboardCheckIcon} label="ยังไม่เช็คชื่อ" value={notMarked} tone="amber" valueClassName={notMarked ? "text-red-700" : undefined} />
       </KpiRow>
-      <Toolbar end={<>
+      <div className="space-y-3">
+        <Toolbar end={<Segmented label="มุมมอง" value={view} onChange={setView} options={[{ value: "day", label: "รายวัน" }, { value: "student", label: "รายนักเรียน" }]} />}>
+          {period.control}
+        </Toolbar>
+        <div className="flex flex-wrap items-center gap-2" role="group" aria-label="ตัวกรองรายงานเข้าเรียน">
         <NativeSelect className="h-9 w-28" value={subject} onChange={(e) => setSubject(e.target.value)} placeholder="ทุกวิชา" options={branch.subjects.map((s) => ({ value: s, label: s }))} />
         <NativeSelect className="h-9 w-32" value={teacher} onChange={(e) => setTeacher(e.target.value)} placeholder="ครูทุกคน" options={staff.map((t) => staffAt(t, branch.id)).filter((t) => t.roles.includes("teacher") && t.branchIds.includes(branch.id)).map((t) => ({ value: t.id, label: t.nickname }))} />
+        {view !== "day" && <ColumnsMenu id="attendance" columns={columns} />}
         {/* owner 2026-10-09: branch chip always last in the row */}
         {scope.select}
-      </>}>
-        {period.control}
-        {/* owner 2026-10-09: day by day like Sessions; the per-student table is the other view */}
-        <Segmented label="มุมมอง" value={view} onChange={setView} options={[{ value: "day", label: "รายวัน" }, { value: "student", label: "รายนักเรียน" }]} />
-      </Toolbar>
+        </div>
+      </div>
       {view === "day" ? <ByDay sessions={inRange} attendance={att} multi={scope.multi} code={scope.code} onOpen={setSessionId} /> : (<>
       <p className="text-xs text-muted-foreground">นับเฉพาะคาบในช่วงที่เลือกที่เริ่มเรียนแล้วเท่านั้น · เริ่มเรียงจากอัตราเข้าเรียนต่ำสุด (กดหัวคอลัมน์เพื่อเรียงใหม่)</p>
       {/* owner 2026-10-07: a real sortable table — grade in its own column, numbers right-aligned */}
       <div data-focus="often_leave" className="rounded-3xl">
-        <TableShell minWidth={760} cols={["auto", "84px", "84px", "84px", "84px", "84px", "200px"]}>
-          <thead className={HEAD}>
-            <tr>
-              <SortHeader label="นักเรียน" k="name" sort={sort} onSort={toggle} />
-              <SortHeader label="ชั้น" k="grade" sort={sort} onSort={toggle} />
-              <SortHeader label="นัด" k="booked" sort={sort} onSort={toggle} right />
-              <SortHeader label="มา" k="present" sort={sort} onSort={toggle} right />
-              <SortHeader label="ขาด" k="absent" sort={sort} onSort={toggle} right />
-              <SortHeader label="ลา" k="leave" sort={sort} onSort={toggle} right />
-              <SortHeader label="อัตราเข้าเรียน" k="rate" sort={sort} onSort={toggle} />
-            </tr>
-          </thead>
-          <tbody>
-            {pg.rows.map((r) => {
-              const rate = r.booked ? r.present / r.booked : 0
-              return (
-                <tr key={r.s.id} onClick={() => setOpenId(r.s.id)} className={ROW}>
-                  <td className="truncate font-medium">{r.s.nickname} <span className="font-normal text-muted-foreground">{r.s.name}</span>{scope.multi && <span className="ml-1.5 align-middle"><BranchCode code={scope.code(r.s.branchId)} /></span>}</td>
-                  <td><GradeCell grade={r.s.grade} tone={gradeTone(r.s.grade)} /></td>
-                  <td className="text-right tabular-nums">{r.booked}</td>
-                  <td className="text-right tabular-nums text-emerald-700">{r.present}</td>
-                  <td className="text-right tabular-nums text-red-700">{r.absent}</td>
-                  <td className="text-right tabular-nums text-amber-700">{r.leave}</td>
-                  <td>
-                    <span className="flex items-center gap-2">
-                      <span className="h-1.5 flex-1 overflow-hidden rounded-full bg-muted"><span className={cn("block h-full", rate < 0.6 ? "bg-red-500" : rate < 0.8 ? "bg-amber-500" : "bg-emerald-500")} style={{ width: `${rate * 100}%` }} /></span>
-                      <span className="w-10 text-right text-xs tabular-nums">{Math.round(rate * 100)}%</span>
-                    </span>
-                  </td>
-                </tr>
-              )
-            })}
-            {perStudent.length === 0 && <tr><td colSpan={7} className="p-10 text-center text-muted-foreground">ไม่มีข้อมูลในช่วงนี้</td></tr>}
-          </tbody>
-        </TableShell>
+        {/* owner 2026-10-12: columns arranged per person (DataTable) · nickname and full name in their own columns */}
+        <DataTable id="attendance" columns={columns} rows={pg.rows} rowKey={(r) => r.s.id} onRowClick={(r) => setOpenId(r.s.id)}
+          sort={sort} onSort={toggle} minWidth={760} empty="ไม่มีข้อมูลในช่วงนี้" />
         <Pager {...pg} unit="คน" />
       </div>
       </>)}

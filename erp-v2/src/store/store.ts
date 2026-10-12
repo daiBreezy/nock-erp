@@ -70,7 +70,8 @@ type Store = DB & UIState & {
   /** left the school for good (manual) — Active/Inactive is automatic */
   archiveStudent: (id: ID, reason: string) => Result
   restoreStudent: (id: ID) => Result
-  addStudentNote: (studentId: ID, text: string) => Result
+  /** sessionId = written from a class on the calendar board — shows there and in the student's Note tab */
+  addStudentNote: (studentId: ID, text: string, sessionId?: ID) => Result
   saveStaff: (s: Staff) => Result<Staff>
   deactivateStaff: (id: ID, replacementId: ID | null) => Result<{ reassigned: number }>
   reactivateStaff: (id: ID) => Result
@@ -95,6 +96,8 @@ type Store = DB & UIState & {
   /** the teacher is on leave: a substitute takes the session, or (no substitute) it is cancelled and every student's
    *  package runs one class longer */
   teacherLeave: (sessionId: ID, input: { reason: string; substituteId: ID | null }) => Result<{ extended: number }>
+  /** owner 2026-10-12: take a teacher leave back — the teacher teaches again (substitute removed / class un-cancelled) */
+  undoTeacherLeave: (sessionId: ID) => Result
   /** leave for N sessions from this one (or the group this session belongs to) — count 0 clears the group.
    *  Editable any time: fewer = came back early, more = longer leave. Closed sessions keep their marks. */
   markLeave: (sessionId: ID, studentId: ID, input: { count: number; noQuota: boolean }) => Result<{ marked: number }>
@@ -621,7 +624,7 @@ export const useStore = create<Store>()(
         if (!perm.ok) return perm
         const errs = People.validateFamily(f)
         if (errs.length) return fail(errs[0].message)
-        const clean = { ...f, parents: f.parents.map((p) => ({ ...p, phone: People.formatPhone(p.phone) })) }
+        const clean = { ...f, parents: f.parents.map(People.cleanParent) }
         set({ families: s.families.some((x) => x.id === f.id) ? s.families.map((x) => (x.id === f.id ? clean : x)) : [...s.families, clean] })
         return { ok: true, value: clean }
       },
@@ -645,10 +648,11 @@ export const useStore = create<Store>()(
         return OK
       },
 
-      saveStudent: (st) => {
+      saveStudent: (input) => {
         const s = get()
         const perm = requirePerm(s.me(), "student.manage")
         if (!perm.ok) return perm
+        const st = People.cleanStudent(input)
         const errs = People.validateStudent(st, toDateStr(s.now()))
         if (errs.length) return fail(errs[0].message)
         const prev = s.students.find((x) => x.id === st.id)
@@ -691,11 +695,11 @@ export const useStore = create<Store>()(
         return OK
       },
 
-      addStudentNote: (studentId, text) => {
+      addStudentNote: (studentId, text, sessionId) => {
         const s = get()
         if (!can(s.me(), "student.view")) return fail("คุณไม่มีสิทธิ์")
         if (!text.trim()) return fail("พิมพ์โน้ตก่อน")
-        set({ notes: [...s.notes, { id: uid("nt"), studentId, by: s.userId, at: s.now().toISOString(), text: text.trim() }] })
+        set({ notes: [...s.notes, { id: uid("nt"), studentId, by: s.userId, at: s.now().toISOString(), text: text.trim(), sessionId }] })
         log("note", [studentId], "เพิ่มโน้ต", text.trim().slice(0, 80))
         return OK
       },
@@ -856,7 +860,7 @@ export const useStore = create<Store>()(
         const r = (x: string) => (x === from ? name : x)
         set({
           // the EN/JP names travel with the subject
-          system: { ...s.system, subjects: s.system.subjects.map(r), subjectNames: s.system.subjectNames && Object.fromEntries(Object.entries(s.system.subjectNames).map(([k, v]) => [r(k), v])) },
+          system: { ...s.system, subjects: s.system.subjects.map(r), subjectNames: s.system.subjectNames && Object.fromEntries(Object.entries(s.system.subjectNames).map(([k, v]) => [r(k), v])), subjectColors: s.system.subjectColors && Object.fromEntries(Object.entries(s.system.subjectColors).map(([k, v]) => [r(k), v])) },
           branches: s.branches.map((b) => ({ ...b, subjects: b.subjects.map(r), priceChart: b.priceChart.map((p) => ({ ...p, subject: r(p.subject) })) })),
           staff: s.staff.map((x) => ({ ...x, subjects: x.subjects.map(r) })),
           courses: s.courses.map((x) => ({ ...x, subjects: x.subjects.map(r) })),
@@ -1164,6 +1168,27 @@ export const useStore = create<Store>()(
         se.studentIds.forEach((sid) => syncMakeUp(sid, before.get(sid)!))
         log("class", se.studentIds, "ครูลา · ยกเลิกคาบ", `${se.subject} ${fmtDate(se.date)} ${se.start} · ${who} ลา (${reason.trim()}) · เลื่อนวันจบคอร์สให้นักเรียน ${se.studentIds.length} คน`, true)
         return { ok: true, value: { extended: se.studentIds.length } }
+      },
+
+      undoTeacherLeave: (sessionId) => {
+        const s = get()
+        const perm = requirePerm(s.me(), "session.manage")
+        if (!perm.ok) return perm
+        const se = s.sessions.find((x) => x.id === sessionId)
+        if (!se?.teacherLeave) return fail("คาบนี้ไม่มีการลาของครู")
+        if (Sch.sessionState(se, s.now()) === "closed") return fail("คาบนี้ปิดไปแล้ว — แก้กลับไม่ได้")
+        const leave = se.teacherLeave
+        const back = { ...se, teacherId: leave.teacherId, cancelled: leave.substituteId ? se.cancelled : false, cancelReason: leave.substituteId ? se.cancelReason : undefined, teacherLeave: undefined }
+        const branch = s.branches.find((b) => b.id === se.branchId)!
+        const clash = Sch.introducedConflicts(s.sessions, s.sessions.map((x) => (x.id === sessionId ? back : x)), [sessionId], branch, s.staff, ["teacher"]).added[0]
+        const who = s.staff.find((t) => t.id === leave.teacherId)?.nickname ?? "ครู"
+        if (clash) return fail(`${who} กลับมาสอนคาบนี้ไม่ได้ — ${clash.message}`)
+        // a cancelled class comes back: the extra class given to each student is taken back too
+        const before = new Map(se.studentIds.map((sid) => [sid, resolvedFor(sid)]))
+        set({ sessions: s.sessions.map((x) => (x.id === sessionId ? back : x)) })
+        if (!leave.substituteId) se.studentIds.forEach((sid) => syncMakeUp(sid, before.get(sid)!))
+        log("class", se.studentIds, "ยกเลิกการลาของครู", `${se.subject} ${fmtDate(se.date)} ${se.start} · ${who} กลับมาสอน${leave.substituteId ? "" : " · คาบกลับมาเรียนตามเดิม"}`, true)
+        return OK
       },
 
       markLeave: (sessionId, studentId, { count, noQuota }) => {
@@ -1839,12 +1864,13 @@ export const useStore = create<Store>()(
       },
 
       // ---------------- CRM ----------------
-      saveLead: (l) => {
+      saveLead: (input) => {
         const s = get()
         const perm = requirePerm(s.me(), "lead.manage")
         if (!perm.ok) return perm
-        const err = CRM.validateLead(l)
+        const err = CRM.validateLead(input)
         if (err) return fail(err)
+        const l = { ...input, name: People.splitParentTitle(input.name).name, phone: People.formatPhone(input.phone) }
         set({ leads: s.leads.some((x) => x.id === l.id) ? s.leads.map((x) => (x.id === l.id ? l : x)) : [l, ...s.leads] })
         return { ok: true, value: l }
       },
@@ -2388,7 +2414,7 @@ export const useStore = create<Store>()(
     {
       name: "nockerp-v2",
       // bump when the data model changes; older saved data is replaced by fresh sample data
-      version: 64, // 61: real branches (owner 2026-10-07) · 62: CB = ตึกน้ำ · 63: sample schools · 64: schools from the Ministry list
+      version: 67, // 65–67: names without titles, parent relationship, phones without dashes, subject colours · 61: real branches (owner 2026-10-07) · 62: CB = ตึกน้ำ · 63: sample schools · 64: schools from the Ministry list
       migrate: () => ({ ...buildSeed(), userId: "u_nock", branchId: "br_thl", clockOffset: 0 }) as unknown as Store,
       // persist data + UI state only, never the action functions
       partialize: (s) => Object.fromEntries(Object.entries(s).filter(([, v]) => typeof v !== "function")) as Partial<Store>,
@@ -2410,6 +2436,7 @@ const TRACKED: Partial<Record<keyof Store, Tracker>> = {
   setSessionNote: ((id: ID) => ({ ids: [id], what: "แก้โน้ตนักเรียน" })) as Tracker,
   setSeat: ((scope: "session" | "class", id: ID) => ({ ids: scope === "session" ? [id] : [`class:${id}`], what: "เปลี่ยนเวลาเรียนของนักเรียน" })) as Tracker,
   teacherLeave: ((id: ID) => ({ ids: [id], what: "ครูลา" })) as Tracker,
+  undoTeacherLeave: ((id: ID) => ({ ids: [id], what: "ครูกลับมาสอน" })) as Tracker,
   markLeave: ((id: ID) => ({ ids: [id], what: "บันทึกการลา" })) as Tracker,
   mark: ((id: ID) => ({ ids: [id], what: "เช็คชื่อ" })) as Tracker,
   clearMark: ((id: ID) => ({ ids: [id], what: "ล้างการเช็คชื่อ" })) as Tracker,

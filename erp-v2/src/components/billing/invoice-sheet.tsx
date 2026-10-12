@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet"
-import { EntityPanel, PanelBody, PanelFooter, PanelForm } from "@/components/app/form-shell"
+import { EntityPanel, PanelBody, PanelFooter, PanelForm, PanelMore } from "@/components/app/form-shell"
 import { InvoiceEditor } from "./invoice-editor"
 import { Textarea } from "@/components/ui/textarea"
 import { fmtDate, fmtDateTime, fmtMoney, fmtMonth } from "@/domain/dates"
@@ -307,7 +307,8 @@ function Body({ id, slipMediaId, onEdit }: { id: ID; slipMediaId?: string; onEdi
       {/* Header · Body · Bottom — destructive left, edit right (owner 2026-10-09) */}
       {(manage || (inv.status === "pending_approval" && approveCheck.ok)) && inv.status !== "void" && inv.status !== "paid" && (
         <PanelFooter>
-          {manage && !voiding && <Button variant="ghost" className="text-red-700" onClick={() => setVoiding(true)}><XCircleIcon /> ยกเลิกใบแจ้งหนี้</Button>}
+          {/* owner 2026-10-12: negative actions behind ⋯ */}
+          <PanelMore items={[manage && !voiding && { label: "ยกเลิกใบแจ้งหนี้", icon: XCircleIcon, destructive: true, onClick: () => setVoiding(true) }]} />
           {manage && (inv.status === "draft" || inv.status === "pending_approval") && <Button className="ml-auto" variant="outline" onClick={onEdit}><PencilIcon /> {inv.status === "draft" ? "แก้ไข" : "แก้ (ต้องสร้าง PDF ใหม่)"}</Button>}
           {inv.status === "pending_approval" && approveCheck.ok && <Button className={manage ? undefined : "ml-auto"} onClick={() => report(act.approve(inv.id), "อนุมัติแล้ว — พร้อมส่งผู้ปกครอง")}><CheckIcon /> อนุมัติ PDF</Button>}
           {inv.status === "draft" && (

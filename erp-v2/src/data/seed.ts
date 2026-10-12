@@ -2,6 +2,7 @@
 
 import { addDays, fromMinutes, nextWeekday, toDateStr, toMinutes, weekdayOf } from "@/domain/dates"
 import { chartPrice } from "@/domain/rules/course"
+import { cleanParent, cleanStudent, formatPhone, splitParentTitle } from "@/domain/rules/people"
 import { invoiceTotals } from "@/domain/rules/billing"
 import { reasonLabel } from "@/domain/rules/loss"
 import { generateSessions } from "@/domain/rules/scheduling"
@@ -147,10 +148,11 @@ export function buildSeed(now = new Date()): DB {
     st("u_nock", "นก ผู้อำนวยการ", "นก", ["director"], ALL_BRANCHES, []),
     st("u_sa", "ซี ซูเปอร์แอดมิน", "ซี", ["super_admin"], ALL_BRANCHES, []),
     { ...st("u_am", "เอ ผู้จัดการเขต", "เอ", ["area_manager"], BKK_ZONE, []), areaBranchIds: BKK_ZONE },
-    st("u_ploy", "พลอย แอดมิน", "พลอย", ["admin"], ["br_thl"], []),
+    // owner 2026-10-12: some staff do more than one job — พลอย is Admin and also teaches English
+    st("u_ploy", "พลอย แอดมิน", "พลอย", ["admin", "teacher"], ["br_thl"], ["อังกฤษ"]),
     // branch Manager of ทองหล่อ only — approvals at บางนา must be blocked for him
     st("u_ton", "ต้น ผู้จัดการ", "ต้น", ["manager"], ["br_thl"], []),
-    st("u_dai", "ได บรีซซี่", "ครูได", ["teacher"], ["br_thl"], ["คณิต", "วิทย์"]),
+    st("u_dai", "ได บรีซซี่", "ครูได", ["teacher"], ["br_thl"], ["คณิต", "วิทย์", "อังกฤษ"]),
     st("u_jo", "โจ ใจเย็น", "ครูโจ", ["teacher"], ["br_thl"], ["คณิต"]),
     st("u_mint", "มิ้นท์ ศรีสุข", "ครูมิ้นท์", ["teacher"], ["br_thl", "br_ari"], ["อังกฤษ"]),
     st("u_prae", "แพร พากเพียร", "ครูแพร", ["teacher"], ["br_thl"], ["วิทย์", "อังกฤษ"]),
@@ -224,7 +226,7 @@ export function buildSeed(now = new Date()): DB {
   ]
   // siblings share a family; every third family has no LINE yet
   SURNAMES.forEach((sn, i) =>
-    families.push({ id: `fa_g${i}`, name: `ครอบครัว${sn}`, parents: [{ name: `คุณแม่ ${sn}`, phone: `08${i}-555-01${String(i).padStart(2, "0")}`, lineLinked: i % 3 !== 0, primary: true }] }),
+    families.push({ id: `fa_g${i}`, name: `ครอบครัว${sn}`, parents: [{ name: `${["มาลี", "สมพร", "วรรณา", "ปราณี", "จันทร์เพ็ญ", "นิตยา", "ศศิธร", "อัญชลี"][i]} ${sn}`, relationship: "แม่", phone: `08${i}-555-01${String(i).padStart(2, "0")}`, lineLinked: i % 3 !== 0, primary: true }] }),
   )
 
   const k = (id: string, branchId: string, name: string, subject: string, grades: string[], teacherId: string | null, roomId: string | null, weekday: Weekday, startT: string, minutes: number, studentIds: string[], co: string[] = [], kind: Klass["kind"] = "learning", type: Klass["type"] = "group"): Klass =>
@@ -558,6 +560,7 @@ export function buildSeed(now = new Date()): DB {
   const on = { inApp: true, line: false }
   const system: SystemConfig = {
     subjects: ["คณิต", "อังกฤษ", "วิทย์"],
+    subjectColors: { คณิต: "rose", อังกฤษ: "sky", วิทย์: "emerald" },
     company: {
       nameTh: "บริษัท ลิคลาส เอ็ดดูเคชั่น จำกัด", nameEn: "Liclass Education Co.,Ltd.",
       addressTh: "53/30-31 ม.3 ต.บ้านสวน อ.เมืองชลบุรี จ.ชลบุรี 20000", addressEn: "53/30-31 Moo3, Ban Suan, Mueang, Chonburi 20000",
@@ -584,6 +587,11 @@ export function buildSeed(now = new Date()): DB {
   const { surveyCampaigns, surveyResponses } = buildSurveys({ today, branches, families, students, entitlements, classes, staff })
   assignSchools(students, branches)
 
+  // owner 2026-10-12: names without titles (ด.ช. / คุณแม่ …), parent relationship as its own field, phones as plain digits
+  students.forEach((x, i) => { students[i] = cleanStudent(x) })
+  families.forEach((f, i) => { families[i] = { ...f, parents: f.parents.map(cleanParent) } })
+  leads.forEach((l, i) => { leads[i] = { ...l, name: splitParentTitle(l.name).name, phone: formatPhone(l.phone) } })
+
   return { branches, staff, holidays, courses, classes, sessions, attendance, summaries, courseSummaries: [] as CourseSummary[], families, students, entitlements, leaves, invoices, busAddOns, creditNotes: [] as CreditNote[], lessonBooks, lessonTopics, leads, conversations, messages, notifications: [], system, notes, logs, assessments, surveyCampaigns, surveyResponses }
 }
 
@@ -593,6 +601,7 @@ function buildHistory(db: { today: string; branches: Branch[]; courses: Course[]
   const rnd = () => { seed = (seed * 1103515245 + 12345) % 2147483648; return seed / 2147483648 }
   const pick = <T,>(xs: T[]) => xs[Math.floor(rnd() * xs.length)]
   const NICK = ["มิว", "ปุณ", "ต้นข้าว", "ขนุน", "พีช", "ฟ้า", "ใบข้าว", "นะโม", "ภูริ", "กาย", "แพรว", "มีน", "ไข่มุก", "ทอฟฟี่", "ปิงปอง", "จูน", "ข้าวปั้น", "ซอล", "โอบอุ้ม", "ชิน"]
+  const PARENT_FIRST = ["สุภาพร", "วิไลวรรณ", "ธนพล", "อรุณี", "กนกวรรณ", "สมศักดิ์", "ปิยะนุช", "จิราพร", "ณัฐวุฒิ", "รัตนา", "ศิริพร", "ประเสริฐ"]
   const SN = ["วงศ์", "ศรี", "สาย", "บุญ", "แสง", "ชื่น", "นาค", "พรหม", "ทอง", "แก้ว"].flatMap((a) => ["ใหญ่", "ทอง", "สุข", "มี", "ดาว", "ใจ", "ดี", "มา", "งาม", "ชัย"].map((b) => a + b))
   const leaves: StudentLeave[] = []
   const iso = (d: string, h = 10) => new Date(`${d}T${String(h).padStart(2, "0")}:00:00`).toISOString()
@@ -621,7 +630,7 @@ function buildHistory(db: { today: string; branches: Branch[]; courses: Course[]
     const sib = i > 0 && rnd() < 0.25 ? db.students[db.students.length - 1] : undefined
     const familyId = sib?.branchId === branch.id && sib.familyId?.startsWith("fa_h") && db.students.filter((x) => x.familyId === sib.familyId).length < 2 ? sib.familyId : `fa_h${i}`
     const surname = familyId === `fa_h${i}` ? SN[(i * 37) % SN.length] : db.students[db.students.length - 1].name.split(" ").pop()!
-    if (familyId === `fa_h${i}`) db.families.push({ id: familyId, name: `ครอบครัว${surname}`, parents: [{ name: "ผู้ปกครอง", phone: `08${i % 10}-700-${String(1000 + i)}`, lineLinked: rnd() < 0.7, primary: true }] })
+    if (familyId === `fa_h${i}`) db.families.push({ id: familyId, name: `ครอบครัว${surname}`, parents: [{ name: `${PARENT_FIRST[i % PARENT_FIRST.length]} ${surname}`, relationship: (["แม่", "แม่", "พ่อ", "ผู้ปกครอง", "แม่", "ญาติ"] as const)[i % 6], phone: `08${i % 10}-700-${String(1000 + i)}`, lineLinked: rnd() < 0.7, primary: true }] })
     const nick = pick(NICK)
     const sid = `stu_h${i}`
     // the lead this student came from (CRM report): a few days to a few weeks before the first payment
