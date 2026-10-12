@@ -148,3 +148,40 @@
   position: relative;
   z-index: 1;
 }
+
+/* AI สรุปงานวันนี้ (owner 2026-10-12): an animated aurora gradient behind the card. The gradient (and its brightness /
+   saturation pulse) lives on a ::before layer, so the filter never touches the text on top. */
+.ai-aurora {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  background: #4d9dff;
+}
+.ai-aurora::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: linear-gradient(135deg, #00c6ff 0%, #4d9dff 50%, #00eeff 100%);
+  background-size: 200% 200%;
+  animation: gradient-aurora 10s ease alternate infinite;
+}
+/* owner 2026-10-12: a 40% white wash over the gradient so the card reads softer (above ::before, below the content) */
+.ai-aurora::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: rgb(255 255 255 / 0.8);
+  pointer-events: none;
+}
+@keyframes gradient-aurora {
+  0% { background-position: 0% 50%; filter: brightness(100%) saturate(100%); }
+  25% { background-position: 50% 0%; filter: brightness(110%) saturate(120%); }
+  50% { background-position: 100% 50%; filter: brightness(120%) saturate(140%); }
+  75% { background-position: 50% 100%; filter: brightness(110%) saturate(120%); }
+  100% { background-position: 0% 50%; filter: brightness(100%) saturate(100%); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ai-aurora::before { animation: none; }
+}

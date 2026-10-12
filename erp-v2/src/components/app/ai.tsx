@@ -6,8 +6,9 @@ import { cn } from "@/lib/utils"
  * One place for the classes — Dashboard brief, Reports › สรุป, Generate Summary.
  */
 export const AI_TONE = {
-  /** a card / section written by AI */
-  surface: "bg-gradient-to-br from-sky-50 to-card ring-1 ring-sky-200 dark:from-sky-950/40 dark:ring-sky-900",
+  /** a card / section written by AI — owner 2026-10-12: the animated aurora gradient + 40% white wash (globals.css .ai-aurora),
+   *  the same look as the Dashboard brief */
+  surface: "ai-aurora",
   /** an inner box inside it (notes, suggestions) */
   soft: "bg-sky-100/60 dark:bg-sky-950/50",
   /** icons and labels */
