@@ -33,7 +33,7 @@ import * as Sum from "@/domain/rules/summaries"
 import { SUMMARY_STATUS_LABEL } from "@/domain/rules/summaries"
 import type { ID, LessonSummary, Seat, Session } from "@/domain/types"
 import { report } from "@/lib/feedback"
-import { useBranch, useEntitlements, useLookup, useNow } from "@/lib/hooks"
+import { useBranch, useCapacity, useEntitlements, useLookup, useNow } from "@/lib/hooks"
 import { cn } from "@/lib/utils"
 import { useStore } from "@/store/store"
 import { AssessmentNote } from "./assessment-note"
@@ -46,7 +46,7 @@ import { ConflictResolver } from "./conflict-resolver"
 import { StudentSheet } from "./student-sheet"
 import { avatarTone, gradeTone, initial } from "./subject-color"
 import { TeacherPicker } from "./teacher-picker"
-import { CAPACITY, type MoveScope } from "@/domain/rules/scheduling"
+import { type MoveScope } from "@/domain/rules/scheduling"
 
 /** Session dialog (owner design 2026-09-29): student list with ✓/✗, per-student ⋮ (Re-schedule · Leave · Remove),
  *  summary right under each present student, multi-select to submit/approve, class ⋮ (Edit · Postpone · Delete). */
@@ -59,6 +59,7 @@ export function SessionSheet({ sessionId, onClose }: { sessionId: ID | null; onC
 }
 
 function Body({ id, onClose }: { id: ID; onClose: () => void }) {
+  const capOf = useCapacity()
   // opening (then closing) the session clears this person's red dot on the teacher board
   const markSeen = useStore((st) => st.markSessionSeen)
   useEffect(() => () => markSeen(id), [id, markSeen])
@@ -95,7 +96,7 @@ function Body({ id, onClose }: { id: ID; onClose: () => void }) {
   const mine = s.teacherId === me.id || s.coTeacherIds.includes(me.id)
   // teachers can open every session (owner 2026-09-26) but only work on their own
   const viewOnly = !canManage && !mine
-  const cap = klass ? CAPACITY[klass.type] : CAPACITY.group
+  const cap = capOf(klass)
 
   // summaries: text lives here so several students can be submitted in one go
   const present = s.studentIds.filter((sid) => attendance.find((x) => x.sessionId === s.id && x.studentId === sid)?.status === "present")
@@ -609,6 +610,7 @@ function MovedOutRow({ s, studentId, toSessionId, canManage }: { s: Session; stu
 
 /** "Select date for Reschedule" (owner design): same subject, any day of THIS week, sessions grouped by teacher */
 function RescheduleDialog({ from, studentId, onClose }: { from: Session; studentId: ID; onClose: () => void }) {
+  const capOf = useCapacity()
   const sessions = useStore((st) => st.sessions)
   const classes = useStore((st) => st.classes)
   const move = useStore((st) => st.rescheduleStudent)
@@ -663,7 +665,7 @@ function RescheduleDialog({ from, studentId, onClose }: { from: Session; student
               </p>
               {options.filter((x) => (x.teacherId ?? "") === tid).map((x) => {
                 const k = classes.find((c) => c.id === x.classId)
-                const cap = k ? CAPACITY[k.type] : CAPACITY.group
+                const cap = capOf(k)
                 const check = canRescheduleStudent(from, x, studentId, now, cap)
                 return (
                   <button key={x.id} type="button" disabled={!check.ok} onClick={() => setPick(x.id)} title={check.ok ? undefined : check.error}
@@ -1029,6 +1031,7 @@ function TeachersDialog({ id, onClose }: { id: ID; onClose: () => void }) {
 
 /** Add a student to this session (trial / make-up) or to the class from now on */
 function AddStudentDialog({ id, onClose }: { id: ID; onClose: () => void }) {
+  const capOf = useCapacity()
   const s = useStore((st) => st.sessions.find((x) => x.id === id)!)
   const klass = useStore((st) => st.classes.find((c) => c.id === s.classId))
   const students = useStore((st) => st.students)
@@ -1036,7 +1039,7 @@ function AddStudentDialog({ id, onClose }: { id: ID; onClose: () => void }) {
   const add = useStore((st) => st.addStudentToSession)
   const branch = useBranch()
   const [scope, setScope] = useState<MoveScope>(s.classId ? "following" : "one")
-  const cap = klass ? CAPACITY[klass.type] : CAPACITY.group
+  const cap = capOf(klass)
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()}>
       <DialogContent className="sm:max-w-lg">

@@ -8,7 +8,7 @@ import { endTime } from "@/domain/dates"
 import { activeLeave } from "@/domain/rules/attendance"
 import { CAPACITY, subjectsOf, workState } from "@/domain/rules/scheduling"
 import type { Attendance, Klass, LessonSummary, Session, Staff, StudentLeave } from "@/domain/types"
-import { useLookup } from "@/lib/hooks"
+import { useCapacity, useLookup } from "@/lib/hooks"
 import { cn } from "@/lib/utils"
 import { sessionKindLabel } from "@/domain/rules/forms"
 
@@ -27,11 +27,12 @@ export interface CardData {
 
 /** Day-view class card: who is in the room, at a glance (admin request, ref. Figma Day view). */
 export function ClassCard({ s, d }: { s: Session; d: CardData }) {
+  const capOf = useCapacity()
   const L = useLookup()
   const c = subjectColor(s.subject)
   const w = workState(s, d.now, d.attendance, d.summaries)
   const klass = d.classes.find((k) => k.id === s.classId)
-  const cap = klass ? CAPACITY[klass.type] : s.trial ? 1 : CAPACITY.group
+  const cap = klass ? capOf(klass) : s.trial ? 1 : CAPACITY.group
   const live = w.state === "live"
   const conflicts = d.conflictMsg.get(s.id)
   const canDrag = d.draggable(s)

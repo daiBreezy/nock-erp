@@ -5,8 +5,8 @@
 
 import { staffAt } from "./permissions"
 import { addDays, at, fromMinutes, overlaps, toMinutes } from "../dates"
-import type { Assessment, Branch, DateStr, Family, FormOfferSlot, FormParentInput, FormPrefill, FormSubjectOffer, FormType, Holiday, ID, Klass, Lead, LeadStage, Session, Staff, Student, TimeStr } from "../types"
-import { CAPACITY, hoursFor, isHoliday, slotProblem, teachersOf } from "./scheduling"
+import type { Assessment, Branch, Course, DateStr, Family, FormOfferSlot, FormParentInput, FormPrefill, FormSubjectOffer, FormType, Holiday, ID, Klass, Lead, LeadStage, Session, Staff, Student, TimeStr } from "../types"
+import { classCapacity, hoursFor, isHoliday, slotProblem, teachersOf } from "./scheduling"
 
 export const FORM_TYPE_LABEL: Record<FormType, string> = { test: "สอบวัดระดับ", trial: "ทดลองเรียน" }
 
@@ -138,8 +138,9 @@ export function findOfferSlots(params: {
   to: DateStr
   now: Date
   minutes?: number
+  courses?: Pick<Course, "id" | "maxStudents">[]
 }): FormOfferSlot[] {
-  const { branch, staff, sessions, classes, holidays, subject, from, to, now } = params
+  const { branch, staff, sessions, classes, holidays, subject, from, to, now, courses } = params
   const minutes = params.minutes ?? branch.defaultSessionMinutes
   const out: FormOfferSlot[] = []
 
@@ -168,7 +169,7 @@ export function findOfferSlots(params: {
     if (isHoliday(s.date, branch.id, holidays)) continue
     if (at(s.date, s.start) < now) continue
     const klass = classes.find((k) => k.id === s.classId)
-    const cap = klass ? CAPACITY[klass.type] : CAPACITY.group
+    const cap = classCapacity(klass, courses)
     if (s.studentIds.length >= cap) continue
     out.push({ id: `off_c${ci++}`, date: s.date, start: s.start, minutes: s.minutes, source: "class", teacherId: s.teacherId, roomId: s.roomId, classId: s.classId, sessionId: s.id })
   }

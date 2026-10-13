@@ -12,6 +12,7 @@ import { Input } from "@/components/ui/input"
 import { Switch } from "@/components/ui/switch"
 import { fmtDate, fmtMoney } from "@/domain/dates"
 import { chartPrice, defaultCourseName, needsPriceReason } from "@/domain/rules/course"
+import { CAPACITY } from "@/domain/rules/scheduling"
 import { durationLabel, durationsOf, GRADE_GROUPS, PRICE_UNIT_LABEL, priceRange, sortGrades } from "@/domain/rules/settings"
 import type { Branch, Course, PriceUnit } from "@/domain/types"
 import { uid } from "@/data/seed"
@@ -208,9 +209,19 @@ export function CourseDialog({ branch, initial, onClose, onSaved }: { branch: Br
             )}
           </Field>
 
-          <Field label="Course fee (ค่าอุปกรณ์ — เก็บเพิ่มทุกครั้งที่ซื้อ ไม่บังคับ)">
-            <Input className="w-40 text-right tabular-nums" type="number" min={0} step={50} value={c.courseFee || ""} placeholder="0" onChange={(e) => setC({ ...c, courseFee: Number(e.target.value) })} />
-          </Field>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <Field label="Course fee (ค่าอุปกรณ์ — เก็บเพิ่มทุกครั้งที่ซื้อ ไม่บังคับ)">
+              <Input className="w-40 text-right tabular-nums" type="number" min={0} step={50} value={c.courseFee || ""} placeholder="0" onChange={(e) => setC({ ...c, courseFee: Number(e.target.value) })} />
+            </Field>
+            {/* owner 2026-10-13: most students one class of this course takes — empty = the class type's default */}
+            <Field label="Max Student (ต่อคลาส · ไม่บังคับ)">
+              <div className="flex items-center gap-2">
+                <Input className="w-24 text-right tabular-nums" type="number" min={1} step={1} value={c.maxStudents ?? ""} placeholder={String(CAPACITY[c.format === "single" ? "single" : "group"])}
+                  onChange={(e) => { const n = Math.floor(Number(e.target.value)); setC({ ...c, maxStudents: e.target.value && n > 0 ? n : undefined }) }} />
+                <span className="text-xs text-muted-foreground">คน · ว่าง = ค่าแนะนำ {CAPACITY[c.format === "single" ? "single" : "group"]} คน</span>
+              </div>
+            </Field>
+          </div>
 
           <div className="space-y-2">
             <label className="flex items-center gap-2 text-sm"><Checkbox checked={dated} onCheckedChange={(v) => setDated(!!v)} /> กำหนดวันเริ่ม → วันจบ (ไม่ติ๊ก = คอร์สไม่มีกำหนด)</label>

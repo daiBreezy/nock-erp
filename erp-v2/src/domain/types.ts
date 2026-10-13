@@ -291,6 +291,8 @@ export interface Course {
   from?: DateStr
   to?: DateStr
   active: boolean
+  /** owner 2026-10-13: most students one class of this course may hold — unset = the class type's default (CAPACITY) */
+  maxStudents?: number
   /** owner 2026-10-13: a course made for a special period (e.g. Summer) — its invoices + receipts print that period's Memo */
   periodId?: ID
 }

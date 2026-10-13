@@ -3,12 +3,18 @@
 
 import { subjectsAt, worksOn } from "./permissions"
 import { addDays, at, endTime, fmtDate, fromMinutes, nextWeekday, overlaps, parseDate, toMinutes, weekdayOf } from "../dates"
-import type { ClassBlock, DayBlocks, Attendance, Branch, DateStr, Holiday, ID, Klass, Result, Session, SpecialPeriod, Staff, TimeStr, Weekday } from "../types"
+import type { ClassBlock, Course, DayBlocks, Attendance, Branch, DateStr, Holiday, ID, Klass, Result, Session, SpecialPeriod, Staff, TimeStr, Weekday } from "../types"
 
 export const GENERATE_WEEKS = 8
 /** Soft limits only (owner 2026-09-30): a class takes any number of students — the app warns above 6, and above 3 for a
  *  class tagged "เรียนเดี่ยว" (private). Never blocks. */
 export const CAPACITY = { single: 3, group: 6 } as const
+
+/** Owner 2026-10-13: a class's seats = its course's Max Student when set, else the class type's default. */
+export function classCapacity(k: { type: Klass["type"]; courseId?: ID | null } | undefined, courses: Pick<Course, "id" | "maxStudents">[] = []): number {
+  const max = k?.courseId ? courses.find((c) => c.id === k.courseId)?.maxStudents : undefined
+  return max && max > 0 ? max : CAPACITY[k?.type ?? "group"]
+}
 
 const PRIORITY_RANK = { high: 3, medium: 2, low: 1 } as const
 
@@ -221,16 +227,16 @@ export interface Issue {
   tone?: "red" | "amber"
 }
 
-export function validateClass(d: ClassDraft, ctx: { branch: Branch; staff: Staff[]; sessions: Session[]; holidays: Holiday[]; ignoreClassId?: ID; now?: Date }): Issue[] {
+export function validateClass(d: ClassDraft, ctx: { branch: Branch; staff: Staff[]; sessions: Session[]; holidays: Holiday[]; ignoreClassId?: ID; now?: Date; courses?: Pick<Course, "id" | "maxStudents">[] }): Issue[] {
   const issues: Issue[] = []
   const { branch } = ctx
   if (!d.subject) issues.push({ field: "subject", message: "เลือกวิชา", level: "block" })
   // owner 2026-09-28: session length is free, in 5-minute steps (it drives hour-package counting)
   if (!(d.minutes >= 5) || d.minutes % 5 !== 0) issues.push({ field: "minutes", message: "ความยาวคาบต้องอย่างน้อย 5 นาที และลงตัวทีละ 5 นาที", level: "block" })
 
-  const cap = CAPACITY[d.type]
+  const cap = classCapacity(d, ctx.courses)
   if (d.studentIds.length > cap)
-    issues.push({ field: "studentIds", message: `${d.type === "single" ? "คลาสเรียนเดี่ยว" : "คลาส"}มี ${d.studentIds.length} คน — แนะนำไม่เกิน ${cap} คน`, level: "warn" })
+    issues.push({ field: "studentIds", message: `${d.type === "single" ? "คลาสเรียนเดี่ยว" : "คลาส"}มี ${d.studentIds.length} คน — ${cap !== CAPACITY[d.type] ? `คอร์สรับได้สูงสุด ${cap} คน` : `แนะนำไม่เกิน ${cap} คน`}`, level: "warn" })
 
   const [s, e] = [toMinutes(d.start), toMinutes(d.start) + d.minutes]
 

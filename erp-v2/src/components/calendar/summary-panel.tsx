@@ -34,14 +34,15 @@ export function SummaryPanel({ open, onClose, title, sessions, conflicts, now, o
 }) {
   const branch = useBranch()
   const classes = useStore((s) => s.classes)
+  const courses = useStore((s) => s.courses)
   const staff = useStore((s) => s.staff)
   const holidays = useStore((s) => s.holidays)
   const attendance = useStore((s) => s.attendance)
   const summaries = useStore((s) => s.summaries)
   const [by, setBy] = useState<"teacher" | "subject">("teacher")
   const sum = useMemo(
-    () => (open ? calendarSummary(sessions, { branch, classes, staff, holidays, conflicts, attendance, summaries, now }) : null),
-    [open, sessions, branch, classes, staff, holidays, conflicts, attendance, summaries, now],
+    () => (open ? calendarSummary(sessions, { branch, classes, staff, holidays, conflicts, attendance, summaries, now, courses }) : null),
+    [open, sessions, branch, classes, staff, holidays, conflicts, attendance, summaries, now, courses],
   )
   const look = useLookup()
   const groups = sum ? groupSummaryRows(sum.rows, by) : []

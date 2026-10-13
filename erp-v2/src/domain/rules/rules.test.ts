@@ -2228,3 +2228,13 @@ describe("list-page search (owner 2026-10-13)", () => {
     expect(matchesQuery("MATH", ["Math 5"])).toBe(true)
   })
 })
+
+describe("course Max Student (owner 2026-10-13)", () => {
+  it("a class takes its course's Max Student, else the class type's default", () => {
+    const courses = [{ id: "c1", maxStudents: 10 }, { id: "c2" }]
+    expect(Sch.classCapacity({ type: "group", courseId: "c1" }, courses)).toBe(10)
+    expect(Sch.classCapacity({ type: "group", courseId: "c2" }, courses)).toBe(Sch.CAPACITY.group)
+    expect(Sch.classCapacity({ type: "single", courseId: null }, courses)).toBe(Sch.CAPACITY.single)
+    expect(Sch.classCapacity(undefined)).toBe(Sch.CAPACITY.group)
+  })
+})

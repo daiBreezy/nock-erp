@@ -10,7 +10,7 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { addDays, endTime, fmtDate, nextWeekday, TH_DAYS_FULL, toDateStr, toMinutes, weekdayOf, fromMinutes } from "@/domain/dates"
 import { packageLabel } from "@/domain/rules/course"
-import { blocksOn, canSave, periodsOn, CAPACITY, GENERATE_WEEKS, isHoliday, overlappingRows, validateClass, type ClassDraft, type Issue } from "@/domain/rules/scheduling"
+import { blocksOn, canSave, classCapacity, periodsOn, CAPACITY, GENERATE_WEEKS, isHoliday, overlappingRows, validateClass, type ClassDraft, type Issue } from "@/domain/rules/scheduling"
 import { sortGrades } from "@/domain/rules/settings"
 import type { ClassKind, ClassLayout, ClassType, DateStr, ID, TimeStr, Weekday } from "@/domain/types"
 import { report } from "@/lib/feedback"
@@ -96,7 +96,9 @@ export function ClassDialog({ prefill, onClose }: { prefill: ClassPrefill; onClo
     branchId: branch.id, layout, subject: classSubjects[0] ?? "", subjects: classSubjects, kind, type, courseId: layout === "teacher" ? null : courseId || null,
     teacherId: teacherId || null, coTeacherIds: supportId ? [supportId] : [], roomId: roomId || null, startDate, studentIds, overrideReason, periodId: period?.id,
   }
-  const rowIssues = rows.map((r) => validateClass({ ...base, ...slot(r) }, { branch, staff, sessions, holidays, now }))
+  const rowIssues = rows.map((r) => validateClass({ ...base, ...slot(r) }, { branch, staff, sessions, holidays, now, courses }))
+  // owner 2026-10-13: the course's Max Student caps the class (else the class type's default)
+  const courseCap = classCapacity(base, courses)
   // messages every row shares (subject, teacher, capacity…) show once; the rest belong to their row
   const shared = rowIssues[0]?.filter((i) => rowIssues.every((list) => list.some((x) => x.message === i.message))) ?? []
   const own = (list: Issue[]) => list.filter((i) => !shared.some((x) => x.message === i.message))
@@ -279,7 +281,7 @@ export function ClassDialog({ prefill, onClose }: { prefill: ClassPrefill; onClo
           </button>
         </div>
 
-        <Field label={`นักเรียน (${studentIds.length} คน · แนะนำไม่เกิน ${CAPACITY[type]}) — ไม่บังคับ เพิ่มทีหลังได้`}>
+        <Field label={`นักเรียน (${studentIds.length} คน · ${courseCap !== CAPACITY[type] ? "คอร์สรับได้" : "แนะนำไม่เกิน"} ${courseCap}) — ไม่บังคับ เพิ่มทีหลังได้`}>
           <div className="space-y-2">
             {studentIds.length > 0 && (
               <div className="flex flex-wrap gap-1.5">
@@ -296,7 +298,7 @@ export function ClassDialog({ prefill, onClose }: { prefill: ClassPrefill; onClo
                 })}
               </div>
             )}
-            {studentIds.length < CAPACITY[type] && (
+            {studentIds.length < courseCap && (
               <button type="button" onClick={() => setPickingStudent(true)} className="flex w-full items-center justify-center gap-1.5 rounded-2xl border border-dashed py-2 text-sm text-primary hover:bg-primary/5">
                 <PlusIcon className="size-4" /> เพิ่มนักเรียน
               </button>

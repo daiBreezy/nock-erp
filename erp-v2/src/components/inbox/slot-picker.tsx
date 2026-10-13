@@ -5,6 +5,7 @@ import { addDays, fmtDate, toDateStr } from "@/domain/dates"
 import { findOfferSlots } from "@/domain/rules/forms"
 import type { Branch, FormOfferSlot, Holiday, Klass, Session, Staff } from "@/domain/types"
 import { cn } from "@/lib/utils"
+import { useStore } from "@/store/store"
 import { Pill } from "../app/badges"
 import { NativeSelect } from "../app/native-select"
 import { Label } from "../ui/label"
@@ -27,9 +28,11 @@ export function SlotPicker({
   const [from, setFrom] = useState(toDateStr(now))
   const [to, setTo] = useState(addDays(toDateStr(now), 14))
 
+  // owner 2026-10-13: a class is full at its course's Max Student
+  const courses = useStore((s) => s.courses)
   const slots = useMemo(
-    () => findOfferSlots({ branch, staff, sessions, classes, holidays, subject, from, to, now }),
-    [branch, staff, sessions, classes, holidays, subject, from, to, now],
+    () => findOfferSlots({ branch, staff, sessions, classes, holidays, subject, from, to, now, courses }),
+    [branch, staff, sessions, classes, holidays, subject, from, to, now, courses],
   )
 
   const grouped = useMemo(() => {

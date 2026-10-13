@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react"
 import { toDateStr } from "@/domain/dates"
 import { resolveEntitlements } from "@/domain/rules/attendance"
+import { classCapacity } from "@/domain/rules/scheduling"
 import { useStore } from "@/store/store"
 
 /**
@@ -78,4 +79,10 @@ export function useLookup() {
     }),
     [staff, students, branch],
   )
+}
+
+/** Owner 2026-10-13: seats of a class = its course's Max Student, else the class type's default */
+export function useCapacity() {
+  const courses = useStore((s) => s.courses)
+  return useCallback((k: Parameters<typeof classCapacity>[0]) => classCapacity(k, courses), [courses])
 }

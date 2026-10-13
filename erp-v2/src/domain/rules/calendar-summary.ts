@@ -1,8 +1,8 @@
 // Calendar › Summary (owner 2026-10-09): everything that will happen in the range on screen — classes, teachers,
 // subjects — plus every problem the admin has to deal with, so nothing is found out on the day.
-import type { Attendance, Branch, Holiday, ID, Klass, Session, Staff, TimeStr, Weekday } from "../types"
+import type { Attendance, Branch, Course, Holiday, ID, Klass, Session, Staff, TimeStr, Weekday } from "../types"
 import { weekdayOf } from "../dates"
-import { CAPACITY, isHoliday, sessionState, slotProblem, subjectsOf, teachersOf, workState, type Conflict } from "./scheduling"
+import { classCapacity, isHoliday, sessionState, slotProblem, subjectsOf, teachersOf, workState, type Conflict } from "./scheduling"
 
 export type SummaryIssueKind =
   | "conflict" | "no_teacher" | "teacher_gone" | "no_room" | "on_holiday" | "closed_day" | "outside_hours"
@@ -53,6 +53,7 @@ const ORDER: SummaryIssueKind[] = ["conflict", "no_teacher", "teacher_gone", "cl
 export function calendarSummary(range: Session[], ctx: {
   branch: Branch; classes: Klass[]; staff: Staff[]; holidays: Holiday[]; conflicts: Conflict[]
   attendance: Attendance[]; summaries: { sessionId: ID; studentId: ID; status: string }[]; now: Date
+  courses?: Pick<Course, "id" | "maxStudents">[]
 }): CalendarSummary {
   const live = range.filter((s) => !s.cancelled)
   const upcoming = live.filter((s) => sessionState(s, ctx.now) === "upcoming")
@@ -75,7 +76,7 @@ export function calendarSummary(range: Session[], ctx: {
     }
     const k = klass(s.classId)
     if (!s.studentIds.length && k?.kind === "learning") add("no_students", s.id)
-    if (k && s.studentIds.length > CAPACITY[k.type]) add("over_capacity", s.id)
+    if (k && s.studentIds.length > classCapacity(k, ctx.courses)) add("over_capacity", s.id)
   }
   for (const s of live) {
     const w = workState(s, ctx.now, ctx.attendance, ctx.summaries).state
