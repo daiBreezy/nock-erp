@@ -2,20 +2,21 @@
 
 import Link from "next/link"
 import { useEffect, useState } from "react"
-import { CheckCircle2Icon, CopyIcon, ExternalLinkIcon, LoaderCircleIcon, PlusIcon, ShieldAlertIcon, TrashIcon, UploadIcon, XIcon } from "lucide-react"
+import { CheckCircle2Icon, CopyIcon, ExternalLinkIcon, LoaderCircleIcon, PencilIcon, PlusIcon, ShieldAlertIcon, TrashIcon, UploadIcon, XIcon } from "lucide-react"
 import { Pill } from "@/components/app/badges"
 import { NativeSelect } from "@/components/app/native-select"
 import { Field } from "@/components/app/student-form"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { ROLE_LABEL } from "@/domain/rules/permissions"
+import { ROLE_LABEL, staffInBranch } from "@/domain/rules/permissions"
+import { fmtDate, fmtMoney, TH_DAYS_FULL } from "@/domain/dates"
 import { KNOWN_PROVINCES } from "@/domain/rules/settings"
 import type { Branch } from "@/domain/types"
 import { uid } from "@/data/seed"
 import { report } from "@/lib/feedback"
 import { useStore } from "@/store/store"
-import { SaveRow, SettingsCard, useBranchDraft } from "./common"
+import { InfoRow, SaveRow, SettingsCard, useBranchDraft } from "./common"
 import { romanizeName } from "@/domain/rules/romanize"
 import { RichMenuCard } from "./rich-menu"
 import { tx, nm } from "@/lib/i18n"
@@ -37,7 +38,7 @@ function StringList({ values, onChange, placeholder, addLabel }: { values: strin
   )
 }
 
-export function BranchInfoTab({ branch }: { branch: Branch }) {
+function BranchInfoForm({ branch, onDone }: { branch: Branch; onDone: () => void }) {
   const { b, setB, dirty, reset, save } = useBranchDraft(branch, ["brand", "code", "branchNo", "name", "nameEn", "province", "email", "address", "phones", "socials", "rooms"])
   const hasInvoices = useStore((s) => s.invoices.some((i) => i.branchId === branch.id && i.number))
   return (
@@ -72,8 +73,89 @@ export function BranchInfoTab({ branch }: { branch: Branch }) {
           </div>
         </Field>
       </div>
-      <SaveRow dirty={dirty} onReset={reset} onSave={() => save(tx("บันทึกข้อมูลสาขาแล้ว"))} />
+      <div className="mt-4 flex items-center justify-end gap-2">
+        {dirty && <span className="mr-auto text-xs text-amber-700">{tx("มีการแก้ไขที่ยังไม่บันทึก")}</span>}
+        <Button variant="ghost" size="sm" onClick={() => { reset(); onDone() }}>{tx("ยกเลิก")}</Button>
+        <Button size="sm" disabled={!dirty} onClick={() => { if (save(tx("บันทึกข้อมูลสาขาแล้ว"))) onDone() }}>{tx("บันทึก")}</Button>
+      </div>
     </SettingsCard>
+  )
+}
+
+/**
+ * Owner 2026-10-13: ข้อมูลสาขา opens as information — everything about the branch from every tab at a glance.
+ * แก้ไข switches the branch details to the form; บันทึก brings the information back. The other tabs' summaries
+ * jump to their own tab to edit.
+ */
+export function BranchInfoTab({ branch, onJump }: { branch: Branch; onJump: (tab: string) => void }) {
+  const [editing, setEditing] = useState(false)
+  const staff = useStore((s) => s.staff)
+  if (editing) return <BranchInfoForm branch={branch} onDone={() => setEditing(false)} />
+  const b = branch
+  const people = staff.filter((x) => x.active && staffInBranch(x, b.id))
+  const days = ([1, 2, 3, 4, 5, 6, 0] as const).map((d) => ({ d, h: b.hours[d] }))
+  const edit = (tab: string) => <Button size="xs" variant="outline" onClick={() => onJump(tab)}><PencilIcon /> {tx("แก้ไข")}</Button>
+  const chips = (xs: string[]) => xs.length ? <span className="flex flex-wrap gap-1">{xs.map((x) => <span key={x} className="rounded-full bg-muted px-2 py-0.5 text-xs">{x}</span>)}</span> : null
+  return (
+    <div className="space-y-4">
+      <SettingsCard title={tx("ข้อมูลสาขา")} hint={tx("ข้อมูลทั่วไปของสาขา — รหัสสาขาใช้ในเลขใบแจ้งหนี้/ใบเสร็จ")}
+        action={<Button size="sm" onClick={() => setEditing(true)}><PencilIcon /> {tx("แก้ไข")}</Button>}>
+        <div className="grid gap-x-6 gap-y-3 sm:grid-cols-3">
+          <InfoRow label={tx("แบรนด์ (School type)")}>{BRAND_LABEL[b.brand]}</InfoRow>
+          <InfoRow label={tx("รหัสสาขา (Branch ID)")}>{b.code}</InfoRow>
+          <InfoRow label={tx("เลขสาขา")}>{b.branchNo}</InfoRow>
+          <InfoRow label={tx("ชื่อสาขา")}>{nm(b.name)}</InfoRow>
+          <InfoRow label={tx("ชื่อภาษาอังกฤษ")}>{b.nameEn || romanizeName(b.name)}</InfoRow>
+          <InfoRow label={tx("จังหวัด")}>{b.province}</InfoRow>
+          <InfoRow label={tx("อีเมล")}>{b.email}</InfoRow>
+          <InfoRow label={tx("เบอร์โทร")}>{b.phones.filter(Boolean).join(", ")}</InfoRow>
+          <InfoRow label="Social media">{b.socials.filter(Boolean).length ? <span className="flex flex-col">{b.socials.filter(Boolean).map((x) => <a key={x} href={x} target="_blank" rel="noreferrer" className="truncate text-primary hover:underline">{x}</a>)}</span> : null}</InfoRow>
+          <div className="sm:col-span-2"><InfoRow label={tx("ที่อยู่")}>{b.address}</InfoRow></div>
+          <InfoRow label={tx("ห้องเรียน ({0} ห้อง)", [b.rooms.length])}>{chips(b.rooms.map((r) => r.name))}</InfoRow>
+        </div>
+      </SettingsCard>
+
+      <div className="grid gap-4 md:grid-cols-2">
+        <SettingsCard title={tx("บัญชีธนาคาร")} action={edit("bank")}>
+          <div className="grid grid-cols-2 gap-3">
+            <InfoRow label={tx("ธนาคาร")}>{[b.bankAccount.bank, b.bankAccount.branchName].filter(Boolean).join(" · ")}</InfoRow>
+            <InfoRow label={tx("เลขบัญชี")}>{b.bankAccount.number}</InfoRow>
+            <div className="col-span-2"><InfoRow label={tx("ชื่อบัญชี")}>{b.bankAccount.name}</InfoRow></div>
+          </div>
+        </SettingsCard>
+        <SettingsCard title="LINE Integration" action={edit("line")}>
+          <div className="grid grid-cols-2 gap-3">
+            <InfoRow label={tx("สถานะ")}><Pill tone={b.lineOaConnected ? "green" : "gray"}>{b.lineOaConnected ? tx("เชื่อมต่อแล้ว") : tx("ยังไม่เชื่อมต่อ")}</Pill></InfoRow>
+            <InfoRow label="Basic ID">{b.lineOa.botBasicId}</InfoRow>
+            <div className="col-span-2"><InfoRow label={tx("ลิงก์เพิ่มเพื่อน")}>{b.lineOa.addFriendUrl}</InfoRow></div>
+          </div>
+        </SettingsCard>
+        <SettingsCard title={tx("เวลาเปิด-ปิด & วันหยุด")} action={edit("scheduling")}>
+          <ul className="grid grid-cols-2 gap-x-6 gap-y-1 text-sm">
+            {days.map(({ d, h }) => <li key={d} className="flex justify-between"><span className="text-muted-foreground">{tx(TH_DAYS_FULL[d])}</span><span className="tabular-nums">{h ? `${h.open}–${h.close}` : tx("ปิด")}</span></li>)}
+          </ul>
+          {b.specialPeriods.length > 0 && <p className="mt-2 text-xs text-muted-foreground">{tx("ช่วงเวลาพิเศษ")}: {b.specialPeriods.map((p) => `${p.name} (${fmtDate(p.from)} – ${fmtDate(p.to)})${p.active ? "" : " · ปิดใช้"}`).join(", ")}</p>}
+        </SettingsCard>
+        <SettingsCard title={tx("วิชา & ระดับชั้น")} action={<span className="flex gap-1">{edit("subjects")}</span>}>
+          <div className="space-y-3">
+            <InfoRow label={tx("วิชา ({0})", [b.subjects.length])}>{chips(b.subjects)}</InfoRow>
+            <InfoRow label={tx("ระดับชั้น ({0})", [b.grades.length])}>{chips(b.grades)}</InfoRow>
+          </div>
+        </SettingsCard>
+        <SettingsCard title={tx("แพ็กเกจ & ค่าธรรมเนียม")} action={edit("packages")}>
+          <div className="space-y-3">
+            <InfoRow label={tx("แพ็กเกจ")}>{chips([...b.packageDurations.hour.map((h) => `${h} ชม.`), ...b.packageDurations.week.map((w) => `${w} สัปดาห์`), tx("รายเดือน")])}</InfoRow>
+            <InfoRow label={tx("ค่าธรรมเนียม")}>{b.fees.length ? <span className="flex flex-col">{b.fees.map((f) => <span key={f.id} className="flex justify-between gap-3"><span>{f.name}</span><span className="tabular-nums">{fmtMoney(f.price)}</span></span>)}</span> : null}</InfoRow>
+          </div>
+        </SettingsCard>
+        <SettingsCard title={tx("โปรโมชัน & บุคลากร")} action={edit("promotions")}>
+          <div className="space-y-3">
+            <InfoRow label={tx("โปรโมชันที่เปิดอยู่")}>{chips(b.promotions.filter((p) => p.active).map((p) => `${p.name} · ${p.type === "pct" ? `${p.value}%` : fmtMoney(p.value)}`))}</InfoRow>
+            <InfoRow label={tx("บุคลากร ({0} คน)", [people.length])}>{chips(people.map((x) => x.nickname))}</InfoRow>
+          </div>
+        </SettingsCard>
+      </div>
+    </div>
   )
 }
 

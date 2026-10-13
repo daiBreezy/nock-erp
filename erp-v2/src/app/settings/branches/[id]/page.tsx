@@ -1,9 +1,10 @@
 "use client"
 
-import { Page, PageHeader } from "@/components/app/page-layout"
+import { Page, PageHeader, Tabs } from "@/components/app/page-layout"
+import { InfoTip } from "@/components/reports/charts"
+import { useQueryState } from "@/lib/hooks"
 import Link from "next/link"
 import { useParams } from "next/navigation"
-import { useState } from "react"
 import {
   BookOpenIcon, BuildingIcon, ChevronLeftIcon, ClockIcon, GraduationCapIcon, LandmarkIcon, MessageCircleIcon,
   PackageIcon, TagIcon, UsersIcon, WalletIcon,
@@ -17,13 +18,12 @@ import { Button } from "@/components/ui/button"
 import { can, inBranch } from "@/domain/rules/permissions"
 import type { Branch } from "@/domain/types"
 import { report } from "@/lib/feedback"
-import { cn } from "@/lib/utils"
 import { useStore } from "@/store/store"
 import { tx, nm } from "@/lib/i18n"
 
 /** The 11 per-branch tabs of staging's Settings → Branch, in the same order. */
-const TABS: { id: string; label: string; icon: typeof BuildingIcon; body: (b: Branch) => React.ReactNode }[] = [
-  { id: "info", label: "ข้อมูลสาขา", icon: BuildingIcon, body: (b) => <BranchInfoTab branch={b} /> },
+const TABS: { id: string; label: string; icon: typeof BuildingIcon; body: (b: Branch, jump: (tab: string) => void) => React.ReactNode }[] = [
+  { id: "info", label: "ข้อมูลสาขา", icon: BuildingIcon, body: (b, jump) => <BranchInfoTab branch={b} onJump={jump} /> },
   { id: "bank", label: "บัญชีธนาคาร", icon: LandmarkIcon, body: (b) => <BankTab branch={b} /> },
   { id: "line", label: "LINE Integration", icon: MessageCircleIcon, body: (b) => <LineTab branch={b} /> },
   { id: "scheduling", label: "เวลาเปิด-ปิด & วันหยุด", icon: ClockIcon, body: (b) => <SchedulingTab branch={b} /> },
@@ -41,42 +41,34 @@ export default function BranchSettingsPage() {
   const setActive = useStore((s) => s.setBranchActive)
   const me = useStore((s) => s.me())
   const full = can(me, "settings.manage")
-  const [tab, setTab] = useState(full ? "info" : "scheduling")
+  const [tab, setTab] = useQueryState<string>("tab", full ? "info" : "scheduling")
 
   if (!branch || (!full && !inBranch(me, branch.id))) return <p className="p-10 text-center text-sm text-muted-foreground">{tx("ไม่พบสาขานี้ —")} <Link href="/settings" className="underline">{tx("กลับไปรายชื่อสาขา")}</Link></p>
   // Admin/Manager: only the holidays part of Scheduling
   const tabs = full ? TABS : [{ ...TABS.find((t) => t.id === "scheduling")!, label: tx("วันหยุด"), body: (b: Branch) => <SchedulingTab branch={b} holidaysOnly /> }]
-  const current = tabs.find((t) => t.id === tab)!
+  const current = tabs.find((t) => t.id === tab) ?? tabs[0]
 
   return (
     <Page className="pb-16">
       <div className="space-y-1">
         <Link href="/settings" className="flex items-center gap-1 text-xs text-muted-foreground hover:underline"><ChevronLeftIcon className="size-3.5" />  {tx("กลับไปรายชื่อสาขา")}</Link>
-        <PageHeader title={nm(branch.name)} description={branch.address || tx("ยังไม่มีที่อยู่")} />
+        {/* owner 2026-10-13: the branch status sits on the header line, not in its own bar */}
+        <PageHeader
+          title={<span className="flex flex-wrap items-center gap-2">{nm(branch.name)} <Pill tone={branch.active ? "green" : "gray"}>{branch.active ? tx("เปิดอยู่") : tx("ปิดแล้ว")}</Pill></span>}
+          description={branch.address || tx("ยังไม่มีที่อยู่")}
+          actions={full && <>
+            <InfoTip text={tx("สาขาที่ปิดจะไม่ขึ้นในตัวเลือกสาขา และรับงานใหม่ไม่ได้")} />
+            <Button variant={branch.active ? "outline" : "default"}
+              onClick={() => report(setActive(branch.id, !branch.active), branch.active ? tx("ปิดสาขาแล้ว") : tx("เปิดสาขาแล้ว"))}>
+              {branch.active ? tx("ปิดสาขา") : tx("เปิดสาขา")}
+            </Button>
+          </>} />
       </div>
 
-      {full && <div className="flex flex-wrap items-center gap-3 rounded-3xl bg-card p-4 shadow-sm ring-1 ring-foreground/5">
-        <span className="font-medium">{tx("สถานะ")}</span>
-        <Pill tone={branch.active ? "green" : "gray"}>{branch.active ? tx("เปิดอยู่") : tx("ปิดแล้ว")}</Pill>
-        <span className="flex-1 text-xs text-muted-foreground">{tx("สาขาที่ปิดจะไม่ขึ้นในตัวเลือกสาขา และรับงานใหม่ไม่ได้")}</span>
-        <Button size="sm" variant={branch.active ? "outline" : "default"}
-          onClick={() => report(setActive(branch.id, !branch.active), branch.active ? tx("ปิดสาขาแล้ว") : tx("เปิดสาขาแล้ว"))}>
-          {branch.active ? tx("ปิดสาขา") : tx("เปิดสาขา")}
-        </Button>
-      </div>}
-
-      <div className="grid gap-4 md:grid-cols-[13rem_1fr]">
-        <nav className="flex gap-1 overflow-x-auto rounded-3xl bg-card p-2 shadow-sm ring-1 ring-foreground/5 md:flex-col md:self-start">
-          {tabs.map((t) => (
-            <button key={t.id} onClick={() => setTab(t.id)}
-              className={cn("flex shrink-0 items-center gap-2 rounded-2xl px-3 py-2 text-left text-sm", tab === t.id ? "bg-primary/10 font-medium text-primary" : "text-muted-foreground hover:bg-muted")}>
-              <t.icon className="size-4" /> {tx(t.label)}
-            </button>
-          ))}
-        </nav>
-        {/* keyed by branch+tab so every tab starts its draft from the saved branch */}
-        <div key={`${branch.id}-${tab}`}>{current.body(branch)}</div>
-      </div>
+      {/* owner 2026-10-13: the same underline tabs as Reports, across the top */}
+      <Tabs value={current.id} onChange={setTab} options={tabs.map((t) => ({ value: t.id, label: tx(t.label), icon: t.icon }))} />
+      {/* keyed by branch+tab so every tab starts its draft from the saved branch */}
+      <div key={`${branch.id}-${current.id}`}>{current.body(branch, setTab)}</div>
     </Page>
   )
 }
