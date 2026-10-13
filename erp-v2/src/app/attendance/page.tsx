@@ -8,7 +8,8 @@ import { CalendarDaysIcon, ClipboardCheckIcon, UserCheckIcon, UserXIcon } from "
 import { Page, PageHeader, KpiRow, SearchBox, Segmented, Toolbar } from "@/components/app/page-layout"
 import { matchesQuery } from "@/domain/rules/people"
 import { SessionSheet } from "@/components/app/session-sheet"
-import { endTime, fmtDate } from "@/domain/dates"
+import { SessionLine } from "@/components/app/session-line"
+import { fmtDate } from "@/domain/dates"
 import { Kpi } from "@/components/app/kpi"
 import { NativeSelect } from "@/components/app/native-select"
 import { StudentSheet } from "@/components/app/student-sheet"
@@ -156,19 +157,16 @@ function ByDay({ sessions, attendance, multi, code, onOpen }: { sessions: Sessio
               const marked = attendance.filter((a) => a.sessionId === s.id).length
               const left = Math.max(0, s.studentIds.length - marked)
               return (
-                <button key={s.id} type="button" onClick={() => onOpen(s.id)} className="grid w-full grid-cols-[6.5rem_1fr_auto] items-center gap-3 px-3 py-2.5 text-left text-sm hover:bg-muted/40">
-                  <span className="tabular-nums">{s.start}–{endTime(s.start, s.minutes)}</span>
-                  <span className="min-w-0">
-                    <span className="block truncate font-medium">{classes.find((k) => k.id === s.classId)?.name ?? s.subject}{multi && <span className="ml-1.5 align-middle"><BranchCode code={code(s.branchId)} /></span>}</span>
-                    <span className="block truncate text-xs text-muted-foreground">{L.teacher(s.teacherId).label} · {s.studentIds.length} คน</span>
-                  </span>
-                  <span className="flex flex-wrap justify-end gap-1 text-xs">
+                // owner 2026-10-13: the same row as Sessions — colour bar · start–end · status last
+                <SessionLine key={s.id} s={s} onOpen={() => onOpen(s.id)}
+                  title={<>{classes.find((k) => k.id === s.classId)?.name ?? s.subject}{multi && <span className="ml-1.5 align-middle"><BranchCode code={code(s.branchId)} /></span>}</>}
+                  sub={<>{L.teacher(s.teacherId).label} · {L.room(s.roomId)} · {s.studentIds.length} คน</>}
+                  status={<span className="flex flex-wrap justify-end gap-1 text-xs">
                     <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-emerald-800">มา {n(s.id, "present")}</span>
                     <span className="rounded-full bg-red-100 px-2 py-0.5 text-red-800">ขาด {n(s.id, "absent")}</span>
                     <span className="rounded-full bg-amber-100 px-2 py-0.5 text-amber-900">ลา {n(s.id, "leave")}</span>
                     {left > 0 && <span className="rounded-full border border-red-300 px-2 py-0.5 text-red-700">ยังไม่เช็ค {left}</span>}
-                  </span>
-                </button>
+                  </span>} />
               )
             })}
           </div>

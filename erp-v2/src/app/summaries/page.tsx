@@ -8,7 +8,7 @@ import type { Tone } from "@/components/app/badges"
 import { Kpi, type KpiTone } from "@/components/app/kpi"
 import { BranchCode, useBranchScope } from "@/components/app/branch-scope"
 import { useState } from "react"
-import { BadgeCheckIcon, CheckIcon, HourglassIcon, PenLineIcon, SendIcon, Undo2Icon, type LucideIcon } from "lucide-react"
+import { BadgeCheckIcon, CheckIcon, FilePenIcon, HourglassIcon, PenLineIcon, SendIcon, Undo2Icon, type LucideIcon } from "lucide-react"
 import { Pill } from "@/components/app/badges"
 import { CourseSummaryStudentSheet } from "@/components/app/course-summary-sheet"
 import { SessionSheet } from "@/components/app/session-sheet"
@@ -16,29 +16,32 @@ import { Button } from "@/components/ui/button"
 import { fmtDate, toDateStr } from "@/domain/dates"
 import { can, seesAllSessions } from "@/domain/rules/permissions"
 import * as Sum from "@/domain/rules/summaries"
-import type { ID } from "@/domain/types"
+import type { ID, SummaryStatus } from "@/domain/types"
+import { SessionLine } from "@/components/app/session-line"
 import { report } from "@/lib/feedback"
 import { useLookup, useNow, useQueryState } from "@/lib/hooks"
-import { cn } from "@/lib/utils"
 import { useStore } from "@/store/store"
 
-type Bucket = "to_write" | "changes" | "submitted" | "approved" | "sent"
+// owner 2026-10-13: six statuses, in the order the work moves — "not written" and "draft" are no longer one pile
+type Bucket = "to_write" | "draft" | "submitted" | "approved" | "sent" | "changes"
 const BUCKETS: { key: Bucket; label: string; tone: string }[] = [
   { key: "to_write", label: "ยังไม่ได้เขียน", tone: "text-red-700" },
+  { key: "draft", label: "เขียนแล้ว Draft ไว้", tone: "text-violet-700" },
+  { key: "submitted", label: "รอส่งไป Approve", tone: "text-amber-700" },
+  { key: "approved", label: "ได้ Approve แล้ว กำลังรอส่ง", tone: "text-sky-700" },
+  { key: "sent", label: "ส่งแล้ว", tone: "text-emerald-700" },
   { key: "changes", label: "ขอแก้ไข", tone: "text-red-700" },
-  { key: "submitted", label: "รออนุมัติ", tone: "text-amber-700" },
-  { key: "approved", label: "อนุมัติแล้ว · ยังไม่ส่ง", tone: "text-sky-700" },
-  { key: "sent", label: "ส่งผู้ปกครองแล้ว", tone: "text-emerald-700" },
 ]
 
-const BUCKET_ICON: Record<Bucket, LucideIcon> = { to_write: PenLineIcon, changes: Undo2Icon, submitted: HourglassIcon, approved: BadgeCheckIcon, sent: SendIcon }
-const PILL_TONE: Record<Bucket, Tone> = { to_write: "red", changes: "red", submitted: "amber", approved: "blue", sent: "green" }
-const BUCKET_TONE: Record<Bucket, KpiTone> = { to_write: "red", changes: "red", submitted: "amber", approved: "sky", sent: "emerald" }
+const BUCKET_ICON: Record<Bucket, LucideIcon> = { to_write: PenLineIcon, draft: FilePenIcon, submitted: HourglassIcon, approved: BadgeCheckIcon, sent: SendIcon, changes: Undo2Icon }
+const PILL_TONE: Record<Bucket, Tone> = { to_write: "red", draft: "violet", submitted: "amber", approved: "blue", sent: "green", changes: "red" }
+const BUCKET_TONE: Record<Bucket, KpiTone> = { to_write: "red", draft: "violet", submitted: "amber", approved: "sky", sent: "emerald", changes: "red" }
+const bucketOf = (status: SummaryStatus | undefined): Bucket => (!status ? "to_write" : status === "changes_requested" ? "changes" : status)
 
-/** the 5 stages as KPI cards — click one to list it (standard page: KPI row above the toolbar) */
+/** the 6 stages as KPI cards — click one to list it (standard page: KPI row above the toolbar) */
 function BucketRow({ active, onPick, count, focus }: { active: Bucket | "all"; onPick: (b: Bucket) => void; count: (b: Bucket) => number; focus?: boolean }) {
   return (
-    <KpiRow className="lg:grid-cols-5">
+    <KpiRow className="sm:grid-cols-3 xl:grid-cols-6">
       {BUCKETS.map((t) => (
         <div key={t.key} data-focus={focus ? FOCUS_OF[t.key] : undefined} className="h-full rounded-3xl">
           <Kpi icon={BUCKET_ICON[t.key]} tone={BUCKET_TONE[t.key]} label={t.label} value={count(t.key)} valueClassName={t.tone} onClick={() => onPick(t.key)} active={active === t.key} />
@@ -49,7 +52,7 @@ function BucketRow({ active, onPick, count, focus }: { active: Bucket | "all"; o
 }
 
 /** which Dashboard topic each pile answers (`?focus=` highlights it) */
-const FOCUS_OF: Partial<Record<Bucket, string>> = { to_write: "summary_write", changes: "summary_write", submitted: "summary_approve" }
+const FOCUS_OF: Partial<Record<Bucket, string>> = { to_write: "summary_write", draft: "summary_write", changes: "summary_write", submitted: "summary_approve" }
 
 export default function SummariesPage() {
   const [top, setTop] = useQueryState<"session" | "course">("view", "session")
@@ -97,7 +100,7 @@ function SessionSummaryTab() {
       .filter((a) => a.sessionId === s.id && a.status === "present")
       .map((a) => ({ s, studentId: a.studentId, sm: summaries.find((x) => x.sessionId === s.id && x.studentId === a.studentId) })),
   )
-  const bucket = (r: (typeof rows)[number]): Bucket => (!r.sm || r.sm.status === "draft" ? "to_write" : r.sm.status === "changes_requested" ? "changes" : r.sm.status)
+  const bucket = (r: (typeof rows)[number]): Bucket => bucketOf(r.sm?.status)
   const found = rows.filter((r) => !q || matchesQuery(q, [L.student(r.studentId)?.nickname, L.student(r.studentId)?.name, classes.find((c) => c.id === r.s.classId)?.name, r.s.subject, L.teacher(r.sm?.authorId ?? r.s.teacherId).label, r.sm?.text]))
   const shown = found
     .filter((r) => (tab === "all" ? showSent === "1" || bucket(r) !== "sent" : bucket(r) === tab))
@@ -123,37 +126,24 @@ function SessionSummaryTab() {
           <h3 className="mb-1 text-sm font-semibold">{fmtDate(day, { weekday: true })}</h3>
           <div className="divide-y overflow-hidden rounded-3xl bg-card shadow-sm ring-1 ring-foreground/5">
             {shown.filter((r) => r.s.date === day).map((r) => {
-          const { s, studentId, sm } = r
-          const b = bucket(r)
-          const stu = L.student(studentId)
-          const approveCheck = sm && Sum.canApprove(sm, me)
-          return (
-            <div key={s.id + studentId} data-focus={FOCUS_OF[b]} className={cn("flex flex-wrap items-start gap-3 p-3", b === "sent" && "bg-muted/20")}>
-              <div className="w-14 pt-0.5 text-sm font-medium tabular-nums">{s.start}</div>
-              <div className="min-w-48 flex-1">
-                <div className="text-sm font-medium">{stu?.nickname} <span className="text-xs text-muted-foreground">{stu?.grade}</span> · {classes.find((c) => c.id === s.classId)?.name ?? s.subject}{scope.multi && <span className="ml-1.5 align-middle"><BranchCode code={scope.code(s.branchId)} /></span>}</div>
-                <div className="text-xs text-muted-foreground">ครู {L.teacher(sm?.authorId ?? s.teacherId).label}</div>
-                {sm?.text && <p className="mt-1 line-clamp-2 text-sm">{sm.text}</p>}
-                {sm?.status === "changes_requested" && <p className="mt-1 text-xs text-red-700">ขอแก้: {sm.history.findLast((h) => h.action === "request_changes")?.note}</p>}
-              </div>
-              <div className="flex flex-wrap items-center gap-1.5">
-                {tab === "all" && <Pill tone={PILL_TONE[b]}>{BUCKETS.find((x) => x.key === b)!.label}</Pill>}
-                {b === "sent" && <Button size="sm" variant="ghost" onClick={() => setOpenId(s.id)}>ดู</Button>}
-                {(b === "to_write" || b === "changes") && <Button size="sm" variant="outline" onClick={() => setOpenId(s.id)}>เขียน / แก้</Button>}
-                {b === "submitted" && sm && (
-                  approveCheck?.ok ? (
-                    <>
-                      <Button size="sm" variant="outline" onClick={() => setOpenId(s.id)}>ดู / ขอแก้</Button>
-                      <Button size="sm" onClick={() => report(approve(sm.id), "อนุมัติแล้ว")}><CheckIcon /> อนุมัติ</Button>
-                    </>
-                  ) : <Pill>{approveCheck?.error}</Pill>
-                )}
-                {b === "approved" && sm && can(me, "summary.approve") && (
-                  <Button size="sm" onClick={() => report(send(sm.id), "ส่งถึงผู้ปกครองแล้ว")}><SendIcon /> ส่งผู้ปกครอง</Button>
-                )}
-              </div>
-            </div>
-          )
+              const { s, studentId, sm } = r
+              const b = bucket(r)
+              const stu = L.student(studentId)
+              const approveCheck = sm && Sum.canApprove(sm, me)
+              // owner 2026-10-13: same row as Sessions (colour bar · start–end), status last, the row opens the panel
+              return (
+                <SessionLine key={s.id + studentId} s={s} focus={FOCUS_OF[b]} onOpen={() => setOpenId(s.id)}
+                  title={<>{stu?.nickname} <span className="text-xs font-normal text-muted-foreground">{stu?.grade}</span> · {classes.find((c) => c.id === s.classId)?.name ?? s.subject}{scope.multi && <span className="ml-1.5 align-middle"><BranchCode code={scope.code(s.branchId)} /></span>}</>}
+                  sub={<>ครู {L.teacher(sm?.authorId ?? s.teacherId).label}</>}
+                  actions={<>
+                    {b === "submitted" && sm && approveCheck?.ok && <Button size="sm" onClick={() => report(approve(sm.id), "อนุมัติแล้ว")}><CheckIcon /> อนุมัติ</Button>}
+                    {b === "approved" && sm && can(me, "summary.approve") && <Button size="sm" onClick={() => report(send(sm.id), "ส่งถึงผู้ปกครองแล้ว")}><SendIcon /> ส่งผู้ปกครอง</Button>}
+                  </>}
+                  status={<Pill tone={PILL_TONE[b]} title={b === "submitted" && approveCheck && !approveCheck.ok ? approveCheck.error : undefined}>{BUCKETS.find((x) => x.key === b)!.label}</Pill>}>
+                  {sm?.text && <span className="mt-1 line-clamp-2 block text-sm">{sm.text}</span>}
+                  {sm?.status === "changes_requested" && <span className="mt-1 block text-xs text-red-700">ขอแก้: {sm.history.findLast((h) => h.action === "request_changes")?.note}</span>}
+                </SessionLine>
+              )
             })}
           </div>
         </section>
@@ -198,7 +188,7 @@ function CourseSummaryTab() {
   const dueRounds = allRounds.filter((r) => Sum.courseSummaryDue(r, today, renewalDays) && (!mineOnly || r.entitlementIds.some((id) => entsById.get(id)?.classIds.some((cid) => myClassIds.has(cid)))))
   const bucket = (r: Sum.EntitlementRound): Bucket => {
     const cs = courseSummaries.find((x) => x.entitlementId === r.representativeId)
-    return !cs || cs.status === "draft" ? "to_write" : cs.status === "changes_requested" ? "changes" : cs.status
+    return bucketOf(cs?.status)
   }
   const countIn = (b: Bucket) => dueRounds.filter((r) => bucket(r) === b).length
   // the outer list is per-student: who has at least one course in the chosen bucket — but opening them shows

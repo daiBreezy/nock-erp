@@ -11,9 +11,9 @@ import { Kpi } from "@/components/app/kpi"
 import { Pill } from "@/components/app/badges"
 import { NativeSelect } from "@/components/app/native-select"
 import { SessionSheet } from "@/components/app/session-sheet"
-import { subjectColor } from "@/components/app/subject-color"
+import { SessionLine } from "@/components/app/session-line"
 import { WORK_ORDER, WorkChip } from "@/components/app/work-state"
-import { endTime, fmtDate } from "@/domain/dates"
+import { fmtDate } from "@/domain/dates"
 import { WORK_LABEL, workState, type WorkState } from "@/domain/rules/scheduling"
 import { useBranch, useLookup, useNow, useQueryState } from "@/lib/hooks"
 import { cn } from "@/lib/utils"
@@ -94,20 +94,12 @@ export default function SessionsPage() {
           {period.mode !== "day" && <h3 className="mb-1 text-sm font-semibold">{fmtDate(d, { weekday: true })}</h3>}
           <div className="divide-y overflow-hidden rounded-3xl bg-card shadow-sm ring-1 ring-foreground/5">
             {shown.filter(({ s }) => s.date === d).map(({ s, w }) => {
-              const c = subjectColor(s.subject)
               const t = L.teacher(s.teacherId)
               return (
-                <button key={s.id} onClick={() => setOpenId(s.id)} data-focus={w.state === "needs_attendance" ? "unmarked" : undefined} className="flex w-full flex-wrap items-center gap-3 px-3 py-2.5 text-left hover:bg-muted/40">
-                  <span className={cn("h-9 w-1 rounded-full", c.bar)} />
-                  <span className="w-24 text-sm tabular-nums">{s.start}–{endTime(s.start, s.minutes)}</span>
-                  <span className="min-w-40 flex-1">
-                    <span className="block text-sm font-medium">{classes.find((k) => k.id === s.classId)?.name ?? s.subject}{sessionKindLabel(s) && <Pill tone="violet" className="ml-2">{sessionKindLabel(s)}</Pill>}{scope.multi && <span className="ml-2 align-middle"><BranchCode code={scope.code(s.branchId)} /></span>}</span>
-                    <span className="block text-xs text-muted-foreground">
-                      <span className={cn(t.missing && "text-amber-700")}>{t.label}</span> · {L.room(s.roomId)} · {s.studentIds.length} คน
-                    </span>
-                  </span>
-                  <WorkChip w={w} students={s.studentIds.length} className={w.state === "scheduled" ? "" : ""} />
-                </button>
+                <SessionLine key={s.id} s={s} onOpen={() => setOpenId(s.id)} focus={w.state === "needs_attendance" ? "unmarked" : undefined}
+                  title={<>{classes.find((k) => k.id === s.classId)?.name ?? s.subject}{sessionKindLabel(s) && <Pill tone="violet" className="ml-2">{sessionKindLabel(s)}</Pill>}{scope.multi && <span className="ml-2 align-middle"><BranchCode code={scope.code(s.branchId)} /></span>}</>}
+                  sub={<><span className={cn(t.missing && "text-amber-700")}>{t.label}</span> · {L.room(s.roomId)} · {s.studentIds.length} คน</>}
+                  status={<WorkChip w={w} students={s.studentIds.length} />} />
               )
             })}
           </div>
