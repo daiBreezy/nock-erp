@@ -28,6 +28,7 @@ import { useQueryState } from "@/lib/hooks"
 import { cn } from "@/lib/utils"
 import { useStore } from "@/store/store"
 import { DEV_KIND_ICON } from "./dev-kind-icon"
+import { ChipOverflow } from "@/components/app/chip-overflow"
 
 const STATUS_TONE: Record<DevTicketStatus, Tone> = { new: "red", acknowledged: "amber", in_progress: "blue", done: "green", wont_do: "gray" }
 const timeOf = (iso: string) => new Date(iso).toLocaleTimeString("th-TH", { hour: "2-digit", minute: "2-digit" })
@@ -64,10 +65,11 @@ export function DevTicketsView() {
   const columns: Column<DevTicket>[] = [
     { id: "number", label: "เลขที่", width: "84px", cell: (t) => <span className="font-mono text-xs">{t.number}</span> },
     { id: "date", label: "วันที่ · เวลา", width: "112px", sort: "date", cell: (t) => <span className="tabular-nums"><span className="block whitespace-nowrap">{fmtDate(toDateStr(new Date(t.at)), { year: true })}</span><span className="text-xs text-muted-foreground">{timeOf(t.at)} น.</span></span> },
-    { id: "kind", label: "ประเภท", width: "150px", cell: (t) => <KindChip kind={t.kind} /> },
+    // owner 2026-10-13: the kind is just its icon in the table — the header ⓘ explains each one
+    { id: "kind", label: "ประเภท", width: "64px", align: "center", info: <span className="flex flex-col gap-1.5">{(Object.keys(DEV_KIND_LABEL) as DevTicketKind[]).map((k) => <span key={k} className="flex items-center gap-2"><KindIcon kind={k} />{DEV_KIND_LABEL[k]}</span>)}</span>, cell: (t) => <KindIcon kind={t.kind} /> },
     { id: "title", label: "เรื่อง", width: "240px", required: true, cell: (t) => <span className="block max-w-[320px]"><span className="block truncate font-medium">{t.title}</span><span className="block truncate text-xs text-muted-foreground">{t.detail}</span></span> },
-    { id: "part", label: "Part", width: "140px", cell: (t) => <span className="flex flex-wrap gap-1">{t.locations.map((l) => <span key={l} className="rounded-full bg-muted px-2 py-0.5 text-xs whitespace-nowrap">{locationLabel(l)}</span>)}</span> },
-    { id: "role", label: "Role", width: "120px", cell: (t) => <span className="flex flex-wrap gap-1">{t.roles.map((r) => <RoleChip key={r} role={r} />)}</span> },
+    { id: "part", label: "Part", width: "140px", cell: (t) => <ChipOverflow items={t.locations} label={locationLabel} render={(l) => <span className="rounded-full bg-muted px-2 py-0.5 text-xs whitespace-nowrap">{locationLabel(l)}</span>} /> },
+    { id: "role", label: "Role", width: "100px", cell: (t) => <ChipOverflow items={t.roles} label={(r) => ROLE_LABEL[r]} render={(r) => <RoleChip role={r} />} /> },
     { id: "branch", label: "สาขา", width: "56px", align: "center", cell: (t) => <BranchCode code={scope.code(t.branchId)} /> },
     { id: "replies", label: "ตอบกลับ", width: "64px", align: "center", cell: (t) => (t.thread.length ? <span className="tabular-nums">{t.thread.length}</span> : <span className="text-muted-foreground">—</span>) },
     { id: "status", label: "สถานะ", width: "130px", align: "right", sort: "status", required: true, cell: (t) => <Pill tone={STATUS_TONE[t.status]}>{DEV_STATUS_LABEL[t.status]}</Pill> },
@@ -105,6 +107,13 @@ const KIND_TONE: Record<DevTicketKind, Tone> = { bug: "red", help: "amber", idea
 export function KindChip({ kind }: { kind: DevTicketKind }) {
   const Icon = DEV_KIND_ICON[kind]
   return <Pill tone={KIND_TONE[kind]}><Icon className="size-3" />{DEV_KIND_LABEL[kind]}</Pill>
+}
+
+const KIND_ICON_TONE: Record<DevTicketKind, string> = { bug: "bg-red-100 text-red-700", help: "bg-amber-100 text-amber-800", idea: "bg-violet-100 text-violet-700", question: "bg-sky-100 text-sky-700" }
+/** the kind as a small coloured icon (hover = its name) */
+function KindIcon({ kind }: { kind: DevTicketKind }) {
+  const Icon = DEV_KIND_ICON[kind]
+  return <span title={DEV_KIND_LABEL[kind]} className={cn("inline-grid size-6 place-items-center rounded-full", KIND_ICON_TONE[kind])}><Icon className="size-3.5" /></span>
 }
 
 function TicketPanel({ id }: { id: ID }) {

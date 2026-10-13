@@ -31,6 +31,7 @@ import { report } from "@/lib/feedback"
 import { useQueryState } from "@/lib/hooks"
 import { cn } from "@/lib/utils"
 import { useStore } from "@/store/store"
+import { ChipOverflow } from "@/components/app/chip-overflow"
 
 const STATUS_TONE: Record<NockStatus, Tone> = { ai: "blue", unanswered: "red", answered: "green" }
 const STATUS_SHORT: Record<NockStatus, string> = { ai: "Nock ตอบแล้ว", unanswered: "ยังไม่มีคำตอบ", answered: "คลังความรู้" }
@@ -87,8 +88,8 @@ export default function NockPage() {
       const b = bestAnswer(x, answerer ? undefined : me.roles)
       return <span className="block max-w-[340px]"><span className="block truncate font-medium">{x.question}</span><span className="block truncate text-xs text-muted-foreground">{b ? `ทีม: ${b.text}` : x.aiAnswer ? `Nock: ${x.aiAnswer}` : "—"}</span></span>
     } },
-    { id: "part", label: "Part", width: "150px", cell: (x) => <span className="flex flex-wrap gap-1">{(x.locations ?? []).map((l) => <span key={l} className="rounded-full bg-muted px-2 py-0.5 text-xs whitespace-nowrap">{locationLabel(l)}</span>)}</span> },
-    { id: "role", label: "Role", width: "120px", cell: (x) => <span className="flex flex-wrap gap-1">{x.roles.map((r) => <RoleChip key={r} role={r} />)}</span> },
+    { id: "part", label: "Part", width: "130px", cell: (x) => <ChipOverflow items={x.locations ?? []} label={locationLabel} render={(l) => <span className="rounded-full bg-muted px-2 py-0.5 text-xs whitespace-nowrap">{locationLabel(l)}</span>} /> },
+    { id: "role", label: "Role", width: "100px", cell: (x) => <ChipOverflow items={x.roles} label={(r) => ROLE_LABEL[r]} render={(r) => <RoleChip role={r} />} /> },
     { id: "branch", label: "สาขา", width: "56px", align: "center", cell: (x) => (x.manual ? <span className="text-muted-foreground">—</span> : <BranchCode code={scope.code(x.branchId)} />) },
     { id: "answers", label: "คำตอบ", width: "64px", align: "center", info: "จำนวนคำตอบจากทีม — ถ้ามีหลายคำตอบ Nock ใช้คำตอบที่โหวตดีที่สุด", cell: (x) => (x.answers?.length ? <span className="tabular-nums">{x.answers.length}</span> : <span className="text-muted-foreground">—</span>) },
     { id: "votes", label: "โหวต", width: "64px", align: "center", sort: "votes", info: "โหวตของคำตอบที่ใช้อยู่ — ไอคอนบอกฝั่งที่มากกว่า (เขียว = ช่วยได้ · แดง = ไม่ช่วย)", cell: (x) => {
