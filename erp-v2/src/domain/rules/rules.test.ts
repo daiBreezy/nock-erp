@@ -1,6 +1,6 @@
 // Regression tests: each case reproduces a bug found on Dev staging and proves the rule prevents it.
 import { describe, expect, it } from "vitest"
-import type { NockAnswer, NockQuestion, Role, Assessment, Attendance, Branch, BusAddOn, CreditNote, LessonSummary, Course, Entitlement, Family, FormSubmission, Lead, Student, FormOfferSlot, Holiday, Invoice, Klass, Session, Staff, StudentLeave, Weekday } from "../types"
+import type { DevTicket, NockAnswer, NockQuestion, Role, Assessment, Attendance, Branch, BusAddOn, CreditNote, LessonSummary, Course, Entitlement, Family, FormSubmission, Lead, Student, FormOfferSlot, Holiday, Invoice, Klass, Session, Staff, StudentLeave, Weekday } from "../types"
 import { applyClassEdit, applyToSessions, canChangeTeachers, canRescheduleStudent, mondayOf, removedWithClass, canSave, closesBranch, holidayImpact, hoursFor, isHoliday, overlappingRows, periodsIn, introducedConflicts, editSingleSession, findConflicts, generateSessions, moveSession, sessionState, validateClass, workState } from "./scheduling"
 import { activeLeave, nextClassDates, teacherLeaveCancels, leaveRunSessions, balance, studentState, leaveLedger, packageCovers, canMark, canSaveLeave, coveringEntitlement, effectiveTo, leavesUsed, lowBalanceAlert, removeFromClass, renewalFollowUpDue, resolveEntitlements } from "./attendance"
 import { bestPromotion, duplicateBusDay, billedOn, busAddOnAmount, pendingBusAddOns, validateBusAddOn, carriedMinutes, weekKey, classOptionsFor, defaultAdvance, entryFeeWaiver, invoiceSessionDates, invoiceTotals, validateInvoiceDraft, canApprove, canConfirmPayment, canForceApprove, canForceConfirmPayment, canSend, canVoid, defaultBusLegs, busTotal, nextInvoiceNumber, quoteCourse } from "./billing"
@@ -21,6 +21,7 @@ import * as Seats from "./seats"
 import * as Les from "./lessons"
 import * as Sch from "./scheduling"
 import * as NockR from "./nock"
+import * as DevR from "./dev-tickets"
 import { courseSeats } from "./course"
 import * as Rep from "./reports"
 import * as Loss from "./loss"
@@ -2289,5 +2290,32 @@ describe("Nock helper (owner 2026-10-13)", () => {
   it("only Manager and up answer the question bank", () => {
     expect(NockR.canAnswerNock({ roles: ["admin", "teacher"] })).toBe(false)
     expect(NockR.canAnswerNock({ roles: ["manager"] })).toBe(true)
+  })
+})
+
+describe("เรื่องถึง Dev (owner 2026-10-13)", () => {
+  const person = (id: string, roles: Role[]) => ({ id, roles, active: true } as unknown as Staff)
+  const dev = person("d", ["developer"])
+  const admin = person("a", ["admin"])
+  const director = person("n", ["director"])
+  const t = (id: string, by: string) => ({ id, number: "DEV-0001", by } as DevTicket)
+  it("staff see only their own; Developers see every ticket", () => {
+    const all = [t("1", "a"), t("2", "x")]
+    expect(DevR.visibleTickets(all, admin).map((x) => x.id)).toEqual(["1"])
+    expect(DevR.visibleTickets(all, director).map((x) => x.id)).toEqual([])
+    expect(DevR.visibleTickets(all, dev).length).toBe(2)
+  })
+  it("numbers run DEV-0001, DEV-0002 …", () => {
+    expect(DevR.nextTicketNumber([])).toBe("DEV-0001")
+    expect(DevR.nextTicketNumber([{ number: "DEV-0009" }, { number: "DEV-0002" }])).toBe("DEV-0010")
+  })
+  it("needs a title, detail and a Location; only Developers change status, ไม่ทำ needs a reason", () => {
+    expect(DevR.validateTicket({ title: "x", detail: "y", locations: [] }).ok).toBe(false)
+    expect(DevR.validateTicket({ title: "x", detail: "y", locations: ["billing"] }).ok).toBe(true)
+    expect(DevR.canSetTicketStatus(admin, "done", "").ok).toBe(false)
+    expect(DevR.canSetTicketStatus(dev, "wont_do", "").ok).toBe(false)
+    expect(DevR.canSetTicketStatus(dev, "wont_do", "นอกขอบเขต").ok).toBe(true)
+    expect(DevR.canReplyTicket(admin, { by: "a" })).toBe(true)
+    expect(DevR.canReplyTicket(admin, { by: "x" })).toBe(false)
   })
 })

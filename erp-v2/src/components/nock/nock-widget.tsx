@@ -5,13 +5,16 @@
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { useEffect, useMemo, useRef, useState } from "react"
-import { ArrowRightIcon, LibraryBigIcon, Loader2Icon, ArrowUpIcon, MapPinIcon, SendIcon, ThumbsDownIcon, ThumbsUpIcon, UserRoundCheckIcon, XIcon } from "lucide-react"
+import { ArrowRightIcon, LibraryBigIcon, Loader2Icon, ArrowUpIcon, CheckIcon, CodeXmlIcon, MapPinIcon, SendIcon, ThumbsDownIcon, ThumbsUpIcon, UserRoundCheckIcon, XIcon } from "lucide-react"
 import { AiAvatar } from "@/components/ui/ai-avatar"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Button } from "@/components/ui/button"
 import { fmtDateTime } from "@/domain/dates"
 import * as Nock from "@/domain/rules/nock"
-import type { NockQuestion, Result } from "@/domain/types"
+import type { DevTicketKind, NockQuestion, Result } from "@/domain/types"
+import { DEV_KIND_LABEL } from "@/domain/rules/dev-tickets"
+import { DEV_KIND_ICON } from "./dev-kind-icon"
+import { ROLE_LABEL } from "@/domain/rules/permissions"
 import { report } from "@/lib/feedback"
 import { toast } from "sonner"
 import { cn } from "@/lib/utils"
@@ -76,6 +79,8 @@ function NockPanel({ onClose }: { onClose: () => void }) {
   // owner 2026-10-13: the asker says which part of the system the question is about (one or more) — not taken from the page
   const [locs, setLocs] = useState<string[]>([])
   const [needLoc, setNeedLoc] = useState(false)
+  // owner 2026-10-13: "ส่งถึง Dev" — a bug / help / suggestion / question straight to the developers
+  const [view, setView] = useState<"chat" | "dev">("chat")
   const [text, setText] = useState("")
   const [pending, setPending] = useState<Pending>(null)
   const [model, setModel] = useState<string | null | undefined>(undefined)
@@ -124,10 +129,12 @@ function NockPanel({ onClose }: { onClose: () => void }) {
           <p className="text-sm font-semibold">Nock</p>
           <p className="truncate text-[11px] text-muted-foreground">{model === undefined ? "…" : model ? model : "ตอบจากคู่มือ + คำตอบของทีม"}</p>
         </div>
+        <Button size="sm" variant={view === "dev" ? "secondary" : "ghost"} className="h-7 gap-1 rounded-full px-2.5 text-xs text-muted-foreground" title="แจ้งปัญหา ขอความช่วยเหลือ เสนอแนะ หรือถามทีมพัฒนาโดยตรง" onClick={() => setView(view === "dev" ? "chat" : "dev")}><CodeXmlIcon /> ส่งถึง Dev</Button>
         <Button size="icon-sm" variant="ghost" className="text-muted-foreground" aria-label="คลังคำถาม" title="คลังคำถาม Nock" nativeButton={false} render={<Link href="/nock" onClick={onClose} />}><LibraryBigIcon /></Button>
         <Button size="icon-sm" variant="ghost" className="text-muted-foreground" aria-label="ปิด" onClick={onClose}><XIcon /></Button>
       </div>
 
+      {view === "dev" ? <DevTicketForm onDone={() => setView("chat")} onLink={onClose} /> : <>
       <div className="min-h-0 flex-1 space-y-5 overflow-y-auto px-4 pt-2 pb-3">
         {!mine.length && !pending ? (
           <div className="flex h-full flex-col justify-end gap-4 pb-1">
@@ -164,6 +171,54 @@ function NockPanel({ onClose }: { onClose: () => void }) {
         {needLoc && <p className="pt-1.5 text-center text-[11px] text-amber-700">เลือกก่อนว่าคำถามเกี่ยวกับส่วนไหนของระบบ (กด 📍)</p>}
         {mine.length > 0 && <p className="pt-1.5 text-center text-[10px] text-muted-foreground"><span className="inline-flex items-center gap-1">Nock อาจตอบผิดได้ · กด <ThumbsDownIcon className="size-3 text-red-600" /> เพื่อส่งให้ทีมช่วยตอบ</span></p>}
       </form>
+      </>}
+    </div>
+  )
+}
+
+/** ส่งถึง Dev (owner 2026-10-13): kind · title · detail · Location — the page, branch and role are attached automatically */
+function DevTicketForm({ onDone, onLink }: { onDone: () => void; onLink: () => void }) {
+  const me = useStore((s) => s.me())
+  const branch = useStore((s) => s.branches.find((b) => b.id === s.branchId))
+  const send = useStore((s) => s.sendDevTicket)
+  const pathname = usePathname()
+  const [kind, setKind] = useState<DevTicketKind>("bug")
+  const [title, setTitle] = useState("")
+  const [detail, setDetail] = useState("")
+  const [locs, setLocs] = useState<string[]>([])
+  const [sent, setSent] = useState<string | null>(null)
+  const pageUrl = typeof window === "undefined" ? pathname : `${pathname}${window.location.search}`
+  if (sent) return (
+    <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-3 px-6 text-center">
+      <span className="grid size-12 place-items-center rounded-full bg-emerald-100 text-emerald-700"><CheckIcon className="size-6" /></span>
+      <p className="font-semibold">ส่งถึง Dev แล้ว · {sent}</p>
+      <p className="text-sm text-muted-foreground">ทีมพัฒนาจะตอบกลับในเรื่องนี้ — คุณจะได้แจ้งเตือนทุกครั้งที่มีความคืบหน้า</p>
+      <div className="flex gap-2">
+        <Button size="sm" variant="outline" nativeButton={false} render={<Link href="/nock?tab=dev" onClick={onLink} />}>ดูเรื่องที่ส่ง</Button>
+        <Button size="sm" onClick={onDone}>กลับไปคุยกับ Nock</Button>
+      </div>
+    </div>
+  )
+  return (
+    <div className="min-h-0 flex-1 space-y-3 overflow-y-auto px-4 pt-1 pb-3">
+      <div>
+        <p className="font-semibold">ส่งเรื่องถึงทีมพัฒนา</p>
+        <p className="text-xs text-muted-foreground">Dev ตอบกลับในระบบ · เรื่องที่ส่งเห็นเฉพาะคุณกับ Dev</p>
+      </div>
+      <div className="grid grid-cols-2 gap-1.5">
+        {(Object.keys(DEV_KIND_LABEL) as DevTicketKind[]).map((k) => {
+          const Icon = DEV_KIND_ICON[k]
+          return <button key={k} type="button" aria-pressed={kind === k} onClick={() => setKind(k)} className={cn("flex items-center gap-1.5 rounded-2xl border px-2.5 py-2 text-left text-xs", kind === k ? "border-primary bg-primary/5 font-medium text-primary" : "hover:bg-muted")}><Icon className="size-4 shrink-0" />{DEV_KIND_LABEL[k]}</button>
+        })}
+      </div>
+      <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="หัวเรื่องสั้นๆ" className="h-9 w-full rounded-2xl bg-muted/60 px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring/20" />
+      <textarea value={detail} onChange={(e) => setDetail(e.target.value)} rows={5} placeholder={kind === "bug" ? "ทำอะไรอยู่ แล้วเกิดอะไรขึ้น (ควรเป็นอย่างไร)" : kind === "idea" ? "อยากให้ระบบมีอะไร ช่วยงานแบบไหน" : "เล่ารายละเอียด"} className="w-full resize-none rounded-2xl bg-muted/60 px-3 py-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring/20" />
+      <LocationPicker value={locs} onChange={setLocs} />
+      <p className="text-[11px] text-muted-foreground">แนบให้อัตโนมัติ: หน้า {pageUrl} · สาขา{branch?.name} · {me.roles.map((r) => ROLE_LABEL[r]).join(", ")}</p>
+      <div className="flex justify-end gap-2">
+        <Button size="sm" variant="ghost" onClick={onDone}>ยกเลิก</Button>
+        <Button size="sm" disabled={!title.trim() || !detail.trim() || !locs.length} onClick={() => { const r = send({ kind, title, detail, locations: locs, pageUrl }); if (r.ok) setSent(r.value.number); else toast.error(r.error) }}><SendIcon /> ส่งถึง Dev</Button>
+      </div>
     </div>
   )
 }

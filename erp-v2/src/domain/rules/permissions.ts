@@ -28,6 +28,8 @@ export type Permission =
   | "holiday.manage"
   /** Reports (owner 2026-10-01): Director / Area Manager / Manager — not Admin, not teachers */
   | "reports.view"
+  /** เรื่องถึง Dev (owner 2026-10-13): see and answer every staff ticket — the Developer role */
+  | "dev.manage"
 
 const ALL: Permission[] = [
   "calendar.view", "class.manage", "session.manage", "attendance.mark", "attendance.leave_override", "summary.write", "summary.approve",
@@ -38,6 +40,8 @@ const ALL: Permission[] = [
 const MANAGER: Permission[] = ALL.filter((p) => p !== "settings.manage")
 
 export const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
+  // owner 2026-10-13: the development team — answers เรื่องถึง Dev; no school data beyond the calendar
+  developer: ["calendar.view", "dev.manage"],
   super_admin: ALL,
   director: ALL,
   // same powers as a Manager, but across every branch they are assigned to (see crossBranch)
@@ -53,7 +57,7 @@ export const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
 // ---------- roles per branch (owner 2026-10-09) ----------
 
 /** company-wide roles — never tied to one branch */
-export const GLOBAL_ROLES: Role[] = ["super_admin", "director", "area_manager"]
+export const GLOBAL_ROLES: Role[] = ["super_admin", "director", "area_manager", "developer"]
 /** roles given per branch */
 export const BRANCH_ROLES: Role[] = ["manager", "admin", "teacher"]
 
@@ -116,6 +120,7 @@ export const ROLE_LABEL: Record<Role, string> = {
   manager: "Manager",
   admin: "Admin",
   teacher: "Teacher",
+  developer: "Developer",
 }
 
 /** Office roles that receive branch-wide operational notifications. */

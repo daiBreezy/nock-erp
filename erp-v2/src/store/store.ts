@@ -28,8 +28,9 @@ import * as Msg from "@/domain/rules/messages"
 import * as Loss from "@/domain/rules/loss"
 import * as Survey from "@/domain/rules/survey"
 import * as Nock from "@/domain/rules/nock"
+import * as Dev from "@/domain/rules/dev-tickets"
 import { toast } from "sonner"
-import type { NockAnswer, NockQuestion, Role, SurveyCampaign, SurveyResponse, EnrollSubmission, ContactChannel, ContactResult, LossReason, Assessment, AttendanceStatus, Entitlement, Branch, BusAddOn, ClassBlock, CourseSummary, CreditNote, LessonBook, LessonTopic, Seat, ChatMessage, Conversation, Course, DateStr, Family, FormSubmission, Holiday, ID, Invoice, Klass, Lead, LeadStage, LessonSummary, LineDelivery, LogCategory, Result, Session, Staff, Student, SystemConfig } from "@/domain/types"
+import type { DevTicket, DevTicketStatus, NockAnswer, NockQuestion, Role, SurveyCampaign, SurveyResponse, EnrollSubmission, ContactChannel, ContactResult, LossReason, Assessment, AttendanceStatus, Entitlement, Branch, BusAddOn, ClassBlock, CourseSummary, CreditNote, LessonBook, LessonTopic, Seat, ChatMessage, Conversation, Course, DateStr, Family, FormSubmission, Holiday, ID, Invoice, Klass, Lead, LeadStage, LessonSummary, LineDelivery, LogCategory, Result, Session, Staff, Student, SystemConfig } from "@/domain/types"
 
 export interface UIState {
   userId: ID
@@ -102,6 +103,8 @@ type Store = DB & UIState & {
   sendNockToTeam: (id: ID) => Result
   /** thumbs up (true) / down (false) / take back (null) on one answer — the best-voted answer is the one Nock uses */
   voteNockAnswer: (questionId: ID, answerId: ID, vote: boolean | null) => Result
+  /** thumbs on Nock's own reply — anyone who can see it */
+  voteNockAi: (questionId: ID, vote: boolean | null) => Result
   /** add my answer (a question can have answers from several people) — the question becomes knowledge */
   answerNockQuestion: (id: ID, text: string, opts: { audience: Role[]; locations: string[] }) => Result
   /** only the person who wrote an answer may change or remove it */
@@ -110,6 +113,11 @@ type Store = DB & UIState & {
   /** write knowledge straight into the bank */
   createNockKnowledge: (k: { question: string; answer: string; audience: Role[]; locations: string[] }) => Result<NockQuestion>
   deleteNockQuestion: (id: ID) => Result
+  // ---- เรื่องถึง Dev (owner 2026-10-13)
+  sendDevTicket: (t: Pick<DevTicket, "kind" | "title" | "detail" | "locations" | "pageUrl">) => Result<DevTicket>
+  replyDevTicket: (id: ID, text: string) => Result
+  /** Developers only — a note is required to close as "ไม่ทำ" */
+  setDevTicketStatus: (id: ID, status: DevTicketStatus, note: string) => Result
   /** synced from GET /api/line/status, not a user edit — bypasses the Settings draft/save flow */
   setLineOaConnected: (branchId: ID, connected: boolean) => void
 
@@ -914,7 +922,7 @@ export const useStore = create<Store>()(
         const toTeam = !helpful && q.status === "ai"
         set({
           nockQuestions: s.nockQuestions.map((x) =>
-            x.id === id ? { ...x, helpful, status: toTeam ? "unanswered" : x.status }
+            x.id === id ? (() => { const v = Nock.applyVote({ votesUp: x.aiVotesUp ?? [], votesDown: x.aiVotesDown ?? [] }, me.id, helpful); return { ...x, helpful, status: toTeam ? "unanswered" : x.status, aiVotesUp: v.votesUp, aiVotesDown: v.votesDown } })()
               // the asker's verdict on a reply built from knowledge is a vote for the answer it used
               : x.id === q.fromKnowledgeId ? { ...x, answers: (x.answers ?? []).map((a) => (a.id === q.fromAnswerId ? Nock.applyVote(a, me.id, helpful) : a)) } : x),
           notifications: toTeam ? [nockNotice(s, q), ...s.notifications] : s.notifications,
@@ -927,6 +935,14 @@ export const useStore = create<Store>()(
         if (!q) return fail("ไม่พบคำถาม")
         if (q.status === "answered") return fail("ทีมตอบคำถามนี้แล้ว")
         set({ nockQuestions: s.nockQuestions.map((x) => (x.id === id ? { ...x, status: "unanswered" } : x)), notifications: [nockNotice(s, q), ...s.notifications] })
+        return { ok: true, value: undefined }
+      },
+      voteNockAi: (qid, vote) => {
+        const s = get()
+        const q = s.nockQuestions.find((x) => x.id === qid)
+        if (!q?.aiAnswer) return fail("Nock ยังไม่ได้ตอบข้อนี้")
+        const v = Nock.applyVote({ votesUp: q.aiVotesUp ?? [], votesDown: q.aiVotesDown ?? [] }, s.me().id, vote)
+        set({ nockQuestions: s.nockQuestions.map((x) => (x.id === qid ? { ...x, aiVotesUp: v.votesUp, aiVotesDown: v.votesDown } : x)) })
         return { ok: true, value: undefined }
       },
       voteNockAnswer: (qid, aid, vote) => {
@@ -985,6 +1001,40 @@ export const useStore = create<Store>()(
           answers: [{ id: uid("na"), by: me.id, at, text: k.answer.trim(), audience: k.audience, votesUp: [], votesDown: [] }] }
         set({ nockQuestions: [q, ...s.nockQuestions] })
         return { ok: true, value: q }
+      },
+      sendDevTicket: (input) => {
+        const s = get()
+        const me = s.me()
+        const v = Dev.validateTicket(input)
+        if (!v.ok) return v
+        const t: DevTicket = { id: uid("dv"), number: Dev.nextTicketNumber(s.devTickets), at: s.now().toISOString(), by: me.id, roles: me.roles, branchId: s.branchId, ...input, title: input.title.trim(), detail: input.detail.trim(), status: "new", thread: [] }
+        const n = Notif.notify({ id: uid("no"), at: s.now(), kind: "nock", title: `เรื่องถึง Dev ${t.number} · ${Dev.DEV_KIND_LABEL[t.kind]} — จาก ${me.nickname}`, body: t.title, fromId: me.id, audience: { roles: ["developer"] } })
+        set({ devTickets: [t, ...s.devTickets], notifications: [n, ...s.notifications] })
+        return { ok: true, value: t }
+      },
+      replyDevTicket: (id, text) => {
+        const s = get()
+        const me = s.me()
+        const t = s.devTickets.find((x) => x.id === id)
+        if (!t) return fail("ไม่พบเรื่อง")
+        if (!Dev.canReplyTicket(me, t)) return fail("ตอบได้เฉพาะคนแจ้งและ Developer")
+        if (!text.trim()) return fail("พิมพ์ข้อความก่อน")
+        const fromDev = Dev.seesAllTickets(me) && t.by !== me.id
+        const n = Notif.notify({ id: uid("no"), at: s.now(), kind: "nock", title: fromDev ? `Dev ตอบเรื่อง ${t.number}` : `${me.nickname} ตอบในเรื่อง ${t.number}`, body: text.trim(), fromId: me.id, audience: fromDev ? { roles: [], staffIds: [t.by] } : { roles: ["developer"] } })
+        set({ devTickets: s.devTickets.map((x) => (x.id === id ? { ...x, thread: [...x.thread, { id: uid("dm"), by: me.id, at: s.now().toISOString(), text: text.trim() }] } : x)), notifications: [n, ...s.notifications] })
+        return { ok: true, value: undefined }
+      },
+      setDevTicketStatus: (id, status, note) => {
+        const s = get()
+        const me = s.me()
+        const t = s.devTickets.find((x) => x.id === id)
+        if (!t) return fail("ไม่พบเรื่อง")
+        const v = Dev.canSetTicketStatus(me, status, note)
+        if (!v.ok) return v
+        const line = { id: uid("dm"), by: me.id, at: s.now().toISOString(), text: note.trim(), status }
+        const n = Notif.notify({ id: uid("no"), at: s.now(), kind: "nock", title: `เรื่อง ${t.number}: ${Dev.DEV_STATUS_LABEL[status]}`, body: note.trim() || t.title, fromId: me.id, audience: { roles: [], staffIds: [t.by] } })
+        set({ devTickets: s.devTickets.map((x) => (x.id === id ? { ...x, status, thread: [...x.thread, line] } : x)), notifications: [n, ...s.notifications] })
+        return { ok: true, value: undefined }
       },
       deleteNockQuestion: (id) => {
         const s = get()
@@ -2531,7 +2581,7 @@ export const useStore = create<Store>()(
     {
       name: "nockerp-v2",
       // bump when the data model changes; older saved data is replaced by fresh sample data
-      version: 74, // 74: Nock answers per person + thumbs per answer · 73: Nock locations + knowledge = answered questions + votes · 72: Nock question bank + knowledge · 71: Summer Memo + Summer course + paid Summer invoice · 68–70: session summaries in every stage this week + sample Course Summaries (Single + Bundle) · 65–67: names without titles, parent relationship, phones without dashes, subject colours · 61: real branches (owner 2026-10-07) · 62: CB = ตึกน้ำ · 63: sample schools · 64: schools from the Ministry list
+      version: 75, // 75: Developer role + เรื่องถึง Dev · 74: Nock answers per person + thumbs per answer · 73: Nock locations + knowledge = answered questions + votes · 72: Nock question bank + knowledge · 71: Summer Memo + Summer course + paid Summer invoice · 68–70: session summaries in every stage this week + sample Course Summaries (Single + Bundle) · 65–67: names without titles, parent relationship, phones without dashes, subject colours · 61: real branches (owner 2026-10-07) · 62: CB = ตึกน้ำ · 63: sample schools · 64: schools from the Ministry list
       migrate: () => ({ ...buildSeed(), userId: "u_nock", branchId: "br_thl", clockOffset: 0 }) as unknown as Store,
       // persist data + UI state only, never the action functions
       partialize: (s) => Object.fromEntries(Object.entries(s).filter(([, v]) => typeof v !== "function")) as Partial<Store>,

@@ -6,7 +6,7 @@ export type DateStr = string
 export type TimeStr = string
 
 export type Brand = "nockacademy" | "liclass"
-export type Role = "super_admin" | "director" | "area_manager" | "manager" | "admin" | "teacher"
+export type Role = "super_admin" | "director" | "area_manager" | "manager" | "admin" | "teacher" | "developer"
 export type Weekday = 0 | 1 | 2 | 3 | 4 | 5 | 6 // 0 = Sunday
 
 export interface OpenHours {
@@ -1336,6 +1336,9 @@ export interface NockQuestion {
   status: NockStatus
   /** the asker's thumbs up / down on Nock's reply — down sends it to the team */
   helpful?: boolean
+  /** everyone's thumbs on Nock's own reply (owner 2026-10-13: "ทุกคนกดไลค์ / unlike คำตอบของ Nock ได้") */
+  aiVotesUp?: ID[]
+  aiVotesDown?: ID[]
   /** people's answers — one is enough to make the question knowledge; thumbs decide which one Nock uses */
   answers?: NockAnswer[]
   /** written straight into the bank (not asked through Nock) */
@@ -1352,4 +1355,30 @@ export interface NockAnswer {
   audience: Role[]
   votesUp: ID[]
   votesDown: ID[]
+}
+
+// ---------- เรื่องถึง Dev (owner 2026-10-13): any staff → the development team, answered inside the ERP ----------
+
+export type DevTicketKind = "bug" | "help" | "idea" | "question"
+export type DevTicketStatus = "new" | "acknowledged" | "in_progress" | "done" | "wont_do"
+
+/** A bug / help request / suggestion / question for the developers. The reporter sees their own; Developers see all. */
+export interface DevTicket {
+  id: ID
+  /** DEV-0001 */
+  number: string
+  at: string
+  by: ID
+  roles: Role[]
+  branchId: ID
+  kind: DevTicketKind
+  title: string
+  detail: string
+  /** the parts of the system it is about (NOCK_LOCATIONS ids) — chosen by the reporter */
+  locations: string[]
+  /** where they were when they sent it — attached automatically for the developers */
+  pageUrl: string
+  status: DevTicketStatus
+  /** the conversation between the reporter and the developers (status changes are logged here too) */
+  thread: { id: ID; by: ID; at: string; text: string; status?: DevTicketStatus }[]
 }

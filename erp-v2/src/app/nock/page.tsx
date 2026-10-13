@@ -4,7 +4,7 @@
 // knowledge. A question can have answers from several people (each person edits only their own); thumbs up / down
 // on each answer decide which one Nock uses. Who asked (role, branch), when, which part of the system (Location).
 import { useState } from "react"
-import { BookOpenCheckIcon, CircleHelpIcon, MapPinIcon, MessagesSquareIcon, PencilIcon, PlusIcon, SaveIcon, SparklesIcon, StarIcon, ThumbsDownIcon, ThumbsUpIcon, TrashIcon } from "lucide-react"
+import { BookOpenCheckIcon, CircleHelpIcon, CodeXmlIcon, MapPinIcon, MessagesSquareIcon, PencilIcon, PlusIcon, SaveIcon, SparklesIcon, StarIcon, ThumbsDownIcon, ThumbsUpIcon, TrashIcon } from "lucide-react"
 import { Pill, RoleChip, type Tone } from "@/components/app/badges"
 import { BranchCode, useBranchScope } from "@/components/app/branch-scope"
 import { ColumnsMenu, DataTable, type Column } from "@/components/app/data-grid"
@@ -13,7 +13,9 @@ import { EntityPanel, PanelBody, PanelFooter, PanelMore } from "@/components/app
 import { InfoTip } from "@/components/app/info-tip"
 import { Kpi } from "@/components/app/kpi"
 import { NativeSelect } from "@/components/app/native-select"
-import { FilterBar, KpiRow, Page, PageHeader, SearchBox, Segmented, Toolbar } from "@/components/app/page-layout"
+import { FilterBar, KpiRow, Page, PageHeader, SearchBox, Segmented, Tabs, Toolbar } from "@/components/app/page-layout"
+import { DevTicketsView } from "@/components/nock/dev-tickets-view"
+import { OPEN_STATUSES, visibleTickets } from "@/domain/rules/dev-tickets"
 import { Field } from "@/components/app/student-form"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -23,7 +25,7 @@ import { fmtDate, toDateStr } from "@/domain/dates"
 import { answerScore, bestAnswer, canAnswerNock, helpfulRate, knowledgeOf, locationLabel, NOCK_LOCATIONS, NOCK_STATUS_LABEL, visibleAnswer } from "@/domain/rules/nock"
 import { matchesQuery } from "@/domain/rules/people"
 import { ROLE_LABEL } from "@/domain/rules/permissions"
-import type { ID, NockAnswer, NockQuestion, NockStatus, Role } from "@/domain/types"
+import type { ID, NockAnswer, NockQuestion, NockStatus, Result, Role } from "@/domain/types"
 import { report } from "@/lib/feedback"
 import { useQueryState } from "@/lib/hooks"
 import { cn } from "@/lib/utils"
@@ -54,6 +56,9 @@ export default function NockPage() {
   const answerer = canAnswerNock(me)
   const scope = useBranchScope()
   // owner 2026-10-13: no date range — All / Pending (no answer yet) / Done (answered)
+  const [tab, setTab] = useQueryState<"questions" | "dev">("tab", "questions")
+  const tickets = useStore((s) => s.devTickets)
+  const openTickets = visibleTickets(tickets, me).filter((t) => OPEN_STATUSES.includes(t.status)).length
   const [show, setShow] = useQueryState<Show>("show", "all")
   const [status, setStatus] = useQueryState<NockStatus | "">("status", "")
   const [location, setLocation] = useQueryState<string>("location", "")
@@ -71,7 +76,7 @@ export default function NockPage() {
     .filter((x) => !location || (x.locations ?? []).includes(location))
     .filter((x) => !q || matchesQuery(q, [x.question, x.aiAnswer, ...(x.answers ?? []).map((a) => a.text), who(x.askedBy)?.nickname]))
   const count = (st: NockStatus) => filtered.filter((x) => x.status === st).length
-  const votesOf = (x: NockQuestion) => { const b = bestAnswer(x, answerer ? undefined : me.roles); return b ? answerScore(b) : -999 }
+  const votesOf = (x: NockQuestion) => { const b = bestAnswer(x, answerer ? undefined : me.roles); return b ? answerScore(b) : x.aiAnswer ? (x.aiVotesUp?.length ?? 0) - (x.aiVotesDown?.length ?? 0) : -999 }
   const rows = filtered
     .filter((x) => (show === "pending" ? x.status === "unanswered" : show === "done" ? x.status !== "unanswered" : true))
     .filter((x) => !status || x.status === status)
@@ -96,11 +101,11 @@ export default function NockPage() {
     { id: "role", label: "Role", width: "130px", cell: (x) => <span className="flex gap-1">{x.roles.map((r) => <RoleChip key={r} role={r} />)}</span> },
     { id: "branch", label: "สาขา", width: "60px", cell: (x) => (x.manual ? <span className="text-xs text-muted-foreground">—</span> : <BranchCode code={scope.code(x.branchId)} />) },
     { id: "answers", label: "คำตอบ", width: "70px", align: "right", info: "จำนวนคำตอบจากทีม — ถ้ามีหลายคำตอบ Nock ใช้คำตอบที่โหวตดีที่สุด", cell: (x) => (x.answers?.length ? <span className="tabular-nums">{x.answers.length}</span> : <span className="text-muted-foreground">—</span>) },
-    { id: "votes", label: "โหวต", width: "90px", sort: "votes", info: "โหวตของคำตอบที่ Nock ใช้อยู่ · คำถามที่ Nock ตอบเอง = คนถามบอกว่าตอบตรงไหม", cell: (x) => {
+    { id: "votes", label: "โหวต", width: "90px", sort: "votes", info: "โหวตของคำตอบที่ใช้อยู่ — คำตอบจากทีมที่โหวตดีที่สุด หรือคำตอบของ Nock ถ้ายังไม่มีคนตอบ", cell: (x) => {
       const b = bestAnswer(x, answerer ? undefined : me.roles)
       if (b) return <Thumbs up={b.votesUp.length} down={b.votesDown.length} />
-      if (x.helpful === true) return <span className="inline-flex items-center gap-1 text-xs text-emerald-700"><ThumbsUpIcon className="size-3.5" /> Nock</span>
-      if (x.helpful === false) return <span className="inline-flex items-center gap-1 text-xs text-red-700"><ThumbsDownIcon className="size-3.5" /> Nock</span>
+      // owner 2026-10-13: Nock's own reply is voted on like any other answer
+      if (x.aiAnswer) return <Thumbs up={x.aiVotesUp?.length ?? 0} down={x.aiVotesDown?.length ?? 0} />
       return <span className="text-muted-foreground">—</span>
     } },
     { id: "status", label: "สถานะ", width: "120px", sort: "status", cell: (x) => <Pill tone={STATUS_TONE[x.status]}>{STATUS_SHORT[x.status]}</Pill> },
@@ -110,7 +115,10 @@ export default function NockPage() {
     <Page>
       <PageHeader title={<span className="flex items-center gap-2">คลังคำถาม Nock <InfoTip text="ทุกคำถามที่ถาม Nock · คำถามที่มีคำตอบจากทีม = คลังความรู้ที่ Nock ใช้ตอบคนต่อไป · ตอบได้หลายคน แก้ได้เฉพาะคำตอบของตัวเอง · โหวตขึ้น / ลง เลือกว่า Nock ใช้คำตอบไหน · คำถามที่ Nock ตอบไม่ได้รอ Super Admin / Director / Area Manager / Manager ตอบ" /></span>}
         description={answerer ? "ตอบคำถามที่ Nock ยังไม่รู้ — ตอบแล้วกลายเป็นคลังความรู้" : "คำถามของคุณ และคลังความรู้ที่ทีมตอบไว้"}
-        actions={answerer && <Button onClick={() => setOpen("new")}><PlusIcon /> สร้างคลังความรู้</Button>} />
+        actions={answerer && tab === "questions" && <Button onClick={() => setOpen("new")}><PlusIcon /> สร้างคลังความรู้</Button>} />
+      {/* owner 2026-10-13: questions about using the system | เรื่องถึง Dev (bugs / help / suggestions) — one page */}
+      <Tabs value={tab} onChange={setTab} options={[{ value: "questions", label: "คำถามการใช้งาน", icon: MessagesSquareIcon }, { value: "dev", label: <>เรื่องถึง Dev{openTickets > 0 && <span className="rounded-full bg-red-100 px-1.5 text-xs text-red-800 tabular-nums">{openTickets}</span>}</>, icon: CodeXmlIcon }]} />
+      {tab === "dev" ? <DevTicketsView /> : <>
       <KpiRow>
         <Kpi icon={MessagesSquareIcon} label="คำถามทั้งหมด" value={filtered.length} onClick={() => { setShow("all"); setStatus("") }} active={show === "all" && !status} />
         <Kpi icon={CircleHelpIcon} label="ยังไม่มีคำตอบ" value={count("unanswered")} tone="red" valueClassName={count("unanswered") ? "text-red-700" : undefined} onClick={() => { setShow("all"); setStatus(status === "unanswered" ? "" : "unanswered") }} active={status === "unanswered"} />
@@ -135,6 +143,7 @@ export default function NockPage() {
       <EntityPanel open={!!open} onClose={() => setOpen(null)} wide>
         {open === "new" ? <CreatePanel onClose={() => setOpen(null)} /> : open && <QuestionPanel key={open} id={open} onClose={() => setOpen(null)} />}
       </EntityPanel>
+      </>}
     </Page>
   )
 }
@@ -152,6 +161,23 @@ function Chips<T extends string>({ all, value, onChange, emptyLabel }: { all: { 
 }
 const ROLE_OPTS = ROLES.map((r) => ({ id: r, label: ROLE_LABEL[r] }))
 
+/** thumbs up (green) / down (red) with counts — press again to take your vote back */
+function VoteButtons({ up, down, onVote, inline }: { up: ID[]; down: ID[]; onVote: (v: boolean | null) => Result; inline?: boolean }) {
+  const me = useStore((s) => s.me())
+  const mine = up.includes(me.id) ? true : down.includes(me.id) ? false : null
+  const btns = (
+    <>
+      <Button size="xs" variant="outline" className={cn(mine === true && "border-emerald-500 bg-emerald-50 text-emerald-800 dark:bg-emerald-950")} onClick={() => report(onVote(mine === true ? null : true), mine === true ? "ยกเลิกโหวตแล้ว" : "โหวตว่าช่วยได้")}>
+        <ThumbsUpIcon className="text-emerald-600" /> {up.length}
+      </Button>
+      <Button size="xs" variant="outline" className={cn(mine === false && "border-red-500 bg-red-50 text-red-800 dark:bg-red-950")} onClick={() => report(onVote(mine === false ? null : false), mine === false ? "ยกเลิกโหวตแล้ว" : "โหวตว่าไม่ช่วย")}>
+        <ThumbsDownIcon className="text-red-600" /> {down.length}
+      </Button>
+    </>
+  )
+  return inline ? btns : <div className="flex gap-1.5 pt-1">{btns}</div>
+}
+
 /** one person's answer: text, who, when, who may be told it, thumbs — its writer can edit / remove it */
 function AnswerCard({ q, a, used, onEdit }: { q: NockQuestion; a: NockAnswer; used: boolean; onEdit: () => void }) {
   const me = useStore((s) => s.me())
@@ -159,7 +185,6 @@ function AnswerCard({ q, a, used, onEdit }: { q: NockQuestion; a: NockAnswer; us
   const vote = useStore((s) => s.voteNockAnswer)
   const remove = useStore((s) => s.deleteNockAnswer)
   const mine = a.by === me.id
-  const myVote = a.votesUp.includes(me.id) ? true : a.votesDown.includes(me.id) ? false : null
   const rate = helpfulRate(a)
   return (
     <section className={cn("space-y-2 rounded-2xl p-3 ring-1", used ? "bg-emerald-50/70 ring-emerald-300 dark:bg-emerald-950/30 dark:ring-emerald-900" : "bg-card ring-foreground/10")}>
@@ -171,12 +196,7 @@ function AnswerCard({ q, a, used, onEdit }: { q: NockQuestion; a: NockAnswer; us
       </div>
       <p className="text-sm whitespace-pre-line">{a.text}</p>
       <div className="flex flex-wrap items-center gap-1.5">
-        <Button size="xs" variant="outline" className={cn(myVote === true && "border-emerald-500 bg-emerald-50 text-emerald-800 dark:bg-emerald-950")} onClick={() => report(vote(q.id, a.id, myVote === true ? null : true), myVote === true ? "ยกเลิกโหวตแล้ว" : "โหวตว่าช่วยได้")}>
-          <ThumbsUpIcon className="text-emerald-600" /> {a.votesUp.length}
-        </Button>
-        <Button size="xs" variant="outline" className={cn(myVote === false && "border-red-500 bg-red-50 text-red-800 dark:bg-red-950")} onClick={() => report(vote(q.id, a.id, myVote === false ? null : false), myVote === false ? "ยกเลิกโหวตแล้ว" : "โหวตว่าไม่ช่วย")}>
-          <ThumbsDownIcon className="text-red-600" /> {a.votesDown.length}
-        </Button>
+        <VoteButtons up={a.votesUp} down={a.votesDown} onVote={(v) => vote(q.id, a.id, v)} inline />
         {rate !== null && <span className={cn("text-xs font-medium", rate >= 0.7 ? "text-emerald-700" : rate >= 0.4 ? "text-amber-700" : "text-red-700")}>ช่วยได้ {Math.round(rate * 100)}%</span>}
         {mine && (
           <span className="ml-auto flex gap-1">
@@ -197,6 +217,7 @@ function QuestionPanel({ id, onClose }: { id: ID; onClose: () => void }) {
   const answerQ = useStore((s) => s.answerNockQuestion)
   const editA = useStore((s) => s.editNockAnswer)
   const removeQ = useStore((s) => s.deleteNockQuestion)
+  const voteAi = useStore((s) => s.voteNockAi)
   const mineA = x?.answers?.find((a) => a.by === me.id)
   // null = viewing · "new" = writing my answer · an id = editing my answer
   const [mode, setMode] = useState<null | "new" | ID>(null)
@@ -230,6 +251,7 @@ function QuestionPanel({ id, onClose }: { id: ID; onClose: () => void }) {
           <section className="space-y-1.5 rounded-2xl bg-sky-50/70 p-3 ring-1 ring-sky-200 dark:bg-sky-950/40 dark:ring-sky-900">
             <p className="flex items-center gap-1.5 text-xs font-medium text-sky-800 dark:text-sky-200"><SparklesIcon className="size-3.5" /> Nock ตอบ{x.aiSource && ` · จาก${x.aiSource === "ai" ? " AI" : x.aiSource === "knowledge" ? "คลังความรู้" : "คู่มือระบบ"}`}</p>
             <p className="text-sm whitespace-pre-line">{x.aiAnswer || "Nock ไม่รู้คำตอบ"}</p>
+            {x.aiAnswer && <VoteButtons up={x.aiVotesUp ?? []} down={x.aiVotesDown ?? []} onVote={(v) => voteAi(x.id, v)} />}
           </section>
         )}
         {answers.length > 0 && <p className="text-sm font-semibold">คำตอบจากทีม ({answers.length}){answers.length > 1 && <span className="ml-1 font-normal text-muted-foreground">— โหวตขึ้น / ลง เลือกว่า Nock ใช้คำตอบไหน</span>}</p>}

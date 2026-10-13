@@ -5,7 +5,7 @@
 import type { AppNotification, ID, NotificationKind, Role, Staff } from "../types"
 import { inBranch } from "./permissions"
 
-export const ALL_ROLES: Role[] = ["super_admin", "director", "area_manager", "manager", "admin", "teacher"]
+export const ALL_ROLES: Role[] = ["super_admin", "director", "area_manager", "manager", "admin", "teacher", "developer"]
 
 export interface Audience {
   /** roles that see it (within branchId when set) */

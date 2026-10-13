@@ -8,7 +8,7 @@ import { reasonLabel } from "@/domain/rules/loss"
 import { generateSessions } from "@/domain/rules/scheduling"
 import { entitlementRounds } from "@/domain/rules/summaries"
 import type {
-  Assessment, AppNotification, Attendance, NockQuestion, Branch, BusAddOn, DayBlocks, ChatMessage, CourseSummary, CreditNote, LessonBook, LessonTopic, Conversation, Course, Entitlement, Family, Holiday, Invoice, Klass, Lead, LessonSummary,
+  Assessment, AppNotification, Attendance, DevTicket, NockQuestion, Branch, BusAddOn, DayBlocks, ChatMessage, CourseSummary, CreditNote, LessonBook, LessonTopic, Conversation, Course, Entitlement, Family, Holiday, Invoice, Klass, Lead, LessonSummary,
   ActivityLog, PriceRow, Session, StudentNote, Staff, Student, StudentLeave, SurveyCampaign, SurveyResponse, SystemConfig, Weekday,
 } from "@/domain/types"
 
@@ -23,6 +23,7 @@ export interface DB {
   summaries: LessonSummary[]
   courseSummaries: CourseSummary[]
   nockQuestions: NockQuestion[]
+  devTickets: DevTicket[]
   families: Family[]
   students: Student[]
   entitlements: Entitlement[]
@@ -174,6 +175,8 @@ export function buildSeed(now = new Date()): DB {
     // part-time teachers — substitutes when a teacher is on leave
     { ...st("u_fon", "ฝน ขยันสอน", "ครูฝน", ["teacher"], ["br_thl"], ["คณิต", "อังกฤษ"], false), partTime: true },
     { ...st("u_kaew", "แก้ว ใจงาม", "ครูแก้ว", ["teacher"], ["br_thl"], ["วิทย์"], false), partTime: true },
+    // owner 2026-10-13: the development team — answers เรื่องถึง Dev
+    st("u_dev", "เดฟ ทีมพัฒนา", "เดฟ", ["developer"], ALL_BRANCHES, []),
     { ...st("u_old", "โอ๊ต (ลาออก)", "ครูโอ๊ต", ["teacher"], ["br_thl"], ["คณิต"]), active: false },
   ]
 
@@ -642,9 +645,9 @@ export function buildSeed(now = new Date()): DB {
   const ago = (h: number) => new Date(now.getTime() - h * 3_600_000).toISOString()
   const nockQuestions: NockQuestion[] = [
     { id: "nq_2", at: ago(5), askedBy: "u_ploy", roles: ["admin", "teacher"], branchId: "br_thl", locations: ["billing"], question: "ผู้ปกครองโอนเงินเกิน ต้องคืนส่วนต่างยังไง", status: "unanswered" },
-    { id: "nq_4", at: ago(30), askedBy: "u_t_br_ari", roles: ["teacher"], branchId: "br_ari", locations: ["sessions", "summaries"], question: "เช็คชื่อผิดคน แก้ได้ไหม", aiAnswer: "เช็คชื่อ: คาบเรียน & เช็คชื่อ › กดคาบ → กด มา / ลา ของนักเรียนแต่ละคน (บันทึกทันที)", aiSource: "guide", links: [{ label: "คาบเรียน & เช็คชื่อ", href: "/sessions" }], status: "unanswered", helpful: false },
-    { id: "nq_3", at: ago(26), askedBy: "u_ploy", roles: ["admin", "teacher"], branchId: "br_thl", locations: ["settings"], question: "อยากเพิ่มวิชาภาษาจีน ต้องทำยังไง", aiAnswer: "เพิ่มวิชาใหม่ — สิทธิ์ของคุณ (Admin, Teacher) ทำเองไม่ได้ ต้องให้ Super Admin, Director เป็นคนทำ", aiSource: "guide", links: [{ label: "Settings › วิชา", href: "/settings?view=system&sys=subjects" }], status: "ai", helpful: true },
-    { id: "nq_5", at: ago(50), askedBy: "u_dai", roles: ["teacher"], branchId: "br_thl", locations: ["sessions"], question: "นักเรียนมาสายครึ่งคาบ ต้องเช็คว่ามาหรือขาด", aiAnswer: "นักเรียนมาสาย: เช็คเป็น มา และเขียนในสรุปการเรียนว่ามาสายกี่นาที (ระบบไม่มีสถานะ มาสาย แยก) · ถ้าลาทั้งคาบให้เช็ค ลา", aiSource: "knowledge", fromKnowledgeId: "nq_6", fromAnswerId: "na_6", status: "ai", helpful: true },
+    { id: "nq_4", at: ago(30), askedBy: "u_t_br_ari", roles: ["teacher"], branchId: "br_ari", locations: ["sessions", "summaries"], question: "เช็คชื่อผิดคน แก้ได้ไหม", aiAnswer: "เช็คชื่อ: คาบเรียน & เช็คชื่อ › กดคาบ → กด มา / ลา ของนักเรียนแต่ละคน (บันทึกทันที)", aiSource: "guide", links: [{ label: "คาบเรียน & เช็คชื่อ", href: "/sessions" }], status: "unanswered", helpful: false, aiVotesUp: [], aiVotesDown: ["u_t_br_ari"] },
+    { id: "nq_3", at: ago(26), askedBy: "u_ploy", roles: ["admin", "teacher"], branchId: "br_thl", locations: ["settings"], question: "อยากเพิ่มวิชาภาษาจีน ต้องทำยังไง", aiAnswer: "เพิ่มวิชาใหม่ — สิทธิ์ของคุณ (Admin, Teacher) ทำเองไม่ได้ ต้องให้ Super Admin, Director เป็นคนทำ", aiSource: "guide", links: [{ label: "Settings › วิชา", href: "/settings?view=system&sys=subjects" }], status: "ai", helpful: true, aiVotesUp: ["u_ploy", "u_ton"], aiVotesDown: [] },
+    { id: "nq_5", at: ago(50), askedBy: "u_dai", roles: ["teacher"], branchId: "br_thl", locations: ["sessions"], question: "นักเรียนมาสายครึ่งคาบ ต้องเช็คว่ามาหรือขาด", aiAnswer: "นักเรียนมาสาย: เช็คเป็น มา และเขียนในสรุปการเรียนว่ามาสายกี่นาที (ระบบไม่มีสถานะ มาสาย แยก) · ถ้าลาทั้งคาบให้เช็ค ลา", aiSource: "knowledge", fromKnowledgeId: "nq_6", fromAnswerId: "na_6", status: "ai", helpful: true, aiVotesUp: ["u_dai"], aiVotesDown: [] },
     { id: "nq_6", at: ago(120), askedBy: "u_mint", roles: ["teacher"], branchId: "br_thl", locations: ["sessions", "summaries"], question: "นักเรียนมาสาย ต้องเช็คชื่อยังไง", status: "answered", answers: [{ id: "na_6", by: "u_ton", at: ago(110), text: "นักเรียนมาสาย: เช็คเป็น มา และเขียนในสรุปการเรียนว่ามาสายกี่นาที (ระบบไม่มีสถานะ มาสาย แยก) · ถ้าลาทั้งคาบให้เช็ค ลา", audience: [], votesUp: ["u_dai", "u_mint", "u_ploy"], votesDown: [] }] },
     { id: "nq_1", at: ago(80), askedBy: "u_dai", roles: ["teacher"], branchId: "br_thl", locations: ["classes", "calendar"], question: "ผู้ปกครองขอเปลี่ยนวันเรียนถาวร ต้องทำยังไง", status: "answered", answers: [
       { id: "na_1a", by: "u_ton", at: ago(72), text: "เปิด Panel คลาสเดิม › เอานักเรียนออกจากคลาส แล้วเพิ่มเข้าคลาสวันใหม่ (Panel คลาส › เพิ่มนักเรียน) · ถ้าย้ายแค่ครั้งเดียวใช้ ย้ายคาบ (Re-schedule) ในคาบนั้นแทน · แพ็กเกจเดิมใช้ต่อได้ ไม่ต้องออกใบใหม่", audience: [], votesUp: ["u_dai", "u_ploy"], votesDown: ["u_mint"] },
@@ -654,7 +657,16 @@ export function buildSeed(now = new Date()): DB {
     { id: "nq_7", at: ago(200), askedBy: "u_nock", roles: ["director"], branchId: "br_thl", locations: ["billing", "reports"], question: "ส่วนลดพิเศษ (Concession) ให้ได้สูงสุดเท่าไหร่", status: "answered", manual: true, answers: [{ id: "na_7", by: "u_nock", at: ago(200), text: "ไม่มีเพดานในระบบ แต่ต้องใส่เหตุผลทุกครั้ง และใบที่มีส่วนลดต้องให้อีกคนอนุมัติ · นโยบายบริษัท: เกิน 10% ต้องขอ Director ก่อน", audience: ["super_admin", "director", "area_manager", "manager"], votesUp: ["u_ton"], votesDown: [] }] },
   ]
 
-  return { branches, staff, holidays, courses, classes, sessions, attendance, summaries, courseSummaries, nockQuestions, families, students, entitlements, leaves, invoices, busAddOns, creditNotes: [] as CreditNote[], lessonBooks, lessonTopics, leads, conversations, messages, notifications: [], system, notes, logs, assessments, surveyCampaigns, surveyResponses }
+  // owner 2026-10-13: เรื่องถึง Dev — one in each stage
+  const devTickets: DevTicket[] = [
+    { id: "dv_1", number: "DEV-0001", at: ago(4), by: "u_ploy", roles: ["admin", "teacher"], branchId: "br_thl", kind: "bug", title: "กดสร้าง PDF ใบแจ้งหนี้แล้วหมุนค้าง", detail: "ใบ INV ของน้องใบเตย กดสร้าง PDF แล้วขึ้น กำลังสร้าง… ค้างไป 10 นาที ลองใหม่ก็เหมือนเดิม", locations: ["billing"], pageUrl: "/billing?open=inv_pending", status: "new", thread: [] },
+    { id: "dv_2", number: "DEV-0002", at: ago(30), by: "u_dai", roles: ["teacher"], branchId: "br_thl", kind: "idea", title: "อยากให้เช็คชื่อทั้งคาบได้ในปุ่มเดียว", detail: "คาบที่มาครบทุกคน อยากมีปุ่ม มาทุกคน จะได้ไม่ต้องกดทีละคน", locations: ["sessions"], pageUrl: "/sessions", status: "in_progress",
+      thread: [{ id: "dm_1", by: "u_dev", at: ago(26), text: "ไอเดียดีครับ รับเรื่องแล้ว", status: "acknowledged" }, { id: "dm_2", by: "u_dev", at: ago(20), text: "กำลังทำ คาดว่าเสร็จสัปดาห์หน้า", status: "in_progress" }] },
+    { id: "dv_3", number: "DEV-0003", at: ago(75), by: "u_ton", roles: ["manager"], branchId: "br_thl", kind: "help", title: "Export รายชื่อนักเรียนเป็น Excel ไม่ได้", detail: "กด Export แล้วไม่มีไฟล์ลงมา", locations: ["students"], pageUrl: "/students", status: "done",
+      thread: [{ id: "dm_3", by: "u_dev", at: ago(70), text: "Safari บล็อกการดาวน์โหลด — แก้ให้ใช้ได้ทุกเบราว์เซอร์แล้ว ลองใหม่ได้เลยครับ", status: "done" }, { id: "dm_4", by: "u_ton", at: ago(68), text: "ได้แล้ว ขอบคุณครับ" }] },
+  ]
+
+  return { branches, staff, holidays, courses, classes, sessions, attendance, summaries, courseSummaries, nockQuestions, devTickets, families, students, entitlements, leaves, invoices, busAddOns, creditNotes: [] as CreditNote[], lessonBooks, lessonTopics, leads, conversations, messages, notifications: [], system, notes, logs, assessments, surveyCampaigns, surveyResponses }
 }
 
 /** Demo history for Reports: ~130 past/current students over the last 15 months with monthly / hour-pack invoices. */
