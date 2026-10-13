@@ -47,6 +47,8 @@ export function NockWidget() {
   const [open, setOpen] = useState(false)
   return (
     <>
+      {/* owner 2026-10-13: click anywhere outside the panel to close it */}
+      {open && <div aria-hidden className="fixed inset-0 z-30" onClick={() => setOpen(false)} />}
       {open && <NockPanel onClose={() => setOpen(false)} />}
       {/* owner 2026-10-13: Nock's face — the blinking orb */}
       {/* owner 2026-10-13: Nock hides at the screen edge, tilted 45° and peeking with its eyes — hover (or keyboard focus)
@@ -98,16 +100,16 @@ function NockPanel({ onClose }: { onClose: () => void }) {
     if (model) {
       try {
         const system = Nock.nockSystemPrompt({ name: me.nickname, roles: me.roles, branch: branch?.name ?? "", locations, knowledge: all, question })
-        const history = mine.slice(-3).flatMap((q) => [{ role: "user" as const, text: q.question }, ...(q.answer || q.aiAnswer ? [{ role: "assistant" as const, text: q.answer ?? q.aiAnswer! }] : [])])
+        const history = mine.slice(-3).flatMap((q) => [{ role: "user" as const, text: q.question }, ...(Nock.bestAnswer(q, me.roles)?.text || q.aiAnswer ? [{ role: "assistant" as const, text: Nock.bestAnswer(q, me.roles)?.text ?? q.aiAnswer! }] : [])])
         const r = await fetch("/api/nock", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ system, question, history }) })
         const j = await r.json()
         if (j.ok) ai = j
       } catch { /* fall back to the handbook */ }
     }
     const top = Nock.matchKnowledge(question, all, me.roles, locations, 1)[0]
-    const used = top && top.score >= Nock.KNOWLEDGE_SURE ? top.item.id : undefined
-    if (ai) quiet(log({ locations, question, aiAnswer: ai.answer, aiSource: "ai", links: ai.links, status: ai.confident ? "ai" : "unanswered", fromKnowledgeId: used }))
-    else if (local) quiet(log({ locations, question, aiAnswer: local.text, aiSource: local.source, links: local.links, status: "ai", fromKnowledgeId: local.knowledgeId }))
+    const used = top && top.score >= Nock.KNOWLEDGE_SURE ? top : undefined
+    if (ai) quiet(log({ locations, question, aiAnswer: ai.answer, aiSource: "ai", links: ai.links, status: ai.confident ? "ai" : "unanswered", fromKnowledgeId: used?.item.id, fromAnswerId: used?.answer.id }))
+    else if (local) quiet(log({ locations, question, aiAnswer: local.text, aiSource: local.source, links: local.links, status: "ai", fromKnowledgeId: local.knowledgeId, fromAnswerId: local.answerId }))
     else quiet(log({ locations, question, status: "unanswered" }))
     setPending(null)
   }
@@ -160,7 +162,7 @@ function NockPanel({ onClose }: { onClose: () => void }) {
           </div>
         </div>
         {needLoc && <p className="pt-1.5 text-center text-[11px] text-amber-700">เลือกก่อนว่าคำถามเกี่ยวกับส่วนไหนของระบบ (กด 📍)</p>}
-        {mine.length > 0 && <p className="pt-1.5 text-center text-[10px] text-muted-foreground">Nock อาจตอบผิดได้ · กด 👎 เพื่อส่งให้ทีมช่วยตอบ</p>}
+        {mine.length > 0 && <p className="pt-1.5 text-center text-[10px] text-muted-foreground"><span className="inline-flex items-center gap-1">Nock อาจตอบผิดได้ · กด <ThumbsDownIcon className="size-3 text-red-600" /> เพื่อส่งให้ทีมช่วยตอบ</span></p>}
       </form>
     </div>
   )
@@ -200,6 +202,8 @@ function Bubble({ from, children }: { from: "me" | "nock" | "team"; children: Re
 
 function Exchange({ q, onRate, onTeam, onLink }: { q: NockQuestion; onRate: (helpful: boolean) => void; onTeam: () => void; onLink: () => void }) {
   const staff = useStore((s) => s.staff)
+  const me = useStore((s) => s.me())
+  const best = Nock.bestAnswer(q, me.roles)
   return (
     <div className="space-y-3">
       <div>
@@ -222,17 +226,17 @@ function Exchange({ q, onRate, onTeam, onLink }: { q: NockQuestion; onRate: (hel
         <div className="flex items-center gap-1 pl-8 text-xs text-muted-foreground">
           {q.helpful === undefined ? <>
             <span>ตอบตรงไหม?</span>
-            <button type="button" aria-label="ตอบตรง" onClick={() => onRate(true)} className="grid size-6 place-items-center rounded-full hover:bg-muted"><ThumbsUpIcon className="size-3.5" /></button>
-            <button type="button" aria-label="ไม่ตรง ส่งให้ทีม" onClick={() => onRate(false)} className="grid size-6 place-items-center rounded-full hover:bg-muted"><ThumbsDownIcon className="size-3.5" /></button>
+            <button type="button" aria-label="ตอบตรง" onClick={() => onRate(true)} className="grid size-6 place-items-center rounded-full hover:bg-muted"><ThumbsUpIcon className="size-3.5 text-emerald-600" /></button>
+            <button type="button" aria-label="ไม่ตรง ส่งให้ทีม" onClick={() => onRate(false)} className="grid size-6 place-items-center rounded-full hover:bg-muted"><ThumbsDownIcon className="size-3.5 text-red-600" /></button>
           </> : <span>ขอบคุณที่บอก</span>}
           <button type="button" onClick={onTeam} className="ml-auto inline-flex items-center gap-1 rounded-full px-2 py-0.5 hover:bg-muted"><SendIcon className="size-3" /> ส่งให้ทีม</button>
         </div>
       )}
       {q.status === "unanswered" && <p className="pl-8 text-xs text-amber-700">รอทีมตอบ · {fmtDateTime(q.at)}</p>}
-      {q.status === "answered" && q.answer && (
+      {q.status === "answered" && best && (
         <Bubble from="team">
-          <span className="mb-0.5 block text-xs font-medium text-emerald-700 dark:text-emerald-300">ตอบโดย {staff.find((s) => s.id === q.answeredBy)?.nickname ?? "ทีม"}</span>
-          {q.answer}
+          <span className="mb-0.5 block text-xs font-medium text-emerald-700 dark:text-emerald-300">ตอบโดย {staff.find((s) => s.id === best.by)?.nickname ?? "ทีม"}{(q.answers?.length ?? 0) > 1 && ` · คำตอบที่โหวตดีที่สุดจาก ${q.answers!.length} คำตอบ`}</span>
+          {best.text}
         </Bubble>
       )}
     </div>

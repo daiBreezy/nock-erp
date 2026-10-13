@@ -2,7 +2,7 @@
 // every question so the team can answer what Nock couldn't; those answers become knowledge Nock uses next time.
 // Pure rules only: the handbook, matching, what counts as answered, who may answer. The AI call is in /api/nock.
 
-import type { NockQuestion, Role, Staff } from "../types"
+import type { NockAnswer, NockQuestion, Role, Staff } from "../types"
 import { ROLE_LABEL, ROLE_PERMISSIONS, type Permission } from "./permissions"
 
 /** Parts of the system a question can be about (owner 2026-10-13: the asker picks — not the page they were on) */
@@ -118,25 +118,37 @@ export function similarity(a: string, b: string): number {
   return common / Math.min(A.size, B.size) * (2 * Math.min(A.size, B.size) / (A.size + B.size))
 }
 
-/** an answered question is knowledge — this person may be told it unless it's limited to other roles */
-export function visibleKnowledge(k: Pick<NockQuestion, "audience">, roles: Role[]): boolean {
-  return !k.audience?.length || k.audience.some((r) => roles.includes(r))
+/** this person may be told an answer unless it's limited to other roles */
+export function visibleAnswer(a: Pick<NockAnswer, "audience">, roles: Role[]): boolean {
+  return !a.audience?.length || a.audience.some((r) => roles.includes(r))
 }
 
-/** the knowledge bank = every question a person has answered */
-export const knowledgeOf = (all: NockQuestion[]) => all.filter((q) => q.status === "answered" && !!q.answer)
+/** thumbs score of an answer — up minus down */
+export const answerScore = (a: Pick<NockAnswer, "votesUp" | "votesDown">) => (a.votesUp?.length ?? 0) - (a.votesDown?.length ?? 0)
 
-/** my 👍 (true) / 👎 (false) / none (null) on a knowledge entry — one vote per person */
-export function applyVote<T extends Pick<NockQuestion, "votesUp" | "votesDown">>(k: T, who: string, vote: boolean | null): T {
-  const up = (k.votesUp ?? []).filter((x) => x !== who)
-  const down = (k.votesDown ?? []).filter((x) => x !== who)
-  return { ...k, votesUp: vote === true ? [...up, who] : up, votesDown: vote === false ? [...down, who] : down }
+/** the answer Nock uses: the best-voted one this person may be told (a tie goes to the earlier answer) */
+export function bestAnswer(q: Pick<NockQuestion, "answers">, roles?: Role[]): NockAnswer | undefined {
+  return (q.answers ?? []).filter((a) => !roles || visibleAnswer(a, roles))
+    .slice().sort((a, b) => answerScore(b) - answerScore(a) || a.at.localeCompare(b.at))[0]
 }
 
-/** 👍 share of a knowledge entry (null = no votes yet) */
-export function helpfulRate(k: Pick<NockQuestion, "votesUp" | "votesDown">): number | null {
-  const up = k.votesUp?.length ?? 0
-  const down = k.votesDown?.length ?? 0
+/** the knowledge bank = every question with at least one answer */
+export const knowledgeOf = (all: NockQuestion[]) => all.filter((q) => (q.answers?.length ?? 0) > 0)
+
+/** a person may see this knowledge if at least one of its answers is for them */
+export const visibleKnowledge = (q: Pick<NockQuestion, "answers">, roles: Role[]) => !!bestAnswer(q, roles)
+
+/** one vote per person on an answer: up (true) / down (false) / none (null) */
+export function applyVote<T extends Pick<NockAnswer, "votesUp" | "votesDown">>(a: T, who: string, vote: boolean | null): T {
+  const up = (a.votesUp ?? []).filter((x) => x !== who)
+  const down = (a.votesDown ?? []).filter((x) => x !== who)
+  return { ...a, votesUp: vote === true ? [...up, who] : up, votesDown: vote === false ? [...down, who] : down }
+}
+
+/** share of thumbs up (null = no votes yet) */
+export function helpfulRate(a: Pick<NockAnswer, "votesUp" | "votesDown">): number | null {
+  const up = a.votesUp?.length ?? 0
+  const down = a.votesDown?.length ?? 0
   return up + down ? up / (up + down) : null
 }
 
@@ -148,15 +160,16 @@ export function matchGuide(q: string, limit = 3, locations: string[] = []): { en
     .slice(0, limit)
 }
 
-/** the team's answers that fit this question — same part of the system counts a little, votes a little */
-export function matchKnowledge(q: string, all: NockQuestion[], roles: Role[], locations: string[] = [], limit = 4): { item: NockQuestion; score: number }[] {
-  return knowledgeOf(all).filter((k) => visibleKnowledge(k, roles))
-    .map((item) => {
-      const text = Math.max(similarity(q, item.question), similarity(q, item.answer!) * 0.6)
-      const place = (item.locations ?? []).some((l) => locations.includes(l)) ? 0.08 : 0
-      const rate = helpfulRate(item)
-      return { item, score: text + (text >= 0.2 ? place + (rate === null ? 0 : (rate - 0.5) * 0.1) : 0) }
-    })
+/** the team's answers that fit this question — same part of the system counts a little, thumbs a little */
+export function matchKnowledge(q: string, all: NockQuestion[], roles: Role[], locations: string[] = [], limit = 4): { item: NockQuestion; answer: NockAnswer; score: number }[] {
+  return knowledgeOf(all).flatMap((item) => {
+    const answer = bestAnswer(item, roles)
+    if (!answer) return []
+    const text = Math.max(similarity(q, item.question), similarity(q, answer.text) * 0.6)
+    const place = (item.locations ?? []).some((l) => locations.includes(l)) ? 0.08 : 0
+    const rate = helpfulRate(answer)
+    return [{ item, answer, score: text + (text >= 0.2 ? place + (rate === null ? 0 : (rate - 0.5) * 0.1) : 0) }]
+  })
     .filter((x) => x.score >= 0.2)
     .sort((a, b) => b.score - a.score)
     .slice(0, limit)
@@ -170,9 +183,9 @@ export const KNOWLEDGE_SURE = 0.55
  * doesn't know — the question goes to the team.
  */
 export function localAnswer(q: string, all: NockQuestion[], roles: Role[], locations: string[] = []):
-  { text: string; source: "knowledge" | "guide"; links: { label: string; href: string }[]; knowledgeId?: string } | null {
+  { text: string; source: "knowledge" | "guide"; links: { label: string; href: string }[]; knowledgeId?: string; answerId?: string } | null {
   const k = matchKnowledge(q, all, roles, locations, 1)[0]
-  if (k && k.score >= KNOWLEDGE_SURE) return { text: k.item.answer!, source: "knowledge", links: [], knowledgeId: k.item.id }
+  if (k && k.score >= KNOWLEDGE_SURE) return { text: k.answer.text, source: "knowledge", links: [], knowledgeId: k.item.id, answerId: k.answer.id }
   const g = matchGuide(q, 1, locations)[0]
   if (g) return { text: guideAnswer(g.entry, roles), source: "guide", links: [{ label: g.entry.hrefLabel, href: g.entry.href }] }
   return null
@@ -185,7 +198,7 @@ export function nockSystemPrompt(input: { name: string; roles: Role[]; branch: s
   const cannot = allowed.filter((p) => !hasPerm(input.roles, p))
   const guide = matchGuide(input.question, 4, input.locations).map((x) => x.entry)
   const guideText = (guide.length ? guide : NOCK_GUIDE).map((g) => `- [${g.id}] ${g.title} (ต้องมีสิทธิ์: ${g.perm ? `${g.perm} = ${roleNames(rolesWith(g.perm))}` : "ทุกคน"}) → ${g.steps} · ลิงก์ ${g.href}`).join("\n")
-  const kb = matchKnowledge(input.question, input.knowledge, input.roles, input.locations).map((x) => `- [${(x.item.locations ?? []).map(locationLabel).join(", ")}] ถาม: ${x.item.question}\n  ตอบ (ทีมเขียน): ${x.item.answer}`).join("\n")
+  const kb = matchKnowledge(input.question, input.knowledge, input.roles, input.locations).map((x) => `- [${(x.item.locations ?? []).map(locationLabel).join(", ")}] ถาม: ${x.item.question}\n  ตอบ (ทีมเขียน): ${x.answer.text}`).join("\n")
   return [
     "คุณคือ Nock ผู้ช่วยในระบบ NockERP ของโรงเรียนกวดวิชา NockAcademy / Liclass ตอบเป็นภาษาไทย สั้น ชัด เป็นขั้นตอน",
     `ผู้ถาม: ${input.name} · บทบาท: ${roleNames(input.roles)} · สาขา: ${input.branch} · ถามเรื่องส่วน: ${input.locations.map(locationLabel).join(", ") || "ไม่ระบุ"}`,

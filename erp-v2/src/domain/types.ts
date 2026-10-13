@@ -1330,20 +1330,26 @@ export interface NockQuestion {
   aiAnswer?: string
   aiSource?: "ai" | "knowledge" | "guide"
   links?: { label: string; href: string }[]
-  /** the knowledge (an answered question) Nock used for this reply — the asker's 👍 / 👎 counts for it */
+  /** the knowledge (an answered question + which of its answers) Nock used for this reply — the asker's thumbs count for that answer */
   fromKnowledgeId?: ID
+  fromAnswerId?: ID
   status: NockStatus
-  /** the asker's 👍 / 👎 on Nock's reply — 👎 sends it to the team */
+  /** the asker's thumbs up / down on Nock's reply — down sends it to the team */
   helpful?: boolean
-  /** a person's answer — this makes the question knowledge */
-  answer?: string
-  answeredBy?: ID
-  answeredAt?: string
-  /** who Nock may tell this answer to — empty = everyone */
-  audience?: Role[]
-  /** 👍 / 👎 on this knowledge — who found it helpful or not */
-  votesUp?: ID[]
-  votesDown?: ID[]
+  /** people's answers — one is enough to make the question knowledge; thumbs decide which one Nock uses */
+  answers?: NockAnswer[]
   /** written straight into the bank (not asked through Nock) */
   manual?: boolean
+}
+
+/** One person's answer to a question (owner 2026-10-13): only its writer edits it; others add their own; thumbs pick the one Nock uses */
+export interface NockAnswer {
+  id: ID
+  by: ID
+  at: string
+  text: string
+  /** who Nock may tell this answer to — empty = everyone */
+  audience: Role[]
+  votesUp: ID[]
+  votesDown: ID[]
 }

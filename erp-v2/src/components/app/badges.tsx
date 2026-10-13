@@ -3,6 +3,7 @@ import { cn } from "@/lib/utils"
 import type { SessionState } from "@/domain/rules/scheduling"
 import { STATE_LABEL } from "@/domain/rules/scheduling"
 import { tx } from "@/lib/i18n"
+import { ROLE_LABEL } from "@/domain/rules/permissions"
 
 // One colour language for statuses across the whole app (UX rule #4).
 export const TONE = {
@@ -45,4 +46,9 @@ export const ROLE_TONE: Record<"super_admin" | "director" | "area_manager" | "ma
   manager: "bg-violet-100 text-violet-800 dark:bg-violet-950 dark:text-violet-200",
   admin: "bg-amber-100 text-amber-900 dark:bg-amber-950 dark:text-amber-200",
   teacher: "bg-sky-100 text-sky-800 dark:bg-sky-950 dark:text-sky-200",
+}
+
+/** a role as its coloured chip — the same colours as the staff page (owner 2026-10-13: "Roles เรามี Chip") */
+export function RoleChip({ role, className }: { role: keyof typeof ROLE_TONE; className?: string }) {
+  return <span className={cn("inline-flex shrink-0 items-center rounded-full px-2 py-0.5 text-xs font-medium whitespace-nowrap", ROLE_TONE[role], className)}>{ROLE_LABEL[role]}</span>
 }
