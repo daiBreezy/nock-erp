@@ -8,6 +8,7 @@ import { BookOpenCheckIcon, CircleHelpIcon, CodeXmlIcon, MapPinIcon, MessagesSqu
 import { Pill, RoleChip, type Tone } from "@/components/app/badges"
 import { BranchCode, useBranchScope } from "@/components/app/branch-scope"
 import { ColumnsMenu, DataTable, type Column } from "@/components/app/data-grid"
+import { VoteBadge } from "@/components/nock/vote-badge"
 import { useSort } from "@/components/app/data-table"
 import { EntityPanel, PanelBody, PanelFooter, PanelMore } from "@/components/app/form-shell"
 import { InfoTip } from "@/components/app/info-tip"
@@ -33,21 +34,11 @@ import { useStore } from "@/store/store"
 
 const STATUS_TONE: Record<NockStatus, Tone> = { ai: "blue", unanswered: "red", answered: "green" }
 const STATUS_SHORT: Record<NockStatus, string> = { ai: "Nock ตอบแล้ว", unanswered: "ยังไม่มีคำตอบ", answered: "คลังความรู้" }
-const ROLES: Role[] = ["super_admin", "director", "area_manager", "manager", "admin", "teacher"]
+const ROLES: Role[] = ["super_admin", "director", "area_manager", "manager", "admin", "teacher", "developer"]
 const timeOf = (iso: string) => new Date(iso).toLocaleTimeString("th-TH", { hour: "2-digit", minute: "2-digit" })
 
-/** thumbs up / down as green / red icons with counts */
-function Thumbs({ up, down, className }: { up: number; down: number; className?: string }) {
-  return (
-    <span className={cn("inline-flex items-center gap-2 text-xs tabular-nums", className)}>
-      <span className="inline-flex items-center gap-0.5 text-emerald-700"><ThumbsUpIcon className="size-3.5" />{up}</span>
-      <span className="inline-flex items-center gap-0.5 text-red-700"><ThumbsDownIcon className="size-3.5" />{down}</span>
-    </span>
-  )
-}
-
 type Show = "all" | "pending" | "done"
-type SortKey = "date" | "asker" | "votes" | "status"
+type SortKey = "date" | "votes" | "status"
 
 export default function NockPage() {
   const me = useStore((s) => s.me())
@@ -62,7 +53,7 @@ export default function NockPage() {
   const [show, setShow] = useQueryState<Show>("show", "all")
   const [status, setStatus] = useQueryState<NockStatus | "">("status", "")
   const [location, setLocation] = useQueryState<string>("location", "")
-  const [asker, setAsker] = useState("")
+  const [role, setRole] = useState<Role | "">("")
   const [q, setQ] = useState("")
   const [open, setOpen] = useState<ID | "new" | null>(null)
   const { sort, toggle } = useSort<SortKey>("date", true)
@@ -72,7 +63,7 @@ export default function NockPage() {
   const visible = all.filter((x) => answerer || x.askedBy === me.id || !!bestAnswer(x, me.roles))
   const inScope = visible.filter((x) => scope.ids.includes(x.branchId) || x.manual)
   const filtered = inScope
-    .filter((x) => !asker || x.askedBy === asker)
+    .filter((x) => !role || x.roles.includes(role))
     .filter((x) => !location || (x.locations ?? []).includes(location))
     .filter((x) => !q || matchesQuery(q, [x.question, x.aiAnswer, ...(x.answers ?? []).map((a) => a.text), who(x.askedBy)?.nickname]))
   const count = (st: NockStatus) => filtered.filter((x) => x.status === st).length
@@ -81,8 +72,7 @@ export default function NockPage() {
     .filter((x) => (show === "pending" ? x.status === "unanswered" : show === "done" ? x.status !== "unanswered" : true))
     .filter((x) => !status || x.status === status)
     .sort((a, b) => {
-      const v = sort.key === "asker" ? (who(a.askedBy)?.nickname ?? "").localeCompare(who(b.askedBy)?.nickname ?? "", "th")
-        : sort.key === "votes" ? votesOf(a) - votesOf(b)
+      const v = sort.key === "votes" ? votesOf(a) - votesOf(b)
           : sort.key === "status" ? a.status.localeCompare(b.status)
             : a.at.localeCompare(b.at)
       return sort.desc ? -v : v
@@ -90,25 +80,22 @@ export default function NockPage() {
   const kbAnswers = knowledgeOf(filtered).flatMap((k) => k.answers ?? [])
   const votes = kbAnswers.reduce((a, x) => ({ up: a.up + x.votesUp.length, down: a.down + x.votesDown.length }), { up: 0, down: 0 })
 
+  // owner 2026-10-13: tidy, no sideways scroll (status stays in view) — the asker's name is in the panel, the table shows roles
   const columns: Column<NockQuestion>[] = [
-    { id: "date", label: "วันที่ · เวลา", width: "110px", sort: "date", cell: (x) => <span className="tabular-nums"><span className="block">{fmtDate(toDateStr(new Date(x.at)))}</span><span className="text-xs text-muted-foreground">{timeOf(x.at)} น.</span></span> },
-    { id: "question", label: "คำถาม", width: "320px", required: true, cell: (x) => {
+    { id: "date", label: "วันที่ · เวลา", width: "112px", sort: "date", cell: (x) => <span className="tabular-nums"><span className="block whitespace-nowrap">{fmtDate(toDateStr(new Date(x.at)), { year: true })}</span><span className="text-xs text-muted-foreground">{timeOf(x.at)} น.</span></span> },
+    { id: "question", label: "คำถาม", width: "260px", required: true, cell: (x) => {
       const b = bestAnswer(x, answerer ? undefined : me.roles)
-      return <span className="block max-w-[420px]"><span className="block truncate font-medium">{x.question}</span><span className="block truncate text-xs text-muted-foreground">{b ? `ทีม: ${b.text}` : x.aiAnswer ? `Nock: ${x.aiAnswer}` : "—"}</span></span>
+      return <span className="block max-w-[340px]"><span className="block truncate font-medium">{x.question}</span><span className="block truncate text-xs text-muted-foreground">{b ? `ทีม: ${b.text}` : x.aiAnswer ? `Nock: ${x.aiAnswer}` : "—"}</span></span>
     } },
-    { id: "location", label: "Part", width: "150px", cell: (x) => <span className="flex gap-1">{(x.locations ?? []).map((l) => <span key={l} className="rounded-full bg-muted px-2 py-0.5 text-xs whitespace-nowrap">{locationLabel(l)}</span>)}</span> },
-    { id: "asker", label: "ผู้ถาม", width: "90px", sort: "asker", cell: (x) => <span className="font-medium">{who(x.askedBy)?.nickname ?? "—"}</span> },
-    { id: "role", label: "Role", width: "130px", cell: (x) => <span className="flex gap-1">{x.roles.map((r) => <RoleChip key={r} role={r} />)}</span> },
-    { id: "branch", label: "สาขา", width: "60px", cell: (x) => (x.manual ? <span className="text-xs text-muted-foreground">—</span> : <BranchCode code={scope.code(x.branchId)} />) },
-    { id: "answers", label: "คำตอบ", width: "70px", align: "right", info: "จำนวนคำตอบจากทีม — ถ้ามีหลายคำตอบ Nock ใช้คำตอบที่โหวตดีที่สุด", cell: (x) => (x.answers?.length ? <span className="tabular-nums">{x.answers.length}</span> : <span className="text-muted-foreground">—</span>) },
-    { id: "votes", label: "โหวต", width: "90px", sort: "votes", info: "โหวตของคำตอบที่ใช้อยู่ — คำตอบจากทีมที่โหวตดีที่สุด หรือคำตอบของ Nock ถ้ายังไม่มีคนตอบ", cell: (x) => {
+    { id: "part", label: "Part", width: "150px", cell: (x) => <span className="flex flex-wrap gap-1">{(x.locations ?? []).map((l) => <span key={l} className="rounded-full bg-muted px-2 py-0.5 text-xs whitespace-nowrap">{locationLabel(l)}</span>)}</span> },
+    { id: "role", label: "Role", width: "120px", cell: (x) => <span className="flex flex-wrap gap-1">{x.roles.map((r) => <RoleChip key={r} role={r} />)}</span> },
+    { id: "branch", label: "สาขา", width: "56px", align: "center", cell: (x) => (x.manual ? <span className="text-muted-foreground">—</span> : <BranchCode code={scope.code(x.branchId)} />) },
+    { id: "answers", label: "คำตอบ", width: "64px", align: "center", info: "จำนวนคำตอบจากทีม — ถ้ามีหลายคำตอบ Nock ใช้คำตอบที่โหวตดีที่สุด", cell: (x) => (x.answers?.length ? <span className="tabular-nums">{x.answers.length}</span> : <span className="text-muted-foreground">—</span>) },
+    { id: "votes", label: "โหวต", width: "64px", align: "center", sort: "votes", info: "โหวตของคำตอบที่ใช้อยู่ — ไอคอนบอกฝั่งที่มากกว่า (เขียว = ช่วยได้ · แดง = ไม่ช่วย)", cell: (x) => {
       const b = bestAnswer(x, answerer ? undefined : me.roles)
-      if (b) return <Thumbs up={b.votesUp.length} down={b.votesDown.length} />
-      // owner 2026-10-13: Nock's own reply is voted on like any other answer
-      if (x.aiAnswer) return <Thumbs up={x.aiVotesUp?.length ?? 0} down={x.aiVotesDown?.length ?? 0} />
-      return <span className="text-muted-foreground">—</span>
+      return b ? <VoteBadge up={b.votesUp.length} down={b.votesDown.length} /> : <VoteBadge up={x.aiVotesUp?.length ?? 0} down={x.aiVotesDown?.length ?? 0} />
     } },
-    { id: "status", label: "สถานะ", width: "120px", sort: "status", cell: (x) => <Pill tone={STATUS_TONE[x.status]}>{STATUS_SHORT[x.status]}</Pill> },
+    { id: "status", label: "สถานะ", width: "110px", align: "right", sort: "status", required: true, cell: (x) => <Pill tone={STATUS_TONE[x.status]}>{STATUS_SHORT[x.status]}</Pill> },
   ]
 
   return (
@@ -131,13 +118,13 @@ export default function NockPage() {
         <Segmented label="แสดง" value={show} onChange={(v) => { setShow(v); setStatus("") }} options={[{ value: "all", label: "All" }, { value: "pending", label: <>Pending{count("unanswered") > 0 && <span className="rounded-full bg-red-100 px-1.5 text-xs text-red-800 tabular-nums">{count("unanswered")}</span>}</> }, { value: "done", label: "Done" }]} />
       </Toolbar>
       <FilterBar search={<SearchBox value={q} onChange={setQ} placeholder="ค้นหาคำถาม / คำตอบ / ผู้ถาม" />}>
-        <NativeSelect className="h-9 w-36" value={asker} onChange={(e) => setAsker(e.target.value)} placeholder="Staff ทุกคน" options={[...new Set(inScope.map((x) => x.askedBy))].map((id) => who(id)).filter((s): s is NonNullable<typeof s> => !!s).map((s) => ({ value: s.id, label: s.nickname }))} />
+        <NativeSelect className="h-9 w-36" value={role} onChange={(e) => setRole(e.target.value as Role | "")} placeholder="ทุก Role" options={ROLES.map((r) => ({ value: r, label: ROLE_LABEL[r] }))} />
         <NativeSelect className="h-9 w-44" value={location} onChange={(e) => setLocation(e.target.value)} placeholder="ทุก Part" options={NOCK_LOCATIONS.map((l) => ({ value: l.id, label: l.label }))} />
         <ColumnsMenu id="nock" columns={columns} />
         {scope.select}
       </FilterBar>
 
-      <DataTable id="nock" columns={columns} rows={rows} rowKey={(x) => x.id} onRowClick={(x) => setOpen(x.id)} sort={sort} onSort={toggle} minWidth={1100}
+      <DataTable id="nock" columns={columns} rows={rows} rowKey={(x) => x.id} onRowClick={(x) => setOpen(x.id)} sort={sort} onSort={toggle} minWidth={900}
         empty={show === "pending" ? "ไม่มีคำถามค้าง — Nock ตอบได้หมด" : "ไม่มีคำถามตามตัวกรอง"} />
 
       <EntityPanel open={!!open} onClose={() => setOpen(null)} wide>

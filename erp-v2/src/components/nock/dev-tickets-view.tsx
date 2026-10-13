@@ -20,7 +20,9 @@ import { fmtDate, toDateStr } from "@/domain/dates"
 import { DEV_KIND_LABEL, DEV_STATUS_LABEL, OPEN_STATUSES, seesAllTickets, visibleTickets, canReplyTicket } from "@/domain/rules/dev-tickets"
 import { locationLabel, NOCK_LOCATIONS } from "@/domain/rules/nock"
 import { matchesQuery } from "@/domain/rules/people"
-import type { DevTicket, DevTicketKind, DevTicketStatus, ID } from "@/domain/types"
+import type { DevTicket, DevTicketKind, DevTicketStatus, ID, Role } from "@/domain/types"
+import { ROLE_LABEL } from "@/domain/rules/permissions"
+import { ALL_ROLES } from "@/domain/rules/notifications"
 import { report } from "@/lib/feedback"
 import { useQueryState } from "@/lib/hooks"
 import { cn } from "@/lib/utils"
@@ -41,7 +43,7 @@ export function DevTicketsView() {
   const [show, setShow] = useQueryState<Show>("dshow", "all")
   const [kind, setKind] = useState<DevTicketKind | "">("")
   const [location, setLocation] = useState("")
-  const [reporter, setReporter] = useState("")
+  const [role, setRole] = useState<Role | "">("")
   const [q, setQ] = useState("")
   const [open, setOpen] = useState<ID | null>(null)
   const { sort, toggle } = useSort<SortKey>("date", true)
@@ -51,24 +53,24 @@ export function DevTicketsView() {
   const filtered = mine
     .filter((t) => !kind || t.kind === kind)
     .filter((t) => !location || t.locations.includes(location))
-    .filter((t) => !reporter || t.by === reporter)
+    .filter((t) => !role || t.roles.includes(role))
     .filter((t) => !q || matchesQuery(q, [t.number, t.title, t.detail, who(t.by)?.nickname]))
   const rows = filtered
     .filter((t) => (show === "pending" ? OPEN_STATUSES.includes(t.status) : show === "done" ? !OPEN_STATUSES.includes(t.status) : true))
     .sort((a, b) => { const v = sort.key === "status" ? a.status.localeCompare(b.status) : a.at.localeCompare(b.at); return sort.desc ? -v : v })
   const count = (sts: DevTicketStatus[]) => filtered.filter((t) => sts.includes(t.status)).length
 
+  // owner 2026-10-13: same tidy layout as the question list — kind as a chip, roles instead of names, status at the right
   const columns: Column<DevTicket>[] = [
-    { id: "number", label: "เลขที่", width: "90px", cell: (t) => <span className="font-mono text-xs">{t.number}</span> },
-    { id: "date", label: "วันที่ · เวลา", width: "110px", sort: "date", cell: (t) => <span className="tabular-nums"><span className="block">{fmtDate(toDateStr(new Date(t.at)))}</span><span className="text-xs text-muted-foreground">{timeOf(t.at)} น.</span></span> },
-    { id: "kind", label: "ประเภท", width: "150px", cell: (t) => { const Icon = DEV_KIND_ICON[t.kind]; return <span className="inline-flex items-center gap-1.5 text-xs"><Icon className="size-3.5 text-muted-foreground" />{DEV_KIND_LABEL[t.kind]}</span> } },
-    { id: "title", label: "เรื่อง", width: "300px", required: true, cell: (t) => <span className="block max-w-[400px]"><span className="block truncate font-medium">{t.title}</span><span className="block truncate text-xs text-muted-foreground">{t.detail}</span></span> },
-    { id: "location", label: "Part", width: "140px", cell: (t) => <span className="flex gap-1">{t.locations.map((l) => <span key={l} className="rounded-full bg-muted px-2 py-0.5 text-xs whitespace-nowrap">{locationLabel(l)}</span>)}</span> },
-    { id: "by", label: "ผู้แจ้ง", width: "90px", cell: (t) => <span className="font-medium">{who(t.by)?.nickname ?? "—"}</span> },
-    { id: "role", label: "Role", width: "130px", cell: (t) => <span className="flex gap-1">{t.roles.map((r) => <RoleChip key={r} role={r} />)}</span> },
-    { id: "branch", label: "สาขา", width: "60px", cell: (t) => <BranchCode code={scope.code(t.branchId)} /> },
-    { id: "replies", label: "ตอบกลับ", width: "70px", align: "right", cell: (t) => (t.thread.length ? <span className="tabular-nums">{t.thread.length}</span> : <span className="text-muted-foreground">—</span>) },
-    { id: "status", label: "สถานะ", width: "140px", sort: "status", cell: (t) => <Pill tone={STATUS_TONE[t.status]}>{DEV_STATUS_LABEL[t.status]}</Pill> },
+    { id: "number", label: "เลขที่", width: "84px", cell: (t) => <span className="font-mono text-xs">{t.number}</span> },
+    { id: "date", label: "วันที่ · เวลา", width: "112px", sort: "date", cell: (t) => <span className="tabular-nums"><span className="block whitespace-nowrap">{fmtDate(toDateStr(new Date(t.at)), { year: true })}</span><span className="text-xs text-muted-foreground">{timeOf(t.at)} น.</span></span> },
+    { id: "kind", label: "ประเภท", width: "150px", cell: (t) => <KindChip kind={t.kind} /> },
+    { id: "title", label: "เรื่อง", width: "240px", required: true, cell: (t) => <span className="block max-w-[320px]"><span className="block truncate font-medium">{t.title}</span><span className="block truncate text-xs text-muted-foreground">{t.detail}</span></span> },
+    { id: "part", label: "Part", width: "140px", cell: (t) => <span className="flex flex-wrap gap-1">{t.locations.map((l) => <span key={l} className="rounded-full bg-muted px-2 py-0.5 text-xs whitespace-nowrap">{locationLabel(l)}</span>)}</span> },
+    { id: "role", label: "Role", width: "120px", cell: (t) => <span className="flex flex-wrap gap-1">{t.roles.map((r) => <RoleChip key={r} role={r} />)}</span> },
+    { id: "branch", label: "สาขา", width: "56px", align: "center", cell: (t) => <BranchCode code={scope.code(t.branchId)} /> },
+    { id: "replies", label: "ตอบกลับ", width: "64px", align: "center", cell: (t) => (t.thread.length ? <span className="tabular-nums">{t.thread.length}</span> : <span className="text-muted-foreground">—</span>) },
+    { id: "status", label: "สถานะ", width: "130px", align: "right", sort: "status", required: true, cell: (t) => <Pill tone={STATUS_TONE[t.status]}>{DEV_STATUS_LABEL[t.status]}</Pill> },
   ]
 
   return (
@@ -82,20 +84,27 @@ export function DevTicketsView() {
       <Toolbar end={!isDev && <span className="text-xs text-muted-foreground">เห็นเฉพาะเรื่องที่คุณส่ง · ส่งเรื่องใหม่ได้ที่ Nock › ส่งถึง Dev</span>}>
         <Segmented label="แสดง" value={show} onChange={setShow} options={[{ value: "all", label: "All" }, { value: "pending", label: <>Pending{count(OPEN_STATUSES) > 0 && <span className="rounded-full bg-red-100 px-1.5 text-xs text-red-800 tabular-nums">{count(OPEN_STATUSES)}</span>}</> }, { value: "done", label: "Done" }]} />
       </Toolbar>
-      <FilterBar search={<SearchBox value={q} onChange={setQ} placeholder="ค้นหาเลขที่ / เรื่อง / ผู้แจ้ง" />}>
-        {isDev && <NativeSelect className="h-9 w-36" value={reporter} onChange={(e) => setReporter(e.target.value)} placeholder="Staff ทุกคน" options={[...new Set(mine.map((t) => t.by))].map((id) => who(id)).filter((s): s is NonNullable<typeof s> => !!s).map((s) => ({ value: s.id, label: s.nickname }))} />}
+      <FilterBar search={<SearchBox value={q} onChange={setQ} placeholder="ค้นหาเลขที่ / เรื่อง" />}>
+        {isDev && <NativeSelect className="h-9 w-36" value={role} onChange={(e) => setRole(e.target.value as Role | "")} placeholder="ทุก Role" options={ALL_ROLES.map((r) => ({ value: r, label: ROLE_LABEL[r] }))} />}
         <NativeSelect className="h-9 w-44" value={kind} onChange={(e) => setKind(e.target.value as DevTicketKind | "")} placeholder="ทุกประเภท" options={(Object.keys(DEV_KIND_LABEL) as DevTicketKind[]).map((k) => ({ value: k, label: DEV_KIND_LABEL[k] }))} />
         <NativeSelect className="h-9 w-44" value={location} onChange={(e) => setLocation(e.target.value)} placeholder="ทุก Part" options={NOCK_LOCATIONS.map((l) => ({ value: l.id, label: l.label }))} />
         <ColumnsMenu id="dev-tickets" columns={columns} />
         {isDev && scope.select}
       </FilterBar>
-      <DataTable id="dev-tickets" columns={columns} rows={rows} rowKey={(t) => t.id} onRowClick={(t) => setOpen(t.id)} sort={sort} onSort={toggle} minWidth={1150}
+      <DataTable id="dev-tickets" columns={columns} rows={rows} rowKey={(t) => t.id} onRowClick={(t) => setOpen(t.id)} sort={sort} onSort={toggle} minWidth={960}
         empty={isDev ? "ไม่มีเรื่องตามตัวกรอง" : "คุณยังไม่ได้ส่งเรื่องถึง Dev — กด ส่งถึง Dev ในหน้าต่าง Nock"} />
       <EntityPanel open={!!open} onClose={() => setOpen(null)} wide>
         {open && <TicketPanel key={open} id={open} />}
       </EntityPanel>
     </>
   )
+}
+
+const KIND_TONE: Record<DevTicketKind, Tone> = { bug: "red", help: "amber", idea: "violet", question: "blue" }
+/** the kind of ticket as a coloured chip with its icon */
+export function KindChip({ kind }: { kind: DevTicketKind }) {
+  const Icon = DEV_KIND_ICON[kind]
+  return <Pill tone={KIND_TONE[kind]}><Icon className="size-3" />{DEV_KIND_LABEL[kind]}</Pill>
 }
 
 function TicketPanel({ id }: { id: ID }) {
@@ -110,7 +119,6 @@ function TicketPanel({ id }: { id: ID }) {
   if (!t) return null
   const isDev = seesAllTickets(me)
   const who = (sid: ID) => staff.find((s) => s.id === sid)
-  const Icon = DEV_KIND_ICON[t.kind]
   const send = () => {
     const ok = next ? report(setStatus(t.id, next, text), `เปลี่ยนเป็น ${DEV_STATUS_LABEL[next]} แล้ว`) : report(reply(t.id, text), "ส่งข้อความแล้ว")
     if (ok) { setText(""); setNext("") }
@@ -121,7 +129,7 @@ function TicketPanel({ id }: { id: ID }) {
         <div className="flex flex-wrap items-center gap-1.5 pr-8">
           <span className="font-mono text-xs text-muted-foreground">{t.number}</span>
           <Pill tone={STATUS_TONE[t.status]}>{DEV_STATUS_LABEL[t.status]}</Pill>
-          <span className="inline-flex items-center gap-1 text-xs text-muted-foreground"><Icon className="size-3.5" />{DEV_KIND_LABEL[t.kind]}</span>
+          <KindChip kind={t.kind} />
         </div>
         <SheetTitle className="text-lg">{t.title}</SheetTitle>
         <SheetDescription className="flex flex-wrap items-center gap-1.5">
