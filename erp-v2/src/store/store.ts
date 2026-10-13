@@ -106,16 +106,16 @@ type Store = DB & UIState & {
   /** thumbs on Nock's own reply — anyone who can see it */
   voteNockAi: (questionId: ID, vote: boolean | null) => Result
   /** add my answer (a question can have answers from several people) — the question becomes knowledge */
-  answerNockQuestion: (id: ID, text: string, opts: { audience: Role[]; locations: string[] }) => Result
+  answerNockQuestion: (id: ID, text: string, opts: { audience: Role[]; locations: string[]; images?: string[] }) => Result
   /** only the person who wrote an answer may change or remove it */
-  editNockAnswer: (questionId: ID, answerId: ID, text: string, audience: Role[]) => Result
+  editNockAnswer: (questionId: ID, answerId: ID, text: string, audience: Role[], images?: string[]) => Result
   deleteNockAnswer: (questionId: ID, answerId: ID) => Result
   /** write knowledge straight into the bank */
-  createNockKnowledge: (k: { question: string; answer: string; audience: Role[]; locations: string[] }) => Result<NockQuestion>
+  createNockKnowledge: (k: { question: string; answer: string; audience: Role[]; locations: string[]; questionImages?: string[]; answerImages?: string[] }) => Result<NockQuestion>
   deleteNockQuestion: (id: ID) => Result
   // ---- เรื่องถึง Dev (owner 2026-10-13)
-  sendDevTicket: (t: Pick<DevTicket, "kind" | "title" | "detail" | "locations" | "pageUrl">) => Result<DevTicket>
-  replyDevTicket: (id: ID, text: string) => Result
+  sendDevTicket: (t: Pick<DevTicket, "kind" | "title" | "detail" | "locations" | "pageUrl" | "images">) => Result<DevTicket>
+  replyDevTicket: (id: ID, text: string, images?: string[]) => Result
   /** Developers only — a note is required to close as "ไม่ทำ" */
   setDevTicketStatus: (id: ID, status: DevTicketStatus, note: string) => Result
   /** synced from GET /api/line/status, not a user edit — bypasses the Settings draft/save flow */
@@ -962,7 +962,7 @@ export const useStore = create<Store>()(
         if (!opts.locations.length) return fail("เลือก Part อย่างน้อย 1")
         if (q.answers?.some((a) => a.by === me.id)) return fail("คุณตอบข้อนี้แล้ว — แก้คำตอบเดิมของคุณแทน")
         const first = !q.answers?.length
-        const a: NockAnswer = { id: uid("na"), by: me.id, at: s.now().toISOString(), text: text.trim(), audience: opts.audience, votesUp: [], votesDown: [] }
+        const a: NockAnswer = { id: uid("na"), by: me.id, at: s.now().toISOString(), text: text.trim(), audience: opts.audience, votesUp: [], votesDown: [], ...(opts.images?.length ? { images: opts.images } : {}) }
         set({
           nockQuestions: s.nockQuestions.map((x) => (x.id === id ? { ...x, status: "answered", locations: opts.locations, answers: [...(x.answers ?? []), a] } : x)),
           notifications: first && q.askedBy !== me.id
@@ -971,13 +971,13 @@ export const useStore = create<Store>()(
         })
         return { ok: true, value: undefined }
       },
-      editNockAnswer: (qid, aid, text, audience) => {
+      editNockAnswer: (qid, aid, text, audience, images) => {
         const s = get()
         const a = s.nockQuestions.find((x) => x.id === qid)?.answers?.find((x) => x.id === aid)
         if (!a) return fail("ไม่พบคำตอบ")
         if (a.by !== s.me().id) return fail("แก้ได้เฉพาะคำตอบที่คุณเขียนเอง — เพิ่มคำตอบของคุณเองแทนได้")
         if (!text.trim()) return fail("เขียนคำตอบก่อน")
-        set({ nockQuestions: s.nockQuestions.map((x) => (x.id === qid ? { ...x, answers: x.answers!.map((y) => (y.id === aid ? { ...y, text: text.trim(), audience } : y)) } : x)) })
+        set({ nockQuestions: s.nockQuestions.map((x) => (x.id === qid ? { ...x, answers: x.answers!.map((y) => (y.id === aid ? { ...y, text: text.trim(), audience, images: images ?? y.images } : y)) } : x)) })
         return { ok: true, value: undefined }
       },
       deleteNockAnswer: (qid, aid) => {
@@ -997,8 +997,8 @@ export const useStore = create<Store>()(
         if (!k.question.trim() || !k.answer.trim()) return fail("ใส่ทั้งคำถามและคำตอบ")
         if (!k.locations.length) return fail("เลือก Part อย่างน้อย 1")
         const at = s.now().toISOString()
-        const q: NockQuestion = { id: uid("nq"), at, askedBy: me.id, roles: me.roles, branchId: s.branchId, locations: k.locations, question: k.question.trim(), status: "answered", manual: true,
-          answers: [{ id: uid("na"), by: me.id, at, text: k.answer.trim(), audience: k.audience, votesUp: [], votesDown: [] }] }
+        const q: NockQuestion = { id: uid("nq"), at, askedBy: me.id, roles: me.roles, branchId: s.branchId, locations: k.locations, question: k.question.trim(), status: "answered", manual: true, ...(k.questionImages?.length ? { images: k.questionImages } : {}),
+          answers: [{ id: uid("na"), by: me.id, at, text: k.answer.trim(), audience: k.audience, votesUp: [], votesDown: [], ...(k.answerImages?.length ? { images: k.answerImages } : {}) }] }
         set({ nockQuestions: [q, ...s.nockQuestions] })
         return { ok: true, value: q }
       },
@@ -1012,16 +1012,16 @@ export const useStore = create<Store>()(
         set({ devTickets: [t, ...s.devTickets], notifications: [n, ...s.notifications] })
         return { ok: true, value: t }
       },
-      replyDevTicket: (id, text) => {
+      replyDevTicket: (id, text, images) => {
         const s = get()
         const me = s.me()
         const t = s.devTickets.find((x) => x.id === id)
         if (!t) return fail("ไม่พบเรื่อง")
         if (!Dev.canReplyTicket(me, t)) return fail("ตอบได้เฉพาะคนแจ้งและ Developer")
-        if (!text.trim()) return fail("พิมพ์ข้อความก่อน")
+        if (!text.trim() && !images?.length) return fail("พิมพ์ข้อความหรือแนบรูปก่อน")
         const fromDev = Dev.seesAllTickets(me) && t.by !== me.id
         const n = Notif.notify({ id: uid("no"), at: s.now(), kind: "nock", title: fromDev ? `Dev ตอบเรื่อง ${t.number}` : `${me.nickname} ตอบในเรื่อง ${t.number}`, body: text.trim(), fromId: me.id, audience: fromDev ? { roles: [], staffIds: [t.by] } : { roles: ["developer"] } })
-        set({ devTickets: s.devTickets.map((x) => (x.id === id ? { ...x, thread: [...x.thread, { id: uid("dm"), by: me.id, at: s.now().toISOString(), text: text.trim() }] } : x)), notifications: [n, ...s.notifications] })
+        set({ devTickets: s.devTickets.map((x) => (x.id === id ? { ...x, thread: [...x.thread, { id: uid("dm"), by: me.id, at: s.now().toISOString(), text: text.trim(), ...(images?.length ? { images } : {}) }] } : x)), notifications: [n, ...s.notifications] })
         return { ok: true, value: undefined }
       },
       setDevTicketStatus: (id, status, note) => {
@@ -2581,7 +2581,7 @@ export const useStore = create<Store>()(
     {
       name: "nockerp-v2",
       // bump when the data model changes; older saved data is replaced by fresh sample data
-      version: 76, // 76: คำถามถึง Dev examples · 75: Developer role + เรื่องถึง Dev · 74: Nock answers per person + thumbs per answer · 73: Nock locations + knowledge = answered questions + votes · 72: Nock question bank + knowledge · 71: Summer Memo + Summer course + paid Summer invoice · 68–70: session summaries in every stage this week + sample Course Summaries (Single + Bundle) · 65–67: names without titles, parent relationship, phones without dashes, subject colours · 61: real branches (owner 2026-10-07) · 62: CB = ตึกน้ำ · 63: sample schools · 64: schools from the Ministry list
+      version: 77, // 77: images on Nock + Dev tickets · 76: คำถามถึง Dev examples · 75: Developer role + เรื่องถึง Dev · 74: Nock answers per person + thumbs per answer · 73: Nock locations + knowledge = answered questions + votes · 72: Nock question bank + knowledge · 71: Summer Memo + Summer course + paid Summer invoice · 68–70: session summaries in every stage this week + sample Course Summaries (Single + Bundle) · 65–67: names without titles, parent relationship, phones without dashes, subject colours · 61: real branches (owner 2026-10-07) · 62: CB = ตึกน้ำ · 63: sample schools · 64: schools from the Ministry list
       migrate: () => ({ ...buildSeed(), userId: "u_nock", branchId: "br_thl", clockOffset: 0 }) as unknown as Store,
       // persist data + UI state only, never the action functions
       partialize: (s) => Object.fromEntries(Object.entries(s).filter(([, v]) => typeof v !== "function")) as Partial<Store>,

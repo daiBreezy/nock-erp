@@ -4,13 +4,14 @@
 // Developers see every one, reply, and move it along (ใหม่ → รับเรื่อง → กำลังทำ → เสร็จ / ไม่ทำ).
 import Link from "next/link"
 import { useState } from "react"
-import { CheckCircle2Icon, CircleDotIcon, InboxIcon, LoaderIcon, MapPinIcon, SendIcon } from "lucide-react"
+import { CheckCircle2Icon, CircleDotIcon, ImagePlusIcon, InboxIcon, LoaderIcon, SendIcon } from "lucide-react"
 import { Pill, RoleChip, type Tone } from "@/components/app/badges"
 import { BranchCode, useBranchScope } from "@/components/app/branch-scope"
 import { ColumnsMenu, DataTable, type Column } from "@/components/app/data-grid"
 import { useSort } from "@/components/app/data-table"
 import { EntityPanel, PanelBody, PanelFooter } from "@/components/app/form-shell"
 import { InfoTip } from "@/components/app/info-tip"
+import { ImageAttach, ImageGallery, MetaGrid } from "@/components/app/images"
 import { Field } from "@/components/app/student-form"
 import { Input } from "@/components/ui/input"
 import { Kpi } from "@/components/app/kpi"
@@ -129,6 +130,7 @@ function CreateTicketPanel({ onSent }: { onSent: (id: ID) => void }) {
   const [title, setTitle] = useState("")
   const [detail, setDetail] = useState("")
   const [locs, setLocs] = useState<string[]>([])
+  const [images, setImages] = useState<string[]>([])
   const pageUrl = typeof window === "undefined" ? "/nock" : `${window.location.pathname}${window.location.search}`
   return (
     <>
@@ -149,6 +151,7 @@ function CreateTicketPanel({ onSent }: { onSent: (id: ID) => void }) {
         <Field label="รายละเอียด *" hint={kind === "bug" ? "ทำอะไรอยู่ แล้วเกิดอะไรขึ้น ควรเป็นอย่างไร" : kind === "idea" ? "อยากให้ระบบมีอะไร ช่วยงานแบบไหน" : "เล่ารายละเอียดให้ Dev เข้าใจ"}>
           <Textarea rows={6} value={detail} onChange={(e) => setDetail(e.target.value)} />
         </Field>
+        <Field label="รูปประกอบ (ไม่บังคับ)" hint="ภาพหน้าจอช่วยให้ Dev เห็นปัญหาเร็วขึ้น — คนที่เปิดเรื่องนี้กดดูรูปเต็มได้"><ImageAttach value={images} onChange={setImages} /></Field>
         <Field label="Part (เลือกได้หลายส่วน) *" hint="Part = ส่วนของระบบที่เกี่ยวข้อง">
           <div className="flex flex-wrap gap-1.5">
             {NOCK_LOCATIONS.map((l) => {
@@ -159,7 +162,7 @@ function CreateTicketPanel({ onSent }: { onSent: (id: ID) => void }) {
         </Field>
       </PanelBody>
       <PanelFooter>
-        <Button className="ml-auto" disabled={!title.trim() || !detail.trim() || !locs.length} onClick={() => { const r = send({ kind, title, detail, locations: locs, pageUrl }); if (report(r, (v) => `ส่งถึง Dev แล้ว · ${v.number}`)) onSent(r.value.id) }}><SendIcon /> ส่งถึง Dev</Button>
+        <Button className="ml-auto" disabled={!title.trim() || !detail.trim() || !locs.length} onClick={() => { const r = send({ kind, title, detail, locations: locs, pageUrl, images }); if (report(r, (v) => `ส่งถึง Dev แล้ว · ${v.number}`)) onSent(r.value.id) }}><SendIcon /> ส่งถึง Dev</Button>
       </PanelFooter>
     </>
   )
@@ -173,51 +176,64 @@ function TicketPanel({ id }: { id: ID }) {
   const reply = useStore((s) => s.replyDevTicket)
   const setStatus = useStore((s) => s.setDevTicketStatus)
   const [text, setText] = useState("")
+  const [replyImages, setReplyImages] = useState<string[]>([])
+  const [attaching, setAttaching] = useState(false)
   const [next, setNext] = useState<DevTicketStatus | "">("")
   if (!t) return null
   const isDev = seesAllTickets(me)
   const who = (sid: ID) => staff.find((s) => s.id === sid)
   const send = () => {
-    const ok = next ? report(setStatus(t.id, next, text), `เปลี่ยนเป็น ${DEV_STATUS_LABEL[next]} แล้ว`) : report(reply(t.id, text), "ส่งข้อความแล้ว")
-    if (ok) { setText(""); setNext("") }
+    const ok = next ? report(setStatus(t.id, next, text), `เปลี่ยนเป็น ${DEV_STATUS_LABEL[next]} แล้ว`) : report(reply(t.id, text, replyImages), "ส่งข้อความแล้ว")
+    if (ok) { setText(""); setNext(""); setReplyImages([]); setAttaching(false) }
   }
   return (
     <>
+      {/* owner 2026-10-13: tidy — chips + title in the header, the facts as a label / value grid, then the story */}
       <SheetHeader className="shrink-0 border-b pb-3">
         <div className="flex flex-wrap items-center gap-1.5 pr-8">
           <span className="font-mono text-xs text-muted-foreground">{t.number}</span>
-          <Pill tone={STATUS_TONE[t.status]}>{DEV_STATUS_LABEL[t.status]}</Pill>
           <KindChip kind={t.kind} />
+          <Pill tone={STATUS_TONE[t.status]}>{DEV_STATUS_LABEL[t.status]}</Pill>
         </div>
-        <SheetTitle className="text-lg">{t.title}</SheetTitle>
-        <SheetDescription className="flex flex-wrap items-center gap-1.5">
-          แจ้งโดย <b className="text-foreground">{who(t.by)?.nickname}</b> {t.roles.map((r) => <RoleChip key={r} role={r} />)} · สาขา{branches.find((b) => b.id === t.branchId)?.name} · {fmtDate(toDateStr(new Date(t.at)), { weekday: true })} {timeOf(t.at)} น.
-        </SheetDescription>
-        <div className="flex flex-wrap items-center gap-1">
-          <MapPinIcon className="size-3.5 text-muted-foreground" />{t.locations.map((l) => <span key={l} className="rounded-full bg-muted px-2 py-0.5 text-xs">{locationLabel(l)}</span>)}
-          <span className="ml-2 text-xs text-muted-foreground">หน้า: {isDev ? <Link href={t.pageUrl} className="font-mono underline">{t.pageUrl}</Link> : <span className="font-mono">{t.pageUrl}</span>}</span>
-        </div>
+        <SheetTitle className="text-lg leading-snug">{t.title}</SheetTitle>
       </SheetHeader>
       <PanelBody>
-        <section className="rounded-2xl bg-muted/50 p-3 text-sm whitespace-pre-line">{t.detail}</section>
-        {t.thread.map((m) => {
-          const fromDev = who(m.by)?.roles.includes("developer")
-          return (
-            <div key={m.id} className={cn("max-w-[85%] space-y-1 rounded-2xl p-3 text-sm", fromDev ? "bg-teal-50 ring-1 ring-teal-200 dark:bg-teal-950/40 dark:ring-teal-900" : "ml-auto bg-muted")}>
-              <p className="flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground"><b className="text-foreground">{who(m.by)?.nickname}</b>{fromDev && <RoleChip role="developer" />} · {fmtDate(toDateStr(new Date(m.at)))} {timeOf(m.at)} น.{m.status && <Pill tone={STATUS_TONE[m.status]}>→ {DEV_STATUS_LABEL[m.status]}</Pill>}</p>
-              {m.text && <p className="whitespace-pre-line">{m.text}</p>}
-            </div>
-          )
-        })}
-        {!t.thread.length && <p className="text-center text-xs text-muted-foreground">ยังไม่มีการตอบกลับ{isDev ? "" : " — Dev จะตอบในนี้ และคุณจะได้แจ้งเตือน"}</p>}
+        <MetaGrid rows={[
+          ["แจ้งโดย", <><b>{who(t.by)?.nickname}</b>{t.roles.map((r) => <RoleChip key={r} role={r} />)}</>],
+          ["สาขา", branches.find((b) => b.id === t.branchId)?.name ?? "—"],
+          ["วันที่", `${fmtDate(toDateStr(new Date(t.at)), { weekday: true, year: true })} · ${timeOf(t.at)} น.`],
+          ["Part", <>{t.locations.map((l) => <span key={l} className="rounded-full bg-background px-2 py-0.5 text-xs ring-1 ring-foreground/10">{locationLabel(l)}</span>)}</>],
+          ["หน้าที่เปิดอยู่", isDev ? <Link href={t.pageUrl} className="font-mono text-xs underline">{t.pageUrl}</Link> : <span className="font-mono text-xs">{t.pageUrl}</span>],
+        ]} />
+        <section className="space-y-2">
+          <p className="text-sm font-semibold">รายละเอียด</p>
+          <p className="text-sm whitespace-pre-line">{t.detail}</p>
+          <ImageGallery images={t.images} />
+        </section>
+        <section className="space-y-2 border-t pt-4">
+          <p className="text-sm font-semibold">การตอบกลับ{t.thread.length > 0 && ` (${t.thread.length})`}</p>
+          {t.thread.map((m) => {
+            const fromDev = who(m.by)?.roles.includes("developer")
+            return (
+              <div key={m.id} className={cn("max-w-[85%] space-y-1.5 rounded-2xl p-3 text-sm", fromDev ? "bg-teal-50 ring-1 ring-teal-200 dark:bg-teal-950/40 dark:ring-teal-900" : "ml-auto bg-muted")}>
+                <p className="flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground"><b className="text-foreground">{who(m.by)?.nickname}</b>{fromDev && <RoleChip role="developer" />}<span>{fmtDate(toDateStr(new Date(m.at)))} {timeOf(m.at)} น.</span>{m.status && <Pill tone={STATUS_TONE[m.status]}>→ {DEV_STATUS_LABEL[m.status]}</Pill>}</p>
+                {m.text && <p className="whitespace-pre-line">{m.text}</p>}
+                <ImageGallery images={m.images} size="sm" />
+              </div>
+            )
+          })}
+          {!t.thread.length && <p className="text-xs text-muted-foreground">ยังไม่มีการตอบกลับ{isDev ? "" : " — Dev จะตอบในนี้ และคุณจะได้แจ้งเตือน"}</p>}
+        </section>
       </PanelBody>
       {canReplyTicket(me, t) && (
         <PanelFooter>
           <div className="w-full space-y-2">
             <Textarea rows={2} value={text} onChange={(e) => setText(e.target.value)} placeholder={next === "wont_do" ? "เหตุผลที่ไม่ทำ (จำเป็น)" : isDev ? "ตอบกลับคนแจ้ง…" : "เพิ่มข้อมูลให้ Dev…"} />
+            {attaching && <ImageAttach value={replyImages} onChange={setReplyImages} />}
             <div className="flex flex-wrap items-center gap-2">
+              <Button size="sm" variant="ghost" onClick={() => setAttaching(!attaching)}><ImagePlusIcon /> รูป{replyImages.length > 0 && ` (${replyImages.length})`}</Button>
               {isDev && <NativeSelect className="h-9 w-52" value={next} onChange={(e) => setNext(e.target.value as DevTicketStatus | "")} placeholder="ไม่เปลี่ยนสถานะ" options={(Object.keys(DEV_STATUS_LABEL) as DevTicketStatus[]).filter((x) => x !== t.status).map((x) => ({ value: x, label: `เปลี่ยนเป็น: ${DEV_STATUS_LABEL[x]}` }))} />}
-              <Button className="ml-auto" disabled={!next && !text.trim()} onClick={send}><SendIcon /> {next ? "บันทึกสถานะ" : "ส่ง"}</Button>
+              <Button className="ml-auto" disabled={!next && !text.trim() && !replyImages.length} onClick={send}><SendIcon /> {next ? "บันทึกสถานะ" : "ส่ง"}</Button>
             </div>
           </div>
         </PanelFooter>

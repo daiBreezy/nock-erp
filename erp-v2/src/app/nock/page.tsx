@@ -4,7 +4,7 @@
 // knowledge. A question can have answers from several people (each person edits only their own); thumbs up / down
 // on each answer decide which one Nock uses. Who asked (role, branch), when, which part of the system (Location).
 import { useState } from "react"
-import { BookOpenCheckIcon, CircleHelpIcon, CodeXmlIcon, MapPinIcon, MessagesSquareIcon, PencilIcon, PlusIcon, SaveIcon, SparklesIcon, StarIcon, ThumbsDownIcon, ThumbsUpIcon, TrashIcon } from "lucide-react"
+import { BookOpenCheckIcon, CircleHelpIcon, CodeXmlIcon, MessagesSquareIcon, PencilIcon, PlusIcon, SaveIcon, SparklesIcon, StarIcon, ThumbsDownIcon, ThumbsUpIcon, TrashIcon } from "lucide-react"
 import { Pill, RoleChip, type Tone } from "@/components/app/badges"
 import { BranchCode, useBranchScope } from "@/components/app/branch-scope"
 import { ColumnsMenu, DataTable, type Column } from "@/components/app/data-grid"
@@ -12,6 +12,7 @@ import { VoteBadge } from "@/components/nock/vote-badge"
 import { useSort } from "@/components/app/data-table"
 import { EntityPanel, PanelBody, PanelFooter, PanelMore } from "@/components/app/form-shell"
 import { InfoTip } from "@/components/app/info-tip"
+import { ImageAttach, ImageGallery, MetaGrid } from "@/components/app/images"
 import { Kpi } from "@/components/app/kpi"
 import { NativeSelect } from "@/components/app/native-select"
 import { FilterBar, KpiRow, Page, PageHeader, SearchBox, Segmented, Tabs, Toolbar } from "@/components/app/page-layout"
@@ -20,7 +21,7 @@ import { OPEN_STATUSES, visibleTickets } from "@/domain/rules/dev-tickets"
 import { Field } from "@/components/app/student-form"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet"
+import { SheetHeader, SheetTitle } from "@/components/ui/sheet"
 import { Textarea } from "@/components/ui/textarea"
 import { fmtDate, toDateStr } from "@/domain/dates"
 import { answerScore, bestAnswer, canAnswerNock, helpfulRate, knowledgeOf, locationLabel, NOCK_LOCATIONS, NOCK_STATUS_LABEL, visibleAnswer } from "@/domain/rules/nock"
@@ -184,6 +185,7 @@ function AnswerCard({ q, a, used, onEdit }: { q: NockQuestion; a: NockAnswer; us
         <span className="ml-auto text-muted-foreground">บอก: {a.audience.length ? a.audience.map((r) => ROLE_LABEL[r]).join(", ") : "ทุกคน"}</span>
       </div>
       <p className="text-sm whitespace-pre-line">{a.text}</p>
+      <ImageGallery images={a.images} size="sm" />
       <div className="flex flex-wrap items-center gap-1.5">
         <VoteButtons up={a.votesUp} down={a.votesDown} onVote={(v) => vote(q.id, a.id, v)} inline />
         {rate !== null && <span className={cn("text-xs font-medium", rate >= 0.7 ? "text-emerald-700" : rate >= 0.4 ? "text-amber-700" : "text-red-700")}>ช่วยได้ {Math.round(rate * 100)}%</span>}
@@ -212,30 +214,34 @@ function QuestionPanel({ id, onClose }: { id: ID; onClose: () => void }) {
   const [mode, setMode] = useState<null | "new" | ID>(null)
   const [text, setText] = useState("")
   const [audience, setAudience] = useState<Role[]>([])
+  const [images, setImages] = useState<string[]>([])
   const [locations, setLocations] = useState<string[]>(x?.locations ?? [])
   if (!x) return null
   const answerer = canAnswerNock(me)
   const who = (sid?: ID) => staff.find((s) => s.id === sid)?.nickname ?? "—"
   const used = bestAnswer(x, answerer ? undefined : me.roles)
   const answers = (x.answers ?? []).filter((a) => answerer || visibleAnswer(a, me.roles)).slice().sort((a, b) => answerScore(b) - answerScore(a) || a.at.localeCompare(b.at))
-  const startNew = () => { setText(answers.length ? "" : x.aiAnswer ?? ""); setAudience([]); setMode("new") }
-  const startEdit = (a: NockAnswer) => { setText(a.text); setAudience(a.audience); setMode(a.id) }
+  const startNew = () => { setText(answers.length ? "" : x.aiAnswer ?? ""); setAudience([]); setImages([]); setMode("new") }
+  const startEdit = (a: NockAnswer) => { setText(a.text); setAudience(a.audience); setImages(a.images ?? []); setMode(a.id) }
   const save = () => {
-    const ok = mode === "new" ? report(answerQ(x.id, text, { audience, locations }), answers.length ? "เพิ่มคำตอบของคุณแล้ว" : "ตอบแล้ว — เข้าคลังความรู้ของ Nock") : report(editA(x.id, mode!, text, audience), "แก้คำตอบแล้ว")
+    const ok = mode === "new" ? report(answerQ(x.id, text, { audience, locations, images }), answers.length ? "เพิ่มคำตอบของคุณแล้ว" : "ตอบแล้ว — เข้าคลังความรู้ของ Nock") : report(editA(x.id, mode!, text, audience, images), "แก้คำตอบแล้ว")
     if (ok) setMode(null)
   }
   return (
     <>
+      {/* owner 2026-10-13: tidy — chips + question in the header, the facts as a label / value grid */}
       <SheetHeader className="shrink-0 border-b pb-3">
         <div className="flex flex-wrap items-center gap-1.5 pr-8"><Pill tone={STATUS_TONE[x.status]}>{NOCK_STATUS_LABEL[x.status]}</Pill>{x.helpful === false && <Pill tone="red"><ThumbsDownIcon className="size-3" /> คนถามบอกว่า Nock ตอบไม่ตรง</Pill>}</div>
-        <SheetTitle className="text-lg">{x.question}</SheetTitle>
-        <SheetDescription className="flex flex-wrap items-center gap-1.5">
-          {x.manual ? <>เขียนเข้าคลังโดย {who(x.askedBy)}</> : <>ถามโดย <b className="text-foreground">{who(x.askedBy)}</b> {x.roles.map((r) => <RoleChip key={r} role={r} />)} · สาขา{branches.find((b) => b.id === x.branchId)?.name ?? "—"}</>}
-          <span>· {fmtDate(toDateStr(new Date(x.at)), { weekday: true })} {timeOf(x.at)} น.</span>
-        </SheetDescription>
-        <div className="flex flex-wrap items-center gap-1"><MapPinIcon className="size-3.5 text-muted-foreground" />{(x.locations ?? []).map((l) => <span key={l} className="rounded-full bg-muted px-2 py-0.5 text-xs">{locationLabel(l)}</span>)}</div>
+        <SheetTitle className="text-lg leading-snug">{x.question}</SheetTitle>
       </SheetHeader>
       <PanelBody>
+        <MetaGrid rows={[
+          [x.manual ? "เขียนโดย" : "ถามโดย", <><b>{who(x.askedBy)}</b>{x.roles.map((r) => <RoleChip key={r} role={r} />)}</>],
+          ...(x.manual ? [] : [["สาขา", branches.find((b) => b.id === x.branchId)?.name ?? "—"] as [string, React.ReactNode]]),
+          ["วันที่", `${fmtDate(toDateStr(new Date(x.at)), { weekday: true, year: true })} · ${timeOf(x.at)} น.`],
+          ["Part", <>{(x.locations ?? []).map((l) => <span key={l} className="rounded-full bg-background px-2 py-0.5 text-xs ring-1 ring-foreground/10">{locationLabel(l)}</span>)}</>],
+        ]} />
+        <ImageGallery images={x.images} />
         {!x.manual && (
           <section className="space-y-1.5 rounded-2xl bg-sky-50/70 p-3 ring-1 ring-sky-200 dark:bg-sky-950/40 dark:ring-sky-900">
             <p className="flex items-center gap-1.5 text-xs font-medium text-sky-800 dark:text-sky-200"><SparklesIcon className="size-3.5" /> Nock ตอบ{x.aiSource && ` · จาก${x.aiSource === "ai" ? " AI" : x.aiSource === "knowledge" ? "คลังความรู้" : "คู่มือระบบ"}`}</p>
@@ -250,6 +256,7 @@ function QuestionPanel({ id, onClose }: { id: ID; onClose: () => void }) {
             <Field label={mode === "new" ? "คำตอบของคุณ" : "แก้คำตอบของคุณ"} hint="คำตอบเข้าคลังความรู้ — Nock ใช้ตอบคนต่อไป · เขียนว่าทำที่หน้าไหน กดอะไร ใครทำได้">
               <Textarea rows={6} value={text} onChange={(e) => setText(e.target.value)} placeholder="เช่น เปิด Panel นักเรียน › ⋯ › …" />
             </Field>
+            <Field label="รูปประกอบ (ไม่บังคับ)" hint="ภาพหน้าจอขั้นตอน — คนที่เปิดดูกดดูรูปเต็มได้"><ImageAttach value={images} onChange={setImages} /></Field>
             {mode === "new" && <Field label="Part (เลือกได้หลายส่วน)" hint="Part = ส่วนของระบบที่คำถามนี้เกี่ยวข้อง"><Chips all={NOCK_LOCATIONS} value={locations} onChange={setLocations} /></Field>}
             <Field label="ใครเห็นคำตอบนี้" hint="ทุกคน = Nock บอกได้ทุกบทบาท · เลือกบทบาท = บอกเฉพาะบทบาทนั้น"><Chips all={ROLE_OPTS} value={audience} onChange={setAudience} emptyLabel="ทุกคน" /></Field>
           </section>
@@ -276,7 +283,7 @@ function QuestionPanel({ id, onClose }: { id: ID; onClose: () => void }) {
 
 function CreatePanel({ onClose }: { onClose: () => void }) {
   const create = useStore((s) => s.createNockKnowledge)
-  const [f, setF] = useState<{ question: string; answer: string; audience: Role[]; locations: string[] }>({ question: "", answer: "", audience: [], locations: [] })
+  const [f, setF] = useState<{ question: string; answer: string; audience: Role[]; locations: string[]; questionImages: string[]; answerImages: string[] }>({ question: "", answer: "", audience: [], locations: [], questionImages: [], answerImages: [] })
   return (
     <>
       <SheetHeader className="shrink-0 border-b pb-3">
@@ -284,7 +291,9 @@ function CreatePanel({ onClose }: { onClose: () => void }) {
       </SheetHeader>
       <PanelBody>
         <Field label="คำถาม"><Input value={f.question} onChange={(e) => setF({ ...f, question: e.target.value })} placeholder="เช่น ผู้ปกครองโอนเงินเกิน ต้องคืนยังไง" /></Field>
+        <Field label="รูปประกอบคำถาม (ไม่บังคับ)" hint="เช่น ภาพหน้าจอที่คนมักสงสัย"><ImageAttach value={f.questionImages} onChange={(questionImages) => setF({ ...f, questionImages })} /></Field>
         <Field label="คำตอบ"><Textarea rows={8} value={f.answer} onChange={(e) => setF({ ...f, answer: e.target.value })} /></Field>
+        <Field label="รูปประกอบคำตอบ (ไม่บังคับ)" hint="เช่น ภาพหน้าจอขั้นตอน — คนที่เปิดดูกดดูรูปเต็มได้"><ImageAttach value={f.answerImages} onChange={(answerImages) => setF({ ...f, answerImages })} /></Field>
         <Field label="Part (เลือกได้หลายส่วน) *" hint="Part = ส่วนของระบบที่ความรู้นี้เกี่ยวข้อง"><Chips all={NOCK_LOCATIONS} value={f.locations} onChange={(locations) => setF({ ...f, locations })} /></Field>
         <Field label="ใครเห็นคำตอบนี้" hint="ทุกคน = Nock บอกได้ทุกบทบาท · เลือกบทบาท = บอกเฉพาะบทบาทนั้น"><Chips all={ROLE_OPTS} value={f.audience} onChange={(audience) => setF({ ...f, audience })} emptyLabel="ทุกคน" /></Field>
       </PanelBody>

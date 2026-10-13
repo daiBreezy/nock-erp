@@ -1343,6 +1343,8 @@ export interface NockQuestion {
   answers?: NockAnswer[]
   /** written straight into the bank (not asked through Nock) */
   manual?: boolean
+  /** pictures with the question (owner 2026-10-13) — small JPEG data URLs in the prototype, files in the real system */
+  images?: string[]
 }
 
 /** One person's answer to a question (owner 2026-10-13): only its writer edits it; others add their own; thumbs pick the one Nock uses */
@@ -1355,6 +1357,7 @@ export interface NockAnswer {
   audience: Role[]
   votesUp: ID[]
   votesDown: ID[]
+  images?: string[]
 }
 
 // ---------- เรื่องถึง Dev (owner 2026-10-13): any staff → the development team, answered inside the ERP ----------
@@ -1379,6 +1382,8 @@ export interface DevTicket {
   /** where they were when they sent it — attached automatically for the developers */
   pageUrl: string
   status: DevTicketStatus
+  /** screenshots / pictures (owner 2026-10-13) */
+  images?: string[]
   /** the conversation between the reporter and the developers (status changes are logged here too) */
-  thread: { id: ID; by: ID; at: string; text: string; status?: DevTicketStatus }[]
+  thread: { id: ID; by: ID; at: string; text: string; status?: DevTicketStatus; images?: string[] }[]
 }
