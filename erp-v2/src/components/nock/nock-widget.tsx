@@ -5,7 +5,7 @@
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { useEffect, useMemo, useRef, useState } from "react"
-import { ArrowRightIcon, LibraryBigIcon, Loader2Icon, SendHorizontalIcon, SendIcon, ThumbsDownIcon, ThumbsUpIcon, UserRoundCheckIcon, XIcon } from "lucide-react"
+import { ArrowRightIcon, LibraryBigIcon, Loader2Icon, ArrowUpIcon, SendIcon, ThumbsDownIcon, ThumbsUpIcon, UserRoundCheckIcon, XIcon } from "lucide-react"
 import { AiAvatar } from "@/components/ui/ai-avatar"
 import { Button } from "@/components/ui/button"
 import { fmtDateTime } from "@/domain/dates"
@@ -106,57 +106,62 @@ function NockPanel({ onClose }: { onClose: () => void }) {
     setPending(null)
   }
 
+  // owner 2026-10-13: smaller, no divider lines, a calm chat like Claude / ChatGPT — Nock speaks as plain text next to its
+  // face, your messages are soft grey bubbles, the composer is one rounded box with the send button inside
   return (
-    <div role="dialog" aria-label="Nock" className="fixed right-5 bottom-26 z-40 flex h-[min(600px,calc(100vh-8rem))] w-[min(400px,calc(100vw-2.5rem))] flex-col overflow-hidden rounded-3xl bg-card shadow-2xl ring-1 ring-foreground/10 print:hidden">
-      <div className="ai-aurora flex shrink-0 items-center gap-3 border-b px-4 py-3">
-        <AiAvatar size="sm" />
-        <div className="min-w-0 flex-1">
-          <p className="font-semibold">Nock</p>
-          <p className="truncate text-xs text-muted-foreground">{model === undefined ? "…" : model ? `ผู้ช่วย AI · ${model}` : "ผู้ช่วย · ตอบจากคู่มือ + คำตอบของทีม"}</p>
+    <div role="dialog" aria-label="Nock" className="fixed right-5 bottom-24 z-40 flex h-[min(520px,calc(100vh-8rem))] w-[min(360px,calc(100vw-2.5rem))] flex-col overflow-hidden rounded-[28px] bg-background shadow-2xl ring-1 ring-foreground/8 print:hidden">
+      <div className="flex shrink-0 items-center gap-2.5 px-4 pt-3.5 pb-2">
+        <AiAvatar size="xs" />
+        <div className="min-w-0 flex-1 leading-tight">
+          <p className="text-sm font-semibold">Nock</p>
+          <p className="truncate text-[11px] text-muted-foreground">{model === undefined ? "…" : model ? model : "ตอบจากคู่มือ + คำตอบของทีม"}</p>
         </div>
-        <Button size="icon-sm" variant="ghost" aria-label="คลังคำถาม" title="คลังคำถาม Nock" nativeButton={false} render={<Link href="/nock" onClick={onClose} />}><LibraryBigIcon /></Button>
-        <Button size="icon-sm" variant="ghost" aria-label="ปิด" onClick={onClose}><XIcon /></Button>
+        <Button size="icon-sm" variant="ghost" className="text-muted-foreground" aria-label="คลังคำถาม" title="คลังคำถาม Nock" nativeButton={false} render={<Link href="/nock" onClick={onClose} />}><LibraryBigIcon /></Button>
+        <Button size="icon-sm" variant="ghost" className="text-muted-foreground" aria-label="ปิด" onClick={onClose}><XIcon /></Button>
       </div>
 
-      <div className="min-h-0 flex-1 space-y-3 overflow-y-auto px-4 py-3">
-        <Bubble from="nock">สวัสดีครับ {me.nickname} ถามเรื่องการใช้ระบบได้เลย — Nock ตอบตามสิทธิ์ของคุณ ถ้า Nock ยังไม่รู้ จะส่งคำถามให้ทีมตอบ แล้วคำตอบจะกลับมาที่นี่</Bubble>
-        {mine.map((q) => <Exchange key={q.id} q={q} onRate={(h) => report(rate(q.id, h), h ? "ขอบคุณครับ" : "ส่งให้ทีมช่วยตอบแล้ว")} onTeam={() => report(toTeam(q.id), "ส่งให้ทีมแล้ว — คำตอบจะกลับมาที่นี่")} onLink={onClose} />)}
-        {pending && <><Bubble from="me">{pending.question}</Bubble><Bubble from="nock"><Loader2Icon className="inline size-4 animate-spin" /> กำลังหาคำตอบ…</Bubble></>}
-        {!mine.length && !pending && (
-          <div className="space-y-1.5 pt-1">
-            <p className="text-xs text-muted-foreground">ลองถาม:</p>
-            {suggestionsFor(pathname).map((s) => (
-              <button key={s} type="button" onClick={() => ask(s)} className="block w-full rounded-2xl border border-sky-200 bg-sky-50/60 px-3 py-2 text-left text-sm text-sky-900 hover:bg-sky-100 dark:border-sky-900 dark:bg-sky-950/40 dark:text-sky-100">{s}</button>
-            ))}
+      <div className="min-h-0 flex-1 space-y-5 overflow-y-auto px-4 pt-2 pb-3">
+        {!mine.length && !pending ? (
+          <div className="flex h-full flex-col justify-end gap-4 pb-1">
+            <div className="flex flex-col items-start gap-2">
+              <AiAvatar size="md" />
+              <p className="text-lg font-semibold">สวัสดีครับ {me.nickname}</p>
+              <p className="text-sm text-muted-foreground">ถามเรื่องการใช้ระบบได้เลย — Nock ตอบตามสิทธิ์ของคุณ ถ้ายังไม่รู้ จะส่งให้ทีมตอบ แล้วคำตอบจะกลับมาที่นี่</p>
+            </div>
+            <div className="flex flex-col gap-1.5">
+              {suggestionsFor(pathname).map((x) => (
+                <button key={x} type="button" onClick={() => ask(x)} className="rounded-2xl bg-muted/60 px-3 py-2 text-left text-sm hover:bg-muted">{x}</button>
+              ))}
+            </div>
           </div>
+        ) : (
+          <>
+            {mine.map((q) => <Exchange key={q.id} q={q} onRate={(h) => report(rate(q.id, h), h ? "ขอบคุณครับ" : "ส่งให้ทีมช่วยตอบแล้ว")} onTeam={() => report(toTeam(q.id), "ส่งให้ทีมแล้ว — คำตอบจะกลับมาที่นี่")} onLink={onClose} />)}
+            {pending && <><Bubble from="me">{pending.question}</Bubble><Bubble from="nock"><span className="inline-flex items-center gap-1.5 text-muted-foreground"><Loader2Icon className="size-3.5 animate-spin" /> กำลังคิด…</span></Bubble></>}
+          </>
         )}
         <div ref={end} />
       </div>
 
-      {mine.length > 0 && !pending && (
-        <div className="flex shrink-0 gap-1.5 overflow-x-auto px-4 pb-2">
-          {suggestionsFor(pathname).map((s) => (
-            <button key={s} type="button" onClick={() => ask(s)} className="shrink-0 rounded-full border border-sky-200 px-2.5 py-1 text-xs text-sky-800 hover:bg-sky-50 dark:border-sky-900 dark:text-sky-200">{s}</button>
-          ))}
+      <form className="shrink-0 px-3 pb-3" onSubmit={(e) => { e.preventDefault(); ask(text) }}>
+        <div className="flex items-end gap-1 rounded-3xl bg-muted/60 py-1.5 pr-1.5 pl-4 focus-within:bg-muted focus-within:ring-2 focus-within:ring-ring/20">
+          <textarea value={text} onChange={(e) => setText(e.target.value)} rows={1} placeholder="ถาม Nock…" aria-label="คำถามถึง Nock"
+            onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) { e.preventDefault(); ask(text) } }}
+            className="max-h-28 min-h-8 flex-1 resize-none bg-transparent py-1.5 text-sm outline-none placeholder:text-muted-foreground" />
+          <Button type="submit" size="icon-sm" className="rounded-full" disabled={!text.trim() || !!pending} aria-label="ส่ง"><ArrowUpIcon /></Button>
         </div>
-      )}
-      <form className="flex shrink-0 items-end gap-2 border-t px-3 py-3" onSubmit={(e) => { e.preventDefault(); ask(text) }}>
-        <textarea value={text} onChange={(e) => setText(e.target.value)} rows={1} placeholder="ถาม Nock…" aria-label="คำถามถึง Nock"
-          onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) { e.preventDefault(); ask(text) } }}
-          className="max-h-32 min-h-9 flex-1 resize-none rounded-2xl bg-input/50 px-3 py-2 text-sm outline-none focus-visible:ring-3 focus-visible:ring-ring/30" />
-        <Button type="submit" size="icon" className="rounded-full bg-sky-600 hover:bg-sky-700" disabled={!text.trim() || !!pending} aria-label="ส่ง"><SendHorizontalIcon /></Button>
+        {mine.length > 0 && <p className="pt-1.5 text-center text-[10px] text-muted-foreground">Nock อาจตอบผิดได้ · กด 👎 เพื่อส่งให้ทีมช่วยตอบ</p>}
       </form>
     </div>
   )
 }
 
-function Bubble({ from, children, className }: { from: "me" | "nock" | "team"; children: React.ReactNode; className?: string }) {
+function Bubble({ from, children }: { from: "me" | "nock" | "team"; children: React.ReactNode }) {
+  if (from === "me") return <div className="ml-auto w-fit max-w-[85%] rounded-3xl bg-muted px-3.5 py-2 text-sm whitespace-pre-line">{children}</div>
   return (
-    <div className={cn("max-w-[88%] rounded-2xl px-3 py-2 text-sm whitespace-pre-line",
-      from === "me" ? "ml-auto rounded-br-md bg-primary text-primary-foreground"
-        : from === "team" ? "rounded-bl-md bg-emerald-50 text-emerald-950 ring-1 ring-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-50 dark:ring-emerald-900"
-          : "rounded-bl-md bg-sky-50 text-sky-950 ring-1 ring-sky-200 dark:bg-sky-950/40 dark:text-sky-50 dark:ring-sky-900", className)}>
-      {children}
+    <div className="flex gap-2.5">
+      {from === "nock" ? <AiAvatar size="xs" blinking={false} className="mt-0.5" /> : <span className="mt-0.5 grid size-6 shrink-0 place-items-center rounded-full bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300"><UserRoundCheckIcon className="size-3.5" /></span>}
+      <div className="min-w-0 flex-1 text-sm leading-relaxed whitespace-pre-line">{children}</div>
     </div>
   )
 }
@@ -164,14 +169,14 @@ function Bubble({ from, children, className }: { from: "me" | "nock" | "team"; c
 function Exchange({ q, onRate, onTeam, onLink }: { q: NockQuestion; onRate: (helpful: boolean) => void; onTeam: () => void; onLink: () => void }) {
   const staff = useStore((s) => s.staff)
   return (
-    <div className="space-y-1.5">
+    <div className="space-y-3">
       <Bubble from="me">{q.question}</Bubble>
       {q.aiAnswer ? (
         <Bubble from="nock">
           {q.aiAnswer}
           {!!q.links?.length && (
             <span className="mt-2 flex flex-wrap gap-1.5">
-              {q.links.map((l) => <Link key={l.href} href={l.href} onClick={onLink} className="inline-flex items-center gap-1 rounded-full bg-white px-2.5 py-1 text-xs font-medium text-sky-800 ring-1 ring-sky-200 hover:bg-sky-100 dark:bg-sky-950 dark:text-sky-200">{l.label} <ArrowRightIcon className="size-3" /></Link>)}
+              {q.links.map((l) => <Link key={l.href} href={l.href} onClick={onLink} className="inline-flex items-center gap-1 rounded-full bg-muted/70 px-2.5 py-1 text-xs font-medium hover:bg-muted">{l.label} <ArrowRightIcon className="size-3" /></Link>)}
             </span>
           )}
         </Bubble>
@@ -179,7 +184,7 @@ function Exchange({ q, onRate, onTeam, onLink }: { q: NockQuestion; onRate: (hel
         <Bubble from="nock">Nock ยังไม่รู้คำตอบเรื่องนี้ — ส่งคำถามให้ทีมแล้ว คำตอบจะกลับมาที่นี่ และ Nock จะจำไว้ตอบคนต่อไป</Bubble>
       )}
       {q.status === "ai" && (
-        <div className="flex items-center gap-1 pl-1 text-xs text-muted-foreground">
+        <div className="flex items-center gap-1 pl-8 text-xs text-muted-foreground">
           {q.helpful === undefined ? <>
             <span>ตอบตรงไหม?</span>
             <button type="button" aria-label="ตอบตรง" onClick={() => onRate(true)} className="grid size-6 place-items-center rounded-full hover:bg-muted"><ThumbsUpIcon className="size-3.5" /></button>
@@ -188,10 +193,10 @@ function Exchange({ q, onRate, onTeam, onLink }: { q: NockQuestion; onRate: (hel
           <button type="button" onClick={onTeam} className="ml-auto inline-flex items-center gap-1 rounded-full px-2 py-0.5 hover:bg-muted"><SendIcon className="size-3" /> ส่งให้ทีม</button>
         </div>
       )}
-      {q.status === "unanswered" && <p className="pl-1 text-xs text-amber-700">รอทีมตอบ · {fmtDateTime(q.at)}</p>}
+      {q.status === "unanswered" && <p className="pl-8 text-xs text-amber-700">รอทีมตอบ · {fmtDateTime(q.at)}</p>}
       {q.status === "answered" && q.answer && (
         <Bubble from="team">
-          <span className="mb-1 flex items-center gap-1 text-xs font-medium text-emerald-800 dark:text-emerald-200"><UserRoundCheckIcon className="size-3.5" /> ตอบโดย {staff.find((s) => s.id === q.answeredBy)?.nickname ?? "ทีม"}</span>
+          <span className="mb-0.5 block text-xs font-medium text-emerald-700 dark:text-emerald-300">ตอบโดย {staff.find((s) => s.id === q.answeredBy)?.nickname ?? "ทีม"}</span>
           {q.answer}
         </Bubble>
       )}
