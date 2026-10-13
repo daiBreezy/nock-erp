@@ -1,7 +1,10 @@
 "use client"
 
 import { usePeriod } from "@/components/app/period-control"
-import { Page, PageHeader, KpiRow, SearchBox, ShowChip, Toolbar, Segmented } from "@/components/app/page-layout"
+import { FilterBar, Page, PageHeader, KpiRow, SearchBox, ShowChip, Toolbar, Segmented } from "@/components/app/page-layout"
+import { NativeSelect } from "@/components/app/native-select"
+import { staffAt } from "@/domain/rules/permissions"
+import { useBranch } from "@/lib/hooks"
 import { matchesQuery } from "@/domain/rules/people"
 import { InfoTip } from "@/components/reports/charts"
 import type { Tone } from "@/components/app/badges"
@@ -90,6 +93,10 @@ function SessionSummaryTab() {
   const [tab, setTab] = useQueryState<Bucket | "all">("bucket", "all")
   const [showSent, setShowSent] = useQueryState<"0" | "1">("sent", "1")
   const [q, setQ] = useState("")
+  const [subject, setSubject] = useState("")
+  const [teacher, setTeacher] = useState("")
+  const branch = useBranch()
+  const staff = useStore((s) => s.staff)
   const [openId, setOpenId] = useState<ID | null>(null)
 
   const { from, to } = period
@@ -101,7 +108,7 @@ function SessionSummaryTab() {
       .map((a) => ({ s, studentId: a.studentId, sm: summaries.find((x) => x.sessionId === s.id && x.studentId === a.studentId) })),
   )
   const bucket = (r: (typeof rows)[number]): Bucket => bucketOf(r.sm?.status)
-  const found = rows.filter((r) => !q || matchesQuery(q, [L.student(r.studentId)?.nickname, L.student(r.studentId)?.name, classes.find((c) => c.id === r.s.classId)?.name, r.s.subject, L.teacher(r.sm?.authorId ?? r.s.teacherId).label, r.sm?.text]))
+  const found = rows.filter((r) => (!subject || r.s.subject === subject || (r.s.subjects ?? []).includes(subject)) && (!teacher || (r.sm?.authorId ?? r.s.teacherId) === teacher || r.s.teacherId === teacher)).filter((r) => !q || matchesQuery(q, [L.student(r.studentId)?.nickname, L.student(r.studentId)?.name, classes.find((c) => c.id === r.s.classId)?.name, r.s.subject, L.teacher(r.sm?.authorId ?? r.s.teacherId).label, r.sm?.text]))
   const shown = found
     .filter((r) => (tab === "all" ? showSent === "1" || bucket(r) !== "sent" : bucket(r) === tab))
     .sort((a, b) => (a.s.date + a.s.start).localeCompare(b.s.date + b.s.start))
@@ -109,15 +116,18 @@ function SessionSummaryTab() {
   return (
     <div className="space-y-4">
       <BucketRow active={tab} onPick={(b) => setTab(tab === b ? "all" : b)} count={(b) => rows.filter((r) => bucket(r) === b).length} focus />
-      <Toolbar end={<>
-        <SearchBox value={q} onChange={setQ} placeholder="ค้นหานักเรียน / คลาส / ครู" />
-        {mineOnly && <span className="text-xs text-muted-foreground">เฉพาะคาบของฉัน</span>}
-        {/* owner 2026-10-09: branch chip always last in the row */}
-        {scope.select}
-      </>}>
+      <Toolbar end={mineOnly && <span className="text-xs text-muted-foreground">เฉพาะคาบของฉัน</span>}>
         {period.control}
         <ShowChip label="ส่งแล้ว" on={showSent === "1" || tab === "sent"} count={found.filter((r) => bucket(r) === "sent").length} onChange={(v) => { setShowSent(v ? "1" : "0"); if (!v && tab === "sent") setTab("all") }} />
       </Toolbar>
+      {/* owner 2026-10-13: second row — search left · filters right (subject · status · teacher · branch last) */}
+      <FilterBar search={<SearchBox value={q} onChange={setQ} placeholder="ค้นหานักเรียน / คลาส / ครู" />}>
+        <NativeSelect className="h-9 w-32" value={subject} onChange={(e) => setSubject(e.target.value)} placeholder="ทุกวิชา" options={branch.subjects.map((x) => ({ value: x, label: x }))} />
+        {/* the same 6 statuses as the cards above — picking one here is picking that card */}
+        <NativeSelect className="h-9 w-48" value={tab === "all" ? "" : tab} onChange={(e) => setTab((e.target.value || "all") as Bucket | "all")} placeholder="ทุกสถานะ" options={BUCKETS.map((b) => ({ value: b.key, label: b.label }))} />
+        {!mineOnly && <NativeSelect className="h-9 w-32" value={teacher} onChange={(e) => setTeacher(e.target.value)} placeholder="ครูทุกคน" options={staff.map((t) => staffAt(t, branch.id)).filter((t) => t.roles.includes("teacher") && t.branchIds.includes(branch.id)).map((t) => ({ value: t.id, label: t.nickname }))} />}
+        {scope.select}
+      </FilterBar>
 
       {/* owner 2026-10-09: one section per day, like Sessions — easier to see what each day still needs */}
       {shown.length === 0 && <p className="rounded-3xl border border-dashed p-10 text-center text-sm text-muted-foreground">ไม่มีรายการในหมวดนี้</p>}
@@ -205,10 +215,14 @@ function CourseSummaryTab() {
   return (
     <div className="space-y-4">
       <BucketRow active={tab} onPick={(b) => setTab(tab === b ? "all" : b)} count={countIn} />
-      <Toolbar end={<><SearchBox value={q} onChange={setQ} placeholder="ค้นหานักเรียน / คอร์ส" />{scope.select}</>}>
+      <Toolbar>
         <ShowChip label="ส่งแล้ว" on={showSent === "1" || tab === "sent"} count={countIn("sent")} onChange={(v) => { setShowSent(v ? "1" : "0"); if (!v && tab === "sent") setTab("all") }} />
         <InfoTip text={`แพ็กเกจใกล้หมด (ภายใน ${renewalDays} วัน) หรือหมดแล้ว · เปิดดูเป็นรายนักเรียน`} />
       </Toolbar>
+      <FilterBar search={<SearchBox value={q} onChange={setQ} placeholder="ค้นหานักเรียน / คอร์ส" />}>
+        <NativeSelect className="h-9 w-48" value={tab === "all" ? "" : tab} onChange={(e) => setTab((e.target.value || "all") as Bucket | "all")} placeholder="ทุกสถานะ" options={BUCKETS.map((b) => ({ value: b.key, label: b.label }))} />
+        {scope.select}
+      </FilterBar>
 
       <div className="divide-y overflow-hidden rounded-3xl bg-card shadow-sm ring-1 ring-foreground/5">
         {studentRows.length === 0 && <p className="p-10 text-center text-sm text-muted-foreground">ไม่มีรายการในหมวดนี้</p>}

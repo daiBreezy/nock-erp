@@ -5,7 +5,7 @@ import { BranchCode, useBranchScope } from "@/components/app/branch-scope"
 import { staffAt } from "@/domain/rules/permissions"
 import { useState } from "react"
 import { CalendarDaysIcon, CircleCheckIcon, ClipboardCheckIcon, PenLineIcon } from "lucide-react"
-import { Page, PageHeader, KpiRow, SearchBox, Toolbar } from "@/components/app/page-layout"
+import { FilterBar, Page, PageHeader, KpiRow, SearchBox, Toolbar } from "@/components/app/page-layout"
 import { matchesQuery } from "@/domain/rules/people"
 import { Kpi } from "@/components/app/kpi"
 import { Pill } from "@/components/app/badges"
@@ -44,6 +44,7 @@ export default function SessionsPage() {
   const setWork = (w: WorkState | null) => setWorkParam(w ?? "all")
   const [openId, setOpenId] = useState<string | null>(null)
   const [q, setQ] = useState("")
+  const [subject, setSubject] = useState("")
   const students = useStore((s) => s.students)
 
   const { from, to } = period
@@ -53,6 +54,7 @@ export default function SessionsPage() {
     .filter((s) => scope.ids.includes(s.branchId) && s.date >= from && s.date <= to && !removedWithClass(s, classes))
     .filter((s) => teacher === "all" || s.teacherId === teacher || s.coTeacherIds.includes(teacher))
     .filter(hit)
+    .filter((s) => !subject || s.subject === subject || (s.subjects ?? []).includes(subject))
     .sort((a, b) => (a.date + a.start).localeCompare(b.date + b.start))
   const withState = list.map((s) => ({ s, w: workState(s, now, attendance, summaries) }))
   const counts: Partial<Record<WorkState, number>> = {}
@@ -71,8 +73,10 @@ export default function SessionsPage() {
         <Kpi icon={PenLineIcon} label="รอสรุป" value={counts.needs_summary ?? 0} tone="amber" valueClassName={counts.needs_summary ? "text-amber-700" : undefined} onClick={() => pick("needs_summary")} active={work === "needs_summary"} />
         <Kpi icon={CircleCheckIcon} label="เสร็จแล้ว" value={counts.done ?? 0} tone="emerald" onClick={() => pick("done")} active={work === "done"} />
       </KpiRow>
-      <Toolbar end={<>
-        <SearchBox value={q} onChange={setQ} placeholder="ค้นหาคลาส / ครู / นักเรียน" />
+      <Toolbar>{period.control}</Toolbar>
+      {/* owner 2026-10-13: search left · filters right (subject · teacher · status · branch last) */}
+      <FilterBar search={<SearchBox value={q} onChange={setQ} placeholder="ค้นหาคลาส / ครู / นักเรียน" />}>
+        <NativeSelect className="h-9 w-32" value={subject} onChange={(e) => setSubject(e.target.value)} placeholder="ทุกวิชา" options={branch.subjects.map((x) => ({ value: x, label: x }))} />
         <NativeSelect className="h-9 w-36" value={teacher} onChange={(e) => setTeacher(e.target.value)}
           options={[
             { value: "all", label: "ครูทุกคน" },
@@ -82,11 +86,8 @@ export default function SessionsPage() {
         {/* every state, incl. the ones without a card (รอเริ่ม / กำลังเรียน / ยกเลิก) */}
         <NativeSelect className="h-9 w-40" value={work ?? ""} onChange={(e) => setWork((e.target.value || null) as WorkState | null)} placeholder={`ทุกสถานะ (${withState.length})`}
           options={WORK_ORDER.map((w) => ({ value: w, label: `${WORK_LABEL[w]} (${counts[w] ?? 0})` }))} />
-        {/* owner 2026-10-09: branch chip always last in the row */}
         {scope.select}
-      </>}>
-        {period.control}
-      </Toolbar>
+      </FilterBar>
 
       {shown.length === 0 && <p className="rounded-xl border border-dashed p-10 text-center text-sm text-muted-foreground">ไม่มีคาบในช่วงนี้</p>}
       {dates.map((d) => (

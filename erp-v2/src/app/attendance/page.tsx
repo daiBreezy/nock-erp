@@ -5,7 +5,7 @@ import { BranchCode, useBranchScope } from "@/components/app/branch-scope"
 import { staffAt } from "@/domain/rules/permissions"
 import { useState } from "react"
 import { CalendarDaysIcon, ClipboardCheckIcon, UserCheckIcon, UserXIcon } from "lucide-react"
-import { Page, PageHeader, KpiRow, SearchBox, Segmented, Toolbar } from "@/components/app/page-layout"
+import { FilterBar, Page, PageHeader, KpiRow, SearchBox, Segmented, Toolbar } from "@/components/app/page-layout"
 import { matchesQuery } from "@/domain/rules/people"
 import { SessionSheet } from "@/components/app/session-sheet"
 import { SessionLine } from "@/components/app/session-line"
@@ -43,6 +43,8 @@ export default function AttendancePage() {
   const [teacher, setTeacher] = useState("")
   const [openId, setOpenId] = useState<ID | null>(null)
   const [q, setQ] = useState("")
+  // owner 2026-10-13: status filter — who still needs marking, who was absent / on leave, sessions all done
+  const [status, setStatus] = useState<"" | "unmarked" | "complete" | "absent" | "leave">("")
   const classes = useStore((s) => s.classes)
   const L = useLookup()
   const { sort, toggle } = useSort<AttSort>("rate")
@@ -53,7 +55,10 @@ export default function AttendancePage() {
   const inRange = sessions.filter((s) => scope.ids.includes(s.branchId) && !s.cancelled && s.date >= from && s.date <= to && sessionState(s, now) !== "upcoming" && (!subject || s.subject === subject) && (!teacher || s.teacherId === teacher))
   // owner 2026-10-13: search — day view by class / teacher / student, student view by the student's name
   const stuText = (id: ID) => { const x = students.find((st) => st.id === id); return [x?.nickname, x?.name] }
-  const dayShown = q ? inRange.filter((s) => matchesQuery(q, [classes.find((k) => k.id === s.classId)?.name, s.subject, L.teacher(s.teacherId).label, ...s.studentIds.flatMap(stuText)])) : inRange
+  const nAt = (sid: ID, st?: string) => attendance.filter((a) => a.sessionId === sid && (!st || a.status === st)).length
+  const dayShown = inRange
+    .filter((s) => !q || matchesQuery(q, [classes.find((k) => k.id === s.classId)?.name, s.subject, L.teacher(s.teacherId).label, ...s.studentIds.flatMap(stuText)]))
+    .filter((s) => !status || (status === "unmarked" ? nAt(s.id) < s.studentIds.length : status === "complete" ? nAt(s.id) >= s.studentIds.length : nAt(s.id, status) > 0))
   const ids = new Set(inRange.map((s) => s.id))
   const att = attendance.filter((a) => ids.has(a.sessionId))
   const expected = inRange.reduce((n, s) => n + s.studentIds.length, 0)
@@ -67,6 +72,7 @@ export default function AttendancePage() {
       return { s, booked, present: mine.filter((a) => a.status === "present").length, absent: mine.filter((a) => a.status === "absent").length, leave: mine.filter((a) => a.status === "leave").length }
     })
     .filter((r) => r.booked > 0 && (!q || matchesQuery(q, [r.s.nickname, r.s.name, r.s.grade])))
+    .filter((r) => !status || (status === "unmarked" ? r.present + r.absent + r.leave < r.booked : status === "complete" ? r.present + r.absent + r.leave >= r.booked : r[status] > 0))
     .sort((a, b) => {
       const k = sort.key
       const v = k === "name" ? a.s.nickname.localeCompare(b.s.nickname, "th")
@@ -113,14 +119,15 @@ export default function AttendancePage() {
         <Toolbar end={<Segmented label="มุมมอง" value={view} onChange={setView} options={[{ value: "day", label: "รายวัน" }, { value: "student", label: "รายนักเรียน" }]} />}>
           {period.control}
         </Toolbar>
-        <div className="flex flex-wrap items-center gap-2" role="group" aria-label="ตัวกรองรายงานเข้าเรียน">
-        <SearchBox value={q} onChange={setQ} placeholder={view === "day" ? "ค้นหาคลาส / ครู / นักเรียน" : "ค้นหานักเรียน"} />
+        {/* owner 2026-10-13: search left · filters right (subject · teacher · status · branch last) */}
+        <FilterBar search={<SearchBox value={q} onChange={setQ} placeholder={view === "day" ? "ค้นหาคลาส / ครู / นักเรียน" : "ค้นหานักเรียน"} />}>
         <NativeSelect className="h-9 w-28" value={subject} onChange={(e) => setSubject(e.target.value)} placeholder="ทุกวิชา" options={branch.subjects.map((s) => ({ value: s, label: s }))} />
         <NativeSelect className="h-9 w-32" value={teacher} onChange={(e) => setTeacher(e.target.value)} placeholder="ครูทุกคน" options={staff.map((t) => staffAt(t, branch.id)).filter((t) => t.roles.includes("teacher") && t.branchIds.includes(branch.id)).map((t) => ({ value: t.id, label: t.nickname }))} />
+        <NativeSelect className="h-9 w-36" value={status} onChange={(e) => setStatus(e.target.value as typeof status)} placeholder="ทุกสถานะ"
+          options={[{ value: "unmarked", label: "ยังเช็คไม่ครบ" }, { value: "complete", label: "เช็คครบแล้ว" }, { value: "absent", label: "มีขาด" }, { value: "leave", label: "มีลา" }]} />
         {view !== "day" && <ColumnsMenu id="attendance" columns={columns} />}
-        {/* owner 2026-10-09: branch chip always last in the row */}
         {scope.select}
-        </div>
+        </FilterBar>
       </div>
       {view === "day" ? <ByDay sessions={dayShown} attendance={att} multi={scope.multi} code={scope.code} onOpen={setSessionId} /> : (<>
       <p className="text-xs text-muted-foreground">นับเฉพาะคาบในช่วงที่เลือกที่เริ่มเรียนแล้วเท่านั้น · เริ่มเรียงจากอัตราเข้าเรียนต่ำสุด (กดหัวคอลัมน์เพื่อเรียงใหม่)</p>

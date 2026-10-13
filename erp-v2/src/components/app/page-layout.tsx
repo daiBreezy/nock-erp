@@ -43,6 +43,16 @@ export function SearchBox({ value, onChange, placeholder, className }: { value: 
   )
 }
 
+/** Second toolbar row (owner 2026-10-13): search on the left, filters on the right (branch chip last) */
+export function FilterBar({ search, children }: { search: React.ReactNode; children?: React.ReactNode }) {
+  return (
+    <div className="flex flex-wrap items-center gap-2">
+      {search}
+      {children && <div className="ml-auto flex flex-wrap items-center justify-end gap-2">{children}</div>}
+    </div>
+  )
+}
+
 export function Toolbar({ children, end }: { children: React.ReactNode; end?: React.ReactNode }) {
   return (
     <div className="flex flex-wrap items-center gap-2">
