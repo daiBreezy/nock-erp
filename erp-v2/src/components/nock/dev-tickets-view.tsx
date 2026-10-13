@@ -16,12 +16,12 @@ import { Field } from "@/components/app/student-form"
 import { Input } from "@/components/ui/input"
 import { Kpi } from "@/components/app/kpi"
 import { NativeSelect } from "@/components/app/native-select"
-import { FilterBar, KpiRow, SearchBox, ShowChip, Toolbar } from "@/components/app/page-layout"
+import { FilterBar, KpiRow, SearchBox, Segmented, ShowChip, Toolbar } from "@/components/app/page-layout"
 import { Button } from "@/components/ui/button"
 import { SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet"
 import { Textarea } from "@/components/ui/textarea"
 import { fmtDate, toDateStr } from "@/domain/dates"
-import { DEV_KIND_LABEL, DEV_SET_STATUSES, DEV_STATUS_LABEL, DONE_STATUSES, seesAllTickets, visibleTickets, canReplyTicket } from "@/domain/rules/dev-tickets"
+import { DEV_KIND_LABEL, DEV_SET_STATUSES, DEV_STATUS_LABEL, DONE_STATUSES, OPEN_STATUSES, seesAllTickets, visibleTickets, canReplyTicket } from "@/domain/rules/dev-tickets"
 import { locationLabel, NOCK_LOCATIONS } from "@/domain/rules/nock"
 import { matchesQuery } from "@/domain/rules/people"
 import type { DevTicket, DevTicketKind, DevTicketStatus, ID, Role } from "@/domain/types"
@@ -45,6 +45,7 @@ export function DevTicketsView({ creating, onCreated }: { creating: boolean; onC
   const isDev = seesAllTickets(me)
   const scope = useBranchScope()
   // owner 2026-10-13: hide / show the finished ones (เสร็จแล้ว · ไม่ทำ) like Done on Billing; a KPI card narrows to one status
+  const [show, setShow] = useQueryState<"all" | "pending" | "done">("dshow", "all")
   const [showDone, setShowDone] = useQueryState<"0" | "1">("ddone", "1")
   const [status, setStatus] = useState<DevTicketStatus | "">("")
   const [location, setLocation] = useState("")
@@ -60,7 +61,8 @@ export function DevTicketsView({ creating, onCreated }: { creating: boolean; onC
     .filter((t) => !role || t.roles.includes(role))
     .filter((t) => !q || matchesQuery(q, [t.number, t.title, t.detail, who(t.by)?.nickname]))
   const rows = filtered
-    .filter((t) => (status ? t.status === status : showDone === "1" || !DONE_STATUSES.includes(t.status)))
+    .filter((t) => (show === "pending" ? OPEN_STATUSES.includes(t.status) : show === "done" ? DONE_STATUSES.includes(t.status) : true))
+    .filter((t) => (status ? t.status === status : show === "done" || showDone === "1" || !DONE_STATUSES.includes(t.status)))
     .sort((a, b) => { const v = sort.key === "status" ? a.status.localeCompare(b.status) : a.at.localeCompare(b.at); return sort.desc ? -v : v })
   const count = (sts: DevTicketStatus[]) => filtered.filter((t) => sts.includes(t.status)).length
 
@@ -87,7 +89,8 @@ export function DevTicketsView({ creating, onCreated }: { creating: boolean; onC
         <Kpi icon={CheckCircle2Icon} label="เสร็จแล้ว" value={count(["done"])} tone="emerald" sub={count(["wont_do"]) ? `ไม่ทำ ${count(["wont_do"])} เรื่อง` : undefined} onClick={() => setStatus(status === "done" ? "" : "done")} active={status === "done"} />
       </KpiRow>
       <Toolbar>
-        <ShowChip label="Done" on={showDone === "1"} count={count(DONE_STATUSES)} onChange={(v) => { setShowDone(v ? "1" : "0"); setStatus("") }} />
+        <Segmented label="แสดง" value={show} onChange={(v) => { setShow(v); setStatus("") }} options={[{ value: "all", label: "All" }, { value: "pending", label: <>Pending{count(OPEN_STATUSES) > 0 && <span className="rounded-full bg-red-100 px-1.5 text-xs text-red-800 tabular-nums">{count(OPEN_STATUSES)}</span>}</> }, { value: "done", label: "Done" }]} />
+        <ShowChip label="Done" on={showDone === "1" || show === "done"} count={count(DONE_STATUSES)} onChange={(v) => { setShowDone(v ? "1" : "0"); if (!v && show === "done") setShow("all"); setStatus("") }} />
         {status && <Button size="sm" variant="ghost" onClick={() => setStatus("")}>ดูทุกสถานะ</Button>}
       </Toolbar>
       {/* owner 2026-10-13: anyone can send to Dev — so the filters are exactly the question list's: search · Role · Part · columns · branch */}

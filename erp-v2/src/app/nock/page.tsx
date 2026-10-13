@@ -15,7 +15,7 @@ import { InfoTip } from "@/components/app/info-tip"
 import { ImageAttach, ImageGallery, MetaGrid } from "@/components/app/images"
 import { Kpi } from "@/components/app/kpi"
 import { NativeSelect } from "@/components/app/native-select"
-import { FilterBar, KpiRow, Page, PageHeader, SearchBox, ShowChip, Tabs, Toolbar } from "@/components/app/page-layout"
+import { FilterBar, KpiRow, Page, PageHeader, SearchBox, Segmented, ShowChip, Tabs, Toolbar } from "@/components/app/page-layout"
 import { DevTicketsView } from "@/components/nock/dev-tickets-view"
 import { OPEN_STATUSES, visibleTickets } from "@/domain/rules/dev-tickets"
 import { Field } from "@/components/app/student-form"
@@ -51,7 +51,8 @@ export default function NockPage() {
   const [tab, setTab] = useQueryState<"questions" | "dev">("tab", "questions")
   const tickets = useStore((s) => s.devTickets)
   const openTickets = visibleTickets(tickets, me).filter((t) => OPEN_STATUSES.includes(t.status)).length
-  // owner 2026-10-13: hide / show the answered ones (Done) — like Done on Billing; KPI cards narrow to one status
+  // owner 2026-10-13: All / Pending / Done, plus a Done show / hide chip (like Billing) — both, on both tabs
+  const [show, setShow] = useQueryState<"all" | "pending" | "done">("show", "all")
   const [showDone, setShowDone] = useQueryState<"0" | "1">("done", "1")
   const [status, setStatus] = useQueryState<NockStatus | "">("status", "")
   const [location, setLocation] = useQueryState<string>("location", "")
@@ -72,7 +73,8 @@ export default function NockPage() {
   const count = (st: NockStatus) => filtered.filter((x) => x.status === st).length
   const votesOf = (x: NockQuestion) => { const b = bestAnswer(x, answerer ? undefined : me.roles); return b ? answerScore(b) : x.aiAnswer ? (x.aiVotesUp?.length ?? 0) - (x.aiVotesDown?.length ?? 0) : -999 }
   const rows = filtered
-    .filter((x) => (status ? true : showDone === "1" || x.status === "unanswered"))
+    .filter((x) => (show === "pending" ? x.status === "unanswered" : show === "done" ? x.status !== "unanswered" : true))
+    .filter((x) => status || show === "done" || showDone === "1" || x.status === "unanswered")
     .filter((x) => !status || x.status === status)
     .sort((a, b) => {
       const v = sort.key === "votes" ? votesOf(a) - votesOf(b)
@@ -118,7 +120,8 @@ export default function NockPage() {
       </KpiRow>
 
       <Toolbar>
-        <ShowChip label="Done" on={showDone === "1"} count={filtered.filter((x) => x.status !== "unanswered").length} onChange={(v) => { setShowDone(v ? "1" : "0"); setStatus("") }} />
+        <Segmented label="แสดง" value={show} onChange={(v) => { setShow(v); setStatus("") }} options={[{ value: "all", label: "All" }, { value: "pending", label: <>Pending{count("unanswered") > 0 && <span className="rounded-full bg-red-100 px-1.5 text-xs text-red-800 tabular-nums">{count("unanswered")}</span>}</> }, { value: "done", label: "Done" }]} />
+        <ShowChip label="Done" on={showDone === "1" || show === "done"} count={filtered.filter((x) => x.status !== "unanswered").length} onChange={(v) => { setShowDone(v ? "1" : "0"); if (!v && show === "done") setShow("all"); setStatus("") }} />
       </Toolbar>
       <FilterBar search={<SearchBox value={q} onChange={setQ} placeholder="ค้นหาคำถาม / คำตอบ / ผู้ถาม" />}>
         <NativeSelect className="h-9 w-36" value={role} onChange={(e) => setRole(e.target.value as Role | "")} placeholder="ทุก Role" options={ROLES.map((r) => ({ value: r, label: ROLE_LABEL[r] }))} />
