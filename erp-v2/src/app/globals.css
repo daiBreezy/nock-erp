@@ -172,7 +172,7 @@
   position: absolute;
   inset: 0;
   z-index: -1;
-  background: rgb(255 255 255 / 0.8);
+  background: rgb(255 255 255 / var(--ai-wash, 0.8));
   pointer-events: none;
 }
 @keyframes gradient-aurora {
@@ -185,3 +185,8 @@
 @media (prefers-reduced-motion: reduce) {
   .ai-aurora::before { animation: none; }
 }
+
+/* Theme tuner (owner 2026-10-13, โหมดสาธิต › ปรับสีธีม) — hooks for the values it sets; with no tuning they change nothing */
+[data-slot="sidebar-inset"] { background-image: var(--page-gradient, none); background-attachment: fixed; }
+.bg-card { backdrop-filter: var(--card-backdrop, none); -webkit-backdrop-filter: var(--card-backdrop, none); }
+:root[data-theme-tuned] .bg-card[class*="ring-"] { --tw-ring-color: color-mix(in oklab, var(--foreground) var(--card-ring, 5%), transparent); }

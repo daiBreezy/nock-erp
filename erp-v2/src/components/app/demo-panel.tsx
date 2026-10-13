@@ -1,6 +1,7 @@
 "use client"
 
-import { FlaskConicalIcon, RotateCcwIcon } from "lucide-react"
+import { FlaskConicalIcon, PaletteIcon, RotateCcwIcon } from "lucide-react"
+import { openThemeTuner } from "./theme-tuner"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
@@ -59,6 +60,7 @@ export function DemoPanel() {
             </Button>
           )}
         </div>
+        <Button size="sm" variant="outline" className="w-full" onClick={openThemeTuner}><PaletteIcon /> ปรับสีธีม (การ์ด · พื้นหลัง)</Button>
         <Button
           size="sm"
           variant="destructive"
