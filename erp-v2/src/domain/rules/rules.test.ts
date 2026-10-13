@@ -1,6 +1,6 @@
 // Regression tests: each case reproduces a bug found on Dev staging and proves the rule prevents it.
 import { describe, expect, it } from "vitest"
-import type { Role, Assessment, Attendance, Branch, BusAddOn, CreditNote, LessonSummary, Course, Entitlement, Family, FormSubmission, Lead, Student, FormOfferSlot, Holiday, Invoice, Klass, Session, Staff, StudentLeave, Weekday } from "../types"
+import type { NockQuestion, Role, Assessment, Attendance, Branch, BusAddOn, CreditNote, LessonSummary, Course, Entitlement, Family, FormSubmission, Lead, Student, FormOfferSlot, Holiday, Invoice, Klass, Session, Staff, StudentLeave, Weekday } from "../types"
 import { applyClassEdit, applyToSessions, canChangeTeachers, canRescheduleStudent, mondayOf, removedWithClass, canSave, closesBranch, holidayImpact, hoursFor, isHoliday, overlappingRows, periodsIn, introducedConflicts, editSingleSession, findConflicts, generateSessions, moveSession, sessionState, validateClass, workState } from "./scheduling"
 import { activeLeave, nextClassDates, teacherLeaveCancels, leaveRunSessions, balance, studentState, leaveLedger, packageCovers, canMark, canSaveLeave, coveringEntitlement, effectiveTo, leavesUsed, lowBalanceAlert, removeFromClass, renewalFollowUpDue, resolveEntitlements } from "./attendance"
 import { bestPromotion, duplicateBusDay, billedOn, busAddOnAmount, pendingBusAddOns, validateBusAddOn, carriedMinutes, weekKey, classOptionsFor, defaultAdvance, entryFeeWaiver, invoiceSessionDates, invoiceTotals, validateInvoiceDraft, canApprove, canConfirmPayment, canForceApprove, canForceConfirmPayment, canSend, canVoid, defaultBusLegs, busTotal, nextInvoiceNumber, quoteCourse } from "./billing"
@@ -2247,25 +2247,37 @@ describe("course Max Student (owner 2026-10-13) — per course, not per class", 
 })
 
 describe("Nock helper (owner 2026-10-13)", () => {
+  const kn = (id: string, question: string, answer: string, locations: string[], audience: Role[] = []): NockQuestion =>
+    ({ id, at: "", askedBy: "u", roles: [], branchId: "b", locations, question, answer, status: "answered", audience })
   const kb = [
-    { id: "k1", question: "ผู้ปกครองขอเปลี่ยนวันเรียนถาวร ต้องทำยังไง", answer: "ย้ายนักเรียนไปคลาสวันใหม่", roles: [], createdBy: "u", createdAt: "", updatedAt: "", uses: 0 },
-    { id: "k2", question: "คืนเงินผู้ปกครองยังไง", answer: "ออกใบลดหนี้", roles: ["manager"] as Role[], createdBy: "u", createdAt: "", updatedAt: "", uses: 0 },
+    kn("k1", "ผู้ปกครองขอเปลี่ยนวันเรียนถาวร ต้องทำยังไง", "ย้ายนักเรียนไปคลาสวันใหม่", ["classes"]),
+    kn("k2", "คืนเงินผู้ปกครองยังไง", "ออกใบลดหนี้", ["billing"], ["manager"]),
+    { ...kn("q9", "ถามแล้วยังไม่มีคนตอบ", "", ["other"]), status: "unanswered" as const, answer: undefined },
   ]
   it("tells an Admin who may add a subject instead of the steps they can't do", () => {
-    const a = NockR.localAnswer("อยากเพิ่มวิชาภาษาจีน", [], ["admin"])
+    const a = NockR.localAnswer("อยากเพิ่มวิชาภาษาจีน", [], ["admin"], ["settings"])
     expect(a?.source).toBe("guide")
     expect(a?.text).toContain("ทำเองไม่ได้")
     expect(a?.text).toContain("Super Admin")
     expect(NockR.localAnswer("อยากเพิ่มวิชาภาษาจีน", [], ["super_admin"])?.text).toContain("Settings › ระบบ › วิชา")
   })
-  it("uses the team's answer for the same question, before the handbook", () => {
-    const a = NockR.localAnswer("ผู้ปกครองขอเปลี่ยนวันเรียนถาวรต้องทำยังไงคะ", kb, ["admin"])
+  it("an answered question is knowledge — used for the same question, before the handbook", () => {
+    expect(NockR.knowledgeOf(kb).map((k) => k.id)).toEqual(["k1", "k2"])
+    const a = NockR.localAnswer("ผู้ปกครองขอเปลี่ยนวันเรียนถาวรต้องทำยังไงคะ", kb, ["admin"], ["classes"])
     expect(a).toMatchObject({ source: "knowledge", knowledgeId: "k1" })
   })
   it("keeps role-limited knowledge from other roles, and says it doesn't know when nothing matches", () => {
     expect(NockR.matchKnowledge("คืนเงินผู้ปกครองยังไง", kb, ["teacher"]).some((x) => x.item.id === "k2")).toBe(false)
     expect(NockR.matchKnowledge("คืนเงินผู้ปกครองยังไง", kb, ["manager"])[0]?.item.id).toBe("k2")
     expect(NockR.localAnswer("สีโลโก้ของบริษัทคืออะไร", kb, ["admin"])).toBeNull()
+  })
+  it("one 👍 / 👎 per person on knowledge", () => {
+    let k = NockR.applyVote(kb[0], "a", true)
+    k = NockR.applyVote(k, "b", false)
+    k = NockR.applyVote(k, "a", false)
+    expect([k.votesUp, k.votesDown]).toEqual([[], ["b", "a"]])
+    expect(NockR.helpfulRate(NockR.applyVote(k, "a", null))).toBe(0)
+    expect(NockR.helpfulRate(kb[1])).toBeNull()
   })
   it("only Manager and up answer the question bank", () => {
     expect(NockR.canAnswerNock({ roles: ["admin", "teacher"] })).toBe(false)

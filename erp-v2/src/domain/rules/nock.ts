@@ -2,8 +2,30 @@
 // every question so the team can answer what Nock couldn't; those answers become knowledge Nock uses next time.
 // Pure rules only: the handbook, matching, what counts as answered, who may answer. The AI call is in /api/nock.
 
-import type { NockKnowledge, NockQuestion, Role, Staff } from "../types"
+import type { NockQuestion, Role, Staff } from "../types"
 import { ROLE_LABEL, ROLE_PERMISSIONS, type Permission } from "./permissions"
+
+/** Parts of the system a question can be about (owner 2026-10-13: the asker picks — not the page they were on) */
+export const NOCK_LOCATIONS: { id: string; label: string }[] = [
+  { id: "dashboard", label: "Dashboard" },
+  { id: "crm", label: "CRM / Lead" },
+  { id: "inbox", label: "Inbox (LINE)" },
+  { id: "forms", label: "ฟอร์มผู้ปกครอง" },
+  { id: "calendar", label: "ปฏิทิน" },
+  { id: "students", label: "นักเรียน" },
+  { id: "families", label: "ครอบครัว" },
+  { id: "staff", label: "บุคลากร" },
+  { id: "courses", label: "คอร์ส" },
+  { id: "classes", label: "คลาส" },
+  { id: "sessions", label: "คาบเรียน & เช็คชื่อ" },
+  { id: "attendance", label: "รายงานเข้าเรียน" },
+  { id: "summaries", label: "สรุปการเรียน" },
+  { id: "billing", label: "ใบแจ้งหนี้ & รับเงิน" },
+  { id: "reports", label: "Reports" },
+  { id: "settings", label: "ตั้งค่า" },
+  { id: "other", label: "อื่นๆ" },
+]
+export const locationLabel = (id: string) => NOCK_LOCATIONS.find((l) => l.id === id)?.label ?? id
 
 export interface GuideEntry {
   id: string
@@ -15,47 +37,49 @@ export interface GuideEntry {
   steps: string
   href: string
   hrefLabel: string
+  /** where in the system it lives (NOCK_LOCATIONS) */
+  locations: string[]
 }
 
-/** The built-in handbook — how this system works today. People's answers (NockKnowledge) add to it. */
+/** The built-in handbook — how this system works today. People's answers (answered questions) add to it. */
 export const NOCK_GUIDE: GuideEntry[] = [
-  { id: "subject_add", title: "เพิ่มวิชาใหม่", keywords: ["เพิ่มวิชา", "วิชาใหม่", "subject", "รายวิชา", "เพิ่มรายวิชา"], perm: "settings.manage",
+  { id: "subject_add", locations: ["settings"], title: "เพิ่มวิชาใหม่", keywords: ["เพิ่มวิชา", "วิชาใหม่", "subject", "รายวิชา", "เพิ่มรายวิชา"], perm: "settings.manage",
     steps: "วิชาเป็นรายการกลางของทุกสาขา: Settings › ระบบ › วิชา → พิมพ์ชื่อวิชาใหม่ เลือกสี แล้วกด เพิ่ม · จากนั้นแต่ละสาขาเลือกวิชาที่เปิดสอนที่ Settings › สาขา › วิชา", href: "/settings?view=system&sys=subjects", hrefLabel: "Settings › วิชา" },
-  { id: "student_add", title: "เพิ่มนักเรียน", keywords: ["เพิ่มนักเรียน", "นักเรียนใหม่", "สร้างนักเรียน", "เพิ่มลูก"], perm: "student.manage",
+  { id: "student_add", locations: ["students", "families"], title: "เพิ่มนักเรียน", keywords: ["เพิ่มนักเรียน", "นักเรียนใหม่", "สร้างนักเรียน", "เพิ่มลูก"], perm: "student.manage",
     steps: "หน้านักเรียน › ปุ่ม เพิ่มนักเรียน → กรอกชื่อ ชื่อเล่น ชั้น แล้วผูกครอบครัว · หรือเปิด Panel ครอบครัว › เพิ่มลูก (ผูกครอบครัวให้อัตโนมัติ)", href: "/students", hrefLabel: "หน้านักเรียน" },
-  { id: "class_add", title: "สร้างคลาส", keywords: ["สร้างคลาส", "เปิดคลาส", "คลาสใหม่", "เพิ่มคลาส"], perm: "class.manage",
+  { id: "class_add", locations: ["classes", "calendar"], title: "สร้างคลาส", keywords: ["สร้างคลาส", "เปิดคลาส", "คลาสใหม่", "เพิ่มคลาส"], perm: "class.manage",
     steps: "หน้าคลาส › สร้างคลาส หรือกดช่องว่างในปฏิทิน → เลือกแบบคลาส (ครู + ช่วงเวลา / วิชา + ระดับชั้น) วัน เวลา ครู ห้อง · ระบบเช็คครู/ห้องชนและวันหยุดให้", href: "/classes", hrefLabel: "หน้าคลาส" },
-  { id: "course_add", title: "สร้างคอร์ส", keywords: ["สร้างคอร์ส", "คอร์สใหม่", "เพิ่มคอร์ส", "ตั้งราคา", "max student"], perm: "course.manage",
+  { id: "course_add", locations: ["courses"], title: "สร้างคอร์ส", keywords: ["สร้างคอร์ส", "คอร์สใหม่", "เพิ่มคอร์ส", "ตั้งราคา", "max student"], perm: "course.manage",
     steps: "หน้าคอร์ส › สร้างคอร์ส → Single/Bundle, วิชา, ระดับชั้น, แพ็กเกจ (ชม. / สัปดาห์ / รายเดือน) ราคาดึงจากตารางราคาของสาขา · Max Student = จำนวนนักเรียนสูงสุดของทั้งคอร์ส", href: "/courses", hrefLabel: "หน้าคอร์ส" },
-  { id: "invoice_create", title: "ออกใบแจ้งหนี้", keywords: ["ใบแจ้งหนี้", "invoice", "ออกบิล", "เก็บเงิน", "สร้างใบ"], perm: "billing.manage",
+  { id: "invoice_create", locations: ["billing"], title: "ออกใบแจ้งหนี้", keywords: ["ใบแจ้งหนี้", "invoice", "ออกบิล", "เก็บเงิน", "สร้างใบ"], perm: "billing.manage",
     steps: "ใบแจ้งหนี้ & รับเงิน › สร้างใบแจ้งหนี้ → เลือกนักเรียน + คอร์ส (+ ค่ารถ/ค่าแรกเข้า) → บันทึก (ออกเลขทันที) → สร้าง PDF → ให้อีกคนอนุมัติ → ส่งผู้ปกครองทาง LINE → บันทึกรับเงิน → อีกคนยืนยันยอด → ออกใบเสร็จ + เข้าคลาสอัตโนมัติ", href: "/billing", hrefLabel: "ใบแจ้งหนี้" },
-  { id: "invoice_approve", title: "อนุมัติใบแจ้งหนี้ / ยืนยันยอดเงิน", keywords: ["อนุมัติใบ", "approve invoice", "ยืนยันยอด", "ยืนยันเงิน", "force approve"], perm: "billing.approve",
+  { id: "invoice_approve", locations: ["billing"], title: "อนุมัติใบแจ้งหนี้ / ยืนยันยอดเงิน", keywords: ["อนุมัติใบ", "approve invoice", "ยืนยันยอด", "ยืนยันเงิน", "force approve"], perm: "billing.approve",
     steps: "คนอนุมัติต้องไม่ใช่คนสร้าง (maker–checker) · เปิดใบใน Billing › อนุมัติ PDF · ยืนยันยอดที่รายการรับเงิน · ถ้าทำเองจำเป็นจริงใช้ Force Approve ใส่เหตุผล (แจ้งทั้งสาขา + Director)", href: "/billing", hrefLabel: "ใบแจ้งหนี้" },
-  { id: "attendance", title: "เช็คชื่อ", keywords: ["เช็คชื่อ", "attendance", "มาเรียน", "ขาดเรียน"], perm: "attendance.mark",
+  { id: "attendance", locations: ["sessions", "attendance"], title: "เช็คชื่อ", keywords: ["เช็คชื่อ", "attendance", "มาเรียน", "ขาดเรียน"], perm: "attendance.mark",
     steps: "คาบเรียน & เช็คชื่อ › กดคาบ → กด มา / ลา ของนักเรียนแต่ละคน (บันทึกทันที) · คาบในอนาคตบันทึกได้แค่ลา", href: "/sessions", hrefLabel: "คาบเรียน & เช็คชื่อ" },
-  { id: "summary_write", title: "เขียนสรุปการเรียน", keywords: ["สรุปการเรียน", "เขียนสรุป", "summary", "session summary"], perm: "summary.write",
+  { id: "summary_write", locations: ["summaries"], title: "เขียนสรุปการเรียน", keywords: ["สรุปการเรียน", "เขียนสรุป", "summary", "session summary"], perm: "summary.write",
     steps: "สรุปการเรียน › กดแถวคาบ → เขียนสรุปของนักเรียน → ส่งไป Approve · คนอนุมัติต้องไม่ใช่คนเขียน แล้วจึงส่งผู้ปกครอง", href: "/summaries", hrefLabel: "สรุปการเรียน" },
-  { id: "summary_approve", title: "อนุมัติสรุปการเรียน", keywords: ["อนุมัติสรุป", "approve summary", "ส่งสรุป"], perm: "summary.approve",
+  { id: "summary_approve", locations: ["summaries"], title: "อนุมัติสรุปการเรียน", keywords: ["อนุมัติสรุป", "approve summary", "ส่งสรุป"], perm: "summary.approve",
     steps: "สรุปการเรียน › การ์ด รอส่งไป Approve → อนุมัติ (หรือเปิดแถวเพื่อขอแก้) → ส่งผู้ปกครอง", href: "/summaries", hrefLabel: "สรุปการเรียน" },
-  { id: "long_leave", title: "ลาพักยาว (ไม่หักโควตา)", keywords: ["ลาพักยาว", "ลายาว", "ลาหลายวัน", "พักเรียน", "ไม่หักโควตา"], perm: "attendance.leave_override",
+  { id: "long_leave", locations: ["students"], title: "ลาพักยาว (ไม่หักโควตา)", keywords: ["ลาพักยาว", "ลายาว", "ลาหลายวัน", "พักเรียน", "ไม่หักโควตา"], perm: "attendance.leave_override",
     steps: "เปิด Panel นักเรียน › ปุ่ม ⋯ ซ้ายล่าง › ลาพักยาว → เลือกคาบ หรือช่วงวันที่ + หมายเหตุ · สถานะเป็น Inactive ช่วงนั้น และวันจบคอร์สเลื่อนให้อัตโนมัติ", href: "/students", hrefLabel: "หน้านักเรียน" },
-  { id: "student_exit", title: "นักเรียนแจ้งออก", keywords: ["แจ้งออก", "ลาออก", "เลิกเรียน", "ไม่เรียนต่อ"], perm: "student.manage",
+  { id: "student_exit", locations: ["students"], title: "นักเรียนแจ้งออก", keywords: ["แจ้งออก", "ลาออก", "เลิกเรียน", "ไม่เรียนต่อ"], perm: "student.manage",
     steps: "Panel นักเรียน › ⋯ › แจ้งออก → เลือกวันเรียนวันสุดท้าย เหตุผล และเงินที่เหลือ (คืนเงิน / เก็บเป็นเครดิต = ออกใบลดหนี้)", href: "/students", hrefLabel: "หน้านักเรียน" },
-  { id: "holiday", title: "ตั้งวันหยุด", keywords: ["วันหยุด", "holiday", "ปิดสาขา", "หยุดเรียน"], perm: "holiday.manage",
+  { id: "holiday", locations: ["settings", "calendar"], title: "ตั้งวันหยุด", keywords: ["วันหยุด", "holiday", "ปิดสาขา", "หยุดเรียน"], perm: "holiday.manage",
     steps: "วันหยุดบริษัท: Settings › ระบบ › วันหยุด · วันหยุดของสาขา: Settings › สาขา › เวลาเปิด-ปิด & วันหยุด (เลือกเปิดทำการในวันหยุดบริษัทได้)", href: "/settings", hrefLabel: "Settings" },
-  { id: "special_period", title: "ช่วงเวลาพิเศษ (เช่น Summer)", keywords: ["ช่วงเวลาพิเศษ", "summer", "ซัมเมอร์", "ปิดเทอม", "special period"], perm: "settings.manage",
+  { id: "special_period", locations: ["settings", "calendar"], title: "ช่วงเวลาพิเศษ (เช่น Summer)", keywords: ["ช่วงเวลาพิเศษ", "summer", "ซัมเมอร์", "ปิดเทอม", "special period"], perm: "settings.manage",
     steps: "Settings › สาขา › เวลาเปิด-ปิด › ช่วงเวลาพิเศษ › เพิ่มช่วง → เวลาเปิดของช่วงนั้น คลาสปกติเรียนต่อ/หยุด และ Memo ใบแจ้งหนี้ของช่วง", href: "/settings", hrefLabel: "Settings" },
-  { id: "invoice_memo", title: "แก้ Memo ใบแจ้งหนี้", keywords: ["memo", "เมโม", "หมายเหตุใบแจ้งหนี้"], perm: "settings.manage",
+  { id: "invoice_memo", locations: ["settings", "billing"], title: "แก้ Memo ใบแจ้งหนี้", keywords: ["memo", "เมโม", "หมายเหตุใบแจ้งหนี้"], perm: "settings.manage",
     steps: "Memo ของแบรนด์: Settings › ระบบ › การเงิน · Memo เฉพาะช่วงเวลาพิเศษ: ตั้งในช่วงนั้น (ใช้กับคอร์สของช่วง)", href: "/settings?view=system&sys=billing", hrefLabel: "Settings › การเงิน" },
-  { id: "staff_add", title: "เพิ่มบุคลากร / ครู", keywords: ["เพิ่มครู", "ครูใหม่", "เพิ่มพนักงาน", "บุคลากร", "เพิ่มแอดมิน", "ให้สิทธิ์"], perm: "staff.manage",
+  { id: "staff_add", locations: ["staff"], title: "เพิ่มบุคลากร / ครู", keywords: ["เพิ่มครู", "ครูใหม่", "เพิ่มพนักงาน", "บุคลากร", "เพิ่มแอดมิน", "ให้สิทธิ์"], perm: "staff.manage",
     steps: "หน้าบุคลากร › เพิ่มบุคลากร → ชื่อ บทบาทต่อสาขา (Manager / Admin / Teacher) วิชาที่สอน และเปิดบัญชีล็อกอินถ้าต้องการ", href: "/staff", hrefLabel: "หน้าบุคลากร" },
-  { id: "lead", title: "จัดการ Lead (CRM)", keywords: ["lead", "ลีด", "crm", "ลูกค้าใหม่", "ทดลองเรียน", "สอบวัดระดับ"], perm: "lead.manage",
+  { id: "lead", locations: ["crm"], title: "จัดการ Lead (CRM)", keywords: ["lead", "ลีด", "crm", "ลูกค้าใหม่", "ทดลองเรียน", "สอบวัดระดับ"], perm: "lead.manage",
     steps: "CRM › เพิ่ม Lead หรือรับจากแชท LINE → บันทึกการติดตาม → ส่งฟอร์มสอบ/ทดลองเรียน → ส่งใบสมัครเรียน · Lead ที่สมัครแล้วกลายเป็นนักเรียน", href: "/crm", hrefLabel: "CRM" },
-  { id: "line_link", title: "ผูก LINE ผู้ปกครอง", keywords: ["ผูกไลน์", "ผูก line", "line ผู้ปกครอง", "เชื่อม line", "โค้ด line"], perm: "family.manage",
+  { id: "line_link", locations: ["families", "inbox"], title: "ผูก LINE ผู้ปกครอง", keywords: ["ผูกไลน์", "ผูก line", "line ผู้ปกครอง", "เชื่อม line", "โค้ด line"], perm: "family.manage",
     steps: "Panel ครอบครัว › สร้างโค้ดผูก LINE → ให้ผู้ปกครองส่งโค้ดเข้า LINE OA ของสาขา · สาขาต้องเชื่อม LINE OA ก่อน (Settings › สาขา › LINE Integration)", href: "/families", hrefLabel: "หน้าครอบครัว" },
-  { id: "reports", title: "ดูรายงาน", keywords: ["รายงาน", "report", "รายได้", "สถิติ"], perm: "reports.view",
+  { id: "reports", locations: ["reports"], title: "ดูรายงาน", keywords: ["รายงาน", "report", "รายได้", "สถิติ"], perm: "reports.view",
     steps: "หน้า Reports → เลือกหัวข้อ (ภาพรวม รายได้ นักเรียน การเข้าเรียน Operations CRM ความพึงพอใจ) และช่วงเวลา", href: "/reports", hrefLabel: "Reports" },
-  { id: "switch_branch", title: "เปลี่ยนสาขาที่ทำงาน", keywords: ["เปลี่ยนสาขา", "สลับสาขา", "ดูสาขาอื่น"],
+  { id: "switch_branch", locations: ["other"], title: "เปลี่ยนสาขาที่ทำงาน", keywords: ["เปลี่ยนสาขา", "สลับสาขา", "ดูสาขาอื่น"],
     steps: "กดการ์ดชื่อคุณที่มุมซ้ายล่าง → เลือกสาขา (เห็นเฉพาะสาขาที่คุณดูแล) · Director / Area Manager ใช้ชิปสาขาในแต่ละหน้าดูหลายสาขาพร้อมกันได้", href: "/", hrefLabel: "Dashboard" },
 ]
 
@@ -94,22 +118,45 @@ export function similarity(a: string, b: string): number {
   return common / Math.min(A.size, B.size) * (2 * Math.min(A.size, B.size) / (A.size + B.size))
 }
 
-/** knowledge this person may be told (an entry limited to some roles stays hidden from the rest) */
-export function visibleKnowledge(k: Pick<NockKnowledge, "roles">, roles: Role[]): boolean {
-  return !k.roles.length || k.roles.some((r) => roles.includes(r))
+/** an answered question is knowledge — this person may be told it unless it's limited to other roles */
+export function visibleKnowledge(k: Pick<NockQuestion, "audience">, roles: Role[]): boolean {
+  return !k.audience?.length || k.audience.some((r) => roles.includes(r))
 }
 
-export function matchGuide(q: string, limit = 3): { entry: GuideEntry; score: number }[] {
+/** the knowledge bank = every question a person has answered */
+export const knowledgeOf = (all: NockQuestion[]) => all.filter((q) => q.status === "answered" && !!q.answer)
+
+/** my 👍 (true) / 👎 (false) / none (null) on a knowledge entry — one vote per person */
+export function applyVote<T extends Pick<NockQuestion, "votesUp" | "votesDown">>(k: T, who: string, vote: boolean | null): T {
+  const up = (k.votesUp ?? []).filter((x) => x !== who)
+  const down = (k.votesDown ?? []).filter((x) => x !== who)
+  return { ...k, votesUp: vote === true ? [...up, who] : up, votesDown: vote === false ? [...down, who] : down }
+}
+
+/** 👍 share of a knowledge entry (null = no votes yet) */
+export function helpfulRate(k: Pick<NockQuestion, "votesUp" | "votesDown">): number | null {
+  const up = k.votesUp?.length ?? 0
+  const down = k.votesDown?.length ?? 0
+  return up + down ? up / (up + down) : null
+}
+
+export function matchGuide(q: string, limit = 3, locations: string[] = []): { entry: GuideEntry; score: number }[] {
   const t = norm(q)
-  return NOCK_GUIDE.map((entry) => ({ entry, score: entry.keywords.filter((k) => t.includes(norm(k))).length + (similarity(q, entry.title) > 0.5 ? 1 : 0) }))
-    .filter((x) => x.score > 0)
+  return NOCK_GUIDE.map((entry) => ({ entry, score: entry.keywords.filter((k) => t.includes(norm(k))).length + (similarity(q, entry.title) > 0.5 ? 1 : 0) + (entry.locations.some((l) => locations.includes(l)) ? 0.5 : 0) }))
+    .filter((x) => x.score >= 1)
     .sort((a, b) => b.score - a.score)
     .slice(0, limit)
 }
 
-export function matchKnowledge(q: string, items: NockKnowledge[], roles: Role[], limit = 4): { item: NockKnowledge; score: number }[] {
-  return items.filter((k) => visibleKnowledge(k, roles))
-    .map((item) => ({ item, score: Math.max(similarity(q, item.question), similarity(q, item.answer) * 0.6) }))
+/** the team's answers that fit this question — same part of the system counts a little, votes a little */
+export function matchKnowledge(q: string, all: NockQuestion[], roles: Role[], locations: string[] = [], limit = 4): { item: NockQuestion; score: number }[] {
+  return knowledgeOf(all).filter((k) => visibleKnowledge(k, roles))
+    .map((item) => {
+      const text = Math.max(similarity(q, item.question), similarity(q, item.answer!) * 0.6)
+      const place = (item.locations ?? []).some((l) => locations.includes(l)) ? 0.08 : 0
+      const rate = helpfulRate(item)
+      return { item, score: text + (text >= 0.2 ? place + (rate === null ? 0 : (rate - 0.5) * 0.1) : 0) }
+    })
     .filter((x) => x.score >= 0.2)
     .sort((a, b) => b.score - a.score)
     .slice(0, limit)
@@ -122,26 +169,26 @@ export const KNOWLEDGE_SURE = 0.55
  * Nock's answer without an AI model: a near-identical answered question first, then the handbook. null = Nock
  * doesn't know — the question goes to the team.
  */
-export function localAnswer(q: string, items: NockKnowledge[], roles: Role[]):
+export function localAnswer(q: string, all: NockQuestion[], roles: Role[], locations: string[] = []):
   { text: string; source: "knowledge" | "guide"; links: { label: string; href: string }[]; knowledgeId?: string } | null {
-  const k = matchKnowledge(q, items, roles, 1)[0]
-  if (k && k.score >= KNOWLEDGE_SURE) return { text: k.item.answer, source: "knowledge", links: [], knowledgeId: k.item.id }
-  const g = matchGuide(q, 1)[0]
+  const k = matchKnowledge(q, all, roles, locations, 1)[0]
+  if (k && k.score >= KNOWLEDGE_SURE) return { text: k.item.answer!, source: "knowledge", links: [], knowledgeId: k.item.id }
+  const g = matchGuide(q, 1, locations)[0]
   if (g) return { text: guideAnswer(g.entry, roles), source: "guide", links: [{ label: g.entry.hrefLabel, href: g.entry.href }] }
   return null
 }
 
 /** what the AI model is told — the asker, their permissions, the handbook and the matching knowledge */
-export function nockSystemPrompt(input: { name: string; roles: Role[]; branch: string; page: string; knowledge: NockKnowledge[]; question: string }): string {
+export function nockSystemPrompt(input: { name: string; roles: Role[]; branch: string; locations: string[]; knowledge: NockQuestion[]; question: string }): string {
   const allowed = (Object.values(ROLE_PERMISSIONS).flat() as Permission[]).filter((p, i, a) => a.indexOf(p) === i)
   const can = allowed.filter((p) => hasPerm(input.roles, p))
   const cannot = allowed.filter((p) => !hasPerm(input.roles, p))
-  const guide = matchGuide(input.question, 4).map((x) => x.entry)
+  const guide = matchGuide(input.question, 4, input.locations).map((x) => x.entry)
   const guideText = (guide.length ? guide : NOCK_GUIDE).map((g) => `- [${g.id}] ${g.title} (ต้องมีสิทธิ์: ${g.perm ? `${g.perm} = ${roleNames(rolesWith(g.perm))}` : "ทุกคน"}) → ${g.steps} · ลิงก์ ${g.href}`).join("\n")
-  const kb = matchKnowledge(input.question, input.knowledge, input.roles).map((x) => `- ถาม: ${x.item.question}\n  ตอบ (ทีมเขียน): ${x.item.answer}`).join("\n")
+  const kb = matchKnowledge(input.question, input.knowledge, input.roles, input.locations).map((x) => `- [${(x.item.locations ?? []).map(locationLabel).join(", ")}] ถาม: ${x.item.question}\n  ตอบ (ทีมเขียน): ${x.item.answer}`).join("\n")
   return [
     "คุณคือ Nock ผู้ช่วยในระบบ NockERP ของโรงเรียนกวดวิชา NockAcademy / Liclass ตอบเป็นภาษาไทย สั้น ชัด เป็นขั้นตอน",
-    `ผู้ถาม: ${input.name} · บทบาท: ${roleNames(input.roles)} · สาขา: ${input.branch} · อยู่หน้า: ${input.page}`,
+    `ผู้ถาม: ${input.name} · บทบาท: ${roleNames(input.roles)} · สาขา: ${input.branch} · ถามเรื่องส่วน: ${input.locations.map(locationLabel).join(", ") || "ไม่ระบุ"}`,
     `สิทธิ์ที่ผู้ถามมี: ${can.join(", ") || "—"}`,
     `สิทธิ์ที่ผู้ถามไม่มี: ${cannot.join(", ") || "—"}`,
     "กฎ: ตอบจากข้อมูลด้านล่างเท่านั้น ห้ามเดา · ถ้าเรื่องนั้นต้องใช้สิทธิ์ที่ผู้ถามไม่มี ให้บอกว่าทำเองไม่ได้ และต้องให้ใคร (บทบาทไหน) ทำ แนะนำให้กดปุ่ม \"ส่งให้ทีม\" · ถ้าข้อมูลไม่พอจะตอบ ให้ confident = false",
@@ -157,4 +204,4 @@ export function canAnswerNock(me: Pick<Staff, "roles">): boolean {
   return me.roles.some((r) => NOCK_ANSWERERS.includes(r))
 }
 
-export const NOCK_STATUS_LABEL: Record<NockQuestion["status"], string> = { ai: "Nock ตอบแล้ว", unanswered: "ยังไม่มีคำตอบ", answered: "ทีมตอบแล้ว" }
+export const NOCK_STATUS_LABEL: Record<NockQuestion["status"], string> = { ai: "Nock ตอบแล้ว", unanswered: "ยังไม่มีคำตอบ", answered: "คลังความรู้ (ทีมตอบแล้ว)" }

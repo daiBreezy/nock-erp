@@ -8,7 +8,7 @@ import { reasonLabel } from "@/domain/rules/loss"
 import { generateSessions } from "@/domain/rules/scheduling"
 import { entitlementRounds } from "@/domain/rules/summaries"
 import type {
-  Assessment, AppNotification, Attendance, NockKnowledge, NockQuestion, Branch, BusAddOn, DayBlocks, ChatMessage, CourseSummary, CreditNote, LessonBook, LessonTopic, Conversation, Course, Entitlement, Family, Holiday, Invoice, Klass, Lead, LessonSummary,
+  Assessment, AppNotification, Attendance, NockQuestion, Branch, BusAddOn, DayBlocks, ChatMessage, CourseSummary, CreditNote, LessonBook, LessonTopic, Conversation, Course, Entitlement, Family, Holiday, Invoice, Klass, Lead, LessonSummary,
   ActivityLog, PriceRow, Session, StudentNote, Staff, Student, StudentLeave, SurveyCampaign, SurveyResponse, SystemConfig, Weekday,
 } from "@/domain/types"
 
@@ -23,7 +23,6 @@ export interface DB {
   summaries: LessonSummary[]
   courseSummaries: CourseSummary[]
   nockQuestions: NockQuestion[]
-  nockKnowledge: NockKnowledge[]
   families: Family[]
   students: Student[]
   entitlements: Entitlement[]
@@ -639,18 +638,19 @@ export function buildSeed(now = new Date()): DB {
   })
   const courseSummaries = buildCourseSummaries({ today, now, courses, classes, entitlements })
 
-  // owner 2026-10-13: Nock's question bank — one a person already answered (now knowledge), one still waiting
+  // owner 2026-10-13: Nock's bank — answered questions are knowledge (with 👍/👎), plus some Nock answered and some waiting
   const ago = (h: number) => new Date(now.getTime() - h * 3_600_000).toISOString()
-  const nockKnowledge: NockKnowledge[] = [
-    { id: "nk_1", question: "ผู้ปกครองขอเปลี่ยนวันเรียนถาวร ต้องทำยังไง", answer: "เปิด Panel คลาสเดิม › เอานักเรียนออกจากคลาส แล้วเพิ่มเข้าคลาสวันใหม่ (Panel คลาส › เพิ่มนักเรียน) · ถ้าย้ายแค่ครั้งเดียวใช้ ย้ายคาบ (Re-schedule) ในคาบนั้นแทน · แพ็กเกจเดิมใช้ต่อได้ ไม่ต้องออกใบใหม่", roles: [], createdBy: "u_ton", createdAt: ago(72), updatedAt: ago(72), fromQuestionId: "nq_1", uses: 3 },
-  ]
   const nockQuestions: NockQuestion[] = [
-    { id: "nq_2", at: ago(5), askedBy: "u_ploy", roles: ["admin", "teacher"], branchId: "br_thl", page: "/billing", question: "ผู้ปกครองโอนเงินเกิน ต้องคืนส่วนต่างยังไง", status: "unanswered" },
-    { id: "nq_3", at: ago(26), askedBy: "u_ploy", roles: ["admin", "teacher"], branchId: "br_thl", page: "/settings", question: "อยากเพิ่มวิชาภาษาจีน ต้องทำยังไง", aiAnswer: "เพิ่มวิชาใหม่ — สิทธิ์ของคุณ (Admin, Teacher) ทำเองไม่ได้ ต้องให้ Super Admin, Director เป็นคนทำ", aiSource: "guide", links: [{ label: "Settings › วิชา", href: "/settings?view=system&sys=subjects" }], status: "ai", helpful: true },
-    { id: "nq_1", at: ago(80), askedBy: "u_dai", roles: ["teacher"], branchId: "br_thl", page: "/calendar", question: "ผู้ปกครองขอเปลี่ยนวันเรียนถาวร ต้องทำยังไง", status: "answered", answer: nockKnowledge[0].answer, answeredBy: "u_ton", answeredAt: ago(72), knowledgeId: "nk_1" },
+    { id: "nq_2", at: ago(5), askedBy: "u_ploy", roles: ["admin", "teacher"], branchId: "br_thl", locations: ["billing"], question: "ผู้ปกครองโอนเงินเกิน ต้องคืนส่วนต่างยังไง", status: "unanswered" },
+    { id: "nq_4", at: ago(30), askedBy: "u_t_br_ari", roles: ["teacher"], branchId: "br_ari", locations: ["sessions", "summaries"], question: "เช็คชื่อผิดคน แก้ได้ไหม", aiAnswer: "เช็คชื่อ: คาบเรียน & เช็คชื่อ › กดคาบ → กด มา / ลา ของนักเรียนแต่ละคน (บันทึกทันที)", aiSource: "guide", links: [{ label: "คาบเรียน & เช็คชื่อ", href: "/sessions" }], status: "unanswered", helpful: false },
+    { id: "nq_3", at: ago(26), askedBy: "u_ploy", roles: ["admin", "teacher"], branchId: "br_thl", locations: ["settings"], question: "อยากเพิ่มวิชาภาษาจีน ต้องทำยังไง", aiAnswer: "เพิ่มวิชาใหม่ — สิทธิ์ของคุณ (Admin, Teacher) ทำเองไม่ได้ ต้องให้ Super Admin, Director เป็นคนทำ", aiSource: "guide", links: [{ label: "Settings › วิชา", href: "/settings?view=system&sys=subjects" }], status: "ai", helpful: true },
+    { id: "nq_5", at: ago(50), askedBy: "u_dai", roles: ["teacher"], branchId: "br_thl", locations: ["sessions"], question: "นักเรียนมาสายครึ่งคาบ ต้องเช็คว่ามาหรือขาด", aiAnswer: "นักเรียนมาสาย: เช็คเป็น มา และเขียนในสรุปการเรียนว่ามาสายกี่นาที (ระบบไม่มีสถานะ มาสาย แยก) · ถ้าลาทั้งคาบให้เช็ค ลา", aiSource: "knowledge", fromKnowledgeId: "nq_6", status: "ai", helpful: true },
+    { id: "nq_6", at: ago(120), askedBy: "u_mint", roles: ["teacher"], branchId: "br_thl", locations: ["sessions", "summaries"], question: "นักเรียนมาสาย ต้องเช็คชื่อยังไง", status: "answered", answer: "นักเรียนมาสาย: เช็คเป็น มา และเขียนในสรุปการเรียนว่ามาสายกี่นาที (ระบบไม่มีสถานะ มาสาย แยก) · ถ้าลาทั้งคาบให้เช็ค ลา", answeredBy: "u_ton", answeredAt: ago(110), audience: [], votesUp: ["u_dai", "u_mint", "u_ploy"], votesDown: [] },
+    { id: "nq_1", at: ago(80), askedBy: "u_dai", roles: ["teacher"], branchId: "br_thl", locations: ["classes", "calendar"], question: "ผู้ปกครองขอเปลี่ยนวันเรียนถาวร ต้องทำยังไง", status: "answered", answer: "เปิด Panel คลาสเดิม › เอานักเรียนออกจากคลาส แล้วเพิ่มเข้าคลาสวันใหม่ (Panel คลาส › เพิ่มนักเรียน) · ถ้าย้ายแค่ครั้งเดียวใช้ ย้ายคาบ (Re-schedule) ในคาบนั้นแทน · แพ็กเกจเดิมใช้ต่อได้ ไม่ต้องออกใบใหม่", answeredBy: "u_ton", answeredAt: ago(72), audience: [], votesUp: ["u_dai", "u_ploy"], votesDown: ["u_mint"] },
+    { id: "nq_7", at: ago(200), askedBy: "u_nock", roles: ["director"], branchId: "br_thl", locations: ["billing", "reports"], question: "ส่วนลดพิเศษ (Concession) ให้ได้สูงสุดเท่าไหร่", status: "answered", answer: "ไม่มีเพดานในระบบ แต่ต้องใส่เหตุผลทุกครั้ง และใบที่มีส่วนลดต้องให้อีกคนอนุมัติ · นโยบายบริษัท: เกิน 10% ต้องขอ Director ก่อน", answeredBy: "u_nock", answeredAt: ago(200), audience: ["super_admin", "director", "area_manager", "manager"], votesUp: ["u_ton"], votesDown: [], manual: true },
   ]
 
-  return { branches, staff, holidays, courses, classes, sessions, attendance, summaries, courseSummaries, nockQuestions, nockKnowledge, families, students, entitlements, leaves, invoices, busAddOns, creditNotes: [] as CreditNote[], lessonBooks, lessonTopics, leads, conversations, messages, notifications: [], system, notes, logs, assessments, surveyCampaigns, surveyResponses }
+  return { branches, staff, holidays, courses, classes, sessions, attendance, summaries, courseSummaries, nockQuestions, families, students, entitlements, leaves, invoices, busAddOns, creditNotes: [] as CreditNote[], lessonBooks, lessonTopics, leads, conversations, messages, notifications: [], system, notes, logs, assessments, surveyCampaigns, surveyResponses }
 }
 
 /** Demo history for Reports: ~130 past/current students over the last 15 months with monthly / hour-pack invoices. */

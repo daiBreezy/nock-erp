@@ -5,8 +5,9 @@
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { useEffect, useMemo, useRef, useState } from "react"
-import { ArrowRightIcon, LibraryBigIcon, Loader2Icon, ArrowUpIcon, SendIcon, ThumbsDownIcon, ThumbsUpIcon, UserRoundCheckIcon, XIcon } from "lucide-react"
+import { ArrowRightIcon, LibraryBigIcon, Loader2Icon, ArrowUpIcon, MapPinIcon, SendIcon, ThumbsDownIcon, ThumbsUpIcon, UserRoundCheckIcon, XIcon } from "lucide-react"
 import { AiAvatar } from "@/components/ui/ai-avatar"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Button } from "@/components/ui/button"
 import { fmtDateTime } from "@/domain/dates"
 import * as Nock from "@/domain/rules/nock"
@@ -36,9 +37,10 @@ const PAGE_TOPICS: [string, string[]][] = [
 /** the conversation itself is the feedback — only failures need a toast */
 const quiet = (r: Result<unknown>) => { if (!r.ok) toast.error(r.error) }
 
-function suggestionsFor(path: string): string[] {
+/** starter questions for this page — each already knows which part of the system it is about */
+function suggestionsFor(path: string): { text: string; locations: string[] }[] {
   const ids = PAGE_TOPICS.find(([p]) => path.startsWith(p))?.[1] ?? ["switch_branch", "student_add", "invoice_create"]
-  return ids.map((id) => Nock.NOCK_GUIDE.find((g) => g.id === id)!).filter(Boolean).map((g) => `${g.title} ทำยังไง?`)
+  return ids.map((id) => Nock.NOCK_GUIDE.find((g) => g.id === id)!).filter(Boolean).map((g) => ({ text: `${g.title} ทำยังไง?`, locations: g.locations }))
 }
 
 export function NockWidget() {
@@ -65,11 +67,13 @@ function NockPanel({ onClose }: { onClose: () => void }) {
   const me = useStore((s) => s.me())
   const branch = useStore((s) => s.branches.find((b) => b.id === s.branchId))
   const all = useStore((s) => s.nockQuestions)
-  const knowledge = useStore((s) => s.nockKnowledge)
   const log = useStore((s) => s.logNockQuestion)
   const rate = useStore((s) => s.rateNockAnswer)
   const toTeam = useStore((s) => s.sendNockToTeam)
   const pathname = usePathname()
+  // owner 2026-10-13: the asker says which part of the system the question is about (one or more) — not taken from the page
+  const [locs, setLocs] = useState<string[]>([])
+  const [needLoc, setNeedLoc] = useState(false)
   const [text, setText] = useState("")
   const [pending, setPending] = useState<Pending>(null)
   const [model, setModel] = useState<string | null | undefined>(undefined)
@@ -82,27 +86,29 @@ function NockPanel({ onClose }: { onClose: () => void }) {
   }, [])
   useEffect(() => { end.current?.scrollIntoView({ block: "end" }) }, [mine.length, pending])
 
-  async function ask(raw: string) {
+  async function ask(raw: string, locations = locs) {
     const question = raw.trim()
     if (!question || pending) return
+    if (!locations.length) { setNeedLoc(true); return }
+    setNeedLoc(false)
     setText("")
     setPending({ question })
-    const local = Nock.localAnswer(question, knowledge, me.roles)
+    const local = Nock.localAnswer(question, all, me.roles, locations)
     let ai: { answer: string; confident: boolean; links: { label: string; href: string }[] } | null = null
     if (model) {
       try {
-        const system = Nock.nockSystemPrompt({ name: me.nickname, roles: me.roles, branch: branch?.name ?? "", page: pathname, knowledge, question })
+        const system = Nock.nockSystemPrompt({ name: me.nickname, roles: me.roles, branch: branch?.name ?? "", locations, knowledge: all, question })
         const history = mine.slice(-3).flatMap((q) => [{ role: "user" as const, text: q.question }, ...(q.answer || q.aiAnswer ? [{ role: "assistant" as const, text: q.answer ?? q.aiAnswer! }] : [])])
         const r = await fetch("/api/nock", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ system, question, history }) })
         const j = await r.json()
         if (j.ok) ai = j
       } catch { /* fall back to the handbook */ }
     }
-    const top = Nock.matchKnowledge(question, knowledge, me.roles, 1)[0]
+    const top = Nock.matchKnowledge(question, all, me.roles, locations, 1)[0]
     const used = top && top.score >= Nock.KNOWLEDGE_SURE ? top.item.id : undefined
-    if (ai) quiet(log({ page: pathname, question, aiAnswer: ai.answer, aiSource: "ai", links: ai.links, status: ai.confident ? "ai" : "unanswered" }, used))
-    else if (local) quiet(log({ page: pathname, question, aiAnswer: local.text, aiSource: local.source, links: local.links, status: "ai" }, local.knowledgeId))
-    else quiet(log({ page: pathname, question, status: "unanswered" }))
+    if (ai) quiet(log({ locations, question, aiAnswer: ai.answer, aiSource: "ai", links: ai.links, status: ai.confident ? "ai" : "unanswered", fromKnowledgeId: used }))
+    else if (local) quiet(log({ locations, question, aiAnswer: local.text, aiSource: local.source, links: local.links, status: "ai", fromKnowledgeId: local.knowledgeId }))
+    else quiet(log({ locations, question, status: "unanswered" }))
     setPending(null)
   }
 
@@ -130,7 +136,7 @@ function NockPanel({ onClose }: { onClose: () => void }) {
             </div>
             <div className="flex flex-col gap-1.5">
               {suggestionsFor(pathname).map((x) => (
-                <button key={x} type="button" onClick={() => ask(x)} className="rounded-2xl bg-muted/60 px-3 py-2 text-left text-sm hover:bg-muted">{x}</button>
+                <button key={x.text} type="button" onClick={() => { setLocs(x.locations); ask(x.text, x.locations) }} className="rounded-2xl bg-muted/60 px-3 py-2 text-left text-sm hover:bg-muted">{x.text}</button>
               ))}
             </div>
           </div>
@@ -144,15 +150,41 @@ function NockPanel({ onClose }: { onClose: () => void }) {
       </div>
 
       <form className="shrink-0 px-3 pb-3" onSubmit={(e) => { e.preventDefault(); ask(text) }}>
-        <div className="flex items-end gap-1 rounded-3xl bg-muted/60 py-1.5 pr-1.5 pl-4 focus-within:bg-muted focus-within:ring-2 focus-within:ring-ring/20">
+        <div className={cn("rounded-3xl bg-muted/60 px-1.5 pt-1.5 pb-1.5 focus-within:bg-muted focus-within:ring-2 focus-within:ring-ring/20", needLoc && "ring-2 ring-amber-400")}>
           <textarea value={text} onChange={(e) => setText(e.target.value)} rows={1} placeholder="ถาม Nock…" aria-label="คำถามถึง Nock"
             onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) { e.preventDefault(); ask(text) } }}
-            className="max-h-28 min-h-8 flex-1 resize-none bg-transparent py-1.5 text-sm outline-none placeholder:text-muted-foreground" />
-          <Button type="submit" size="icon-sm" className="rounded-full" disabled={!text.trim() || !!pending} aria-label="ส่ง"><ArrowUpIcon /></Button>
+            className="block max-h-28 min-h-8 w-full resize-none bg-transparent px-2.5 py-1.5 text-sm outline-none placeholder:text-muted-foreground" />
+          <div className="flex items-center gap-1">
+            <LocationPicker value={locs} onChange={(v) => { setLocs(v); if (v.length) setNeedLoc(false) }} />
+            <Button type="submit" size="icon-sm" className="ml-auto rounded-full" disabled={!text.trim() || !!pending} aria-label="ส่ง"><ArrowUpIcon /></Button>
+          </div>
         </div>
+        {needLoc && <p className="pt-1.5 text-center text-[11px] text-amber-700">เลือกก่อนว่าคำถามเกี่ยวกับส่วนไหนของระบบ (กด 📍)</p>}
         {mine.length > 0 && <p className="pt-1.5 text-center text-[10px] text-muted-foreground">Nock อาจตอบผิดได้ · กด 👎 เพื่อส่งให้ทีมช่วยตอบ</p>}
       </form>
     </div>
+  )
+}
+
+/** 📍 which part(s) of the system the question is about */
+function LocationPicker({ value, onChange }: { value: string[]; onChange: (v: string[]) => void }) {
+  const label = value.length ? value.map(Nock.locationLabel).join(", ") : "เลือกส่วนของระบบ"
+  return (
+    <Popover>
+      <PopoverTrigger render={<button type="button" className={cn("flex max-w-[230px] items-center gap-1 rounded-full px-2.5 py-1 text-xs", value.length ? "bg-background font-medium ring-1 ring-foreground/10" : "text-muted-foreground hover:bg-background")} />}>
+        <MapPinIcon className="size-3.5 shrink-0" /><span className="truncate">{label}</span>
+      </PopoverTrigger>
+      <PopoverContent side="top" align="start" className="w-64 p-2">
+        <p className="px-1.5 pb-1.5 text-xs text-muted-foreground">คำถามนี้เกี่ยวกับส่วนไหน (เลือกได้หลายส่วน)</p>
+        <div className="flex flex-wrap gap-1">
+          {Nock.NOCK_LOCATIONS.map((l) => {
+            const on = value.includes(l.id)
+            return <button key={l.id} type="button" aria-pressed={on} onClick={() => onChange(on ? value.filter((x) => x !== l.id) : [...value, l.id])}
+              className={cn("rounded-full border px-2.5 py-1 text-xs", on ? "border-primary bg-primary/10 font-medium text-primary" : "hover:bg-muted")}>{l.label}</button>
+          })}
+        </div>
+      </PopoverContent>
+    </Popover>
   )
 }
 
@@ -170,7 +202,10 @@ function Exchange({ q, onRate, onTeam, onLink }: { q: NockQuestion; onRate: (hel
   const staff = useStore((s) => s.staff)
   return (
     <div className="space-y-3">
-      <Bubble from="me">{q.question}</Bubble>
+      <div>
+        <Bubble from="me">{q.question}</Bubble>
+        {!!q.locations?.length && <p className="mt-1 flex items-center justify-end gap-1 text-[10px] text-muted-foreground"><MapPinIcon className="size-3" />{(q.locations ?? []).map(Nock.locationLabel).join(", ")}</p>}
+      </div>
       {q.aiAnswer ? (
         <Bubble from="nock">
           {q.aiAnswer}

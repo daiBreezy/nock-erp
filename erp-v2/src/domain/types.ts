@@ -1307,12 +1307,15 @@ export interface FormSubmission {
 /** Result of any action — every action returns one so the UI can always show feedback. */
 export type Result<T = void> = { ok: true; value: T; warnings?: string[] } | { ok: false; error: string }
 
-// ---------- Nock — the in-app AI helper + question bank (owner 2026-10-13) ----------
+// ---------- Nock — the in-app AI helper + knowledge bank (owner 2026-10-13) ----------
 
-/** ai = Nock answered (AI or the knowledge bank) · unanswered = nobody has a good answer yet · answered = a person answered */
+/** ai = Nock answered (AI / knowledge / handbook) · unanswered = waiting for the team · answered = a person answered → knowledge */
 export type NockStatus = "ai" | "unanswered" | "answered"
 
-/** Every question anyone asks Nock — kept so the team can answer the ones Nock couldn't, and Nock learns from them */
+/**
+ * One question asked of Nock — and, once a person answers it, one piece of Nock's knowledge (owner 2026-10-13:
+ * "คำถามและคลังความรู้คือเรื่องเดียวกัน — ได้คำตอบแล้ว = กลายเป็นคลังความรู้").
+ */
 export interface NockQuestion {
   id: ID
   at: string
@@ -1320,36 +1323,27 @@ export interface NockQuestion {
   /** the asker's roles at the time — answers are given by these permissions */
   roles: Role[]
   branchId: ID
-  /** the page they were on, e.g. /billing */
-  page: string
+  /** the parts of the system it is about — chosen by the asker (NOCK_LOCATIONS ids), one or more */
+  locations: string[]
   question: string
   /** what Nock replied (empty when it had nothing) */
   aiAnswer?: string
-  /** where Nock's reply came from */
   aiSource?: "ai" | "knowledge" | "guide"
   links?: { label: string; href: string }[]
+  /** the knowledge (an answered question) Nock used for this reply — the asker's 👍 / 👎 counts for it */
+  fromKnowledgeId?: ID
   status: NockStatus
-  /** the asker's 👍 / 👎 — 👎 sends it to the team */
+  /** the asker's 👍 / 👎 on Nock's reply — 👎 sends it to the team */
   helpful?: boolean
-  /** a person's answer */
+  /** a person's answer — this makes the question knowledge */
   answer?: string
   answeredBy?: ID
   answeredAt?: string
-  /** the knowledge entry made from this answer */
-  knowledgeId?: ID
-}
-
-/** One thing Nock knows — written by a person (usually from a question), used for every later answer */
-export interface NockKnowledge {
-  id: ID
-  question: string
-  answer: string
-  /** who may be told this — empty = everyone */
-  roles: Role[]
-  createdBy: ID
-  createdAt: string
-  updatedAt: string
-  fromQuestionId?: ID
-  /** how many answers used it */
-  uses: number
+  /** who Nock may tell this answer to — empty = everyone */
+  audience?: Role[]
+  /** 👍 / 👎 on this knowledge — who found it helpful or not */
+  votesUp?: ID[]
+  votesDown?: ID[]
+  /** written straight into the bank (not asked through Nock) */
+  manual?: boolean
 }

@@ -29,7 +29,7 @@ import * as Loss from "@/domain/rules/loss"
 import * as Survey from "@/domain/rules/survey"
 import * as Nock from "@/domain/rules/nock"
 import { toast } from "sonner"
-import type { NockKnowledge, NockQuestion, Role, SurveyCampaign, SurveyResponse, EnrollSubmission, ContactChannel, ContactResult, LossReason, Assessment, AttendanceStatus, Entitlement, Branch, BusAddOn, ClassBlock, CourseSummary, CreditNote, LessonBook, LessonTopic, Seat, ChatMessage, Conversation, Course, DateStr, Family, FormSubmission, Holiday, ID, Invoice, Klass, Lead, LeadStage, LessonSummary, LineDelivery, LogCategory, Result, Session, Staff, Student, SystemConfig } from "@/domain/types"
+import type { NockQuestion, Role, SurveyCampaign, SurveyResponse, EnrollSubmission, ContactChannel, ContactResult, LossReason, Assessment, AttendanceStatus, Entitlement, Branch, BusAddOn, ClassBlock, CourseSummary, CreditNote, LessonBook, LessonTopic, Seat, ChatMessage, Conversation, Course, DateStr, Family, FormSubmission, Holiday, ID, Invoice, Klass, Lead, LeadStage, LessonSummary, LineDelivery, LogCategory, Result, Session, Staff, Student, SystemConfig } from "@/domain/types"
 
 export interface UIState {
   userId: ID
@@ -95,14 +95,18 @@ type Store = DB & UIState & {
   /** marks as read for the current user only */
   markNotificationsRead: (ids?: ID[]) => void
   sendTeamMessage: (target: Notif.MessageTarget, title: string, body: string) => Result
-  // ---- Nock (owner 2026-10-13): every question is kept; the team answers what Nock couldn't; answers become knowledge
-  logNockQuestion: (q: Pick<NockQuestion, "page" | "question" | "aiAnswer" | "aiSource" | "links" | "status">, usedKnowledgeId?: ID) => Result<NockQuestion>
-  /** 👍 / 👎 — a 👎 (or "ส่งให้ทีม") sends the question to the team */
+  // ---- Nock (owner 2026-10-13): every question is kept; the team answers what Nock couldn't; an answered question IS knowledge
+  logNockQuestion: (q: Pick<NockQuestion, "locations" | "question" | "aiAnswer" | "aiSource" | "links" | "status" | "fromKnowledgeId">) => Result<NockQuestion>
+  /** the asker's 👍 / 👎 on Nock's reply — counts for the knowledge it used; 👎 sends the question to the team */
   rateNockAnswer: (id: ID, helpful: boolean) => Result
   sendNockToTeam: (id: ID) => Result
-  answerNockQuestion: (id: ID, answer: string, opts: { roles: Role[]; addToKnowledge: boolean }) => Result
-  saveNockKnowledge: (k: Pick<NockKnowledge, "question" | "answer" | "roles"> & { id?: ID }) => Result<NockKnowledge>
-  deleteNockKnowledge: (id: ID) => Result
+  /** 👍 (true) / 👎 (false) / take back (null) on a piece of knowledge */
+  voteNockKnowledge: (id: ID, vote: boolean | null) => Result
+  /** a person answers (or edits the answer) — the question becomes knowledge */
+  answerNockQuestion: (id: ID, answer: string, opts: { audience: Role[]; locations: string[] }) => Result
+  /** write knowledge straight into the bank */
+  createNockKnowledge: (k: { question: string; answer: string; audience: Role[]; locations: string[] }) => Result<NockQuestion>
+  deleteNockQuestion: (id: ID) => Result
   /** synced from GET /api/line/status, not a user edit — bypasses the Settings draft/save flow */
   setLineOaConnected: (branchId: ID, connected: boolean) => void
 
@@ -890,26 +894,26 @@ export const useStore = create<Store>()(
       markNotificationsRead: (ids) =>
         set((s) => ({ notifications: s.notifications.map((n) => ((!ids || ids.includes(n.id)) && !n.readBy.includes(s.userId) ? { ...n, readBy: [...n.readBy, s.userId] } : n)) })),
 
-      logNockQuestion: (input, usedKnowledgeId) => {
+      logNockQuestion: (input) => {
         const s = get()
         const me = s.me()
         const q: NockQuestion = { id: uid("nq"), at: s.now().toISOString(), askedBy: me.id, roles: me.roles, branchId: s.branchId, ...input, question: input.question.trim() }
         if (!q.question) return fail("พิมพ์คำถามก่อน")
-        const notifs = q.status === "unanswered" ? [nockNotice(s, q)] : []
-        set({
-          nockQuestions: [q, ...s.nockQuestions],
-          nockKnowledge: usedKnowledgeId ? s.nockKnowledge.map((k) => (k.id === usedKnowledgeId ? { ...k, uses: k.uses + 1 } : k)) : s.nockKnowledge,
-          notifications: [...notifs, ...s.notifications],
-        })
+        if (!q.locations.length) return fail("เลือกว่าคำถามเกี่ยวกับส่วนไหนของระบบ")
+        set({ nockQuestions: [q, ...s.nockQuestions], notifications: q.status === "unanswered" ? [nockNotice(s, q), ...s.notifications] : s.notifications })
         return { ok: true, value: q }
       },
       rateNockAnswer: (id, helpful) => {
         const s = get()
+        const me = s.me()
         const q = s.nockQuestions.find((x) => x.id === id)
         if (!q) return fail("ไม่พบคำถาม")
         const toTeam = !helpful && q.status === "ai"
         set({
-          nockQuestions: s.nockQuestions.map((x) => (x.id === id ? { ...x, helpful, status: toTeam ? "unanswered" : x.status } : x)),
+          nockQuestions: s.nockQuestions.map((x) =>
+            x.id === id ? { ...x, helpful, status: toTeam ? "unanswered" : x.status }
+              // the asker's verdict on a reply built from knowledge is a vote for that knowledge
+              : x.id === q.fromKnowledgeId ? Nock.applyVote(x, me.id, helpful) : x),
           notifications: toTeam ? [nockNotice(s, q), ...s.notifications] : s.notifications,
         })
         return { ok: true, value: undefined }
@@ -919,10 +923,14 @@ export const useStore = create<Store>()(
         const q = s.nockQuestions.find((x) => x.id === id)
         if (!q) return fail("ไม่พบคำถาม")
         if (q.status === "answered") return fail("ทีมตอบคำถามนี้แล้ว")
-        set({
-          nockQuestions: s.nockQuestions.map((x) => (x.id === id ? { ...x, status: "unanswered" } : x)),
-          notifications: [nockNotice(s, q), ...s.notifications],
-        })
+        set({ nockQuestions: s.nockQuestions.map((x) => (x.id === id ? { ...x, status: "unanswered" } : x)), notifications: [nockNotice(s, q), ...s.notifications] })
+        return { ok: true, value: undefined }
+      },
+      voteNockKnowledge: (id, vote) => {
+        const s = get()
+        const k = s.nockQuestions.find((x) => x.id === id)
+        if (!k || k.status !== "answered") return fail("โหวตได้เฉพาะคำถามที่มีคำตอบแล้ว")
+        set({ nockQuestions: s.nockQuestions.map((x) => (x.id === id ? Nock.applyVote(x, s.me().id, vote) : x)) })
         return { ok: true, value: undefined }
       },
       answerNockQuestion: (id, answer, opts) => {
@@ -932,36 +940,31 @@ export const useStore = create<Store>()(
         const q = s.nockQuestions.find((x) => x.id === id)
         if (!q) return fail("ไม่พบคำถาม")
         if (!answer.trim()) return fail("เขียนคำตอบก่อน")
-        const at = s.now().toISOString()
-        // the answer becomes knowledge — Nock uses it for the next person who asks something like it
-        const existing = q.knowledgeId ? s.nockKnowledge.find((k) => k.id === q.knowledgeId) : undefined
-        const k: NockKnowledge | null = opts.addToKnowledge
-          ? { id: existing?.id ?? uid("nk"), question: q.question, answer: answer.trim(), roles: opts.roles, createdBy: existing?.createdBy ?? me.id, createdAt: existing?.createdAt ?? at, updatedAt: at, fromQuestionId: q.id, uses: existing?.uses ?? 0 }
-          : null
+        if (!opts.locations.length) return fail("เลือก Location อย่างน้อย 1")
+        const first = q.status !== "answered"
         set({
-          nockQuestions: s.nockQuestions.map((x) => (x.id === id ? { ...x, status: "answered", answer: answer.trim(), answeredBy: me.id, answeredAt: at, knowledgeId: k?.id ?? x.knowledgeId } : x)),
-          nockKnowledge: k ? (existing ? s.nockKnowledge.map((x) => (x.id === k.id ? k : x)) : [k, ...s.nockKnowledge]) : s.nockKnowledge,
-          notifications: q.askedBy !== me.id
+          nockQuestions: s.nockQuestions.map((x) => (x.id === id ? { ...x, status: "answered", answer: answer.trim(), answeredBy: me.id, answeredAt: s.now().toISOString(), audience: opts.audience, locations: opts.locations } : x)),
+          notifications: first && q.askedBy !== me.id
             ? [Notif.notify({ id: uid("no"), at: s.now(), kind: "nock", title: "ทีมตอบคำถามที่คุณถาม Nock แล้ว", body: `${q.question} → ${answer.trim()}`, fromId: me.id, audience: { roles: [], staffIds: [q.askedBy] } }), ...s.notifications]
             : s.notifications,
         })
         return { ok: true, value: undefined }
       },
-      saveNockKnowledge: (input) => {
+      createNockKnowledge: (k) => {
         const s = get()
         const me = s.me()
-        if (!Nock.canAnswerNock(me)) return fail("เฉพาะ Super Admin / Director / Area Manager / Manager แก้คลังความรู้ได้")
-        if (!input.question.trim() || !input.answer.trim()) return fail("ใส่ทั้งคำถามและคำตอบ")
+        if (!Nock.canAnswerNock(me)) return fail("เฉพาะ Super Admin / Director / Area Manager / Manager สร้างคลังความรู้ได้")
+        if (!k.question.trim() || !k.answer.trim()) return fail("ใส่ทั้งคำถามและคำตอบ")
+        if (!k.locations.length) return fail("เลือก Location อย่างน้อย 1")
         const at = s.now().toISOString()
-        const old = input.id ? s.nockKnowledge.find((k) => k.id === input.id) : undefined
-        const k: NockKnowledge = { id: old?.id ?? uid("nk"), question: input.question.trim(), answer: input.answer.trim(), roles: input.roles, createdBy: old?.createdBy ?? me.id, createdAt: old?.createdAt ?? at, updatedAt: at, fromQuestionId: old?.fromQuestionId, uses: old?.uses ?? 0 }
-        set({ nockKnowledge: old ? s.nockKnowledge.map((x) => (x.id === k.id ? k : x)) : [k, ...s.nockKnowledge] })
-        return { ok: true, value: k }
+        const q: NockQuestion = { id: uid("nq"), at, askedBy: me.id, roles: me.roles, branchId: s.branchId, locations: k.locations, question: k.question.trim(), status: "answered", answer: k.answer.trim(), answeredBy: me.id, answeredAt: at, audience: k.audience, manual: true }
+        set({ nockQuestions: [q, ...s.nockQuestions] })
+        return { ok: true, value: q }
       },
-      deleteNockKnowledge: (id) => {
+      deleteNockQuestion: (id) => {
         const s = get()
         if (!Nock.canAnswerNock(s.me())) return fail("ไม่มีสิทธิ์ลบ")
-        set({ nockKnowledge: s.nockKnowledge.filter((k) => k.id !== id) })
+        set({ nockQuestions: s.nockQuestions.filter((x) => x.id !== id) })
         return { ok: true, value: undefined }
       },
       sendTeamMessage: (target, title, body) => {
@@ -2503,7 +2506,7 @@ export const useStore = create<Store>()(
     {
       name: "nockerp-v2",
       // bump when the data model changes; older saved data is replaced by fresh sample data
-      version: 72, // 72: Nock question bank + knowledge · 71: Summer Memo + Summer course + paid Summer invoice · 68–70: session summaries in every stage this week + sample Course Summaries (Single + Bundle) · 65–67: names without titles, parent relationship, phones without dashes, subject colours · 61: real branches (owner 2026-10-07) · 62: CB = ตึกน้ำ · 63: sample schools · 64: schools from the Ministry list
+      version: 73, // 73: Nock locations + knowledge = answered questions + votes · 72: Nock question bank + knowledge · 71: Summer Memo + Summer course + paid Summer invoice · 68–70: session summaries in every stage this week + sample Course Summaries (Single + Bundle) · 65–67: names without titles, parent relationship, phones without dashes, subject colours · 61: real branches (owner 2026-10-07) · 62: CB = ตึกน้ำ · 63: sample schools · 64: schools from the Ministry list
       migrate: () => ({ ...buildSeed(), userId: "u_nock", branchId: "br_thl", clockOffset: 0 }) as unknown as Store,
       // persist data + UI state only, never the action functions
       partialize: (s) => Object.fromEntries(Object.entries(s).filter(([, v]) => typeof v !== "function")) as Partial<Store>,
