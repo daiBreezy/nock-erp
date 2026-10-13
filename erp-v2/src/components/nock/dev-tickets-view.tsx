@@ -42,7 +42,6 @@ export function DevTicketsView() {
   const isDev = seesAllTickets(me)
   const scope = useBranchScope()
   const [show, setShow] = useQueryState<Show>("dshow", "all")
-  const [kind, setKind] = useState<DevTicketKind | "">("")
   const [location, setLocation] = useState("")
   const [role, setRole] = useState<Role | "">("")
   const [q, setQ] = useState("")
@@ -50,9 +49,8 @@ export function DevTicketsView() {
   const { sort, toggle } = useSort<SortKey>("date", true)
   const who = (id: ID) => staff.find((s) => s.id === id)
 
-  const mine = visibleTickets(all, me).filter((t) => !isDev || scope.ids.includes(t.branchId))
+  const mine = visibleTickets(all, me).filter((t) => scope.ids.includes(t.branchId))
   const filtered = mine
-    .filter((t) => !kind || t.kind === kind)
     .filter((t) => !location || t.locations.includes(location))
     .filter((t) => !role || t.roles.includes(role))
     .filter((t) => !q || matchesQuery(q, [t.number, t.title, t.detail, who(t.by)?.nickname]))
@@ -83,15 +81,15 @@ export function DevTicketsView() {
         <Kpi icon={LoaderIcon} label="Dev กำลังดู / กำลังทำ" value={count(["acknowledged", "in_progress"])} tone="sky" />
         <Kpi icon={CheckCircle2Icon} label="เสร็จแล้ว" value={count(["done"])} tone="emerald" sub={count(["wont_do"]) ? `ไม่ทำ ${count(["wont_do"])} เรื่อง` : undefined} onClick={() => setShow(show === "done" ? "all" : "done")} active={show === "done"} />
       </KpiRow>
-      <Toolbar end={!isDev && <span className="text-xs text-muted-foreground">เห็นเฉพาะเรื่องที่คุณส่ง · ส่งเรื่องใหม่ได้ที่ Nock › ส่งถึง Dev</span>}>
+      <Toolbar>
         <Segmented label="แสดง" value={show} onChange={setShow} options={[{ value: "all", label: "All" }, { value: "pending", label: <>Pending{count(OPEN_STATUSES) > 0 && <span className="rounded-full bg-red-100 px-1.5 text-xs text-red-800 tabular-nums">{count(OPEN_STATUSES)}</span>}</> }, { value: "done", label: "Done" }]} />
       </Toolbar>
-      <FilterBar search={<SearchBox value={q} onChange={setQ} placeholder="ค้นหาเลขที่ / เรื่อง" />}>
-        {isDev && <NativeSelect className="h-9 w-36" value={role} onChange={(e) => setRole(e.target.value as Role | "")} placeholder="ทุก Role" options={ALL_ROLES.map((r) => ({ value: r, label: ROLE_LABEL[r] }))} />}
-        <NativeSelect className="h-9 w-44" value={kind} onChange={(e) => setKind(e.target.value as DevTicketKind | "")} placeholder="ทุกประเภท" options={(Object.keys(DEV_KIND_LABEL) as DevTicketKind[]).map((k) => ({ value: k, label: DEV_KIND_LABEL[k] }))} />
+      {/* owner 2026-10-13: anyone can send to Dev — so the filters are exactly the question list's: search · Role · Part · columns · branch */}
+      <FilterBar search={<SearchBox value={q} onChange={setQ} placeholder="ค้นหาเลขที่ / เรื่อง / ผู้แจ้ง" />}>
+        <NativeSelect className="h-9 w-36" value={role} onChange={(e) => setRole(e.target.value as Role | "")} placeholder="ทุก Role" options={ALL_ROLES.map((r) => ({ value: r, label: ROLE_LABEL[r] }))} />
         <NativeSelect className="h-9 w-44" value={location} onChange={(e) => setLocation(e.target.value)} placeholder="ทุก Part" options={NOCK_LOCATIONS.map((l) => ({ value: l.id, label: l.label }))} />
         <ColumnsMenu id="dev-tickets" columns={columns} />
-        {isDev && scope.select}
+        {scope.select}
       </FilterBar>
       <DataTable id="dev-tickets" columns={columns} rows={rows} rowKey={(t) => t.id} onRowClick={(t) => setOpen(t.id)} sort={sort} onSort={toggle} minWidth={960}
         empty={isDev ? "ไม่มีเรื่องตามตัวกรอง" : "คุณยังไม่ได้ส่งเรื่องถึง Dev — กด ส่งถึง Dev ในหน้าต่าง Nock"} />
