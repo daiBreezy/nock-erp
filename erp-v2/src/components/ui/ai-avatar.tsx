@@ -2,7 +2,7 @@
 
 // AI avatar — a glowing orb with blinking eyes (owner 2026-10-13: Nock's face, "น่ารักกว่า"). From the pasted
 // "components-primitives-avatar"; the tap squish is plain CSS here instead of the `motion` package (one less dependency).
-import { useId } from "react"
+import { useEffect, useId, useRef } from "react"
 import { cn } from "@/lib/utils"
 
 export type AvatarColor = "blue" | "orange" | "red" | "green" | "purple" | "yellow" | "cyan" | "pink" | "indigo" | "lime" | "turquoise" | "violet"
@@ -15,6 +15,8 @@ export interface AvatarProps {
   size?: AvatarSize
   shape?: AvatarShape
   className?: string
+  /** owner 2026-10-13: the eyes look toward the mouse */
+  followMouse?: boolean
 }
 
 const BLINK_KEYFRAMES = `
@@ -51,20 +53,59 @@ const SIZE: Record<AvatarSize, { orb: string; eye: string; eyeGap: string; eyeY:
   lg: { orb: "size-16", eye: "w-2 h-3", eyeGap: "gap-3.5", eyeY: "-translate-y-1" },
 }
 
+/** how far the eyes may move from the centre, px */
+const LOOK: Record<AvatarSize, number> = { xs: 2, sm: 3, md: 5, lg: 7 }
+
 const SHAPE_RADIUS: Record<AvatarShape, string> = { circle: "rounded-full", square: "rounded-[0%]", squircle: "rounded-[40%]" }
 
 function Eye({ blinking, delayMs = 0, irisGradient, sizeClass }: { blinking: boolean; delayMs?: number; irisGradient: string; sizeClass: string }) {
   return <div className={cn("rounded-full", sizeClass)} style={{ background: irisGradient, ...(blinking ? { animation: `av-blink 3.6s ease-in-out ${delayMs}ms infinite` } : {}) }} />
 }
 
-export function AiAvatar({ blinking = true, color = "blue", size = "md", shape = "circle", className }: AvatarProps) {
+export function AiAvatar({ blinking = true, color = "blue", size = "md", shape = "circle", className, followMouse = false }: AvatarProps) {
   const uid = useId().replace(/\W/g, "")
+  const orbRef = useRef<HTMLDivElement>(null)
+  const eyesRef = useRef<HTMLDivElement>(null)
+
+  // follow the mouse: move the eyes toward the pointer (in the orb's own frame, so a tilted orb still looks the right way)
+  useEffect(() => {
+    if (!followMouse) return
+    let frame = 0
+    const max = LOOK[size] ?? LOOK.md
+    const onMove = (e: PointerEvent) => {
+      cancelAnimationFrame(frame)
+      frame = requestAnimationFrame(() => {
+        const orb = orbRef.current
+        const eyes = eyesRef.current
+        if (!orb || !eyes) return
+        const r = orb.getBoundingClientRect()
+        let dx = e.clientX - (r.left + r.width / 2)
+        let dy = e.clientY - (r.top + r.height / 2)
+        // undo any rotation on the orb or its parent (Nock peeks tilted 45°)
+        let angle = 0
+        for (const el of [orb, orb.parentElement]) {
+          if (!el) continue
+          const cs = getComputedStyle(el)
+          // Tailwind v4 rotates with the `rotate` property, older CSS with `transform` — read both
+          if (cs.rotate && cs.rotate !== "none") angle += (parseFloat(cs.rotate) * Math.PI) / 180
+          if (cs.transform && cs.transform !== "none") { const m = new DOMMatrixReadOnly(cs.transform); angle += Math.atan2(m.b, m.a) }
+        }
+        if (angle) { const c = Math.cos(-angle), sn = Math.sin(-angle); [dx, dy] = [dx * c - dy * sn, dx * sn + dy * c] }
+        const dist = Math.hypot(dx, dy) || 1
+        const k = (max * Math.min(1, dist / 160)) / dist
+        eyes.style.transform = `translate(${(dx * k).toFixed(1)}px, ${(dy * k).toFixed(1)}px)`
+      })
+    }
+    window.addEventListener("pointermove", onMove)
+    return () => { window.removeEventListener("pointermove", onMove); cancelAnimationFrame(frame) }
+  }, [followMouse, size])
+
   const preset = PRESETS[color] ?? PRESETS.blue
   const dims = SIZE[size] ?? SIZE.md
   return (
     <>
       <style>{BLINK_KEYFRAMES}</style>
-      <div aria-hidden="true"
+      <div ref={orbRef} aria-hidden="true"
         // the squish on press (was motion's whileTap) — a springy CSS transition
         className={cn("relative flex shrink-0 items-center justify-center overflow-hidden transition-transform duration-500 ease-[cubic-bezier(0.34,1.56,0.64,1)] active:scale-x-[1.15] active:scale-y-[1.3]", dims.orb, SHAPE_RADIUS[shape], className)}
         style={{ background: preset.gradient, boxShadow: preset.boxShadow }}>
@@ -88,9 +129,11 @@ export function AiAvatar({ blinking = true, color = "blue", size = "md", shape =
         </svg>
         <div aria-hidden="true" className="pointer-events-none absolute inset-0" style={{ background: SHINE }} />
         <div aria-hidden="true" className="pointer-events-none absolute inset-0 blur-xs" style={{ background: "radial-gradient(circle at 62% 68%, rgba(0,0,0,0.18) 0%, transparent 55%)" }} />
-        <div className={cn("relative z-10 flex items-center", dims.eyeGap, dims.eyeY)}>
+        <div className={dims.eyeY}>
+        <div ref={eyesRef} className={cn("relative z-10 flex items-center transition-transform duration-150 ease-out", dims.eyeGap)}>
           <Eye blinking={blinking} delayMs={0} irisGradient={preset.iris} sizeClass={dims.eye} />
           <Eye blinking={blinking} delayMs={60} irisGradient={preset.iris} sizeClass={dims.eye} />
+        </div>
         </div>
       </div>
     </>

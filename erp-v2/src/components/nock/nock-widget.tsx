@@ -52,7 +52,7 @@ export function NockWidget() {
       <button type="button" onClick={() => setOpen((o) => !o)} aria-label={open ? "ปิด Nock" : "ถาม Nock"} title="ถาม Nock — ผู้ช่วยของ NockERP"
         className={cn("fixed right-0 bottom-6 z-40 rounded-full transition-transform duration-500 ease-[cubic-bezier(0.34,1.56,0.64,1)] focus-visible:outline-none print:hidden",
           open ? "-translate-x-5" : "translate-x-[38%] -rotate-45 hover:-translate-x-5 hover:rotate-0 focus-visible:-translate-x-5 focus-visible:rotate-0")}>
-        <AiAvatar size="lg" />
+        <AiAvatar size="lg" followMouse />
         {open && <span className="absolute -top-1 -right-1 grid size-5 place-items-center rounded-full bg-background text-foreground shadow ring-1 ring-foreground/10"><XIcon className="size-3" /></span>}
       </button>
     </>
@@ -124,7 +124,7 @@ function NockPanel({ onClose }: { onClose: () => void }) {
         {!mine.length && !pending ? (
           <div className="flex h-full flex-col justify-end gap-4 pb-1">
             <div className="flex flex-col items-start gap-2">
-              <AiAvatar size="md" />
+              <AiAvatar size="md" followMouse />
               <p className="text-lg font-semibold">สวัสดีครับ {me.nickname}</p>
               <p className="text-sm text-muted-foreground">ถามเรื่องการใช้ระบบได้เลย — Nock ตอบตามสิทธิ์ของคุณ ถ้ายังไม่รู้ จะส่งให้ทีมตอบ แล้วคำตอบจะกลับมาที่นี่</p>
             </div>
