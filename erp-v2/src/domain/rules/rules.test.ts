@@ -20,6 +20,7 @@ import * as Doc from "./documents"
 import * as Seats from "./seats"
 import * as Les from "./lessons"
 import * as Sch from "./scheduling"
+import * as NockR from "./nock"
 import { courseSeats } from "./course"
 import * as Rep from "./reports"
 import * as Loss from "./loss"
@@ -2242,5 +2243,32 @@ describe("course Max Student (owner 2026-10-13) — per course, not per class", 
     expect([s.enrolled, s.max, s.left, s.full]).toEqual([2, 2, 0, true])
     expect(courseSeats({ id: "c1", maxStudents: 2 }, ents, "2026-10-13", "a").full).toBe(false)
     expect(courseSeats({ id: "c1" }, ents, "2026-10-13", "z")).toMatchObject({ max: null, full: false })
+  })
+})
+
+describe("Nock helper (owner 2026-10-13)", () => {
+  const kb = [
+    { id: "k1", question: "ผู้ปกครองขอเปลี่ยนวันเรียนถาวร ต้องทำยังไง", answer: "ย้ายนักเรียนไปคลาสวันใหม่", roles: [], createdBy: "u", createdAt: "", updatedAt: "", uses: 0 },
+    { id: "k2", question: "คืนเงินผู้ปกครองยังไง", answer: "ออกใบลดหนี้", roles: ["manager"] as Role[], createdBy: "u", createdAt: "", updatedAt: "", uses: 0 },
+  ]
+  it("tells an Admin who may add a subject instead of the steps they can't do", () => {
+    const a = NockR.localAnswer("อยากเพิ่มวิชาภาษาจีน", [], ["admin"])
+    expect(a?.source).toBe("guide")
+    expect(a?.text).toContain("ทำเองไม่ได้")
+    expect(a?.text).toContain("Super Admin")
+    expect(NockR.localAnswer("อยากเพิ่มวิชาภาษาจีน", [], ["super_admin"])?.text).toContain("Settings › ระบบ › วิชา")
+  })
+  it("uses the team's answer for the same question, before the handbook", () => {
+    const a = NockR.localAnswer("ผู้ปกครองขอเปลี่ยนวันเรียนถาวรต้องทำยังไงคะ", kb, ["admin"])
+    expect(a).toMatchObject({ source: "knowledge", knowledgeId: "k1" })
+  })
+  it("keeps role-limited knowledge from other roles, and says it doesn't know when nothing matches", () => {
+    expect(NockR.matchKnowledge("คืนเงินผู้ปกครองยังไง", kb, ["teacher"]).some((x) => x.item.id === "k2")).toBe(false)
+    expect(NockR.matchKnowledge("คืนเงินผู้ปกครองยังไง", kb, ["manager"])[0]?.item.id).toBe("k2")
+    expect(NockR.localAnswer("สีโลโก้ของบริษัทคืออะไร", kb, ["admin"])).toBeNull()
+  })
+  it("only Manager and up answer the question bank", () => {
+    expect(NockR.canAnswerNock({ roles: ["admin", "teacher"] })).toBe(false)
+    expect(NockR.canAnswerNock({ roles: ["manager"] })).toBe(true)
   })
 })

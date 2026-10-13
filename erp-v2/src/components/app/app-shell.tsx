@@ -31,6 +31,7 @@ import { StudentSheet } from "./student-sheet"
 import { avatarTone, initial } from "./subject-color"
 import { NAV, navFor } from "./nav"
 import { DemoPanel } from "./demo-panel"
+import { NockWidget } from "@/components/nock/nock-widget"
 import { FocusBanner } from "./focus-banner"
 
 const noopSubscribe = () => () => {}
@@ -146,6 +147,8 @@ function Shell({ children }: { children: ReactNode }) {
         </header>
         {/* keyed on the language: switching it re-renders every page so all t() calls pick it up */}
         <main key={lang} className="min-w-0 flex-1 p-3 md:p-6">{allowed ? <><FocusBanner />{children}</> : <NoAccess />}</main>
+        {/* owner 2026-10-13: Nock, the helper — on every page, for everyone */}
+        <NockWidget />
       </SidebarInset>
     </SidebarProvider>
   )

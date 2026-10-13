@@ -8,7 +8,7 @@ import { reasonLabel } from "@/domain/rules/loss"
 import { generateSessions } from "@/domain/rules/scheduling"
 import { entitlementRounds } from "@/domain/rules/summaries"
 import type {
-  Assessment, AppNotification, Attendance, Branch, BusAddOn, DayBlocks, ChatMessage, CourseSummary, CreditNote, LessonBook, LessonTopic, Conversation, Course, Entitlement, Family, Holiday, Invoice, Klass, Lead, LessonSummary,
+  Assessment, AppNotification, Attendance, NockKnowledge, NockQuestion, Branch, BusAddOn, DayBlocks, ChatMessage, CourseSummary, CreditNote, LessonBook, LessonTopic, Conversation, Course, Entitlement, Family, Holiday, Invoice, Klass, Lead, LessonSummary,
   ActivityLog, PriceRow, Session, StudentNote, Staff, Student, StudentLeave, SurveyCampaign, SurveyResponse, SystemConfig, Weekday,
 } from "@/domain/types"
 
@@ -22,6 +22,8 @@ export interface DB {
   attendance: Attendance[]
   summaries: LessonSummary[]
   courseSummaries: CourseSummary[]
+  nockQuestions: NockQuestion[]
+  nockKnowledge: NockKnowledge[]
   families: Family[]
   students: Student[]
   entitlements: Entitlement[]
@@ -637,7 +639,18 @@ export function buildSeed(now = new Date()): DB {
   })
   const courseSummaries = buildCourseSummaries({ today, now, courses, classes, entitlements })
 
-  return { branches, staff, holidays, courses, classes, sessions, attendance, summaries, courseSummaries, families, students, entitlements, leaves, invoices, busAddOns, creditNotes: [] as CreditNote[], lessonBooks, lessonTopics, leads, conversations, messages, notifications: [], system, notes, logs, assessments, surveyCampaigns, surveyResponses }
+  // owner 2026-10-13: Nock's question bank — one a person already answered (now knowledge), one still waiting
+  const ago = (h: number) => new Date(now.getTime() - h * 3_600_000).toISOString()
+  const nockKnowledge: NockKnowledge[] = [
+    { id: "nk_1", question: "ผู้ปกครองขอเปลี่ยนวันเรียนถาวร ต้องทำยังไง", answer: "เปิด Panel คลาสเดิม › เอานักเรียนออกจากคลาส แล้วเพิ่มเข้าคลาสวันใหม่ (Panel คลาส › เพิ่มนักเรียน) · ถ้าย้ายแค่ครั้งเดียวใช้ ย้ายคาบ (Re-schedule) ในคาบนั้นแทน · แพ็กเกจเดิมใช้ต่อได้ ไม่ต้องออกใบใหม่", roles: [], createdBy: "u_ton", createdAt: ago(72), updatedAt: ago(72), fromQuestionId: "nq_1", uses: 3 },
+  ]
+  const nockQuestions: NockQuestion[] = [
+    { id: "nq_2", at: ago(5), askedBy: "u_ploy", roles: ["admin", "teacher"], branchId: "br_thl", page: "/billing", question: "ผู้ปกครองโอนเงินเกิน ต้องคืนส่วนต่างยังไง", status: "unanswered" },
+    { id: "nq_3", at: ago(26), askedBy: "u_ploy", roles: ["admin", "teacher"], branchId: "br_thl", page: "/settings", question: "อยากเพิ่มวิชาภาษาจีน ต้องทำยังไง", aiAnswer: "เพิ่มวิชาใหม่ — สิทธิ์ของคุณ (Admin, Teacher) ทำเองไม่ได้ ต้องให้ Super Admin, Director เป็นคนทำ", aiSource: "guide", links: [{ label: "Settings › วิชา", href: "/settings?view=system&sys=subjects" }], status: "ai", helpful: true },
+    { id: "nq_1", at: ago(80), askedBy: "u_dai", roles: ["teacher"], branchId: "br_thl", page: "/calendar", question: "ผู้ปกครองขอเปลี่ยนวันเรียนถาวร ต้องทำยังไง", status: "answered", answer: nockKnowledge[0].answer, answeredBy: "u_ton", answeredAt: ago(72), knowledgeId: "nk_1" },
+  ]
+
+  return { branches, staff, holidays, courses, classes, sessions, attendance, summaries, courseSummaries, nockQuestions, nockKnowledge, families, students, entitlements, leaves, invoices, busAddOns, creditNotes: [] as CreditNote[], lessonBooks, lessonTopics, leads, conversations, messages, notifications: [], system, notes, logs, assessments, surveyCampaigns, surveyResponses }
 }
 
 /** Demo history for Reports: ~130 past/current students over the last 15 months with monthly / hour-pack invoices. */

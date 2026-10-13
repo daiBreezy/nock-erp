@@ -1147,7 +1147,7 @@ export interface ForcedAction {
 
 export type NotificationKind =
   | "low_sessions" | "session_cancelled" | "approval_needed" | "holiday_impact" | "info" | "form_submitted" | "student_leave"
-  | "force_approved" | "message"
+  | "force_approved" | "message" | "nock"
 
 /** One internal notification — the single team-communication channel (see domain/rules/notifications.ts). */
 export interface AppNotification {
@@ -1306,3 +1306,50 @@ export interface FormSubmission {
 
 /** Result of any action — every action returns one so the UI can always show feedback. */
 export type Result<T = void> = { ok: true; value: T; warnings?: string[] } | { ok: false; error: string }
+
+// ---------- Nock — the in-app AI helper + question bank (owner 2026-10-13) ----------
+
+/** ai = Nock answered (AI or the knowledge bank) · unanswered = nobody has a good answer yet · answered = a person answered */
+export type NockStatus = "ai" | "unanswered" | "answered"
+
+/** Every question anyone asks Nock — kept so the team can answer the ones Nock couldn't, and Nock learns from them */
+export interface NockQuestion {
+  id: ID
+  at: string
+  askedBy: ID
+  /** the asker's roles at the time — answers are given by these permissions */
+  roles: Role[]
+  branchId: ID
+  /** the page they were on, e.g. /billing */
+  page: string
+  question: string
+  /** what Nock replied (empty when it had nothing) */
+  aiAnswer?: string
+  /** where Nock's reply came from */
+  aiSource?: "ai" | "knowledge" | "guide"
+  links?: { label: string; href: string }[]
+  status: NockStatus
+  /** the asker's 👍 / 👎 — 👎 sends it to the team */
+  helpful?: boolean
+  /** a person's answer */
+  answer?: string
+  answeredBy?: ID
+  answeredAt?: string
+  /** the knowledge entry made from this answer */
+  knowledgeId?: ID
+}
+
+/** One thing Nock knows — written by a person (usually from a question), used for every later answer */
+export interface NockKnowledge {
+  id: ID
+  question: string
+  answer: string
+  /** who may be told this — empty = everyone */
+  roles: Role[]
+  createdBy: ID
+  createdAt: string
+  updatedAt: string
+  fromQuestionId?: ID
+  /** how many answers used it */
+  uses: number
+}

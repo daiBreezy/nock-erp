@@ -1,6 +1,6 @@
 import {
   BellIcon, BookOpenIcon, FileTextIcon, CalendarDaysIcon, ClipboardCheckIcon, ClockIcon, InboxIcon, LayoutDashboardIcon, NotebookPenIcon, ReceiptIcon,
-  HistoryIcon, SettingsIcon, SquareLibraryIcon, ChartColumnIcon, ListTodoIcon, UserCogIcon, UserSearchIcon, UsersIcon, GraduationCapIcon, type LucideIcon,
+  HistoryIcon, SettingsIcon, SquareLibraryIcon, ChartColumnIcon, ListTodoIcon, UserCogIcon, UserSearchIcon, SparklesIcon, UsersIcon, GraduationCapIcon, type LucideIcon,
 } from "lucide-react"
 import type { Permission } from "@/domain/rules/permissions"
 
@@ -59,6 +59,8 @@ export const NAV: { group: string; items: NavItem[] }[] = [
     group: "ระบบ",
     items: [
       { href: "/settings", label: "ตั้งค่า", icon: SettingsIcon, perm: ["settings.manage", "holiday.manage"] },
+      // owner 2026-10-13: Nock's question bank — everyone sees their own questions, Manager+ answer the rest
+      { href: "/nock", label: "คลังคำถาม Nock", icon: SparklesIcon, perm: "calendar.view" },
       { href: "/logs", label: "Logs & Timeline", icon: HistoryIcon, perm: "dashboard.view", soon: true },
     ],
   },
