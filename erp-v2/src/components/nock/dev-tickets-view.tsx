@@ -4,7 +4,7 @@
 // Developers see every one, reply, and move it along (ใหม่ → รับเรื่อง → กำลังทำ → เสร็จ / ไม่ทำ).
 import Link from "next/link"
 import { useState } from "react"
-import { CheckCircle2Icon, CircleDotIcon, ImagePlusIcon, InboxIcon, LoaderIcon, SendIcon } from "lucide-react"
+import { ArchiveIcon, CheckCircle2Icon, CircleDotIcon, ImagePlusIcon, LoaderIcon, SendIcon } from "lucide-react"
 import { Pill, RoleChip, type Tone } from "@/components/app/badges"
 import { BranchCode, useBranchScope } from "@/components/app/branch-scope"
 import { ColumnsMenu, DataTable, type Column } from "@/components/app/data-grid"
@@ -16,12 +16,12 @@ import { Field } from "@/components/app/student-form"
 import { Input } from "@/components/ui/input"
 import { Kpi } from "@/components/app/kpi"
 import { NativeSelect } from "@/components/app/native-select"
-import { FilterBar, KpiRow, SearchBox, Segmented, Toolbar } from "@/components/app/page-layout"
+import { FilterBar, KpiRow, SearchBox, ShowChip, Toolbar } from "@/components/app/page-layout"
 import { Button } from "@/components/ui/button"
 import { SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet"
 import { Textarea } from "@/components/ui/textarea"
 import { fmtDate, toDateStr } from "@/domain/dates"
-import { DEV_KIND_LABEL, DEV_STATUS_LABEL, OPEN_STATUSES, seesAllTickets, visibleTickets, canReplyTicket } from "@/domain/rules/dev-tickets"
+import { DEV_KIND_LABEL, DEV_SET_STATUSES, DEV_STATUS_LABEL, DONE_STATUSES, seesAllTickets, visibleTickets, canReplyTicket } from "@/domain/rules/dev-tickets"
 import { locationLabel, NOCK_LOCATIONS } from "@/domain/rules/nock"
 import { matchesQuery } from "@/domain/rules/people"
 import type { DevTicket, DevTicketKind, DevTicketStatus, ID, Role } from "@/domain/types"
@@ -34,9 +34,8 @@ import { useStore } from "@/store/store"
 import { DEV_KIND_ICON } from "./dev-kind-icon"
 import { ChipOverflow } from "@/components/app/chip-overflow"
 
-const STATUS_TONE: Record<DevTicketStatus, Tone> = { new: "red", acknowledged: "amber", in_progress: "blue", done: "green", wont_do: "gray" }
+const STATUS_TONE: Record<DevTicketStatus, Tone> = { new: "red", in_progress: "blue", done: "green", wont_do: "gray", on_hold: "amber" }
 const timeOf = (iso: string) => new Date(iso).toLocaleTimeString("th-TH", { hour: "2-digit", minute: "2-digit" })
-type Show = "all" | "pending" | "done"
 type SortKey = "date" | "status"
 
 export function DevTicketsView({ creating, onCreated }: { creating: boolean; onCreated: () => void }) {
@@ -45,7 +44,9 @@ export function DevTicketsView({ creating, onCreated }: { creating: boolean; onC
   const staff = useStore((s) => s.staff)
   const isDev = seesAllTickets(me)
   const scope = useBranchScope()
-  const [show, setShow] = useQueryState<Show>("dshow", "all")
+  // owner 2026-10-13: hide / show the finished ones (เสร็จแล้ว · ไม่ทำ) like Done on Billing; a KPI card narrows to one status
+  const [showDone, setShowDone] = useQueryState<"0" | "1">("ddone", "1")
+  const [status, setStatus] = useState<DevTicketStatus | "">("")
   const [location, setLocation] = useState("")
   const [role, setRole] = useState<Role | "">("")
   const [q, setQ] = useState("")
@@ -59,7 +60,7 @@ export function DevTicketsView({ creating, onCreated }: { creating: boolean; onC
     .filter((t) => !role || t.roles.includes(role))
     .filter((t) => !q || matchesQuery(q, [t.number, t.title, t.detail, who(t.by)?.nickname]))
   const rows = filtered
-    .filter((t) => (show === "pending" ? OPEN_STATUSES.includes(t.status) : show === "done" ? !OPEN_STATUSES.includes(t.status) : true))
+    .filter((t) => (status ? t.status === status : showDone === "1" || !DONE_STATUSES.includes(t.status)))
     .sort((a, b) => { const v = sort.key === "status" ? a.status.localeCompare(b.status) : a.at.localeCompare(b.at); return sort.desc ? -v : v })
   const count = (sts: DevTicketStatus[]) => filtered.filter((t) => sts.includes(t.status)).length
 
@@ -80,13 +81,14 @@ export function DevTicketsView({ creating, onCreated }: { creating: boolean; onC
   return (
     <>
       <KpiRow>
-        <Kpi icon={InboxIcon} label="เรื่องทั้งหมด" value={filtered.length} onClick={() => setShow("all")} active={show === "all"} />
-        <Kpi icon={CircleDotIcon} label="ใหม่ (ยังไม่มีคนรับ)" value={count(["new"])} tone="red" valueClassName={count(["new"]) ? "text-red-700" : undefined} />
-        <Kpi icon={LoaderIcon} label="Dev กำลังดู / กำลังทำ" value={count(["acknowledged", "in_progress"])} tone="sky" />
-        <Kpi icon={CheckCircle2Icon} label="เสร็จแล้ว" value={count(["done"])} tone="emerald" sub={count(["wont_do"]) ? `ไม่ทำ ${count(["wont_do"])} เรื่อง` : undefined} onClick={() => setShow(show === "done" ? "all" : "done")} active={show === "done"} />
+        <Kpi icon={CircleDotIcon} label="ใหม่ (ยังไม่มีคนรับ)" value={count(["new"])} tone="red" valueClassName={count(["new"]) ? "text-red-700" : undefined} onClick={() => setStatus(status === "new" ? "" : "new")} active={status === "new"} />
+        <Kpi icon={LoaderIcon} label="กำลังทำ" value={count(["in_progress"])} tone="sky" onClick={() => setStatus(status === "in_progress" ? "" : "in_progress")} active={status === "in_progress"} />
+        <Kpi icon={ArchiveIcon} label="เก็บไว้ก่อน" value={count(["on_hold"])} tone="amber" onClick={() => setStatus(status === "on_hold" ? "" : "on_hold")} active={status === "on_hold"} />
+        <Kpi icon={CheckCircle2Icon} label="เสร็จแล้ว" value={count(["done"])} tone="emerald" sub={count(["wont_do"]) ? `ไม่ทำ ${count(["wont_do"])} เรื่อง` : undefined} onClick={() => setStatus(status === "done" ? "" : "done")} active={status === "done"} />
       </KpiRow>
       <Toolbar>
-        <Segmented label="แสดง" value={show} onChange={setShow} options={[{ value: "all", label: "All" }, { value: "pending", label: <>Pending{count(OPEN_STATUSES) > 0 && <span className="rounded-full bg-red-100 px-1.5 text-xs text-red-800 tabular-nums">{count(OPEN_STATUSES)}</span>}</> }, { value: "done", label: "Done" }]} />
+        <ShowChip label="Done" on={showDone === "1"} count={count(DONE_STATUSES)} onChange={(v) => { setShowDone(v ? "1" : "0"); setStatus("") }} />
+        {status && <Button size="sm" variant="ghost" onClick={() => setStatus("")}>ดูทุกสถานะ</Button>}
       </Toolbar>
       {/* owner 2026-10-13: anyone can send to Dev — so the filters are exactly the question list's: search · Role · Part · columns · branch */}
       <FilterBar search={<SearchBox value={q} onChange={setQ} placeholder="ค้นหาเลขที่ / เรื่อง / ผู้แจ้ง" />}>
@@ -232,7 +234,17 @@ function TicketPanel({ id }: { id: ID }) {
             {attaching && <ImageAttach value={replyImages} onChange={setReplyImages} />}
             <div className="flex flex-wrap items-center gap-2">
               <Button size="sm" variant="ghost" onClick={() => setAttaching(!attaching)}><ImagePlusIcon /> รูป{replyImages.length > 0 && ` (${replyImages.length})`}</Button>
-              {isDev && <NativeSelect className="h-9 w-52" value={next} onChange={(e) => setNext(e.target.value as DevTicketStatus | "")} placeholder="ไม่เปลี่ยนสถานะ" options={(Object.keys(DEV_STATUS_LABEL) as DevTicketStatus[]).filter((x) => x !== t.status).map((x) => ({ value: x, label: `เปลี่ยนเป็น: ${DEV_STATUS_LABEL[x]}` }))} />}
+              {/* owner 2026-10-13: the Developer picks the status — กำลังทำ · เสร็จแล้ว · ไม่ทำ · เก็บไว้ก่อน */}
+              {isDev && (
+                <span className="flex flex-wrap items-center gap-1">
+                  <span className="text-xs text-muted-foreground">สถานะ:</span>
+                  {DEV_SET_STATUSES.map((x) => {
+                    const on = (next || t.status) === x
+                    return <button key={x} type="button" aria-pressed={on} disabled={x === t.status} onClick={() => setNext(next === x ? "" : x)}
+                      className={cn("rounded-full border px-2.5 py-1 text-xs", on ? "border-primary bg-primary/10 font-medium text-primary" : "hover:bg-muted", x === t.status && "cursor-default")}>{DEV_STATUS_LABEL[x]}</button>
+                  })}
+                </span>
+              )}
               <Button className="ml-auto" disabled={!next && !text.trim() && !replyImages.length} onClick={send}><SendIcon /> {next ? "บันทึกสถานะ" : "ส่ง"}</Button>
             </div>
           </div>

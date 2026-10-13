@@ -5,9 +5,13 @@ import type { DevTicket, DevTicketKind, DevTicketStatus, Result, Staff } from ".
 import { can } from "./permissions"
 
 export const DEV_KIND_LABEL: Record<DevTicketKind, string> = { bug: "แจ้งปัญหา / บั๊ก", help: "ขอความช่วยเหลือ", idea: "ข้อเสนอแนะ / ขอฟีเจอร์", question: "คำถามถึง Dev" }
-export const DEV_STATUS_LABEL: Record<DevTicketStatus, string> = { new: "ใหม่", acknowledged: "Dev รับเรื่องแล้ว", in_progress: "กำลังแก้ / กำลังทำ", done: "เสร็จแล้ว", wont_do: "ไม่ทำ" }
+export const DEV_STATUS_LABEL: Record<DevTicketStatus, string> = { new: "ใหม่", in_progress: "กำลังทำ", done: "เสร็จแล้ว", wont_do: "ไม่ทำ", on_hold: "เก็บไว้ก่อน" }
+/** what a Developer can move a ticket to (owner 2026-10-13) — "ใหม่" is only where it starts */
+export const DEV_SET_STATUSES: DevTicketStatus[] = ["in_progress", "done", "wont_do", "on_hold"]
+/** finished from the reporter's side — hidden by "Done" off */
+export const DONE_STATUSES: DevTicketStatus[] = ["done", "wont_do"]
 /** still waiting on the developers */
-export const OPEN_STATUSES: DevTicketStatus[] = ["new", "acknowledged", "in_progress"]
+export const OPEN_STATUSES: DevTicketStatus[] = ["new", "in_progress", "on_hold"]
 
 /** Developers see every ticket; everyone else only the ones they sent */
 export const seesAllTickets = (me: Staff) => can(me, "dev.manage")

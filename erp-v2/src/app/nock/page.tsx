@@ -15,7 +15,7 @@ import { InfoTip } from "@/components/app/info-tip"
 import { ImageAttach, ImageGallery, MetaGrid } from "@/components/app/images"
 import { Kpi } from "@/components/app/kpi"
 import { NativeSelect } from "@/components/app/native-select"
-import { FilterBar, KpiRow, Page, PageHeader, SearchBox, Segmented, Tabs, Toolbar } from "@/components/app/page-layout"
+import { FilterBar, KpiRow, Page, PageHeader, SearchBox, ShowChip, Tabs, Toolbar } from "@/components/app/page-layout"
 import { DevTicketsView } from "@/components/nock/dev-tickets-view"
 import { OPEN_STATUSES, visibleTickets } from "@/domain/rules/dev-tickets"
 import { Field } from "@/components/app/student-form"
@@ -39,7 +39,6 @@ const STATUS_SHORT: Record<NockStatus, string> = { ai: "Nock ตอบแล้�
 const ROLES: Role[] = ["super_admin", "director", "area_manager", "manager", "admin", "teacher", "developer"]
 const timeOf = (iso: string) => new Date(iso).toLocaleTimeString("th-TH", { hour: "2-digit", minute: "2-digit" })
 
-type Show = "all" | "pending" | "done"
 type SortKey = "date" | "votes" | "status"
 
 export default function NockPage() {
@@ -52,7 +51,8 @@ export default function NockPage() {
   const [tab, setTab] = useQueryState<"questions" | "dev">("tab", "questions")
   const tickets = useStore((s) => s.devTickets)
   const openTickets = visibleTickets(tickets, me).filter((t) => OPEN_STATUSES.includes(t.status)).length
-  const [show, setShow] = useQueryState<Show>("show", "all")
+  // owner 2026-10-13: hide / show the answered ones (Done) — like Done on Billing; KPI cards narrow to one status
+  const [showDone, setShowDone] = useQueryState<"0" | "1">("done", "1")
   const [status, setStatus] = useQueryState<NockStatus | "">("status", "")
   const [location, setLocation] = useQueryState<string>("location", "")
   const [role, setRole] = useState<Role | "">("")
@@ -72,7 +72,7 @@ export default function NockPage() {
   const count = (st: NockStatus) => filtered.filter((x) => x.status === st).length
   const votesOf = (x: NockQuestion) => { const b = bestAnswer(x, answerer ? undefined : me.roles); return b ? answerScore(b) : x.aiAnswer ? (x.aiVotesUp?.length ?? 0) - (x.aiVotesDown?.length ?? 0) : -999 }
   const rows = filtered
-    .filter((x) => (show === "pending" ? x.status === "unanswered" : show === "done" ? x.status !== "unanswered" : true))
+    .filter((x) => (status ? true : showDone === "1" || x.status === "unanswered"))
     .filter((x) => !status || x.status === status)
     .sort((a, b) => {
       const v = sort.key === "votes" ? votesOf(a) - votesOf(b)
@@ -110,15 +110,15 @@ export default function NockPage() {
       <Tabs value={tab} onChange={setTab} options={[{ value: "questions", label: "คำถามการใช้งาน", icon: MessagesSquareIcon }, { value: "dev", label: <>เรื่องถึง Dev{openTickets > 0 && <span className="rounded-full bg-red-100 px-1.5 text-xs text-red-800 tabular-nums">{openTickets}</span>}</>, icon: CodeXmlIcon }]} />
       {tab === "dev" ? <DevTicketsView creating={newTicket} onCreated={() => setNewTicket(false)} /> : <>
       <KpiRow>
-        <Kpi icon={MessagesSquareIcon} label="คำถามทั้งหมด" value={filtered.length} onClick={() => { setShow("all"); setStatus("") }} active={show === "all" && !status} />
-        <Kpi icon={CircleHelpIcon} label="ยังไม่มีคำตอบ" value={count("unanswered")} tone="red" valueClassName={count("unanswered") ? "text-red-700" : undefined} onClick={() => { setShow("all"); setStatus(status === "unanswered" ? "" : "unanswered") }} active={status === "unanswered"} />
-        <Kpi icon={SparklesIcon} label="Nock ตอบเอง" value={count("ai")} tone="sky" onClick={() => { setShow("all"); setStatus(status === "ai" ? "" : "ai") }} active={status === "ai"} />
-        <Kpi icon={BookOpenCheckIcon} label="คลังความรู้" value={count("answered")} tone="emerald" onClick={() => { setShow("all"); setStatus(status === "answered" ? "" : "answered") }} active={status === "answered"}
+        <Kpi icon={MessagesSquareIcon} label="คำถามทั้งหมด" value={filtered.length} onClick={() => setStatus("")} active={!status} />
+        <Kpi icon={CircleHelpIcon} label="ยังไม่มีคำตอบ" value={count("unanswered")} tone="red" valueClassName={count("unanswered") ? "text-red-700" : undefined} onClick={() => { setStatus(status === "unanswered" ? "" : "unanswered") }} active={status === "unanswered"} />
+        <Kpi icon={SparklesIcon} label="Nock ตอบเอง" value={count("ai")} tone="sky" onClick={() => { setStatus(status === "ai" ? "" : "ai") }} active={status === "ai"} />
+        <Kpi icon={BookOpenCheckIcon} label="คลังความรู้" value={count("answered")} tone="emerald" onClick={() => { setStatus(status === "answered" ? "" : "answered") }} active={status === "answered"}
           sub={votes.up + votes.down ? <span className="inline-flex items-center gap-1"><ThumbsUpIcon className="size-3 text-emerald-600" /> ช่วยได้ {Math.round((votes.up / (votes.up + votes.down)) * 100)}% ({votes.up + votes.down} โหวต)</span> : "ยังไม่มีโหวต"} />
       </KpiRow>
 
       <Toolbar>
-        <Segmented label="แสดง" value={show} onChange={(v) => { setShow(v); setStatus("") }} options={[{ value: "all", label: "All" }, { value: "pending", label: <>Pending{count("unanswered") > 0 && <span className="rounded-full bg-red-100 px-1.5 text-xs text-red-800 tabular-nums">{count("unanswered")}</span>}</> }, { value: "done", label: "Done" }]} />
+        <ShowChip label="Done" on={showDone === "1"} count={filtered.filter((x) => x.status !== "unanswered").length} onChange={(v) => { setShowDone(v ? "1" : "0"); setStatus("") }} />
       </Toolbar>
       <FilterBar search={<SearchBox value={q} onChange={setQ} placeholder="ค้นหาคำถาม / คำตอบ / ผู้ถาม" />}>
         <NativeSelect className="h-9 w-36" value={role} onChange={(e) => setRole(e.target.value as Role | "")} placeholder="ทุก Role" options={ROLES.map((r) => ({ value: r, label: ROLE_LABEL[r] }))} />
@@ -128,7 +128,7 @@ export default function NockPage() {
       </FilterBar>
 
       <DataTable id="nock" columns={columns} rows={rows} rowKey={(x) => x.id} onRowClick={(x) => setOpen(x.id)} sort={sort} onSort={toggle} minWidth={900}
-        empty={show === "pending" ? "ไม่มีคำถามค้าง — Nock ตอบได้หมด" : "ไม่มีคำถามตามตัวกรอง"} />
+        empty={showDone === "0" ? "ไม่มีคำถามค้าง — Nock ตอบได้หมด" : "ไม่มีคำถามตามตัวกรอง"} />
 
       <EntityPanel open={!!open} onClose={() => setOpen(null)} wide>
         {open === "new" ? <CreatePanel onClose={() => setOpen(null)} /> : open && <QuestionPanel key={open} id={open} onClose={() => setOpen(null)} />}

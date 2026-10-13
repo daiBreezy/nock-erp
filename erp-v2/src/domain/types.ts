@@ -1363,7 +1363,7 @@ export interface NockAnswer {
 // ---------- เรื่องถึง Dev (owner 2026-10-13): any staff → the development team, answered inside the ERP ----------
 
 export type DevTicketKind = "bug" | "help" | "idea" | "question"
-export type DevTicketStatus = "new" | "acknowledged" | "in_progress" | "done" | "wont_do"
+export type DevTicketStatus = "new" | "in_progress" | "done" | "wont_do" | "on_hold"
 
 /** A bug / help request / suggestion / question for the developers. The reporter sees their own; Developers see all. */
 export interface DevTicket {
