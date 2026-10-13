@@ -17,7 +17,8 @@ import { can, inBranch } from "@/domain/rules/permissions"
 import type { Branch } from "@/domain/types"
 import { report } from "@/lib/feedback"
 import { useStore } from "@/store/store"
-import { tx, nm } from "@/lib/i18n"
+import { branchShort, nm, tx } from "@/lib/i18n"
+import { cn } from "@/lib/utils"
 
 export default function SettingsPage() {
   return (
@@ -55,23 +56,30 @@ function BranchList() {
   const count = (b: Branch, role: string) => staff.filter((x) => x.active && x.branchIds.includes(b.id) && x.roles.includes(role as never)).length
   return (
     <div className="space-y-2">
-      {branches.map((b) => (
-        <Link key={b.id} href={`/settings/branches/${b.id}`} className="flex items-center gap-3 rounded-3xl bg-card p-4 shadow-sm ring-1 ring-foreground/5 hover:bg-muted/30">
-          <span className="grid size-10 place-items-center rounded-2xl bg-primary/10 text-primary"><MapPinIcon className="size-5" /></span>
-          <span className="min-w-0 flex-1">
-            <span className="flex flex-wrap items-center gap-1.5">
-              <span className="font-semibold">{nm(b.name)}</span>
-              <Pill tone="violet">{b.brand === "nockacademy" ? "Nockacademy" : "Liclass"}</Pill>
-              <Pill tone={b.active ? "green" : "gray"}>{b.active ? tx("เปิดอยู่") : tx("ปิดแล้ว")}</Pill>
-              <span className="text-xs text-muted-foreground">{b.code}</span>
-            </span>
-            <span className="block truncate text-sm text-muted-foreground">{b.address || tx("ยังไม่มีที่อยู่")}</span>
-            <span className="mt-1 block text-xs text-muted-foreground">
-              {b.rooms.length}  {tx("ห้อง · เปิด")} {Object.values(b.hours).filter(Boolean).length}  {tx("วัน · ช่วงพิเศษ")} {b.specialPeriods.length}  {tx("· วันหยุด")} {holidays.filter((h) => h.branchId === b.id).length}  {tx("· ครู")} {count(b, "teacher")}  {tx("· แอดมิน")} {count(b, "admin")}  {tx("· ผู้จัดการ")} {count(b, "manager")}
-            </span>
-          </span>
-          <ChevronRightIcon className="size-5 text-muted-foreground" />
-        </Link>
+      {/* owner 2026-10-13: same structure as the branch picker — grouped "สาขา BKK / CBR", named "LIS · ทองหล่อ" + code */}
+      {[...new Set(branches.map((b) => b.province))].sort().map((r) => (
+        <section key={r} className="space-y-1.5">
+          <h2 className="px-1 pt-2 text-sm font-medium text-muted-foreground">{tx("สาขา {0}", [r])} <span className="font-normal">({branches.filter((b) => b.province === r).length})</span></h2>
+          <div className="divide-y overflow-hidden rounded-3xl bg-card shadow-sm ring-1 ring-foreground/5">
+            {branches.filter((b) => b.province === r).sort((a, b) => a.brand.localeCompare(b.brand) || a.code.localeCompare(b.code)).map((b) => (
+              <Link key={b.id} href={`/settings/branches/${b.id}`} className={cn("flex items-center gap-3 p-4 hover:bg-muted/30", !b.active && "opacity-60")}>
+                <span className="grid size-10 shrink-0 place-items-center rounded-2xl bg-primary/10 text-primary"><MapPinIcon className="size-5" /></span>
+                <span className="min-w-0 flex-1">
+                  <span className="flex flex-wrap items-center gap-1.5">
+                    <span className="font-semibold">{branchShort(b)}</span>
+                    <span className="text-xs text-muted-foreground">{b.code}</span>
+                    {!b.active && <Pill tone="gray">{tx("ปิดแล้ว")}</Pill>}
+                  </span>
+                  <span className="block truncate text-sm text-muted-foreground">{b.address || tx("ยังไม่มีที่อยู่")}</span>
+                  <span className="mt-1 block text-xs text-muted-foreground">
+                    {b.rooms.length}  {tx("ห้อง · เปิด")} {Object.values(b.hours).filter(Boolean).length}  {tx("วัน · ช่วงพิเศษ")} {b.specialPeriods.length}  {tx("· วันหยุด")} {holidays.filter((h) => h.branchId === b.id).length}  {tx("· ครู")} {count(b, "teacher")}  {tx("· แอดมิน")} {count(b, "admin")}  {tx("· ผู้จัดการ")} {count(b, "manager")}
+                  </span>
+                </span>
+                <ChevronRightIcon className="size-5 shrink-0 text-muted-foreground" />
+              </Link>
+            ))}
+          </div>
+        </section>
       ))}
       {full ? (
         <div className="flex justify-center pt-2">

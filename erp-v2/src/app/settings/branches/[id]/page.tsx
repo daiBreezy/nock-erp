@@ -19,7 +19,7 @@ import { can, inBranch } from "@/domain/rules/permissions"
 import type { Branch } from "@/domain/types"
 import { report } from "@/lib/feedback"
 import { useStore } from "@/store/store"
-import { tx, nm } from "@/lib/i18n"
+import { branchShort, tx } from "@/lib/i18n"
 
 /** The 11 per-branch tabs of staging's Settings → Branch, in the same order. */
 const TABS: { id: string; label: string; icon: typeof BuildingIcon; body: (b: Branch, jump: (tab: string) => void) => React.ReactNode }[] = [
@@ -54,7 +54,7 @@ export default function BranchSettingsPage() {
         <Link href="/settings" className="flex items-center gap-1 text-xs text-muted-foreground hover:underline"><ChevronLeftIcon className="size-3.5" />  {tx("กลับไปรายชื่อสาขา")}</Link>
         {/* owner 2026-10-13: the branch status sits on the header line, not in its own bar */}
         <PageHeader
-          title={<span className="flex flex-wrap items-center gap-2">{nm(branch.name)} <Pill tone={branch.active ? "green" : "gray"}>{branch.active ? tx("เปิดอยู่") : tx("ปิดแล้ว")}</Pill></span>}
+          title={<span className="flex flex-wrap items-center gap-2">{branchShort(branch)} <span className="text-sm font-normal text-muted-foreground">{branch.code}</span> <Pill tone={branch.active ? "green" : "gray"}>{branch.active ? tx("เปิดอยู่") : tx("ปิดแล้ว")}</Pill></span>}
           description={branch.address || tx("ยังไม่มีที่อยู่")}
           actions={full && <>
             <InfoTip text={tx("สาขาที่ปิดจะไม่ขึ้นในตัวเลือกสาขา และรับงานใหม่ไม่ได้")} />
