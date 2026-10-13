@@ -2,10 +2,10 @@
 
 import Link from "next/link"
 import { useState } from "react"
-import { CheckIcon, ChevronDownIcon, MapPinIcon, SendIcon, SparklesIcon, XIcon } from "lucide-react"
+import { CheckIcon, ChevronDownIcon, LayersIcon, MapPinIcon, SendIcon, SparklesIcon, XIcon } from "lucide-react"
 import { ForceApprove } from "./force-approve"
 import { Pill } from "./badges"
-import { avatarTone, gradeTone, initial } from "./subject-color"
+import { avatarTone, gradeTone, initial, subjectColor } from "./subject-color"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Textarea } from "@/components/ui/textarea"
@@ -13,6 +13,7 @@ import { fmtDate, fmtDateTime } from "@/domain/dates"
 import * as Att from "@/domain/rules/attendance"
 import { can } from "@/domain/rules/permissions"
 import * as Sum from "@/domain/rules/summaries"
+import { subjectsOf } from "@/domain/rules/scheduling"
 import { SUMMARY_STATUS_LABEL } from "@/domain/rules/summaries"
 import type { CourseSummary, ID, Staff } from "@/domain/types"
 import { report } from "@/lib/feedback"
@@ -162,11 +163,14 @@ function CourseCard({ round, studentId, expanded, onToggle, draft, setDraft, can
     : status === "approved" || status === "sent"
       ? { tone: "bg-emerald-100 text-emerald-900", label: `Approve by · ${who(cs!.history.findLast((h) => h.action === "approve" || h.action === "force_approve")?.by ?? cs!.lastEditorId)} · ${fmtDateTime(cs!.history.at(-1)!.at)}` }
       : null
+  const bundle = course?.kind === "bundle"
   const abbr = (course?.name ?? "??").replace(/[^A-Za-zก-๙]/g, "").slice(0, 2).toUpperCase() || "CS"
 
   const approveCheck = cs && Sum.canApprove(cs, me)
   const isBlank = !draft.overallProgress.trim() && !draft.toImprove.trim() && !draft.strengths.trim()
-  const generate = () => setDraft(Sum.draftCourseSummary(sessionSummaries.map((x) => x.sm)))
+  const generate = () => setDraft(bundle
+    ? Sum.draftBundleCourseSummary(course!.subjects.map((subject) => ({ subject, texts: sessionSummaries.filter((x) => subjectsOf(x.se).includes(subject)).map((x) => x.sm) })))
+    : Sum.draftCourseSummary(sessionSummaries.map((x) => x.sm)))
   // a Course Summary IS its session summaries gathered together — open a blank, editable card with some
   // already in hand and it fills itself in immediately, no separate click needed (owner 2026-10-06)
   const expand = () => { if (!expanded && editable && isBlank && sessionSummaries.length) generate(); onToggle() }
@@ -177,7 +181,12 @@ function CourseCard({ round, studentId, expanded, onToggle, draft, setDraft, can
         <button type="button" onClick={expand} className="flex min-w-0 flex-1 items-center gap-3 text-left">
           <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-primary/10 text-sm font-semibold text-primary">{abbr}</span>
           <div className="min-w-0 flex-1">
-            <p className="truncate text-sm font-medium">{course?.name ?? "คอร์ส"}</p>
+            <p className="flex min-w-0 items-center gap-1.5 text-sm font-medium">
+              <span className="truncate">{course?.name ?? "คอร์ส"}</span>
+              {/* owner 2026-10-13: a Bundle is one summary covering each of its subjects */}
+              {bundle && <Pill tone="violet" className="shrink-0"><LayersIcon className="size-3" /> Bundle</Pill>}
+              {course?.subjects.map((x) => <span key={x} className={cn("shrink-0 rounded-full px-1.5 py-0.5 text-[11px] font-normal", subjectColor(x).chip)}>{x}</span>)}
+            </p>
             <p className="flex items-center gap-1 truncate text-xs text-muted-foreground">
               <MapPinIcon className="size-3" /> {branch?.name ?? "—"} · {fmtDate(round.from)} – {fmtDate(round.to, { year: true })}
               {round.entitlementIds.length > 1 && ` (${round.entitlementIds.length} รอบต่อเนื่อง)`}
@@ -221,7 +230,10 @@ function CourseCard({ round, studentId, expanded, onToggle, draft, setDraft, can
               <p className="mb-1 text-sm font-semibold">Session Summaries</p>
               <ul className="space-y-0.5 text-sm text-muted-foreground">
                 {sessionSummaries.map(({ se, sm }) => (
-                  <li key={se.id} className="flex items-start justify-between gap-2"><span>• {sm.text}</span><span className="shrink-0">{fmtDate(se.date)}</span></li>
+                  <li key={se.id} className="flex items-start justify-between gap-2">
+                    <span>• {bundle && subjectsOf(se).map((x) => <span key={x} className={cn("mr-1 rounded-full px-1.5 py-0.5 text-[11px]", subjectColor(x).chip)}>{x}</span>)}{sm.text}</span>
+                    <span className="shrink-0">{fmtDate(se.date)}</span>
+                  </li>
                 ))}
               </ul>
             </div>

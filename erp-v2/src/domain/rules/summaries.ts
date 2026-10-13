@@ -141,6 +141,13 @@ export function draftCourseSummary(sessionTexts: Pick<LessonSummary, "text">[]):
   return { overallProgress, strengths: strengths.join(" · "), toImprove: toImprove.join(" · ") }
 }
 
+/** Owner 2026-10-13: a Bundle course gets one summary written per subject — each line starts with its subject. */
+export function draftBundleCourseSummary(groups: { subject: string; texts: Pick<LessonSummary, "text">[] }[]): { overallProgress: string; toImprove: string; strengths: string } {
+  const parts = groups.filter((g) => g.texts.some((t) => t.text.trim())).map((g) => ({ subject: g.subject, d: draftCourseSummary(g.texts) }))
+  const join = (k: "overallProgress" | "toImprove" | "strengths") => parts.filter((p) => p.d[k]).map((p) => `${p.subject}: ${p.d[k]}`).join("\n")
+  return { overallProgress: join("overallProgress"), toImprove: join("toImprove"), strengths: join("strengths") }
+}
+
 export const SUMMARY_STATUS_LABEL: Record<LessonSummary["status"], string> = {
   draft: "ร่าง",
   submitted: "รออนุมัติ",

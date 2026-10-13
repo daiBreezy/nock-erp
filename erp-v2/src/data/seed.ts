@@ -6,6 +6,7 @@ import { cleanParent, cleanStudent, formatPhone, splitParentTitle } from "@/doma
 import { invoiceTotals } from "@/domain/rules/billing"
 import { reasonLabel } from "@/domain/rules/loss"
 import { generateSessions } from "@/domain/rules/scheduling"
+import { entitlementRounds } from "@/domain/rules/summaries"
 import type {
   Assessment, AppNotification, Attendance, Branch, BusAddOn, DayBlocks, ChatMessage, CourseSummary, CreditNote, LessonBook, LessonTopic, Conversation, Course, Entitlement, Family, Holiday, Invoice, Klass, Lead, LessonSummary,
   ActivityLog, PriceRow, Session, StudentNote, Staff, Student, StudentLeave, SurveyCampaign, SurveyResponse, SystemConfig, Weekday,
@@ -69,6 +70,17 @@ function chart(subjects: string[], grades: string[], scale = 1): PriceRow[] {
   )
   return rows
 }
+
+// real-sounding session notes, so the sent pile and the Course Summary "Generate" have something to gather
+const SESSION_NOTES = [
+  "ตั้งใจเรียนดี ทำโจทย์ได้คล่องขึ้น การบ้านหน้า 12–13",
+  "เข้าใจเรื่องเศษส่วนดีขึ้นมาก ยังสะเพร่าตอนทดเลข การบ้านแบบฝึกหัด 3.2",
+  "อ่านออกเสียงชัดขึ้น กล้าตอบคำถามเป็นภาษาอังกฤษ ทบทวนคำศัพท์ Unit 4",
+  "ทำโจทย์ปัญหาได้เองครบทุกข้อ ควรฝึกเขียนวิธีทำให้เป็นขั้นตอน",
+  "วันนี้ง่วงนิดหน่อย แต่ทำแบบฝึกหัดเสร็จ ฝากผู้ปกครองดูเรื่องเวลานอน",
+  "ทดลองทำข้อสอบเก่า ได้ 16/20 ผิดเรื่องร้อยละ 2 ข้อ จะทบทวนคาบหน้า",
+  "ฟังจับใจความได้ดี เขียนประโยค Past simple ยังสลับกริยาช่อง 2",
+]
 
 export function buildSeed(now = new Date()): DB {
   seq = 0
@@ -303,15 +315,24 @@ export function buildSeed(now = new Date()): DB {
   const attendance: Attendance[] = []
   const summaries: LessonSummary[] = []
   const nowMs = now.getTime()
-  const write = (se: Session, sid: string, status: LessonSummary["status"], at: number) =>
+  // approver = the branch Manager at ทองหล่อ, the Director elsewhere (never the teacher who wrote it — D5)
+  const approverOf = (se: Session) => (se.branchId === "br_thl" ? "u_ton" : "u_nock")
+  const write = (se: Session, sid: string, status: LessonSummary["status"], at: number) => {
+    const h = (hours: number) => new Date(at + hours * 3_600_000).toISOString()
+    // submitted within the deadline most of the time; about one in six a day late (Teacher Health shows it)
+    const submitH = (se.id.charCodeAt(se.id.length - 1) + sid.length) % 6 === 0 ? 30 : 2
+    const by = approverOf(se)
     summaries.push({
-      id: uid("sm"), sessionId: se.id, studentId: sid, authorId: se.teacherId!, lastEditorId: se.teacherId!,
-      text: "ตั้งใจเรียนดี ทำโจทย์ได้คล่องขึ้น การบ้านหน้า 12–13", status, history: [
-        { at: new Date(at).toISOString(), by: se.teacherId!, action: "write" },
-        // submitted within the deadline most of the time; about one in six a day late (Teacher Health shows it)
-        ...(status === "draft" ? [] : [{ at: new Date(at + ((se.id.charCodeAt(se.id.length - 1) + sid.length) % 6 === 0 ? 30 : 2) * 3_600_000).toISOString(), by: se.teacherId!, action: "submit" as const }]),
+      id: uid("sm"), sessionId: se.id, studentId: sid, authorId: se.teacherId!, lastEditorId: status === "changes_requested" ? by : se.teacherId!,
+      text: SESSION_NOTES[(se.date.charCodeAt(9) + sid.length + se.start.charCodeAt(1)) % SESSION_NOTES.length], status, history: [
+        { at: h(0), by: se.teacherId!, action: "write" },
+        ...(status === "draft" ? [] : [{ at: h(submitH), by: se.teacherId!, action: "submit" as const }]),
+        ...(status === "changes_requested" ? [{ at: h(submitH + 4), by, action: "request_changes" as const, note: "ช่วยเพิ่มว่าการบ้านครั้งหน้าคืออะไร" }] : []),
+        ...(status === "approved" || status === "sent" ? [{ at: h(submitH + 4), by, action: "approve" as const }] : []),
+        ...(status === "sent" ? [{ at: h(submitH + 5), by, action: "send" as const }] : []),
       ],
     })
+  }
   const mark = (se: Session, sid: string, status: Attendance["status"], at: number) =>
     attendance.push({ sessionId: se.id, studentId: sid, status, markedBy: se.teacherId ?? "u_ploy", markedAt: new Date(at).toISOString() })
 
@@ -330,7 +351,10 @@ export function buildSeed(now = new Date()): DB {
     se.studentIds.forEach((sid, i) => {
       const status = (i + se.date.charCodeAt(9)) % 7 === 0 ? "leave" : "present" // no "absent" any more (owner 2026-09-30): มา · ลา · ย้ายวัน
       mark(se, sid, status, end - 30 * 60000)
-      if (status === "present" && se.teacherId) write(se, sid, nowMs - end < 7 * 86400000 ? (i % 2 ? "submitted" : "draft") : "sent", end)
+      // owner 2026-10-13: the week in view should hold every stage — sent ones included, not only last week's
+      const age = (nowMs - end) / 86400000
+      const cycle: LessonSummary["status"][] = ["draft", "submitted", "changes_requested", "approved", "sent", "sent", "sent"]
+      if (status === "present" && se.teacherId) write(se, sid, age < 1 ? (i % 2 ? "submitted" : "draft") : age < 7 ? cycle[(i + se.date.charCodeAt(9)) % cycle.length] : "sent", end)
     })
   })
 
@@ -539,7 +563,7 @@ export function buildSeed(now = new Date()): DB {
           // some branches see more leave than others
           const status = (j + se.date.charCodeAt(9) + i) % (4 + (i % 4)) === 0 ? "leave" : "present"
           mark(se, sid, status, end - 30 * 60000)
-          if (status === "present") write(se, sid, nowMs - end < 3 * 86400000 ? "draft" : "sent", end)
+          if (status === "present") write(se, sid, nowMs - end < 86400000 ? "draft" : nowMs - end < 3 * 86400000 ? (j % 2 ? "submitted" : "sent") : "sent", end)
         })
       }
     }
@@ -592,10 +616,68 @@ export function buildSeed(now = new Date()): DB {
   families.forEach((f, i) => { families[i] = { ...f, parents: f.parents.map(cleanParent) } })
   leads.forEach((l, i) => { leads[i] = { ...l, name: splitParentTitle(l.name).name, phone: formatPhone(l.phone) } })
 
-  return { branches, staff, holidays, courses, classes, sessions, attendance, summaries, courseSummaries: [] as CourseSummary[], families, students, entitlements, leaves, invoices, busAddOns, creditNotes: [] as CreditNote[], lessonBooks, lessonTopics, leads, conversations, messages, notifications: [], system, notes, logs, assessments, surveyCampaigns, surveyResponses }
+  // owner 2026-10-13: more Bundle examples for Course Summary — a few ทองหล่อ students whose คณิต + อังกฤษ month
+  // just ended or ends this week (one per stage in buildCourseSummaries)
+  students.filter((st) => st.branchId === "br_thl" && st.grade === "ป.6" && !["stu_6", "stu_14"].includes(st.id) && !entitlements.some((e) => e.studentId === st.id && e.courseId === "co_bundle6")).slice(0, 6).forEach((st, i) => {
+    const to = addDays(today, [-9, -6, -4, -2, 1, 4][i])
+    entitlements.push(ent(`en_bundle_demo_${i}`, st.id, "co_bundle6", "cl_combo6", "subscription", addDays(to, -29), to, 8))
+  })
+  const courseSummaries = buildCourseSummaries({ today, now, courses, classes, entitlements })
+
+  return { branches, staff, holidays, courses, classes, sessions, attendance, summaries, courseSummaries, families, students, entitlements, leaves, invoices, busAddOns, creditNotes: [] as CreditNote[], lessonBooks, lessonTopics, leads, conversations, messages, notifications: [], system, notes, logs, assessments, surveyCampaigns, surveyResponses }
 }
 
 /** Demo history for Reports: ~130 past/current students over the last 15 months with monthly / hour-pack invoices. */
+/** Per-subject wording for Course Summaries — a Bundle writes one paragraph per subject (owner 2026-10-13). */
+const CS_TEXT: Record<string, { progress: string; improve: string; strength: string }> = {
+  คณิต: { progress: "คณิต: เข้าใจเศษส่วนและทศนิยมดีขึ้นชัดเจน ทำแบบทดสอบท้ายบทได้ 85%", improve: "คณิต: ทดเลขสะเพร่า ควรตรวจคำตอบทุกครั้ง", strength: "คณิต: วิเคราะห์โจทย์ปัญหาได้เอง" },
+  อังกฤษ: { progress: "อังกฤษ: คำศัพท์เพิ่มขึ้นมาก อ่านออกเสียงชัด กล้าพูดในห้อง", improve: "อังกฤษ: Grammar เรื่อง Past simple ยังสลับ", strength: "อังกฤษ: ฟังจับใจความเก่ง" },
+  วิทย์: { progress: "วิทย์: เข้าใจเรื่องแรงและการเคลื่อนที่ ทำการทดลองตามขั้นตอนได้", improve: "วิทย์: สรุปผลการทดลองยังสั้นไป", strength: "วิทย์: ช่างสังเกต ถามคำถามดี" },
+}
+const csText = (subjects: string[]) => {
+  const parts = subjects.map((x) => CS_TEXT[x] ?? CS_TEXT["คณิต"])
+  return { overallProgress: parts.map((x) => x.progress).join("\n"), toImprove: parts.map((x) => x.improve).join("\n"), strengths: parts.map((x) => x.strength).join("\n") }
+}
+
+/**
+ * Course Summaries (owner 2026-10-13: "show examples, Single and Bundle"): rounds that ended long ago were sent;
+ * the ones due now walk every stage — not written yet, draft, waiting approval, sent back, approved, sent —
+ * separately for Single and Bundle courses so each kind shows every state.
+ */
+function buildCourseSummaries(db: { today: string; now: Date; courses: Course[]; classes: Klass[]; entitlements: Entitlement[] }): CourseSummary[] {
+  const out: CourseSummary[] = []
+  const due = addDays(db.today, 7)
+  const STAGES: (CourseSummary["status"] | null)[] = [null, "submitted", "sent", "changes_requested", "approved", "draft", "submitted", "sent"]
+  const seen = new Map<string, number>()
+  const rounds = entitlementRounds(db.entitlements).sort((a, b) => a.to.localeCompare(b.to) || a.studentId.localeCompare(b.studentId))
+  for (const r of rounds) {
+    if (r.to > due) continue
+    const course = db.courses.find((c) => c.id === r.courseId)
+    if (!course) continue
+    const ent = db.entitlements.find((e) => e.id === r.representativeId)
+    const klass = db.classes.find((k) => ent?.classIds.includes(k.id)) ?? db.classes.find((k) => k.courseId === course.id)
+    const teacher = klass?.teacherId ?? "u_dai"
+    const approver = course.branchId === "br_thl" ? "u_ton" : "u_nock"
+    const old = r.to < addDays(db.today, -14)
+    // walk the stages per branch and per kind, so every branch shows every stage for Single and for Bundle
+    const key = `${course.branchId}:${course.kind}`
+    const n = seen.get(key) ?? 0
+    seen.set(key, n + 1)
+    const status = old ? "sent" : STAGES[n % STAGES.length]
+    if (!status) continue
+    // packages still running were written a little before now — never in the future
+    const base = Math.min(new Date(`${r.to}T18:00:00`).getTime(), db.now.getTime() - 26 * 3_600_000)
+    const at = (d: number) => new Date(base + d * 3_600_000).toISOString()
+    const history: CourseSummary["history"] = [{ at: at(0), by: teacher, action: "write" }]
+    if (status !== "draft") history.push({ at: at(2), by: teacher, action: "submit" })
+    if (status === "changes_requested") history.push({ at: at(20), by: approver, action: "request_changes", note: "เพิ่มตัวอย่างงานที่ทำได้ดีหน่อย" })
+    if (status === "approved" || status === "sent") history.push({ at: at(20), by: approver, action: "approve" })
+    if (status === "sent") history.push({ at: at(21), by: approver, action: "send" })
+    out.push({ id: `cs_${r.representativeId}`, entitlementId: r.representativeId, studentId: r.studentId, ...csText(course.subjects), status, authorId: teacher, lastEditorId: status === "changes_requested" ? approver : teacher, history })
+  }
+  return out
+}
+
 function buildHistory(db: { today: string; branches: Branch[]; courses: Course[]; classes: Klass[]; families: Family[]; students: Student[]; invoices: Invoice[]; entitlements: Entitlement[]; leads: Lead[] }) {
   let seed = 20261001
   const rnd = () => { seed = (seed * 1103515245 + 12345) % 2147483648; return seed / 2147483648 }

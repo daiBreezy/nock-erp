@@ -2191,3 +2191,14 @@ describe("family name in lists (owner 2026-10-09)", () => {
     expect(familyShortName("Somjai Family")).toBe("Somjai Family")
   })
 })
+
+describe("Course Summary for a Bundle (owner 2026-10-13)", () => {
+  it("writes one line per subject, skipping subjects with no notes", () => {
+    const d = Sum.draftBundleCourseSummary([
+      { subject: "คณิต", texts: [{ text: "ทำโจทย์ได้คล่อง" }] },
+      { subject: "อังกฤษ", texts: [{ text: "อ่านออกเสียงชัด" }, { text: "กล้าพูด" }] },
+      { subject: "วิทย์", texts: [] },
+    ])
+    expect(d.overallProgress.split("\n")).toEqual(["คณิต: สรุปจาก 1 คาบ: ทำโจทย์ได้คล่อง", "อังกฤษ: สรุปจาก 2 คาบ: อ่านออกเสียงชัด · กล้าพูด"])
+  })
+})
