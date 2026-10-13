@@ -46,7 +46,7 @@ export default function PrintDocument() {
   const date = kind === "receipt" ? Doc.receiptDate(inv) : kind === "credit-note" ? cn!.createdAt.slice(0, 10) : invDate
   const signer = Doc.preparedBy(cn ?? inv, s.staff)
   const [th, en] = TITLE[kind]
-  const memo = [s.system.invoiceMemos[branch.brand], kind === "credit-note" ? `อ้างอิงใบแจ้งหนี้ ${inv.number} · ${[...cn!.reasons, cn!.remark].filter(Boolean).join(", ")}` : inv.noteToParent].filter(Boolean).join("\n")
+  const memo = [Doc.invoiceMemo(inv, { brandMemo: s.system.invoiceMemos[branch.brand], branch, courses: s.courses, classes: s.classes }).memo, kind === "credit-note" ? `อ้างอิงใบแจ้งหนี้ ${inv.number} · ${[...cn!.reasons, cn!.remark].filter(Boolean).join(", ")}` : inv.noteToParent].filter(Boolean).join("\n")
   const rows = [...items, ...Array.from({ length: Math.max(0, 8 - items.length) }, () => null)]
 
   return (

@@ -98,7 +98,8 @@ export function buildSeed(now = new Date()): DB {
       blockPlans: [{ from: "2020-01-01", byDay: blockWeek(["13:00", "15:00", "17:00"], ["09:00", "11:00", "13:00", "15:00"]) }],
       // Summer has its own blocks and its own classes (owner 2026-10-01); regular classes keep going (default)
       specialPeriods: [{ id: "sp_summer", name: "Summer", from: addDays(monday, 42), to: addDays(monday, 69), hours: wk("08:00", "22:00", []), active: true, priority: "high",
-        blocks: blockWeek(["09:00", "13:00", "16:00", "18:00"], ["09:00", "13:00"]) }],
+        blocks: blockWeek(["09:00", "13:00", "16:00", "18:00"], ["09:00", "13:00"]),
+        invoiceMemo: "Summer Camp 2026 · ค่าเรียนชำระครั้งเดียวก่อนวันเริ่ม ไม่คืนเงินหลังเริ่มเรียน (ย้ายรอบได้ 1 ครั้ง) · รวมค่าเอกสารแล้ว" }],
       active: true, email: "thonglor@liclass.com", address: "123 ถ.สุขุมวิท 55 แขวงคลองตันเหนือ เขตวัฒนา กทม. 10110", phones: ["02-111-2222", "081-234-5678"], socials: ["https://facebook.com/nockacademy"],
       fees: [
         { id: "fee_bus_std", kind: "bus", name: "Standard", price: 150 },
@@ -194,6 +195,8 @@ export function buildSeed(now = new Date()): DB {
     course({ id: "co_eng", branchId: "br_thl", name: "อังกฤษ ป.4–ม.1 รายเดือน", kind: "single", subjects: ["อังกฤษ"], grades: ["ป.4", "ป.5", "ป.6", "ม.1"], unit: "month", duration: 1, price: 4200, priceReason: "ราคาเดียวทุกระดับชั้น (คลาส Conversation รวมชั้น)" }),
     course({ id: "co_sci", branchId: "br_thl", name: "วิทย์ ม.ต้น 12 ชม.", kind: "single", subjects: ["วิทย์"], grades: ["ม.1", "ม.2", "ม.3"], unit: "hour", duration: 12, price: 3300, priceReason: "ราคาเดียว ม.ต้น" }),
     course({ id: "co_math_w4", branchId: "br_thl", name: "คณิต ป.5 เข้มข้น 4 สัปดาห์", kind: "single", subjects: ["คณิต"], grades: ["ป.5"], unit: "week", duration: 4, from: addDays(monday, 7), to: addDays(monday, 63) }),
+    // owner 2026-10-13: a course made for Summer — its invoices + receipts print Summer's Memo
+    course({ id: "co_summer_eng", branchId: "br_thl", name: "Summer English Camp 4 สัปดาห์", kind: "single", subjects: ["อังกฤษ"], grades: ["ป.5", "ป.6"], unit: "week", duration: 4, periodId: "sp_summer", price: 8900, priceReason: "ราคาแคมป์ Summer" }),
     course({ id: "co_bundle6", branchId: "br_thl", name: "คณิต + อังกฤษ ป.6", kind: "bundle", subjects: ["คณิต", "อังกฤษ"], grades: ["ป.6"], unit: "month", duration: 1, courseFee: 500 }),
     course({ id: "co_math5_pv", branchId: "br_thl", name: "คณิต ป.5 เรียนเดี่ยว 12 ชม.", kind: "single", format: "single", subjects: ["คณิต"], grades: ["ป.5"], unit: "hour", duration: 12, price: 7200, priceReason: "เรียนเดี่ยว (Private) ราคาต่อชั่วโมงสูงกว่ากลุ่ม" }),
     // 10 h on the 90-min Conversation class = 6 sessions + 60 min leftover (demo: the admin decides the leftover)
@@ -260,7 +263,7 @@ export function buildSeed(now = new Date()): DB {
     // multi-subject class (owner 2026-09-28): Math 15 min + Eng 30 min in one session, one summary — monthly bundle course
     { ...k("cl_combo6", "br_thl", "คณิต + อังกฤษ ป.6", "คณิต", ["ป.6"], "u_prae", "rm_3", 5, "16:00", 45, ["stu_6", "stu_14"], ["u_mint"]), subjects: ["คณิต", "อังกฤษ"], courseId: "co_bundle6" },
     // a Summer-only class: sessions only inside the period, gone from the calendar if Summer is switched off
-    { ...k("cl_summer_eng", "br_thl", "Summer English Camp", "อังกฤษ", ["ป.5", "ป.6"], "u_mint", "rm_2", 1, "09:00", 120, ["stu_6", "stu_14"]), startDate: addDays(monday, 42), periodId: "sp_summer" },
+    { ...k("cl_summer_eng", "br_thl", "Summer English Camp", "อังกฤษ", ["ป.5", "ป.6"], "u_mint", "rm_2", 1, "09:00", 120, ["stu_6", "stu_14"]), startDate: addDays(monday, 42), periodId: "sp_summer", courseId: "co_summer_eng" },
     ...branches.slice(2).flatMap((b, i) => [
       { ...k(`cl_${b.id}_m`, b.id, "คณิต ป.5", "คณิต", ["ป.5"], null, `${b.id}_r1`, ((i % 5) + 1) as Weekday, "16:00", 90, []), courseId: `co_${b.id}_m` },
       { ...k(`cl_${b.id}_e`, b.id, "อังกฤษ ป.6", "อังกฤษ", ["ป.6"], null, `${b.id}_r2`, 6, "10:00", 120, []), courseId: `co_${b.id}_e` },
@@ -517,7 +520,17 @@ export function buildSeed(now = new Date()): DB {
       lines: [{ id: "ln_3", courseId: "co_eng", classIds: ["cl_eng"], startDate: today, periods: 1 }], bus: [], bookFee: 0, advance: [],
       concession: { amount: 200, remark: "ลูกค้าเก่า ต่อคอร์สต่อเนื่อง" }, noteToParent: "", status: "draft", pdf: "none", createdBy: "u_ploy", createdAt: iso(today), payments: [],
     },
+    // owner 2026-10-13: paid today, weeks before Summer starts — the invoice + receipt still print Summer's Memo
+    {
+      id: "inv_summer", branchId: "br_thl", studentId: "stu_14", number: docNo(today, 3),
+      lines: [{ id: "ln_4", courseId: "co_summer_eng", classIds: ["cl_summer_eng"], startDate: addDays(monday, 42), periods: 1 }], bus: [], bookFee: 0, advance: [],
+      concession: null, noteToParent: "ค่าเรียน Summer English Camp", status: "paid", pdf: "ready", createdBy: "u_ploy", createdAt: iso(today),
+      approvedBy: "u_ton", sentAt: iso(today), delivery: "delivered", receiptNumber: docNo(today, 3),
+      payments: [{ id: "pay_summer", amount: 8900, method: "transfer", reference: "SCB 5521", recordedBy: "u_ploy", recordedAt: iso(today), confirmedBy: "u_ton" }],
+    },
   ]
+  entitlements.push(ent("en_summer", "stu_14", "co_summer_eng", "cl_summer_eng", "subscription", addDays(monday, 42), addDays(monday, 69), 4))
+  entitlements[entitlements.length - 1].invoiceId = "inv_summer"
 
   // books + topics teachers already typed (demo) — everyone in the branch picks from these
   const lessonBooks: LessonBook[] = [

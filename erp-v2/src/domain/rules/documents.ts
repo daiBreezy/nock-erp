@@ -3,10 +3,27 @@
 // the totals never disagree (the lines always add up to invoiceTotals().total).
 
 import { endOfMonth, fmtDate, fmtMonth } from "../dates"
-import type { Branch, CreditNote, DateStr, Family, Invoice, Staff, Student } from "../types"
+import type { Branch, Course, CreditNote, DateStr, Family, Invoice, Klass, SpecialPeriod, Staff, Student } from "../types"
 import { packageLabel } from "./course"
 import { busRate } from "./settings"
 import type { InvoiceTotals } from "./billing"
+
+/**
+ * Owner 2026-10-13: which Memo an invoice / receipt prints. A course made for a special period (Course.periodId,
+ * or a class of that period on the line) prints the period's own Memo instead of the brand Memo — decided by the
+ * course, not by the invoice date, so an invoice issued before Summer starts still carries Summer's Memo.
+ * Several periods on one invoice → each period's Memo once. No period Memo → the brand Memo.
+ */
+export function invoiceMemo(inv: Pick<Invoice, "lines">, ctx: { brandMemo: string; branch: Pick<Branch, "specialPeriods">; courses: Pick<Course, "id" | "periodId">[]; classes: Pick<Klass, "id" | "periodId">[] }): { memo: string; periods: Pick<SpecialPeriod, "id" | "name">[] } {
+  const ids = new Set<string>()
+  for (const l of inv.lines) {
+    const c = ctx.courses.find((x) => x.id === l.courseId)
+    if (c?.periodId) ids.add(c.periodId)
+    for (const k of ctx.classes.filter((x) => l.classIds.includes(x.id))) if (k.periodId) ids.add(k.periodId)
+  }
+  const periods = ctx.branch.specialPeriods.filter((p) => ids.has(p.id) && p.invoiceMemo?.trim())
+  return periods.length ? { memo: periods.map((p) => p.invoiceMemo!.trim()).join("\n"), periods } : { memo: ctx.brandMemo, periods: [] }
+}
 
 export interface DocItem {
   description: string

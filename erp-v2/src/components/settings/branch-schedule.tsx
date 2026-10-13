@@ -7,6 +7,7 @@ import { Field } from "@/components/app/student-form"
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Input } from "@/components/ui/input"
+import { Textarea } from "@/components/ui/textarea"
 import { Switch } from "@/components/ui/switch"
 import { fmtDate, nextWeekday, toDateStr, weekdayLong } from "@/domain/dates"
 import { blocksOn, hoursFor, isHoliday, periodClassesWithStudents, periodShrinkImpact } from "@/domain/rules/scheduling"
@@ -274,6 +275,10 @@ function SpecialPeriodEditor({ p, normal, today, startOpen, classCount, onChange
               </select>
             </Field>
           </div>
+          <Field label={tx("Memo ใบแจ้งหนี้ + ใบเสร็จ ของช่วงนี้")}>
+            <Textarea rows={2} value={p.invoiceMemo ?? ""} onChange={(e) => onChange({ invoiceMemo: e.target.value })} placeholder={tx("เช่น ค่าเรียน Summer ชำระครั้งเดียว ไม่คืนเงินหลังเริ่มเรียน")} />
+            <p className="mt-0.5 text-xs text-muted-foreground">{tx("พิมพ์แทน Memo ของแบรนด์ เฉพาะใบที่มีคอร์สของช่วงนี้ (คอร์สที่ผูกกับช่วงนี้ หรือคลาสพิเศษของช่วงนี้) — ออกใบก่อนช่วงเริ่มก็ใช้ Memo นี้ · เว้นว่าง = ใช้ Memo ของแบรนด์")}</p>
+          </Field>
           <div className="space-y-1.5">
             <p className="text-sm font-medium">{tx("คลาสปกติระหว่างช่วงนี้")}</p>
             <div className="flex flex-wrap gap-1.5">

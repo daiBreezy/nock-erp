@@ -39,6 +39,8 @@ export interface SpecialPeriod {
   /** why regular classes stop (owner 2026-10-09): "school" = NockAcademy / Liclass closes them itself → every
    *  student's package runs one class longer per paused session · "other" = no extension. Unset = "school". */
   pauseCause?: "school" | "other"
+  /** owner 2026-10-13: Memo printed on the invoice + receipt of this period's courses only (replaces the brand memo) */
+  invoiceMemo?: string
 }
 
 /** One row of the teacher board, e.g. 13:00–15:00 (owner 2026-10-01: each branch sets its own, per weekday) */
@@ -289,6 +291,8 @@ export interface Course {
   from?: DateStr
   to?: DateStr
   active: boolean
+  /** owner 2026-10-13: a course made for a special period (e.g. Summer) — its invoices + receipts print that period's Memo */
+  periodId?: ID
 }
 
 export type ClassKind = "learning" | "test" | "interview" | "other"

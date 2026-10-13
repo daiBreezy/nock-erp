@@ -10,7 +10,7 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { FormShell } from "@/components/app/form-shell"
 import { Input } from "@/components/ui/input"
 import { Switch } from "@/components/ui/switch"
-import { fmtMoney } from "@/domain/dates"
+import { fmtDate, fmtMoney } from "@/domain/dates"
 import { chartPrice, defaultCourseName, needsPriceReason } from "@/domain/rules/course"
 import { durationLabel, durationsOf, GRADE_GROUPS, PRICE_UNIT_LABEL, priceRange, sortGrades } from "@/domain/rules/settings"
 import type { Branch, Course, PriceUnit } from "@/domain/types"
@@ -221,6 +221,15 @@ export function CourseDialog({ branch, initial, onClose, onSaved }: { branch: Br
               </div>
             )}
           </div>
+
+          {/* owner 2026-10-13: a course made for a special period prints that period's Memo on its invoice + receipt */}
+          {branch.specialPeriods.length > 0 && (
+            <Field label="คอร์สของช่วงเวลาพิเศษ (ไม่บังคับ)">
+              <NativeSelect value={c.periodId ?? ""} onChange={(e) => setC({ ...c, periodId: e.target.value || undefined })} placeholder="ไม่ใช่ — คอร์สปกติ"
+                options={branch.specialPeriods.map((p) => ({ value: p.id, label: `${p.name} · ${fmtDate(p.from)} – ${fmtDate(p.to, { year: true })}` }))} />
+              <p className="mt-0.5 text-xs text-muted-foreground">ใบแจ้งหนี้ + ใบเสร็จของคอร์สนี้จะใช้ Memo ของช่วงนั้น (ตั้งที่ Settings › เวลาเปิด-ปิด › ช่วงเวลาพิเศษ)</p>
+            </Field>
+          )}
         </div>
 
     </FormShell>

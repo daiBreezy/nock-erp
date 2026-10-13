@@ -2202,3 +2202,20 @@ describe("Course Summary for a Bundle (owner 2026-10-13)", () => {
     expect(d.overallProgress.split("\n")).toEqual(["คณิต: สรุปจาก 1 คาบ: ทำโจทย์ได้คล่อง", "อังกฤษ: สรุปจาก 2 คาบ: อ่านออกเสียงชัด · กล้าพูด"])
   })
 })
+
+describe("Special period Memo on invoice + receipt (owner 2026-10-13)", () => {
+  const branch = { specialPeriods: [{ id: "sp1", name: "Summer", invoiceMemo: "Summer memo" }, { id: "sp2", name: "Winter", invoiceMemo: "" }] } as unknown as Branch
+  const courses = [{ id: "c_sum", periodId: "sp1" }, { id: "c_reg" }, { id: "c_win", periodId: "sp2" }]
+  const classes = [{ id: "k_reg" }, { id: "k_sum", periodId: "sp1" }]
+  const memo = (lines: { courseId: string; classIds: string[] }[]) => Doc.invoiceMemo({ lines } as never, { brandMemo: "Brand memo", branch, courses, classes })
+  it("a period course prints the period Memo instead of the brand Memo — whatever the invoice date", () => {
+    expect(memo([{ courseId: "c_sum", classIds: [] }]).memo).toBe("Summer memo")
+  })
+  it("a regular course in a period class also counts", () => {
+    expect(memo([{ courseId: "c_reg", classIds: ["k_sum"] }]).memo).toBe("Summer memo")
+  })
+  it("regular courses, or a period with no Memo, keep the brand Memo", () => {
+    expect(memo([{ courseId: "c_reg", classIds: ["k_reg"] }]).memo).toBe("Brand memo")
+    expect(memo([{ courseId: "c_win", classIds: [] }]).memo).toBe("Brand memo")
+  })
+})

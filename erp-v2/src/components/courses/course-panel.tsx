@@ -93,6 +93,7 @@ function CourseView({ c, st, onEdit }: { c: Course; st?: CourseStats; onEdit: ()
           <Row label="ราคา"><span className="font-medium">{fmtMoney(c.price)}</span> <span className="text-xs text-muted-foreground">{priceUnitSuffix(c)}</span>{c.courseFee > 0 && <span className="text-xs text-muted-foreground"> · + Course fee {fmtMoney(c.courseFee)}</span>}</Row>
           {c.priceReason && <Row label="เหตุผลราคา">{c.priceReason}</Row>}
           <Row label="เรียนแบบ">{c.format === "single" ? "เรียนเดี่ยว" : "กลุ่ม"}</Row>
+          {c.periodId && <Row label="ช่วงเวลาพิเศษ">{br?.specialPeriods.find((p) => p.id === c.periodId)?.name ?? "—"} <span className="text-xs text-muted-foreground">· ใบแจ้งหนี้/ใบเสร็จใช้ Memo ของช่วงนี้</span></Row>}
           <Row label="ช่วงเปิดขาย">{c.from || c.to ? `${c.from ? fmtDate(c.from, { year: true }) : "…"} – ${c.to ? fmtDate(c.to, { year: true }) : "…"}` : "เปิดตลอด"}</Row>
         </section>
         <section className="space-y-2">

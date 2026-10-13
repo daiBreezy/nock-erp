@@ -14,6 +14,7 @@ import { InvoiceEditor } from "./invoice-editor"
 import { Textarea } from "@/components/ui/textarea"
 import { fmtDate, fmtDateTime, fmtMoney, fmtMonth } from "@/domain/dates"
 import * as Bill from "@/domain/rules/billing"
+import { invoiceMemo } from "@/domain/rules/documents"
 import { packageLabel } from "@/domain/rules/course"
 import { can } from "@/domain/rules/permissions"
 import type { ID } from "@/domain/types"
@@ -64,6 +65,7 @@ function Body({ id, slipMediaId, onEdit }: { id: ID; slipMediaId?: string; onEdi
   const courses = useStore((s) => s.courses)
   const classes = useStore((s) => s.classes)
   const holidays = useStore((s) => s.holidays)
+  const brandMemos = useStore((s) => s.system.invoiceMemos)
   const act = useStore(useShallow((s) => ({ gen: s.generatePdf, approve: s.approveInvoice, send: s.sendInvoice, void: s.voidInvoice, pay: s.recordPayment, confirm: s.confirmPayment })))
   const [note, setNote] = useState(inv?.noteToParent ?? "")
   const [voiding, setVoiding] = useState(false)
@@ -91,6 +93,7 @@ function Body({ id, slipMediaId, onEdit }: { id: ID; slipMediaId?: string; onEdi
   if (!inv) return null
 
   const totals = Bill.invoiceTotals(inv, { branch, courses, classes, holidays })
+  const memo = invoiceMemo(inv, { brandMemo: brandMemos[branch.brand], branch, courses, classes })
   const stu = students.find((s) => s.id === inv.studentId)
   const fam = families.find((f) => f.id === stu?.familyId)
   const who = (uid?: ID) => staff.find((s) => s.id === uid)?.nickname ?? "—"
@@ -155,6 +158,12 @@ function Body({ id, slipMediaId, onEdit }: { id: ID; slipMediaId?: string; onEdi
 
       <PanelBody>
         {inv.status === "void" && <p className="rounded-lg bg-red-50 p-3 text-sm text-red-800">ยกเลิกแล้ว: {inv.voidReason}</p>}
+        {/* owner 2026-10-13: the Memo this invoice + its receipt print — a special period's own Memo for its courses */}
+        {memo.memo && (
+          <p className="rounded-lg bg-muted/50 p-3 text-xs whitespace-pre-line text-muted-foreground">
+            <span className="font-medium text-foreground">Memo บนใบแจ้งหนี้ + ใบเสร็จ{memo.periods.length ? ` · จากช่วง ${memo.periods.map((p) => p.name).join(", ")}` : " · ของแบรนด์"}</span>{"\n"}{memo.memo}
+          </p>
+        )}
 
         <section className="rounded-lg border">
           <table className="w-full text-sm tabular-nums">
