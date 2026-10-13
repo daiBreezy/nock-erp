@@ -14,7 +14,8 @@ import * as Loss from "@/domain/rules/loss"
 import * as Survey from "@/domain/rules/survey"
 import Link from "next/link"
 import { addDays, fmtDate, toDateStr, yearOf } from "@/domain/dates"
-import { useNow } from "@/lib/hooks"
+import { useNow, useQueryState } from "@/lib/hooks"
+import { Tabs } from "@/components/app/page-layout"
 import { pullSurveyResponses, remindSurvey, sendYearlySurvey, surveyLink } from "@/lib/forms"
 import { cn } from "@/lib/utils"
 import { report } from "@/lib/feedback"
@@ -28,7 +29,7 @@ import { tx, nm } from "@/lib/i18n"
 const BRANDS: { id: Brand; label: string }[] = [{ id: "nockacademy", label: "Nockacademy" }, { id: "liclass", label: "Liclass" }]
 
 /** Settings → System (owner 2026-10-06): was one long scroll of 7 cards — split into the same left-nav tab
- *  layout as Settings → Branch, grouped by what an admin is actually trying to do. */
+ *  tabs as Settings → Branch, grouped by what an admin is actually trying to do. */
 const SYSTEM_TABS: { id: string; label: string; icon: typeof SlidersHorizontalIcon; body: () => React.ReactNode }[] = [
   { id: "general", label: "ทั่วไป", icon: SlidersHorizontalIcon, body: () => <Preferences /> },
   { id: "catalog", label: "วิชาและวันหยุด", icon: BookOpenIcon, body: () => <><SubjectCatalog /><GlobalHolidays /></> },
@@ -37,21 +38,15 @@ const SYSTEM_TABS: { id: string; label: string; icon: typeof SlidersHorizontalIc
   { id: "notifications", label: "การแจ้งเตือน", icon: BellIcon, body: () => <NotificationPrefs /> },
 ]
 
-/** Settings → System: brand-wide catalogs + preferences. Each card saves on its own. */
+/** Settings → System: brand-wide catalogs + preferences. Each card saves on its own.
+ *  Owner 2026-10-13: the same underline tabs as the branch page and Reports (was a left menu). */
 export function SystemSettingsView() {
-  const [tab, setTab] = useState(SYSTEM_TABS[0].id)
-  const current = SYSTEM_TABS.find((t) => t.id === tab)!
+  const [tab, setTab] = useQueryState<string>("sys", SYSTEM_TABS[0].id)
+  const current = SYSTEM_TABS.find((t) => t.id === tab) ?? SYSTEM_TABS[0]
   return (
-    <div className="grid gap-4 md:grid-cols-[13rem_1fr]">
-      <nav className="flex gap-1 overflow-x-auto rounded-3xl bg-card p-2 shadow-sm ring-1 ring-foreground/5 md:flex-col md:self-start">
-        {SYSTEM_TABS.map((t) => (
-          <button key={t.id} onClick={() => setTab(t.id)}
-            className={cn("flex shrink-0 items-center gap-2 rounded-2xl px-3 py-2 text-left text-sm", tab === t.id ? "bg-primary/10 font-medium text-primary" : "text-muted-foreground hover:bg-muted")}>
-            <t.icon className="size-4" /> {tx(t.label)}
-          </button>
-        ))}
-      </nav>
-      <div key={tab} className="space-y-4">{current.body()}</div>
+    <div className="space-y-4">
+      <Tabs value={current.id} onChange={setTab} options={SYSTEM_TABS.map((t) => ({ value: t.id, label: tx(t.label), icon: t.icon }))} />
+      <div key={current.id} className="space-y-4">{current.body()}</div>
     </div>
   )
 }
