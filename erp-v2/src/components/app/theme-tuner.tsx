@@ -26,6 +26,16 @@ export interface ThemeSettings {
 }
 
 const DEFAULTS: ThemeSettings = { pageBg: "#ffffff", pageBg2: "", cardColor: "#ffffff", cardOpacity: 100, cardBlur: 0, cardRing: 5, primary: "", aiWash: 80 }
+/** one-click starting points (owner 2026-10-13: white-on-white showed no change, so start from something visible) */
+const PRESETS: { name: string; swatch: string; t: Partial<ThemeSettings> }[] = [
+  { name: "ปกติ", swatch: "linear-gradient(135deg,#fff,#f4f4f5)", t: {} },
+  { name: "กระจกฝ้า", swatch: "linear-gradient(135deg,#fde2e4,#dbeafe)", t: { pageBg: "#fde2e4", pageBg2: "#dbeafe", cardOpacity: 62, cardBlur: 16, cardRing: 12 } },
+  { name: "ฟ้าทะเล", swatch: "linear-gradient(135deg,#e0f2fe,#cffafe)", t: { pageBg: "#e0f2fe", pageBg2: "#ecfeff", cardOpacity: 80, cardBlur: 10, cardRing: 8, aiWash: 60 } },
+  { name: "อบอุ่น", swatch: "linear-gradient(135deg,#fff7ed,#fef3c7)", t: { pageBg: "#fff7ed", pageBg2: "#fef3c7", cardColor: "#fffdf8", cardOpacity: 90, cardBlur: 6, cardRing: 10 } },
+  { name: "มินต์", swatch: "linear-gradient(135deg,#ecfdf5,#d1fae5)", t: { pageBg: "#f0fdf4", pageBg2: "#ccfbf1", cardOpacity: 75, cardBlur: 12, cardRing: 10, primary: "#0f766e" } },
+  { name: "เทาเรียบ", swatch: "linear-gradient(135deg,#f4f4f5,#e4e4e7)", t: { pageBg: "#f4f4f5", cardOpacity: 100, cardRing: 0 } },
+]
+
 const KEY = "nockerp-theme"
 const EVENT = "nockerp:theme-tuner"
 
@@ -91,7 +101,7 @@ export function ThemeTuner() {
 
   if (!open) return null
   return (
-    <div role="dialog" aria-label="ปรับสีธีม" className="fixed bottom-5 left-5 z-50 w-80 space-y-3 rounded-3xl bg-popover p-4 text-sm shadow-2xl ring-1 ring-foreground/10 print:hidden">
+    <div role="dialog" aria-label="ปรับสีธีม" className="fixed bottom-5 left-5 z-50 max-h-[calc(100vh-2.5rem)] w-80 space-y-3 overflow-y-auto rounded-3xl bg-popover p-4 text-sm shadow-2xl ring-1 ring-foreground/10 print:hidden">
       <div className="flex items-center gap-2">
         <span className="grid size-8 place-items-center rounded-xl bg-primary/10 text-primary"><PaletteIcon className="size-4" /></span>
         <div className="min-w-0 flex-1">
@@ -99,6 +109,27 @@ export function ThemeTuner() {
           <p className="text-[11px] text-muted-foreground">เห็นผลทันที · บันทึกในเบราว์เซอร์นี้</p>
         </div>
         <Button size="icon-sm" variant="ghost" aria-label="ปิด" onClick={() => setOpen(false)}><XIcon /></Button>
+      </div>
+
+      {/* live preview — every control shows here, whatever page is open */}
+      <div className="overflow-hidden rounded-2xl ring-1 ring-foreground/10" style={{ background: t.pageBg2 ? `linear-gradient(135deg, ${t.pageBg}, ${t.pageBg2})` : t.pageBg }}>
+        <div className="relative space-y-2 p-3">
+          <span className="absolute -top-3 right-6 size-14 rounded-full bg-primary/40 blur-md" aria-hidden />
+          <span className="absolute bottom-0 left-4 size-10 rounded-full bg-sky-400/40 blur-md" aria-hidden />
+          <div className="relative rounded-xl bg-card p-2.5 shadow-sm ring-1 ring-foreground/5">
+            <p className="text-[11px] text-muted-foreground">ตัวอย่างการ์ด</p>
+            <p className="text-lg font-semibold tabular-nums">61 <span className="text-xs font-normal text-primary">นักเรียน</span></p>
+          </div>
+          <div className="ai-aurora relative rounded-xl p-2.5"><p className="text-xs font-medium text-sky-800">✦ ตัวอย่างการ์ด AI</p></div>
+        </div>
+      </div>
+
+      <div className="flex flex-wrap gap-1.5">
+        {PRESETS.map((p) => (
+          <button key={p.name} type="button" onClick={() => p.name === "ปกติ" ? reset() : set({ ...DEFAULTS, ...p.t })} className="flex items-center gap-1.5 rounded-full border bg-background py-1 pr-2.5 pl-1 text-xs hover:bg-muted">
+            <span className="size-4 rounded-full ring-1 ring-foreground/10" style={{ background: p.swatch }} />{p.name}
+          </button>
+        ))}
       </div>
 
       <Group title="พื้นหลังหน้า">
