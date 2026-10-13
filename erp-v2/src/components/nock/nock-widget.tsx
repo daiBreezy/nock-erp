@@ -5,7 +5,8 @@
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { useEffect, useMemo, useRef, useState } from "react"
-import { ArrowRightIcon, LibraryBigIcon, Loader2Icon, SendHorizontalIcon, SendIcon, SparklesIcon, ThumbsDownIcon, ThumbsUpIcon, UserRoundCheckIcon, XIcon } from "lucide-react"
+import { ArrowRightIcon, LibraryBigIcon, Loader2Icon, SendHorizontalIcon, SendIcon, ThumbsDownIcon, ThumbsUpIcon, UserRoundCheckIcon, XIcon } from "lucide-react"
+import { AiAvatar } from "@/components/ui/ai-avatar"
 import { Button } from "@/components/ui/button"
 import { fmtDateTime } from "@/domain/dates"
 import * as Nock from "@/domain/rules/nock"
@@ -45,9 +46,11 @@ export function NockWidget() {
   return (
     <>
       {open && <NockPanel onClose={() => setOpen(false)} />}
+      {/* owner 2026-10-13: Nock's face — the blinking orb */}
       <button type="button" onClick={() => setOpen((o) => !o)} aria-label={open ? "ปิด Nock" : "ถาม Nock"} title="ถาม Nock — ผู้ช่วยของ NockERP"
-        className="fixed right-5 bottom-5 z-40 grid size-14 place-items-center rounded-full bg-gradient-to-br from-sky-400 to-sky-600 text-white shadow-lg ring-4 ring-sky-200/60 transition hover:scale-105 dark:ring-sky-900/60 print:hidden">
-        {open ? <XIcon className="size-6" /> : <SparklesIcon className="size-6" />}
+        className="fixed right-5 bottom-5 z-40 rounded-full transition hover:scale-105 focus-visible:ring-4 focus-visible:ring-sky-300 focus-visible:outline-none print:hidden">
+        <AiAvatar size="lg" />
+        {open && <span className="absolute -top-1 -right-1 grid size-5 place-items-center rounded-full bg-background text-foreground shadow ring-1 ring-foreground/10"><XIcon className="size-3" /></span>}
       </button>
     </>
   )
@@ -103,7 +106,7 @@ function NockPanel({ onClose }: { onClose: () => void }) {
   return (
     <div role="dialog" aria-label="Nock" className="fixed right-5 bottom-24 z-40 flex h-[min(600px,calc(100vh-8rem))] w-[min(400px,calc(100vw-2.5rem))] flex-col overflow-hidden rounded-3xl bg-card shadow-2xl ring-1 ring-foreground/10 print:hidden">
       <div className="ai-aurora flex shrink-0 items-center gap-3 border-b px-4 py-3">
-        <span className="grid size-9 place-items-center rounded-2xl bg-sky-600 text-white"><SparklesIcon className="size-5" /></span>
+        <AiAvatar size="sm" />
         <div className="min-w-0 flex-1">
           <p className="font-semibold">Nock</p>
           <p className="truncate text-xs text-muted-foreground">{model === undefined ? "…" : model ? `ผู้ช่วย AI · ${model}` : "ผู้ช่วย · ตอบจากคู่มือ + คำตอบของทีม"}</p>
