@@ -1,7 +1,7 @@
 // Course rules — mirrors staging's Create Course: Single/Bundle · subjects · grades · package type + duration ·
 // price pre-filled from the branch chart (reason required when it differs) · course fee · optional window · Active.
 
-import type { Branch, Course, PriceUnit } from "../types"
+import type { Branch, Course, DateStr, Entitlement, ID, PriceUnit } from "../types"
 import { durationLabel, durationsOf, priceOf, sortGrades } from "./settings"
 
 /** "[Subject + Grade] default name" used when the name is left blank. */
@@ -87,3 +87,14 @@ export function filterCourses(courses: Course[], branchId: string, f: CourseFilt
 
 /** Short course name for tight rows — "คณิต · รายเดือน", "วิทย์ · 12 ชม." (full name on hover, owner 2026-09-30). */
 export const shortCourse = (c: Pick<Course, "subjects" | "unit" | "duration">) => `${c.subjects.join("+")} · ${packageLabel(c)}`
+
+/**
+ * Owner 2026-10-13: Max Student is per COURSE — how many students may hold this course at once (every class of it
+ * together). Counted from packages that haven't ended; a student who already holds it (renewing) takes no new seat.
+ */
+export function courseSeats(course: Pick<Course, "id" | "maxStudents">, ents: Pick<Entitlement, "courseId" | "studentId" | "to">[], today: DateStr, studentId?: ID | null) {
+  const holders = new Set(ents.filter((e) => e.courseId === course.id && e.to >= today).map((e) => e.studentId))
+  const max = course.maxStudents && course.maxStudents > 0 ? course.maxStudents : null
+  const already = !!studentId && holders.has(studentId)
+  return { enrolled: holders.size, max, left: max === null ? null : Math.max(0, max - holders.size), full: max !== null && holders.size >= max && !already, already }
+}

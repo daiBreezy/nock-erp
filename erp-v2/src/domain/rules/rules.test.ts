@@ -20,6 +20,7 @@ import * as Doc from "./documents"
 import * as Seats from "./seats"
 import * as Les from "./lessons"
 import * as Sch from "./scheduling"
+import { courseSeats } from "./course"
 import * as Rep from "./reports"
 import * as Loss from "./loss"
 import * as Survey from "./survey"
@@ -2229,12 +2230,17 @@ describe("list-page search (owner 2026-10-13)", () => {
   })
 })
 
-describe("course Max Student (owner 2026-10-13)", () => {
-  it("a class takes its course's Max Student, else the class type's default", () => {
-    const courses = [{ id: "c1", maxStudents: 10 }, { id: "c2" }]
-    expect(Sch.classCapacity({ type: "group", courseId: "c1" }, courses)).toBe(10)
-    expect(Sch.classCapacity({ type: "group", courseId: "c2" }, courses)).toBe(Sch.CAPACITY.group)
-    expect(Sch.classCapacity({ type: "single", courseId: null }, courses)).toBe(Sch.CAPACITY.single)
-    expect(Sch.classCapacity(undefined)).toBe(Sch.CAPACITY.group)
+describe("course Max Student (owner 2026-10-13) — per course, not per class", () => {
+  const ents = [
+    { courseId: "c1", studentId: "a", to: "2026-11-01" },
+    { courseId: "c1", studentId: "b", to: "2026-12-01" },
+    { courseId: "c1", studentId: "c", to: "2026-09-01" }, // ended — frees the seat
+    { courseId: "c2", studentId: "d", to: "2026-12-01" },
+  ]
+  it("counts students still holding the course; full at Max, a renewing holder is not blocked", () => {
+    const s = courseSeats({ id: "c1", maxStudents: 2 }, ents, "2026-10-13", "z")
+    expect([s.enrolled, s.max, s.left, s.full]).toEqual([2, 2, 0, true])
+    expect(courseSeats({ id: "c1", maxStudents: 2 }, ents, "2026-10-13", "a").full).toBe(false)
+    expect(courseSeats({ id: "c1" }, ents, "2026-10-13", "z")).toMatchObject({ max: null, full: false })
   })
 })

@@ -16,10 +16,10 @@ import { EntityPanel, FormShell, PanelBody, PanelFooter, PanelForm, PanelMore } 
 import { Textarea } from "@/components/ui/textarea"
 import { endTime, TH_DAYS_FULL, toDateStr } from "@/domain/dates"
 import { can } from "@/domain/rules/permissions"
-import { sessionState } from "@/domain/rules/scheduling"
+import { sessionState, classCapacity } from "@/domain/rules/scheduling"
 import type { ID, Weekday } from "@/domain/types"
 import { report } from "@/lib/feedback"
-import { useBranch, useCapacity, useLookup, useNow } from "@/lib/hooks"
+import { useBranch, useLookup, useNow } from "@/lib/hooks"
 import { cn } from "@/lib/utils"
 import { useStore } from "@/store/store"
 
@@ -49,7 +49,6 @@ function Row({ label, children }: { label: string; children: React.ReactNode }) 
 }
 
 function ClassView({ id, onEdit, onClose }: { id: ID; onEdit: () => void; onClose: () => void }) {
-  const capOf = useCapacity()
   const k = useStore((s) => s.classes.find((c) => c.id === id)!)
   const sessions = useStore((s) => s.sessions)
   const me = useStore((s) => s.me())
@@ -75,7 +74,7 @@ function ClassView({ id, onEdit, onClose }: { id: ID; onEdit: () => void; onClos
         <div className="flex divide-x rounded-2xl bg-muted/50 py-2 text-center">
           <div className="flex-1"><p className="text-[11px] text-muted-foreground">เรียนไปแล้ว</p><p className="text-lg font-semibold tabular-nums">{past} คาบ</p></div>
           <div className="flex-1"><p className="text-[11px] text-muted-foreground">เหลือ</p><p className="text-lg font-semibold tabular-nums">{future.length} คาบ</p></div>
-          <div className="flex-1"><p className="text-[11px] text-muted-foreground">นักเรียน</p><p className="text-lg font-semibold tabular-nums">{k.studentIds.length}/{capOf(k)}</p></div>
+          <div className="flex-1"><p className="text-[11px] text-muted-foreground">นักเรียน</p><p className="text-lg font-semibold tabular-nums">{k.studentIds.length}/{classCapacity(k)}</p></div>
         </div>
         <section className="divide-y rounded-2xl border px-3">
           <Row label="วัน · เวลา">{TH_DAYS_FULL[k.weekday]} {k.start}–{endTime(k.start, k.minutes)} <span className="text-xs text-muted-foreground">({k.minutes} นาที)</span></Row>
@@ -84,7 +83,7 @@ function ClassView({ id, onEdit, onClose }: { id: ID; onEdit: () => void; onClos
           <Row label="สาขา">{branch.name}</Row>
         </section>
         <section>
-          <h3 className="mb-2 text-sm font-semibold">นักเรียน ({k.studentIds.length}/{capOf(k)})</h3>
+          <h3 className="mb-2 text-sm font-semibold">นักเรียน ({k.studentIds.length}/{classCapacity(k)})</h3>
           <ul className="divide-y rounded-2xl border">
             {k.studentIds.map((sid) => {
               const st = L.student(sid)

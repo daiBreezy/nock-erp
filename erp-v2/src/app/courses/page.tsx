@@ -104,7 +104,12 @@ export default function CoursesPage() {
     { id: "package", label: "Package", width: "96px", sort: "package", info: PACKAGE_LEGEND, cell: (c) => <PackageBadge course={c} /> },
     { id: "price", label: "ราคา", width: "110px", sort: "price", align: "right", className: "tabular-nums", cell: (c) => <span className="font-medium" title={c.courseFee > 0 ? `+ Course fee ${fmtMoney(c.courseFee)}` : undefined}>{fmtMoney(c.price)}</span> },
     // owner 2026-10-12: counts centred, start date right-aligned
-    { id: "students", label: "นักเรียน", width: "96px", sort: "students", align: "center", className: "tabular-nums", cell: (c) => stats.get(c.id)!.students || <span className="text-muted-foreground">—</span> },
+    { id: "students", label: "นักเรียน", width: "96px", sort: "students", align: "center", className: "tabular-nums", cell: (c) => {
+      // owner 2026-10-13: with a Max Student the cell reads enrolled / max (red when full)
+      const n = stats.get(c.id)!.students
+      if (c.maxStudents) return <span className={cn(n >= c.maxStudents && "font-medium text-red-700")} title={n >= c.maxStudents ? "คอร์สเต็ม" : `รับได้อีก ${c.maxStudents - n} คน`}>{n}/{c.maxStudents}</span>
+      return n || <span className="text-muted-foreground">—</span>
+    } },
     { id: "classes", label: "คลาสที่ผูก", width: "100px", sort: "classes", align: "center", className: "tabular-nums", cell: (c) => stats.get(c.id)!.classes || <span className="text-muted-foreground">—</span> },
     { id: "branch", label: "สาขา", width: "72px", cell: (c) => <BranchCode code={scope.code(c.branchId)} /> },
     { id: "start", label: "วันเริ่ม", width: "150px", sort: "start", align: "right", className: "text-xs tabular-nums", cell: (c) => (

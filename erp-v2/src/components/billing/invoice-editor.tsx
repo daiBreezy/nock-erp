@@ -240,7 +240,7 @@ export function InvoiceEditor({ invoice, defaultStudentId, renewEntitlementId, o
               onChange={(patch) => patchLine(l.id, patch)} onRemove={() => removeLine(l.id)} />
           ))}
           {pickingCourses && (
-            <CoursePicker branch={branch} today={today} studentGrade={student?.grade} onInvoice={lines.map((l) => l.courseId)} onClose={() => setPickingCourses(false)}
+            <CoursePicker branch={branch} today={today} studentGrade={student?.grade} studentId={studentId} onInvoice={lines.map((l) => l.courseId)} onClose={() => setPickingCourses(false)}
               onConfirm={(cs) => { setLines((ls) => [...ls, ...cs.map((c) => lineFor(c.id))]); setBusTouched(false); setPickingCourses(false) }} />
           )}
         </div>

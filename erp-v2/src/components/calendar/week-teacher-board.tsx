@@ -15,12 +15,12 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { Input } from "@/components/ui/input"
 import { NativeSelect } from "@/components/app/native-select"
 import { addDays, endTime, fmtDate, toDateStr, toMinutes, weekdayOf } from "@/domain/dates"
-import { blockFor, blocksOn, periodsOn, isHoliday, subjectsOf, workState, type WorkState } from "@/domain/rules/scheduling"
+import { blockFor, blocksOn, periodsOn, isHoliday, subjectsOf, workState, type WorkState, classCapacity } from "@/domain/rules/scheduling"
 import * as Seats from "@/domain/rules/seats"
 import type { Attendance, DateStr, Klass, Session, TimeStr } from "@/domain/types"
 import { report } from "@/lib/feedback"
 import { toast } from "sonner"
-import { useBranch, useCapacity, useLookup, useNow } from "@/lib/hooks"
+import { useBranch, useLookup, useNow } from "@/lib/hooks"
 import { cn } from "@/lib/utils"
 import { unseenChange, useStore } from "@/store/store"
 
@@ -348,7 +348,6 @@ function TeacherDayDialog({ mode, teacherId, date, onClose }: { mode: "substitut
 
 /** After a drop: just this session, the next N of the class, or for good (all following — changes class). Undo in the toast. */
 function MoveStudentDialog({ from, studentId, to, onClose }: { from: string; studentId: string; to: string; onClose: () => void }) {
-  const capOf = useCapacity()
   const sessions = useStore((st) => st.sessions)
   const classes = useStore((st) => st.classes)
   const move = useStore((st) => st.moveStudent)
@@ -384,9 +383,9 @@ function MoveStudentDialog({ from, studentId, to, onClose }: { from: string; stu
           ))}
           {kind === "count" && <label className="flex items-center gap-2 text-sm">จำนวน <Input type="number" min={1} className="h-9 w-20" value={nText} onChange={(e) => setNText(e.target.value)} /> คาบ</label>}
         </div>
-        {(subjectOff || (k && b.studentIds.length >= capOf(k))) && (
+        {(subjectOff || (k && b.studentIds.length >= classCapacity(k))) && (
           <p className="rounded-xl bg-amber-50 p-2 text-xs text-amber-900 dark:bg-amber-950/40 dark:text-amber-200">
-            {subjectOff && "⚠ วิชาไม่ตรงกับคาบเดิม — เช็คแพ็กเกจของนักเรียน "}{k && b.studentIds.length >= capOf(k) && `⚠ คาบปลายทางมี ${b.studentIds.length} คนแล้ว (แนะนำไม่เกิน ${capOf(k)})`}
+            {subjectOff && "⚠ วิชาไม่ตรงกับคาบเดิม — เช็คแพ็กเกจของนักเรียน "}{k && b.studentIds.length >= classCapacity(k) && `⚠ คาบปลายทางมี ${b.studentIds.length} คนแล้ว (แนะนำไม่เกิน ${classCapacity(k)})`}
           </p>
         )}
         <DialogFooter>

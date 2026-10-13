@@ -13,7 +13,6 @@ import { Button } from "@/components/ui/button"
 import { SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet"
 import { endTime, fmtDate, fmtMoney, TH_DAYS_FULL } from "@/domain/dates"
 import { priceUnitSuffix } from "@/domain/rules/course"
-import { CAPACITY } from "@/domain/rules/scheduling"
 import { can } from "@/domain/rules/permissions"
 import { gradeRanges } from "@/domain/rules/settings"
 import type { Course, ID } from "@/domain/types"
@@ -95,7 +94,7 @@ function CourseView({ c, st, onEdit }: { c: Course; st?: CourseStats; onEdit: ()
           <Row label="ราคา"><span className="font-medium">{fmtMoney(c.price)}</span> <span className="text-xs text-muted-foreground">{priceUnitSuffix(c)}</span>{c.courseFee > 0 && <span className="text-xs text-muted-foreground"> · + Course fee {fmtMoney(c.courseFee)}</span>}</Row>
           {c.priceReason && <Row label="เหตุผลราคา">{c.priceReason}</Row>}
           <Row label="เรียนแบบ">{c.format === "single" ? "เรียนเดี่ยว" : "กลุ่ม"}</Row>
-          <Row label="Max Student">{c.maxStudents ? `${c.maxStudents} คน / คลาส` : <span className="text-muted-foreground">ค่าแนะนำ {CAPACITY[c.format === "single" ? "single" : "group"]} คน / คลาส</span>}</Row>
+          <Row label="Max Student">{c.maxStudents ? <span className={cn((st?.students ?? 0) >= c.maxStudents && "font-medium text-red-700")}>{st?.students ?? 0}/{c.maxStudents} คน{(st?.students ?? 0) >= c.maxStudents && " · เต็ม"}</span> : <span className="text-muted-foreground">ไม่จำกัด</span>}</Row>
           {c.periodId && <Row label="ช่วงเวลาพิเศษ">{br?.specialPeriods.find((p) => p.id === c.periodId)?.name ?? "—"} <InfoTip text="ใบแจ้งหนี้ / ใบเสร็จของคอร์สนี้ใช้ Memo ของช่วงนี้" /></Row>}
           <Row label="ช่วงเปิดขาย">{c.from || c.to ? `${c.from ? fmtDate(c.from, { year: true }) : "…"} – ${c.to ? fmtDate(c.to, { year: true }) : "…"}` : "เปิดตลอด"}</Row>
         </section>

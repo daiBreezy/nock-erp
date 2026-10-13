@@ -97,9 +97,9 @@ export function ClassDialog({ prefill, onClose }: { prefill: ClassPrefill; onClo
     branchId: branch.id, layout, subject: classSubjects[0] ?? "", subjects: classSubjects, kind, type, courseId: layout === "teacher" ? null : courseId || null,
     teacherId: teacherId || null, coTeacherIds: supportId ? [supportId] : [], roomId: roomId || null, startDate, studentIds, overrideReason, periodId: period?.id,
   }
-  const rowIssues = rows.map((r) => validateClass({ ...base, ...slot(r) }, { branch, staff, sessions, holidays, now, courses }))
+  const rowIssues = rows.map((r) => validateClass({ ...base, ...slot(r) }, { branch, staff, sessions, holidays, now }))
   // owner 2026-10-13: the course's Max Student caps the class (else the class type's default)
-  const courseCap = classCapacity(base, courses)
+  const courseCap = classCapacity(base)
   // messages every row shares (subject, teacher, capacity…) show once; the rest belong to their row
   const shared = rowIssues[0]?.filter((i) => rowIssues.every((list) => list.some((x) => x.message === i.message))) ?? []
   const own = (list: Issue[]) => list.filter((i) => !shared.some((x) => x.message === i.message))

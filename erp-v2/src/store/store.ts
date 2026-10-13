@@ -367,7 +367,7 @@ export const useStore = create<Store>()(
         const perm = requirePerm(s.me(), "class.manage")
         if (!perm.ok) return perm
         const branch = s.branches.find((b) => b.id === d.branchId)!
-        const issues = Sch.validateClass(d, { courses: s.courses, branch, staff: s.staff, sessions: s.sessions, holidays: s.holidays, now: s.now() })
+        const issues = Sch.validateClass(d, { branch, staff: s.staff, sessions: s.sessions, holidays: s.holidays, now: s.now() })
         if (!Sch.canSave(issues, d.overrideReason)) return fail(issues.find((i) => i.level !== "warn")?.message ?? "ตรวจสอบข้อมูลอีกครั้ง")
         const teacherName = s.staff.find((t) => t.id === d.teacherId)?.nickname
         const klass: Klass = {
@@ -404,7 +404,7 @@ export const useStore = create<Store>()(
         const branch = s.branches.find((b) => b.id === base.branchId)!
         // validate every row first — nothing is created unless all rows pass (or carry an override reason)
         for (const [i, r] of rows.entries()) {
-          const issues = Sch.validateClass({ ...base, ...r }, { courses: s.courses, branch, staff: s.staff, sessions: s.sessions, holidays: s.holidays, now: s.now() })
+          const issues = Sch.validateClass({ ...base, ...r }, { branch, staff: s.staff, sessions: s.sessions, holidays: s.holidays, now: s.now() })
           if (!Sch.canSave(issues, base.overrideReason)) return fail(`แถว ${i + 1}: ${issues.find((x) => x.level !== "warn")?.message ?? "ตรวจสอบข้อมูลอีกครั้ง"}`)
         }
         let sessions = 0
@@ -425,7 +425,7 @@ export const useStore = create<Store>()(
         const { name, ...schedule } = patch
         const merged = { ...k, ...schedule }
         const branch = s.branches.find((b) => b.id === k.branchId)!
-        const issues = Sch.validateClass({ ...merged, startDate: toDateStr(s.now()) }, { courses: s.courses, branch, staff: s.staff, sessions: s.sessions, holidays: s.holidays, ignoreClassId: id })
+        const issues = Sch.validateClass({ ...merged, startDate: toDateStr(s.now()) }, { branch, staff: s.staff, sessions: s.sessions, holidays: s.holidays, ignoreClassId: id })
           .filter((i) => i.level === "block")
         if (issues.length) return fail(issues[0].message)
         const r = Sch.applyClassEdit(k, schedule, s.sessions, s.now(), s.attendance)

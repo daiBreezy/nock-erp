@@ -31,7 +31,7 @@ export function SlotPicker({
   // owner 2026-10-13: a class is full at its course's Max Student
   const courses = useStore((s) => s.courses)
   const slots = useMemo(
-    () => findOfferSlots({ branch, staff, sessions, classes, holidays, subject, from, to, now, courses }),
+    () => findOfferSlots({ branch, staff, sessions, classes, holidays, subject, from, to, now }),
     [branch, staff, sessions, classes, holidays, subject, from, to, now, courses],
   )
 

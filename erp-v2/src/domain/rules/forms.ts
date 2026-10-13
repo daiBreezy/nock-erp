@@ -169,7 +169,7 @@ export function findOfferSlots(params: {
     if (isHoliday(s.date, branch.id, holidays)) continue
     if (at(s.date, s.start) < now) continue
     const klass = classes.find((k) => k.id === s.classId)
-    const cap = classCapacity(klass, courses)
+    const cap = classCapacity(klass)
     if (s.studentIds.length >= cap) continue
     out.push({ id: `off_c${ci++}`, date: s.date, start: s.start, minutes: s.minutes, source: "class", teacherId: s.teacherId, roomId: s.roomId, classId: s.classId, sessionId: s.id })
   }

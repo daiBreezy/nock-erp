@@ -76,7 +76,7 @@ export function calendarSummary(range: Session[], ctx: {
     }
     const k = klass(s.classId)
     if (!s.studentIds.length && k?.kind === "learning") add("no_students", s.id)
-    if (k && s.studentIds.length > classCapacity(k, ctx.courses)) add("over_capacity", s.id)
+    if (k && s.studentIds.length > classCapacity(k)) add("over_capacity", s.id)
   }
   for (const s of live) {
     const w = workState(s, ctx.now, ctx.attendance, ctx.summaries).state

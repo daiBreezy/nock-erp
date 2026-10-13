@@ -13,7 +13,6 @@ import { Input } from "@/components/ui/input"
 import { Switch } from "@/components/ui/switch"
 import { fmtDate, fmtMoney } from "@/domain/dates"
 import { chartPrice, defaultCourseName, needsPriceReason } from "@/domain/rules/course"
-import { CAPACITY } from "@/domain/rules/scheduling"
 import { durationLabel, durationsOf, GRADE_GROUPS, PRICE_UNIT_LABEL, priceRange, sortGrades } from "@/domain/rules/settings"
 import type { Branch, Course, PriceUnit } from "@/domain/types"
 import { uid } from "@/data/seed"
@@ -211,12 +210,12 @@ export function CourseDialog({ branch, initial, onClose, onSaved }: { branch: Br
             <Field label="Course fee" hint="ค่าอุปกรณ์ — เก็บเพิ่มทุกครั้งที่ซื้อ · ไม่บังคับ">
               <Input className="w-40 text-right tabular-nums" type="number" min={0} step={50} value={c.courseFee || ""} placeholder="0" onChange={(e) => setC({ ...c, courseFee: Number(e.target.value) })} />
             </Field>
-            {/* owner 2026-10-13: most students one class of this course takes — empty = the class type's default */}
-            <Field label="Max Student" hint={`จำนวนนักเรียนสูงสุดต่อคลาสของคอร์สนี้ · ไม่บังคับ — ว่าง = ค่าแนะนำ ${CAPACITY[c.format === "single" ? "single" : "group"]} คน`}>
+            {/* owner 2026-10-13: most students the COURSE takes at once (all its classes together) — empty = no limit */}
+            <Field label="Max Student" hint="จำนวนนักเรียนสูงสุดของคอร์สนี้ (รวมทุกคลาส) · นับคนที่แพ็กเกจยังไม่หมด · เต็มแล้วเลือกคอร์สนี้ในใบแจ้งหนี้ให้นักเรียนใหม่ไม่ได้ (ต่ออายุได้) · ว่าง = ไม่จำกัด">
               <div className="flex items-center gap-2">
-                <Input className="w-24 text-right tabular-nums" type="number" min={1} step={1} value={c.maxStudents ?? ""} placeholder={String(CAPACITY[c.format === "single" ? "single" : "group"])}
+                <Input className="w-24 text-right tabular-nums" type="number" min={1} step={1} value={c.maxStudents ?? ""} placeholder="ไม่จำกัด"
                   onChange={(e) => { const n = Math.floor(Number(e.target.value)); setC({ ...c, maxStudents: e.target.value && n > 0 ? n : undefined }) }} />
-                <span className="text-sm text-muted-foreground">คน / คลาส</span>
+                <span className="text-sm text-muted-foreground">คน / คอร์ส</span>
               </div>
             </Field>
           </div>
