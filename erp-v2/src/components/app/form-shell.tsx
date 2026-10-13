@@ -10,6 +10,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet"
 import { cn } from "@/lib/utils"
+import { InfoTip } from "./info-tip"
 
 const InPanel = createContext(false)
 
@@ -30,8 +31,9 @@ export function FormShell({ title, description, onClose, footer, children, class
     return (
       <>
         <SheetHeader className="shrink-0 border-b pb-3">
-          <SheetTitle className="text-lg">{title}</SheetTitle>
-          {description && <SheetDescription>{description}</SheetDescription>}
+          {/* owner 2026-10-13: the explanation sits behind an ⓘ next to the title, not as a grey line */}
+          <SheetTitle className="flex items-center gap-1.5 pr-8 text-lg">{title}{description && <InfoTip text={description} />}</SheetTitle>
+          {description && <SheetDescription className="sr-only">{description}</SheetDescription>}
         </SheetHeader>
         <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-4 py-4">{children}</div>
         <div className="flex shrink-0 flex-wrap items-center justify-end gap-2 border-t bg-background px-4 py-3">{footer}</div>
@@ -42,8 +44,8 @@ export function FormShell({ title, description, onClose, footer, children, class
     <Dialog open onOpenChange={(o) => !o && onClose()}>
       <DialogContent className={cn("max-h-[90vh] overflow-y-auto", className)}>
         <DialogHeader>
-          <DialogTitle>{title}</DialogTitle>
-          {description && <DialogDescription>{description}</DialogDescription>}
+          <DialogTitle className="flex items-center gap-1.5">{title}{description && <InfoTip text={description} />}</DialogTitle>
+          {description && <DialogDescription className="sr-only">{description}</DialogDescription>}
         </DialogHeader>
         {children}
         <DialogFooter className="items-center">{footer}</DialogFooter>

@@ -20,6 +20,7 @@ import { useStore } from "@/store/store"
 import { CustomerPicker } from "./customer-picker"
 import { NativeSelect } from "./native-select"
 import { gradeTone, subjectColor } from "./subject-color"
+import { InfoTip } from "@/components/app/info-tip"
 
 export interface ClassPrefill {
   date?: DateStr
@@ -146,8 +147,7 @@ export function ClassDialog({ prefill, onClose }: { prefill: ClassPrefill; onClo
           {([["teacher", "ครู + ช่วงเวลา", "ช่วงสอน 2 ชม. ของครู — นักเรียนหลายวิชา/หลายระดับเรียนด้วยกันได้"], ["subject", "วิชา + ระดับชั้น", "คลาสของวิชาเดียว ระดับชั้นที่กำหนด"]] as const).map(([k, label, hint]) => (
             <button key={k} type="button" aria-pressed={layout === k} onClick={() => setLayout(k)}
               className={cn("rounded-2xl border p-3 text-left", layout === k ? "border-primary ring-2 ring-primary/20" : "hover:bg-muted/40")}>
-              <p className="text-sm font-medium">{label}</p>
-              <p className="text-xs text-muted-foreground">{hint}</p>
+              <p className="flex items-center gap-1 text-sm font-medium">{label}<InfoTip text={hint} /></p>
             </button>
           ))}
         </div>
@@ -157,20 +157,20 @@ export function ClassDialog({ prefill, onClose }: { prefill: ClassPrefill; onClo
         <div className="flex flex-wrap items-center gap-3 rounded-2xl border border-dashed p-3">
           <BookOpenIcon className="size-5 text-muted-foreground" />
           <div className="min-w-0 flex-1">
-            <p className="text-sm font-medium">เลือกคอร์ส <span className="text-xs font-normal text-muted-foreground">(ไม่บังคับ)</span></p>
-            <p className="text-xs text-muted-foreground">{course ? `${course.subjects.join(" + ")} · ${packageLabel(course)} — คาบของคลาสนี้หักจากแพ็กเกจของคอร์สนี้` : "ผูกเพื่อให้รู้ว่าคาบนี้หักจากแพ็กเกจไหน และขึ้นในหน้าคอร์ส"}</p>
+            <p className="flex items-center gap-1 text-sm font-medium">เลือกคอร์ส <span className="text-xs font-normal text-muted-foreground">(ไม่บังคับ)</span>
+              <InfoTip text={course ? `${course.subjects.join(" + ")} · ${packageLabel(course)} — คาบของคลาสนี้หักจากแพ็กเกจของคอร์สนี้` : "ผูกเพื่อให้รู้ว่าคาบนี้หักจากแพ็กเกจไหน และขึ้นในหน้าคอร์ส"} /></p>
           </div>
           <NativeSelect className="h-9 w-full sm:w-64" value={courseId} onChange={(e) => pickCourse(e.target.value)} placeholder="ไม่ผูกคอร์ส"
             options={courses.map((c) => ({ value: c.id, label: c.name }))} />
         </div>
 
         </>}
-        <Field label={layout === "teacher" ? "ชื่อคลาส (เว้นว่าง = ครู + วัน + เวลา)" : "ชื่อคลาส (เว้นว่าง = ตั้งจากวิชา + ระดับชั้น)"}>
+        <Field label="ชื่อคลาส" hint={layout === "teacher" ? "เว้นว่าง = ตั้งจากครู + วัน + เวลา" : "เว้นว่าง = ตั้งจากวิชา + ระดับชั้น"}>
           <Input value={name} onChange={(e) => setName(e.target.value)} placeholder={layout === "teacher" ? `ครู${teacher?.nickname ?? "…"} · พ. 17:00` : `${subjects.join(" + ")} ${grades.join(", ")}`.trim()} />
         </Field>
         {layout === "subject" && <>
 
-        <Field label="วิชา (เลือกได้หลายวิชา)" issue={subjects.length > 1 && course && course.unit !== "month" ? "คลาสหลายวิชาใช้กับคอร์สแพ็กเกจรายเดือนเท่านั้น" : undefined}>
+        <Field label="วิชา (เลือกได้หลายวิชา)" hint="เลือกหลายวิชา = คลาสรวม (เช่น Math 15 นาที + Eng 30 นาที) — เขียนสรุปการเรียนครั้งเดียวต่อคาบ ใช้กับแพ็กเกจรายเดือน" issue={subjects.length > 1 && course && course.unit !== "month" ? "คลาสหลายวิชาใช้กับคอร์สแพ็กเกจรายเดือนเท่านั้น" : undefined}>
           <div className="flex flex-wrap gap-2">
             {branch.subjects.map((s) => {
               const on = subjects.includes(s)
@@ -182,7 +182,6 @@ export function ClassDialog({ prefill, onClose }: { prefill: ClassPrefill; onClo
               )
             })}
           </div>
-          {subjects.length > 1 && <p className="mt-1 text-xs text-muted-foreground">คลาสรวมหลายวิชา (เช่น Math 15 นาที + Eng 30 นาที) — เขียนสรุปการเรียนครั้งเดียวต่อคาบ ใช้กับแพ็กเกจรายเดือน</p>}
         </Field>
 
         </>}
@@ -281,7 +280,7 @@ export function ClassDialog({ prefill, onClose }: { prefill: ClassPrefill; onClo
           </button>
         </div>
 
-        <Field label={`นักเรียน (${studentIds.length} คน · ${courseCap !== CAPACITY[type] ? "คอร์สรับได้" : "แนะนำไม่เกิน"} ${courseCap}) — ไม่บังคับ เพิ่มทีหลังได้`}>
+        <Field label={`นักเรียน (${studentIds.length}/${courseCap} คน)`} hint={`${courseCap !== CAPACITY[type] ? "คอร์สรับได้สูงสุด" : "แนะนำไม่เกิน"} ${courseCap} คน · ไม่บังคับ เพิ่มทีหลังได้`}>
           <div className="space-y-2">
             {studentIds.length > 0 && (
               <div className="flex flex-wrap gap-1.5">
@@ -333,9 +332,8 @@ export function ClassDialog({ prefill, onClose }: { prefill: ClassPrefill; onClo
 function Field({ label, hint, children, className, issue, action }: { label: string; hint?: string; children: React.ReactNode; className?: string; issue?: string; action?: React.ReactNode }) {
   return (
     <div className={cn("space-y-1", className)}>
-      <div className="flex items-center gap-2"><Label className="text-xs">{label}</Label>{action && <span className="ml-auto">{action}</span>}</div>
+      <div className="flex items-center gap-1"><Label className="text-xs">{label}</Label>{hint && <InfoTip text={hint} />}{action && <span className="ml-auto">{action}</span>}</div>
       {children}
-      {hint && <p className="text-[11px] text-muted-foreground">{hint}</p>}
       {issue && <p className="text-xs text-red-700">{issue}</p>}
     </div>
   )

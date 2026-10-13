@@ -8,6 +8,7 @@ import { gradeTone } from "@/components/app/subject-color"
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
 import { FormShell } from "@/components/app/form-shell"
+import { InfoTip } from "@/components/app/info-tip"
 import { Input } from "@/components/ui/input"
 import { Switch } from "@/components/ui/switch"
 import { fmtDate, fmtMoney } from "@/domain/dates"
@@ -72,7 +73,7 @@ export function CourseDialog({ branch, initial, onClose, onSaved }: { branch: Br
           <div className="flex flex-wrap items-center gap-2">
             <MapPinIcon className="size-4 text-primary" />
             <span className="font-medium">สาขา{branch.name}</span>
-            <span className="text-xs text-muted-foreground">คอร์ส คลาส และคาบเรียนจะอยู่ในสาขานี้</span>
+            <InfoTip text="คอร์ส คลาส และคาบเรียนจะอยู่ในสาขานี้" />
             <button type="button" onClick={() => setShowPlans(!showPlans)} className="ml-auto flex items-center gap-1 rounded-full border bg-background px-2.5 py-1 text-xs">
               <TagIcon className="size-3.5 text-primary" />
               <b>{UNITS.reduce((n, u) => n + durationsOf(branch, u).length, 0)}</b> แพ็กเกจ
@@ -121,7 +122,7 @@ export function CourseDialog({ branch, initial, onClose, onSaved }: { branch: Br
         </div>
 
         <div className="space-y-4">
-          <Field label="ชื่อคอร์ส (เว้นว่าง = ตั้งจากวิชา + ระดับชั้น)">
+          <Field label="ชื่อคอร์ส" hint="เว้นว่าง = ตั้งจากวิชา + ระดับชั้น">
             <Input value={c.name} onChange={(e) => setC({ ...c, name: e.target.value })} placeholder={defaultCourseName(c.subjects, c.grades) || "เช่น คณิต ป.5"} />
           </Field>
 
@@ -164,7 +165,9 @@ export function CourseDialog({ branch, initial, onClose, onSaved }: { branch: Br
           </Field>
 
           <div className="grid gap-3 sm:grid-cols-2">
-            <Field label="แพ็กเกจ (Duration type) *">
+            <Field label="แพ็กเกจ (Duration type) *" hint={c.unit === "hour" ? "ซื้อเป็นชั่วโมง หักตามความยาวคาบจริง (24 ชม. ที่คาบ 2 ชม. = 12 คาบ, คาบ 90 นาที = 16 คาบ)"
+              : c.unit === "week" ? "ซื้อเป็นสัปดาห์ นับจากวันเริ่ม เรียนกี่คาบก็ได้ในช่วงนั้น"
+                : "รายเดือนตามปฏิทิน (วันที่ 1 – สิ้นเดือน) เรียนกี่คาบก็ได้ · เดือนแรก pro-rate 100/60/30%"}>
               <NativeSelect value={c.unit} onChange={(e) => { const unit = e.target.value as PriceUnit; set({ unit, duration: unit === "month" ? 1 : durationsOf(branch, unit)[0] ?? 0 }) }}
                 options={UNITS.map((u) => ({ value: u, label: PRICE_UNIT_LABEL[u] }))} />
             </Field>
@@ -175,13 +178,8 @@ export function CourseDialog({ branch, initial, onClose, onSaved }: { branch: Br
               </Field>
             )}
           </div>
-          <p className="-mt-2 text-xs text-muted-foreground">
-            {c.unit === "hour" ? "ซื้อเป็นชั่วโมง หักตามความยาวคาบจริง (24 ชม. ที่คาบ 2 ชม. = 12 คาบ, คาบ 90 นาที = 16 คาบ)"
-              : c.unit === "week" ? "ซื้อเป็นสัปดาห์ นับจากวันเริ่ม เรียนกี่คาบก็ได้ในช่วงนั้น"
-                : "รายเดือนตามปฏิทิน (วันที่ 1 – สิ้นเดือน) เรียนกี่คาบก็ได้ · เดือนแรก pro-rate 100/60/30%"}
-          </p>
 
-          <Field label={`ราคา * ${c.unit === "month" ? "/ เดือน" : `/ ${durationLabel(c.unit, c.duration)}`}`}>
+          <Field label={`ราคา * ${c.unit === "month" ? "/ เดือน" : `/ ${durationLabel(c.unit, c.duration)}`}`} hint="ดึงจากตารางราคาของสาขาตามระดับชั้นที่เลือก · แก้เป็นราคาพิเศษได้ (ต้องใส่เหตุผล)">
             {c.grades.length === 0 ? <p className="text-sm text-muted-foreground">เลือกระดับชั้นก่อน เพื่อดึงราคาจากตารางของสาขา</p> : (
               <div className="space-y-2">
                 {chart.mixed && (
@@ -196,7 +194,7 @@ export function CourseDialog({ branch, initial, onClose, onSaved }: { branch: Br
                   <Input className="w-40 text-right tabular-nums" type="number" min={0} step={50} value={c.price || ""} onChange={(e) => { setPriceTouched(true); setC({ ...c, price: Number(e.target.value) }) }} />
                   {chart.price !== null && (
                     c.price === chart.price
-                      ? <span className="text-xs text-muted-foreground">ดึงจากตารางราคาของสาขา · แก้เป็นราคาพิเศษได้</span>
+                      ? null
                       : <button type="button" className="text-xs text-primary underline" onClick={() => { setPriceTouched(false); setC({ ...c, price: chart.price! }) }}>ใช้ราคาตาราง {fmtMoney(chart.price)}</button>
                   )}
                 </div>
@@ -210,21 +208,21 @@ export function CourseDialog({ branch, initial, onClose, onSaved }: { branch: Br
           </Field>
 
           <div className="grid gap-3 sm:grid-cols-2">
-            <Field label="Course fee (ค่าอุปกรณ์ — เก็บเพิ่มทุกครั้งที่ซื้อ ไม่บังคับ)">
+            <Field label="Course fee" hint="ค่าอุปกรณ์ — เก็บเพิ่มทุกครั้งที่ซื้อ · ไม่บังคับ">
               <Input className="w-40 text-right tabular-nums" type="number" min={0} step={50} value={c.courseFee || ""} placeholder="0" onChange={(e) => setC({ ...c, courseFee: Number(e.target.value) })} />
             </Field>
             {/* owner 2026-10-13: most students one class of this course takes — empty = the class type's default */}
-            <Field label="Max Student (ต่อคลาส · ไม่บังคับ)">
+            <Field label="Max Student" hint={`จำนวนนักเรียนสูงสุดต่อคลาสของคอร์สนี้ · ไม่บังคับ — ว่าง = ค่าแนะนำ ${CAPACITY[c.format === "single" ? "single" : "group"]} คน`}>
               <div className="flex items-center gap-2">
                 <Input className="w-24 text-right tabular-nums" type="number" min={1} step={1} value={c.maxStudents ?? ""} placeholder={String(CAPACITY[c.format === "single" ? "single" : "group"])}
                   onChange={(e) => { const n = Math.floor(Number(e.target.value)); setC({ ...c, maxStudents: e.target.value && n > 0 ? n : undefined }) }} />
-                <span className="text-xs text-muted-foreground">คน · ว่าง = ค่าแนะนำ {CAPACITY[c.format === "single" ? "single" : "group"]} คน</span>
+                <span className="text-sm text-muted-foreground">คน / คลาส</span>
               </div>
             </Field>
           </div>
 
           <div className="space-y-2">
-            <label className="flex items-center gap-2 text-sm"><Checkbox checked={dated} onCheckedChange={(v) => setDated(!!v)} /> กำหนดวันเริ่ม → วันจบ (ไม่ติ๊ก = คอร์สไม่มีกำหนด)</label>
+            <label className="flex items-center gap-2 text-sm"><Checkbox checked={dated} onCheckedChange={(v) => setDated(!!v)} /> กำหนดวันเริ่ม → วันจบ <InfoTip text="ไม่ติ๊ก = คอร์สไม่มีกำหนด เปิดขายตลอด" /></label>
             {dated && (
               <div className="grid gap-3 sm:grid-cols-2">
                 <Field label="เริ่ม"><Input type="date" value={c.from ?? ""} onChange={(e) => setC({ ...c, from: e.target.value || undefined })} /></Field>
@@ -235,10 +233,9 @@ export function CourseDialog({ branch, initial, onClose, onSaved }: { branch: Br
 
           {/* owner 2026-10-13: a course made for a special period prints that period's Memo on its invoice + receipt */}
           {branch.specialPeriods.length > 0 && (
-            <Field label="คอร์สของช่วงเวลาพิเศษ (ไม่บังคับ)">
+            <Field label="คอร์สของช่วงเวลาพิเศษ" hint="ไม่บังคับ · ใบแจ้งหนี้ + ใบเสร็จของคอร์สนี้จะใช้ Memo ของช่วงนั้น (ตั้งที่ Settings › เวลาเปิด-ปิด › ช่วงเวลาพิเศษ)">
               <NativeSelect value={c.periodId ?? ""} onChange={(e) => setC({ ...c, periodId: e.target.value || undefined })} placeholder="ไม่ใช่ — คอร์สปกติ"
                 options={branch.specialPeriods.map((p) => ({ value: p.id, label: `${p.name} · ${fmtDate(p.from)} – ${fmtDate(p.to, { year: true })}` }))} />
-              <p className="mt-0.5 text-xs text-muted-foreground">ใบแจ้งหนี้ + ใบเสร็จของคอร์สนี้จะใช้ Memo ของช่วงนั้น (ตั้งที่ Settings › เวลาเปิด-ปิด › ช่วงเวลาพิเศษ)</p>
             </Field>
           )}
         </div>

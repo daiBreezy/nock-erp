@@ -27,6 +27,7 @@ import { report } from "@/lib/feedback"
 import { useBranch, useEntitlements, useNow } from "@/lib/hooks"
 import { cn } from "@/lib/utils"
 import { useStore } from "@/store/store"
+import { InfoTip } from "@/components/app/info-tip"
 
 type LineDraft = { id: string; courseId: string; classIds: string[]; startDate: string; periodsText: string; overlapRemark: string; leftover?: Leftover; seats?: Record<string, Seat> }
 
@@ -248,6 +249,7 @@ export function InvoiceEditor({ invoice, defaultStudentId, renewEntitlementId, o
           <details className="rounded-lg border" open={legs.some((l) => l.pickup || l.dropoff)}>
             <summary className="flex cursor-pointer items-center gap-2 px-3 py-2 text-sm">
               <BusIcon className="size-4" /> ค่ารถ ({busFees.find((f) => f.id === busFeeId)?.name ?? "ค่ารถ"} {fmtMoney(rate)}/เที่ยว)
+              <InfoTip text={`${student?.usesBus ? "นักเรียนใช้รถ — ติ๊กให้ตามรอบเรียนแล้ว" : "นักเรียนไม่ได้ใช้รถ — ติ๊กเฉพาะรอบที่ต้องการ"} · วันที่มีหลายคอร์สนับเป็นรอบเดียว`} />
               <span className="ml-auto font-medium tabular-nums">{fmtMoney(busTotal(legs, rate))}</span>
             </summary>
             <div className="space-y-2 border-t px-3 py-2">
@@ -260,7 +262,6 @@ export function InvoiceEditor({ invoice, defaultStudentId, renewEntitlementId, o
                 </div>
                 <FamilyPin family={family} />
               </div>
-              <p className="text-xs text-muted-foreground">{student?.usesBus ? "นักเรียนใช้รถ — ติ๊กให้ตามรอบเรียนแล้ว" : "นักเรียนไม่ได้ใช้รถ — ติ๊กเฉพาะรอบที่ต้องการ"} · วันที่มีหลายคอร์สนับเป็นรอบเดียว</p>
               <div className="flex gap-2">
                 <Button size="xs" variant="outline" onClick={() => { setBusTouched(true); setBus(legs.map((l) => ({ ...l, pickup: true, dropoff: true }))) }}>ติ๊กทุกรอบ</Button>
                 <Button size="xs" variant="ghost" onClick={() => { setBusTouched(true); setBus(legs.map((l) => ({ ...l, pickup: false, dropoff: false }))) }}>ไม่ใช้รถ</Button>
@@ -285,7 +286,7 @@ export function InvoiceEditor({ invoice, defaultStudentId, renewEntitlementId, o
         {pendingExtras.length > 0 && (
           <div className="space-y-1.5 rounded-lg border border-amber-300 bg-amber-50/60 p-3 dark:bg-amber-950/20">
             <div className="flex items-center gap-2 text-sm font-medium">
-              <BusIcon className="size-4" /> ค่ารถเพิ่ม (รอบก่อน · รอเรียกเก็บ)
+              <BusIcon className="size-4" /> ค่ารถเพิ่ม (รอบก่อน · รอเรียกเก็บ) <InfoTip text="ติ๊กออกเพื่อเก็บไว้เรียกเก็บในใบหลัง" />
               <span className="ml-auto tabular-nums">{fmtMoney(busExtras.reduce((a, x) => a + x.amount, 0))}</span>
             </div>
             <div className="grid gap-1 sm:grid-cols-2">
@@ -297,13 +298,12 @@ export function InvoiceEditor({ invoice, defaultStudentId, renewEntitlementId, o
                 </label>
               ))}
             </div>
-            <p className="text-xs text-muted-foreground">ติ๊กออกเพื่อเก็บไว้เรียกเก็บในใบหลัง</p>
           </div>
         )}
 
         {credits.length > 0 && (
           <div className="space-y-1.5 rounded-lg border border-violet-200 bg-violet-50/60 p-3 dark:border-violet-900 dark:bg-violet-950/30">
-            <p className="text-sm font-medium">เครดิตคอร์ส (จากใบลดหนี้) — หักให้อัตโนมัติ</p>
+            <p className="flex items-center gap-1 text-sm font-medium">เครดิตคอร์ส (จากใบลดหนี้) — หักให้อัตโนมัติ <InfoTip text="ติ๊กออกถ้ายังไม่ใช้เครดิตในใบนี้" /></p>
             {[...new Set(credits.map((c) => c.courseId))].map((cid) => {
               const amount = credits.filter((c) => c.courseId === cid).reduce((a, c) => a + c.amount, 0)
               const on = !creditSkip.includes(cid)
@@ -315,7 +315,6 @@ export function InvoiceEditor({ invoice, defaultStudentId, renewEntitlementId, o
                 </label>
               )
             })}
-            <p className="text-xs text-muted-foreground">ติ๊กออกถ้ายังไม่ใช้เครดิตในใบนี้</p>
           </div>
         )}
 

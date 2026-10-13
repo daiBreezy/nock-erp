@@ -15,6 +15,7 @@ import { fetchExitResponse, sendExitForm } from "@/lib/forms"
 import { useEntitlements, useNow } from "@/lib/hooks"
 import { cn } from "@/lib/utils"
 import { useStore } from "@/store/store"
+import { InfoTip } from "./info-tip"
 
 function Chip({ on, onClick, children }: { on: boolean; onClick: () => void; children: React.ReactNode }) {
   return <button type="button" aria-pressed={on} onClick={onClick} className={cn("rounded-full border px-2.5 py-1 text-xs", on ? "border-primary bg-primary/10 font-medium text-primary" : "hover:bg-muted")}>{children}</button>
@@ -69,9 +70,8 @@ export function ExitRequestDialog({ stu, onClose, onCloseNow }: { stu: Student; 
         {!link ? (
           <>
             <div className="space-y-1">
-              <Label>เรียนวันสุดท้าย</Label>
+              <Label>เรียนวันสุดท้าย <InfoTip text={`ยังเรียนได้ถึงวันนี้ · หลังจากนั้นจะเอาออกจากคาบตอนปิดการออก${running ? ` · แพ็กปัจจุบันหมด ${fmtDate(running)}` : ""}`} /></Label>
               <Input type="date" value={lastDate} onChange={(e) => setLastDate(e.target.value)} />
-              <p className="text-xs text-muted-foreground">ยังเรียนได้ถึงวันนี้ · หลังจากนั้นจะเอาออกจากคาบตอนปิดการออก{running ? ` · แพ็กปัจจุบันหมด ${fmtDate(running)}` : ""}</p>
             </div>
             {siblings.length > 0 && (
               <div className="space-y-1.5">
@@ -206,9 +206,9 @@ export function CloseExitDialog({ stu, response, onClose }: { stu: Student; resp
           <div className="flex flex-wrap gap-1.5">{reasons.map((r) => <Chip key={r.id} on={reasonId === r.id} onClick={() => setReasonId(r.id)}>{r.label}</Chip>)}</div></div>
         <div className="space-y-1.5"><Label>เหตุผลอื่น</Label>
           <div className="flex flex-wrap gap-1.5">{reasons.filter((r) => r.id !== reasonId).map((r) => <Chip key={r.id} on={others.includes(r.id)} onClick={() => setOthers((o) => (o.includes(r.id) ? o.filter((x) => x !== r.id) : [...o, r.id]))}>{r.label}</Chip>)}</div></div>
-        <div className="space-y-1.5"><Label>เงินที่เหลือในแพ็ก</Label>
+        <div className="space-y-1.5"><Label>เงินที่เหลือในแพ็ก <InfoTip text="คืนเงิน / เก็บเป็นเครดิต = ออกใบลดหนี้จากใบแจ้งหนี้ของนักเรียน (แท็บ Billing)" /></Label>
           <div className="flex flex-wrap gap-1.5">{([["none", "ไม่มี / ใช้หมดแล้ว"], ["refund", "คืนเงิน"], ["credit", "เก็บเป็นเครดิต"]] as const).map(([k, l]) => <Chip key={k} on={money === k} onClick={() => setMoney(k)}>{l}</Chip>)}</div>
-          {money !== "none" && <p className="text-xs text-muted-foreground">ออกใบลดหนี้จากใบแจ้งหนี้ของนักเรียน (แท็บ Billing) — {money === "refund" ? "แบบคืนเงิน" : "แบบเครดิตคอร์ส"}</p>}</div>
+</div>
         <div className="space-y-1"><Label>หมายเหตุ{reasonId === "lr_other" && !a?.comment ? " *" : ""}</Label><Input value={note} onChange={(e) => setNote(e.target.value)} placeholder="เช่น คุยทางโทรศัพท์ คุณแม่บอกว่า…" /></div>
         {a && a.comeBack !== "no" && a.contactOk && <p className="rounded-lg bg-emerald-50 p-2 text-xs text-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-100">ผู้ปกครองบอกว่า{COME_BACK[a.comeBack]}{a.comeBackMonth ? ` ราว ${fmtDate(`${a.comeBackMonth}-01`, { year: true }).split(" ").slice(1).join(" ")}` : ""} → จะสร้าง Lead ไว้โทรหาอีกครั้ง (ขึ้นใน Need Attention ตามวันนั้น)</p>}
         {err && reasonId && <p className="text-xs text-red-700">{err}</p>}

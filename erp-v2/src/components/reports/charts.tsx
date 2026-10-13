@@ -1,8 +1,7 @@
 "use client"
 
 import { useState, type ReactNode } from "react"
-import { ArrowDownIcon, ArrowUpIcon, CircleHelpIcon } from "lucide-react"
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
+import { ArrowDownIcon, ArrowUpIcon } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { tx } from "@/lib/i18n"
 import { monthShort } from "@/domain/dates"
@@ -34,17 +33,8 @@ export function Delta({ value, invert, className }: { value: number | null; inve
 
 /** A report card. `center` = content centred in the card's height · `fill` = content stretched to the card's height
  *  (owner 2026-10-01: cards side by side are the same height — the content should fill it, not leave a gap). */
-/** a small "?" that shows an explanation on hover (or tap / keyboard focus) */
-export function InfoTip({ text }: { text: string }) {
-  return (
-    <Tooltip>
-      <TooltipTrigger render={<button type="button" aria-label={text} className="grid size-5 place-items-center self-center rounded-full text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/40 focus-visible:outline-none" />}>
-        <CircleHelpIcon className="size-4" />
-      </TooltipTrigger>
-      <TooltipContent side="bottom" align="start" className="leading-relaxed">{text}</TooltipContent>
-    </Tooltip>
-  )
-}
+export { InfoTip } from "@/components/app/info-tip"
+import { InfoTip } from "@/components/app/info-tip"
 
 export function Panel({ title, hint, action, children, className, center, fill }: { title: string; hint?: string; action?: ReactNode; children: ReactNode; className?: string; center?: boolean; fill?: boolean }) {
   return (

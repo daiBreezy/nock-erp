@@ -47,6 +47,7 @@ import { StudentSheet } from "./student-sheet"
 import { avatarTone, gradeTone, initial } from "./subject-color"
 import { TeacherPicker } from "./teacher-picker"
 import { type MoveScope } from "@/domain/rules/scheduling"
+import { InfoTip } from "./info-tip"
 
 /** Session dialog (owner design 2026-09-29): student list with ✓/✗, per-student ⋮ (Re-schedule · Leave · Remove),
  *  summary right under each present student, multi-select to submit/approve, class ⋮ (Edit · Postpone · Delete). */
@@ -476,7 +477,7 @@ function LeaveDialog({ s, studentId, onClose }: { s: Session; studentId: ID; onC
           {([[false, "ลา · หักโควตา", ent ? `เหลือโควตา ${left}/${quota} · ยืดวันจบตามโควตา` : "ไม่มีแพ็กเกจที่ใช้คาบนี้"], [true, "ลาพักยาว · ไม่หักโควตา", "ทุกวิชาในช่วงนี้ · ยืดวันจบทุกคอร์ส · ดูได้ที่หน้านักเรียน"]] as const).map(([k, label, hint]) => (
             <button key={label} type="button" aria-pressed={noQuota === k} onClick={() => setNoQuota(k)}
               className={cn("rounded-xl border p-2.5 text-left", noQuota === k ? "border-amber-500 bg-amber-50 dark:bg-amber-950/30" : "hover:bg-muted/50")}>
-              <p className="text-sm font-medium">{label}</p><p className="text-xs text-muted-foreground">{hint}</p>
+              <p className="flex items-center gap-1 text-sm font-medium">{label}<InfoTip text={hint} /></p>
             </button>
           ))}
         </div>
@@ -695,8 +696,7 @@ function RescheduleDialog({ from, studentId, onClose }: { from: Session; student
                   <div className="space-y-1"><Label className="text-xs">ครู</Label><NativeSelect value={nTeacher} onChange={(e) => setNTeacher(e.target.value)} placeholder="ยังไม่มีครู" options={teachers.map((t) => ({ value: t.id, label: t.nickname }))} /></div>
                   <div className="space-y-1"><Label className="text-xs">ห้อง</Label><NativeSelect value={nRoom} onChange={(e) => setNRoom(e.target.value)} placeholder="ยังไม่ระบุ" options={branch.rooms.map((r) => ({ value: r.id, label: r.name }))} /></div>
                 </div>
-                <label className="flex items-start gap-2 text-xs"><Checkbox checked={agreed} onCheckedChange={(v) => setAgreed(!!v)} className="mt-0.5" /> ตกลงวัน/เวลากับครูและผู้ปกครองแล้ว</label>
-                <p className="text-[11px] text-muted-foreground">ระบบตรวจครู/ห้องชน และวันหยุดให้ · คาบใหม่เป็นคาบเดี่ยว ใช้แพ็กเกจเดิมของนักเรียน</p>
+                <label className="flex items-start gap-2 text-xs"><Checkbox checked={agreed} onCheckedChange={(v) => setAgreed(!!v)} className="mt-0.5" /> ตกลงวัน/เวลากับครูและผู้ปกครองแล้ว <InfoTip text="ระบบตรวจครู/ห้องชน และวันหยุดให้ · คาบใหม่เป็นคาบเดี่ยว ใช้แพ็กเกจเดิมของนักเรียน" className="-mt-0.5" /></label>
               </div>
             )}
           </section>
@@ -925,7 +925,7 @@ function TeacherLeaveDialog({ s, onClose }: { s: Session; onClose: () => void })
           {([["sub", "มีครูสอนแทน", "นักเรียนเรียนตามปกติ"], ["cancel", "ไม่มีครูสอนแทน — ยกเลิกคาบ", "วันเรียนจบของนักเรียนทุกคนเลื่อนออกไป 1 คาบ"]] as const).map(([k, label, hint]) => (
             <button key={k} type="button" aria-pressed={mode === k} onClick={() => setMode(k)}
               className={cn("rounded-xl border p-3 text-left", mode === k ? (k === "cancel" ? "border-red-400 bg-red-50 dark:bg-red-950/30" : "border-primary bg-primary/5") : "hover:bg-muted/50")}>
-              <p className="text-sm font-medium">{label}</p><p className="text-xs text-muted-foreground">{hint}</p>
+              <p className="flex items-center gap-1 text-sm font-medium">{label}<InfoTip text={hint} /></p>
             </button>
           ))}
         </div>

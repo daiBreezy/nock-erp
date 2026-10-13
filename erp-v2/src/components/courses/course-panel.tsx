@@ -5,6 +5,7 @@
 import { useState } from "react"
 import { CalendarIcon, ClockIcon, CopyIcon, DoorOpenIcon, LayersIcon, PencilIcon, PowerIcon } from "lucide-react"
 import { Pill } from "@/components/app/badges"
+import { InfoTip } from "@/components/app/info-tip"
 import { EntityPanel, PanelBody, PanelFooter, PanelForm, PanelMore } from "@/components/app/form-shell"
 import { PackageBadge } from "@/components/app/package-badge"
 import { gradeTone, subjectColor } from "@/components/app/subject-color"
@@ -95,7 +96,7 @@ function CourseView({ c, st, onEdit }: { c: Course; st?: CourseStats; onEdit: ()
           {c.priceReason && <Row label="เหตุผลราคา">{c.priceReason}</Row>}
           <Row label="เรียนแบบ">{c.format === "single" ? "เรียนเดี่ยว" : "กลุ่ม"}</Row>
           <Row label="Max Student">{c.maxStudents ? `${c.maxStudents} คน / คลาส` : <span className="text-muted-foreground">ค่าแนะนำ {CAPACITY[c.format === "single" ? "single" : "group"]} คน / คลาส</span>}</Row>
-          {c.periodId && <Row label="ช่วงเวลาพิเศษ">{br?.specialPeriods.find((p) => p.id === c.periodId)?.name ?? "—"} <span className="text-xs text-muted-foreground">· ใบแจ้งหนี้/ใบเสร็จใช้ Memo ของช่วงนี้</span></Row>}
+          {c.periodId && <Row label="ช่วงเวลาพิเศษ">{br?.specialPeriods.find((p) => p.id === c.periodId)?.name ?? "—"} <InfoTip text="ใบแจ้งหนี้ / ใบเสร็จของคอร์สนี้ใช้ Memo ของช่วงนี้" /></Row>}
           <Row label="ช่วงเปิดขาย">{c.from || c.to ? `${c.from ? fmtDate(c.from, { year: true }) : "…"} – ${c.to ? fmtDate(c.to, { year: true }) : "…"}` : "เปิดตลอด"}</Row>
         </section>
         <section className="space-y-2">

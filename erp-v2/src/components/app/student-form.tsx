@@ -18,6 +18,7 @@ import { NativeSelect } from "./native-select"
 import { SchoolPicker } from "./school-picker"
 import { EnNameField, nativeLabel } from "./name-fields"
 import { FormShell, useInPanel } from "./form-shell"
+import { InfoTip } from "./info-tip"
 
 /** Create / edit a student. Errors show under each field while typing (S4). */
 export function StudentForm({ student, familyId, onClose, onSaved }: { student?: Student; familyId?: string; onClose: () => void; onSaved?: (s: Student) => void }) {
@@ -83,10 +84,11 @@ export function StudentForm({ student, familyId, onClose, onSaved }: { student?:
   )
 }
 
-export function Field({ label, error, className, children }: { label: string; error?: string | false; className?: string; children: React.ReactNode }) {
+/** `hint` = the explanation behind an ⓘ next to the label (owner 2026-10-13: no grey helper lines under fields) */
+export function Field({ label, hint, error, className, children }: { label: React.ReactNode; hint?: React.ReactNode; error?: string | false; className?: string; children: React.ReactNode }) {
   return (
     <div className={className}>
-      <Label className="mb-1 text-xs">{label}</Label>
+      <Label className="mb-1 text-xs">{label}{hint && <InfoTip text={hint} className="-my-1" />}</Label>
       {children}
       {error && <p className="mt-0.5 text-xs text-red-700">{error}</p>}
     </div>

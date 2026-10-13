@@ -33,6 +33,7 @@ import { cn } from "@/lib/utils"
 import { useStore } from "@/store/store"
 import { DeactivateDialog } from "./deactivate-dialog"
 import { Tabs } from "@/components/app/page-layout"
+import { InfoTip } from "@/components/app/info-tip"
 
 const WEEK: Weekday[] = [1, 2, 3, 4, 5, 6, 0]
 type Tab = "info" | "sessions" | "summaries" | "notes" | "log"
@@ -425,11 +426,10 @@ function StaffEdit({ staff: initial, onCancel, onSaved }: { staff?: Staff; onCan
           <EnNameField label="ชื่อที่แสดง" native={f.nickname} value={f.nicknameEn} onChange={(v) => setF({ ...f, nicknameEn: v })} />
         </div>
 
-        <Field label="บทบาทระดับบริษัท (ถ้ามี)">
+        <Field label="บทบาทระดับบริษัท (ถ้ามี)" hint="Director / Super Admin ดูแลทุกสาขา — ไม่ต้องเลือกสาขา">
           <div className="flex flex-wrap gap-3">
             {GLOBAL_ROLES.map((r) => <label key={r} className="flex items-center gap-1.5 text-sm"><Checkbox checked={f.roles.includes(r)} onCheckedChange={() => setF({ ...f, roles: toggle(f.roles, r) })} />{ROLE_LABEL[r]}</label>)}
           </div>
-          {allBranches(f) && <p className="mt-1 text-xs text-muted-foreground">Director / Super Admin ดูแลทุกสาขา — ไม่ต้องเลือกสาขา</p>}
         </Field>
         {/* owner 2026-10-09: an Area / Region Manager looks after chosen branches only */}
         {f.roles.includes("area_manager") && !allBranches(f) && (
@@ -471,10 +471,9 @@ function StaffEdit({ staff: initial, onCancel, onSaved }: { staff?: Staff; onCan
         </section>
 
         <label className="flex items-center gap-2 text-sm"><Checkbox checked={!!f.partTime} onCheckedChange={(v) => setF({ ...f, partTime: !!v })} /> ครู Part-time (เลือกเป็นครูสอนแทนตอนครูลาได้)</label>
-        <label className="flex items-center gap-2 text-sm"><Checkbox checked={f.canLogin} onCheckedChange={(v) => setF({ ...f, canLogin: !!v })} /> มีบัญชีล็อกอินเข้าระบบ</label>
+        <label className="flex items-center gap-2 text-sm"><Checkbox checked={f.canLogin} onCheckedChange={(v) => setF({ ...f, canLogin: !!v })} /> มีบัญชีล็อกอินเข้าระบบ <InfoTip text="ไม่ติ๊ก = ไม่มีสิทธิ์เข้าระบบ เก็บข้อมูลไว้เฉยๆ (เปิดบัญชีล็อกอินภายหลังได้) · อีเมลบังคับเฉพาะคนที่ล็อกอิน" /></label>
         {/* S5 (owner 2026-10-09): email is always there — required only for a login */}
         <Field label={f.canLogin ? "อีเมล *" : "อีเมล (ไม่บังคับ)"} error={err("email")}><Input type="email" value={f.email ?? ""} onChange={(e) => setF({ ...f, email: e.target.value })} /></Field>
-        {!f.canLogin && <p className="text-xs text-muted-foreground">ไม่มีสิทธิ์เข้าระบบ — เก็บข้อมูลไว้เฉยๆ (เปิดบัญชีล็อกอินภายหลังได้)</p>}
       </div>
       <div className="flex shrink-0 justify-end gap-2 border-t bg-background px-4 py-3">
         <Button variant="ghost" onClick={onCancel}>ยกเลิก</Button>

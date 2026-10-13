@@ -29,7 +29,7 @@ import { report } from "@/lib/feedback"
 import { useNow } from "@/lib/hooks"
 import { cn } from "@/lib/utils"
 import { useStore } from "@/store/store"
-import { InfoTip } from "@/components/reports/charts"
+import { InfoTip } from "@/components/app/info-tip"
 
 /** Stages that now move by themselves (E2E 2026-09-28) — the sheet says what will move them instead of a button. */
 const AUTO_HINT: Partial<Record<LeadStage, string>> = {
@@ -334,8 +334,10 @@ function EnrollLinkButton({ lead }: { lead: Lead }) {
   }
   return (
     <div className="space-y-1.5">
-      <p className="text-xs text-muted-foreground">ผู้ปกครองกรอกข้อมูล + เลือกคอร์ส/เวลาที่สะดวก → ขึ้นที่หัวหน้า CRM ให้จัดคลาสและออกใบแจ้งหนี้</p>
-      <Button size="sm" variant="outline" disabled={busy} onClick={send}><SendIcon /> {lead.lineUserId ? "ส่งใบสมัครเรียนทาง LINE" : "สร้างลิงก์ใบสมัครเรียน"}</Button>
+      <div className="flex items-center gap-1">
+        <Button size="sm" variant="outline" disabled={busy} onClick={send}><SendIcon /> {lead.lineUserId ? "ส่งใบสมัครเรียนทาง LINE" : "สร้างลิงก์ใบสมัครเรียน"}</Button>
+        <InfoTip text="ผู้ปกครองกรอกข้อมูล + เลือกคอร์ส/เวลาที่สะดวก → ขึ้นที่หัวหน้า CRM ให้จัดคลาสและออกใบแจ้งหนี้" />
+      </div>
       {url && <Input readOnly value={url} className="h-8 text-xs" onFocus={(e) => { e.target.select(); navigator.clipboard?.writeText(url) }} />}
     </div>
   )
