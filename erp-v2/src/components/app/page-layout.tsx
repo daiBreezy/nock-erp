@@ -6,7 +6,7 @@
 //   Toolbar — branch chip first · search · filters · (right) view switch / count
 //   Content — the table, full width
 // Same width and spacing everywhere; Calendar and Inbox stay full-screen work areas.
-import { ChevronLeftIcon, ChevronRightIcon, EyeIcon, EyeOffIcon } from "lucide-react"
+import { ChevronLeftIcon, ChevronRightIcon, EyeIcon, EyeOffIcon, SearchIcon } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 
@@ -32,6 +32,17 @@ export function KpiRow({ children, className }: { children: React.ReactNode; cla
 }
 
 /** filters on the left (branch chip first), `end` on the right */
+/** The one search box for list pages (owner 2026-10-13: Sessions · Attendance · Summaries got one too) — h-9 like every toolbar control */
+export function SearchBox({ value, onChange, placeholder, className }: { value: string; onChange: (v: string) => void; placeholder: string; className?: string }) {
+  return (
+    <div className={cn("relative w-full sm:w-64", className)}>
+      <SearchIcon className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" />
+      <input type="search" value={value} onChange={(e) => onChange(e.target.value)} placeholder={placeholder}
+        className="h-9 w-full min-w-0 rounded-3xl border border-transparent bg-input/50 pr-3 pl-8 text-sm outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/30" />
+    </div>
+  )
+}
+
 export function Toolbar({ children, end }: { children: React.ReactNode; end?: React.ReactNode }) {
   return (
     <div className="flex flex-wrap items-center gap-2">

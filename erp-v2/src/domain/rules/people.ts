@@ -359,3 +359,11 @@ export function mergeSubmission(family: Family | undefined, student: Student | u
 export function familyShortName(name: string) {
   return name.replace(/^ครอบครัว\s*/, "").trim() || name
 }
+
+/** Owner 2026-10-13: list-page search — every word must appear in one of the given texts (case-insensitive). */
+export function matchesQuery(q: string, parts: (string | null | undefined)[]): boolean {
+  const words = q.trim().toLowerCase().split(/\s+/).filter(Boolean)
+  if (!words.length) return true
+  const hay = parts.filter(Boolean).join(" ").toLowerCase()
+  return words.every((w) => hay.includes(w))
+}

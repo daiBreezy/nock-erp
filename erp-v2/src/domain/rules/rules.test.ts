@@ -2183,7 +2183,7 @@ describe("date period — วันนี้ / สัปดาห์นี้ / 
   })
 })
 
-import { familyShortName } from "./people"
+import { familyShortName, matchesQuery } from "./people"
 describe("family name in lists (owner 2026-10-09)", () => {
   it("drops the leading ครอบครัว so names sort by the family name", () => {
     expect(familyShortName("ครอบครัวแก้วงาม")).toBe("แก้วงาม")
@@ -2217,5 +2217,14 @@ describe("Special period Memo on invoice + receipt (owner 2026-10-13)", () => {
   it("regular courses, or a period with no Memo, keep the brand Memo", () => {
     expect(memo([{ courseId: "c_reg", classIds: ["k_reg"] }]).memo).toBe("Brand memo")
     expect(memo([{ courseId: "c_win", classIds: [] }]).memo).toBe("Brand memo")
+  })
+})
+
+describe("list-page search (owner 2026-10-13)", () => {
+  it("matches every word across the given fields, ignoring case", () => {
+    expect(matchesQuery("", ["x"])).toBe(true)
+    expect(matchesQuery("ใบเตย คณิต", ["ใบเตย", "คณิต ป.5", undefined])).toBe(true)
+    expect(matchesQuery("ใบเตย อังกฤษ", ["ใบเตย", "คณิต ป.5"])).toBe(false)
+    expect(matchesQuery("MATH", ["Math 5"])).toBe(true)
   })
 })

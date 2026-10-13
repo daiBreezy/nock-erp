@@ -5,7 +5,8 @@ import { BranchCode, useBranchScope } from "@/components/app/branch-scope"
 import { staffAt } from "@/domain/rules/permissions"
 import { useState } from "react"
 import { CalendarDaysIcon, ClipboardCheckIcon, UserCheckIcon, UserXIcon } from "lucide-react"
-import { Page, PageHeader, KpiRow, Segmented, Toolbar } from "@/components/app/page-layout"
+import { Page, PageHeader, KpiRow, SearchBox, Segmented, Toolbar } from "@/components/app/page-layout"
+import { matchesQuery } from "@/domain/rules/people"
 import { SessionSheet } from "@/components/app/session-sheet"
 import { endTime, fmtDate } from "@/domain/dates"
 import { Kpi } from "@/components/app/kpi"
@@ -40,12 +41,18 @@ export default function AttendancePage() {
   const [subject, setSubject] = useState("")
   const [teacher, setTeacher] = useState("")
   const [openId, setOpenId] = useState<ID | null>(null)
+  const [q, setQ] = useState("")
+  const classes = useStore((s) => s.classes)
+  const L = useLookup()
   const { sort, toggle } = useSort<AttSort>("rate")
   const byGrade = gradeCompare(branch.grades)
 
   const { from, to } = period
 
   const inRange = sessions.filter((s) => scope.ids.includes(s.branchId) && !s.cancelled && s.date >= from && s.date <= to && sessionState(s, now) !== "upcoming" && (!subject || s.subject === subject) && (!teacher || s.teacherId === teacher))
+  // owner 2026-10-13: search — day view by class / teacher / student, student view by the student's name
+  const stuText = (id: ID) => { const x = students.find((st) => st.id === id); return [x?.nickname, x?.name] }
+  const dayShown = q ? inRange.filter((s) => matchesQuery(q, [classes.find((k) => k.id === s.classId)?.name, s.subject, L.teacher(s.teacherId).label, ...s.studentIds.flatMap(stuText)])) : inRange
   const ids = new Set(inRange.map((s) => s.id))
   const att = attendance.filter((a) => ids.has(a.sessionId))
   const expected = inRange.reduce((n, s) => n + s.studentIds.length, 0)
@@ -58,7 +65,7 @@ export default function AttendancePage() {
       const booked = inRange.filter((x) => x.studentIds.includes(s.id)).length
       return { s, booked, present: mine.filter((a) => a.status === "present").length, absent: mine.filter((a) => a.status === "absent").length, leave: mine.filter((a) => a.status === "leave").length }
     })
-    .filter((r) => r.booked > 0)
+    .filter((r) => r.booked > 0 && (!q || matchesQuery(q, [r.s.nickname, r.s.name, r.s.grade])))
     .sort((a, b) => {
       const k = sort.key
       const v = k === "name" ? a.s.nickname.localeCompare(b.s.nickname, "th")
@@ -106,6 +113,7 @@ export default function AttendancePage() {
           {period.control}
         </Toolbar>
         <div className="flex flex-wrap items-center gap-2" role="group" aria-label="ตัวกรองรายงานเข้าเรียน">
+        <SearchBox value={q} onChange={setQ} placeholder={view === "day" ? "ค้นหาคลาส / ครู / นักเรียน" : "ค้นหานักเรียน"} />
         <NativeSelect className="h-9 w-28" value={subject} onChange={(e) => setSubject(e.target.value)} placeholder="ทุกวิชา" options={branch.subjects.map((s) => ({ value: s, label: s }))} />
         <NativeSelect className="h-9 w-32" value={teacher} onChange={(e) => setTeacher(e.target.value)} placeholder="ครูทุกคน" options={staff.map((t) => staffAt(t, branch.id)).filter((t) => t.roles.includes("teacher") && t.branchIds.includes(branch.id)).map((t) => ({ value: t.id, label: t.nickname }))} />
         {view !== "day" && <ColumnsMenu id="attendance" columns={columns} />}
@@ -113,7 +121,7 @@ export default function AttendancePage() {
         {scope.select}
         </div>
       </div>
-      {view === "day" ? <ByDay sessions={inRange} attendance={att} multi={scope.multi} code={scope.code} onOpen={setSessionId} /> : (<>
+      {view === "day" ? <ByDay sessions={dayShown} attendance={att} multi={scope.multi} code={scope.code} onOpen={setSessionId} /> : (<>
       <p className="text-xs text-muted-foreground">นับเฉพาะคาบในช่วงที่เลือกที่เริ่มเรียนแล้วเท่านั้น · เริ่มเรียงจากอัตราเข้าเรียนต่ำสุด (กดหัวคอลัมน์เพื่อเรียงใหม่)</p>
       {/* owner 2026-10-07: a real sortable table — grade in its own column, numbers right-aligned */}
       <div data-focus="often_leave" className="rounded-3xl">

@@ -5,7 +5,8 @@ import { BranchCode, useBranchScope } from "@/components/app/branch-scope"
 import { staffAt } from "@/domain/rules/permissions"
 import { useState } from "react"
 import { CalendarDaysIcon, CircleCheckIcon, ClipboardCheckIcon, PenLineIcon } from "lucide-react"
-import { Page, PageHeader, KpiRow, Toolbar } from "@/components/app/page-layout"
+import { Page, PageHeader, KpiRow, SearchBox, Toolbar } from "@/components/app/page-layout"
+import { matchesQuery } from "@/domain/rules/people"
 import { Kpi } from "@/components/app/kpi"
 import { Pill } from "@/components/app/badges"
 import { NativeSelect } from "@/components/app/native-select"
@@ -42,11 +43,16 @@ export default function SessionsPage() {
   const work = workParam === "all" ? null : workParam
   const setWork = (w: WorkState | null) => setWorkParam(w ?? "all")
   const [openId, setOpenId] = useState<string | null>(null)
+  const [q, setQ] = useState("")
+  const students = useStore((s) => s.students)
 
   const { from, to } = period
+  // owner 2026-10-13: search by class, subject, teacher or student
+  const hit = (s: (typeof sessions)[number]) => !q || matchesQuery(q, [classes.find((k) => k.id === s.classId)?.name, s.subject, ...[s.teacherId, ...s.coTeacherIds].map((t) => L.teacher(t).label), ...s.studentIds.flatMap((id) => { const x = students.find((st) => st.id === id); return [x?.nickname, x?.name] })])
   const list = sessions
     .filter((s) => scope.ids.includes(s.branchId) && s.date >= from && s.date <= to && !removedWithClass(s, classes))
     .filter((s) => teacher === "all" || s.teacherId === teacher || s.coTeacherIds.includes(teacher))
+    .filter(hit)
     .sort((a, b) => (a.date + a.start).localeCompare(b.date + b.start))
   const withState = list.map((s) => ({ s, w: workState(s, now, attendance, summaries) }))
   const counts: Partial<Record<WorkState, number>> = {}
@@ -66,6 +72,7 @@ export default function SessionsPage() {
         <Kpi icon={CircleCheckIcon} label="เสร็จแล้ว" value={counts.done ?? 0} tone="emerald" onClick={() => pick("done")} active={work === "done"} />
       </KpiRow>
       <Toolbar end={<>
+        <SearchBox value={q} onChange={setQ} placeholder="ค้นหาคลาส / ครู / นักเรียน" />
         <NativeSelect className="h-9 w-36" value={teacher} onChange={(e) => setTeacher(e.target.value)}
           options={[
             { value: "all", label: "ครูทุกคน" },

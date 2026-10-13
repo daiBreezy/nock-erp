@@ -1,7 +1,10 @@
 "use client"
 
 import { usePeriod } from "@/components/app/period-control"
-import { Page, PageHeader, KpiRow, Toolbar, Segmented } from "@/components/app/page-layout"
+import { Page, PageHeader, KpiRow, SearchBox, ShowChip, Toolbar, Segmented } from "@/components/app/page-layout"
+import { matchesQuery } from "@/domain/rules/people"
+import { InfoTip } from "@/components/reports/charts"
+import type { Tone } from "@/components/app/badges"
 import { Kpi, type KpiTone } from "@/components/app/kpi"
 import { BranchCode, useBranchScope } from "@/components/app/branch-scope"
 import { useState } from "react"
@@ -16,6 +19,7 @@ import * as Sum from "@/domain/rules/summaries"
 import type { ID } from "@/domain/types"
 import { report } from "@/lib/feedback"
 import { useLookup, useNow, useQueryState } from "@/lib/hooks"
+import { cn } from "@/lib/utils"
 import { useStore } from "@/store/store"
 
 type Bucket = "to_write" | "changes" | "submitted" | "approved" | "sent"
@@ -28,10 +32,11 @@ const BUCKETS: { key: Bucket; label: string; tone: string }[] = [
 ]
 
 const BUCKET_ICON: Record<Bucket, LucideIcon> = { to_write: PenLineIcon, changes: Undo2Icon, submitted: HourglassIcon, approved: BadgeCheckIcon, sent: SendIcon }
+const PILL_TONE: Record<Bucket, Tone> = { to_write: "red", changes: "red", submitted: "amber", approved: "blue", sent: "green" }
 const BUCKET_TONE: Record<Bucket, KpiTone> = { to_write: "red", changes: "red", submitted: "amber", approved: "sky", sent: "emerald" }
 
 /** the 5 stages as KPI cards — click one to list it (standard page: KPI row above the toolbar) */
-function BucketRow({ active, onPick, count, focus }: { active: Bucket; onPick: (b: Bucket) => void; count: (b: Bucket) => number; focus?: boolean }) {
+function BucketRow({ active, onPick, count, focus }: { active: Bucket | "all"; onPick: (b: Bucket) => void; count: (b: Bucket) => number; focus?: boolean }) {
   return (
     <KpiRow className="lg:grid-cols-5">
       {BUCKETS.map((t) => (
@@ -77,7 +82,11 @@ function SessionSummaryTab() {
   // owner 2026-10-09: the shared date control — default this week (same on Sessions / Attendance / Summaries)
   const period = usePeriod("week")
   // ?bucket= — the Dashboard opens the right pile (owner 2026-10-07)
-  const [tab, setTab] = useQueryState<Bucket>("bucket", can(me, "summary.approve") ? "submitted" : "to_write")
+  // owner 2026-10-13: everything is listed (sent ones too) — a KPI card narrows to one stage, click it again for all;
+  // "ส่งแล้ว" can be hidden like Done / Void on Billing
+  const [tab, setTab] = useQueryState<Bucket | "all">("bucket", "all")
+  const [showSent, setShowSent] = useQueryState<"0" | "1">("sent", "1")
+  const [q, setQ] = useState("")
   const [openId, setOpenId] = useState<ID | null>(null)
 
   const { from, to } = period
@@ -89,17 +98,22 @@ function SessionSummaryTab() {
       .map((a) => ({ s, studentId: a.studentId, sm: summaries.find((x) => x.sessionId === s.id && x.studentId === a.studentId) })),
   )
   const bucket = (r: (typeof rows)[number]): Bucket => (!r.sm || r.sm.status === "draft" ? "to_write" : r.sm.status === "changes_requested" ? "changes" : r.sm.status)
-  const shown = rows.filter((r) => bucket(r) === tab).sort((a, b) => (a.s.date + a.s.start).localeCompare(b.s.date + b.s.start))
+  const found = rows.filter((r) => !q || matchesQuery(q, [L.student(r.studentId)?.nickname, L.student(r.studentId)?.name, classes.find((c) => c.id === r.s.classId)?.name, r.s.subject, L.teacher(r.sm?.authorId ?? r.s.teacherId).label, r.sm?.text]))
+  const shown = found
+    .filter((r) => (tab === "all" ? showSent === "1" || bucket(r) !== "sent" : bucket(r) === tab))
+    .sort((a, b) => (a.s.date + a.s.start).localeCompare(b.s.date + b.s.start))
 
   return (
     <div className="space-y-4">
-      <BucketRow active={tab} onPick={setTab} count={(b) => rows.filter((r) => bucket(r) === b).length} focus />
+      <BucketRow active={tab} onPick={(b) => setTab(tab === b ? "all" : b)} count={(b) => rows.filter((r) => bucket(r) === b).length} focus />
       <Toolbar end={<>
+        <SearchBox value={q} onChange={setQ} placeholder="ค้นหานักเรียน / คลาส / ครู" />
         {mineOnly && <span className="text-xs text-muted-foreground">เฉพาะคาบของฉัน</span>}
         {/* owner 2026-10-09: branch chip always last in the row */}
         {scope.select}
       </>}>
         {period.control}
+        <ShowChip label="ส่งแล้ว" on={showSent === "1" || tab === "sent"} count={found.filter((r) => bucket(r) === "sent").length} onChange={(v) => { setShowSent(v ? "1" : "0"); if (!v && tab === "sent") setTab("all") }} />
       </Toolbar>
 
       {/* owner 2026-10-09: one section per day, like Sessions — easier to see what each day still needs */}
@@ -108,11 +122,13 @@ function SessionSummaryTab() {
         <section key={day}>
           <h3 className="mb-1 text-sm font-semibold">{fmtDate(day, { weekday: true })}</h3>
           <div className="divide-y overflow-hidden rounded-3xl bg-card shadow-sm ring-1 ring-foreground/5">
-            {shown.filter((r) => r.s.date === day).map(({ s, studentId, sm }) => {
+            {shown.filter((r) => r.s.date === day).map((r) => {
+          const { s, studentId, sm } = r
+          const b = bucket(r)
           const stu = L.student(studentId)
           const approveCheck = sm && Sum.canApprove(sm, me)
           return (
-            <div key={s.id + studentId} data-focus={FOCUS_OF[tab]} className="flex flex-wrap items-start gap-3 p-3">
+            <div key={s.id + studentId} data-focus={FOCUS_OF[b]} className={cn("flex flex-wrap items-start gap-3 p-3", b === "sent" && "bg-muted/20")}>
               <div className="w-14 pt-0.5 text-sm font-medium tabular-nums">{s.start}</div>
               <div className="min-w-48 flex-1">
                 <div className="text-sm font-medium">{stu?.nickname} <span className="text-xs text-muted-foreground">{stu?.grade}</span> · {classes.find((c) => c.id === s.classId)?.name ?? s.subject}{scope.multi && <span className="ml-1.5 align-middle"><BranchCode code={scope.code(s.branchId)} /></span>}</div>
@@ -121,8 +137,10 @@ function SessionSummaryTab() {
                 {sm?.status === "changes_requested" && <p className="mt-1 text-xs text-red-700">ขอแก้: {sm.history.findLast((h) => h.action === "request_changes")?.note}</p>}
               </div>
               <div className="flex flex-wrap items-center gap-1.5">
-                {(tab === "to_write" || tab === "changes") && <Button size="sm" variant="outline" onClick={() => setOpenId(s.id)}>เขียน / แก้</Button>}
-                {tab === "submitted" && sm && (
+                {tab === "all" && <Pill tone={PILL_TONE[b]}>{BUCKETS.find((x) => x.key === b)!.label}</Pill>}
+                {b === "sent" && <Button size="sm" variant="ghost" onClick={() => setOpenId(s.id)}>ดู</Button>}
+                {(b === "to_write" || b === "changes") && <Button size="sm" variant="outline" onClick={() => setOpenId(s.id)}>เขียน / แก้</Button>}
+                {b === "submitted" && sm && (
                   approveCheck?.ok ? (
                     <>
                       <Button size="sm" variant="outline" onClick={() => setOpenId(s.id)}>ดู / ขอแก้</Button>
@@ -130,7 +148,7 @@ function SessionSummaryTab() {
                     </>
                   ) : <Pill>{approveCheck?.error}</Pill>
                 )}
-                {tab === "approved" && sm && can(me, "summary.approve") && (
+                {b === "approved" && sm && can(me, "summary.approve") && (
                   <Button size="sm" onClick={() => report(send(sm.id), "ส่งถึงผู้ปกครองแล้ว")}><SendIcon /> ส่งผู้ปกครอง</Button>
                 )}
               </div>
@@ -162,7 +180,10 @@ function CourseSummaryTab() {
   const sessions = useStore((s) => s.sessions)
   const renewalDays = useStore((s) => s.system.settings.renewalDaysBefore)
   const L = useLookup()
-  const [tab, setTab] = useState<Bucket>(can(me, "summary.approve") ? "submitted" : "to_write")
+  // owner 2026-10-13: same as the session list — everything listed, a KPI narrows it, "ส่งแล้ว" can be hidden
+  const [tab, setTab] = useState<Bucket | "all">("all")
+  const [showSent, setShowSent] = useQueryState<"0" | "1">("sent", "1")
+  const [q, setQ] = useState("")
   const [openStudentId, setOpenStudentId] = useState<ID | null>(null)
 
   const mineOnly = !seesAllSessions(me)
@@ -182,18 +203,21 @@ function CourseSummaryTab() {
   const countIn = (b: Bucket) => dueRounds.filter((r) => bucket(r) === b).length
   // the outer list is per-student: who has at least one course in the chosen bucket — but opening them shows
   // every due course of theirs (all buckets at once), same as the reference's "handle everything in one visit"
-  const studentRows = [...new Set(dueRounds.filter((r) => bucket(r) === tab).map((r) => r.studentId))]
+  const inView = (r: Sum.EntitlementRound) => (tab === "all" ? showSent === "1" || bucket(r) !== "sent" : bucket(r) === tab)
+    && (!q || matchesQuery(q, [L.student(r.studentId)?.nickname, L.student(r.studentId)?.name, courses.find((c) => c.id === r.courseId)?.name]))
+  const studentRows = [...new Set(dueRounds.filter(inView).map((r) => r.studentId))]
     .map((sid) => {
-      const shown = dueRounds.filter((r) => r.studentId === sid && bucket(r) === tab)
+      const shown = dueRounds.filter((r) => r.studentId === sid && inView(r))
       return { sid, shown, all: dueRounds.filter((r) => r.studentId === sid), stu: L.student(sid), earliest: shown.reduce((m, r) => (r.to < m ? r.to : m), shown[0].to) }
     })
     .sort((a, b) => a.earliest.localeCompare(b.earliest))
 
   return (
     <div className="space-y-4">
-      <BucketRow active={tab} onPick={setTab} count={countIn} />
-      <Toolbar end={scope.select}>
-        <span className="text-sm text-muted-foreground">แพ็กเกจใกล้หมด (ภายใน {renewalDays} วัน) หรือหมดแล้ว · เปิดดูเป็นรายนักเรียน</span>
+      <BucketRow active={tab} onPick={(b) => setTab(tab === b ? "all" : b)} count={countIn} />
+      <Toolbar end={<><SearchBox value={q} onChange={setQ} placeholder="ค้นหานักเรียน / คอร์ส" />{scope.select}</>}>
+        <ShowChip label="ส่งแล้ว" on={showSent === "1" || tab === "sent"} count={countIn("sent")} onChange={(v) => { setShowSent(v ? "1" : "0"); if (!v && tab === "sent") setTab("all") }} />
+        <InfoTip text={`แพ็กเกจใกล้หมด (ภายใน ${renewalDays} วัน) หรือหมดแล้ว · เปิดดูเป็นรายนักเรียน`} />
       </Toolbar>
 
       <div className="divide-y overflow-hidden rounded-3xl bg-card shadow-sm ring-1 ring-foreground/5">
