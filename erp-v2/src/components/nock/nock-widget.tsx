@@ -47,8 +47,11 @@ export function NockWidget() {
     <>
       {open && <NockPanel onClose={() => setOpen(false)} />}
       {/* owner 2026-10-13: Nock's face — the blinking orb */}
+      {/* owner 2026-10-13: Nock hides at the screen edge, tilted 45° and peeking with its eyes — hover (or keyboard focus)
+          and it springs out; mouse leaves and it springs back. Stays out while the chat is open. */}
       <button type="button" onClick={() => setOpen((o) => !o)} aria-label={open ? "ปิด Nock" : "ถาม Nock"} title="ถาม Nock — ผู้ช่วยของ NockERP"
-        className="fixed right-5 bottom-5 z-40 rounded-full transition hover:scale-105 focus-visible:ring-4 focus-visible:ring-sky-300 focus-visible:outline-none print:hidden">
+        className={cn("fixed right-0 bottom-6 z-40 rounded-full transition-transform duration-500 ease-[cubic-bezier(0.34,1.56,0.64,1)] focus-visible:outline-none print:hidden",
+          open ? "-translate-x-5" : "translate-x-[38%] -rotate-45 hover:-translate-x-5 hover:rotate-0 focus-visible:-translate-x-5 focus-visible:rotate-0")}>
         <AiAvatar size="lg" />
         {open && <span className="absolute -top-1 -right-1 grid size-5 place-items-center rounded-full bg-background text-foreground shadow ring-1 ring-foreground/10"><XIcon className="size-3" /></span>}
       </button>
@@ -104,7 +107,7 @@ function NockPanel({ onClose }: { onClose: () => void }) {
   }
 
   return (
-    <div role="dialog" aria-label="Nock" className="fixed right-5 bottom-24 z-40 flex h-[min(600px,calc(100vh-8rem))] w-[min(400px,calc(100vw-2.5rem))] flex-col overflow-hidden rounded-3xl bg-card shadow-2xl ring-1 ring-foreground/10 print:hidden">
+    <div role="dialog" aria-label="Nock" className="fixed right-5 bottom-26 z-40 flex h-[min(600px,calc(100vh-8rem))] w-[min(400px,calc(100vw-2.5rem))] flex-col overflow-hidden rounded-3xl bg-card shadow-2xl ring-1 ring-foreground/10 print:hidden">
       <div className="ai-aurora flex shrink-0 items-center gap-3 border-b px-4 py-3">
         <AiAvatar size="sm" />
         <div className="min-w-0 flex-1">
