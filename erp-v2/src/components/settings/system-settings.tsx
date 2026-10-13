@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { BellIcon, BookOpenIcon, CheckIcon, PencilIcon, PlusIcon, ReceiptTextIcon, SlidersHorizontalIcon, UsersIcon, XIcon } from "lucide-react"
+import { BellIcon, BookOpenIcon, CalendarDaysIcon, CheckIcon, PencilIcon, PlusIcon, ReceiptTextIcon, SlidersHorizontalIcon, UsersIcon, XIcon } from "lucide-react"
 import { NativeSelect } from "@/components/app/native-select"
 import { Field } from "@/components/app/student-form"
 import { Button } from "@/components/ui/button"
@@ -32,7 +32,9 @@ const BRANDS: { id: Brand; label: string }[] = [{ id: "nockacademy", label: "Noc
  *  tabs as Settings → Branch, grouped by what an admin is actually trying to do. */
 const SYSTEM_TABS: { id: string; label: string; icon: typeof SlidersHorizontalIcon; body: () => React.ReactNode }[] = [
   { id: "general", label: "ทั่วไป", icon: SlidersHorizontalIcon, body: () => <Preferences /> },
-  { id: "catalog", label: "วิชาและวันหยุด", icon: BookOpenIcon, body: () => <><SubjectCatalog /><GlobalHolidays /></> },
+  // owner 2026-10-13: subjects and holidays are different topics — one tab each
+  { id: "subjects", label: "วิชา", icon: BookOpenIcon, body: () => <SubjectCatalog /> },
+  { id: "holidays", label: "วันหยุด", icon: CalendarDaysIcon, body: () => <GlobalHolidays /> },
   { id: "billing", label: "การเงิน", icon: ReceiptTextIcon, body: () => <InvoiceMemos /> },
   { id: "customers", label: "ลูกค้าและ CRM", icon: UsersIcon, body: () => <><LossReasons /><YearlySurvey /></> },
   { id: "notifications", label: "การแจ้งเตือน", icon: BellIcon, body: () => <NotificationPrefs /> },
