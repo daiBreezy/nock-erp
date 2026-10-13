@@ -2,7 +2,6 @@
 
 import Link from "next/link"
 import { BanknoteIcon, CheckIcon, ChevronRightIcon, ClipboardCheckIcon, GraduationCapIcon, RefreshCwIcon, UserSearchIcon, UsersIcon, type LucideIcon } from "lucide-react"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { focusHref, TOPIC_COLUMNS, TOPIC_GROUP_LABEL, type Topic, type TopicGroup } from "@/domain/rules/today"
 import { tx } from "@/lib/i18n"
 import { cn } from "@/lib/utils"
@@ -30,20 +29,21 @@ export function TaskBoard({ topics }: { topics: Topic[] }) {
   }
   const open = topics.filter((t) => t.count > 0)
   const total = open.reduce((n, t) => n + t.count, 0)
+  // owner 2026-10-13: one card per group (was one big card with two lists)
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>{tx("ต้องจัดการ")}</CardTitle>
-        <CardDescription>{open.length ? tx("{0} งาน ใน {1} หัวข้อ · กดหัวข้อเพื่อไปที่รายการนั้น", [total, open.length]) : tx("ไม่มีงานค้าง")}</CardDescription>
-      </CardHeader>
-      <CardContent className="grid gap-x-8 gap-y-5 md:grid-cols-2">
+    <section className="space-y-3">
+      <div>
+        <h2 className="text-base font-semibold">{tx("ต้องจัดการ")}</h2>
+        <p className="text-sm text-muted-foreground">{open.length ? tx("{0} งาน ใน {1} หัวข้อ · กดหัวข้อเพื่อไปที่รายการนั้น", [total, open.length]) : tx("ไม่มีงานค้าง")}</p>
+      </div>
+      <div className="grid gap-4 md:grid-cols-2">
         {cols.map((col, i) => (
-          <div key={i} className={cn("space-y-5", i === 1 && "md:border-l md:pl-8")}>
+          <div key={i} className="space-y-4">
             {col.map((g) => <Group key={g} group={g} topics={topics.filter((t) => t.group === g)} />)}
           </div>
         ))}
-      </CardContent>
-    </Card>
+      </div>
+    </section>
   )
 }
 
@@ -53,10 +53,11 @@ function Group({ group, topics }: { group: TopicGroup; topics: Topic[] }) {
   // work first (biggest on top), done topics after
   const sorted = [...topics].sort((a, b) => (b.count > 0 ? 1 : 0) - (a.count > 0 ? 1 : 0) || (b.urgent ?? 0) - (a.urgent ?? 0) || b.count - a.count)
   return (
-    <section className="space-y-1">
-      <h3 className="flex items-center gap-2 px-2 pb-1 text-xs font-medium text-muted-foreground">
-        <Icon className="size-3.5" /> {tx(TOPIC_GROUP_LABEL[group])}
-        {sum > 0 && <span className="ml-auto tabular-nums">{sum}</span>}
+    <section className="space-y-1 rounded-3xl bg-card p-3 shadow-sm ring-1 ring-foreground/5">
+      <h3 className="flex items-center gap-2 px-2 pb-1.5 text-sm font-semibold">
+        <span className={cn("grid size-8 place-items-center rounded-xl", sum > 0 ? "bg-primary/10 text-primary" : "bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300")}><Icon className="size-4" /></span>
+        {tx(TOPIC_GROUP_LABEL[group])}
+        {sum > 0 ? <span className="ml-auto text-xs font-medium text-muted-foreground tabular-nums">{tx("{0} งาน", [sum])}</span> : <span className="ml-auto text-xs font-normal text-emerald-700">{tx("เรียบร้อย")}</span>}
       </h3>
       {sorted.map((t) => {
         const done = t.count === 0
