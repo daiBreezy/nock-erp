@@ -10,6 +10,9 @@ import { BranchCode, useBranchScope } from "@/components/app/branch-scope"
 import { ColumnsMenu, DataTable, type Column } from "@/components/app/data-grid"
 import { useSort } from "@/components/app/data-table"
 import { EntityPanel, PanelBody, PanelFooter } from "@/components/app/form-shell"
+import { InfoTip } from "@/components/app/info-tip"
+import { Field } from "@/components/app/student-form"
+import { Input } from "@/components/ui/input"
 import { Kpi } from "@/components/app/kpi"
 import { NativeSelect } from "@/components/app/native-select"
 import { FilterBar, KpiRow, SearchBox, Segmented, Toolbar } from "@/components/app/page-layout"
@@ -35,7 +38,7 @@ const timeOf = (iso: string) => new Date(iso).toLocaleTimeString("th-TH", { hour
 type Show = "all" | "pending" | "done"
 type SortKey = "date" | "status"
 
-export function DevTicketsView() {
+export function DevTicketsView({ creating, onCreated }: { creating: boolean; onCreated: () => void }) {
   const me = useStore((s) => s.me())
   const all = useStore((s) => s.devTickets)
   const staff = useStore((s) => s.staff)
@@ -96,6 +99,10 @@ export function DevTicketsView() {
       <EntityPanel open={!!open} onClose={() => setOpen(null)} wide>
         {open && <TicketPanel key={open} id={open} />}
       </EntityPanel>
+      {/* owner 2026-10-13: "ส่งเรื่องถึง Dev" from the page too (not only from Nock) — once sent, its panel opens */}
+      <EntityPanel open={creating} onClose={onCreated} wide>
+        {creating && <CreateTicketPanel onSent={(id) => { onCreated(); setOpen(id) }} />}
+      </EntityPanel>
     </>
   )
 }
@@ -112,6 +119,50 @@ const KIND_ICON_TONE: Record<DevTicketKind, string> = { bug: "bg-red-100 text-re
 function KindIcon({ kind }: { kind: DevTicketKind }) {
   const Icon = DEV_KIND_ICON[kind]
   return <span title={DEV_KIND_LABEL[kind]} className={cn("inline-grid size-6 place-items-center rounded-full", KIND_ICON_TONE[kind])}><Icon className="size-3.5" /></span>
+}
+
+function CreateTicketPanel({ onSent }: { onSent: (id: ID) => void }) {
+  const me = useStore((s) => s.me())
+  const branch = useStore((s) => s.branches.find((b) => b.id === s.branchId))
+  const send = useStore((s) => s.sendDevTicket)
+  const [kind, setKind] = useState<DevTicketKind>("question")
+  const [title, setTitle] = useState("")
+  const [detail, setDetail] = useState("")
+  const [locs, setLocs] = useState<string[]>([])
+  const pageUrl = typeof window === "undefined" ? "/nock" : `${window.location.pathname}${window.location.search}`
+  return (
+    <>
+      <SheetHeader className="shrink-0 border-b pb-3">
+        <SheetTitle className="flex items-center gap-1.5 text-lg">ส่งเรื่องถึง Dev<InfoTip text="ทีมพัฒนาตอบกลับในเรื่องนี้ — คุณได้แจ้งเตือนทุกครั้งที่มีความคืบหน้า · เรื่องที่ส่งเห็นเฉพาะคุณกับ Developer" /></SheetTitle>
+        <SheetDescription>ส่งในนาม {me.nickname} · {me.roles.map((r) => ROLE_LABEL[r]).join(", ")} · สาขา{branch?.name}</SheetDescription>
+      </SheetHeader>
+      <PanelBody>
+        <Field label="ประเภท">
+          <div className="grid gap-1.5 sm:grid-cols-4">
+            {(Object.keys(DEV_KIND_LABEL) as DevTicketKind[]).map((k) => {
+              const Icon = DEV_KIND_ICON[k]
+              return <button key={k} type="button" aria-pressed={kind === k} onClick={() => setKind(k)} className={cn("flex items-center gap-2 rounded-2xl border px-3 py-2 text-left text-sm", kind === k ? "border-primary bg-primary/5 font-medium text-primary" : "hover:bg-muted")}><Icon className="size-4 shrink-0" />{DEV_KIND_LABEL[k]}</button>
+            })}
+          </div>
+        </Field>
+        <Field label="หัวเรื่อง *"><Input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="สั้นๆ ให้ Dev รู้ว่าเรื่องอะไร" /></Field>
+        <Field label="รายละเอียด *" hint={kind === "bug" ? "ทำอะไรอยู่ แล้วเกิดอะไรขึ้น ควรเป็นอย่างไร" : kind === "idea" ? "อยากให้ระบบมีอะไร ช่วยงานแบบไหน" : "เล่ารายละเอียดให้ Dev เข้าใจ"}>
+          <Textarea rows={6} value={detail} onChange={(e) => setDetail(e.target.value)} />
+        </Field>
+        <Field label="Part (เลือกได้หลายส่วน) *" hint="Part = ส่วนของระบบที่เกี่ยวข้อง">
+          <div className="flex flex-wrap gap-1.5">
+            {NOCK_LOCATIONS.map((l) => {
+              const on = locs.includes(l.id)
+              return <button key={l.id} type="button" aria-pressed={on} onClick={() => setLocs(on ? locs.filter((x) => x !== l.id) : [...locs, l.id])} className={cn("rounded-full border px-3 py-1 text-sm", on ? "border-primary bg-primary/10 font-medium text-primary" : "hover:bg-muted")}>{l.label}</button>
+            })}
+          </div>
+        </Field>
+      </PanelBody>
+      <PanelFooter>
+        <Button className="ml-auto" disabled={!title.trim() || !detail.trim() || !locs.length} onClick={() => { const r = send({ kind, title, detail, locations: locs, pageUrl }); if (report(r, (v) => `ส่งถึง Dev แล้ว · ${v.number}`)) onSent(r.value.id) }}><SendIcon /> ส่งถึง Dev</Button>
+      </PanelFooter>
+    </>
+  )
 }
 
 function TicketPanel({ id }: { id: ID }) {

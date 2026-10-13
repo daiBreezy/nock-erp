@@ -57,6 +57,7 @@ export default function NockPage() {
   const [role, setRole] = useState<Role | "">("")
   const [q, setQ] = useState("")
   const [open, setOpen] = useState<ID | "new" | null>(null)
+  const [newTicket, setNewTicket] = useState(false)
   const { sort, toggle } = useSort<SortKey>("date", true)
 
   const who = (id?: ID) => staff.find((s) => s.id === id)
@@ -103,10 +104,10 @@ export default function NockPage() {
     <Page>
       <PageHeader title={<span className="flex items-center gap-2">คลังคำถาม Nock <InfoTip text="ทุกคำถามที่ถาม Nock · คำถามที่มีคำตอบจากทีม = คลังความรู้ที่ Nock ใช้ตอบคนต่อไป · ตอบได้หลายคน แก้ได้เฉพาะคำตอบของตัวเอง · โหวตขึ้น / ลง เลือกว่า Nock ใช้คำตอบไหน · คำถามที่ Nock ตอบไม่ได้รอ Super Admin / Director / Area Manager / Manager ตอบ" /></span>}
         description={answerer ? "ตอบคำถามที่ Nock ยังไม่รู้ — ตอบแล้วกลายเป็นคลังความรู้" : "คำถามของคุณ และคลังความรู้ที่ทีมตอบไว้"}
-        actions={answerer && tab === "questions" && <Button onClick={() => setOpen("new")}><PlusIcon /> สร้างคลังความรู้</Button>} />
+        actions={tab === "dev" ? <Button onClick={() => setNewTicket(true)}><PlusIcon /> ส่งเรื่องถึง Dev</Button> : answerer && <Button onClick={() => setOpen("new")}><PlusIcon /> สร้างคลังความรู้</Button>} />
       {/* owner 2026-10-13: questions about using the system | เรื่องถึง Dev (bugs / help / suggestions) — one page */}
       <Tabs value={tab} onChange={setTab} options={[{ value: "questions", label: "คำถามการใช้งาน", icon: MessagesSquareIcon }, { value: "dev", label: <>เรื่องถึง Dev{openTickets > 0 && <span className="rounded-full bg-red-100 px-1.5 text-xs text-red-800 tabular-nums">{openTickets}</span>}</>, icon: CodeXmlIcon }]} />
-      {tab === "dev" ? <DevTicketsView /> : <>
+      {tab === "dev" ? <DevTicketsView creating={newTicket} onCreated={() => setNewTicket(false)} /> : <>
       <KpiRow>
         <Kpi icon={MessagesSquareIcon} label="คำถามทั้งหมด" value={filtered.length} onClick={() => { setShow("all"); setStatus("") }} active={show === "all" && !status} />
         <Kpi icon={CircleHelpIcon} label="ยังไม่มีคำตอบ" value={count("unanswered")} tone="red" valueClassName={count("unanswered") ? "text-red-700" : undefined} onClick={() => { setShow("all"); setStatus(status === "unanswered" ? "" : "unanswered") }} active={status === "unanswered"} />
