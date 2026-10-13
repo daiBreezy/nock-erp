@@ -96,7 +96,7 @@ export default function NockPage() {
       const b = bestAnswer(x, answerer ? undefined : me.roles)
       return <span className="block max-w-[420px]"><span className="block truncate font-medium">{x.question}</span><span className="block truncate text-xs text-muted-foreground">{b ? `ทีม: ${b.text}` : x.aiAnswer ? `Nock: ${x.aiAnswer}` : "—"}</span></span>
     } },
-    { id: "location", label: "Location", width: "150px", cell: (x) => <span className="flex gap-1">{(x.locations ?? []).map((l) => <span key={l} className="rounded-full bg-muted px-2 py-0.5 text-xs whitespace-nowrap">{locationLabel(l)}</span>)}</span> },
+    { id: "location", label: "Part", width: "150px", cell: (x) => <span className="flex gap-1">{(x.locations ?? []).map((l) => <span key={l} className="rounded-full bg-muted px-2 py-0.5 text-xs whitespace-nowrap">{locationLabel(l)}</span>)}</span> },
     { id: "asker", label: "ผู้ถาม", width: "90px", sort: "asker", cell: (x) => <span className="font-medium">{who(x.askedBy)?.nickname ?? "—"}</span> },
     { id: "role", label: "Role", width: "130px", cell: (x) => <span className="flex gap-1">{x.roles.map((r) => <RoleChip key={r} role={r} />)}</span> },
     { id: "branch", label: "สาขา", width: "60px", cell: (x) => (x.manual ? <span className="text-xs text-muted-foreground">—</span> : <BranchCode code={scope.code(x.branchId)} />) },
@@ -132,7 +132,7 @@ export default function NockPage() {
       </Toolbar>
       <FilterBar search={<SearchBox value={q} onChange={setQ} placeholder="ค้นหาคำถาม / คำตอบ / ผู้ถาม" />}>
         <NativeSelect className="h-9 w-36" value={asker} onChange={(e) => setAsker(e.target.value)} placeholder="Staff ทุกคน" options={[...new Set(inScope.map((x) => x.askedBy))].map((id) => who(id)).filter((s): s is NonNullable<typeof s> => !!s).map((s) => ({ value: s.id, label: s.nickname }))} />
-        <NativeSelect className="h-9 w-44" value={location} onChange={(e) => setLocation(e.target.value)} placeholder="ทุก Location" options={NOCK_LOCATIONS.map((l) => ({ value: l.id, label: l.label }))} />
+        <NativeSelect className="h-9 w-44" value={location} onChange={(e) => setLocation(e.target.value)} placeholder="ทุก Part" options={NOCK_LOCATIONS.map((l) => ({ value: l.id, label: l.label }))} />
         <ColumnsMenu id="nock" columns={columns} />
         {scope.select}
       </FilterBar>
@@ -261,7 +261,7 @@ function QuestionPanel({ id, onClose }: { id: ID; onClose: () => void }) {
             <Field label={mode === "new" ? "คำตอบของคุณ" : "แก้คำตอบของคุณ"} hint="คำตอบเข้าคลังความรู้ — Nock ใช้ตอบคนต่อไป · เขียนว่าทำที่หน้าไหน กดอะไร ใครทำได้">
               <Textarea rows={6} value={text} onChange={(e) => setText(e.target.value)} placeholder="เช่น เปิด Panel นักเรียน › ⋯ › …" />
             </Field>
-            {mode === "new" && <Field label="Location (เลือกได้หลายส่วน)" hint="ส่วนของระบบที่คำถามนี้เกี่ยวข้อง"><Chips all={NOCK_LOCATIONS} value={locations} onChange={setLocations} /></Field>}
+            {mode === "new" && <Field label="Part (เลือกได้หลายส่วน)" hint="Part = ส่วนของระบบที่คำถามนี้เกี่ยวข้อง"><Chips all={NOCK_LOCATIONS} value={locations} onChange={setLocations} /></Field>}
             <Field label="ใครเห็นคำตอบนี้" hint="ทุกคน = Nock บอกได้ทุกบทบาท · เลือกบทบาท = บอกเฉพาะบทบาทนั้น"><Chips all={ROLE_OPTS} value={audience} onChange={setAudience} emptyLabel="ทุกคน" /></Field>
           </section>
         )}
@@ -296,7 +296,7 @@ function CreatePanel({ onClose }: { onClose: () => void }) {
       <PanelBody>
         <Field label="คำถาม"><Input value={f.question} onChange={(e) => setF({ ...f, question: e.target.value })} placeholder="เช่น ผู้ปกครองโอนเงินเกิน ต้องคืนยังไง" /></Field>
         <Field label="คำตอบ"><Textarea rows={8} value={f.answer} onChange={(e) => setF({ ...f, answer: e.target.value })} /></Field>
-        <Field label="Location (เลือกได้หลายส่วน) *" hint="ส่วนของระบบที่ความรู้นี้เกี่ยวข้อง"><Chips all={NOCK_LOCATIONS} value={f.locations} onChange={(locations) => setF({ ...f, locations })} /></Field>
+        <Field label="Part (เลือกได้หลายส่วน) *" hint="Part = ส่วนของระบบที่ความรู้นี้เกี่ยวข้อง"><Chips all={NOCK_LOCATIONS} value={f.locations} onChange={(locations) => setF({ ...f, locations })} /></Field>
         <Field label="ใครเห็นคำตอบนี้" hint="ทุกคน = Nock บอกได้ทุกบทบาท · เลือกบทบาท = บอกเฉพาะบทบาทนั้น"><Chips all={ROLE_OPTS} value={f.audience} onChange={(audience) => setF({ ...f, audience })} emptyLabel="ทุกคน" /></Field>
       </PanelBody>
       <PanelFooter>

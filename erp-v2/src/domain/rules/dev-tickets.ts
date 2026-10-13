@@ -22,7 +22,7 @@ export function nextTicketNumber(all: Pick<DevTicket, "number">[]): string {
 export function validateTicket(t: Pick<DevTicket, "title" | "detail" | "locations">): Result {
   if (!t.title.trim()) return { ok: false, error: "ใส่หัวเรื่องสั้นๆ" }
   if (!t.detail.trim()) return { ok: false, error: "เล่ารายละเอียด — ทำอะไรอยู่ เกิดอะไรขึ้น อยากได้อะไร" }
-  if (!t.locations.length) return { ok: false, error: "เลือกว่าเกี่ยวกับส่วนไหนของระบบ" }
+  if (!t.locations.length) return { ok: false, error: "เลือก Part ของระบบที่เกี่ยวข้อง" }
   return { ok: true, value: undefined }
 }
 

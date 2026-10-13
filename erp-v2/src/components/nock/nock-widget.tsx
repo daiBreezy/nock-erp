@@ -168,7 +168,7 @@ function NockPanel({ onClose }: { onClose: () => void }) {
             <Button type="submit" size="icon-sm" className="ml-auto rounded-full" disabled={!text.trim() || !!pending} aria-label="ส่ง"><ArrowUpIcon /></Button>
           </div>
         </div>
-        {needLoc && <p className="pt-1.5 text-center text-[11px] text-amber-700">เลือกก่อนว่าคำถามเกี่ยวกับส่วนไหนของระบบ (กด 📍)</p>}
+        {needLoc && <p className="pt-1.5 text-center text-[11px] text-amber-700">เลือก Part ของระบบที่เกี่ยวข้องก่อน (ปุ่มหมุดด้านล่าง)</p>}
         {mine.length > 0 && <p className="pt-1.5 text-center text-[10px] text-muted-foreground"><span className="inline-flex items-center gap-1">Nock อาจตอบผิดได้ · กด <ThumbsDownIcon className="size-3 text-red-600" /> เพื่อส่งให้ทีมช่วยตอบ</span></p>}
       </form>
       </>}
@@ -225,14 +225,14 @@ function DevTicketForm({ onDone, onLink }: { onDone: () => void; onLink: () => v
 
 /** 📍 which part(s) of the system the question is about */
 function LocationPicker({ value, onChange }: { value: string[]; onChange: (v: string[]) => void }) {
-  const label = value.length ? value.map(Nock.locationLabel).join(", ") : "เลือกส่วนของระบบ"
+  const label = value.length ? value.map(Nock.locationLabel).join(", ") : "เลือก Part ของระบบ"
   return (
     <Popover>
       <PopoverTrigger render={<button type="button" className={cn("flex max-w-[230px] items-center gap-1 rounded-full px-2.5 py-1 text-xs", value.length ? "bg-background font-medium ring-1 ring-foreground/10" : "text-muted-foreground hover:bg-background")} />}>
         <MapPinIcon className="size-3.5 shrink-0" /><span className="truncate">{label}</span>
       </PopoverTrigger>
       <PopoverContent side="top" align="start" className="w-64 p-2">
-        <p className="px-1.5 pb-1.5 text-xs text-muted-foreground">คำถามนี้เกี่ยวกับส่วนไหน (เลือกได้หลายส่วน)</p>
+        <p className="px-1.5 pb-1.5 text-xs text-muted-foreground">Part ของระบบที่เกี่ยวข้อง (เลือกได้หลายส่วน)</p>
         <div className="flex flex-wrap gap-1">
           {Nock.NOCK_LOCATIONS.map((l) => {
             const on = value.includes(l.id)

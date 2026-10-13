@@ -959,7 +959,7 @@ export const useStore = create<Store>()(
         const q = s.nockQuestions.find((x) => x.id === id)
         if (!q) return fail("ไม่พบคำถาม")
         if (!text.trim()) return fail("เขียนคำตอบก่อน")
-        if (!opts.locations.length) return fail("เลือก Location อย่างน้อย 1")
+        if (!opts.locations.length) return fail("เลือก Part อย่างน้อย 1")
         if (q.answers?.some((a) => a.by === me.id)) return fail("คุณตอบข้อนี้แล้ว — แก้คำตอบเดิมของคุณแทน")
         const first = !q.answers?.length
         const a: NockAnswer = { id: uid("na"), by: me.id, at: s.now().toISOString(), text: text.trim(), audience: opts.audience, votesUp: [], votesDown: [] }
@@ -995,7 +995,7 @@ export const useStore = create<Store>()(
         const me = s.me()
         if (!Nock.canAnswerNock(me)) return fail("เฉพาะ Super Admin / Director / Area Manager / Manager สร้างคลังความรู้ได้")
         if (!k.question.trim() || !k.answer.trim()) return fail("ใส่ทั้งคำถามและคำตอบ")
-        if (!k.locations.length) return fail("เลือก Location อย่างน้อย 1")
+        if (!k.locations.length) return fail("เลือก Part อย่างน้อย 1")
         const at = s.now().toISOString()
         const q: NockQuestion = { id: uid("nq"), at, askedBy: me.id, roles: me.roles, branchId: s.branchId, locations: k.locations, question: k.question.trim(), status: "answered", manual: true,
           answers: [{ id: uid("na"), by: me.id, at, text: k.answer.trim(), audience: k.audience, votesUp: [], votesDown: [] }] }
@@ -2581,7 +2581,7 @@ export const useStore = create<Store>()(
     {
       name: "nockerp-v2",
       // bump when the data model changes; older saved data is replaced by fresh sample data
-      version: 75, // 75: Developer role + เรื่องถึง Dev · 74: Nock answers per person + thumbs per answer · 73: Nock locations + knowledge = answered questions + votes · 72: Nock question bank + knowledge · 71: Summer Memo + Summer course + paid Summer invoice · 68–70: session summaries in every stage this week + sample Course Summaries (Single + Bundle) · 65–67: names without titles, parent relationship, phones without dashes, subject colours · 61: real branches (owner 2026-10-07) · 62: CB = ตึกน้ำ · 63: sample schools · 64: schools from the Ministry list
+      version: 76, // 76: คำถามถึง Dev examples · 75: Developer role + เรื่องถึง Dev · 74: Nock answers per person + thumbs per answer · 73: Nock locations + knowledge = answered questions + votes · 72: Nock question bank + knowledge · 71: Summer Memo + Summer course + paid Summer invoice · 68–70: session summaries in every stage this week + sample Course Summaries (Single + Bundle) · 65–67: names without titles, parent relationship, phones without dashes, subject colours · 61: real branches (owner 2026-10-07) · 62: CB = ตึกน้ำ · 63: sample schools · 64: schools from the Ministry list
       migrate: () => ({ ...buildSeed(), userId: "u_nock", branchId: "br_thl", clockOffset: 0 }) as unknown as Store,
       // persist data + UI state only, never the action functions
       partialize: (s) => Object.fromEntries(Object.entries(s).filter(([, v]) => typeof v !== "function")) as Partial<Store>,

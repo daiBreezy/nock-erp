@@ -63,7 +63,7 @@ export function DevTicketsView() {
     { id: "date", label: "วันที่ · เวลา", width: "110px", sort: "date", cell: (t) => <span className="tabular-nums"><span className="block">{fmtDate(toDateStr(new Date(t.at)))}</span><span className="text-xs text-muted-foreground">{timeOf(t.at)} น.</span></span> },
     { id: "kind", label: "ประเภท", width: "150px", cell: (t) => { const Icon = DEV_KIND_ICON[t.kind]; return <span className="inline-flex items-center gap-1.5 text-xs"><Icon className="size-3.5 text-muted-foreground" />{DEV_KIND_LABEL[t.kind]}</span> } },
     { id: "title", label: "เรื่อง", width: "300px", required: true, cell: (t) => <span className="block max-w-[400px]"><span className="block truncate font-medium">{t.title}</span><span className="block truncate text-xs text-muted-foreground">{t.detail}</span></span> },
-    { id: "location", label: "Location", width: "140px", cell: (t) => <span className="flex gap-1">{t.locations.map((l) => <span key={l} className="rounded-full bg-muted px-2 py-0.5 text-xs whitespace-nowrap">{locationLabel(l)}</span>)}</span> },
+    { id: "location", label: "Part", width: "140px", cell: (t) => <span className="flex gap-1">{t.locations.map((l) => <span key={l} className="rounded-full bg-muted px-2 py-0.5 text-xs whitespace-nowrap">{locationLabel(l)}</span>)}</span> },
     { id: "by", label: "ผู้แจ้ง", width: "90px", cell: (t) => <span className="font-medium">{who(t.by)?.nickname ?? "—"}</span> },
     { id: "role", label: "Role", width: "130px", cell: (t) => <span className="flex gap-1">{t.roles.map((r) => <RoleChip key={r} role={r} />)}</span> },
     { id: "branch", label: "สาขา", width: "60px", cell: (t) => <BranchCode code={scope.code(t.branchId)} /> },
@@ -85,7 +85,7 @@ export function DevTicketsView() {
       <FilterBar search={<SearchBox value={q} onChange={setQ} placeholder="ค้นหาเลขที่ / เรื่อง / ผู้แจ้ง" />}>
         {isDev && <NativeSelect className="h-9 w-36" value={reporter} onChange={(e) => setReporter(e.target.value)} placeholder="Staff ทุกคน" options={[...new Set(mine.map((t) => t.by))].map((id) => who(id)).filter((s): s is NonNullable<typeof s> => !!s).map((s) => ({ value: s.id, label: s.nickname }))} />}
         <NativeSelect className="h-9 w-44" value={kind} onChange={(e) => setKind(e.target.value as DevTicketKind | "")} placeholder="ทุกประเภท" options={(Object.keys(DEV_KIND_LABEL) as DevTicketKind[]).map((k) => ({ value: k, label: DEV_KIND_LABEL[k] }))} />
-        <NativeSelect className="h-9 w-44" value={location} onChange={(e) => setLocation(e.target.value)} placeholder="ทุก Location" options={NOCK_LOCATIONS.map((l) => ({ value: l.id, label: l.label }))} />
+        <NativeSelect className="h-9 w-44" value={location} onChange={(e) => setLocation(e.target.value)} placeholder="ทุก Part" options={NOCK_LOCATIONS.map((l) => ({ value: l.id, label: l.label }))} />
         <ColumnsMenu id="dev-tickets" columns={columns} />
         {isDev && scope.select}
       </FilterBar>
