@@ -50,6 +50,10 @@ export function themeVars(t: ThemeSettings): Record<string, string> {
     "--card-backdrop": t.cardBlur > 0 ? `blur(${t.cardBlur}px) saturate(1.3)` : "none",
     "--card-ring": `${t.cardRing}%`,
     "--ai-wash": String(t.aiWash / 100),
+    // owner 2026-10-14: the menu bar and side panels follow the theme too — the same card colour, a little more solid
+    "--sidebar": t.cardOpacity >= 100 ? t.cardColor : `color-mix(in oklab, ${t.cardColor} ${Math.min(100, t.cardOpacity + 10)}%, transparent)`,
+    "--popover": t.cardOpacity >= 100 ? t.cardColor : `color-mix(in oklab, ${t.cardColor} ${Math.max(t.cardOpacity, 88)}%, transparent)`,
+    "--panel-backdrop": t.cardBlur > 0 || t.cardOpacity < 100 ? `blur(${Math.max(t.cardBlur, 16)}px) saturate(1.3)` : "none",
     ...(t.primary ? { "--primary": t.primary, "--ring": `color-mix(in oklab, ${t.primary} 60%, white)` } : {}),
   }
 }

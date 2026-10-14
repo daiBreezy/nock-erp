@@ -36,7 +36,7 @@ export function FormShell({ title, description, onClose, footer, children, class
           {description && <SheetDescription className="sr-only">{description}</SheetDescription>}
         </SheetHeader>
         <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-4 py-4">{children}</div>
-        <div className="flex shrink-0 flex-wrap items-center justify-end gap-2 border-t bg-background px-4 py-3">{footer}</div>
+        <div className="flex shrink-0 flex-wrap items-center justify-end gap-2 border-t bg-popover px-4 py-3">{footer}</div>
       </>
     )
   }
@@ -70,7 +70,7 @@ export function PanelBody({ children }: { children: React.ReactNode }) {
 
 /** bottom bar of a view-mode panel — destructive left, primary right */
 export function PanelFooter({ children }: { children: React.ReactNode }) {
-  return <div className="flex shrink-0 flex-wrap items-center gap-2 border-t bg-background px-4 py-3">{children}</div>
+  return <div className="flex shrink-0 flex-wrap items-center gap-2 border-t bg-popover px-4 py-3">{children}</div>
 }
 
 export interface MoreItem { label: ReactNode; icon?: ComponentType; onClick: () => void; destructive?: boolean; disabled?: boolean; title?: string }
