@@ -11,7 +11,7 @@ export function buildParentView(family: Family): ParentView {
   const s = useStore.getState()
   return parentView(family, {
     students: s.students, branches: s.branches, sessions: s.sessions, classes: s.classes, staff: s.staff, attendance: s.attendance,
-    summaries: s.summaries, entitlements: s.entitlements, courses: s.courses, invoices: s.invoices, busAddOns: s.busAddOns, now: s.now(),
+    summaries: s.summaries, entitlements: s.entitlements, courses: s.courses, invoices: s.invoices, busAddOns: s.busAddOns, now: s.now(), courseSummaries: s.courseSummaries,
   })
 }
 
@@ -33,7 +33,7 @@ export function usePublishParentViews() {
     kick()
     const unsub = useStore.subscribe((s, prev) => {
       if (s.sessions !== prev.sessions || s.attendance !== prev.attendance || s.summaries !== prev.summaries || s.families !== prev.families ||
-        s.students !== prev.students || s.invoices !== prev.invoices || s.busAddOns !== prev.busAddOns || s.entitlements !== prev.entitlements) kick()
+        s.students !== prev.students || s.invoices !== prev.invoices || s.busAddOns !== prev.busAddOns || s.entitlements !== prev.entitlements || s.courseSummaries !== prev.courseSummaries) kick()
     })
     return () => { clearTimeout(timer); unsub() }
   }, [])

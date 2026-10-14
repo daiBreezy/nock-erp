@@ -5,6 +5,8 @@ import type { Attendance, DateStr, Entitlement, ID, LessonSummary, Parent, Resul
 import { requireForceRemark } from "./notifications"
 import { can } from "./permissions"
 import { LOST_AFTER_DAYS } from "./reports"
+import { packageCovers } from "./attendance"
+import { subjectsOf } from "./scheduling"
 
 /** D1: a summary slot exists only for students marked present. */
 export function needsSummary(a: Attendance) {
@@ -196,7 +198,32 @@ export const LEVEL_LABEL: Record<number, string> = { 1: "ยังไม่เ�
 
 export type Insight = { tone: "good" | "watch" | "info"; text: string }
 
-export interface ProgressRow { date: DateStr; attended: "present" | "leave" | "absent" | null; level?: number; text?: string }
+export interface ProgressRow {
+  date: DateStr; attended: "present" | "leave" | "absent" | null; level?: number; text?: string
+  /** the session's subjects + a Bundle session's per-subject understanding — for the per-subject view */
+  subjects?: string[]; subjectLevels?: Record<string, number>
+}
+
+/** every session of a course round the student sat in, up to today — attendance + understanding + note (one rule for
+ *  the staff panel and the parent app in LINE) */
+export function courseProgressRows(round: Pick<EntitlementRound, "entitlementIds" | "studentId">,
+  db: { entitlements: Entitlement[]; sessions: Session[]; summaries: LessonSummary[]; attendance: Attendance[] }, today: DateStr): ProgressRow[] {
+  const ents = db.entitlements.filter((e) => round.entitlementIds.includes(e.id))
+  return db.sessions
+    .filter((se) => se.date <= today && !se.cancelled && (se.studentIds.includes(round.studentId) || se.rescheduledIn?.includes(round.studentId)) && ents.some((e) => packageCovers(e, se)))
+    .sort((a, b) => a.date.localeCompare(b.date))
+    .map((se) => {
+      const sm = db.summaries.find((x) => x.sessionId === se.id && x.studentId === round.studentId)
+      return { date: se.date, attended: db.attendance.find((a) => a.sessionId === se.id && a.studentId === round.studentId)?.status ?? null,
+        level: sm?.level, text: sm?.text, subjects: subjectsOf(se), subjectLevels: sm?.subjectLevels }
+    })
+}
+
+/** the same rows seen from one subject of a Bundle — its sessions, its part of each note, its own understanding */
+export function progressForSubject(rows: ProgressRow[], subject: string, allSubjects: string[]): ProgressRow[] {
+  return rows.filter((r) => !r.subjects || r.subjects.includes(subject))
+    .map((r) => ({ ...r, level: r.subjectLevels?.[subject] ?? r.level, text: r.text ? noteForSubject(r.text, subject, allSubjects) || undefined : undefined }))
+}
 
 /** the numbers behind the Course Summary charts + the plain-language reading of them (the "AI" box without a model) */
 export function courseProgress(rows: ProgressRow[]) {

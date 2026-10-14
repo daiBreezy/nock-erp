@@ -12,6 +12,14 @@ type Phase = { kind: "loading" } | { kind: "error"; text: string } | { kind: "no
 
 const today = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}` }
 
+/** …&cs=<id> from the สรุปจบคอร์ส LINE message (LINE may hand it over inside liff.state) */
+function courseSummaryParam() {
+  if (typeof window === "undefined") return undefined
+  const q = new URLSearchParams(window.location.search)
+  const state = new URLSearchParams((q.get("liff.state") ?? "").replace(/^[^?]*\?/, ""))
+  return q.get("cs") ?? state.get("cs") ?? undefined
+}
+
 export function ParentLiff() {
   const [phase, setPhase] = useState<Phase>({ kind: "loading" })
   useEffect(() => {
@@ -37,7 +45,7 @@ export function ParentLiff() {
     return () => { cancelled = true }
   }, [])
 
-  if (phase.kind === "ready") return <ParentApp view={phase.view} today={today()} />
+  if (phase.kind === "ready") return <ParentApp view={phase.view} today={today()} openCourseSummary={courseSummaryParam()} />
   return (
     <div className="flex min-h-dvh flex-col items-center justify-center gap-3 p-6 text-center">
       {phase.kind === "loading" && <LoaderCircleIcon className="size-6 animate-spin text-muted-foreground" />}

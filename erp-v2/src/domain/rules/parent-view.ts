@@ -1,10 +1,11 @@
 // Parent app v1 (owner 2026-10-09) — "School to Parent" inside LINE: what one family sees about their children.
 // Read only: classes ahead (day · time · teacher · subject · room), bus legs booked, attendance, summaries already sent
 // to the parent, packages left. Pure — the ERP builds it, the parent's phone only reads it.
-import type { Attendance, Branch, BusAddOn, Course, DateStr, Entitlement, Family, ID, Invoice, Klass, LessonSummary, Session, Staff, Student, TimeStr } from "../types"
+import type { Attendance, Branch, BusAddOn, Course, CourseSummary, DateStr, Entitlement, Family, ID, Invoice, Klass, LessonSummary, Session, Staff, Student, TimeStr } from "../types"
 import { addDays, endTime, toDateStr } from "../dates"
 import { balance } from "./attendance"
 import { sessionState, subjectsOf, teachersOf } from "./scheduling"
+import { courseProgressRows, entitlementRounds, type ProgressRow } from "./summaries"
 
 export interface ParentClass {
   sessionId: ID
@@ -19,6 +20,23 @@ export interface ParentClass {
   bus: { pickup: boolean; dropoff: boolean } | null
   cancelled: boolean
   cancelReason?: string
+}
+
+/** สรุปจบคอร์ส as the parent sees it in LINE (owner 2026-10-14) — only once the school has sent it */
+export interface ParentCourseSummary {
+  id: ID
+  course: string
+  bundle: boolean
+  subjects: string[]
+  from: DateStr
+  to: DateStr
+  teacher: string
+  sentAt?: string
+  overallProgress: string
+  toImprove: string
+  strengths: string
+  /** the charts — built from session summaries already sent to the parent only */
+  progress: ProgressRow[]
 }
 
 export interface ParentChild {
@@ -36,6 +54,7 @@ export interface ParentChild {
   packages: { course: string; remaining: number | null; total: number | null; until: DateStr }[]
   /** bus days ahead (pickup / drop-off), for students who bought the bus */
   busDays: { date: DateStr; pickup: boolean; dropoff: boolean }[]
+  courseSummaries: ParentCourseSummary[]
 }
 
 export interface ParentView {
@@ -53,6 +72,7 @@ export const PARENT_HISTORY = 20
 export interface ParentCtx {
   students: Student[]; branches: Branch[]; sessions: Session[]; classes: Klass[]; staff: Staff[]; attendance: Attendance[]
   summaries: LessonSummary[]; entitlements: Entitlement[]; courses: Course[]; invoices: Invoice[]; busAddOns: BusAddOn[]; now: Date
+  courseSummaries?: CourseSummary[]
 }
 
 /** Bus legs a student has paid / asked for, per date: invoice bus legs (non-void) + extra days added after paying. */
@@ -108,10 +128,27 @@ export function parentView(family: Family, ctx: ParentCtx): ParentView {
         const counted = e.kind === "sessions"
         return { course: ctx.courses.find((c) => c.id === e.courseId)?.name ?? "", remaining: counted ? b.remaining : null, total: counted ? b.total : null, until: b.until }
       })
+    // owner 2026-10-14: the Course End Summary opens from its LINE message — summary + progress charts
+    const rounds = entitlementRounds(ctx.entitlements.filter((e) => e.studentId === stu.id))
+    const sentNotes = ctx.summaries.filter((x) => x.studentId === stu.id && x.status === "sent")
+    const courseSummaries = (ctx.courseSummaries ?? [])
+      .filter((cs) => cs.studentId === stu.id && cs.status === "sent")
+      .flatMap((cs): ParentCourseSummary[] => {
+        const round = rounds.find((r) => r.representativeId === cs.entitlementId)
+        const course = ctx.courses.find((c) => c.id === round?.courseId)
+        if (!round || !course) return []
+        return [{
+          id: cs.id, course: course.name, bundle: course.kind === "bundle", subjects: course.subjects, from: round.from, to: round.to,
+          teacher: teacher(cs.authorId), sentAt: cs.history.findLast((h) => h.action === "send")?.at,
+          overallProgress: cs.overallProgress, toImprove: cs.toImprove, strengths: cs.strengths,
+          progress: courseProgressRows(round, { entitlements: ctx.entitlements, sessions: ctx.sessions, summaries: sentNotes, attendance: ctx.attendance }, today),
+        }]
+      })
+      .sort((a, b) => b.to.localeCompare(a.to))
     const busDays = [...bus.entries()].filter(([d]) => d >= today && d <= horizon).sort(([a], [b]) => a.localeCompare(b)).map(([date, v]) => ({ date, ...v }))
     return {
       id: stu.id, nickname: stu.nickname, name: stu.name, nameEn: stu.nameEn, nicknameEn: stu.nicknameEn, grade: stu.grade,
-      branchName: branch?.name ?? "", brand: branch?.brand ?? "nockacademy", upcoming, attendance, summaries, packages, busDays,
+      branchName: branch?.name ?? "", brand: branch?.brand ?? "nockacademy", upcoming, attendance, summaries, packages, busDays, courseSummaries,
     }
   })
   return {

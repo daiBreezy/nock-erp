@@ -88,10 +88,8 @@ function Body({ round }: { round: Sum.EntitlementRound }) {
   // a subject view keeps only that subject's sessions, and only its part of a "คณิต: … · อังกฤษ: …" note
   const noteIn = (text: string) => (only ? Sum.noteForSubject(text, only, allSubjects) : text)
   const inView = (se: (typeof covered)[number]) => !only || subjectsOf(se).includes(only)
-  const progressRows: Sum.ProgressRow[] = covered.filter((se) => se.date <= today && !se.cancelled && inView(se)).map((se) => {
-    const sm = summaries.find((x) => x.sessionId === se.id && x.studentId === round.studentId)
-    return { date: se.date, attended: attendance.find((a) => a.sessionId === se.id && a.studentId === round.studentId)?.status ?? null, level: only ? sm?.subjectLevels?.[only] ?? sm?.level : sm?.level, text: sm?.text ? noteIn(sm.text) : undefined }
-  })
+  const allRows = Sum.courseProgressRows(round, { entitlements: allEntitlements, sessions, summaries, attendance }, today)
+  const progressRows = only ? Sum.progressForSubject(allRows, only, allSubjects) : allRows
   const notesShown = sessionSummaries.filter((x) => inView(x.se)).map((x) => ({ ...x, text: noteIn(x.sm.text) })).filter((x) => x.text.trim())
 
   if (!student) return null
@@ -110,10 +108,7 @@ function Body({ round }: { round: Sum.EntitlementRound }) {
     setThinking(true)
     try {
       const r = await fetch("/api/ai/course-summary", { method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ course: course?.name ?? "", subjects: allSubjects, bundle, rows: covered.filter((se) => se.date <= today && !se.cancelled).map((se) => {
-          const sm = summaries.find((x) => x.sessionId === se.id && x.studentId === round.studentId)
-          return { date: se.date, attended: attendance.find((a) => a.sessionId === se.id && a.studentId === round.studentId)?.status ?? null, level: sm?.level, text: sm?.text }
-        }) }) }).then((x) => x.json())
+        body: JSON.stringify({ course: course?.name ?? "", subjects: allSubjects, bundle, rows: allRows }) }).then((x) => x.json())
       if (r.ok) {
         setDraft({ overallProgress: r.overallProgress, toImprove: r.toImprove, strengths: r.strengths })
         setAiInsights(r.insights?.length ? r.insights : null)

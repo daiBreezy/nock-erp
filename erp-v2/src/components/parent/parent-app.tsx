@@ -3,8 +3,11 @@
 // Parent app v1 (owner 2026-10-09) — what a parent sees inside LINE. Pure view of a ParentView: no store, no staff data,
 // so the same screen runs on the parent's phone (/liff/parent) and in the staff preview (Family › ดูแบบผู้ปกครอง).
 import { useState } from "react"
-import { BusIcon, CalendarDaysIcon, CheckIcon, ClockIcon, DoorOpenIcon, MessageSquareTextIcon, PackageIcon, UserIcon, XIcon } from "lucide-react"
-import type { ParentChild, ParentView } from "@/domain/rules/parent-view"
+import { ArrowLeftIcon, BusIcon, CalendarDaysIcon, CheckIcon, ChevronRightIcon, GraduationCapIcon, ClockIcon, DoorOpenIcon, MessageSquareTextIcon, PackageIcon, UserIcon, XIcon } from "lucide-react"
+import type { ParentChild, ParentCourseSummary, ParentView } from "@/domain/rules/parent-view"
+import { progressForSubject } from "@/domain/rules/summaries"
+import { CourseProgress } from "@/components/app/course-progress"
+import { subjectColor } from "@/components/app/subject-color"
 import type { FormLang } from "@/domain/types"
 import { cn } from "@/lib/utils"
 
@@ -15,6 +18,8 @@ const DICT = {
     teacher: "ครู", room: "ห้อง", cancelled: "งดเรียน", pickup: "รถรับ", dropoff: "รถส่ง", busNote: "เวลารถรับ-ส่งแอดมินจะแจ้งทาง LINE",
     noSummary: "ยังไม่มีสรุปการเรียน", noAttendance: "ยังไม่มีประวัติการเข้าเรียน", noBus: "ไม่ได้ใช้รถรับส่ง", present: "มาเรียน", absent: "ขาด", leave: "ลา",
     rate: "มาเรียน", updated: "อัปเดต", today: "วันนี้", tomorrow: "พรุ่งนี้",
+    courseEnd: "สรุปจบคอร์ส", lessonNotes: "สรุปรายคาบ", view: "ดูสรุปและพัฒนาการ", back: "กลับ", whole: "ทั้งคอร์ส",
+    overall: "ภาพรวมพัฒนาการ", strengths: "จุดแข็ง", improve: "สิ่งที่ควรฝึกเพิ่ม", progress: "พัฒนาการ", by: "สรุปโดย",
   },
   en: {
     hello: "Hello", schedule: "Schedule", summaries: "Summaries", attendance: "Attendance", bus: "School bus",
@@ -22,6 +27,8 @@ const DICT = {
     teacher: "Teacher", room: "Room", cancelled: "No class", pickup: "Pick-up", dropoff: "Drop-off", busNote: "Bus times will be sent on LINE by our staff",
     noSummary: "No lesson summaries yet", noAttendance: "No attendance yet", noBus: "Not using the school bus", present: "Present", absent: "Absent", leave: "Leave",
     rate: "Attended", updated: "Updated", today: "Today", tomorrow: "Tomorrow",
+    courseEnd: "Course summaries", lessonNotes: "Lesson notes", view: "View summary & progress", back: "Back", whole: "Whole course",
+    overall: "Overall progress", strengths: "Strengths", improve: "To improve", progress: "Progress", by: "By",
   },
   ja: {
     hello: "こんにちは", schedule: "時間割", summaries: "授業レポート", attendance: "出欠", bus: "送迎バス",
@@ -29,6 +36,8 @@ const DICT = {
     teacher: "講師", room: "教室", cancelled: "休講", pickup: "お迎え", dropoff: "お送り", busNote: "送迎時間はスタッフからLINEでお知らせします",
     noSummary: "授業レポートはまだありません", noAttendance: "出欠の記録はまだありません", noBus: "送迎バスの利用なし", present: "出席", absent: "欠席", leave: "お休み",
     rate: "出席率", updated: "更新", today: "今日", tomorrow: "明日",
+    courseEnd: "コース修了レポート", lessonNotes: "授業レポート", view: "レポートと成長を見る", back: "戻る", whole: "コース全体",
+    overall: "全体の成長", strengths: "得意なところ", improve: "練習したいところ", progress: "成長の記録", by: "担当",
   },
 }
 
@@ -46,12 +55,16 @@ function fmtDay(date: string, lang: FormLang) {
 type Tab = "schedule" | "summaries" | "attendance" | "bus"
 
 /** `framed` = inside the staff preview's phone frame: the tab bar sticks to the frame, not the browser window */
-export function ParentApp({ view, lang: initialLang, today, framed }: { view: ParentView; lang?: FormLang; today: string; framed?: boolean }) {
+export function ParentApp({ view, lang: initialLang, today, framed, openCourseSummary }: { view: ParentView; lang?: FormLang; today: string; framed?: boolean
+  /** opened from the สรุปจบคอร์ส LINE message (…&cs=<id>) — go straight to it */
+  openCourseSummary?: string }) {
   const brand = view.children[0]?.brand ?? "nockacademy"
   // Japanese families at Liclass open in Japanese, everyone else in Thai — the chip switches any time
   const [lang, setLang] = useState<FormLang>(initialLang ?? (brand === "liclass" && /[\u3040-\u30ff\u4e00-\u9fff]/.test(view.familyName) ? "ja" : "th"))
-  const [childId, setChildId] = useState(view.children[0]?.id ?? "")
-  const [tab, setTab] = useState<Tab>("schedule")
+  const opened = openCourseSummary ? view.children.find((c) => c.courseSummaries?.some((x) => x.id === openCourseSummary)) : undefined
+  const [childId, setChildId] = useState(opened?.id ?? view.children[0]?.id ?? "")
+  const [tab, setTab] = useState<Tab>(opened ? "summaries" : "schedule")
+  const [csId, setCsId] = useState<string | null>(opened ? openCourseSummary! : null)
   const t = DICT[lang]
   const child = view.children.find((c) => c.id === childId) ?? view.children[0]
   const latin = lang !== "th" && !(lang === "ja" && brand === "liclass")
@@ -91,21 +104,44 @@ export function ParentApp({ view, lang: initialLang, today, framed }: { view: Pa
       </header>
 
       <main className={cn("flex-1 space-y-3 p-3", framed ? "pb-3" : "pb-24")}>
-        {!child ? null : tab === "schedule" ? <Schedule child={child} t={t} dayLabel={dayLabel} lang={lang} /> : tab === "summaries" ? (
-          child.summaries.length === 0 ? <Empty text={t.noSummary} /> : child.summaries.map((s, i) => (
-            <article key={i} className="rounded-2xl bg-background p-3 shadow-sm">
-              <p className="text-xs text-muted-foreground">{fmtDay(s.date, lang)} · {s.subjects.join(" + ")} · {t.teacher} {s.teacher}</p>
-              {s.detail && <p className="mt-1 text-xs font-medium">{s.detail}</p>}
-              <p className="mt-1 text-sm whitespace-pre-line">{s.text}</p>
-            </article>
-          ))
-        ) : tab === "attendance" ? <AttendanceList child={child} t={t} lang={lang} /> : <BusList child={child} t={t} lang={lang} dayLabel={dayLabel} />}
+        {!child ? null : tab === "schedule" ? <Schedule child={child} t={t} dayLabel={dayLabel} lang={lang} /> : tab === "summaries" ? (() => {
+          const open = csId ? child.courseSummaries?.find((x) => x.id === csId) : undefined
+          if (open) return <CourseEnd cs={open} t={t} lang={lang} onBack={() => setCsId(null)} />
+          const ends = child.courseSummaries ?? []
+          return (
+            <>
+              {ends.length > 0 && (
+                <section className="space-y-1.5">
+                  <p className="flex items-center gap-1.5 px-1 text-xs font-semibold text-muted-foreground"><GraduationCapIcon className="size-3.5" />{t.courseEnd}</p>
+                  {ends.map((x) => (
+                    <button key={x.id} type="button" onClick={() => setCsId(x.id)} className="flex w-full items-center gap-3 rounded-2xl bg-background p-3 text-left shadow-sm">
+                      <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-primary/10 text-primary"><GraduationCapIcon className="size-5" /></span>
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate font-medium">{x.course}</span>
+                        <span className="block text-xs text-muted-foreground">{fmtDay(x.from, lang)} – {fmtDay(x.to, lang)} · {t.view}</span>
+                      </span>
+                      <ChevronRightIcon className="size-4 shrink-0 text-muted-foreground" />
+                    </button>
+                  ))}
+                </section>
+              )}
+              {ends.length > 0 && child.summaries.length > 0 && <p className="px-1 pt-1 text-xs font-semibold text-muted-foreground">{t.lessonNotes}</p>}
+              {child.summaries.length === 0 && !ends.length ? <Empty text={t.noSummary} /> : child.summaries.map((s, i) => (
+                <article key={i} className="rounded-2xl bg-background p-3 shadow-sm">
+                  <p className="text-xs text-muted-foreground">{fmtDay(s.date, lang)} · {s.subjects.join(" + ")} · {t.teacher} {s.teacher}</p>
+                  {s.detail && <p className="mt-1 text-xs font-medium">{s.detail}</p>}
+                  <p className="mt-1 text-sm whitespace-pre-line">{s.text}</p>
+                </article>
+              ))}
+            </>
+          )
+        })() : tab === "attendance" ? <AttendanceList child={child} t={t} lang={lang} /> : <BusList child={child} t={t} lang={lang} dayLabel={dayLabel} />}
         <p className="pt-2 text-center text-[11px] text-muted-foreground">{t.updated} {(() => { const g = new Date(view.generatedAt); return `${fmtDay(`${g.getFullYear()}-${String(g.getMonth() + 1).padStart(2, "0")}-${String(g.getDate()).padStart(2, "0")}`, lang)} ${String(g.getHours()).padStart(2, "0")}:${String(g.getMinutes()).padStart(2, "0")}` })()}</p>
       </main>
 
       <nav className={cn("z-10 mx-auto flex w-full max-w-lg border-t bg-background/95 backdrop-blur", framed ? "sticky bottom-0" : "fixed inset-x-0 bottom-0")}>
         {tabs.map((x) => (
-          <button key={x.key} type="button" onClick={() => setTab(x.key)} className={cn("flex flex-1 flex-col items-center gap-0.5 py-2 text-[11px]", tab === x.key ? "font-medium text-primary" : "text-muted-foreground")}>
+          <button key={x.key} type="button" onClick={() => { setTab(x.key); setCsId(null) }} className={cn("flex flex-1 flex-col items-center gap-0.5 py-2 text-[11px]", tab === x.key ? "font-medium text-primary" : "text-muted-foreground")}>
             <x.icon className="size-5" />{x.label}
           </button>
         ))}
@@ -213,6 +249,50 @@ function BusList({ child, t, lang, dayLabel }: { child: ParentChild; t: T; lang:
         })}
       </ul>
     </>
+  )
+}
+
+/** one สรุปจบคอร์ส — the summary (a Bundle per subject too) and the progress charts */
+function CourseEnd({ cs, t, lang, onBack }: { cs: ParentCourseSummary; t: T; lang: FormLang; onBack: () => void }) {
+  const [only, setOnly] = useState("")
+  const rows = only ? progressForSubject(cs.progress, only, cs.subjects) : cs.progress
+  const lines = (v: string) => v.split("\n").map((l) => l.trim()).filter(Boolean)
+    .map((l) => { const m = l.match(/^([^:：]{1,20})[:：]\s*(.*)$/); return m && cs.subjects.includes(m[1].trim()) ? { subject: m[1].trim(), text: m[2] } : { subject: "", text: l } })
+    .filter((l) => !only || l.subject === only)
+  const block = (label: string, v: string) => {
+    const ls = lines(v)
+    return ls.length ? (
+      <div className="rounded-2xl bg-background p-3 shadow-sm">
+        <p className="mb-1 text-xs font-medium text-muted-foreground">{label}</p>
+        <div className="space-y-1 text-sm">{ls.map((l, i) => <p key={i} className="flex items-start gap-1.5">{l.subject && !only && <span className={cn("shrink-0 rounded-full px-1.5 py-0.5 text-[11px]", subjectColor(l.subject).chip)}>{l.subject}</span>}<span>{l.text}</span></p>)}</div>
+      </div>
+    ) : null
+  }
+  return (
+    <div className="space-y-3">
+      <button type="button" onClick={onBack} className="flex items-center gap-1 px-1 text-sm text-muted-foreground"><ArrowLeftIcon className="size-4" />{t.back}</button>
+      <section className="rounded-2xl bg-background p-3 shadow-sm">
+        <p className="flex items-center gap-1.5 text-xs text-muted-foreground"><GraduationCapIcon className="size-3.5" />{t.courseEnd}</p>
+        <p className="mt-0.5 text-lg font-semibold">{cs.course}</p>
+        <p className="text-xs text-muted-foreground">{fmtDay(cs.from, lang)} – {fmtDay(cs.to, lang)}{cs.teacher && ` · ${t.by} ${cs.teacher}`}</p>
+        {cs.bundle && (
+          <div className="mt-2.5 flex gap-1 overflow-x-auto rounded-full bg-muted p-1">
+            {["", ...cs.subjects].map((x) => (
+              <button key={x || "all"} type="button" onClick={() => setOnly(x)} className={cn("flex flex-1 items-center justify-center gap-1.5 rounded-full px-3 py-1 text-sm whitespace-nowrap", only === x ? "bg-background font-medium shadow-sm" : "text-muted-foreground")}>
+                {x && <span className={cn("size-2 rounded-full", subjectColor(x).bar)} />}{x || t.whole}
+              </button>
+            ))}
+          </div>
+        )}
+      </section>
+      {block(t.overall, cs.overallProgress)}
+      {block(t.strengths, cs.strengths)}
+      {block(t.improve, cs.toImprove)}
+      <section className="space-y-2 rounded-2xl bg-background p-3 shadow-sm">
+        <p className="text-sm font-semibold">{t.progress}{only && ` · ${only}`}</p>
+        <CourseProgress rows={rows} />
+      </section>
+    </div>
   )
 }
 

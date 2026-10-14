@@ -1759,7 +1759,8 @@ export const useStore = create<Store>()(
         if (!r.ok) return r
         const ent = s.entitlements.find((x) => x.id === cur.entitlementId)!
         const course = s.courses.find((x) => x.id === ent.courseId)
-        const delivery = pushLine(stu.familyId, Msg.courseSummaryMessage(cur, { student: stu, course: { name: course?.name ?? "คอร์ส" }, entitlement: ent }), (ok, error) => {
+        const delivery = pushLine(stu.familyId, Msg.courseSummaryMessage(cur, { student: stu, course: { name: course?.name ?? "คอร์ส" }, entitlement: ent },
+          process.env.NEXT_PUBLIC_LIFF_ID ? `https://liff.line.me/${process.env.NEXT_PUBLIC_LIFF_ID}?app=parent&cs=${cur.id}` : undefined), (ok, error) => {
           if (ok) return log("attendance", [cur.studentId], "ส่งสรุปจบคอร์ส", "ถึงผู้ปกครองทาง LINE แล้ว")
           set((st) => ({ courseSummaries: st.courseSummaries.map((x) => (x.id === id ? { ...x, status: "approved", history: x.history.slice(0, -1) } : x)) }))
           toast.error(`ส่งสรุปจบคอร์สของ ${stu.nickname} ทาง LINE ไม่สำเร็จ — ${error ?? ""}`)

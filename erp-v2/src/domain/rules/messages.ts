@@ -50,7 +50,8 @@ export function summaryMessage(sum: LessonSummary, ctx: { student: Student; sess
 }
 
 /** The teacher's whole-course report, sent once per purchase round (owner 2026-10-06). */
-export function courseSummaryMessage(cs: CourseSummary, ctx: { student: Student; course: Pick<Course, "name">; entitlement: Pick<Entitlement, "from" | "to"> }): string {
+/** `link` (owner 2026-10-14) = the parent app in LINE, opened straight on this summary with its progress charts */
+export function courseSummaryMessage(cs: CourseSummary, ctx: { student: Student; course: Pick<Course, "name">; entitlement: Pick<Entitlement, "from" | "to"> }, link?: string): string {
   return [
     `🎓 สรุปจบคอร์ส ${ctx.student.nickname} · ${ctx.course.name}`,
     `${fmtDate(ctx.entitlement.from)} – ${fmtDate(ctx.entitlement.to, { year: true })}`,
@@ -58,5 +59,7 @@ export function courseSummaryMessage(cs: CourseSummary, ctx: { student: Student;
     `📈 ภาพรวมพัฒนาการ: ${cs.overallProgress.trim()}`,
     cs.strengths.trim() ? `✅ จุดแข็ง: ${cs.strengths.trim()}` : null,
     cs.toImprove.trim() ? `🎯 สิ่งที่ควรฝึกเพิ่ม: ${cs.toImprove.trim()}` : null,
+    link ? "" : null,
+    link ? `📊 ดูสรุปและกราฟพัฒนาการ: ${link}` : null,
   ].filter((x) => x !== null).join("\n")
 }

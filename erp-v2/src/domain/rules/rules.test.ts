@@ -26,7 +26,7 @@ import { courseSeats } from "./course"
 import * as Rep from "./reports"
 import * as Loss from "./loss"
 import * as Survey from "./survey"
-import { summaryMessage } from "./messages"
+import { courseSummaryMessage, summaryMessage } from "./messages"
 
 const hours = { open: "09:00", close: "20:00" }
 const branch: Branch = {
@@ -2348,5 +2348,23 @@ describe("Course Summary draft fits the field (owner 2026-10-14)", () => {
     const d = Sum.draftBundleCourseSummary([{ subject: "คณิต", texts: many }, { subject: "อังกฤษ", texts: many }])
     for (const v of Object.values(d)) expect(v.length).toBeLessThanOrEqual(Sum.COURSE_SUMMARY_FIELD_MAX)
     expect(d.overallProgress.split("\n").map((l) => l.split(":")[0])).toEqual(["คณิต", "อังกฤษ"])
+  })
+})
+
+describe("Course End Summary in LINE (owner 2026-10-14)", () => {
+  it("the message carries the parent-app link when there is one", () => {
+    const cs = { overallProgress: "ดีขึ้น", strengths: "", toImprove: "" } as never
+    const ctx = { student: { nickname: "พีช" } as never, course: { name: "คณิต" }, entitlement: { from: "2026-09-01", to: "2026-09-30" } }
+    expect(courseSummaryMessage(cs, ctx, "https://liff.line.me/x?app=parent&cs=c1")).toContain("cs=c1")
+    expect(courseSummaryMessage(cs, ctx)).not.toContain("liff")
+  })
+  it("one subject of a Bundle: its sessions, its note part, its own understanding", () => {
+    const rows = [
+      { date: "2026-09-01", attended: "present" as const, level: 3, text: "คณิต: ดี · อังกฤษ: ต้องฝึก", subjects: ["คณิต", "อังกฤษ"], subjectLevels: { คณิต: 4, อังกฤษ: 2 } },
+      { date: "2026-09-08", attended: "present" as const, level: 5, text: "เก่ง", subjects: ["อังกฤษ"] },
+    ]
+    const m = Sum.progressForSubject(rows, "คณิต", ["คณิต", "อังกฤษ"])
+    expect(m).toHaveLength(1)
+    expect(m[0]).toMatchObject({ level: 4, text: "ดี" })
   })
 })
