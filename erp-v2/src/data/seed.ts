@@ -685,7 +685,8 @@ export function buildSeed(now = new Date()): DB {
     const cap = ents.every((e) => e.kind === "sessions") ? ents.reduce((n, e) => n + e.sessionsTotal, 0) : 16
     const weeks: string[] = []
     for (let d = r.from; d <= r.to && d < today && weeks.length < 40; d = addDays(d, 7)) weeks.push(d)
-    const dates = weeks.slice(-Math.min(cap, 16))
+    // up to 8 sessions — enough for the charts while the whole demo still fits a phone's browser storage
+    const dates = weeks.slice(-Math.min(cap, 8))
     const teacher = courseSummaries.find((c) => c.entitlementId === r.representativeId)?.authorId ?? "u_dai"
     const combo = course.subjects.length > 1
     // a different shape per course: steady climb, slow start, dip then recovery, already strong

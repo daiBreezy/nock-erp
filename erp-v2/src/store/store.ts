@@ -4,7 +4,7 @@
 // so the UI can always show success or a human-readable error (no silent failures).
 
 import { create } from "zustand"
-import { persist } from "zustand/middleware"
+import { createJSONStorage, persist } from "zustand/middleware"
 import { buildSeed, uid, type DB } from "@/data/seed"
 import { addDays, at, fmtDate, fmtMoney, nextWeekday, toDateStr, toMinutes, weekdayOf } from "@/domain/dates"
 import * as Att from "@/domain/rules/attendance"
@@ -313,6 +313,19 @@ const L = (s: { branches: Branch[] }, roomId: ID | null) => s.branches.flatMap((
 
 /** what the last drag & drop move replaced — one-step undo from the toast (not persisted) */
 let lastMove: { sessions: Session[]; classes: Klass[]; entitlements: Entitlement[] } | null = null
+
+const isParentPage = () => typeof window !== "undefined" && window.location.pathname.startsWith("/liff")
+let warnedFull = false
+const safeStorage: Storage | { getItem: (k: string) => string | null; setItem: (k: string, v: string) => void; removeItem: (k: string) => void } = {
+  getItem: (k) => { try { return isParentPage() ? null : localStorage.getItem(k) } catch { return null } },
+  setItem: (k, v) => {
+    if (isParentPage()) return
+    try { localStorage.setItem(k, v) } catch (e) {
+      if (!warnedFull) { warnedFull = true; console.warn("NockERP: browser storage is full — changes stay until the page is closed", e) }
+    }
+  },
+  removeItem: (k) => { try { localStorage.removeItem(k) } catch { /* ignore */ } },
+}
 
 export const useStore = create<Store>()(
   persist(
@@ -2601,8 +2614,12 @@ export const useStore = create<Store>()(
     },
     {
       name: "nockerp-v2",
+      // owner 2026-10-14: the demo data outgrew a phone's browser storage (LINE's in-app browser ≈ 5 MB) and the
+      // QuotaExceeded error took the whole page down — a write that doesn't fit is skipped, the app keeps running.
+      // The parent app in LINE never writes staff data at all.
+      storage: createJSONStorage(() => safeStorage),
       // bump when the data model changes; older saved data is replaced by fresh sample data
-      version: 85, // 85: course-history check per course · 84: + running rounds · 83: finished courses with a Course Summary get their session history · 82: per-subject levels in Bundle sessions · 80–81: Bundle demo students sit in the combo class for 3 months (charts) · 79: 1–5 understanding on session summaries + Bundle notes per subject · 78: Dev statuses กำลังทำ / เสร็จแล้ว / ไม่ทำ / เก็บไว้ก่อน · 77: images on Nock + Dev tickets · 76: คำถามถึง Dev examples · 75: Developer role + เรื่องถึง Dev · 74: Nock answers per person + thumbs per answer · 73: Nock locations + knowledge = answered questions + votes · 72: Nock question bank + knowledge · 71: Summer Memo + Summer course + paid Summer invoice · 68–70: session summaries in every stage this week + sample Course Summaries (Single + Bundle) · 65–67: names without titles, parent relationship, phones without dashes, subject colours · 61: real branches (owner 2026-10-07) · 62: CB = ตึกน้ำ · 63: sample schools · 64: schools from the Ministry list
+      version: 86, // 86: course history capped at 8 sessions (storage size) · 85: course-history check per course · 84: + running rounds · 83: finished courses with a Course Summary get their session history · 82: per-subject levels in Bundle sessions · 80–81: Bundle demo students sit in the combo class for 3 months (charts) · 79: 1–5 understanding on session summaries + Bundle notes per subject · 78: Dev statuses กำลังทำ / เสร็จแล้ว / ไม่ทำ / เก็บไว้ก่อน · 77: images on Nock + Dev tickets · 76: คำถามถึง Dev examples · 75: Developer role + เรื่องถึง Dev · 74: Nock answers per person + thumbs per answer · 73: Nock locations + knowledge = answered questions + votes · 72: Nock question bank + knowledge · 71: Summer Memo + Summer course + paid Summer invoice · 68–70: session summaries in every stage this week + sample Course Summaries (Single + Bundle) · 65–67: names without titles, parent relationship, phones without dashes, subject colours · 61: real branches (owner 2026-10-07) · 62: CB = ตึกน้ำ · 63: sample schools · 64: schools from the Ministry list
       migrate: (old) => ({ ...keepLineLinks(old as Partial<Store> | undefined, buildSeed()), userId: "u_nock", branchId: "br_thl", clockOffset: 0 }) as unknown as Store,
       // persist data + UI state only, never the action functions
       partialize: (s) => Object.fromEntries(Object.entries(s).filter(([, v]) => typeof v !== "function")) as Partial<Store>,
