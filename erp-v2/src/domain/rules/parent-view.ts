@@ -55,6 +55,8 @@ export interface ParentChild {
   /** bus days ahead (pickup / drop-off), for students who bought the bus */
   busDays: { date: DateStr; pickup: boolean; dropoff: boolean }[]
   courseSummaries: ParentCourseSummary[]
+  /** stopped studying (owner 2026-10-14) — the parent still sees attendance + summaries, and can ask to come back */
+  left?: { since: DateStr }
 }
 
 export interface ParentView {
@@ -94,7 +96,8 @@ export function parentView(family: Family, ctx: ParentCtx): ParentView {
   const today = toDateStr(ctx.now)
   const horizon = addDays(today, PARENT_DAYS_AHEAD)
   const teacher = (id: ID) => ctx.staff.find((t) => t.id === id)?.nickname ?? ""
-  const kids = ctx.students.filter((s) => s.familyId === family.id && !s.archived)
+  // owner 2026-10-14: a child who left stays in the app (history only) — the family can still look back, or ask to return
+  const kids = ctx.students.filter((s) => s.familyId === family.id)
   const children = kids.map((stu): ParentChild => {
     const branch = ctx.branches.find((b) => b.id === stu.branchId)
     const mine = ctx.sessions.filter((s) => s.studentIds.includes(stu.id))
@@ -149,9 +152,12 @@ export function parentView(family: Family, ctx: ParentCtx): ParentView {
       })
       .sort((a, b) => b.to.localeCompare(a.to))
     const busDays = [...bus.entries()].filter(([d]) => d >= today && d <= horizon).sort(([a], [b]) => a.localeCompare(b)).map(([date, v]) => ({ date, ...v }))
+    const left = stu.archived ? { since: stu.exit?.lastDate ?? stu.archived.at.slice(0, 10) } : undefined
     return {
       id: stu.id, nickname: stu.nickname, name: stu.name, nameEn: stu.nameEn, nicknameEn: stu.nicknameEn, grade: stu.grade,
       branchName: branch?.name ?? "", brand: branch?.brand ?? "nockacademy", upcoming, attendance, summaries, packages, busDays, courseSummaries,
+      // a child who left: history only — no classes ahead, no packages, no bus
+      ...(left ? { left, upcoming: [], packages: [], busDays: [] } : {}),
     }
   })
   return {

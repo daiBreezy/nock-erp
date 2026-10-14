@@ -3,7 +3,7 @@
 // แจ้งลา / แจ้งลาออก from parents in LINE (owner 2026-10-14) — the office team handles each one here and the parent
 // is told on LINE: a leave is recorded on the classes (หักโควตา or not), a notice to stop makes the student แจ้งออก.
 import { useState } from "react"
-import { CalendarOffIcon, CheckIcon, DoorOpenIcon, EllipsisIcon, XIcon } from "lucide-react"
+import { CalendarOffIcon, CheckIcon, DoorOpenIcon, EllipsisIcon, RotateCcwIcon, XIcon } from "lucide-react"
 import { Pill } from "./badges"
 import { Button } from "@/components/ui/button"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
@@ -31,11 +31,13 @@ export function ParentRequestsList({ branchId, showDone }: { branchId: string; s
   )
 }
 
-function RequestCard({ r }: { r: ParentRequest }) {
+/** one request — on the Notifications page and as a card in the family's chat (owner 2026-10-14) */
+export function RequestCard({ r }: { r: ParentRequest }) {
   const me = useStore((s) => s.me())
   const sync = useStore((s) => s.syncParentRequests)
   const markLeave = useStore((s) => s.markLeave)
   const exitFromParent = useStore((s) => s.exitFromParent)
+  const restoreStudent = useStore((s) => s.restoreStudent)
   const attendance = useStore((s) => s.attendance)
   const system = useStore((s) => s.system)
   const L = useLookup()
@@ -67,19 +69,25 @@ function RequestCard({ r }: { r: ParentRequest }) {
     if (report(exitFromParent(r), "")) await finish("done", "รับเรื่องแจ้งออกแล้ว — โทรคุยกับผู้ปกครอง แล้วปิดเรื่องในหน้านักเรียน", `รับเรื่องการหยุดเรียนของ${r.studentNickname}แล้วค่ะ แอดมินจะติดต่อกลับเร็วๆ นี้ 🙏`)
     setBusy(false)
   }
+  // owner 2026-10-14: a child who left wants to come back — restore them, then arrange a class + invoice as usual
+  const acceptReturn = async () => {
+    setBusy(true)
+    if (report(restoreStudent(r.studentId), "")) await finish("done", "กู้คืนนักเรียนแล้ว — โทรคุย จัดคลาส แล้วออกใบแจ้งหนี้", `ยินดีต้อนรับ${r.studentNickname}กลับมาค่ะ 😊 แอดมินจะติดต่อกลับเพื่อจัดคลาสให้นะคะ`)
+    setBusy(false)
+  }
   const decline = async () => {
     setBusy(true)
     if (await finish("declined", why.trim(), `เรื่องที่แจ้งไว้สำหรับ${r.studentNickname}: ${why.trim()}`)) setDeclining(false)
     setBusy(false)
   }
 
-  const Icon = r.kind === "leave" ? CalendarOffIcon : DoorOpenIcon
+  const Icon = r.kind === "leave" ? CalendarOffIcon : r.kind === "return" ? RotateCcwIcon : DoorOpenIcon
   return (
-    <article className={`space-y-2 rounded-2xl p-3 ring-1 ${open ? (r.kind === "exit" ? "bg-red-50/70 ring-red-200 dark:bg-red-950/20" : "bg-amber-50/70 ring-amber-200 dark:bg-amber-950/20") : "bg-muted/30 ring-foreground/5"}`}>
+    <article className={`space-y-2 rounded-2xl p-3 ring-1 ${open ? (r.kind === "exit" ? "bg-red-50/70 ring-red-200 dark:bg-red-950/20" : r.kind === "return" ? "bg-emerald-50/70 ring-emerald-200 dark:bg-emerald-950/20" : "bg-amber-50/70 ring-amber-200 dark:bg-amber-950/20") : "bg-muted/30 ring-foreground/5"}`}>
       <div className="flex items-start gap-3">
-        <span className={`grid size-9 shrink-0 place-items-center rounded-xl ${r.kind === "exit" ? "bg-red-100 text-red-700" : "bg-amber-100 text-amber-800"}`}><Icon className="size-4" /></span>
+        <span className={`grid size-9 shrink-0 place-items-center rounded-xl ${r.kind === "exit" ? "bg-red-100 text-red-700" : r.kind === "return" ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-800"}`}><Icon className="size-4" /></span>
         <div className="min-w-0 flex-1">
-          <p className="text-sm font-medium">{r.kind === "leave" ? "แจ้งลาหยุด" : "แจ้งลาออก"} · {L.student(r.studentId)?.nickname ?? r.studentNickname} <span className="font-normal text-muted-foreground">· {r.familyName} · {fmtDateTime(r.createdAt)}</span></p>
+          <p className="text-sm font-medium">{r.kind === "leave" ? "แจ้งลาหยุด" : r.kind === "return" ? "อยากกลับมาเรียน" : "แจ้งลาออก"} · {L.student(r.studentId)?.nickname ?? r.studentNickname} <span className="font-normal text-muted-foreground">· {r.familyName} · {fmtDateTime(r.createdAt)}</span></p>
           {r.kind === "leave" ? (
             <ul className="mt-1 flex flex-wrap gap-1.5 text-xs">
               {r.sessions?.map((x) => {
@@ -87,6 +95,8 @@ function RequestCard({ r }: { r: ParentRequest }) {
                 return <li key={x.sessionId} className="rounded-full bg-background px-2 py-0.5 ring-1 ring-foreground/10">{fmtDate(x.date, { weekday: true })} {x.start} · {x.subjects.join(" + ")}{a ? ` · ${a.status === "leave" ? "ลาแล้ว" : a.status === "present" ? "มาแล้ว" : a.status}` : ""}</li>
               })}
             </ul>
+          ) : r.kind === "return" ? (
+            <p className="mt-0.5 text-xs">{r.startDate ? <>อยากเริ่มเรียนราว <b>{fmtDate(r.startDate, { weekday: true, year: true })}</b></> : "ยังไม่ระบุวันเริ่ม"}</p>
           ) : (
             <p className="mt-0.5 text-xs">เรียนวันสุดท้าย <b>{fmtDate(r.lastDate!, { weekday: true, year: true })}</b>{r.reasonIds?.length ? ` · เหตุผล: ${r.reasonIds.map((id) => Loss.reasonLabel(id, system.lossReasons)).join(", ")}` : ""}</p>
           )}
@@ -105,7 +115,8 @@ function RequestCard({ r }: { r: ParentRequest }) {
           {r.kind === "leave" ? <>
             <Button size="sm" variant="outline" disabled={busy} onClick={() => recordLeave(true)}>บันทึกลา · ไม่หักโควตา</Button>
             <Button size="sm" disabled={busy} onClick={() => recordLeave(false)}><CheckIcon /> บันทึกลา · หักโควตา</Button>
-          </> : <Button size="sm" disabled={busy} onClick={acceptExit}><CheckIcon /> รับเรื่อง (แจ้งออก)</Button>}
+          </> : r.kind === "return" ? <Button size="sm" disabled={busy} onClick={acceptReturn}><CheckIcon /> รับเรื่อง · กู้คืนนักเรียน</Button>
+            : <Button size="sm" disabled={busy} onClick={acceptExit}><CheckIcon /> รับเรื่อง (แจ้งออก)</Button>}
         </div>
       )}
       {declining && (

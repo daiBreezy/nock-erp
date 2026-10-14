@@ -3,7 +3,7 @@
 // Parent app v1 (owner 2026-10-09) — what a parent sees inside LINE. Pure view of a ParentView: no store, no staff data,
 // so the same screen runs on the parent's phone (/liff/parent) and in the staff preview (Family › ดูแบบผู้ปกครอง).
 import { useState } from "react"
-import { ArrowLeftIcon, CalendarOffIcon, ClipboardPenIcon, LoaderCircleIcon, BusIcon, CalendarDaysIcon, CheckIcon, ChevronRightIcon, GraduationCapIcon, ClockIcon, DoorOpenIcon, MessageSquareTextIcon, PackageIcon, UserIcon, XIcon } from "lucide-react"
+import { ArrowLeftIcon, RotateCcwIcon, CalendarOffIcon, ClipboardPenIcon, LoaderCircleIcon, BusIcon, CalendarDaysIcon, CheckIcon, ChevronRightIcon, GraduationCapIcon, ClockIcon, DoorOpenIcon, MessageSquareTextIcon, PackageIcon, UserIcon, XIcon } from "lucide-react"
 import type { ParentChild, ParentCourseSummary, ParentView } from "@/domain/rules/parent-view"
 import { progressForSubject } from "@/domain/rules/summaries"
 import { CourseProgress } from "@/components/app/course-progress"
@@ -24,6 +24,8 @@ const DICT = {
     pickClasses: "เลือกคาบที่จะลา", noUpcoming: "ไม่มีคาบเรียนใน 30 วันข้างหน้า", noteLabel: "หมายเหตุถึงแอดมิน (ไม่บังคับ)", send: "ส่ง", sending: "กำลังส่ง…",
     lastDay: "วันเรียนวันสุดท้าย", whyLeave: "เหตุผลที่หยุดเรียน (เลือกได้หลายข้อ)", sent: "ส่งเรื่องแล้ว — แอดมินจะยืนยันกลับทาง LINE", myRequests: "เรื่องที่แจ้งไว้",
     st_new: "รอแอดมิน", st_done: "ดำเนินการแล้ว", st_declined: "ไม่ได้ดำเนินการ", preview: "ตัวอย่าง — ไม่ได้ส่งจริง", classes: (n: number) => `${n} คาบ`,
+    returnReq: "ต้องการกลับมาเรียน", returnSub: "แอดมินจะติดต่อกลับเพื่อจัดคลาสให้", startFrom: "อยากเริ่มเรียนประมาณวันที่ (ไม่บังคับ)", leftTag: "หยุดเรียน",
+    leftSince: (d: string) => `หยุดเรียนตั้งแต่ ${d}`, leftNote: "ยังดูประวัติการเข้าเรียนและสรุปการเรียนได้ตามเดิม",
   },
   en: {
     hello: "Hello", schedule: "Schedule", summaries: "Summaries", attendance: "Attendance", bus: "School bus",
@@ -37,6 +39,8 @@ const DICT = {
     pickClasses: "Classes to miss", noUpcoming: "No classes in the next 30 days", noteLabel: "Note to our staff (optional)", send: "Send", sending: "Sending…",
     lastDay: "Last day of class", whyLeave: "Why is your child stopping? (pick any)", sent: "Sent — our staff will confirm on LINE", myRequests: "Your requests",
     st_new: "Waiting", st_done: "Done", st_declined: "Not done", preview: "Preview — nothing is sent", classes: (n: number) => `${n} class${n > 1 ? "es" : ""}`,
+    returnReq: "Come back to study", returnSub: "Our staff will call to arrange a class", startFrom: "Would like to start around (optional)", leftTag: "Stopped",
+    leftSince: (d: string) => `Stopped studying since ${d}`, leftNote: "Attendance and lesson summaries are still here",
   },
   ja: {
     hello: "こんにちは", schedule: "時間割", summaries: "授業レポート", attendance: "出欠", bus: "送迎バス",
@@ -50,6 +54,8 @@ const DICT = {
     pickClasses: "お休みする授業", noUpcoming: "30日以内の授業はありません", noteLabel: "スタッフへのメモ（任意）", send: "送信", sending: "送信中…",
     lastDay: "最後の授業日", whyLeave: "退会の理由（複数選択可）", sent: "送信しました — スタッフがLINEでご連絡します", myRequests: "送信した連絡",
     st_new: "確認待ち", st_done: "対応済み", st_declined: "対応なし", preview: "プレビュー（送信されません）", classes: (n: number) => `${n}回`,
+    returnReq: "再入会したい", returnSub: "スタッフからクラスのご相談のご連絡をします", startFrom: "再開希望日（任意）", leftTag: "退会",
+    leftSince: (d: string) => `${d}から休会中`, leftNote: "出欠と授業レポートは引き続きご覧いただけます",
   },
 }
 
@@ -68,6 +74,7 @@ type Tab = "schedule" | "summaries" | "attendance" | "bus" | "request"
 
 /** what the parent sends — the LIFF page posts it with LINE's proof of who they are */
 export type ParentRequestInput = { kind: "leave"; studentId: string; sessionIds: string[]; note?: string } | { kind: "exit"; studentId: string; lastDate: string; reasonIds: string[]; note?: string }
+  | { kind: "return"; studentId: string; startDate?: string; note?: string }
 
 /** `framed` = inside the staff preview's phone frame: the tab bar sticks to the frame, not the browser window */
 export function ParentApp({ view, lang: initialLang, today, framed, openCourseSummary, onRequest, requests, openAction }: { view: ParentView; lang?: FormLang; today: string; framed?: boolean
@@ -117,7 +124,7 @@ export function ParentApp({ view, lang: initialLang, today, framed, openCourseSu
           <div className="mt-3 flex gap-1.5 overflow-x-auto">
             {view.children.map((c) => (
               <button key={c.id} type="button" onClick={() => setChildId(c.id)} className={cn("flex shrink-0 items-center gap-1.5 rounded-full px-3 py-1 text-sm", c.id === child?.id ? "bg-white font-medium text-foreground" : "bg-white/20")}>
-                <UserIcon className="size-3.5" />{nick(c)} <span className="text-xs opacity-70">{c.grade}</span>
+                <UserIcon className="size-3.5" />{nick(c)} <span className="text-xs opacity-70">{c.left ? t.leftTag : c.grade}</span>
               </button>
             ))}
           </div>
@@ -125,7 +132,14 @@ export function ParentApp({ view, lang: initialLang, today, framed, openCourseSu
       </header>
 
       <main className={cn("flex-1 space-y-3 p-3", framed ? "pb-3" : "pb-24")}>
-        {!child ? null : tab === "schedule" ? <Schedule child={child} t={t} dayLabel={dayLabel} lang={lang} /> : tab === "summaries" ? (() => {
+        {!child ? null : tab === "schedule" && child.left ? (
+          // owner 2026-10-14: a child who left — history stays, and the family can ask to come back
+          <section className="space-y-2 rounded-2xl bg-background p-4 text-center shadow-sm">
+            <p className="font-medium">{t.leftSince(fmtDay(child.left.since, lang))}</p>
+            <p className="text-sm text-muted-foreground">{t.leftNote}</p>
+            <button type="button" onClick={() => setTab("request")} className="mx-auto mt-1 flex h-10 items-center gap-2 rounded-full bg-primary px-5 text-sm font-medium text-primary-foreground">{t.returnReq}</button>
+          </section>
+        ) : tab === "schedule" ? <Schedule child={child} t={t} dayLabel={dayLabel} lang={lang} /> : tab === "summaries" ? (() => {
           const open = csId ? child.courseSummaries?.find((x) => x.id === csId) : undefined
           if (open) return <CourseEnd cs={open} t={t} lang={lang} onBack={() => setCsId(null)} />
           const ends = child.courseSummaries ?? []
@@ -323,7 +337,8 @@ function RequestTab({ view, child, t, lang, today, onRequest, requests, initial 
   view: ParentView; child: ParentChild; t: T; lang: FormLang; today: string
   onRequest?: (input: ParentRequestInput) => Promise<{ ok: boolean; error?: string }>; requests?: ParentRequest[]; initial?: "leave" | "exit"
 }) {
-  const [mode, setMode] = useState<"leave" | "exit" | null>(initial ?? null)
+  const [mode, setMode] = useState<"leave" | "exit" | "return" | null>(child.left ? "return" : initial ?? null)
+  const [startDate, setStartDate] = useState("")
   const [picked, setPicked] = useState<string[]>([])
   const [lastDate, setLastDate] = useState(child.packages.map((p) => p.until).sort().at(-1) ?? today)
   const [reasons, setReasons] = useState<string[]>([])
@@ -336,20 +351,22 @@ function RequestTab({ view, child, t, lang, today, onRequest, requests, initial 
   const submit = async () => {
     if (!onRequest || !mode) return
     setBusy(true)
-    const r = await onRequest(mode === "leave" ? { kind: "leave", studentId: child.id, sessionIds: picked, note } : { kind: "exit", studentId: child.id, lastDate, reasonIds: reasons, note })
+    const r = await onRequest(mode === "leave" ? { kind: "leave", studentId: child.id, sessionIds: picked, note }
+      : mode === "return" ? { kind: "return", studentId: child.id, startDate: startDate || undefined, note }
+      : { kind: "exit", studentId: child.id, lastDate, reasonIds: reasons, note })
     setBusy(false)
     setMsg(r.ok ? { ok: true, text: t.sent } : { ok: false, text: r.error ?? "ส่งไม่สำเร็จ" })
-    if (r.ok) { setMode(null); setPicked([]); setReasons([]); setNote("") }
+    if (r.ok) { setMode(null); setPicked([]); setReasons([]); setNote(""); setStartDate("") }
   }
-  const ready = mode === "leave" ? picked.length > 0 : mode === "exit" ? !!lastDate : false
+  const ready = mode === "leave" ? picked.length > 0 : mode === "exit" ? !!lastDate : mode === "return"
   return (
     <div className="space-y-3">
       {msg && <p className={cn("rounded-2xl p-3 text-sm", msg.ok ? "bg-emerald-50 text-emerald-800" : "bg-red-50 text-red-800")}>{msg.text}</p>}
       {!mode ? (
         <div className="grid gap-2">
-          {([["leave", CalendarOffIcon, t.leaveReq, t.leaveReqSub], ["exit", DoorOpenIcon, t.exitReq, t.exitReqSub]] as const).map(([k, Icon, title, sub]) => (
+          {(child.left ? [["return", RotateCcwIcon, t.returnReq, t.returnSub]] as const : [["leave", CalendarOffIcon, t.leaveReq, t.leaveReqSub], ["exit", DoorOpenIcon, t.exitReq, t.exitReqSub]] as const).map(([k, Icon, title, sub]) => (
             <button key={k} type="button" onClick={() => { setMode(k); setMsg(null) }} className="flex items-center gap-3 rounded-2xl bg-background p-4 text-left shadow-sm">
-              <span className={cn("grid size-11 shrink-0 place-items-center rounded-xl", k === "leave" ? "bg-amber-100 text-amber-800" : "bg-red-100 text-red-700")}><Icon className="size-5" /></span>
+              <span className={cn("grid size-11 shrink-0 place-items-center rounded-xl", k === "leave" ? "bg-amber-100 text-amber-800" : k === "return" ? "bg-emerald-100 text-emerald-700" : "bg-red-100 text-red-700")}><Icon className="size-5" /></span>
               <span className="min-w-0 flex-1"><span className="block font-medium">{title}</span><span className="block text-xs text-muted-foreground">{sub}</span></span>
               <ChevronRightIcon className="size-4 text-muted-foreground" />
             </button>
@@ -358,8 +375,12 @@ function RequestTab({ view, child, t, lang, today, onRequest, requests, initial 
       ) : (
         <section className="space-y-3 rounded-2xl bg-background p-3 shadow-sm">
           <button type="button" onClick={() => setMode(null)} className="flex items-center gap-1 text-sm text-muted-foreground"><ArrowLeftIcon className="size-4" />{t.back}</button>
-          <p className="text-lg font-semibold">{mode === "leave" ? t.leaveReq : t.exitReq}</p>
-          {mode === "leave" ? (
+          <p className="text-lg font-semibold">{mode === "leave" ? t.leaveReq : mode === "return" ? t.returnReq : t.exitReq}</p>
+          {mode === "return" ? (
+            <label className="block space-y-1"><span className="text-xs font-medium text-muted-foreground">{t.startFrom}</span>
+              <input type="date" min={today} value={startDate} onChange={(e) => setStartDate(e.target.value)} className="h-10 w-full rounded-xl border bg-background px-3 text-sm" />
+            </label>
+          ) : mode === "leave" ? (
             <div className="space-y-1.5">
               <p className="text-xs font-medium text-muted-foreground">{t.pickClasses}</p>
               {classes.length === 0 ? <Empty text={t.noUpcoming} /> : classes.map((c) => {
@@ -404,7 +425,7 @@ function RequestTab({ view, child, t, lang, today, onRequest, requests, initial 
           {mine.map((r) => (
             <article key={r.id} className="rounded-2xl bg-background p-3 text-sm shadow-sm">
               <div className="flex items-center gap-2">
-                <span className="min-w-0 flex-1 font-medium">{r.kind === "leave" ? `${t.leaveReq} · ${t.classes(r.sessions?.length ?? 0)}` : `${t.exitReq} · ${fmtDay(r.lastDate!, lang)}`}</span>
+                <span className="min-w-0 flex-1 font-medium">{r.kind === "leave" ? `${t.leaveReq} · ${t.classes(r.sessions?.length ?? 0)}` : r.kind === "return" ? t.returnReq : `${t.exitReq} · ${fmtDay(r.lastDate!, lang)}`}</span>
                 <span className={cn("rounded-full px-2 py-0.5 text-[11px]", r.status === "new" ? "bg-amber-100 text-amber-900" : r.status === "done" ? "bg-emerald-100 text-emerald-800" : "bg-muted text-muted-foreground")}>{t[`st_${r.status}`]}</span>
               </div>
               {r.kind === "leave" && <p className="text-xs text-muted-foreground">{r.sessions?.map((x) => `${fmtDay(x.date, lang)} ${x.start}`).join(" · ")}</p>}

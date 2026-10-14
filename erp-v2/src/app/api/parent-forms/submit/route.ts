@@ -12,6 +12,7 @@ export async function POST(req: Request) {
   if (!r.ok) return NextResponse.json(r)
   const lineUserId = r.token.conversationId?.startsWith("line_") ? r.token.conversationId.slice(5) : null
   // shows in the Inbox thread as the parent's message, so the admin sees it came back
-  if (lineUserId) await recordInboundMessage(lineUserId, null, `📋 ส่งแบบฟอร์มแจ้งออกของ ${r.token.students.map((s) => s.nickname).join(", ")} แล้ว`).catch(() => undefined)
+  if (lineUserId) await recordInboundMessage(lineUserId, null, `📋 ส่งแบบฟอร์มแจ้งออกของ ${r.token.students.map((s) => s.nickname).join(", ")} แล้ว`,
+    { meta: { formKind: "exit_form", token: body.token, studentIds: r.token.students.map((s) => s.id) } }).catch(() => undefined)
   return NextResponse.json({ ok: true })
 }

@@ -2091,6 +2091,15 @@ describe("parent app v1 (owner 2026-10-09)", () => {
     expect(c.attendance).toHaveLength(1)
     expect(v.lineUserIds).toEqual(["U1"])
   })
+  it("a child who left stays (history only) so the family can look back and ask to return (owner 2026-10-14)", () => {
+    const gone = { ...kid, archived: { at: "2026-10-01T00:00:00Z", by: "u", reason: "x" }, exit: { status: "closed", lastDate: "2026-09-30", sentAt: "", sentBy: "u" } } as unknown as Student
+    const sessions = [ses("past", "2026-09-28"), ses("soon", "2026-10-12")]
+    const v = parentView(fam, { ...base, students: [gone], sessions, attendance: [{ sessionId: "past", studentId: "a", status: "present", markedBy: "t1", markedAt: "" }], summaries: [] })
+    const c = v.children[0]
+    expect(c.left).toEqual({ since: "2026-09-30" })
+    expect(c.upcoming).toEqual([])
+    expect(c.attendance).toHaveLength(1)
+  })
   it("bus days come from paid / sent invoices and extra days — never drafts or void", () => {
     const inv = (status: Invoice["status"], date: string) => ({ studentId: "a", status, bus: [{ date, pickup: true, dropoff: false }] }) as unknown as Invoice
     const m = busDaysOf("a", [inv("paid", "2026-10-12"), inv("draft", "2026-10-13"), inv("void", "2026-10-14")], [{ studentId: "a", date: "2026-10-12", pickup: false, dropoff: true } as BusAddOn])

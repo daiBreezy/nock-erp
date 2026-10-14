@@ -18,6 +18,7 @@ import { ComposeDialog } from "@/components/inbox/compose-dialog"
 import { FormRequestBubble } from "@/components/inbox/form-request-bubble"
 import { FormSubmissionBubble } from "@/components/inbox/form-submission-bubble"
 import { MessageBubble } from "@/components/inbox/message-bubble"
+import { ExitFormChatCard, isExitFormMessage, ParentRequestChatCard } from "@/components/inbox/parent-cards"
 import { SendFormDialog } from "@/components/inbox/send-form-dialog"
 import { LeadDialog } from "@/components/crm/lead-dialog"
 import { LeadSheet } from "@/components/crm/lead-sheet"
@@ -349,6 +350,8 @@ export default function InboxPage() {
                 {thread.map((m) => {
                   if (m.kind === "form_request") return <FormRequestBubble key={m.id} message={m} submissions={submissions} />
                   if (m.kind === "form_submission") return <FormSubmissionBubble key={m.id} message={m} conversation={selected} submissions={submissions} onChanged={pollSubmissions} />
+                  if (isExitFormMessage(m)) return <ExitFormChatCard key={m.id} message={m} conversation={selected} />
+                  if (m.meta?.formKind === "parent_request") return <ParentRequestChatCard key={m.id} message={m} />
                   return <MessageBubble key={m.id} message={m} conversation={selected} staff={staff} onUseAsSlip={useAsSlip} />
                 })}
               </div>

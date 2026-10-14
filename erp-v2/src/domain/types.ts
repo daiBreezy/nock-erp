@@ -825,7 +825,8 @@ export interface ClassMove {
  */
 export interface ParentRequest {
   id: ID
-  kind: "leave" | "exit"
+  /** return = a child who left wants to come back (owner 2026-10-14) */
+  kind: "leave" | "exit" | "return"
   familyId: ID
   familyName: string
   branchId?: ID
@@ -835,6 +836,8 @@ export interface ParentRequest {
   createdAt: string
   /** leave: the classes the child will miss */
   sessions?: { sessionId: ID; date: DateStr; start: TimeStr; subjects: string[] }[]
+  /** return: when they'd like to start again */
+  startDate?: DateStr
   /** exit: last day + why */
   lastDate?: DateStr
   reasonIds?: ID[]
@@ -1012,7 +1015,20 @@ export interface ImageMeta {
   mediaId: string
 }
 
-export type ChatMessageMeta = FormRequestMeta | FormSubmissionMeta | ImageMeta
+/** the parent sent the exit form back — the chat shows the answers with ปิดการออก / ไม่ออกแล้ว (owner 2026-10-14) */
+export interface ExitFormMeta {
+  formKind: "exit_form"
+  token: string
+  studentIds: ID[]
+}
+
+/** แจ้งลา / แจ้งลาออก / กลับมาเรียน sent from the parent app — handled right in the chat (owner 2026-10-14) */
+export interface ParentRequestMeta {
+  formKind: "parent_request"
+  requestId: ID
+}
+
+export type ChatMessageMeta = FormRequestMeta | FormSubmissionMeta | ImageMeta | ExitFormMeta | ParentRequestMeta
 
 export interface ChatMessage {
   id: ID

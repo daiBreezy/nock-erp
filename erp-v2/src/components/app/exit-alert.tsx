@@ -67,7 +67,7 @@ export function ParentRequestWatcher() {
       const fresh = sync(reqs)
       if (!canHandle) return
       fresh.slice(0, 3).forEach((r) => toast.warning(
-        r.kind === "leave" ? `ผู้ปกครองแจ้งลา · ${r.studentNickname} ${r.sessions?.length ?? 0} คาบ` : `ผู้ปกครองแจ้งลาออก · ${r.studentNickname}`,
+        r.kind === "leave" ? `ผู้ปกครองแจ้งลา · ${r.studentNickname} ${r.sessions?.length ?? 0} คาบ` : r.kind === "return" ? `ผู้ปกครองอยากกลับมาเรียน · ${r.studentNickname}` : `ผู้ปกครองแจ้งลาออก · ${r.studentNickname}`,
         { description: `${r.familyName} ส่งมาทาง LINE${r.note ? ` — "${r.note}"` : ""}`, duration: 20000, action: { label: "จัดการ", onClick: () => router.push("/notifications?topic=requests") } },
       ))
     }
