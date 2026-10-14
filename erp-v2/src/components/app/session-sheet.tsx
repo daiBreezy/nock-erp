@@ -28,7 +28,7 @@ import type { SummaryLesson } from "@/store/store"
 import { CatalogCombo, CatalogManager } from "./lesson-picker"
 import { assessmentIn, FORM_TYPE_LABEL, sessionKindLabel } from "@/domain/rules/forms"
 import { can } from "@/domain/rules/permissions"
-import { canChangeTeachers, canMoveToClass, canRescheduleStudent, findConflicts, mondayOf, movesOf, MOVE_UNDO_ACTION, RESCHEDULE_WEEKS, sessionState, subjectsOf, classCapacity } from "@/domain/rules/scheduling"
+import { canChangeTeachers, canMoveToClass, canUndoClassMove, canRescheduleStudent, findConflicts, mondayOf, movesOf, MOVE_UNDO_ACTION, RESCHEDULE_WEEKS, sessionState, subjectsOf, classCapacity } from "@/domain/rules/scheduling"
 import * as Sum from "@/domain/rules/summaries"
 import { SUMMARY_STATUS_LABEL } from "@/domain/rules/summaries"
 import type { ID, LessonSummary, Seat, Session } from "@/domain/types"
@@ -273,6 +273,9 @@ function StudentRow({ s, sid, viewOnly, canManage, mine, text, setText, selectab
   const summaries = useStore((st) => st.summaries)
   // owner 2026-10-14: everyone may move a student (a teacher in their own sessions) — every move is logged
   const canMove = useStore((st) => can(st.me(), "student.move")) && !viewOnly && (canManage || mine)
+  // a permanent move into this class (owner 2026-10-14) — can be taken back until the new class has been taught
+  const classMove = useStore((st) => (st.classMoves ?? []).findLast((m) => m.studentId === sid && !m.undoneAt && m.toClassId === s.classId && m.joinedSessionIds.includes(s.id)))
+  const undoClassMove = useStore((st) => st.undoClassMove)
   const rawEnts = useStore((st) => st.entitlements)
   const leaves = useStore((st) => st.leaves)
   const classes = useStore((st) => st.classes)
@@ -394,6 +397,12 @@ function StudentRow({ s, sid, viewOnly, canManage, mine, text, setText, selectab
         ) : <span className="w-8 shrink-0" />}
       </div>
 
+      {classMove && (
+        <p className={cn(indent, "flex flex-wrap items-center gap-x-2 text-xs text-sky-700")}>
+          ย้ายคลาสถาวรมาจาก {classes.find((k) => k.id === classMove.fromClassId)?.name ?? "คลาสเดิม"} · {fmtDateTime(classMove.at)}
+          {canMove && canUndoClassMove(classMove, attendance).ok && <button type="button" className="underline" onClick={() => report(undoClassMove(classMove.id), "ย้อนกลับแล้ว — กลับไปคลาสเดิม")}>ย้อนกลับ</button>}
+        </p>
+      )}
       {movedFrom && (
         <p className={cn(indent, "text-xs text-sky-700")}>
           ย้ายมาจาก <button type="button" className="underline" onClick={() => setOtherSession(movedFrom.id)}>{fmtDate(movedFrom.date, { weekday: true })} {movedFrom.start}–{endTime(movedFrom.start, movedFrom.minutes)}{classes.find((k) => k.id === movedFrom.classId) ? ` · ${classes.find((k) => k.id === movedFrom.classId)!.name}` : ""}</button>

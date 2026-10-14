@@ -801,6 +801,24 @@ export interface ExitAnswers {
   lang: FormLang
 }
 
+/** one ย้ายคลาสถาวร (owner 2026-10-14) — kept so it can be taken back while the new class hasn't been taught yet */
+export interface ClassMove {
+  id: ID
+  studentId: ID
+  fromClassId: ID
+  toClassId: ID
+  /** the session it took effect from */
+  fromSessionId: ID
+  at: string
+  by: ID
+  leftSessionIds: ID[]
+  joinedSessionIds: ID[]
+  /** packages that got the new class added */
+  entitlementIds: ID[]
+  undoneAt?: string
+  undoneBy?: ID
+}
+
 /**
  * แจ้งลาหยุด / แจ้งลาออก sent by a parent from the parent app in LINE (owner 2026-10-14) — stored on the server
  * (the parent's phone can't reach the ERP's data); the office team sees it, acts in the ERP, and the parent is told.

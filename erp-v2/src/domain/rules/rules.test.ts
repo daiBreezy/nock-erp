@@ -1,7 +1,7 @@
 // Regression tests: each case reproduces a bug found on Dev staging and proves the rule prevents it.
 import { describe, expect, it } from "vitest"
 import type { DevTicket, NockAnswer, NockQuestion, Role, Assessment, Attendance, Branch, BusAddOn, CreditNote, LessonSummary, Course, Entitlement, Family, FormSubmission, Lead, Student, FormOfferSlot, Holiday, Invoice, Klass, Session, Staff, StudentLeave, Weekday } from "../types"
-import { applyClassEdit, applyToSessions, canChangeTeachers, canMoveToClass, canRescheduleStudent, movesOf, mondayOf, removedWithClass, canSave, closesBranch, holidayImpact, hoursFor, isHoliday, overlappingRows, periodsIn, introducedConflicts, editSingleSession, findConflicts, generateSessions, moveSession, sessionState, validateClass, workState } from "./scheduling"
+import { applyClassEdit, applyToSessions, canChangeTeachers, canMoveToClass, canUndoClassMove, canRescheduleStudent, movesOf, mondayOf, removedWithClass, canSave, closesBranch, holidayImpact, hoursFor, isHoliday, overlappingRows, periodsIn, introducedConflicts, editSingleSession, findConflicts, generateSessions, moveSession, sessionState, validateClass, workState } from "./scheduling"
 import { activeLeave, nextClassDates, teacherLeaveCancels, leaveRunSessions, balance, studentState, leaveLedger, packageCovers, canMark, canSaveLeave, coveringEntitlement, effectiveTo, leavesUsed, lowBalanceAlert, removeFromClass, renewalFollowUpDue, resolveEntitlements } from "./attendance"
 import { bestPromotion, duplicateBusDay, billedOn, busAddOnAmount, pendingBusAddOns, validateBusAddOn, carriedMinutes, weekKey, classOptionsFor, defaultAdvance, entryFeeWaiver, invoiceSessionDates, invoiceTotals, validateInvoiceDraft, canApprove, canConfirmPayment, canForceApprove, canForceConfirmPayment, canSend, canVoid, defaultBusLegs, busTotal, nextInvoiceNumber, quoteCourse } from "./billing"
 import { can } from "./permissions"
@@ -2404,5 +2404,15 @@ describe("แจ้งออก stays visible until closed (owner 2026-10-14)", 
     expect(exitPending(ex("closed", "2026-10-10"), "2026-10-14")).toBeNull()
     expect(exitPending({ ...ex("sent", "2026-10-20"), archived: { at: "", by: "u", reason: "x" } }, "2026-10-14")).toBeNull()
     expect(exitPending({}, "2026-10-14")).toBeNull()
+  })
+})
+
+describe("ย้อนกลับย้ายคลาสถาวร (owner 2026-10-14)", () => {
+  it("only until the student is checked in at the new class, and only once", () => {
+    const m = { studentId: "a", joinedSessionIds: ["n1", "n2"] }
+    expect(canUndoClassMove(m, []).ok).toBe(true)
+    expect(canUndoClassMove(m, [{ sessionId: "x", studentId: "a" }, { sessionId: "n1", studentId: "b" }]).ok).toBe(true)
+    expect(canUndoClassMove(m, [{ sessionId: "n2", studentId: "a" }]).ok).toBe(false)
+    expect(canUndoClassMove({ ...m, undoneAt: "2026-10-14T00:00:00Z" }, []).ok).toBe(false)
   })
 })

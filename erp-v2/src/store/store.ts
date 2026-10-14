@@ -30,7 +30,7 @@ import * as Survey from "@/domain/rules/survey"
 import * as Nock from "@/domain/rules/nock"
 import * as Dev from "@/domain/rules/dev-tickets"
 import { toast } from "sonner"
-import type { ParentRequest, DevTicket, DevTicketStatus, NockAnswer, NockQuestion, Role, SurveyCampaign, SurveyResponse, EnrollSubmission, ContactChannel, ContactResult, LossReason, Assessment, AttendanceStatus, Entitlement, Branch, BusAddOn, ClassBlock, CourseSummary, CreditNote, LessonBook, LessonTopic, Seat, ChatMessage, Conversation, Course, DateStr, Family, FormSubmission, Holiday, ID, Invoice, Klass, Lead, LeadStage, LessonSummary, LineDelivery, LogCategory, Result, Session, Staff, Student, SystemConfig } from "@/domain/types"
+import type { ClassMove, ParentRequest, DevTicket, DevTicketStatus, NockAnswer, NockQuestion, Role, SurveyCampaign, SurveyResponse, EnrollSubmission, ContactChannel, ContactResult, LossReason, Assessment, AttendanceStatus, Entitlement, Branch, BusAddOn, ClassBlock, CourseSummary, CreditNote, LessonBook, LessonTopic, Seat, ChatMessage, Conversation, Course, DateStr, Family, FormSubmission, Holiday, ID, Invoice, Klass, Lead, LeadStage, LessonSummary, LineDelivery, LogCategory, Result, Session, Staff, Student, SystemConfig } from "@/domain/types"
 
 export interface UIState {
   userId: ID
@@ -166,6 +166,9 @@ type Store = DB & UIState & {
   rescheduleStudent: (fromSessionId: ID, studentId: ID, toSessionId: ID) => Result
   /** owner 2026-10-14: ย้ายวันถาวร — from this session on, the student is in another class of the same subject */
   moveStudentToClass: (fromSessionId: ID, studentId: ID, toClassId: ID) => Result<{ added: number; removed: number }>
+  /** every ย้ายคลาสถาวร, for taking one back */
+  classMoves: ClassMove[]
+  undoClassMove: (moveId: ID) => Result
   undoReschedule: (fromSessionId: ID, studentId: ID) => Result
 
   saveSummary: (sessionId: ID, studentId: ID, text: string, submit: boolean, lesson?: SummaryLesson) => Result
@@ -425,6 +428,10 @@ export const useStore = create<Store>()(
         const s = get()
         const seen = new Set(s.seenParentRequests ?? [])
         const fresh = reqs.filter((r) => r.status === "new" && !seen.has(r.id))
+        // polled every 20 s — write only when something changed (a write re-saves the whole store, and would undo
+        // what another open tab just did)
+        const key = (xs: ParentRequest[]) => xs.map((r) => `${r.id}:${r.status}:${r.handledAt ?? ""}`).join("|")
+        if (!fresh.length && key(reqs) === key(s.parentRequests ?? [])) return []
         const notes = fresh.map((r) => Notif.notify({
           id: uid("no"), at: new Date(r.createdAt), kind: "parent_request",
           title: r.kind === "leave" ? `ผู้ปกครองแจ้งลา · ${r.studentNickname} ${r.sessions?.length ?? 0} คาบ` : `ผู้ปกครองแจ้งลาออก · ${r.studentNickname}`,
@@ -1610,7 +1617,10 @@ export const useStore = create<Store>()(
         const leaving = s.sessions.filter((x) => x.classId === oldClass.id && x.date >= from.date && x.studentIds.includes(studentId) && Sch.sessionState(x, now) === "upcoming" && !marked(x.id))
         const joining = s.sessions.filter((x) => x.classId === to.id && x.date >= from.date && !x.cancelled && !x.studentIds.includes(studentId) && Sch.sessionState(x, now) === "upcoming")
         const leaveIds = new Set(leaving.map((x) => x.id)), joinIds = new Set(joining.map((x) => x.id))
+        const widened = s.entitlements.filter((e) => e.studentId === studentId && e.to >= from.date && e.classIds.includes(oldClass.id) && !e.classIds.includes(to.id)).map((e) => e.id)
+        const move: ClassMove = { id: uid("mv"), studentId, fromClassId: oldClass.id, toClassId: to.id, fromSessionId: from.id, at: now.toISOString(), by: s.userId, leftSessionIds: [...leaveIds], joinedSessionIds: [...joinIds], entitlementIds: widened }
         set({
+          classMoves: [...(s.classMoves ?? []), move],
           classes: s.classes.map((k) => (k.id === oldClass.id ? { ...k, studentIds: k.studentIds.filter((y) => y !== studentId) } : k.id === to.id ? { ...k, studentIds: [...k.studentIds, studentId] } : k)),
           sessions: s.sessions.map((x) => (leaveIds.has(x.id) ? { ...x, studentIds: x.studentIds.filter((y) => y !== studentId) } : joinIds.has(x.id) ? { ...x, studentIds: [...x.studentIds, studentId] } : x)),
           // the running package now pays for the new class too — its end date stays (owner 2026-10-14: no extension)
@@ -1619,6 +1629,30 @@ export const useStore = create<Store>()(
         const when = (k: typeof to) => `ทุก${TH_DAYS_FULL[k.weekday]} ${k.start}`
         log("class", [studentId], Sch.MOVE_CLASS_ACTION, `${oldClass.name} (${when(oldClass)}) → ${to.name} (${when(to)}) · มีผลตั้งแต่ ${fmtDate(from.date, { weekday: true, year: true })} · ออก ${leaving.length} คาบ · เข้า ${joining.length} คาบ`)
         return { ok: true, value: { added: joining.length, removed: leaving.length }, warnings: r.warnings }
+      },
+
+      classMoves: [],
+
+      undoClassMove: (moveId) => {
+        const s = get()
+        const perm = requirePerm(s.me(), "student.move")
+        if (!perm.ok) return perm
+        const m = (s.classMoves ?? []).find((x) => x.id === moveId)
+        if (!m) return fail("ไม่พบการย้ายนี้")
+        const r = Sch.canUndoClassMove(m, s.attendance)
+        if (!r.ok) return r
+        const now = s.now()
+        const upcoming = (id: ID) => { const x = s.sessions.find((y) => y.id === id); return !!x && Sch.sessionState(x, now) === "upcoming" }
+        const back = new Set(m.leftSessionIds.filter(upcoming)), out = new Set(m.joinedSessionIds.filter(upcoming))
+        const oldClass = s.classes.find((k) => k.id === m.fromClassId), newClass = s.classes.find((k) => k.id === m.toClassId)
+        set({
+          classes: s.classes.map((k) => (k.id === m.toClassId ? { ...k, studentIds: k.studentIds.filter((y) => y !== m.studentId) } : k.id === m.fromClassId && !k.studentIds.includes(m.studentId) ? { ...k, studentIds: [...k.studentIds, m.studentId] } : k)),
+          sessions: s.sessions.map((x) => (out.has(x.id) ? { ...x, studentIds: x.studentIds.filter((y) => y !== m.studentId) } : back.has(x.id) && !x.studentIds.includes(m.studentId) ? { ...x, studentIds: [...x.studentIds, m.studentId] } : x)),
+          entitlements: s.entitlements.map((e) => (m.entitlementIds.includes(e.id) ? { ...e, classIds: e.classIds.filter((c) => c !== m.toClassId) } : e)),
+          classMoves: s.classMoves.map((x) => (x.id === moveId ? { ...x, undoneAt: now.toISOString(), undoneBy: s.userId } : x)),
+        })
+        log("class", [m.studentId], Sch.MOVE_UNDO_ACTION, `ย้อนกลับย้ายคลาสถาวร: ${newClass?.name ?? "?"} → กลับ ${oldClass?.name ?? "?"} · คืน ${back.size} คาบ`)
+        return OK
       },
 
       removeStudentFromClass: (classId, studentId) => {

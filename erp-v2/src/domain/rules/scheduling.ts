@@ -3,7 +3,7 @@
 
 import { subjectsAt, worksOn } from "./permissions"
 import { addDays, at, endTime, fmtDate, fromMinutes, nextWeekday, overlaps, parseDate, toMinutes, weekdayOf } from "../dates"
-import type { ClassBlock, Course, DayBlocks, Attendance, Branch, DateStr, Holiday, ID, Klass, Result, Session, SpecialPeriod, Staff, TimeStr, Weekday } from "../types"
+import type { ClassBlock, ClassMove, Course, DayBlocks, Attendance, Branch, DateStr, Holiday, ID, Klass, Result, Session, SpecialPeriod, Staff, TimeStr, Weekday } from "../types"
 
 export const GENERATE_WEEKS = 8
 /** Soft limits only (owner 2026-09-30): a class takes any number of students — the app warns above 6, and above 3 for a
@@ -480,6 +480,13 @@ export function movesOf<L extends { studentIds: ID[]; action: string; at: string
  * session on the student is in another class of the same subject. The package keeps its end date — the new class gives
  * whatever sessions fall before it (no extension).
  */
+/** a permanent move can be taken back until the student has been checked in at the new class (owner 2026-10-14) */
+export function canUndoClassMove(m: Pick<ClassMove, "studentId" | "joinedSessionIds" | "undoneAt">, attendance: Pick<Attendance, "sessionId" | "studentId">[]): Result {
+  if (m.undoneAt) return { ok: false, error: "ย้อนกลับไปแล้ว" }
+  if (attendance.some((a) => a.studentId === m.studentId && m.joinedSessionIds.includes(a.sessionId))) return { ok: false, error: "เช็คชื่อในคลาสใหม่แล้ว — ย้อนกลับไม่ได้ ใช้ย้ายคลาสอีกครั้งแทน" }
+  return { ok: true, value: undefined }
+}
+
 /** any open class in the branch — subject, grade, day and time are the admin's call (owner 2026-10-14); a different
  *  grade or a full class only warns */
 export function canMoveToClass(from: Session, to: Pick<Klass, "id" | "active" | "branchId" | "studentIds" | "subject" | "subjects" | "type"> & { grades?: string[] }, studentId: ID, now: Date, grade?: string): Result {

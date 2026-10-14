@@ -25,7 +25,7 @@ import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { fmtDate, fmtDateTime } from "@/domain/dates"
-import { CHANNEL_LABEL, CONVERSATION_TYPE_LABEL, conversationType, type ConversationType, SOURCE_OF_CHANNEL, unreadCount } from "@/domain/rules/inbox"
+import { CHANNEL_LABEL, CONVERSATION_TYPE_LABEL, conversationName, conversationType, type ConversationType, SOURCE_OF_CHANNEL, unreadCount } from "@/domain/rules/inbox"
 import { can } from "@/domain/rules/permissions"
 import type { ChatMessage, Conversation, FormSubmission, FormType, ID, Student } from "@/domain/types"
 import { report } from "@/lib/feedback"
@@ -38,11 +38,12 @@ const clampWidth = (w: number) => Math.min(480, Math.max(240, Math.round(w)))
 
 export default function InboxPage() {
   const branch = useBranch()
-  const conversations = useStore((s) => s.conversations).filter((c) => c.branchId === branch.id)
-  const messages = useStore((s) => s.messages)
-  const staff = useStore((s) => s.staff)
   const families = useStore((s) => s.families)
   const leads = useStore((s) => s.leads)
+  // the linked family's / lead's current name — never a stale copy
+  const conversations = useStore((s) => s.conversations).filter((c) => c.branchId === branch.id).map((c) => ({ ...c, name: conversationName(c, families, leads) }))
+  const messages = useStore((s) => s.messages)
+  const staff = useStore((s) => s.staff)
   const students = useStore((s) => s.students)
   const openConversation = useStore((s) => s.openConversation)
   const assign = useStore((s) => s.assignConversation)
