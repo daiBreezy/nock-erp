@@ -801,6 +801,34 @@ export interface ExitAnswers {
   lang: FormLang
 }
 
+/**
+ * แจ้งลาหยุด / แจ้งลาออก sent by a parent from the parent app in LINE (owner 2026-10-14) — stored on the server
+ * (the parent's phone can't reach the ERP's data); the office team sees it, acts in the ERP, and the parent is told.
+ */
+export interface ParentRequest {
+  id: ID
+  kind: "leave" | "exit"
+  familyId: ID
+  familyName: string
+  branchId?: ID
+  lineUserId: string
+  studentId: ID
+  studentNickname: string
+  createdAt: string
+  /** leave: the classes the child will miss */
+  sessions?: { sessionId: ID; date: DateStr; start: TimeStr; subjects: string[] }[]
+  /** exit: last day + why */
+  lastDate?: DateStr
+  reasonIds?: ID[]
+  /** free text from the parent (both kinds) */
+  note?: string
+  status: "new" | "done" | "declined"
+  handledAt?: string
+  handledBy?: ID
+  /** what the school did / why not — also what the parent sees */
+  result?: string
+}
+
 /** A link sent to a family for the exit form (server-side, like Test/Trial tokens). */
 export interface ExitToken {
   token: string
@@ -845,6 +873,8 @@ export interface StudentExit {
   note?: string
   closedAt?: string
   closedBy?: ID
+  /** the parent told us themselves from LINE (ParentRequest) — no separate exit form needed */
+  fromParentRequest?: ID
 }
 
 export type ContactChannel = "call" | "line" | "other"
@@ -1154,6 +1184,8 @@ export type NotificationKind =
   | "force_approved" | "message" | "nock"
   /** owner 2026-10-14: a student gave notice (แจ้งออก) — pops up for the office team */
   | "student_exit"
+  /** owner 2026-10-14: a parent sent แจ้งลา / แจ้งลาออก from LINE */
+  | "parent_request"
 
 /** One internal notification — the single team-communication channel (see domain/rules/notifications.ts). */
 export interface AppNotification {

@@ -1,9 +1,10 @@
 "use client"
 
+import { ParentRequestsList } from "@/components/app/parent-requests"
 import { Page, PageHeader } from "@/components/app/page-layout"
 import Link from "next/link"
 import { useState } from "react"
-import { AlertTriangleIcon, BellIcon, CalendarDaysIcon, CheckCheckIcon, ClipboardListIcon, FileTextIcon, MessageSquareIcon, MessageSquarePlusIcon, NotebookPenIcon, ReceiptIcon, RefreshCwIcon, SendIcon, ShieldAlertIcon, UserXIcon, WalletIcon, XIcon } from "lucide-react"
+import { AlertTriangleIcon, BellIcon, ClipboardPenIcon, CalendarDaysIcon, CheckCheckIcon, ClipboardListIcon, FileTextIcon, MessageSquareIcon, MessageSquarePlusIcon, NotebookPenIcon, ReceiptIcon, RefreshCwIcon, SendIcon, ShieldAlertIcon, UserXIcon, WalletIcon, XIcon } from "lucide-react"
 import { NativeSelect } from "@/components/app/native-select"
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
@@ -23,8 +24,10 @@ import { useStore } from "@/store/store"
 import { renewHref, studentLabel } from "@/domain/rules/people"
 
 /** filter chips (owner 2026-10-07): one topic per kind of notification, for both the to-do list and the history */
-type Topic = "teaching" | "approval" | "renewal" | "schedule" | "forms" | "message" | "other"
+type Topic = "requests" | "teaching" | "approval" | "renewal" | "schedule" | "forms" | "message" | "other"
 const TOPICS: { key: Topic; label: string; icon: typeof BellIcon }[] = [
+  // owner 2026-10-14: แจ้งลา / แจ้งลาออก sent by parents from LINE
+  { key: "requests", label: "คำขอผู้ปกครอง (LINE)", icon: ClipboardPenIcon },
   { key: "teaching", label: "เช็คชื่อ & สรุป", icon: ClipboardListIcon },
   { key: "approval", label: "รออนุมัติ", icon: ReceiptIcon },
   { key: "renewal", label: "ต่อคอร์ส", icon: RefreshCwIcon },
@@ -35,7 +38,7 @@ const TOPICS: { key: Topic; label: string; icon: typeof BellIcon }[] = [
 ]
 const KIND_TOPIC: Record<NotificationKind, Topic> = {
   low_sessions: "renewal", session_cancelled: "schedule", holiday_impact: "schedule", student_leave: "schedule",
-  approval_needed: "approval", force_approved: "approval", form_submitted: "forms", message: "message", info: "other", nock: "message", student_exit: "renewal",
+  approval_needed: "approval", force_approved: "approval", form_submitted: "forms", message: "message", info: "other", nock: "message", student_exit: "renewal", parent_request: "requests",
 }
 
 interface Alert {
@@ -98,7 +101,8 @@ export default function NotificationsPage() {
   const allHistory = s.notifications.filter((n) => visibleTo(n, me))
   const [topic, setTopic] = useQueryState<Topic | "all">("topic", "all")
   const [composing, setComposing] = useState(false)
-  const countOf = (t: Topic) => alerts.filter((a) => a.topic === t).length + allHistory.filter((n) => KIND_TOPIC[n.kind] === t).length
+  const pendingRequests = (s.parentRequests ?? []).filter((r) => r.status === "new" && (r.branchId ?? s.students.find((x) => x.id === r.studentId)?.branchId) === branch.id).length
+  const countOf = (t: Topic) => alerts.filter((a) => a.topic === t).length + allHistory.filter((n) => KIND_TOPIC[n.kind] === t).length + (t === "requests" ? pendingRequests : 0)
   const shownAlerts = topic === "all" ? alerts : alerts.filter((a) => a.topic === topic)
   const history = topic === "all" ? allHistory : allHistory.filter((n) => KIND_TOPIC[n.kind] === topic)
   const unread = history.filter((n) => isUnread(n, me))
@@ -118,6 +122,8 @@ export default function NotificationsPage() {
       </div>
 
       {composing && <TeamMessage onClose={() => setComposing(false)} />}
+
+      {(topic === "all" || topic === "requests") && <ParentRequestsList branchId={branch.id} showDone={topic === "requests"} />}
 
       <section>
         <h2 className="mb-2 font-semibold">ต้องจัดการ ({shownAlerts.length})</h2>

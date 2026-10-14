@@ -6,12 +6,14 @@ import { useEffect } from "react"
 import { parentView, type ParentView } from "@/domain/rules/parent-view"
 import type { Family } from "@/domain/types"
 import { useStore } from "@/store/store"
+import { reasonsForStudent } from "@/domain/rules/loss"
 
 export function buildParentView(family: Family): ParentView {
   const s = useStore.getState()
   return parentView(family, {
     students: s.students, branches: s.branches, sessions: s.sessions, classes: s.classes, staff: s.staff, attendance: s.attendance,
     summaries: s.summaries, entitlements: s.entitlements, courses: s.courses, invoices: s.invoices, busAddOns: s.busAddOns, now: s.now(), courseSummaries: s.courseSummaries,
+    exitReasons: reasonsForStudent(s.system.lossReasons).map(({ id, label, en, ja }) => ({ id, label, en, ja })),
   })
 }
 

@@ -171,8 +171,10 @@ export function ExitPanel({ stu }: { stu: Student }) {
       <div className="flex flex-wrap items-center gap-2">
         <DoorOpenIcon className="size-4 text-amber-700" />
         <p className="flex-1 text-sm font-medium">แจ้งออก · เรียนวันสุดท้าย {fmtDate(ex.lastDate, { weekday: true })}</p>
-        <span className={cn("rounded-full px-2 py-0.5 text-xs", resp ? "bg-emerald-100 text-emerald-800" : "bg-amber-100 text-amber-900")}>{resp ? `ผู้ปกครองตอบแล้ว ${fmtDateTime(resp.submittedAt)}` : token ? `ส่งฟอร์มแล้ว ${fmtDateTime(ex.sentAt)} · รอคำตอบ` : "ยังไม่ได้ส่งฟอร์ม"}</span>
+        <span className={cn("rounded-full px-2 py-0.5 text-xs", resp ? "bg-emerald-100 text-emerald-800" : "bg-amber-100 text-amber-900")}>{resp ? `ผู้ปกครองตอบแล้ว ${fmtDateTime(resp.submittedAt)}` : ex.fromParentRequest ? `ผู้ปกครองแจ้งทาง LINE ${fmtDateTime(ex.sentAt)}` : token ? `ส่งฟอร์มแล้ว ${fmtDateTime(ex.sentAt)} · รอคำตอบ` : "ยังไม่ได้ส่งฟอร์ม"}</span>
       </div>
+      {/* owner 2026-10-14: the parent told us from LINE — their reasons are already here, no form needed */}
+      {ex.fromParentRequest && !resp && (ex.reasonId || ex.note) && <ReasonLine reasonId={ex.reasonId} note={ex.note} />}
       {resp ? <ExitAnswersView answers={resp.answers} /> : token && (
         <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
           <span className="truncate">{link}</span>
@@ -181,9 +183,9 @@ export function ExitPanel({ stu }: { stu: Student }) {
         </div>
       )}
       <div className="flex flex-wrap justify-end gap-1.5">
-        {!token && <Button size="sm" variant="outline" disabled={sending} onClick={sendNow}><SendIcon /> {sending ? "กำลังส่ง…" : "ส่งฟอร์มให้ผู้ปกครอง"}</Button>}
+        {!token && !ex.fromParentRequest && <Button size="sm" variant="outline" disabled={sending} onClick={sendNow}><SendIcon /> {sending ? "กำลังส่ง…" : "ส่งฟอร์มให้ผู้ปกครอง"}</Button>}
         <Button size="sm" variant="ghost" onClick={() => report(cancel(stu.id), `${stu.nickname} เรียนต่อ — ยกเลิกแจ้งออกแล้ว`)}><UndoIcon /> ไม่ออกแล้ว</Button>
-        <Button size="sm" onClick={() => setClosing(true)}>{resp ? "ปิดการออก" : "ปิดการออก (ไม่รอคำตอบ)"}</Button>
+        <Button size="sm" onClick={() => setClosing(true)}>{resp || ex.fromParentRequest ? "ปิดการออก" : "ปิดการออก (ไม่รอคำตอบ)"}</Button>
       </div>
       {closing && <CloseExitDialog stu={stu} response={resp} onClose={() => setClosing(false)} />}
     </section>
@@ -205,8 +207,8 @@ export function CloseExitDialog({ stu, response, onClose }: { stu: Student; resp
   const today = toDateStr(useNow(60_000))
   const a = response?.answers
   const reasons = Loss.reasonsForStudent(system.lossReasons)
-  const [reasonId, setReasonId] = useState<ID>(a?.reasonId ?? "")
-  const [others, setOthers] = useState<ID[]>(a?.otherReasonIds ?? [])
+  const [reasonId, setReasonId] = useState<ID>(a?.reasonId ?? stu.exit?.reasonId ?? "")
+  const [others, setOthers] = useState<ID[]>(a?.otherReasonIds ?? stu.exit?.otherReasonIds ?? [])
   const [money, setMoney] = useState<"refund" | "credit" | "none">("none")
   const [note, setNote] = useState("")
   const [lastDate, setLastDate] = useState(stu.exit?.lastDate ?? today)

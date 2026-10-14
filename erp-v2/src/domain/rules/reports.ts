@@ -373,6 +373,8 @@ export function needsAttention(ctx: {
   activeNow: number; activeBefore: number; pendingSummaries: number; conflicts: number
   /** unhappy survey families nobody has called yet (owner 2026-10-05) */
   surveyToCall?: number
+  /** แจ้งลา / แจ้งลาออก from parents in LINE still waiting (owner 2026-10-14) */
+  parentRequests?: number
   /** data gaps (owner 2026-10-06): students not linked to a family, and that family's students for the
    *  address/LINE checks below — pass only the ones in scope (archived students don't need chasing) */
   students?: Pick<Student, "id" | "familyId" | "archived" | "exit">[]
@@ -406,6 +408,7 @@ export function needsAttention(ctx: {
   const leaves = new Map<ID, number>()
   ctx.attendance.filter((a) => a.status === "leave" && recent.has(a.sessionId)).forEach((a) => leaves.set(a.studentId, (leaves.get(a.studentId) ?? 0) + 1))
   add({ key: "survey_call", group: "students", title: TR("ผู้ปกครองไม่พอใจ ยังไม่ได้โทร"), detail: TR("จากแบบสอบถามประจำปี — โทรภายใน 3 วัน (รายชื่ออยู่หน้า CRM)"), count: ctx.surveyToCall ?? 0, href: "/crm" })
+  add({ key: "parent_requests", group: "students", title: TR("ผู้ปกครองแจ้งลา / ลาออกทาง LINE"), detail: TR("บันทึกลา หรือรับเรื่องแจ้งออก — ผู้ปกครองได้รับข้อความยืนยันทาง LINE"), count: ctx.parentRequests ?? 0, href: "/notifications?topic=requests" })
   // owner 2026-10-14: students who gave notice — talk to the family, or close it (Archive) once the last day has passed
   add({ key: "exiting", group: "students", title: TR("นักเรียนแจ้งออก"), detail: TR("คุยกับผู้ปกครองก่อนวันสุดท้าย หรือปิดเรื่อง (Archive) เมื่อเลยวันแล้ว"), count: (ctx.students ?? []).filter((s) => s.exit && s.exit.status !== "closed" && !s.archived).length, href: "/students?status=exiting" })
   add({ key: "often_leave", group: "students", title: TR("นักเรียนลาบ่อย (เสี่ยงหลุด)"), detail: TR("ลา ≥ {0} ครั้งใน 30 วัน", [T.leavesIn30]), count: [...leaves.values()].filter((n) => n >= T.leavesIn30).length, href: "/attendance" })

@@ -64,6 +64,8 @@ export interface ParentView {
   lineUserIds: string[]
   children: ParentChild[]
   generatedAt: string
+  /** reasons a parent can pick on แจ้งลาออก (owner 2026-10-14) — the same list the office closes an exit with */
+  exitReasons?: { id: ID; label: string; en?: string; ja?: string }[]
 }
 
 export const PARENT_DAYS_AHEAD = 30
@@ -73,6 +75,7 @@ export interface ParentCtx {
   students: Student[]; branches: Branch[]; sessions: Session[]; classes: Klass[]; staff: Staff[]; attendance: Attendance[]
   summaries: LessonSummary[]; entitlements: Entitlement[]; courses: Course[]; invoices: Invoice[]; busAddOns: BusAddOn[]; now: Date
   courseSummaries?: CourseSummary[]
+  exitReasons?: ParentView["exitReasons"]
 }
 
 /** Bus legs a student has paid / asked for, per date: invoice bus legs (non-void) + extra days added after paying. */
@@ -154,6 +157,6 @@ export function parentView(family: Family, ctx: ParentCtx): ParentView {
   return {
     familyId: family.id, familyName: family.name, familyNameEn: family.nameEn,
     lineUserIds: family.lineUserId ? [family.lineUserId] : [],
-    children, generatedAt: ctx.now.toISOString(),
+    children, generatedAt: ctx.now.toISOString(), exitReasons: ctx.exitReasons,
   }
 }

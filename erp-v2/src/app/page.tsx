@@ -62,6 +62,7 @@ export default function DashboardPage() {
   const students = useStore((s) => s.students).filter((x) => x.branchId === branch.id)
   const families = useStore((s) => s.families)
   const surveyResponses = useStore((s) => s.surveyResponses)
+  const parentRequests = useStore((s) => s.parentRequests ?? [])
   const leads = useStore((s) => s.leads).filter((x) => x.branchId === branch.id)
   const L = useLookup()
   const [openSessionId, setOpenSessionId] = useState<string | null>(null)
@@ -162,6 +163,7 @@ export default function DashboardPage() {
     classes: classes.filter((k) => k.branchId === branch.id), leads,
     activeNow, activeBefore, pendingSummaries: 0, conflicts: 0,
     surveyToCall: Survey.toCall(surveyResponses.filter((r) => r.branchId === branch.id), today).length,
+    parentRequests: parentRequests.filter((r) => r.status === "new" && (r.branchId ?? students.find((x) => x.id === r.studentId)?.branchId) === branch.id).length,
     students, families: families.filter((f) => studentFamilyIds.has(f.id)),
   }, tx, { keepZero: true }) : []
 

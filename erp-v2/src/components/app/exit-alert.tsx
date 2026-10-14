@@ -11,6 +11,7 @@ import { can } from "@/domain/rules/permissions"
 import { isUnread, visibleTo } from "@/domain/rules/notifications"
 import { toDateStr } from "@/domain/dates"
 import { useStore } from "@/store/store"
+import { fetchParentRequests } from "@/lib/parent-requests"
 
 const seen = new Set<string>()
 const once = (key: string) => {
@@ -47,5 +48,32 @@ export function ExitAlert() {
     }, 1200)
     return () => clearTimeout(t)
   }, [me, branchId, notifications, students, now, router])
+  return null
+}
+
+/**
+ * แจ้งลา / แจ้งลาออก from parents in LINE (owner 2026-10-14: "ยิงเข้ามาที่ระบบ ให้ Admin ได้รับทราบ") — checked every
+ * 20 s; a new one becomes a notification and pops up for the office team, with a button to handle it.
+ */
+export function ParentRequestWatcher() {
+  const router = useRouter()
+  const sync = useStore((s) => s.syncParentRequests)
+  const canHandle = useStore((s) => can(s.me(), "student.manage"))
+  useEffect(() => {
+    let alive = true
+    const tick = async () => {
+      const reqs = await fetchParentRequests()
+      if (!alive) return
+      const fresh = sync(reqs)
+      if (!canHandle) return
+      fresh.slice(0, 3).forEach((r) => toast.warning(
+        r.kind === "leave" ? `ผู้ปกครองแจ้งลา · ${r.studentNickname} ${r.sessions?.length ?? 0} คาบ` : `ผู้ปกครองแจ้งลาออก · ${r.studentNickname}`,
+        { description: `${r.familyName} ส่งมาทาง LINE${r.note ? ` — "${r.note}"` : ""}`, duration: 20000, action: { label: "จัดการ", onClick: () => router.push("/notifications?topic=requests") } },
+      ))
+    }
+    tick()
+    const t = setInterval(tick, 20_000)
+    return () => { alive = false; clearInterval(t) }
+  }, [sync, canHandle, router])
   return null
 }

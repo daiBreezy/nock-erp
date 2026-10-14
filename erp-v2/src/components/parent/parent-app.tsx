@@ -3,12 +3,12 @@
 // Parent app v1 (owner 2026-10-09) — what a parent sees inside LINE. Pure view of a ParentView: no store, no staff data,
 // so the same screen runs on the parent's phone (/liff/parent) and in the staff preview (Family › ดูแบบผู้ปกครอง).
 import { useState } from "react"
-import { ArrowLeftIcon, BusIcon, CalendarDaysIcon, CheckIcon, ChevronRightIcon, GraduationCapIcon, ClockIcon, DoorOpenIcon, MessageSquareTextIcon, PackageIcon, UserIcon, XIcon } from "lucide-react"
+import { ArrowLeftIcon, CalendarOffIcon, ClipboardPenIcon, LoaderCircleIcon, BusIcon, CalendarDaysIcon, CheckIcon, ChevronRightIcon, GraduationCapIcon, ClockIcon, DoorOpenIcon, MessageSquareTextIcon, PackageIcon, UserIcon, XIcon } from "lucide-react"
 import type { ParentChild, ParentCourseSummary, ParentView } from "@/domain/rules/parent-view"
 import { progressForSubject } from "@/domain/rules/summaries"
 import { CourseProgress } from "@/components/app/course-progress"
 import { subjectColor } from "@/components/app/subject-color"
-import type { FormLang } from "@/domain/types"
+import type { FormLang, ParentRequest } from "@/domain/types"
 import { cn } from "@/lib/utils"
 
 const DICT = {
@@ -20,6 +20,10 @@ const DICT = {
     rate: "มาเรียน", updated: "อัปเดต", today: "วันนี้", tomorrow: "พรุ่งนี้",
     courseEnd: "สรุปจบคอร์ส", lessonNotes: "สรุปรายคาบ", view: "ดูสรุปและพัฒนาการ", back: "กลับ", whole: "ทั้งคอร์ส",
     overall: "ภาพรวมพัฒนาการ", strengths: "จุดแข็ง", improve: "สิ่งที่ควรฝึกเพิ่ม", progress: "พัฒนาการ", by: "สรุปโดย",
+    request: "แจ้งเรื่อง", leaveReq: "แจ้งลาหยุด", leaveReqSub: "เลือกคาบที่จะไม่มาเรียน", exitReq: "แจ้งลาออก", exitReqSub: "แจ้งหยุดเรียน · แอดมินจะติดต่อกลับ",
+    pickClasses: "เลือกคาบที่จะลา", noUpcoming: "ไม่มีคาบเรียนใน 30 วันข้างหน้า", noteLabel: "หมายเหตุถึงแอดมิน (ไม่บังคับ)", send: "ส่ง", sending: "กำลังส่ง…",
+    lastDay: "วันเรียนวันสุดท้าย", whyLeave: "เหตุผลที่หยุดเรียน (เลือกได้หลายข้อ)", sent: "ส่งเรื่องแล้ว — แอดมินจะยืนยันกลับทาง LINE", myRequests: "เรื่องที่แจ้งไว้",
+    st_new: "รอแอดมิน", st_done: "ดำเนินการแล้ว", st_declined: "ไม่ได้ดำเนินการ", preview: "ตัวอย่าง — ไม่ได้ส่งจริง", classes: (n: number) => `${n} คาบ`,
   },
   en: {
     hello: "Hello", schedule: "Schedule", summaries: "Summaries", attendance: "Attendance", bus: "School bus",
@@ -29,6 +33,10 @@ const DICT = {
     rate: "Attended", updated: "Updated", today: "Today", tomorrow: "Tomorrow",
     courseEnd: "Course summaries", lessonNotes: "Lesson notes", view: "View summary & progress", back: "Back", whole: "Whole course",
     overall: "Overall progress", strengths: "Strengths", improve: "To improve", progress: "Progress", by: "By",
+    request: "Requests", leaveReq: "Report an absence", leaveReqSub: "Pick the classes your child will miss", exitReq: "Stop studying", exitReqSub: "Let us know · our staff will call you",
+    pickClasses: "Classes to miss", noUpcoming: "No classes in the next 30 days", noteLabel: "Note to our staff (optional)", send: "Send", sending: "Sending…",
+    lastDay: "Last day of class", whyLeave: "Why is your child stopping? (pick any)", sent: "Sent — our staff will confirm on LINE", myRequests: "Your requests",
+    st_new: "Waiting", st_done: "Done", st_declined: "Not done", preview: "Preview — nothing is sent", classes: (n: number) => `${n} class${n > 1 ? "es" : ""}`,
   },
   ja: {
     hello: "こんにちは", schedule: "時間割", summaries: "授業レポート", attendance: "出欠", bus: "送迎バス",
@@ -38,6 +46,10 @@ const DICT = {
     rate: "出席率", updated: "更新", today: "今日", tomorrow: "明日",
     courseEnd: "コース修了レポート", lessonNotes: "授業レポート", view: "レポートと成長を見る", back: "戻る", whole: "コース全体",
     overall: "全体の成長", strengths: "得意なところ", improve: "練習したいところ", progress: "成長の記録", by: "担当",
+    request: "連絡", leaveReq: "お休みの連絡", leaveReqSub: "お休みする授業を選んでください", exitReq: "退会の連絡", exitReqSub: "スタッフからご連絡します",
+    pickClasses: "お休みする授業", noUpcoming: "30日以内の授業はありません", noteLabel: "スタッフへのメモ（任意）", send: "送信", sending: "送信中…",
+    lastDay: "最後の授業日", whyLeave: "退会の理由（複数選択可）", sent: "送信しました — スタッフがLINEでご連絡します", myRequests: "送信した連絡",
+    st_new: "確認待ち", st_done: "対応済み", st_declined: "対応なし", preview: "プレビュー（送信されません）", classes: (n: number) => `${n}回`,
   },
 }
 
@@ -52,18 +64,26 @@ function fmtDay(date: string, lang: FormLang) {
   return `${DAYS[lang][w]} ${d} ${MONTHS[lang as "th" | "en"][m - 1]}`
 }
 
-type Tab = "schedule" | "summaries" | "attendance" | "bus"
+type Tab = "schedule" | "summaries" | "attendance" | "bus" | "request"
+
+/** what the parent sends — the LIFF page posts it with LINE's proof of who they are */
+export type ParentRequestInput = { kind: "leave"; studentId: string; sessionIds: string[]; note?: string } | { kind: "exit"; studentId: string; lastDate: string; reasonIds: string[]; note?: string }
 
 /** `framed` = inside the staff preview's phone frame: the tab bar sticks to the frame, not the browser window */
-export function ParentApp({ view, lang: initialLang, today, framed, openCourseSummary }: { view: ParentView; lang?: FormLang; today: string; framed?: boolean
+export function ParentApp({ view, lang: initialLang, today, framed, openCourseSummary, onRequest, requests, openAction }: { view: ParentView; lang?: FormLang; today: string; framed?: boolean
   /** opened from the สรุปจบคอร์ส LINE message (…&cs=<id>) — go straight to it */
-  openCourseSummary?: string }) {
+  openCourseSummary?: string
+  /** แจ้งลา / แจ้งลาออก (owner 2026-10-14) — unset in the staff preview (the forms show, nothing is sent) */
+  onRequest?: (input: ParentRequestInput) => Promise<{ ok: boolean; error?: string }>
+  requests?: ParentRequest[]
+  /** rich menu deep link (…&act=leave|exit) */
+  openAction?: "leave" | "exit" }) {
   const brand = view.children[0]?.brand ?? "nockacademy"
   // Japanese families at Liclass open in Japanese, everyone else in Thai — the chip switches any time
   const [lang, setLang] = useState<FormLang>(initialLang ?? (brand === "liclass" && /[\u3040-\u30ff\u4e00-\u9fff]/.test(view.familyName) ? "ja" : "th"))
   const opened = openCourseSummary ? view.children.find((c) => c.courseSummaries?.some((x) => x.id === openCourseSummary)) : undefined
   const [childId, setChildId] = useState(opened?.id ?? view.children[0]?.id ?? "")
-  const [tab, setTab] = useState<Tab>(opened ? "summaries" : "schedule")
+  const [tab, setTab] = useState<Tab>(opened ? "summaries" : openAction ? "request" : "schedule")
   const [csId, setCsId] = useState<string | null>(opened ? openCourseSummary! : null)
   const t = DICT[lang]
   const child = view.children.find((c) => c.id === childId) ?? view.children[0]
@@ -78,6 +98,7 @@ export function ParentApp({ view, lang: initialLang, today, framed, openCourseSu
     { key: "summaries", label: t.summaries, icon: MessageSquareTextIcon },
     { key: "attendance", label: t.attendance, icon: CheckIcon },
     ...(usesBus ? [{ key: "bus" as Tab, label: t.bus, icon: BusIcon }] : []),
+    { key: "request", label: t.request, icon: ClipboardPenIcon },
   ]
 
   return (
@@ -135,7 +156,8 @@ export function ParentApp({ view, lang: initialLang, today, framed, openCourseSu
               ))}
             </>
           )
-        })() : tab === "attendance" ? <AttendanceList child={child} t={t} lang={lang} /> : <BusList child={child} t={t} lang={lang} dayLabel={dayLabel} />}
+        })() : tab === "request" ? <RequestTab key={child.id} view={view} child={child} t={t} lang={lang} today={today} onRequest={onRequest} requests={requests} initial={openAction} />
+        : tab === "attendance" ? <AttendanceList child={child} t={t} lang={lang} /> : <BusList child={child} t={t} lang={lang} dayLabel={dayLabel} />}
         <p className="pt-2 text-center text-[11px] text-muted-foreground">{t.updated} {(() => { const g = new Date(view.generatedAt); return `${fmtDay(`${g.getFullYear()}-${String(g.getMonth() + 1).padStart(2, "0")}-${String(g.getDate()).padStart(2, "0")}`, lang)} ${String(g.getHours()).padStart(2, "0")}:${String(g.getMinutes()).padStart(2, "0")}` })()}</p>
       </main>
 
@@ -292,6 +314,105 @@ function CourseEnd({ cs, t, lang, onBack }: { cs: ParentCourseSummary; t: T; lan
         <p className="text-sm font-semibold">{t.progress}{only && ` · ${only}`}</p>
         <CourseProgress rows={rows} />
       </section>
+    </div>
+  )
+}
+
+/** แจ้งลาหยุด / แจ้งลาออก (owner 2026-10-14) — goes to the office team in the ERP; the parent is told on LINE */
+function RequestTab({ view, child, t, lang, today, onRequest, requests, initial }: {
+  view: ParentView; child: ParentChild; t: T; lang: FormLang; today: string
+  onRequest?: (input: ParentRequestInput) => Promise<{ ok: boolean; error?: string }>; requests?: ParentRequest[]; initial?: "leave" | "exit"
+}) {
+  const [mode, setMode] = useState<"leave" | "exit" | null>(initial ?? null)
+  const [picked, setPicked] = useState<string[]>([])
+  const [lastDate, setLastDate] = useState(child.packages.map((p) => p.until).sort().at(-1) ?? today)
+  const [reasons, setReasons] = useState<string[]>([])
+  const [note, setNote] = useState("")
+  const [busy, setBusy] = useState(false)
+  const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null)
+  const classes = child.upcoming.filter((c) => !c.cancelled)
+  const mine = (requests ?? []).filter((r) => r.studentId === child.id)
+  const label = (r: { label: string; en?: string; ja?: string }) => (lang === "en" && r.en) || (lang === "ja" && r.ja) || r.label
+  const submit = async () => {
+    if (!onRequest || !mode) return
+    setBusy(true)
+    const r = await onRequest(mode === "leave" ? { kind: "leave", studentId: child.id, sessionIds: picked, note } : { kind: "exit", studentId: child.id, lastDate, reasonIds: reasons, note })
+    setBusy(false)
+    setMsg(r.ok ? { ok: true, text: t.sent } : { ok: false, text: r.error ?? "ส่งไม่สำเร็จ" })
+    if (r.ok) { setMode(null); setPicked([]); setReasons([]); setNote("") }
+  }
+  const ready = mode === "leave" ? picked.length > 0 : mode === "exit" ? !!lastDate : false
+  return (
+    <div className="space-y-3">
+      {msg && <p className={cn("rounded-2xl p-3 text-sm", msg.ok ? "bg-emerald-50 text-emerald-800" : "bg-red-50 text-red-800")}>{msg.text}</p>}
+      {!mode ? (
+        <div className="grid gap-2">
+          {([["leave", CalendarOffIcon, t.leaveReq, t.leaveReqSub], ["exit", DoorOpenIcon, t.exitReq, t.exitReqSub]] as const).map(([k, Icon, title, sub]) => (
+            <button key={k} type="button" onClick={() => { setMode(k); setMsg(null) }} className="flex items-center gap-3 rounded-2xl bg-background p-4 text-left shadow-sm">
+              <span className={cn("grid size-11 shrink-0 place-items-center rounded-xl", k === "leave" ? "bg-amber-100 text-amber-800" : "bg-red-100 text-red-700")}><Icon className="size-5" /></span>
+              <span className="min-w-0 flex-1"><span className="block font-medium">{title}</span><span className="block text-xs text-muted-foreground">{sub}</span></span>
+              <ChevronRightIcon className="size-4 text-muted-foreground" />
+            </button>
+          ))}
+        </div>
+      ) : (
+        <section className="space-y-3 rounded-2xl bg-background p-3 shadow-sm">
+          <button type="button" onClick={() => setMode(null)} className="flex items-center gap-1 text-sm text-muted-foreground"><ArrowLeftIcon className="size-4" />{t.back}</button>
+          <p className="text-lg font-semibold">{mode === "leave" ? t.leaveReq : t.exitReq}</p>
+          {mode === "leave" ? (
+            <div className="space-y-1.5">
+              <p className="text-xs font-medium text-muted-foreground">{t.pickClasses}</p>
+              {classes.length === 0 ? <Empty text={t.noUpcoming} /> : classes.map((c) => {
+                const on = picked.includes(c.sessionId)
+                return (
+                  <button key={c.sessionId} type="button" onClick={() => setPicked(on ? picked.filter((x) => x !== c.sessionId) : [...picked, c.sessionId])}
+                    className={cn("flex w-full items-center gap-3 rounded-xl p-2.5 text-left ring-1", on ? "bg-amber-50 ring-amber-400" : "ring-foreground/10")}>
+                    <span className={cn("grid size-5 shrink-0 place-items-center rounded-md border", on ? "border-amber-500 bg-amber-500 text-white" : "border-muted-foreground/40")}>{on && <CheckIcon className="size-3.5" />}</span>
+                    <span className="min-w-0 flex-1 text-sm"><span className="font-medium">{fmtDay(c.date, lang)} {c.start}–{c.end}</span><span className="block truncate text-xs text-muted-foreground">{c.subjects.join(" + ")}{c.teachers.length ? ` · ${t.teacher} ${c.teachers.join(", ")}` : ""}</span></span>
+                  </button>
+                )
+              })}
+            </div>
+          ) : (
+            <div className="space-y-3">
+              <label className="block space-y-1"><span className="text-xs font-medium text-muted-foreground">{t.lastDay}</span>
+                <input type="date" min={today} value={lastDate} onChange={(e) => setLastDate(e.target.value)} className="h-10 w-full rounded-xl border bg-background px-3 text-sm" />
+              </label>
+              {!!view.exitReasons?.length && (
+                <div className="space-y-1.5"><p className="text-xs font-medium text-muted-foreground">{t.whyLeave}</p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {view.exitReasons.map((r) => {
+                      const on = reasons.includes(r.id)
+                      return <button key={r.id} type="button" onClick={() => setReasons(on ? reasons.filter((x) => x !== r.id) : [...reasons, r.id])} className={cn("rounded-full px-3 py-1.5 text-sm ring-1", on ? "bg-primary/10 font-medium text-primary ring-primary/40" : "ring-foreground/10")}>{label(r)}</button>
+                    })}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+          <label className="block space-y-1"><span className="text-xs font-medium text-muted-foreground">{t.noteLabel}</span>
+            <textarea rows={3} value={note} onChange={(e) => setNote(e.target.value)} className="w-full rounded-xl border bg-background p-2.5 text-sm" />
+          </label>
+          <button type="button" disabled={!ready || busy || !onRequest} onClick={submit} className="flex h-11 w-full items-center justify-center gap-2 rounded-full bg-primary text-sm font-medium text-primary-foreground disabled:opacity-50">
+            {busy && <LoaderCircleIcon className="size-4 animate-spin" />}{!onRequest ? t.preview : busy ? t.sending : `${t.send}${mode === "leave" && picked.length ? ` · ${t.classes(picked.length)}` : ""}`}
+          </button>
+        </section>
+      )}
+      {mine.length > 0 && (
+        <section className="space-y-1.5">
+          <p className="px-1 text-xs font-semibold text-muted-foreground">{t.myRequests}</p>
+          {mine.map((r) => (
+            <article key={r.id} className="rounded-2xl bg-background p-3 text-sm shadow-sm">
+              <div className="flex items-center gap-2">
+                <span className="min-w-0 flex-1 font-medium">{r.kind === "leave" ? `${t.leaveReq} · ${t.classes(r.sessions?.length ?? 0)}` : `${t.exitReq} · ${fmtDay(r.lastDate!, lang)}`}</span>
+                <span className={cn("rounded-full px-2 py-0.5 text-[11px]", r.status === "new" ? "bg-amber-100 text-amber-900" : r.status === "done" ? "bg-emerald-100 text-emerald-800" : "bg-muted text-muted-foreground")}>{t[`st_${r.status}`]}</span>
+              </div>
+              {r.kind === "leave" && <p className="text-xs text-muted-foreground">{r.sessions?.map((x) => `${fmtDay(x.date, lang)} ${x.start}`).join(" · ")}</p>}
+              {r.result && <p className="mt-1 text-xs">{r.result}</p>}
+            </article>
+          ))}
+        </section>
+      )}
     </div>
   )
 }

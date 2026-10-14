@@ -30,7 +30,7 @@ import * as Survey from "@/domain/rules/survey"
 import * as Nock from "@/domain/rules/nock"
 import * as Dev from "@/domain/rules/dev-tickets"
 import { toast } from "sonner"
-import type { DevTicket, DevTicketStatus, NockAnswer, NockQuestion, Role, SurveyCampaign, SurveyResponse, EnrollSubmission, ContactChannel, ContactResult, LossReason, Assessment, AttendanceStatus, Entitlement, Branch, BusAddOn, ClassBlock, CourseSummary, CreditNote, LessonBook, LessonTopic, Seat, ChatMessage, Conversation, Course, DateStr, Family, FormSubmission, Holiday, ID, Invoice, Klass, Lead, LeadStage, LessonSummary, LineDelivery, LogCategory, Result, Session, Staff, Student, SystemConfig } from "@/domain/types"
+import type { ParentRequest, DevTicket, DevTicketStatus, NockAnswer, NockQuestion, Role, SurveyCampaign, SurveyResponse, EnrollSubmission, ContactChannel, ContactResult, LossReason, Assessment, AttendanceStatus, Entitlement, Branch, BusAddOn, ClassBlock, CourseSummary, CreditNote, LessonBook, LessonTopic, Seat, ChatMessage, Conversation, Course, DateStr, Family, FormSubmission, Holiday, ID, Invoice, Klass, Lead, LeadStage, LessonSummary, LineDelivery, LogCategory, Result, Session, Staff, Student, SystemConfig } from "@/domain/types"
 
 export interface UIState {
   userId: ID
@@ -216,6 +216,13 @@ type Store = DB & UIState & {
   addRenewalFollowUp: (studentId: ID, input: { channel: ContactChannel; result: ContactResult; note?: string; nextTryOn?: DateStr }) => Result
   /** leaving (owner 2026-10-05): the parent told the admin → the exit form went out (token from the server) */
   requestExit: (studentIds: ID[], input: { lastDate: DateStr; token?: string }) => Result
+  /** แจ้งลา / แจ้งลาออก from parents (server) — the latest list, and which ones already raised a notification here */
+  parentRequests: ParentRequest[]
+  seenParentRequests: ID[]
+  /** owner 2026-10-14: keep the list; every request not seen before becomes a notification for the office team */
+  syncParentRequests: (reqs: ParentRequest[]) => ParentRequest[]
+  /** the parent said "stopping" on LINE → the student is แจ้งออก (no separate exit form — the parent already told us) */
+  exitFromParent: (req: ParentRequest) => Result
   /** a notice recorded without the exit form (older data) — the form goes out now */
   attachExitForm: (studentIds: ID[], token: string) => Result
   /** the parent changed their mind */
@@ -411,6 +418,38 @@ export const useStore = create<Store>()(
       },
       setBranch: (branchId) => set({ branchId }),
       setClockOffset: (clockOffset) => set({ clockOffset }),
+      parentRequests: [],
+      seenParentRequests: [],
+
+      syncParentRequests: (reqs) => {
+        const s = get()
+        const seen = new Set(s.seenParentRequests ?? [])
+        const fresh = reqs.filter((r) => r.status === "new" && !seen.has(r.id))
+        const notes = fresh.map((r) => Notif.notify({
+          id: uid("no"), at: new Date(r.createdAt), kind: "parent_request",
+          title: r.kind === "leave" ? `ผู้ปกครองแจ้งลา · ${r.studentNickname} ${r.sessions?.length ?? 0} คาบ` : `ผู้ปกครองแจ้งลาออก · ${r.studentNickname}`,
+          body: r.kind === "leave" ? `${r.sessions?.map((x) => `${fmtDate(x.date, { weekday: true })} ${x.start}`).join(" · ")}${r.note ? ` — "${r.note}"` : ""} · บันทึกลาที่หน้าแจ้งเตือน`
+            : `เรียนวันสุดท้าย ${fmtDate(r.lastDate!, { weekday: true })}${r.note ? ` — "${r.note}"` : ""} · รับเรื่องที่หน้าแจ้งเตือน แล้วโทรคุย`,
+          audience: { roles: OFFICE_ROLES, branchId: r.branchId ?? s.students.find((x) => x.id === r.studentId)?.branchId },
+        }))
+        set({ parentRequests: reqs, seenParentRequests: [...seen, ...reqs.map((r) => r.id)].filter((x, i, a) => a.indexOf(x) === i).slice(-500), ...(notes.length ? { notifications: [...notes, ...s.notifications] } : {}) })
+        return fresh
+      },
+
+      exitFromParent: (req) => {
+        const s = get()
+        const perm = requirePerm(s.me(), "student.manage")
+        if (!perm.ok) return perm
+        const stu = s.students.find((x) => x.id === req.studentId)
+        if (!stu) return fail("ไม่พบนักเรียน")
+        if (stu.archived) return fail("นักเรียนคนนี้ Archive ไปแล้ว")
+        if (!req.lastDate) return fail("ไม่มีวันเรียนวันสุดท้าย")
+        const at = s.now().toISOString()
+        set({ students: s.students.map((x) => (x.id === stu.id ? { ...x, exit: { status: "answered", lastDate: req.lastDate!, sentAt: req.createdAt, sentBy: s.userId, fromParentRequest: req.id, reasonId: req.reasonIds?.[0], otherReasonIds: req.reasonIds?.slice(1), note: req.note } } : x)) })
+        log("profile", [stu.id], "แจ้งออก", `ผู้ปกครองแจ้งทาง LINE · เรียนวันสุดท้าย ${fmtDate(req.lastDate)}${req.note ? ` · "${req.note}"` : ""} · รับเรื่องโดย ${s.me().nickname} ${fmtDate(at.slice(0, 10))}`)
+        return OK
+      },
+
       resetData: () => set({ ...keepLineLinks(get(), buildSeed()), clockOffset: 0 }),
 
       // ---------------- classes & sessions ----------------

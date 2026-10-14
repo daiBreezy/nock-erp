@@ -5,7 +5,8 @@
 // the family's published view. Never touches the ERP store (that is staff data in the staff's own browser).
 import { useEffect, useState } from "react"
 import { LoaderCircleIcon, Link2OffIcon, XCircleIcon } from "lucide-react"
-import { ParentApp } from "@/components/parent/parent-app"
+import { ParentApp, type ParentRequestInput } from "@/components/parent/parent-app"
+import type { ParentRequest } from "@/domain/types"
 import type { ParentView } from "@/domain/rules/parent-view"
 
 type Phase = { kind: "loading" } | { kind: "error"; text: string } | { kind: "not_linked"; name: string } | { kind: "ready"; view: ParentView }
@@ -20,8 +21,26 @@ function courseSummaryParam() {
   return q.get("cs") ?? state.get("cs") ?? undefined
 }
 
+/** …&act=leave|exit — a rich-menu button straight to แจ้งลา / แจ้งลาออก (owner 2026-10-14) */
+function actionParam(): "leave" | "exit" | undefined {
+  if (typeof window === "undefined") return undefined
+  const q = new URLSearchParams(window.location.search)
+  const state = new URLSearchParams((q.get("liff.state") ?? "").replace(/^[^?]*\?/, ""))
+  const a = q.get("act") ?? state.get("act")
+  return a === "leave" || a === "exit" ? a : undefined
+}
+
 export function ParentLiff() {
   const [phase, setPhase] = useState<Phase>({ kind: "loading" })
+  const [idToken, setIdToken] = useState("")
+  const [requests, setRequests] = useState<ParentRequest[]>([])
+  const loadRequests = (tok: string) => fetch("/api/parent-view/requests", { headers: { Authorization: `Bearer ${tok}` } }).then((r) => r.json()).then((j) => j.ok && setRequests(j.requests)).catch(() => {})
+  const sendRequest = async (input: ParentRequestInput) => {
+    const r = await fetch("/api/parent-view/requests", { method: "POST", headers: { Authorization: `Bearer ${idToken}`, "Content-Type": "application/json" }, body: JSON.stringify(input) })
+      .then((x) => x.json()).catch(() => ({ ok: false, error: "ส่งไม่สำเร็จ — ลองใหม่อีกครั้ง" }))
+    if (r.ok) loadRequests(idToken)
+    return r as { ok: boolean; error?: string }
+  }
   useEffect(() => {
     let cancelled = false
     ;(async () => {
@@ -35,8 +54,15 @@ export function ParentLiff() {
         if (!idToken) throw new Error("LINE ไม่ส่งข้อมูลยืนยันตัวตน — ต้องเปิดสิทธิ์ openid ของ LIFF app")
         const res = await fetch("/api/parent-view/me", { headers: { Authorization: `Bearer ${idToken}` } }).then((r) => r.json())
         if (cancelled) return
-        if (res.ok) setPhase({ kind: "ready", view: res.view })
+        if (res.ok) { sessionStorage.removeItem("nockerp-relogin"); setIdToken(idToken); loadRequests(idToken); setPhase({ kind: "ready", view: res.view }) }
         else if (res.error === "not_linked") setPhase({ kind: "not_linked", name: res.name ?? "" })
+        else if (res.error === "auth" && !sessionStorage.getItem("nockerp-relogin")) {
+          // LINE's ID token lasts about an hour — an old login in the browser gets a fresh one once, by itself
+          sessionStorage.setItem("nockerp-relogin", "1")
+          liff.logout()
+          liff.login({ redirectUri: window.location.href })
+          return
+        }
         else setPhase({ kind: "error", text: "ยืนยันตัวตนกับ LINE ไม่สำเร็จ — ลองเปิดใหม่จากแอป LINE" })
       } catch (e) {
         if (!cancelled) setPhase({ kind: "error", text: e instanceof Error ? e.message : "เปิดไม่สำเร็จ — ลองเปิดใหม่จากแอป LINE" })
@@ -45,7 +71,7 @@ export function ParentLiff() {
     return () => { cancelled = true }
   }, [])
 
-  if (phase.kind === "ready") return <ParentApp view={phase.view} today={today()} openCourseSummary={courseSummaryParam()} />
+  if (phase.kind === "ready") return <ParentApp view={phase.view} today={today()} openCourseSummary={courseSummaryParam()} onRequest={sendRequest} requests={requests} openAction={actionParam()} />
   return (
     <div className="flex min-h-dvh flex-col items-center justify-center gap-3 p-6 text-center">
       {phase.kind === "loading" && <LoaderCircleIcon className="size-6 animate-spin text-muted-foreground" />}
