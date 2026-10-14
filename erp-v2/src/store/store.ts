@@ -2178,7 +2178,15 @@ export const useStore = create<Store>()(
         if (!studentIds.length) return fail("เลือกนักเรียน")
         if (!input.lastDate) return fail("ใส่วันเรียนวันสุดท้าย")
         const at = s.now().toISOString()
-        set({ students: s.students.map((x) => (studentIds.includes(x.id) ? { ...x, exit: { status: "sent", lastDate: input.lastDate, token: input.token, sentAt: at, sentBy: s.userId } } : x)) })
+        const who = s.students.filter((x) => studentIds.includes(x.id))
+        // owner 2026-10-14: everyone who should talk to the family hears about it — the office team + the student's teachers
+        const teachers = [...new Set(s.classes.filter((k) => k.active && who.some((w) => k.studentIds.includes(w.id))).flatMap((k) => [k.teacherId, ...k.coTeacherIds]).filter((x): x is ID => !!x))]
+        set({
+          students: s.students.map((x) => (studentIds.includes(x.id) ? { ...x, exit: { status: "sent", lastDate: input.lastDate, token: input.token, sentAt: at, sentBy: s.userId } } : x)),
+          notifications: [Notif.notify({ id: uid("no"), at: s.now(), kind: "student_exit", title: `นักเรียนแจ้งออก · ${who.map((w) => w.nickname).join(", ")}`,
+            body: `เรียนวันสุดท้าย ${fmtDate(input.lastDate, { weekday: true })} — คุยกับผู้ปกครองก่อน แล้วปิดเรื่อง (Archive) ที่หน้านักเรียน`, fromId: s.userId,
+            audience: { roles: OFFICE_ROLES, branchId: who[0]?.branchId, staffIds: teachers } }), ...s.notifications],
+        })
         log("profile", studentIds, "แจ้งออก", `เรียนวันสุดท้าย ${fmtDate(input.lastDate)}${input.token ? " · ส่งฟอร์มให้ผู้ปกครองแล้ว" : ""}`)
         return OK
       },
@@ -2650,7 +2658,7 @@ export const useStore = create<Store>()(
       // The parent app in LINE never writes staff data at all.
       storage: createJSONStorage(() => safeStorage),
       // bump when the data model changes; older saved data is replaced by fresh sample data
-      version: 86, // 86: course history capped at 8 sessions (storage size) · 85: course-history check per course · 84: + running rounds · 83: finished courses with a Course Summary get their session history · 82: per-subject levels in Bundle sessions · 80–81: Bundle demo students sit in the combo class for 3 months (charts) · 79: 1–5 understanding on session summaries + Bundle notes per subject · 78: Dev statuses กำลังทำ / เสร็จแล้ว / ไม่ทำ / เก็บไว้ก่อน · 77: images on Nock + Dev tickets · 76: คำถามถึง Dev examples · 75: Developer role + เรื่องถึง Dev · 74: Nock answers per person + thumbs per answer · 73: Nock locations + knowledge = answered questions + votes · 72: Nock question bank + knowledge · 71: Summer Memo + Summer course + paid Summer invoice · 68–70: session summaries in every stage this week + sample Course Summaries (Single + Bundle) · 65–67: names without titles, parent relationship, phones without dashes, subject colours · 61: real branches (owner 2026-10-07) · 62: CB = ตึกน้ำ · 63: sample schools · 64: schools from the Ministry list
+      version: 87, // 87: 3 open exit notices · 86: course history capped at 8 sessions (storage size) · 85: course-history check per course · 84: + running rounds · 83: finished courses with a Course Summary get their session history · 82: per-subject levels in Bundle sessions · 80–81: Bundle demo students sit in the combo class for 3 months (charts) · 79: 1–5 understanding on session summaries + Bundle notes per subject · 78: Dev statuses กำลังทำ / เสร็จแล้ว / ไม่ทำ / เก็บไว้ก่อน · 77: images on Nock + Dev tickets · 76: คำถามถึง Dev examples · 75: Developer role + เรื่องถึง Dev · 74: Nock answers per person + thumbs per answer · 73: Nock locations + knowledge = answered questions + votes · 72: Nock question bank + knowledge · 71: Summer Memo + Summer course + paid Summer invoice · 68–70: session summaries in every stage this week + sample Course Summaries (Single + Bundle) · 65–67: names without titles, parent relationship, phones without dashes, subject colours · 61: real branches (owner 2026-10-07) · 62: CB = ตึกน้ำ · 63: sample schools · 64: schools from the Ministry list
       migrate: (old) => ({ ...keepLineLinks(old as Partial<Store> | undefined, buildSeed()), userId: "u_nock", branchId: "br_thl", clockOffset: 0 }) as unknown as Store,
       // persist data + UI state only, never the action functions
       partialize: (s) => Object.fromEntries(Object.entries(s).filter(([, v]) => typeof v !== "function")) as Partial<Store>,

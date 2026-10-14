@@ -2026,7 +2026,7 @@ describe("schools by branch / region (owner 2026-10-07)", () => {
 })
 
 import { defaultLeaveQuota, leaveQuotaFor } from "./settings"
-import { leaveQuota, schoolPauseCancels } from "./attendance"
+import { exitPending, leaveQuota, schoolPauseCancels } from "./attendance"
 
 describe("C5 leave quota per package (owner 2026-10-09)", () => {
   it("default: 1 session = 2 hrs, 4 sessions = 1 leave", () => {
@@ -2393,5 +2393,16 @@ describe("ย้ายคลาสถาวร + move log (owner 2026-10-14)", (
       { studentIds: ["b"], action: "ย้ายคาบ (Re-schedule)", at: "2026-09-12T10:00:00Z" },
     ]
     expect(movesOf(logs, "a").map((l) => l.action)).toEqual(["ย้ายคลาสถาวร", "ย้ายคาบ (Re-schedule)"])
+  })
+})
+
+describe("แจ้งออก stays visible until closed (owner 2026-10-14)", () => {
+  it("open notice → pending, past the last day → overdue, closed / archived → gone", () => {
+    const ex = (status: "sent" | "answered" | "closed", lastDate: string) => ({ exit: { status, lastDate, sentAt: "", sentBy: "u" } })
+    expect(exitPending(ex("sent", "2026-10-20"), "2026-10-14")).toEqual({ lastDate: "2026-10-20", overdue: false, answered: false })
+    expect(exitPending(ex("answered", "2026-10-10"), "2026-10-14")).toMatchObject({ overdue: true, answered: true })
+    expect(exitPending(ex("closed", "2026-10-10"), "2026-10-14")).toBeNull()
+    expect(exitPending({ ...ex("sent", "2026-10-20"), archived: { at: "", by: "u", reason: "x" } }, "2026-10-14")).toBeNull()
+    expect(exitPending({}, "2026-10-14")).toBeNull()
   })
 })

@@ -4,7 +4,7 @@ import { familyShortName } from "@/domain/rules/people"
 import { Page, PageHeader, KpiRow, Toolbar } from "@/components/app/page-layout"
 import { Kpi } from "@/components/app/kpi"
 import { useState } from "react"
-import { DownloadIcon, GraduationCapIcon, PlusIcon, RefreshCwIcon, SearchIcon, SparklesIcon, UnlinkIcon } from "lucide-react"
+import { DownloadIcon, GraduationCapIcon, LogOutIcon, PlusIcon, RefreshCwIcon, SearchIcon, SparklesIcon, UnlinkIcon } from "lucide-react"
 import { GenderIcon, Pill } from "@/components/app/badges"
 import { NativeSelect } from "@/components/app/native-select"
 import { PACKAGE_LEGEND, PackageBadge } from "@/components/app/package-badge"
@@ -69,11 +69,12 @@ export default function StudentsPage() {
     // package that ends first (the one renewals are about) — or, for students with none now, the last one they had
     const main = [...ents].sort((a, b) => a.to.localeCompare(b.to))[0]
       ?? entitlements.filter((e) => e.studentId === s.id && e.from <= today).sort((a, b) => b.to.localeCompare(a.to))[0]
-    return { s, st, packs, main, mainCourse: main && courses.find((c) => c.id === main.courseId), fam: families.find((f) => f.id === s.familyId) }
+    return { s, st, ex: Att.exitPending(s, today), packs, main, mainCourse: main && courses.find((c) => c.id === main.courseId), fam: families.find((f) => f.id === s.familyId) }
   })
   const shown = rows
     .filter((r) => !grade || r.s.grade === grade)
-    .filter((r) => !status || r.st === status)
+    // "exiting" = gave notice, not closed yet (owner 2026-10-14) — a status of its own on top of Active / Renewal …
+    .filter((r) => !status || (status === "exiting" ? !!r.ex : r.st === status))
     .filter((r) => noFamily !== "none" || !r.s.familyId)
     .filter((r) => !q || `${r.s.name} ${r.s.nickname} ${r.fam?.name ?? ""} ${r.fam?.parents.map((p) => p.phone).join(" ") ?? ""}`.includes(q))
     .sort((a, b) => {
@@ -90,7 +91,7 @@ export default function StudentsPage() {
                   : left(a) - left(b)
       return sort.desc ? -v : v
     })
-  const focusKeys = (r: (typeof rows)[number]) => [r.st === "renewal" && Att.renewalFollowUpDue(r.s, today) && "renewal", !r.s.familyId && "no_family"].filter(Boolean).join(" ") || undefined
+  const focusKeys = (r: (typeof rows)[number]) => [r.ex && "exiting", r.st === "renewal" && Att.renewalFollowUpDue(r.s, today) && "renewal", !r.s.familyId && "no_family"].filter(Boolean).join(" ") || undefined
   const pg = usePage(useFocusFirst(shown, focusKeys))
 
   // G3: export only for roles with student.export — and it is logged in the toast
@@ -112,6 +113,7 @@ export default function StudentsPage() {
     // new = their very first package starts this month (same idea as Reports — paying students, not records added)
     fresh: rows.filter((r) => entitlements.filter((e) => e.studentId === r.s.id).map((e) => e.from).sort()[0]?.slice(0, 7) === month).length,
     noFamily: rows.filter((r) => !r.s.familyId).length,
+    exiting: rows.filter((r) => r.ex).length,
   }
   const pick = (v: string) => setStatus(status === v ? "" : v)
 
@@ -145,7 +147,10 @@ export default function StudentsPage() {
       className: (r) => cn("tabular-nums", ended(r) ? "text-muted-foreground" : r.main && r.main.to <= addDays(today, 7) ? "font-medium text-amber-700" : "text-muted-foreground") },
     { id: "left", label: "เหลือ", width: "80px", sort: "left", align: "right", className: (r) => cn("tabular-nums", left(r) <= 2 && "font-semibold text-red-700"),
       cell: (r) => { const n = left(r); return Number.isFinite(n) ? `${n} คาบ` : <span className="text-muted-foreground">—</span> } },
-    { id: "status", label: "สถานะ", width: "104px", sort: "status", align: "right", cell: ({ st }) => <Pill tone={STATUS_PILL[st].tone}>{STATUS_PILL[st].label}</Pill> },
+    { id: "status", label: "สถานะ", width: "124px", sort: "status", align: "right", cell: ({ st, ex }) => ex
+      // owner 2026-10-14: a student who gave notice stands out — talk to the family, or close it (Archive)
+      ? <Pill tone="red" title={`แจ้งออก · เรียนวันสุดท้าย ${fmtDate(ex.lastDate, { weekday: true })}${ex.answered ? " · ผู้ปกครองตอบฟอร์มแล้ว" : ""} — คุยกับผู้ปกครอง หรือปิดเรื่อง (Archive) ใน Panel นักเรียน`}><LogOutIcon className="size-3" />{ex.overdue ? "แจ้งออก · เลยวัน" : `แจ้งออก · ${fmtDate(ex.lastDate)}`}</Pill>
+      : <Pill tone={STATUS_PILL[st].tone}>{STATUS_PILL[st].label}</Pill> },
   ]
 
   return (
@@ -155,10 +160,11 @@ export default function StudentsPage() {
           {can(me, "student.export") && <Button variant="outline" onClick={exportCsv}><DownloadIcon /> ส่งออก</Button>}
           {can(me, "student.manage") && <Button onClick={() => setOpenId("new")}><PlusIcon /> เพิ่มนักเรียน</Button>}
         </>} />
-      <KpiRow>
+      <KpiRow className="lg:grid-cols-5">
         <Kpi icon={GraduationCapIcon} label="กำลังเรียน" value={kpi.active} tone="emerald" onClick={() => pick("active")} active={status === "active"} />
         <Kpi icon={RefreshCwIcon} label="รอต่อคอร์ส" value={kpi.renewal} tone="amber" valueClassName={kpi.renewal ? "text-amber-700" : undefined} onClick={() => pick("renewal")} active={status === "renewal"} />
         <Kpi icon={SparklesIcon} label="นักเรียนใหม่เดือนนี้" value={kpi.fresh} tone="sky" />
+        <Kpi icon={LogOutIcon} label="แจ้งออก (รอปิดเรื่อง)" value={kpi.exiting} tone="red" valueClassName={kpi.exiting ? "text-red-700" : undefined} onClick={() => pick("exiting")} active={status === "exiting"} />
         <Kpi icon={UnlinkIcon} label="ยังไม่ผูกครอบครัว" value={kpi.noFamily} tone="red" valueClassName={kpi.noFamily ? "text-red-700" : undefined} onClick={() => setNoFamily(noFamily ? "" : "none")} active={noFamily === "none"} />
       </KpiRow>
       <Toolbar end={<><span className="text-xs text-muted-foreground">{shown.length} คน</span><ColumnsMenu id="students" columns={columns} />{scope.select}</>}>
@@ -167,14 +173,14 @@ export default function StudentsPage() {
           <Input className="pl-8" placeholder="ชื่อ / ชื่อเล่น / ครอบครัว / เบอร์" value={q} onChange={(e) => setQ(e.target.value)} />
         </div>
         <NativeSelect className="h-9 w-28" value={grade} onChange={(e) => setGrade(e.target.value)} placeholder="ทุกชั้น" options={branch.grades.map((g) => ({ value: g, label: g }))} />
-        <NativeSelect className="h-9 w-40" value={status} onChange={(e) => setStatus(e.target.value)} placeholder="ทุกสถานะ" options={Object.entries(STATUS_PILL).map(([k, v]) => ({ value: k, label: v.label }))} />
+        <NativeSelect className="h-9 w-40" value={status} onChange={(e) => setStatus(e.target.value)} placeholder="ทุกสถานะ" options={[...Object.entries(STATUS_PILL).map(([k, v]) => ({ value: k, label: v.label })), { value: "exiting", label: "แจ้งออก" }]} />
       </Toolbar>
 
       {/* owner 2026-10-07: one fact per column (grade sortable on its own); Course + Enroll / End date instead of
           classes, school only in the student panel. Name / nickname / grade edit in place — click the other cells to
           open. owner 2026-10-12: each person arranges the columns (drag · lock · show / hide) — DataTable */}
       <DataTable id="students" columns={columns} rows={pg.rows} rowKey={(r) => r.s.id} onRowClick={(r) => setOpenId(r.s.id)}
-        rowProps={(r) => ({ "data-focus": focusKeys(r) })} sort={sort} onSort={toggle} minWidth={1300} empty="ไม่พบนักเรียน" />
+        rowProps={(r) => ({ "data-focus": focusKeys(r) })} rowClassName={(r) => !!r.ex && "bg-red-50/60 dark:bg-red-950/20"} sort={sort} onSort={toggle} minWidth={1300} empty="ไม่พบนักเรียน" />
       <Pager {...pg} unit="คน" />
       <StudentSheet studentId={openId} onClose={() => setOpenId(null)} />
     </Page>

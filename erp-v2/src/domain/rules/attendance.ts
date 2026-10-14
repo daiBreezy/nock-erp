@@ -222,6 +222,13 @@ export function studentStatus(stu: Pick<Student, "id" | "archived">, ents: Entit
   return studentState(stu, ents, leaves, today, renewalDays).status
 }
 
+/** แจ้งออก but not closed yet (owner 2026-10-14: "แยกไม่ออกว่านักเรียนคนไหนจะลาออก") — still on the books, someone
+ *  should talk to the family, then close it (Archive). `overdue` = the last day has passed and it is still open. */
+export function exitPending(stu: Pick<Student, "exit" | "archived">, today: DateStr): { lastDate: DateStr; overdue: boolean; answered: boolean } | null {
+  if (!stu.exit || stu.exit.status === "closed" || stu.archived) return null
+  return { lastDate: stu.exit.lastDate, overdue: stu.exit.lastDate < today, answered: stu.exit.status === "answered" }
+}
+
 /** False while a renewal check-in's `nextTryOn` is still in the future — keeps a snoozed student off today's
  *  renewal list instead of nagging about them every day (owner 2026-10-06). */
 export function renewalFollowUpDue(stu: Pick<Student, "renewalFollowUps">, today: DateStr): boolean {

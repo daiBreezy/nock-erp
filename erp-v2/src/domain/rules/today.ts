@@ -71,6 +71,7 @@ const PRIORITY: Record<string, { rank: number; when: When; why: string }> = {
   trial_idle: { rank: 44, when: "soon", why: "ทดลองแล้วยังไม่สมัคร ยิ่งนานยิ่งเย็น" },
   lead_follow_again: { rank: 45, when: "soon", why: "ถึงวันที่ตั้งไว้ตอนปิดลีด" },
   lead_quiet: { rank: 46, when: "soon", why: "ตัดสินใจปิดหรือเปลี่ยนช่องทาง" },
+  exiting: { rank: 23, when: "today", why: "คุยกับผู้ปกครองก่อนวันเรียนวันสุดท้าย — ยังมีโอกาสรั้งไว้" },
   often_leave: { rank: 48, when: "soon", why: "ลาบ่อยมักหลุดเป็นรายต่อไป ทักผู้ปกครองก่อน" },
   small_class: { rank: 55, when: "soon", why: "รวมคลาสหรือหาเพื่อนเรียนเพิ่ม" },
   no_family: { rank: 60, when: "soon", why: "ข้อมูลไม่ครบ ทำตอนว่าง" },

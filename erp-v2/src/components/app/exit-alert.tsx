@@ -1,0 +1,51 @@
+"use client"
+
+// "ควรเด้งเตือน" (owner 2026-10-14): a student who gave notice must not slip by. When someone opens the ERP:
+//  · an unread แจ้งออก notification for them pops up once (teachers of that student get it too)
+//  · the office team gets one reminder a day while any notice is still open (not talked through / not archived)
+import { useEffect } from "react"
+import { useRouter } from "next/navigation"
+import { toast } from "sonner"
+import { exitPending } from "@/domain/rules/attendance"
+import { can } from "@/domain/rules/permissions"
+import { isUnread, visibleTo } from "@/domain/rules/notifications"
+import { toDateStr } from "@/domain/dates"
+import { useStore } from "@/store/store"
+
+const seen = new Set<string>()
+const once = (key: string) => {
+  if (seen.has(key)) return false
+  seen.add(key)
+  try { if (localStorage.getItem(key)) return false; localStorage.setItem(key, "1") } catch { /* private mode — once per page load */ }
+  return true
+}
+
+export function ExitAlert() {
+  const router = useRouter()
+  const me = useStore((s) => s.me())
+  const branchId = useStore((s) => s.branchId)
+  const notifications = useStore((s) => s.notifications)
+  const students = useStore((s) => s.students)
+  const now = useStore((s) => s.now)
+
+  useEffect(() => {
+    const t = setTimeout(() => {
+      const today = toDateStr(now())
+      const open = () => router.push("/students?status=exiting")
+      notifications.filter((n) => n.kind === "student_exit" && visibleTo(n, me) && isUnread(n, me)).slice(0, 3).forEach((n) => {
+        if (once(`nockerp-exit-note:${me.id}:${n.id}`)) toast.warning(n.title, { description: n.body, duration: 15000, action: { label: "ดูรายชื่อ", onClick: open } })
+      })
+      if (!can(me, "student.manage")) return
+      const pending = students.filter((x) => x.branchId === branchId && exitPending(x, today))
+      if (pending.length && once(`nockerp-exit-daily:${me.id}:${branchId}:${today}`)) {
+        const late = pending.filter((x) => x.exit!.lastDate < today).length
+        toast.warning(`นักเรียนแจ้งออก ${pending.length} คน ยังไม่ปิดเรื่อง`, {
+          description: `${pending.slice(0, 4).map((x) => x.nickname).join(", ")}${pending.length > 4 ? " …" : ""}${late ? ` · เลยวันสุดท้ายแล้ว ${late} คน` : ""} — คุยกับผู้ปกครอง หรือ Archive`,
+          duration: 15000, action: { label: "ดูรายชื่อ", onClick: open },
+        })
+      }
+    }, 1200)
+    return () => clearTimeout(t)
+  }, [me, branchId, notifications, students, now, router])
+  return null
+}

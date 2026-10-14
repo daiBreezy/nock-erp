@@ -1152,6 +1152,8 @@ export interface ForcedAction {
 export type NotificationKind =
   | "low_sessions" | "session_cancelled" | "approval_needed" | "holiday_impact" | "info" | "form_submitted" | "student_leave"
   | "force_approved" | "message" | "nock"
+  /** owner 2026-10-14: a student gave notice (แจ้งออก) — pops up for the office team */
+  | "student_exit"
 
 /** One internal notification — the single team-communication channel (see domain/rules/notifications.ts). */
 export interface AppNotification {

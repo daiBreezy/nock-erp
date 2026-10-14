@@ -35,7 +35,7 @@ const TOPICS: { key: Topic; label: string; icon: typeof BellIcon }[] = [
 ]
 const KIND_TOPIC: Record<NotificationKind, Topic> = {
   low_sessions: "renewal", session_cancelled: "schedule", holiday_impact: "schedule", student_leave: "schedule",
-  approval_needed: "approval", force_approved: "approval", form_submitted: "forms", message: "message", info: "other", nock: "message",
+  approval_needed: "approval", force_approved: "approval", form_submitted: "forms", message: "message", info: "other", nock: "message", student_exit: "renewal",
 }
 
 interface Alert {
@@ -81,6 +81,10 @@ export default function NotificationsPage() {
   if (!mineOnly) {
     const noTeacher = s.sessions.filter((x) => x.branchId === branch.id && !x.cancelled && x.date >= today && x.date <= addDays(today, 7) && !s.staff.find((t) => t.id === x.teacherId)?.active)
     if (noTeacher.length) alerts.push({ topic: "schedule", key: "nt", icon: UserXIcon, tone: "text-amber-600", title: `${noTeacher.length} คาบใน 7 วันยังไม่มีครู`, detail: noTeacher.slice(0, 3).map((x) => `${fmtDate(x.date, { weekday: true })} ${x.start}`).join(" · "), href: "/calendar" })
+    // owner 2026-10-14: students who gave notice and are still open — talk to the family, then close it
+    const exiting = s.students.filter((x) => x.branchId === branch.id && Att.exitPending(x, today))
+    if (exiting.length) alerts.push({ topic: "renewal", key: "exit", icon: AlertTriangleIcon, tone: "text-red-600", title: `นักเรียนแจ้งออก ${exiting.length} คน — รอคุย / ปิดเรื่อง`,
+      detail: exiting.slice(0, 4).map((x) => `${x.nickname} (วันสุดท้าย ${fmtDate(x.exit!.lastDate)}${x.exit!.lastDate < today ? " · เลยแล้ว" : ""})`).join(" · "), href: "/students?status=exiting" })
     // F4: session packs running low, subscriptions expiring — each a renewal opportunity
     entitlements.forEach((e) => {
       const stu = s.students.find((x) => x.id === e.studentId)
