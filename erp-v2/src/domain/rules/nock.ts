@@ -79,6 +79,8 @@ export const NOCK_GUIDE: GuideEntry[] = [
     steps: "Panel ครอบครัว › สร้างโค้ดผูก LINE → ให้ผู้ปกครองส่งโค้ดเข้า LINE OA ของสาขา · สาขาต้องเชื่อม LINE OA ก่อน (Settings › สาขา › LINE Integration)", href: "/families", hrefLabel: "หน้าครอบครัว" },
   { id: "reports", locations: ["reports"], title: "ดูรายงาน", keywords: ["รายงาน", "report", "รายได้", "สถิติ"], perm: "reports.view",
     steps: "หน้า Reports → เลือกหัวข้อ (ภาพรวม รายได้ นักเรียน การเข้าเรียน Operations CRM ความพึงพอใจ) และช่วงเวลา", href: "/reports", hrefLabel: "Reports" },
+  { id: "ai_settings", locations: ["settings"], title: "ตั้งค่า AI ของ Nock", keywords: ["api key", "ตั้งค่า ai", "gemini", "openai", "chatgpt", "เชื่อม ai"], perm: "settings.manage",
+    steps: "Settings › ระบบ › AI (Nock) → เลือก Google Gemini หรือ OpenAI → วาง API key → บันทึก → ทดสอบการเชื่อมต่อ · key เก็บฝั่ง server ไม่แสดงซ้ำ", href: "/settings?view=system&sys=ai", hrefLabel: "Settings › AI" },
   { id: "switch_branch", locations: ["other"], title: "เปลี่ยนสาขาที่ทำงาน", keywords: ["เปลี่ยนสาขา", "สลับสาขา", "ดูสาขาอื่น"],
     steps: "กดการ์ดชื่อคุณที่มุมซ้ายล่าง → เลือกสาขา (เห็นเฉพาะสาขาที่คุณดูแล) · Director / Area Manager ใช้ชิปสาขาในแต่ละหน้าดูหลายสาขาพร้อมกันได้", href: "/", hrefLabel: "Dashboard" },
 ]

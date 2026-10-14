@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { BellIcon, BookOpenIcon, CalendarDaysIcon, CheckIcon, PencilIcon, PlusIcon, ReceiptTextIcon, SlidersHorizontalIcon, UsersIcon, XIcon } from "lucide-react"
+import { BellIcon, BookOpenIcon, CalendarDaysIcon, SparklesIcon, CheckIcon, PencilIcon, PlusIcon, ReceiptTextIcon, SlidersHorizontalIcon, UsersIcon, XIcon } from "lucide-react"
 import { NativeSelect } from "@/components/app/native-select"
 import { Field } from "@/components/app/student-form"
 import { Button } from "@/components/ui/button"
@@ -22,6 +22,7 @@ import { report } from "@/lib/feedback"
 import { useStore } from "@/store/store"
 import { SaveRow, SettingsCard } from "./common"
 import { HolidayPlanner } from "./holiday-planner"
+import { AiSettings } from "./ai-settings"
 import { SubjectColorPicker } from "./subject-color-picker"
 import { SUBJECT_PALETTE, subjectColor, subjectColorKey } from "@/components/app/subject-color"
 import { tx, nm } from "@/lib/i18n"
@@ -38,6 +39,8 @@ const SYSTEM_TABS: { id: string; label: string; icon: typeof SlidersHorizontalIc
   { id: "billing", label: "การเงิน", icon: ReceiptTextIcon, body: () => <InvoiceMemos /> },
   { id: "customers", label: "ลูกค้าและ CRM", icon: UsersIcon, body: () => <><LossReasons /><YearlySurvey /></> },
   { id: "notifications", label: "การแจ้งเตือน", icon: BellIcon, body: () => <NotificationPrefs /> },
+  // owner 2026-10-14: the AI model Nock uses — set here like LINE Integration
+  { id: "ai", label: "AI (Nock)", icon: SparklesIcon, body: () => <AiSettings /> },
 ]
 
 /** Settings → System: brand-wide catalogs + preferences. Each card saves on its own.
