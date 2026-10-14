@@ -33,12 +33,20 @@ import { NAV, navFor } from "./nav"
 import { DemoPanel } from "./demo-panel"
 import { NockWidget } from "@/components/nock/nock-widget"
 import { ExitAlert, ParentRequestWatcher } from "@/components/app/exit-alert"
+import { startScreenTranslation } from "@/lib/screen-translate"
 import { ThemeTuner } from "./theme-tuner"
 import { FocusBanner } from "./focus-banner"
 
 const noopSubscribe = () => () => {}
 
 /** keeps the parent app (LINE) up to date with this ERP's data — staff screens only */
+/** owner 2026-10-14: every page follows the language chip — the screen is translated as it is shown */
+function ScreenTranslator() {
+  const lang = useUiLang((s) => s.lang)
+  useEffect(() => startScreenTranslation(lang), [lang])
+  return null
+}
+
 function ParentAppPublisher() {
   usePublishParentViews()
   return null
@@ -153,6 +161,7 @@ function Shell({ children }: { children: ReactNode }) {
         <NockWidget />
         <ExitAlert />
         <ParentRequestWatcher />
+        <ScreenTranslator />
         <ThemeTuner />
       </SidebarInset>
     </SidebarProvider>

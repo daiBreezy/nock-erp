@@ -74,6 +74,8 @@ const SHELL: Record<string, Entry> = {
 }
 
 const DICT: Record<string, Entry> = { ...DICT_PAGES, ...SHELL }
+/** every phrase we have — the screen translator (components/app/screen-translator.tsx) reads it too */
+export const DICTIONARY = DICT
 
 /** fill {0} {1} … with the values (same placeholders in every language) */
 const fill = (text: string, vars?: (string | number)[]) => (vars ? text.replace(/\{(\d+)\}/g, (m, i) => (vars[Number(i)] ?? m).toString()) : text)
