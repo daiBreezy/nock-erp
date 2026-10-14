@@ -28,8 +28,8 @@ export function activeEntitlements(studentId: ID, ents: Entitlement[], date: str
 export function packageCovers(e: Entitlement, s: Pick<Session, "classId" | "subject" | "subjects" | "date" | "rescheduledIn">) {
   if (s.date < e.from || s.date > e.to) return false
   const sameSubjects = subjectsOf(s).every((x) => e.subjects.includes(x))
-  // a session the student was re-scheduled into (another class, same week) still draws from their package
-  if (s.rescheduledIn?.includes(e.studentId)) return sameSubjects
+  // a session the student was moved into still draws from their package — any class, any subject (owner 2026-10-14)
+  if (s.rescheduledIn?.includes(e.studentId)) return true
   // multi-subject sessions (monthly only): the student's course must include every subject taught
   return s.classId ? e.classIds.includes(s.classId) : sameSubjects
 }

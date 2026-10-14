@@ -480,14 +480,14 @@ export function movesOf<L extends { studentIds: ID[]; action: string; at: string
  * session on the student is in another class of the same subject. The package keeps its end date — the new class gives
  * whatever sessions fall before it (no extension).
  */
+/** any open class in the branch — subject, grade, day and time are the admin's call (owner 2026-10-14); a different
+ *  grade or a full class only warns */
 export function canMoveToClass(from: Session, to: Pick<Klass, "id" | "active" | "branchId" | "studentIds" | "subject" | "subjects" | "type"> & { grades?: string[] }, studentId: ID, now: Date, grade?: string): Result {
   if (!from.classId) return { ok: false, error: "คาบนี้ไม่ได้อยู่ในคลาส — ใช้ย้ายครั้งเดียว" }
   if (from.classId === to.id) return { ok: false, error: "อยู่ในคลาสนี้อยู่แล้ว" }
   if (!to.active) return { ok: false, error: "คลาสนั้นปิดแล้ว" }
   if (to.branchId !== from.branchId) return { ok: false, error: "ย้ายได้เฉพาะคลาสในสาขาเดียวกัน" }
   if (sessionState(from, now) !== "upcoming") return { ok: false, error: "ย้ายได้ตั้งแต่คาบที่ยังไม่เริ่ม" }
-  const toSubjects = to.subjects?.length ? to.subjects : [to.subject]
-  if (!subjectsOf(from).some((x) => toSubjects.includes(x))) return { ok: false, error: "ย้ายได้เฉพาะคลาสวิชาเดียวกัน" }
   if (to.studentIds.includes(studentId)) return { ok: false, error: "นักเรียนอยู่ในคลาสนั้นแล้ว" }
   const cap = classCapacity(to)
   const warnings = [
@@ -497,7 +497,8 @@ export function canMoveToClass(from: Session, to: Pick<Klass, "id" | "active" | 
   return warnings.length ? { ok: true, value: undefined, warnings } : { ok: true, value: undefined }
 }
 
-/** one session → another session of the same subject, within RESCHEDULE_WEEKS (counted from the original week) */
+/** one session → any other session (owner 2026-10-14: "เลือก Class ได้อิสระ ไม่สนว่าวิชาอะไร เกรดอะไร"), within
+ *  RESCHEDULE_WEEKS (counted from the original week) */
 export function canRescheduleStudent(from: Session, to: Session, studentId: ID, now: Date, capacity: number): Result {
   if (from.id === to.id) return { ok: false, error: "เลือกคาบอื่นที่ไม่ใช่คาบนี้" }
   if (!from.studentIds.includes(studentId)) return { ok: false, error: "นักเรียนไม่ได้อยู่ในคาบนี้" }
@@ -505,7 +506,6 @@ export function canRescheduleStudent(from: Session, to: Session, studentId: ID, 
   if (to.cancelled || sessionState(to, now) !== "upcoming") return { ok: false, error: "ย้ายไปได้เฉพาะคาบที่ยังไม่เริ่ม" }
   const w0 = mondayOf(from.date), w = mondayOf(to.date)
   if (w < w0 || w > addDays(w0, 7 * (RESCHEDULE_WEEKS - 1))) return { ok: false, error: "ย้ายได้ภายในสัปดาห์นี้และสัปดาห์หน้าเท่านั้น — ไกลกว่านั้นให้บันทึกเป็นการลา" }
-  if (!subjectsOf(from).some((x) => subjectsOf(to).includes(x))) return { ok: false, error: "ย้ายได้เฉพาะคาบวิชาเดียวกัน" }
   if (to.studentIds.includes(studentId)) return { ok: false, error: "นักเรียนอยู่ในคาบนั้นแล้ว" }
   // capacity is a soft limit — moving in is allowed, the admin just gets told (owner 2026-09-30)
   return to.studentIds.length >= capacity ? { ok: true, value: undefined, warnings: [`คาบนั้นมี ${to.studentIds.length} คนแล้ว (แนะนำไม่เกิน ${capacity})`] } : { ok: true, value: undefined }

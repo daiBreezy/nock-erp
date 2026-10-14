@@ -935,7 +935,8 @@ describe("leave quota and re-schedule", () => {
     const r = canRescheduleStudent(tue, in2Weeks, "a", now, 6)
     expect(r.ok).toBe(false)
     if (!r.ok) expect(r.error).toContain("การลา")
-    expect(canRescheduleStudent(tue, { ...thu, subject: "English" }, "a", now, 6).ok).toBe(false)
+    // any subject (owner 2026-10-14: "ไม่สนว่าวิชาอะไร")
+    expect(canRescheduleStudent(tue, { ...thu, subject: "English" }, "a", now, 6).ok).toBe(true)
     // a full session only warns (soft capacity, owner 2026-09-30)
     const full = canRescheduleStudent(tue, { ...thu, studentIds: ["x", "y"] }, "a", now, 2)
     expect(full.ok && full.warnings?.[0]).toContain("แนะนำไม่เกิน 2")
@@ -2375,10 +2376,12 @@ describe("ย้ายคลาสถาวร + move log (owner 2026-10-14)", (
   const now = new Date("2026-09-28T08:00:00")
   const from = { id: "s1", classId: "k1", branchId: "b1", subject: "คณิต", date: "2026-09-29", start: "16:00", minutes: 60, cancelled: false, studentIds: ["a"] } as unknown as Session
   const k = (id: string, extra: object = {}) => ({ id, active: true, branchId: "b1", studentIds: [] as string[], subject: "คณิต", type: "group" as const, ...extra })
-  it("same subject, same branch, open class, not the current one", () => {
+  it("any subject / grade — open class in the same branch, not the current one; another grade only warns", () => {
     expect(canMoveToClass(from, k("k2"), "a", now).ok).toBe(true)
     expect(canMoveToClass(from, k("k1"), "a", now).ok).toBe(false)
-    expect(canMoveToClass(from, k("k3", { subject: "อังกฤษ" }), "a", now).ok).toBe(false)
+    expect(canMoveToClass(from, k("k3", { subject: "อังกฤษ" }), "a", now).ok).toBe(true)
+    const g = canMoveToClass(from, k("k5", { grades: ["ป.4"] }), "a", now, "ป.5")
+    expect(g.ok && g.warnings?.[0]).toContain("ป.4")
     expect(canMoveToClass(from, k("k4", { active: false }), "a", now).ok).toBe(false)
     expect(canMoveToClass({ ...from, classId: null }, k("k2"), "a", now).ok).toBe(false)
   })

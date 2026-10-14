@@ -632,7 +632,8 @@ function RescheduleDialog({ from, studentId, onClose }: { from: Session; student
   const logs = useStore((st) => st.logs)
   const entitlements = useStore((st) => st.entitlements)
   const history = movesOf(logs, studentId)
-  const [subject, setSubject] = useState(from.subject)
+  // "" = every subject (owner 2026-10-14: move to any class, any subject)
+  const [subject, setSubject] = useState("")
   const [day, setDay] = useState(from.date)
   const [pick, setPick] = useState<ID | null>(null)
   // no suitable session that day → open a new one (Admin agreed it with teacher + parent first)
@@ -649,7 +650,7 @@ function RescheduleDialog({ from, studentId, onClose }: { from: Session; student
     if (report(move(from.id, studentId, r.value.id), `สร้างคาบใหม่ ${fmtDate(day, { weekday: true })} ${nStart} และย้ายแล้ว`)) onClose()
   }
   const options = sessions
-    .filter((x) => x.branchId === from.branchId && x.date === day && x.id !== from.id && !x.cancelled && subjectsOf(x).includes(subject))
+    .filter((x) => x.branchId === from.branchId && x.date === day && x.id !== from.id && !x.cancelled && (!subject || subjectsOf(x).includes(subject)))
     .sort((a, b) => a.start.localeCompare(b.start))
   const byTeacher = [...new Set(options.map((x) => x.teacherId ?? ""))]
   return (
@@ -678,7 +679,7 @@ function RescheduleDialog({ from, studentId, onClose }: { from: Session; student
         </div>
         {mode === "always" ? <ClassMovePicker from={from} studentId={studentId} value={toClass} onChange={setToClass} entitlementTo={entitlements.find((e) => e.studentId === studentId && e.to >= from.date && from.classId && e.classIds.includes(from.classId))?.to} /> : <>
         <div className="flex flex-wrap items-center gap-2">
-          <NativeSelect className="h-9 w-32" value={subject} onChange={(e) => { setSubject(e.target.value); setPick(null) }} options={branch.subjects.map((x) => ({ value: x, label: x }))} />
+          <NativeSelect className="h-9 w-32" value={subject} onChange={(e) => { setSubject(e.target.value); setPick(null) }} placeholder="ทุกวิชา" options={branch.subjects.map((x) => ({ value: x, label: x }))} />
           <div className="ml-auto flex items-center gap-1 rounded-full bg-muted px-1 py-1">
             <Button size="icon-sm" variant="ghost" aria-label="วันก่อน" disabled={day <= monday} onClick={() => { setDay(addDays(day, -1)); setPick(null) }}><ChevronLeftIcon /></Button>
             <span className="min-w-28 text-center text-sm font-medium">{fmtDate(day, { weekday: true })}{day === from.date && <span className="block text-[10px] font-normal text-muted-foreground">วันเดิม</span>}</span>
@@ -686,7 +687,7 @@ function RescheduleDialog({ from, studentId, onClose }: { from: Session; student
           </div>
         </div>
         <div className="min-h-0 flex-1 space-y-3 overflow-y-auto">
-          {options.length === 0 && <p className="rounded-2xl border border-dashed p-4 text-center text-sm text-muted-foreground">วันนี้ไม่มีคาบวิชา{subject} — ลองวันอื่นในสัปดาห์ หรือสร้างคาบใหม่ด้านล่าง</p>}
+          {options.length === 0 && <p className="rounded-2xl border border-dashed p-4 text-center text-sm text-muted-foreground">วันนี้ไม่มีคาบ{subject && `วิชา${subject}`} — ลองวันอื่น หรือสร้างคาบใหม่ด้านล่าง</p>}
           {byTeacher.map((tid) => (
             <section key={tid || "none"} className="space-y-1.5">
               <p className="flex items-center gap-2 text-sm font-medium">
@@ -751,14 +752,18 @@ function ClassMovePicker({ from, studentId, value, onChange, entitlementTo }: { 
   const now = useNow(30_000)
   const L = useLookup()
   const current = classes.find((k) => k.id === from.classId)
-  const options = classes.filter((k) => k.active && k.branchId === from.branchId && k.id !== from.classId && subjectsOf(from).some((x) => (k.subjects?.length ? k.subjects : [k.subject]).includes(x)))
-    .sort((a, b) => a.weekday - b.weekday || a.start.localeCompare(b.start))
+  // every open class of the branch — subject / grade / day / time are free (owner 2026-10-14); same subject first
+  const same = (k: (typeof classes)[number]) => subjectsOf(from).some((x) => (k.subjects?.length ? k.subjects : [k.subject]).includes(x))
+  const [q, setQ] = useState("")
+  const options = classes.filter((k) => k.active && k.branchId === from.branchId && k.id !== from.classId && (!q.trim() || `${k.name} ${k.subject} ${k.grades.join(" ")} ${L.teacher(k.teacherId).label}`.toLowerCase().includes(q.trim().toLowerCase())))
+    .sort((a, b) => Number(same(b)) - Number(same(a)) || (a.weekday + 6) % 7 - (b.weekday + 6) % 7 || a.start.localeCompare(b.start))
   const picked = classes.find((k) => k.id === value)
   const ahead = (classId: ID) => sessions.filter((x) => x.classId === classId && x.date >= from.date && !x.cancelled && (!entitlementTo || x.date <= entitlementTo)).length
   return (
     <div className="min-h-0 flex-1 space-y-2 overflow-y-auto">
+      <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="ค้นหาคลาส / วิชา / ชั้น / ครู" className="h-9" />
       {current && <p className="text-xs text-muted-foreground">คลาสเดิม: <b className="text-foreground">{current.name}</b> · ทุก{TH_DAYS_FULL[current.weekday]} {current.start}–{endTime(current.start, current.minutes)}</p>}
-      {options.length === 0 && <p className="rounded-2xl border border-dashed p-4 text-center text-sm text-muted-foreground">ยังไม่มีคลาสวิชาเดียวกันในสาขานี้ — สร้างคลาสใหม่ที่หน้า คลาส แล้วกลับมาย้าย</p>}
+      {options.length === 0 && <p className="rounded-2xl border border-dashed p-4 text-center text-sm text-muted-foreground">ไม่พบคลาส — สร้างคลาสใหม่ที่หน้า คลาส แล้วกลับมาย้าย</p>}
       {options.map((k) => {
         const check = canMoveToClass(from, k, studentId, now, L.student(studentId)?.grade)
         const cap = classCapacity(k)
