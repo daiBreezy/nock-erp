@@ -20,6 +20,7 @@
 - LINE: ข้อความสรุปจบคอร์สมีลิงก์ `https://liff.line.me/<LIFF>?app=parent&cs=<id>` → App ผู้ปกครองเปิดหน้าสรุป + กราฟทันที · tunnel ใหม่ (quick tunnel URL เปลี่ยนทุกครั้ง — ต้องอัปเดต Webhook URL + LIFF Endpoint ใน LINE Console)
 - ย้ายวัน 2 แบบ (session panel › ย้ายวัน): **ครั้งนี้ครั้งเดียว** = ภายในสัปดาห์นี้ + สัปดาห์หน้า (`RESCHEDULE_WEEKS`) · **ตั้งแต่ครั้งนี้เป็นต้นไป** = ย้ายคลาสถาวร (`moveStudentToClass`: ออกจากคาบที่ยังไม่เริ่มของคลาสเดิม เข้าคลาสใหม่ แพ็กเกจจบวันเดิม ไม่ยืด) · ทุกคนย้ายได้ (สิทธิ์ใหม่ `student.move`, ครู = เฉพาะคาบตัวเอง) · ทุกการย้ายเข้า Log (ใคร/เมื่อไร/จากไหน→ไหน) + ป้าย "ย้ายมาแล้ว N ครั้ง" ในหน้าย้าย (`movesOf`)
 - LINE parent app จอดำ = localStorage เต็ม (seed 6.4M) → storage ไม่ throw, หน้า /liff ไม่แตะ store, ประวัติคาบ ≤ 8/คอร์ส · reseed เก็บการผูก LINE ไว้ (`keepLineLinks`)
+- **แจ้งลา / แจ้งลาออก จาก LINE** (App ผู้ปกครอง แท็บ "แจ้งเรื่อง", deep link `?app=parent&act=leave|exit`): ผู้ปกครองเลือกคาบที่จะลา หรือวันสุดท้าย+เหตุผล → `/api/parent-view/requests` (ยืนยันตัวตนด้วย LIFF token, ไฟล์ `.data/parent-requests.json`) → ERP ดึงทุก 20 วิ (`ParentRequestWatcher`) เป็นแจ้งเตือน + เด้ง + Dashboard → หน้าแจ้งเตือน › คำขอผู้ปกครอง: บันทึกลา (หัก/ไม่หักโควตา) · รับเรื่องแจ้งออก (`exitFromParent`) · ไม่ดำเนินการ+เหตุผล — ผู้ปกครองได้ข้อความ LINE ทุกขั้น · token LINE หมดอายุ → login ใหม่เอง
 - ตอบเจ้าของ: Memo ช่วงพิเศษแทน Memo แบรนด์ (เป็นแบบนี้อยู่แล้ว) · แท็บ Settings ไม่ต้องมีหน้า info แยก (หน้าแรก = ข้อมูลสาขารวม)
 
 ## 2026-10-13 — Nock (AI ผู้ช่วย + คลังคำถาม), Max Student ต่อคอร์ส, หน้า list มาตรฐานเดียว
