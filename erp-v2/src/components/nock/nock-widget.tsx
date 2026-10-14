@@ -5,7 +5,7 @@
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { useEffect, useMemo, useRef, useState } from "react"
-import { ArrowRightIcon, EllipsisIcon, LibraryBigIcon, SearchIcon, Loader2Icon, ArrowUpIcon, CheckIcon, CodeXmlIcon, MapPinIcon, SendIcon, ThumbsDownIcon, ThumbsUpIcon, UserRoundCheckIcon, XIcon } from "lucide-react"
+import { ArrowLeftIcon, ArrowRightIcon, EllipsisIcon, LibraryBigIcon, SearchIcon, Loader2Icon, ArrowUpIcon, CheckIcon, CodeXmlIcon, MapPinIcon, SendIcon, ThumbsDownIcon, ThumbsUpIcon, UserRoundCheckIcon, XIcon } from "lucide-react"
 import { AiAvatar } from "@/components/ui/ai-avatar"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Button } from "@/components/ui/button"
@@ -123,12 +123,20 @@ function NockPanel({ onClose }: { onClose: () => void }) {
     <div role="dialog" aria-label="Nock" className="fixed right-5 bottom-24 z-40 flex h-[min(520px,calc(100vh-8rem))] w-[min(360px,calc(100vw-2.5rem))] flex-col overflow-hidden rounded-[28px] bg-background shadow-2xl ring-1 ring-foreground/8 print:hidden">
       <div className="flex shrink-0 items-center gap-2.5 px-4 pt-3.5 pb-2">
         <AiAvatar size="xs" />
-        <div className="min-w-0 flex-1 leading-tight">
-          <p className="text-sm font-semibold">Nock</p>
-          <p className="truncate text-[11px] text-muted-foreground">{model === undefined ? "…" : model ? model : "ตอบจากคู่มือ + คำตอบของทีม"}</p>
-        </div>
-        <Button size="sm" variant={view === "dev" ? "secondary" : "ghost"} className="h-7 gap-1 rounded-full px-2.5 text-xs text-muted-foreground" title="แจ้งปัญหา ขอความช่วยเหลือ เสนอแนะ หรือถามทีมพัฒนาโดยตรง" onClick={() => { setDevFrom(null); setView(view === "dev" ? "chat" : "dev") }}><CodeXmlIcon /> ส่งถึง Dev</Button>
-        <Button size="icon-sm" variant="ghost" className="text-muted-foreground" aria-label="คลังคำถาม" title="คลังคำถาม Nock" nativeButton={false} render={<Link href="/nock" onClick={onClose} />}><LibraryBigIcon /></Button>
+        {/* owner 2026-10-14: header kept quiet — no subtext; ส่งถึง Dev + คลังคำถาม live in the ⋯ next to close */}
+        <p className="min-w-0 flex-1 text-sm font-semibold">{view === "dev" ? "ส่งถึง Dev" : "Nock"}</p>
+        <DropdownMenu>
+          <DropdownMenuTrigger render={<Button size="icon-sm" variant="ghost" className="text-muted-foreground data-[popup-open]:bg-muted" aria-label="เมนู" title="เมนู" />}>
+            <EllipsisIcon />
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="z-[60] w-60">
+            {view === "dev"
+              ? <DropdownMenuItem onClick={() => setView("chat")}><ArrowLeftIcon /> กลับไปคุยกับ Nock</DropdownMenuItem>
+              : <DropdownMenuItem onClick={() => { setDevFrom(null); setView("dev") }}><CodeXmlIcon /><span className="flex flex-col"><span>ส่งถึง Dev</span><span className="text-xs text-muted-foreground">แจ้งปัญหา ขอความช่วยเหลือ เสนอแนะ</span></span></DropdownMenuItem>}
+            <DropdownMenuItem render={<Link href="/nock" onClick={onClose} />}><LibraryBigIcon /> คลังคำถาม Nock</DropdownMenuItem>
+            <p className="px-2 pt-1.5 pb-1 text-[11px] text-muted-foreground">{model === undefined ? "…" : model ? `ตอบด้วย ${model}` : "ตอบจากคู่มือ + คำตอบของทีม"}</p>
+          </DropdownMenuContent>
+        </DropdownMenu>
         <Button size="icon-sm" variant="ghost" className="text-muted-foreground" aria-label="ปิด" onClick={onClose}><XIcon /></Button>
       </div>
 
@@ -166,7 +174,7 @@ function NockPanel({ onClose }: { onClose: () => void }) {
             <Button type="submit" size="icon-sm" className="ml-auto rounded-full" disabled={!text.trim() || !!pending} aria-label="ส่ง"><ArrowUpIcon /></Button>
           </div>
         </div>
-        {mine.length > 0 && <p className="pt-1.5 text-center text-[10px] text-muted-foreground"><span className="inline-flex items-center gap-1">Nock อาจตอบผิดได้ · กด <EllipsisIcon className="size-3" /> หลังคำตอบ เพื่อให้ผู้รู้ช่วยตอบ / ถาม Dev</span></p>}
+        {mine.length > 0 && <p className="pt-1.5 text-center text-[10px] text-muted-foreground">Nock อาจตอบผิดได้</p>}
       </form>
       </>}
     </div>
@@ -198,10 +206,7 @@ function DevTicketForm({ from, onDone, onLink }: { from?: NockQuestion | null; o
   )
   return (
     <div className="min-h-0 flex-1 space-y-3 overflow-y-auto px-4 pt-1 pb-3">
-      <div>
-        <p className="font-semibold">ส่งเรื่องถึงทีมพัฒนา</p>
-        <p className="text-xs text-muted-foreground">Dev ตอบกลับในระบบ · เรื่องที่ส่งเห็นเฉพาะคุณกับ Dev</p>
-      </div>
+      <p className="text-xs text-muted-foreground">เห็นเฉพาะคุณกับ Dev · Dev ตอบกลับในระบบ</p>
       <div className="grid grid-cols-2 gap-1.5">
         {(Object.keys(DEV_KIND_LABEL) as DevTicketKind[]).map((k) => {
           const Icon = DEV_KIND_ICON[k]
