@@ -455,6 +455,8 @@ export interface LessonSummary {
   topicId?: ID
   /** Lesson Detail — what was covered (e.g. pages, exercises) */
   detail?: string
+  /** owner 2026-10-14: the teacher's 1–5 "ความเข้าใจวันนี้" — what the Course Summary progress chart is drawn from */
+  level?: number
   status: SummaryStatus
   authorId: ID
   lastEditorId: ID

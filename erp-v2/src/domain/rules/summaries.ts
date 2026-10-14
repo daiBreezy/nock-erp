@@ -141,9 +141,22 @@ export function draftCourseSummary(sessionTexts: Pick<LessonSummary, "text">[]):
   return { overallProgress, strengths: strengths.join(" · "), toImprove: toImprove.join(" · ") }
 }
 
-/** Owner 2026-10-13: a Bundle course gets one summary written per subject — each line starts with its subject. */
+/** "คณิต: … · อังกฤษ: …" in one session note → the part for one subject (a whole note when it names no subject) */
+export function noteForSubject(text: string, subject: string, subjects: string[]): string {
+  const marks = subjects.map((x) => ({ x, i: text.indexOf(`${x}:`) })).filter((m) => m.i >= 0).sort((a, b) => a.i - b.i)
+  if (!marks.length) return text
+  const k = marks.findIndex((m) => m.x === subject)
+  if (k < 0) return ""
+  const end = k + 1 < marks.length ? marks[k + 1].i : text.length
+  return text.slice(marks[k].i + subject.length + 1, end).replace(/[\s·|,]+$/, "").trim()
+}
+
+/** Owner 2026-10-13: a Bundle course gets one summary written per subject — each line starts with its subject.
+ *  A note that covers several subjects ("คณิต: … · อังกฤษ: …") is split so each subject gets only its own part. */
 export function draftBundleCourseSummary(groups: { subject: string; texts: Pick<LessonSummary, "text">[] }[]): { overallProgress: string; toImprove: string; strengths: string } {
-  const parts = groups.filter((g) => g.texts.some((t) => t.text.trim())).map((g) => ({ subject: g.subject, d: draftCourseSummary(g.texts) }))
+  const subjects = groups.map((g) => g.subject)
+  const parts = groups.map((g) => ({ subject: g.subject, texts: g.texts.map((t) => ({ text: noteForSubject(t.text, g.subject, subjects) })).filter((t) => t.text.trim()) }))
+    .filter((g) => g.texts.length).map((g) => ({ subject: g.subject, d: draftCourseSummary(g.texts) }))
   const join = (k: "overallProgress" | "toImprove" | "strengths") => parts.filter((p) => p.d[k]).map((p) => `${p.subject}: ${p.d[k]}`).join("\n")
   return { overallProgress: join("overallProgress"), toImprove: join("toImprove"), strengths: join("strengths") }
 }
@@ -154,4 +167,35 @@ export const SUMMARY_STATUS_LABEL: Record<LessonSummary["status"], string> = {
   changes_requested: "ขอแก้ไข",
   approved: "อนุมัติแล้ว · ยังไม่ส่ง",
   sent: "ส่งแล้ว",
+}
+
+// ---------- Course Summary progress (owner 2026-10-14: "อยากเห็น Graph / Chart ที่ช่วยให้เห็นภาพพัฒนาการ") ----------
+
+/** ความเข้าใจวันนี้ 1–5 — the teacher picks one when writing a session summary (owner 2026-10-14) */
+export const LEVEL_LABEL: Record<number, string> = { 1: "ยังไม่เข้าใจ", 2: "เข้าใจบางส่วน", 3: "พอเข้าใจ", 4: "เข้าใจดี", 5: "เข้าใจดีมาก" }
+
+export type Insight = { tone: "good" | "watch" | "info"; text: string }
+
+export interface ProgressRow { date: DateStr; attended: "present" | "leave" | "absent" | null; level?: number; text?: string }
+
+/** the numbers behind the Course Summary charts + the plain-language reading of them (the "AI" box without a model) */
+export function courseProgress(rows: ProgressRow[]) {
+  const done = rows.filter((r) => r.attended)
+  const present = done.filter((r) => r.attended === "present").length
+  const leave = done.filter((r) => r.attended === "leave").length
+  const levels = rows.filter((r) => r.level).map((r) => r.level!)
+  const third = Math.max(1, Math.floor(levels.length / 3))
+  const avg = (xs: number[]) => (xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : null)
+  const first = avg(levels.slice(0, third))
+  const last = avg(levels.slice(-third))
+  const trend = first !== null && last !== null && levels.length >= 3 ? last - first : null
+  const notes = rows.filter((r) => r.text?.trim()).map((r) => r.text!)
+  const strengths = notes.filter((n) => STRENGTH_WORDS.some((w) => n.includes(w))).length
+  const improves = notes.filter((n) => IMPROVE_WORDS.some((w) => n.includes(w))).length
+  const rate = done.length ? present / done.length : null
+  const insights: Insight[] = []
+  if (rate !== null) insights.push(rate >= 0.9 ? { tone: "good", text: `มาเรียนสม่ำเสมอ ${Math.round(rate * 100)}% (${present}/${done.length} คาบ)` } : rate >= 0.75 ? { tone: "info", text: `มาเรียน ${Math.round(rate * 100)}% · ลา ${leave} คาบ` } : { tone: "watch", text: `มาเรียนแค่ ${Math.round(rate * 100)}% — ลา ${leave} คาบ ควรคุยกับผู้ปกครอง` })
+  if (trend !== null) insights.push(trend >= 0.5 ? { tone: "good", text: `ความเข้าใจดีขึ้นชัดเจน จาก ${first!.toFixed(1)} เป็น ${last!.toFixed(1)} (เต็ม 5)` } : trend <= -0.5 ? { tone: "watch", text: `ความเข้าใจลดลง จาก ${first!.toFixed(1)} เหลือ ${last!.toFixed(1)} — ควรทบทวนพื้นฐาน` } : { tone: "info", text: `ความเข้าใจคงที่ราว ${last!.toFixed(1)} / 5` })
+  if (notes.length) insights.push(strengths >= improves ? { tone: "good", text: `ครูบันทึกจุดเด่น ${strengths} ครั้ง มากกว่าเรื่องที่ต้องฝึก (${improves})` } : { tone: "watch", text: `เรื่องที่ต้องฝึก (${improves}) ยังมากกว่าจุดเด่น (${strengths}) — เน้นทบทวนก่อนต่อคอร์ส` })
+  return { sessions: rows.length, attended: done.length, present, leave, rate, avgLevel: avg(levels), first, last, trend, strengths, improves, insights }
 }

@@ -2319,3 +2319,20 @@ describe("เรื่องถึง Dev (owner 2026-10-13)", () => {
     expect(DevR.canReplyTicket(admin, { by: "x" })).toBe(false)
   })
 })
+
+describe("Course Summary progress (owner 2026-10-14)", () => {
+  it("a combined note is split per subject for a Bundle", () => {
+    const note = "คณิต: ทำโจทย์เศษส่วนได้ดีขึ้น · อังกฤษ: อ่านออกเสียงชัด"
+    expect(Sum.noteForSubject(note, "คณิต", ["คณิต", "อังกฤษ"])).toBe("ทำโจทย์เศษส่วนได้ดีขึ้น")
+    expect(Sum.noteForSubject(note, "อังกฤษ", ["คณิต", "อังกฤษ"])).toBe("อ่านออกเสียงชัด")
+    expect(Sum.noteForSubject("ตั้งใจเรียนดี", "คณิต", ["คณิต", "อังกฤษ"])).toBe("ตั้งใจเรียนดี")
+    const d = Sum.draftBundleCourseSummary([{ subject: "คณิต", texts: [{ text: note }] }, { subject: "อังกฤษ", texts: [{ text: note }] }])
+    expect(d.overallProgress.split("\n")).toEqual(["คณิต: สรุปจาก 1 คาบ: ทำโจทย์เศษส่วนได้ดีขึ้น", "อังกฤษ: สรุปจาก 1 คาบ: อ่านออกเสียงชัด"])
+  })
+  it("reads attendance and the 1–5 understanding trend", () => {
+    const rows = [2, 2, 3, 3, 4, 4].map((level, i) => ({ date: `2026-10-0${i + 1}`, attended: "present" as const, level, text: "ตั้งใจดี" }))
+    const p = Sum.courseProgress([...rows, { date: "2026-10-08", attended: "leave" as const }])
+    expect([p.present, p.leave, p.first, p.last]).toEqual([6, 1, 2, 4])
+    expect(p.insights.some((x) => x.tone === "good" && x.text.includes("ดีขึ้น"))).toBe(true)
+  })
+})

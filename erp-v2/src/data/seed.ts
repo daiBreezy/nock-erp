@@ -84,6 +84,14 @@ const SESSION_NOTES = [
   "ฟังจับใจความได้ดี เขียนประโยค Past simple ยังสลับกริยาช่อง 2",
 ]
 
+// notes for a Bundle class — one session covers both subjects, so the note names each one (Course Summary splits them)
+const COMBO_NOTES = [
+  "คณิต: ทำโจทย์เศษส่วนได้คล่องขึ้น · อังกฤษ: อ่านออกเสียงชัด กล้าตอบ",
+  "คณิต: ยังสับสนการทดเลข ควรฝึกเพิ่ม · อังกฤษ: จำคำศัพท์ Unit 5 ได้ดี",
+  "คณิต: แก้โจทย์ปัญหาได้เองครบทุกข้อ · อังกฤษ: Grammar Past simple ยังสลับ ต้องทบทวน",
+  "คณิต: ตั้งใจเรียนดี ทำแบบฝึกหัดเสร็จ · อังกฤษ: ฟังจับใจความเก่งขึ้น",
+]
+
 export function buildSeed(now = new Date()): DB {
   seq = 0
   const today = toDateStr(now)
@@ -265,7 +273,7 @@ export function buildSeed(now = new Date()): DB {
     k("cl_math5_pv", "br_thl", "คณิต ป.5 เดี่ยว", "คณิต", ["ป.5"], "u_dai", "rm_3", 4, "17:30", 60, [], [], "learning", "single"),
     k("cl_ari", "br_ari", "คณิต ป.2", "คณิต", ["ป.2"], "u_beam", "rm_a1", 5, "15:00", 90, ["stu_8"]),
     // multi-subject class (owner 2026-09-28): Math 15 min + Eng 30 min in one session, one summary — monthly bundle course
-    { ...k("cl_combo6", "br_thl", "คณิต + อังกฤษ ป.6", "คณิต", ["ป.6"], "u_prae", "rm_3", 5, "16:00", 45, ["stu_6", "stu_14"], ["u_mint"]), subjects: ["คณิต", "อังกฤษ"], courseId: "co_bundle6" },
+    { ...k("cl_combo6", "br_thl", "คณิต + อังกฤษ ป.6", "คณิต", ["ป.6"], "u_prae", "rm_3", 5, "16:00", 45, ["stu_6", "stu_14"], ["u_mint"]), subjects: ["คณิต", "อังกฤษ"], courseId: "co_bundle6", startDate: nextWeekday(addDays(monday, -84), 5) }, // running ~3 months, so the Bundle progress charts have a history
     // a Summer-only class: sessions only inside the period, gone from the calendar if Summer is switched off
     { ...k("cl_summer_eng", "br_thl", "Summer English Camp", "อังกฤษ", ["ป.5", "ป.6"], "u_mint", "rm_2", 1, "09:00", 120, ["stu_6", "stu_14"]), startDate: addDays(monday, 42), periodId: "sp_summer", courseId: "co_summer_eng" },
     ...branches.slice(2).flatMap((b, i) => [
@@ -274,7 +282,7 @@ export function buildSeed(now = new Date()): DB {
     ]),
   ]
 
-  const sessions: Session[] = classes.flatMap((c) => generateSessions(c, holidays, () => uid("se"), 10, c.periodId ? addDays(monday, 69) : undefined))
+  const sessions: Session[] = classes.flatMap((c) => generateSessions(c, holidays, () => uid("se"), c.id === "cl_combo6" ? 22 : 10, c.periodId ? addDays(monday, 69) : undefined))
   // free-form reminders on the teacher-block class (owner 2026-09-30: "Math Book Lesson 1 Page 2-6")
   sessions.filter((x) => x.classId === "cl_block_dai").forEach((x, i) => {
     x.notes = { stu_10: `Math Book ป.5 เล่ม 2 · Lesson ${i + 1} หน้า ${i * 4 + 2}-${i * 4 + 6}`, stu_17: `ตะลุยโจทย์วิทย์ ชุด ${i + 1}` }
@@ -331,7 +339,11 @@ export function buildSeed(now = new Date()): DB {
     const by = approverOf(se)
     summaries.push({
       id: uid("sm"), sessionId: se.id, studentId: sid, authorId: se.teacherId!, lastEditorId: status === "changes_requested" ? by : se.teacherId!,
-      text: SESSION_NOTES[(se.date.charCodeAt(9) + sid.length + se.start.charCodeAt(1)) % SESSION_NOTES.length], status, history: [
+      // a Bundle class (several subjects in one session) writes one note naming each subject (owner 2026-10-14)
+      text: (se.subjects?.length ?? 0) > 1 ? COMBO_NOTES[(se.date.charCodeAt(9) + sid.length) % COMBO_NOTES.length] : SESSION_NOTES[(se.date.charCodeAt(9) + sid.length + se.start.charCodeAt(1)) % SESSION_NOTES.length],
+      // 1–5 understanding: drifts upward over the months with some ups and downs, so the progress chart has a story
+      level: Math.max(1, Math.min(5, Math.round(2 + (1 - Math.min(1, (nowMs - at) / (120 * 86400000))) * 2 + (((se.id.charCodeAt(se.id.length - 1) + sid.charCodeAt(sid.length - 1)) % 3) - 1) * 0.6 + (sid.charCodeAt(sid.length - 1) % 2) * 0.4))),
+      status, history: [
         { at: h(0), by: se.teacherId!, action: "write" },
         ...(status === "draft" ? [] : [{ at: h(submitH), by: se.teacherId!, action: "submit" as const }]),
         ...(status === "changes_requested" ? [{ at: h(submitH + 4), by, action: "request_changes" as const, note: "ช่วยเพิ่มว่าการบ้านครั้งหน้าคืออะไร" }] : []),
@@ -637,7 +649,20 @@ export function buildSeed(now = new Date()): DB {
   // just ended or ends this week (one per stage in buildCourseSummaries)
   students.filter((st) => st.branchId === "br_thl" && st.grade === "ป.6" && !["stu_6", "stu_14"].includes(st.id) && !entitlements.some((e) => e.studentId === st.id && e.courseId === "co_bundle6")).slice(0, 6).forEach((st, i) => {
     const to = addDays(today, [-9, -6, -4, -2, 1, 4][i])
-    entitlements.push(ent(`en_bundle_demo_${i}`, st.id, "co_bundle6", "cl_combo6", "subscription", addDays(to, -29), to, 8))
+    // three back-to-back months = one Course Summary round (~12 sessions to chart)
+    for (const m of [2, 1, 0]) entitlements.push(ent(`en_bundle_demo_${i}${m ? `_${m}` : ""}`, st.id, "co_bundle6", "cl_combo6", "subscription", addDays(to, -29 - 30 * m), addDays(to, -30 * m), 4))
+    // owner 2026-10-14: they sit in the class that month — check-ins, notes per subject and a 1–5 understanding with a
+    // different story each (getting better / slipping / steady / up and down) so the Course Summary charts show it
+    const story = [[2, 2, 2, 3, 3, 3, 4, 3, 4, 4, 5, 5], [4, 4, 4, 3, 4, 3, 3, 2, 3, 2, 2, 2], [3, 4, 3, 3, 4, 3, 4, 3, 4, 4, 3, 4], [1, 2, 2, 3, 2, 3, 4, 3, 4, 4, 5, 5], [3, 3, 4, 3, 4, 4, 4, 5, 4, 5, 5, 5], [2, 2, 2, 2, 3, 3, 3, 3, 3, 4, 4, 4]][i]
+    sessions.filter((se) => se.classId === "cl_combo6" && !se.cancelled && se.date >= addDays(to, -89) && se.date <= to && endOf(se) < nowMs)
+      .sort((x, y) => x.date.localeCompare(y.date)).forEach((se, n) => {
+        if (!se.studentIds.includes(st.id)) se.studentIds = [...se.studentIds, st.id]
+        const leave = i === 1 ? n % 3 === 2 : n === 5
+        mark(se, st.id, leave ? "leave" : "present", endOf(se) - 30 * 60000)
+        if (leave) return
+        write(se, st.id, (nowMs - endOf(se)) / 86400000 < 1 ? "draft" : "sent", endOf(se))
+        summaries[summaries.length - 1].level = story[Math.min(n, story.length - 1)]
+      })
   })
   const courseSummaries = buildCourseSummaries({ today, now, courses, classes, entitlements })
 

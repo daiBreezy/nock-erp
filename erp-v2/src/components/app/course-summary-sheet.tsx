@@ -9,7 +9,7 @@ import { avatarTone, gradeTone, initial, subjectColor } from "./subject-color"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Textarea } from "@/components/ui/textarea"
-import { fmtDate, fmtDateTime } from "@/domain/dates"
+import { fmtDate, fmtDateTime, toDateStr } from "@/domain/dates"
 import * as Att from "@/domain/rules/attendance"
 import { can } from "@/domain/rules/permissions"
 import * as Sum from "@/domain/rules/summaries"
@@ -19,6 +19,7 @@ import type { CourseSummary, ID, Staff } from "@/domain/types"
 import { report } from "@/lib/feedback"
 import { useNow } from "@/lib/hooks"
 import { AI_TONE } from "./ai"
+import { CourseProgress } from "./course-progress"
 import { cn } from "@/lib/utils"
 import { useStore } from "@/store/store"
 import { toast } from "sonner"
@@ -35,7 +36,7 @@ const emptyDraft: Draft = { overallProgress: "", toImprove: "", strengths: "" }
 export function CourseSummaryStudentSheet({ studentId, rounds, onClose }: { studentId: ID | null; rounds: Sum.EntitlementRound[]; onClose: () => void }) {
   return (
     <Dialog open={!!studentId} onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="max-h-[88vh] overflow-y-auto sm:max-w-xl">
+      <DialogContent className="max-h-[88vh] overflow-y-auto sm:max-w-3xl">
         {studentId && <Body studentId={studentId} rounds={rounds} onClose={onClose} />}
       </DialogContent>
     </Dialog>
@@ -140,11 +141,14 @@ function CourseCard({ round, studentId, expanded, onToggle, draft, setDraft, can
   const roundEntitlements = useStore((s) => s.entitlements).filter((e) => round.entitlementIds.includes(e.id))
   const sessions = useStore((s) => s.sessions)
   const summaries = useStore((s) => s.summaries)
+  const attendance = useStore((s) => s.attendance)
   const cs = useCourseSummary(round.representativeId)
   const approve = useStore((s) => s.approveCourseSummary)
   const requestChanges = useStore((s) => s.requestCourseSummaryChanges)
   const [asking, setAsking] = useState(false)
   const [note, setNote] = useState("")
+  const [thinking, setThinking] = useState(false)
+  const [aiInsights, setAiInsights] = useState<Sum.Insight[] | null>(null)
 
   // every session covered by ANY entitlement in this round's chain — a year of back-to-back monthly packages
   // is one round, so its Session Summaries span the whole year, not just the latest billing cycle
@@ -153,6 +157,13 @@ function CourseCard({ round, studentId, expanded, onToggle, draft, setDraft, can
     .map((se) => ({ se, sm: summaries.find((x) => x.sessionId === se.id && x.studentId === studentId) }))
     .filter((x): x is { se: typeof x.se; sm: NonNullable<typeof x.sm> } => !!x.sm && !!x.sm.text.trim())
     .sort((a, b) => a.se.date.localeCompare(b.se.date))
+
+  // the chart data: every session of the round up to today — attendance + the teacher's 1–5 understanding + note
+  const today = toDateStr(now)
+  const progressRows: Sum.ProgressRow[] = covered.filter((se) => se.date <= today && !se.cancelled).sort((a, b) => a.date.localeCompare(b.date)).map((se) => {
+    const sm = summaries.find((x) => x.sessionId === se.id && x.studentId === studentId)
+    return { date: se.date, attended: attendance.find((a) => a.sessionId === se.id && a.studentId === studentId)?.status ?? null, level: sm?.level, text: sm?.text }
+  })
 
   const status = cs?.status
   const editable = !status || status === "draft" || status === "changes_requested"
@@ -168,12 +179,31 @@ function CourseCard({ round, studentId, expanded, onToggle, draft, setDraft, can
 
   const approveCheck = cs && Sum.canApprove(cs, me)
   const isBlank = !draft.overallProgress.trim() && !draft.toImprove.trim() && !draft.strengths.trim()
-  const generate = () => setDraft(bundle
+  const ruleDraft = () => setDraft(bundle
     ? Sum.draftBundleCourseSummary(course!.subjects.map((subject) => ({ subject, texts: sessionSummaries.filter((x) => subjectsOf(x.se).includes(subject)).map((x) => x.sm) })))
     : Sum.draftCourseSummary(sessionSummaries.map((x) => x.sm)))
+  // Generate: the AI set in Settings › ระบบ › AI writes the summary + the assessment; no AI set (or it fails) →
+  // the rules-based draft, so the button always does something
+  const generate = async () => {
+    setThinking(true)
+    try {
+      const r = await fetch("/api/ai/course-summary", { method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ course: course?.name ?? "", subjects: course?.subjects ?? [], bundle, rows: progressRows }) }).then((x) => x.json())
+      if (r.ok) {
+        setDraft({ overallProgress: r.overallProgress, toImprove: r.toImprove, strengths: r.strengths })
+        setAiInsights(r.insights?.length ? r.insights : null)
+        toast.success(`AI เขียนสรุปให้แล้ว (${r.model}) — ตรวจและแก้ได้ก่อนส่ง`)
+      } else {
+        ruleDraft()
+        toast(r.notConfigured ? "ยังไม่ได้ตั้งค่า AI — ใช้สรุปอัตโนมัติจากสรุปคาบแทน (ตั้งค่าได้ที่ Settings › ระบบ › AI)" : `AI ไม่ตอบ (${r.error}) — ใช้สรุปอัตโนมัติแทน`)
+      }
+    } catch {
+      ruleDraft()
+    } finally { setThinking(false) }
+  }
   // a Course Summary IS its session summaries gathered together — open a blank, editable card with some
   // already in hand and it fills itself in immediately, no separate click needed (owner 2026-10-06)
-  const expand = () => { if (!expanded && editable && isBlank && sessionSummaries.length) generate(); onToggle() }
+  const expand = () => { if (!expanded && editable && isBlank && sessionSummaries.length) ruleDraft(); onToggle() }
 
   return (
     <div className="overflow-hidden rounded-2xl border">
@@ -213,12 +243,14 @@ function CourseCard({ round, studentId, expanded, onToggle, draft, setDraft, can
               Required · due: {fmtDate(due.deadline, { weekday: true })} · <span className={cn("font-medium", due.overdue ? "text-red-700" : due.daysLeft <= 2 ? "text-red-700" : "text-foreground")}>{due.overdue ? `เลย ${-due.daysLeft} วัน` : `${due.daysLeft} วัน`}</span>
             </p>
             {editable && (
-              <Button size="xs" variant="outline" className={cn("gap-1", AI_TONE.button)} disabled={!sessionSummaries.length} onClick={generate}>
-                <SparklesIcon className="size-3.5" /> Generate Summary
+              <Button size="xs" variant="outline" className={cn("gap-1", AI_TONE.button)} disabled={!sessionSummaries.length || thinking} onClick={generate}>
+                <SparklesIcon className={cn("size-3.5", thinking && "animate-pulse")} /> {thinking ? "AI กำลังเขียน…" : "Generate Summary"}
               </Button>
             )}
           </div>
           {sessionSummaries.length > 0 && editable && <p className="text-xs text-muted-foreground">รวบรวมจาก {sessionSummaries.length} Session Summaries ด้านล่าง — แก้ไขได้ตามจริง</p>}
+
+          <CourseProgress rows={progressRows} aiInsights={aiInsights} />
 
           {(["overallProgress", "toImprove", "strengths"] as const).map((k) => (
             <Field key={k} label={k === "overallProgress" ? "Overall Progress" : k === "toImprove" ? "To Improve" : "Strengths"}

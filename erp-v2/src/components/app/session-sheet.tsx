@@ -49,6 +49,9 @@ import { TeacherPicker } from "./teacher-picker"
 import { type MoveScope } from "@/domain/rules/scheduling"
 import { InfoTip } from "./info-tip"
 
+/** 1–5 understanding (owner 2026-10-14) */
+const LEVEL_LABEL = Sum.LEVEL_LABEL
+
 /** Session dialog (owner design 2026-09-29): student list with ✓/✗, per-student ⋮ (Re-schedule · Leave · Remove),
  *  summary right under each present student, multi-select to submit/approve, class ⋮ (Edit · Postpone · Delete). */
 export function SessionSheet({ sessionId, onClose }: { sessionId: ID | null; onClose: () => void }) {
@@ -804,8 +807,8 @@ function SummaryInline({ session, sessionId, studentId, summary, viewOnly, text,
   const addTopic = useStore((s) => s.addLessonTopic)
   const applyLesson = useStore((s) => s.applyLessonToSession)
   const [lesson, setLesson] = useState<SummaryLesson>(() => summary?.bookId || summary?.detail
-    ? { bookId: summary.bookId, topicId: summary.topicId, detail: summary.detail ?? "" }
-    : { ...Les.suggestLesson(studentId, allSummaries, new Map(allSessions.map((x) => [x.id, x.date])), topics), detail: "" })
+    ? { bookId: summary.bookId, topicId: summary.topicId, detail: summary.detail ?? "", level: summary.level }
+    : { ...Les.suggestLesson(studentId, allSummaries, new Map(allSessions.map((x) => [x.id, x.date])), topics), detail: "", level: summary?.level })
   const [managing, setManaging] = useState<"book" | "topic" | null>(null)
   const attendance = useStore((s) => s.attendance)
   const others = attendance.filter((a) => a.sessionId === sessionId && a.status === "present" && a.studentId !== studentId).length
@@ -849,11 +852,22 @@ function SummaryInline({ session, sessionId, studentId, summary, viewOnly, text,
             </button>
           )}
           <Textarea value={text} onChange={(e) => setText(e.target.value)} placeholder="Feedback Summary · พัฒนาการ / สิ่งที่ทำได้ดี / สิ่งที่ต้องฝึกเพิ่ม" rows={3} aria-label="Feedback Summary" />
+          {/* owner 2026-10-14: 1–5 understanding — drawn as the progress chart in the Course Summary */}
+          <div className="flex flex-wrap items-center gap-1.5 text-xs">
+            <span className="text-muted-foreground">ความเข้าใจวันนี้</span>
+            {[1, 2, 3, 4, 5].map((n) => (
+              <button key={n} type="button" aria-pressed={lesson.level === n} title={LEVEL_LABEL[n]} onClick={() => setLesson((l) => ({ ...l, level: l.level === n ? undefined : n }))}
+                className={cn("grid size-7 place-items-center rounded-full border text-xs font-medium tabular-nums", lesson.level === n ? "border-primary bg-primary text-primary-foreground" : "hover:bg-muted")}>{n}</button>
+            ))}
+            {lesson.level && <span className="text-muted-foreground">{LEVEL_LABEL[lesson.level]}</span>}
+            <InfoTip text="ไม่บังคับ · 1 = ยังไม่เข้าใจ … 5 = เข้าใจดีมาก — ใช้วาดกราฟพัฒนาการใน Course Summary" />
+          </div>
         </div>
       ) : (
         <div className="space-y-0.5 text-sm">
           {(summary?.bookId || summary?.topicId) && <p className="text-xs text-muted-foreground">📚 {books.find((b) => b.id === summary.bookId)?.name ?? "—"}{summary.topicId && ` · ${topics.find((t) => t.id === summary.topicId)?.name ?? ""}`}</p>}
           {summary?.detail && <p className="text-xs text-muted-foreground">📝 {summary.detail}</p>}
+          {summary?.level && <p className="text-xs text-muted-foreground">ความเข้าใจ {summary.level}/5 · {LEVEL_LABEL[summary.level]}</p>}
           <p className="whitespace-pre-wrap">{summary?.text || "ยังไม่มีสรุป"}</p>
         </div>
       )}
