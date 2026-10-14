@@ -14,7 +14,7 @@ const MONTHS = ["ม.ค.", "ก.พ.", "มี.ค.", "เม.ย.", "พ.ค."
 
 export function CourseProgress({ rows, aiInsights }: { rows: Sum.ProgressRow[]; aiInsights?: Sum.Insight[] | null }) {
   const p = Sum.courseProgress(rows)
-  if (!p.sessions) return null
+  // owner 2026-10-14: the cards always show (empty states inside) — an old course with no sessions on record isn't blank
   const insights = aiInsights?.length ? aiInsights : p.insights
   return (
     <div className="space-y-3">

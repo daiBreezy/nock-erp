@@ -661,7 +661,10 @@ export function buildSeed(now = new Date()): DB {
         mark(se, st.id, leave ? "leave" : "present", endOf(se) - 30 * 60000)
         if (leave) return
         write(se, st.id, (nowMs - endOf(se)) / 86400000 < 1 ? "draft" : "sent", endOf(se))
-        summaries[summaries.length - 1].level = story[Math.min(n, story.length - 1)]
+        // คณิต follows the story, อังกฤษ its own (a step behind, then catching up) — each subject has its own chart
+        const math = story[Math.min(n, story.length - 1)]
+        const eng = Math.max(1, Math.min(5, story[Math.max(0, Math.min(n, story.length - 1) - 2)] + ((n + i) % 3 === 0 ? 1 : 0)))
+        Object.assign(summaries[summaries.length - 1], { subjectLevels: { คณิต: math, อังกฤษ: eng }, level: Math.round((math + eng) / 2) })
       })
   })
   const courseSummaries = buildCourseSummaries({ today, now, courses, classes, entitlements })

@@ -2,7 +2,7 @@
 
 import { ColumnsMenu, DataTable, type Column } from "@/components/app/data-grid"
 import { ChipOverflow } from "@/components/app/chip-overflow"
-import { subjectColor } from "@/components/app/subject-color"
+import { gradeTone, subjectColor } from "@/components/app/subject-color"
 import { LayersIcon } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { usePeriod } from "@/components/app/period-control"
@@ -246,14 +246,14 @@ function CourseSummaryTab() {
     .sort((a, b) => a.to.localeCompare(b.to))
 
   const columns: Column<Sum.EntitlementRound>[] = [
-    { id: "student", label: "นักเรียน", required: true, cell: (r) => <span className="font-medium">{L.student(r.studentId)?.nickname} <span className="text-xs font-normal text-muted-foreground">{L.student(r.studentId)?.grade}</span>{scope.multi && <span className="ml-1.5 align-middle"><BranchCode code={scope.code(L.student(r.studentId)?.branchId ?? "")} /></span>}</span> },
-    { id: "course", label: "คอร์ส", cell: (r) => {
-      const c = courses.find((x) => x.id === r.courseId)
-      return <span className="flex min-w-0 items-center gap-1.5"><span className="truncate">{c?.name ?? "คอร์ส"}</span>{c?.kind === "bundle" && <Pill tone="violet" className="shrink-0"><LayersIcon className="size-3" /> Bundle</Pill>}</span>
-    } },
+    { id: "student", label: "นักเรียน", required: true, cell: (r) => <span className="font-medium">{L.student(r.studentId)?.nickname}{scope.multi && <span className="ml-1.5 align-middle"><BranchCode code={scope.code(L.student(r.studentId)?.branchId ?? "")} /></span>}</span> },
+    // owner 2026-10-14: grade + course type as their own columns
+    { id: "grade", label: "ชั้น", cell: (r) => { const g = L.student(r.studentId)?.grade; return g ? <span className={cn("rounded-full px-2 py-0.5 text-xs font-medium", gradeTone(g))}>{g}</span> : "—" } },
+    { id: "course", label: "คอร์ส", cell: (r) => <span className="truncate">{courses.find((x) => x.id === r.courseId)?.name ?? "คอร์ส"}</span> },
+    { id: "type", label: "ประเภทคอร์ส", cell: (r) => courses.find((x) => x.id === r.courseId)?.kind === "bundle"
+      ? <Pill tone="violet"><LayersIcon className="size-3" /> Bundle</Pill> : <Pill>Single</Pill> },
     { id: "subjects", label: "วิชา", cell: (r) => <ChipOverflow items={courses.find((x) => x.id === r.courseId)?.subjects ?? []} label={(x) => x} render={(x) => <span className={cn("rounded-full px-2 py-0.5 text-xs", subjectColor(x).chip)}>{x}</span>} /> },
     { id: "teacher", label: "ครู", cell: (r) => { const t = teacherOf(r); return t ? L.teacher(t).label : <span className="text-muted-foreground">—</span> } },
-    { id: "period", label: "ช่วงเรียน", cell: (r) => <span className="whitespace-nowrap">{fmtDate(r.from)} – {fmtDate(r.to, { year: true })}</span> },
     { id: "due", label: "กำหนดส่ง", info: "ต้องส่งสรุปภายในกี่วันหลังคอร์สจบ", cell: (r) => {
       if (bucket(r) === "sent") return <span className="text-muted-foreground">—</span>
       const d = Sum.courseSummaryDeadline(r, now)

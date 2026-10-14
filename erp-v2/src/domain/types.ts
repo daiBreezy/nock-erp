@@ -457,6 +457,8 @@ export interface LessonSummary {
   detail?: string
   /** owner 2026-10-14: the teacher's 1–5 "ความเข้าใจวันนี้" — what the Course Summary progress chart is drawn from */
   level?: number
+  /** owner 2026-10-14: a Bundle session (several subjects) rates each subject on its own; `level` = their average */
+  subjectLevels?: Record<string, number>
   status: SummaryStatus
   authorId: ID
   lastEditorId: ID

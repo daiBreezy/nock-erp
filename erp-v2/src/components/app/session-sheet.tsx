@@ -807,8 +807,8 @@ function SummaryInline({ session, sessionId, studentId, summary, viewOnly, text,
   const addTopic = useStore((s) => s.addLessonTopic)
   const applyLesson = useStore((s) => s.applyLessonToSession)
   const [lesson, setLesson] = useState<SummaryLesson>(() => summary?.bookId || summary?.detail
-    ? { bookId: summary.bookId, topicId: summary.topicId, detail: summary.detail ?? "", level: summary.level }
-    : { ...Les.suggestLesson(studentId, allSummaries, new Map(allSessions.map((x) => [x.id, x.date])), topics), detail: "", level: summary?.level })
+    ? { bookId: summary.bookId, topicId: summary.topicId, detail: summary.detail ?? "", level: summary.level, subjectLevels: summary.subjectLevels }
+    : { ...Les.suggestLesson(studentId, allSummaries, new Map(allSessions.map((x) => [x.id, x.date])), topics), detail: "", level: summary?.level, subjectLevels: summary?.subjectLevels })
   const [managing, setManaging] = useState<"book" | "topic" | null>(null)
   const attendance = useStore((s) => s.attendance)
   const others = attendance.filter((a) => a.sessionId === sessionId && a.status === "present" && a.studentId !== studentId).length
@@ -853,21 +853,24 @@ function SummaryInline({ session, sessionId, studentId, summary, viewOnly, text,
           )}
           <Textarea value={text} onChange={(e) => setText(e.target.value)} placeholder="Feedback Summary · พัฒนาการ / สิ่งที่ทำได้ดี / สิ่งที่ต้องฝึกเพิ่ม" rows={3} aria-label="Feedback Summary" />
           {/* owner 2026-10-14: 1–5 understanding — drawn as the progress chart in the Course Summary */}
-          <div className="flex flex-wrap items-center gap-1.5 text-xs">
-            <span className="text-muted-foreground">ความเข้าใจวันนี้</span>
-            {[1, 2, 3, 4, 5].map((n) => (
-              <button key={n} type="button" aria-pressed={lesson.level === n} title={LEVEL_LABEL[n]} onClick={() => setLesson((l) => ({ ...l, level: l.level === n ? undefined : n }))}
-                className={cn("grid size-7 place-items-center rounded-full border text-xs font-medium tabular-nums", lesson.level === n ? "border-primary bg-primary text-primary-foreground" : "hover:bg-muted")}>{n}</button>
-            ))}
-            {lesson.level && <span className="text-muted-foreground">{LEVEL_LABEL[lesson.level]}</span>}
-            <InfoTip text="ไม่บังคับ · 1 = ยังไม่เข้าใจ … 5 = เข้าใจดีมาก — ใช้วาดกราฟพัฒนาการใน Course Summary" />
-          </div>
+          {/* a Bundle session (several subjects) rates each subject on its own — owner 2026-10-14 */}
+          {(session.subjects?.length ?? 0) > 1 ? session.subjects!.map((subj, i) => (
+            <LevelPicker key={subj} label={`ความเข้าใจ · ${subj}`} value={lesson.subjectLevels?.[subj]} info={i === 0}
+              onChange={(v) => setLesson((l) => {
+                const subjectLevels = { ...(l.subjectLevels ?? {}) }
+                if (v) subjectLevels[subj] = v; else delete subjectLevels[subj]
+                const vals = Object.values(subjectLevels)
+                return { ...l, subjectLevels, level: vals.length ? Math.round(vals.reduce((a, b) => a + b, 0) / vals.length) : undefined }
+              })} />
+          )) : <LevelPicker label="ความเข้าใจวันนี้" value={lesson.level} info onChange={(v) => setLesson((l) => ({ ...l, level: v }))} />}
         </div>
       ) : (
         <div className="space-y-0.5 text-sm">
           {(summary?.bookId || summary?.topicId) && <p className="text-xs text-muted-foreground">📚 {books.find((b) => b.id === summary.bookId)?.name ?? "—"}{summary.topicId && ` · ${topics.find((t) => t.id === summary.topicId)?.name ?? ""}`}</p>}
           {summary?.detail && <p className="text-xs text-muted-foreground">📝 {summary.detail}</p>}
-          {summary?.level && <p className="text-xs text-muted-foreground">ความเข้าใจ {summary.level}/5 · {LEVEL_LABEL[summary.level]}</p>}
+          {summary?.subjectLevels && Object.keys(summary.subjectLevels).length > 0
+            ? <p className="text-xs text-muted-foreground">ความเข้าใจ {Object.entries(summary.subjectLevels).map(([k, v]) => `${k} ${v}/5`).join(" · ")}</p>
+            : summary?.level && <p className="text-xs text-muted-foreground">ความเข้าใจ {summary.level}/5 · {LEVEL_LABEL[summary.level]}</p>}
           <p className="whitespace-pre-wrap">{summary?.text || "ยังไม่มีสรุป"}</p>
         </div>
       )}
@@ -1074,5 +1077,20 @@ function AddStudentDialog({ id, onClose }: { id: ID; onClose: () => void }) {
         {s.studentIds.length >= cap && <p className="text-xs text-red-700">คาบนี้เต็มแล้ว ({cap} คน)</p>}
       </DialogContent>
     </Dialog>
+  )
+}
+
+/** 1–5 "ความเข้าใจ" chips (owner 2026-10-14) — tap again to clear */
+function LevelPicker({ label, value, onChange, info }: { label: string; value?: number; onChange: (v: number | undefined) => void; info?: boolean }) {
+  return (
+    <div className="flex flex-wrap items-center gap-1.5 text-xs">
+      <span className="text-muted-foreground">{label}</span>
+      {[1, 2, 3, 4, 5].map((n) => (
+        <button key={n} type="button" aria-pressed={value === n} title={LEVEL_LABEL[n]} onClick={() => onChange(value === n ? undefined : n)}
+          className={cn("grid size-7 place-items-center rounded-full border text-xs font-medium tabular-nums", value === n ? "border-primary bg-primary text-primary-foreground" : "hover:bg-muted")}>{n}</button>
+      ))}
+      {value && <span className="text-muted-foreground">{LEVEL_LABEL[value]}</span>}
+      {info && <InfoTip text="ไม่บังคับ · 1 = ยังไม่เข้าใจ … 5 = เข้าใจดีมาก — ใช้วาดกราฟพัฒนาการใน Course Summary" />}
+    </div>
   )
 }

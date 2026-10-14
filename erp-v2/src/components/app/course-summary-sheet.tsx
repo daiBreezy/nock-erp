@@ -10,6 +10,7 @@ import { Pill } from "./badges"
 import { avatarTone, gradeTone, initial, subjectColor } from "./subject-color"
 import { EntityPanel, PanelBody, PanelFooter, PanelMore } from "./form-shell"
 import { MetaGrid } from "./images"
+import { Segmented } from "./page-layout"
 import { InfoTip } from "./info-tip"
 import { Field } from "./student-form"
 import { Button } from "@/components/ui/button"
@@ -72,6 +73,8 @@ function Body({ round }: { round: Sum.EntitlementRound }) {
   const [note, setNote] = useState("")
   const [thinking, setThinking] = useState(false)
   const [aiInsights, setAiInsights] = useState<Sum.Insight[] | null>(null)
+  // owner 2026-10-14: a Bundle shows the whole course AND each subject on its own — "" = ทั้งคอร์ส
+  const [only, setOnly] = useState("")
 
   // every session covered by ANY entitlement in the round — a year of back-to-back monthly packages is one round
   const roundEntitlements = allEntitlements.filter((e) => round.entitlementIds.includes(e.id))
@@ -80,10 +83,15 @@ function Body({ round }: { round: Sum.EntitlementRound }) {
     .map((se) => ({ se, sm: summaries.find((x) => x.sessionId === se.id && x.studentId === round.studentId) }))
     .filter((x): x is { se: typeof x.se; sm: NonNullable<typeof x.sm> } => !!x.sm && !!x.sm.text.trim())
   const today = toDateStr(now)
-  const progressRows: Sum.ProgressRow[] = covered.filter((se) => se.date <= today && !se.cancelled).map((se) => {
+  const allSubjects = course?.subjects ?? []
+  // a subject view keeps only that subject's sessions, and only its part of a "คณิต: … · อังกฤษ: …" note
+  const noteIn = (text: string) => (only ? Sum.noteForSubject(text, only, allSubjects) : text)
+  const inView = (se: (typeof covered)[number]) => !only || subjectsOf(se).includes(only)
+  const progressRows: Sum.ProgressRow[] = covered.filter((se) => se.date <= today && !se.cancelled && inView(se)).map((se) => {
     const sm = summaries.find((x) => x.sessionId === se.id && x.studentId === round.studentId)
-    return { date: se.date, attended: attendance.find((a) => a.sessionId === se.id && a.studentId === round.studentId)?.status ?? null, level: sm?.level, text: sm?.text }
+    return { date: se.date, attended: attendance.find((a) => a.sessionId === se.id && a.studentId === round.studentId)?.status ?? null, level: only ? sm?.subjectLevels?.[only] ?? sm?.level : sm?.level, text: sm?.text ? noteIn(sm.text) : undefined }
   })
+  const notesShown = sessionSummaries.filter((x) => inView(x.se)).map((x) => ({ ...x, text: noteIn(x.sm.text) })).filter((x) => x.text.trim())
 
   if (!student) return null
   const bundle = course?.kind === "bundle"
@@ -101,7 +109,10 @@ function Body({ round }: { round: Sum.EntitlementRound }) {
     setThinking(true)
     try {
       const r = await fetch("/api/ai/course-summary", { method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ course: course?.name ?? "", subjects: course?.subjects ?? [], bundle, rows: progressRows }) }).then((x) => x.json())
+        body: JSON.stringify({ course: course?.name ?? "", subjects: allSubjects, bundle, rows: covered.filter((se) => se.date <= today && !se.cancelled).map((se) => {
+          const sm = summaries.find((x) => x.sessionId === se.id && x.studentId === round.studentId)
+          return { date: se.date, attended: attendance.find((a) => a.sessionId === se.id && a.studentId === round.studentId)?.status ?? null, level: sm?.level, text: sm?.text }
+        }) }) }).then((x) => x.json())
       if (r.ok) {
         setDraft({ overallProgress: r.overallProgress, toImprove: r.toImprove, strengths: r.strengths })
         setAiInsights(r.insights?.length ? r.insights : null)
@@ -158,6 +169,11 @@ function Body({ round }: { round: Sum.EntitlementRound }) {
           </section>
         )}
 
+        {bundle && (
+          <Segmented label="ดูสรุป" value={only || "all"} onChange={(v) => setOnly(v === "all" ? "" : v)}
+            options={[{ value: "all", label: "ทั้งคอร์ส" }, ...allSubjects.map((x) => ({ value: x, label: <><span className={cn("size-2 rounded-full", subjectColor(x).bar)} />{x}</> }))]} />
+        )}
+
         {mode === "edit" ? (
           <section className="space-y-3">
             <div className="flex items-center justify-between gap-2">
@@ -174,27 +190,27 @@ function Body({ round }: { round: Sum.EntitlementRound }) {
           </section>
         ) : (
           <section className="space-y-2">
-            <p className="text-sm font-semibold">สรุปทั้งคอร์ส</p>
-            {FIELDS.some((f) => stored[f.key].trim())
-              ? FIELDS.map((f) => <SummaryField key={f.key} label={f.label} value={stored[f.key]} subjects={course?.subjects ?? []} />)
-              : <p className="rounded-2xl border border-dashed p-4 text-center text-sm text-muted-foreground">ยังไม่ได้เขียน</p>}
+            <p className="text-sm font-semibold">{only ? `สรุปวิชา${only}` : "สรุปทั้งคอร์ส"}</p>
+            {FIELDS.some((f) => stored[f.key].split("\n").some((l) => l.trim() && (!only || l.trim().startsWith(`${only}:`))))
+              ? FIELDS.map((f) => <SummaryField key={f.key} label={f.label} value={stored[f.key]} subjects={allSubjects} only={only} />)
+              : <p className="rounded-2xl border border-dashed p-4 text-center text-sm text-muted-foreground">{only && FIELDS.some((f) => stored[f.key].trim()) ? `ยังไม่มีส่วนของวิชา${only} — แก้ไขแล้วขึ้นบรรทัดด้วย "${only}: …"` : "ยังไม่ได้เขียน"}</p>}
           </section>
         )}
 
         <section className="space-y-2">
-          <p className="text-sm font-semibold">พัฒนาการ</p>
+          <p className="text-sm font-semibold">พัฒนาการ{only && ` · ${only}`}</p>
           <CourseProgress rows={progressRows} aiInsights={aiInsights} />
         </section>
 
-        {sessionSummaries.length > 0 && (
+        {notesShown.length > 0 && (
           <section>
-            <p className="mb-1.5 text-sm font-semibold">สรุปรายคาบ ({sessionSummaries.length})</p>
+            <p className="mb-1.5 text-sm font-semibold">สรุปรายคาบ{only && ` · ${only}`} ({notesShown.length})</p>
             <ul className="divide-y rounded-2xl ring-1 ring-foreground/10">
-              {sessionSummaries.slice().reverse().map(({ se, sm }) => (
+              {notesShown.slice().reverse().map(({ se, sm, text }) => (
                 <li key={se.id} className="flex items-start gap-3 px-3 py-2 text-sm">
                   <span className="w-16 shrink-0 text-xs text-muted-foreground">{fmtDate(se.date)}</span>
-                  <span className="min-w-0 flex-1">{bundle && subjectsOf(se).length < 2 && subjectsOf(se).map((x) => <span key={x} className={cn("mr-1 rounded-full px-1.5 py-0.5 text-[11px]", subjectColor(x).chip)}>{x}</span>)}{sm.text}</span>
-                  {sm.level && <span className="shrink-0 text-xs text-muted-foreground tabular-nums" title={Sum.LEVEL_LABEL[sm.level]}>{sm.level}/5</span>}
+                  <span className="min-w-0 flex-1">{bundle && !only && subjectsOf(se).length < 2 && subjectsOf(se).map((x) => <span key={x} className={cn("mr-1 rounded-full px-1.5 py-0.5 text-[11px]", subjectColor(x).chip)}>{x}</span>)}{text}</span>
+                  {(() => { const lv = only ? sm.subjectLevels?.[only] ?? sm.level : sm.level; return lv && <span className="shrink-0 text-xs text-muted-foreground tabular-nums" title={Sum.LEVEL_LABEL[lv]}>{lv}/5</span> })()}
                 </li>
               ))}
             </ul>
@@ -236,13 +252,15 @@ function Body({ round }: { round: Sum.EntitlementRound }) {
 }
 
 /** a summary field in the info view — Bundle lines "คณิต: …" get their subject chip */
-function SummaryField({ label, value, subjects }: { label: string; value: string; subjects: string[] }) {
-  if (!value.trim()) return null
+function SummaryField({ label, value, subjects, only }: { label: string; value: string; subjects: string[]; only?: string }) {
+  const lines = value.split("\n").filter((l) => l.trim())
+    .filter((l) => !only || l.trim().startsWith(`${only}:`) || l.trim().startsWith(`${only}：`))
+  if (!lines.length) return null
   return (
     <div className="rounded-2xl bg-muted/40 p-3">
       <p className="mb-1 text-xs font-medium text-muted-foreground">{label}</p>
       <div className="space-y-1 text-sm">
-        {value.split("\n").filter((l) => l.trim()).map((line, i) => {
+        {lines.map((line, i) => {
           const m = line.match(/^([^:：]{1,20})[:：]\s*(.*)$/)
           return m && subjects.includes(m[1].trim())
             ? <p key={i} className="flex items-start gap-1.5"><span className={cn("shrink-0 rounded-full px-1.5 py-0.5 text-[11px]", subjectColor(m[1].trim()).chip)}>{m[1].trim()}</span><span>{m[2]}</span></p>
