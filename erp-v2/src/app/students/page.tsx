@@ -71,6 +71,8 @@ export default function StudentsPage() {
       ?? entitlements.filter((e) => e.studentId === s.id && e.from <= today).sort((a, b) => b.to.localeCompare(a.to))[0]
     return { s, st, ex: Att.exitPending(s, today), packs, main, mainCourse: main && courses.find((c) => c.id === main.courseId), fam: families.find((f) => f.id === s.familyId) }
   })
+  /** 0 = แจ้งออก (open) · 1 = ใกล้หมดอายุ (waiting to renew, or the package ends within 7 days) · 2 = the rest */
+  const urgency = (r: (typeof rows)[number]) => (r.ex ? 0 : r.st === "renewal" || (!!r.main && r.main.to >= today && r.main.to <= addDays(today, 7)) ? 1 : 2)
   const shown = rows
     .filter((r) => !grade || r.s.grade === grade)
     // "exiting" = gave notice, not closed yet (owner 2026-10-14) — a status of its own on top of Active / Renewal …
@@ -78,6 +80,12 @@ export default function StudentsPage() {
     .filter((r) => noFamily !== "none" || !r.s.familyId)
     .filter((r) => !q || `${r.s.name} ${r.s.nickname} ${r.fam?.name ?? ""} ${r.fam?.parents.map((p) => p.phone).join(" ") ?? ""}`.includes(q))
     .sort((a, b) => {
+      // owner 2026-10-14: gave notice first, then packages about to run out — always on top, whatever the sort;
+      // inside each group the nearest date first, then the chosen sort
+      const p = urgency(a) - urgency(b)
+      if (p) return p
+      if (urgency(a) === 0) return a.ex!.lastDate.localeCompare(b.ex!.lastDate)
+      if (urgency(a) === 1) return (a.main?.to ?? "9").localeCompare(b.main?.to ?? "9")
       const k = sort.key
       const v = k === "nickname" ? a.s.nickname.localeCompare(b.s.nickname, "th")
         : k === "name" ? a.s.name.localeCompare(b.s.name, "th")
