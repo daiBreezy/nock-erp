@@ -670,9 +670,10 @@ export function buildSeed(now = new Date()): DB {
   })
   const courseSummaries = buildCourseSummaries({ today, now, courses, classes, entitlements })
 
-  // owner 2026-10-14: students who gave notice and are still open — one waiting for the form, one the parent answered,
-  // one past the last day — so the Students table, Dashboard, Notifications and the pop-up all show it
-  ;[["stu_10", 10, "sent"], ["stu_11", 3, "answered"], ["stu_16", -2, "sent"]].forEach(([id, days, status]) => {
+  // owner 2026-10-14: students who gave notice and are still open (one past the last day) — so the Students table,
+  // Dashboard, Notifications and the pop-up all show it. The exit form itself lives on the server, so these demo notices
+  // have none yet — their panel offers "ส่งฟอร์มให้ผู้ปกครอง" (a real notice always sends it, see requestExit)
+  ;[["stu_10", 10, "sent"], ["stu_11", 3, "sent"], ["stu_16", -2, "sent"]].forEach(([id, days, status]) => {
     const st = students.find((x) => x.id === id)
     if (!st || st.archived) return
     st.exit = { status: status as "sent" | "answered", lastDate: addDays(today, days as number), sentAt: new Date(now.getTime() - 3 * 86400000).toISOString(), sentBy: "u_ploy" }

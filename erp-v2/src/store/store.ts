@@ -216,6 +216,8 @@ type Store = DB & UIState & {
   addRenewalFollowUp: (studentId: ID, input: { channel: ContactChannel; result: ContactResult; note?: string; nextTryOn?: DateStr }) => Result
   /** leaving (owner 2026-10-05): the parent told the admin → the exit form went out (token from the server) */
   requestExit: (studentIds: ID[], input: { lastDate: DateStr; token?: string }) => Result
+  /** a notice recorded without the exit form (older data) — the form goes out now */
+  attachExitForm: (studentIds: ID[], token: string) => Result
   /** the parent changed their mind */
   cancelExit: (studentId: ID) => Result
   /** close it: archive with a structured reason, out of classes after the last day; "may come back" → a win-back lead */
@@ -2177,6 +2179,8 @@ export const useStore = create<Store>()(
         if (!perm.ok) return perm
         if (!studentIds.length) return fail("เลือกนักเรียน")
         if (!input.lastDate) return fail("ใส่วันเรียนวันสุดท้าย")
+        // owner 2026-10-14 ("แจ้งออกโดยไม่ได้ส่งฟอร์มได้ยังไง"): a notice always goes out with the exit form
+        if (!input.token) return fail("ส่งฟอร์มแจ้งออกให้ผู้ปกครองก่อน")
         const at = s.now().toISOString()
         const who = s.students.filter((x) => studentIds.includes(x.id))
         // owner 2026-10-14: everyone who should talk to the family hears about it — the office team + the student's teachers
@@ -2188,6 +2192,16 @@ export const useStore = create<Store>()(
             audience: { roles: OFFICE_ROLES, branchId: who[0]?.branchId, staffIds: teachers } }), ...s.notifications],
         })
         log("profile", studentIds, "แจ้งออก", `เรียนวันสุดท้าย ${fmtDate(input.lastDate)}${input.token ? " · ส่งฟอร์มให้ผู้ปกครองแล้ว" : ""}`)
+        return OK
+      },
+
+      attachExitForm: (studentIds, token) => {
+        const s = get()
+        const perm = requirePerm(s.me(), "student.manage")
+        if (!perm.ok) return perm
+        const at = s.now().toISOString()
+        set({ students: s.students.map((x) => (studentIds.includes(x.id) && x.exit && x.exit.status !== "closed" ? { ...x, exit: { ...x.exit, token, sentAt: at, sentBy: s.userId } } : x)) })
+        log("profile", studentIds, "ส่งฟอร์มแจ้งออก", "ส่งฟอร์มให้ผู้ปกครองตอบ")
         return OK
       },
 
@@ -2658,7 +2672,7 @@ export const useStore = create<Store>()(
       // The parent app in LINE never writes staff data at all.
       storage: createJSONStorage(() => safeStorage),
       // bump when the data model changes; older saved data is replaced by fresh sample data
-      version: 87, // 87: 3 open exit notices · 86: course history capped at 8 sessions (storage size) · 85: course-history check per course · 84: + running rounds · 83: finished courses with a Course Summary get their session history · 82: per-subject levels in Bundle sessions · 80–81: Bundle demo students sit in the combo class for 3 months (charts) · 79: 1–5 understanding on session summaries + Bundle notes per subject · 78: Dev statuses กำลังทำ / เสร็จแล้ว / ไม่ทำ / เก็บไว้ก่อน · 77: images on Nock + Dev tickets · 76: คำถามถึง Dev examples · 75: Developer role + เรื่องถึง Dev · 74: Nock answers per person + thumbs per answer · 73: Nock locations + knowledge = answered questions + votes · 72: Nock question bank + knowledge · 71: Summer Memo + Summer course + paid Summer invoice · 68–70: session summaries in every stage this week + sample Course Summaries (Single + Bundle) · 65–67: names without titles, parent relationship, phones without dashes, subject colours · 61: real branches (owner 2026-10-07) · 62: CB = ตึกน้ำ · 63: sample schools · 64: schools from the Ministry list
+      version: 88, // 88: demo exit notices all "sent" · 87: 3 open exit notices · 86: course history capped at 8 sessions (storage size) · 85: course-history check per course · 84: + running rounds · 83: finished courses with a Course Summary get their session history · 82: per-subject levels in Bundle sessions · 80–81: Bundle demo students sit in the combo class for 3 months (charts) · 79: 1–5 understanding on session summaries + Bundle notes per subject · 78: Dev statuses กำลังทำ / เสร็จแล้ว / ไม่ทำ / เก็บไว้ก่อน · 77: images on Nock + Dev tickets · 76: คำถามถึง Dev examples · 75: Developer role + เรื่องถึง Dev · 74: Nock answers per person + thumbs per answer · 73: Nock locations + knowledge = answered questions + votes · 72: Nock question bank + knowledge · 71: Summer Memo + Summer course + paid Summer invoice · 68–70: session summaries in every stage this week + sample Course Summaries (Single + Bundle) · 65–67: names without titles, parent relationship, phones without dashes, subject colours · 61: real branches (owner 2026-10-07) · 62: CB = ตึกน้ำ · 63: sample schools · 64: schools from the Ministry list
       migrate: (old) => ({ ...keepLineLinks(old as Partial<Store> | undefined, buildSeed()), userId: "u_nock", branchId: "br_thl", clockOffset: 0 }) as unknown as Store,
       // persist data + UI state only, never the action functions
       partialize: (s) => Object.fromEntries(Object.entries(s).filter(([, v]) => typeof v !== "function")) as Partial<Store>,

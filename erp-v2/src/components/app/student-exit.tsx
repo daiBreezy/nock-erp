@@ -31,9 +31,7 @@ const SCORE_LABEL = { teacher: "ครู", content: "เนื้อหา", ad
 export function ExitRequestDialog({ stu, onClose, onCloseNow }: { stu: Student; onClose: () => void; onCloseNow: () => void }) {
   const students = useStore((s) => s.students)
   const fam = useStore((s) => s.families.find((f) => f.id === stu.familyId))
-  const branch = useStore((s) => s.branches.find((b) => b.id === stu.branchId)!)
   const conv = useStore((s) => s.conversations.find((c) => c.familyId && c.familyId === stu.familyId))
-  const system = useStore((s) => s.system)
   const request = useStore((s) => s.requestExit)
   const ents = useEntitlements()
   const today = toDateStr(useNow(60_000))
@@ -46,14 +44,10 @@ export function ExitRequestDialog({ stu, onClose, onCloseNow }: { stu: Student; 
   const [link, setLink] = useState<{ url: string; sent: boolean } | null>(null)
   const ids = [stu.id, ...withIds]
 
+  const sendForm = useExitFormSender(stu)
   const send = async () => {
     setBusy(true)
-    const r = await sendExitForm({
-      branchId: branch.id, branchName: branch.name, brand: branch.brand, lang: system.preferences.language, conversationId: conv?.id ?? null,
-      familyName: fam?.name ?? stu.nickname, lastDate,
-      students: ids.map((id) => students.find((x) => x.id === id)!).map((x) => ({ id: x.id, nickname: x.nickname, grade: x.grade })),
-      reasons: Loss.reasonsForStudent(system.lossReasons).map(({ id, label, en, ja }) => ({ id, label, en, ja })),
-    })
+    const r = await sendForm(ids, lastDate)
     setBusy(false)
     if (!report(r, (v) => (v.sent ? "ส่งฟอร์มทาง LINE แล้ว" : "สร้างลิงก์แล้ว — คัดลอกส่งให้ผู้ปกครอง"))) return
     if (report(request(ids, { lastDate, token: r.value.token }), "")) setLink(r.value)
@@ -122,9 +116,34 @@ export function ExitAnswersView({ answers }: { answers: NonNullable<Student["exi
   )
 }
 
+/** the exit form for these students — LINE when the family has a chat, otherwise a link to copy */
+function useExitFormSender(stu: Student) {
+  const students = useStore((s) => s.students)
+  const fam = useStore((s) => s.families.find((f) => f.id === stu.familyId))
+  const branch = useStore((s) => s.branches.find((b) => b.id === stu.branchId)!)
+  const conv = useStore((s) => s.conversations.find((c) => c.familyId && c.familyId === stu.familyId))
+  const system = useStore((s) => s.system)
+  return (ids: ID[], lastDate: string) => sendExitForm({
+    branchId: branch.id, branchName: branch.name, brand: branch.brand, lang: system.preferences.language, conversationId: conv?.id ?? null,
+    familyName: fam?.name ?? stu.nickname, lastDate,
+    students: ids.map((id) => students.find((x) => x.id === id)!).map((x) => ({ id: x.id, nickname: x.nickname, grade: x.grade })),
+    reasons: Loss.reasonsForStudent(system.lossReasons).map(({ id, label, en, ja }) => ({ id, label, en, ja })),
+  })
+}
+
 /** Shown on the student while leaving is open: last day, the link, the parent's answers when they come back. */
 export function ExitPanel({ stu }: { stu: Student }) {
   const cancel = useStore((s) => s.cancelExit)
+  const attach = useStore((s) => s.attachExitForm)
+  const sendForm = useExitFormSender(stu)
+  const [sending, setSending] = useState(false)
+  // older notices were recorded without the form — send it now (same form as แจ้งออก), never a dead end
+  const sendNow = async () => {
+    setSending(true)
+    const r = await sendForm([stu.id], stu.exit!.lastDate)
+    setSending(false)
+    if (report(r, (v) => (v.sent ? "ส่งฟอร์มทาง LINE แล้ว" : "สร้างลิงก์แล้ว — คัดลอกส่งให้ผู้ปกครอง"))) report(attach([stu.id], r.value.token), "")
+  }
   const [resp, setResp] = useState<ExitResponse | null>(null)
   const [closing, setClosing] = useState(false)
   const [checked, setChecked] = useState(0)
@@ -162,6 +181,7 @@ export function ExitPanel({ stu }: { stu: Student }) {
         </div>
       )}
       <div className="flex flex-wrap justify-end gap-1.5">
+        {!token && <Button size="sm" variant="outline" disabled={sending} onClick={sendNow}><SendIcon /> {sending ? "กำลังส่ง…" : "ส่งฟอร์มให้ผู้ปกครอง"}</Button>}
         <Button size="sm" variant="ghost" onClick={() => report(cancel(stu.id), `${stu.nickname} เรียนต่อ — ยกเลิกแจ้งออกแล้ว`)}><UndoIcon /> ไม่ออกแล้ว</Button>
         <Button size="sm" onClick={() => setClosing(true)}>{resp ? "ปิดการออก" : "ปิดการออก (ไม่รอคำตอบ)"}</Button>
       </div>
