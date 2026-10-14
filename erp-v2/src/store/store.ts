@@ -2616,11 +2616,13 @@ export const useStore = create<Store>()(
  * (owner 2026-10-14: the rich-menu parent app stopped opening after a reseed dropped the link)
  */
 function keepLineLinks<T extends { families: Store["families"]; conversations: Store["conversations"] }>(old: Partial<Store> | undefined, fresh: T): T {
-  const links = (old?.families ?? []).filter((f) => f.lineUserId).map((f) => ({ name: f.name, lineUserId: f.lineUserId! }))
+  const links = (old?.families ?? []).filter((f) => f.lineUserId).map((f) => ({ id: f.id, name: f.name, lineUserId: f.lineUserId! }))
   if (!links.length) return fresh
-  const byName = new Map(links.map((l) => [l.name, l.lineUserId]))
+  // the same family id first; else the name — only when one family carries it (several "ครอบครัวแสงใหญ่" exist)
+  const unique = (name: string) => fresh.families.filter((f) => f.name === name).length === 1
+  const target = new Map(links.map((l) => [fresh.families.some((f) => f.id === l.id) ? l.id : unique(l.name) ? fresh.families.find((f) => f.name === l.name)!.id : "", l.lineUserId]))
   const families = fresh.families.map((f) => {
-    const lineUserId = byName.get(f.name)
+    const lineUserId = target.get(f.id)
     return lineUserId ? { ...f, lineUserId, parents: f.parents.map((p, i) => (i === 0 ? { ...p, lineLinked: true } : p)) } : f
   })
   const famOf = new Map(families.filter((f) => f.lineUserId).map((f) => [`line_${f.lineUserId}`, f]))
