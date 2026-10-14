@@ -394,7 +394,7 @@ export const useStore = create<Store>()(
       },
       setBranch: (branchId) => set({ branchId }),
       setClockOffset: (clockOffset) => set({ clockOffset }),
-      resetData: () => set({ ...buildSeed(), clockOffset: 0 }),
+      resetData: () => set({ ...keepLineLinks(get(), buildSeed()), clockOffset: 0 }),
 
       // ---------------- classes & sessions ----------------
       createClass: (d) => {
@@ -2603,12 +2603,32 @@ export const useStore = create<Store>()(
       name: "nockerp-v2",
       // bump when the data model changes; older saved data is replaced by fresh sample data
       version: 85, // 85: course-history check per course · 84: + running rounds · 83: finished courses with a Course Summary get their session history · 82: per-subject levels in Bundle sessions · 80–81: Bundle demo students sit in the combo class for 3 months (charts) · 79: 1–5 understanding on session summaries + Bundle notes per subject · 78: Dev statuses กำลังทำ / เสร็จแล้ว / ไม่ทำ / เก็บไว้ก่อน · 77: images on Nock + Dev tickets · 76: คำถามถึง Dev examples · 75: Developer role + เรื่องถึง Dev · 74: Nock answers per person + thumbs per answer · 73: Nock locations + knowledge = answered questions + votes · 72: Nock question bank + knowledge · 71: Summer Memo + Summer course + paid Summer invoice · 68–70: session summaries in every stage this week + sample Course Summaries (Single + Bundle) · 65–67: names without titles, parent relationship, phones without dashes, subject colours · 61: real branches (owner 2026-10-07) · 62: CB = ตึกน้ำ · 63: sample schools · 64: schools from the Ministry list
-      migrate: () => ({ ...buildSeed(), userId: "u_nock", branchId: "br_thl", clockOffset: 0 }) as unknown as Store,
+      migrate: (old) => ({ ...keepLineLinks(old as Partial<Store> | undefined, buildSeed()), userId: "u_nock", branchId: "br_thl", clockOffset: 0 }) as unknown as Store,
       // persist data + UI state only, never the action functions
       partialize: (s) => Object.fromEntries(Object.entries(s).filter(([, v]) => typeof v !== "function")) as Partial<Store>,
     },
   ),
 )
+
+/**
+ * A real LINE account linked to a family (Inbox › ผูกครอบครัว) is the owner's live test setup, not demo data — a reseed
+ * (new data version / รีเซ็ตข้อมูล) keeps it: the same-named family gets the LINE user back, and so does its chat.
+ * (owner 2026-10-14: the rich-menu parent app stopped opening after a reseed dropped the link)
+ */
+function keepLineLinks<T extends { families: Store["families"]; conversations: Store["conversations"] }>(old: Partial<Store> | undefined, fresh: T): T {
+  const links = (old?.families ?? []).filter((f) => f.lineUserId).map((f) => ({ name: f.name, lineUserId: f.lineUserId! }))
+  if (!links.length) return fresh
+  const byName = new Map(links.map((l) => [l.name, l.lineUserId]))
+  const families = fresh.families.map((f) => {
+    const lineUserId = byName.get(f.name)
+    return lineUserId ? { ...f, lineUserId, parents: f.parents.map((p, i) => (i === 0 ? { ...p, lineLinked: true } : p)) } : f
+  })
+  const famOf = new Map(families.filter((f) => f.lineUserId).map((f) => [`line_${f.lineUserId}`, f]))
+  // the LINE chats themselves come back from the server on the next poll; keep their family link with them
+  const oldConvs = (old?.conversations ?? []).filter((c) => famOf.has(c.id) && !fresh.conversations.some((x) => x.id === c.id))
+  const conversations = [...fresh.conversations, ...oldConvs].map((c) => { const f = famOf.get(c.id); return f ? { ...c, familyId: f.id, leadId: null, name: f.name } : c })
+  return { ...fresh, families, conversations }
+}
 
 // ---------- change tracking (owner 2026-10-01) ----------
 // Any change made to a session marks it "changed" (its teachers see a red dot on the teacher board until they open it)
