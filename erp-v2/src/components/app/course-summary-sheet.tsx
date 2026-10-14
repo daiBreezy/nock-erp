@@ -78,7 +78,8 @@ function Body({ round }: { round: Sum.EntitlementRound }) {
 
   // every session covered by ANY entitlement in the round — a year of back-to-back monthly packages is one round
   const roundEntitlements = allEntitlements.filter((e) => round.entitlementIds.includes(e.id))
-  const covered = sessions.filter((se) => roundEntitlements.some((e) => Att.packageCovers(e, se))).sort((a, b) => a.date.localeCompare(b.date))
+  // only the sessions this student sat in (a class-less session of the same subjects is someone else's)
+  const covered = sessions.filter((se) => (se.studentIds.includes(round.studentId) || se.rescheduledIn?.includes(round.studentId)) && roundEntitlements.some((e) => Att.packageCovers(e, se))).sort((a, b) => a.date.localeCompare(b.date))
   const sessionSummaries = covered
     .map((se) => ({ se, sm: summaries.find((x) => x.sessionId === se.id && x.studentId === round.studentId) }))
     .filter((x): x is { se: typeof x.se; sm: NonNullable<typeof x.sm> } => !!x.sm && !!x.sm.text.trim())

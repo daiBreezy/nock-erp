@@ -7,6 +7,7 @@ import { invoiceTotals } from "@/domain/rules/billing"
 import { reasonLabel } from "@/domain/rules/loss"
 import { generateSessions } from "@/domain/rules/scheduling"
 import { entitlementRounds } from "@/domain/rules/summaries"
+import { packageCovers } from "@/domain/rules/attendance"
 import type {
   Assessment, AppNotification, Attendance, DevTicket, NockQuestion, Branch, BusAddOn, DayBlocks, ChatMessage, CourseSummary, CreditNote, LessonBook, LessonTopic, Conversation, Course, Entitlement, Family, Holiday, Invoice, Klass, Lead, LessonSummary,
   ActivityLog, PriceRow, Session, StudentNote, Staff, Student, StudentLeave, SurveyCampaign, SurveyResponse, SystemConfig, Weekday,
@@ -668,6 +669,46 @@ export function buildSeed(now = new Date()): DB {
       })
   })
   const courseSummaries = buildCourseSummaries({ today, now, courses, classes, entitlements })
+
+  // owner 2026-10-14 ("แสดงให้มันสมบูรณ์ … จะได้เห็นข้อมูลทั้งหมด"): every finished course that has a Course Summary
+  // gets its session history — weekly sessions with check-ins, a note per session and a 1–5 understanding that tells a
+  // story — so its panel shows real charts (sessions up to yesterday; rounds already holding 3+ notes are left as they are).
+  const csRounds = entitlementRounds(entitlements).filter((r) => r.from < today && courseSummaries.some((c) => c.entitlementId === r.representativeId))
+  csRounds.forEach((r, ri) => {
+    const course = courses.find((c) => c.id === r.courseId)
+    const stu = students.find((x) => x.id === r.studentId)
+    if (!course || !stu) return
+    const ents = entitlements.filter((e) => r.entitlementIds.includes(e.id))
+    // notes already on record for THIS course (another subject the same months doesn't count)
+    const has = summaries.filter((m) => m.studentId === r.studentId && sessions.some((se) => se.id === m.sessionId && se.studentIds.includes(r.studentId) && ents.some((e) => packageCovers(e, se)))).length
+    if (has >= 3) return
+    const cap = ents.every((e) => e.kind === "sessions") ? ents.reduce((n, e) => n + e.sessionsTotal, 0) : 16
+    const weeks: string[] = []
+    for (let d = r.from; d <= r.to && d < today && weeks.length < 40; d = addDays(d, 7)) weeks.push(d)
+    const dates = weeks.slice(-Math.min(cap, 16))
+    const teacher = courseSummaries.find((c) => c.entitlementId === r.representativeId)?.authorId ?? "u_dai"
+    const combo = course.subjects.length > 1
+    // a different shape per course: steady climb, slow start, dip then recovery, already strong
+    const shapes = [[2, 2, 3, 3, 3, 4, 4, 4, 5], [1, 2, 2, 2, 3, 3, 4, 4, 4], [3, 3, 2, 2, 3, 4, 4, 5, 5], [4, 4, 4, 5, 4, 5, 5, 5, 5]]
+    const shape = shapes[ri % shapes.length]
+    const at = (n: number) => shape[Math.min(shape.length - 1, Math.floor((n / Math.max(1, dates.length - 1)) * (shape.length - 1)))]
+    dates.forEach((date, n) => {
+      const se: Session = { id: uid("se"), branchId: stu.branchId, classId: null, subject: course.subjects[0], ...(combo ? { subjects: course.subjects } : {}), date, start: "16:00", minutes: 60,
+        teacherId: teacher, coTeacherIds: [], roomId: null, studentIds: [stu.id], trial: false, customized: false, cancelled: false }
+      sessions.push(se)
+      const end = new Date(`${date}T17:00:00`).getTime()
+      const leave = (n + ri) % 7 === 3
+      mark(se, stu.id, leave ? "leave" : "present", end - 30 * 60000)
+      if (leave) return
+      write(se, stu.id, "sent", end)
+      const sm = summaries[summaries.length - 1]
+      const lv = Math.max(1, Math.min(5, at(n) + ((n * 7 + ri) % 5 === 0 ? -1 : 0)))
+      if (combo) {
+        const other = Math.max(1, Math.min(5, at(Math.max(0, n - 2)) + ((n + ri) % 4 === 0 ? 1 : 0)))
+        Object.assign(sm, { subjectLevels: { [course.subjects[0]]: lv, [course.subjects[1]]: other }, level: Math.round((lv + other) / 2) })
+      } else sm.level = lv
+    })
+  })
 
   // owner 2026-10-13: Nock's bank — answered questions are knowledge (with 👍/👎), plus some Nock answered and some waiting
   const ago = (h: number) => new Date(now.getTime() - h * 3_600_000).toISOString()
