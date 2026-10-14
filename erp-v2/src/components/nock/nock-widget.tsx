@@ -5,10 +5,11 @@
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { useEffect, useMemo, useRef, useState } from "react"
-import { ArrowRightIcon, LibraryBigIcon, Loader2Icon, ArrowUpIcon, CheckIcon, CodeXmlIcon, MapPinIcon, SendIcon, ThumbsDownIcon, ThumbsUpIcon, UserRoundCheckIcon, XIcon } from "lucide-react"
+import { ArrowRightIcon, EllipsisIcon, LibraryBigIcon, SearchIcon, Loader2Icon, ArrowUpIcon, CheckIcon, CodeXmlIcon, MapPinIcon, SendIcon, ThumbsDownIcon, ThumbsUpIcon, UserRoundCheckIcon, XIcon } from "lucide-react"
 import { AiAvatar } from "@/components/ui/ai-avatar"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Button } from "@/components/ui/button"
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import * as Nock from "@/domain/rules/nock"
 import type { DevTicketKind, NockQuestion, Result } from "@/domain/types"
 import { DEV_KIND_LABEL } from "@/domain/rules/dev-tickets"
@@ -78,6 +79,8 @@ function NockPanel({ onClose }: { onClose: () => void }) {
   const [locs, setLocs] = useState<string[]>([])
   // owner 2026-10-13: "ส่งถึง Dev" — a bug / help / suggestion / question straight to the developers
   const [view, setView] = useState<"chat" | "dev">("chat")
+  // "สร้างคำถามถึง Dev" from a Nock answer's ⋯ menu opens the Dev form with that question already in it
+  const [devFrom, setDevFrom] = useState<NockQuestion | null>(null)
   const [text, setText] = useState("")
   const [pending, setPending] = useState<Pending>(null)
   const [model, setModel] = useState<string | null | undefined>(undefined)
@@ -124,12 +127,12 @@ function NockPanel({ onClose }: { onClose: () => void }) {
           <p className="text-sm font-semibold">Nock</p>
           <p className="truncate text-[11px] text-muted-foreground">{model === undefined ? "…" : model ? model : "ตอบจากคู่มือ + คำตอบของทีม"}</p>
         </div>
-        <Button size="sm" variant={view === "dev" ? "secondary" : "ghost"} className="h-7 gap-1 rounded-full px-2.5 text-xs text-muted-foreground" title="แจ้งปัญหา ขอความช่วยเหลือ เสนอแนะ หรือถามทีมพัฒนาโดยตรง" onClick={() => setView(view === "dev" ? "chat" : "dev")}><CodeXmlIcon /> ส่งถึง Dev</Button>
+        <Button size="sm" variant={view === "dev" ? "secondary" : "ghost"} className="h-7 gap-1 rounded-full px-2.5 text-xs text-muted-foreground" title="แจ้งปัญหา ขอความช่วยเหลือ เสนอแนะ หรือถามทีมพัฒนาโดยตรง" onClick={() => { setDevFrom(null); setView(view === "dev" ? "chat" : "dev") }}><CodeXmlIcon /> ส่งถึง Dev</Button>
         <Button size="icon-sm" variant="ghost" className="text-muted-foreground" aria-label="คลังคำถาม" title="คลังคำถาม Nock" nativeButton={false} render={<Link href="/nock" onClick={onClose} />}><LibraryBigIcon /></Button>
         <Button size="icon-sm" variant="ghost" className="text-muted-foreground" aria-label="ปิด" onClick={onClose}><XIcon /></Button>
       </div>
 
-      {view === "dev" ? <DevTicketForm onDone={() => setView("chat")} onLink={onClose} /> : <>
+      {view === "dev" ? <DevTicketForm key={devFrom?.id ?? "new"} from={devFrom} onDone={() => setView("chat")} onLink={onClose} /> : <>
       <div className="min-h-0 flex-1 space-y-5 overflow-y-auto px-4 pt-2 pb-3">
         {!mine.length && !pending ? (
           <div className="flex h-full flex-col justify-end gap-4 pb-1">
@@ -146,7 +149,7 @@ function NockPanel({ onClose }: { onClose: () => void }) {
           </div>
         ) : (
           <>
-            {mine.map((q) => <Exchange key={q.id} q={q} onRate={(h) => quiet(rate(q.id, h))} onLink={onClose} />)}
+            {mine.map((q) => <Exchange key={q.id} q={q} onRate={(h) => quiet(rate(q.id, h))} onLink={onClose} onDev={() => { setDevFrom(q); setView("dev") }} />)}
             {pending && <><Bubble from="me">{pending.question}</Bubble><Bubble from="nock"><span className="inline-flex items-center gap-1.5 text-muted-foreground"><Loader2Icon className="size-3.5 animate-spin" /> กำลังคิด…</span></Bubble></>}
           </>
         )}
@@ -163,7 +166,7 @@ function NockPanel({ onClose }: { onClose: () => void }) {
             <Button type="submit" size="icon-sm" className="ml-auto rounded-full" disabled={!text.trim() || !!pending} aria-label="ส่ง"><ArrowUpIcon /></Button>
           </div>
         </div>
-        {mine.length > 0 && <p className="pt-1.5 text-center text-[10px] text-muted-foreground"><span className="inline-flex items-center gap-1">Nock อาจตอบผิดได้ · กด <ThumbsDownIcon className="size-3 text-red-600" /> ถ้าไม่ตรง แล้วเลือกให้ผู้รู้ช่วยตอบได้</span></p>}
+        {mine.length > 0 && <p className="pt-1.5 text-center text-[10px] text-muted-foreground"><span className="inline-flex items-center gap-1">Nock อาจตอบผิดได้ · กด <EllipsisIcon className="size-3" /> หลังคำตอบ เพื่อให้ผู้รู้ช่วยตอบ / ถาม Dev</span></p>}
       </form>
       </>}
     </div>
@@ -171,15 +174,15 @@ function NockPanel({ onClose }: { onClose: () => void }) {
 }
 
 /** ส่งถึง Dev (owner 2026-10-13): kind · title · detail · Location — the page, branch and role are attached automatically */
-function DevTicketForm({ onDone, onLink }: { onDone: () => void; onLink: () => void }) {
+function DevTicketForm({ from, onDone, onLink }: { from?: NockQuestion | null; onDone: () => void; onLink: () => void }) {
   const me = useStore((s) => s.me())
   const branch = useStore((s) => s.branches.find((b) => b.id === s.branchId))
   const send = useStore((s) => s.sendDevTicket)
   const pathname = usePathname()
-  const [kind, setKind] = useState<DevTicketKind>("bug")
-  const [title, setTitle] = useState("")
-  const [detail, setDetail] = useState("")
-  const [locs, setLocs] = useState<string[]>([])
+  const [kind, setKind] = useState<DevTicketKind>(from ? "question" : "bug")
+  const [title, setTitle] = useState(from?.question.slice(0, 120) ?? "")
+  const [detail, setDetail] = useState(from ? `ถาม Nock ว่า: ${from.question}\nNock ตอบ: ${from.aiAnswer ?? "ยังไม่รู้คำตอบ"}\n\n` : "")
+  const [locs, setLocs] = useState<string[]>(from?.locations ?? [])
   const [sent, setSent] = useState<string | null>(null)
   const pageUrl = typeof window === "undefined" ? pathname : `${pathname}${window.location.search}`
   if (sent) return (
@@ -249,14 +252,15 @@ function Bubble({ from, children }: { from: "me" | "nock" | "team"; children: Re
   )
 }
 
-function Exchange({ q, onRate, onLink }: { q: NockQuestion; onRate: (helpful: boolean) => void; onLink: () => void }) {
+function Exchange({ q, onRate, onLink, onDev }: { q: NockQuestion; onRate: (helpful: boolean) => void; onLink: () => void; onDev: () => void }) {
   const staff = useStore((s) => s.staff)
   const me = useStore((s) => s.me())
-  const [offer, setOffer] = useState(false)
+  const all = useStore((s) => s.nockQuestions)
+  // owner 2026-10-14: no card pushed at every answer — a ⋯ after Nock's answer holds สร้างคลังความรู้ / ถึง Dev / ค้นหาใกล้เคียง
+  const [open, setOpen] = useState<"bank" | "similar" | null>(null)
   const best = Nock.bestAnswer(q, me.roles)
   const inBank = q.inBank !== false
-  // owner 2026-10-14: offer the bank only when Nock had no answer, or the asker said it missed — and they choose
-  const ask = !inBank && !q.bankDeclined && (!q.aiAnswer || q.helpful === false || offer)
+  const similar = open === "similar" ? Nock.similarKnowledge(q, all, me.roles) : []
   return (
     <div className="space-y-3">
       <div>
@@ -275,17 +279,43 @@ function Exchange({ q, onRate, onLink }: { q: NockQuestion; onRate: (helpful: bo
       ) : (
         <Bubble from="nock">Nock ยังไม่รู้คำตอบเรื่องนี้</Bubble>
       )}
-      {q.aiAnswer && !inBank && (
-        <div className="flex items-center gap-1 pl-8 text-xs text-muted-foreground">
-          {q.helpful === undefined ? <>
-            <span>ตอบตรงไหม?</span>
-            <button type="button" aria-label="ตอบตรง" onClick={() => onRate(true)} className="grid size-6 place-items-center rounded-full hover:bg-muted"><ThumbsUpIcon className="size-3.5 text-emerald-600" /></button>
-            <button type="button" aria-label="ไม่ตรง" onClick={() => onRate(false)} className="grid size-6 place-items-center rounded-full hover:bg-muted"><ThumbsDownIcon className="size-3.5 text-red-600" /></button>
-          </> : <span>ขอบคุณที่บอก</span>}
-          {!ask && !q.bankDeclined && <button type="button" onClick={() => setOffer(true)} className="ml-auto inline-flex items-center gap-1 rounded-full px-2 py-0.5 hover:bg-muted"><SendIcon className="size-3" /> ให้ผู้รู้ช่วยตอบ</button>}
+      <div className="flex items-center gap-0.5 pl-8 text-xs text-muted-foreground">
+        {q.aiAnswer && !inBank && (q.helpful === undefined ? <>
+          <button type="button" aria-label="ตอบตรง" title="ตอบตรง" onClick={() => onRate(true)} className="grid size-6 place-items-center rounded-full hover:bg-muted"><ThumbsUpIcon className="size-3.5 text-emerald-600" /></button>
+          <button type="button" aria-label="ไม่ตรง" title="ไม่ตรง" onClick={() => onRate(false)} className="grid size-6 place-items-center rounded-full hover:bg-muted"><ThumbsDownIcon className="size-3.5 text-red-600" /></button>
+        </> : <span className="px-1">ขอบคุณที่บอก</span>)}
+        <DropdownMenu>
+          <DropdownMenuTrigger render={<button type="button" aria-label="เพิ่มเติม" title="เพิ่มเติม" className="grid size-6 place-items-center rounded-full hover:bg-muted data-[popup-open]:bg-muted" />}>
+            <EllipsisIcon className="size-4" />
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="start" className="z-[60] w-72">
+            <DropdownMenuItem disabled={inBank} onClick={() => setOpen("bank")}>
+              <LibraryBigIcon /><span className="flex flex-col"><span>สร้างคลังความรู้</span><span className="text-xs text-muted-foreground">{inBank ? "อยู่ในคลังคำถามแล้ว" : "ให้ผู้รู้มาช่วยตอบ · คำตอบกลับมาที่นี่"}</span></span>
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={onDev}>
+              <CodeXmlIcon /><span className="flex flex-col"><span>สร้างคำถามถึง Dev</span><span className="text-xs text-muted-foreground">ส่งเรื่องนี้ถึงทีมพัฒนา</span></span>
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => setOpen("similar")}>
+              <SearchIcon /><span className="flex flex-col"><span>ค้นหาคำตอบใกล้เคียง</span><span className="text-xs text-muted-foreground">จากคลังความรู้</span></span>
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
+      {open === "bank" && !inBank && <BankOffer q={q} onClose={() => setOpen(null)} />}
+      {open === "similar" && (
+        <div className="ml-8 space-y-1.5 rounded-2xl bg-muted/50 p-3 text-sm">
+          <div className="flex items-center justify-between gap-2">
+            <p className="text-xs font-medium text-muted-foreground">คำตอบใกล้เคียงจากคลังความรู้</p>
+            <button type="button" aria-label="ปิด" onClick={() => setOpen(null)} className="text-muted-foreground hover:text-foreground"><XIcon className="size-3.5" /></button>
+          </div>
+          {similar.length ? similar.map(({ item, answer }) => (
+            <details key={item.id} className="rounded-xl bg-background px-2.5 py-1.5">
+              <summary className="cursor-pointer font-medium">{item.question}</summary>
+              <p className="mt-1 text-muted-foreground">{answer.text}</p>
+            </details>
+          )) : <p className="text-muted-foreground">ไม่พบเรื่องใกล้เคียง — ลองสร้างคลังความรู้ให้ผู้รู้ช่วยตอบ</p>}
         </div>
       )}
-      {ask && <BankOffer q={q} />}
       {inBank && q.status === "unanswered" && <p className="pl-8 text-xs text-amber-700">อยู่ในคลังคำถามแล้ว · รอผู้รู้ตอบ — คำตอบจะกลับมาที่นี่</p>}
       {q.status === "answered" && best && (
         <Bubble from="team">
@@ -298,16 +328,15 @@ function Exchange({ q, onRate, onLink }: { q: NockQuestion; onRate: (helpful: bo
 }
 
 /** "สร้างเป็นคำถามในคลังความรู้ ให้ผู้รู้ช่วยตอบไหม?" — the asker picks the Part and chooses สร้าง / ไม่สร้าง */
-function BankOffer({ q }: { q: NockQuestion }) {
+function BankOffer({ q, onClose }: { q: NockQuestion; onClose: () => void }) {
   const promote = useStore((s) => s.promoteNockQuestion)
-  const decline = useStore((s) => s.declineNockPromote)
   const [locs, setLocs] = useState<string[]>(q.locations ?? [])
   return (
     <div className="ml-8 space-y-2 rounded-2xl bg-sky-50 p-3 text-sm ring-1 ring-sky-200 dark:bg-sky-950/40 dark:ring-sky-900">
-      <p>{q.aiAnswer ? "คำตอบไม่ตรงใช่ไหม —" : "Nock ยังตอบไม่ได้ —"} สร้างเป็นคำถามในคลังความรู้ ให้ผู้รู้ช่วยตอบไหม? <span className="text-xs text-muted-foreground">(คำตอบจะกลับมาที่นี่ และ Nock จะจำไว้ตอบคนต่อไป)</span></p>
+      <p>สร้างเป็นคำถามในคลังความรู้ ให้ผู้รู้ช่วยตอบ <span className="text-xs text-muted-foreground">(คำตอบจะกลับมาที่นี่ และ Nock จะจำไว้ตอบคนต่อไป)</span></p>
       <LocationPicker value={locs} onChange={setLocs} placeholder="เลือก Part ของระบบ (จำเป็น)" />
       <div className="flex justify-end gap-1.5">
-        <Button size="xs" variant="ghost" onClick={() => quiet(decline(q.id))}>ไม่สร้าง</Button>
+        <Button size="xs" variant="ghost" onClick={onClose}>ยกเลิก</Button>
         <Button size="xs" disabled={!locs.length} title={locs.length ? undefined : "เลือก Part ของระบบก่อน"} onClick={() => report(promote(q.id, locs), "สร้างในคลังความรู้แล้ว — ผู้รู้จะช่วยตอบ")}>สร้าง</Button>
       </div>
     </div>

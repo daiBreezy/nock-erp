@@ -163,6 +163,16 @@ export function matchGuide(q: string, limit = 3, locations: string[] = []): { en
 }
 
 /** the team's answers that fit this question — same part of the system counts a little, thumbs a little */
+/** "ค้นหาคำตอบใกล้เคียงจากคลังความรู้" (owner 2026-10-14) — a looser match than the one Nock answers from, so the asker
+ *  can read related knowledge themselves; never the question itself */
+export function similarKnowledge(q: Pick<NockQuestion, "id" | "question">, all: NockQuestion[], roles: Role[], limit = 3) {
+  return knowledgeOf(all).filter((item) => item.id !== q.id).flatMap((item) => {
+    const answer = bestAnswer(item, roles)
+    if (!answer) return []
+    return [{ item, answer, score: Math.max(similarity(q.question, item.question), similarity(q.question, answer.text) * 0.6) }]
+  }).filter((x) => x.score >= 0.08).sort((a, b) => b.score - a.score).slice(0, limit)
+}
+
 export function matchKnowledge(q: string, all: NockQuestion[], roles: Role[], locations: string[] = [], limit = 4): { item: NockQuestion; answer: NockAnswer; score: number }[] {
   return knowledgeOf(all).flatMap((item) => {
     const answer = bestAnswer(item, roles)
