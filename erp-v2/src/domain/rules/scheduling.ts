@@ -460,15 +460,51 @@ export function mondayOf(d: DateStr): DateStr {
 }
 
 /**
- * Re-schedule (owner 2026-09-29): a student may move to another session of the same subject only inside the same
- * week (Mon→Tue ok, Mon→next Mon no — that is a leave). Admin decides after talking to the parent.
+ * Re-schedule — this one session only. Owner 2026-09-29: inside the same week; owner 2026-10-14: this week AND next
+ * week ("ย้ายก็คือย้าย") — further than that is a leave. Every move is logged (who · when · from · to).
  */
+export const RESCHEDULE_WEEKS = 2
+export const MOVE_ONCE_ACTION = "ย้ายคาบ (Re-schedule)"
+export const MOVE_CLASS_ACTION = "ย้ายคลาสถาวร"
+export const MOVE_UNDO_ACTION = "ยกเลิกการย้ายคาบ"
+
+/** every move of one student (one-off, permanent, undone), newest first — so nobody quietly shuffles a child around
+ *  instead of recording a leave (owner 2026-10-14) */
+export function movesOf<L extends { studentIds: ID[]; action: string; at: string }>(logs: L[], studentId: ID): L[] {
+  return logs.filter((l) => l.studentIds.includes(studentId) && [MOVE_ONCE_ACTION, MOVE_CLASS_ACTION, MOVE_UNDO_ACTION].includes(l.action))
+    .sort((a, b) => b.at.localeCompare(a.at))
+}
+
+/**
+ * Permanent class change (owner 2026-10-14: "ย้ายตลอดไป" — the old day no longer works for the family): from this
+ * session on the student is in another class of the same subject. The package keeps its end date — the new class gives
+ * whatever sessions fall before it (no extension).
+ */
+export function canMoveToClass(from: Session, to: Pick<Klass, "id" | "active" | "branchId" | "studentIds" | "subject" | "subjects" | "type"> & { grades?: string[] }, studentId: ID, now: Date, grade?: string): Result {
+  if (!from.classId) return { ok: false, error: "คาบนี้ไม่ได้อยู่ในคลาส — ใช้ย้ายครั้งเดียว" }
+  if (from.classId === to.id) return { ok: false, error: "อยู่ในคลาสนี้อยู่แล้ว" }
+  if (!to.active) return { ok: false, error: "คลาสนั้นปิดแล้ว" }
+  if (to.branchId !== from.branchId) return { ok: false, error: "ย้ายได้เฉพาะคลาสในสาขาเดียวกัน" }
+  if (sessionState(from, now) !== "upcoming") return { ok: false, error: "ย้ายได้ตั้งแต่คาบที่ยังไม่เริ่ม" }
+  const toSubjects = to.subjects?.length ? to.subjects : [to.subject]
+  if (!subjectsOf(from).some((x) => toSubjects.includes(x))) return { ok: false, error: "ย้ายได้เฉพาะคลาสวิชาเดียวกัน" }
+  if (to.studentIds.includes(studentId)) return { ok: false, error: "นักเรียนอยู่ในคลาสนั้นแล้ว" }
+  const cap = classCapacity(to)
+  const warnings = [
+    ...(grade && to.grades?.length && !to.grades.includes(grade) ? [`คลาสนั้นสำหรับ ${to.grades.join(", ")} (นักเรียน ${grade})`] : []),
+    ...(to.studentIds.length >= cap ? [`คลาสนั้นมี ${to.studentIds.length} คนแล้ว (แนะนำไม่เกิน ${cap})`] : []),
+  ]
+  return warnings.length ? { ok: true, value: undefined, warnings } : { ok: true, value: undefined }
+}
+
+/** one session → another session of the same subject, within RESCHEDULE_WEEKS (counted from the original week) */
 export function canRescheduleStudent(from: Session, to: Session, studentId: ID, now: Date, capacity: number): Result {
   if (from.id === to.id) return { ok: false, error: "เลือกคาบอื่นที่ไม่ใช่คาบนี้" }
   if (!from.studentIds.includes(studentId)) return { ok: false, error: "นักเรียนไม่ได้อยู่ในคาบนี้" }
   if (sessionState(from, now) === "closed" || from.cancelled) return { ok: false, error: "คาบเดิมปิดหรือยกเลิกแล้ว" }
   if (to.cancelled || sessionState(to, now) !== "upcoming") return { ok: false, error: "ย้ายไปได้เฉพาะคาบที่ยังไม่เริ่ม" }
-  if (mondayOf(from.date) !== mondayOf(to.date)) return { ok: false, error: "เลื่อนได้ภายในสัปดาห์เดียวกันเท่านั้น — ถ้าข้ามสัปดาห์ให้บันทึกเป็นการลา" }
+  const w0 = mondayOf(from.date), w = mondayOf(to.date)
+  if (w < w0 || w > addDays(w0, 7 * (RESCHEDULE_WEEKS - 1))) return { ok: false, error: "ย้ายได้ภายในสัปดาห์นี้และสัปดาห์หน้าเท่านั้น — ไกลกว่านั้นให้บันทึกเป็นการลา" }
   if (!subjectsOf(from).some((x) => subjectsOf(to).includes(x))) return { ok: false, error: "ย้ายได้เฉพาะคาบวิชาเดียวกัน" }
   if (to.studentIds.includes(studentId)) return { ok: false, error: "นักเรียนอยู่ในคาบนั้นแล้ว" }
   // capacity is a soft limit — moving in is allowed, the admin just gets told (owner 2026-09-30)

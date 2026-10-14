@@ -1,7 +1,7 @@
 // Regression tests: each case reproduces a bug found on Dev staging and proves the rule prevents it.
 import { describe, expect, it } from "vitest"
 import type { DevTicket, NockAnswer, NockQuestion, Role, Assessment, Attendance, Branch, BusAddOn, CreditNote, LessonSummary, Course, Entitlement, Family, FormSubmission, Lead, Student, FormOfferSlot, Holiday, Invoice, Klass, Session, Staff, StudentLeave, Weekday } from "../types"
-import { applyClassEdit, applyToSessions, canChangeTeachers, canRescheduleStudent, mondayOf, removedWithClass, canSave, closesBranch, holidayImpact, hoursFor, isHoliday, overlappingRows, periodsIn, introducedConflicts, editSingleSession, findConflicts, generateSessions, moveSession, sessionState, validateClass, workState } from "./scheduling"
+import { applyClassEdit, applyToSessions, canChangeTeachers, canMoveToClass, canRescheduleStudent, movesOf, mondayOf, removedWithClass, canSave, closesBranch, holidayImpact, hoursFor, isHoliday, overlappingRows, periodsIn, introducedConflicts, editSingleSession, findConflicts, generateSessions, moveSession, sessionState, validateClass, workState } from "./scheduling"
 import { activeLeave, nextClassDates, teacherLeaveCancels, leaveRunSessions, balance, studentState, leaveLedger, packageCovers, canMark, canSaveLeave, coveringEntitlement, effectiveTo, leavesUsed, lowBalanceAlert, removeFromClass, renewalFollowUpDue, resolveEntitlements } from "./attendance"
 import { bestPromotion, duplicateBusDay, billedOn, busAddOnAmount, pendingBusAddOns, validateBusAddOn, carriedMinutes, weekKey, classOptionsFor, defaultAdvance, entryFeeWaiver, invoiceSessionDates, invoiceTotals, validateInvoiceDraft, canApprove, canConfirmPayment, canForceApprove, canForceConfirmPayment, canSend, canVoid, defaultBusLegs, busTotal, nextInvoiceNumber, quoteCourse } from "./billing"
 import { can } from "./permissions"
@@ -923,14 +923,16 @@ describe("leave quota and re-schedule", () => {
     expect(resolveEntitlements([ent], [], { ...ctx([leave("2026-10-06")]), holidays: hol })[0].to).toBe("2026-11-10")
   })
 
-  it("re-schedule only inside the same Mon–Sun week, same subject, to a session not started yet", () => {
+  it("re-schedule within this week and next week (owner 2026-10-14), same subject, to a session not started yet", () => {
     const now = new Date("2026-09-28T08:00:00")
     const tue = sessions[0] // Tue 29 Sep
     const thu: Session = { ...tue, id: "thu", classId: "k2", date: "2026-10-01", studentIds: [] }
     const nextMon: Session = { ...tue, id: "mon", classId: "k2", date: "2026-10-05", studentIds: [] }
+    const in2Weeks: Session = { ...tue, id: "mon2", classId: "k2", date: "2026-10-12", studentIds: [] }
     expect(mondayOf("2026-10-04")).toBe("2026-09-28")
     expect(canRescheduleStudent(tue, thu, "a", now, 6).ok).toBe(true)
-    const r = canRescheduleStudent(tue, nextMon, "a", now, 6)
+    expect(canRescheduleStudent(tue, nextMon, "a", now, 6).ok).toBe(true)
+    const r = canRescheduleStudent(tue, in2Weeks, "a", now, 6)
     expect(r.ok).toBe(false)
     if (!r.ok) expect(r.error).toContain("การลา")
     expect(canRescheduleStudent(tue, { ...thu, subject: "English" }, "a", now, 6).ok).toBe(false)
@@ -2366,5 +2368,27 @@ describe("Course End Summary in LINE (owner 2026-10-14)", () => {
     const m = Sum.progressForSubject(rows, "คณิต", ["คณิต", "อังกฤษ"])
     expect(m).toHaveLength(1)
     expect(m[0]).toMatchObject({ level: 4, text: "ดี" })
+  })
+})
+
+describe("ย้ายคลาสถาวร + move log (owner 2026-10-14)", () => {
+  const now = new Date("2026-09-28T08:00:00")
+  const from = { id: "s1", classId: "k1", branchId: "b1", subject: "คณิต", date: "2026-09-29", start: "16:00", minutes: 60, cancelled: false, studentIds: ["a"] } as unknown as Session
+  const k = (id: string, extra: object = {}) => ({ id, active: true, branchId: "b1", studentIds: [] as string[], subject: "คณิต", type: "group" as const, ...extra })
+  it("same subject, same branch, open class, not the current one", () => {
+    expect(canMoveToClass(from, k("k2"), "a", now).ok).toBe(true)
+    expect(canMoveToClass(from, k("k1"), "a", now).ok).toBe(false)
+    expect(canMoveToClass(from, k("k3", { subject: "อังกฤษ" }), "a", now).ok).toBe(false)
+    expect(canMoveToClass(from, k("k4", { active: false }), "a", now).ok).toBe(false)
+    expect(canMoveToClass({ ...from, classId: null }, k("k2"), "a", now).ok).toBe(false)
+  })
+  it("every move of a student is listed, newest first", () => {
+    const logs = [
+      { studentIds: ["a"], action: "ย้ายคาบ (Re-schedule)", at: "2026-09-01T10:00:00Z" },
+      { studentIds: ["a"], action: "ย้ายคลาสถาวร", at: "2026-09-10T10:00:00Z" },
+      { studentIds: ["a"], action: "แก้ข้อมูล", at: "2026-09-11T10:00:00Z" },
+      { studentIds: ["b"], action: "ย้ายคาบ (Re-schedule)", at: "2026-09-12T10:00:00Z" },
+    ]
+    expect(movesOf(logs, "a").map((l) => l.action)).toEqual(["ย้ายคลาสถาวร", "ย้ายคาบ (Re-schedule)"])
   })
 })

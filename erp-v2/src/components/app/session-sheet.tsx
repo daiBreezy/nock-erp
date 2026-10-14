@@ -19,7 +19,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { LongLeaveFields } from "@/components/app/leave-dialog"
-import { addDays, endTime, fmtDate, fmtDateTime, fromMinutes, toMinutes } from "@/domain/dates"
+import { addDays, endTime, fmtDate, fmtDateTime, fromMinutes, TH_DAYS_FULL, toMinutes } from "@/domain/dates"
 import * as Att from "@/domain/rules/attendance"
 import * as Seats from "@/domain/rules/seats"
 import { shortCourse } from "@/domain/rules/course"
@@ -28,7 +28,7 @@ import type { SummaryLesson } from "@/store/store"
 import { CatalogCombo, CatalogManager } from "./lesson-picker"
 import { assessmentIn, FORM_TYPE_LABEL, sessionKindLabel } from "@/domain/rules/forms"
 import { can } from "@/domain/rules/permissions"
-import { canChangeTeachers, canRescheduleStudent, findConflicts, mondayOf, sessionState, subjectsOf, classCapacity } from "@/domain/rules/scheduling"
+import { canChangeTeachers, canMoveToClass, canRescheduleStudent, findConflicts, mondayOf, movesOf, MOVE_UNDO_ACTION, RESCHEDULE_WEEKS, sessionState, subjectsOf, classCapacity } from "@/domain/rules/scheduling"
 import * as Sum from "@/domain/rules/summaries"
 import { SUMMARY_STATUS_LABEL } from "@/domain/rules/summaries"
 import type { ID, LessonSummary, Seat, Session } from "@/domain/types"
@@ -271,6 +271,8 @@ function StudentRow({ s, sid, viewOnly, canManage, mine, text, setText, selectab
   const allSessions = useStore((st) => st.sessions)
   const attendance = useStore((st) => st.attendance)
   const summaries = useStore((st) => st.summaries)
+  // owner 2026-10-14: everyone may move a student (a teacher in their own sessions) — every move is logged
+  const canMove = useStore((st) => can(st.me(), "student.move")) && !viewOnly && (canManage || mine)
   const rawEnts = useStore((st) => st.entitlements)
   const leaves = useStore((st) => st.leaves)
   const classes = useStore((st) => st.classes)
@@ -370,15 +372,15 @@ function StudentRow({ s, sid, viewOnly, canManage, mine, text, setText, selectab
             className={pill + " data-[on=true]:bg-emerald-600 data-[on=true]:text-white"}>มา</button>
           <button type="button" data-on={a?.status === "leave"} disabled={!canMarkHere || !Att.canMark(s, "leave", now).ok} onClick={() => setOpen("leave")}
             title="ลา — เลือกหักโควตา / ไม่หักโควตา และจำนวนคาบ" className={pill + " data-[on=true]:bg-amber-500 data-[on=true]:text-white"}>{a?.status === "leave" && a.noQuota ? "ลา*" : "ลา"}</button>
-          <button type="button" disabled={!canManage || state(s, now) !== "upcoming" || !!a || s.cancelled} onClick={() => setOpen("reschedule")}
-            title="ย้ายไปเรียนวันอื่นในสัปดาห์นี้" className={pill}>ย้ายวัน</button>
+          <button type="button" disabled={!canMove || state(s, now) !== "upcoming" || !!a || s.cancelled} onClick={() => setOpen("reschedule")}
+            title="ย้ายวัน — ครั้งนี้ครั้งเดียว (สัปดาห์นี้ / หน้า) หรือย้ายคลาสถาวร" className={pill}>ย้ายวัน</button>
         </span>
         {canManage && state(s, now) !== "closed" && !s.cancelled ? (
           <DropdownMenu>
             <DropdownMenuTrigger render={<Button size="icon-sm" variant="ghost" aria-label={`จัดการ ${stu?.nickname}`} />}><EllipsisVerticalIcon /></DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-64">
               <DropdownMenuItem disabled={state(s, now) !== "upcoming" || !!a} onClick={() => setOpen("reschedule")}>
-                <CalendarClockIcon /><span className="flex flex-col"><span>ย้ายคาบ (Re-schedule)</span><span className="text-xs text-muted-foreground">ภายในสัปดาห์นี้เท่านั้น</span></span>
+                <CalendarClockIcon /><span className="flex flex-col"><span>ย้ายคาบ (Re-schedule)</span><span className="text-xs text-muted-foreground">ครั้งเดียว (สัปดาห์นี้ / หน้า) หรือถาวร</span></span>
               </DropdownMenuItem>
               {(
                 <DropdownMenuItem onClick={() => setOpen("seat")}>
@@ -622,6 +624,14 @@ function RescheduleDialog({ from, studentId, onClose }: { from: Session; student
   const now = useNow(30_000)
   const L = useLookup()
   const monday = mondayOf(from.date)
+  const lastDay = addDays(monday, 7 * RESCHEDULE_WEEKS - 1)
+  // owner 2026-10-14: ย้ายวัน has two kinds — this session only, or from now on (another class)
+  const [mode, setMode] = useState<"once" | "always">("once")
+  const [toClass, setToClass] = useState<ID | null>(null)
+  const moveToClass = useStore((st) => st.moveStudentToClass)
+  const logs = useStore((st) => st.logs)
+  const entitlements = useStore((st) => st.entitlements)
+  const history = movesOf(logs, studentId)
   const [subject, setSubject] = useState(from.subject)
   const [day, setDay] = useState(from.date)
   const [pick, setPick] = useState<ID | null>(null)
@@ -646,15 +656,33 @@ function RescheduleDialog({ from, studentId, onClose }: { from: Session; student
     <Dialog open onOpenChange={(o) => !o && onClose()}>
       <DialogContent className="flex max-h-[90vh] flex-col sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2"><CalendarClockIcon className="size-5" /> เลือกวันสำหรับย้ายคาบ</DialogTitle>
-          <DialogDescription>{L.student(studentId)?.nickname} · ย้ายได้ภายในสัปดาห์นี้เท่านั้น ({fmtDate(monday)} – {fmtDate(addDays(monday, 6), { year: true })}) · ข้ามสัปดาห์ให้บันทึกเป็นการลา</DialogDescription>
+          <DialogTitle className="flex items-center gap-2"><CalendarClockIcon className="size-5" /> ย้ายวัน · {L.student(studentId)?.nickname}</DialogTitle>
+          <DialogDescription className="sr-only">ย้ายคาบนี้ครั้งเดียว หรือย้ายคลาสถาวร</DialogDescription>
         </DialogHeader>
+        <div className="flex flex-wrap items-center gap-2">
+          {(["once", "always"] as const).map((m) => (
+            <button key={m} type="button" disabled={m === "always" && !from.classId} onClick={() => { setMode(m); setPick(null); setToClass(null); setCreating(false) }}
+              className={cn("h-9 rounded-full px-3.5 text-sm ring-1 ring-foreground/10 disabled:opacity-40", mode === m ? "bg-primary/10 font-medium text-primary ring-primary/40" : "hover:bg-muted")}>
+              {m === "once" ? "ครั้งนี้ครั้งเดียว" : "ตั้งแต่ครั้งนี้เป็นต้นไป"}
+            </button>
+          ))}
+          <InfoTip text={mode === "once" ? `ย้ายเฉพาะคาบ ${fmtDate(from.date, { weekday: true })} ไปคาบอื่นวิชาเดียวกัน ภายในสัปดาห์นี้และสัปดาห์หน้า (${fmtDate(monday)} – ${fmtDate(lastDay, { year: true })}) · ไกลกว่านั้นให้บันทึกเป็นการลา` : "ย้ายไปอยู่อีกคลาสถาวร ตั้งแต่คาบนี้ · แพ็กเกจจบวันเดิม คลาสใหม่ได้เท่าที่มีคาบก่อนวันจบ"} />
+          {history.length > 0 && (
+            <details className="ml-auto text-xs">
+              <summary className={cn("cursor-pointer rounded-full px-2.5 py-1 font-medium", history.length >= 3 ? "bg-amber-100 text-amber-900" : "bg-muted text-muted-foreground")}>ย้ายมาแล้ว {history.filter((h) => h.action !== MOVE_UNDO_ACTION).length} ครั้ง</summary>
+              <ul className="absolute right-6 z-10 mt-1 max-h-60 w-[min(26rem,80vw)] space-y-1 overflow-y-auto rounded-2xl bg-popover p-2 shadow-lg ring-1 ring-foreground/10">
+                {history.map((h) => <li key={h.id} className="rounded-xl px-2 py-1 hover:bg-muted/50"><span className="font-medium">{h.action}</span> · {fmtDateTime(h.at)} · {L.teacher(h.by).label}<span className="block text-muted-foreground">{h.detail}</span></li>)}
+              </ul>
+            </details>
+          )}
+        </div>
+        {mode === "always" ? <ClassMovePicker from={from} studentId={studentId} value={toClass} onChange={setToClass} entitlementTo={entitlements.find((e) => e.studentId === studentId && e.to >= from.date && from.classId && e.classIds.includes(from.classId))?.to} /> : <>
         <div className="flex flex-wrap items-center gap-2">
           <NativeSelect className="h-9 w-32" value={subject} onChange={(e) => { setSubject(e.target.value); setPick(null) }} options={branch.subjects.map((x) => ({ value: x, label: x }))} />
           <div className="ml-auto flex items-center gap-1 rounded-full bg-muted px-1 py-1">
             <Button size="icon-sm" variant="ghost" aria-label="วันก่อน" disabled={day <= monday} onClick={() => { setDay(addDays(day, -1)); setPick(null) }}><ChevronLeftIcon /></Button>
             <span className="min-w-28 text-center text-sm font-medium">{fmtDate(day, { weekday: true })}{day === from.date && <span className="block text-[10px] font-normal text-muted-foreground">วันเดิม</span>}</span>
-            <Button size="icon-sm" variant="ghost" aria-label="วันถัดไป" disabled={day >= addDays(monday, 6)} onClick={() => { setDay(addDays(day, 1)); setPick(null) }}><ChevronRightIcon /></Button>
+            <Button size="icon-sm" variant="ghost" aria-label="วันถัดไป" disabled={day >= lastDay} onClick={() => { setDay(addDays(day, 1)); setPick(null) }}><ChevronRightIcon /></Button>
           </div>
         </div>
         <div className="min-h-0 flex-1 space-y-3 overflow-y-auto">
@@ -702,14 +730,58 @@ function RescheduleDialog({ from, studentId, onClose }: { from: Session; student
             )}
           </section>
         </div>
+        </>}
         <DialogFooter>
           <Button variant="ghost" onClick={onClose}>ยกเลิก</Button>
-          {creating
+          {mode === "always"
+            ? <Button disabled={!toClass} onClick={() => toClass && report(moveToClass(from.id, studentId, toClass), (v) => `ย้ายคลาสถาวรแล้ว · ออก ${v.removed} คาบ · เข้า ${v.added} คาบ`) && onClose()}><CheckIcon /> ย้ายคลาสถาวร</Button>
+            : creating
             ? <Button disabled={!agreed || nMinutes < 5} onClick={createAndMove}><CheckIcon /> สร้างคาบและย้าย</Button>
             : <Button disabled={!pick} onClick={() => pick && report(move(from.id, studentId, pick), "ย้ายคาบแล้ว") && onClose()}><CheckIcon /> ยืนยัน</Button>}
         </DialogFooter>
       </DialogContent>
     </Dialog>
+  )
+}
+
+/** ตั้งแต่ครั้งนี้เป็นต้นไป — classes of the same subject in this branch, with what the move means for the package */
+function ClassMovePicker({ from, studentId, value, onChange, entitlementTo }: { from: Session; studentId: ID; value: ID | null; onChange: (id: ID) => void; entitlementTo?: string }) {
+  const classes = useStore((st) => st.classes)
+  const sessions = useStore((st) => st.sessions)
+  const now = useNow(30_000)
+  const L = useLookup()
+  const current = classes.find((k) => k.id === from.classId)
+  const options = classes.filter((k) => k.active && k.branchId === from.branchId && k.id !== from.classId && subjectsOf(from).some((x) => (k.subjects?.length ? k.subjects : [k.subject]).includes(x)))
+    .sort((a, b) => a.weekday - b.weekday || a.start.localeCompare(b.start))
+  const picked = classes.find((k) => k.id === value)
+  const ahead = (classId: ID) => sessions.filter((x) => x.classId === classId && x.date >= from.date && !x.cancelled && (!entitlementTo || x.date <= entitlementTo)).length
+  return (
+    <div className="min-h-0 flex-1 space-y-2 overflow-y-auto">
+      {current && <p className="text-xs text-muted-foreground">คลาสเดิม: <b className="text-foreground">{current.name}</b> · ทุก{TH_DAYS_FULL[current.weekday]} {current.start}–{endTime(current.start, current.minutes)}</p>}
+      {options.length === 0 && <p className="rounded-2xl border border-dashed p-4 text-center text-sm text-muted-foreground">ยังไม่มีคลาสวิชาเดียวกันในสาขานี้ — สร้างคลาสใหม่ที่หน้า คลาส แล้วกลับมาย้าย</p>}
+      {options.map((k) => {
+        const check = canMoveToClass(from, k, studentId, now, L.student(studentId)?.grade)
+        const cap = classCapacity(k)
+        return (
+          <button key={k.id} type="button" disabled={!check.ok} onClick={() => onChange(k.id)} title={check.ok ? undefined : check.error}
+            className={cn("flex w-full items-center gap-3 rounded-2xl p-3 text-left transition", value === k.id ? "bg-rose-100 ring-2 ring-primary dark:bg-rose-950" : "bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/40", !check.ok && "cursor-not-allowed opacity-50")}>
+            <span className={cn("grid size-5 shrink-0 place-items-center rounded-full border-2", value === k.id ? "border-primary" : "border-muted-foreground/50")}>{value === k.id && <span className="size-2.5 rounded-full bg-primary" />}</span>
+            <span className="min-w-0 flex-1">
+              <span className="block text-sm font-medium">{k.name}</span>
+              <span className="block text-xs text-muted-foreground">ทุก{TH_DAYS_FULL[k.weekday]} {k.start}–{endTime(k.start, k.minutes)} · {L.teacher(k.teacherId).label} · {k.studentIds.length}/{cap} คน{!check.ok ? ` · ${check.error}` : check.warnings?.length ? ` · ${check.warnings[0]}` : ""}</span>
+            </span>
+            {k.grades.slice(0, 2).map((g) => <span key={g} className={cn("rounded-full px-2 py-0.5 text-xs font-medium", gradeTone(g))}>{g}</span>)}
+          </button>
+        )
+      })}
+      {picked && (
+        <p className="rounded-2xl bg-sky-50 p-3 text-sm text-sky-900 dark:bg-sky-950/40 dark:text-sky-100">
+          มีผลตั้งแต่ <b>{fmtDate(from.date, { weekday: true })}</b> — ออกจากคาบที่ยังไม่เริ่มของคลาสเดิม แล้วเข้าทุกคาบของ <b>{picked.name}</b>
+          {entitlementTo ? <> · แพ็กเกจจบ <b>{fmtDate(entitlementTo, { year: true })}</b> เหมือนเดิม — คลาสใหม่มี <b>{ahead(picked.id)} คาบ</b> ก่อนวันจบ</> : null}
+          <span className="mt-1 block text-xs opacity-80">บันทึกลง Log ทุกครั้ง: ใครย้าย · เมื่อไร · จากไหน ไปไหน</span>
+        </p>
+      )}
+    </div>
   )
 }
 

@@ -6,7 +6,7 @@
 import { create } from "zustand"
 import { createJSONStorage, persist } from "zustand/middleware"
 import { buildSeed, uid, type DB } from "@/data/seed"
-import { addDays, at, fmtDate, fmtMoney, nextWeekday, toDateStr, toMinutes, weekdayOf } from "@/domain/dates"
+import { addDays, at, fmtDate, TH_DAYS_FULL, fmtMoney, nextWeekday, toDateStr, toMinutes, weekdayOf } from "@/domain/dates"
 import * as Att from "@/domain/rules/attendance"
 import * as Bill from "@/domain/rules/billing"
 import * as Refund from "@/domain/rules/refunds"
@@ -164,6 +164,8 @@ type Store = DB & UIState & {
   removeStudentFromSession: (sessionId: ID, studentId: ID) => Result
   /** Re-schedule inside the same week (owner 2026-09-29) — Admin decides after talking to the parent */
   rescheduleStudent: (fromSessionId: ID, studentId: ID, toSessionId: ID) => Result
+  /** owner 2026-10-14: ย้ายวันถาวร — from this session on, the student is in another class of the same subject */
+  moveStudentToClass: (fromSessionId: ID, studentId: ID, toClassId: ID) => Result<{ added: number; removed: number }>
   undoReschedule: (fromSessionId: ID, studentId: ID) => Result
 
   saveSummary: (sessionId: ID, studentId: ID, text: string, submit: boolean, lesson?: SummaryLesson) => Result
@@ -1508,11 +1510,12 @@ export const useStore = create<Store>()(
 
       rescheduleStudent: (fromSessionId, studentId, toSessionId) => {
         const s = get()
-        const perm = requirePerm(s.me(), "session.manage")
+        const perm = requirePerm(s.me(), "student.move")
         if (!perm.ok) return perm
         const from = s.sessions.find((x) => x.id === fromSessionId)
         const to = s.sessions.find((x) => x.id === toSessionId)
         if (!from || !to) return fail("ไม่พบคาบเรียน")
+        if (!can(s.me(), "session.manage") && !Sch.teachersOf(from).includes(s.userId)) return fail("ครูย้ายได้เฉพาะนักเรียนในคาบที่ตัวเองสอน")
         const klass = s.classes.find((k) => k.id === to.classId)
         const r = Sch.canRescheduleStudent(from, to, studentId, s.now(), klass ? Sch.CAPACITY[klass.type] : Sch.CAPACITY.group)
         if (!r.ok) return r
@@ -1524,13 +1527,13 @@ export const useStore = create<Store>()(
             : x,
           ),
         })
-        log("class", [studentId], "ย้ายคาบ (Re-schedule)", `${from.subject} ${fmtDate(from.date, { weekday: true })} ${from.start} → ${fmtDate(to.date, { weekday: true })} ${to.start}${klass ? ` · ${klass.name}` : ""}`)
+        log("class", [studentId], Sch.MOVE_ONCE_ACTION, `${from.subject} ${fmtDate(from.date, { weekday: true })} ${from.start} → ${fmtDate(to.date, { weekday: true })} ${to.start}${klass ? ` · ${klass.name}` : ""}`)
         return OK
       },
 
       undoReschedule: (fromSessionId, studentId) => {
         const s = get()
-        const perm = requirePerm(s.me(), "session.manage")
+        const perm = requirePerm(s.me(), "student.move")
         if (!perm.ok) return perm
         const from = s.sessions.find((x) => x.id === fromSessionId)
         const move = from?.rescheduledOut?.find((m) => m.studentId === studentId)
@@ -1545,8 +1548,36 @@ export const useStore = create<Store>()(
             : x,
           ),
         })
-        log("class", [studentId], "ยกเลิกการย้ายคาบ", `กลับมาเรียน ${fmtDate(from.date, { weekday: true })} ${from.start}`)
+        log("class", [studentId], Sch.MOVE_UNDO_ACTION, `กลับมาเรียน ${fmtDate(from.date, { weekday: true })} ${from.start}`)
         return OK
+      },
+
+      moveStudentToClass: (fromSessionId, studentId, toClassId) => {
+        const s = get()
+        const perm = requirePerm(s.me(), "student.move")
+        if (!perm.ok) return perm
+        const from = s.sessions.find((x) => x.id === fromSessionId)
+        const to = s.classes.find((k) => k.id === toClassId)
+        if (!from || !to) return fail("ไม่พบคาบหรือคลาส")
+        if (!can(s.me(), "session.manage") && !Sch.teachersOf(from).includes(s.userId)) return fail("ครูย้ายได้เฉพาะนักเรียนในคาบที่ตัวเองสอน")
+        const r = Sch.canMoveToClass(from, to, studentId, s.now(), s.students.find((x) => x.id === studentId)?.grade)
+        if (!r.ok) return r
+        const oldClass = s.classes.find((k) => k.id === from.classId)!
+        const now = s.now()
+        const marked = (sid: ID) => s.attendance.some((a) => a.sessionId === sid && a.studentId === studentId)
+        // from this session on: out of the old class's sessions (not checked in yet), into the new class's upcoming ones
+        const leaving = s.sessions.filter((x) => x.classId === oldClass.id && x.date >= from.date && x.studentIds.includes(studentId) && Sch.sessionState(x, now) === "upcoming" && !marked(x.id))
+        const joining = s.sessions.filter((x) => x.classId === to.id && x.date >= from.date && !x.cancelled && !x.studentIds.includes(studentId) && Sch.sessionState(x, now) === "upcoming")
+        const leaveIds = new Set(leaving.map((x) => x.id)), joinIds = new Set(joining.map((x) => x.id))
+        set({
+          classes: s.classes.map((k) => (k.id === oldClass.id ? { ...k, studentIds: k.studentIds.filter((y) => y !== studentId) } : k.id === to.id ? { ...k, studentIds: [...k.studentIds, studentId] } : k)),
+          sessions: s.sessions.map((x) => (leaveIds.has(x.id) ? { ...x, studentIds: x.studentIds.filter((y) => y !== studentId) } : joinIds.has(x.id) ? { ...x, studentIds: [...x.studentIds, studentId] } : x)),
+          // the running package now pays for the new class too — its end date stays (owner 2026-10-14: no extension)
+          entitlements: s.entitlements.map((e) => (e.studentId === studentId && e.to >= from.date && e.classIds.includes(oldClass.id) && !e.classIds.includes(to.id) ? { ...e, classIds: [...e.classIds, to.id] } : e)),
+        })
+        const when = (k: typeof to) => `ทุก${TH_DAYS_FULL[k.weekday]} ${k.start}`
+        log("class", [studentId], Sch.MOVE_CLASS_ACTION, `${oldClass.name} (${when(oldClass)}) → ${to.name} (${when(to)}) · มีผลตั้งแต่ ${fmtDate(from.date, { weekday: true, year: true })} · ออก ${leaving.length} คาบ · เข้า ${joining.length} คาบ`)
+        return { ok: true, value: { added: joining.length, removed: leaving.length }, warnings: r.warnings }
       },
 
       removeStudentFromClass: (classId, studentId) => {
