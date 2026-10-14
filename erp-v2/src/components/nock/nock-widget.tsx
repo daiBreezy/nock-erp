@@ -9,7 +9,6 @@ import { ArrowRightIcon, LibraryBigIcon, Loader2Icon, ArrowUpIcon, CheckIcon, Co
 import { AiAvatar } from "@/components/ui/ai-avatar"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Button } from "@/components/ui/button"
-import { fmtDateTime } from "@/domain/dates"
 import * as Nock from "@/domain/rules/nock"
 import type { DevTicketKind, NockQuestion, Result } from "@/domain/types"
 import { DEV_KIND_LABEL } from "@/domain/rules/dev-tickets"
@@ -74,11 +73,9 @@ function NockPanel({ onClose }: { onClose: () => void }) {
   const all = useStore((s) => s.nockQuestions)
   const log = useStore((s) => s.logNockQuestion)
   const rate = useStore((s) => s.rateNockAnswer)
-  const toTeam = useStore((s) => s.sendNockToTeam)
   const pathname = usePathname()
   // owner 2026-10-13: the asker says which part of the system the question is about (one or more) — not taken from the page
   const [locs, setLocs] = useState<string[]>([])
-  const [needLoc, setNeedLoc] = useState(false)
   // owner 2026-10-13: "ส่งถึง Dev" — a bug / help / suggestion / question straight to the developers
   const [view, setView] = useState<"chat" | "dev">("chat")
   const [text, setText] = useState("")
@@ -96,8 +93,6 @@ function NockPanel({ onClose }: { onClose: () => void }) {
   async function ask(raw: string, locations = locs) {
     const question = raw.trim()
     if (!question || pending) return
-    if (!locations.length) { setNeedLoc(true); return }
-    setNeedLoc(false)
     setText("")
     setPending({ question })
     const local = Nock.localAnswer(question, all, me.roles, locations)
@@ -151,7 +146,7 @@ function NockPanel({ onClose }: { onClose: () => void }) {
           </div>
         ) : (
           <>
-            {mine.map((q) => <Exchange key={q.id} q={q} onRate={(h) => report(rate(q.id, h), h ? "ขอบคุณครับ" : "ส่งให้ทีมช่วยตอบแล้ว")} onTeam={() => report(toTeam(q.id), "ส่งให้ทีมแล้ว — คำตอบจะกลับมาที่นี่")} onLink={onClose} />)}
+            {mine.map((q) => <Exchange key={q.id} q={q} onRate={(h) => quiet(rate(q.id, h))} onLink={onClose} />)}
             {pending && <><Bubble from="me">{pending.question}</Bubble><Bubble from="nock"><span className="inline-flex items-center gap-1.5 text-muted-foreground"><Loader2Icon className="size-3.5 animate-spin" /> กำลังคิด…</span></Bubble></>}
           </>
         )}
@@ -159,17 +154,16 @@ function NockPanel({ onClose }: { onClose: () => void }) {
       </div>
 
       <form className="shrink-0 px-3 pb-3" onSubmit={(e) => { e.preventDefault(); ask(text) }}>
-        <div className={cn("rounded-3xl bg-muted/60 px-1.5 pt-1.5 pb-1.5 focus-within:bg-muted focus-within:ring-2 focus-within:ring-ring/20", needLoc && "ring-2 ring-amber-400")}>
+        <div className={cn("rounded-3xl bg-muted/60 px-1.5 pt-1.5 pb-1.5 focus-within:bg-muted focus-within:ring-2 focus-within:ring-ring/20")}>
           <textarea value={text} onChange={(e) => setText(e.target.value)} rows={1} placeholder="ถาม Nock…" aria-label="คำถามถึง Nock"
             onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) { e.preventDefault(); ask(text) } }}
             className="block max-h-28 min-h-8 w-full resize-none bg-transparent px-2.5 py-1.5 text-sm outline-none placeholder:text-muted-foreground" />
           <div className="flex items-center gap-1">
-            <LocationPicker value={locs} onChange={(v) => { setLocs(v); if (v.length) setNeedLoc(false) }} />
+            <LocationPicker value={locs} onChange={setLocs} />
             <Button type="submit" size="icon-sm" className="ml-auto rounded-full" disabled={!text.trim() || !!pending} aria-label="ส่ง"><ArrowUpIcon /></Button>
           </div>
         </div>
-        {needLoc && <p className="pt-1.5 text-center text-[11px] text-amber-700">เลือก Part ของระบบที่เกี่ยวข้องก่อน (ปุ่มหมุดด้านล่าง)</p>}
-        {mine.length > 0 && <p className="pt-1.5 text-center text-[10px] text-muted-foreground"><span className="inline-flex items-center gap-1">Nock อาจตอบผิดได้ · กด <ThumbsDownIcon className="size-3 text-red-600" /> เพื่อส่งให้ทีมช่วยตอบ</span></p>}
+        {mine.length > 0 && <p className="pt-1.5 text-center text-[10px] text-muted-foreground"><span className="inline-flex items-center gap-1">Nock อาจตอบผิดได้ · กด <ThumbsDownIcon className="size-3 text-red-600" /> ถ้าไม่ตรง แล้วเลือกให้ผู้รู้ช่วยตอบได้</span></p>}
       </form>
       </>}
     </div>
@@ -213,7 +207,7 @@ function DevTicketForm({ onDone, onLink }: { onDone: () => void; onLink: () => v
       </div>
       <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="หัวเรื่องสั้นๆ" className="h-9 w-full rounded-2xl bg-muted/60 px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring/20" />
       <textarea value={detail} onChange={(e) => setDetail(e.target.value)} rows={5} placeholder={kind === "bug" ? "ทำอะไรอยู่ แล้วเกิดอะไรขึ้น (ควรเป็นอย่างไร)" : kind === "idea" ? "อยากให้ระบบมีอะไร ช่วยงานแบบไหน" : "เล่ารายละเอียด"} className="w-full resize-none rounded-2xl bg-muted/60 px-3 py-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring/20" />
-      <LocationPicker value={locs} onChange={setLocs} />
+      <LocationPicker value={locs} onChange={setLocs} placeholder="เลือก Part ของระบบ (จำเป็น)" />
       <p className="text-[11px] text-muted-foreground">แนบให้อัตโนมัติ: หน้า {pageUrl} · สาขา{branch?.name} · {me.roles.map((r) => ROLE_LABEL[r]).join(", ")}</p>
       <div className="flex justify-end gap-2">
         <Button size="sm" variant="ghost" onClick={onDone}>ยกเลิก</Button>
@@ -224,8 +218,8 @@ function DevTicketForm({ onDone, onLink }: { onDone: () => void; onLink: () => v
 }
 
 /** 📍 which part(s) of the system the question is about */
-function LocationPicker({ value, onChange }: { value: string[]; onChange: (v: string[]) => void }) {
-  const label = value.length ? value.map(Nock.locationLabel).join(", ") : "เลือก Part ของระบบ"
+function LocationPicker({ value, onChange, placeholder = "Part (ไม่บังคับ)" }: { value: string[]; onChange: (v: string[]) => void; placeholder?: string }) {
+  const label = value.length ? value.map(Nock.locationLabel).join(", ") : placeholder
   return (
     <Popover>
       <PopoverTrigger render={<button type="button" className={cn("flex max-w-[230px] items-center gap-1 rounded-full px-2.5 py-1 text-xs", value.length ? "bg-background font-medium ring-1 ring-foreground/10" : "text-muted-foreground hover:bg-background")} />}>
@@ -255,10 +249,14 @@ function Bubble({ from, children }: { from: "me" | "nock" | "team"; children: Re
   )
 }
 
-function Exchange({ q, onRate, onTeam, onLink }: { q: NockQuestion; onRate: (helpful: boolean) => void; onTeam: () => void; onLink: () => void }) {
+function Exchange({ q, onRate, onLink }: { q: NockQuestion; onRate: (helpful: boolean) => void; onLink: () => void }) {
   const staff = useStore((s) => s.staff)
   const me = useStore((s) => s.me())
+  const [offer, setOffer] = useState(false)
   const best = Nock.bestAnswer(q, me.roles)
+  const inBank = q.inBank !== false
+  // owner 2026-10-14: offer the bank only when Nock had no answer, or the asker said it missed — and they choose
+  const ask = !inBank && !q.bankDeclined && (!q.aiAnswer || q.helpful === false || offer)
   return (
     <div className="space-y-3">
       <div>
@@ -275,25 +273,43 @@ function Exchange({ q, onRate, onTeam, onLink }: { q: NockQuestion; onRate: (hel
           )}
         </Bubble>
       ) : (
-        <Bubble from="nock">Nock ยังไม่รู้คำตอบเรื่องนี้ — ส่งคำถามให้ทีมแล้ว คำตอบจะกลับมาที่นี่ และ Nock จะจำไว้ตอบคนต่อไป</Bubble>
+        <Bubble from="nock">Nock ยังไม่รู้คำตอบเรื่องนี้</Bubble>
       )}
-      {q.status === "ai" && (
+      {q.aiAnswer && !inBank && (
         <div className="flex items-center gap-1 pl-8 text-xs text-muted-foreground">
           {q.helpful === undefined ? <>
             <span>ตอบตรงไหม?</span>
             <button type="button" aria-label="ตอบตรง" onClick={() => onRate(true)} className="grid size-6 place-items-center rounded-full hover:bg-muted"><ThumbsUpIcon className="size-3.5 text-emerald-600" /></button>
-            <button type="button" aria-label="ไม่ตรง ส่งให้ทีม" onClick={() => onRate(false)} className="grid size-6 place-items-center rounded-full hover:bg-muted"><ThumbsDownIcon className="size-3.5 text-red-600" /></button>
+            <button type="button" aria-label="ไม่ตรง" onClick={() => onRate(false)} className="grid size-6 place-items-center rounded-full hover:bg-muted"><ThumbsDownIcon className="size-3.5 text-red-600" /></button>
           </> : <span>ขอบคุณที่บอก</span>}
-          <button type="button" onClick={onTeam} className="ml-auto inline-flex items-center gap-1 rounded-full px-2 py-0.5 hover:bg-muted"><SendIcon className="size-3" /> ส่งให้ทีม</button>
+          {!ask && !q.bankDeclined && <button type="button" onClick={() => setOffer(true)} className="ml-auto inline-flex items-center gap-1 rounded-full px-2 py-0.5 hover:bg-muted"><SendIcon className="size-3" /> ให้ผู้รู้ช่วยตอบ</button>}
         </div>
       )}
-      {q.status === "unanswered" && <p className="pl-8 text-xs text-amber-700">รอทีมตอบ · {fmtDateTime(q.at)}</p>}
+      {ask && <BankOffer q={q} />}
+      {inBank && q.status === "unanswered" && <p className="pl-8 text-xs text-amber-700">อยู่ในคลังคำถามแล้ว · รอผู้รู้ตอบ — คำตอบจะกลับมาที่นี่</p>}
       {q.status === "answered" && best && (
         <Bubble from="team">
           <span className="mb-0.5 block text-xs font-medium text-emerald-700 dark:text-emerald-300">ตอบโดย {staff.find((s) => s.id === best.by)?.nickname ?? "ทีม"}{(q.answers?.length ?? 0) > 1 && ` · คำตอบที่โหวตดีที่สุดจาก ${q.answers!.length} คำตอบ`}</span>
           {best.text}
         </Bubble>
       )}
+    </div>
+  )
+}
+
+/** "สร้างเป็นคำถามในคลังความรู้ ให้ผู้รู้ช่วยตอบไหม?" — the asker picks the Part and chooses สร้าง / ไม่สร้าง */
+function BankOffer({ q }: { q: NockQuestion }) {
+  const promote = useStore((s) => s.promoteNockQuestion)
+  const decline = useStore((s) => s.declineNockPromote)
+  const [locs, setLocs] = useState<string[]>(q.locations ?? [])
+  return (
+    <div className="ml-8 space-y-2 rounded-2xl bg-sky-50 p-3 text-sm ring-1 ring-sky-200 dark:bg-sky-950/40 dark:ring-sky-900">
+      <p>{q.aiAnswer ? "คำตอบไม่ตรงใช่ไหม —" : "Nock ยังตอบไม่ได้ —"} สร้างเป็นคำถามในคลังความรู้ ให้ผู้รู้ช่วยตอบไหม? <span className="text-xs text-muted-foreground">(คำตอบจะกลับมาที่นี่ และ Nock จะจำไว้ตอบคนต่อไป)</span></p>
+      <LocationPicker value={locs} onChange={setLocs} placeholder="เลือก Part ของระบบ (จำเป็น)" />
+      <div className="flex justify-end gap-1.5">
+        <Button size="xs" variant="ghost" onClick={() => quiet(decline(q.id))}>ไม่สร้าง</Button>
+        <Button size="xs" disabled={!locs.length} title={locs.length ? undefined : "เลือก Part ของระบบก่อน"} onClick={() => report(promote(q.id, locs), "สร้างในคลังความรู้แล้ว — ผู้รู้จะช่วยตอบ")}>สร้าง</Button>
+      </div>
     </div>
   )
 }

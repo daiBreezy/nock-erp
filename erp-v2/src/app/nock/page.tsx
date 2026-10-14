@@ -64,7 +64,8 @@ export default function NockPage() {
 
   const who = (id?: ID) => staff.find((s) => s.id === id)
   // answerers see the whole bank; everyone else sees their own questions + the knowledge they may be told
-  const visible = all.filter((x) => answerer || x.askedBy === me.id || !!bestAnswer(x, me.roles))
+  // owner 2026-10-14: only questions someone chose to put in the bank — private chats with Nock stay out
+  const visible = all.filter((x) => x.inBank !== false && (answerer || x.askedBy === me.id || !!bestAnswer(x, me.roles)))
   const inScope = visible.filter((x) => scope.ids.includes(x.branchId) || x.manual)
   const filtered = inScope
     .filter((x) => !role || x.roles.includes(role))

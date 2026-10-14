@@ -1343,6 +1343,11 @@ export interface NockQuestion {
   answers?: NockAnswer[]
   /** written straight into the bank (not asked through Nock) */
   manual?: boolean
+  /** owner 2026-10-14: chatting with Nock stays private; a question joins the bank only when the asker chooses
+   *  (Nock couldn't answer / the answer missed). false = chat only · unset = in the bank (older records) */
+  inBank?: boolean
+  /** the asker said "ไม่สร้าง" when offered */
+  bankDeclined?: boolean
   /** pictures with the question (owner 2026-10-13) — small JPEG data URLs in the prototype, files in the real system */
   images?: string[]
 }

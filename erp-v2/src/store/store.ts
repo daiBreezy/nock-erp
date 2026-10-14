@@ -97,7 +97,12 @@ type Store = DB & UIState & {
   markNotificationsRead: (ids?: ID[]) => void
   sendTeamMessage: (target: Notif.MessageTarget, title: string, body: string) => Result
   // ---- Nock (owner 2026-10-13): every question is kept; the team answers what Nock couldn't; an answered question IS knowledge
+  /** a chat turn with Nock — private (not in the bank) */
   logNockQuestion: (q: Pick<NockQuestion, "locations" | "question" | "aiAnswer" | "aiSource" | "links" | "status" | "fromKnowledgeId" | "fromAnswerId">) => Result<NockQuestion>
+  /** the asker chose "สร้าง": the question joins the bank (Part required) and the people who answer are told */
+  promoteNockQuestion: (id: ID, locations: string[]) => Result
+  /** the asker chose "ไม่สร้าง" */
+  declineNockPromote: (id: ID) => Result
   /** the asker's 👍 / 👎 on Nock's reply — counts for the knowledge it used; 👎 sends the question to the team */
   rateNockAnswer: (id: ID, helpful: boolean) => Result
   sendNockToTeam: (id: ID) => Result
@@ -908,24 +913,38 @@ export const useStore = create<Store>()(
       logNockQuestion: (input) => {
         const s = get()
         const me = s.me()
-        const q: NockQuestion = { id: uid("nq"), at: s.now().toISOString(), askedBy: me.id, roles: me.roles, branchId: s.branchId, ...input, question: input.question.trim() }
+        // owner 2026-10-14: a chat turn is private — no Part needed, nothing goes to the bank or the team yet
+        const q: NockQuestion = { id: uid("nq"), at: s.now().toISOString(), askedBy: me.id, roles: me.roles, branchId: s.branchId, ...input, question: input.question.trim(), inBank: false }
         if (!q.question) return fail("พิมพ์คำถามก่อน")
-        if (!q.locations.length) return fail("เลือกว่าคำถามเกี่ยวกับส่วนไหนของระบบ")
-        set({ nockQuestions: [q, ...s.nockQuestions], notifications: q.status === "unanswered" ? [nockNotice(s, q), ...s.notifications] : s.notifications })
+        set({ nockQuestions: [q, ...s.nockQuestions] })
         return { ok: true, value: q }
+      },
+      promoteNockQuestion: (id, locations) => {
+        const s = get()
+        const q = s.nockQuestions.find((x) => x.id === id)
+        if (!q) return fail("ไม่พบคำถาม")
+        if (q.askedBy !== s.me().id) return fail("สร้างได้เฉพาะคำถามของคุณเอง")
+        if (!locations.length) return fail("เลือก Part ของระบบที่เกี่ยวข้องอย่างน้อย 1")
+        const next: NockQuestion = { ...q, inBank: true, bankDeclined: false, locations, status: q.answers?.length ? "answered" : "unanswered" }
+        set({ nockQuestions: s.nockQuestions.map((x) => (x.id === id ? next : x)), notifications: [nockNotice(s, next), ...s.notifications] })
+        return { ok: true, value: undefined }
+      },
+      declineNockPromote: (id) => {
+        const s = get()
+        set({ nockQuestions: s.nockQuestions.map((x) => (x.id === id ? { ...x, bankDeclined: true } : x)) })
+        return { ok: true, value: undefined }
       },
       rateNockAnswer: (id, helpful) => {
         const s = get()
         const me = s.me()
         const q = s.nockQuestions.find((x) => x.id === id)
         if (!q) return fail("ไม่พบคำถาม")
-        const toTeam = !helpful && q.status === "ai"
+        // owner 2026-10-14: a thumbs down no longer sends it anywhere — Nock asks whether to put it in the bank
         set({
           nockQuestions: s.nockQuestions.map((x) =>
-            x.id === id ? (() => { const v = Nock.applyVote({ votesUp: x.aiVotesUp ?? [], votesDown: x.aiVotesDown ?? [] }, me.id, helpful); return { ...x, helpful, status: toTeam ? "unanswered" : x.status, aiVotesUp: v.votesUp, aiVotesDown: v.votesDown } })()
+            x.id === id ? (() => { const v = Nock.applyVote({ votesUp: x.aiVotesUp ?? [], votesDown: x.aiVotesDown ?? [] }, me.id, helpful); return { ...x, helpful, aiVotesUp: v.votesUp, aiVotesDown: v.votesDown } })()
               // the asker's verdict on a reply built from knowledge is a vote for the answer it used
               : x.id === q.fromKnowledgeId ? { ...x, answers: (x.answers ?? []).map((a) => (a.id === q.fromAnswerId ? Nock.applyVote(a, me.id, helpful) : a)) } : x),
-          notifications: toTeam ? [nockNotice(s, q), ...s.notifications] : s.notifications,
         })
         return { ok: true, value: undefined }
       },
