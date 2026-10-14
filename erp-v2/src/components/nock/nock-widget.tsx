@@ -46,21 +46,64 @@ function suggestionsFor(path: string): { text: string; locations: string[] }[] {
   return ids.map((id) => Nock.NOCK_GUIDE.find((g) => g.id === id)!).filter(Boolean).map((g) => ({ text: `${g.title} ทำยังไง?`, locations: g.locations }))
 }
 
+type Corner = "br" | "bl" | "tr" | "tl"
+const CORNER_KEY = "nockerp-nock-corner"
+const readCorner = (): Corner => { try { const v = localStorage.getItem(CORNER_KEY); return v === "bl" || v === "tr" || v === "tl" ? v : "br" } catch { return "br" } }
+
 export function NockWidget() {
   const [open, setOpen] = useState(false)
+  // owner 2026-10-14: drag Nock to any corner — left or right, top or bottom; it snaps there and stays (this browser)
+  // the shell renders only after mount, so the saved corner can be read right away
+  const [corner, setCorner] = useState<Corner>(readCorner)
+  const [drag, setDrag] = useState<{ x: number; y: number } | null>(null)
+  const start = useRef<{ x: number; y: number; moved: boolean } | null>(null)
+  // a drag ends with a click event — that one must not open the chat
+  const dragged = useRef(false)
+  const left = corner[1] === "l", top = corner[0] === "t"
+
+  const onPointerDown = (e: React.PointerEvent<HTMLButtonElement>) => {
+    start.current = { x: e.clientX, y: e.clientY, moved: false }
+    dragged.current = false
+    e.currentTarget.setPointerCapture(e.pointerId)
+  }
+  const onPointerMove = (e: React.PointerEvent) => {
+    const st = start.current
+    if (!st) return
+    if (!st.moved && Math.hypot(e.clientX - st.x, e.clientY - st.y) < 6) return
+    st.moved = true
+    setDrag({ x: e.clientX, y: e.clientY })
+  }
+  const onPointerUp = (e: React.PointerEvent) => {
+    const st = start.current
+    start.current = null
+    if (!st?.moved) return
+    dragged.current = true
+    const next: Corner = `${e.clientY < window.innerHeight / 2 ? "t" : "b"}${e.clientX < window.innerWidth / 2 ? "l" : "r"}`
+    setCorner(next)
+    setDrag(null)
+    try { localStorage.setItem(CORNER_KEY, next) } catch { /* private mode — just this visit */ }
+  }
+
   return (
     <>
       {/* owner 2026-10-13: click anywhere outside the panel to close it */}
       {open && <div aria-hidden className="fixed inset-0 z-30" onClick={() => setOpen(false)} />}
-      {open && <NockPanel onClose={() => setOpen(false)} />}
+      {open && <NockPanel corner={corner} onClose={() => setOpen(false)} />}
       {/* owner 2026-10-13: Nock's face — the blinking orb */}
       {/* owner 2026-10-13: Nock hides at the screen edge, tilted 45° and peeking with its eyes — hover (or keyboard focus)
           and it springs out; mouse leaves and it springs back. Stays out while the chat is open. */}
-      <button type="button" onClick={() => setOpen((o) => !o)} aria-label={open ? "ปิด Nock" : "ถาม Nock"} title="ถาม Nock — ผู้ช่วยของ NockERP"
-        className={cn("fixed right-0 bottom-6 z-40 rounded-full transition-transform duration-500 ease-[cubic-bezier(0.34,1.56,0.64,1)] focus-visible:outline-none print:hidden",
-          open ? "-translate-x-5" : "translate-x-[38%] -rotate-45 hover:-translate-x-5 hover:rotate-0 focus-visible:-translate-x-5 focus-visible:rotate-0")}>
+      <button type="button" aria-label={open ? "ปิด Nock" : "ถาม Nock"} title="ถาม Nock — ผู้ช่วยของ NockERP · ลากไปวางมุมไหนของจอก็ได้"
+        onPointerDown={onPointerDown} onPointerMove={onPointerMove} onPointerUp={onPointerUp}
+        onClick={() => { if (dragged.current) { dragged.current = false; return } setOpen((o) => !o) }}
+        style={drag ? { left: drag.x - 32, top: drag.y - 32, right: "auto", bottom: "auto" } : undefined}
+        className={cn("fixed z-40 touch-none rounded-full focus-visible:outline-none print:hidden",
+          drag ? "cursor-grabbing transition-none" : "cursor-grab transition-transform duration-500 ease-[cubic-bezier(0.34,1.56,0.64,1)]",
+          !drag && (left ? "left-0" : "right-0"), !drag && (top ? "top-20" : "bottom-6"),
+          drag ? "scale-110" : open ? (left ? "translate-x-5" : "-translate-x-5")
+            : left ? "-translate-x-[38%] rotate-45 hover:translate-x-5 hover:rotate-0 focus-visible:translate-x-5 focus-visible:rotate-0"
+            : "translate-x-[38%] -rotate-45 hover:-translate-x-5 hover:rotate-0 focus-visible:-translate-x-5 focus-visible:rotate-0")}>
         <AiAvatar size="lg" followMouse />
-        {open && <span className="absolute -top-1 -right-1 grid size-5 place-items-center rounded-full bg-background text-foreground shadow ring-1 ring-foreground/10"><XIcon className="size-3" /></span>}
+        {open && <span className={cn("absolute -top-1 grid size-5 place-items-center rounded-full bg-background text-foreground shadow ring-1 ring-foreground/10", left ? "-left-1" : "-right-1")}><XIcon className="size-3" /></span>}
       </button>
     </>
   )
@@ -68,7 +111,7 @@ export function NockWidget() {
 
 type Pending = { question: string } | null
 
-function NockPanel({ onClose }: { onClose: () => void }) {
+function NockPanel({ onClose, corner }: { onClose: () => void; corner: Corner }) {
   const me = useStore((s) => s.me())
   const branch = useStore((s) => s.branches.find((b) => b.id === s.branchId))
   const all = useStore((s) => s.nockQuestions)
@@ -120,7 +163,7 @@ function NockPanel({ onClose }: { onClose: () => void }) {
   // owner 2026-10-13: smaller, no divider lines, a calm chat like Claude / ChatGPT — Nock speaks as plain text next to its
   // face, your messages are soft grey bubbles, the composer is one rounded box with the send button inside
   return (
-    <div role="dialog" aria-label="Nock" className="fixed right-5 bottom-24 z-40 flex h-[min(520px,calc(100vh-8rem))] w-[min(360px,calc(100vw-2.5rem))] flex-col overflow-hidden rounded-[28px] bg-background shadow-2xl ring-1 ring-foreground/8 print:hidden">
+    <div role="dialog" aria-label="Nock" className={cn("fixed z-40 flex", corner[1] === "l" ? "left-5" : "right-5", corner[0] === "t" ? "top-40 h-[min(520px,calc(100vh-12rem))]" : "bottom-24 h-[min(520px,calc(100vh-8rem))]", "w-[min(360px,calc(100vw-2.5rem))] flex-col overflow-hidden rounded-[28px] bg-background shadow-2xl ring-1 ring-foreground/8 print:hidden")}>
       <div className="flex shrink-0 items-center gap-2.5 px-4 pt-3.5 pb-2">
         <AiAvatar size="xs" />
         {/* owner 2026-10-14: header kept quiet — no subtext; ส่งถึง Dev + คลังคำถาม live in the ⋯ next to close */}
