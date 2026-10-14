@@ -133,12 +133,29 @@ const IMPROVE_WORDS = ["ควร", "ต้องฝึก", "ยังไม่
  * invented), while Strengths / To Improve sort the same notes by a fixed keyword match (same "no numbers/text
  * invented" principle as domain/rules/insights.ts — a note that matches neither list just stays out of both).
  */
-export function draftCourseSummary(sessionTexts: Pick<LessonSummary, "text">[]): { overallProgress: string; toImprove: string; strengths: string } {
+export const COURSE_SUMMARY_FIELD_MAX = 250
+
+/** the most recent distinct notes that fit `max` characters joined with " · ", back in date order (owner 2026-10-14:
+ *  a long course gave 700 characters of the same note repeated — each field holds 250) */
+function fitNotes(notes: string[], max: number, prefix = ""): string {
+  const unique = [...new Set(notes)]
+  const picked: string[] = []
+  let len = prefix.length
+  for (let i = unique.length - 1; i >= 0; i--) {
+    const add = unique[i].length + (picked.length ? 3 : 0)
+    if (len + add > max) continue
+    picked.unshift(unique[i])
+    len += add
+  }
+  return picked.length ? prefix + picked.join(" · ") : ""
+}
+
+export function draftCourseSummary(sessionTexts: Pick<LessonSummary, "text">[], max = COURSE_SUMMARY_FIELD_MAX): { overallProgress: string; toImprove: string; strengths: string } {
   const notes = sessionTexts.map((x) => x.text.trim()).filter(Boolean)
-  const overallProgress = notes.length ? `สรุปจาก ${notes.length} คาบ: ${notes.join(" · ")}` : ""
+  const overallProgress = notes.length ? fitNotes(notes, max, `สรุปจาก ${notes.length} คาบ: `) : ""
   const strengths = notes.filter((n) => STRENGTH_WORDS.some((w) => n.includes(w)))
   const toImprove = notes.filter((n) => IMPROVE_WORDS.some((w) => n.includes(w)))
-  return { overallProgress, strengths: strengths.join(" · "), toImprove: toImprove.join(" · ") }
+  return { overallProgress, strengths: fitNotes(strengths, max), toImprove: fitNotes(toImprove, max) }
 }
 
 /** "คณิต: … · อังกฤษ: …" in one session note → the part for one subject (a whole note when it names no subject) */
@@ -156,8 +173,11 @@ export function noteForSubject(text: string, subject: string, subjects: string[]
 export function draftBundleCourseSummary(groups: { subject: string; texts: Pick<LessonSummary, "text">[] }[]): { overallProgress: string; toImprove: string; strengths: string } {
   const subjects = groups.map((g) => g.subject)
   const parts = groups.map((g) => ({ subject: g.subject, texts: g.texts.map((t) => ({ text: noteForSubject(t.text, g.subject, subjects) })).filter((t) => t.text.trim()) }))
-    .filter((g) => g.texts.length).map((g) => ({ subject: g.subject, d: draftCourseSummary(g.texts) }))
-  const join = (k: "overallProgress" | "toImprove" | "strengths") => parts.filter((p) => p.d[k]).map((p) => `${p.subject}: ${p.d[k]}`).join("\n")
+    .filter((g) => g.texts.length)
+  // each subject gets an equal share of the field, its "วิชา: " label and line break included
+  const share = (g: { subject: string }) => Math.floor(COURSE_SUMMARY_FIELD_MAX / Math.max(1, parts.length)) - g.subject.length - 3
+  const drafted = parts.map((g) => ({ subject: g.subject, d: draftCourseSummary(g.texts, share(g)) }))
+  const join = (k: "overallProgress" | "toImprove" | "strengths") => drafted.filter((p) => p.d[k]).map((p) => `${p.subject}: ${p.d[k]}`).join("\n")
   return { overallProgress: join("overallProgress"), toImprove: join("toImprove"), strengths: join("strengths") }
 }
 

@@ -1,13 +1,19 @@
 "use client"
 
+// Course Summary panel (owner 2026-10-14: "แสดงเป็น Side Panel … มี Info, Edit เหมือน Panel อื่นๆ"): one course round
+// per panel — Header (student · course · status) · Body (facts, the summary, progress charts, the session notes) ·
+// Bottom (แก้ไข / Approve / ส่งผู้ปกครอง; Recall + Force Approve in ⋯). แก้ไข swaps the same panel to the form.
 import Link from "next/link"
 import { useState } from "react"
-import { CheckIcon, ChevronDownIcon, LayersIcon, MapPinIcon, SendIcon, SparklesIcon, XIcon } from "lucide-react"
-import { ForceApprove } from "./force-approve"
+import { CheckIcon, LayersIcon, PencilIcon, SaveIcon, SendIcon, ShieldAlertIcon, SparklesIcon, Undo2Icon } from "lucide-react"
 import { Pill } from "./badges"
 import { avatarTone, gradeTone, initial, subjectColor } from "./subject-color"
+import { EntityPanel, PanelBody, PanelFooter, PanelMore } from "./form-shell"
+import { MetaGrid } from "./images"
+import { InfoTip } from "./info-tip"
+import { Field } from "./student-form"
 import { Button } from "@/components/ui/button"
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { SheetHeader, SheetTitle } from "@/components/ui/sheet"
 import { Textarea } from "@/components/ui/textarea"
 import { fmtDate, fmtDateTime, toDateStr } from "@/domain/dates"
 import * as Att from "@/domain/rules/attendance"
@@ -15,9 +21,8 @@ import { can } from "@/domain/rules/permissions"
 import * as Sum from "@/domain/rules/summaries"
 import { subjectsOf } from "@/domain/rules/scheduling"
 import { SUMMARY_STATUS_LABEL } from "@/domain/rules/summaries"
-import type { CourseSummary, ID, Staff } from "@/domain/types"
 import { report } from "@/lib/feedback"
-import { useNow } from "@/lib/hooks"
+import { useLookup, useNow } from "@/lib/hooks"
 import { AI_TONE } from "./ai"
 import { CourseProgress } from "./course-progress"
 import { cn } from "@/lib/utils"
@@ -26,164 +31,72 @@ import { toast } from "sonner"
 
 const FIELD_MAX = 250
 type Draft = { overallProgress: string; toImprove: string; strengths: string }
-const emptyDraft: Draft = { overallProgress: "", toImprove: "", strengths: "" }
+const FIELDS: { key: keyof Draft; label: string }[] = [
+  { key: "overallProgress", label: "Overall Progress" },
+  { key: "toImprove", label: "To Improve" },
+  { key: "strengths", label: "Strengths" },
+]
 
-/**
- * Every Course Summary a student has due, in one popup (owner 2026-10-06 — redesigned from the owner's
- * reference mocks). A teacher writes several at once and submits them together; an admin reviews the same
- * list and can approve (which sends right away) one at a time or all together.
- */
-export function CourseSummaryStudentSheet({ studentId, rounds, onClose }: { studentId: ID | null; rounds: Sum.EntitlementRound[]; onClose: () => void }) {
+export function CourseSummaryPanel({ round, onClose }: { round: Sum.EntitlementRound | null; onClose: () => void }) {
   return (
-    <Dialog open={!!studentId} onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="max-h-[88vh] overflow-y-auto sm:max-w-3xl">
-        {studentId && <Body studentId={studentId} rounds={rounds} onClose={onClose} />}
-      </DialogContent>
-    </Dialog>
+    <EntityPanel open={!!round} onClose={onClose} wide>
+      {round && <Body key={round.representativeId} round={round} />}
+    </EntityPanel>
   )
 }
 
-function Body({ studentId, rounds, onClose }: { studentId: ID; rounds: Sum.EntitlementRound[]; onClose: () => void }) {
-  const student = useStore((s) => s.students.find((x) => x.id === studentId))
-  const family = useStore((s) => s.families.find((f) => f.id === student?.familyId))
-  const courseSummaries = useStore((s) => s.courseSummaries)
-  const me = useStore((s) => s.me())
-  const canManage = can(me, "summary.approve")
-  const approve = useStore((s) => s.approveCourseSummary)
-  const send = useStore((s) => s.sendCourseSummary)
-  const save = useStore((s) => s.saveCourseSummary)
-  // starts fully collapsed, not the first card pre-opened — opening always goes through the same click (which
-  // is also what triggers the auto-gather-from-sessions fill below), so there's no "already open" card that skips it
-  const [open, setOpen] = useState<ID | null>(null)
-  const [drafts, setDrafts] = useState<Record<ID, Draft>>({})
-
-  if (!student) return null
-
-  const draftOf = (round: Sum.EntitlementRound): Draft => {
-    if (drafts[round.representativeId]) return drafts[round.representativeId]
-    const cs = courseSummaries.find((x) => x.entitlementId === round.representativeId)
-    return cs ? { overallProgress: cs.overallProgress, toImprove: cs.toImprove, strengths: cs.strengths } : emptyDraft
-  }
-  const patchDraft = (repId: ID, patch: Partial<Draft>) => setDrafts((d) => ({ ...d, [repId]: { ...draftOf(rounds.find((r) => r.representativeId === repId)!), ...patch } }))
-
-  const pendingToSubmit = rounds.filter((r) => {
-    const cs = courseSummaries.find((x) => x.entitlementId === r.representativeId)
-    return !cs || cs.status === "draft" || cs.status === "changes_requested"
-  })
-  const pendingToApprove = rounds
-    .map((r) => courseSummaries.find((x) => x.entitlementId === r.representativeId))
-    .filter((cs): cs is NonNullable<typeof cs> => !!cs && Sum.canApprove(cs, me).ok)
-
-  const submitAll = () => {
-    let n = 0
-    pendingToSubmit.forEach((r) => { const d = draftOf(r); if (d.overallProgress.trim() && save(r.representativeId, student.id, d, true).ok) n++ })
-    if (n) toast.success(`ส่งอนุมัติแล้ว ${n} คอร์ส`)
-  }
-  const approveAndSendAll = () => {
-    let n = 0
-    pendingToApprove.forEach((cs) => { if (approve(cs.id).ok) { send(cs.id); n++ } })
-    if (n) toast.success(`อนุมัติ + ส่งผู้ปกครองแล้ว ${n} คอร์ส`)
-  }
-
-  return (
-    <div className="space-y-3">
-      <DialogHeader className="flex-row items-center gap-3">
-        <span className={cn("grid size-11 shrink-0 place-items-center rounded-full text-sm font-semibold", avatarTone(student.id))}>{initial(student.nickname)}</span>
-        <div className="min-w-0 flex-1 text-left">
-          <DialogTitle className="text-base">{student.name} <span className="font-normal text-muted-foreground">({student.nickname})</span></DialogTitle>
-          <DialogDescription>
-            {family ? <Link href="/families" className="text-primary underline">{family.name}</Link> : "ยังไม่ผูกครอบครัว"}
-          </DialogDescription>
-        </div>
-        <span className={cn("rounded-full px-2.5 py-0.5 text-sm font-medium", gradeTone(student.grade))}>{student.grade}</span>
-      </DialogHeader>
-
-      <p className="text-sm font-semibold text-muted-foreground">Course Summary ({rounds.length})</p>
-
-      <div className="space-y-3">
-        {rounds.map((round) => (
-          <CourseCard key={round.representativeId} round={round} studentId={student.id} expanded={open === round.representativeId} onToggle={() => setOpen(open === round.representativeId ? null : round.representativeId)}
-            draft={draftOf(round)} setDraft={(patch) => patchDraft(round.representativeId, patch)} canManage={canManage} me={me}
-            onSaveDraft={() => report(save(round.representativeId, student.id, draftOf(round), false), "บันทึกร่างแล้ว")}
-            onApproveAndSend={(cs) => { if (report(approve(cs.id), "อนุมัติแล้ว")) report(send(cs.id), "ส่งผู้ปกครองทาง LINE แล้ว") }}
-            onSend={(cs) => report(send(cs.id), "ส่งผู้ปกครองทาง LINE แล้ว")} />
-        ))}
-      </div>
-
-      <div className="flex items-center justify-end gap-2 border-t pt-3">
-        <Button variant="ghost" onClick={onClose}>Close</Button>
-        {/* owner 2026-10-06: a Director/Admin can write AND approve — show whichever batch actions actually
-         *  apply, not one or the other, so writing your own draft never dead-ends with no submit button */}
-        {pendingToSubmit.length > 0 && (
-          <Button variant={canManage ? "outline" : "default"} disabled={!pendingToSubmit.some((e) => draftOf(e).overallProgress.trim())} onClick={submitAll}>
-            <CheckIcon /> Submit to Approve ({pendingToSubmit.length}) Pending
-          </Button>
-        )}
-        {canManage && pendingToApprove.length > 0 && (
-          <Button onClick={approveAndSendAll}>
-            <SendIcon /> Submit &amp; Send ({pendingToApprove.length}) Pending
-          </Button>
-        )}
-      </div>
-    </div>
-  )
-}
-
-function CourseCard({ round, studentId, expanded, onToggle, draft, setDraft, canManage, me, onSaveDraft, onApproveAndSend, onSend }: {
-  round: Sum.EntitlementRound; studentId: ID; expanded: boolean; onToggle: () => void; draft: Draft; setDraft: (p: Partial<Draft>) => void
-  canManage: boolean; me: Staff
-  onSaveDraft: () => void; onApproveAndSend: (cs: CourseSummary) => void; onSend: (cs: CourseSummary) => void
-}) {
+function Body({ round }: { round: Sum.EntitlementRound }) {
   const now = useNow(60_000)
+  const L = useLookup()
+  const me = useStore((s) => s.me())
+  const student = useStore((s) => s.students.find((x) => x.id === round.studentId))
+  const family = useStore((s) => s.families.find((f) => f.id === student?.familyId))
   const course = useStore((s) => s.courses.find((c) => c.id === round.courseId))
-  const branch = useStore((s) => s.branches.find((b) => b.id === s.students.find((x) => x.id === studentId)?.branchId))
-  const staff = useStore((s) => s.staff)
-  const roundEntitlements = useStore((s) => s.entitlements).filter((e) => round.entitlementIds.includes(e.id))
+  const branch = useStore((s) => s.branches.find((b) => b.id === student?.branchId))
+  const allEntitlements = useStore((s) => s.entitlements)
   const sessions = useStore((s) => s.sessions)
   const summaries = useStore((s) => s.summaries)
   const attendance = useStore((s) => s.attendance)
-  const cs = useCourseSummary(round.representativeId)
+  const cs = useStore((s) => s.courseSummaries.find((x) => x.entitlementId === round.representativeId))
+  const save = useStore((s) => s.saveCourseSummary)
   const approve = useStore((s) => s.approveCourseSummary)
+  const send = useStore((s) => s.sendCourseSummary)
   const requestChanges = useStore((s) => s.requestCourseSummaryChanges)
-  const [asking, setAsking] = useState(false)
+  const canManage = can(me, "summary.approve")
+
+  const status = cs?.status
+  const editable = !status || status === "draft" || status === "changes_requested"
+  const stored: Draft = cs ? { overallProgress: cs.overallProgress, toImprove: cs.toImprove, strengths: cs.strengths } : { overallProgress: "", toImprove: "", strengths: "" }
+  const [mode, setMode] = useState<"view" | "edit" | "recall" | "force">("view")
+  const [draft, setDraft] = useState<Draft>(stored)
   const [note, setNote] = useState("")
   const [thinking, setThinking] = useState(false)
   const [aiInsights, setAiInsights] = useState<Sum.Insight[] | null>(null)
 
-  // every session covered by ANY entitlement in this round's chain — a year of back-to-back monthly packages
-  // is one round, so its Session Summaries span the whole year, not just the latest billing cycle
-  const covered = sessions.filter((se) => roundEntitlements.some((e) => Att.packageCovers(e, se)))
+  // every session covered by ANY entitlement in the round — a year of back-to-back monthly packages is one round
+  const roundEntitlements = allEntitlements.filter((e) => round.entitlementIds.includes(e.id))
+  const covered = sessions.filter((se) => roundEntitlements.some((e) => Att.packageCovers(e, se))).sort((a, b) => a.date.localeCompare(b.date))
   const sessionSummaries = covered
-    .map((se) => ({ se, sm: summaries.find((x) => x.sessionId === se.id && x.studentId === studentId) }))
+    .map((se) => ({ se, sm: summaries.find((x) => x.sessionId === se.id && x.studentId === round.studentId) }))
     .filter((x): x is { se: typeof x.se; sm: NonNullable<typeof x.sm> } => !!x.sm && !!x.sm.text.trim())
-    .sort((a, b) => a.se.date.localeCompare(b.se.date))
-
-  // the chart data: every session of the round up to today — attendance + the teacher's 1–5 understanding + note
   const today = toDateStr(now)
-  const progressRows: Sum.ProgressRow[] = covered.filter((se) => se.date <= today && !se.cancelled).sort((a, b) => a.date.localeCompare(b.date)).map((se) => {
-    const sm = summaries.find((x) => x.sessionId === se.id && x.studentId === studentId)
-    return { date: se.date, attended: attendance.find((a) => a.sessionId === se.id && a.studentId === studentId)?.status ?? null, level: sm?.level, text: sm?.text }
+  const progressRows: Sum.ProgressRow[] = covered.filter((se) => se.date <= today && !se.cancelled).map((se) => {
+    const sm = summaries.find((x) => x.sessionId === se.id && x.studentId === round.studentId)
+    return { date: se.date, attended: attendance.find((a) => a.sessionId === se.id && a.studentId === round.studentId)?.status ?? null, level: sm?.level, text: sm?.text }
   })
 
-  const status = cs?.status
-  const editable = !status || status === "draft" || status === "changes_requested"
-  const due = Sum.courseSummaryDeadline(round, now)
-  const who = (id: ID) => staff.find((x) => x.id === id)?.nickname ?? "?"
-  const banner = status === "changes_requested"
-    ? { tone: "bg-amber-100 text-amber-900", label: `Recall by · ${who(cs!.lastEditorId)} · ${fmtDateTime(cs!.history.at(-1)!.at)}` }
-    : status === "approved" || status === "sent"
-      ? { tone: "bg-emerald-100 text-emerald-900", label: `Approve by · ${who(cs!.history.findLast((h) => h.action === "approve" || h.action === "force_approve")?.by ?? cs!.lastEditorId)} · ${fmtDateTime(cs!.history.at(-1)!.at)}` }
-      : null
+  if (!student) return null
   const bundle = course?.kind === "bundle"
-  const abbr = (course?.name ?? "??").replace(/[^A-Za-zก-๙]/g, "").slice(0, 2).toUpperCase() || "CS"
-
+  const due = Sum.courseSummaryDeadline(round, now)
   const approveCheck = cs && Sum.canApprove(cs, me)
-  const isBlank = !draft.overallProgress.trim() && !draft.toImprove.trim() && !draft.strengths.trim()
+  const lastBy = (actions: string[]) => cs?.history.findLast((h) => actions.includes(h.action))
+  const approved = lastBy(["approve", "force_approve"])
+  const recalled = status === "changes_requested" ? lastBy(["request_changes"]) : undefined
+
   const ruleDraft = () => setDraft(bundle
     ? Sum.draftBundleCourseSummary(course!.subjects.map((subject) => ({ subject, texts: sessionSummaries.filter((x) => subjectsOf(x.se).includes(subject)).map((x) => x.sm) })))
     : Sum.draftCourseSummary(sessionSummaries.map((x) => x.sm)))
-  // Generate: the AI set in Settings › ระบบ › AI writes the summary + the assessment; no AI set (or it fails) →
-  // the rules-based draft, so the button always does something
+  // Generate: the AI set in Settings › ระบบ › AI writes the summary + the assessment; not set (or it fails) → rules draft
   const generate = async () => {
     setThinking(true)
     try {
@@ -197,128 +110,145 @@ function CourseCard({ round, studentId, expanded, onToggle, draft, setDraft, can
         ruleDraft()
         toast(r.notConfigured ? "ยังไม่ได้ตั้งค่า AI — ใช้สรุปอัตโนมัติจากสรุปคาบแทน (ตั้งค่าได้ที่ Settings › ระบบ › AI)" : `AI ไม่ตอบ (${r.error}) — ใช้สรุปอัตโนมัติแทน`)
       }
-    } catch {
-      ruleDraft()
-    } finally { setThinking(false) }
+    } catch { ruleDraft() } finally { setThinking(false) }
   }
-  // a Course Summary IS its session summaries gathered together — open a blank, editable card with some
-  // already in hand and it fills itself in immediately, no separate click needed (owner 2026-10-06)
-  const expand = () => { if (!expanded && editable && isBlank && sessionSummaries.length) ruleDraft(); onToggle() }
+  // a Course Summary IS its session summaries gathered together — a blank one fills itself when you start writing
+  const startEdit = () => {
+    if (!stored.overallProgress.trim() && !stored.toImprove.trim() && !stored.strengths.trim() && sessionSummaries.length) ruleDraft()
+    else setDraft(stored)
+    setMode("edit")
+  }
+  const saveIt = (submit: boolean) => { if (report(save(round.representativeId, round.studentId, draft, submit), submit ? "ส่งอนุมัติแล้ว" : "บันทึกร่างแล้ว")) setMode("view") }
+  const closeNote = () => { setMode("view"); setNote("") }
 
   return (
-    <div className="overflow-hidden rounded-2xl border">
-      <div className="flex w-full items-center gap-3 p-3">
-        <button type="button" onClick={expand} className="flex min-w-0 flex-1 items-center gap-3 text-left">
-          <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-primary/10 text-sm font-semibold text-primary">{abbr}</span>
+    <>
+      <SheetHeader className="shrink-0 border-b pb-3">
+        <div className="flex items-center gap-3 pr-8">
+          <span className={cn("grid size-11 shrink-0 place-items-center rounded-full text-sm font-semibold", avatarTone(student.id))}>{initial(student.nickname)}</span>
           <div className="min-w-0 flex-1">
-            <p className="flex min-w-0 items-center gap-1.5 text-sm font-medium">
-              <span className="truncate">{course?.name ?? "คอร์ส"}</span>
-              {/* owner 2026-10-13: a Bundle is one summary covering each of its subjects */}
-              {bundle && <Pill tone="violet" className="shrink-0"><LayersIcon className="size-3" /> Bundle</Pill>}
-              {course?.subjects.map((x) => <span key={x} className={cn("shrink-0 rounded-full px-1.5 py-0.5 text-[11px] font-normal", subjectColor(x).chip)}>{x}</span>)}
-            </p>
-            <p className="flex items-center gap-1 truncate text-xs text-muted-foreground">
-              <MapPinIcon className="size-3" /> {branch?.name ?? "—"} · {fmtDate(round.from)} – {fmtDate(round.to, { year: true })}
-              {round.entitlementIds.length > 1 && ` (${round.entitlementIds.length} รอบต่อเนื่อง)`}
-            </p>
+            <SheetTitle className="flex items-center gap-1.5 text-lg">
+              <span className="truncate">{student.nickname}</span>
+              <span className={cn("shrink-0 rounded-full px-2 py-0.5 text-xs font-medium", gradeTone(student.grade))}>{student.grade}</span>
+            </SheetTitle>
+            <p className="truncate text-sm text-muted-foreground">{mode === "edit" ? "เขียน Course Summary · " : "Course Summary · "}{course?.name ?? "คอร์ส"}</p>
           </div>
-        </button>
-        {status === "submitted" && canManage && !expanded && approveCheck?.ok && (
-          <button type="button" onClick={() => onApproveAndSend(cs!)} className="shrink-0 rounded-full bg-emerald-100 px-2.5 py-0.5 text-xs font-medium text-emerald-800 hover:bg-emerald-200">Approve</button>
+          <Pill tone={status === "sent" ? "green" : status === "approved" ? "blue" : status === "submitted" ? "amber" : status === "draft" ? "violet" : "red"}>
+            {status ? SUMMARY_STATUS_LABEL[status] : "ยังไม่เขียน"}
+          </Pill>
+        </div>
+      </SheetHeader>
+
+      <PanelBody>
+        <MetaGrid rows={[
+          ["นักเรียน", <>{student.name}{family && <Link href="/families" className="text-xs text-primary underline">{family.name}</Link>}</>],
+          ["คอร์ส", <>{course?.name}{bundle && <Pill tone="violet"><LayersIcon className="size-3" /> Bundle</Pill>}{course?.subjects.map((x) => <span key={x} className={cn("rounded-full px-1.5 py-0.5 text-[11px]", subjectColor(x).chip)}>{x}</span>)}</>],
+          ["ช่วงเรียน", <>{fmtDate(round.from)} – {fmtDate(round.to, { year: true })}{round.entitlementIds.length > 1 && <span className="text-muted-foreground">({round.entitlementIds.length} รอบต่อเนื่อง)</span>}<span className="text-muted-foreground">· {branch?.name}</span></>],
+          ...(status === "sent" ? [] : [["กำหนดส่ง", <span key="d" className={cn(due.overdue || due.daysLeft <= 2 ? "font-medium text-red-700" : "")}>{fmtDate(due.deadline, { weekday: true })} · {due.overdue ? `เลย ${-due.daysLeft} วัน` : `อีก ${due.daysLeft} วัน`}</span>] as [string, React.ReactNode]]),
+          ...(cs ? [["เขียนโดย", L.teacher(cs.authorId).label] as [string, React.ReactNode]] : []),
+          ...(approved ? [["อนุมัติโดย", `${L.teacher(approved.by).label} · ${fmtDateTime(approved.at)}`] as [string, React.ReactNode]] : []),
+        ]} />
+
+        {recalled && <p className="rounded-2xl bg-red-50 px-3 py-2 text-sm text-red-800 dark:bg-red-950/40 dark:text-red-200"><b>ขอแก้ไข</b> · {L.teacher(recalled.by).label}: {recalled.note}</p>}
+
+        {(mode === "recall" || mode === "force") && (
+          <section className="space-y-1.5 rounded-2xl bg-muted/40 p-3">
+            <p className="text-sm font-medium">{mode === "recall" ? "ส่งกลับให้ครูแก้" : "Force Approve — อนุมัติงานตัวเอง"}</p>
+            <Textarea autoFocus rows={2} value={note} onChange={(e) => setNote(e.target.value)} placeholder={mode === "recall" ? "บอกครูว่าต้องแก้อะไร (จำเป็น)" : "เหตุผลที่ต้องอนุมัติเอง (จำเป็น)"} />
+          </section>
         )}
-        <Pill tone={status === "sent" ? "blue" : status === "approved" ? "green" : status === "submitted" ? "amber" : status === "changes_requested" ? "red" : "gray"}>
-          {status ? SUMMARY_STATUS_LABEL[status] : "ยังไม่เขียน"}
-        </Pill>
-        <button type="button" onClick={expand} className="shrink-0" aria-label={expanded ? "ย่อ" : "ขยาย"}>
-          <ChevronDownIcon className={cn("size-4 text-muted-foreground transition-transform", expanded && "rotate-180")} />
-        </button>
-      </div>
 
-      {banner && <div className={cn("px-3 py-1.5 text-right text-xs font-medium", banner.tone)}>{banner.label}</div>}
-
-      {expanded && (
-        <div className="space-y-3 border-t p-3">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <p className="text-xs text-muted-foreground">
-              Required · due: {fmtDate(due.deadline, { weekday: true })} · <span className={cn("font-medium", due.overdue ? "text-red-700" : due.daysLeft <= 2 ? "text-red-700" : "text-foreground")}>{due.overdue ? `เลย ${-due.daysLeft} วัน` : `${due.daysLeft} วัน`}</span>
-            </p>
-            {editable && (
-              <Button size="xs" variant="outline" className={cn("gap-1", AI_TONE.button)} disabled={!sessionSummaries.length || thinking} onClick={generate}>
+        {mode === "edit" ? (
+          <section className="space-y-3">
+            <div className="flex items-center justify-between gap-2">
+              <p className="flex items-center gap-1 text-sm font-semibold">สรุปทั้งคอร์ส<InfoTip text={`รวบรวมจาก ${sessionSummaries.length} สรุปคาบ — แก้ไขได้ตามจริง${bundle ? " · Bundle: เขียนแยกบรรทัดตามวิชา เช่น คณิต: …" : ""}`} /></p>
+              <Button size="sm" variant="outline" className={cn("gap-1", AI_TONE.button)} disabled={!sessionSummaries.length || thinking} onClick={generate}>
                 <SparklesIcon className={cn("size-3.5", thinking && "animate-pulse")} /> {thinking ? "AI กำลังเขียน…" : "Generate Summary"}
               </Button>
-            )}
-          </div>
-          {sessionSummaries.length > 0 && editable && <p className="text-xs text-muted-foreground">รวบรวมจาก {sessionSummaries.length} Session Summaries ด้านล่าง — แก้ไขได้ตามจริง</p>}
+            </div>
+            {FIELDS.map((f) => (
+              <Field key={f.key} label={<>{f.label}<span className="ml-auto font-normal text-muted-foreground tabular-nums">{draft[f.key].length}/{FIELD_MAX}</span></>}>
+                <Textarea rows={3} maxLength={FIELD_MAX} value={draft[f.key]} onChange={(e) => setDraft({ ...draft, [f.key]: e.target.value.slice(0, FIELD_MAX) })} />
+              </Field>
+            ))}
+          </section>
+        ) : (
+          <section className="space-y-2">
+            <p className="text-sm font-semibold">สรุปทั้งคอร์ส</p>
+            {FIELDS.some((f) => stored[f.key].trim())
+              ? FIELDS.map((f) => <SummaryField key={f.key} label={f.label} value={stored[f.key]} subjects={course?.subjects ?? []} />)
+              : <p className="rounded-2xl border border-dashed p-4 text-center text-sm text-muted-foreground">ยังไม่ได้เขียน</p>}
+          </section>
+        )}
 
+        <section className="space-y-2">
+          <p className="text-sm font-semibold">พัฒนาการ</p>
           <CourseProgress rows={progressRows} aiInsights={aiInsights} />
+        </section>
 
-          {(["overallProgress", "toImprove", "strengths"] as const).map((k) => (
-            <Field key={k} label={k === "overallProgress" ? "Overall Progress" : k === "toImprove" ? "To Improve" : "Strengths"}
-              value={draft[k]} editable={editable} onChange={(v) => setDraft({ [k]: v.slice(0, FIELD_MAX) })} />
-          ))}
+        {sessionSummaries.length > 0 && (
+          <section>
+            <p className="mb-1.5 text-sm font-semibold">สรุปรายคาบ ({sessionSummaries.length})</p>
+            <ul className="divide-y rounded-2xl ring-1 ring-foreground/10">
+              {sessionSummaries.slice().reverse().map(({ se, sm }) => (
+                <li key={se.id} className="flex items-start gap-3 px-3 py-2 text-sm">
+                  <span className="w-16 shrink-0 text-xs text-muted-foreground">{fmtDate(se.date)}</span>
+                  <span className="min-w-0 flex-1">{bundle && subjectsOf(se).length < 2 && subjectsOf(se).map((x) => <span key={x} className={cn("mr-1 rounded-full px-1.5 py-0.5 text-[11px]", subjectColor(x).chip)}>{x}</span>)}{sm.text}</span>
+                  {sm.level && <span className="shrink-0 text-xs text-muted-foreground tabular-nums" title={Sum.LEVEL_LABEL[sm.level]}>{sm.level}/5</span>}
+                </li>
+              ))}
+            </ul>
+          </section>
+        )}
+      </PanelBody>
 
-          {sessionSummaries.length > 0 && (
-            <div>
-              <p className="mb-1 text-sm font-semibold">Session Summaries</p>
-              <ul className="space-y-0.5 text-sm text-muted-foreground">
-                {sessionSummaries.map(({ se, sm }) => (
-                  <li key={se.id} className="flex items-start justify-between gap-2">
-                    <span>• {bundle && subjectsOf(se).map((x) => <span key={x} className={cn("mr-1 rounded-full px-1.5 py-0.5 text-[11px]", subjectColor(x).chip)}>{x}</span>)}{sm.text}</span>
-                    <span className="shrink-0">{fmtDate(se.date)}</span>
-                  </li>
-                ))}
-              </ul>
+      <PanelFooter>
+        {mode === "edit" ? (
+          <>
+            <Button variant="ghost" className="ml-auto" onClick={() => setMode("view")}>ยกเลิก</Button>
+            <Button variant="outline" onClick={() => saveIt(false)}><SaveIcon /> บันทึกร่าง</Button>
+            <Button disabled={!draft.overallProgress.trim()} title={draft.overallProgress.trim() ? undefined : "เขียน Overall Progress ก่อน"} onClick={() => saveIt(true)}><CheckIcon /> ส่งอนุมัติ</Button>
+          </>
+        ) : mode === "recall" || mode === "force" ? (
+          <>
+            <Button variant="ghost" className="ml-auto" onClick={closeNote}>ยกเลิก</Button>
+            {mode === "recall"
+              ? <Button disabled={!note.trim()} onClick={() => { if (report(requestChanges(cs!.id, note), "ส่งกลับให้ครูแก้แล้ว")) closeNote() }}><Undo2Icon /> ส่งกลับ</Button>
+              : <Button disabled={!note.trim()} onClick={() => { if (report(approve(cs!.id, note), "Force Approve แล้ว — แจ้งทั้งสาขา + Director")) closeNote() }}><ShieldAlertIcon /> Force Approve</Button>}
+          </>
+        ) : (
+          <>
+            {/* negative / rare actions in ⋯ (owner 2026-10-12) */}
+            <PanelMore items={[
+              status === "submitted" && canManage && { label: "ส่งกลับให้ครูแก้ (Recall)", icon: Undo2Icon, onClick: () => setMode("recall") },
+              status === "submitted" && canManage && !!cs && !approveCheck?.ok && Sum.canForceApprove(cs, me, "x").ok && { label: "Force Approve", icon: ShieldAlertIcon, onClick: () => setMode("force") },
+            ]} />
+            <div className="ml-auto flex gap-2">
+              {editable && <Button variant={cs ? "outline" : "default"} onClick={startEdit}><PencilIcon /> {cs ? "แก้ไข" : "เขียนสรุป"}</Button>}
+              {status === "submitted" && canManage && approveCheck?.ok && <Button onClick={() => { if (report(approve(cs!.id), "อนุมัติแล้ว")) report(send(cs!.id), "ส่งผู้ปกครองทาง LINE แล้ว") }}><SendIcon /> Approve &amp; ส่ง</Button>}
+              {status === "approved" && canManage && <Button onClick={() => report(send(cs!.id), "ส่งผู้ปกครองทาง LINE แล้ว")}><SendIcon /> ส่งผู้ปกครอง</Button>}
             </div>
-          )}
-
-          <div className="flex flex-wrap justify-end gap-1.5">
-            {editable && <Button size="sm" variant="ghost" onClick={onSaveDraft}>Save Draft</Button>}
-            {status === "submitted" && canManage && cs && !approveCheck?.ok && (
-              Sum.canForceApprove(cs, me, "x").ok && <ForceApprove onForce={(remark) => approve(cs.id, remark)} success="Force Approve แล้ว — แจ้งทั้งสาขา + Director" />
-            )}
-            {(status === "submitted" || status === "approved") && canManage && cs && (
-              <>
-                {status === "submitted" && <Button size="sm" variant="outline" onClick={() => setAsking(true)}><XIcon /> Recall</Button>}
-                {status === "submitted" && approveCheck?.ok && <Button size="sm" onClick={() => onApproveAndSend(cs)}><SendIcon /> Approve</Button>}
-                {status === "approved" && <Button size="sm" onClick={() => onSend(cs)}><SendIcon /> ส่งผู้ปกครอง</Button>}
-              </>
-            )}
-          </div>
-
-          {asking && cs && (
-            <div className="space-y-1.5">
-              <Textarea autoFocus value={note} onChange={(e) => setNote(e.target.value)} placeholder="บอกครูว่าต้องแก้อะไร (จำเป็น)" rows={2} />
-              <div className="flex justify-end gap-1.5">
-                <Button size="sm" variant="ghost" onClick={() => setAsking(false)}>ยกเลิก</Button>
-                <Button size="sm" disabled={!note.trim()} onClick={() => report(requestChanges(cs.id, note), "ส่งกลับให้ครูแก้แล้ว") && (setAsking(false), setNote(""))}>ส่งกลับ</Button>
-              </div>
-            </div>
-          )}
-        </div>
-      )}
-    </div>
+          </>
+        )}
+      </PanelFooter>
+    </>
   )
 }
 
-function useCourseSummary(entitlementId: ID) {
-  return useStore((s) => s.courseSummaries.find((x) => x.entitlementId === entitlementId))
-}
-
-function Field({ label, value, editable, onChange }: { label: string; value: string; editable: boolean; onChange: (v: string) => void }) {
-  if (!editable) {
-    return value ? (
-      <div>
-        <p className="text-xs font-medium text-muted-foreground">{label}</p>
-        <p className="text-sm whitespace-pre-wrap">{value}</p>
-      </div>
-    ) : null
-  }
+/** a summary field in the info view — Bundle lines "คณิต: …" get their subject chip */
+function SummaryField({ label, value, subjects }: { label: string; value: string; subjects: string[] }) {
+  if (!value.trim()) return null
   return (
-    <div className="relative rounded-lg border p-2 pt-1">
-      <p className="text-xs text-muted-foreground">{label}</p>
-      <Textarea value={value} onChange={(e) => onChange(e.target.value)} rows={2} maxLength={FIELD_MAX}
-        className="resize-none border-0 p-0 shadow-none focus-visible:ring-0" />
-      <span className="absolute right-2 bottom-1 text-[10px] text-muted-foreground">{value.length}</span>
+    <div className="rounded-2xl bg-muted/40 p-3">
+      <p className="mb-1 text-xs font-medium text-muted-foreground">{label}</p>
+      <div className="space-y-1 text-sm">
+        {value.split("\n").filter((l) => l.trim()).map((line, i) => {
+          const m = line.match(/^([^:：]{1,20})[:：]\s*(.*)$/)
+          return m && subjects.includes(m[1].trim())
+            ? <p key={i} className="flex items-start gap-1.5"><span className={cn("shrink-0 rounded-full px-1.5 py-0.5 text-[11px]", subjectColor(m[1].trim()).chip)}>{m[1].trim()}</span><span>{m[2]}</span></p>
+            : <p key={i} className="whitespace-pre-wrap">{line}</p>
+        })}
+      </div>
     </div>
   )
 }

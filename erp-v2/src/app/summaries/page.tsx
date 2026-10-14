@@ -18,7 +18,7 @@ import { BranchCode, useBranchScope } from "@/components/app/branch-scope"
 import { useState } from "react"
 import { BadgeCheckIcon, CheckIcon, FilePenIcon, HourglassIcon, PenLineIcon, SendIcon, Undo2Icon, type LucideIcon } from "lucide-react"
 import { Pill } from "@/components/app/badges"
-import { CourseSummaryStudentSheet } from "@/components/app/course-summary-sheet"
+import { CourseSummaryPanel } from "@/components/app/course-summary-sheet"
 import { SessionSheet } from "@/components/app/session-sheet"
 import { Button } from "@/components/ui/button"
 import { fmtDate, toDateStr } from "@/domain/dates"
@@ -207,7 +207,7 @@ function CourseSummaryTab() {
   const classes = useStore((s) => s.classes)
   const staff = useStore((s) => s.staff)
   const branch = useBranch()
-  const [openStudentId, setOpenStudentId] = useState<ID | null>(null)
+  const [openId, setOpenId] = useState<ID | null>(null)
 
   const mineOnly = !seesAllSessions(me)
   // which classes this teacher actually taught — scopes "เฉพาะคาบของฉัน" the same way the session queue does
@@ -268,7 +268,7 @@ function CourseSummaryTab() {
       <Toolbar end={<ColumnsMenu id="course-summaries" columns={columns} />}>
         <Segmented label="แสดง" value={show} onChange={(v) => { setShow(v); setTab("all") }} options={showOptions(found.filter((r) => bucket(r) !== "sent").length)} />
         <ShowChip label="ส่งแล้ว" on={showSent === "1" || tab === "sent" || show === "done"} count={found.filter((r) => bucket(r) === "sent").length} onChange={(v) => { setShowSent(v ? "1" : "0"); if (!v && tab === "sent") setTab("all"); if (!v && show === "done") setShow("all") }} />
-        <InfoTip text={`แพ็กเกจใกล้หมด (ภายใน ${renewalDays} วัน) หรือหมดแล้ว · กดแถวเพื่อเขียน / อนุมัติ ทุกคอร์สของนักเรียนคนนั้น`} />
+        <InfoTip text={`แพ็กเกจใกล้หมด (ภายใน ${renewalDays} วัน) หรือหมดแล้ว · กดแถวเพื่อดู / เขียน / อนุมัติ`} />
       </Toolbar>
       <FilterBar search={<SearchBox value={q} onChange={setQ} placeholder="ค้นหานักเรียน / คอร์ส / ครู" />}>
         <NativeSelect className="h-9 w-32" value={subject} onChange={(e) => setSubject(e.target.value)} placeholder="ทุกวิชา" options={branch.subjects.map((x) => ({ value: x, label: x }))} />
@@ -277,9 +277,9 @@ function CourseSummaryTab() {
         {scope.select}
       </FilterBar>
 
-      <DataTable id="course-summaries" columns={columns} rows={rows} rowKey={(r) => r.representativeId} onRowClick={(r) => setOpenStudentId(r.studentId)}
+      <DataTable id="course-summaries" columns={columns} rows={rows} rowKey={(r) => r.representativeId} onRowClick={(r) => setOpenId(r.representativeId)}
         empty={<p className="p-10 text-center text-sm text-muted-foreground">ไม่มีรายการในหมวดนี้</p>} />
-      <CourseSummaryStudentSheet studentId={openStudentId} rounds={dueRounds.filter((r) => r.studentId === openStudentId)} onClose={() => setOpenStudentId(null)} />
+      <CourseSummaryPanel round={dueRounds.find((r) => r.representativeId === openId) ?? null} onClose={() => setOpenId(null)} />
     </div>
   )
 }

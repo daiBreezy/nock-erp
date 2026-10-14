@@ -2336,3 +2336,17 @@ describe("Course Summary progress (owner 2026-10-14)", () => {
     expect(p.insights.some((x) => x.tone === "good" && x.text.includes("ดีขึ้น"))).toBe(true)
   })
 })
+
+describe("Course Summary draft fits the field (owner 2026-10-14)", () => {
+  const many = Array.from({ length: 30 }, (_, i) => ({ text: i % 2 ? "ตั้งใจเรียนดี ทำแบบฝึกหัดเสร็จ" : `คณิต: ยังสับสนการทดเลข ควรฝึกเพิ่ม ${i} · อังกฤษ: ฟังจับใจความเก่งขึ้น` }))
+  it("single course: ≤ 250 per field, no repeated note", () => {
+    const d = Sum.draftCourseSummary(many)
+    for (const v of Object.values(d)) expect(v.length).toBeLessThanOrEqual(Sum.COURSE_SUMMARY_FIELD_MAX)
+    expect(d.strengths.split("ตั้งใจเรียนดี").length - 1).toBe(1)
+  })
+  it("bundle: ≤ 250 per field with every subject on its own line", () => {
+    const d = Sum.draftBundleCourseSummary([{ subject: "คณิต", texts: many }, { subject: "อังกฤษ", texts: many }])
+    for (const v of Object.values(d)) expect(v.length).toBeLessThanOrEqual(Sum.COURSE_SUMMARY_FIELD_MAX)
+    expect(d.overallProgress.split("\n").map((l) => l.split(":")[0])).toEqual(["คณิต", "อังกฤษ"])
+  })
+})
