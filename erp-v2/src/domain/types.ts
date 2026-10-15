@@ -175,6 +175,8 @@ export interface SystemConfig {
   competitors?: string[]
   /** yearly parent survey window, e.g. 15 Sep – 15 Oct (owner 2026-10-05) — "MM-DD" */
   survey?: { from: string; to: string }
+  /** owner 2026-10-15: turn Nock (the AI helper bubble) on / off for everyone — unset = on */
+  aiHelper?: boolean
 }
 
 /** One reason a lead stopped / a student left. `for` = which form shows it; `contactOnly` = a lead we never got to

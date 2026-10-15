@@ -2155,7 +2155,7 @@ describe("Area Manager picks branches, Director / Super Admin see all (owner 202
   })
 })
 
-import { studentsOfTeacher, teacherWeek } from "./staff-overview"
+import { studentsOfTeacher, teacherWeek, workloadOf } from "./staff-overview"
 
 describe("staff overview — one teacher's week (owner 2026-10-09)", () => {
   const ses = (id: string, date: string, over: Partial<Session> = {}): Session => ({ id, branchId: "b1", classId: null, subject: "คณิต", date, start: "10:00", minutes: 90, teacherId: "t1", coTeacherIds: [], roomId: null, studentIds: ["a", "b"], trial: false, customized: false, cancelled: false, ...over })
@@ -2423,5 +2423,16 @@ describe("ย้อนกลับย้ายคลาสถาวร (owner 20
     expect(canUndoClassMove(m, [{ sessionId: "x", studentId: "a" }, { sessionId: "n1", studentId: "b" }]).ok).toBe(true)
     expect(canUndoClassMove(m, [{ sessionId: "n2", studentId: "a" }]).ok).toBe(false)
     expect(canUndoClassMove({ ...m, undoneAt: "2026-10-14T00:00:00Z" }, []).ok).toBe(false)
+  })
+})
+
+describe("teacher workload (owner 2026-10-15)", () => {
+  const day = (date: string, n: number) => Array.from({ length: n }, () => ({ date }))
+  it("goes by the busiest day: 1–2 healthy, 3–4 warning, 5+ load", () => {
+    expect(workloadOf([])).toBe("none")
+    expect(workloadOf([...day("2026-10-12", 2), ...day("2026-10-13", 2)])).toBe("healthy")
+    expect(workloadOf([...day("2026-10-12", 1), ...day("2026-10-13", 3)])).toBe("warning")
+    expect(workloadOf(day("2026-10-14", 4))).toBe("warning")
+    expect(workloadOf(day("2026-10-14", 5))).toBe("load")
   })
 })

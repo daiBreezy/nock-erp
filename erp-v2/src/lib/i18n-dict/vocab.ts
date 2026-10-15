@@ -40,4 +40,15 @@ export const VOCAB: Record<string, Entry> = {
   "เหลือ {0} คาบ": { en: "{0} sessions left", ja: "残り{0}回" },
   "ใช้คาบหมดแล้ว": { en: "all sessions used", ja: "全回数使用済み" },
   "ครอบครัว{0}": { en: "{0} family", ja: "{0}家" },
+  // owner 2026-10-15: staff table + AI Helper switch
+  "คาบ / สัปดาห์": { en: "Session / Week", ja: "コマ / 週" },
+  "ยังไม่มีคาบ": { en: "No sessions yet", ja: "まだ授業なし" },
+  "วันที่สอนมากสุด {0} คาบ": { en: "busiest day {0} sessions", ja: "最多の日 {0}コマ" },
+  "AI Helper (Nock)": { en: "AI Helper (Nock)", ja: "AIヘルパー (Nock)" },
+  "ผู้ช่วย Nock ที่มุมจอ — ปิดแล้วทุกคนจะไม่เห็นปุ่ม Nock ในทุกหน้า (คลังความรู้ยังอยู่ เปิดกลับมาได้ทุกเมื่อ)": { en: "Nock, the helper in the screen corner — turn it off and nobody sees the Nock button on any page (the knowledge bank stays; turn it back on any time)", ja: "画面隅のヘルパー Nock — オフにすると全員のどのページにも Nock ボタンが表示されません（ナレッジは残り、いつでも再びオンにできます）" },
+  "เปิด AI Helper แล้ว": { en: "AI Helper turned on", ja: "AIヘルパーをオンにしました" },
+  "ปิด AI Helper แล้ว": { en: "AI Helper turned off", ja: "AIヘルパーをオフにしました" },
+  "เปิด/ปิด AI Helper": { en: "Turn AI Helper on / off", ja: "AIヘルパーのオン/オフ" },
+  "เปิดอยู่ — ทุกคนเห็น Nock ที่มุมจอ": { en: "On — everyone sees Nock in the screen corner", ja: "オン — 全員の画面隅に Nock が表示されます" },
+  "ปิดอยู่ — ไม่มีใครเห็น Nock": { en: "Off — nobody sees Nock", ja: "オフ — Nock は誰にも表示されません" },
 }

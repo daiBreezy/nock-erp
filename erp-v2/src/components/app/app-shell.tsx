@@ -77,6 +77,7 @@ function Shell({ children }: { children: ReactNode }) {
   const pathname = usePathname()
   const me = useStore((s) => s.me())
   const branch = useBranch()
+  const nockOn = useStore((s) => s.system.aiHelper !== false)
   const current = navFor(pathname)
   const currentGroup = current && NAV.find((g) => g.items.includes(current))?.group
   const allowed = !current || canAny(me, current.perm)
@@ -158,7 +159,8 @@ function Shell({ children }: { children: ReactNode }) {
         {/* keyed on the language: switching it re-renders every page so all t() calls pick it up */}
         <main key={lang} className="min-w-0 flex-1 p-3 md:p-6">{allowed ? <><FocusBanner />{children}</> : <NoAccess />}</main>
         {/* owner 2026-10-13: Nock, the helper — on every page, for everyone */}
-        <NockWidget />
+        {/* owner 2026-10-15: Settings › ระบบ › AI (Nock) can turn it off for everyone */}
+        {nockOn && <NockWidget />}
         <ExitAlert />
         <ParentRequestWatcher />
         <ScreenTranslator />

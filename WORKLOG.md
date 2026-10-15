@@ -5,6 +5,12 @@
 
 ---
 
+## 2026-10-15 — Nock ลากแล้วไหลเข้ามุม, Workload ครู, เปิด/ปิด AI Helper
+
+- **Nock:** ปล่อยเมาส์แล้วไหลจากจุดที่ปล่อยเข้ามุมจอ ไม่หยุดที่ขอบ เอียงแอบมองต่อในจังหวะเดียว (ease-in-out 400 ms) · hover ออก/กลับ 400 ms
+- **บุคลากร:** คอลัมน์ "คาบ / สัปดาห์" (EN: Session / Week) แสดงแค่ `6 (5.8hr.)` · คอลัมน์ Workload = ไอคอนเดียว ตามวันที่สอนมากสุดในสัปดาห์: 1–2 คาบ Healthy · 3–4 Warning · 5+ Load! (`workloadOf` ใน `staff-overview.ts`) — **logic จะมาแก้กันทีหลัง (เจ้าของบอก)**
+- **Settings › ระบบ › AI (Nock):** สวิตช์เปิด/ปิด AI Helper ให้ทุกคน (`SystemConfig.aiHelper`, ไม่ตั้ง = เปิด)
+
 ## 2026-10-14 — AI key ใน Settings, คุยกับ Nock แบบส่วนตัว, Course Summary มีกราฟ + AI ประเมิน
 
 - **Settings › ระบบ › AI (Nock)** (แท็บเหมือน LINE Integration): เลือก Google Gemini / OpenAI → วาง key → เลือก model → ทดสอบการเชื่อมต่อ · key เก็บฝั่ง server (`erp-v2/.data/ai-config.json`, git-ignore) ส่งกลับมาแค่แบบซ่อน · `/api/nock` + `/api/ai/course-summary` ใช้ key นี้ก่อน แล้วค่อยใช้ `.env.local`

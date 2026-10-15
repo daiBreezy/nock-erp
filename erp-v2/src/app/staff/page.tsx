@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { CalendarDaysIcon, ClockIcon, GraduationCapIcon, PlusIcon, SearchIcon, UsersIcon } from "lucide-react"
+import { CalendarDaysIcon, CircleCheckIcon, ClockIcon, FlameIcon, TriangleAlertIcon, GraduationCapIcon, PlusIcon, SearchIcon, UsersIcon } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import { Page, PageHeader, KpiRow, Toolbar } from "@/components/app/page-layout"
 import { Kpi } from "@/components/app/kpi"
@@ -16,6 +16,7 @@ import { BranchCode, useBranchScope } from "@/components/app/branch-scope"
 import { addDays, toDateStr } from "@/domain/dates"
 import { can, rolesAt, ROLE_LABEL, staffInBranch, subjectsAt } from "@/domain/rules/permissions"
 import { teachersOf } from "@/domain/rules/scheduling"
+import { busiestDay, workloadOf, type Workload } from "@/domain/rules/staff-overview"
 import type { ID, Staff } from "@/domain/types"
 import { EditCell } from "@/components/app/inline-edit"
 import { report } from "@/lib/feedback"
@@ -96,9 +97,16 @@ export default function StaffPage() {
     { id: "email", label: "อีเมล", width: "220px", className: "text-muted-foreground", cell: (x) => (
       <span className="flex items-center gap-1.5"><EditCell kind="email" value={x.s.email ?? ""} disabled={ro(x)} placeholder={x.s.canLogin ? "ใส่อีเมล" : "ไม่บังคับ"} className="flex-1" onSave={(v) => edit(x.s, { email: v })} />{!x.s.canLogin && <span className="shrink-0 rounded-full bg-muted px-1.5 text-[10px]">ไม่ล็อกอิน</span>}</span>
     ) },
-    { id: "week", label: "สอนสัปดาห์นี้", width: "120px", sort: "week", align: "right", className: "tabular-nums text-muted-foreground", cell: (x) => (
-      x.roles.includes("teacher") ? <span title="คาบที่สอน จ.–อา. สัปดาห์นี้ ที่สาขานี้">{x.week.length} คาบ <span className="text-xs">· {Math.round(x.week.reduce((m, w) => m + w.minutes, 0) / 6) / 10} ชม.</span></span> : "—"
+    // owner 2026-10-15: "Session / Week", numbers only — 6 (5.8hr.)
+    { id: "week", label: "คาบ / สัปดาห์", width: "120px", sort: "week", align: "right", className: "tabular-nums text-muted-foreground", cell: (x) => (
+      x.roles.includes("teacher") ? <span title="คาบที่สอน จ.–อา. สัปดาห์นี้ ที่สาขานี้">{x.week.length} <span className="text-xs">({Math.round(x.week.reduce((m, w) => m + w.minutes, 0) / 6) / 10}hr.)</span></span> : "—"
     ) },
+    // owner 2026-10-15: workload as one status icon — busiest day this week: 1–2 healthy · 3–4 warning · 5+ load
+    { id: "workload", label: "Workload", width: "90px", align: "right", cell: (x) => {
+      if (!x.roles.includes("teacher")) return <span className="text-muted-foreground">—</span>
+      const k = workloadOf(x.week), w = WORKLOAD[k]
+      return <span title={k === "none" ? w.label : `${w.label} · วันที่สอนมากสุด ${busiestDay(x.week)} คาบ`} className="inline-flex justify-end"><w.icon className={cn("size-4", w.className)} aria-label={w.label} /></span>
+    } },
   ]
 
   return (
@@ -123,6 +131,13 @@ export default function StaffPage() {
       <StaffPanel key={String(open)} target={open} onClose={() => setOpen(null)} />
     </Page>
   )
+}
+
+const WORKLOAD: Record<Workload, { label: string; icon: typeof FlameIcon; className: string }> = {
+  none: { label: "ยังไม่มีคาบ", icon: CircleCheckIcon, className: "text-muted-foreground/40" },
+  healthy: { label: "Healthy", icon: CircleCheckIcon, className: "text-emerald-600" },
+  warning: { label: "Warning", icon: TriangleAlertIcon, className: "text-amber-500" },
+  load: { label: "Load!", icon: FlameIcon, className: "text-red-600" },
 }
 
 const CHIP = "inline-flex shrink-0 items-center rounded-full px-2 py-0.5 text-xs font-medium whitespace-nowrap"

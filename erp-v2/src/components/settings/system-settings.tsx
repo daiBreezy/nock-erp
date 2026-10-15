@@ -40,7 +40,7 @@ const SYSTEM_TABS: { id: string; label: string; icon: typeof SlidersHorizontalIc
   { id: "customers", label: "ลูกค้าและ CRM", icon: UsersIcon, body: () => <><LossReasons /><YearlySurvey /></> },
   { id: "notifications", label: "การแจ้งเตือน", icon: BellIcon, body: () => <NotificationPrefs /> },
   // owner 2026-10-14: the AI model Nock uses — set here like LINE Integration
-  { id: "ai", label: "AI (Nock)", icon: SparklesIcon, body: () => <AiSettings /> },
+  { id: "ai", label: "AI (Nock)", icon: SparklesIcon, body: () => <><AiHelperToggle /><AiSettings /></> },
 ]
 
 /** Settings → System: brand-wide catalogs + preferences. Each card saves on its own.
@@ -53,6 +53,19 @@ export function SystemSettingsView() {
       <Tabs value={current.id} onChange={setTab} options={SYSTEM_TABS.map((t) => ({ value: t.id, label: tx(t.label), icon: t.icon }))} />
       <div key={current.id} className="space-y-4">{current.body()}</div>
     </div>
+  )
+}
+
+/** owner 2026-10-15: เปิด/ปิด AI Helper — switching saves right away (one switch, nothing to review) */
+function AiHelperToggle() {
+  const sys = useStore((s) => s.system)
+  const saveSystem = useStore((s) => s.saveSystem)
+  const on = sys.aiHelper !== false
+  return (
+    <SettingsCard title={tx("AI Helper (Nock)")} hint={tx("ผู้ช่วย Nock ที่มุมจอ — ปิดแล้วทุกคนจะไม่เห็นปุ่ม Nock ในทุกหน้า (คลังความรู้ยังอยู่ เปิดกลับมาได้ทุกเมื่อ)")}
+      action={<Switch checked={on} onCheckedChange={(v) => report(saveSystem({ ...sys, aiHelper: v }), v ? tx("เปิด AI Helper แล้ว") : tx("ปิด AI Helper แล้ว"))} aria-label={tx("เปิด/ปิด AI Helper")} />}>
+      <p className="text-sm text-muted-foreground">{on ? tx("เปิดอยู่ — ทุกคนเห็น Nock ที่มุมจอ") : tx("ปิดอยู่ — ไม่มีใครเห็น Nock")}</p>
+    </SettingsCard>
   )
 }
 

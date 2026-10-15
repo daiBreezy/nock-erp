@@ -59,3 +59,16 @@ export function studentsOfTeacher(teacherId: ID, ctx: { sessions: Session[]; cla
   for (const s of ctx.sessions) if (!s.cancelled && s.date >= ctx.today && s.date <= until && teachersOf(s).includes(teacherId)) s.studentIds.forEach((x) => ids.add(x))
   return [...ids]
 }
+
+/** owner 2026-10-15: a teacher's workload as one status — sessions on their busiest day this week.
+ *  1–2 a day = healthy · 3–4 = warning · 5+ = overloaded (the owner will refine the logic later) */
+export type Workload = "none" | "healthy" | "warning" | "load"
+export function busiestDay(sessions: Pick<Session, "date">[]): number {
+  const perDay = new Map<DateStr, number>()
+  for (const s of sessions) perDay.set(s.date, (perDay.get(s.date) ?? 0) + 1)
+  return Math.max(0, ...perDay.values())
+}
+export function workloadOf(sessions: Pick<Session, "date">[]): Workload {
+  const n = busiestDay(sessions)
+  return n === 0 ? "none" : n <= 2 ? "healthy" : n <= 4 ? "warning" : "load"
+}
