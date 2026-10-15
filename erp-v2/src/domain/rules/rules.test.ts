@@ -9,6 +9,7 @@ import { chartPrice, defaultCourseName, filterCourses, validateCourse } from "./
 import { busRate, copyHours, gradeLabel, subjectLabel, priceOf, priceRange, setPrice, validateBranchInfo, validateDurations, validateHoliday, validatePromotion, validateSpecialPeriods, everyDay, subjectAbbr } from "./settings"
 import { forceAudience, isUnread, messageAudience, notify, validateMessage, visibleTo } from "./notifications"
 import * as Sum from "./summaries"
+import { chatDayLabel, groupByDay } from "./inbox"
 import { familyFromLead, futureSessionsOf, matchExistingFamily, mergeSubmission, nicknameFrom, searchStudents, studentLabel, submissionChanges, validateFamily, validateStaff, validateStudent } from "./people"
 import { suggestFixes } from "./suggest"
 import { advanceStage, canSetStage, daysAgo, groupOf, restoreStage, validateLead } from "./crm"
@@ -2469,5 +2470,19 @@ describe("teacher leave reason chips (owner 2026-10-15)", () => {
     expect(leaveReasonText("อื่นๆ", "")).toBe("")
     expect(leaveReasonText("อื่นๆ", " ไปต่างจังหวัด ")).toBe("อื่นๆ: ไปต่างจังหวัด")
     expect(leaveReasonText("", "x")).toBe("")
+  })
+})
+
+describe("Inbox — date separators instead of a time on every bubble (owner 2026-10-15)", () => {
+  it("labels today / yesterday / older days, year only when it isn't this year", () => {
+    expect(chatDayLabel("2026-10-15", "2026-10-15")).toBe("วันนี้")
+    expect(chatDayLabel("2026-10-14", "2026-10-15")).toBe("เมื่อวาน")
+    expect(chatDayLabel("2026-10-01", "2026-10-15")).not.toMatch(/ 69$/)
+    expect(chatDayLabel("2025-12-31", "2026-01-02")).toMatch(/ 68$/)
+  })
+  it("groups a thread by the local day, keeping order", () => {
+    const at = (d: string, h: number) => new Date(`${d}T${String(h).padStart(2, "0")}:00:00`).toISOString()
+    const g = groupByDay([{ at: at("2026-10-14", 9) }, { at: at("2026-10-14", 23) }, { at: at("2026-10-15", 0) }])
+    expect(g.map((x) => [x.day, x.items.length])).toEqual([["2026-10-14", 2], ["2026-10-15", 1]])
   })
 })
