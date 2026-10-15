@@ -2155,7 +2155,7 @@ describe("Area Manager picks branches, Director / Super Admin see all (owner 202
   })
 })
 
-import { dayCounts, studentsOfTeacher, teacherWeek, workloadOf } from "./staff-overview"
+import { monthLoad, studentsOfTeacher, teacherWeek } from "./staff-overview"
 import { calendarNotesFor, cleanNote, noteTarget } from "./calendar-notes"
 
 describe("staff overview — one teacher's week (owner 2026-10-09)", () => {
@@ -2427,14 +2427,11 @@ describe("ย้อนกลับย้ายคลาสถาวร (owner 20
   })
 })
 
-describe("teacher workload (owner 2026-10-15)", () => {
-  const day = (date: string, n: number) => Array.from({ length: n }, () => ({ date }))
-  it("goes by the busiest day: 1–2 healthy, 3–4 warning, 5+ load", () => {
-    expect(workloadOf([])).toBe("none")
-    expect(workloadOf([...day("2026-10-12", 2), ...day("2026-10-13", 2)])).toBe("healthy")
-    expect(workloadOf([...day("2026-10-12", 1), ...day("2026-10-13", 3)])).toBe("warning")
-    expect(workloadOf(day("2026-10-14", 4))).toBe("warning")
-    expect(workloadOf(day("2026-10-14", 5))).toBe("load")
+describe("teacher workload per month (owner 2026-10-15)", () => {
+  it("counts different classes and different students in the month — cancelled sessions don't count", () => {
+    const se = (id: string, classId: string | null, studentIds: string[], date = "2026-10-05", cancelled = false) => ({ id, classId, studentIds, date, cancelled })
+    expect(monthLoad([se("a", "cl_1", ["s1", "s2"]), se("b", "cl_1", ["s1"]), se("c", null, ["s3"]), se("d", "cl_2", ["s4"], "2026-10-06", true), se("e", "cl_3", ["s5"], "2026-11-01")], "2026-10"))
+      .toEqual({ classes: 2, students: 3, sessions: 3 })
   })
 })
 
@@ -2452,11 +2449,5 @@ describe("Note Calendar (owner 2026-10-15)", () => {
     expect(noteTarget({ id: "se_9", classId: null }, "permanent").ok).toBe(false)
     expect(noteTarget({ id: "se_1", classId: "cl_1" }, "permanent")).toEqual({ ok: true, value: { classId: "cl_1", sessionId: undefined } })
     expect(cleanNote("   ").ok).toBe(false)
-  })
-})
-
-describe("workload per day for Reports (owner 2026-10-15)", () => {
-  it("counts Mon…Sun", () => {
-    expect(dayCounts([{ date: "2026-10-12" }, { date: "2026-10-12" }, { date: "2026-10-18" }, { date: "2026-10-19" }], "2026-10-12")).toEqual([2, 0, 0, 0, 0, 0, 1])
   })
 })

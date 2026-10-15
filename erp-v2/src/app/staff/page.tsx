@@ -16,7 +16,7 @@ import { BranchCode, useBranchScope } from "@/components/app/branch-scope"
 import { addDays, toDateStr } from "@/domain/dates"
 import { can, rolesAt, ROLE_LABEL, staffInBranch, subjectsAt } from "@/domain/rules/permissions"
 import { teachersOf } from "@/domain/rules/scheduling"
-import { WorkloadIcon, WorkloadInfo } from "@/components/staff/workload"
+import { monthLoad } from "@/domain/rules/staff-overview"
 import type { ID, Staff } from "@/domain/types"
 import { EditCell } from "@/components/app/inline-edit"
 import { report } from "@/lib/feedback"
@@ -24,7 +24,7 @@ import { useBranch, useNow } from "@/lib/hooks"
 import { cn } from "@/lib/utils"
 import { useStore } from "@/store/store"
 
-type StaffSort = "nickname" | "name" | "role" | "type" | "week"
+type StaffSort = "nickname" | "name" | "role" | "type" | "week" | "classes" | "students"
 
 /** owner 2026-10-09: click a row for the side panel (information · แก้ไข · ปิดบัญชี); owner 2026-10-12: some cells
  *  (nickname · name · email · type) edit right in the table again */
@@ -36,7 +36,9 @@ export default function StaffPage() {
   const today = toDateStr(useNow())
   const [open, setOpen] = useState<ID | "new" | null>(null)
   const manage = can(me, "staff.manage")
-  const seeWorkload = can(me, "reports.view")
+  // owner 2026-10-15: Workload is for the Director only — no one else sees how teachers compare
+  const seeWorkload = me.roles.includes("director")
+  const month = today.slice(0, 7)
   const saveStaff = useStore((s) => s.saveStaff)
   const edit = (st: Staff, patch: Partial<Staff>) => report(saveStaff({ ...st, ...patch }), "บันทึกแล้ว")
   const { sort, toggle } = useSort<StaffSort>("nickname")
@@ -49,14 +51,18 @@ export default function StaffPage() {
   const [q, setQ] = useState("")
   const all = staff
     .filter((s) => scope.ids.some((b) => staffInBranch(s, b)))
-    .map((s) => ({ s, roles: scope.multi ? s.roles : rolesAt(s, branch.id), subjects: scope.multi ? s.subjects : subjectsAt(s, branch.id), week: weekOf(s.id) }))
+    .map((s) => ({ s, roles: scope.multi ? s.roles : rolesAt(s, branch.id), subjects: scope.multi ? s.subjects : subjectsAt(s, branch.id), week: weekOf(s.id),
+      load: monthLoad(sessions.filter((x) => scope.ids.includes(x.branchId) && teachersOf(x).includes(s.id)), month) }))
     .sort((a, b) => {
       const k = sort.key
       const v = k === "nickname" ? a.s.nickname.localeCompare(b.s.nickname, "th")
         : k === "name" ? a.s.name.localeCompare(b.s.name, "th")
           : k === "role" ? (ROLE_LABEL[a.roles[0]] ?? "").localeCompare(ROLE_LABEL[b.roles[0]] ?? "", "th")
             : k === "type" ? Number(!!a.s.partTime) - Number(!!b.s.partTime)
-              : a.week.length - b.week.length
+              : k === "week" ? a.week.length - b.week.length
+                // Workload: the first click lists the most first
+                : k === "classes" ? b.load.classes - a.load.classes || b.load.students - a.load.students
+                  : b.load.students - a.load.students || b.load.classes - a.load.classes
       return Number(b.s.active) - Number(a.s.active) || (sort.desc ? -v : v)
     })
   const needle = q.trim().toLowerCase()
@@ -102,10 +108,16 @@ export default function StaffPage() {
     { id: "week", label: "คาบ / สัปดาห์", width: "120px", sort: "week", align: "right", className: "tabular-nums text-muted-foreground", cell: (x) => (
       x.roles.includes("teacher") ? <span title="คาบที่สอน จ.–อา. สัปดาห์นี้ ที่สาขานี้">{x.week.length} <span className="text-xs">({Math.round(x.week.reduce((m, w) => m + w.minutes, 0) / 6) / 10}hr.)</span></span> : "—"
     ) },
-    // owner 2026-10-15: workload as one status icon — busiest day this week: 1–2 healthy · 3–4 warning · 5+ load;
-    // Manager and up only (Admin / Teacher don't see it)
-    ...(seeWorkload ? [{ id: "workload", label: "Workload", width: "90px", align: "right" as const, info: <WorkloadInfo />,
-      cell: (x: Row) => x.roles.includes("teacher") ? <WorkloadIcon sessions={x.week} /> : <span className="text-muted-foreground">—</span> }] : []),
+    // owner 2026-10-15: Workload = classes and students this month, side by side — no "too much" judgement yet;
+    // sort by either to list the most first. Director only.
+    ...(seeWorkload ? [
+      { id: "classes", label: "Class / Month", width: "110px", sort: "classes", align: "right" as const, className: "tabular-nums",
+        info: "Workload: จำนวนคลาสที่สอนเดือนนี้ (คาบเดี่ยวนับเป็น 1 คลาส) · กดหัวคอลัมน์เพื่อเรียงจากมากไปน้อย · เห็นเฉพาะ Director",
+        cell: (x: Row) => x.roles.includes("teacher") ? x.load.classes : <span className="text-muted-foreground">—</span> },
+      { id: "students", label: "Student / Month", width: "120px", sort: "students", align: "right" as const, className: "tabular-nums",
+        info: "Workload: จำนวนนักเรียน (ไม่นับซ้ำ) ในคลาสที่สอนเดือนนี้ · บางคนคลาสเยอะแต่เด็กน้อย บางคนกลับกัน — ดูคู่กัน · เห็นเฉพาะ Director",
+        cell: (x: Row) => x.roles.includes("teacher") ? x.load.students : <span className="text-muted-foreground">—</span> },
+    ] : []),
   ]
 
   return (

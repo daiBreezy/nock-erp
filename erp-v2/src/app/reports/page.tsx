@@ -30,10 +30,6 @@ import { pullSurveyResponses } from "@/lib/forms"
 import * as Survey from "@/domain/rules/survey"
 import { cn } from "@/lib/utils"
 import { useStore } from "@/store/store"
-import { WORKLOAD, WorkloadIcon, WorkloadInfo } from "@/components/staff/workload"
-import { dayCounts, dayLevel, mondayOf } from "@/domain/rules/staff-overview"
-import { staffInBranch } from "@/domain/rules/permissions"
-import { teachersOf } from "@/domain/rules/scheduling"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { tx, uiLang, nm, sj } from "@/lib/i18n"
 
@@ -146,7 +142,7 @@ function Reports() {
       {tab === "revenue" && <RevenueTab d={d} compare={showCompare} period={period} periodLabel={periodLabel} />}
       {tab === "students" && <StudentsTab d={d} compare={showCompare} onOpen={setOpenId} />}
       {tab === "attendance" && <AttendanceTab d={d} compare={showCompare} onOpen={setOpenId} />}
-      {tab === "operations" && <OperationsTab d={d} compare={showCompare} branchIds={branchIds} today={today} />}
+      {tab === "operations" && <OperationsTab d={d} compare={showCompare} />}
       {tab === "crm" && <CrmTab d={d} compare={showCompare} />}
       {tab === "satisfaction" && <SatisfactionTab d={d} compare={showCompare} />}
       {TABS.find((t) => t.id === tab)?.soon && <Empty>{tx("แท็บนี้อยู่ในรอบ")} {TABS.find((t) => t.id === tab)!.soon}  {tx("— คุยสเปกแล้ว ยังไม่ได้สร้าง")}</Empty>}
@@ -876,43 +872,7 @@ function AttendanceTab({ d, compare, onOpen }: { d: ReportData; compare: boolean
 
 const hrs = (min: number) => tx("{0} ชม.", [(min / 60).toLocaleString("th-TH", { maximumFractionDigits: 1 })])
 
-/** owner 2026-10-15: Workload ครู — this week, Mon…Sun, each day tinted by its level, busiest-day status at the end */
-function WorkloadPanel({ branchIds, today }: { branchIds: string[]; today: string }) {
-  const staff = useStore((s) => s.staff)
-  const sessions = useStore((s) => s.sessions)
-  const monday = mondayOf(today)
-  const week = sessions.filter((x) => !x.cancelled && branchIds.includes(x.branchId) && x.date >= monday && x.date <= addDays(monday, 6))
-  const rows = staff
-    .filter((t) => t.active && t.roles.includes("teacher") && branchIds.some((b) => staffInBranch(t, b)))
-    .map((t) => { const mine = week.filter((x) => teachersOf(x).includes(t.id)); return { t, mine, days: dayCounts(mine, monday) } })
-    .sort((a, b) => Math.max(...b.days) - Math.max(...a.days) || b.mine.length - a.mine.length)
-  const tone = { none: "text-muted-foreground/50", healthy: "bg-emerald-50 text-emerald-800 dark:bg-emerald-950/50 dark:text-emerald-200", warning: "bg-amber-100 text-amber-900 dark:bg-amber-950 dark:text-amber-200", load: "bg-red-100 font-semibold text-red-700 dark:bg-red-950 dark:text-red-200" } as const
-  const count = (k: keyof typeof WORKLOAD) => rows.filter((r) => dayLevel(Math.max(0, ...r.days)) === k).length
-  return (
-    <Panel title={tx("Workload ครู")} action={<InfoTip text={<WorkloadInfo />} />}
-      hint={`${tx("สัปดาห์นี้")} ${fmtDate(monday)} – ${fmtDate(addDays(monday, 6))} · Load! ${count("load")} · Warning ${count("warning")} · Healthy ${count("healthy")}`}>
-      {rows.length ? (
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead className="text-xs text-muted-foreground">
-              <tr><th className="text-left font-normal">{tx("ครู")}</th>{Array.from({ length: 7 }, (_, i) => <th key={i} className="w-12 text-center font-normal">{weekdayShort((i + 1) % 7)}</th>)}<th className="text-right font-normal">{tx("รวม")}</th><th className="w-20 text-right font-normal">Workload</th></tr>
-            </thead>
-            <tbody>{rows.map(({ t, mine, days }) => (
-              <tr key={t.id} className="border-t">
-                <td className="py-1.5">{nm(t.nickname)}{t.partTime && <span className="ml-1.5 rounded-full bg-violet-100 px-1.5 text-[10px] text-violet-800 dark:bg-violet-950 dark:text-violet-200">Part-time</span>}</td>
-                {days.map((n, i) => <td key={i} className="p-0.5 text-center"><span className={cn("inline-grid size-7 place-items-center rounded-lg tabular-nums", tone[dayLevel(n)])}>{n || "·"}</span></td>)}
-                <td className="text-right tabular-nums">{mine.length}</td>
-                <td className="text-right"><WorkloadIcon sessions={mine} /></td>
-              </tr>
-            ))}</tbody>
-          </table>
-        </div>
-      ) : <Empty />}
-    </Panel>
-  )
-}
-
-function OperationsTab({ d, compare, branchIds, today }: { d: ReportData; compare: boolean; branchIds: string[]; today: string }) {
+function OperationsTab({ d, compare }: { d: ReportData; compare: boolean }) {
   const o = d.operations
   const [onlyPartTime, setOnlyPartTime] = useState(false)
   const teachers = o.teachers.filter((t) => !onlyPartTime || t.staff?.partTime)
@@ -956,7 +916,7 @@ function OperationsTab({ d, compare, branchIds, today }: { d: ReportData; compar
           </div>
         ) : <Empty />}
       </Panel>
-      <WorkloadPanel branchIds={branchIds} today={today} />
+      {/* owner 2026-10-15: no teacher Workload here — comparing teachers on Reports is risky; it's on Staff, Director only */}
       <div className="grid gap-4 lg:grid-cols-2">
         <Panel title={compare ? tx("การใช้ห้องตามสาขา") : tx("การใช้ห้อง")} hint={tx("ชั่วโมงที่มีคาบ ÷ ชั่วโมงที่สาขาเปิด")} fill>
           <RateRows plain rows={compare

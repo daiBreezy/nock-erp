@@ -94,4 +94,6 @@ export const VOCAB: Record<string, Entry> = {
   "Webhook URL — ตั้งให้อัตโนมัติเมื่อรัน npm run line": { en: "Webhook URL — set automatically by npm run line", ja: "Webhook URL — npm run line で自動設定" },
   "LINE ส่งข้อความเข้ามาที่นี่อยู่": { en: "LINE is sending messages here", ja: "LINE はここにメッセージを送信中" },
   "ยังไม่ได้เปิด Use webhook ใน LINE Developers": { en: "Use webhook is off in LINE Developers", ja: "LINE Developers で Use webhook がオフです" },
+  "Workload: จำนวนคลาสที่สอนเดือนนี้ (คาบเดี่ยวนับเป็น 1 คลาส) · กดหัวคอลัมน์เพื่อเรียงจากมากไปน้อย · เห็นเฉพาะ Director": { en: "Workload: classes taught this month (a one-off session counts as 1) · click the header to list the most first · Director only", ja: "負荷：今月担当したクラス数（単発授業は1クラス）· 見出しをクリックで多い順 · Director のみ" },
+  "Workload: จำนวนนักเรียน (ไม่นับซ้ำ) ในคลาสที่สอนเดือนนี้ · บางคนคลาสเยอะแต่เด็กน้อย บางคนกลับกัน — ดูคู่กัน · เห็นเฉพาะ Director": { en: "Workload: different students in the classes taught this month · some have many classes but few students, some the reverse — read both together · Director only", ja: "負荷：今月担当したクラスの生徒数（重複なし）· クラスが多く生徒が少ない人も、その逆もいるので両方を合わせて見る · Director のみ" },
 }

@@ -85,8 +85,8 @@ export const NOCK_GUIDE: GuideEntry[] = [
     steps: "ปฏิทิน › ชี้ที่ชื่อนักเรียนในคาบ › + Note → พิมพ์ แล้วเลือก ชั่วคราว (เฉพาะคาบนี้) หรือ ถาวร (ปักหมุด แสดงทุกคาบของคลาสนี้) → Enter · แก้ไข/ลบ: ชี้ที่ Note › ⋯ · Note ปฏิทินแยกจาก Note ของนักเรียน · เขียนได้เฉพาะคาบที่สอน (Admin ขึ้นไปได้ทุกคาบ)", href: "/calendar", hrefLabel: "ปฏิทิน" },
   { id: "ai_helper_toggle", locations: ["settings"], title: "เปิด/ปิด AI Helper (Nock)", keywords: ["ปิด nock", "เปิด nock", "ปิด ai", "ai helper", "ซ่อน nock"], perm: "settings.manage",
     steps: "ทั้งระบบ: Settings › ระบบ › AI (Nock) › สวิตช์ AI Helper · รายสาขา: Settings › เลือกสาขา › ข้อมูลสาขา › การ์ด AI Helper (Nock) — Nock แสดงเมื่อเปิดทั้งสองที่", href: "/settings?view=system&sys=ai", hrefLabel: "Settings › AI (Nock)" },
-  { id: "teacher_workload", locations: ["staff", "reports"], title: "ดู Workload ครู", keywords: ["workload", "ภาระงาน", "ครูสอนเยอะ", "ครูสอนหนัก", "load"], perm: "reports.view",
-    steps: "บุคลากร › คอลัมน์ Workload (ไอคอนต่อครู) หรือ Reports › Operations › Workload ครู (จ.–อา.) · วันที่สอนมากสุด 1–2 คาบ = Healthy · 3–4 = Warning · 5+ = Load! · เห็นเฉพาะ Manager ขึ้นไป", href: "/staff", hrefLabel: "บุคลากร" },
+  { id: "teacher_workload", locations: ["staff"], title: "ดู Workload ครู", keywords: ["workload", "ภาระงาน", "ครูสอนเยอะ", "ครูสอนหนัก", "load"],
+    steps: "เฉพาะ Director: หน้าบุคลากร › คอลัมน์ Class / Month (คลาสที่สอนเดือนนี้) และ Student / Month (นักเรียนไม่นับซ้ำ) · กดหัวคอลัมน์เพื่อเรียงจากมากไปน้อย · ยังไม่มีเกณฑ์ว่าเยอะหรือน้อย — ดูทั้งสองตัวคู่กัน", href: "/staff", hrefLabel: "บุคลากร" },
   { id: "switch_branch", locations: ["other"], title: "เปลี่ยนสาขาที่ทำงาน", keywords: ["เปลี่ยนสาขา", "สลับสาขา", "ดูสาขาอื่น"],
     steps: "กดการ์ดชื่อคุณที่มุมซ้ายล่าง → เลือกสาขา (เห็นเฉพาะสาขาที่คุณดูแล) · Director / Area Manager ใช้ชิปสาขาในแต่ละหน้าดูหลายสาขาพร้อมกันได้", href: "/", hrefLabel: "Dashboard" },
 ]

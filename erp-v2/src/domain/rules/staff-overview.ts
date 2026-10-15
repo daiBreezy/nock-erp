@@ -60,21 +60,15 @@ export function studentsOfTeacher(teacherId: ID, ctx: { sessions: Session[]; cla
   return [...ids]
 }
 
-/** owner 2026-10-15: a teacher's workload as one status — sessions on their busiest day this week.
- *  1–2 a day = healthy · 3–4 = warning · 5+ = overloaded (the owner will refine the logic later) */
-export type Workload = "none" | "healthy" | "warning" | "load"
-export function busiestDay(sessions: Pick<Session, "date">[]): number {
-  const perDay = new Map<DateStr, number>()
-  for (const s of sessions) perDay.set(s.date, (perDay.get(s.date) ?? 0) + 1)
-  return Math.max(0, ...perDay.values())
+/** owner 2026-10-15 (2nd round): a teacher's workload this month — no "too much / too little" judgement yet (some teach
+ *  many classes with few students, some the other way round), so it is just two numbers to sort by.
+ *  classes = different classes taught (a one-off session counts as one) · students = different students in them. */
+export interface MonthLoad { classes: number; students: number; sessions: number }
+export function monthLoad(sessions: Pick<Session, "id" | "classId" | "studentIds" | "date" | "cancelled">[], month: string): MonthLoad {
+  const mine = sessions.filter((s) => !s.cancelled && s.date.startsWith(month))
+  return {
+    classes: new Set(mine.map((s) => s.classId ?? s.id)).size,
+    students: new Set(mine.flatMap((s) => s.studentIds)).size,
+    sessions: mine.length,
+  }
 }
-export function workloadOf(sessions: Pick<Session, "date">[]): Workload {
-  return dayLevel(busiestDay(sessions))
-}
-
-/** sessions per day Mon…Sun of the week starting `monday` (owner 2026-10-15: Workload in Reports) */
-export function dayCounts(sessions: Pick<Session, "date">[], monday: DateStr): number[] {
-  return Array.from({ length: 7 }, (_, i) => sessions.filter((s) => s.date === addDays(monday, i)).length)
-}
-/** the level of one day's count — the same thresholds as `workloadOf` */
-export const dayLevel = (n: number): Workload => (n === 0 ? "none" : n <= 2 ? "healthy" : n <= 4 ? "warning" : "load")
