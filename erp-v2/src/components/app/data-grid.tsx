@@ -5,7 +5,7 @@ import { create } from "zustand"
 import { persist } from "zustand/middleware"
 import { ArrowDownIcon, ArrowUpDownIcon, ArrowUpIcon, Columns3Icon, GripVerticalIcon, InfoIcon, LockIcon, LockOpenIcon, RotateCcwIcon } from "lucide-react"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
+import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card"
 import { cn } from "@/lib/utils"
 import { useStore } from "@/store/store"
 import { HEAD, ROW, type SortState } from "./data-table"
@@ -172,12 +172,12 @@ export function DataTable<R>({ id, columns, rows, rowKey, onRowClick, rowClassNa
                         </button>
                       ) : <span className="truncate" title={c.label}>{c.label}</span>}
                       {c.info && (
-                        <Tooltip>
-                          <TooltipTrigger render={<button type="button" aria-label={`เกี่ยวกับคอลัมน์ ${c.label}`} className="ml-1 grid size-4 shrink-0 place-items-center rounded-full hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/40 focus-visible:outline-none" />}>
+                        <HoverCard>
+                          <HoverCardTrigger render={<button type="button" aria-label={`เกี่ยวกับคอลัมน์ ${c.label}`} className="ml-1 grid size-4 shrink-0 place-items-center rounded-full hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/40 focus-visible:outline-none" />}>
                             <InfoIcon className="size-3.5" />
-                          </TooltipTrigger>
-                          <TooltipContent side="bottom" align="start" className="leading-relaxed">{c.info}</TooltipContent>
-                        </Tooltip>
+                          </HoverCardTrigger>
+                          <HoverCardContent side="bottom" align="start" className="leading-relaxed">{c.info}</HoverCardContent>
+                        </HoverCard>
                       )}
                       <button type="button" onClick={() => L.toggleLock(c.id)} aria-pressed={isLocked}
                         title={isLocked ? "ปลดล็อก — กลับไปที่เดิม" : "ล็อกคอลัมน์ — ไว้ด้านหน้า ไม่เลื่อนตาม"} aria-label={isLocked ? `ปลดล็อก ${c.label}` : `ล็อก ${c.label}`}
@@ -217,13 +217,13 @@ export function ColumnsMenu<R>({ id, columns }: { id: string; columns: Column<R>
   return (
     <Popover>
       {/* owner 2026-10-12: icon only — "การจัดการคอลัมน์" on hover */}
-      <Tooltip>
-        <TooltipTrigger render={<PopoverTrigger render={<button type="button" aria-label="การจัดการคอลัมน์" className={cn("relative grid size-9 shrink-0 place-items-center rounded-full", L.custom ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground hover:text-foreground")} />} />}>
+      <HoverCard>
+        <HoverCardTrigger render={<PopoverTrigger render={<button type="button" aria-label="การจัดการคอลัมน์" className={cn("relative grid size-9 shrink-0 place-items-center rounded-full", L.custom ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground hover:text-foreground")} />} />}>
           <Columns3Icon className="size-4" />
           {L.hidden.length > 0 && <span className="absolute -top-1 -right-1 rounded-full bg-primary px-1 text-[10px] leading-4 font-semibold text-primary-foreground tabular-nums">{L.hidden.length}</span>}
-        </TooltipTrigger>
-        <TooltipContent>การจัดการคอลัมน์{L.hidden.length > 0 ? ` · ซ่อน ${L.hidden.length}` : ""}</TooltipContent>
-      </Tooltip>
+        </HoverCardTrigger>
+        <HoverCardContent>การจัดการคอลัมน์{L.hidden.length > 0 ? ` · ซ่อน ${L.hidden.length}` : ""}</HoverCardContent>
+      </HoverCard>
       <PopoverContent align="end" className="w-64 gap-0 p-1.5">
         <p className="px-2 pt-1 pb-1.5 text-xs text-muted-foreground">ลากเพื่อเรียง · ติ๊กเพื่อแสดง · กุญแจ = ล็อกไว้ด้านหน้า</p>
         <ul>

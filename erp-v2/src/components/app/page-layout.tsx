@@ -8,7 +8,7 @@
 // Same width and spacing everywhere; Calendar and Inbox stay full-screen work areas.
 import { ChevronLeftIcon, ChevronRightIcon, EyeIcon, EyeOffIcon, SearchIcon } from "lucide-react"
 import { cn } from "@/lib/utils"
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
+import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card"
 
 export function Page({ children, className }: { children: React.ReactNode; className?: string }) {
   return <div className={cn("mx-auto max-w-7xl space-y-4", className)}>{children}</div>
@@ -106,12 +106,12 @@ export function Segmented<T extends string>({ value, onChange, options, classNam
         if (iconOnly && o.icon) {
           const Icon = o.icon
           return (
-            <Tooltip key={o.value}>
-              <TooltipTrigger render={<button type="button" aria-pressed={value === o.value} aria-label={typeof o.label === "string" ? o.label : undefined} onClick={() => onChange(o.value)} className={cls} />}>
+            <HoverCard key={o.value}>
+              <HoverCardTrigger render={<button type="button" aria-pressed={value === o.value} aria-label={typeof o.label === "string" ? o.label : undefined} onClick={() => onChange(o.value)} className={cls} />}>
                 <Icon className="size-4" />
-              </TooltipTrigger>
-              <TooltipContent>{o.title ?? o.label}</TooltipContent>
-            </Tooltip>
+              </HoverCardTrigger>
+              <HoverCardContent>{o.title ?? o.label}</HoverCardContent>
+            </HoverCard>
           )
         }
         return (

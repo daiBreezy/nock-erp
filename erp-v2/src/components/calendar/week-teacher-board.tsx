@@ -7,7 +7,7 @@ import type { ClassPrefill } from "@/components/app/class-dialog"
 import { ConflictResolver, liveConflicts } from "@/components/app/conflict-resolver"
 import { avatarTone, gradeTone, initial, subjectColor } from "@/components/app/subject-color"
 import { Badge } from "@/components/ui/badge"
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
+import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
@@ -489,20 +489,20 @@ function SessionBlock({ s, room, state, ended, dayDate, canEdit, onOpen, klass, 
           const kind = kindOf(s, klass)
           const K = kind ? KIND_ICON[kind] : null
           return K && (
-            <Tooltip>
-              <TooltipTrigger render={<span tabIndex={0} aria-label={K.label} className={cn("ml-auto grid size-5 shrink-0 place-items-center rounded-full", K.tone)} />}>
+            <HoverCard>
+              <HoverCardTrigger render={<span tabIndex={0} aria-label={K.label} className={cn("ml-auto grid size-5 shrink-0 place-items-center rounded-full", K.tone)} />}>
                 <K.icon className="size-3" />
-              </TooltipTrigger>
-              <TooltipContent>{K.label}</TooltipContent>
-            </Tooltip>
+              </HoverCardTrigger>
+              <HoverCardContent>{K.label}</HoverCardContent>
+            </HoverCard>
           )
         })()}
-        <Tooltip>
-          <TooltipTrigger render={<span tabIndex={0} aria-label={St.label} className={cn("inline-flex shrink-0", !kindOf(s, klass) && "ml-auto", dot && "mr-3")} />}>
+        <HoverCard>
+          <HoverCardTrigger render={<span tabIndex={0} aria-label={St.label} className={cn("inline-flex shrink-0", !kindOf(s, klass) && "ml-auto", dot && "mr-3")} />}>
             <St.icon className={cn("size-3.5", state === "live" ? "text-primary" : St.tone)} />
-          </TooltipTrigger>
-          <TooltipContent>{St.label}</TooltipContent>
-        </Tooltip>
+          </HoverCardTrigger>
+          <HoverCardContent>{St.label}</HoverCardContent>
+        </HoverCard>
       </div>
       {/* owner 2026-10-15: class on top, then the room (day view) */}
       {room}
@@ -575,12 +575,12 @@ function StudentLine({ drag, nickname, grade, avatarKey, notes, time, result, mo
         ) : <span className="flex-1" />}
         {/* owner 2026-10-15: part of the class only — an icon here, the hours on hover (and in the panel) */}
         {time && (
-          <Tooltip>
-            <TooltipTrigger render={<span tabIndex={0} aria-label={`เรียนเฉพาะ ${time}`} className="inline-flex shrink-0 rounded-full focus-visible:ring-2 focus-visible:ring-ring/40 focus-visible:outline-none" />}>
+          <HoverCard>
+            <HoverCardTrigger render={<span tabIndex={0} aria-label={`เรียนเฉพาะ ${time}`} className="inline-flex shrink-0 rounded-full focus-visible:ring-2 focus-visible:ring-ring/40 focus-visible:outline-none" />}>
               <Clock3Icon className={cn("size-4", inverted ? "text-white" : "text-violet-600 dark:text-violet-300")} />
-            </TooltipTrigger>
-            <TooltipContent>{`เรียนเฉพาะช่วง ${time}`}</TooltipContent>
-          </Tooltip>
+            </HoverCardTrigger>
+            <HoverCardContent>{`เรียนเฉพาะช่วง ${time}`}</HoverCardContent>
+          </HoverCard>
         )}
         {result && <span title={result.text} className="inline-flex shrink-0"><result.icon className={cn("size-4", inverted ? "text-white" : result.tone)} aria-label={result.text} /></span>}
         {grade && <span className={cn("shrink-0 rounded-full px-2 py-0.5 text-xs font-semibold", gradeTone(grade))}>{grade}</span>}

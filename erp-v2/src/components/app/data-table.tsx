@@ -3,7 +3,7 @@
 import { useState } from "react"
 import { ChevronLeftIcon, ChevronRightIcon } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
+import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card"
 import { cn } from "@/lib/utils"
 
 /** Shared bits for list pages shown as data tables (owner 2026-09-28: tables, not cards — easier to scan).
@@ -71,9 +71,9 @@ export function GradeCell({ grade, tone }: { grade: string; tone: string }) {
 export function MidText({ text, head = 6, tail = 4, className }: { text: string; head?: number; tail?: number; className?: string }) {
   if (text.length <= head + tail + 1) return <span className={className}>{text}</span>
   return (
-    <Tooltip>
-      <TooltipTrigger render={<span className={cn("cursor-default whitespace-nowrap", className)} />}>{text.slice(0, head)}…{text.slice(-tail)}</TooltipTrigger>
-      <TooltipContent>{text}</TooltipContent>
-    </Tooltip>
+    <HoverCard>
+      <HoverCardTrigger render={<span className={cn("cursor-default whitespace-nowrap", className)} />}>{text.slice(0, head)}…{text.slice(-tail)}</HoverCardTrigger>
+      <HoverCardContent>{text}</HoverCardContent>
+    </HoverCard>
   )
 }

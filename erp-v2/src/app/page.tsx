@@ -14,7 +14,7 @@ import { Delta, fmtNum } from "@/components/reports/charts"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
+import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card"
 import { addDays, endTime, fmtDate, fmtMoney, toDateStr } from "@/domain/dates"
 import * as Att from "@/domain/rules/attendance"
 import { canApprove as canApproveInvoice, invoiceTotals } from "@/domain/rules/billing"
@@ -274,13 +274,13 @@ function ActivityButton({ items, today }: { items: Activity[]; today: string }) 
   const days = [...new Set(items.map((e) => dayOf(e.at)))]
   return (
     <>
-      <Tooltip>
-        <TooltipTrigger render={<Button variant="outline" size="icon-sm" className="relative" aria-label={tx("กิจกรรมล่าสุด")} onClick={() => setOpen(true)} />}>
+      <HoverCard>
+        <HoverCardTrigger render={<Button variant="outline" size="icon-sm" className="relative" aria-label={tx("กิจกรรมล่าสุด")} onClick={() => setOpen(true)} />}>
           <HistoryIcon />
           {todayCount > 0 && <span className="absolute -top-1.5 -right-1.5 min-w-4 rounded-full bg-primary px-1 text-[10px] leading-4 font-semibold text-primary-foreground tabular-nums">{todayCount}</span>}
-        </TooltipTrigger>
-        <TooltipContent>{tx("กิจกรรมล่าสุด")}</TooltipContent>
-      </Tooltip>
+        </HoverCardTrigger>
+        <HoverCardContent>{tx("กิจกรรมล่าสุด")}</HoverCardContent>
+      </HoverCard>
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-md">
           <DialogHeader>
@@ -403,12 +403,12 @@ function PeriodOverview({ range, rangeLabel, revRows, events, students, leads, s
           <CardContent>
             <div className="flex h-40 items-end gap-1">
               {perDay.map((x) => (
-                <Tooltip key={x.d}>
-                  <TooltipTrigger render={<div className="flex h-full min-w-0 flex-1 flex-col justify-end" />}>
+                <HoverCard key={x.d}>
+                  <HoverCardTrigger render={<div className="flex h-full min-w-0 flex-1 flex-col justify-end" />}>
                     <div className={cn("w-full rounded-t-md", x.total ? "bg-violet-500" : "bg-muted", x.d === today && "bg-primary")} style={{ height: `${Math.max(2, (x.total / max) * 100)}%` }} />
-                  </TooltipTrigger>
-                  <TooltipContent>{fmtDate(x.d, { weekday: true })} · {fmtMoney(x.total)}</TooltipContent>
-                </Tooltip>
+                  </HoverCardTrigger>
+                  <HoverCardContent>{fmtDate(x.d, { weekday: true })} · {fmtMoney(x.total)}</HoverCardContent>
+                </HoverCard>
               ))}
             </div>
             <div className="mt-1 flex gap-1 text-[10px] text-muted-foreground tabular-nums">

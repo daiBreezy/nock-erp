@@ -1,4 +1,4 @@
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
+import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card"
 
 /**
  * Chips in one line (owner 2026-10-13): the first chip, then "+N" for the rest — hover the badge to see them all.
@@ -11,10 +11,10 @@ export function ChipOverflow<T>({ items, render, label }: { items: T[]; render: 
     <span className="inline-flex items-center gap-1 whitespace-nowrap">
       {render(first)}
       {rest.length > 0 && (
-        <Tooltip>
-          <TooltipTrigger render={<span className="inline-flex cursor-default items-center rounded-full bg-muted px-1.5 py-0.5 text-xs font-medium text-muted-foreground tabular-nums" />}>+{rest.length}</TooltipTrigger>
-          <TooltipContent side="bottom" className="flex flex-col gap-1">{rest.map((x, i) => <span key={i}>{label(x)}</span>)}</TooltipContent>
-        </Tooltip>
+        <HoverCard>
+          <HoverCardTrigger render={<span className="inline-flex cursor-default items-center rounded-full bg-muted px-1.5 py-0.5 text-xs font-medium text-muted-foreground tabular-nums" />}>+{rest.length}</HoverCardTrigger>
+          <HoverCardContent side="bottom" className="flex flex-col gap-1">{rest.map((x, i) => <span key={i}>{label(x)}</span>)}</HoverCardContent>
+        </HoverCard>
       )}
     </span>
   )

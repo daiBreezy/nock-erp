@@ -30,7 +30,7 @@ import { pullSurveyResponses } from "@/lib/forms"
 import * as Survey from "@/domain/rules/survey"
 import { cn } from "@/lib/utils"
 import { useStore } from "@/store/store"
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
+import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card"
 import { tx, uiLang, nm, sj } from "@/lib/i18n"
 
 type Tab = "summary" | "overview" | "revenue" | "students" | "attendance" | "operations" | "crm" | "satisfaction"
@@ -95,7 +95,7 @@ function Reports() {
   return (
     <Page className="space-y-5 print:max-w-none print:space-y-3">
       <title>Reports · NockERP</title>
-      <PageHeader title={<span className="inline-flex items-center gap-2">Reports <Tooltip><TooltipTrigger render={<button type="button" aria-label="รายละเอียดรายงาน" className="rounded-full text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" />}><InfoIcon className="size-4" /></TooltipTrigger><TooltipContent className="max-w-sm">{scopeLabel} · {periodLabel}{period !== "custom" && ` ${fmtDate(d.range.from)} – ${fmtDate(d.range.to)}`}  {tx("· เทียบ")} {fmtDate(d.prev.from, { year: d.prev.from.slice(0, 4) !== d.range.from.slice(0, 4) })} – {fmtDate(d.prev.to, { year: d.prev.to.slice(0, 4) !== d.range.to.slice(0, 4) })}  {tx("· ข้อมูลจริงจากใบแจ้งหนี้ที่จ่ายแล้ว แพ็กเกจ และการเช็คชื่อ")}</TooltipContent></Tooltip></span>}
+      <PageHeader title={<span className="inline-flex items-center gap-2">Reports <HoverCard><HoverCardTrigger render={<button type="button" aria-label="รายละเอียดรายงาน" className="rounded-full text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" />}><InfoIcon className="size-4" /></HoverCardTrigger><HoverCardContent className="max-w-sm">{scopeLabel} · {periodLabel}{period !== "custom" && ` ${fmtDate(d.range.from)} – ${fmtDate(d.range.to)}`}  {tx("· เทียบ")} {fmtDate(d.prev.from, { year: d.prev.from.slice(0, 4) !== d.range.from.slice(0, 4) })} – {fmtDate(d.prev.to, { year: d.prev.to.slice(0, 4) !== d.range.to.slice(0, 4) })}  {tx("· ข้อมูลจริงจากใบแจ้งหนี้ที่จ่ายแล้ว แพ็กเกจ และการเช็คชื่อ")}</HoverCardContent></HoverCard></span>}
         description="รายงานสรุปข้อมูลในหัวข้อต่างๆ"
         actions={<>
           {allowed.length > 1 && <BranchChip className="print:hidden" value={scope} onChange={setScope} options={scopeOptions} active={scope !== "all"} />}
@@ -611,12 +611,12 @@ function StudentsTab({ d, compare, onOpen }: { d: ReportData; compare: boolean; 
 function SchoolWhere({ row, branches }: { row: SchoolRow; branches: Branch[] }) {
   const list = row.branches.map((b) => ({ ...b, br: branches.find((x) => x.id === b.id) }))
   return (
-    <Tooltip>
-      <TooltipTrigger render={<span className="block cursor-default truncate" />}>
+    <HoverCard>
+      <HoverCardTrigger render={<span className="block cursor-default truncate" />}>
         {row.regions.map((r) => <span key={r} className="mr-1 rounded bg-sky-100 px-1 text-[10px] font-semibold text-sky-800 dark:bg-sky-950 dark:text-sky-200">{r}</span>)}
         {list.map((b, i) => <span key={b.id}>{i > 0 && " · "}{b.br?.code ?? "?"} <span className="tabular-nums">{b.count}</span></span>)}
-      </TooltipTrigger>
-      <TooltipContent side="bottom" align="start" className="p-2.5">
+      </HoverCardTrigger>
+      <HoverCardContent side="bottom" align="start" className="p-2.5">
         <table className="text-xs">
           <tbody>
             {list.map((b) => (
@@ -628,8 +628,8 @@ function SchoolWhere({ row, branches }: { row: SchoolRow; branches: Branch[] }) 
             ))}
           </tbody>
         </table>
-      </TooltipContent>
-    </Tooltip>
+      </HoverCardContent>
+    </HoverCard>
   )
 }
 

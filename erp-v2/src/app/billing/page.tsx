@@ -7,7 +7,7 @@ import { SalesTaxDialog } from "@/components/billing/sales-tax-dialog"
 import { Suspense, useState } from "react"
 import { useSearchParams } from "next/navigation"
 import { BadgeCheckIcon, FileClockIcon, HourglassIcon, PlusIcon, SearchIcon, SendIcon, WalletIcon, type LucideIcon } from "lucide-react"
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
+import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card"
 import { Pill } from "@/components/app/badges"
 import { InvoiceSheet } from "@/components/billing/invoice-sheet"
 import { invoiceTone } from "@/components/billing/status"
@@ -173,9 +173,9 @@ function BillingPage() {
 /** a small warning icon after the status; hover says what it means */
 function Flag({ icon: Icon, tone, text }: { icon: LucideIcon; tone: string; text: string }) {
   return (
-    <Tooltip>
-      <TooltipTrigger render={<span className={cn("grid size-5 cursor-default place-items-center", tone)} aria-label={text} />}><Icon className="size-3.5" /></TooltipTrigger>
-      <TooltipContent>{text}</TooltipContent>
-    </Tooltip>
+    <HoverCard>
+      <HoverCardTrigger render={<span className={cn("grid size-5 cursor-default place-items-center", tone)} aria-label={text} />}><Icon className="size-3.5" /></HoverCardTrigger>
+      <HoverCardContent>{text}</HoverCardContent>
+    </HoverCard>
   )
 }
