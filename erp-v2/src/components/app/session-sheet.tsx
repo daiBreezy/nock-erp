@@ -8,7 +8,7 @@ import {
   AlertTriangleIcon, BanIcon, CalendarClockIcon, CheckIcon, ChevronLeftIcon, ChevronRightIcon, ClockIcon, EllipsisVerticalIcon, FlameIcon,
   GraduationCapIcon, LogOutIcon, PencilIcon, SendIcon, StarIcon, Trash2Icon, UserMinusIcon, UserPlusIcon, UsersRoundIcon, XIcon,
   RotateCcwIcon,
-  PinIcon, StickyNoteIcon, CalendarDaysIcon, Clock3Icon, DoorOpenIcon, UserIcon, UsersIcon,
+  CalendarDaysIcon, Clock3Icon, DoorOpenIcon, UserIcon, UsersIcon,
 } from "lucide-react"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
@@ -23,7 +23,7 @@ import { LongLeaveFields } from "@/components/app/leave-dialog"
 import { addDays, endTime, fmtDate, fmtDateTime, fromMinutes, TH_DAYS_FULL, toMinutes } from "@/domain/dates"
 import * as Att from "@/domain/rules/attendance"
 import * as Seats from "@/domain/rules/seats"
-import { calendarNotesFor, NOTE_KIND_LABEL } from "@/domain/rules/calendar-notes"
+import { CalendarNotes } from "@/components/calendar/calendar-notes-ui"
 import { shortCourse } from "@/domain/rules/course"
 import * as Les from "@/domain/rules/lessons"
 import type { SummaryLesson } from "@/store/store"
@@ -315,8 +315,6 @@ function StudentRow({ s, sid, viewOnly, canManage, mine, text, setText, selectab
   const ent = Att.coveringEntitlement(sid, s, entitlements)
   const asm = assessmentIn(s.id, sid, assessments)
   const onLongLeave = Att.activeLeave(sid, s.date, leaves)
-  // owner 2026-10-15: Note Calendar (ถาวร / ชั่วคราว) — written and edited on the calendar board
-  const sessionNotes = calendarNotesFor(s, sid, useStore((st) => st.calendarNotes))
   const canMarkHere = can(me, "attendance.mark") && (canManage || mine)
   const byId = new Map(allSessions.map((x) => [x.id, x]))
   // first class ever for this student → "ใหม่"
@@ -383,7 +381,8 @@ function StudentRow({ s, sid, viewOnly, canManage, mine, text, setText, selectab
                 </span>
               })()}
           </p>
-          {sessionNotes.map((n) => <p key={n.id} className="flex items-center gap-1 truncate text-xs text-foreground/80" title={`Note ${NOTE_KIND_LABEL[n.kind]} · ${n.text}`}>{n.kind === "permanent" ? <PinIcon className="size-3 shrink-0 text-primary" /> : <StickyNoteIcon className="size-3 shrink-0 text-muted-foreground" />}<span className="truncate">{n.text}</span></p>)}
+          {/* owner 2026-10-15: Note Calendar managed right here too — add, edit, delete */}
+          <CalendarNotes s={s} studentId={sid} canEdit={canManage || mine} />
         </div>
         {/* grade on the right of the text, centred on the row (owner 2026-09-30 · centred 2026-10-15) */}
         <span className={cn("shrink-0 self-center rounded-full px-2 py-0.5 text-xs font-semibold", gradeTone(stu?.grade ?? ""))}>{stu?.grade}</span>

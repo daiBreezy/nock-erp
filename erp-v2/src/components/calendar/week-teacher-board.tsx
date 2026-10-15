@@ -1,7 +1,7 @@
 "use client"
 
 import { staffAt } from "@/domain/rules/permissions"
-import { Fragment, useMemo, useRef, useState } from "react"
+import { Fragment, useMemo, useState } from "react"
 import { AlertTriangleIcon, Clock3Icon, CalendarOffIcon, CircleCheckIcon, CircleDashedIcon, CircleXIcon, ArrowLeftRightIcon, BanIcon, EllipsisIcon, CheckIcon, RotateCcwIcon, PencilLineIcon, PinIcon, PlusIcon, Trash2Icon, UserIcon, UsersIcon } from "lucide-react"
 import type { ClassPrefill } from "@/components/app/class-dialog"
 import { ConflictResolver, liveConflicts } from "@/components/app/conflict-resolver"
@@ -20,7 +20,8 @@ import { PersonAvatar } from "@/components/app/photo-cell"
 import { WORK_ICON, WORK_ICON_TONE, WORK_ORDER } from "@/components/app/work-state"
 import { KIND_ICON, kindOf, RoomMeta, StudentsMeta } from "@/components/calendar/session-meta"
 import { subjectAbbr } from "@/domain/rules/settings"
-import { calendarNotesFor, CALENDAR_NOTE_MAX, NOTE_KIND_LABEL } from "@/domain/rules/calendar-notes"
+import { calendarNotesFor, NOTE_KIND_LABEL } from "@/domain/rules/calendar-notes"
+import { NoteEditor } from "@/components/calendar/calendar-notes-ui"
 import type { Attendance, CalendarNoteKind, DateStr, Klass, Session, TimeStr } from "@/domain/types"
 import { report } from "@/lib/feedback"
 import { toast } from "sonner"
@@ -569,9 +570,9 @@ function StudentLine({ drag, nickname, grade, avatarKey, notes, time, result, mo
         {result && <span title={result.text} className="inline-flex shrink-0"><result.icon className={cn("size-4", inverted ? "text-white" : result.tone)} aria-label={result.text} /></span>}
         {grade && <span className={cn("shrink-0 rounded-full px-2 py-0.5 text-xs font-semibold", gradeTone(grade))}>{grade}</span>}
       </div>
-      {adding && <NoteEditor kind="temporary" canPermanent={canPermanent} onDone={(text, kind) => { setAdding(false); if (text) onAddNote(text, kind) }} />}
+      {adding && <NoteEditor className="pl-8" kind="temporary" canPermanent={canPermanent} onDone={(text, kind) => { setAdding(false); if (text) onAddNote(text, kind) }} />}
       {notes.map((n) => editing === n.id ? (
-        <NoteEditor key={n.id} text={n.text} kind={n.kind} canPermanent={canPermanent || n.kind === "permanent"}
+        <NoteEditor key={n.id} className="pl-8" text={n.text} kind={n.kind} canPermanent={canPermanent || n.kind === "permanent"}
           onDone={(text, kind) => { setEditing(null); if (text && (text !== n.text || kind !== n.kind)) onEditNote(n.id, text, kind) }} />
       ) : (
         <div key={n.id} className="group/note flex min-w-0 items-center gap-1 pl-8">
@@ -598,32 +599,3 @@ function StudentLine({ drag, nickname, grade, avatarKey, notes, time, result, mo
   )
 }
 
-/** add / edit one Note Calendar: text + ชั่วคราว | ถาวร. Enter or leaving the box saves, Esc cancels. */
-function NoteEditor({ text: initialText = "", kind: initialKind, canPermanent, onDone }: {
-  text?: string; kind: CalendarNoteKind; canPermanent: boolean; onDone: (text: string, kind: CalendarNoteKind) => void
-}) {
-  const [text, setText] = useState(initialText)
-  const [kind, setKind] = useState<CalendarNoteKind>(initialKind)
-  const box = useRef<HTMLDivElement>(null)
-  const done = useRef(false)
-  const finish = (t: string) => { if (done.current) return; done.current = true; onDone(t.trim(), kind) }
-  const kinds: CalendarNoteKind[] = ["temporary", "permanent"]
-  return (
-    <div ref={box} className="mt-1 space-y-1 pl-8" onBlur={(e) => { if (!box.current?.contains(e.relatedTarget as Node)) finish(text) }}>
-      <input autoFocus value={text} maxLength={CALENDAR_NOTE_MAX} onChange={(e) => setText(e.target.value)}
-        onKeyDown={(e) => { if (e.key === "Enter") finish(text); if (e.key === "Escape") finish("") }}
-        placeholder="Note เช่น MBook 1 (2-4)" className="h-7 w-full min-w-0 rounded-full border bg-background px-2.5 text-xs text-foreground outline-none focus:ring-2 focus:ring-ring/30" />
-      <div className="flex items-center gap-1">
-        {kinds.map((k) => (
-          <button key={k} type="button" aria-pressed={kind === k} disabled={k === "permanent" && !canPermanent}
-            title={k === "permanent" ? (canPermanent ? "แสดงทุกคาบของคลาสนี้" : "คาบนี้ไม่ได้อยู่ในคลาสประจำ") : "แสดงเฉพาะคาบนี้"}
-            onClick={() => setKind(k)}
-            className={cn("flex h-6 items-center gap-1 rounded-full px-2 text-[11px] font-medium disabled:opacity-40", kind === k ? "bg-primary/10 text-primary ring-1 ring-primary/30" : "bg-muted text-muted-foreground hover:text-foreground")}>
-            {k === "permanent" && <PinIcon className="size-3" />}{NOTE_KIND_LABEL[k]}
-          </button>
-        ))}
-        <button type="button" onClick={() => finish(text)} aria-label="บันทึก Note" className="ml-auto grid size-6 place-items-center rounded-full bg-primary text-primary-foreground hover:bg-primary/90"><CheckIcon className="size-3.5" /></button>
-      </div>
-    </div>
-  )
-}
