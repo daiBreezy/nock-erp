@@ -19,6 +19,7 @@ import * as Inbox from "@/domain/rules/inbox"
 import { can, canDeactivateStaff, canEditBlocks, inBranch, OFFICE_ROLES, require as requirePerm, staffAt } from "@/domain/rules/permissions"
 import * as Sch from "@/domain/rules/scheduling"
 import * as CN from "@/domain/rules/calendar-notes"
+import { keepLineLinks } from "./keep-line-links"
 import * as Sum from "@/domain/rules/summaries"
 import * as People from "@/domain/rules/people"
 import * as Forms from "@/domain/rules/forms"
@@ -2807,22 +2808,6 @@ export const useStore = create<Store>()(
  * (new data version / รีเซ็ตข้อมูล) keeps it: the same-named family gets the LINE user back, and so does its chat.
  * (owner 2026-10-14: the rich-menu parent app stopped opening after a reseed dropped the link)
  */
-function keepLineLinks<T extends { families: Store["families"]; conversations: Store["conversations"] }>(old: Partial<Store> | undefined, fresh: T): T {
-  const links = (old?.families ?? []).filter((f) => f.lineUserId).map((f) => ({ id: f.id, name: f.name, lineUserId: f.lineUserId! }))
-  if (!links.length) return fresh
-  // the same family id first; else the name — only when one family carries it (several "ครอบครัวแสงใหญ่" exist)
-  const unique = (name: string) => fresh.families.filter((f) => f.name === name).length === 1
-  const target = new Map(links.map((l) => [fresh.families.some((f) => f.id === l.id) ? l.id : unique(l.name) ? fresh.families.find((f) => f.name === l.name)!.id : "", l.lineUserId]))
-  const families = fresh.families.map((f) => {
-    const lineUserId = target.get(f.id)
-    return lineUserId ? { ...f, lineUserId, parents: f.parents.map((p, i) => (i === 0 ? { ...p, lineLinked: true } : p)) } : f
-  })
-  const famOf = new Map(families.filter((f) => f.lineUserId).map((f) => [`line_${f.lineUserId}`, f]))
-  // the LINE chats themselves come back from the server on the next poll; keep their family link with them
-  const oldConvs = (old?.conversations ?? []).filter((c) => famOf.has(c.id) && !fresh.conversations.some((x) => x.id === c.id))
-  const conversations = [...fresh.conversations, ...oldConvs].map((c) => { const f = famOf.get(c.id); return f ? { ...c, familyId: f.id, leadId: null, name: f.name } : c })
-  return { ...fresh, families, conversations }
-}
 
 // ---------- change tracking (owner 2026-10-01) ----------
 // Any change made to a session marks it "changed" (its teachers see a red dot on the teacher board until they open it)
