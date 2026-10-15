@@ -2443,7 +2443,7 @@ export const useStore = create<Store>()(
         const now = s.now()
         // same family when the LINE account or any parent phone is already on file (siblings, returning families)
         const matched = People.matchExistingFamily(s.families, { lineUserId: sub.lineUserId, phones: sub.parents.map((p) => p.phone) })
-        const family = matched ?? People.familyFromSubmission(sub.children[0].name, sub.parents, { address: sub.familyAddress, postcode: sub.familyPostcode, province: sub.familyProvince, location: sub.familyLocation, addressNote: sub.familyAddressNote, sources: sub.acquisitions, taxInfo: sub.taxInfo }, sub.lineUserId, uid("fam"))
+        const family = matched ?? People.familyFromSubmission(sub.children[0].name, sub.parents, { name: sub.familyName, nameEn: sub.familyNameEn, address: sub.familyAddress, postcode: sub.familyPostcode, province: sub.familyProvince, location: sub.familyLocation, addressNote: sub.familyAddressNote, sources: sub.acquisitions, taxInfo: sub.taxInfo }, sub.lineUserId, uid("fam"))
         const parent = sub.parents.find((p) => p.primary) ?? sub.parents[0]
         const students: Student[] = [], leads: Lead[] = [], invoices: Invoice[] = []
         let leadsNow = s.leads
@@ -2456,6 +2456,7 @@ export const useStore = create<Store>()(
           const known = s.students.find((x) => x.familyId === family.id && x.name.trim() === child.name.trim())
           const note = [child.note, child.placement ? "ผู้ปกครองขอให้ครูประเมินระดับในคาบแรก (ไม่ได้สอบวัดระดับ)" : ""].filter(Boolean).join(" · ")
           const stu: Student = known ?? { id: uid("stu"), familyId: family.id, branchId: branch.id, name: child.name, nickname: child.nickname || People.nicknameFrom(child.name), grade: child.grade, usesBus: child.bus,
+            nameEn: child.nameEn?.trim() || undefined, nicknameEn: child.nicknameEn?.trim() || undefined, gender: child.gender, schoolId: child.schoolId,
             birthDate: child.birthDate, school: child.school, note: note || undefined, createdAt: now.toISOString(), createdBranchId: branch.id }
           if (!known) {
             const errs = People.validateStudent(stu, toDateStr(now))
@@ -2585,6 +2586,7 @@ export const useStore = create<Store>()(
           const student: Student = {
             id: uid("stu"), familyId: null, branchId: lead.branchId,
             name: sub.studentName, nickname: sub.studentNickname?.trim() || People.nicknameFrom(sub.studentName),
+            nameEn: sub.studentNameEn?.trim() || undefined, nicknameEn: sub.studentNicknameEn?.trim() || undefined, gender: sub.studentGender, schoolId: sub.studentSchoolId,
             grade: sub.studentGrade, usesBus: false, birthDate: sub.studentBirthDate, school: sub.studentSchool?.trim() || undefined, note: sub.studentNote,
             createdAt: s.now().toISOString(), createdBranchId: lead.branchId,
           }
@@ -2595,7 +2597,7 @@ export const useStore = create<Store>()(
           // already on file) instead of creating a duplicate for a returning family or a sibling — never
           // overwrites what's on file, staff review any differences before this point (SubmissionReviewCard)
           const matched = People.matchExistingFamily(s.families, { lineUserId: lead.lineUserId, phones: sub.parents.map((p) => p.phone) })
-          const family = matched ?? People.familyFromSubmission(sub.studentName, sub.parents, { address: sub.familyAddress, postcode: sub.familyPostcode, province: sub.familyProvince, location: sub.familyLocation, addressNote: sub.familyAddressNote, sources: sub.acquisitions, taxInfo: sub.taxInfo }, lead.lineUserId, uid("fam"))
+          const family = matched ?? People.familyFromSubmission(sub.studentName, sub.parents, { name: sub.familyName, nameEn: sub.familyNameEn, address: sub.familyAddress, postcode: sub.familyPostcode, province: sub.familyProvince, location: sub.familyLocation, addressNote: sub.familyAddressNote, sources: sub.acquisitions, taxInfo: sub.taxInfo }, lead.lineUserId, uid("fam"))
           set((cur) => ({
             families: matched ? cur.families : [...cur.families, family],
             conversations: cur.conversations.map((c) => (c.leadId === leadId || (lead!.lineUserId && c.id === `line_${lead!.lineUserId}`) ? { ...c, familyId: family.id } : c)),

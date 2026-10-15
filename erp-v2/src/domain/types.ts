@@ -763,7 +763,7 @@ export interface EnrollToken {
   used: boolean
 }
 
-export interface EnrollChild {
+export interface EnrollChild extends FormStudentExtras {
   name: string
   nickname?: string
   grade: string
@@ -797,6 +797,9 @@ export interface EnrollSubmission {
   familyAddressNote?: string
   acquisitions?: LeadSource[]
   taxInfo?: { customerName: string; taxId: string; address: string }
+  /** the family name the parent typed (optional — empty = "ครอบครัว" + the main parent's surname) */
+  familyName?: string
+  familyNameEn?: string
   children: EnrollChild[]
   acceptedTerms: boolean
   lang: FormLang
@@ -1321,6 +1324,8 @@ export interface FormToken {
  *  those only make sense once merged into an actual `Family`). */
 export interface FormParentInput {
   name: string
+  /** owner 2026-10-15: the form and the admin panel collect the same fields — English name optional on both */
+  nameEn?: string
   phone: string
   email?: string
   relationship?: string
@@ -1346,7 +1351,18 @@ export interface FormPrefill {
   addressNote?: string
   acquisitions?: LeadSource[]
   taxInfo?: { customerName: string; taxId: string; address: string }
-  students: { name: string; nickname?: string; grade: string; birthDate?: DateStr; school?: string; note?: string; interests?: string[] }[]
+  familyName?: string
+  familyNameEn?: string
+  students: ({ name: string; nickname?: string; grade: string; birthDate?: DateStr; school?: string; note?: string; interests?: string[] } & FormStudentExtras)[]
+}
+
+/** owner 2026-10-15: the extra (optional) child fields the admin panel always had — the parent form asks them too */
+export interface FormStudentExtras {
+  /** Ministry school code when picked from the list (same picker on the form and in the ERP) */
+  schoolId?: string
+  nameEn?: string
+  nicknameEn?: string
+  gender?: Gender
 }
 
 /** One subject + the exact slot chosen for it — a submission row now holds one of these per subject
@@ -1390,6 +1406,13 @@ export interface FormSubmission {
   studentBirthDate?: DateStr
   studentSchool?: string
   studentNote?: string
+  studentSchoolId?: string
+  studentNameEn?: string
+  studentNicknameEn?: string
+  studentGender?: Gender
+  /** the family name the parent typed (optional — empty = "ครอบครัว" + the main parent's surname) */
+  familyName?: string
+  familyNameEn?: string
   picks: FormPick[]
   status: FormStatus
   submittedAt: string

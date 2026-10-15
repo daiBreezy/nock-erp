@@ -10,7 +10,7 @@ import { busRate, copyHours, gradeLabel, subjectLabel, priceOf, priceRange, setP
 import { forceAudience, isUnread, messageAudience, notify, validateMessage, visibleTo } from "./notifications"
 import * as Sum from "./summaries"
 import { chatDayLabel, groupByDay } from "./inbox"
-import { familyFromLead, futureSessionsOf, matchExistingFamily, mergeSubmission, nicknameFrom, searchStudents, studentLabel, submissionChanges, validateFamily, validateStaff, validateStudent } from "./people"
+import { familyFromLead, familyFromSubmission, familyNameFor, splitName, joinName, futureSessionsOf, matchExistingFamily, mergeSubmission, nicknameFrom, searchStudents, studentLabel, submissionChanges, validateFamily, validateStaff, validateStudent } from "./people"
 import { suggestFixes } from "./suggest"
 import { advanceStage, canSetStage, daysAgo, groupOf, restoreStage, validateLead } from "./crm"
 import { APPROVE_STAGE, ATTENDED_STAGE, buildFormPrefill, commonSlots, buildCombinedSessionDraft, buildSessionDraftFromSlot, findOfferSlots, lastAssessmentDate, openHourStarts, sessionKindLabel } from "./forms"
@@ -2484,5 +2484,30 @@ describe("Inbox — date separators instead of a time on every bubble (owner 202
     const at = (d: string, h: number) => new Date(`${d}T${String(h).padStart(2, "0")}:00:00`).toISOString()
     const g = groupByDay([{ at: at("2026-10-14", 9) }, { at: at("2026-10-14", 23) }, { at: at("2026-10-15", 0) }])
     expect(g.map((x) => [x.day, x.items.length])).toEqual([["2026-10-14", 2], ["2026-10-15", 1]])
+  })
+})
+
+describe("Form and admin panel collect the same fields (owner 2026-10-15)", () => {
+  it("names are first + surname", () => {
+    expect(splitName("สุดา ใจดี")).toEqual({ first: "สุดา", last: "ใจดี" })
+    expect(splitName("Mary Jane Watson")).toEqual({ first: "Mary Jane", last: "Watson" })
+    expect(splitName("ภูมิ")).toEqual({ first: "ภูมิ", last: "" })
+    expect(joinName({ first: " สุดา ", last: "ใจดี " })).toBe("สุดา ใจดี")
+  })
+  it("the family is named after the main parent's surname unless someone typed a name", () => {
+    expect(familyNameFor("", "ใจดี")).toBe("ครอบครัวใจดี")
+    expect(familyNameFor("บ้านสวน", "ใจดี")).toBe("บ้านสวน")
+    expect(familyNameFor(undefined, "")).toBe("")
+    const parents = [{ name: "สมชาย มั่นคง", phone: "0811111111" }, { name: "สุดา ใจดี", phone: "0822222222", primary: true, nameEn: "Suda Jaidee" }]
+    const f = familyFromSubmission("ภูมิ รักเรียน", parents, {}, undefined, "f1")
+    expect(f.name).toBe("ครอบครัวใจดี") // the primary parent's surname, not the child's
+    expect(f.parents[1].nameEn).toBe("Suda Jaidee")
+    expect(familyFromSubmission("ภูมิ รักเรียน", parents, { name: "บ้านใจดี", nameEn: "Jaidee" }, undefined, "f1")).toMatchObject({ name: "บ้านใจดี", nameEn: "Jaidee" })
+  })
+  it("the optional extras (English names, gender, school code) reach the student on file", () => {
+    const sub = { parents: [], studentName: "ภูมิ ใจดี", studentNameEn: "Phum Jaidee", studentNicknameEn: "Phum", studentGender: "male", studentSchool: "สาธิต", studentSchoolId: "1010", studentGrade: "ป.5" } as unknown as FormSubmission
+    const stu = { id: "s", name: "ภูมิ ใจดี", nickname: "ภูมิ", grade: "ป.5" } as Student
+    expect(mergeSubmission(undefined, stu, sub).student).toMatchObject({ nameEn: "Phum Jaidee", nicknameEn: "Phum", gender: "male", schoolId: "1010" })
+    expect(submissionChanges(undefined, stu, sub).map((c) => c.key)).toEqual(expect.arrayContaining(["student.nameEn", "student.gender"]))
   })
 })
