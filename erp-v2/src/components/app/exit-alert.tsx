@@ -5,7 +5,7 @@
 //  · the office team gets one reminder a day while any notice is still open (not talked through / not archived)
 import { useEffect } from "react"
 import { useRouter } from "next/navigation"
-import { toast } from "sonner"
+import { notify } from "@/components/app/noti"
 import { exitPending } from "@/domain/rules/attendance"
 import { can } from "@/domain/rules/permissions"
 import { isUnread, visibleTo } from "@/domain/rules/notifications"
@@ -34,15 +34,16 @@ export function ExitAlert() {
       const today = toDateStr(now())
       const open = () => router.push("/students?status=exiting")
       notifications.filter((n) => n.kind === "student_exit" && visibleTo(n, me) && isUnread(n, me)).slice(0, 3).forEach((n) => {
-        if (once(`nockerp-exit-note:${me.id}:${n.id}`)) toast.warning(n.title, { description: n.body, duration: 15000, action: { label: "ดูรายชื่อ", onClick: open } })
+        if (once(`nockerp-exit-note:${me.id}:${n.id}`)) notify({ kind: "exit", title: n.title, body: n.body, sticky: true, action: { label: "ดูรายชื่อ", onClick: open } })
       })
       if (!can(me, "student.manage")) return
       const pending = students.filter((x) => x.branchId === branchId && exitPending(x, today))
       if (pending.length && once(`nockerp-exit-daily:${me.id}:${branchId}:${today}`)) {
         const late = pending.filter((x) => x.exit!.lastDate < today).length
-        toast.warning(`นักเรียนแจ้งออก ${pending.length} คน ยังไม่ปิดเรื่อง`, {
-          description: `${pending.slice(0, 4).map((x) => x.nickname).join(", ")}${pending.length > 4 ? " …" : ""}${late ? ` · เลยวันสุดท้ายแล้ว ${late} คน` : ""} — คุยกับผู้ปกครอง หรือ Archive`,
-          duration: 15000, action: { label: "ดูรายชื่อ", onClick: open },
+        notify({
+          kind: "exit", title: `นักเรียนแจ้งออก ${pending.length} คน ยังไม่ปิดเรื่อง`,
+          body: `${pending.slice(0, 4).map((x) => x.nickname).join(", ")}${pending.length > 4 ? " …" : ""}${late ? ` · เลยวันสุดท้ายแล้ว ${late} คน` : ""} — คุยกับผู้ปกครอง หรือ Archive`,
+          action: { label: "ดูรายชื่อ", onClick: open },
         })
       }
     }, 1200)
@@ -66,10 +67,12 @@ export function ParentRequestWatcher() {
       if (!alive) return
       const fresh = sync(reqs)
       if (!canHandle) return
-      fresh.slice(0, 3).forEach((r) => toast.warning(
-        r.kind === "leave" ? `ผู้ปกครองแจ้งลา · ${r.studentNickname} ${r.sessions?.length ?? 0} คาบ` : r.kind === "return" ? `ผู้ปกครองอยากกลับมาเรียน · ${r.studentNickname}` : `ผู้ปกครองแจ้งลาออก · ${r.studentNickname}`,
-        { description: `${r.familyName} ส่งมาทาง LINE${r.note ? ` — "${r.note}"` : ""}`, duration: 20000, action: { label: "จัดการ", onClick: () => router.push("/notifications?topic=requests") } },
-      ))
+      fresh.slice(0, 3).forEach((r) => notify({
+        kind: r.kind === "leave" ? "leave" : r.kind === "return" ? "return" : "exit", sticky: r.kind !== "leave",
+        title: r.kind === "leave" ? `ผู้ปกครองแจ้งลา · ${r.studentNickname} ${r.sessions?.length ?? 0} คาบ` : r.kind === "return" ? `ผู้ปกครองอยากกลับมาเรียน · ${r.studentNickname}` : `ผู้ปกครองแจ้งลาออก · ${r.studentNickname}`,
+        body: `${r.familyName} ส่งมาทาง LINE${r.note ? ` — "${r.note}"` : ""}`,
+        action: { label: "จัดการ", onClick: () => router.push("/notifications?topic=requests") },
+      }))
     }
     tick()
     const t = setInterval(tick, 20_000)

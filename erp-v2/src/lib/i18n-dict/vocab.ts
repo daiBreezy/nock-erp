@@ -96,4 +96,11 @@ export const VOCAB: Record<string, Entry> = {
   "ยังไม่ได้เปิด Use webhook ใน LINE Developers": { en: "Use webhook is off in LINE Developers", ja: "LINE Developers で Use webhook がオフです" },
   "Workload: จำนวนคลาสที่สอนเดือนนี้ (คาบเดี่ยวนับเป็น 1 คลาส) · กดหัวคอลัมน์เพื่อเรียงจากมากไปน้อย · เห็นเฉพาะ Director": { en: "Workload: classes taught this month (a one-off session counts as 1) · click the header to list the most first · Director only", ja: "負荷：今月担当したクラス数（単発授業は1クラス）· 見出しをクリックで多い順 · Director のみ" },
   "Workload: จำนวนนักเรียน (ไม่นับซ้ำ) ในคลาสที่สอนเดือนนี้ · บางคนคลาสเยอะแต่เด็กน้อย บางคนกลับกัน — ดูคู่กัน · เห็นเฉพาะ Director": { en: "Workload: different students in the classes taught this month · some have many classes but few students, some the reverse — read both together · Director only", ja: "負荷：今月担当したクラスの生徒数（重複なし）· クラスが多く生徒が少ない人も、その逆もいるので両方を合わせて見る · Director のみ" },
+  // owner 2026-10-15: Noti
+  "เมื่อสักครู่": { en: "just now", ja: "たった今" },
+  "{0} นาทีที่แล้ว": { en: "{0} min ago", ja: "{0}分前" },
+  "ปิดการแจ้งเตือน": { en: "Close notification", ja: "通知を閉じる" },
+  "เลยวันสุดท้ายแล้ว {0} คน": { en: "{0} past their last day", ja: "最終日を過ぎた生徒 {0}名" },
+  "คุยกับผู้ปกครอง หรือ Archive": { en: "talk with the parents or archive", ja: "保護者と話すかアーカイブ" },
+  "ส่งมาทาง LINE": { en: "sent via LINE", ja: "LINEから送信" },
 }

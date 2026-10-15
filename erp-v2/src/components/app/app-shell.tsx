@@ -32,6 +32,7 @@ import { avatarTone, initial } from "./subject-color"
 import { NAV, navFor } from "./nav"
 import { DemoPanel } from "./demo-panel"
 import { NockWidget } from "@/components/nock/nock-widget"
+import { NotiToaster } from "@/components/app/noti"
 import { ExitAlert, ParentRequestWatcher } from "@/components/app/exit-alert"
 import { startScreenTranslation } from "@/lib/screen-translate"
 import { ThemeTuner } from "./theme-tuner"
@@ -162,6 +163,8 @@ function Shell({ children }: { children: ReactNode }) {
         {/* owner 2026-10-13: Nock, the helper — on every page, for everyone */}
         {/* owner 2026-10-15: Settings › ระบบ › AI (Nock) can turn it off for everyone */}
         {nockOn && <NockWidget />}
+        {/* owner 2026-10-15: Noti — notification popups top-right, on the Toast design */}
+        <NotiToaster />
         <ExitAlert />
         <ParentRequestWatcher />
         <ScreenTranslator />

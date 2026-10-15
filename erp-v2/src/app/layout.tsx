@@ -21,8 +21,8 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       <body className="min-h-full" style={{ fontFamily: "var(--font-inter), var(--font-thai), system-ui, sans-serif" }}>
         <TooltipProvider>
           <AppShell>{children}</AppShell>
-          {/* owner 2026-10-15: notifications pop up top-right, just under the top bar */}
-          <Toaster position="top-right" offset={{ top: 64, right: 16 }} mobileOffset={{ top: 64 }} richColors closeButton duration={6000} />
+          {/* system feedback (saved / error) — bottom-right; notifications are the Noti, top-right (components/app/noti.tsx) */}
+          <Toaster position="bottom-right" richColors closeButton duration={6000} />
         </TooltipProvider>
       </body>
     </html>
