@@ -25,10 +25,12 @@ export function NoteEditor({ text: initialText = "", kind: initialKind, canPerma
   const pinned = kind === "permanent"
   // owner 2026-10-15: no ชั่วคราว / ถาวร pair — a note is for this session unless the 📌 is on; ✓ saves, 🗑 deletes
   return (
-    <div ref={box} className={cn("mt-1 flex items-center gap-1", className)} onBlur={(e) => { if (!box.current?.contains(e.relatedTarget as Node)) finish(text) }}>
+    // owner 2026-10-15: the text gets its own line (room to type), the buttons sit under it on the right
+    <div ref={box} className={cn("mt-1 space-y-1", className)} onBlur={(e) => { if (!box.current?.contains(e.relatedTarget as Node)) finish(text) }}>
       <input autoFocus value={text} maxLength={CALENDAR_NOTE_MAX} onChange={(e) => setText(e.target.value)}
         onKeyDown={(e) => { if (e.key === "Enter") finish(text); if (e.key === "Escape") finish("") }}
-        placeholder="Note เช่น MBook 1 (2-4)" className="h-7 min-w-0 flex-1 rounded-full border bg-background px-2.5 text-xs text-foreground outline-none focus:ring-2 focus:ring-ring/30" />
+        placeholder="Note เช่น MBook 1 (2-4)" className="h-8 w-full min-w-0 rounded-full border bg-background px-3 text-xs text-foreground outline-none focus:ring-2 focus:ring-ring/30" />
+      <div className="flex items-center justify-end gap-1">
       <button type="button" aria-pressed={pinned} disabled={!canPermanent && !pinned} onClick={() => setKind(pinned ? "temporary" : "permanent")}
         aria-label="Note ถาวร" title={pinned ? "ถาวร — แสดงทุกคาบของคลาสนี้ (กดเพื่อเป็นเฉพาะคาบนี้)" : canPermanent ? "กดเพื่อปักหมุด — แสดงทุกคาบของคลาสนี้" : "คาบนี้ไม่ได้อยู่ในคลาสประจำ"}
         className={cn("grid size-7 shrink-0 place-items-center rounded-full disabled:opacity-40", pinned ? "bg-primary/10 text-primary ring-1 ring-primary/30" : "text-muted-foreground hover:bg-muted hover:text-foreground")}>
@@ -37,6 +39,7 @@ export function NoteEditor({ text: initialText = "", kind: initialKind, canPerma
       <button type="button" onClick={() => { done.current = true; (onDelete ?? (() => onDone("", kind)))() }} aria-label="ลบ Note" title={onDelete ? "ลบ Note" : "ไม่บันทึก"}
         className="grid size-7 shrink-0 place-items-center rounded-full text-muted-foreground hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-950"><Trash2Icon className="size-3.5" /></button>
       <button type="button" onClick={() => finish(text)} aria-label="บันทึก Note" className="grid size-7 shrink-0 place-items-center rounded-full bg-primary text-primary-foreground hover:bg-primary/90"><CheckIcon className="size-3.5" /></button>
+      </div>
     </div>
   )
 }
