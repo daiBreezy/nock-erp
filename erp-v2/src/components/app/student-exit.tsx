@@ -133,7 +133,7 @@ function useExitFormSender(stu: Student) {
 
 /** Shown on the student while leaving is open: last day, the link, the parent's answers when they come back. */
 /** `bare` = inside a chat card (owner 2026-10-15): no frame of its own — the card is the frame */
-export function ExitPanel({ stu, bare }: { stu: Student; bare?: boolean }) {
+export function ExitPanel({ stu, bare, preview }: { stu: Student; bare?: boolean; preview?: { response: ExitResponse | null } }) {
   const cancel = useStore((s) => s.cancelExit)
   const attach = useStore((s) => s.attachExitForm)
   const sendForm = useExitFormSender(stu)
@@ -145,17 +145,18 @@ export function ExitPanel({ stu, bare }: { stu: Student; bare?: boolean }) {
     setSending(false)
     if (report(r, (v) => (v.sent ? "ส่งฟอร์มทาง LINE แล้ว" : "สร้างลิงก์แล้ว — คัดลอกส่งให้ผู้ปกครอง"))) report(attach([stu.id], r.value.token), "")
   }
-  const [resp, setResp] = useState<ExitResponse | null>(null)
+  const [fetched, setResp] = useState<ExitResponse | null>(null)
+  const resp = preview ? preview.response : fetched
   const [closing, setClosing] = useState(false)
   const [checked, setChecked] = useState(0)
   const ex = stu.exit
   const token = ex?.token
   useEffect(() => {
-    if (!token || ex?.status === "closed") return
+    if (preview || !token || ex?.status === "closed") return
     let alive = true
     fetchExitResponse(token).then((r) => alive && setResp(r))
     return () => { alive = false }
-  }, [token, ex?.status, checked])
+  }, [token, ex?.status, checked, preview])
   if (!ex) return null
   if (ex.status === "closed") {
     return (
@@ -185,8 +186,8 @@ export function ExitPanel({ stu, bare }: { stu: Student; bare?: boolean }) {
       )}
       <div className="flex flex-wrap justify-end gap-1.5">
         {!token && !ex.fromParentRequest && <Button size="sm" variant="outline" disabled={sending} onClick={sendNow}><SendIcon /> {sending ? "กำลังส่ง…" : "ส่งฟอร์มให้ผู้ปกครอง"}</Button>}
-        <Button size="sm" variant="ghost" onClick={() => report(cancel(stu.id), `${stu.nickname} เรียนต่อ — ยกเลิกแจ้งออกแล้ว`)}><UndoIcon /> ไม่ออกแล้ว</Button>
-        <Button size="sm" onClick={() => setClosing(true)}>{resp || ex.fromParentRequest ? "ปิดการออก" : "ปิดการออก (ไม่รอคำตอบ)"}</Button>
+        <Button size="sm" variant="ghost" onClick={() => (preview ? report({ ok: true, value: undefined }, "ตัวอย่าง — กดจริงจะยกเลิกการแจ้งออก (นักเรียนเรียนต่อ)") : report(cancel(stu.id), `${stu.nickname} เรียนต่อ — ยกเลิกแจ้งออกแล้ว`))}><UndoIcon /> ไม่ออกแล้ว</Button>
+        <Button size="sm" onClick={() => (preview ? report({ ok: true, value: undefined }, "ตัวอย่าง — กดจริงจะเปิดหน้าปิดการออก (เหตุผล · เงินที่เหลือ · วันสุดท้าย)") : setClosing(true))}>{resp || ex.fromParentRequest ? "ปิดการออก" : "ปิดการออก (ไม่รอคำตอบ)"}</Button>
       </div>
       {closing && <CloseExitDialog stu={stu} response={resp} onClose={() => setClosing(false)} />}
     </section>

@@ -1,8 +1,9 @@
 "use client"
 
+import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { Fragment, useCallback, useEffect, useLayoutEffect, useRef, useState } from "react"
-import { FileSignatureIcon, InfoIcon, PenLineIcon, PlusIcon, RadioIcon, ArrowUpIcon, Loader2Icon, SparklesIcon, UserSearchIcon, UserCheckIcon, ChevronDownIcon, CheckIcon, ClipboardListIcon, FileTextIcon, GraduationCapIcon, HeartHandshakeIcon, ImageIcon, LogOutIcon, MegaphoneIcon, SearchIcon, UserPlusIcon, XIcon, GripVerticalIcon, CheckCircle2Icon } from "lucide-react"
+import { FileSignatureIcon, InfoIcon, PenLineIcon, PlusIcon, RadioIcon, ArrowUpIcon, Loader2Icon, SparklesIcon, UserSearchIcon, UserCheckIcon, ChevronDownIcon, CheckIcon, ClipboardListIcon, FileTextIcon, GraduationCapIcon, HeartHandshakeIcon, ImageIcon, LogOutIcon, MegaphoneIcon, LayoutTemplateIcon, SearchIcon, UserPlusIcon, XIcon, GripVerticalIcon, CheckCircle2Icon } from "lucide-react"
 import { NativeSelect } from "@/components/app/native-select"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuSub, DropdownMenuSubContent, DropdownMenuSubTrigger, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { ExitRequestDialog } from "@/components/app/student-exit"
@@ -242,6 +243,8 @@ export default function InboxPage() {
             <div className="flex gap-1.5">
               {/* owner 2026-10-09: search is an icon like Broadcast — opens the box only when needed */}
               <Button size="icon-sm" variant={searching || search ? "default" : "outline"} aria-label="ค้นหา" title="ค้นหาชื่อ" onClick={() => { if (searching && !search) setSearching(false); else setSearching(true) }}><SearchIcon /></Button>
+              {/* owner 2026-10-15: every chat card in every state, with sample data */}
+              <Button size="icon-sm" variant="outline" aria-label="ตัวอย่างการ์ดในแชท" title="ตัวอย่างการ์ดในแชท — ทุกแบบ ทุกสถานะ" nativeButton={false} render={<Link href="/inbox/cards" />}><LayoutTemplateIcon /></Button>
               <Button size="icon-sm" variant="outline" aria-label="Broadcast" title="Broadcast — ส่งถึงทุกคน" onClick={() => setBroadcasting(true)}><MegaphoneIcon /></Button>
               <Button size="icon-sm" variant="outline" aria-label="เริ่มบทสนทนาใหม่" onClick={() => setComposing(true)}><PenLineIcon /></Button>
             </div>

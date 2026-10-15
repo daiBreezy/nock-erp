@@ -33,7 +33,8 @@ export function ParentRequestsList({ branchId, showDone }: { branchId: string; s
 }
 
 /** one request — on the Notifications page and as a card in the family's chat (owner 2026-10-14) */
-export function RequestCard({ r }: { r: ParentRequest }) {
+/** `preview` = the example page: same card, the buttons only say what they would do */
+export function RequestCard({ r, preview }: { r: ParentRequest; preview?: boolean }) {
   const me = useStore((s) => s.me())
   const sync = useStore((s) => s.syncParentRequests)
   const markLeave = useStore((s) => s.markLeave)
@@ -110,10 +111,10 @@ export function RequestCard({ r }: { r: ParentRequest }) {
           </div>
         )}
       </ConfirmationBody>
-      {open && allowed && (declining ? (
+      {open && (allowed || preview) && (declining ? (
         <ConfirmationActions>
           <Button size="sm" variant="ghost" onClick={() => setDeclining(false)}>ยกเลิก</Button>
-          <Button size="sm" disabled={!why.trim() || busy} onClick={decline}>ส่ง</Button>
+          <Button size="sm" disabled={!why.trim() || busy} onClick={() => (preview ? toast.info("ตัวอย่าง — กดจริงจะบันทึก และแจ้งผู้ปกครองทาง LINE") : decline())}>ส่ง</Button>
         </ConfirmationActions>
       ) : (
         <ConfirmationActions>
@@ -124,10 +125,10 @@ export function RequestCard({ r }: { r: ParentRequest }) {
             </DropdownMenuContent>
           </DropdownMenu>
           {r.kind === "leave" ? <>
-            <Button size="sm" variant="outline" disabled={busy} onClick={() => recordLeave(true)}>บันทึกลา · ไม่หักโควตา</Button>
-            <Button size="sm" disabled={busy} onClick={() => recordLeave(false)}><CheckIcon /> บันทึกลา · หักโควตา</Button>
-          </> : r.kind === "return" ? <Button size="sm" disabled={busy} onClick={acceptReturn}><CheckIcon /> รับเรื่อง · กู้คืนนักเรียน</Button>
-            : <Button size="sm" disabled={busy} onClick={acceptExit}><CheckIcon /> รับเรื่อง (แจ้งออก)</Button>}
+            <Button size="sm" variant="outline" disabled={busy} onClick={() => (preview ? toast.info("ตัวอย่าง — กดจริงจะบันทึก และแจ้งผู้ปกครองทาง LINE") : recordLeave(true))}>บันทึกลา · ไม่หักโควตา</Button>
+            <Button size="sm" disabled={busy} onClick={() => (preview ? toast.info("ตัวอย่าง — กดจริงจะบันทึก และแจ้งผู้ปกครองทาง LINE") : recordLeave(false))}><CheckIcon /> บันทึกลา · หักโควตา</Button>
+          </> : r.kind === "return" ? <Button size="sm" disabled={busy} onClick={() => (preview ? toast.info("ตัวอย่าง — กดจริงจะบันทึก และแจ้งผู้ปกครองทาง LINE") : acceptReturn())}><CheckIcon /> รับเรื่อง · กู้คืนนักเรียน</Button>
+            : <Button size="sm" disabled={busy} onClick={() => (preview ? toast.info("ตัวอย่าง — กดจริงจะบันทึก และแจ้งผู้ปกครองทาง LINE") : acceptExit())}><CheckIcon /> รับเรื่อง (แจ้งออก)</Button>}
         </ConfirmationActions>
       ))}
       {!open && <ConfirmationResult>{L.teacher(r.handledBy ?? null).label} · {r.handledAt && fmtDateTime(r.handledAt)}{r.result ? ` — ${r.result}` : ""}</ConfirmationResult>}

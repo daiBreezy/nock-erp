@@ -128,4 +128,8 @@ export const VOCAB: Record<string, Entry> = {
   "ไม่มีเรื่องค้าง": { en: "Nothing open", ja: "未対応なし" },
   "ผู้ปกครองส่งฟอร์มแจ้งออก": { en: "Parent sent the exit form", ja: "保護者が退会フォームを送信" },
   "ไม่มีเรื่องแจ้งออกที่เปิดอยู่ — ปิดเรื่องแล้ว หรือนักเรียนกลับมาเรียนแล้ว": { en: "No open exit notice — closed, or the student came back", ja: "未完了の退会連絡なし — 完了済み、または生徒が復帰" },
+  "ตัวอย่างการ์ดในแชท": { en: "Chat card examples", ja: "チャットカードの例" },
+  "ตัวอย่างการ์ดในแชท — ทุกแบบ ทุกสถานะ": { en: "Chat card examples — every kind, every state", ja: "チャットカードの例 — 全種類・全状態" },
+  "ทุกการ์ดที่ Inbox แสดงได้ ในทุกสถานะ — ข้อมูลตัวอย่าง กดปุ่มได้แต่ไม่บันทึกจริง": { en: "Every card the Inbox can show, in every state — sample data; the buttons respond but save nothing", ja: "Inbox に表示される全カード・全状態 — サンプルデータ、ボタンは押せますが保存されません" },
+  "กลับไป Inbox": { en: "Back to Inbox", ja: "Inbox に戻る" },
 }

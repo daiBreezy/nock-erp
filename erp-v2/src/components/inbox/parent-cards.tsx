@@ -5,7 +5,7 @@
 // parent app shows the same card as the Notifications page.
 import { useEffect } from "react"
 import { fmtDateTime } from "@/domain/dates"
-import type { ChatMessage, Conversation } from "@/domain/types"
+import type { ChatMessage, Conversation, ExitResponse, Student } from "@/domain/types"
 import { ExitPanel } from "@/components/app/student-exit"
 import { RequestCard } from "@/components/app/parent-requests"
 import { fetchParentRequests } from "@/lib/parent-requests"
@@ -22,6 +22,11 @@ export function ExitFormChatCard({ message, conversation }: { message: ChatMessa
   const students = useStore((s) => s.students)
   const ids = message.meta?.formKind === "exit_form" ? message.meta.studentIds : null
   const kids = students.filter((x) => (ids ? ids.includes(x.id) : x.familyId && x.familyId === conversation.familyId) && x.exit)
+  return <ExitFormCardView at={message.at} kids={kids} linked={!!conversation.familyId} />
+}
+
+/** the card itself — also drawn by the examples page with sample students (`preview`) */
+export function ExitFormCardView({ at, kids, linked, preview }: { at: string; kids: Student[]; linked: boolean; preview?: { response: ExitResponse | null } }) {
   const open = kids.some((k) => k.exit!.status !== "closed")
   // owner 2026-10-15: the same card as the rest of the chat — answers + ปิดการออก / ไม่ออกแล้ว inside it
   const state = open ? "pending" : kids.length ? "approved" : "waiting"
@@ -29,10 +34,10 @@ export function ExitFormChatCard({ message, conversation }: { message: ChatMessa
     <div className="flex">
       <Confirmation state={state} className="max-w-md">
         <ConfirmationHeader state={state} icon={<DoorOpenIcon />} label={open ? "รอดำเนินการ" : kids.length ? "ปิดเรื่องแล้ว" : "ไม่มีเรื่องค้าง"}
-          title={<>ผู้ปกครองส่งฟอร์มแจ้งออก <span className="font-normal text-muted-foreground">· {fmtDateTime(message.at)}</span></>} />
+          title={<>ผู้ปกครองส่งฟอร์มแจ้งออก <span className="font-normal text-muted-foreground">· {fmtDateTime(at)}</span></>} />
         <ConfirmationBody className="space-y-3">
-          {kids.length ? kids.map((stu) => <ExitPanel key={stu.id} stu={stu} bare />)
-            : <p className="text-xs text-muted-foreground">{conversation.familyId ? "ไม่มีเรื่องแจ้งออกที่เปิดอยู่ — ปิดเรื่องแล้ว หรือนักเรียนกลับมาเรียนแล้ว" : "ผูกแชทนี้กับครอบครัวก่อน จึงจะเห็นคำตอบและปิดการออกได้"}</p>}
+          {kids.length ? kids.map((stu) => <ExitPanel key={stu.id} stu={stu} bare preview={preview} />)
+            : <p className="text-xs text-muted-foreground">{linked ? "ไม่มีเรื่องแจ้งออกที่เปิดอยู่ — ปิดเรื่องแล้ว หรือนักเรียนกลับมาเรียนแล้ว" : "ผูกแชทนี้กับครอบครัวก่อน จึงจะเห็นคำตอบและปิดการออกได้"}</p>}
         </ConfirmationBody>
       </Confirmation>
     </div>
