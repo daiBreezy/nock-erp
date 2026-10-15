@@ -15,6 +15,11 @@
 - **ปฏิทิน:** ⋯ ที่หัวครูแสดงทุกวัน (วันที่ผ่านไปแล้วบอกว่าแก้ได้ที่ Side Panel ของคาบ · วันที่ยังไม่มีคลาส = สร้างคลาสให้ครูคนนี้)
 - **Note Calendar** (`CalendarNote`, `domain/rules/calendar-notes.ts`): แยกจาก Note ของนักเรียน · 2 แบบ ถาวร (ปักหมุด แสดงทุกคาบของคลาส — ต้องเป็นคาบของคลาสประจำ) / ชั่วคราว (เฉพาะคาบนั้น) · แก้ไข / ลบได้ (⋯ ต่อ Note) · ทุกการเพิ่ม/แก้/ลบลง Log · persist v89
 
+### LINE (2026-10-15)
+- **LINE ไม่ต้องตั้งใหม่อีก:** `npm run line` (`erp-v2/scripts/line-up.mjs`) เปิด tunnel → ตั้ง Webhook (+ทดสอบ) → ตั้ง LIFF Endpoint (ต้องมี `LINE_LOGIN_CHANNEL_SECRET` ใน .env.local) → เก็บ URL ที่ `.data/public-url.json` → tunnel หลุดเปิดใหม่+ตั้งใหม่เอง · `LINE_PUBLIC_URL` = โดเมนคงที่ (ngrok static) ถ้ามี
+- **ความปลอดภัย tunnel:** `src/proxy.ts` — เข้าผ่าน tunnel ได้แค่ /liff, webhook, API ฝั่งผู้ปกครอง, รูปที่ส่งให้ผู้ปกครอง · หน้า staff/Inbox/Settings/API ส่งข้อความ = 404 (localhost + Wi-Fi ออฟฟิศใช้ได้ปกติ)
+- **รันเองตอนเปิดเครื่อง:** `zsh erp-v2/scripts/install-line-service.sh` (ปิด: `... off`) — เจ้าของต้องรันเอง (Claude ติดสิทธิ์ติดตั้ง LaunchAgent)
+
 ## 2026-10-14 — AI key ใน Settings, คุยกับ Nock แบบส่วนตัว, Course Summary มีกราฟ + AI ประเมิน
 
 - **Settings › ระบบ › AI (Nock)** (แท็บเหมือน LINE Integration): เลือก Google Gemini / OpenAI → วาง key → เลือก model → ทดสอบการเชื่อมต่อ · key เก็บฝั่ง server (`erp-v2/.data/ai-config.json`, git-ignore) ส่งกลับมาแค่แบบซ่อน · `/api/nock` + `/api/ai/course-summary` ใช้ key นี้ก่อน แล้วค่อยใช้ `.env.local`
