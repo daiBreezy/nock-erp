@@ -218,8 +218,9 @@ export default function InboxPage() {
   }
 
   return (
-    // owner 2026-10-05: list + chat in one card, the divider between them drags to resize the list
-    <div className="mx-auto flex h-[calc(100vh-8rem)] max-w-7xl overflow-hidden rounded-3xl bg-card shadow-sm ring-1 ring-foreground/5">
+    // owner 2026-10-05: list + chat side by side, the divider between them drags to resize the list
+    // owner 2026-10-15: no margin — fills everything under the 3.5rem top bar
+    <div className="flex h-[calc(100vh-3.5rem)] overflow-hidden bg-card">
       {/* Conversation list */}
       <div className="flex shrink-0 flex-col" style={{ width: listWidth }}>
         <div className="space-y-2 border-b p-3">
