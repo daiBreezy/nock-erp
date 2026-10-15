@@ -91,13 +91,14 @@ export function NockWidget() {
       {open && <NockPanel corner={corner} onClose={() => setOpen(false)} />}
       {/* owner 2026-10-13: Nock's face — the blinking orb */}
       {/* owner 2026-10-13: Nock hides at the screen edge, tilted 45° and peeking with its eyes — hover (or keyboard focus)
-          and it springs out; mouse leaves and it springs back. Stays out while the chat is open. */}
+          and it slides out; mouse leaves and it slides back. Stays out while the chat is open.
+          owner 2026-10-15: it went back too fast — ease-in-out (no overshoot), 700 ms */}
       <button type="button" aria-label={open ? "ปิด Nock" : "ถาม Nock"} title="ถาม Nock — ผู้ช่วยของ NockERP · ลากไปวางมุมไหนของจอก็ได้"
         onPointerDown={onPointerDown} onPointerMove={onPointerMove} onPointerUp={onPointerUp}
         onClick={() => { if (dragged.current) { dragged.current = false; return } setOpen((o) => !o) }}
         style={drag ? { left: drag.x - 32, top: drag.y - 32, right: "auto", bottom: "auto" } : undefined}
         className={cn("fixed z-40 touch-none rounded-full focus-visible:outline-none print:hidden",
-          drag ? "cursor-grabbing transition-none" : "cursor-grab transition-transform duration-500 ease-[cubic-bezier(0.34,1.56,0.64,1)]",
+          drag ? "cursor-grabbing transition-none" : "cursor-grab transition-transform duration-700 ease-[cubic-bezier(0.65,0,0.35,1)]",
           !drag && (left ? "left-0" : "right-0"), !drag && (top ? "top-20" : "bottom-6"),
           drag ? "scale-110" : open ? (left ? "translate-x-5" : "-translate-x-5")
             : left ? "-translate-x-[38%] rotate-45 hover:translate-x-5 hover:rotate-0 focus-visible:translate-x-5 focus-visible:rotate-0"
