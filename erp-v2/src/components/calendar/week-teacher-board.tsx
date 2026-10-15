@@ -573,6 +573,7 @@ function StudentLine({ drag, nickname, grade, avatarKey, notes, time, result, mo
       {adding && <NoteEditor className="pl-8" kind="temporary" canPermanent={canPermanent} onDone={(text, kind) => { setAdding(false); if (text) onAddNote(text, kind) }} />}
       {notes.map((n) => editing === n.id ? (
         <NoteEditor key={n.id} className="pl-8" text={n.text} kind={n.kind} canPermanent={canPermanent || n.kind === "permanent"}
+          onDelete={() => { setEditing(null); onDeleteNote(n.id) }}
           onDone={(text, kind) => { setEditing(null); if (text && (text !== n.text || kind !== n.kind)) onEditNote(n.id, text, kind) }} />
       ) : (
         <div key={n.id} className="group/note flex min-w-0 items-center gap-1 pl-8">

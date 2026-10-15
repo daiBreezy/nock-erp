@@ -12,31 +12,31 @@ import { cn } from "@/lib/utils"
 import { useStore } from "@/store/store"
 
 /** add / edit one Note Calendar: text + ชั่วคราว | ถาวร. Enter or leaving the box saves, Esc cancels. */
-export function NoteEditor({ text: initialText = "", kind: initialKind, canPermanent, onDone, className }: {
+export function NoteEditor({ text: initialText = "", kind: initialKind, canPermanent, onDone, onDelete, className }: {
   className?: string; text?: string; kind: CalendarNoteKind; canPermanent: boolean; onDone: (text: string, kind: CalendarNoteKind) => void
+  /** an existing note: the 🗑 deletes it (a new one: the 🗑 just throws the draft away) */
+  onDelete?: () => void
 }) {
   const [text, setText] = useState(initialText)
   const [kind, setKind] = useState<CalendarNoteKind>(initialKind)
   const box = useRef<HTMLDivElement>(null)
   const done = useRef(false)
   const finish = (t: string) => { if (done.current) return; done.current = true; onDone(t.trim(), kind) }
-  const kinds: CalendarNoteKind[] = ["temporary", "permanent"]
+  const pinned = kind === "permanent"
+  // owner 2026-10-15: no ชั่วคราว / ถาวร pair — a note is for this session unless the 📌 is on; ✓ saves, 🗑 deletes
   return (
-    <div ref={box} className={cn("mt-1 space-y-1", className)} onBlur={(e) => { if (!box.current?.contains(e.relatedTarget as Node)) finish(text) }}>
+    <div ref={box} className={cn("mt-1 flex items-center gap-1", className)} onBlur={(e) => { if (!box.current?.contains(e.relatedTarget as Node)) finish(text) }}>
       <input autoFocus value={text} maxLength={CALENDAR_NOTE_MAX} onChange={(e) => setText(e.target.value)}
         onKeyDown={(e) => { if (e.key === "Enter") finish(text); if (e.key === "Escape") finish("") }}
-        placeholder="Note เช่น MBook 1 (2-4)" className="h-7 w-full min-w-0 rounded-full border bg-background px-2.5 text-xs text-foreground outline-none focus:ring-2 focus:ring-ring/30" />
-      <div className="flex items-center gap-1">
-        {kinds.map((k) => (
-          <button key={k} type="button" aria-pressed={kind === k} disabled={k === "permanent" && !canPermanent}
-            title={k === "permanent" ? (canPermanent ? "แสดงทุกคาบของคลาสนี้" : "คาบนี้ไม่ได้อยู่ในคลาสประจำ") : "แสดงเฉพาะคาบนี้"}
-            onClick={() => setKind(k)}
-            className={cn("flex h-6 items-center gap-1 rounded-full px-2 text-[11px] font-medium disabled:opacity-40", kind === k ? "bg-primary/10 text-primary ring-1 ring-primary/30" : "bg-muted text-muted-foreground hover:text-foreground")}>
-            {k === "permanent" && <PinIcon className="size-3" />}{NOTE_KIND_LABEL[k]}
-          </button>
-        ))}
-        <button type="button" onClick={() => finish(text)} aria-label="บันทึก Note" className="ml-auto grid size-6 place-items-center rounded-full bg-primary text-primary-foreground hover:bg-primary/90"><CheckIcon className="size-3.5" /></button>
-      </div>
+        placeholder="Note เช่น MBook 1 (2-4)" className="h-7 min-w-0 flex-1 rounded-full border bg-background px-2.5 text-xs text-foreground outline-none focus:ring-2 focus:ring-ring/30" />
+      <button type="button" aria-pressed={pinned} disabled={!canPermanent && !pinned} onClick={() => setKind(pinned ? "temporary" : "permanent")}
+        aria-label="Note ถาวร" title={pinned ? "ถาวร — แสดงทุกคาบของคลาสนี้ (กดเพื่อเป็นเฉพาะคาบนี้)" : canPermanent ? "กดเพื่อปักหมุด — แสดงทุกคาบของคลาสนี้" : "คาบนี้ไม่ได้อยู่ในคลาสประจำ"}
+        className={cn("grid size-7 shrink-0 place-items-center rounded-full disabled:opacity-40", pinned ? "bg-primary/10 text-primary ring-1 ring-primary/30" : "text-muted-foreground hover:bg-muted hover:text-foreground")}>
+        <PinIcon className="size-3.5" />
+      </button>
+      <button type="button" onClick={() => { done.current = true; (onDelete ?? (() => onDone("", kind)))() }} aria-label="ลบ Note" title={onDelete ? "ลบ Note" : "ไม่บันทึก"}
+        className="grid size-7 shrink-0 place-items-center rounded-full text-muted-foreground hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-950"><Trash2Icon className="size-3.5" /></button>
+      <button type="button" onClick={() => finish(text)} aria-label="บันทึก Note" className="grid size-7 shrink-0 place-items-center rounded-full bg-primary text-primary-foreground hover:bg-primary/90"><CheckIcon className="size-3.5" /></button>
     </div>
   )
 }
@@ -54,6 +54,7 @@ export function CalendarNotes({ s, studentId, canEdit }: { s: Session; studentId
     <div className="space-y-0.5">
       {notes.map((n) => editing === n.id ? (
         <NoteEditor key={n.id} text={n.text} kind={n.kind} canPermanent={canPermanent || n.kind === "permanent"}
+          onDelete={() => { setEditing(null); report(del(n.id, s.id), "ลบ Note แล้ว") }}
           onDone={(text, kind) => { setEditing(null); if (text && (text !== n.text || kind !== n.kind)) report(edit(n.id, s.id, text, kind), "แก้ Note แล้ว") }} />
       ) : (
         <div key={n.id} className="group/note flex min-w-0 items-center gap-1 text-xs text-foreground/80">

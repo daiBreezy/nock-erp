@@ -109,4 +109,7 @@ export const VOCAB: Record<string, Entry> = {
   "เรียนเฉพาะช่วง {0}": { en: "Only {0}", ja: "{0} のみ受講" },
   "เรียนเฉพาะ {0}": { en: "Only {0}", ja: "{0} のみ受講" },
   "สัมภาษณ์": { en: "Interview", ja: "面談" },
+  "แสดงทุกคาบของคลาสนี้ (กดเพื่อเป็นเฉพาะคาบนี้)": { en: "Shows on every session of this class (click for this session only)", ja: "このクラスの全授業に表示（クリックでこの授業のみ）" },
+  "กดเพื่อปักหมุด": { en: "Click to pin", ja: "クリックで固定" },
+  "ไม่บันทึก": { en: "Discard", ja: "保存しない" },
 }
