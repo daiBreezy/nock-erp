@@ -5,7 +5,7 @@ import { useMemo, useState } from "react"
 import { MapPinOffIcon, MessageCircleIcon, PlusIcon, SearchIcon, UnlinkIcon, UsersIcon } from "lucide-react"
 import { Page, PageHeader, KpiRow, Toolbar } from "@/components/app/page-layout"
 import { Kpi } from "@/components/app/kpi"
-import { BranchCode, useBranchScope } from "@/components/app/branch-scope"
+import { BranchCodes, useBranchScope } from "@/components/app/branch-scope"
 import { Pill } from "@/components/app/badges"
 import { Pager, usePage, useSort } from "@/components/app/data-table"
 import { ColumnsMenu, DataTable, type Column } from "@/components/app/data-grid"
@@ -84,8 +84,7 @@ export default function FamiliesPage() {
     ) },
     // owner 2026-10-15: every list shows which branch each row comes from
     { id: "branch", label: "สาขา", width: "80px", cell: (f) => {
-      const ids = [...new Set((kidsOf.get(f.id) ?? []).map((k) => k.branchId))]
-      return ids.length ? <span className="inline-flex gap-1">{ids.map((b) => <BranchCode key={b} code={scope.code(b)} />)}</span> : <span className="text-muted-foreground">—</span>
+      return <BranchCodes ids={[...new Set((kidsOf.get(f.id) ?? []).map((k) => k.branchId))]} />
     } },
     { id: "parent", label: "ผู้ปกครองหลัก", width: "160px", sort: "parent", cell: (f) => {
       const primary = primaryOf(f)

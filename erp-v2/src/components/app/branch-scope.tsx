@@ -5,6 +5,7 @@
 // branch staff see nothing new. Same scope options as Reports (all · region · business · region × business · branch).
 import { useMemo } from "react"
 import { MapPinIcon } from "lucide-react"
+import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card"
 import { NativeSelect, type Option } from "@/components/app/native-select"
 import { crossBranch, inBranch } from "@/domain/rules/permissions"
 import { BUSINESS_SHORT, scopeBranchIds } from "@/domain/rules/reports"
@@ -72,4 +73,25 @@ export function BranchChip({ value, onChange, options, active, className }: { va
 /** small branch code chip for rows when several branches are listed */
 export function BranchCode({ code }: { code: string }) {
   return <span className="rounded bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">{code}</span>
+}
+
+/** owner 2026-10-15: several branches in a cell — the first 2 codes, then "8+"; hover it for the rest (by name) */
+export function BranchCodes({ ids, max = 2 }: { ids: ID[]; max?: number }) {
+  const branches = useStore((s) => s.branches)
+  const of = (id: ID) => branches.find((b) => b.id === id)
+  if (!ids.length) return <span className="text-muted-foreground">—</span>
+  const shown = ids.slice(0, max), rest = ids.slice(max)
+  return (
+    <span className="inline-flex items-center gap-1 whitespace-nowrap">
+      {shown.map((id) => <BranchCode key={id} code={of(id)?.code ?? ""} />)}
+      {rest.length > 0 && (
+        <HoverCard>
+          <HoverCardTrigger render={<span className="inline-flex cursor-default items-center rounded bg-muted px-1.5 py-0.5 text-[10px] font-semibold text-foreground tabular-nums" />}>{rest.length}+</HoverCardTrigger>
+          <HoverCardContent side="bottom" align="start" className="flex flex-col gap-1">
+            {rest.map((id) => <span key={id} className="flex items-center gap-2"><BranchCode code={of(id)?.code ?? ""} />{nm(of(id)?.name ?? "")}</span>)}
+          </HoverCardContent>
+        </HoverCard>
+      )}
+    </span>
+  )
 }

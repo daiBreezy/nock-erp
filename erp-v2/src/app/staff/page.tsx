@@ -12,7 +12,7 @@ import { subjectColor } from "@/components/app/subject-color"
 import { PhotoCell } from "@/components/app/photo-cell"
 import { mondayOf, StaffPanel } from "@/components/staff/staff-panel"
 import { Button } from "@/components/ui/button"
-import { BranchCode, useBranchScope } from "@/components/app/branch-scope"
+import { BranchCodes, useBranchScope } from "@/components/app/branch-scope"
 import { addDays, toDateStr } from "@/domain/dates"
 import { can, rolesAt, ROLE_LABEL, staffInBranch, subjectsAt } from "@/domain/rules/permissions"
 import { teachersOf } from "@/domain/rules/scheduling"
@@ -88,7 +88,7 @@ export default function StaffPage() {
       </div>
     ) },
     // owner 2026-10-15: every list shows which branch each row comes from
-    { id: "branch", label: "สาขา", width: "80px", cell: (x) => <span className="inline-flex flex-wrap gap-1">{x.s.branchIds.map((b) => <BranchCode key={b} code={scope.code(b)} />)}</span> },
+    { id: "branch", label: "สาขา", width: "100px", cell: (x) => <BranchCodes ids={x.s.branchIds} /> },
     { id: "name", label: "ชื่อ-นามสกุล", width: "160px", sort: "name", className: "text-muted-foreground", cell: (x) => <EditCell value={x.s.name} disabled={ro(x)} onSave={(v) => edit(x.s, { name: v })} /> },
     // owner 2026-10-12: Part-time / Full-time both chips, each its own colour
     { id: "type", label: "ประเภท", width: "110px", sort: "type", cell: (x) => (
