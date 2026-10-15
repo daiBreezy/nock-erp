@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { CalendarDaysIcon, GlobeIcon, ClockIcon, GraduationCapIcon, PlusIcon, SearchIcon, UsersIcon } from "lucide-react"
+import { CalendarDaysIcon, ClockIcon, GraduationCapIcon, PlusIcon, SearchIcon, UsersIcon } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import { Page, PageHeader, KpiRow, Toolbar } from "@/components/app/page-layout"
 import { Kpi } from "@/components/app/kpi"
@@ -90,7 +90,7 @@ export default function StaffPage() {
     // owner 2026-10-15: every list shows which branch each row comes from
     // owner 2026-10-15: Super Admin / Director / Developer work across the whole company — just "All"
     { id: "branch", label: "สาขา", width: "100px", cell: (x) => x.s.roles.some((r) => r === "super_admin" || r === "director" || r === "developer")
-      ? <span title="ทุกสาขา" className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 text-[11px] font-semibold text-primary"><GlobeIcon className="size-3" />All</span> : <BranchCodes ids={x.s.branchIds} /> },
+      ? <span title="ทุกสาขา" className="inline-flex items-center rounded-full bg-primary/10 px-2 py-0.5 text-[11px] font-semibold text-primary">All</span> : <BranchCodes ids={x.s.branchIds} /> },
     { id: "name", label: "ชื่อ-นามสกุล", width: "160px", sort: "name", className: "text-muted-foreground", cell: (x) => <EditCell value={x.s.name} disabled={ro(x)} onSave={(v) => edit(x.s, { name: v })} /> },
     // owner 2026-10-12: Part-time / Full-time both chips, each its own colour
     { id: "type", label: "ประเภท", width: "110px", sort: "type", cell: (x) => (
