@@ -2,6 +2,7 @@
 // brand-wide System). Every tab saves through one of these validators so the UI never re-implements them.
 
 import { toMinutes } from "../dates"
+import { romanizeName, SUBJECTS } from "./romanize"
 import type { Branch, Fee, FeeKind, FormLang, Holiday, HolidayCategory, NotifyKey, OpenHours, PeriodPriority, PriceRow, PriceUnit, Promotion, SpecialPeriod, SystemConfig, Weekday } from "../types"
 
 export const FEE_KIND_LABEL: Record<FeeKind, { title: string; hint: string }> = {
@@ -222,3 +223,20 @@ export const KNOWN_PROVINCES: Record<string, string> = { BKK: "กรุงเ�
 export const branchLabel = (b: { name: string; province?: string; brand?: Branch["brand"] }) =>
   // owner 2026-10-07: branches are read by business + region too ("ศรีราชา · LIS · CBR" vs "ศรีราชา · NAS · CBR")
   [b.name, b.brand ? (b.brand === "liclass" ? "LIS" : "NAS") : null, b.province].filter(Boolean).join(" · ")
+
+/** owner 2026-10-15: subject abbreviations — for tight spots (calendar headers). Keyed by the English name. */
+export const SUBJECT_ABBR: Record<string, string> = {
+  English: "En", Math: "Ma", Science: "Sc", Japanese: "Jp", "English Active": "EA", "English Grammar": "EG",
+}
+/** the subject's short code: set in Settings › System › Subjects, else the standard list, else made from the English
+ *  name (two words → initials "EA", one word → first two letters "Ch") */
+export function subjectAbbr(subject: string, names?: SystemConfig["subjectNames"]): string {
+  const own = names?.[subject]?.abbr?.trim()
+  if (own) return own
+  const en = (names?.[subject]?.en?.trim() || SUBJECTS[subject]?.en || romanizeName(subject)).trim()
+  if (SUBJECT_ABBR[en]) return SUBJECT_ABBR[en]
+  const words = en.split(/\s+/).filter((w) => /[A-Za-z]/.test(w))
+  if (words.length > 1) return words.slice(0, 2).map((w) => w[0].toUpperCase()).join("")
+  const w = words[0] ?? subject
+  return w.slice(0, 1).toUpperCase() + w.slice(1, 2).toLowerCase()
+}

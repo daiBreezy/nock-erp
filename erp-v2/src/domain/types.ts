@@ -161,7 +161,7 @@ export interface SystemConfig {
   /** global subject catalog — branches pick from it; renaming updates every record */
   subjects: string[]
   /** how the parent form shows each subject in English / Japanese (Thai = the subject itself) */
-  subjectNames?: Record<string, { en?: string; ja?: string }>
+  subjectNames?: Record<string, { en?: string; ja?: string; /** short code, e.g. En / Ma (owner 2026-10-15) — empty = the standard one */ abbr?: string }>
   /** owner 2026-10-12: the colour picked for each subject in Settings → System (key of the subject palette) */
   subjectColors?: Record<string, string>
   /** one default invoice memo per brand, inherited by every branch of that brand */

@@ -17,6 +17,7 @@ import { NativeSelect } from "@/components/app/native-select"
 import { addDays, endTime, fmtDate, toDateStr, toMinutes, weekdayOf } from "@/domain/dates"
 import { blockFor, blocksOn, periodsOn, isHoliday, subjectsOf, workState, type WorkState, classCapacity } from "@/domain/rules/scheduling"
 import * as Seats from "@/domain/rules/seats"
+import { subjectAbbr } from "@/domain/rules/settings"
 import { calendarNotesFor, CALENDAR_NOTE_MAX, NOTE_KIND_LABEL } from "@/domain/rules/calendar-notes"
 import type { Attendance, CalendarNoteKind, DateStr, Klass, Session, TimeStr } from "@/domain/types"
 import { report } from "@/lib/feedback"
@@ -70,6 +71,7 @@ export function WeekTeacherBoard({ from, sessions, onOpen, onSlot, canCreate, da
 }) {
   const branch = useBranch()
   const staff = useStore((s) => s.staff)
+  const subjectNames = useStore((s) => s.system.subjectNames)
   const classes = useStore((s) => s.classes)
   const attendance = useStore((s) => s.attendance)
   const summaries = useStore((s) => s.summaries)
@@ -191,7 +193,8 @@ export function WeekTeacherBoard({ from, sessions, onOpen, onSlot, canCreate, da
                         <span className={cn("grid size-11 shrink-0 place-items-center rounded-full text-base font-semibold", avatarTone(tid || "none"))}>{t ? initial(t.nickname) : "?"}</span>
                         <div className="min-w-0 flex-1">
                           <p className="truncate font-semibold">{tid ? L.teacher(tid).label : "ยังไม่มีครู"}</p>
-                          <p className="truncate text-xs text-muted-foreground">{t?.subjects.join(", ") ?? "—"}</p>
+                          {/* owner 2026-10-15: subject codes (En · Ma · Sc) — the full names on hover */}
+                          <p className="truncate text-xs text-muted-foreground" title={t?.subjects.join(" · ")}>{t?.subjects.map((x) => subjectAbbr(x, subjectNames)).join(" · ") || "—"}</p>
                         </div>
                         {away.length > 0 && (
                           <span className="shrink-0 rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-medium text-amber-900 dark:bg-amber-950 dark:text-amber-200"

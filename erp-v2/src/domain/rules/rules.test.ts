@@ -6,7 +6,7 @@ import { activeLeave, nextClassDates, teacherLeaveCancels, leaveRunSessions, bal
 import { bestPromotion, duplicateBusDay, billedOn, busAddOnAmount, pendingBusAddOns, validateBusAddOn, carriedMinutes, weekKey, classOptionsFor, defaultAdvance, entryFeeWaiver, invoiceSessionDates, invoiceTotals, validateInvoiceDraft, canApprove, canConfirmPayment, canForceApprove, canForceConfirmPayment, canSend, canVoid, defaultBusLegs, busTotal, nextInvoiceNumber, quoteCourse } from "./billing"
 import { can } from "./permissions"
 import { chartPrice, defaultCourseName, filterCourses, validateCourse } from "./course"
-import { busRate, copyHours, gradeLabel, subjectLabel, priceOf, priceRange, setPrice, validateBranchInfo, validateDurations, validateHoliday, validatePromotion, validateSpecialPeriods, everyDay } from "./settings"
+import { busRate, copyHours, gradeLabel, subjectLabel, priceOf, priceRange, setPrice, validateBranchInfo, validateDurations, validateHoliday, validatePromotion, validateSpecialPeriods, everyDay, subjectAbbr } from "./settings"
 import { forceAudience, isUnread, messageAudience, notify, validateMessage, visibleTo } from "./notifications"
 import * as Sum from "./summaries"
 import { familyFromLead, futureSessionsOf, matchExistingFamily, mergeSubmission, nicknameFrom, searchStudents, studentLabel, submissionChanges, validateFamily, validateStaff, validateStudent } from "./people"
@@ -2449,5 +2449,15 @@ describe("Note Calendar (owner 2026-10-15)", () => {
     expect(noteTarget({ id: "se_9", classId: null }, "permanent").ok).toBe(false)
     expect(noteTarget({ id: "se_1", classId: "cl_1" }, "permanent")).toEqual({ ok: true, value: { classId: "cl_1", sessionId: undefined } })
     expect(cleanNote("   ").ok).toBe(false)
+  })
+})
+
+describe("subject abbreviations (owner 2026-10-15)", () => {
+  it("uses the owner's list, then initials / first two letters, and a code set in Settings wins", () => {
+    expect(["อังกฤษ", "คณิต", "วิทย์", "ญี่ปุ่น"].map((s) => subjectAbbr(s))).toEqual(["En", "Ma", "Sc", "Jp"])
+    expect(subjectAbbr("อังกฤษ Active", { "อังกฤษ Active": { en: "English Active" } })).toBe("EA")
+    expect(subjectAbbr("อังกฤษ Grammar", { "อังกฤษ Grammar": { en: "English Grammar" } })).toBe("EG")
+    expect(subjectAbbr("จีน")).toBe("Ch")
+    expect(subjectAbbr("คณิต", { "คณิต": { abbr: "M" } })).toBe("M")
   })
 })

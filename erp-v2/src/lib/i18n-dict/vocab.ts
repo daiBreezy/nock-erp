@@ -103,4 +103,6 @@ export const VOCAB: Record<string, Entry> = {
   "เลยวันสุดท้ายแล้ว {0} คน": { en: "{0} past their last day", ja: "最終日を過ぎた生徒 {0}名" },
   "คุยกับผู้ปกครอง หรือ Archive": { en: "talk with the parents or archive", ja: "保護者と話すかアーカイブ" },
   "ส่งมาทาง LINE": { en: "sent via LINE", ja: "LINEから送信" },
+  "ตัวย่อ": { en: "Abbreviation", ja: "略称" },
+  "บันทึกตัวย่อของ {0} แล้ว": { en: "Saved the abbreviation of {0}", ja: "{0}の略称を保存しました" },
 }

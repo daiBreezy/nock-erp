@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Switch } from "@/components/ui/switch"
 import { Textarea } from "@/components/ui/textarea"
-import { NOTIFY_LABEL } from "@/domain/rules/settings"
+import { NOTIFY_LABEL, subjectAbbr } from "@/domain/rules/settings"
 import type { Brand, FormLang, LossReason, NotifyKey, SystemConfig } from "@/domain/types"
 import * as Loss from "@/domain/rules/loss"
 import * as Survey from "@/domain/rules/survey"
@@ -103,6 +103,14 @@ function SubjectCatalog() {
               <>
                 <SubjectColorPicker label={s} value={subjectColorKey(s)} onChange={(k) => setColor(s, k)} />
                 <span className="flex-1"><span className={cn("rounded-full px-2 py-0.5 text-xs font-medium", subjectColor(s).chip)}>{s}</span></span>
+                {/* owner 2026-10-15: the short code (En / Ma …) for tight spots — empty = the standard one shown greyed */}
+                <Input key={`${s}-abbr-${sys.subjectNames?.[s]?.abbr ?? ""}`} className="h-8 w-16 text-center" aria-label={tx("ตัวย่อ")} title={tx("ตัวย่อ")}
+                  placeholder={subjectAbbr(s, { ...sys.subjectNames, [s]: { ...sys.subjectNames?.[s], abbr: undefined } })} defaultValue={sys.subjectNames?.[s]?.abbr ?? ""} maxLength={4}
+                  onBlur={(e) => {
+                    const v = e.target.value.trim()
+                    if (v === (sys.subjectNames?.[s]?.abbr ?? "")) return
+                    report(saveSystem({ ...sys, subjectNames: { ...sys.subjectNames, [s]: { ...sys.subjectNames?.[s], abbr: v || undefined } } }), tx("บันทึกตัวย่อของ {0} แล้ว", [s]))
+                  }} />
                 {/* how the parent form shows it in English / Japanese — saved when leaving the box */}
                 {(["en", "ja"] as const).map((l) => (
                   <Input key={`${s}-${l}-${sys.subjectNames?.[s]?.[l] ?? ""}`} className="h-8 w-28" placeholder={l === "en" ? "English" : "日本語"} defaultValue={sys.subjectNames?.[s]?.[l] ?? ""}
