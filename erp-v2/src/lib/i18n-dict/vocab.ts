@@ -112,4 +112,10 @@ export const VOCAB: Record<string, Entry> = {
   "แสดงทุกคาบของคลาสนี้ (กดเพื่อเป็นเฉพาะคาบนี้)": { en: "Shows on every session of this class (click for this session only)", ja: "このクラスの全授業に表示（クリックでこの授業のみ）" },
   "กดเพื่อปักหมุด": { en: "Click to pin", ja: "クリックで固定" },
   "ไม่บันทึก": { en: "Discard", ja: "保存しない" },
+  "ลาป่วย": { en: "Sick leave", ja: "病欠" },
+  "ลากิจ": { en: "Personal leave", ja: "私用" },
+  "ลาพักร้อน": { en: "Vacation", ja: "休暇" },
+  "เหตุฉุกเฉิน": { en: "Emergency", ja: "緊急" },
+  "เหตุผลที่ลา": { en: "Reason for leave", ja: "休む理由" },
+  "ระบุเหตุผล (จำเป็น)": { en: "Give the reason (required)", ja: "理由を入力（必須）" },
 }

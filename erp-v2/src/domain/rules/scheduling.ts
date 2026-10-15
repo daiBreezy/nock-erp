@@ -719,3 +719,13 @@ export function periodShrinkImpact(before: SpecialPeriod, after: SpecialPeriod, 
 export function periodClassesWithStudents(periodId: ID, classes: Klass[]) {
   return classes.filter((k) => k.periodId === periodId && k.active && k.studentIds.length > 0)
 }
+
+/** owner 2026-10-15: why a teacher is away — picked as chips; อื่นๆ asks for a note */
+export const TEACHER_LEAVE_REASONS = ["ลาป่วย", "ลากิจ", "ลาพักร้อน", "เหตุฉุกเฉิน", "อื่นๆ"] as const
+export type TeacherLeaveReason = (typeof TEACHER_LEAVE_REASONS)[number]
+/** the reason as stored: the chip, or "อื่นๆ: <note>" — empty when it isn't complete yet */
+export function leaveReasonText(pick: TeacherLeaveReason | "", note: string): string {
+  if (!pick) return ""
+  if (pick !== "อื่นๆ") return note.trim() ? `${pick}: ${note.trim()}` : pick
+  return note.trim() ? `อื่นๆ: ${note.trim()}` : ""
+}

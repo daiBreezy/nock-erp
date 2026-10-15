@@ -24,6 +24,7 @@ import { addDays, endTime, fmtDate, fmtDateTime, fromMinutes, TH_DAYS_FULL, toMi
 import * as Att from "@/domain/rules/attendance"
 import * as Seats from "@/domain/rules/seats"
 import { CalendarNotes } from "@/components/calendar/calendar-notes-ui"
+import { LeaveReasonPicker } from "@/components/app/leave-reason"
 import { shortCourse } from "@/domain/rules/course"
 import * as Les from "@/domain/rules/lessons"
 import type { SummaryLesson } from "@/store/store"
@@ -1038,7 +1039,7 @@ function TeacherLeaveDialog({ s, onClose }: { s: Session; onClose: () => void })
           <DialogTitle>{L.teacher(s.teacherId).label} ลา</DialogTitle>
           <DialogDescription>{s.subject} · {fmtDate(s.date, { weekday: true })} {s.start}–{endTime(s.start, s.minutes)} · นักเรียน {s.studentIds.length} คน</DialogDescription>
         </DialogHeader>
-        <Input value={reason} onChange={(e) => setReason(e.target.value)} placeholder="เหตุผลที่ลา เช่น ป่วย / ลากิจ" />
+        <LeaveReasonPicker onChange={setReason} />
         <div className="grid gap-2">
           {([["sub", "มีครูสอนแทน", "นักเรียนเรียนตามปกติ"], ["cancel", "ไม่มีครูสอนแทน — ยกเลิกคาบ", "วันเรียนจบของนักเรียนทุกคนเลื่อนออกไป 1 คาบ"]] as const).map(([k, label, hint]) => (
             <button key={k} type="button" aria-pressed={mode === k} onClick={() => setMode(k)}

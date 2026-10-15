@@ -22,6 +22,7 @@ import { KIND_ICON, kindOf, RoomMeta, StudentsMeta } from "@/components/calendar
 import { subjectAbbr } from "@/domain/rules/settings"
 import { calendarNotesFor, NOTE_KIND_LABEL } from "@/domain/rules/calendar-notes"
 import { NoteEditor } from "@/components/calendar/calendar-notes-ui"
+import { LeaveReasonPicker } from "@/components/app/leave-reason"
 import type { Attendance, CalendarNoteKind, DateStr, Klass, Session, TimeStr } from "@/domain/types"
 import { report } from "@/lib/feedback"
 import { toast } from "sonner"
@@ -320,7 +321,7 @@ function TeacherDayDialog({ mode, teacherId, date, onClose }: { mode: "substitut
         <ul className="max-h-40 space-y-1 overflow-y-auto rounded-xl bg-muted/40 p-2 text-xs">
           {day.map((x) => <li key={x.id}>{x.start}–{endTime(x.start, x.minutes)} · {subjectsOf(x).join(" + ")} · {L.room(x.roomId)} · {x.studentIds.length} คน</li>)}
         </ul>
-        <Input value={reason} onChange={(e) => setReason(e.target.value)} placeholder={mode === "substitute" ? "เหตุผล เช่น ครูป่วย / ลากิจ" : "เหตุผลการยกเลิก (จำเป็น)"} />
+        <LeaveReasonPicker onChange={setReason} />
         {mode === "substitute" ? (
           <NativeSelect value={subId} onChange={(e) => setSubId(e.target.value)} placeholder="เลือกครูสอนแทน"
             options={[...teachers.filter(fits), ...teachers.filter((t) => !fits(t))].map((t) => ({ value: t.id, label: `${t.nickname}${t.partTime ? " · Part-time" : ""}${fits(t) ? "" : " (สอนไม่ครบทุกวิชาของวันนี้)"}` }))} />

@@ -2157,6 +2157,7 @@ describe("Area Manager picks branches, Director / Super Admin see all (owner 202
 
 import { monthLoad, studentsOfTeacher, teacherWeek } from "./staff-overview"
 import { calendarNotesFor, cleanNote, noteTarget } from "./calendar-notes"
+import { leaveReasonText } from "./scheduling"
 
 describe("staff overview — one teacher's week (owner 2026-10-09)", () => {
   const ses = (id: string, date: string, over: Partial<Session> = {}): Session => ({ id, branchId: "b1", classId: null, subject: "คณิต", date, start: "10:00", minutes: 90, teacherId: "t1", coTeacherIds: [], roomId: null, studentIds: ["a", "b"], trial: false, customized: false, cancelled: false, ...over })
@@ -2459,5 +2460,14 @@ describe("subject abbreviations (owner 2026-10-15)", () => {
     expect(subjectAbbr("อังกฤษ Grammar", { "อังกฤษ Grammar": { en: "English Grammar" } })).toBe("EG")
     expect(subjectAbbr("จีน")).toBe("Ch")
     expect(subjectAbbr("คณิต", { "คณิต": { abbr: "M" } })).toBe("M")
+  })
+})
+
+describe("teacher leave reason chips (owner 2026-10-15)", () => {
+  it("a chip is enough; อื่นๆ needs a note", () => {
+    expect(leaveReasonText("ลาป่วย", "")).toBe("ลาป่วย")
+    expect(leaveReasonText("อื่นๆ", "")).toBe("")
+    expect(leaveReasonText("อื่นๆ", " ไปต่างจังหวัด ")).toBe("อื่นๆ: ไปต่างจังหวัด")
+    expect(leaveReasonText("", "x")).toBe("")
   })
 })
