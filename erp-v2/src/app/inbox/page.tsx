@@ -1,7 +1,7 @@
 "use client"
 
 import { useRouter } from "next/navigation"
-import { useCallback, useEffect, useRef, useState } from "react"
+import { Fragment, useCallback, useEffect, useLayoutEffect, useRef, useState } from "react"
 import { FileSignatureIcon, InfoIcon, PenLineIcon, PlusIcon, RadioIcon, ArrowUpIcon, Loader2Icon, SparklesIcon, UserSearchIcon, UserCheckIcon, ChevronDownIcon, CheckIcon, ClipboardListIcon, FileTextIcon, GraduationCapIcon, HeartHandshakeIcon, ImageIcon, LogOutIcon, MegaphoneIcon, SearchIcon, UserPlusIcon, XIcon, GripVerticalIcon, CheckCircle2Icon } from "lucide-react"
 import { NativeSelect } from "@/components/app/native-select"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuSub, DropdownMenuSubContent, DropdownMenuSubTrigger, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
@@ -25,12 +25,13 @@ import { LeadSheet } from "@/components/crm/lead-sheet"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
+import { Marker, MarkerContent } from "@/components/ui/marker"
 import { fmtDate, fmtDateTime } from "@/domain/dates"
-import { CHANNEL_LABEL, CONVERSATION_TYPE_LABEL, conversationName, conversationType, type ConversationType, SOURCE_OF_CHANNEL, unreadCount } from "@/domain/rules/inbox"
+import { chatDayLabel, groupByDay, QUICK_REPLIES, CHANNEL_LABEL, CONVERSATION_TYPE_LABEL, conversationName, conversationType, type ConversationType, SOURCE_OF_CHANNEL, unreadCount } from "@/domain/rules/inbox"
 import { can } from "@/domain/rules/permissions"
 import type { ChatMessage, Conversation, FormSubmission, FormType, ID, Student } from "@/domain/types"
 import { report } from "@/lib/feedback"
-import { useBranch, useQueryState } from "@/lib/hooks"
+import { useBranch, useQueryState, useToday } from "@/lib/hooks"
 import { cn } from "@/lib/utils"
 import { useStore } from "@/store/store"
 
@@ -141,7 +142,16 @@ export default function InboxPage() {
     .sort((a, b) => b.lastMessageAt.localeCompare(a.lastMessageAt))
 
   const selected = conversations.find((c) => c.id === selectedId) ?? null
+  const today = useToday()
   const thread = selected ? messages.filter((m) => m.conversationId === selected.id).sort((a, b) => a.at.localeCompare(b.at)) : []
+  // AI Elements "Message Scroller": open a chat at its latest message; a new one keeps you at the bottom
+  // unless you scrolled up to read
+  const scroller = useRef<HTMLDivElement>(null)
+  const threadEnd = useRef<HTMLDivElement>(null)
+  const composer = useRef<HTMLInputElement>(null)
+  const atBottom = useRef(true)
+  useLayoutEffect(() => { atBottom.current = true; threadEnd.current?.scrollIntoView({ block: "end" }) }, [selectedId])
+  useLayoutEffect(() => { if (atBottom.current) threadEnd.current?.scrollIntoView({ block: "end" }) }, [thread.length])
   const family = selected?.familyId ? families.find((f) => f.id === selected.familyId) : null
   const lead = selected?.leadId ? leads.find((l) => l.id === selected.leadId) : null
   const isNote = draft.trim().startsWith("//")
@@ -347,20 +357,35 @@ export default function InboxPage() {
             </div>
 
             <div className="flex min-h-0 flex-1 flex-col">
-              <div className="flex-1 overflow-y-auto px-4 py-4">
+              <div ref={scroller} onScroll={(e) => { const el = e.currentTarget; atBottom.current = el.scrollHeight - el.scrollTop - el.clientHeight < 80 }} className="flex-1 overflow-y-auto px-4 py-4">
                 {/* one centred column (max ~768 px) so long chats don't stretch across a wide screen */}
                 <div className="mx-auto w-full max-w-3xl space-y-3">
                 {thread.length === 0 && <p className="py-8 text-center text-sm text-muted-foreground">เริ่มบทสนทนา</p>}
-                {thread.map((m) => {
-                  if (m.kind === "form_request") return <FormRequestBubble key={m.id} message={m} submissions={submissions} />
-                  if (m.kind === "form_submission") return <FormSubmissionBubble key={m.id} message={m} conversation={selected} submissions={submissions} onChanged={pollSubmissions} />
-                  if (isExitFormMessage(m)) return <ExitFormChatCard key={m.id} message={m} conversation={selected} />
-                  if (m.meta?.formKind === "parent_request") return <ParentRequestChatCard key={m.id} message={m} />
-                  return <MessageBubble key={m.id} message={m} conversation={selected} staff={staff} onUseAsSlip={useAsSlip} />
-                })}
+                {/* owner 2026-10-15: the day is a separator (shadcn Marker) — bubbles carry no time, hover shows it */}
+                {groupByDay(thread).map((g) => (
+                  <Fragment key={g.day}>
+                    <Marker variant="separator" className="py-2"><MarkerContent>{chatDayLabel(g.day, today)}</MarkerContent></Marker>
+                    {g.items.map((m) => {
+                      if (m.kind === "form_request") return <FormRequestBubble key={m.id} message={m} submissions={submissions} />
+                      if (m.kind === "form_submission") return <FormSubmissionBubble key={m.id} message={m} conversation={selected} submissions={submissions} onChanged={pollSubmissions} />
+                      if (isExitFormMessage(m)) return <ExitFormChatCard key={m.id} message={m} conversation={selected} />
+                      if (m.meta?.formKind === "parent_request") return <ParentRequestChatCard key={m.id} message={m} />
+                      return <MessageBubble key={m.id} message={m} conversation={selected} staff={staff} onUseAsSlip={useAsSlip} />
+                    })}
+                  </Fragment>
+                ))}
+                <div ref={threadEnd} />
                 </div>
               </div>
               <div className="mx-auto w-full max-w-3xl space-y-1.5 px-4 pb-4">
+                {/* AI Elements "Suggestion": one-click replies — fill the box, staff still press send */}
+                {!draft && (
+                  <div className="flex gap-1.5 overflow-x-auto pb-0.5 [scrollbar-width:none]">
+                    {QUICK_REPLIES.map((q) => (
+                      <Button key={q} size="sm" variant="outline" className="shrink-0 rounded-full font-normal text-muted-foreground" onClick={() => { setDraft(q); composer.current?.focus() }}>{q}</Button>
+                    ))}
+                  </div>
+                )}
                 {/* one rounded box: + · text · send (Claude-style) */}
                 <div className={cn("flex items-center gap-1.5 rounded-3xl border bg-background p-1.5 shadow-sm transition-colors focus-within:border-ring/60", isNote && "border-amber-400 bg-amber-50 dark:bg-amber-950/30")}>
                   {/* owner 2026-10-05: "+" before the type bar — send a form or a photo into this chat */}
@@ -393,7 +418,7 @@ export default function InboxPage() {
                     </DropdownMenuContent>
                   </DropdownMenu>
                   <input ref={imageInput} type="file" accept="image/*" hidden onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ""; if (f) uploadImage(f) }} />
-                  <Input value={draft} onChange={(e) => setDraft(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); submit() } }}
+                  <Input ref={composer} value={draft} onChange={(e) => setDraft(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); submit() } }}
                     placeholder="พิมพ์ตอบผู้ปกครอง… (// สำหรับโน้ตภายใน)" className="h-9 flex-1 border-0 bg-transparent px-1 shadow-none focus-visible:ring-0 dark:bg-transparent" />
                   <Button size="icon" className="rounded-full" onClick={submit} disabled={!draft.trim() || sending} aria-label={sending ? "กำลังส่ง…" : "ส่ง"}>{sending ? <Loader2Icon className="animate-spin" /> : <ArrowUpIcon />}</Button>
                 </div>
