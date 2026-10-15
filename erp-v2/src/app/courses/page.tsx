@@ -112,8 +112,9 @@ export default function CoursesPage() {
     } },
     { id: "classes", label: "คลาสที่ผูก", width: "100px", sort: "classes", align: "center", className: "tabular-nums", cell: (c) => stats.get(c.id)!.classes || <span className="text-muted-foreground">—</span> },
     { id: "branch", label: "สาขา", width: "72px", cell: (c) => <BranchCode code={scope.code(c.branchId)} /> },
-    { id: "start", label: "วันเริ่ม", width: "150px", sort: "start", align: "right", className: "text-xs tabular-nums", cell: (c) => (
-      c.from ? <>{fmtDate(c.from, { year: true })}{c.to && <span className="text-muted-foreground"> – {fmtDate(c.to, { year: true })}</span>}</> : <span className="text-muted-foreground">—</span>
+    { id: "start", label: "วันเริ่ม", width: "100px", sort: "start", align: "right", className: "text-xs tabular-nums", cell: (c) => (
+      // owner 2026-10-15: start on one line, end under it — a narrower column
+      c.from ? <span className="inline-flex flex-col items-end leading-tight">{fmtDate(c.from, { year: true })}{c.to && <span className="text-muted-foreground">– {fmtDate(c.to, { year: true })}</span>}</span> : <span className="text-muted-foreground">—</span>
     ) },
   ]
 
