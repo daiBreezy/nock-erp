@@ -69,10 +69,10 @@ function Eye({ blinking, delayMs = 0, irisGradient, sizeClass }: { blinking: boo
 /** frosted glass over the live silk: how soft, per orb size */
 const FROST: Record<AvatarSize, string> = { xs: "backdrop-blur-[1px]", sm: "backdrop-blur-[2px]", md: "backdrop-blur-[3px]", lg: "backdrop-blur-[4px]" }
 // a ball, not a disc: a soft contact shadow below + a pink glow around
-const SILK_GLOW = "0 10px 16px -6px rgba(110,0,45,.45), 0 0 18px 4px rgba(255,66,145,.22)"
+const SILK_GLOW = "0 10px 16px -6px rgba(46,4,15,.45), 0 0 18px 4px rgba(202,35,82,.22)"
 // the frosted glass is a dome too — bright where the light hits (top-left), a dark lip at the bottom edge
 const GLASS_DOME = "radial-gradient(circle at 34% 26%, rgba(255,255,255,.42) 0%, rgba(255,255,255,.12) 28%, rgba(255,255,255,0) 52%), radial-gradient(circle at 50% 50%, rgba(255,255,255,0) 62%, rgba(255,255,255,.16) 100%)"
-const GLASS_EDGE = "inset 0 1.5px 2px rgba(255,255,255,.75), inset 0 -4px 8px rgba(80,0,35,.35)"
+const GLASS_EDGE = "inset 0 1.5px 2px rgba(255,255,255,.75), inset 0 -4px 8px rgba(46,4,15,.35)"
 
 export function AiAvatar({ blinking = true, color = "blue", size = "md", shape = "circle", className, followMouse = false, live = false }: AvatarProps) {
   const uid = useId().replace(/\W/g, "")

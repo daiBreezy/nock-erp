@@ -1,7 +1,7 @@
 "use client"
 
 // "Silk" flow shader (owner 2026-10-15, from the 21st.dev Shader Builder) — an animated WebGL background layer.
-// Plain WebGL1, one fullscreen triangle, no libraries. Colours #010001 → #FFFAFC → #FF4291 → #FFB8D2 blended in OKLab ·
+// Plain WebGL1, one fullscreen triangle, no libraries. Colours #2E040F → #FFFAFC → #CA2352 → #FBBFC5 (brand pink) blended in OKLab ·
 // speed 40 · zoom 40 · intensity 47 · warp 0 · contrast 50 · brightness 51 · saturation 51 · hue 0° · vignette 2 · grain 14 ·
 // cursor: swirl, strength 30, radius 79. Device pixel ratio capped at 2; the loop pauses while the tab is hidden.
 import { useEffect, useRef } from "react"
@@ -305,19 +305,20 @@ void main() {
   float fresnel = pow(1.0 - z, 2.5);
   col = col * diff;
   col += spec * 0.85;
-  col += fresnel * vec3(1.0, 0.72, 0.84) * 0.55;
+  col += fresnel * vec3(0.985, 0.748, 0.772) * 0.55;
   // bounce light from below-right keeps the dark side from going flat
-  col += pow(max(dot(n, normalize(vec3(0.5, -0.7, 0.4))), 0.0), 3.0) * vec3(1.0, 0.26, 0.57) * 0.25;
+  col += pow(max(dot(n, normalize(vec3(0.5, -0.7, 0.4))), 0.0), 3.0) * vec3(0.794, 0.137, 0.32) * 0.3;
   gl_FragColor = vec4(clamp(col, 0.0, 1.0), alpha);
 }
 `
 
-// u_colors[8] (first 4 used): #010001, #FFFAFC, #FF4291, #FFB8D2
+// u_colors[8] (first 4 used). owner 2026-10-15: the brand pink (--primary oklch(0.55 0.2 12) = #CA2352) instead of the
+// builder's hot pink, and a near-black brand pink instead of black: #2E040F → #FFFAFC → #CA2352 → #FBBFC5
 const COLORS = new Float32Array([
-  0.004, 0.0, 0.004,
+  0.181, 0.014, 0.057,
   1.0, 0.98, 0.988,
-  1.0, 0.259, 0.569,
-  1.0, 0.722, 0.824,
+  0.794, 0.137, 0.32,
+  0.985, 0.748, 0.772,
   0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
 ])
 
