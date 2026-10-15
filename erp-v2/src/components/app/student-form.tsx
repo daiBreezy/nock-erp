@@ -3,9 +3,7 @@
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
-import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Textarea } from "@/components/ui/textarea"
 import { toDateStr } from "@/domain/dates"
 import { validateStudent } from "@/domain/rules/people"
 import type { Student } from "@/domain/types"
@@ -14,30 +12,34 @@ import { report } from "@/lib/feedback"
 import { useBranch, useNow } from "@/lib/hooks"
 import { useStore } from "@/store/store"
 import { CustomerPicker } from "./customer-picker"
-import { NativeSelect } from "./native-select"
-import { SchoolPicker } from "./school-picker"
-import { EnNameField, nativeLabel } from "./name-fields"
+import { DICT } from "@/app/liff/form/i18n"
+import { emptyStudentDraft, StudentFields, studentDraftOf, studentInputOf, type StudentDraft } from "@/components/people/person-fields"
 import { FormShell, useInPanel } from "./form-shell"
 import { InfoTip } from "./info-tip"
 
-/** Create / edit a student. Errors show under each field while typing (S4). */
+/**
+ * Create / edit a student. Errors show under each field while typing (S4).
+ * owner 2026-10-15: the child fields are exactly the parent's LINE form (components/people/person-fields) — only
+ * the family link and the bus are staff-only (they're decided here / on the invoice, not by the parent).
+ */
 export function StudentForm({ student, familyId, onClose, onSaved }: { student?: Student; familyId?: string; onClose: () => void; onSaved?: (s: Student) => void }) {
   const branch = useBranch()
   const families = useStore((s) => s.families)
   const save = useStore((s) => s.saveStudent)
   const today = toDateStr(useNow(60_000))
-  const [f, setF] = useState<Student>(
-    student ?? { id: uid("stu"), familyId: familyId ?? null, branchId: branch.id, name: "", nickname: "", grade: "", usesBus: false, createdAt: new Date().toISOString(), createdBranchId: branch.id },
-  )
+  const [base] = useState<Student>(() => student ?? { id: uid("stu"), familyId: familyId ?? null, branchId: branch.id, name: "", nickname: "", grade: "", usesBus: false, createdAt: new Date().toISOString(), createdBranchId: branch.id })
+  const [d, setD] = useState<StudentDraft>(() => (student ? studentDraftOf(student) : emptyStudentDraft()))
+  const [staffOnly, setStaffOnly] = useState({ familyId: base.familyId, usesBus: base.usesBus })
   const [touched, setTouched] = useState(false)
   const [pickingFamily, setPickingFamily] = useState(false)
+  const f: Student = { ...base, ...studentInputOf(d), ...staffOnly }
   const errs = validateStudent(f, today)
-  const err = (field: string) => touched && errs.find((e) => e.field === field)?.message
-  const set = <K extends keyof Student>(k: K, v: Student[K]) => setF((x) => ({ ...x, [k]: v }))
+  const err = (field: string) => (touched && errs.find((e) => e.field === field)?.message) || undefined
   const inPanel = useInPanel()
 
   return (
     <FormShell className="sm:max-w-lg" onClose={onClose} title={student ? `แก้ข้อมูล ${student.nickname}` : "เพิ่มนักเรียน"}
+      description="ช่องเดียวกับฟอร์มที่ผู้ปกครองกรอกใน LINE — ข้อมูลเก็บที่เดียวกัน"
       footer={<>
         <Button variant="ghost" onClick={onClose}>ยกเลิก</Button>
         <Button
@@ -54,31 +56,21 @@ export function StudentForm({ student, familyId, onClose, onSaved }: { student?:
           บันทึก
         </Button>
       </>}>
-        <div className="grid gap-3 sm:grid-cols-2">
-          <Field label={nativeLabel(branch.brand, "ชื่อ-นามสกุล")} error={err("name")}><Input value={f.name} onChange={(e) => set("name", e.target.value)} placeholder={branch.brand === "liclass" ? "山田 花子" : "ใบเตย สุขใจ (ไม่ต้องใส่ ด.ช. / ด.ญ.)"} /></Field>
-          <EnNameField label="ชื่อ-นามสกุล" native={f.name} value={f.nameEn} onChange={(v) => set("nameEn", v)} />
-          <Field label={nativeLabel(branch.brand, "ชื่อเล่น")} error={err("nickname")}><Input value={f.nickname} onChange={(e) => set("nickname", e.target.value)} /></Field>
-          <EnNameField label="ชื่อเล่น" native={f.nickname} value={f.nicknameEn} onChange={(v) => set("nicknameEn", v)} />
-          <Field label="ระดับชั้น *" error={err("grade")}>
-            <NativeSelect value={f.grade} onChange={(e) => set("grade", e.target.value)} placeholder="เลือก" options={branch.grades.map((g) => ({ value: g, label: g }))} />
-          </Field>
-          <Field label="เพศ">
-            <NativeSelect value={f.gender ?? ""} onChange={(e) => set("gender", (e.target.value || undefined) as Student["gender"])} placeholder="ไม่ระบุ" options={[{ value: "male", label: "ชาย" }, { value: "female", label: "หญิง" }]} />
-          </Field>
-          <Field label="วันเกิด" error={err("birthDate")}><Input type="date" max={today} value={f.birthDate ?? ""} onChange={(e) => set("birthDate", e.target.value || undefined)} /></Field>
-          <Field label="โรงเรียน"><SchoolPicker value={f.school} schoolId={f.schoolId} province={branch.province} onChange={(v) => setF((x) => ({ ...x, ...v }))} /></Field>
-          <Field label="ครอบครัว" className="sm:col-span-2">
-            <div className="flex items-center gap-2 rounded-xl border px-3 py-1.5 text-sm">
-              <span className={f.familyId ? "font-medium" : "text-muted-foreground"}>{families.find((x) => x.id === f.familyId)?.name ?? "ยังไม่ผูกครอบครัว"}</span>
-              <button type="button" className="ml-auto text-xs text-primary underline" onClick={() => setPickingFamily(true)}>{f.familyId ? "เปลี่ยน" : "เลือกครอบครัว"}</button>
-              {f.familyId && <button type="button" className="text-xs text-muted-foreground underline" onClick={() => set("familyId", null)}>เอาออก</button>}
+        <StudentFields t={DICT.th} value={d} onChange={(patch) => setD((x) => ({ ...x, ...patch }))} grades={branch.grades} province={branch.province} maxBirth={today}
+          errors={{ name: err("name"), nickname: err("nickname"), grade: err("grade"), birthDate: err("birthDate") }} />
+        <div className="space-y-3 rounded-2xl bg-muted/50 p-3">
+          <p className="text-xs font-medium text-muted-foreground">สำหรับเจ้าหน้าที่</p>
+          <Field label="ครอบครัว">
+            <div className="flex items-center gap-2 rounded-xl border bg-background px-3 py-1.5 text-sm">
+              <span className={staffOnly.familyId ? "font-medium" : "text-muted-foreground"}>{families.find((x) => x.id === staffOnly.familyId)?.name ?? "ยังไม่ผูกครอบครัว"}</span>
+              <button type="button" className="ml-auto text-xs text-primary underline" onClick={() => setPickingFamily(true)}>{staffOnly.familyId ? "เปลี่ยน" : "เลือกครอบครัว"}</button>
+              {staffOnly.familyId && <button type="button" className="text-xs text-muted-foreground underline" onClick={() => setStaffOnly((x) => ({ ...x, familyId: null }))}>เอาออก</button>}
             </div>
-            {pickingFamily && <CustomerPicker kinds={["family"]} title="เลือกครอบครัว" onClose={() => setPickingFamily(false)} onConfirm={(row) => { set("familyId", row.id); setPickingFamily(false) }} />}
+            {pickingFamily && <CustomerPicker kinds={["family"]} title="เลือกครอบครัว" onClose={() => setPickingFamily(false)} onConfirm={(row) => { setStaffOnly((x) => ({ ...x, familyId: row.id })); setPickingFamily(false) }} />}
           </Field>
-          <label className="flex items-center gap-2 text-sm sm:col-span-2">
-            <Checkbox checked={f.usesBus} onCheckedChange={(v) => set("usesBus", !!v)} /> ใช้รถรับส่ง (ใบแจ้งหนี้จะติ๊กค่ารถให้อัตโนมัติ)
+          <label className="flex items-center gap-2 text-sm">
+            <Checkbox checked={staffOnly.usesBus} onCheckedChange={(v) => setStaffOnly((x) => ({ ...x, usesBus: !!v }))} /> ใช้รถรับส่ง (ใบแจ้งหนี้จะติ๊กค่ารถให้อัตโนมัติ)
           </label>
-          <Field label="หมายเหตุ (แพ้อาหาร, ข้อควรระวัง ฯลฯ)" className="sm:col-span-2"><Textarea rows={2} value={f.note ?? ""} onChange={(e) => set("note", e.target.value)} /></Field>
         </div>
     </FormShell>
   )

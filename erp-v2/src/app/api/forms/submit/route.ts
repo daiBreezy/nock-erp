@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server"
-import type { FormParentInput, LeadSource } from "@/domain/types"
+import type { FormParentInput, FormStudentExtras, LeadSource } from "@/domain/types"
 import { submitForm } from "@/server/form-store"
 
 // Called from the LIFF page after a parent fills in the 3-step wizard (Parent info → Student info →
@@ -12,14 +12,15 @@ export async function POST(req: Request) {
     familyAddress?: string; familyPostcode?: string; familyProvince?: string; acquisitions?: LeadSource[]
     familyLocation?: { lat: number; lng: number }; familyAddressNote?: string
     taxInfo?: { customerName: string; taxId: string; address: string }
-    students?: { name: string; nickname?: string; grade: string; birthDate?: string; school?: string; note?: string; picks?: { chosenSubject: string; chosenSlotId: string }[] }[]
+    familyName?: string; familyNameEn?: string
+    students?: ({ name: string; nickname?: string; grade: string; birthDate?: string; school?: string; note?: string } & FormStudentExtras & { picks?: { chosenSubject: string; chosenSlotId: string }[] })[]
   }
   try {
     body = await req.json()
   } catch {
     return NextResponse.json({ ok: false, error: "invalid json" }, { status: 400 })
   }
-  const { token, lineUserId, parents, familyAddress, familyPostcode, familyProvince, acquisitions, familyLocation, familyAddressNote, taxInfo, students } = body
+  const { token, lineUserId, parents, familyAddress, familyPostcode, familyProvince, acquisitions, familyLocation, familyAddressNote, taxInfo, familyName, familyNameEn, students } = body
   if (!token || !lineUserId || !parents?.length || !students?.length) {
     return NextResponse.json({ ok: false, error: "กรอกข้อมูลให้ครบทุกช่อง" }, { status: 400 })
   }
@@ -31,8 +32,9 @@ export async function POST(req: Request) {
   }
   const result = await submitForm({
     token, lineUserId, parents, familyAddress, familyPostcode, familyProvince, acquisitions, familyLocation, familyAddressNote,
+    familyName: familyName?.trim() || undefined, familyNameEn: familyNameEn?.trim() || undefined,
     taxInfo: taxInfo?.customerName?.trim() || taxInfo?.taxId?.trim() ? taxInfo : undefined,
-    students: students.map((s) => ({ name: s.name, nickname: s.nickname, grade: s.grade, birthDate: s.birthDate, school: s.school, note: s.note, picks: s.picks! })),
+    students: students.map((s) => ({ name: s.name, nickname: s.nickname, grade: s.grade, birthDate: s.birthDate, school: s.school, note: s.note, nameEn: s.nameEn, nicknameEn: s.nicknameEn, gender: s.gender, schoolId: s.schoolId, picks: s.picks! })),
   })
   return NextResponse.json(result)
 }

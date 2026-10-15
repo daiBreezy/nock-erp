@@ -18,19 +18,21 @@ export const FORM_TYPE_LABEL: Record<FormType, string> = { test: "สอบว�
 export function buildFormPrefill(input: {
   lead: Pick<Lead, "name" | "phone" | "lineId" | "childGrade" | "subject" | "source">
   family?: Family
-  students: Pick<Student, "id" | "name" | "nickname" | "grade" | "birthDate" | "note" | "school">[]
+  students: Pick<Student, "id" | "name" | "nickname" | "grade" | "birthDate" | "note" | "school" | "schoolId" | "nameEn" | "nicknameEn" | "gender">[]
   assessments: Pick<Assessment, "studentId" | "subject">[]
 }): FormPrefill {
   const f = input.family
   const parents: FormParentInput[] = f?.parents.length
-    ? f.parents.map((p) => ({ name: p.name, phone: p.phone, email: p.email, relationship: p.relationship, birthDate: p.birthDate, lineId: p.lineId, altPhones: p.altPhones, primary: p.primary }))
+    ? f.parents.map((p) => ({ name: p.name, nameEn: p.nameEn, phone: p.phone, email: p.email, relationship: p.relationship, birthDate: p.birthDate, lineId: p.lineId, altPhones: p.altPhones, primary: p.primary }))
     : [{ name: input.lead.name, phone: input.lead.phone, lineId: input.lead.lineId || undefined, primary: true }]
   return {
     parents,
+    familyName: f?.name, familyNameEn: f?.nameEn,
     address: f?.address, postcode: f?.postcode, province: f?.province, location: f?.location, addressNote: f?.addressNote,
     acquisitions: f?.sources?.length ? f.sources : [input.lead.source], taxInfo: f?.taxInfo,
     students: input.students.map((s) => ({
       name: s.name, nickname: s.nickname, grade: s.grade, birthDate: s.birthDate, school: s.school, note: s.note,
+      nameEn: s.nameEn, nicknameEn: s.nicknameEn, gender: s.gender, schoolId: s.schoolId,
       interests: [...new Set(input.assessments.filter((a) => a.studentId === s.id).map((a) => a.subject))],
     })),
   }

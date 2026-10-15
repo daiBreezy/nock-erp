@@ -1,6 +1,6 @@
 import { promises as fs } from "fs"
 import path from "path"
-import type { Brand, FormLang, FormOfferSlot, FormParentInput, FormPick, FormPrefill, FormSubjectOffer, FormSubmission, FormToken, FormType, ID, LeadSource } from "@/domain/types"
+import type { Brand, FormLang, FormOfferSlot, FormParentInput, FormPick, FormPrefill, FormSubjectOffer, FormSubmission, FormToken, FormType, Gender, ID, LeadSource } from "@/domain/types"
 import { fmtDate } from "@/domain/dates"
 import { FORM_TYPE_LABEL } from "@/domain/rules/forms"
 import { recordInboundMessage } from "./line-store"
@@ -93,8 +93,10 @@ export async function submitForm(input: {
   familyAddressNote?: string
   acquisitions?: LeadSource[]
   taxInfo?: { customerName: string; taxId: string; address: string }
+  familyName?: string
+  familyNameEn?: string
   students: {
-    name: string; nickname?: string; grade: string; birthDate?: string; school?: string; note?: string
+    name: string; nickname?: string; grade: string; birthDate?: string; school?: string; note?: string; nameEn?: string; nicknameEn?: string; gender?: Gender; schoolId?: string
     picks: { chosenSubject: string; chosenSlotId: string }[]
   }[]
 }): Promise<{ ok: true; submissions: FormSubmission[] } | { ok: false; error: string }> {
@@ -103,7 +105,7 @@ export async function submitForm(input: {
   if (!input.parents.length) return { ok: false, error: "ใส่ข้อมูลผู้ปกครองอย่างน้อย 1 คน" }
   if (!input.students.length) return { ok: false, error: "เพิ่มนักเรียนอย่างน้อย 1 คน" }
   // never trust a client-supplied slot payload — look up each offered slot server-side, per student
-  const resolvedStudents: { name: string; nickname?: string; grade: string; birthDate?: string; school?: string; note?: string; picks: FormPick[] }[] = []
+  const resolvedStudents: { name: string; nickname?: string; grade: string; birthDate?: string; school?: string; note?: string; nameEn?: string; nicknameEn?: string; gender?: Gender; schoolId?: string; picks: FormPick[] }[] = []
   for (const student of input.students) {
     if (!student.picks.length) return { ok: false, error: `เลือกวิชา/เวลาให้ ${student.name || "นักเรียน"} อย่างน้อย 1 วิชา` }
     const picks: FormPick[] = []
@@ -126,6 +128,7 @@ export async function submitForm(input: {
         lineUserId: input.lineUserId, parents: input.parents, familyAddress: input.familyAddress, familyPostcode: input.familyPostcode,
         familyProvince: input.familyProvince, familyLocation: input.familyLocation, familyAddressNote: input.familyAddressNote, acquisitions: input.acquisitions, taxInfo: input.taxInfo,
         studentName: student.name, studentNickname: student.nickname, studentGrade: student.grade, studentBirthDate: student.birthDate, studentSchool: student.school, studentNote: student.note,
+        studentNameEn: student.nameEn, studentNicknameEn: student.nicknameEn, studentGender: student.gender, studentSchoolId: student.schoolId, familyName: input.familyName, familyNameEn: input.familyNameEn,
         picks: student.picks,
         status: "pending", submittedAt: new Date().toISOString(),
       }

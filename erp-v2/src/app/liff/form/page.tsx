@@ -9,33 +9,31 @@ import {
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Textarea } from "@/components/ui/textarea"
 import { addDays, endTime, toDateStr } from "@/domain/dates"
 import { commonSlots } from "@/domain/rules/forms"
 import { gradeLabel, subjectLabel } from "@/domain/rules/settings"
-import type { Brand, EnrollCourseOption, EnrollToken, FormLang, FormToken, FormOfferSlot, FormPrefill, FormSubjectOffer, FormType, LeadSource } from "@/domain/types"
+import type { Brand, EnrollCourseOption, EnrollToken, FormLang, FormToken, FormOfferSlot, FormPrefill, FormSubjectOffer, FormType } from "@/domain/types"
 import { cn } from "@/lib/utils"
-import { MapPin } from "./map-pin"
-import { DICT, fmtBirth, fmtFormDate, LANGS, REL_KEYS, relFromStored, relToStored, SOURCE_KEYS, type RelKey } from "./i18n"
+import { emptyFamilyDraft, emptyParentDraft, emptyStudentDraft, FamilyFields, ParentFields, parentDraftOf, parentInputOf, StudentFields, studentDraftOf, studentInputOf, type FamilyDraft, type ParentDraft, type StudentDraft } from "@/components/people/person-fields"
+import { joinName } from "@/domain/rules/people"
+import { DICT, fmtBirth, fmtFormDate, LANGS } from "./i18n"
 import { courseLine, ENROLL_DICT, EnrollFields, enrollValid, timeLabel, type EnrollFieldsValue } from "./enroll"
 
 type Phase = "init" | "invalid" | "ready" | "submitting" | "done"
 type Step = "parent" | "student" | "summary"
 const STEP_KEYS: Step[] = ["parent", "student", "summary"]
 
-interface ParentBlock { first: string; last: string; phones: string[]; email: string; lineId: string; rel: RelKey | ""; birthDate: string; editing: boolean }
-interface StudentBlock { key: string; first: string; last: string; nickname: string; grade: string; birthDate: string; school: string; note: string; activeSubjects: string[]; chosen: Record<string, FormOfferSlot>; editing: boolean; enroll: EnrollFieldsValue }
+// owner 2026-10-15: the parent / family / child fields are shared with the admin panels (components/people/person-fields)
+type ParentBlock = ParentDraft & { editing: boolean }
+type StudentBlock = StudentDraft & { key: string; activeSubjects: string[]; chosen: Record<string, FormOfferSlot>; editing: boolean; enroll: EnrollFieldsValue }
 /** what the enroll-now form needs from the link (courses, subjects…) — null on a Test/Trial link */
 interface EnrollInfo { courses: EnrollCourseOption[]; subjects: string[]; busOffered: boolean }
 
 let seq = 0
-const splitName = (full = "") => { const t = full.trim().split(/\s+/); return t.length > 1 ? { first: t.slice(0, -1).join(" "), last: t[t.length - 1] } : { first: full.trim(), last: "" } }
-const emptyParent = (name = ""): ParentBlock => ({ ...splitName(name), phones: [""], email: "", lineId: "", rel: "", birthDate: "", editing: true })
+const emptyParent = (name = ""): ParentBlock => ({ ...emptyParentDraft(name), editing: true })
 const emptyEnroll = (): EnrollFieldsValue => ({ subjects: [], courseIds: [], pkg: "month", times: [], startDate: "", bus: false, placement: true })
-const emptyStudent = (grade: string): StudentBlock => ({ key: `st${seq++}`, first: "", last: "", nickname: "", grade, birthDate: "", school: "", note: "", activeSubjects: [], chosen: {}, editing: true, enroll: emptyEnroll() })
-const fullName = (x: { first: string; last: string }) => `${x.first} ${x.last}`.trim()
+const emptyStudent = (grade: string): StudentBlock => ({ ...emptyStudentDraft(grade), key: `st${seq++}`, activeSubjects: [], chosen: {}, editing: true, enroll: emptyEnroll() })
+const fullName = joinName
 /** the one visit a child's picks make up: same date+start for every subject, 2 h when 2+ subjects */
 const visitOf = (s: Pick<StudentBlock, "chosen">) => {
   const slots = Object.values(s.chosen)
@@ -49,7 +47,7 @@ function previewData(type: FormType): { offers: FormSubjectOffer[]; grades: stri
   const slots = (subject: string) => days.flatMap((d, i) => ["10:00", "13:00", "16:00"].map((start, j) => ({ id: `${subject}-${i}-${j}`, date: d, start, minutes: 60, source: "generic" as const, teacherId: null, roomId: null, classId: null, sessionId: null })))
   const offers = ["คณิต", "อังกฤษ", "วิทย์"].map((subject) => ({ subject, slots: slots(subject) }))
   const prefill: FormPrefill | null = type === "trial" ? {
-    parents: [{ name: "สมชาย ใจดี", phone: "089-555-1212", altPhones: ["02-111-2222"], relationship: "คุณพ่อ", lineId: "@somchai", email: "somchai@mail.com", primary: true }],
+    parents: [{ name: "สมชาย ใจดี", phone: "089-555-1212", altPhones: ["02-111-2222"], relationship: "คุณพ่อ", email: "somchai@mail.com", primary: true }],
     address: "123/45 ถ.สุขุมวิท แขวงคลองตันเหนือ เขตวัฒนา", province: "กรุงเทพฯ", postcode: "10110", acquisitions: ["walkin", "facebook"],
     location: { lat: 13.7309, lng: 100.5849 }, addressNote: "หมู่บ้านพฤกษา ซอย 2 หลังซ้ายมือ ประตูสีเขียว",
     students: [{ name: "ภูมิ ใจดี", nickname: "ภูมิ", grade: "ป.5", birthDate: "2015-03-12", school: "โรงเรียนสาธิต", note: "ชอบคณิต แต่ยังไม่มั่นใจเรื่องโจทย์ปัญหา", interests: ["คณิต"] }],
@@ -96,14 +94,7 @@ function LiffForm() {
 
   const [parents, setParents] = useState<ParentBlock[]>([emptyParent()])
   const [primaryIdx, setPrimaryIdx] = useState(0)
-  const [address, setAddress] = useState("")
-  const [province, setProvince] = useState("")
-  const [postcode, setPostcode] = useState("")
-  const [acquisitions, setAcquisitions] = useState<LeadSource[]>([])
-  const [location, setLocation] = useState<{ lat: number; lng: number } | undefined>()
-  const [addressNote, setAddressNote] = useState("")
-  const [wantTax, setWantTax] = useState(false)
-  const [tax, setTax] = useState({ customerName: "", taxId: "", address: "" })
+  const [fam, setFam] = useState<FamilyDraft>(emptyFamilyDraft)
   const [students, setStudents] = useState<StudentBlock[]>([])
   const [enroll, setEnroll] = useState<EnrollInfo | null>(null)
   const [terms, setTerms] = useState(false)
@@ -115,16 +106,18 @@ function LiffForm() {
   /** what we already know → cards the parent only checks (owner 2026-09-29: never type it twice) */
   const applyPrefill = (p: FormPrefill | null, gradeList: string[], offerList: FormSubjectOffer[], lineName: string) => {
     if (p?.parents.length) {
-      setParents(p.parents.map((x) => ({ ...splitName(x.name), phones: [x.phone, ...(x.altPhones ?? [])], email: x.email ?? "", lineId: x.lineId ?? "", rel: relFromStored(x.relationship), birthDate: x.birthDate ?? "", editing: false })))
+      setParents(p.parents.map((x) => ({ ...parentDraftOf(x), editing: false })))
       setPrimaryIdx(Math.max(0, p.parents.findIndex((x) => x.primary)))
-      setAddress(p.address ?? ""); setProvince(p.province ?? ""); setPostcode(p.postcode ?? ""); setAcquisitions(p.acquisitions ?? [])
-      setLocation(p.location); setAddressNote(p.addressNote ?? "")
-      if (p.taxInfo) { setWantTax(true); setTax(p.taxInfo) }
+      setFam({
+        name: p.familyName ?? "", nameEn: p.familyNameEn ?? "", acquisitions: p.acquisitions ?? [],
+        address: p.address ?? "", province: p.province ?? "", postcode: p.postcode ?? "", location: p.location, addressNote: p.addressNote ?? "",
+        wantTax: !!p.taxInfo, tax: p.taxInfo ?? { customerName: "", taxId: "", address: "" },
+      })
       setKnown(true)
     } else setParents([emptyParent(lineName)])
     const subjects = offerList.map((o) => o.subject)
     setStudents(p?.students.length
-      ? p.students.map((s) => ({ ...emptyStudent(s.grade), ...splitName(s.name), nickname: s.nickname ?? "", birthDate: s.birthDate ?? "", school: s.school ?? "", note: s.note ?? "", activeSubjects: (s.interests ?? []).filter((x) => subjects.includes(x)), editing: false }))
+      ? p.students.map((s) => ({ ...emptyStudent(s.grade), ...studentDraftOf(s), activeSubjects: (s.interests ?? []).filter((x) => subjects.includes(x)), editing: false }))
       : [emptyStudent(gradeList[0] ?? "")])
   }
 
@@ -219,10 +212,13 @@ function LiffForm() {
   const parentsValid = parents.length > 0 && parents.every((p) => p.first.trim() && p.phones[0]?.trim())
   const studentsValid = students.length > 0 && students.every((s) => s.first.trim() && s.grade && (enroll ? enrollValid(s.enroll) : s.activeSubjects.length > 0 && s.activeSubjects.every((subj) => s.chosen[subj])))
 
-  const parentsPayload = () => parents.map((p, i) => ({
-    name: fullName(p), phone: p.phones[0], altPhones: p.phones.slice(1).filter((x) => x.trim()),
-    email: p.email || undefined, lineId: p.lineId || undefined, relationship: p.rel ? relToStored(p.rel) : undefined, birthDate: p.birthDate || undefined, primary: i === primaryIdx,
-  }))
+  const parentsPayload = () => parents.map((p, i) => parentInputOf(p, i === primaryIdx))
+  /** the household answers, as both submit APIs take them */
+  const familyPayload = () => ({
+    familyName: fam.name.trim() || undefined, familyNameEn: fam.nameEn.trim() || undefined,
+    familyAddress: fam.address || undefined, familyPostcode: fam.postcode || undefined, familyProvince: fam.province || undefined, acquisitions: fam.acquisitions.length ? fam.acquisitions : undefined,
+    familyLocation: fam.location, familyAddressNote: fam.addressNote || undefined, taxInfo: fam.wantTax ? fam.tax : undefined,
+  })
   const submit = async () => {
     if (!parentsValid || !studentsValid) return
     if (enroll && !terms) { setError(te.termsNeed); return }
@@ -234,9 +230,8 @@ function LiffForm() {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           token, lineUserId: lineUserId || undefined, lineName: displayName || undefined, parents: parentsPayload(), lang, acceptedTerms: true,
-          familyAddress: address || undefined, familyPostcode: postcode || undefined, familyProvince: province || undefined, acquisitions: acquisitions.length ? acquisitions : undefined,
-          familyLocation: location, familyAddressNote: addressNote || undefined, taxInfo: wantTax ? tax : undefined,
-          children: students.map((s) => ({ name: fullName(s), nickname: s.nickname || undefined, grade: s.grade, birthDate: s.birthDate || undefined, school: s.school || undefined, note: s.note || undefined, ...s.enroll })),
+          ...familyPayload(),
+          children: students.map((s) => ({ ...studentInputOf(s), ...s.enroll })),
         }),
       }).then((r) => r.json()).catch(() => ({ ok: false, error: "ส่งไม่สำเร็จ — เครือข่ายมีปัญหา ลองอีกครั้ง" }))
       if (!res.ok) { setError(res.error ?? "ส่งไม่สำเร็จ"); setPhase("ready"); return }
@@ -249,11 +244,9 @@ function LiffForm() {
         body: JSON.stringify({
           token, lineUserId,
           parents: parentsPayload(),
-          familyAddress: address || undefined, familyPostcode: postcode || undefined, familyProvince: province || undefined, acquisitions: acquisitions.length ? acquisitions : undefined,
-          familyLocation: location, familyAddressNote: addressNote || undefined,
-          taxInfo: wantTax ? tax : undefined,
+          ...familyPayload(),
           students: students.map((s) => ({
-            name: fullName(s), nickname: s.nickname || undefined, grade: s.grade, birthDate: s.birthDate || undefined, school: s.school || undefined, note: s.note || undefined,
+            ...studentInputOf(s),
             picks: Object.entries(s.chosen).map(([subject, slot]) => ({ chosenSubject: subject, chosenSlotId: slot.id })),
           })),
         }),
@@ -272,8 +265,8 @@ function LiffForm() {
 
   const stepIndex = STEP_KEYS.indexOf(step)
   const summary = (
-    <Summary t={t} lang={lang} names={names} parents={parents} primaryIdx={primaryIdx} address={address} province={province} postcode={postcode} addressNote={addressNote} pinned={!!location} acquisitions={acquisitions} linked={lineUserId ? displayName : undefined}
-      tax={wantTax ? tax : null} students={students} onEdit={phase === "done" ? undefined : (s) => setStep(s)} enroll={enroll} />
+    <Summary t={t} lang={lang} names={names} parents={parents} primaryIdx={primaryIdx} fam={fam} linked={lineUserId ? displayName : undefined}
+      students={students} onEdit={phase === "done" ? undefined : (s) => setStep(s)} enroll={enroll} />
   )
 
   return (
@@ -320,37 +313,7 @@ function LiffForm() {
                     {known && <Button size="xs" variant="outline" disabled={!p.first.trim() || !p.phones[0]?.trim()} onClick={() => setParent(i, { editing: false })}><CheckIcon /> {t.done}</Button>}
                   </span>
                 </div>
-                <div className="grid grid-cols-2 gap-2">
-                  <Field label={`${t.firstName} *`}><Input value={p.first} onChange={(e) => setParent(i, { first: e.target.value })} /></Field>
-                  <Field label={t.lastName}><Input value={p.last} onChange={(e) => setParent(i, { last: e.target.value })} /></Field>
-                  <Field label={t.relationship}>
-                    <select className={selectCls} value={p.rel} onChange={(e) => setParent(i, { rel: e.target.value as RelKey })}>
-                      <option value="">{t.select}</option>
-                      {REL_KEYS.map((k) => <option key={k} value={k}>{t.rel[k]}</option>)}
-                    </select>
-                  </Field>
-                  <Field label={t.birthDate}><Input type="date" value={p.birthDate} onChange={(e) => setParent(i, { birthDate: e.target.value })} /></Field>
-                  {/* opened from LINE → this parent's LINE is already linked (LINE never exposes the @ID itself); others type theirs */}
-                  {i === 0 && lineUserId
-                    ? <Field label={t.lineId}><p className="flex h-9 items-center gap-1.5 rounded-3xl bg-emerald-50 px-3 text-sm text-emerald-800"><CheckIcon className="size-4" />{t.lineLinked(displayName)}</p></Field>
-                    : <Field label={t.lineId}><Input value={p.lineId} onChange={(e) => setParent(i, { lineId: e.target.value })} placeholder="@line_id" /></Field>}
-                  <Field label={t.email}><Input type="email" value={p.email} onChange={(e) => setParent(i, { email: e.target.value })} /></Field>
-                </div>
-                <div className="space-y-1.5">
-                  <Label className="text-xs">{t.phone} *</Label>
-                  {p.phones.map((ph, k) => (
-                    <div key={k} className="flex items-center gap-1.5">
-                      <Input inputMode="tel" value={ph} placeholder="081-234-5678" onChange={(e) => setParent(i, { phones: p.phones.map((x, j) => (j === k ? e.target.value : x)) })} />
-                      {k === 0 ? <span className="shrink-0 rounded-full bg-primary/10 px-2 py-1 text-[11px] text-primary">{t.defaultTag}</span> : (
-                        <>
-                          <Button size="xs" variant="ghost" className="shrink-0" onClick={() => setParent(i, { phones: [ph, ...p.phones.filter((_, j) => j !== k)] })}>{t.makeDefault}</Button>
-                          <Button size="icon-xs" variant="ghost" className="shrink-0 text-red-600" aria-label={t.remove} onClick={() => setParent(i, { phones: p.phones.filter((_, j) => j !== k) })}><TrashIcon /></Button>
-                        </>
-                      )}
-                    </div>
-                  ))}
-                  <Button size="xs" variant="secondary" onClick={() => setParent(i, { phones: [...p.phones, ""] })}><PlusIcon /> {t.addPhone}</Button>
-                </div>
+                <ParentFields t={t} value={p} onChange={(patch) => setParent(i, patch)} linked={i === 0 && lineUserId ? displayName : undefined} />
                 {parents.length > 1 && (
                   <label className="flex items-center gap-2 rounded-2xl bg-muted/60 px-3 py-2 text-sm"><Checkbox checked={primaryIdx === i} onCheckedChange={() => setPrimaryIdx(i)} /> {t.primaryParent}</label>
                 )}
@@ -360,41 +323,7 @@ function LiffForm() {
             ))}
 
             <Card>
-              <div>
-                <p className="text-sm font-semibold">{t.acquisition}</p>
-                <p className="mb-2 text-xs text-muted-foreground">{t.acquisitionSub}</p>
-                <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-3">
-                  {SOURCE_KEYS.map((k) => {
-                    const on = acquisitions.includes(k)
-                    return (
-                      <label key={k} className={cn("flex cursor-pointer items-center gap-2 rounded-2xl border px-3 py-2 text-sm", on ? "border-primary bg-primary/10" : "text-muted-foreground")}>
-                        <Checkbox checked={on} onCheckedChange={() => setAcquisitions((xs) => (on ? xs.filter((x) => x !== k) : [...xs, k]))} /> {t.src[k]}
-                      </label>
-                    )
-                  })}
-                </div>
-              </div>
-              {/* both brands (owner 2026-09-30) — whether the family rides the bus is decided on the invoice, not here */}
-              <div className="space-y-2 border-t pt-3">
-                  <div><p className="text-sm font-semibold">{t.address}</p><p className="text-xs text-muted-foreground">{t.addressSub} · {t.pinSub}</p></div>
-                  <MapPin value={location} onChange={setLocation} locateLabel={t.locate} />
-                  <Input value={address} onChange={(e) => setAddress(e.target.value)} placeholder={t.addressLine} />
-                  <div className="grid grid-cols-2 gap-2">
-                    <Input value={province} onChange={(e) => setProvince(e.target.value)} placeholder={t.province} />
-                    <Input inputMode="numeric" maxLength={5} value={postcode} onChange={(e) => setPostcode(e.target.value)} placeholder={t.postcode} />
-                  </div>
-                  <Field label={t.addressNote}><Textarea rows={2} value={addressNote} onChange={(e) => setAddressNote(e.target.value)} placeholder={t.addressNotePh} /></Field>
-                </div>
-              <div className="border-t pt-3">
-                <label className="flex items-start gap-2 text-sm"><Checkbox checked={wantTax} onCheckedChange={(v) => setWantTax(!!v)} className="mt-0.5" /><span><span className="font-semibold">{t.tax}</span><span className="block text-xs text-muted-foreground">{t.taxSub}</span></span></label>
-                {wantTax && (
-                  <div className="mt-2 grid grid-cols-2 gap-2">
-                    <Field label={t.taxName}><Input value={tax.customerName} onChange={(e) => setTax({ ...tax, customerName: e.target.value })} /></Field>
-                    <Field label={t.taxId}><Input inputMode="numeric" value={tax.taxId} onChange={(e) => setTax({ ...tax, taxId: e.target.value })} /></Field>
-                    <div className="col-span-2"><Field label={t.taxAddress}><Input value={tax.address} onChange={(e) => setTax({ ...tax, address: e.target.value })} /></Field></div>
-                  </div>
-                )}
-              </div>
+              <FamilyFields t={t} value={fam} onChange={(patch) => setFam((x) => ({ ...x, ...patch }))} parentLast={parents[primaryIdx]?.last ?? ""} />
             </Card>
           </section>
         ) : step === "student" ? (
@@ -435,7 +364,6 @@ function LiffForm() {
 
 type T = (typeof DICT)["th"]
 type Names = { subject: (x: string) => string; grade: (g: string) => string }
-const selectCls = "h-9 w-full rounded-3xl border bg-input/50 px-3 text-sm"
 
 function ParentCard({ t, lang, p, primary, linked, onEdit }: { t: T; lang: FormLang; p: ParentBlock; primary: boolean; linked?: string; onEdit?: () => void }) {
   return (
@@ -450,7 +378,7 @@ function ParentCard({ t, lang, p, primary, linked, onEdit }: { t: T; lang: FormL
       </div>
       <div className="grid gap-1.5 text-sm sm:grid-cols-2">
         {p.phones.filter(Boolean).map((ph, k) => <Line key={k} icon={PhoneIcon}>{ph}{k === 0 && p.phones.length > 1 && <span className="ml-1 text-xs text-muted-foreground">({t.defaultTag})</span>}</Line>)}
-        {linked ? <Line icon={MessageCircleIcon}><span className="text-emerald-700">{t.lineLinked(linked)}</span></Line> : p.lineId && <Line icon={MessageCircleIcon}>{p.lineId}</Line>}
+        {linked && <Line icon={MessageCircleIcon}><span className="text-emerald-700">{t.lineLinked(linked)}</span></Line>}
         {p.email && <Line icon={MailIcon}>{p.email}</Line>}
         {p.birthDate && <Line icon={CakeIcon}>{fmtBirth(p.birthDate, lang)}</Line>}
       </div>
@@ -480,17 +408,7 @@ function StudentCard({ t, lang, names, n, formType, student: s, grades, offers, 
               {onRemove && <Button size="icon-xs" variant="ghost" className="text-red-600" aria-label={t.remove} onClick={onRemove}><TrashIcon /></Button>}
             </span>
           </div>
-          <div className="grid grid-cols-2 gap-2">
-            <Field label={`${t.firstName} *`}><Input value={s.first} onChange={(e) => onChange({ first: e.target.value })} /></Field>
-            <Field label={t.lastName}><Input value={s.last} onChange={(e) => onChange({ last: e.target.value })} /></Field>
-            <Field label={t.nickname}><Input value={s.nickname} onChange={(e) => onChange({ nickname: e.target.value })} /></Field>
-            <Field label={`${t.grade} *`}>
-              <select className={selectCls} value={s.grade} onChange={(e) => onChange({ grade: e.target.value })}>{grades.map((g) => <option key={g} value={g}>{names.grade(g)}</option>)}</select>
-            </Field>
-            <Field label={`${t.birthDate}${age !== null ? ` · ${t.age(age)}` : ""}`}><Input type="date" value={s.birthDate} onChange={(e) => onChange({ birthDate: e.target.value })} /></Field>
-            <Field label={t.school}><Input value={s.school} onChange={(e) => onChange({ school: e.target.value })} /></Field>
-          </div>
-          <Field label={t.note}><Textarea rows={2} maxLength={250} value={s.note} onChange={(e) => onChange({ note: e.target.value })} placeholder={t.notePh} /></Field>
+          <StudentFields t={t} value={s} onChange={onChange} grades={grades} gradeLabel={names.grade} />
         </>
       ) : (
         <div className="space-y-1.5">
@@ -554,18 +472,21 @@ function StudentCard({ t, lang, names, n, formType, student: s, grades, offers, 
   )
 }
 
-function Summary({ t, lang, names, parents, primaryIdx, address, province, postcode, addressNote, pinned, acquisitions, linked, tax, students, onEdit, enroll }: {
-  t: T; lang: FormLang; names: Names; parents: ParentBlock[]; primaryIdx: number; address: string; province: string; postcode: string; addressNote: string; pinned: boolean; acquisitions: LeadSource[]; linked?: string
-  tax: { customerName: string; taxId: string; address: string } | null; students: StudentBlock[]; onEdit?: (s: Step) => void; enroll?: EnrollInfo | null
+function Summary({ t, lang, names, parents, primaryIdx, fam, linked, students, onEdit, enroll }: {
+  t: T; lang: FormLang; names: Names; parents: ParentBlock[]; primaryIdx: number; fam: FamilyDraft; linked?: string
+  students: StudentBlock[]; onEdit?: (s: Step) => void; enroll?: EnrollInfo | null
 }) {
   const te = ENROLL_DICT[lang]
+  const { address, province, postcode, addressNote, acquisitions } = fam
+  const pinned = !!fam.location
+  const tax = fam.wantTax ? fam.tax : null
   return (
     <div className="space-y-3">
       <p className="text-sm font-semibold">{t.parentTitle}</p>
       <Card>
         <div className="flex items-center gap-2">
           <UsersIcon className="size-5 text-primary" />
-          <p className="flex-1 font-semibold">{t.family} {parents[0]?.last || fullName(parents[0] ?? { first: "", last: "" })}</p>
+          <p className="flex-1 font-semibold">{fam.name.trim() || t.familyNamePh(parents[primaryIdx]?.last ?? "")}{fam.nameEn.trim() && <span className="font-normal text-muted-foreground"> · {fam.nameEn}</span>}</p>
           {onEdit && <Button size="icon-sm" variant="outline" aria-label={t.edit} onClick={() => onEdit("parent")}><PencilIcon /></Button>}
         </div>
         {parents.map((p, i) => (
@@ -573,7 +494,7 @@ function Summary({ t, lang, names, parents, primaryIdx, address, province, postc
             <p className="font-medium">{fullName(p)} <span className="font-normal text-muted-foreground">{[p.rel ? t.rel[p.rel] : "", i === primaryIdx && parents.length > 1 ? t.primaryParent : ""].filter(Boolean).join(" · ")}</span></p>
             <div className="grid gap-1 sm:grid-cols-2">
               {p.phones.filter(Boolean).map((ph, k) => <Line key={k} icon={PhoneIcon}>{ph}{k === 0 && p.phones.filter(Boolean).length > 1 && <span className="ml-1 text-xs text-muted-foreground">({t.defaultTag})</span>}</Line>)}
-              {i === 0 && linked ? <Line icon={MessageCircleIcon}><span className="text-emerald-700">{t.lineLinked(linked)}</span></Line> : p.lineId && <Line icon={MessageCircleIcon}>{p.lineId}</Line>}
+              {i === 0 && linked && <Line icon={MessageCircleIcon}><span className="text-emerald-700">{t.lineLinked(linked)}</span></Line>}
               {p.email && <Line icon={MailIcon}>{p.email}</Line>}
             </div>
           </div>
@@ -644,9 +565,6 @@ function Line({ icon: Icon, children }: { icon: React.ComponentType<{ className?
   return <p className="flex items-start gap-2 text-sm"><Icon className="mt-0.5 size-4 shrink-0 text-muted-foreground" /><span className="min-w-0 break-words">{children}</span></p>
 }
 
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
-  return <div className="space-y-1"><Label className="text-xs">{label}</Label>{children}</div>
-}
 
 function Centered({ children }: { children: React.ReactNode }) {
   return <div className="flex min-h-screen flex-col items-center justify-center p-6">{children}</div>

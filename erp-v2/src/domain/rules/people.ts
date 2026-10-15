@@ -33,6 +33,8 @@ export function normalizeRelation(v?: string): ParentRelation | undefined {
   return "ผู้ปกครอง"
 }
 
+export const GENDER_LABEL: Record<Gender, string> = { male: "ชาย", female: "หญิง" }
+
 const STUDENT_TITLE = /^(ด\.ช\.|ด\.ญ\.|เด็กชาย|เด็กหญิง|นางสาว|น\.ส\.|นาย|นาง)\s*/
 const PARENT_TITLE = /^(คุณแม่|คุณพ่อ|คุณ|นางสาว|น\.ส\.|นาย|นาง)\s*/
 
@@ -103,6 +105,19 @@ function nameParts(full: string) {
   return full.trim().replace(NAME_PREFIX, "").split(/\s+/).filter(Boolean)
 }
 
+/** owner 2026-10-15: names are typed as first name + surname (form and admin alike) — "สุดา ใจดี" → { first: "สุดา", last: "ใจดี" } */
+export function splitName(full = ""): { first: string; last: string } {
+  const t = full.trim().split(/\s+/).filter(Boolean)
+  return t.length > 1 ? { first: t.slice(0, -1).join(" "), last: t[t.length - 1] } : { first: t[0] ?? "", last: "" }
+}
+
+export const joinName = (x: { first: string; last: string }) => `${x.first.trim()} ${x.last.trim()}`.trim()
+
+/** owner 2026-10-15: the family is named after the main parent's surname ("ใจดี" → "ครอบครัวใจดี") unless someone typed a name */
+export function familyNameFor(typed: string | undefined, parentLastName: string | undefined): string {
+  return typed?.trim() || (parentLastName?.trim() ? `ครอบครัว${parentLastName.trim()}` : "")
+}
+
 /** Nickname guess for a student created from a parent form: the first name without the title ("ด.ช. ภูมิ ใจดี" → "ภูมิ"). Staff can edit it later. */
 export function nicknameFrom(fullName: string) {
   return nameParts(fullName)[0] ?? fullName.trim()
@@ -132,17 +147,19 @@ export function familyFromLead(
  *  of collapsing to the lead's single name/phone — used once the form actually collected full parent
  *  details (see approveTestTrialSubmission). The first parent listed is the one who logged into LINE to
  *  submit, so only they get `lineLinked`/`primary`; others can be corrected by staff afterwards. */
-export function familyFromSubmission(studentName: string, parents: FormParentInput[], family: { address?: string; postcode?: string; province?: string; location?: Family["location"]; addressNote?: string; sources?: Family["sources"]; taxInfo?: Family["taxInfo"] }, lineUserId: string | undefined, id: ID): Family {
-  const parts = nameParts(studentName)
-  const parentSurname = parents[0] ? nameParts(parents[0].name).slice(-1)[0] : undefined
-  const surname = parts.length > 1 ? parts[parts.length - 1] : parentSurname ?? "ครอบครัวใหม่"
+export function familyFromSubmission(studentName: string, parents: FormParentInput[], family: { name?: string; nameEn?: string; address?: string; postcode?: string; province?: string; location?: Family["location"]; addressNote?: string; sources?: Family["sources"]; taxInfo?: Family["taxInfo"] }, lineUserId: string | undefined, id: ID): Family {
   // the parent marked "default contact" on the form is primary; none marked → the first one
   const primaryAt = Math.max(0, parents.findIndex((p) => p.primary))
+  // owner 2026-10-15: the typed family name, else the main parent's surname, else the child's
+  const parentParts = parents[primaryAt] ? nameParts(parents[primaryAt].name) : []
+  const childParts = nameParts(studentName)
+  const surname = parentParts.length > 1 ? parentParts[parentParts.length - 1] : childParts.length > 1 ? childParts[childParts.length - 1] : undefined
   return {
     id,
-    name: `ครอบครัว${surname}`,
+    name: familyNameFor(family.name, surname) || "ครอบครัวใหม่",
+    nameEn: family.nameEn?.trim() || undefined,
     parents: parents.map((p, i) => ({
-      name: p.name.trim(), phone: formatPhone(p.phone.trim()), email: p.email?.trim() || undefined,
+      name: p.name.trim(), nameEn: p.nameEn?.trim() || undefined, phone: formatPhone(p.phone.trim()), email: p.email?.trim() || undefined,
       relationship: p.relationship?.trim() || undefined, birthDate: p.birthDate,
       lineId: p.lineId?.trim() || undefined, altPhones: p.altPhones?.map((x) => formatPhone(x.trim())).filter(Boolean),
       lineLinked: i === 0 && !!lineUserId, primary: i === primaryAt,
@@ -297,6 +314,7 @@ export function submissionChanges(family: Family | undefined, student: Student |
       if (!cur) return void out.push({ key: `parent${i}`, label: "เพิ่มผู้ปกครอง", from: "—", to: `${p.name} · ${p.phone}` })
       const who = `ผู้ปกครอง ${cur.name}`
       put(out, `parent${i}.name`, `${who}: ชื่อ`, cur.name, p.name)
+      put(out, `parent${i}.nameEn`, `${who}: ชื่อ (EN)`, cur.nameEn, p.nameEn)
       if (!sameDigits(cur.phone, p.phone)) put(out, `parent${i}.phone`, `${who}: เบอร์หลัก`, cur.phone, p.phone)
       put(out, `parent${i}.email`, `${who}: อีเมล`, cur.email, p.email)
       put(out, `parent${i}.lineId`, `${who}: LINE ID`, cur.lineId, p.lineId)
@@ -318,6 +336,9 @@ export function submissionChanges(family: Family | undefined, student: Student |
   if (student) {
     put(out, "student.name", "นักเรียน: ชื่อ", student.name, sub.studentName)
     put(out, "student.nickname", "นักเรียน: ชื่อเล่น", student.nickname, sub.studentNickname)
+    put(out, "student.nameEn", "นักเรียน: ชื่อ (EN)", student.nameEn, sub.studentNameEn)
+    put(out, "student.nicknameEn", "นักเรียน: ชื่อเล่น (EN)", student.nicknameEn, sub.studentNicknameEn)
+    put(out, "student.gender", "นักเรียน: เพศ", student.gender && GENDER_LABEL[student.gender], sub.studentGender && GENDER_LABEL[sub.studentGender])
     put(out, "student.grade", "นักเรียน: ชั้น", student.grade, sub.studentGrade)
     put(out, "student.birthDate", "นักเรียน: วันเกิด", student.birthDate, sub.studentBirthDate)
     put(out, "student.school", "นักเรียน: โรงเรียน", student.school, sub.studentSchool)
@@ -334,10 +355,10 @@ export function mergeSubmission(family: Family | undefined, student: Student | u
     const parents = [...f.parents]
     for (const p of sub.parents) {
       const i = parents.findIndex((x) => sameDigits(x.phone, p.phone) || x.name.trim() === p.name.trim())
-      if (i < 0) { parents.push({ name: p.name.trim(), phone: formatPhone(p.phone), email: p.email, relationship: p.relationship, birthDate: p.birthDate, lineId: p.lineId, altPhones: p.altPhones, lineLinked: false, primary: false }); continue }
+      if (i < 0) { parents.push({ name: p.name.trim(), nameEn: p.nameEn?.trim() || undefined, phone: formatPhone(p.phone), email: p.email, relationship: p.relationship, birthDate: p.birthDate, lineId: p.lineId, altPhones: p.altPhones, lineLinked: false, primary: false }); continue }
       const cur = parents[i]
       const alt = [...(cur.altPhones ?? []), ...(p.altPhones ?? []).filter((x) => x.trim() && ![cur.phone, ...(cur.altPhones ?? [])].some((y) => sameDigits(x, y)))]
-      parents[i] = { ...cur, name: keep(cur.name, p.name), phone: p.phone?.trim() ? formatPhone(p.phone) : cur.phone, email: keep(cur.email, p.email), lineId: keep(cur.lineId, p.lineId), relationship: keep(cur.relationship, p.relationship), birthDate: keep(cur.birthDate, p.birthDate), altPhones: alt.length ? alt : undefined }
+      parents[i] = { ...cur, name: keep(cur.name, p.name), nameEn: keep(cur.nameEn, p.nameEn), phone: p.phone?.trim() ? formatPhone(p.phone) : cur.phone, email: keep(cur.email, p.email), lineId: keep(cur.lineId, p.lineId), relationship: keep(cur.relationship, p.relationship), birthDate: keep(cur.birthDate, p.birthDate), altPhones: alt.length ? alt : undefined }
     }
     f = {
       ...f, parents,
@@ -349,7 +370,8 @@ export function mergeSubmission(family: Family | undefined, student: Student | u
   }
   const st = student && {
     ...student, name: keep(student.name, sub.studentName), nickname: keep(student.nickname, sub.studentNickname), grade: keep(student.grade, sub.studentGrade),
-    birthDate: keep(student.birthDate, sub.studentBirthDate), school: keep(student.school, sub.studentSchool), note: keep(student.note, sub.studentNote),
+    nameEn: keep(student.nameEn, sub.studentNameEn), nicknameEn: keep(student.nicknameEn, sub.studentNicknameEn), gender: sub.studentGender ?? student.gender,
+    birthDate: keep(student.birthDate, sub.studentBirthDate), school: keep(student.school, sub.studentSchool), schoolId: sub.studentSchool?.trim() ? sub.studentSchoolId : student.schoolId, note: keep(student.note, sub.studentNote),
   }
   return { family: f, student: st }
 }
