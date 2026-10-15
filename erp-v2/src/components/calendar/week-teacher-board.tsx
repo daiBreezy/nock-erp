@@ -2,11 +2,9 @@
 
 import { staffAt } from "@/domain/rules/permissions"
 import { Fragment, useMemo, useRef, useState } from "react"
-import { AlertTriangleIcon, CalendarOffIcon, CircleCheckIcon, CircleDashedIcon, CircleXIcon, ArrowLeftRightIcon, BanIcon, CalendarIcon, EllipsisIcon, CheckIcon, ClipboardCheckIcon, FlaskConicalIcon, ListCollapseIcon, RotateCcwIcon, MessagesSquareIcon, PencilLineIcon, PinIcon, PlayIcon, PlusIcon, Trash2Icon, ShapesIcon, Settings2Icon, UserIcon, UsersIcon, UsersRoundIcon } from "lucide-react"
+import { AlertTriangleIcon, CalendarOffIcon, CircleCheckIcon, CircleDashedIcon, CircleXIcon, ArrowLeftRightIcon, BanIcon, CalendarIcon, EllipsisIcon, CheckIcon, ClipboardCheckIcon, FlaskConicalIcon, RotateCcwIcon, MessagesSquareIcon, PencilLineIcon, PinIcon, PlayIcon, PlusIcon, Trash2Icon, ShapesIcon, UserIcon, UsersIcon, UsersRoundIcon } from "lucide-react"
 import type { ClassPrefill } from "@/components/app/class-dialog"
 import { ConflictResolver, liveConflicts } from "@/components/app/conflict-resolver"
-import { BlocksDialog } from "@/components/calendar/blocks-dialog"
-import { canEditBlocks } from "@/domain/rules/permissions"
 import { avatarTone, gradeTone, initial, subjectColor } from "@/components/app/subject-color"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -60,8 +58,10 @@ type Row = { start: TimeStr; end: TimeStr; block: boolean }
  * (avatar, subjects, number of classes), a Room line and a row per standard block, and in each block a class card in
  * the subject's colour with the students in two columns: nickname, free-form note, result, grade. Days stack down.
  */
-export function WeekTeacherBoard({ from, sessions, onOpen, onSlot, canCreate, dayCount = 7 }: {
+export function WeekTeacherBoard({ from, sessions, onOpen, onSlot, canCreate, dayCount = 7, onlyBusy = false }: {
   from: DateStr
+  /** day view: only the hours that have classes — the switch sits with the calendar filters (owner 2026-10-15) */
+  onlyBusy?: boolean
   /** 1 = the day view ("รายวัน"). owner 2026-10-12: same cells as the teacher board (students listed), but the time
    *  column is plain hours one after another, no Room bars between them — the room sits inside each class cell —
    *  and a button to show only the hours that have classes */
@@ -88,7 +88,6 @@ export function WeekTeacherBoard({ from, sessions, onOpen, onSlot, canCreate, da
   const days = Array.from({ length: dayCount }, (_, i) => addDays(from, i))
   const live = sessions.filter((s) => !s.cancelled)
   const plain = dayCount === 1
-  const [onlyBusy, setOnlyBusy] = useState(false)
 
   // same teacher columns every day of the week, so the eye can follow a teacher down the page
   const teacherIds = useMemo(() => {
@@ -133,8 +132,6 @@ export function WeekTeacherBoard({ from, sessions, onOpen, onSlot, canCreate, da
   const clashIds = useMemo(() => new Set(liveConflicts(live.map((x) => x.id), allSessions.filter((x) => x.branchId === branch.id), { branch, staff, now }).flatMap((c) => c.sessionIds)), [live, allSessions, branch, staff, now])
   const [resolving, setResolving] = useState<string[] | null>(null)
   const [moving, setMoving] = useState<{ from: string; studentId: string; to: string } | null>(null)
-  const [blocksDate, setBlocksDate] = useState<DateStr | null>(null)
-  const canBlocks = canEditBlocks(staff.find((x) => x.id === me), branch.id)
   const [dayAction, setDayAction] = useState<{ mode: "substitute" | "cancel"; teacherId: string; date: DateStr } | null>(null)
   const cols = `5.5rem repeat(${Math.max(1, teacherIds.length)}, minmax(17rem, 1fr))`
 
@@ -147,7 +144,6 @@ export function WeekTeacherBoard({ from, sessions, onOpen, onSlot, canCreate, da
         ))}
       </nav>}
 
-      {blocksDate && <BlocksDialog branch={branch} date={blocksDate} onClose={() => setBlocksDate(null)} />}
       {dayAction && <TeacherDayDialog {...dayAction} onClose={() => setDayAction(null)} />}
       {moving && <MoveStudentDialog {...moving} onClose={() => setMoving(null)} />}
       {resolving && <ConflictResolver sessionIds={resolving} onClose={() => setResolving(null)} onOpen={(id) => { setResolving(null); onOpen(id) }} />}
@@ -161,18 +157,6 @@ export function WeekTeacherBoard({ from, sessions, onOpen, onSlot, canCreate, da
               <div className={cn("flex items-center gap-2 px-4 py-2 text-sm font-semibold", dayTone(date, today))}>
                 <span>{DAY_FULL[weekdayOf(date)]} {fmtDate(date, { year: true })}{date === today ? " · วันนี้" : date < today ? " · ผ่านไปแล้ว" : ""}{holiday ? " · วันหยุด" : closed ? " · สาขาปิด" : ""}</span>
                 {periodsOn(branch, date)[0] && <span className="rounded-full bg-violet-100 px-2 py-0.5 text-[11px] font-medium text-violet-900 dark:bg-violet-950 dark:text-violet-200">ช่วง {periodsOn(branch, date)[0].name}</span>}
-                {plain && (
-                  <button type="button" onClick={() => setOnlyBusy(!onlyBusy)} aria-pressed={onlyBusy}
-                    title={onlyBusy ? "แสดงทุกชั่วโมง" : "แสดงเฉพาะเวลาที่มีคลาส"}
-                    className={cn("ml-auto flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-normal hover:bg-black/5", onlyBusy ? "bg-black/10 opacity-100" : "opacity-70 hover:opacity-100")}>
-                    <ListCollapseIcon className="size-3.5" /> {onlyBusy ? "เฉพาะเวลาที่มีคลาส" : "ทุกชั่วโมง"}
-                  </button>
-                )}
-                {canBlocks && date >= today && !plain && (
-                  <button type="button" onClick={() => setBlocksDate(date)} className="ml-auto flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-normal opacity-70 hover:bg-black/5 hover:opacity-100">
-                    <Settings2Icon className="size-3.5" /> ตั้งช่วงเวลา
-                  </button>
-                )}
               </div>
               {rows.length === 0 || teacherIds.length === 0 ? (
                 <p className="p-6 text-center text-sm text-muted-foreground">{closed || holiday ? "ไม่มีคลาส" : "ยังไม่มีคลาสวันนี้"}</p>
@@ -250,17 +234,7 @@ export function WeekTeacherBoard({ from, sessions, onOpen, onSlot, canCreate, da
                     const nowHere = rowNow(date, row)
                     return (
                       <Fragment key={row.start}>
-                        {/* Room line of the block (week board) — the day board puts the room inside each class cell */}
-                        {!plain && (
-                          <>
-                            <div className="sticky left-0 z-10 border-b bg-zinc-100 px-3 py-1.5 text-xs text-muted-foreground dark:bg-zinc-800">Room</div>
-                            {teacherIds.map((tid) => (
-                              <RoomLine key={`r-${tid}`} sessions={cellSessions(date, tid, row)} classes={classes} live={(x) => workState(x, now, attendance, summaries).state === "live"}
-                                clash={cellSessions(date, tid, row).filter((x) => clashIds.has(x.id)).map((x) => x.id)} onResolve={canCreate ? setResolving : undefined} />
-                            ))}
-                          </>
-                        )}
-
+                        {/* owner 2026-10-15: no Room bar — the room sits inside each class card, the same in both views */}
                         <div className={cn("sticky left-0 z-10 flex flex-col items-center gap-1 border-b bg-card px-2 py-3 text-sm tabular-nums", plain ? "justify-start" : "justify-center", past && "text-muted-foreground", nowHere && "font-semibold text-primary")}>
                           <span>{row.start}</span>
                           {!plain && <span>{row.block ? row.end : "นอกช่วง"}</span>}
@@ -282,8 +256,8 @@ export function WeekTeacherBoard({ from, sessions, onOpen, onSlot, canCreate, da
                                 <div key={s.id} role="button" tabIndex={-1} className="cursor-pointer transition-colors hover:bg-muted/40"
                                   onClick={(e) => { if (!(e.target as HTMLElement).closest("button, a, input, textarea, [role=menu], [role=menuitem], [role=dialog]")) onOpen(s.id) }}>
                                 <SessionBlock s={s} row={row}
-                                  room={plain ? <RoomLine inCell sessions={[s]} classes={classes} live={(x) => workState(x, now, attendance, summaries).state === "live"}
-                                    clash={clashIds.has(s.id) ? [s.id] : []} onResolve={canCreate ? setResolving : undefined} /> : undefined}
+                                  room={<RoomLine inCell sessions={[s]} classes={classes} live={(x) => workState(x, now, attendance, summaries).state === "live"}
+                                    clash={clashIds.has(s.id) ? [s.id] : []} onResolve={canCreate ? setResolving : undefined} />}
                                   state={workState(s, now, attendance, summaries).state}
                                   ended={sessionEnded(s)} dayDate={dayDate}
                                   canEdit={canCreate || s.teacherId === me || s.coTeacherIds.includes(me)}

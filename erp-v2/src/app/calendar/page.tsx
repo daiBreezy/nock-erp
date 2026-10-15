@@ -5,7 +5,9 @@ import { PeriodBanner } from "@/components/app/period-banner"
 import { RangeStepper, PageHeader, Toolbar, Segmented } from "@/components/app/page-layout"
 import { Suspense, useMemo, useState } from "react"
 import { useSearchParams } from "next/navigation"
-import { AlertTriangleIcon, ClipboardListIcon, ListCollapseIcon, PalmtreeIcon, PlusIcon } from "lucide-react"
+import { AlertTriangleIcon, ClipboardListIcon, ListCollapseIcon, PalmtreeIcon, PlusIcon, Settings2Icon } from "lucide-react"
+import { BlocksDialog } from "@/components/calendar/blocks-dialog"
+import { canEditBlocks } from "@/domain/rules/permissions"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { SummaryPanel } from "@/components/calendar/summary-panel"
 import { Pill, SessionStateBadge } from "@/components/app/badges"
@@ -59,6 +61,9 @@ function CalendarView() {
   const [view, setView] = useQueryState<View>("view", "board")
   const [dayMode, setDayMode] = useQueryState<"table" | "single">("day", "table")
   const single = view === "board" && dayMode === "single"
+  const [onlyBusy, setOnlyBusy] = useState(false)
+  const [blocksDate, setBlocksDate] = useState<DateStr | null>(null)
+  const canBlocks = canEditBlocks(staff.find((x) => x.id === me.id), branch.id)
   const [anchor, setAnchor] = useState(() => (linkedSession && allSessions.find((x) => x.id === linkedSession)?.date) || today)
   // everyone sees every session by default; teachers get a one-tap "only mine" filter
   const [teacher, setTeacher] = useQueryState<string>("teacher", "all")
@@ -188,6 +193,20 @@ function CalendarView() {
         <NativeSelect className="h-9 w-40" value={workFilter ?? ""} onChange={(e) => setWorkFilter((e.target.value || null) as WorkState | null)}
           placeholder={`ทุกสถานะ (${visible.filter((x) => !x.cancelled).length})`}
           options={WORK_ORDER.map((w) => ({ value: w, label: `${WORK_LABEL[w]} (${workCounts[w] ?? 0})` }))} />
+        {/* owner 2026-10-15: the board's own switches live with the filters — always in sight, no scrolling to find them */}
+        <span className="ml-auto flex flex-wrap items-center gap-2">
+          {single && (
+            <Button variant={onlyBusy ? "secondary" : "ghost"} size="sm" aria-pressed={onlyBusy} onClick={() => setOnlyBusy(!onlyBusy)}
+              title={onlyBusy ? "แสดงทุกชั่วโมง" : "แสดงเฉพาะเวลาที่มีคลาส"}>
+              <ListCollapseIcon /> {onlyBusy ? "เฉพาะเวลาที่มีคลาส" : "ทุกชั่วโมง"}
+            </Button>
+          )}
+          {view === "board" && canBlocks && (
+            <Button variant="outline" size="sm" onClick={() => setBlocksDate(anchor < today ? today : anchor)} title="ตั้งช่วงเวลาเรียน (Time blocks) ของวัน / ทั้งสัปดาห์">
+              <Settings2Icon /> ตั้งช่วงเวลา
+            </Button>
+          )}
+        </span>
 
         </div>
       </div>
@@ -210,7 +229,8 @@ function CalendarView() {
 
       {view === "week" && <WeekView from={range.from} sessions={visible} onDay={openDay} today={today} {...cardProps} dim={cardData.dim} />}
       {/* รายวัน = the teacher board for one day (students in the cells), plain hours down the side (owner 2026-10-12) */}
-      {single && <WeekTeacherBoard from={anchor} dayCount={1} sessions={workFilter ? visible.filter((x) => workState(x, now, attendance, summaries).state === workFilter) : visible} onOpen={setOpenId} onSlot={setPrefill} canCreate={canCreate} />}
+      {blocksDate && <BlocksDialog branch={branch} date={blocksDate} onClose={() => setBlocksDate(null)} />}
+      {single && <WeekTeacherBoard from={anchor} dayCount={1} onlyBusy={onlyBusy} sessions={workFilter ? visible.filter((x) => workState(x, now, attendance, summaries).state === workFilter) : visible} onOpen={setOpenId} onSlot={setPrefill} canCreate={canCreate} />}
       {view === "board" && !single && <WeekTeacherBoard from={range.from} sessions={workFilter ? visible.filter((x) => workState(x, now, attendance, summaries).state === workFilter) : visible} onOpen={setOpenId} onSlot={setPrefill} canCreate={canCreate} />}
       {view === "month" && <MonthView from={range.from} month={anchor.slice(0, 7)} sessions={visible} onDay={openDay} today={today} conflictIds={conflictIds} />}
       {view === "list" && <ListView from={range.from} to={range.to} sessions={visible} {...cardProps} />}
