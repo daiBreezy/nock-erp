@@ -10,12 +10,13 @@ import { BlocksDialog } from "@/components/calendar/blocks-dialog"
 import { canEditBlocks } from "@/domain/rules/permissions"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { SummaryPanel } from "@/components/calendar/summary-panel"
-import { Pill, SessionStateBadge } from "@/components/app/badges"
+import { Pill } from "@/components/app/badges"
 import { ClassDialog, type ClassPrefill } from "@/components/app/class-dialog"
 import { NativeSelect } from "@/components/app/native-select"
 import { SessionSheet } from "@/components/app/session-sheet"
 import { subjectColor } from "@/components/app/subject-color"
-import { WORK_ORDER, WorkChip } from "@/components/app/work-state"
+import { WORK_ORDER, WorkIcon } from "@/components/app/work-state"
+import { RoomMeta, StudentsMeta } from "@/components/calendar/session-meta"
 import { MoveDialog } from "@/components/calendar/move-dialog"
 import { WeekTeacherBoard } from "@/components/calendar/week-teacher-board"
 import type { CardData } from "@/components/calendar/class-card"
@@ -307,15 +308,16 @@ function SessionCard({ s, conflictIds, now, onOpen, classes, compact, canMove, d
       <div className={cn("flex items-center gap-1 font-semibold", !live && c.text)}>
         {conflict && <AlertTriangleIcon className="size-3 shrink-0 text-red-600" />}
         <span className="truncate">{name}</span>
+        {/* owner 2026-10-15: the same icons as the teacher board — state top-right, room / students as icons */}
+        {w.state !== "scheduled" && <WorkIcon w={w} students={s.studentIds.length} className={cn("ml-auto", live && "[&_svg]:text-white")} />}
       </div>
-      <div className={cn("truncate", live ? "text-white/80" : "text-muted-foreground")}>{s.start}–{endTime(s.start, s.minutes)} · {s.studentIds.length} คน</div>
+      <div className={cn("flex items-center gap-1.5 truncate", live ? "text-white/80" : "text-muted-foreground")}><span className="tabular-nums">{s.start}–{endTime(s.start, s.minutes)}</span><StudentsMeta n={s.studentIds.length} /></div>
       <GradeChips className="mt-0.5" size="xs" max={compact ? 2 : 4} grades={s.studentIds.map((sid) => L.student(sid)?.grade ?? "")} planned={classes.find((c) => c.id === s.classId)?.grades} />
       {!compact && (
         <>
-          <div className={cn("truncate", live ? "text-white/80" : "text-muted-foreground")}>
-            <span className={cn(t.missing && !live && "font-medium text-amber-700")}>{t.label}</span> · {L.room(s.roomId)}
+          <div className={cn("flex min-w-0 items-center gap-1.5", live ? "text-white/80" : "text-muted-foreground")}>
+            <span className={cn("truncate", t.missing && !live && "font-medium text-amber-700")}>{t.label}</span><RoomMeta roomId={s.roomId} />
           </div>
-          {w.state !== "scheduled" && <WorkChip w={w} students={s.studentIds.length} className="mt-0.5 scale-90 origin-left" />}
         </>
       )}
     </button>
@@ -508,11 +510,13 @@ function MonthView({ from, month, sessions, onDay, today, conflictIds }: { from:
 
 function ListView({ from, to, sessions, ...ctx }: CardCtx & { from: DateStr; to: DateStr; sessions: Session[] }) {
   const L = useLookup()
+  const attendance = useStore((st) => st.attendance)
+  const summaries = useStore((st) => st.summaries)
   const dates: DateStr[] = []
   for (let d = from; d <= to; d = addDays(d, 1)) if (sessions.some((s) => s.date === d)) dates.push(d)
   if (!dates.length) return <p className="rounded-xl border border-dashed p-10 text-center text-sm text-muted-foreground">ไม่มีคาบเรียนในช่วงนี้</p>
   // owner 2026-10-15: one table — the same columns for every day, a day line between them, status on the right
-  const COLS = "grid grid-cols-[7rem_minmax(0,1fr)_8rem_6rem_4.5rem_8rem] items-center gap-3 px-4"
+  const COLS = "grid grid-cols-[7rem_minmax(0,1fr)_8rem_5rem_4rem_4rem] items-center gap-3 px-4"
   return (
     <div className="overflow-x-auto rounded-3xl bg-card shadow-sm ring-1 ring-foreground/5">
       <div className="min-w-[760px]">
@@ -537,9 +541,9 @@ function ListView({ from, to, sessions, ...ctx }: CardCtx & { from: DateStr; to:
                     {ctx.conflictIds.has(s.id) && <Pill tone="red" className="shrink-0">ชนกัน</Pill>}
                   </span>
                   <span className={cn("truncate", t.missing && "text-amber-700")}>{t.label}</span>
-                  <span className="truncate text-muted-foreground">{L.room(s.roomId)}</span>
-                  <span className="text-right tabular-nums text-muted-foreground">{s.studentIds.length}</span>
-                  <span className="flex justify-end"><SessionStateBadge state={sessionState(s, ctx.now)} /></span>
+                  <RoomMeta roomId={s.roomId} className="text-muted-foreground" />
+                  <StudentsMeta n={s.studentIds.length} className="justify-end text-muted-foreground" />
+                  <span className="flex justify-end"><WorkIcon w={workState(s, ctx.now, attendance, summaries)} students={s.studentIds.length} className="[&_svg]:size-4" /></span>
                 </button>
               )
             })}

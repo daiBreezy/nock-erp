@@ -1,14 +1,26 @@
-import { BanIcon, CalendarClockIcon, CheckCircle2Icon, ClipboardListIcon, NotebookPenIcon, RadioIcon } from "lucide-react"
+import { BanIcon, CalendarIcon, CheckIcon, ClipboardCheckIcon, PencilLineIcon, PlayIcon, type RadioIcon } from "lucide-react"
 import { WORK_LABEL, type WorkInfo, type WorkState } from "@/domain/rules/scheduling"
 import { cn } from "@/lib/utils"
 
-const ICON: Record<WorkState, typeof RadioIcon> = {
-  scheduled: CalendarClockIcon,
-  live: RadioIcon,
-  needs_attendance: ClipboardListIcon,
-  needs_summary: NotebookPenIcon,
-  done: CheckCircle2Icon,
+// owner 2026-10-15: one set of state icons for every calendar view (board, week, list) — and the chips
+export const WORK_ICON: Record<WorkState, typeof RadioIcon> = {
+  scheduled: CalendarIcon,
+  live: PlayIcon,
+  needs_attendance: ClipboardCheckIcon,
+  needs_summary: PencilLineIcon,
+  done: CheckIcon,
   cancelled: BanIcon,
+}
+export const WORK_ICON_TONE: Record<WorkState, string> = {
+  scheduled: "text-muted-foreground", live: "text-primary", needs_attendance: "text-red-600",
+  needs_summary: "text-amber-600", done: "text-emerald-600", cancelled: "text-muted-foreground",
+}
+/** the state as one icon; the words (and what is left to do) on hover */
+export function WorkIcon({ w, students, className }: { w: WorkInfo; students: number; className?: string }) {
+  const Icon = WORK_ICON[w.state]
+  const detail = workDetail(w, students)
+  const label = `${WORK_LABEL[w.state]}${detail ? ` · ${detail}` : ""}`
+  return <span title={label} className={cn("inline-flex shrink-0", className)}><Icon className={cn("size-3.5", WORK_ICON_TONE[w.state], w.state === "live" && "animate-pulse")} aria-label={label} /></span>
 }
 
 export const WORK_CHIP: Record<WorkState, string> = {
@@ -37,7 +49,7 @@ export function workDetail(w: WorkInfo, students: number) {
 }
 
 export function WorkChip({ w, students, className }: { w: WorkInfo; students: number; className?: string }) {
-  const Icon = ICON[w.state]
+  const Icon = WORK_ICON[w.state]
   const detail = workDetail(w, students)
   return (
     <span className={cn("inline-flex shrink-0 items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold whitespace-nowrap", WORK_CHIP[w.state], className)}>
@@ -54,7 +66,7 @@ export function WorkLegend({ counts, active, onToggle }: { counts: Partial<Recor
   return (
     <div className="flex flex-wrap items-center gap-1.5">
       {WORK_ORDER.map((s) => {
-        const Icon = ICON[s]
+        const Icon = WORK_ICON[s]
         const n = counts[s] ?? 0
         return (
           <button
