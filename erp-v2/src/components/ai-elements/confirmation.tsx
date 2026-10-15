@@ -10,13 +10,14 @@ import { cn } from "@/lib/utils"
 //   ├── ConfirmationBody
 //   └── ConfirmationActions  (only while it waits for someone) | ConfirmationResult (after)
 
-export type ConfirmationState = "waiting" | "pending" | "approved" | "rejected"
+export type ConfirmationState = "waiting" | "pending" | "approved" | "rejected" | "answered"
 
 const STATE: Record<ConfirmationState, { label: string; icon: React.ReactNode; tone: string }> = {
   waiting: { label: "รอผู้ปกครองตอบ", icon: <CircleDashedIcon />, tone: "text-muted-foreground" },
   pending: { label: "รออนุมัติ", icon: <ClockIcon />, tone: "text-amber-700 dark:text-amber-400" },
   approved: { label: "อนุมัติแล้ว", icon: <CheckCircle2Icon />, tone: "text-emerald-700 dark:text-emerald-400" },
   rejected: { label: "ปฏิเสธแล้ว", icon: <XCircleIcon />, tone: "text-red-700 dark:text-red-400" },
+  answered: { label: "ผู้ปกครองตอบแล้ว", icon: <CheckCircle2Icon />, tone: "text-emerald-700 dark:text-emerald-400" },
 }
 
 export function Confirmation({ state, className, ...props }: React.ComponentProps<"div"> & { state: ConfirmationState }) {

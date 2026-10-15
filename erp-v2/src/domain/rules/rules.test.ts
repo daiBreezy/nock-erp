@@ -2159,6 +2159,7 @@ describe("Area Manager picks branches, Director / Super Admin see all (owner 202
 import { monthLoad, studentsOfTeacher, teacherWeek } from "./staff-overview"
 import { calendarNotesFor, cleanNote, noteTarget } from "./calendar-notes"
 import { leaveReasonText } from "./scheduling"
+import { formLinkOf } from "./inbox"
 
 describe("staff overview — one teacher's week (owner 2026-10-09)", () => {
   const ses = (id: string, date: string, over: Partial<Session> = {}): Session => ({ id, branchId: "b1", classId: null, subject: "คณิต", date, start: "10:00", minutes: 90, teacherId: "t1", coTeacherIds: [], roomId: null, studentIds: ["a", "b"], trial: false, customized: false, cancelled: false, ...over })
@@ -2509,5 +2510,16 @@ describe("Form and admin panel collect the same fields (owner 2026-10-15)", () =
     const stu = { id: "s", name: "ภูมิ ใจดี", nickname: "ภูมิ", grade: "ป.5" } as Student
     expect(mergeSubmission(undefined, stu, sub).student).toMatchObject({ nameEn: "Phum Jaidee", nicknameEn: "Phum", gender: "male", schoolId: "1010" })
     expect(submissionChanges(undefined, stu, sub).map((c) => c.key)).toEqual(expect.arrayContaining(["student.nameEn", "student.gender"]))
+  })
+})
+
+describe("form links in the chat (owner 2026-10-15)", () => {
+  it("recognises the exit / enroll / survey messages we send, nothing else", () => {
+    const exit = formLinkOf({ author: "staff", text: "รบกวนผู้ปกครองช่วยตอบแบบฟอร์มสั้นๆ เรื่องการหยุดเรียนของdSค่ะ 🙏 (ประมาณ 2 นาที)\nhttps://liff.line.me/1-x?token=pf_abc" })
+    expect(exit).toEqual({ form: "exit", token: "pf_abc", url: "https://liff.line.me/1-x?token=pf_abc", who: "dS" })
+    expect(formLinkOf({ author: "staff", text: "กรอกใบสมัครเรียนได้ที่ลิงก์นี้เลยค่ะ\nhttps://a.b/liff/form?token=en_1" })?.form).toBe("enroll")
+    expect(formLinkOf({ author: "staff", text: "ขอเวลา 3 นาทีช่วยตอบแบบสอบถาม\nhttps://a.b/liff/survey?token=sv_1" })?.form).toBe("survey")
+    expect(formLinkOf({ author: "parent", text: "https://a.b?token=x หยุดเรียน" })).toBeNull()
+    expect(formLinkOf({ author: "staff", text: "สวัสดีครับ" })).toBeNull()
   })
 })

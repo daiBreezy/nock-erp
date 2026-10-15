@@ -73,3 +73,18 @@ export const QUICK_REPLIES = [
   "รบกวนแจ้งชื่อนักเรียนด้วยนะคะ",
   "ได้รับสลิปแล้วค่ะ ขอบคุณค่ะ",
 ]
+
+/** owner 2026-10-15: every form we send shows as the same card in the chat. Test / Trial carry meta (form_request);
+ *  the exit, enroll and survey links go out as text — recognised here by the link's token + our fixed wording. */
+export type FormLinkKind = "exit" | "enroll" | "survey"
+export const FORM_LINK_LABEL: Record<FormLinkKind, string> = { exit: "ส่งฟอร์มแจ้งลาออก", enroll: "ส่งใบสมัครเรียน", survey: "ส่งแบบสอบถามความพึงพอใจ" }
+export function formLinkOf(m: { author: string; text?: string }): { form: FormLinkKind; token: string; url: string; who?: string } | null {
+  if (m.author !== "staff" || !m.text) return null
+  const url = m.text.match(/https?:\/\/\S+[?&]token=[\w-]+/)?.[0]
+  const token = url?.match(/[?&]token=([\w-]+)/)?.[1]
+  if (!url || !token) return null
+  if (m.text.includes("หยุดเรียน")) return { form: "exit", token, url, who: m.text.match(/การหยุดเรียนของ(.+?)ค่ะ/)?.[1] }
+  if (m.text.includes("ใบสมัครเรียน")) return { form: "enroll", token, url }
+  if (m.text.includes("แบบสอบถาม")) return { form: "survey", token, url }
+  return null
+}

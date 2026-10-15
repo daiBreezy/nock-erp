@@ -118,4 +118,9 @@ export const VOCAB: Record<string, Entry> = {
   "เหตุฉุกเฉิน": { en: "Emergency", ja: "緊急" },
   "เหตุผลที่ลา": { en: "Reason for leave", ja: "休む理由" },
   "ระบุเหตุผล (จำเป็น)": { en: "Give the reason (required)", ja: "理由を入力（必須）" },
+  "ส่งฟอร์มแจ้งลาออก": { en: "Exit form sent", ja: "退会フォーム送信" },
+  "ส่งใบสมัครเรียน": { en: "Enrollment form sent", ja: "入会申込書送信" },
+  "ส่งแบบสอบถามความพึงพอใจ": { en: "Satisfaction survey sent", ja: "満足度アンケート送信" },
+  "ผู้ปกครองตอบแล้ว": { en: "Parent answered", ja: "保護者回答済み" },
+  "เปิดลิงก์": { en: "Open link", ja: "リンクを開く" },
 }

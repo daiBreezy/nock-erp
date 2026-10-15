@@ -15,7 +15,7 @@ import { CustomerPicker } from "@/components/app/customer-picker"
 import { StudentSheet } from "@/components/app/student-sheet"
 import { avatarTone, initial } from "@/components/app/subject-color"
 import { ComposeDialog } from "@/components/inbox/compose-dialog"
-import { FormRequestBubble } from "@/components/inbox/form-request-bubble"
+import { FormLinkBubble, FormRequestBubble } from "@/components/inbox/form-request-bubble"
 import { FormSubmissionBubble } from "@/components/inbox/form-submission-bubble"
 import { MessageBubble } from "@/components/inbox/message-bubble"
 import { ExitFormChatCard, isExitFormMessage, ParentRequestChatCard } from "@/components/inbox/parent-cards"
@@ -27,7 +27,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Input } from "@/components/ui/input"
 import { Marker, MarkerContent } from "@/components/ui/marker"
 import { fmtDate, fmtDateTime } from "@/domain/dates"
-import { chatDayLabel, groupByDay, QUICK_REPLIES, CHANNEL_LABEL, CONVERSATION_TYPE_LABEL, conversationName, conversationType, type ConversationType, SOURCE_OF_CHANNEL, unreadCount } from "@/domain/rules/inbox"
+import { chatDayLabel, groupByDay, QUICK_REPLIES, CHANNEL_LABEL, CONVERSATION_TYPE_LABEL, conversationName, conversationType, type ConversationType, formLinkOf, SOURCE_OF_CHANNEL, unreadCount } from "@/domain/rules/inbox"
 import { can } from "@/domain/rules/permissions"
 import type { ChatMessage, Conversation, FormSubmission, FormType, ID, Student } from "@/domain/types"
 import { report } from "@/lib/feedback"
@@ -370,6 +370,8 @@ export default function InboxPage() {
                       if (m.kind === "form_submission") return <FormSubmissionBubble key={m.id} message={m} submissions={submissions} onChanged={pollSubmissions} />
                       if (isExitFormMessage(m)) return <ExitFormChatCard key={m.id} message={m} conversation={selected} />
                       if (m.meta?.formKind === "parent_request") return <ParentRequestChatCard key={m.id} message={m} />
+                      const link = formLinkOf(m)
+                      if (link) return <FormLinkBubble key={m.id} message={m} answered={link.form === "exit" && thread.some((x) => isExitFormMessage(x) && (x.meta?.formKind === "exit_form" ? x.meta.token === link.token : x.at > m.at))} />
                       return <MessageBubble key={m.id} message={m} conversation={selected} staff={staff} onUseAsSlip={useAsSlip} />
                     })}
                   </Fragment>
