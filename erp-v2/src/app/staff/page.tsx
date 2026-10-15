@@ -88,7 +88,9 @@ export default function StaffPage() {
       </div>
     ) },
     // owner 2026-10-15: every list shows which branch each row comes from
-    { id: "branch", label: "สาขา", width: "100px", cell: (x) => <BranchCodes ids={x.s.branchIds} /> },
+    // owner 2026-10-15: Super Admin / Director / Developer work across the whole company — just "All"
+    { id: "branch", label: "สาขา", width: "100px", cell: (x) => x.s.roles.some((r) => r === "super_admin" || r === "director" || r === "developer")
+      ? <span className="rounded bg-muted px-1.5 py-0.5 text-[10px] font-semibold text-foreground">All</span> : <BranchCodes ids={x.s.branchIds} /> },
     { id: "name", label: "ชื่อ-นามสกุล", width: "160px", sort: "name", className: "text-muted-foreground", cell: (x) => <EditCell value={x.s.name} disabled={ro(x)} onSave={(v) => edit(x.s, { name: v })} /> },
     // owner 2026-10-12: Part-time / Full-time both chips, each its own colour
     { id: "type", label: "ประเภท", width: "110px", sort: "type", cell: (x) => (
