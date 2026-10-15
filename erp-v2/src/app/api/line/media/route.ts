@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server"
 import { lineUserIdOf, recordOutboundMessage, saveUploadedImage } from "@/server/line-store"
+import { publicOrigin } from "@/server/public-url"
 
 const MAX_BYTES = 5 * 1024 * 1024
 
@@ -18,7 +19,8 @@ export async function POST(req: Request) {
   const lineUserId = conversationId.startsWith("line_") ? lineUserIdOf(conversationId) : null
   if (!lineUserId) return NextResponse.json({ ok: true, mediaId, pushed: false })
 
-  const origin = new URL(req.url).origin
+  // staff usually open the app on localhost — LINE needs the public https address (owner 2026-10-15)
+  const origin = publicOrigin(req)
   const token = process.env.LINE_CHANNEL_ACCESS_TOKEN
   let pushed = false, note: string | undefined
   if (!token) note = "ยังไม่ได้ตั้งค่า LINE"

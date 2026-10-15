@@ -16,6 +16,7 @@ import { KNOWN_PROVINCES } from "@/domain/rules/settings"
 import type { Branch } from "@/domain/types"
 import { uid } from "@/data/seed"
 import { report } from "@/lib/feedback"
+import { cn } from "@/lib/utils"
 import { useStore } from "@/store/store"
 import { InfoRow, SaveRow, SettingsCard, useBranchDraft } from "./common"
 import { romanizeName } from "@/domain/rules/romanize"
@@ -192,6 +193,10 @@ interface LineStatus {
   basicId?: string
   maskedToken?: string
   error?: string
+  /** where LINE sends events right now + whether "Use webhook" is on (owner 2026-10-15) */
+  webhook?: string | null
+  webhookActive?: boolean
+  publicUrl?: string | null
 }
 
 /** Non-secret identity lives in branch settings; Channel Secret / Access Token stay server-side (.env.local)
@@ -201,7 +206,8 @@ export function LineTab({ branch }: { branch: Branch }) {
   const [status, setStatus] = useState<LineStatus | null>(null)
   const [loading, setLoading] = useState(true)
   const setConnected = useStore((s) => s.setLineOaConnected)
-  const webhookUrl = typeof window !== "undefined" ? `${window.location.origin}/api/line/webhook` : "/api/line/webhook"
+  // owner 2026-10-15: `npm run line` sets the webhook by itself — this shows the one LINE really uses
+  const webhookUrl = status?.webhook ?? (status?.publicUrl ? `${status.publicUrl}/api/line/webhook` : typeof window !== "undefined" ? `${window.location.origin}/api/line/webhook` : "/api/line/webhook")
   const lo = b.lineOa
   const setLo = (patch: Partial<Branch["lineOa"]>) => setB({ ...b, lineOa: { ...lo, ...patch } })
 
@@ -257,11 +263,12 @@ export function LineTab({ branch }: { branch: Branch }) {
             <p className="text-xs text-muted-foreground">{tx("PNG/JPG/WEBP/GIF ไม่เกิน 5 MB")}</p>
           </div>
         </Field>
-        <Field label={tx("Webhook URL (วางใน Messaging API settings ของ LINE Developers แล้วเปิด Use webhook)")} className="sm:col-span-2">
+        <Field label={tx("Webhook URL — ตั้งให้อัตโนมัติเมื่อรัน npm run line")} className="sm:col-span-2">
           <div className="flex gap-1.5">
             <Input value={webhookUrl} readOnly className="font-mono text-muted-foreground" />
             <Button size="icon" variant="outline" aria-label={tx("คัดลอก")} onClick={() => { navigator.clipboard.writeText(webhookUrl); report({ ok: true, value: undefined }, tx("คัดลอกแล้ว")) }}><CopyIcon /></Button>
           </div>
+          {status?.webhook && <p className={cn("mt-1 text-xs", status.webhookActive ? "text-emerald-700" : "text-amber-700")}>{status.webhookActive ? tx("LINE ส่งข้อความเข้ามาที่นี่อยู่") : tx("ยังไม่ได้เปิด Use webhook ใน LINE Developers")}</p>}
         </Field>
       </div>
       <Alert className="mt-4">

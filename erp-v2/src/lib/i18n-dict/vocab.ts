@@ -91,4 +91,7 @@ export const VOCAB: Record<string, Entry> = {
   "ปิดทั้งระบบ": { en: "Off for everyone", ja: "全体でオフ" },
   "เปิดอยู่ — คนในสาขานี้เห็น Nock ที่มุมจอ": { en: "On — people at this branch see Nock in the screen corner", ja: "オン — この校舎のスタッフの画面隅に Nock が表示されます" },
   "ปิดอยู่ — คนในสาขานี้ไม่เห็น Nock": { en: "Off — people at this branch don't see Nock", ja: "オフ — この校舎のスタッフには Nock が表示されません" },
+  "Webhook URL — ตั้งให้อัตโนมัติเมื่อรัน npm run line": { en: "Webhook URL — set automatically by npm run line", ja: "Webhook URL — npm run line で自動設定" },
+  "LINE ส่งข้อความเข้ามาที่นี่อยู่": { en: "LINE is sending messages here", ja: "LINE はここにメッセージを送信中" },
+  "ยังไม่ได้เปิด Use webhook ใน LINE Developers": { en: "Use webhook is off in LINE Developers", ja: "LINE Developers で Use webhook がオフです" },
 }
