@@ -197,11 +197,7 @@ function Body({ id, onEdit }: { id: ID; onEdit: () => void }) {
 
         {pending.length > 0 && (
           <Section title={`ฟอร์มรอตรวจ (${pending.length})`}>
-            {pending.map((sub) => (
-              <div key={sub.id} className="rounded-xl border border-amber-300 bg-amber-50 p-2.5 text-xs dark:bg-amber-950/30">
-                <SubmissionReviewCard submission={sub} onChanged={pollSubmissions} />
-              </div>
-            ))}
+            {pending.map((sub) => <SubmissionReviewCard key={sub.id} submission={sub} onChanged={pollSubmissions} />)}
           </Section>
         )}
 
@@ -243,7 +239,7 @@ function Body({ id, onEdit }: { id: ID; onEdit: () => void }) {
           <details className="rounded-xl border">
             <summary className="cursor-pointer px-3 py-2 text-xs font-medium text-muted-foreground">ฟอร์มก่อนหน้า ({history.length})</summary>
             <div className="space-y-2 border-t p-2.5">
-              {history.map((sub) => <div key={sub.id} className="rounded-lg border bg-muted/30 p-2.5 text-xs"><SubmissionReviewCard submission={sub} onChanged={pollSubmissions} /></div>)}
+              {history.map((sub) => <SubmissionReviewCard key={sub.id} submission={sub} onChanged={pollSubmissions} />)}
             </div>
           </details>
         )}

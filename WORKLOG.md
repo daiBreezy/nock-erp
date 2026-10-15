@@ -31,6 +31,8 @@
 - **ชิดขอบเต็มจอ:** เอา margin ทั้ง 4 ด้านออก — `main` ไม่มี padding เฉพาะ `/inbox` (`app-shell.tsx`) · รายการแชท + ห้องแชทเต็มพื้นที่ใต้แถบบน ไม่มีกรอบการ์ดมุมโค้ง
 - **แชทแบบ ChatGPT:** ฝั่ง ERP = bubble เทาขวา · ฝั่งลูกค้า = ตัวหนังสือเปล่าซ้าย ไม่มีสี ไม่มี avatar · bubble ไม่มีเวลาแล้ว → ตัวคั่นวัน (วันนี้ / เมื่อวาน / วันที่) ด้วย shadcn **Marker** (`components/ui/marker.tsx` เขียนเองตาม API ในเอกสาร — เครื่อง Cloud ต่อ ui.shadcn.com ไม่ได้) · hover ข้อความ = ผู้ส่ง + วันเวลา (Hover Card) · โน้ตภายใน = Marker 🔒 สีเหลืองอำพัน · กฎ `chatDayLabel` / `groupByDay` ใน `domain/rules/inbox.ts` (+ test)
 - **AI Elements ที่เอามาใช้:** Suggestion = ข้อความตอบเร็วเหนือช่องพิมพ์ (`QUICK_REPLIES`, กดแล้วเติมในช่อง ยังต้องกดส่งเอง, ซ่อนเมื่อเริ่มพิมพ์) · Message Scroller = เปิดแชทแล้วเลื่อนไปข้อความล่าสุด ข้อความใหม่เลื่อนตามถ้าอยู่ล่างสุด
+- **Confirmation (AI Elements):** การ์ดอนุมัติ / ปฏิเสธฟอร์ม Test/Trial ใช้กรอบเดียวกันทั้งหมด (`components/ai-elements/confirmation.tsx`) — หัวการ์ด ไอคอน · ชื่อ · สถานะ (รอผู้ปกครองตอบ / รออนุมัติ / อนุมัติแล้ว / ปฏิเสธแล้ว) · ปุ่ม ปฏิเสธ / อนุมัติ อยู่ท้ายการ์ด · อนุมัติแล้วท้ายการ์ด = ดูในปฏิทิน · การ์ด "ส่งฟอร์ม" ฝั่งเราใช้กรอบเดียวกัน · Lead sheet ใช้การ์ดเดียวกัน (เอากรอบซ้อนออก)
+- **แชท:** ระยะห่างระหว่างข้อความมากขึ้น (space-y-6, ขอบซ้ายขวา px-10) · เลื่อนแชทแล้วขอบบน/ล่างจางลง (mask fade 2rem)
 
 ### LINE (2026-10-15)
 - **LINE ไม่ต้องตั้งใหม่อีก:** `npm run line` (`erp-v2/scripts/line-up.mjs`) เปิด tunnel → ตั้ง Webhook (+ทดสอบ) → ตั้ง LIFF Endpoint (ต้องมี `LINE_LOGIN_CHANNEL_SECRET` ใน .env.local) → เก็บ URL ที่ `.data/public-url.json` → tunnel หลุดเปิดใหม่+ตั้งใหม่เอง · `LINE_PUBLIC_URL` = โดเมนคงที่ (ngrok static) ถ้ามี
