@@ -46,7 +46,8 @@ function previewData(type: FormType): { offers: FormSubjectOffer[]; grades: stri
   const days = [1, 2, 4].map((n) => addDays(toDateStr(new Date()), n))
   const slots = (subject: string) => days.flatMap((d, i) => ["10:00", "13:00", "16:00"].map((start, j) => ({ id: `${subject}-${i}-${j}`, date: d, start, minutes: 60, source: "generic" as const, teacherId: null, roomId: null, classId: null, sessionId: null })))
   const offers = ["คณิต", "อังกฤษ", "วิทย์"].map((subject) => ({ subject, slots: slots(subject) }))
-  const prefill: FormPrefill | null = type === "trial" ? {
+  // owner 2026-10-15: every preview comes filled in, so you can click through without typing
+  const prefill: FormPrefill | null = type === "trial" || type === "test" ? {
     parents: [{ name: "สมชาย ใจดี", phone: "089-555-1212", altPhones: ["02-111-2222"], relationship: "คุณพ่อ", email: "somchai@mail.com", primary: true }],
     address: "123/45 ถ.สุขุมวิท แขวงคลองตันเหนือ เขตวัฒนา", province: "กรุงเทพฯ", postcode: "10110", acquisitions: ["walkin", "facebook"],
     location: { lat: 13.7309, lng: 100.5849 }, addressNote: "หมู่บ้านพฤกษา ซอย 2 หลังซ้ายมือ ประตูสีเขียว",
@@ -156,7 +157,8 @@ function LiffForm() {
         setEnroll({ courses: tk.courses, subjects: tk.subjects, busOffered: tk.brand === "liclass" })
         setGrades(tk.grades); setBranchName(tk.branchName); setSubjectNames(tk.subjectNames ?? {})
         if (!params.get("lang") && tk.lang) setLang(tk.lang)
-        applyPrefill(tk.prefill ?? null, tk.grades, [], "")
+        applyPrefill(tk.prefill ?? (previewEnroll ? previewData("trial").prefill : null), tk.grades, [], "")
+        if (previewEnroll) setStudents((ss) => ss.map((st) => ({ ...st, enroll: { subjects: ["คณิต"], courseIds: ["c1"], pkg: "month", times: ["1-pm", "3-eve", "6-am"], startDate: addDays(toDateStr(new Date()), 7), bus: false, placement: true } })))
         setPhase("ready")
         return
       }
@@ -167,6 +169,8 @@ function LiffForm() {
         const b = (params.get("brand") as Brand) || (preview === "trial" ? "liclass" : "nockacademy")
         setBranchName(b === "liclass" ? "Liclass บางนา" : "ทองหล่อ")
         applyPrefill(d.prefill, d.grades, d.offers, "")
+        // and a time already picked for each subject they're interested in
+        setStudents((ss) => ss.map((st) => ({ ...st, chosen: Object.fromEntries(st.activeSubjects.map((sub) => [sub, d.offers.find((o) => o.subject === sub)!.slots[1]])) })))
         setPhase("ready")
         return
       }
@@ -293,9 +297,12 @@ function LiffForm() {
           {t.steps.map((label, i) => (
             <li key={label} className="flex items-center gap-1.5">
               {i > 0 && <span className="h-px w-3 bg-border" />}
-              <span className={cn("flex items-center gap-1 rounded-full px-2.5 py-1", phase === "done" || i < stepIndex ? "bg-primary/10 text-primary" : i === stepIndex ? "bg-primary text-primary-foreground" : "border text-muted-foreground")}>
+              {/* owner 2026-10-15: in a preview the steps are buttons — jump anywhere, no typing needed */}
+              <button type="button" disabled={!(preview || previewEnroll) || phase === "done"} onClick={() => setStep(STEP_KEYS[i])}
+                className={cn("flex items-center gap-1 rounded-full px-2.5 py-1 disabled:cursor-default", (preview || previewEnroll) && phase !== "done" && "hover:ring-2 hover:ring-primary/30",
+                  phase === "done" || i < stepIndex ? "bg-primary/10 text-primary" : i === stepIndex ? "bg-primary text-primary-foreground" : "border text-muted-foreground")}>
                 {phase === "done" || i < stepIndex ? <CheckIcon className="size-3" /> : <PencilIcon className="size-3" />}{label}
-              </span>
+              </button>
             </li>
           ))}
         </ol>
