@@ -59,7 +59,7 @@ export function NockWidget() {
   const start = useRef<{ x: number; y: number; moved: boolean } | null>(null)
   // a drag ends with a click event — that one must not open the chat
   const dragged = useRef(false)
-  // owner 2026-10-15: on release Nock glides from where it was dropped to its corner (ease-in-out), it doesn't jump
+  // owner 2026-10-15: on release Nock glides from where it was dropped to its corner (ease-in-out, 400 ms), it doesn't jump
   const btn = useRef<HTMLButtonElement>(null)
   const dropAt = useRef<{ cx: number; cy: number; rotate: string; scale: string } | null>(null)
   useLayoutEffect(() => {
@@ -78,7 +78,7 @@ export function NockWidget() {
     el.style.transition = ""
     const dx = from.cx - (to.left + to.width / 2), dy = from.cy - (to.top + to.height / 2)
     el.animate([{ translate: `calc(${tx} + ${dx}px) calc(${ty} + ${dy}px)`, ...fromPose }, rest],
-      { duration: 700, easing: "cubic-bezier(0.65, 0, 0.35, 1)" })
+      { duration: 400, easing: "cubic-bezier(0.65, 0, 0.35, 1)" })
   }, [drag, corner])
   const left = corner[1] === "l", top = corner[0] === "t"
 
