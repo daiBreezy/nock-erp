@@ -2,7 +2,7 @@
 
 import { useRef, useState } from "react"
 import { ImagePlusIcon, RefreshCwIcon, Trash2Icon } from "lucide-react"
-import { toast } from "sonner"
+import { toast } from "@/lib/toast"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { avatarTone, initial } from "@/components/app/subject-color"
 import { slipDataUrl } from "@/lib/image"

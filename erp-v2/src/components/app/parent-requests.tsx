@@ -16,7 +16,7 @@ import { closeParentRequest, fetchParentRequests } from "@/lib/parent-requests"
 import { report } from "@/lib/feedback"
 import { useLookup } from "@/lib/hooks"
 import { useStore } from "@/store/store"
-import { toast } from "sonner"
+import { toast } from "@/lib/toast"
 
 export function ParentRequestsList({ branchId, showDone }: { branchId: string; showDone?: boolean }) {
   const reqs = useStore((s) => s.parentRequests ?? [])

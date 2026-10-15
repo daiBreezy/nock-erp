@@ -2,7 +2,7 @@
 
 import { FlaskConicalIcon, PaletteIcon, RotateCcwIcon } from "lucide-react"
 import { openThemeTuner } from "./theme-tuner"
-import { toast } from "sonner"
+import { toast } from "@/lib/toast"
 import { Button } from "@/components/ui/button"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { fmtDateTime } from "@/domain/dates"

@@ -16,7 +16,7 @@ import { DEV_KIND_LABEL } from "@/domain/rules/dev-tickets"
 import { DEV_KIND_ICON } from "./dev-kind-icon"
 import { ROLE_LABEL } from "@/domain/rules/permissions"
 import { report } from "@/lib/feedback"
-import { toast } from "sonner"
+import { toast } from "@/lib/toast"
 import { cn } from "@/lib/utils"
 import { useStore } from "@/store/store"
 

@@ -31,7 +31,7 @@ import * as Loss from "@/domain/rules/loss"
 import * as Survey from "@/domain/rules/survey"
 import * as Nock from "@/domain/rules/nock"
 import * as Dev from "@/domain/rules/dev-tickets"
-import { toast } from "sonner"
+import { toast } from "@/lib/toast"
 import type { CalendarNoteKind, ClassMove, ParentRequest, DevTicket, DevTicketStatus, NockAnswer, NockQuestion, Role, SurveyCampaign, SurveyResponse, EnrollSubmission, ContactChannel, ContactResult, LossReason, Assessment, AttendanceStatus, Entitlement, Branch, BusAddOn, ClassBlock, CourseSummary, CreditNote, LessonBook, LessonTopic, Seat, ChatMessage, Conversation, Course, DateStr, Family, FormSubmission, Holiday, ID, Invoice, Klass, Lead, LeadStage, LessonSummary, LineDelivery, LogCategory, Result, Session, Staff, Student, SystemConfig } from "@/domain/types"
 
 export interface UIState {

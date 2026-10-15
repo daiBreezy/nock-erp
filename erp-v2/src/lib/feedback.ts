@@ -1,6 +1,6 @@
 "use client"
 
-import { toast } from "sonner"
+import { toast } from "@/lib/toast"
 import type { Result } from "@/domain/types"
 
 /** Every action result becomes visible feedback (UX rule #1: nothing is ever silent). */

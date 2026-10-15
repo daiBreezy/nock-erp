@@ -3,7 +3,7 @@
 import { useState } from "react"
 import { CopyIcon, MessageCircleIcon, PencilIcon, SmartphoneIcon, UserPlusIcon } from "lucide-react"
 import { ParentPreview } from "@/components/parent/parent-preview"
-import { toast } from "sonner"
+import { toast } from "@/lib/toast"
 import { Pill } from "@/components/app/badges"
 import { StudentSheet } from "@/components/app/student-sheet"
 import { gradeTone } from "@/components/app/subject-color"

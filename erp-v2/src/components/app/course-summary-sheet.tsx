@@ -28,7 +28,7 @@ import { AI_TONE } from "./ai"
 import { CourseProgress } from "./course-progress"
 import { cn } from "@/lib/utils"
 import { useStore } from "@/store/store"
-import { toast } from "sonner"
+import { toast } from "@/lib/toast"
 
 const FIELD_MAX = 250
 type Draft = { overallProgress: string; toImprove: string; strengths: string }

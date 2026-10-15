@@ -29,7 +29,7 @@ type StudentSort = "nickname" | "name" | "grade" | "family" | "course" | "packag
 import { useBranch, useEntitlements, useNow, useQueryState } from "@/lib/hooks"
 import { cn } from "@/lib/utils"
 import { useStore } from "@/store/store"
-import { toast } from "sonner"
+import { toast } from "@/lib/toast"
 import { BranchCode, useBranchScope } from "@/components/app/branch-scope"
 
 export default function StudentsPage() {

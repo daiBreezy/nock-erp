@@ -1,7 +1,7 @@
 import type { Metadata } from "next"
 import { Inter, Noto_Sans_Thai } from "next/font/google"
 import { AppShell } from "@/components/app/app-shell"
-import { Toaster } from "@/components/ui/sonner"
+import { Toaster } from "@/components/ui/toast"
 import { TooltipProvider } from "@/components/ui/tooltip"
 import "./globals.css"
 
@@ -22,7 +22,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
         <TooltipProvider>
           <AppShell>{children}</AppShell>
           {/* system feedback (saved / error) — bottom-right; notifications are the Noti, top-right (components/app/noti.tsx) */}
-          <Toaster position="bottom-right" richColors closeButton duration={6000} />
+          <Toaster limit={3} />
         </TooltipProvider>
       </body>
     </html>
