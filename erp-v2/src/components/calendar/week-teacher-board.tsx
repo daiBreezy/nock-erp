@@ -272,7 +272,8 @@ export function WeekTeacherBoard({ from, sessions, onOpen, onSlot, canCreate, da
                               liveHere && "shadow-[inset_3px_0_0_0_var(--color-primary)]",
                               cell.some((x) => clashIds.has(x.id)) && "ring-2 ring-red-400 ring-inset")}>
                               {cell.map((s) => (
-                                <Fragment key={s.id}>
+                                // one wrapper per session, so the cell's dividers fall between sessions — not under the room line
+                                <div key={s.id}>
                                 {plain && <RoomLine inCell sessions={[s]} classes={classes} live={(x) => workState(x, now, attendance, summaries).state === "live"}
                                   clash={clashIds.has(s.id) ? [s.id] : []} onResolve={canCreate ? setResolving : undefined} />}
                                 <SessionBlock s={s} row={row}
@@ -282,7 +283,7 @@ export function WeekTeacherBoard({ from, sessions, onOpen, onSlot, canCreate, da
                                   onOpen={onOpen}
                                   klass={classes.find((k) => k.id === s.classId)} attendance={attendance} allSessions={allSessions}
                                   canDrag={canCreate} onDropStudent={(from, studentId) => from !== s.id && setMoving({ from, studentId, to: s.id })} />
-                                </Fragment>
+                                </div>
                               ))}
                               {cell.length === 0 && canCreate && row.block && tid && !closed && !holiday && !past && (
                                 <button type="button" onClick={() => onSlot({ date, start: row.start, teacherId: tid })}
@@ -430,8 +431,9 @@ function kindOf(s: Session, klass?: Klass): keyof typeof KIND_ICON | null {
 function RoomLine({ sessions, classes, live, clash, onResolve, inCell }: { sessions: Session[]; classes: Klass[]; live: (s: Session) => boolean; clash: string[]; onResolve?: (ids: string[]) => void; inCell?: boolean }) {
   const L = useLookup()
   if (!sessions.length) return <div className="border-b border-l bg-zinc-100 px-3 py-1.5 text-center text-xs text-muted-foreground dark:bg-zinc-800">-</div>
+  // owner 2026-10-15: inside a class cell the room line takes the cell's own colour — no grey band, no divider
   return (
-    <div className={cn("@container bg-zinc-100 px-3 py-1.5 dark:bg-zinc-800", inCell ? "border-b" : "border-b border-l")}>
+    <div className={cn("@container px-3", inCell ? "pt-2 pb-0.5" : "border-b border-l bg-zinc-100 py-1.5 dark:bg-zinc-800")}>
       {sessions.map((s) => {
         const k = classes.find((c) => c.id === s.classId)
         const kind = kindOf(s, k)
