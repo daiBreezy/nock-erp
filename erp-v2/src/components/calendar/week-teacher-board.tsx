@@ -278,10 +278,12 @@ export function WeekTeacherBoard({ from, sessions, onOpen, onSlot, canCreate, da
                               cell.some((x) => clashIds.has(x.id)) && "ring-2 ring-red-400 ring-inset")}>
                               {cell.map((s) => (
                                 // one wrapper per session, so the cell's dividers fall between sessions — not under the room line
-                                <div key={s.id}>
-                                {plain && <RoomLine inCell sessions={[s]} classes={classes} live={(x) => workState(x, now, attendance, summaries).state === "live"}
-                                  clash={clashIds.has(s.id) ? [s.id] : []} onResolve={canCreate ? setResolving : undefined} />}
+                                // owner 2026-10-15: the whole card opens the session — not just the class name (buttons inside keep their own job)
+                                <div key={s.id} role="button" tabIndex={-1} className="cursor-pointer transition-colors hover:bg-muted/40"
+                                  onClick={(e) => { if (!(e.target as HTMLElement).closest("button, a, input, textarea, [role=menu], [role=menuitem], [role=dialog]")) onOpen(s.id) }}>
                                 <SessionBlock s={s} row={row}
+                                  room={plain ? <RoomLine inCell sessions={[s]} classes={classes} live={(x) => workState(x, now, attendance, summaries).state === "live"}
+                                    clash={clashIds.has(s.id) ? [s.id] : []} onResolve={canCreate ? setResolving : undefined} /> : undefined}
                                   state={workState(s, now, attendance, summaries).state}
                                   ended={sessionEnded(s)} dayDate={dayDate}
                                   canEdit={canCreate || s.teacherId === me || s.coTeacherIds.includes(me)}
@@ -438,7 +440,7 @@ function RoomLine({ sessions, classes, live, clash, onResolve, inCell }: { sessi
   if (!sessions.length) return <div className="border-b border-l bg-zinc-100 px-3 py-1.5 text-center text-xs text-muted-foreground dark:bg-zinc-800">-</div>
   // owner 2026-10-15: inside a class cell the room line takes the cell's own colour — no grey band, no divider
   return (
-    <div className={cn("@container px-3", inCell ? "pt-2 pb-0.5" : "border-b border-l bg-zinc-100 py-1.5 dark:bg-zinc-800")}>
+    <div className={cn("@container", inCell ? "" : "border-b border-l bg-zinc-100 px-3 py-1.5 dark:bg-zinc-800")}>
       {sessions.map((s) => {
         const k = classes.find((c) => c.id === s.classId)
         const kind = kindOf(s, k)
@@ -453,7 +455,7 @@ function RoomLine({ sessions, classes, live, clash, onResolve, inCell }: { sessi
               </button>
             )}
             {live(s) && <span className="relative flex size-2 shrink-0" title="กำลังเรียน"><span className="absolute inline-flex size-full animate-ping rounded-full bg-primary opacity-60" /><span className="relative inline-flex size-2 rounded-full bg-primary" /></span>}
-            <span className="truncate text-sm font-semibold text-foreground">{L.room(s.roomId)}</span>
+            <span className={cn("truncate", inCell ? "text-xs font-medium" : "text-sm font-semibold text-foreground")}>{L.room(s.roomId)}</span>
             <span className="ml-auto flex shrink-0 items-center gap-2.5">
               <span className="flex items-center gap-1" title={`นักเรียน ${s.studentIds.length} คน`}><UsersRoundIcon className="size-3.5" />{s.studentIds.length}</span>
               {K && <span className="flex items-center gap-1" title={K.label}><K.icon className="size-3.5" /><span className="hidden @[15rem]:inline">{K.label}</span></span>}
@@ -469,8 +471,8 @@ function RoomLine({ sessions, classes, live, clash, onResolve, inCell }: { sessi
 }
 
 /** One session inside a block — no card: just the subject line and the students, on the cell itself. */
-function SessionBlock({ s, row, state, ended, dayDate, canEdit, onOpen, klass, attendance, allSessions, canDrag, onDropStudent }: {
-  s: Session; row: Row; state: WorkState; ended: boolean; dayDate: (d: DateStr) => string; canEdit: boolean
+function SessionBlock({ s, row, room, state, ended, dayDate, canEdit, onOpen, klass, attendance, allSessions, canDrag, onDropStudent }: {
+  s: Session; row: Row; room?: React.ReactNode; state: WorkState; ended: boolean; dayDate: (d: DateStr) => string; canEdit: boolean
   onOpen: (id: string) => void
   klass?: Klass; attendance: Attendance[]; allSessions: Session[]
   canDrag: boolean; onDropStudent: (fromSessionId: string, studentId: string) => void
@@ -498,7 +500,7 @@ function SessionBlock({ s, row, state, ended, dayDate, canEdit, onOpen, klass, a
       {dot && <span className="absolute top-2 right-2 size-2.5 rounded-full bg-red-500 ring-2 ring-card" title={`${s.changed!.what} · เปิดคาบเพื่อดู`} />}
       <div className="flex items-center gap-2">
         <span className={cn("size-2 shrink-0 rounded-full", c.bar)} />
-        <button type="button" onClick={() => onOpen(s.id)} className="min-w-0 truncate text-left text-xs font-semibold text-muted-foreground hover:text-foreground hover:underline">
+        <button type="button" onClick={() => onOpen(s.id)} className="min-w-0 truncate text-left text-sm font-semibold text-foreground hover:underline">
           {subjectsOf(s).join(" + ")}{own && <span className="ml-1.5 font-normal">{s.start}–{endTime(s.start, s.minutes)}</span>}
         </button>
         {klass?.periodId && <span className="shrink-0 rounded-full bg-violet-100 px-1.5 text-[10px] font-medium text-violet-900 dark:bg-violet-950 dark:text-violet-200" title="คลาสพิเศษของช่วงนี้">{periodName(klass.periodId)}</span>}
@@ -510,6 +512,8 @@ function SessionBlock({ s, row, state, ended, dayDate, canEdit, onOpen, klass, a
         )}
         <St.icon className={cn("ml-auto size-3.5 shrink-0", dot && "mr-3", state === "live" ? "text-primary" : St.tone)} aria-label={St.label} />
       </div>
+      {/* owner 2026-10-15: class on top, then the room (day view) */}
+      {room}
       {s.studentIds.map((sid) => {
         const seat = Seats.seatOf(s, sid, klass)
         const a = attendance.find((x) => x.sessionId === s.id && x.studentId === sid)

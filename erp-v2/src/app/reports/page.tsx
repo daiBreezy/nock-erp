@@ -1052,27 +1052,30 @@ function CohortPanel({ d, compare }: { d: ReportData; compare: boolean }) {
       {rows.length ? (
         <div className="overflow-x-auto">
           <table className="w-full border-separate border-spacing-0.5 text-xs">
-            <thead className="text-muted-foreground"><tr><th className="px-1 text-left font-normal">Cohort</th><th className="px-1 text-right font-normal">{tx("คน")}</th>{months.map((n) => <th key={n} className="min-w-11 font-normal">M{n}</th>)}</tr></thead>
+            <thead className="text-muted-foreground"><tr><th colSpan={2} className="w-px px-1 text-left font-normal">Cohort</th><th className="w-px px-1 pl-3 text-right font-normal">{tx("คน")}</th>{months.map((n) => <th key={n} className="min-w-11 font-normal">M{n}</th>)}</tr></thead>
             <tbody>
               {rows.map((r, i) => {
                 const first = i === 0 || rows[i - 1].branch !== r.branch || !r.branch
+                // owner 2026-10-15: branch · year · people in their own columns — the years line up, whatever the name's length
+                const group = r.branch ? rows.filter((x) => x.branch === r.branch).length : 1
                 return (
                   <tr key={r.key}>
-                    <td className="px-1 whitespace-nowrap">
-                      {r.branch ? (
-                        <button type="button" className="flex w-full items-center gap-2 text-left hover:underline" onClick={() => setDrill(r.branch)}>
-                          <span className={cn("min-w-20 text-sm", !first && "invisible")}>{r.label}</span><span className="text-muted-foreground">{r.sub}</span>
-                        </button>
-                      ) : <span className="text-sm">{r.label}</span>}
-                    </td>
-                    <td className="px-1 text-right text-muted-foreground tabular-nums">{r.size}</td>
+                    {r.branch ? <>
+                      {first && (
+                        <td rowSpan={group} className="w-px px-1 pr-3 align-top whitespace-nowrap">
+                          <button type="button" className="h-7 text-left text-sm hover:underline" onClick={() => setDrill(r.branch)}>{r.label}</button>
+                        </td>
+                      )}
+                      <td className="w-px px-1 text-left text-muted-foreground tabular-nums">{r.sub}</td>
+                    </> : <td colSpan={2} className="px-1 text-sm whitespace-nowrap">{r.label}</td>}
+                    <td className="w-px px-1 pl-3 text-right text-muted-foreground tabular-nums">{r.size}</td>
                     {r.cells.slice(0, span + 1).map((c, n) => (
                       <td key={n} className={cn("h-7 rounded-md text-center tabular-nums", c !== null && c > 0.55 && "text-primary-foreground")} style={{ background: c === null ? "transparent" : tint(c) }}>{c === null ? "" : `${Math.round(c * 100)}%`}</td>
                     ))}
                   </tr>
                 )
               })}
-              <tr className="font-medium"><td className="px-1 pt-1">{tx("เฉลี่ยรวม")}</td><td className="px-1 text-right tabular-nums">{rows.reduce((a, r) => a + r.size, 0)}</td>{avg.map((c, n) => <td key={n} className="pt-1 text-center tabular-nums">{c === null ? "" : `${Math.round(c * 100)}%`}</td>)}</tr>
+              <tr className="font-medium"><td colSpan={2} className="px-1 pt-1">{tx("เฉลี่ยรวม")}</td><td className="px-1 text-right tabular-nums">{rows.reduce((a, r) => a + r.size, 0)}</td>{avg.map((c, n) => <td key={n} className="pt-1 text-center tabular-nums">{c === null ? "" : `${Math.round(c * 100)}%`}</td>)}</tr>
             </tbody>
           </table>
         </div>
