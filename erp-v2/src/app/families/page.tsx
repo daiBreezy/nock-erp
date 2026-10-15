@@ -80,9 +80,13 @@ export default function FamiliesPage() {
     { id: "name", label: "ครอบครัว", width: "150px", sort: "name", required: true, className: "font-medium", cell: (f) => (
       <div className="flex min-w-0 items-center">
         <EditCell value={f.name} display={familyShortName(f.name)} disabled={!manage} className="flex-1" onSave={(v) => edit(f, { name: v })} />
-        {scope.multi && <span className="ml-1.5 inline-flex gap-1">{[...new Set((kidsOf.get(f.id) ?? []).map((k) => k.branchId))].map((b) => <BranchCode key={b} code={scope.code(b)} />)}</span>}
       </div>
     ) },
+    // owner 2026-10-15: every list shows which branch each row comes from
+    { id: "branch", label: "สาขา", width: "80px", cell: (f) => {
+      const ids = [...new Set((kidsOf.get(f.id) ?? []).map((k) => k.branchId))]
+      return ids.length ? <span className="inline-flex gap-1">{ids.map((b) => <BranchCode key={b} code={scope.code(b)} />)}</span> : <span className="text-muted-foreground">—</span>
+    } },
     { id: "parent", label: "ผู้ปกครองหลัก", width: "160px", sort: "parent", cell: (f) => {
       const primary = primaryOf(f)
       return (

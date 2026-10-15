@@ -85,9 +85,10 @@ export default function StaffPage() {
     { id: "nickname", label: "ชื่อเล่น", width: "130px", sort: "nickname", required: true, cell: (x) => (
       <div className="flex min-w-0 items-center gap-2">
         <EditCell value={x.s.nickname} disabled={ro(x)} className="flex-1 font-medium" onSave={(v) => edit(x.s, { nickname: v })} />
-        {scope.multi && x.s.branchIds.filter((b) => scope.ids.includes(b)).map((b) => <BranchCode key={b} code={scope.code(b)} />)}
       </div>
     ) },
+    // owner 2026-10-15: every list shows which branch each row comes from
+    { id: "branch", label: "สาขา", width: "80px", cell: (x) => <span className="inline-flex flex-wrap gap-1">{x.s.branchIds.map((b) => <BranchCode key={b} code={scope.code(b)} />)}</span> },
     { id: "name", label: "ชื่อ-นามสกุล", width: "160px", sort: "name", className: "text-muted-foreground", cell: (x) => <EditCell value={x.s.name} disabled={ro(x)} onSave={(v) => edit(x.s, { name: v })} /> },
     // owner 2026-10-12: Part-time / Full-time both chips, each its own colour
     { id: "type", label: "ประเภท", width: "110px", sort: "type", cell: (x) => (
@@ -101,7 +102,7 @@ export default function StaffPage() {
     { id: "subjects", label: "วิชาที่สอน", width: "150px", cell: (x) => (
       <div className="flex gap-1">{x.subjects.length ? x.subjects.map((v) => <span key={v} className={cn(CHIP, subjectColor(v).chip)}>{v}</span>) : <span className="text-muted-foreground">—</span>}</div>
     ) },
-    { id: "email", label: "อีเมล", width: "220px", className: "text-muted-foreground", cell: (x) => (
+    { id: "email", label: "อีเมล", width: "220px", defaultHidden: true, className: "text-muted-foreground", cell: (x) => (
       <span className="flex items-center gap-1.5"><EditCell kind="email" value={x.s.email ?? ""} disabled={ro(x)} placeholder={x.s.canLogin ? "ใส่อีเมล" : "ไม่บังคับ"} className="flex-1" onSave={(v) => edit(x.s, { email: v })} />{!x.s.canLogin && <span className="shrink-0 rounded-full bg-muted px-1.5 text-[10px]">ไม่ล็อกอิน</span>}</span>
     ) },
     // owner 2026-10-15: "Session / Week", numbers only — 6 (5.8hr.)
@@ -111,10 +112,10 @@ export default function StaffPage() {
     // owner 2026-10-15: Workload = classes and students this month, side by side — no "too much" judgement yet;
     // sort by either to list the most first. Director only.
     ...(seeWorkload ? [
-      { id: "classes", label: "Class / Month", width: "110px", sort: "classes", align: "right" as const, className: "tabular-nums",
+      { id: "classes", label: "Class / Month", width: "110px", defaultHidden: true, sort: "classes", align: "right" as const, className: "tabular-nums",
         info: "Workload: จำนวนคลาสที่สอนเดือนนี้ (คาบเดี่ยวนับเป็น 1 คลาส) · กดหัวคอลัมน์เพื่อเรียงจากมากไปน้อย · เห็นเฉพาะ Director",
         cell: (x: Row) => x.roles.includes("teacher") ? x.load.classes : <span className="text-muted-foreground">—</span> },
-      { id: "students", label: "Student / Month", width: "120px", sort: "students", align: "right" as const, className: "tabular-nums",
+      { id: "students", label: "Student / Month", width: "120px", defaultHidden: true, sort: "students", align: "right" as const, className: "tabular-nums",
         info: "Workload: จำนวนนักเรียน (ไม่นับซ้ำ) ในคลาสที่สอนเดือนนี้ · บางคนคลาสเยอะแต่เด็กน้อย บางคนกลับกัน — ดูคู่กัน · เห็นเฉพาะ Director",
         cell: (x: Row) => x.roles.includes("teacher") ? x.load.students : <span className="text-muted-foreground">—</span> },
     ] : []),
@@ -130,14 +131,15 @@ export default function StaffPage() {
         <Kpi icon={ClockIcon} label="Part-time" value={kpi.part} tone="amber" onClick={() => setKind(kind === "part" ? "" : "part")} active={kind === "part"} />
         <Kpi icon={CalendarDaysIcon} label="คาบสอนสัปดาห์นี้" value={kpi.week} tone="emerald" />
       </KpiRow>
-      <Toolbar end={<><span className="text-xs text-muted-foreground">{list.filter((x) => x.s.active).length} คน</span><ColumnsMenu id="staff" columns={columns} />{scope.select}</>}>
+      <Toolbar end={<><span className="text-xs text-muted-foreground">{list.filter((x) => x.s.active).length} คน</span><ColumnsMenu id="staff-v2" columns={columns} />{scope.select}</>}>
         <div className="relative w-full sm:w-72">
           <SearchIcon className="absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" />
           <Input className="pl-8" placeholder="ชื่อ / ชื่อเล่น / อีเมล / วิชา" value={q} onChange={(e) => setQ(e.target.value)} />
         </div>
       </Toolbar>
       {/* owner 2026-10-12: columns arranged per person (DataTable) · ประเภท right after the real name, both as chips */}
-      <DataTable id="staff" columns={columns} rows={list} rowKey={(x) => x.s.id} onRowClick={(x) => setOpen(x.s.id)}
+      {/* owner 2026-10-15: email + Class / Month + Student / Month start hidden — turn them on from the column menu (new layout key, so the default applies) */}
+      <DataTable id="staff-v2" columns={columns} rows={list} rowKey={(x) => x.s.id} onRowClick={(x) => setOpen(x.s.id)}
         rowClassName={(x) => !x.s.active && "opacity-50"} sort={sort} onSort={toggle} minWidth={1200} empty="ไม่พบบุคลากร" />
       <StaffPanel key={String(open)} target={open} onClose={() => setOpen(null)} />
     </Page>

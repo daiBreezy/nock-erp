@@ -111,7 +111,9 @@ function BillingPage() {
   const columns: Column<Row>[] = [
     { id: "number", label: "เลขที่", width: "130px", sort: "number", required: true, className: "font-medium tabular-nums", cell: ({ inv }) => (inv.number ? <MidText text={inv.number} /> : <span className="text-muted-foreground">—</span>) },
     { id: "created", label: "สร้างเมื่อ", width: "96px", sort: "created", className: "text-muted-foreground tabular-nums", cell: ({ inv }) => fmtDate(inv.createdAt.slice(0, 10)) },
-    { id: "student", label: "นักเรียน", width: "120px", sort: "student", cell: ({ inv, student }) => <>{student?.nickname ?? "—"}{scope.multi && <span className="ml-1.5"><BranchCode code={scope.code(inv.branchId)} /></span>}</> },
+    { id: "student", label: "นักเรียน", width: "120px", sort: "student", cell: ({ student }) => student?.nickname ?? "—" },
+    // owner 2026-10-15: every list shows which branch each row comes from
+    { id: "branch", label: "สาขา", width: "72px", cell: ({ inv }) => <BranchCode code={scope.code(inv.branchId)} /> },
     { id: "grade", label: "ชั้น", width: "76px", sort: "grade", cell: ({ student }) => student && <GradeCell grade={student.grade} tone={gradeTone(student.grade)} /> },
     { id: "lines", label: "รายการ", width: "200px", className: "text-muted-foreground", cell: ({ inv }) => inv.lines.map((l) => courses.find((c) => c.id === l.courseId)?.name).filter(Boolean).join(", ") || (inv.busExtras?.length ? "ค่ารถเพิ่ม" : "ค่าอื่นๆ") },
     { id: "total", label: "ยอด", width: "110px", sort: "total", align: "right", className: "font-medium tabular-nums", cell: ({ total }) => fmtMoney(total) },

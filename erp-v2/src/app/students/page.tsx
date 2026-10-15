@@ -133,9 +133,10 @@ export default function StudentsPage() {
     { id: "nickname", label: "ชื่อเล่น", width: "130px", sort: "nickname", required: true, cell: ({ s }) => (
       <div className="flex min-w-0 items-center gap-2">
         <EditCell value={s.nickname} display={<span className="inline-flex items-center gap-1">{s.nickname}<GenderIcon gender={s.gender} /></span>} disabled={!manage} className="flex-1 font-medium" onSave={(v) => edit(s, { nickname: v })} />
-        {scope.multi && <BranchCode code={scope.code(s.branchId)} />}
       </div>
     ) },
+    // owner 2026-10-15: every list shows which branch each row comes from
+    { id: "branch", label: "สาขา", width: "72px", cell: ({ s }) => <BranchCode code={scope.code(s.branchId)} /> },
     { id: "name", label: "ชื่อ-นามสกุล", width: "170px", sort: "name", className: "text-muted-foreground", cell: ({ s }) => <EditCell value={s.name} disabled={!manage} onSave={(v) => edit(s, { name: v })} /> },
     { id: "grade", label: "ชั้น", width: "76px", sort: "grade", cell: ({ s }) => <EditCell kind="select" value={s.grade} disabled={!manage} display={<GradeCell grade={s.grade} tone={gradeTone(s.grade)} />} options={branch.grades.map((g) => ({ value: g, label: g }))} onSave={(v) => edit(s, { grade: v })} /> },
     { id: "family", label: "ครอบครัว", width: "130px", sort: "family", className: "text-muted-foreground", cell: ({ fam }) => (

@@ -33,6 +33,8 @@ export interface Column<R> {
   className?: string | ((row: R) => string | undefined)
   /** cannot be hidden (e.g. the name) */
   required?: boolean
+  /** owner 2026-10-15: starts unticked in the column menu — shown only when someone turns it on */
+  defaultHidden?: boolean
 }
 
 interface Prefs { order: string[]; locked: string[]; hidden: string[] }
@@ -59,7 +61,9 @@ function useLayout<R>(tableId: string, columns: Column<R>[]) {
   // columns added later (not in the saved order yet) keep their place after the saved ones
   const order = saved ? [...saved.order.filter((id) => ids.includes(id)), ...ids.filter((id) => !saved.order.includes(id))] : ids
   const locked = (saved?.locked ?? []).filter((id) => ids.includes(id))
-  const hidden = (saved?.hidden ?? []).filter((id) => ids.includes(id) && !columns.find((c) => c.id === id)?.required)
+  // a column that starts hidden stays hidden until turned on — also when it is new to an already-saved layout
+  const fresh = columns.filter((c) => c.defaultHidden && !saved?.order.includes(c.id)).map((c) => c.id)
+  const hidden = [...(saved?.hidden ?? []), ...fresh].filter((id) => ids.includes(id) && !columns.find((c) => c.id === id)?.required)
   const byId = new Map(columns.map((c) => [c.id, c]))
   // locked columns go first — their place in `order` is kept, so unlocking puts them back where they were
   const display = [...order.filter((id) => locked.includes(id)), ...order.filter((id) => !locked.includes(id))].map((id) => byId.get(id)!)

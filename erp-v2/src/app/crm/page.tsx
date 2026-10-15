@@ -126,9 +126,10 @@ export default function CrmPage() {
     { id: "name", label: "ชื่อ", width: "170px", sort: "name", required: true, cell: (l) => (
       <div className="flex min-w-0 items-center gap-2">
         <EditCell value={l.name} disabled={ro(l)} className="flex-1 font-medium" onSave={(v) => edit(l, { name: v })} />
-        {scope.multi && <BranchCode code={scope.code(l.branchId)} />}
       </div>
     ) },
+    // owner 2026-10-15: every list shows which branch each row comes from
+    { id: "branch", label: "สาขา", width: "72px", cell: (l) => <BranchCode code={scope.code(l.branchId)} /> },
     { id: "grade", label: "ชั้น", width: "76px", sort: "grade", cell: (l) => <EditCell kind="select" value={l.childGrade} disabled={ro(l)} display={<GradeCell grade={l.childGrade} tone={gradeTone(l.childGrade)} />} options={branch.grades.map((g) => ({ value: g, label: g }))} onSave={(v) => edit(l, { childGrade: v })} /> },
     { id: "subject", label: "วิชา", width: "96px", sort: "subject", cell: (l) => <EditCell kind="select" value={l.subject} disabled={ro(l)} display={<span className={cn("rounded-full px-2 py-0.5 text-xs font-medium", subjectColor(l.subject).chip)}>{l.subject}</span>} options={branch.subjects.map((x) => ({ value: x, label: x }))} onSave={(v) => edit(l, { subject: v })} /> },
     { id: "source", label: "ช่องทาง", width: "104px", sort: "source", className: "text-muted-foreground", cell: (l) => <EditCell kind="select" value={l.source} disabled={ro(l)} display={LEAD_SOURCE_LABEL[l.source]} options={Object.entries(LEAD_SOURCE_LABEL).map(([value, label]) => ({ value, label }))} onSave={(v) => edit(l, { source: v as Lead["source"] })} /> },
