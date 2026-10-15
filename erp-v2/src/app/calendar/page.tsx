@@ -15,7 +15,7 @@ import { NativeSelect } from "@/components/app/native-select"
 import { SessionSheet } from "@/components/app/session-sheet"
 import { subjectColor } from "@/components/app/subject-color"
 import { WORK_ORDER, WorkIcon } from "@/components/app/work-state"
-import { RoomMeta, StudentsMeta } from "@/components/calendar/session-meta"
+import { KIND_ICON, kindOf, RoomMeta, StudentsMeta } from "@/components/calendar/session-meta"
 import { DataTable, type Column } from "@/components/app/data-grid"
 import { useSort } from "@/components/app/data-table"
 import { MoveDialog } from "@/components/calendar/move-dialog"
@@ -515,6 +515,7 @@ function ListView({ from, to, sessions, ...ctx }: CardCtx & { from: DateStr; to:
   const attendance = useStore((st) => st.attendance)
   const summaries = useStore((st) => st.summaries)
   const { sort, toggle } = useSort<ListSort>("date")
+  const allClasses = useStore((st) => st.classes)
   const rows = sessions.filter((s) => s.date >= from && s.date <= to).map((s) => {
     const w = workState(s, ctx.now, attendance, summaries)
     const t = L.teacher(s.teacherId)
@@ -547,7 +548,13 @@ function ListView({ from, to, sessions, ...ctx }: CardCtx & { from: DateStr; to:
         {ctx.conflictIds.has(r.s.id) && <Pill tone="red" className="shrink-0">ชนกัน</Pill>}
       </span>
     ) },
-    { id: "type", label: "ประเภท", width: "120px", sort: "type", cell: (r) => r.kind ? <Pill tone="violet">{r.kind}</Pill> : <span className="text-muted-foreground">—</span> },
+    // owner 2026-10-15: the same colour + icon as the calendar card (trial = blue, test = violet …)
+    { id: "type", label: "ประเภท", width: "130px", sort: "type", cell: (r) => {
+      const k = kindOf(r.s, allClasses.find((c) => c.id === r.s.classId))
+      if (!k) return <span className="text-muted-foreground">—</span>
+      const K = KIND_ICON[k]
+      return <span className={cn("inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium", K.tone)}><K.icon className="size-3" />{K.label}</span>
+    } },
     // owner 2026-10-15: no teacher = just a dash
     { id: "teacher", label: "ครู", width: "120px", sort: "teacher", cell: (r) => r.t.missing ? <span className="text-muted-foreground">—</span> : r.t.label },
     { id: "room", label: "ห้อง", width: "80px", sort: "room", className: "text-muted-foreground", cell: (r) => <RoomMeta roomId={r.s.roomId} /> },

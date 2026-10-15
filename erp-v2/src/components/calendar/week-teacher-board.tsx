@@ -2,7 +2,7 @@
 
 import { staffAt } from "@/domain/rules/permissions"
 import { Fragment, useMemo, useRef, useState } from "react"
-import { AlertTriangleIcon, ListChecksIcon, Clock3Icon, CalendarOffIcon, CircleCheckIcon, CircleDashedIcon, CircleXIcon, ArrowLeftRightIcon, BanIcon, EllipsisIcon, CheckIcon, FlaskConicalIcon, RotateCcwIcon, MessagesSquareIcon, PencilLineIcon, PinIcon, PlusIcon, Trash2Icon, ShapesIcon, UserIcon, UsersIcon } from "lucide-react"
+import { AlertTriangleIcon, Clock3Icon, CalendarOffIcon, CircleCheckIcon, CircleDashedIcon, CircleXIcon, ArrowLeftRightIcon, BanIcon, EllipsisIcon, CheckIcon, RotateCcwIcon, PencilLineIcon, PinIcon, PlusIcon, Trash2Icon, UserIcon, UsersIcon } from "lucide-react"
 import type { ClassPrefill } from "@/components/app/class-dialog"
 import { ConflictResolver, liveConflicts } from "@/components/app/conflict-resolver"
 import { avatarTone, gradeTone, initial, subjectColor } from "@/components/app/subject-color"
@@ -18,7 +18,7 @@ import { blockFor, blocksOn, periodsOn, isHoliday, subjectsOf, workState, type W
 import * as Seats from "@/domain/rules/seats"
 import { PersonAvatar } from "@/components/app/photo-cell"
 import { WORK_ICON, WORK_ICON_TONE, WORK_ORDER } from "@/components/app/work-state"
-import { RoomMeta, StudentsMeta } from "@/components/calendar/session-meta"
+import { KIND_ICON, kindOf, RoomMeta, StudentsMeta } from "@/components/calendar/session-meta"
 import { subjectAbbr } from "@/domain/rules/settings"
 import { calendarNotesFor, CALENDAR_NOTE_MAX, NOTE_KIND_LABEL } from "@/domain/rules/calendar-notes"
 import type { Attendance, CalendarNoteKind, DateStr, Klass, Session, TimeStr } from "@/domain/types"
@@ -388,22 +388,6 @@ function MoveStudentDialog({ from, studentId, to, onClose }: { from: string; stu
   )
 }
 
-// owner 2026-10-15: on the card's top line, coloured, the meaning on hover (test no longer shares the check-in icon)
-const KIND_ICON = {
-  test: { icon: ListChecksIcon, label: "สอบวัดระดับ", tone: "bg-violet-100 text-violet-700 dark:bg-violet-950 dark:text-violet-300" },
-  trial: { icon: FlaskConicalIcon, label: "ทดลองเรียน", tone: "bg-sky-100 text-sky-700 dark:bg-sky-950 dark:text-sky-300" },
-  interview: { icon: MessagesSquareIcon, label: "สัมภาษณ์", tone: "bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300" },
-  other: { icon: ShapesIcon, label: "อื่นๆ", tone: "bg-slate-200 text-slate-700 dark:bg-slate-800 dark:text-slate-300" },
-} as const
-
-/** What kind of session this is, for the Room line (normal learning sessions show nothing). */
-function kindOf(s: Session, klass?: Klass): keyof typeof KIND_ICON | null {
-  if (s.assessment === "test" || klass?.kind === "test") return "test"
-  if (s.assessment === "trial" || s.trial) return "trial"
-  if (klass?.kind === "interview") return "interview"
-  if (klass?.kind === "other") return "other"
-  return null
-}
 
 /**
  * The Room line above a block (owner 2026-10-01): room first and boldest, then students · kind · group/single as quiet

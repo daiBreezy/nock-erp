@@ -1,10 +1,11 @@
 "use client"
+import { KindChip } from "@/components/calendar/session-meta"
 
 import { Kpi } from "@/components/app/kpi"
 import Link from "next/link"
 import { useState } from "react"
 import { ArrowRightIcon, BanknoteIcon, CheckCircle2Icon, ChartColumnIcon, ChevronRightIcon, GraduationCapIcon, HistoryIcon, SparklesIcon, UserMinusIcon, UserPlusIcon, UserSearchIcon, XCircleIcon } from "lucide-react"
-import { Pill, SessionStateBadge } from "@/components/app/badges"
+import { SessionStateBadge } from "@/components/app/badges"
 import { KpiRow, Page, PageHeader, Segmented } from "@/components/app/page-layout"
 import { SessionSheet } from "@/components/app/session-sheet"
 import { subjectColor } from "@/components/app/subject-color"
@@ -18,7 +19,6 @@ import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/h
 import { addDays, endTime, fmtDate, fmtMoney, toDateStr } from "@/domain/dates"
 import * as Att from "@/domain/rules/attendance"
 import { canApprove as canApproveInvoice, invoiceTotals } from "@/domain/rules/billing"
-import { sessionKindLabel } from "@/domain/rules/forms"
 import { can, seesAllSessions } from "@/domain/rules/permissions"
 import * as R from "@/domain/rules/reports"
 import { findConflicts, sessionState, STATE_LABEL, workState } from "@/domain/rules/scheduling"
@@ -326,7 +326,7 @@ function TodaySessionRow({ s, now, L, attendance, onOpen, muted }: { s: Session;
         <span className="text-sm font-semibold text-foreground">{s.start}</span>–{endTime(s.start, s.minutes)}
       </div>
       <div className="min-w-0 flex-1">
-        <div className="truncate text-sm font-medium">{sj(s.subject)}{sessionKindLabel(s) && <Pill tone="violet" className="ml-2">{tx(sessionKindLabel(s)!)}</Pill>}</div>
+        <div className="truncate text-sm font-medium">{sj(s.subject)}<KindChip s={s} className="ml-2" /></div>
         <div className="truncate text-xs text-muted-foreground">
           <span className={cn(t.missing && "text-amber-700")}>{nm(t.label)}</span> · {nm(L.room(s.roomId))}  {tx("· เช็คชื่อแล้ว")} {marked}/{s.studentIds.length}
         </div>

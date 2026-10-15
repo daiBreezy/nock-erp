@@ -8,7 +8,7 @@ import {
   AlertTriangleIcon, BanIcon, CalendarClockIcon, CheckIcon, ChevronLeftIcon, ChevronRightIcon, ClockIcon, EllipsisVerticalIcon, FlameIcon,
   GraduationCapIcon, LogOutIcon, PencilIcon, SendIcon, StarIcon, Trash2Icon, UserMinusIcon, UserPlusIcon, UsersRoundIcon, XIcon,
   RotateCcwIcon,
-  PinIcon, StickyNoteIcon,
+  PinIcon, StickyNoteIcon, CalendarDaysIcon, Clock3Icon, DoorOpenIcon, UserIcon, UsersIcon,
 } from "lucide-react"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
@@ -28,15 +28,18 @@ import { shortCourse } from "@/domain/rules/course"
 import * as Les from "@/domain/rules/lessons"
 import type { SummaryLesson } from "@/store/store"
 import { CatalogCombo, CatalogManager } from "./lesson-picker"
-import { assessmentIn, FORM_TYPE_LABEL, sessionKindLabel } from "@/domain/rules/forms"
+import { assessmentIn, FORM_TYPE_LABEL } from "@/domain/rules/forms"
 import { can } from "@/domain/rules/permissions"
-import { canChangeTeachers, canMoveToClass, canUndoClassMove, canRescheduleStudent, findConflicts, mondayOf, movesOf, MOVE_UNDO_ACTION, RESCHEDULE_WEEKS, sessionState, subjectsOf, classCapacity } from "@/domain/rules/scheduling"
+import { canChangeTeachers, canMoveToClass, canUndoClassMove, canRescheduleStudent, findConflicts, mondayOf, movesOf, MOVE_UNDO_ACTION, RESCHEDULE_WEEKS, sessionState, subjectsOf, classCapacity, workState, WORK_LABEL } from "@/domain/rules/scheduling"
 import * as Sum from "@/domain/rules/summaries"
 import { SUMMARY_STATUS_LABEL } from "@/domain/rules/summaries"
 import type { ID, LessonSummary, Seat, Session } from "@/domain/types"
 import { report } from "@/lib/feedback"
 import { useBranch, useEntitlements, useLookup, useNow } from "@/lib/hooks"
 import { cn } from "@/lib/utils"
+import { WORK_ICON, WORK_ICON_TONE, workDetail } from "@/components/app/work-state"
+import { KIND_ICON, kindOf, KindChip } from "@/components/calendar/session-meta"
+import { subjectColor } from "@/components/app/subject-color"
 import { useStore } from "@/store/store"
 import { AssessmentNote } from "./assessment-note"
 import { GradeChips } from "./grade-chips"
@@ -141,7 +144,7 @@ function Body({ id, onClose }: { id: ID; onClose: () => void }) {
           </div>
           <div className="flex flex-wrap justify-end gap-1.5">
             <SessionStateBadge state={state} />
-            {sessionKindLabel(s) && <Pill tone="violet">{sessionKindLabel(s)}</Pill>}
+            <KindChip s={s} klass={klass} />
             {s.customized && s.classId && <Pill>แก้เฉพาะคาบนี้</Pill>}
           </div>
         </div>
@@ -221,14 +224,28 @@ function Body({ id, onClose }: { id: ID; onClose: () => void }) {
                 {s.coTeacherIds.map((t) => <Pill key={t}>{L.teacher(t).label} · ผู้ช่วย</Pill>)}
               </div>
             </section>
-            <dl className="grid grid-cols-[7rem_1fr] gap-y-1.5 rounded-2xl border p-3 text-sm">
-              <dt className="text-muted-foreground">วันที่</dt><dd>{fmtDate(s.date, { weekday: true, year: true })}</dd>
-              <dt className="text-muted-foreground">เวลา</dt><dd>{s.start}–{endTime(s.start, s.minutes)} ({s.minutes} นาที)</dd>
-              <dt className="text-muted-foreground">ห้อง</dt><dd>{L.room(s.roomId)}</dd>
-              <dt className="text-muted-foreground">วิชา</dt><dd>{subjectsOf(s).join(" + ")}</dd>
-              {klass && <><dt className="text-muted-foreground">คลาส</dt><dd>{klass.name} · {klass.type === "single" ? "เดี่ยว" : "กลุ่ม"} · {klass.grades.join(", ")}</dd></>}
-              <dt className="text-muted-foreground">นักเรียน</dt><dd>{s.studentIds.length}/{cap} คน</dd>
-            </dl>
+            {/* owner 2026-10-15: each line with the icon the calendar card uses for it — learn the icons here */}
+            {(() => {
+              const w = workState(s, now, attendance, summaries)
+              const WIcon = WORK_ICON[w.state]
+              const kind = kindOf(s, klass)
+              const K = kind ? KIND_ICON[kind] : null
+              const Row = ({ icon, label, children }: { icon: React.ReactNode; label: string; children: React.ReactNode }) => (
+                <><dt className="flex items-center gap-2 text-muted-foreground"><span className="grid size-5 shrink-0 place-items-center">{icon}</span>{label}</dt><dd className="min-w-0">{children}</dd></>
+              )
+              return (
+                <dl className="grid grid-cols-[8.5rem_1fr] items-center gap-y-2 rounded-2xl border p-3 text-sm">
+                  <Row icon={<WIcon className={cn("size-4", WORK_ICON_TONE[w.state])} />} label="สถานะ">{WORK_LABEL[w.state]}{workDetail(w, s.studentIds.length) && <span className="text-muted-foreground"> · {workDetail(w, s.studentIds.length)}</span>}</Row>
+                  {K && <Row icon={<span className={cn("grid size-5 place-items-center rounded-full", K.tone)}><K.icon className="size-3" /></span>} label="ประเภท">{K.label}</Row>}
+                  <Row icon={<CalendarDaysIcon className="size-4" />} label="วันที่">{fmtDate(s.date, { weekday: true, year: true })}</Row>
+                  <Row icon={<Clock3Icon className="size-4" />} label="เวลา">{s.start}–{endTime(s.start, s.minutes)} ({s.minutes} นาที)</Row>
+                  <Row icon={<DoorOpenIcon className="size-4" />} label="ห้อง">{L.room(s.roomId)}</Row>
+                  <Row icon={<span className={cn("size-2.5 rounded-full", subjectColor(s.subject).bar)} />} label="วิชา">{subjectsOf(s).join(" + ")}</Row>
+                  {klass && <Row icon={klass.type === "single" ? <UserIcon className="size-4" /> : <UsersIcon className="size-4" />} label="คลาส">{klass.name} · {klass.type === "single" ? "เดี่ยว" : "กลุ่ม"} · {klass.grades.join(", ")}</Row>}
+                  <Row icon={<UsersRoundIcon className="size-4" />} label="นักเรียน">{s.studentIds.length}/{cap} คน</Row>
+                </dl>
+              )
+            })()}
             <p className="text-[11px] text-muted-foreground">รหัสคาบ {s.id}</p>
           </div>
         )}

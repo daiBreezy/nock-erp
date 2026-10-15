@@ -1,4 +1,5 @@
 "use client"
+import { KindChip } from "@/components/calendar/session-meta"
 
 import { usePeriod } from "@/components/app/period-control"
 import { BranchCode, useBranchScope } from "@/components/app/branch-scope"
@@ -8,7 +9,6 @@ import { CalendarDaysIcon, CircleCheckIcon, ClipboardCheckIcon, PenLineIcon } fr
 import { FilterBar, Page, PageHeader, KpiRow, SearchBox, Toolbar } from "@/components/app/page-layout"
 import { matchesQuery } from "@/domain/rules/people"
 import { Kpi } from "@/components/app/kpi"
-import { Pill } from "@/components/app/badges"
 import { NativeSelect } from "@/components/app/native-select"
 import { SessionSheet } from "@/components/app/session-sheet"
 import { SessionLine } from "@/components/app/session-line"
@@ -18,7 +18,6 @@ import { WORK_LABEL, workState, type WorkState } from "@/domain/rules/scheduling
 import { useBranch, useLookup, useNow, useQueryState } from "@/lib/hooks"
 import { cn } from "@/lib/utils"
 import { useStore } from "@/store/store"
-import { sessionKindLabel } from "@/domain/rules/forms"
 import { removedWithClass } from "@/domain/rules/scheduling"
 
 
@@ -98,7 +97,7 @@ export default function SessionsPage() {
               const t = L.teacher(s.teacherId)
               return (
                 <SessionLine key={s.id} s={s} onOpen={() => setOpenId(s.id)} focus={w.state === "needs_attendance" ? "unmarked" : undefined}
-                  title={<>{classes.find((k) => k.id === s.classId)?.name ?? s.subject}{sessionKindLabel(s) && <Pill tone="violet" className="ml-2">{sessionKindLabel(s)}</Pill>}{scope.multi && <span className="ml-2 align-middle"><BranchCode code={scope.code(s.branchId)} /></span>}</>}
+                  title={<>{classes.find((k) => k.id === s.classId)?.name ?? s.subject}<KindChip s={s} klass={classes.find((k) => k.id === s.classId)} className="ml-2" />{scope.multi && <span className="ml-2 align-middle"><BranchCode code={scope.code(s.branchId)} /></span>}</>}
                   sub={<><span className={cn(t.missing && "text-amber-700")}>{t.label}</span> · {L.room(s.roomId)} · {s.studentIds.length} คน</>}
                   status={<WorkChip w={w} students={s.studentIds.length} />} />
               )

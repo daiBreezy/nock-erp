@@ -1,4 +1,5 @@
 "use client"
+import { KindChip } from "@/components/calendar/session-meta"
 
 import { AlertTriangleIcon, CheckIcon, DoorOpenIcon, GripVerticalIcon, NotebookPenIcon, StarIcon, UsersIcon, XIcon } from "lucide-react"
 import { avatarTone, gradeTone, initial, subjectColor } from "@/components/app/subject-color"
@@ -10,7 +11,6 @@ import { CAPACITY, subjectsOf, workState, classCapacity } from "@/domain/rules/s
 import type { Attendance, Klass, LessonSummary, Session, Staff, StudentLeave } from "@/domain/types"
 import { useLookup } from "@/lib/hooks"
 import { cn } from "@/lib/utils"
-import { sessionKindLabel } from "@/domain/rules/forms"
 
 export interface CardData {
   now: Date
@@ -64,7 +64,7 @@ export function ClassCard({ s, d }: { s: Session; d: CardData }) {
           <div className="min-w-0 flex-1">
             <div className={cn("truncate text-sm font-semibold", !live && c.text, w.state === "cancelled" && "line-through")}>
               {klass?.name ?? subjectsOf(s).join(" + ")}
-              {sessionKindLabel(s) && <span className="ml-1.5 rounded bg-violet-600 px-1 py-px text-[10px] font-medium text-white">{sessionKindLabel(s)}</span>}
+              <KindChip s={s} className="ml-1.5 px-1.5 py-px text-[10px]" />
             </div>
             <div className={cn("text-xs tabular-nums", live ? "text-white/80" : "text-muted-foreground")}>
               {s.start}–{endTime(s.start, s.minutes)} · {s.minutes} นาที
