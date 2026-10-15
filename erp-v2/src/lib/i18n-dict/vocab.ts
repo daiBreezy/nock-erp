@@ -108,4 +108,5 @@ export const VOCAB: Record<string, Entry> = {
   "เฉพาะวันที่มีคลาส": { en: "Only days with classes", ja: "授業がある日のみ" },
   "เรียนเฉพาะช่วง {0}": { en: "Only {0}", ja: "{0} のみ受講" },
   "เรียนเฉพาะ {0}": { en: "Only {0}", ja: "{0} のみ受講" },
+  "สัมภาษณ์": { en: "Interview", ja: "面談" },
 }

@@ -2,7 +2,7 @@
 
 import { staffAt } from "@/domain/rules/permissions"
 import { Fragment, useMemo, useRef, useState } from "react"
-import { AlertTriangleIcon, Clock3Icon, CalendarOffIcon, CircleCheckIcon, CircleDashedIcon, CircleXIcon, ArrowLeftRightIcon, BanIcon, EllipsisIcon, CheckIcon, ClipboardCheckIcon, FlaskConicalIcon, RotateCcwIcon, MessagesSquareIcon, PencilLineIcon, PinIcon, PlusIcon, Trash2Icon, ShapesIcon, UserIcon, UsersIcon } from "lucide-react"
+import { AlertTriangleIcon, ListChecksIcon, Clock3Icon, CalendarOffIcon, CircleCheckIcon, CircleDashedIcon, CircleXIcon, ArrowLeftRightIcon, BanIcon, EllipsisIcon, CheckIcon, FlaskConicalIcon, RotateCcwIcon, MessagesSquareIcon, PencilLineIcon, PinIcon, PlusIcon, Trash2Icon, ShapesIcon, UserIcon, UsersIcon } from "lucide-react"
 import type { ClassPrefill } from "@/components/app/class-dialog"
 import { ConflictResolver, liveConflicts } from "@/components/app/conflict-resolver"
 import { avatarTone, gradeTone, initial, subjectColor } from "@/components/app/subject-color"
@@ -388,11 +388,12 @@ function MoveStudentDialog({ from, studentId, to, onClose }: { from: string; stu
   )
 }
 
+// owner 2026-10-15: on the card's top line, coloured, the meaning on hover (test no longer shares the check-in icon)
 const KIND_ICON = {
-  test: { icon: ClipboardCheckIcon, label: "Test" },
-  trial: { icon: FlaskConicalIcon, label: "Trial" },
-  interview: { icon: MessagesSquareIcon, label: "Interview" },
-  other: { icon: ShapesIcon, label: "Others" },
+  test: { icon: ListChecksIcon, label: "สอบวัดระดับ", tone: "bg-violet-100 text-violet-700 dark:bg-violet-950 dark:text-violet-300" },
+  trial: { icon: FlaskConicalIcon, label: "ทดลองเรียน", tone: "bg-sky-100 text-sky-700 dark:bg-sky-950 dark:text-sky-300" },
+  interview: { icon: MessagesSquareIcon, label: "สัมภาษณ์", tone: "bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300" },
+  other: { icon: ShapesIcon, label: "อื่นๆ", tone: "bg-slate-200 text-slate-700 dark:bg-slate-800 dark:text-slate-300" },
 } as const
 
 /** What kind of session this is, for the Room line (normal learning sessions show nothing). */
@@ -432,7 +433,7 @@ function RoomLine({ sessions, classes, clash, onResolve, inCell }: { sessions: S
             <span className="ml-auto flex min-w-0 items-center gap-2.5">
               {inCell && <RoomMeta roomId={s.roomId} />}
               <StudentsMeta n={s.studentIds.length} />
-              {K && <span className="flex items-center gap-1" title={K.label}><K.icon className="size-3.5" />{!inCell && <span className="hidden @[15rem]:inline">{K.label}</span>}</span>}
+              {K && !inCell && <span className="flex items-center gap-1" title={K.label}><K.icon className="size-3.5" /><span className="hidden @[15rem]:inline">{K.label}</span></span>}
               <span className="flex items-center gap-1" title={single ? "Single (เรียนเดี่ยว)" : "Group"}>
                 {single ? <UserIcon className="size-3.5" /> : <UsersIcon className="size-3.5" />}{!inCell && <span className="hidden @[15rem]:inline">{single ? "Single" : "Group"}</span>}
               </span>
@@ -484,7 +485,24 @@ function SessionBlock({ s, room, state, ended, dayDate, canEdit, onOpen, klass, 
             <ArrowLeftRightIcon className="size-3" />แทน{L.teacher(s.teacherLeave.teacherId).label}
           </span>
         )}
-        <St.icon className={cn("ml-auto size-3.5 shrink-0", dot && "mr-3", state === "live" ? "text-primary" : St.tone)} aria-label={St.label} />
+        {(() => {
+          const kind = kindOf(s, klass)
+          const K = kind ? KIND_ICON[kind] : null
+          return K && (
+            <Tooltip>
+              <TooltipTrigger render={<span tabIndex={0} aria-label={K.label} className={cn("ml-auto grid size-5 shrink-0 place-items-center rounded-full", K.tone)} />}>
+                <K.icon className="size-3" />
+              </TooltipTrigger>
+              <TooltipContent>{K.label}</TooltipContent>
+            </Tooltip>
+          )
+        })()}
+        <Tooltip>
+          <TooltipTrigger render={<span tabIndex={0} aria-label={St.label} className={cn("inline-flex shrink-0", !kindOf(s, klass) && "ml-auto", dot && "mr-3")} />}>
+            <St.icon className={cn("size-3.5", state === "live" ? "text-primary" : St.tone)} />
+          </TooltipTrigger>
+          <TooltipContent>{St.label}</TooltipContent>
+        </Tooltip>
       </div>
       {/* owner 2026-10-15: class on top, then the room (day view) */}
       {room}
