@@ -105,4 +105,5 @@ export const VOCAB: Record<string, Entry> = {
   "ส่งมาทาง LINE": { en: "sent via LINE", ja: "LINEから送信" },
   "ตัวย่อ": { en: "Abbreviation", ja: "略称" },
   "บันทึกตัวย่อของ {0} แล้ว": { en: "Saved the abbreviation of {0}", ja: "{0}の略称を保存しました" },
+  "เฉพาะวันที่มีคลาส": { en: "Only days with classes", ja: "授業がある日のみ" },
 }

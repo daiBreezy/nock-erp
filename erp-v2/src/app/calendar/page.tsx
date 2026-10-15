@@ -8,7 +8,6 @@ import { useSearchParams } from "next/navigation"
 import { AlertTriangleIcon, ClipboardListIcon, ListCollapseIcon, PalmtreeIcon, PlusIcon, Settings2Icon } from "lucide-react"
 import { BlocksDialog } from "@/components/calendar/blocks-dialog"
 import { canEditBlocks } from "@/domain/rules/permissions"
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { SummaryPanel } from "@/components/calendar/summary-panel"
 import { Pill } from "@/components/app/badges"
 import { ClassDialog, type ClassPrefill } from "@/components/app/class-dialog"
@@ -17,6 +16,8 @@ import { SessionSheet } from "@/components/app/session-sheet"
 import { subjectColor } from "@/components/app/subject-color"
 import { WORK_ORDER, WorkIcon } from "@/components/app/work-state"
 import { RoomMeta, StudentsMeta } from "@/components/calendar/session-meta"
+import { DataTable, type Column } from "@/components/app/data-grid"
+import { useSort } from "@/components/app/data-table"
 import { MoveDialog } from "@/components/calendar/move-dialog"
 import { WeekTeacherBoard } from "@/components/calendar/week-teacher-board"
 import type { CardData } from "@/components/calendar/class-card"
@@ -77,6 +78,7 @@ function CalendarView() {
   const [dayMode, setDayMode] = useQueryState<"table" | "single">("day", "table")
   const single = view === "board" && dayMode === "single"
   const [onlyBusy, setOnlyBusy] = useState(false)
+  const [hideEmpty, setHideEmpty] = useQueryState<string>("hideEmpty", "")
   const [blocksDate, setBlocksDate] = useState<DateStr | null>(null)
   const canBlocks = canEditBlocks(staff.find((x) => x.id === me.id), branch.id)
   const [anchor, setAnchor] = useState(() => (linkedSession && allSessions.find((x) => x.id === linkedSession)?.date) || today)
@@ -210,6 +212,12 @@ function CalendarView() {
           options={WORK_ORDER.map((w) => ({ value: w, label: `${WORK_LABEL[w]} (${workCounts[w] ?? 0})` }))} />
         {/* owner 2026-10-15: the board's own switches live with the filters — always in sight, no scrolling to find them */}
         <span className="ml-auto flex flex-wrap items-center gap-2">
+          {view === "week" && (
+            <Button variant={hideEmpty ? "secondary" : "ghost"} size="sm" aria-pressed={!!hideEmpty} onClick={() => setHideEmpty(hideEmpty ? "" : "1")}
+              title={hideEmpty ? "แสดงทุกวัน" : "ซ่อนวันที่ไม่มีคลาส"}>
+              <ListCollapseIcon /> {hideEmpty ? "เฉพาะวันที่มีคลาส" : "ทุกวัน"}
+            </Button>
+          )}
           {single && (
             <Button variant={onlyBusy ? "secondary" : "ghost"} size="sm" aria-pressed={onlyBusy} onClick={() => setOnlyBusy(!onlyBusy)}
               title={onlyBusy ? "แสดงทุกชั่วโมง" : "แสดงเฉพาะเวลาที่มีคลาส"}>
@@ -242,7 +250,7 @@ function CalendarView() {
         </details>
       )}
 
-      {view === "week" && <WeekView from={range.from} sessions={visible} onDay={openDay} today={today} {...cardProps} dim={cardData.dim} />}
+      {view === "week" && <WeekView hideEmpty={!!hideEmpty} from={range.from} sessions={visible} onDay={openDay} today={today} {...cardProps} dim={cardData.dim} />}
       {/* รายวัน = the teacher board for one day (students in the cells), plain hours down the side (owner 2026-10-12) */}
       {blocksDate && <BlocksDialog branch={branch} date={blocksDate} onClose={() => setBlocksDate(null)} />}
       {single && <WeekTeacherBoard from={anchor} dayCount={1} onlyBusy={onlyBusy} sessions={workFilter ? visible.filter((x) => workState(x, now, attendance, summaries).state === workFilter) : visible} onOpen={setOpenId} onSlot={setPrefill} canCreate={canCreate} />}
@@ -433,9 +441,8 @@ function Column({ date, sessions, ctx, onSlot, maxCols = 3, onMore }: { date: Da
   )
 }
 
-function WeekView({ from, sessions, onDay, today, ...ctx }: CardCtx & { from: DateStr; sessions: Session[]; onDay: (d: DateStr) => void; today: DateStr }) {
-  // owner 2026-10-12: hide the days with no classes — fewer, wider columns
-  const [hideEmpty, setHideEmpty] = useQueryState<string>("hideEmpty", "")
+function WeekView({ from, sessions, onDay, today, hideEmpty, ...ctx }: CardCtx & { from: DateStr; sessions: Session[]; onDay: (d: DateStr) => void; today: DateStr; hideEmpty: boolean }) {
+  // owner 2026-10-12: hide the days with no classes — fewer, wider columns (the switch is on the filter row, 2026-10-15)
   const all = Array.from({ length: 7 }, (_, i) => addDays(from, i))
   const busy = all.filter((d) => sessions.some((s) => s.date === d && !s.cancelled))
   const days = hideEmpty && busy.length ? busy : all
@@ -446,15 +453,7 @@ function WeekView({ from, sessions, onDay, today, ...ctx }: CardCtx & { from: Da
     <HourPx.Provider value={hourPx}>
     <div ref={box} className="overflow-x-auto rounded-3xl bg-card shadow-sm ring-1 ring-foreground/5">
       <div className="flex min-w-[760px] border-b text-xs">
-        <div className="grid w-12 shrink-0 place-items-center">
-          <Tooltip>
-            <TooltipTrigger render={<button type="button" aria-pressed={!!hideEmpty} aria-label={hideEmpty ? "แสดงทุกวัน" : "ซ่อนวันที่ไม่มีคลาส"} onClick={() => setHideEmpty(hideEmpty ? "" : "1")}
-              className={cn("grid size-7 place-items-center rounded-full hover:bg-muted", hideEmpty ? "bg-primary/10 text-primary" : "text-muted-foreground")} />}>
-              <ListCollapseIcon className="size-4" />
-            </TooltipTrigger>
-            <TooltipContent>{hideEmpty ? `แสดงทุกวัน (ซ่อนอยู่ ${7 - days.length} วัน)` : "ซ่อนวันที่ไม่มีคลาส"}</TooltipContent>
-          </Tooltip>
-        </div>
+        <div className="w-12 shrink-0" />
         {days.map((d) => (
           <button key={d} onClick={() => onDay(d)} className={cn("flex-1 border-l py-2 text-center hover:bg-muted", d === today && "font-semibold text-primary")}>
             {dayShort(weekdayOf(d))} {parseDate(d).getDate()}
@@ -508,48 +507,56 @@ function MonthView({ from, month, sessions, onDay, today, conflictIds }: { from:
   )
 }
 
+type ListSort = "date" | "class" | "type" | "teacher" | "room" | "students" | "status"
+/** owner 2026-10-15: the list is a real table — every column sorts (date first by default); type (regular / trial /
+ *  placement test) has its own column; status is the state icon, right-aligned */
 function ListView({ from, to, sessions, ...ctx }: CardCtx & { from: DateStr; to: DateStr; sessions: Session[] }) {
   const L = useLookup()
   const attendance = useStore((st) => st.attendance)
   const summaries = useStore((st) => st.summaries)
-  const dates: DateStr[] = []
-  for (let d = from; d <= to; d = addDays(d, 1)) if (sessions.some((s) => s.date === d)) dates.push(d)
-  if (!dates.length) return <p className="rounded-xl border border-dashed p-10 text-center text-sm text-muted-foreground">ไม่มีคาบเรียนในช่วงนี้</p>
-  // owner 2026-10-15: one table — the same columns for every day, a day line between them, status on the right
-  const COLS = "grid grid-cols-[7rem_minmax(0,1fr)_8rem_5rem_4rem_4rem] items-center gap-3 px-4"
+  const { sort, toggle } = useSort<ListSort>("date")
+  const rows = sessions.filter((s) => s.date >= from && s.date <= to).map((s) => {
+    const w = workState(s, ctx.now, attendance, summaries)
+    const t = L.teacher(s.teacherId)
+    return { s, w, t, name: ctx.classes.find((c) => c.id === s.classId)?.name ?? s.subject, kind: sessionKindLabel(s) ?? "" }
+  })
+  type Row = (typeof rows)[number]
+  const by = (r: Row): string | number => {
+    switch (sort.key) {
+      case "class": return r.name
+      case "type": return r.kind || "~"
+      case "teacher": return r.t.missing ? "~" : r.t.label
+      case "room": return L.room(r.s.roomId)
+      case "students": return r.s.studentIds.length
+      case "status": return WORK_ORDER.indexOf(r.w.state)
+      default: return `${r.s.date} ${r.s.start}`
+    }
+  }
+  rows.sort((a, b) => {
+    const x = by(a), y = by(b)
+    const v = typeof x === "number" && typeof y === "number" ? x - y : String(x).localeCompare(String(y), "th")
+    return (sort.desc ? -v : v) || `${a.s.date} ${a.s.start}`.localeCompare(`${b.s.date} ${b.s.start}`)
+  })
+  const columns: Column<Row>[] = [
+    { id: "date", label: "วันที่", width: "110px", sort: "date", required: true, className: "tabular-nums", cell: (r) => fmtDate(r.s.date, { weekday: true }) },
+    { id: "time", label: "เวลา", width: "100px", className: "tabular-nums text-muted-foreground", cell: (r) => `${r.s.start}–${endTime(r.s.start, r.s.minutes)}` },
+    { id: "class", label: "คลาส", width: "200px", sort: "class", cell: (r) => (
+      <span className="flex min-w-0 items-center gap-2">
+        <span className={cn("size-2 shrink-0 rounded-full", subjectColor(r.s.subject).bar)} />
+        <span className="truncate font-medium">{r.name}</span>
+        {ctx.conflictIds.has(r.s.id) && <Pill tone="red" className="shrink-0">ชนกัน</Pill>}
+      </span>
+    ) },
+    { id: "type", label: "ประเภท", width: "120px", sort: "type", cell: (r) => r.kind ? <Pill tone="violet">{r.kind}</Pill> : <span className="text-muted-foreground">—</span> },
+    // owner 2026-10-15: no teacher = just a dash
+    { id: "teacher", label: "ครู", width: "120px", sort: "teacher", cell: (r) => r.t.missing ? <span className="text-muted-foreground">—</span> : r.t.label },
+    { id: "room", label: "ห้อง", width: "80px", sort: "room", className: "text-muted-foreground", cell: (r) => <RoomMeta roomId={r.s.roomId} /> },
+    { id: "students", label: "นักเรียน", width: "90px", sort: "students", align: "right", className: "text-muted-foreground", cell: (r) => <StudentsMeta n={r.s.studentIds.length} className="justify-end" /> },
+    { id: "status", label: "สถานะ", width: "80px", sort: "status", align: "right", cell: (r) => <WorkIcon w={r.w} students={r.s.studentIds.length} className="[&_svg]:size-4" /> },
+  ]
   return (
-    <div className="overflow-x-auto rounded-3xl bg-card shadow-sm ring-1 ring-foreground/5">
-      <div className="min-w-[760px]">
-        <div className={cn(COLS, "border-b py-2.5 text-xs font-medium text-muted-foreground")}>
-          <span>เวลา</span><span>คลาส</span><span>ครู</span><span>ห้อง</span><span className="text-right">นักเรียน</span><span className="text-right">สถานะ</span>
-        </div>
-        {dates.map((d) => (
-          <div key={d}>
-            <div className="border-b bg-muted/40 px-4 py-1.5 text-xs font-semibold">{fmtDate(d, { weekday: true, year: true })}</div>
-            {sessions.filter((s) => s.date === d).sort((a, b) => a.start.localeCompare(b.start)).map((s) => {
-              const t = L.teacher(s.teacherId)
-              const kind = sessionKindLabel(s)
-              return (
-                <button key={s.id} type="button" onClick={() => ctx.onOpen(s.id)}
-                  data-focus={[ctx.conflictIds.has(s.id) && "conflict", t.missing && "no_teacher", s.teacherLeave && "teacher_leave"].filter(Boolean).join(" ") || undefined}
-                  className={cn(COLS, "w-full border-b py-2 text-left text-sm last:border-b-0 hover:bg-muted/50")}>
-                  <span className="tabular-nums text-muted-foreground">{s.start}–{endTime(s.start, s.minutes)}</span>
-                  <span className="flex min-w-0 items-center gap-2">
-                    <span className={cn("size-2 shrink-0 rounded-full", subjectColor(s.subject).bar)} />
-                    <span className="truncate font-medium">{ctx.classes.find((c) => c.id === s.classId)?.name ?? s.subject}</span>
-                    {kind && <Pill tone="violet" className="shrink-0">{kind}</Pill>}
-                    {ctx.conflictIds.has(s.id) && <Pill tone="red" className="shrink-0">ชนกัน</Pill>}
-                  </span>
-                  <span className={cn("truncate", t.missing && "text-amber-700")}>{t.label}</span>
-                  <RoomMeta roomId={s.roomId} className="text-muted-foreground" />
-                  <StudentsMeta n={s.studentIds.length} className="justify-end text-muted-foreground" />
-                  <span className="flex justify-end"><WorkIcon w={workState(s, ctx.now, attendance, summaries)} students={s.studentIds.length} className="[&_svg]:size-4" /></span>
-                </button>
-              )
-            })}
-          </div>
-        ))}
-      </div>
-    </div>
+    <DataTable id="calendar-list" columns={columns} rows={rows} rowKey={(r) => r.s.id} onRowClick={(r) => ctx.onOpen(r.s.id)}
+      rowProps={(r) => ({ "data-focus": [ctx.conflictIds.has(r.s.id) && "conflict", r.t.missing && "no_teacher", r.s.teacherLeave && "teacher_leave"].filter(Boolean).join(" ") || undefined })}
+      sort={sort} onSort={toggle as (k: never) => void} minWidth={900} empty="ไม่มีคาบเรียนในช่วงนี้" />
   )
 }

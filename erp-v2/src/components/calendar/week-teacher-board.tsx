@@ -15,6 +15,7 @@ import { NativeSelect } from "@/components/app/native-select"
 import { addDays, endTime, fmtDate, toDateStr, toMinutes, weekdayOf } from "@/domain/dates"
 import { blockFor, blocksOn, periodsOn, isHoliday, subjectsOf, workState, type WorkState, classCapacity, WORK_LABEL } from "@/domain/rules/scheduling"
 import * as Seats from "@/domain/rules/seats"
+import { PersonAvatar } from "@/components/app/photo-cell"
 import { WORK_ICON, WORK_ICON_TONE, WORK_ORDER } from "@/components/app/work-state"
 import { RoomMeta, StudentsMeta } from "@/components/calendar/session-meta"
 import { subjectAbbr } from "@/domain/rules/settings"
@@ -172,7 +173,8 @@ export function WeekTeacherBoard({ from, sessions, onOpen, onSlot, canCreate, da
                     const firstSlot = rows.find((r) => r.block)?.start ?? branch.hours[weekdayOf(date)]?.open
                     return (
                       <div key={tid || "none"} className="group/head relative flex items-center gap-3 border-b border-l bg-card px-4 py-3">
-                        <span className={cn("grid size-11 shrink-0 place-items-center rounded-full text-base font-semibold", avatarTone(tid || "none"))}>{t ? initial(t.nickname) : "?"}</span>
+                        {/* owner 2026-10-15: the same picture as on the Staff page (photo, else the initial) */}
+                        {t ? <PersonAvatar person={t} className="size-11 text-base" /> : <span className={cn("grid size-11 shrink-0 place-items-center rounded-full text-base font-semibold", avatarTone("none"))}>?</span>}
                         <div className="min-w-0 flex-1">
                           <p className="truncate font-semibold">{tid ? L.teacher(tid).label : "ยังไม่มีครู"}</p>
                           {/* owner 2026-10-15: subject codes (En · Ma · Sc) — the full names on hover */}
@@ -249,10 +251,10 @@ export function WeekTeacherBoard({ from, sessions, onOpen, onSlot, canCreate, da
                               {cell.map((s) => (
                                 // one wrapper per session, so the cell's dividers fall between sessions — not under the room line
                                 // owner 2026-10-15: the whole card opens the session — not just the class name (buttons inside keep their own job)
-                                <div key={s.id} role="button" tabIndex={-1} className="cursor-pointer transition-colors hover:bg-muted/40"
+                                <div key={s.id} role="button" tabIndex={-1} className="cursor-pointer outline-2 -outline-offset-2 outline-transparent transition-[outline-color] hover:outline-primary/50"
                                   onClick={(e) => { if (!(e.target as HTMLElement).closest("button, a, input, textarea, [role=menu], [role=menuitem], [role=dialog]")) onOpen(s.id) }}>
-                                <SessionBlock s={s} row={row}
-                                  room={<RoomLine inCell sessions={[s]} classes={classes} live={(x) => workState(x, now, attendance, summaries).state === "live"}
+                                <SessionBlock s={s}
+                                  room={<RoomLine inCell sessions={[s]} classes={classes}
                                     clash={clashIds.has(s.id) ? [s.id] : []} onResolve={canCreate ? setResolving : undefined} />}
                                   state={workState(s, now, attendance, summaries).state}
                                   ended={sessionEnded(s)} dayDate={dayDate}
@@ -262,7 +264,7 @@ export function WeekTeacherBoard({ from, sessions, onOpen, onSlot, canCreate, da
                                   canDrag={canCreate} onDropStudent={(from, studentId) => from !== s.id && setMoving({ from, studentId, to: s.id })} />
                                 </div>
                               ))}
-                              {cell.length === 0 && canCreate && row.block && tid && !closed && !holiday && !past && (
+                              {cell.length === 0 && canCreate && (row.block || plain) && tid && !closed && !holiday && !past && (
                                 <button type="button" onClick={() => onSlot({ date, start: row.start, teacherId: tid })}
                                   className="absolute inset-0 flex items-center justify-center gap-1.5 text-sm text-transparent transition group-hover/cell:bg-card group-hover/cell:text-muted-foreground">
                                   <PlusIcon className="size-4" /> สร้างคลาส
@@ -405,7 +407,7 @@ function kindOf(s: Session, klass?: Klass): keyof typeof KIND_ICON | null {
  * The Room line above a block (owner 2026-10-01): room first and boldest, then students · kind · group/single as quiet
  * grey icons — words appear only when the column is wide enough (container query), so neighbours stay calm.
  */
-function RoomLine({ sessions, classes, live, clash, onResolve, inCell }: { sessions: Session[]; classes: Klass[]; live: (s: Session) => boolean; clash: string[]; onResolve?: (ids: string[]) => void; inCell?: boolean }) {
+function RoomLine({ sessions, classes, clash, onResolve, inCell }: { sessions: Session[]; classes: Klass[]; clash: string[]; onResolve?: (ids: string[]) => void; inCell?: boolean }) {
   const L = useLookup()
   if (!sessions.length) return <div className="border-b border-l bg-zinc-100 px-3 py-1.5 text-center text-xs text-muted-foreground dark:bg-zinc-800">-</div>
   // owner 2026-10-15: inside a class cell the room line takes the cell's own colour — no grey band, no divider
@@ -424,7 +426,6 @@ function RoomLine({ sessions, classes, live, clash, onResolve, inCell }: { sessi
                 <AlertTriangleIcon className="size-3" /><span className="hidden @[15rem]:inline">แก้ปัญหา</span>
               </button>
             )}
-            {live(s) && <span className="relative flex size-2 shrink-0" title="กำลังเรียน"><span className="absolute inline-flex size-full animate-ping rounded-full bg-primary opacity-60" /><span className="relative inline-flex size-2 rounded-full bg-primary" /></span>}
             {/* owner 2026-10-15: an icon instead of the word — "Room 3" → 🚪 3 (full name on hover) */}
             {inCell ? <RoomMeta roomId={s.roomId} className="text-xs font-medium" /> : <span className="truncate text-sm font-semibold text-foreground">{L.room(s.roomId)}</span>}
             <span className="ml-auto flex shrink-0 items-center gap-2.5">
@@ -442,8 +443,8 @@ function RoomLine({ sessions, classes, live, clash, onResolve, inCell }: { sessi
 }
 
 /** One session inside a block — no card: just the subject line and the students, on the cell itself. */
-function SessionBlock({ s, row, room, state, ended, dayDate, canEdit, onOpen, klass, attendance, allSessions, canDrag, onDropStudent }: {
-  s: Session; row: Row; room?: React.ReactNode; state: WorkState; ended: boolean; dayDate: (d: DateStr) => string; canEdit: boolean
+function SessionBlock({ s, room, state, ended, dayDate, canEdit, onOpen, klass, attendance, allSessions, canDrag, onDropStudent }: {
+  s: Session; room?: React.ReactNode; state: WorkState; ended: boolean; dayDate: (d: DateStr) => string; canEdit: boolean
   onOpen: (id: string) => void
   klass?: Klass; attendance: Attendance[]; allSessions: Session[]
   canDrag: boolean; onDropStudent: (fromSessionId: string, studentId: string) => void
@@ -452,7 +453,7 @@ function SessionBlock({ s, row, room, state, ended, dayDate, canEdit, onOpen, kl
   const L = useLookup()
   const c = subjectColor(s.subject)
   const St = STATE_ICON[state]
-  const own = s.start !== row.start || s.minutes !== toMinutes(row.end) - toMinutes(row.start)
+  // owner 2026-10-15: every card shows its time (it used to show only when it differed from the row)
   const me = useStore((st) => st.userId)
   const branch = useBranch()
   const periodName = (id: string) => branch.specialPeriods.find((p) => p.id === id)?.name ?? "พิเศษ"
@@ -472,7 +473,7 @@ function SessionBlock({ s, row, room, state, ended, dayDate, canEdit, onOpen, kl
       <div className="flex items-center gap-2">
         <span className={cn("size-2 shrink-0 rounded-full", c.bar)} />
         <button type="button" onClick={() => onOpen(s.id)} className="min-w-0 truncate text-left text-sm font-semibold text-foreground hover:underline">
-          {subjectsOf(s).join(" + ")}{own && <span className="ml-1.5 font-normal">{s.start}–{endTime(s.start, s.minutes)}</span>}
+          {subjectsOf(s).join(" + ")}<span className="ml-1.5 font-normal text-muted-foreground tabular-nums">{s.start}–{endTime(s.start, s.minutes)}</span>
         </button>
         {klass?.periodId && <span className="shrink-0 rounded-full bg-violet-100 px-1.5 text-[10px] font-medium text-violet-900 dark:bg-violet-950 dark:text-violet-200" title="คลาสพิเศษของช่วงนี้">{periodName(klass.periodId)}</span>}
         {s.coTeacherIds.length > 0 && <span className="shrink-0 text-[11px] text-muted-foreground" title="ครูช่วยสอน">+{s.coTeacherIds.map((x) => L.teacher(x).label).join(", ")}</span>}
