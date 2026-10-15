@@ -159,7 +159,8 @@ function Shell({ children }: { children: ReactNode }) {
           </div>
         </header>
         {/* keyed on the language: switching it re-renders every page so all t() calls pick it up */}
-        <main key={lang} className="min-w-0 flex-1 p-3 md:p-6">{allowed ? <><FocusBanner />{children}</> : <NoAccess />}</main>
+        {/* owner 2026-10-15: Inbox runs edge to edge — no padding around it */}
+        <main key={lang} className={cn("min-w-0 flex-1", pathname !== "/inbox" && "p-3 md:p-6")}>{allowed ? <><FocusBanner />{children}</> : <NoAccess />}</main>
         {/* owner 2026-10-13: Nock, the helper — on every page, for everyone */}
         {/* owner 2026-10-15: Settings › ระบบ › AI (Nock) can turn it off for everyone */}
         {nockOn && <NockWidget />}
