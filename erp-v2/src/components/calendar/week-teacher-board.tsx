@@ -2,7 +2,7 @@
 
 import { staffAt } from "@/domain/rules/permissions"
 import { Fragment, useMemo, useRef, useState } from "react"
-import { AlertTriangleIcon, CalendarOffIcon, CircleCheckIcon, CircleDashedIcon, CircleXIcon, ArrowLeftRightIcon, BanIcon, CalendarIcon, EllipsisIcon, CheckIcon, ClipboardCheckIcon, FlaskConicalIcon, RotateCcwIcon, MessagesSquareIcon, PencilLineIcon, PinIcon, PlayIcon, PlusIcon, Trash2Icon, ShapesIcon, UserIcon, UsersIcon, UsersRoundIcon } from "lucide-react"
+import { AlertTriangleIcon, DoorOpenIcon, CalendarOffIcon, CircleCheckIcon, CircleDashedIcon, CircleXIcon, ArrowLeftRightIcon, BanIcon, CalendarIcon, EllipsisIcon, CheckIcon, ClipboardCheckIcon, FlaskConicalIcon, RotateCcwIcon, MessagesSquareIcon, PencilLineIcon, PinIcon, PlayIcon, PlusIcon, Trash2Icon, ShapesIcon, UserIcon, UsersIcon, UsersRoundIcon } from "lucide-react"
 import type { ClassPrefill } from "@/components/app/class-dialog"
 import { ConflictResolver, liveConflicts } from "@/components/app/conflict-resolver"
 import { avatarTone, gradeTone, initial, subjectColor } from "@/components/app/subject-color"
@@ -429,12 +429,17 @@ function RoomLine({ sessions, classes, live, clash, onResolve, inCell }: { sessi
               </button>
             )}
             {live(s) && <span className="relative flex size-2 shrink-0" title="กำลังเรียน"><span className="absolute inline-flex size-full animate-ping rounded-full bg-primary opacity-60" /><span className="relative inline-flex size-2 rounded-full bg-primary" /></span>}
-            <span className={cn("truncate", inCell ? "text-xs font-medium" : "text-sm font-semibold text-foreground")}>{L.room(s.roomId)}</span>
+            {inCell ? (
+              // owner 2026-10-15: an icon instead of the word — "Room 3" → 🚪 3 (full name on hover)
+              <span className="flex min-w-0 items-center gap-1 text-xs font-medium" title={L.room(s.roomId)}>
+                <DoorOpenIcon className="size-3.5 shrink-0" /><span className="truncate">{s.roomId ? L.room(s.roomId).replace(/^(room|ห้อง)\s*/i, "") : "—"}</span>
+              </span>
+            ) : <span className="truncate text-sm font-semibold text-foreground">{L.room(s.roomId)}</span>}
             <span className="ml-auto flex shrink-0 items-center gap-2.5">
               <span className="flex items-center gap-1" title={`นักเรียน ${s.studentIds.length} คน`}><UsersRoundIcon className="size-3.5" />{s.studentIds.length}</span>
-              {K && <span className="flex items-center gap-1" title={K.label}><K.icon className="size-3.5" /><span className="hidden @[15rem]:inline">{K.label}</span></span>}
+              {K && <span className="flex items-center gap-1" title={K.label}><K.icon className="size-3.5" />{!inCell && <span className="hidden @[15rem]:inline">{K.label}</span>}</span>}
               <span className="flex items-center gap-1" title={single ? "Single (เรียนเดี่ยว)" : "Group"}>
-                {single ? <UserIcon className="size-3.5" /> : <UsersIcon className="size-3.5" />}<span className="hidden @[15rem]:inline">{single ? "Single" : "Group"}</span>
+                {single ? <UserIcon className="size-3.5" /> : <UsersIcon className="size-3.5" />}{!inCell && <span className="hidden @[15rem]:inline">{single ? "Single" : "Group"}</span>}
               </span>
             </span>
           </div>
