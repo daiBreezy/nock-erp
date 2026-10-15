@@ -123,4 +123,9 @@ export const VOCAB: Record<string, Entry> = {
   "ส่งแบบสอบถามความพึงพอใจ": { en: "Satisfaction survey sent", ja: "満足度アンケート送信" },
   "ผู้ปกครองตอบแล้ว": { en: "Parent answered", ja: "保護者回答済み" },
   "เปิดลิงก์": { en: "Open link", ja: "リンクを開く" },
+  "รอดำเนินการ": { en: "To do", ja: "対応待ち" },
+  "ปิดเรื่องแล้ว": { en: "Closed", ja: "完了" },
+  "ไม่มีเรื่องค้าง": { en: "Nothing open", ja: "未対応なし" },
+  "ผู้ปกครองส่งฟอร์มแจ้งออก": { en: "Parent sent the exit form", ja: "保護者が退会フォームを送信" },
+  "ไม่มีเรื่องแจ้งออกที่เปิดอยู่ — ปิดเรื่องแล้ว หรือนักเรียนกลับมาเรียนแล้ว": { en: "No open exit notice — closed, or the student came back", ja: "未完了の退会連絡なし — 完了済み、または生徒が復帰" },
 }

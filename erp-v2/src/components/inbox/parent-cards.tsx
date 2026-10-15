@@ -10,29 +10,32 @@ import { ExitPanel } from "@/components/app/student-exit"
 import { RequestCard } from "@/components/app/parent-requests"
 import { fetchParentRequests } from "@/lib/parent-requests"
 import { useStore } from "@/store/store"
+import { DoorOpenIcon } from "lucide-react"
+import { Confirmation, ConfirmationBody, ConfirmationHeader } from "@/components/ai-elements/confirmation"
 
 /** the parent's exit form came back (meta, or the older plain message) */
 export function isExitFormMessage(m: ChatMessage) {
   return m.meta?.formKind === "exit_form" || (m.author === "parent" && m.text.startsWith("📋 ส่งแบบฟอร์มแจ้งออก"))
 }
 
-function Frame({ m, children }: { m: ChatMessage; children: React.ReactNode }) {
-  return (
-    <div className="max-w-[85%] space-y-1.5">
-      <p className="text-xs text-muted-foreground">{m.text} · {fmtDateTime(m.at)}</p>
-      {children}
-    </div>
-  )
-}
-
 export function ExitFormChatCard({ message, conversation }: { message: ChatMessage; conversation: Conversation }) {
   const students = useStore((s) => s.students)
   const ids = message.meta?.formKind === "exit_form" ? message.meta.studentIds : null
   const kids = students.filter((x) => (ids ? ids.includes(x.id) : x.familyId && x.familyId === conversation.familyId) && x.exit)
+  const open = kids.some((k) => k.exit!.status !== "closed")
+  // owner 2026-10-15: the same card as the rest of the chat — answers + ปิดการออก / ไม่ออกแล้ว inside it
+  const state = open ? "pending" : kids.length ? "approved" : "waiting"
   return (
-    <Frame m={message}>
-      {kids.length ? kids.map((stu) => <ExitPanel key={stu.id} stu={stu} />) : <p className="rounded-2xl bg-muted px-3 py-2 text-sm">ผูกแชทนี้กับครอบครัวก่อน จึงจะเห็นคำตอบและปิดการออกได้</p>}
-    </Frame>
+    <div className="flex">
+      <Confirmation state={state} className="max-w-md">
+        <ConfirmationHeader state={state} icon={<DoorOpenIcon />} label={open ? "รอดำเนินการ" : kids.length ? "ปิดเรื่องแล้ว" : "ไม่มีเรื่องค้าง"}
+          title={<>ผู้ปกครองส่งฟอร์มแจ้งออก <span className="font-normal text-muted-foreground">· {fmtDateTime(message.at)}</span></>} />
+        <ConfirmationBody className="space-y-3">
+          {kids.length ? kids.map((stu) => <ExitPanel key={stu.id} stu={stu} bare />)
+            : <p className="text-xs text-muted-foreground">{conversation.familyId ? "ไม่มีเรื่องแจ้งออกที่เปิดอยู่ — ปิดเรื่องแล้ว หรือนักเรียนกลับมาเรียนแล้ว" : "ผูกแชทนี้กับครอบครัวก่อน จึงจะเห็นคำตอบและปิดการออกได้"}</p>}
+        </ConfirmationBody>
+      </Confirmation>
+    </div>
   )
 }
 
@@ -42,5 +45,5 @@ export function ParentRequestChatCard({ message }: { message: ChatMessage }) {
   const sync = useStore((s) => s.syncParentRequests)
   // a card that arrived before the 20-second check — fetch now
   useEffect(() => { if (!r && id) fetchParentRequests().then(sync) }, [r, id, sync])
-  return <Frame m={message}>{r ? <RequestCard r={r} /> : <p className="rounded-2xl bg-muted px-3 py-2 text-sm">กำลังโหลด…</p>}</Frame>
+  return <div className="flex"><div className="w-full max-w-md">{r ? <RequestCard r={r} /> : <p className="rounded-2xl bg-muted px-3 py-2 text-sm">กำลังโหลด…</p>}</div></div>
 }

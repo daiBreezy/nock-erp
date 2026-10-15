@@ -5,6 +5,7 @@
 import { useState } from "react"
 import { CalendarOffIcon, CheckIcon, DoorOpenIcon, EllipsisIcon, RotateCcwIcon, XIcon } from "lucide-react"
 import { Pill } from "./badges"
+import { Confirmation, ConfirmationActions, ConfirmationBody, ConfirmationHeader, ConfirmationResult } from "@/components/ai-elements/confirmation"
 import { Button } from "@/components/ui/button"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { Textarea } from "@/components/ui/textarea"
@@ -82,30 +83,40 @@ export function RequestCard({ r }: { r: ParentRequest }) {
   }
 
   const Icon = r.kind === "leave" ? CalendarOffIcon : r.kind === "return" ? RotateCcwIcon : DoorOpenIcon
+  const title = r.kind === "leave" ? "แจ้งลาหยุด" : r.kind === "return" ? "อยากกลับมาเรียน" : "แจ้งลาออก"
+  // owner 2026-10-15: the same card as every other one in the chat — state on top, details, then what to do
+  const state = open ? "pending" : r.status === "done" ? "approved" : "rejected"
   return (
-    <article className={`space-y-2 rounded-2xl p-3 ring-1 ${open ? (r.kind === "exit" ? "bg-red-50/70 ring-red-200 dark:bg-red-950/20" : r.kind === "return" ? "bg-emerald-50/70 ring-emerald-200 dark:bg-emerald-950/20" : "bg-amber-50/70 ring-amber-200 dark:bg-amber-950/20") : "bg-muted/30 ring-foreground/5"}`}>
-      <div className="flex items-start gap-3">
-        <span className={`grid size-9 shrink-0 place-items-center rounded-xl ${r.kind === "exit" ? "bg-red-100 text-red-700" : r.kind === "return" ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-800"}`}><Icon className="size-4" /></span>
-        <div className="min-w-0 flex-1">
-          <p className="text-sm font-medium">{r.kind === "leave" ? "แจ้งลาหยุด" : r.kind === "return" ? "อยากกลับมาเรียน" : "แจ้งลาออก"} · {L.student(r.studentId)?.nickname ?? r.studentNickname} <span className="font-normal text-muted-foreground">· {r.familyName} · {fmtDateTime(r.createdAt)}</span></p>
-          {r.kind === "leave" ? (
-            <ul className="mt-1 flex flex-wrap gap-1.5 text-xs">
-              {r.sessions?.map((x) => {
-                const a = attendance.find((m) => m.sessionId === x.sessionId && m.studentId === r.studentId)
-                return <li key={x.sessionId} className="rounded-full bg-background px-2 py-0.5 ring-1 ring-foreground/10">{fmtDate(x.date, { weekday: true })} {x.start} · {x.subjects.join(" + ")}{a ? ` · ${a.status === "leave" ? "ลาแล้ว" : a.status === "present" ? "มาแล้ว" : a.status}` : ""}</li>
-              })}
-            </ul>
-          ) : r.kind === "return" ? (
-            <p className="mt-0.5 text-xs">{r.startDate ? <>อยากเริ่มเรียนราว <b>{fmtDate(r.startDate, { weekday: true, year: true })}</b></> : "ยังไม่ระบุวันเริ่ม"}</p>
-          ) : (
-            <p className="mt-0.5 text-xs">เรียนวันสุดท้าย <b>{fmtDate(r.lastDate!, { weekday: true, year: true })}</b>{r.reasonIds?.length ? ` · เหตุผล: ${r.reasonIds.map((id) => Loss.reasonLabel(id, system.lossReasons)).join(", ")}` : ""}</p>
-          )}
-          {r.note && <p className="mt-1 text-xs text-muted-foreground">“{r.note}”</p>}
-          {!open && <p className="mt-1 text-xs text-muted-foreground">{r.status === "done" ? "ดำเนินการแล้ว" : "ไม่ดำเนินการ"} · {L.teacher(r.handledBy ?? null).label} · {r.handledAt && fmtDateTime(r.handledAt)}{r.result ? ` — ${r.result}` : ""}</p>}
-        </div>
-      </div>
-      {open && allowed && !declining && (
-        <div className="flex flex-wrap items-center justify-end gap-1.5">
+    <Confirmation state={state} className="max-w-none">
+      <ConfirmationHeader state={state} icon={<Icon />} label={open ? "รอดำเนินการ" : r.status === "done" ? "ดำเนินการแล้ว" : "ไม่ดำเนินการ"}
+        title={<>{title} · {L.student(r.studentId)?.nickname ?? r.studentNickname} <span className="font-normal text-muted-foreground">· {r.familyName} · {fmtDateTime(r.createdAt)}</span></>} />
+      <ConfirmationBody className="space-y-1 pl-[3.25rem]">
+        {r.kind === "leave" ? (
+          <ul className="flex flex-wrap gap-1.5 text-xs">
+            {r.sessions?.map((x) => {
+              const a = attendance.find((m) => m.sessionId === x.sessionId && m.studentId === r.studentId)
+              return <li key={x.sessionId} className="rounded-full bg-muted px-2 py-0.5">{fmtDate(x.date, { weekday: true })} {x.start} · {x.subjects.join(" + ")}{a ? ` · ${a.status === "leave" ? "ลาแล้ว" : a.status === "present" ? "มาแล้ว" : a.status}` : ""}</li>
+            })}
+          </ul>
+        ) : r.kind === "return" ? (
+          <p className="text-xs">{r.startDate ? <>อยากเริ่มเรียนราว <b>{fmtDate(r.startDate, { weekday: true, year: true })}</b></> : "ยังไม่ระบุวันเริ่ม"}</p>
+        ) : (
+          <p className="text-xs">เรียนวันสุดท้าย <b>{fmtDate(r.lastDate!, { weekday: true, year: true })}</b>{r.reasonIds?.length ? ` · เหตุผล: ${r.reasonIds.map((id) => Loss.reasonLabel(id, system.lossReasons)).join(", ")}` : ""}</p>
+        )}
+        {r.note && <p className="text-xs text-muted-foreground">“{r.note}”</p>}
+        {declining && (
+          <div className="space-y-1.5 pt-1">
+            <Textarea autoFocus rows={2} value={why} onChange={(e) => setWhy(e.target.value)} placeholder="เหตุผล — ข้อความนี้ส่งถึงผู้ปกครองทาง LINE (จำเป็น)" />
+          </div>
+        )}
+      </ConfirmationBody>
+      {open && allowed && (declining ? (
+        <ConfirmationActions>
+          <Button size="sm" variant="ghost" onClick={() => setDeclining(false)}>ยกเลิก</Button>
+          <Button size="sm" disabled={!why.trim() || busy} onClick={decline}>ส่ง</Button>
+        </ConfirmationActions>
+      ) : (
+        <ConfirmationActions>
           <DropdownMenu>
             <DropdownMenuTrigger render={<Button size="icon-sm" variant="ghost" aria-label="เพิ่มเติม" className="mr-auto" />}><EllipsisIcon /></DropdownMenuTrigger>
             <DropdownMenuContent align="start" className="w-56">
@@ -117,17 +128,9 @@ export function RequestCard({ r }: { r: ParentRequest }) {
             <Button size="sm" disabled={busy} onClick={() => recordLeave(false)}><CheckIcon /> บันทึกลา · หักโควตา</Button>
           </> : r.kind === "return" ? <Button size="sm" disabled={busy} onClick={acceptReturn}><CheckIcon /> รับเรื่อง · กู้คืนนักเรียน</Button>
             : <Button size="sm" disabled={busy} onClick={acceptExit}><CheckIcon /> รับเรื่อง (แจ้งออก)</Button>}
-        </div>
-      )}
-      {declining && (
-        <div className="space-y-1.5">
-          <Textarea autoFocus rows={2} value={why} onChange={(e) => setWhy(e.target.value)} placeholder="เหตุผล — ข้อความนี้ส่งถึงผู้ปกครองทาง LINE (จำเป็น)" />
-          <div className="flex justify-end gap-1.5">
-            <Button size="sm" variant="ghost" onClick={() => setDeclining(false)}>ยกเลิก</Button>
-            <Button size="sm" disabled={!why.trim() || busy} onClick={decline}>ส่ง</Button>
-          </div>
-        </div>
-      )}
-    </article>
+        </ConfirmationActions>
+      ))}
+      {!open && <ConfirmationResult>{L.teacher(r.handledBy ?? null).label} · {r.handledAt && fmtDateTime(r.handledAt)}{r.result ? ` — ${r.result}` : ""}</ConfirmationResult>}
+    </Confirmation>
   )
 }

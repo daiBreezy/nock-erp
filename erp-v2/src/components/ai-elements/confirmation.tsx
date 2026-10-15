@@ -30,13 +30,13 @@ export function Confirmation({ state, className, ...props }: React.ComponentProp
   )
 }
 
-export function ConfirmationHeader({ icon, title, state, className }: { icon?: React.ReactNode; title: React.ReactNode; state: ConfirmationState; className?: string }) {
+export function ConfirmationHeader({ icon, title, state, label, className }: { icon?: React.ReactNode; title: React.ReactNode; state: ConfirmationState; label?: string; className?: string }) {
   const s = STATE[state]
   return (
     <div data-slot="confirmation-header" className={cn("flex items-center gap-2 px-3.5 pt-3", className)}>
       {icon && <span aria-hidden className="grid size-7 shrink-0 place-items-center rounded-full bg-muted text-muted-foreground [&>svg]:size-3.5">{icon}</span>}
       <span className="min-w-0 flex-1 truncate font-medium">{title}</span>
-      <span className={cn("flex shrink-0 items-center gap-1 text-xs font-medium [&>svg]:size-3.5", s.tone)}>{s.icon}{s.label}</span>
+      <span className={cn("flex shrink-0 items-center gap-1 text-xs font-medium [&>svg]:size-3.5", s.tone)}>{s.icon}{label ?? s.label}</span>
     </div>
   )
 }

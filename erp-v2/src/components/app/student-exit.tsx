@@ -132,7 +132,8 @@ function useExitFormSender(stu: Student) {
 }
 
 /** Shown on the student while leaving is open: last day, the link, the parent's answers when they come back. */
-export function ExitPanel({ stu }: { stu: Student }) {
+/** `bare` = inside a chat card (owner 2026-10-15): no frame of its own — the card is the frame */
+export function ExitPanel({ stu, bare }: { stu: Student; bare?: boolean }) {
   const cancel = useStore((s) => s.cancelExit)
   const attach = useStore((s) => s.attachExitForm)
   const sendForm = useExitFormSender(stu)
@@ -158,7 +159,7 @@ export function ExitPanel({ stu }: { stu: Student }) {
   if (!ex) return null
   if (ex.status === "closed") {
     return (
-      <section className="space-y-2 rounded-2xl border bg-muted/30 p-3">
+      <section className={bare ? "space-y-2" : "space-y-2 rounded-2xl border bg-muted/30 p-3"}>
         <p className="text-sm font-medium">ออกแล้ว · เรียนวันสุดท้าย {fmtDate(ex.lastDate)}{ex.noReply ? " · ผู้ปกครองไม่ได้ตอบฟอร์ม (Admin ปิดเอง)" : ""}</p>
         {ex.answers ? <ExitAnswersView answers={ex.answers} /> : <ReasonLine reasonId={ex.reasonId} note={ex.note} />}
         {ex.money && ex.money !== "none" && <p className="text-xs text-muted-foreground">เงินที่เหลือ: {ex.money === "refund" ? "คืนเงิน" : "เก็บเป็นเครดิต"}</p>}
@@ -167,7 +168,7 @@ export function ExitPanel({ stu }: { stu: Student }) {
   }
   const link = token ? `${typeof window !== "undefined" ? window.location.origin : ""}/liff/exit?token=${token}` : ""
   return (
-    <section className="space-y-2 rounded-2xl border border-amber-300 bg-amber-50 p-3 dark:border-amber-800 dark:bg-amber-950/30">
+    <section className={bare ? "space-y-2" : "space-y-2 rounded-2xl border border-amber-300 bg-amber-50 p-3 dark:border-amber-800 dark:bg-amber-950/30"}>
       <div className="flex flex-wrap items-center gap-2">
         <DoorOpenIcon className="size-4 text-amber-700" />
         <p className="flex-1 text-sm font-medium">แจ้งออก · เรียนวันสุดท้าย {fmtDate(ex.lastDate, { weekday: true })}</p>
