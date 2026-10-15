@@ -130,7 +130,7 @@ export function NockWidget() {
           drag ? "scale-110" : open ? (left ? "translate-x-5" : "-translate-x-5")
             : left ? "-translate-x-[38%] rotate-45 hover:translate-x-5 hover:rotate-0 focus-visible:translate-x-5 focus-visible:rotate-0"
             : "translate-x-[38%] -rotate-45 hover:-translate-x-5 hover:rotate-0 focus-visible:-translate-x-5 focus-visible:rotate-0")}>
-        <AiAvatar size="lg" followMouse />
+        <AiAvatar size="lg" followMouse live />
         {open && <span className={cn("absolute -top-1 grid size-5 place-items-center rounded-full bg-background text-foreground shadow ring-1 ring-foreground/10", left ? "-left-1" : "-right-1")}><XIcon className="size-3" /></span>}
       </button>
     </>
@@ -216,7 +216,7 @@ function NockPanel({ onClose, corner }: { onClose: () => void; corner: Corner })
         {!mine.length && !pending ? (
           <div className="flex h-full flex-col justify-end gap-4 pb-1">
             <div className="flex flex-col items-start gap-2">
-              <AiAvatar size="md" followMouse />
+              <AiAvatar size="md" followMouse live />
               <p className="text-lg font-semibold">สวัสดีครับ {me.nickname}</p>
               <p className="text-sm text-muted-foreground">ถามเรื่องการใช้ระบบได้เลย — Nock ตอบตามสิทธิ์ของคุณ ถ้ายังไม่รู้ จะส่งให้ทีมตอบ แล้วคำตอบจะกลับมาที่นี่</p>
             </div>

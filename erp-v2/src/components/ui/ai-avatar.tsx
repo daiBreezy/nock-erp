@@ -4,6 +4,7 @@
 // "components-primitives-avatar"; the tap squish is plain CSS here instead of the `motion` package (one less dependency).
 import { useEffect, useId, useRef } from "react"
 import { cn } from "@/lib/utils"
+import { SilkShader } from "./silk-shader"
 
 export type AvatarColor = "blue" | "orange" | "red" | "green" | "purple" | "yellow" | "cyan" | "pink" | "indigo" | "lime" | "turquoise" | "violet"
 export type AvatarSize = "xs" | "sm" | "md" | "lg"
@@ -17,6 +18,9 @@ export interface AvatarProps {
   className?: string
   /** owner 2026-10-13: the eyes look toward the mouse */
   followMouse?: boolean
+  /** owner 2026-10-15: the live "Silk" shader moving behind a frosted-glass front (one WebGL canvas each — use on the
+   *  big orbs only, not on every chat line) */
+  live?: boolean
 }
 
 const BLINK_KEYFRAMES = `
@@ -62,7 +66,11 @@ function Eye({ blinking, delayMs = 0, irisGradient, sizeClass }: { blinking: boo
   return <div className={cn("rounded-full", sizeClass)} style={{ background: irisGradient, ...(blinking ? { animation: `av-blink 3.6s ease-in-out ${delayMs}ms infinite` } : {}) }} />
 }
 
-export function AiAvatar({ blinking = true, color = "blue", size = "md", shape = "circle", className, followMouse = false }: AvatarProps) {
+/** frosted glass over the live silk: how soft, per orb size */
+const FROST: Record<AvatarSize, string> = { xs: "backdrop-blur-[1px]", sm: "backdrop-blur-[2px]", md: "backdrop-blur-[3px]", lg: "backdrop-blur-[4px]" }
+const SILK_GLOW = "0 0 6px 0px rgba(255,66,145,.35), 0 0 18px 6px rgba(255,66,145,.18), inset 0 0 0 1px rgba(255,255,255,.35)"
+
+export function AiAvatar({ blinking = true, color = "blue", size = "md", shape = "circle", className, followMouse = false, live = false }: AvatarProps) {
   const uid = useId().replace(/\W/g, "")
   const orbRef = useRef<HTMLDivElement>(null)
   const eyesRef = useRef<HTMLDivElement>(null)
@@ -108,7 +116,12 @@ export function AiAvatar({ blinking = true, color = "blue", size = "md", shape =
       <div ref={orbRef} aria-hidden="true"
         // the squish on press (was motion's whileTap) — a springy CSS transition
         className={cn("relative flex shrink-0 items-center justify-center overflow-hidden transition-transform duration-500 ease-[cubic-bezier(0.34,1.56,0.64,1)] active:scale-x-[1.15] active:scale-y-[1.3]", dims.orb, SHAPE_RADIUS[shape], className)}
-        style={{ background: preset.gradient, boxShadow: preset.boxShadow }}>
+        style={live ? { background: "#ff4291", boxShadow: SILK_GLOW } : { background: preset.gradient, boxShadow: preset.boxShadow }}>
+        {/* back layer: the silk keeps moving · front layer: frosted glass (blur + milky white + a bright rim) */}
+        {live && <>
+          <SilkShader />
+          <div aria-hidden="true" className={cn("pointer-events-none absolute inset-0 bg-white/15 ring-1 ring-inset ring-white/40", FROST[size], SHAPE_RADIUS[shape])} />
+        </>}
         <svg aria-hidden="true" className="pointer-events-none absolute inset-0 opacity-[0.2] mix-blend-overlay" width="100%" height="100%" xmlns="http://www.w3.org/2000/svg">
           <defs>
             <filter id={`av-n${uid}`} x="0%" y="0%" width="100%" height="100%">

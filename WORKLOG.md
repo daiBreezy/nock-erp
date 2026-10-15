@@ -27,6 +27,10 @@
 - เห็นเฉพาะ **Director** · หน้าบุคลากรมีคอลัมน์ **Class / Month** (คลาสไม่นับซ้ำ, คาบเดี่ยว = 1) และ **Student / Month** (นักเรียนไม่นับซ้ำ) — กดหัวคอลัมน์ = เรียงมาก→น้อย (`monthLoad` ใน `staff-overview.ts`)
 - **ไม่มีเกณฑ์ เยอะ/น้อย** (เอา Healthy/Warning/Load! ออก) · **เอา Workload ออกจาก Reports** — เจ้าของ: เทียบครูบนหน้า Report อันตราย
 
+### AI Helper (Nock) — Silk shader (2026-10-15)
+- ลูกกลม Nock (มุมจอ + ตัวใหญ่ในหน้าแชท Nock) = 2 ชั้น: หลัง = shader "Silk" เคลื่อนไหวตลอด (`components/ui/silk-shader.tsx` — WebGL1 ล้วน, fragment shader ตามที่เจ้าของให้มาเป๊ะ, สี #010001 → #FFFAFC → #FF4291 → #FFB8D2 แบบ OKLab, เมาส์ใกล้ = หมุนวน) · หน้า = กระจกฝ้า (blur + ขาวขุ่น + ขอบสว่าง) · ตาอยู่บนสุด
+- เปิดด้วย `<AiAvatar live />` — ใช้แค่ลูกใหญ่ (1 canvas ต่อ 1 ลูก) ลูกเล็กในบรรทัดแชทยังเป็นสีไล่เดิม · DPR สูงสุด 2 · หยุดวาดตอนสลับแท็บ
+
 ### ฟอร์มผู้ปกครอง = หน้า Admin สร้างเอง (2026-10-15)
 - **ช่องชุดเดียวกัน** `components/people/person-fields.tsx` — ParentFields / FamilyFields / StudentFields ใช้ทั้งฟอร์ม LINE (`/liff/form` ทั้ง Test/Trial และสมัครเรียน) และ Panel ของ Admin (`FamilyForm`, `StudentForm`) — **เพิ่ม/แก้ช่องที่ไฟล์นี้ที่เดียว** ป้ายมาจากพจนานุกรมฟอร์ม (TH/EN/JP), Admin ใช้ TH
 - **ชื่อ = ชื่อ + นามสกุล** แยกช่องทั้งสองที่ · **ชื่อครอบครัว** ไม่บังคับ — ไม่ใส่ = "ครอบครัว" + นามสกุลผู้ปกครองหลัก (`familyNameFor`, `familyFromSubmission` เปลี่ยนจากนามสกุลเด็ก → ผู้ปกครองหลัก)
