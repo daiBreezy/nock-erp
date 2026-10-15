@@ -68,7 +68,11 @@ function Eye({ blinking, delayMs = 0, irisGradient, sizeClass }: { blinking: boo
 
 /** frosted glass over the live silk: how soft, per orb size */
 const FROST: Record<AvatarSize, string> = { xs: "backdrop-blur-[1px]", sm: "backdrop-blur-[2px]", md: "backdrop-blur-[3px]", lg: "backdrop-blur-[4px]" }
-const SILK_GLOW = "0 0 6px 0px rgba(255,66,145,.35), 0 0 18px 6px rgba(255,66,145,.18), inset 0 0 0 1px rgba(255,255,255,.35)"
+// a ball, not a disc: a soft contact shadow below + a pink glow around
+const SILK_GLOW = "0 10px 16px -6px rgba(110,0,45,.45), 0 0 18px 4px rgba(255,66,145,.22)"
+// the frosted glass is a dome too — bright where the light hits (top-left), a dark lip at the bottom edge
+const GLASS_DOME = "radial-gradient(circle at 34% 26%, rgba(255,255,255,.42) 0%, rgba(255,255,255,.12) 28%, rgba(255,255,255,0) 52%), radial-gradient(circle at 50% 50%, rgba(255,255,255,0) 62%, rgba(255,255,255,.16) 100%)"
+const GLASS_EDGE = "inset 0 1.5px 2px rgba(255,255,255,.75), inset 0 -4px 8px rgba(80,0,35,.35)"
 
 export function AiAvatar({ blinking = true, color = "blue", size = "md", shape = "circle", className, followMouse = false, live = false }: AvatarProps) {
   const uid = useId().replace(/\W/g, "")
@@ -116,12 +120,15 @@ export function AiAvatar({ blinking = true, color = "blue", size = "md", shape =
       <div ref={orbRef} aria-hidden="true"
         // the squish on press (was motion's whileTap) — a springy CSS transition
         className={cn("relative flex shrink-0 items-center justify-center overflow-hidden transition-transform duration-500 ease-[cubic-bezier(0.34,1.56,0.64,1)] active:scale-x-[1.15] active:scale-y-[1.3]", dims.orb, SHAPE_RADIUS[shape], className)}
-        style={live ? { background: "#ff4291", boxShadow: SILK_GLOW } : { background: preset.gradient, boxShadow: preset.boxShadow }}>
-        {/* back layer: the silk keeps moving · front layer: frosted glass (blur + milky white + a bright rim) */}
+        style={live ? { boxShadow: SILK_GLOW } : { background: preset.gradient, boxShadow: preset.boxShadow }}>
+        {/* back layer: the silk keeps moving, wrapped round a lit ball · front layer: a frosted-glass dome */}
         {live && <>
-          <SilkShader />
-          <div aria-hidden="true" className={cn("pointer-events-none absolute inset-0 bg-white/15 ring-1 ring-inset ring-white/40", FROST[size], SHAPE_RADIUS[shape])} />
+          <SilkShader sphere />
+          <div aria-hidden="true" className={cn("pointer-events-none absolute inset-0", FROST[size], SHAPE_RADIUS[shape])} style={{ background: GLASS_DOME, boxShadow: GLASS_EDGE }} />
+          {/* the window reflection on the glass — sharp, so the dome reads as glass (the blur softens the ball's own highlight) */}
+          <div aria-hidden="true" className="pointer-events-none absolute top-[9%] left-[17%] h-[20%] w-[38%] -rotate-[24deg] rounded-[50%] bg-gradient-to-b from-white/80 to-white/0" />
         </>}
+        {!live && <>
         <svg aria-hidden="true" className="pointer-events-none absolute inset-0 opacity-[0.2] mix-blend-overlay" width="100%" height="100%" xmlns="http://www.w3.org/2000/svg">
           <defs>
             <filter id={`av-n${uid}`} x="0%" y="0%" width="100%" height="100%">
@@ -142,6 +149,7 @@ export function AiAvatar({ blinking = true, color = "blue", size = "md", shape =
         </svg>
         <div aria-hidden="true" className="pointer-events-none absolute inset-0" style={{ background: SHINE }} />
         <div aria-hidden="true" className="pointer-events-none absolute inset-0 blur-xs" style={{ background: "radial-gradient(circle at 62% 68%, rgba(0,0,0,0.18) 0%, transparent 55%)" }} />
+        </>}
         <div className={dims.eyeY}>
         <div ref={eyesRef} className={cn("relative z-10 flex items-center transition-transform duration-150 ease-out", dims.eyeGap)}>
           <Eye blinking={blinking} delayMs={0} irisGradient={preset.iris} sizeClass={dims.eye} />

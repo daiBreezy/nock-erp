@@ -280,6 +280,38 @@ void main() {
 }
 `
 
+// owner 2026-10-15 "ทำให้มันดูกลมกว่านี้": a second pass wraps the silk around a real sphere — the picture bulges in the
+// middle and squeezes at the edge, lit from the top-left (soft shade, a sharp highlight, a glowing rim). The Silk shader
+// above stays exactly as given; it renders into a texture first.
+const SPHERE = `
+precision mediump float;
+uniform sampler2D u_tex;
+uniform vec2 u_res;
+void main() {
+  vec2 p = gl_FragCoord.xy / u_res * 2.0 - 1.0;
+  float r = length(p);
+  float px = 2.0 / min(u_res.x, u_res.y);
+  float alpha = 1.0 - smoothstep(1.0 - 1.5 * px, 1.0, r);
+  if (alpha <= 0.0) { gl_FragColor = vec4(0.0); return; }
+  float rr = min(r, 0.999);
+  float z = sqrt(1.0 - rr * rr);
+  vec3 n = normalize(vec3(p, z));
+  // wrap: the arc length from the centre → texture distance (centre magnified, edge compressed)
+  float k = rr > 0.0001 ? asin(rr) / (1.5707963 * rr) : 0.6366;
+  vec3 col = texture2D(u_tex, 0.5 + 0.5 * p * k * 0.9).rgb;
+  vec3 L = normalize(vec3(-0.55, 0.65, 0.75));
+  float diff = 0.45 + 0.55 * max(dot(n, L), 0.0);
+  float spec = pow(max(dot(reflect(-L, n), vec3(0.0, 0.0, 1.0)), 0.0), 36.0);
+  float fresnel = pow(1.0 - z, 2.5);
+  col = col * diff;
+  col += spec * 0.85;
+  col += fresnel * vec3(1.0, 0.72, 0.84) * 0.55;
+  // bounce light from below-right keeps the dark side from going flat
+  col += pow(max(dot(n, normalize(vec3(0.5, -0.7, 0.4))), 0.0), 3.0) * vec3(1.0, 0.26, 0.57) * 0.25;
+  gl_FragColor = vec4(clamp(col, 0.0, 1.0), alpha);
+}
+`
+
 // u_colors[8] (first 4 used): #010001, #FFFAFC, #FF4291, #FFB8D2
 const COLORS = new Float32Array([
   0.004, 0.0, 0.004,
@@ -297,20 +329,39 @@ function compile(gl: WebGLRenderingContext, type: number, src: string) {
   return sh
 }
 
-/** absolutely-positioned canvas — put it first inside a `relative` box; content above it sits in front */
-export function SilkShader({ className }: { className?: string }) {
+function link(gl: WebGLRenderingContext, vs: WebGLShader, fs: WebGLShader) {
+  const prog = gl.createProgram()!
+  gl.attachShader(prog, vs); gl.attachShader(prog, fs); gl.linkProgram(prog)
+  if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) { console.warn("Silk shader:", gl.getProgramInfoLog(prog)); return null }
+  return prog
+}
+
+/** absolutely-positioned canvas — put it first inside a `relative` box; content above it sits in front.
+ *  `sphere` = the silk wrapped around a lit ball (transparent outside the circle) instead of a flat sheet */
+export function SilkShader({ className, sphere = false }: { className?: string; sphere?: boolean }) {
   const ref = useRef<HTMLCanvasElement>(null)
 
   useEffect(() => {
     const canvas = ref.current
-    const gl = canvas?.getContext("webgl", { antialias: false, premultipliedAlpha: false, powerPreference: "low-power" })
+    const gl = canvas?.getContext("webgl", { antialias: false, alpha: true, premultipliedAlpha: false, powerPreference: "low-power" })
     if (!canvas || !gl) return
     const vs = compile(gl, gl.VERTEX_SHADER, VERTEX)
     const fs = compile(gl, gl.FRAGMENT_SHADER, FRAGMENT)
     if (!vs || !fs) return
-    const prog = gl.createProgram()!
-    gl.attachShader(prog, vs); gl.attachShader(prog, fs); gl.linkProgram(prog)
-    if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) { console.warn("Silk shader:", gl.getProgramInfoLog(prog)); return }
+    const prog = link(gl, vs, fs)
+    if (!prog) return
+    // sphere pass: the silk goes into a texture, then onto the ball
+    const sfs = sphere ? compile(gl, gl.FRAGMENT_SHADER, SPHERE) : null
+    const sprog = sfs ? link(gl, vs, sfs) : null
+    const tex = sprog ? gl.createTexture() : null
+    const fbo = sprog ? gl.createFramebuffer() : null
+    if (tex && fbo) {
+      gl.bindTexture(gl.TEXTURE_2D, tex)
+      for (const [k, v] of [[gl.TEXTURE_MIN_FILTER, gl.LINEAR], [gl.TEXTURE_MAG_FILTER, gl.LINEAR], [gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE], [gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE]]) gl.texParameteri(gl.TEXTURE_2D, k, v)
+      gl.bindFramebuffer(gl.FRAMEBUFFER, fbo)
+      gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, tex, 0)
+      gl.bindFramebuffer(gl.FRAMEBUFFER, null)
+    }
     gl.useProgram(prog)
 
     // one triangle that covers the whole viewport
@@ -342,10 +393,17 @@ export function SilkShader({ className }: { className?: string }) {
     window.addEventListener("pointermove", onMove)
     document.addEventListener("pointerleave", onLeave)
 
+    let texSize = [0, 0]
     const resize = () => {
       const dpr = Math.min(window.devicePixelRatio || 1, 2)
       const w = Math.max(1, Math.round(canvas.clientWidth * dpr)), h = Math.max(1, Math.round(canvas.clientHeight * dpr))
-      if (canvas.width !== w || canvas.height !== h) { canvas.width = w; canvas.height = h; gl.viewport(0, 0, w, h) }
+      if (canvas.width !== w || canvas.height !== h) { canvas.width = w; canvas.height = h }
+      gl.viewport(0, 0, w, h)
+      // sized on its own: a remount reuses the canvas (already the right size) but brings a fresh texture
+      if (tex && (texSize[0] !== w || texSize[1] !== h)) {
+        gl.bindTexture(gl.TEXTURE_2D, tex); gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, w, h, 0, gl.RGBA, gl.UNSIGNED_BYTE, null)
+        texSize = [w, h]
+      }
     }
     const ro = new ResizeObserver(resize)
     ro.observe(canvas)
@@ -358,7 +416,16 @@ export function SilkShader({ className }: { className?: string }) {
       gl.uniform4f(uScene, canvas.width, canvas.height, ((performance.now() - start) / 1000) * 0.86, 4.0)
       gl.uniform4f(uSpace, 0.02, 0.0, pointer.x, pointer.y)
       gl.uniform4f(uCursor, presence, 2.0, 0.3, 0.66)
-      gl.drawArrays(gl.TRIANGLES, 0, 3)
+      if (sprog && fbo) {
+        gl.bindFramebuffer(gl.FRAMEBUFFER, fbo)
+        gl.drawArrays(gl.TRIANGLES, 0, 3)
+        gl.bindFramebuffer(gl.FRAMEBUFFER, null)
+        gl.useProgram(sprog)
+        gl.uniform2f(gl.getUniformLocation(sprog, "u_res"), canvas.width, canvas.height)
+        gl.clearColor(0, 0, 0, 0); gl.clear(gl.COLOR_BUFFER_BIT)
+        gl.drawArrays(gl.TRIANGLES, 0, 3)
+        gl.useProgram(prog)
+      } else gl.drawArrays(gl.TRIANGLES, 0, 3)
       frame = requestAnimationFrame(draw)
     }
     // pause while the tab is hidden
@@ -376,8 +443,12 @@ export function SilkShader({ className }: { className?: string }) {
       document.removeEventListener("pointerleave", onLeave)
       document.removeEventListener("visibilitychange", onVisibility)
       gl.deleteBuffer(buf); gl.deleteProgram(prog); gl.deleteShader(vs); gl.deleteShader(fs)
+      if (sprog) gl.deleteProgram(sprog)
+      if (sfs) gl.deleteShader(sfs)
+      if (tex) gl.deleteTexture(tex)
+      if (fbo) gl.deleteFramebuffer(fbo)
     }
-  }, [])
+  }, [sphere])
 
   return <canvas ref={ref} aria-hidden className={cn("pointer-events-none absolute inset-0 size-full", className)} />
 }
