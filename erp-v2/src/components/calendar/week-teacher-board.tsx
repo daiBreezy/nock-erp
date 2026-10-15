@@ -2,7 +2,7 @@
 
 import { staffAt } from "@/domain/rules/permissions"
 import { Fragment, useMemo, useRef, useState } from "react"
-import { AlertTriangleIcon, ArrowLeftRightIcon, BanIcon, CalendarIcon, EllipsisIcon, CheckIcon, ClipboardCheckIcon, FlaskConicalIcon, ListCollapseIcon, RotateCcwIcon, MessagesSquareIcon, PencilLineIcon, PinIcon, PlayIcon, PlusIcon, Trash2Icon, ShapesIcon, Settings2Icon, UserIcon, UsersIcon, UsersRoundIcon } from "lucide-react"
+import { AlertTriangleIcon, CalendarOffIcon, CircleCheckIcon, CircleDashedIcon, CircleXIcon, ArrowLeftRightIcon, BanIcon, CalendarIcon, EllipsisIcon, CheckIcon, ClipboardCheckIcon, FlaskConicalIcon, ListCollapseIcon, RotateCcwIcon, MessagesSquareIcon, PencilLineIcon, PinIcon, PlayIcon, PlusIcon, Trash2Icon, ShapesIcon, Settings2Icon, UserIcon, UsersIcon, UsersRoundIcon } from "lucide-react"
 import type { ClassPrefill } from "@/components/app/class-dialog"
 import { ConflictResolver, liveConflicts } from "@/components/app/conflict-resolver"
 import { BlocksDialog } from "@/components/calendar/blocks-dialog"
@@ -41,7 +41,9 @@ const DAY_TONE: { soft: string; strong: string; faded: string }[] = [
 const dayTone = (date: DateStr, today: DateStr) => { const t = DAY_TONE[weekdayOf(date)]; return date === today ? t.strong : date < today ? t.faded : t.soft }
 
 const MARK_TEXT = { present: "มา", absent: "ขาด", leave: "ลา" } as const
-const MARK_TONE = { present: "text-emerald-700", absent: "text-red-700", leave: "text-amber-700" } as const
+const MARK_TONE = { present: "text-emerald-600", absent: "text-red-600", leave: "text-sky-600" } as const
+// owner 2026-10-15: the check-in result as an icon that tells the story — the word stays as its tooltip
+const MARK_ICON = { present: CircleCheckIcon, absent: CircleXIcon, leave: CalendarOffIcon } as const
 const STATE_ICON: Record<WorkState, { icon: typeof CheckIcon; tone: string; label: string }> = {
   scheduled: { icon: CalendarIcon, tone: "text-muted-foreground", label: "รอเริ่ม" },
   live: { icon: PlayIcon, tone: "", label: "กำลังเรียน" },
@@ -512,7 +514,7 @@ function SessionBlock({ s, row, state, ended, dayDate, canEdit, onOpen, klass, a
         const seat = Seats.seatOf(s, sid, klass)
         const a = attendance.find((x) => x.sessionId === s.id && x.studentId === sid)
         const moved = s.rescheduledIn?.includes(sid) ? allSessions.find((x) => x.rescheduledOut?.some((m) => m.studentId === sid && m.toSessionId === s.id)) : undefined
-        const result = a ? { text: MARK_TEXT[a.status], tone: MARK_TONE[a.status] } : ended && !s.trial ? { text: "ยังไม่เช็ค", tone: "text-amber-700" } : null
+        const result = a ? { text: MARK_TEXT[a.status], tone: MARK_TONE[a.status], icon: MARK_ICON[a.status] } : ended && !s.trial ? { text: "ยังไม่เช็ค", tone: "text-amber-500", icon: CircleDashedIcon } : null
         return (
           <StudentLine key={sid} drag={canDrag && !ended && !a ? JSON.stringify({ from: s.id, studentId: sid }) : undefined} nickname={L.student(sid)?.nickname ?? "?"} grade={L.student(sid)?.grade ?? ""} avatarKey={sid}
             notes={calendarNotesFor(s, sid, allNotes).map((n) => ({ id: n.id, text: n.text, kind: n.kind, when: noteWhen(n.at, now) }))}
@@ -555,7 +557,7 @@ function noteWhen(at: string, now: Date) {
 type LineNote = { id: string; text: string; kind: CalendarNoteKind; when?: string }
 function StudentLine({ drag, nickname, grade, avatarKey, notes, time, result, movedFrom, inverted, onOpen, canEdit, canPermanent, onAddNote, onEditNote, onDeleteNote }: {
   drag?: string; nickname: string; grade: string; avatarKey: string; notes: LineNote[]; time?: string
-  result: { text: string; tone: string } | null; movedFrom?: string; inverted: boolean
+  result: { text: string; tone: string; icon: typeof CircleCheckIcon } | null; movedFrom?: string; inverted: boolean
   onOpen: () => void; canEdit: boolean; canPermanent: boolean
   onAddNote: (text: string, kind: CalendarNoteKind) => void
   onEditNote: (id: string, text: string, kind: CalendarNoteKind) => void
@@ -576,7 +578,7 @@ function StudentLine({ drag, nickname, grade, avatarKey, notes, time, result, mo
           </button>
         ) : <span className="flex-1" />}
         {time && <span className={cn("shrink-0 text-[11px] tabular-nums", inverted ? "text-white" : "text-violet-700 dark:text-violet-300")}>{time}</span>}
-        {result && <span className={cn("shrink-0 text-[11px] font-semibold", inverted ? "text-white" : result.tone)}>{result.text}</span>}
+        {result && <span title={result.text} className="inline-flex shrink-0"><result.icon className={cn("size-4", inverted ? "text-white" : result.tone)} aria-label={result.text} /></span>}
         {grade && <span className={cn("shrink-0 rounded-full px-2 py-0.5 text-xs font-semibold", gradeTone(grade))}>{grade}</span>}
       </div>
       {adding && <NoteEditor kind="temporary" canPermanent={canPermanent} onDone={(text, kind) => { setAdding(false); if (text) onAddNote(text, kind) }} />}
