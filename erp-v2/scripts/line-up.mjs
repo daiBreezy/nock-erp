@@ -110,7 +110,7 @@ function startTunnel() {
   const watch = setInterval(async () => {
     if (!url || !synced) return
     try {
-      const r = await fetch(`${url}/api/line/status`, { signal: AbortSignal.timeout(15000) })
+      const r = await fetch(`${url}/liff/form`, { signal: AbortSignal.timeout(15000) })
       if (r.status >= 500 && r.status !== 503) throw new Error(String(r.status))
     } catch (e) {
       log("public URL not answering —", e.message, "— restarting tunnel"); clearInterval(watch); cf.kill()

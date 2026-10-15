@@ -1,14 +1,47 @@
 import { NextResponse, type NextRequest } from "next/server"
 
 /**
- * Password on the shared demo link (owner 2026-10-07). Off unless DEMO_PASSWORD is set — so local dev is unchanged;
- * on Vercel set DEMO_PASSWORD (and optionally DEMO_USER, default "nock") under Settings → Environment Variables.
- * The browser shows its own sign-in box (HTTP Basic auth) and remembers it for the session.
- * Parents' pages (/liff) and the LINE webhook stay open — LINE and parents can't type a password.
+ * Parents' pages, LINE and the files they load — the only things open to someone who isn't staff
+ * (no password: LINE and parents can't type one).
+ */
+const PARENT_PATHS = [
+  /^\/liff(\/|$)/,
+  /^\/api\/line\/webhook$/,
+  /^\/api\/forms\/(token|submit)$/,
+  /^\/api\/parent-forms\/(token|submit|enroll|enroll-submit|survey|survey-submit)$/,
+  /^\/api\/parent-view\/(me|requests)$/,
+  /^\/_next\//,
+  /^\/brand\//,
+  /^\/favicon\.ico$/,
+]
+/** a picture staff sent a parent — LINE fetches it by its id (GET only; uploading stays staff-only) */
+const PARENT_MEDIA = /^\/api\/line\/media\/[^/]+$/
+const isParentPath = (req: NextRequest) => PARENT_PATHS.some((r) => r.test(req.nextUrl.pathname)) || (req.method === "GET" && PARENT_MEDIA.test(req.nextUrl.pathname))
+
+/** came in through the internet tunnel (`npm run line`), not from this Mac or the office Wi-Fi */
+function viaTunnel(req: NextRequest) {
+  if (process.env.VERCEL) return false
+  if (req.headers.get("cf-connecting-ip") || req.headers.get("cf-ray")) return true
+  const host = (req.headers.get("host") ?? "").replace(/:\d+$/, "").replace(/^\[|\]$/g, "")
+  return !(host === "localhost" || host === "::1" || host.endsWith(".localhost") || /^127\./.test(host) || /^10\./.test(host) || /^192\.168\./.test(host) || /^172\.(1[6-9]|2\d|3[01])\./.test(host))
+}
+
+/**
+ * 1. Through the tunnel (owner 2026-10-15): only the parents' pages + LINE answer — everything staff use (pages,
+ *    Inbox, Settings, the send-to-LINE APIs) is 404, so a leaked tunnel link shows nothing but what parents see anyway.
+ *    Staff keep using http://localhost:3310.
+ * 2. Password on the shared demo link (owner 2026-10-07). Off unless DEMO_PASSWORD is set — so local dev is unchanged;
+ *    on Vercel set DEMO_PASSWORD (and optionally DEMO_USER, default "nock") under Settings → Environment Variables.
+ *    The browser shows its own sign-in box (HTTP Basic auth) and remembers it for the session.
  */
 export function proxy(req: NextRequest) {
+  if (viaTunnel(req)) {
+    if (isParentPath(req)) return NextResponse.next()
+    return new NextResponse("Not found", { status: 404, headers: { "Content-Type": "text/plain; charset=utf-8" } })
+  }
+
   const password = process.env.DEMO_PASSWORD
-  if (!password) return NextResponse.next()
+  if (!password || isParentPath(req) || /^\/api\/(parent-forms|parent-view|forms)\//.test(req.nextUrl.pathname)) return NextResponse.next()
   const user = process.env.DEMO_USER || "nock"
   const auth = req.headers.get("authorization") ?? ""
   if (auth.startsWith("Basic ")) {
@@ -26,6 +59,6 @@ export function proxy(req: NextRequest) {
 }
 
 export const config = {
-  // everything except Next's own files, the brand images, parents' forms and the LINE webhook
-  matcher: ["/((?!_next/static|_next/image|favicon.ico|brand/|liff|api/line/webhook|api/parent-forms|api/parent-view|api/forms).*)"],
+  // everything except Next's own static files — the tunnel check has to see every page and API
+  matcher: ["/((?!_next/static|_next/image).*)"],
 }
