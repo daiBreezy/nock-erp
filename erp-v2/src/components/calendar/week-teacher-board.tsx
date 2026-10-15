@@ -427,14 +427,16 @@ function RoomLine({ sessions, classes, clash, onResolve, inCell }: { sessions: S
                 <AlertTriangleIcon className="size-3" /><span className="hidden @[15rem]:inline">แก้ปัญหา</span>
               </button>
             )}
-            {/* owner 2026-10-15: an icon instead of the word — "Room 3" → 🚪 3 (full name on hover) */}
-            {inCell ? <RoomMeta roomId={s.roomId} className="text-xs font-medium" /> : <span className="truncate text-sm font-semibold text-foreground">{L.room(s.roomId)}</span>}
-            <span className="ml-auto flex shrink-0 items-center gap-2.5">
+            {/* owner 2026-10-15: second line of the card = time on the left · room · students · class type (· co-teacher) on the right */}
+            {inCell ? <span className="shrink-0 tabular-nums">{s.start}–{endTime(s.start, s.minutes)}</span> : <span className="truncate text-sm font-semibold text-foreground">{L.room(s.roomId)}</span>}
+            <span className="ml-auto flex min-w-0 items-center gap-2.5">
+              {inCell && <RoomMeta roomId={s.roomId} />}
               <StudentsMeta n={s.studentIds.length} />
               {K && <span className="flex items-center gap-1" title={K.label}><K.icon className="size-3.5" />{!inCell && <span className="hidden @[15rem]:inline">{K.label}</span>}</span>}
               <span className="flex items-center gap-1" title={single ? "Single (เรียนเดี่ยว)" : "Group"}>
                 {single ? <UserIcon className="size-3.5" /> : <UsersIcon className="size-3.5" />}{!inCell && <span className="hidden @[15rem]:inline">{single ? "Single" : "Group"}</span>}
               </span>
+              {inCell && s.coTeacherIds.length > 0 && <span className="truncate" title="ครูช่วยสอน">+{s.coTeacherIds.map((x) => L.teacher(x).label).join(", ")}</span>}
             </span>
           </div>
         )
@@ -474,10 +476,9 @@ function SessionBlock({ s, room, state, ended, dayDate, canEdit, onOpen, klass, 
       <div className="flex items-center gap-2">
         <span className={cn("size-2 shrink-0 rounded-full", c.bar)} />
         <button type="button" onClick={() => onOpen(s.id)} className="min-w-0 truncate text-left text-sm font-semibold text-foreground hover:underline">
-          {subjectsOf(s).join(" + ")}<span className="ml-1.5 font-normal text-muted-foreground tabular-nums">{s.start}–{endTime(s.start, s.minutes)}</span>
+          {subjectsOf(s).join(" + ")}
         </button>
         {klass?.periodId && <span className="shrink-0 rounded-full bg-violet-100 px-1.5 text-[10px] font-medium text-violet-900 dark:bg-violet-950 dark:text-violet-200" title="คลาสพิเศษของช่วงนี้">{periodName(klass.periodId)}</span>}
-        {s.coTeacherIds.length > 0 && <span className="shrink-0 text-[11px] text-muted-foreground" title="ครูช่วยสอน">+{s.coTeacherIds.map((x) => L.teacher(x).label).join(", ")}</span>}
         {s.teacherLeave?.substituteId && (
           <span className="flex shrink-0 items-center gap-0.5 text-[11px] text-amber-700" title={`สอนแทน${L.teacher(s.teacherLeave.teacherId).label} · ${s.teacherLeave.reason}`}>
             <ArrowLeftRightIcon className="size-3" />แทน{L.teacher(s.teacherLeave.teacherId).label}
