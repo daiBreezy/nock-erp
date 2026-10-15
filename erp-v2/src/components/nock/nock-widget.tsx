@@ -4,7 +4,7 @@
 // kept (see /nock) — what Nock can't answer goes to the team, and their answers become knowledge Nock uses next time.
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { useEffect, useMemo, useRef, useState } from "react"
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react"
 import { ArrowLeftIcon, ArrowRightIcon, EllipsisIcon, LibraryBigIcon, SearchIcon, Loader2Icon, ArrowUpIcon, CheckIcon, CodeXmlIcon, MapPinIcon, SendIcon, ThumbsDownIcon, ThumbsUpIcon, UserRoundCheckIcon, XIcon } from "lucide-react"
 import { AiAvatar } from "@/components/ui/ai-avatar"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
@@ -59,6 +59,27 @@ export function NockWidget() {
   const start = useRef<{ x: number; y: number; moved: boolean } | null>(null)
   // a drag ends with a click event — that one must not open the chat
   const dragged = useRef(false)
+  // owner 2026-10-15: on release Nock glides from where it was dropped to its corner (ease-in-out), it doesn't jump
+  const btn = useRef<HTMLButtonElement>(null)
+  const dropAt = useRef<{ cx: number; cy: number; rotate: string; scale: string } | null>(null)
+  useLayoutEffect(() => {
+    const el = btn.current, from = dropAt.current
+    dropAt.current = null
+    if (!el || !from || drag) return
+    // jump to the resting pose, measure it, then play from the drop pose back to it
+    // (Web Animations on translate / rotate / scale — a plain transform would be applied inside the -45° tilt)
+    const cs = getComputedStyle(el)
+    const fromPose = { rotate: from.rotate, scale: from.scale }
+    el.style.transition = "none"
+    const to = el.getBoundingClientRect()
+    const [tx = "0px", ty = "0px"] = cs.translate === "none" ? [] : cs.translate.split(" ")
+    const rest = { translate: `${tx} ${ty}`, rotate: cs.rotate, scale: cs.scale }
+    void el.offsetWidth
+    el.style.transition = ""
+    const dx = from.cx - (to.left + to.width / 2), dy = from.cy - (to.top + to.height / 2)
+    el.animate([{ translate: `calc(${tx} + ${dx}px) calc(${ty} + ${dy}px)`, ...fromPose }, rest],
+      { duration: 700, easing: "cubic-bezier(0.65, 0, 0.35, 1)" })
+  }, [drag, corner])
   const left = corner[1] === "l", top = corner[0] === "t"
 
   const onPointerDown = (e: React.PointerEvent<HTMLButtonElement>) => {
@@ -78,6 +99,8 @@ export function NockWidget() {
     start.current = null
     if (!st?.moved) return
     dragged.current = true
+    const r = e.currentTarget.getBoundingClientRect(), cs = getComputedStyle(e.currentTarget)
+    dropAt.current = { cx: r.left + r.width / 2, cy: r.top + r.height / 2, rotate: cs.rotate, scale: cs.scale }
     const next: Corner = `${e.clientY < window.innerHeight / 2 ? "t" : "b"}${e.clientX < window.innerWidth / 2 ? "l" : "r"}`
     setCorner(next)
     setDrag(null)
@@ -93,7 +116,7 @@ export function NockWidget() {
       {/* owner 2026-10-13: Nock hides at the screen edge, tilted 45° and peeking with its eyes — hover (or keyboard focus)
           and it slides out; mouse leaves and it slides back. Stays out while the chat is open.
           owner 2026-10-15: it went back too fast — ease-in-out (no overshoot), 700 ms */}
-      <button type="button" aria-label={open ? "ปิด Nock" : "ถาม Nock"} title="ถาม Nock — ผู้ช่วยของ NockERP · ลากไปวางมุมไหนของจอก็ได้"
+      <button ref={btn} type="button" aria-label={open ? "ปิด Nock" : "ถาม Nock"} title="ถาม Nock — ผู้ช่วยของ NockERP · ลากไปวางมุมไหนของจอก็ได้"
         onPointerDown={onPointerDown} onPointerMove={onPointerMove} onPointerUp={onPointerUp}
         onClick={() => { if (dragged.current) { dragged.current = false; return } setOpen((o) => !o) }}
         style={drag ? { left: drag.x - 32, top: drag.y - 32, right: "auto", bottom: "auto" } : undefined}
