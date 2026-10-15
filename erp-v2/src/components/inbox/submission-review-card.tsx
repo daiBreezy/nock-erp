@@ -2,8 +2,8 @@
 
 import { useState } from "react"
 import Link from "next/link"
-import { CalendarIcon, CheckIcon, PencilIcon, UserRoundSearchIcon, XIcon } from "lucide-react"
-import { Pill, type Tone } from "@/components/app/badges"
+import { CalendarIcon, CheckIcon, ClipboardListIcon, GraduationCapIcon, PencilIcon, UserRoundSearchIcon, XIcon } from "lucide-react"
+import { Confirmation, ConfirmationActions, ConfirmationBody, ConfirmationHeader, ConfirmationResult } from "@/components/ai-elements/confirmation"
 import { Button } from "@/components/ui/button"
 import { fmtDate } from "@/domain/dates"
 import { FORM_TYPE_LABEL } from "@/domain/rules/forms"
@@ -16,8 +16,6 @@ import { useBranch, useNow } from "@/lib/hooks"
 import { useStore } from "@/store/store"
 import { SlotPicker } from "./slot-picker"
 
-const STATUS_LABEL: Record<FormSubmission["status"], string> = { pending: "รออนุมัติ", approved: "อนุมัติแล้ว", rejected: "ปฏิเสธแล้ว" }
-const STATUS_TONE: Record<FormSubmission["status"], Tone> = { pending: "amber", approved: "green", rejected: "red" }
 
 /**
  * The Test/Trial submission review UI — one card = one child, with all their parents, notes, and every
@@ -80,9 +78,11 @@ export function SubmissionReviewCard({ submission: sub, onChanged }: { submissio
   }
 
   return (
-    <div>
-      <div className="font-medium">ฟอร์ม{FORM_TYPE_LABEL[sub.type]} — {sub.studentName}{sub.studentNickname && ` (${sub.studentNickname})`}</div>
-      <div className="mt-1 space-y-0.5 text-xs text-muted-foreground">
+    <Confirmation state={sub.status}>
+      <ConfirmationHeader state={sub.status} icon={sub.type === "trial" ? <GraduationCapIcon /> : <ClipboardListIcon />}
+        title={<>ฟอร์ม{FORM_TYPE_LABEL[sub.type]} — {sub.studentName}{sub.studentNickname && ` (${sub.studentNickname})`}</>} />
+      <ConfirmationBody>
+      <div className="space-y-0.5 text-xs text-muted-foreground">
         <div>นักเรียน: {sub.studentName} · {sub.studentGrade}{sub.studentBirthDate && ` · เกิด ${fmtDate(sub.studentBirthDate)}`}</div>
         {sub.studentNote && <div>หมายเหตุ: {sub.studentNote}</div>}
         {sub.parents.map((p, i) => (
@@ -104,14 +104,6 @@ export function SubmissionReviewCard({ submission: sub, onChanged }: { submissio
         ))}
       </div>
 
-      <div className="mt-1.5 flex items-center gap-2">
-        <Pill tone={STATUS_TONE[sub.status]}>{STATUS_LABEL[sub.status]}</Pill>
-        {sub.status === "approved" && sub.createdSessionId && (
-          <Link href={`/calendar?sessionId=${sub.createdSessionId}`} className="inline-flex items-center gap-1 text-xs text-sky-700 hover:underline">
-            <CalendarIcon className="size-3" /> ดูในปฏิทิน
-          </Link>
-        )}
-      </div>
 
       {matchedFamily && (
         <p className="mt-1.5 flex items-start gap-1 rounded-lg bg-sky-50 p-1.5 text-[11px] text-sky-900 dark:bg-sky-950 dark:text-sky-200">
@@ -129,12 +121,6 @@ export function SubmissionReviewCard({ submission: sub, onChanged }: { submissio
         </div>
       )}
 
-      {sub.status === "pending" && editingPick === null && (
-        <div className="mt-2 flex gap-1.5">
-          <Button size="xs" disabled={busy} onClick={approve}><CheckIcon /> อนุมัติ</Button>
-          <Button size="xs" variant="ghost" className="text-red-700" disabled={busy} onClick={reject}><XIcon /> ปฏิเสธ</Button>
-        </div>
-      )}
 
       {sub.status === "pending" && editingPick !== null && (
         <div className="mt-2 space-y-2 rounded-lg border bg-background p-2">
@@ -150,6 +136,25 @@ export function SubmissionReviewCard({ submission: sub, onChanged }: { submissio
           </div>
         </div>
       )}
-    </div>
+      </ConfirmationBody>
+
+      {sub.status === "pending" && editingPick === null && (
+        <ConfirmationActions>
+          <Button size="sm" variant="outline" className="text-red-700" disabled={busy} onClick={reject}><XIcon /> ปฏิเสธ</Button>
+          <Button size="sm" disabled={busy} onClick={approve}><CheckIcon /> อนุมัติ</Button>
+        </ConfirmationActions>
+      )}
+      {sub.status === "approved" && (
+        <ConfirmationResult>
+          <span>สร้างคาบเรียนจริงแล้ว</span>
+          {sub.createdSessionId && (
+            <Link href={`/calendar?sessionId=${sub.createdSessionId}`} className="ml-auto inline-flex items-center gap-1 text-sky-700 hover:underline">
+              <CalendarIcon className="size-3" /> ดูในปฏิทิน
+            </Link>
+          )}
+        </ConfirmationResult>
+      )}
+      {sub.status === "rejected" && <ConfirmationResult>ไม่ได้สร้างคาบเรียน</ConfirmationResult>}
+    </Confirmation>
   )
 }
