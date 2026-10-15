@@ -77,8 +77,12 @@ export function NockWidget() {
     void el.offsetWidth
     el.style.transition = ""
     const dx = from.cx - (to.left + to.width / 2), dy = from.cy - (to.top + to.height / 2)
-    el.animate([{ translate: `calc(${tx} + ${dx}px) calc(${ty} + ${dy}px)`, ...fromPose }, rest],
-      { duration: 400, easing: "cubic-bezier(0.65, 0, 0.35, 1)" })
+    // owner 2026-10-15: it doesn't stop at the edge — it keeps going, tucks in and peeks, all one motion
+    el.animate([
+      { translate: `calc(${tx} + ${dx}px) calc(${ty} + ${dy}px)`, ...fromPose },
+      { translate: `0px ${ty}`, rotate: "0deg", scale: "1", offset: 0.75 },
+      rest,
+    ], { duration: 400, easing: "cubic-bezier(0.65, 0, 0.35, 1)" })
   }, [drag, corner])
   const left = corner[1] === "l", top = corner[0] === "t"
 
@@ -115,13 +119,13 @@ export function NockWidget() {
       {/* owner 2026-10-13: Nock's face — the blinking orb */}
       {/* owner 2026-10-13: Nock hides at the screen edge, tilted 45° and peeking with its eyes — hover (or keyboard focus)
           and it slides out; mouse leaves and it slides back. Stays out while the chat is open.
-          owner 2026-10-15: it went back too fast — ease-in-out (no overshoot), 700 ms */}
+          owner 2026-10-15: it went back too fast — ease-in-out (no overshoot), 400 ms */}
       <button ref={btn} type="button" aria-label={open ? "ปิด Nock" : "ถาม Nock"} title="ถาม Nock — ผู้ช่วยของ NockERP · ลากไปวางมุมไหนของจอก็ได้"
         onPointerDown={onPointerDown} onPointerMove={onPointerMove} onPointerUp={onPointerUp}
         onClick={() => { if (dragged.current) { dragged.current = false; return } setOpen((o) => !o) }}
         style={drag ? { left: drag.x - 32, top: drag.y - 32, right: "auto", bottom: "auto" } : undefined}
         className={cn("fixed z-40 touch-none rounded-full focus-visible:outline-none print:hidden",
-          drag ? "cursor-grabbing transition-none" : "cursor-grab transition-transform duration-700 ease-[cubic-bezier(0.65,0,0.35,1)]",
+          drag ? "cursor-grabbing transition-none" : "cursor-grab transition-transform duration-400 ease-[cubic-bezier(0.65,0,0.35,1)]",
           !drag && (left ? "left-0" : "right-0"), !drag && (top ? "top-20" : "bottom-6"),
           drag ? "scale-110" : open ? (left ? "translate-x-5" : "-translate-x-5")
             : left ? "-translate-x-[38%] rotate-45 hover:translate-x-5 hover:rotate-0 focus-visible:translate-x-5 focus-visible:rotate-0"
