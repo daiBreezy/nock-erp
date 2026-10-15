@@ -23,7 +23,7 @@ export function MessageBubble({ message, conversation, staff, onUseAsSlip }: { m
       <span className={cn("grid size-6 shrink-0 place-items-center rounded-full text-[10px] font-semibold", avatarTone(isStaff ? (message.senderId ?? "staff") : conversation.id))}>
         {isStaff ? initial(staff.find((s) => s.id === message.senderId)?.nickname ?? "A") : initial(conversation.name)}
       </span>
-      <div className={cn("max-w-[70%] rounded-2xl px-3 py-2 text-sm", isStaff ? "rounded-br-sm bg-primary text-primary-foreground" : "rounded-bl-sm bg-muted")}>
+      <div className={cn("max-w-[75%] rounded-2xl px-3.5 py-2.5 text-sm leading-relaxed", isStaff ? "rounded-br-sm bg-primary/10 text-foreground" : "rounded-bl-sm bg-muted")}>
         {message.meta?.formKind === "image" ? (
           <>
             {/* eslint-disable-next-line @next/next/no-img-element -- parent's LINE photo served by our own route */}
@@ -35,7 +35,7 @@ export function MessageBubble({ message, conversation, staff, onUseAsSlip }: { m
             )}
           </>
         ) : message.text}
-        <div className={cn("mt-1 text-[10px]", isStaff ? "text-primary-foreground/70" : "text-muted-foreground")}>{fmtDateTime(message.at)}</div>
+        <div className={cn("mt-1 text-[10px]", "text-muted-foreground")}>{fmtDateTime(message.at)}</div>
       </div>
     </div>
   )

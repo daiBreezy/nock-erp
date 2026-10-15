@@ -24,13 +24,13 @@ export function FormRequestBubble({ message, submissions }: { message: ChatMessa
   return (
     <div className="flex flex-row-reverse items-end gap-2">
       <span className="grid size-6 shrink-0 place-items-center rounded-full bg-primary text-[10px] font-semibold text-primary-foreground">A</span>
-      <div className="max-w-[70%] rounded-2xl rounded-br-sm bg-primary px-3 py-2 text-sm text-primary-foreground">
-        <div className="flex items-center gap-1.5 font-medium"><FileTextIcon className="size-3.5" /> ส่งฟอร์ม{FORM_TYPE_LABEL[meta.type]}</div>
-        <div className="mt-1 text-xs text-primary-foreground/85">{meta.subjects.join(", ")}</div>
+      <div className="max-w-[75%] rounded-2xl rounded-br-sm bg-primary/10 px-3.5 py-2.5 text-sm text-foreground">
+        <div className="flex items-center gap-1.5 font-medium"><FileTextIcon className="size-3.5 text-primary" /> ส่งฟอร์ม{FORM_TYPE_LABEL[meta.type]}</div>
+        <div className="mt-1 text-xs text-muted-foreground">{meta.subjects.join(", ")}</div>
         <div className={cn("mt-1.5")}>
           <Pill tone={STATUS_TONE[status]}>{STATUS_LABEL[status]}</Pill>
         </div>
-        <div className="mt-1 text-[10px] text-primary-foreground/70">{fmtDateTime(message.at)}</div>
+        <div className="mt-1 text-[10px] text-muted-foreground">{fmtDateTime(message.at)}</div>
       </div>
     </div>
   )

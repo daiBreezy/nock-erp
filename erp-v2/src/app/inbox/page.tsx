@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation"
 import { useCallback, useEffect, useRef, useState } from "react"
-import { FileSignatureIcon, InfoIcon, PenLineIcon, PlusIcon, RadioIcon, SendIcon, SparklesIcon, UserSearchIcon, UserCheckIcon, ChevronDownIcon, CheckIcon, ClipboardListIcon, FileTextIcon, GraduationCapIcon, HeartHandshakeIcon, ImageIcon, LogOutIcon, MegaphoneIcon, SearchIcon, UserPlusIcon, XIcon, GripVerticalIcon, CheckCircle2Icon } from "lucide-react"
+import { FileSignatureIcon, InfoIcon, PenLineIcon, PlusIcon, RadioIcon, ArrowUpIcon, Loader2Icon, SparklesIcon, UserSearchIcon, UserCheckIcon, ChevronDownIcon, CheckIcon, ClipboardListIcon, FileTextIcon, GraduationCapIcon, HeartHandshakeIcon, ImageIcon, LogOutIcon, MegaphoneIcon, SearchIcon, UserPlusIcon, XIcon, GripVerticalIcon, CheckCircle2Icon } from "lucide-react"
 import { NativeSelect } from "@/components/app/native-select"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuSub, DropdownMenuSubContent, DropdownMenuSubTrigger, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { ExitRequestDialog } from "@/components/app/student-exit"
@@ -309,7 +309,8 @@ export default function InboxPage() {
           </div>
         ) : (
           <>
-            <div className="flex items-center gap-3 border-b p-3">
+            {/* owner 2026-10-15: like Claude / ChatGPT — no lines between header, chat and the type box */}
+            <div className="flex items-center gap-3 px-4 py-3">
               <span className={cn("grid size-9 shrink-0 place-items-center rounded-full text-sm font-semibold", avatarTone(selected.id))}>{initial(selected.name)}</span>
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-1.5">
@@ -345,7 +346,9 @@ export default function InboxPage() {
             </div>
 
             <div className="flex min-h-0 flex-1 flex-col">
-              <div className="flex-1 space-y-3 overflow-y-auto p-4">
+              <div className="flex-1 overflow-y-auto px-4 py-4">
+                {/* one centred column (max ~768 px) so long chats don't stretch across a wide screen */}
+                <div className="mx-auto w-full max-w-3xl space-y-3">
                 {thread.length === 0 && <p className="py-8 text-center text-sm text-muted-foreground">เริ่มบทสนทนา</p>}
                 {thread.map((m) => {
                   if (m.kind === "form_request") return <FormRequestBubble key={m.id} message={m} submissions={submissions} />
@@ -354,12 +357,14 @@ export default function InboxPage() {
                   if (m.meta?.formKind === "parent_request") return <ParentRequestChatCard key={m.id} message={m} />
                   return <MessageBubble key={m.id} message={m} conversation={selected} staff={staff} onUseAsSlip={useAsSlip} />
                 })}
+                </div>
               </div>
-              <div className="space-y-1.5 border-t p-3">
-                <div className="flex gap-2">
+              <div className="mx-auto w-full max-w-3xl space-y-1.5 px-4 pb-4">
+                {/* one rounded box: + · text · send (Claude-style) */}
+                <div className={cn("flex items-center gap-1.5 rounded-3xl border bg-background p-1.5 shadow-sm transition-colors focus-within:border-ring/60", isNote && "border-amber-400 bg-amber-50 dark:bg-amber-950/30")}>
                   {/* owner 2026-10-05: "+" before the type bar — send a form or a photo into this chat */}
                   <DropdownMenu>
-                    <DropdownMenuTrigger render={<Button size="icon" variant="outline" aria-label="แนบฟอร์ม / รูปภาพ" />}><PlusIcon /></DropdownMenuTrigger>
+                    <DropdownMenuTrigger render={<Button size="icon" variant="ghost" className="rounded-full text-muted-foreground" aria-label="แนบฟอร์ม / รูปภาพ" />}><PlusIcon /></DropdownMenuTrigger>
                     <DropdownMenuContent side="top" align="start" className="w-44">
                       <DropdownMenuSub>
                         <DropdownMenuSubTrigger><FileTextIcon /> ฟอร์ม</DropdownMenuSubTrigger>
@@ -388,10 +393,10 @@ export default function InboxPage() {
                   </DropdownMenu>
                   <input ref={imageInput} type="file" accept="image/*" hidden onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ""; if (f) uploadImage(f) }} />
                   <Input value={draft} onChange={(e) => setDraft(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); submit() } }}
-                    placeholder="พิมพ์ตอบผู้ปกครอง… (// สำหรับโน้ตภายใน)" className={cn(isNote && "border-amber-400 bg-amber-50")} />
-                  <Button onClick={submit} disabled={!draft.trim() || sending}>{sending ? "กำลังส่ง…" : <><SendIcon /> ส่ง</>}</Button>
+                    placeholder="พิมพ์ตอบผู้ปกครอง… (// สำหรับโน้ตภายใน)" className="h-9 flex-1 border-0 bg-transparent px-1 shadow-none focus-visible:ring-0 dark:bg-transparent" />
+                  <Button size="icon" className="rounded-full" onClick={submit} disabled={!draft.trim() || sending} aria-label={sending ? "กำลังส่ง…" : "ส่ง"}>{sending ? <Loader2Icon className="animate-spin" /> : <ArrowUpIcon />}</Button>
                 </div>
-                <div className="flex items-center justify-between text-[11px] text-muted-foreground">
+                <div className="flex items-center justify-between px-3 text-[11px] text-muted-foreground">
                   <span>พิมพ์ <code className="rounded bg-muted px-1">{"//"}</code> ขึ้นต้น = โน้ตภายใน ผู้ปกครองไม่เห็น</span>
                   {isLive(selected.id) ? (
                     <span className="inline-flex items-center gap-1 text-sky-700"><RadioIcon className="size-3" /> ข้อความไหลจาก LINE จริง — sync ทุก 4 วิ</span>
