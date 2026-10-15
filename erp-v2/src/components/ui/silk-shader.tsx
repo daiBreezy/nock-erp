@@ -300,14 +300,13 @@ void main() {
   float k = rr > 0.0001 ? asin(rr) / (1.5707963 * rr) : 0.6366;
   vec3 col = texture2D(u_tex, 0.5 + 0.5 * p * k * 0.9).rgb;
   vec3 L = normalize(vec3(-0.55, 0.65, 0.75));
-  float diff = 0.45 + 0.55 * max(dot(n, L), 0.0);
-  float spec = pow(max(dot(reflect(-L, n), vec3(0.0, 0.0, 1.0)), 0.0), 36.0);
-  float fresnel = pow(1.0 - z, 2.5);
+  // owner 2026-10-15 "แสงอุบาท": soft light only — the ball stays bright all over, just enough shade to read round
+  float diff = 0.82 + 0.18 * max(dot(n, L), 0.0);
+  float spec = pow(max(dot(reflect(-L, n), vec3(0.0, 0.0, 1.0)), 0.0), 18.0);
+  float fresnel = pow(1.0 - z, 3.0);
   col = col * diff;
-  col += spec * 0.85;
-  col += fresnel * vec3(0.985, 0.748, 0.772) * 0.55;
-  // bounce light from below-right keeps the dark side from going flat
-  col += pow(max(dot(n, normalize(vec3(0.5, -0.7, 0.4))), 0.0), 3.0) * vec3(0.794, 0.137, 0.32) * 0.3;
+  col += spec * 0.18;
+  col = mix(col, vec3(0.985, 0.748, 0.772), fresnel * 0.35);
   gl_FragColor = vec4(clamp(col, 0.0, 1.0), alpha);
 }
 `
