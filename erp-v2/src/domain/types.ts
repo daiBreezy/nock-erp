@@ -134,6 +134,8 @@ export interface Branch {
   bankAccount: { bank: string; branchName: string; name: string; number: string }
   /** legacy simple flag — kept so existing "delivered via LINE" simulation logic still works; set from the server-side /api/line/status check */
   lineOaConnected: boolean
+  /** owner 2026-10-15: this branch uses Nock (the AI helper) — unset = on; Settings › System can turn it off everywhere */
+  aiHelper?: boolean
   /** the branch's public enroll-now link for the LINE Rich Menu (owner 2026-10-05) — refreshed when courses change */
   enrollLink?: { token: string; url: string; updatedAt: string }
   /** non-secret LINE identity — safe to keep in client state. The actual Channel Secret / Access Token live server-side only (.env.local), never here. */
@@ -574,6 +576,24 @@ export interface StudentNote {
   text: string
   /** written on a class in the calendar board (owner 2026-10-12) — shown there under the student AND in the student's Note tab */
   sessionId?: ID
+}
+
+/** Note Calendar (owner 2026-10-15) — a note on a student in a class on the calendar board, kept apart from the
+ *  student's own Note tab. "permanent" shows on every session of that class; "temporary" only on the one session. */
+export type CalendarNoteKind = "permanent" | "temporary"
+export interface CalendarNote {
+  id: ID
+  studentId: ID
+  kind: CalendarNoteKind
+  /** temporary: the session it belongs to */
+  sessionId?: ID
+  /** permanent: the class — every session of it shows the note */
+  classId?: ID
+  text: string
+  by: ID
+  at: string
+  editedBy?: ID
+  editedAt?: string
 }
 
 export type LogCategory = "profile" | "class" | "attendance" | "billing" | "note"

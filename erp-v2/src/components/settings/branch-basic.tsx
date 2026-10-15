@@ -9,6 +9,7 @@ import { Field } from "@/components/app/student-form"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { Switch } from "@/components/ui/switch"
 import { ROLE_LABEL, staffInBranch } from "@/domain/rules/permissions"
 import { fmtDate, fmtMoney, TH_DAYS_FULL } from "@/domain/dates"
 import { KNOWN_PROVINCES } from "@/domain/rules/settings"
@@ -155,6 +156,7 @@ export function BranchInfoTab({ branch, onJump }: { branch: Branch; onJump: (tab
           </div>
         </SettingsCard>
       </div>
+      <BranchAiHelper branch={b} />
     </div>
   )
 }
@@ -304,5 +306,20 @@ export function ProvinceField({ value, onChange }: { value: string; onChange: (v
       <p className="mt-1 text-xs text-muted-foreground">{nm(KNOWN_PROVINCES[value]) || tx("BKK = กรุงเทพฯ · CBR = ชลบุรี · จังหวัดใหม่พิมพ์รหัสเองได้")}</p>
       <datalist id="province-codes">{Object.entries(KNOWN_PROVINCES).map(([k, v]) => <option key={k} value={k}>{v}</option>)}</datalist>
     </Field>
+  )
+}
+
+/** owner 2026-10-15: each branch chooses whether it uses Nock (the AI helper) — switching saves right away */
+function BranchAiHelper({ branch }: { branch: Branch }) {
+  const saveBranch = useStore((s) => s.saveBranch)
+  const systemOn = useStore((s) => s.system.aiHelper !== false)
+  const on = branch.aiHelper !== false
+  return (
+    <SettingsCard title={tx("AI Helper (Nock)")}
+      hint={systemOn ? tx("ผู้ช่วย Nock ที่มุมจอ — เลือกได้ว่าสาขานี้จะใช้หรือไม่ใช้ · ปิดแล้วทุกคนที่ทำงานในสาขานี้จะไม่เห็นปุ่ม Nock") : tx("ปิดทั้งระบบอยู่ที่ Settings › ระบบ › AI (Nock) — เปิดที่นั่นก่อน สาขานี้จึงจะใช้ได้")}
+      action={<Switch checked={on && systemOn} disabled={!systemOn} aria-label={tx("เปิด/ปิด AI Helper ของสาขานี้")}
+        onCheckedChange={(v) => report(saveBranch({ ...branch, aiHelper: v }), v ? tx("เปิด AI Helper ของสาขานี้แล้ว") : tx("ปิด AI Helper ของสาขานี้แล้ว"))} />}>
+      <p className="text-sm text-muted-foreground">{!systemOn ? tx("ปิดทั้งระบบ") : on ? tx("เปิดอยู่ — คนในสาขานี้เห็น Nock ที่มุมจอ") : tx("ปิดอยู่ — คนในสาขานี้ไม่เห็น Nock")}</p>
+    </SettingsCard>
   )
 }

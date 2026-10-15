@@ -9,6 +9,7 @@ import { generateSessions } from "@/domain/rules/scheduling"
 import { entitlementRounds } from "@/domain/rules/summaries"
 import { packageCovers } from "@/domain/rules/attendance"
 import type {
+  CalendarNote,
   Assessment, AppNotification, Attendance, DevTicket, NockQuestion, Branch, BusAddOn, DayBlocks, ChatMessage, CourseSummary, CreditNote, LessonBook, LessonTopic, Conversation, Course, Entitlement, Family, Holiday, Invoice, Klass, Lead, LessonSummary,
   ActivityLog, PriceRow, Session, StudentNote, Staff, Student, StudentLeave, SurveyCampaign, SurveyResponse, SystemConfig, Weekday,
 } from "@/domain/types"
@@ -40,6 +41,8 @@ export interface DB {
   notifications: AppNotification[]
   system: SystemConfig
   notes: StudentNote[]
+  /** Note Calendar (owner 2026-10-15) — notes on students in classes, apart from the student's Note tab */
+  calendarNotes: CalendarNote[]
   logs: ActivityLog[]
   assessments: Assessment[]
   /** yearly parent survey (owner 2026-10-05): each send-out + the answers pulled from the form server */
@@ -285,9 +288,12 @@ export function buildSeed(now = new Date()): DB {
 
   const sessions: Session[] = classes.flatMap((c) => generateSessions(c, holidays, () => uid("se"), c.id === "cl_combo6" ? 22 : 10, c.periodId ? addDays(monday, 69) : undefined))
   // free-form reminders on the teacher-block class (owner 2026-09-30: "Math Book Lesson 1 Page 2-6")
-  sessions.filter((x) => x.classId === "cl_block_dai").forEach((x, i) => {
-    x.notes = { stu_10: `Math Book ป.5 เล่ม 2 · Lesson ${i + 1} หน้า ${i * 4 + 2}-${i * 4 + 6}`, stu_17: `ตะลุยโจทย์วิทย์ ชุด ${i + 1}` }
-  })
+  // owner 2026-10-15: now Note Calendar — ชั่วคราว (this session) for the lesson pages, ถาวร (every session) for the rest
+  const calendarNotes: CalendarNote[] = sessions.filter((x) => x.classId === "cl_block_dai").map((x, i) => ({
+    id: `cn_dai_${i}`, studentId: "stu_10", kind: "temporary" as const, sessionId: x.id, text: `Math Book ป.5 เล่ม 2 · Lesson ${i + 1} หน้า ${i * 4 + 2}-${i * 4 + 6}`,
+    by: "u_dai", at: new Date(`${x.date}T09:00:00`).toISOString(),
+  }))
+  calendarNotes.push({ id: "cn_dai_p", studentId: "stu_17", kind: "permanent", classId: "cl_block_dai", text: "ตะลุยโจทย์วิทย์ — เอาหนังสือมาทุกครั้ง", by: "u_dai", at: new Date(now.getTime() - 14 * 86400000).toISOString() })
 
   // ---- today's showcase: every card state + a teacher clash and a room clash, placed around "now" ----
   const nowMin = Math.min(17 * 60, Math.max(13 * 60, Math.floor((now.getHours() * 60 + now.getMinutes()) / 30) * 30))
@@ -758,7 +764,7 @@ export function buildSeed(now = new Date()): DB {
       thread: [{ id: "dm_8", by: "u_dev", at: ago(140), text: "ตอนนี้ยังไม่ทำ — ต้องสมัคร Payment Gateway และมีค่าธรรมเนียม 2.5–3.5% ต่อรายการ ขอให้ฝ่ายบัญชีตัดสินใจเรื่องค่าธรรมเนียมก่อน แล้วค่อยเปิดเรื่องใหม่", status: "wont_do" }] },
   ]
 
-  return { branches, staff, holidays, courses, classes, sessions, attendance, summaries, courseSummaries, nockQuestions, devTickets, families, students, entitlements, leaves, invoices, busAddOns, creditNotes: [] as CreditNote[], lessonBooks, lessonTopics, leads, conversations, messages, notifications: [], system, notes, logs, assessments, surveyCampaigns, surveyResponses }
+  return { branches, staff, holidays, courses, classes, sessions, attendance, summaries, courseSummaries, nockQuestions, devTickets, families, students, entitlements, leaves, invoices, busAddOns, creditNotes: [] as CreditNote[], lessonBooks, lessonTopics, leads, conversations, messages, notifications: [], system, notes, calendarNotes, logs, assessments, surveyCampaigns, surveyResponses }
 }
 
 /** Demo history for Reports: ~130 past/current students over the last 15 months with monthly / hour-pack invoices. */

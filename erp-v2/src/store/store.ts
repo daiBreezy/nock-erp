@@ -18,6 +18,7 @@ import * as CRM from "@/domain/rules/crm"
 import * as Inbox from "@/domain/rules/inbox"
 import { can, canDeactivateStaff, canEditBlocks, inBranch, OFFICE_ROLES, require as requirePerm, staffAt } from "@/domain/rules/permissions"
 import * as Sch from "@/domain/rules/scheduling"
+import * as CN from "@/domain/rules/calendar-notes"
 import * as Sum from "@/domain/rules/summaries"
 import * as People from "@/domain/rules/people"
 import * as Forms from "@/domain/rules/forms"
@@ -30,7 +31,7 @@ import * as Survey from "@/domain/rules/survey"
 import * as Nock from "@/domain/rules/nock"
 import * as Dev from "@/domain/rules/dev-tickets"
 import { toast } from "sonner"
-import type { ClassMove, ParentRequest, DevTicket, DevTicketStatus, NockAnswer, NockQuestion, Role, SurveyCampaign, SurveyResponse, EnrollSubmission, ContactChannel, ContactResult, LossReason, Assessment, AttendanceStatus, Entitlement, Branch, BusAddOn, ClassBlock, CourseSummary, CreditNote, LessonBook, LessonTopic, Seat, ChatMessage, Conversation, Course, DateStr, Family, FormSubmission, Holiday, ID, Invoice, Klass, Lead, LeadStage, LessonSummary, LineDelivery, LogCategory, Result, Session, Staff, Student, SystemConfig } from "@/domain/types"
+import type { CalendarNoteKind, ClassMove, ParentRequest, DevTicket, DevTicketStatus, NockAnswer, NockQuestion, Role, SurveyCampaign, SurveyResponse, EnrollSubmission, ContactChannel, ContactResult, LossReason, Assessment, AttendanceStatus, Entitlement, Branch, BusAddOn, ClassBlock, CourseSummary, CreditNote, LessonBook, LessonTopic, Seat, ChatMessage, Conversation, Course, DateStr, Family, FormSubmission, Holiday, ID, Invoice, Klass, Lead, LeadStage, LessonSummary, LineDelivery, LogCategory, Result, Session, Staff, Student, SystemConfig } from "@/domain/types"
 
 export interface UIState {
   userId: ID
@@ -80,6 +81,10 @@ type Store = DB & UIState & {
   restoreStudent: (id: ID) => Result
   /** sessionId = written from a class on the calendar board — shows there and in the student's Note tab */
   addStudentNote: (studentId: ID, text: string, sessionId?: ID) => Result
+  /** Note Calendar (owner 2026-10-15): ถาวร = every session of the class · ชั่วคราว = this session; editable + deletable */
+  addCalendarNote: (sessionId: ID, studentId: ID, text: string, kind: CalendarNoteKind) => Result
+  editCalendarNote: (noteId: ID, sessionId: ID, text: string, kind: CalendarNoteKind) => Result
+  deleteCalendarNote: (noteId: ID, sessionId: ID) => Result
   saveStaff: (s: Staff) => Result<Staff>
   deactivateStaff: (id: ID, replacementId: ID | null) => Result<{ reassigned: number }>
   reactivateStaff: (id: ID) => Result
@@ -791,6 +796,49 @@ export const useStore = create<Store>()(
         if (!perm.ok) return perm
         set({ students: s.students.map((x) => (x.id === id ? { ...x, archived: undefined } : x)) })
         log("profile", [id], "กลับมาเรียน", "ยกเลิก Archive — เพิ่มเข้าคลาสใหม่ได้จากปฏิทิน/ใบแจ้งหนี้")
+        return OK
+      },
+
+      addCalendarNote: (sessionId, studentId, text, kind) => {
+        const s = get()
+        const se = s.sessions.find((x) => x.id === sessionId)
+        if (!se) return fail("ไม่พบคาบเรียน")
+        const me = s.me()
+        if (!can(me, "session.manage") && se.teacherId !== me.id && !se.coTeacherIds.includes(me.id)) return fail("เขียน Note ได้เฉพาะคาบที่คุณสอน")
+        const t = CN.cleanNote(text)
+        if (!t.ok) return t
+        const where = CN.noteTarget(se, kind)
+        if (!where.ok) return where
+        set({ calendarNotes: [...s.calendarNotes, { id: uid("cn"), studentId, kind, ...where.value, text: t.value, by: s.userId, at: s.now().toISOString() }] })
+        log("note", [studentId], `เพิ่ม Note ${CN.NOTE_KIND_LABEL[kind]}`, `${se.subject} ${fmtDate(se.date)} ${se.start} · ${t.value.slice(0, 80)}`)
+        return OK
+      },
+
+      editCalendarNote: (noteId, sessionId, text, kind) => {
+        const s = get()
+        const n = s.calendarNotes.find((x) => x.id === noteId)
+        const se = s.sessions.find((x) => x.id === sessionId)
+        if (!n || !se) return fail("ไม่พบ Note")
+        const me = s.me()
+        if (!can(me, "session.manage") && se.teacherId !== me.id && !se.coTeacherIds.includes(me.id) && n.by !== me.id) return fail("แก้ Note ได้เฉพาะคาบที่คุณสอน")
+        const t = CN.cleanNote(text)
+        if (!t.ok) return t
+        const where = kind === n.kind ? { ok: true as const, value: { sessionId: n.sessionId, classId: n.classId } } : CN.noteTarget(se, kind)
+        if (!where.ok) return where
+        set({ calendarNotes: s.calendarNotes.map((x) => (x.id === noteId ? { ...x, kind, ...where.value, text: t.value, editedBy: s.userId, editedAt: s.now().toISOString() } : x)) })
+        log("note", [n.studentId], "แก้ Note", `${CN.NOTE_KIND_LABEL[kind]} · ${t.value.slice(0, 80)}`)
+        return OK
+      },
+
+      deleteCalendarNote: (noteId, sessionId) => {
+        const s = get()
+        const n = s.calendarNotes.find((x) => x.id === noteId)
+        const se = s.sessions.find((x) => x.id === sessionId)
+        if (!n || !se) return fail("ไม่พบ Note")
+        const me = s.me()
+        if (!can(me, "session.manage") && se.teacherId !== me.id && !se.coTeacherIds.includes(me.id) && n.by !== me.id) return fail("ลบ Note ได้เฉพาะคาบที่คุณสอน")
+        set({ calendarNotes: s.calendarNotes.filter((x) => x.id !== noteId) })
+        log("note", [n.studentId], "ลบ Note", `${CN.NOTE_KIND_LABEL[n.kind]} · ${n.text.slice(0, 80)}`)
         return OK
       },
 
@@ -2746,7 +2794,7 @@ export const useStore = create<Store>()(
       // The parent app in LINE never writes staff data at all.
       storage: createJSONStorage(() => safeStorage),
       // bump when the data model changes; older saved data is replaced by fresh sample data
-      version: 88, // 88: demo exit notices all "sent" · 87: 3 open exit notices · 86: course history capped at 8 sessions (storage size) · 85: course-history check per course · 84: + running rounds · 83: finished courses with a Course Summary get their session history · 82: per-subject levels in Bundle sessions · 80–81: Bundle demo students sit in the combo class for 3 months (charts) · 79: 1–5 understanding on session summaries + Bundle notes per subject · 78: Dev statuses กำลังทำ / เสร็จแล้ว / ไม่ทำ / เก็บไว้ก่อน · 77: images on Nock + Dev tickets · 76: คำถามถึง Dev examples · 75: Developer role + เรื่องถึง Dev · 74: Nock answers per person + thumbs per answer · 73: Nock locations + knowledge = answered questions + votes · 72: Nock question bank + knowledge · 71: Summer Memo + Summer course + paid Summer invoice · 68–70: session summaries in every stage this week + sample Course Summaries (Single + Bundle) · 65–67: names without titles, parent relationship, phones without dashes, subject colours · 61: real branches (owner 2026-10-07) · 62: CB = ตึกน้ำ · 63: sample schools · 64: schools from the Ministry list
+      version: 89, // 89: Note Calendar (ถาวร / ชั่วคราว) replaces the free-text session notes · 88: demo exit notices all "sent" · 87: 3 open exit notices · 86: course history capped at 8 sessions (storage size) · 85: course-history check per course · 84: + running rounds · 83: finished courses with a Course Summary get their session history · 82: per-subject levels in Bundle sessions · 80–81: Bundle demo students sit in the combo class for 3 months (charts) · 79: 1–5 understanding on session summaries + Bundle notes per subject · 78: Dev statuses กำลังทำ / เสร็จแล้ว / ไม่ทำ / เก็บไว้ก่อน · 77: images on Nock + Dev tickets · 76: คำถามถึง Dev examples · 75: Developer role + เรื่องถึง Dev · 74: Nock answers per person + thumbs per answer · 73: Nock locations + knowledge = answered questions + votes · 72: Nock question bank + knowledge · 71: Summer Memo + Summer course + paid Summer invoice · 68–70: session summaries in every stage this week + sample Course Summaries (Single + Bundle) · 65–67: names without titles, parent relationship, phones without dashes, subject colours · 61: real branches (owner 2026-10-07) · 62: CB = ตึกน้ำ · 63: sample schools · 64: schools from the Ministry list
       migrate: (old) => ({ ...keepLineLinks(old as Partial<Store> | undefined, buildSeed()), userId: "u_nock", branchId: "br_thl", clockOffset: 0 }) as unknown as Store,
       // persist data + UI state only, never the action functions
       partialize: (s) => Object.fromEntries(Object.entries(s).filter(([, v]) => typeof v !== "function")) as Partial<Store>,

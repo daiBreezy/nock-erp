@@ -1,8 +1,8 @@
 "use client"
 
 import { staffAt } from "@/domain/rules/permissions"
-import { Fragment, useMemo, useState } from "react"
-import { AlertTriangleIcon, ArrowLeftRightIcon, BanIcon, CalendarIcon, EllipsisIcon, CheckIcon, ClipboardCheckIcon, FlaskConicalIcon, ListCollapseIcon, RotateCcwIcon, MessagesSquareIcon, PencilLineIcon, PlayIcon, PlusIcon, ShapesIcon, Settings2Icon, UserIcon, UsersIcon, UsersRoundIcon } from "lucide-react"
+import { Fragment, useMemo, useRef, useState } from "react"
+import { AlertTriangleIcon, ArrowLeftRightIcon, BanIcon, CalendarIcon, EllipsisIcon, CheckIcon, ClipboardCheckIcon, FlaskConicalIcon, ListCollapseIcon, RotateCcwIcon, MessagesSquareIcon, PencilLineIcon, PinIcon, PlayIcon, PlusIcon, Trash2Icon, ShapesIcon, Settings2Icon, UserIcon, UsersIcon, UsersRoundIcon } from "lucide-react"
 import type { ClassPrefill } from "@/components/app/class-dialog"
 import { ConflictResolver, liveConflicts } from "@/components/app/conflict-resolver"
 import { BlocksDialog } from "@/components/calendar/blocks-dialog"
@@ -17,7 +17,8 @@ import { NativeSelect } from "@/components/app/native-select"
 import { addDays, endTime, fmtDate, toDateStr, toMinutes, weekdayOf } from "@/domain/dates"
 import { blockFor, blocksOn, periodsOn, isHoliday, subjectsOf, workState, type WorkState, classCapacity } from "@/domain/rules/scheduling"
 import * as Seats from "@/domain/rules/seats"
-import type { Attendance, DateStr, Klass, Session, TimeStr } from "@/domain/types"
+import { calendarNotesFor, CALENDAR_NOTE_MAX, NOTE_KIND_LABEL } from "@/domain/rules/calendar-notes"
+import type { Attendance, CalendarNoteKind, DateStr, Klass, Session, TimeStr } from "@/domain/types"
 import { report } from "@/lib/feedback"
 import { toast } from "sonner"
 import { useBranch, useLookup, useNow } from "@/lib/hooks"
@@ -75,7 +76,6 @@ export function WeekTeacherBoard({ from, sessions, onOpen, onSlot, canCreate, da
   const allSessions = useStore((s) => s.sessions)
   const holidays = useStore((s) => s.holidays)
   const me = useStore((s) => s.userId)
-  const addNote = useStore((s) => s.addStudentNote)
   const undoLeave = useStore((s) => s.undoTeacherLeave)
   const now = useNow(60_000)
   const today = toDateStr(now)
@@ -182,7 +182,10 @@ export function WeekTeacherBoard({ from, sessions, onOpen, onSlot, canCreate, da
                     const n = live.filter((s) => s.date === date && (s.teacherId ?? "") === tid).length
                     // this teacher's leave on that day: covered by someone, or the day was cancelled
                     const away = allSessions.filter((x) => x.date === date && x.teacherLeave?.teacherId === tid)
-                    const canMenu = canCreate && !!tid && (n > 0 || away.length > 0) && date >= today
+                    // owner 2026-10-15: the ⋯ shows on every day — not only days that already have classes
+                    const canMenu = canCreate && !!tid
+                    const upcoming = date >= today
+                    const firstSlot = rows.find((r) => r.block)?.start ?? branch.hours[weekdayOf(date)]?.open
                     return (
                       <div key={tid || "none"} className="group/head relative flex items-center gap-3 border-b border-l bg-card px-4 py-3">
                         <span className={cn("grid size-11 shrink-0 place-items-center rounded-full text-base font-semibold", avatarTone(tid || "none"))}>{t ? initial(t.nickname) : "?"}</span>
@@ -205,7 +208,7 @@ export function WeekTeacherBoard({ from, sessions, onOpen, onSlot, canCreate, da
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end" className="w-64">
                               {/* owner 2026-10-12: take the day's leave back — the teacher teaches their classes again */}
-                              {away.length > 0 && (
+                              {away.length > 0 && upcoming && (
                                 <DropdownMenuItem onClick={() => {
                                   const results = away.map((x) => undoLeave(x.id))
                                   const failed = results.find((r) => !r.ok)
@@ -215,7 +218,7 @@ export function WeekTeacherBoard({ from, sessions, onOpen, onSlot, canCreate, da
                                   <RotateCcwIcon /><span className="flex flex-col"><span>ยกเลิกการลา (ทั้งวัน)</span><span className="text-xs text-muted-foreground">{L.teacher(tid).label}กลับมาสอน {away.length} คาบ</span></span>
                                 </DropdownMenuItem>
                               )}
-                              {n > 0 && <>
+                              {n > 0 && upcoming && <>
                               <DropdownMenuItem onClick={() => setDayAction({ mode: "substitute", teacherId: tid, date })}>
                                 <ArrowLeftRightIcon /><span className="flex flex-col"><span>เปลี่ยนครู (ทั้งวัน)</span><span className="text-xs text-muted-foreground">ทุกคาบของ{L.teacher(tid).label} วันนี้ {n} คาบ</span></span>
                               </DropdownMenuItem>
@@ -223,6 +226,13 @@ export function WeekTeacherBoard({ from, sessions, onOpen, onSlot, canCreate, da
                                 <BanIcon /><span className="flex flex-col"><span>ยกเลิกคลาส (ทั้งวัน)</span><span className="text-xs">กรณีฉุกเฉินที่หาครูแทนไม่ได้</span></span>
                               </DropdownMenuItem>
                               </>}
+                              {upcoming && !closed && !holiday && firstSlot && (
+                                <DropdownMenuItem onClick={() => onSlot({ date, start: firstSlot as TimeStr, teacherId: tid })}>
+                                  <PlusIcon /><span className="flex flex-col"><span>สร้างคลาสให้{L.teacher(tid).label}</span><span className="text-xs text-muted-foreground">{DAY_FULL[weekdayOf(date)]} {fmtDate(date)}</span></span>
+                                </DropdownMenuItem>
+                              )}
+                              {!upcoming && <DropdownMenuItem disabled><span className="flex flex-col"><span>วันที่ผ่านไปแล้ว</span><span className="text-xs text-muted-foreground">เปลี่ยนครู / ยกเลิกคลาสได้เฉพาะวันนี้เป็นต้นไป · แก้รายคาบได้ที่ Side Panel ของคาบ</span></span></DropdownMenuItem>}
+                              {upcoming && (closed || holiday) && n === 0 && <DropdownMenuItem disabled>{holiday ? "วันหยุด" : "สาขาปิด"} · ไม่มีคลาส</DropdownMenuItem>}
                             </DropdownMenuContent>
                           </DropdownMenu>
                         )}
@@ -269,7 +279,7 @@ export function WeekTeacherBoard({ from, sessions, onOpen, onSlot, canCreate, da
                                   state={workState(s, now, attendance, summaries).state}
                                   ended={sessionEnded(s)} dayDate={dayDate}
                                   canEdit={canCreate || s.teacherId === me || s.coTeacherIds.includes(me)}
-                                  onOpen={onOpen} onNote={(sid, text) => report(addNote(sid, text, s.id), "บันทึกโน้ตแล้ว")}
+                                  onOpen={onOpen}
                                   klass={classes.find((k) => k.id === s.classId)} attendance={attendance} allSessions={allSessions}
                                   canDrag={canCreate} onDropStudent={(from, studentId) => from !== s.id && setMoving({ from, studentId, to: s.id })} />
                                 </Fragment>
@@ -452,9 +462,9 @@ function RoomLine({ sessions, classes, live, clash, onResolve, inCell }: { sessi
 }
 
 /** One session inside a block — no card: just the subject line and the students, on the cell itself. */
-function SessionBlock({ s, row, state, ended, dayDate, canEdit, onOpen, onNote, klass, attendance, allSessions, canDrag, onDropStudent }: {
+function SessionBlock({ s, row, state, ended, dayDate, canEdit, onOpen, klass, attendance, allSessions, canDrag, onDropStudent }: {
   s: Session; row: Row; state: WorkState; ended: boolean; dayDate: (d: DateStr) => string; canEdit: boolean
-  onOpen: (id: string) => void; onNote: (studentId: string, text: string) => void
+  onOpen: (id: string) => void
   klass?: Klass; attendance: Attendance[]; allSessions: Session[]
   canDrag: boolean; onDropStudent: (fromSessionId: string, studentId: string) => void
 }) {
@@ -467,7 +477,10 @@ function SessionBlock({ s, row, state, ended, dayDate, canEdit, onOpen, onNote, 
   const branch = useBranch()
   const periodName = (id: string) => branch.specialPeriods.find((p) => p.id === id)?.name ?? "พิเศษ"
   const dot = unseenChange(s, me)
-  const allNotes = useStore((st) => st.notes)
+  const allNotes = useStore((st) => st.calendarNotes)
+  const addNote = useStore((st) => st.addCalendarNote)
+  const editNote = useStore((st) => st.editCalendarNote)
+  const deleteNote = useStore((st) => st.deleteCalendarNote)
   const now = useNow(60_000)
   return (
     <div className={cn("relative space-y-1.5 px-3 py-2", over && "bg-primary/5 ring-2 ring-primary/40 ring-inset")}
@@ -497,10 +510,14 @@ function SessionBlock({ s, row, state, ended, dayDate, canEdit, onOpen, onNote, 
         const result = a ? { text: MARK_TEXT[a.status], tone: MARK_TONE[a.status] } : ended && !s.trial ? { text: "ยังไม่เช็ค", tone: "text-amber-700" } : null
         return (
           <StudentLine key={sid} drag={canDrag && !ended && !a ? JSON.stringify({ from: s.id, studentId: sid }) : undefined} nickname={L.student(sid)?.nickname ?? "?"} grade={L.student(sid)?.grade ?? ""} avatarKey={sid}
-            notes={[...(s.notes?.[sid] ? [{ text: s.notes[sid] }] : []), ...allNotes.filter((n) => n.sessionId === s.id && n.studentId === sid).sort((a, b) => b.at.localeCompare(a.at)).map((n) => ({ text: n.text, when: noteWhen(n.at, now) }))]}
+            notes={calendarNotesFor(s, sid, allNotes).map((n) => ({ id: n.id, text: n.text, kind: n.kind, when: noteWhen(n.at, now) }))}
+            canPermanent={!!s.classId}
+            onAddNote={(text, kind) => report(addNote(s.id, sid, text, kind), `บันทึก Note ${NOTE_KIND_LABEL[kind]}แล้ว`)}
+            onEditNote={(id, text, kind) => report(editNote(id, s.id, text, kind), "แก้ Note แล้ว")}
+            onDeleteNote={(id) => report(deleteNote(id, s.id), "ลบ Note แล้ว")}
             time={Seats.isPartial(seat, s.minutes) ? Seats.seatTime(s.start, seat) : undefined}
             result={result} movedFrom={moved ? `ย้ายมาจาก ${dayDate(moved.date)}` : undefined} inverted={false}
-            onOpen={() => onOpen(s.id)} onNote={(text) => onNote(sid, text)} canEdit={canEdit} />
+            onOpen={() => onOpen(s.id)} canEdit={canEdit} />
         )
       })}
       {(s.rescheduledOut ?? []).map((m) => {
@@ -526,17 +543,21 @@ function noteWhen(at: string, now: Date) {
 }
 
 /**
- * nickname · + Note · own time · result · grade, then every note on its own line, newest first (owner 2026-10-12: more
- * than one note per student; each note also lands in the student's Note tab)
+ * nickname · + Note · own time · result · grade, then every note on its own line (owner 2026-10-12: more than one
+ * note per student). Owner 2026-10-15: these are Note Calendar — apart from the student's Note tab, editable and
+ * deletable, ถาวร (pinned, every session of the class) or ชั่วคราว (this session only).
  */
-function StudentLine({ drag, nickname, grade, avatarKey, notes, time, result, movedFrom, inverted, onOpen, onNote, canEdit }: {
-  drag?: string; nickname: string; grade: string; avatarKey: string; notes: { text: string; when?: string }[]; time?: string
+type LineNote = { id: string; text: string; kind: CalendarNoteKind; when?: string }
+function StudentLine({ drag, nickname, grade, avatarKey, notes, time, result, movedFrom, inverted, onOpen, canEdit, canPermanent, onAddNote, onEditNote, onDeleteNote }: {
+  drag?: string; nickname: string; grade: string; avatarKey: string; notes: LineNote[]; time?: string
   result: { text: string; tone: string } | null; movedFrom?: string; inverted: boolean
-  onOpen: () => void; onNote: (text: string) => void; canEdit: boolean
+  onOpen: () => void; canEdit: boolean; canPermanent: boolean
+  onAddNote: (text: string, kind: CalendarNoteKind) => void
+  onEditNote: (id: string, text: string, kind: CalendarNoteKind) => void
+  onDeleteNote: (id: string) => void
 }) {
-  const [editing, setEditing] = useState(false)
-  const [text, setText] = useState("")
-  const save = () => { setEditing(false); if (text.trim()) onNote(text); setText("") }
+  const [adding, setAdding] = useState(false)
+  const [editing, setEditing] = useState<string | null>(null)
   const muted = inverted ? "text-white/75" : "text-muted-foreground"
   return (
     <div className="group/line min-w-0">
@@ -544,12 +565,8 @@ function StudentLine({ drag, nickname, grade, avatarKey, notes, time, result, mo
         <span className={cn("grid size-6 shrink-0 place-items-center rounded-full text-[11px] font-semibold", avatarTone(avatarKey))}>{initial(nickname)}</span>
         <button type="button" onClick={onOpen} draggable={!!drag} onDragStart={(e) => { if (drag) { e.dataTransfer.setData("application/x-student", drag); e.dataTransfer.effectAllowed = "move" } }}
           title={drag ? "ลากไปวางที่คาบอื่นเพื่อย้าย" : undefined} className={cn("shrink-0 truncate text-left font-medium hover:underline", drag && "cursor-grab active:cursor-grabbing")}>{nickname}</button>
-        {editing ? (
-          <input autoFocus value={text} onChange={(e) => setText(e.target.value)} onBlur={save}
-            onKeyDown={(e) => { if (e.key === "Enter") save(); if (e.key === "Escape") { setText(""); setEditing(false) } }}
-            placeholder="Note เช่น MBook 1 (2-4)" className="h-6 min-w-0 flex-1 rounded-full border bg-background px-2 text-xs text-foreground outline-none focus:ring-2 focus:ring-ring/30" />
-        ) : canEdit ? (
-          <button type="button" onClick={() => setEditing(true)} className={cn("flex min-w-0 flex-1 items-center gap-1 truncate text-left text-xs italic opacity-0 group-hover/line:opacity-100", muted)}>
+        {canEdit && !adding ? (
+          <button type="button" onClick={() => setAdding(true)} className={cn("flex min-w-0 flex-1 items-center gap-1 truncate text-left text-xs italic opacity-0 group-hover/line:opacity-100 focus-visible:opacity-100", muted)}>
             <PlusIcon className="size-3 shrink-0" /><span className="truncate">Note</span>
           </button>
         ) : <span className="flex-1" />}
@@ -557,12 +574,61 @@ function StudentLine({ drag, nickname, grade, avatarKey, notes, time, result, mo
         {result && <span className={cn("shrink-0 text-[11px] font-semibold", inverted ? "text-white" : result.tone)}>{result.text}</span>}
         {grade && <span className={cn("shrink-0 rounded-full px-2 py-0.5 text-xs font-semibold", gradeTone(grade))}>{grade}</span>}
       </div>
-      {notes.map((n, i) => (
-        <p key={i} className={cn("truncate pl-8 text-xs", inverted ? "text-white/90" : "text-foreground/80")} title={n.text}>
-          {n.text}{n.when && <span className={cn("ml-1 tabular-nums", muted)}>({n.when})</span>}
-        </p>
+      {adding && <NoteEditor kind="temporary" canPermanent={canPermanent} onDone={(text, kind) => { setAdding(false); if (text) onAddNote(text, kind) }} />}
+      {notes.map((n) => editing === n.id ? (
+        <NoteEditor key={n.id} text={n.text} kind={n.kind} canPermanent={canPermanent || n.kind === "permanent"}
+          onDone={(text, kind) => { setEditing(null); if (text && (text !== n.text || kind !== n.kind)) onEditNote(n.id, text, kind) }} />
+      ) : (
+        <div key={n.id} className="group/note flex min-w-0 items-center gap-1 pl-8">
+          {n.kind === "permanent" && <PinIcon className={cn("size-3 shrink-0", inverted ? "text-white/80" : "text-primary")} aria-label="Note ถาวร" />}
+          <button type="button" disabled={!canEdit} onClick={() => setEditing(n.id)} title={`${n.text}\nNote ${NOTE_KIND_LABEL[n.kind]}${n.kind === "permanent" ? " — แสดงทุกคาบของคลาสนี้" : " — เฉพาะคาบนี้"}`}
+            className={cn("min-w-0 truncate text-left text-xs", inverted ? "text-white/90" : "text-foreground/80", canEdit && "hover:underline")}>
+            {n.text}{n.when && <span className={cn("ml-1 tabular-nums", muted)}>({n.when})</span>}
+          </button>
+          {canEdit && (
+            <DropdownMenu>
+              <DropdownMenuTrigger render={<button type="button" aria-label="จัดการ Note" className={cn("ml-auto grid size-5 shrink-0 place-items-center rounded-full opacity-0 group-hover/note:opacity-100 hover:bg-muted focus-visible:opacity-100 data-[popup-open]:opacity-100", muted)} />}>
+                <EllipsisIcon className="size-3.5" />
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-44">
+                <DropdownMenuItem onClick={() => setEditing(n.id)}><PencilLineIcon /> แก้ไข Note</DropdownMenuItem>
+                <DropdownMenuItem variant="destructive" onClick={() => onDeleteNote(n.id)}><Trash2Icon /> ลบ Note</DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )}
+        </div>
       ))}
       {movedFrom && <p className={cn("pl-8 text-[11px]", inverted ? "text-white/80" : "text-sky-700")}>↩ {movedFrom}</p>}
+    </div>
+  )
+}
+
+/** add / edit one Note Calendar: text + ชั่วคราว | ถาวร. Enter or leaving the box saves, Esc cancels. */
+function NoteEditor({ text: initialText = "", kind: initialKind, canPermanent, onDone }: {
+  text?: string; kind: CalendarNoteKind; canPermanent: boolean; onDone: (text: string, kind: CalendarNoteKind) => void
+}) {
+  const [text, setText] = useState(initialText)
+  const [kind, setKind] = useState<CalendarNoteKind>(initialKind)
+  const box = useRef<HTMLDivElement>(null)
+  const done = useRef(false)
+  const finish = (t: string) => { if (done.current) return; done.current = true; onDone(t.trim(), kind) }
+  const kinds: CalendarNoteKind[] = ["temporary", "permanent"]
+  return (
+    <div ref={box} className="mt-1 space-y-1 pl-8" onBlur={(e) => { if (!box.current?.contains(e.relatedTarget as Node)) finish(text) }}>
+      <input autoFocus value={text} maxLength={CALENDAR_NOTE_MAX} onChange={(e) => setText(e.target.value)}
+        onKeyDown={(e) => { if (e.key === "Enter") finish(text); if (e.key === "Escape") finish("") }}
+        placeholder="Note เช่น MBook 1 (2-4)" className="h-7 w-full min-w-0 rounded-full border bg-background px-2.5 text-xs text-foreground outline-none focus:ring-2 focus:ring-ring/30" />
+      <div className="flex items-center gap-1">
+        {kinds.map((k) => (
+          <button key={k} type="button" aria-pressed={kind === k} disabled={k === "permanent" && !canPermanent}
+            title={k === "permanent" ? (canPermanent ? "แสดงทุกคาบของคลาสนี้" : "คาบนี้ไม่ได้อยู่ในคลาสประจำ") : "แสดงเฉพาะคาบนี้"}
+            onClick={() => setKind(k)}
+            className={cn("flex h-6 items-center gap-1 rounded-full px-2 text-[11px] font-medium disabled:opacity-40", kind === k ? "bg-primary/10 text-primary ring-1 ring-primary/30" : "bg-muted text-muted-foreground hover:text-foreground")}>
+            {k === "permanent" && <PinIcon className="size-3" />}{NOTE_KIND_LABEL[k]}
+          </button>
+        ))}
+        <button type="button" onClick={() => finish(text)} aria-label="บันทึก Note" className="ml-auto grid size-6 place-items-center rounded-full bg-primary text-primary-foreground hover:bg-primary/90"><CheckIcon className="size-3.5" /></button>
+      </div>
     </div>
   )
 }

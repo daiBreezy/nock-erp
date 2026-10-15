@@ -69,6 +69,12 @@ export function busiestDay(sessions: Pick<Session, "date">[]): number {
   return Math.max(0, ...perDay.values())
 }
 export function workloadOf(sessions: Pick<Session, "date">[]): Workload {
-  const n = busiestDay(sessions)
-  return n === 0 ? "none" : n <= 2 ? "healthy" : n <= 4 ? "warning" : "load"
+  return dayLevel(busiestDay(sessions))
 }
+
+/** sessions per day Mon…Sun of the week starting `monday` (owner 2026-10-15: Workload in Reports) */
+export function dayCounts(sessions: Pick<Session, "date">[], monday: DateStr): number[] {
+  return Array.from({ length: 7 }, (_, i) => sessions.filter((s) => s.date === addDays(monday, i)).length)
+}
+/** the level of one day's count — the same thresholds as `workloadOf` */
+export const dayLevel = (n: number): Workload => (n === 0 ? "none" : n <= 2 ? "healthy" : n <= 4 ? "warning" : "load")

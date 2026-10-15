@@ -8,6 +8,7 @@ import {
   AlertTriangleIcon, BanIcon, CalendarClockIcon, CheckIcon, ChevronLeftIcon, ChevronRightIcon, ClockIcon, EllipsisVerticalIcon, FlameIcon,
   GraduationCapIcon, LogOutIcon, PencilIcon, SendIcon, StarIcon, Trash2Icon, UserMinusIcon, UserPlusIcon, UsersRoundIcon, XIcon,
   RotateCcwIcon,
+  PinIcon, StickyNoteIcon,
 } from "lucide-react"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
@@ -22,6 +23,7 @@ import { LongLeaveFields } from "@/components/app/leave-dialog"
 import { addDays, endTime, fmtDate, fmtDateTime, fromMinutes, TH_DAYS_FULL, toMinutes } from "@/domain/dates"
 import * as Att from "@/domain/rules/attendance"
 import * as Seats from "@/domain/rules/seats"
+import { calendarNotesFor, NOTE_KIND_LABEL } from "@/domain/rules/calendar-notes"
 import { shortCourse } from "@/domain/rules/course"
 import * as Les from "@/domain/rules/lessons"
 import type { SummaryLesson } from "@/store/store"
@@ -296,7 +298,8 @@ function StudentRow({ s, sid, viewOnly, canManage, mine, text, setText, selectab
   const ent = Att.coveringEntitlement(sid, s, entitlements)
   const asm = assessmentIn(s.id, sid, assessments)
   const onLongLeave = Att.activeLeave(sid, s.date, leaves)
-  const sessionNotes = useStore((st) => st.notes).filter((n) => n.sessionId === s.id && n.studentId === sid).sort((x, y) => y.at.localeCompare(x.at))
+  // owner 2026-10-15: Note Calendar (ถาวร / ชั่วคราว) — written and edited on the calendar board
+  const sessionNotes = calendarNotesFor(s, sid, useStore((st) => st.calendarNotes))
   const canMarkHere = can(me, "attendance.mark") && (canManage || mine)
   const byId = new Map(allSessions.map((x) => [x.id, x]))
   // first class ever for this student → "ใหม่"
@@ -365,9 +368,7 @@ function StudentRow({ s, sid, viewOnly, canManage, mine, text, setText, selectab
                 </span>
               })()}
           </p>
-          {s.notes?.[sid] && <p className="truncate text-xs text-foreground/80" title={s.notes[sid]}>📝 {s.notes[sid]}</p>}
-          {/* notes written on this class from the calendar board (owner 2026-10-12) */}
-          {sessionNotes.map((n) => <p key={n.id} className="truncate text-xs text-foreground/80" title={n.text}>📝 {n.text}</p>)}
+          {sessionNotes.map((n) => <p key={n.id} className="flex items-center gap-1 truncate text-xs text-foreground/80" title={`Note ${NOTE_KIND_LABEL[n.kind]} · ${n.text}`}>{n.kind === "permanent" ? <PinIcon className="size-3 shrink-0 text-primary" /> : <StickyNoteIcon className="size-3 shrink-0 text-muted-foreground" />}<span className="truncate">{n.text}</span></p>)}
         </div>
         {/* มา · ลา (หักโควตา / ไม่หักโควตา) · ย้ายวัน — no "ขาด" (owner 2026-09-30) */}
         <span className="flex shrink-0 overflow-hidden rounded-full border">

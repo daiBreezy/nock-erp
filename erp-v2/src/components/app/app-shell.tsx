@@ -77,7 +77,8 @@ function Shell({ children }: { children: ReactNode }) {
   const pathname = usePathname()
   const me = useStore((s) => s.me())
   const branch = useBranch()
-  const nockOn = useStore((s) => s.system.aiHelper !== false)
+  // owner 2026-10-15: off for everyone (Settings › System) or for this branch (Settings › branch)
+  const nockOn = useStore((s) => s.system.aiHelper !== false) && branch.aiHelper !== false
   const current = navFor(pathname)
   const currentGroup = current && NAV.find((g) => g.items.includes(current))?.group
   const allowed = !current || canAny(me, current.perm)

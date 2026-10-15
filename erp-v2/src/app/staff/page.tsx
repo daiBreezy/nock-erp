@@ -1,11 +1,11 @@
 "use client"
 
 import { useState } from "react"
-import { CalendarDaysIcon, CircleCheckIcon, ClockIcon, FlameIcon, TriangleAlertIcon, GraduationCapIcon, PlusIcon, SearchIcon, UsersIcon } from "lucide-react"
+import { CalendarDaysIcon, ClockIcon, GraduationCapIcon, PlusIcon, SearchIcon, UsersIcon } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import { Page, PageHeader, KpiRow, Toolbar } from "@/components/app/page-layout"
 import { Kpi } from "@/components/app/kpi"
-import { Pill, ROLE_TONE } from "@/components/app/badges"
+import { ROLE_TONE } from "@/components/app/badges"
 import { useSort } from "@/components/app/data-table"
 import { ColumnsMenu, DataTable, type Column } from "@/components/app/data-grid"
 import { subjectColor } from "@/components/app/subject-color"
@@ -16,7 +16,7 @@ import { BranchCode, useBranchScope } from "@/components/app/branch-scope"
 import { addDays, toDateStr } from "@/domain/dates"
 import { can, rolesAt, ROLE_LABEL, staffInBranch, subjectsAt } from "@/domain/rules/permissions"
 import { teachersOf } from "@/domain/rules/scheduling"
-import { busiestDay, workloadOf, type Workload } from "@/domain/rules/staff-overview"
+import { WorkloadIcon, WorkloadInfo } from "@/components/staff/workload"
 import type { ID, Staff } from "@/domain/types"
 import { EditCell } from "@/components/app/inline-edit"
 import { report } from "@/lib/feedback"
@@ -36,6 +36,7 @@ export default function StaffPage() {
   const today = toDateStr(useNow())
   const [open, setOpen] = useState<ID | "new" | null>(null)
   const manage = can(me, "staff.manage")
+  const seeWorkload = can(me, "reports.view")
   const saveStaff = useStore((s) => s.saveStaff)
   const edit = (st: Staff, patch: Partial<Staff>) => report(saveStaff({ ...st, ...patch }), "บันทึกแล้ว")
   const { sort, toggle } = useSort<StaffSort>("nickname")
@@ -89,7 +90,7 @@ export default function StaffPage() {
         options={[{ value: "full", label: "Full-time" }, { value: "part", label: "Part-time" }]} onSave={(v) => edit(x.s, { partTime: v === "part" })} />
     ) },
     { id: "role", label: scope.multi ? "ตำแหน่ง" : "ตำแหน่ง (สาขานี้)", width: "150px", sort: "role", cell: (x) => (
-      <div className="flex gap-1">{x.roles.map((r) => <span key={r} className={cn(CHIP, ROLE_TONE[r])}>{ROLE_LABEL[r]}</span>)}{!x.s.active && <Pill>ปิดบัญชีแล้ว</Pill>}</div>
+      <div className="flex gap-1">{x.roles.map((r) => <span key={r} className={cn(CHIP, ROLE_TONE[r])}>{ROLE_LABEL[r]}</span>)}</div>
     ) },
     { id: "subjects", label: "วิชาที่สอน", width: "150px", cell: (x) => (
       <div className="flex gap-1">{x.subjects.length ? x.subjects.map((v) => <span key={v} className={cn(CHIP, subjectColor(v).chip)}>{v}</span>) : <span className="text-muted-foreground">—</span>}</div>
@@ -101,12 +102,10 @@ export default function StaffPage() {
     { id: "week", label: "คาบ / สัปดาห์", width: "120px", sort: "week", align: "right", className: "tabular-nums text-muted-foreground", cell: (x) => (
       x.roles.includes("teacher") ? <span title="คาบที่สอน จ.–อา. สัปดาห์นี้ ที่สาขานี้">{x.week.length} <span className="text-xs">({Math.round(x.week.reduce((m, w) => m + w.minutes, 0) / 6) / 10}hr.)</span></span> : "—"
     ) },
-    // owner 2026-10-15: workload as one status icon — busiest day this week: 1–2 healthy · 3–4 warning · 5+ load
-    { id: "workload", label: "Workload", width: "90px", align: "right", cell: (x) => {
-      if (!x.roles.includes("teacher")) return <span className="text-muted-foreground">—</span>
-      const k = workloadOf(x.week), w = WORKLOAD[k]
-      return <span title={k === "none" ? w.label : `${w.label} · วันที่สอนมากสุด ${busiestDay(x.week)} คาบ`} className="inline-flex justify-end"><w.icon className={cn("size-4", w.className)} aria-label={w.label} /></span>
-    } },
+    // owner 2026-10-15: workload as one status icon — busiest day this week: 1–2 healthy · 3–4 warning · 5+ load;
+    // Manager and up only (Admin / Teacher don't see it)
+    ...(seeWorkload ? [{ id: "workload", label: "Workload", width: "90px", align: "right" as const, info: <WorkloadInfo />,
+      cell: (x: Row) => x.roles.includes("teacher") ? <WorkloadIcon sessions={x.week} /> : <span className="text-muted-foreground">—</span> }] : []),
   ]
 
   return (
@@ -131,13 +130,6 @@ export default function StaffPage() {
       <StaffPanel key={String(open)} target={open} onClose={() => setOpen(null)} />
     </Page>
   )
-}
-
-const WORKLOAD: Record<Workload, { label: string; icon: typeof FlameIcon; className: string }> = {
-  none: { label: "ยังไม่มีคาบ", icon: CircleCheckIcon, className: "text-muted-foreground/40" },
-  healthy: { label: "Healthy", icon: CircleCheckIcon, className: "text-emerald-600" },
-  warning: { label: "Warning", icon: TriangleAlertIcon, className: "text-amber-500" },
-  load: { label: "Load!", icon: FlameIcon, className: "text-red-600" },
 }
 
 const CHIP = "inline-flex shrink-0 items-center rounded-full px-2 py-0.5 text-xs font-medium whitespace-nowrap"

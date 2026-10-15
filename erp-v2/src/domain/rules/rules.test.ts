@@ -2155,7 +2155,8 @@ describe("Area Manager picks branches, Director / Super Admin see all (owner 202
   })
 })
 
-import { studentsOfTeacher, teacherWeek, workloadOf } from "./staff-overview"
+import { dayCounts, studentsOfTeacher, teacherWeek, workloadOf } from "./staff-overview"
+import { calendarNotesFor, cleanNote, noteTarget } from "./calendar-notes"
 
 describe("staff overview — one teacher's week (owner 2026-10-09)", () => {
   const ses = (id: string, date: string, over: Partial<Session> = {}): Session => ({ id, branchId: "b1", classId: null, subject: "คณิต", date, start: "10:00", minutes: 90, teacherId: "t1", coTeacherIds: [], roomId: null, studentIds: ["a", "b"], trial: false, customized: false, cancelled: false, ...over })
@@ -2434,5 +2435,28 @@ describe("teacher workload (owner 2026-10-15)", () => {
     expect(workloadOf([...day("2026-10-12", 1), ...day("2026-10-13", 3)])).toBe("warning")
     expect(workloadOf(day("2026-10-14", 4))).toBe("warning")
     expect(workloadOf(day("2026-10-14", 5))).toBe("load")
+  })
+})
+
+describe("Note Calendar (owner 2026-10-15)", () => {
+  const n = (id: string, kind: "permanent" | "temporary", where: { sessionId?: string; classId?: string }, at = "2026-10-15T09:00:00Z") =>
+    ({ id, studentId: "stu_1", kind, ...where, text: id, by: "u_dai", at })
+  const notes = [n("t1", "temporary", { sessionId: "se_1" }), n("p1", "permanent", { classId: "cl_1" }, "2026-10-01T00:00:00Z"), n("t2", "temporary", { sessionId: "se_2" })]
+  it("ถาวร shows in every session of the class, ชั่วคราว only in its own — permanent first", () => {
+    expect(calendarNotesFor({ id: "se_1", classId: "cl_1" }, "stu_1", notes).map((x) => x.id)).toEqual(["p1", "t1"])
+    expect(calendarNotesFor({ id: "se_2", classId: "cl_1" }, "stu_1", notes).map((x) => x.id)).toEqual(["p1", "t2"])
+    expect(calendarNotesFor({ id: "se_9", classId: null }, "stu_1", notes)).toEqual([])
+    expect(calendarNotesFor({ id: "se_1", classId: "cl_1" }, "stu_2", notes)).toEqual([])
+  })
+  it("a permanent note needs a regular class; empty text is refused", () => {
+    expect(noteTarget({ id: "se_9", classId: null }, "permanent").ok).toBe(false)
+    expect(noteTarget({ id: "se_1", classId: "cl_1" }, "permanent")).toEqual({ ok: true, value: { classId: "cl_1", sessionId: undefined } })
+    expect(cleanNote("   ").ok).toBe(false)
+  })
+})
+
+describe("workload per day for Reports (owner 2026-10-15)", () => {
+  it("counts Mon…Sun", () => {
+    expect(dayCounts([{ date: "2026-10-12" }, { date: "2026-10-12" }, { date: "2026-10-18" }, { date: "2026-10-19" }], "2026-10-12")).toEqual([2, 0, 0, 0, 0, 0, 1])
   })
 })
