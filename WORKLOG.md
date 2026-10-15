@@ -27,6 +27,9 @@
 - เห็นเฉพาะ **Director** · หน้าบุคลากรมีคอลัมน์ **Class / Month** (คลาสไม่นับซ้ำ, คาบเดี่ยว = 1) และ **Student / Month** (นักเรียนไม่นับซ้ำ) — กดหัวคอลัมน์ = เรียงมาก→น้อย (`monthLoad` ใน `staff-overview.ts`)
 - **ไม่มีเกณฑ์ เยอะ/น้อย** (เอา Healthy/Warning/Load! ออก) · **เอา Workload ออกจาก Reports** — เจ้าของ: เทียบครูบนหน้า Report อันตราย
 
+### Inbox (2026-10-15)
+- **ชิดขอบเต็มจอ:** เอา margin ทั้ง 4 ด้านออก — `main` ไม่มี padding เฉพาะ `/inbox` (`app-shell.tsx`) · รายการแชท + ห้องแชทเต็มพื้นที่ใต้แถบบน ไม่มีกรอบการ์ดมุมโค้ง
+
 ### LINE (2026-10-15)
 - **LINE ไม่ต้องตั้งใหม่อีก:** `npm run line` (`erp-v2/scripts/line-up.mjs`) เปิด tunnel → ตั้ง Webhook (+ทดสอบ) → ตั้ง LIFF Endpoint (ต้องมี `LINE_LOGIN_CHANNEL_SECRET` ใน .env.local) → เก็บ URL ที่ `.data/public-url.json` → tunnel หลุดเปิดใหม่+ตั้งใหม่เอง · `LINE_PUBLIC_URL` = โดเมนคงที่ (ngrok static) ถ้ามี
 - **ความปลอดภัย tunnel:** `src/proxy.ts` — เข้าผ่าน tunnel ได้แค่ /liff, webhook, API ฝั่งผู้ปกครอง, รูปที่ส่งให้ผู้ปกครอง · หน้า staff/Inbox/Settings/API ส่งข้อความ = 404 (localhost + Wi-Fi ออฟฟิศใช้ได้ปกติ)
