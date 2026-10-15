@@ -2,11 +2,12 @@
 
 import { staffAt } from "@/domain/rules/permissions"
 import { Fragment, useMemo, useRef, useState } from "react"
-import { AlertTriangleIcon, CalendarOffIcon, CircleCheckIcon, CircleDashedIcon, CircleXIcon, ArrowLeftRightIcon, BanIcon, EllipsisIcon, CheckIcon, ClipboardCheckIcon, FlaskConicalIcon, RotateCcwIcon, MessagesSquareIcon, PencilLineIcon, PinIcon, PlusIcon, Trash2Icon, ShapesIcon, UserIcon, UsersIcon } from "lucide-react"
+import { AlertTriangleIcon, Clock3Icon, CalendarOffIcon, CircleCheckIcon, CircleDashedIcon, CircleXIcon, ArrowLeftRightIcon, BanIcon, EllipsisIcon, CheckIcon, ClipboardCheckIcon, FlaskConicalIcon, RotateCcwIcon, MessagesSquareIcon, PencilLineIcon, PinIcon, PlusIcon, Trash2Icon, ShapesIcon, UserIcon, UsersIcon } from "lucide-react"
 import type { ClassPrefill } from "@/components/app/class-dialog"
 import { ConflictResolver, liveConflicts } from "@/components/app/conflict-resolver"
 import { avatarTone, gradeTone, initial, subjectColor } from "@/components/app/subject-color"
 import { Badge } from "@/components/ui/badge"
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
@@ -553,7 +554,15 @@ function StudentLine({ drag, nickname, grade, avatarKey, notes, time, result, mo
             <PlusIcon className="size-3 shrink-0" /><span className="truncate">Note</span>
           </button>
         ) : <span className="flex-1" />}
-        {time && <span className={cn("shrink-0 text-[11px] tabular-nums", inverted ? "text-white" : "text-violet-700 dark:text-violet-300")}>{time}</span>}
+        {/* owner 2026-10-15: part of the class only — an icon here, the hours on hover (and in the panel) */}
+        {time && (
+          <Tooltip>
+            <TooltipTrigger render={<span tabIndex={0} aria-label={`เรียนเฉพาะ ${time}`} className="inline-flex shrink-0 rounded-full focus-visible:ring-2 focus-visible:ring-ring/40 focus-visible:outline-none" />}>
+              <Clock3Icon className={cn("size-4", inverted ? "text-white" : "text-violet-600 dark:text-violet-300")} />
+            </TooltipTrigger>
+            <TooltipContent>{`เรียนเฉพาะช่วง ${time}`}</TooltipContent>
+          </Tooltip>
+        )}
         {result && <span title={result.text} className="inline-flex shrink-0"><result.icon className={cn("size-4", inverted ? "text-white" : result.tone)} aria-label={result.text} /></span>}
         {grade && <span className={cn("shrink-0 rounded-full px-2 py-0.5 text-xs font-semibold", gradeTone(grade))}>{grade}</span>}
       </div>
