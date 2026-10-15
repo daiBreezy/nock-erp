@@ -371,8 +371,6 @@ function StudentRow({ s, sid, viewOnly, canManage, mine, text, setText, selectab
                 {Seats.seatLabel(seat, s.minutes)}
               </button>
             )}
-            {/* name on the left, grade on the right (owner 2026-09-30) */}
-            <span className={cn("ml-auto shrink-0 rounded-full px-2 py-0.5 text-xs font-semibold", gradeTone(stu?.grade ?? ""))}>{stu?.grade}</span>
           </span>
           <p className="truncate text-xs text-muted-foreground">
             {asm ? `${FORM_TYPE_LABEL[asm.type]} (ไม่ใช้แพ็กเกจ)`
@@ -387,6 +385,8 @@ function StudentRow({ s, sid, viewOnly, canManage, mine, text, setText, selectab
           </p>
           {sessionNotes.map((n) => <p key={n.id} className="flex items-center gap-1 truncate text-xs text-foreground/80" title={`Note ${NOTE_KIND_LABEL[n.kind]} · ${n.text}`}>{n.kind === "permanent" ? <PinIcon className="size-3 shrink-0 text-primary" /> : <StickyNoteIcon className="size-3 shrink-0 text-muted-foreground" />}<span className="truncate">{n.text}</span></p>)}
         </div>
+        {/* grade on the right of the text, centred on the row (owner 2026-09-30 · centred 2026-10-15) */}
+        <span className={cn("shrink-0 self-center rounded-full px-2 py-0.5 text-xs font-semibold", gradeTone(stu?.grade ?? ""))}>{stu?.grade}</span>
         {/* มา · ลา (หักโควตา / ไม่หักโควตา) · ย้ายวัน — no "ขาด" (owner 2026-09-30) */}
         <span className="flex shrink-0 overflow-hidden rounded-full border">
           <button type="button" data-on={a?.status === "present"} disabled={!canMarkHere || !Att.canMark(s, "present", now).ok} onClick={() => markAs("present")}
