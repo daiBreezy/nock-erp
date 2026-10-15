@@ -3,7 +3,7 @@
 import { staffAt } from "@/domain/rules/permissions"
 import { PeriodBanner } from "@/components/app/period-banner"
 import { RangeStepper, PageHeader, Toolbar, Segmented } from "@/components/app/page-layout"
-import { Suspense, useMemo, useState } from "react"
+import { createContext, Suspense, useContext, useLayoutEffect, useMemo, useRef, useState } from "react"
 import { useSearchParams } from "next/navigation"
 import { AlertTriangleIcon, ClipboardListIcon, ListCollapseIcon, PalmtreeIcon, PlusIcon, Settings2Icon } from "lucide-react"
 import { BlocksDialog } from "@/components/calendar/blocks-dialog"
@@ -35,6 +35,20 @@ import { removedWithClass } from "@/domain/rules/scheduling"
  *  the original single-day board (lanes by teacher/room, drag & drop) — owner 2026-09-30 */
 type View = "week" | "board" | "month" | "list"
 const HOUR_PX = 56
+/** owner 2026-10-15: the week grid stretches its hours to fill the screen — no empty space under the calendar */
+const HourPx = createContext(HOUR_PX)
+/** the height left between this element's top and the bottom of the window (minus the page's bottom padding) */
+function useFillHeight<T extends HTMLElement>() {
+  const ref = useRef<T>(null)
+  const [h, setH] = useState<number | null>(null)
+  useLayoutEffect(() => {
+    const fit = () => { if (ref.current) setH(Math.max(0, window.innerHeight - (ref.current.getBoundingClientRect().top + window.scrollY) - 24)) }
+    fit()
+    window.addEventListener("resize", fit)
+    return () => window.removeEventListener("resize", fit)
+  }, [])
+  return [ref, h] as const
+}
 const DAY_START = 8 * 60
 const DAY_END = 21 * 60
 
@@ -334,6 +348,7 @@ function layout(list: Session[]) {
 }
 
 function TimeGutter() {
+  const HOUR_PX = useContext(HourPx)
   return (
     <div className="relative w-12 shrink-0" style={{ height: ((DAY_END - DAY_START) / 60) * HOUR_PX }}>
       {Array.from({ length: (DAY_END - DAY_START) / 60 }, (_, i) => (
@@ -352,6 +367,7 @@ function Column({ date, sessions, ctx, onSlot, maxCols = 3, onMore }: { date: Da
   const hours = branch.hours[weekdayOf(date)]
   const holiday = isHoliday(date, branch.id, holidays)
   const pos = layout(sessions)
+  const HOUR_PX = useContext(HourPx)
   const height = ((DAY_END - DAY_START) / 60) * HOUR_PX
   const past = date < toDateStr(ctx.now)
   return (
@@ -421,8 +437,12 @@ function WeekView({ from, sessions, onDay, today, ...ctx }: CardCtx & { from: Da
   const all = Array.from({ length: 7 }, (_, i) => addDays(from, i))
   const busy = all.filter((d) => sessions.some((s) => s.date === d && !s.cancelled))
   const days = hideEmpty && busy.length ? busy : all
+  const [box, fill] = useFillHeight<HTMLDivElement>()
+  // header row ≈ 33 px + 8 px top padding; hours never shrink below the normal size
+  const hourPx = fill ? Math.max(HOUR_PX, (fill - 41) / ((DAY_END - DAY_START) / 60)) : HOUR_PX
   return (
-    <div className="overflow-x-auto rounded-3xl bg-card shadow-sm ring-1 ring-foreground/5">
+    <HourPx.Provider value={hourPx}>
+    <div ref={box} className="overflow-x-auto rounded-3xl bg-card shadow-sm ring-1 ring-foreground/5">
       <div className="flex min-w-[760px] border-b text-xs">
         <div className="grid w-12 shrink-0 place-items-center">
           <Tooltip>
@@ -445,6 +465,7 @@ function WeekView({ from, sessions, onDay, today, ...ctx }: CardCtx & { from: Da
         {days.map((d) => <Column key={d} date={d} sessions={sessions.filter((s) => s.date === d)} ctx={ctx} maxCols={2} onMore={() => onDay(d)} />)}
       </div>
     </div>
+    </HourPx.Provider>
   )
 }
 
@@ -452,18 +473,20 @@ function MonthView({ from, month, sessions, onDay, today, conflictIds }: { from:
   const branch = useBranch()
   const holidays = useStore((s) => s.holidays)
   const days = Array.from({ length: 42 }, (_, i) => addDays(from, i))
+  // owner 2026-10-15: the month fills the screen — six equal rows, no empty space underneath
+  const [box, fill] = useFillHeight<HTMLDivElement>()
   return (
-    <div className="overflow-hidden rounded-3xl bg-card shadow-sm ring-1 ring-foreground/5">
+    <div ref={box} className="flex flex-col overflow-hidden rounded-3xl bg-card shadow-sm ring-1 ring-foreground/5" style={fill ? { minHeight: fill } : undefined}>
       <div className="grid grid-cols-7 border-b text-center text-xs text-muted-foreground">
         {[1, 2, 3, 4, 5, 6, 0].map((w) => <div key={w} className="py-2">{dayShort(w as 0)}</div>)}
       </div>
-      <div className="grid grid-cols-7">
+      <div className="grid flex-1 auto-rows-fr grid-cols-7">
         {days.map((d) => {
           const list = sessions.filter((s) => s.date === d && !s.cancelled).sort((a, b) => a.start.localeCompare(b.start))
           const hol = isHoliday(d, branch.id, holidays)
           const conflict = list.some((s) => conflictIds.has(s.id))
           return (
-            <button key={d} onClick={() => onDay(d)} className={cn("min-h-24 border-t border-l p-1.5 text-left align-top hover:bg-muted/60", d.slice(0, 7) !== month && "bg-muted/30 text-muted-foreground", hol && "bg-amber-50 dark:bg-amber-950/30")}>
+            <button key={d} onClick={() => onDay(d)} className={cn("flex min-h-24 flex-col justify-start border-t border-l p-1.5 text-left hover:bg-muted/60", d.slice(0, 7) !== month && "bg-muted/30 text-muted-foreground", hol && "bg-amber-50 dark:bg-amber-950/30")}>
               <div className="flex items-center gap-1 text-xs">
                 <span className={cn("grid size-5 place-items-center rounded-full", d === today && "bg-primary text-primary-foreground")}>{parseDate(d).getDate()}</span>
                 {conflict && <span className="size-2 rounded-full bg-red-500" title="มีคาบชนกัน" />}
@@ -488,29 +511,41 @@ function ListView({ from, to, sessions, ...ctx }: CardCtx & { from: DateStr; to:
   const dates: DateStr[] = []
   for (let d = from; d <= to; d = addDays(d, 1)) if (sessions.some((s) => s.date === d)) dates.push(d)
   if (!dates.length) return <p className="rounded-xl border border-dashed p-10 text-center text-sm text-muted-foreground">ไม่มีคาบเรียนในช่วงนี้</p>
+  // owner 2026-10-15: one table — the same columns for every day, a day line between them, status on the right
+  const COLS = "grid grid-cols-[7rem_minmax(0,1fr)_8rem_6rem_4.5rem_8rem] items-center gap-3 px-4"
   return (
-    <div className="space-y-4">
-      {dates.map((d) => (
-        <div key={d}>
-          <h3 className="mb-1 text-sm font-semibold">{fmtDate(d, { weekday: true, year: true })}</h3>
-          <div className="divide-y rounded-3xl bg-card shadow-sm ring-1 ring-foreground/5">
+    <div className="overflow-x-auto rounded-3xl bg-card shadow-sm ring-1 ring-foreground/5">
+      <div className="min-w-[760px]">
+        <div className={cn(COLS, "border-b py-2.5 text-xs font-medium text-muted-foreground")}>
+          <span>เวลา</span><span>คลาส</span><span>ครู</span><span>ห้อง</span><span className="text-right">นักเรียน</span><span className="text-right">สถานะ</span>
+        </div>
+        {dates.map((d) => (
+          <div key={d}>
+            <div className="border-b bg-muted/40 px-4 py-1.5 text-xs font-semibold">{fmtDate(d, { weekday: true, year: true })}</div>
             {sessions.filter((s) => s.date === d).sort((a, b) => a.start.localeCompare(b.start)).map((s) => {
               const t = L.teacher(s.teacherId)
+              const kind = sessionKindLabel(s)
               return (
-                <button key={s.id} onClick={() => ctx.onOpen(s.id)} data-focus={[ctx.conflictIds.has(s.id) && "conflict", t.missing && "no_teacher", s.teacherLeave && "teacher_leave"].filter(Boolean).join(" ") || undefined} className="flex w-full flex-wrap items-center gap-3 px-3 py-2 text-left text-sm hover:bg-muted/50">
-                  <span className="w-24 tabular-nums text-muted-foreground">{s.start}–{endTime(s.start, s.minutes)}</span>
-                  <span className="min-w-40 flex-1 font-medium">{ctx.classes.find((c) => c.id === s.classId)?.name ?? s.subject}{sessionKindLabel(s) && <Pill tone="violet" className="ml-2">{sessionKindLabel(s)}</Pill>}</span>
-                  <span className={cn("w-28 truncate", t.missing && "text-amber-700")}>{t.label}</span>
-                  <span className="w-24 truncate text-muted-foreground">{L.room(s.roomId)}</span>
-                  <span className="w-14 text-muted-foreground">{s.studentIds.length} คน</span>
-                  {ctx.conflictIds.has(s.id) && <Pill tone="red">ชนกัน</Pill>}
-                  <SessionStateBadge state={sessionState(s, ctx.now)} />
+                <button key={s.id} type="button" onClick={() => ctx.onOpen(s.id)}
+                  data-focus={[ctx.conflictIds.has(s.id) && "conflict", t.missing && "no_teacher", s.teacherLeave && "teacher_leave"].filter(Boolean).join(" ") || undefined}
+                  className={cn(COLS, "w-full border-b py-2 text-left text-sm last:border-b-0 hover:bg-muted/50")}>
+                  <span className="tabular-nums text-muted-foreground">{s.start}–{endTime(s.start, s.minutes)}</span>
+                  <span className="flex min-w-0 items-center gap-2">
+                    <span className={cn("size-2 shrink-0 rounded-full", subjectColor(s.subject).bar)} />
+                    <span className="truncate font-medium">{ctx.classes.find((c) => c.id === s.classId)?.name ?? s.subject}</span>
+                    {kind && <Pill tone="violet" className="shrink-0">{kind}</Pill>}
+                    {ctx.conflictIds.has(s.id) && <Pill tone="red" className="shrink-0">ชนกัน</Pill>}
+                  </span>
+                  <span className={cn("truncate", t.missing && "text-amber-700")}>{t.label}</span>
+                  <span className="truncate text-muted-foreground">{L.room(s.roomId)}</span>
+                  <span className="text-right tabular-nums text-muted-foreground">{s.studentIds.length}</span>
+                  <span className="flex justify-end"><SessionStateBadge state={sessionState(s, ctx.now)} /></span>
                 </button>
               )
             })}
           </div>
-        </div>
-      ))}
+        ))}
+      </div>
     </div>
   )
 }
