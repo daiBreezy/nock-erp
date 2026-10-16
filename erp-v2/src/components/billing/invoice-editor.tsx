@@ -61,7 +61,8 @@ export function InvoiceEditor({ invoice, defaultStudentId, renewEntitlementId, o
       : renewFrom ? [{ id: uid("ln"), courseId: renewFrom.courseId, classIds: renewFrom.classIds, startDate: renewStart(renewFrom), periodsText: "1", overlapRemark: "" }]
         : [])
   const [bus, setBus] = useState<BusLeg[]>(invoice?.bus ?? [])
-  const [busTouched, setBusTouched] = useState(!!invoice)
+  // a draft made from an enrolment (no bus legs yet) starts from the student's bus default (owner 2026-10-16)
+  const [busTouched, setBusTouched] = useState(!!invoice && !(invoice.status === "draft" && invoice.bus.length === 0))
   const [bookFee, setBookFee] = useState(invoice?.bookFee ?? 0)
   const [busFeeId, setBusFeeId] = useState(invoice?.busFeeId ?? branch.fees.find((f) => f.kind === "bus")?.id ?? "")
   // Advance Optional: follows the default (entry fee unless already paid) until the admin ticks something

@@ -12,7 +12,7 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { addDays, endTime, toDateStr } from "@/domain/dates"
 import { commonSlots } from "@/domain/rules/forms"
 import { gradeLabel, subjectLabel } from "@/domain/rules/settings"
-import type { Brand, EnrollClassOffer, EnrollCourseOption, EnrollToken, FormLang, FormToken, FormOfferSlot, FormPrefill, FormSubjectOffer, FormType } from "@/domain/types"
+import type { Brand, EnrollClassOffer, EnrollCourseOption, EnrollPlan, EnrollToken, FormLang, FormToken, FormOfferSlot, FormPrefill, FormSubjectOffer, FormType } from "@/domain/types"
 import { cn } from "@/lib/utils"
 import { emptyFamilyDraft, emptyParentDraft, emptyStudentDraft, FamilyFields, ParentFields, parentDraftOf, parentInputOf, StudentFields, studentDraftOf, studentInputOf, type FamilyDraft, type ParentDraft, type StudentDraft } from "@/components/people/person-fields"
 import { joinName } from "@/domain/rules/people"
@@ -28,7 +28,7 @@ const STEP_KEYS: Step[] = ["parent", "student", "summary"]
 type ParentBlock = ParentDraft & { editing: boolean }
 type StudentBlock = StudentDraft & { key: string; activeSubjects: string[]; chosen: Record<string, FormOfferSlot>; editing: boolean; enroll: EnrollFieldsValue }
 /** what the enroll-now form needs from the link (courses, subjects…) — null on a Test/Trial link */
-interface EnrollInfo { courses: EnrollCourseOption[]; subjects: string[]; busOffered: boolean; classOffers?: EnrollClassOffer[] }
+interface EnrollInfo { courses: EnrollCourseOption[]; subjects: string[]; busOffered: boolean; classOffers?: EnrollClassOffer[]; plan?: EnrollPlan }
 
 let seq = 0
 const emptyParent = (name = ""): ParentBlock => ({ ...emptyParentDraft(name), editing: true })
@@ -142,7 +142,9 @@ function LiffForm() {
               { id: "k1", name: "คณิต ป.5 (จ.)", subjects: ["คณิต"], grades: ["ป.5"], weekday: 1, start: "16:00", minutes: 90, teacher: "ครูโจ", seatsLeft: 3 },
               { id: "k2", name: "คณิต ป.5 (พ.)", subjects: ["คณิต"], grades: ["ป.5"], weekday: 3, start: "17:00", minutes: 90, teacher: "ครูได", seatsLeft: 0 },
               { id: "k3", name: "คณิต ป.5 (ส.)", subjects: ["คณิต"], grades: ["ป.5"], weekday: 6, start: "10:00", minutes: 120, teacher: "ครูโจ", seatsLeft: 2 },
-            ] }
+            ],
+            // owner 2026-10-16: what the admin agreed in the chat (+ the bus at Liclass)
+            plan: { course: { id: "c1", name: "คณิต ป.5 รายเดือน", subjects: ["คณิต"], grades: ["ป.5"], unit: "month", duration: 1, price: 4400 }, periods: 1, bus: (params.get("brand") as Brand) === "liclass" } }
           setLineUserId("preview")
         } else {
           const res = await fetch(`/api/parent-forms/enroll?token=${encodeURIComponent(pf)}`).then((r) => r.json()).catch(() => ({ ok: false }))
@@ -161,7 +163,7 @@ function LiffForm() {
         }
         if (cancelled) return
         setToken(pf)
-        setEnroll({ courses: tk.courses, subjects: tk.subjects, busOffered: tk.brand === "liclass", classOffers: tk.classOffers })
+        setEnroll({ courses: tk.courses, subjects: tk.subjects, busOffered: tk.brand === "liclass", classOffers: tk.classOffers, plan: tk.plan })
         setGrades(tk.grades); setBranchName(tk.branchName); setSubjectNames(tk.subjectNames ?? {})
         if (!params.get("lang") && tk.lang) setLang(tk.lang)
         applyPrefill(tk.prefill ?? (previewEnroll ? previewData("trial").prefill : null), tk.grades, [], "")
@@ -242,7 +244,7 @@ function LiffForm() {
         body: JSON.stringify({
           token, lineUserId: lineUserId || undefined, lineName: displayName || undefined, parents: parentsPayload(), lang, acceptedTerms: true,
           ...familyPayload(),
-          children: students.map((s) => ({ ...studentInputOf(s), ...s.enroll })),
+          children: students.map((s) => ({ ...studentInputOf(s), ...s.enroll, ...(enroll.plan ? { courseIds: [enroll.plan.course.id], periods: enroll.plan.periods } : {}) })),
         }),
       }).then((r) => r.json()).catch(() => ({ ok: false, error: "ส่งไม่สำเร็จ — เครือข่ายมีปัญหา ลองอีกครั้ง" }))
       if (!res.ok) { setError(res.error ?? "ส่งไม่สำเร็จ"); setPhase("ready"); return }
@@ -439,7 +441,7 @@ function StudentCard({ t, lang, names, n, formType, student: s, grades, offers, 
       )}
 
       {enroll ? (
-        <EnrollFields t={ENROLL_DICT[lang]} lang={lang} grade={s.grade} subjects={enroll.subjects} subjectLabel={names.subject} courses={enroll.courses} classOffers={enroll.classOffers} busOffered={enroll.busOffered}
+        <EnrollFields t={ENROLL_DICT[lang]} lang={lang} grade={s.grade} subjects={enroll.subjects} subjectLabel={names.subject} courses={enroll.courses} classOffers={enroll.classOffers} plan={enroll.plan} busOffered={enroll.busOffered}
           value={s.enroll} onChange={(patch) => onChange({ enroll: { ...s.enroll, ...patch } })} minDate={toDateStr(new Date())} />
       ) : (<>
       <div className="space-y-2 border-t pt-3">

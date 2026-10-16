@@ -1,15 +1,15 @@
 "use client"
 
 import Link from "next/link"
-import { useRouter } from "next/navigation"
 import { Fragment, useCallback, useEffect, useLayoutEffect, useRef, useState } from "react"
-import { FileSignatureIcon, InfoIcon, PenLineIcon, PlusIcon, RadioIcon, ArrowUpIcon, Loader2Icon, SparklesIcon, UserSearchIcon, UserCheckIcon, ChevronDownIcon, CheckIcon, ClipboardListIcon, FileTextIcon, GraduationCapIcon, HeartHandshakeIcon, ImageIcon, LogOutIcon, MegaphoneIcon, LayoutTemplateIcon, SearchIcon, UserPlusIcon, XIcon, GripVerticalIcon, CheckCircle2Icon } from "lucide-react"
+import { FileSignatureIcon, InfoIcon, PenLineIcon, PlusIcon, RadioIcon, ArrowUpIcon, Loader2Icon, SparklesIcon, UserSearchIcon, UserCheckIcon, ChevronDownIcon, CheckIcon, ClipboardListIcon, FileTextIcon, GraduationCapIcon, HeartHandshakeIcon, ImageIcon, LogOutIcon, MegaphoneIcon, LayoutTemplateIcon, ReceiptIcon, SearchIcon, UserPlusIcon, XIcon, GripVerticalIcon, CheckCircle2Icon } from "lucide-react"
 import { NativeSelect } from "@/components/app/native-select"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuSub, DropdownMenuSubContent, DropdownMenuSubTrigger, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { ExitRequestDialog } from "@/components/app/student-exit"
 import { BroadcastDialog } from "@/components/inbox/broadcast-dialog"
 import { sendSurveyToChat } from "@/lib/forms"
 import { SendEnrollDialog } from "@/components/inbox/send-enroll-dialog"
+import { InvoiceSheet } from "@/components/billing/invoice-sheet"
 import { Pill } from "@/components/app/badges"
 import { FamilyForm } from "@/components/app/family-form"
 import { FamilySheet } from "@/components/app/family-sheet"
@@ -20,7 +20,7 @@ import { ComposeDialog } from "@/components/inbox/compose-dialog"
 import { FormLinkBubble, FormRequestBubble } from "@/components/inbox/form-request-bubble"
 import { FormSubmissionBubble } from "@/components/inbox/form-submission-bubble"
 import { MessageBubble } from "@/components/inbox/message-bubble"
-import { ExitFormChatCard, isExitFormMessage, ParentRequestChatCard } from "@/components/inbox/parent-cards"
+import { ExitFormChatCard, isExitFormMessage, ParentRequestChatCard, EnrollSubmissionChatCard, isEnrollSubmissionMessage } from "@/components/inbox/parent-cards"
 import { SendFormDialog } from "@/components/inbox/send-form-dialog"
 import { LeadDialog } from "@/components/crm/lead-dialog"
 import { LeadSheet } from "@/components/crm/lead-sheet"
@@ -192,14 +192,17 @@ export default function InboxPage() {
 
   // pay slip sent in LINE → open this family's unpaid invoice with the photo attached to "บันทึกรับเงิน"
   const invoices = useStore((s) => s.invoices)
-  const router = useRouter()
   const useAsSlip = (mediaId: string) => {
     const famId = family?.id ?? (lead?.trialStudentId ? students.find((s) => s.id === lead.trialStudentId)?.familyId : null)
     const kids = new Set(students.filter((s) => s.familyId && s.familyId === famId).map((s) => s.id))
     const open = invoices.filter((i) => kids.has(i.studentId) && (i.status === "approved" || i.status === "sent")).sort((a, b) => b.createdAt.localeCompare(a.createdAt))
     if (!open.length) return report({ ok: false, error: "แชทนี้ยังไม่มีใบแจ้งหนี้ที่รอชำระ — ผูกแชทกับครอบครัว/Lead และส่งใบแจ้งหนี้ก่อน" }, "")
-    router.push(`/billing?open=${open[0].id}&slip=${mediaId}`)
+    // owner 2026-10-16: the invoice opens right here, the photo attached as the slip — no jump to Billing
+    setInvoicePanel({ id: open[0].id, slip: mediaId })
   }
+  // owner 2026-10-16: draft an invoice for this parent's child straight from the chat (same panel as Billing)
+  const [invoicePanel, setInvoicePanel] = useState<{ id: ID | "new"; studentId?: ID; slip?: string } | null>(null)
+  const leadStudentId = lead?.trialStudentId && students.some((x) => x.id === lead.trialStudentId) ? lead.trialStudentId : undefined
 
   const select = (id: ID) => {
     setSelectedId(id)
@@ -375,6 +378,7 @@ export default function InboxPage() {
                       if (m.kind === "form_submission") return <FormSubmissionBubble key={m.id} message={m} submissions={submissions} onChanged={pollSubmissions} />
                       if (isExitFormMessage(m)) return <ExitFormChatCard key={m.id} message={m} conversation={selected} />
                       if (m.meta?.formKind === "parent_request") return <ParentRequestChatCard key={m.id} message={m} />
+                      if (isEnrollSubmissionMessage(m)) return <EnrollSubmissionChatCard key={m.id} message={m} conversation={selected} />
                       const link = formLinkOf(m)
                       if (link) return <FormLinkBubble key={m.id} message={m} answered={link.form === "exit" && thread.some((x) => isExitFormMessage(x) && (x.meta?.formKind === "exit_form" ? x.meta.token === link.token : x.at > m.at))} />
                       return <MessageBubble key={m.id} message={m} conversation={selected} staff={staff} onUseAsSlip={useAsSlip} />
@@ -422,6 +426,21 @@ export default function InboxPage() {
                         </DropdownMenuSubContent>
                       </DropdownMenuSub>
                       <DropdownMenuItem onClick={() => imageInput.current?.click()}><ImageIcon /> รูปภาพ</DropdownMenuItem>
+                      {kids.length > 1 ? (
+                        <DropdownMenuSub>
+                          <DropdownMenuSubTrigger><ReceiptIcon /> ใบแจ้งหนี้</DropdownMenuSubTrigger>
+                          <DropdownMenuSubContent>
+                            <DropdownMenuGroup>
+                              <DropdownMenuLabel>ลูกคนไหน</DropdownMenuLabel>
+                              {kids.map((k) => <DropdownMenuItem key={k.id} onClick={() => setInvoicePanel({ id: "new", studentId: k.id })}>{k.nickname} · {k.grade}</DropdownMenuItem>)}
+                            </DropdownMenuGroup>
+                          </DropdownMenuSubContent>
+                        </DropdownMenuSub>
+                      ) : (
+                        <DropdownMenuItem disabled={!kids.length && !lead} onClick={() => setInvoicePanel({ id: "new", studentId: kids[0]?.id ?? leadStudentId })}>
+                          <ReceiptIcon /> ใบแจ้งหนี้{!kids.length && !lead ? <Hint>ผูกแชทก่อน</Hint> : null}
+                        </DropdownMenuItem>
+                      )}
                     </DropdownMenuContent>
                   </DropdownMenu>
                   <input ref={imageInput} type="file" accept="image/*" hidden onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ""; if (f) uploadImage(f) }} />
@@ -445,6 +464,7 @@ export default function InboxPage() {
         )}
       </div>
 
+      {invoicePanel && <InvoiceSheet id={invoicePanel.id} defaultStudentId={invoicePanel.studentId} slipMediaId={invoicePanel.slip} onClose={() => setInvoicePanel(null)} />}
       {sendingEnroll && selected && <SendEnrollDialog conversationId={selected.id} onClose={() => setSendingEnroll(false)} />}
       {composing && <ComposeDialog onClose={() => setComposing(false)} onSent={(id) => { setComposing(false); if (id) select(id) }} />}
       {sendingFormOpen && selected && lead && (

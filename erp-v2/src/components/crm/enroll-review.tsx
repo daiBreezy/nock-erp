@@ -58,7 +58,7 @@ interface Plan { courseId: ID; classIds: ID[]; startDate: string; periods: numbe
  * Review an application: what the parent asked for, then per child the course + class (fit warnings shown, never a
  * block), start date and periods → family + student + "สมัครตรง" lead + draft invoice in one go.
  */
-function EnrollReviewDialog({ sub, onClose, onDone }: { sub: EnrollSubmission; onClose: () => void; onDone: () => void }) {
+export function EnrollReviewDialog({ sub, onClose, onDone }: { sub: EnrollSubmission; onClose: () => void; onDone: () => void }) {
   const s = useStore()
   const approve = useStore((st) => st.approveEnrollment)
   const today = toDateStr(useNow(60_000))
@@ -69,8 +69,9 @@ function EnrollReviewDialog({ sub, onClose, onDone }: { sub: EnrollSubmission; o
     // classes belong to (the admin changes it to what was agreed in the chat)
     const picked = (c.classIds ?? []).filter((id) => s.classes.some((k) => k.id === id))
     const fromClass = courses.find((x) => x.id === s.classes.find((k) => k.id === picked[0])?.courseId)
-    const course = fromClass ?? courses.find((x) => c.courseIds.includes(x.id)) ?? courses.find((x) => x.grades.includes(c.grade) && x.subjects.some((y) => c.subjects.includes(y)) && (c.pkg === "unsure" || x.unit === c.pkg))
-    return { courseId: course?.id ?? "", classIds: picked, startDate: c.startDate > today ? c.startDate : today, periods: 1 }
+    // the course the admin put in the form (owner 2026-10-16) wins; then the classes' course; then a best guess
+    const course = courses.find((x) => c.courseIds.includes(x.id)) ?? fromClass ?? courses.find((x) => x.grades.includes(c.grade) && x.subjects.some((y) => c.subjects.includes(y)) && (c.pkg === "unsure" || x.unit === c.pkg))
+    return { courseId: course?.id ?? "", classIds: picked, startDate: c.startDate > today ? c.startDate : today, periods: c.periods ?? 1 }
   }))
   const [busy, setBusy] = useState(false)
   const put = (i: number, patch: Partial<Plan>) => setPlans((ps) => ps.map((p, j) => (j === i ? { ...p, ...patch } : p)))
@@ -121,7 +122,7 @@ function EnrollReviewDialog({ sub, onClose, onDone }: { sub: EnrollSubmission; o
                 <p>แพ็กเกจ: <span className="text-foreground">{PKG[c.pkg]}</span></p>
                 <p>สะดวก: <span className="text-foreground">{c.times.map(timeLabel).join(", ")}</span></p>
                 </>}
-                <p>อยากเริ่ม: <span className="text-foreground">{fmtDate(c.startDate, { weekday: true })}</span>{c.bus ? " · ต้องการรถรับส่ง" : ""}</p>
+                <p>อยากเริ่ม: <span className="text-foreground">{fmtDate(c.startDate, { weekday: true })}</span>{c.bus ? ` · รถรับส่ง${c.busLeg === "pickup" ? " ขาไป" : c.busLeg === "dropoff" ? " ขากลับ" : " ไป-กลับ"}` : ""}</p>
                 {c.placement && <p className="text-amber-700 sm:col-span-2">ขอให้ครูประเมินระดับในคาบแรก (จะบันทึกในโน้ตนักเรียน)</p>}
                 {c.note && <p className="sm:col-span-2">โน้ต: {c.note}</p>}
               </div>

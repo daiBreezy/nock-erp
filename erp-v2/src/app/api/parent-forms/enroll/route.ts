@@ -9,7 +9,7 @@ export async function POST(req: Request) {
   if (!body.branchId || !body.courses?.length || !body.grades?.length) return NextResponse.json({ ok: false, error: "สาขานี้ยังไม่มีคอร์สหรือระดับชั้น" }, { status: 400 })
   const token = await upsertEnrollToken({
     token: body.token, reusable: !!body.reusable, branchId: body.branchId, branchName: body.branchName ?? "", brand: body.brand ?? "nockacademy", lang: body.lang ?? "th",
-    grades: body.grades, subjects: body.subjects ?? [], subjectNames: body.subjectNames, courses: body.courses, classOffers: body.classOffers, leadId: body.leadId, conversationId: body.conversationId ?? null, prefill: body.prefill,
+    grades: body.grades, subjects: body.subjects ?? [], subjectNames: body.subjectNames, courses: body.courses, classOffers: body.classOffers, plan: body.plan, leadId: body.leadId, conversationId: body.conversationId ?? null, prefill: body.prefill,
   })
   return NextResponse.json({ ok: true, token })
 }

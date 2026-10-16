@@ -743,6 +743,10 @@ export interface EnrollCourseOption { id: ID; name: string; subjects: string[]; 
 
 /** owner 2026-10-15: a real weekly class the admin offers in the enroll form — the parent picks the days that suit
  *  them (course / package were agreed in the chat; the admin puts them on the invoice) */
+/** owner 2026-10-16: the enroll form is an invoice still missing the class + start date — the admin already
+ *  put in the course / package agreed in the chat, how many periods, and whether the bus is offered (Liclass) */
+export interface EnrollPlan { course: EnrollCourseOption; periods: number; bus: boolean }
+
 export interface EnrollClassOffer { id: ID; name: string; subjects: string[]; grades: string[]; weekday: Weekday; start: TimeStr; minutes: number; teacher?: string; seatsLeft: number }
 
 /** The link: a reusable one per branch (LINE Rich Menu) or a one-time one an admin sends to a lead. */
@@ -761,6 +765,7 @@ export interface EnrollToken {
   /** the classes the admin offers (owner 2026-10-15) — set = the form asks only "which classes", nothing about
    *  subjects / courses / packages */
   classOffers?: EnrollClassOffer[]
+  plan?: EnrollPlan
   /** set when an admin sent it to a lead */
   leadId?: ID
   conversationId: ID | null
@@ -785,6 +790,10 @@ export interface EnrollChild extends FormStudentExtras {
   startDate: DateStr
   /** the offered classes the parent picked (owner 2026-10-15) */
   classIds?: ID[]
+  /** periods agreed in the chat (from the admin's plan) */
+  periods?: number
+  /** Liclass bus: which way (owner 2026-10-16) — set with bus = true */
+  busLeg?: "both" | "pickup" | "dropoff"
   bus: boolean
   /** the parent wants the teacher to check the level in the first class (no test before) */
   placement: boolean

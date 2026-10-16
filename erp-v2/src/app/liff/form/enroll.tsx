@@ -7,7 +7,7 @@
 import { CheckIcon } from "lucide-react"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Input } from "@/components/ui/input"
-import type { EnrollClassOffer, EnrollCourseOption, EnrollPackage, FormLang } from "@/domain/types"
+import type { EnrollClassOffer, EnrollCourseOption, EnrollPackage, EnrollPlan, FormLang } from "@/domain/types"
 import { cn } from "@/lib/utils"
 
 export const ENROLL_DICT = {
@@ -20,6 +20,7 @@ export const ENROLL_DICT = {
     terms: "ยอมรับเงื่อนไขการเรียน การลา และการชำระเงินของสถาบัน", termsNeed: "กรุณายอมรับเงื่อนไขก่อนส่ง", perMonth: "/เดือน", hours: "ชม.", weeks: "สัปดาห์",
     classes: "เลือกคลาสที่สะดวก", classesSub: "แอดมินเลือกคลาสเหล่านี้ไว้ให้แล้ว — เลือกได้หลายวัน", every: "ทุก", seats: "ว่าง", full: "เต็ม", picked: "คลาสที่เลือก",
     daysFull: ["วันอาทิตย์", "วันจันทร์", "วันอังคาร", "วันพุธ", "วันพฤหัสบดี", "วันศุกร์", "วันเสาร์"],
+    plan: "คอร์สที่ตกลงกันไว้", periodsUnit: "งวด", busLegs: { both: "ไป-กลับ", pickup: "ขาไป (รับที่บ้าน)", dropoff: "ขากลับ (ส่งที่บ้าน)" },
   },
   en: {
     title: "Enrolment form", sent: "Application sent", sentSub: "Thank you! Our staff will arrange the class and send the invoice on LINE shortly.",
@@ -30,6 +31,7 @@ export const ENROLL_DICT = {
     terms: "I accept the school's study, leave and payment terms", termsNeed: "Please accept the terms", perMonth: "/month", hours: "hrs", weeks: "weeks",
     classes: "Choose the classes that suit you", classesSub: "Our staff picked these for you — choose as many days as you like", every: "Every", seats: "seats", full: "Full", picked: "Chosen classes",
     daysFull: ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"],
+    plan: "The course we agreed", periodsUnit: "periods", busLegs: { both: "Both ways", pickup: "To school (pick-up)", dropoff: "Home (drop-off)" },
   },
   ja: {
     title: "入塾申込書", sent: "申込書を送信しました", sentSub: "ありがとうございます。担当者がクラスを手配し、LINEで請求書をお送りします。",
@@ -40,11 +42,12 @@ export const ENROLL_DICT = {
     terms: "授業・欠席・支払いの規約に同意します", termsNeed: "規約に同意してください", perMonth: "/月", hours: "時間", weeks: "週",
     classes: "ご都合の良いクラスを選択", classesSub: "担当者が選んだクラスです — 複数の曜日を選べます", every: "毎週", seats: "空き", full: "満席", picked: "選択したクラス",
     daysFull: ["日曜日", "月曜日", "火曜日", "水曜日", "木曜日", "金曜日", "土曜日"],
+    plan: "合意したコース", periodsUnit: "回", busLegs: { both: "往復", pickup: "行き（お迎え）", dropoff: "帰り（お送り）" },
   },
 }
 export type EnrollT = (typeof ENROLL_DICT)["th"]
 
-export interface EnrollFieldsValue { subjects: string[]; courseIds: string[]; pkg: EnrollPackage; times: string[]; startDate: string; bus: boolean; placement: boolean; classIds?: string[] }
+export interface EnrollFieldsValue { subjects: string[]; courseIds: string[]; pkg: EnrollPackage; times: string[]; startDate: string; bus: boolean; placement: boolean; classIds?: string[]; busLeg?: "both" | "pickup" | "dropoff" }
 
 const PERIODS = ["am", "pm", "eve"] as const
 const DAY_ORDER = [1, 2, 3, 4, 5, 6, 0]
@@ -61,17 +64,27 @@ export const classTimeLabel = (o: EnrollClassOffer, t: EnrollT) => {
   return `${t.every}${t.every === "Every" ? " " : ""}${t.daysFull[o.weekday]} ${o.start}–${String(Math.floor(end / 60)).padStart(2, "0")}:${String(end % 60).padStart(2, "0")}`
 }
 
-export function EnrollFields({ t, lang, grade, subjects, subjectLabel, courses, classOffers, value: v, onChange, minDate, busOffered }: {
+export function EnrollFields({ t, lang, grade, subjects, subjectLabel, courses, classOffers, plan, value: v, onChange, minDate, busOffered }: {
   t: EnrollT; lang: FormLang; grade: string; subjects: string[]; subjectLabel: (s: string) => string; courses: EnrollCourseOption[]
   /** owner 2026-10-15: the admin offered real classes — the parent only picks those (+ start date), nothing else */
   classOffers?: EnrollClassOffer[]
+  /** owner 2026-10-16: what the admin already agreed in the chat — shown, not asked */
+  plan?: EnrollPlan
   value: EnrollFieldsValue; onChange: (patch: Partial<EnrollFieldsValue>) => void; minDate: string; busOffered: boolean
 }) {
   void lang
   if (classOffers?.length) {
     const ids = v.classIds ?? []
+    const bus = plan ? plan.bus : busOffered
     return (
       <div className="space-y-3 border-t pt-3">
+        {plan && (
+          <div className="rounded-2xl bg-muted/60 px-3 py-2.5">
+            <p className="text-xs text-muted-foreground">{t.plan}</p>
+            <p className="text-sm font-semibold">{plan.course.name}</p>
+            <p className="text-xs text-muted-foreground">{courseLine(plan.course, t)}{plan.periods > 1 ? ` × ${plan.periods} ${t.periodsUnit}` : ""}</p>
+          </div>
+        )}
         <div>
           <p className="text-sm font-semibold">{t.classes} *</p>
           <p className="mb-1.5 text-xs text-muted-foreground">{t.classesSub}</p>
@@ -93,7 +106,18 @@ export function EnrollFields({ t, lang, grade, subjects, subjectLabel, courses, 
           </div>
         </div>
         <div className="space-y-1"><p className="text-sm font-semibold">{t.start} *</p><Input type="date" min={minDate} value={v.startDate} onChange={(e) => onChange({ startDate: e.target.value })} /></div>
-        {busOffered && <label className="flex items-start gap-2 text-sm"><Checkbox className="mt-0.5" checked={v.bus} onCheckedChange={(x) => onChange({ bus: !!x })} /><span>{t.bus}<span className="block text-xs text-muted-foreground">{t.busSub}</span></span></label>}
+        {bus && (
+          <div className="space-y-1.5">
+            <label className="flex items-start gap-2 text-sm"><Checkbox className="mt-0.5" checked={v.bus} onCheckedChange={(x) => onChange({ bus: !!x, busLeg: x ? v.busLeg ?? "both" : undefined })} /><span>{t.bus}<span className="block text-xs text-muted-foreground">{t.busSub}</span></span></label>
+            {v.bus && (
+              <div className="flex flex-wrap gap-1.5 pl-6">
+                {(["both", "pickup", "dropoff"] as const).map((k) => (
+                  <button key={k} type="button" onClick={() => onChange({ busLeg: k })} className={cn("rounded-full border px-3 py-1.5 text-xs", (v.busLeg ?? "both") === k ? "border-primary bg-primary/10 font-medium text-primary" : "hover:bg-muted")}>{t.busLegs[k]}</button>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
       </div>
     )
   }

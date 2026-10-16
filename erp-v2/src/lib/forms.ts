@@ -7,7 +7,7 @@
 import { FORM_TYPE_LABEL } from "@/domain/rules/forms"
 import { addDays } from "@/domain/dates"
 import { notAnswered, surveyRecipients, surveyWindow } from "@/domain/rules/survey"
-import type { Brand, EnrollSubmission, EnrollToken, ExitResponse, ExitToken, SurveyCampaign, SurveyToken, FormLang, FormOfferSlot, FormPrefill, FormSubjectOffer, FormSubmission, FormToken, FormType, ID, Result, EnrollClassOffer } from "@/domain/types"
+import type { Brand, EnrollSubmission, EnrollToken, ExitResponse, ExitToken, SurveyCampaign, SurveyToken, FormLang, FormOfferSlot, FormPrefill, FormSubjectOffer, FormSubmission, FormToken, FormType, ID, Result, EnrollClassOffer, EnrollPlan } from "@/domain/types"
 import { useStore } from "@/store/store"
 
 async function postJson<T>(url: string, body: unknown): Promise<T> {
@@ -212,7 +212,7 @@ export async function postToChat(conversationId: ID, text: string): Promise<Resu
 }
 
 /** Enroll form for any chat — a lead's or an existing family's (a sibling) — prefilled with what we know. */
-export async function sendEnrollToChat(conversationId: ID, classOffers?: EnrollClassOffer[]): Promise<Result<{ url: string }>> {
+export async function sendEnrollToChat(conversationId: ID, classOffers?: EnrollClassOffer[], plan?: EnrollPlan): Promise<Result<{ url: string }>> {
   const s = useStore.getState()
   const conv = s.conversations.find((c) => c.id === conversationId)
   if (!conv) return { ok: false, error: "ไม่พบบทสนทนานี้" }
@@ -221,7 +221,7 @@ export async function sendEnrollToChat(conversationId: ID, classOffers?: EnrollC
   const prefill: FormPrefill = lead
     ? { parents: lead.phone ? [{ name: lead.name, phone: lead.phone, primary: true }] : [], students: [{ name: "", grade: lead.childGrade }] }
     : { parents: (fam?.parents ?? []).map((p) => ({ name: p.name, phone: p.phone, primary: !!p.primary })), students: [{ name: "", grade: "" }] }
-  const res = await postJson<{ ok: boolean; token?: EnrollToken; error?: string }>("/api/parent-forms/enroll", { ...enrollSnapshot(conv.branchId), reusable: false, leadId: lead?.id, conversationId: conv.id.startsWith("line_") ? conv.id : null, prefill, classOffers })
+  const res = await postJson<{ ok: boolean; token?: EnrollToken; error?: string }>("/api/parent-forms/enroll", { ...enrollSnapshot(conv.branchId), reusable: false, leadId: lead?.id, conversationId: conv.id.startsWith("line_") ? conv.id : null, prefill, classOffers, plan })
   if (!res.ok || !res.token) return { ok: false, error: res.error ?? "สร้างลิงก์ไม่สำเร็จ" }
   const url = enrollUrl(res.token.token)
   // owner 2026-10-15: with class offers the parent just picks the classes that suit them
