@@ -1,8 +1,8 @@
 "use client"
 
+import { InvoiceSheet } from "@/components/billing/invoice-sheet"
 import { staffAt } from "@/domain/rules/permissions"
 import { ForceApprove } from "./force-approve"
-import Link from "next/link"
 import { useEffect, useMemo, useState } from "react"
 import {
   AlertTriangleIcon, BanIcon, CalendarClockIcon, CheckIcon, ChevronLeftIcon, ChevronRightIcon, ClockIcon, EllipsisVerticalIcon, FlameIcon,
@@ -291,6 +291,7 @@ function StudentRow({ s, sid, viewOnly, canManage, mine, text, setText, selectab
   const allSessions = useStore((st) => st.sessions)
   const attendance = useStore((st) => st.attendance)
   const summaries = useStore((st) => st.summaries)
+  const [invoice, setInvoice] = useState<"new" | null>(null)
   // owner 2026-10-14: everyone may move a student (a teacher in their own sessions) — every move is logged
   const canMove = useStore((st) => can(st.me(), "student.move")) && !viewOnly && (canManage || mine)
   // a permanent move into this class (owner 2026-10-14) — can be taken back until the new class has been taught
@@ -374,7 +375,7 @@ function StudentRow({ s, sid, viewOnly, canManage, mine, text, setText, selectab
           <p className="truncate text-xs text-muted-foreground">
             {asm ? `${FORM_TYPE_LABEL[asm.type]} (ไม่ใช้แพ็กเกจ)`
               : s.trial ? "ทดลองเรียน (ไม่ใช้แพ็กเกจ)"
-              : !ent ? <span className="text-amber-700">ยังไม่ได้จ่ายค่าเรียน{can(me, "billing.manage") && <Link href={`/billing?new=${sid}`} className="ml-1 underline">ออกใบแจ้งหนี้</Link>}</span>
+              : !ent ? <span className="text-amber-700">ยังไม่ได้จ่ายค่าเรียน{can(me, "billing.manage") && <button type="button" onClick={() => setInvoice("new")} className="ml-1 underline">ออกใบแจ้งหนี้</button>}{invoice && <InvoiceSheet id={invoice} defaultStudentId={sid} onClose={() => setInvoice(null)} />}</span>
               : (() => {
                 const course = courses.find((c) => c.id === ent.courseId)
                 return <span title={`${course?.name ?? ""} · ถึง ${fmtDate(ent.to, { year: true })}${progress?.of ? ` · คาบที่ ${progress.n} จาก ${progress.of}` : ""}`}>

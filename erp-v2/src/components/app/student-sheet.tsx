@@ -1,9 +1,9 @@
 "use client"
 
+import { InvoiceSheet } from "@/components/billing/invoice-sheet"
 import { CloseExitDialog, ExitPanel, ExitRequestDialog } from "./student-exit"
 import { BusAddOns } from "@/components/billing/bus-addons"
 import Link from "next/link"
-import { useRouter } from "next/navigation"
 import { useMemo, useState } from "react"
 import {
   ArchiveRestoreIcon, DoorOpenIcon, ArrowUpRightIcon, BusIcon, CakeIcon, CalendarDaysIcon, CalendarIcon, ClockIcon, FileTextIcon, GraduationCapIcon,
@@ -20,7 +20,6 @@ import { daysBetween, endTime, fmtDate, fmtDateTime, fmtMoney, toDateStr } from 
 import * as Att from "@/domain/rules/attendance"
 import { INVOICE_STATUS_LABEL, invoiceTotals } from "@/domain/rules/billing"
 import { can } from "@/domain/rules/permissions"
-import { renewHref } from "@/domain/rules/people"
 import { removedWithClass, subjectsOf, workState } from "@/domain/rules/scheduling"
 import type { Entitlement, ID, LogCategory, Session, Student, StudentLeave } from "@/domain/types"
 import { report } from "@/lib/feedback"
@@ -88,6 +87,8 @@ function Body({ id, onEdit }: { id: ID; onEdit: () => void }) {
   const ents = useEntitlements()
   const today = toDateStr(useNow())
   const [seg, setSeg] = useState<Seg>("overview")
+  // owner 2026-10-16: the invoice opens as a panel right here — no jump to Billing
+  const [invoice, setInvoice] = useState<ID | "new" | null>(null)
   const [classSub, setClassSub] = useState<ClassSub>("session")
   const [leaveDialog, setLeaveDialog] = useState<{ leave?: StudentLeave } | null>(null)
   const canLeave = can(me, "attendance.leave_override")
@@ -148,10 +149,11 @@ function Body({ id, onEdit }: { id: ID; onEdit: () => void }) {
           ) : (
             <Button size="icon" variant="outline" className="ml-auto rounded-full" disabled aria-label="ยังไม่มีแชท" title="ครอบครัวนี้ยังไม่มีแชท LINE ใน Inbox"><MessagesSquareIcon /></Button>
           )}
-          {can(me, "billing.manage") && <Button variant="outline" nativeButton={false} render={<Link href={`/billing?new=${stu.id}`} />}><ReceiptIcon /> ออกใบแจ้งหนี้</Button>}
+          {can(me, "billing.manage") && <Button variant="outline" onClick={() => setInvoice("new")}><ReceiptIcon /> ออกใบแจ้งหนี้</Button>}
           {can(me, "student.manage") && <Button onClick={onEdit}><PencilIcon /> แก้ไข</Button>}
         </PanelFooter>
       )}
+      <InvoiceSheet id={invoice} defaultStudentId={stu.id} onClose={() => setInvoice(null)} />
       {archiving && <ExitRequestDialog stu={stu} onClose={() => setArchiving(false)} onCloseNow={() => { setArchiving(false); setClosingNow(true) }} />}
       {closingNow && <CloseExitDialog stu={stu} response={null} onClose={() => setClosingNow(false)} />}
       {leaveDialog && <LeaveDialog studentId={stu.id} leave={leaveDialog.leave} onClose={() => setLeaveDialog(null)} />}
@@ -176,6 +178,7 @@ function packageProgress(e: Entitlement, sessions: Session[], attendance: { sess
 }
 
 function PackageRow({ e, stu, today }: { e: Entitlement; stu: Student; today: string }) {
+  const [renewing, setRenewing] = useState(false)
 const me = useStore((s) => s.me())
 const courses = useStore((s) => s.courses)
 const classes = useStore((s) => s.classes)
@@ -200,7 +203,8 @@ const rawTo = useStore((s) => s.entitlements.find((x) => x.id === e.id)?.to)
       </div>
       {c && <PackageBadge course={c} size="md" />}
       <Pill tone={expired ? "gray" : renewal ? "amber" : "green"}>{expired ? "หมดแล้ว" : renewal ? "Renewal" : "Enroll"}</Pill>
-      {(renewal || expired) && can(me, "billing.manage") && <Button size="xs" variant="outline" nativeButton={false} render={<Link href={renewHref(stu.id, e.id)} />}>ต่ออายุ</Button>}
+      {(renewal || expired) && can(me, "billing.manage") && <Button size="xs" variant="outline" onClick={() => setRenewing(true)}>ต่ออายุ</Button>}
+      {renewing && <InvoiceSheet id="new" defaultStudentId={stu.id} renewEntitlementId={e.id} onClose={() => setRenewing(false)} />}
       <div className="w-40 shrink-0 text-right">
         <p className="text-xs tabular-nums">{p.label}</p>
         <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-muted"><div className={cn("h-full rounded-full", renewal ? "bg-red-600" : "bg-primary")} style={{ width: `${p.ratio * 100}%` }} /></div>
@@ -438,7 +442,7 @@ function AttendanceList({ stu, ents }: { stu: Student; ents: Entitlement[] }) {
 // ---------------------------------------------------------------- Billing
 
 function BillingSeg({ stu }: { stu: Student }) {
-  const router = useRouter()
+  const [invoice, setInvoice] = useState<ID | "new" | null>(null)
   const me = useStore((s) => s.me())
   const invoices = useStore((s) => s.invoices).filter((i) => i.studentId === stu.id).sort((a, b) => b.createdAt.localeCompare(a.createdAt))
   const branches = useStore((s) => s.branches)
@@ -449,7 +453,7 @@ function BillingSeg({ stu }: { stu: Student }) {
     <div className="space-y-3">
       <div className="flex items-center">
         <p className="text-sm text-muted-foreground">กดแถวเพื่อเปิดใบแจ้งหนี้ · จ่ายครบแล้วระบบเพิ่มเข้าคลาสให้อัตโนมัติ</p>
-        {can(me, "billing.manage") && <Button size="sm" variant="outline" className="ml-auto" nativeButton={false} render={<Link href={`/billing?new=${stu.id}`} />}><PlusIcon /> ใบแจ้งหนี้ใหม่</Button>}
+        {can(me, "billing.manage") && <Button size="sm" variant="outline" className="ml-auto" nativeButton={false} onClick={() => setInvoice("new")}><PlusIcon /> ใบแจ้งหนี้ใหม่</Button>}
       </div>
       <table className="w-full overflow-hidden rounded-2xl text-sm ring-1 ring-foreground/10">
         <thead className="bg-muted/50 text-xs text-muted-foreground">
@@ -460,7 +464,7 @@ function BillingSeg({ stu }: { stu: Student }) {
             const subjects = [...new Set(i.lines.flatMap((l) => courses.find((x) => x.id === l.courseId)?.subjects ?? []))]
             const total = invoiceTotals(i, { branch: branches.find((b) => b.id === i.branchId)!, courses, classes, holidays }).total
             return (
-              <tr key={i.id} className="cursor-pointer border-t hover:bg-muted/40 [&>td]:px-3 [&>td]:py-2" onClick={() => router.push(`/billing?open=${i.id}`)}>
+              <tr key={i.id} className="cursor-pointer border-t hover:bg-muted/40 [&>td]:px-3 [&>td]:py-2" onClick={() => setInvoice(i.id)}>
                 <td className="whitespace-nowrap tabular-nums"><span className="flex items-center gap-1.5"><FileTextIcon className="size-4 text-muted-foreground" />{i.number ?? "—"}</span></td>
                 <td><div className="flex flex-wrap gap-1">{subjects.length ? subjects.map((x) => <span key={x} className={cn("rounded-full px-2 py-0.5 text-xs", subjectColor(x).chip)}>{x}</span>) : <span className="text-xs text-muted-foreground">{i.busExtras?.length ? "ค่ารถเพิ่ม" : "ค่าอื่นๆ"}</span>}{i.status === "paid" && subjects.length > 0 && <span className="text-[11px] text-emerald-700">✓ เข้าคลาสแล้ว</span>}</div></td>
                 <td className="whitespace-nowrap text-xs">{fmtDate(i.createdAt.slice(0, 10), { year: true })}</td>
@@ -473,6 +477,7 @@ function BillingSeg({ stu }: { stu: Student }) {
         </tbody>
       </table>
       <BusAddOns stu={stu} />
+      <InvoiceSheet id={invoice} defaultStudentId={stu.id} onClose={() => setInvoice(null)} />
     </div>
   )
 }

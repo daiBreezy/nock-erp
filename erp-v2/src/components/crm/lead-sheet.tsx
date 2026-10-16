@@ -1,5 +1,6 @@
 "use client"
 
+import { InvoiceSheet } from "@/components/billing/invoice-sheet"
 import { PanelForm } from "@/components/app/form-shell"
 import { LeadDialog } from "./lead-dialog"
 import Link from "next/link"
@@ -67,6 +68,7 @@ export function LeadSheet({ leadId: target, onClose }: { leadId: ID | "new" | nu
 
 function Body({ id, onEdit }: { id: ID; onEdit: () => void }) {
   const lead = useStore((s) => s.leads.find((x) => x.id === id))
+  const [invoice, setInvoice] = useState<"new" | null>(null)
   const staff = useStore((s) => s.staff)
   const students = useStore((s) => s.students)
   const families = useStore((s) => s.families)
@@ -283,7 +285,8 @@ function Body({ id, onEdit }: { id: ID; onEdit: () => void }) {
         ) : lead.trialStudentId ? (
           <>
             <Button size="sm" variant="outline" onClick={() => setOpenStudentId(lead.trialStudentId!)}>เปิดโปรไฟล์นักเรียน</Button>
-            {can(me, "billing.manage") && <Button size="sm" nativeButton={false} render={<Link href={`/billing?new=${lead.trialStudentId}`} />}><ReceiptIcon /> ออกใบแจ้งหนี้</Button>}
+            {can(me, "billing.manage") && <Button size="sm" onClick={() => setInvoice("new")}><ReceiptIcon /> ออกใบแจ้งหนี้</Button>}
+            {invoice && <InvoiceSheet id={invoice} defaultStudentId={lead.trialStudentId ?? undefined} onClose={() => setInvoice(null)} />}
           </>
         ) : (lead.stage === "new" || lead.stage === "contacting") ? (
           // the next step for a fresh lead is reaching the parent — not converting
