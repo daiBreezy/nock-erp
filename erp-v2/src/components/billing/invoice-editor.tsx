@@ -28,6 +28,8 @@ import { useBranch, useEntitlements, useNow } from "@/lib/hooks"
 import { cn } from "@/lib/utils"
 import { useStore } from "@/store/store"
 import { InfoTip } from "@/components/app/info-tip"
+import { busZone, checkRide, distanceKm, rideTimes, type RoundCheck } from "@/domain/rules/bus"
+import { BusMap } from "./bus-map"
 
 type LineDraft = { id: string; courseId: string; classIds: string[]; startDate: string; periodsText: string; overlapRemark: string; leftover?: Leftover; seats?: Record<string, Seat> }
 
@@ -64,7 +66,8 @@ export function InvoiceEditor({ invoice, defaultStudentId, renewEntitlementId, o
   // a draft made from an enrolment (no bus legs yet) starts from the student's bus default (owner 2026-10-16)
   const [busTouched, setBusTouched] = useState(!!invoice && !(invoice.status === "draft" && invoice.bus.length === 0))
   const [bookFee, setBookFee] = useState(invoice?.bookFee ?? 0)
-  const [busFeeId, setBusFeeId] = useState(invoice?.busFeeId ?? branch.fees.find((f) => f.kind === "bus")?.id ?? "")
+  // "" = follow the distance band of the family's pin (owner 2026-10-16) until the admin picks a type
+  const [busFeeId, setBusFeeId] = useState(invoice?.busFeeId ?? "")
   // Advance Optional: follows the default (entry fee unless already paid) until the admin ticks something
   const [advancePicked, setAdvancePicked] = useState<AdvanceItem[] | null>(invoice ? invoice.advance : null)
   const invoices = useStore((s) => s.invoices)
@@ -118,7 +121,11 @@ export function InvoiceEditor({ invoice, defaultStudentId, renewEntitlementId, o
   const pendingExtras = studentId ? pendingBusAddOns(studentId, busAddOns, invoices, invoice?.id) : []
   const extraIds = extrasPicked ?? pendingExtras.map((a) => a.id)
   const busExtras: BusExtraLine[] = pendingExtras.filter((a) => extraIds.includes(a.id)).map((a) => ({ addOnId: a.id, date: a.date, pickup: a.pickup, dropoff: a.dropoff, amount: a.amount }))
-  const rate = busRate(branch, busFeeId)
+  // owner 2026-10-16: distance from the branch → which bus fee type (or outside the bus area)
+  const homeKm = family?.location && branch.location ? distanceKm(branch.location, family.location) : null
+  const zone = homeKm !== null ? busZone(branch.fees, homeKm) : null
+  const feeId = busFeeId || zone?.fee?.id || busFees[0]?.id || ""
+  const rate = busRate(branch, feeId)
 
   const courseLines: CourseLine[] = lines.map((l) => {
     const periods = Number(l.periodsText)
@@ -135,7 +142,7 @@ export function InvoiceEditor({ invoice, defaultStudentId, renewEntitlementId, o
     number: invoice?.number ?? null,
     lines: courseLines,
     bus: [],
-    busFeeId: busFeeId || null,
+    busFeeId: feeId || null,
     busExtras,
     bookFee, advance,
     concession: concession > 0 ? { amount: concession, remark: concessionRemark } : null,
@@ -155,6 +162,15 @@ export function InvoiceEditor({ invoice, defaultStudentId, renewEntitlementId, o
   const creditsUsed = credits.filter((c) => !creditSkip.includes(c.courseId))
   const legs: BusLeg[] = !busTouched ? defaultBusLegs(busDates, !!student?.usesBus) : busDates.map((d) => bus.find((b) => b.date === d) ?? { date: d, pickup: false, dropoff: false })
   const draft: Invoice = { ...base, bus: legs, creditsUsed }
+  // owner 2026-10-16: each class day — is there a bus run for that time, and is it full?
+  const rounds = branch.busRounds ?? []
+  const busCtx = { branchId: branch.id, invoices, busAddOns, classes, excludeInvoiceId: invoice?.id }
+  const rideIds = lines.flatMap((l) => l.classIds)
+  const rideChecks = legs.map((l) => {
+    const t = rideTimes(classes, rideIds, l.date)
+    return { pickup: checkRide("pickup", l.date, t, rounds, busCtx, studentId), dropoff: checkRide("dropoff", l.date, t, rounds, busCtx, studentId) }
+  })
+  const problemDays = rounds.length ? legs.filter((l, i) => (["pickup", "dropoff"] as const).some((k) => l[k] && (!rideChecks[i][k].round || rideChecks[i][k].full))).length : 0
   const totals = invoiceTotals(draft, ctx)
   const errors = [
     ...(!studentId ? ["เลือกนักเรียน"] : []),
@@ -249,7 +265,7 @@ export function InvoiceEditor({ invoice, defaultStudentId, renewEntitlementId, o
         {busDates.length > 0 && (
           <details className="rounded-lg border" open={legs.some((l) => l.pickup || l.dropoff)}>
             <summary className="flex cursor-pointer items-center gap-2 px-3 py-2 text-sm">
-              <BusIcon className="size-4" /> ค่ารถ ({busFees.find((f) => f.id === busFeeId)?.name ?? "ค่ารถ"} {fmtMoney(rate)}/เที่ยว)
+              <BusIcon className="size-4" /> ค่ารถ ({busFees.find((f) => f.id === feeId)?.name ?? "ค่ารถ"} {fmtMoney(rate)}/เที่ยว)
               <InfoTip text={`${student?.usesBus ? "นักเรียนใช้รถ — ติ๊กให้ตามรอบเรียนแล้ว" : "นักเรียนไม่ได้ใช้รถ — ติ๊กเฉพาะรอบที่ต้องการ"} · วันที่มีหลายคอร์สนับเป็นรอบเดียว`} />
               <span className="ml-auto font-medium tabular-nums">{fmtMoney(busTotal(legs, rate))}</span>
             </summary>
@@ -257,24 +273,27 @@ export function InvoiceEditor({ invoice, defaultStudentId, renewEntitlementId, o
               <div className="grid gap-2 sm:grid-cols-[1fr_1.6fr]">
                 <div className="space-y-1">
                   <Label className="text-xs">ประเภทค่ารถ</Label>
-                  <NativeSelect value={busFeeId} onChange={(e) => setBusFeeId(e.target.value)}
+                  <NativeSelect value={feeId} onChange={(e) => setBusFeeId(e.target.value)}
                     placeholder={busFees.length ? undefined : `ค่าตั้งต้นของสาขา ${fmtMoney(branch.busFeePerLeg)}/เที่ยว`}
                     options={busFees.map((f) => ({ value: f.id, label: `${f.name} · ${fmtMoney(f.price)}/เที่ยว` }))} />
                 </div>
-                <FamilyPin family={family} />
+                <BusDistance km={homeKm} zone={zone} feeId={feeId} onUse={setBusFeeId} />
               </div>
+              <FamilyPin family={family} branchLoc={branch.location} radiusKm={zone?.maxKm} />
+              {problemDays > 0 && <p className="flex items-center gap-1.5 rounded-lg bg-red-50 px-2 py-1.5 text-xs text-red-800 dark:bg-red-950/30 dark:text-red-200"><AlertTriangleIcon className="size-3.5 shrink-0" />{`ไม่มีรอบรถ / รถเต็ม ${problemDays} วัน — แจ้งผู้ปกครองก่อนส่งใบ`}</p>}
               <div className="flex gap-2">
                 <Button size="xs" variant="outline" onClick={() => { setBusTouched(true); setBus(legs.map((l) => ({ ...l, pickup: true, dropoff: true }))) }}>ติ๊กทุกรอบ</Button>
                 <Button size="xs" variant="ghost" onClick={() => { setBusTouched(true); setBus(legs.map((l) => ({ ...l, pickup: false, dropoff: false }))) }}>ไม่ใช้รถ</Button>
               </div>
-              <div className="grid gap-1 sm:grid-cols-2">
+              <div className={cn("grid gap-1", !(branch.busRounds ?? []).length && "sm:grid-cols-2")}>
                 {legs.map((l, i) => (
                   <div key={l.date} className="flex items-center gap-3 text-sm">
                     <span className="w-24">{fmtDate(l.date, { weekday: true })}</span>
                     {(["pickup", "dropoff"] as const).map((k) => (
-                      <label key={k} className="flex items-center gap-1.5">
+                      <label key={k} className="flex min-w-36 items-center gap-1.5">
                         <Checkbox checked={l[k]} onCheckedChange={(v) => { setBusTouched(true); setBus(legs.map((x, j) => (j === i ? { ...x, [k]: !!v } : x))) }} />
                         {k === "pickup" ? "รับ" : "ส่ง"}
+                        {rounds.length > 0 && <RoundChip check={rideChecks[i][k]} on={l[k]} />}
                       </label>
                     ))}
                   </div>
@@ -530,7 +549,7 @@ function LineCard({ index, draft, quote, studentId, studentGrade, choices, overl
 }
 
 /** Where the bus goes: the family's map pin + directions from the parent form (owner 2026-09-30: bus is decided on the invoice). */
-function FamilyPin({ family }: { family?: Family }) {
+function FamilyPin({ family, branchLoc, radiusKm }: { family?: Family; branchLoc?: { lat: number; lng: number }; radiusKm?: number | null }) {
   if (!family) return <p className="self-end text-xs text-muted-foreground">เลือกนักเรียนก่อน เพื่อดูหมุดบ้าน</p>
   const loc = family.location
   return (
@@ -542,10 +561,36 @@ function FamilyPin({ family }: { family?: Family }) {
           </div>
           {family.addressNote && <p className="mt-0.5 text-muted-foreground">ทาง: {family.addressNote}</p>}
           {family.address && <p className="text-muted-foreground">{family.address}</p>}
+          {/* owner 2026-10-16: show the map itself, not just a link */}
+          {branchLoc && <BusMap branch={branchLoc} home={loc} radiusKm={radiusKm} className="mt-2 h-56 overflow-hidden rounded-lg" />}
         </>
       ) : (
         <p className="flex items-start gap-1"><AlertTriangleIcon className="mt-0.5 size-3.5 shrink-0" /> ครอบครัวยังไม่ได้ปักหมุดบ้าน{family.address ? ` (มีที่อยู่: ${family.address})` : ""} — ขอให้ผู้ปกครองปักหมุดในฟอร์ม ก่อนจัดรถ</p>
       )}
     </div>
   )
+}
+
+/** Distance → bus fee band (owner 2026-10-16): suggests the type, flags "outside the bus area". */
+function BusDistance({ km, zone, feeId, onUse }: { km: number | null; zone: ReturnType<typeof busZone> | null; feeId: string; onUse: (id: string) => void }) {
+  if (km === null || !zone) return <p className="self-end text-xs text-muted-foreground">ยังวัดระยะไม่ได้ — ต้องมีหมุดบ้าน + หมุดสาขา (Settings › สาขา › ค่าธรรมเนียม)</p>
+  const dist = `ห่างสาขา ${km.toFixed(1)} กม.`
+  if (zone.outside) return <p className="flex items-start gap-1.5 self-end rounded-lg bg-red-50 p-2 text-xs text-red-800 dark:bg-red-950/30 dark:text-red-200"><AlertTriangleIcon className="mt-0.5 size-3.5 shrink-0" />{`${dist} — นอกพื้นที่รับส่ง (ไกลสุด ${zone.maxKm} กม.)`}</p>
+  if (!zone.fee) return <p className="self-end text-xs text-muted-foreground">{`${dist} (เส้นตรง) — ยังไม่ได้ตั้งระยะของประเภทค่ารถ`}</p>
+  const other = zone.fee.id !== feeId
+  return (
+    <p className={cn("flex flex-wrap items-center gap-1.5 self-end rounded-lg p-2 text-xs", other ? "bg-amber-50 text-amber-900 dark:bg-amber-950/30 dark:text-amber-200" : "bg-emerald-50 text-emerald-900 dark:bg-emerald-950/30 dark:text-emerald-200")}>
+      <MapPinIcon className="size-3.5 shrink-0" />
+      <span>{`${dist} (เส้นตรง) → ${zone.fee.name} (ไม่เกิน ${zone.fee.maxKm} กม.)`}</span>
+      {other && <Button size="xs" variant="outline" className="ml-auto" onClick={() => onUse(zone.fee!.id)}>ใช้ประเภทนี้</Button>}
+    </p>
+  )
+}
+
+/** One ride's bus run next to its tick: the run time + seats taken, red when full, grey when there's no run. */
+function RoundChip({ check, on }: { check: RoundCheck; on: boolean }) {
+  if (!check.round) return <span className={cn("rounded-full px-1.5 py-0.5 text-[11px]", on ? "bg-red-100 font-medium text-red-800 dark:bg-red-950/40 dark:text-red-200" : "bg-muted text-muted-foreground")}>ไม่มีรอบ</span>
+  const r = check.round
+  const label = check.full ? `${r.time} เต็ม ${check.taken}/${r.seats}` : `${r.time} · ${check.taken}/${r.seats}`
+  return <span title={r.name} className={cn("rounded-full px-1.5 py-0.5 text-[11px] whitespace-nowrap tabular-nums", check.full ? (on ? "bg-red-100 font-medium text-red-800 dark:bg-red-950/40 dark:text-red-200" : "bg-red-50 text-red-700") : "bg-emerald-50 text-emerald-800 dark:bg-emerald-950/30 dark:text-emerald-200")}>{label}</span>
 }

@@ -1,0 +1,102 @@
+// Liclass school bus (owner 2026-10-16): on the invoice the admin must see how far the home is from the branch (→ which
+// bus fee type, or outside the area) and, for each class day, whether there is a bus run and whether it is full —
+// so they can tell the parent straight away.
+import { endTime, toMinutes, weekdayOf } from "../dates"
+import type { BusAddOn, BusRound, DateStr, Fee, ID, Invoice, Klass, TimeStr } from "../types"
+
+type LatLng = { lat: number; lng: number }
+
+/** Straight-line distance (haversine). The prototype has no road routing — Dev can swap in a road distance. */
+export function distanceKm(a: LatLng, b: LatLng): number {
+  const R = 6371, rad = (d: number) => (d * Math.PI) / 180
+  const dLat = rad(b.lat - a.lat), dLng = rad(b.lng - a.lng)
+  const h = Math.sin(dLat / 2) ** 2 + Math.cos(rad(a.lat)) * Math.cos(rad(b.lat)) * Math.sin(dLng / 2) ** 2
+  return 2 * R * Math.asin(Math.sqrt(h))
+}
+
+export interface BusZone {
+  /** the bus fee type that covers this distance (the nearest band) */
+  fee: Fee | null
+  /** farther than every band — the bus doesn't go there */
+  outside: boolean
+  /** the bus area's edge (largest band), null when no band has a distance set */
+  maxKm: number | null
+}
+
+/** Which bus fee type fits a home `km` away: the first band (by distance) that reaches it. */
+export function busZone(fees: Fee[], km: number): BusZone {
+  const bands = fees.filter((f) => f.kind === "bus" && typeof f.maxKm === "number" && f.maxKm > 0).sort((a, b) => a.maxKm! - b.maxKm!)
+  if (!bands.length) return { fee: null, outside: false, maxKm: null }
+  const fee = bands.find((f) => km <= f.maxKm!) ?? null
+  return { fee, outside: !fee, maxKm: bands[bands.length - 1].maxKm! }
+}
+
+/** how far a run may be from the class (pickup before the start / drop-off after the end) to count as "its" run */
+export const BUS_WINDOW_MIN = 90
+
+/** The run for a ride: pickup = the latest run arriving by the class start · drop-off = the first run leaving after the end. */
+export function roundFor(rounds: BusRound[], kind: BusRound["kind"], date: DateStr, time: TimeStr): BusRound | null {
+  const wd = weekdayOf(date), t = toMinutes(time)
+  const fit = rounds.filter((r) => r.kind === kind && r.weekdays.includes(wd)).filter((r) => {
+    const gap = kind === "pickup" ? t - toMinutes(r.time) : toMinutes(r.time) - t
+    return gap >= 0 && gap <= BUS_WINDOW_MIN
+  })
+  if (!fit.length) return null
+  return fit.sort((a, b) => (kind === "pickup" ? toMinutes(b.time) - toMinutes(a.time) : toMinutes(a.time) - toMinutes(b.time)))[0]
+}
+
+/** first class start + last class end that day, among the given classes (several courses on one day = one ride) */
+export function rideTimes(classes: Klass[], classIds: ID[], date: DateStr): { start: TimeStr; end: TimeStr } | null {
+  const wd = weekdayOf(date)
+  const day = classes.filter((k) => classIds.includes(k.id) && k.weekday === wd)
+  if (!day.length) return null
+  const start = day.map((k) => k.start).sort()[0]
+  const end = day.map((k) => endTime(k.start, k.minutes)).sort().reverse()[0]
+  return { start, end }
+}
+
+export interface BusCtx {
+  branchId: ID
+  invoices: Invoice[]
+  busAddOns: BusAddOn[]
+  classes: Klass[]
+  /** the invoice being edited — its own legs are counted from the draft, not the saved copy */
+  excludeInvoiceId?: ID
+}
+
+/** Students already riding a run on a date — from the bus legs on live invoices + extra bus days. */
+export function roundRiders(round: BusRound, date: DateStr, ctx: BusCtx): Set<ID> {
+  const riders = new Set<ID>()
+  const take = (studentId: ID, classIds: ID[]) => {
+    const t = rideTimes(ctx.classes, classIds, date)
+    if (!t) return
+    if (roundFor([round], round.kind, date, round.kind === "pickup" ? t.start : t.end)) riders.add(studentId)
+  }
+  for (const inv of ctx.invoices) {
+    if (inv.branchId !== ctx.branchId || inv.status === "void" || inv.id === ctx.excludeInvoiceId) continue
+    const leg = inv.bus.find((l) => l.date === date)
+    if (!leg || !(round.kind === "pickup" ? leg.pickup : leg.dropoff)) continue
+    take(inv.studentId, inv.lines.flatMap((l) => l.classIds))
+  }
+  for (const a of ctx.busAddOns) {
+    if (a.branchId !== ctx.branchId || a.date !== date || !(round.kind === "pickup" ? a.pickup : a.dropoff)) continue
+    take(a.studentId, ctx.classes.filter((k) => k.studentIds.includes(a.studentId)).map((k) => k.id))
+  }
+  return riders
+}
+
+export interface RoundCheck {
+  round: BusRound | null
+  /** seats taken by other students (this student not counted) */
+  taken: number
+  full: boolean
+}
+
+/** One ride (pickup or drop-off) on a class day: is there a run, how many seats are taken, is it full. */
+export function checkRide(kind: BusRound["kind"], date: DateStr, times: { start: TimeStr; end: TimeStr } | null, rounds: BusRound[], ctx: BusCtx, studentId?: ID): RoundCheck {
+  const round = times ? roundFor(rounds, kind, date, kind === "pickup" ? times.start : times.end) : null
+  if (!round) return { round: null, taken: 0, full: false }
+  const riders = roundRiders(round, date, ctx)
+  if (studentId) riders.delete(studentId)
+  return { round, taken: riders.size, full: riders.size >= round.seats }
+}

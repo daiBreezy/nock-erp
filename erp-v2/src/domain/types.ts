@@ -63,6 +63,21 @@ export interface Fee {
   kind: FeeKind
   name: string
   price: number
+  /** bus types only (owner 2026-10-16): the type covers homes up to this many km from the branch — the invoice
+   *  suggests the first type that covers the family's pin; past the largest = outside the bus area */
+  maxKm?: number
+}
+
+/** A bus run (Liclass, owner 2026-10-16): pickup runs bring students in before class, drop-off runs take them home
+ *  after — set per weekday with a seat count, so the invoice can say "this day has a run / it's full". */
+export interface BusRound {
+  id: ID
+  kind: "pickup" | "dropoff"
+  weekdays: Weekday[]
+  /** pickup: arrives at the branch by · drop-off: leaves the branch at */
+  time: TimeStr
+  seats: number
+  name?: string
 }
 
 /** Package duration unit (Settings → Packages tabs: Hour / Week / Month). */
@@ -123,6 +138,9 @@ export interface Branch {
   blockDays?: Record<DateStr, ClassBlock[]>
   /** fallback bus price per leg when no bus fee type is set in General Fees */
   busFeePerLeg: number
+  /** the branch's own pin — bus distances are measured from here (owner 2026-10-16) */
+  location?: { lat: number; lng: number }
+  busRounds?: BusRound[]
   fees: Fee[]
   promotions: Promotion[]
   /** Settings → Packages: offered durations per unit + the price chart */

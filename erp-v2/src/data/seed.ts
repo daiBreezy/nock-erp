@@ -115,9 +115,19 @@ export function buildSeed(now = new Date()): DB {
         blocks: blockWeek(["09:00", "13:00", "16:00", "18:00"], ["09:00", "13:00"]),
         invoiceMemo: "Summer Camp 2026 · ค่าเรียนชำระครั้งเดียวก่อนวันเริ่ม ไม่คืนเงินหลังเริ่มเรียน (ย้ายรอบได้ 1 ครั้ง) · รวมค่าเอกสารแล้ว" }],
       active: true, email: "thonglor@liclass.com", address: "123 ถ.สุขุมวิท 55 แขวงคลองตันเหนือ เขตวัฒนา กทม. 10110", phones: ["02-111-2222", "081-234-5678"], socials: ["https://facebook.com/nockacademy"],
+      // owner 2026-10-16: the branch pin (distances for the bus) + bus runs per weekday with seats
+      location: { lat: 13.7307, lng: 100.5838 },
+      busRounds: [
+        { id: "br1", kind: "pickup", weekdays: [1, 2, 3, 4, 5], time: "15:30", seats: 8, name: "รับรอบบ่าย" },
+        { id: "br2", kind: "pickup", weekdays: [1, 2, 3, 4, 5], time: "16:45", seats: 2, name: "รับรอบเย็น" },
+        { id: "br3", kind: "dropoff", weekdays: [1, 2, 3, 4, 5], time: "17:30", seats: 8, name: "ส่งรอบแรก" },
+        { id: "br4", kind: "dropoff", weekdays: [1, 2, 3, 4, 5], time: "19:15", seats: 8, name: "ส่งรอบค่ำ" },
+        { id: "br5", kind: "pickup", weekdays: [6], time: "08:30", seats: 8, name: "รับเช้าเสาร์" },
+        { id: "br6", kind: "dropoff", weekdays: [6], time: "12:15", seats: 8, name: "ส่งเที่ยงเสาร์" },
+      ],
       fees: [
-        { id: "fee_bus_std", kind: "bus", name: "Standard", price: 150 },
-        { id: "fee_bus_far", kind: "bus", name: "โซนไกล", price: 200 },
+        { id: "fee_bus_std", kind: "bus", name: "Standard", price: 150, maxKm: 5 },
+        { id: "fee_bus_far", kind: "bus", name: "โซนไกล", price: 200, maxKm: 10 },
         { id: "fee_entry", kind: "entry", name: "ค่าแรกเข้า", price: 1500 },
         { id: "fee_mock", kind: "mock", name: "Mock test", price: 800 },
       ],
