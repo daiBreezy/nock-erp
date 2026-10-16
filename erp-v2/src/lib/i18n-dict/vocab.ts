@@ -1,4 +1,4 @@
-import type { Entry } from "../i18n"
+import type { Entry } from "./index"
 
 // owner 2026-10-14: words the screen shows on their own (weekdays, month names, units) — kept by hand
 export const VOCAB: Record<string, Entry> = {

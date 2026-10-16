@@ -3,8 +3,9 @@
 // exact phrases first, then patterns with numbers or names in them ("{0} คาบ"). Anything not in the dictionary stays
 // Thai, and people's own data (names, notes) never matches, so it is left as typed.
 // Prototype approach on top of tx(): Dev should move to message ids in the real system.
-import { DICTIONARY, type UiLang } from "./i18n"
-import { romanizeName } from "@/domain/rules/romanize"
+import { DICTIONARY } from "./i18n-dict"
+import type { UiLang } from "./i18n"
+import { romanizeName } from "../domain/rules/romanize"
 
 const THAI = /[฀-๿]/
 

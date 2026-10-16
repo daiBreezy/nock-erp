@@ -8,7 +8,9 @@
     "start": "next start",
     "lint": "eslint",
     "test": "vitest run",
-    "line": "node scripts/line-up.mjs"
+    "line": "node scripts/line-up.mjs",
+    "i18n:check": "I18N_REPORT=1 vitest run src/lib/i18n-coverage.test.ts",
+    "i18n:export": "I18N_EXPORT=1 vitest run src/lib/i18n-coverage.test.ts"
   },
   "dependencies": {
     "@base-ui/react": "^1.8.0",

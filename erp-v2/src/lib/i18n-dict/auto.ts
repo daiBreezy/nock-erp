@@ -1,4 +1,4 @@
-import type { Entry } from "../i18n"
+import type { Entry } from "./index"
 
 // owner 2026-10-14 ("แปลภาษาทุกหน้า"): every Thai phrase in the staff UI, translated — read by the screen
 // translator (lib/screen-translate.ts) and tx(). Curated per-page files override these.

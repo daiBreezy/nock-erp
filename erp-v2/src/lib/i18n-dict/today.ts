@@ -1,4 +1,4 @@
-import type { Entry } from "../i18n"
+import type { Entry } from "./index"
 
 // keys are the Thai text the page shows; {0} {1} … are filled in order
 export const TODAY: Record<string, Entry> = {
