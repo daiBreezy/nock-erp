@@ -8,7 +8,8 @@ import { NativeSelect } from "@/components/app/native-select"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuSub, DropdownMenuSubContent, DropdownMenuSubTrigger, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { ExitRequestDialog } from "@/components/app/student-exit"
 import { BroadcastDialog } from "@/components/inbox/broadcast-dialog"
-import { sendEnrollToChat, sendSurveyToChat } from "@/lib/forms"
+import { sendSurveyToChat } from "@/lib/forms"
+import { SendEnrollDialog } from "@/components/inbox/send-enroll-dialog"
 import { Pill } from "@/components/app/badges"
 import { FamilyForm } from "@/components/app/family-form"
 import { FamilySheet } from "@/components/app/family-sheet"
@@ -91,6 +92,7 @@ export default function InboxPage() {
     window.addEventListener("pointerup", up)
   }
   const [composing, setComposing] = useState(false)
+  const [sendingEnroll, setSendingEnroll] = useState(false)
   const [draft, setDraft] = useState("")
   const [sending, setSending] = useState(false)
   const [openStudentId, setOpenStudentId] = useState<ID | null>(null)
@@ -402,7 +404,7 @@ export default function InboxPage() {
                         <DropdownMenuSubContent className="w-64 whitespace-nowrap">
                           <DropdownMenuItem disabled={!lead} onClick={() => { setFormType("test"); setSendingFormOpen(true) }}><ClipboardListIcon /> Test Form{!lead ? <Hint>เฉพาะ Lead</Hint> : <Sent at={sentAt.test} />}</DropdownMenuItem>
                           <DropdownMenuItem disabled={!lead} onClick={() => { setFormType("trial"); setSendingFormOpen(true) }}><GraduationCapIcon /> Trial{!lead ? <Hint>เฉพาะ Lead</Hint> : <Sent at={sentAt.trial} />}</DropdownMenuItem>
-                          <DropdownMenuItem disabled={!lead && !family} onClick={async () => report(await sendEnrollToChat(selected.id), "ส่งใบสมัครเรียนแล้ว")}><UserPlusIcon /> Enroll{!lead && !family ? <Hint>ผูกแชทก่อน</Hint> : <Sent at={sentAt.enroll} />}</DropdownMenuItem>
+                          <DropdownMenuItem disabled={!lead && !family} onClick={() => setSendingEnroll(true)}><UserPlusIcon /> Enroll{!lead && !family ? <Hint>ผูกแชทก่อน</Hint> : <Sent at={sentAt.enroll} />}</DropdownMenuItem>
                           {kids.length > 1 ? (
                             <DropdownMenuSub>
                               <DropdownMenuSubTrigger><LogOutIcon /> ลาออก<Sent at={sentAt.exit} /></DropdownMenuSubTrigger>
@@ -443,6 +445,7 @@ export default function InboxPage() {
         )}
       </div>
 
+      {sendingEnroll && selected && <SendEnrollDialog conversationId={selected.id} onClose={() => setSendingEnroll(false)} />}
       {composing && <ComposeDialog onClose={() => setComposing(false)} onSent={(id) => { setComposing(false); if (id) select(id) }} />}
       {sendingFormOpen && selected && lead && (
         <SendFormDialog

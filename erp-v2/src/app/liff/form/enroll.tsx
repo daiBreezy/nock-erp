@@ -7,7 +7,7 @@
 import { CheckIcon } from "lucide-react"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Input } from "@/components/ui/input"
-import type { EnrollCourseOption, EnrollPackage, FormLang } from "@/domain/types"
+import type { EnrollClassOffer, EnrollCourseOption, EnrollPackage, FormLang } from "@/domain/types"
 import { cn } from "@/lib/utils"
 
 export const ENROLL_DICT = {
@@ -18,6 +18,8 @@ export const ENROLL_DICT = {
     times: "วัน-เวลาที่สะดวก", timesSub: "แตะได้หลายช่อง", periods: { am: "เช้า", pm: "บ่าย", eve: "เย็น" }, days: ["อา", "จ", "อ", "พ", "พฤ", "ศ", "ส"],
     start: "อยากเริ่มเรียนวันที่", bus: "ต้องการรถรับส่ง", busSub: "ใช้ที่อยู่ในหน้าผู้ปกครอง", placement: "ให้ครูประเมินระดับในคาบแรก", placementSub: "แนะนำ — เพราะไม่ได้สอบวัดระดับก่อน",
     terms: "ยอมรับเงื่อนไขการเรียน การลา และการชำระเงินของสถาบัน", termsNeed: "กรุณายอมรับเงื่อนไขก่อนส่ง", perMonth: "/เดือน", hours: "ชม.", weeks: "สัปดาห์",
+    classes: "เลือกคลาสที่สะดวก", classesSub: "แอดมินเลือกคลาสเหล่านี้ไว้ให้แล้ว — เลือกได้หลายวัน", every: "ทุก", seats: "ว่าง", full: "เต็ม", picked: "คลาสที่เลือก",
+    daysFull: ["วันอาทิตย์", "วันจันทร์", "วันอังคาร", "วันพุธ", "วันพฤหัสบดี", "วันศุกร์", "วันเสาร์"],
   },
   en: {
     title: "Enrolment form", sent: "Application sent", sentSub: "Thank you! Our staff will arrange the class and send the invoice on LINE shortly.",
@@ -26,6 +28,8 @@ export const ENROLL_DICT = {
     times: "Convenient times", timesSub: "Tap any that work", periods: { am: "Morning", pm: "Afternoon", eve: "Evening" }, days: ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"],
     start: "Preferred start date", bus: "School bus needed", busSub: "Uses the address on the parent step", placement: "Teacher checks the level in the first class", placementSub: "Recommended — there was no placement test",
     terms: "I accept the school's study, leave and payment terms", termsNeed: "Please accept the terms", perMonth: "/month", hours: "hrs", weeks: "weeks",
+    classes: "Choose the classes that suit you", classesSub: "Our staff picked these for you — choose as many days as you like", every: "Every", seats: "seats", full: "Full", picked: "Chosen classes",
+    daysFull: ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"],
   },
   ja: {
     title: "入塾申込書", sent: "申込書を送信しました", sentSub: "ありがとうございます。担当者がクラスを手配し、LINEで請求書をお送りします。",
@@ -34,11 +38,13 @@ export const ENROLL_DICT = {
     times: "ご都合の良い時間", timesSub: "複数選択可", periods: { am: "午前", pm: "午後", eve: "夕方" }, days: ["日", "月", "火", "水", "木", "金", "土"],
     start: "開始希望日", bus: "送迎バス希望", busSub: "保護者情報の住所を使用", placement: "初回授業で講師がレベルを確認", placementSub: "おすすめ（事前テストなし）",
     terms: "授業・欠席・支払いの規約に同意します", termsNeed: "規約に同意してください", perMonth: "/月", hours: "時間", weeks: "週",
+    classes: "ご都合の良いクラスを選択", classesSub: "担当者が選んだクラスです — 複数の曜日を選べます", every: "毎週", seats: "空き", full: "満席", picked: "選択したクラス",
+    daysFull: ["日曜日", "月曜日", "火曜日", "水曜日", "木曜日", "金曜日", "土曜日"],
   },
 }
 export type EnrollT = (typeof ENROLL_DICT)["th"]
 
-export interface EnrollFieldsValue { subjects: string[]; courseIds: string[]; pkg: EnrollPackage; times: string[]; startDate: string; bus: boolean; placement: boolean }
+export interface EnrollFieldsValue { subjects: string[]; courseIds: string[]; pkg: EnrollPackage; times: string[]; startDate: string; bus: boolean; placement: boolean; classIds?: string[] }
 
 const PERIODS = ["am", "pm", "eve"] as const
 const DAY_ORDER = [1, 2, 3, 4, 5, 6, 0]
@@ -49,11 +55,48 @@ export const courseLine = (c: EnrollCourseOption, t: EnrollT) => `${c.unit === "
 /** a child is ready when they have a subject (or a course), at least one convenient time and a start date */
 export const enrollValid = (v: EnrollFieldsValue) => (v.subjects.length > 0 || v.courseIds.length > 0) && v.times.length > 0 && !!v.startDate
 
-export function EnrollFields({ t, lang, grade, subjects, subjectLabel, courses, value: v, onChange, minDate, busOffered }: {
+/** "ทุกวันจันทร์ 16:00–17:30" in the form's language */
+export const classTimeLabel = (o: EnrollClassOffer, t: EnrollT) => {
+  const [h, m] = o.start.split(":").map(Number), end = h * 60 + m + o.minutes
+  return `${t.every}${t.every === "Every" ? " " : ""}${t.daysFull[o.weekday]} ${o.start}–${String(Math.floor(end / 60)).padStart(2, "0")}:${String(end % 60).padStart(2, "0")}`
+}
+
+export function EnrollFields({ t, lang, grade, subjects, subjectLabel, courses, classOffers, value: v, onChange, minDate, busOffered }: {
   t: EnrollT; lang: FormLang; grade: string; subjects: string[]; subjectLabel: (s: string) => string; courses: EnrollCourseOption[]
+  /** owner 2026-10-15: the admin offered real classes — the parent only picks those (+ start date), nothing else */
+  classOffers?: EnrollClassOffer[]
   value: EnrollFieldsValue; onChange: (patch: Partial<EnrollFieldsValue>) => void; minDate: string; busOffered: boolean
 }) {
   void lang
+  if (classOffers?.length) {
+    const ids = v.classIds ?? []
+    return (
+      <div className="space-y-3 border-t pt-3">
+        <div>
+          <p className="text-sm font-semibold">{t.classes} *</p>
+          <p className="mb-1.5 text-xs text-muted-foreground">{t.classesSub}</p>
+          <div className="space-y-1.5">
+            {classOffers.map((o) => {
+              const on = ids.includes(o.id), full = o.seatsLeft === 0 && !on
+              return (
+                <button key={o.id} type="button" disabled={full} onClick={() => onChange({ classIds: on ? ids.filter((x) => x !== o.id) : [...ids, o.id] })}
+                  className={cn("flex w-full items-center gap-3 rounded-2xl border px-3 py-2.5 text-left text-sm disabled:opacity-50", on ? "border-primary bg-primary/10" : "hover:bg-muted")}>
+                  <span className={cn("grid size-5 shrink-0 place-items-center rounded-md border", on && "border-primary bg-primary text-primary-foreground")}>{on && <CheckIcon className="size-3.5" />}</span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block font-medium">{classTimeLabel(o, t)}</span>
+                    <span className="block truncate text-xs text-muted-foreground">{o.subjects.map(subjectLabel).join(" + ")}{o.teacher ? ` · ${o.teacher}` : ""}</span>
+                  </span>
+                  <span className={cn("shrink-0 text-xs", o.seatsLeft === 0 ? "text-red-600" : "text-muted-foreground")}>{o.seatsLeft === 0 ? t.full : `${t.seats} ${o.seatsLeft}`}</span>
+                </button>
+              )
+            })}
+          </div>
+        </div>
+        <div className="space-y-1"><p className="text-sm font-semibold">{t.start} *</p><Input type="date" min={minDate} value={v.startDate} onChange={(e) => onChange({ startDate: e.target.value })} /></div>
+        {busOffered && <label className="flex items-start gap-2 text-sm"><Checkbox className="mt-0.5" checked={v.bus} onCheckedChange={(x) => onChange({ bus: !!x })} /><span>{t.bus}<span className="block text-xs text-muted-foreground">{t.busSub}</span></span></label>}
+      </div>
+    )
+  }
   // courses for this grade and the chosen subjects (or every subject when none picked yet)
   const fit = courses.filter((c) => (!c.grades.length || c.grades.includes(grade)) && (!v.subjects.length || c.subjects.some((s) => v.subjects.includes(s))))
   const toggle = <K extends "subjects" | "courseIds" | "times">(k: K, x: string) => onChange({ [k]: v[k].includes(x) ? v[k].filter((y) => y !== x) : [...v[k], x] } as Partial<EnrollFieldsValue>)

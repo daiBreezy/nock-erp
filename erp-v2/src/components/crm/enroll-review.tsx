@@ -52,7 +52,7 @@ export function EnrollInbox({ branchId }: { branchId: ID }) {
   )
 }
 
-interface Plan { courseId: ID; classId: ID; startDate: string; periods: number }
+interface Plan { courseId: ID; classIds: ID[]; startDate: string; periods: number }
 
 /**
  * Review an application: what the parent asked for, then per child the course + class (fit warnings shown, never a
@@ -65,16 +65,20 @@ function EnrollReviewDialog({ sub, onClose, onDone }: { sub: EnrollSubmission; o
   const courses = s.courses.filter((c) => c.branchId === sub.branchId && c.active)
   const matched = matchExistingFamily(s.families, { lineUserId: sub.lineUserId, phones: sub.parents.map((p) => p.phone) })
   const [plans, setPlans] = useState<Plan[]>(() => sub.children.map((c) => {
-    const course = courses.find((x) => c.courseIds.includes(x.id)) ?? courses.find((x) => x.grades.includes(c.grade) && x.subjects.some((y) => c.subjects.includes(y)) && (c.pkg === "unsure" || x.unit === c.pkg))
-    return { courseId: course?.id ?? "", classId: "", startDate: c.startDate > today ? c.startDate : today, periods: 1 }
+    // owner 2026-10-15: the parent picked from the classes we offered — those come ticked; the course is the one the
+    // classes belong to (the admin changes it to what was agreed in the chat)
+    const picked = (c.classIds ?? []).filter((id) => s.classes.some((k) => k.id === id))
+    const fromClass = courses.find((x) => x.id === s.classes.find((k) => k.id === picked[0])?.courseId)
+    const course = fromClass ?? courses.find((x) => c.courseIds.includes(x.id)) ?? courses.find((x) => x.grades.includes(c.grade) && x.subjects.some((y) => c.subjects.includes(y)) && (c.pkg === "unsure" || x.unit === c.pkg))
+    return { courseId: course?.id ?? "", classIds: picked, startDate: c.startDate > today ? c.startDate : today, periods: 1 }
   }))
   const [busy, setBusy] = useState(false)
-  const put = (i: number, patch: Partial<Plan>) => setPlans((ps) => ps.map((p, j) => (j === i ? { ...p, ...patch, ...(patch.courseId ? { classId: "" } : {}) } : p)))
-  const ready = plans.every((p) => p.courseId && p.classId && p.startDate)
+  const put = (i: number, patch: Partial<Plan>) => setPlans((ps) => ps.map((p, j) => (j === i ? { ...p, ...patch } : p)))
+  const ready = plans.every((p) => p.courseId && p.classIds.length && p.startDate)
 
   const submit = async () => {
     setBusy(true)
-    const r = approve(sub, plans.map((p, i) => ({ childIndex: i, courseId: p.courseId, classIds: [p.classId], startDate: p.startDate, periods: p.periods })))
+    const r = approve(sub, plans.map((p, i) => ({ childIndex: i, courseId: p.courseId, classIds: p.classIds, startDate: p.startDate, periods: p.periods })))
     if (report(r, (v) => `สร้างนักเรียน ${v.studentIds.length} คน + ร่างใบแจ้งหนี้ ${v.invoiceIds.length} ใบแล้ว — ตรวจแล้วส่งให้ผู้ปกครองได้เลย`)) {
       await markEnrollReviewed(sub.id, "approved", r.value.studentIds)
       onDone(); onClose()
@@ -101,27 +105,51 @@ function EnrollReviewDialog({ sub, onClose, onDone }: { sub: EnrollSubmission; o
           const p = plans[i]
           const course = courses.find((x) => x.id === p.courseId)
           const choices = course ? classChoices(course, s.classes, sub.branchId, s.staff, c.grade) : []
-          const warn = choices.find((x) => x.klass.id === p.classId)?.warnings ?? []
+          const warn = choices.filter((x) => p.classIds.includes(x.klass.id)).flatMap((x) => x.warnings)
+          // the parent's picks first, then the other classes that fit the course
+          const listed = [...p.classIds.map((id) => s.classes.find((k) => k.id === id)).filter((k): k is NonNullable<typeof k> => !!k).map((klass) => choices.find((x) => x.klass.id === klass.id) ?? { klass, warnings: [] as string[] }),
+            ...choices.filter((x) => !p.classIds.includes(x.klass.id))]
+          const parentPicked = new Set(c.classIds ?? [])
           return (
             <section key={i} className="space-y-2 rounded-2xl border p-3 text-sm">
               <p className="font-medium">{c.name}{c.nickname ? ` (${c.nickname})` : ""} · {c.grade}{c.school ? ` · ${c.school}` : ""}</p>
               <div className="grid gap-1 text-xs text-muted-foreground sm:grid-cols-2">
+                {c.classIds?.length ? (
+                  <p className="sm:col-span-2">เลือกคลาส: <span className="text-foreground">{c.classIds.map((id) => { const k = s.classes.find((x) => x.id === id); return k ? `${k.name} · ${DAYS[k.weekday]} ${k.start}` : "คลาสที่ปิดไปแล้ว" }).join(" / ")}</span></p>
+                ) : <>
                 <p>อยากเรียน: <span className="text-foreground">{[...c.subjects, ...c.courseIds.map((id) => courses.find((x) => x.id === id)?.name ?? "")].filter(Boolean).join(", ") || "—"}</span></p>
                 <p>แพ็กเกจ: <span className="text-foreground">{PKG[c.pkg]}</span></p>
                 <p>สะดวก: <span className="text-foreground">{c.times.map(timeLabel).join(", ")}</span></p>
+                </>}
                 <p>อยากเริ่ม: <span className="text-foreground">{fmtDate(c.startDate, { weekday: true })}</span>{c.bus ? " · ต้องการรถรับส่ง" : ""}</p>
                 {c.placement && <p className="text-amber-700 sm:col-span-2">ขอให้ครูประเมินระดับในคาบแรก (จะบันทึกในโน้ตนักเรียน)</p>}
                 {c.note && <p className="sm:col-span-2">โน้ต: {c.note}</p>}
               </div>
-              <div className="grid gap-2 sm:grid-cols-[1.4fr_1.4fr_9rem_5rem]">
-                <div className="space-y-1"><Label className="text-xs">คอร์ส *</Label>
+              <div className="grid gap-2 sm:grid-cols-[1fr_9rem_5rem]">
+                <div className="space-y-1"><Label className="text-xs">คอร์ส / แพ็กเกจ ที่ตกลงในแชท *</Label>
                   <NativeSelect className="h-9" value={p.courseId} onChange={(e) => put(i, { courseId: e.target.value })} placeholder="เลือกคอร์ส"
                     options={courses.map((x) => ({ value: x.id, label: `${x.name} · ${fmtMoney(x.price + x.courseFee)}` }))} /></div>
-                <div className="space-y-1"><Label className="text-xs">คลาส *</Label>
-                  <NativeSelect className="h-9" value={p.classId} onChange={(e) => put(i, { classId: e.target.value })} placeholder={course ? "เลือกคลาส" : "เลือกคอร์สก่อน"} disabled={!course}
-                    options={choices.map((x) => ({ value: x.klass.id, label: `${x.klass.name} · ${DAYS[x.klass.weekday]} ${x.klass.start}${x.warnings.length ? " ⚠" : ""}` }))} /></div>
                 <div className="space-y-1"><Label className="text-xs">เริ่มเรียน *</Label><Input type="date" min={today} value={p.startDate} onChange={(e) => put(i, { startDate: e.target.value })} /></div>
                 <div className="space-y-1"><Label className="text-xs">งวด</Label><Input type="number" min={1} value={p.periods} onChange={(e) => put(i, { periods: Math.max(1, Number(e.target.value) || 1) })} /></div>
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs">คลาส * <span className="font-normal text-muted-foreground">(ติ๊กได้หลายคลาส · จ่ายครบแล้วเข้าคลาสเหล่านี้อัตโนมัติ)</span></Label>
+                {listed.length ? (
+                  <ul className="divide-y rounded-xl border">
+                    {listed.map(({ klass: k, warnings }) => {
+                      const on = p.classIds.includes(k.id)
+                      return (
+                        <li key={k.id}>
+                          <label className="flex cursor-pointer items-center gap-2 px-3 py-2 text-sm hover:bg-muted/40">
+                            <input type="checkbox" className="size-4 accent-[var(--primary)]" checked={on} onChange={() => put(i, { classIds: on ? p.classIds.filter((x) => x !== k.id) : [...p.classIds, k.id] })} />
+                            <span className="min-w-0 flex-1 truncate">{k.name} · {DAYS[k.weekday]} {k.start}{warnings.length ? " ⚠" : ""}</span>
+                            {parentPicked.has(k.id) && <span className="shrink-0 rounded-full bg-primary/10 px-2 py-0.5 text-[11px] font-medium text-primary">ผู้ปกครองเลือก</span>}
+                          </label>
+                        </li>
+                      )
+                    })}
+                  </ul>
+                ) : <p className="text-xs text-muted-foreground">{course ? "ไม่มีคลาสที่ตรงกับคอร์สนี้" : "เลือกคอร์สก่อน"}</p>}
               </div>
               {warn.length > 0 && <p className="flex items-start gap-1 text-xs text-amber-700"><AlertTriangleIcon className="mt-0.5 size-3.5 shrink-0" />{warn.join(" · ")} (เลือกได้ — แค่เตือน)</p>}
             </section>

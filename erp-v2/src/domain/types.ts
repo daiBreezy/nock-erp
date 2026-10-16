@@ -741,6 +741,10 @@ export type EnrollPackage = "hour" | "week" | "month" | "unsure"
 /** A course the enroll form offers — a snapshot (the parent's page has no access to ERP data). */
 export interface EnrollCourseOption { id: ID; name: string; subjects: string[]; grades: string[]; unit: PriceUnit; duration: number; price: number }
 
+/** owner 2026-10-15: a real weekly class the admin offers in the enroll form — the parent picks the days that suit
+ *  them (course / package were agreed in the chat; the admin puts them on the invoice) */
+export interface EnrollClassOffer { id: ID; name: string; subjects: string[]; grades: string[]; weekday: Weekday; start: TimeStr; minutes: number; teacher?: string; seatsLeft: number }
+
 /** The link: a reusable one per branch (LINE Rich Menu) or a one-time one an admin sends to a lead. */
 export interface EnrollToken {
   token: string
@@ -754,6 +758,9 @@ export interface EnrollToken {
   subjects: string[]
   subjectNames?: SystemConfig["subjectNames"]
   courses: EnrollCourseOption[]
+  /** the classes the admin offers (owner 2026-10-15) — set = the form asks only "which classes", nothing about
+   *  subjects / courses / packages */
+  classOffers?: EnrollClassOffer[]
   /** set when an admin sent it to a lead */
   leadId?: ID
   conversationId: ID | null
@@ -776,6 +783,8 @@ export interface EnrollChild extends FormStudentExtras {
   /** convenient times as "<weekday 0–6>-<am|pm|eve>" */
   times: string[]
   startDate: DateStr
+  /** the offered classes the parent picked (owner 2026-10-15) */
+  classIds?: ID[]
   bus: boolean
   /** the parent wants the teacher to check the level in the first class (no test before) */
   placement: boolean

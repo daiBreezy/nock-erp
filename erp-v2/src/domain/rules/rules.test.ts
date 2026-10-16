@@ -2160,6 +2160,7 @@ import { monthLoad, studentsOfTeacher, teacherWeek } from "./staff-overview"
 import { calendarNotesFor, cleanNote, noteTarget } from "./calendar-notes"
 import { leaveReasonText } from "./scheduling"
 import { formLinkOf } from "./inbox"
+import { enrollClassOffers, enrollClassValid } from "./forms"
 
 describe("staff overview — one teacher's week (owner 2026-10-09)", () => {
   const ses = (id: string, date: string, over: Partial<Session> = {}): Session => ({ id, branchId: "b1", classId: null, subject: "คณิต", date, start: "10:00", minutes: 90, teacherId: "t1", coTeacherIds: [], roomId: null, studentIds: ["a", "b"], trial: false, customized: false, cancelled: false, ...over })
@@ -2521,5 +2522,17 @@ describe("form links in the chat (owner 2026-10-15)", () => {
     expect(formLinkOf({ author: "staff", text: "ขอเวลา 3 นาทีช่วยตอบแบบสอบถาม\nhttps://a.b/liff/survey?token=sv_1" })?.form).toBe("survey")
     expect(formLinkOf({ author: "parent", text: "https://a.b?token=x หยุดเรียน" })).toBeNull()
     expect(formLinkOf({ author: "staff", text: "สวัสดีครับ" })).toBeNull()
+  })
+})
+
+describe("enroll form class offers (owner 2026-10-15)", () => {
+  it("lists running learning classes of the branch with seats left, Monday first", () => {
+    const k = (id: string, weekday: number, over: object = {}) => ({ id, name: id, branchId: "b1", subject: "คณิต", grades: ["ป.5"], kind: "learning", type: "group", courseId: null, teacherId: "t1", weekday, start: "16:00", minutes: 60, startDate: "2026-09-01", active: true, studentIds: ["s1", "s2"], ...over })
+    const out = enrollClassOffers([k("sun", 0), k("mon", 1), k("off", 2, { active: false }), k("other", 3, { branchId: "b2" }), k("test", 4, { kind: "test" })] as never, "b1", () => "ครูได")
+    expect(out.map((o) => o.id)).toEqual(["mon", "sun"])
+    expect(out[0].teacher).toBe("ครูได")
+    expect(out[0].seatsLeft).toBeGreaterThan(0)
+    expect(enrollClassValid({ classIds: [], startDate: "2026-10-20" })).toBe(false)
+    expect(enrollClassValid({ classIds: ["mon"], startDate: "2026-10-20" })).toBe(true)
   })
 })

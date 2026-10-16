@@ -5,7 +5,7 @@
 
 import { staffAt } from "./permissions"
 import { addDays, at, fromMinutes, overlaps, toMinutes } from "../dates"
-import type { Assessment, Branch, Course, DateStr, Family, FormOfferSlot, FormParentInput, FormPrefill, FormSubjectOffer, FormType, Holiday, ID, Klass, Lead, LeadStage, Session, Staff, Student, TimeStr } from "../types"
+import type { Assessment, Branch, Course, DateStr, EnrollClassOffer, Family, FormOfferSlot, FormParentInput, FormPrefill, FormSubjectOffer, FormType, Holiday, ID, Klass, Lead, LeadStage, Session, Staff, Student, TimeStr } from "../types"
 import { classCapacity, hoursFor, isHoliday, slotProblem, teachersOf } from "./scheduling"
 
 export const FORM_TYPE_LABEL: Record<FormType, string> = { test: "สอบวัดระดับ", trial: "ทดลองเรียน" }
@@ -231,3 +231,15 @@ export function buildCombinedSessionDraft(
     assessment: type,
   }
 }
+
+/** owner 2026-10-15: the classes an admin can offer in an enroll form — this branch's running weekly classes for
+ *  learning, with seats left; the admin ticks which to send */
+export function enrollClassOffers(classes: Klass[], branchId: ID, teacherName: (id: ID) => string): EnrollClassOffer[] {
+  return classes
+    .filter((k) => k.branchId === branchId && k.active && k.kind === "learning" && !k.periodId)
+    .map((k) => ({ id: k.id, name: k.name, subjects: k.subjects?.length ? k.subjects : [k.subject], grades: k.grades, weekday: k.weekday, start: k.start, minutes: k.minutes,
+      teacher: k.teacherId ? teacherName(k.teacherId) : undefined, seatsLeft: Math.max(0, classCapacity(k) - k.studentIds.length) }))
+    .sort((a, b) => ((a.weekday + 6) % 7) - ((b.weekday + 6) % 7) || a.start.localeCompare(b.start))
+}
+/** a child is ready on a class-offer form: at least one class + a start date */
+export const enrollClassValid = (v: { classIds?: ID[]; startDate: string }) => (v.classIds?.length ?? 0) > 0 && !!v.startDate

@@ -12,12 +12,13 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { addDays, endTime, toDateStr } from "@/domain/dates"
 import { commonSlots } from "@/domain/rules/forms"
 import { gradeLabel, subjectLabel } from "@/domain/rules/settings"
-import type { Brand, EnrollCourseOption, EnrollToken, FormLang, FormToken, FormOfferSlot, FormPrefill, FormSubjectOffer, FormType } from "@/domain/types"
+import type { Brand, EnrollClassOffer, EnrollCourseOption, EnrollToken, FormLang, FormToken, FormOfferSlot, FormPrefill, FormSubjectOffer, FormType } from "@/domain/types"
 import { cn } from "@/lib/utils"
 import { emptyFamilyDraft, emptyParentDraft, emptyStudentDraft, FamilyFields, ParentFields, parentDraftOf, parentInputOf, StudentFields, studentDraftOf, studentInputOf, type FamilyDraft, type ParentDraft, type StudentDraft } from "@/components/people/person-fields"
 import { joinName } from "@/domain/rules/people"
 import { DICT, fmtBirth, fmtFormDate, LANGS } from "./i18n"
-import { courseLine, ENROLL_DICT, EnrollFields, enrollValid, timeLabel, type EnrollFieldsValue } from "./enroll"
+import { classTimeLabel, courseLine, ENROLL_DICT, EnrollFields, enrollValid, timeLabel, type EnrollFieldsValue } from "./enroll"
+import { enrollClassValid } from "@/domain/rules/forms"
 
 type Phase = "init" | "invalid" | "ready" | "submitting" | "done"
 type Step = "parent" | "student" | "summary"
@@ -27,11 +28,11 @@ const STEP_KEYS: Step[] = ["parent", "student", "summary"]
 type ParentBlock = ParentDraft & { editing: boolean }
 type StudentBlock = StudentDraft & { key: string; activeSubjects: string[]; chosen: Record<string, FormOfferSlot>; editing: boolean; enroll: EnrollFieldsValue }
 /** what the enroll-now form needs from the link (courses, subjects…) — null on a Test/Trial link */
-interface EnrollInfo { courses: EnrollCourseOption[]; subjects: string[]; busOffered: boolean }
+interface EnrollInfo { courses: EnrollCourseOption[]; subjects: string[]; busOffered: boolean; classOffers?: EnrollClassOffer[] }
 
 let seq = 0
 const emptyParent = (name = ""): ParentBlock => ({ ...emptyParentDraft(name), editing: true })
-const emptyEnroll = (): EnrollFieldsValue => ({ subjects: [], courseIds: [], pkg: "month", times: [], startDate: "", bus: false, placement: true })
+const emptyEnroll = (): EnrollFieldsValue => ({ subjects: [], courseIds: [], pkg: "month", times: [], startDate: "", bus: false, placement: true, classIds: [] })
 const emptyStudent = (grade: string): StudentBlock => ({ ...emptyStudentDraft(grade), key: `st${seq++}`, activeSubjects: [], chosen: {}, editing: true, enroll: emptyEnroll() })
 const fullName = joinName
 /** the one visit a child's picks make up: same date+start for every subject, 2 h when 2+ subjects */
@@ -135,7 +136,13 @@ function LiffForm() {
         if (previewEnroll) {
           tk = { token: "preview", kind: "enroll", reusable: true, branchId: "", branchName: "ทองหล่อ", brand: (params.get("brand") as Brand) || "nockacademy", lang: "th", grades: ["ป.4", "ป.5", "ป.6", "ม.1", "ม.2", "ม.3"], subjects: ["คณิต", "อังกฤษ", "วิทย์"],
             subjectNames: { "คณิต": { en: "Math", ja: "数学" }, "อังกฤษ": { en: "English", ja: "英語" }, "วิทย์": { en: "Science", ja: "理科" } }, conversationId: null, createdAt: "", used: false,
-            courses: [{ id: "c1", name: "คณิต ป.5 รายเดือน", subjects: ["คณิต"], grades: ["ป.5"], unit: "month", duration: 1, price: 4400 }, { id: "c2", name: "อังกฤษ ป.6 24 ชม.", subjects: ["อังกฤษ"], grades: ["ป.6"], unit: "hour", duration: 24, price: 6300 }] }
+            courses: [{ id: "c1", name: "คณิต ป.5 รายเดือน", subjects: ["คณิต"], grades: ["ป.5"], unit: "month", duration: 1, price: 4400 }, { id: "c2", name: "อังกฤษ ป.6 24 ชม.", subjects: ["อังกฤษ"], grades: ["ป.6"], unit: "hour", duration: 24, price: 6300 }],
+            // owner 2026-10-15: the admin's offer — real weekly classes to pick from
+            classOffers: [
+              { id: "k1", name: "คณิต ป.5 (จ.)", subjects: ["คณิต"], grades: ["ป.5"], weekday: 1, start: "16:00", minutes: 90, teacher: "ครูโจ", seatsLeft: 3 },
+              { id: "k2", name: "คณิต ป.5 (พ.)", subjects: ["คณิต"], grades: ["ป.5"], weekday: 3, start: "17:00", minutes: 90, teacher: "ครูได", seatsLeft: 0 },
+              { id: "k3", name: "คณิต ป.5 (ส.)", subjects: ["คณิต"], grades: ["ป.5"], weekday: 6, start: "10:00", minutes: 120, teacher: "ครูโจ", seatsLeft: 2 },
+            ] }
           setLineUserId("preview")
         } else {
           const res = await fetch(`/api/parent-forms/enroll?token=${encodeURIComponent(pf)}`).then((r) => r.json()).catch(() => ({ ok: false }))
@@ -154,11 +161,11 @@ function LiffForm() {
         }
         if (cancelled) return
         setToken(pf)
-        setEnroll({ courses: tk.courses, subjects: tk.subjects, busOffered: tk.brand === "liclass" })
+        setEnroll({ courses: tk.courses, subjects: tk.subjects, busOffered: tk.brand === "liclass", classOffers: tk.classOffers })
         setGrades(tk.grades); setBranchName(tk.branchName); setSubjectNames(tk.subjectNames ?? {})
         if (!params.get("lang") && tk.lang) setLang(tk.lang)
         applyPrefill(tk.prefill ?? (previewEnroll ? previewData("trial").prefill : null), tk.grades, [], "")
-        if (previewEnroll) setStudents((ss) => ss.map((st) => ({ ...st, enroll: { subjects: ["คณิต"], courseIds: ["c1"], pkg: "month", times: ["1-pm", "3-eve", "6-am"], startDate: addDays(toDateStr(new Date()), 7), bus: false, placement: true } })))
+        if (previewEnroll) setStudents((ss) => ss.map((st) => ({ ...st, enroll: { ...emptyEnroll(), classIds: ["k1", "k3"], startDate: addDays(toDateStr(new Date()), 7) } })))
         setPhase("ready")
         return
       }
@@ -214,7 +221,7 @@ function LiffForm() {
   const setStudent = (key: string, patch: Partial<StudentBlock>) => setStudents((ss) => ss.map((s) => (s.key === key ? { ...s, ...patch } : s)))
 
   const parentsValid = parents.length > 0 && parents.every((p) => p.first.trim() && p.phones[0]?.trim())
-  const studentsValid = students.length > 0 && students.every((s) => s.first.trim() && s.grade && (enroll ? enrollValid(s.enroll) : s.activeSubjects.length > 0 && s.activeSubjects.every((subj) => s.chosen[subj])))
+  const studentsValid = students.length > 0 && students.every((s) => s.first.trim() && s.grade && (enroll ? (enroll.classOffers?.length ? enrollClassValid(s.enroll) : enrollValid(s.enroll)) : s.activeSubjects.length > 0 && s.activeSubjects.every((subj) => s.chosen[subj])))
 
   const parentsPayload = () => parents.map((p, i) => parentInputOf(p, i === primaryIdx))
   /** the household answers, as both submit APIs take them */
@@ -432,7 +439,7 @@ function StudentCard({ t, lang, names, n, formType, student: s, grades, offers, 
       )}
 
       {enroll ? (
-        <EnrollFields t={ENROLL_DICT[lang]} lang={lang} grade={s.grade} subjects={enroll.subjects} subjectLabel={names.subject} courses={enroll.courses} busOffered={enroll.busOffered}
+        <EnrollFields t={ENROLL_DICT[lang]} lang={lang} grade={s.grade} subjects={enroll.subjects} subjectLabel={names.subject} courses={enroll.courses} classOffers={enroll.classOffers} busOffered={enroll.busOffered}
           value={s.enroll} onChange={(patch) => onChange({ enroll: { ...s.enroll, ...patch } })} minDate={toDateStr(new Date())} />
       ) : (<>
       <div className="space-y-2 border-t pt-3">
@@ -532,9 +539,13 @@ function Summary({ t, lang, names, parents, primaryIdx, fam, linked, students, o
             {s.note && <Line icon={StickyNoteIcon}>{s.note}</Line>}
             {enroll && (
               <div className="space-y-1 border-t pt-2 text-sm">
+                {enroll.classOffers?.length ? (
+                  <Line icon={CalendarClockIcon}>{(s.enroll.classIds ?? []).map((id) => enroll.classOffers!.find((o) => o.id === id)).filter((o): o is EnrollClassOffer => !!o).map((o) => `${classTimeLabel(o, te)} · ${o.subjects.map(names.subject).join(" + ")}`).join(" / ")} · {te.start} {fmtFormDate(s.enroll.startDate, lang)}</Line>
+                ) : <>
                 <Line icon={HeartIcon}>{[...s.enroll.subjects.map(names.subject), ...s.enroll.courseIds.map((id) => enroll.courses.find((c) => c.id === id)).filter((c): c is EnrollCourseOption => !!c).map((c) => `${c.name} (${courseLine(c, te)})`)].join(" · ")}</Line>
                 <Line icon={ReceiptIcon}>{te.pkgs[s.enroll.pkg]}</Line>
                 <Line icon={CalendarClockIcon}>{s.enroll.times.map((k) => timeLabel(k, te)).join(", ")} · {te.start} {fmtFormDate(s.enroll.startDate, lang)}</Line>
+                </>}
                 {(s.enroll.bus || s.enroll.placement) && <Line icon={CheckIcon}>{[s.enroll.bus && te.bus, s.enroll.placement && te.placement].filter(Boolean).join(" · ")}</Line>}
               </div>
             )}
