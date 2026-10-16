@@ -143,7 +143,8 @@ function Shell({ children }: { children: ReactNode }) {
         </SidebarFooter>
       </Sidebar>
       <SidebarInset className="min-w-0">
-        <header className="sticky top-0 z-20 flex h-14 items-center gap-2 border-b bg-background/95 px-3 backdrop-blur md:px-4">
+        {/* owner 2026-10-16: no background — the page (and a tuned theme's gradient) shows through; blur keeps it readable */}
+        <header className="sticky top-0 z-20 flex h-14 items-center gap-2 border-b px-3 backdrop-blur-md md:px-4">
           <SidebarTrigger />
           <Separator orientation="vertical" className="mx-1 h-5" />
           {/* breadcrumb only — the page's own header carries the big title (owner 2026-10-09) */}
@@ -190,7 +191,7 @@ function SmartSearch() {
   return (
     <>
       <button type="button" onClick={() => setOpen(true)} title={`${t("ค้นหา")} (⌘K)`}
-        className="flex h-9 w-full items-center gap-2 rounded-full border bg-background px-3 text-sm text-muted-foreground hover:bg-muted group-data-[collapsible=icon]:size-8 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-0">
+        className="flex h-9 w-full items-center gap-2 rounded-full border bg-card px-3 text-sm text-muted-foreground shadow-xs hover:bg-muted group-data-[collapsible=icon]:size-8 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-0">
         <SearchIcon className="size-4 shrink-0" />
         <span className="truncate group-data-[collapsible=icon]:hidden">{t("ค้นหานักเรียน / ครอบครัว / Lead")}</span>
         <kbd className="ml-auto rounded border px-1 text-[10px] group-data-[collapsible=icon]:hidden">⌘K</kbd>

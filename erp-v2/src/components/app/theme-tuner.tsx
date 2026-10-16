@@ -50,8 +50,14 @@ export function themeVars(t: ThemeSettings): Record<string, string> {
     "--card-backdrop": t.cardBlur > 0 ? `blur(${t.cardBlur}px) saturate(1.3)` : "none",
     "--card-ring": `${t.cardRing}%`,
     "--ai-wash": String(t.aiWash / 100),
-    // owner 2026-10-14: the menu bar and side panels follow the theme too — the same card colour, a little more solid
-    "--sidebar": t.cardOpacity >= 100 ? t.cardColor : `color-mix(in oklab, ${t.cardColor} ${Math.min(100, t.cardOpacity + 10)}%, transparent)`,
+    // owner 2026-10-16: the menu bar sits close to the page colour (a shade deeper, the gradient showing through);
+    // tab tracks / hovers (muted) go the same way, and the selected menu / list item takes the theme's main colour
+    "--sidebar": `color-mix(in oklab, color-mix(in oklab, ${t.pageBg}, black 3%) 72%, transparent)`,
+    "--sidebar-border": `color-mix(in oklab, ${t.pageBg}, black 8%)`,
+    "--muted": `color-mix(in oklab, ${t.pageBg}, black 5%)`,
+    "--accent": `color-mix(in oklab, var(--primary) 10%, ${t.pageBg})`,
+    "--sidebar-accent": `color-mix(in oklab, var(--primary) 15%, ${t.pageBg})`,
+    "--sidebar-accent-foreground": "color-mix(in oklab, var(--primary) 75%, black)",
     "--popover": t.cardOpacity >= 100 ? t.cardColor : `color-mix(in oklab, ${t.cardColor} ${Math.max(t.cardOpacity, 88)}%, transparent)`,
     "--panel-backdrop": t.cardBlur > 0 || t.cardOpacity < 100 ? `blur(${Math.max(t.cardBlur, 16)}px) saturate(1.3)` : "none",
     ...(t.primary ? { "--primary": t.primary, "--ring": `color-mix(in oklab, ${t.primary} 60%, white)` } : {}),

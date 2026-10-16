@@ -102,7 +102,7 @@ export function Segmented<T extends string>({ value, onChange, options, classNam
   return (
     <div role="group" aria-label={label} className={cn("inline-flex h-9 shrink-0 items-center rounded-full bg-muted p-1", className)}>
       {options.map((o) => {
-        const cls = cn("flex h-7 items-center gap-1.5 rounded-full text-sm whitespace-nowrap", iconOnly && o.icon ? "w-8 justify-center" : "px-3", value === o.value ? "bg-background font-medium shadow-sm" : "text-muted-foreground hover:text-foreground")
+        const cls = cn("flex h-7 items-center gap-1.5 rounded-full text-sm whitespace-nowrap", iconOnly && o.icon ? "w-8 justify-center" : "px-3", value === o.value ? "bg-card font-medium shadow-sm" : "text-muted-foreground hover:text-foreground")
         if (iconOnly && o.icon) {
           const Icon = o.icon
           return (
