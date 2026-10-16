@@ -203,6 +203,13 @@ export default function InboxPage() {
   // owner 2026-10-16: draft an invoice for this parent's child straight from the chat (same panel as Billing)
   const [invoicePanel, setInvoicePanel] = useState<{ id: ID | "new"; studentId?: ID; slip?: string } | null>(null)
   const leadStudentId = lead?.trialStudentId && students.some((x) => x.id === lead.trialStudentId) ? lead.trialStudentId : undefined
+  // owner 2026-10-16: course + classes are agreed in the chat and picked on the invoice — a brand-new lead becomes a student first
+  const openInvoice = (studentId?: ID) => {
+    const sid = studentId ?? kids[0]?.id ?? leadStudentId
+    if (sid || !lead) return setInvoicePanel({ id: "new", studentId: sid })
+    const r = useStore.getState().convertLeadToStudent(lead.id)
+    if (report(r, "สร้างนักเรียนจาก Lead แล้ว — เลือกคอร์ส + คลาสในใบแจ้งหนี้ได้เลย")) setInvoicePanel({ id: "new", studentId: r.value.studentId })
+  }
 
   const select = (id: ID) => {
     setSelectedId(id)
@@ -432,12 +439,12 @@ export default function InboxPage() {
                           <DropdownMenuSubContent>
                             <DropdownMenuGroup>
                               <DropdownMenuLabel>ลูกคนไหน</DropdownMenuLabel>
-                              {kids.map((k) => <DropdownMenuItem key={k.id} onClick={() => setInvoicePanel({ id: "new", studentId: k.id })}>{k.nickname} · {k.grade}</DropdownMenuItem>)}
+                              {kids.map((k) => <DropdownMenuItem key={k.id} onClick={() => openInvoice(k.id)}>{k.nickname} · {k.grade}</DropdownMenuItem>)}
                             </DropdownMenuGroup>
                           </DropdownMenuSubContent>
                         </DropdownMenuSub>
                       ) : (
-                        <DropdownMenuItem disabled={!kids.length && !lead} onClick={() => setInvoicePanel({ id: "new", studentId: kids[0]?.id ?? leadStudentId })}>
+                        <DropdownMenuItem disabled={!kids.length && !lead} onClick={() => openInvoice()}>
                           <ReceiptIcon /> ใบแจ้งหนี้{!kids.length && !lead ? <Hint>ผูกแชทก่อน</Hint> : null}
                         </DropdownMenuItem>
                       )}
@@ -465,7 +472,7 @@ export default function InboxPage() {
       </div>
 
       {invoicePanel && <InvoiceSheet id={invoicePanel.id} defaultStudentId={invoicePanel.studentId} slipMediaId={invoicePanel.slip} onClose={() => setInvoicePanel(null)} />}
-      {sendingEnroll && selected && <SendEnrollDialog conversationId={selected.id} onClose={() => setSendingEnroll(false)} />}
+      {sendingEnroll && selected && <SendEnrollDialog conversationId={selected.id} onClose={() => setSendingEnroll(false)} onInvoice={() => openInvoice()} />}
       {composing && <ComposeDialog onClose={() => setComposing(false)} onSent={(id) => { setComposing(false); if (id) select(id) }} />}
       {sendingFormOpen && selected && lead && (
         <SendFormDialog

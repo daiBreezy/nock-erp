@@ -227,6 +227,7 @@ export async function sendEnrollToChat(conversationId: ID, classOffers?: EnrollC
   // owner 2026-10-15: with class offers the parent just picks the classes that suit them
   const sent = await postToChat(conv.id, classOffers?.length
     ? `กรอกใบสมัครเรียน และเลือกคลาสที่สะดวกได้ที่ลิงก์นี้เลยค่ะ 🙏 แอดมินจะส่งใบแจ้งหนี้ให้ทันที\n${url}`
+    : classOffers ? `กรอกข้อมูลสมัครเรียนได้ที่ลิงก์นี้เลยค่ะ 🙏 ได้รับแล้วแอดมินจะส่งใบแจ้งหนี้ตามที่คุยกันไว้ให้ค่ะ\n${url}`
     : `กรอกใบสมัครเรียนได้ที่ลิงก์นี้เลยค่ะ 🙏 แอดมินจะจัดคลาสและส่งใบแจ้งหนี้ให้ทันที\n${url}`)
   return sent.ok ? { ok: true, value: { url } } : sent
 }

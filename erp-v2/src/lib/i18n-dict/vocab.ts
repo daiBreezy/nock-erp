@@ -159,4 +159,13 @@ export const VOCAB: Record<string, Entry> = {
   "ปิดใบสมัคร": { en: "Closed", ja: "クローズ" },
   "ไม่พบใบสมัคร": { en: "Form not found", ja: "申込書が見つかりません" },
   "ตรวจ + ร่างใบแจ้งหนี้": { en: "Review + draft invoice", ja: "確認＋請求書下書き" },
+  "ขอข้อมูลครอบครัวจากผู้ปกครอง — คอร์สและคลาสที่คุยกันในแชท เลือกตอนสร้างใบแจ้งหนี้": { en: "Ask the parent for the family's details — the course and classes agreed in the chat are picked on the invoice", ja: "保護者にご家族の情報を依頼 — チャットで決めたコースとクラスは請求書作成時に選びます" },
+  "ข้อมูลผู้ปกครอง (ชื่อ · เบอร์ · ที่อยู่ · ใบกำกับภาษี)": { en: "Parent details (name · phone · address · tax invoice)", ja: "保護者情報（氏名・電話・住所・領収書）" },
+  "ข้อมูลนักเรียน (ชื่อ · ชั้น · โรงเรียน · วันเกิด)": { en: "Student details (name · grade · school · birthday)", ja: "生徒情報（氏名・学年・学校・誕生日）" },
+  "อยากเริ่มเรียนวันไหน · ขอใช้รถรับส่งไหม": { en: "When they'd like to start · whether they want the bus", ja: "開始希望日・送迎バスの希望" },
+  "ข้ามไปสร้างใบแจ้งหนี้": { en: "Skip to the invoice", ja: "請求書作成へ" },
+  "สร้างนักเรียน + ใบแจ้งหนี้": { en: "Create student + invoice", ja: "生徒作成＋請求書" },
+  "รอสร้างนักเรียน": { en: "Student to create", ja: "生徒作成待ち" },
+  "สร้างนักเรียนแล้ว": { en: "Student created", ja: "生徒作成済み" },
+  "ผู้ปกครองส่งกลับมา → การ์ดในแชท \"สร้างนักเรียน + ใบแจ้งหนี้\" → เลือกคอร์ส + คลาสในใบแจ้งหนี้": { en: "When the parent sends it back → the chat card \"Create student + invoice\" → pick the course + classes on the invoice", ja: "保護者が送信 → チャットのカード「生徒作成＋請求書」→ 請求書でコースとクラスを選択" },
 }

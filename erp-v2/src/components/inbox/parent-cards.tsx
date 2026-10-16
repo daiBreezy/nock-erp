@@ -5,7 +5,7 @@
 // parent app shows the same card as the Notifications page.
 import { useEffect, useState } from "react"
 import { fmtDate, fmtDateTime } from "@/domain/dates"
-import type { ChatMessage, Conversation, EnrollSubmission, ExitResponse, Student } from "@/domain/types"
+import type { ChatMessage, Conversation, EnrollSubmission, ExitResponse, ID, Student } from "@/domain/types"
 import { ExitPanel } from "@/components/app/student-exit"
 import { RequestCard } from "@/components/app/parent-requests"
 import { fetchParentRequests } from "@/lib/parent-requests"
@@ -13,6 +13,7 @@ import { useStore } from "@/store/store"
 import { DoorOpenIcon, ReceiptIcon, UserPlusIcon } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { EnrollReviewDialog } from "@/components/crm/enroll-review"
+import { InvoiceSheet } from "@/components/billing/invoice-sheet"
 import { fetchEnrollSubmissions } from "@/lib/forms"
 import { Confirmation, ConfirmationActions, ConfirmationBody, ConfirmationHeader } from "@/components/ai-elements/confirmation"
 
@@ -64,6 +65,7 @@ export function isEnrollSubmissionMessage(m: ChatMessage) {
 export function EnrollSubmissionChatCard({ message, conversation }: { message: ChatMessage; conversation: Conversation }) {
   const [subs, setSubs] = useState<EnrollSubmission[] | null>(null)
   const [open, setOpen] = useState(false)
+  const [invoiceFor, setInvoiceFor] = useState<ID | null>(null)
   const load = () => fetchEnrollSubmissions().then(setSubs)
   useEffect(() => { load() }, [])
   // the submission from this chat closest to the message
@@ -74,18 +76,19 @@ export function EnrollSubmissionChatCard({ message, conversation }: { message: C
   return (
     <div className="flex">
       <Confirmation state={state} className="max-w-md">
-        <ConfirmationHeader state={state} icon={<UserPlusIcon />} label={!sub ? (subs ? "ไม่พบใบสมัคร" : "กำลังโหลด…") : sub.status === "pending" ? "รอสร้างใบแจ้งหนี้" : sub.status === "approved" ? "สร้างใบแจ้งหนี้แล้ว" : "ปิดใบสมัคร"}
+        <ConfirmationHeader state={state} icon={<UserPlusIcon />} label={!sub ? (subs ? "ไม่พบใบสมัคร" : "กำลังโหลด…") : sub.status === "pending" ? "รอสร้างนักเรียน" : sub.status === "approved" ? "สร้างนักเรียนแล้ว" : "ปิดใบสมัคร"}
           title={<>ผู้ปกครองส่งใบสมัครเรียน <span className="font-normal text-muted-foreground">· {fmtDateTime(message.at)}</span></>} />
         <ConfirmationBody className="pl-[3.25rem] text-xs text-muted-foreground">
           {sub ? sub.children.map((c, i) => <p key={i}><span className="font-medium text-foreground">{c.nickname || c.name}</span> · {c.grade}{c.classIds?.length ? ` · ${c.classIds.length} คลาส` : ""} · เริ่ม {fmtDate(c.startDate, { weekday: true })}{c.bus ? " · รถรับส่ง" : ""}</p>) : message.text.replace("📝 ", "")}
         </ConfirmationBody>
         {sub?.status === "pending" && (
           <ConfirmationActions>
-            <Button size="sm" onClick={() => setOpen(true)}><ReceiptIcon /> ตรวจ + ร่างใบแจ้งหนี้</Button>
+            <Button size="sm" onClick={() => setOpen(true)}><ReceiptIcon /> สร้างนักเรียน + ใบแจ้งหนี้</Button>
           </ConfirmationActions>
         )}
       </Confirmation>
-      {open && sub && <EnrollReviewDialog sub={sub} onClose={() => setOpen(false)} onDone={load} />}
+      {open && sub && <EnrollReviewDialog sub={sub} onClose={() => setOpen(false)} onDone={(ids) => { load(); if (ids?.[0]) setInvoiceFor(ids[0]) }} />}
+      {invoiceFor && <InvoiceSheet id="new" defaultStudentId={invoiceFor} onClose={() => setInvoiceFor(null)} />}
     </div>
   )
 }

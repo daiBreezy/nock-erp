@@ -137,14 +137,8 @@ function LiffForm() {
           tk = { token: "preview", kind: "enroll", reusable: true, branchId: "", branchName: "ทองหล่อ", brand: (params.get("brand") as Brand) || "nockacademy", lang: "th", grades: ["ป.4", "ป.5", "ป.6", "ม.1", "ม.2", "ม.3"], subjects: ["คณิต", "อังกฤษ", "วิทย์"],
             subjectNames: { "คณิต": { en: "Math", ja: "数学" }, "อังกฤษ": { en: "English", ja: "英語" }, "วิทย์": { en: "Science", ja: "理科" } }, conversationId: null, createdAt: "", used: false,
             courses: [{ id: "c1", name: "คณิต ป.5 รายเดือน", subjects: ["คณิต"], grades: ["ป.5"], unit: "month", duration: 1, price: 4400 }, { id: "c2", name: "อังกฤษ ป.6 24 ชม.", subjects: ["อังกฤษ"], grades: ["ป.6"], unit: "hour", duration: 24, price: 6300 }],
-            // owner 2026-10-15: the admin's offer — real weekly classes to pick from
-            classOffers: [
-              { id: "k1", name: "คณิต ป.5 (จ.)", subjects: ["คณิต"], grades: ["ป.5"], weekday: 1, start: "16:00", minutes: 90, teacher: "ครูโจ", seatsLeft: 3 },
-              { id: "k2", name: "คณิต ป.5 (พ.)", subjects: ["คณิต"], grades: ["ป.5"], weekday: 3, start: "17:00", minutes: 90, teacher: "ครูได", seatsLeft: 0 },
-              { id: "k3", name: "คณิต ป.5 (ส.)", subjects: ["คณิต"], grades: ["ป.5"], weekday: 6, start: "10:00", minutes: 120, teacher: "ครูโจ", seatsLeft: 2 },
-            ],
-            // owner 2026-10-16: what the admin agreed in the chat (+ the bus at Liclass)
-            plan: { course: { id: "c1", name: "คณิต ป.5 รายเดือน", subjects: ["คณิต"], grades: ["ป.5"], unit: "month", duration: 1, price: 4400 }, periods: 1, bus: (params.get("brand") as Brand) === "liclass" } }
+            // owner 2026-10-16: the admin picks course + classes on the invoice — the form only asks for details
+            classOffers: [] }
           setLineUserId("preview")
         } else {
           const res = await fetch(`/api/parent-forms/enroll?token=${encodeURIComponent(pf)}`).then((r) => r.json()).catch(() => ({ ok: false }))
@@ -223,7 +217,7 @@ function LiffForm() {
   const setStudent = (key: string, patch: Partial<StudentBlock>) => setStudents((ss) => ss.map((s) => (s.key === key ? { ...s, ...patch } : s)))
 
   const parentsValid = parents.length > 0 && parents.every((p) => p.first.trim() && p.phones[0]?.trim())
-  const studentsValid = students.length > 0 && students.every((s) => s.first.trim() && s.grade && (enroll ? (enroll.classOffers?.length ? enrollClassValid(s.enroll) : enrollValid(s.enroll)) : s.activeSubjects.length > 0 && s.activeSubjects.every((subj) => s.chosen[subj])))
+  const studentsValid = students.length > 0 && students.every((s) => s.first.trim() && s.grade && (enroll ? (enroll.classOffers ? (enroll.classOffers.length ? enrollClassValid(s.enroll) : !!s.enroll.startDate) : enrollValid(s.enroll)) : s.activeSubjects.length > 0 && s.activeSubjects.every((subj) => s.chosen[subj])))
 
   const parentsPayload = () => parents.map((p, i) => parentInputOf(p, i === primaryIdx))
   /** the household answers, as both submit APIs take them */
@@ -541,8 +535,8 @@ function Summary({ t, lang, names, parents, primaryIdx, fam, linked, students, o
             {s.note && <Line icon={StickyNoteIcon}>{s.note}</Line>}
             {enroll && (
               <div className="space-y-1 border-t pt-2 text-sm">
-                {enroll.classOffers?.length ? (
-                  <Line icon={CalendarClockIcon}>{(s.enroll.classIds ?? []).map((id) => enroll.classOffers!.find((o) => o.id === id)).filter((o): o is EnrollClassOffer => !!o).map((o) => `${classTimeLabel(o, te)} · ${o.subjects.map(names.subject).join(" + ")}`).join(" / ")} · {te.start} {fmtFormDate(s.enroll.startDate, lang)}</Line>
+                {enroll.classOffers ? (
+                  <Line icon={CalendarClockIcon}>{[(s.enroll.classIds ?? []).map((id) => enroll.classOffers!.find((o) => o.id === id)).filter((o): o is EnrollClassOffer => !!o).map((o) => `${classTimeLabel(o, te)} · ${o.subjects.map(names.subject).join(" + ")}`).join(" / "), `${te.start} ${fmtFormDate(s.enroll.startDate, lang)}`].filter(Boolean).join(" · ")}</Line>
                 ) : <>
                 <Line icon={HeartIcon}>{[...s.enroll.subjects.map(names.subject), ...s.enroll.courseIds.map((id) => enroll.courses.find((c) => c.id === id)).filter((c): c is EnrollCourseOption => !!c).map((c) => `${c.name} (${courseLine(c, te)})`)].join(" · ")}</Line>
                 <Line icon={ReceiptIcon}>{te.pkgs[s.enroll.pkg]}</Line>

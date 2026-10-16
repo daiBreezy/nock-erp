@@ -73,7 +73,8 @@ export function EnrollFields({ t, lang, grade, subjects, subjectLabel, courses, 
   value: EnrollFieldsValue; onChange: (patch: Partial<EnrollFieldsValue>) => void; minDate: string; busOffered: boolean
 }) {
   void lang
-  if (classOffers?.length) {
+  // classOffers present (even empty, owner 2026-10-16) = the new form: no subject / course / package / time grid
+  if (classOffers) {
     const ids = v.classIds ?? []
     const bus = plan ? plan.bus : busOffered
     return (
@@ -85,7 +86,7 @@ export function EnrollFields({ t, lang, grade, subjects, subjectLabel, courses, 
             <p className="text-xs text-muted-foreground">{courseLine(plan.course, t)}{plan.periods > 1 ? ` × ${plan.periods} ${t.periodsUnit}` : ""}</p>
           </div>
         )}
-        <div>
+        {classOffers.length > 0 && <div>
           <p className="text-sm font-semibold">{t.classes} *</p>
           <p className="mb-1.5 text-xs text-muted-foreground">{t.classesSub}</p>
           <div className="space-y-1.5">
@@ -104,7 +105,7 @@ export function EnrollFields({ t, lang, grade, subjects, subjectLabel, courses, 
               )
             })}
           </div>
-        </div>
+        </div>}
         <div className="space-y-1"><p className="text-sm font-semibold">{t.start} *</p><Input type="date" min={minDate} value={v.startDate} onChange={(e) => onChange({ startDate: e.target.value })} /></div>
         {bus && (
           <div className="space-y-1.5">

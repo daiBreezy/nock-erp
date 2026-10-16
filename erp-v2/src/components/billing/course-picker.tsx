@@ -42,12 +42,14 @@ export function CoursePicker({ branch, today, studentGrade, studentId, onInvoice
   const entitlements = useStore((s) => s.entitlements)
   const me = useStore((s) => s.me())
   const [f, setF] = useState<CourseFilter>({ q: "", subject: "", format: "", pack: "" })
+  // owner 2026-10-16: every course is there; the grade filter just starts at the student's grade (clear it to see all)
+  const [grade, setGrade] = useState(studentGrade && branch.grades.includes(studentGrade) ? studentGrade : "")
   const [picked, setPicked] = useState<ID[]>([])
   const [limit, setLimit] = useState(PAGE)
   const [creating, setCreating] = useState<Course | null>(null)
 
   const branchCourses = filterCourses(allCourses, branch.id, { q: "", subject: "", format: "", pack: "" }, today)
-  const list = filterCourses(allCourses, branch.id, f, today)
+  const list = filterCourses(allCourses, branch.id, f, today).filter((c) => !grade || !c.grades.length || c.grades.includes(grade))
   const packs = [...new Map(branchCourses.map((c) => [packKey(c), packageLabel(c)])).entries()].map(([value, label]) => ({ value, label }))
   const toggle = (id: ID) => setPicked((p) => (p.includes(id) ? p.filter((x) => x !== id) : [...p, id]))
 
@@ -60,7 +62,8 @@ export function CoursePicker({ branch, today, studentGrade, studentId, onInvoice
             <DialogDescription>เลือกได้หลายคอร์สในใบเดียว · เฉพาะคอร์สของสาขา{branchLabel(branch)}</DialogDescription>
           </DialogHeader>
 
-          <div className="grid gap-2 sm:grid-cols-[1fr_1fr_1fr_1.4fr]">
+          <div className="grid gap-2 sm:grid-cols-[1fr_1fr_1fr_1fr_1.4fr]">
+            <NativeSelect value={grade} onChange={(e) => { setGrade(e.target.value); setLimit(PAGE) }} placeholder="ทุกชั้น" options={branch.grades.map((g) => ({ value: g, label: g }))} />
             <NativeSelect value={f.subject} onChange={(e) => { setF({ ...f, subject: e.target.value }); setLimit(PAGE) }} placeholder="ทุกวิชา" options={branch.subjects.map((s) => ({ value: s, label: s }))} />
             <NativeSelect value={f.format} onChange={(e) => { setF({ ...f, format: e.target.value as CourseFilter["format"] }); setLimit(PAGE) }} placeholder="เดี่ยว + กลุ่ม" options={[{ value: "group", label: "กลุ่ม" }, { value: "single", label: "เดี่ยว" }]} />
             <NativeSelect value={f.pack} onChange={(e) => { setF({ ...f, pack: e.target.value }); setLimit(PAGE) }} placeholder="ทุกแพ็กเกจ" options={packs} />

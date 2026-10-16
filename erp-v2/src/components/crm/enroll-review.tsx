@@ -1,20 +1,15 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import Link from "next/link"
-import { AlertTriangleIcon, CheckIcon, ClipboardListIcon, ReceiptIcon, UserPlusIcon, XIcon } from "lucide-react"
-import { NativeSelect } from "@/components/app/native-select"
+import { ClipboardListIcon, ReceiptIcon, UserPlusIcon, XIcon } from "lucide-react"
+import { InvoiceSheet } from "@/components/billing/invoice-sheet"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { fmtDate, fmtDateTime, fmtMoney, toDateStr } from "@/domain/dates"
-import { classChoices } from "@/domain/rules/billing"
+import { fmtDate, fmtDateTime } from "@/domain/dates"
 import { matchExistingFamily } from "@/domain/rules/people"
 import type { EnrollSubmission, ID } from "@/domain/types"
 import { report } from "@/lib/feedback"
 import { fetchEnrollSubmissions, markEnrollReviewed } from "@/lib/forms"
-import { useNow } from "@/lib/hooks"
 import { cn } from "@/lib/utils"
 import { useStore } from "@/store/store"
 
@@ -27,6 +22,7 @@ const timeLabel = (k: string) => { const [d, p] = k.split("-"); return `${DAYS[N
 export function EnrollInbox({ branchId }: { branchId: ID }) {
   const [subs, setSubs] = useState<EnrollSubmission[]>([])
   const [open, setOpen] = useState<EnrollSubmission | null>(null)
+  const [invoiceFor, setInvoiceFor] = useState<ID | null>(null)
   const load = () => fetchEnrollSubmissions().then(setSubs)
   useEffect(() => { load() }, [])
   const pending = subs.filter((x) => x.status === "pending" && x.branchId === branchId).sort((a, b) => a.submittedAt.localeCompare(b.submittedAt))
@@ -42,47 +38,33 @@ export function EnrollInbox({ branchId }: { branchId: ID }) {
               <span className="font-medium">{x.children.map((c) => `${c.nickname || c.name} (${c.grade})`).join(", ")}</span>
               <span className="text-muted-foreground">· {p?.name} {p?.phone}</span>
               <span className="text-xs text-muted-foreground">· {x.leadId ? "Admin ส่งลิงก์" : "จาก Rich Menu"} · {fmtDateTime(x.submittedAt)}</span>
-              <Button size="xs" className="ml-auto" onClick={() => setOpen(x)}>จัดคลาส + ออกใบแจ้งหนี้</Button>
+              <Button size="xs" className="ml-auto" onClick={() => setOpen(x)}>สร้างนักเรียน + ใบแจ้งหนี้</Button>
             </li>
           )
         })}
       </ul>
-      {open && <EnrollReviewDialog sub={open} onClose={() => setOpen(null)} onDone={load} />}
+      {open && <EnrollReviewDialog sub={open} onClose={() => setOpen(null)} onDone={(ids) => { load(); if (ids?.[0]) setInvoiceFor(ids[0]) }} />}
+      {invoiceFor && <InvoiceSheet id="new" defaultStudentId={invoiceFor} onClose={() => setInvoiceFor(null)} />}
     </section>
   )
 }
 
-interface Plan { courseId: ID; classIds: ID[]; startDate: string; periods: number }
-
 /**
- * Review an application: what the parent asked for, then per child the course + class (fit warnings shown, never a
- * block), start date and periods → family + student + "สมัครตรง" lead + draft invoice in one go.
+ * Review an application (owner 2026-10-16): who the parents and children are → family + student + lead in one go,
+ * then the invoice panel opens — the course + classes agreed in the chat are picked there (the one place for it).
  */
-export function EnrollReviewDialog({ sub, onClose, onDone }: { sub: EnrollSubmission; onClose: () => void; onDone: () => void }) {
+export function EnrollReviewDialog({ sub, onClose, onDone }: { sub: EnrollSubmission; onClose: () => void; onDone: (studentIds?: ID[]) => void }) {
   const s = useStore()
   const approve = useStore((st) => st.approveEnrollment)
-  const today = toDateStr(useNow(60_000))
-  const courses = s.courses.filter((c) => c.branchId === sub.branchId && c.active)
   const matched = matchExistingFamily(s.families, { lineUserId: sub.lineUserId, phones: sub.parents.map((p) => p.phone) })
-  const [plans, setPlans] = useState<Plan[]>(() => sub.children.map((c) => {
-    // owner 2026-10-15: the parent picked from the classes we offered — those come ticked; the course is the one the
-    // classes belong to (the admin changes it to what was agreed in the chat)
-    const picked = (c.classIds ?? []).filter((id) => s.classes.some((k) => k.id === id))
-    const fromClass = courses.find((x) => x.id === s.classes.find((k) => k.id === picked[0])?.courseId)
-    // the course the admin put in the form (owner 2026-10-16) wins; then the classes' course; then a best guess
-    const course = courses.find((x) => c.courseIds.includes(x.id)) ?? fromClass ?? courses.find((x) => x.grades.includes(c.grade) && x.subjects.some((y) => c.subjects.includes(y)) && (c.pkg === "unsure" || x.unit === c.pkg))
-    return { courseId: course?.id ?? "", classIds: picked, startDate: c.startDate > today ? c.startDate : today, periods: c.periods ?? 1 }
-  }))
   const [busy, setBusy] = useState(false)
-  const put = (i: number, patch: Partial<Plan>) => setPlans((ps) => ps.map((p, j) => (j === i ? { ...p, ...patch } : p)))
-  const ready = plans.every((p) => p.courseId && p.classIds.length && p.startDate)
 
   const submit = async () => {
     setBusy(true)
-    const r = approve(sub, plans.map((p, i) => ({ childIndex: i, courseId: p.courseId, classIds: p.classIds, startDate: p.startDate, periods: p.periods })))
-    if (report(r, (v) => `สร้างนักเรียน ${v.studentIds.length} คน + ร่างใบแจ้งหนี้ ${v.invoiceIds.length} ใบแล้ว — ตรวจแล้วส่งให้ผู้ปกครองได้เลย`)) {
+    const r = approve(sub, sub.children.map((_, i) => ({ childIndex: i })))
+    if (report(r, (v) => `สร้างนักเรียน ${v.studentIds.length} คนแล้ว — เลือกคอร์ส + คลาสในใบแจ้งหนี้ได้เลย`)) {
       await markEnrollReviewed(sub.id, "approved", r.value.studentIds)
-      onDone(); onClose()
+      onDone(r.value.studentIds); onClose()
     }
     setBusy(false)
   }
@@ -90,10 +72,10 @@ export function EnrollReviewDialog({ sub, onClose, onDone }: { sub: EnrollSubmis
 
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="max-h-[92vh] overflow-y-auto sm:max-w-2xl">
+      <DialogContent className="max-h-[92vh] overflow-y-auto sm:max-w-xl">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2"><ClipboardListIcon className="size-5" /> ใบสมัครเรียน · ส่งเมื่อ {fmtDateTime(sub.submittedAt)}</DialogTitle>
-          <DialogDescription>เลือกคอร์สและคลาสให้แต่ละคน → ระบบสร้างครอบครัว นักเรียน Lead &quot;สมัครตรง&quot; (รอชำระ) และร่างใบแจ้งหนี้ให้ · ตอบเป็นภาษา {sub.lang.toUpperCase()}</DialogDescription>
+          <DialogDescription>ตรวจข้อมูล → สร้างครอบครัว + นักเรียน แล้วเปิดใบแจ้งหนี้ให้เลือกคอร์ส + คลาสที่ตกลงในแชท · ตอบเป็นภาษา {sub.lang.toUpperCase()}</DialogDescription>
         </DialogHeader>
         <section className="space-y-1 rounded-2xl border p-3 text-sm">
           <p className="font-medium">ผู้ปกครอง</p>
@@ -102,68 +84,27 @@ export function EnrollReviewDialog({ sub, onClose, onDone }: { sub: EnrollSubmis
           {sub.taxInfo?.taxId && <p className="text-muted-foreground">ใบกำกับภาษี: {sub.taxInfo.customerName} · {sub.taxInfo.taxId}</p>}
           <p className={cn("text-xs", matched ? "text-amber-700" : "text-muted-foreground")}>{matched ? `พบครอบครัวเดิม "${matched.name}" (LINE หรือเบอร์ตรงกัน) — จะเพิ่มนักเรียนเข้าครอบครัวนี้` : "ครอบครัวใหม่"}</p>
         </section>
-        {sub.children.map((c, i) => {
-          const p = plans[i]
-          const course = courses.find((x) => x.id === p.courseId)
-          const choices = course ? classChoices(course, s.classes, sub.branchId, s.staff, c.grade) : []
-          const warn = choices.filter((x) => p.classIds.includes(x.klass.id)).flatMap((x) => x.warnings)
-          // the parent's picks first, then the other classes that fit the course
-          const listed = [...p.classIds.map((id) => s.classes.find((k) => k.id === id)).filter((k): k is NonNullable<typeof k> => !!k).map((klass) => choices.find((x) => x.klass.id === klass.id) ?? { klass, warnings: [] as string[] }),
-            ...choices.filter((x) => !p.classIds.includes(x.klass.id))]
-          const parentPicked = new Set(c.classIds ?? [])
-          return (
-            <section key={i} className="space-y-2 rounded-2xl border p-3 text-sm">
-              <p className="font-medium">{c.name}{c.nickname ? ` (${c.nickname})` : ""} · {c.grade}{c.school ? ` · ${c.school}` : ""}</p>
-              <div className="grid gap-1 text-xs text-muted-foreground sm:grid-cols-2">
-                {c.classIds?.length ? (
-                  <p className="sm:col-span-2">เลือกคลาส: <span className="text-foreground">{c.classIds.map((id) => { const k = s.classes.find((x) => x.id === id); return k ? `${k.name} · ${DAYS[k.weekday]} ${k.start}` : "คลาสที่ปิดไปแล้ว" }).join(" / ")}</span></p>
-                ) : <>
-                <p>อยากเรียน: <span className="text-foreground">{[...c.subjects, ...c.courseIds.map((id) => courses.find((x) => x.id === id)?.name ?? "")].filter(Boolean).join(", ") || "—"}</span></p>
-                <p>แพ็กเกจ: <span className="text-foreground">{PKG[c.pkg]}</span></p>
-                <p>สะดวก: <span className="text-foreground">{c.times.map(timeLabel).join(", ")}</span></p>
-                </>}
-                <p>อยากเริ่ม: <span className="text-foreground">{fmtDate(c.startDate, { weekday: true })}</span>{c.bus ? ` · รถรับส่ง${c.busLeg === "pickup" ? " ขาไป" : c.busLeg === "dropoff" ? " ขากลับ" : " ไป-กลับ"}` : ""}</p>
-                {c.placement && <p className="text-amber-700 sm:col-span-2">ขอให้ครูประเมินระดับในคาบแรก (จะบันทึกในโน้ตนักเรียน)</p>}
-                {c.note && <p className="sm:col-span-2">โน้ต: {c.note}</p>}
-              </div>
-              <div className="grid gap-2 sm:grid-cols-[1fr_9rem_5rem]">
-                <div className="space-y-1"><Label className="text-xs">คอร์ส / แพ็กเกจ ที่ตกลงในแชท *</Label>
-                  <NativeSelect className="h-9" value={p.courseId} onChange={(e) => put(i, { courseId: e.target.value })} placeholder="เลือกคอร์ส"
-                    options={courses.map((x) => ({ value: x.id, label: `${x.name} · ${fmtMoney(x.price + x.courseFee)}` }))} /></div>
-                <div className="space-y-1"><Label className="text-xs">เริ่มเรียน *</Label><Input type="date" min={today} value={p.startDate} onChange={(e) => put(i, { startDate: e.target.value })} /></div>
-                <div className="space-y-1"><Label className="text-xs">งวด</Label><Input type="number" min={1} value={p.periods} onChange={(e) => put(i, { periods: Math.max(1, Number(e.target.value) || 1) })} /></div>
-              </div>
-              <div className="space-y-1">
-                <Label className="text-xs">คลาส * <span className="font-normal text-muted-foreground">(ติ๊กได้หลายคลาส · จ่ายครบแล้วเข้าคลาสเหล่านี้อัตโนมัติ)</span></Label>
-                {listed.length ? (
-                  <ul className="divide-y rounded-xl border">
-                    {listed.map(({ klass: k, warnings }) => {
-                      const on = p.classIds.includes(k.id)
-                      return (
-                        <li key={k.id}>
-                          <label className="flex cursor-pointer items-center gap-2 px-3 py-2 text-sm hover:bg-muted/40">
-                            <input type="checkbox" className="size-4 accent-[var(--primary)]" checked={on} onChange={() => put(i, { classIds: on ? p.classIds.filter((x) => x !== k.id) : [...p.classIds, k.id] })} />
-                            <span className="min-w-0 flex-1 truncate">{k.name} · {DAYS[k.weekday]} {k.start}{warnings.length ? " ⚠" : ""}</span>
-                            {parentPicked.has(k.id) && <span className="shrink-0 rounded-full bg-primary/10 px-2 py-0.5 text-[11px] font-medium text-primary">ผู้ปกครองเลือก</span>}
-                          </label>
-                        </li>
-                      )
-                    })}
-                  </ul>
-                ) : <p className="text-xs text-muted-foreground">{course ? "ไม่มีคลาสที่ตรงกับคอร์สนี้" : "เลือกคอร์สก่อน"}</p>}
-              </div>
-              {warn.length > 0 && <p className="flex items-start gap-1 text-xs text-amber-700"><AlertTriangleIcon className="mt-0.5 size-3.5 shrink-0" />{warn.join(" · ")} (เลือกได้ — แค่เตือน)</p>}
-            </section>
-          )
-        })}
+        {sub.children.map((c, i) => (
+          <section key={i} className="space-y-1 rounded-2xl border p-3 text-sm">
+            <p className="font-medium">{c.name}{c.nickname ? ` (${c.nickname})` : ""} · {c.grade}{c.school ? ` · ${c.school}` : ""}</p>
+            <div className="grid gap-1 text-xs text-muted-foreground">
+              {/* older forms asked the parent for these — still shown when they're there */}
+              {c.classIds?.length ? <p>เลือกคลาส: <span className="text-foreground">{c.classIds.map((id) => { const k = s.classes.find((x) => x.id === id); return k ? `${k.name} · ${DAYS[k.weekday]} ${k.start}` : "คลาสที่ปิดไปแล้ว" }).join(" / ")}</span></p> : null}
+              {c.subjects.length > 0 && <p>อยากเรียน: <span className="text-foreground">{c.subjects.join(", ")}</span>{c.pkg !== "unsure" ? ` · ${PKG[c.pkg]}` : ""}</p>}
+              {c.times.length > 0 && <p>สะดวก: <span className="text-foreground">{c.times.map(timeLabel).join(", ")}</span></p>}
+              <p>อยากเริ่ม: <span className="text-foreground">{fmtDate(c.startDate, { weekday: true })}</span>{c.bus ? ` · รถรับส่ง${c.busLeg === "pickup" ? " ขาไป" : c.busLeg === "dropoff" ? " ขากลับ" : " ไป-กลับ"}` : ""}</p>
+              {c.placement && <p className="text-amber-700">ขอให้ครูประเมินระดับในคาบแรก (จะบันทึกในโน้ตนักเรียน)</p>}
+              {c.note && <p>โน้ต: {c.note}</p>}
+            </div>
+          </section>
+        ))}
         <DialogFooter className="sm:justify-between">
           <Button variant="ghost" className="text-muted-foreground" onClick={reject}><XIcon /> ปิดใบสมัคร (ไม่รับ)</Button>
           <div className="flex gap-2">
             <Button variant="ghost" onClick={onClose}>ไว้ก่อน</Button>
-            <Button disabled={!ready || busy} onClick={submit}><ReceiptIcon /> สร้างนักเรียน + ร่างใบแจ้งหนี้</Button>
+            <Button disabled={busy} onClick={submit}><ReceiptIcon /> สร้างนักเรียน + ใบแจ้งหนี้</Button>
           </div>
         </DialogFooter>
-        <p className="text-right text-[11px] text-muted-foreground">ร่างใบจะอยู่ที่หน้า <Link href="/billing" className="underline">Billing</Link> — ตรวจ อนุมัติ แล้วส่งตามขั้นตอนปกติ · จ่ายครบ = เข้าคลาสอัตโนมัติ <CheckIcon className="inline size-3" /></p>
       </DialogContent>
     </Dialog>
   )
