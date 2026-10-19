@@ -53,7 +53,7 @@ export interface ParentChild {
   summaries: { date: DateStr; subjects: string[]; teacher: string; text: string; detail?: string }[]
   packages: { course: string; remaining: number | null; total: number | null; until: DateStr }[]
   /** bus days ahead (pickup / drop-off), for students who bought the bus */
-  busDays: { date: DateStr; pickup: boolean; dropoff: boolean }[]
+  busDays: { date: DateStr; pickup: boolean; dropoff: boolean; adult?: boolean }[]
   courseSummaries: ParentCourseSummary[]
   /** stopped studying (owner 2026-10-14) — the parent still sees attendance + summaries, and can ask to come back */
   left?: { since: DateStr }
@@ -81,14 +81,14 @@ export interface ParentCtx {
 }
 
 /** Bus legs a student has paid / asked for, per date: invoice bus legs (non-void) + extra days added after paying. */
-export function busDaysOf(studentId: ID, invoices: Invoice[], addOns: BusAddOn[]): Map<DateStr, { pickup: boolean; dropoff: boolean }> {
-  const out = new Map<DateStr, { pickup: boolean; dropoff: boolean }>()
+export function busDaysOf(studentId: ID, invoices: Invoice[], addOns: BusAddOn[]): Map<DateStr, { pickup: boolean; dropoff: boolean; adult?: boolean }> {
+  const out = new Map<DateStr, { pickup: boolean; dropoff: boolean; adult?: boolean }>()
   const put = (date: DateStr, pickup: boolean, dropoff: boolean) => {
     const cur = out.get(date) ?? { pickup: false, dropoff: false }
     out.set(date, { pickup: cur.pickup || pickup, dropoff: cur.dropoff || dropoff })
   }
   for (const inv of invoices) if (inv.studentId === studentId && inv.status !== "void" && inv.status !== "draft") inv.bus.forEach((l) => (l.pickup || l.dropoff) && put(l.date, l.pickup, l.dropoff))
-  for (const a of addOns) if (a.studentId === studentId && !a.cancel) put(a.date, a.pickup, a.dropoff)
+  for (const a of addOns) if (a.studentId === studentId && !a.cancel && !a.companion) put(a.date, a.pickup, a.dropoff)
   // rides the parent cancelled (owner 2026-10-19) — the bus doesn't come
   for (const a of addOns) {
     if (a.studentId !== studentId || !a.cancel) continue
@@ -97,6 +97,11 @@ export function busDaysOf(studentId: ID, invoices: Invoice[], addOns: BusAddOn[]
     const next = { pickup: cur.pickup && !a.pickup, dropoff: cur.dropoff && !a.dropoff }
     if (next.pickup || next.dropoff) out.set(a.date, next)
     else out.delete(a.date)
+  }
+  // a parent riding along that day (owner 2026-10-19)
+  for (const a of addOns) {
+    const cur = a.studentId === studentId && a.companion ? out.get(a.date) : undefined
+    if (cur) out.set(a.date, { ...cur, adult: true })
   }
   return out
 }

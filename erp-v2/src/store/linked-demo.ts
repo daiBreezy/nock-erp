@@ -53,7 +53,8 @@ export function withLinkedFamilyDemo<T extends Db>(db: T, now = new Date()): T {
       const course = out.courses.find((c) => c.id === k.courseId)
       if (!course) return
       const invId = `inv_demo_${fam.id}_${i}`
-      const bus = liclass && i === 0 ? mine.filter((s) => s.date >= today).map((s) => ({ date: s.date, pickup: true, dropoff: true })) : []
+      // the bus on the first class's days only — the other days are open to ask for a ride (owner 2026-10-19)
+      const bus = liclass && i === 0 ? mine.filter((s) => s.date >= today && s.classId === k.id).map((s) => ({ date: s.date, pickup: true, dropoff: true })) : []
       invoices.push({
         id: invId, branchId: branch.id, studentId: sid, number: null, lines: [{ id: `ln_demo_${fam.id}_${i}`, courseId: course.id, classIds: [k.id], startDate: from, periods: 3 }],
         bus, busFeeId: liclass ? branch.fees.find((f) => f.kind === "bus")?.id ?? null : null, bookFee: 0, advance: [], concession: null, noteToParent: "",

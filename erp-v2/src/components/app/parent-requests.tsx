@@ -3,14 +3,15 @@
 // แจ้งลา / แจ้งลาออก from parents in LINE (owner 2026-10-14) — the office team handles each one here and the parent
 // is told on LINE: a leave is recorded on the classes (หักโควตา or not), a notice to stop makes the student แจ้งออก.
 import { useState } from "react"
-import { BusIcon, CalendarOffIcon, CheckIcon, DoorOpenIcon, EllipsisIcon, RotateCcwIcon, XIcon } from "lucide-react"
+import { BusIcon, UserIcon, CalendarOffIcon, CheckIcon, DoorOpenIcon, EllipsisIcon, RotateCcwIcon, XIcon } from "lucide-react"
 import { Pill } from "./badges"
 import { Confirmation, ConfirmationActions, ConfirmationBody, ConfirmationHeader, ConfirmationResult } from "@/components/ai-elements/confirmation"
 import { Button } from "@/components/ui/button"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { Textarea } from "@/components/ui/textarea"
 import { fmtDate, fmtDateTime, fmtMoney } from "@/domain/dates"
-import { busChangeLegs, checkRide, rideTimes } from "@/domain/rules/bus"
+import { busChangeLegs, checkRide, companionLegs, rideTimes } from "@/domain/rules/bus"
+import { busDaysOf } from "@/domain/rules/parent-view"
 import { busRate } from "@/domain/rules/settings"
 import { can } from "@/domain/rules/permissions"
 import * as Loss from "@/domain/rules/loss"
@@ -45,6 +46,7 @@ export function RequestCard({ r, preview }: { r: ParentRequest; preview?: boolea
   const restoreStudent = useStore((s) => s.restoreStudent)
   const addBusAddOns = useStore((s) => s.addBusAddOns)
   const cancelBusRides = useStore((s) => s.cancelBusRides)
+  const addBusCompanions = useStore((s) => s.addBusCompanions)
   const invoices = useStore((s) => s.invoices)
   const busAddOns = useStore((s) => s.busAddOns)
   const classes = useStore((s) => s.classes)
@@ -97,9 +99,20 @@ export function RequestCard({ r, preview }: { r: ParentRequest; preview?: boolea
   const cancelTrips = cancels.reduce((n, x) => n + Number(x.pickup) + Number(x.dropoff), 0)
   const myClassIds = classes.filter((k) => k.studentIds.includes(r.studentId)).map((k) => k.id)
   const busCtx = { branchId: branch?.id ?? "", invoices, busAddOns, classes }
+  // what the child rides now, and with the parent: every leg the child rides that day after the request
+  const bookedNow = busDaysOf(r.studentId, invoices, busAddOns)
+  const booked = (d: string) => bookedNow.get(d) ?? { pickup: false, dropoff: false }
+  const withAdult = companionLegs(r.bus ?? [], booked)
   const approveBus = async () => {
     setBusy(true)
     const parts: string[] = [], reply: string[] = []
+    // the parent's seats first — they follow the child's rides as asked (computed before the rides change)
+    if (withAdult.length) {
+      const p = addBusCompanions(r.studentId, withAdult, "ผู้ปกครองขอไปด้วยทาง LINE")
+      if (!p.ok) { setBusy(false); return report(p, "") }
+      parts.push(`ผู้ปกครองนั่งไปด้วย ${withAdult.length} วัน (ไม่คิดเงิน)`)
+      reply.push(`ผู้ปกครองนั่งรถไปด้วย ${withAdult.length} วัน (ไม่มีค่าใช้จ่าย)`)
+    }
     if (adds.length) {
       const a = addBusAddOns(r.studentId, adds, feeId, "ผู้ปกครองขอทาง LINE")
       if (!a.ok) { setBusy(false); return report(a, "") }
@@ -121,6 +134,14 @@ export function RequestCard({ r, preview }: { r: ParentRequest; preview?: boolea
     setBusy(false)
   }
 
+  /** seats on the run for this leg: `need` = the child (+ the parent) — red when they don't fit or there's no run */
+  const Seats = ({ leg, date, need }: { leg: "pickup" | "dropoff"; date: string; need: number }) => {
+    if (!(branch?.busRounds ?? []).length) return null
+    const chk = checkRide(leg, date, rideTimes(classes, myClassIds, date), branch?.busRounds ?? [], busCtx, r.studentId)
+    if (!chk.round) return <span className="ml-1 font-medium text-red-700">· ไม่มีรอบ</span>
+    const free = chk.round.seats - chk.taken
+    return <span className={cn("ml-1", free < need ? "font-medium text-red-700" : "text-muted-foreground")}>{free < need ? `· ${chk.round.time} ที่ไม่พอ (ว่าง ${Math.max(0, free)})` : `· ${chk.round.time} ว่าง ${free}`}</span>
+  }
   const Icon = r.kind === "leave" ? CalendarOffIcon : r.kind === "return" ? RotateCcwIcon : r.kind === "bus" ? BusIcon : DoorOpenIcon
   const title = r.kind === "leave" ? "แจ้งลาหยุด" : r.kind === "return" ? "อยากกลับมาเรียน" : r.kind === "bus" ? "ขอ / ยกเลิกรอบรถ" : "แจ้งลาออก"
   // owner 2026-10-15: the same card as every other one in the chat — state on top, details, then what to do
@@ -141,25 +162,30 @@ export function RequestCard({ r, preview }: { r: ParentRequest; preview?: boolea
           <div className="space-y-1">
             <ul className="space-y-1 text-xs">
               {r.bus?.map((x) => {
-                const t = rideTimes(classes, myClassIds, x.date)
                 return (
                   <li key={x.date} className="flex flex-wrap items-center gap-1.5">
                     <span className="w-28 shrink-0 font-medium">{`${fmtDate(x.date, { weekday: true })} ${x.start}`}</span>
                     {(["pickup", "dropoff"] as const).filter((leg) => x[leg]).map((leg) => {
                       const add = x[leg] === "add"
-                      const chk = add ? checkRide(leg, x.date, t, branch?.busRounds ?? [], busCtx, r.studentId) : null
-                      const runs = (branch?.busRounds ?? []).length > 0
                       return (
                         <span key={leg} className={cn("rounded-full px-2 py-0.5", add ? "bg-emerald-50 text-emerald-800" : "bg-red-50 text-red-700")}>
                           {`${add ? "+ ขอ" : "✕ ยกเลิก"}${leg === "pickup" ? "รับ" : "ส่ง"}`}
-                          {chk && runs && <span className={cn("ml-1", !chk.round || chk.full ? "font-medium text-red-700" : "text-muted-foreground")}>{!chk.round ? "· ไม่มีรอบ" : chk.full ? `· ${chk.round.time} เต็ม ${chk.taken}/${chk.round.seats}` : `· ${chk.round.time} ว่าง ${chk.round.seats - chk.taken}`}</span>}
+                          {add && <Seats leg={leg} date={x.date} need={1 + Number(!!x.adult)} />}
                         </span>
                       )
                     })}
+                    {/* owner 2026-10-19: a parent riding along — one more seat on each leg the child rides, no charge */}
+                    {withAdult.filter((l) => l.date === x.date).map((l) => (
+                      <span key="adult" className="flex items-center gap-1 rounded-full bg-violet-50 px-2 py-0.5 text-violet-800">
+                        <UserIcon className="size-3" />{`+ ผู้ปกครองไปด้วย (${[l.pickup && "รับ", l.dropoff && "ส่ง"].filter(Boolean).join("+")}) · ไม่คิดเงิน`}
+                        {(["pickup", "dropoff"] as const).filter((leg) => l[leg] && x[leg] !== "add").map((leg) => <Seats key={leg} leg={leg} date={x.date} need={2} />)}
+                      </span>
+                    ))}
                   </li>
                 )
               })}
             </ul>
+            {withAdult.length > 0 && <p className="text-xs text-muted-foreground">ผู้ปกครองนั่งไปด้วย = ใช้ 1 ที่นั่งต่อเที่ยว ไม่คิดค่ารถ</p>}
             {addTrips > 0 && <p className="text-xs text-muted-foreground">{`ค่ารถเพิ่ม ${addTrips} เที่ยว × ${fmtMoney(rate)} = ${fmtMoney(addTrips * rate)} → เก็บในรายชื่อนักเรียน รวมในใบแจ้งหนี้รอบถัดไป`}</p>}
             {cancelTrips > 0 && <p className="text-xs text-muted-foreground">ยกเลิกรอบที่ยังไม่เรียกเก็บ = ไม่คิดเงิน · รอบที่จ่ายแล้ว = ไม่คืนเงิน</p>}
           </div>

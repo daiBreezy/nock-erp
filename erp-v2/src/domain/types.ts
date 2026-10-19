@@ -891,6 +891,8 @@ export interface BusChange {
   subjects: string[]
   pickup?: "add" | "cancel"
   dropoff?: "add" | "cancel"
+  /** a parent rides along that day (on every leg the child rides) — takes a seat, costs nothing (owner 2026-10-19) */
+  adult?: boolean
 }
 
 export interface ParentRequest {
@@ -1140,6 +1142,8 @@ export interface BusAddOn {
   /** owner 2026-10-19: a ride taken OFF (the parent cancelled it in LINE) — the bus doesn't come for these legs.
    *  amount 0: a ride already paid for isn't refunded; an unbilled extra ride is simply dropped instead. */
   cancel?: boolean
+  /** owner 2026-10-19: a parent riding along with the child on these legs — +1 seat on the bus run, never charged */
+  companion?: boolean
   createdBy: ID
   createdAt: string
 }

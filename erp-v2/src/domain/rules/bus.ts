@@ -64,30 +64,35 @@ export interface BusCtx {
   excludeInvoiceId?: ID
 }
 
-/** Students already riding a run on a date — from the bus legs on live invoices + extra bus days. */
-export function roundRiders(round: BusRound, date: DateStr, ctx: BusCtx): Set<ID> {
-  const riders = new Set<ID>()
+/** Who is on a run that day: students riding (bus legs on live invoices + extra rides, minus cancelled rides) and the
+ *  parents riding along with them (owner 2026-10-19: a parent = one seat, no charge). */
+export function roundLoad(round: BusRound, date: DateStr, ctx: BusCtx): { students: Set<ID>; adults: Map<ID, number> } {
+  const riders = new Set<ID>(), adults = new Map<ID, number>()
   const leg = (x: { pickup: boolean; dropoff: boolean }) => (round.kind === "pickup" ? x.pickup : x.dropoff)
+  const mine = ctx.busAddOns.filter((a) => a.branchId === ctx.branchId && a.date === date && leg(a))
   // rides the parent cancelled (owner 2026-10-19) free the seat
-  const off = new Set(ctx.busAddOns.filter((a) => a.cancel && a.branchId === ctx.branchId && a.date === date && leg(a)).map((a) => a.studentId))
-  const take = (studentId: ID, classIds: ID[]) => {
-    if (off.has(studentId)) return
+  const off = new Set(mine.filter((a) => a.cancel).map((a) => a.studentId))
+  const onRun = (studentId: ID, classIds: ID[]) => {
     const t = rideTimes(ctx.classes, classIds, date)
-    if (!t) return
-    if (roundFor([round], round.kind, date, round.kind === "pickup" ? t.start : t.end)) riders.add(studentId)
+    return !!t && !!roundFor([round], round.kind, date, round.kind === "pickup" ? t.start : t.end)
   }
+  const classesOf = (studentId: ID) => ctx.classes.filter((k) => k.studentIds.includes(studentId)).map((k) => k.id)
   for (const inv of ctx.invoices) {
-    if (inv.branchId !== ctx.branchId || inv.status === "void" || inv.id === ctx.excludeInvoiceId) continue
-    const leg = inv.bus.find((l) => l.date === date)
-    if (!leg || !(round.kind === "pickup" ? leg.pickup : leg.dropoff)) continue
-    take(inv.studentId, inv.lines.flatMap((l) => l.classIds))
+    if (inv.branchId !== ctx.branchId || inv.status === "void" || inv.id === ctx.excludeInvoiceId || off.has(inv.studentId)) continue
+    const l = inv.bus.find((x) => x.date === date)
+    if (l && leg(l) && onRun(inv.studentId, inv.lines.flatMap((x) => x.classIds))) riders.add(inv.studentId)
   }
-  for (const a of ctx.busAddOns) {
-    if (a.cancel) continue
-    if (a.branchId !== ctx.branchId || a.date !== date || !(round.kind === "pickup" ? a.pickup : a.dropoff)) continue
-    take(a.studentId, ctx.classes.filter((k) => k.studentIds.includes(a.studentId)).map((k) => k.id))
+  for (const a of mine) {
+    if (a.cancel || off.has(a.studentId) || !onRun(a.studentId, classesOf(a.studentId))) continue
+    if (a.companion) adults.set(a.studentId, (adults.get(a.studentId) ?? 0) + 1)
+    else riders.add(a.studentId)
   }
-  return riders
+  return { students: riders, adults }
+}
+
+/** Students already riding a run on a date (no parents) — see roundLoad for the full seat count. */
+export function roundRiders(round: BusRound, date: DateStr, ctx: BusCtx): Set<ID> {
+  return roundLoad(round, date, ctx).students
 }
 
 export interface RoundCheck {
@@ -101,9 +106,11 @@ export interface RoundCheck {
 export function checkRide(kind: BusRound["kind"], date: DateStr, times: { start: TimeStr; end: TimeStr } | null, rounds: BusRound[], ctx: BusCtx, studentId?: ID): RoundCheck {
   const round = times ? roundFor(rounds, kind, date, kind === "pickup" ? times.start : times.end) : null
   if (!round) return { round: null, taken: 0, full: false }
-  const riders = roundRiders(round, date, ctx)
-  if (studentId) riders.delete(studentId)
-  return { round, taken: riders.size, full: riders.size >= round.seats }
+  const load = roundLoad(round, date, ctx)
+  if (studentId) { load.students.delete(studentId); load.adults.delete(studentId) }
+  // seats taken by everyone else — students + the parents riding with them
+  const taken = load.students.size + [...load.adults.values()].reduce((a, n) => a + n, 0)
+  return { round, taken, full: taken >= round.seats }
 }
 
 type Legs = { date: DateStr; pickup: boolean; dropoff: boolean }
@@ -143,4 +150,16 @@ export function cancelBusRides(studentId: ID, days: Legs[], addOns: BusAddOn[], 
     }
   }
   return { addOns: list, dropped, stopped }
+}
+
+/**
+ * The legs a parent rides along (owner 2026-10-19): every leg the child rides that day after the request — what is
+ * booked now, plus what is asked for, minus what is cancelled.
+ */
+export function companionLegs(changes: BusChange[], booked: (date: DateStr) => { pickup: boolean; dropoff: boolean }): Legs[] {
+  return changes.filter((c) => c.adult).map((c) => {
+    const now = booked(c.date)
+    const after = (leg: "pickup" | "dropoff") => (c[leg] === "add" ? true : c[leg] === "cancel" ? false : now[leg])
+    return { date: c.date, pickup: after("pickup"), dropoff: after("dropoff") }
+  }).filter((l) => l.pickup || l.dropoff)
 }

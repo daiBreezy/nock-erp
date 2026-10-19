@@ -26,7 +26,7 @@ export async function GET(req: Request) {
 export async function POST(req: Request) {
   const w = await who(req)
   if (!w) return NextResponse.json({ ok: false, error: "auth" }, { status: 401 })
-  const b = (await req.json().catch(() => ({}))) as { kind?: string; studentId?: string; sessionIds?: string[]; lastDate?: string; startDate?: string; reasonIds?: string[]; note?: string; bus?: { date?: string; pickup?: string; dropoff?: string }[] }
+  const b = (await req.json().catch(() => ({}))) as { kind?: string; studentId?: string; sessionIds?: string[]; lastDate?: string; startDate?: string; reasonIds?: string[]; note?: string; bus?: { date?: string; pickup?: string; dropoff?: string; adult?: boolean }[] }
   const child = w.view.children.find((c) => c.id === b.studentId)
   if (!child) return NextResponse.json({ ok: false, error: "เลือกนักเรียน" }, { status: 400 })
   const note = (b.note ?? "").trim().slice(0, 500) || undefined
@@ -53,10 +53,13 @@ export async function POST(req: Request) {
     for (const x of (b.bus ?? []).slice(0, 40)) {
       const cls = child.upcoming.find((c) => c.date === x.date && !c.cancelled)
       if (!cls) continue
-      const now = child.busDays.find((d) => d.date === x.date) ?? { pickup: false, dropoff: false }
+      const now: { pickup: boolean; dropoff: boolean; adult?: boolean } = child.busDays.find((d) => d.date === x.date) ?? { pickup: false, dropoff: false }
       const pickup = legOk(x.pickup, now.pickup) ? (x.pickup as "add" | "cancel") : undefined
       const dropoff = legOk(x.dropoff, now.dropoff) ? (x.dropoff as "add" | "cancel") : undefined
-      if (pickup || dropoff) changes.push({ date: cls.date, start: cls.start, subjects: cls.subjects, pickup, dropoff })
+      // a parent riding along (owner 2026-10-19): only on a day the child still rides at least one leg, once
+      const rides = (leg: "pickup" | "dropoff", v: "add" | "cancel" | undefined) => (v === "add" ? true : v === "cancel" ? false : now[leg])
+      const adult = !!x.adult && !now.adult && (rides("pickup", pickup) || rides("dropoff", dropoff)) ? true : undefined
+      if (pickup || dropoff || adult) changes.push({ date: cls.date, start: cls.start, subjects: cls.subjects, pickup, dropoff, adult })
     }
     if (!changes.length) return NextResponse.json({ ok: false, error: "เลือกรอบรถที่จะขอหรือยกเลิก" }, { status: 400 })
     saved = await addRequest({ ...base, kind: "bus", bus: changes })
@@ -70,8 +73,9 @@ export async function POST(req: Request) {
   }
   // staff see it in the family's chat as a card they can act on; the parent gets a LINE confirmation
   const legs = (k: "add" | "cancel") => (saved.bus ?? []).reduce((n, c) => n + Number(c.pickup === k) + Number(c.dropoff === k), 0)
+  const adults = (saved.bus ?? []).filter((c) => c.adult).length
   const what = saved.kind === "leave" ? `แจ้งลา ${saved.sessions?.length ?? 0} คาบ` : saved.kind === "exit" ? "แจ้งลาออก" : saved.kind === "bus"
-    ? `รถรับส่ง · ${[legs("add") && `ขอเพิ่ม ${legs("add")} เที่ยว`, legs("cancel") && `ยกเลิก ${legs("cancel")} เที่ยว`].filter(Boolean).join(" · ")}` : "อยากกลับมาเรียน"
+    ? `รถรับส่ง · ${[legs("add") && `ขอเพิ่ม ${legs("add")} เที่ยว`, legs("cancel") && `ยกเลิก ${legs("cancel")} เที่ยว`, adults && `ผู้ปกครองไปด้วย ${adults} วัน`].filter(Boolean).join(" · ")}` : "อยากกลับมาเรียน"
   await recordInboundMessage(w.user.sub, null, `📋 ${what} · ${child.nickname}`, { meta: { formKind: "parent_request", requestId: saved.id } }).catch(() => undefined)
   if (await pushLineText(w.user.sub, text)) await recordOutboundMessage(w.user.sub, text).catch(() => undefined)
   return NextResponse.json({ ok: true })

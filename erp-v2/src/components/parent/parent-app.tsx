@@ -28,6 +28,7 @@ const DICT = {
     leftSince: (d: string) => `หยุดเรียนตั้งแต่ ${d}`, leftNote: "ยังดูประวัติการเข้าเรียนและสรุปการเรียนได้ตามเดิม",
     busReq: "ขอ / ยกเลิกรอบรถ", busReqSub: "ขอรถรับ-ส่งเพิ่ม หรือยกเลิกรอบที่ไม่ใช้", busPick: "แตะ รับ / ส่ง ของแต่ละวัน เพื่อขอเพิ่มหรือยกเลิก",
     busAdd: "ขอเพิ่ม", busCancel: "ยกเลิก", busCost: "รอบที่ขอเพิ่มคิดค่ารถในใบแจ้งหนี้รอบถัดไป · ยกเลิกรอบที่จ่ายแล้วไม่คืนเงิน", trips: (n: number) => `${n} เที่ยว`,
+    adult: "ผู้ปกครอง", adultGo: "ผู้ปกครองไปด้วย", adultNote: "ผู้ปกครองนั่งรถไปด้วยได้ ไม่คิดค่ารถ (ใช้ 1 ที่นั่ง)",
   },
   en: {
     hello: "Hello", schedule: "Schedule", summaries: "Summaries", attendance: "Attendance", bus: "School bus",
@@ -45,6 +46,7 @@ const DICT = {
     leftSince: (d: string) => `Stopped studying since ${d}`, leftNote: "Attendance and lesson summaries are still here",
     busReq: "Add / cancel bus rides", busReqSub: "Ask for extra pick-ups / drop-offs, or cancel ones you don't need", busPick: "Tap Pick-up / Drop-off on a day to add or cancel it",
     busAdd: "Add", busCancel: "Cancel", busCost: "Extra rides are charged on the next invoice · paid rides you cancel aren't refunded", trips: (n: number) => `${n} ride${n > 1 ? "s" : ""}`,
+    adult: "Parent", adultGo: "Parent rides along", adultNote: "A parent can ride along for free (takes 1 seat)",
   },
   ja: {
     hello: "こんにちは", schedule: "時間割", summaries: "授業レポート", attendance: "出欠", bus: "送迎バス",
@@ -62,6 +64,7 @@ const DICT = {
     leftSince: (d: string) => `${d}から休会中`, leftNote: "出欠と授業レポートは引き続きご覧いただけます",
     busReq: "送迎の追加／キャンセル", busReqSub: "送迎の追加依頼、または不要な便のキャンセル", busPick: "日ごとに「お迎え／お送り」をタップして追加・キャンセル",
     busAdd: "追加", busCancel: "キャンセル", busCost: "追加分は次回の請求書に加算・支払い済みの便のキャンセルは返金なし", trips: (n: number) => `${n}便`,
+    adult: "保護者", adultGo: "保護者も同乗", adultNote: "保護者の同乗は無料です（1席使用）",
   },
 }
 
@@ -79,7 +82,7 @@ function fmtDay(date: string, lang: FormLang) {
 type Tab = "schedule" | "summaries" | "attendance" | "bus" | "request"
 
 /** what the parent sends — the LIFF page posts it with LINE's proof of who they are */
-export type BusAsk = { date: string; pickup?: "add" | "cancel"; dropoff?: "add" | "cancel" }
+export type BusAsk = { date: string; pickup?: "add" | "cancel"; dropoff?: "add" | "cancel"; adult?: boolean }
 export type ParentRequestInput = { kind: "leave"; studentId: string; sessionIds: string[]; note?: string } | { kind: "exit"; studentId: string; lastDate: string; reasonIds: string[]; note?: string }
   | { kind: "bus"; studentId: string; bus: BusAsk[]; note?: string }
   | { kind: "return"; studentId: string; startDate?: string; note?: string }
@@ -242,11 +245,12 @@ function Schedule({ child, t, dayLabel, lang }: { child: ParentChild; t: T; dayL
   )
 }
 
-function BusChips({ bus, t }: { bus: { pickup: boolean; dropoff: boolean }; t: T }) {
+function BusChips({ bus, t }: { bus: { pickup: boolean; dropoff: boolean; adult?: boolean }; t: T }) {
   return (
     <p className="mt-1.5 flex gap-1.5">
       {bus.pickup && <span className="flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-[11px] text-amber-900"><BusIcon className="size-3" />{t.pickup}</span>}
       {bus.dropoff && <span className="flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-[11px] text-amber-900"><BusIcon className="size-3" />{t.dropoff}</span>}
+      {bus.adult && <span className="flex items-center gap-1 rounded-full bg-violet-100 px-2 py-0.5 text-[11px] text-violet-800"><UserIcon className="size-3" />{t.adultGo}</span>}
     </p>
   )
 }
@@ -362,7 +366,7 @@ function RequestTab({ view, child, t, lang, today, onRequest, requests, initial 
   const submit = async () => {
     if (!onRequest || !mode) return
     setBusy(true)
-    const r = await onRequest(mode === "bus" ? { kind: "bus", studentId: child.id, bus: Object.values(busAsk).filter((x) => x.pickup || x.dropoff), note }
+    const r = await onRequest(mode === "bus" ? { kind: "bus", studentId: child.id, bus: Object.values(busAsk).filter((x) => x.pickup || x.dropoff || x.adult), note }
       : mode === "leave" ? { kind: "leave", studentId: child.id, sessionIds: picked, note }
       : mode === "return" ? { kind: "return", studentId: child.id, startDate: startDate || undefined, note }
       : { kind: "exit", studentId: child.id, lastDate, reasonIds: reasons, note })
@@ -371,7 +375,8 @@ function RequestTab({ view, child, t, lang, today, onRequest, requests, initial 
     if (r.ok) { setMode(null); setPicked([]); setReasons([]); setNote(""); setStartDate(""); setBusAsk({}) }
   }
   const busTrips = Object.values(busAsk).reduce((n, x) => n + Number(!!x.pickup) + Number(!!x.dropoff), 0)
-  const ready = mode === "leave" ? picked.length > 0 : mode === "exit" ? !!lastDate : mode === "bus" ? busTrips > 0 : mode === "return"
+  const busAdults = Object.values(busAsk).filter((x) => x.adult).length
+  const ready = mode === "leave" ? picked.length > 0 : mode === "exit" ? !!lastDate : mode === "bus" ? busTrips + busAdults > 0 : mode === "return"
   return (
     <div className="space-y-3">
       {msg && <p className={cn("rounded-2xl p-3 text-sm", msg.ok ? "bg-emerald-50 text-emerald-800" : "bg-red-50 text-red-800")}>{msg.text}</p>}
@@ -445,7 +450,7 @@ function RequestTab({ view, child, t, lang, today, onRequest, requests, initial 
                 <span className={cn("rounded-full px-2 py-0.5 text-[11px]", r.status === "new" ? "bg-amber-100 text-amber-900" : r.status === "done" ? "bg-emerald-100 text-emerald-800" : "bg-muted text-muted-foreground")}>{t[`st_${r.status}`]}</span>
               </div>
               {r.kind === "leave" && <p className="text-xs text-muted-foreground">{r.sessions?.map((x) => `${fmtDay(x.date, lang)} ${x.start}`).join(" · ")}</p>}
-              {r.kind === "bus" && <p className="text-xs text-muted-foreground">{r.bus?.map((x) => `${fmtDay(x.date, lang)} ${[x.pickup && `${t.pickup} ${x.pickup === "add" ? "+" : "✕"}`, x.dropoff && `${t.dropoff} ${x.dropoff === "add" ? "+" : "✕"}`].filter(Boolean).join(", ")}`).join(" · ")}</p>}
+              {r.kind === "bus" && <p className="text-xs text-muted-foreground">{r.bus?.map((x) => `${fmtDay(x.date, lang)} ${[x.pickup && `${t.pickup} ${x.pickup === "add" ? "+" : "✕"}`, x.dropoff && `${t.dropoff} ${x.dropoff === "add" ? "+" : "✕"}`, x.adult && `+ ${t.adult}`].filter(Boolean).join(", ")}`).join(" · ")}</p>}
               {r.result && <p className="mt-1 text-xs">{r.result}</p>}
             </article>
           ))}
@@ -464,13 +469,18 @@ function BusPicker({ child, t, lang, ask, onChange }: { child: ParentChild; t: T
     const next = { ...cur, [leg]: cur[leg] ? undefined : booked ? "cancel" : "add" }
     onChange({ ...ask, [date]: next })
   }
+  // owner 2026-10-19: a parent can ride along (free, one seat) on a day the child rides
+  const toggleAdult = (date: string) => { const cur = ask[date] ?? { date }; onChange({ ...ask, [date]: { ...cur, adult: !cur.adult } }) }
   return (
     <div className="space-y-1.5">
       <p className="text-xs font-medium text-muted-foreground">{t.busPick}</p>
       {days.map((c) => {
-        const booked = child.busDays.find((b) => b.date === c.date) ?? { pickup: false, dropoff: false }
+        const booked: { pickup: boolean; dropoff: boolean; adult?: boolean } = child.busDays.find((b) => b.date === c.date) ?? { pickup: false, dropoff: false }
+        const a = ask[c.date]
+        const rides = (leg: "pickup" | "dropoff") => (a?.[leg] === "add" ? true : a?.[leg] === "cancel" ? false : booked[leg])
+        const canAdult = rides("pickup") || rides("dropoff")
         return (
-          <div key={c.date} className="flex items-center gap-2 rounded-xl p-2.5 ring-1 ring-foreground/10">
+          <div key={c.date} className="flex flex-wrap items-center gap-2 rounded-xl p-2.5 ring-1 ring-foreground/10">
             <span className="min-w-0 flex-1 text-sm"><span className="font-medium">{fmtDay(c.date, lang)}</span><span className="block truncate text-xs text-muted-foreground">{c.start}–{c.end} · {c.subjects.join(" + ")}</span></span>
             {(["pickup", "dropoff"] as const).map((leg) => {
               const want = ask[c.date]?.[leg], on = booked[leg]
@@ -482,10 +492,16 @@ function BusPicker({ child, t, lang, ask, onChange }: { child: ParentChild; t: T
                 </button>
               )
             })}
+            {booked.adult ? <span className="rounded-full bg-violet-100 px-2.5 py-1.5 text-xs font-medium text-violet-800">{t.adultGo}</span> : (
+              <button type="button" disabled={!canAdult} onClick={() => toggleAdult(c.date)}
+                className={cn("flex items-center gap-1 rounded-full px-2.5 py-1.5 text-xs font-medium ring-1 disabled:opacity-40", a?.adult && canAdult ? "bg-violet-100 text-violet-800 ring-violet-400" : "text-muted-foreground ring-foreground/15")}>
+                <UserIcon className="size-3.5" />{a?.adult && canAdult ? `+ ${t.adult}` : t.adult}
+              </button>
+            )}
           </div>
         )
       })}
-      <p className="rounded-xl bg-amber-50 p-2.5 text-xs text-amber-900">{t.busCost}</p>
+      <p className="rounded-xl bg-amber-50 p-2.5 text-xs text-amber-900">{t.busCost} · {t.adultNote}</p>
     </div>
   )
 }

@@ -56,7 +56,7 @@ export default function InboxCardsPreview() {
   // owner 2026-10-19: a bus request — the demo child of the LINE family (Liclass) when there is one
   const busKid = students.find((x) => x.id.startsWith("stu_demo_")) ?? kid
   const busDays = [...new Map(sessions.filter((x) => !x.cancelled && x.date > today && busKid && x.studentIds.includes(busKid.id)).sort((a, b) => (a.date + a.start).localeCompare(b.date + b.start)).map((x) => [x.date, x])).values()].slice(0, 2)
-  const busChanges = busDays.map((x, i) => (i === 0 ? { date: x.date, start: x.start, subjects: [x.subject], pickup: "add" as const, dropoff: "add" as const } : { date: x.date, start: x.start, subjects: [x.subject], dropoff: "cancel" as const }))
+  const busChanges = busDays.map((x, i) => (i === 0 ? { date: x.date, start: x.start, subjects: [x.subject], pickup: "add" as const, dropoff: "add" as const, adult: true } : { date: x.date, start: x.start, subjects: [x.subject], dropoff: "cancel" as const }))
   const busReq = (over: Partial<ParentRequest>) => req({ kind: "bus", studentId: busKid?.id ?? "", studentNickname: busKid?.nickname ?? "", branchId: busKid?.branchId,
     bus: busChanges.length ? busChanges : [{ date: addDays(today, 2), start: "16:00", subjects: ["คณิต"], pickup: "add" }], ...over })
   const subs = [

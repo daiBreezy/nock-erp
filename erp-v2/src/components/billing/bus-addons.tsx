@@ -42,7 +42,7 @@ export function BusAddOns({ stu }: { stu: Student }) {
   const rate = busRate(branch, feeId)
   const start = () => { setDays([{ date: addDays(today, 1), pickup: true, dropoff: true }]); setNote(""); setOpen(true) }
   const patch = (i: number, p: Partial<Day>) => setDays((ds) => ds.map((d, j) => (j === i ? { ...d, ...p } : d)))
-  const pending = addOns.filter((a) => !a.cancel && !billedOn(a.id, invoices))
+  const pending = addOns.filter((a) => !a.cancel && !a.companion && !billedOn(a.id, invoices))
   const total = days.reduce((a, d) => a + busAddOnAmount(d, rate), 0)
 
   const save = () => {
@@ -100,10 +100,10 @@ export function BusAddOns({ stu }: { stu: Student }) {
               return (
                 <tr key={a.id} className={cn("border-t [&>td]:py-1.5", inv && "text-muted-foreground")}>
                   <td className="whitespace-nowrap">{fmtDate(a.date, { weekday: true })}</td>
-                  <td className="text-xs">{a.cancel ? "ยกเลิก " : ""}{[a.pickup && "รับ", a.dropoff && "ส่ง"].filter(Boolean).join(" + ")}{a.note && ` · ${a.note}`}</td>
-                  <td className="text-right tabular-nums">{a.cancel ? "—" : fmtMoney(a.amount)}</td>
+                  <td className="text-xs">{a.cancel ? "ยกเลิก " : a.companion ? "ผู้ปกครองไปด้วย · " : ""}{[a.pickup && "รับ", a.dropoff && "ส่ง"].filter(Boolean).join(" + ")}{a.note && ` · ${a.note}`}</td>
+                  <td className="text-right tabular-nums">{a.cancel || a.companion ? "—" : fmtMoney(a.amount)}</td>
                   {/* owner 2026-10-19: a ride the parent cancelled — the bus doesn't come, nothing to charge or refund */}
-                  <td className="pl-2 text-right">{a.cancel ? <Pill tone="gray">ยกเลิกรอบ</Pill> : inv ? <span className="text-xs">ใบ {inv.number ?? "—"}</span> : <Pill tone="amber">รอเรียกเก็บ</Pill>}</td>
+                  <td className="pl-2 text-right">{a.cancel ? <Pill tone="gray">ยกเลิกรอบ</Pill> : a.companion ? <Pill tone="violet">ไม่คิดเงิน</Pill> : inv ? <span className="text-xs">ใบ {inv.number ?? "—"}</span> : <Pill tone="amber">รอเรียกเก็บ</Pill>}</td>
                   <td className="w-7 text-right">{manage && !inv && <Button size="icon-xs" variant="ghost" aria-label="ลบ" onClick={() => report(remove(a.id), "ลบรอบรถเพิ่มแล้ว")}><TrashIcon /></Button>}</td>
                 </tr>
               )

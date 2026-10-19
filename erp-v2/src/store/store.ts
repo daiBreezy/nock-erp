@@ -208,6 +208,8 @@ type Store = DB & UIState & {
   addBusAddOns: (studentId: ID, days: { date: DateStr; pickup: boolean; dropoff: boolean }[], busFeeId: ID | null, note: string) => Result<{ count: number; amount: number }>
   /** only while not billed yet */
   removeBusAddOn: (id: ID) => Result
+  /** owner 2026-10-19: a parent rides along with the child on these legs — one seat each, never charged */
+  addBusCompanions: (studentId: ID, days: { date: DateStr; pickup: boolean; dropoff: boolean }[], note: string) => Result<{ count: number }>
   /** owner 2026-10-19: rides a parent cancelled in LINE — unbilled extra rides are dropped, paid rides stop without a refund */
   cancelBusRides: (studentId: ID, days: { date: DateStr; pickup: boolean; dropoff: boolean }[], note: string) => Result<{ dropped: number; stopped: number }>
   /** refund / credit on a paid invoice — the invoice itself never changes */
@@ -450,7 +452,7 @@ export const useStore = create<Store>()(
           body: r.kind === "return" ? `${r.startDate ? `อยากเริ่มราว ${fmtDate(r.startDate, { weekday: true })}` : "ยังไม่ระบุวัน"}${r.note ? ` — "${r.note}"` : ""} · โทรคุยแล้วกู้คืนนักเรียน จัดคลาส ออกใบแจ้งหนี้`
             : r.kind === "leave" ? `${r.sessions?.map((x) => `${fmtDate(x.date, { weekday: true })} ${x.start}`).join(" · ")}${r.note ? ` — "${r.note}"` : ""} · บันทึกลาที่หน้าแจ้งเตือน`
             // owner 2026-10-19: rides to add / cancel — approved from the card in the family's chat
-            : r.kind === "bus" ? `${(r.bus ?? []).map((x) => `${fmtDate(x.date, { weekday: true })} ${[x.pickup && `${x.pickup === "add" ? "+" : "✕"}รับ`, x.dropoff && `${x.dropoff === "add" ? "+" : "✕"}ส่ง`].filter(Boolean).join(" ")}`).join(" · ")}${r.note ? ` — "${r.note}"` : ""} · อนุมัติในแชท Inbox`
+            : r.kind === "bus" ? `${(r.bus ?? []).map((x) => `${fmtDate(x.date, { weekday: true })} ${[x.pickup && `${x.pickup === "add" ? "+" : "✕"}รับ`, x.dropoff && `${x.dropoff === "add" ? "+" : "✕"}ส่ง`, x.adult && "+ผู้ปกครอง"].filter(Boolean).join(" ")}`).join(" · ")}${r.note ? ` — "${r.note}"` : ""} · อนุมัติในแชท Inbox`
             : `เรียนวันสุดท้าย ${fmtDate(r.lastDate!, { weekday: true })}${r.note ? ` — "${r.note}"` : ""} · รับเรื่องที่หน้าแจ้งเตือน แล้วโทรคุย`,
           audience: { roles: OFFICE_ROLES, branchId: r.branchId ?? s.students.find((x) => x.id === r.studentId)?.branchId },
         }))
@@ -2049,6 +2051,22 @@ export const useStore = create<Store>()(
         return { ok: true, value: { count: added.length, amount } }
       },
 
+      addBusCompanions: (studentId, days, note) => {
+        const s = get()
+        const perm = requirePerm(s.me(), "billing.manage")
+        if (!perm.ok) return perm
+        const stu = s.students.find((x) => x.id === studentId)
+        if (!stu) return fail("ไม่พบนักเรียน")
+        const legs = days.filter((d) => d.pickup || d.dropoff)
+        if (!legs.length) return fail("ไม่มีรอบที่ผู้ปกครองจะไปด้วย")
+        const at = s.now().toISOString()
+        // one record per day; a day already carrying the parent isn't added twice
+        const fresh = legs.filter((d) => !s.busAddOns.some((a) => a.companion && a.studentId === studentId && a.date === d.date))
+        set({ busAddOns: [...s.busAddOns, ...fresh.map((d): BusAddOn => ({ id: uid("ba"), branchId: stu.branchId, studentId, ...d, busFeeId: null, amount: 0, companion: true, note: note.trim() || undefined, createdBy: s.userId, createdAt: at }))] })
+        log("billing", [studentId], "ผู้ปกครองนั่งรถไปด้วย", `${fresh.map((d) => `${fmtDate(d.date)} ${[d.pickup && "รับ", d.dropoff && "ส่ง"].filter(Boolean).join("+")}`).join(", ")} · ไม่คิดเงิน`)
+        return { ok: true, value: { count: fresh.length } }
+      },
+
       cancelBusRides: (studentId, days, note) => {
         const s = get()
         const perm = requirePerm(s.me(), "billing.manage")
@@ -2821,7 +2839,7 @@ export const useStore = create<Store>()(
       // The parent app in LINE never writes staff data at all.
       storage: createJSONStorage(() => safeStorage),
       // bump when the data model changes; older saved data is replaced by fresh sample data
-      version: 91, // 91: demo child with classes for LINE-linked families (parent app) · 90: Liclass bus — branch pin, fee distance bands, bus runs · 89: Note Calendar (ถาวร / ชั่วคราว) replaces the free-text session notes · 88: demo exit notices all "sent" · 87: 3 open exit notices · 86: course history capped at 8 sessions (storage size) · 85: course-history check per course · 84: + running rounds · 83: finished courses with a Course Summary get their session history · 82: per-subject levels in Bundle sessions · 80–81: Bundle demo students sit in the combo class for 3 months (charts) · 79: 1–5 understanding on session summaries + Bundle notes per subject · 78: Dev statuses กำลังทำ / เสร็จแล้ว / ไม่ทำ / เก็บไว้ก่อน · 77: images on Nock + Dev tickets · 76: คำถามถึง Dev examples · 75: Developer role + เรื่องถึง Dev · 74: Nock answers per person + thumbs per answer · 73: Nock locations + knowledge = answered questions + votes · 72: Nock question bank + knowledge · 71: Summer Memo + Summer course + paid Summer invoice · 68–70: session summaries in every stage this week + sample Course Summaries (Single + Bundle) · 65–67: names without titles, parent relationship, phones without dashes, subject colours · 61: real branches (owner 2026-10-07) · 62: CB = ตึกน้ำ · 63: sample schools · 64: schools from the Ministry list
+      version: 92, // 92: demo child rides the bus on Math days only (English days open to ask for a ride) · 91: demo child with classes for LINE-linked families (parent app) · 90: Liclass bus — branch pin, fee distance bands, bus runs · 89: Note Calendar (ถาวร / ชั่วคราว) replaces the free-text session notes · 88: demo exit notices all "sent" · 87: 3 open exit notices · 86: course history capped at 8 sessions (storage size) · 85: course-history check per course · 84: + running rounds · 83: finished courses with a Course Summary get their session history · 82: per-subject levels in Bundle sessions · 80–81: Bundle demo students sit in the combo class for 3 months (charts) · 79: 1–5 understanding on session summaries + Bundle notes per subject · 78: Dev statuses กำลังทำ / เสร็จแล้ว / ไม่ทำ / เก็บไว้ก่อน · 77: images on Nock + Dev tickets · 76: คำถามถึง Dev examples · 75: Developer role + เรื่องถึง Dev · 74: Nock answers per person + thumbs per answer · 73: Nock locations + knowledge = answered questions + votes · 72: Nock question bank + knowledge · 71: Summer Memo + Summer course + paid Summer invoice · 68–70: session summaries in every stage this week + sample Course Summaries (Single + Bundle) · 65–67: names without titles, parent relationship, phones without dashes, subject colours · 61: real branches (owner 2026-10-07) · 62: CB = ตึกน้ำ · 63: sample schools · 64: schools from the Ministry list
       migrate: (old) => ({ ...withLinkedFamilyDemo(keepLineLinks(old as Partial<Store> | undefined, buildSeed())), userId: "u_nock", branchId: "br_thl", clockOffset: 0 }) as unknown as Store,
       // persist data + UI state only, never the action functions
       partialize: (s) => Object.fromEntries(Object.entries(s).filter(([, v]) => typeof v !== "function")) as Partial<Store>,

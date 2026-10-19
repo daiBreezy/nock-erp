@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest"
 import type { BusAddOn, BusRound, Fee, Invoice, Klass } from "../types"
-import { busChangeLegs, busZone, cancelBusRides, checkRide, distanceKm, rideTimes, roundFor } from "./bus"
+import { busChangeLegs, busZone, cancelBusRides, checkRide, companionLegs, distanceKm, rideTimes, roundFor } from "./bus"
 import { pendingBusAddOns } from "./billing"
 import { busDaysOf } from "./parent-view"
 
@@ -73,5 +73,23 @@ describe("parent bus requests (owner 2026-10-19)", () => {
     // the bus no longer comes that day, and the cancel record is never charged
     expect(busDaysOf("s1", paid, r2.addOns).has("2026-10-22")).toBe(false)
     expect(pendingBusAddOns("s1", r2.addOns, paid).map((a) => a.id)).toEqual(["x"])
+  })
+})
+
+describe("a parent riding along (owner 2026-10-19)", () => {
+  const classes = [klass("a", "16:00", 60, ["s1", "s2"])]
+  const comp = (studentId: string): BusAddOn => ({ id: `c_${studentId}`, branchId: "b", studentId, date: MON, pickup: true, dropoff: false, busFeeId: null, amount: 0, companion: true, createdBy: "", createdAt: "" })
+  it("takes one more seat on the run, is never charged, and isn't a ride of the child", () => {
+    const ctx = { branchId: "b", classes, invoices: [inv("i1", "s1", ["a"], true)], busAddOns: [comp("s1")] }
+    // s1 + s1's parent = 2 of 2 seats on the 15:30 pick-up → full for anyone else
+    expect(checkRide("pickup", MON, { start: "16:00", end: "17:00" }, rounds, ctx, "s2")).toMatchObject({ taken: 2, full: true })
+    expect(pendingBusAddOns("s1", ctx.busAddOns, [])).toEqual([])
+    expect(busDaysOf("s1", [{ ...inv("i1", "s1", ["a"], true), status: "paid" } as Invoice], ctx.busAddOns).get(MON)).toEqual({ pickup: true, dropoff: false, adult: true })
+  })
+  it("rides every leg the child rides that day after the request", () => {
+    const booked = () => ({ pickup: true, dropoff: false })
+    expect(companionLegs([{ date: MON, start: "16:00", subjects: [], dropoff: "add", adult: true }], booked)).toEqual([{ date: MON, pickup: true, dropoff: true }])
+    expect(companionLegs([{ date: MON, start: "16:00", subjects: [], pickup: "cancel", adult: true }], booked)).toEqual([])
+    expect(companionLegs([{ date: MON, start: "16:00", subjects: [], dropoff: "add" }], booked)).toEqual([])
   })
 })
