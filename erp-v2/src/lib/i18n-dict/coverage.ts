@@ -542,4 +542,12 @@ export const COVERAGE: Record<string, Entry> = {
   "ไปวันที่มีเที่ยวถัดไป {0}": { en: "Go to the next day with trips: {0}", ja: "次に便がある日へ：{0}" },
   "{0}ออก {1} · {2} {3} · {4}/{5} ที่{6}": { en: "{0}Leaves {1} · {2} {3} · {4}/{5} seats{6}", ja: "{0}出発 {1} · {2} {3} · {4}/{5}席{6}" },
   "ระยะทาง": { en: "Distance", ja: "距離" },
+  "Admin จัดลำดับเอง": { en: "Order set by the admin", ja: "管理者が順番を設定" },
+  "ใช้ลำดับที่ระบบแนะนำแล้ว — เวลาแต่ละจุดคำนวณใหม่": { en: "Back to the suggested order — stop times worked out again", ja: "推奨の順番に戻しました — 各停車時刻を再計算" },
+  "ใช้ลำดับที่ระบบแนะนำ": { en: "Use the suggested order", ja: "推奨の順番を使う" },
+  "ลำดับที่ระบบแนะนำ: บ้านไกลสุดก่อน แล้วขยับเข้ามาจนถึงสาขา": { en: "Suggested order: the farthest home first, then moving in to the branch", ja: "推奨の順番：一番遠い家から、校舎へ向かって順に" },
+  "ลำดับที่ระบบแนะนำ: ออกจากสาขา ส่งบ้านใกล้ก่อน ไล่ออกไปจนถึงบ้านไกลสุด": { en: "Suggested order: leave the branch, nearest home first, out to the farthest", ja: "推奨の順番：校舎を出て近い家から、一番遠い家まで" },
+  "ลำดับที่ระบบแนะนำ: ส่งก่อน (ใกล้ → ไกล) แล้วรับกลับ (ไกลสุด → สาขา)": { en: "Suggested order: drop-offs first (near → far), then pickups back (farthest → branch)", ja: "推奨の順番：先に送り（近い→遠い）、次に迎え（一番遠い→校舎）" },
+  "ลากแถวเพื่อจัดลำดับเอง": { en: "Drag rows to set the order yourself", ja: "行をドラッグして順番を設定" },
+  "กด \"แก้ไข\" เพื่อลากจัดลำดับเอง": { en: "Press \"Edit\" to drag the order yourself", ja: "「編集」を押してドラッグで順番を設定" },
 }

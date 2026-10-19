@@ -103,6 +103,8 @@ export interface TripPlan {
   timeChanged: boolean
   /** the departure time was set by hand for the day */
   departFixed: boolean
+  /** the admin put the stops in another order than the suggested one (farthest first, in to the branch) */
+  orderCustom: boolean
   /** live: when the driver started / finished, and how late the trip runs (+min) */
   startedAt: TimeStr | null
   finishedAt: TimeStr | null
@@ -191,30 +193,40 @@ export function autoZones(degs: number[], count: number, vehicleIds: ID[] = []):
 }
 
 /** nearest-neighbour from `from`: the drop-off order; a pickup runs it backwards (ends closest to school) */
-function nearestFirst(riders: Rider[], from: LatLng): Rider[] {
+/** homes this close in distance from the branch (km) count as the same ring — among them the nearest one goes next */
+const RING_KM = 0.5
+
+/**
+ * The suggested queue (owner 2026-10-19: "Suggestion การจัดเรียงคิว จากไกลที่สุดก่อน และขยับเข้ามาเรื่อยๆ จนถึงสาขา"):
+ * always the home farthest from the branch that is left, so the van only ever comes in towards the branch and the
+ * last stop is the nearest one. Homes about as far out as each other (same ring) go in the order closest to the
+ * current stop, so the van doesn't cross back and forth for a few hundred metres.
+ */
+export function inwardSweep(riders: Rider[], branch: LatLng): Rider[] {
+  const fromBranch = (r: Rider) => distanceKm(branch, r.loc!)
+  const left = [...riders].sort((a, b) => fromBranch(b) - fromBranch(a))
   const out: Rider[] = []
-  let at = from
-  const left = [...riders]
+  let here: LatLng | null = null
   while (left.length) {
-    left.sort((a, b) => distanceKm(at, a.loc!) - distanceKm(at, b.loc!))
-    const next = left.shift()!
+    const ring = left.filter((r) => fromBranch(r) >= fromBranch(left[0]) - RING_KM)
+    const next: Rider = here ? ring.sort((a, b) => distanceKm(here!, a.loc!) - distanceKm(here!, b.loc!))[0] : ring[0]
     out.push(next)
-    at = next.loc!
+    left.splice(left.indexOf(next), 1)
+    here = next.loc!
   }
   return out
 }
 
-/** stop order: drop-offs nearest-first from the branch; pickups the same backwards (ending near school); a Both trip
- *  does its drop-offs first, then the pickups on the way back. Homes with no pin go last. */
+/** stop order (the system's suggestion — the admin can still reorder by hand): pickups farthest home first, sweeping
+ *  in to the branch; drop-offs the same way backwards (nearest first, farthest last); a Both trip does its drop-offs
+ *  first, then the pickups farthest-first on the way back. Homes with no pin go last. */
 export function orderStops(riders: Rider[], branch: LatLng | undefined, kind: BusRound["kind"]): Rider[] {
   if (!branch) return riders
   const lost = riders.filter((r) => !r.loc), pinned = riders.filter((r) => r.loc)
-  if (kind === "pickup") return [...nearestFirst(pinned, branch).reverse(), ...lost]
-  if (kind === "dropoff") return [...nearestFirst(pinned, branch), ...lost]
-  const drops = nearestFirst(pinned.filter((r) => r.leg === "dropoff"), branch)
-  const last = drops.at(-1)?.loc ?? branch
-  // the pickups: start from wherever the last drop-off was, sweep, end nearest the branch
-  const picks = nearestFirst(pinned.filter((r) => r.leg === "pickup"), last)
+  if (kind === "pickup") return [...inwardSweep(pinned, branch), ...lost]
+  if (kind === "dropoff") return [...inwardSweep(pinned, branch).reverse(), ...lost]
+  const drops = inwardSweep(pinned.filter((r) => r.leg === "dropoff"), branch).reverse()
+  const picks = inwardSweep(pinned.filter((r) => r.leg === "pickup"), branch)
   return [...drops, ...picks, ...lost]
 }
 
@@ -406,12 +418,14 @@ export function planDay(branch: Branch, date: DateStr, ctx: TransportCtx): DayPl
     const vehicle = vehicles.find((v) => v.id === (state?.vehicleId ?? round.vehicleId)) ?? null
     const driver = driverOf(ctx.staff, state?.driverId ?? vehicle?.driverId, vehicle)
     let riders = orderStops(byRun.get(round.id) ?? [], branch.location, round.kind)
+    const suggested = riders.map((r) => stopKey(r.studentId, r.leg)).join()
     if (state?.order?.length) {
       const pos = new Map(state.order.map((x, i) => [x, i]))
       // order holds stop keys (or plain student ids from before Both trips)
       const at = (r: Rider) => pos.get(stopKey(r.studentId, r.leg)) ?? pos.get(r.studentId) ?? 999
       riders = [...riders].sort((a, b) => at(a) - at(b))
     }
+    const orderCustom = riders.map((r) => stopKey(r.studentId, r.leg)).join() !== suggested
     const timed = timeStops(riders, branch.location, round, { depart: state?.departAt, stops: state?.stopTimes })
     // seats: a Both trip carries its drop-offs out and its pickups back — the fuller half counts
     const load = (rs: Rider[]) => rs.reduce((n, r) => n + 1 + Number(r.adult), 0)
@@ -465,7 +479,7 @@ export function planDay(branch: Branch, date: DateStr, ctx: TransportCtx): DayPl
       id, zoneIds, extra: !!state?.extra, timeChanged: !!state?.time, round, date, vehicle, substitute: !!state?.vehicleId && state.vehicleId !== round.vehicleId,
       driver, driverChanged: !!state?.driverId && state.driverId !== vehicle?.driverId, seats, used, stops, cancelled: cancelledOn.get(round.id) ?? [],
       depart: timed.depart, finish: timed.finish, minutes, km: timed.km, warnings, key, status, autoAt, state,
-      departFixed: !!state?.departAt, startedAt: startAt, finishedAt: finishAt, late: lateNow,
+      departFixed: !!state?.departAt, orderCustom, startedAt: startAt, finishedAt: finishAt, late: lateNow,
     }
   }).sort((a, b) => a.depart.localeCompare(b.depart))
 

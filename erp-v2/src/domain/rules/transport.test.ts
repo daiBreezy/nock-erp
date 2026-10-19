@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest"
 import type { Branch, BusAddOn, BusTrip, Family, Invoice, Klass, Student } from "../types"
-import { autoZones, compassDeg, orderStops, planDay, timeStops, zoneOf, type Rider } from "./transport"
+import { autoZones, compassDeg, inwardSweep, orderStops, planDay, timeStops, zoneOf, type Rider } from "./transport"
 
 // owner 2026-10-19 — Transport: riders are worked out, never typed
 const MON = "2026-10-19"
@@ -46,6 +46,27 @@ describe("transport — planDay", () => {
     expect(p.trips.find((t) => t.round.id === "d")!.stops.some((s) => s.rider.studentId === "c")).toBe(false)
     const sent = planDay(branch, MON, ctx({ trips: [{ id: "p|x", branchId: "b", roundId: "p", date: MON, sentAt: "x", sentKey: "old" }] }))
     expect(sent.trips.find((t) => t.round.id === "p")!.status).toBe("changed")
+  })
+  it("suggests the queue farthest home first, sweeping in to the branch — never zigzags back out", () => {
+    // 1 km ≈ 0.009° · north 10 km, north-east 9 km (next to it), north 5 km, south 2 km
+    const at = (id: string, dLat: number, dLng: number): Rider => ({ studentId: id, nickname: id, name: id, grade: "", familyId: null, familyName: "", phone: "", loc: { lat: B.lat + dLat, lng: B.lng + dLng }, adult: false, classStart: "", classEnd: "", pinned: false, zoneId: null, leg: "pickup" })
+    const homes = [at("s2", -0.018, 0), at("n5", 0.045, 0), at("n10", 0.09, 0), at("ne9", 0.078, 0.03)]
+    expect(inwardSweep(homes, B).map((x) => x.studentId)).toEqual(["n10", "ne9", "n5", "s2"])
+    expect(orderStops(homes, B, "pickup").map((x) => x.studentId)).toEqual(["n10", "ne9", "n5", "s2"])
+    // the way home is the same line backwards: nearest first, farthest last
+    expect(orderStops(homes.map((h) => ({ ...h, leg: "dropoff" as const })), B, "dropoff").map((x) => x.studentId)).toEqual(["s2", "n5", "ne9", "n10"])
+
+    // homes in different directions still go strictly inward: 6 km east → 2.5 km west → 1.6 km east (never back out)
+    const mixed = [at("e1.6", 0, 0.0147), at("w2.5", 0, -0.023), at("e6", 0, 0.055)]
+    expect(inwardSweep(mixed, B).map((x) => x.studentId)).toEqual(["e6", "w2.5", "e1.6"])
+  })
+  it("the order is a suggestion: the admin's own order wins and is flagged", () => {
+    const p = planDay(branch, MON, ctx()).trips.find((t) => t.round.id === "p")!
+    expect(p.orderCustom).toBe(false)
+    const keys = p.stops.map((x) => x.key).reverse()
+    const own = planDay(branch, MON, ctx({ trips: [{ id: "p|x", branchId: "b", roundId: "p", date: MON, order: keys }] })).trips.find((t) => t.round.id === "p")!
+    expect(own.stops.map((x) => x.key)).toEqual(keys)
+    expect(own.orderCustom).toBe(true)
   })
   it("no run at that time = left out with the reason", () => {
     const late = { ...k, start: "19:00" } as Klass

@@ -4,7 +4,7 @@
 // van · time (+late) · passengers · zone · driver · trip type · branch · status · ⋯ — open it for the stops: order · child (+Parent) · grade · home · P/D · est. / actual
 // time · stop status. "แก้ไข" turns on drag-to-reorder and ✕ remove; "+ เพิ่มผู้โดยสาร" adds a child for the day.
 import { useState } from "react"
-import { ArrowRightLeftIcon, BanIcon, ChevronDownIcon, ChevronUpIcon, ClockIcon, CopyIcon, EllipsisIcon, GripVerticalIcon, MapIcon, MapPinIcon, MapPinOffIcon, PencilIcon, PlusIcon, RotateCcwIcon, SendIcon, TrashIcon, UserCogIcon, UserIcon, UserMinusIcon, UserXIcon, XIcon } from "lucide-react"
+import { ArrowRightLeftIcon, BanIcon, ChevronDownIcon, ChevronUpIcon, ClockIcon, CopyIcon, EllipsisIcon, GripVerticalIcon, MapIcon, MapPinIcon, MapPinOffIcon, PencilIcon, PlusIcon, RotateCcwIcon, RouteIcon, SendIcon, TrashIcon, UserCogIcon, UserIcon, UserMinusIcon, UserXIcon, XIcon } from "lucide-react"
 import { type Column } from "@/components/app/data-grid"
 import { HEAD } from "@/components/app/data-table"
 import { EditCell } from "@/components/app/inline-edit"
@@ -102,6 +102,21 @@ export function TripDetail({ r }: { r: TripRowData }) {
     <div className="space-y-2 bg-muted/20 px-4 py-3">
       {t.warnings.length > 0 && !cancelled && <p className="rounded-xl bg-amber-50 px-3 py-1.5 text-xs text-amber-900 dark:bg-amber-950/30 dark:text-amber-200">{t.warnings.join(" · ")}</p>}
       {!cancelled && <TripTimes t={t} />}
+      {!cancelled && t.stops.length > 1 && (
+        <div className="flex flex-wrap items-center gap-2 text-xs">
+          {t.orderCustom ? <>
+            <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 font-medium text-amber-900"><PencilIcon className="size-3" />Admin จัดลำดับเอง</span>
+            <Button size="xs" variant="outline" onClick={() => report(s.setTripOrder(t.round.id, t.date, []), "ใช้ลำดับที่ระบบแนะนำแล้ว — เวลาแต่ละจุดคำนวณใหม่")}><RotateCcwIcon /> ใช้ลำดับที่ระบบแนะนำ</Button>
+          </> : (
+            <span className="inline-flex items-center gap-1 rounded-full bg-sky-100 px-2 py-0.5 font-medium text-sky-800"><RouteIcon className="size-3" />{
+              t.round.kind === "pickup" ? "ลำดับที่ระบบแนะนำ: บ้านไกลสุดก่อน แล้วขยับเข้ามาจนถึงสาขา"
+                : t.round.kind === "dropoff" ? "ลำดับที่ระบบแนะนำ: ออกจากสาขา ส่งบ้านใกล้ก่อน ไล่ออกไปจนถึงบ้านไกลสุด"
+                  : "ลำดับที่ระบบแนะนำ: ส่งก่อน (ใกล้ → ไกล) แล้วรับกลับ (ไกลสุด → สาขา)"
+            }</span>
+          )}
+          <span className="text-muted-foreground">{edit ? "ลากแถวเพื่อจัดลำดับเอง" : "กด \"แก้ไข\" เพื่อลากจัดลำดับเอง"}</span>
+        </div>
+      )}
       {cancelled ? (
         <p className="px-4 py-6 text-center text-sm text-muted-foreground">{`ยกเลิกวันนี้ — ${t.state?.cancelled?.reason ?? ""} · เด็กของเที่ยวนี้อยู่ใน "ต้องตัดสินใจ" ของวันนี้`}</p>
       ) : (

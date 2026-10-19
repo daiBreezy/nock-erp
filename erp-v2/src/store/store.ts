@@ -2116,7 +2116,8 @@ export const useStore = create<Store>()(
         const s = get()
         const perm = requirePerm(s.me(), "session.manage")
         if (!perm.ok) return perm
-        set({ busTrips: upsertTrip(s.busTrips, branchOfRound(s, roundId), roundId, date, { order }) })
+        // an empty order = back to the suggested one (farthest first, in to the branch)
+        set({ busTrips: upsertTrip(s.busTrips, branchOfRound(s, roundId), roundId, date, { order: order.length ? order : undefined }) })
         return OK
       },
       moveRider: (date, studentId, toRoundId) => {
