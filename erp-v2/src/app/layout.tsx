@@ -1,6 +1,6 @@
 import type { Metadata } from "next"
 import { Inter, Noto_Sans_Thai } from "next/font/google"
-import { AppShell } from "@/components/app/app-shell"
+import { ShellGate } from "@/components/app/shell-gate"
 import { Toaster } from "@/components/ui/toast"
 import { TooltipProvider } from "@/components/ui/tooltip"
 import "./globals.css"
@@ -20,7 +20,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
     <html lang="th" className={`${inter.variable} ${thai.variable} h-full antialiased`} suppressHydrationWarning>
       <body className="min-h-full" style={{ fontFamily: "var(--font-inter), var(--font-thai), system-ui, sans-serif" }}>
         <TooltipProvider>
-          <AppShell>{children}</AppShell>
+          <ShellGate>{children}</ShellGate>
           {/* system feedback (saved / error) — bottom-right; notifications are the Noti, top-right (components/app/noti.tsx) */}
           <Toaster limit={3} />
         </TooltipProvider>

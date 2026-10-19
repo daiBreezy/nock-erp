@@ -28,7 +28,7 @@ import { LeadSheet } from "@/components/crm/lead-sheet"
 import { Pill, ROLE_TONE } from "./badges"
 import { CustomerPicker } from "./customer-picker"
 import { StudentSheet } from "./student-sheet"
-import { avatarTone, initial } from "./subject-color"
+import { avatarTone, configureSubjectColors, initial } from "./subject-color"
 import { NAV, navFor } from "./nav"
 import { DemoPanel } from "./demo-panel"
 import { NockWidget } from "@/components/nock/nock-widget"
@@ -52,6 +52,12 @@ function ParentAppPublisher() {
   usePublishParentViews()
   return null
 }
+
+// subject colours picked in Settings + names in the chosen language (subject-color.ts stays store-free for parents' pages)
+configureSubjectColors({
+  picked: (subject) => useStore.getState().system?.subjectColors?.[subject],
+  spell: (name) => (useUiLang.getState().lang === "th" ? name : nm(name)),
+})
 
 export function AppShell({ children }: { children: ReactNode }) {
   const pathname = usePathname()

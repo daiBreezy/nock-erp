@@ -19,7 +19,7 @@ const THAI = /[\u0E01-\u0E3A\u0E40-\u0E5B]/
 const SKIP = [
   /^lib\/i18n-dict\//, /\.test\.tsx?$/, /^data\//, /^app\/liff\//, /^app\/api\//, /^server\//, /^app\/print\//,
   /^components\/parent\//, /^domain\/rules\/messages\.ts$/, /^domain\/rules\/romanize\.ts$/, /^lib\/screen-translate\.ts$/,
-  /^domain\/rules\/documents\.ts$/, /^lib\/sales-tax-export\.ts$/, /^proxy\.ts$/, /^app\/inbox\/cards\//,
+  /^domain\/rules\/documents\.ts$/, /^store\/linked-demo\.ts$/, /^lib\/sales-tax-export\.ts$/, /^proxy\.ts$/, /^app\/inbox\/cards\//,
 ]
 
 /** Thai on purpose — sent to parents in LINE, typed sample chat, Nock's search words / AI prompt, parsing helpers */

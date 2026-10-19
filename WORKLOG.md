@@ -11,6 +11,16 @@
 - **Test / Trial ส่งให้ครอบครัวลูกค้าเดิมได้** (เช่น ลูกคนที่ 2): Inbox › + › ฟอร์ม › Test / Trial เปิดได้ในแชทครอบครัว → เลือก "ชั้นของลูก" → ตอนส่งสร้าง Lead ให้เด็กคนนั้น (`siblingLead` ใน rules/crm.ts + test) ผ่านผู้ปกครองหลัก + LINE ของครอบครัว · อนุมัติแล้วเด็กเข้าครอบครัวเดิม (match LINE/เบอร์) ไม่สร้างซ้ำ
 - **ไม่ย้าย prototype ไป next-intl** — ใช้ตัวแปลหน้าจอ + เทสกันคำแปลหลุดต่อ · Dev ใช้ i18n มาตรฐานในระบบจริง เอา `erp-v2/i18n-export/*.json` ไปเป็นคำแปลตั้งต้น
 
+### LINE Rich Menu เปิดช้า → เร็วขึ้น ~20 เท่า
+- สาเหตุ: tunnel ชี้ไปที่ dev server → มือถือต้องโหลด JS แบบ dev 11 MB (36 ไฟล์) ≈ 20 วิ
+- แก้: `npm run line` build หน้าผู้ปกครองเป็น production แยกที่พอร์ต **3311** (`.next-line-a/-b` สลับกัน) แล้วให้ tunnel ชี้ไปที่นั่น · โค้ดเปลี่ยน = build ใหม่เองหลังหยุดแก้ 20 วิ (~13 วิ) · Staff ยังใช้ dev 3310 เหมือนเดิม · `LINE_DEV=1 npm run line` = แบบเดิม
+- เบาลงอีก: root layout โหลด Staff shell (store + พจนานุกรม 4,000 วลี) เฉพาะหน้า Staff (`components/app/shell-gate.tsx`) · `subject-color.ts` ไม่ import store/i18n แล้ว (shell เสียบให้) · `/liff/form` แยก parent app กับฟอร์มเป็น dynamic import (`form-app.tsx`)
+- ผล: เปิด Rich Menu โหลด 0.24 MB ≈ 1 วิ ผ่าน tunnel
+
+### Mockup ในแอปผู้ปกครอง
+- ครอบครัวที่ผูก LINE จริงแต่ไม่มีคลาสข้างหน้า → ได้ลูก demo "ใบเฟิร์น" (`store/linked-demo.ts` + test) เรียน 2 คลาสจริง (คณิต อ. 16:00 · อังกฤษ พ. 17:00) แพ็กเกจจ่ายแล้ว เช็คชื่อย้อนหลัง โน้ตที่ส่งแล้ว 3 อัน และวันใช้รถ (Liclass) · ทำทุกครั้งที่ reseed / รีเซ็ตข้อมูล · persist v91
+- `vitest.config.mts` ใส่ alias `@/` → เทสโหลด seed ได้
+
 ### LINE
 - tunnel เปลี่ยน URL อีก (19 ต.ค. 08:10) → LIFF ค้าง URL เก่าอีก · LINE Developers หลุด login → เจ้าของต้อง login + ใส่ `LINE_LOGIN_CHANNEL_SECRET` ใน `erp-v2/.env.local` (ทางแก้ถาวร)
 - ✅ เจ้าของใส่ `LINE_LOGIN_CHANNEL_SECRET` แล้ว (บรรทัด 19 ของ .env.local — คนละตัวกับ LINE_CHANNEL_SECRET ของ Messaging API) · `npm run line` อัปเดต LIFF endpoint เองได้แล้ว (เช็คใน Console ตรงกัน) → tunnel เปลี่ยน URL ไม่ต้องแก้มืออีก · **เครื่องอื่นต้องใส่ secret นี้ใน .env.local ของเครื่องนั้นด้วย** (ไฟล์ไม่ขึ้น git)

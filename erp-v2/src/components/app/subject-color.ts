@@ -1,5 +1,8 @@
-import { nm, useUiLang } from "@/lib/i18n"
-import { useStore } from "@/store/store"
+// owner 2026-10-19: no store / dictionary import here — parents' pages (LINE) use these colours too and must stay light.
+// The staff shell plugs in Settings' picked colours and the name speller (components/app/app-shell.tsx).
+let pickedColor: (subject: string) => string | undefined = () => undefined
+let spellName: (name: string) => string = (n) => n
+export function configureSubjectColors(o: { picked: typeof pickedColor; spell: typeof spellName }) { pickedColor = o.picked; spellName = o.spell }
 // One colour per subject so a day can be scanned at a glance.
 // Class strings are written out in full so Tailwind can see them.
 
@@ -30,7 +33,7 @@ const FIXED: Record<string, string> = { คณิต: "rose", อังกฤษ
 
 /** the colour key for a subject: the one picked in Settings, else a fixed / hashed default */
 export function subjectColorKey(subject: string): string {
-  const picked = useStore.getState().system?.subjectColors?.[subject]
+  const picked = pickedColor(subject)
   if (picked && picked in SUBJECT_PALETTE) return picked
   if (subject in FIXED) return FIXED[subject]
   let h = 0
@@ -54,7 +57,7 @@ export function gradeTone(grade: string) {
 /** First visible letter of a Thai/English name (skips "ครู" and leading vowels เ แ โ ใ ไ) */
 export function initial(name: string) {
   // English / Japanese UI: the first letter of the romanized name (owner 2026-10-07)
-  const n = (useUiLang.getState().lang === "th" ? name.replace(/^ครู/, "") : nm(name.replace(/^ครู/, ""))).trim()
+  const n = spellName(name.replace(/^ครู/, "")).trim()
   return /^[เแโใไ]/.test(n) ? n.slice(1, 2) : n.slice(0, 1)
 }
 

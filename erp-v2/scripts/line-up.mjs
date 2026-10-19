@@ -6,16 +6,19 @@
 // 3. points the LIFF app (parent forms + parent app) at it — needs LINE_LOGIN_CHANNEL_SECRET in .env.local
 // 4. writes the URL to .data/public-url.json (links / images the server sends use it)
 // 5. watches the tunnel: if it drops, it opens a new one and does 2–4 again
+// 6. (owner 2026-10-19: Rich Menu was very slow) parents get a production build on its own port (3311), not the dev
+//    server — 11 MB of dev JS became ~0.25 MB. It rebuilds by itself when the code changes. LINE_DEV=1 = old way.
 //
 // Rich menu links use https://liff.line.me/<LIFF_ID> — they never change, so nothing to do there.
 import { spawn } from "node:child_process"
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs"
+import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs"
 import { homedir } from "node:os"
 import { dirname, join } from "node:path"
 import { fileURLToPath } from "node:url"
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..")
 const PORT = Number(process.env.PORT ?? 3310)
+const PARENT_PORT = Number(process.env.LINE_PORT ?? 3311)
 
 function loadEnv() {
   const file = join(root, ".env.local")
@@ -28,6 +31,57 @@ function loadEnv() {
 }
 const env = loadEnv()
 const log = (...a) => console.log(`[line ${new Date().toLocaleTimeString("th-TH")}]`, ...a)
+const DEV = env.LINE_DEV === "1"
+/** the port the tunnel serves — the fast production copy, or the dev server with LINE_DEV=1 */
+const TARGET = DEV ? PORT : PARENT_PORT
+
+// ---- the parents' production server: build into the spare folder, then swap (the running copy is never touched)
+const npx = process.platform === "win32" ? "npx.cmd" : "npx"
+let server = null, slot = "a", builtAt = 0, building = false
+const run = (args, dist) => new Promise((res) => {
+  const p = spawn(npx, ["next", ...args], { cwd: root, env: { ...process.env, NEXT_DIST_DIR: dist }, stdio: ["ignore", "pipe", "pipe"] })
+  let out = ""
+  p.stdout.on("data", (d) => { out += d }); p.stderr.on("data", (d) => { out += d })
+  p.on("exit", (code) => res({ code, out }))
+})
+function latestChange(dir = join(root, "src")) {
+  let t = 0
+  for (const f of readdirSync(dir)) {
+    const p = join(dir, f), st = statSync(p)
+    t = Math.max(t, st.isDirectory() ? latestChange(p) : st.mtimeMs)
+  }
+  return t
+}
+async function buildAndServe() {
+  if (building) return
+  building = true
+  const next = slot === "a" ? "b" : "a", dist = `.next-line-${next}`
+  const started = Date.now()
+  log(server ? "code changed — rebuilding the parents' pages…" : "building the parents' pages (fast production copy)…")
+  const b = await run(["build"], dist)
+  building = false
+  if (b.code !== 0) { log("✗ build failed — parents keep the previous copy:\n" + b.out.split("\n").filter((l) => /error|Error/.test(l)).slice(0, 8).join("\n")); builtAt = Date.now(); return }
+  builtAt = started
+  const old = server
+  if (old) { old.kill(); await new Promise((r) => setTimeout(r, 800)) }
+  server = spawn(npx, ["next", "start", "-p", String(PARENT_PORT)], { cwd: root, env: { ...process.env, NEXT_DIST_DIR: dist }, stdio: "ignore" })
+  slot = next
+  // the copy before the old one can go
+  const stale = join(root, `.next-line-${next === "a" ? "b" : "a"}`)
+  setTimeout(() => { try { if (old) rmSync(stale, { recursive: true, force: true }) } catch {} }, 5000)
+  for (let i = 0; i < 40; i++) { try { await fetch(`http://localhost:${PARENT_PORT}/liff/form`); break } catch { await new Promise((r) => setTimeout(r, 500)) } }
+  log(`✓ parents' pages up to date (${Math.round((Date.now() - started) / 1000)} s) — http://localhost:${PARENT_PORT}`)
+}
+function watchCode() {
+  // a change waits until edits stop for 20 s, then one rebuild
+  setInterval(() => {
+    if (building) return
+    const t = latestChange()
+    if (t > builtAt && Date.now() - t > 20_000) void buildAndServe()
+  }, 10_000)
+}
+process.on("exit", () => server?.kill())
+for (const sig of ["SIGINT", "SIGTERM"]) process.on(sig, () => { server?.kill(); process.exit(0) })
 
 async function line(path, init = {}, token = env.LINE_CHANNEL_ACCESS_TOKEN) {
   const r = await fetch(`https://api.line.me${path}`, { ...init, headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json", ...init.headers } })
@@ -90,7 +144,7 @@ function cloudflaredBin() {
 }
 
 function startTunnel() {
-  const cf = spawn(cloudflaredBin(), ["tunnel", "--url", `http://localhost:${PORT}`, "--no-autoupdate"], { stdio: ["ignore", "pipe", "pipe"] })
+  const cf = spawn(cloudflaredBin(), ["tunnel", "--url", `http://localhost:${TARGET}`, "--no-autoupdate"], { stdio: ["ignore", "pipe", "pipe"] })
   let url = null, synced = false, lastError = 0
   const onData = (buf) => {
     const s = buf.toString()
@@ -120,6 +174,7 @@ function startTunnel() {
 }
 
 if (!(await devServerUp())) log(`⚠ dev server isn't answering on http://localhost:${PORT} — start it (npm run dev -- -p ${PORT}); LINE will work as soon as it's up`)
+if (!DEV) { await buildAndServe(); watchCode() }
 if (env.LINE_PUBLIC_URL) {
   // a fixed domain (e.g. ngrok static domain / Cloudflare named tunnel) — set it once, nothing changes later
   await syncAll(env.LINE_PUBLIC_URL.replace(/\/$/, ""))
