@@ -13,6 +13,7 @@
 
 ### LINE
 - tunnel เปลี่ยน URL อีก (19 ต.ค. 08:10) → LIFF ค้าง URL เก่าอีก · LINE Developers หลุด login → เจ้าของต้อง login + ใส่ `LINE_LOGIN_CHANNEL_SECRET` ใน `erp-v2/.env.local` (ทางแก้ถาวร)
+- ✅ เจ้าของใส่ `LINE_LOGIN_CHANNEL_SECRET` แล้ว (บรรทัด 19 ของ .env.local — คนละตัวกับ LINE_CHANNEL_SECRET ของ Messaging API) · `npm run line` อัปเดต LIFF endpoint เองได้แล้ว (เช็คใน Console ตรงกัน) → tunnel เปลี่ยน URL ไม่ต้องแก้มืออีก · **เครื่องอื่นต้องใส่ secret นี้ใน .env.local ของเครื่องนั้นด้วย** (ไฟล์ไม่ขึ้น git)
 
 ## 2026-10-15 — Nock ลากแล้วไหลเข้ามุม, Workload ครู, เปิด/ปิด AI Helper
 
