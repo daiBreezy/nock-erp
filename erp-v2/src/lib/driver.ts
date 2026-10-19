@@ -44,14 +44,21 @@ export function usePublishDriverTrips() {
       const key = JSON.stringify(out)
       if (key === last) return
       last = key
-      void fetch("/api/driver/publish", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ trips: out }) }).catch(() => { last = "" })
+      // a failed send (server restarting, a reply that isn't ok) is tried again on the next check
+      void fetch("/api/driver/publish", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ trips: out }) })
+        .then((r) => { if (!r.ok) last = "" }).catch(() => { last = "" })
     }
-    const kick = () => { clearTimeout(timer); timer = setTimeout(run, 3000) }
+    const kick = () => { clearTimeout(timer); timer = setTimeout(run, 1500) }
     kick()
+    // owner 2026-10-19 ("อนุมัติเที่ยวรถไปแล้ว แต่ไม่แสดงบน App คนขับ"): don't rely on the change alone — check again every
+    // half minute (sent again even when unchanged — the server copy may have been lost) and when the tab comes back
+    const every = setInterval(() => { last = ""; run() }, 30_000)
+    const onShow = () => { if (document.visibilityState === "visible") kick() }
+    document.addEventListener("visibilitychange", onShow)
     const unsub = useStore.subscribe((s, p) => {
       if (s.busTrips !== p.busTrips || s.invoices !== p.invoices || s.busAddOns !== p.busAddOns || s.families !== p.families || s.branches !== p.branches || s.staff !== p.staff) kick()
     })
-    return () => { clearTimeout(timer); unsub() }
+    return () => { clearTimeout(timer); clearInterval(every); document.removeEventListener("visibilitychange", onShow); unsub() }
   }, [])
 }
 
