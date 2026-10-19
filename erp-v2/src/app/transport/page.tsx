@@ -5,11 +5,12 @@
 // the warnings, moves / reorders when needed and sends the day's sheets to the drivers.
 import { useMemo, useState } from "react"
 import Link from "next/link"
-import { AlertTriangleIcon, BusIcon, CalendarDaysIcon, CheckCheckIcon, MessageCircleIcon, SendIcon, SettingsIcon, UsersIcon } from "lucide-react"
+import { AlertTriangleIcon, BusIcon, CalendarDaysIcon, CheckCheckIcon, MapIcon, MessageCircleIcon, SendIcon, SettingsIcon, UsersIcon } from "lucide-react"
 import { Kpi } from "@/components/app/kpi"
 import { NativeSelect } from "@/components/app/native-select"
 import { KpiRow, Page, PageHeader, RangeStepper, Segmented, Toolbar } from "@/components/app/page-layout"
 import { TransportSettings } from "@/components/transport/transport-settings"
+import { ZonesView } from "@/components/transport/zones-view"
 import { KIND_LABEL, TripCard } from "@/components/transport/trip-card"
 import { Button } from "@/components/ui/button"
 import { addDays, fmtDate, toDateStr, weekdayShort } from "@/domain/dates"
@@ -21,7 +22,7 @@ import { nm } from "@/lib/i18n"
 import { cn } from "@/lib/utils"
 import { useStore } from "@/store/store"
 
-type View = "day" | "week" | "settings"
+type View = "day" | "week" | "zones" | "settings"
 
 export default function TransportPage() {
   const branch = useBranch()
@@ -57,17 +58,17 @@ export default function TransportPage() {
           <Button onClick={() => report(sendTrips(toSend.map((t) => ({ roundId: t.round.id, date: t.date, key: t.key }))), `ส่งใบงาน ${toSend.length} เที่ยวให้คนขับแล้ว`)}><SendIcon /> {`ส่งทั้งวัน (${toSend.length})`}</Button>
         )} />
 
-      <Toolbar end={view !== "settings" && hasBus && (
+      <Toolbar end={(view === "day" || view === "week") && hasBus && (
         <RangeStepper current={view === "day" ? date === today : mondayOf(date) === mondayOf(today)}
           label={view === "day" ? fmtDate(date, { weekday: true }) : `${fmtDate(mondayOf(date))} – ${fmtDate(addDays(mondayOf(date), 6))}`}
           onPrev={() => setDate(addDays(date, view === "day" ? -1 : -7))} onNext={() => setDate(addDays(date, view === "day" ? 1 : 7))} onToday={() => setDate(today)} />
       )}>
         <Segmented label="มุมมอง" value={view} onChange={setView} options={[
-          { value: "day", label: "รายวัน", icon: CalendarDaysIcon }, { value: "week", label: "สัปดาห์", icon: BusIcon }, { value: "settings", label: "รถ & รอบรถ", icon: SettingsIcon },
+          { value: "day", label: "รายวัน", icon: CalendarDaysIcon }, { value: "week", label: "สัปดาห์", icon: BusIcon }, { value: "zones", label: "โซน", icon: MapIcon }, { value: "settings", label: "รถ & รอบรถ", icon: SettingsIcon },
         ]} />
       </Toolbar>
 
-      {view === "settings" ? <TransportSettings key={branch.id} branch={branch} /> : !hasBus ? (
+      {view === "settings" ? <TransportSettings key={branch.id} branch={branch} /> : view === "zones" ? <ZonesView branch={branch} /> : !hasBus ? (
         <div className="rounded-3xl border border-dashed p-10 text-center text-sm text-muted-foreground">
           <BusIcon className="mx-auto mb-2 size-8" />
           {`สาขา${nm(branch.name)}ยังไม่มีรอบรถ — `}<button type="button" className="text-primary underline" onClick={() => setView("settings")}>เพิ่มรถและรอบรถ</button>

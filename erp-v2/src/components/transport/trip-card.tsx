@@ -14,6 +14,7 @@ import { report } from "@/lib/feedback"
 import { cn } from "@/lib/utils"
 import { useStore } from "@/store/store"
 import { TripSheet } from "./trip-sheet"
+import { ZONE_DOT } from "./zone-map"
 
 export const KIND_LABEL = { pickup: "รอบรับ", dropoff: "รอบส่ง" } as const
 
@@ -49,6 +50,12 @@ export function TripCard({ t, branch, others }: { t: TripPlan; branch: Branch; o
           <p className="text-xs text-muted-foreground tabular-nums">{t.round.kind === "pickup" ? `ออก ${t.depart} → ถึงสาขา ${t.finish}` : `ออกจากสาขา ${t.depart} → คนสุดท้าย ${t.finish}`}{t.km ? ` · ${t.km} กม.` : ""}</p>
         </div>
         <TripStatus t={t} />
+        {/* owner 2026-10-19: which zone(s) this van serves */}
+        {t.zoneIds.length > 0 && (
+          <span className="flex w-full flex-wrap gap-1.5 pl-11">
+            {t.zoneIds.map((zid) => { const z = branch.busZones?.find((x) => x.id === zid); return z && <span key={zid} className="flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-[11px]"><span className={cn("size-2 rounded-full", ZONE_DOT[z.color] ?? "bg-slate-400")} />{z.name}</span> })}
+          </span>
+        )}
       </header>
 
       <div className="flex flex-wrap items-center gap-2 px-4 pt-3 text-sm">
@@ -70,7 +77,7 @@ export function TripCard({ t, branch, others }: { t: TripPlan; branch: Branch; o
         {t.stops.length === 0 && <li className="px-2 py-6 text-center text-sm text-muted-foreground">ไม่มีใครนั่งรอบนี้</li>}
         {t.stops.map((s, i) => (
           <li key={s.rider.studentId} className="flex items-center gap-2.5 px-2 py-2 text-sm">
-            <span className="grid size-6 shrink-0 place-items-center rounded-full bg-primary/10 text-xs font-semibold text-primary">{i + 1}</span>
+            <span className={cn("grid size-6 shrink-0 place-items-center rounded-full text-xs font-semibold", s.rider.zoneId ? `${ZONE_DOT[branch.busZones?.find((z) => z.id === s.rider.zoneId)?.color ?? ""] ?? "bg-slate-400"} text-white` : "bg-primary/10 text-primary")}>{i + 1}</span>
             <span className="w-11 shrink-0 text-xs font-medium tabular-nums">{s.eta ?? "—"}</span>
             <span className="min-w-0 flex-1">
               <span className="flex items-center gap-1.5 truncate font-medium">

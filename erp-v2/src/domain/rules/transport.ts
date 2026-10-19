@@ -3,7 +3,7 @@
 // child goes to the run that fits their class time; stops are put in order and timed from the home pins; anything the
 // admin has to look at becomes a warning. The admin only reorders, moves a child, swaps the van, or sends.
 import { addDays, fromMinutes, toMinutes, weekdayOf } from "../dates"
-import type { Branch, BusAddOn, BusRound, BusTrip, DateStr, Family, ID, Invoice, Klass, ParentRequest, Student, TimeStr, Vehicle } from "../types"
+import type { Branch, BusAddOn, BusRound, BusTrip, BusZone, DateStr, Family, ID, Invoice, Klass, ParentRequest, Student, TimeStr, Vehicle } from "../types"
 import { busZone, distanceKm, rideTimes, roundFor } from "./bus"
 import { busDaysOf } from "./parent-view"
 
@@ -26,6 +26,8 @@ export interface Rider {
   classEnd: TimeStr
   /** put on this run by hand */
   pinned: boolean
+  /** the bus zone of the home (owner 2026-10-19) */
+  zoneId: ID | null
 }
 
 export interface TripStop { rider: Rider; eta: TimeStr | null; km: number | null }
@@ -34,6 +36,8 @@ export type TripStatus = "draft" | "scheduled" | "sent" | "changed"
 
 export interface TripPlan {
   id: string
+  /** zones of the children on it */
+  zoneIds: ID[]
   round: BusRound
   date: DateStr
   vehicle: Vehicle | null
@@ -80,6 +84,58 @@ const legMin = (km: number) => Math.round(((km * DETOUR) / CITY_KMH) * 60)
 export const tripId = (roundId: ID, date: DateStr) => `${roundId}|${date}`
 
 const bearing = (from: LatLng, to: LatLng) => Math.atan2(to.lng - from.lng, to.lat - from.lat)
+
+// ---------- bus zones (owner 2026-10-19: several vans — "แบ่ง Zone ของนักเรียน เพื่อให้รถวิ่งรับได้สะดวก")
+
+/** compass direction of a home from the branch, degrees clockwise from north (0–360) */
+export function compassDeg(from: LatLng, to: LatLng): number {
+  const d = (Math.atan2((to.lng - from.lng) * Math.cos((from.lat * Math.PI) / 180), to.lat - from.lat) * 180) / Math.PI
+  return (d + 360) % 360
+}
+const inSector = (deg: number, from: number, to: number) => (from <= to ? deg >= from && deg < to : deg >= from || deg < to)
+
+/** a home's zone: the one set by hand, else the slice its direction falls in */
+export function zoneOf(fam: Pick<Family, "location" | "busZoneId"> | undefined, branch: LatLng | undefined, zones: BusZone[]): BusZone | null {
+  if (!fam || !zones.length) return null
+  const hand = fam.busZoneId ? zones.find((z) => z.id === fam.busZoneId) : undefined
+  if (hand) return hand
+  if (!fam.location || !branch) return null
+  const deg = compassDeg(branch, fam.location)
+  return zones.find((z) => inSector(deg, z.from, z.to)) ?? null
+}
+
+const COMPASS = ["เหนือ", "ตะวันออกเฉียงเหนือ", "ตะวันออก", "ตะวันออกเฉียงใต้", "ใต้", "ตะวันตกเฉียงใต้", "ตะวันตก", "ตะวันตกเฉียงเหนือ"]
+export const ZONE_COLORS = ["sky", "amber", "emerald", "violet", "rose", "teal"]
+/** "สายเหนือ" — the compass name of a direction */
+export const zoneName = (deg: number) => `สาย${COMPASS[Math.round(deg / 45) % 8]}`
+
+/**
+ * Split homes into `count` zones (one per van) by direction: cut the circle at the `count` widest empty gaps between
+ * homes, so each zone is one group of houses the van can sweep — boundaries sit in the middle of those gaps. Named by
+ * the group's direction ("สายเหนือ"). Fewer homes than vans = equal slices.
+ */
+export function autoZones(degs: number[], count: number, vehicleIds: ID[] = []): Omit<BusZone, "id">[] {
+  const k = Math.max(1, count)
+  const sorted = [...new Set(degs.map((d) => Math.round(d * 10) / 10))].sort((a, b) => a - b)
+  if (sorted.length < k || k === 1) {
+    if (k === 1) return [{ name: "ทุกทิศ", color: ZONE_COLORS[0], from: 0, to: 360, vehicleId: vehicleIds[0] }]
+    return Array.from({ length: k }, (_, i) => ({ name: zoneName((i + 0.5) * (360 / k)), color: ZONE_COLORS[i % ZONE_COLORS.length], from: (i * 360) / k, to: ((i + 1) * 360) / k, vehicleId: vehicleIds[i] }))
+  }
+  // gap after each home (to the next one round the circle)
+  const gaps = sorted.map((d, i) => ({ i, size: (i === sorted.length - 1 ? sorted[0] + 360 : sorted[i + 1]) - d }))
+  const cutsAfter = gaps.sort((a, b) => b.size - a.size).slice(0, k).map((g) => g.i).sort((a, b) => a - b)
+  const mid = (i: number) => ((sorted[i] + (i === sorted.length - 1 ? sorted[0] + 360 : sorted[i + 1])) / 2) % 360
+  return cutsAfter.map((c, n) => {
+    const nextCut = cutsAfter[(n + 1) % k]
+    const from = mid(c), to = mid(nextCut)
+    // the homes between this cut and the next one
+    const members: number[] = []
+    for (let i = (c + 1) % sorted.length; ; i = (i + 1) % sorted.length) { members.push(sorted[i]); if (i === nextCut) break }
+    const x = members.reduce((a, d) => a + Math.sin((d * Math.PI) / 180), 0), y = members.reduce((a, d) => a + Math.cos((d * Math.PI) / 180), 0)
+    const dir = ((Math.atan2(x, y) * 180) / Math.PI + 360) % 360
+    return { name: zoneName(dir), color: ZONE_COLORS[n % ZONE_COLORS.length], from: Math.round(from), to: Math.round(to), vehicleId: vehicleIds[n] }
+  })
+}
 
 /** nearest-neighbour from the branch: the drop-off order; a pickup runs it backwards (ends closest to school) */
 export function orderStops(riders: Rider[], branch: LatLng | undefined, kind: BusRound["kind"]): Rider[] {
@@ -169,7 +225,7 @@ export function planDay(branch: Branch, date: DateStr, ctx: TransportCtx): DayPl
     const base = {
       studentId: stu.id, nickname: stu.nickname, name: stu.name, grade: stu.grade, familyId: stu.familyId, familyName: fam?.name ?? "",
       phone: parent?.phone ?? "", loc: fam?.location, address: fam?.address, addressNote: fam?.addressNote, adult: !!legs.adult,
-      classStart: times?.start ?? "", classEnd: times?.end ?? "",
+      classStart: times?.start ?? "", classEnd: times?.end ?? "", zoneId: zoneOf(fam, branch.location, branch.busZones ?? [])?.id ?? null,
     }
     for (const kind of ["pickup", "dropoff"] as const) {
       if (!legs[kind]) continue
@@ -184,10 +240,20 @@ export function planDay(branch: Branch, date: DateStr, ctx: TransportCtx): DayPl
       else byRun.get(hit.id)!.push(rider)
     }
   }
+  // several vans at the same time: each child rides their zone's van; children with no zone (or a zone whose van
+  // isn't out then) are split by direction
+  const zones = branch.busZones ?? []
   for (const [k, riders] of groups) {
     const [kind, time] = k.split("|")
     const same = runs.filter((r) => r.kind === kind && r.time === time)
-    for (const [rid, list] of splitByDirection(riders, same, branch.location)) byRun.get(rid)!.push(...list)
+    const rest: Rider[] = []
+    for (const rider of riders) {
+      const vid = zones.find((z) => z.id === rider.zoneId)?.vehicleId
+      const run = vid ? same.find((r) => r.vehicleId === vid) : undefined
+      if (run) byRun.get(run.id)!.push(rider)
+      else rest.push(rider)
+    }
+    if (rest.length) for (const [rid, list] of splitByDirection(rest, same, branch.location)) byRun.get(rid)!.push(...list)
   }
 
   const now = ctx.now
@@ -216,7 +282,8 @@ export function planDay(branch: Branch, date: DateStr, ctx: TransportCtx): DayPl
     const autoAt = branch.busAutoSend && !warnings.length && riders.length ? fromMinutes(toMinutes(timed.depart) - AUTO_SEND_BEFORE_MIN) : undefined
     const autoDone = !!autoAt && !!today && (date < today || (date === today && nowMin >= toMinutes(autoAt)))
     const status: TripStatus = state?.sentAt ? (state.sentKey === key ? "sent" : "changed") : autoDone ? "sent" : autoAt ? "scheduled" : "draft"
-    return { id: tripId(round.id, date), round, date, vehicle, substitute: !!state?.vehicleId && state.vehicleId !== round.vehicleId, seats, used, ...timed, warnings, key, status, autoAt, state }
+    const zoneIds = [...new Set(riders.map((r) => r.zoneId).filter((z): z is ID => !!z))]
+    return { id: tripId(round.id, date), zoneIds, round, date, vehicle, substitute: !!state?.vehicleId && state.vehicleId !== round.vehicleId, seats, used, ...timed, warnings, key, status, autoAt, state }
   }).sort((a, b) => a.depart.localeCompare(b.depart))
 
   const requests = (ctx.parentRequests ?? []).filter((r) => r.kind === "bus" && r.status === "new" && (r.bus ?? []).some((x) => x.date === date)

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest"
 import type { Branch, BusAddOn, BusTrip, Family, Invoice, Klass, Student } from "../types"
-import { orderStops, planDay, timeStops, type Rider } from "./transport"
+import { autoZones, compassDeg, orderStops, planDay, timeStops, zoneOf, type Rider } from "./transport"
 
 // owner 2026-10-19 — Transport: riders are worked out, never typed
 const MON = "2026-10-19"
@@ -54,11 +54,45 @@ describe("transport — planDay", () => {
     expect(p.unplaced[0].reason).toMatch(/ไม่มีรอบ/)
   })
   it("orders stops nearest-first from the branch on the way home, reversed on the way in, and times them", () => {
-    const r = (id: string, lat: number): Rider => ({ studentId: id, nickname: id, name: id, grade: "", familyId: null, familyName: "", phone: "", loc: { lat, lng: 100.58 }, adult: false, classStart: "", classEnd: "", pinned: false })
+    const r = (id: string, lat: number): Rider => ({ studentId: id, nickname: id, name: id, grade: "", familyId: null, familyName: "", phone: "", loc: { lat, lng: 100.58 }, adult: false, classStart: "", classEnd: "", pinned: false, zoneId: null })
     const riders = [r("far", 13.80), r("near", 13.74)]
     expect(orderStops(riders, B, "dropoff").map((x) => x.studentId)).toEqual(["near", "far"])
     expect(orderStops(riders, B, "pickup").map((x) => x.studentId)).toEqual(["far", "near"])
     const t = timeStops(orderStops(riders, B, "dropoff"), B, { id: "d", kind: "dropoff", weekdays: [1], time: "17:00", seats: 10 })
     expect(t.stops[0].eta! < t.stops[1].eta!).toBe(true)
+  })
+})
+
+describe("bus zones — several vans (owner 2026-10-19)", () => {
+  it("direction from the branch: north 0°, east 90°, south 180°", () => {
+    expect(Math.round(compassDeg(B, { lat: 13.8, lng: 100.58 }))).toBe(0)
+    expect(Math.round(compassDeg(B, { lat: 13.73, lng: 100.7 }))).toBe(90)
+    expect(Math.round(compassDeg(B, { lat: 13.6, lng: 100.58 }))).toBe(180)
+  })
+  it("auto zones: one per van, about the same number of homes, cut at the widest empty gap", () => {
+    const z = autoZones([350, 5, 20, 160, 175, 190], 2, ["v1", "v2"])
+    expect(z).toHaveLength(2)
+    const count = (zone: { from: number; to: number }) => [350, 5, 20, 160, 175, 190].filter((d) => (zone.from <= zone.to ? d >= zone.from && d < zone.to : d >= zone.from || d < zone.to)).length
+    expect(z.map(count)).toEqual([3, 3])
+    expect(z.map((x) => x.vehicleId)).toEqual(["v1", "v2"])
+    expect(z.map((x) => x.name).sort()).toEqual(["สายเหนือ", "สายใต้"].sort())
+  })
+  it("a home's zone: set by hand first, else by direction", () => {
+    const zones = [{ id: "n", name: "N", color: "sky", from: 270, to: 90 }, { id: "s", name: "S", color: "amber", from: 90, to: 270 }]
+    expect(zoneOf({ location: { lat: 13.8, lng: 100.58 } }, B, zones)?.id).toBe("n")
+    expect(zoneOf({ location: { lat: 13.8, lng: 100.58 }, busZoneId: "s" }, B, zones)?.id).toBe("s")
+  })
+  it("two vans leaving at the same time: each child rides their zone's van", () => {
+    const two = {
+      ...branch,
+      busRounds: [{ id: "p1", kind: "pickup", weekdays: [1], time: "15:45", seats: 10, vehicleId: "v1" }, { id: "p2", kind: "pickup", weekdays: [1], time: "15:45", seats: 10, vehicleId: "v2" }],
+      busZones: [{ id: "n", name: "สายเหนือ", color: "sky", from: 270, to: 90, vehicleId: "v1" }, { id: "s", name: "สายใต้", color: "amber", from: 90, to: 270, vehicleId: "v2" }],
+    } as Branch
+    const p = planDay(two, MON, ctx())
+    const on = (id: string) => p.trips.find((t) => t.round.id === id)!.stops.map((x) => x.rider.studentId).sort()
+    // a is north (13.75) → van 1 · b2 is south (13.70) → van 2 · d has no pin → no zone → split by direction
+    expect(on("p1")).toContain("a")
+    expect(on("p2")).toContain("b2")
+    expect(p.trips.find((t) => t.round.id === "p1")!.zoneIds).toEqual(["n"])
   })
 })

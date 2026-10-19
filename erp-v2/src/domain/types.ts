@@ -82,6 +82,19 @@ export interface BusRound {
   vehicleId?: ID
 }
 
+/** A bus zone (owner 2026-10-19, from v1 "สายเหนือ → คัน 1 · สายใต้ → คัน 2"): homes whose direction from the branch is
+ *  between `from` and `to` (degrees clockwise from north; may wrap past 360) ride this zone's van when several vans
+ *  leave at the same time. A family can be put in another zone by hand. */
+export interface BusZone {
+  id: ID
+  name: string
+  /** SUBJECT_PALETTE-like key for the dot colour */
+  color: string
+  from: number
+  to: number
+  vehicleId?: ID
+}
+
 /** A school van (owner 2026-10-19, Transport — from v1 Bus Route): the driver is who the day's trip sheet goes to. */
 export interface Vehicle {
   id: ID
@@ -175,6 +188,8 @@ export interface Branch {
   location?: { lat: number; lng: number }
   busRounds?: BusRound[]
   vehicles?: Vehicle[]
+  /** areas around the branch (owner 2026-10-19): each a slice by direction, served by one van */
+  busZones?: BusZone[]
   /** send each trip to its driver by itself 60 min before it leaves, when it has no warnings (owner 2026-10-19) */
   busAutoSend?: boolean
   fees: Fee[]
@@ -570,6 +585,8 @@ export interface Family {
   province?: string
   /** pin for the bus driver (Liclass) + how to find the house ("หมู่บ้านพฤกษา ซอย 2 หลังซ้ายมือ") */
   location?: { lat: number; lng: number }
+  /** owner 2026-10-19 (Transport): the bus zone this home belongs to, set by hand — unset = by direction from the branch */
+  busZoneId?: ID
   addressNote?: string
   /** how the family found us (form "Acquisition" — several allowed) */
   sources?: LeadSource[]
