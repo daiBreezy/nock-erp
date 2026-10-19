@@ -21,6 +21,7 @@ import * as Sch from "@/domain/rules/scheduling"
 import * as CN from "@/domain/rules/calendar-notes"
 import * as BusR from "@/domain/rules/bus"
 import { withLinkedFamilyDemo } from "./linked-demo"
+import { withTransportDemo } from "./transport-demo"
 import { keepLineLinks } from "./keep-line-links"
 import * as Sum from "@/domain/rules/summaries"
 import * as People from "@/domain/rules/people"
@@ -34,7 +35,7 @@ import * as Survey from "@/domain/rules/survey"
 import * as Nock from "@/domain/rules/nock"
 import * as Dev from "@/domain/rules/dev-tickets"
 import { toast } from "@/lib/toast"
-import type { CalendarNoteKind, ClassMove, ParentRequest, DevTicket, DevTicketStatus, NockAnswer, NockQuestion, Role, SurveyCampaign, SurveyResponse, EnrollSubmission, ContactChannel, ContactResult, LossReason, Assessment, AttendanceStatus, Entitlement, Branch, BusAddOn, ClassBlock, CourseSummary, CreditNote, LessonBook, LessonTopic, Seat, ChatMessage, Conversation, Course, DateStr, Family, FormSubmission, Holiday, ID, Invoice, Klass, Lead, LeadStage, LessonSummary, LineDelivery, LogCategory, Result, Session, Staff, Student, SystemConfig } from "@/domain/types"
+import type { CalendarNoteKind, ClassMove, ParentRequest, DevTicket, DevTicketStatus, NockAnswer, NockQuestion, Role, SurveyCampaign, SurveyResponse, EnrollSubmission, ContactChannel, ContactResult, LossReason, Assessment, AttendanceStatus, Entitlement, Branch, BusAddOn, ClassBlock, CourseSummary, CreditNote, LessonBook, LessonTopic, Seat, ChatMessage, Conversation, Course, DateStr, Family, FormSubmission, Holiday, ID, Invoice, Klass, Lead, LeadStage, LessonSummary, LineDelivery, LogCategory, Result, Session, Staff, Student, SystemConfig, BusTrip } from "@/domain/types"
 
 export interface UIState {
   userId: ID
@@ -212,6 +213,11 @@ type Store = DB & UIState & {
   addBusCompanions: (studentId: ID, days: { date: DateStr; pickup: boolean; dropoff: boolean }[], note: string) => Result<{ count: number }>
   /** owner 2026-10-19: rides a parent cancelled in LINE — unbilled extra rides are dropped, paid rides stop without a refund */
   cancelBusRides: (studentId: ID, days: { date: DateStr; pickup: boolean; dropoff: boolean }[], note: string) => Result<{ dropped: number; stopped: number }>
+  /** Transport (owner 2026-10-19): the admin's decisions for one run on one day */
+  setTripOrder: (roundId: ID, date: DateStr, order: ID[]) => Result
+  moveRider: (date: DateStr, studentId: ID, toRoundId: ID) => Result
+  setTripVehicle: (roundId: ID, date: DateStr, vehicleId: ID | null) => Result
+  sendTrips: (trips: { roundId: ID; date: DateStr; key: string }[]) => Result<{ count: number }>
   /** refund / credit on a paid invoice — the invoice itself never changes */
   createCreditNote: (input: Pick<CreditNote, "invoiceId" | "mode" | "items" | "reasons" | "remark" | "stopFrom">) => Result<CreditNote>
   approveCreditNote: (id: ID, forceRemark?: string) => Result
@@ -287,6 +293,12 @@ type Store = DB & UIState & {
   /** attaches an unlinked (LINE-only) conversation to an existing Family, and records that family's real LINE identity */
   linkConversationToFamily: (conversationId: ID, familyId: ID) => Result
   linkConversationToLead: (conversationId: ID, leadId: ID) => Result
+}
+
+/** Transport (owner 2026-10-19): create / patch the admin's record for one run on one day */
+function upsertTrip(trips: BusTrip[], branchId: ID, roundId: ID, date: DateStr, patch: Partial<BusTrip>): BusTrip[] {
+  const id = `${roundId}|${date}`
+  return trips.some((t) => t.id === id) ? trips.map((t) => (t.id === id ? { ...t, ...patch } : t)) : [...trips, { id, branchId, roundId, date, ...patch }]
 }
 
 const OK = { ok: true as const, value: undefined }
@@ -474,7 +486,7 @@ export const useStore = create<Store>()(
         return OK
       },
 
-      resetData: () => set({ ...withLinkedFamilyDemo(keepLineLinks(get(), buildSeed())), clockOffset: 0 }),
+      resetData: () => set({ ...withTransportDemo(withLinkedFamilyDemo(keepLineLinks(get(), buildSeed()))), clockOffset: 0 }),
 
       // ---------------- classes & sessions ----------------
       createClass: (d) => {
@@ -2067,6 +2079,47 @@ export const useStore = create<Store>()(
         return { ok: true, value: { count: fresh.length } }
       },
 
+      setTripOrder: (roundId, date, order) => {
+        const s = get()
+        const perm = requirePerm(s.me(), "session.manage")
+        if (!perm.ok) return perm
+        set({ busTrips: upsertTrip(s.busTrips, s.branchId, roundId, date, { order }) })
+        return OK
+      },
+      moveRider: (date, studentId, toRoundId) => {
+        const s = get()
+        const perm = requirePerm(s.me(), "session.manage")
+        if (!perm.ok) return perm
+        const branch = s.branches.find((b) => (b.busRounds ?? []).some((r) => r.id === toRoundId))
+        const to = branch?.busRounds?.find((r) => r.id === toRoundId)
+        if (!branch || !to) return fail("ไม่พบรอบรถ")
+        // off every other run of the same kind that day, onto this one
+        const sameKind = new Set((branch.busRounds ?? []).filter((r) => r.kind === to.kind).map((r) => r.id))
+        const trips = s.busTrips.map((t) => (t.date === date && sameKind.has(t.roundId) && t.pinned?.includes(studentId) ? { ...t, pinned: t.pinned.filter((x) => x !== studentId) } : t))
+        const cur = trips.find((t) => t.roundId === toRoundId && t.date === date)
+        set({ busTrips: upsertTrip(trips, branch.id, toRoundId, date, { pinned: [...(cur?.pinned ?? []), studentId] }) })
+        log("billing", [studentId], "ย้ายรอบรถ", `${fmtDate(date)} → ${to.kind === "pickup" ? "รับ" : "ส่ง"} ${to.time}${to.name ? ` · ${to.name}` : ""}`)
+        return OK
+      },
+      setTripVehicle: (roundId, date, vehicleId) => {
+        const s = get()
+        const perm = requirePerm(s.me(), "session.manage")
+        if (!perm.ok) return perm
+        set({ busTrips: upsertTrip(s.busTrips, s.branchId, roundId, date, { vehicleId }) })
+        return OK
+      },
+      sendTrips: (list) => {
+        const s = get()
+        const perm = requirePerm(s.me(), "session.manage")
+        if (!perm.ok) return perm
+        if (!list.length) return fail("ไม่มีเที่ยวที่จะส่ง")
+        const at = s.now().toISOString()
+        let trips = s.busTrips
+        for (const t of list) trips = upsertTrip(trips, s.branchId, t.roundId, t.date, { sentAt: at, sentBy: s.userId, sentKey: t.key })
+        set({ busTrips: trips })
+        return { ok: true, value: { count: list.length } }
+      },
+
       cancelBusRides: (studentId, days, note) => {
         const s = get()
         const perm = requirePerm(s.me(), "billing.manage")
@@ -2839,8 +2892,8 @@ export const useStore = create<Store>()(
       // The parent app in LINE never writes staff data at all.
       storage: createJSONStorage(() => safeStorage),
       // bump when the data model changes; older saved data is replaced by fresh sample data
-      version: 92, // 92: demo child rides the bus on Math days only (English days open to ask for a ride) · 91: demo child with classes for LINE-linked families (parent app) · 90: Liclass bus — branch pin, fee distance bands, bus runs · 89: Note Calendar (ถาวร / ชั่วคราว) replaces the free-text session notes · 88: demo exit notices all "sent" · 87: 3 open exit notices · 86: course history capped at 8 sessions (storage size) · 85: course-history check per course · 84: + running rounds · 83: finished courses with a Course Summary get their session history · 82: per-subject levels in Bundle sessions · 80–81: Bundle demo students sit in the combo class for 3 months (charts) · 79: 1–5 understanding on session summaries + Bundle notes per subject · 78: Dev statuses กำลังทำ / เสร็จแล้ว / ไม่ทำ / เก็บไว้ก่อน · 77: images on Nock + Dev tickets · 76: คำถามถึง Dev examples · 75: Developer role + เรื่องถึง Dev · 74: Nock answers per person + thumbs per answer · 73: Nock locations + knowledge = answered questions + votes · 72: Nock question bank + knowledge · 71: Summer Memo + Summer course + paid Summer invoice · 68–70: session summaries in every stage this week + sample Course Summaries (Single + Bundle) · 65–67: names without titles, parent relationship, phones without dashes, subject colours · 61: real branches (owner 2026-10-07) · 62: CB = ตึกน้ำ · 63: sample schools · 64: schools from the Ministry list
-      migrate: (old) => ({ ...withLinkedFamilyDemo(keepLineLinks(old as Partial<Store> | undefined, buildSeed())), userId: "u_nock", branchId: "br_thl", clockOffset: 0 }) as unknown as Store,
+      version: 94, // 94: transport demo — each rider on their own paid bus invoice · 93: Transport — a van, a dozen children riding at Thonglor, busTrips · 92: demo child rides the bus on Math days only (English days open to ask for a ride) · 91: demo child with classes for LINE-linked families (parent app) · 90: Liclass bus — branch pin, fee distance bands, bus runs · 89: Note Calendar (ถาวร / ชั่วคราว) replaces the free-text session notes · 88: demo exit notices all "sent" · 87: 3 open exit notices · 86: course history capped at 8 sessions (storage size) · 85: course-history check per course · 84: + running rounds · 83: finished courses with a Course Summary get their session history · 82: per-subject levels in Bundle sessions · 80–81: Bundle demo students sit in the combo class for 3 months (charts) · 79: 1–5 understanding on session summaries + Bundle notes per subject · 78: Dev statuses กำลังทำ / เสร็จแล้ว / ไม่ทำ / เก็บไว้ก่อน · 77: images on Nock + Dev tickets · 76: คำถามถึง Dev examples · 75: Developer role + เรื่องถึง Dev · 74: Nock answers per person + thumbs per answer · 73: Nock locations + knowledge = answered questions + votes · 72: Nock question bank + knowledge · 71: Summer Memo + Summer course + paid Summer invoice · 68–70: session summaries in every stage this week + sample Course Summaries (Single + Bundle) · 65–67: names without titles, parent relationship, phones without dashes, subject colours · 61: real branches (owner 2026-10-07) · 62: CB = ตึกน้ำ · 63: sample schools · 64: schools from the Ministry list
+      migrate: (old) => ({ ...withTransportDemo(withLinkedFamilyDemo(keepLineLinks(old as Partial<Store> | undefined, buildSeed()))), userId: "u_nock", branchId: "br_thl", clockOffset: 0 }) as unknown as Store,
       // persist data + UI state only, never the action functions
       partialize: (s) => Object.fromEntries(Object.entries(s).filter(([, v]) => typeof v !== "function")) as Partial<Store>,
     },

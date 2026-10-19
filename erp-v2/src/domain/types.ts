@@ -78,6 +78,39 @@ export interface BusRound {
   time: TimeStr
   seats: number
   name?: string
+  /** owner 2026-10-19 (Transport): the van that runs it */
+  vehicleId?: ID
+}
+
+/** A school van (owner 2026-10-19, Transport — from v1 Bus Route): the driver is who the day's trip sheet goes to. */
+export interface Vehicle {
+  id: ID
+  name: string
+  plate: string
+  seats: number
+  driverName: string
+  driverPhone: string
+  active: boolean
+}
+
+/**
+ * One run on one day (owner 2026-10-19). Who rides is never stored — it comes from invoices, extra / cancelled rides
+ * and parents riding along. Only what the admin decided for that day is kept: the stop order, children moved to
+ * another run, a stand-in van, and when it was sent to the driver (with what was sent, to spot later changes).
+ */
+export interface BusTrip {
+  /** `${roundId}|${date}` */
+  id: string
+  branchId: ID
+  roundId: ID
+  date: DateStr
+  order?: ID[]
+  /** children put on this run by hand (instead of the run the system picked) */
+  pinned?: ID[]
+  vehicleId?: ID | null
+  sentAt?: string
+  sentBy?: ID
+  sentKey?: string
 }
 
 /** Package duration unit (Settings → Packages tabs: Hour / Week / Month). */
@@ -141,6 +174,9 @@ export interface Branch {
   /** the branch's own pin — bus distances are measured from here (owner 2026-10-16) */
   location?: { lat: number; lng: number }
   busRounds?: BusRound[]
+  vehicles?: Vehicle[]
+  /** send each trip to its driver by itself 60 min before it leaves, when it has no warnings (owner 2026-10-19) */
+  busAutoSend?: boolean
   fees: Fee[]
   promotions: Promotion[]
   /** Settings → Packages: offered durations per unit + the price chart */

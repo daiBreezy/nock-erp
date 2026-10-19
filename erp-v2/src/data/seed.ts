@@ -11,8 +11,7 @@ import { packageCovers } from "@/domain/rules/attendance"
 import type {
   CalendarNote,
   Assessment, AppNotification, Attendance, DevTicket, NockQuestion, Branch, BusAddOn, DayBlocks, ChatMessage, CourseSummary, CreditNote, LessonBook, LessonTopic, Conversation, Course, Entitlement, Family, Holiday, Invoice, Klass, Lead, LessonSummary,
-  ActivityLog, PriceRow, Session, StudentNote, Staff, Student, StudentLeave, SurveyCampaign, SurveyResponse, SystemConfig, Weekday,
-} from "@/domain/types"
+  ActivityLog, PriceRow, Session, StudentNote, Staff, Student, StudentLeave, SurveyCampaign, SurveyResponse, SystemConfig, Weekday, BusTrip } from "@/domain/types"
 
 export interface DB {
   branches: Branch[]
@@ -43,6 +42,8 @@ export interface DB {
   notes: StudentNote[]
   /** Note Calendar (owner 2026-10-15) — notes on students in classes, apart from the student's Note tab */
   calendarNotes: CalendarNote[]
+  /** Transport (owner 2026-10-19): what the admin decided for a run on a day — order, moves, stand-in van, sent */
+  busTrips: BusTrip[]
   logs: ActivityLog[]
   assessments: Assessment[]
   /** yearly parent survey (owner 2026-10-05): each send-out + the answers pulled from the form server */
@@ -774,7 +775,7 @@ export function buildSeed(now = new Date()): DB {
       thread: [{ id: "dm_8", by: "u_dev", at: ago(140), text: "ตอนนี้ยังไม่ทำ — ต้องสมัคร Payment Gateway และมีค่าธรรมเนียม 2.5–3.5% ต่อรายการ ขอให้ฝ่ายบัญชีตัดสินใจเรื่องค่าธรรมเนียมก่อน แล้วค่อยเปิดเรื่องใหม่", status: "wont_do" }] },
   ]
 
-  return { branches, staff, holidays, courses, classes, sessions, attendance, summaries, courseSummaries, nockQuestions, devTickets, families, students, entitlements, leaves, invoices, busAddOns, creditNotes: [] as CreditNote[], lessonBooks, lessonTopics, leads, conversations, messages, notifications: [], system, notes, calendarNotes, logs, assessments, surveyCampaigns, surveyResponses }
+  return { branches, staff, holidays, courses, classes, sessions, attendance, summaries, courseSummaries, nockQuestions, devTickets, families, students, entitlements, leaves, invoices, busAddOns, creditNotes: [] as CreditNote[], lessonBooks, lessonTopics, leads, conversations, messages, notifications: [], system, notes, calendarNotes, busTrips: [] as BusTrip[], logs, assessments, surveyCampaigns, surveyResponses }
 }
 
 /** Demo history for Reports: ~130 past/current students over the last 15 months with monthly / hour-pack invoices. */

@@ -19,12 +19,12 @@ const THAI = /[\u0E01-\u0E3A\u0E40-\u0E5B]/
 const SKIP = [
   /^lib\/i18n-dict\//, /\.test\.tsx?$/, /^data\//, /^app\/liff\//, /^app\/api\//, /^server\//, /^app\/print\//,
   /^components\/parent\//, /^domain\/rules\/messages\.ts$/, /^domain\/rules\/romanize\.ts$/, /^lib\/screen-translate\.ts$/,
-  /^domain\/rules\/documents\.ts$/, /^store\/linked-demo\.ts$/, /^lib\/sales-tax-export\.ts$/, /^proxy\.ts$/, /^app\/inbox\/cards\//,
+  /^domain\/rules\/documents\.ts$/, /^store\/linked-demo\.ts$/, /^store\/transport-demo\.ts$/, /^lib\/sales-tax-export\.ts$/, /^proxy\.ts$/, /^app\/inbox\/cards\//,
 ]
 
 /** Thai on purpose — sent to parents in LINE, typed sample chat, Nock's search words / AI prompt, parsing helpers */
 const NOT_UI = [
-  /ค่ะ|นะคะ|ครับ/, /^📝 /, /^- \[\{0\}\]/, /^กฎ: /, /^คำตอบที่ทีมเคยเขียนไว้/, /^ถาม Nock ว่า:/,
+  /ค่ะ|นะคะ|ครับ/, /^📝 /, /^- \[\{0\}\]/, /^กฎ: /, /^คำตอบที่ทีมเคยเขียนไว้/, /^ถาม Nock ว่า:/, /^<!doctype/i,
   /^(จดโน้ต|note ถาวร|note ชั่วคราว|ลบโน้ต|แก้โน้ต|ปิด nock|เปิด nock|ปิด ai|ซ่อน nock|ภาระงาน|ป)$/,
 ]
 
