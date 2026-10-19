@@ -223,6 +223,12 @@ type Store = DB & UIState & {
   cancelTrip: (roundId: ID, date: DateStr, reason: string) => Result
   restoreTrip: (roundId: ID, date: DateStr) => Result
   setTripTime: (roundId: ID, date: DateStr, time: TimeStr | null) => Result
+  /** owner 2026-10-19: the van leaves at this time that day (null = worked out again) */
+  setTripDepart: (roundId: ID, date: DateStr, time: TimeStr | null) => Result
+  /** a child's stop time set by hand (null = worked out again) — the stops after it follow on */
+  setStopTime: (roundId: ID, date: DateStr, stopKey: string, time: TimeStr | null) => Result
+  /** a real time typed in by the admin: the van left / finished, or a child's check in / check out / no-show (null = clear) */
+  setTripActual: (roundId: ID, date: DateStr, what: { field: "start" | "finish" } | { field: "in" | "out"; stopKey: string } | { field: "noshow"; stopKey: string; on: boolean }, time: TimeStr | null) => Result
   /** a one-off run for a day (new when roundId is unset) */
   saveExtraTrip: (date: DateStr, def: NonNullable<BusTrip["extra"]>, roundId?: ID, branchId?: ID) => Result<{ roundId: ID }>
   deleteExtraTrip: (roundId: ID, date: DateStr) => Result
@@ -2160,6 +2166,45 @@ export const useStore = create<Store>()(
         // a one-off run keeps its time in its own definition
         if (trip?.extra) { if (!time) return fail("เที่ยวพิเศษต้องมีเวลา"); set({ busTrips: upsertTrip(s.busTrips, branchOfRound(s, roundId), roundId, date, { extra: { ...trip.extra, time } }) }); return OK }
         set({ busTrips: upsertTrip(s.busTrips, branchOfRound(s, roundId), roundId, date, { time: time ?? undefined }) })
+        return OK
+      },
+      setTripDepart: (roundId, date, time) => {
+        const s = get()
+        const perm = requirePerm(s.me(), "session.manage")
+        if (!perm.ok) return perm
+        if (time && !/^\d{2}:\d{2}$/.test(time)) return fail("ใส่เวลาให้ถูก")
+        set({ busTrips: upsertTrip(s.busTrips, branchOfRound(s, roundId), roundId, date, { departAt: time ?? undefined }) })
+        return OK
+      },
+      setStopTime: (roundId, date, key, time) => {
+        const s = get()
+        const perm = requirePerm(s.me(), "session.manage")
+        if (!perm.ok) return perm
+        if (time && !/^\d{2}:\d{2}$/.test(time)) return fail("ใส่เวลาให้ถูก")
+        const cur = s.busTrips.find((t) => t.roundId === roundId && t.date === date)?.stopTimes ?? {}
+        const next = { ...cur }
+        if (time) next[key] = time
+        else delete next[key]
+        set({ busTrips: upsertTrip(s.busTrips, branchOfRound(s, roundId), roundId, date, { stopTimes: Object.keys(next).length ? next : undefined }) })
+        return OK
+      },
+      setTripActual: (roundId, date, what, time) => {
+        const s = get()
+        const perm = requirePerm(s.me(), "session.manage")
+        if (!perm.ok) return perm
+        if (time && !/^\d{2}:\d{2}$/.test(time)) return fail("ใส่เวลาให้ถูก")
+        const cur = s.busTrips.find((t) => t.roundId === roundId && t.date === date)?.actuals ?? {}
+        const a = { ...cur, stops: { ...(cur.stops ?? {}) } }
+        if (!("stopKey" in what)) a[what.field] = time ?? undefined
+        else {
+          const st = { ...(a.stops[what.stopKey] ?? {}) }
+          if (what.field === "noshow") { st.noshow = what.on || undefined; if (what.on) st.out = time ?? st.out }
+          else st[what.field] = time ?? undefined
+          if (st.in || st.out || st.noshow) a.stops[what.stopKey] = st
+          else delete a.stops[what.stopKey]
+        }
+        const clean = { start: a.start, finish: a.finish, stops: Object.keys(a.stops).length ? a.stops : undefined }
+        set({ busTrips: upsertTrip(s.busTrips, branchOfRound(s, roundId), roundId, date, { actuals: clean.start || clean.finish || clean.stops ? clean : undefined }) })
         return OK
       },
       saveExtraTrip: (date, def, roundId, branchId) => {

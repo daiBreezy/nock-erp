@@ -35,20 +35,30 @@ export interface Rider {
 }
 
 /** what the driver app reported (owner 2026-10-19: "เชื่อมกับ Line หรือสร้าง Web/App ใหม่ สำหรับ Driver") */
-export interface DriverEvent { id: string; tripId: string; type: "start" | "done" | "noshow" | "finish"; stopKey?: string; at: string; by?: ID }
+/** owner 2026-10-19: per stop the driver checks in ("arrive" = ถึงแล้ว) then checks out ("done" = รับ / ส่งแล้ว, or no-show) */
+export interface DriverEvent { id: string; tripId: string; type: "start" | "arrive" | "done" | "noshow" | "finish"; stopKey?: string; at: string; by?: ID }
 
-export type StopStatus = "waiting" | "otw" | "next" | "done" | "noshow" | "cancel"
+/** here = checked in at the home, not checked out yet */
+export type StopStatus = "waiting" | "otw" | "next" | "here" | "done" | "noshow" | "cancel"
 
 export interface TripStop {
   /** `${studentId}|${leg}` */
   key: string
   rider: Rider
+  /** estimate — worked out, or set by hand (`etaFixed`) */
   eta: TimeStr | null
+  etaFixed: boolean
   km: number | null
   status: StopStatus
-  /** when the driver marked it */
+  /** check in = the van got to the home (actual) */
+  checkIn: TimeStr | null
+  /** check out = the child got on (pickup) / off (drop-off) — or the no-show was marked */
+  checkOut: TimeStr | null
+  /** the real times were typed in by the admin */
+  manual: boolean
+  /** the last real time (check out, else check in) */
   actual: TimeStr | null
-  /** minutes late against the estimate (+) */
+  /** minutes late against the estimate (+), by the check in */
   late: number | null
 }
 
@@ -91,6 +101,8 @@ export interface TripPlan {
   extra: boolean
   /** leaves at another time than usual that day */
   timeChanged: boolean
+  /** the departure time was set by hand for the day */
+  departFixed: boolean
   /** live: when the driver started / finished, and how late the trip runs (+min) */
   startedAt: TimeStr | null
   finishedAt: TimeStr | null
@@ -208,7 +220,36 @@ export function orderStops(riders: Rider[], branch: LatLng | undefined, kind: Bu
 
 /** times along the run: pickup = arrive at the branch by the run time (worked backwards); drop-off / Both = leave the
  *  branch at it and go forward (a Both trip ends back at the branch) */
-export function timeStops(riders: Rider[], branch: LatLng | undefined, round: BusRound): { stops: { rider: Rider; eta: TimeStr | null; km: number | null }[]; depart: TimeStr; finish: TimeStr; km: number } {
+type Timed = { stops: { rider: Rider; eta: TimeStr | null; km: number | null; fixed?: boolean }[]; depart: TimeStr; finish: TimeStr; km: number }
+
+/**
+ * Times by hand (owner 2026-10-19, "Admin manual set time ที่คิวของเด็กๆ หรือการออกรถได้เสมอ"): a departure time and / or a
+ * child's stop time set by the admin. The stops after a hand-set time follow on from it (drive + stop); the ones
+ * before it keep the worked-out time; the end time moves with the last stop.
+ */
+export function timeStops(riders: Rider[], branch: LatLng | undefined, round: BusRound, manual?: { depart?: TimeStr; stops?: Record<string, TimeStr> }): Timed {
+  const base = baseTimes(riders, branch, round)
+  const fixed = manual?.stops ?? {}
+  if (!branch || (!manual?.depart && !riders.some((r) => fixed[stopKey(r.studentId, r.leg)]))) return base
+  let t: number | null = null, at: LatLng | null = null
+  if (manual?.depart) { t = toMinutes(manual.depart); at = round.kind === "pickup" ? null : branch }
+  const stops = base.stops.map((x) => {
+    const f = fixed[stopKey(x.rider.studentId, x.rider.leg)]
+    if (f) { t = toMinutes(f); at = x.rider.loc ?? at; return { ...x, eta: f, fixed: true } }
+    if (t === null || !x.rider.loc) return x
+    // from the depot a pickup run starts at its first home; from the branch / a home: drive (+ the stop before)
+    if (at) t += legMin(distanceKm(at, x.rider.loc)) + (at === branch ? 0 : STOP_MIN)
+    at = x.rider.loc
+    return { ...x, eta: fromMinutes(t) }
+  })
+  const backToBranch = round.kind === "pickup" || (round.kind === "both" && riders.some((r) => r.leg === "pickup"))
+  const last = [...stops].reverse().find((x) => x.eta)
+  const finish = !last ? base.finish : backToBranch ? (last.rider.loc ? fromMinutes(toMinutes(last.eta!) + legMin(distanceKm(last.rider.loc, branch)) + STOP_MIN) : base.finish) : last.eta!
+  const depart = manual?.depart ?? (round.kind === "pickup" ? stops.find((x) => x.eta)?.eta ?? base.depart : base.depart)
+  return { stops, depart, finish, km: base.km }
+}
+
+function baseTimes(riders: Rider[], branch: LatLng | undefined, round: BusRound): Timed {
   const t0 = toMinutes(round.time)
   if (!branch) return { stops: riders.map((rider) => ({ rider, eta: null, km: null })), depart: round.time, finish: round.time, km: 0 }
   const fromBranch = (p?: LatLng) => (p ? Math.round(distanceKm(branch, p) * 10) / 10 : null)
@@ -371,7 +412,7 @@ export function planDay(branch: Branch, date: DateStr, ctx: TransportCtx): DayPl
       const at = (r: Rider) => pos.get(stopKey(r.studentId, r.leg)) ?? pos.get(r.studentId) ?? 999
       riders = [...riders].sort((a, b) => at(a) - at(b))
     }
-    const timed = timeStops(riders, branch.location, round)
+    const timed = timeStops(riders, branch.location, round, { depart: state?.departAt, stops: state?.stopTimes })
     // seats: a Both trip carries its drop-offs out and its pickups back — the fuller half counts
     const load = (rs: Rider[]) => rs.reduce((n, r) => n + 1 + Number(r.adult), 0)
     const used = round.kind === "both" ? Math.max(load(riders.filter((r) => r.leg === "dropoff")), load(riders.filter((r) => r.leg === "pickup"))) : load(riders)
@@ -389,25 +430,34 @@ export function planDay(branch: Branch, date: DateStr, ctx: TransportCtx): DayPl
       if (firstClass && timed.finish > firstClass) warnings.push(`ถึงสาขา ${timed.finish} หลังคลาสเริ่ม ${firstClass}`)
     }
     const key = JSON.stringify([vehicle?.id ?? null, driver?.id ?? driver?.name ?? null, timed.stops.map((s) => `${stopKey(s.rider.studentId, s.rider.leg)}${s.rider.adult ? "+" : ""}`)])
-    // live, from the driver app
+    // live, from the driver app — real times the admin typed in win
     const evs = (ctx.events ?? []).filter((e) => e.tripId === id).sort((a, b) => a.at.localeCompare(b.at))
-    const started = evs.find((e) => e.type === "start"), finished = evs.find((e) => e.type === "finish")
-    const marked = new Map(evs.filter((e) => e.stopKey).map((e) => [e.stopKey!, e]))
+    const man = state?.actuals
+    const startAt = man?.start ?? (evs.find((e) => e.type === "start") ? hhmm(evs.find((e) => e.type === "start")!.at) : null)
+    const finishAt = man?.finish ?? (evs.find((e) => e.type === "finish") ? hhmm(evs.find((e) => e.type === "finish")!.at) : null)
+    const anyStop = !!Object.keys(man?.stops ?? {}).length || evs.some((e) => e.stopKey)
+    const running = !!(startAt || anyStop) && !finishAt
     let seenNext = false, seenOtw = false
     const stops: TripStop[] = timed.stops.map((x) => {
       const k = stopKey(x.rider.studentId, x.rider.leg)
-      const ev = marked.get(k)
-      const actual = ev ? hhmm(ev.at) : null
-      const late = actual && x.eta ? toMinutes(actual) - toMinutes(x.eta) : null
+      const m = man?.stops?.[k]
+      const arrive = evs.filter((e) => e.stopKey === k && e.type === "arrive").at(-1)
+      const out = evs.filter((e) => e.stopKey === k && (e.type === "done" || e.type === "noshow")).at(-1)
+      const checkIn = m?.in ?? (arrive ? hhmm(arrive.at) : null)
+      const checkOut = m?.out ?? (out ? hhmm(out.at) : null)
+      const noshow = m ? !!m.noshow : out?.type === "noshow"
+      const real = checkIn ?? checkOut
+      const late = real && x.eta ? toMinutes(real) - toMinutes(x.eta) : null
       let status: StopStatus = "waiting"
-      if (ev) status = ev.type === "noshow" ? "noshow" : "done"
-      else if (started && !finished) { status = !seenOtw ? "otw" : !seenNext ? "next" : "waiting"; if (seenOtw) seenNext = true; seenOtw = true }
-      return { key: k, rider: x.rider, eta: x.eta, km: x.km, status, actual, late }
+      if (checkOut || (m?.noshow)) status = noshow ? "noshow" : "done"
+      else if (checkIn) { status = "here"; seenOtw = true }
+      else if (running) { status = !seenOtw ? "otw" : !seenNext ? "next" : "waiting"; if (seenOtw) seenNext = true; seenOtw = true }
+      return { key: k, rider: x.rider, eta: x.eta, etaFixed: !!x.fixed, km: x.km, status, checkIn, checkOut, manual: !!m, actual: checkOut ?? checkIn, late }
     })
     const lateNow = stops.filter((x) => x.late !== null).at(-1)?.late ?? null
     const autoAt = branch.busAutoSend && !warnings.length && riders.length ? fromMinutes(toMinutes(timed.depart) - AUTO_SEND_BEFORE_MIN) : undefined
     const autoDone = !!autoAt && !!today && (date < today || (date === today && nowMin >= toMinutes(autoAt)))
-    const status: TripStatus = state?.cancelled ? "cancelled" : finished ? "done" : started ? "otw"
+    const status: TripStatus = state?.cancelled ? "cancelled" : finishAt ? "done" : startAt || anyStop ? "otw"
       : state?.sentAt ? (state.sentKey === key ? "sent" : "changed") : autoDone ? "sent" : autoAt ? "scheduled" : "draft"
     const zoneIds = [...new Set(riders.map((r) => r.zoneId).filter((z): z is ID => !!z))]
     const minutes = Math.max(0, toMinutes(timed.finish) - toMinutes(timed.depart))
@@ -415,7 +465,7 @@ export function planDay(branch: Branch, date: DateStr, ctx: TransportCtx): DayPl
       id, zoneIds, extra: !!state?.extra, timeChanged: !!state?.time, round, date, vehicle, substitute: !!state?.vehicleId && state.vehicleId !== round.vehicleId,
       driver, driverChanged: !!state?.driverId && state.driverId !== vehicle?.driverId, seats, used, stops, cancelled: cancelledOn.get(round.id) ?? [],
       depart: timed.depart, finish: timed.finish, minutes, km: timed.km, warnings, key, status, autoAt, state,
-      startedAt: started ? hhmm(started.at) : null, finishedAt: finished ? hhmm(finished.at) : null, late: lateNow,
+      departFixed: !!state?.departAt, startedAt: startAt, finishedAt: finishAt, late: lateNow,
     }
   }).sort((a, b) => a.depart.localeCompare(b.depart))
 

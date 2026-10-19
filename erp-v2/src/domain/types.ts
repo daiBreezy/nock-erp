@@ -139,6 +139,13 @@ export interface BusTrip {
   extra?: { kind: BusRound["kind"]; time: TimeStr; seats: number; vehicleId?: ID; name?: string }
   /** another driver that day (owner 2026-10-19: "พี่เบ้งอาจจะลากลับบ้าน" — staff or an outside driver) */
   driverId?: ID | null
+  /** owner 2026-10-19 ("Admin manual set time ที่คิวของเด็กๆ หรือการออกรถได้เสมอ"): the van leaves at this time that day
+   *  (set by hand — the stops after it are timed from here) */
+  departAt?: TimeStr
+  /** a child's stop time set by hand, by stop key (`studentId|leg`) — the stops after it follow on from it */
+  stopTimes?: Record<string, TimeStr>
+  /** real times typed in by the admin (no app / the driver forgot) — they win over what the driver app sent */
+  actuals?: { start?: TimeStr; finish?: TimeStr; stops?: Record<string, { in?: TimeStr; out?: TimeStr; noshow?: boolean }> }
 }
 
 /** Package duration unit (Settings → Packages tabs: Hour / Week / Month). */

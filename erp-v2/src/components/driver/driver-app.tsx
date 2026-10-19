@@ -2,14 +2,14 @@
 
 // The driver's app (owner 2026-10-19: "เชื่อมกับ Line หรือสร้าง Web/App ใหม่ สำหรับ Driver"): opened from the link the
 // school sends (in LINE or any browser) — no login, the secret in the link is the key. Today's trips in order; tap
-// "เริ่มวิ่ง", then each stop รับแล้ว / ส่งแล้ว or ไม่มา, then "ถึงสาขาแล้ว". The office sees it live on Bus Route.
+// "เริ่มวิ่ง", then at each stop "ถึงแล้ว" (check in) and รับแล้ว / ส่งแล้ว (check out) or ไม่มา, then "จบเที่ยว". The office sees it live on Bus Route.
 import { useCallback, useEffect, useMemo, useState } from "react"
-import { BusIcon, CheckIcon, FlagIcon, LoaderCircleIcon, MapIcon, NavigationIcon, PhoneIcon, PlayIcon, RotateCcwIcon, UserIcon, UserXIcon } from "lucide-react"
+import { BusIcon, CheckIcon, FlagIcon, LoaderCircleIcon, MapIcon, MapPinCheckIcon, NavigationIcon, PhoneIcon, PlayIcon, RotateCcwIcon, UserIcon, UserXIcon } from "lucide-react"
 import { cn } from "@/lib/utils"
 
 interface Stop { key: string; nickname: string; name: string; grade: string; leg: "pickup" | "dropoff"; adult: boolean; phone: string; address?: string; addressNote?: string; loc?: { lat: number; lng: number }; eta: string | null }
 interface Trip { tripId: string; driverName: string; branchName: string; date: string; kind: "pickup" | "dropoff" | "both"; time: string; name?: string; depart: string; finish: string; vehicle: { name: string; plate: string } | null; seats: number; used: number; stops: Stop[] }
-interface Ev { tripId: string; type: "start" | "done" | "noshow" | "finish"; stopKey?: string; at: string }
+interface Ev { tripId: string; type: "start" | "arrive" | "done" | "noshow" | "finish"; stopKey?: string; at: string }
 
 const KIND = { pickup: "รอบรับ", dropoff: "รอบส่ง", both: "รอบรับ-ส่ง" } as const
 const hhmm = (iso: string) => { const d = new Date(iso); return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}` }
@@ -56,7 +56,9 @@ export function DriverApp({ token }: { token: string }) {
         {list.map((t) => {
           const evs = events.filter((e) => e.tripId === t.tripId)
           const started = evs.find((e) => e.type === "start"), finished = evs.find((e) => e.type === "finish")
-          const mark = (k: string) => evs.find((e) => e.stopKey === k)
+          // per stop: check in (arrive) and check out (done / no-show)
+          const inOf = (k: string) => evs.filter((e) => e.stopKey === k && e.type === "arrive").at(-1)
+          const mark = (k: string) => evs.filter((e) => e.stopKey === k && (e.type === "done" || e.type === "noshow")).at(-1)
           const nextKey = started && !finished ? t.stops.find((s) => !mark(s.key))?.key : undefined
           const doneCount = t.stops.filter((s) => mark(s.key)).length
           // ends at the last home: a drop-off run, or a Both run with nobody to bring back
@@ -75,7 +77,7 @@ export function DriverApp({ token }: { token: string }) {
               )}
               <ol className="divide-y">
                 {t.stops.map((s, i) => {
-                  const m = mark(s.key), isNext = s.key === nextKey
+                  const m = mark(s.key), ci = inOf(s.key), isNext = s.key === nextKey
                   return (
                     <li key={s.key} className={cn("space-y-2 px-4 py-3", isNext && "bg-primary/5")}>
                       <div className="flex items-start gap-3">
@@ -88,7 +90,11 @@ export function DriverApp({ token }: { token: string }) {
                           </p>
                           <p className="text-xs text-muted-foreground">{[s.addressNote, s.address].filter(Boolean).join(" · ") || "ไม่มีที่อยู่"}</p>
                         </div>
-                        <span className="shrink-0 text-right text-sm font-medium tabular-nums">{m ? hhmm(m.at) : s.eta ?? "—"}<span className="block text-[11px] font-normal text-muted-foreground">{m ? (m.type === "noshow" ? "ไม่มา" : "เสร็จ") : "ประมาณ"}</span></span>
+                        <span className="shrink-0 text-right text-sm font-medium tabular-nums">
+                          {s.eta ?? "—"}<span className="block text-[11px] font-normal text-muted-foreground">ประมาณ</span>
+                          {ci && <span className="block text-xs font-normal text-violet-700">{`ถึง ${hhmm(ci.at)}`}</span>}
+                          {m && <span className={cn("block text-xs font-normal", m.type === "noshow" ? "text-muted-foreground" : "text-emerald-700")}>{m.type === "noshow" ? `ไม่มา ${hhmm(m.at)}` : `${s.leg === "pickup" ? "รับ" : "ส่ง"} ${hhmm(m.at)}`}</span>}
+                        </span>
                       </div>
                       <div className="flex flex-wrap gap-1.5 pl-10">
                         {s.phone && <a href={`tel:${s.phone.replace(/[^0-9+]/g, "")}`} className="flex h-9 items-center gap-1 rounded-full border px-3 text-xs"><PhoneIcon className="size-3.5" />โทร</a>}
@@ -96,8 +102,11 @@ export function DriverApp({ token }: { token: string }) {
                         {started && !finished && (m ? (
                           <button type="button" onClick={() => tap(t.tripId, "undo", s.key)} className="flex h-9 items-center gap-1 rounded-full px-3 text-xs text-muted-foreground"><RotateCcwIcon className="size-3.5" />แก้</button>
                         ) : <>
-                          <button type="button" disabled={!!busy} onClick={() => tap(t.tripId, "done", s.key)} className="flex h-9 items-center gap-1 rounded-full bg-emerald-600 px-4 text-xs font-semibold text-white disabled:opacity-60"><CheckIcon className="size-3.5" />{s.leg === "pickup" ? "รับแล้ว" : "ส่งแล้ว"}</button>
+                          {ci
+                            ? <button type="button" disabled={!!busy} onClick={() => tap(t.tripId, "done", s.key)} className="flex h-9 items-center gap-1 rounded-full bg-emerald-600 px-4 text-xs font-semibold text-white disabled:opacity-60"><CheckIcon className="size-3.5" />{s.leg === "pickup" ? "รับแล้ว" : "ส่งแล้ว"}</button>
+                            : <button type="button" disabled={!!busy} onClick={() => tap(t.tripId, "arrive", s.key)} className={cn("flex h-9 items-center gap-1 rounded-full px-4 text-xs font-semibold disabled:opacity-60", isNext ? "bg-violet-600 text-white" : "border border-violet-300 text-violet-700")}><MapPinCheckIcon className="size-3.5" />ถึงแล้ว</button>}
                           <button type="button" disabled={!!busy} onClick={() => tap(t.tripId, "noshow", s.key)} className="flex h-9 items-center gap-1 rounded-full border px-3 text-xs text-red-700 disabled:opacity-60"><UserXIcon className="size-3.5" />ไม่มา</button>
+                          {ci && <button type="button" onClick={() => tap(t.tripId, "undo", s.key)} className="flex h-9 items-center gap-1 rounded-full px-3 text-xs text-muted-foreground"><RotateCcwIcon className="size-3.5" />แก้</button>}
                         </>)}
                       </div>
                     </li>

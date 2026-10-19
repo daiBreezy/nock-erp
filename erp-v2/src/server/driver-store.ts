@@ -14,7 +14,7 @@ export interface DriverTrip {
   kind: "pickup" | "dropoff" | "both"; time: string; name?: string; depart: string; finish: string
   vehicle: { name: string; plate: string } | null; seats: number; used: number; stops: DriverStop[]
 }
-export interface DriverEventRec { id: string; tripId: string; type: "start" | "done" | "noshow" | "finish"; stopKey?: string; at: string }
+export interface DriverEventRec { id: string; tripId: string; type: "start" | "arrive" | "done" | "noshow" | "finish"; stopKey?: string; at: string }
 
 interface Store { trips: DriverTrip[]; events: DriverEventRec[] }
 let queue: Promise<unknown> = Promise.resolve()
@@ -51,12 +51,22 @@ export async function tripsForToken(token: string): Promise<{ trips: DriverTrip[
 
 export const allEvents = async () => (await read()).events
 
-/** a driver's tap — one mark per stop (a new one replaces it); "undo" clears the stop's mark */
+/** a driver's tap — per stop one check in ("arrive") and one check out ("done" / "noshow"), a new one replaces its own
+ *  kind; "undo" takes back the stop's last mark (check out first, then check in) */
 export function addEvent(token: string, e: { tripId: string; type: DriverEventRec["type"] | "undo"; stopKey?: string }): Promise<DriverEventRec | "forbidden" | "cleared"> {
   return mutate((s) => {
     const trip = s.trips.find((t) => t.tripId === e.tripId)
     if (!trip || trip.token !== token) return "forbidden" as const
-    if (e.stopKey) s.events = s.events.filter((x) => !(x.tripId === e.tripId && x.stopKey === e.stopKey))
+    if (e.stopKey) {
+      const mine = (x: DriverEventRec) => x.tripId === e.tripId && x.stopKey === e.stopKey
+      if (e.type === "undo") {
+        const last = s.events.filter(mine).sort((a, b) => a.at.localeCompare(b.at)).at(-1)
+        s.events = s.events.filter((x) => x !== last)
+        return "cleared" as const
+      }
+      const slot = (t: string) => (t === "arrive" ? "in" : "out")
+      s.events = s.events.filter((x) => !(mine(x) && slot(x.type) === slot(e.type)))
+    }
     if (e.type === "undo") return "cleared" as const
     if (!e.stopKey) s.events = s.events.filter((x) => !(x.tripId === e.tripId && !x.stopKey && x.type === e.type))
     const rec: DriverEventRec = { id: `de_${Date.now().toString(36)}${Math.random().toString(36).slice(2, 5)}`, tripId: e.tripId, type: e.type, stopKey: e.stopKey, at: new Date().toISOString() }

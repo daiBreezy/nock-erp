@@ -20,7 +20,7 @@ type Props = {
   disabled?: boolean
   placeholder?: string
   className?: string
-} & ({ kind?: "text" | "tel" | "email"; options?: never } | { kind: "select"; options: Option[] })
+} & ({ kind?: "text" | "tel" | "email" | "time"; options?: never } | { kind: "select"; options: Option[] })
 
 export function EditCell({ value, display, onSave, disabled, placeholder, className, kind = "text", options }: Props) {
   const [editing, setEditing] = useState(false)

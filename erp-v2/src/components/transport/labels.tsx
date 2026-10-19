@@ -2,7 +2,7 @@
 
 // Bus Route chips (owner 2026-10-19 ref): trip type P / D / Both, trip status (Pending → Approved → OTW → Done),
 // stop status (Done / OTW / Next / Cancel), the van badge and the driver — one look everywhere on the page.
-import { ArrowLeftRightIcon, BanIcon, BusIcon, CheckCheckIcon, ClockIcon, FlagIcon, MapPinIcon, PencilIcon, UserXIcon } from "lucide-react"
+import { ArrowLeftRightIcon, BanIcon, BusIcon, CheckCheckIcon, ClockIcon, FlagIcon, MapPinCheckIcon, MapPinIcon, PencilIcon, UserXIcon } from "lucide-react"
 import type { StopStatus, TripPlan, DriverInfo } from "@/domain/rules/transport"
 import type { BusRound, BusZone } from "@/domain/types"
 import { cn } from "@/lib/utils"
@@ -36,6 +36,7 @@ export function StopStatusChip({ s }: { s: StopStatus }) {
     done: { l: "เสร็จ", tone: "text-emerald-700", Icon: CheckCheckIcon },
     otw: { l: "กำลังไป", tone: "bg-red-600 text-white" },
     next: { l: "ถัดไป", tone: "bg-sky-100 text-sky-800" },
+    here: { l: "ถึงแล้ว", tone: "bg-violet-100 text-violet-800", Icon: MapPinCheckIcon },
     noshow: { l: "ไม่มา", tone: "bg-muted text-muted-foreground", Icon: UserXIcon },
     cancel: { l: "ยกเลิก", tone: "text-red-700 ring-1 ring-red-300", Icon: BanIcon },
   }

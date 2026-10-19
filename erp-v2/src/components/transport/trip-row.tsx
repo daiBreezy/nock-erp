@@ -4,9 +4,10 @@
 // van · time (+late) · passengers · zone · driver · trip type · branch · status · ⋯ — open it for the stops: order · child (+Parent) · grade · home · P/D · est. / actual
 // time · stop status. "แก้ไข" turns on drag-to-reorder and ✕ remove; "+ เพิ่มผู้โดยสาร" adds a child for the day.
 import { useState } from "react"
-import { ArrowRightLeftIcon, BanIcon, ChevronDownIcon, ChevronUpIcon, ClockIcon, CopyIcon, EllipsisIcon, GripVerticalIcon, MapIcon, MapPinIcon, MapPinOffIcon, PencilIcon, PlusIcon, RotateCcwIcon, SendIcon, TrashIcon, UserCogIcon, UserIcon, UserMinusIcon, XIcon } from "lucide-react"
+import { ArrowRightLeftIcon, BanIcon, ChevronDownIcon, ChevronUpIcon, ClockIcon, CopyIcon, EllipsisIcon, GripVerticalIcon, MapIcon, MapPinIcon, MapPinOffIcon, PencilIcon, PlusIcon, RotateCcwIcon, SendIcon, TrashIcon, UserCogIcon, UserIcon, UserMinusIcon, UserXIcon, XIcon } from "lucide-react"
 import { type Column } from "@/components/app/data-grid"
 import { HEAD } from "@/components/app/data-table"
+import { EditCell } from "@/components/app/inline-edit"
 import { gradeTone } from "@/components/app/subject-color"
 import { Button } from "@/components/ui/button"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuSub, DropdownMenuSubContent, DropdownMenuSubTrigger, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
@@ -34,7 +35,8 @@ export function tripColumns(isOpen: (id: string) => boolean): Column<TripRowData
       const late = t.late && t.late > 0 ? t.late : null
       return (
         <span className="block">
-          <span className="block font-medium tabular-nums">{`${t.depart} → ${t.finish}`}</span>
+          <span className="block font-medium tabular-nums">{`${t.depart} → ${t.finish}`}{t.departFixed && <span className="ml-1 text-[10px] font-normal text-primary">ตั้งเอง</span>}</span>
+          {t.startedAt && <span className="block text-xs text-emerald-700 tabular-nums">{`ออกจริง ${t.startedAt}${t.finishedAt ? ` · จบ ${t.finishedAt}` : ""}`}</span>}
           <span className="block text-xs text-muted-foreground">{`${t.minutes} นาที`}{late && <span className="font-medium text-red-600">{` +${late}`}</span>}{t.round.name ? ` · ${t.round.name}` : ""}{t.extra ? " · เที่ยวพิเศษ" : ""}{t.timeChanged ? " · เวลาเปลี่ยนวันนี้" : ""}</span>
         </span>
       )
@@ -97,16 +99,17 @@ export function TripDetail({ r }: { r: TripRowData }) {
   return (
     <div className="space-y-2 bg-muted/20 px-4 py-3">
       {t.warnings.length > 0 && !cancelled && <p className="rounded-xl bg-amber-50 px-3 py-1.5 text-xs text-amber-900 dark:bg-amber-950/30 dark:text-amber-200">{t.warnings.join(" · ")}</p>}
+      {!cancelled && <TripTimes t={t} />}
       {cancelled ? (
         <p className="px-4 py-6 text-center text-sm text-muted-foreground">{`ยกเลิกวันนี้ — ${t.state?.cancelled?.reason ?? ""} · เด็กของเที่ยวนี้อยู่ใน "ต้องตัดสินใจ" ของวันนี้`}</p>
       ) : (
         <div className="overflow-hidden rounded-2xl bg-card ring-1 ring-foreground/5">
           <table className="w-full text-sm">
             <thead className={HEAD}>
-              <tr><th className={cn(STOP_TH, "w-14")}>ลำดับ</th><th className={STOP_TH}>นักเรียน</th><th className={cn(STOP_TH, "text-center")}>ชั้น</th><th className={STOP_TH}>ที่อยู่</th><th className={STOP_TH}>P/D</th><th className={STOP_TH}>ประมาณ / จริง</th><th className={cn(STOP_TH, "text-right")}>สถานะ</th><th className="w-12" /></tr>
+              <tr><th className={cn(STOP_TH, "w-14")}>ลำดับ</th><th className={STOP_TH}>นักเรียน</th><th className={cn(STOP_TH, "text-center")}>ชั้น</th><th className={STOP_TH}>ที่อยู่</th><th className={STOP_TH}>P/D</th><th className={cn(STOP_TH, "w-28")}>ประมาณ (Estimate)</th><th className={cn(STOP_TH, "w-28")}>Check in · ถึง</th><th className={cn(STOP_TH, "w-28")}>{t.round.kind === "dropoff" ? "Check out · ส่งแล้ว" : t.round.kind === "pickup" ? "Check out · รับแล้ว" : "Check out · รับ / ส่ง"}</th><th className={cn(STOP_TH, "text-right")}>สถานะ</th><th className="w-12" /></tr>
             </thead>
             <tbody>
-              {t.stops.length === 0 && <tr><td colSpan={8} className="px-4 py-5 text-center text-muted-foreground">ไม่มีใครนั่งเที่ยวนี้</td></tr>}
+              {t.stops.length === 0 && <tr><td colSpan={10} className="px-4 py-5 text-center text-muted-foreground">ไม่มีใครนั่งเที่ยวนี้</td></tr>}
               {t.stops.map((x, i) => (
                 <tr key={x.key} draggable={edit} onDragStart={() => setDrag(x.key)} onDragOver={(e) => edit && e.preventDefault()} onDrop={() => { if (drag) reorder(drag, x.key); setDrag(null) }}
                   className={cn("border-b last:border-0", x.status === "otw" && "bg-primary/5", drag === x.key && "opacity-50")}>
@@ -123,9 +126,20 @@ export function TripDetail({ r }: { r: TripRowData }) {
                       : <span className="inline-flex items-center gap-1 text-amber-700"><MapPinOffIcon className="size-3" />ยังไม่ปักหมุดบ้าน</span>}
                   </td>
                   <td className={STOP_TD}><TripTypeChip kind={x.rider.leg} short /></td>
-                  <td className={cn(STOP_TD, "text-xs whitespace-nowrap tabular-nums")}>
-                    <span className="flex items-center gap-1 text-sm"><ClockIcon className="size-3 text-muted-foreground" />{x.eta ?? "—"}</span>
-                    {x.actual && <span className={cn("block", x.late && x.late > 0 ? "text-red-600" : "text-emerald-700")}>{x.actual}{x.late && x.late > 0 ? ` (+${x.late} นาที)` : ""}</span>}
+                  <td className={cn(STOP_TD, "tabular-nums")}>
+                    <EditCell kind="time" value={x.etaFixed ? x.eta ?? "" : ""} placeholder="—"
+                      display={<span className="flex items-center gap-1"><ClockIcon className="size-3 text-muted-foreground" />{x.eta ?? "—"}{x.etaFixed && <span title="Admin ตั้งเวลาเอง — ลบเวลาออกเพื่อให้ระบบคำนวณใหม่" className="rounded-full bg-primary/10 px-1.5 text-[10px] font-medium text-primary">ตั้งเอง</span>}</span>}
+                      onSave={(v) => report(s.setStopTime(t.round.id, t.date, x.key, v || null), v ? `ตั้งเวลา${x.rider.nickname} ${v} — จุดถัดไปคำนวณต่อจากนี้` : "ให้ระบบคำนวณเวลาให้แล้ว")} />
+                  </td>
+                  <td className={cn(STOP_TD, "tabular-nums")}>
+                    <EditCell kind="time" value={x.checkIn ?? ""} placeholder="—"
+                      display={x.checkIn ? <span className={cn("font-medium", x.late && x.late > 0 ? "text-red-600" : "text-emerald-700")}>{x.checkIn}{x.late && x.late > 0 ? <span className="text-xs font-normal">{` +${x.late}`}</span> : null}</span> : undefined}
+                      onSave={(v) => report(s.setTripActual(t.round.id, t.date, { field: "in", stopKey: x.key }, v || null), v ? `${x.rider.nickname} · ถึง ${v}` : "ล้างเวลาแล้ว")} />
+                  </td>
+                  <td className={cn(STOP_TD, "tabular-nums")}>
+                    <EditCell kind="time" value={x.checkOut ?? ""} placeholder="—"
+                      display={x.checkOut ? <span className={cn("font-medium", x.status === "noshow" ? "text-muted-foreground line-through" : "text-emerald-700")}>{x.checkOut}{x.manual && <span title="Admin ใส่เวลาเอง" className="ml-1 text-[10px] font-normal text-muted-foreground">(แอดมิน)</span>}</span> : undefined}
+                      onSave={(v) => report(s.setTripActual(t.round.id, t.date, { field: "out", stopKey: x.key }, v || null), v ? `${x.rider.nickname} · ${x.rider.leg === "pickup" ? "รับแล้ว" : "ส่งแล้ว"} ${v}` : "ล้างเวลาแล้ว")} />
                   </td>
                   <td className={cn(STOP_TD, "text-right")}><StopStatusChip s={x.status} /></td>
                   <td className={STOP_TD}>
@@ -149,6 +163,9 @@ export function TripDetail({ r }: { r: TripRowData }) {
                           {x.rider.adult
                             ? <DropdownMenuItem onClick={() => report(s.setCompanion(x.rider.studentId, t.date, false), "ผู้ปกครองไม่ไปแล้ว")}><XIcon /> ผู้ปกครองไม่ไปแล้ว</DropdownMenuItem>
                             : <DropdownMenuItem onClick={() => report(s.setCompanion(x.rider.studentId, t.date, true), "ผู้ปกครองนั่งไปด้วยแล้ว (+1 ที่นั่ง)")}><UserIcon /> ผู้ปกครองไปด้วย</DropdownMenuItem>}
+                          {x.status === "noshow"
+                            ? <DropdownMenuItem onClick={() => report(s.setTripActual(t.round.id, t.date, { field: "noshow", stopKey: x.key, on: false }, null), "ยกเลิก \"ไม่มา\" แล้ว")}><RotateCcwIcon /> ยกเลิก &quot;ไม่มา&quot;</DropdownMenuItem>
+                            : <DropdownMenuItem onClick={() => report(s.setTripActual(t.round.id, t.date, { field: "noshow", stopKey: x.key, on: true }, x.checkIn ?? null), `บันทึกว่า${x.rider.nickname}ไม่มา`)}><UserXIcon /> บันทึกว่าไม่มา</DropdownMenuItem>}
                           {x.rider.loc && <DropdownMenuItem render={<a href={`https://www.google.com/maps?q=${x.rider.loc.lat},${x.rider.loc.lng}`} target="_blank" rel="noreferrer" />}><MapIcon /> เปิดแผนที่บ้าน</DropdownMenuItem>}
                           <DropdownMenuSeparator />
                           <DropdownMenuItem variant="destructive" onClick={() => report(s.removeRiderFromTrip(t.round.id, t.date, x.rider.studentId, x.rider.leg), `เอา${x.rider.nickname}ออกจากเที่ยวนี้แล้ว`)}><UserMinusIcon /> เอาออกจากเที่ยวนี้</DropdownMenuItem>
@@ -166,7 +183,7 @@ export function TripDetail({ r }: { r: TripRowData }) {
                   <td className={cn(STOP_TD, "text-center text-xs")}>{c.grade}</td>
                   <td className={cn(STOP_TD, "text-xs")}>{c.addressNote ?? ""}</td>
                   <td className={STOP_TD}><TripTypeChip kind={c.leg} short /></td>
-                  <td className={STOP_TD} />
+                  <td className={STOP_TD} /><td className={STOP_TD} /><td className={STOP_TD} />
                   <td className={cn(STOP_TD, "text-right")}><StopStatusChip s="cancel" /></td>
                   <td className={STOP_TD} />
                 </tr>
@@ -184,6 +201,39 @@ export function TripDetail({ r }: { r: TripRowData }) {
         </span>
       </div>
       {a.dialogs}
+    </div>
+  )
+}
+
+/** the trip's own times (owner 2026-10-19): leaving and the end — estimate (the admin can set the departure) and actual
+ *  (from the driver app, or typed in by the admin) */
+function TripTimes({ t }: { t: TripPlan }) {
+  const s = useStore()
+  const endsHome = t.round.kind === "dropoff" || (t.round.kind === "both" && !t.stops.some((x) => x.rider.leg === "pickup"))
+  const box = "flex items-center gap-3 rounded-xl bg-card px-3 py-1.5 ring-1 ring-foreground/5"
+  return (
+    <div className="flex flex-wrap items-center gap-2 text-sm">
+      <div className={box}>
+        <span className="text-xs text-muted-foreground">ออกรถ</span>
+        <span className="flex items-center gap-1 text-xs text-muted-foreground">ประมาณ
+          <EditCell kind="time" className="w-24 font-medium text-foreground tabular-nums" value={t.departFixed ? t.depart : ""} placeholder={t.depart}
+            display={<span className="flex items-center gap-1">{t.depart}{t.departFixed && <span title="Admin ตั้งเวลาเอง — ลบเวลาออกเพื่อให้ระบบคำนวณใหม่" className="rounded-full bg-primary/10 px-1.5 text-[10px] font-medium text-primary">ตั้งเอง</span>}</span>}
+            onSave={(v) => report(s.setTripDepart(t.round.id, t.date, v || null), v ? `ออกรถ ${v} — เวลาแต่ละจุดคำนวณใหม่` : "ให้ระบบคำนวณเวลาออกรถแล้ว")} />
+        </span>
+        <span className="flex items-center gap-1 text-xs text-muted-foreground">จริง
+          <EditCell kind="time" className="w-20 font-medium text-foreground tabular-nums" value={t.startedAt ?? ""} placeholder="—"
+            onSave={(v) => report(s.setTripActual(t.round.id, t.date, { field: "start" }, v || null), v ? `ออกรถจริง ${v}` : "ล้างเวลาแล้ว")} />
+        </span>
+      </div>
+      <div className={box}>
+        <span className="text-xs text-muted-foreground">{endsHome ? "ส่งคนสุดท้าย" : "ถึงสาขา"}</span>
+        <span className="text-xs text-muted-foreground">ประมาณ <span className="font-medium text-foreground tabular-nums">{t.finish}</span></span>
+        <span className="flex items-center gap-1 text-xs text-muted-foreground">จริง
+          <EditCell kind="time" className="w-20 font-medium text-foreground tabular-nums" value={t.finishedAt ?? ""} placeholder="—"
+            onSave={(v) => report(s.setTripActual(t.round.id, t.date, { field: "finish" }, v || null), v ? `จบเที่ยว ${v}` : "ล้างเวลาแล้ว")} />
+        </span>
+      </div>
+      <span className="text-xs text-muted-foreground">คลิกเวลาเพื่อตั้งเอง · ลบเวลาออก = ให้ระบบคำนวณ / ใช้เวลาจากแอปคนขับ</span>
     </div>
   )
 }

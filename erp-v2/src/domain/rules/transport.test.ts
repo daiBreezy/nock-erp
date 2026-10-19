@@ -139,6 +139,38 @@ describe("Bus Route ref (owner 2026-10-19): Both trips, drivers, the driver app"
     expect(t.finish > t.stops[1].eta!).toBe(true) // back at the branch after the last pickup
     expect(t.used).toBe(1) // one out, one back — never both on board
   })
+  it("admin sets the departure: the stops are timed from it", () => {
+    const base = planDay(both, MON, c2).trips[0]
+    const t = planDay(both, MON, { ...c2, trips: [{ id: "x|d", branchId: "b", roundId: "x", date: MON, departAt: "16:00" }] }).trips[0]
+    expect(t).toMatchObject({ depart: "16:00", departFixed: true })
+    expect(t.stops[0].eta! < base.stops[0].eta!).toBe(true)
+    expect(t.stops[0].eta! > "16:00").toBe(true)
+  })
+  it("admin sets a child's stop time: it is kept and the stops after it follow on", () => {
+    const t = planDay(both, MON, { ...c2, trips: [{ id: "x|d", branchId: "b", roundId: "x", date: MON, stopTimes: { "a|dropoff": "17:00" } }] }).trips[0]
+    expect(t.stops[0]).toMatchObject({ eta: "17:00", etaFixed: true })
+    expect(t.stops[1].etaFixed).toBe(false)
+    expect(t.stops[1].eta! > "17:00").toBe(true)
+    expect(t.finish > t.stops[1].eta!).toBe(true)
+  })
+  it("check in (arrived) then check out (picked up / dropped off) — late is counted from the check in", () => {
+    const id = "x|" + MON
+    const arrived = [{ id: "1", tripId: id, type: "start" as const, at: "2026-10-19T16:31:00" }, { id: "2", tripId: id, type: "arrive" as const, stopKey: "a|dropoff", at: "2026-10-19T16:58:00" }]
+    const t1 = planDay(both, MON, { ...c2, events: arrived }).trips[0]
+    expect(t1.stops[0]).toMatchObject({ status: "here", checkIn: "16:58", checkOut: null })
+    expect(t1.stops[1].status).toBe("next")
+    const t2 = planDay(both, MON, { ...c2, events: [...arrived, { id: "3", tripId: id, type: "done" as const, stopKey: "a|dropoff", at: "2026-10-19T17:01:00" }] }).trips[0]
+    expect(t2.stops[0]).toMatchObject({ status: "done", checkIn: "16:58", checkOut: "17:01", actual: "17:01" })
+    expect(t2.stops[0].late).toBe(16 * 60 + 58 - (Number(t2.stops[0].eta!.slice(0, 2)) * 60 + Number(t2.stops[0].eta!.slice(3))))
+  })
+  it("real times typed in by the admin win over the driver app (or stand in for it)", () => {
+    const id = "x|" + MON
+    const trips = [{ id: "x|d", branchId: "b", roundId: "x", date: MON, actuals: { start: "16:35", stops: { "a|dropoff": { in: "16:50", out: "16:52" } } } }]
+    const events = [{ id: "1", tripId: id, type: "arrive" as const, stopKey: "a|dropoff", at: "2026-10-19T16:45:00" }]
+    const t = planDay(both, MON, { ...c2, trips, events }).trips[0]
+    expect(t).toMatchObject({ status: "otw", startedAt: "16:35" })
+    expect(t.stops[0]).toMatchObject({ checkIn: "16:50", checkOut: "16:52", manual: true, status: "done" })
+  })
   it("a Both trip with nobody to bring back ends at the last home", () => {
     const t = planDay(both, MON, { ...c2, classes: [early] }).trips[0]
     expect(t.stops.map((s) => s.rider.leg)).toEqual(["dropoff"])
