@@ -1,6 +1,6 @@
 "use client"
 
-import { useLayoutEffect, useRef, useState, type HTMLAttributes, type ReactNode } from "react"
+import { Fragment, useLayoutEffect, useRef, useState, type HTMLAttributes, type ReactNode } from "react"
 import { create } from "zustand"
 import { persist } from "zustand/middleware"
 import { ArrowDownIcon, ArrowUpDownIcon, ArrowUpIcon, Columns3Icon, GripVerticalIcon, InfoIcon, LockIcon, LockOpenIcon, RotateCcwIcon } from "lucide-react"
@@ -99,7 +99,7 @@ const SLIDE = "flex w-0 shrink-0 items-center overflow-hidden opacity-0 transiti
 const justify = (a?: Column<unknown>["align"]) => (a === "right" ? "justify-end" : a === "center" ? "justify-center" : "justify-start")
 const textAlign = (a?: Column<unknown>["align"]) => (a === "right" ? "text-right" : a === "center" ? "text-center" : "text-left")
 
-export function DataTable<R>({ id, columns, rows, rowKey, onRowClick, rowClassName, rowProps, sort, onSort, empty, minWidth = 900 }: {
+export function DataTable<R>({ id, columns, rows, rowKey, onRowClick, rowClassName, rowProps, sort, onSort, empty, minWidth = 900, expanded }: {
   /** one id per table — the saved layout is kept under it */
   id: string
   columns: Column<R>[]
@@ -112,6 +112,8 @@ export function DataTable<R>({ id, columns, rows, rowKey, onRowClick, rowClassNa
   onSort?: (key: never) => void
   empty?: ReactNode
   minWidth?: number
+  /** owner 2026-10-19 (Bus Route): a row that opens in place — what to show under it (null = closed) */
+  expanded?: (row: R) => ReactNode
 }) {
   const L = useLayout(id, columns)
   const cols = L.visible
@@ -195,16 +197,22 @@ export function DataTable<R>({ id, columns, rows, rowKey, onRowClick, rowClassNa
             </tr>
           </thead>
           <tbody>
-            {rows.map((r) => (
-              <tr key={rowKey(r)} onClick={onRowClick && (() => onRowClick(r))} {...rowProps?.(r)} className={cn("group/row", ROW, "[&>td]:whitespace-nowrap", !onRowClick && "cursor-default", rowClassName?.(r))}>
-                {cols.map((c) => (
-                  <td key={c.id} style={sticky(c) ? { left: left[c.id] ?? 0 } : undefined}
-                    className={cn(textAlign(c.align), stickyCls(c, false), typeof c.className === "function" ? c.className(r) : c.className)}>
-                    {c.cell(r)}
-                  </td>
-                ))}
-              </tr>
-            ))}
+            {rows.map((r) => {
+              const more = expanded?.(r)
+              return (
+                <Fragment key={rowKey(r)}>
+                  <tr onClick={onRowClick && (() => onRowClick(r))} {...rowProps?.(r)} className={cn("group/row", ROW, "[&>td]:whitespace-nowrap", !onRowClick && "cursor-default", more != null && "bg-primary/5 hover:bg-primary/5", rowClassName?.(r))}>
+                    {cols.map((c) => (
+                      <td key={c.id} style={sticky(c) ? { left: left[c.id] ?? 0 } : undefined}
+                        className={cn(textAlign(c.align), stickyCls(c, false), typeof c.className === "function" ? c.className(r) : c.className)}>
+                        {c.cell(r)}
+                      </td>
+                    ))}
+                  </tr>
+                  {more != null && <tr className="border-b last:border-0"><td colSpan={cols.length} className="p-0">{more}</td></tr>}
+                </Fragment>
+              )
+            })}
             {rows.length === 0 && <tr><td colSpan={cols.length} className="p-10 text-center text-muted-foreground">{empty ?? "ไม่มีข้อมูล"}</td></tr>}
           </tbody>
         </table>

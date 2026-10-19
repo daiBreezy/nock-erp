@@ -15,7 +15,8 @@ import { TransportCalendar } from "@/components/transport/transport-calendar"
 import { TransportReport, TransportReportKpis } from "@/components/transport/transport-report"
 import { TransportSettings } from "@/components/transport/transport-settings"
 import { ExtraTripDialog } from "@/components/transport/trip-dialogs"
-import { TRIP_COLS, TripRow } from "@/components/transport/trip-row"
+import { TripDetail, tripColumns } from "@/components/transport/trip-row"
+import { DataTable } from "@/components/app/data-grid"
 import { ZonesView } from "@/components/transport/zones-view"
 import { Button } from "@/components/ui/button"
 import { addDays, fmtDate, monthShort, toDateStr, yearOf } from "@/domain/dates"
@@ -89,6 +90,7 @@ export default function TransportPage() {
   const zonesAll = scope.flatMap((b) => (b.busZones ?? []).map((z) => ({ z, b })))
   const vansAll = scope.flatMap((b) => (b.vehicles ?? []).map((v) => ({ v, b })))
   const hasBus = scope.some((b) => (b.busRounds ?? []).length)
+  const columns = tripColumns((id) => open.has(id))
   const toggle = (id: string) => setOpen((o) => { const n = new Set(o); if (n.has(id)) n.delete(id); else n.add(id); return n })
   const approveAll = () => report(sendTrips(toSend.map((r) => ({ roundId: r.trip.round.id, date: r.trip.date, key: r.trip.key, driverId: r.trip.driver?.id }))), `อนุมัติ & ส่ง ${toSend.length} เที่ยวให้คนขับแล้ว`)
 
@@ -170,14 +172,9 @@ export default function TransportPage() {
                       </div>
                     )}
                     {rows.length > 0 && (
-                      <div className="overflow-x-auto">
-                        <div className="min-w-[64rem] space-y-2">
-                          <div className={cn("grid items-center gap-3 px-3 text-xs text-muted-foreground", TRIP_COLS)}>
-                            <span /><span>รถ</span><span>เวลาเที่ยว</span><span>ผู้โดยสาร</span><span>โซน</span><span>คนขับ</span><span>ประเภท</span><span>สาขา</span><span className="text-right">สถานะ</span><span />
-                          </div>
-                          {rows.map((r) => <TripRow key={r.trip.id} t={r.trip} branch={r.branch} others={r.plan.trips} open={open.has(r.trip.id)} onToggle={() => toggle(r.trip.id)} />)}
-                        </div>
-                      </div>
+                      <DataTable id="transport-trips" columns={columns} rows={rows} rowKey={(r) => r.trip.id} onRowClick={(r) => toggle(r.trip.id)} minWidth={1100}
+                        rowClassName={(r) => cn(r.trip.status === "cancelled" && "opacity-55", r.trip.status === "otw" && "shadow-[inset_3px_0_0_var(--color-red-500)]")}
+                        expanded={(r) => (open.has(r.trip.id) ? <TripDetail r={r} /> : null)} />
                     )}
                     {!rows.length && !issues.length && <p className="rounded-2xl border border-dashed p-4 text-center text-sm text-muted-foreground">ไม่มีเที่ยวรถวันนี้</p>}
                   </section>
