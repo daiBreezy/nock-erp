@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest"
-import type { BusRound, Fee, Invoice, Klass } from "../types"
-import { busZone, checkRide, distanceKm, rideTimes, roundFor } from "./bus"
+import type { BusAddOn, BusRound, Fee, Invoice, Klass } from "../types"
+import { busChangeLegs, busZone, cancelBusRides, checkRide, distanceKm, rideTimes, roundFor } from "./bus"
+import { pendingBusAddOns } from "./billing"
+import { busDaysOf } from "./parent-view"
 
 // 2026-10-19 is a Monday
 const MON = "2026-10-19"
@@ -47,5 +49,29 @@ describe("bus (owner 2026-10-16)", () => {
     expect(checkRide("pickup", MON, t, rounds, { ...ctx, excludeInvoiceId: "i2" }, "s3")).toMatchObject({ taken: 1, full: false })
     expect(checkRide("pickup", MON, t, rounds, { ...ctx, invoices: [], busAddOns: [{ id: "x", branchId: "b", studentId: "s3", date: MON, pickup: true, dropoff: false, busFeeId: null, amount: 150, createdBy: "", createdAt: "" }] })).toMatchObject({ taken: 1 })
     expect(checkRide("dropoff", MON, { start: "19:00", end: "20:00" }, rounds, ctx)).toMatchObject({ round: null })
+  })
+})
+
+describe("parent bus requests (owner 2026-10-19)", () => {
+  const ao = (id: string, date: string, pickup: boolean, dropoff: boolean, amount: number, extra: Partial<BusAddOn> = {}): BusAddOn =>
+    ({ id, branchId: "b", studentId: "s1", date, pickup, dropoff, busFeeId: null, amount, createdBy: "u", createdAt: "", ...extra })
+  const make = (d: { date: string; pickup: boolean; dropoff: boolean }) => ao(`c_${d.date}`, d.date, d.pickup, d.dropoff, 0, { cancel: true })
+
+  it("splits a request into adds and cancels per day", () => {
+    const ch = [{ date: "2026-10-20", start: "16:00", subjects: ["คณิต"], pickup: "add" as const, dropoff: "cancel" as const }, { date: "2026-10-21", start: "17:00", subjects: [], dropoff: "add" as const }]
+    expect(busChangeLegs(ch, "add")).toEqual([{ date: "2026-10-20", pickup: true, dropoff: false }, { date: "2026-10-21", pickup: false, dropoff: true }])
+    expect(busChangeLegs(ch, "cancel")).toEqual([{ date: "2026-10-20", pickup: false, dropoff: true }])
+  })
+  it("cancelling an unbilled extra ride drops it (and its charge); a paid ride gets a no-refund cancel record", () => {
+    const addOns = [ao("x", "2026-10-20", true, true, 300)]
+    const r1 = cancelBusRides("s1", [{ date: "2026-10-20", pickup: true, dropoff: false }], addOns, [], make)
+    expect(r1).toMatchObject({ dropped: 1, stopped: 0 })
+    expect(r1.addOns).toEqual([expect.objectContaining({ id: "x", pickup: false, dropoff: true, amount: 150 })])
+    const paid = [{ id: "i", studentId: "s1", status: "paid", bus: [{ date: "2026-10-22", pickup: true, dropoff: true }], busExtras: [] }] as unknown as Invoice[]
+    const r2 = cancelBusRides("s1", [{ date: "2026-10-22", pickup: true, dropoff: true }], addOns, paid, make)
+    expect(r2).toMatchObject({ dropped: 0, stopped: 2 })
+    // the bus no longer comes that day, and the cancel record is never charged
+    expect(busDaysOf("s1", paid, r2.addOns).has("2026-10-22")).toBe(false)
+    expect(pendingBusAddOns("s1", r2.addOns, paid).map((a) => a.id)).toEqual(["x"])
   })
 })

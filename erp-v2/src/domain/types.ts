@@ -884,10 +884,19 @@ export interface ClassMove {
  * แจ้งลาหยุด / แจ้งลาออก sent by a parent from the parent app in LINE (owner 2026-10-14) — stored on the server
  * (the parent's phone can't reach the ERP's data); the office team sees it, acts in the ERP, and the parent is told.
  */
+/** one class day in a bus request (owner 2026-10-19) */
+export interface BusChange {
+  date: DateStr
+  start: TimeStr
+  subjects: string[]
+  pickup?: "add" | "cancel"
+  dropoff?: "add" | "cancel"
+}
+
 export interface ParentRequest {
   id: ID
-  /** return = a child who left wants to come back (owner 2026-10-14) */
-  kind: "leave" | "exit" | "return"
+  /** return = a child who left wants to come back (owner 2026-10-14) · bus = ask for extra rides / cancel rides (owner 2026-10-19) */
+  kind: "leave" | "exit" | "return" | "bus"
   familyId: ID
   familyName: string
   branchId?: ID
@@ -897,6 +906,8 @@ export interface ParentRequest {
   createdAt: string
   /** leave: the classes the child will miss */
   sessions?: { sessionId: ID; date: DateStr; start: TimeStr; subjects: string[] }[]
+  /** bus: per class day, which legs to add or cancel (the parent's ask — the admin approves or declines) */
+  bus?: BusChange[]
   /** return: when they'd like to start again */
   startDate?: DateStr
   /** exit: last day + why */
@@ -1126,6 +1137,9 @@ export interface BusAddOn {
   /** price copied when recorded (legs × bus fee) */
   amount: number
   note?: string
+  /** owner 2026-10-19: a ride taken OFF (the parent cancelled it in LINE) — the bus doesn't come for these legs.
+   *  amount 0: a ride already paid for isn't refunded; an unbilled extra ride is simply dropped instead. */
+  cancel?: boolean
   createdBy: ID
   createdAt: string
 }

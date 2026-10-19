@@ -19,6 +19,7 @@ import * as Inbox from "@/domain/rules/inbox"
 import { can, canDeactivateStaff, canEditBlocks, inBranch, OFFICE_ROLES, require as requirePerm, staffAt } from "@/domain/rules/permissions"
 import * as Sch from "@/domain/rules/scheduling"
 import * as CN from "@/domain/rules/calendar-notes"
+import * as BusR from "@/domain/rules/bus"
 import { withLinkedFamilyDemo } from "./linked-demo"
 import { keepLineLinks } from "./keep-line-links"
 import * as Sum from "@/domain/rules/summaries"
@@ -207,6 +208,8 @@ type Store = DB & UIState & {
   addBusAddOns: (studentId: ID, days: { date: DateStr; pickup: boolean; dropoff: boolean }[], busFeeId: ID | null, note: string) => Result<{ count: number; amount: number }>
   /** only while not billed yet */
   removeBusAddOn: (id: ID) => Result
+  /** owner 2026-10-19: rides a parent cancelled in LINE — unbilled extra rides are dropped, paid rides stop without a refund */
+  cancelBusRides: (studentId: ID, days: { date: DateStr; pickup: boolean; dropoff: boolean }[], note: string) => Result<{ dropped: number; stopped: number }>
   /** refund / credit on a paid invoice — the invoice itself never changes */
   createCreditNote: (input: Pick<CreditNote, "invoiceId" | "mode" | "items" | "reasons" | "remark" | "stopFrom">) => Result<CreditNote>
   approveCreditNote: (id: ID, forceRemark?: string) => Result
@@ -2041,6 +2044,20 @@ export const useStore = create<Store>()(
         set({ busAddOns: [...s.busAddOns, ...added] })
         log("billing", [studentId], "เพิ่มรอบรถ", `${added.map((a) => `${fmtDate(a.date)} ${[a.pickup && "รับ", a.dropoff && "ส่ง"].filter(Boolean).join("+")}`).join(", ")} · ${fmtMoney(amount)} รอเรียกเก็บในใบถัดไป${note.trim() ? ` · ${note.trim()}` : ""}`)
         return { ok: true, value: { count: added.length, amount } }
+      },
+
+      cancelBusRides: (studentId, days, note) => {
+        const s = get()
+        const perm = requirePerm(s.me(), "billing.manage")
+        if (!perm.ok) return perm
+        if (!days.length) return fail("ไม่มีรอบที่จะยกเลิก")
+        const stu = s.students.find((x) => x.id === studentId)
+        if (!stu) return fail("ไม่พบนักเรียน")
+        const at = s.now().toISOString()
+        const r = BusR.cancelBusRides(studentId, days, s.busAddOns, s.invoices, (d) => ({ id: uid("ba"), branchId: stu.branchId, studentId, ...d, busFeeId: null, amount: 0, cancel: true, note: note.trim() || undefined, createdBy: s.userId, createdAt: at }))
+        set({ busAddOns: r.addOns })
+        log("billing", [studentId], "ยกเลิกรอบรถ", `${days.map((d) => `${fmtDate(d.date)} ${[d.pickup && "รับ", d.dropoff && "ส่ง"].filter(Boolean).join("+")}`).join(", ")}${r.stopped ? ` · ${r.stopped} เที่ยวที่จ่ายแล้วไม่คืนเงิน` : ""}${note.trim() ? ` · ${note.trim()}` : ""}`)
+        return { ok: true, value: { dropped: r.dropped, stopped: r.stopped } }
       },
 
       removeBusAddOn: (id) => {

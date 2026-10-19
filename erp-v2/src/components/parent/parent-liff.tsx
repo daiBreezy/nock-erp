@@ -21,13 +21,13 @@ function courseSummaryParam() {
   return q.get("cs") ?? state.get("cs") ?? undefined
 }
 
-/** …&act=leave|exit — a rich-menu button straight to แจ้งลา / แจ้งลาออก (owner 2026-10-14) */
-function actionParam(): "leave" | "exit" | undefined {
+/** …&act=leave|exit|bus — a rich-menu button straight to แจ้งลา / แจ้งลาออก / รถรับส่ง (owner 2026-10-14, bus 2026-10-19) */
+function actionParam(): "leave" | "exit" | "bus" | undefined {
   if (typeof window === "undefined") return undefined
   const q = new URLSearchParams(window.location.search)
   const state = new URLSearchParams((q.get("liff.state") ?? "").replace(/^[^?]*\?/, ""))
   const a = q.get("act") ?? state.get("act")
-  return a === "leave" || a === "exit" ? a : undefined
+  return a === "leave" || a === "exit" || a === "bus" ? a : undefined
 }
 
 export function ParentLiff() {

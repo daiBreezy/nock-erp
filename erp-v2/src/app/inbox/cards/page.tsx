@@ -53,6 +53,12 @@ export default function InboxCardsPreview() {
     studentId: kid?.id ?? "", studentNickname: kid?.nickname ?? "น้องตัวอย่าง", createdAt: at(0, "09:10"), status: "new", ...over,
   })
   const leaveSessions = upcoming.map((x) => ({ sessionId: x.id, date: x.date, start: x.start, subjects: [x.subject] }))
+  // owner 2026-10-19: a bus request — the demo child of the LINE family (Liclass) when there is one
+  const busKid = students.find((x) => x.id.startsWith("stu_demo_")) ?? kid
+  const busDays = [...new Map(sessions.filter((x) => !x.cancelled && x.date > today && busKid && x.studentIds.includes(busKid.id)).sort((a, b) => (a.date + a.start).localeCompare(b.date + b.start)).map((x) => [x.date, x])).values()].slice(0, 2)
+  const busChanges = busDays.map((x, i) => (i === 0 ? { date: x.date, start: x.start, subjects: [x.subject], pickup: "add" as const, dropoff: "add" as const } : { date: x.date, start: x.start, subjects: [x.subject], dropoff: "cancel" as const }))
+  const busReq = (over: Partial<ParentRequest>) => req({ kind: "bus", studentId: busKid?.id ?? "", studentNickname: busKid?.nickname ?? "", branchId: busKid?.branchId,
+    bus: busChanges.length ? busChanges : [{ date: addDays(today, 2), start: "16:00", subjects: ["คณิต"], pickup: "add" }], ...over })
   const subs = [
     { token: "t_pending", status: "pending" }, { token: "t_ok", status: "approved" }, { token: "t_no", status: "rejected" },
   ] as unknown as FormSubmission[]
@@ -77,12 +83,15 @@ export default function InboxCardsPreview() {
         <div className="max-w-md"><RequestCard preview r={req({ kind: "leave", sessions: leaveSessions.length ? leaveSessions : [{ sessionId: "x", date: addDays(today, 2), start: "16:00", subjects: ["คณิต"] }], note: "ไปต่างจังหวัดกับครอบครัวค่ะ" })} /></div>
         <Label>แจ้งลาออก · รอดำเนินการ</Label>
         <div className="max-w-md"><RequestCard preview r={req({ kind: "exit", lastDate: addDays(today, 14), reasonIds: reasons.slice(0, 2).map((x) => x.id), note: "ย้ายบ้านค่ะ" })} /></div>
+        <Label>ขอ / ยกเลิกรอบรถ · รอดำเนินการ (อนุมัติ = รอบที่เพิ่มเก็บในรายชื่อนักเรียน คิดเงินในใบแจ้งหนี้รอบถัดไป)</Label>
+        <div className="max-w-md"><RequestCard preview r={busReq({ note: "วันอังคารแม่ไปรับไม่ทันค่ะ" })} /></div>
         <Label>อยากกลับมาเรียน · รอดำเนินการ</Label>
         <div className="max-w-md"><RequestCard preview r={req({ kind: "return", startDate: addDays(today, 7), note: "อยากกลับมาเรียนคณิตเหมือนเดิมค่ะ" })} /></div>
         <Label>ผู้ปกครองส่งฟอร์มแจ้งออกกลับมา · รอดำเนินการ (มีคำตอบ + ปิดการออก / ไม่ออกแล้ว)</Label>
         {answered && <ExitFormCardView at={at(-1, "20:15")} kids={[answered]} linked preview={{ response }} />}
         <Label>จัดการแล้ว — แสดงผลและใครทำ</Label>
         <div className="max-w-md"><RequestCard preview r={req({ kind: "leave", status: "done", sessions: leaveSessions.slice(0, 1), handledBy: "u_ploy", handledAt: at(0, "09:30"), result: "บันทึกลา 1 คาบ (หักโควตา)" })} /></div>
+        <div className="max-w-md"><RequestCard preview r={busReq({ id: "demo_bus_done", status: "done", handledBy: "u_ploy", handledAt: at(0, "10:05"), result: "เพิ่มรอบรถ 2 เที่ยว ฿300 — เก็บในใบแจ้งหนี้รอบถัดไป · ยกเลิก 1 เที่ยว (1 เที่ยวจ่ายแล้ว ไม่คืนเงิน)" })} /></div>
         <div className="max-w-md"><RequestCard preview r={req({ kind: "return", status: "declined", handledBy: "u_ploy", handledAt: at(0, "11:00"), result: "คลาสเต็มช่วงนี้ — แอดมินจะโทรเสนอเวลาอื่นค่ะ" })} /></div>
         {closed && <ExitFormCardView at={at(-3, "18:00")} kids={[closed]} linked preview={{ response: null }} />}
       </Section>

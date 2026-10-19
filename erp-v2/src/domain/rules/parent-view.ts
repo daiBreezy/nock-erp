@@ -88,7 +88,16 @@ export function busDaysOf(studentId: ID, invoices: Invoice[], addOns: BusAddOn[]
     out.set(date, { pickup: cur.pickup || pickup, dropoff: cur.dropoff || dropoff })
   }
   for (const inv of invoices) if (inv.studentId === studentId && inv.status !== "void" && inv.status !== "draft") inv.bus.forEach((l) => (l.pickup || l.dropoff) && put(l.date, l.pickup, l.dropoff))
-  for (const a of addOns) if (a.studentId === studentId) put(a.date, a.pickup, a.dropoff)
+  for (const a of addOns) if (a.studentId === studentId && !a.cancel) put(a.date, a.pickup, a.dropoff)
+  // rides the parent cancelled (owner 2026-10-19) — the bus doesn't come
+  for (const a of addOns) {
+    if (a.studentId !== studentId || !a.cancel) continue
+    const cur = out.get(a.date)
+    if (!cur) continue
+    const next = { pickup: cur.pickup && !a.pickup, dropoff: cur.dropoff && !a.dropoff }
+    if (next.pickup || next.dropoff) out.set(a.date, next)
+    else out.delete(a.date)
+  }
   return out
 }
 

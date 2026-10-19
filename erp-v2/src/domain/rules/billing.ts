@@ -311,7 +311,7 @@ export function validateBusAddOn(a: Pick<BusAddOn, "date" | "pickup" | "dropoff"
 
 /** The same leg (pickup / drop-off) on the same day can only be added once per student. */
 export function duplicateBusDay(studentId: ID, days: Pick<BusAddOn, "date" | "pickup" | "dropoff">[], existing: BusAddOn[]): DateStr | null {
-  const seen = existing.filter((a) => a.studentId === studentId).map((a) => ({ ...a }))
+  const seen = existing.filter((a) => a.studentId === studentId && !a.cancel).map((a) => ({ ...a }))
   for (const d of days) {
     if (seen.some((a) => a.date === d.date && ((a.pickup && d.pickup) || (a.dropoff && d.dropoff)))) return d.date
     seen.push({ ...d } as BusAddOn)
@@ -322,7 +322,8 @@ export function duplicateBusDay(studentId: ID, days: Pick<BusAddOn, "date" | "pi
 /** Extra bus days still waiting to be charged: not on any invoice that isn't void (the one being edited doesn't count). */
 export function pendingBusAddOns(studentId: ID, addOns: BusAddOn[], invoices: Invoice[], exceptInvoiceId?: ID): BusAddOn[] {
   const billed = new Set(invoices.filter((i) => i.id !== exceptInvoiceId && i.status !== "void").flatMap((i) => (i.busExtras ?? []).map((x) => x.addOnId)))
-  return addOns.filter((a) => a.studentId === studentId && !billed.has(a.id)).sort((a, b) => a.date.localeCompare(b.date))
+  // a cancelled ride (owner 2026-10-19) is never charged
+  return addOns.filter((a) => a.studentId === studentId && !a.cancel && !billed.has(a.id)).sort((a, b) => a.date.localeCompare(b.date))
 }
 
 /** Which invoice charged this add-on (undefined = still pending). */

@@ -2,7 +2,7 @@
 // bus fee type, or outside the area) and, for each class day, whether there is a bus run and whether it is full —
 // so they can tell the parent straight away.
 import { endTime, toMinutes, weekdayOf } from "../dates"
-import type { BusAddOn, BusRound, DateStr, Fee, ID, Invoice, Klass, TimeStr } from "../types"
+import type { BusAddOn, BusChange, BusRound, DateStr, Fee, ID, Invoice, Klass, TimeStr } from "../types"
 
 type LatLng = { lat: number; lng: number }
 
@@ -67,7 +67,11 @@ export interface BusCtx {
 /** Students already riding a run on a date — from the bus legs on live invoices + extra bus days. */
 export function roundRiders(round: BusRound, date: DateStr, ctx: BusCtx): Set<ID> {
   const riders = new Set<ID>()
+  const leg = (x: { pickup: boolean; dropoff: boolean }) => (round.kind === "pickup" ? x.pickup : x.dropoff)
+  // rides the parent cancelled (owner 2026-10-19) free the seat
+  const off = new Set(ctx.busAddOns.filter((a) => a.cancel && a.branchId === ctx.branchId && a.date === date && leg(a)).map((a) => a.studentId))
   const take = (studentId: ID, classIds: ID[]) => {
+    if (off.has(studentId)) return
     const t = rideTimes(ctx.classes, classIds, date)
     if (!t) return
     if (roundFor([round], round.kind, date, round.kind === "pickup" ? t.start : t.end)) riders.add(studentId)
@@ -79,6 +83,7 @@ export function roundRiders(round: BusRound, date: DateStr, ctx: BusCtx): Set<ID
     take(inv.studentId, inv.lines.flatMap((l) => l.classIds))
   }
   for (const a of ctx.busAddOns) {
+    if (a.cancel) continue
     if (a.branchId !== ctx.branchId || a.date !== date || !(round.kind === "pickup" ? a.pickup : a.dropoff)) continue
     take(a.studentId, ctx.classes.filter((k) => k.studentIds.includes(a.studentId)).map((k) => k.id))
   }
@@ -99,4 +104,43 @@ export function checkRide(kind: BusRound["kind"], date: DateStr, times: { start:
   const riders = roundRiders(round, date, ctx)
   if (studentId) riders.delete(studentId)
   return { round, taken: riders.size, full: riders.size >= round.seats }
+}
+
+type Legs = { date: DateStr; pickup: boolean; dropoff: boolean }
+
+/** a parent's bus request split into what to add and what to cancel, one entry per day (owner 2026-10-19) */
+export function busChangeLegs(changes: BusChange[], what: "add" | "cancel"): Legs[] {
+  return changes.map((c) => ({ date: c.date, pickup: c.pickup === what, dropoff: c.dropoff === what })).filter((l) => l.pickup || l.dropoff)
+}
+
+/**
+ * Cancel rides (owner 2026-10-19). An extra ride not billed yet is simply dropped — nothing to pay. A ride that is
+ * paid for (on an invoice) or already billed is taken off the bus with a `cancel` record: the bus doesn't come,
+ * nothing is refunded (rule from 2026-09-30: fewer bus days are never refunded).
+ */
+export function cancelBusRides(studentId: ID, days: Legs[], addOns: BusAddOn[], invoices: Invoice[], make: (d: Legs) => BusAddOn): { addOns: BusAddOn[]; dropped: number; stopped: number } {
+  const billed = new Set(invoices.filter((i) => i.status !== "void").flatMap((i) => (i.busExtras ?? []).map((x) => x.addOnId)))
+  let list = [...addOns], dropped = 0, stopped = 0
+  for (const d of days) {
+    const rest = { pickup: d.pickup, dropoff: d.dropoff }
+    // 1) unbilled extra rides that day — remove those legs (the charge goes with them)
+    list = list.flatMap((a) => {
+      if (a.studentId !== studentId || a.date !== d.date || a.cancel || billed.has(a.id)) return [a]
+      const pickup = a.pickup && !rest.pickup, dropoff = a.dropoff && !rest.dropoff
+      const gone = Number(a.pickup && rest.pickup) + Number(a.dropoff && rest.dropoff)
+      if (!gone) return [a]
+      dropped += gone
+      if (a.pickup && rest.pickup) rest.pickup = false
+      if (a.dropoff && rest.dropoff) rest.dropoff = false
+      if (!pickup && !dropoff) return []
+      const legs = Number(a.pickup) + Number(a.dropoff)
+      return [{ ...a, pickup, dropoff, amount: legs ? Math.round((a.amount / legs) * (Number(pickup) + Number(dropoff))) : 0 }]
+    })
+    // 2) what's left was paid for — stop the bus, no refund
+    if (rest.pickup || rest.dropoff) {
+      stopped += Number(rest.pickup) + Number(rest.dropoff)
+      list.push(make({ date: d.date, ...rest }))
+    }
+  }
+  return { addOns: list, dropped, stopped }
 }
