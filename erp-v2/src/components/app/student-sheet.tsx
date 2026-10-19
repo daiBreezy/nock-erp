@@ -453,7 +453,7 @@ function BillingSeg({ stu }: { stu: Student }) {
     <div className="space-y-3">
       <div className="flex items-center">
         <p className="text-sm text-muted-foreground">กดแถวเพื่อเปิดใบแจ้งหนี้ · จ่ายครบแล้วระบบเพิ่มเข้าคลาสให้อัตโนมัติ</p>
-        {can(me, "billing.manage") && <Button size="sm" variant="outline" className="ml-auto" nativeButton={false} onClick={() => setInvoice("new")}><PlusIcon /> ใบแจ้งหนี้ใหม่</Button>}
+        {can(me, "billing.manage") && <Button size="sm" variant="outline" className="ml-auto" onClick={() => setInvoice("new")}><PlusIcon /> ใบแจ้งหนี้ใหม่</Button>}
       </div>
       <table className="w-full overflow-hidden rounded-2xl text-sm ring-1 ring-foreground/10">
         <thead className="bg-muted/50 text-xs text-muted-foreground">

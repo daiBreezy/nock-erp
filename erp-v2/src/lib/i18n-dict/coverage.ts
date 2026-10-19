@@ -195,4 +195,7 @@ export const COVERAGE: Record<string, Entry> = {
   "ไม่มีรอบที่จะยกเลิก": { en: "No rides to cancel", ja: "キャンセルする便がありません" },
   "ยกเลิกรอบรถ": { en: "Bus rides cancelled", ja: "送迎キャンセル" },
   "· {0} เที่ยวที่จ่ายแล้วไม่คืนเงิน": { en: "· {0} paid rides not refunded", ja: "· 支払い済み{0}便は返金なし" },
+  "{0}{1} · อนุมัติในแชท Inbox": { en: "{0}{1} · approve in the Inbox chat", ja: "{0}{1} · 受信箱のチャットで承認" },
+  "{0}รับ": { en: "{0}pick-up", ja: "{0}お迎え" },
+  "{0}ส่ง": { en: "{0}drop-off", ja: "{0}お送り" },
 }

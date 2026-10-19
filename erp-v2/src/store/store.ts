@@ -445,9 +445,12 @@ export const useStore = create<Store>()(
         if (!fresh.length && key(reqs) === key(s.parentRequests ?? [])) return []
         const notes = fresh.map((r) => Notif.notify({
           id: uid("no"), at: new Date(r.createdAt), kind: "parent_request",
-          title: r.kind === "leave" ? `ผู้ปกครองแจ้งลา · ${r.studentNickname} ${r.sessions?.length ?? 0} คาบ` : r.kind === "return" ? `ผู้ปกครองอยากกลับมาเรียน · ${r.studentNickname}` : `ผู้ปกครองแจ้งลาออก · ${r.studentNickname}`,
+          title: r.kind === "leave" ? `ผู้ปกครองแจ้งลา · ${r.studentNickname} ${r.sessions?.length ?? 0} คาบ` : r.kind === "return" ? `ผู้ปกครองอยากกลับมาเรียน · ${r.studentNickname}`
+            : r.kind === "bus" ? `ผู้ปกครองขอ / ยกเลิกรอบรถ · ${r.studentNickname}` : `ผู้ปกครองแจ้งลาออก · ${r.studentNickname}`,
           body: r.kind === "return" ? `${r.startDate ? `อยากเริ่มราว ${fmtDate(r.startDate, { weekday: true })}` : "ยังไม่ระบุวัน"}${r.note ? ` — "${r.note}"` : ""} · โทรคุยแล้วกู้คืนนักเรียน จัดคลาส ออกใบแจ้งหนี้`
             : r.kind === "leave" ? `${r.sessions?.map((x) => `${fmtDate(x.date, { weekday: true })} ${x.start}`).join(" · ")}${r.note ? ` — "${r.note}"` : ""} · บันทึกลาที่หน้าแจ้งเตือน`
+            // owner 2026-10-19: rides to add / cancel — approved from the card in the family's chat
+            : r.kind === "bus" ? `${(r.bus ?? []).map((x) => `${fmtDate(x.date, { weekday: true })} ${[x.pickup && `${x.pickup === "add" ? "+" : "✕"}รับ`, x.dropoff && `${x.dropoff === "add" ? "+" : "✕"}ส่ง`].filter(Boolean).join(" ")}`).join(" · ")}${r.note ? ` — "${r.note}"` : ""} · อนุมัติในแชท Inbox`
             : `เรียนวันสุดท้าย ${fmtDate(r.lastDate!, { weekday: true })}${r.note ? ` — "${r.note}"` : ""} · รับเรื่องที่หน้าแจ้งเตือน แล้วโทรคุย`,
           audience: { roles: OFFICE_ROLES, branchId: r.branchId ?? s.students.find((x) => x.id === r.studentId)?.branchId },
         }))
