@@ -5,13 +5,14 @@
 // the warnings, moves / reorders when needed and sends the day's sheets to the drivers.
 import { useMemo, useState } from "react"
 import Link from "next/link"
-import { AlertTriangleIcon, BusIcon, CalendarDaysIcon, CheckCheckIcon, MapIcon, MessageCircleIcon, SendIcon, SettingsIcon, UsersIcon } from "lucide-react"
+import { AlertTriangleIcon, BusIcon, CalendarDaysIcon, CheckCheckIcon, MapIcon, MessageCircleIcon, PlusIcon, SendIcon, SettingsIcon, UsersIcon } from "lucide-react"
 import { Kpi } from "@/components/app/kpi"
 import { NativeSelect } from "@/components/app/native-select"
 import { KpiRow, Page, PageHeader, RangeStepper, Segmented, Toolbar } from "@/components/app/page-layout"
 import { TransportSettings } from "@/components/transport/transport-settings"
 import { ZonesView } from "@/components/transport/zones-view"
 import { KIND_LABEL, TripCard } from "@/components/transport/trip-card"
+import { ExtraTripDialog } from "@/components/transport/trip-dialogs"
 import { Button } from "@/components/ui/button"
 import { addDays, fmtDate, toDateStr, weekdayShort } from "@/domain/dates"
 import { mondayOf } from "@/domain/rules/scheduling"
@@ -43,20 +44,25 @@ export default function TransportPage() {
   const plan = useMemo(() => planDay(branch, date, ctx), [branch, date, ctx])
   const hasBus = (branch.busRounds ?? []).length > 0
 
-  const live = plan.trips.filter((t) => t.stops.length)
+  // trips with children, plus cancelled and one-off ones (so they can be restored / filled)
+  const live = plan.trips.filter((t) => t.stops.length || t.status === "cancelled" || t.extra)
+  const [extraOpen, setExtraOpen] = useState(false)
   const empty = plan.trips.length - live.length
-  const seatsUsed = live.reduce((a, t) => a + t.used, 0), seatsAll = live.reduce((a, t) => a + t.seats, 0)
-  const warnCount = live.filter((t) => t.warnings.length).length + plan.unplaced.length + plan.requests.length
-  const sent = live.filter((t) => t.status === "sent").length
-  const toSend = live.filter((t) => t.status === "draft" || t.status === "changed")
+  const running = live.filter((t) => t.status !== "cancelled")
+  const seatsUsed = running.reduce((a, t) => a + t.used, 0), seatsAll = running.reduce((a, t) => a + t.seats, 0)
+  const warnCount = running.filter((t) => t.warnings.length && t.stops.length).length + plan.unplaced.length + plan.requests.length
+  const sent = running.filter((t) => t.status === "sent").length
+  const toSend = running.filter((t) => t.stops.length && (t.status === "draft" || t.status === "changed"))
 
   return (
     <Page>
       <PageHeader title="รถรับส่ง"
         description="ใครนั่งรอบไหน ระบบจัดให้จากใบแจ้งหนี้และคำขอของผู้ปกครอง — ดูคำเตือน แล้วส่งใบงานให้คนขับ"
-        actions={view === "day" && toSend.length > 0 && (
-          <Button onClick={() => report(sendTrips(toSend.map((t) => ({ roundId: t.round.id, date: t.date, key: t.key }))), `ส่งใบงาน ${toSend.length} เที่ยวให้คนขับแล้ว`)}><SendIcon /> {`ส่งทั้งวัน (${toSend.length})`}</Button>
-        )} />
+        actions={view === "day" && hasBus && <>
+          <Button variant="outline" onClick={() => setExtraOpen(true)}><PlusIcon /> เที่ยวพิเศษ</Button>
+          {toSend.length > 0 && <Button onClick={() => report(sendTrips(toSend.map((t) => ({ roundId: t.round.id, date: t.date, key: t.key }))), `ส่งใบงาน ${toSend.length} เที่ยวให้คนขับแล้ว`)}><SendIcon /> {`ส่งทั้งวัน (${toSend.length})`}</Button>}
+        </>} />
+      {extraOpen && <ExtraTripDialog branch={branch} date={date} onClose={() => setExtraOpen(false)} />}
 
       <Toolbar end={(view === "day" || view === "week") && hasBus && (
         <RangeStepper current={view === "day" ? date === today : mondayOf(date) === mondayOf(today)}
@@ -76,10 +82,10 @@ export default function TransportPage() {
       ) : view === "week" ? <WeekGrid date={date} ctx={ctx} onPick={(d) => { setDate(d); setView("day") }} /> : (
         <>
           <KpiRow>
-            <Kpi icon={BusIcon} label="เที่ยววันนี้" value={live.length} sub={empty ? `ไม่มีคน ${empty} รอบ` : "ทุกรอบมีคนนั่ง"} tone="primary" />
+            <Kpi icon={BusIcon} label="เที่ยววันนี้" value={running.length} sub={live.length > running.length ? `ยกเลิกวันนี้ ${live.length - running.length} เที่ยว` : empty ? `ไม่มีคน ${empty} รอบ` : "ทุกรอบมีคนนั่ง"} tone="primary" />
             <Kpi icon={UsersIcon} label="ที่นั่งที่ใช้" value={`${seatsUsed}/${seatsAll}`} sub="รวมผู้ปกครองที่นั่งไปด้วย" tone="sky" />
             <Kpi icon={AlertTriangleIcon} label="ต้องดู" value={warnCount} sub={warnCount ? "ดูกล่องคำเตือนด้านล่าง" : "ไม่มีอะไรต้องแก้"} tone={warnCount ? "red" : "emerald"} />
-            <Kpi icon={CheckCheckIcon} label="ส่งคนขับแล้ว" value={`${sent}/${live.length}`} sub={branch.busAutoSend ? "เที่ยวที่ไม่มีคำเตือนส่งเอง" : "ส่งเองทุกเที่ยว"} tone="emerald" />
+            <Kpi icon={CheckCheckIcon} label="ส่งคนขับแล้ว" value={`${sent}/${running.filter((t) => t.stops.length).length}`} sub={branch.busAutoSend ? "เที่ยวที่ไม่มีคำเตือนส่งเอง" : "ส่งเองทุกเที่ยว"} tone="emerald" />
           </KpiRow>
 
           {(plan.unplaced.length > 0 || plan.requests.length > 0) && <Warnings plan={plan} onMove={(sid, rid) => report(moveRider(plan.date, sid, rid), "ใส่เข้ารอบรถแล้ว")} />}
@@ -91,7 +97,7 @@ export default function TransportPage() {
               {live.map((t) => <TripCard key={t.id} t={t} branch={branch} others={plan.trips} />)}
             </div>
           )}
-          {empty > 0 && <p className="text-xs text-muted-foreground">{`รอบที่ไม่มีคนนั่งวันนี้: ${plan.trips.filter((t) => !t.stops.length).map((t) => `${KIND_LABEL[t.round.kind]} ${t.round.time}`).join(" · ")}`}</p>}
+          {empty > 0 && <p className="text-xs text-muted-foreground">{`รอบที่ไม่มีคนนั่งวันนี้: ${plan.trips.filter((t) => !t.stops.length && t.status !== "cancelled" && !t.extra).map((t) => `${KIND_LABEL[t.round.kind]} ${t.round.time}`).join(" · ")}`}</p>}
         </>
       )}
     </Page>

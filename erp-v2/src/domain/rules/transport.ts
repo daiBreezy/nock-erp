@@ -32,7 +32,7 @@ export interface Rider {
 
 export interface TripStop { rider: Rider; eta: TimeStr | null; km: number | null }
 
-export type TripStatus = "draft" | "scheduled" | "sent" | "changed"
+export type TripStatus = "draft" | "scheduled" | "sent" | "changed" | "cancelled"
 
 export interface TripPlan {
   id: string
@@ -58,6 +58,10 @@ export interface TripPlan {
   /** auto-send: when it goes out by itself */
   autoAt?: TimeStr
   state?: BusTrip
+  /** a one-off run for this day only */
+  extra: boolean
+  /** leaves at another time than usual that day */
+  timeChanged: boolean
 }
 
 export interface Unplaced { rider: Rider; kind: BusRound["kind"]; reason: string }
@@ -207,9 +211,15 @@ function splitByDirection(riders: Rider[], runs: BusRound[], branch: LatLng | un
 /** Everything the admin needs for one day at one branch. */
 export function planDay(branch: Branch, date: DateStr, ctx: TransportCtx): DayPlan {
   const wd = weekdayOf(date)
-  const runs = (branch.busRounds ?? []).filter((r) => r.weekdays.includes(wd))
   const vehicles = branch.vehicles ?? []
   const states = new Map(ctx.trips.filter((t) => t.date === date && t.branchId === branch.id).map((t) => [t.roundId, t]))
+  // the weekly runs that day (at that day's time when it was changed) + one-off runs added for the day
+  const allRuns: BusRound[] = [
+    ...(branch.busRounds ?? []).filter((r) => r.weekdays.includes(wd)).map((r) => { const t = states.get(r.id)?.time; return t ? { ...r, time: t } : r }),
+    ...[...states.values()].filter((t) => t.extra).map((t) => ({ id: t.roundId, weekdays: [wd], ...t.extra! })),
+  ]
+  // a run cancelled that day takes nobody — its children are matched to another run or left for the admin
+  const runs = allRuns.filter((r) => !states.get(r.id)?.cancelled)
   const pinnedTo = new Map<string, ID>() // `${kind}|${studentId}` → roundId
   for (const run of runs) for (const sid of states.get(run.id)?.pinned ?? []) pinnedTo.set(`${run.kind}|${sid}`, run.id)
   const byRun = new Map<ID, Rider[]>(runs.map((r) => [r.id, []]))
@@ -230,12 +240,20 @@ export function planDay(branch: Branch, date: DateStr, ctx: TransportCtx): DayPl
     for (const kind of ["pickup", "dropoff"] as const) {
       if (!legs[kind]) continue
       const hand = pinnedTo.get(`${kind}|${stu.id}`)
+      const offRun = allRuns.find((r) => r.kind === kind && states.get(r.id)?.cancelled && (states.get(r.id)?.pinned ?? []).includes(stu.id))
+      if (offRun) { unplaced.push({ rider: { ...base, pinned: false }, kind, reason: `เที่ยว ${offRun.time} ยกเลิกวันนี้` }); continue }
       const rider: Rider = { ...base, pinned: !!hand }
       if (hand) { byRun.get(hand)!.push(rider); continue }
       if (!times) { unplaced.push({ rider, kind, reason: "ไม่มีคลาสวันนี้ — แต่มีรอบรถ" }); continue }
-      const hit = roundFor(runs, kind, date, kind === "pickup" ? times.start : times.end)
-      if (!hit) { unplaced.push({ rider, kind, reason: kind === "pickup" ? `ไม่มีรอบรับก่อนเรียน ${times.start}` : `ไม่มีรอบส่งหลังเลิก ${times.end}` }); continue }
-      const same = runs.filter((r) => r.kind === kind && r.time === hit.time)
+      // one-off runs only take children put on them by hand
+      const weekly = runs.filter((r) => !states.get(r.id)?.extra)
+      const hit = roundFor(weekly, kind, date, kind === "pickup" ? times.start : times.end)
+      if (!hit) {
+        const off = roundFor(allRuns.filter((r) => !states.get(r.id)?.extra), kind, date, kind === "pickup" ? times.start : times.end)
+        unplaced.push({ rider, kind, reason: off ? `เที่ยว ${off.time} ยกเลิกวันนี้` : kind === "pickup" ? `ไม่มีรอบรับก่อนเรียน ${times.start}` : `ไม่มีรอบส่งหลังเลิก ${times.end}` })
+        continue
+      }
+      const same = weekly.filter((r) => r.kind === kind && r.time === hit.time)
       if (same.length > 1) { const k = `${kind}|${hit.time}`; groups.set(k, [...(groups.get(k) ?? []), rider]) }
       else byRun.get(hit.id)!.push(rider)
     }
@@ -245,7 +263,7 @@ export function planDay(branch: Branch, date: DateStr, ctx: TransportCtx): DayPl
   const zones = branch.busZones ?? []
   for (const [k, riders] of groups) {
     const [kind, time] = k.split("|")
-    const same = runs.filter((r) => r.kind === kind && r.time === time)
+    const same = runs.filter((r) => r.kind === kind && r.time === time && !states.get(r.id)?.extra)
     const rest: Rider[] = []
     for (const rider of riders) {
       const vid = zones.find((z) => z.id === rider.zoneId)?.vehicleId
@@ -259,7 +277,7 @@ export function planDay(branch: Branch, date: DateStr, ctx: TransportCtx): DayPl
   const now = ctx.now
   const today = now ? `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}` : null
   const nowMin = now ? now.getHours() * 60 + now.getMinutes() : 0
-  const trips = runs.map((round): TripPlan => {
+  const trips = allRuns.map((round): TripPlan => {
     const state = states.get(round.id)
     const vehicle = vehicles.find((v) => v.id === (state?.vehicleId ?? round.vehicleId)) ?? null
     let riders = orderStops(byRun.get(round.id) ?? [], branch.location, round.kind)
@@ -281,9 +299,9 @@ export function planDay(branch: Branch, date: DateStr, ctx: TransportCtx): DayPl
     // auto-send: 60 min before it leaves, when nothing needs a look
     const autoAt = branch.busAutoSend && !warnings.length && riders.length ? fromMinutes(toMinutes(timed.depart) - AUTO_SEND_BEFORE_MIN) : undefined
     const autoDone = !!autoAt && !!today && (date < today || (date === today && nowMin >= toMinutes(autoAt)))
-    const status: TripStatus = state?.sentAt ? (state.sentKey === key ? "sent" : "changed") : autoDone ? "sent" : autoAt ? "scheduled" : "draft"
+    const status: TripStatus = state?.cancelled ? "cancelled" : state?.sentAt ? (state.sentKey === key ? "sent" : "changed") : autoDone ? "sent" : autoAt ? "scheduled" : "draft"
     const zoneIds = [...new Set(riders.map((r) => r.zoneId).filter((z): z is ID => !!z))]
-    return { id: tripId(round.id, date), zoneIds, round, date, vehicle, substitute: !!state?.vehicleId && state.vehicleId !== round.vehicleId, seats, used, ...timed, warnings, key, status, autoAt, state }
+    return { id: tripId(round.id, date), zoneIds, extra: !!state?.extra, timeChanged: !!state?.time, round, date, vehicle, substitute: !!state?.vehicleId && state.vehicleId !== round.vehicleId, seats, used, ...timed, warnings, key, status, autoAt, state }
   }).sort((a, b) => a.depart.localeCompare(b.depart))
 
   const requests = (ctx.parentRequests ?? []).filter((r) => r.kind === "bus" && r.status === "new" && (r.bus ?? []).some((x) => x.date === date)

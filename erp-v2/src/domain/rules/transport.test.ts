@@ -96,3 +96,30 @@ describe("bus zones — several vans (owner 2026-10-19)", () => {
     expect(p.trips.find((t) => t.round.id === "p1")!.zoneIds).toEqual(["n"])
   })
 })
+
+describe("changing a day (owner 2026-10-19: create / edit / delete / adjust / cancel)", () => {
+  it("a run cancelled that day takes nobody; its children are left for the admin with the reason", () => {
+    const p = planDay(branch, MON, ctx({ trips: [{ id: "p|x", branchId: "b", roundId: "p", date: MON, cancelled: { reason: "รถเสีย", by: "u", at: "" } }] }))
+    const pick = p.trips.find((t) => t.round.id === "p")!
+    expect(pick.status).toBe("cancelled")
+    expect(pick.stops).toEqual([])
+    expect(p.unplaced.filter((u) => u.kind === "pickup").map((u) => u.reason)).toContain("เที่ยว 15:45 ยกเลิกวันนี้")
+  })
+  it("a run moved to another time that day uses that time", () => {
+    const p = planDay(branch, MON, ctx({ trips: [{ id: "d|x", branchId: "b", roundId: "d", date: MON, time: "17:40" }] }))
+    const drop = p.trips.find((t) => t.round.id === "d")!
+    expect(drop.depart).toBe("17:40")
+    expect(drop.timeChanged).toBe(true)
+  })
+  it("a one-off run for the day shows up and takes the children put on it", () => {
+    const p = planDay(branch, MON, ctx({ trips: [{ id: "x1|d", branchId: "b", roundId: "x1", date: MON, extra: { kind: "dropoff", time: "18:00", seats: 6, vehicleId: "v2", name: "ทัศนศึกษา" }, pinned: ["c"] }] }))
+    const x = p.trips.find((t) => t.round.id === "x1")!
+    expect(x.extra).toBe(true)
+    expect(x.stops.map((s) => s.rider.studentId)).toEqual(["c"])
+    expect(x.vehicle?.id).toBe("v2")
+    // it takes nobody else — the others stay on their weekly run even though 18:00 is later than 17:15
+    const early = planDay(branch, MON, ctx({ trips: [{ id: "x2|d", branchId: "b", roundId: "x2", date: MON, extra: { kind: "dropoff", time: "17:05", seats: 6 } }] }))
+    expect(early.trips.find((t) => t.round.id === "x2")!.stops).toEqual([])
+    expect(early.trips.find((t) => t.round.id === "d")!.stops.length).toBe(3)
+  })
+})

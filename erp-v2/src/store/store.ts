@@ -20,6 +20,7 @@ import { can, canDeactivateStaff, canEditBlocks, inBranch, OFFICE_ROLES, require
 import * as Sch from "@/domain/rules/scheduling"
 import * as CN from "@/domain/rules/calendar-notes"
 import * as BusR from "@/domain/rules/bus"
+import { busDaysOf } from "@/domain/rules/parent-view"
 import { withLinkedFamilyDemo } from "./linked-demo"
 import { withTransportDemo } from "./transport-demo"
 import { keepLineLinks } from "./keep-line-links"
@@ -35,7 +36,7 @@ import * as Survey from "@/domain/rules/survey"
 import * as Nock from "@/domain/rules/nock"
 import * as Dev from "@/domain/rules/dev-tickets"
 import { toast } from "@/lib/toast"
-import type { CalendarNoteKind, ClassMove, ParentRequest, DevTicket, DevTicketStatus, NockAnswer, NockQuestion, Role, SurveyCampaign, SurveyResponse, EnrollSubmission, ContactChannel, ContactResult, LossReason, Assessment, AttendanceStatus, Entitlement, Branch, BusAddOn, ClassBlock, CourseSummary, CreditNote, LessonBook, LessonTopic, Seat, ChatMessage, Conversation, Course, DateStr, Family, FormSubmission, Holiday, ID, Invoice, Klass, Lead, LeadStage, LessonSummary, LineDelivery, LogCategory, Result, Session, Staff, Student, SystemConfig, BusTrip, BusZone } from "@/domain/types"
+import type { CalendarNoteKind, ClassMove, ParentRequest, DevTicket, DevTicketStatus, NockAnswer, NockQuestion, Role, SurveyCampaign, SurveyResponse, EnrollSubmission, ContactChannel, ContactResult, LossReason, Assessment, AttendanceStatus, Entitlement, Branch, BusAddOn, ClassBlock, CourseSummary, CreditNote, LessonBook, LessonTopic, Seat, ChatMessage, Conversation, Course, DateStr, Family, FormSubmission, Holiday, ID, Invoice, Klass, Lead, LeadStage, LessonSummary, LineDelivery, LogCategory, Result, Session, Staff, Student, SystemConfig, BusTrip, BusZone, TimeStr } from "@/domain/types"
 
 export interface UIState {
   userId: ID
@@ -218,6 +219,19 @@ type Store = DB & UIState & {
   moveRider: (date: DateStr, studentId: ID, toRoundId: ID) => Result
   setTripVehicle: (roundId: ID, date: DateStr, vehicleId: ID | null) => Result
   sendTrips: (trips: { roundId: ID; date: DateStr; key: string }[]) => Result<{ count: number }>
+  /** owner 2026-10-19 ("สร้าง แก้ไข ลบ ปรับเปลี่ยน ยกเลิก"): one run on one day */
+  cancelTrip: (roundId: ID, date: DateStr, reason: string) => Result
+  restoreTrip: (roundId: ID, date: DateStr) => Result
+  setTripTime: (roundId: ID, date: DateStr, time: TimeStr | null) => Result
+  /** a one-off run for a day (new when roundId is unset) */
+  saveExtraTrip: (date: DateStr, def: NonNullable<BusTrip["extra"]>, roundId?: ID) => Result<{ roundId: ID }>
+  deleteExtraTrip: (roundId: ID, date: DateStr) => Result
+  /** put a child on this run that day — an extra ride (charged on the next invoice unless free) when they weren't riding */
+  addRiderToTrip: (roundId: ID, date: DateStr, studentId: ID, opts: { charge: boolean; adult: boolean }) => Result<{ charged: number }>
+  /** take a child off this run that day (their ride that way is cancelled — unbilled extras dropped, paid rides not refunded) */
+  removeRiderFromTrip: (roundId: ID, date: DateStr, studentId: ID) => Result
+  /** a parent rides along that day (on every leg the child rides) — or not any more */
+  setCompanion: (studentId: ID, date: DateStr, on: boolean) => Result
   /** bus zones of a branch (owner 2026-10-19) — replaced as a whole */
   saveBusZones: (branchId: ID, zones: BusZone[]) => Result
   /** put a home in a zone by hand (null = by direction again) */
@@ -298,6 +312,9 @@ type Store = DB & UIState & {
   linkConversationToFamily: (conversationId: ID, familyId: ID) => Result
   linkConversationToLead: (conversationId: ID, leadId: ID) => Result
 }
+
+/** what a child rides each day (invoices + extra / cancelled rides) */
+const busDaysOfStudent = (s: { invoices: Invoice[]; busAddOns: BusAddOn[] }, studentId: ID) => busDaysOf(studentId, s.invoices, s.busAddOns)
 
 /** Transport (owner 2026-10-19): create / patch the admin's record for one run on one day */
 function upsertTrip(trips: BusTrip[], branchId: ID, roundId: ID, date: DateStr, patch: Partial<BusTrip>): BusTrip[] {
@@ -2111,6 +2128,104 @@ export const useStore = create<Store>()(
         if (!perm.ok) return perm
         set({ busTrips: upsertTrip(s.busTrips, s.branchId, roundId, date, { vehicleId }) })
         return OK
+      },
+      cancelTrip: (roundId, date, reason) => {
+        const s = get()
+        const perm = requirePerm(s.me(), "session.manage")
+        if (!perm.ok) return perm
+        if (!reason.trim()) return fail("ใส่เหตุผลที่ยกเลิกเที่ยวนี้")
+        set({ busTrips: upsertTrip(s.busTrips, s.branchId, roundId, date, { cancelled: { reason: reason.trim(), by: s.userId, at: s.now().toISOString() } }) })
+        log("billing", [], "ยกเลิกเที่ยวรถ", `${fmtDate(date)} · ${reason.trim()}`)
+        return OK
+      },
+      restoreTrip: (roundId, date) => {
+        const s = get()
+        const perm = requirePerm(s.me(), "session.manage")
+        if (!perm.ok) return perm
+        set({ busTrips: s.busTrips.map((t) => (t.roundId === roundId && t.date === date ? { ...t, cancelled: undefined } : t)) })
+        return OK
+      },
+      setTripTime: (roundId, date, time) => {
+        const s = get()
+        const perm = requirePerm(s.me(), "session.manage")
+        if (!perm.ok) return perm
+        if (time && !/^\d{2}:\d{2}$/.test(time)) return fail("ใส่เวลาให้ถูก")
+        const trip = s.busTrips.find((t) => t.roundId === roundId && t.date === date)
+        // a one-off run keeps its time in its own definition
+        if (trip?.extra) { if (!time) return fail("เที่ยวพิเศษต้องมีเวลา"); set({ busTrips: upsertTrip(s.busTrips, s.branchId, roundId, date, { extra: { ...trip.extra, time } }) }); return OK }
+        set({ busTrips: upsertTrip(s.busTrips, s.branchId, roundId, date, { time: time ?? undefined }) })
+        return OK
+      },
+      saveExtraTrip: (date, def, roundId) => {
+        const s = get()
+        const perm = requirePerm(s.me(), "session.manage")
+        if (!perm.ok) return perm
+        if (!/^\d{2}:\d{2}$/.test(def.time)) return fail("ใส่เวลาของเที่ยวพิเศษ")
+        if (!(def.seats > 0)) return fail("ที่นั่งต้องมากกว่า 0")
+        const id = roundId ?? uid("xtr")
+        set({ busTrips: upsertTrip(s.busTrips, s.branchId, id, date, { extra: { ...def, name: def.name?.trim() || undefined } }) })
+        return { ok: true, value: { roundId: id } }
+      },
+      deleteExtraTrip: (roundId, date) => {
+        const s = get()
+        const perm = requirePerm(s.me(), "session.manage")
+        if (!perm.ok) return perm
+        set({ busTrips: s.busTrips.filter((t) => !(t.roundId === roundId && t.date === date && t.extra)) })
+        return OK
+      },
+      addRiderToTrip: (roundId, date, studentId, opts) => {
+        const s = get()
+        const perm = requirePerm(s.me(), "billing.manage")
+        if (!perm.ok) return perm
+        const stu = s.students.find((x) => x.id === studentId)
+        const branch = s.branches.find((b) => b.id === stu?.branchId)
+        if (!stu || !branch) return fail("ไม่พบนักเรียน")
+        const trip = s.busTrips.find((t) => t.roundId === roundId && t.date === date)
+        const round = branch.busRounds?.find((r) => r.id === roundId) ?? (trip?.extra ? { id: roundId, ...trip.extra } : undefined)
+        if (!round) return fail("ไม่พบเที่ยวรถ")
+        const leg = { date, pickup: round.kind === "pickup", dropoff: round.kind === "dropoff" }
+        let addOns = s.busAddOns, charged = 0
+        const now = busDaysOfStudent(s, studentId).get(date)
+        if (!now?.[round.kind]) {
+          // a ride they had and cancelled comes back; otherwise an extra ride
+          const undo = addOns.find((a) => a.cancel && a.studentId === studentId && a.date === date && a[round.kind])
+          if (undo) addOns = addOns.map((a) => (a.id === undo.id ? { ...a, [round.kind]: false } : a)).filter((a) => !a.cancel || a.pickup || a.dropoff)
+          else {
+            const rate = opts.charge ? Cfg.busRate(branch, null) : 0
+            charged = rate
+            addOns = [...addOns, { id: uid("ba"), branchId: branch.id, studentId, ...leg, busFeeId: null, amount: rate, note: opts.charge ? "แอดมินเพิ่มในหน้ารถรับส่ง" : "แอดมินเพิ่ม · ไม่คิดเงิน", createdBy: s.userId, createdAt: s.now().toISOString() }]
+          }
+        }
+        if (opts.adult && !addOns.some((a) => a.companion && a.studentId === studentId && a.date === date))
+          addOns = [...addOns, { id: uid("ba"), branchId: branch.id, studentId, ...leg, busFeeId: null, amount: 0, companion: true, note: "ผู้ปกครองไปด้วย", createdBy: s.userId, createdAt: s.now().toISOString() }]
+        // on this run (off any other run of the same kind that day)
+        const sameKind = new Set([...(branch.busRounds ?? []).filter((r) => r.kind === round.kind).map((r) => r.id), ...s.busTrips.filter((t) => t.date === date && t.extra?.kind === round.kind).map((t) => t.roundId)])
+        const trips = s.busTrips.map((t) => (t.date === date && sameKind.has(t.roundId) && t.pinned?.includes(studentId) ? { ...t, pinned: t.pinned.filter((x) => x !== studentId) } : t))
+        const cur = trips.find((t) => t.roundId === roundId && t.date === date)
+        set({ busAddOns: addOns, busTrips: upsertTrip(trips, branch.id, roundId, date, { pinned: [...(cur?.pinned ?? []), studentId] }) })
+        log("billing", [studentId], "เพิ่มเข้าเที่ยวรถ", `${fmtDate(date)} ${round.kind === "pickup" ? "รับ" : "ส่ง"} ${round.time}${charged ? ` · ${fmtMoney(charged)} รอเรียกเก็บในใบถัดไป` : ""}${opts.adult ? " · ผู้ปกครองไปด้วย" : ""}`)
+        return { ok: true, value: { charged } }
+      },
+      removeRiderFromTrip: (roundId, date, studentId) => {
+        const s = get()
+        const trip = s.busTrips.find((t) => t.roundId === roundId && t.date === date)
+        const branch = s.branches.find((b) => b.id === s.students.find((x) => x.id === studentId)?.branchId)
+        const kind = branch?.busRounds?.find((r) => r.id === roundId)?.kind ?? trip?.extra?.kind
+        if (!kind) return fail("ไม่พบเที่ยวรถ")
+        const r = get().cancelBusRides(studentId, [{ date, pickup: kind === "pickup", dropoff: kind === "dropoff" }], "แอดมินเอาออกในหน้ารถรับส่ง")
+        if (!r.ok) return r
+        const after = get()
+        set({ busTrips: after.busTrips.map((t) => (t.date === date && t.pinned?.includes(studentId) ? { ...t, pinned: t.pinned.filter((x) => x !== studentId) } : t)) })
+        return OK
+      },
+      setCompanion: (studentId, date, on) => {
+        const s = get()
+        const perm = requirePerm(s.me(), "billing.manage")
+        if (!perm.ok) return perm
+        if (!on) { set({ busAddOns: s.busAddOns.filter((a) => !(a.companion && a.studentId === studentId && a.date === date)) }); return OK }
+        const legs = busDaysOfStudent(s, studentId).get(date)
+        if (!legs || (!legs.pickup && !legs.dropoff)) return fail("วันนี้เด็กไม่ได้นั่งรถ — ผู้ปกครองไปคนเดียวไม่ได้")
+        return get().addBusCompanions(studentId, [{ date, pickup: legs.pickup, dropoff: legs.dropoff }], "แอดมินเพิ่มในหน้ารถรับส่ง").ok ? OK : fail("เพิ่มไม่สำเร็จ")
       },
       saveBusZones: (branchId, zones) => {
         const s = get()

@@ -124,6 +124,12 @@ export interface BusTrip {
   sentAt?: string
   sentBy?: ID
   sentKey?: string
+  /** owner 2026-10-19 ("สร้าง แก้ไข ลบ ปรับเปลี่ยน ยกเลิก"): this run doesn't go that day — its children need another run */
+  cancelled?: { reason: string; by: ID; at: string }
+  /** the run leaves at another time that day */
+  time?: TimeStr
+  /** a one-off run on that day only (field trip, exam day …) — not in the weekly runs */
+  extra?: { kind: BusRound["kind"]; time: TimeStr; seats: number; vehicleId?: ID; name?: string }
 }
 
 /** Package duration unit (Settings → Packages tabs: Hour / Week / Month). */

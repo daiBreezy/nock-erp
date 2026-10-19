@@ -3,7 +3,7 @@
 // One run on one day (owner 2026-10-19, Transport): who is on it in the order the van goes, when it reaches each home,
 // seats, and what needs a look. The admin only moves / reorders / swaps the van / sends — the rest is worked out.
 import { useState } from "react"
-import { AlertTriangleIcon, ArrowDownIcon, ArrowUpIcon, ArrowRightLeftIcon, BusIcon, CheckIcon, ClockIcon, EllipsisIcon, LogInIcon, LogOutIcon, MapIcon, MapPinOffIcon, PinIcon, SendIcon, UserIcon } from "lucide-react"
+import { AlertTriangleIcon, ArrowDownIcon, ArrowUpIcon, ArrowRightLeftIcon, BanIcon, BusIcon, CheckIcon, ClockIcon, EllipsisIcon, LogInIcon, LogOutIcon, MapIcon, MapPinOffIcon, PencilIcon, PinIcon, PlusIcon, RotateCcwIcon, SendIcon, TrashIcon, UserIcon, UserMinusIcon, XIcon } from "lucide-react"
 import { Pill } from "@/components/app/badges"
 import { NativeSelect } from "@/components/app/native-select"
 import { Button } from "@/components/ui/button"
@@ -14,11 +14,13 @@ import { report } from "@/lib/feedback"
 import { cn } from "@/lib/utils"
 import { useStore } from "@/store/store"
 import { TripSheet } from "./trip-sheet"
+import { AddRiderDialog, ExtraTripDialog, TripCancelDialog, TripTimeDialog } from "./trip-dialogs"
 import { ZONE_DOT } from "./zone-map"
 
 export const KIND_LABEL = { pickup: "รอบรับ", dropoff: "รอบส่ง" } as const
 
 export function TripStatus({ t }: { t: TripPlan }) {
+  if (t.status === "cancelled") return <Pill tone="gray"><BanIcon className="size-3" />ยกเลิกวันนี้</Pill>
   if (t.status === "sent") return <Pill tone="green"><CheckIcon className="size-3" />ส่งคนขับแล้ว</Pill>
   if (t.status === "changed") return <Pill tone="red"><AlertTriangleIcon className="size-3" />แก้หลังส่ง — ส่งใหม่</Pill>
   if (t.status === "scheduled") return <Pill tone="blue"><ClockIcon className="size-3" />{`จะส่งเอง ${t.autoAt}`}</Pill>
@@ -30,7 +32,13 @@ export function TripCard({ t, branch, others }: { t: TripPlan; branch: Branch; o
   const moveRider = useStore((s) => s.moveRider)
   const setVehicle = useStore((s) => s.setTripVehicle)
   const sendTrips = useStore((s) => s.sendTrips)
+  const restoreTrip = useStore((s) => s.restoreTrip)
+  const deleteExtra = useStore((s) => s.deleteExtraTrip)
+  const removeRider = useStore((s) => s.removeRiderFromTrip)
+  const setCompanion = useStore((s) => s.setCompanion)
   const [sheet, setSheet] = useState(false)
+  // owner 2026-10-19: the day's changes — time, cancel, add a child, edit / delete a one-off run
+  const [dlg, setDlg] = useState<null | "time" | "cancel" | "add" | "extra">(null)
   const Kind = t.round.kind === "pickup" ? LogInIcon : LogOutIcon
   const ids = t.stops.map((s) => s.rider.studentId)
   const move = (i: number, d: -1 | 1) => {
@@ -46,10 +54,25 @@ export function TripCard({ t, branch, others }: { t: TripPlan; branch: Branch; o
       <header className="flex flex-wrap items-center gap-2 border-b px-4 py-3">
         <span className={cn("grid size-9 shrink-0 place-items-center rounded-xl", t.round.kind === "pickup" ? "bg-sky-100 text-sky-700" : "bg-amber-100 text-amber-800")}><Kind className="size-4" /></span>
         <div className="min-w-0 flex-1">
-          <p className="truncate font-semibold">{`${KIND_LABEL[t.round.kind]} ${t.round.time}`}{t.round.name && <span className="font-normal text-muted-foreground">{` · ${t.round.name}`}</span>}</p>
+          <p className="flex items-center gap-1.5 truncate font-semibold">{`${KIND_LABEL[t.round.kind]} ${t.round.time}`}{t.round.name && <span className="truncate font-normal text-muted-foreground">{` · ${t.round.name}`}</span>}
+            {t.extra && <Pill tone="violet">เที่ยวพิเศษ</Pill>}{t.timeChanged && <Pill tone="amber">เวลาเปลี่ยนวันนี้</Pill>}</p>
           <p className="text-xs text-muted-foreground tabular-nums">{t.round.kind === "pickup" ? `ออก ${t.depart} → ถึงสาขา ${t.finish}` : `ออกจากสาขา ${t.depart} → คนสุดท้าย ${t.finish}`}{t.km ? ` · ${t.km} กม.` : ""}</p>
         </div>
         <TripStatus t={t} />
+        <DropdownMenu>
+          <DropdownMenuTrigger render={<Button size="icon-sm" variant="ghost" aria-label="จัดการเที่ยวนี้" />}><EllipsisIcon /></DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-56">
+            {t.status === "cancelled" ? (
+              <DropdownMenuItem onClick={() => report(restoreTrip(t.round.id, t.date), "กู้คืนเที่ยวนี้แล้ว")}><RotateCcwIcon /> กู้คืนเที่ยวนี้</DropdownMenuItem>
+            ) : <>
+              <DropdownMenuItem onClick={() => setDlg("add")}><PlusIcon /> เพิ่มเด็กเข้าเที่ยวนี้</DropdownMenuItem>
+              {t.extra ? <DropdownMenuItem onClick={() => setDlg("extra")}><PencilIcon /> แก้เที่ยวพิเศษ</DropdownMenuItem>
+                : <DropdownMenuItem onClick={() => setDlg("time")}><ClockIcon /> เปลี่ยนเวลาเฉพาะวันนี้</DropdownMenuItem>}
+              {t.extra ? <DropdownMenuItem variant="destructive" onClick={() => report(deleteExtra(t.round.id, t.date), "ลบเที่ยวพิเศษแล้ว")}><TrashIcon /> ลบเที่ยวพิเศษ</DropdownMenuItem>
+                : <DropdownMenuItem variant="destructive" onClick={() => setDlg("cancel")}><BanIcon /> ยกเลิกเที่ยวนี้วันนี้</DropdownMenuItem>}
+            </>}
+          </DropdownMenuContent>
+        </DropdownMenu>
         {/* owner 2026-10-19: which zone(s) this van serves */}
         {t.zoneIds.length > 0 && (
           <span className="flex w-full flex-wrap gap-1.5 pl-11">
@@ -58,6 +81,14 @@ export function TripCard({ t, branch, others }: { t: TripPlan; branch: Branch; o
         )}
       </header>
 
+      {t.status === "cancelled" ? (
+        <div className="flex flex-1 flex-col items-center justify-center gap-2 px-4 py-6 text-center text-sm text-muted-foreground">
+          <BanIcon className="size-6" />
+          <p>{`ยกเลิกวันนี้ — ${t.state?.cancelled?.reason ?? ""}`}</p>
+          <p className="text-xs">เด็กของเที่ยวนี้อยู่ในกล่อง &quot;ต้องตัดสินใจ&quot; ด้านบน</p>
+          <Button size="sm" variant="outline" onClick={() => report(restoreTrip(t.round.id, t.date), "กู้คืนเที่ยวนี้แล้ว")}><RotateCcwIcon /> กู้คืน</Button>
+        </div>
+      ) : <>
       <div className="flex flex-wrap items-center gap-2 px-4 pt-3 text-sm">
         <BusIcon className="size-4 text-muted-foreground" />
         <NativeSelect className="h-8 w-auto min-w-40" value={t.vehicle?.id ?? ""} placeholder="เลือกรถ"
@@ -107,6 +138,10 @@ export function TripCard({ t, branch, others }: { t: TripPlan; branch: Branch; o
                   </DropdownMenuSub>
                 )}
                 {s.rider.loc && <DropdownMenuItem render={<a href={`https://www.google.com/maps?q=${s.rider.loc.lat},${s.rider.loc.lng}`} target="_blank" rel="noreferrer" />}><MapIcon /> เปิดแผนที่บ้าน</DropdownMenuItem>}
+                {s.rider.adult
+                  ? <DropdownMenuItem onClick={() => report(setCompanion(s.rider.studentId, t.date, false), "ผู้ปกครองไม่ไปแล้ว")}><XIcon /> ผู้ปกครองไม่ไปแล้ว</DropdownMenuItem>
+                  : <DropdownMenuItem onClick={() => report(setCompanion(s.rider.studentId, t.date, true), "ผู้ปกครองนั่งไปด้วยแล้ว (+1 ที่นั่ง)")}><UserIcon /> ผู้ปกครองไปด้วย</DropdownMenuItem>}
+                <DropdownMenuItem variant="destructive" onClick={() => report(removeRider(t.round.id, t.date, s.rider.studentId), `เอา${s.rider.nickname}ออกจากเที่ยวนี้แล้ว`)}><UserMinusIcon /> เอาออกจากเที่ยวนี้</DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
           </li>
@@ -114,13 +149,19 @@ export function TripCard({ t, branch, others }: { t: TripPlan; branch: Branch; o
       </ol>
 
       <footer className="flex items-center gap-2 border-t px-4 py-2.5">
+        <Button size="sm" variant="ghost" onClick={() => setDlg("add")}><PlusIcon /> เพิ่มเด็ก</Button>
         <Button size="sm" variant="ghost" onClick={() => setSheet(true)} disabled={!t.stops.length}><MapIcon /> แผนที่ & ใบงานคนขับ</Button>
         <Button size="sm" className="ml-auto" variant={t.status === "sent" ? "outline" : "default"} disabled={!t.stops.length || t.status === "sent"}
           onClick={() => report(sendTrips([{ roundId: t.round.id, date: t.date, key: t.key }]), `ส่งใบงานให้${t.vehicle?.driverName ?? "คนขับ"}แล้ว`)}>
           <SendIcon /> {t.status === "changed" ? "ส่งใหม่" : t.status === "sent" ? "ส่งแล้ว" : "ส่งให้คนขับ"}
         </Button>
       </footer>
+      </>}
       {sheet && <TripSheet t={t} branch={branch} onClose={() => setSheet(false)} />}
+      {dlg === "time" && <TripTimeDialog t={t} onClose={() => setDlg(null)} />}
+      {dlg === "cancel" && <TripCancelDialog t={t} onClose={() => setDlg(null)} />}
+      {dlg === "add" && <AddRiderDialog t={t} branch={branch} onClose={() => setDlg(null)} />}
+      {dlg === "extra" && <ExtraTripDialog branch={branch} date={t.date} trip={t.state} onClose={() => setDlg(null)} />}
     </section>
   )
 }
