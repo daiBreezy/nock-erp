@@ -17,7 +17,7 @@ import type { TripPlan } from "@/domain/rules/transport"
 import type { Branch, BusTrip, DateStr } from "@/domain/types"
 import { report } from "@/lib/feedback"
 import { useStore } from "@/store/store"
-import { KIND_LABEL } from "./trip-card"
+import { KIND_LABEL } from "./labels"
 
 const REASONS = ["รถเสีย", "วันหยุด / ปิดเรียน", "คนขับลา", "ไม่มีเด็กนั่ง"]
 
@@ -73,6 +73,8 @@ export function AddRiderDialog({ t, branch, onClose }: { t: TripPlan; branch: Br
   const [pick, setPick] = useState<string | null>(null)
   const [charge, setCharge] = useState(true)
   const [adult, setAdult] = useState(false)
+  // a Both trip carries both ways — which one is this child's?
+  const [leg, setLeg] = useState<"pickup" | "dropoff">("pickup")
   const onTrip = new Set(t.stops.map((s) => s.rider.studentId))
   const list = useMemo(() => {
     const k = q.trim().toLowerCase()
@@ -99,11 +101,16 @@ export function AddRiderDialog({ t, branch, onClose }: { t: TripPlan; branch: Br
           ))}
           {list.length === 0 && <li className="px-3 py-4 text-center text-xs text-muted-foreground">ไม่พบนักเรียน</li>}
         </ul>
+        {t.round.kind === "both" && (
+          <div className="flex gap-1.5">
+            {(["dropoff", "pickup"] as const).map((k) => <button key={k} type="button" onClick={() => setLeg(k)} className={leg === k ? "h-8 rounded-full border border-primary bg-primary/10 px-3 text-sm font-medium text-primary" : "h-8 rounded-full border px-3 text-sm text-muted-foreground hover:bg-muted"}>{k === "pickup" ? "รับมาเรียน (P)" : "ส่งกลับบ้าน (D)"}</button>)}
+          </div>
+        )}
         <label className="flex items-center gap-2 text-sm"><Checkbox checked={charge} onCheckedChange={(v) => setCharge(!!v)} />{`คิดค่ารถ ${fmtMoney(rate)} (ถ้ายังไม่ได้ซื้อรอบนี้)`}</label>
         <label className="flex items-center gap-2 text-sm"><Checkbox checked={adult} onCheckedChange={(v) => setAdult(!!v)} />ผู้ปกครองไปด้วย (+1 ที่นั่ง ไม่คิดเงิน)</label>
         <DialogFooter>
           <Button variant="ghost" onClick={onClose}>ยกเลิก</Button>
-          <Button disabled={!pick} onClick={() => { if (pick && report(addRider(t.round.id, t.date, pick, { charge, adult }), (v) => (v.charged ? `เพิ่มแล้ว · ${fmtMoney(v.charged)} รอเรียกเก็บในใบถัดไป` : "เพิ่มเข้าเที่ยวนี้แล้ว"))) onClose() }}>เพิ่ม</Button>
+          <Button disabled={!pick} onClick={() => { if (pick && report(addRider(t.round.id, t.date, pick, { charge, adult, leg }), (v) => (v.charged ? `เพิ่มแล้ว · ${fmtMoney(v.charged)} รอเรียกเก็บในใบถัดไป` : "เพิ่มเข้าเที่ยวนี้แล้ว"))) onClose() }}>เพิ่ม</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
@@ -123,7 +130,7 @@ export function ExtraTripDialog({ branch, date, trip, onClose }: { branch: Branc
           <DialogDescription>{`${fmtDate(date, { weekday: true })} วันเดียว — เช่น ทัศนศึกษา วันสอบ · เพิ่มเด็กเข้าเที่ยวได้หลังสร้าง`}</DialogDescription>
         </DialogHeader>
         <div className="grid grid-cols-2 gap-2">
-          <div className="space-y-1"><Label className="text-xs">ประเภท</Label><NativeSelect className="h-9" value={d.kind} onChange={(e) => setD({ ...d, kind: e.target.value as "pickup" | "dropoff" })} options={[{ value: "pickup", label: "รอบรับ" }, { value: "dropoff", label: "รอบส่ง" }]} /></div>
+          <div className="space-y-1"><Label className="text-xs">ประเภท</Label><NativeSelect className="h-9" value={d.kind} onChange={(e) => setD({ ...d, kind: e.target.value as "pickup" | "dropoff" | "both" })} options={[{ value: "pickup", label: "รอบรับ (P)" }, { value: "dropoff", label: "รอบส่ง (D)" }, { value: "both", label: "รับ-ส่ง (Both)" }]} /></div>
           <div className="space-y-1"><Label className="text-xs">{d.kind === "pickup" ? "ถึงสาขาก่อน" : "ออกจากสาขา"}</Label><Input type="time" value={d.time} onChange={(e) => setD({ ...d, time: e.target.value })} /></div>
           <div className="space-y-1"><Label className="text-xs">รถ</Label><NativeSelect className="h-9" value={d.vehicleId ?? ""} placeholder="เลือกรถ" onChange={(e) => setD({ ...d, vehicleId: e.target.value || undefined })} options={vans.map((v) => ({ value: v.id, label: `${v.name} · ${v.driverName}` }))} /></div>
           <div className="space-y-1"><Label className="text-xs">ที่นั่ง</Label><Input type="number" min={1} value={d.seats} onChange={(e) => setD({ ...d, seats: Number(e.target.value) })} /></div>
@@ -131,7 +138,42 @@ export function ExtraTripDialog({ branch, date, trip, onClose }: { branch: Branc
         </div>
         <DialogFooter>
           <Button variant="ghost" onClick={onClose}>ยกเลิก</Button>
-          <Button onClick={() => { if (report(save(date, d, trip?.roundId), trip ? "แก้เที่ยวพิเศษแล้ว" : "เพิ่มเที่ยวพิเศษแล้ว — กด + เพิ่มเด็ก ที่การ์ด")) onClose() }}>บันทึก</Button>
+          <Button onClick={() => { if (report(save(date, d, trip?.roundId, branch.id), trip ? "แก้เที่ยวพิเศษแล้ว" : "เพิ่มเที่ยวพิเศษแล้ว — กด + เพิ่มเด็ก ที่การ์ด")) onClose() }}>บันทึก</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
+/** another van and / or driver for this trip that day (owner 2026-10-19: a van breaks down · "พี่เบ้งอาจจะลากลับบ้าน") */
+export function DayCrewDialog({ t, branch, onClose }: { t: TripPlan; branch: Branch; onClose: () => void }) {
+  const staff = useStore((s) => s.staff)
+  const setVehicle = useStore((s) => s.setTripVehicle)
+  const setDriver = useStore((s) => s.setTripDriver)
+  const vans = (branch.vehicles ?? []).filter((v) => v.active)
+  const drivers = staff.filter((x) => x.active && x.roles.includes("driver"))
+  const [van, setVan] = useState(t.vehicle?.id ?? "")
+  const [drv, setDrv] = useState(t.driver?.id ?? "")
+  const save = () => {
+    const usualVan = t.round.vehicleId ?? ""
+    const okV = setVehicle(t.round.id, t.date, van && van !== usualVan ? van : null)
+    const usualDrv = vans.find((v) => v.id === (van || usualVan))?.driverId ?? ""
+    const okD = setDriver(t.round.id, t.date, drv && drv !== usualDrv ? drv : null)
+    if (report(okV.ok ? okD : okV, "เปลี่ยนรถ / คนขับเฉพาะวันนี้แล้ว")) onClose()
+  }
+  return (
+    <Dialog open onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="sm:max-w-sm">
+        <DialogHeader>
+          <DialogTitle>เปลี่ยนรถ / คนขับวันนี้</DialogTitle>
+          <DialogDescription>{`${KIND_LABEL[t.round.kind]} ${t.round.time} · ${fmtDate(t.date, { weekday: true })} เท่านั้น — รอบประจำไม่เปลี่ยน`}</DialogDescription>
+        </DialogHeader>
+        <div className="space-y-1"><Label className="text-xs">รถ</Label><NativeSelect className="h-9" value={van} onChange={(e) => setVan(e.target.value)} options={vans.map((v) => ({ value: v.id, label: `${v.name} · ${v.plate}` }))} /></div>
+        <div className="space-y-1"><Label className="text-xs">คนขับ</Label><NativeSelect className="h-9" value={drv} placeholder="คนขับประจำรถ" onChange={(e) => setDrv(e.target.value)} options={drivers.map((d) => ({ value: d.id, label: `${d.nickname} · ${d.name}${d.vendor ? " (Outsource)" : ""}` }))} /></div>
+        <p className="text-xs text-muted-foreground">คนขับ Outsource เพิ่มได้ที่แท็บ รถ & คนขับ</p>
+        <DialogFooter>
+          <Button variant="ghost" onClick={onClose}>ยกเลิก</Button>
+          <Button onClick={save}>บันทึก</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

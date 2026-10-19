@@ -34,15 +34,23 @@ export function busZone(fees: Fee[], km: number): BusZone {
 /** how far a run may be from the class (pickup before the start / drop-off after the end) to count as "its" run */
 export const BUS_WINDOW_MIN = 90
 
-/** The run for a ride: pickup = the latest run arriving by the class start · drop-off = the first run leaving after the end. */
-export function roundFor(rounds: BusRound[], kind: BusRound["kind"], date: DateStr, time: TimeStr): BusRound | null {
+/** a Both run (owner 2026-10-19) leaves the branch at its time, drops the children whose class ended, then brings the
+ *  next class in — those children's class starts at least this long after it leaves */
+export const BOTH_LEAD_MIN = 45
+
+/**
+ * The run for a ride: pickup = the latest run arriving by the class start · drop-off = the first run leaving after the
+ * end · a Both run counts for a drop-off when it leaves after the class ends, for a pickup when the class starts
+ * BOTH_LEAD_MIN or more after it leaves. Closest fit wins; nothing within BUS_WINDOW_MIN = no run.
+ */
+export function roundFor(rounds: BusRound[], kind: "pickup" | "dropoff", date: DateStr, time: TimeStr): BusRound | null {
   const wd = weekdayOf(date), t = toMinutes(time)
-  const fit = rounds.filter((r) => r.kind === kind && r.weekdays.includes(wd)).filter((r) => {
-    const gap = kind === "pickup" ? t - toMinutes(r.time) : toMinutes(r.time) - t
-    return gap >= 0 && gap <= BUS_WINDOW_MIN
-  })
-  if (!fit.length) return null
-  return fit.sort((a, b) => (kind === "pickup" ? toMinutes(b.time) - toMinutes(a.time) : toMinutes(a.time) - toMinutes(b.time)))[0]
+  const fit = rounds.filter((r) => (r.kind === kind || r.kind === "both") && r.weekdays.includes(wd)).map((r) => {
+    const rt = toMinutes(r.time)
+    const gap = r.kind === "both" ? (kind === "dropoff" ? rt - t : t - rt - BOTH_LEAD_MIN) : kind === "pickup" ? t - rt : rt - t
+    return { r, gap }
+  }).filter((x) => x.gap >= 0 && x.gap <= BUS_WINDOW_MIN).sort((a, b) => a.gap - b.gap)
+  return fit[0]?.r ?? null
 }
 
 /** first class start + last class end that day, among the given classes (several courses on one day = one ride) */
@@ -68,13 +76,13 @@ export interface BusCtx {
  *  parents riding along with them (owner 2026-10-19: a parent = one seat, no charge). */
 export function roundLoad(round: BusRound, date: DateStr, ctx: BusCtx): { students: Set<ID>; adults: Map<ID, number> } {
   const riders = new Set<ID>(), adults = new Map<ID, number>()
-  const leg = (x: { pickup: boolean; dropoff: boolean }) => (round.kind === "pickup" ? x.pickup : x.dropoff)
+  const leg = (x: { pickup: boolean; dropoff: boolean }) => (round.kind === "both" ? x.pickup || x.dropoff : round.kind === "pickup" ? x.pickup : x.dropoff)
   const mine = ctx.busAddOns.filter((a) => a.branchId === ctx.branchId && a.date === date && leg(a))
   // rides the parent cancelled (owner 2026-10-19) free the seat
   const off = new Set(mine.filter((a) => a.cancel).map((a) => a.studentId))
   const onRun = (studentId: ID, classIds: ID[]) => {
     const t = rideTimes(ctx.classes, classIds, date)
-    return !!t && !!roundFor([round], round.kind, date, round.kind === "pickup" ? t.start : t.end)
+    return !!t && (["pickup", "dropoff"] as const).some((k) => (round.kind === k || round.kind === "both") && !!roundFor([round], k, date, k === "pickup" ? t.start : t.end))
   }
   const classesOf = (studentId: ID) => ctx.classes.filter((k) => k.studentIds.includes(studentId)).map((k) => k.id)
   for (const inv of ctx.invoices) {
@@ -103,7 +111,7 @@ export interface RoundCheck {
 }
 
 /** One ride (pickup or drop-off) on a class day: is there a run, how many seats are taken, is it full. */
-export function checkRide(kind: BusRound["kind"], date: DateStr, times: { start: TimeStr; end: TimeStr } | null, rounds: BusRound[], ctx: BusCtx, studentId?: ID): RoundCheck {
+export function checkRide(kind: "pickup" | "dropoff", date: DateStr, times: { start: TimeStr; end: TimeStr } | null, rounds: BusRound[], ctx: BusCtx, studentId?: ID): RoundCheck {
   const round = times ? roundFor(rounds, kind, date, kind === "pickup" ? times.start : times.end) : null
   if (!round) return { round: null, taken: 0, full: false }
   const load = roundLoad(round, date, ctx)

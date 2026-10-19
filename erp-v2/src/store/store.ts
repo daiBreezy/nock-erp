@@ -36,7 +36,7 @@ import * as Survey from "@/domain/rules/survey"
 import * as Nock from "@/domain/rules/nock"
 import * as Dev from "@/domain/rules/dev-tickets"
 import { toast } from "@/lib/toast"
-import type { CalendarNoteKind, ClassMove, ParentRequest, DevTicket, DevTicketStatus, NockAnswer, NockQuestion, Role, SurveyCampaign, SurveyResponse, EnrollSubmission, ContactChannel, ContactResult, LossReason, Assessment, AttendanceStatus, Entitlement, Branch, BusAddOn, ClassBlock, CourseSummary, CreditNote, LessonBook, LessonTopic, Seat, ChatMessage, Conversation, Course, DateStr, Family, FormSubmission, Holiday, ID, Invoice, Klass, Lead, LeadStage, LessonSummary, LineDelivery, LogCategory, Result, Session, Staff, Student, SystemConfig, BusTrip, BusZone, TimeStr } from "@/domain/types"
+import type { CalendarNoteKind, ClassMove, ParentRequest, DevTicket, DevTicketStatus, NockAnswer, NockQuestion, Role, SurveyCampaign, SurveyResponse, EnrollSubmission, ContactChannel, ContactResult, LossReason, Assessment, AttendanceStatus, Entitlement, Branch, BusAddOn, ClassBlock, CourseSummary, CreditNote, LessonBook, LessonTopic, Seat, ChatMessage, Conversation, Course, DateStr, Family, FormSubmission, Holiday, ID, Invoice, Klass, Lead, LeadStage, LessonSummary, LineDelivery, LogCategory, Result, Session, Staff, Student, SystemConfig, BusTrip, BusZone, TimeStr, BusLegKind } from "@/domain/types"
 
 export interface UIState {
   userId: ID
@@ -218,18 +218,20 @@ type Store = DB & UIState & {
   setTripOrder: (roundId: ID, date: DateStr, order: ID[]) => Result
   moveRider: (date: DateStr, studentId: ID, toRoundId: ID) => Result
   setTripVehicle: (roundId: ID, date: DateStr, vehicleId: ID | null) => Result
-  sendTrips: (trips: { roundId: ID; date: DateStr; key: string }[]) => Result<{ count: number }>
+  sendTrips: (trips: { roundId: ID; date: DateStr; key: string; driverId?: ID | null }[]) => Result<{ count: number }>
   /** owner 2026-10-19 ("สร้าง แก้ไข ลบ ปรับเปลี่ยน ยกเลิก"): one run on one day */
   cancelTrip: (roundId: ID, date: DateStr, reason: string) => Result
   restoreTrip: (roundId: ID, date: DateStr) => Result
   setTripTime: (roundId: ID, date: DateStr, time: TimeStr | null) => Result
   /** a one-off run for a day (new when roundId is unset) */
-  saveExtraTrip: (date: DateStr, def: NonNullable<BusTrip["extra"]>, roundId?: ID) => Result<{ roundId: ID }>
+  saveExtraTrip: (date: DateStr, def: NonNullable<BusTrip["extra"]>, roundId?: ID, branchId?: ID) => Result<{ roundId: ID }>
   deleteExtraTrip: (roundId: ID, date: DateStr) => Result
   /** put a child on this run that day — an extra ride (charged on the next invoice unless free) when they weren't riding */
-  addRiderToTrip: (roundId: ID, date: DateStr, studentId: ID, opts: { charge: boolean; adult: boolean }) => Result<{ charged: number }>
+  addRiderToTrip: (roundId: ID, date: DateStr, studentId: ID, opts: { charge: boolean; adult: boolean; leg?: BusLegKind }) => Result<{ charged: number }>
   /** take a child off this run that day (their ride that way is cancelled — unbilled extras dropped, paid rides not refunded) */
-  removeRiderFromTrip: (roundId: ID, date: DateStr, studentId: ID) => Result
+  removeRiderFromTrip: (roundId: ID, date: DateStr, studentId: ID, leg?: BusLegKind) => Result
+  /** another driver for this run that day (null = the van's usual driver) */
+  setTripDriver: (roundId: ID, date: DateStr, driverId: ID | null) => Result
   /** a parent rides along that day (on every leg the child rides) — or not any more */
   setCompanion: (studentId: ID, date: DateStr, on: boolean) => Result
   /** bus zones of a branch (owner 2026-10-19) — replaced as a whole */
@@ -312,6 +314,10 @@ type Store = DB & UIState & {
   linkConversationToFamily: (conversationId: ID, familyId: ID) => Result
   linkConversationToLead: (conversationId: ID, leadId: ID) => Result
 }
+
+/** the branch a run belongs to (weekly runs on the branch; one-off runs on their own record) */
+const branchOfRound = (s: { branches: Branch[]; busTrips: BusTrip[]; branchId: ID }, roundId: ID) =>
+  s.branches.find((b) => (b.busRounds ?? []).some((r) => r.id === roundId))?.id ?? s.busTrips.find((t) => t.roundId === roundId)?.branchId ?? s.branchId
 
 /** what a child rides each day (invoices + extra / cancelled rides) */
 const busDaysOfStudent = (s: { invoices: Invoice[]; busAddOns: BusAddOn[] }, studentId: ID) => busDaysOf(studentId, s.invoices, s.busAddOns)
@@ -2104,7 +2110,7 @@ export const useStore = create<Store>()(
         const s = get()
         const perm = requirePerm(s.me(), "session.manage")
         if (!perm.ok) return perm
-        set({ busTrips: upsertTrip(s.busTrips, s.branchId, roundId, date, { order }) })
+        set({ busTrips: upsertTrip(s.busTrips, branchOfRound(s, roundId), roundId, date, { order }) })
         return OK
       },
       moveRider: (date, studentId, toRoundId) => {
@@ -2126,7 +2132,7 @@ export const useStore = create<Store>()(
         const s = get()
         const perm = requirePerm(s.me(), "session.manage")
         if (!perm.ok) return perm
-        set({ busTrips: upsertTrip(s.busTrips, s.branchId, roundId, date, { vehicleId }) })
+        set({ busTrips: upsertTrip(s.busTrips, branchOfRound(s, roundId), roundId, date, { vehicleId }) })
         return OK
       },
       cancelTrip: (roundId, date, reason) => {
@@ -2134,7 +2140,7 @@ export const useStore = create<Store>()(
         const perm = requirePerm(s.me(), "session.manage")
         if (!perm.ok) return perm
         if (!reason.trim()) return fail("ใส่เหตุผลที่ยกเลิกเที่ยวนี้")
-        set({ busTrips: upsertTrip(s.busTrips, s.branchId, roundId, date, { cancelled: { reason: reason.trim(), by: s.userId, at: s.now().toISOString() } }) })
+        set({ busTrips: upsertTrip(s.busTrips, branchOfRound(s, roundId), roundId, date, { cancelled: { reason: reason.trim(), by: s.userId, at: s.now().toISOString() } }) })
         log("billing", [], "ยกเลิกเที่ยวรถ", `${fmtDate(date)} · ${reason.trim()}`)
         return OK
       },
@@ -2152,18 +2158,18 @@ export const useStore = create<Store>()(
         if (time && !/^\d{2}:\d{2}$/.test(time)) return fail("ใส่เวลาให้ถูก")
         const trip = s.busTrips.find((t) => t.roundId === roundId && t.date === date)
         // a one-off run keeps its time in its own definition
-        if (trip?.extra) { if (!time) return fail("เที่ยวพิเศษต้องมีเวลา"); set({ busTrips: upsertTrip(s.busTrips, s.branchId, roundId, date, { extra: { ...trip.extra, time } }) }); return OK }
-        set({ busTrips: upsertTrip(s.busTrips, s.branchId, roundId, date, { time: time ?? undefined }) })
+        if (trip?.extra) { if (!time) return fail("เที่ยวพิเศษต้องมีเวลา"); set({ busTrips: upsertTrip(s.busTrips, branchOfRound(s, roundId), roundId, date, { extra: { ...trip.extra, time } }) }); return OK }
+        set({ busTrips: upsertTrip(s.busTrips, branchOfRound(s, roundId), roundId, date, { time: time ?? undefined }) })
         return OK
       },
-      saveExtraTrip: (date, def, roundId) => {
+      saveExtraTrip: (date, def, roundId, branchId) => {
         const s = get()
         const perm = requirePerm(s.me(), "session.manage")
         if (!perm.ok) return perm
         if (!/^\d{2}:\d{2}$/.test(def.time)) return fail("ใส่เวลาของเที่ยวพิเศษ")
         if (!(def.seats > 0)) return fail("ที่นั่งต้องมากกว่า 0")
         const id = roundId ?? uid("xtr")
-        set({ busTrips: upsertTrip(s.busTrips, s.branchId, id, date, { extra: { ...def, name: def.name?.trim() || undefined } }) })
+        set({ busTrips: upsertTrip(s.busTrips, branchId ?? (roundId ? branchOfRound(s, roundId) : s.branchId), id, date, { extra: { ...def, name: def.name?.trim() || undefined } }) })
         return { ok: true, value: { roundId: id } }
       },
       deleteExtraTrip: (roundId, date) => {
@@ -2183,13 +2189,15 @@ export const useStore = create<Store>()(
         const trip = s.busTrips.find((t) => t.roundId === roundId && t.date === date)
         const round = branch.busRounds?.find((r) => r.id === roundId) ?? (trip?.extra ? { id: roundId, ...trip.extra } : undefined)
         if (!round) return fail("ไม่พบเที่ยวรถ")
-        const leg = { date, pickup: round.kind === "pickup", dropoff: round.kind === "dropoff" }
+        // a Both trip: the admin says which way (default: drop-off when their class ends before it leaves)
+        const legKind: BusLegKind = round.kind === "both" ? opts.leg ?? "pickup" : round.kind
+        const leg = { date, pickup: legKind === "pickup", dropoff: legKind === "dropoff" }
         let addOns = s.busAddOns, charged = 0
         const now = busDaysOfStudent(s, studentId).get(date)
-        if (!now?.[round.kind]) {
+        if (!now?.[legKind]) {
           // a ride they had and cancelled comes back; otherwise an extra ride
-          const undo = addOns.find((a) => a.cancel && a.studentId === studentId && a.date === date && a[round.kind])
-          if (undo) addOns = addOns.map((a) => (a.id === undo.id ? { ...a, [round.kind]: false } : a)).filter((a) => !a.cancel || a.pickup || a.dropoff)
+          const undo = addOns.find((a) => a.cancel && a.studentId === studentId && a.date === date && a[legKind])
+          if (undo) addOns = addOns.map((a) => (a.id === undo.id ? { ...a, [legKind]: false } : a)).filter((a) => !a.cancel || a.pickup || a.dropoff)
           else {
             const rate = opts.charge ? Cfg.busRate(branch, null) : 0
             charged = rate
@@ -2199,23 +2207,31 @@ export const useStore = create<Store>()(
         if (opts.adult && !addOns.some((a) => a.companion && a.studentId === studentId && a.date === date))
           addOns = [...addOns, { id: uid("ba"), branchId: branch.id, studentId, ...leg, busFeeId: null, amount: 0, companion: true, note: "ผู้ปกครองไปด้วย", createdBy: s.userId, createdAt: s.now().toISOString() }]
         // on this run (off any other run of the same kind that day)
-        const sameKind = new Set([...(branch.busRounds ?? []).filter((r) => r.kind === round.kind).map((r) => r.id), ...s.busTrips.filter((t) => t.date === date && t.extra?.kind === round.kind).map((t) => t.roundId)])
+        const sameKind = new Set([...(branch.busRounds ?? []).filter((r) => r.kind === legKind || r.kind === "both").map((r) => r.id), ...s.busTrips.filter((t) => t.date === date && (t.extra?.kind === legKind || t.extra?.kind === "both")).map((t) => t.roundId)])
         const trips = s.busTrips.map((t) => (t.date === date && sameKind.has(t.roundId) && t.pinned?.includes(studentId) ? { ...t, pinned: t.pinned.filter((x) => x !== studentId) } : t))
         const cur = trips.find((t) => t.roundId === roundId && t.date === date)
         set({ busAddOns: addOns, busTrips: upsertTrip(trips, branch.id, roundId, date, { pinned: [...(cur?.pinned ?? []), studentId] }) })
-        log("billing", [studentId], "เพิ่มเข้าเที่ยวรถ", `${fmtDate(date)} ${round.kind === "pickup" ? "รับ" : "ส่ง"} ${round.time}${charged ? ` · ${fmtMoney(charged)} รอเรียกเก็บในใบถัดไป` : ""}${opts.adult ? " · ผู้ปกครองไปด้วย" : ""}`)
+        log("billing", [studentId], "เพิ่มเข้าเที่ยวรถ", `${fmtDate(date)} ${legKind === "pickup" ? "รับ" : "ส่ง"} ${round.time}${charged ? ` · ${fmtMoney(charged)} รอเรียกเก็บในใบถัดไป` : ""}${opts.adult ? " · ผู้ปกครองไปด้วย" : ""}`)
         return { ok: true, value: { charged } }
       },
-      removeRiderFromTrip: (roundId, date, studentId) => {
+      removeRiderFromTrip: (roundId, date, studentId, legArg) => {
         const s = get()
         const trip = s.busTrips.find((t) => t.roundId === roundId && t.date === date)
         const branch = s.branches.find((b) => b.id === s.students.find((x) => x.id === studentId)?.branchId)
-        const kind = branch?.busRounds?.find((r) => r.id === roundId)?.kind ?? trip?.extra?.kind
-        if (!kind) return fail("ไม่พบเที่ยวรถ")
+        const runKind = branch?.busRounds?.find((r) => r.id === roundId)?.kind ?? trip?.extra?.kind
+        if (!runKind) return fail("ไม่พบเที่ยวรถ")
+        const kind: BusLegKind = runKind === "both" ? legArg ?? "pickup" : runKind
         const r = get().cancelBusRides(studentId, [{ date, pickup: kind === "pickup", dropoff: kind === "dropoff" }], "แอดมินเอาออกในหน้ารถรับส่ง")
         if (!r.ok) return r
         const after = get()
         set({ busTrips: after.busTrips.map((t) => (t.date === date && t.pinned?.includes(studentId) ? { ...t, pinned: t.pinned.filter((x) => x !== studentId) } : t)) })
+        return OK
+      },
+      setTripDriver: (roundId, date, driverId) => {
+        const s = get()
+        const perm = requirePerm(s.me(), "session.manage")
+        if (!perm.ok) return perm
+        set({ busTrips: upsertTrip(s.busTrips, branchOfRound(s, roundId), roundId, date, { driverId }) })
         return OK
       },
       setCompanion: (studentId, date, on) => {
@@ -2254,8 +2270,10 @@ export const useStore = create<Store>()(
         if (!list.length) return fail("ไม่มีเที่ยวที่จะส่ง")
         const at = s.now().toISOString()
         let trips = s.busTrips
-        for (const t of list) trips = upsertTrip(trips, s.branchId, t.roundId, t.date, { sentAt: at, sentBy: s.userId, sentKey: t.key })
-        set({ busTrips: trips })
+        for (const t of list) trips = upsertTrip(trips, branchOfRound(s, t.roundId), t.roundId, t.date, { sentAt: at, sentBy: s.userId, sentKey: t.key })
+        // each driver gets the secret for their app link the first time a trip is sent to them
+        const need = new Set(list.map((t) => t.driverId).filter((d): d is ID => !!d && !s.staff.find((x) => x.id === d)?.driverToken))
+        set({ busTrips: trips, ...(need.size ? { staff: s.staff.map((x) => (need.has(x.id) ? { ...x, driverToken: `drv_${Math.random().toString(36).slice(2, 10)}${Date.now().toString(36)}` } : x)) } : {}) })
         return { ok: true, value: { count: list.length } }
       },
 
@@ -3031,7 +3049,7 @@ export const useStore = create<Store>()(
       // The parent app in LINE never writes staff data at all.
       storage: createJSONStorage(() => safeStorage),
       // bump when the data model changes; older saved data is replaced by fresh sample data
-      version: 96, // 96: (95 again — finished demo) · 95: Sriracha — 2 vans, zones North / South · 94: transport demo — each rider on their own paid bus invoice · 93: Transport — a van, a dozen children riding at Thonglor, busTrips · 92: demo child rides the bus on Math days only (English days open to ask for a ride) · 91: demo child with classes for LINE-linked families (parent app) · 90: Liclass bus — branch pin, fee distance bands, bus runs · 89: Note Calendar (ถาวร / ชั่วคราว) replaces the free-text session notes · 88: demo exit notices all "sent" · 87: 3 open exit notices · 86: course history capped at 8 sessions (storage size) · 85: course-history check per course · 84: + running rounds · 83: finished courses with a Course Summary get their session history · 82: per-subject levels in Bundle sessions · 80–81: Bundle demo students sit in the combo class for 3 months (charts) · 79: 1–5 understanding on session summaries + Bundle notes per subject · 78: Dev statuses กำลังทำ / เสร็จแล้ว / ไม่ทำ / เก็บไว้ก่อน · 77: images on Nock + Dev tickets · 76: คำถามถึง Dev examples · 75: Developer role + เรื่องถึง Dev · 74: Nock answers per person + thumbs per answer · 73: Nock locations + knowledge = answered questions + votes · 72: Nock question bank + knowledge · 71: Summer Memo + Summer course + paid Summer invoice · 68–70: session summaries in every stage this week + sample Course Summaries (Single + Bundle) · 65–67: names without titles, parent relationship, phones without dashes, subject colours · 61: real branches (owner 2026-10-07) · 62: CB = ตึกน้ำ · 63: sample schools · 64: schools from the Ministry list
+      version: 98, // 98: (97 again — both Saturday vans run Both) · 97: Bus Route rebuild — drivers as staff (one outsource), Saturday Both run at Sriracha · 96: (95 again — finished demo) · 95: Sriracha — 2 vans, zones North / South · 94: transport demo — each rider on their own paid bus invoice · 93: Transport — a van, a dozen children riding at Thonglor, busTrips · 92: demo child rides the bus on Math days only (English days open to ask for a ride) · 91: demo child with classes for LINE-linked families (parent app) · 90: Liclass bus — branch pin, fee distance bands, bus runs · 89: Note Calendar (ถาวร / ชั่วคราว) replaces the free-text session notes · 88: demo exit notices all "sent" · 87: 3 open exit notices · 86: course history capped at 8 sessions (storage size) · 85: course-history check per course · 84: + running rounds · 83: finished courses with a Course Summary get their session history · 82: per-subject levels in Bundle sessions · 80–81: Bundle demo students sit in the combo class for 3 months (charts) · 79: 1–5 understanding on session summaries + Bundle notes per subject · 78: Dev statuses กำลังทำ / เสร็จแล้ว / ไม่ทำ / เก็บไว้ก่อน · 77: images on Nock + Dev tickets · 76: คำถามถึง Dev examples · 75: Developer role + เรื่องถึง Dev · 74: Nock answers per person + thumbs per answer · 73: Nock locations + knowledge = answered questions + votes · 72: Nock question bank + knowledge · 71: Summer Memo + Summer course + paid Summer invoice · 68–70: session summaries in every stage this week + sample Course Summaries (Single + Bundle) · 65–67: names without titles, parent relationship, phones without dashes, subject colours · 61: real branches (owner 2026-10-07) · 62: CB = ตึกน้ำ · 63: sample schools · 64: schools from the Ministry list
       migrate: (old) => ({ ...withTransportDemo(withLinkedFamilyDemo(keepLineLinks(old as Partial<Store> | undefined, buildSeed()))), userId: "u_nock", branchId: "br_thl", clockOffset: 0 }) as unknown as Store,
       // persist data + UI state only, never the action functions
       partialize: (s) => Object.fromEntries(Object.entries(s).filter(([, v]) => typeof v !== "function")) as Partial<Store>,

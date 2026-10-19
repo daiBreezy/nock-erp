@@ -15,6 +15,9 @@ import { AUTO_SEND_BEFORE_MIN } from "@/domain/rules/transport"
 import type { Branch, BusRound, Vehicle, Weekday } from "@/domain/types"
 import { uid } from "@/data/seed"
 import { report } from "@/lib/feedback"
+import { useStore } from "@/store/store"
+import { DriversCard } from "./drivers-card"
+import { KIND_LABEL } from "./labels"
 
 const validate = (b: Branch): string | null => {
   for (const v of b.vehicles ?? []) if (!v.name.trim() || !(v.seats > 0)) return "รถทุกคันต้องมีชื่อ และที่นั่งมากกว่า 0"
@@ -32,8 +35,9 @@ export function TransportSettings({ branch }: { branch: Branch }) {
   const putV = (id: string, patch: Partial<Vehicle>) => setB({ ...b, vehicles: vehicles.map((v) => (v.id === id ? { ...v, ...patch } : v)) })
   const putR = (id: string, patch: Partial<BusRound>) => setB({ ...b, busRounds: rounds.map((r) => (r.id === id ? { ...r, ...patch } : r)) })
   const addV = () => setB({ ...b, vehicles: [...vehicles, { id: uid("veh"), name: `รถตู้ ${vehicles.length + 1}`, plate: "", seats: 10, driverName: "", driverPhone: "", active: true }] })
-  const addR = (kind: BusRound["kind"]) => setB({ ...b, busRounds: [...rounds, { id: uid("bro"), kind, weekdays: [1, 2, 3, 4, 5], time: kind === "pickup" ? "15:30" : "17:30", seats: vehicles[0]?.seats ?? 10, vehicleId: vehicles[0]?.id }] })
-  const sorted = [...rounds].sort((x, y) => (x.kind === y.kind ? x.time.localeCompare(y.time) : x.kind === "pickup" ? -1 : 1))
+  const addR = (kind: BusRound["kind"]) => setB({ ...b, busRounds: [...rounds, { id: uid("bro"), kind, weekdays: [1, 2, 3, 4, 5], time: kind === "pickup" ? "15:30" : kind === "both" ? "16:30" : "17:30", seats: vehicles[0]?.seats ?? 10, vehicleId: vehicles[0]?.id }] })
+  const drivers = useStore((s) => s.staff).filter((x) => x.roles.includes("driver") && x.branchIds.includes(branch.id) && x.active)
+  const sorted = [...rounds].sort((x, y) => (x.kind === y.kind ? x.time.localeCompare(y.time) : ["pickup", "both", "dropoff"].indexOf(x.kind) - ["pickup", "both", "dropoff"].indexOf(y.kind)))
   return (
     <div className="space-y-4">
       <SettingsCard title={`รถ (${vehicles.length})`} hint="รถแต่ละคันกับคนขับ — ใบงานรายวันส่งถึงคนขับคันนั้น · รถเสียวันไหนเลือกรถแทนได้ที่การ์ดเที่ยวรถ"
@@ -41,12 +45,12 @@ export function TransportSettings({ branch }: { branch: Branch }) {
         {vehicles.length === 0 && <p className="flex items-center justify-center gap-2 rounded-xl border border-dashed p-5 text-sm text-muted-foreground"><BusIcon className="size-4" /> ยังไม่มีรถ</p>}
         <div className="space-y-1.5">
           {vehicles.map((v) => (
-            <div key={v.id} className="grid items-center gap-2 rounded-xl border px-2 py-1.5 sm:grid-cols-[1fr_7rem_5rem_1fr_9rem_auto_auto]">
+            <div key={v.id} className="grid items-center gap-2 rounded-xl border px-2 py-1.5 sm:grid-cols-[1fr_7rem_5rem_1.2fr_auto_auto]">
               <Input value={v.name} placeholder="ชื่อรถ" onChange={(e) => putV(v.id, { name: e.target.value })} />
               <Input value={v.plate} placeholder="ทะเบียน" onChange={(e) => putV(v.id, { plate: e.target.value })} />
               <span className="flex items-center gap-1 text-xs text-muted-foreground"><Input className="text-right tabular-nums" type="number" min={1} value={v.seats} onChange={(e) => putV(v.id, { seats: Number(e.target.value) })} />ที่</span>
-              <Input value={v.driverName} placeholder="คนขับ" onChange={(e) => putV(v.id, { driverName: e.target.value })} />
-              <Input value={v.driverPhone} placeholder="เบอร์คนขับ" onChange={(e) => putV(v.id, { driverPhone: e.target.value })} />
+              <NativeSelect className="h-9" value={v.driverId ?? ""} placeholder={drivers.length ? "คนขับประจำ" : "เพิ่มคนขับในการ์ดด้านล่างก่อน"} onChange={(e) => putV(v.id, { driverId: e.target.value || undefined })}
+                options={drivers.map((d) => ({ value: d.id, label: d.vendor ? `${d.nickname} (Outsource)` : d.nickname }))} />
               <label className="flex items-center gap-1.5 text-xs text-muted-foreground"><Switch checked={v.active} onCheckedChange={(x) => putV(v.id, { active: x })} />ใช้งาน</label>
               <Button size="icon-sm" variant="ghost" aria-label="ลบ" disabled={rounds.some((r) => r.vehicleId === v.id)} title={rounds.some((r) => r.vehicleId === v.id) ? "ยังมีรอบรถใช้คันนี้อยู่" : undefined}
                 onClick={() => setB({ ...b, vehicles: vehicles.filter((x) => x.id !== v.id) })}><TrashIcon /></Button>
@@ -55,12 +59,14 @@ export function TransportSettings({ branch }: { branch: Branch }) {
         </div>
       </SettingsCard>
 
-      <SettingsCard title={`รอบรถ (${rounds.length})`} hint="รอบรับ = ถึงสาขาก่อนเวลานี้ · รอบส่ง = ออกจากสาขาเวลานี้ — เด็กเข้ารอบที่ตรงเวลาเรียนเอง · รถหลายคันออกเวลาเดียวกัน ระบบแบ่งตามทิศบ้านให้"
-        action={<span className="flex gap-1.5"><Button size="xs" variant="outline" onClick={() => addR("pickup")}><PlusIcon /> รอบรับ</Button><Button size="xs" variant="outline" onClick={() => addR("dropoff")}><PlusIcon /> รอบส่ง</Button></span>}>
+      <DriversCard branch={branch} />
+
+      <SettingsCard title={`รอบรถ (${rounds.length})`} hint="รอบรับ = ถึงสาขาก่อนเวลานี้ · รอบส่ง = ออกจากสาขาเวลานี้ · รอบรับ-ส่ง = ออกเวลานี้ ส่งเด็กที่เลิกเรียนก่อน แล้วรับเด็กที่เรียนรอบถัดไปกลับมา — เด็กเข้ารอบที่ตรงเวลาเรียนเอง · รถหลายคันออกเวลาเดียวกัน ระบบแบ่งตามทิศบ้านให้"
+        action={<span className="flex gap-1.5"><Button size="xs" variant="outline" onClick={() => addR("pickup")}><PlusIcon /> รอบรับ</Button><Button size="xs" variant="outline" onClick={() => addR("dropoff")}><PlusIcon /> รอบส่ง</Button><Button size="xs" variant="outline" onClick={() => addR("both")}><PlusIcon /> รอบรับ-ส่ง</Button></span>}>
         <div className="space-y-1.5">
           {sorted.map((r) => (
             <div key={r.id} className="flex flex-wrap items-center gap-2 rounded-xl border px-2 py-1.5">
-              <Pill tone={r.kind === "pickup" ? "blue" : "amber"}>{r.kind === "pickup" ? "รับ" : "ส่ง"}</Pill>
+              <Pill tone={r.kind === "pickup" ? "blue" : r.kind === "both" ? "green" : "amber"}>{KIND_LABEL[r.kind]}</Pill>
               <Input type="time" className="w-28" value={r.time} onChange={(e) => putR(r.id, { time: e.target.value })} />
               <span className="flex gap-1">
                 {([1, 2, 3, 4, 5, 6, 0] as Weekday[]).map((d) => { const on = r.weekdays.includes(d); return (

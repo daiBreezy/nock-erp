@@ -39,7 +39,7 @@ export function GenderIcon({ gender, className }: { gender?: "male" | "female"; 
 }
 
 /** owner 2026-10-12: one colour per role, so a person with several roles reads at a glance */
-export const ROLE_TONE: Record<"super_admin" | "director" | "area_manager" | "manager" | "admin" | "teacher" | "developer", string> = {
+export const ROLE_TONE: Record<"super_admin" | "director" | "area_manager" | "manager" | "admin" | "teacher" | "developer" | "driver", string> = {
   super_admin: "bg-slate-800 text-white dark:bg-slate-200 dark:text-slate-900",
   director: "bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-200",
   area_manager: "bg-orange-100 text-orange-800 dark:bg-orange-950 dark:text-orange-200",
@@ -47,6 +47,7 @@ export const ROLE_TONE: Record<"super_admin" | "director" | "area_manager" | "ma
   admin: "bg-amber-100 text-amber-900 dark:bg-amber-950 dark:text-amber-200",
   teacher: "bg-sky-100 text-sky-800 dark:bg-sky-950 dark:text-sky-200",
   developer: "bg-teal-100 text-teal-800 dark:bg-teal-950 dark:text-teal-200",
+  driver: "bg-lime-100 text-lime-800 dark:bg-lime-950 dark:text-lime-200",
 }
 
 /** a role as its coloured chip — the same colours as the staff page (owner 2026-10-13: "Roles เรามี Chip") */

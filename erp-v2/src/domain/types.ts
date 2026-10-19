@@ -6,7 +6,8 @@ export type DateStr = string
 export type TimeStr = string
 
 export type Brand = "nockacademy" | "liclass"
-export type Role = "super_admin" | "director" | "area_manager" | "manager" | "admin" | "teacher" | "developer"
+/** driver (owner 2026-10-19, Transport): drives a school van — no ERP access, uses the driver app */
+export type Role = "super_admin" | "director" | "area_manager" | "manager" | "admin" | "teacher" | "developer" | "driver"
 export type Weekday = 0 | 1 | 2 | 3 | 4 | 5 | 6 // 0 = Sunday
 
 export interface OpenHours {
@@ -72,7 +73,8 @@ export interface Fee {
  *  after — set per weekday with a seat count, so the invoice can say "this day has a run / it's full". */
 export interface BusRound {
   id: ID
-  kind: "pickup" | "dropoff"
+  /** both (owner 2026-10-19): one trip that takes home the children whose class ended, then brings the next class in */
+  kind: "pickup" | "dropoff" | "both"
   weekdays: Weekday[]
   /** pickup: arrives at the branch by · drop-off: leaves the branch at */
   time: TimeStr
@@ -81,6 +83,8 @@ export interface BusRound {
   /** owner 2026-10-19 (Transport): the van that runs it */
   vehicleId?: ID
 }
+
+export type BusLegKind = "pickup" | "dropoff"
 
 /** A bus zone (owner 2026-10-19, from v1 "สายเหนือ → คัน 1 · สายใต้ → คัน 2"): homes whose direction from the branch is
  *  between `from` and `to` (degrees clockwise from north; may wrap past 360) ride this zone's van when several vans
@@ -101,6 +105,9 @@ export interface Vehicle {
   name: string
   plate: string
   seats: number
+  /** the usual driver (a Staff with the driver role) — owner 2026-10-19 */
+  driverId?: ID
+  /** older / fallback when no driver is linked */
   driverName: string
   driverPhone: string
   active: boolean
@@ -130,6 +137,8 @@ export interface BusTrip {
   time?: TimeStr
   /** a one-off run on that day only (field trip, exam day …) — not in the weekly runs */
   extra?: { kind: BusRound["kind"]; time: TimeStr; seats: number; vehicleId?: ID; name?: string }
+  /** another driver that day (owner 2026-10-19: "พี่เบ้งอาจจะลากลับบ้าน" — staff or an outside driver) */
+  driverId?: ID | null
 }
 
 /** Package duration unit (Settings → Packages tabs: Hour / Week / Month). */
@@ -316,6 +325,10 @@ export interface Staff {
   areaBranchIds?: ID[]
   /** notes about this person, newest first (owner 2026-10-09: Staff panel › Note) */
   notes?: { id: ID; at: string; by: ID; text: string }[]
+  /** owner 2026-10-19 (drivers): phone, an outside driver hired for the day (not on staff), and the secret in their app link */
+  phone?: string
+  vendor?: boolean
+  driverToken?: string
 }
 
 export interface StaffAssignment {

@@ -7,6 +7,7 @@ import { useBranch, useNow } from "@/lib/hooks"
 import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
 import { usePublishParentViews } from "@/lib/parent-app"
+import { usePublishDriverTrips } from "@/lib/driver"
 import { useEffect, useState, useSyncExternalStore, type ReactNode } from "react"
 import { ArrowLeftRightIcon, BellIcon, CheckIcon, ChevronDownIcon, ChevronRightIcon, GlobeIcon, LockIcon, MapPinIcon, SearchIcon, SunIcon } from "lucide-react"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
@@ -50,6 +51,8 @@ function ScreenTranslator() {
 
 function ParentAppPublisher() {
   usePublishParentViews()
+  // owner 2026-10-19: the approved bus trips for the drivers' app
+  usePublishDriverTrips()
   return null
 }
 

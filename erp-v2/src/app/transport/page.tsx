@@ -1,178 +1,193 @@
 "use client"
 
-// Transport (owner 2026-10-19 — from v1 Bus Route, "ให้ Admin จัดการ Transportation ได้ดี และไม่ต้องคิดให้ได้มากที่สุด").
-// Who rides which run is worked out from invoices + extra / cancelled rides + parents riding along; the admin looks at
-// the warnings, moves / reorders when needed and sends the day's sheets to the drivers.
+// Bus Route (owner 2026-10-19 — v1 Bus Route, then the owner's ref "Recreate ใหม่เลย"): the week as one table, a group
+// per day, a row per trip that opens into its stops. Who rides which trip is worked out from invoices + extra /
+// cancelled rides + parents riding along; the drivers' app reports the trips live. The admin checks the warnings,
+// adds / moves / removes, swaps van or driver, and approves & sends — one trip or the whole week.
 import { useMemo, useState } from "react"
 import Link from "next/link"
-import { AlertTriangleIcon, BusIcon, CalendarDaysIcon, CheckCheckIcon, MapIcon, MessageCircleIcon, PlusIcon, SendIcon, SettingsIcon, UsersIcon } from "lucide-react"
+import { AlertTriangleIcon, BusIcon, CalendarDaysIcon, ChartColumnIcon, CheckIcon, MapIcon, MessageCircleIcon, PlusIcon, RouteIcon, SettingsIcon, SquareCheckBigIcon, TableIcon, UsersIcon } from "lucide-react"
 import { Kpi } from "@/components/app/kpi"
 import { NativeSelect } from "@/components/app/native-select"
-import { KpiRow, Page, PageHeader, RangeStepper, Segmented, Toolbar } from "@/components/app/page-layout"
+import { FilterBar, KpiRow, Page, PageHeader, RangeStepper, SearchBox, Segmented, Toolbar } from "@/components/app/page-layout"
+import { KIND_LABEL } from "@/components/transport/labels"
+import { TransportCalendar } from "@/components/transport/transport-calendar"
+import { TransportReport, TransportReportKpis } from "@/components/transport/transport-report"
 import { TransportSettings } from "@/components/transport/transport-settings"
-import { ZonesView } from "@/components/transport/zones-view"
-import { KIND_LABEL, TripCard } from "@/components/transport/trip-card"
 import { ExtraTripDialog } from "@/components/transport/trip-dialogs"
+import { TRIP_COLS, TripRow } from "@/components/transport/trip-row"
+import { ZonesView } from "@/components/transport/zones-view"
 import { Button } from "@/components/ui/button"
-import { addDays, fmtDate, toDateStr, weekdayShort } from "@/domain/dates"
+import { addDays, fmtDate, monthShort, toDateStr, yearOf } from "@/domain/dates"
+import { allBranches } from "@/domain/rules/permissions"
 import { mondayOf } from "@/domain/rules/scheduling"
-import { planDay, weekDates, type DayPlan } from "@/domain/rules/transport"
+import { planDay, weekDates, type DayPlan, type TripPlan } from "@/domain/rules/transport"
+import type { Branch } from "@/domain/types"
+import { useDriverEvents } from "@/lib/driver"
 import { report } from "@/lib/feedback"
 import { useBranch, useNow, useQueryState } from "@/lib/hooks"
 import { nm } from "@/lib/i18n"
 import { cn } from "@/lib/utils"
 import { useStore } from "@/store/store"
 
-type View = "day" | "week" | "zones" | "settings"
+type View = "week" | "report" | "vehicles" | "zones"
+export interface WeekRow { branch: Branch; plan: DayPlan; trip: TripPlan }
 
 export default function TransportPage() {
   const branch = useBranch()
-  const now = useNow(60_000)
+  const now = useNow(30_000)
   const today = toDateStr(now)
-  const [view, setView] = useQueryState<View>("view", "day")
+  const [view, setView] = useQueryState<View>("view", "week")
+  const [mode, setMode] = useQueryState<"table" | "calendar">("mode", "table")
   const [date, setDate] = useState(today)
+  const [q, setQ] = useState("")
+  const [fZone, setFZone] = useState("")
+  const [fType, setFType] = useState("")
+  const [fBus, setFBus] = useState("")
+  const [fBranch, setFBranch] = useState("")
+  const [open, setOpen] = useState<Set<string>>(new Set())
+  const [adding, setAdding] = useState<{ date: string; branch: Branch } | null>(null)
+  const me = useStore((s) => s.me())
+  const branches = useStore((s) => s.branches)
   const students = useStore((s) => s.students)
   const families = useStore((s) => s.families)
   const classes = useStore((s) => s.classes)
   const invoices = useStore((s) => s.invoices)
   const busAddOns = useStore((s) => s.busAddOns)
   const trips = useStore((s) => s.busTrips)
+  const staff = useStore((s) => s.staff)
   const parentRequests = useStore((s) => s.parentRequests)
-  const moveRider = useStore((s) => s.moveRider)
   const sendTrips = useStore((s) => s.sendTrips)
-  const ctx = useMemo(() => ({ students, families, classes, invoices, busAddOns, trips: trips ?? [], parentRequests, now }), [students, families, classes, invoices, busAddOns, trips, parentRequests, now])
-  const plan = useMemo(() => planDay(branch, date, ctx), [branch, date, ctx])
-  const hasBus = (branch.busRounds ?? []).length > 0
+  const moveRider = useStore((s) => s.moveRider)
+  const events = useDriverEvents()
 
-  // trips with children, plus cancelled and one-off ones (so they can be restored / filled)
-  const live = plan.trips.filter((t) => t.stops.length || t.status === "cancelled" || t.extra)
-  const [extraOpen, setExtraOpen] = useState(false)
-  const empty = plan.trips.length - live.length
-  const running = live.filter((t) => t.status !== "cancelled")
-  const seatsUsed = running.reduce((a, t) => a + t.used, 0), seatsAll = running.reduce((a, t) => a + t.seats, 0)
-  const warnCount = running.filter((t) => t.warnings.length && t.stops.length).length + plan.unplaced.length + plan.requests.length
-  const sent = running.filter((t) => t.status === "sent").length
-  const toSend = running.filter((t) => t.stops.length && (t.status === "draft" || t.status === "changed"))
+  // branches with a bus: the one in the top bar, or all of them (Branch filter) for those who see every branch
+  const busBranches = branches.filter((b) => (b.busRounds ?? []).length || (b.vehicles ?? []).length)
+  const scope = fBranch === "*" ? busBranches : branches.filter((b) => b.id === (fBranch || branch.id))
+  const ctx = useMemo(() => ({ students, families, classes, invoices, busAddOns, trips: trips ?? [], parentRequests, staff, events, now }), [students, families, classes, invoices, busAddOns, trips, parentRequests, staff, events, now])
+  const monday = mondayOf(date)
+  const days = useMemo(() => weekDates(monday), [monday])
+  const plans = days.map((d) => scope.map((b) => ({ branch: b, plan: planDay(b, d, ctx) })))
+  const k = q.trim().toLowerCase()
+  const match = (r: WeekRow) => {
+    const t = r.trip
+    if (fType && t.round.kind !== fType) return false
+    if (fBus && t.vehicle?.id !== fBus) return false
+    if (fZone && !t.zoneIds.includes(fZone)) return false
+    if (!k) return true
+    return [t.driver?.nickname, t.driver?.name, t.vehicle?.name, t.vehicle?.plate, ...t.stops.flatMap((x) => [x.rider.nickname, x.rider.name, x.rider.grade])].some((v) => v?.toLowerCase().includes(k))
+  }
+  // a trip shows when it has children, or was cancelled / added for the day (so it can be restored / filled)
+  const rowsByDay: WeekRow[][] = plans.map((dayPlans) => dayPlans.flatMap(({ branch: b, plan }) => plan.trips.filter((t) => t.stops.length || t.status === "cancelled" || t.extra).map((trip) => ({ branch: b, plan, trip }))).filter(match))
+  const all = rowsByDay.flat()
+  const live = all.filter((r) => r.trip.status !== "cancelled" && r.trip.stops.length)
+  const approved = live.filter((r) => ["sent", "otw", "done"].includes(r.trip.status)).length
+  const toSend = live.filter((r) => ["draft", "changed", "scheduled"].includes(r.trip.status))
+  const studentsCount = new Set(live.flatMap((r) => r.trip.stops.map((x) => x.rider.studentId))).size
+  const parentsCount = live.reduce((n, r) => n + r.trip.stops.filter((x) => x.rider.adult).length, 0)
+  const vans = new Set(live.map((r) => r.trip.vehicle?.id).filter(Boolean)).size
+  const zonesAll = scope.flatMap((b) => (b.busZones ?? []).map((z) => ({ z, b })))
+  const vansAll = scope.flatMap((b) => (b.vehicles ?? []).map((v) => ({ v, b })))
+  const hasBus = scope.some((b) => (b.busRounds ?? []).length)
+  const toggle = (id: string) => setOpen((o) => { const n = new Set(o); if (n.has(id)) n.delete(id); else n.add(id); return n })
+  const approveAll = () => report(sendTrips(toSend.map((r) => ({ roundId: r.trip.round.id, date: r.trip.date, key: r.trip.key, driverId: r.trip.driver?.id }))), `อนุมัติ & ส่ง ${toSend.length} เที่ยวให้คนขับแล้ว`)
 
   return (
-    <Page>
+    <Page className="max-w-[90rem]">
       <PageHeader title="รถรับส่ง"
-        description="ใครนั่งรอบไหน ระบบจัดให้จากใบแจ้งหนี้และคำขอของผู้ปกครอง — ดูคำเตือน แล้วส่งใบงานให้คนขับ"
-        actions={view === "day" && hasBus && <>
-          <Button variant="outline" onClick={() => setExtraOpen(true)}><PlusIcon /> เที่ยวพิเศษ</Button>
-          {toSend.length > 0 && <Button onClick={() => report(sendTrips(toSend.map((t) => ({ roundId: t.round.id, date: t.date, key: t.key }))), `ส่งใบงาน ${toSend.length} เที่ยวให้คนขับแล้ว`)}><SendIcon /> {`ส่งทั้งวัน (${toSend.length})`}</Button>}
-        </>} />
-      {extraOpen && <ExtraTripDialog branch={branch} date={date} onClose={() => setExtraOpen(false)} />}
+        description="Bus Route — ใครนั่งเที่ยวไหนระบบจัดให้จากใบแจ้งหนี้และคำขอ · คนขับรายงานผ่านแอป · Admin ดูคำเตือน แล้วอนุมัติ & ส่ง"
+        actions={view === "week" && hasBus && toSend.length > 0 ? <Button onClick={approveAll}><CheckIcon /> {`อนุมัติทั้งหมด & ส่ง (${toSend.length})`}</Button> : undefined} />
 
-      <Toolbar end={(view === "day" || view === "week") && hasBus && (
-        <RangeStepper current={view === "day" ? date === today : mondayOf(date) === mondayOf(today)}
-          label={view === "day" ? fmtDate(date, { weekday: true }) : `${fmtDate(mondayOf(date))} – ${fmtDate(addDays(mondayOf(date), 6))}`}
-          onPrev={() => setDate(addDays(date, view === "day" ? -1 : -7))} onNext={() => setDate(addDays(date, view === "day" ? 1 : 7))} onToday={() => setDate(today)} />
-      )}>
-        <Segmented label="มุมมอง" value={view} onChange={setView} options={[
-          { value: "day", label: "รายวัน", icon: CalendarDaysIcon }, { value: "week", label: "สัปดาห์", icon: BusIcon }, { value: "zones", label: "โซน", icon: MapIcon }, { value: "settings", label: "รถ & รอบรถ", icon: SettingsIcon },
+      <Toolbar end={allBranches(me) && busBranches.length > 1 && (view === "week" || view === "report") ? (
+        <NativeSelect className="h-9 w-44" value={fBranch} placeholder={`สาขา: ${nm(branch.name)}`} onChange={(e) => setFBranch(e.target.value)}
+          options={[{ value: "*", label: "ทุกสาขาที่มีรถ" }, ...busBranches.filter((b) => b.id !== branch.id).map((b) => ({ value: b.id, label: nm(b.name) }))]} />
+      ) : undefined}>
+        <Segmented label="หน้า" value={view} onChange={setView} options={[
+          { value: "week", label: "ตารางสัปดาห์", icon: RouteIcon }, { value: "report", label: "รายงาน", icon: ChartColumnIcon },
+          { value: "vehicles", label: "รถ & คนขับ", icon: SettingsIcon }, { value: "zones", label: "โซน", icon: MapIcon },
         ]} />
       </Toolbar>
 
-      {view === "settings" ? <TransportSettings key={branch.id} branch={branch} /> : view === "zones" ? <ZonesView branch={branch} /> : !hasBus ? (
-        <div className="rounded-3xl border border-dashed p-10 text-center text-sm text-muted-foreground">
-          <BusIcon className="mx-auto mb-2 size-8" />
-          {`สาขา${nm(branch.name)}ยังไม่มีรอบรถ — `}<button type="button" className="text-primary underline" onClick={() => setView("settings")}>เพิ่มรถและรอบรถ</button>
-        </div>
-      ) : view === "week" ? <WeekGrid date={date} ctx={ctx} onPick={(d) => { setDate(d); setView("day") }} /> : (
-        <>
-          <KpiRow>
-            <Kpi icon={BusIcon} label="เที่ยววันนี้" value={running.length} sub={live.length > running.length ? `ยกเลิกวันนี้ ${live.length - running.length} เที่ยว` : empty ? `ไม่มีคน ${empty} รอบ` : "ทุกรอบมีคนนั่ง"} tone="primary" />
-            <Kpi icon={UsersIcon} label="ที่นั่งที่ใช้" value={`${seatsUsed}/${seatsAll}`} sub="รวมผู้ปกครองที่นั่งไปด้วย" tone="sky" />
-            <Kpi icon={AlertTriangleIcon} label="ต้องดู" value={warnCount} sub={warnCount ? "ดูกล่องคำเตือนด้านล่าง" : "ไม่มีอะไรต้องแก้"} tone={warnCount ? "red" : "emerald"} />
-            <Kpi icon={CheckCheckIcon} label="ส่งคนขับแล้ว" value={`${sent}/${running.filter((t) => t.stops.length).length}`} sub={branch.busAutoSend ? "เที่ยวที่ไม่มีคำเตือนส่งเอง" : "ส่งเองทุกเที่ยว"} tone="emerald" />
-          </KpiRow>
+      {view === "vehicles" ? <TransportSettings key={branch.id} branch={branch} />
+        : view === "zones" ? <ZonesView branch={branch} />
+        : !hasBus ? (
+          <div className="rounded-3xl border border-dashed p-10 text-center text-sm text-muted-foreground">
+            <BusIcon className="mx-auto mb-2 size-8" />
+            {`สาขา${nm(branch.name)}ยังไม่มีรอบรถ — `}<button type="button" className="text-primary underline" onClick={() => setView("vehicles")}>เพิ่มรถและรอบรถ</button>
+          </div>
+        ) : <>
+          {view === "report" ? <TransportReportKpis rows={live} /> : <KpiRow>
+            <Kpi icon={RouteIcon} label="เที่ยวสัปดาห์นี้" value={live.length} sub={all.length > live.length ? `ยกเลิก / ว่าง ${all.length - live.length} เที่ยว` : "ทุกเที่ยวมีคนนั่ง"} />
+            <Kpi icon={BusIcon} label="รถที่วิ่ง" value={vans} sub={`มี ${vansAll.filter((x) => x.v.active).length} คันในสาขาที่เลือก`} tone="amber" />
+            <Kpi icon={UsersIcon} label="นักเรียน" value={studentsCount} sub={`ผู้ปกครองนั่งไปด้วย ${parentsCount} เที่ยว`} tone="sky" />
+            <Kpi icon={SquareCheckBigIcon} label="อนุมัติแล้ว" value={`${approved}/${live.length}`} sub={toSend.length ? `รออนุมัติ ${toSend.length} เที่ยว` : "ส่งคนขับครบแล้ว"} tone="emerald" />
+          </KpiRow>}
 
-          {(plan.unplaced.length > 0 || plan.requests.length > 0) && <Warnings plan={plan} onMove={(sid, rid) => report(moveRider(plan.date, sid, rid), "ใส่เข้ารอบรถแล้ว")} />}
+          <Toolbar end={<RangeStepper current={monday === mondayOf(today)} label={`${fmtDate(monday)} – ${fmtDate(addDays(monday, 6))}`}
+            onPrev={() => setDate(addDays(date, -7))} onNext={() => setDate(addDays(date, 7))} onToday={() => setDate(today)} />}>
+            {view === "week" && <Segmented label="มุมมอง" value={mode} onChange={setMode} options={[{ value: "table", label: "ตาราง", icon: TableIcon }, { value: "calendar", label: "ปฏิทิน", icon: CalendarDaysIcon }]} />}
+            <span className="text-sm font-medium text-muted-foreground">{`${monthShort(Number(monday.slice(5, 7)) - 1)} ${yearOf(Number(monday.slice(0, 4)))}`}</span>
+          </Toolbar>
+          <FilterBar search={<SearchBox value={q} onChange={setQ} placeholder="ชื่อเด็ก / คนขับ / ชั้น / รถ" />}>
+            {zonesAll.length > 0 && <NativeSelect className="h-9 w-32" value={fZone} placeholder="ทุกโซน" onChange={(e) => setFZone(e.target.value)} options={zonesAll.map(({ z }) => ({ value: z.id, label: z.name }))} />}
+            <NativeSelect className="h-9 w-40" value={fType} placeholder="ทุกประเภทเที่ยว" onChange={(e) => setFType(e.target.value)} options={(["pickup", "dropoff", "both"] as const).map((x) => ({ value: x, label: KIND_LABEL[x] }))} />
+            <NativeSelect className="h-9 w-40" value={fBus} placeholder="ทุกคัน" onChange={(e) => setFBus(e.target.value)} options={vansAll.map(({ v, b }) => ({ value: v.id, label: scope.length > 1 ? `${v.name} · ${nm(b.name)}` : v.name }))} />
+          </FilterBar>
 
-          {live.length === 0 ? (
-            <p className="rounded-3xl border border-dashed p-10 text-center text-sm text-muted-foreground">วันนี้ไม่มีใครนั่งรถ</p>
-          ) : (
-            <div className="grid gap-4 lg:grid-cols-2">
-              {live.map((t) => <TripCard key={t.id} t={t} branch={branch} others={plan.trips} />)}
-            </div>
-          )}
-          {empty > 0 && <p className="text-xs text-muted-foreground">{`รอบที่ไม่มีคนนั่งวันนี้: ${plan.trips.filter((t) => !t.stops.length && t.status !== "cancelled" && !t.extra).map((t) => `${KIND_LABEL[t.round.kind]} ${t.round.time}`).join(" · ")}`}</p>}
-        </>
-      )}
-    </Page>
-  )
-}
-
-/** what the admin has to decide: children with no run, and parents' bus requests waiting in the chat */
-function Warnings({ plan, onMove }: { plan: DayPlan; onMove: (studentId: string, roundId: string) => void }) {
-  return (
-    <section className="space-y-2 rounded-3xl bg-amber-50 p-4 ring-1 ring-amber-200 dark:bg-amber-950/30 dark:ring-amber-900">
-      <p className="flex items-center gap-2 text-sm font-semibold text-amber-900 dark:text-amber-100"><AlertTriangleIcon className="size-4" /> ต้องตัดสินใจ</p>
-      <ul className="space-y-1.5 text-sm">
-        {plan.unplaced.map((u) => {
-          const runs = plan.trips.filter((t) => t.round.kind === u.kind)
-          return (
-            <li key={`${u.kind}|${u.rider.studentId}`} className="flex flex-wrap items-center gap-2 rounded-2xl bg-background px-3 py-2">
-              <span className="min-w-0 flex-1">
-                <span className="font-medium">{u.rider.nickname}</span>
-                <span className="text-muted-foreground">{` · ${KIND_LABEL[u.kind]} · ${u.reason}`}</span>
-              </span>
-              {runs.length > 0 && (
-                <NativeSelect className="h-8 w-auto min-w-44" value="" placeholder="ใส่เข้ารอบ…" onChange={(e) => e.target.value && onMove(u.rider.studentId, e.target.value)}
-                  options={runs.map((t) => ({ value: t.round.id, label: `${t.round.time}${t.round.name ? ` · ${t.round.name}` : ""} · ${t.used}/${t.seats}` }))} />
-              )}
-            </li>
-          )
-        })}
-        {plan.requests.map((r) => (
-          <li key={r.id} className="flex flex-wrap items-center gap-2 rounded-2xl bg-background px-3 py-2">
-            <span className="min-w-0 flex-1"><span className="font-medium">{r.studentNickname}</span><span className="text-muted-foreground"> · ผู้ปกครองขอ / ยกเลิกรอบรถ — ยังไม่ได้อนุมัติ</span></span>
-            <Button size="sm" variant="outline" nativeButton={false} render={<Link href={`/inbox?conversation=line_${r.lineUserId}`} />}><MessageCircleIcon /> อนุมัติในแชท</Button>
-          </li>
-        ))}
-      </ul>
-    </section>
-  )
-}
-
-/** the week at a glance: each run × day — riders / seats, red when something needs a look; a click opens the day */
-function WeekGrid({ date, ctx, onPick }: { date: string; ctx: Parameters<typeof planDay>[2]; onPick: (d: string) => void }) {
-  const branch = useBranch()
-  const monday = mondayOf(date)
-  const days = useMemo(() => weekDates(monday), [monday])
-  const plans = useMemo(() => days.map((d) => planDay(branch, d, ctx)), [days, branch, ctx])
-  const runs = [...(branch.busRounds ?? [])].sort((a, b) => (a.kind === b.kind ? a.time.localeCompare(b.time) : a.kind === "pickup" ? -1 : 1))
-  return (
-    <div className="overflow-x-auto rounded-3xl bg-card shadow-sm ring-1 ring-foreground/5">
-      <table className="w-full min-w-[760px] text-sm">
-        <thead className="bg-muted/60 text-xs text-muted-foreground">
-          <tr className="[&>th]:px-3 [&>th]:py-2 [&>th]:text-left [&>th]:font-medium">
-            <th>รอบรถ</th>
-            {days.map((d, i) => <th key={d} className="text-center!"><button type="button" onClick={() => onPick(d)} className="hover:text-foreground">{`${weekdayShort((i + 1) % 7)} ${fmtDate(d)}`}</button>{plans[i].unplaced.length + plans[i].requests.length > 0 && <AlertTriangleIcon className="ml-1 inline size-3 text-red-600" />}</th>)}
-          </tr>
-        </thead>
-        <tbody>
-          {runs.map((r) => (
-            <tr key={r.id} className="border-t [&>td]:px-3 [&>td]:py-2">
-              <td className="whitespace-nowrap"><span className={cn("mr-1.5 rounded-full px-1.5 py-0.5 text-[11px]", r.kind === "pickup" ? "bg-sky-100 text-sky-800" : "bg-amber-100 text-amber-900")}>{r.kind === "pickup" ? "รับ" : "ส่ง"}</span>{r.time}{r.name ? <span className="text-xs text-muted-foreground">{` · ${r.name}`}</span> : null}</td>
+          {view === "report" ? <TransportReport rows={live} />
+            : mode === "calendar" ? <TransportCalendar rows={all} days={days} today={today} onPick={(id) => { setMode("table"); setOpen(new Set([id])) }} /> : (
+            <div className="space-y-6">
               {days.map((d, i) => {
-                const t = plans[i].trips.find((x) => x.round.id === r.id)
-                if (!t) return <td key={d} className="text-center text-muted-foreground/40">—</td>
-                const bad = t.warnings.length > 0 && t.stops.length > 0
+                const rows = rowsByDay[i]
+                const issues = plans[i].flatMap((p) => [
+                  ...p.plan.unplaced.map((u) => ({ type: "u" as const, u, plan: p.plan })),
+                  ...p.plan.requests.map((r) => ({ type: "r" as const, r })),
+                ])
+                if (!rows.length && !issues.length && d !== today) return null
                 return (
-                  <td key={d} className="text-center">
-                    <button type="button" onClick={() => onPick(d)} className={cn("min-w-14 rounded-full px-2 py-1 text-xs tabular-nums", !t.stops.length ? "text-muted-foreground" : bad ? "bg-red-100 font-medium text-red-800" : t.status === "sent" ? "bg-emerald-100 text-emerald-800" : "bg-muted")}>
-                      {t.stops.length ? `${t.used}/${t.seats}` : "0"}
-                    </button>
-                  </td>
+                  <section key={d} className="space-y-2">
+                    <div className="flex flex-wrap items-center gap-3 border-b pb-2">
+                      <h3 className="text-base font-semibold">{fmtDate(d, { weekday: true })}</h3>
+                      <span className="text-sm text-muted-foreground">{`${rows.length} เที่ยว`}</span>
+                      {d === today && <span className="rounded-full bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary">วันนี้</span>}
+                      <Button size="sm" variant="outline" className="ml-auto" onClick={() => setAdding({ date: d, branch: scope.length === 1 ? scope[0] : branch })}><PlusIcon /> เพิ่มเที่ยว</Button>
+                    </div>
+                    {issues.length > 0 && (
+                      <div className="space-y-1.5 rounded-2xl bg-amber-50 p-3 text-sm ring-1 ring-amber-200 dark:bg-amber-950/30 dark:ring-amber-900">
+                        <p className="flex items-center gap-1.5 font-medium text-amber-900 dark:text-amber-100"><AlertTriangleIcon className="size-4" />{`ต้องตัดสินใจ ${issues.length}`}</p>
+                        {issues.map((x, j) => x.type === "u" ? (
+                          <div key={`u${j}`} className="flex flex-wrap items-center gap-2 rounded-xl bg-background px-3 py-1.5">
+                            <span className="min-w-0 flex-1"><span className="font-medium">{x.u.rider.nickname}</span><span className="text-muted-foreground">{` · ${x.u.kind === "pickup" ? "รับ" : "ส่ง"} · ${x.u.reason}`}</span></span>
+                            <NativeSelect className="h-8 w-auto min-w-44" value="" placeholder="ใส่เข้าเที่ยว…" onChange={(e) => e.target.value && report(moveRider(d, x.u.rider.studentId, e.target.value), "ใส่เข้าเที่ยวแล้ว")}
+                              options={x.plan.trips.filter((t) => (t.round.kind === x.u.kind || t.round.kind === "both") && t.status !== "cancelled").map((t) => ({ value: t.round.id, label: `${t.round.time} · ${t.vehicle?.name ?? ""} · ${t.used}/${t.seats}` }))} />
+                          </div>
+                        ) : (
+                          <div key={`r${j}`} className="flex flex-wrap items-center gap-2 rounded-xl bg-background px-3 py-1.5">
+                            <span className="min-w-0 flex-1"><span className="font-medium">{x.r.studentNickname}</span><span className="text-muted-foreground"> · ผู้ปกครองขอ / ยกเลิกรอบรถ — ยังไม่ได้อนุมัติ</span></span>
+                            <Button size="sm" variant="outline" nativeButton={false} render={<Link href={`/inbox?conversation=line_${x.r.lineUserId}`} />}><MessageCircleIcon /> อนุมัติในแชท</Button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    {rows.length > 0 && (
+                      <div className="overflow-x-auto">
+                        <div className="min-w-[64rem] space-y-2">
+                          <div className={cn("grid items-center gap-3 px-3 text-xs text-muted-foreground", TRIP_COLS)}>
+                            <span /><span>รถ</span><span>เวลาเที่ยว</span><span>ผู้โดยสาร</span><span>โซน</span><span>คนขับ</span><span>ประเภท</span><span>สาขา</span><span className="text-right">สถานะ</span><span />
+                          </div>
+                          {rows.map((r) => <TripRow key={r.trip.id} t={r.trip} branch={r.branch} others={r.plan.trips} open={open.has(r.trip.id)} onToggle={() => toggle(r.trip.id)} />)}
+                        </div>
+                      </div>
+                    )}
+                    {!rows.length && !issues.length && <p className="rounded-2xl border border-dashed p-4 text-center text-sm text-muted-foreground">ไม่มีเที่ยวรถวันนี้</p>}
+                  </section>
                 )
               })}
-            </tr>
-          ))}
-        </tbody>
-      </table>
-      <p className="border-t px-3 py-2 text-xs text-muted-foreground">ตัวเลข = ที่นั่งที่ใช้ / ทั้งหมด · แดง = มีคำเตือน · เขียว = ส่งคนขับแล้ว · กดวันเพื่อเปิดรายวัน</p>
-    </div>
+              {!all.length && <p className="rounded-3xl border border-dashed p-10 text-center text-sm text-muted-foreground">สัปดาห์นี้ไม่มีเที่ยวรถตามตัวกรอง</p>}
+            </div>
+          )}
+        </>}
+      {adding && <ExtraTripDialog branch={adding.branch} date={adding.date} onClose={() => setAdding(null)} />}
+    </Page>
   )
 }

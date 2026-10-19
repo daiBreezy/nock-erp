@@ -10,6 +10,8 @@ import { LoaderCircleIcon } from "lucide-react"
 const Loading = () => <div className="flex min-h-dvh items-center justify-center"><LoaderCircleIcon className="size-6 animate-spin text-muted-foreground" /></div>
 const ParentLiff = dynamic(() => import("@/components/parent/parent-liff").then((m) => m.ParentLiff), { ssr: false, loading: Loading })
 const LiffForm = dynamic(() => import("./form-app").then((m) => m.LiffForm), { ssr: false, loading: Loading })
+// owner 2026-10-19: the bus drivers' app — same LIFF link, ?app=driver&t=<secret>
+const DriverApp = dynamic(() => import("@/components/driver/driver-app").then((m) => m.DriverApp), { ssr: false, loading: Loading })
 
 export default function LiffFormPage() {
   return (
@@ -24,6 +26,8 @@ export default function LiffFormPage() {
 function LiffEntry() {
   const params = useSearchParams()
   const state = new URLSearchParams((params.get("liff.state") ?? "").replace(/^[^?]*\?/, ""))
-  return params.get("app") === "parent" || state.get("app") === "parent" ? <ParentLiff /> : <LiffForm />
+  const app = params.get("app") ?? state.get("app")
+  if (app === "driver") return <DriverApp token={params.get("t") ?? state.get("t") ?? ""} />
+  return app === "parent" ? <ParentLiff /> : <LiffForm />
 }
 

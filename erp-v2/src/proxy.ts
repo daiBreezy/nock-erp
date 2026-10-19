@@ -10,6 +10,8 @@ const PARENT_PATHS = [
   /^\/api\/forms\/(token|submit)$/,
   /^\/api\/parent-forms\/(token|submit|enroll|enroll-submit|survey|survey-submit)$/,
   /^\/api\/parent-view\/(me|requests)$/,
+  // owner 2026-10-19: the driver app — its own trips by the secret in its link, and its taps
+  /^\/api\/driver\/(me|event)$/,
   /^\/_next\//,
   /^\/brand\//,
   /^\/favicon\.ico$/,

@@ -55,6 +55,8 @@ export const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
   admin: ["calendar.view", "class.manage", "session.manage", "student.move", "attendance.mark", "attendance.leave_override", "summary.approve", "student.view", "student.manage", "student.export", "family.manage", "staff.view", "course.manage", "billing.view", "billing.manage", "billing.approve", "lead.manage", "inbox.manage", "holiday.manage"],
   // G2/G3: no billing at all (owner 2026-09-26: teachers never create invoices), no export
   teacher: ["calendar.view", "student.move", "attendance.mark", "summary.write", "student.view", "staff.view"],
+  // owner 2026-10-19: drivers use the driver app (a link), not the ERP
+  driver: [],
 }
 
 // ---------- roles per branch (owner 2026-10-09) ----------
@@ -124,6 +126,7 @@ export const ROLE_LABEL: Record<Role, string> = {
   admin: "Admin",
   teacher: "Teacher",
   developer: "Developer",
+  driver: "Driver",
 }
 
 /** Office roles that receive branch-wide operational notifications. */

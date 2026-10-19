@@ -54,7 +54,7 @@ describe("transport — planDay", () => {
     expect(p.unplaced[0].reason).toMatch(/ไม่มีรอบ/)
   })
   it("orders stops nearest-first from the branch on the way home, reversed on the way in, and times them", () => {
-    const r = (id: string, lat: number): Rider => ({ studentId: id, nickname: id, name: id, grade: "", familyId: null, familyName: "", phone: "", loc: { lat, lng: 100.58 }, adult: false, classStart: "", classEnd: "", pinned: false, zoneId: null })
+    const r = (id: string, lat: number): Rider => ({ studentId: id, nickname: id, name: id, grade: "", familyId: null, familyName: "", phone: "", loc: { lat, lng: 100.58 }, adult: false, classStart: "", classEnd: "", pinned: false, zoneId: null, leg: "dropoff" })
     const riders = [r("far", 13.80), r("near", 13.74)]
     expect(orderStops(riders, B, "dropoff").map((x) => x.studentId)).toEqual(["near", "far"])
     expect(orderStops(riders, B, "pickup").map((x) => x.studentId)).toEqual(["far", "near"])
@@ -121,5 +121,48 @@ describe("changing a day (owner 2026-10-19: create / edit / delete / adjust / ca
     const early = planDay(branch, MON, ctx({ trips: [{ id: "x2|d", branchId: "b", roundId: "x2", date: MON, extra: { kind: "dropoff", time: "17:05", seats: 6 } }] }))
     expect(early.trips.find((t) => t.round.id === "x2")!.stops).toEqual([])
     expect(early.trips.find((t) => t.round.id === "d")!.stops.length).toBe(3)
+  })
+})
+
+describe("Bus Route ref (owner 2026-10-19): Both trips, drivers, the driver app", () => {
+  // a Both run 16:30: drops the 15:00–16:00 class, brings the 17:30 class in
+  const early = { id: "ke", weekday: 1, start: "15:00", minutes: 60, studentIds: ["a"] } as unknown as Klass
+  const late = { id: "kl", weekday: 1, start: "17:30", minutes: 60, studentIds: ["b2"] } as unknown as Klass
+  const both = { ...branch, busRounds: [{ id: "x", kind: "both", weekdays: [1], time: "16:30", seats: 10, vehicleId: "v1" }] } as Branch
+  const c2 = { ...ctx(), classes: [early, late], invoices: [inv("a", false, true), inv("b2", true, false)] }
+
+  it("one Both trip takes the class that ended home, then brings the next class in — drop-offs first", () => {
+    const p = planDay(both, MON, c2)
+    const t = p.trips[0]
+    expect(t.stops.map((s) => `${s.rider.studentId}:${s.rider.leg}`)).toEqual(["a:dropoff", "b2:pickup"])
+    expect(t.depart).toBe("16:30")
+    expect(t.finish > t.stops[1].eta!).toBe(true) // back at the branch after the last pickup
+    expect(t.used).toBe(1) // one out, one back — never both on board
+  })
+  it("a Both trip with nobody to bring back ends at the last home", () => {
+    const t = planDay(both, MON, { ...c2, classes: [early] }).trips[0]
+    expect(t.stops.map((s) => s.rider.leg)).toEqual(["dropoff"])
+    expect(t.finish).toBe(t.stops[0].eta)
+  })
+  it("the driver app drives the live status: started = OTW (first stop on the way, then next), done stops get their real time", () => {
+    const id = "x|" + MON
+    const events = [
+      { id: "1", tripId: id, type: "start" as const, at: "2026-10-19T16:31:00" },
+      { id: "2", tripId: id, type: "done" as const, stopKey: "a|dropoff", at: "2026-10-19T16:55:00" },
+    ]
+    const t = planDay(both, MON, { ...c2, events }).trips[0]
+    expect(t.status).toBe("otw")
+    expect(t.stops[0]).toMatchObject({ status: "done", actual: "16:55" })
+    expect(t.stops[1].status).toBe("otw")
+    const done = planDay(both, MON, { ...c2, events: [...events, { id: "3", tripId: id, type: "finish" as const, at: "2026-10-19T17:20:00" }] }).trips[0]
+    expect(done.status).toBe("done")
+  })
+  it("driver: the van's usual one, or another (staff or outside) for that day", () => {
+    const staff = [{ id: "d1", name: "สมชาย ใจดี", nickname: "พี่ชาย", phone: "081", roles: ["driver"] }, { id: "d2", name: "บุญมี", nickname: "น้ามี", phone: "082", roles: ["driver"], vendor: true }] as never
+    const withDriver = { ...both, vehicles: both.vehicles!.map((v) => (v.id === "v1" ? { ...v, driverId: "d1" } : v)) } as Branch
+    expect(planDay(withDriver, MON, { ...c2, staff }).trips[0].driver?.nickname).toBe("พี่ชาย")
+    const swapped = planDay(withDriver, MON, { ...c2, staff, trips: [{ id: "x|d", branchId: "b", roundId: "x", date: MON, driverId: "d2" }] }).trips[0]
+    expect(swapped.driver).toMatchObject({ nickname: "น้ามี", vendor: true })
+    expect(swapped.driverChanged).toBe(true)
   })
 })

@@ -1,8 +1,8 @@
 import { addDays, toDateStr } from "../domain/dates"
 import { autoZones, compassDeg } from "../domain/rules/transport"
-import type { Branch, BusAddOn, BusRound, Entitlement, Family, Invoice, Klass, Session, Student, Vehicle } from "../domain/types"
+import type { Branch, BusAddOn, BusRound, Entitlement, Family, Invoice, Klass, Session, Staff, Student, Vehicle } from "../domain/types"
 
-type Db = { branches: Branch[]; classes: Klass[]; sessions: Session[]; families: Family[]; students: Student[]; entitlements: Entitlement[]; invoices: Invoice[]; busAddOns: BusAddOn[] }
+type Db = { branches: Branch[]; classes: Klass[]; sessions: Session[]; families: Family[]; students: Student[]; entitlements: Entitlement[]; invoices: Invoice[]; busAddOns: BusAddOn[]; staff: Staff[] }
 
 const NOTES = ["หมู่บ้านประตูสีเทา ซอยแรกซ้ายมือ", "คอนโดตรงข้าม 7-Eleven รอที่ล็อบบี้", "บ้านเลขที่ 18 รั้วสีขาว", "ซอยตัน บ้านหลังสุดท้าย", "ตึกแถวชั้นล่างร้านกาแฟ"]
 
@@ -15,6 +15,10 @@ interface Setup {
   /** where the homes are: directions (degrees) the families live in, and how far */
   spread: (i: number) => { deg: number; km: number }
   zones: boolean
+  /** drivers as staff (owner 2026-10-19 ref): [van id or null for a stand-in, nickname, name, phone, outsource] */
+  drivers: [string | null, string, string, string, boolean?][]
+  /** turn one run into a Both trip (drop off, then pick up the next class) */
+  both?: { ids: string[]; time: string }
 }
 
 /**
@@ -29,12 +33,17 @@ export function withTransportDemo<T extends Db>(db: T, now = new Date()): T {
   const thl = db.branches.find((b) => b.id === "br_thl" && b.location && (b.busRounds ?? []).length)
   if (thl) out = setupBranch(out, thl.id, {
     location: thl.location!, zones: false,
+    drivers: [["veh_tl01", "น้าสมชาย", "สมชาย ใจดี", "083-456-7890"]],
     vans: [{ id: "veh_tl01", name: "รถตู้ 1", plate: "ฮข 2210", seats: 10, driverName: "น้าสมชาย", driverPhone: "083-456-7890", active: true }],
     spread: (i) => ({ deg: (i * 137.5) % 360, km: 1.5 + ((i * 7) % 11) * 0.5 }),
   }, now)
   const src = db.branches.find((b) => b.id === "br_src")
   if (src) out = setupBranch(out, src.id, {
     location: src.location ?? { lat: 13.1737, lng: 100.9311 }, zones: true,
+    // the owner: "พี่เบ้งอาจจะลากลับบ้าน" — an outsource driver stands in on those days
+    drivers: [["veh_sr01", "น้าเอื้อง", "เอื้อง ศรีสุข", "081-234-5678"], ["veh_sr02", "น้าเบ้ง", "เบ้ง มั่นคง", "082-345-6789"], [null, "พี่ต้อม", "ต้อม รถเช่าชลบุรี", "089-111-2233", true]],
+    // Saturday: both vans leave at 12:15 — drop off the morning class, then bring in the afternoon ones
+    both: { ids: ["bro_br_src_3_0", "bro_br_src_3_1"], time: "12:15" },
     vans: [
       { id: "veh_sr01", name: "รถตู้ 1", plate: "756", seats: 10, driverName: "น้าเอื้อง", driverPhone: "081-234-5678", active: true },
       { id: "veh_sr02", name: "รถตู้ 2", plate: "1719", seats: 10, driverName: "น้าเบ้ง", driverPhone: "082-345-6789", active: true },
@@ -54,10 +63,19 @@ export function withTransportDemo<T extends Db>(db: T, now = new Date()): T {
 function setupBranch<T extends Db>(db: T, branchId: string, o: Setup, now: Date): T {
   const today = toDateStr(now)
   const branch = db.branches.find((b) => b.id === branchId)!
-  const vans = branch.vehicles?.length ? branch.vehicles : o.vans
-  const runs: BusRound[] = (branch.busRounds ?? []).length
+  // drivers: one Staff each (role Driver, own app link) — the van's regular driver points at them
+  const drivers: Staff[] = o.drivers.filter(([, nick]) => !db.staff.some((x) => x.id === `stf_drv_${branchId}_${nick}`)).map(([, nickname, name, phone, vendor]) => ({
+    id: `stf_drv_${branchId}_${nickname}`, name, nickname, phone, vendor: vendor || undefined, roles: ["driver"], branchIds: [branchId], subjects: [], active: true, canLogin: false,
+    driverToken: `drv_demo_${branchId}_${o.drivers.findIndex((d) => d[1] === nickname)}`,
+  }))
+  const vans = (branch.vehicles?.length ? branch.vehicles : o.vans).map((v) => {
+    const d = o.drivers.find(([vid]) => vid === v.id)
+    return v.driverId || !d ? v : { ...v, driverId: `stf_drv_${branchId}_${d[1]}` }
+  })
+  const runs0: BusRound[] = (branch.busRounds ?? []).length
     ? (branch.busRounds ?? []).map((r) => ({ ...r, vehicleId: r.vehicleId ?? vans[0].id }))
     : (o.runs ?? []).flatMap((r, i) => vans.map((v, j) => ({ ...r, id: `bro_${branchId}_${i}_${j}`, vehicleId: v.id, name: vans.length > 1 ? v.name : undefined })))
+  const runs = o.both && !runs0.some((r) => r.kind === "both") ? runs0.map((r) => (o.both!.ids.includes(r.id) ? { ...r, kind: "both" as const, time: o.both!.time } : r)) : runs0
   const fees = branch.fees.some((f) => f.kind === "bus") ? branch.fees : [...(o.fees ?? []), ...branch.fees]
   // children in a weekly class at this branch, with a package covering today
   const riders = db.students.filter((s) => s.branchId === branchId && !s.archived && !s.id.startsWith("stu_demo_")
@@ -108,5 +126,6 @@ function setupBranch<T extends Db>(db: T, branchId: string, o: Setup, now: Date)
     branches: db.branches.map((b) => (b.id !== branchId ? b : { ...b, location: b.location ?? o.location, vehicles: vans, busRounds: runs, fees, busZones })),
     students: db.students.map((s) => (ids.has(s.id) ? { ...s, usesBus: true } : s)),
     busAddOns: [...db.busAddOns, ...companions],
+    staff: [...db.staff, ...drivers],
   }
 }

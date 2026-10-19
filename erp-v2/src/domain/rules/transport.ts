@@ -1,10 +1,12 @@
-// Transport (owner 2026-10-19, from v1 Bus Route — "ให้ Admin ไม่ต้องคิดให้ได้มากที่สุด"): who rides which run on a
-// day is worked out, never typed. Riders come from invoices + extra / cancelled rides + parents riding along; each
-// child goes to the run that fits their class time; stops are put in order and timed from the home pins; anything the
-// admin has to look at becomes a warning. The admin only reorders, moves a child, swaps the van, or sends.
+// Transport (owner 2026-10-19, from v1 Bus Route — "ให้ Admin ไม่ต้องคิดให้ได้มากที่สุด"; layout from the owner's
+// Bus Route ref): who rides which trip on a day is worked out, never typed. Riders come from invoices + extra /
+// cancelled rides + parents riding along; each child's ride goes to the run that fits their class time (a Both run
+// drops the class that ended, then brings the next one in); stops are ordered and timed from the home pins; the
+// driver app reports when the van left, each stop, and when it got back. The admin reorders, moves, adds / removes,
+// swaps the van or driver, cancels, approves & sends.
 import { addDays, fromMinutes, toMinutes, weekdayOf } from "../dates"
-import type { Branch, BusAddOn, BusRound, BusTrip, BusZone, DateStr, Family, ID, Invoice, Klass, ParentRequest, Student, TimeStr, Vehicle } from "../types"
-import { busZone, distanceKm, rideTimes, roundFor } from "./bus"
+import type { Branch, BusAddOn, BusLegKind, BusRound, BusTrip, BusZone, DateStr, Family, ID, Invoice, Klass, ParentRequest, Staff, Student, TimeStr, Vehicle } from "../types"
+import { BOTH_LEAD_MIN, busZone, distanceKm, rideTimes, roundFor } from "./bus"
 import { busDaysOf } from "./parent-view"
 
 type LatLng = { lat: number; lng: number }
@@ -28,11 +30,32 @@ export interface Rider {
   pinned: boolean
   /** the bus zone of the home (owner 2026-10-19) */
   zoneId: ID | null
+  /** which way this ride goes — a Both trip carries both */
+  leg: BusLegKind
 }
 
-export interface TripStop { rider: Rider; eta: TimeStr | null; km: number | null }
+/** what the driver app reported (owner 2026-10-19: "เชื่อมกับ Line หรือสร้าง Web/App ใหม่ สำหรับ Driver") */
+export interface DriverEvent { id: string; tripId: string; type: "start" | "done" | "noshow" | "finish"; stopKey?: string; at: string; by?: ID }
 
-export type TripStatus = "draft" | "scheduled" | "sent" | "changed" | "cancelled"
+export type StopStatus = "waiting" | "otw" | "next" | "done" | "noshow" | "cancel"
+
+export interface TripStop {
+  /** `${studentId}|${leg}` */
+  key: string
+  rider: Rider
+  eta: TimeStr | null
+  km: number | null
+  status: StopStatus
+  /** when the driver marked it */
+  actual: TimeStr | null
+  /** minutes late against the estimate (+) */
+  late: number | null
+}
+
+/** draft → (scheduled to send itself) → sent = approved → otw (driver started) → done; changed = edited after sending */
+export type TripStatus = "draft" | "scheduled" | "sent" | "changed" | "cancelled" | "otw" | "done"
+
+export interface DriverInfo { id: ID | null; name: string; nickname: string; phone: string; photo?: string; vendor: boolean }
 
 export interface TripPlan {
   id: string
@@ -43,13 +66,19 @@ export interface TripPlan {
   vehicle: Vehicle | null
   /** a stand-in van for this day */
   substitute: boolean
+  driver: DriverInfo | null
+  /** another driver that day */
+  driverChanged: boolean
   seats: number
   used: number
   stops: TripStop[]
-  /** pickup: leaves the depot · drop-off: leaves the branch */
+  /** children taken off this trip that day (shown faded) */
+  cancelled: Rider[]
+  /** leaves (the depot for a pickup, the branch otherwise) */
   depart: TimeStr
-  /** pickup: at the branch · drop-off: last home */
+  /** pickup / both: back at the branch · drop-off: last home */
   finish: TimeStr
+  minutes: number
   km: number
   warnings: string[]
   /** what would be sent — compared with what was sent */
@@ -62,9 +91,13 @@ export interface TripPlan {
   extra: boolean
   /** leaves at another time than usual that day */
   timeChanged: boolean
+  /** live: when the driver started / finished, and how late the trip runs (+min) */
+  startedAt: TimeStr | null
+  finishedAt: TimeStr | null
+  late: number | null
 }
 
-export interface Unplaced { rider: Rider; kind: BusRound["kind"]; reason: string }
+export interface Unplaced { rider: Rider; kind: BusLegKind; reason: string }
 
 export interface DayPlan { date: DateStr; trips: TripPlan[]; unplaced: Unplaced[]; requests: ParentRequest[] }
 
@@ -76,6 +109,8 @@ export interface TransportCtx {
   busAddOns: BusAddOn[]
   trips: BusTrip[]
   parentRequests?: ParentRequest[]
+  staff?: Staff[]
+  events?: DriverEvent[]
   /** for status: a trip that left already is sent / done */
   now?: Date
 }
@@ -86,8 +121,10 @@ export const AUTO_SEND_BEFORE_MIN = 60
 const legMin = (km: number) => Math.round(((km * DETOUR) / CITY_KMH) * 60)
 
 export const tripId = (roundId: ID, date: DateStr) => `${roundId}|${date}`
+export const stopKey = (studentId: ID, leg: BusLegKind) => `${studentId}|${leg}`
 
 const bearing = (from: LatLng, to: LatLng) => Math.atan2(to.lng - from.lng, to.lat - from.lat)
+const hhmm = (iso: string) => { const d = new Date(iso); return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}` }
 
 // ---------- bus zones (owner 2026-10-19: several vans — "แบ่ง Zone ของนักเรียน เพื่อให้รถวิ่งรับได้สะดวก")
 
@@ -141,45 +178,60 @@ export function autoZones(degs: number[], count: number, vehicleIds: ID[] = []):
   })
 }
 
-/** nearest-neighbour from the branch: the drop-off order; a pickup runs it backwards (ends closest to school) */
-export function orderStops(riders: Rider[], branch: LatLng | undefined, kind: BusRound["kind"]): Rider[] {
-  const pinned = riders.filter((r) => r.loc), lost = riders.filter((r) => !r.loc)
-  if (!branch) return riders
+/** nearest-neighbour from `from`: the drop-off order; a pickup runs it backwards (ends closest to school) */
+function nearestFirst(riders: Rider[], from: LatLng): Rider[] {
   const out: Rider[] = []
-  let at = branch
-  const left = [...pinned]
+  let at = from
+  const left = [...riders]
   while (left.length) {
     left.sort((a, b) => distanceKm(at, a.loc!) - distanceKm(at, b.loc!))
     const next = left.shift()!
     out.push(next)
     at = next.loc!
   }
-  return [...(kind === "pickup" ? out.reverse() : out), ...lost]
+  return out
 }
 
-/** times along the run: pickup = arrive at the branch by the run time (worked backwards), drop-off = leave at it */
-export function timeStops(riders: Rider[], branch: LatLng | undefined, round: BusRound): { stops: TripStop[]; depart: TimeStr; finish: TimeStr; km: number } {
+/** stop order: drop-offs nearest-first from the branch; pickups the same backwards (ending near school); a Both trip
+ *  does its drop-offs first, then the pickups on the way back. Homes with no pin go last. */
+export function orderStops(riders: Rider[], branch: LatLng | undefined, kind: BusRound["kind"]): Rider[] {
+  if (!branch) return riders
+  const lost = riders.filter((r) => !r.loc), pinned = riders.filter((r) => r.loc)
+  if (kind === "pickup") return [...nearestFirst(pinned, branch).reverse(), ...lost]
+  if (kind === "dropoff") return [...nearestFirst(pinned, branch), ...lost]
+  const drops = nearestFirst(pinned.filter((r) => r.leg === "dropoff"), branch)
+  const last = drops.at(-1)?.loc ?? branch
+  // the pickups: start from wherever the last drop-off was, sweep, end nearest the branch
+  const picks = nearestFirst(pinned.filter((r) => r.leg === "pickup"), last)
+  return [...drops, ...picks, ...lost]
+}
+
+/** times along the run: pickup = arrive at the branch by the run time (worked backwards); drop-off / Both = leave the
+ *  branch at it and go forward (a Both trip ends back at the branch) */
+export function timeStops(riders: Rider[], branch: LatLng | undefined, round: BusRound): { stops: { rider: Rider; eta: TimeStr | null; km: number | null }[]; depart: TimeStr; finish: TimeStr; km: number } {
   const t0 = toMinutes(round.time)
   if (!branch) return { stops: riders.map((rider) => ({ rider, eta: null, km: null })), depart: round.time, finish: round.time, km: 0 }
-  const pts = riders.map((r) => r.loc)
-  if (round.kind === "dropoff") {
-    let t = t0, at: LatLng = branch, total = 0
-    const stops = riders.map((rider, i) => {
-      const p = pts[i]
+  const fromBranch = (p?: LatLng) => (p ? Math.round(distanceKm(branch, p) * 10) / 10 : null)
+  if (round.kind !== "pickup") {
+    let t = t0, at: LatLng = branch, total = 0, first = true
+    const stops = riders.map((rider) => {
+      const p = rider.loc
       if (!p) return { rider, eta: null, km: null }
       const km = distanceKm(at, p)
       total += km
-      t += legMin(km) + (i ? STOP_MIN : 0)
+      t += legMin(km) + (first ? 0 : STOP_MIN)
+      first = false
       at = p
-      return { rider, eta: fromMinutes(t), km: Math.round(distanceKm(branch, p) * 10) / 10 }
+      return { rider, eta: fromMinutes(t), km: fromBranch(p) }
     })
+    // a Both trip comes back with the next class (only when it brings someone back)
+    if (round.kind === "both" && at !== branch && riders.some((r) => r.leg === "pickup")) { const km = distanceKm(at, branch); total += km; t += legMin(km) + STOP_MIN }
     return { stops, depart: round.time, finish: fromMinutes(t), km: Math.round(total * 10) / 10 }
   }
-  // pickup: from the last stop back to the branch
   const etas: (number | null)[] = new Array(riders.length).fill(null)
   let t = t0, at: LatLng = branch, total = 0
   for (let i = riders.length - 1; i >= 0; i--) {
-    const p = pts[i]
+    const p = riders[i].loc
     if (!p) continue
     const km = distanceKm(at, p)
     total += km
@@ -189,7 +241,7 @@ export function timeStops(riders: Rider[], branch: LatLng | undefined, round: Bu
   }
   const first = etas.find((x) => x !== null)
   return {
-    stops: riders.map((rider, i) => ({ rider, eta: etas[i] === null ? null : fromMinutes(etas[i]!), km: pts[i] ? Math.round(distanceKm(branch, pts[i]!) * 10) / 10 : null })),
+    stops: riders.map((rider, i) => ({ rider, eta: etas[i] === null ? null : fromMinutes(etas[i]!), km: fromBranch(rider.loc) })),
     depart: fromMinutes(first ?? t0), finish: round.time, km: Math.round(total * 10) / 10,
   }
 }
@@ -208,6 +260,13 @@ function splitByDirection(riders: Rider[], runs: BusRound[], branch: LatLng | un
   return out
 }
 
+const driverOf = (staff: Staff[] | undefined, id: ID | null | undefined, v: Vehicle | null): DriverInfo | null => {
+  const s = id ? staff?.find((x) => x.id === id) : undefined
+  if (s) return { id: s.id, name: s.name, nickname: s.nickname, phone: s.phone ?? "", photo: s.photo, vendor: !!s.vendor }
+  if (v?.driverName) return { id: null, name: v.driverName, nickname: v.driverName, phone: v.driverPhone, vendor: false }
+  return null
+}
+
 /** Everything the admin needs for one day at one branch. */
 export function planDay(branch: Branch, date: DateStr, ctx: TransportCtx): DayPlan {
   const wd = weekdayOf(date)
@@ -218,43 +277,54 @@ export function planDay(branch: Branch, date: DateStr, ctx: TransportCtx): DayPl
     ...(branch.busRounds ?? []).filter((r) => r.weekdays.includes(wd)).map((r) => { const t = states.get(r.id)?.time; return t ? { ...r, time: t } : r }),
     ...[...states.values()].filter((t) => t.extra).map((t) => ({ id: t.roundId, weekdays: [wd], ...t.extra! })),
   ]
+  const isExtra = (r: BusRound) => !!states.get(r.id)?.extra
   // a run cancelled that day takes nobody — its children are matched to another run or left for the admin
   const runs = allRuns.filter((r) => !states.get(r.id)?.cancelled)
-  const pinnedTo = new Map<string, ID>() // `${kind}|${studentId}` → roundId
-  for (const run of runs) for (const sid of states.get(run.id)?.pinned ?? []) pinnedTo.set(`${run.kind}|${sid}`, run.id)
-  const byRun = new Map<ID, Rider[]>(runs.map((r) => [r.id, []]))
+  const weekly = runs.filter((r) => !isExtra(r))
+  const fits = (r: BusRound, leg: BusLegKind) => r.kind === leg || r.kind === "both"
+  const pinnedTo = new Map<string, ID>() // `${leg}|${studentId}` → roundId
+  for (const run of allRuns) for (const sid of states.get(run.id)?.pinned ?? []) for (const leg of ["pickup", "dropoff"] as const) if (fits(run, leg)) pinnedTo.set(`${leg}|${sid}`, run.id)
+  const byRun = new Map<ID, Rider[]>(allRuns.map((r) => [r.id, []]))
   const unplaced: Unplaced[] = []
-  const groups = new Map<string, Rider[]>() // same kind + time, several runs → split later
+  const groups = new Map<string, Rider[]>() // same time, several runs → split later
 
-  for (const stu of ctx.students.filter((s) => s.branchId === branch.id && !s.archived)) {
-    const legs = busDaysOf(stu.id, ctx.invoices, ctx.busAddOns).get(date)
-    if (!legs || (!legs.pickup && !legs.dropoff)) continue
+  const riderBase = (stu: Student, legs: { adult?: boolean } | undefined) => {
     const fam = ctx.families.find((f) => f.id === stu.familyId)
     const parent = fam?.parents.find((p) => p.primary) ?? fam?.parents[0]
     const times = rideTimes(ctx.classes, ctx.classes.filter((k) => k.studentIds.includes(stu.id)).map((k) => k.id), date)
-    const base = {
-      studentId: stu.id, nickname: stu.nickname, name: stu.name, grade: stu.grade, familyId: stu.familyId, familyName: fam?.name ?? "",
-      phone: parent?.phone ?? "", loc: fam?.location, address: fam?.address, addressNote: fam?.addressNote, adult: !!legs.adult,
-      classStart: times?.start ?? "", classEnd: times?.end ?? "", zoneId: zoneOf(fam, branch.location, branch.busZones ?? [])?.id ?? null,
+    return {
+      times,
+      base: {
+        studentId: stu.id, nickname: stu.nickname, name: stu.name, grade: stu.grade, familyId: stu.familyId, familyName: fam?.name ?? "",
+        phone: parent?.phone ?? "", loc: fam?.location, address: fam?.address, addressNote: fam?.addressNote, adult: !!legs?.adult,
+        classStart: times?.start ?? "", classEnd: times?.end ?? "", zoneId: zoneOf(fam, branch.location, branch.busZones ?? [])?.id ?? null,
+      },
     }
-    for (const kind of ["pickup", "dropoff"] as const) {
-      if (!legs[kind]) continue
-      const hand = pinnedTo.get(`${kind}|${stu.id}`)
-      const offRun = allRuns.find((r) => r.kind === kind && states.get(r.id)?.cancelled && (states.get(r.id)?.pinned ?? []).includes(stu.id))
-      if (offRun) { unplaced.push({ rider: { ...base, pinned: false }, kind, reason: `เที่ยว ${offRun.time} ยกเลิกวันนี้` }); continue }
-      const rider: Rider = { ...base, pinned: !!hand }
-      if (hand) { byRun.get(hand)!.push(rider); continue }
-      if (!times) { unplaced.push({ rider, kind, reason: "ไม่มีคลาสวันนี้ — แต่มีรอบรถ" }); continue }
-      // one-off runs only take children put on them by hand
-      const weekly = runs.filter((r) => !states.get(r.id)?.extra)
-      const hit = roundFor(weekly, kind, date, kind === "pickup" ? times.start : times.end)
-      if (!hit) {
-        const off = roundFor(allRuns.filter((r) => !states.get(r.id)?.extra), kind, date, kind === "pickup" ? times.start : times.end)
-        unplaced.push({ rider, kind, reason: off ? `เที่ยว ${off.time} ยกเลิกวันนี้` : kind === "pickup" ? `ไม่มีรอบรับก่อนเรียน ${times.start}` : `ไม่มีรอบส่งหลังเลิก ${times.end}` })
+  }
+  const branchStudents = ctx.students.filter((s) => s.branchId === branch.id && !s.archived)
+  for (const stu of branchStudents) {
+    const legs = busDaysOf(stu.id, ctx.invoices, ctx.busAddOns).get(date)
+    if (!legs || (!legs.pickup && !legs.dropoff)) continue
+    const { times, base } = riderBase(stu, legs)
+    for (const leg of ["pickup", "dropoff"] as const) {
+      if (!legs[leg]) continue
+      const hand = pinnedTo.get(`${leg}|${stu.id}`)
+      const rider: Rider = { ...base, pinned: !!hand, leg }
+      if (hand) {
+        if (states.get(hand)?.cancelled) unplaced.push({ rider: { ...rider, pinned: false }, kind: leg, reason: `เที่ยว ${allRuns.find((r) => r.id === hand)?.time ?? ""} ยกเลิกวันนี้` })
+        else byRun.get(hand)!.push(rider)
         continue
       }
-      const same = weekly.filter((r) => r.kind === kind && r.time === hit.time)
-      if (same.length > 1) { const k = `${kind}|${hit.time}`; groups.set(k, [...(groups.get(k) ?? []), rider]) }
+      if (!times) { unplaced.push({ rider, kind: leg, reason: "ไม่มีคลาสวันนี้ — แต่มีรอบรถ" }); continue }
+      // one-off runs only take children put on them by hand
+      const hit = roundFor(weekly, leg, date, leg === "pickup" ? times.start : times.end)
+      if (!hit) {
+        const off = roundFor(allRuns.filter((r) => !isExtra(r)), leg, date, leg === "pickup" ? times.start : times.end)
+        unplaced.push({ rider, kind: leg, reason: off ? `เที่ยว ${off.time} ยกเลิกวันนี้` : leg === "pickup" ? `ไม่มีรอบรับก่อนเรียน ${times.start}` : `ไม่มีรอบส่งหลังเลิก ${times.end}` })
+        continue
+      }
+      const same = weekly.filter((r) => fits(r, leg) && r.kind === hit.kind && r.time === hit.time)
+      if (same.length > 1) { const k = `${hit.kind}|${hit.time}`; groups.set(k, [...(groups.get(k) ?? []), rider]) }
       else byRun.get(hit.id)!.push(rider)
     }
   }
@@ -263,7 +333,7 @@ export function planDay(branch: Branch, date: DateStr, ctx: TransportCtx): DayPl
   const zones = branch.busZones ?? []
   for (const [k, riders] of groups) {
     const [kind, time] = k.split("|")
-    const same = runs.filter((r) => r.kind === kind && r.time === time && !states.get(r.id)?.extra)
+    const same = weekly.filter((r) => r.kind === kind && r.time === time)
     const rest: Rider[] = []
     for (const rider of riders) {
       const vid = zones.find((z) => z.id === rider.zoneId)?.vehicleId
@@ -273,35 +343,80 @@ export function planDay(branch: Branch, date: DateStr, ctx: TransportCtx): DayPl
     }
     if (rest.length) for (const [rid, list] of splitByDirection(rest, same, branch.location)) byRun.get(rid)!.push(...list)
   }
+  // children whose ride that day was cancelled — shown faded on the trip they'd normally be on
+  const cancelledOn = new Map<ID, Rider[]>()
+  for (const a of ctx.busAddOns.filter((x) => x.cancel && x.date === date && x.branchId === branch.id)) {
+    const stu = branchStudents.find((s) => s.id === a.studentId)
+    if (!stu) continue
+    const { times, base } = riderBase(stu, undefined)
+    for (const leg of ["pickup", "dropoff"] as const) {
+      if (!a[leg] || !times) continue
+      const run = roundFor(weekly, leg, date, leg === "pickup" ? times.start : times.end)
+      if (run) cancelledOn.set(run.id, [...(cancelledOn.get(run.id) ?? []), { ...base, pinned: false, leg }])
+    }
+  }
 
   const now = ctx.now
   const today = now ? `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}` : null
   const nowMin = now ? now.getHours() * 60 + now.getMinutes() : 0
   const trips = allRuns.map((round): TripPlan => {
+    const id = tripId(round.id, date)
     const state = states.get(round.id)
     const vehicle = vehicles.find((v) => v.id === (state?.vehicleId ?? round.vehicleId)) ?? null
+    const driver = driverOf(ctx.staff, state?.driverId ?? vehicle?.driverId, vehicle)
     let riders = orderStops(byRun.get(round.id) ?? [], branch.location, round.kind)
     if (state?.order?.length) {
-      const pos = new Map(state.order.map((id, i) => [id, i]))
-      riders = [...riders].sort((a, b) => (pos.get(a.studentId) ?? 999) - (pos.get(b.studentId) ?? 999))
+      const pos = new Map(state.order.map((x, i) => [x, i]))
+      // order holds stop keys (or plain student ids from before Both trips)
+      const at = (r: Rider) => pos.get(stopKey(r.studentId, r.leg)) ?? pos.get(r.studentId) ?? 999
+      riders = [...riders].sort((a, b) => at(a) - at(b))
     }
     const timed = timeStops(riders, branch.location, round)
-    const used = riders.reduce((n, r) => n + 1 + Number(r.adult), 0)
+    // seats: a Both trip carries its drop-offs out and its pickups back — the fuller half counts
+    const load = (rs: Rider[]) => rs.reduce((n, r) => n + 1 + Number(r.adult), 0)
+    const used = round.kind === "both" ? Math.max(load(riders.filter((r) => r.leg === "dropoff")), load(riders.filter((r) => r.leg === "pickup"))) : load(riders)
     const seats = round.seats
     const warnings: string[] = []
     if (used > seats) warnings.push(`เกินที่นั่ง ${used}/${seats}`)
     if (!vehicle) warnings.push("ยังไม่ได้เลือกรถ")
+    if (!driver && vehicle) warnings.push("ยังไม่มีคนขับ")
     const noPin = riders.filter((r) => !r.loc)
     if (noPin.length) warnings.push(`ไม่มีหมุดบ้าน ${noPin.length} คน`)
     const far = riders.filter((r) => r.loc && branch.location && busZone(branch.fees, distanceKm(branch.location, r.loc)).outside)
     if (far.length) warnings.push(`นอกพื้นที่รับส่ง ${far.length} คน`)
-    const key = JSON.stringify([vehicle?.id ?? null, timed.stops.map((s) => `${s.rider.studentId}${s.rider.adult ? "+" : ""}`)])
-    // auto-send: 60 min before it leaves, when nothing needs a look
+    if (round.kind === "both") {
+      const firstClass = riders.filter((r) => r.leg === "pickup" && r.classStart).map((r) => r.classStart).sort()[0]
+      if (firstClass && timed.finish > firstClass) warnings.push(`ถึงสาขา ${timed.finish} หลังคลาสเริ่ม ${firstClass}`)
+    }
+    const key = JSON.stringify([vehicle?.id ?? null, driver?.id ?? driver?.name ?? null, timed.stops.map((s) => `${stopKey(s.rider.studentId, s.rider.leg)}${s.rider.adult ? "+" : ""}`)])
+    // live, from the driver app
+    const evs = (ctx.events ?? []).filter((e) => e.tripId === id).sort((a, b) => a.at.localeCompare(b.at))
+    const started = evs.find((e) => e.type === "start"), finished = evs.find((e) => e.type === "finish")
+    const marked = new Map(evs.filter((e) => e.stopKey).map((e) => [e.stopKey!, e]))
+    let seenNext = false, seenOtw = false
+    const stops: TripStop[] = timed.stops.map((x) => {
+      const k = stopKey(x.rider.studentId, x.rider.leg)
+      const ev = marked.get(k)
+      const actual = ev ? hhmm(ev.at) : null
+      const late = actual && x.eta ? toMinutes(actual) - toMinutes(x.eta) : null
+      let status: StopStatus = "waiting"
+      if (ev) status = ev.type === "noshow" ? "noshow" : "done"
+      else if (started && !finished) { status = !seenOtw ? "otw" : !seenNext ? "next" : "waiting"; if (seenOtw) seenNext = true; seenOtw = true }
+      return { key: k, rider: x.rider, eta: x.eta, km: x.km, status, actual, late }
+    })
+    const lateNow = stops.filter((x) => x.late !== null).at(-1)?.late ?? null
     const autoAt = branch.busAutoSend && !warnings.length && riders.length ? fromMinutes(toMinutes(timed.depart) - AUTO_SEND_BEFORE_MIN) : undefined
     const autoDone = !!autoAt && !!today && (date < today || (date === today && nowMin >= toMinutes(autoAt)))
-    const status: TripStatus = state?.cancelled ? "cancelled" : state?.sentAt ? (state.sentKey === key ? "sent" : "changed") : autoDone ? "sent" : autoAt ? "scheduled" : "draft"
+    const status: TripStatus = state?.cancelled ? "cancelled" : finished ? "done" : started ? "otw"
+      : state?.sentAt ? (state.sentKey === key ? "sent" : "changed") : autoDone ? "sent" : autoAt ? "scheduled" : "draft"
     const zoneIds = [...new Set(riders.map((r) => r.zoneId).filter((z): z is ID => !!z))]
-    return { id: tripId(round.id, date), zoneIds, extra: !!state?.extra, timeChanged: !!state?.time, round, date, vehicle, substitute: !!state?.vehicleId && state.vehicleId !== round.vehicleId, seats, used, ...timed, warnings, key, status, autoAt, state }
+    const minutes = Math.max(0, toMinutes(timed.finish) - toMinutes(timed.depart))
+    return {
+      id, zoneIds, extra: !!state?.extra, timeChanged: !!state?.time, round, date, vehicle, substitute: !!state?.vehicleId && state.vehicleId !== round.vehicleId,
+      driver, driverChanged: !!state?.driverId && state.driverId !== vehicle?.driverId, seats, used, stops, cancelled: cancelledOn.get(round.id) ?? [],
+      depart: timed.depart, finish: timed.finish, minutes, km: timed.km, warnings, key, status, autoAt, state,
+      startedAt: started ? hhmm(started.at) : null, finishedAt: finished ? hhmm(finished.at) : null, late: lateNow,
+    }
   }).sort((a, b) => a.depart.localeCompare(b.depart))
 
   const requests = (ctx.parentRequests ?? []).filter((r) => r.kind === "bus" && r.status === "new" && (r.bus ?? []).some((x) => x.date === date)
@@ -309,17 +424,21 @@ export function planDay(branch: Branch, date: DateStr, ctx: TransportCtx): DayPl
   return { date, trips, unplaced, requests }
 }
 
-/** the 7 days from a Monday — for the week grid */
+/** the 7 days from a Monday — for the week */
 export const weekDates = (monday: DateStr) => Array.from({ length: 7 }, (_, i) => addDays(monday, i))
 
+export const KIND_SHORT: Record<BusRound["kind"], string> = { pickup: "P", dropoff: "D", both: "Both" }
+export { BOTH_LEAD_MIN }
+
 /** what goes to the driver: plain text for LINE / copy (the printed sheet shows the same) */
-export function driverText(trip: TripPlan, branchName: string, dateLabel: string): string {
-  const head = `${trip.round.kind === "pickup" ? "รอบรับ" : "รอบส่ง"}${trip.round.name ? ` · ${trip.round.name}` : ""} · ${dateLabel}`
-  const v = trip.vehicle ? `${trip.vehicle.name} (${trip.vehicle.plate}) · ${trip.vehicle.driverName}` : "ยังไม่ได้เลือกรถ"
+export function driverText(trip: TripPlan, branchName: string, dateLabel: string, appUrl?: string): string {
+  const kind = trip.round.kind === "pickup" ? "รอบรับ" : trip.round.kind === "dropoff" ? "รอบส่ง" : "รอบรับ-ส่ง"
+  const head = `${kind} ${trip.round.time}${trip.round.name ? ` · ${trip.round.name}` : ""} · ${dateLabel}`
+  const v = trip.vehicle ? `${trip.vehicle.name} (${trip.vehicle.plate}) · ${trip.driver?.nickname ?? ""}` : "ยังไม่ได้เลือกรถ"
   const lines = trip.stops.map((s, i) => {
     const map = s.rider.loc ? ` https://maps.google.com/?q=${s.rider.loc.lat},${s.rider.loc.lng}` : ""
-    return `${i + 1}. ${s.eta ?? "--:--"} ${s.rider.nickname}${s.rider.adult ? " (+ผู้ปกครอง)" : ""} · ${s.rider.phone}${s.rider.addressNote ? ` · ${s.rider.addressNote}` : ""}${map}`
+    return `${i + 1}. ${s.eta ?? "--:--"} ${s.rider.leg === "pickup" ? "รับ" : "ส่ง"} ${s.rider.nickname}${s.rider.adult ? " (+ผู้ปกครอง)" : ""} · ${s.rider.phone}${s.rider.addressNote ? ` · ${s.rider.addressNote}` : ""}${map}`
   })
-  const ends = trip.round.kind === "pickup" ? `ถึง${branchName} ${trip.finish}` : `ออกจาก${branchName} ${trip.depart}`
-  return [head, v, `ที่นั่ง ${trip.used}/${trip.seats}`, ...lines, ends].join("\n")
+  const ends = trip.round.kind === "dropoff" ? `ออกจาก${branchName} ${trip.depart}` : `ถึง${branchName} ${trip.finish}`
+  return [head, v, `ที่นั่ง ${trip.used}/${trip.seats}`, ...lines, ends, ...(appUrl ? [`แอปคนขับ: ${appUrl}`] : [])].join("\n")
 }
