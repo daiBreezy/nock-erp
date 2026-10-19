@@ -413,8 +413,9 @@ export default function InboxPage() {
                       <DropdownMenuSub>
                         <DropdownMenuSubTrigger><FileTextIcon /> ฟอร์ม</DropdownMenuSubTrigger>
                         <DropdownMenuSubContent className="w-64 whitespace-nowrap">
-                          <DropdownMenuItem disabled={!lead} onClick={() => { setFormType("test"); setSendingFormOpen(true) }}><ClipboardListIcon /> Test Form{!lead ? <Hint>เฉพาะ Lead</Hint> : <Sent at={sentAt.test} />}</DropdownMenuItem>
-                          <DropdownMenuItem disabled={!lead} onClick={() => { setFormType("trial"); setSendingFormOpen(true) }}><GraduationCapIcon /> Trial{!lead ? <Hint>เฉพาะ Lead</Hint> : <Sent at={sentAt.trial} />}</DropdownMenuItem>
+                          {/* owner 2026-10-19: existing families too (e.g. a second child) — the child gets its own lead on send */}
+                          <DropdownMenuItem disabled={!lead && !family} onClick={() => { setFormType("test"); setSendingFormOpen(true) }}><ClipboardListIcon /> Test Form{!lead && !family ? <Hint>ผูกแชทก่อน</Hint> : <Sent at={sentAt.test} />}</DropdownMenuItem>
+                          <DropdownMenuItem disabled={!lead && !family} onClick={() => { setFormType("trial"); setSendingFormOpen(true) }}><GraduationCapIcon /> Trial{!lead && !family ? <Hint>ผูกแชทก่อน</Hint> : <Sent at={sentAt.trial} />}</DropdownMenuItem>
                           <DropdownMenuItem disabled={!lead && !family} onClick={() => setSendingEnroll(true)}><UserPlusIcon /> Enroll{!lead && !family ? <Hint>ผูกแชทก่อน</Hint> : <Sent at={sentAt.enroll} />}</DropdownMenuItem>
                           {kids.length > 1 ? (
                             <DropdownMenuSub>
@@ -474,9 +475,10 @@ export default function InboxPage() {
       {invoicePanel && <InvoiceSheet id={invoicePanel.id} defaultStudentId={invoicePanel.studentId} slipMediaId={invoicePanel.slip} onClose={() => setInvoicePanel(null)} />}
       {sendingEnroll && selected && <SendEnrollDialog conversationId={selected.id} onClose={() => setSendingEnroll(false)} onInvoice={() => openInvoice()} />}
       {composing && <ComposeDialog onClose={() => setComposing(false)} onSent={(id) => { setComposing(false); if (id) select(id) }} />}
-      {sendingFormOpen && selected && lead && (
+      {sendingFormOpen && selected && (lead || family) && (
         <SendFormDialog
-          leadId={lead.id} branchId={lead.branchId} conversationId={selected.id} lineUserId={lead.lineUserId ?? ""} initialType={formType}
+          leadId={lead?.id ?? null} branchId={lead?.branchId ?? selected.branchId} conversationId={selected.id}
+          lineUserId={lead?.lineUserId ?? family?.lineUserId ?? (selected.id.startsWith("line_") ? selected.id.slice(5) : "")} initialType={formType}
           onClose={() => { setSendingFormOpen(false); setFormType(undefined) }}
         />
       )}

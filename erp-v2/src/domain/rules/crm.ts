@@ -1,7 +1,7 @@
 // CRM lead pipeline (Phase 2 rebuild). Spec ref: new-erp/js/crm.js (stage list + grouping).
 
 import { daysBetween, fmtDate, toDateStr } from "../dates"
-import type { DateStr, Lead, LeadStage, Result } from "../types"
+import type { DateStr, Family, ID, Lead, LeadStage, Result } from "../types"
 
 export const LEAD_STAGE_LABEL: Record<LeadStage, string> = {
   new: "ลูกค้าใหม่",
@@ -171,4 +171,19 @@ export function crmKpis(leads: Lead[], now: Date): CrmKpis {
   const dueSoon = appointments.filter((a) => !a.overdue && a.daysLeft <= 1).length
   const enrolled = leads.filter((l) => l.stage === "enrolled").length
   return { total, active, dueSoon, overdue, enrolled, conversionRate: total ? Math.round((enrolled / total) * 100) : 0 }
+}
+
+/**
+ * Test / Trial for a family that is already a customer (owner 2026-10-19: e.g. a second child) — the funnel runs on
+ * a lead, so the child gets its own one, contacted through the family's primary parent and LINE. Approving the form
+ * then adds the child to this family (matched by LINE / phone), never a duplicate family.
+ */
+export function siblingLead(f: Family, input: { id: ID; branchId: ID; childGrade: string; subject: string; by: ID; now: string }): Lead {
+  const parent = f.parents.find((p) => p.primary) ?? f.parents[0]
+  return {
+    id: input.id, branchId: input.branchId, name: parent?.name ?? f.name, childGrade: input.childGrade, subject: input.subject,
+    source: f.sources?.[0] ?? "line", stage: "contacting", assigneeId: input.by, phone: parent?.phone ?? "", lineId: parent?.lineId ?? "",
+    lineUserId: f.lineUserId, createdAt: input.now, convertedStudentId: null,
+    notes: [{ at: input.now, by: input.by, text: `ลูกอีกคนของ${f.name} — ส่งฟอร์ม Test / Trial จาก Inbox` }],
+  }
 }

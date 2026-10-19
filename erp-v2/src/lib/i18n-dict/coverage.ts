@@ -167,4 +167,9 @@ export const COVERAGE: Record<string, Entry> = {
   "{0} · {1} รอเรียกเก็บในใบถัดไป{2}": { en: "{0} · {1} to bill on the next invoice{2}", ja: "{0} · {1} 次回請求予定{2}" },
   "นักเรียนเก่า {0} — {1}{2}": { en: "Former student {0} — {1}{2}", ja: "元生徒 {0} — {1}{2}" },
   "สมัครเรียนจากฟอร์ม · อยากเริ่ม {0}": { en: "Enrolled via the form · wants to start {0}", ja: "フォームから入塾 · 開始希望 {0}" },
+  "ผูกแชทนี้กับครอบครัวก่อน": { en: "Link this chat to a family first", ja: "先にこのチャットを家族に紐付けてください" },
+  "ลูกค้าเดิม — ลูกคนไหน": { en: "Existing customer — which child", ja: "既存の顧客 — どのお子様" },
+  "{0} · สร้าง Lead ให้เด็กคนนี้ตอนส่ง · อนุมัติแล้วเด็กเข้าครอบครัวเดิม": { en: "{0} · a lead is made for this child on send · once approved the child joins this family", ja: "{0} · 送信時にこのお子様のリードを作成 · 承認後は同じ家族に追加" },
+  "ชั้นของลูก *": { en: "Child's grade *", ja: "お子様の学年 *" },
+  "ลูกอีกคนของ{0} — ส่งฟอร์ม Test / Trial จาก Inbox": { en: "Another child of {0} — Test / Trial form sent from the Inbox", ja: "{0}のもう一人のお子様 — 受信箱からテスト／体験フォームを送信" },
 }

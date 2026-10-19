@@ -12,7 +12,7 @@ import * as Sum from "./summaries"
 import { chatDayLabel, groupByDay } from "./inbox"
 import { familyFromLead, familyFromSubmission, familyNameFor, splitName, joinName, futureSessionsOf, matchExistingFamily, mergeSubmission, nicknameFrom, searchStudents, studentLabel, submissionChanges, validateFamily, validateStaff, validateStudent } from "./people"
 import { suggestFixes } from "./suggest"
-import { advanceStage, canSetStage, daysAgo, groupOf, restoreStage, validateLead } from "./crm"
+import { advanceStage, canSetStage, daysAgo, groupOf, restoreStage, siblingLead, validateLead } from "./crm"
 import { APPROVE_STAGE, ATTENDED_STAGE, buildFormPrefill, commonSlots, buildCombinedSessionDraft, buildSessionDraftFromSlot, findOfferSlots, lastAssessmentDate, openHourStarts, sessionKindLabel } from "./forms"
 import { customerRows, filterCustomers } from "./customers"
 import { invoiceMessage } from "./messages"
@@ -2534,5 +2534,14 @@ describe("enroll form class offers (owner 2026-10-15)", () => {
     expect(out[0].seatsLeft).toBeGreaterThan(0)
     expect(enrollClassValid({ classIds: [], startDate: "2026-10-20" })).toBe(false)
     expect(enrollClassValid({ classIds: ["mon"], startDate: "2026-10-20" })).toBe(true)
+  })
+})
+
+describe("Test / Trial for an existing family (owner 2026-10-19)", () => {
+  it("the new child gets its own lead through the family's primary parent + LINE, and it passes lead validation", () => {
+    const f = { id: "fa", name: "ครอบครัวสุขใจ", lineUserId: "U1", sources: ["referral"], parents: [{ name: "คุณพ่อ", phone: "0891112222", primary: false }, { name: "คุณแม่", phone: "0812345678", lineId: "mom", primary: true }] } as unknown as Family
+    const l = siblingLead(f, { id: "ld9", branchId: "b", childGrade: "ป.3", subject: "คณิต", by: "u1", now: "2026-10-19T08:00:00Z" })
+    expect(l).toMatchObject({ name: "คุณแม่", phone: "0812345678", lineId: "mom", lineUserId: "U1", source: "referral", stage: "contacting", childGrade: "ป.3", subject: "คณิต" })
+    expect(validateLead(l)).toBeNull()
   })
 })

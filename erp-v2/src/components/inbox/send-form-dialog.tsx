@@ -3,6 +3,7 @@
 import { useState } from "react"
 import { PlusIcon, SendIcon, Trash2Icon } from "lucide-react"
 import { fmtDate } from "@/domain/dates"
+import { siblingLead } from "@/domain/rules/crm"
 import { buildFormPrefill, FORM_TYPE_LABEL } from "@/domain/rules/forms"
 import type { FormOfferSlot, FormType, ID } from "@/domain/types"
 import { sendTestTrialForm } from "@/lib/forms"
@@ -12,6 +13,8 @@ import { useStore } from "@/store/store"
 import { Button } from "../ui/button"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "../ui/dialog"
 import { SlotPicker } from "./slot-picker"
+import { NativeSelect } from "@/components/app/native-select"
+import { uid } from "@/data/seed"
 
 const TYPES: FormType[] = ["test", "trial"]
 
@@ -23,7 +26,8 @@ interface Block {
 export function SendFormDialog({
   leadId, branchId, conversationId, lineUserId, onClose, initialType,
 }: {
-  leadId: ID; branchId: ID; conversationId: ID; lineUserId: string; onClose: () => void
+  /** null = a family that is already a customer (owner 2026-10-19: e.g. a second child) — a lead is made for the child on send */
+  leadId: ID | null; branchId: ID; conversationId: ID; lineUserId: string; onClose: () => void
   /** picked already (Inbox "+" menu → Test / Trial) — skips the type step */
   initialType?: FormType
 }) {
@@ -51,6 +55,10 @@ export function SendFormDialog({
   const [type, setType] = useState<FormType>(initialType ?? "test")
   const [blocks, setBlocks] = useState<Block[]>([{ subject: branch.subjects[0] ?? "", selected: new Map() }])
   const [sending, setSending] = useState(false)
+  // existing family: the new child's grade (the lead needs it)
+  const [childGrade, setChildGrade] = useState("")
+  const me = useStore((s) => s.userId)
+  const saveLead = useStore((s) => s.saveLead)
 
   const setBlockSubject = (i: number, subject: string) => setBlocks((bs) => bs.map((b, idx) => (idx === i ? { ...b, subject, selected: new Map() } : b)))
   const toggleSlot = (i: number, slot: FormOfferSlot) =>
@@ -66,18 +74,25 @@ export function SendFormDialog({
   const addBlock = () => setBlocks((bs) => [...bs, { subject: branch.subjects[0] ?? "", selected: new Map() }])
   const removeBlock = (i: number) => setBlocks((bs) => bs.filter((_, idx) => idx !== i))
 
-  const offersReady = blocks.length > 0 && blocks.every((b) => b.subject && b.selected.size > 0)
+  const offersReady = blocks.length > 0 && blocks.every((b) => b.subject && b.selected.size > 0) && (!!leadId || !!childGrade)
 
   const send = async () => {
     setSending(true)
     try {
+      let useLead = lead
+      if (!useLead) {
+        if (!family) return report({ ok: false, error: "ผูกแชทนี้กับครอบครัวก่อน" }, "")
+        const made = saveLead(siblingLead(family, { id: uid("ld"), branchId, childGrade, subject: blocks[0].subject, by: me, now: now.toISOString() }))
+        if (!made.ok) return report(made, "")
+        useLead = made.value
+      }
       const r = await sendTestTrialForm({
-        leadId, branchId, conversationId, lineUserId, type,
+        leadId: useLead.id, branchId, conversationId, lineUserId, type,
         offers: blocks.map((b) => ({ subject: b.subject, slots: [...b.selected.values()] })),
         grades: branch.grades,
         branchName: branch.name, brand: branch.brand, lang,
         subjectNames: Object.fromEntries(blocks.map((b) => [b.subject, subjectNames?.[b.subject] ?? {}])),
-        prefill: lead ? buildFormPrefill({ lead, family, students: knownStudents, assessments }) : undefined,
+        prefill: buildFormPrefill({ lead: useLead, family, students: knownStudents, assessments }),
       })
       if (report(r, `ส่งฟอร์ม${FORM_TYPE_LABEL[type]}ทาง LINE แล้ว`)) onClose()
     } finally {
@@ -109,6 +124,13 @@ export function SendFormDialog({
 
         {step === "offers" && (
           <div className="space-y-4">
+            {!leadId && (
+              <div className="space-y-1 rounded-lg bg-muted/60 p-3 text-sm">
+                <p className="font-medium">ลูกค้าเดิม — ลูกคนไหน</p>
+                <p className="text-xs text-muted-foreground">{`${family?.name ?? ""} · สร้าง Lead ให้เด็กคนนี้ตอนส่ง · อนุมัติแล้วเด็กเข้าครอบครัวเดิม`}</p>
+                <NativeSelect className="h-9" value={childGrade} onChange={(e) => setChildGrade(e.target.value)} placeholder="ชั้นของลูก *" options={branch.grades.map((g) => ({ value: g, label: g }))} />
+              </div>
+            )}
             {blocks.map((b, i) => (
               <div key={i} className="space-y-2 rounded-lg border p-3">
                 {blocks.length > 1 && (
