@@ -12,13 +12,13 @@ import type { WeekRow } from "@/app/transport/page"
 /** a trip counts as late when the driver's app shows it more than this behind */
 const LATE_MIN = 5
 
-interface Stat { key: string; label: string; sub?: string; trips: number; pax: number; seats: number; minutes: number; ran: number; late: number }
+interface Stat { key: string; label: string; sub?: string; trips: number; pax: number; seats: number; minutes: number; km: number; ran: number; late: number }
 function stats(rows: WeekRow[], keyOf: (r: WeekRow) => [string, string, string?]) {
   const m = new Map<string, Stat>()
   for (const r of rows) {
     const [key, label, sub] = keyOf(r)
-    const s = m.get(key) ?? { key, label, sub, trips: 0, pax: 0, seats: 0, minutes: 0, ran: 0, late: 0 }
-    s.trips++; s.pax += r.trip.used; s.seats += r.trip.seats; s.minutes += r.trip.minutes
+    const s = m.get(key) ?? { key, label, sub, trips: 0, pax: 0, seats: 0, minutes: 0, km: 0, ran: 0, late: 0 }
+    s.trips++; s.pax += r.trip.used; s.seats += r.trip.seats; s.minutes += r.trip.minutes; s.km += r.trip.km
     if (r.trip.startedAt) { s.ran++; if ((r.trip.late ?? 0) > LATE_MIN) s.late++ }
     m.set(key, s)
   }
@@ -31,7 +31,7 @@ function StatTable({ title, list }: { title: string; list: Stat[] }) {
     <div className="rounded-3xl border bg-card p-4">
       <h3 className="mb-3 font-semibold">{title}</h3>
       <table className="w-full text-sm">
-        <thead className="text-xs text-muted-foreground"><tr className="text-left"><th className="pb-2 font-normal" /><th className="pb-2 text-right font-normal">เที่ยว</th><th className="pb-2 text-right font-normal">ผู้โดยสาร</th><th className="pb-2 pl-4 font-normal">ที่นั่งใช้</th><th className="pb-2 text-right font-normal">เฉลี่ย</th><th className="pb-2 text-right font-normal">ตรงเวลา</th></tr></thead>
+        <thead className="text-xs text-muted-foreground"><tr className="text-left"><th className="pb-2 font-normal" /><th className="pb-2 text-right font-normal">เที่ยว</th><th className="pb-2 text-right font-normal">ผู้โดยสาร</th><th className="pb-2 pl-4 font-normal">ที่นั่งใช้</th><th className="pb-2 text-right font-normal">ระยะทาง</th><th className="pb-2 text-right font-normal">เฉลี่ย</th><th className="pb-2 text-right font-normal">ตรงเวลา</th></tr></thead>
         <tbody className="divide-y">
           {list.map((s) => {
             const use = pct(s.pax, s.seats)
@@ -41,6 +41,7 @@ function StatTable({ title, list }: { title: string; list: Stat[] }) {
                 <td className="py-2 text-right tabular-nums">{s.trips}</td>
                 <td className="py-2 text-right tabular-nums">{s.pax}</td>
                 <td className="py-2 pl-4"><span className="flex items-center gap-2"><span className="h-2 w-24 overflow-hidden rounded-full bg-muted"><span className={cn("block h-full rounded-full", use > 100 ? "bg-red-500" : "bg-primary")} style={{ width: `${Math.min(100, use)}%` }} /></span><span className="tabular-nums text-xs">{`${use}%`}</span></span></td>
+                <td className="py-2 text-right tabular-nums">{`${Math.round(s.km)} กม.`}</td>
                 <td className="py-2 text-right tabular-nums">{`${Math.round(s.minutes / s.trips)} นาที`}</td>
                 <td className="py-2 text-right tabular-nums">{s.ran ? `${s.ran - s.late}/${s.ran}` : "—"}</td>
               </tr>

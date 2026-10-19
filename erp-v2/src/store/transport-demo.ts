@@ -19,6 +19,8 @@ interface Setup {
   drivers: [string | null, string, string, string, boolean?][]
   /** turn one run into a Both trip (drop off, then pick up the next class) */
   both?: { ids: string[]; time: string }
+  /** the branch already has runs for its first van: give every other van the same runs (several vans leaving together) */
+  twinRuns?: boolean
 }
 
 /**
@@ -32,9 +34,15 @@ export function withTransportDemo<T extends Db>(db: T, now = new Date()): T {
   let out = db
   const thl = db.branches.find((b) => b.id === "br_thl" && b.location && (b.busRounds ?? []).length)
   if (thl) out = setupBranch(out, thl.id, {
-    location: thl.location!, zones: false,
-    drivers: [["veh_tl01", "น้าสมชาย", "สมชาย ใจดี", "083-456-7890"]],
-    vans: [{ id: "veh_tl01", name: "รถตู้ 1", plate: "ฮข 2210", seats: 10, driverName: "น้าสมชาย", driverPhone: "083-456-7890", active: true }],
+    // owner 2026-10-19 ("จำลอง ว่ามีรถ 2 คัน และมี Zone 2 Zone · รอบรถที่ทั้งไปรับ และไปส่ง"): 2 vans leaving together,
+    // 2 zones, and Saturday 12:05 as a Both trip (drops the 10:00–12:00 class, brings in the 13:00 one)
+    location: thl.location!, zones: true, twinRuns: true,
+    drivers: [["veh_tl01", "น้าสมชาย", "สมชาย ใจดี", "083-456-7890"], ["veh_tl02", "น้าชัย", "ชัย ขยันดี", "086-222-3344"]],
+    vans: [
+      { id: "veh_tl01", name: "รถตู้ 1", plate: "ฮข 2210", seats: 10, driverName: "น้าสมชาย", driverPhone: "083-456-7890", active: true },
+      { id: "veh_tl02", name: "รถตู้ 2", plate: "ฮข 3318", seats: 10, driverName: "น้าชัย", driverPhone: "086-222-3344", active: true },
+    ],
+    both: { ids: ["br6", "br6_v2"], time: "12:05" },
     spread: (i) => ({ deg: (i * 137.5) % 360, km: 1.5 + ((i * 7) % 11) * 0.5 }),
   }, now)
   const src = db.branches.find((b) => b.id === "br_src")
@@ -68,14 +76,18 @@ function setupBranch<T extends Db>(db: T, branchId: string, o: Setup, now: Date)
     id: `stf_drv_${branchId}_${nickname}`, name, nickname, phone, vendor: vendor || undefined, roles: ["driver"], branchIds: [branchId], subjects: [], active: true, canLogin: false,
     driverToken: `drv_demo_${branchId}_${o.drivers.findIndex((d) => d[1] === nickname)}`,
   }))
-  const vans = (branch.vehicles?.length ? branch.vehicles : o.vans).map((v) => {
+  const have = branch.vehicles?.length ? branch.vehicles : o.vans
+  const vans = [...have, ...o.vans.filter((v) => !have.some((h) => h.id === v.id))].map((v) => {
     const d = o.drivers.find(([vid]) => vid === v.id)
     return v.driverId || !d ? v : { ...v, driverId: `stf_drv_${branchId}_${d[1]}` }
   })
   const runs0: BusRound[] = (branch.busRounds ?? []).length
     ? (branch.busRounds ?? []).map((r) => ({ ...r, vehicleId: r.vehicleId ?? vans[0].id }))
     : (o.runs ?? []).flatMap((r, i) => vans.map((v, j) => ({ ...r, id: `bro_${branchId}_${i}_${j}`, vehicleId: v.id, name: vans.length > 1 ? v.name : undefined })))
-  const runs = o.both && !runs0.some((r) => r.kind === "both") ? runs0.map((r) => (o.both!.ids.includes(r.id) ? { ...r, kind: "both" as const, time: o.both!.time } : r)) : runs0
+  // the other vans run the first van's runs too (same times — zones decide who rides which)
+  const runs1 = !o.twinRuns || vans.length < 2 ? runs0 : [...runs0, ...runs0.filter((r) => r.vehicleId === vans[0].id).flatMap((r) => vans.slice(1).map((v, j) => ({ ...r, id: `${r.id}_v${j + 2}`, vehicleId: v.id, seats: Math.max(r.seats, v.seats - 2) })))
+    .filter((r) => !runs0.some((x) => x.id === r.id))].map((r) => (vans.length > 1 && r.name && !r.name.includes(vans.find((v) => v.id === r.vehicleId)?.name ?? "") ? { ...r, name: `${r.name} · ${vans.find((v) => v.id === r.vehicleId)?.name ?? ""}` } : r))
+  const runs = o.both && !runs1.some((r) => r.kind === "both") ? runs1.map((r) => (o.both!.ids.includes(r.id) ? { ...r, kind: "both" as const, time: o.both!.time, name: r.name?.replace(/^ส่ง/, "รับ-ส่ง") } : r)) : runs1
   const fees = branch.fees.some((f) => f.kind === "bus") ? branch.fees : [...(o.fees ?? []), ...branch.fees]
   // children in a weekly class at this branch, with a package covering today
   const riders = db.students.filter((s) => s.branchId === branchId && !s.archived && !s.id.startsWith("stu_demo_")

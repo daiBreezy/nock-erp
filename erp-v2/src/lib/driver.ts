@@ -18,7 +18,7 @@ export function driverAppUrl(token: string) {
 function payload(t: TripPlan, branch: Branch, token: string) {
   return {
     tripId: t.id, token, driverName: t.driver?.nickname ?? "", branchName: nm(branch.name), date: t.date, kind: t.round.kind, time: t.round.time, name: t.round.name,
-    depart: t.depart, finish: t.finish, vehicle: t.vehicle ? { name: t.vehicle.name, plate: t.vehicle.plate } : null, seats: t.seats, used: t.used,
+    depart: t.depart, finish: t.finish, vehicle: t.vehicle ? { name: t.vehicle.name, plate: t.vehicle.plate } : null, seats: t.seats, used: t.used, km: t.km,
     stops: t.stops.map((s) => ({ key: s.key, nickname: s.rider.nickname, name: s.rider.name, grade: s.rider.grade, leg: s.rider.leg, adult: s.rider.adult, phone: s.rider.phone, address: s.rider.address, addressNote: s.rider.addressNote, loc: s.rider.loc, eta: s.eta })),
   }
 }

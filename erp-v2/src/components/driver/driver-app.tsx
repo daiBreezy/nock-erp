@@ -8,7 +8,7 @@ import { BusIcon, CheckIcon, FlagIcon, LoaderCircleIcon, MapIcon, MapPinCheckIco
 import { cn } from "@/lib/utils"
 
 interface Stop { key: string; nickname: string; name: string; grade: string; leg: "pickup" | "dropoff"; adult: boolean; phone: string; address?: string; addressNote?: string; loc?: { lat: number; lng: number }; eta: string | null }
-interface Trip { tripId: string; driverName: string; branchName: string; date: string; kind: "pickup" | "dropoff" | "both"; time: string; name?: string; depart: string; finish: string; vehicle: { name: string; plate: string } | null; seats: number; used: number; stops: Stop[] }
+interface Trip { tripId: string; driverName: string; branchName: string; date: string; kind: "pickup" | "dropoff" | "both"; time: string; name?: string; depart: string; finish: string; vehicle: { name: string; plate: string } | null; seats: number; used: number; km?: number; stops: Stop[] }
 interface Ev { tripId: string; type: "start" | "arrive" | "done" | "noshow" | "finish"; stopKey?: string; at: string }
 
 const KIND = { pickup: "รอบรับ", dropoff: "รอบส่ง", both: "รอบรับ-ส่ง" } as const
@@ -68,7 +68,7 @@ export function DriverApp({ token }: { token: string }) {
               <div className="flex items-center gap-2 border-b px-4 py-3">
                 <div className="min-w-0 flex-1">
                   <p className="font-semibold">{`${KIND[t.kind]} ${t.time}`}{t.name ? <span className="font-normal text-muted-foreground">{` · ${t.name}`}</span> : null}</p>
-                  <p className="text-xs text-muted-foreground">{`${t.vehicle ? `${t.vehicle.name} · ${t.vehicle.plate} · ` : ""}ออก ${t.depart} · ${endsHome ? "คนสุดท้าย" : "ถึงสาขา"} ${t.finish} · ${t.used}/${t.seats} ที่`}</p>
+                  <p className="text-xs text-muted-foreground">{`${t.vehicle ? `${t.vehicle.name} · ${t.vehicle.plate} · ` : ""}ออก ${t.depart} · ${endsHome ? "คนสุดท้าย" : "ถึงสาขา"} ${t.finish} · ${t.used}/${t.seats} ที่${t.km ? ` · ${t.km} กม.` : ""}`}</p>
                 </div>
                 <span className={cn("rounded-full px-2.5 py-1 text-xs font-medium", finished ? "bg-emerald-100 text-emerald-800" : started ? "bg-red-100 text-red-700" : "bg-muted text-muted-foreground")}>{finished ? `เสร็จ ${hhmm(finished.at)}` : started ? `${doneCount}/${t.stops.length}` : "ยังไม่เริ่ม"}</span>
               </div>

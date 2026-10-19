@@ -40,6 +40,8 @@ export default function TransportPage() {
   const today = toDateStr(now)
   const [view, setView] = useQueryState<View>("view", "week")
   const [mode, setMode] = useQueryState<"table" | "calendar">("mode", "table")
+  // owner 2026-10-19: "ต้องเห็นเป็นรายวันด้วย … ให้เห็น view Day เป็น Default" — one day first, the week when needed
+  const [range, setRange] = useQueryState<"day" | "week">("range", "day")
   const [date, setDate] = useState(today)
   const [q, setQ] = useState("")
   const [fZone, setFZone] = useState("")
@@ -67,7 +69,7 @@ export default function TransportPage() {
   const scope = fBranch === "*" ? busBranches : branches.filter((b) => b.id === (fBranch || branch.id))
   const ctx = useMemo(() => ({ students, families, classes, invoices, busAddOns, trips: trips ?? [], parentRequests, staff, events, now }), [students, families, classes, invoices, busAddOns, trips, parentRequests, staff, events, now])
   const monday = mondayOf(date)
-  const days = useMemo(() => weekDates(monday), [monday])
+  const days = useMemo(() => (range === "week" ? weekDates(monday) : [date]), [range, monday, date])
   const plans = days.map((d) => scope.map((b) => ({ branch: b, plan: planDay(b, d, ctx) })))
   const k = q.trim().toLowerCase()
   const match = (r: WeekRow) => {
@@ -81,6 +83,9 @@ export default function TransportPage() {
   // a trip shows when it has children, or was cancelled / added for the day (so it can be restored / filled)
   const rowsByDay: WeekRow[][] = plans.map((dayPlans) => dayPlans.flatMap(({ branch: b, plan }) => plan.trips.filter((t) => t.stops.length || t.status === "cancelled" || t.extra).map((trip) => ({ branch: b, plan, trip }))).filter(match))
   const all = rowsByDay.flat()
+  // a day without trips: point at the next day that has some (up to 2 weeks ahead)
+  const nextDay = range === "day" && !all.length ? Array.from({ length: 14 }, (_, i) => addDays(date, i + 1)).find((d) => scope.some((b) => planDay(b, d, ctx).trips.some((t) => t.stops.length))) : undefined
+  const kmAll = Math.round(all.filter((r) => r.trip.status !== "cancelled" && r.trip.stops.length).reduce((n, r) => n + r.trip.km, 0))
   const live = all.filter((r) => r.trip.status !== "cancelled" && r.trip.stops.length)
   const approved = live.filter((r) => ["sent", "otw", "done"].includes(r.trip.status)).length
   const toSend = live.filter((r) => ["draft", "changed", "scheduled"].includes(r.trip.status))
@@ -105,7 +110,7 @@ export default function TransportPage() {
           options={[{ value: "*", label: "ทุกสาขาที่มีรถ" }, ...busBranches.filter((b) => b.id !== branch.id).map((b) => ({ value: b.id, label: nm(b.name) }))]} />
       ) : undefined}>
         <Segmented label="หน้า" value={view} onChange={setView} options={[
-          { value: "week", label: "ตารางสัปดาห์", icon: RouteIcon }, { value: "report", label: "รายงาน", icon: ChartColumnIcon },
+          { value: "week", label: "เที่ยวรถ", icon: RouteIcon }, { value: "report", label: "รายงาน", icon: ChartColumnIcon },
           { value: "vehicles", label: "รถ & คนขับ", icon: SettingsIcon }, { value: "zones", label: "โซน", icon: MapIcon },
         ]} />
       </Toolbar>
@@ -119,14 +124,16 @@ export default function TransportPage() {
           </div>
         ) : <>
           {view === "report" ? <TransportReportKpis rows={live} /> : <KpiRow>
-            <Kpi icon={RouteIcon} label="เที่ยวสัปดาห์นี้" value={live.length} sub={all.length > live.length ? `ยกเลิก / ว่าง ${all.length - live.length} เที่ยว` : "ทุกเที่ยวมีคนนั่ง"} />
+            <Kpi icon={RouteIcon} label={range === "day" ? "เที่ยวในวัน" : "เที่ยวสัปดาห์นี้"} value={live.length} sub={`ระยะทางรวม ${kmAll} กม.${all.length > live.length ? ` · ยกเลิก / ว่าง ${all.length - live.length}` : ""}`} />
             <Kpi icon={BusIcon} label="รถที่วิ่ง" value={vans} sub={`มี ${vansAll.filter((x) => x.v.active).length} คันในสาขาที่เลือก`} tone="amber" />
             <Kpi icon={UsersIcon} label="นักเรียน" value={studentsCount} sub={`ผู้ปกครองนั่งไปด้วย ${parentsCount} เที่ยว`} tone="sky" />
             <Kpi icon={SquareCheckBigIcon} label="อนุมัติแล้ว" value={`${approved}/${live.length}`} sub={toSend.length ? `รออนุมัติ ${toSend.length} เที่ยว` : "ส่งคนขับครบแล้ว"} tone="emerald" />
           </KpiRow>}
 
-          <Toolbar end={<RangeStepper current={monday === mondayOf(today)} label={`${fmtDate(monday)} – ${fmtDate(addDays(monday, 6))}`}
-            onPrev={() => setDate(addDays(date, -7))} onNext={() => setDate(addDays(date, 7))} onToday={() => setDate(today)} />}>
+          <Toolbar end={range === "day"
+            ? <RangeStepper current={date === today} label={fmtDate(date, { weekday: true })} onPrev={() => setDate(addDays(date, -1))} onNext={() => setDate(addDays(date, 1))} onToday={() => setDate(today)} />
+            : <RangeStepper current={monday === mondayOf(today)} label={`${fmtDate(monday)} – ${fmtDate(addDays(monday, 6))}`} onPrev={() => setDate(addDays(date, -7))} onNext={() => setDate(addDays(date, 7))} onToday={() => setDate(today)} />}>
+            <Segmented label="ช่วง" value={range} onChange={setRange} options={[{ value: "day", label: "วัน" }, { value: "week", label: "สัปดาห์" }]} />
             {view === "week" && <Segmented label="มุมมอง" value={mode} onChange={setMode} options={[{ value: "table", label: "ตาราง", icon: TableIcon }, { value: "calendar", label: "ปฏิทิน", icon: CalendarDaysIcon }]} />}
             <span className="text-sm font-medium text-muted-foreground">{`${monthShort(Number(monday.slice(5, 7)) - 1)} ${yearOf(Number(monday.slice(0, 4)))}`}</span>
           </Toolbar>
@@ -145,12 +152,12 @@ export default function TransportPage() {
                   ...p.plan.unplaced.map((u) => ({ type: "u" as const, u, plan: p.plan })),
                   ...p.plan.requests.map((r) => ({ type: "r" as const, r })),
                 ])
-                if (!rows.length && !issues.length && d !== today) return null
+                if (!rows.length && !issues.length && d !== today && range === "week") return null
                 return (
                   <section key={d} className="space-y-2">
                     <div className="flex flex-wrap items-center gap-3 border-b pb-2">
                       <h3 className="text-base font-semibold">{fmtDate(d, { weekday: true })}</h3>
-                      <span className="text-sm text-muted-foreground">{`${rows.length} เที่ยว`}</span>
+                      <span className="text-sm text-muted-foreground">{`${rows.length} เที่ยว · ${Math.round(rows.filter((r) => r.trip.status !== "cancelled").reduce((n, r) => n + r.trip.km, 0))} กม.`}</span>
                       {d === today && <span className="rounded-full bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary">วันนี้</span>}
                       <Button size="sm" variant="outline" className="ml-auto" onClick={() => setAdding({ date: d, branch: scope.length === 1 ? scope[0] : branch })}><PlusIcon /> เพิ่มเที่ยว</Button>
                     </div>
@@ -176,11 +183,16 @@ export default function TransportPage() {
                         rowClassName={(r) => cn(r.trip.status === "cancelled" && "opacity-55", r.trip.status === "otw" && "shadow-[inset_3px_0_0_var(--color-red-500)]")}
                         expanded={(r) => (open.has(r.trip.id) ? <TripDetail r={r} /> : null)} />
                     )}
-                    {!rows.length && !issues.length && <p className="rounded-2xl border border-dashed p-4 text-center text-sm text-muted-foreground">ไม่มีเที่ยวรถวันนี้</p>}
+                    {!rows.length && !issues.length && (
+                      <p className="rounded-2xl border border-dashed p-4 text-center text-sm text-muted-foreground">
+                        ไม่มีเที่ยวรถวันนี้
+                        {nextDay && <> · <button type="button" className="text-primary underline" onClick={() => setDate(nextDay)}>{`ไปวันที่มีเที่ยวถัดไป ${fmtDate(nextDay, { weekday: true })}`}</button></>}
+                      </p>
+                    )}
                   </section>
                 )
               })}
-              {!all.length && <p className="rounded-3xl border border-dashed p-10 text-center text-sm text-muted-foreground">สัปดาห์นี้ไม่มีเที่ยวรถตามตัวกรอง</p>}
+              {!all.length && range === "week" && <p className="rounded-3xl border border-dashed p-10 text-center text-sm text-muted-foreground">สัปดาห์นี้ไม่มีเที่ยวรถตามตัวกรอง</p>}
             </div>
           )}
         </>}

@@ -18,10 +18,10 @@ export function TransportCalendar({ rows, days, today, onPick }: { rows: WeekRow
   const height = (to - from) / 60 * HOUR_PX
   return (
     <div className="overflow-x-auto rounded-3xl border bg-card">
-      <div className="grid min-w-[56rem] grid-cols-[3.5rem_repeat(7,minmax(0,1fr))]">
+      <div className={cn("grid", days.length > 1 && "min-w-[56rem]")} style={{ gridTemplateColumns: `3.5rem repeat(${days.length}, minmax(0, 1fr))` }}>
         <div className="border-b" />
         {days.map((d, i) => (
-          <div key={d} className={cn("border-b border-l px-2 py-2 text-center text-sm font-medium", d === today && "text-primary")}>{`${weekdayShort((i + 1) % 7)} ${fmtDate(d)}`}</div>
+          <div key={d} className={cn("border-b border-l px-2 py-2 text-center text-sm font-medium", d === today && "text-primary")}>{days.length === 1 ? fmtDate(d, { weekday: true }) : `${weekdayShort((i + 1) % 7)} ${fmtDate(d)}`}</div>
         ))}
         <div className="relative" style={{ height }}>
           {hours.map((h, i) => <span key={h} className="absolute right-2 -translate-y-1/2 text-xs text-muted-foreground tabular-nums" style={{ top: i * HOUR_PX }}>{i ? `${String(h).padStart(2, "0")}:00` : ""}</span>)}

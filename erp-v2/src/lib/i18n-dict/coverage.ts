@@ -536,4 +536,10 @@ export const COVERAGE: Record<string, Entry> = {
   "ส่งคนสุดท้าย": { en: "Last drop-off", ja: "最後の送り" },
   "จบเที่ยว {0}": { en: "Trip ended {0}", ja: "便終了 {0}" },
   "คลิกเวลาเพื่อตั้งเอง · ลบเวลาออก = ให้ระบบคำนวณ / ใช้เวลาจากแอปคนขับ": { en: "Click a time to set it · clear it = worked out by the system / taken from the driver app", ja: "時刻をクリックで設定 · 消す＝自動計算／運転手アプリの時刻" },
+  "เที่ยวรถ": { en: "Trips", ja: "便" },
+  "เที่ยวในวัน": { en: "Trips this day", ja: "この日の便" },
+  "ระยะทางรวม {0} กม.{1}": { en: "{0} km in total{1}", ja: "合計{0}km{1}" },
+  "ไปวันที่มีเที่ยวถัดไป {0}": { en: "Go to the next day with trips: {0}", ja: "次に便がある日へ：{0}" },
+  "{0}ออก {1} · {2} {3} · {4}/{5} ที่{6}": { en: "{0}Leaves {1} · {2} {3} · {4}/{5} seats{6}", ja: "{0}出発 {1} · {2} {3} · {4}/{5}席{6}" },
+  "ระยะทาง": { en: "Distance", ja: "距離" },
 }

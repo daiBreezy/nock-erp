@@ -12,7 +12,7 @@ export interface DriverStop { key: string; nickname: string; name: string; grade
 export interface DriverTrip {
   tripId: string; token: string; driverName: string; branchName: string; date: string
   kind: "pickup" | "dropoff" | "both"; time: string; name?: string; depart: string; finish: string
-  vehicle: { name: string; plate: string } | null; seats: number; used: number; stops: DriverStop[]
+  vehicle: { name: string; plate: string } | null; seats: number; used: number; km?: number; stops: DriverStop[]
 }
 export interface DriverEventRec { id: string; tripId: string; type: "start" | "arrive" | "done" | "noshow" | "finish"; stopKey?: string; at: string }
 

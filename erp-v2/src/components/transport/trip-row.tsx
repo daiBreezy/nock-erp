@@ -41,6 +41,8 @@ export function tripColumns(isOpen: (id: string) => boolean): Column<TripRowData
         </span>
       )
     } },
+    // owner 2026-10-19: "รอบรถแต่ละรอบ ต้องบอกได้ด้วยว่า ระยะทางเท่าไร"
+    { id: "km", label: "ระยะทาง", width: "84px", align: "right", cell: ({ trip: t }) => <span className="tabular-nums">{t.stops.some((x) => x.rider.loc) ? `${t.km} กม.` : "—"}</span> },
     { id: "pax", label: "ผู้โดยสาร", width: "90px", cell: ({ trip: t }) => <span className={cn("flex items-center gap-1 tabular-nums", t.used > t.seats && "font-semibold text-red-700")}><UserIcon className="size-3.5 text-muted-foreground" />{`${t.used}/${t.seats}`}</span> },
     { id: "zone", label: "โซน", width: "64px", cell: ({ trip: t, branch }) => { const zones = branch.busZones ?? []; const zone = zones.find((z) => z.id === t.zoneIds[0]); return <ZoneChip zone={zone} index={zones.indexOf(zone!)} /> } },
     { id: "driver", label: "คนขับ", width: "170px", cell: ({ trip: t }) => <DriverCell d={t.driver} changed={t.driverChanged} /> },
@@ -233,6 +235,7 @@ function TripTimes({ t }: { t: TripPlan }) {
             onSave={(v) => report(s.setTripActual(t.round.id, t.date, { field: "finish" }, v || null), v ? `จบเที่ยว ${v}` : "ล้างเวลาแล้ว")} />
         </span>
       </div>
+      <div className={box}><span className="text-xs text-muted-foreground">ระยะทาง</span><span className="font-medium tabular-nums">{`${t.km} กม.`}</span></div>
       <span className="text-xs text-muted-foreground">คลิกเวลาเพื่อตั้งเอง · ลบเวลาออก = ให้ระบบคำนวณ / ใช้เวลาจากแอปคนขับ</span>
     </div>
   )
