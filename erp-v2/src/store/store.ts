@@ -244,6 +244,8 @@ type Store = DB & UIState & {
   saveBusZones: (branchId: ID, zones: BusZone[]) => Result
   /** put a home in a zone by hand (null = by direction again) */
   setFamilyZone: (familyId: ID, zoneId: ID | null) => Result
+  /** the house pin for the bus (owner 2026-10-19) — from the parent (approved in the chat) or set by the admin */
+  setFamilyHome: (familyId: ID, loc: { lat: number; lng: number }, addressNote?: string) => Result
   /** refund / credit on a paid invoice — the invoice itself never changes */
   createCreditNote: (input: Pick<CreditNote, "invoiceId" | "mode" | "items" | "reasons" | "remark" | "stopFrom">) => Result<CreditNote>
   approveCreditNote: (id: ID, forceRemark?: string) => Result
@@ -493,10 +495,11 @@ export const useStore = create<Store>()(
         const notes = fresh.map((r) => Notif.notify({
           id: uid("no"), at: new Date(r.createdAt), kind: "parent_request",
           title: r.kind === "leave" ? `ผู้ปกครองแจ้งลา · ${r.studentNickname} ${r.sessions?.length ?? 0} คาบ` : r.kind === "return" ? `ผู้ปกครองอยากกลับมาเรียน · ${r.studentNickname}`
-            : r.kind === "bus" ? `ผู้ปกครองขอ / ยกเลิกรอบรถ · ${r.studentNickname}` : `ผู้ปกครองแจ้งลาออก · ${r.studentNickname}`,
+            : r.kind === "bus" ? `ผู้ปกครองขอ / ยกเลิกรอบรถ · ${r.studentNickname}` : r.kind === "home" ? `ผู้ปกครองปักหมุดบ้านสำหรับรถรับส่ง · ${r.studentNickname}` : `ผู้ปกครองแจ้งลาออก · ${r.studentNickname}`,
           body: r.kind === "return" ? `${r.startDate ? `อยากเริ่มราว ${fmtDate(r.startDate, { weekday: true })}` : "ยังไม่ระบุวัน"}${r.note ? ` — "${r.note}"` : ""} · โทรคุยแล้วกู้คืนนักเรียน จัดคลาส ออกใบแจ้งหนี้`
             : r.kind === "leave" ? `${r.sessions?.map((x) => `${fmtDate(x.date, { weekday: true })} ${x.start}`).join(" · ")}${r.note ? ` — "${r.note}"` : ""} · บันทึกลาที่หน้าแจ้งเตือน`
             // owner 2026-10-19: rides to add / cancel — approved from the card in the family's chat
+            : r.kind === "home" ? `${r.home?.addressNote ?? "ตำแหน่งบ้านใหม่"}${r.note ? ` — "${r.note}"` : ""} · ตรวจแล้วบันทึกในแชท Inbox`
             : r.kind === "bus" ? `${(r.bus ?? []).map((x) => `${fmtDate(x.date, { weekday: true })} ${[x.pickup && `${x.pickup === "add" ? "+" : "✕"}รับ`, x.dropoff && `${x.dropoff === "add" ? "+" : "✕"}ส่ง`, x.adult && "+ผู้ปกครอง"].filter(Boolean).join(" ")}`).join(" · ")}${r.note ? ` — "${r.note}"` : ""} · อนุมัติในแชท Inbox`
             : `เรียนวันสุดท้าย ${fmtDate(r.lastDate!, { weekday: true })}${r.note ? ` — "${r.note}"` : ""} · รับเรื่องที่หน้าแจ้งเตือน แล้วโทรคุย`,
           audience: { roles: OFFICE_ROLES, branchId: r.branchId ?? s.students.find((x) => x.id === r.studentId)?.branchId },
@@ -2302,6 +2305,14 @@ export const useStore = create<Store>()(
         })
         return OK
       },
+      setFamilyHome: (familyId, loc, addressNote) => {
+        const s = get()
+        const perm = requirePerm(s.me(), "session.manage")
+        if (!perm.ok) return perm
+        if (!Number.isFinite(loc.lat) || !Number.isFinite(loc.lng)) return fail("ปักหมุดบ้านบนแผนที่ก่อน")
+        set({ families: s.families.map((f) => (f.id === familyId ? { ...f, location: { lat: loc.lat, lng: loc.lng }, addressNote: addressNote?.trim() || f.addressNote } : f)) })
+        return OK
+      },
       setFamilyZone: (familyId, zoneId) => {
         const s = get()
         const perm = requirePerm(s.me(), "session.manage")
@@ -3095,7 +3106,7 @@ export const useStore = create<Store>()(
       // The parent app in LINE never writes staff data at all.
       storage: createJSONStorage(() => safeStorage),
       // bump when the data model changes; older saved data is replaced by fresh sample data
-      version: 100, // 100: (99 again — Both run named รับ-ส่ง) · 99: Thonglor — 2 vans + 2 zones + Saturday Both trip (owner) · 98: (97 again — both Saturday vans run Both) · 97: Bus Route rebuild — drivers as staff (one outsource), Saturday Both run at Sriracha · 96: (95 again — finished demo) · 95: Sriracha — 2 vans, zones North / South · 94: transport demo — each rider on their own paid bus invoice · 93: Transport — a van, a dozen children riding at Thonglor, busTrips · 92: demo child rides the bus on Math days only (English days open to ask for a ride) · 91: demo child with classes for LINE-linked families (parent app) · 90: Liclass bus — branch pin, fee distance bands, bus runs · 89: Note Calendar (ถาวร / ชั่วคราว) replaces the free-text session notes · 88: demo exit notices all "sent" · 87: 3 open exit notices · 86: course history capped at 8 sessions (storage size) · 85: course-history check per course · 84: + running rounds · 83: finished courses with a Course Summary get their session history · 82: per-subject levels in Bundle sessions · 80–81: Bundle demo students sit in the combo class for 3 months (charts) · 79: 1–5 understanding on session summaries + Bundle notes per subject · 78: Dev statuses กำลังทำ / เสร็จแล้ว / ไม่ทำ / เก็บไว้ก่อน · 77: images on Nock + Dev tickets · 76: คำถามถึง Dev examples · 75: Developer role + เรื่องถึง Dev · 74: Nock answers per person + thumbs per answer · 73: Nock locations + knowledge = answered questions + votes · 72: Nock question bank + knowledge · 71: Summer Memo + Summer course + paid Summer invoice · 68–70: session summaries in every stage this week + sample Course Summaries (Single + Bundle) · 65–67: names without titles, parent relationship, phones without dashes, subject colours · 61: real branches (owner 2026-10-07) · 62: CB = ตึกน้ำ · 63: sample schools · 64: schools from the Ministry list
+      version: 101, // 101: Thonglor bus homes in two bunches + 1 family without a home pin (location analysis) · 100: (99 again — Both run named รับ-ส่ง) · 99: Thonglor — 2 vans + 2 zones + Saturday Both trip (owner) · 98: (97 again — both Saturday vans run Both) · 97: Bus Route rebuild — drivers as staff (one outsource), Saturday Both run at Sriracha · 96: (95 again — finished demo) · 95: Sriracha — 2 vans, zones North / South · 94: transport demo — each rider on their own paid bus invoice · 93: Transport — a van, a dozen children riding at Thonglor, busTrips · 92: demo child rides the bus on Math days only (English days open to ask for a ride) · 91: demo child with classes for LINE-linked families (parent app) · 90: Liclass bus — branch pin, fee distance bands, bus runs · 89: Note Calendar (ถาวร / ชั่วคราว) replaces the free-text session notes · 88: demo exit notices all "sent" · 87: 3 open exit notices · 86: course history capped at 8 sessions (storage size) · 85: course-history check per course · 84: + running rounds · 83: finished courses with a Course Summary get their session history · 82: per-subject levels in Bundle sessions · 80–81: Bundle demo students sit in the combo class for 3 months (charts) · 79: 1–5 understanding on session summaries + Bundle notes per subject · 78: Dev statuses กำลังทำ / เสร็จแล้ว / ไม่ทำ / เก็บไว้ก่อน · 77: images on Nock + Dev tickets · 76: คำถามถึง Dev examples · 75: Developer role + เรื่องถึง Dev · 74: Nock answers per person + thumbs per answer · 73: Nock locations + knowledge = answered questions + votes · 72: Nock question bank + knowledge · 71: Summer Memo + Summer course + paid Summer invoice · 68–70: session summaries in every stage this week + sample Course Summaries (Single + Bundle) · 65–67: names without titles, parent relationship, phones without dashes, subject colours · 61: real branches (owner 2026-10-07) · 62: CB = ตึกน้ำ · 63: sample schools · 64: schools from the Ministry list
       migrate: (old) => ({ ...withTransportDemo(withLinkedFamilyDemo(keepLineLinks(old as Partial<Store> | undefined, buildSeed()))), userId: "u_nock", branchId: "br_thl", clockOffset: 0 }) as unknown as Store,
       // persist data + UI state only, never the action functions
       partialize: (s) => Object.fromEntries(Object.entries(s).filter(([, v]) => typeof v !== "function")) as Partial<Store>,

@@ -15,6 +15,10 @@ interface Setup {
   /** where the homes are: directions (degrees) the families live in, and how far */
   spread: (i: number) => { deg: number; km: number }
   zones: boolean
+  /** the last few riders' families get no home pin (they show "ขอหมุดจากผู้ปกครอง") */
+  unpinned?: number
+  /** place every rider's home by `spread`, also those the seed already pinned (so the demo shows bunches of homes) */
+  repin?: boolean
   /** drivers as staff (owner 2026-10-19 ref): [van id or null for a stand-in, nickname, name, phone, outsource] */
   drivers: [string | null, string, string, string, boolean?][]
   /** turn one run into a Both trip (drop off, then pick up the next class) */
@@ -36,14 +40,17 @@ export function withTransportDemo<T extends Db>(db: T, now = new Date()): T {
   if (thl) out = setupBranch(out, thl.id, {
     // owner 2026-10-19 ("จำลอง ว่ามีรถ 2 คัน และมี Zone 2 Zone · รอบรถที่ทั้งไปรับ และไปส่ง"): 2 vans leaving together,
     // 2 zones, and Saturday 12:05 as a Both trip (drops the 10:00–12:00 class, brings in the 13:00 one)
-    location: thl.location!, zones: true, twinRuns: true,
+    location: thl.location!, zones: true, twinRuns: true, unpinned: 1, repin: true,
     drivers: [["veh_tl01", "น้าสมชาย", "สมชาย ใจดี", "083-456-7890"], ["veh_tl02", "น้าชัย", "ชัย ขยันดี", "086-222-3344"]],
     vans: [
       { id: "veh_tl01", name: "รถตู้ 1", plate: "ฮข 2210", seats: 10, driverName: "น้าสมชาย", driverPhone: "083-456-7890", active: true },
       { id: "veh_tl02", name: "รถตู้ 2", plate: "ฮข 3318", seats: 10, driverName: "น้าชัย", driverPhone: "086-222-3344", active: true },
     ],
     both: { ids: ["br6", "br6_v2"], time: "12:05" },
-    spread: (i) => ({ deg: (i * 137.5) % 360, km: 1.5 + ((i * 7) % 11) * 0.5 }),
+    // owner 2026-10-19 (location analysis): two bunches of homes — east ~5 km and north-west ~3 km — and a few spread out
+    spread: (i) => (i % 3 === 0 ? { deg: 75 + (i % 4) * 1.5, km: 5 + (i % 3) * 0.2 }
+      : i % 3 === 1 ? { deg: 300 + (i % 4) * 2, km: 3 + (i % 3) * 0.2 }
+        : { deg: (i * 137.5) % 360, km: 1.5 + ((i * 7) % 11) * 0.5 }),
   }, now)
   const src = db.branches.find((b) => b.id === "br_src")
   if (src) out = setupBranch(out, src.id, {
@@ -96,11 +103,12 @@ function setupBranch<T extends Db>(db: T, branchId: string, o: Setup, now: Date)
   const pins = new Map<string, { lat: number; lng: number }>()
   riders.forEach((s, i) => {
     // one family left without a pin at Thonglor (shows the warning)
-    if (!s.familyId || pins.has(s.familyId) || (!o.zones && i === riders.length - 1)) return
+    if (!s.familyId || pins.has(s.familyId) || i >= riders.length - (o.unpinned ?? 0)) return
     const { deg, km } = o.spread(i), a = (deg * Math.PI) / 180
     pins.set(s.familyId, { lat: o.location.lat + (km / 111) * Math.cos(a), lng: o.location.lng + (km / 108) * Math.sin(a) })
   })
-  const families = db.families.map((f) => (f.location || !pins.has(f.id) ? f : { ...f, location: pins.get(f.id), addressNote: f.addressNote ?? NOTES[f.id.length % NOTES.length] }))
+  const unpinnedIds = new Set(riders.slice(riders.length - (o.unpinned ?? 0)).map((s) => s.familyId))
+  const families = db.families.map((f) => (o.repin && unpinnedIds.has(f.id) ? { ...f, location: undefined } : (f.location && !o.repin) || !pins.has(f.id) ? f : { ...f, location: pins.get(f.id), addressNote: f.addressNote ?? NOTES[f.id.length % NOTES.length] }))
   // zones: one per van, split by where the homes are
   const homes = riders.map((s) => families.find((f) => f.id === s.familyId)?.location).filter((l): l is { lat: number; lng: number } => !!l)
   const busZones = o.zones && !(branch.busZones ?? []).length

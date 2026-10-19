@@ -70,7 +70,7 @@ export function ParentRequestWatcher() {
       fresh.slice(0, 3).forEach((r) => notify({
         kind: r.kind, sticky: r.kind !== "leave",
         title: r.kind === "leave" ? `ผู้ปกครองแจ้งลา · ${r.studentNickname} ${r.sessions?.length ?? 0} คาบ` : r.kind === "return" ? `ผู้ปกครองอยากกลับมาเรียน · ${r.studentNickname}`
-          : r.kind === "bus" ? `ผู้ปกครองขอ / ยกเลิกรอบรถ · ${r.studentNickname}` : `ผู้ปกครองแจ้งลาออก · ${r.studentNickname}`,
+          : r.kind === "bus" ? `ผู้ปกครองขอ / ยกเลิกรอบรถ · ${r.studentNickname}` : r.kind === "home" ? `ผู้ปกครองปักหมุดบ้านสำหรับรถรับส่ง · ${r.studentNickname}` : `ผู้ปกครองแจ้งลาออก · ${r.studentNickname}`,
         body: `${r.familyName} ส่งมาทาง LINE${r.note ? ` — "${r.note}"` : ""}`,
         action: { label: "จัดการ", onClick: () => router.push("/notifications?topic=requests") },
       }))

@@ -68,6 +68,8 @@ export interface ParentView {
   generatedAt: string
   /** reasons a parent can pick on แจ้งลาออก (owner 2026-10-14) — the same list the office closes an exit with */
   exitReasons?: { id: ID; label: string; en?: string; ja?: string }[]
+  /** the house pin the school has for the bus (owner 2026-10-19) — the parent can send it / move it */
+  home?: { lat: number; lng: number; addressNote?: string }
 }
 
 export const PARENT_DAYS_AHEAD = 30
@@ -176,6 +178,7 @@ export function parentView(family: Family, ctx: ParentCtx): ParentView {
   })
   return {
     familyId: family.id, familyName: family.name, familyNameEn: family.nameEn,
+    home: family.location ? { ...family.location, addressNote: family.addressNote } : undefined,
     lineUserIds: family.lineUserId ? [family.lineUserId] : [],
     children, generatedAt: ctx.now.toISOString(), exitReasons: ctx.exitReasons,
   }

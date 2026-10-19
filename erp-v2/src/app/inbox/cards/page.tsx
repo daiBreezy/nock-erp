@@ -41,6 +41,7 @@ export default function InboxCardsPreview() {
   const at = (days: number, time: string) => new Date(`${addDays(today, days)}T${time}:00`).toISOString()
   const staff = useStore((s) => s.staff)
   const students = useStore((s) => s.students)
+  const families = useStore((s) => s.families)
   const lossReasons = useStore((s) => s.system.lossReasons)
   const reasons = lossReasons ?? []
   const sessions = useStore((s) => s.sessions)
@@ -59,6 +60,11 @@ export default function InboxCardsPreview() {
   const busChanges = busDays.map((x, i) => (i === 0 ? { date: x.date, start: x.start, subjects: [x.subject], pickup: "add" as const, dropoff: "add" as const, adult: true } : { date: x.date, start: x.start, subjects: [x.subject], dropoff: "cancel" as const }))
   const busReq = (over: Partial<ParentRequest>) => req({ kind: "bus", studentId: busKid?.id ?? "", studentNickname: busKid?.nickname ?? "", branchId: busKid?.branchId,
     bus: busChanges.length ? busChanges : [{ date: addDays(today, 2), start: "16:00", subjects: ["คณิต"], pickup: "add" }], ...over })
+  // owner 2026-10-19: a parent pins the house for the bus — a Thonglor bus child (their old pin moves ~300 m)
+  const pinKid = students.find((x) => x.branchId === "br_thl" && x.usesBus && x.familyId && families.find((f) => f.id === x.familyId)?.location)
+  const pinFam = families.find((f) => f.id === pinKid?.familyId)
+  const homeReq = pinKid && pinFam?.location ? req({ kind: "home", studentId: pinKid.id, studentNickname: pinKid.nickname, familyId: pinFam.id, familyName: pinFam.name, branchId: pinKid.branchId,
+    home: { lat: pinFam.location.lat + 0.0027, lng: pinFam.location.lng + 0.0004, addressNote: "ซอย 2 บ้านหลังที่ 3 ประตูสีขาว" } }) : null
   const subs = [
     { token: "t_pending", status: "pending" }, { token: "t_ok", status: "approved" }, { token: "t_no", status: "rejected" },
   ] as unknown as FormSubmission[]
@@ -85,6 +91,8 @@ export default function InboxCardsPreview() {
         <div className="max-w-md"><RequestCard preview r={req({ kind: "exit", lastDate: addDays(today, 14), reasonIds: reasons.slice(0, 2).map((x) => x.id), note: "ย้ายบ้านค่ะ" })} /></div>
         <Label>ขอ / ยกเลิกรอบรถ · รอดำเนินการ (อนุมัติ = รอบที่เพิ่มเก็บในรายชื่อนักเรียน คิดเงินในใบแจ้งหนี้รอบถัดไป)</Label>
         <div className="max-w-md"><RequestCard preview r={busReq({ note: "วันอังคารแม่ไปรับไม่ทันค่ะ" })} /></div>
+        <Label>ปักหมุดบ้าน (รถรับส่ง) · รอดำเนินการ (บันทึก = ใช้หมุดนี้กับครอบครัว · ดูระยะทางและโซนก่อน)</Label>
+        {homeReq && <div className="max-w-md"><RequestCard preview r={homeReq} /></div>}
         <Label>อยากกลับมาเรียน · รอดำเนินการ</Label>
         <div className="max-w-md"><RequestCard preview r={req({ kind: "return", startDate: addDays(today, 7), note: "อยากกลับมาเรียนคณิตเหมือนเดิมค่ะ" })} /></div>
         <Label>ผู้ปกครองส่งฟอร์มแจ้งออกกลับมา · รอดำเนินการ (มีคำตอบ + ปิดการออก / ไม่ออกแล้ว)</Label>

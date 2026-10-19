@@ -132,7 +132,7 @@ export interface TransportCtx {
 /** prototype speeds — Dev swaps in Google's road ETA */
 export const CITY_KMH = 22, DETOUR = 1.35, STOP_MIN = 3
 export const AUTO_SEND_BEFORE_MIN = 60
-const legMin = (km: number) => Math.round(((km * DETOUR) / CITY_KMH) * 60)
+export const legMin = (km: number) => Math.round(((km * DETOUR) / CITY_KMH) * 60)
 
 export const tripId = (roundId: ID, date: DateStr) => `${roundId}|${date}`
 export const stopKey = (studentId: ID, leg: BusLegKind) => `${studentId}|${leg}`

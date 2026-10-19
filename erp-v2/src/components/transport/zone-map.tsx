@@ -18,14 +18,17 @@ const toward = (o: LatLng, deg: number, km: number): LatLng => {
  * The branch's bus zones on a map (owner 2026-10-19): every home that rides the bus as a dot in its zone's colour,
  * the zone borders as lines out from the branch. Read-only, OpenStreetMap tiles.
  */
-export function ZoneMap({ branch, homes, zones, className }: {
+export function ZoneMap({ branch, homes, zones, hotspots = [], className }: {
   branch: LatLng
-  homes: { loc: LatLng; color: string; label: string }[]
+  /** `big` = the home being looked at (a parent's new pin) — drawn larger with a ring */
+  homes: { loc: LatLng; color: string; label: string; big?: boolean }[]
   zones: { from: number; to: number; color: string; name: string }[]
+  /** owner 2026-10-19: where homes bunch up — a shaded circle, bigger for more homes */
+  hotspots?: { center: LatLng; homes: number; label: string }[]
   className?: string
 }) {
   const box = useRef<HTMLDivElement>(null)
-  const key = JSON.stringify([branch, homes, zones])
+  const key = JSON.stringify([branch, homes, zones, hotspots])
   useEffect(() => {
     let dead = false
     let map: { remove: () => void } | null = null
@@ -43,7 +46,8 @@ export function ZoneMap({ branch, homes, zones, className }: {
         const mid = toward(branch, z.from + span / 2, far * 0.85)
         L.marker(mid, { icon: L.divIcon({ className: "", html: `<div style="transform:translate(-50%,-50%);white-space:nowrap;font:600 12px system-ui;color:${ZONE_HEX[z.color] ?? "#334155"};text-shadow:0 0 3px white,0 0 3px white">${z.name}</div>`, iconSize: [0, 0] }) }).addTo(m)
       }
-      for (const h of homes) L.circleMarker(h.loc, { radius: 7, color: "white", weight: 2, fillColor: ZONE_HEX[h.color] ?? "#64748b", fillOpacity: 1 }).bindTooltip(h.label).addTo(m)
+      for (const s of hotspots) L.circle(s.center, { radius: 450 + s.homes * 120, color: "#e11d48", weight: 1, fillColor: "#e11d48", fillOpacity: 0.12 }).bindTooltip(s.label).addTo(m)
+      for (const h of homes) L.circleMarker(h.loc, { radius: h.big ? 10 : 7, color: h.big ? "#0f172a" : "white", weight: h.big ? 3 : 2, fillColor: ZONE_HEX[h.color] ?? "#64748b", fillOpacity: 1 }).bindTooltip(h.label, { permanent: !!h.big, direction: "top" }).addTo(m)
       L.marker(branch, { icon: L.divIcon({ className: "", html: '<div style="display:grid;place-items:center;width:28px;height:28px;border-radius:50%;background:#0f172a;border:2px solid white;color:white;font:600 11px system-ui">B</div>', iconSize: [28, 28], iconAnchor: [14, 14] }) }).addTo(m)
       m.fitBounds(L.latLngBounds([branch, ...homes.map((h) => h.loc)]).pad(0.15), { maxZoom: 14 })
       map = m

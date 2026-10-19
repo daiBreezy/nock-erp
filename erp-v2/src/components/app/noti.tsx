@@ -6,16 +6,17 @@
 // swipe up or right to dismiss. Important ones (`sticky`) stay until closed.
 import * as React from "react"
 import { Toast as ToastPrimitive } from "@base-ui/react/toast"
-import { BellIcon, CalendarOffIcon, DoorOpenIcon, MessageCircleIcon, UndoDotIcon, XIcon, BusIcon } from "lucide-react"
+import { BellIcon, CalendarOffIcon, DoorOpenIcon, MessageCircleIcon, UndoDotIcon, XIcon, BusIcon, MapPinHouseIcon } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { ToastAction, ToastDescription, ToastProvider, ToastTitle } from "@/components/ui/toast"
 import { cn } from "@/lib/utils"
 
-export type NotiKind = "exit" | "leave" | "return" | "bus" | "message" | "info"
+export type NotiKind = "exit" | "leave" | "return" | "bus" | "home" | "message" | "info"
 const KIND: Record<NotiKind, { icon: typeof BellIcon; tone: string }> = {
   exit: { icon: DoorOpenIcon, tone: "bg-red-100 text-red-700 dark:bg-red-950 dark:text-red-300" },
   leave: { icon: CalendarOffIcon, tone: "bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300" },
   bus: { icon: BusIcon, tone: "bg-sky-100 text-sky-800 dark:bg-sky-950 dark:text-sky-300" },
+  home: { icon: MapPinHouseIcon, tone: "bg-sky-100 text-sky-800 dark:bg-sky-950 dark:text-sky-300" },
   return: { icon: UndoDotIcon, tone: "bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300" },
   message: { icon: MessageCircleIcon, tone: "bg-sky-100 text-sky-800 dark:bg-sky-950 dark:text-sky-300" },
   info: { icon: BellIcon, tone: "bg-primary/10 text-primary" },

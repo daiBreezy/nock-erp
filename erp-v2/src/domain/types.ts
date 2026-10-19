@@ -976,8 +976,9 @@ export interface BusChange {
 
 export interface ParentRequest {
   id: ID
-  /** return = a child who left wants to come back (owner 2026-10-14) · bus = ask for extra rides / cancel rides (owner 2026-10-19) */
-  kind: "leave" | "exit" | "return" | "bus"
+  /** return = a child who left wants to come back (owner 2026-10-14) · bus = ask for extra rides / cancel rides (owner 2026-10-19)
+   *  · home = the parent pins the house for the bus (owner 2026-10-19 "นักเรียนที่ต้องการใช้รถ จะต้องให้ Location แก่เรา") */
+  kind: "leave" | "exit" | "return" | "bus" | "home"
   familyId: ID
   familyName: string
   branchId?: ID
@@ -989,6 +990,8 @@ export interface ParentRequest {
   sessions?: { sessionId: ID; date: DateStr; start: TimeStr; subjects: string[] }[]
   /** bus: per class day, which legs to add or cancel (the parent's ask — the admin approves or declines) */
   bus?: BusChange[]
+  /** home: where the house is (+ how to find it) — saved on the family when the admin approves */
+  home?: { lat: number; lng: number; addressNote?: string }
   /** return: when they'd like to start again */
   startDate?: DateStr
   /** exit: last day + why */

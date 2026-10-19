@@ -26,7 +26,7 @@ export async function GET(req: Request) {
 export async function POST(req: Request) {
   const w = await who(req)
   if (!w) return NextResponse.json({ ok: false, error: "auth" }, { status: 401 })
-  const b = (await req.json().catch(() => ({}))) as { kind?: string; studentId?: string; sessionIds?: string[]; lastDate?: string; startDate?: string; reasonIds?: string[]; note?: string; bus?: { date?: string; pickup?: string; dropoff?: string; adult?: boolean }[] }
+  const b = (await req.json().catch(() => ({}))) as { kind?: string; studentId?: string; sessionIds?: string[]; lastDate?: string; startDate?: string; reasonIds?: string[]; note?: string; home?: { lat?: number; lng?: number; addressNote?: string }; bus?: { date?: string; pickup?: string; dropoff?: string; adult?: boolean }[] }
   const child = w.view.children.find((c) => c.id === b.studentId)
   if (!child) return NextResponse.json({ ok: false, error: "เลือกนักเรียน" }, { status: 400 })
   const note = (b.note ?? "").trim().slice(0, 500) || undefined
@@ -64,6 +64,13 @@ export async function POST(req: Request) {
     if (!changes.length) return NextResponse.json({ ok: false, error: "เลือกรอบรถที่จะขอหรือยกเลิก" }, { status: 400 })
     saved = await addRequest({ ...base, kind: "bus", bus: changes })
     text = `ได้รับคำขอเรื่องรถรับส่งของ${child.nickname}แล้วค่ะ แอดมินจะเช็ครอบรถแล้วยืนยันกลับนะคะ 🙏`
+  } else if (b.kind === "home") {
+    // owner 2026-10-19: the parent pins the house for the bus — a real spot in Thailand, the admin checks it in the chat
+    const lat = Number(b.home?.lat), lng = Number(b.home?.lng)
+    if (!Number.isFinite(lat) || !Number.isFinite(lng) || lat < 5 || lat > 21 || lng < 97 || lng > 106) return NextResponse.json({ ok: false, error: "ปักหมุดบ้านบนแผนที่ก่อน" }, { status: 400 })
+    const addressNote = (b.home?.addressNote ?? "").trim().slice(0, 200) || undefined
+    saved = await addRequest({ ...base, kind: "home", home: { lat, lng, addressNote } })
+    text = `ได้รับตำแหน่งบ้านสำหรับรถรับส่งของ${child.nickname}แล้วค่ะ แอดมินจะตรวจแล้วจัดรถให้นะคะ 🙏`
   } else if (b.kind === "exit") {
     if (!b.lastDate || !/^\d{4}-\d{2}-\d{2}$/.test(b.lastDate)) return NextResponse.json({ ok: false, error: "เลือกวันเรียนวันสุดท้าย" }, { status: 400 })
     saved = await addRequest({ ...base, kind: "exit", lastDate: b.lastDate, reasonIds: (b.reasonIds ?? []).slice(0, 8) })
@@ -75,7 +82,7 @@ export async function POST(req: Request) {
   const legs = (k: "add" | "cancel") => (saved.bus ?? []).reduce((n, c) => n + Number(c.pickup === k) + Number(c.dropoff === k), 0)
   const adults = (saved.bus ?? []).filter((c) => c.adult).length
   const what = saved.kind === "leave" ? `แจ้งลา ${saved.sessions?.length ?? 0} คาบ` : saved.kind === "exit" ? "แจ้งลาออก" : saved.kind === "bus"
-    ? `รถรับส่ง · ${[legs("add") && `ขอเพิ่ม ${legs("add")} เที่ยว`, legs("cancel") && `ยกเลิก ${legs("cancel")} เที่ยว`, adults && `ผู้ปกครองไปด้วย ${adults} วัน`].filter(Boolean).join(" · ")}` : "อยากกลับมาเรียน"
+    ? `รถรับส่ง · ${[legs("add") && `ขอเพิ่ม ${legs("add")} เที่ยว`, legs("cancel") && `ยกเลิก ${legs("cancel")} เที่ยว`, adults && `ผู้ปกครองไปด้วย ${adults} วัน`].filter(Boolean).join(" · ")}` : saved.kind === "home" ? "ปักหมุดบ้านสำหรับรถรับส่ง" : "อยากกลับมาเรียน"
   await recordInboundMessage(w.user.sub, null, `📋 ${what} · ${child.nickname}`, { meta: { formKind: "parent_request", requestId: saved.id } }).catch(() => undefined)
   if (await pushLineText(w.user.sub, text)) await recordOutboundMessage(w.user.sub, text).catch(() => undefined)
   return NextResponse.json({ ok: true })

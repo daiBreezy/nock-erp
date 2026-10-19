@@ -3,21 +3,28 @@
 // Bus zones (owner 2026-10-19 — "การแบ่ง Zone ของนักเรียน เพื่อให้รถวิ่งรับได้สะดวกมากขึ้น"): homes split by direction
 // from the branch, one zone per van. The system draws the zones from where the homes are; the admin can rename,
 // change the van, or put a home in another zone by hand (a house right on the border).
+// owner 2026-10-19 ("นักเรียนที่ต้องการใช้รถ จะต้องให้ Location แก่เรา … Analyze … หรือ Admin สามารถเลือก Zone ให้กับนักเรียน
+// เลยก็ได้"): the analysis on top (pins, dense spots, layouts compared), every bus home in a table to set its zone or
+// ask the parent for the pin.
 import { useMemo } from "react"
-import { MapPinOffIcon, PinIcon, PlusIcon, TrashIcon, WandSparklesIcon } from "lucide-react"
+import { useRouter } from "next/navigation"
+import { MapPinCheckIcon, MapPinOffIcon, MessageCircleIcon, PinIcon, PlusIcon, TrashIcon, WandSparklesIcon } from "lucide-react"
+import { DataTable, type Column } from "@/components/app/data-grid"
 import { NativeSelect } from "@/components/app/native-select"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { toDateStr } from "@/domain/dates"
+import { addDays, toDateStr } from "@/domain/dates"
 import { distanceKm } from "@/domain/rules/bus"
 import { busDaysOf } from "@/domain/rules/parent-view"
-import { autoZones, compassDeg, ZONE_COLORS, zoneName, zoneOf } from "@/domain/rules/transport"
+import { autoZones, compassDeg, planDay, ZONE_COLORS, zoneName, zoneOf } from "@/domain/rules/transport"
+import { hotspots, zoneOptions, type ZoneOption } from "@/domain/rules/zone-analysis"
 import type { Branch, BusZone, Family, Student } from "@/domain/types"
 import { uid } from "@/data/seed"
 import { report } from "@/lib/feedback"
 import { useNow } from "@/lib/hooks"
 import { cn } from "@/lib/utils"
 import { useStore } from "@/store/store"
+import { ZoneAnalysisCard } from "./zone-analysis-card"
 import { ZONE_DOT, ZoneMap } from "./zone-map"
 
 interface Home { fam: Family; kids: Student[]; zone: BusZone | null; byHand: boolean; km: number | null }
@@ -46,6 +53,19 @@ export function ZonesView({ branch }: { branch: Branch }) {
     }).sort((a, b) => (a.km ?? 99) - (b.km ?? 99))
   }, [students, families, invoices, busAddOns, branch, zones, today])
   const pinned = homes.filter((h) => h.fam.location)
+  // the coming week's rides (which homes are on each van at once) — for "does a layout fit the seats"
+  const classes = useStore((s) => s.classes)
+  const trips = useStore((s) => s.busTrips)
+  const rides = useMemo(() => {
+    const ctx = { students, families, classes, invoices, busAddOns, trips: trips ?? [] }
+    return Array.from({ length: 7 }, (_, i) => planDay(branch, addDays(today, i), ctx).trips)
+      .flat().filter((t) => t.stops.length).map((t) => t.stops.map((x) => x.rider.familyId ?? ""))
+  }, [students, families, classes, invoices, busAddOns, trips, branch, today])
+  const busHomes = useMemo(() => homes.map((h) => ({ id: h.fam.id, loc: h.fam.location, kids: h.kids.length })), [homes])
+  const spots = useMemo(() => (branch.location ? hotspots(busHomes, branch.location) : []), [busHomes, branch.location])
+  const options = useMemo(() => (branch.location ? zoneOptions(busHomes, branch.location, vans.map((v) => ({ id: v.id, seats: v.seats })), rides) : []), [busHomes, branch.location, vans, rides])
+  const apply = (o: ZoneOption) => report(saveZones(branch.id, o.zones.map((z, i) => ({ ...z.zone, id: zones[i]?.id ?? uid("zone") }))),
+    o.count === 1 ? "ใช้ 1 โซน — รถวิ่งได้ทุกบ้าน" : `แบ่ง ${o.count} โซนแล้ว — ${o.zones.map((z) => z.zone.name).join(" · ")}`)
   const auto = () => {
     const made = autoZones(pinned.map((h) => compassDeg(branch.location!, h.fam.location!)), Math.max(1, vans.length), vans.map((v) => v.id))
     report(saveZones(branch.id, made.map((z, i) => ({ ...z, id: zones[i]?.id ?? uid("zone") }))), `แบ่ง ${made.length} โซนตามทิศบ้านแล้ว — ${made.map((z) => z.name).join(" · ")}`)
@@ -69,6 +89,8 @@ export function ZonesView({ branch }: { branch: Branch }) {
   if (!branch.location) return <p className="rounded-3xl border border-dashed p-10 text-center text-sm text-muted-foreground">ปักหมุดสาขาก่อน (ตั้งค่าสาขา › ค่าธรรมเนียม) — โซนวัดจากทิศของบ้านเทียบกับสาขา</p>
   return (
     <div className="space-y-4">
+      <ZoneAnalysisCard homes={homes.length} kids={homes.reduce((a, h) => a + h.kids.length, 0)} pinned={pinned.length} spots={spots} options={options} current={zones.length || 1} onApply={apply} />
+
       <div className="flex flex-wrap items-center gap-2 rounded-3xl bg-card p-4 text-sm shadow-sm ring-1 ring-foreground/5">
         <p className="min-w-0 flex-1 text-muted-foreground">
           {vans.length > 1 ? `มีรถ ${vans.length} คัน — เมื่อรถออกเวลาเดียวกัน เด็กขึ้นรถของโซนบ้านตัวเอง รถแต่ละคันวิ่งเฉพาะทิศของตัวเอง` : "มีรถคันเดียว — ยังไม่ต้องแบ่งโซน (แบ่งไว้ดูการกระจายบ้านได้)"}
@@ -80,7 +102,7 @@ export function ZonesView({ branch }: { branch: Branch }) {
 
       <div className="grid gap-4 lg:grid-cols-[1.3fr_1fr]">
         <ZoneMap branch={branch.location} className="h-[28rem] overflow-hidden rounded-3xl shadow-sm ring-1 ring-foreground/5"
-          zones={zones} homes={pinned.map((h) => ({ loc: h.fam.location!, color: h.zone?.color ?? "slate", label: `${h.kids.map((k) => k.nickname).join(", ")} · ${h.zone?.name ?? "ไม่มีโซน"}` }))} />
+          zones={zones} hotspots={spots.map((x) => ({ center: x.center, homes: x.homes, label: `${x.direction} · ${x.km} กม. · ${x.homes} บ้าน` }))} homes={pinned.map((h) => ({ loc: h.fam.location!, color: h.zone?.color ?? "slate", label: `${h.kids.map((k) => k.nickname).join(", ")} · ${h.zone?.name ?? "ไม่มีโซน"}` }))} />
 
         <div className="space-y-3">
           {zones.length === 0 && <p className="rounded-3xl border border-dashed p-6 text-center text-sm text-muted-foreground">ยังไม่มีโซน — กด &quot;แบ่งโซนอัตโนมัติ&quot; ระบบแบ่งตามกลุ่มบ้านให้ หนึ่งโซนต่อรถหนึ่งคัน</p>}
@@ -107,40 +129,63 @@ export function ZonesView({ branch }: { branch: Branch }) {
                     {ZONE_COLORS.map((c) => <button key={c} type="button" aria-label={c} onClick={() => putZone(z.id, { color: c })} className={cn("size-5 rounded-full ring-offset-2", ZONE_DOT[c], z.color === c && "ring-2 ring-foreground/40")} />)}
                   </span>
                 </div>
-                <ul className="mt-2 divide-y text-sm">
-                  {members.map((h) => <HomeRow key={h.fam.id} h={h} zones={zones} onZone={(zid) => report(setFamilyZone(h.fam.id, zid), zid ? "ย้ายโซนแล้ว" : "กลับไปตามทิศแล้ว")} />)}
-                  {members.length === 0 && <li className="py-2 text-xs text-muted-foreground">ยังไม่มีบ้านในโซนนี้</li>}
-                </ul>
+                <p className="mt-2 flex flex-wrap gap-1 text-xs">
+                  {members.map((h) => <span key={h.fam.id} className="inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5">{h.kids.map((k) => k.nickname).join(", ")}{h.byHand && <PinIcon className="size-3 text-muted-foreground" />}</span>)}
+                  {members.length === 0 && <span className="text-muted-foreground">ยังไม่มีบ้านในโซนนี้</span>}
+                </p>
               </section>
             )
           })}
-          {homes.some((h) => !h.zone) && (
-            <section className="rounded-3xl bg-amber-50 p-3 ring-1 ring-amber-200 dark:bg-amber-950/30 dark:ring-amber-900">
-              <p className="mb-1 text-sm font-medium text-amber-900 dark:text-amber-100">{zones.length ? "ยังไม่อยู่ในโซน" : "บ้านที่นั่งรถ"}</p>
-              <ul className="divide-y text-sm">
-                {homes.filter((h) => !h.zone).map((h) => <HomeRow key={h.fam.id} h={h} zones={zones} onZone={(zid) => report(setFamilyZone(h.fam.id, zid), "ย้ายโซนแล้ว")} />)}
-              </ul>
-            </section>
-          )}
         </div>
       </div>
+
+      <BusHomesTable homes={homes} zones={zones} onZone={(h, zid) => report(setFamilyZone(h.fam.id, zid), zid ? `ตั้งโซน${h.kids.map((k) => k.nickname).join(", ")}เป็น ${zones.find((z) => z.id === zid)?.name ?? ""} แล้ว` : "กลับไปใช้โซนตามทิศบ้านแล้ว")} />
     </div>
   )
 }
 
-function HomeRow({ h, zones, onZone }: { h: Home; zones: BusZone[]; onZone: (zoneId: string | null) => void }) {
-  return (
-    <li className="flex items-center gap-2 py-1.5">
-      <span className="min-w-0 flex-1">
-        <span className="flex items-center gap-1.5 truncate font-medium">{h.kids.map((k) => `${k.nickname} ${k.grade}`).join(", ")}{h.byHand && <span title="ตั้งโซนเอง"><PinIcon className="size-3 text-muted-foreground" /></span>}</span>
-        <span className="block truncate text-xs text-muted-foreground">
-          {h.fam.location ? `${h.km} กม. · ${h.fam.name}` : <span className="inline-flex items-center gap-1 text-amber-700"><MapPinOffIcon className="size-3" />ยังไม่ปักหมุดบ้าน · {h.fam.name}</span>}
+/** every home that rides from this branch (owner 2026-10-19: "Admin สามารถเลือก Zone ให้กับนักเรียนเลยก็ได้"): set the zone
+ *  by hand (also for a home with no pin yet), or ask the parent for the pin in the family's LINE chat */
+function BusHomesTable({ homes, zones, onZone }: { homes: Home[]; zones: BusZone[]; onZone: (h: Home, zoneId: string | null) => void }) {
+  const router = useRouter()
+  const conversations = useStore((s) => s.conversations)
+  const askPin = (h: Home) => {
+    const c = conversations.find((x) => x.familyId === h.fam.id)
+    if (!c) return
+    const liff = process.env.NEXT_PUBLIC_LIFF_ID
+    const url = liff ? `https://liff.line.me/${liff}?app=parent&act=home` : `${window.location.origin}/liff/form?app=parent&act=home`
+    // the message waits in the chat box — the admin reads it and presses send
+    try { sessionStorage.setItem("inbox-draft", JSON.stringify({ conversationId: c.id, text: `สวัสดีค่ะ รบกวนช่วยปักหมุดบ้านสำหรับรถรับส่งของ${h.kids.map((k) => k.nickname).join(" และ ")}ให้หน่อยนะคะ กดลิงก์นี้แล้วแตะแผนที่ตรงบ้านได้เลยค่ะ 🙏\n${url}` })) } catch { /* private mode — the chat opens without the draft */ }
+    router.push(`/inbox?conversation=${c.id}`)
+  }
+  const columns: Column<Home>[] = [
+    { id: "kids", label: "นักเรียน", width: "180px", required: true, cell: (h) => <span className="block"><span className="block font-medium">{h.kids.map((k) => k.nickname).join(", ")}</span><span className="block text-xs text-muted-foreground">{h.kids.map((k) => k.grade).join(", ")}</span></span> },
+    { id: "family", label: "ครอบครัว", width: "140px", cell: (h) => h.fam.name },
+    { id: "km", label: "ระยะทาง", width: "90px", align: "right", cell: (h) => <span className="tabular-nums">{h.km === null ? "—" : `${h.km} กม.`}</span> },
+    { id: "pin", label: "หมุดบ้าน", width: "220px", cell: (h) => h.fam.location
+      ? <span className="flex items-center gap-1 text-emerald-700"><MapPinCheckIcon className="size-4" />{h.fam.addressNote ? <span className="max-w-48 truncate text-xs text-muted-foreground">{h.fam.addressNote}</span> : "มีหมุดแล้ว"}</span>
+      : (
+        <span className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+          <span className="flex items-center gap-1 text-amber-700"><MapPinOffIcon className="size-4" />ยังไม่มีหมุด</span>
+          <Button size="xs" variant="outline" disabled={!conversations.some((x) => x.familyId === h.fam.id)} title={conversations.some((x) => x.familyId === h.fam.id) ? "เปิดแชทครอบครัว พร้อมข้อความขอหมุด" : "ครอบครัวนี้ยังไม่มีแชท LINE"} onClick={() => askPin(h)}><MessageCircleIcon /> ขอหมุดจากผู้ปกครอง</Button>
         </span>
-      </span>
-      {zones.length > 0 && (
-        <NativeSelect className="h-8 w-32" value={h.byHand ? h.fam.busZoneId ?? "" : ""} placeholder="ตามทิศบ้าน" onChange={(e) => onZone(e.target.value || null)}
+      ) },
+    { id: "zone", label: "โซน", width: "280px", cell: (h) => zones.length === 0 ? <span className="text-xs text-muted-foreground">ยังไม่แบ่งโซน</span> : (
+      <span className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+        <span className={cn("size-2.5 shrink-0 rounded-full", h.zone ? ZONE_DOT[h.zone.color] ?? "bg-slate-400" : "bg-muted-foreground/30")} />
+        <NativeSelect className="h-8 w-60" value={h.byHand ? h.fam.busZoneId ?? "" : ""} placeholder={h.zone && !h.byHand ? `อัตโนมัติ · ${h.zone.name}` : "อัตโนมัติ (ตามทิศบ้าน)"} onChange={(e) => onZone(h, e.target.value || null)}
           options={zones.map((z) => ({ value: z.id, label: z.name }))} />
-      )}
-    </li>
+        {h.byHand && <span title="Admin ตั้งโซนเอง"><PinIcon className="size-3.5 text-muted-foreground" /></span>}
+      </span>
+    ) },
+  ]
+  return (
+    <section className="space-y-2">
+      <div className="flex flex-wrap items-baseline gap-2">
+        <h3 className="font-semibold">นักเรียนที่ใช้รถ</h3>
+        <span className="text-sm text-muted-foreground">เลือกโซนให้เองได้ (บ้านที่ยังไม่มีหมุดก็ได้) · บ้านที่ยังไม่มีหมุด กดขอจากผู้ปกครองทาง LINE</span>
+      </div>
+      <DataTable id="bus-homes" columns={columns} rows={homes} rowKey={(h) => h.fam.id} minWidth={860} empty="ยังไม่มีนักเรียนที่ใช้รถในสาขานี้" />
+    </section>
   )
 }

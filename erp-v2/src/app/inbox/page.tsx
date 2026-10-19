@@ -94,6 +94,15 @@ export default function InboxPage() {
   const [composing, setComposing] = useState(false)
   const [sendingEnroll, setSendingEnroll] = useState(false)
   const [draft, setDraft] = useState("")
+  // owner 2026-10-19: another page prepared a message for this chat (e.g. "ขอหมุดบ้าน" on Transport › Zones) — it waits in
+  // the box; the admin reads it and presses send. Kept out of the URL (it names the child).
+  useEffect(() => {
+    try {
+      const d = JSON.parse(sessionStorage.getItem("inbox-draft") ?? "null") as { conversationId: string; text: string } | null
+      sessionStorage.removeItem("inbox-draft")
+      if (d && d.conversationId === new URLSearchParams(window.location.search).get("conversation")) setDraft(d.text) // eslint-disable-line react-hooks/set-state-in-effect
+    } catch { /* no storage — nothing to prefill */ }
+  }, [])
   const [sending, setSending] = useState(false)
   const [openStudentId, setOpenStudentId] = useState<ID | null>(null)
   const [openLeadId, setOpenLeadId] = useState<ID | null>(null)

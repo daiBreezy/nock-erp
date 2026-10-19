@@ -3,13 +3,17 @@
 // Parent app v1 (owner 2026-10-09) — what a parent sees inside LINE. Pure view of a ParentView: no store, no staff data,
 // so the same screen runs on the parent's phone (/liff/parent) and in the staff preview (Family › ดูแบบผู้ปกครอง).
 import { useState } from "react"
-import { ArrowLeftIcon, RotateCcwIcon, CalendarOffIcon, ClipboardPenIcon, LoaderCircleIcon, BusIcon, CalendarDaysIcon, CheckIcon, ChevronRightIcon, GraduationCapIcon, ClockIcon, DoorOpenIcon, MessageSquareTextIcon, PackageIcon, UserIcon, XIcon } from "lucide-react"
+import dynamic from "next/dynamic"
+import { ArrowLeftIcon, RotateCcwIcon, CalendarOffIcon, ClipboardPenIcon, LoaderCircleIcon, BusIcon, MapPinHouseIcon, CalendarDaysIcon, CheckIcon, ChevronRightIcon, GraduationCapIcon, ClockIcon, DoorOpenIcon, MessageSquareTextIcon, PackageIcon, UserIcon, XIcon } from "lucide-react"
 import type { ParentChild, ParentCourseSummary, ParentView } from "@/domain/rules/parent-view"
 import { progressForSubject } from "@/domain/rules/summaries"
 import { CourseProgress } from "@/components/app/course-progress"
 import { subjectColor } from "@/components/app/subject-color"
 import type { FormLang, ParentRequest } from "@/domain/types"
 import { cn } from "@/lib/utils"
+
+// the map loads only when a parent opens "ปักหมุดบ้าน" (Leaflet is big — the rest of the app stays light in LINE)
+const MapPin = dynamic(() => import("@/app/liff/form/map-pin").then((m) => m.MapPin), { ssr: false, loading: () => <div className="h-full animate-pulse rounded-xl bg-muted" /> })
 
 const DICT = {
   th: {
@@ -26,6 +30,7 @@ const DICT = {
     st_new: "รอแอดมิน", st_done: "ดำเนินการแล้ว", st_declined: "ไม่ได้ดำเนินการ", preview: "ตัวอย่าง — ไม่ได้ส่งจริง", classes: (n: number) => `${n} คาบ`,
     returnReq: "ต้องการกลับมาเรียน", returnSub: "แอดมินจะติดต่อกลับเพื่อจัดคลาสให้", startFrom: "อยากเริ่มเรียนประมาณวันที่ (ไม่บังคับ)", leftTag: "หยุดเรียน",
     leftSince: (d: string) => `หยุดเรียนตั้งแต่ ${d}`, leftNote: "ยังดูประวัติการเข้าเรียนและสรุปการเรียนได้ตามเดิม",
+    homeReq: "ปักหมุดบ้าน (รถรับส่ง)", homeReqSub: "บอกตำแหน่งบ้านให้รถไปรับ-ส่งได้ถูกที่", homePick: "แตะแผนที่เพื่อปักหมุดบ้าน ลากหมุดเพื่อขยับ หรือใช้ตำแหน่งปัจจุบัน", homeNote: "จุดสังเกต / ทางเข้า", homeNotePh: "เช่น ซอย 2 บ้านหลังที่ 3 ประตูสีขาว", homeBanner: "ยังไม่มีตำแหน่งบ้านสำหรับรถรับส่ง — ช่วยปักหมุดให้หน่อยนะคะ", homeBannerBtn: "ปักหมุดบ้าน", locate: "ใช้ตำแหน่งปัจจุบัน", homeHave: "มีหมุดบ้านแล้ว — ย้ายหมุดได้ถ้าไม่ตรง",
     busReq: "ขอ / ยกเลิกรอบรถ", busReqSub: "ขอรถรับ-ส่งเพิ่ม หรือยกเลิกรอบที่ไม่ใช้", busPick: "แตะ รับ / ส่ง ของแต่ละวัน เพื่อขอเพิ่มหรือยกเลิก",
     busAdd: "ขอเพิ่ม", busCancel: "ยกเลิก", busCost: "รอบที่ขอเพิ่มคิดค่ารถในใบแจ้งหนี้รอบถัดไป · ยกเลิกรอบที่จ่ายแล้วไม่คืนเงิน", trips: (n: number) => `${n} เที่ยว`,
     adult: "ผู้ปกครอง", adultGo: "ผู้ปกครองไปด้วย", adultNote: "ผู้ปกครองนั่งรถไปด้วยได้ ไม่คิดค่ารถ (ใช้ 1 ที่นั่ง)",
@@ -44,6 +49,7 @@ const DICT = {
     st_new: "Waiting", st_done: "Done", st_declined: "Not done", preview: "Preview — nothing is sent", classes: (n: number) => `${n} class${n > 1 ? "es" : ""}`,
     returnReq: "Come back to study", returnSub: "Our staff will call to arrange a class", startFrom: "Would like to start around (optional)", leftTag: "Stopped",
     leftSince: (d: string) => `Stopped studying since ${d}`, leftNote: "Attendance and lesson summaries are still here",
+    homeReq: "Pin your home (school bus)", homeReqSub: "Show the bus where your home is", homePick: "Tap the map to pin your home, drag the pin to adjust, or use your current location", homeNote: "Landmark / way in", homeNotePh: "e.g. Soi 2, 3rd house, white gate", homeBanner: "We don't have your home location for the bus yet — please pin it", homeBannerBtn: "Pin home", locate: "Use my location", homeHave: "Your home is pinned — move the pin if it's off",
     busReq: "Add / cancel bus rides", busReqSub: "Ask for extra pick-ups / drop-offs, or cancel ones you don't need", busPick: "Tap Pick-up / Drop-off on a day to add or cancel it",
     busAdd: "Add", busCancel: "Cancel", busCost: "Extra rides are charged on the next invoice · paid rides you cancel aren't refunded", trips: (n: number) => `${n} ride${n > 1 ? "s" : ""}`,
     adult: "Parent", adultGo: "Parent rides along", adultNote: "A parent can ride along for free (takes 1 seat)",
@@ -62,6 +68,7 @@ const DICT = {
     st_new: "確認待ち", st_done: "対応済み", st_declined: "対応なし", preview: "プレビュー（送信されません）", classes: (n: number) => `${n}回`,
     returnReq: "再入会したい", returnSub: "スタッフからクラスのご相談のご連絡をします", startFrom: "再開希望日（任意）", leftTag: "退会",
     leftSince: (d: string) => `${d}から休会中`, leftNote: "出欠と授業レポートは引き続きご覧いただけます",
+    homeReq: "自宅の位置（送迎）", homeReqSub: "送迎車が迷わないよう自宅の位置を送る", homePick: "地図をタップして自宅にピン、ドラッグで調整、または現在地を使用", homeNote: "目印／入り口", homeNotePh: "例：ソイ2、3軒目、白い門", homeBanner: "送迎用の自宅の位置がまだありません — ピンを立ててください", homeBannerBtn: "自宅にピン", locate: "現在地を使う", homeHave: "自宅のピンは登録済み — ずれていれば動かせます",
     busReq: "送迎の追加／キャンセル", busReqSub: "送迎の追加依頼、または不要な便のキャンセル", busPick: "日ごとに「お迎え／お送り」をタップして追加・キャンセル",
     busAdd: "追加", busCancel: "キャンセル", busCost: "追加分は次回の請求書に加算・支払い済みの便のキャンセルは返金なし", trips: (n: number) => `${n}便`,
     adult: "保護者", adultGo: "保護者も同乗", adultNote: "保護者の同乗は無料です（1席使用）",
@@ -86,6 +93,7 @@ export type BusAsk = { date: string; pickup?: "add" | "cancel"; dropoff?: "add" 
 export type ParentRequestInput = { kind: "leave"; studentId: string; sessionIds: string[]; note?: string } | { kind: "exit"; studentId: string; lastDate: string; reasonIds: string[]; note?: string }
   | { kind: "bus"; studentId: string; bus: BusAsk[]; note?: string }
   | { kind: "return"; studentId: string; startDate?: string; note?: string }
+  | { kind: "home"; studentId: string; home: { lat: number; lng: number; addressNote?: string }; note?: string }
 
 /** `framed` = inside the staff preview's phone frame: the tab bar sticks to the frame, not the browser window */
 export function ParentApp({ view, lang: initialLang, today, framed, openCourseSummary, onRequest, requests, openAction }: { view: ParentView; lang?: FormLang; today: string; framed?: boolean
@@ -94,14 +102,15 @@ export function ParentApp({ view, lang: initialLang, today, framed, openCourseSu
   /** แจ้งลา / แจ้งลาออก (owner 2026-10-14) — unset in the staff preview (the forms show, nothing is sent) */
   onRequest?: (input: ParentRequestInput) => Promise<{ ok: boolean; error?: string }>
   requests?: ParentRequest[]
-  /** rich menu deep link (…&act=leave|exit|bus) */
-  openAction?: "leave" | "exit" | "bus" }) {
+  /** rich menu deep link (…&act=leave|exit|bus|home) */
+  openAction?: "leave" | "exit" | "bus" | "home" }) {
   const brand = view.children[0]?.brand ?? "nockacademy"
   // Japanese families at Liclass open in Japanese, everyone else in Thai — the chip switches any time
   const [lang, setLang] = useState<FormLang>(initialLang ?? (brand === "liclass" && /[\u3040-\u30ff\u4e00-\u9fff]/.test(view.familyName) ? "ja" : "th"))
   const opened = openCourseSummary ? view.children.find((c) => c.courseSummaries?.some((x) => x.id === openCourseSummary)) : undefined
   const [childId, setChildId] = useState(opened?.id ?? view.children[0]?.id ?? "")
   const [tab, setTab] = useState<Tab>(opened ? "summaries" : openAction ? "request" : "schedule")
+  const [ask, setAsk] = useState(openAction)
   const [csId, setCsId] = useState<string | null>(opened ? openCourseSummary! : null)
   const t = DICT[lang]
   const child = view.children.find((c) => c.id === childId) ?? view.children[0]
@@ -143,6 +152,13 @@ export function ParentApp({ view, lang: initialLang, today, framed, openCourseSu
       </header>
 
       <main className={cn("flex-1 space-y-3 p-3", framed ? "pb-3" : "pb-24")}>
+        {/* owner 2026-10-19: a family on the bus without a home pin is asked for it, wherever they are in the app */}
+        {usesBus && !view.home && !(tab === "request" && ask === "home") && (
+          <button type="button" onClick={() => { setAsk("home"); setTab("request") }} className="flex w-full items-center gap-3 rounded-2xl bg-amber-50 p-3 text-left text-sm text-amber-900 ring-1 ring-amber-200">
+            <MapPinHouseIcon className="size-5 shrink-0" /><span className="min-w-0 flex-1">{t.homeBanner}</span>
+            <span className="shrink-0 rounded-full bg-amber-500 px-3 py-1.5 text-xs font-semibold text-white">{t.homeBannerBtn}</span>
+          </button>
+        )}
         {!child ? null : tab === "schedule" && child.left ? (
           // owner 2026-10-14: a child who left — history stays, and the family can ask to come back
           <section className="space-y-2 rounded-2xl bg-background p-4 text-center shadow-sm">
@@ -181,7 +197,7 @@ export function ParentApp({ view, lang: initialLang, today, framed, openCourseSu
               ))}
             </>
           )
-        })() : tab === "request" ? <RequestTab key={child.id} view={view} child={child} t={t} lang={lang} today={today} onRequest={onRequest} requests={requests} initial={openAction} />
+        })() : tab === "request" ? <RequestTab key={`${child.id}|${ask ?? ""}`} view={view} child={child} t={t} lang={lang} today={today} onRequest={onRequest} requests={requests} initial={ask} />
         : tab === "attendance" ? <AttendanceList child={child} t={t} lang={lang} /> : <BusList child={child} t={t} lang={lang} dayLabel={dayLabel} />}
         <p className="pt-2 text-center text-[11px] text-muted-foreground">{t.updated} {(() => { const g = new Date(view.generatedAt); return `${fmtDay(`${g.getFullYear()}-${String(g.getMonth() + 1).padStart(2, "0")}-${String(g.getDate()).padStart(2, "0")}`, lang)} ${String(g.getHours()).padStart(2, "0")}:${String(g.getMinutes()).padStart(2, "0")}` })()}</p>
       </main>
@@ -347,11 +363,14 @@ function CourseEnd({ cs, t, lang, onBack }: { cs: ParentCourseSummary; t: T; lan
 /** แจ้งลาหยุด / แจ้งลาออก (owner 2026-10-14) — goes to the office team in the ERP; the parent is told on LINE */
 function RequestTab({ view, child, t, lang, today, onRequest, requests, initial }: {
   view: ParentView; child: ParentChild; t: T; lang: FormLang; today: string
-  onRequest?: (input: ParentRequestInput) => Promise<{ ok: boolean; error?: string }>; requests?: ParentRequest[]; initial?: "leave" | "exit" | "bus"
+  onRequest?: (input: ParentRequestInput) => Promise<{ ok: boolean; error?: string }>; requests?: ParentRequest[]; initial?: "leave" | "exit" | "bus" | "home"
 }) {
   // owner 2026-10-19: bus rides can be asked for / cancelled where the school runs a bus (Liclass, or already riding)
   const hasBus = child.brand === "liclass" || child.busDays.length > 0
-  const [mode, setMode] = useState<"leave" | "exit" | "return" | "bus" | null>(child.left ? "return" : initial === "bus" && !hasBus ? null : initial ?? null)
+  const [mode, setMode] = useState<"leave" | "exit" | "return" | "bus" | "home" | null>(child.left ? "return" : (initial === "bus" || initial === "home") && !hasBus ? null : initial ?? null)
+  // owner 2026-10-19: the house pin for the bus — starts where the school has it (if anywhere)
+  const [homeLoc, setHomeLoc] = useState<{ lat: number; lng: number } | undefined>(view.home ? { lat: view.home.lat, lng: view.home.lng } : undefined)
+  const [homeNote, setHomeNote] = useState(view.home?.addressNote ?? "")
   const [busAsk, setBusAsk] = useState<Record<string, BusAsk>>({})
   const [startDate, setStartDate] = useState("")
   const [picked, setPicked] = useState<string[]>([])
@@ -366,7 +385,8 @@ function RequestTab({ view, child, t, lang, today, onRequest, requests, initial 
   const submit = async () => {
     if (!onRequest || !mode) return
     setBusy(true)
-    const r = await onRequest(mode === "bus" ? { kind: "bus", studentId: child.id, bus: Object.values(busAsk).filter((x) => x.pickup || x.dropoff || x.adult), note }
+    const r = await onRequest(mode === "home" ? { kind: "home", studentId: child.id, home: { ...homeLoc!, addressNote: homeNote.trim() || undefined }, note }
+      : mode === "bus" ? { kind: "bus", studentId: child.id, bus: Object.values(busAsk).filter((x) => x.pickup || x.dropoff || x.adult), note }
       : mode === "leave" ? { kind: "leave", studentId: child.id, sessionIds: picked, note }
       : mode === "return" ? { kind: "return", studentId: child.id, startDate: startDate || undefined, note }
       : { kind: "exit", studentId: child.id, lastDate, reasonIds: reasons, note })
@@ -376,16 +396,16 @@ function RequestTab({ view, child, t, lang, today, onRequest, requests, initial 
   }
   const busTrips = Object.values(busAsk).reduce((n, x) => n + Number(!!x.pickup) + Number(!!x.dropoff), 0)
   const busAdults = Object.values(busAsk).filter((x) => x.adult).length
-  const ready = mode === "leave" ? picked.length > 0 : mode === "exit" ? !!lastDate : mode === "bus" ? busTrips + busAdults > 0 : mode === "return"
+  const ready = mode === "leave" ? picked.length > 0 : mode === "exit" ? !!lastDate : mode === "bus" ? busTrips + busAdults > 0 : mode === "home" ? !!homeLoc : mode === "return"
   return (
     <div className="space-y-3">
       {msg && <p className={cn("rounded-2xl p-3 text-sm", msg.ok ? "bg-emerald-50 text-emerald-800" : "bg-red-50 text-red-800")}>{msg.text}</p>}
       {!mode ? (
         <div className="grid gap-2">
           {(child.left ? [["return", RotateCcwIcon, t.returnReq, t.returnSub]] as const
-            : [["leave", CalendarOffIcon, t.leaveReq, t.leaveReqSub], ...(hasBus ? [["bus", BusIcon, t.busReq, t.busReqSub]] as const : []), ["exit", DoorOpenIcon, t.exitReq, t.exitReqSub]] as const).map(([k, Icon, title, sub]) => (
+            : [["leave", CalendarOffIcon, t.leaveReq, t.leaveReqSub], ...(hasBus ? [["bus", BusIcon, t.busReq, t.busReqSub], ["home", MapPinHouseIcon, t.homeReq, t.homeReqSub]] as const : []), ["exit", DoorOpenIcon, t.exitReq, t.exitReqSub]] as const).map(([k, Icon, title, sub]) => (
             <button key={k} type="button" onClick={() => { setMode(k); setMsg(null) }} className="flex items-center gap-3 rounded-2xl bg-background p-4 text-left shadow-sm">
-              <span className={cn("grid size-11 shrink-0 place-items-center rounded-xl", k === "leave" ? "bg-amber-100 text-amber-800" : k === "return" ? "bg-emerald-100 text-emerald-700" : k === "bus" ? "bg-sky-100 text-sky-800" : "bg-red-100 text-red-700")}><Icon className="size-5" /></span>
+              <span className={cn("grid size-11 shrink-0 place-items-center rounded-xl", k === "leave" ? "bg-amber-100 text-amber-800" : k === "return" ? "bg-emerald-100 text-emerald-700" : k === "bus" || k === "home" ? "bg-sky-100 text-sky-800" : "bg-red-100 text-red-700")}><Icon className="size-5" /></span>
               <span className="min-w-0 flex-1"><span className="block font-medium">{title}</span><span className="block text-xs text-muted-foreground">{sub}</span></span>
               <ChevronRightIcon className="size-4 text-muted-foreground" />
             </button>
@@ -394,8 +414,16 @@ function RequestTab({ view, child, t, lang, today, onRequest, requests, initial 
       ) : (
         <section className="space-y-3 rounded-2xl bg-background p-3 shadow-sm">
           <button type="button" onClick={() => setMode(null)} className="flex items-center gap-1 text-sm text-muted-foreground"><ArrowLeftIcon className="size-4" />{t.back}</button>
-          <p className="text-lg font-semibold">{mode === "leave" ? t.leaveReq : mode === "return" ? t.returnReq : mode === "bus" ? t.busReq : t.exitReq}</p>
-          {mode === "bus" ? (
+          <p className="text-lg font-semibold">{mode === "leave" ? t.leaveReq : mode === "return" ? t.returnReq : mode === "bus" ? t.busReq : mode === "home" ? t.homeReq : t.exitReq}</p>
+          {mode === "home" ? (
+            <div className="space-y-2">
+              <p className="text-xs text-muted-foreground">{view.home ? t.homeHave : t.homePick}</p>
+              <div className="h-64 overflow-hidden rounded-xl"><MapPin value={homeLoc} onChange={setHomeLoc} locateLabel={t.locate} /></div>
+              <label className="block space-y-1"><span className="text-xs font-medium text-muted-foreground">{t.homeNote}</span>
+                <input value={homeNote} onChange={(e) => setHomeNote(e.target.value)} placeholder={t.homeNotePh} className="h-10 w-full rounded-xl border bg-background px-3 text-sm" />
+              </label>
+            </div>
+          ) : mode === "bus" ? (
             <BusPicker child={child} t={t} lang={lang} ask={busAsk} onChange={setBusAsk} />
           ) : mode === "return" ? (
             <label className="block space-y-1"><span className="text-xs font-medium text-muted-foreground">{t.startFrom}</span>
@@ -446,7 +474,7 @@ function RequestTab({ view, child, t, lang, today, onRequest, requests, initial 
           {mine.map((r) => (
             <article key={r.id} className="rounded-2xl bg-background p-3 text-sm shadow-sm">
               <div className="flex items-center gap-2">
-                <span className="min-w-0 flex-1 font-medium">{r.kind === "leave" ? `${t.leaveReq} · ${t.classes(r.sessions?.length ?? 0)}` : r.kind === "return" ? t.returnReq : r.kind === "bus" ? t.busReq : `${t.exitReq} · ${fmtDay(r.lastDate!, lang)}`}</span>
+                <span className="min-w-0 flex-1 font-medium">{r.kind === "leave" ? `${t.leaveReq} · ${t.classes(r.sessions?.length ?? 0)}` : r.kind === "return" ? t.returnReq : r.kind === "bus" ? t.busReq : r.kind === "home" ? t.homeReq : `${t.exitReq} · ${fmtDay(r.lastDate!, lang)}`}</span>
                 <span className={cn("rounded-full px-2 py-0.5 text-[11px]", r.status === "new" ? "bg-amber-100 text-amber-900" : r.status === "done" ? "bg-emerald-100 text-emerald-800" : "bg-muted text-muted-foreground")}>{t[`st_${r.status}`]}</span>
               </div>
               {r.kind === "leave" && <p className="text-xs text-muted-foreground">{r.sessions?.map((x) => `${fmtDay(x.date, lang)} ${x.start}`).join(" · ")}</p>}

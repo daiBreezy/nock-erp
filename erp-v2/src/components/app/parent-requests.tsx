@@ -3,14 +3,16 @@
 // แจ้งลา / แจ้งลาออก from parents in LINE (owner 2026-10-14) — the office team handles each one here and the parent
 // is told on LINE: a leave is recorded on the classes (หักโควตา or not), a notice to stop makes the student แจ้งออก.
 import { useState } from "react"
-import { BusIcon, UserIcon, CalendarOffIcon, CheckIcon, DoorOpenIcon, EllipsisIcon, RotateCcwIcon, XIcon } from "lucide-react"
+import dynamic from "next/dynamic"
+import { BusIcon, MapPinHouseIcon, UserIcon, CalendarOffIcon, CheckIcon, DoorOpenIcon, EllipsisIcon, RotateCcwIcon, XIcon } from "lucide-react"
 import { Pill } from "./badges"
 import { Confirmation, ConfirmationActions, ConfirmationBody, ConfirmationHeader, ConfirmationResult } from "@/components/ai-elements/confirmation"
 import { Button } from "@/components/ui/button"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { Textarea } from "@/components/ui/textarea"
 import { fmtDate, fmtDateTime, fmtMoney } from "@/domain/dates"
-import { busChangeLegs, checkRide, companionLegs, rideTimes } from "@/domain/rules/bus"
+import { busChangeLegs, checkRide, companionLegs, distanceKm, rideTimes } from "@/domain/rules/bus"
+import { compassDeg, zoneName, zoneOf } from "@/domain/rules/transport"
 import { busDaysOf } from "@/domain/rules/parent-view"
 import { busRate } from "@/domain/rules/settings"
 import { can } from "@/domain/rules/permissions"
@@ -22,6 +24,9 @@ import { useLookup } from "@/lib/hooks"
 import { useStore } from "@/store/store"
 import { toast } from "@/lib/toast"
 import { cn } from "@/lib/utils"
+
+// the home-pin card's map — Leaflet only loads when one is on screen
+const ZoneMap = dynamic(() => import("@/components/transport/zone-map").then((m) => m.ZoneMap), { ssr: false, loading: () => <div className="h-48 animate-pulse rounded-xl bg-muted" /> })
 
 export function ParentRequestsList({ branchId, showDone }: { branchId: string; showDone?: boolean }) {
   const reqs = useStore((s) => s.parentRequests ?? [])
@@ -128,6 +133,20 @@ export function RequestCard({ r, preview }: { r: ParentRequest; preview?: boolea
     await finish("done", parts.join(" · "), `${reply.join(" และ")}ของ${r.studentNickname}เรียบร้อยแล้วค่ะ 🙏`)
     setBusy(false)
   }
+  // owner 2026-10-19: a parent pinned the house — check it on the map, then save it on the family
+  const families = useStore((s) => s.families)
+  const setFamilyHome = useStore((s) => s.setFamilyHome)
+  const fam = families.find((f) => f.id === r.familyId)
+  const homeZone = r.home && branch ? zoneOf({ location: r.home, busZoneId: fam?.busZoneId }, branch.location, branch.busZones ?? []) : null
+  const approveHome = async () => {
+    if (!r.home) return
+    setBusy(true)
+    if (report(setFamilyHome(r.familyId, r.home, r.home.addressNote), "")) {
+      const km = branch?.location ? ` · ${Math.round(distanceKm(branch.location, r.home) * 10) / 10} กม. จากสาขา` : ""
+      await finish("done", `บันทึกหมุดบ้านแล้ว${km}${homeZone ? ` · โซน ${homeZone.name}` : ""}`, `บันทึกตำแหน่งบ้านสำหรับรถรับส่งของ${r.studentNickname}เรียบร้อยแล้วค่ะ 🙏`)
+    }
+    setBusy(false)
+  }
   const decline = async () => {
     setBusy(true)
     if (await finish("declined", why.trim(), `เรื่องที่แจ้งไว้สำหรับ${r.studentNickname}: ${why.trim()}`)) setDeclining(false)
@@ -142,8 +161,8 @@ export function RequestCard({ r, preview }: { r: ParentRequest; preview?: boolea
     const free = chk.round.seats - chk.taken
     return <span className={cn("ml-1", free < need ? "font-medium text-red-700" : "text-muted-foreground")}>{free < need ? `· ${chk.round.time} ที่ไม่พอ (ว่าง ${Math.max(0, free)})` : `· ${chk.round.time} ว่าง ${free}`}</span>
   }
-  const Icon = r.kind === "leave" ? CalendarOffIcon : r.kind === "return" ? RotateCcwIcon : r.kind === "bus" ? BusIcon : DoorOpenIcon
-  const title = r.kind === "leave" ? "แจ้งลาหยุด" : r.kind === "return" ? "อยากกลับมาเรียน" : r.kind === "bus" ? "ขอ / ยกเลิกรอบรถ" : "แจ้งลาออก"
+  const Icon = r.kind === "leave" ? CalendarOffIcon : r.kind === "return" ? RotateCcwIcon : r.kind === "bus" ? BusIcon : r.kind === "home" ? MapPinHouseIcon : DoorOpenIcon
+  const title = r.kind === "leave" ? "แจ้งลาหยุด" : r.kind === "return" ? "อยากกลับมาเรียน" : r.kind === "bus" ? "ขอ / ยกเลิกรอบรถ" : r.kind === "home" ? "ปักหมุดบ้าน (รถรับส่ง)" : "แจ้งลาออก"
   // owner 2026-10-15: the same card as every other one in the chat — state on top, details, then what to do
   const state = open ? "pending" : r.status === "done" ? "approved" : "rejected"
   return (
@@ -189,6 +208,20 @@ export function RequestCard({ r, preview }: { r: ParentRequest; preview?: boolea
             {addTrips > 0 && <p className="text-xs text-muted-foreground">{`ค่ารถเพิ่ม ${addTrips} เที่ยว × ${fmtMoney(rate)} = ${fmtMoney(addTrips * rate)} → เก็บในรายชื่อนักเรียน รวมในใบแจ้งหนี้รอบถัดไป`}</p>}
             {cancelTrips > 0 && <p className="text-xs text-muted-foreground">ยกเลิกรอบที่ยังไม่เรียกเก็บ = ไม่คิดเงิน · รอบที่จ่ายแล้ว = ไม่คืนเงิน</p>}
           </div>
+        ) : r.kind === "home" && r.home ? (
+          <div className="space-y-1.5 text-xs">
+            <p>
+              {branch?.location ? `${Math.round(distanceKm(branch.location, r.home) * 10) / 10} กม. จากสาขา · ${zoneName(compassDeg(branch.location, r.home)).replace(/^สาย/, "ทิศ")}` : "ยังไม่ได้ปักหมุดสาขา"}
+              {homeZone ? <> · เข้า<b>{` โซน ${homeZone.name}`}</b></> : (branch?.busZones ?? []).length ? " · ยังไม่อยู่ในโซนไหน" : ""}
+              {fam?.location ? ` · ห่างจากหมุดเดิม ${Math.round(distanceKm(fam.location, r.home) * 1000)} ม.` : " · ครอบครัวนี้ยังไม่มีหมุดบ้าน"}
+            </p>
+            {r.home.addressNote && <p>{`จุดสังเกต: ${r.home.addressNote}`}</p>}
+            {branch?.location && (
+              <ZoneMap branch={branch.location} className="h-48 overflow-hidden rounded-xl" zones={branch.busZones ?? []}
+                homes={[...(fam?.location ? [{ loc: fam.location, color: "slate", label: "หมุดเดิม" }] : []), { loc: r.home, color: homeZone?.color ?? "rose", label: `บ้าน${r.studentNickname}`, big: true }]} />
+            )}
+            <a className="text-primary underline" href={`https://www.google.com/maps?q=${r.home.lat},${r.home.lng}`} target="_blank" rel="noreferrer">เปิดใน Google Maps</a>
+          </div>
         ) : r.kind === "return" ? (
           <p className="text-xs">{r.startDate ? <>อยากเริ่มเรียนราว <b>{fmtDate(r.startDate, { weekday: true, year: true })}</b></> : "ยังไม่ระบุวันเริ่ม"}</p>
         ) : (
@@ -218,6 +251,7 @@ export function RequestCard({ r, preview }: { r: ParentRequest; preview?: boolea
             <Button size="sm" variant="outline" disabled={busy} onClick={() => (preview ? toast.info("ตัวอย่าง — กดจริงจะบันทึก และแจ้งผู้ปกครองทาง LINE") : recordLeave(true))}>บันทึกลา · ไม่หักโควตา</Button>
             <Button size="sm" disabled={busy} onClick={() => (preview ? toast.info("ตัวอย่าง — กดจริงจะบันทึก และแจ้งผู้ปกครองทาง LINE") : recordLeave(false))}><CheckIcon /> บันทึกลา · หักโควตา</Button>
           </> : r.kind === "bus" ? <Button size="sm" disabled={busy} onClick={() => (preview ? toast.info("ตัวอย่าง — กดจริงจะบันทึก และแจ้งผู้ปกครองทาง LINE") : approveBus())}><CheckIcon /> อนุมัติ</Button>
+            : r.kind === "home" ? <Button size="sm" disabled={busy} onClick={() => (preview ? toast.info("ตัวอย่าง — กดจริงจะบันทึก และแจ้งผู้ปกครองทาง LINE") : approveHome())}><CheckIcon /> บันทึกหมุดบ้าน</Button>
             : r.kind === "return" ? <Button size="sm" disabled={busy} onClick={() => (preview ? toast.info("ตัวอย่าง — กดจริงจะบันทึก และแจ้งผู้ปกครองทาง LINE") : acceptReturn())}><CheckIcon /> รับเรื่อง · กู้คืนนักเรียน</Button>
             : <Button size="sm" disabled={busy} onClick={() => (preview ? toast.info("ตัวอย่าง — กดจริงจะบันทึก และแจ้งผู้ปกครองทาง LINE") : acceptExit())}><CheckIcon /> รับเรื่อง (แจ้งออก)</Button>}
         </ConfirmationActions>
