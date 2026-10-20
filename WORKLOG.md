@@ -5,6 +5,16 @@
 
 ---
 
+## 2026-10-20 — LINE ใช้ได้เองโดยไม่ต้องสั่ง Claude (เจ้าของ: "ต้องมาสั่งนายทุกรอบเลยหรอ")
+
+- **การผูก LINE ↔ ครอบครัว เก็บที่ server ด้วย** (`.data/line-links.json`, `server/line-links.ts`, API `/api/line/links`, hook `useLineLinkSync` ใน AppShell): ERP ส่งการผูกทุกอันขึ้น server (เพิ่ม/ย้ายเท่านั้น ไม่เคยลบ) · ถ้าเบราว์เซอร์ถูกล้างข้อมูล เปิดหน้าไหนก็ได้ → ผูกครอบครัวกลับเอง (`restoreLinks` ใน store/keep-line-links.ts + tests) · แชท LINE ที่เข้ามาใหม่ของบัญชีที่ผูกแล้ว ไปอยู่กับครอบครัวนั้นเอง · ตอนนี้ daiBreezy ↔ ครอบครัวใจสู้ (fa_g0)
+- **`npm run line` รันเองบนเครื่อง Mac ที่ทำงาน** (launchd): `~/Library/LaunchAgents/com.nockacademy.erp-line.plist` — เปิดเองตอน login + เปิดใหม่ถ้าหยุด (ทดสอบ kill แล้วกลับมาเองใน ~10 วิ) · log: `~/Library/Logs/nock-erp-line.log` · URL tunnel เปลี่ยนทุกครั้งแต่สคริปต์อัปเดต Webhook + LIFF ใน LINE เอง · Rich Menu ใช้ liff.line.me ไม่ต้องแก้
+  - ปิด: `launchctl bootout gui/$(id -u)/com.nockacademy.erp-line` · เปิดใหม่: `launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.nockacademy.erp-line.plist`
+  - ⚠ ห้ามรัน `npm run line` ซ้อนในเครื่องนี้ (ชนพอร์ต 3311) · เครื่องที่บ้านยังไม่ได้ตั้ง (ต้องรัน `npm run line` เอง หรือตั้ง plist แบบเดียวกัน — path ต่างเครื่อง)
+  - ข้อจำกัด: เครื่องนี้ต้องเปิดอยู่ · URL ถาวรต้องใช้ Cloudflare tunnel แบบมีบัญชี/โดเมน
+
+---
+
 ## 2026-10-20 — แก้ "เที่ยวรถหายหมด"
 
 - สาเหตุ: เบราว์เซอร์ที่ยังไม่มีข้อมูลเก็บไว้ (เปิดใหม่ / ล้างข้อมูล) เริ่มจาก seed เปล่า — ข้อมูลตัวอย่างรถรับส่ง (รถ คนขับ เด็กที่นั่งรถ) ใส่ให้เฉพาะตอนรีเซ็ตหรืออัปเดตเวอร์ชัน → หน้ารถรับส่งว่าง

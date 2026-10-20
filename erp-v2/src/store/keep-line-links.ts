@@ -22,3 +22,24 @@ export function keepLineLinks<T extends { families: Family[]; conversations: Con
   const conversations = [...fresh.conversations, ...oldConvs].map((c) => { const f = famOf.get(c.id); return f ? { ...c, familyId: f.id, leadId: null, name: f.name } : c })
   return { ...fresh, families, conversations }
 }
+
+/**
+ * Owner 2026-10-20 ("ต้องมาสั่งนายทุกรอบเลยหรอ"): put back LINE ↔ family links the server kept, after this browser lost
+ * them. Only a family with no LINE yet, and only a LINE account no other family has — what the office linked here wins.
+ * The family's chat (line_<id>) joins it again. `restored` = how many came back.
+ */
+export function restoreLinks<T extends { families: Family[]; conversations: Conversation[] }>(db: T, links: { lineUserId: string; familyId: string }[]): T & { restored: number } {
+  const taken = new Set(db.families.map((f) => f.lineUserId).filter(Boolean))
+  const back = links.filter((l) => !taken.has(l.lineUserId) && db.families.some((f) => f.id === l.familyId && !f.lineUserId))
+    .filter((l, i, a) => a.findIndex((x) => x.familyId === l.familyId) === i)
+  if (!back.length) return { ...db, restored: 0 }
+  const byFam = new Map(back.map((l) => [l.familyId, l.lineUserId]))
+  const byConv = new Map(back.map((l) => [`line_${l.lineUserId}`, l.familyId]))
+  const families = db.families.map((f) => (byFam.has(f.id) ? { ...f, lineUserId: byFam.get(f.id), parents: f.parents.map((p, i) => (i === 0 ? { ...p, lineLinked: true } : p)) } : f))
+  const conversations = db.conversations.map((c) => {
+    const fid = byConv.get(c.id)
+    return fid && !c.familyId ? { ...c, familyId: fid, leadId: null, name: families.find((f) => f.id === fid)?.name ?? c.name } : c
+  })
+  return { ...db, families, conversations, restored: back.length }
+}
+

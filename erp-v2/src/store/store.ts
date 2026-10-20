@@ -23,7 +23,7 @@ import * as BusR from "@/domain/rules/bus"
 import { busDaysOf } from "@/domain/rules/parent-view"
 import { withLinkedFamilyDemo } from "./linked-demo"
 import { withTransportDemo } from "./transport-demo"
-import { keepLineLinks } from "./keep-line-links"
+import { keepLineLinks, restoreLinks } from "./keep-line-links"
 import * as Sum from "@/domain/rules/summaries"
 import * as People from "@/domain/rules/people"
 import * as Forms from "@/domain/rules/forms"
@@ -320,6 +320,9 @@ type Store = DB & UIState & {
   mergeLiveConversations: (conversations: Conversation[], messages: ChatMessage[]) => void
   /** attaches an unlinked (LINE-only) conversation to an existing Family, and records that family's real LINE identity */
   linkConversationToFamily: (conversationId: ID, familyId: ID) => Result
+  /** owner 2026-10-20: put back LINE ↔ family links the server kept (this browser lost them) — only families with no
+   *  LINE yet, and only a LINE account no other family has; returns how many came back */
+  restoreLineLinks: (links: { lineUserId: string; familyId: ID }[]) => number
   linkConversationToLead: (conversationId: ID, leadId: ID) => Result
 }
 
@@ -3055,7 +3058,9 @@ export const useStore = create<Store>()(
               changed = true
             }
           } else {
-            convMap.set(server.id, { ...server, branchId: s.branchId })
+            // owner 2026-10-20: a chat from a LINE account a family already has (linked earlier) joins that family
+            const fam = server.id.startsWith("line_") ? s.families.find((f) => f.lineUserId === server.id.slice(5)) : undefined
+            convMap.set(server.id, fam ? { ...server, branchId: s.branchId, familyId: fam.id, leadId: null, name: fam.name } : { ...server, branchId: s.branchId })
             changed = true
           }
         })
@@ -3063,6 +3068,13 @@ export const useStore = create<Store>()(
         const fresh = messages.filter((m) => !seen.has(m.id))
         if (!fresh.length && !changed) return
         set({ conversations: Array.from(convMap.values()), messages: fresh.length ? [...s.messages, ...fresh] : s.messages })
+      },
+
+      restoreLineLinks: (links) => {
+        const s = get()
+        const r = restoreLinks({ families: s.families, conversations: s.conversations }, links)
+        if (r.restored) set({ families: r.families, conversations: r.conversations })
+        return r.restored
       },
 
       linkConversationToFamily: (conversationId, familyId) => {
