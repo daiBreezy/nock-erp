@@ -649,4 +649,5 @@ export const COVERAGE: Record<string, Entry> = {
   "← ออก": { en: "← out", ja: "← 退会" },
   "เข้า →": { en: "in →", ja: "入会 →" },
   "นักเรียน": { en: "Students", ja: "生徒" },
+  "{0} · Net = ใหม่ + กลับมาเรียน − Lost (Pause ไม่นับ)": { en: "{0} · Net = new + returning − Lost (Pause not counted)", ja: "{0} · Net＝新規＋復帰 − Lost（Pauseは対象外）" },
 }

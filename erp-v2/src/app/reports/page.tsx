@@ -175,9 +175,9 @@ function Overview({ d, compare, period, periodLabel, onAllRevenue, onAllStudents
       </div>
 
       {/* owner 2026-10-20: the students' numbers (from the Students tab) as one chart */}
-      <Panel title={tx("นักเรียน")} hint={tx("{0} · เข้า = ใหม่ + กลับมาเรียน · Net = เข้า − Lost · Pause ไม่นับใน Net", [periodLabel])}
+      <Panel title={tx("นักเรียน")} hint={tx("{0} · Net = ใหม่ + กลับมาเรียน − Lost (Pause ไม่นับ)", [periodLabel])}
         action={<button type="button" className="text-xs text-primary" onClick={onAllStudents}>{tx("ดูทั้งหมด ›")}</button>}>
-        <StudentFlowChart d={d} />
+        <StudentStats d={d} />
       </Panel>
 
       <div className="grid gap-4 lg:grid-cols-2">
@@ -260,53 +260,19 @@ function DemandPanel({ d }: { d: ReportData }) {
   )
 }
 
-/**
- * The Students tab's numbers as one picture (owner 2026-10-20: "แสดงผลเป็น Chart … ดูได้เข้าใจและง่าย"): who is studying
- * today, what came in (right, green / blue) and went out (left, red / amber) in the period, the net, and the renewal
- * rate as a ring.
- */
-function StudentFlowChart({ d }: { d: ReportData }) {
+/** the students' numbers — on the Students tab and on the Overview (owner 2026-10-20: numbers, not a chart) */
+function StudentStats({ d }: { d: ReportData }) {
   const f = d.studentFlow
   const net = f.newCount + f.returning - f.lost
-  const rows = [
-    { label: tx("ใหม่"), value: f.newCount, sign: 1, color: MOVE_COLORS[0] },
-    { label: tx("กลับมาเรียน"), value: f.returning, sign: 1, color: MOVE_COLORS[1] },
-    { label: "Lost", value: f.lost, sign: -1, color: MOVE_COLORS[3] },
-    { label: "Pause", value: f.pauses, sign: -1, color: MOVE_COLORS[2], note: tx("ไม่นับใน Net") },
-  ]
-  const max = Math.max(1, ...rows.map((r) => r.value), Math.abs(net))
-  const renewal = f.renewal ?? 0
-  const R = 42, C = 2 * Math.PI * R
   return (
-    <div className="grid items-center gap-6 md:grid-cols-[10rem_1fr_10rem]">
-      <div className="space-y-3 text-center md:text-left">
-        <div><p className="text-xs text-muted-foreground">{tx("Active วันนี้")}</p><p className="text-4xl font-semibold tabular-nums">{fmtNum(d.kpi.active)}</p></div>
-        <div><p className="text-xs text-muted-foreground">{tx("Pause (ลาพักยาว)")}</p><p className="text-xl font-semibold text-amber-600 tabular-nums">{fmtNum(d.kpi.paused)}</p></div>
-      </div>
-      {/* out ← | → in, from one centre line */}
-      <div className="space-y-2">
-        {[...rows, { label: "Net", value: Math.abs(net), sign: net < 0 ? -1 : 1, color: net < 0 ? "#991b1b" : "#065f46", note: undefined, net: true }].map((r) => (
-          <div key={r.label} className={cn("grid grid-cols-[6.5rem_1fr_1fr] items-center gap-2 text-sm", "net" in r && "border-t pt-2 font-semibold")}>
-            <span className="truncate">{r.label}{r.note && <span className="block text-[10px] font-normal text-muted-foreground">{r.note}</span>}</span>
-            <div className="flex h-6 justify-end border-r border-foreground/30 pr-px">
-              {r.sign < 0 && <div className="flex h-full items-center justify-start rounded-l-md px-1.5 text-xs text-white tabular-nums" style={{ width: `${Math.max(6, (r.value / max) * 100)}%`, background: r.color }}>−{fmtNum(r.value)}</div>}
-            </div>
-            <div className="flex h-6">
-              {r.sign > 0 && <div className="flex h-full items-center justify-end rounded-r-md px-1.5 text-xs text-white tabular-nums" style={{ width: `${Math.max(6, (r.value / max) * 100)}%`, background: r.color }}>+{fmtNum(r.value)}</div>}
-            </div>
-          </div>
-        ))}
-        <p className="grid grid-cols-[6.5rem_1fr_1fr] gap-2 text-[11px] text-muted-foreground"><span /><span className="text-right">{tx("← ออก")}</span><span>{tx("เข้า →")}</span></p>
-      </div>
-      <div className="flex flex-col items-center gap-1">
-        <svg viewBox="0 0 100 100" className="size-28 -rotate-90">
-          <circle cx="50" cy="50" r={R} fill="none" stroke="currentColor" strokeWidth="10" className="text-muted" />
-          <circle cx="50" cy="50" r={R} fill="none" stroke="var(--color-primary)" strokeWidth="10" strokeLinecap="round" strokeDasharray={`${C * renewal} ${C}`} />
-        </svg>
-        <p className="-mt-[4.6rem] mb-9 text-xl font-semibold tabular-nums">{fmtPct(f.renewal)}</p>
-        <p className="text-xs text-muted-foreground">{tx("อัตราต่อคอร์ส")}</p>
-        <p className="text-[11px] text-muted-foreground">{tx("ก่อนหน้า")} {d.comparable ? fmtPct(f.renewalPrev) : "—"}</p>
-      </div>
+    <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 xl:grid-cols-7">
+      <Stat label={tx("Active วันนี้")} value={fmtNum(d.kpi.active)} />
+      <Stat label={tx("Pause (ลาพักยาว)")} value={fmtNum(d.kpi.paused)} tone="text-amber-600" />
+      <Stat label={tx("ใหม่")} value={`+${f.newCount}`} tone="text-emerald-600" sub={<Delta value={d.comparable && f.newPrev ? Math.round(((f.newCount - f.newPrev) / f.newPrev) * 1000) / 10 : null} />} />
+      <Stat label={tx("กลับมาเรียน")} value={`+${f.returning}`} tone="text-emerald-600" />
+      <Stat label="Lost" value={`−${f.lost}`} tone="text-red-600" sub={<Delta value={d.comparable && f.lostPrev ? Math.round(((f.lost - f.lostPrev) / f.lostPrev) * 1000) / 10 : null} invert />} />
+      <Stat label="Net" value={`${net > 0 ? "+" : ""}${net}`} tone={net < 0 ? "text-red-600" : undefined} />
+      <Stat label={tx("อัตราต่อคอร์ส")} value={fmtPct(f.renewal)} sub={<span>{tx("ก่อนหน้า")} {d.comparable ? fmtPct(f.renewalPrev) : "—"}</span>} />
     </div>
   )
 }
@@ -568,15 +534,7 @@ function StudentsTab({ d, compare, onOpen }: { d: ReportData; compare: boolean; 
   const [listOpen, setListOpen] = useState(false)
   return (
     <div className="space-y-4">
-      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 xl:grid-cols-7">
-        <Stat label={tx("Active วันนี้")} value={fmtNum(d.kpi.active)} />
-        <Stat label={tx("Pause (ลาพักยาว)")} value={fmtNum(d.kpi.paused)} tone="text-amber-600" />
-        <Stat label={tx("ใหม่")} value={`+${f.newCount}`} tone="text-emerald-600" sub={<Delta value={d.comparable && f.newPrev ? Math.round(((f.newCount - f.newPrev) / f.newPrev) * 1000) / 10 : null} />} />
-        <Stat label={tx("กลับมาเรียน")} value={`+${f.returning}`} tone="text-emerald-600" />
-        <Stat label="Lost" value={`−${f.lost}`} tone="text-red-600" sub={<Delta value={d.comparable && f.lostPrev ? Math.round(((f.lost - f.lostPrev) / f.lostPrev) * 1000) / 10 : null} invert />} />
-        <Stat label="Net" value={`${net > 0 ? "+" : ""}${net}`} tone={net < 0 ? "text-red-600" : undefined} />
-        <Stat label={tx("อัตราต่อคอร์ส")} value={fmtPct(f.renewal)} sub={<span>{tx("ก่อนหน้า")} {d.comparable ? fmtPct(f.renewalPrev) : "—"}</span>} />
-      </div>
+      <StudentStats d={d} />
       {/* owner 2026-10-07: what moved, not just how many — monthly in / out + the share of each in the period */}
       <div className="grid gap-4 xl:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
         <Panel title={tx("ความเคลื่อนไหวรายเดือน")} hint={tx("ปี {0} · เหนือเส้น = เข้า (ใหม่ + กลับมาเรียน) · ใต้เส้น = ออก (Lost + Pause) · ชี้ที่เดือนเพื่อดูตัวเลข", [yearOf(d.monthly.year)])} fill>
