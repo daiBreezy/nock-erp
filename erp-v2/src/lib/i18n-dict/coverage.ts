@@ -674,4 +674,5 @@ export const COVERAGE: Record<string, Entry> = {
   "Admin / ครูที่ดูแล Lead — ดูแลกี่ราย สมัครกี่ราย (ตามผู้ดูแลของ Lead)": { en: "Admins / teachers looking after leads — how many each had and how many enrolled", ja: "リード担当の管理者・講師 — 担当数と入会数" },
   "ผู้ดูแล": { en: "Owner", ja: "担当" },
   "สมัคร": { en: "Enrolled", ja: "入会" },
+  "แสดงทั้งหมด ({0} คน)": { en: "Show all ({0})", ja: "すべて表示（{0}人）" },
 }

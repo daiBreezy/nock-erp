@@ -587,7 +587,7 @@ export function buildSeed(now = new Date()): DB {
 
   // ---- 15 months of history for Reports (owner 2026-10-01) — real records, as if the system had been running:
   // students who joined, renewed, paused, left and came back; every paid invoice has its package. Deterministic.
-  const history = buildHistory({ today, branches, courses, classes, families, students, invoices, entitlements, leads })
+  const history = buildHistory({ today, branches, courses, classes, families, students, invoices, entitlements, leads, staff })
   const leaves: StudentLeave[] = history.leaves
 
   // the other branches get a teacher each and their current students in class, with the last two weeks of
@@ -829,7 +829,7 @@ function buildCourseSummaries(db: { today: string; now: Date; courses: Course[];
   return out
 }
 
-function buildHistory(db: { today: string; branches: Branch[]; courses: Course[]; classes: Klass[]; families: Family[]; students: Student[]; invoices: Invoice[]; entitlements: Entitlement[]; leads: Lead[] }) {
+function buildHistory(db: { today: string; branches: Branch[]; courses: Course[]; classes: Klass[]; families: Family[]; students: Student[]; invoices: Invoice[]; entitlements: Entitlement[]; leads: Lead[]; staff?: Staff[] }) {
   let seed = 20261001
   const rnd = () => { seed = (seed * 1103515245 + 12345) % 2147483648; return seed / 2147483648 }
   const pick = <T,>(xs: T[]) => xs[Math.floor(rnd() * xs.length)]
@@ -869,7 +869,16 @@ function buildHistory(db: { today: string; branches: Branch[]; courses: Course[]
     // the lead this student came from (CRM report): a few days to a few weeks before the first payment
     const SOURCES: Lead["source"][] = ["line", "line", "line", "facebook", "facebook", "referral", "referral", "walkin", "website", "phone"]
     const leadAt = addDays(joined, -(3 + Math.floor(rnd() * 25)))
-    db.leads.push({ id: `ld_h${i}`, branchId: branch.id, name: `ผู้ปกครองน้อง${nick}`, childGrade: grade, subject: course.subjects[0], source: pick(SOURCES), stage: "enrolled", assigneeId: "u_ploy",
+    // owner 2026-10-20 (Members Conversion rate): leads are looked after by the branch's admins (most), managers and
+    // teachers — picked in turn, not at random, so the rest of the sample data stays the same
+    const owners = (() => {
+      const at = (db.staff ?? []).filter((x) => x.active && x.branchIds.includes(branch.id))
+      const by = (r: string) => at.filter((x) => x.roles.includes(r as never)).map((x) => x.id)
+      const pool = [...by("admin"), ...by("admin"), ...by("manager"), ...by("teacher")]
+      return pool.length ? pool : ["u_ploy"]
+    })()
+    const ownerOf = (k: number) => owners[k % owners.length]
+    db.leads.push({ id: `ld_h${i}`, branchId: branch.id, name: `ผู้ปกครองน้อง${nick}`, childGrade: grade, subject: course.subjects[0], source: pick(SOURCES), stage: "enrolled", assigneeId: ownerOf(i),
       phone: `08${i % 10}-700-${String(1000 + i)}`, lineId: "", createdAt: iso(leadAt), notes: [], convertedStudentId: sid })
     // …and leads that never became students, stopped somewhere along the way
     for (let j = 0; j < (rnd() < 0.5 ? 1 : 2); j++) {
@@ -894,7 +903,7 @@ function buildHistory(db: { today: string; branches: Branch[]; courses: Course[]
         lost: open ? undefined : { stage: from, reasonId, otherReasonIds: [], competitor, wantedTime: reasonId === "lr_schedule" ? pick(["เสาร์เช้า 9–11", "หลังเลิกเรียน 17:30–19:00", "อาทิตย์บ่าย"]) : undefined, at: iso(closedAt, 16), by: "u_ploy",
           followUpOn: reasonId === "lr_not_ready" || reasonId === "lr_schedule" ? addDays(closedAt, 90) : undefined },
         followUps: followUps.filter((f) => f.at <= iso(open ? db.today : closedAt, 23)),
-        assigneeId: "u_ploy", phone: `09${j}-800-${String(1000 + i)}`, lineId: "", createdAt: iso(at), notes: [], convertedStudentId: null })
+        assigneeId: ownerOf(i * 3 + j + 1), phone: `09${j}-800-${String(1000 + i)}`, lineId: "", createdAt: iso(at), notes: [], convertedStudentId: null })
     }
     db.students.push({ id: sid, familyId, branchId: branch.id, name: `ด.${i % 2 ? "ช" : "ญ"}. ${nick} ${surname}`, nickname: nick, grade, usesBus: false, createdBranchId: branch.id, createdAt: iso(joined) })
     // one package after another; each renewal 86% likely, sometimes a 6–12 week break and back

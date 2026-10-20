@@ -18,7 +18,7 @@ import { useReports, type ReportData } from "@/components/reports/use-reports"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { addDays, fmtDate, fmtMoney, monthShort, toDateStr, weekdayShort, yearOf } from "@/domain/dates"
-import { can, canCompareBranches, crossBranch, reportBranchIds } from "@/domain/rules/permissions"
+import { can, canCompareBranches, crossBranch, reportBranchIds, ROLE_LABEL } from "@/domain/rules/permissions"
 import { BUSINESS_SHORT, COMPARE_LABEL, PERIODS, scopeBranchIds, type PeriodKey, type Range, type SchoolGroup, type SchoolRow, schoolsByGroup } from "@/domain/rules/reports"
 import { LEAD_SOURCE_LABEL } from "@/domain/rules/crm"
 import { reasonLabel } from "@/domain/rules/loss"
@@ -320,6 +320,9 @@ function StudentOverview({ d, periodLabel }: { d: ReportData; periodLabel: strin
 function LeadOverview({ d }: { d: ReportData }) {
   const l = d.leadSummary
   const ok = d.comparable
+  // owner 2026-10-20: top 5, then "More" / "Less"
+  const [all, setAll] = useState(false)
+  const shown = all ? l.members : l.members.slice(0, 5)
   return (
     <div className="space-y-4">
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
@@ -334,9 +337,15 @@ function LeadOverview({ d }: { d: ReportData }) {
         {l.members.length === 0 ? <Empty /> : (
           <table className="w-full text-sm">
             <thead className="text-xs text-muted-foreground"><tr><th className="text-left font-normal">{tx("ผู้ดูแล")}</th><th className="w-14 text-right font-normal">Lead</th><th className="w-16 text-right font-normal">{tx("สมัคร")}</th><th className="w-2/5 pl-4 text-left font-normal">Conversion</th></tr></thead>
-            <tbody>{l.members.map((m) => (
+            <tbody>{shown.map((m) => (
               <tr key={m.staffId ?? "none"} className="border-t">
-                <td className="py-1.5">{m.staff ? <span className="font-medium">{m.staff.nickname}</span> : <span className="text-muted-foreground">{tx("ยังไม่มีผู้ดูแล")}</span>}</td>
+                <td className="py-1.5">{m.staff ? (
+                  <span className="flex flex-wrap items-center gap-1.5">
+                    <span className="font-medium">{m.staff.nickname}</span>
+                    {/* owner 2026-10-20: which role each one has */}
+                    {m.staff.roles.filter((r) => r !== "developer" && r !== "driver").map((r) => <span key={r} className={cn("rounded-full px-2 py-0.5 text-[11px] font-medium", ROLE_CHIP[r] ?? "bg-muted text-muted-foreground")}>{ROLE_LABEL[r]}</span>)}
+                  </span>
+                ) : <span className="text-muted-foreground">{tx("ยังไม่มีผู้ดูแล")}</span>}</td>
                 <td className="text-right tabular-nums">{m.leads}</td>
                 <td className="text-right text-emerald-600 tabular-nums">{m.enrolled}</td>
                 <td className="pl-4"><span className="flex items-center gap-2"><ShareBar value={m.conversion ?? 0} color="#be123c" /><span className="w-10 shrink-0 text-right tabular-nums">{fmtPct(m.conversion)}</span></span></td>
@@ -344,9 +353,19 @@ function LeadOverview({ d }: { d: ReportData }) {
             ))}</tbody>
           </table>
         )}
+        {l.members.length > 5 && (
+          <button type="button" onClick={() => setAll(!all)} className="w-full rounded-xl py-2 text-sm font-medium text-primary hover:bg-muted">
+            {all ? tx("แสดงน้อยลง") : tx("แสดงทั้งหมด ({0} คน)", [l.members.length])}
+          </button>
+        )}
       </div>
     </div>
   )
+}
+
+const ROLE_CHIP: Partial<Record<string, string>> = {
+  admin: "bg-sky-100 text-sky-800", teacher: "bg-emerald-100 text-emerald-800", manager: "bg-violet-100 text-violet-800",
+  area_manager: "bg-violet-100 text-violet-800", director: "bg-amber-100 text-amber-900", super_admin: "bg-amber-100 text-amber-900",
 }
 
 /** A row of totals across the top of a card */
