@@ -131,7 +131,7 @@ function revenue(i: InsightInput): Insight {
       if (worst.lostNow > worst.lostLast) causes.push(T("{0} นักเรียนหลุด {1} คน มากกว่าปีที่แล้ว ({2} คน)", [worst.label, worst.lostNow, worst.lostLast]))
     }
     const lc = i.comparable ? pctChange(i.flow.lostNow, i.flow.lostPrev) : null
-    if (lc !== null && lc > RISE) causes.push(T("Churn เพิ่มขึ้น {0} — หลุด {1} คน (ช่วงก่อน {2})", [pct(lc), i.flow.lostNow, i.flow.lostPrev]))
+    if (lc !== null && lc > RISE) causes.push(T("Lost เพิ่มขึ้น {0} — หลุด {1} คน (ช่วงก่อน {2})", [pct(lc), i.flow.lostNow, i.flow.lostPrev]))
     if (i.comparable && i.flow.renewal !== null && i.flow.renewalPrev !== null && i.flow.renewal < i.flow.renewalPrev - 0.03) causes.push(T("ต่อคอร์สน้อยลงจาก {0} เหลือ {1}", [pct0(i.flow.renewalPrev), pct0(i.flow.renewal)]))
     const er = top(i.exitReasons)
     if (er) causes.push(T("เหตุผลที่ออกมากสุด: \"{0}\" ({1} คน)", [er.label, er.count]))

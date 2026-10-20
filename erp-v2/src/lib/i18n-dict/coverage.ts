@@ -644,4 +644,9 @@ export const COVERAGE: Record<string, Entry> = {
   "ยังไม่มีงานวันนี้": { en: "No jobs today yet", ja: "今日の業務はまだありません" },
   "งานจะขึ้นที่นี่เมื่อแอดมินอนุมัติเที่ยวรถให้คุณ — หน้านี้อัปเดตเองทุก 30 วินาที": { en: "Jobs show here once the office approves your trips — this page updates every 30 seconds", ja: "管理者が便を承認するとここに表示されます — 30秒ごとに自動更新" },
   "สวัสดีครับ {0}": { en: "Hello {0}", ja: "こんにちは {0}" },
+  "{0} · เข้า = ใหม่ + กลับมาเรียน · Net = เข้า − Lost · Pause ไม่นับใน Net": { en: "{0} · In = new + returning · Net = in − Lost · Pause not counted in Net", ja: "{0} · 入会＝新規＋復帰 · Net＝入会 − Lost · Pauseは対象外" },
+  "ไม่นับใน Net": { en: "not in Net", ja: "Net対象外" },
+  "← ออก": { en: "← out", ja: "← 退会" },
+  "เข้า →": { en: "in →", ja: "入会 →" },
+  "นักเรียน": { en: "Students", ja: "生徒" },
 }

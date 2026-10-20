@@ -1796,7 +1796,7 @@ describe("summary insights", () => {
     expect(rev.title).toContain("ลดลง 17%")
     expect(rev.facts[0]).toContain("ก.ย.")
     expect(rev.causes.some((c) => c.includes("นักเรียนใหม่ 2 คน") && c.includes("80%"))).toBe(true)
-    expect(rev.causes.some((c) => c.includes("Churn เพิ่มขึ้น 50%"))).toBe(true)
+    expect(rev.causes.some((c) => c.includes("Lost เพิ่มขึ้น 50%"))).toBe(true)
     expect(rev.causes.some((c) => c.includes("หลังเลิกเรียน 15:00–17:00"))).toBe(true)
   })
 
