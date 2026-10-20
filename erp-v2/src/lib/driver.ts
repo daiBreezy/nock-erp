@@ -24,6 +24,14 @@ function payload(t: TripPlan, branch: Branch, token: string) {
 }
 
 let last = ""
+/** this browser's id for publishing (owner 2026-10-20: two browsers with the ERP open must not wipe each other's trips) */
+function sourceId() {
+  try {
+    let id = localStorage.getItem("nock-driver-source")
+    if (!id) { id = `src_${Math.random().toString(36).slice(2, 10)}`; localStorage.setItem("nock-driver-source", id) }
+    return id
+  } catch { return "default" }
+}
 /** Republish the approved trips (today + 6 days, every branch with runs) a few seconds after anything they show changes. */
 export function usePublishDriverTrips() {
   useEffect(() => {
@@ -45,7 +53,7 @@ export function usePublishDriverTrips() {
       if (key === last) return
       last = key
       // a failed send (server restarting, a reply that isn't ok) is tried again on the next check
-      void fetch("/api/driver/publish", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ trips: out }) })
+      void fetch("/api/driver/publish", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ trips: out, source: sourceId() }) })
         .then((r) => { if (!r.ok) last = "" }).catch(() => { last = "" })
     }
     const kick = () => { clearTimeout(timer); timer = setTimeout(run, 1500) }

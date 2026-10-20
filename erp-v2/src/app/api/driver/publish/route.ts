@@ -3,7 +3,8 @@ import { publishTrips, type DriverTrip } from "@/server/driver-store"
 
 // staff side only (the tunnel gate keeps it off the internet): the ERP sends the approved trips
 export async function POST(req: Request) {
-  const b = (await req.json().catch(() => ({}))) as { trips?: DriverTrip[] }
-  const n = await publishTrips(Array.isArray(b.trips) ? b.trips : [])
+  const b = (await req.json().catch(() => ({}))) as { trips?: DriverTrip[]; source?: string }
+  // each ERP browser publishes under its own id — one with nothing approved can't wipe another's trips
+  const n = await publishTrips(Array.isArray(b.trips) ? b.trips : [], String(b.source ?? "default").slice(0, 64))
   return NextResponse.json({ ok: true, count: n })
 }

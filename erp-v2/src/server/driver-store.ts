@@ -7,6 +7,10 @@ import { DATA_DIR } from "./data-dir"
 // Same file approach as the parent app — the real system keeps this in Dev's database.
 
 const DATA_FILE = path.join(DATA_DIR, "driver.json")
+/** owner 2026-10-20: the approved trips, per ERP browser — apart from the drivers' taps, so a publish never rewrites them */
+const TRIPS_FILE = path.join(DATA_DIR, "driver-trips.json")
+/** a browser that stopped publishing (closed) drops out after this long — open ones re-send every 30 s */
+const SOURCE_TTL_MS = 10 * 60_000
 
 export interface DriverStop { key: string; nickname: string; name: string; grade: string; leg: "pickup" | "dropoff"; adult: boolean; phone: string; address?: string; addressNote?: string; loc?: { lat: number; lng: number }; eta: string | null }
 export interface DriverTrip {
@@ -22,7 +26,7 @@ let queue: Promise<unknown> = Promise.resolve()
 async function read(): Promise<Store> {
   try {
     const j = JSON.parse(await fs.readFile(DATA_FILE, "utf8")) as Partial<Store>
-    return { trips: j.trips ?? [], events: j.events ?? [] }
+    return { trips: [], events: j.events ?? [] }
   } catch {
     return { trips: [], events: [] }
   }
@@ -39,14 +43,43 @@ function mutate<T>(fn: (s: Store) => T): Promise<T> {
   return result
 }
 
-/** the approved trips the ERP knows about — replaced as a whole (a trip no longer approved drops out) */
-export const publishTrips = (trips: DriverTrip[]) => mutate((s) => { s.trips = trips; return trips.length })
+// Each ERP browser keeps its own data in the prototype (owner 2026-10-20: the trips vanished from the driver app — Chrome
+// had the ERP open too, with nothing approved, and its empty list replaced the other browser's). So every browser's list
+// is kept on its own and the drivers see them together: one with nothing approved can't wipe another's.
+interface Sources { [source: string]: { trips: DriverTrip[]; at: number } }
+async function readSources(): Promise<Sources> {
+  try { return (JSON.parse(await fs.readFile(TRIPS_FILE, "utf8")) as { sources?: Sources }).sources ?? {} } catch { return {} }
+}
+let tripsQueue: Promise<unknown> = Promise.resolve()
+
+/** one ERP browser's approved trips — replaced as a whole for that browser (a trip no longer approved drops out) */
+export function publishTrips(trips: DriverTrip[], source = "default"): Promise<number> {
+  const result = tripsQueue.then(async () => {
+    const now = Date.now()
+    const sources = Object.fromEntries(Object.entries(await readSources()).filter(([, v]) => now - v.at < SOURCE_TTL_MS))
+    if (trips.length) sources[source] = { trips, at: now }
+    else delete sources[source]
+    await fs.mkdir(DATA_DIR, { recursive: true })
+    await fs.writeFile(TRIPS_FILE, JSON.stringify({ sources }), "utf8")
+    return trips.length
+  })
+  tripsQueue = result.catch(() => undefined)
+  return result
+}
+
+/** every open browser's approved trips together — the newest copy of a trip wins */
+async function allTrips(): Promise<DriverTrip[]> {
+  const now = Date.now()
+  const live = Object.values(await readSources()).filter((v) => now - v.at < SOURCE_TTL_MS).sort((a, b) => a.at - b.at)
+  const byId = new Map<string, DriverTrip>()
+  for (const v of live) for (const t of v.trips) byId.set(t.tripId, t)
+  return [...byId.values()]
+}
 
 export async function tripsForToken(token: string): Promise<{ trips: DriverTrip[]; events: DriverEventRec[] }> {
-  const s = await read()
-  const trips = s.trips.filter((t) => t.token === token)
+  const trips = (await allTrips()).filter((t) => t.token === token)
   const ids = new Set(trips.map((t) => t.tripId))
-  return { trips, events: s.events.filter((e) => ids.has(e.tripId)) }
+  return { trips, events: (await read()).events.filter((e) => ids.has(e.tripId)) }
 }
 
 export const allEvents = async () => (await read()).events
@@ -54,8 +87,8 @@ export const allEvents = async () => (await read()).events
 /** a driver's tap — per stop one check in ("arrive") and one check out ("done" / "noshow"), a new one replaces its own
  *  kind; "undo" takes back the stop's last mark (check out first, then check in) */
 export function addEvent(token: string, e: { tripId: string; type: DriverEventRec["type"] | "undo"; stopKey?: string }): Promise<DriverEventRec | "forbidden" | "cleared"> {
-  return mutate((s) => {
-    const trip = s.trips.find((t) => t.tripId === e.tripId)
+  return allTrips().then((trips) => mutate((s) => {
+    const trip = trips.find((t) => t.tripId === e.tripId)
     if (!trip || trip.token !== token) return "forbidden" as const
     if (e.stopKey) {
       const mine = (x: DriverEventRec) => x.tripId === e.tripId && x.stopKey === e.stopKey
@@ -75,5 +108,5 @@ export function addEvent(token: string, e: { tripId: string; type: DriverEventRe
     const cutoff = new Date(Date.now() - 31 * 86400000).toISOString()
     s.events = s.events.filter((x) => x.at >= cutoff)
     return rec
-  })
+  }))
 }
