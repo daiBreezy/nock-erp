@@ -143,11 +143,12 @@ function TripView({ t, events, busy, onBack, onTap }: { t: Trip; events: Ev[]; b
               <p className="mt-1 text-sm text-muted-foreground">{[cur.addressNote, cur.address].filter(Boolean).join(" · ") || "ไม่มีที่อยู่"}</p>
               <p className="mt-1 text-sm tabular-nums">{`ประมาณ ${cur.eta ?? "—"}`}</p>
             </div>
-            <div className="grid grid-cols-2 gap-2">
-              {cur.phone ? <a href={`tel:${cur.phone.replace(/[^0-9+]/g, "")}`} className="flex h-12 items-center justify-center gap-2 rounded-2xl border text-sm font-medium"><PhoneIcon className="size-4" />โทรผู้ปกครอง</a> : <span />}
-              {cur.loc ? <a href={`https://www.google.com/maps/dir/?api=1&destination=${cur.loc.lat},${cur.loc.lng}`} target="_blank" rel="noreferrer" className="flex h-12 items-center justify-center gap-2 rounded-2xl border text-sm font-medium"><NavigationIcon className="size-4" />นำทาง</a> : <span />}
+            {/* owner 2026-10-20: "ยังไม่ถึง" is a proper button on the same line as call / navigate */}
+            <div className={cn("grid gap-2", curIn ? "grid-cols-3" : "grid-cols-2")}>
+              {cur.phone ? <a href={`tel:${cur.phone.replace(/[^0-9+]/g, "")}`} className="flex h-12 items-center justify-center gap-1.5 rounded-2xl border text-sm font-medium"><PhoneIcon className="size-4 shrink-0" />{curIn ? "โทร" : "โทรผู้ปกครอง"}</a> : <span />}
+              {cur.loc ? <a href={`https://www.google.com/maps/dir/?api=1&destination=${cur.loc.lat},${cur.loc.lng}`} target="_blank" rel="noreferrer" className="flex h-12 items-center justify-center gap-1.5 rounded-2xl border text-sm font-medium"><NavigationIcon className="size-4 shrink-0" />นำทาง</a> : <span />}
+              {curIn && <button type="button" disabled={busy} onClick={() => onTap("undo", cur.key)} className="flex h-12 items-center justify-center gap-1.5 rounded-2xl border border-amber-300 bg-amber-50 text-sm font-medium text-amber-900 disabled:opacity-50"><RotateCcwIcon className="size-4 shrink-0" />ยังไม่ถึง</button>}
             </div>
-            {curIn && <button type="button" disabled={busy} onClick={() => onTap("undo", cur.key)} className="flex items-center gap-1 text-xs text-muted-foreground"><RotateCcwIcon className="size-3.5" />ยังไม่ถึง — ย้อนกลับ</button>}
           </section>
         )}
 
