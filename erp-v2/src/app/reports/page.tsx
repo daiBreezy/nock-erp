@@ -175,9 +175,14 @@ function Overview({ d, compare, period, periodLabel, onAllRevenue, onAllStudents
       </div>
 
       {/* owner 2026-10-20: the students' numbers (from the Students tab) as one chart */}
-      <Panel title={tx("นักเรียน")} hint={tx("{0} · Net = ใหม่ + กลับมาเรียน − Lost (Pause ไม่นับ)", [periodLabel])}
+      <Panel title={tx("นักเรียน")} hint={tx("ตอนนี้ = วันนี้ · ในช่วงนี้ = {0} — ชี้ ⓘ ที่แต่ละช่องเพื่อดูว่านับอย่างไร", [periodLabel])}
         action={<button type="button" className="text-xs text-primary" onClick={onAllStudents}>{tx("ดูทั้งหมด ›")}</button>}>
-        <StudentStats d={d} />
+        <StudentOverview d={d} periodLabel={periodLabel} />
+      </Panel>
+
+      {/* owner 2026-10-20: leads right under the students */}
+      <Panel title="Lead" hint={tx("{0} · Lead ที่เข้ามาในช่วงนี้", [periodLabel])}>
+        <LeadOverview d={d} />
       </Panel>
 
       <div className="grid gap-4 lg:grid-cols-2">
@@ -202,7 +207,7 @@ function Overview({ d, compare, period, periodLabel, onAllRevenue, onAllStudents
 
       <div className="grid gap-4 lg:grid-cols-2">
         <Panel title="Net Growth" hint={tx("เข้า = ใหม่ + กลับมาเรียน · Net = เข้า − Lost")} action={<button type="button" className="text-xs text-primary" onClick={onAllStudents}>{tx("ดูทั้งหมด ›")}</button>}>
-          <SummaryStrip items={[[tx("ใหม่"), `+${d.studentFlow.newCount}`, "text-emerald-600"], [tx("กลับมาเรียน"), `+${d.studentFlow.returning}`, "text-emerald-600"], ["Lost", `−${d.studentFlow.lost}`, "text-red-600"], ["Net", `${net > 0 ? "+" : ""}${net}`, net < 0 ? "text-red-600" : ""], [tx("ต่อคอร์ส"), fmtPct(d.studentFlow.renewal), ""]]} />
+          <SummaryStrip items={[[tx("ใหม่"), `+${d.studentFlow.newCount}`, "text-emerald-600"], [tx("กลับมาซื้อใหม่"), `+${d.studentFlow.returning}`, "text-emerald-600"], ["Lost", `−${d.studentFlow.lost}`, "text-red-600"], ["Net", `${net > 0 ? "+" : ""}${net}`, net < 0 ? "text-red-600" : ""], [tx("ต่อคอร์ส"), fmtPct(d.studentFlow.renewal), ""]]} />
           {compare && (
             <SplitRanks rows={[...d.perBranch].sort((a, b) => (b.newCount + b.returning - b.lost) - (a.newCount + a.returning - a.lost))} cols={[
               { label: tx("เข้า"), cell: (b) => <span className="text-emerald-600">+{b.newCount + b.returning}</span> },
@@ -269,10 +274,79 @@ function StudentStats({ d }: { d: ReportData }) {
       <Stat label={tx("Active วันนี้")} value={fmtNum(d.kpi.active)} />
       <Stat label={tx("Pause (ลาพักยาว)")} value={fmtNum(d.kpi.paused)} tone="text-amber-600" />
       <Stat label={tx("ใหม่")} value={`+${f.newCount}`} tone="text-emerald-600" sub={<Delta value={d.comparable && f.newPrev ? Math.round(((f.newCount - f.newPrev) / f.newPrev) * 1000) / 10 : null} />} />
-      <Stat label={tx("กลับมาเรียน")} value={`+${f.returning}`} tone="text-emerald-600" />
+      <Stat label={tx("กลับมาซื้อใหม่")} value={`+${f.returning}`} tone="text-emerald-600" />
       <Stat label="Lost" value={`−${f.lost}`} tone="text-red-600" sub={<Delta value={d.comparable && f.lostPrev ? Math.round(((f.lost - f.lostPrev) / f.lostPrev) * 1000) / 10 : null} invert />} />
       <Stat label="Net" value={`${net > 0 ? "+" : ""}${net}`} tone={net < 0 ? "text-red-600" : undefined} />
       <Stat label={tx("อัตราต่อคอร์ส")} value={fmtPct(f.renewal)} sub={<span>{tx("ก่อนหน้า")} {d.comparable ? fmtPct(f.renewalPrev) : "—"}</span>} />
+    </div>
+  )
+}
+
+const pctDelta = (a: number, b: number | undefined, ok: boolean) => (ok && b ? Math.round(((a - b) / b) * 1000) / 10 : null)
+
+/**
+ * Students on the Overview (owner 2026-10-20) — "ตอนนี้" is a count of today; "ในช่วงนี้" are movements in the period
+ * (they are not slices of today's Active: a new student may already have left, a lost one is no longer counted).
+ */
+function StudentOverview({ d, periodLabel }: { d: ReportData; periodLabel: string }) {
+  const f = d.studentFlow
+  const net = f.newCount + f.returning - f.lost
+  const ok = d.comparable
+  return (
+    <div className="grid gap-4 xl:grid-cols-[minmax(0,2fr)_minmax(0,7fr)]">
+      <div className="space-y-2">
+        <p className="text-xs font-medium text-muted-foreground">{tx("ตอนนี้ (วันนี้)")}</p>
+        <div className="grid grid-cols-2 gap-2">
+          <Stat label="Total Active" value={fmtNum(d.kpi.active)} info={tx("นักเรียนที่มีแพ็กเกจครอบคลุมวันนี้ และไม่ได้ Pause")} />
+          <Stat label="Pause" value={fmtNum(d.kpi.paused)} tone="text-amber-600" info={tx("นักเรียนที่ลาพักยาว (Pause) อยู่วันนี้ — ไม่นับรวมใน Active")} />
+        </div>
+      </div>
+      <div className="space-y-2">
+        <p className="text-xs font-medium text-muted-foreground">{tx("ในช่วงนี้ · {0} — ความเคลื่อนไหว ไม่ได้แบ่งมาจาก Active", [periodLabel])}</p>
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 2xl:grid-cols-8">
+          <Stat label={tx("ใหม่")} value={`+${f.newCount}`} tone="text-emerald-600" sub={<Delta value={pctDelta(f.newCount, f.newPrev, ok)} />} info={tx("ซื้อคอร์สครั้งแรกในช่วงนี้ (นักเรียนที่ Import จากระบบเดิมไม่นับ)")} />
+          <Stat label={tx("กลับมาซื้อใหม่")} value={`+${f.returning}`} tone="text-emerald-600" sub={<Delta value={pctDelta(f.returning, f.returningPrev, ok)} />} info={tx("เคย Lost (ไม่มีแพ็กเกจเกิน 30 วัน) แล้วกลับมาซื้อคอร์สในช่วงนี้")} />
+          <Stat label="Lost" value={`−${f.lost}`} tone="text-red-600" sub={<Delta value={pctDelta(f.lost, f.lostPrev, ok)} invert />} info={tx("แพ็กเกจหมดแล้วไม่ต่อภายใน 30 วัน — นับในวันที่ครบ 30 วัน")} />
+          <Stat label="Net" value={`${net > 0 ? "+" : ""}${net}`} tone={net < 0 ? "text-red-600" : undefined} info={tx("ใหม่ + กลับมาซื้อใหม่ − Lost = นักเรียนเพิ่มขึ้นสุทธิในช่วงนี้ (Pause ไม่นับ เพราะยังเป็นนักเรียนอยู่)")} />
+          <Stat label="Renewal" value={fmtPct(f.renewal)} sub={<span>{tx("ก่อนหน้า")} {ok ? fmtPct(f.renewalPrev) : "—"}</span>} info={tx("อัตราต่อคอร์ส: แพ็กเกจที่หมดในช่วงนี้ ต่อแพ็กใหม่กี่ %")} />
+          <Stat label="Course Actual buy" value={fmtNum(f.coursesBought)} sub={<Delta value={pctDelta(f.coursesBought, f.coursesBoughtPrev, ok)} />} info={tx("จำนวนคอร์สที่จ่ายเงินแล้วในช่วงนี้ (ใบแจ้งหนี้ 1 ใบมีได้หลายคอร์ส)")} />
+          <Stat label="Returning Student" value={fmtNum(f.backStudents)} tone="text-sky-700" sub={<Delta value={pctDelta(f.backStudents, f.backStudentsPrev, ok)} />} info={tx("ลายาว (ขาด / ลา ติดกัน 3 คาบขึ้นไป) หรือ Pause แล้วกลับมาเรียนในช่วงนี้")} />
+          <Stat label="Returning Course" value={fmtNum(f.backCourses)} tone="text-sky-700" sub={<Delta value={pctDelta(f.backCourses, f.backCoursesPrev, ok)} />} info={tx("คอร์สที่ขาด / ลา ติดกัน 3 คาบขึ้นไป แล้วกลับมาเรียนในช่วงนี้ — รวมกรณีซื้อหลายคอร์ส เรียนคอร์สหนึ่งต่อ แต่พักอีกคอร์สไว้")} />
+        </div>
+      </div>
+    </div>
+  )
+}
+
+/** Leads on the Overview (owner 2026-10-20) — and each staff member's conversion (who turns leads into students) */
+function LeadOverview({ d }: { d: ReportData }) {
+  const l = d.leadSummary
+  const ok = d.comparable
+  return (
+    <div className="grid gap-4 xl:grid-cols-[minmax(0,5fr)_minmax(0,4fr)]">
+      <div className="grid grid-cols-2 content-start gap-2 sm:grid-cols-3">
+        <Stat label="Total Lead" value={fmtNum(l.total)} sub={<Delta value={pctDelta(l.total, l.prev.total, ok)} />} info={tx("Lead ใหม่ที่เข้ามาในช่วงนี้ (ไม่นับ Lead ตามกลับนักเรียนเก่า)")} />
+        <Stat label="Test" value={fmtNum(l.test)} sub={<span>{l.total ? tx("{0} ของ Lead", [fmtPct(l.test / l.total)]) : "—"}</span>} info={tx("Lead ที่นัด Test (สอบวัดระดับ) แล้ว — ไม่นับคนที่สมัครเลย")} />
+        <Stat label="Trial" value={fmtNum(l.trial)} sub={<span>{l.total ? tx("{0} ของ Lead", [fmtPct(l.trial / l.total)]) : "—"}</span>} info={tx("Lead ที่นัดทดลองเรียนแล้ว — ไม่นับคนที่สมัครเลย")} />
+        <Stat label={tx("สมัครแล้ว")} value={fmtNum(l.enrolled)} tone="text-emerald-600" sub={<Delta value={pctDelta(l.enrolled, l.prev.enrolled, ok)} />} info={tx("Lead ในช่วงนี้ที่กลายเป็นนักเรียนแล้ว")} />
+        <Stat label="Conversion rate" value={fmtPct(l.conversion)} sub={<span>{tx("ก่อนหน้า")} {ok ? fmtPct(l.prev.conversion) : "—"}</span>} info={tx("สมัครแล้ว ÷ Total Lead")} />
+      </div>
+      <div className="space-y-1.5">
+        <p className="flex items-center gap-1 text-xs font-medium text-muted-foreground">Members Conversion rate <InfoTip text={tx("Admin / ครูที่ดูแล Lead — ดูแลกี่ราย สมัครกี่ราย (ตามผู้ดูแลของ Lead)")} /></p>
+        {l.members.length === 0 ? <Empty /> : (
+          <table className="w-full text-sm">
+            <thead className="text-xs text-muted-foreground"><tr><th className="text-left font-normal">{tx("ผู้ดูแล")}</th><th className="w-14 text-right font-normal">Lead</th><th className="w-16 text-right font-normal">{tx("สมัคร")}</th><th className="w-2/5 pl-4 text-left font-normal">Conversion</th></tr></thead>
+            <tbody>{l.members.map((m) => (
+              <tr key={m.staffId ?? "none"} className="border-t">
+                <td className="py-1.5">{m.staff ? <span className="font-medium">{m.staff.nickname}</span> : <span className="text-muted-foreground">{tx("ยังไม่มีผู้ดูแล")}</span>}</td>
+                <td className="text-right tabular-nums">{m.leads}</td>
+                <td className="text-right text-emerald-600 tabular-nums">{m.enrolled}</td>
+                <td className="pl-4"><span className="flex items-center gap-2"><ShareBar value={m.conversion ?? 0} color="#be123c" /><span className="w-10 shrink-0 text-right tabular-nums">{fmtPct(m.conversion)}</span></span></td>
+              </tr>
+            ))}</tbody>
+          </table>
+        )}
+      </div>
     </div>
   )
 }
@@ -314,12 +388,12 @@ function SplitRanks<T extends { id: string; name: string }>({ rows, cols }: { ro
   )
 }
 
-function Stat({ label, value, tone, sub }: { label: string; value: string; tone?: string; sub?: React.ReactNode }) {
+function Stat({ label, value, tone, sub, info }: { label: string; value: string; tone?: string; sub?: React.ReactNode; info?: string }) {
   return (
     <div className="rounded-2xl bg-muted/50 p-3">
-      <p className="text-xs text-muted-foreground">{label}</p>
+      <p className="flex items-center gap-1 text-xs text-muted-foreground">{label}{info && <InfoTip text={info} />}</p>
       <p className={cn("text-2xl font-semibold tabular-nums", tone)}>{value}</p>
-      {sub && <p className="flex items-center justify-center gap-1 text-[11px] text-muted-foreground">{sub}</p>}
+      {sub && <p className="flex flex-wrap items-center gap-1 text-[11px] text-muted-foreground">{sub}</p>}
     </div>
   )
 }
@@ -544,7 +618,7 @@ function StudentsTab({ d, compare, onOpen }: { d: ReportData; compare: boolean; 
           action={events.length > 0 && <button type="button" className="text-xs text-primary hover:underline" onClick={() => setListOpen(true)}>{tx("ดูรายชื่อ ›")}</button>}>
           <div className="flex flex-1 flex-col justify-center">
             <DonutLegend keepOrder stack title="" colors={MOVE_COLORS} center={`${net > 0 ? "+" : ""}${net}`} sub={tx("สุทธิ")}
-              parts={[{ label: tx("ใหม่"), value: f.newCount }, { label: tx("กลับมาเรียน"), value: f.returning }, { label: "Pause", value: f.pauses }, { label: "Lost", value: f.lost }]} />
+              parts={[{ label: tx("ใหม่"), value: f.newCount }, { label: tx("กลับมาซื้อใหม่"), value: f.returning }, { label: "Pause", value: f.pauses }, { label: "Lost", value: f.lost }]} />
           </div>
         </Panel>
       </div>
@@ -572,7 +646,7 @@ function StudentsTab({ d, compare, onOpen }: { d: ReportData; compare: boolean; 
           <div className="grid gap-6 md:grid-cols-3 md:gap-0 md:divide-x">
             {(["new", "returning", "lost"] as const).map((kind, c) => (
               <div key={kind} className={cn(c > 0 && "md:pl-6", c < 2 && "md:pr-6")}>
-                <MoveList title={kind === "new" ? tx("ใหม่") : kind === "returning" ? tx("กลับมาเรียน") : "Lost"} tone={kind === "lost" ? "text-red-600" : "text-emerald-600"}
+                <MoveList title={kind === "new" ? tx("ใหม่") : kind === "returning" ? tx("กลับมาซื้อใหม่") : "Lost"} tone={kind === "lost" ? "text-red-600" : "text-emerald-600"}
                   rows={events.filter((e) => e.kind === kind).map((e) => ({ id: e.studentId, date: e.date, name: nm(name(e.studentId)?.nickname ?? "—"), grade: name(e.studentId)?.grade ?? "" }))} onOpen={(id) => { setListOpen(false); onOpen(id) }} />
               </div>
             ))}
@@ -745,7 +819,7 @@ function MovementBars({ months, current }: { months: ReportData["movementMonthly
         <span className="font-medium">{monthShort(show)}</span>
         {m ? <>
           <span className="flex items-center gap-1.5"><span className="size-2 rounded-full" style={{ background: MOVE_COLORS[0] }} />{tx("ใหม่")} <b className="tabular-nums">+{m.newCount}</b></span>
-          <span className="flex items-center gap-1.5"><span className="size-2 rounded-full" style={{ background: MOVE_COLORS[1] }} />{tx("กลับมาเรียน")} <b className="tabular-nums">+{m.returning}</b></span>
+          <span className="flex items-center gap-1.5"><span className="size-2 rounded-full" style={{ background: MOVE_COLORS[1] }} />{tx("กลับมาซื้อใหม่")} <b className="tabular-nums">+{m.returning}</b></span>
           <span className="flex items-center gap-1.5"><span className="size-2 rounded-full" style={{ background: MOVE_COLORS[3] }} />Lost <b className="tabular-nums">−{m.lost}</b></span>
           <span className="flex items-center gap-1.5"><span className="size-2 rounded-full" style={{ background: MOVE_COLORS[2] }} />Pause <b className="tabular-nums">{m.pauses}</b></span>
           <span className="ml-auto">{tx("สุทธิ")} <b className={cn("tabular-nums", m.newCount + m.returning - m.lost < 0 ? "text-red-600" : "text-emerald-600")}>{m.newCount + m.returning - m.lost > 0 ? "+" : ""}{m.newCount + m.returning - m.lost}</b></span>

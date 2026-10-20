@@ -204,7 +204,20 @@ export function useReports(branchIds: string[], period: R.PeriodKey, custom?: R.
         lost: R.countEvents(events, range, "lost"), pauses: R.pausesIn(leaves, range, students),
         renewal: R.renewalRate(events, range), renewalPrev: R.renewalRate(events, prev),
         newPrev: R.countEvents(events, prev, "new"), lostPrev: R.countEvents(events, prev, "lost"),
+        returningPrev: R.countEvents(events, prev, "returning"),
+        // owner 2026-10-20: back after a long break (3+ sessions missed in a row, or a Pause) — per student and per course
+        ...(() => {
+          const now = R.returningIn({ sessions, attendance: s.attendance, leaves, entitlements: ents, range })
+          const before = R.returningIn({ sessions, attendance: s.attendance, leaves, entitlements: ents, range: prev })
+          return { backStudents: now.students, backCourses: now.courses, backStudentsPrev: before.students, backCoursesPrev: before.courses }
+        })(),
+        coursesBought: R.coursesBought(rows, range), coursesBoughtPrev: R.coursesBought(rows, prev),
       },
+      // owner 2026-10-20: the lead section on the Overview — and who turns leads into students
+      leadSummary: (() => {
+        const cur = R.leadSummary(leads, range), before = R.leadSummary(leads, prev)
+        return { ...cur, prev: before, members: cur.members.map((m) => ({ ...m, staff: s.staff.find((x) => x.id === m.staffId) })) }
+      })(),
       // owner 2026-10-07: what moved each month this year — in (new, returning) vs out (lost, long leave)
       movementMonthly: Array.from({ length: 12 }, (_, m) => {
         const ym = `${year}-${String(m + 1).padStart(2, "0")}`

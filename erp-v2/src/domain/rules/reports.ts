@@ -38,12 +38,13 @@ export const PERIODS: { key: PeriodKey; label: string; short: string; group: "ro
   { key: "3m", label: "3 เดือนล่าสุด", short: "3 Months", group: "rolling", hint: "3 เดือนล่าสุด เทียบ 3 เดือนก่อนหน้า" },
   { key: "6m", label: "6 เดือนล่าสุด", short: "6 Months", group: "rolling", hint: "6 เดือนล่าสุด เทียบ 6 เดือนก่อนหน้า" },
   { key: "1y", label: "1 ปีล่าสุด", short: "1 Year", group: "rolling", hint: "12 เดือนล่าสุด เทียบ 12 เดือนก่อนหน้า" },
-  { key: "ytd", label: "ตั้งแต่ต้นปี", short: "YTD", group: "todate", hint: "1 ม.ค. ถึงวันนี้ เทียบช่วงเดียวกันปีที่แล้ว" },
+  // owner 2026-10-20: month → quarter → year in each group
   { key: "mtd", label: "ตั้งแต่ต้นเดือน", short: "MTD", group: "todate", hint: "วันที่ 1 ถึงวันนี้ เทียบช่วงเดียวกันเดือนก่อน" },
   { key: "qtd", label: "ตั้งแต่ต้นไตรมาส", short: "QTD", group: "todate", hint: "ต้นไตรมาสถึงวันนี้ เทียบช่วงเดียวกันไตรมาสก่อน" },
-  { key: "yoy", label: "เดือนที่แล้ว (YoY)", short: "YoY", group: "compare", hint: "เดือนที่แล้วทั้งเดือน เทียบเดือนเดียวกันปีที่แล้ว" },
+  { key: "ytd", label: "ตั้งแต่ต้นปี", short: "YTD", group: "todate", hint: "1 ม.ค. ถึงวันนี้ เทียบช่วงเดียวกันปีที่แล้ว" },
   { key: "mom", label: "เดือนที่แล้ว (MoM)", short: "MoM", group: "compare", hint: "เดือนที่แล้วทั้งเดือน เทียบเดือนก่อนหน้านั้น" },
   { key: "qoq", label: "ไตรมาสที่แล้ว (QoQ)", short: "QoQ", group: "compare", hint: "ไตรมาสที่แล้วทั้งไตรมาส เทียบไตรมาสก่อนหน้านั้น" },
+  { key: "yoy", label: "เดือนที่แล้ว (YoY)", short: "YoY", group: "compare", hint: "เดือนที่แล้วทั้งเดือน เทียบเดือนเดียวกันปีที่แล้ว" },
   { key: "custom", label: "ช่วงที่เลือก", short: "กำหนดเอง", group: "custom", hint: "เลือกวันเอง เทียบช่วงก่อนหน้าที่ยาวเท่ากัน" },
 ]
 /** the period strip on Overview — one card each */
@@ -864,3 +865,83 @@ export function schoolsByGroup(b: SchoolBreakdown, groupOf: (branchId: ID) => st
     return { key, students, rows, top3: students ? rows.slice(0, 3).reduce((n, x) => n + x.value, 0) / students : 0 }
   }).sort((a, c) => c.students - a.students)
 }
+
+/** a break this long (sessions missed in a row — leave or absent) and then back in class = "returning" (owner 2026-10-20) */
+export const RETURN_AFTER_SESSIONS = 3
+
+/**
+ * Returning (owner 2026-10-20) — came back to class after a long break:
+ *  - a course: the student missed (leave / absent) RETURN_AFTER_SESSIONS or more of that course's sessions in a row,
+ *    then came again — also when they kept going to another course meanwhile (two courses, one put on hold);
+ *  - a student: the same counted over all their sessions (a long leave), or back after a Pause (long leave on record).
+ * Counted when the first class back falls in the period. Unmarked sessions don't break or extend a run.
+ */
+export function returningIn(ctx: {
+  sessions: Pick<Session, "id" | "classId" | "date" | "start" | "studentIds" | "cancelled">[]
+  attendance: Pick<Attendance, "sessionId" | "studentId" | "status">[]
+  leaves: Pick<StudentLeave, "studentId" | "from" | "to">[]
+  entitlements: Pick<Entitlement, "studentId" | "courseId" | "classIds">[]
+  range: Range
+}): { students: number; courses: number } {
+  const mark = new Map(ctx.attendance.map((a) => [`${a.sessionId}|${a.studentId}`, a.status]))
+  const byStudent = new Map<string, { date: DateStr; start: string; course: string; status: Attendance["status"] }[]>()
+  for (const x of ctx.sessions) {
+    if (x.cancelled) continue
+    for (const sid of x.studentIds) {
+      const st = mark.get(`${x.id}|${sid}`)
+      if (!st) continue
+      const course = (x.classId && ctx.entitlements.find((e) => e.studentId === sid && e.classIds.includes(x.classId!))?.courseId) || x.classId || "single"
+      byStudent.set(sid, [...(byStudent.get(sid) ?? []), { date: x.date, start: x.start, course, status: st }])
+    }
+  }
+  // the first class back after a run of RETURN_AFTER_SESSIONS+ missed ones, inside the period
+  const backAfterBreak = (list: { date: DateStr; status: Attendance["status"] }[]) => {
+    let run = 0
+    for (const m of list) {
+      if (m.status === "present") { if (run >= RETURN_AFTER_SESSIONS && inRange(m.date, ctx.range)) return true; run = 0 }
+      else run++
+    }
+    return false
+  }
+  let students = 0, courses = 0
+  for (const [sid, all] of byStudent) {
+    const list = [...all].sort((a, b) => (a.date + a.start).localeCompare(b.date + b.start))
+    const afterPause = ctx.leaves.some((l) => l.studentId === sid && list.some((m) => m.status === "present" && m.date > l.to && inRange(m.date, ctx.range) && !list.some((p) => p.status === "present" && p.date > l.to && p.date < m.date)))
+    if (afterPause || backAfterBreak(list)) students++
+    for (const c of new Set(list.map((m) => m.course))) if (backAfterBreak(list.filter((m) => m.course === c))) courses++
+  }
+  return { students, courses }
+}
+
+/** courses actually bought in the period — paid course lines (owner 2026-10-20 "Course Actual buy") */
+export function coursesBought(rows: RevenueRow[], r: Range) {
+  return rows.filter((x) => !x.credit && inRange(x.date, r)).reduce((n, x) => n + x.lines.filter((l) => l.amount > 0).length, 0)
+}
+
+/**
+ * Leads in the period (owner 2026-10-20): how many came in, had a Test, had a Trial, became students — overall and per
+ * staff member they were assigned to (admin or teacher who turns leads into students).
+ */
+export function leadSummary(leads: Pick<Lead, "stage" | "archivedFrom" | "createdAt" | "direct" | "assigneeId">[], r: Range) {
+  const xs = leads.filter((l) => inRange(l.createdAt.slice(0, 10), r))
+  const rank = (l: (typeof xs)[number]) => stageRank(l)
+  const enrolled = (l: (typeof xs)[number]) => rank(l) >= 7
+  const by = new Map<string, { leads: number; enrolled: number }>()
+  for (const l of xs) {
+    const k = l.assigneeId ?? ""
+    const v = by.get(k) ?? { leads: 0, enrolled: 0 }
+    v.leads++
+    if (enrolled(l)) v.enrolled++
+    by.set(k, v)
+  }
+  return {
+    total: xs.length,
+    test: xs.filter((l) => !l.direct && rank(l) >= 2).length,
+    trial: xs.filter((l) => !l.direct && rank(l) >= 4).length,
+    enrolled: xs.filter(enrolled).length,
+    conversion: xs.length ? xs.filter(enrolled).length / xs.length : null,
+    members: [...by.entries()].map(([staffId, v]) => ({ staffId: staffId || null, ...v, conversion: v.leads ? v.enrolled / v.leads : null }))
+      .sort((a, b) => (b.conversion ?? -1) - (a.conversion ?? -1) || b.enrolled - a.enrolled),
+  }
+}
+
