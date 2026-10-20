@@ -192,10 +192,13 @@ describe("Bus Route ref (owner 2026-10-19): Both trips, drivers, the driver app"
     expect(t).toMatchObject({ status: "otw", startedAt: "16:35" })
     expect(t.stops[0]).toMatchObject({ checkIn: "16:50", checkOut: "16:52", manual: true, status: "done" })
   })
-  it("a Both trip with nobody to bring back ends at the last home", () => {
+  it("every trip ends back at the branch — after the last drop-off the driver returns the van keys", () => {
     const t = planDay(both, MON, { ...c2, classes: [early] }).trips[0]
     expect(t.stops.map((s) => s.rider.leg)).toEqual(["dropoff"])
-    expect(t.finish).toBe(t.stops[0].eta)
+    expect(t.finish > t.stops[0].eta!).toBe(true)
+    const drop = planDay(branch, MON, ctx()).trips.find((x) => x.round.id === "d")!
+    const lastEta = drop.stops.filter((s) => s.eta).at(-1)!.eta!
+    expect(drop.finish > lastEta).toBe(true)
   })
   it("the driver app drives the live status: started = OTW (first stop on the way, then next), done stops get their real time", () => {
     const id = "x|" + MON

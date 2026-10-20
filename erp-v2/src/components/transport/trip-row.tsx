@@ -226,7 +226,6 @@ export function TripDetail({ r }: { r: TripRowData }) {
  *  (from the driver app, or typed in by the admin) */
 function TripTimes({ t }: { t: TripPlan }) {
   const s = useStore()
-  const endsHome = t.round.kind === "dropoff" || (t.round.kind === "both" && !t.stops.some((x) => x.rider.leg === "pickup"))
   const box = "flex items-center gap-3 rounded-xl bg-card px-3 py-1.5 ring-1 ring-foreground/5"
   return (
     <div className="flex flex-wrap items-center gap-2 text-sm">
@@ -243,7 +242,7 @@ function TripTimes({ t }: { t: TripPlan }) {
         </span>
       </div>
       <div className={box}>
-        <span className="text-xs text-muted-foreground">{endsHome ? "ส่งคนสุดท้าย" : "ถึงสาขา"}</span>
+        <span className="text-xs text-muted-foreground">{t.round.kind === "pickup" ? "ถึงสาขา" : "กลับถึงสาขา"}</span>
         <span className="text-xs text-muted-foreground">ประมาณ <span className="font-medium text-foreground tabular-nums">{t.finish}</span></span>
         <span className="flex items-center gap-1 text-xs text-muted-foreground">จริง
           <EditCell kind="time" className="w-20 font-medium text-foreground tabular-nums" value={t.finishedAt ?? ""} placeholder="—"

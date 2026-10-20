@@ -636,4 +636,9 @@ export const COVERAGE: Record<string, Entry> = {
   "แสดงน้อยลง": { en: "Show less", ja: "閉じる" },
   "รับ{0}": { en: "Pick up {0}", ja: "{0}お迎え" },
   "ส่ง{0}": { en: "Drop off {0}", ja: "{0}お送り" },
+  "กลับถึงสาขา": { en: "Back at branch", ja: "校舎に戻る" },
+  "กลับถึง{0} — คืนกุญแจ": { en: "Back at {0} — return the keys", ja: "{0}に戻る — 鍵を返却" },
+  "กลับถึง{0} — คืนกุญแจรถ": { en: "Back at {0} — return the van keys", ja: "{0}に戻る — 車の鍵を返却" },
+  "{0} กลับถึงสาขา{1} — คืนกุญแจรถ": { en: "{0} back at {1} — return the van keys", ja: "{0} {1}に戻る — 車の鍵を返却" },
+  "กลับถึง{0} {1} — คืนกุญแจรถ": { en: "Back at {0} {1} — return the van keys", ja: "{0}に{1}戻る — 車の鍵を返却" },
 }

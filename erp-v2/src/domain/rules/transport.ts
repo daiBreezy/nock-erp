@@ -86,7 +86,7 @@ export interface TripPlan {
   cancelled: Rider[]
   /** leaves (the depot for a pickup, the branch otherwise) */
   depart: TimeStr
-  /** pickup / both: back at the branch · drop-off: last home */
+  /** back at the branch — every trip ends there (owner 2026-10-20: the driver returns the van keys after the last drop-off) */
   finish: TimeStr
   minutes: number
   km: number
@@ -254,9 +254,9 @@ export function timeStops(riders: Rider[], branch: LatLng | undefined, round: Bu
     at = x.rider.loc
     return { ...x, eta: fromMinutes(t) }
   })
-  const backToBranch = round.kind === "pickup" || (round.kind === "both" && riders.some((r) => r.leg === "pickup"))
+  // every trip ends back at the branch (owner 2026-10-20: "หลังจากส่งคนสุดท้าย จะต้องเป็นการกลับมาที่สาขา เพื่อคืนกุญแจรถ")
   const last = [...stops].reverse().find((x) => x.eta)
-  const finish = !last ? base.finish : backToBranch ? (last.rider.loc ? fromMinutes(toMinutes(last.eta!) + legMin(distanceKm(last.rider.loc, branch)) + STOP_MIN) : base.finish) : last.eta!
+  const finish = !last ? base.finish : last.rider.loc ? fromMinutes(toMinutes(last.eta!) + legMin(distanceKm(last.rider.loc, branch)) + STOP_MIN) : base.finish
   const depart = manual?.depart ?? (round.kind === "pickup" ? stops.find((x) => x.eta)?.eta ?? base.depart : base.depart)
   return { stops, depart, finish, km: base.km }
 }
@@ -277,8 +277,9 @@ function baseTimes(riders: Rider[], branch: LatLng | undefined, round: BusRound)
       at = p
       return { rider, eta: fromMinutes(t), km: fromBranch(p) }
     })
-    // a Both trip comes back with the next class (only when it brings someone back)
-    if (round.kind === "both" && at !== branch && riders.some((r) => r.leg === "pickup")) { const km = distanceKm(at, branch); total += km; t += legMin(km) + STOP_MIN }
+    // back to the branch after the last home — to return the van keys (owner 2026-10-20), and a Both trip brings the
+    // next class in on the way
+    if (at !== branch) { const km = distanceKm(at, branch); total += km; t += legMin(km) + STOP_MIN }
     return { stops, depart: round.time, finish: fromMinutes(t), km: Math.round(total * 10) / 10 }
   }
   const etas: (number | null)[] = new Array(riders.length).fill(null)
@@ -503,6 +504,7 @@ export function driverText(trip: TripPlan, branchName: string, dateLabel: string
     const map = s.rider.loc ? ` https://maps.google.com/?q=${s.rider.loc.lat},${s.rider.loc.lng}` : ""
     return `${i + 1}. ${s.eta ?? "--:--"} ${s.rider.leg === "pickup" ? "รับ" : "ส่ง"} ${s.rider.nickname}${s.rider.adult ? " (+ผู้ปกครอง)" : ""} · ${s.rider.phone}${s.rider.addressNote ? ` · ${s.rider.addressNote}` : ""}${map}`
   })
-  const ends = trip.round.kind === "dropoff" ? `ออกจาก${branchName} ${trip.depart}` : `ถึง${branchName} ${trip.finish}`
-  return [head, v, `ที่นั่ง ${trip.used}/${trip.seats}`, ...lines, ends, ...(appUrl ? [`แอปคนขับ: ${appUrl}`] : [])].join("\n")
+  const starts = trip.round.kind === "pickup" ? [] : [`ออกจาก${branchName} ${trip.depart}`]
+  const ends = `กลับถึง${branchName} ${trip.finish} — คืนกุญแจรถ`
+  return [head, v, `ที่นั่ง ${trip.used}/${trip.seats}`, ...starts, ...lines, ends, ...(appUrl ? [`แอปคนขับ: ${appUrl}`] : [])].join("\n")
 }

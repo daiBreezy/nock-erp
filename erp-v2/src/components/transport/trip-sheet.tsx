@@ -57,7 +57,8 @@ export function TripSheet({ t, branch, onClose }: { t: TripPlan; branch: Branch;
               {s.rider.loc && <a className="shrink-0 text-xs text-primary underline" href={`https://www.google.com/maps/dir/?api=1&destination=${s.rider.loc.lat},${s.rider.loc.lng}`} target="_blank" rel="noreferrer">นำทาง</a>}
             </li>
           ))}
-          {(t.round.kind === "pickup" || t.stops.some((s) => s.rider.leg === "pickup")) && <li className="px-3 py-2 text-xs text-muted-foreground">{`${t.finish} ถึงสาขา${nm(branch.name)}`}</li>}
+          {/* owner 2026-10-20: every trip ends back at the branch — the driver returns the van keys */}
+          <li className="px-3 py-2 text-xs text-muted-foreground">{t.round.kind === "pickup" ? `${t.finish} ถึงสาขา${nm(branch.name)}` : `${t.finish} กลับถึงสาขา${nm(branch.name)} — คืนกุญแจรถ`}</li>
         </ol>
         <DialogFooter className="sm:justify-between">
           <div className="flex gap-2">

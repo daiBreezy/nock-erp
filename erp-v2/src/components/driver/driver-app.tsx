@@ -30,9 +30,7 @@ function progress(t: Trip, events: Ev[]) {
   const done = t.stops.filter((s) => outOf(s.key)).length
   // the last stop with a mark — what "แก้ล่าสุด" takes back
   const lastMarked = [...evs].filter((e) => e.stopKey).sort((a, b) => a.at.localeCompare(b.at)).at(-1)?.stopKey
-  // a drop-off run (or a Both run with nobody to bring back) ends at the last home, the others back at the branch
-  const endsHome = t.kind === "dropoff" || (t.kind === "both" && !t.stops.some((s) => s.leg === "pickup"))
-  return { started, finished, inOf, outOf, current, done, lastMarked, endsHome }
+  return { started, finished, inOf, outOf, current, done, lastMarked }
 }
 
 export function DriverApp({ token }: { token: string }) {
@@ -93,7 +91,7 @@ export function DriverApp({ token }: { token: string }) {
               </span>
               {/* the details, full width */}
               <span className="block space-y-1.5 rounded-2xl bg-muted/50 p-3">
-                <span className="block text-base font-semibold tabular-nums">{`ออก ${p.started ? hhmm(p.started.at) : t.depart} → ${p.endsHome ? "คนสุดท้าย" : "ถึงสาขา"} ${p.finished ? hhmm(p.finished.at) : t.finish}`}</span>
+                <span className="block text-base font-semibold tabular-nums">{`ออก ${p.started ? hhmm(p.started.at) : t.depart} → ${t.kind === "pickup" ? "ถึงสาขา" : "กลับถึงสาขา"} ${p.finished ? hhmm(p.finished.at) : t.finish}`}</span>
                 {/* who, in the order the van goes */}
                 <span className="line-clamp-2 block text-sm text-foreground/85">{t.stops.map((x) => `${x.leg === "pickup" ? "รับ" : "ส่ง"}${x.nickname}`).join(" → ")}</span>
                 <span className="block text-sm text-foreground/65">{`${t.stops.length} จุด · ${t.used}/${t.seats} ที่${t.km ? ` · ${t.km} กม.` : ""}${t.vehicle ? ` · ${t.vehicle.name} ${t.vehicle.plate}` : ""}`}</span>
@@ -120,7 +118,7 @@ function TripView({ t, events, busy, onBack, onTap }: { t: Trip; events: Ev[]; b
         : cur ? { left: { label: "ไม่มา", icon: UserXIcon, onClick: () => onTap("noshow", cur.key), tone: "danger" }, right: curIn
           ? { label: `${verb(cur)}${cur.nickname}แล้ว`, icon: CheckIcon, onClick: () => onTap("done", cur.key), tone: "bg-emerald-600 text-white" }
           : { label: `ถึงบ้าน${cur.nickname}แล้ว`, icon: MapPinCheckIcon, onClick: () => onTap("arrive", cur.key), tone: "bg-violet-600 text-white" } }
-          : { left: { label: "แก้ล่าสุด", icon: RotateCcwIcon, onClick: () => p.lastMarked && onTap("undo", p.lastMarked), tone: "neutral" }, right: { label: p.endsHome ? "ส่งครบแล้ว — จบเที่ยว" : `ถึง${t.branchName}แล้ว — จบเที่ยว`, icon: FlagIcon, onClick: () => onTap("finish"), tone: "bg-primary text-primary-foreground" } }
+          : { left: { label: "แก้ล่าสุด", icon: RotateCcwIcon, onClick: () => p.lastMarked && onTap("undo", p.lastMarked), tone: "neutral" }, right: { label: t.kind === "pickup" ? `ถึง${t.branchName}แล้ว — จบเที่ยว` : `กลับถึง${t.branchName} — คืนกุญแจ`, icon: FlagIcon, onClick: () => onTap("finish"), tone: "bg-primary text-primary-foreground" } }
   const navAll = t.stops.filter((s) => s.loc)
   return (
     <div className="mx-auto min-h-dvh max-w-lg bg-muted/40 pb-32">
@@ -195,8 +193,9 @@ function TripView({ t, events, busy, onBack, onTap }: { t: Trip; events: Ev[]; b
                 </li>
               )
             })}
-            <EndRow icon={p.endsHome ? <FlagIcon className="size-4" /> : <SchoolIcon className="size-4" />}
-              title={p.endsHome ? "ส่งคนสุดท้าย — จบเที่ยว" : `ถึง${t.branchName}`} label={p.finished ? "จบแล้ว" : "ประมาณ"} time={p.finished ? hhmm(p.finished.at) : t.finish} done={!!p.finished} />
+            {/* owner 2026-10-20: every trip ends back at the branch — the driver returns the van keys */}
+            <EndRow icon={<SchoolIcon className="size-4" />}
+              title={t.kind === "pickup" ? `ถึง${t.branchName}` : `กลับถึง${t.branchName} — คืนกุญแจรถ`} label={p.finished ? "จบแล้ว" : "ประมาณ"} time={p.finished ? hhmm(p.finished.at) : t.finish} done={!!p.finished} />
           </ol>
           {navAll.length > 0 && (
             <a target="_blank" rel="noreferrer" href={`https://www.google.com/maps/dir/${navAll.map((s) => `${s.loc!.lat},${s.loc!.lng}`).join("/")}`} className="flex h-12 items-center justify-center gap-1.5 border-t text-sm text-muted-foreground"><MapIcon className="size-4" />เปิดเส้นทางทั้งหมดใน Google Maps</a>
