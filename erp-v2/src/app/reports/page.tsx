@@ -320,9 +320,11 @@ function StudentOverview({ d, periodLabel }: { d: ReportData; periodLabel: strin
 function LeadOverview({ d }: { d: ReportData }) {
   const l = d.leadSummary
   const ok = d.comparable
-  // owner 2026-10-20: top 5, then "More" / "Less"
+  // owner 2026-10-20: like "ครอบครัวทั้งหมด" — two halves side by side (top 10 first, then all), name and role apart
   const [all, setAll] = useState(false)
-  const shown = all ? l.members : l.members.slice(0, 5)
+  const shown = all ? l.members : l.members.slice(0, 10)
+  const half = shown.length > 5 ? Math.ceil(shown.length / 2) : shown.length
+  const parts = half < shown.length ? [shown.slice(0, half), shown.slice(half)] : [shown]
   return (
     <div className="space-y-4">
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
@@ -335,26 +337,30 @@ function LeadOverview({ d }: { d: ReportData }) {
       <div className="space-y-1.5">
         <p className="flex items-center gap-1 text-xs font-medium text-muted-foreground">Members Conversion rate <InfoTip text={tx("Admin / ครูที่ดูแล Lead — ดูแลกี่ราย สมัครกี่ราย (ตามผู้ดูแลของ Lead)")} /></p>
         {l.members.length === 0 ? <Empty /> : (
-          <table className="w-full text-sm">
-            <thead className="text-xs text-muted-foreground"><tr><th className="text-left font-normal">{tx("ผู้ดูแล")}</th><th className="w-14 text-right font-normal">Lead</th><th className="w-16 text-right font-normal">{tx("สมัคร")}</th><th className="w-2/5 pl-4 text-left font-normal">Conversion</th></tr></thead>
-            <tbody>{shown.map((m) => (
-              <tr key={m.staffId ?? "none"} className="border-t">
-                <td className="py-1.5">{m.staff ? (
-                  <span className="flex flex-wrap items-center gap-1.5">
-                    <span className="font-medium">{m.staff.nickname}</span>
-                    {/* owner 2026-10-20: which role each one has */}
-                    {m.staff.roles.filter((r) => r !== "developer" && r !== "driver").map((r) => <span key={r} className={cn("rounded-full px-2 py-0.5 text-[11px] font-medium", ROLE_CHIP[r] ?? "bg-muted text-muted-foreground")}>{ROLE_LABEL[r]}</span>)}
-                  </span>
-                ) : <span className="text-muted-foreground">{tx("ยังไม่มีผู้ดูแล")}</span>}</td>
-                <td className="text-right tabular-nums">{m.leads}</td>
-                <td className="text-right text-emerald-600 tabular-nums">{m.enrolled}</td>
-                <td className="pl-4"><span className="flex items-center gap-2"><ShareBar value={m.conversion ?? 0} color="#be123c" /><span className="w-10 shrink-0 text-right tabular-nums">{fmtPct(m.conversion)}</span></span></td>
-              </tr>
-            ))}</tbody>
-          </table>
+          <div className={cn("grid", parts.length > 1 && "lg:grid-cols-2 lg:divide-x")}>
+            {parts.map((part, c) => (
+              <div key={c} className={cn(parts.length > 1 && (c ? "lg:pl-6" : "lg:pr-6"))}>
+                <table className="w-full text-sm">
+                  <thead className={cn("text-xs text-muted-foreground", c > 0 && "max-lg:hidden")}><tr>
+                    <th className="text-left font-normal">{tx("ชื่อ")}</th><th className="text-left font-normal">Role</th>
+                    <th className="w-12 text-right font-normal">Lead</th><th className="w-14 text-right font-normal">{tx("สมัคร")}</th><th className="w-36 pl-4 text-left font-normal">Conversion</th>
+                  </tr></thead>
+                  <tbody>{part.map((m, i) => (
+                    <tr key={m.staffId ?? "none"} className="border-t">
+                      <td className="py-1.5"><span className="flex items-center gap-2"><Rank n={c * half + i + 1} />{m.staff ? <span className="truncate font-medium">{m.staff.nickname}</span> : <span className="truncate text-muted-foreground">{tx("ยังไม่มีผู้ดูแล")}</span>}</span></td>
+                      <td className="py-1.5"><span className="flex flex-wrap gap-1">{(m.staff?.roles ?? []).filter((r) => r !== "developer" && r !== "driver").map((r) => <span key={r} className={cn("rounded-full px-2 py-0.5 text-[11px] font-medium whitespace-nowrap", ROLE_CHIP[r] ?? "bg-muted text-muted-foreground")}>{ROLE_LABEL[r]}</span>)}</span></td>
+                      <td className="text-right tabular-nums">{m.leads}</td>
+                      <td className="text-right text-emerald-600 tabular-nums">{m.enrolled}</td>
+                      <td className="pl-4"><span className="flex items-center gap-2"><ShareBar value={m.conversion ?? 0} color="#be123c" /><span className="w-10 shrink-0 text-right tabular-nums">{fmtPct(m.conversion)}</span></span></td>
+                    </tr>
+                  ))}</tbody>
+                </table>
+              </div>
+            ))}
+          </div>
         )}
-        {l.members.length > 5 && (
-          <button type="button" onClick={() => setAll(!all)} className="w-full rounded-xl py-2 text-sm font-medium text-primary hover:bg-muted">
+        {l.members.length > 10 && (
+          <button type="button" onClick={() => setAll(!all)} className="mt-1 text-xs text-primary hover:underline">
             {all ? tx("แสดงน้อยลง") : tx("แสดงทั้งหมด ({0} คน)", [l.members.length])}
           </button>
         )}
