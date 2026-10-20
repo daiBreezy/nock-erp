@@ -632,4 +632,8 @@ export const COVERAGE: Record<string, Entry> = {
   "จบแล้ว": { en: "Finished", ja: "終了" },
   "ยังไม่ถึง": { en: "Not there yet", ja: "まだ着いていない" },
   "โทร": { en: "Call", ja: "電話" },
+  "แสดงเพิ่มเติม": { en: "Show more", ja: "もっと見る" },
+  "แสดงน้อยลง": { en: "Show less", ja: "閉じる" },
+  "รับ{0}": { en: "Pick up {0}", ja: "{0}お迎え" },
+  "ส่ง{0}": { en: "Drop off {0}", ja: "{0}お送り" },
 }

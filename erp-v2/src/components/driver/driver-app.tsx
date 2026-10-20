@@ -6,7 +6,7 @@
 // order, where it ends — with the stop to go to now on top. The action is a big two-button bar at the bottom, easy to
 // reach while driving: left = the negative one (ไม่มา / กลับ / แก้), right = the next step (เริ่มวิ่ง → ถึงแล้ว →
 // รับแล้ว / ส่งแล้ว → จบเที่ยว).
-import { useCallback, useEffect, useMemo, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { ArrowLeftIcon, BusIcon, CheckIcon, ChevronRightIcon, FlagIcon, LoaderCircleIcon, MapIcon, MapPinCheckIcon, NavigationIcon, PhoneIcon, PlayIcon, RotateCcwIcon, SchoolIcon, UserIcon, UserXIcon } from "lucide-react"
 import { cn } from "@/lib/utils"
 
@@ -77,18 +77,27 @@ export function DriverApp({ token }: { token: string }) {
         {list.map((t) => {
           const p = progress(t, events)
           return (
-            <button key={t.tripId} type="button" onClick={() => setOpenId(t.tripId)} className={cn("flex w-full items-center gap-3 rounded-3xl bg-background p-4 text-left shadow-sm", p.finished && "opacity-60", p.started && !p.finished && "ring-2 ring-primary")}>
-              <span className={cn("grid size-12 shrink-0 place-items-center rounded-2xl text-lg font-semibold tabular-nums", t.kind === "dropoff" ? "bg-amber-100 text-amber-900" : t.kind === "pickup" ? "bg-sky-100 text-sky-800" : "bg-emerald-100 text-emerald-800")}>{t.kind === "pickup" ? "P" : t.kind === "dropoff" ? "D" : "P+D"}</span>
-              <span className="min-w-0 flex-1">
-                <span className="block font-semibold">{`${KIND[t.kind]} ${t.time}`}{t.name ? <span className="font-normal text-muted-foreground">{` · ${t.name}`}</span> : null}</span>
-                <span className="block text-sm text-muted-foreground tabular-nums">{`ออก ${t.depart} → ${p.endsHome ? "คนสุดท้าย" : "ถึงสาขา"} ${t.finish}`}</span>
-                <span className="block text-xs text-muted-foreground">{`${t.stops.length} จุด · ${t.used}/${t.seats} ที่${t.km ? ` · ${t.km} กม.` : ""}${t.vehicle ? ` · ${t.vehicle.name}` : ""}`}</span>
-              </span>
-              <span className="flex shrink-0 flex-col items-end gap-1">
-                <span className={cn("rounded-full px-2.5 py-1 text-xs font-medium", p.finished ? "bg-emerald-100 text-emerald-800" : p.started ? "bg-red-100 text-red-700" : "bg-muted text-muted-foreground")}>
+            <button key={t.tripId} type="button" onClick={() => setOpenId(t.tripId)}
+              className={cn("block w-full space-y-3 rounded-3xl bg-background p-4 text-left shadow-sm ring-1 ring-foreground/10", p.finished && "bg-muted/60", p.started && !p.finished && "ring-2 ring-primary")}>
+              {/* top row, centred: type · trip · status + chevron side by side (owner 2026-10-20) */}
+              <span className="flex items-center gap-3">
+                <span className={cn("grid size-12 shrink-0 place-items-center rounded-2xl text-lg font-bold", t.kind === "dropoff" ? "bg-amber-200 text-amber-950" : t.kind === "pickup" ? "bg-sky-200 text-sky-950" : "bg-emerald-200 text-emerald-950")}>{t.kind === "pickup" ? "P" : t.kind === "dropoff" ? "D" : "P+D"}</span>
+                <span className="min-w-0 flex-1">
+                  <span className="block text-lg leading-tight font-semibold">{`${KIND[t.kind]} ${t.time}`}</span>
+                  {t.name && <span className="block truncate text-sm text-foreground/70">{t.name}</span>}
+                </span>
+                <span className={cn("shrink-0 rounded-full px-3 py-1.5 text-sm font-semibold whitespace-nowrap", p.finished ? "bg-emerald-600 text-white" : p.started ? "bg-red-600 text-white" : "bg-foreground/10 text-foreground/80")}>
                   {p.finished ? `เสร็จ ${hhmm(p.finished.at)}` : p.started ? `กำลังวิ่ง ${p.done}/${t.stops.length}` : "ยังไม่เริ่ม"}
                 </span>
-                <ChevronRightIcon className="size-5 text-muted-foreground" />
+                <ChevronRightIcon className="size-6 shrink-0 text-foreground/50" />
+              </span>
+              {/* the details, full width */}
+              <span className="block space-y-1.5 rounded-2xl bg-muted/50 p-3">
+                <span className="block text-base font-semibold tabular-nums">{`ออก ${p.started ? hhmm(p.started.at) : t.depart} → ${p.endsHome ? "คนสุดท้าย" : "ถึงสาขา"} ${p.finished ? hhmm(p.finished.at) : t.finish}`}</span>
+                {/* who, in the order the van goes */}
+                <span className="line-clamp-2 block text-sm text-foreground/85">{t.stops.map((x) => `${x.leg === "pickup" ? "รับ" : "ส่ง"}${x.nickname}`).join(" → ")}</span>
+                <span className="block text-sm text-foreground/65">{`${t.stops.length} จุด · ${t.used}/${t.seats} ที่${t.km ? ` · ${t.km} กม.` : ""}${t.vehicle ? ` · ${t.vehicle.name} ${t.vehicle.plate}` : ""}`}</span>
+                {p.started && !p.finished && <span className="block h-2 overflow-hidden rounded-full bg-background"><span className="block h-full rounded-full bg-primary" style={{ width: `${(p.done / Math.max(1, t.stops.length)) * 100}%` }} /></span>}
               </span>
             </button>
           )
@@ -140,7 +149,7 @@ function TripView({ t, events, busy, onBack, onTap }: { t: Trip; events: Ev[]; b
                 {cur.nickname} <span className="text-sm font-normal text-muted-foreground">{cur.grade}</span>
                 {cur.adult && <span className="flex items-center gap-0.5 rounded-full bg-violet-100 px-1.5 text-xs font-normal text-violet-800"><UserIcon className="size-3" />+ผู้ปกครอง</span>}
               </p>
-              <p className="mt-1 text-sm text-muted-foreground">{[cur.addressNote, cur.address].filter(Boolean).join(" · ") || "ไม่มีที่อยู่"}</p>
+              <Address className="mt-1 text-base text-foreground/80" text={[cur.addressNote, cur.address].filter(Boolean).join(" · ")} />
               <p className="mt-1 text-sm tabular-nums">{`ประมาณ ${cur.eta ?? "—"}`}</p>
             </div>
             {/* owner 2026-10-20: "ยังไม่ถึง" is a proper button on the same line as call / navigate */}
@@ -161,7 +170,7 @@ function TripView({ t, events, busy, onBack, onTap }: { t: Trip; events: Ev[]; b
             {t.stops.map((s, i) => {
               const out = p.outOf(s.key), inn = p.inOf(s.key), now = s.key === cur?.key
               return (
-                <li key={s.key} className={cn("px-4 py-3", now && "bg-primary/5", out && "bg-muted/30")}>
+                <li key={s.key} className={cn("px-4 py-3", now && "bg-primary/10 shadow-[inset_4px_0_0_var(--primary)]", out && "bg-muted/50")}>
                   <div className="flex items-center gap-3">
                     <span className={cn("grid size-8 shrink-0 place-items-center rounded-full text-sm font-semibold",
                       out?.type === "done" ? "bg-emerald-500 text-white" : out?.type === "noshow" ? "bg-red-100 text-red-700" : now ? "bg-primary text-primary-foreground" : "bg-muted")}>
@@ -174,14 +183,14 @@ function TripView({ t, events, busy, onBack, onTap }: { t: Trip; events: Ev[]; b
                         {s.adult && <UserIcon className="size-3.5 shrink-0 text-violet-700" />}
                         {out?.type === "noshow" && <span className="shrink-0 rounded-full bg-red-50 px-1.5 text-[11px] text-red-700">ไม่มา</span>}
                       </span>
-                      <span className="block truncate text-xs text-muted-foreground">{[s.addressNote, s.address].filter(Boolean).join(" · ") || "ไม่มีที่อยู่"}</span>
+                      <Address className="text-sm text-foreground/75" text={[s.addressNote, s.address].filter(Boolean).join(" · ")} />
                     </span>
                     {out && p.started && !p.finished && <button type="button" disabled={busy} onClick={() => onTap("undo", s.key)} className="flex h-8 shrink-0 items-center gap-1 rounded-full border px-2.5 text-xs text-muted-foreground"><RotateCcwIcon className="size-3" />แก้</button>}
                   </div>
                   <div className="mt-2 ml-11 grid grid-cols-3 gap-1.5 text-center">
                     <TimeCell label="ประมาณ" value={s.eta ?? "—"} />
-                    <TimeCell label="Check in" value={inn ? hhmm(inn.at) : "—"} tone={inn ? "text-violet-700" : undefined} />
-                    <TimeCell label={out?.type === "noshow" ? "ไม่มา" : "Check out"} value={out ? hhmm(out.at) : "—"} tone={out ? (out.type === "noshow" ? "text-red-700" : "text-emerald-700") : undefined} />
+                    <TimeCell label="Check in" value={inn ? hhmm(inn.at) : "—"} tone={inn ? "bg-violet-600 text-white" : undefined} />
+                    <TimeCell label={out?.type === "noshow" ? "ไม่มา" : "Check out"} value={out ? hhmm(out.at) : "—"} tone={out ? (out.type === "noshow" ? "bg-red-600 text-white" : "bg-emerald-600 text-white") : undefined} />
                   </div>
                 </li>
               )
@@ -227,10 +236,26 @@ function EndRow({ icon, title, label, time, done }: { icon: React.ReactNode; tit
 
 /** one of a stop's three times — estimate / check in / check out */
 function TimeCell({ label, value, tone }: { label: string; value: string; tone?: string }) {
+  // owner 2026-10-20: "มองสี ไม่ชัด" — a filled cell once the time is in, a clear outline before
   return (
-    <span className="rounded-xl bg-muted/60 px-1 py-1.5">
-      <span className="block text-[10px] text-muted-foreground">{label}</span>
-      <span className={cn("block text-sm font-semibold tabular-nums", value === "—" ? "text-muted-foreground/60" : tone)}>{value}</span>
+    <span className={cn("rounded-xl px-1 py-1.5 ring-1", tone ?? "bg-background ring-foreground/15", tone && "ring-transparent")}>
+      <span className={cn("block text-[11px] font-medium", tone ? "text-white/90" : "text-foreground/60")}>{label}</span>
+      <span className={cn("block text-base font-bold tabular-nums", value === "—" && "text-foreground/35")}>{value}</span>
+    </span>
+  )
+}
+
+/** an address: 2 lines, then "แสดงเพิ่มเติม" when it's longer (owner 2026-10-20) */
+function Address({ text, className }: { text: string; className?: string }) {
+  const [open, setOpen] = useState(false)
+  const [long, setLong] = useState(false)
+  const ref = useRef<HTMLSpanElement>(null)
+  useEffect(() => { const el = ref.current; if (el && !open) setLong(el.scrollHeight > el.clientHeight + 1) }, [text, open])
+  if (!text) return <span className={cn("block", className)}>ไม่มีที่อยู่</span>
+  return (
+    <span className={cn("block", className)}>
+      <span ref={ref} className={cn("block", !open && "line-clamp-2")}>{text}</span>
+      {(long || open) && <button type="button" onClick={(e) => { e.stopPropagation(); setOpen(!open) }} className="mt-0.5 text-sm font-medium text-primary">{open ? "แสดงน้อยลง" : "แสดงเพิ่มเติม"}</button>}
     </span>
   )
 }
