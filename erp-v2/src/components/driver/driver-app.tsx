@@ -35,6 +35,7 @@ function progress(t: Trip, events: Ev[]) {
 
 export function DriverApp({ token }: { token: string }) {
   const [trips, setTrips] = useState<Trip[] | null>(null)
+  const [name, setName] = useState("")
   const [events, setEvents] = useState<Ev[]>([])
   const [error, setError] = useState("")
   const [busy, setBusy] = useState(false)
@@ -42,7 +43,7 @@ export function DriverApp({ token }: { token: string }) {
   const [openId, setOpenId] = useState<string | null>(null)
   const load = useCallback(() => fetch(`/api/driver/me?t=${encodeURIComponent(token)}`).then((r) => r.json()).then((j) => {
     if (!j.ok) { setError("ลิงก์นี้ใช้ไม่ได้ — ขอลิงก์ใหม่จากแอดมิน"); return }
-    setTrips(j.trips); setEvents(j.events)
+    setTrips(j.trips); setEvents(j.events); setName(j.driverName ?? j.trips[0]?.driverName ?? "")
   }).catch(() => setError("เชื่อมต่อไม่ได้ — ลองใหม่อีกครั้ง")), [token])
   useEffect(() => { load(); const t = setInterval(load, 30_000); return () => clearInterval(t) }, [load])
   const tap = async (tripId: string, type: string, stopKey?: string) => {
@@ -62,7 +63,7 @@ export function DriverApp({ token }: { token: string }) {
       <header className="sticky top-0 z-10 space-y-2 bg-background/95 px-4 py-3 shadow-sm backdrop-blur">
         <div className="flex items-center gap-2">
           <span className="grid size-10 place-items-center rounded-xl bg-primary/10 text-primary"><BusIcon className="size-5" /></span>
-          <div className="min-w-0 flex-1"><p className="font-semibold">{`สวัสดีครับ ${trips[0]?.driverName ?? ""}`}</p><p className="text-xs text-muted-foreground">งานขับรถรับส่งของคุณ — แตะรอบที่จะขับ</p></div>
+          <div className="min-w-0 flex-1"><p className="font-semibold">{`สวัสดีครับ ${name}`}</p><p className="text-xs text-muted-foreground">งานขับรถรับส่งของคุณ — แตะรอบที่จะขับ</p></div>
         </div>
         <div className="flex gap-1.5 overflow-x-auto">
           {(days.length ? days : [today()]).map((d) => (
@@ -71,7 +72,13 @@ export function DriverApp({ token }: { token: string }) {
         </div>
       </header>
       <main className="space-y-2.5 p-3">
-        {list.length === 0 && <p className="rounded-2xl bg-background p-8 text-center text-sm text-muted-foreground">วันนี้ไม่มีงาน</p>}
+        {/* owner 2026-10-20: say why it's empty — jobs appear once the office approves them (the page checks every 30 s) */}
+        {list.length === 0 && (
+          <div className="space-y-1 rounded-3xl bg-background p-8 text-center">
+            <p className="font-medium">ยังไม่มีงานวันนี้</p>
+            <p className="text-sm text-foreground/70">งานจะขึ้นที่นี่เมื่อแอดมินอนุมัติเที่ยวรถให้คุณ — หน้านี้อัปเดตเองทุก 30 วินาที</p>
+          </div>
+        )}
         {list.map((t) => {
           const p = progress(t, events)
           return (

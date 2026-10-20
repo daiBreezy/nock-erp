@@ -46,18 +46,19 @@ function mutate<T>(fn: (s: Store) => T): Promise<T> {
 // Each ERP browser keeps its own data in the prototype (owner 2026-10-20: the trips vanished from the driver app — Chrome
 // had the ERP open too, with nothing approved, and its empty list replaced the other browser's). So every browser's list
 // is kept on its own and the drivers see them together: one with nothing approved can't wipe another's.
-interface Sources { [source: string]: { trips: DriverTrip[]; at: number } }
+/** `drivers` = every driver's link → name (owner 2026-10-20: with nothing approved yet the app still greets the driver) */
+interface Sources { [source: string]: { trips: DriverTrip[]; drivers?: Record<string, string>; at: number } }
 async function readSources(): Promise<Sources> {
   try { return (JSON.parse(await fs.readFile(TRIPS_FILE, "utf8")) as { sources?: Sources }).sources ?? {} } catch { return {} }
 }
 let tripsQueue: Promise<unknown> = Promise.resolve()
 
 /** one ERP browser's approved trips — replaced as a whole for that browser (a trip no longer approved drops out) */
-export function publishTrips(trips: DriverTrip[], source = "default"): Promise<number> {
+export function publishTrips(trips: DriverTrip[], source = "default", drivers: Record<string, string> = {}): Promise<number> {
   const result = tripsQueue.then(async () => {
     const now = Date.now()
     const sources = Object.fromEntries(Object.entries(await readSources()).filter(([, v]) => now - v.at < SOURCE_TTL_MS))
-    if (trips.length) sources[source] = { trips, at: now }
+    if (trips.length || Object.keys(drivers).length) sources[source] = { trips, drivers, at: now }
     else delete sources[source]
     await fs.mkdir(DATA_DIR, { recursive: true })
     await fs.writeFile(TRIPS_FILE, JSON.stringify({ sources }), "utf8")
@@ -76,10 +77,12 @@ async function allTrips(): Promise<DriverTrip[]> {
   return [...byId.values()]
 }
 
-export async function tripsForToken(token: string): Promise<{ trips: DriverTrip[]; events: DriverEventRec[] }> {
+export async function tripsForToken(token: string): Promise<{ trips: DriverTrip[]; events: DriverEventRec[]; driverName: string | null }> {
   const trips = (await allTrips()).filter((t) => t.token === token)
   const ids = new Set(trips.map((t) => t.tripId))
-  return { trips, events: (await read()).events.filter((e) => ids.has(e.tripId)) }
+  const now = Date.now()
+  const driverName = trips[0]?.driverName ?? Object.values(await readSources()).filter((v) => now - v.at < SOURCE_TTL_MS).map((v) => v.drivers?.[token]).find(Boolean) ?? null
+  return { trips, events: (await read()).events.filter((e) => ids.has(e.tripId)), driverName }
 }
 
 export const allEvents = async () => (await read()).events

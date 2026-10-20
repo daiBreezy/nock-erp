@@ -53,7 +53,7 @@ export function usePublishDriverTrips() {
       if (key === last) return
       last = key
       // a failed send (server restarting, a reply that isn't ok) is tried again on the next check
-      void fetch("/api/driver/publish", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ trips: out, source: sourceId() }) })
+      void fetch("/api/driver/publish", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ trips: out, source: sourceId(), drivers: Object.fromEntries(s.staff.filter((x) => x.driverToken && x.active).map((x) => [x.driverToken!, x.nickname])) }) })
         .then((r) => { if (!r.ok) last = "" }).catch(() => { last = "" })
     }
     const kick = () => { clearTimeout(timer); timer = setTimeout(run, 1500) }

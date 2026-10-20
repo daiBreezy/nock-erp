@@ -641,4 +641,7 @@ export const COVERAGE: Record<string, Entry> = {
   "กลับถึง{0} — คืนกุญแจรถ": { en: "Back at {0} — return the van keys", ja: "{0}に戻る — 車の鍵を返却" },
   "{0} กลับถึงสาขา{1} — คืนกุญแจรถ": { en: "{0} back at {1} — return the van keys", ja: "{0} {1}に戻る — 車の鍵を返却" },
   "กลับถึง{0} {1} — คืนกุญแจรถ": { en: "Back at {0} {1} — return the van keys", ja: "{0}に{1}戻る — 車の鍵を返却" },
+  "ยังไม่มีงานวันนี้": { en: "No jobs today yet", ja: "今日の業務はまだありません" },
+  "งานจะขึ้นที่นี่เมื่อแอดมินอนุมัติเที่ยวรถให้คุณ — หน้านี้อัปเดตเองทุก 30 วินาที": { en: "Jobs show here once the office approves your trips — this page updates every 30 seconds", ja: "管理者が便を承認するとここに表示されます — 30秒ごとに自動更新" },
+  "สวัสดีครับ {0}": { en: "Hello {0}", ja: "こんにちは {0}" },
 }
