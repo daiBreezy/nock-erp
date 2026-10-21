@@ -704,4 +704,12 @@ export const COVERAGE: Record<string, Entry> = {
   "คอร์ส / นักเรียน": { en: "Courses / student", ja: "コース / 生徒" },
   "คอร์ส Active ÷ นักเรียน Active — นักเรียนหนึ่งคนเรียนเฉลี่ยกี่คอร์ส": { en: "Active courses ÷ active students — courses per student on average", ja: "受講中コース ÷ Active生徒 — 1人あたりの平均コース数" },
   "คอร์ส": { en: "Courses", ja: "コース" },
+  "ตอนนี้ = วันนี้ · ในช่วงนี้ = {0} — ชี้ ⓘ ที่แต่ละช่องเพื่อดูว่านับอย่างไร · กดตัวเลขเพื่อดูกราฟ 12 เดือนของเรื่องนั้น": { en: "Now = today · In this period = {0} — hover ⓘ on each box to see how it's counted · click a number for its 12-month chart", ja: "現在＝今日 · 期間内＝{0} — 各欄の ⓘ で数え方を確認 · 数字をクリックで12か月のグラフ" },
+  "ตอนนี้ = วันนี้ · ในช่วงนี้ = {0} — นับทีละคอร์สที่นักเรียนถือ · ชี้ ⓘ ที่แต่ละช่องเพื่อดูว่านับอย่างไร · กดตัวเลขเพื่อดูกราฟ 12 เดือนของเรื่องนั้น": { en: "Now = today · In this period = {0} — counted per course a student holds · hover ⓘ to see how · click a number for its 12-month chart", ja: "現在＝今日 · 期間内＝{0} — 生徒が持つコースごとに集計 · ⓘで数え方を確認 · 数字をクリックで12か月のグラフ" },
+  "ยอดคงเหลือ": { en: "Stock", ja: "在籍数" },
+  "เข้า–ออก": { en: "In – out", ja: "流入・流出" },
+  "เดือนล่าสุด": { en: "latest month", ja: "直近の月" },
+  "ยอด ณ สิ้นแต่ละเดือน — ดูว่าฐานโตขึ้นหรือหดลง · สีเหลืองหนาขึ้น = คนพักมากขึ้น (เสี่ยงหลุด)": { en: "At the end of each month — is the base growing or shrinking · a thicker yellow part = more on hold (at risk of leaving)", ja: "各月末時点 — 基盤が伸びているか縮んでいるか · 黄色が厚い＝休止が多い（離脱リスク）" },
+  "เหนือเส้น = เข้ามา (ใหม่ + กลับมาซื้อใหม่) · ใต้เส้น = หลุด (Lost) · เส้นดำ = Net — เดือนที่แดงยาว ให้ไปดูสาเหตุ": { en: "Above the line = came in (new + came back) · below = left (Lost) · dark line = Net — a long red bar is a month to look into", ja: "線より上＝流入（新規＋再購入）· 下＝離脱（Lost）· 黒線＝Net — 赤が長い月は原因を確認" },
+  "Churn = หลุดกี่ % ของทุกคนที่เรียนในเดือนนั้น · ต่อ = ของที่แพ็กเกจหมดในเดือนนั้น ซื้อต่อกี่ % — สองเส้นควรวิ่งสวนกัน": { en: "Churn = % of everyone studying that month who left · renewal = % of packages ending that month that were bought again — the two lines should move opposite ways", ja: "Churn＝その月の受講者のうち離脱した割合 · 継続＝その月に終了したパッケージのうち継続した割合 — 2本の線は逆に動くはず" },
 }

@@ -5,7 +5,7 @@ import { chartPrice } from "@/domain/rules/course"
 import { cleanParent, cleanStudent, formatPhone, splitParentTitle } from "@/domain/rules/people"
 import { invoiceTotals } from "@/domain/rules/billing"
 import { reasonLabel } from "@/domain/rules/loss"
-import { generateSessions } from "@/domain/rules/scheduling"
+import { generateSessions, isHoliday, sessionFromClass } from "@/domain/rules/scheduling"
 import { entitlementRounds } from "@/domain/rules/summaries"
 import { packageCovers } from "@/domain/rules/attendance"
 import type {
@@ -775,7 +775,97 @@ export function buildSeed(now = new Date()): DB {
       thread: [{ id: "dm_8", by: "u_dev", at: ago(140), text: "ตอนนี้ยังไม่ทำ — ต้องสมัคร Payment Gateway และมีค่าธรรมเนียม 2.5–3.5% ต่อรายการ ขอให้ฝ่ายบัญชีตัดสินใจเรื่องค่าธรรมเนียมก่อน แล้วค่อยเปิดเรื่องใหม่", status: "wont_do" }] },
   ]
 
+  // owner 2026-10-21: second courses (kept / dropped / bought again) + a few courses with a long break — Reports' course section
+  buildCourseHistory({ today, branches, courses, classes, students, invoices, entitlements, sessions, attendance, summaries, holidays })
+
   return { branches, staff, holidays, courses, classes, sessions, attendance, summaries, courseSummaries, nockQuestions, devTickets, families, students, entitlements, leaves, invoices, busAddOns, creditNotes: [] as CreditNote[], lessonBooks, lessonTopics, leads, conversations, messages, notifications: [], system, notes, calendarNotes, busTrips: [] as BusTrip[], logs, assessments, surveyCampaigns, surveyResponses }
+}
+
+/**
+ * Second courses for the Reports' course section (owner 2026-10-21) — some history students add a course of another
+ * subject for a while: some keep it, some drop it while staying with us (a course lost, not a student), some buy it
+ * again after a break. A few of them get that course's weekly sessions with check-ins and a 3+ session break, so
+ * "คอร์สที่พัก" / "Returning Course" have a history. Hash-based (not the seeded random) so the rest of the demo stays
+ * the same; check-ins marked "present" stop 3 weeks ago and carry a sent one-line summary (nothing left owed).
+ */
+function buildCourseHistory(db: { today: string; branches: Branch[]; courses: Course[]; classes: Klass[]; students: Student[]; invoices: Invoice[]; entitlements: Entitlement[]; sessions: Session[]; attendance: Attendance[]; summaries: LessonSummary[]; holidays: Holiday[] }) {
+  const h = (k: string) => { let x = 2166136261; for (const c of k) x = Math.imul(x ^ c.charCodeAt(0), 16777619); return (x >>> 0) / 4294967296 }
+  const classOf = (c: Course) => db.classes.find((k) => k.branchId === c.branchId && k.active && !k.periodId && k.kind === "learning" && c.subjects.includes(k.subject))
+  const firstSession = new Map<string, string>()
+  for (const x of db.sessions) if (x.classId && (!firstSession.has(x.classId) || x.date < firstSession.get(x.classId)!)) firstSession.set(x.classId, x.date)
+  const byKey = new Map<string, Session>()
+  const iso = (d: string, hr = 10) => new Date(`${d}T${String(hr).padStart(2, "0")}:00:00`).toISOString()
+  let running = 90000
+  for (const st of db.students) {
+    if (!st.id.startsWith("stu_h") || st.archived) continue
+    const r = h(st.id)
+    if (r > 0.6) continue
+    const own = db.entitlements.filter((e) => e.studentId === st.id).sort((a, b) => a.from.localeCompare(b.from))
+    // still with us today (their main course runs on) — a second course next to it
+    if (!own.length || !own.some((e) => e.from <= db.today && db.today <= e.to)) continue
+    const main = db.courses.find((c) => c.id === own[0].courseId)
+    const branch = db.branches.find((b) => b.id === st.branchId)
+    const options = db.courses.filter((c) => c.branchId === st.branchId && c.active && c.unit !== "hour" && !c.subjects.some((x) => main?.subjects.includes(x)) && classOf(c))
+    if (!main || !branch || !options.length) continue
+    const course = options[Math.floor(h(`${st.id}c`) * options.length)]
+    const klass = classOf(course)!
+    const outcome = r < 0.3 ? "keep" : r < 0.42 ? "drop" : "back"
+    // keep = still studying it today · drop = 2–4 months then stopped · back = stopped, 45–80 days later bought again
+    const want = outcome === "keep" ? addDays(db.today, -(60 + Math.floor(h(`${st.id}s`) * 300))) : addDays(db.today, -(150 + Math.floor(h(`${st.id}s`) * 200)))
+    const start = want < addDays(own[0].from, 14) ? addDays(own[0].from, 14) : want
+    if (outcome !== "keep" && start > addDays(db.today, -150)) continue
+    const first = 2 + Math.floor(h(`${st.id}m`) * 3)
+    const months: number[][] = outcome === "keep" ? [[0, Math.ceil((Number(new Date(`${db.today}T00:00:00`)) - Number(new Date(`${start}T00:00:00`))) / (30 * 86400000)) + 1]]
+      : outcome === "drop" ? [[0, first]] : [[0, first], [first + 2 + Math.floor(h(`${st.id}g`) * 1.5), 2 + Math.floor(h(`${st.id}n`) * 3)]]
+    const spans: { from: string; to: string }[] = []
+    for (const [offset, count] of months) {
+      // two months per invoice (periods: 2) — fewer records, the same coverage
+      for (let k = 0; k < count; k += 2) {
+        const from = addDays(start, (offset + k) * 30 + (offset ? 15 : 0))
+        if (from > db.today) break
+        const periods = Math.min(2, count - k)
+        const id = `inv_c${st.id.slice(5)}_${spans.length}`
+        const no = `${String((Number(from.slice(0, 4)) + 543) % 100).padStart(2, "0")}${from.slice(5, 7)}${from.slice(8, 10)}-${branch.brand === "liclass" ? "02" : "01"}-${branch.branchNo}-${++running}`
+        const inv: Invoice = {
+          id, branchId: branch.id, studentId: st.id, number: no, lines: [{ id: `ln_${id}`, courseId: course.id, classIds: [klass.id], startDate: from, periods }],
+          bus: [], bookFee: 0, advance: [], concession: null, noteToParent: "", status: "paid", pdf: "ready", createdBy: "u_ploy", createdAt: iso(addDays(from, -2)), approvedBy: "u_nock",
+          sentAt: iso(addDays(from, -2)), delivery: "delivered", receiptNumber: no,
+          payments: [{ id: `pay_${id}`, amount: 0, method: "transfer", reference: "", recordedBy: "u_ploy", recordedAt: iso(from, 11), confirmedBy: "u_nock" }],
+        }
+        inv.payments[0].amount = invoiceTotals(inv, { branch, courses: db.courses, classes: db.classes, holidays: [] }).total
+        db.invoices.push(inv)
+        const to = addDays(from, periods * 30 - 1)
+        db.entitlements.push({ id: `en_${id}`, studentId: st.id, courseId: course.id, subjects: course.subjects, classIds: [klass.id], invoiceId: id, kind: "subscription", from, to, sessionsTotal: periods * 4 })
+        spans.push({ from, to })
+      }
+    }
+    // weekly check-ins for about a third of them — before the class's own sessions start (no clash with the live roster)
+    if (outcome === "drop" || h(`${st.id}x`) > 0.75) continue
+    const pausedNow = outcome === "keep" && h(`${st.id}p`) < 0.45
+    const until = [firstSession.has(klass.id) ? addDays(firstSession.get(klass.id)!, -1) : db.today, addDays(db.today, pausedNow ? -1 : -21)].sort()[0]
+    const dates = spans.flatMap((sp) => {
+      const out: string[] = []
+      for (let d = nextWeekday(sp.from, klass.weekday); d <= sp.to && d <= until; d = addDays(d, 7)) if (!isHoliday(d, klass.branchId, db.holidays)) out.push(d)
+      return out
+    })
+    if (dates.length < 8) continue
+    // a 4–6 session break every 10–15 sessions (each one back = a returning course); paused now = the last 4 missed
+    const cycle = 10 + Math.floor(h(`${st.id}l`) * 6)
+    const breakLen = 4 + Math.floor(h(`${st.id}k`) * 3)
+    const offset = Math.floor(h(`${st.id}b`) * (cycle - breakLen))
+    dates.forEach((date, i) => {
+      const inCycle = (i + cycle - offset) % cycle
+      const missed = (i >= offset && inCycle < breakLen && i < dates.length - 2) || (pausedNow && i >= dates.length - 4)
+      const key = `${klass.id}|${date}`
+      let se = byKey.get(key)
+      if (!se) { se = { ...sessionFromClass(klass, date, `se_c${byKey.size}`), studentIds: [] }; byKey.set(key, se); db.sessions.push(se) }
+      se.studentIds.push(st.id)
+      const at = new Date(`${date}T${klass.start}:00`).getTime() + klass.minutes * 60000
+      const by = klass.teacherId ?? "u_ploy"
+      db.attendance.push({ sessionId: se.id, studentId: st.id, status: missed ? (i % 2 ? "absent" : "leave") : "present", markedBy: by, markedAt: new Date(at - 30 * 60000).toISOString() })
+      if (!missed) db.summaries.push({ id: `sm_c${db.summaries.length}`, sessionId: se.id, studentId: st.id, text: "เรียนตามแผน", status: "sent", authorId: by, lastEditorId: by, history: [] })
+    })
+  }
 }
 
 /** Demo history for Reports: ~130 past/current students over the last 15 months with monthly / hour-pack invoices. */

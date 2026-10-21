@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest"
-import { churnRate, courseFlow, coursesBought, leadSummary, returningIn, type RevenueRow } from "./reports"
+import { churnRate, courseFlow, coursesBought, leadSummary, returningBack, returningIn, trendMonths, type RevenueRow } from "./reports"
 
 // owner 2026-10-20: Reports › Overview — returning students / courses, courses bought, the lead section
 const R = { from: "2026-10-01", to: "2026-10-31" }
@@ -82,5 +82,31 @@ describe("courses as their own section", () => {
       entitlements: [{ studentId: "s1", courseId: "math", from: "2026-09-01", to: "2026-12-31" }, { studentId: "s1", courseId: "eng", from: "2026-09-01", to: "2026-12-31" }],
     })
     expect(r).toMatchObject({ active: 1, paused: 1 })
+  })
+})
+
+describe("the 12-month trend (owner 2026-10-21)", () => {
+  it("the last 12 months, the one in progress ending today", () => {
+    const m = trendMonths("2026-10-21")
+    expect(m).toHaveLength(12)
+    expect(m[0]).toMatchObject({ key: "2025-11", month: 10, range: { from: "2025-11-01", to: "2025-11-30" } })
+    expect(m[11].range).toEqual({ from: "2026-10-01", to: "2026-10-21" })
+  })
+  it("a course back after a break counts in the month it came back, not the month before", () => {
+    const b = returningBack({ sessions: sess("m"), attendance: att("m", ["present", "leave", "leave", "absent", "leave", "present", "present"]), leaves: [], entitlements: ents })
+    expect(b.in({ from: "2026-10-01", to: "2026-10-31" })).toEqual({ students: 1, courses: 1 })
+    expect(b.in({ from: "2026-09-01", to: "2026-09-30" })).toEqual({ students: 0, courses: 0 })
+  })
+  it("a course is paused on a day inside its break (3+ missed by then), active again once back", () => {
+    const days = ["2026-08-11", "2026-08-18", "2026-08-25", "2026-09-01", "2026-09-08", "2026-09-15", "2026-09-22", "2026-09-29"]
+    const sessions = days.map((date, i) => ({ id: `m${i}`, classId: "m", date, start: "16:00", studentIds: ["s1"], cancelled: false }))
+    const attendance = days.map((_, i) => ({ sessionId: `m${i}`, studentId: "s1", status: (i >= 1 && i <= 4 ? "leave" : "present") as "leave" | "present" }))
+    const f = courseFlow({
+      students: [{ id: "s1" }], today: "2026-10-21", range: { from: "2026-10-01", to: "2026-10-31" }, sessions, attendance, leaves: [], classCourse: () => "math",
+      entitlements: [{ studentId: "s1", courseId: "math", from: "2026-08-01", to: "2026-12-31" }],
+    })
+    expect(f.on("2026-08-31")).toEqual({ active: 1, paused: 0 }) // only 2 missed so far
+    expect(f.on("2026-09-05")).toEqual({ active: 0, paused: 1 })
+    expect(f.on("2026-09-30")).toEqual({ active: 1, paused: 0 })
   })
 })

@@ -299,6 +299,20 @@ export function renewalRate(events: StudentEvent[], r: Range) {
   return renewed + lost ? renewed / (renewed + lost) : null
 }
 
+/**
+ * The last `n` months up to this one (owner 2026-10-21: the trend under the students' / courses' numbers) — each
+ * month's range ends today for the month in progress.
+ */
+export function trendMonths(today: DateStr, n = 12): { key: string; month: number; range: Range }[] {
+  const [y, m] = [Number(today.slice(0, 4)), Number(today.slice(5, 7)) - 1]
+  return Array.from({ length: n }, (_, i) => {
+    const d = new Date(y, m - (n - 1 - i), 1)
+    const from = toDateStr(d)
+    const end = toDateStr(new Date(d.getFullYear(), d.getMonth() + 1, 0))
+    return { key: from.slice(0, 7), month: d.getMonth(), range: { from, to: end > today ? today : end } }
+  })
+}
+
 /** Active students at the end of each month of a year (null for months not reached yet). */
 export function activeByMonth(year: number, upTo: DateStr, studentIds: ID[], ents: Pick<Entitlement, "studentId" | "from" | "to">[], leaves: StudentLeave[]) {
   return Array.from({ length: 12 }, (_, m) => {
@@ -883,34 +897,48 @@ export function returningIn(ctx: {
   entitlements: Pick<Entitlement, "studentId" | "courseId" | "classIds">[]
   range: Range
 }): { students: number; courses: number } {
+  return returningBack(ctx).in(ctx.range)
+}
+
+/**
+ * The days each student / course came back (see returningIn) — worked out once, then counted for any period
+ * (the period's number and each month of the trend chart).
+ */
+export function returningBack(ctx: Omit<Parameters<typeof returningIn>[0], "range">) {
   const mark = new Map(ctx.attendance.map((a) => [`${a.sessionId}|${a.studentId}`, a.status]))
+  const courseOf = new Map<string, string>()
+  for (const e of ctx.entitlements) for (const c of e.classIds) courseOf.set(`${e.studentId}|${c}`, e.courseId)
   const byStudent = new Map<string, { date: DateStr; start: string; course: string; status: Attendance["status"] }[]>()
   for (const x of ctx.sessions) {
     if (x.cancelled) continue
     for (const sid of x.studentIds) {
       const st = mark.get(`${x.id}|${sid}`)
       if (!st) continue
-      const course = (x.classId && ctx.entitlements.find((e) => e.studentId === sid && e.classIds.includes(x.classId!))?.courseId) || x.classId || "single"
+      const course = (x.classId && courseOf.get(`${sid}|${x.classId}`)) || x.classId || "single"
       byStudent.set(sid, [...(byStudent.get(sid) ?? []), { date: x.date, start: x.start, course, status: st }])
     }
   }
-  // the first class back after a run of RETURN_AFTER_SESSIONS+ missed ones, inside the period
-  const backAfterBreak = (list: { date: DateStr; status: Attendance["status"] }[]) => {
+  // the first class back after each run of RETURN_AFTER_SESSIONS+ missed ones
+  const backs = (list: { date: DateStr; status: Attendance["status"] }[]) => {
+    const out: DateStr[] = []
     let run = 0
     for (const m of list) {
-      if (m.status === "present") { if (run >= RETURN_AFTER_SESSIONS && inRange(m.date, ctx.range)) return true; run = 0 }
+      if (m.status === "present") { if (run >= RETURN_AFTER_SESSIONS) out.push(m.date); run = 0 }
       else run++
     }
-    return false
+    return out
   }
-  let students = 0, courses = 0
+  const students: DateStr[][] = []
+  const courses: DateStr[][] = []
   for (const [sid, all] of byStudent) {
     const list = [...all].sort((a, b) => (a.date + a.start).localeCompare(b.date + b.start))
-    const afterPause = ctx.leaves.some((l) => l.studentId === sid && list.some((m) => m.status === "present" && m.date > l.to && inRange(m.date, ctx.range) && !list.some((p) => p.status === "present" && p.date > l.to && p.date < m.date)))
-    if (afterPause || backAfterBreak(list)) students++
-    for (const c of new Set(list.map((m) => m.course))) if (backAfterBreak(list.filter((m) => m.course === c))) courses++
+    // the first class after each Pause on record
+    const afterPause = ctx.leaves.filter((l) => l.studentId === sid).map((l) => list.find((m) => m.status === "present" && m.date > l.to)?.date).filter((d): d is DateStr => !!d)
+    students.push([...afterPause, ...backs(list)])
+    for (const c of new Set(list.map((m) => m.course))) courses.push(backs(list.filter((m) => m.course === c)))
   }
-  return { students, courses }
+  const hit = (xs: DateStr[][], r: Range) => xs.filter((ds) => ds.some((d) => inRange(d, r))).length
+  return { in: (r: Range) => ({ students: hit(students, r), courses: hit(courses, r) }) }
 }
 
 /** courses actually bought in the period — paid course lines (owner 2026-10-20 "Course Actual buy") */
@@ -997,34 +1025,39 @@ export function courseFlow(ctx: {
   const count = (kind: Ev["kind"], r: Range) => events.filter((e) => e.kind === kind && inRange(e.date, r)).length
   const activeOn = (date: DateStr) => [...spansOf.entries()].filter(([, sp]) => sp.some((x) => x.from <= date && date <= x.to)).map(([k]) => k)
 
-  // which active courses aren't being studied today
+  // which active courses aren't being studied on a day
   const mark = new Map(ctx.attendance.map((a) => [`${a.sessionId}|${a.studentId}`, a.status]))
-  const pausedKeys = new Set<string>()
   // each student's past sessions, once — per course below
   const bySid = new Map<string, typeof ctx.sessions>()
   for (const x of ctx.sessions) {
     if (x.cancelled || !x.classId || x.date > ctx.today) continue
     for (const sid of x.studentIds) if (ids.has(sid)) bySid.set(sid, [...(bySid.get(sid) ?? []), x])
   }
-  for (const k of activeOn(ctx.today)) {
-    const [sid, cid] = k.split("|")
-    const mine = (bySid.get(sid) ?? []).filter((x) => ctx.classCourse(sid, x.classId!) === cid)
-      .sort((a, b) => (a.date + a.start).localeCompare(b.date + b.start))
-    const onPause = ctx.leaves.some((l) => l.studentId === sid && l.from <= ctx.today && ctx.today <= l.to && mine.some((x) => x.date >= l.from))
-    const marked = mine.map((x) => mark.get(`${x.id}|${sid}`)).filter((st): st is Attendance["status"] => !!st)
-    const tail = marked.slice(-RETURN_AFTER_SESSIONS)
-    if (onPause || (tail.length === RETURN_AFTER_SESSIONS && tail.every((st) => st !== "present"))) pausedKeys.add(k)
+  for (const list of bySid.values()) list.sort((a, b) => (a.date + a.start).localeCompare(b.date + b.start))
+  const on = (date: DateStr) => {
+    let active = 0, paused = 0
+    for (const k of activeOn(date)) {
+      const [sid, cid] = k.split("|")
+      const mine = (bySid.get(sid) ?? []).filter((x) => ctx.classCourse(sid, x.classId!) === cid)
+      const onPause = ctx.leaves.some((l) => l.studentId === sid && l.from <= date && date <= l.to && mine.some((x) => x.date >= l.from))
+      const marked = mine.filter((x) => x.date <= date).map((x) => mark.get(`${x.id}|${sid}`)).filter((st): st is Attendance["status"] => !!st)
+      const tail = marked.slice(-RETURN_AFTER_SESSIONS)
+      if (onPause || (tail.length === RETURN_AFTER_SESSIONS && tail.every((st) => st !== "present"))) paused++
+      else active++
+    }
+    return { active, paused }
   }
-  const active = activeOn(ctx.today).filter((k) => !pausedKeys.has(k)).length
-  const activeAtStart = activeOn(addDays(ctx.range.from, -1)).length
-  const n = (kind: Ev["kind"]) => count(kind, ctx.range)
-  const renewed = n("renewed"), lost = n("lost")
+  /** the period's movements — for the vs-before line and each month of the trend chart */
+  const inRangeOf = (r: Range) => {
+    const rn = count("renewed", r), ls = count("lost", r), nw = count("new", r), rt = count("returning", r)
+    const atStart = activeOn(addDays(r.from, -1)).length
+    return { newCount: nw, returning: rt, lost: ls, activeAtStart: atStart, renewal: rn + ls ? rn / (rn + ls) : null, churn: churnRate(ls, atStart, nw + rt) }
+  }
+  const now = on(ctx.today)
   return {
-    active, paused: pausedKeys.size, activeAtStart,
-    newCount: n("new"), returning: n("returning"), lost,
-    renewal: renewed + lost ? renewed / (renewed + lost) : null,
-    churn: churnRate(lost, activeAtStart, n("new") + n("returning")),
-    /** the same for another period — for the vs-before line */
-    in: (r: Range) => { const rn = count("renewed", r), ls = count("lost", r); return { newCount: count("new", r), returning: count("returning", r), lost: ls, renewal: rn + ls ? rn / (rn + ls) : null } },
+    active: now.active, paused: now.paused, ...inRangeOf(ctx.range),
+    /** active / paused courses on a day (the end of each month of the trend) */
+    on,
+    in: inRangeOf,
   }
 }
