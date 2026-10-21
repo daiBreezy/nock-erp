@@ -646,20 +646,22 @@ function stageAppts(l: Pick<Lead, "stage" | "archivedFrom" | "direct">): LeadApp
   return r === 2 ? { test: closed ? "no_show" : "booked" } : r === 3 ? { test: "came" } : r === 4 ? { trial: closed ? "no_show" : "booked" } : r >= 5 ? { trial: "came" } : {}
 }
 
+/** The funnel's steps (owner 2026-10-21: booked — a Test or a Trial — and came are their own steps, every lead passes
+ *  them the same way); enroll-now leads never had a test / trial — they skip those two (owner 2026-10-05). */
+const leadSteps = <L extends Pick<Lead, "stage" | "archivedFrom" | "direct">>(a: (l: L) => LeadAppts) => [
+  { key: "lead", label: "Lead ใหม่", hit: (_: L) => true },
+  { key: "contacted", label: "ติดต่อแล้ว", hit: (l: L) => stageRank(l) >= 1 },
+  { key: "booked", label: "นัด Test / Trial", hit: (l: L) => !!(a(l).test || a(l).trial) },
+  { key: "came", label: "มาจริง", hit: (l: L) => a(l).test === "came" || a(l).trial === "came" },
+  { key: "payment", label: "รอชำระ", hit: (l: L) => stageRank(l) >= 6 },
+  { key: "enrolled", label: "สมัครแล้ว", hit: (l: L) => stageRank(l) >= 7 },
+]
+
 /** Leads created in the period, through the funnel: count per step and % of the step before / of all leads. */
 export function leadFunnel<L extends Pick<Lead, "stage" | "archivedFrom" | "createdAt" | "direct">>(leads: L[], r: Range, appts?: Map<L, LeadAppts>) {
   const xs = leads.filter((l) => inRange(l.createdAt.slice(0, 10), r))
-  const a = (l: L) => appts?.get(l) ?? stageAppts(l)
-  // owner 2026-10-21: booked (a Test or a Trial) and came are their own steps — every lead passes them the same way;
-  // enroll-now leads never had a test / trial — they skip those two steps (owner 2026-10-05)
-  const steps = [
-    { key: "lead", label: "Lead ใหม่", hit: () => true },
-    { key: "contacted", label: "ติดต่อแล้ว", hit: (l: L) => stageRank(l) >= 1 },
-    { key: "booked", label: "นัด Test / Trial", hit: (l: L) => !!(a(l).test || a(l).trial) },
-    { key: "came", label: "มาจริง", hit: (l: L) => a(l).test === "came" || a(l).trial === "came" },
-    { key: "payment", label: "รอชำระ", hit: (l: L) => stageRank(l) >= 6 },
-    { key: "enrolled", label: "สมัครแล้ว", hit: (l: L) => stageRank(l) >= 7 },
-  ].map((s) => ({ key: s.key, label: s.label, count: xs.filter(s.hit).length, direct: xs.filter((l) => l.direct && s.hit(l)).length }))
+  const steps = leadSteps<L>((l) => appts?.get(l) ?? stageAppts(l))
+    .map((s) => ({ key: s.key, label: s.label, count: xs.filter(s.hit).length, direct: xs.filter((l) => l.direct && s.hit(l)).length }))
   return steps.map((s, i) => ({ ...s, ofPrev: i && steps[i - 1].count ? s.count / steps[i - 1].count : null, ofAll: xs.length ? s.count / xs.length : null }))
 }
 
@@ -668,28 +670,34 @@ export const LEAD_PATHS = [
   { key: "trial", label: "Trial อย่างเดียว" },
   { key: "both", label: "Test → Trial" },
   { key: "direct", label: "สมัครเลย (ไม่ Test / Trial)" },
+  { key: "none", label: "ยังไม่ได้นัด" },
 ] as const
 
 /**
- * Which way leads went (owner 2026-10-21): Test only, Trial only, both, or enroll-now — per way how many, how many came
- * (at least once), how many didn't show (every appointment missed), how many enrolled and the close rate. Leads that
- * never booked anything (stopped at contact) aren't a way and aren't listed.
+ * Which way leads went (owner 2026-10-21): Test only, Trial only, both, enroll-now, or no appointment (yet) — the
+ * funnel's steps counted per way, so the ways add up to the funnel; plus came (at least once), no-show (every
+ * appointment missed) and the close rate (enrolled ÷ leads that went this way).
  */
 export function leadPaths<L extends Pick<Lead, "stage" | "archivedFrom" | "createdAt" | "direct">>(leads: L[], r: Range, appts: Map<L, LeadAppts>) {
   const xs = leads.filter((l) => inRange(l.createdAt.slice(0, 10), r))
+  const ap = (l: L) => appts.get(l) ?? stageAppts(l)
+  const steps = leadSteps<L>(ap)
   const pathOf = (l: L) => {
     if (l.direct) return "direct"
-    const a = appts.get(l) ?? {}
-    return a.test && a.trial ? "both" : a.test ? "test" : a.trial ? "trial" : null
+    const a = ap(l)
+    return a.test && a.trial ? "both" : a.test ? "test" : a.trial ? "trial" : "none"
   }
+  const states = (l: L) => { const a = ap(l); return [a.test, a.trial].filter((x): x is ApptState => !!x) }
   return LEAD_PATHS.map((p) => {
     const ys = xs.filter((l) => pathOf(l) === p.key)
-    const states = (l: L) => { const a = appts.get(l) ?? {}; return [a.test, a.trial].filter((x): x is ApptState => !!x) }
     const enrolled = ys.filter((l) => stageRank(l) >= 7).length
+    const booking = p.key !== "direct" && p.key !== "none"
     return {
       ...p, leads: ys.length, enrolled, conversion: ys.length ? enrolled / ys.length : null,
-      came: p.key === "direct" ? null : ys.filter((l) => states(l).includes("came")).length,
-      noShow: p.key === "direct" ? null : ys.filter((l) => states(l).length && states(l).every((x) => x === "no_show")).length,
+      /** per funnel step; null where the step doesn't apply to this way (no appointment) */
+      steps: steps.map((s) => (!booking && (s.key === "booked" || s.key === "came") ? null : ys.filter(s.hit).length)),
+      came: booking ? ys.filter((l) => states(l).includes("came")).length : null,
+      noShow: booking ? ys.filter((l) => states(l).length && states(l).every((x) => x === "no_show")).length : null,
     }
   })
 }

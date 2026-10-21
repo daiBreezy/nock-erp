@@ -213,24 +213,6 @@ function Overview({ d, compare, period, periodLabel, onAllRevenue, onAllStudents
   )
 }
 
-/** Lead funnel (owner 2026-10-20: on the overview, was on CRM · 2026-10-21: inside the Lead section) — leads that came
- *  in this period, every stage they reached */
-function LeadFunnel({ d }: { d: ReportData }) {
-  const c = d.crm
-  const maxFunnel = Math.max(1, c.funnel[0].count)
-  return (
-      <ul className="space-y-2.5">
-        {c.funnel.map((s, i) => (
-          <li key={s.key} className="grid grid-cols-[7rem_1fr_2.5rem] items-center gap-2 text-sm">
-            <span>{tx(s.label)}</span>
-            <div className="h-6 overflow-hidden rounded-md bg-muted"><div className="flex h-full items-center rounded-md px-2 text-xs text-primary-foreground tabular-nums" style={{ width: `${Math.max(4, (s.count / maxFunnel) * 100)}%`, background: tint(0.35 + (0.65 * (c.funnel.length - i)) / c.funnel.length) }}>{fmtNum(s.count)}</div></div>
-            <span className="text-right text-xs text-muted-foreground tabular-nums">{i ? fmtPct(s.ofPrev) : "100%"}</span>
-          </li>
-        ))}
-      </ul>
-  )
-}
-
 /** Demand Heatmap (owner 2026-10-20: on the Students tab) — students in class by weekday × start hour */
 function DemandPanel({ d }: { d: ReportData }) {
   const [subject, setSubject] = useState("")
@@ -382,71 +364,52 @@ function CourseOverview({ d, periodLabel }: { d: ReportData; periodLabel: string
 }
 
 /**
- * Leads on the Overview (owner 2026-10-20) — read like the students / courses (2026-10-21): the numbers as a list on the
- * left (how many came in, then each step down to enrolled = conversion), the funnel chart on the right.
+ * Leads on the Overview (owner 2026-10-20) — one story (2026-10-21: summary, funnel and ways read as three separate
+ * things): the funnel's steps are the totals across the top, and under each step the same count split by the way the
+ * leads went (Test only / Trial only / both / enroll-now / no appointment yet) — the rows add up to the step above.
  */
 function LeadOverview({ d }: { d: ReportData }) {
   const l = d.leadSummary
   const ok = d.comparable
-  const ofLead = (n: number) => (l.total ? <span>{tx("{0} ของ Lead", [fmtPct(n / l.total)])}</span> : undefined)
+  const f = d.crm.funnel
+  const paths = d.crm.paths.filter((p) => p.leads)
+  const top = Math.max(1, f[0].count)
+  const cols = "grid-cols-[minmax(8.5rem,1.3fr)_repeat(6,minmax(4.75rem,1fr))_minmax(5.5rem,1fr)]"
   return (
-    <div className="grid gap-6 lg:grid-cols-2">
-      <div className="flex flex-col justify-center gap-4">
-        <div className="grid grid-cols-2 items-end gap-x-4 gap-y-3 rounded-2xl bg-muted/50 px-4 py-3">
-          <div>
-            <p className="flex items-center gap-1 text-xs text-muted-foreground">Total Lead<InfoTip text={tx("Lead ใหม่ที่เข้ามาในช่วงนี้ (ไม่นับ Lead ตามกลับนักเรียนเก่า)")} /></p>
-            <p className="flex items-baseline gap-2"><span className="text-xl font-semibold tabular-nums">{fmtNum(l.total)}</span>{deltaSub(pctDelta(l.total, l.prev.total, ok))}</p>
-          </div>
-          <div>
-            <p className="flex items-center gap-1 text-xs text-muted-foreground">Conversion rate<InfoTip text={tx("สมัครแล้ว ÷ Total Lead")} /></p>
-            <p className="flex items-baseline gap-2"><span className="text-xl font-semibold tabular-nums">{fmtPct(l.conversion)}</span>
-              {ok && l.prev.conversion !== null && <span className="text-[11px] text-muted-foreground">{tx("ก่อนหน้า")} {fmtPct(l.prev.conversion)}</span>}</p>
+    <div className="-mx-1 overflow-x-auto px-1">
+      <div className="min-w-[46rem]">
+        <div className={cn("grid items-stretch gap-x-2", cols)}>
+          <div className="flex flex-col justify-center text-sm font-semibold">{tx("ทุกเส้นทาง")}<span className="text-xs font-normal text-muted-foreground">{tx("% = จากขั้นก่อน")}</span></div>
+          {f.map((s, i) => (
+            <div key={s.key} className="flex flex-col rounded-2xl bg-muted/50 p-3">
+              <p className="truncate text-xs text-muted-foreground">{tx(s.label)}</p>
+              <p className="text-xl font-semibold tabular-nums">{fmtNum(s.count)}</p>
+              <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-muted"><div className="h-full rounded-full" style={{ width: `${(s.count / top) * 100}%`, background: tint(0.35 + (0.65 * (f.length - i)) / f.length) }} /></div>
+              <p className="mt-1 text-[11px] text-muted-foreground tabular-nums">{i ? fmtPct(s.ofPrev) : deltaSub(pctDelta(l.total, l.prev.total, ok)) ?? "\u00a0"}</p>
+            </div>
+          ))}
+          <div className="flex flex-col rounded-2xl bg-primary/5 p-3 ring-1 ring-primary/20">
+            <p className="flex items-center gap-1 truncate text-xs text-muted-foreground">Conversion<InfoTip text={tx("สมัครแล้ว ÷ Lead ใหม่")} /></p>
+            <p className="text-xl font-semibold tabular-nums">{fmtPct(l.conversion)}</p>
+            <p className="mt-auto text-[11px] text-muted-foreground">{ok && l.prev.conversion !== null ? `${tx("ก่อนหน้า")} ${fmtPct(l.prev.conversion)}` : "\u00a0"}</p>
           </div>
         </div>
-        {/* owner 2026-10-21: the real Test / Trial numbers — booked, and how many came */}
-        <FigureList rows={[
-          { label: tx("นัด Test"), value: fmtNum(l.test), sub: l.test ? <span>{tx("มาจริง {0}", [fmtNum(l.testCame)])} · {ofLead(l.test)}</span> : undefined, info: tx("Lead ที่นัด Test (สอบวัดระดับ) — มาจริง = เช็คชื่อมา หรือบันทึกผลแล้ว") },
-          { label: tx("นัด Trial"), value: fmtNum(l.trial), sub: l.trial ? <span>{tx("มาจริง {0}", [fmtNum(l.trialCame)])} · {ofLead(l.trial)}</span> : undefined, info: tx("Lead ที่นัดทดลองเรียน — มาจริง = เช็คชื่อมา หรือบันทึกผลแล้ว") },
-          { label: tx("สมัครแล้ว"), value: fmtNum(l.enrolled), tone: "text-emerald-600", total: true, sub: deltaSub(pctDelta(l.enrolled, l.prev.enrolled, ok)), info: tx("Lead ในช่วงนี้ที่กลายเป็นนักเรียนแล้ว") },
-        ]} />
-      </div>
-      <div className="rounded-2xl border p-3 sm:p-4">
-        {/* owner 2026-10-21: "ของขั้นก่อน" on every row took too much room — said once, in the ⓘ */}
-        <p className="mb-3 flex items-center gap-1 text-sm font-semibold">Funnel<InfoTip text={tx("ตัวเลขในแท่ง = จำนวน Lead ที่ผ่านขั้นนั้น · % ทางขวา = ผ่านมาจากขั้นก่อนกี่ % · นัด = Test หรือ Trial อย่างใดอย่างหนึ่ง · มาจริง = มาอย่างน้อย 1 นัด")} /></p>
-        <LeadFunnel d={d} />
-      </div>
-      <LeadPaths d={d} />
-    </div>
-  )
-}
 
-/**
- * Which way leads went (owner 2026-10-21): Test only / Trial only / Test → Trial / enroll-now — booked, came, no-show,
- * enrolled and the close rate per way, so the two ways can be compared.
- */
-function LeadPaths({ d }: { d: ReportData }) {
-  const rows = d.crm.paths
-  if (!rows.some((r) => r.leads)) return null
-  return (
-    <div className="overflow-x-auto rounded-2xl border p-3 sm:p-4 lg:col-span-2">
-      <p className="mb-2 flex items-center gap-1 text-sm font-semibold">{tx("แยกตามเส้นทาง")}<InfoTip text={tx("มาจริง = มาอย่างน้อย 1 นัด · ไม่มา = พลาดทุกนัด · อัตราปิด = สมัครแล้ว ÷ Lead ในเส้นทางนั้น")} /></p>
-      <table className="w-full min-w-[32rem] text-sm">
-        <thead className="text-xs text-muted-foreground">
-          <tr className="border-b"><th className="py-1.5 text-left font-normal">{tx("เส้นทาง")}</th><th className="text-right font-normal">Lead</th><th className="text-right font-normal">{tx("มาจริง")}</th><th className="text-right font-normal">{tx("ไม่มา")}</th><th className="text-right font-normal">{tx("สมัครแล้ว")}</th><th className="text-right font-normal">{tx("อัตราปิด")}</th></tr>
-        </thead>
-        <tbody className="tabular-nums">
-          {rows.map((r) => (
-            <tr key={r.key} className="border-b border-dashed last:border-0">
-              <td className="py-1.5">{tx(r.label)}</td>
-              <td className="text-right">{fmtNum(r.leads)}</td>
-              <td className="text-right">{r.came === null ? "—" : fmtNum(r.came)}</td>
-              <td className={cn("text-right", r.noShow ? "text-red-600" : "")}>{r.noShow === null ? "—" : fmtNum(r.noShow)}</td>
-              <td className="text-right text-emerald-600">{fmtNum(r.enrolled)}</td>
-              <td className="text-right font-semibold">{fmtPct(r.conversion)}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+        <p className="mt-4 mb-1 flex items-center gap-1 text-xs text-muted-foreground">{tx("แยกตามเส้นทาง — แต่ละขั้นรวมกันเท่ากับตัวเลขด้านบน")}
+          <InfoTip text={tx("มาจริง = มาอย่างน้อย 1 นัด (เช็คชื่อมา หรือบันทึกผลแล้ว) · ไม่มา = พลาดทุกนัด · อัตราปิด = สมัครแล้ว ÷ Lead ในเส้นทางนั้น")} /></p>
+        {paths.map((p) => (
+          <div key={p.key} className={cn("grid items-center gap-x-2 border-b border-dashed py-2 text-sm last:border-0", cols)}>
+            <span className="truncate">{tx(p.label)}</span>
+            {p.steps.map((v, i) => (
+              <span key={i} className={cn("px-3 tabular-nums", v === 0 && "text-muted-foreground", i === f.length - 1 && v && "text-emerald-600")}>
+                {v === null ? <span className="text-muted-foreground">—</span> : fmtNum(v)}
+                {f[i].key === "came" && !!p.noShow && <span className="ml-1.5 text-[11px] text-red-600">{tx("ไม่มา {0}", [fmtNum(p.noShow)])}</span>}
+              </span>
+            ))}
+            <span className="px-3 font-semibold tabular-nums">{fmtPct(p.conversion)}</span>
+          </div>
+        ))}
+      </div>
     </div>
   )
 }

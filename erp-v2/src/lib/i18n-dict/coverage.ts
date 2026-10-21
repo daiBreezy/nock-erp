@@ -727,4 +727,9 @@ export const COVERAGE: Record<string, Entry> = {
   "Test อย่างเดียว": { en: "Test only", ja: "テストのみ" },
   "Trial อย่างเดียว": { en: "Trial only", ja: "体験のみ" },
   "สมัครเลย (ไม่ Test / Trial)": { en: "Enrolled straight away (no Test / Trial)", ja: "即入会（テスト・体験なし）" },
+  "% = จากขั้นก่อน": { en: "% = of the step before", ja: "％＝前の段階から" },
+  "สมัครแล้ว ÷ Lead ใหม่": { en: "Enrolled ÷ new leads", ja: "入会 ÷ 新規リード" },
+  "แยกตามเส้นทาง — แต่ละขั้นรวมกันเท่ากับตัวเลขด้านบน": { en: "By the way they went — each step adds up to the number above", ja: "経路別 — 各段階の合計は上の数字と同じ" },
+  "ยังไม่ได้นัด": { en: "No appointment (yet)", ja: "予約なし（まだ）" },
+  "ทุกเส้นทาง": { en: "All ways", ja: "全経路" },
 }
