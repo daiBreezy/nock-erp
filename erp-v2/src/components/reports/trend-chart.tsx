@@ -21,7 +21,7 @@ export type TrendRow = {
   churn: number | null; renewal: number | null
 }
 
-const C = { active: "#2a78d6", paused: "#f0b429", new: "#1baf7a", returning: "#7c5cd6", lost: "#e34948", net: "var(--color-foreground)", churn: "#e34948", renewal: "#2a78d6" }
+const C = { active: "#2a78d6", paused: "#f0b429", new: "#1baf7a", returning: "#7c5cd6", lost: "#e34948", net: "color-mix(in oklab, var(--color-foreground) 70%, transparent)", churn: "#e34948", renewal: "#2a78d6" }
 
 export const TREND_TITLE: Record<TrendView, string> = { stock: "ยอดคงเหลือ", flow: "เข้า–ออก", rate: "อัตรา" }
 
@@ -43,7 +43,7 @@ export function TrendChart({ rows, view, onView, unit, renewalLabel }: { rows: T
   const yRate = (v: number) => 100 - v * 100
 
   const what = unit === "student" ? tx("นักเรียน") : tx("คอร์ส")
-  const readout: { color: string; label: string; value: string; line?: boolean }[] =
+  const readout: { color: string; label: string; value: string; line?: boolean; dash?: boolean }[] =
     view === "stock" ? [
       { color: C.active, label: "Active", value: fmtNum(r.active) },
       { color: C.paused, label: unit === "student" ? "Pause" : tx("คอร์สที่พัก"), value: fmtNum(r.paused) },
@@ -52,7 +52,7 @@ export function TrendChart({ rows, view, onView, unit, renewalLabel }: { rows: T
       { color: C.new, label: tx("ใหม่"), value: `+${r.newCount}` },
       { color: C.returning, label: tx("กลับมาซื้อใหม่"), value: `+${r.returning}` },
       { color: C.lost, label: "Lost", value: `−${r.lost}` },
-      { color: C.net, label: "Net", value: (() => { const v = r.newCount + r.returning - r.lost; return `${v > 0 ? "+" : ""}${v}` })(), line: true },
+      { color: C.net, label: "Net", value: (() => { const v = r.newCount + r.returning - r.lost; return `${v > 0 ? "+" : ""}${v}` })(), line: true, dash: true },
     ] : [
       { color: C.churn, label: "Churn rate", value: fmtPct(r.churn), line: true },
       { color: C.renewal, label: renewalLabel, value: fmtPct(r.renewal), line: true },
@@ -62,8 +62,8 @@ export function TrendChart({ rows, view, onView, unit, renewalLabel }: { rows: T
     : view === "flow" ? [{ y: 0, t: `+${upMax}` }, { y: zero, t: "0" }, { y: 100, t: `−${downMax}` }]
       : [{ y: 0, t: "100%" }, { y: 50, t: "50%" }, { y: 100, t: "0%" }]
 
-  // owner 2026-10-21: the lines read soft — a smooth curve through the months (gaps where a month has no value)
-  const linePath = (vals: (number | null)[], y: (v: number) => number) => smooth(vals.map((v, i) => (v === null ? null : [x(i), y(v)] as [number, number])))
+  // owner 2026-10-21: straight lines between the months (gaps where a month has no value)
+  const linePath = (vals: (number | null)[], y: (v: number) => number) => straight(vals.map((v, i) => (v === null ? null : [x(i), y(v)] as [number, number])))
 
   return (
     <div className="rounded-2xl border p-3 sm:p-4">
@@ -76,7 +76,9 @@ export function TrendChart({ rows, view, onView, unit, renewalLabel }: { rows: T
       <div className="mb-4 flex flex-wrap gap-1.5">
         {readout.map((p) => (
           <span key={p.label} className="inline-flex h-7 items-center gap-1.5 rounded-full bg-muted/70 px-2.5 text-xs text-muted-foreground">
-            {p.color !== "transparent" && <span className={cn("shrink-0", p.line ? "h-0.5 w-3 rounded-full" : "size-2 rounded-full")} style={{ background: p.color }} />}
+            {p.color !== "transparent" && (p.dash
+              ? <span className="w-3.5 shrink-0 border-t-2 border-dashed" style={{ borderColor: p.color }} />
+              : <span className={cn("shrink-0", p.line ? "h-0.5 w-3 rounded-full" : "size-2 rounded-full")} style={{ background: p.color }} />)}
             {p.label} <span className="font-semibold text-foreground tabular-nums">{p.value}</span>
           </span>
         ))}
@@ -113,7 +115,7 @@ export function TrendChart({ rows, view, onView, unit, renewalLabel }: { rows: T
             {/* lines on top: Net (flow) · Churn + renewal (rate) */}
             {view !== "stock" && (
               <svg className="pointer-events-none absolute inset-0 size-full overflow-visible" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden>
-                {view === "flow" && <path d={linePath(rows.map((v) => v.newCount + v.returning - v.lost), yFlow)} fill="none" stroke={C.net} strokeOpacity={0.55} strokeWidth={1.75} strokeLinecap="round" vectorEffect="non-scaling-stroke" />}
+                {view === "flow" && <path d={linePath(rows.map((v) => v.newCount + v.returning - v.lost), yFlow)} fill="none" stroke={C.net} strokeWidth={1.75} strokeDasharray="5 3" strokeLinejoin="round" vectorEffect="non-scaling-stroke" />}
                 {view === "rate" && <>
                   <path d={linePath(rows.map((v) => v.churn), yRate)} fill="none" stroke={C.churn} strokeWidth={2} strokeLinecap="round" vectorEffect="non-scaling-stroke" />
                   <path d={linePath(rows.map((v) => v.renewal), yRate)} fill="none" stroke={C.renewal} strokeWidth={2} strokeDasharray="5 4" strokeLinecap="round" vectorEffect="non-scaling-stroke" />
@@ -142,16 +144,9 @@ function Dot({ x, y, color, on }: { x: number; y: number; color: string; on: boo
   return <span className="pointer-events-none absolute size-2.5 -translate-x-1/2 -translate-y-1/2 rounded-full ring-2 ring-card" style={{ left: `${x}%`, top: `${y}%`, background: color }} />
 }
 
-/** a smooth line through the points (Catmull-Rom as cubic Béziers); a null breaks the line */
-function smooth(pts: ([number, number] | null)[]) {
-  const runs: [number, number][][] = [[]]
-  for (const p of pts) { if (p) runs[runs.length - 1].push(p); else if (runs[runs.length - 1].length) runs.push([]) }
-  return runs.filter((r) => r.length).map((r) => r.map((p, i) => {
-    if (!i) return `M${p[0]},${p[1]}`
-    const p0 = r[i - 2] ?? r[i - 1], p1 = r[i - 1], p3 = r[i + 1] ?? p
-    const c1 = [p1[0] + (p[0] - p0[0]) / 6, p1[1] + (p[1] - p0[1]) / 6], c2 = [p[0] - (p3[0] - p1[0]) / 6, p[1] - (p3[1] - p1[1]) / 6]
-    return `C${c1[0]},${c1[1]} ${c2[0]},${c2[1]} ${p[0]},${p[1]}`
-  }).join(" ")).join(" ")
+/** a straight line through the points (owner 2026-10-21: no curves); a null breaks the line */
+function straight(pts: ([number, number] | null)[]) {
+  return pts.map((p, i) => (p ? `${i && pts[i - 1] ? "L" : "M"}${p[0]},${p[1]}` : "")).join(" ")
 }
 
 const HOW: Record<TrendView, string> = {
