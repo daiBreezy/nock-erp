@@ -763,7 +763,7 @@ export const COVERAGE: Record<string, Entry> = {
   "แพ็กเกจหมดแล้ว ยังไม่ครบ 30 วัน — ตามให้ต่อก่อนกลายเป็น Lost": { en: "Package ended under 30 days ago — follow up before it becomes Lost", ja: "パッケージ終了後30日未満 — Lostになる前にフォロー" },
   "จ่ายแล้ว แพ็กเกจยังไม่ถึงวันเริ่ม": { en: "Paid, the package hasn't started yet", ja: "支払済、パッケージ開始前" },
   "แพ็กเกจหมดเกิน 30 วันแล้วไม่ซื้อต่อ": { en: "Package ended 30+ days ago, not bought again", ja: "パッケージ終了後30日以上、継続なし" },
-  "ต้นช่วง {0} · เข้ามา {1}": { en: "At the start {0} · came in {1}", ja: "期首 {0} · 流入 {1}" },
+  "ต้นช่วง {0} · เข้ามา {1}": { en: "Start {0} · in {1}", ja: "期首 {0} · 流入 {1}" },
   "สิ้นช่วง": { en: "End of period", ja: "期末" },
   "Lost ÷ ทุก{0}ในช่วงนี้ (ฝั่งซ้ายของ Sankey)": { en: "Lost ÷ every {0} in this period (the Sankey's left side)", ja: "Lost ÷ 期間内のすべての{0}（Sankeyの左側）" },
   "{0} → {1}: {2} {4} ({3}% ของ {0})": { en: "{0} → {1}: {2} {4} ({3}% of {0})", ja: "{0} → {1}：{2}{4}（{0}の{3}%）" },

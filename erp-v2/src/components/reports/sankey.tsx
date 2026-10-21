@@ -60,25 +60,33 @@ export function Sankey({ columns, flows, total, heads, size = { w: 1000, h: 380 
   for (const l of [...links].sort((a, b) => order(a.f.col, a.f.from) - order(b.f.col, b.f.from))) { const b = box.get(`${l.f.col + 1}|${l.f.to}`)!; l.y1 = b.y + b.in + l.h / 2; b.in += l.h }
 
   const on = (l: (typeof links)[number]) => !hover || ("link" in hover ? hover.link === l.i : (l.f.col === hover.col && l.f.from === hover.key) || (l.f.col + 1 === hover.col && l.f.to === hover.key))
-  const label = (ci: number, key: string) => box.get(`${ci}|${key}`)?.node.label ?? key
-  const hint = !hover ? tx("ชี้ที่แถบหรือกล่องเพื่อดูจำนวน")
-    : "link" in hover ? (() => { const l = links.find((x) => x.i === hover.link)!; const from = box.get(`${l.f.col}|${l.f.from}`)!.node
-      return `${from.label} → ${label(l.f.col + 1, l.f.to)} · ${fmtNum(l.f.value)} ${tx(unit)} · ${Math.round((l.f.value / from.value) * 100)}%` })()
+  // what's hovered: its colour(s) and one short line — "from → to · count · % of from" / "box · count · % of all"
+  const hint: { colors: string[]; text: string } | null = !hover ? null
+    : "link" in hover ? (() => { const l = links.find((x) => x.i === hover.link)!; const from = box.get(`${l.f.col}|${l.f.from}`)!.node, to = box.get(`${l.f.col + 1}|${l.f.to}`)!.node
+      return { colors: [from.color, to.color], text: `${from.label} → ${to.label} · ${fmtNum(l.f.value)} ${tx(unit)} · ${Math.round((l.f.value / from.value) * 100)}%` } })()
       : (() => { const n = box.get(`${hover.col}|${hover.key}`)!.node
-        return `${n.label} · ${fmtNum(n.value)} ${tx(unit)} · ${Math.round((n.value / total) * 100)}%` })()
+        return { colors: [n.color], text: `${n.label} · ${fmtNum(n.value)} ${tx(unit)} · ${Math.round((n.value / total) * 100)}%` } })()
 
   return (
     <div>
-      {/* owner 2026-10-21: one short line, never wrapping — "from → to · count · % of from" / "box · count · % of all";
-          what a box means is in its own tooltip (hover the box) */}
-      <p className="mb-2 h-5 truncate text-sm text-muted-foreground">{hint}</p>
+      {/* owner 2026-10-21: one short line, never wrapping; while something is hovered it sits in a frame of that thing's
+          colour (a band: from-colour edge, both colours as dots). What a box means is in its own tooltip (hover the box). */}
+      <div className="mb-2 flex h-7 items-center">
+        {hint ? (
+          <span className="inline-flex h-7 max-w-full min-w-0 items-center gap-1.5 rounded-full border px-2.5 text-sm"
+            style={{ borderColor: hint.colors[0], background: `color-mix(in oklab, ${hint.colors[hint.colors.length - 1]} 8%, transparent)` }}>
+            {hint.colors.map((c, i) => <span key={i} className="size-2 shrink-0 rounded-full" style={{ background: c }} />)}
+            <span className="truncate">{hint.text}</span>
+          </span>
+        ) : <span className="truncate text-sm text-muted-foreground">{tx("ชี้ที่แถบหรือกล่องเพื่อดูจำนวน")}</span>}
+      </div>
       <div className="-mx-1 overflow-x-auto px-1">
         {heads && (
           <div className={cn("relative mb-1 h-[4.75rem]", minWidth)}>
             {heads.map((h, ci) => {
               const last = ci === columns.length - 1
               return (
-                <div key={ci} className={cn("absolute top-0 w-[28%]", last && "text-right")}
+                <div key={ci} className={cn("absolute top-0 whitespace-nowrap [&_p]:truncate", columns.length > 2 ? "w-[28%]" : "w-[48%]", last && "text-right")}
                   style={last ? { right: `${((W - xOf(ci) - NW) / W) * 100}%` } : { left: `${(xOf(ci) / W) * 100}%` }}>{h}</div>
               )
             })}

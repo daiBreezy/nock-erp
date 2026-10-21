@@ -297,7 +297,7 @@ function StockSection({ stats, flow, unit, periodLabel }: { stats: Figure[]; flo
       <div className="mt-auto">
         <Sankey total={flow.total} unit={unit} name={unit === "คน" ? "นักเรียน" : "คอร์ส"} size={{ w: 560, h: 260 }} minWidth="min-w-[18rem]"
           heads={[
-            head(tx("ในช่วงนี้ · {0}", [periodLabel]), flow.total, tx(unit), tx("ต้นช่วง {0} · เข้ามา {1}", [fmtNum(flow.left.get("start") ?? 0), fmtNum(came)])),
+            head(periodLabel, flow.total, tx(unit), tx("ต้นช่วง {0} · เข้ามา {1}", [fmtNum(flow.left.get("start") ?? 0), fmtNum(came)])),
             head(today ? tx("วันนี้") : tx("สิ้นช่วง"), flow.right.get("active") ?? 0, tx("เรียนอยู่"),
               <span className={cn("rounded-full px-2 py-0.5 font-semibold", flow.net < 0 ? "bg-red-100 text-red-700" : "bg-emerald-100 text-emerald-700")}>Net {flow.net > 0 ? "+" : flow.net < 0 ? "−" : ""}{Math.abs(flow.net)}</span>, true),
           ]}
