@@ -4,11 +4,12 @@ import { useState } from "react"
 import { monthShort, yearOf } from "@/domain/dates"
 import { tx } from "@/lib/i18n"
 import { cn } from "@/lib/utils"
+import { Segmented } from "@/components/app/page-layout"
 import { fmtNum, fmtPct } from "./charts"
 
 /**
- * The last 12 months under the students' / courses' numbers (owner 2026-10-21) — one chart per section, switched by
- * clicking a number above it (no extra buttons):
+ * The last 12 months under the students' / courses' numbers (owner 2026-10-21) — one chart per section, switched with
+ * the buttons in its header (picked: the view on the left, its legend on the right):
  *  - stock = what's there at each month's end (Active + Pause)
  *  - flow  = what came in (new, came back & bought) above the line, what left (Lost) below it, Net as a line
  *  - rate  = Churn rate and renewal per month
@@ -24,7 +25,7 @@ const C = { active: "#2a78d6", paused: "#f0b429", new: "#1baf7a", returning: "#7
 
 export const TREND_TITLE: Record<TrendView, string> = { stock: "ยอดคงเหลือ", flow: "เข้า–ออก", rate: "อัตรา" }
 
-export function TrendChart({ rows, view, unit, renewalLabel }: { rows: TrendRow[]; view: TrendView; unit: "student" | "course"; renewalLabel: string }) {
+export function TrendChart({ rows, view, onView, unit, renewalLabel }: { rows: TrendRow[]; view: TrendView; onView: (v: TrendView) => void; unit: "student" | "course"; renewalLabel: string }) {
   const [hover, setHover] = useState<number | null>(null)
   const at = hover ?? rows.length - 1
   const r = rows[at]
@@ -66,14 +67,19 @@ export function TrendChart({ rows, view, unit, renewalLabel }: { rows: TrendRow[
   return (
     <div className="rounded-2xl border p-3 sm:p-4">
       {/* the month being read — the hovered one, else the latest */}
-      <div className="mb-3 flex flex-wrap items-baseline gap-x-4 gap-y-1">
-        <p className="text-sm font-semibold">{tx(TREND_TITLE[view])} <span className="font-normal text-muted-foreground">· {what} · {label(r)}{hover === null ? ` (${tx("เดือนล่าสุด")})` : ""}</span></p>
-        {readout.map((p) => (
-          <span key={p.label} className="flex items-center gap-1.5 text-xs text-muted-foreground">
-            {p.color !== "transparent" && <span className={cn("shrink-0", p.line ? "h-0.5 w-3" : "size-2.5 rounded-sm")} style={{ background: p.color }} />}
-            {p.label} <span className="font-semibold text-foreground tabular-nums">{p.value}</span>
-          </span>
-        ))}
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+          <Segmented label={tx("กราฟ")} value={view} onChange={onView} options={(["stock", "flow", "rate"] as const).map((v) => ({ value: v, label: tx(TREND_TITLE[v]) }))} />
+          <p className="text-sm text-muted-foreground">{what} · {label(r)}{hover === null ? ` (${tx("เดือนล่าสุด")})` : ""}</p>
+        </div>
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
+          {readout.map((p) => (
+            <span key={p.label} className="flex items-center gap-1.5 text-xs text-muted-foreground">
+              {p.color !== "transparent" && <span className={cn("shrink-0", p.line ? "h-0.5 w-3" : "size-2.5 rounded-sm")} style={{ background: p.color }} />}
+              {p.label} <span className="font-semibold text-foreground tabular-nums">{p.value}</span>
+            </span>
+          ))}
+        </div>
       </div>
 
       <div className="flex gap-2">

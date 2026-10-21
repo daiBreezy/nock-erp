@@ -175,13 +175,13 @@ function Overview({ d, compare, period, periodLabel, onAllRevenue, onAllStudents
       </div>
 
       {/* owner 2026-10-21: the students' numbers, and under them a 12-month chart picked by clicking a number */}
-      <Panel title={tx("นักเรียน")} hint={tx("ตอนนี้ = วันนี้ · ในช่วงนี้ = {0} — ชี้ ⓘ ที่แต่ละช่องเพื่อดูว่านับอย่างไร · กดตัวเลขเพื่อดูกราฟ 12 เดือนของเรื่องนั้น", [periodLabel])}
+      <Panel title={tx("นักเรียน")} hint={tx("ตอนนี้ = วันนี้ · ในช่วงนี้ = {0} — ชี้ ⓘ ที่แต่ละช่องเพื่อดูว่านับอย่างไร", [periodLabel])}
         action={<button type="button" className="text-xs text-primary" onClick={onAllStudents}>{tx("ดูทั้งหมด ›")}</button>}>
         <StudentOverview d={d} periodLabel={periodLabel} />
       </Panel>
 
       {/* owner 2026-10-21: courses as their own section */}
-      <Panel title={tx("คอร์ส")} hint={tx("ตอนนี้ = วันนี้ · ในช่วงนี้ = {0} — นับทีละคอร์สที่นักเรียนถือ · ชี้ ⓘ ที่แต่ละช่องเพื่อดูว่านับอย่างไร · กดตัวเลขเพื่อดูกราฟ 12 เดือนของเรื่องนั้น", [periodLabel])}>
+      <Panel title={tx("คอร์ส")} hint={tx("ตอนนี้ = วันนี้ · ในช่วงนี้ = {0} — นับทีละคอร์สที่นักเรียนถือ · ชี้ ⓘ ที่แต่ละช่องเพื่อดูว่านับอย่างไร", [periodLabel])}>
         <CourseOverview d={d} periodLabel={periodLabel} />
       </Panel>
 
@@ -280,24 +280,23 @@ function StudentOverview({ d, periodLabel }: { d: ReportData; periodLabel: strin
   const net = f.newCount + f.returning - f.lost
   const ok = d.comparable
   const [view, setView] = useState<TrendView>("flow")
-  const pick = (v: TrendView) => ({ onClick: () => setView(v), on: view === v })
   return (
     <div className="space-y-2">
       <SectionHeads cols={5} periodLabel={periodLabel} />
       {/* owner 2026-10-20: every box the same size, no gaps — column 1 = now, the rest = the period */}
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-flow-col lg:grid-cols-5 lg:grid-rows-2">
-        <Stat {...pick("stock")} label="Total Active" value={fmtNum(d.kpi.active)} info={tx("นักเรียนที่มีแพ็กเกจครอบคลุมวันนี้ และไม่ได้ Pause")} />
-        <Stat {...pick("stock")} label="Pause" value={fmtNum(d.kpi.paused)} tone="text-amber-600" info={tx("นักเรียนที่ลาพักยาว (Pause) อยู่วันนี้ — ไม่นับรวมใน Active")} />
-        <Stat {...pick("stock")} label={tx("Active ต้นช่วง")} value={fmtNum(f.activeAtStart)} info={tx("นักเรียน Active ในวันก่อนเริ่มช่วงนี้")} />
-        <Stat {...pick("flow")} label="Net" value={`${net > 0 ? "+" : ""}${net}`} tone={net < 0 ? "text-red-600" : undefined} info={tx("ใหม่ + กลับมาซื้อใหม่ − Lost = นักเรียนเพิ่มขึ้นสุทธิในช่วงนี้ (Pause ไม่นับ เพราะยังเป็นนักเรียนอยู่)")} />
-        <Stat {...pick("flow")} label={tx("ใหม่")} value={`+${f.newCount}`} tone="text-emerald-600" sub={deltaSub(pctDelta(f.newCount, f.newPrev, ok))} info={tx("ซื้อคอร์สครั้งแรกในช่วงนี้ (นักเรียนที่ Import จากระบบเดิมไม่นับ)")} />
-        <Stat {...pick("flow")} label={tx("กลับมาซื้อใหม่")} value={`+${f.returning}`} tone="text-emerald-600" sub={deltaSub(pctDelta(f.returning, f.returningPrev, ok))} info={tx("เคย Lost (ไม่มีแพ็กเกจเกิน 30 วัน) แล้วกลับมาซื้อคอร์สในช่วงนี้")} />
-        <Stat {...pick("flow")} label="Lost" value={`−${f.lost}`} tone="text-red-600" sub={deltaSub(pctDelta(f.lost, f.lostPrev, ok), true)} info={tx("แพ็กเกจหมดแล้วไม่ต่อภายใน 30 วัน — นับในวันที่ครบ 30 วัน")} />
-        <Stat {...pick("rate")} label="Churn rate" value={fmtPct(f.churn)} tone="text-red-600" sub={ok && f.churnPrev !== null ? <span>{tx("ก่อนหน้า")} {fmtPct(f.churnPrev)}</span> : undefined} info={tx("Lost ÷ (Active ต้นช่วง + ใหม่ + กลับมาซื้อใหม่) — ในบรรดานักเรียนที่อยู่กับเราในช่วงนี้ หายไปกี่ %")} />
-        <Stat {...pick("rate")} label={tx("นักเรียนต่อ")} value={fmtPct(f.renewal)} sub={ok && f.renewalPrev !== null ? <span>{tx("ก่อนหน้า")} {fmtPct(f.renewalPrev)}</span> : undefined} info={tx("นักเรียนที่แพ็กเกจหมดในช่วงนี้ ซื้อต่อกี่ % (นับรวมทุกคอร์สของนักเรียน — ต่อคอร์สไหนก็นับว่าต่อ)")} />
-        <Stat {...pick("stock")} label="Returning Student" value={fmtNum(f.backStudents)} tone="text-sky-700" sub={deltaSub(pctDelta(f.backStudents, f.backStudentsPrev, ok))} info={tx("ลายาว (ขาด / ลา ติดกัน 3 คาบขึ้นไป) หรือ Pause แล้วกลับมาเรียนในช่วงนี้")} />
+        <Stat card label="Total Active" value={fmtNum(d.kpi.active)} info={tx("นักเรียนที่มีแพ็กเกจครอบคลุมวันนี้ และไม่ได้ Pause")} />
+        <Stat card label="Pause" value={fmtNum(d.kpi.paused)} tone="text-amber-600" info={tx("นักเรียนที่ลาพักยาว (Pause) อยู่วันนี้ — ไม่นับรวมใน Active")} />
+        <Stat card label={tx("Active ต้นช่วง")} value={fmtNum(f.activeAtStart)} info={tx("นักเรียน Active ในวันก่อนเริ่มช่วงนี้")} />
+        <Stat card label="Net" value={`${net > 0 ? "+" : ""}${net}`} tone={net < 0 ? "text-red-600" : undefined} info={tx("ใหม่ + กลับมาซื้อใหม่ − Lost = นักเรียนเพิ่มขึ้นสุทธิในช่วงนี้ (Pause ไม่นับ เพราะยังเป็นนักเรียนอยู่)")} />
+        <Stat card label={tx("ใหม่")} value={`+${f.newCount}`} tone="text-emerald-600" sub={deltaSub(pctDelta(f.newCount, f.newPrev, ok))} info={tx("ซื้อคอร์สครั้งแรกในช่วงนี้ (นักเรียนที่ Import จากระบบเดิมไม่นับ)")} />
+        <Stat card label={tx("กลับมาซื้อใหม่")} value={`+${f.returning}`} tone="text-emerald-600" sub={deltaSub(pctDelta(f.returning, f.returningPrev, ok))} info={tx("เคย Lost (ไม่มีแพ็กเกจเกิน 30 วัน) แล้วกลับมาซื้อคอร์สในช่วงนี้")} />
+        <Stat card label="Lost" value={`−${f.lost}`} tone="text-red-600" sub={deltaSub(pctDelta(f.lost, f.lostPrev, ok), true)} info={tx("แพ็กเกจหมดแล้วไม่ต่อภายใน 30 วัน — นับในวันที่ครบ 30 วัน")} />
+        <Stat card label="Churn rate" value={fmtPct(f.churn)} tone="text-red-600" sub={ok && f.churnPrev !== null ? <span>{tx("ก่อนหน้า")} {fmtPct(f.churnPrev)}</span> : undefined} info={tx("Lost ÷ (Active ต้นช่วง + ใหม่ + กลับมาซื้อใหม่) — ในบรรดานักเรียนที่อยู่กับเราในช่วงนี้ หายไปกี่ %")} />
+        <Stat card label={tx("นักเรียนต่อ")} value={fmtPct(f.renewal)} sub={ok && f.renewalPrev !== null ? <span>{tx("ก่อนหน้า")} {fmtPct(f.renewalPrev)}</span> : undefined} info={tx("นักเรียนที่แพ็กเกจหมดในช่วงนี้ ซื้อต่อกี่ % (นับรวมทุกคอร์สของนักเรียน — ต่อคอร์สไหนก็นับว่าต่อ)")} />
+        <Stat card label="Returning Student" value={fmtNum(f.backStudents)} tone="text-sky-700" sub={deltaSub(pctDelta(f.backStudents, f.backStudentsPrev, ok))} info={tx("ลายาว (ขาด / ลา ติดกัน 3 คาบขึ้นไป) หรือ Pause แล้วกลับมาเรียนในช่วงนี้")} />
       </div>
-      <TrendChart rows={d.courseFlow.trend.map((m) => ({ key: m.key, month: m.month, ...m.student }))} view={view} unit="student" renewalLabel={tx("นักเรียนต่อ")} />
+      <TrendChart rows={d.courseFlow.trend.map((m) => ({ key: m.key, month: m.month, ...m.student }))} view={view} onView={setView} unit="student" renewalLabel={tx("นักเรียนต่อ")} />
     </div>
   )
 }
@@ -322,25 +321,24 @@ function CourseOverview({ d, periodLabel }: { d: ReportData; periodLabel: string
   const ok = d.comparable
   const net = c.newCount + c.returning - c.lost
   const [view, setView] = useState<TrendView>("flow")
-  const pick = (v: TrendView) => ({ onClick: () => setView(v), on: view === v })
   return (
     <div className="space-y-2">
       <SectionHeads cols={6} periodLabel={periodLabel} />
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-flow-col lg:grid-cols-6 lg:grid-rows-2">
-        <Stat {...pick("stock")} label={tx("คอร์ส Active")} value={fmtNum(c.active)} info={tx("คอร์สที่มีแพ็กเกจครอบคลุมวันนี้ และยังเรียนอยู่ (ไม่ได้พัก)")} />
-        <Stat {...pick("stock")} label={tx("คอร์สที่พัก")} value={fmtNum(c.paused)} tone="text-amber-600" info={tx("คอร์สที่ยังมีแพ็กเกจ แต่ไม่ได้เรียน (ลา / ขาด) ติดกัน 3 คาบขึ้นไป หรือนักเรียน Pause ทับวันเรียนของคอร์สนั้น — คอร์สอื่นที่ยังเรียนอยู่ไม่นับ")} />
-        <Stat {...pick("stock")} label={tx("Active ต้นช่วง")} value={fmtNum(c.activeAtStart)} info={tx("คอร์สที่มีแพ็กเกจในวันก่อนเริ่มช่วงนี้")} />
-        <Stat {...pick("flow")} label="Net" value={`${net > 0 ? "+" : ""}${net}`} tone={net < 0 ? "text-red-600" : undefined} info={tx("ใหม่ + กลับมาซื้อใหม่ − Lost (นับเป็นคอร์ส)")} />
-        <Stat {...pick("flow")} label={tx("ใหม่")} value={`+${c.newCount}`} tone="text-emerald-600" sub={deltaSub(pctDelta(c.newCount, c.prev.newCount, ok))} info={tx("ซื้อคอร์สนั้นเป็นครั้งแรก (เช่น เรียนคณิตอยู่ แล้วซื้ออังกฤษเพิ่ม = อังกฤษใหม่)")} />
-        <Stat {...pick("flow")} label={tx("กลับมาซื้อใหม่")} value={`+${c.returning}`} tone="text-emerald-600" sub={deltaSub(pctDelta(c.returning, c.prev.returning, ok))} info={tx("คอร์สที่เคย Lost แล้วกลับมาซื้อคอร์สเดิมอีก")} />
-        <Stat {...pick("flow")} label="Lost" value={`−${c.lost}`} tone="text-red-600" sub={deltaSub(pctDelta(c.lost, c.prev.lost, ok), true)} info={tx("แพ็กเกจของคอร์สนั้นหมด แล้วไม่ซื้อคอร์สเดิมต่อภายใน 30 วัน — แม้นักเรียนยังเรียนคอร์สอื่นอยู่")} />
-        <Stat {...pick("rate")} label="Churn rate" value={fmtPct(c.churn)} tone="text-red-600" info={tx("Lost ÷ (Active ต้นช่วง + ใหม่ + กลับมาซื้อใหม่) — นับเป็นคอร์ส")} />
-        <Stat {...pick("rate")} label={tx("คอร์สต่อ")} value={fmtPct(c.renewal)} sub={ok && c.prev.renewal !== null ? <span>{tx("ก่อนหน้า")} {fmtPct(c.prev.renewal)}</span> : undefined} info={tx("แพ็กเกจของคอร์สที่หมดในช่วงนี้ ซื้อคอร์สเดิมต่อกี่ % — กลับมาเรียนหลังพักไม่ใช่การต่อ (นับใน Returning Course)")} />
-        <Stat {...pick("flow")} label="Course Actual buy" value={fmtNum(c.bought)} sub={deltaSub(pctDelta(c.bought, c.boughtPrev, ok))} info={tx("จำนวนคอร์สที่จ่ายเงินแล้วในช่วงนี้ — ทั้งซื้อใหม่และซื้อต่อ (ใบแจ้งหนี้ 1 ใบมีได้หลายคอร์ส)")} />
-        <Stat {...pick("stock")} label="Returning Course" value={fmtNum(f.backCourses)} tone="text-sky-700" sub={deltaSub(pctDelta(f.backCourses, f.backCoursesPrev, ok))} info={tx("คอร์สที่พัก (ไม่ได้เรียน ติดกัน 3 คาบขึ้นไป) แล้วกลับมาเรียนในช่วงนี้")} />
-        <Stat {...pick("stock")} label={tx("คอร์ส / นักเรียน")} value={c.studentsActive ? (c.active / c.studentsActive).toFixed(2) : "—"} info={tx("คอร์ส Active ÷ นักเรียน Active — นักเรียนหนึ่งคนเรียนเฉลี่ยกี่คอร์ส")} />
+        <Stat card label={tx("คอร์ส Active")} value={fmtNum(c.active)} info={tx("คอร์สที่มีแพ็กเกจครอบคลุมวันนี้ และยังเรียนอยู่ (ไม่ได้พัก)")} />
+        <Stat card label={tx("คอร์สที่พัก")} value={fmtNum(c.paused)} tone="text-amber-600" info={tx("คอร์สที่ยังมีแพ็กเกจ แต่ไม่ได้เรียน (ลา / ขาด) ติดกัน 3 คาบขึ้นไป หรือนักเรียน Pause ทับวันเรียนของคอร์สนั้น — คอร์สอื่นที่ยังเรียนอยู่ไม่นับ")} />
+        <Stat card label={tx("Active ต้นช่วง")} value={fmtNum(c.activeAtStart)} info={tx("คอร์สที่มีแพ็กเกจในวันก่อนเริ่มช่วงนี้")} />
+        <Stat card label="Net" value={`${net > 0 ? "+" : ""}${net}`} tone={net < 0 ? "text-red-600" : undefined} info={tx("ใหม่ + กลับมาซื้อใหม่ − Lost (นับเป็นคอร์ส)")} />
+        <Stat card label={tx("ใหม่")} value={`+${c.newCount}`} tone="text-emerald-600" sub={deltaSub(pctDelta(c.newCount, c.prev.newCount, ok))} info={tx("ซื้อคอร์สนั้นเป็นครั้งแรก (เช่น เรียนคณิตอยู่ แล้วซื้ออังกฤษเพิ่ม = อังกฤษใหม่)")} />
+        <Stat card label={tx("กลับมาซื้อใหม่")} value={`+${c.returning}`} tone="text-emerald-600" sub={deltaSub(pctDelta(c.returning, c.prev.returning, ok))} info={tx("คอร์สที่เคย Lost แล้วกลับมาซื้อคอร์สเดิมอีก")} />
+        <Stat card label="Lost" value={`−${c.lost}`} tone="text-red-600" sub={deltaSub(pctDelta(c.lost, c.prev.lost, ok), true)} info={tx("แพ็กเกจของคอร์สนั้นหมด แล้วไม่ซื้อคอร์สเดิมต่อภายใน 30 วัน — แม้นักเรียนยังเรียนคอร์สอื่นอยู่")} />
+        <Stat card label="Churn rate" value={fmtPct(c.churn)} tone="text-red-600" info={tx("Lost ÷ (Active ต้นช่วง + ใหม่ + กลับมาซื้อใหม่) — นับเป็นคอร์ส")} />
+        <Stat card label={tx("คอร์สต่อ")} value={fmtPct(c.renewal)} sub={ok && c.prev.renewal !== null ? <span>{tx("ก่อนหน้า")} {fmtPct(c.prev.renewal)}</span> : undefined} info={tx("แพ็กเกจของคอร์สที่หมดในช่วงนี้ ซื้อคอร์สเดิมต่อกี่ % — กลับมาเรียนหลังพักไม่ใช่การต่อ (นับใน Returning Course)")} />
+        <Stat card label="Course Actual buy" value={fmtNum(c.bought)} sub={deltaSub(pctDelta(c.bought, c.boughtPrev, ok))} info={tx("จำนวนคอร์สที่จ่ายเงินแล้วในช่วงนี้ — ทั้งซื้อใหม่และซื้อต่อ (ใบแจ้งหนี้ 1 ใบมีได้หลายคอร์ส)")} />
+        <Stat card label="Returning Course" value={fmtNum(f.backCourses)} tone="text-sky-700" sub={deltaSub(pctDelta(f.backCourses, f.backCoursesPrev, ok))} info={tx("คอร์สที่พัก (ไม่ได้เรียน ติดกัน 3 คาบขึ้นไป) แล้วกลับมาเรียนในช่วงนี้")} />
+        <Stat card label={tx("คอร์ส / นักเรียน")} value={c.studentsActive ? (c.active / c.studentsActive).toFixed(2) : "—"} info={tx("คอร์ส Active ÷ นักเรียน Active — นักเรียนหนึ่งคนเรียนเฉลี่ยกี่คอร์ส")} />
       </div>
-      <TrendChart rows={c.trend.map((m) => ({ key: m.key, month: m.month, ...m.course }))} view={view} unit="course" renewalLabel={tx("คอร์สต่อ")} />
+      <TrendChart rows={c.trend.map((m) => ({ key: m.key, month: m.month, ...m.course }))} view={view} onView={setView} unit="course" renewalLabel={tx("คอร์สต่อ")} />
     </div>
   )
 }
@@ -353,11 +351,11 @@ function LeadOverview({ d }: { d: ReportData }) {
   return (
     <div className="space-y-4">
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
-        <Stat label="Total Lead" value={fmtNum(l.total)} sub={deltaSub(pctDelta(l.total, l.prev.total, ok))} info={tx("Lead ใหม่ที่เข้ามาในช่วงนี้ (ไม่นับ Lead ตามกลับนักเรียนเก่า)")} />
-        <Stat label="Test" value={fmtNum(l.test)} sub={l.total ? <span>{tx("{0} ของ Lead", [fmtPct(l.test / l.total)])}</span> : undefined} info={tx("Lead ที่นัด Test (สอบวัดระดับ) แล้ว — ไม่นับคนที่สมัครเลย")} />
-        <Stat label="Trial" value={fmtNum(l.trial)} sub={l.total ? <span>{tx("{0} ของ Lead", [fmtPct(l.trial / l.total)])}</span> : undefined} info={tx("Lead ที่นัดทดลองเรียนแล้ว — ไม่นับคนที่สมัครเลย")} />
-        <Stat label={tx("สมัครแล้ว")} value={fmtNum(l.enrolled)} tone="text-emerald-600" sub={deltaSub(pctDelta(l.enrolled, l.prev.enrolled, ok))} info={tx("Lead ในช่วงนี้ที่กลายเป็นนักเรียนแล้ว")} />
-        <Stat label="Conversion rate" value={fmtPct(l.conversion)} sub={ok && l.prev.conversion !== null ? <span>{tx("ก่อนหน้า")} {fmtPct(l.prev.conversion)}</span> : undefined} info={tx("สมัครแล้ว ÷ Total Lead")} />
+        <Stat card label="Total Lead" value={fmtNum(l.total)} sub={deltaSub(pctDelta(l.total, l.prev.total, ok))} info={tx("Lead ใหม่ที่เข้ามาในช่วงนี้ (ไม่นับ Lead ตามกลับนักเรียนเก่า)")} />
+        <Stat card label="Test" value={fmtNum(l.test)} sub={l.total ? <span>{tx("{0} ของ Lead", [fmtPct(l.test / l.total)])}</span> : undefined} info={tx("Lead ที่นัด Test (สอบวัดระดับ) แล้ว — ไม่นับคนที่สมัครเลย")} />
+        <Stat card label="Trial" value={fmtNum(l.trial)} sub={l.total ? <span>{tx("{0} ของ Lead", [fmtPct(l.trial / l.total)])}</span> : undefined} info={tx("Lead ที่นัดทดลองเรียนแล้ว — ไม่นับคนที่สมัครเลย")} />
+        <Stat card label={tx("สมัครแล้ว")} value={fmtNum(l.enrolled)} tone="text-emerald-600" sub={deltaSub(pctDelta(l.enrolled, l.prev.enrolled, ok))} info={tx("Lead ในช่วงนี้ที่กลายเป็นนักเรียนแล้ว")} />
+        <Stat card label="Conversion rate" value={fmtPct(l.conversion)} sub={ok && l.prev.conversion !== null ? <span>{tx("ก่อนหน้า")} {fmtPct(l.prev.conversion)}</span> : undefined} info={tx("สมัครแล้ว ÷ Total Lead")} />
       </div>
     </div>
   )
@@ -465,16 +463,14 @@ function SplitRanks<T extends { id: string; name: string }>({ rows, cols }: { ro
   )
 }
 
-function Stat({ label, value, tone, sub, info, onClick, on }: { label: string; value: string; tone?: string; sub?: React.ReactNode; info?: string; onClick?: () => void; on?: boolean }) {
-  // owner 2026-10-21: a number under which a chart sits is clicked to show its chart — the chart's numbers are ringed
-  // a div acting as a button — the ⓘ inside is a button of its own
+function Stat({ label, value, tone, sub, info, card }: { label: string; value: string; tone?: string; sub?: React.ReactNode; info?: string
+  /** owner 2026-10-21: the Overview's students / courses / leads read like the period strip above them (same card, same size) */
+  card?: boolean }) {
   return (
-    <div role={onClick ? "button" : undefined} tabIndex={onClick ? 0 : undefined} onClick={onClick}
-      onKeyDown={onClick ? (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onClick() } } : undefined}
-      className={cn("flex h-full flex-col justify-center rounded-2xl bg-muted/50 p-3 text-left", onClick && "cursor-pointer transition-colors hover:bg-muted", on && "bg-primary/5 ring-2 ring-primary/60 hover:bg-primary/10")}>
+    <div className={cn("flex h-full flex-col justify-center rounded-2xl p-3", card ? "min-h-24 bg-card ring-1 ring-foreground/10" : "bg-muted/50")}>
       <p className="flex items-center gap-1 text-xs text-muted-foreground">{label}{info && <InfoTip text={info} />}</p>
-      <p className={cn("text-2xl font-semibold tabular-nums", tone)}>{value}</p>
-      {sub && <p className="flex flex-wrap items-center gap-1 text-[11px] text-muted-foreground">{sub}</p>}
+      <p className={cn("font-semibold tabular-nums", card ? "text-lg" : "text-2xl", tone)}>{value}</p>
+      {sub && <p className={cn("flex flex-wrap items-center gap-1 text-muted-foreground", card ? "text-[10px]" : "text-[11px]")}>{sub}</p>}
     </div>
   )
 }
