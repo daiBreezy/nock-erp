@@ -218,6 +218,13 @@ export function useReports(branchIds: string[], period: R.PeriodKey, custom?: R.
         churn: R.churnRate(R.countEvents(events, range, "lost"), activeAtStart, R.countEvents(events, range, "new") + R.countEvents(events, range, "returning")),
         churnPrev: R.churnRate(R.countEvents(events, prev, "lost"), countState(addDays(prev.from, -1), "active"), R.countEvents(events, prev, "new") + R.countEvents(events, prev, "returning")),
       },
+      // owner 2026-10-21: courses as their own section — per course a student holds
+      courseFlow: (() => {
+        const byStudentClass = new Map<string, string>()
+        for (const e of ents) for (const c of e.classIds) byStudentClass.set(`${e.studentId}|${c}`, e.courseId)
+        const cf = R.courseFlow({ students, entitlements: ents, sessions, attendance: s.attendance, leaves, today, range, classCourse: (sid, cls) => byStudentClass.get(`${sid}|${cls}`) ?? null })
+        return { ...cf, prev: cf.in(prev), studentsActive: active, bought: R.coursesBought(rows, range), boughtPrev: R.coursesBought(rows, prev) }
+      })(),
       // owner 2026-10-20: the lead section on the Overview — and who turns leads into students
       leadSummary: (() => {
         const cur = R.leadSummary(leads, range), before = R.leadSummary(leads, prev)

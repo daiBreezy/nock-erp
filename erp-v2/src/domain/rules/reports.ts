@@ -950,3 +950,81 @@ export function churnRate(lost: number, activeAtStart: number, cameIn: number) {
   const base = activeAtStart + cameIn
   return base ? lost / base : null
 }
+
+/**
+ * Courses as their own section (owner 2026-10-21) — the same questions as for students, per course a student holds:
+ *  - new = the first time this student bought this course · came back & bought = bought it again after it was lost
+ *  - lost = its package ended and the same course wasn't bought again within LOST_AFTER_DAYS (even if the student
+ *    still studies another course) · renewal = of the course packages that ended, how many were followed by the next
+ *  - paused (today) = a course still paid for but not studied: RETURN_AFTER_SESSIONS+ of its sessions in a row missed
+ *    (leave / absent), or the student is on a Pause that covers its classes — a course still attended is not paused
+ *  - churn = lost ÷ (active at the start + new + came back)
+ * Imported students' first course isn't "new" (bought before the system).
+ */
+export function courseFlow(ctx: {
+  students: Pick<Student, "id" | "imported">[]
+  entitlements: Pick<Entitlement, "studentId" | "courseId" | "from" | "to">[]
+  sessions: Pick<Session, "id" | "classId" | "date" | "start" | "studentIds" | "cancelled">[]
+  attendance: Pick<Attendance, "sessionId" | "studentId" | "status">[]
+  leaves: Pick<StudentLeave, "studentId" | "from" | "to">[]
+  classCourse: (studentId: ID, classId: ID) => ID | null
+  today: DateStr
+  range: Range
+}) {
+  const imported = new Set(ctx.students.filter((s) => s.imported).map((s) => s.id))
+  const ids = new Set(ctx.students.map((s) => s.id))
+  type Ev = { date: DateStr; kind: "new" | "returning" | "lost" | "renewed" }
+  const events: Ev[] = []
+  const spansOf = new Map<string, { from: DateStr; to: DateStr }[]>()
+  for (const e of ctx.entitlements) {
+    if (!ids.has(e.studentId)) continue
+    const k = `${e.studentId}|${e.courseId}`
+    spansOf.set(k, [...(spansOf.get(k) ?? []), { from: e.from, to: e.to }])
+  }
+  for (const [k, spans] of spansOf) {
+    const sid = k.split("|")[0]
+    spans.sort((a, b) => a.from.localeCompare(b.from))
+    if (!imported.has(sid)) events.push({ date: spans[0].from, kind: "new" })
+    let coveredTo: DateStr | null = null
+    for (const sp of spans) {
+      if (coveredTo && sp.from > addDays(coveredTo, LOST_AFTER_DAYS)) {
+        events.push({ date: addDays(coveredTo, LOST_AFTER_DAYS), kind: "lost" }, { date: sp.from, kind: "returning" })
+      } else if (coveredTo && sp.from > coveredTo) events.push({ date: sp.from, kind: "renewed" })
+      if (!coveredTo || sp.to > coveredTo) coveredTo = sp.to
+    }
+    if (coveredTo && addDays(coveredTo, LOST_AFTER_DAYS) <= ctx.today) events.push({ date: addDays(coveredTo, LOST_AFTER_DAYS), kind: "lost" })
+  }
+  const count = (kind: Ev["kind"], r: Range) => events.filter((e) => e.kind === kind && inRange(e.date, r)).length
+  const activeOn = (date: DateStr) => [...spansOf.entries()].filter(([, sp]) => sp.some((x) => x.from <= date && date <= x.to)).map(([k]) => k)
+
+  // which active courses aren't being studied today
+  const mark = new Map(ctx.attendance.map((a) => [`${a.sessionId}|${a.studentId}`, a.status]))
+  const pausedKeys = new Set<string>()
+  // each student's past sessions, once — per course below
+  const bySid = new Map<string, typeof ctx.sessions>()
+  for (const x of ctx.sessions) {
+    if (x.cancelled || !x.classId || x.date > ctx.today) continue
+    for (const sid of x.studentIds) if (ids.has(sid)) bySid.set(sid, [...(bySid.get(sid) ?? []), x])
+  }
+  for (const k of activeOn(ctx.today)) {
+    const [sid, cid] = k.split("|")
+    const mine = (bySid.get(sid) ?? []).filter((x) => ctx.classCourse(sid, x.classId!) === cid)
+      .sort((a, b) => (a.date + a.start).localeCompare(b.date + b.start))
+    const onPause = ctx.leaves.some((l) => l.studentId === sid && l.from <= ctx.today && ctx.today <= l.to && mine.some((x) => x.date >= l.from))
+    const marked = mine.map((x) => mark.get(`${x.id}|${sid}`)).filter((st): st is Attendance["status"] => !!st)
+    const tail = marked.slice(-RETURN_AFTER_SESSIONS)
+    if (onPause || (tail.length === RETURN_AFTER_SESSIONS && tail.every((st) => st !== "present"))) pausedKeys.add(k)
+  }
+  const active = activeOn(ctx.today).filter((k) => !pausedKeys.has(k)).length
+  const activeAtStart = activeOn(addDays(ctx.range.from, -1)).length
+  const n = (kind: Ev["kind"]) => count(kind, ctx.range)
+  const renewed = n("renewed"), lost = n("lost")
+  return {
+    active, paused: pausedKeys.size, activeAtStart,
+    newCount: n("new"), returning: n("returning"), lost,
+    renewal: renewed + lost ? renewed / (renewed + lost) : null,
+    churn: churnRate(lost, activeAtStart, n("new") + n("returning")),
+    /** the same for another period — for the vs-before line */
+    in: (r: Range) => { const rn = count("renewed", r), ls = count("lost", r); return { newCount: count("new", r), returning: count("returning", r), lost: ls, renewal: rn + ls ? rn / (rn + ls) : null } },
+  }
+}

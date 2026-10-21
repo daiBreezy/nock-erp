@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest"
-import { churnRate, coursesBought, leadSummary, returningIn, type RevenueRow } from "./reports"
+import { churnRate, courseFlow, coursesBought, leadSummary, returningIn, type RevenueRow } from "./reports"
 
 // owner 2026-10-20: Reports › Overview — returning students / courses, courses bought, the lead section
 const R = { from: "2026-10-01", to: "2026-10-31" }
@@ -48,5 +48,39 @@ describe("churn rate", () => {
   it("Lost ÷ (active at the start + who came in) — never over 100% on a long period", () => {
     expect(churnRate(42, 27, 62)).toBeCloseTo(42 / 89)
     expect(churnRate(0, 0, 0)).toBeNull()
+  })
+})
+
+describe("courses as their own section", () => {
+  const students = [{ id: "s1" }]
+  const classCourse = (_: string, cls: string) => (cls === "m" ? "math" : "eng")
+  it("a course ended and not bought again is lost even if the student keeps another course", () => {
+    const f = (today: string) => courseFlow({
+      students, today, range: { from: "2026-10-01", to: "2026-10-31" }, sessions: [], attendance: [], leaves: [], classCourse,
+      entitlements: [{ studentId: "s1", courseId: "math", from: "2026-07-01", to: "2026-09-15" }, { studentId: "s1", courseId: "eng", from: "2026-07-01", to: "2026-12-31" }],
+    })
+    const r = f("2026-10-20")
+    expect(r).toMatchObject({ lost: 1, active: 1 }) // math lost on 15 Oct; eng still going
+  })
+  it("bought again after a gap = came back & bought; right after the end = renewed", () => {
+    const r = courseFlow({
+      students, today: "2026-10-31", range: { from: "2026-10-01", to: "2026-10-31" }, sessions: [], attendance: [], leaves: [], classCourse,
+      entitlements: [
+        { studentId: "s1", courseId: "math", from: "2026-06-01", to: "2026-08-15" }, { studentId: "s1", courseId: "math", from: "2026-10-05", to: "2026-12-31" },
+        { studentId: "s1", courseId: "eng", from: "2026-08-01", to: "2026-10-03" }, { studentId: "s1", courseId: "eng", from: "2026-10-04", to: "2026-12-31" },
+      ],
+    })
+    expect(r.returning).toBe(1)
+    expect(r.renewal).toBe(1) // the eng renewal in October; math's loss fell in September
+  })
+  it("a course not studied for 3 sessions in a row is paused — the other one still attended is not", () => {
+    const days = ["2026-10-06", "2026-10-13", "2026-10-20"]
+    const sessions = [...days.map((date, i) => ({ id: `m${i}`, classId: "m", date, start: "16:00", studentIds: ["s1"], cancelled: false })), ...days.map((date, i) => ({ id: `e${i}`, classId: "e", date, start: "17:00", studentIds: ["s1"], cancelled: false }))]
+    const attendance = [...days.map((_, i) => ({ sessionId: `m${i}`, studentId: "s1", status: "present" as const })), ...days.map((_, i) => ({ sessionId: `e${i}`, studentId: "s1", status: "leave" as const }))]
+    const r = courseFlow({
+      students, today: "2026-10-21", range: { from: "2026-10-01", to: "2026-10-31" }, sessions, attendance, leaves: [], classCourse,
+      entitlements: [{ studentId: "s1", courseId: "math", from: "2026-09-01", to: "2026-12-31" }, { studentId: "s1", courseId: "eng", from: "2026-09-01", to: "2026-12-31" }],
+    })
+    expect(r).toMatchObject({ active: 1, paused: 1 })
   })
 })
