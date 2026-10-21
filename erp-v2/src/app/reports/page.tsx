@@ -19,7 +19,7 @@ import { useReports, type ReportData } from "@/components/reports/use-reports"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { addDays, fmtDate, fmtMoney, monthShort, toDateStr, weekdayShort, yearOf } from "@/domain/dates"
-import { can, canCompareBranches, crossBranch, reportBranchIds, ROLE_LABEL } from "@/domain/rules/permissions"
+import { can, canCompareBranches, crossBranch, reportBranchIds } from "@/domain/rules/permissions"
 import { BUSINESS_SHORT, COMPARE_LABEL, LEAD_PATHS, PERIODS, type FlowEntry, type FlowExit, type stockFlow, scopeBranchIds, type PeriodKey, type Range, type SchoolGroup, type SchoolRow, schoolsByGroup } from "@/domain/rules/reports"
 import { LEAD_SOURCE_LABEL } from "@/domain/rules/crm"
 import { reasonLabel } from "@/domain/rules/loss"
@@ -32,6 +32,9 @@ import * as Survey from "@/domain/rules/survey"
 import { cn } from "@/lib/utils"
 import { useStore } from "@/store/store"
 import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card"
+import { HUE, tagHex } from "@/components/app/tags"
+import { RoleChip, type ROLE_TONE } from "@/components/app/badges"
+import { subjectHex } from "@/components/app/subject-color"
 import { tx, uiLang, nm, sj } from "@/lib/i18n"
 
 type Tab = "summary" | "overview" | "revenue" | "students" | "attendance" | "operations" | "crm" | "satisfaction"
@@ -239,7 +242,8 @@ type Figure = { label: string; value: string; tone?: string; sub?: React.ReactNo
   /** the full name when the chip shows a short one (said in the hover) */
   full?: string }
 
-const FLOW_COLOR: Record<FlowEntry | FlowExit, string> = { start: "#2a78d6", new: "#1baf7a", returning: "#7c5cd6", active: "#2a78d6", paused: "#f0b429", grace: "#f97316", future: "#9a9890", lost: "#e34948" }
+// owner 2026-10-21: colours come from the tags (components/app/tags) — the same as the students list's status chips
+const FLOW_COLOR = (k: FlowEntry | FlowExit) => tagHex("studentFlow", k)
 const FLOW_LABEL: Record<FlowEntry | FlowExit, string> = { start: "มีอยู่แล้วต้นช่วง", new: "ใหม่", returning: "กลับมาซื้อใหม่", active: "เรียนอยู่", paused: "พัก", grace: "รอต่อ", future: "ซื้อแล้ว ยังไม่เริ่ม", lost: "Lost" }
 const FLOW_HINT: Partial<Record<FlowEntry | FlowExit, string>> = {
   start: "เรียนอยู่ในวันก่อนเริ่มช่วงนี้ (รวมที่แพ็กเกจเพิ่งหมดไม่ถึง 30 วัน และที่ย้ายมาจากระบบเดิม)",
@@ -257,7 +261,7 @@ const FLOW_HINT: Partial<Record<FlowEntry | FlowExit, string>> = {
  */
 function StockSection({ stats, flow, unit, periodLabel }: { stats: Figure[]; flow: ReturnType<typeof stockFlow>; unit: "คน" | "คอร์ส"; periodLabel: string }) {
   const today = flow.end === toDateStr(useNow(60_000))
-  const node = (k: FlowEntry | FlowExit, m: Map<string, number>) => ({ key: k, label: tx(FLOW_LABEL[k]), value: m.get(k) ?? 0, color: FLOW_COLOR[k], hint: FLOW_HINT[k] && tx(FLOW_HINT[k]!) })
+  const node = (k: FlowEntry | FlowExit, m: Map<string, number>) => ({ key: k, label: tx(FLOW_LABEL[k]), value: m.get(k) ?? 0, color: FLOW_COLOR(k), hint: FLOW_HINT[k] && tx(FLOW_HINT[k]!) })
   const came = (flow.left.get("new") ?? 0) + (flow.left.get("returning") ?? 0)
   const head = (title: string, value: number, label: string, sub: React.ReactNode, right?: boolean) => (
     <div className={cn(right && "text-right")}>
@@ -371,10 +375,17 @@ function LeadOverview({ d }: { d: ReportData }) {
   )
 }
 
-const SANKEY = { source: "#2a78d6", showed: "#1baf7a", enrolled: "#1baf7a", open: "#9a9890", lost: "#e34948" }
+/** owner 2026-10-21: every box in the colour of its tag elsewhere in the system (components/app/tags) — appointments as
+ *  check-ins (came = present, no-show = absent, ahead = an upcoming session), outcomes as CRM stages (enrolled, lost =
+ *  archived, still talking = contact); channels have no tag of their own */
+const SANKEY_COLOR: Record<string, string> = {
+  source: HUE.indigo.hex,
+  came: tagHex("attendance", "present"), no_show: tagHex("attendance", "absent"), booked: tagHex("sessionState", "upcoming"), none: HUE.gray.hex,
+  enrolled: tagHex("leadStage", "enrolled"), open: tagHex("leadStage", "contact"), lost: tagHex("leadStage", "archived"),
+}
 /** owner 2026-10-21: the ways in the colours of the CRM stage tags — Test violet, Trial amber, not booked yet = contact
  *  (sky), enroll-now = closing (orange); both = one colour of its own (teal) */
-const WAY_COLOR: Record<string, string> = { test: "#8b5cf6", trial: "#f59e0b", both: "#14b8a6", direct: "#f97316", none: "#0ea5e9" }
+const WAY_COLOR: Record<string, string> = { test: tagHex("leadStage", "test"), trial: tagHex("leadStage", "trial"), both: HUE.teal.hex, direct: tagHex("leadStage", "closing"), none: tagHex("leadStage", "contact") }
 
 /** The lead pipeline as a Sankey: channel → way → came? → how it ended (rules leadSankey). */
 function LeadSankey({ d, heads }: { d: ReportData; heads: React.ReactNode[] }) {
@@ -389,13 +400,13 @@ function LeadSankey({ d, heads }: { d: ReportData; heads: React.ReactNode[] }) {
   return (
     <Sankey total={sk.total} heads={heads}
       columns={[
-        { title: tx("ช่องทาง"), nodes: nodes(src, [...src.keys()].sort((a, b) => src.get(b)! - src.get(a)!), (k) => LEAD_SOURCE_LABEL[k as keyof typeof LEAD_SOURCE_LABEL] ?? k, () => SANKEY.source) },
+        { title: tx("ช่องทาง"), nodes: nodes(src, [...src.keys()].sort((a, b) => src.get(b)! - src.get(a)!), (k) => LEAD_SOURCE_LABEL[k as keyof typeof LEAD_SOURCE_LABEL] ?? k, () => SANKEY_COLOR.source) },
         { title: tx("เส้นทาง"), nodes: nodes(way, WAY_KEYS, (k) => tx(LEAD_PATHS.find((x) => x.key === k)!.label), (k) => WAY_COLOR[k],
           // owner 2026-10-21: the three ways are separate people — say what "all Test" is
           (k) => k === "test" ? tx("Test ทั้งหมด {0} = อย่างเดียว {1} + ทั้ง Test + Trial {2}", [String((p.test ?? 0) + (p.both ?? 0)), String(p.test ?? 0), String(p.both ?? 0)])
             : k === "trial" ? tx("Trial ทั้งหมด {0} = อย่างเดียว {1} + ทั้ง Test + Trial {2}", [String((p.trial ?? 0) + (p.both ?? 0)), String(p.trial ?? 0), String(p.both ?? 0)]) : undefined) },
-        { title: tx("นัด"), nodes: nodes(showed, Object.keys(SHOWED), (k) => tx(SHOWED[k]), () => SANKEY.showed) },
-        { title: tx("ผล"), nodes: nodes(end, Object.keys(END), (k) => tx(END[k]), (k) => SANKEY[k as "enrolled" | "open" | "lost"]) },
+        { title: tx("นัด"), nodes: nodes(showed, Object.keys(SHOWED), (k) => tx(SHOWED[k]), (k) => SANKEY_COLOR[k]) },
+        { title: tx("ผล"), nodes: nodes(end, Object.keys(END), (k) => tx(END[k]), (k) => SANKEY_COLOR[k]) },
       ]}
       flows={sk.flows} />
   )
@@ -422,7 +433,7 @@ function MembersConversion({ d }: { d: ReportData }) {
                   <tbody>{part.map((m, i) => (
                     <tr key={m.staffId ?? "none"} className="border-t">
                       <td className="py-1.5"><span className="flex items-center gap-2"><Rank n={c * half + i + 1} />{m.staff ? <span className="truncate font-medium">{m.staff.nickname}</span> : <span className="truncate text-muted-foreground">{tx("ยังไม่มีผู้ดูแล")}</span>}</span></td>
-                      <td className="py-1.5"><span className="flex flex-wrap gap-1">{(m.staff?.roles ?? []).filter((r) => r !== "developer" && r !== "driver").map((r) => <span key={r} className={cn("rounded-full px-2 py-0.5 text-[11px] font-medium whitespace-nowrap", ROLE_CHIP[r] ?? "bg-muted text-muted-foreground")}>{ROLE_LABEL[r]}</span>)}</span></td>
+                      <td className="py-1.5"><span className="flex flex-wrap gap-1">{(m.staff?.roles ?? []).filter((r) => r !== "developer" && r !== "driver").map((r) => <RoleChip key={r} role={r as keyof typeof ROLE_TONE} className="text-[11px]" />)}</span></td>
                       <td className="text-right tabular-nums">{m.leads}</td>
                       <td className="text-right text-emerald-600 tabular-nums">{m.enrolled}</td>
                       <td className="pl-4"><span className="flex items-center gap-2"><ShareBar value={m.conversion ?? 0} color="#be123c" /><span className="w-10 shrink-0 text-right tabular-nums">{fmtPct(m.conversion)}</span></span></td>
@@ -475,10 +486,6 @@ function NpsOverview({ d }: { d: ReportData }) {
   )
 }
 
-const ROLE_CHIP: Partial<Record<string, string>> = {
-  admin: "bg-sky-100 text-sky-800", teacher: "bg-emerald-100 text-emerald-800", manager: "bg-violet-100 text-violet-800",
-  area_manager: "bg-violet-100 text-violet-800", director: "bg-amber-100 text-amber-900", super_admin: "bg-amber-100 text-amber-900",
-}
 
 /** Ranked branch rows split into two columns once there are more than five — same layout as revenue by branch. */
 function SplitRanks<T extends { id: string; name: string }>({ rows, cols }: { rows: T[]; cols: { label: string; cell: (r: T) => React.ReactNode }[] }) {
@@ -561,16 +568,17 @@ function SubjectEngine({ d }: { d: ReportData }) {
   return (
     <div className="grid items-center gap-4 sm:grid-cols-[1fr_11rem]">
       <ul className="space-y-2 text-sm">
-        {d.bySubject.map((x, i) => (
+        {d.bySubject.map((x) => (
           <li key={x.subject} className="grid grid-cols-[6rem_2.5rem_1fr_4rem] items-center gap-2">
-            <span className="flex items-center gap-1.5 truncate"><span className="size-2 shrink-0 rounded-full" style={{ background: donutColor(i) }} />{sj(x.subject)}</span>
+            {/* owner 2026-10-21: each subject in its own colour (Settings → System), as on the calendar */}
+            <span className="flex items-center gap-1.5 truncate"><span className="size-2 shrink-0 rounded-full" style={{ background: subjectHex(x.subject) }} />{sj(x.subject)}</span>
             <span className="text-xs text-muted-foreground tabular-nums">{fmtPct(x.share)}</span>
-            <ShareBar value={x.share} color={donutColor(i)} />
+            <ShareBar value={x.share} color={subjectHex(x.subject)} />
             <span className="text-right tabular-nums">{fmtShort(x.amount)}</span>
           </li>
         ))}
       </ul>
-      <Donut parts={d.bySubject.map((x) => ({ label: sj(x.subject), value: x.amount }))} center={fmtShort(total)} sub={tx("ค่าเรียนทุกวิชา")} />
+      <Donut parts={d.bySubject.map((x) => ({ label: sj(x.subject), value: x.amount }))} colors={d.bySubject.map((x) => subjectHex(x.subject))} center={fmtShort(total)} sub={tx("ค่าเรียนทุกวิชา")} />
     </div>
   )
 }
@@ -916,7 +924,8 @@ function SchoolsByBranch({ groups, branches }: { groups: SchoolGroup[]; branches
   )
 }
 
-const MOVE_COLORS = ["#10b981", "#0ea5e9", "#f59e0b", "#dc2626"] // ใหม่ · กลับมาเรียน · Pause · Lost
+// ใหม่ · กลับมาเรียน · Pause · Lost — the student-flow tag colours (components/app/tags)
+const MOVE_COLORS = [tagHex("studentFlow", "new"), tagHex("studentFlow", "returning"), tagHex("studentFlow", "paused"), tagHex("studentFlow", "lost")]
 const periodLabelOf = (d: ReportData) => `${fmtDate(d.range.from)} – ${fmtDate(d.range.to)}`
 
 /** Diverging monthly bars: in (new + returning) above the line, out (lost + long leave) below; hover = the numbers */

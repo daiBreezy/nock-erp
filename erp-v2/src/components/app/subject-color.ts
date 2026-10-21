@@ -45,6 +45,10 @@ export function subjectColor(subject: string): SubjectColor {
   return SUBJECT_PALETTE[subjectColorKey(subject)]
 }
 
+/** the subject's solid colour for chart marks (owner 2026-10-21: a subject is the same colour in Reports as on the calendar) */
+const SUBJECT_HEX: Record<string, string> = { rose: "#f43f5e", orange: "#f97316", amber: "#f59e0b", lime: "#84cc16", emerald: "#10b981", teal: "#14b8a6", sky: "#0ea5e9", indigo: "#6366f1", violet: "#8b5cf6", pink: "#ec4899", slate: "#64748b" }
+export const subjectHex = (subject: string) => SUBJECT_HEX[subjectColorKey(subject)] ?? "#64748b"
+
 /** Grade chip colour by school level */
 export function gradeTone(grade: string) {
   if (/^ม\.[4-6]/.test(grade)) return "bg-pink-100 text-pink-800"

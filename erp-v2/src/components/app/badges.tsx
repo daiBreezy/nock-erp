@@ -4,15 +4,16 @@ import type { SessionState } from "@/domain/rules/scheduling"
 import { STATE_LABEL } from "@/domain/rules/scheduling"
 import { tx } from "@/lib/i18n"
 import { ROLE_LABEL } from "@/domain/rules/permissions"
+import { HUE, TAG_HUE } from "./tags"
 
-// One colour language for statuses across the whole app (UX rule #4).
+// One colour language for statuses across the whole app (UX rule #4) — the hues live in ./tags (owner 2026-10-21).
 export const TONE = {
-  gray: "bg-muted text-muted-foreground",
-  blue: "bg-sky-100 text-sky-800 dark:bg-sky-950 dark:text-sky-200",
-  green: "bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-200",
-  amber: "bg-amber-100 text-amber-900 dark:bg-amber-950 dark:text-amber-200",
-  red: "bg-red-100 text-red-800 dark:bg-red-950 dark:text-red-200",
-  violet: "bg-violet-100 text-violet-800 dark:bg-violet-950 dark:text-violet-200",
+  gray: HUE.gray.chip,
+  blue: HUE.sky.chip,
+  green: HUE.emerald.chip,
+  amber: HUE.amber.chip,
+  red: HUE.red.chip,
+  violet: HUE.violet.chip,
 } as const
 export type Tone = keyof typeof TONE
 
@@ -20,7 +21,8 @@ export function Pill({ tone = "gray", children, className, title }: { tone?: Ton
   return <span title={title} className={cn("inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium whitespace-nowrap", TONE[tone], className)}>{children}</span>
 }
 
-const STATE_TONE: Record<SessionState, Tone> = { upcoming: "blue", live: "green", ended: "gray", closed: "gray", cancelled: "red" }
+const TONE_OF_HUE: Partial<Record<keyof typeof HUE, Tone>> = { gray: "gray", sky: "blue", emerald: "green", amber: "amber", red: "red", violet: "violet" }
+const STATE_TONE = Object.fromEntries(Object.entries(TAG_HUE.sessionState).map(([k, h]) => [k, TONE_OF_HUE[h] ?? "gray"])) as Record<SessionState, Tone>
 
 export function SessionStateBadge({ state }: { state: SessionState }) {
   return (
@@ -38,17 +40,12 @@ export function GenderIcon({ gender, className }: { gender?: "male" | "female"; 
   return <Icon role="img" aria-label={gender === "male" ? "ชาย" : "หญิง"} className={cn("size-3.5 shrink-0", gender === "male" ? "text-sky-600" : "text-pink-500", className)}><title>{gender === "male" ? "ชาย" : "หญิง"}</title></Icon>
 }
 
-/** owner 2026-10-12: one colour per role, so a person with several roles reads at a glance */
-export const ROLE_TONE: Record<"super_admin" | "director" | "area_manager" | "manager" | "admin" | "teacher" | "developer" | "driver", string> = {
+/** owner 2026-10-12: one colour per role, so a person with several roles reads at a glance (hues in ./tags; the
+ *  Super Admin chip is the one filled one) */
+export const ROLE_TONE = {
+  ...Object.fromEntries(Object.entries(TAG_HUE.role).map(([k, h]) => [k, HUE[h].chip])),
   super_admin: "bg-slate-800 text-white dark:bg-slate-200 dark:text-slate-900",
-  director: "bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-200",
-  area_manager: "bg-orange-100 text-orange-800 dark:bg-orange-950 dark:text-orange-200",
-  manager: "bg-violet-100 text-violet-800 dark:bg-violet-950 dark:text-violet-200",
-  admin: "bg-amber-100 text-amber-900 dark:bg-amber-950 dark:text-amber-200",
-  teacher: "bg-sky-100 text-sky-800 dark:bg-sky-950 dark:text-sky-200",
-  developer: "bg-teal-100 text-teal-800 dark:bg-teal-950 dark:text-teal-200",
-  driver: "bg-lime-100 text-lime-800 dark:bg-lime-950 dark:text-lime-200",
-}
+} as Record<keyof typeof TAG_HUE.role, string>
 
 /** a role as its coloured chip — the same colours as the staff page (owner 2026-10-13: "Roles เรามี Chip") */
 export function RoleChip({ role, className }: { role: keyof typeof ROLE_TONE; className?: string }) {

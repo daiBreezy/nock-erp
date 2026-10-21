@@ -29,6 +29,7 @@ import { report } from "@/lib/feedback"
 import { EditCell } from "@/components/app/inline-edit"
 import { useBranch, useNow, useQueryState } from "@/lib/hooks"
 import { cn } from "@/lib/utils"
+import { tagChip, type TAG_HUE } from "@/components/app/tags"
 import { useStore } from "@/store/store"
 
 type ViewMode = "kanban" | "table"
@@ -42,15 +43,9 @@ const DETAIL_TONE: Record<LeadDetail["level"], string> = {
   danger: "font-semibold text-red-700 dark:text-red-400",
 }
 
-/** owner 2026-10-12: stage tags in their own colours — contact → test → trial → closing → enrolled / archived */
-const STAGE_TONE: Record<string, string> = {
-  contact: "bg-sky-100 text-sky-800",
-  test: "bg-violet-100 text-violet-800",
-  trial: "bg-amber-100 text-amber-900",
-  closing: "bg-orange-100 text-orange-800",
-  enrolled: "bg-emerald-100 text-emerald-800",
-  archived: "bg-muted text-muted-foreground",
-}
+/** owner 2026-10-12: stage tags in their own colours — contact → test → trial → closing → enrolled / archived
+ *  (2026-10-21: the colours live in components/app/tags, so Reports draw a Trial in the same amber) */
+const STAGE_TONE = (k: string) => tagChip("leadStage", k as keyof typeof TAG_HUE.leadStage)
 
 export default function CrmPage() {
   const branch = useBranch()
@@ -134,7 +129,7 @@ export default function CrmPage() {
     { id: "subject", label: "วิชา", width: "96px", sort: "subject", cell: (l) => <EditCell kind="select" value={l.subject} disabled={ro(l)} display={<span className={cn("rounded-full px-2 py-0.5 text-xs font-medium", subjectColor(l.subject).chip)}>{l.subject}</span>} options={branch.subjects.map((x) => ({ value: x, label: x }))} onSave={(v) => edit(l, { subject: v })} /> },
     { id: "source", label: "ช่องทาง", width: "104px", sort: "source", className: "text-muted-foreground", cell: (l) => <EditCell kind="select" value={l.source} disabled={ro(l)} display={LEAD_SOURCE_LABEL[l.source]} options={Object.entries(LEAD_SOURCE_LABEL).map(([value, label]) => ({ value, label }))} onSave={(v) => edit(l, { source: v as Lead["source"] })} /> },
     // owner 2026-10-12: one colour per step of the funnel
-    { id: "stage", label: "ขั้นตอน", width: "104px", sort: "stage", cell: (l) => <span className={cn("rounded-full px-2 py-0.5 text-xs font-medium", STAGE_TONE[l.stage === "enrolled" ? "enrolled" : groupOf(l.stage).key])}>{stageGroupLabel(l.stage)}</span> },
+    { id: "stage", label: "ขั้นตอน", width: "104px", sort: "stage", cell: (l) => <span className={cn("rounded-full px-2 py-0.5 text-xs font-medium", STAGE_TONE(l.stage === "enrolled" ? "enrolled" : groupOf(l.stage).key))}>{stageGroupLabel(l.stage)}</span> },
     { id: "detail", label: "รายละเอียด", width: "180px", cell: (l) => { const d = leadDetail(l, now); return <span className={cn("text-xs font-medium", DETAIL_TONE[d.level])}>{d.text}</span> } },
     { id: "assignee", label: "ผู้ดูแล", width: "110px", sort: "assignee", className: "text-muted-foreground", cell: (l) => <EditCell kind="select" value={l.assigneeId ?? ""} disabled={ro(l)} display={staff.find((s) => s.id === l.assigneeId)?.nickname ?? "ยังไม่มอบหมาย"} options={staffOptions} onSave={(v) => edit(l, { assigneeId: v || null })} /> },
     { id: "phone", label: "เบอร์โทร", width: "120px", className: "text-muted-foreground tabular-nums", cell: (l) => <EditCell kind="tel" value={l.phone} disabled={ro(l)} placeholder="ใส่เบอร์" onSave={(v) => edit(l, { phone: v })} /> },

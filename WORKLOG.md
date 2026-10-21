@@ -5,6 +5,14 @@
 
 ---
 
+## 2026-10-21 — Tag = Component เดียว สีเดียว ทั้งระบบ
+
+- หลัก (เจ้าของ): Tag เดียวกันโผล่หน้าไหนก็คือ Tag เดิม สีเดิม · รายงาน / กราฟที่พูดถึงข้อมูลนั้นใช้สีของ Tag นั้น (เช่น Trial เหลืองใน CRM → Trial ใน Sankey เหลือง)
+- ที่เดียว: `erp-v2/src/components/app/tags.ts` — `HUE` (คลาส Chip + สีทึบสำหรับกราฟ) + `TAG_HUE` (leadStage · role · studentStatus · sessionState · attendance · studentFlow) + `tagChip` / `tagHex`
+- ใช้แล้ว: CRM ขั้น Lead · Chip Role (Reports เคยมีสี Role ของตัวเองที่ขัดกับหน้าบุคลากร — ลบแล้ว ใช้ RoleChip) · สถานะคาบ · TONE ของ Pill · Sankey Lead (เส้นทาง = สีขั้น CRM, นัด = สีเช็คชื่อ, ผล = สีขั้น CRM: หลุด = เก็บเข้าคลัง เทา) · Sankey นักเรียน/คอร์ส + กราฟเคลื่อนไหว (สีสถานะนักเรียน) · Subject Engine ใช้สีวิชาจาก Settings (`subjectHex`)
+
+---
+
 ## 2026-10-21 — เพิ่มนักเรียน: "มาจากช่องทางไหน" (บังคับ) + Lead อัตโนมัติ
 
 - ปัญหา: Lead ในรายงานนับได้แค่ LINE OA + Lead ที่ Admin เปิดใน CRM — Walk-in / Social ที่ Admin สร้างนักเรียน + ใบแจ้งหนี้เลย ไม่มี Lead → ช่องทางเพี้ยน (LINE ดูเยอะเกิน), Conversion ต่ำกว่าจริง
