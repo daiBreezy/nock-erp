@@ -140,7 +140,7 @@ function Reports() {
       </div>
 
       {tab === "summary" && <SummaryTab d={d} period={period} periodLabel={periodLabel} scopeLabel={scopeLabel} />}
-      {tab === "overview" && <Overview d={d} compare={showCompare} period={period} periodLabel={periodLabel} onAllRevenue={() => setTab("revenue")} onAllStudents={() => setTab("students")} />}
+      {tab === "overview" && <Overview d={d} compare={showCompare} periodLabel={periodLabel} onAllRevenue={() => setTab("revenue")} onAllStudents={() => setTab("students")} />}
       {tab === "revenue" && <RevenueTab d={d} compare={showCompare} period={period} periodLabel={periodLabel} />}
       {tab === "students" && <StudentsTab d={d} compare={showCompare} onOpen={setOpenId} />}
       {tab === "attendance" && <AttendanceTab d={d} compare={showCompare} onOpen={setOpenId} />}
@@ -159,21 +159,9 @@ function Reports() {
 
 // ---------------- Overview ----------------
 
-function Overview({ d, compare, period, periodLabel, onAllRevenue, onAllStudents }: { d: ReportData; compare: boolean; period: PeriodKey; periodLabel: string; onAllRevenue: () => void; onAllStudents: () => void }) {
+function Overview({ d, compare, periodLabel, onAllRevenue, onAllStudents }: { d: ReportData; compare: boolean; periodLabel: string; onAllRevenue: () => void; onAllStudents: () => void }) {
   return (
     <div className="space-y-4">
-      {/* each period with its own comparison — not "MoM" everywhere */}
-      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 xl:grid-cols-7">
-        {d.strip.map((p) => (
-          <div key={p.key} className={cn("rounded-2xl bg-card p-3 ring-1 ring-foreground/10", p.key === period && "ring-2 ring-primary")}>
-            <p className="text-xs text-muted-foreground">{tx(p.label)}</p>
-            <p className="text-lg font-semibold tabular-nums">{fmtNum(p.value)}</p>
-            <p className="flex flex-wrap items-center gap-1 text-[10px] text-muted-foreground"><Delta value={p.change} /> {tx(p.vs)}</p>
-            <p className="text-[10px] text-muted-foreground">{fmtDate(p.range.from)} – {fmtDate(p.range.to)}</p>
-          </div>
-        ))}
-      </div>
-
       {/* owner 2026-10-21: students | courses side by side — the same questions, per student and per course */}
       <div className="grid gap-4 xl:grid-cols-2">
         <Panel fill title={tx("นักเรียน")} hint={tx("ตอนนี้ = วันนี้ · ในช่วงนี้ = {0} — ชี้ ⓘ ที่แต่ละช่องเพื่อดูว่านับอย่างไร", [periodLabel])}
@@ -680,6 +668,18 @@ function RevenueTab({ d, compare, period, periodLabel }: { d: ReportData; compar
   const pg = d.packageGrade
   return (
     <div className="space-y-4">
+      {/* each period with its own comparison — not "MoM" everywhere (owner 2026-10-21: on the Revenue tab, was on the Overview) */}
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 xl:grid-cols-7">
+        {d.strip.map((p) => (
+          <div key={p.key} className={cn("rounded-2xl bg-card p-3 ring-1 ring-foreground/10", p.key === period && "ring-2 ring-primary")}>
+            <p className="text-xs text-muted-foreground">{tx(p.label)}</p>
+            <p className="text-lg font-semibold tabular-nums">{fmtNum(p.value)}</p>
+            <p className="flex flex-wrap items-center gap-1 text-[10px] text-muted-foreground"><Delta value={p.change} /> {tx(p.vs)}</p>
+            <p className="text-[10px] text-muted-foreground">{fmtDate(p.range.from)} – {fmtDate(p.range.to)}</p>
+          </div>
+        ))}
+      </div>
+
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
         <Stat label={tx("รายได้รวม")} value={fmtShort(d.rev.total)} />
         <Stat label={tx("ใบแจ้งหนี้ที่จ่ายแล้ว")} value={fmtNum(d.rev.invoices)} sub={<Delta value={d.comparable && d.revPrev.invoices ? Math.round(((d.rev.invoices - d.revPrev.invoices) / d.revPrev.invoices) * 1000) / 10 : null} />} />
