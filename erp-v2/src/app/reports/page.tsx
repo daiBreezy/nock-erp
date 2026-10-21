@@ -221,10 +221,10 @@ function LeadFunnel({ d }: { d: ReportData }) {
   return (
       <ul className="space-y-2.5">
         {c.funnel.map((s, i) => (
-          <li key={s.key} className="grid grid-cols-[7rem_1fr_6rem] items-center gap-2 text-sm">
+          <li key={s.key} className="grid grid-cols-[7rem_1fr_2.5rem] items-center gap-2 text-sm">
             <span>{tx(s.label)}</span>
             <div className="h-6 overflow-hidden rounded-md bg-muted"><div className="flex h-full items-center rounded-md px-2 text-xs text-primary-foreground tabular-nums" style={{ width: `${Math.max(4, (s.count / maxFunnel) * 100)}%`, background: tint(0.35 + (0.65 * (c.funnel.length - i)) / c.funnel.length) }}>{fmtNum(s.count)}</div></div>
-            <span className="text-right text-xs text-muted-foreground tabular-nums">{i ? tx("{0} ของขั้นก่อน", [fmtPct(s.ofPrev)]) : "100%"}</span>
+            <span className="text-right text-xs text-muted-foreground tabular-nums">{i ? fmtPct(s.ofPrev) : "100%"}</span>
           </li>
         ))}
       </ul>
@@ -275,8 +275,8 @@ type Figure = { label: string; value: string; tone?: string; sub?: React.ReactNo
 function FlowSection({ now, moves, rates, periodLabel, chart }: { now: Figure[]; moves: Figure[]; rates: Figure[]; periodLabel: string; chart: React.ReactNode }) {
   return (
     <div className="flex flex-1 flex-col gap-4">
-      {/* four slots on both sides, so the students' and the courses' rows stay level */}
-      <div className="grid grid-cols-2 items-end gap-x-4 gap-y-3 rounded-2xl bg-muted/50 px-4 py-3 sm:grid-cols-4">
+      {/* three slots on both sides (owner 2026-10-21: 3 next to 4 looked odd) — start · today · on hold */}
+      <div className="grid grid-cols-3 items-end gap-x-4 gap-y-3 rounded-2xl bg-muted/50 px-4 py-3">
         {now.map((x) => (
           <div key={x.label} className="min-w-0">
             <p className="flex items-center gap-1 truncate text-xs text-muted-foreground">{x.label}{x.info && <InfoTip text={x.info} />}</p>
@@ -291,17 +291,18 @@ function FlowSection({ now, moves, rates, periodLabel, chart }: { now: Figure[];
           <FigureList rows={rates} />
         </div>
       </div>
-      {chart}
+      {/* pinned to the bottom — the two charts stay level when one list is a row longer */}
+      <div className="mt-auto">{chart}</div>
     </div>
   )
 }
 
-/** label (ⓘ) on the left, the number on the right — a total row is set off with a line above it */
+/** label (ⓘ) on the left, the number on the right — a total row sits on a soft filled band (no grey rule above it) */
 function FigureList({ rows }: { rows: Figure[] }) {
   return (
     <dl className="text-sm">
       {rows.map((x) => (
-        <div key={x.label} className={cn("flex items-center justify-between gap-3 py-1.5", x.total ? "mt-1 border-t-2 border-foreground/15 pt-2 font-semibold" : "border-b border-dashed last:border-0")}>
+        <div key={x.label} className={cn("flex items-center justify-between gap-3 px-2 py-1.5", x.total ? "total-row mt-1.5 rounded-lg bg-muted/70 font-semibold" : "border-b border-dashed [&:has(+.total-row)]:border-0 last:border-0")}>
           <dt className="flex min-w-0 items-center gap-1 text-muted-foreground">{x.label}{x.info && <InfoTip text={x.info} />}</dt>
           <dd className="flex shrink-0 items-center gap-2">
             {x.sub && <span className="text-[11px] text-muted-foreground">{x.sub}</span>}
@@ -362,7 +363,6 @@ function CourseOverview({ d, periodLabel }: { d: ReportData; periodLabel: string
         { label: tx("Active ต้นช่วง"), value: fmtNum(c.activeAtStart), info: tx("คอร์สที่มีแพ็กเกจในวันก่อนเริ่มช่วงนี้") },
         { label: tx("คอร์ส Active (วันนี้)"), value: fmtNum(c.active), info: tx("คอร์สที่มีแพ็กเกจครอบคลุมวันนี้ และยังเรียนอยู่ (ไม่ได้พัก)") },
         { label: tx("คอร์สที่พัก"), value: fmtNum(c.paused), tone: "text-amber-600", info: tx("คอร์สที่ยังมีแพ็กเกจ แต่ไม่ได้เรียน (ลา / ขาด) ติดกัน 3 คาบขึ้นไป หรือนักเรียน Pause ทับวันเรียนของคอร์สนั้น — คอร์สอื่นที่ยังเรียนอยู่ไม่นับ") },
-        { label: tx("คอร์ส / นักเรียน"), value: c.studentsActive ? (c.active / c.studentsActive).toFixed(2) : "—", info: tx("คอร์ส Active ÷ นักเรียน Active — นักเรียนหนึ่งคนเรียนเฉลี่ยกี่คอร์ส") },
       ]}
       moves={[
         { label: tx("ใหม่"), value: `+${c.newCount}`, tone: "text-emerald-600", sub: deltaSub(pctDelta(c.newCount, c.prev.newCount, ok)), info: tx("ซื้อคอร์สนั้นเป็นครั้งแรก (เช่น เรียนคณิตอยู่ แล้วซื้ออังกฤษเพิ่ม = อังกฤษใหม่)") },
@@ -375,6 +375,7 @@ function CourseOverview({ d, periodLabel }: { d: ReportData; periodLabel: string
         { label: tx("คอร์สต่อ"), value: fmtPct(c.renewal), sub: ok && c.prev.renewal !== null ? <span>{tx("ก่อนหน้า")} {fmtPct(c.prev.renewal)}</span> : undefined, info: tx("แพ็กเกจของคอร์สที่หมดในช่วงนี้ ซื้อคอร์สเดิมต่อกี่ % — กลับมาเรียนหลังพักไม่ใช่การต่อ (นับใน Returning Course)") },
         { label: "Returning Course", value: fmtNum(f.backCourses), tone: "text-sky-700", sub: deltaSub(pctDelta(f.backCourses, f.backCoursesPrev, ok)), info: tx("คอร์สที่พัก (ไม่ได้เรียน ติดกัน 3 คาบขึ้นไป) แล้วกลับมาเรียนในช่วงนี้") },
         { label: "Course Actual buy", value: fmtNum(c.bought), sub: deltaSub(pctDelta(c.bought, c.boughtPrev, ok)), info: tx("จำนวนคอร์สที่จ่ายเงินแล้วในช่วงนี้ — ทั้งซื้อใหม่และซื้อต่อ (ใบแจ้งหนี้ 1 ใบมีได้หลายคอร์ส)") },
+        { label: tx("คอร์ส / นักเรียน"), value: c.studentsActive ? (c.active / c.studentsActive).toFixed(2) : "—", info: tx("คอร์ส Active ÷ นักเรียน Active — นักเรียนหนึ่งคนเรียนเฉลี่ยกี่คอร์ส") },
       ]}
       chart={<TrendChart rows={c.trend.map((m) => ({ key: m.key, month: m.month, ...m.course }))} view={view} onView={setView} unit="course" renewalLabel={tx("คอร์สต่อ")} />} />
   )
@@ -409,7 +410,8 @@ function LeadOverview({ d }: { d: ReportData }) {
         ]} />
       </div>
       <div className="rounded-2xl border p-3 sm:p-4">
-        <p className="mb-3 text-sm font-semibold">Funnel</p>
+        {/* owner 2026-10-21: "ของขั้นก่อน" on every row took too much room — said once, in the ⓘ */}
+        <p className="mb-3 flex items-center gap-1 text-sm font-semibold">Funnel<InfoTip text={tx("ตัวเลขในแท่ง = จำนวน Lead ที่ผ่านขั้นนั้น · % ทางขวา = ผ่านมาจากขั้นก่อนกี่ %")} /></p>
         <LeadFunnel d={d} />
       </div>
     </div>

@@ -716,4 +716,5 @@ export const COVERAGE: Record<string, Entry> = {
   "ในช่วงนี้ · {0}": { en: "In this period · {0}", ja: "期間内 · {0}" },
   "Total Active (วันนี้)": { en: "Total Active (today)", ja: "Total Active（今日）" },
   "คอร์ส Active (วันนี้)": { en: "Active courses (today)", ja: "受講中のコース（今日）" },
+  "ตัวเลขในแท่ง = จำนวน Lead ที่ผ่านขั้นนั้น · % ทางขวา = ผ่านมาจากขั้นก่อนกี่ %": { en: "Number in the bar = leads that reached the step · % on the right = how many came through from the step before", ja: "バー内の数＝その段階に進んだリード数 · 右の％＝前の段階から進んだ割合" },
 }
