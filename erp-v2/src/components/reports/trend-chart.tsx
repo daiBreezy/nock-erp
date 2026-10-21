@@ -43,7 +43,7 @@ export function TrendChart({ rows, view, onView, unit, renewalLabel }: { rows: T
   const yRate = (v: number) => 100 - v * 100
 
   const what = unit === "student" ? tx("นักเรียน") : tx("คอร์ส")
-  const readout: { color: string; label: string; value: string; line?: boolean; dash?: boolean }[] =
+  const readout: { color: string; label: string; value: string; line?: boolean }[] =
     view === "stock" ? [
       { color: C.active, label: "Active", value: fmtNum(r.active) },
       { color: C.paused, label: unit === "student" ? "Pause" : tx("คอร์สที่พัก"), value: fmtNum(r.paused) },
@@ -52,7 +52,7 @@ export function TrendChart({ rows, view, onView, unit, renewalLabel }: { rows: T
       { color: C.new, label: tx("ใหม่"), value: `+${r.newCount}` },
       { color: C.returning, label: tx("กลับมาซื้อใหม่"), value: `+${r.returning}` },
       { color: C.lost, label: "Lost", value: `−${r.lost}` },
-      { color: C.net, label: "Net", value: (() => { const v = r.newCount + r.returning - r.lost; return `${v > 0 ? "+" : ""}${v}` })(), line: true, dash: true },
+      { color: C.net, label: "Net", value: (() => { const v = r.newCount + r.returning - r.lost; return `${v > 0 ? "+" : ""}${v}` })(), line: true },
     ] : [
       { color: C.churn, label: "Churn rate", value: fmtPct(r.churn), line: true },
       { color: C.renewal, label: renewalLabel, value: fmtPct(r.renewal), line: true },
@@ -76,9 +76,7 @@ export function TrendChart({ rows, view, onView, unit, renewalLabel }: { rows: T
       <div className="mb-4 flex flex-wrap gap-1.5">
         {readout.map((p) => (
           <span key={p.label} className="inline-flex h-7 items-center gap-1.5 rounded-full bg-muted/70 px-2.5 text-xs text-muted-foreground">
-            {p.color !== "transparent" && (p.dash
-              ? <span className="w-3.5 shrink-0 border-t-2 border-dashed" style={{ borderColor: p.color }} />
-              : <span className={cn("shrink-0", p.line ? "h-0.5 w-3 rounded-full" : "size-2 rounded-full")} style={{ background: p.color }} />)}
+            {p.color !== "transparent" && <span className={cn("shrink-0", p.line ? "h-0.5 w-3 rounded-full" : "size-2 rounded-full")} style={{ background: p.color }} />}
             {p.label} <span className="font-semibold text-foreground tabular-nums">{p.value}</span>
           </span>
         ))}
@@ -115,7 +113,7 @@ export function TrendChart({ rows, view, onView, unit, renewalLabel }: { rows: T
             {/* lines on top: Net (flow) · Churn + renewal (rate) */}
             {view !== "stock" && (
               <svg className="pointer-events-none absolute inset-0 size-full overflow-visible" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden>
-                {view === "flow" && <path d={linePath(rows.map((v) => v.newCount + v.returning - v.lost), yFlow)} fill="none" stroke={C.net} strokeWidth={1.75} strokeDasharray="5 3" strokeLinejoin="round" vectorEffect="non-scaling-stroke" />}
+                {view === "flow" && <path d={linePath(rows.map((v) => v.newCount + v.returning - v.lost), yFlow)} fill="none" stroke={C.net} strokeWidth={0.5} strokeLinejoin="round" vectorEffect="non-scaling-stroke" />}
                 {view === "rate" && <>
                   <path d={linePath(rows.map((v) => v.churn), yRate)} fill="none" stroke={C.churn} strokeWidth={2} strokeLinecap="round" vectorEffect="non-scaling-stroke" />
                   <path d={linePath(rows.map((v) => v.renewal), yRate)} fill="none" stroke={C.renewal} strokeWidth={2} strokeDasharray="5 4" strokeLinecap="round" vectorEffect="non-scaling-stroke" />
