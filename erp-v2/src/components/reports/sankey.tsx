@@ -16,6 +16,16 @@ export type SankeyLink = { col: number; from: string; to: string; value: number 
 
 const W = 1000, H = 380, TOP = 28, BOTTOM = 6, NW = 10, GAP = 12, PAD = 4
 
+/** how see-through the bands are (0 = invisible, 1 = solid) — tweak here */
+export const BAND_OPACITY = {
+  /** every band, nothing hovered */
+  rest: 0.28,
+  /** the band(s) being hovered */
+  focus: 0.6,
+  /** the other bands while something is hovered */
+  dim: 0.06,
+}
+
 export function Sankey({ columns, flows, total }: { columns: SankeyColumn[]; flows: SankeyLink[]; total: number }) {
   const uid = useId().replace(/:/g, "")
   const [hover, setHover] = useState<{ link: number } | { col: number; key: string } | null>(null)
@@ -64,7 +74,7 @@ export function Sankey({ columns, flows, total }: { columns: SankeyColumn[]; flo
           {links.map((l) => {
             const x0 = xOf(l.f.col) + NW, x1 = xOf(l.f.col + 1), mx = (x0 + x1) / 2
             return <path key={l.i} d={`M${x0},${l.y0} C${mx},${l.y0} ${mx},${l.y1} ${x1},${l.y1}`} fill="none" stroke={`url(#${uid}-g${l.i})`} strokeWidth={Math.max(1, l.h)}
-              strokeOpacity={on(l) ? (hover ? 0.6 : 0.28) : 0.06} onMouseEnter={() => setHover({ link: l.i })} className="transition-[stroke-opacity]" />
+              strokeOpacity={on(l) ? (hover ? BAND_OPACITY.focus : BAND_OPACITY.rest) : BAND_OPACITY.dim} onMouseEnter={() => setHover({ link: l.i })} className="transition-[stroke-opacity]" />
           })}
           {[...box.entries()].map(([k, b]) => {
             const last = b.col === columns.length - 1
