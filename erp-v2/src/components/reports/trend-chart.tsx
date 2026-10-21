@@ -11,7 +11,7 @@ import { fmtNum, fmtPct, InfoTip } from "./charts"
  * The last 12 months under the students' / courses' numbers (owner 2026-10-21) — one chart per section, switched with
  * the buttons in its header (picked: the view on the left, its legend on the right):
  *  - stock = what's there at each month's end (Active + Pause)
- *  - flow  = what came in (new, came back & bought) above the line, what left (Lost) below it, Net as a line
+ *  - flow  = what came in (new, came back & bought) above the line, what left (Lost) below it, Net as a number (a dot on hover)
  *  - rate  = Churn rate and renewal per month
  */
 export type TrendView = "stock" | "flow" | "rate"
@@ -52,7 +52,7 @@ export function TrendChart({ rows, view, onView, unit, renewalLabel }: { rows: T
       { color: C.new, label: tx("ใหม่"), value: `+${r.newCount}` },
       { color: C.returning, label: tx("กลับมาซื้อใหม่"), value: `+${r.returning}` },
       { color: C.lost, label: "Lost", value: `−${r.lost}` },
-      { color: C.net, label: "Net", value: (() => { const v = r.newCount + r.returning - r.lost; return `${v > 0 ? "+" : ""}${v}` })(), line: true },
+      { color: C.net, label: "Net", value: (() => { const v = r.newCount + r.returning - r.lost; return `${v > 0 ? "+" : ""}${v}` })() },
     ] : [
       { color: C.churn, label: "Churn rate", value: fmtPct(r.churn), line: true },
       { color: C.renewal, label: renewalLabel, value: fmtPct(r.renewal), line: true },
@@ -113,7 +113,6 @@ export function TrendChart({ rows, view, onView, unit, renewalLabel }: { rows: T
             {/* lines on top: Net (flow) · Churn + renewal (rate) */}
             {view !== "stock" && (
               <svg className="pointer-events-none absolute inset-0 size-full overflow-visible" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden>
-                {view === "flow" && <path d={linePath(rows.map((v) => v.newCount + v.returning - v.lost), yFlow)} fill="none" stroke={C.net} strokeWidth={0.5} strokeLinejoin="round" vectorEffect="non-scaling-stroke" />}
                 {view === "rate" && <>
                   <path d={linePath(rows.map((v) => v.churn), yRate)} fill="none" stroke={C.churn} strokeWidth={2} strokeLinecap="round" vectorEffect="non-scaling-stroke" />
                   <path d={linePath(rows.map((v) => v.renewal), yRate)} fill="none" stroke={C.renewal} strokeWidth={2} strokeDasharray="5 4" strokeLinecap="round" vectorEffect="non-scaling-stroke" />
@@ -121,7 +120,8 @@ export function TrendChart({ rows, view, onView, unit, renewalLabel }: { rows: T
               </svg>
             )}
             {/* points as dots (not stretched with the svg) */}
-            {view === "flow" && rows.map((v, i) => <Dot key={v.key} x={x(i)} y={yFlow(v.newCount + v.returning - v.lost)} color={C.net} on={i === at} />)}
+            {/* owner 2026-10-21: no Net line — the number is in its chip; a dot marks where Net sits on the month hovered */}
+            {view === "flow" && rows.map((v, i) => <Dot key={v.key} x={x(i)} y={yFlow(v.newCount + v.returning - v.lost)} color={C.net} on={hover === i} />)}
             {view === "rate" && rows.flatMap((v, i) => [
               v.churn !== null && <Dot key={`c${v.key}`} x={x(i)} y={yRate(v.churn)} color={C.churn} on={i === at} />,
               v.renewal !== null && <Dot key={`r${v.key}`} x={x(i)} y={yRate(v.renewal)} color={C.renewal} on={i === at} />,
@@ -149,6 +149,6 @@ function straight(pts: ([number, number] | null)[]) {
 
 const HOW: Record<TrendView, string> = {
   stock: "ยอด ณ สิ้นแต่ละเดือน — ดูว่าฐานโตขึ้นหรือหดลง · สีเหลืองหนาขึ้น = คนพักมากขึ้น (เสี่ยงหลุด)",
-  flow: "เหนือเส้น = เข้ามา (ใหม่ + กลับมาซื้อใหม่) · ใต้เส้น = หลุด (Lost) · เส้นดำ = Net — เดือนที่แดงยาว ให้ไปดูสาเหตุ",
+  flow: "เหนือเส้น = เข้ามา (ใหม่ + กลับมาซื้อใหม่) · ใต้เส้น = หลุด (Lost) · ชี้เดือนไหน จุดบอกตำแหน่ง Net ของเดือนนั้น — เดือนที่แดงยาว ให้ไปดูสาเหตุ",
   rate: "Churn = หลุดกี่ % ของทุกคนที่เรียนในเดือนนั้น · ต่อ = ของที่แพ็กเกจหมดในเดือนนั้น ซื้อต่อกี่ % — สองเส้นควรวิ่งสวนกัน",
 }
