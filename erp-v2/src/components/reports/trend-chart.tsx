@@ -96,17 +96,17 @@ export function TrendChart({ rows, view, onView, unit, renewalLabel }: { rows: T
                 <div key={v.key} onMouseEnter={() => setHover(i)} onClick={() => setHover(i)}
                   className={cn("relative h-full min-w-0 flex-1 rounded-md transition-colors", i === at && "bg-muted/70")}>
                   {view === "stock" && (
-                    <div className="absolute inset-x-[18%] bottom-0 flex flex-col justify-end" style={{ height: `${((v.active + v.paused) / stockMax) * 100}%` }}>
+                    <div className="absolute left-1/2 w-1/2 max-w-4 -translate-x-1/2 bottom-0 flex flex-col justify-end" style={{ height: `${((v.active + v.paused) / stockMax) * 100}%` }}>
                       <div className="rounded-t-sm" style={{ background: C.paused, flex: v.paused }} />
                       <div className={cn(!v.paused && "rounded-t-sm")} style={{ background: C.active, flex: v.active }} />
                     </div>
                   )}
                   {view === "flow" && <>
-                    <div className="absolute inset-x-[18%] flex flex-col" style={{ top: `${yFlow(v.newCount + v.returning)}%`, height: `${((v.newCount + v.returning) / flowSpan) * 100}%` }}>
+                    <div className="absolute left-1/2 w-1/2 max-w-4 -translate-x-1/2 flex flex-col" style={{ top: `${yFlow(v.newCount + v.returning)}%`, height: `${((v.newCount + v.returning) / flowSpan) * 100}%` }}>
                       <div className="rounded-t-sm" style={{ background: C.returning, flex: v.returning }} />
                       <div className={cn(!v.returning && "rounded-t-sm")} style={{ background: C.new, flex: v.newCount }} />
                     </div>
-                    <div className="absolute inset-x-[18%] rounded-b-sm" style={{ top: `${zero}%`, height: `${(v.lost / flowSpan) * 100}%`, background: C.lost }} />
+                    <div className="absolute left-1/2 w-1/2 max-w-4 -translate-x-1/2 rounded-b-sm" style={{ top: `${zero}%`, height: `${(v.lost / flowSpan) * 100}%`, background: C.lost }} />
                   </>}
                 </div>
               ))}
