@@ -10,7 +10,7 @@
 
 import { addDays, parseDate, toDateStr, toMinutes, weekdayOf } from "../dates"
 import { schoolKey } from "./schools"
-import type { Attendance, Branch, Course, CreditNote, DateStr, Entitlement, Family, ID, Invoice, Klass, Lead, Session, Student, StudentLeave, Weekday } from "../types"
+import type { Assessment, Attendance, Branch, Course, CreditNote, DateStr, Entitlement, Family, ID, Invoice, Klass, Lead, Session, Student, StudentLeave, Weekday } from "../types"
 import { receiptDate } from "./documents"
 import * as Loss from "./loss"
 import type { InvoiceTotals } from "./billing"
@@ -591,7 +591,7 @@ export function classFill(classes: Pick<Klass, "id" | "name" | "branchId" | "act
 const STAGE_ORDER = ["new", "contacting", "test_scheduled", "tested", "trial_scheduled", "trialed", "payment_pending", "enrolled"] as const
 const stageRank = (l: Pick<Lead, "stage" | "archivedFrom">) => STAGE_ORDER.indexOf((l.stage === "archived" ? l.archivedFrom ?? "new" : l.stage) as (typeof STAGE_ORDER)[number])
 
-/** The steps a lead goes through — a lead counts at every step it reached or passed (archived ones at the step they stopped). */
+/** The stages a lead goes through, in order — where a closed lead stopped (lost leads by step). */
 export const FUNNEL_STEPS = [
   { key: "lead", label: "Lead ใหม่", min: 0 },
   { key: "contacted", label: "ติดต่อแล้ว", min: 1 },
@@ -601,16 +601,99 @@ export const FUNNEL_STEPS = [
   { key: "enrolled", label: "สมัครแล้ว", min: 7 },
 ] as const
 
+/** what one Test or Trial came to: booked (still ahead) · came · no-show */
+export type ApptState = "booked" | "came" | "no_show"
+export type LeadAppts = { test?: ApptState; trial?: ApptState }
+
+/**
+ * Each lead's Test / Trial (owner 2026-10-21: "นัด Test / Trial" in one step hid the real numbers) — from the
+ * appointment records (Assessment) and the check-in of that session: present or a result written = came; absent /
+ * leave, or the day passed with no check-in = no-show; still ahead = booked. Several subjects at once: any one came =
+ * came. A lead without records (older data) falls back on its stage: test_scheduled / tested → Test, trial_scheduled
+ * and later → Trial. Enroll-now leads have neither.
+ */
+export function leadAppointments<L extends Pick<Lead, "id" | "stage" | "archivedFrom" | "direct">>(
+  leads: L[], assessments: Pick<Assessment, "leadId" | "type" | "sessionId" | "studentId" | "date" | "result">[],
+  attendance: Pick<Attendance, "sessionId" | "studentId" | "status">[], today: DateStr,
+): Map<L, LeadAppts> {
+  const mark = new Map(attendance.map((a) => [`${a.sessionId}|${a.studentId}`, a.status]))
+  const byLead = new Map<string, typeof assessments>()
+  for (const a of assessments) byLead.set(a.leadId, [...(byLead.get(a.leadId) ?? []), a])
+  const stateOf = (a: (typeof assessments)[number]): ApptState => {
+    const st = mark.get(`${a.sessionId}|${a.studentId}`)
+    if (st === "present" || a.result) return "came"
+    if (st || a.date < today) return "no_show"
+    return "booked"
+  }
+  const merge = (xs: ApptState[]): ApptState | undefined => (!xs.length ? undefined : xs.includes("came") ? "came" : xs.includes("booked") ? "booked" : "no_show")
+  const out = new Map<L, LeadAppts>()
+  for (const l of leads) {
+    if (l.direct) { out.set(l, {}); continue }
+    const mine = byLead.get(l.id) ?? []
+    if (mine.length) {
+      out.set(l, { test: merge(mine.filter((a) => a.type === "test").map(stateOf)), trial: merge(mine.filter((a) => a.type === "trial").map(stateOf)) })
+      continue
+    }
+    out.set(l, stageAppts(l))
+  }
+  return out
+}
+
+/** no appointment records — read from the stage (older data) */
+function stageAppts(l: Pick<Lead, "stage" | "archivedFrom" | "direct">): LeadAppts {
+  if (l.direct) return {}
+  const r = stageRank(l), closed = l.stage === "archived"
+  return r === 2 ? { test: closed ? "no_show" : "booked" } : r === 3 ? { test: "came" } : r === 4 ? { trial: closed ? "no_show" : "booked" } : r >= 5 ? { trial: "came" } : {}
+}
+
 /** Leads created in the period, through the funnel: count per step and % of the step before / of all leads. */
-export function leadFunnel(leads: Pick<Lead, "stage" | "archivedFrom" | "createdAt" | "direct">[], r: Range) {
+export function leadFunnel<L extends Pick<Lead, "stage" | "archivedFrom" | "createdAt" | "direct">>(leads: L[], r: Range, appts?: Map<L, LeadAppts>) {
   const xs = leads.filter((l) => inRange(l.createdAt.slice(0, 10), r))
+  const a = (l: L) => appts?.get(l) ?? stageAppts(l)
+  // owner 2026-10-21: booked (a Test or a Trial) and came are their own steps — every lead passes them the same way;
   // enroll-now leads never had a test / trial — they skip those two steps (owner 2026-10-05)
-  const reached = (l: (typeof xs)[number], s: (typeof FUNNEL_STEPS)[number]) => stageRank(l) >= s.min && !(l.direct && (s.key === "test" || s.key === "trial"))
-  const steps = FUNNEL_STEPS.map((s) => ({ ...s, count: xs.filter((l) => reached(l, s)).length, direct: xs.filter((l) => l.direct && reached(l, s)).length }))
+  const steps = [
+    { key: "lead", label: "Lead ใหม่", hit: () => true },
+    { key: "contacted", label: "ติดต่อแล้ว", hit: (l: L) => stageRank(l) >= 1 },
+    { key: "booked", label: "นัด Test / Trial", hit: (l: L) => !!(a(l).test || a(l).trial) },
+    { key: "came", label: "มาจริง", hit: (l: L) => a(l).test === "came" || a(l).trial === "came" },
+    { key: "payment", label: "รอชำระ", hit: (l: L) => stageRank(l) >= 6 },
+    { key: "enrolled", label: "สมัครแล้ว", hit: (l: L) => stageRank(l) >= 7 },
+  ].map((s) => ({ key: s.key, label: s.label, count: xs.filter(s.hit).length, direct: xs.filter((l) => l.direct && s.hit(l)).length }))
   return steps.map((s, i) => ({ ...s, ofPrev: i && steps[i - 1].count ? s.count / steps[i - 1].count : null, ofAll: xs.length ? s.count / xs.length : null }))
 }
 
-/** Where leads come from: leads, enrolled, conversion, money paid so far by the students they became, days to enrol. */
+export const LEAD_PATHS = [
+  { key: "test", label: "Test อย่างเดียว" },
+  { key: "trial", label: "Trial อย่างเดียว" },
+  { key: "both", label: "Test → Trial" },
+  { key: "direct", label: "สมัครเลย (ไม่ Test / Trial)" },
+] as const
+
+/**
+ * Which way leads went (owner 2026-10-21): Test only, Trial only, both, or enroll-now — per way how many, how many came
+ * (at least once), how many didn't show (every appointment missed), how many enrolled and the close rate. Leads that
+ * never booked anything (stopped at contact) aren't a way and aren't listed.
+ */
+export function leadPaths<L extends Pick<Lead, "stage" | "archivedFrom" | "createdAt" | "direct">>(leads: L[], r: Range, appts: Map<L, LeadAppts>) {
+  const xs = leads.filter((l) => inRange(l.createdAt.slice(0, 10), r))
+  const pathOf = (l: L) => {
+    if (l.direct) return "direct"
+    const a = appts.get(l) ?? {}
+    return a.test && a.trial ? "both" : a.test ? "test" : a.trial ? "trial" : null
+  }
+  return LEAD_PATHS.map((p) => {
+    const ys = xs.filter((l) => pathOf(l) === p.key)
+    const states = (l: L) => { const a = appts.get(l) ?? {}; return [a.test, a.trial].filter((x): x is ApptState => !!x) }
+    const enrolled = ys.filter((l) => stageRank(l) >= 7).length
+    return {
+      ...p, leads: ys.length, enrolled, conversion: ys.length ? enrolled / ys.length : null,
+      came: p.key === "direct" ? null : ys.filter((l) => states(l).includes("came")).length,
+      noShow: p.key === "direct" ? null : ys.filter((l) => states(l).length && states(l).every((x) => x === "no_show")).length,
+    }
+  })
+}
+
 export function leadSources(leads: Pick<Lead, "source" | "stage" | "archivedFrom" | "createdAt" | "convertedStudentId">[], rows: RevenueRow[], r: Range) {
   const xs = leads.filter((l) => inRange(l.createdAt.slice(0, 10), r))
   const by = new Map<string, { source: string; leads: number; enrolled: number; revenue: number; days: number[] }>()
@@ -950,9 +1033,10 @@ export function coursesBought(rows: RevenueRow[], r: Range) {
  * Leads in the period (owner 2026-10-20): how many came in, had a Test, had a Trial, became students — overall and per
  * staff member they were assigned to (admin or teacher who turns leads into students).
  */
-export function leadSummary(leads: Pick<Lead, "stage" | "archivedFrom" | "createdAt" | "direct" | "assigneeId">[], r: Range) {
+export function leadSummary<L extends Pick<Lead, "stage" | "archivedFrom" | "createdAt" | "direct" | "assigneeId">>(leads: L[], r: Range, appts?: Map<L, LeadAppts>) {
   const xs = leads.filter((l) => inRange(l.createdAt.slice(0, 10), r))
   const rank = (l: (typeof xs)[number]) => stageRank(l)
+  const ap = (l: L) => appts?.get(l) ?? stageAppts(l)
   const enrolled = (l: (typeof xs)[number]) => rank(l) >= 7
   const by = new Map<string, { leads: number; enrolled: number }>()
   for (const l of xs) {
@@ -964,8 +1048,9 @@ export function leadSummary(leads: Pick<Lead, "stage" | "archivedFrom" | "create
   }
   return {
     total: xs.length,
-    test: xs.filter((l) => !l.direct && rank(l) >= 2).length,
-    trial: xs.filter((l) => !l.direct && rank(l) >= 4).length,
+    // owner 2026-10-21: who really booked a Test / a Trial (and came) — not "reached that stage"
+    test: xs.filter((l) => !!ap(l).test).length, testCame: xs.filter((l) => ap(l).test === "came").length,
+    trial: xs.filter((l) => !!ap(l).trial).length, trialCame: xs.filter((l) => ap(l).trial === "came").length,
     enrolled: xs.filter(enrolled).length,
     conversion: xs.length ? xs.filter(enrolled).length / xs.length : null,
     members: [...by.entries()].map(([staffId, v]) => ({ staffId: staffId || null, ...v, conversion: v.leads ? v.enrolled / v.leads : null }))

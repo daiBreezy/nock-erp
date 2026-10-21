@@ -126,8 +126,11 @@ export function useReports(branchIds: string[], period: R.PeriodKey, custom?: R.
     // ---- R3: CRM, cohort, forecast ----
     // win-back leads are old students to call again, not new leads — kept out of the funnel
     const leads = s.leads.filter((l) => ids.has(l.branchId) && !l.winBackOf)
+    // owner 2026-10-21: each lead's Test / Trial from the appointment records + check-ins (not the stage it reached)
+    const appts = R.leadAppointments(leads, s.assessments, s.attendance, today)
     const crm = {
-      funnel: R.leadFunnel(leads, range),
+      funnel: R.leadFunnel(leads, range, appts),
+      paths: R.leadPaths(leads, range, appts),
       sources: R.leadSources(leads, rows, range),
       lost: R.lostLeads(leads, range),
       lostReasons: [...leads.filter((l) => l.stage === "archived" && R.inRange(l.createdAt.slice(0, 10), range))
@@ -139,7 +142,7 @@ export function useReports(branchIds: string[], period: R.PeriodKey, custom?: R.
       wantedTimes: [...leads.filter((l) => l.lost?.wantedTime && R.inRange(l.createdAt.slice(0, 10), range))
         .reduce((m, l) => m.set(l.lost!.wantedTime!, (m.get(l.lost!.wantedTime!) ?? 0) + 1), new Map<string, number>())].map(([time, count]) => ({ time, count })).sort((a, b) => b.count - a.count),
       open: leads.filter((l) => l.stage !== "archived" && l.stage !== "enrolled").length,
-      perBranch: branches.map((b) => { const f = R.leadFunnel(leads.filter((l) => l.branchId === b.id), range); return { id: b.id, name: b.name, leads: f[0].count, enrolled: f[f.length - 1].count, conversion: f[f.length - 1].ofAll } }),
+      perBranch: branches.map((b) => { const f = R.leadFunnel(leads.filter((l) => l.branchId === b.id), range, appts); return { id: b.id, name: b.name, leads: f[0].count, enrolled: f[f.length - 1].count, conversion: f[f.length - 1].ofAll } }),
       monthly: {
         thisYear: Array.from({ length: 12 }, (_, m) => { const k = `${year}-${String(m + 1).padStart(2, "0")}`; return k > today.slice(0, 7) ? null : leads.filter((l) => l.createdAt.startsWith(k)).length }),
         lastYear: Array.from({ length: 12 }, (_, m) => leads.filter((l) => l.createdAt.startsWith(`${year - 1}-${String(m + 1).padStart(2, "0")}`)).length || null),
@@ -242,7 +245,7 @@ export function useReports(branchIds: string[], period: R.PeriodKey, custom?: R.
       })(),
       // owner 2026-10-20: the lead section on the Overview — and who turns leads into students
       leadSummary: (() => {
-        const cur = R.leadSummary(leads, range), before = R.leadSummary(leads, prev)
+        const cur = R.leadSummary(leads, range, appts), before = R.leadSummary(leads, prev, appts)
         return { ...cur, prev: before, members: cur.members.map((m) => ({ ...m, staff: s.staff.find((x) => x.id === m.staffId) })) }
       })(),
       // owner 2026-10-07: what moved each month this year — in (new, returning) vs out (lost, long leave)
@@ -264,7 +267,7 @@ export function useReports(branchIds: string[], period: R.PeriodKey, custom?: R.
         return { label: b.name, byWeekday: w }
       }),
     }
-  }, [allRows, ids, period, custom, today, now, s.students, s.leaves, s.sessions, s.attendance, s.branches, s.staff, s.summaries, s.invoices, s.classes, s.leads, s.families, s.holidays, s.system, s.courses, s.surveyCampaigns, s.surveyResponses, entitlementsAll])
+  }, [allRows, ids, period, custom, today, now, s.students, s.leaves, s.sessions, s.attendance, s.branches, s.staff, s.summaries, s.invoices, s.classes, s.leads, s.families, s.holidays, s.system, s.courses, s.surveyCampaigns, s.surveyResponses, s.assessments, entitlementsAll])
 }
 
 export type ReportData = ReturnType<typeof useReports>

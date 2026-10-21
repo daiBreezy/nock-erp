@@ -777,6 +777,8 @@ export function buildSeed(now = new Date()): DB {
 
   // owner 2026-10-21: second courses (kept / dropped / bought again) + a few courses with a long break — Reports' course section
   buildCourseHistory({ today, branches, courses, classes, students, invoices, entitlements, sessions, attendance, summaries, holidays })
+  // owner 2026-10-21: the history leads' Test / Trial appointments — Reports split the funnel by the way leads went
+  buildLeadAppointments({ today, leads, assessments })
 
   return { branches, staff, holidays, courses, classes, sessions, attendance, summaries, courseSummaries, nockQuestions, devTickets, families, students, entitlements, leaves, invoices, busAddOns, creditNotes: [] as CreditNote[], lessonBooks, lessonTopics, leads, conversations, messages, notifications: [], system, notes, calendarNotes, busTrips: [] as BusTrip[], logs, assessments, surveyCampaigns, surveyResponses }
 }
@@ -864,6 +866,36 @@ function buildCourseHistory(db: { today: string; branches: Branch[]; courses: Co
       const by = klass.teacherId ?? "u_ploy"
       db.attendance.push({ sessionId: se.id, studentId: st.id, status: missed ? (i % 2 ? "absent" : "leave") : "present", markedBy: by, markedAt: new Date(at - 30 * 60000).toISOString() })
       if (!missed) db.summaries.push({ id: `sm_c${db.summaries.length}`, sessionId: se.id, studentId: st.id, text: "เรียนตามแผน", status: "sent", authorId: by, lastEditorId: by, history: [] })
+    })
+  }
+}
+
+/**
+ * Test / Trial appointment records for the history leads (owner 2026-10-21: the funnel counts appointments, not the
+ * stage a lead reached) — matching each lead's stage: stopped at a booked step = didn't come; past it = came (a result
+ * written). Leads that went on to pay took Test only, Trial only or both. No sessions (a short record each, storage);
+ * hash-based so the rest of the demo stays the same.
+ */
+function buildLeadAppointments(db: { today: string; leads: Lead[]; assessments: Assessment[] }) {
+  const h = (k: string) => { let x = 2166136261; for (const c of k) x = Math.imul(x ^ c.charCodeAt(0), 16777619); return (x >>> 0) / 4294967296 }
+  const ORDER = ["new", "contacting", "test_scheduled", "tested", "trial_scheduled", "trialed", "payment_pending", "enrolled"]
+  const has = new Set(db.assessments.map((a) => a.leadId))
+  for (const l of db.leads) {
+    if (!(l.id.startsWith("ld_h") || l.id.startsWith("ld_x")) || l.direct || has.has(l.id)) continue
+    const rank = ORDER.indexOf(l.stage === "archived" ? l.archivedFrom ?? "new" : l.stage)
+    if (rank < 2) continue
+    const r = h(l.id)
+    const plan: { type: "test" | "trial"; came: boolean }[] =
+      rank === 2 ? [{ type: "test", came: false }]
+        : rank === 3 ? [{ type: "test", came: true }]
+          : rank <= 5 ? [...(r < 0.4 ? [{ type: "test" as const, came: true }] : []), { type: "trial", came: rank === 5 }]
+            : r < 0.3 ? [{ type: "test", came: true }] : r < 0.7 ? [{ type: "trial", came: true }] : [{ type: "test", came: true }, { type: "trial", came: true }]
+    const base = l.createdAt.slice(0, 10)
+    plan.forEach((p, i) => {
+      const date = addDays(base, 4 + i * 6)
+      // no result: a past day = didn't come, a day still ahead (open lead) = booked
+      db.assessments.push({ id: `as_${l.id}_${i}`, type: p.type, leadId: l.id, studentId: l.convertedStudentId ?? "", sessionId: "", subject: l.subject, date, start: "10:00",
+        ...(p.came ? { result: `ระดับ ${l.childGrade}` } : {}) })
     })
   }
 }

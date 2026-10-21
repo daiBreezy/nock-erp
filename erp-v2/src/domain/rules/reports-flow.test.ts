@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest"
-import { churnRate, courseFlow, coursesBought, leadSummary, returningBack, returningIn, trendMonths, type RevenueRow } from "./reports"
+import { churnRate, courseFlow, coursesBought, leadAppointments, leadFunnel, leadPaths, leadSummary, returningBack, returningIn, trendMonths, type RevenueRow } from "./reports"
 
 // owner 2026-10-20: Reports › Overview — returning students / courses, courses bought, the lead section
 const R = { from: "2026-10-01", to: "2026-10-31" }
@@ -38,7 +38,8 @@ describe("courses bought and leads", () => {
   it("total, test, trial, conversion — and per staff member", () => {
     const l = (stage: string, assigneeId: string | null, direct = false) => ({ stage, assigneeId, direct, createdAt: "2026-10-10T09:00:00Z" }) as never
     const s = leadSummary([l("new", "a"), l("tested", "a"), l("trialed", "b"), l("enrolled", "b"), l("enrolled", "b", true), l("archived", null)], R)
-    expect(s).toMatchObject({ total: 6, test: 3, trial: 2, enrolled: 2 })
+    // no appointment records: tested → a Test, trialed / enrolled → a Trial (enroll-now has neither)
+    expect(s).toMatchObject({ total: 6, test: 1, trial: 2, enrolled: 2 })
     expect(s.conversion).toBeCloseTo(2 / 6)
     expect(s.members[0]).toMatchObject({ staffId: "b", leads: 3, enrolled: 2 })
   })
@@ -108,5 +109,36 @@ describe("the 12-month trend (owner 2026-10-21)", () => {
     expect(f.on("2026-08-31")).toEqual({ active: 1, paused: 0 }) // only 2 missed so far
     expect(f.on("2026-09-05")).toEqual({ active: 0, paused: 1 })
     expect(f.on("2026-09-30")).toEqual({ active: 1, paused: 0 })
+  })
+})
+
+describe("Test / Trial by the appointment records (owner 2026-10-21)", () => {
+  const lead = (id: string, stage: string, direct = false) => ({ id, stage, direct, createdAt: "2026-10-02T09:00:00Z" }) as never
+  const L = [lead("a", "enrolled"), lead("b", "enrolled"), lead("c", "archived"), lead("d", "trial_scheduled"), lead("e", "enrolled", true)]
+  const asm = (leadId: string, type: "test" | "trial", date: string, extra: object = {}) => ({ leadId, type, date, sessionId: `s_${leadId}_${type}`, studentId: `st_${leadId}`, ...extra })
+  const ap = leadAppointments(L, [
+    asm("a", "test", "2026-10-05", { result: "ป.5" }), // Test only, came (result written)
+    asm("b", "test", "2026-10-05"), asm("b", "trial", "2026-10-09"), // missed the Test, came to the Trial (checked in)
+    asm("c", "trial", "2026-10-06"), // missed (day passed, no check-in)
+    asm("d", "trial", "2026-10-25"), // still ahead
+  ], [{ sessionId: "s_b_test", studentId: "st_b", status: "absent" }, { sessionId: "s_b_trial", studentId: "st_b", status: "present" }], "2026-10-21")
+  it("came / no-show / booked per appointment", () => {
+    expect(ap.get(L[0])).toEqual({ test: "came", trial: undefined })
+    expect(ap.get(L[1])).toEqual({ test: "no_show", trial: "came" })
+    expect(ap.get(L[2])).toEqual({ test: undefined, trial: "no_show" })
+    expect(ap.get(L[3])).toEqual({ test: undefined, trial: "booked" })
+    expect(ap.get(L[4])).toEqual({})
+  })
+  it("the funnel: booked and came are their own steps", () => {
+    const f = leadFunnel(L, R, ap)
+    expect(f.find((s) => s.key === "booked")!.count).toBe(4)
+    expect(f.find((s) => s.key === "came")!.count).toBe(2)
+  })
+  it("per way: Test only / Trial only / both / enroll-now — came, no-show, enrolled", () => {
+    const p = leadPaths(L, R, ap)
+    expect(p.find((x) => x.key === "test")).toMatchObject({ leads: 1, came: 1, noShow: 0, enrolled: 1 })
+    expect(p.find((x) => x.key === "trial")).toMatchObject({ leads: 2, came: 0, noShow: 1, enrolled: 0 })
+    expect(p.find((x) => x.key === "both")).toMatchObject({ leads: 1, came: 1, noShow: 0, enrolled: 1, conversion: 1 })
+    expect(p.find((x) => x.key === "direct")).toMatchObject({ leads: 1, came: null, enrolled: 1 })
   })
 })

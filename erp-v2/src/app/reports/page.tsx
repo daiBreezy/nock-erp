@@ -403,17 +403,50 @@ function LeadOverview({ d }: { d: ReportData }) {
               {ok && l.prev.conversion !== null && <span className="text-[11px] text-muted-foreground">{tx("ก่อนหน้า")} {fmtPct(l.prev.conversion)}</span>}</p>
           </div>
         </div>
+        {/* owner 2026-10-21: the real Test / Trial numbers — booked, and how many came */}
         <FigureList rows={[
-          { label: "Test", value: fmtNum(l.test), sub: ofLead(l.test), info: tx("Lead ที่นัด Test (สอบวัดระดับ) แล้ว — ไม่นับคนที่สมัครเลย") },
-          { label: "Trial", value: fmtNum(l.trial), sub: ofLead(l.trial), info: tx("Lead ที่นัดทดลองเรียนแล้ว — ไม่นับคนที่สมัครเลย") },
+          { label: tx("นัด Test"), value: fmtNum(l.test), sub: l.test ? <span>{tx("มาจริง {0}", [fmtNum(l.testCame)])} · {ofLead(l.test)}</span> : undefined, info: tx("Lead ที่นัด Test (สอบวัดระดับ) — มาจริง = เช็คชื่อมา หรือบันทึกผลแล้ว") },
+          { label: tx("นัด Trial"), value: fmtNum(l.trial), sub: l.trial ? <span>{tx("มาจริง {0}", [fmtNum(l.trialCame)])} · {ofLead(l.trial)}</span> : undefined, info: tx("Lead ที่นัดทดลองเรียน — มาจริง = เช็คชื่อมา หรือบันทึกผลแล้ว") },
           { label: tx("สมัครแล้ว"), value: fmtNum(l.enrolled), tone: "text-emerald-600", total: true, sub: deltaSub(pctDelta(l.enrolled, l.prev.enrolled, ok)), info: tx("Lead ในช่วงนี้ที่กลายเป็นนักเรียนแล้ว") },
         ]} />
       </div>
       <div className="rounded-2xl border p-3 sm:p-4">
         {/* owner 2026-10-21: "ของขั้นก่อน" on every row took too much room — said once, in the ⓘ */}
-        <p className="mb-3 flex items-center gap-1 text-sm font-semibold">Funnel<InfoTip text={tx("ตัวเลขในแท่ง = จำนวน Lead ที่ผ่านขั้นนั้น · % ทางขวา = ผ่านมาจากขั้นก่อนกี่ %")} /></p>
+        <p className="mb-3 flex items-center gap-1 text-sm font-semibold">Funnel<InfoTip text={tx("ตัวเลขในแท่ง = จำนวน Lead ที่ผ่านขั้นนั้น · % ทางขวา = ผ่านมาจากขั้นก่อนกี่ % · นัด = Test หรือ Trial อย่างใดอย่างหนึ่ง · มาจริง = มาอย่างน้อย 1 นัด")} /></p>
         <LeadFunnel d={d} />
       </div>
+      <LeadPaths d={d} />
+    </div>
+  )
+}
+
+/**
+ * Which way leads went (owner 2026-10-21): Test only / Trial only / Test → Trial / enroll-now — booked, came, no-show,
+ * enrolled and the close rate per way, so the two ways can be compared.
+ */
+function LeadPaths({ d }: { d: ReportData }) {
+  const rows = d.crm.paths
+  if (!rows.some((r) => r.leads)) return null
+  return (
+    <div className="overflow-x-auto rounded-2xl border p-3 sm:p-4 lg:col-span-2">
+      <p className="mb-2 flex items-center gap-1 text-sm font-semibold">{tx("แยกตามเส้นทาง")}<InfoTip text={tx("มาจริง = มาอย่างน้อย 1 นัด · ไม่มา = พลาดทุกนัด · อัตราปิด = สมัครแล้ว ÷ Lead ในเส้นทางนั้น")} /></p>
+      <table className="w-full min-w-[32rem] text-sm">
+        <thead className="text-xs text-muted-foreground">
+          <tr className="border-b"><th className="py-1.5 text-left font-normal">{tx("เส้นทาง")}</th><th className="text-right font-normal">Lead</th><th className="text-right font-normal">{tx("มาจริง")}</th><th className="text-right font-normal">{tx("ไม่มา")}</th><th className="text-right font-normal">{tx("สมัครแล้ว")}</th><th className="text-right font-normal">{tx("อัตราปิด")}</th></tr>
+        </thead>
+        <tbody className="tabular-nums">
+          {rows.map((r) => (
+            <tr key={r.key} className="border-b border-dashed last:border-0">
+              <td className="py-1.5">{tx(r.label)}</td>
+              <td className="text-right">{fmtNum(r.leads)}</td>
+              <td className="text-right">{r.came === null ? "—" : fmtNum(r.came)}</td>
+              <td className={cn("text-right", r.noShow ? "text-red-600" : "")}>{r.noShow === null ? "—" : fmtNum(r.noShow)}</td>
+              <td className="text-right text-emerald-600">{fmtNum(r.enrolled)}</td>
+              <td className="text-right font-semibold">{fmtPct(r.conversion)}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
     </div>
   )
 }

@@ -1665,7 +1665,8 @@ describe("Reports R3 — CRM, cohort, forecast (owner 2026-10-01)", () => {
   it("funnel counts every step a lead reached; archived ones at the step they stopped", () => {
     const leads = [lead("new"), lead("tested"), lead("archived", { archivedFrom: "trialed" }), lead("enrolled", { convertedStudentId: "a" })]
     const f = Rep.leadFunnel(leads, { from: "2026-09-01", to: "2026-09-30" })
-    expect(f.map((s) => s.count)).toEqual([4, 3, 3, 2, 1, 1])
+    // lead · contacted · booked a Test or Trial · came · payment · enrolled (no appointment records → read from the stage)
+    expect(f.map((s) => s.count)).toEqual([4, 3, 3, 3, 1, 1])
     expect(Rep.lostLeads(leads, { from: "2026-09-01", to: "2026-09-30" }).find((x) => x.key === "trial")!.count).toBe(1)
   })
   it("cohort: % of the group still studying N months after joining; future months empty", () => {
