@@ -713,4 +713,7 @@ export const COVERAGE: Record<string, Entry> = {
   "เหนือเส้น = เข้ามา (ใหม่ + กลับมาซื้อใหม่) · ใต้เส้น = หลุด (Lost) · เส้นดำ = Net — เดือนที่แดงยาว ให้ไปดูสาเหตุ": { en: "Above the line = came in (new + came back) · below = left (Lost) · dark line = Net — a long red bar is a month to look into", ja: "線より上＝流入（新規＋再購入）· 下＝離脱（Lost）· 黒線＝Net — 赤が長い月は原因を確認" },
   "Churn = หลุดกี่ % ของทุกคนที่เรียนในเดือนนั้น · ต่อ = ของที่แพ็กเกจหมดในเดือนนั้น ซื้อต่อกี่ % — สองเส้นควรวิ่งสวนกัน": { en: "Churn = % of everyone studying that month who left · renewal = % of packages ending that month that were bought again — the two lines should move opposite ways", ja: "Churn＝その月の受講者のうち離脱した割合 · 継続＝その月に終了したパッケージのうち継続した割合 — 2本の線は逆に動くはず" },
   "กราฟ": { en: "Chart", ja: "グラフ" },
+  "ในช่วงนี้ · {0}": { en: "In this period · {0}", ja: "期間内 · {0}" },
+  "Total Active (วันนี้)": { en: "Total Active (today)", ja: "Total Active（今日）" },
+  "คอร์ส Active (วันนี้)": { en: "Active courses (today)", ja: "受講中のコース（今日）" },
 }
