@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest"
-import { coursesBought, leadSummary, returningIn, type RevenueRow } from "./reports"
+import { churnRate, coursesBought, leadSummary, returningIn, type RevenueRow } from "./reports"
 
 // owner 2026-10-20: Reports › Overview — returning students / courses, courses bought, the lead section
 const R = { from: "2026-10-01", to: "2026-10-31" }
@@ -41,5 +41,12 @@ describe("courses bought and leads", () => {
     expect(s).toMatchObject({ total: 6, test: 3, trial: 2, enrolled: 2 })
     expect(s.conversion).toBeCloseTo(2 / 6)
     expect(s.members[0]).toMatchObject({ staffId: "b", leads: 3, enrolled: 2 })
+  })
+})
+
+describe("churn rate", () => {
+  it("Lost ÷ (active at the start + who came in) — never over 100% on a long period", () => {
+    expect(churnRate(42, 27, 62)).toBeCloseTo(42 / 89)
+    expect(churnRate(0, 0, 0)).toBeNull()
   })
 })

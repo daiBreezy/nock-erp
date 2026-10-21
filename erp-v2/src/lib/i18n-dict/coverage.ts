@@ -675,4 +675,13 @@ export const COVERAGE: Record<string, Entry> = {
   "ผู้ดูแล": { en: "Owner", ja: "担当" },
   "สมัคร": { en: "Enrolled", ja: "入会" },
   "แสดงทั้งหมด ({0} คน)": { en: "Show all ({0})", ja: "すべて表示（{0}人）" },
+  "Active ต้นช่วง": { en: "Active at start", ja: "期間開始時のActive" },
+  "นักเรียน Active ในวันก่อนเริ่มช่วงนี้ — ใช้เป็นฐานของ Churn rate": { en: "Students active the day before this period began — the base of the churn rate", ja: "期間開始前日のActive生徒 — Churn rateの分母" },
+  "Lost ÷ Active ต้นช่วง — นักเรียนที่มีอยู่ตอนต้นช่วง หายไปกี่ %": { en: "Lost ÷ Active at start — the share of students at the start who were lost", ja: "Lost ÷ 期間開始時のActive — 期首の生徒のうち離脱した割合" },
+  "แบบสอบถามผู้ปกครองปี {0} · แนะนำ 9–10 · เฉยๆ 7–8 · ไม่แนะนำ 0–6": { en: "Parent survey {0} · promoters 9–10 · passive 7–8 · detractors 0–6", ja: "保護者アンケート{0}年 · 推奨9–10 · 中立7–8 · 批判0–6" },
+  "จากปีก่อน": { en: "from last year", ja: "前年比" },
+  "ตอบ {0} ครอบครัว": { en: "{0} families answered", ja: "回答 {0}家庭" },
+  "Admin / ครูที่ดูแล Lead — ดูแลกี่ราย สมัครกี่ราย (ตามผู้ดูแลของ Lead) · Lead ที่เข้ามาในช่วงนี้": { en: "Admins / teachers looking after leads — how many each had and enrolled · leads that came in this period", ja: "リード担当の管理者・講師 — 担当数と入会数 · 期間内のリード" },
+  "Lost ÷ (Active ต้นช่วง + ใหม่ + กลับมาซื้อใหม่) — ในบรรดานักเรียนที่อยู่กับเราในช่วงนี้ หายไปกี่ %": { en: "Lost ÷ (active at start + new + came back) — of everyone who studied with us in this period, the share lost", ja: "Lost ÷（期首Active＋新規＋再購入）— 期間内に在籍した生徒のうち離脱した割合" },
+  "นักเรียน Active ในวันก่อนเริ่มช่วงนี้": { en: "Students active the day before this period began", ja: "期間開始前日のActive生徒" },
 }

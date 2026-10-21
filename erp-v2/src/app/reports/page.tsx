@@ -159,7 +159,6 @@ function Reports() {
 // ---------------- Overview ----------------
 
 function Overview({ d, compare, period, periodLabel, onAllRevenue, onAllStudents }: { d: ReportData; compare: boolean; period: PeriodKey; periodLabel: string; onAllRevenue: () => void; onAllStudents: () => void }) {
-  const net = d.studentFlow.newCount + d.studentFlow.returning - d.studentFlow.lost
   return (
     <div className="space-y-4">
       {/* each period with its own comparison — not "MoM" everywhere */}
@@ -185,17 +184,16 @@ function Overview({ d, compare, period, periodLabel, onAllRevenue, onAllStudents
         <LeadOverview d={d} />
       </Panel>
 
-      <div className="grid gap-4 lg:grid-cols-2">
+      {/* owner 2026-10-21: revenue by type lives on the Revenue tab */}
+      <div className={cn("grid gap-4", compare && "lg:grid-cols-2")}>
         <Panel title={tx("รายได้รายเดือน")} hint={tx("ปี {0} เทียบปีที่แล้ว · ลายทาง = คาดการณ์ (ต่อคอร์ส {1} + ใบที่รอจ่าย)", [yearOf(d.monthly.year), fmtPct(d.forecast.renewal)])}>
           <MonthBars thisYear={d.monthly.thisYear} lastYear={d.monthly.lastYear} current={Number(d.today.slice(5, 7)) - 1} forecast={d.forecast.byMonth.map((x) => x?.total ?? null)}
             currentLastYearToDate={d.monthly.lastYearToDate} todayLabel={`${Number(d.today.slice(8)) === 1 ? "" : "1–"}${Number(d.today.slice(8))} ${fmtDate(d.today).split(" ")[1] ?? ""}`} />
         </Panel>
-        {compare ? (
+        {compare && (
           <Panel title={tx("รายได้ตามสาขา")} hint={`Top 10 · ${periodLabel}`} action={<button type="button" className="text-xs text-primary" onClick={onAllRevenue}>{tx("ดูทั้งหมด ›")}</button>}>
             <BranchRevenue rows={d.byBranch.slice(0, 10)} />
           </Panel>
-        ) : (
-          <Panel title={tx("ประเภทรายได้")} hint={tx("ค่าเรียน · ค่ารถ · ค่าธรรมเนียม · หนังสือ")}><RevenueParts d={d} /></Panel>
         )}
       </div>
 
@@ -205,27 +203,8 @@ function Overview({ d, compare, period, periodLabel, onAllRevenue, onAllStudents
         <FunnelPanel d={d} />
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-2">
-        <Panel title="Net Growth" hint={tx("เข้า = ใหม่ + กลับมาเรียน · Net = เข้า − Lost")} action={<button type="button" className="text-xs text-primary" onClick={onAllStudents}>{tx("ดูทั้งหมด ›")}</button>}>
-          <SummaryStrip items={[[tx("ใหม่"), `+${d.studentFlow.newCount}`, "text-emerald-600"], [tx("กลับมาซื้อใหม่"), `+${d.studentFlow.returning}`, "text-emerald-600"], ["Lost", `−${d.studentFlow.lost}`, "text-red-600"], ["Net", `${net > 0 ? "+" : ""}${net}`, net < 0 ? "text-red-600" : ""], [tx("ต่อคอร์ส"), fmtPct(d.studentFlow.renewal), ""]]} />
-          {compare && (
-            <SplitRanks rows={[...d.perBranch].sort((a, b) => (b.newCount + b.returning - b.lost) - (a.newCount + a.returning - a.lost))} cols={[
-              { label: tx("เข้า"), cell: (b) => <span className="text-emerald-600">+{b.newCount + b.returning}</span> },
-              { label: "Lost", cell: (b) => <span className="text-red-600">−{b.lost}</span> },
-              { label: "Net", cell: (b) => { const n = b.newCount + b.returning - b.lost; return <span className={cn("font-medium", n < 0 && "text-red-600")}>{n > 0 ? "+" : ""}{n}</span> } },
-            ]} />
-          )}
-        </Panel>
-        <Panel title="Lost / Pause" hint={tx("Lost = หมดแพ็กแล้วไม่ต่อใน 30 วัน · Pause = เริ่มลาพักยาวในช่วงนี้")}>
-          <SummaryStrip items={[["Lost", String(d.studentFlow.lost), "text-red-600"], ["Pause", String(d.studentFlow.pauses), "text-amber-600"]]} />
-          {compare && (
-            <SplitRanks rows={[...d.perBranch].sort((a, b) => b.lost + b.pauses - (a.lost + a.pauses))} cols={[
-              { label: "Lost", cell: (b) => <span className="text-red-600">{b.lost}</span> },
-              { label: "Pause", cell: (b) => <span className="text-amber-600">{b.pauses}</span> },
-            ]} />
-          )}
-        </Panel>
-      </div>
+      {/* owner 2026-10-21: what parents say — the latest survey round */}
+      <NpsOverview d={d} />
 
       {/* owner 2026-10-07: retention is a big-picture number — it lives on the overview */}
       <CohortPanel d={d} compare={compare} />
@@ -296,20 +275,22 @@ function StudentOverview({ d, periodLabel }: { d: ReportData; periodLabel: strin
   const ok = d.comparable
   return (
     <div className="space-y-2">
-      <div className="hidden grid-cols-5 gap-2 text-xs font-medium text-muted-foreground lg:grid">
-        <span>{tx("ตอนนี้ (วันนี้)")}</span><span className="col-span-4 border-l pl-3">{tx("ในช่วงนี้ · {0} — ความเคลื่อนไหว ไม่ได้แบ่งมาจาก Active", [periodLabel])}</span>
+      <div className="hidden grid-cols-6 gap-2 text-xs font-medium text-muted-foreground lg:grid">
+        <span>{tx("ตอนนี้ (วันนี้)")}</span><span className="col-span-5 border-l pl-3">{tx("ในช่วงนี้ · {0} — ความเคลื่อนไหว ไม่ได้แบ่งมาจาก Active", [periodLabel])}</span>
       </div>
       {/* owner 2026-10-20: every box the same size, no gaps — column 1 = now, columns 2–5 = the period */}
-      <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-flow-col lg:grid-cols-5 lg:grid-rows-2">
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-flow-col lg:grid-cols-6 lg:grid-rows-2">
         <Stat label="Total Active" value={fmtNum(d.kpi.active)} info={tx("นักเรียนที่มีแพ็กเกจครอบคลุมวันนี้ และไม่ได้ Pause")} />
         <Stat label="Pause" value={fmtNum(d.kpi.paused)} tone="text-amber-600" info={tx("นักเรียนที่ลาพักยาว (Pause) อยู่วันนี้ — ไม่นับรวมใน Active")} />
-        <Stat label={tx("ใหม่")} value={`+${f.newCount}`} tone="text-emerald-600" sub={deltaSub(pctDelta(f.newCount, f.newPrev, ok))} info={tx("ซื้อคอร์สครั้งแรกในช่วงนี้ (นักเรียนที่ Import จากระบบเดิมไม่นับ)")} />
-        <Stat label="Renewal" value={fmtPct(f.renewal)} sub={ok && f.renewalPrev !== null ? <span>{tx("ก่อนหน้า")} {fmtPct(f.renewalPrev)}</span> : undefined} info={tx("อัตราต่อคอร์ส: แพ็กเกจที่หมดในช่วงนี้ ต่อแพ็กใหม่กี่ %")} />
-        <Stat label={tx("กลับมาซื้อใหม่")} value={`+${f.returning}`} tone="text-emerald-600" sub={deltaSub(pctDelta(f.returning, f.returningPrev, ok))} info={tx("เคย Lost (ไม่มีแพ็กเกจเกิน 30 วัน) แล้วกลับมาซื้อคอร์สในช่วงนี้")} />
-        <Stat label="Course Actual buy" value={fmtNum(f.coursesBought)} sub={deltaSub(pctDelta(f.coursesBought, f.coursesBoughtPrev, ok))} info={tx("จำนวนคอร์สที่จ่ายเงินแล้วในช่วงนี้ (ใบแจ้งหนี้ 1 ใบมีได้หลายคอร์ส)")} />
-        <Stat label="Lost" value={`−${f.lost}`} tone="text-red-600" sub={deltaSub(pctDelta(f.lost, f.lostPrev, ok), true)} info={tx("แพ็กเกจหมดแล้วไม่ต่อภายใน 30 วัน — นับในวันที่ครบ 30 วัน")} />
-        <Stat label="Returning Student" value={fmtNum(f.backStudents)} tone="text-sky-700" sub={deltaSub(pctDelta(f.backStudents, f.backStudentsPrev, ok))} info={tx("ลายาว (ขาด / ลา ติดกัน 3 คาบขึ้นไป) หรือ Pause แล้วกลับมาเรียนในช่วงนี้")} />
+        <Stat label={tx("Active ต้นช่วง")} value={fmtNum(f.activeAtStart)} info={tx("นักเรียน Active ในวันก่อนเริ่มช่วงนี้")} />
         <Stat label="Net" value={`${net > 0 ? "+" : ""}${net}`} tone={net < 0 ? "text-red-600" : undefined} info={tx("ใหม่ + กลับมาซื้อใหม่ − Lost = นักเรียนเพิ่มขึ้นสุทธิในช่วงนี้ (Pause ไม่นับ เพราะยังเป็นนักเรียนอยู่)")} />
+        <Stat label={tx("ใหม่")} value={`+${f.newCount}`} tone="text-emerald-600" sub={deltaSub(pctDelta(f.newCount, f.newPrev, ok))} info={tx("ซื้อคอร์สครั้งแรกในช่วงนี้ (นักเรียนที่ Import จากระบบเดิมไม่นับ)")} />
+        <Stat label={tx("กลับมาซื้อใหม่")} value={`+${f.returning}`} tone="text-emerald-600" sub={deltaSub(pctDelta(f.returning, f.returningPrev, ok))} info={tx("เคย Lost (ไม่มีแพ็กเกจเกิน 30 วัน) แล้วกลับมาซื้อคอร์สในช่วงนี้")} />
+        <Stat label="Lost" value={`−${f.lost}`} tone="text-red-600" sub={deltaSub(pctDelta(f.lost, f.lostPrev, ok), true)} info={tx("แพ็กเกจหมดแล้วไม่ต่อภายใน 30 วัน — นับในวันที่ครบ 30 วัน")} />
+        <Stat label="Churn rate" value={fmtPct(f.churn)} tone="text-red-600" sub={ok && f.churnPrev !== null ? <span>{tx("ก่อนหน้า")} {fmtPct(f.churnPrev)}</span> : undefined} info={tx("Lost ÷ (Active ต้นช่วง + ใหม่ + กลับมาซื้อใหม่) — ในบรรดานักเรียนที่อยู่กับเราในช่วงนี้ หายไปกี่ %")} />
+        <Stat label="Renewal" value={fmtPct(f.renewal)} sub={ok && f.renewalPrev !== null ? <span>{tx("ก่อนหน้า")} {fmtPct(f.renewalPrev)}</span> : undefined} info={tx("อัตราต่อคอร์ส: แพ็กเกจที่หมดในช่วงนี้ ต่อแพ็กใหม่กี่ %")} />
+        <Stat label="Course Actual buy" value={fmtNum(f.coursesBought)} sub={deltaSub(pctDelta(f.coursesBought, f.coursesBoughtPrev, ok))} info={tx("จำนวนคอร์สที่จ่ายเงินแล้วในช่วงนี้ (ใบแจ้งหนี้ 1 ใบมีได้หลายคอร์ส)")} />
+        <Stat label="Returning Student" value={fmtNum(f.backStudents)} tone="text-sky-700" sub={deltaSub(pctDelta(f.backStudents, f.backStudentsPrev, ok))} info={tx("ลายาว (ขาด / ลา ติดกัน 3 คาบขึ้นไป) หรือ Pause แล้วกลับมาเรียนในช่วงนี้")} />
         <Stat label="Returning Course" value={fmtNum(f.backCourses)} tone="text-sky-700" sub={deltaSub(pctDelta(f.backCourses, f.backCoursesPrev, ok))} info={tx("คอร์สที่ขาด / ลา ติดกัน 3 คาบขึ้นไป แล้วกลับมาเรียนในช่วงนี้ — รวมกรณีซื้อหลายคอร์ส เรียนคอร์สหนึ่งต่อ แต่พักอีกคอร์สไว้")} />
       </div>
     </div>
@@ -320,11 +301,7 @@ function StudentOverview({ d, periodLabel }: { d: ReportData; periodLabel: strin
 function LeadOverview({ d }: { d: ReportData }) {
   const l = d.leadSummary
   const ok = d.comparable
-  // owner 2026-10-20: like "ครอบครัวทั้งหมด" — two halves side by side (top 10 first, then all), name and role apart
-  const [all, setAll] = useState(false)
-  const shown = all ? l.members : l.members.slice(0, 10)
-  const half = shown.length > 5 ? Math.ceil(shown.length / 2) : shown.length
-  const parts = half < shown.length ? [shown.slice(0, half), shown.slice(half)] : [shown]
+
   return (
     <div className="space-y-4">
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
@@ -334,8 +311,19 @@ function LeadOverview({ d }: { d: ReportData }) {
         <Stat label={tx("สมัครแล้ว")} value={fmtNum(l.enrolled)} tone="text-emerald-600" sub={deltaSub(pctDelta(l.enrolled, l.prev.enrolled, ok))} info={tx("Lead ในช่วงนี้ที่กลายเป็นนักเรียนแล้ว")} />
         <Stat label="Conversion rate" value={fmtPct(l.conversion)} sub={ok && l.prev.conversion !== null ? <span>{tx("ก่อนหน้า")} {fmtPct(l.prev.conversion)}</span> : undefined} info={tx("สมัครแล้ว ÷ Total Lead")} />
       </div>
-      <div className="space-y-1.5">
-        <p className="flex items-center gap-1 text-xs font-medium text-muted-foreground">Members Conversion rate <InfoTip text={tx("Admin / ครูที่ดูแล Lead — ดูแลกี่ราย สมัครกี่ราย (ตามผู้ดูแลของ Lead)")} /></p>
+    </div>
+  )
+}
+
+/** who turns leads into students (owner 2026-10-21: on the Operations tab) — like "ครอบครัวทั้งหมด": two halves, top 10 first */
+function MembersConversion({ d }: { d: ReportData }) {
+  const l = d.leadSummary
+  const [all, setAll] = useState(false)
+  const shown = all ? l.members : l.members.slice(0, 10)
+  const half = shown.length > 5 ? Math.ceil(shown.length / 2) : shown.length
+  const parts = half < shown.length ? [shown.slice(0, half), shown.slice(half)] : [shown]
+  return (
+    <div className="space-y-1.5">
         {l.members.length === 0 ? <Empty /> : (
           <div className={cn("grid", parts.length > 1 && "lg:grid-cols-2 lg:divide-x")}>
             {parts.map((part, c) => (
@@ -365,27 +353,45 @@ function LeadOverview({ d }: { d: ReportData }) {
           </button>
         )}
       </div>
-    </div>
+  )
+}
+
+/** NPS on the overview (owner 2026-10-21) — the latest survey round: score, who'd recommend us, what parents wrote */
+function NpsOverview({ d }: { d: ReportData }) {
+  const year = d.surveyYears[0]
+  if (year === undefined) return null
+  const cur = d.surveyOf(year), prev = d.surveyOf(year - 1)
+  const s = cur.summary, p = prev.summary
+  const v = cur.responses.map((r) => r.answers.nps).filter((x): x is number => x !== null)
+  const pro = v.filter((x) => x >= 9).length, pas = v.filter((x) => x >= 7 && x <= 8).length, det = v.filter((x) => x <= 6).length, n = Math.max(1, v.length)
+  const dNps = s.nps !== null && p.nps !== null ? s.nps - p.nps : null
+  const texts = (good: boolean) => groupComments(cur.responses.map((r) => (good ? r.answers.praise : r.answers.improve)).filter((x): x is string => !!x))
+  return (
+    <Panel title="NPS" hint={tx("แบบสอบถามผู้ปกครองปี {0} · แนะนำ 9–10 · เฉยๆ 7–8 · ไม่แนะนำ 0–6", [yearOf(year)])}>
+      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,2fr)] lg:gap-0 lg:divide-x">
+        <div className="flex flex-col justify-center gap-3 lg:pr-6">
+          <div className="flex items-end gap-3">
+            <p className={cn("text-4xl font-semibold tabular-nums", s.nps !== null && s.nps < 0 ? "text-red-600" : "text-emerald-600")}>{s.nps === null ? "—" : `${s.nps > 0 ? "+" : ""}${s.nps}`}</p>
+            <p className="pb-1 text-xs text-muted-foreground">{dNps === null ? tx("ปีก่อน —") : <span className={dNps >= 0 ? "text-emerald-600" : "text-red-600"}>{dNps >= 0 ? "▲" : "▼"} {Math.abs(dNps)} {tx("จากปีก่อน")}</span>}<span className="block">{tx("ตอบ {0} ครอบครัว", [v.length])}</span></p>
+          </div>
+          <div className="flex h-3 overflow-hidden rounded-full bg-muted"><span className="bg-emerald-500" style={{ width: `${(pro / n) * 100}%` }} /><span className="bg-amber-400" style={{ width: `${(pas / n) * 100}%` }} /><span className="bg-red-500" style={{ width: `${(det / n) * 100}%` }} /></div>
+          <div className="flex justify-between text-xs"><span className="text-emerald-700">{tx("แนะนำ")} {pro}</span><span className="text-amber-700">{tx("เฉยๆ")} {pas}</span><span className="text-red-700">{tx("ไม่แนะนำ")} {det}</span></div>
+        </div>
+        <div className="grid gap-6 lg:grid-cols-2 lg:gap-0 lg:divide-x lg:pl-6">
+          {[true, false].map((good, c) => (
+            <div key={String(good)} className={c ? "lg:pl-6" : "lg:pr-6"}>
+              <TopList title={good ? tx("ประทับใจ") : tx("อยากให้ปรับปรุง")} icon={<span className={cn("size-2.5 rounded-full", good ? "bg-emerald-500" : "bg-amber-500")} />} color={good ? "#10b981" : "#f59e0b"} wide rows={texts(good)} />
+            </div>
+          ))}
+        </div>
+      </div>
+    </Panel>
   )
 }
 
 const ROLE_CHIP: Partial<Record<string, string>> = {
   admin: "bg-sky-100 text-sky-800", teacher: "bg-emerald-100 text-emerald-800", manager: "bg-violet-100 text-violet-800",
   area_manager: "bg-violet-100 text-violet-800", director: "bg-amber-100 text-amber-900", super_admin: "bg-amber-100 text-amber-900",
-}
-
-/** A row of totals across the top of a card */
-function SummaryStrip({ items }: { items: [string, string, string][] }) {
-  return (
-    <div className="mb-3 flex divide-x rounded-2xl bg-muted/50 py-2">
-      {items.map(([label, value, tone]) => (
-        <div key={label} className="flex-1 px-2 text-center">
-          <p className="text-[11px] text-muted-foreground">{label}</p>
-          <p className={cn("text-lg font-semibold tabular-nums", tone)}>{value}</p>
-        </div>
-      ))}
-    </div>
-  )
 }
 
 /** Ranked branch rows split into two columns once there are more than five — same layout as revenue by branch. */
@@ -954,6 +960,7 @@ function AttendanceTab({ d, compare, onOpen }: { d: ReportData; compare: boolean
 const hrs = (min: number) => tx("{0} ชม.", [(min / 60).toLocaleString("th-TH", { maximumFractionDigits: 1 })])
 
 function OperationsTab({ d, compare }: { d: ReportData; compare: boolean }) {
+  const members = <Panel title="Members Conversion rate" hint={tx("Admin / ครูที่ดูแล Lead — ดูแลกี่ราย สมัครกี่ราย (ตามผู้ดูแลของ Lead) · Lead ที่เข้ามาในช่วงนี้")}><MembersConversion d={d} /></Panel>
   const o = d.operations
   const [onlyPartTime, setOnlyPartTime] = useState(false)
   const teachers = o.teachers.filter((t) => !onlyPartTime || t.staff?.partTime)
@@ -970,6 +977,8 @@ function OperationsTab({ d, compare }: { d: ReportData; compare: boolean }) {
         <Stat label={tx("ชั่วโมง Part-time")} value={hrs(partTimeMin)} tone="text-violet-600" />
         <Stat label={tx("งานค้างของครู")} value={fmtNum(o.teachers.reduce((a, t) => a + t.unmarked + t.summariesPending, 0))} sub={<span>{tx("เช็คชื่อ + สรุปการเรียน")}</span>} />
       </div>
+      {/* owner 2026-10-21: moved here from the overview's lead section */}
+      {members}
       <Panel title={tx("สุขภาพครู (Teacher Health)")} hint={tx("เรียงตามชั่วโมงสอน")}
         action={<label className="flex items-center gap-1.5 text-xs text-muted-foreground"><input type="checkbox" checked={onlyPartTime} onChange={(e) => setOnlyPartTime(e.target.checked)} />  {tx("เฉพาะ Part-time")}</label>}>
         {teachers.length ? (

@@ -212,6 +212,11 @@ export function useReports(branchIds: string[], period: R.PeriodKey, custom?: R.
           return { backStudents: now.students, backCourses: now.courses, backStudentsPrev: before.students, backCoursesPrev: before.courses }
         })(),
         coursesBought: R.coursesBought(rows, range), coursesBoughtPrev: R.coursesBought(rows, prev),
+        // owner 2026-10-21: churn rate = Lost ÷ everyone who studied with us in the period (active at the start + new +
+        // came back) — Lost ÷ start alone went over 100% on long periods (YTD: 27 at New Year, 42 lost)
+        activeAtStart,
+        churn: R.churnRate(R.countEvents(events, range, "lost"), activeAtStart, R.countEvents(events, range, "new") + R.countEvents(events, range, "returning")),
+        churnPrev: R.churnRate(R.countEvents(events, prev, "lost"), countState(addDays(prev.from, -1), "active"), R.countEvents(events, prev, "new") + R.countEvents(events, prev, "returning")),
       },
       // owner 2026-10-20: the lead section on the Overview — and who turns leads into students
       leadSummary: (() => {

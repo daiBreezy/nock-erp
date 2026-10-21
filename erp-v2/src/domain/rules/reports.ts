@@ -945,3 +945,8 @@ export function leadSummary(leads: Pick<Lead, "stage" | "archivedFrom" | "create
   }
 }
 
+/** Churn rate (owner 2026-10-21): Lost ÷ everyone who studied in the period = active at its start + who came in. */
+export function churnRate(lost: number, activeAtStart: number, cameIn: number) {
+  const base = activeAtStart + cameIn
+  return base ? lost / base : null
+}
