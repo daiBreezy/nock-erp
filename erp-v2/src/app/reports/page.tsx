@@ -322,7 +322,7 @@ function StudentOverview({ d, periodLabel }: { d: ReportData; periodLabel: strin
   return (
     <StockSection unit="คน" periodLabel={periodLabel} flow={fl.now.student} stats={[
       { label: "Churn", full: "Churn rate", value: fmtPct(fl.now.student.churn), tone: "text-red-600", sub: ptsSub(fl.now.student.churn, fl.before.student.churn, ok), info: churnInfo("คน") },
-      { label: tx("นักเรียนต่อ"), value: fmtPct(f.renewal), sub: ptsSub(f.renewal, f.renewalPrev, ok), info: tx("นักเรียนที่แพ็กเกจหมดในช่วงนี้ ซื้อต่อกี่ % (นับรวมทุกคอร์สของนักเรียน — ต่อคอร์สไหนก็นับว่าต่อ)") },
+      { label: tx("นักเรียนต่อ"), full: tx("อัตรานักเรียนต่อ"), value: fmtPct(f.renewal), sub: ptsSub(f.renewal, f.renewalPrev, ok), info: tx("นักเรียนที่แพ็กเกจหมดในช่วงนี้ ซื้อต่อกี่ % (นับรวมทุกคอร์สของนักเรียน — ต่อคอร์สไหนก็นับว่าต่อ)") },
       { label: "Returning", full: "Returning Student", value: fmtNum(f.backStudents), tone: "text-sky-700", sub: deltaSub(pctDelta(f.backStudents, f.backStudentsPrev, ok)), info: tx("ลายาว (ขาด / ลา ติดกัน 3 คาบขึ้นไป) หรือ Pause แล้วกลับมาเรียนในช่วงนี้") },
     ]} />
   )
@@ -337,7 +337,7 @@ function CourseOverview({ d, periodLabel }: { d: ReportData; periodLabel: string
   return (
     <StockSection unit="คอร์ส" periodLabel={periodLabel} flow={fl.now.course} stats={[
       { label: "Churn", full: "Churn rate", value: fmtPct(fl.now.course.churn), tone: "text-red-600", sub: ptsSub(fl.now.course.churn, fl.before.course.churn, ok), info: churnInfo("คอร์ส") },
-      { label: tx("คอร์สต่อ"), value: fmtPct(c.renewal), sub: ptsSub(c.renewal, c.prev.renewal, ok), info: tx("แพ็กเกจของคอร์สที่หมดในช่วงนี้ ซื้อคอร์สเดิมต่อกี่ % — กลับมาเรียนหลังพักไม่ใช่การต่อ (นับใน Returning Course)") },
+      { label: tx("คอร์สต่อ"), full: tx("อัตราคอร์สต่อ"), value: fmtPct(c.renewal), sub: ptsSub(c.renewal, c.prev.renewal, ok), info: tx("แพ็กเกจของคอร์สที่หมดในช่วงนี้ ซื้อคอร์สเดิมต่อกี่ % — กลับมาเรียนหลังพักไม่ใช่การต่อ (นับใน Returning Course)") },
       { label: "Returning", full: "Returning Course", value: fmtNum(f.backCourses), tone: "text-sky-700", sub: deltaSub(pctDelta(f.backCourses, f.backCoursesPrev, ok)), info: tx("คอร์สที่พัก (ไม่ได้เรียน ติดกัน 3 คาบขึ้นไป) แล้วกลับมาเรียนในช่วงนี้") },
       { label: "Act buy", full: "Course Actual buy", value: fmtNum(c.bought), sub: deltaSub(pctDelta(c.bought, c.boughtPrev, ok)), info: tx("จำนวนคอร์สที่จ่ายเงินแล้วในช่วงนี้ — ทั้งซื้อใหม่และซื้อต่อ (ใบแจ้งหนี้ 1 ใบมีได้หลายคอร์ส)") },
       { label: tx("คอร์ส/คน"), full: tx("คอร์ส / นักเรียน"), value: c.studentsActive ? (c.active / c.studentsActive).toFixed(2) : "—", info: tx("คอร์ส Active ÷ นักเรียน Active — นักเรียนหนึ่งคนเรียนเฉลี่ยกี่คอร์ส") },
