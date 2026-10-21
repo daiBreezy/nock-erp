@@ -284,11 +284,12 @@ function FigureList({ rows }: { rows: Figure[] }) {
   return (
     <dl className="text-sm">
       {rows.map((x) => (
-        <div key={x.label} className={cn("flex items-center justify-between gap-3 px-2 py-1.5", x.total ? "total-row mt-1.5 rounded-lg bg-muted/70 font-semibold" : "border-b border-dashed [&:has(+.total-row)]:border-0 last:border-0")}>
+        // owner 2026-10-21: one row height everywhere (the total too), so the two lists side by side stay row-for-row level
+        <div key={x.label} className={cn("flex h-9 items-center justify-between gap-3 px-2", x.total ? "total-row rounded-lg bg-muted/70 font-semibold" : "border-b border-dashed [&:has(+.total-row)]:border-0 last:border-0")}>
           <dt className="flex min-w-0 items-center gap-1 text-muted-foreground">{x.label}{x.info && <InfoTip text={x.info} />}</dt>
           <dd className="flex shrink-0 items-center gap-2">
             {x.sub && <span className="text-[11px] text-muted-foreground">{x.sub}</span>}
-            <span className={cn("font-semibold tabular-nums", x.total && "text-base", x.tone)}>{x.value}</span>
+            <span className={cn("font-semibold tabular-nums", x.tone)}>{x.value}</span>
           </dd>
         </div>
       ))}
