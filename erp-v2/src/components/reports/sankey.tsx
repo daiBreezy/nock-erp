@@ -11,7 +11,9 @@ import { fmtNum } from "./charts"
  * the bands through it. Each band fades from the colour of the box it leaves to the colour of the box it reaches
  * (owner 2026-10-21). Generic: the rule decides the columns and the flows.
  */
-export type SankeyNode = { key: string; label: string; value: number; color: string; hint?: string }
+export type SankeyNode = { key: string; label: string; value: number; color: string; hint?: string
+  /** a box that is two things at once, drawn half and half (top / bottom) — bands still use `color` */
+  split?: [string, string] }
 export type SankeyColumn = { title: string; nodes: SankeyNode[] }
 export type SankeyLink = { col: number; from: string; to: string; value: number }
 
@@ -79,6 +81,11 @@ export function Sankey({ columns, flows, total, heads }: { columns: SankeyColumn
             <text key={ci} x={ci === columns.length - 1 ? xOf(ci) + NW : xOf(ci)} y={14} textAnchor={ci === columns.length - 1 ? "end" : "start"} fontSize={12} fill="currentColor" fillOpacity={0.55}>{c.title}</text>
           ))}
           <defs>
+            {[...box.entries()].filter(([, b]) => b.node.split).map(([k, b]) => (
+              <linearGradient key={k} id={`${uid}-n${k.replace(/[^a-z0-9]/gi, "")}`} x1={0} x2={0} y1={0} y2={1}>
+                <stop offset="50%" stopColor={b.node.split![0]} /><stop offset="50%" stopColor={b.node.split![1]} />
+              </linearGradient>
+            ))}
             {links.map((l) => (
               <linearGradient key={l.i} id={`${uid}-g${l.i}`} gradientUnits="userSpaceOnUse" x1={xOf(l.f.col) + NW} x2={xOf(l.f.col + 1)} y1={0} y2={0}>
                 <stop offset="0%" stopColor={box.get(`${l.f.col}|${l.f.from}`)!.node.color} />
@@ -95,7 +102,7 @@ export function Sankey({ columns, flows, total, heads }: { columns: SankeyColumn
             const last = b.col === columns.length - 1
             return (
               <g key={k} onMouseEnter={() => setHover({ col: b.col, key: b.node.key })}>
-                <rect x={b.x} y={b.y} width={NW} height={b.h} rx={3} fill={b.node.color} />
+                <rect x={b.x} y={b.y} width={NW} height={b.h} rx={3} fill={b.node.split ? `url(#${uid}-n${k.replace(/[^a-z0-9]/gi, "")})` : b.node.color} />
                 <text x={last ? b.x - 6 : b.x + NW + 6} y={b.y + Math.min(b.h / 2, 14) + 4} textAnchor={last ? "end" : "start"} fontSize={12} fill="currentColor" className="pointer-events-none">
                   {b.node.label} <tspan fontWeight={600}>{fmtNum(b.node.value)}</tspan>
                 </text>
