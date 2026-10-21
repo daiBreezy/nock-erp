@@ -111,7 +111,7 @@ function MonthTip({ month, thisYear, lastYear, fmt, unit, side, top, toDate, for
   const pct = thisYear !== null && base ? Math.round(((thisYear - base) / base) * 1000) / 10 : null
   return (
     // beside the bar, level with its top (like the ref) — never above the chart
-    <div className={cn("pointer-events-none absolute z-20 w-40 rounded-2xl bg-popover p-3 text-left shadow-lg ring-1 ring-foreground/10",
+    <div className={cn("pointer-events-none absolute z-20 w-56 rounded-2xl bg-popover p-3 text-left shadow-lg ring-1 ring-foreground/10",
       side === "right" ? "left-full ml-1" : "right-full mr-1")} style={{ top: `${Math.max(0, top)}%` }}>
       <p className="mb-1.5 text-[11px] font-medium text-muted-foreground">{tx(TH_MONTH_FULL[month])}</p>
       <div className="flex items-start gap-2">
