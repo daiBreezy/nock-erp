@@ -185,9 +185,13 @@ function Overview({ d, compare, period, periodLabel, onAllRevenue, onAllStudents
         <CourseOverview d={d} periodLabel={periodLabel} />
       </Panel>
 
-      {/* owner 2026-10-20: leads right under the students */}
-      <Panel title="Lead" hint={tx("{0} · Lead ที่เข้ามาในช่วงนี้", [periodLabel])}>
+      {/* owner 2026-10-20: leads right under the students · 2026-10-21: one section with the funnel (the same leads) */}
+      <Panel title="Lead" hint={tx("{0} · Lead ที่เข้ามาในช่วงนี้ · Funnel นับทุกขั้นที่ผ่านมาแล้ว", [periodLabel])}>
         <LeadOverview d={d} />
+        <div className="mt-4 rounded-2xl border p-3 sm:p-4">
+          <p className="mb-3 text-sm font-semibold">Funnel</p>
+          <LeadFunnel d={d} />
+        </div>
       </Panel>
 
       {/* owner 2026-10-21: revenue by type lives on the Revenue tab */}
@@ -203,11 +207,7 @@ function Overview({ d, compare, period, periodLabel, onAllRevenue, onAllStudents
         )}
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-2">
-        <Panel title="Subject Engine" hint={tx("รายได้ค่าเรียนแยกวิชา · คอร์สหลายวิชาแบ่งเท่าๆ กัน")} center><SubjectEngine d={d} /></Panel>
-        {/* owner 2026-10-20: the lead funnel lives on the overview (was on CRM) */}
-        <FunnelPanel d={d} />
-      </div>
+      <Panel title="Subject Engine" hint={tx("รายได้ค่าเรียนแยกวิชา · คอร์สหลายวิชาแบ่งเท่าๆ กัน")} center><SubjectEngine d={d} /></Panel>
 
       {/* owner 2026-10-21: what parents say — the latest survey round */}
       <NpsOverview d={d} />
@@ -218,12 +218,12 @@ function Overview({ d, compare, period, periodLabel, onAllRevenue, onAllStudents
   )
 }
 
-/** Lead funnel (owner 2026-10-20: on the overview) — leads that came in this period, every stage they reached */
-function FunnelPanel({ d }: { d: ReportData }) {
+/** Lead funnel (owner 2026-10-20: on the overview, was on CRM · 2026-10-21: inside the Lead section) — leads that came
+ *  in this period, every stage they reached */
+function LeadFunnel({ d }: { d: ReportData }) {
   const c = d.crm
   const maxFunnel = Math.max(1, c.funnel[0].count)
   return (
-    <Panel title="Funnel" hint={tx("Lead ที่เข้ามาในช่วงนี้ · นับทุกขั้นที่ผ่านมาแล้ว")} center>
       <ul className="space-y-2.5">
         {c.funnel.map((s, i) => (
           <li key={s.key} className="grid grid-cols-[7rem_1fr_6rem] items-center gap-2 text-sm">
@@ -233,7 +233,6 @@ function FunnelPanel({ d }: { d: ReportData }) {
           </li>
         ))}
       </ul>
-    </Panel>
   )
 }
 
@@ -467,7 +466,7 @@ function Stat({ label, value, tone, sub, info, card }: { label: string; value: s
   /** owner 2026-10-21: the Overview's students / courses / leads read like the period strip above them (same card, same size) */
   card?: boolean }) {
   return (
-    <div className={cn("flex h-full flex-col justify-center rounded-2xl p-3", card ? "min-h-24 bg-card ring-1 ring-foreground/10" : "bg-muted/50")}>
+    <div className={cn("flex h-full flex-col justify-center rounded-2xl p-3", card ? "bg-card ring-1 ring-foreground/10" : "bg-muted/50")}>
       <p className="flex items-center gap-1 text-xs text-muted-foreground">{label}{info && <InfoTip text={info} />}</p>
       <p className={cn("font-semibold tabular-nums", card ? "text-lg" : "text-2xl", tone)}>{value}</p>
       {sub && <p className={cn("flex flex-wrap items-center gap-1 text-muted-foreground", card ? "text-[10px]" : "text-[11px]")}>{sub}</p>}
