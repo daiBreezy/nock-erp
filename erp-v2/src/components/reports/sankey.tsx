@@ -17,7 +17,7 @@ export type SankeyNode = { key: string; label: string; value: number; color: str
 export type SankeyColumn = { title: string; nodes: SankeyNode[] }
 export type SankeyLink = { col: number; from: string; to: string; value: number }
 
-const W = 1000, H = 380, BOTTOM = 6, NW = 10, GAP = 12, PAD = 4
+const BOTTOM = 6, NW = 10, GAP = 12, PAD = 4
 
 /** how see-through the bands are (0 = invisible, 1 = solid) — tweak here */
 export const BAND_OPACITY = {
@@ -29,10 +29,16 @@ export const BAND_OPACITY = {
   dim: 0.04,
 }
 
-export function Sankey({ columns, flows, total, heads }: { columns: SankeyColumn[]; flows: SankeyLink[]; total: number
+export function Sankey({ columns, flows, total, heads, size = { w: 1000, h: 380 }, unit = "คน", of = "Lead", name = "เส้นทางของ Lead", minWidth = "min-w-[40rem]" }: {
+  columns: SankeyColumn[]; flows: SankeyLink[]; total: number
+  /** drawing size — a narrower one keeps the text readable in a half-width card */
+  size?: { w: number; h: number }
+  /** what is counted ("คน" / "คอร์ส") and what the share is of ("Lead" / "ทั้งหมด") — in the hover line */
+  unit?: string; of?: string; name?: string; minWidth?: string
   /** owner 2026-10-21: a headline over each column (its number), sitting right above that column's boxes — replaces the plain titles */
   heads?: ReactNode[] }) {
   const TOP = heads ? 6 : 28
+  const W = size.w, H = size.h
   const uid = useId().replace(/:/g, "")
   const [hover, setHover] = useState<{ link: number } | { col: number; key: string } | null>(null)
   if (!total) return <p className="py-6 text-center text-sm text-muted-foreground">{tx("ยังไม่มีข้อมูลในช่วงนี้")}</p>
@@ -57,16 +63,16 @@ export function Sankey({ columns, flows, total, heads }: { columns: SankeyColumn
   const label = (ci: number, key: string) => box.get(`${ci}|${key}`)?.node.label ?? key
   const hint = !hover ? tx("ชี้ที่แถบหรือกล่องเพื่อดูจำนวน")
     : "link" in hover ? (() => { const l = links.find((x) => x.i === hover.link)!; const from = box.get(`${l.f.col}|${l.f.from}`)!.node
-      return tx("{0} → {1}: {2} คน ({3}% ของ {0})", [from.label, label(l.f.col + 1, l.f.to), fmtNum(l.f.value), String(Math.round((l.f.value / from.value) * 100))]) })()
+      return tx("{0} → {1}: {2} {4} ({3}% ของ {0})", [from.label, label(l.f.col + 1, l.f.to), fmtNum(l.f.value), String(Math.round((l.f.value / from.value) * 100)), tx(unit)]) })()
       : (() => { const n = box.get(`${hover.col}|${hover.key}`)!.node
-        return `${tx("{0}: {1} คน ({2}% ของ Lead)", [n.label, fmtNum(n.value), String(Math.round((n.value / total) * 100))])}${n.hint ? ` · ${n.hint}` : ""}` })()
+        return `${tx("{0}: {1} {3} ({2}% ของ {4})", [n.label, fmtNum(n.value), String(Math.round((n.value / total) * 100)), tx(unit), tx(of)])}${n.hint ? ` · ${n.hint}` : ""}` })()
 
   return (
     <div>
       <p className="mb-2 min-h-5 text-sm text-muted-foreground">{hint}</p>
       <div className="-mx-1 overflow-x-auto px-1">
         {heads && (
-          <div className="relative mb-1 h-[4.75rem] min-w-[40rem]">
+          <div className={cn("relative mb-1 h-[4.75rem]", minWidth)}>
             {heads.map((h, ci) => {
               const last = ci === columns.length - 1
               return (
@@ -76,7 +82,7 @@ export function Sankey({ columns, flows, total, heads }: { columns: SankeyColumn
             })}
           </div>
         )}
-        <svg viewBox={`0 0 ${W} ${H}`} className="w-full min-w-[40rem] text-foreground" role="img" aria-label={tx("เส้นทางของ Lead")} onMouseLeave={() => setHover(null)}>
+        <svg viewBox={`0 0 ${W} ${H}`} className={cn("w-full text-foreground", minWidth)} role="img" aria-label={tx(name)} onMouseLeave={() => setHover(null)}>
           {!heads && columns.map((c, ci) => (
             <text key={ci} x={ci === columns.length - 1 ? xOf(ci) + NW : xOf(ci)} y={14} textAnchor={ci === columns.length - 1 ? "end" : "start"} fontSize={12} fill="currentColor" fillOpacity={0.55}>{c.title}</text>
           ))}

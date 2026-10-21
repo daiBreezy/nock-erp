@@ -313,6 +313,50 @@ export function trendMonths(today: DateStr, n = 12): { key: string; month: numbe
   })
 }
 
+export type FlowEntry = "start" | "new" | "returning"
+export type FlowExit = "active" | "paused" | "grace" | "future" | "lost"
+
+/**
+ * Students or courses as a flow over the period (owner 2026-10-21, Sankey) — each one counted once: how it came in
+ * (already with us the day before the period — studying, or a package ended under LOST_AFTER_DAYS ago, or imported
+ * from the old system · new = first package ever in the period · came back = bought again in the period after a
+ * longer gap) → where it is at the period's end (today for a period still running): studying · paused · waiting to
+ * renew (package ended under LOST_AFTER_DAYS ago) · bought, not started yet · lost. Left and right add up to the same.
+ */
+export function stockFlow(ctx: {
+  spans: Map<string, { from: DateStr; to: DateStr }[]>
+  range: Range; today: DateStr
+  imported: (key: string) => boolean
+  pausedOn: (key: string, date: DateStr) => boolean
+}) {
+  const end = ctx.range.to < ctx.today ? ctx.range.to : ctx.today
+  const before = addDays(ctx.range.from, -1)
+  const flows = new Map<string, { col: number; from: FlowEntry; to: FlowExit; value: number }>()
+  const left = new Map<FlowEntry, number>(), right = new Map<FlowExit, number>()
+  for (const [k, raw] of ctx.spans) {
+    const sp = [...raw].sort((a, b) => a.from.localeCompare(b.from))
+    const reach = (d: DateStr) => sp.filter((x) => x.from <= d).reduce<DateStr | null>((m, x) => (!m || x.to > m ? x.to : m), null)
+    const r0 = reach(before)
+    const firstIn = sp.find((x) => inRange(x.from, { from: ctx.range.from, to: end }))
+    let entry: FlowEntry | null = null
+    if (r0 && addDays(r0, LOST_AFTER_DAYS) > before) entry = "start"
+    else if (firstIn) entry = sp.some((x) => x.from < ctx.range.from) ? "returning" : ctx.imported(k) ? "start" : "new"
+    if (!entry) continue
+    const r1 = reach(end)
+    const exit: FlowExit = r1 && r1 >= end ? (ctx.pausedOn(k, end) ? "paused" : "active")
+      : sp.some((x) => x.from > end) ? "future" : r1 && addDays(r1, LOST_AFTER_DAYS) > end ? "grace" : "lost"
+    left.set(entry, (left.get(entry) ?? 0) + 1)
+    right.set(exit, (right.get(exit) ?? 0) + 1)
+    const f = flows.get(`${entry}|${exit}`) ?? { col: 0, from: entry, to: exit, value: 0 }
+    f.value++
+    flows.set(`${entry}|${exit}`, f)
+  }
+  const total = [...left.values()].reduce((a, b) => a + b, 0)
+  const lost = right.get("lost") ?? 0
+  return { end, total, left, right, flows: [...flows.values()], lost, churn: total ? lost / total : null,
+    net: (left.get("new") ?? 0) + (left.get("returning") ?? 0) - lost }
+}
+
 /** Active students at the end of each month of a year (null for months not reached yet). */
 export function activeByMonth(year: number, upTo: DateStr, studentIds: ID[], ents: Pick<Entitlement, "studentId" | "from" | "to">[], leaves: StudentLeave[]) {
   return Array.from({ length: 12 }, (_, m) => {
@@ -1160,17 +1204,18 @@ export function courseFlow(ctx: {
     for (const sid of x.studentIds) if (ids.has(sid)) bySid.set(sid, [...(bySid.get(sid) ?? []), x])
   }
   for (const list of bySid.values()) list.sort((a, b) => (a.date + a.start).localeCompare(b.date + b.start))
+  /** a course (student|course) held on a day but not studied: a Pause over its classes, or its last sessions missed */
+  const pausedOn = (k: string, date: DateStr) => {
+    const [sid, cid] = k.split("|")
+    const mine = (bySid.get(sid) ?? []).filter((x) => ctx.classCourse(sid, x.classId!) === cid)
+    const onPause = ctx.leaves.some((l) => l.studentId === sid && l.from <= date && date <= l.to && mine.some((x) => x.date >= l.from))
+    const marked = mine.filter((x) => x.date <= date).map((x) => mark.get(`${x.id}|${sid}`)).filter((st): st is Attendance["status"] => !!st)
+    const tail = marked.slice(-RETURN_AFTER_SESSIONS)
+    return onPause || (tail.length === RETURN_AFTER_SESSIONS && tail.every((st) => st !== "present"))
+  }
   const on = (date: DateStr) => {
     let active = 0, paused = 0
-    for (const k of activeOn(date)) {
-      const [sid, cid] = k.split("|")
-      const mine = (bySid.get(sid) ?? []).filter((x) => ctx.classCourse(sid, x.classId!) === cid)
-      const onPause = ctx.leaves.some((l) => l.studentId === sid && l.from <= date && date <= l.to && mine.some((x) => x.date >= l.from))
-      const marked = mine.filter((x) => x.date <= date).map((x) => mark.get(`${x.id}|${sid}`)).filter((st): st is Attendance["status"] => !!st)
-      const tail = marked.slice(-RETURN_AFTER_SESSIONS)
-      if (onPause || (tail.length === RETURN_AFTER_SESSIONS && tail.every((st) => st !== "present"))) paused++
-      else active++
-    }
+    for (const k of activeOn(date)) { if (pausedOn(k, date)) paused++; else active++ }
     return { active, paused }
   }
   /** the period's movements — for the vs-before line and each month of the trend chart */
@@ -1184,6 +1229,8 @@ export function courseFlow(ctx: {
     active: now.active, paused: now.paused, ...inRangeOf(ctx.range),
     /** active / paused courses on a day (the end of each month of the trend) */
     on,
+    /** the packages per course (student|course) and whether one is paused on a day — for the flow (Sankey) */
+    spans: spansOf, pausedOn,
     in: inRangeOf,
   }
 }

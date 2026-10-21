@@ -227,22 +227,16 @@ export function useReports(branchIds: string[], period: R.PeriodKey, custom?: R.
         const byStudentClass = new Map<string, string>()
         for (const e of ents) for (const c of e.classIds) byStudentClass.set(`${e.studentId}|${c}`, e.courseId)
         const cf = R.courseFlow({ students, entitlements: ents, sessions, attendance: s.attendance, leaves, today, range, classCourse: (sid, cls) => byStudentClass.get(`${sid}|${cls}`) ?? null })
-        // owner 2026-10-21: the last 12 months under each section — what's there (stock), what came and went (flow), the rates
-        const back = R.returningBack({ sessions, attendance: s.attendance, leaves, entitlements: ents })
-        const trend = R.trendMonths(today).map((m) => {
-          const end = m.range.to
-          const sNew = R.countEvents(events, m.range, "new"), sRet = R.countEvents(events, m.range, "returning"), sLost = R.countEvents(events, m.range, "lost")
-          const c = cf.in(m.range), on = cf.on(end), b = back.in(m.range)
-          return {
-            key: m.key, month: m.month,
-            student: {
-              active: countState(end, "active"), paused: countState(end, "paused"), newCount: sNew, returning: sRet, lost: sLost, back: b.students,
-              churn: R.churnRate(sLost, countState(addDays(m.range.from, -1), "active"), sNew + sRet), renewal: R.renewalRate(events, m.range),
-            },
-            course: { active: on.active, paused: on.paused, newCount: c.newCount, returning: c.returning, lost: c.lost, back: b.courses, churn: c.churn, renewal: c.renewal },
-          }
+        // owner 2026-10-21: students / courses as a flow over the period (Sankey) — each counted once, follows the period
+        const importedIds = new Set(students.filter((x) => x.imported).map((x) => x.id))
+        const studentSpans = new Map<string, { from: string; to: string }[]>()
+        for (const e of ents) studentSpans.set(e.studentId, [...(studentSpans.get(e.studentId) ?? []), { from: e.from, to: e.to }])
+        const stock = (r: R.Range) => ({
+          student: R.stockFlow({ spans: studentSpans, range: r, today, imported: (k) => importedIds.has(k), pausedOn: (k, d) => R.stateOn(k, d, ents, leaves) === "paused" }),
+          course: R.stockFlow({ spans: cf.spans, range: r, today, imported: (k) => importedIds.has(k.split("|")[0]), pausedOn: cf.pausedOn }),
         })
-        return { ...cf, prev: cf.in(prev), studentsActive: active, bought: R.coursesBought(rows, range), boughtPrev: R.coursesBought(rows, prev), trend }
+        const flow = { now: stock(range), before: stock(prev) }
+        return { ...cf, prev: cf.in(prev), studentsActive: active, bought: R.coursesBought(rows, range), boughtPrev: R.coursesBought(rows, prev), flow }
       })(),
       // owner 2026-10-20: the lead section on the Overview — and who turns leads into students
       leadSummary: (() => {

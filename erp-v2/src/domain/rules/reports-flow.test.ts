@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest"
-import { churnRate, courseFlow, coursesBought, leadAppointments, leadFunnel, leadPaths, leadSankey, leadSummary, returningBack, returningIn, trendMonths, type RevenueRow } from "./reports"
+import { churnRate, courseFlow, coursesBought, leadAppointments, leadFunnel, leadPaths, leadSankey, leadSummary, stockFlow, returningBack, returningIn, trendMonths, type RevenueRow } from "./reports"
 
 // owner 2026-10-20: Reports › Overview — returning students / courses, courses bought, the lead section
 const R = { from: "2026-10-01", to: "2026-10-31" }
@@ -150,5 +150,28 @@ describe("Test / Trial by the appointment records (owner 2026-10-21)", () => {
     expect(p.find((x) => x.key === "trial")).toMatchObject({ leads: 2, came: 0, noShow: 1, enrolled: 0 })
     expect(p.find((x) => x.key === "both")).toMatchObject({ leads: 1, came: 1, noShow: 0, enrolled: 1, conversion: 1 })
     expect(p.find((x) => x.key === "direct")).toMatchObject({ leads: 1, came: null, enrolled: 1 })
+  })
+})
+
+describe("students / courses as a flow over the period (owner 2026-10-21)", () => {
+  const range = { from: "2026-01-01", to: "2026-10-31" }
+  const spans = new Map([
+    ["a", [{ from: "2025-11-01", to: "2026-12-31" }]], // with us at the start, still studying
+    ["b", [{ from: "2025-12-01", to: "2025-12-20" }]], // ended 20 Dec — under 30 days before New Year: still "with us", lost later
+    ["c", [{ from: "2026-03-01", to: "2026-10-10" }]], // new, ended 10 Oct: waiting to renew on the 21st
+    ["d", [{ from: "2025-01-01", to: "2025-03-01" }, { from: "2026-05-01", to: "2026-12-31" }]], // came back, studying
+    ["e", [{ from: "2024-01-01", to: "2024-06-01" }]], // gone before the period: not in it
+    ["f", [{ from: "2026-02-01", to: "2026-12-31" }]], // new, on hold today
+  ])
+  const f = stockFlow({ spans, range, today: "2026-10-21", imported: () => false, pausedOn: (k) => k === "f" })
+  it("each one once — left adds up to right", () => {
+    expect(f.total).toBe(5)
+    expect(Object.fromEntries(f.left)).toEqual({ start: 2, new: 2, returning: 1 })
+    expect(Object.fromEntries(f.right)).toEqual({ active: 2, lost: 1, grace: 1, paused: 1 })
+    expect(f.flows.reduce((a, x) => a + x.value, 0)).toBe(5)
+  })
+  it("churn = lost ÷ everyone in the flow · net = came in − lost", () => {
+    expect(f.churn).toBeCloseTo(1 / 5)
+    expect(f.net).toBe(3 - 1)
   })
 })

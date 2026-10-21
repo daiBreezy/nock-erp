@@ -14,14 +14,13 @@ import { Delta, Donut, DonutLegend, Empty, InfoTip, TopList, fmtNum, fmtPct, fmt
 import { DateRangePicker } from "@/components/app/date-range-picker"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { SummaryTab } from "@/components/reports/summary-tab"
-import { TrendChart, type TrendView } from "@/components/reports/trend-chart"
 import { Sankey } from "@/components/reports/sankey"
 import { useReports, type ReportData } from "@/components/reports/use-reports"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { addDays, fmtDate, fmtMoney, monthShort, toDateStr, weekdayShort, yearOf } from "@/domain/dates"
 import { can, canCompareBranches, crossBranch, reportBranchIds, ROLE_LABEL } from "@/domain/rules/permissions"
-import { BUSINESS_SHORT, COMPARE_LABEL, LEAD_PATHS, PERIODS, scopeBranchIds, type PeriodKey, type Range, type SchoolGroup, type SchoolRow, schoolsByGroup } from "@/domain/rules/reports"
+import { BUSINESS_SHORT, COMPARE_LABEL, LEAD_PATHS, PERIODS, type FlowEntry, type FlowExit, type stockFlow, scopeBranchIds, type PeriodKey, type Range, type SchoolGroup, type SchoolRow, schoolsByGroup } from "@/domain/rules/reports"
 import { LEAD_SOURCE_LABEL } from "@/domain/rules/crm"
 import { reasonLabel } from "@/domain/rules/loss"
 import type { Branch, Weekday } from "@/domain/types"
@@ -248,121 +247,95 @@ const pctDelta = (a: number, b: number | undefined, ok: boolean) => (ok && b ? M
 /** the vs-before line under a number — nothing at all when there is nothing to compare (owner 2026-10-20: no "—" clutter) */
 const deltaSub = (v: number | null, invert?: boolean) => (v === null ? undefined : <Delta value={v} invert={invert} />)
 
-type Figure = { label: string; value: string; tone?: string; sub?: React.ReactNode; info?: string; total?: boolean }
+type Figure = { label: string; value: string; tone?: string; sub?: React.ReactNode; info?: string }
+
+const FLOW_COLOR: Record<FlowEntry | FlowExit, string> = { start: "#2a78d6", new: "#1baf7a", returning: "#7c5cd6", active: "#2a78d6", paused: "#f0b429", grace: "#f97316", future: "#9a9890", lost: "#e34948" }
+const FLOW_LABEL: Record<FlowEntry | FlowExit, string> = { start: "มีอยู่แล้วต้นช่วง", new: "ใหม่", returning: "กลับมาซื้อใหม่", active: "เรียนอยู่", paused: "พัก", grace: "รอต่อ", future: "ซื้อแล้ว ยังไม่เริ่ม", lost: "Lost" }
+const FLOW_HINT: Partial<Record<FlowEntry | FlowExit, string>> = {
+  start: "เรียนอยู่ในวันก่อนเริ่มช่วงนี้ (รวมที่แพ็กเกจเพิ่งหมดไม่ถึง 30 วัน และที่ย้ายมาจากระบบเดิม)",
+  new: "ซื้อแพ็กเกจครั้งแรกในช่วงนี้",
+  returning: "เคยหลุด (ไม่มีแพ็กเกจเกิน 30 วัน) แล้วกลับมาซื้อในช่วงนี้",
+  grace: "แพ็กเกจหมดแล้ว ยังไม่ครบ 30 วัน — ตามให้ต่อก่อนกลายเป็น Lost",
+  future: "จ่ายแล้ว แพ็กเกจยังไม่ถึงวันเริ่ม",
+  lost: "แพ็กเกจหมดเกิน 30 วันแล้วไม่ซื้อต่อ",
+}
 
 /**
- * Students | courses on the Overview (owner 2026-10-21: number boxes side by side read as a mess) — read top to bottom:
- * where we started and where we are (a strip), then the period's movements as a sum (in, out, = Net) next to its rates,
- * then the 12-month chart. Both sections have the same rows in the same places.
+ * Students | courses on the Overview (owner 2026-10-21) — the numbers a flow can't show on a strip (rates, events),
+ * then the flow itself (Sankey): how each one came in over the period → where it is at the period's end. It follows the
+ * period chips (the 12-month chart didn't, so it went); each student / course is counted once, left = right.
  */
-function FlowSection({ now, moves, rates, periodLabel, chart }: { now: Figure[]; moves: Figure[]; rates: Figure[]; periodLabel: string; chart: React.ReactNode }) {
+function StockSection({ stats, flow, unit, periodLabel }: { stats: Figure[]; flow: ReturnType<typeof stockFlow>; unit: "คน" | "คอร์ส"; periodLabel: string }) {
+  const today = flow.end === toDateStr(useNow(60_000))
+  const node = (k: FlowEntry | FlowExit, m: Map<string, number>) => ({ key: k, label: tx(FLOW_LABEL[k]), value: m.get(k) ?? 0, color: FLOW_COLOR[k], hint: FLOW_HINT[k] && tx(FLOW_HINT[k]!) })
+  const came = (flow.left.get("new") ?? 0) + (flow.left.get("returning") ?? 0)
+  const head = (title: string, value: number, label: string, sub: React.ReactNode, right?: boolean) => (
+    <div className={cn(right && "text-right")}>
+      <p className="text-xs text-muted-foreground">{title}</p>
+      <p className={cn("mt-0.5 flex items-baseline gap-1.5", right && "justify-end")}><span className="text-2xl font-semibold tabular-nums">{fmtNum(value)}</span><span className="text-sm text-muted-foreground">{label}</span></p>
+      <p className={cn("flex items-center gap-2 text-[11px] text-muted-foreground tabular-nums", right && "justify-end")}>{sub}</p>
+    </div>
+  )
   return (
-    <div className="flex flex-1 flex-col gap-6">
-      {/* one slot per number: students 3 (start · today · on hold), courses 4 (+ courses per student — owner 2026-10-21) */}
-      <div className={cn("grid grid-cols-2 items-end gap-y-3 rounded-2xl bg-muted/50 px-4 py-3", now.length > 3 ? "gap-x-4 sm:grid-cols-4" : "gap-x-4 sm:grid-cols-3")}>
-        {now.map((x) => (
+    <div className="flex flex-1 flex-col gap-5">
+      {/* what the flow can't show — one slot per number */}
+      <div className="grid items-end gap-x-3 gap-y-3 rounded-2xl bg-muted/50 px-4 py-3" style={{ gridTemplateColumns: `repeat(${stats.length}, minmax(0, 1fr))` }}>
+        {stats.map((x) => (
           <div key={x.label} className="min-w-0">
-            {/* a long name is cut, never its ⓘ */}
             <p className="flex items-center gap-1 text-xs text-muted-foreground"><span className="truncate">{x.label}</span>{x.info && <InfoTip text={x.info} />}</p>
             <p className={cn("text-xl font-semibold tabular-nums", x.tone)}>{x.value}</p>
+            {x.sub && <p className="text-[11px] text-muted-foreground">{x.sub}</p>}
           </div>
         ))}
       </div>
-      <div>
-        <p className="mb-1 text-xs text-muted-foreground">{tx("ในช่วงนี้ · {0}", [periodLabel])}</p>
-        <div className="grid gap-x-8 sm:grid-cols-2">
-          <FigureList rows={moves} />
-          <FigureList rows={rates} />
-        </div>
+      <div className="mt-auto">
+        <Sankey total={flow.total} unit={unit} of="ทั้งหมด" name={unit === "คน" ? "นักเรียน" : "คอร์ส"} size={{ w: 560, h: 260 }} minWidth="min-w-[18rem]"
+          heads={[
+            head(tx("ในช่วงนี้ · {0}", [periodLabel]), flow.total, tx(unit), tx("ต้นช่วง {0} · เข้ามา {1}", [fmtNum(flow.left.get("start") ?? 0), fmtNum(came)])),
+            head(today ? tx("วันนี้") : tx("สิ้นช่วง"), flow.right.get("active") ?? 0, tx("เรียนอยู่"),
+              <span className={cn("rounded-full px-2 py-0.5 font-semibold", flow.net < 0 ? "bg-red-100 text-red-700" : "bg-emerald-100 text-emerald-700")}>Net {flow.net > 0 ? "+" : flow.net < 0 ? "−" : ""}{Math.abs(flow.net)}</span>, true),
+          ]}
+          columns={[
+            { title: "", nodes: (["start", "new", "returning"] as const).map((k) => node(k, flow.left)).filter((n) => n.value) },
+            { title: "", nodes: (["active", "paused", "grace", "future", "lost"] as const).map((k) => node(k, flow.right)).filter((n) => n.value) },
+          ]}
+          flows={flow.flows} />
       </div>
-      {/* pinned to the bottom — the two charts stay level when one list is a row longer */}
-      <div className="mt-auto">{chart}</div>
     </div>
   )
 }
 
-/** label (ⓘ) on the left, the number on the right — a total row sits on a soft filled band (no grey rule above it) */
-function FigureList({ rows }: { rows: Figure[] }) {
-  return (
-    <dl className="text-sm">
-      {rows.map((x) => (
-        // owner 2026-10-21: one row height everywhere (the total too), so the two lists side by side stay row-for-row level
-        <div key={x.label} className={cn("flex h-9 items-center justify-between gap-3 px-2", x.total ? "total-row rounded-lg bg-muted/70 font-semibold" : "border-b border-dashed [&:has(+.total-row)]:border-0 last:border-0")}>
-          <dt className="flex min-w-0 items-center gap-1 text-muted-foreground">{x.label}{x.info && <InfoTip text={x.info} />}</dt>
-          <dd className="flex shrink-0 items-center gap-2">
-            {x.sub && <span className="text-[11px] text-muted-foreground">{x.sub}</span>}
-            <span className={cn("font-semibold tabular-nums", x.tone)}>{x.value}</span>
-          </dd>
-        </div>
-      ))}
-    </dl>
-  )
-}
+const churnInfo = (unit: string) => tx("Lost ÷ ทุก{0}ในช่วงนี้ (ฝั่งซ้ายของ Sankey)", [tx(unit)])
+const ptsSub = (now: number | null, before: number | null, ok: boolean) => (ok && before !== null ? <span>{tx("ก่อนหน้า")} {fmtPct(before)}</span> : undefined)
 
-const signed = (n: number) => `${n > 0 ? "+" : n < 0 ? "−" : ""}${Math.abs(n)}`
-
-/**
- * Students on the Overview (owner 2026-10-20) — "ตอนนี้" is a count of today; "ในช่วงนี้" are movements in the period
- * (they are not slices of today's Active: a new student may already have left, a lost one is no longer counted).
- */
+/** Students on the Overview — rates on the strip, the flow under it (owner 2026-10-21) */
 function StudentOverview({ d, periodLabel }: { d: ReportData; periodLabel: string }) {
   const f = d.studentFlow
-  const net = f.newCount + f.returning - f.lost
+  const fl = d.courseFlow.flow
   const ok = d.comparable
-  const [view, setView] = useState<TrendView>("flow")
   return (
-    <FlowSection periodLabel={periodLabel}
-      now={[
-        { label: tx("Active ต้นช่วง"), value: fmtNum(f.activeAtStart), info: tx("นักเรียน Active ในวันก่อนเริ่มช่วงนี้") },
-        { label: tx("Total Active (วันนี้)"), value: fmtNum(d.kpi.active), info: tx("นักเรียนที่มีแพ็กเกจครอบคลุมวันนี้ และไม่ได้ Pause") },
-        { label: "Pause", value: fmtNum(d.kpi.paused), tone: "text-amber-600", info: tx("นักเรียนที่ลาพักยาว (Pause) อยู่วันนี้ — ไม่นับรวมใน Active") },
-      ]}
-      moves={[
-        { label: tx("ใหม่"), value: `+${f.newCount}`, tone: "text-emerald-600", sub: deltaSub(pctDelta(f.newCount, f.newPrev, ok)), info: tx("ซื้อคอร์สครั้งแรกในช่วงนี้ (นักเรียนที่ Import จากระบบเดิมไม่นับ)") },
-        { label: tx("กลับมาซื้อใหม่"), value: `+${f.returning}`, tone: "text-emerald-600", sub: deltaSub(pctDelta(f.returning, f.returningPrev, ok)), info: tx("เคย Lost (ไม่มีแพ็กเกจเกิน 30 วัน) แล้วกลับมาซื้อคอร์สในช่วงนี้") },
-        { label: "Lost", value: `−${f.lost}`, tone: "text-red-600", sub: deltaSub(pctDelta(f.lost, f.lostPrev, ok), true), info: tx("แพ็กเกจหมดแล้วไม่ต่อภายใน 30 วัน — นับในวันที่ครบ 30 วัน") },
-        { label: "Net", value: signed(net), tone: net < 0 ? "text-red-600" : undefined, total: true, info: tx("ใหม่ + กลับมาซื้อใหม่ − Lost = นักเรียนเพิ่มขึ้นสุทธิในช่วงนี้ (Pause ไม่นับ เพราะยังเป็นนักเรียนอยู่)") },
-      ]}
-      rates={[
-        { label: "Churn rate", value: fmtPct(f.churn), tone: "text-red-600", sub: ok && f.churnPrev !== null ? <span>{tx("ก่อนหน้า")} {fmtPct(f.churnPrev)}</span> : undefined, info: tx("Lost ÷ (Active ต้นช่วง + ใหม่ + กลับมาซื้อใหม่) — ในบรรดานักเรียนที่อยู่กับเราในช่วงนี้ หายไปกี่ %") },
-        { label: tx("นักเรียนต่อ"), value: fmtPct(f.renewal), sub: ok && f.renewalPrev !== null ? <span>{tx("ก่อนหน้า")} {fmtPct(f.renewalPrev)}</span> : undefined, info: tx("นักเรียนที่แพ็กเกจหมดในช่วงนี้ ซื้อต่อกี่ % (นับรวมทุกคอร์สของนักเรียน — ต่อคอร์สไหนก็นับว่าต่อ)") },
-        { label: "Returning Student", value: fmtNum(f.backStudents), tone: "text-sky-700", sub: deltaSub(pctDelta(f.backStudents, f.backStudentsPrev, ok)), info: tx("ลายาว (ขาด / ลา ติดกัน 3 คาบขึ้นไป) หรือ Pause แล้วกลับมาเรียนในช่วงนี้") },
-      ]}
-      chart={<TrendChart rows={d.courseFlow.trend.map((m) => ({ key: m.key, month: m.month, ...m.student }))} view={view} onView={setView} unit="student" renewalLabel={tx("นักเรียนต่อ")} />} />
+    <StockSection unit="คน" periodLabel={periodLabel} flow={fl.now.student} stats={[
+      { label: "Churn rate", value: fmtPct(fl.now.student.churn), tone: "text-red-600", sub: ptsSub(fl.now.student.churn, fl.before.student.churn, ok), info: churnInfo("คน") },
+      { label: tx("นักเรียนต่อ"), value: fmtPct(f.renewal), sub: ptsSub(f.renewal, f.renewalPrev, ok), info: tx("นักเรียนที่แพ็กเกจหมดในช่วงนี้ ซื้อต่อกี่ % (นับรวมทุกคอร์สของนักเรียน — ต่อคอร์สไหนก็นับว่าต่อ)") },
+      { label: "Returning Student", value: fmtNum(f.backStudents), tone: "text-sky-700", sub: deltaSub(pctDelta(f.backStudents, f.backStudentsPrev, ok)), info: tx("ลายาว (ขาด / ลา ติดกัน 3 คาบขึ้นไป) หรือ Pause แล้วกลับมาเรียนในช่วงนี้") },
+    ]} />
   )
 }
 
-/**
- * Courses on the Overview (owner 2026-10-21) — the students' questions asked per course a student holds: a student who
- * stops maths but keeps English loses one course, not a student.
- */
+/** Courses on the Overview — per course a student holds: a student who stops maths but keeps English loses one course */
 function CourseOverview({ d, periodLabel }: { d: ReportData; periodLabel: string }) {
   const c = d.courseFlow
   const f = d.studentFlow
+  const fl = c.flow
   const ok = d.comparable
-  const net = c.newCount + c.returning - c.lost
-  const [view, setView] = useState<TrendView>("flow")
   return (
-    <FlowSection periodLabel={periodLabel}
-      now={[
-        { label: tx("Active ต้นช่วง"), value: fmtNum(c.activeAtStart), info: tx("คอร์สที่มีแพ็กเกจในวันก่อนเริ่มช่วงนี้") },
-        { label: tx("คอร์ส Active"), value: fmtNum(c.active), info: tx("คอร์สที่มีแพ็กเกจครอบคลุมวันนี้ และยังเรียนอยู่ (ไม่ได้พัก)") },
-        { label: tx("คอร์สที่พัก"), value: fmtNum(c.paused), tone: "text-amber-600", info: tx("คอร์สที่ยังมีแพ็กเกจ แต่ไม่ได้เรียน (ลา / ขาด) ติดกัน 3 คาบขึ้นไป หรือนักเรียน Pause ทับวันเรียนของคอร์สนั้น — คอร์สอื่นที่ยังเรียนอยู่ไม่นับ") },
-        { label: tx("คอร์ส / นักเรียน"), value: c.studentsActive ? (c.active / c.studentsActive).toFixed(2) : "—", info: tx("คอร์ส Active ÷ นักเรียน Active — นักเรียนหนึ่งคนเรียนเฉลี่ยกี่คอร์ส") },
-      ]}
-      moves={[
-        { label: tx("ใหม่"), value: `+${c.newCount}`, tone: "text-emerald-600", sub: deltaSub(pctDelta(c.newCount, c.prev.newCount, ok)), info: tx("ซื้อคอร์สนั้นเป็นครั้งแรก (เช่น เรียนคณิตอยู่ แล้วซื้ออังกฤษเพิ่ม = อังกฤษใหม่)") },
-        { label: tx("กลับมาซื้อใหม่"), value: `+${c.returning}`, tone: "text-emerald-600", sub: deltaSub(pctDelta(c.returning, c.prev.returning, ok)), info: tx("คอร์สที่เคย Lost แล้วกลับมาซื้อคอร์สเดิมอีก") },
-        { label: "Lost", value: `−${c.lost}`, tone: "text-red-600", sub: deltaSub(pctDelta(c.lost, c.prev.lost, ok), true), info: tx("แพ็กเกจของคอร์สนั้นหมด แล้วไม่ซื้อคอร์สเดิมต่อภายใน 30 วัน — แม้นักเรียนยังเรียนคอร์สอื่นอยู่") },
-        { label: "Net", value: signed(net), tone: net < 0 ? "text-red-600" : undefined, total: true, info: tx("ใหม่ + กลับมาซื้อใหม่ − Lost (นับเป็นคอร์ส)") },
-      ]}
-      rates={[
-        { label: "Churn rate", value: fmtPct(c.churn), tone: "text-red-600", info: tx("Lost ÷ (Active ต้นช่วง + ใหม่ + กลับมาซื้อใหม่) — นับเป็นคอร์ส") },
-        { label: tx("คอร์สต่อ"), value: fmtPct(c.renewal), sub: ok && c.prev.renewal !== null ? <span>{tx("ก่อนหน้า")} {fmtPct(c.prev.renewal)}</span> : undefined, info: tx("แพ็กเกจของคอร์สที่หมดในช่วงนี้ ซื้อคอร์สเดิมต่อกี่ % — กลับมาเรียนหลังพักไม่ใช่การต่อ (นับใน Returning Course)") },
-        { label: "Returning Course", value: fmtNum(f.backCourses), tone: "text-sky-700", sub: deltaSub(pctDelta(f.backCourses, f.backCoursesPrev, ok)), info: tx("คอร์สที่พัก (ไม่ได้เรียน ติดกัน 3 คาบขึ้นไป) แล้วกลับมาเรียนในช่วงนี้") },
-        { label: "Course Actual buy", value: fmtNum(c.bought), sub: deltaSub(pctDelta(c.bought, c.boughtPrev, ok)), info: tx("จำนวนคอร์สที่จ่ายเงินแล้วในช่วงนี้ — ทั้งซื้อใหม่และซื้อต่อ (ใบแจ้งหนี้ 1 ใบมีได้หลายคอร์ส)") },
-      ]}
-      chart={<TrendChart rows={c.trend.map((m) => ({ key: m.key, month: m.month, ...m.course }))} view={view} onView={setView} unit="course" renewalLabel={tx("คอร์สต่อ")} />} />
+    <StockSection unit="คอร์ส" periodLabel={periodLabel} flow={fl.now.course} stats={[
+      { label: "Churn rate", value: fmtPct(fl.now.course.churn), tone: "text-red-600", sub: ptsSub(fl.now.course.churn, fl.before.course.churn, ok), info: churnInfo("คอร์ส") },
+      { label: tx("คอร์สต่อ"), value: fmtPct(c.renewal), sub: ptsSub(c.renewal, c.prev.renewal, ok), info: tx("แพ็กเกจของคอร์สที่หมดในช่วงนี้ ซื้อคอร์สเดิมต่อกี่ % — กลับมาเรียนหลังพักไม่ใช่การต่อ (นับใน Returning Course)") },
+      { label: "Returning", value: fmtNum(f.backCourses), tone: "text-sky-700", sub: deltaSub(pctDelta(f.backCourses, f.backCoursesPrev, ok)), info: tx("คอร์สที่พัก (ไม่ได้เรียน ติดกัน 3 คาบขึ้นไป) แล้วกลับมาเรียนในช่วงนี้") },
+      { label: "Actual buy", value: fmtNum(c.bought), sub: deltaSub(pctDelta(c.bought, c.boughtPrev, ok)), info: tx("จำนวนคอร์สที่จ่ายเงินแล้วในช่วงนี้ — ทั้งซื้อใหม่และซื้อต่อ (ใบแจ้งหนี้ 1 ใบมีได้หลายคอร์ส)") },
+      { label: tx("คอร์ส/คน"), value: c.studentsActive ? (c.active / c.studentsActive).toFixed(2) : "—", info: tx("คอร์ส Active ÷ นักเรียน Active — นักเรียนหนึ่งคนเรียนเฉลี่ยกี่คอร์ส") },
+    ]} />
   )
 }
 
