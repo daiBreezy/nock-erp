@@ -15,12 +15,13 @@ import { DateRangePicker } from "@/components/app/date-range-picker"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { SummaryTab } from "@/components/reports/summary-tab"
 import { TrendChart, type TrendView } from "@/components/reports/trend-chart"
+import { Sankey } from "@/components/reports/sankey"
 import { useReports, type ReportData } from "@/components/reports/use-reports"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { addDays, fmtDate, fmtMoney, monthShort, toDateStr, weekdayShort, yearOf } from "@/domain/dates"
 import { can, canCompareBranches, crossBranch, reportBranchIds, ROLE_LABEL } from "@/domain/rules/permissions"
-import { BUSINESS_SHORT, COMPARE_LABEL, PERIODS, scopeBranchIds, type PeriodKey, type Range, type SchoolGroup, type SchoolRow, schoolsByGroup } from "@/domain/rules/reports"
+import { BUSINESS_SHORT, COMPARE_LABEL, LEAD_PATHS, PERIODS, scopeBranchIds, type PeriodKey, type Range, type SchoolGroup, type SchoolRow, schoolsByGroup } from "@/domain/rules/reports"
 import { LEAD_SOURCE_LABEL } from "@/domain/rules/crm"
 import { reasonLabel } from "@/domain/rules/loss"
 import type { Branch, Weekday } from "@/domain/types"
@@ -377,11 +378,11 @@ function LeadOverview({ d }: { d: ReportData }) {
   const KEEP = ["lead", "booked", "came", "enrolled"]
   const shown = d.crm.funnel.map((s, i) => ({ s, i })).filter((x) => KEEP.includes(x.s.key))
   const f = shown.map(({ s }, j) => ({ ...s, ofPrev: j && shown[j - 1].s.count ? s.count / shown[j - 1].s.count : null }))
-  const paths = d.crm.paths.filter((p) => p.leads).map((p) => ({ ...p, steps: shown.map(({ i }) => p.steps[i]) }))
   const top = Math.max(1, f[0].count)
   const cols = "grid-cols-[minmax(8.5rem,1.3fr)_repeat(4,minmax(5.5rem,1fr))_minmax(5.5rem,1fr)]"
   return (
-    <div className="-mx-1 overflow-x-auto px-1">
+    <>
+      <div className="-mx-1 overflow-x-auto px-1">
       <div className="min-w-[38rem]">
         <div className={cn("grid items-stretch gap-x-2", cols)}>
           <div className="flex flex-col justify-center text-sm font-semibold">{tx("ทุกเส้นทาง")}<span className="text-xs font-normal text-muted-foreground">{tx("% = จากขั้นก่อน")}</span></div>
@@ -408,27 +409,43 @@ function LeadOverview({ d }: { d: ReportData }) {
           </div>
         </div>
 
-        <p className="mt-6 mb-2 flex items-center gap-1 text-xs text-muted-foreground">{tx("แยกตามเส้นทาง — แต่ละขั้นรวมกันเท่ากับตัวเลขด้านบน")}
-          <InfoTip text={tx("มาจริง = มาอย่างน้อย 1 นัด (เช็คชื่อมา หรือบันทึกผลแล้ว) · ไม่มา = พลาดทุกนัด · อัตราปิด = สมัครแล้ว ÷ Lead ในเส้นทางนั้น")} /></p>
-        <div className={cn("grid gap-x-2 border-b pb-2 text-xs text-muted-foreground", cols)}>
-          <span>{tx("เส้นทาง")}</span>
-          {f.map((s) => <span key={s.key} className="truncate px-3">{tx(s.label)}</span>)}
-          <span className="px-3">{tx("อัตราปิด")}</span>
-        </div>
-        {paths.map((p) => (
-          <div key={p.key} className={cn("grid items-center gap-x-2 border-b border-dashed py-2 text-sm last:border-0", cols)}>
-            <span className="truncate">{tx(p.label)}</span>
-            {p.steps.map((v, i) => (
-              <span key={i} className={cn("px-3 tabular-nums", v === 0 && "text-muted-foreground", i === f.length - 1 && v && "text-emerald-600")}>
-                {v === null ? <span className="text-muted-foreground">—</span> : fmtNum(v)}
-                {f[i].key === "came" && !!p.noShow && <span className="ml-1.5 text-[11px] text-red-600">{tx("ไม่มา {0}", [fmtNum(p.noShow)])}</span>}
-              </span>
-            ))}
-            <span className="px-3 font-semibold tabular-nums">{fmtPct(p.conversion)}</span>
-          </div>
-        ))}
       </div>
-    </div>
+      </div>
+      {/* owner 2026-10-21: where leads came from and where they went (Sankey) — in place of the by-way table */}
+      <div className="mt-6">
+        <p className="mb-1 flex items-center gap-1 text-sm font-semibold">{tx("เส้นทางของ Lead")}
+          <InfoTip text={tx("ทุก Lead ในช่วงนี้วิ่งผ่านทั้ง 4 คอลัมน์ — แต่ละคอลัมน์รวมกันเท่ากับ Lead ใหม่ · มาตามนัด = มาอย่างน้อย 1 นัด (เช็คชื่อมา หรือบันทึกผลแล้ว) · ไม่มา = พลาดทุกนัด")} /></p>
+        <LeadSankey d={d} />
+      </div>
+    </>
+  )
+}
+
+const SANKEY = { source: "#2a78d6", way: "#7c5cd6", showed: "#1baf7a", enrolled: "#1baf7a", open: "#9a9890", lost: "#e34948" }
+
+/** The lead pipeline as a Sankey: channel → way → came? → how it ended (rules leadSankey). */
+function LeadSankey({ d }: { d: ReportData }) {
+  const sk = d.crm.sankey
+  const [src, way, showed, end] = sk.columns
+  const p = Object.fromEntries(d.crm.paths.map((x) => [x.key, x.leads]))
+  const nodes = (m: Map<string, number>, keys: string[], label: (k: string) => string, color: (k: string) => string, hint?: (k: string) => string | undefined) =>
+    keys.filter((k) => m.get(k)).map((k) => ({ key: k, label: label(k), value: m.get(k)!, color: color(k), hint: hint?.(k) }))
+  const WAY_KEYS = LEAD_PATHS.map((x) => x.key) as string[]
+  const SHOWED: Record<string, string> = { came: "มาตามนัด", no_show: "ไม่มา", booked: "รอวันนัด", none: "ไม่ได้นัด" }
+  const END: Record<string, string> = { enrolled: "สมัครแล้ว", open: "ยังคุยอยู่", lost: "หลุด" }
+  return (
+    <Sankey total={sk.total}
+      columns={[
+        { title: tx("ช่องทาง"), nodes: nodes(src, [...src.keys()].sort((a, b) => src.get(b)! - src.get(a)!), (k) => LEAD_SOURCE_LABEL[k as keyof typeof LEAD_SOURCE_LABEL] ?? k, () => SANKEY.source) },
+        { title: tx("เส้นทาง"), nodes: nodes(way, WAY_KEYS, (k) => tx(LEAD_PATHS.find((x) => x.key === k)!.label), () => SANKEY.way,
+          // owner 2026-10-21: the three ways are separate people — say what "all Test" is
+          (k) => k === "test" ? tx("Test ทั้งหมด {0} = อย่างเดียว {1} + ทั้ง Test + Trial {2}", [String((p.test ?? 0) + (p.both ?? 0)), String(p.test ?? 0), String(p.both ?? 0)])
+            : k === "trial" ? tx("Trial ทั้งหมด {0} = อย่างเดียว {1} + ทั้ง Test + Trial {2}", [String((p.trial ?? 0) + (p.both ?? 0)), String(p.trial ?? 0), String(p.both ?? 0)]) : undefined) },
+        { title: tx("นัด"), nodes: nodes(showed, Object.keys(SHOWED), (k) => tx(SHOWED[k]), () => SANKEY.showed) },
+        { title: tx("ผล"), nodes: nodes(end, Object.keys(END), (k) => tx(END[k]), (k) => SANKEY[k as "enrolled" | "open" | "lost"]) },
+      ]}
+      flows={sk.flows}
+      linkColor={(f) => (f.col === 2 ? SANKEY[f.to as "enrolled" | "open" | "lost"] : f.col === 1 ? SANKEY.way : SANKEY.source)} />
   )
 }
 

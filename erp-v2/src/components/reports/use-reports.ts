@@ -131,6 +131,7 @@ export function useReports(branchIds: string[], period: R.PeriodKey, custom?: R.
     const crm = {
       funnel: R.leadFunnel(leads, range, appts),
       paths: R.leadPaths(leads, range, appts),
+      sankey: R.leadSankey(leads, range, appts),
       sources: R.leadSources(leads, rows, range),
       lost: R.lostLeads(leads, range),
       lostReasons: [...leads.filter((l) => l.stage === "archived" && R.inRange(l.createdAt.slice(0, 10), range))

@@ -657,6 +657,39 @@ const leadSteps = <L extends Pick<Lead, "stage" | "archivedFrom" | "direct">>(a:
   { key: "enrolled", label: "สมัครแล้ว", hit: (l: L) => stageRank(l) >= 7 },
 ]
 
+export type SankeyFlow = { col: number; from: string; to: string; value: number }
+
+/**
+ * The lead pipeline as a flow (owner 2026-10-21, Sankey): where leads came from → which way they went (Test only /
+ * Trial only / both / enroll-now / no appointment) → whether they came (came / no-show / still ahead / no appointment)
+ * → how it ended (enrolled / still talking / lost). Every lead in the period runs through all four columns, so each
+ * column adds up to the leads in the period. Counts per pair of neighbouring columns.
+ */
+export function leadSankey<L extends Pick<Lead, "stage" | "archivedFrom" | "createdAt" | "direct" | "source">>(leads: L[], r: Range, appts: Map<L, LeadAppts>) {
+  const xs = leads.filter((l) => inRange(l.createdAt.slice(0, 10), r))
+  const ap = (l: L) => appts.get(l) ?? stageAppts(l)
+  const way = (l: L) => {
+    if (l.direct) return "direct"
+    const a = ap(l)
+    return a.test && a.trial ? "both" : a.test ? "test" : a.trial ? "trial" : "none"
+  }
+  const showed = (l: L) => {
+    const st = [ap(l).test, ap(l).trial].filter((x): x is ApptState => !!x)
+    return !st.length ? "none" : st.includes("came") ? "came" : st.includes("booked") ? "booked" : "no_show"
+  }
+  const end = (l: L) => (stageRank(l) >= 7 ? "enrolled" : l.stage === "archived" ? "lost" : "open")
+  const steps = [(l: L) => l.source as string, way, showed, end]
+  const flows = new Map<string, SankeyFlow>()
+  for (const l of xs) for (let c = 0; c < 3; c++) {
+    const from = steps[c](l), to = steps[c + 1](l), k = `${c}|${from}|${to}`
+    const f = flows.get(k) ?? { col: c, from, to, value: 0 }
+    f.value++
+    flows.set(k, f)
+  }
+  const count = (c: number) => { const m = new Map<string, number>(); for (const l of xs) m.set(steps[c](l), (m.get(steps[c](l)) ?? 0) + 1); return m }
+  return { total: xs.length, columns: [0, 1, 2, 3].map(count), flows: [...flows.values()] }
+}
+
 /** Leads created in the period, through the funnel: count per step and % of the step before / of all leads. */
 export function leadFunnel<L extends Pick<Lead, "stage" | "archivedFrom" | "createdAt" | "direct">>(leads: L[], r: Range, appts?: Map<L, LeadAppts>) {
   const xs = leads.filter((l) => inRange(l.createdAt.slice(0, 10), r))
@@ -668,8 +701,8 @@ export function leadFunnel<L extends Pick<Lead, "stage" | "archivedFrom" | "crea
 export const LEAD_PATHS = [
   { key: "test", label: "Test อย่างเดียว" },
   { key: "trial", label: "Trial อย่างเดียว" },
-  { key: "both", label: "Test → Trial" },
-  { key: "direct", label: "สมัครเลย (ไม่ Test / Trial)" },
+  { key: "both", label: "ทั้ง Test + Trial" },
+  { key: "direct", label: "สมัครเลย" },
   { key: "none", label: "ยังไม่ได้นัด" },
 ] as const
 

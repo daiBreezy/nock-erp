@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest"
-import { churnRate, courseFlow, coursesBought, leadAppointments, leadFunnel, leadPaths, leadSummary, returningBack, returningIn, trendMonths, type RevenueRow } from "./reports"
+import { churnRate, courseFlow, coursesBought, leadAppointments, leadFunnel, leadPaths, leadSankey, leadSummary, returningBack, returningIn, trendMonths, type RevenueRow } from "./reports"
 
 // owner 2026-10-20: Reports › Overview — returning students / courses, courses bought, the lead section
 const R = { from: "2026-10-01", to: "2026-10-31" }
@@ -133,6 +133,16 @@ describe("Test / Trial by the appointment records (owner 2026-10-21)", () => {
     const f = leadFunnel(L, R, ap)
     expect(f.find((s) => s.key === "booked")!.count).toBe(4)
     expect(f.find((s) => s.key === "came")!.count).toBe(2)
+  })
+  it("the Sankey: every lead runs through all four columns; flows add up per column", () => {
+    const withSource = L.map((l) => Object.assign(l as object, { source: "line" })) as never as typeof L
+    const sk = leadSankey(withSource as never, R, ap as never)
+    expect(sk.total).toBe(5)
+    for (const c of sk.columns) expect([...c.values()].reduce((a, b) => a + b, 0)).toBe(5)
+    for (const col of [0, 1, 2]) expect(sk.flows.filter((f) => f.col === col).reduce((a, f) => a + f.value, 0)).toBe(5)
+    expect(sk.columns[1].get("both")).toBe(1)
+    expect(sk.columns[2].get("no_show")).toBe(1) // c: the trial was missed
+    expect(sk.columns[3].get("enrolled")).toBe(3)
   })
   it("per way: Test only / Trial only / both / enroll-now — came, no-show, enrolled", () => {
     const p = leadPaths(L, R, ap)
