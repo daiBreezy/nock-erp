@@ -382,25 +382,30 @@ function LeadOverview({ d }: { d: ReportData }) {
           <div className="flex flex-col justify-center text-sm font-semibold">{tx("ทุกเส้นทาง")}<span className="text-xs font-normal text-muted-foreground">{tx("% = จากขั้นก่อน")}</span></div>
           {f.map((s, i) => (
             <div key={s.key} className="flex flex-col rounded-2xl bg-muted/50 p-3">
-              <p className="truncate text-xs text-muted-foreground">{tx(s.label)}</p>
+              <p className="flex h-5 items-center truncate text-xs text-muted-foreground">{tx(s.label)}</p>
               <p className="text-xl font-semibold tabular-nums">{fmtNum(s.count)}</p>
               {/* owner 2026-10-21: the % right after the bar, on one line */}
               <div className="mt-1.5 flex items-center gap-2">
                 <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-muted"><div className="h-full rounded-full" style={{ width: `${(s.count / top) * 100}%`, background: tint(0.35 + (0.65 * (f.length - i)) / f.length) }} /></div>
-                <span className="shrink-0 text-[11px] text-muted-foreground tabular-nums">{i ? fmtPct(s.ofPrev) : deltaSub(pctDelta(l.total, l.prev.total, ok))}</span>
+                {/* a fixed slot, so every bar is the same length */}
+                <span className="w-10 shrink-0 text-right text-[11px] text-muted-foreground tabular-nums">{i ? fmtPct(s.ofPrev) : "100%"}</span>
               </div>
             </div>
           ))}
           <div className="flex flex-col rounded-2xl bg-primary/5 p-3 ring-1 ring-primary/20">
-            <p className="flex items-center gap-1 truncate text-xs text-muted-foreground">Conversion<InfoTip text={tx("สมัครแล้ว ÷ Lead ใหม่")} /></p>
+            <p className="flex h-5 items-center gap-1 truncate text-xs text-muted-foreground">Conversion<InfoTip text={tx("สมัครแล้ว ÷ Lead ใหม่")} /></p>
             <p className="text-xl font-semibold tabular-nums">{fmtPct(l.conversion)}</p>
-            {ok && l.prev.conversion !== null && <p className="mt-1.5 text-[11px] text-muted-foreground">{tx("ก่อนหน้า")} {fmtPct(l.prev.conversion)}</p>}
+            {/* same build as the steps: a bar (enrolled of all leads) and the slot after it */}
+            <div className="mt-1.5 flex items-center gap-2">
+              <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-primary/10"><div className="h-full rounded-full bg-primary" style={{ width: `${(l.conversion ?? 0) * 100}%` }} /></div>
+              <span className="w-10 shrink-0 text-right text-[11px] text-muted-foreground tabular-nums">{ok && l.prev.conversion !== null ? <Delta value={Math.round(((l.conversion ?? 0) - l.prev.conversion) * 1000) / 10} /> : ""}</span>
+            </div>
           </div>
         </div>
 
-        <p className="mt-4 mb-1 flex items-center gap-1 text-xs text-muted-foreground">{tx("แยกตามเส้นทาง — แต่ละขั้นรวมกันเท่ากับตัวเลขด้านบน")}
+        <p className="mt-6 mb-2 flex items-center gap-1 text-xs text-muted-foreground">{tx("แยกตามเส้นทาง — แต่ละขั้นรวมกันเท่ากับตัวเลขด้านบน")}
           <InfoTip text={tx("มาจริง = มาอย่างน้อย 1 นัด (เช็คชื่อมา หรือบันทึกผลแล้ว) · ไม่มา = พลาดทุกนัด · อัตราปิด = สมัครแล้ว ÷ Lead ในเส้นทางนั้น")} /></p>
-        <div className={cn("grid gap-x-2 border-b pb-1.5 text-xs text-muted-foreground", cols)}>
+        <div className={cn("grid gap-x-2 border-b pb-2 text-xs text-muted-foreground", cols)}>
           <span>{tx("เส้นทาง")}</span>
           {f.map((s) => <span key={s.key} className="truncate px-3">{tx(s.label)}</span>)}
           <span className="px-3">{tx("อัตราปิด")}</span>
