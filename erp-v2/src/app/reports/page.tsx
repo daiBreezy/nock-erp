@@ -188,10 +188,6 @@ function Overview({ d, compare, period, periodLabel, onAllRevenue, onAllStudents
       {/* owner 2026-10-20: leads right under the students · 2026-10-21: one section with the funnel (the same leads) */}
       <Panel title="Lead" hint={tx("{0} · Lead ที่เข้ามาในช่วงนี้ · Funnel นับทุกขั้นที่ผ่านมาแล้ว", [periodLabel])}>
         <LeadOverview d={d} />
-        <div className="mt-4 rounded-2xl border p-3 sm:p-4">
-          <p className="mb-3 text-sm font-semibold">Funnel</p>
-          <LeadFunnel d={d} />
-        </div>
       </Panel>
 
       {/* owner 2026-10-21: revenue by type lives on the Revenue tab · monthly revenue | Subject Engine side by side */}
@@ -384,19 +380,37 @@ function CourseOverview({ d, periodLabel }: { d: ReportData; periodLabel: string
   )
 }
 
-/** Leads on the Overview (owner 2026-10-20) — and each staff member's conversion (who turns leads into students) */
+/**
+ * Leads on the Overview (owner 2026-10-20) — read like the students / courses (2026-10-21): the numbers as a list on the
+ * left (how many came in, then each step down to enrolled = conversion), the funnel chart on the right.
+ */
 function LeadOverview({ d }: { d: ReportData }) {
   const l = d.leadSummary
   const ok = d.comparable
-
+  const ofLead = (n: number) => (l.total ? <span>{tx("{0} ของ Lead", [fmtPct(n / l.total)])}</span> : undefined)
   return (
-    <div className="space-y-4">
-      <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
-        <Stat card label="Total Lead" value={fmtNum(l.total)} sub={deltaSub(pctDelta(l.total, l.prev.total, ok))} info={tx("Lead ใหม่ที่เข้ามาในช่วงนี้ (ไม่นับ Lead ตามกลับนักเรียนเก่า)")} />
-        <Stat card label="Test" value={fmtNum(l.test)} sub={l.total ? <span>{tx("{0} ของ Lead", [fmtPct(l.test / l.total)])}</span> : undefined} info={tx("Lead ที่นัด Test (สอบวัดระดับ) แล้ว — ไม่นับคนที่สมัครเลย")} />
-        <Stat card label="Trial" value={fmtNum(l.trial)} sub={l.total ? <span>{tx("{0} ของ Lead", [fmtPct(l.trial / l.total)])}</span> : undefined} info={tx("Lead ที่นัดทดลองเรียนแล้ว — ไม่นับคนที่สมัครเลย")} />
-        <Stat card label={tx("สมัครแล้ว")} value={fmtNum(l.enrolled)} tone="text-emerald-600" sub={deltaSub(pctDelta(l.enrolled, l.prev.enrolled, ok))} info={tx("Lead ในช่วงนี้ที่กลายเป็นนักเรียนแล้ว")} />
-        <Stat card label="Conversion rate" value={fmtPct(l.conversion)} sub={ok && l.prev.conversion !== null ? <span>{tx("ก่อนหน้า")} {fmtPct(l.prev.conversion)}</span> : undefined} info={tx("สมัครแล้ว ÷ Total Lead")} />
+    <div className="grid gap-6 lg:grid-cols-2">
+      <div className="flex flex-col justify-center gap-4">
+        <div className="grid grid-cols-2 items-end gap-x-4 gap-y-3 rounded-2xl bg-muted/50 px-4 py-3">
+          <div>
+            <p className="flex items-center gap-1 text-xs text-muted-foreground">Total Lead<InfoTip text={tx("Lead ใหม่ที่เข้ามาในช่วงนี้ (ไม่นับ Lead ตามกลับนักเรียนเก่า)")} /></p>
+            <p className="flex items-baseline gap-2"><span className="text-xl font-semibold tabular-nums">{fmtNum(l.total)}</span>{deltaSub(pctDelta(l.total, l.prev.total, ok))}</p>
+          </div>
+          <div>
+            <p className="flex items-center gap-1 text-xs text-muted-foreground">Conversion rate<InfoTip text={tx("สมัครแล้ว ÷ Total Lead")} /></p>
+            <p className="flex items-baseline gap-2"><span className="text-xl font-semibold tabular-nums">{fmtPct(l.conversion)}</span>
+              {ok && l.prev.conversion !== null && <span className="text-[11px] text-muted-foreground">{tx("ก่อนหน้า")} {fmtPct(l.prev.conversion)}</span>}</p>
+          </div>
+        </div>
+        <FigureList rows={[
+          { label: "Test", value: fmtNum(l.test), sub: ofLead(l.test), info: tx("Lead ที่นัด Test (สอบวัดระดับ) แล้ว — ไม่นับคนที่สมัครเลย") },
+          { label: "Trial", value: fmtNum(l.trial), sub: ofLead(l.trial), info: tx("Lead ที่นัดทดลองเรียนแล้ว — ไม่นับคนที่สมัครเลย") },
+          { label: tx("สมัครแล้ว"), value: fmtNum(l.enrolled), tone: "text-emerald-600", total: true, sub: deltaSub(pctDelta(l.enrolled, l.prev.enrolled, ok)), info: tx("Lead ในช่วงนี้ที่กลายเป็นนักเรียนแล้ว") },
+        ]} />
+      </div>
+      <div className="rounded-2xl border p-3 sm:p-4">
+        <p className="mb-3 text-sm font-semibold">Funnel</p>
+        <LeadFunnel d={d} />
       </div>
     </div>
   )
