@@ -113,7 +113,8 @@ export function Sankey({ columns, flows, total, heads, size = { w: 1000, h: 380 
                 {b.node.hint && <title>{b.node.hint}</title>}
                 <rect x={b.x} y={b.y} width={NW} height={b.h} rx={3} fill={b.node.split ? `url(#${uid}-n${k.replace(/[^a-z0-9]/gi, "")})` : b.node.color} />
                 <text x={last ? b.x - 6 : b.x + NW + 6} y={b.y + Math.min(b.h / 2, 14) + 4} textAnchor={last ? "end" : "start"} fontSize={12} fill="currentColor" className="pointer-events-none">
-                  {b.node.label} <tspan fontWeight={600}>{fmtNum(b.node.value)}</tspan>
+                  {/* owner 2026-10-21: the number next to its box — before the name when the name runs right, after it on the last column */}
+                  {last ? <>{b.node.label} <tspan fontWeight={600}>{fmtNum(b.node.value)}</tspan></> : <><tspan fontWeight={600}>{fmtNum(b.node.value)}</tspan> {b.node.label}</>}
                 </text>
               </g>
             )
