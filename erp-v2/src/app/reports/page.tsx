@@ -385,8 +385,8 @@ function LeadOverview({ d }: { d: ReportData }) {
 
 const SANKEY = { source: "#2a78d6", showed: "#1baf7a", enrolled: "#1baf7a", open: "#9a9890", lost: "#e34948" }
 /** owner 2026-10-21: the ways in the colours of the CRM stage tags — Test violet, Trial amber, not booked yet = contact
- *  (sky), enroll-now = closing (orange); both = half violet, half amber */
-const WAY_COLOR: Record<string, string> = { test: "#8b5cf6", trial: "#f59e0b", both: "#f59e0b", direct: "#f97316", none: "#0ea5e9" }
+ *  (sky), enroll-now = closing (orange); both = one colour of its own (teal) */
+const WAY_COLOR: Record<string, string> = { test: "#8b5cf6", trial: "#f59e0b", both: "#14b8a6", direct: "#f97316", none: "#0ea5e9" }
 
 /** The lead pipeline as a Sankey: channel → way → came? → how it ended (rules leadSankey). */
 function LeadSankey({ d, heads }: { d: ReportData; heads: React.ReactNode[] }) {
@@ -394,8 +394,7 @@ function LeadSankey({ d, heads }: { d: ReportData; heads: React.ReactNode[] }) {
   const [src, way, showed, end] = sk.columns
   const p = Object.fromEntries(d.crm.paths.map((x) => [x.key, x.leads]))
   const nodes = (m: Map<string, number>, keys: string[], label: (k: string) => string, color: (k: string) => string, hint?: (k: string) => string | undefined) =>
-    keys.filter((k) => m.get(k)).map((k) => ({ key: k, label: label(k), value: m.get(k)!, color: color(k), hint: hint?.(k),
-      split: m === way && k === "both" ? [WAY_COLOR.test, WAY_COLOR.trial] as [string, string] : undefined }))
+    keys.filter((k) => m.get(k)).map((k) => ({ key: k, label: label(k), value: m.get(k)!, color: color(k), hint: hint?.(k) }))
   const WAY_KEYS = LEAD_PATHS.map((x) => x.key) as string[]
   const SHOWED: Record<string, string> = { came: "มาตามนัด", no_show: "ไม่มา", booked: "รอวันนัด", none: "ไม่ได้นัด" }
   const END: Record<string, string> = { enrolled: "สมัครแล้ว", open: "ยังคุยอยู่", lost: "หลุด" }
