@@ -274,7 +274,8 @@ function StockSection({ stats, flow, unit, periodLabel }: { stats: Figure[]; flo
   const head = (title: string, value: number, label: string, sub: React.ReactNode, right?: boolean) => (
     <div className={cn(right && "text-right")}>
       <p className="text-xs text-muted-foreground">{title}</p>
-      <p className={cn("mt-0.5 flex items-baseline gap-1.5", right && "justify-end")}><span className="text-2xl font-semibold tabular-nums">{fmtNum(value)}</span><span className="text-sm text-muted-foreground">{label}</span></p>
+      {/* owner 2026-10-21: the number sits on the outer edge — left of its words on the left, after them on the right */}
+      <p className={cn("mt-0.5 flex items-baseline gap-1.5", right && "flex-row-reverse")}><span className="text-2xl font-semibold tabular-nums">{fmtNum(value)}</span><span className="text-sm text-muted-foreground">{label}</span></p>
       <p className={cn("flex items-center gap-2 text-[11px] text-muted-foreground tabular-nums", right && "justify-end")}>{sub}</p>
     </div>
   )
@@ -360,7 +361,7 @@ function LeadOverview({ d }: { d: ReportData }) {
     return (
       <div>
         <p className="text-xs text-muted-foreground">{title}</p>
-        <p className={cn("mt-0.5 flex items-baseline gap-1.5", last && "justify-end")}>
+        <p className={cn("mt-0.5 flex items-baseline gap-1.5", last && "flex-row-reverse")}>
           <span className="text-2xl font-semibold tabular-nums">{fmtNum(f[i].count)}</span>
           {/* the same words as the boxes under it */}
           <span className="truncate text-sm text-muted-foreground">{tx(f[i].key === "came" ? "มาตามนัด" : f[i].label)}</span>
