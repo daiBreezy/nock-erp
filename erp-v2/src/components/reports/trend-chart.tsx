@@ -5,7 +5,7 @@ import { monthShort, yearOf } from "@/domain/dates"
 import { tx } from "@/lib/i18n"
 import { cn } from "@/lib/utils"
 import { Segmented } from "@/components/app/page-layout"
-import { fmtNum, fmtPct } from "./charts"
+import { fmtNum, fmtPct, InfoTip } from "./charts"
 
 /**
  * The last 12 months under the students' / courses' numbers (owner 2026-10-21) — one chart per section, switched with
@@ -62,24 +62,24 @@ export function TrendChart({ rows, view, onView, unit, renewalLabel }: { rows: T
     : view === "flow" ? [{ y: 0, t: `+${upMax}` }, { y: zero, t: "0" }, { y: 100, t: `−${downMax}` }]
       : [{ y: 0, t: "100%" }, { y: 50, t: "50%" }, { y: 100, t: "0%" }]
 
-  const linePts = (vals: (number | null)[], y: (v: number) => number) => vals.map((v, i) => (v === null ? null : `${x(i)},${y(v)}`)).filter(Boolean).join(" ")
+  // owner 2026-10-21: the lines read soft — a smooth curve through the months (gaps where a month has no value)
+  const linePath = (vals: (number | null)[], y: (v: number) => number) => smooth(vals.map((v, i) => (v === null ? null : [x(i), y(v)] as [number, number])))
 
   return (
     <div className="rounded-2xl border p-3 sm:p-4">
       {/* the month being read — the hovered one, else the latest */}
-      <div className="mb-3 flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
-        <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-          <Segmented label={tx("กราฟ")} value={view} onChange={onView} options={(["stock", "flow", "rate"] as const).map((v) => ({ value: v, label: tx(TREND_TITLE[v]) }))} />
-          <p className="text-sm text-muted-foreground">{what} · {label(r)}{hover === null ? ` (${tx("เดือนล่าสุด")})` : ""}</p>
-        </div>
-        <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
-          {readout.map((p) => (
-            <span key={p.label} className="flex items-center gap-1.5 text-xs text-muted-foreground">
-              {p.color !== "transparent" && <span className={cn("shrink-0", p.line ? "h-0.5 w-3" : "size-2.5 rounded-sm")} style={{ background: p.color }} />}
-              {p.label} <span className="font-semibold text-foreground tabular-nums">{p.value}</span>
-            </span>
-          ))}
-        </div>
+      <div className="mb-3 flex flex-wrap items-center gap-x-3 gap-y-1">
+        <Segmented label={tx("กราฟ")} value={view} onChange={onView} options={(["stock", "flow", "rate"] as const).map((v) => ({ value: v, label: tx(TREND_TITLE[v]) }))} />
+        <p className="flex items-center gap-1 text-sm text-muted-foreground">{what} · {label(r)}{hover === null ? ` (${tx("เดือนล่าสุด")})` : ""}<InfoTip text={tx(HOW[view])} /></p>
+      </div>
+      {/* owner 2026-10-21: the legend as chips — colour, name and the month's value */}
+      <div className="mb-4 flex flex-wrap gap-1.5">
+        {readout.map((p) => (
+          <span key={p.label} className="inline-flex h-7 items-center gap-1.5 rounded-full bg-muted/70 px-2.5 text-xs text-muted-foreground">
+            {p.color !== "transparent" && <span className={cn("shrink-0", p.line ? "h-0.5 w-3 rounded-full" : "size-2 rounded-full")} style={{ background: p.color }} />}
+            {p.label} <span className="font-semibold text-foreground tabular-nums">{p.value}</span>
+          </span>
+        ))}
       </div>
 
       <div className="flex gap-2">
@@ -113,10 +113,10 @@ export function TrendChart({ rows, view, onView, unit, renewalLabel }: { rows: T
             {/* lines on top: Net (flow) · Churn + renewal (rate) */}
             {view !== "stock" && (
               <svg className="pointer-events-none absolute inset-0 size-full overflow-visible" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden>
-                {view === "flow" && <polyline points={linePts(rows.map((v) => v.newCount + v.returning - v.lost), yFlow)} fill="none" stroke={C.net} strokeWidth={2} vectorEffect="non-scaling-stroke" />}
+                {view === "flow" && <path d={linePath(rows.map((v) => v.newCount + v.returning - v.lost), yFlow)} fill="none" stroke={C.net} strokeOpacity={0.55} strokeWidth={1.75} strokeLinecap="round" vectorEffect="non-scaling-stroke" />}
                 {view === "rate" && <>
-                  <polyline points={linePts(rows.map((v) => v.churn), yRate)} fill="none" stroke={C.churn} strokeWidth={2} vectorEffect="non-scaling-stroke" />
-                  <polyline points={linePts(rows.map((v) => v.renewal), yRate)} fill="none" stroke={C.renewal} strokeWidth={2} strokeDasharray="5 4" vectorEffect="non-scaling-stroke" />
+                  <path d={linePath(rows.map((v) => v.churn), yRate)} fill="none" stroke={C.churn} strokeWidth={2} strokeLinecap="round" vectorEffect="non-scaling-stroke" />
+                  <path d={linePath(rows.map((v) => v.renewal), yRate)} fill="none" stroke={C.renewal} strokeWidth={2} strokeDasharray="5 4" strokeLinecap="round" vectorEffect="non-scaling-stroke" />
                 </>}
               </svg>
             )}
@@ -132,13 +132,26 @@ export function TrendChart({ rows, view, onView, unit, renewalLabel }: { rows: T
           </div>
         </div>
       </div>
-      <p className="mt-2 text-xs text-muted-foreground">{tx(HOW[view])}</p>
     </div>
   )
 }
 
+/** a point only on the month being read (owner 2026-10-21: a dot on every month looked cluttered) */
 function Dot({ x, y, color, on }: { x: number; y: number; color: string; on: boolean }) {
-  return <span className={cn("pointer-events-none absolute -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-card", on ? "size-3" : "size-2")} style={{ left: `${x}%`, top: `${y}%`, background: color }} />
+  if (!on) return null
+  return <span className="pointer-events-none absolute size-2.5 -translate-x-1/2 -translate-y-1/2 rounded-full ring-2 ring-card" style={{ left: `${x}%`, top: `${y}%`, background: color }} />
+}
+
+/** a smooth line through the points (Catmull-Rom as cubic Béziers); a null breaks the line */
+function smooth(pts: ([number, number] | null)[]) {
+  const runs: [number, number][][] = [[]]
+  for (const p of pts) { if (p) runs[runs.length - 1].push(p); else if (runs[runs.length - 1].length) runs.push([]) }
+  return runs.filter((r) => r.length).map((r) => r.map((p, i) => {
+    if (!i) return `M${p[0]},${p[1]}`
+    const p0 = r[i - 2] ?? r[i - 1], p1 = r[i - 1], p3 = r[i + 1] ?? p
+    const c1 = [p1[0] + (p[0] - p0[0]) / 6, p1[1] + (p[1] - p0[1]) / 6], c2 = [p[0] - (p3[0] - p1[0]) / 6, p[1] - (p3[1] - p1[1]) / 6]
+    return `C${c1[0]},${c1[1]} ${c2[0]},${c2[1]} ${p[0]},${p[1]}`
+  }).join(" ")).join(" ")
 }
 
 const HOW: Record<TrendView, string> = {

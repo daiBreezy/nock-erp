@@ -256,7 +256,7 @@ type Figure = { label: string; value: string; tone?: string; sub?: React.ReactNo
  */
 function FlowSection({ now, moves, rates, periodLabel, chart }: { now: Figure[]; moves: Figure[]; rates: Figure[]; periodLabel: string; chart: React.ReactNode }) {
   return (
-    <div className="flex flex-1 flex-col gap-4">
+    <div className="flex flex-1 flex-col gap-6">
       {/* one slot per number: students 3 (start · today · on hold), courses 4 (+ courses per student — owner 2026-10-21) */}
       <div className={cn("grid grid-cols-2 items-end gap-y-3 rounded-2xl bg-muted/50 px-4 py-3", now.length > 3 ? "gap-x-4 sm:grid-cols-4" : "gap-x-4 sm:grid-cols-3")}>
         {now.map((x) => (
