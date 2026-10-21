@@ -772,4 +772,9 @@ export const COVERAGE: Record<string, Entry> = {
   "คอร์ส/คน": { en: "Per student", ja: "1人あたり" },
   "อัตรานักเรียนต่อ": { en: "Student renewal rate", ja: "生徒の継続率" },
   "อัตราคอร์สต่อ": { en: "Course renewal rate", ja: "コースの継続率" },
+  "เลือกว่ามาจากช่องทางไหน": { en: "Choose where they came from", ja: "どこから来たか選択してください" },
+  "มาจากช่องทางไหน": { en: "Came from", ja: "経路" },
+  "เลือกช่องทาง": { en: "Choose a channel", ja: "経路を選択" },
+  "ผู้ปกครองน้อง{0}": { en: "Parent of {0}", ja: "{0}の保護者" },
+  "ครอบครัวนี้รู้จักเราจากไหน — ใช้นับช่องทางในรายงาน (Walk-in / Social ที่ไม่ได้ทักผ่าน LINE ก็นับได้)": { en: "How this family found us — counted in the reports' channels (walk-ins / social that never messaged on LINE too)", ja: "この家族がどこで知ったか — レポートの経路に集計（LINEを使わない来校・SNSも）" },
 }

@@ -6,7 +6,9 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { Label } from "@/components/ui/label"
 import { toDateStr } from "@/domain/dates"
 import { validateStudent } from "@/domain/rules/people"
-import type { Student } from "@/domain/types"
+import { LEAD_SOURCE_LABEL } from "@/domain/rules/crm"
+import { NativeSelect } from "./native-select"
+import type { LeadSource, Student } from "@/domain/types"
 import { uid } from "@/data/seed"
 import { report } from "@/lib/feedback"
 import { useBranch, useNow } from "@/lib/hooks"
@@ -29,11 +31,12 @@ export function StudentForm({ student, familyId, onClose, onSaved }: { student?:
   const today = toDateStr(useNow(60_000))
   const [base] = useState<Student>(() => student ?? { id: uid("stu"), familyId: familyId ?? null, branchId: branch.id, name: "", nickname: "", grade: "", usesBus: false, createdAt: new Date().toISOString(), createdBranchId: branch.id })
   const [d, setD] = useState<StudentDraft>(() => (student ? studentDraftOf(student) : emptyStudentDraft()))
-  const [staffOnly, setStaffOnly] = useState({ familyId: base.familyId, usesBus: base.usesBus })
+  const [staffOnly, setStaffOnly] = useState<{ familyId: string | null; usesBus: boolean; source?: LeadSource }>({ familyId: base.familyId, usesBus: base.usesBus, source: base.source })
   const [touched, setTouched] = useState(false)
   const [pickingFamily, setPickingFamily] = useState(false)
   const f: Student = { ...base, ...studentInputOf(d), ...staffOnly }
-  const errs = validateStudent(f, today)
+  // owner 2026-10-21: a new student says where they came from (the reports count walk-ins / social in their channel)
+  const errs = [...validateStudent(f, today), ...(!student && !f.source ? [{ field: "source", message: "เลือกว่ามาจากช่องทางไหน" }] : [])]
   const err = (field: string) => (touched && errs.find((e) => e.field === field)?.message) || undefined
   const inPanel = useInPanel()
 
@@ -60,6 +63,12 @@ export function StudentForm({ student, familyId, onClose, onSaved }: { student?:
           errors={{ name: err("name"), nickname: err("nickname"), grade: err("grade"), birthDate: err("birthDate") }} />
         <div className="space-y-3 rounded-2xl bg-muted/50 p-3">
           <p className="text-xs font-medium text-muted-foreground">สำหรับเจ้าหน้าที่</p>
+          {!student && (
+            <Field label="มาจากช่องทางไหน *" hint="ครอบครัวนี้รู้จักเราจากไหน — ใช้นับช่องทางในรายงาน (Walk-in / Social ที่ไม่ได้ทักผ่าน LINE ก็นับได้)" error={err("source")}>
+              <NativeSelect className="bg-background" value={staffOnly.source ?? ""} placeholder="เลือกช่องทาง" onChange={(e) => setStaffOnly((x) => ({ ...x, source: (e.target.value || undefined) as LeadSource | undefined }))}
+                options={(Object.keys(LEAD_SOURCE_LABEL) as LeadSource[]).map((k) => ({ value: k, label: LEAD_SOURCE_LABEL[k] }))} />
+            </Field>
+          )}
           <Field label="ครอบครัว">
             <div className="flex items-center gap-2 rounded-xl border bg-background px-3 py-1.5 text-sm">
               <span className={staffOnly.familyId ? "font-medium" : "text-muted-foreground"}>{families.find((x) => x.id === staffOnly.familyId)?.name ?? "ยังไม่ผูกครอบครัว"}</span>

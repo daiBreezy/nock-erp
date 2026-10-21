@@ -629,6 +629,9 @@ export type Gender = "male" | "female"
 export interface Student {
   id: ID
   familyId: ID | null
+  /** where this student's family found us — asked when staff add a student by hand (owner 2026-10-21: walk-ins and
+   *  social enquiries skipped the CRM, so Reports' lead channels missed them) */
+  source?: LeadSource
   branchId: ID
   name: string
   nickname: string

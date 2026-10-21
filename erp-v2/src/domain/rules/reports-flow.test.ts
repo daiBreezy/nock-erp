@@ -175,3 +175,11 @@ describe("students / courses as a flow over the period (owner 2026-10-21)", () =
     expect(f.net).toBe(3 - 1)
   })
 })
+
+describe("a student added by hand gets a lead in their channel (owner 2026-10-21)", () => {
+  it("an enroll-now lead, waiting for payment, linked to the student", async () => {
+    const { leadForNewStudent } = await import("./crm")
+    const l = leadForNewStudent({ id: "s9", branchId: "b1", nickname: "มิว", grade: "ป.3" }, "walkin", { id: "ld9", by: "u1", iso: "2026-10-21T09:00:00Z" })
+    expect(l).toMatchObject({ source: "walkin", direct: true, stage: "payment_pending", convertedStudentId: "s9", branchId: "b1", childGrade: "ป.3" })
+  })
+})

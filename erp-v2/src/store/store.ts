@@ -824,7 +824,11 @@ export const useStore = create<Store>()(
         const errs = People.validateStudent(st, toDateStr(s.now()))
         if (errs.length) return fail(errs[0].message)
         const prev = s.students.find((x) => x.id === st.id)
+        // owner 2026-10-21: a new student added by hand says where they came from — and gets a lead if they have none
+        const hasLead = s.leads.some((l) => l.convertedStudentId === st.id || l.trialStudentId === st.id)
+        if (!prev && !st.source && !hasLead) return fail("เลือกว่ามาจากช่องทางไหน")
         set({ students: prev ? s.students.map((x) => (x.id === st.id ? st : x)) : [...s.students, st] })
+        if (!prev && st.source && !hasLead) set((cur) => ({ leads: [...cur.leads, CRM.leadForNewStudent(st, st.source!, { id: uid("ld"), by: s.userId, iso: s.now().toISOString() })] }))
         if (!prev) log("profile", [st.id], "สร้างนักเรียน", `${st.nickname} · ${st.grade} · สาขา${s.branches.find((b) => b.id === st.createdBranchId)?.name ?? ""}`)
         else {
           const changes = People.studentChanges(prev, st, (id) => s.families.find((f) => f.id === id)?.name ?? "—")

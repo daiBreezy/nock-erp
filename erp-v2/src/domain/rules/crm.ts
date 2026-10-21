@@ -1,7 +1,7 @@
 // CRM lead pipeline (Phase 2 rebuild). Spec ref: new-erp/js/crm.js (stage list + grouping).
 
 import { daysBetween, fmtDate, toDateStr } from "../dates"
-import type { DateStr, Family, ID, Lead, LeadStage, Result } from "../types"
+import type { DateStr, Family, ID, Lead, LeadStage, Result, Student } from "../types"
 
 export const LEAD_STAGE_LABEL: Record<LeadStage, string> = {
   new: "ลูกค้าใหม่",
@@ -13,6 +13,20 @@ export const LEAD_STAGE_LABEL: Record<LeadStage, string> = {
   payment_pending: "รอชำระเงิน",
   enrolled: "ลงทะเบียนแล้ว",
   archived: "เก็บเข้าคลัง",
+}
+
+/**
+ * A student added by hand with no lead behind it (owner 2026-10-21: walk-in / social — staff talk, then add the
+ * student and invoice straight away) gets its lead record anyway, so the reports count them in the right channel:
+ * an enroll-now lead (no Test / Trial) linked to the student, waiting for payment — it turns "enrolled" by itself when
+ * the invoice is paid, like every other lead. Kept, never deleted: it is how this family came to us.
+ */
+export function leadForNewStudent(st: Pick<Student, "id" | "branchId" | "nickname" | "grade">, source: Lead["source"], at: { id: ID; by: ID; iso: string }): Lead {
+  return {
+    id: at.id, branchId: st.branchId, name: `ผู้ปกครองน้อง${st.nickname}`, childGrade: st.grade, subject: "", source,
+    stage: "payment_pending", direct: true, assigneeId: at.by, phone: "", lineId: "", createdAt: at.iso, notes: [],
+    convertedStudentId: st.id,
+  }
 }
 
 export const LEAD_SOURCE_LABEL: Record<Lead["source"], string> = {
