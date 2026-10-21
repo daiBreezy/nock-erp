@@ -384,19 +384,27 @@ function LeadOverview({ d }: { d: ReportData }) {
             <div key={s.key} className="flex flex-col rounded-2xl bg-muted/50 p-3">
               <p className="truncate text-xs text-muted-foreground">{tx(s.label)}</p>
               <p className="text-xl font-semibold tabular-nums">{fmtNum(s.count)}</p>
-              <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-muted"><div className="h-full rounded-full" style={{ width: `${(s.count / top) * 100}%`, background: tint(0.35 + (0.65 * (f.length - i)) / f.length) }} /></div>
-              <p className="mt-1 text-[11px] text-muted-foreground tabular-nums">{i ? fmtPct(s.ofPrev) : deltaSub(pctDelta(l.total, l.prev.total, ok)) ?? "\u00a0"}</p>
+              {/* owner 2026-10-21: the % right after the bar, on one line */}
+              <div className="mt-1.5 flex items-center gap-2">
+                <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-muted"><div className="h-full rounded-full" style={{ width: `${(s.count / top) * 100}%`, background: tint(0.35 + (0.65 * (f.length - i)) / f.length) }} /></div>
+                <span className="shrink-0 text-[11px] text-muted-foreground tabular-nums">{i ? fmtPct(s.ofPrev) : deltaSub(pctDelta(l.total, l.prev.total, ok))}</span>
+              </div>
             </div>
           ))}
           <div className="flex flex-col rounded-2xl bg-primary/5 p-3 ring-1 ring-primary/20">
             <p className="flex items-center gap-1 truncate text-xs text-muted-foreground">Conversion<InfoTip text={tx("สมัครแล้ว ÷ Lead ใหม่")} /></p>
             <p className="text-xl font-semibold tabular-nums">{fmtPct(l.conversion)}</p>
-            <p className="mt-auto text-[11px] text-muted-foreground">{ok && l.prev.conversion !== null ? `${tx("ก่อนหน้า")} ${fmtPct(l.prev.conversion)}` : "\u00a0"}</p>
+            {ok && l.prev.conversion !== null && <p className="mt-1.5 text-[11px] text-muted-foreground">{tx("ก่อนหน้า")} {fmtPct(l.prev.conversion)}</p>}
           </div>
         </div>
 
         <p className="mt-4 mb-1 flex items-center gap-1 text-xs text-muted-foreground">{tx("แยกตามเส้นทาง — แต่ละขั้นรวมกันเท่ากับตัวเลขด้านบน")}
           <InfoTip text={tx("มาจริง = มาอย่างน้อย 1 นัด (เช็คชื่อมา หรือบันทึกผลแล้ว) · ไม่มา = พลาดทุกนัด · อัตราปิด = สมัครแล้ว ÷ Lead ในเส้นทางนั้น")} /></p>
+        <div className={cn("grid gap-x-2 border-b pb-1.5 text-xs text-muted-foreground", cols)}>
+          <span>{tx("เส้นทาง")}</span>
+          {f.map((s) => <span key={s.key} className="truncate px-3">{tx(s.label)}</span>)}
+          <span className="px-3">{tx("อัตราปิด")}</span>
+        </div>
         {paths.map((p) => (
           <div key={p.key} className={cn("grid items-center gap-x-2 border-b border-dashed py-2 text-sm last:border-0", cols)}>
             <span className="truncate">{tx(p.label)}</span>
