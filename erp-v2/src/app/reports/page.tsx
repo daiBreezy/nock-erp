@@ -444,8 +444,7 @@ function LeadSankey({ d }: { d: ReportData }) {
         { title: tx("นัด"), nodes: nodes(showed, Object.keys(SHOWED), (k) => tx(SHOWED[k]), () => SANKEY.showed) },
         { title: tx("ผล"), nodes: nodes(end, Object.keys(END), (k) => tx(END[k]), (k) => SANKEY[k as "enrolled" | "open" | "lost"]) },
       ]}
-      flows={sk.flows}
-      linkColor={(f) => (f.col === 2 ? SANKEY[f.to as "enrolled" | "open" | "lost"] : f.col === 1 ? SANKEY.way : SANKEY.source)} />
+      flows={sk.flows} />
   )
 }
 

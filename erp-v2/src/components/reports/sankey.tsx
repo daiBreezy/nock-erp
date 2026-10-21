@@ -1,13 +1,14 @@
 "use client"
 
-import { useState } from "react"
+import { useId, useState } from "react"
 import { tx } from "@/lib/i18n"
 import { fmtNum } from "./charts"
 
 /**
  * A Sankey (owner 2026-10-21: the lead pipeline like their ref) — columns of boxes, bands between neighbouring
  * columns as thick as the count. Hover a band for its count and share of where it came from; hover a box to keep only
- * the bands through it. Generic: the rule decides the columns and the flows.
+ * the bands through it. Each band fades from the colour of the box it leaves to the colour of the box it reaches
+ * (owner 2026-10-21). Generic: the rule decides the columns and the flows.
  */
 export type SankeyNode = { key: string; label: string; value: number; color: string; hint?: string }
 export type SankeyColumn = { title: string; nodes: SankeyNode[] }
@@ -15,7 +16,8 @@ export type SankeyLink = { col: number; from: string; to: string; value: number 
 
 const W = 1000, H = 380, TOP = 28, BOTTOM = 6, NW = 10, GAP = 12, PAD = 4
 
-export function Sankey({ columns, flows, total, linkColor }: { columns: SankeyColumn[]; flows: SankeyLink[]; total: number; linkColor: (f: SankeyLink) => string }) {
+export function Sankey({ columns, flows, total }: { columns: SankeyColumn[]; flows: SankeyLink[]; total: number }) {
+  const uid = useId().replace(/:/g, "")
   const [hover, setHover] = useState<{ link: number } | { col: number; key: string } | null>(null)
   if (!total) return <p className="py-6 text-center text-sm text-muted-foreground">{tx("ยังไม่มีข้อมูลในช่วงนี้")}</p>
 
@@ -51,10 +53,18 @@ export function Sankey({ columns, flows, total, linkColor }: { columns: SankeyCo
           {columns.map((c, ci) => (
             <text key={ci} x={ci === columns.length - 1 ? xOf(ci) + NW : xOf(ci)} y={14} textAnchor={ci === columns.length - 1 ? "end" : "start"} fontSize={12} fill="currentColor" fillOpacity={0.55}>{c.title}</text>
           ))}
+          <defs>
+            {links.map((l) => (
+              <linearGradient key={l.i} id={`${uid}-g${l.i}`} gradientUnits="userSpaceOnUse" x1={xOf(l.f.col) + NW} x2={xOf(l.f.col + 1)} y1={0} y2={0}>
+                <stop offset="0%" stopColor={box.get(`${l.f.col}|${l.f.from}`)!.node.color} />
+                <stop offset="100%" stopColor={box.get(`${l.f.col + 1}|${l.f.to}`)!.node.color} />
+              </linearGradient>
+            ))}
+          </defs>
           {links.map((l) => {
             const x0 = xOf(l.f.col) + NW, x1 = xOf(l.f.col + 1), mx = (x0 + x1) / 2
-            return <path key={l.i} d={`M${x0},${l.y0} C${mx},${l.y0} ${mx},${l.y1} ${x1},${l.y1}`} fill="none" stroke={linkColor(l.f)} strokeWidth={Math.max(1, l.h)}
-              strokeOpacity={on(l) ? (hover ? 0.6 : 0.25) : 0.06} onMouseEnter={() => setHover({ link: l.i })} className="transition-[stroke-opacity]" />
+            return <path key={l.i} d={`M${x0},${l.y0} C${mx},${l.y0} ${mx},${l.y1} ${x1},${l.y1}`} fill="none" stroke={`url(#${uid}-g${l.i})`} strokeWidth={Math.max(1, l.h)}
+              strokeOpacity={on(l) ? (hover ? 0.6 : 0.28) : 0.06} onMouseEnter={() => setHover({ link: l.i })} className="transition-[stroke-opacity]" />
           })}
           {[...box.entries()].map(([k, b]) => {
             const last = b.col === columns.length - 1
