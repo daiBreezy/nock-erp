@@ -749,4 +749,6 @@ export const COVERAGE: Record<string, Entry> = {
   "ทุก Lead ในช่วงนี้วิ่งผ่านทั้ง 4 คอลัมน์ — แต่ละคอลัมน์รวมกันเท่ากับ Lead ใหม่ · มาตามนัด = มาอย่างน้อย 1 นัด (เช็คชื่อมา หรือบันทึกผลแล้ว) · ไม่มา = พลาดทุกนัด": { en: "Every lead of the period runs through all 4 columns — each column adds up to the new leads · came = came to at least one (checked in or a result written) · no-show = missed every one", ja: "期間内のすべてのリードが4列すべてを通る — 各列の合計は新規リード数 · 来校＝少なくとも1回来た（出席または結果記録）· 欠席＝すべて欠席" },
   "ช่องทาง": { en: "Channel", ja: "チャネル" },
   "นัด": { en: "Appointment", ja: "予約" },
+  "{0} · Lead ที่เข้ามาในช่วงนี้ · ทุก Lead วิ่งผ่านทั้ง 4 คอลัมน์ — แต่ละคอลัมน์รวมกันเท่ากับ Lead ใหม่ · มาตามนัด = มาอย่างน้อย 1 นัด (เช็คชื่อมา หรือบันทึกผลแล้ว) · ไม่มา = พลาดทุกนัด · Conversion = สมัครแล้ว ÷ Lead ใหม่": { en: "{0} · leads that came in this period · every lead runs through all 4 columns — each column adds up to the new leads · came = came to at least one (checked in or a result written) · no-show = missed every one · Conversion = enrolled ÷ new leads", ja: "{0} · 期間内のリード · すべてのリードが4列を通る — 各列の合計は新規リード数 · 来校＝少なくとも1回来た（出席または結果記録）· 欠席＝すべて欠席 · Conversion＝入会 ÷ 新規リード" },
+  "{0} จากขั้นก่อน": { en: "{0} of the step before", ja: "前の段階の{0}" },
 }

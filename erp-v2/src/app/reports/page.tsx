@@ -187,7 +187,7 @@ function Overview({ d, compare, period, periodLabel, onAllRevenue, onAllStudents
       </div>
 
       {/* owner 2026-10-20: leads right under the students · 2026-10-21: one section with the funnel (the same leads) */}
-      <Panel title="Lead" hint={tx("{0} · Lead ที่เข้ามาในช่วงนี้ · Funnel นับทุกขั้นที่ผ่านมาแล้ว", [periodLabel])}>
+      <Panel title="Lead" hint={tx("{0} · Lead ที่เข้ามาในช่วงนี้ · ทุก Lead วิ่งผ่านทั้ง 4 คอลัมน์ — แต่ละคอลัมน์รวมกันเท่ากับ Lead ใหม่ · มาตามนัด = มาอย่างน้อย 1 นัด (เช็คชื่อมา หรือบันทึกผลแล้ว) · ไม่มา = พลาดทุกนัด · Conversion = สมัครแล้ว ÷ Lead ใหม่", [periodLabel])}>
         <LeadOverview d={d} />
       </Panel>
 
@@ -367,64 +367,47 @@ function CourseOverview({ d, periodLabel }: { d: ReportData; periodLabel: string
 }
 
 /**
- * Leads on the Overview (owner 2026-10-20) — one story (2026-10-21: summary, funnel and ways read as three separate
- * things): the funnel's steps are the totals across the top, and under each step the same count split by the way the
- * leads went (Test only / Trial only / both / enroll-now / no appointment yet) — the rows add up to the step above.
+ * Leads on the Overview (owner 2026-10-20) — one story: the pipeline as a Sankey (2026-10-21), and each column's
+ * headline number sits right above that column (the step cards next to the chart didn't line up with it):
+ * new leads over the channels · booked over the ways · came over the appointments · enrolled + conversion over the outcome.
  */
 function LeadOverview({ d }: { d: ReportData }) {
   const l = d.leadSummary
   const ok = d.comparable
-  // owner 2026-10-21: four steps only — contacted and awaiting payment were too many; % = of the step shown before
   const KEEP = ["lead", "booked", "came", "enrolled"]
-  const shown = d.crm.funnel.map((s, i) => ({ s, i })).filter((x) => KEEP.includes(x.s.key))
-  const f = shown.map(({ s }, j) => ({ ...s, ofPrev: j && shown[j - 1].s.count ? s.count / shown[j - 1].s.count : null }))
-  const top = Math.max(1, f[0].count)
-  const cols = "grid-cols-[minmax(8.5rem,1.3fr)_repeat(4,minmax(5.5rem,1fr))_minmax(5.5rem,1fr)]"
+  const shown = d.crm.funnel.filter((s) => KEEP.includes(s.key))
+  const f = shown.map((s, j) => ({ ...s, ofPrev: j && shown[j - 1].count ? s.count / shown[j - 1].count : null }))
+  const head = (i: number, title: string, extra?: React.ReactNode) => {
+    const last = i === f.length - 1
+    return (
+      <div>
+        <p className="text-xs text-muted-foreground">{title}</p>
+        <p className={cn("mt-0.5 flex items-baseline gap-1.5", last && "justify-end")}>
+          <span className="text-2xl font-semibold tabular-nums">{fmtNum(f[i].count)}</span>
+          {/* the same words as the boxes under it */}
+          <span className="truncate text-sm text-muted-foreground">{tx(f[i].key === "came" ? "มาตามนัด" : f[i].label)}</span>
+        </p>
+        <p className={cn("flex items-center gap-2 text-[11px] text-muted-foreground tabular-nums", last && "justify-end")}>
+          {i ? tx("{0} จากขั้นก่อน", [fmtPct(f[i].ofPrev)]) : deltaSub(pctDelta(l.total, l.prev.total, ok))}
+          {extra}
+        </p>
+      </div>
+    )
+  }
   return (
-    <>
-      <div className="-mx-1 overflow-x-auto px-1">
-      <div className="min-w-[38rem]">
-        <div className={cn("grid items-stretch gap-x-2", cols)}>
-          <div className="flex flex-col justify-center text-sm font-semibold">{tx("ทุกเส้นทาง")}<span className="text-xs font-normal text-muted-foreground">{tx("% = จากขั้นก่อน")}</span></div>
-          {f.map((s, i) => (
-            <div key={s.key} className="flex flex-col rounded-2xl bg-muted/50 p-3">
-              <p className="flex h-5 items-center truncate text-xs text-muted-foreground">{tx(s.label)}</p>
-              <p className="text-xl font-semibold tabular-nums">{fmtNum(s.count)}</p>
-              {/* owner 2026-10-21: the % right after the bar, on one line */}
-              <div className="mt-1.5 flex items-center gap-2">
-                <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-muted"><div className="h-full rounded-full" style={{ width: `${(s.count / top) * 100}%`, background: tint(0.35 + (0.65 * (f.length - i)) / f.length) }} /></div>
-                {/* a fixed slot, so every bar is the same length */}
-                <span className="w-10 shrink-0 text-right text-[11px] text-muted-foreground tabular-nums">{i ? fmtPct(s.ofPrev) : "100%"}</span>
-              </div>
-            </div>
-          ))}
-          <div className="flex flex-col rounded-2xl bg-primary/5 p-3 ring-1 ring-primary/20">
-            <p className="flex h-5 items-center gap-1 truncate text-xs text-muted-foreground">Conversion<InfoTip text={tx("สมัครแล้ว ÷ Lead ใหม่")} /></p>
-            <p className="text-xl font-semibold tabular-nums">{fmtPct(l.conversion)}</p>
-            {/* same build as the steps: a bar (enrolled of all leads) and the slot after it */}
-            <div className="mt-1.5 flex items-center gap-2">
-              <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-primary/10"><div className="h-full rounded-full bg-primary" style={{ width: `${(l.conversion ?? 0) * 100}%` }} /></div>
-              <span className="w-10 shrink-0 text-right text-[11px] text-muted-foreground tabular-nums">{ok && l.prev.conversion !== null ? <Delta value={Math.round(((l.conversion ?? 0) - l.prev.conversion) * 1000) / 10} /> : ""}</span>
-            </div>
-          </div>
-        </div>
-
-      </div>
-      </div>
-      {/* owner 2026-10-21: where leads came from and where they went (Sankey) — in place of the by-way table */}
-      <div className="mt-6">
-        <p className="mb-1 flex items-center gap-1 text-sm font-semibold">{tx("เส้นทางของ Lead")}
-          <InfoTip text={tx("ทุก Lead ในช่วงนี้วิ่งผ่านทั้ง 4 คอลัมน์ — แต่ละคอลัมน์รวมกันเท่ากับ Lead ใหม่ · มาตามนัด = มาอย่างน้อย 1 นัด (เช็คชื่อมา หรือบันทึกผลแล้ว) · ไม่มา = พลาดทุกนัด")} /></p>
-        <LeadSankey d={d} />
-      </div>
-    </>
+    <LeadSankey d={d} heads={[
+      head(0, tx("ช่องทาง")),
+      head(1, tx("เส้นทาง")),
+      head(2, tx("นัด")),
+      head(3, tx("ผล"), <span className="rounded-full bg-primary/10 px-2 py-0.5 font-semibold text-primary">Conversion {fmtPct(l.conversion)}</span>),
+    ]} />
   )
 }
 
 const SANKEY = { source: "#2a78d6", way: "#7c5cd6", showed: "#1baf7a", enrolled: "#1baf7a", open: "#9a9890", lost: "#e34948" }
 
 /** The lead pipeline as a Sankey: channel → way → came? → how it ended (rules leadSankey). */
-function LeadSankey({ d }: { d: ReportData }) {
+function LeadSankey({ d, heads }: { d: ReportData; heads: React.ReactNode[] }) {
   const sk = d.crm.sankey
   const [src, way, showed, end] = sk.columns
   const p = Object.fromEntries(d.crm.paths.map((x) => [x.key, x.leads]))
@@ -434,7 +417,7 @@ function LeadSankey({ d }: { d: ReportData }) {
   const SHOWED: Record<string, string> = { came: "มาตามนัด", no_show: "ไม่มา", booked: "รอวันนัด", none: "ไม่ได้นัด" }
   const END: Record<string, string> = { enrolled: "สมัครแล้ว", open: "ยังคุยอยู่", lost: "หลุด" }
   return (
-    <Sankey total={sk.total}
+    <Sankey total={sk.total} heads={heads}
       columns={[
         { title: tx("ช่องทาง"), nodes: nodes(src, [...src.keys()].sort((a, b) => src.get(b)! - src.get(a)!), (k) => LEAD_SOURCE_LABEL[k as keyof typeof LEAD_SOURCE_LABEL] ?? k, () => SANKEY.source) },
         { title: tx("เส้นทาง"), nodes: nodes(way, WAY_KEYS, (k) => tx(LEAD_PATHS.find((x) => x.key === k)!.label), () => SANKEY.way,

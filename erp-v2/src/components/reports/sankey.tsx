@@ -1,7 +1,8 @@
 "use client"
 
-import { useId, useState } from "react"
+import { useId, useState, type ReactNode } from "react"
 import { tx } from "@/lib/i18n"
+import { cn } from "@/lib/utils"
 import { fmtNum } from "./charts"
 
 /**
@@ -14,19 +15,22 @@ export type SankeyNode = { key: string; label: string; value: number; color: str
 export type SankeyColumn = { title: string; nodes: SankeyNode[] }
 export type SankeyLink = { col: number; from: string; to: string; value: number }
 
-const W = 1000, H = 380, TOP = 28, BOTTOM = 6, NW = 10, GAP = 12, PAD = 4
+const W = 1000, H = 380, BOTTOM = 6, NW = 10, GAP = 12, PAD = 4
 
 /** how see-through the bands are (0 = invisible, 1 = solid) — tweak here */
 export const BAND_OPACITY = {
   /** every band, nothing hovered */
-  rest: 0.28,
+  rest: 0.12,
   /** the band(s) being hovered */
-  focus: 0.6,
+  focus: 0.4,
   /** the other bands while something is hovered */
   dim: 0.06,
 }
 
-export function Sankey({ columns, flows, total }: { columns: SankeyColumn[]; flows: SankeyLink[]; total: number }) {
+export function Sankey({ columns, flows, total, heads }: { columns: SankeyColumn[]; flows: SankeyLink[]; total: number
+  /** owner 2026-10-21: a headline over each column (its number), sitting right above that column's boxes — replaces the plain titles */
+  heads?: ReactNode[] }) {
+  const TOP = heads ? 6 : 28
   const uid = useId().replace(/:/g, "")
   const [hover, setHover] = useState<{ link: number } | { col: number; key: string } | null>(null)
   if (!total) return <p className="py-6 text-center text-sm text-muted-foreground">{tx("ยังไม่มีข้อมูลในช่วงนี้")}</p>
@@ -59,8 +63,19 @@ export function Sankey({ columns, flows, total }: { columns: SankeyColumn[]; flo
     <div>
       <p className="mb-2 min-h-5 text-sm text-muted-foreground">{hint}</p>
       <div className="-mx-1 overflow-x-auto px-1">
+        {heads && (
+          <div className="relative mb-1 h-[4.75rem] min-w-[40rem]">
+            {heads.map((h, ci) => {
+              const last = ci === columns.length - 1
+              return (
+                <div key={ci} className={cn("absolute top-0 w-[28%]", last && "text-right")}
+                  style={last ? { right: `${((W - xOf(ci) - NW) / W) * 100}%` } : { left: `${(xOf(ci) / W) * 100}%` }}>{h}</div>
+              )
+            })}
+          </div>
+        )}
         <svg viewBox={`0 0 ${W} ${H}`} className="w-full min-w-[40rem] text-foreground" role="img" aria-label={tx("เส้นทางของ Lead")} onMouseLeave={() => setHover(null)}>
-          {columns.map((c, ci) => (
+          {!heads && columns.map((c, ci) => (
             <text key={ci} x={ci === columns.length - 1 ? xOf(ci) + NW : xOf(ci)} y={14} textAnchor={ci === columns.length - 1 ? "end" : "start"} fontSize={12} fill="currentColor" fillOpacity={0.55}>{c.title}</text>
           ))}
           <defs>
