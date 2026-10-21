@@ -22,9 +22,9 @@ export const BAND_OPACITY = {
   /** every band, nothing hovered */
   rest: 0.12,
   /** the band(s) being hovered */
-  focus: 0.4,
+  focus: 0.28,
   /** the other bands while something is hovered */
-  dim: 0.06,
+  dim: 0.04,
 }
 
 export function Sankey({ columns, flows, total, heads }: { columns: SankeyColumn[]; flows: SankeyLink[]; total: number

@@ -156,7 +156,7 @@ function Shell({ children }: { children: ReactNode }) {
       </Sidebar>
       <SidebarInset className="min-w-0">
         {/* owner 2026-10-16: no background — the page (and a tuned theme's gradient) shows through; blur keeps it readable */}
-        <header className="sticky top-0 z-20 flex h-14 items-center gap-2 border-b px-3 backdrop-blur-md md:px-4">
+        <header className="sticky top-0 z-20 flex h-14 items-center gap-2 border-b px-3 backdrop-blur-md md:px-4 bg-background/95">
           <SidebarTrigger />
           <Separator orientation="vertical" className="mx-1 h-5" />
           {/* breadcrumb only — the page's own header carries the big title (owner 2026-10-09) */}

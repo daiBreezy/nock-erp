@@ -66,7 +66,8 @@ export function TrendChart({ rows, view, onView, unit, renewalLabel }: { rows: T
   const linePath = (vals: (number | null)[], y: (v: number) => number) => straight(vals.map((v, i) => (v === null ? null : [x(i), y(v)] as [number, number])))
 
   return (
-    <div className="rounded-2xl border p-3 sm:p-4">
+    // owner 2026-10-21: no card inside the section's card — the chart is the section's lower half, under a divider
+    <div className="border-t pt-5">
       {/* the month being read — the hovered one, else the latest */}
       <div className="mb-3 flex flex-wrap items-center gap-x-3 gap-y-1">
         <Segmented label={tx("กราฟ")} value={view} onChange={onView} options={(["stock", "flow", "rate"] as const).map((v) => ({ value: v, label: tx(TREND_TITLE[v]) }))} />
