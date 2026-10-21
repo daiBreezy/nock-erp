@@ -371,13 +371,16 @@ function CourseOverview({ d, periodLabel }: { d: ReportData; periodLabel: string
 function LeadOverview({ d }: { d: ReportData }) {
   const l = d.leadSummary
   const ok = d.comparable
-  const f = d.crm.funnel
-  const paths = d.crm.paths.filter((p) => p.leads)
+  // owner 2026-10-21: four steps only — contacted and awaiting payment were too many; % = of the step shown before
+  const KEEP = ["lead", "booked", "came", "enrolled"]
+  const shown = d.crm.funnel.map((s, i) => ({ s, i })).filter((x) => KEEP.includes(x.s.key))
+  const f = shown.map(({ s }, j) => ({ ...s, ofPrev: j && shown[j - 1].s.count ? s.count / shown[j - 1].s.count : null }))
+  const paths = d.crm.paths.filter((p) => p.leads).map((p) => ({ ...p, steps: shown.map(({ i }) => p.steps[i]) }))
   const top = Math.max(1, f[0].count)
-  const cols = "grid-cols-[minmax(8.5rem,1.3fr)_repeat(6,minmax(4.75rem,1fr))_minmax(5.5rem,1fr)]"
+  const cols = "grid-cols-[minmax(8.5rem,1.3fr)_repeat(4,minmax(5.5rem,1fr))_minmax(5.5rem,1fr)]"
   return (
     <div className="-mx-1 overflow-x-auto px-1">
-      <div className="min-w-[46rem]">
+      <div className="min-w-[38rem]">
         <div className={cn("grid items-stretch gap-x-2", cols)}>
           <div className="flex flex-col justify-center text-sm font-semibold">{tx("ทุกเส้นทาง")}<span className="text-xs font-normal text-muted-foreground">{tx("% = จากขั้นก่อน")}</span></div>
           {f.map((s, i) => (
