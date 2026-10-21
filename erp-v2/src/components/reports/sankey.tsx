@@ -29,12 +29,12 @@ export const BAND_OPACITY = {
   dim: 0.04,
 }
 
-export function Sankey({ columns, flows, total, heads, size = { w: 1000, h: 380 }, unit = "คน", of = "Lead", name = "เส้นทางของ Lead", minWidth = "min-w-[40rem]" }: {
+export function Sankey({ columns, flows, total, heads, size = { w: 1000, h: 380 }, unit = "คน", name = "เส้นทางของ Lead", minWidth = "min-w-[40rem]" }: {
   columns: SankeyColumn[]; flows: SankeyLink[]; total: number
   /** drawing size — a narrower one keeps the text readable in a half-width card */
   size?: { w: number; h: number }
-  /** what is counted ("คน" / "คอร์ส") and what the share is of ("Lead" / "ทั้งหมด") — in the hover line */
-  unit?: string; of?: string; name?: string; minWidth?: string
+  /** what is counted ("คน" / "คอร์ส") — in the hover line */
+  unit?: string; name?: string; minWidth?: string
   /** owner 2026-10-21: a headline over each column (its number), sitting right above that column's boxes — replaces the plain titles */
   heads?: ReactNode[] }) {
   const TOP = heads ? 6 : 28
@@ -63,13 +63,15 @@ export function Sankey({ columns, flows, total, heads, size = { w: 1000, h: 380 
   const label = (ci: number, key: string) => box.get(`${ci}|${key}`)?.node.label ?? key
   const hint = !hover ? tx("ชี้ที่แถบหรือกล่องเพื่อดูจำนวน")
     : "link" in hover ? (() => { const l = links.find((x) => x.i === hover.link)!; const from = box.get(`${l.f.col}|${l.f.from}`)!.node
-      return tx("{0} → {1}: {2} {4} ({3}% ของ {0})", [from.label, label(l.f.col + 1, l.f.to), fmtNum(l.f.value), String(Math.round((l.f.value / from.value) * 100)), tx(unit)]) })()
+      return `${from.label} → ${label(l.f.col + 1, l.f.to)} · ${fmtNum(l.f.value)} ${tx(unit)} · ${Math.round((l.f.value / from.value) * 100)}%` })()
       : (() => { const n = box.get(`${hover.col}|${hover.key}`)!.node
-        return `${tx("{0}: {1} {3} ({2}% ของ {4})", [n.label, fmtNum(n.value), String(Math.round((n.value / total) * 100)), tx(unit), tx(of)])}${n.hint ? ` · ${n.hint}` : ""}` })()
+        return `${n.label} · ${fmtNum(n.value)} ${tx(unit)} · ${Math.round((n.value / total) * 100)}%` })()
 
   return (
     <div>
-      <p className="mb-2 min-h-5 text-sm text-muted-foreground">{hint}</p>
+      {/* owner 2026-10-21: one short line, never wrapping — "from → to · count · % of from" / "box · count · % of all";
+          what a box means is in its own tooltip (hover the box) */}
+      <p className="mb-2 h-5 truncate text-sm text-muted-foreground">{hint}</p>
       <div className="-mx-1 overflow-x-auto px-1">
         {heads && (
           <div className={cn("relative mb-1 h-[4.75rem]", minWidth)}>
@@ -108,6 +110,7 @@ export function Sankey({ columns, flows, total, heads, size = { w: 1000, h: 380 
             const last = b.col === columns.length - 1
             return (
               <g key={k} onMouseEnter={() => setHover({ col: b.col, key: b.node.key })}>
+                {b.node.hint && <title>{b.node.hint}</title>}
                 <rect x={b.x} y={b.y} width={NW} height={b.h} rx={3} fill={b.node.split ? `url(#${uid}-n${k.replace(/[^a-z0-9]/gi, "")})` : b.node.color} />
                 <text x={last ? b.x - 6 : b.x + NW + 6} y={b.y + Math.min(b.h / 2, 14) + 4} textAnchor={last ? "end" : "start"} fontSize={12} fill="currentColor" className="pointer-events-none">
                   {b.node.label} <tspan fontWeight={600}>{fmtNum(b.node.value)}</tspan>

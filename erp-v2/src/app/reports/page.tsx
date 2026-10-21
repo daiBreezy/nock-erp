@@ -247,7 +247,9 @@ const pctDelta = (a: number, b: number | undefined, ok: boolean) => (ok && b ? M
 /** the vs-before line under a number — nothing at all when there is nothing to compare (owner 2026-10-20: no "—" clutter) */
 const deltaSub = (v: number | null, invert?: boolean) => (v === null ? undefined : <Delta value={v} invert={invert} />)
 
-type Figure = { label: string; value: string; tone?: string; sub?: React.ReactNode; info?: string }
+type Figure = { label: string; value: string; tone?: string; sub?: React.ReactNode; info?: string
+  /** the full name when the chip shows a short one (said in the hover) */
+  full?: string }
 
 const FLOW_COLOR: Record<FlowEntry | FlowExit, string> = { start: "#2a78d6", new: "#1baf7a", returning: "#7c5cd6", active: "#2a78d6", paused: "#f0b429", grace: "#f97316", future: "#9a9890", lost: "#e34948" }
 const FLOW_LABEL: Record<FlowEntry | FlowExit, string> = { start: "มีอยู่แล้วต้นช่วง", new: "ใหม่", returning: "กลับมาซื้อใหม่", active: "เรียนอยู่", paused: "พัก", grace: "รอต่อ", future: "ซื้อแล้ว ยังไม่เริ่ม", lost: "Lost" }
@@ -278,18 +280,21 @@ function StockSection({ stats, flow, unit, periodLabel }: { stats: Figure[]; flo
   )
   return (
     <div className="flex flex-1 flex-col gap-5">
-      {/* what the flow can't show — one slot per number */}
-      <div className="grid items-end gap-x-3 gap-y-3 rounded-2xl bg-muted/50 px-4 py-3" style={{ gridTemplateColumns: `repeat(${stats.length}, minmax(0, 1fr))` }}>
+      {/* what the flow can't show (owner 2026-10-21: the boxed strip with an ⓘ each was cluttered) — one chip per number,
+          name + value; hover the chip for how it's counted and the period before */}
+      <div className="flex flex-wrap gap-1">
+        {/* short names keep the chips on one line in a half-width card */}
         {stats.map((x) => (
-          <div key={x.label} className="min-w-0">
-            <p className="flex items-center gap-1 text-xs text-muted-foreground"><span className="truncate">{x.label}</span>{x.info && <InfoTip text={x.info} />}</p>
-            <p className={cn("text-xl font-semibold tabular-nums", x.tone)}>{x.value}</p>
-            {x.sub && <p className="text-[11px] text-muted-foreground">{x.sub}</p>}
-          </div>
+          <HoverCard key={x.label}>
+            <HoverCardTrigger render={<span tabIndex={0} className="inline-flex h-8 cursor-default items-center gap-1 rounded-full bg-muted/70 px-2 text-xs whitespace-nowrap text-muted-foreground outline-none hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring/40" />}>
+              {x.label} <span className={cn("text-sm font-semibold tabular-nums text-foreground", x.tone)}>{x.value}</span>
+            </HoverCardTrigger>
+            {(x.info || x.sub) && <HoverCardContent side="bottom" align="start" className="max-w-72 space-y-1 leading-relaxed">{x.full && <p className="font-semibold">{x.full}</p>}{x.info && <p>{x.info}</p>}{x.sub && <p className="text-muted-foreground">{x.sub}</p>}</HoverCardContent>}
+          </HoverCard>
         ))}
       </div>
       <div className="mt-auto">
-        <Sankey total={flow.total} unit={unit} of="ทั้งหมด" name={unit === "คน" ? "นักเรียน" : "คอร์ส"} size={{ w: 560, h: 260 }} minWidth="min-w-[18rem]"
+        <Sankey total={flow.total} unit={unit} name={unit === "คน" ? "นักเรียน" : "คอร์ส"} size={{ w: 560, h: 260 }} minWidth="min-w-[18rem]"
           heads={[
             head(tx("ในช่วงนี้ · {0}", [periodLabel]), flow.total, tx(unit), tx("ต้นช่วง {0} · เข้ามา {1}", [fmtNum(flow.left.get("start") ?? 0), fmtNum(came)])),
             head(today ? tx("วันนี้") : tx("สิ้นช่วง"), flow.right.get("active") ?? 0, tx("เรียนอยู่"),
@@ -315,7 +320,7 @@ function StudentOverview({ d, periodLabel }: { d: ReportData; periodLabel: strin
   const ok = d.comparable
   return (
     <StockSection unit="คน" periodLabel={periodLabel} flow={fl.now.student} stats={[
-      { label: "Churn rate", value: fmtPct(fl.now.student.churn), tone: "text-red-600", sub: ptsSub(fl.now.student.churn, fl.before.student.churn, ok), info: churnInfo("คน") },
+      { label: "Churn", full: "Churn rate", value: fmtPct(fl.now.student.churn), tone: "text-red-600", sub: ptsSub(fl.now.student.churn, fl.before.student.churn, ok), info: churnInfo("คน") },
       { label: tx("นักเรียนต่อ"), value: fmtPct(f.renewal), sub: ptsSub(f.renewal, f.renewalPrev, ok), info: tx("นักเรียนที่แพ็กเกจหมดในช่วงนี้ ซื้อต่อกี่ % (นับรวมทุกคอร์สของนักเรียน — ต่อคอร์สไหนก็นับว่าต่อ)") },
       { label: "Returning Student", value: fmtNum(f.backStudents), tone: "text-sky-700", sub: deltaSub(pctDelta(f.backStudents, f.backStudentsPrev, ok)), info: tx("ลายาว (ขาด / ลา ติดกัน 3 คาบขึ้นไป) หรือ Pause แล้วกลับมาเรียนในช่วงนี้") },
     ]} />
@@ -330,11 +335,11 @@ function CourseOverview({ d, periodLabel }: { d: ReportData; periodLabel: string
   const ok = d.comparable
   return (
     <StockSection unit="คอร์ส" periodLabel={periodLabel} flow={fl.now.course} stats={[
-      { label: "Churn rate", value: fmtPct(fl.now.course.churn), tone: "text-red-600", sub: ptsSub(fl.now.course.churn, fl.before.course.churn, ok), info: churnInfo("คอร์ส") },
+      { label: "Churn", full: "Churn rate", value: fmtPct(fl.now.course.churn), tone: "text-red-600", sub: ptsSub(fl.now.course.churn, fl.before.course.churn, ok), info: churnInfo("คอร์ส") },
       { label: tx("คอร์สต่อ"), value: fmtPct(c.renewal), sub: ptsSub(c.renewal, c.prev.renewal, ok), info: tx("แพ็กเกจของคอร์สที่หมดในช่วงนี้ ซื้อคอร์สเดิมต่อกี่ % — กลับมาเรียนหลังพักไม่ใช่การต่อ (นับใน Returning Course)") },
-      { label: "Returning", value: fmtNum(f.backCourses), tone: "text-sky-700", sub: deltaSub(pctDelta(f.backCourses, f.backCoursesPrev, ok)), info: tx("คอร์สที่พัก (ไม่ได้เรียน ติดกัน 3 คาบขึ้นไป) แล้วกลับมาเรียนในช่วงนี้") },
-      { label: "Actual buy", value: fmtNum(c.bought), sub: deltaSub(pctDelta(c.bought, c.boughtPrev, ok)), info: tx("จำนวนคอร์สที่จ่ายเงินแล้วในช่วงนี้ — ทั้งซื้อใหม่และซื้อต่อ (ใบแจ้งหนี้ 1 ใบมีได้หลายคอร์ส)") },
-      { label: tx("คอร์ส/คน"), value: c.studentsActive ? (c.active / c.studentsActive).toFixed(2) : "—", info: tx("คอร์ส Active ÷ นักเรียน Active — นักเรียนหนึ่งคนเรียนเฉลี่ยกี่คอร์ส") },
+      { label: "Returning", full: "Returning Course", value: fmtNum(f.backCourses), tone: "text-sky-700", sub: deltaSub(pctDelta(f.backCourses, f.backCoursesPrev, ok)), info: tx("คอร์สที่พัก (ไม่ได้เรียน ติดกัน 3 คาบขึ้นไป) แล้วกลับมาเรียนในช่วงนี้") },
+      { label: "Actual buy", full: "Course Actual buy", value: fmtNum(c.bought), sub: deltaSub(pctDelta(c.bought, c.boughtPrev, ok)), info: tx("จำนวนคอร์สที่จ่ายเงินแล้วในช่วงนี้ — ทั้งซื้อใหม่และซื้อต่อ (ใบแจ้งหนี้ 1 ใบมีได้หลายคอร์ส)") },
+      { label: tx("คอร์ส/คน"), full: tx("คอร์ส / นักเรียน"), value: c.studentsActive ? (c.active / c.studentsActive).toFixed(2) : "—", info: tx("คอร์ส Active ÷ นักเรียน Active — นักเรียนหนึ่งคนเรียนเฉลี่ยกี่คอร์ส") },
     ]} />
   )
 }
