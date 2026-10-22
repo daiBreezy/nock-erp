@@ -39,10 +39,16 @@ export const BAND_FLOW = {
   blur: 80,
   /** how strong the light is (0 = invisible, 1 = full) */
   opacity: 0.50,
-  /** owner 2026-10-22: sparkles riding with the head of the light — at most this many per band (thin bands get fewer; 0 = none) */
-  sparks: 100,
+  /** owner 2026-10-22: white glowing sparkles inside the light, thickest where the light is brightest — at most this many per band (0 = none) */
+  sparks: 1000,
   /** sparkle size (radius) */
-  sparkSize: 0.4,
+  sparkSize: 0.32,
+  /** how many sparkles per unit of band thickness (a thick band gets more) */
+  sparkDensity: 1.5,
+  /** how soft the sparkles' glow is */
+  sparkGlow: 1.2,
+  /** how far a sparkle wanders around its spot (share of the band's thickness) */
+  sparkWander: 0.35,
 }
 
 /** where the light is brightest along its window (0 = tail end, 1 = head) — a long tail behind, a short head in front */
@@ -51,6 +57,14 @@ const PEAK = 0.86
 const WINDOW: [number, number][] = [[0, 0], [0.12, 0.02], [0.28, 0.08], [0.44, 0.2], [0.58, 0.42], [0.7, 0.68], [0.8, 0.92], [PEAK, 1], [0.92, 0.6], [0.97, 0.15], [1, 0]]
 /** a steady pseudo-random number in 0…1 for a seed (sparkles look scattered but don't jump between renders) */
 const rand = (n: number) => { const x = Math.sin(n * 127.1 + 311.7) * 43758.5453; return x - Math.floor(x) }
+/** the light's opacity at a point of its window (0 = tail end, 1 = head) */
+const windowAt = (u: number) => { const i = WINDOW.findIndex(([o]) => o >= u); if (i <= 0) return WINDOW[0][1]; const [a, va] = WINDOW[i - 1], [b, vb] = WINDOW[i]; return va + ((vb - va) * (u - a)) / (b - a) }
+/** spots along the window for n sparkles, more where the light is brighter (few → many → few, like the light) */
+const sparkSpots = (seed: number, n: number) => {
+  const out: number[] = []
+  for (let k = 0; out.length < n && k < n * 40; k++) { const u = 0.03 + rand(seed + k * 2) * 0.94; if (rand(seed + k * 2 + 1) < windowAt(u)) out.push(u) }
+  return out
+}
 
 export function Sankey({ columns, flows, total, heads, size = { w: 1000, h: 380 }, unit = "คน", name = "เส้นทางของ Lead", minWidth = "min-w-[40rem]" }: {
   columns: SankeyColumn[]; flows: SankeyLink[]; total: number
@@ -92,8 +106,6 @@ export function Sankey({ columns, flows, total, heads, size = { w: 1000, h: 380 
   const firstCol = flowing.length ? Math.min(...flowing.map((l) => l.f.col)) : 0, lastCol = flowing.length ? Math.max(...flowing.map((l) => l.f.col)) : 0
   const span = xOf(1) - xOf(0), win = span * BAND_FLOW.length
   const runFrom = xOf(firstCol) + NW, runTo = xOf(lastCol + 1), cycle = (BAND_FLOW.seconds * (runTo - runFrom + win)) / span
-  /** share of the cycle at which the light's brightest point is at x */
-  const headAt = (x: number) => (x - runFrom + win * (1 - PEAK)) / (runTo - runFrom + win)
   // what's hovered: its colour(s) and one short line — "from → to · count · % of from" / "box · count · % of all"
   const hint: { colors: string[]; text: string } | null = !hover ? null
     : "link" in hover ? (() => { const l = links.find((x) => x.i === hover.link)!; const from = box.get(`${l.f.col}|${l.f.from}`)!.node, to = box.get(`${l.f.col + 1}|${l.f.to}`)!.node
@@ -138,6 +150,9 @@ export function Sankey({ columns, flows, total, heads, size = { w: 1000, h: 380 
             ))}
             {/* the light: a moving window (white = see-through) over each band's own left → right colours — near the left it shows
                 the left box's colour, turning into the right box's as it runs. Opacity: a long soft tail rising to a short bright head (WINDOW). */}
+            <filter id={`${uid}-spark`} x="-10%" y="-10%" width="120%" height="120%">
+              <feGaussianBlur stdDeviation={BAND_FLOW.sparkGlow} result="b" /><feMerge><feMergeNode in="b" /><feMergeNode in="b" /><feMergeNode in="SourceGraphic" /></feMerge>
+            </filter>
             {flowing.length > 0 && (
               <linearGradient id={`${uid}-fw`} gradientUnits="userSpaceOnUse" x1={runFrom - win} x2={runFrom} y1={0} y2={0}>
                 {WINDOW.map(([o, a]) => <stop key={o} offset={o} stopColor="#fff" stopOpacity={a} />)}
@@ -171,22 +186,28 @@ export function Sankey({ columns, flows, total, heads, size = { w: 1000, h: 380 
                   <feGaussianBlur stdDeviation={`0 ${Math.min(BAND_FLOW.blur, w / 4)}`} />
                 </filter>
                 <g mask={`url(#${uid}-m${l.i})`}><path d={d} fill="none" stroke={`url(#${uid}-g${l.i})`} strokeWidth={w} filter={`url(#${uid}-b${l.i})`} opacity={BAND_FLOW.opacity} /></g>
-                {/* sparkles: dots in the band's own colours riding along with the light's head, scattered across the band and
-                    twinkling; they only show while the head is on this band, and stay inside it */}
+                {/* sparkles (owner 2026-10-22): many white glowing dots inside the light — where the light is brighter there are more
+                    and they shine more (few → many → few), each wandering a little at its own pace and twinkling; inside the band */}
                 <mask id={`${uid}-s${l.i}`} maskUnits="userSpaceOnUse" x={0} y={0} width={W} height={H}><path d={d} fill="none" stroke="#fff" strokeWidth={w} /></mask>
-                <g mask={`url(#${uid}-s${l.i})`}>
-                  {Array.from({ length: Math.min(BAND_FLOW.sparks, Math.max(1, Math.round(w / 5))) }, (_, k) => {
-                    const seed = l.i * 31 + k, lead = (rand(seed) - 0.6) * 0.18 * span, dy = (rand(seed + 7) - 0.5) * w * 0.8
-                    const tA = headAt(x0 - lead), tB = headAt(x1 - lead), e = Math.min(0.015, (tB - tA) / 4)
+                <g mask={`url(#${uid}-s${l.i})`} filter={`url(#${uid}-spark)`}>
+                  {sparkSpots(l.i * 997, Math.min(BAND_FLOW.sparks, Math.max(4, Math.round(w * BAND_FLOW.sparkDensity)))).map((u, k) => {
+                    const seed = l.i * 7919 + k * 13, glow = windowAt(u)
+                    // when this spot of the window is at the band's start / end — keyTimes must stay strictly inside 0…1
+                    const at = (x: number) => (x - runFrom + win * (1 - u)) / (runTo - runFrom + win)
+                    const tA = at(x0), tB = at(x1), e = Math.min(0.01, (tB - tA) / 4)
                     if (!(tA > 0 && tB < 1 && tB - tA > 4 * e)) return null
-                    const r = BAND_FLOW.sparkSize * (0.6 + rand(seed + 3) * 0.8)
+                    const r = BAND_FLOW.sparkSize * (0.5 + rand(seed + 3) * 1.2), dy = (rand(seed + 7) - 0.5) * w * 0.85
+                    const jx = (rand(seed + 9) - 0.5) * w * BAND_FLOW.sparkWander * 2, jy = (rand(seed + 11) - 0.5) * w * BAND_FLOW.sparkWander
                     return (
                       <g key={k} transform={`translate(0 ${dy})`}>
-                        <circle r={r} fill={`url(#${uid}-g${l.i})`} opacity={0}>
-                          <animateMotion path={d} keyPoints="0;0;1;1" keyTimes={`0;${tA};${tB};1`} calcMode="linear" dur={`${cycle}s`} repeatCount="indefinite" />
-                          <animate attributeName="opacity" values="0;0;1;1;0;0" keyTimes={`0;${tA};${tA + e};${tB - e};${tB};1`} dur={`${cycle}s`} repeatCount="indefinite" />
-                          <animate attributeName="r" values={`${r};${r * 1.7};${r}`} dur={`${0.5 + rand(seed + 5) * 0.6}s`} repeatCount="indefinite" />
-                        </circle>
+                        <g>
+                          <animateTransform attributeName="transform" type="translate" values={`0 0;${jx} ${jy};${-jy} ${jx / 2};0 0`} dur={`${0.8 + rand(seed + 13) * 1.6}s`} repeatCount="indefinite" />
+                          <circle r={r} fill="#fff" opacity={0}>
+                            <animateMotion path={d} keyPoints="0;0;1;1" keyTimes={`0;${tA};${tB};1`} calcMode="linear" dur={`${cycle}s`} repeatCount="indefinite" />
+                            <animate attributeName="opacity" values={`0;0;${glow};${glow};0;0`} keyTimes={`0;${tA};${tA + e};${tB - e};${tB};1`} dur={`${cycle}s`} repeatCount="indefinite" />
+                            <animate attributeName="r" values={`${r};${r * 1.8};${r * 0.6};${r}`} dur={`${0.4 + rand(seed + 5) * 0.9}s`} repeatCount="indefinite" />
+                          </circle>
+                        </g>
                       </g>
                     )
                   })}
