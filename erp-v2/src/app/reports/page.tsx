@@ -6,7 +6,7 @@ import { BranchChip, scopeOptions as buildScopeOptions } from "@/components/app/
 import Link from "next/link"
 import { Fragment, Suspense, useEffect, useMemo, useState } from "react"
 import { useSearchParams } from "next/navigation"
-import { InfoIcon, BanknoteIcon, FrownIcon, MehIcon, SmileIcon, CalendarDaysIcon, ChevronDownIcon, ClockIcon, DownloadIcon, FileSpreadsheetIcon, PrinterIcon, SchoolIcon, SparklesIcon, UsersIcon, UserCheckIcon } from "lucide-react"
+import { InfoIcon, BanknoteIcon, CalendarDaysIcon, ChevronDownIcon, ClockIcon, DownloadIcon, FileSpreadsheetIcon, PrinterIcon, SchoolIcon, SparklesIcon, UsersIcon, UserCheckIcon } from "lucide-react"
 import { NativeSelect } from "@/components/app/native-select"
 import { StudentSheet } from "@/components/app/student-sheet"
 import { AttentionButton, AttentionDialog } from "@/components/reports/attention-dialog"
@@ -1381,20 +1381,13 @@ function NpsSplit({ responses }: { responses: SurveyResponse[] }) {
 
 const SAT_LEVELS = [1, 2, 3, 4, 5] as const
 
-/** owner 2026-10-22: a face after each topic — good (4+) · so-so (3.5–4) · not good (below 3.5), in the answer colours */
-function Face({ score }: { score: number | null }) {
-  if (score === null) return <span />
-  const [Icon, l, label] = score >= 4 ? [SmileIcon, "l5", "ดี"] as const : score >= 3.5 ? [MehIcon, "l3", "พอใช้"] as const : [FrownIcon, "l1", "ควรปรับ"] as const
-  return <Icon className="size-5" style={{ color: tagHex("satisfaction", l) }} aria-label={tx(label)} />
-}
-
 /** each topic: one 100% bar split by how many answered 1…5 (red → emerald), the average on the right */
 function SatisfactionBars({ rows }: { rows: { key: string; label: string; score: number | null; prev: number | null; levels: number[] }[] }) {
   return (
     <ul className="space-y-3 text-sm">{rows.map((r) => {
       const n = r.levels.reduce((a, x) => a + x, 0) || 1
       return (
-        <li key={r.key} className="grid grid-cols-[minmax(0,15rem)_1fr_1.25rem_4rem] items-center gap-3">
+        <li key={r.key} className="grid grid-cols-[minmax(0,15rem)_1fr_4rem] items-center gap-3">
           <span className="truncate" title={r.label}>{r.label}</span>
           {/* owner 2026-10-22: the same bar size as the lists around it; the share of each answer is on hover */}
           <div className="flex h-2.5 overflow-hidden rounded-full bg-muted">{r.levels.map((c, i) => c ? (
@@ -1403,7 +1396,6 @@ function SatisfactionBars({ rows }: { rows: { key: string; label: string; score:
               <HoverCardContent side="top" className="w-auto text-sm">{r.label} · {i + 1} {tx(Survey.SCALE_LABEL[i + 1])} · {tx("{0} ครอบครัว", [c])} ({Math.round((c / n) * 100)}%)</HoverCardContent>
             </HoverCard>
           ) : null)}</div>
-          <Face score={r.score} />
           <span className="text-right tabular-nums"><span className="font-semibold">{r.score?.toFixed(1) ?? "—"}</span>{r.prev !== null && <span className="ml-1 text-[11px] text-muted-foreground">{r.prev.toFixed(1)}</span>}</span>
         </li>
       )
@@ -1464,7 +1456,6 @@ function SatisfactionTab({ d, compare, f }: { d: ReportData; compare: boolean; f
   const s = Survey.summarize(rs, group ? 0 : curAll.summary.sent), p = Survey.summarize(prs, group ? 0 : prevAll.summary.sent)
   const topics = Survey.topicRanking(s)
   const prevTopic = (k: string) => Survey.topicRanking(p).find((x) => x.key === k)?.score ?? null
-  const teachers = Survey.teacherScores(rs).map((t) => ({ ...t, staff: staff.find((x) => x.id === t.teacherId) }))
   const toCall = Survey.toCall(rs, d.today)
   // waiting first (oldest answer first), then the ones already called
   const unhappy = rs.filter((r) => Survey.isUnhappy(r.answers)).sort((a, b) => Number(!!a.followUp) - Number(!!b.followUp) || a.submittedAt.localeCompare(b.submittedAt))
@@ -1485,31 +1476,15 @@ function SatisfactionTab({ d, compare, f }: { d: ReportData; compare: boolean; f
       {/* owner 2026-10-22: the NPS card is the Overview's own card (NPS · reasons · improve), filtered here */}
       <NpsCard year={year} responses={rs} s={s} p={p} />
       {/* owner 2026-10-22: satisfaction from low to high — each topic one 100% bar split by the five answers (a radar only
-          showed the average); full width, teachers next to the courses parents asked for below */}
+          showed the average) */}
       <Panel title={tx("ความพึงพอใจ 5 ด้าน")} hint={tx("แต่ละแถบ = ทุกครอบครัวที่ตอบข้อนั้น แบ่งตามระดับที่ตอบ 1–5 · ตัวเลขขวา = เฉลี่ย (ตัวเล็ก = ปีก่อน) · ต่ำสุดอยู่บน = ควรปรับก่อน · ชี้ที่สีเพื่อดูจำนวน")}
         action={<div className="flex flex-wrap justify-end gap-1.5">{SAT_LEVELS.map((l) => <span key={l} className={cn("rounded-full px-2 py-0.5 text-xs", tagChip("satisfaction", `l${l}`))}>{l} {tx(Survey.SCALE_LABEL[l])}</span>)}</div>}>
         {topics.length ? <SatisfactionBars rows={topics.map((t) => ({ key: t.key, label: tx(t.label), score: t.score, prev: prevTopic(t.key), levels: s.levels[t.key] }))} /> : <Empty />}
       </Panel>
-      <div className="grid gap-4 lg:grid-cols-2">
-        <Panel title={tx("คะแนนครู (จากผู้ปกครอง)")} hint={tx("เฉลี่ยข้อ “คุณครูผู้สอน” ของครอบครัวที่ครูสอนลูก · ครูเห็นแค่ค่าเฉลี่ยของตัวเอง ไม่เห็นว่าใครให้")} fill>
-          {teachers.length ? (
-            <table className="w-full text-sm">
-              <thead className="text-xs text-muted-foreground"><tr><th className="text-left font-normal">{tx("ครู")}</th>{compare && <th className="text-left font-normal">{tx("สาขา")}</th>}<th className="text-right font-normal">{tx("คะแนน")}</th><th className="text-right font-normal">{tx("จำนวน")}</th></tr></thead>
-              <tbody>{teachers.map((t) => (
-                <tr key={t.teacherId} className="border-t">
-                  <td className="py-1.5">{nm(t.staff?.nickname ?? "—")}</td>
-                  {compare && <td className="text-muted-foreground">{(t.staff?.branchIds ?? []).map((id) => branches.find((b) => b.id === id)?.code).filter(Boolean).join(", ")}</td>}
-                  <td className={cn("text-right font-medium tabular-nums", t.score < 3.5 && "text-red-600")}>{t.score.toFixed(1)}</td>
-                  <td className="text-right text-muted-foreground tabular-nums">{t.ratings}</td>
-                </tr>
-              ))}</tbody>
-            </table>
-          ) : <Empty>{tx("ยังไม่มีคะแนนครู (นักเรียนที่ตอบยังไม่อยู่ในคลาส)")}</Empty>}
-        </Panel>
-        <Panel title={tx("คอร์สที่อยากให้เปิดเพิ่ม")} sub={tx("รวม {0}", [courses.reduce((a, x) => a + x.value, 0)])} hint={tx("ผู้ปกครองพิมพ์เอง · ข้อความซ้ำรวมเป็นแถวเดียว · เกิน 8 แถวกด “ดูทั้งหมด”")} fill>
-          <TopList color={NPS_HEX.passive} top={8} wide rows={courses} />
-        </Panel>
-      </div>
+      {/* owner 2026-10-22: no per-teacher card — the form rates "the teacher" once per family (the 5-topic row), it can't say which teacher */}
+      <Panel title={tx("คอร์สที่อยากให้เปิดเพิ่ม")} sub={tx("รวม {0}", [courses.reduce((a, x) => a + x.value, 0)])} hint={tx("ผู้ปกครองพิมพ์เอง · ข้อความซ้ำรวมเป็นแถวเดียว · เกิน 8 แถวกด “ดูทั้งหมด”")}>
+        <TopList color={NPS_HEX.passive} top={8} wide rows={courses} />
+      </Panel>
       {compare && !group && (
         <Panel title={tx("NPS ตามสาขา")} hint={tx("ตัวเลขเล็ก = ปีก่อน · (ตอบ/ส่ง)")} fill>
           <SplitRanks rows={[...curAll.byBranch].sort((a, b) => (b.nps ?? -999) - (a.nps ?? -999))} cols={[

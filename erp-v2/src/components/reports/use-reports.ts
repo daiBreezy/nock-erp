@@ -173,7 +173,6 @@ export function useReports(branchIds: string[], period: R.PeriodKey, custom?: R.
       return {
         campaign: c, responses: rs, summary: Survey.summarize(rs, sent),
         byBranch: branches.map((b) => { const br = rs.filter((r) => r.branchId === b.id); return { id: b.id, name: b.name, nps: Survey.nps(br.map((r) => r.answers.nps)), n: br.length, sent: c ? c.recipients.filter((x) => x.branchId === b.id).length : 0 } }),
-        teachers: Survey.teacherScores(rs).map((t) => ({ ...t, staff: s.staff.find((x) => x.id === t.teacherId) })),
         toCall: Survey.toCall(rs, today),
       }
     }

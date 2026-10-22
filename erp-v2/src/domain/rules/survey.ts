@@ -4,7 +4,7 @@
 // Teachers only ever see their own average.
 
 import { addDays } from "../dates"
-import type { DateStr, Entitlement, Family, ID, Student, SurveyAnswers, SurveyCampaign, SurveyImprove, SurveyReason, SurveyResponse, SurveyTopic, SystemConfig } from "../types"
+import type { DateStr, Entitlement, Family, Student, SurveyAnswers, SurveyCampaign, SurveyImprove, SurveyReason, SurveyResponse, SurveyTopic, SystemConfig } from "../types"
 
 export const DEFAULT_WINDOW = { from: "09-15", to: "10-15" }
 export const REMIND_AFTER_DAYS = 7
@@ -86,17 +86,6 @@ export function summarize(responses: SurveyResponse[], sent: number) {
 /** Every topic ranked lowest first — what to fix. */
 export function topicRanking(s: ReturnType<typeof summarize>) {
   return TOPIC_KEYS.map((k) => ({ key: k, label: TOPIC_LABEL[k], score: s.scores[k] })).filter((x) => x.score !== null).sort((a, b) => a.score! - b.score!)
-}
-
-/** A teacher's average of the "คุณครูผู้สอน" score from the families whose children they teach (their own number only). */
-export function teacherScores(responses: SurveyResponse[]) {
-  const by = new Map<ID, number[]>()
-  for (const r of responses.filter(isCurrent)) {
-    const v = r.answers.scores.teacher
-    if (v === null) continue
-    for (const t of new Set(Object.values(r.teachers).flat())) by.set(t, [...(by.get(t) ?? []), v])
-  }
-  return [...by.entries()].map(([teacherId, v]) => ({ teacherId, score: v.reduce((a, b) => a + b, 0) / v.length, ratings: v.length })).sort((a, b) => a.score - b.score)
 }
 
 /** owner 2026-10-22: filter by subject and by grade separately (the real form's Q1–Q2, filled in from the enrolment).

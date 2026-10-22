@@ -1746,12 +1746,11 @@ describe("Yearly parent survey (owner 2026-10-05 · questions of the real form 2
     ...extra,
   })
   type SurveyResponseT = import("../types").SurveyResponse
-  it("NPS, response rate, weakest topic first, teacher averages, reasons per group, the one thing to improve", () => {
+  it("NPS, response rate, weakest topic first, reasons per group, the one thing to improve", () => {
     const rs = [resp("a", 10, "yes", 5), resp("b", 9, "yes", 4), resp("c", 3, "no", 2)]
     const s = Survey.summarize(rs, 6)
     expect([s.nps, s.rate, s.unhappy]).toEqual([33, 0.5, 1])
     expect(Survey.topicRanking(s)[0].key).toBe("feedback")
-    expect(Survey.teacherScores(rs)).toEqual([{ teacherId: "t1", score: 11 / 3, ratings: 3 }])
     expect(s.reasons.find((x) => x.key === "teaching")).toMatchObject({ promoter: 2, detractor: 0, total: 2 })
     expect(s.reasons.find((x) => x.key === "value")).toMatchObject({ promoter: 0, detractor: 1 })
     expect(s.improve[0]).toMatchObject({ key: "challenge", count: 2 })
