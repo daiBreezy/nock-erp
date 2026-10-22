@@ -148,10 +148,16 @@ export function Sankey({ columns, flows, total, heads, size = { w: 1000, h: 380 
             return <path key={l.i} d={`M${x0},${l.y0} C${mx},${l.y0} ${mx},${l.y1} ${x1},${l.y1}`} fill="none" stroke={`url(#${uid}-g${l.i})`} strokeWidth={Math.max(1, l.h)}
               strokeOpacity={on(l) ? (hover ? BAND_OPACITY.focus : BAND_OPACITY.rest) : BAND_OPACITY.dim} onMouseEnter={() => setHover({ link: l.i })} className="transition-[stroke-opacity]" />
           })}
+          {/* owner 2026-10-22: the soft light stays inside its band — masked by the band's own shape */}
           {flowing.map((l) => {
             const x0 = xOf(l.f.col) + NW, x1 = xOf(l.f.col + 1), mx = (x0 + x1) / 2
-            return <path key={`f${l.i}`} d={`M${x0},${l.y0} C${mx},${l.y0} ${mx},${l.y1} ${x1},${l.y1}`} fill="none" stroke={`url(#${uid}-f${l.i})`} strokeWidth={Math.max(1.5, l.h)}
-              filter={`url(#${uid}-glow)`} className="pointer-events-none" />
+            const d = `M${x0},${l.y0} C${mx},${l.y0} ${mx},${l.y1} ${x1},${l.y1}`, w = Math.max(1.5, l.h)
+            return (
+              <g key={`f${l.i}`} className="pointer-events-none">
+                <mask id={`${uid}-m${l.i}`} maskUnits="userSpaceOnUse" x={0} y={0} width={W} height={H}><path d={d} fill="none" stroke="#fff" strokeWidth={w} /></mask>
+                <g mask={`url(#${uid}-m${l.i})`}><path d={d} fill="none" stroke={`url(#${uid}-f${l.i})`} strokeWidth={w} filter={`url(#${uid}-glow)`} /></g>
+              </g>
+            )
           })}
           {[...box.entries()].map(([k, b]) => {
             const last = b.col === columns.length - 1
