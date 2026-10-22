@@ -34,7 +34,7 @@ export const BAND_FLOW = {
   /** seconds for the light to cross one band */
   seconds: 2.40,
   /** length of the light, as a share of the band's length */
-  length:  3.40,
+  length: 2.40,
   /** how soft the glow is (blur) — owner 2026-10-22: softer, no hard edge */
   blur: 40,
   /** how strong the light is (0 = invisible, 1 = full) */
@@ -117,11 +117,6 @@ export function Sankey({ columns, flows, total, heads, size = { w: 1000, h: 380 
                 <stop offset="50%" stopColor={b.node.split![0]} /><stop offset="50%" stopColor={b.node.split![1]} />
               </linearGradient>
             ))}
-            {/* only the blurred light (no sharp copy on top) — soft all round. The blur area is the whole drawing: sized from the
-                band's centre line it was a thin strip on thick flat bands (the stroke isn't in that box) — owner 2026-10-22 */}
-            <filter id={`${uid}-glow`} filterUnits="userSpaceOnUse" x={0} y={0} width={W} height={H}>
-              <feGaussianBlur stdDeviation={BAND_FLOW.blur} />
-            </filter>
             {flowing.map((l) => {
               const x0 = xOf(l.f.col) + NW, x1 = xOf(l.f.col + 1), w = (x1 - x0) * BAND_FLOW.length
               // the light is a moving window (white = see-through) over the band's own left → right colours: near the left it
@@ -155,7 +150,12 @@ export function Sankey({ columns, flows, total, heads, size = { w: 1000, h: 380 
             return (
               <g key={`f${l.i}`} className="pointer-events-none">
                 <mask id={`${uid}-m${l.i}`} maskUnits="userSpaceOnUse" x={0} y={0} width={W} height={H}><path d={d} fill="none" stroke={`url(#${uid}-f${l.i})`} strokeWidth={w} /></mask>
-                <g mask={`url(#${uid}-m${l.i})`}><path d={d} fill="none" stroke={`url(#${uid}-g${l.i})`} strokeWidth={w} filter={`url(#${uid}-glow)`} opacity={BAND_FLOW.opacity} /></g>
+                {/* soft along the band; across it the blur is at most a quarter of the band's thickness — a full blur washed thin
+                    bands out to nothing (owner 2026-10-22). The blur area is the whole drawing (sized from the centre line it cut thick bands) */}
+                <filter id={`${uid}-b${l.i}`} filterUnits="userSpaceOnUse" x={0} y={0} width={W} height={H}>
+                  <feGaussianBlur stdDeviation={`${BAND_FLOW.blur} ${Math.min(BAND_FLOW.blur, w / 4)}`} />
+                </filter>
+                <g mask={`url(#${uid}-m${l.i})`}><path d={d} fill="none" stroke={`url(#${uid}-g${l.i})`} strokeWidth={w} filter={`url(#${uid}-b${l.i})`} opacity={BAND_FLOW.opacity} /></g>
               </g>
             )
           })}
