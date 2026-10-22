@@ -29,6 +29,18 @@ export const BAND_OPACITY = {
   dim: 0.04,
 }
 
+/** owner 2026-10-22: the light running along a hovered band (left → right), like the ref's flame button — tweak here */
+export const BAND_FLOW = {
+  /** seconds for the light to cross one band */
+  seconds: 1.6,
+  /** length of the light, as a share of the band's length */
+  length: 0.45,
+  /** the hot centre of the light */
+  core: "#fffbeb",
+  /** how soft the glow is (blur) */
+  blur: 2.5,
+}
+
 export function Sankey({ columns, flows, total, heads, size = { w: 1000, h: 380 }, unit = "คน", name = "เส้นทางของ Lead", minWidth = "min-w-[40rem]" }: {
   columns: SankeyColumn[]; flows: SankeyLink[]; total: number
   /** drawing size — a narrower one keeps the text readable in a half-width card */
@@ -41,6 +53,7 @@ export function Sankey({ columns, flows, total, heads, size = { w: 1000, h: 380 
   const W = size.w, H = size.h
   const uid = useId().replace(/:/g, "")
   const [hover, setHover] = useState<{ link: number } | { col: number; key: string } | null>(null)
+  const [still] = useState(() => typeof window !== "undefined" && window.matchMedia?.("(prefers-reduced-motion: reduce)").matches)
   if (!total) return <p className="py-6 text-center text-sm text-muted-foreground">{tx("ยังไม่มีข้อมูลในช่วงนี้")}</p>
 
   const most = Math.max(...columns.map((c) => c.nodes.length))
@@ -60,6 +73,8 @@ export function Sankey({ columns, flows, total, heads, size = { w: 1000, h: 380 
   for (const l of [...links].sort((a, b) => order(a.f.col, a.f.from) - order(b.f.col, b.f.from))) { const b = box.get(`${l.f.col + 1}|${l.f.to}`)!; l.y1 = b.y + b.in + l.h / 2; b.in += l.h }
 
   const on = (l: (typeof links)[number]) => !hover || ("link" in hover ? hover.link === l.i : (l.f.col === hover.col && l.f.from === hover.key) || (l.f.col + 1 === hover.col && l.f.to === hover.key))
+  // the hovered band(s) carry a light running left → right (none when the viewer asks for less motion)
+  const flowing = hover && !still ? links.filter(on) : []
   // what's hovered: its colour(s) and one short line — "from → to · count · % of from" / "box · count · % of all"
   const hint: { colors: string[]; text: string } | null = !hover ? null
     : "link" in hover ? (() => { const l = links.find((x) => x.i === hover.link)!; const from = box.get(`${l.f.col}|${l.f.from}`)!.node, to = box.get(`${l.f.col + 1}|${l.f.to}`)!.node
@@ -102,6 +117,24 @@ export function Sankey({ columns, flows, total, heads, size = { w: 1000, h: 380 
                 <stop offset="50%" stopColor={b.node.split![0]} /><stop offset="50%" stopColor={b.node.split![1]} />
               </linearGradient>
             ))}
+            <filter id={`${uid}-glow`} x="-5%" y="-50%" width="110%" height="200%">
+              <feGaussianBlur stdDeviation={BAND_FLOW.blur} result="b" /><feMerge><feMergeNode in="b" /><feMergeNode in="SourceGraphic" /></feMerge>
+            </filter>
+            {flowing.map((l) => {
+              const x0 = xOf(l.f.col) + NW, x1 = xOf(l.f.col + 1), w = (x1 - x0) * BAND_FLOW.length
+              const from = box.get(`${l.f.col}|${l.f.from}`)!.node.color, to = box.get(`${l.f.col + 1}|${l.f.to}`)!.node.color
+              return (
+                <linearGradient key={l.i} id={`${uid}-f${l.i}`} gradientUnits="userSpaceOnUse" x1={x0 - w} x2={x0} y1={0} y2={0}>
+                  <stop offset="0%" stopColor={from} stopOpacity={0} />
+                  <stop offset="35%" stopColor={from} stopOpacity={0.85} />
+                  <stop offset="50%" stopColor={BAND_FLOW.core} stopOpacity={1} />
+                  <stop offset="65%" stopColor={to} stopOpacity={0.85} />
+                  <stop offset="100%" stopColor={to} stopOpacity={0} />
+                  <animate attributeName="x1" from={x0 - w} to={x1} dur={`${BAND_FLOW.seconds}s`} repeatCount="indefinite" />
+                  <animate attributeName="x2" from={x0} to={x1 + w} dur={`${BAND_FLOW.seconds}s`} repeatCount="indefinite" />
+                </linearGradient>
+              )
+            })}
             {links.map((l) => (
               <linearGradient key={l.i} id={`${uid}-g${l.i}`} gradientUnits="userSpaceOnUse" x1={xOf(l.f.col) + NW} x2={xOf(l.f.col + 1)} y1={0} y2={0}>
                 <stop offset="0%" stopColor={box.get(`${l.f.col}|${l.f.from}`)!.node.color} />
@@ -113,6 +146,11 @@ export function Sankey({ columns, flows, total, heads, size = { w: 1000, h: 380 
             const x0 = xOf(l.f.col) + NW, x1 = xOf(l.f.col + 1), mx = (x0 + x1) / 2
             return <path key={l.i} d={`M${x0},${l.y0} C${mx},${l.y0} ${mx},${l.y1} ${x1},${l.y1}`} fill="none" stroke={`url(#${uid}-g${l.i})`} strokeWidth={Math.max(1, l.h)}
               strokeOpacity={on(l) ? (hover ? BAND_OPACITY.focus : BAND_OPACITY.rest) : BAND_OPACITY.dim} onMouseEnter={() => setHover({ link: l.i })} className="transition-[stroke-opacity]" />
+          })}
+          {flowing.map((l) => {
+            const x0 = xOf(l.f.col) + NW, x1 = xOf(l.f.col + 1), mx = (x0 + x1) / 2
+            return <path key={`f${l.i}`} d={`M${x0},${l.y0} C${mx},${l.y0} ${mx},${l.y1} ${x1},${l.y1}`} fill="none" stroke={`url(#${uid}-f${l.i})`} strokeWidth={Math.max(1.5, l.h)}
+              filter={`url(#${uid}-glow)`} className="pointer-events-none" />
           })}
           {[...box.entries()].map(([k, b]) => {
             const last = b.col === columns.length - 1
