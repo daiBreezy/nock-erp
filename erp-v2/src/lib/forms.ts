@@ -6,9 +6,10 @@
 
 import { FORM_TYPE_LABEL } from "@/domain/rules/forms"
 import * as FB from "@/domain/rules/form-builder"
+import { buildCatalog } from "@/domain/rules/catalog"
 import { addDays } from "@/domain/dates"
 import { notAnswered, surveyRecipients, surveyWindow } from "@/domain/rules/survey"
-import type { CustomFormToken, FormDef, Brand, EnrollSubmission, EnrollToken, ExitResponse, ExitToken, SurveyCampaign, SurveyToken, FormLang, FormOfferSlot, FormPrefill, FormSubjectOffer, FormSubmission, FormToken, FormType, ID, Result, EnrollClassOffer, EnrollPlan } from "@/domain/types"
+import type { CatalogToken, CustomFormToken, FormDef, Brand, EnrollSubmission, EnrollToken, ExitResponse, ExitToken, SurveyCampaign, SurveyToken, FormLang, FormOfferSlot, FormPrefill, FormSubjectOffer, FormSubmission, FormToken, FormType, ID, Result, EnrollClassOffer, EnrollPlan } from "@/domain/types"
 import { useStore } from "@/store/store"
 
 async function postJson<T>(url: string, body: unknown): Promise<T> {
@@ -338,4 +339,40 @@ export async function sendCustomFormToChat(conversationId: ID, form: FormDef, of
 export async function pullCustomFormResponses() {
   const r = await fetch("/api/parent-forms/custom-responses").then((x) => x.json()).catch(() => null)
   if (r?.responses) useStore.getState().syncFormResponses(r.responses)
+}
+
+// ---------- course catalog (owner 2026-10-22) ----------
+
+/** the branch's courses + classes as the parent's catalog shows them (a snapshot — refreshed on every send) */
+export function catalogSnapshot(branchId: ID) {
+  const s = useStore.getState()
+  const branch = s.branches.find((b) => b.id === branchId)!
+  const { courses, classes } = buildCatalog(s.courses, s.classes, branchId, new Date().toISOString().slice(0, 10), (id) => s.staff.find((x) => x.id === id)?.nickname ?? "")
+  return { branchId, branchName: branch.name, brand: branch.brand, lang: s.system.preferences.language, grades: branch.grades, subjects: branch.subjects, subjectNames: s.system.subjectNames, courses, classes }
+}
+
+const catalogUrl = (token: string) => {
+  const liffId = process.env.NEXT_PUBLIC_LIFF_ID
+  return liffId ? `https://liff.line.me/${liffId}?token=${token}` : `${window.location.origin}/liff/catalog?token=${token}`
+}
+
+/** create / refresh the branch's one catalog link (same link every time — it can sit on the Rich Menu) */
+export async function publishCatalogLink(branchId: ID): Promise<Result<{ token: string; url: string }>> {
+  const s = useStore.getState()
+  const branch = s.branches.find((b) => b.id === branchId)
+  const res = await postJson<{ ok: boolean; token?: CatalogToken; error?: string }>("/api/catalog", { ...catalogSnapshot(branchId), token: branch?.catalogLink?.token })
+  if (!res.ok || !res.token) return { ok: false, error: res.error ?? "สร้างลิงก์ไม่สำเร็จ" }
+  const url = catalogUrl(res.token.token)
+  s.setCatalogLink(branchId, { token: res.token.token, url, updatedAt: res.token.updatedAt })
+  return { ok: true, value: { token: res.token.token, url } }
+}
+
+/** Inbox › + › Catalog: refresh the branch's catalog and post its link into the chat */
+export async function sendCatalogToChat(conversationId: ID): Promise<Result> {
+  const s = useStore.getState()
+  const conv = s.conversations.find((c) => c.id === conversationId)
+  if (!conv) return { ok: false, error: "ไม่พบบทสนทนานี้" }
+  const link = await publishCatalogLink(conv.branchId)
+  if (!link.ok) return link
+  return postToChat(conv.id, `ดูคอร์สและตารางเรียนทั้งหมดของสาขาได้ที่ลิงก์นี้เลยค่ะ 📚 เลือกระดับชั้น / วิชาที่สนใจ แล้วกด "สนใจ" ได้เลยนะคะ\n${link.value.url}`)
 }

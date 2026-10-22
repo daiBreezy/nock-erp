@@ -229,6 +229,8 @@ export interface Branch {
   aiHelper?: boolean
   /** the branch's public enroll-now link for the LINE Rich Menu (owner 2026-10-05) — refreshed when courses change */
   enrollLink?: { token: string; url: string; updatedAt: string }
+  /** owner 2026-10-22: the branch's course catalog link (LINE Rich Menu + sent from Inbox) — one link, data refreshed on send */
+  catalogLink?: { token: string; url: string; updatedAt: string }
   /** non-secret LINE identity — safe to keep in client state. The actual Channel Secret / Access Token live server-side only (.env.local), never here. */
   lineOa: LineOaConfig
 }
@@ -1195,7 +1197,19 @@ export interface ParentRequestMeta {
   requestId: ID
 }
 
-export type ChatMessageMeta = FormRequestMeta | FormSubmissionMeta | ImageMeta | ExitFormMeta | ParentRequestMeta
+/** owner 2026-10-22: a parent tapped "สนใจคลาสนี้" / "ขอนัดทดลองเรียน" in the course catalog — a card in the chat */
+export interface CatalogRequestMeta {
+  formKind: "catalog_request"
+  action: "interest" | "trial"
+  classId: ID
+  courseId?: ID
+  /** what the parent saw, so the card reads well even if the class changes later */
+  className: string
+  subjects: string[]
+  when: string
+}
+
+export type ChatMessageMeta = FormRequestMeta | FormSubmissionMeta | ImageMeta | ExitFormMeta | ParentRequestMeta | CatalogRequestMeta
 
 export interface ChatMessage {
   id: ID
@@ -1751,4 +1765,37 @@ export interface CustomFormToken {
   createdAt: string
   expiresAt: string
   used: boolean
+}
+
+// ---------------- Course catalog (owner 2026-10-22) ----------------
+
+/** a course as the parent sees it in the catalog — its starting price and the classes that teach it */
+export interface CatalogCourse {
+  id: ID
+  name: string
+  subjects: string[]
+  grades: string[]
+  format: ClassType
+  unit: PriceUnit
+  duration: number
+  /** one package (price + course fee) — shown as "เริ่มต้น" */
+  price: number
+  classIds: ID[]
+}
+
+/** the branch's catalog link — a snapshot of its courses + classes (the parent's page can't read the ERP) */
+export interface CatalogToken {
+  token: string
+  kind: "catalog"
+  branchId: ID
+  branchName: string
+  brand: Brand
+  lang: FormLang
+  grades: string[]
+  subjects: string[]
+  subjectNames?: SystemConfig["subjectNames"]
+  courses: CatalogCourse[]
+  classes: EnrollClassOffer[]
+  createdAt: string
+  updatedAt: string
 }

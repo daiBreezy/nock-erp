@@ -28,12 +28,14 @@ const TYPES: FormType[] = ["test", "trial"]
  * and room, or a real class with a seat).
  */
 export function SendFormDialog({
-  leadId, branchId, conversationId, lineUserId, onClose, initialType,
+  leadId, branchId, conversationId, lineUserId, onClose, initialType, initialSubjects,
 }: {
   /** null = a family that is already a customer (owner 2026-10-19: e.g. a second child) — a lead is made for the child on send */
   leadId: ID | null; branchId: ID; conversationId: ID; lineUserId: string; onClose: () => void
   /** picked already (Inbox "+" menu → Test / Trial) — skips the type step */
   initialType?: FormType
+  /** owner 2026-10-22: from a catalog request — that class's subjects start picked */
+  initialSubjects?: string[]
 }) {
   const branch = useBranch()
   const staff = useStore((s) => s.staff)
@@ -58,7 +60,7 @@ export function SendFormDialog({
 
   const [step, setStep] = useState<"type" | "offers" | "confirm">(initialType ? "offers" : "type")
   const [type, setType] = useState<FormType>(initialType ?? "test")
-  const [subjects, setSubjects] = useState<string[]>(lead?.subject && branch.subjects.includes(lead.subject) ? [lead.subject] : branch.subjects.slice(0, 1))
+  const [subjects, setSubjects] = useState<string[]>(initialSubjects?.filter((x) => branch.subjects.includes(x)).length ? initialSubjects.filter((x) => branch.subjects.includes(x)) : lead?.subject && branch.subjects.includes(lead.subject) ? [lead.subject] : branch.subjects.slice(0, 1))
   const [visit, setVisit] = useState<"same" | "separate">("same")
   const [from, setFrom] = useState(toDateStr(now))
   const [to, setTo] = useState(addDays(toDateStr(now), 14))

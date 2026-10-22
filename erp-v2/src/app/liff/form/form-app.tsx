@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
 import { addDays, endTime, toDateStr } from "@/domain/dates"
 import { commonSlots } from "@/domain/rules/forms"
+import { CatalogApp } from "../catalog/catalog-app"
 import { gradeLabel, subjectLabel } from "@/domain/rules/settings"
 import type { Brand, EnrollClassOffer, EnrollCourseOption, EnrollPlan, EnrollToken, FormLang, FormToken, FormOfferSlot, FormPrefill, FormSubjectOffer, FormType } from "@/domain/types"
 import { cn } from "@/lib/utils"
@@ -65,6 +66,8 @@ export function LiffForm() {
   const liffRef = useRef<{ closeWindow: () => void } | null>(null)
   const [token, setToken] = useState(initialToken)
   const [phase, setPhase] = useState<Phase>("init")
+  // owner 2026-10-22: the course catalog opens inside this LIFF page (so LINE tells it who is looking)
+  const [catalogToken, setCatalogToken] = useState("")
   const [step, setStep] = useState<Step>("parent")
   const [error, setError] = useState("")
   const [lang, setLang] = useState<FormLang>((params.get("lang") as FormLang) || "th")
@@ -117,6 +120,7 @@ export function LiffForm() {
       if (pf.startsWith("ps_")) { window.location.replace(`/liff/survey?token=${encodeURIComponent(pf)}`); return }
       // form builder (owner 2026-10-22): a form the company made
       if (pf.startsWith("pc_")) { window.location.replace(`/liff/custom?token=${encodeURIComponent(pf)}`); return }
+      if (pf.startsWith("pk_")) { setCatalogToken(pf); return }
       // enroll-now (owner 2026-10-05): from the Rich Menu or a link an admin sent — LINE login only when opened inside LINE
       if (pf.startsWith("pe_") || previewEnroll) {
         let tk: EnrollToken
@@ -254,6 +258,7 @@ export function LiffForm() {
     }
   }
 
+  if (catalogToken) return <CatalogApp token={catalogToken} />
   if (phase === "init") return <Centered><Spinner /><p className="mt-3 text-sm text-muted-foreground">{t.opening}</p></Centered>
   if (phase === "invalid") return <Centered><XCircleIcon className="size-10 text-red-500" /><p className="mt-3 text-center text-sm text-muted-foreground">{error}</p></Centered>
 

@@ -1,6 +1,6 @@
 import { promises as fs } from "fs"
 import path from "path"
-import type { CustomFormResponse, CustomFormToken, EnrollSubmission, EnrollToken, ExitAnswers, ExitResponse, ExitToken, SurveyAnswers, SurveyResponse, SurveyToken } from "@/domain/types"
+import type { CatalogToken, CustomFormResponse, CustomFormToken, EnrollSubmission, EnrollToken, ExitAnswers, ExitResponse, ExitToken, SurveyAnswers, SurveyResponse, SurveyToken } from "@/domain/types"
 import { DATA_DIR } from "./data-dir"
 import { validateAnswers } from "@/domain/rules/form-builder"
 
@@ -274,4 +274,43 @@ export function submitCustom(token: string, answers: CustomFormResponse["answers
 
 export async function listCustomResponses() {
   return (await readCustom()).responses
+}
+
+// ---------- course catalog (owner 2026-10-22) ----------
+
+interface CatalogStore { tokens: CatalogToken[] }
+const CATALOG_FILE = path.join(DATA_DIR, "catalogs.json")
+let catalogQueue: Promise<unknown> = Promise.resolve()
+
+async function readCatalog(): Promise<CatalogStore> {
+  try { return { tokens: (JSON.parse(await fs.readFile(CATALOG_FILE, "utf8")) as CatalogStore).tokens ?? [] } } catch { return { tokens: [] } }
+}
+
+function mutateCatalog<T>(fn: (s: CatalogStore) => T): Promise<T> {
+  const result = catalogQueue.then(async () => {
+    const s = await readCatalog()
+    const v = fn(s)
+    await fs.mkdir(DATA_DIR, { recursive: true })
+    await fs.writeFile(CATALOG_FILE, JSON.stringify(s, null, 2), "utf8")
+    return v
+  })
+  catalogQueue = result.catch(() => undefined)
+  return result
+}
+
+/** "pk_" = a branch's catalog link — one per branch, kept when refreshed so the Rich Menu link never changes */
+export function upsertCatalogToken(input: Omit<CatalogToken, "token" | "kind" | "createdAt" | "updatedAt"> & { token?: string }): Promise<CatalogToken> {
+  return mutateCatalog((s) => {
+    const now = new Date().toISOString()
+    const existing = (input.token && s.tokens.find((t) => t.token === input.token)) || s.tokens.find((t) => t.branchId === input.branchId)
+    if (existing) { Object.assign(existing, input, { token: existing.token, kind: "catalog" as const, updatedAt: now }); return existing }
+    const t: CatalogToken = { ...input, token: `pk_${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`, kind: "catalog", createdAt: now, updatedAt: now }
+    s.tokens.push(t)
+    return t
+  })
+}
+
+export async function getCatalogToken(token: string): Promise<{ ok: true; token: CatalogToken } | { ok: false; error: string }> {
+  const t = (await readCatalog()).tokens.find((x) => x.token === token)
+  return t ? { ok: true, token: t } : { ok: false, error: "invalid" }
 }

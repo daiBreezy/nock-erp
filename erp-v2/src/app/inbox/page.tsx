@@ -2,13 +2,14 @@
 
 import Link from "next/link"
 import { Fragment, useCallback, useEffect, useLayoutEffect, useRef, useState } from "react"
-import { FileSignatureIcon, InfoIcon, PenLineIcon, PlusIcon, RadioIcon, ArrowUpIcon, Loader2Icon, SparklesIcon, UserSearchIcon, UserCheckIcon, ChevronDownIcon, CheckIcon, ClipboardListIcon, FileTextIcon, GraduationCapIcon, HeartHandshakeIcon, ImageIcon, LogOutIcon, MegaphoneIcon, LayoutTemplateIcon, ReceiptIcon, SearchIcon, UserPlusIcon, XIcon, GripVerticalIcon, CheckCircle2Icon } from "lucide-react"
+import { BookOpenIcon, FileSignatureIcon, InfoIcon, PenLineIcon, PlusIcon, RadioIcon, ArrowUpIcon, Loader2Icon, SparklesIcon, UserSearchIcon, UserCheckIcon, ChevronDownIcon, CheckIcon, ClipboardListIcon, FileTextIcon, GraduationCapIcon, HeartHandshakeIcon, ImageIcon, LogOutIcon, MegaphoneIcon, LayoutTemplateIcon, ReceiptIcon, SearchIcon, UserPlusIcon, XIcon, GripVerticalIcon, CheckCircle2Icon } from "lucide-react"
 import { NativeSelect } from "@/components/app/native-select"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuSub, DropdownMenuSubContent, DropdownMenuSubTrigger, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { ExitRequestDialog } from "@/components/app/student-exit"
 import { BroadcastDialog } from "@/components/inbox/broadcast-dialog"
-import { sendCustomFormToChat, sendSurveyToChat } from "@/lib/forms"
+import { sendCatalogToChat, sendCustomFormToChat, sendSurveyToChat } from "@/lib/forms"
 import { useSendForm } from "@/components/forms/send-form"
+import { CatalogRequestCard } from "@/components/inbox/catalog-request-card"
 import { SendEnrollDialog } from "@/components/inbox/send-enroll-dialog"
 import { InvoiceSheet } from "@/components/billing/invoice-sheet"
 import { Pill } from "@/components/app/badges"
@@ -114,6 +115,7 @@ export default function InboxPage() {
   const [creatingLead, setCreatingLead] = useState(false)
   const [sendingFormOpen, setSendingFormOpen] = useState(false)
   const [formType, setFormType] = useState<FormType | undefined>(undefined)
+  const [formSubjects, setFormSubjects] = useState<string[] | undefined>(undefined)
   const [exitStudent, setExitStudent] = useState<Student | null>(null)
   const [broadcasting, setBroadcasting] = useState(false)
   const sendImage = useStore((s) => s.sendChatImage)
@@ -401,6 +403,7 @@ export default function InboxPage() {
                       if (m.kind === "form_submission") return <FormSubmissionBubble key={m.id} message={m} submissions={submissions} onChanged={pollSubmissions} />
                       if (isExitFormMessage(m)) return <ExitFormChatCard key={m.id} message={m} conversation={selected} />
                       if (m.meta?.formKind === "parent_request") return <ParentRequestChatCard key={m.id} message={m} />
+                      if (m.meta?.formKind === "catalog_request") return <CatalogRequestCard key={m.id} message={m} linked={!!(lead || family)} onLink={() => setLinking(true)} onTrial={(subs) => { setFormType("trial"); setFormSubjects(subs); setSendingFormOpen(true) }} />
                       if (isEnrollSubmissionMessage(m)) return <EnrollSubmissionChatCard key={m.id} message={m} conversation={selected} />
                       const link = formLinkOf(m)
                       if (link) return <FormLinkBubble key={m.id} message={m} answered={link.form === "custom" ? formResponses.some((r) => r.token === link.token) : link.form === "exit" && thread.some((x) => isExitFormMessage(x) && (x.meta?.formKind === "exit_form" ? x.meta.token === link.token : x.at > m.at))} />
@@ -461,6 +464,8 @@ export default function InboxPage() {
                         </DropdownMenuSubContent>
                       </DropdownMenuSub>
                       <DropdownMenuItem onClick={() => imageInput.current?.click()}><ImageIcon /> รูปภาพ</DropdownMenuItem>
+                      {/* owner 2026-10-22: the branch's course catalog — the parent filters grade / subject and taps a class */}
+                      <DropdownMenuItem onClick={async () => report(await sendCatalogToChat(selected.id), "ส่ง Catalog แล้ว")}><BookOpenIcon /> Catalog คอร์ส<Sent at={linkSent("pk_")} /></DropdownMenuItem>
                       {kids.length > 1 ? (
                         <DropdownMenuSub>
                           <DropdownMenuSubTrigger><ReceiptIcon /> ใบแจ้งหนี้</DropdownMenuSubTrigger>
@@ -505,8 +510,8 @@ export default function InboxPage() {
       {sendingFormOpen && selected && (lead || family) && (
         <SendFormDialog
           leadId={lead?.id ?? null} branchId={lead?.branchId ?? selected.branchId} conversationId={selected.id}
-          lineUserId={lead?.lineUserId ?? family?.lineUserId ?? (selected.id.startsWith("line_") ? selected.id.slice(5) : "")} initialType={formType}
-          onClose={() => { setSendingFormOpen(false); setFormType(undefined) }}
+          lineUserId={lead?.lineUserId ?? family?.lineUserId ?? (selected.id.startsWith("line_") ? selected.id.slice(5) : "")} initialType={formType} initialSubjects={formSubjects}
+          onClose={() => { setSendingFormOpen(false); setFormType(undefined); setFormSubjects(undefined) }}
         />
       )}
       {linking && selected && (

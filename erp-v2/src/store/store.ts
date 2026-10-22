@@ -297,6 +297,8 @@ type Store = DB & UIState & {
   saveSurveyWindow: (w: { from: string; to: string }) => Result
   /** enroll-now (owner 2026-10-05): the branch's Rich Menu link */
   setEnrollLink: (branchId: ID, link: Branch["enrollLink"]) => Result
+  /** owner 2026-10-22: the branch's catalog link (Rich Menu + Inbox) */
+  setCatalogLink: (branchId: ID, link: Branch["catalogLink"]) => Result
   /** enroll-now application → family + students + a "สมัครตรง" lead at รอชำระ + a draft invoice per child */
   /** owner 2026-10-16: without a course = family + student (+ lead) only — the admin picks course + classes on the invoice panel */
   approveEnrollment: (sub: EnrollSubmission, plan: { childIndex: number; courseId?: ID; classIds?: ID[]; startDate?: DateStr; periods?: number }[]) => Result<{ studentIds: ID[]; invoiceIds: ID[] }>
@@ -2817,6 +2819,12 @@ export const useStore = create<Store>()(
         if (!perm.ok) return perm
         if (!/^\d\d-\d\d$/.test(w.from) || !/^\d\d-\d\d$/.test(w.to) || w.from >= w.to) return fail("ช่วงวันที่ไม่ถูกต้อง")
         set({ system: { ...s.system, survey: w } })
+        return OK
+      },
+
+      setCatalogLink: (branchId, link) => {
+        const s = get()
+        set({ branches: s.branches.map((b) => (b.id === branchId ? { ...b, catalogLink: link } : b)) })
         return OK
       },
 
