@@ -10,7 +10,7 @@ import { InfoIcon, BanknoteIcon, CalendarDaysIcon, ChevronDownIcon, ClockIcon, D
 import { NativeSelect } from "@/components/app/native-select"
 import { StudentSheet } from "@/components/app/student-sheet"
 import { AttentionButton, AttentionDialog } from "@/components/reports/attention-dialog"
-import { Delta, Donut, DonutLegend, Empty, HoverText, InfoTip, TopList, fmtNum, fmtPct, fmtShort, Heatmap, MonthBars, Panel, Rank, ShareBar, donutColor, tint } from "@/components/reports/charts"
+import { Delta, Donut, DonutLegend, Empty, InfoTip, TopList, fmtNum, fmtPct, fmtShort, Heatmap, MonthBars, Panel, Rank, ShareBar, donutColor, tint } from "@/components/reports/charts"
 import { DateRangePicker } from "@/components/app/date-range-picker"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { SummaryTab } from "@/components/reports/summary-tab"
@@ -471,13 +471,16 @@ function NpsCard({ year, responses, s, p }: { year: number; responses: SurveyRes
     <Panel title="NPS" hint={tx("แบบสอบถามผู้ปกครองปี {0} · แนะนำ 9–10 · เฉยๆ 7–8 · ไม่แนะนำ 0–6", [yearOf(year)])}>
       {/* owner 2026-10-22: the score across the full width on top · below: why they scored (left) and the one thing to improve (right) */}
       <NpsScore nps={s.nps} prev={p.nps} responses={responses} />
-      <div className="mt-6 grid gap-6 border-t pt-5 lg:grid-cols-2 lg:gap-0 lg:divide-x">
+      {/* owner 2026-10-22: both sides are the same ranked list (same rows, bar size, spacing) — reasons' bars split by NPS group */}
+      <div className="mt-6 grid gap-6 lg:grid-cols-2 lg:gap-0 lg:divide-x">
         <div className="lg:pr-6">
-          <p className="mb-3 flex items-center gap-1 text-sm font-medium">{tx("เหตุผลที่ให้คะแนน")}<InfoTip text={tx("เลือกได้หลายข้อ · สีในแถบ = กลุ่มที่เลือกเหตุผลนั้น (แนะนำ / เฉยๆ / ไม่แนะนำ) · ชี้ “อื่นๆ” เพื่อดูข้อความ")} /></p>
-          <ReasonBars rows={s.reasons} other={s.reasonOther} />
+          <TopList title={tx("เหตุผลที่ให้คะแนน")} hint={tx("เลือกได้หลายข้อ · สีในแถบ = กลุ่มที่เลือกเหตุผลนั้น (แนะนำ / เฉยๆ / ไม่แนะนำ) · ชี้ “อื่นๆ” เพื่อดูข้อความ")} wide top={7}
+            icon={<span className="size-2.5 rounded-full" style={{ background: `conic-gradient(${NPS_HEX.promoter} 0 33%, ${NPS_HEX.passive} 0 66%, ${NPS_HEX.detractor} 0)` }} />}
+            rows={s.reasons.map((r) => ({ label: tx(r.label), value: r.total, parts: [{ value: r.promoter, color: NPS_HEX.promoter }, { value: r.passive, color: NPS_HEX.passive }, { value: r.detractor, color: NPS_HEX.detractor }],
+              hover: r.key === "other" && s.reasonOther.length ? <OtherTexts texts={s.reasonOther} /> : undefined }))} />
         </div>
         <div className="lg:pl-6">
-          <TopList title={tx("อยากให้ปรับปรุงมากที่สุด")} icon={<span className="size-2.5 rounded-full" style={{ background: NPS_HEX.passive }} />} color={NPS_HEX.passive} wide top={7}
+          <TopList title={tx("อยากให้ปรับปรุงมากที่สุด")} hint={tx("เลือกได้ 1 ข้อต่อครอบครัว · ชี้ “อื่นๆ” เพื่อดูข้อความ")} icon={<span className="size-2.5 rounded-full" style={{ background: NPS_HEX.passive }} />} color={NPS_HEX.passive} wide top={7}
             rows={s.improve.map((x) => ({ label: tx(x.label), value: x.count, hover: x.key === "other" && s.improveOther.length ? <OtherTexts texts={s.improveOther} /> : undefined }))} />
         </div>
       </div>
@@ -1373,22 +1376,6 @@ function NpsSplit({ responses }: { responses: SurveyResponse[] }) {
       </div>
       <div className="flex justify-between text-xs"><span style={{ color: NPS_HEX.promoter }}>{tx("แนะนำ")} {pro}</span><span style={{ color: NPS_HEX.passive }}>{tx("เฉยๆ")} {pas}</span><span style={{ color: NPS_HEX.detractor }}>{tx("ไม่แนะนำ")} {det}</span></div>
     </div>
-  )
-}
-
-/** the real form's Q4 — each reason with who named it, split by NPS group */
-function ReasonBars({ rows, other }: { rows: ReturnType<typeof Survey.summarize>["reasons"]; other: string[] }) {
-  if (!rows.length) return <Empty />
-  const top = Math.max(...rows.map((r) => r.total))
-  return (
-    <ul className="space-y-2.5 text-sm">{rows.map((r) => (
-      <li key={r.key} className="space-y-1">
-        <div className="flex items-baseline justify-between gap-2">{r.key === "other" && other.length ? <HoverText label={tx(r.label)}><OtherTexts texts={other} /></HoverText> : <span className="truncate">{tx(r.label)}</span>}<span className="shrink-0 tabular-nums">{r.total}</span></div>
-        <div className="flex h-2 overflow-hidden rounded-full bg-muted" style={{ width: `${Math.max(6, (r.total / top) * 100)}%` }}>
-          <span style={{ flex: r.promoter, background: NPS_HEX.promoter }} /><span style={{ flex: r.passive, background: NPS_HEX.passive }} /><span style={{ flex: r.detractor, background: NPS_HEX.detractor }} />
-        </div>
-      </li>
-    ))}</ul>
   )
 }
 

@@ -224,9 +224,9 @@ export function DonutLegend({ title, parts, center, sub, top = 5, keepOrder, col
  * Ranked bar list capped at `top` rows with a "ดูทั้งหมด" toggle (owner 2026-10-05: long lists make the card messy).
  * Each row: rank · name · bar (vs the biggest) · count · share, so the eye reads size before reading numbers.
  */
-export function TopList({ title, icon, rows, top = 5, color, wide, fill }: { title?: string; icon?: ReactNode
-  /** `hover` = more behind the name (e.g. what families typed under "อื่นๆ") */
-  rows: { label: string; value: number; sub?: ReactNode; hover?: ReactNode }[]; top?: number; color?: string; wide?: boolean; fill?: boolean }) {
+export function TopList({ title, hint, icon, rows, top = 5, color, wide, fill }: { title?: string; hint?: string; icon?: ReactNode
+  /** `hover` = more behind the name (e.g. what families typed under "อื่นๆ") · `parts` = the bar split by colour (e.g. NPS groups) */
+  rows: { label: string; value: number; sub?: ReactNode; hover?: ReactNode; parts?: { value: number; color: string }[] }[]; top?: number; color?: string; wide?: boolean; fill?: boolean }) {
   const [open, setOpen] = useState(false)
   const list = open ? rows : rows.slice(0, top)
   const max = Math.max(1, ...rows.map((x) => x.value))
@@ -235,7 +235,7 @@ export function TopList({ title, icon, rows, top = 5, color, wide, fill }: { tit
   const hasSub = rows.some((x) => x.sub)
   return (
     <div className={cn("min-w-0", fill && "flex flex-1 flex-col")}>
-      {title && <p className="mb-3 flex items-center gap-2 text-sm font-medium">{icon}{title}<span className="text-xs font-normal text-muted-foreground">{tx("รวม")} {fmtNum(sum)}</span></p>}
+      {title && <p className="mb-3 flex items-center gap-2 text-sm font-medium">{icon}{title}<span className="text-xs font-normal text-muted-foreground">{tx("รวม")} {fmtNum(sum)}</span>{hint && <InfoTip text={hint} className="-ml-1" />}</p>}
       {rows.length ? (
         <ul className={cn("text-sm", fill ? "flex flex-1 flex-col justify-around gap-2.5" : "space-y-2.5")}>{list.map((x, i) => (
           <li key={x.label} className={cn("grid items-center gap-3", hasSub ? "grid-cols-[1.25rem_minmax(0,30rem)_1fr_2rem_2.5rem]" : wide ? "grid-cols-[1.25rem_minmax(0,18rem)_1fr_2rem_2.5rem]" : "grid-cols-[1.25rem_minmax(0,11rem)_1fr_2rem_2.5rem]")}>
@@ -243,7 +243,11 @@ export function TopList({ title, icon, rows, top = 5, color, wide, fill }: { tit
             {x.sub ? (
               <span className="min-w-0 leading-tight"><span className="block truncate" title={x.label}>{x.label}</span><span className="block truncate text-xs text-muted-foreground">{x.sub}</span></span>
             ) : x.hover ? <HoverText label={x.label}>{x.hover}</HoverText> : <span className="truncate" title={x.label}>{x.label}</span>}
-            <ShareBar value={x.value / max} color={color} className="h-2.5" />
+            {x.parts ? (
+              <div className="h-2.5 w-full overflow-hidden rounded-full bg-muted">
+                <div className="flex h-full overflow-hidden rounded-full" style={{ width: `${(x.value / max) * 100}%` }}>{x.parts.map((pt, k) => <span key={k} style={{ flex: pt.value, background: pt.color }} />)}</div>
+              </div>
+            ) : <ShareBar value={x.value / max} color={color} className="h-2.5" />}
             <span className="text-right font-medium tabular-nums">{fmtNum(x.value)}</span>
             <span className="text-right text-xs text-muted-foreground tabular-nums">{fmtPct(x.value / sum)}</span>
           </li>
