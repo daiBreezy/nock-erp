@@ -1760,6 +1760,13 @@ describe("Yearly parent survey (owner 2026-10-05 · questions of the real form 2
     const old = { ...resp("z", 2, "no", 1), answers: { nps: 2 } } as unknown as SurveyResponseT
     expect(Survey.summarize([old, resp("a", 10, "yes", 5)], 2).responses).toBe(1)
   })
+  it("filters by subject and grade on the same child; 'other' texts kept for the hover", () => {
+    const r = resp("a", 10, "yes", 5, { kids: [{ grade: "ม.2", subjects: ["คณิต"] }, { grade: "ป.4", subjects: ["อังกฤษ"] }] })
+    expect([Survey.kidMatch(r, { subject: "คณิต", grade: "ม.2" }), Survey.kidMatch(r, { subject: "คณิต", grade: "ป.4" }), Survey.kidMatch(r, {})]).toEqual([true, false, true])
+    expect(Survey.kidOptions([r])).toEqual({ subjects: ["คณิต", "อังกฤษ"], grades: ["ป.4", "ม.2"] })
+    const o = resp("b", 9, "yes", 4); o.answers = { ...o.answers, reasons: ["other"], reasonOther: " ใกล้บ้าน ", improve: "other", improveOther: "ที่จอดรถ" }
+    expect([Survey.summarize([o], 1).reasonOther, Survey.summarize([o], 1).improveOther]).toEqual([["ใกล้บ้าน"], ["ที่จอดรถ"]])
+  })
   it("unhappy families to call within 3 days; reminder once after 7 days to those who haven't answered", () => {
     const rs = [resp("c", 5, "yes", 3), resp("d", 8, "no", 4), resp("e", 2, "maybe", 1, { followUp: { at: "", by: "u", note: "โทรแล้ว" } })]
     const call = Survey.toCall(rs, "2026-09-24")

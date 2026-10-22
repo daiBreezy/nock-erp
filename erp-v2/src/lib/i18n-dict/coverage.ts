@@ -832,4 +832,9 @@ export const COVERAGE: Record<string, Entry> = {
   "เหตุผลที่ให้คะแนน (เลือกหลายข้อ + อื่นๆ) *": { en: "Reasons for the score (pick several + other) *", ja: "評価の理由（複数選択＋その他）*" },
   "ความพึงพอใจ 5 ระดับ: ครูผู้สอน · หลักสูตร / เนื้อหา · ระบบ Feedback · ความคุ้มค่า · ห้องเรียน / สถานที่ *": { en: "Satisfaction, 5 levels: teacher · course / content · feedback system · value · classroom / venue *", ja: "満足度5段階：講師 · カリキュラム / 内容 · フィードバック · コスパ · 教室 / 施設 *" },
   "อยากให้ปรับปรุงเรื่องใดมากที่สุด (เลือก 1 + อื่นๆ) *": { en: "What should improve most (pick 1 + other) *", ja: "最も改善してほしい点（1つ選択＋その他）*" },
+  "เลือกได้หลายข้อ · สีในแถบ = กลุ่มที่เลือกเหตุผลนั้น (แนะนำ / เฉยๆ / ไม่แนะนำ) · ชี้ “อื่นๆ” เพื่อดูข้อความ": { en: "Several allowed · bar colours = who picked it (promoter / passive / detractor) · hover “Other” for the texts", ja: "複数選択可 · 色 = 選んだ層（推奨 / 中立 / 非推奨）· 「その他」にホバーで内容" },
+  "รวม {0}": { en: "Total {0}", ja: "計 {0}" },
+  "เลือกได้ 1 ข้อต่อครอบครัว · ชี้ “อื่นๆ” เพื่อดูข้อความ": { en: "One per family · hover “Other” for the texts", ja: "1家族1つ · 「その他」にホバーで内容" },
+  "ผู้ปกครองพิมพ์เอง · ข้อความซ้ำรวมเป็นแถวเดียว · เกิน 8 แถวกด “ดูทั้งหมด”": { en: "Typed by parents · same text = one row · over 8 rows: “See all”", ja: "保護者の自由記述 · 同じ内容は1行 · 8行超は「すべて表示」" },
+  "ป.": { en: "P.", ja: "小" },
 }

@@ -1147,16 +1147,16 @@ function buildSurveys(db: { today: string; branches: Branch[]; families: Family[
       if (submitted.slice(0, 10) > db.today) continue
       const unhappy = nps <= 6
       // owner 2026-10-21: the real form's questions — reasons lean on what this family feels about; the one thing to improve
-      const reasonPool: SurveyReason[] = unhappy ? ["schedule", "value", "content", "other"] : ["teaching", "content", "feedback", "value", "schedule"]
+      const reasonPool: SurveyReason[] = unhappy ? ["schedule", "value", "content", "other"] : ["teaching", "content", "feedback", "value", "schedule", "other"]
       const reasons = [...new Set(Array.from({ length: 1 + Math.floor(rnd() * 3) }, () => pick(reasonPool)))]
-      const improve = pick<SurveyImprove>(["exam", "challenge", "challenge", "one_on_one", "school", "school", "activities", "facility"])
+      const improve = pick<SurveyImprove>(["exam", "challenge", "challenge", "one_on_one", "school", "school", "activities", "facility", "other"])
       responses.push({
         id: `svr_${y}_${r.familyId}`, token: r.token, campaignId: id, year: y, familyId: r.familyId, branchId: r.branchId, teachers, submittedAt: submitted,
         kids: kids.map((k) => ({ grade: k.grade, subjects: [...new Set(db.classes.filter((c) => c.studentIds.includes(k.id)).flatMap((c) => c.subjects?.length ? c.subjects : [c.subject]))] })),
         answers: {
-          nps, reasons, reasonOther: reasons.includes("other") ? pick(["เดินทางสะดวก ใกล้บ้าน", "พี่น้องเรียนที่นี่อยู่แล้ว"]) : "",
+          nps, reasons, reasonOther: reasons.includes("other") ? pick(["เดินทางสะดวก ใกล้บ้าน", "พี่น้องเรียนที่นี่อยู่แล้ว", "เพื่อนแนะนำมา", "ห้องเรียนเล็ก ครูดูแลทั่วถึง"]) : "",
           scores: { teacher: sc(0.2), content: sc(), feedback: sc(-0.3), value: sc(-0.5), place: sc(0.1) },
-          improve, improveOther: "",
+          improve, improveOther: improve === "other" ? pick(["ที่จอดรถ", "อยากให้มีคลาสวันอาทิตย์", "แจ้งการบ้านผ่าน LINE", "ที่จอดรถ", "ห้องรอผู้ปกครอง"]) : "",
           wantCourses: rnd() < 0.35 ? pick(["คอร์สติวสอบเข้า ม.4", "ภาษาจีน", "Coding สำหรับเด็ก", "ฟิสิกส์ ม.ปลาย", "คอร์ส Phonics"]) : "",
           message: rnd() < 0.7 ? pick(unhappy ? ["อยากให้แจ้งการบ้านให้ผู้ปกครองทราบด้วยค่ะ", "ค่าเรียนสูงไปนิด", "ที่จอดรถน้อย", "อยากให้มีเวลาเรียนวันอาทิตย์"] : ["ขอบคุณคุณครูทุกท่านค่ะ ลูกชอบมาเรียน", "ครูใส่ใจลูกมาก", "เกรดดีขึ้นชัดเจน ขอบคุณค่ะ", "สรุปการเรียนละเอียดดีค่ะ"]) : "-",
           lang: pick(["th", "th", "th", "en", "ja"] as const),

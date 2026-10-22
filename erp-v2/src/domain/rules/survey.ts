@@ -74,6 +74,9 @@ export function summarize(responses: SurveyResponse[], sent: number) {
     }).filter((x) => x.total).sort((x, y) => y.total - x.total),
     /** the one thing to improve most, most picked first */
     improve: IMPROVE_KEYS.map((k) => ({ key: k, label: IMPROVE_LABEL[k], count: a.filter((x) => x.improve === k).length })).filter((x) => x.count).sort((x, y) => y.count - x.count),
+    /** what families typed under "อื่นๆ" (reasons / improve) — shown when hovering that row */
+    reasonOther: a.filter((x) => x.reasons.includes("other")).map((x) => x.reasonOther.trim()).filter(Boolean),
+    improveOther: a.filter((x) => x.improve === "other").map((x) => x.improveOther.trim()).filter(Boolean),
     unhappy: rs.filter((r) => isUnhappy(r.answers)).length,
   }
 }
@@ -94,9 +97,20 @@ export function teacherScores(responses: SurveyResponse[]) {
   return [...by.entries()].map(([teacherId, v]) => ({ teacherId, score: v.reduce((a, b) => a + b, 0) / v.length, ratings: v.length })).sort((a, b) => a.score - b.score)
 }
 
-/** "subject · ประถม / มัธยม" of each child — the real form's Q1 options, filled in from the enrolment */
-export const levelOf = (grade: string) => (grade.startsWith("ม.") ? "มัธยม" : "ประถม")
-export const subjectGroups = (r: Pick<SurveyResponse, "kids">) => [...new Set((r.kids ?? []).flatMap((k) => k.subjects.map((s) => `${s} ${levelOf(k.grade)}`)))]
+/** owner 2026-10-22: filter by subject and by grade separately (the real form's Q1–Q2, filled in from the enrolment).
+ *  Both set = the same child studies that subject in that grade. */
+export const kidMatch = (r: Pick<SurveyResponse, "kids">, f: { subject?: string; grade?: string }) =>
+  (!f.subject && !f.grade) || (r.kids ?? []).some((k) => (!f.grade || k.grade === f.grade) && (!f.subject || k.subjects.includes(f.subject)))
+/** ป. before ม., then by number (อ. / others first) */
+const gradeRank = (g: string) => (g.startsWith("ม.") ? 200 : g.startsWith("ป.") ? 100 : 0) + (parseInt(g.replace(/\D/g, "")) || 0)
+/** the subjects and grades the answers cover — the filters' options */
+export function kidOptions(responses: Pick<SurveyResponse, "kids">[]) {
+  const kids = responses.flatMap((r) => r.kids ?? [])
+  return {
+    subjects: [...new Set(kids.flatMap((k) => k.subjects))].sort((a, b) => a.localeCompare(b, "th")),
+    grades: [...new Set(kids.map((k) => k.grade).filter(Boolean))].sort((a, b) => gradeRank(a) - gradeRank(b) || a.localeCompare(b, "th")),
+  }
+}
 
 /** Unhappy families nobody has called yet — overdue after CALL_WITHIN_DAYS. */
 export function toCall(responses: SurveyResponse[], today: DateStr) {

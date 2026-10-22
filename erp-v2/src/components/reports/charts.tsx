@@ -5,6 +5,7 @@ import { ArrowDownIcon, ArrowUpIcon } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { tx } from "@/lib/i18n"
 import { monthShort } from "@/domain/dates"
+import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card"
 
 /** 880K · 1.3M · 950 — short money/number for cards and axes */
 export function fmtShort(n: number) {
@@ -36,11 +37,14 @@ export function Delta({ value, invert, className }: { value: number | null; inve
 export { InfoTip } from "@/components/app/info-tip"
 import { InfoTip } from "@/components/app/info-tip"
 
-export function Panel({ title, hint, action, children, className, center, fill }: { title: string; hint?: string; action?: ReactNode; children: ReactNode; className?: string; center?: boolean; fill?: boolean }) {
+export function Panel({ title, sub, hint, action, children, className, center, fill }: { title: string
+  /** owner 2026-10-22: a short note on the title's line (e.g. "รวม 23") instead of a line of its own */
+  sub?: ReactNode; hint?: string; action?: ReactNode; children: ReactNode; className?: string; center?: boolean; fill?: boolean }) {
   return (
     <section className={cn("flex min-w-0 flex-col rounded-3xl bg-card p-4 shadow-sm ring-1 ring-foreground/10 sm:p-5", className)}>
       <div className="mb-3 flex flex-wrap items-baseline gap-x-2 gap-y-1">
         <h2 className="text-base font-semibold">{title}</h2>
+        {sub && <span className="text-xs text-muted-foreground">{sub}</span>}
         {/* owner 2026-10-07: formulas / definitions behind a "?" — read on hover, the card stays clean */}
         {hint && <InfoTip text={hint} />}
         {action && <div className="ml-auto">{action}</div>}
@@ -220,7 +224,9 @@ export function DonutLegend({ title, parts, center, sub, top = 5, keepOrder, col
  * Ranked bar list capped at `top` rows with a "ดูทั้งหมด" toggle (owner 2026-10-05: long lists make the card messy).
  * Each row: rank · name · bar (vs the biggest) · count · share, so the eye reads size before reading numbers.
  */
-export function TopList({ title, icon, rows, top = 5, color, wide, fill }: { title: string; icon?: ReactNode; rows: { label: string; value: number; sub?: ReactNode }[]; top?: number; color?: string; wide?: boolean; fill?: boolean }) {
+export function TopList({ title, icon, rows, top = 5, color, wide, fill }: { title?: string; icon?: ReactNode
+  /** `hover` = more behind the name (e.g. what families typed under "อื่นๆ") */
+  rows: { label: string; value: number; sub?: ReactNode; hover?: ReactNode }[]; top?: number; color?: string; wide?: boolean; fill?: boolean }) {
   const [open, setOpen] = useState(false)
   const list = open ? rows : rows.slice(0, top)
   const max = Math.max(1, ...rows.map((x) => x.value))
@@ -229,14 +235,14 @@ export function TopList({ title, icon, rows, top = 5, color, wide, fill }: { tit
   const hasSub = rows.some((x) => x.sub)
   return (
     <div className={cn("min-w-0", fill && "flex flex-1 flex-col")}>
-      <p className="mb-3 flex items-center gap-2 text-sm font-medium">{icon}{title}<span className="text-xs font-normal text-muted-foreground">{tx("รวม")} {fmtNum(sum)}</span></p>
+      {title && <p className="mb-3 flex items-center gap-2 text-sm font-medium">{icon}{title}<span className="text-xs font-normal text-muted-foreground">{tx("รวม")} {fmtNum(sum)}</span></p>}
       {rows.length ? (
         <ul className={cn("text-sm", fill ? "flex flex-1 flex-col justify-around gap-2.5" : "space-y-2.5")}>{list.map((x, i) => (
           <li key={x.label} className={cn("grid items-center gap-3", hasSub ? "grid-cols-[1.25rem_minmax(0,30rem)_1fr_2rem_2.5rem]" : wide ? "grid-cols-[1.25rem_minmax(0,18rem)_1fr_2rem_2.5rem]" : "grid-cols-[1.25rem_minmax(0,11rem)_1fr_2rem_2.5rem]")}>
             <Rank n={i + 1} />
             {x.sub ? (
               <span className="min-w-0 leading-tight"><span className="block truncate" title={x.label}>{x.label}</span><span className="block truncate text-xs text-muted-foreground">{x.sub}</span></span>
-            ) : <span className="truncate" title={x.label}>{x.label}</span>}
+            ) : x.hover ? <HoverText label={x.label}>{x.hover}</HoverText> : <span className="truncate" title={x.label}>{x.label}</span>}
             <ShareBar value={x.value / max} color={color} className="h-2.5" />
             <span className="text-right font-medium tabular-nums">{fmtNum(x.value)}</span>
             <span className="text-right text-xs text-muted-foreground tabular-nums">{fmtPct(x.value / sum)}</span>
@@ -245,6 +251,16 @@ export function TopList({ title, icon, rows, top = 5, color, wide, fill }: { tit
       ) : <p className="text-xs text-muted-foreground">{tx("ไม่มี")}</p>}
       {rows.length > top && <button type="button" onClick={() => setOpen((o) => !o)} className="mt-2 pl-8 text-xs text-primary hover:underline">{open ? tx("ย่อเหลือ {0} อันดับ", [top]) : tx("ดูทั้งหมด {0} รายการ", [rows.length])}</button>}
     </div>
+  )
+}
+
+/** A name with a dotted underline — hover it for more (a Base UI Hover Card) */
+export function HoverText({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <HoverCard>
+      <HoverCardTrigger render={<span className="cursor-help truncate underline decoration-muted-foreground/60 decoration-dotted underline-offset-4" />}>{label}</HoverCardTrigger>
+      <HoverCardContent side="bottom" align="start" className="w-80">{children}</HoverCardContent>
+    </HoverCard>
   )
 }
 

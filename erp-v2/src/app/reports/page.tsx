@@ -10,7 +10,7 @@ import { InfoIcon, BanknoteIcon, CalendarDaysIcon, ChevronDownIcon, ClockIcon, D
 import { NativeSelect } from "@/components/app/native-select"
 import { StudentSheet } from "@/components/app/student-sheet"
 import { AttentionButton, AttentionDialog } from "@/components/reports/attention-dialog"
-import { Delta, Donut, DonutLegend, Empty, InfoTip, TopList, fmtNum, fmtPct, fmtShort, Heatmap, MonthBars, Panel, Rank, ShareBar, donutColor, tint } from "@/components/reports/charts"
+import { Delta, Donut, DonutLegend, Empty, HoverText, InfoTip, TopList, fmtNum, fmtPct, fmtShort, Heatmap, MonthBars, Panel, Rank, ShareBar, donutColor, tint } from "@/components/reports/charts"
 import { DateRangePicker } from "@/components/app/date-range-picker"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { SummaryTab } from "@/components/reports/summary-tab"
@@ -81,6 +81,8 @@ function Reports() {
   const [showAttention, setShowAttention] = useState(false)
   const [openId, setOpenId] = useState<string | null>(null)
   const d = useReports(branchIds, period, period === "custom" ? custom : undefined)
+  // the Satisfaction tab's filters sit where the periods sit on the other tabs (owner 2026-10-22: same spacing)
+  const [sat, setSat] = useState<SatFilter>({ year: null, subject: "", grade: "" })
   // survey answers live on the form server — pull new ones in (unhappy families notify their managers)
   useEffect(() => { pullSurveyResponses() }, [])
   const periodLabel = period === "custom" ? `${fmtDate(d.range.from)} – ${fmtDate(d.range.to)}` : tx(PERIODS.find((p) => p.key === period)!.label)
@@ -130,7 +132,7 @@ function Reports() {
           options={TABS.map((t) => ({ value: t.id, icon: t.id === "summary" ? AiSparkles : undefined, label: <>{tx(t.label)}{t.soon && <span className="ml-1 text-[10px] text-muted-foreground">{t.soon}</span>}</> }))} />
         {/* periods: rolling · to-date · complete-period comparisons · custom dates — not on Satisfaction, which is one
             survey round a year (owner 2026-10-09: a year switch AND a period made no sense together) */}
-        <div className={cn("flex flex-wrap items-center gap-2", tab === "satisfaction" && "hidden")}>
+        {tab === "satisfaction" ? <SatisfactionFilters d={d} f={sat} onChange={setSat} /> : <div className="flex flex-wrap items-center gap-2">
           {(["rolling", "todate", "compare"] as const).map((g) => (
             <Segmented key={g} value={period} onChange={setPeriod}
               options={PERIODS.filter((p) => p.group === g).map((p) => ({ value: p.key, label: p.short, title: tx(p.hint) }))} />
@@ -139,7 +141,7 @@ function Reports() {
             <DateRangePicker segment from={custom.from} to={custom.to} max={today} active={period === "custom"} onChange={(r) => { setCustom(r); setPeriod("custom") }} />
           </div>
           {period === "custom" && <span className="text-sm font-medium tabular-nums">{fmtDate(custom.from, { year: custom.from.slice(0, 4) !== custom.to.slice(0, 4) })} – {fmtDate(custom.to, { year: true })}</span>}
-        </div>
+        </div>}
       </div>
 
       {tab === "summary" && <SummaryTab d={d} period={period} periodLabel={periodLabel} scopeLabel={scopeLabel} />}
@@ -149,7 +151,7 @@ function Reports() {
       {tab === "attendance" && <AttendanceTab d={d} compare={showCompare} onOpen={setOpenId} />}
       {tab === "operations" && <OperationsTab d={d} compare={showCompare} />}
       {tab === "crm" && <CrmTab d={d} compare={showCompare} />}
-      {tab === "satisfaction" && <SatisfactionTab d={d} compare={showCompare} />}
+      {tab === "satisfaction" && <SatisfactionTab d={d} compare={showCompare} f={sat} />}
       {TABS.find((t) => t.id === tab)?.soon && <Empty>{tx("แท็บนี้อยู่ในรอบ")} {TABS.find((t) => t.id === tab)!.soon}  {tx("— คุยสเปกแล้ว ยังไม่ได้สร้าง")}</Empty>}
 
       <AttentionDialog open={showAttention} onClose={() => setShowAttention(false)} items={d.attention} />
@@ -474,7 +476,7 @@ function NpsOverview({ d }: { d: ReportData }) {
         <div className="grid gap-6 lg:grid-cols-2 lg:gap-0 lg:divide-x lg:pl-6">
           <div className="lg:pr-6">
             <p className="mb-2 text-sm font-medium">{tx("เหตุผลที่ให้คะแนน")}</p>
-            <ReasonBars rows={s.reasons.slice(0, 5)} />
+            <ReasonBars rows={s.reasons.slice(0, 5)} other={s.reasonOther} />
           </div>
           <div className="lg:pl-6">
             <TopList title={tx("อยากให้ปรับปรุงมากที่สุด")} icon={<span className="size-2.5 rounded-full" style={{ background: NPS_HEX.passive }} />} color={NPS_HEX.passive} wide rows={s.improve.map((x) => ({ label: tx(x.label), value: x.count }))} />
@@ -1363,18 +1365,31 @@ function NpsSplit({ responses, big }: { responses: SurveyResponse[]; big?: boole
 }
 
 /** the real form's Q4 — each reason with who named it, split by NPS group */
-function ReasonBars({ rows }: { rows: ReturnType<typeof Survey.summarize>["reasons"] }) {
+function ReasonBars({ rows, other }: { rows: ReturnType<typeof Survey.summarize>["reasons"]; other: string[] }) {
   if (!rows.length) return <Empty />
   const top = Math.max(...rows.map((r) => r.total))
   return (
     <ul className="space-y-2.5 text-sm">{rows.map((r) => (
       <li key={r.key} className="space-y-1">
-        <div className="flex items-baseline justify-between gap-2"><span className="truncate">{tx(r.label)}</span><span className="shrink-0 tabular-nums">{r.total}</span></div>
+        <div className="flex items-baseline justify-between gap-2">{r.key === "other" && other.length ? <HoverText label={tx(r.label)}><OtherTexts texts={other} /></HoverText> : <span className="truncate">{tx(r.label)}</span>}<span className="shrink-0 tabular-nums">{r.total}</span></div>
         <div className="flex h-2 overflow-hidden rounded-full bg-muted" style={{ width: `${Math.max(6, (r.total / top) * 100)}%` }}>
           <span style={{ flex: r.promoter, background: NPS_HEX.promoter }} /><span style={{ flex: r.passive, background: NPS_HEX.passive }} /><span style={{ flex: r.detractor, background: NPS_HEX.detractor }} />
         </div>
       </li>
     ))}</ul>
+  )
+}
+
+/** what families typed under "อื่นๆ" — same text once with a count, scrolls past ~10 lines */
+function OtherTexts({ texts }: { texts: string[] }) {
+  const rows = groupComments(texts)
+  return (
+    <div className="space-y-2">
+      <p className="text-xs text-muted-foreground">{tx("ผู้ปกครองพิมพ์เอง {0} ข้อความ", [texts.length])}</p>
+      <ul className="max-h-64 space-y-1.5 overflow-y-auto pr-1 text-sm">{rows.map((x) => (
+        <li key={x.label} className="flex items-start justify-between gap-3"><span>{x.label}</span>{x.value > 1 && <span className="shrink-0 text-xs text-muted-foreground tabular-nums">×{x.value}</span>}</li>
+      ))}</ul>
+    </div>
   )
 }
 
@@ -1385,19 +1400,37 @@ const realText = (t: string) => !!t.trim() && !/^[-–.\s]+$/.test(t.trim())
  * satisfaction on five topics, the one thing to improve, courses to open, a message to the school). Filter by the
  * subject / level of the children (the real form's Q1–Q2, filled in from the enrolment).
  */
-function SatisfactionTab({ d, compare }: { d: ReportData; compare: boolean }) {
-  const [year, setYear] = useState<number | null>(d.surveyYears[0] ?? null)
-  const [group, setGroup] = useState("")
+type SatFilter = { year: number | null; subject: string; grade: string }
+
+/** year · subject · grade (owner 2026-10-22: the year as a dropdown, subject and grade as two filters) */
+function SatisfactionFilters({ d, f, onChange }: { d: ReportData; f: SatFilter; onChange: (f: SatFilter) => void }) {
+  const year = f.year ?? d.surveyYears[0]
+  if (year === undefined) return null
+  const curAll = d.surveyOf(year)
+  const opt = Survey.kidOptions(curAll.responses.filter(Survey.isCurrent))
+  return (
+    <div className="flex flex-wrap items-center gap-2">
+      <NativeSelect className="h-9 w-32" aria-label={tx("ปี")} value={String(year)} onChange={(e) => onChange({ year: Number(e.target.value), subject: "", grade: "" })}
+        options={d.surveyYears.map((y) => ({ value: String(y), label: `${tx("ปี")} ${yearOf(y)}` }))} />
+      <NativeSelect className="h-9 w-40" value={f.subject} onChange={(e) => onChange({ ...f, subject: e.target.value })} placeholder={tx("ทุกวิชา")} options={opt.subjects.map((x) => ({ value: x, label: sj(x) }))} />
+      <NativeSelect className="h-9 w-40" value={f.grade} onChange={(e) => onChange({ ...f, grade: e.target.value })} placeholder={tx("ทุกชั้นเรียน")} options={opt.grades.map((x) => ({ value: x, label: x }))} />
+      {cur(curAll)}
+    </div>
+  )
+}
+
+function SatisfactionTab({ d, compare, f }: { d: ReportData; compare: boolean; f: SatFilter }) {
+  const year = f.year ?? d.surveyYears[0] ?? null
+  const group = f.subject || f.grade
   const [showAllCalls, setShowAllCalls] = useState(false)
   const families = useStore((st) => st.families)
   const branches = useStore((st) => st.branches)
   const staff = useStore((st) => st.staff)
   if (year === null) return <Empty>{tx("ยังไม่เคยส่งแบบสอบถามความพึงพอใจ — ส่งได้ที่ Settings › ระบบ")}</Empty>
   const curAll = d.surveyOf(year), prevAll = d.surveyOf(year - 1)
-  const pick = (rs: SurveyResponse[]) => rs.filter(Survey.isCurrent).filter((r) => !group || Survey.subjectGroups(r).includes(group))
+  const pick = (rs: SurveyResponse[]) => rs.filter(Survey.isCurrent).filter((r) => Survey.kidMatch(r, f))
   const rs = pick(curAll.responses), prs = pick(prevAll.responses)
   const s = Survey.summarize(rs, group ? 0 : curAll.summary.sent), p = Survey.summarize(prs, group ? 0 : prevAll.summary.sent)
-  const groups = [...new Set(curAll.responses.filter(Survey.isCurrent).flatMap(Survey.subjectGroups))].sort((a, b) => a.localeCompare(b, "th"))
   const topics = Survey.topicRanking(s)
   const prevTopic = (k: string) => Survey.topicRanking(p).find((x) => x.key === k)?.score ?? null
   const teachers = Survey.teacherScores(rs).map((t) => ({ ...t, staff: staff.find((x) => x.id === t.teacherId) }))
@@ -1410,12 +1443,6 @@ function SatisfactionTab({ d, compare }: { d: ReportData; compare: boolean }) {
   const dNps = s.nps !== null && p.nps !== null ? s.nps - p.nps : null
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-center gap-2">
-        <span className="text-sm text-muted-foreground">{tx("รอบแบบสอบถามปี")}</span>
-        <Segmented label={tx("ปี")} value={String(year)} onChange={(v) => setYear(Number(v))} options={d.surveyYears.map((y) => ({ value: String(y), label: String(yearOf(y)) }))} />
-        {cur(curAll)}
-        <NativeSelect className="h-9 w-48" value={group} onChange={(e) => setGroup(e.target.value)} placeholder={tx("ทุกวิชา / ทุกระดับ")} options={groups.map((g) => ({ value: g, label: tx(g) }))} />
-      </div>
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-5">
         <Stat label="NPS" value={s.nps === null ? "—" : `${s.nps > 0 ? "+" : ""}${s.nps}`} tone={s.nps !== null && s.nps < 0 ? "text-red-600" : "text-emerald-600"} sub={dNps === null ? <span>{tx("ปีก่อน —")}</span> : <span className={dNps >= 0 ? "text-emerald-600" : "text-red-600"}>{dNps >= 0 ? "▲" : "▼"} {Math.abs(dNps)}  {tx("จากปีก่อน (")}{p.nps})</span>} />
         <Stat label={tx("ตอบแล้ว")} value={group ? String(s.responses) : `${s.responses}/${s.sent}`} sub={s.rate !== null ? <span>{fmtPct(s.rate)}</span> : undefined} />
@@ -1447,12 +1474,7 @@ function SatisfactionTab({ d, compare }: { d: ReportData; compare: boolean }) {
         )}
       </div>
       <div className="grid gap-4 lg:grid-cols-2">
-        <Panel title={tx("เหตุผลที่ให้คะแนน")} hint={tx("เลือกได้หลายข้อ · สีในแถบ = กลุ่มที่เลือกเหตุผลนั้น (แนะนำ / เฉยๆ / ไม่แนะนำ)")} fill><ReasonBars rows={s.reasons} /></Panel>
-        <Panel title={tx("อยากให้ปรับปรุงมากที่สุด")} hint={tx("เลือกได้ 1 ข้อต่อครอบครัว")} fill>
-          <TopList title={tx("เรื่องที่เลือก")} icon={<SparklesIcon className="size-4 text-muted-foreground" />} color={NPS_HEX.passive} top={7} fill rows={s.improve.map((x) => ({ label: tx(x.label), value: x.count }))} />
-        </Panel>
-      </div>
-      <div className="grid gap-4 lg:grid-cols-2">
+        <Panel title={tx("เหตุผลที่ให้คะแนน")} hint={tx("เลือกได้หลายข้อ · สีในแถบ = กลุ่มที่เลือกเหตุผลนั้น (แนะนำ / เฉยๆ / ไม่แนะนำ) · ชี้ “อื่นๆ” เพื่อดูข้อความ")} fill><ReasonBars rows={s.reasons} other={s.reasonOther} /></Panel>
         <Panel title={tx("คะแนนครู (จากผู้ปกครอง)")} hint={tx("เฉลี่ยข้อ “คุณครูผู้สอน” ของครอบครัวที่ครูสอนลูก · ครูเห็นแค่ค่าเฉลี่ยของตัวเอง ไม่เห็นว่าใครให้")} fill>
           {teachers.length ? (
             <table className="w-full text-sm">
@@ -1468,8 +1490,14 @@ function SatisfactionTab({ d, compare }: { d: ReportData; compare: boolean }) {
             </table>
           ) : <Empty>{tx("ยังไม่มีคะแนนครู (นักเรียนที่ตอบยังไม่อยู่ในคลาส)")}</Empty>}
         </Panel>
-        <Panel title={tx("คอร์สที่อยากให้เปิดเพิ่ม")} hint={tx("{0} ข้อความ", [courses.reduce((a, x) => a + x.value, 0)])} fill>
-          <TopList title={tx("ผู้ปกครองขอ")} icon={<SparklesIcon className="size-4 text-muted-foreground" />} color={NPS_HEX.passive} top={8} fill rows={courses} />
+      </div>
+      {/* owner 2026-10-22: the two "what parents ask for" cards side by side; the total on the title's line */}
+      <div className="grid gap-4 lg:grid-cols-2">
+        <Panel title={tx("อยากให้ปรับปรุงมากที่สุด")} sub={tx("รวม {0}", [s.improve.reduce((a, x) => a + x.count, 0)])} hint={tx("เลือกได้ 1 ข้อต่อครอบครัว · ชี้ “อื่นๆ” เพื่อดูข้อความ")} fill>
+          <TopList color={NPS_HEX.passive} top={7} fill rows={s.improve.map((x) => ({ label: tx(x.label), value: x.count, hover: x.key === "other" && s.improveOther.length ? <OtherTexts texts={s.improveOther} /> : undefined }))} />
+        </Panel>
+        <Panel title={tx("คอร์สที่อยากให้เปิดเพิ่ม")} sub={tx("รวม {0}", [courses.reduce((a, x) => a + x.value, 0)])} hint={tx("ผู้ปกครองพิมพ์เอง · ข้อความซ้ำรวมเป็นแถวเดียว · เกิน 8 แถวกด “ดูทั้งหมด”")} fill>
+          <TopList color={NPS_HEX.passive} top={8} fill rows={courses} />
         </Panel>
       </div>
       {/* outcome only (owner 2026-10-05: Reports show what's done — the calls themselves are on CRM) */}
