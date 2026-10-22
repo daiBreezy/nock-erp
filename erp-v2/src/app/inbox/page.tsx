@@ -7,7 +7,7 @@ import { NativeSelect } from "@/components/app/native-select"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuSub, DropdownMenuSubContent, DropdownMenuSubTrigger, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { ExitRequestDialog } from "@/components/app/student-exit"
 import { BroadcastDialog } from "@/components/inbox/broadcast-dialog"
-import { sendSurveyToChat } from "@/lib/forms"
+import { sendCustomFormToChat, sendSurveyToChat } from "@/lib/forms"
 import { SendEnrollDialog } from "@/components/inbox/send-enroll-dialog"
 import { InvoiceSheet } from "@/components/billing/invoice-sheet"
 import { Pill } from "@/components/app/badges"
@@ -171,6 +171,8 @@ export default function InboxPage() {
   const kids = family ? students.filter((x) => x.familyId === family.id && !x.archived && x.exit?.status !== "closed") : []
   // owner 2026-10-05: which forms this chat already got (✓ + date in the "+" menu) — sending again is always allowed
   const surveyCamps = useStore((s) => s.surveyCampaigns)
+  // owner 2026-10-22: the company's own forms (Settings › ระบบ › ฟอร์ม) are sent from here too
+  const customForms = useStore((s) => s.formDefs).filter((f) => f.kind === "custom" && f.active)
   const lastAt = (xs: (string | undefined)[]) => xs.filter((x): x is string => !!x).sort().at(-1)
   const linkSent = (prefix: string) => lastAt(thread.filter((m) => m.author === "staff" && m.text.includes(`token=${prefix}`)).map((m) => m.at))
   const sentAt = {
@@ -421,7 +423,7 @@ export default function InboxPage() {
                     <DropdownMenuContent side="top" align="start" className="w-44">
                       <DropdownMenuSub>
                         <DropdownMenuSubTrigger><FileTextIcon /> ฟอร์ม</DropdownMenuSubTrigger>
-                        <DropdownMenuSubContent className="w-64 whitespace-nowrap">
+                        <DropdownMenuSubContent className="w-80 whitespace-nowrap">
                           {/* owner 2026-10-19: existing families too (e.g. a second child) — the child gets its own lead on send */}
                           <DropdownMenuItem disabled={!lead && !family} onClick={() => { setFormType("test"); setSendingFormOpen(true) }}><ClipboardListIcon /> Test Form{!lead && !family ? <Hint>ผูกแชทก่อน</Hint> : <Sent at={sentAt.test} />}</DropdownMenuItem>
                           <DropdownMenuItem disabled={!lead && !family} onClick={() => { setFormType("trial"); setSendingFormOpen(true) }}><GraduationCapIcon /> Trial{!lead && !family ? <Hint>ผูกแชทก่อน</Hint> : <Sent at={sentAt.trial} />}</DropdownMenuItem>
@@ -440,6 +442,17 @@ export default function InboxPage() {
                             <DropdownMenuItem disabled={!kids.length} onClick={() => setExitStudent(kids[0])}><LogOutIcon /> ลาออก{!kids.length ? <Hint>เฉพาะลูกค้า</Hint> : <Sent at={sentAt.exit} />}</DropdownMenuItem>
                           )}
                           <DropdownMenuItem disabled={!family} onClick={async () => report(await sendSurveyToChat(selected.id), "ส่งแบบสอบถามความพึงพอใจแล้ว")}><HeartHandshakeIcon /> ความพึงพอใจ{!family ? <Hint>เฉพาะลูกค้า</Hint> : <Sent at={sentAt.survey} />}</DropdownMenuItem>
+                          {customForms.length > 0 && (
+                            <DropdownMenuGroup>
+                              <DropdownMenuSeparator />
+                              <DropdownMenuLabel>ฟอร์มที่สร้างเอง</DropdownMenuLabel>
+                              {customForms.map((f) => (
+                                <DropdownMenuItem key={f.id} disabled={!family} onClick={async () => report(await sendCustomFormToChat(selected.id, f), `ส่ง “${f.name}” แล้ว`)}>
+                                  <ClipboardListIcon /><span className="truncate">{f.name}</span>{!family ? <Hint>เฉพาะลูกค้า</Hint> : <Sent at={lastAt(thread.filter((m) => m.author === "staff" && m.text.includes("token=pc_") && m.text.includes(`“${f.name}”`)).map((m) => m.at))} />}
+                                </DropdownMenuItem>
+                              ))}
+                            </DropdownMenuGroup>
+                          )}
                         </DropdownMenuSubContent>
                       </DropdownMenuSub>
                       <DropdownMenuItem onClick={() => imageInput.current?.click()}><ImageIcon /> รูปภาพ</DropdownMenuItem>

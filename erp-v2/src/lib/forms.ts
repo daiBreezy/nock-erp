@@ -293,21 +293,37 @@ export async function broadcastSurvey(): Promise<Result<{ sent: number; lineSent
   return { ok: true, value: { sent: r.value.sent, lineSent: r.value.lineSent } }
 }
 
-/** form builder (owner 2026-10-22): send a company-made form to a family — through LINE when the family has a LINE chat,
- *  otherwise just the link (copy and send it yourself) */
-export async function sendCustomForm(form: FormDef, family: { id: ID; branchId: ID; conversationId?: ID | null }): Promise<Result<{ url: string; sent: boolean }>> {
+/** form builder (owner 2026-10-22): a one-time link to a company-made form for a family — the link carries a copy of the form */
+async function customFormLink(form: FormDef, family: { id: ID; branchId: ID; conversationId?: ID | null }): Promise<Result<{ url: string; text: string }>> {
   const res = await postJson<{ ok: boolean; token?: CustomFormToken; error?: string }>("/api/parent-forms/custom-token", {
     formId: form.id, form: { id: form.id, name: form.name, description: form.description, fields: form.fields.filter((x) => !x.hidden) },
     familyId: family.id, branchId: family.branchId, conversationId: family.conversationId ?? undefined,
   })
   if (!res.ok || !res.token) return { ok: false, error: res.error ?? "สร้างลิงก์ไม่สำเร็จ" }
   const liffId = process.env.NEXT_PUBLIC_LIFF_ID
-  const isLine = !!family.conversationId?.startsWith("line_")
-  const url = isLine && liffId ? `https://liff.line.me/${liffId}?token=${res.token.token}` : `${window.location.origin}/liff/custom?token=${res.token.token}`
-  if (!isLine) return { ok: true, value: { url, sent: false } }
-  const sent = await postJson<{ ok: boolean; error?: string }>("/api/line/send", { conversationId: family.conversationId, text: `รบกวนผู้ปกครองช่วยตอบแบบฟอร์ม “${form.name}” ค่ะ 🙏\n${url}` })
+  const url = family.conversationId?.startsWith("line_") && liffId ? `https://liff.line.me/${liffId}?token=${res.token.token}` : `${window.location.origin}/liff/custom?token=${res.token.token}`
+  return { ok: true, value: { url, text: `รบกวนผู้ปกครองช่วยตอบแบบฟอร์ม “${form.name}” ค่ะ 🙏\n${url}` } }
+}
+
+/** from the family panel: through LINE when the family has a LINE chat, otherwise just the link (copy and send it yourself) */
+export async function sendCustomForm(form: FormDef, family: { id: ID; branchId: ID; conversationId?: ID | null }): Promise<Result<{ url: string; sent: boolean }>> {
+  const link = await customFormLink(form, family)
+  if (!link.ok) return link
+  if (!family.conversationId?.startsWith("line_")) return { ok: true, value: { url: link.value.url, sent: false } }
+  const sent = await postToChat(family.conversationId, link.value.text)
   if (!sent.ok) return { ok: false, error: sent.error ?? "ส่งทาง LINE ไม่สำเร็จ — คัดลอกลิงก์ส่งเองได้" }
-  return { ok: true, value: { url, sent: true } }
+  return { ok: true, value: { url: link.value.url, sent: true } }
+}
+
+/** from Inbox › + › ฟอร์ม (owner 2026-10-22): post the link into this chat — the chat must belong to a family */
+export async function sendCustomFormToChat(conversationId: ID, form: FormDef): Promise<Result> {
+  const s = useStore.getState()
+  const conv = s.conversations.find((c) => c.id === conversationId)
+  if (!conv?.familyId) return { ok: false, error: "ฟอร์มส่งให้ครอบครัว — ผูกแชทนี้กับครอบครัวก่อน" }
+  const branchId = s.students.find((x) => x.familyId === conv.familyId)?.branchId ?? conv.branchId ?? s.branchId
+  const link = await customFormLink(form, { id: conv.familyId, branchId, conversationId })
+  if (!link.ok) return link
+  return postToChat(conversationId, link.value.text)
 }
 
 export async function pullCustomFormResponses() {
