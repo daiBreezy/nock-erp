@@ -1370,11 +1370,18 @@ function NpsSplit({ responses }: { responses: SurveyResponse[] }) {
   const v = responses.map((r) => r.answers.nps).filter((x): x is number => x !== null)
   const pro = v.filter((x) => x >= 9).length, pas = v.filter((x) => x >= 7 && x <= 8).length, det = v.filter((x) => x <= 6).length, n = Math.max(1, v.length)
   return (
-    <div className="space-y-2">
+    <div>
       <div className="flex h-3 overflow-hidden rounded-full bg-muted">
         <span style={{ width: `${(pro / n) * 100}%`, background: NPS_HEX.promoter }} /><span style={{ width: `${(pas / n) * 100}%`, background: NPS_HEX.passive }} /><span style={{ width: `${(det / n) * 100}%`, background: NPS_HEX.detractor }} />
       </div>
-      <div className="flex justify-between text-xs"><span style={{ color: NPS_HEX.promoter }}>{tx("แนะนำ")} {pro}</span><span style={{ color: NPS_HEX.passive }}>{tx("เฉยๆ")} {pas}</span><span style={{ color: NPS_HEX.detractor }}>{tx("ไม่แนะนำ")} {det}</span></div>
+      {/* owner 2026-10-22: a line drops from where each part starts, the label sits after it — number first, then the name */}
+      <div className="flex text-xs">
+        {([[pro, NPS_HEX.promoter, "แนะนำ"], [pas, NPS_HEX.passive, "เฉยๆ"], [det, NPS_HEX.detractor, "ไม่แนะนำ"]] as const).map(([c, color, label]) => c ? (
+          <div key={label} className="flex h-6 min-w-0 items-end border-l pl-1.5 whitespace-nowrap" style={{ width: `${(c / n) * 100}%`, borderColor: color, color }}>
+            <span className="leading-none"><span className="font-semibold tabular-nums">{c}</span> {tx(label)}</span>
+          </div>
+        ) : null)}
+      </div>
     </div>
   )
 }
