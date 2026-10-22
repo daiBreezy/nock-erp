@@ -39,8 +39,11 @@ export const BAND_FLOW = {
   blur: 80,
   /** how strong the light is (0 = invisible, 1 = full) */
   opacity: 0.50,
+  /** owner 2026-10-22: the bright centre of the light (at its brightest point) — its colour and strength (0 = no centre) */
+  core: "#fffbeb",
+  coreOpacity: 0.4,
   /** owner 2026-10-22: white glowing sparkles inside the light, thickest where the light is brightest — at most this many per band (0 = none) */
-  sparks: 1000,
+  sparks: 500,
   /** sparkle size (radius) */
   sparkSize: 0.32,
   /** how many sparkles per unit of band thickness (a thick band gets more) */
@@ -160,6 +163,14 @@ export function Sankey({ columns, flows, total, heads, size = { w: 1000, h: 380 
                 <animate attributeName="x2" from={runFrom} to={runTo + win} dur={`${cycle}s`} repeatCount="indefinite" />
               </linearGradient>
             )}
+            {/* the bright centre: the same moving window, lit only around the light's brightest point (owner 2026-10-22: back) */}
+            {flowing.length > 0 && (
+              <linearGradient id={`${uid}-fc`} gradientUnits="userSpaceOnUse" x1={runFrom - win} x2={runFrom} y1={0} y2={0}>
+                {[[0, 0], [PEAK - 0.1, 0], [PEAK - 0.04, 0.5], [PEAK, 1], [PEAK + 0.03, 0.5], [Math.min(1, PEAK + 0.07), 0], [1, 0]].map(([o, a]) => <stop key={o} offset={o} stopColor={BAND_FLOW.core} stopOpacity={a * BAND_FLOW.coreOpacity} />)}
+                <animate attributeName="x1" from={runFrom - win} to={runTo} dur={`${cycle}s`} repeatCount="indefinite" />
+                <animate attributeName="x2" from={runFrom} to={runTo + win} dur={`${cycle}s`} repeatCount="indefinite" />
+              </linearGradient>
+            )}
             {links.map((l) => (
               <linearGradient key={l.i} id={`${uid}-g${l.i}`} gradientUnits="userSpaceOnUse" x1={xOf(l.f.col) + NW} x2={xOf(l.f.col + 1)} y1={0} y2={0}>
                 <stop offset="0%" stopColor={box.get(`${l.f.col}|${l.f.from}`)!.node.color} />
@@ -186,9 +197,10 @@ export function Sankey({ columns, flows, total, heads, size = { w: 1000, h: 380 
                   <feGaussianBlur stdDeviation={`0 ${Math.min(BAND_FLOW.blur, w / 4)}`} />
                 </filter>
                 <g mask={`url(#${uid}-m${l.i})`}><path d={d} fill="none" stroke={`url(#${uid}-g${l.i})`} strokeWidth={w} filter={`url(#${uid}-b${l.i})`} opacity={BAND_FLOW.opacity} /></g>
+                <mask id={`${uid}-s${l.i}`} maskUnits="userSpaceOnUse" x={0} y={0} width={W} height={H}><path d={d} fill="none" stroke="#fff" strokeWidth={w} /></mask>
+                <g mask={`url(#${uid}-s${l.i})`}><path d={d} fill="none" stroke={`url(#${uid}-fc)`} strokeWidth={w} filter={`url(#${uid}-b${l.i})`} /></g>
                 {/* sparkles (owner 2026-10-22): many white glowing dots inside the light — where the light is brighter there are more
                     and they shine more (few → many → few), each wandering a little at its own pace and twinkling; inside the band */}
-                <mask id={`${uid}-s${l.i}`} maskUnits="userSpaceOnUse" x={0} y={0} width={W} height={H}><path d={d} fill="none" stroke="#fff" strokeWidth={w} /></mask>
                 <g mask={`url(#${uid}-s${l.i})`} filter={`url(#${uid}-spark)`}>
                   {sparkSpots(l.i * 997, Math.min(BAND_FLOW.sparks, Math.max(4, Math.round(w * BAND_FLOW.sparkDensity)))).map((u, k) => {
                     const seed = l.i * 7919 + k * 13, glow = windowAt(u)
