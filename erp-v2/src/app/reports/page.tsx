@@ -10,7 +10,7 @@ import { InfoIcon, BanknoteIcon, CalendarDaysIcon, ChevronDownIcon, ClockIcon, D
 import { NativeSelect } from "@/components/app/native-select"
 import { StudentSheet } from "@/components/app/student-sheet"
 import { AttentionButton, AttentionDialog } from "@/components/reports/attention-dialog"
-import { Delta, Donut, DonutLegend, Empty, InfoTip, TopList, fmtNum, fmtPct, fmtShort, Heatmap, MonthBars, Panel, Rank, ShareBar, donutColor, tint } from "@/components/reports/charts"
+import { Delta, Donut, DonutLegend, Empty, InfoTip, Radar, TopList, fmtNum, fmtPct, fmtShort, Heatmap, MonthBars, Panel, Rank, ShareBar, donutColor, tint } from "@/components/reports/charts"
 import { DateRangePicker } from "@/components/app/date-range-picker"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { SummaryTab } from "@/components/reports/summary-tab"
@@ -1431,9 +1431,9 @@ function SatisfactionTab({ d, compare, f }: { d: ReportData; compare: boolean; f
   const rs = pick(curAll.responses), prs = pick(prevAll.responses)
   const s = Survey.summarize(rs, group ? 0 : curAll.summary.sent), p = Survey.summarize(prs, group ? 0 : prevAll.summary.sent)
   const topics = Survey.topicRanking(s)
-  const prevTopic = (k: string) => Survey.topicRanking(p).find((x) => x.key === k)?.score ?? null
   const teachers = Survey.teacherScores(rs).map((t) => ({ ...t, staff: staff.find((x) => x.id === t.teacherId) }))
   const toCall = Survey.toCall(rs, d.today)
+  // waiting first (oldest answer first), then the ones already called
   const unhappy = rs.filter((r) => Survey.isUnhappy(r.answers)).sort((a, b) => Number(!!a.followUp) - Number(!!b.followUp) || a.submittedAt.localeCompare(b.submittedAt))
   const fam = (id: string) => nm(families.find((f) => f.id === id)?.name ?? "—")
   const improveText = (r: SurveyResponse) => (r.answers.improve === "other" ? r.answers.improveOther : r.answers.improve ? tx(Survey.IMPROVE_LABEL[r.answers.improve]) : "—")
@@ -1452,15 +1452,12 @@ function SatisfactionTab({ d, compare, f }: { d: ReportData; compare: boolean; f
       {/* owner 2026-10-22: the NPS card is the Overview's own card (NPS · reasons · improve), filtered here */}
       <NpsCard year={year} responses={rs} s={s} p={p} />
       <div className="grid gap-4 lg:grid-cols-2">
-        <Panel title={tx("ความพึงพอใจ 5 ด้าน (เฉลี่ย 1–5)")} hint={tx("5 = มากที่สุด · 1 = ไม่พอใจ · ต่ำสุดอยู่บน = ควรปรับก่อน · ตัวเลขเล็ก = ปีก่อน")} fill>
+        {/* owner 2026-10-22: the five topics as a radar — this year filled, last year dashed */}
+        <Panel title={tx("ความพึงพอใจ 5 ด้าน (เฉลี่ย 1–5)")} hint={tx("5 = มากที่สุด · 1 = ไม่พอใจ · ยิ่งกว้างยิ่งดี · เส้นประ = ปีก่อน · ชี้ที่จุดเพื่อดูคะแนน")} fill>
           {topics.length ? (
-            <ul className="space-y-2 text-sm">{topics.map((t) => { const pv = prevTopic(t.key); return (
-              <li key={t.key} className="grid grid-cols-[minmax(0,12rem)_1fr_5rem] items-center gap-2">
-                <span className="truncate">{tx(t.label)}</span>
-                <ShareBar value={(t.score! - 1) / 4} color={t.score! < 3.5 ? NPS_HEX.detractor : t.score! < 4 ? NPS_HEX.passive : NPS_HEX.promoter} />
-                <span className="text-right tabular-nums">{t.score!.toFixed(1)}{pv !== null && <span className="ml-1 text-[11px] text-muted-foreground">{pv.toFixed(1)}</span>}</span>
-              </li>
-            ) })}</ul>
+            <Radar axes={Survey.TOPIC_KEYS.map((k) => ({ label: tx(Survey.TOPIC_SHORT[k]), full: tx(Survey.TOPIC_LABEL[k]) }))}
+              series={[{ name: tx("ปี {0}", [yearOf(year)]), values: Survey.TOPIC_KEYS.map((k) => s.scores[k]), color: NPS_HEX.promoter },
+                ...(p.responses ? [{ name: tx("ปี {0}", [yearOf(year - 1)]), values: Survey.TOPIC_KEYS.map((k) => p.scores[k]), color: "#9ca3af", dashed: true }] : [])]} />
           ) : <Empty />}
         </Panel>
         <Panel title={tx("คอร์สที่อยากให้เปิดเพิ่ม")} sub={tx("รวม {0}", [courses.reduce((a, x) => a + x.value, 0)])} hint={tx("ผู้ปกครองพิมพ์เอง · ข้อความซ้ำรวมเป็นแถวเดียว · เกิน 8 แถวกด “ดูทั้งหมด”")} fill>
@@ -1492,26 +1489,35 @@ function SatisfactionTab({ d, compare, f }: { d: ReportData; compare: boolean; f
           </Panel>
         )}
       </div>
-      {/* outcome only (owner 2026-10-05: Reports show what's done — the calls themselves are on CRM) */}
-      <Panel title={tx("ผลการติดตามผู้ปกครองที่ไม่พอใจ")} hint={tx("{0} ครอบครัว · โทรแล้ว {1} · รอโทร {2} (รายชื่อที่ต้องโทรอยู่หน้า CRM)", [unhappy.length, unhappy.filter((r) => r.followUp).length, unhappy.filter((r) => !r.followUp).length])}>
-        {unhappy.some((r) => r.followUp) ? (
+      {/* owner 2026-10-22: every unhappy family with where it stands — called (and what came of it) or still waiting */}
+      <Panel title={tx("ผลการติดตามผู้ปกครองที่ไม่พอใจ")} sub={tx("{0} ครอบครัว · โทรแล้ว {1} · รอโทร {2}", [unhappy.length, unhappy.filter((r) => r.followUp).length, unhappy.filter((r) => !r.followUp).length])}
+        hint={tx("ผู้ที่ให้คะแนนแนะนำ 0–6 · ต้องโทรคุยภายใน 3 วันหลังตอบ · โทรและบันทึกผลที่หน้า CRM")}>
+        {unhappy.length ? (
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
-              <thead className="text-xs text-muted-foreground"><tr><th className="text-left font-normal">{tx("ครอบครัว")}</th>{compare && <th className="text-left font-normal">{tx("สาขา")}</th>}<th className="px-3 text-right font-normal">{tx("แนะนำ")}</th><th className="px-3 text-left font-normal">{tx("อยากให้ปรับปรุง")}</th><th className="px-3 text-left font-normal">{tx("โทรโดย")}</th><th className="text-left font-normal">{tx("ผลการคุย")}</th></tr></thead>
-              <tbody>{unhappy.filter((r) => r.followUp).slice(0, showAllCalls ? undefined : 10).map((r) => (
-                <tr key={r.id} className="border-t align-middle [&>td]:py-2">
-                  <td>{fam(r.familyId)}</td>
-                  {compare && <td className="text-muted-foreground">{branches.find((b) => b.id === r.branchId)?.code}</td>}
-                  <td className="px-3 text-right text-red-600 tabular-nums">{r.answers.nps ?? "—"}/10</td>
-                  <td className="px-3">{improveText(r)}</td>
-                  <td className="px-3 whitespace-nowrap text-muted-foreground">{nm(staff.find((x) => x.id === r.followUp!.by)?.nickname)} · {fmtDate(r.followUp!.at.slice(0, 10))}</td>
-                  <td>{r.followUp!.note}</td>
-                </tr>
-              ))}</tbody>
+              <thead className="text-xs text-muted-foreground"><tr><th className="text-left font-normal">{tx("ครอบครัว")}</th>{compare && <th className="px-3 text-left font-normal">{tx("สาขา")}</th>}<th className="px-3 text-right font-normal">{tx("แนะนำ")}</th><th className="px-3 text-left font-normal">{tx("อยากให้ปรับปรุง")}</th><th className="px-3 text-left font-normal">{tx("สถานะ")}</th><th className="px-3 text-left font-normal">{tx("โทรโดย")}</th><th className="text-left font-normal">{tx("ผลการคุย")}</th></tr></thead>
+              <tbody>{unhappy.slice(0, showAllCalls ? undefined : 10).map((r) => {
+                const overdue = !r.followUp && toCall.find((x) => x.r.id === r.id)?.overdue
+                return (
+                  <tr key={r.id} className="border-t align-middle [&>td]:py-2">
+                    <td>{fam(r.familyId)}</td>
+                    {compare && <td className="px-3 text-muted-foreground">{branches.find((b) => b.id === r.branchId)?.code}</td>}
+                    <td className="px-3 text-right text-red-600 tabular-nums">{r.answers.nps ?? "—"}/10</td>
+                    <td className="px-3">{improveText(r)}</td>
+                    <td className="px-3 whitespace-nowrap">
+                      <span className={cn("inline-flex rounded-full px-2 py-0.5 text-xs font-medium", r.followUp ? HUE.emerald.chip : overdue ? HUE.red.chip : HUE.amber.chip)}>
+                        {r.followUp ? tx("โทรแล้ว") : overdue ? tx("เกิน 3 วัน") : tx("รอโทร")}
+                      </span>
+                    </td>
+                    <td className="px-3 whitespace-nowrap text-muted-foreground">{r.followUp ? `${nm(staff.find((x) => x.id === r.followUp!.by)?.nickname)} · ${fmtDate(r.followUp.at.slice(0, 10))}` : `${tx("ตอบเมื่อ")} ${fmtDate(r.submittedAt.slice(0, 10))}`}</td>
+                    <td className={r.followUp ? undefined : "text-muted-foreground"}>{r.followUp?.note ?? "—"}</td>
+                  </tr>
+                )
+              })}</tbody>
             </table>
-            {unhappy.filter((r) => r.followUp).length > 10 && <button type="button" onClick={() => setShowAllCalls((o) => !o)} className="mt-2 text-xs text-primary hover:underline">{showAllCalls ? tx("ย่อเหลือ 10 รายการ") : tx("ดูทั้งหมด {0} รายการ", [unhappy.filter((r) => r.followUp).length])}</button>}
+            {unhappy.length > 10 && <button type="button" onClick={() => setShowAllCalls((o) => !o)} className="mt-2 text-xs text-primary hover:underline">{showAllCalls ? tx("ย่อเหลือ 10 รายการ") : tx("ดูทั้งหมด {0} รายการ", [unhappy.length])}</button>}
           </div>
-        ) : <Empty>{unhappy.length ? tx("ยังไม่มีการโทรที่บันทึกไว้") : tx("ไม่มีผู้ปกครองที่ไม่พอใจในปีนี้")}</Empty>}
+        ) : <Empty>{tx("ไม่มีผู้ปกครองที่ไม่พอใจในปีนี้")}</Empty>}
       </Panel>
       <Panel title={tx("ข้อความถึงครูและสถาบัน")} hint={tx("แยกตามคะแนนแนะนำ · ข้อความซ้ำรวมเป็นแถวเดียว")}>
         <div className="grid gap-6 lg:grid-cols-2 lg:gap-0 lg:divide-x">

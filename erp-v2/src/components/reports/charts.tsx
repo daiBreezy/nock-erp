@@ -258,6 +258,51 @@ export function TopList({ title, hint, icon, rows, top = 5, color, wide, fill }:
   )
 }
 
+/**
+ * A radar ("spider web") chart — owner 2026-10-22 for the five satisfaction topics. One spoke per axis, rings at each
+ * step of the scale, a filled shape per series (this year solid, last year dashed outline). Hover a corner for its value.
+ */
+export function Radar({ axes, series, min = 1, max = 5 }: { axes: { label: string; full?: string }[]; series: { name: string; values: (number | null)[]; color: string; dashed?: boolean }[]; min?: number; max?: number }) {
+  const W = 440, H = 300, cx = W / 2, cy = H / 2 + 6, R = 104, n = axes.length
+  const pt = (i: number, v: number) => { const a = (-90 + (i * 360) / n) * (Math.PI / 180), r = ((Math.max(min, Math.min(max, v)) - min) / (max - min)) * R; return [cx + r * Math.cos(a), cy + r * Math.sin(a)] as const }
+  const ring = (v: number) => axes.map((_, i) => pt(i, v).join(",")).join(" ")
+  const steps = Array.from({ length: max - min }, (_, k) => min + k + 1)
+  return (
+    <div className="flex flex-1 flex-col">
+      <svg viewBox={`0 0 ${W} ${H}`} className="mx-auto w-full max-w-md text-foreground" role="img" aria-label={axes.map((a) => a.label).join(" · ")}>
+        {steps.map((v) => <polygon key={v} points={ring(v)} fill="none" stroke="currentColor" strokeOpacity={v === max ? 0.18 : 0.09} />)}
+        {axes.map((_, i) => { const [x, y] = pt(i, max); return <line key={i} x1={cx} y1={cy} x2={x} y2={y} stroke="currentColor" strokeOpacity={0.09} /> })}
+        {steps.map((v) => <text key={v} x={cx + 3} y={pt(0, v)[1] + 3} fontSize={9} fill="currentColor" fillOpacity={0.4}>{v}</text>)}
+        {[...series].reverse().map((sr) => {
+          const pts = sr.values.map((v, i) => pt(i, v ?? min).join(",")).join(" ")
+          return <polygon key={sr.name} points={pts} fill={sr.dashed ? "none" : sr.color} fillOpacity={0.16} stroke={sr.color} strokeWidth={sr.dashed ? 1.25 : 2} strokeDasharray={sr.dashed ? "4 3" : undefined} strokeOpacity={sr.dashed ? 0.7 : 1} strokeLinejoin="round" />
+        })}
+        {series.filter((sr) => !sr.dashed).map((sr) => sr.values.map((v, i) => v === null ? null : (
+          <circle key={`${sr.name}${i}`} cx={pt(i, v)[0]} cy={pt(i, v)[1]} r={3.5} fill={sr.color}><title>{`${axes[i].full ?? axes[i].label}: ${series.map((x) => `${x.name} ${x.values[i]?.toFixed(1) ?? "—"}`).join(" · ")}`}</title></circle>
+        )))}
+        {axes.map((a, i) => {
+          const ang = (-90 + (i * 360) / n) * (Math.PI / 180), x = cx + (R + 16) * Math.cos(ang), y = cy + (R + 16) * Math.sin(ang)
+          const anchor = Math.abs(Math.cos(ang)) < 0.2 ? "middle" : Math.cos(ang) > 0 ? "start" : "end"
+          const v = series[0]?.values[i]
+          return (
+            <text key={i} x={x} y={y < cy - R ? y - 6 : y > cy + R * 0.5 ? y + 6 : y} textAnchor={anchor} fontSize={12} fill="currentColor">
+              <title>{a.full ?? a.label}</title>
+              <tspan>{a.label} </tspan><tspan fontWeight={600}>{v === null || v === undefined ? "—" : v.toFixed(1)}</tspan>
+            </text>
+          )
+        })}
+      </svg>
+      <div className="mt-1 flex flex-wrap justify-center gap-2 text-xs text-muted-foreground">
+        {series.map((sr) => (
+          <span key={sr.name} className="inline-flex items-center gap-1.5 rounded-full bg-muted px-2 py-0.5">
+            <span className="h-0.5 w-3" style={{ background: sr.dashed ? `repeating-linear-gradient(90deg, ${sr.color} 0 3px, transparent 3px 5px)` : sr.color }} />{sr.name}
+          </span>
+        ))}
+      </div>
+    </div>
+  )
+}
+
 /** A name with a dotted underline — hover it for more (a Base UI Hover Card) */
 export function HoverText({ label, children }: { label: string; children: ReactNode }) {
   return (

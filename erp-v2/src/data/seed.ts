@@ -1140,8 +1140,17 @@ function buildSurveys(db: { today: string; branches: Branch[]; families: Family[
       const base = 4.3 - branchMood + (y === year ? 0.1 : 0)
       const sc = (bias = 0) => (rnd() < 0.08 ? null : Math.max(1, Math.min(5, Math.round(base + bias + (rnd() - 0.5) * 2))))
       const nps = Math.max(0, Math.min(10, Math.round(8.3 - branchMood * 3 + (y === year ? 0.4 : 0) + (rnd() - 0.55) * 5)))
-      const teachers: Record<string, string[]> = {}
-      kids.forEach((k) => { teachers[k.id] = [...new Set(db.classes.filter((c) => c.studentIds.includes(k.id) && c.teacherId).map((c) => c.teacherId!))] })
+      const teachers: Record<string, string[]> = {}, kidSubjects: Record<string, string[]> = {}
+      kids.forEach((k) => {
+        const cls = db.classes.filter((c) => c.studentIds.includes(k.id))
+        teachers[k.id] = [...new Set(cls.filter((c) => c.teacherId).map((c) => c.teacherId!))]
+        kidSubjects[k.id] = [...new Set(cls.flatMap((c) => (c.subjects?.length ? c.subjects : [c.subject])))]
+        // demo (owner 2026-10-22: show teacher scores): a child not in a class here gets a teacher of their branch
+        if (!teachers[k.id].length) {
+          const t = pick(db.staff.filter((x) => x.roles.includes("teacher") && x.branchIds.includes(k.branchId) && x.subjects?.length))
+          if (t) { teachers[k.id] = [t.id]; kidSubjects[k.id] = [pick(t.subjects!)] }
+        }
+      })
       const day = Math.floor(rnd() * (y < year ? 25 : 18))
       const submitted = `${y}-09-${String(15 + Math.min(day, 15)).padStart(2, "0")}T${String(9 + Math.floor(rnd() * 10)).padStart(2, "0")}:00:00.000Z`
       if (submitted.slice(0, 10) > db.today) continue
@@ -1152,7 +1161,7 @@ function buildSurveys(db: { today: string; branches: Branch[]; families: Family[
       const improve = pick<SurveyImprove>(["exam", "challenge", "challenge", "one_on_one", "school", "school", "activities", "facility", "other"])
       responses.push({
         id: `svr_${y}_${r.familyId}`, token: r.token, campaignId: id, year: y, familyId: r.familyId, branchId: r.branchId, teachers, submittedAt: submitted,
-        kids: kids.map((k) => ({ grade: k.grade, subjects: [...new Set(db.classes.filter((c) => c.studentIds.includes(k.id)).flatMap((c) => c.subjects?.length ? c.subjects : [c.subject]))] })),
+        kids: kids.map((k) => ({ grade: k.grade, subjects: kidSubjects[k.id] })),
         answers: {
           nps, reasons, reasonOther: reasons.includes("other") ? pick(["เดินทางสะดวก ใกล้บ้าน", "พี่น้องเรียนที่นี่อยู่แล้ว", "เพื่อนแนะนำมา", "ห้องเรียนเล็ก ครูดูแลทั่วถึง"]) : "",
           scores: { teacher: sc(0.2), content: sc(), feedback: sc(-0.3), value: sc(-0.5), place: sc(0.1) },

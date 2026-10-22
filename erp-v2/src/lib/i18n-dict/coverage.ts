@@ -837,4 +837,10 @@ export const COVERAGE: Record<string, Entry> = {
   "เลือกได้ 1 ข้อต่อครอบครัว · ชี้ “อื่นๆ” เพื่อดูข้อความ": { en: "One per family · hover “Other” for the texts", ja: "1家族1つ · 「その他」にホバーで内容" },
   "ผู้ปกครองพิมพ์เอง · ข้อความซ้ำรวมเป็นแถวเดียว · เกิน 8 แถวกด “ดูทั้งหมด”": { en: "Typed by parents · same text = one row · over 8 rows: “See all”", ja: "保護者の自由記述 · 同じ内容は1行 · 8行超は「すべて表示」" },
   "ป.": { en: "P.", ja: "小" },
+  "5 = มากที่สุด · 1 = ไม่พอใจ · ยิ่งกว้างยิ่งดี · เส้นประ = ปีก่อน · ชี้ที่จุดเพื่อดูคะแนน": { en: "5 = very satisfied · 1 = unsatisfied · wider is better · dashed = last year · hover a dot for the score", ja: "5 = 非常に満足 · 1 = 不満 · 広いほど良い · 点線 = 前年 · 点にホバーで点数" },
+  "{0} ครอบครัว · โทรแล้ว {1} · รอโทร {2}": { en: "{0} families · called {1} · to call {2}", ja: "{0}家族 · 連絡済 {1} · 未連絡 {2}" },
+  "ผู้ที่ให้คะแนนแนะนำ 0–6 · ต้องโทรคุยภายใน 3 วันหลังตอบ · โทรและบันทึกผลที่หน้า CRM": { en: "Scored 0–6 · call within 3 days of answering · call and log the result on CRM", ja: "0–6の回答者 · 回答後3日以内に電話 · 電話と記録はCRMで" },
+  "รอโทร": { en: "To call", ja: "未連絡" },
+  "ตอบเมื่อ": { en: "Answered", ja: "回答日" },
+  "หลักสูตร": { en: "Course", ja: "カリキュラム" },
 }

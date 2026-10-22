@@ -41,6 +41,8 @@ export const REASON_LABEL: Record<SurveyReason, string> = {
 export const TOPIC_KEYS = ["teacher", "content", "feedback", "value", "place"] as const satisfies readonly SurveyTopic[]
 export const TOPIC_LABEL: Record<SurveyTopic, string> = { teacher: "คุณครูผู้สอน", content: "คุณภาพหลักสูตรและเนื้อหาการสอน", feedback: "ระบบการให้ Feedback", value: "ความคุ้มค่าของค่าเล่าเรียน", place: "ห้องเรียน อาคารสถานที่" }
 /** the form's 5-point scale, 5 = best */
+/** short names on the radar's axes */
+export const TOPIC_SHORT: Record<SurveyTopic, string> = { teacher: "ครูผู้สอน", content: "หลักสูตร", feedback: "Feedback", value: "ความคุ้มค่า", place: "สถานที่" }
 export const SCALE_LABEL: Record<number, string> = { 5: "มากที่สุด", 4: "มาก", 3: "ปานกลาง", 2: "น้อย", 1: "ไม่พอใจ" }
 export const IMPROVE_KEYS = ["exam", "challenge", "activities", "one_on_one", "school", "facility", "other"] as const satisfies readonly SurveyImprove[]
 export const IMPROVE_LABEL: Record<SurveyImprove, string> = {
