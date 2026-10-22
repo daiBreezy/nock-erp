@@ -469,17 +469,16 @@ function NpsOverview({ d }: { d: ReportData }) {
 function NpsCard({ year, responses, s, p }: { year: number; responses: SurveyResponse[]; s: ReturnType<typeof Survey.summarize>; p: ReturnType<typeof Survey.summarize> }) {
   return (
     <Panel title="NPS" hint={tx("แบบสอบถามผู้ปกครองปี {0} · แนะนำ 9–10 · เฉยๆ 7–8 · ไม่แนะนำ 0–6", [yearOf(year)])}>
-      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,2fr)] lg:gap-0 lg:divide-x">
-        <div className="flex flex-col justify-center lg:pr-6"><NpsScore nps={s.nps} prev={p.nps} responses={responses} /></div>
-        <div className="grid gap-6 lg:grid-cols-2 lg:gap-0 lg:divide-x lg:pl-6">
-          <div className="lg:pr-6">
-            <p className="mb-2 flex items-center gap-1 text-sm font-medium">{tx("เหตุผลที่ให้คะแนน")}<InfoTip text={tx("เลือกได้หลายข้อ · สีในแถบ = กลุ่มที่เลือกเหตุผลนั้น (แนะนำ / เฉยๆ / ไม่แนะนำ) · ชี้ “อื่นๆ” เพื่อดูข้อความ")} /></p>
-            <ReasonBars rows={s.reasons} other={s.reasonOther} />
-          </div>
-          <div className="lg:pl-6">
-            <TopList title={tx("อยากให้ปรับปรุงมากที่สุด")} icon={<span className="size-2.5 rounded-full" style={{ background: NPS_HEX.passive }} />} color={NPS_HEX.passive} wide
-              rows={s.improve.map((x) => ({ label: tx(x.label), value: x.count, hover: x.key === "other" && s.improveOther.length ? <OtherTexts texts={s.improveOther} /> : undefined }))} />
-          </div>
+      {/* owner 2026-10-22: left = the score, its split and the one thing to improve under it · right = why they scored */}
+      <div className="grid gap-6 lg:grid-cols-2 lg:gap-0 lg:divide-x">
+        <div className="space-y-6 lg:pr-6">
+          <NpsScore nps={s.nps} prev={p.nps} responses={responses} />
+          <TopList title={tx("อยากให้ปรับปรุงมากที่สุด")} icon={<span className="size-2.5 rounded-full" style={{ background: NPS_HEX.passive }} />} color={NPS_HEX.passive} wide
+            rows={s.improve.map((x) => ({ label: tx(x.label), value: x.count, hover: x.key === "other" && s.improveOther.length ? <OtherTexts texts={s.improveOther} /> : undefined }))} />
+        </div>
+        <div className="lg:pl-6">
+          <p className="mb-2 flex items-center gap-1 text-sm font-medium">{tx("เหตุผลที่ให้คะแนน")}<InfoTip text={tx("เลือกได้หลายข้อ · สีในแถบ = กลุ่มที่เลือกเหตุผลนั้น (แนะนำ / เฉยๆ / ไม่แนะนำ) · ชี้ “อื่นๆ” เพื่อดูข้อความ")} /></p>
+          <ReasonBars rows={s.reasons} other={s.reasonOther} />
         </div>
       </div>
     </Panel>
