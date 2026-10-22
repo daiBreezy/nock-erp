@@ -1451,19 +1451,15 @@ function SatisfactionTab({ d, compare, f }: { d: ReportData; compare: boolean; f
       </div>
       {/* owner 2026-10-22: the NPS card is the Overview's own card (NPS · reasons · improve), filtered here */}
       <NpsCard year={year} responses={rs} s={s} p={p} />
-      <div className="grid gap-4 lg:grid-cols-2">
-        {/* owner 2026-10-22: the five topics as a radar — this year filled, last year dashed */}
-        <Panel title={tx("ความพึงพอใจ 5 ด้าน (เฉลี่ย 1–5)")} hint={tx("5 = มากที่สุด · 1 = ไม่พอใจ · ยิ่งกว้างยิ่งดี · เส้นประ = ปีก่อน · ชี้ที่จุดเพื่อดูคะแนน")} fill>
-          {topics.length ? (
-            <Radar axes={Survey.TOPIC_KEYS.map((k) => ({ label: tx(Survey.TOPIC_SHORT[k]), full: tx(Survey.TOPIC_LABEL[k]) }))}
-              series={[{ name: tx("ปี {0}", [yearOf(year)]), values: Survey.TOPIC_KEYS.map((k) => s.scores[k]), color: NPS_HEX.promoter },
-                ...(p.responses ? [{ name: tx("ปี {0}", [yearOf(year - 1)]), values: Survey.TOPIC_KEYS.map((k) => p.scores[k]), color: "#9ca3af", dashed: true }] : [])]} />
-          ) : <Empty />}
-        </Panel>
-        <Panel title={tx("คอร์สที่อยากให้เปิดเพิ่ม")} sub={tx("รวม {0}", [courses.reduce((a, x) => a + x.value, 0)])} hint={tx("ผู้ปกครองพิมพ์เอง · ข้อความซ้ำรวมเป็นแถวเดียว · เกิน 8 แถวกด “ดูทั้งหมด”")} fill>
-          <TopList color={NPS_HEX.passive} top={8} fill rows={courses} />
-        </Panel>
-      </div>
+      {/* owner 2026-10-22: the radar across the full width; teachers next to the courses parents asked for */}
+      {/* owner 2026-10-22: the five topics as a radar — this year filled, last year dashed */}
+      <Panel title={tx("ความพึงพอใจ 5 ด้าน (เฉลี่ย 1–5)")} hint={tx("5 = มากที่สุด · 1 = ไม่พอใจ · ยิ่งกว้างยิ่งดี · เส้นประ = ปีก่อน · ชี้ที่จุดเพื่อดูคะแนน")} fill>
+        {topics.length ? (
+          <Radar axes={Survey.TOPIC_KEYS.map((k) => ({ label: tx(Survey.TOPIC_SHORT[k]), full: tx(Survey.TOPIC_LABEL[k]) }))}
+            series={[{ name: tx("ปี {0}", [yearOf(year)]), values: Survey.TOPIC_KEYS.map((k) => s.scores[k]), color: NPS_HEX.promoter },
+              ...(p.responses ? [{ name: tx("ปี {0}", [yearOf(year - 1)]), values: Survey.TOPIC_KEYS.map((k) => p.scores[k]), color: "#9ca3af", dashed: true }] : [])]} />
+        ) : <Empty />}
+      </Panel>
       <div className="grid gap-4 lg:grid-cols-2">
         <Panel title={tx("คะแนนครู (จากผู้ปกครอง)")} hint={tx("เฉลี่ยข้อ “คุณครูผู้สอน” ของครอบครัวที่ครูสอนลูก · ครูเห็นแค่ค่าเฉลี่ยของตัวเอง ไม่เห็นว่าใครให้")} fill>
           {teachers.length ? (
@@ -1480,15 +1476,18 @@ function SatisfactionTab({ d, compare, f }: { d: ReportData; compare: boolean; f
             </table>
           ) : <Empty>{tx("ยังไม่มีคะแนนครู (นักเรียนที่ตอบยังไม่อยู่ในคลาส)")}</Empty>}
         </Panel>
-        {compare && !group && (
-          <Panel title={tx("NPS ตามสาขา")} hint={tx("ตัวเลขเล็ก = ปีก่อน · (ตอบ/ส่ง)")} fill>
-            <SplitRanks rows={[...curAll.byBranch].sort((a, b) => (b.nps ?? -999) - (a.nps ?? -999))} cols={[
-              { label: "NPS", cell: (b) => <span className={cn("font-medium", b.nps !== null && b.nps < 0 && "text-red-600")}>{b.nps === null ? "—" : `${b.nps > 0 ? "+" : ""}${b.nps}`}<span className="ml-1 text-[11px] font-normal text-muted-foreground">{prevAll.byBranch.find((x) => x.id === b.id)?.nps ?? "—"}</span></span> },
-              { label: tx("ตอบ"), cell: (b) => <span className="text-xs text-muted-foreground">{b.n}/{b.sent}</span> },
-            ]} />
-          </Panel>
-        )}
+        <Panel title={tx("คอร์สที่อยากให้เปิดเพิ่ม")} sub={tx("รวม {0}", [courses.reduce((a, x) => a + x.value, 0)])} hint={tx("ผู้ปกครองพิมพ์เอง · ข้อความซ้ำรวมเป็นแถวเดียว · เกิน 8 แถวกด “ดูทั้งหมด”")} fill>
+          <TopList color={NPS_HEX.passive} top={8} fill rows={courses} />
+        </Panel>
       </div>
+      {compare && !group && (
+        <Panel title={tx("NPS ตามสาขา")} hint={tx("ตัวเลขเล็ก = ปีก่อน · (ตอบ/ส่ง)")} fill>
+          <SplitRanks rows={[...curAll.byBranch].sort((a, b) => (b.nps ?? -999) - (a.nps ?? -999))} cols={[
+            { label: "NPS", cell: (b) => <span className={cn("font-medium", b.nps !== null && b.nps < 0 && "text-red-600")}>{b.nps === null ? "—" : `${b.nps > 0 ? "+" : ""}${b.nps}`}<span className="ml-1 text-[11px] font-normal text-muted-foreground">{prevAll.byBranch.find((x) => x.id === b.id)?.nps ?? "—"}</span></span> },
+            { label: tx("ตอบ"), cell: (b) => <span className="text-xs text-muted-foreground">{b.n}/{b.sent}</span> },
+          ]} />
+        </Panel>
+      )}
       {/* owner 2026-10-22: every unhappy family with where it stands — called (and what came of it) or still waiting */}
       <Panel title={tx("ผลการติดตามผู้ปกครองที่ไม่พอใจ")} sub={tx("{0} ครอบครัว · โทรแล้ว {1} · รอโทร {2}", [unhappy.length, unhappy.filter((r) => r.followUp).length, unhappy.filter((r) => !r.followUp).length])}
         hint={tx("ผู้ที่ให้คะแนนแนะนำ 0–6 · ต้องโทรคุยภายใน 3 วันหลังตอบ · โทรและบันทึกผลที่หน้า CRM")}>
