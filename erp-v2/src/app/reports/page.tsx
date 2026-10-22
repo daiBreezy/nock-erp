@@ -124,7 +124,7 @@ function Reports() {
       </KpiRow>
 
       {/* owner 2026-10-07: tabs + periods stick under the top bar while scrolling — always one tap away */}
-      <div className="sticky top-14 z-10 -mx-3 space-y-3 border-b border-transparent bg-background/95 px-3 py-2 backdrop-blur md:-mx-6 md:px-6 print:hidden">
+      <div className="sticky top-14 z-10 -mx-3 flex flex-col gap-3 border-b border-transparent bg-background/95 px-3 py-2 backdrop-blur md:-mx-6 md:px-6 print:hidden">
         {/* owner 2026-10-09: underline = which topic · grey boxes = which period */}
         <Tabs value={tab} onChange={setTab}
           options={TABS.map((t) => ({ value: t.id, icon: t.id === "summary" ? AiSparkles : undefined, label: <>{tx(t.label)}{t.soon && <span className="ml-1 text-[10px] text-muted-foreground">{t.soon}</span>}</> }))} />
