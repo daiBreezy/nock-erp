@@ -37,8 +37,8 @@ export const BAND_FLOW = {
   length: 0.45,
   /** the hot centre of the light */
   core: "#fffbeb",
-  /** how soft the glow is (blur) */
-  blur: 2.5,
+  /** how soft the glow is (blur) — owner 2026-10-22: softer, no hard edge */
+  blur: 7,
 }
 
 export function Sankey({ columns, flows, total, heads, size = { w: 1000, h: 380 }, unit = "คน", name = "เส้นทางของ Lead", minWidth = "min-w-[40rem]" }: {
@@ -117,8 +117,9 @@ export function Sankey({ columns, flows, total, heads, size = { w: 1000, h: 380 
                 <stop offset="50%" stopColor={b.node.split![0]} /><stop offset="50%" stopColor={b.node.split![1]} />
               </linearGradient>
             ))}
-            <filter id={`${uid}-glow`} x="-5%" y="-50%" width="110%" height="200%">
-              <feGaussianBlur stdDeviation={BAND_FLOW.blur} result="b" /><feMerge><feMergeNode in="b" /><feMergeNode in="SourceGraphic" /></feMerge>
+            {/* only the blurred light (no sharp copy on top) — soft all round */}
+            <filter id={`${uid}-glow`} x="-10%" y="-100%" width="120%" height="300%">
+              <feGaussianBlur stdDeviation={BAND_FLOW.blur} />
             </filter>
             {flowing.map((l) => {
               const x0 = xOf(l.f.col) + NW, x1 = xOf(l.f.col + 1), w = (x1 - x0) * BAND_FLOW.length
