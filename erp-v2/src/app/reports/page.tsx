@@ -6,7 +6,7 @@ import { BranchChip, scopeOptions as buildScopeOptions } from "@/components/app/
 import Link from "next/link"
 import { Fragment, Suspense, useEffect, useMemo, useState } from "react"
 import { useSearchParams } from "next/navigation"
-import { InfoIcon, BanknoteIcon, CalendarDaysIcon, ChevronDownIcon, ClockIcon, DownloadIcon, FileSpreadsheetIcon, PrinterIcon, SchoolIcon, SparklesIcon, UsersIcon, UserCheckIcon } from "lucide-react"
+import { InfoIcon, BanknoteIcon, FrownIcon, MehIcon, SmileIcon, CalendarDaysIcon, ChevronDownIcon, ClockIcon, DownloadIcon, FileSpreadsheetIcon, PrinterIcon, SchoolIcon, SparklesIcon, UsersIcon, UserCheckIcon } from "lucide-react"
 import { NativeSelect } from "@/components/app/native-select"
 import { StudentSheet } from "@/components/app/student-sheet"
 import { AttentionButton, AttentionDialog } from "@/components/reports/attention-dialog"
@@ -1381,22 +1381,29 @@ function NpsSplit({ responses }: { responses: SurveyResponse[] }) {
 
 const SAT_LEVELS = [1, 2, 3, 4, 5] as const
 
+/** owner 2026-10-22: a face after each topic — good (4+) · so-so (3.5–4) · not good (below 3.5), in the answer colours */
+function Face({ score }: { score: number | null }) {
+  if (score === null) return <span />
+  const [Icon, l, label] = score >= 4 ? [SmileIcon, "l5", "ดี"] as const : score >= 3.5 ? [MehIcon, "l3", "พอใช้"] as const : [FrownIcon, "l1", "ควรปรับ"] as const
+  return <Icon className="size-5" style={{ color: tagHex("satisfaction", l) }} aria-label={tx(label)} />
+}
+
 /** each topic: one 100% bar split by how many answered 1…5 (red → emerald), the average on the right */
 function SatisfactionBars({ rows }: { rows: { key: string; label: string; score: number | null; prev: number | null; levels: number[] }[] }) {
   return (
     <ul className="space-y-3 text-sm">{rows.map((r) => {
       const n = r.levels.reduce((a, x) => a + x, 0) || 1
       return (
-        <li key={r.key} className="grid grid-cols-[minmax(0,15rem)_1fr_4.5rem] items-center gap-3">
+        <li key={r.key} className="grid grid-cols-[minmax(0,15rem)_1fr_1.25rem_4rem] items-center gap-3">
           <span className="truncate" title={r.label}>{r.label}</span>
-          <div className="flex h-6 overflow-hidden rounded-full bg-muted">{r.levels.map((c, i) => c ? (
+          {/* owner 2026-10-22: the same bar size as the lists around it; the share of each answer is on hover */}
+          <div className="flex h-2.5 overflow-hidden rounded-full bg-muted">{r.levels.map((c, i) => c ? (
             <HoverCard key={i}>
-              <HoverCardTrigger render={<span className="grid place-items-center text-[11px] font-medium text-white/95 tabular-nums" style={{ flex: c, background: tagHex("satisfaction", `l${i + 1}` as "l1") }} />}>
-                {c / n >= 0.08 ? `${Math.round((c / n) * 100)}%` : ""}
-              </HoverCardTrigger>
+              <HoverCardTrigger render={<span style={{ flex: c, background: tagHex("satisfaction", `l${i + 1}` as "l1") }} />} />
               <HoverCardContent side="top" className="w-auto text-sm">{r.label} · {i + 1} {tx(Survey.SCALE_LABEL[i + 1])} · {tx("{0} ครอบครัว", [c])} ({Math.round((c / n) * 100)}%)</HoverCardContent>
             </HoverCard>
           ) : null)}</div>
+          <Face score={r.score} />
           <span className="text-right tabular-nums"><span className="font-semibold">{r.score?.toFixed(1) ?? "—"}</span>{r.prev !== null && <span className="ml-1 text-[11px] text-muted-foreground">{r.prev.toFixed(1)}</span>}</span>
         </li>
       )
@@ -1500,7 +1507,7 @@ function SatisfactionTab({ d, compare, f }: { d: ReportData; compare: boolean; f
           ) : <Empty>{tx("ยังไม่มีคะแนนครู (นักเรียนที่ตอบยังไม่อยู่ในคลาส)")}</Empty>}
         </Panel>
         <Panel title={tx("คอร์สที่อยากให้เปิดเพิ่ม")} sub={tx("รวม {0}", [courses.reduce((a, x) => a + x.value, 0)])} hint={tx("ผู้ปกครองพิมพ์เอง · ข้อความซ้ำรวมเป็นแถวเดียว · เกิน 8 แถวกด “ดูทั้งหมด”")} fill>
-          <TopList color={NPS_HEX.passive} top={8} fill rows={courses} />
+          <TopList color={NPS_HEX.passive} top={8} wide rows={courses} />
         </Panel>
       </div>
       {compare && !group && (

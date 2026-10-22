@@ -847,4 +847,5 @@ export const COVERAGE: Record<string, Entry> = {
   "{0} ครอบครัว": { en: "{0} families", ja: "{0}家族" },
   "ความพึงพอใจ 5 ด้าน": { en: "Satisfaction, 5 topics", ja: "満足度（5項目）" },
   "แต่ละแถบ = ทุกครอบครัวที่ตอบข้อนั้น แบ่งตามระดับที่ตอบ 1–5 · ตัวเลขขวา = เฉลี่ย (ตัวเล็ก = ปีก่อน) · ต่ำสุดอยู่บน = ควรปรับก่อน · ชี้ที่สีเพื่อดูจำนวน": { en: "Each bar = every family that answered, split by their 1–5 answer · right = average (small = last year) · lowest on top = fix first · hover a colour for the count", ja: "各バー = 回答した全家族を1–5の回答で分割 · 右 = 平均（小 = 前年）· 低い順 = 優先改善 · 色にホバーで人数" },
+  "พอใช้": { en: "Fair", ja: "まあまあ" },
 }
