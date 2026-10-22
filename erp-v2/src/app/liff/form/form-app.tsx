@@ -70,6 +70,8 @@ export function LiffForm() {
   const [lang, setLang] = useState<FormLang>((params.get("lang") as FormLang) || "th")
   const [formType, setFormType] = useState<FormType>("test")
   const [offers, setOffers] = useState<FormSubjectOffer[]>([])
+  // owner 2026-10-22: Trial (and a Test the admin split into separate days) = a time per subject, not one shared visit
+  const [separate, setSeparate] = useState(false)
   const [grades, setGrades] = useState<string[]>([])
   const [branchName, setBranchName] = useState("")
   const [lineUserId, setLineUserId] = useState("")
@@ -152,7 +154,7 @@ export function LiffForm() {
       }
       if (preview) {
         const d = previewData(preview)
-        setFormType(preview); setOffers(d.offers); setGrades(d.grades); setDisplayName("ผู้ปกครอง"); setLineUserId("preview")
+        setFormType(preview); setOffers(d.offers); setGrades(d.grades); setDisplayName("ผู้ปกครอง"); setLineUserId("preview"); setSeparate(preview === "trial")
         setSubjectNames({ "คณิต": { en: "Math", ja: "数学" }, "อังกฤษ": { en: "English", ja: "英語" }, "วิทย์": { en: "Science", ja: "理科" } })
         const b = (params.get("brand") as Brand) || (preview === "trial" ? "liclass" : "nockacademy")
         setBranchName(b === "liclass" ? "Liclass บางนา" : "ทองหล่อ")
@@ -184,7 +186,7 @@ export function LiffForm() {
         if (cancelled) return
         if (!data.ok) { setError(data.error ?? "ลิงก์นี้ใช้ไม่ได้แล้ว"); setPhase("invalid"); return }
         if (!data.offers?.length) { setError("ยังไม่มีช่วงเวลาให้เลือก — ติดต่อสถาบันโดยตรง"); setPhase("invalid"); return }
-        setFormType(data.type); setOffers(data.offers); setGrades(data.grades ?? []); setBranchName(data.branchName ?? ""); setSubjectNames(data.subjectNames ?? {})
+        setFormType(data.type); setOffers(data.offers); setGrades(data.grades ?? []); setBranchName(data.branchName ?? ""); setSubjectNames(data.subjectNames ?? {}); setSeparate(data.visit === "separate")
         if (!params.get("lang") && data.lang) setLang(data.lang)
         applyPrefill(data.prefill, data.grades ?? [], data.offers, profile.displayName)
         setPhase("ready")
@@ -257,7 +259,7 @@ export function LiffForm() {
 
   const stepIndex = STEP_KEYS.indexOf(step)
   const summary = (
-    <Summary t={t} lang={lang} names={names} parents={parents} primaryIdx={primaryIdx} fam={fam} linked={lineUserId ? displayName : undefined}
+    <Summary t={t} lang={lang} names={names} separate={separate} parents={parents} primaryIdx={primaryIdx} fam={fam} linked={lineUserId ? displayName : undefined}
       students={students} onEdit={phase === "done" ? undefined : (s) => setStep(s)} enroll={enroll} />
   )
 
@@ -325,7 +327,7 @@ export function LiffForm() {
           <section className="space-y-3">
             <SectionHead icon={UserRoundIcon} title={t.studentTitle} sub={enroll ? te.studentSub : t.studentSub} action={<Button size="sm" variant="secondary" onClick={() => setStudents((ss) => [...ss, emptyStudent(grades[0] ?? "")])}><PlusIcon /> {t.addStudent}</Button>} />
             {students.map((s, i) => (
-              <StudentCard key={s.key} t={t} lang={lang} names={names} n={i + 1} formType={formType} student={s} grades={grades} offers={offers} enroll={enroll}
+              <StudentCard key={s.key} t={t} lang={lang} names={names} n={i + 1} formType={formType} student={s} grades={grades} offers={offers} enroll={enroll} separate={separate}
                 onChange={(patch) => setStudent(s.key, patch)} onRemove={students.length > 1 ? () => setStudents((ss) => ss.filter((x) => x.key !== s.key)) : undefined} />
             ))}
           </section>
@@ -381,8 +383,8 @@ function ParentCard({ t, lang, p, primary, linked, onEdit }: { t: T; lang: FormL
   )
 }
 
-function StudentCard({ t, lang, names, n, formType, student: s, grades, offers, onChange, onRemove, enroll }: {
-  t: T; lang: FormLang; names: Names; n: number; formType: FormType; student: StudentBlock; grades: string[]; offers: FormSubjectOffer[]; enroll: EnrollInfo | null
+function StudentCard({ t, lang, names, n, formType, student: s, grades, offers, onChange, onRemove, enroll, separate }: {
+  t: T; lang: FormLang; names: Names; n: number; formType: FormType; student: StudentBlock; grades: string[]; offers: FormSubjectOffer[]; enroll: EnrollInfo | null; separate?: boolean
   onChange: (patch: Partial<StudentBlock>) => void; onRemove?: () => void
 }) {
   // changing the subjects changes which times fit them all → the old pick is cleared
@@ -438,7 +440,28 @@ function StudentCard({ t, lang, names, n, formType, student: s, grades, offers, 
         </div>
       </div>
 
-      {s.activeSubjects.length > 0 && (
+      {separate && s.activeSubjects.map((subject) => (
+        // owner 2026-10-22: a time per subject (Trial / separate test days)
+        <div key={subject} className="space-y-2 border-t pt-3">
+          <p className="text-sm font-semibold">{t.schedule(formType)} · {names.subject(subject)} *</p>
+          <div className="space-y-1">
+            {(offers.find((o) => o.subject === subject)?.slots ?? []).toSorted((a, b) => (a.date + a.start).localeCompare(b.date + b.start)).map((x) => {
+              const active = s.chosen[subject]?.id === x.id
+              return (
+                <button key={x.id} type="button" onClick={() => onChange({ chosen: { ...s.chosen, [subject]: x } })}
+                  className={cn("flex w-full items-center gap-3 rounded-2xl px-3 py-2 text-left transition", active ? "bg-primary/10 ring-1 ring-primary" : "hover:bg-muted")}>
+                  <span className={cn("grid size-4 shrink-0 place-items-center rounded-full border-2", active ? "border-primary" : "border-muted-foreground/50")}>{active && <span className="size-2 rounded-full bg-primary" />}</span>
+                  <span>
+                    <span className="block text-sm font-medium tabular-nums">{x.start}–{endTime(x.start, x.minutes)}</span>
+                    <span className="block text-xs text-muted-foreground">{fmtFormDate(x.date, lang)}</span>
+                  </span>
+                </button>
+              )
+            })}
+          </div>
+        </div>
+      ))}
+      {!separate && s.activeSubjects.length > 0 && (
         <div className="space-y-2 border-t pt-3">
           <div>
             <p className="text-sm font-semibold">{t.schedule(formType)} *</p>
@@ -467,8 +490,8 @@ function StudentCard({ t, lang, names, n, formType, student: s, grades, offers, 
   )
 }
 
-function Summary({ t, lang, names, parents, primaryIdx, fam, linked, students, onEdit, enroll }: {
-  t: T; lang: FormLang; names: Names; parents: ParentBlock[]; primaryIdx: number; fam: FamilyDraft; linked?: string
+function Summary({ t, lang, names, parents, primaryIdx, fam, linked, students, onEdit, enroll, separate }: {
+  t: T; lang: FormLang; names: Names; separate?: boolean; parents: ParentBlock[]; primaryIdx: number; fam: FamilyDraft; linked?: string
   students: StudentBlock[]; onEdit?: (s: Step) => void; enroll?: EnrollInfo | null
 }) {
   const te = ENROLL_DICT[lang]
@@ -530,7 +553,16 @@ function Summary({ t, lang, names, parents, primaryIdx, fam, linked, students, o
                 {(s.enroll.bus || s.enroll.placement) && <Line icon={CheckIcon}>{[s.enroll.bus && te.bus, s.enroll.placement && te.placement].filter(Boolean).join(" · ")}</Line>}
               </div>
             )}
-            {visitOf(s) && (
+            {separate && Object.entries(s.chosen).map(([subject, x]) => (
+              <div key={subject} className="flex flex-wrap items-center gap-2 text-sm">
+                <HeartIcon className="size-4 fill-red-500 text-red-500" /> <span className="font-medium">{names.subject(subject)}</span>
+                <span className="mx-1 h-px min-w-6 flex-1 border-t border-dashed" />
+                <CalendarClockIcon className="size-4 text-primary" />
+                <span className="rounded-full border px-2 py-0.5 text-xs">{fmtFormDate(x.date, lang)}</span>
+                <span className="rounded-full border px-2 py-0.5 text-xs tabular-nums">{x.start}–{endTime(x.start, x.minutes)}</span>
+              </div>
+            ))}
+            {!separate && visitOf(s) && (
               <div className="flex flex-wrap items-center gap-2 text-sm">
                 <HeartIcon className="size-4 fill-red-500 text-red-500" /> <span className="font-medium">{Object.keys(s.chosen).map(names.subject).join(" + ")}</span>
                 <span className="mx-1 h-px min-w-6 flex-1 border-t border-dashed" />

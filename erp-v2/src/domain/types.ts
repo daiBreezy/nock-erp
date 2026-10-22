@@ -1462,6 +1462,9 @@ export interface FormToken {
   /** EN/JP names of the offered subjects (snapshot of Settings) */
   subjectNames?: SystemConfig["subjectNames"]
   prefill?: FormPrefill
+  /** owner 2026-10-22: "same" = every chosen subject in one visit (one shared time) · "separate" = a time per subject
+   *  (Trial always; Test when the admin chose separate days). Unset on older links = same. */
+  visit?: "same" | "separate"
   createdAt: string
   expiresAt: string
   used: boolean

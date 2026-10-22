@@ -3022,31 +3022,39 @@ export const useStore = create<Store>()(
           }
         }
 
-        let sessionId: ID
-        if (sub.picks.length >= 2) {
-          // 2+ subjects picked for the same date+time — one shared 2-hour room block, not one per subject
+        // owner 2026-10-22: picks at one shared time = one visit (one 2-hour room block); picks at different times (Trial /
+        // a Test split into separate days) = each subject booked on its own
+        const first = sub.picks[0].chosenSlot
+        const oneVisit = sub.picks.length >= 2 && sub.picks.every((p) => p.chosenSlot.date === first.date && p.chosenSlot.start === first.start)
+        const bookOne = (p: (typeof sub.picks)[number]): Result<ID> => {
+          if (p.chosenSlot.source === "class") {
+            const r = get().addStudentToSession(p.chosenSlot.sessionId!, studentId!, "one")
+            return r.ok ? { ok: true, value: p.chosenSlot.sessionId! } : r
+          }
+          const r = get().addSession(Forms.buildSessionDraftFromSlot(p.chosenSlot, p.chosenSubject, lead.branchId, studentId!, sub.type))
+          return r.ok ? { ok: true, value: r.value.id } : r
+        }
+        const bookedPicks: { subject: string; sessionId: ID }[] = []
+        if (oneVisit) {
           const branch = s.branches.find((b) => b.id === lead.branchId)!
           const draft = Forms.buildCombinedSessionDraft(sub.picks.map((p) => ({ subject: p.chosenSubject, slot: p.chosenSlot })), lead.branchId, studentId, branch, s.sessions, sub.type)
           if (!draft) return fail("รวมช่วงเวลานี้เป็นคาบเดียวไม่ได้")
           const r = get().addSession(draft)
           if (!r.ok) return r
-          sessionId = r.value.id
-        } else if (sub.picks[0].chosenSlot.source === "class") {
-          const r = get().addStudentToSession(sub.picks[0].chosenSlot.sessionId!, studentId, "one")
-          if (!r.ok) return r
-          sessionId = sub.picks[0].chosenSlot.sessionId!
+          for (const p of sub.picks) bookedPicks.push({ subject: p.chosenSubject, sessionId: r.value.id })
         } else {
-          const draft = Forms.buildSessionDraftFromSlot(sub.picks[0].chosenSlot, sub.picks[0].chosenSubject, lead.branchId, studentId, sub.type)
-          const r = get().addSession(draft)
-          if (!r.ok) return r
-          sessionId = r.value.id
+          for (const p of sub.picks) {
+            const r = bookOne(p)
+            if (!r.ok) return r
+            bookedPicks.push({ subject: p.chosenSubject, sessionId: r.value })
+          }
         }
-
-        const booked = get().sessions.find((x) => x.id === sessionId)!
-        const assessments: Assessment[] = sub.picks.map((p) => ({ id: uid("as"), type: sub.type, leadId, studentId: studentId!, sessionId, subject: p.chosenSubject, date: booked.date, start: booked.start }))
+        const sessionsOf = bookedPicks.map((x) => ({ ...x, session: get().sessions.find((y) => y.id === x.sessionId)! })).sort((x, y) => (x.session.date + x.session.start).localeCompare(y.session.date + y.session.start))
+        const sessionId = sessionsOf[0].sessionId, booked = sessionsOf[0].session
+        const assessments: Assessment[] = sessionsOf.map((x) => ({ id: uid("as"), type: sub.type, leadId, studentId: studentId!, sessionId: x.sessionId, subject: x.subject, date: x.session.date, start: x.session.start }))
         set((cur) => ({ assessments: [...cur.assessments, ...assessments] }))
         advanceLead(leadId, Forms.APPROVE_STAGE[sub.type], { trialStudentId: studentId, scheduledAt: at(booked.date, booked.start).toISOString() })
-        log("class", [studentId], `นัด${Forms.FORM_TYPE_LABEL[sub.type]}`, `${sub.picks.map((p) => p.chosenSubject).join(" + ")} · ${fmtDate(booked.date, { weekday: true })} ${booked.start}`)
+        log("class", [studentId], `นัด${Forms.FORM_TYPE_LABEL[sub.type]}`, sessionsOf.map((x) => `${x.subject} · ${fmtDate(x.session.date, { weekday: true })} ${x.session.start}`).join(" · "))
         return { ok: true, value: { sessionId, studentId, leadId } }
       },
 
