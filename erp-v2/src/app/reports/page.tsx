@@ -1453,7 +1453,7 @@ function SatisfactionTab({ d, compare, f }: { d: ReportData; compare: boolean; f
       <NpsCard year={year} responses={rs} s={s} p={p} />
       {/* owner 2026-10-22: the radar across the full width; teachers next to the courses parents asked for */}
       {/* owner 2026-10-22: the five topics as a radar — this year filled, last year dashed */}
-      <Panel title={tx("ความพึงพอใจ 5 ด้าน (เฉลี่ย 1–5)")} hint={tx("5 = มากที่สุด · 1 = ไม่พอใจ · ยิ่งกว้างยิ่งดี · เส้นประ = ปีก่อน · ชี้ที่จุดเพื่อดูคะแนน")} fill>
+      <Panel title={tx("ความพึงพอใจ 5 ด้าน (เฉลี่ย 1–5)")} hint={tx("คะแนน 5 = มากที่สุด · 1 = ไม่พอใจ · ยิ่งกว้างยิ่งดี · เส้นประ / ตัวเลขเล็ก = ปีก่อน · เลข 1–5 บนกราฟ = ข้อในรายการ")} fill>
         {topics.length ? (
           <Radar axes={Survey.TOPIC_KEYS.map((k) => ({ label: tx(Survey.TOPIC_SHORT[k]), full: tx(Survey.TOPIC_LABEL[k]) }))}
             series={[{ name: tx("ปี {0}", [yearOf(year)]), values: Survey.TOPIC_KEYS.map((k) => s.scores[k]), color: NPS_HEX.promoter },

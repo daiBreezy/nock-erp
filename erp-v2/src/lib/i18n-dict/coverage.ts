@@ -843,4 +843,5 @@ export const COVERAGE: Record<string, Entry> = {
   "รอโทร": { en: "To call", ja: "未連絡" },
   "ตอบเมื่อ": { en: "Answered", ja: "回答日" },
   "หลักสูตร": { en: "Course", ja: "カリキュラム" },
+  "คะแนน 5 = มากที่สุด · 1 = ไม่พอใจ · ยิ่งกว้างยิ่งดี · เส้นประ / ตัวเลขเล็ก = ปีก่อน · เลข 1–5 บนกราฟ = ข้อในรายการ": { en: "5 = very satisfied · 1 = unsatisfied · wider is better · dashed / small number = last year · 1–5 on the chart = the list's rows", ja: "5 = 非常に満足 · 1 = 不満 · 広いほど良い · 点線 / 小さい数字 = 前年 · グラフの1–5 = リストの項目" },
 }
