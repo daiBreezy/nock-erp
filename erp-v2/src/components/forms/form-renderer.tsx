@@ -24,7 +24,7 @@ type Answers = Record<ID, FormAnswer>
  * questions shown after a certain answer, and a review step before sending.
  * Field labels are the company's own words (not translated); only the form's own chrome is.
  */
-export function FormRenderer({ form, answers, onChange, onSubmit, submitting, highlight, onPick, sticky }: {
+export function FormRenderer({ form, answers, onChange, onSubmit, submitting, highlight, onPick, sticky, skipChecks }: {
   form: Pick<FormDef, "name" | "description" | "fields" | "review">
   answers: Answers
   onChange: (next: Answers) => void
@@ -37,6 +37,8 @@ export function FormRenderer({ form, answers, onChange, onSubmit, submitting, hi
   onPick?: (id: ID) => void
   /** parent's page: the buttons sit in a bar at the bottom of the screen */
   sticky?: boolean
+  /** builder preview (owner 2026-10-22): ถัดไป works without filling anything in */
+  skipChecks?: boolean
 }) {
   const pages = layout(form)
   const steps = pages.length + (form.review ? 1 : 0)
@@ -48,7 +50,7 @@ export function FormRenderer({ form, answers, onChange, onSubmit, submitting, hi
   const set = (id: ID, v: FormAnswer) => { onChange({ ...answers, [id]: v }); setErrors((e) => { const n = { ...e }; delete n[id]; return n }) }
 
   const next = () => {
-    const errs = reviewing ? validateAnswers(form, answers) : validateAnswers(form, answers, step)
+    const errs = skipChecks ? {} : reviewing ? validateAnswers(form, answers) : validateAnswers(form, answers, step)
     setErrors(errs)
     if (Object.keys(errs).length) {
       if (reviewing) { const p = pages.findIndex((_, i) => Object.keys(validateAnswers(form, answers, i)).length); setAt(p) }

@@ -25,7 +25,8 @@ type Props = Pick<ComponentProps<"button">, "id" | "disabled" | "className" | "a
 export function NativeSelect({ options, placeholder, className, value, defaultValue, onChange, name, required, disabled, ...props }: Props) {
   const items = placeholder === undefined ? options : [{ value: "", label: placeholder }, ...options.filter((o) => o.value !== "")]
   return (
-    <div className={cn("relative h-9", className)}>
+    // rounded like the trigger — a background given to the select (bg-background) follows the pill, no square box behind it
+    <div className={cn("relative h-9 rounded-3xl", className)}>
       <Select value={value} defaultValue={defaultValue} name={name} required={required} disabled={disabled}
         items={items} onValueChange={(next) => onChange?.({ target: { value: next ?? "" } })}>
         <SelectTrigger {...props} className="h-full! w-full min-w-0" aria-label={props["aria-label"] ?? placeholder}>

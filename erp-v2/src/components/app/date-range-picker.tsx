@@ -17,8 +17,10 @@ const LOCALES = { th, en: enUS, ja } as const
  * shadcn date-range picker (owner 2026-10-07): one chip that opens a two-month calendar — pick the first day, then
  * the last. Days after `max` can't be picked. Closes once both ends are chosen.
  */
-export function DateRangePicker({ from, to, max, active, onChange, className, segment }: {
-  from: DateStr; to: DateStr; max?: DateStr; active?: boolean
+export function DateRangePicker({ from, to, min, max, active, onChange, className, segment, plain }: {
+  from: DateStr; to: DateStr; min?: DateStr; max?: DateStr; active?: boolean
+  /** owner 2026-10-22: one neutral chip always showing the range (e.g. the Test / Trial send dialog) */
+  plain?: boolean
   onChange: (r: { from: DateStr; to: DateStr }) => void
   className?: string
   /** drawn as one segment of the period switch (PeriodControl) — always reads "กำหนดเอง" */
@@ -36,9 +38,9 @@ export function DateRangePicker({ from, to, max, active, onChange, className, se
           <CalendarRangeIcon className="size-3.5" />{tx("กำหนดเอง")}
         </PopoverTrigger>
       ) : (
-        <PopoverTrigger render={<button type="button" className={cn("flex h-9 items-center gap-1.5 rounded-3xl border px-3 text-sm tabular-nums", active ? "border-primary bg-primary/10 font-medium text-primary" : "bg-card hover:bg-muted", className)} />}>
+        <PopoverTrigger render={<button type="button" className={cn("flex h-9 items-center gap-1.5 rounded-3xl border px-3 text-sm tabular-nums", plain ? "bg-background font-medium hover:bg-muted" : active ? "border-primary bg-primary/10 font-medium text-primary" : "bg-card hover:bg-muted", className)} />}>
           <CalendarRangeIcon className="size-3.5" />
-          {active ? `${fmtDate(from, { year: from.slice(0, 4) !== to.slice(0, 4) })} – ${fmtDate(to, { year: true })}` : tx("กำหนดเอง")}
+          {active || plain ? `${fmtDate(from, { year: from.slice(0, 4) !== to.slice(0, 4) })} – ${fmtDate(to, { year: true })}` : tx("กำหนดเอง")}
         </PopoverTrigger>
       )}
       <PopoverContent align="end" className="w-auto p-0">
@@ -48,7 +50,7 @@ export function DateRangePicker({ from, to, max, active, onChange, className, se
           locale={LOCALES[lang]}
           defaultMonth={parseDate(from)}
           selected={selected}
-          disabled={max ? { after: parseDate(max) } : undefined}
+          disabled={[...(max ? [{ after: parseDate(max) }] : []), ...(min ? [{ before: parseDate(min) }] : [])]}
           onSelect={() => {}}
           // first click = first day, second click = last day (earlier than the first → starts over from it)
           onDayClick={(day) => {

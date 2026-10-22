@@ -76,15 +76,22 @@ export const QUICK_REPLIES = [
 
 /** owner 2026-10-15: every form we send shows as the same card in the chat. Test / Trial carry meta (form_request);
  *  the exit, enroll and survey links go out as text — recognised here by the link's token + our fixed wording. */
-export type FormLinkKind = "exit" | "enroll" | "survey"
-export const FORM_LINK_LABEL: Record<FormLinkKind, string> = { exit: "ส่งฟอร์มแจ้งลาออก", enroll: "ส่งใบสมัครเรียน", survey: "ส่งแบบสอบถามความพึงพอใจ" }
+export type FormLinkKind = "exit" | "enroll" | "survey" | "custom"
+export const FORM_LINK_LABEL: Record<FormLinkKind, string> = { exit: "ส่งฟอร์มแจ้งลาออก", enroll: "ส่งใบสมัครเรียน", survey: "ส่งแบบสอบถามความพึงพอใจ", custom: "ส่งฟอร์ม" }
+/** owner 2026-10-22: recognised by the link's token prefix first (pf_ exit · pe_ enroll · ps_ survey · pc_ a form made in
+ *  the builder) — the enroll message's wording didn't match the old text check, so it showed as a raw link */
 export function formLinkOf(m: { author: string; text?: string }): { form: FormLinkKind; token: string; url: string; who?: string } | null {
   if (m.author !== "staff" || !m.text) return null
   const url = m.text.match(/https?:\/\/\S+[?&]token=[\w-]+/)?.[0]
   const token = url?.match(/[?&]token=([\w-]+)/)?.[1]
   if (!url || !token) return null
-  if (m.text.includes("หยุดเรียน")) return { form: "exit", token, url, who: m.text.match(/การหยุดเรียนของ(.+?)ค่ะ/)?.[1] }
-  if (m.text.includes("ใบสมัครเรียน")) return { form: "enroll", token, url }
+  const who = m.text.match(/การหยุดเรียนของ(.+?)ค่ะ/)?.[1]
+  if (token.startsWith("pf_")) return { form: "exit", token, url, who }
+  if (token.startsWith("pe_")) return { form: "enroll", token, url }
+  if (token.startsWith("ps_")) return { form: "survey", token, url }
+  if (token.startsWith("pc_")) return { form: "custom", token, url, who: m.text.match(/“(.+?)”/)?.[1] }
+  if (m.text.includes("หยุดเรียน")) return { form: "exit", token, url, who }
+  if (m.text.includes("สมัครเรียน")) return { form: "enroll", token, url }
   if (m.text.includes("แบบสอบถาม")) return { form: "survey", token, url }
   return null
 }

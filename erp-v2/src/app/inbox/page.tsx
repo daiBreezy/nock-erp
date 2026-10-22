@@ -174,6 +174,7 @@ export default function InboxPage() {
   const surveyCamps = useStore((s) => s.surveyCampaigns)
   // owner 2026-10-22: the company's own forms (Settings › ระบบ › ฟอร์ม) are sent from here too
   const customForms = useStore((s) => s.formDefs).filter((f) => f.kind === "custom" && f.active)
+  const formResponses = useStore((s) => s.formResponses)
   // a form with choices the admin offers (times / classes) asks for them first
   const formSender = useSendForm(students.find((x) => x.familyId === family?.id)?.branchId ?? branch.id, async (f, offers) => { if (selected) report(await sendCustomFormToChat(selected.id, f, offers), `ส่ง “${f.name}” แล้ว`) })
   const lastAt = (xs: (string | undefined)[]) => xs.filter((x): x is string => !!x).sort().at(-1)
@@ -402,7 +403,7 @@ export default function InboxPage() {
                       if (m.meta?.formKind === "parent_request") return <ParentRequestChatCard key={m.id} message={m} />
                       if (isEnrollSubmissionMessage(m)) return <EnrollSubmissionChatCard key={m.id} message={m} conversation={selected} />
                       const link = formLinkOf(m)
-                      if (link) return <FormLinkBubble key={m.id} message={m} answered={link.form === "exit" && thread.some((x) => isExitFormMessage(x) && (x.meta?.formKind === "exit_form" ? x.meta.token === link.token : x.at > m.at))} />
+                      if (link) return <FormLinkBubble key={m.id} message={m} answered={link.form === "custom" ? formResponses.some((r) => r.token === link.token) : link.form === "exit" && thread.some((x) => isExitFormMessage(x) && (x.meta?.formKind === "exit_form" ? x.meta.token === link.token : x.at > m.at))} />
                       return <MessageBubble key={m.id} message={m} conversation={selected} staff={staff} onUseAsSlip={useAsSlip} />
                     })}
                   </Fragment>

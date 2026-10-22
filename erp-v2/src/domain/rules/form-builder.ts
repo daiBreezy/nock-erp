@@ -160,6 +160,16 @@ export function moveField(fields: FormField[], id: ID, by: -1 | 1): FormField[] 
   return out
 }
 
+/** drag & drop (owner 2026-10-22): move a field so it lands where another one is */
+export function moveFieldTo(fields: FormField[], id: ID, overId: ID): FormField[] {
+  const from = fields.findIndex((x) => x.id === id), to = fields.findIndex((x) => x.id === overId)
+  if (from < 0 || to < 0 || from === to) return fields
+  const out = [...fields]
+  const [f] = out.splice(from, 1)
+  out.splice(to, 0, f)
+  return out
+}
+
 /** "อื่นๆ: <text>" — how an other-answer is stored in a choice answer */
 export const OTHER_PREFIX = "อื่นๆ: "
 

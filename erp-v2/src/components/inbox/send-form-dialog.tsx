@@ -14,6 +14,7 @@ import { useStore } from "@/store/store"
 import { Button } from "../ui/button"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "../ui/dialog"
 import { NativeSelect } from "@/components/app/native-select"
+import { DateRangePicker } from "@/components/app/date-range-picker"
 import { subjectHex } from "@/components/app/subject-color"
 import { uid } from "@/data/seed"
 
@@ -129,7 +130,7 @@ export function SendFormDialog({
           {step === "type" && (
             <div className="grid grid-cols-2 gap-3">
               {TYPES.map((t) => (
-                <button key={t} type="button" onClick={() => setType(t)} className={cn("rounded-2xl border p-4 text-left transition-colors", type === t ? "border-primary bg-primary/5" : "hover:bg-muted")}>
+                <button key={t} type="button" onClick={() => setType(t)} className={cn("rounded-2xl border p-4 text-left transition-colors", type === t ? "border-foreground/40 bg-muted" : "hover:bg-muted")}>
                   <p className="font-medium">{FORM_TYPE_LABEL[t]}</p>
                   <p className="mt-0.5 text-xs text-muted-foreground">{t === "test" ? "สอบวัดระดับ — หลายวิชามาวันเดียวได้" : "ทดลองเรียนในคลาสจริง — เวลาแยกตามวิชา"}</p>
                 </button>
@@ -143,10 +144,10 @@ export function SendFormDialog({
                 <section className="flex flex-wrap items-center gap-3 rounded-2xl bg-muted/60 p-3">
                   <UsersIcon className="size-4 text-muted-foreground" />
                   <div className="min-w-0 flex-1">
-                    <p className="text-sm font-medium">ลูกค้าเดิม — ส่งให้ลูกคนไหน</p>
-                    <p className="text-xs text-muted-foreground">{family?.name} · สร้าง Lead ให้เด็กคนนี้ตอนส่ง · อนุมัติแล้วเข้าครอบครัวเดิม</p>
+                    <p className="text-sm font-medium">ลูกค้าเดิม — นักเรียนคนใหม่ของครอบครัว</p>
+                    <p className="text-xs text-muted-foreground">{family?.name} · สร้าง Lead ให้นักเรียนคนนี้ตอนส่ง · อนุมัติแล้วเข้าครอบครัวเดิม</p>
                   </div>
-                  <NativeSelect className="h-9 w-36 bg-background" value={childGrade} onChange={(e) => setChildGrade(e.target.value)} placeholder="ชั้นของลูก *" options={branch.grades.map((g) => ({ value: g, label: g }))} />
+                  <NativeSelect className="h-9 w-36 bg-background" value={childGrade} onChange={(e) => setChildGrade(e.target.value)} placeholder="ชั้นของนักเรียน *" options={branch.grades.map((g) => ({ value: g, label: g }))} />
                 </section>
               )}
 
@@ -157,7 +158,7 @@ export function SendFormDialog({
                     const on = subjects.includes(s)
                     return (
                       <button key={s} type="button" onClick={() => toggleSubject(s)}
-                        className={cn("inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-sm transition-colors", on ? "border-primary bg-primary text-primary-foreground" : "hover:bg-muted")}>
+                        className={cn("inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-sm transition-colors", on ? "border-foreground/40 bg-muted font-medium" : "text-muted-foreground hover:bg-muted")}>
                         {on ? <CheckIcon className="size-3.5" /> : <span className="size-2 rounded-full" style={{ background: subjectHex(s) }} />}{s}
                       </button>
                     )
@@ -178,11 +179,7 @@ export function SendFormDialog({
               <section className="space-y-3">
                 <div className="flex flex-wrap items-end gap-3">
                   <StepTitle n={type === "test" && subjects.length > 1 ? 3 : 2} title="เวลาที่จะเสนอ" hint="ผู้ปกครองจะเลือก 1 เวลาจากที่เสนอ" />
-                  <div className="ml-auto flex items-center gap-1.5 text-sm">
-                    <input type="date" value={from} min={toDateStr(now)} onChange={(e) => setFrom(e.target.value)} className="h-8 rounded-full border bg-input/50 px-3 text-xs" aria-label="จากวันที่" />
-                    <span className="text-muted-foreground">–</span>
-                    <input type="date" value={to} min={from} onChange={(e) => setTo(e.target.value)} className="h-8 rounded-full border bg-input/50 px-3 text-xs" aria-label="ถึงวันที่" />
-                  </div>
+                  <DateRangePicker className="ml-auto" plain from={from} to={to} min={toDateStr(now)} onChange={(r) => { setFrom(r.from); setTo(r.to) }} />
                 </div>
                 <Legend />
                 {!subjects.length ? <p className="rounded-2xl border border-dashed p-6 text-center text-sm text-muted-foreground">เลือกวิชาก่อน</p>
@@ -250,7 +247,7 @@ export function SendFormDialog({
 function StepTitle({ n, title, hint }: { n: number; title: string; hint?: string }) {
   return (
     <div className="flex items-baseline gap-2">
-      <span className="grid size-5 place-items-center self-center rounded-full bg-primary text-[11px] font-semibold text-primary-foreground">{n}</span>
+      <span className="grid size-5 place-items-center self-center rounded-full bg-muted text-[11px] font-semibold">{n}</span>
       <p className="font-medium">{title}</p>
       {hint && <p className="text-xs text-muted-foreground">{hint}</p>}
     </div>
@@ -259,8 +256,8 @@ function StepTitle({ n, title, hint }: { n: number; title: string; hint?: string
 
 function VisitCard({ on, onClick, icon: Icon, title, sub }: { on: boolean; onClick: () => void; icon: typeof CalendarClockIcon; title: string; sub: string }) {
   return (
-    <button type="button" onClick={onClick} className={cn("flex items-start gap-3 rounded-2xl border p-3 text-left transition-colors", on ? "border-primary bg-primary/5" : "hover:bg-muted")}>
-      <Icon className={cn("mt-0.5 size-5 shrink-0", on ? "text-primary" : "text-muted-foreground")} />
+    <button type="button" onClick={onClick} className={cn("flex items-start gap-3 rounded-2xl border p-3 text-left transition-colors", on ? "border-foreground/40 bg-muted" : "hover:bg-muted")}>
+      <Icon className={cn("mt-0.5 size-5 shrink-0", on ? "text-foreground" : "text-muted-foreground")} />
       <span><span className="block text-sm font-medium">{title}</span><span className="block text-xs text-muted-foreground">{sub}</span></span>
     </button>
   )
@@ -270,7 +267,7 @@ function Legend() {
   return (
     <div className="flex flex-wrap gap-3 text-xs text-muted-foreground">
       <span className="inline-flex items-center gap-1.5"><span className="size-3 rounded border bg-background" />ว่าง — เปิดคาบใหม่</span>
-      <span className="inline-flex items-center gap-1.5"><span className="size-3 rounded border border-violet-300 bg-violet-50 dark:border-violet-800 dark:bg-violet-950" />เข้าคลาสที่มีอยู่</span>
+      <span className="inline-flex items-center gap-1.5"><span className="size-3 rounded border border-violet-200 bg-violet-50 dark:border-violet-900 dark:bg-violet-950" />เข้าคลาสที่มีอยู่</span>
     </div>
   )
 }
@@ -292,22 +289,24 @@ function SlotDays({ title, color, items, picked, onToggle, empty }: {
       <div className="flex items-center gap-2 border-b px-3 py-2">
         {color && <span className="size-2.5 rounded-full" style={{ background: color }} />}
         <p className="text-sm font-medium">{title}</p>
-        <span className={cn("ml-auto rounded-full px-2 py-0.5 text-xs", count ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground")}>เลือกแล้ว {count}</span>
+        <span className={cn("ml-auto rounded-full px-2 py-0.5 text-xs", count ? "bg-foreground text-background" : "bg-muted text-muted-foreground")}>เลือกแล้ว {count}</span>
       </div>
       {!items.length ? <p className="p-4 text-center text-xs text-muted-foreground">{empty}</p> : (
         <div className="max-h-72 divide-y overflow-y-auto">
           {days.map(([date, list]) => (
             <div key={date} className="grid grid-cols-[6.5rem_1fr] gap-3 px-3 py-2.5">
               <p className="pt-1.5 text-xs font-medium text-muted-foreground">{fmtDate(date, { weekday: true })}</p>
-              <div className="flex flex-wrap gap-1.5">
+              {/* owner 2026-10-22: every time button the same size — a class's name sits on its second line (cut short, full on hover) */}
+              <div className="grid grid-cols-[repeat(auto-fill,minmax(7.5rem,1fr))] gap-1.5">
                 {list.map((it) => {
                   const on = picked.has(it.key)
                   return (
                     <button key={it.key} type="button" onClick={() => onToggle(it.key)} title={it.label}
-                      className={cn("rounded-xl border px-2.5 py-1.5 text-left text-xs tabular-nums transition-colors",
-                        on ? "border-primary bg-primary text-primary-foreground" : it.kind === "class" ? "border-violet-300 bg-violet-50 hover:bg-violet-100 dark:border-violet-800 dark:bg-violet-950" : "bg-background hover:bg-muted")}>
+                      className={cn("relative flex h-11 flex-col justify-center rounded-xl border px-2.5 text-left text-xs tabular-nums transition-colors",
+                        on ? "border-foreground bg-foreground text-background" : it.kind === "class" ? "border-violet-200 bg-violet-50/60 hover:bg-violet-50 dark:border-violet-900 dark:bg-violet-950/40" : "bg-background hover:bg-muted")}>
                       <span className="block font-medium">{it.start}–{it.end}</span>
-                      {it.label && <span className={cn("block max-w-40 truncate text-[10px]", on ? "text-primary-foreground/80" : "text-violet-700 dark:text-violet-300")}>{it.label}</span>}
+                      {it.label ? <span className={cn("block truncate text-[10px]", on ? "text-background/75" : "text-violet-700 dark:text-violet-300")}>{it.label}</span> : <span className={cn("block text-[10px]", on ? "text-background/75" : "text-muted-foreground")}>ว่าง</span>}
+                      {on && <CheckIcon className="absolute right-1.5 top-1.5 size-3" />}
                     </button>
                   )
                 })}

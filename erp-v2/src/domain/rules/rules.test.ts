@@ -2536,6 +2536,9 @@ describe("form links in the chat (owner 2026-10-15)", () => {
     expect(exit).toEqual({ form: "exit", token: "pf_abc", url: "https://liff.line.me/1-x?token=pf_abc", who: "dS" })
     expect(formLinkOf({ author: "staff", text: "กรอกใบสมัครเรียนได้ที่ลิงก์นี้เลยค่ะ\nhttps://a.b/liff/form?token=en_1" })?.form).toBe("enroll")
     expect(formLinkOf({ author: "staff", text: "ขอเวลา 3 นาทีช่วยตอบแบบสอบถาม\nhttps://a.b/liff/survey?token=sv_1" })?.form).toBe("survey")
+    // owner 2026-10-22: by the token prefix — the enroll message ("กรอกข้อมูลสมัครเรียน…") was shown as a raw link
+    expect(formLinkOf({ author: "staff", text: "กรอกข้อมูลสมัครเรียนได้ที่ลิงก์นี้เลยค่ะ 🙏\nhttps://liff.line.me/1-x?token=pe_mvj7" })?.form).toBe("enroll")
+    expect(formLinkOf({ author: "staff", text: "รบกวนผู้ปกครองช่วยตอบแบบฟอร์ม “ค่ายภาษาอังกฤษ” ค่ะ 🙏\nhttps://a.b/liff/custom?token=pc_1" })).toMatchObject({ form: "custom", who: "ค่ายภาษาอังกฤษ" })
     expect(formLinkOf({ author: "parent", text: "https://a.b?token=x หยุดเรียน" })).toBeNull()
     expect(formLinkOf({ author: "staff", text: "สวัสดีครับ" })).toBeNull()
   })
@@ -2638,5 +2641,14 @@ describe("Form builder round 2 — steps, groups, tied data, system choices, con
     const bad = { name: "x", fields: [q("c", "text", { label: "ชื่อลูก", bind: "child.name" }), q("g", "section", { label: "ลูก", repeat: { add: "+", max: 2 } }), q("w", "text", { label: "เมื่อ", showIf: { field: "z", value: "ใช่" } })] }
     expect(FB.validateForm(bad).map((e) => e.message)).toEqual(["ข้อมูลของลูกต้องอยู่ในกลุ่มที่เพิ่มได้หลายชุด", "เงื่อนไขต้องอ้างคำถามที่อยู่ก่อนหน้า"])
     expect(FB.validateForm({ name: "x", fields: [q("t", "text"), q("g", "section", { repeat: { add: "+", max: 2 } })] }).map((e) => e.message)).toEqual(["กลุ่มที่เพิ่มได้หลายชุดต้องมีคำถามข้างใต้"])
+  })
+})
+
+describe("Form builder — drag & drop", () => {
+  it("a dragged field lands where the one it was dropped on is", () => {
+    const f = (id: string) => ({ id, type: "text" as const, label: id, required: false })
+    const ids = (xs: { id: string }[]) => xs.map((x) => x.id).join("")
+    expect(ids(FB.moveFieldTo([f("a"), f("b"), f("c"), f("d")], "a", "c"))).toBe("bcad")
+    expect(ids(FB.moveFieldTo([f("a"), f("b"), f("c"), f("d")], "d", "b"))).toBe("adbc")
   })
 })

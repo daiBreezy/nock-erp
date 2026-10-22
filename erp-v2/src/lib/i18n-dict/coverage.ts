@@ -1062,4 +1062,10 @@ export const COVERAGE: Record<string, Entry> = {
   "ยังไม่ได้เลือกเวลา: {0}": { en: "No time picked yet: {0}", ja: "時間未選択：{0}" },
   "เสนอ {0} เวลา": { en: "{0} times offered", ja: "{0}件の時間を提示" },
   "เข้าคลาสที่มีอยู่": { en: "Join an existing class", ja: "既存クラスに参加" },
+  "ตรวจว่าตอบครบ": { en: "Check answers", ja: "回答チェック" },
+  "ลองส่งแล้ว (ไม่ได้ส่งจริง)": { en: "Test sent (not really sent)", ja: "テスト送信（実際には送信されません）" },
+  "ลากเพื่อจัดลำดับ": { en: "Drag to reorder", ja: "ドラッグで並べ替え" },
+  "ลูกค้าเดิม — นักเรียนคนใหม่ของครอบครัว": { en: "Existing customer — a new student in the family", ja: "既存顧客 — 家族の新しい生徒" },
+  "· สร้าง Lead ให้นักเรียนคนนี้ตอนส่ง · อนุมัติแล้วเข้าครอบครัวเดิม": { en: "· a lead is made for this student on send · joins the same family when approved", ja: "· 送信時にこの生徒のリードを作成 · 承認で同じ家族に" },
+  "ชั้นของนักเรียน *": { en: "Student's grade *", ja: "生徒の学年 *" },
 }

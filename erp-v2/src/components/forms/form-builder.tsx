@@ -3,8 +3,8 @@
 import { useEffect, useMemo, useState } from "react"
 import { useRouter } from "next/navigation"
 import {
-  AlignLeftIcon, ArrowDownIcon, ArrowUpIcon, CalendarIcon, CheckSquareIcon, ChevronDownIcon, CircleDotIcon, ClockIcon, CopyIcon, DownloadIcon, FileCheckIcon,
-  ChevronsRightIcon, EyeIcon, GaugeIcon, HashIcon, HeadingIcon, ImageIcon, LinkIcon, ListIcon, LockIcon, MailIcon, MapPinIcon, RepeatIcon, ServerIcon, PaperclipIcon, PhoneIcon, PlusIcon, SmileIcon, ThumbsUpIcon, Trash2Icon, TypeIcon, XIcon,
+  AlignLeftIcon, CalendarIcon, CheckSquareIcon, ChevronDownIcon, CircleDotIcon, ClockIcon, CopyIcon, DownloadIcon, FileCheckIcon,
+  ChevronsRightIcon, EyeIcon, GaugeIcon, GripVerticalIcon, HashIcon, HeadingIcon, ImageIcon, LinkIcon, ListIcon, LockIcon, MailIcon, MapPinIcon, RepeatIcon, ServerIcon, PaperclipIcon, PhoneIcon, PlusIcon, SmileIcon, ThumbsUpIcon, Trash2Icon, TypeIcon, XIcon,
 } from "lucide-react"
 import { Pill } from "@/components/app/badges"
 import { EntityPanel, PanelBody, PanelFooter, PanelMore } from "@/components/app/form-shell"
@@ -92,6 +92,11 @@ export function FormBuilder({ form }: { form: FormDef }) {
   const [answers, setAnswers] = useState<Record<ID, FormAnswer>>({})
   // a new key starts the preview over (first step, no answers)
   const [run, setRun] = useState(0)
+  // preview: ถัดไป without filling in (owner 2026-10-22) — switch on to test the checks
+  const [checks, setChecks] = useState(false)
+  // drag & drop: the field being dragged and the one it's over
+  const [drag, setDrag] = useState<ID | null>(null)
+  const [over, setOver] = useState<ID | null>(null)
   const dirty = JSON.stringify(d) !== JSON.stringify(form)
   const errs = FB.validateForm(d)
   const errOf = (id: ID) => errs.find((e) => e.field === id)?.message
@@ -135,9 +140,11 @@ export function FormBuilder({ form }: { form: FormDef }) {
           </div>
           <ol className="space-y-2">
             {d.fields.map((f, i) => (
-              <FieldCard key={f.id} f={f} index={i} total={d.fields.length} open={sel === f.id} error={errOf(f.id)} before={d.fields.slice(0, i)} inGroup={!!FB.groupOf(d, f.id)}
-                onOpen={() => setSel(sel === f.id ? null : f.id)} onChange={(p) => patch(f.id, p)}
-                onMove={(by) => setD((x) => ({ ...x, fields: FB.moveField(x.fields, f.id, by) }))} onCopy={() => copy(f.id)} onRemove={() => remove(f.id)} />
+              <FieldCard key={f.id} f={f} open={sel === f.id} error={errOf(f.id)} before={d.fields.slice(0, i)} inGroup={!!FB.groupOf(d, f.id)}
+                dragging={drag === f.id} dropHere={!!drag && over === f.id && drag !== f.id} dropBelow={d.fields.findIndex((x) => x.id === drag) < i}
+                onDragStart={() => setDrag(f.id)} onDragEnter={() => setOver(f.id)} onDragEnd={() => { setDrag(null); setOver(null) }}
+                onDrop={() => { if (drag) setD((x) => ({ ...x, fields: FB.moveFieldTo(x.fields, drag, f.id) })); setDrag(null); setOver(null) }}
+                onOpen={() => setSel(sel === f.id ? null : f.id)} onChange={(p) => patch(f.id, p)} onCopy={() => copy(f.id)} onRemove={() => remove(f.id)} />
             ))}
           </ol>
           <AddMenu onAdd={add} wide />
@@ -145,11 +152,12 @@ export function FormBuilder({ form }: { form: FormDef }) {
 
         {/* the parent's view, live — try it out (nothing is sent) */}
         <div className="lg:sticky lg:top-20 lg:self-start">
-          <div className="mb-2 flex items-center gap-2 text-sm"><span className="font-medium">{tx("ตัวอย่างที่ผู้ปกครองเห็น")}</span><InfoTip text={tx("ลองกรอกได้ — ไม่มีอะไรถูกส่ง · กดคำถามเพื่อแก้ข้อนั้น")} /></div>
+          <div className="mb-2 flex items-center gap-2 text-sm"><span className="font-medium">{tx("ตัวอย่างที่ผู้ปกครองเห็น")}</span><InfoTip text={tx("ลองกรอกได้ — ไม่มีอะไรถูกส่ง · กดคำถามเพื่อแก้ข้อนั้น")} />
+            <label className="ml-auto flex items-center gap-1.5 text-xs text-muted-foreground"><Switch size="sm" checked={checks} onCheckedChange={setChecks} />{tx("ตรวจว่าตอบครบ")}</label></div>
           <div className="mx-auto max-w-sm rounded-[2rem] border-8 border-foreground/80 bg-background shadow-lg">
             <div className="max-h-[70vh] overflow-y-auto p-4">
-              <FormRenderer key={run} form={d} answers={answers} highlight={sel} onPick={setSel} onChange={setAnswers}
-                onSubmit={() => report({ ok: true, value: undefined }, tx("ลองส่งผ่าน — ครบทุกข้อ (ไม่ได้ส่งจริง)"))} />
+              <FormRenderer key={`${run}${checks}`} form={d} answers={answers} highlight={sel} onPick={setSel} onChange={setAnswers} skipChecks={!checks}
+                onSubmit={() => report({ ok: true, value: undefined }, checks ? tx("ลองส่งผ่าน — ครบทุกข้อ (ไม่ได้ส่งจริง)") : tx("ลองส่งแล้ว (ไม่ได้ส่งจริง)"))} />
               <button type="button" className="mt-3 w-full text-center text-xs text-muted-foreground hover:underline" onClick={() => { setAnswers({}); setRun((n) => n + 1) }}>{tx("ล้างคำตอบที่ลองกรอก")}</button>
             </div>
           </div>
@@ -197,25 +205,34 @@ function AddMenu({ onAdd, wide }: { onAdd: (t: FormFieldType) => void; wide?: bo
 }
 
 /** one question — a summary line; opened, everything about it */
-function FieldCard({ f, index, total, open, error, before, inGroup, onOpen, onChange, onMove, onCopy, onRemove }: {
-  f: FormField; index: number; total: number; open: boolean; error?: string
+function FieldCard({ f, open, error, before, inGroup, dragging, dropHere, dropBelow, onDragStart, onDragEnter, onDragEnd, onDrop, onOpen, onChange, onCopy, onRemove }: {
+  f: FormField; open: boolean; error?: string
   /** the questions above it (for "แสดงเมื่อ") · whether it sits in a repeating group */
   before: FormField[]; inGroup: boolean
-  onOpen: () => void; onChange: (p: Partial<FormField>) => void; onMove: (by: -1 | 1) => void; onCopy: () => void; onRemove: () => void
+  /** drag & drop (owner 2026-10-22: the handle on the left, instead of ↑ ↓) */
+  dragging: boolean; dropHere: boolean; dropBelow: boolean
+  onDragStart: () => void; onDragEnter: () => void; onDragEnd: () => void; onDrop: () => void
+  onOpen: () => void; onChange: (p: Partial<FormField>) => void; onCopy: () => void; onRemove: () => void
 }) {
+  // only the handle starts a drag (text in the card stays selectable)
+  const [handle, setHandle] = useState(false)
   const Icon = FIELD_ICON[f.type]
   const locked = !!f.lock
   return (
-    <li className={cn("rounded-2xl bg-card ring-1 ring-foreground/10 transition-shadow", f.type === "page" && "bg-primary/5 ring-primary/30", inGroup && "ml-6", open && "shadow-md ring-primary/40", error && "ring-red-400", f.hidden && "opacity-60")}>
-      <div className="flex items-center gap-2 px-3 py-2.5">
+    <li draggable={handle} onDragStart={(e) => { e.dataTransfer.effectAllowed = "move"; onDragStart() }} onDragEnd={() => { setHandle(false); onDragEnd() }}
+      onDragEnter={onDragEnter} onDragOver={(e) => e.preventDefault()} onDrop={(e) => { e.preventDefault(); setHandle(false); onDrop() }}
+      className={cn("relative rounded-2xl bg-card ring-1 ring-foreground/10 transition-shadow", f.type === "page" && "bg-muted/60", inGroup && "ml-6", open && "shadow-md ring-foreground/25", error && "ring-red-400", f.hidden && "opacity-60", dragging && "opacity-40")}>
+      {dropHere && <span className={cn("absolute inset-x-2 h-0.5 rounded-full bg-foreground/60", dropBelow ? "-bottom-1.5" : "-top-1.5")} />}
+      <div className="flex items-center gap-2 px-2 py-2.5">
+        <span onMouseDown={() => setHandle(true)} onMouseUp={() => setHandle(false)} className="grid h-8 w-5 shrink-0 cursor-grab place-items-center rounded-md text-muted-foreground/60 hover:bg-muted hover:text-muted-foreground active:cursor-grabbing" aria-label={tx("ลากเพื่อจัดลำดับ")}><GripVerticalIcon className="size-4" /></span>
         <button type="button" onClick={onOpen} className="flex min-w-0 flex-1 items-center gap-2.5 text-left">
-          <span className={cn("grid size-8 shrink-0 place-items-center rounded-lg", f.type === "section" ? "bg-muted" : "bg-primary/10 text-primary")}><Icon className="size-4" /></span>
+          <span className="grid size-8 shrink-0 place-items-center rounded-lg bg-muted text-muted-foreground"><Icon className="size-4" /></span>
           <span className="min-w-0">
             <span className={cn("block truncate text-sm", f.type === "section" || f.type === "page" ? "font-semibold" : "font-medium", !f.label && "text-muted-foreground")}>{f.label || tx(f.type === "section" || f.type === "page" ? "หัวข้อ (ยังไม่ใส่)" : "คำถาม (ยังไม่ใส่)")}{f.required && FB.answerable(f) && <span className="text-red-600"> *</span>}</span>
             <span className="flex flex-wrap items-center gap-x-1.5 text-xs text-muted-foreground">{tx(FB.typeInfo(f.type).label)}
-              {f.repeat && <span className="inline-flex items-center gap-0.5 text-primary"><RepeatIcon className="size-3" />{tx("เพิ่มได้ {0} ชุด", [f.repeat.max])}</span>}
-              {f.bind && <span className="inline-flex items-center gap-0.5 text-sky-700 dark:text-sky-300"><LinkIcon className="size-3" />{tx(FB.BINDS.find((b) => b.key === f.bind)?.label ?? "")}</span>}
-              {f.source && <span className="inline-flex items-center gap-0.5 text-sky-700 dark:text-sky-300"><ServerIcon className="size-3" />{tx(FB.SOURCE_LABEL[f.source])}</span>}
+              {f.repeat && <span className="inline-flex items-center gap-0.5"><RepeatIcon className="size-3" />{tx("เพิ่มได้ {0} ชุด", [f.repeat.max])}</span>}
+              {f.bind && <span className="inline-flex items-center gap-0.5"><LinkIcon className="size-3" />{tx(FB.BINDS.find((b) => b.key === f.bind)?.label ?? "")}</span>}
+              {f.source && <span className="inline-flex items-center gap-0.5"><ServerIcon className="size-3" />{tx(FB.SOURCE_LABEL[f.source])}</span>}
               {f.showIf && <span className="inline-flex items-center gap-0.5"><EyeIcon className="size-3" />{tx("แสดงเมื่อ “{0}”", [f.showIf.value])}</span>}
               {f.lock === "core" && <span className="inline-flex items-center gap-0.5"><LockIcon className="size-3" />{tx("ระบบต้องใช้")}</span>}
               {f.lock === "optional" && <span>· {f.hidden ? tx("ซ่อนอยู่") : tx("ช่องเสริมของระบบ")}</span>}
@@ -224,10 +241,6 @@ function FieldCard({ f, index, total, open, error, before, inGroup, onOpen, onCh
           </span>
         </button>
         {FB.canHide(f) && <Switch checked={!f.hidden} onCheckedChange={(v) => onChange({ hidden: !v })} aria-label={tx("แสดงในฟอร์ม")} />}
-        <div className="flex shrink-0">
-          <Button size="icon-sm" variant="ghost" disabled={index === 0} onClick={() => onMove(-1)} aria-label={tx("เลื่อนขึ้น")}><ArrowUpIcon /></Button>
-          <Button size="icon-sm" variant="ghost" disabled={index === total - 1} onClick={() => onMove(1)} aria-label={tx("เลื่อนลง")}><ArrowDownIcon /></Button>
-        </div>
       </div>
       {open && !locked && (
         <div className="space-y-3 border-t px-3 py-3">
@@ -266,6 +279,8 @@ function FieldExtras({ f, before, inGroup, onChange }: { f: FormField; before: F
   const target = targets.find((x) => x.id === f.showIf?.field)
   const valuesOf = (x?: FormField) => (!x ? [] : x.type === "yesno" ? ["ใช่", "ไม่ใช่"] : [...(x.options ?? []), ...(x.allowOther ? ["อื่นๆ"] : [])])
   const binds = FB.BINDS.filter((b) => b.types.includes(f.type) && (!b.child || inGroup))
+  // a step has none of these
+  if (f.type === "page") return null
   return (
     <div className="grid gap-3 rounded-xl bg-muted/40 p-3 sm:grid-cols-2">
       {f.type === "section" && (
@@ -288,7 +303,7 @@ function FieldExtras({ f, before, inGroup, onChange }: { f: FormField; before: F
           <NativeSelect className="w-full bg-background" value={f.source ?? ""} placeholder={tx("พิมพ์เอง")} onChange={(e) => onChange({ source: (e.target.value || undefined) as FormField["source"], options: e.target.value ? [] : f.options?.length ? f.options : ["ตัวเลือก 1", "ตัวเลือก 2"] })}
             options={(Object.keys(FB.SOURCE_LABEL) as NonNullable<FormField["source"]>[]).map((k) => ({ value: k, label: tx(FB.SOURCE_LABEL[k]) }))} /></div>
       )}
-      {f.type !== "page" && (
+      {(
         <div className={cn(f.type === "section" && "sm:col-span-2")}><p className="mb-1 flex items-center gap-1 text-xs text-muted-foreground"><EyeIcon className="size-3" />{tx("แสดงเมื่อ")}</p>
           {targets.length ? (
             <div className="flex gap-2">
