@@ -39,6 +39,8 @@ export const BAND_FLOW = {
   core: "#fffbeb",
   /** how soft the glow is (blur) — owner 2026-10-22: softer, no hard edge */
   blur: 7,
+  /** how strong the light is (0 = invisible, 1 = full) */
+  opacity: 1,
 }
 
 export function Sankey({ columns, flows, total, heads, size = { w: 1000, h: 380 }, unit = "คน", name = "เส้นทางของ Lead", minWidth = "min-w-[40rem]" }: {
@@ -155,7 +157,7 @@ export function Sankey({ columns, flows, total, heads, size = { w: 1000, h: 380 
             return (
               <g key={`f${l.i}`} className="pointer-events-none">
                 <mask id={`${uid}-m${l.i}`} maskUnits="userSpaceOnUse" x={0} y={0} width={W} height={H}><path d={d} fill="none" stroke="#fff" strokeWidth={w} /></mask>
-                <g mask={`url(#${uid}-m${l.i})`}><path d={d} fill="none" stroke={`url(#${uid}-f${l.i})`} strokeWidth={w} filter={`url(#${uid}-glow)`} /></g>
+                <g mask={`url(#${uid}-m${l.i})`}><path d={d} fill="none" stroke={`url(#${uid}-f${l.i})`} strokeWidth={w} filter={`url(#${uid}-glow)`} opacity={BAND_FLOW.opacity} /></g>
               </g>
             )
           })}
