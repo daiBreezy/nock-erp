@@ -31,11 +31,11 @@ export const BAND_OPACITY = {
 
 /** owner 2026-10-22: the light running along a hovered band (left → right), after the ref's flame button (no white centre) — tweak here */
 export const BAND_FLOW = {
-  /** seconds for the light to cross one band */
+  /** seconds for the light to cross one column of bands */
   seconds: 2.40,
-  /** length of the light, as a share of the band's length */
+  /** length of the light, as a share of one column of bands */
   length: 2.40,
-  /** how soft the glow is (blur) — owner 2026-10-22: softer, no hard edge */
+  /** how soft the light's top / bottom edge is (blur across the band, capped at a quarter of its thickness) */
   blur: 40,
   /** how strong the light is (0 = invisible, 1 = full) */
   opacity: 0.80,
@@ -75,15 +75,12 @@ export function Sankey({ columns, flows, total, heads, size = { w: 1000, h: 380 
   const on = (l: (typeof links)[number]) => !hover || ("link" in hover ? hover.link === l.i : (l.f.col === hover.col && l.f.from === hover.key) || (l.f.col + 1 === hover.col && l.f.to === hover.key))
   // the hovered band(s) carry a light running left → right (none when the viewer asks for less motion)
   const flowing = hover && !still ? links.filter(on) : []
-  // the flowing bands' columns run one after another: slot k of n, each BAND_FLOW.seconds long
-  const firstCol = Math.min(...flowing.map((l) => l.f.col)), slots = flowing.length ? Math.max(...flowing.map((l) => l.f.col)) - firstCol + 1 : 1
-  const cycle = BAND_FLOW.seconds * slots
-  // keyTimes may not repeat a time (the browser drops the animation), so the first / last slot leave out their duplicate
-  const slot = (col: number, before: number, after: number) => {
-    const k = col - firstCol, t0 = k / slots, t1 = (k + 1) / slots
-    const pts: [number, number][] = [[0, before], ...(t0 > 0 ? [[t0, before] as [number, number]] : []), [t1, after], ...(t1 < 1 ? [[1, after] as [number, number]] : [])]
-    return { keyTimes: pts.map((x) => x[0]).join(";"), values: pts.map((x) => x[1]).join(";") }
-  }
+  // owner 2026-10-22: ONE light for every flowing band, running across the whole drawing (left → middle → right without a
+  // break): the window lives in drawing coordinates, so it passes from a left band through the box into the right band.
+  // It crosses one column of bands in BAND_FLOW.seconds; its length is BAND_FLOW.length × one column of bands.
+  const firstCol = flowing.length ? Math.min(...flowing.map((l) => l.f.col)) : 0, lastCol = flowing.length ? Math.max(...flowing.map((l) => l.f.col)) : 0
+  const span = xOf(1) - xOf(0), win = span * BAND_FLOW.length
+  const runFrom = xOf(firstCol) + NW, runTo = xOf(lastCol + 1), cycle = (BAND_FLOW.seconds * (runTo - runFrom + win)) / span
   // what's hovered: its colour(s) and one short line — "from → to · count · % of from" / "box · count · % of all"
   const hint: { colors: string[]; text: string } | null = !hover ? null
     : "link" in hover ? (() => { const l = links.find((x) => x.i === hover.link)!; const from = box.get(`${l.f.col}|${l.f.from}`)!.node, to = box.get(`${l.f.col + 1}|${l.f.to}`)!.node
@@ -126,23 +123,15 @@ export function Sankey({ columns, flows, total, heads, size = { w: 1000, h: 380 
                 <stop offset="50%" stopColor={b.node.split![0]} /><stop offset="50%" stopColor={b.node.split![1]} />
               </linearGradient>
             ))}
-            {flowing.map((l) => {
-              const x0 = xOf(l.f.col) + NW, x1 = xOf(l.f.col + 1), w = (x1 - x0) * BAND_FLOW.length
-              // the light is a moving window (white = see-through) over the band's own left → right colours: near the left it
-              // shows the left box's colour and turns into the right box's colour as it runs (owner 2026-10-22)
-              return (
-                <linearGradient key={l.i} id={`${uid}-f${l.i}`} gradientUnits="userSpaceOnUse" x1={x0 - w} x2={x0} y1={0} y2={0}>
-                  <stop offset="0%" stopColor="#fff" stopOpacity={0} />
-                  <stop offset="50%" stopColor="#fff" stopOpacity={1} />
-                  <stop offset="100%" stopColor="#fff" stopOpacity={0} />
-                  {/* owner 2026-10-22: hovering a box in the middle lights its left bands first, then its right bands — one
-                      flow left → middle → right. Each column of bands gets its own slot in one shared cycle; outside its slot
-                      the light waits off the band (left of it before, right of it after). */}
-                  <animate attributeName="x1" {...slot(l.f.col, x0 - w, x1)} dur={`${cycle}s`} repeatCount="indefinite" />
-                  <animate attributeName="x2" {...slot(l.f.col, x0, x1 + w)} dur={`${cycle}s`} repeatCount="indefinite" />
-                </linearGradient>
-              )
-            })}
+            {/* the light: a moving window (white = see-through) over each band's own left → right colours — near the left it shows
+                the left box's colour, turning into the right box's as it runs. Opacity rises 0 → 1 → 0 smoothly. */}
+            {flowing.length > 0 && (
+              <linearGradient id={`${uid}-fw`} gradientUnits="userSpaceOnUse" x1={runFrom - win} x2={runFrom} y1={0} y2={0}>
+                {[[0, 0], [0.2, 0.1], [0.35, 0.5], [0.5, 1], [0.65, 0.5], [0.8, 0.1], [1, 0]].map(([o, a]) => <stop key={o} offset={o} stopColor="#fff" stopOpacity={a} />)}
+                <animate attributeName="x1" from={runFrom - win} to={runTo} dur={`${cycle}s`} repeatCount="indefinite" />
+                <animate attributeName="x2" from={runFrom} to={runTo + win} dur={`${cycle}s`} repeatCount="indefinite" />
+              </linearGradient>
+            )}
             {links.map((l) => (
               <linearGradient key={l.i} id={`${uid}-g${l.i}`} gradientUnits="userSpaceOnUse" x1={xOf(l.f.col) + NW} x2={xOf(l.f.col + 1)} y1={0} y2={0}>
                 <stop offset="0%" stopColor={box.get(`${l.f.col}|${l.f.from}`)!.node.color} />
@@ -161,11 +150,12 @@ export function Sankey({ columns, flows, total, heads, size = { w: 1000, h: 380 
             const d = `M${x0},${l.y0} C${mx},${l.y0} ${mx},${l.y1} ${x1},${l.y1}`, w = Math.max(1.5, l.h)
             return (
               <g key={`f${l.i}`} className="pointer-events-none">
-                <mask id={`${uid}-m${l.i}`} maskUnits="userSpaceOnUse" x={0} y={0} width={W} height={H}><path d={d} fill="none" stroke={`url(#${uid}-f${l.i})`} strokeWidth={w} /></mask>
-                {/* soft along the band; across it the blur is at most a quarter of the band's thickness — a full blur washed thin
-                    bands out to nothing (owner 2026-10-22). The blur area is the whole drawing (sized from the centre line it cut thick bands) */}
+                <mask id={`${uid}-m${l.i}`} maskUnits="userSpaceOnUse" x={0} y={0} width={W} height={H}><path d={d} fill="none" stroke={`url(#${uid}-fw)`} strokeWidth={w} /></mask>
+                {/* blur only across the band (at most a quarter of its thickness — more washed thin bands out); along the band the
+                    window's own fade is the softness — a blur along it dimmed the light near the boxes (0 → 100 → 60). The blur
+                    area is the whole drawing (sized from the centre line it cut thick bands). owner 2026-10-22 */}
                 <filter id={`${uid}-b${l.i}`} filterUnits="userSpaceOnUse" x={0} y={0} width={W} height={H}>
-                  <feGaussianBlur stdDeviation={`${BAND_FLOW.blur} ${Math.min(BAND_FLOW.blur, w / 4)}`} />
+                  <feGaussianBlur stdDeviation={`0 ${Math.min(BAND_FLOW.blur, w / 4)}`} />
                 </filter>
                 <g mask={`url(#${uid}-m${l.i})`}><path d={d} fill="none" stroke={`url(#${uid}-g${l.i})`} strokeWidth={w} filter={`url(#${uid}-b${l.i})`} opacity={BAND_FLOW.opacity} /></g>
               </g>
