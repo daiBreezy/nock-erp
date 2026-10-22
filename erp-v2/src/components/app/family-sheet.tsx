@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button"
 import { SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet"
 import { EntityPanel, PanelBody, PanelFooter, PanelForm } from "./form-shell"
 import { FamilyForm } from "./family-form"
+import { FamilyForms } from "@/components/forms/family-forms"
 import { fmtDateTime } from "@/domain/dates"
 import { lineCodeValid } from "@/domain/rules/people"
 import type { ID } from "@/domain/types"
@@ -97,6 +98,7 @@ export function FamilySheet({ id: target, onClose }: { id: ID | "new" | null; on
                     {kids.length === 0 && <li className="p-4 text-center text-xs text-muted-foreground">ยังไม่มีลูกในครอบครัวนี้</li>}
                   </ul>
                 </section>
+                <FamilyForms family={f} />
               </PanelBody>
               {/* Bottom = actions (owner 2026-10-09) */}
               <PanelFooter>

@@ -1656,3 +1656,75 @@ export interface DevTicket {
   /** the conversation between the reporter and the developers (status changes are logged here too) */
   thread: { id: ID; by: ID; at: string; text: string; status?: DevTicketStatus; images?: string[] }[]
 }
+
+// ---------------- Form builder (owner 2026-10-22) ----------------
+
+/** what a question asks for — every kind a school form needs */
+export type FormFieldType =
+  | "section"   // a heading / explanation, no answer
+  | "text" | "textarea" | "number" | "date" | "time" | "phone" | "email"
+  | "single" | "multi" | "dropdown" | "yesno"
+  | "nps"       // 0–10
+  | "scale5"    // 1–5
+  | "file" | "image"
+  | "consent"   // a box that must be ticked
+
+export interface FormField {
+  id: ID
+  type: FormFieldType
+  label: string
+  /** a line under the question */
+  help?: string
+  required: boolean
+  /** single / multi / dropdown */
+  options?: string[]
+  /** single / multi: an "อื่นๆ" choice with its own text box */
+  allowOther?: boolean
+  /** a field of a system form: "core" = the ERP needs it (always shown, not editable) · "optional" = can be hidden */
+  lock?: "core" | "optional"
+  /** an optional system field switched off */
+  hidden?: boolean
+}
+
+export interface FormDef {
+  id: ID
+  name: string
+  description?: string
+  /** "system" = one of the ERP's own forms (its core fields are locked) · "custom" = made by the company */
+  kind: "system" | "custom"
+  /** which system form (test / trial / enroll / exit / survey) */
+  systemKey?: string
+  fields: FormField[]
+  /** a custom form can be switched off (no new sends) */
+  active: boolean
+  updatedAt: string
+  updatedBy?: ID
+}
+
+/** one answer: text / number as text, choices as a list, a file as its name */
+export type FormAnswer = string | string[] | number | boolean | null
+
+/** a family's answers to a custom form */
+export interface CustomFormResponse {
+  id: ID
+  formId: ID
+  token: string
+  familyId: ID
+  branchId: ID
+  answers: Record<ID, FormAnswer>
+  submittedAt: string
+}
+
+/** a custom-form link sent to a family — carries a copy of the form (the parent's page can't read the ERP's data) */
+export interface CustomFormToken {
+  token: string
+  kind: "custom"
+  formId: ID
+  form: Pick<FormDef, "id" | "name" | "description" | "fields">
+  familyId: ID
+  branchId: ID
+  conversationId?: ID
+  createdAt: string
+  expiresAt: string
+  used: boolean
+}

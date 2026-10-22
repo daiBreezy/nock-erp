@@ -2561,3 +2561,45 @@ describe("Test / Trial for an existing family (owner 2026-10-19)", () => {
     expect(validateLead(l)).toBeNull()
   })
 })
+
+// ---------------- Form builder (owner 2026-10-22) ----------------
+import * as FB from "./form-builder"
+
+describe("Form builder", () => {
+  const f = (fields: import("../types").FormField[], name = "แบบสอบถาม") => ({ name, fields })
+  it("a form needs a name, a question, labels and at least two different choices", () => {
+    expect(FB.validateForm(f([], "")).map((e) => e.message)).toEqual(["ตั้งชื่อฟอร์ม", "เพิ่มคำถามอย่างน้อย 1 ข้อ"])
+    const q = { ...FB.newField("single"), label: "", options: ["ก", "ก"] }
+    expect(FB.validateForm(f([q])).map((e) => e.message)).toEqual(["ใส่คำถาม", "ตัวเลือกซ้ำกัน"])
+    expect(FB.validateForm(f([{ ...q, label: "ข้อ", options: ["ก", " "] }])).map((e) => e.message)).toEqual(["ใส่ตัวเลือกอย่างน้อย 2 ข้อ"])
+    expect(FB.validateForm(f([{ ...FB.newField("text"), label: "ชื่อ" }]))).toEqual([])
+  })
+  it("system fields: core can't be removed or hidden, optional can be hidden; hidden fields aren't asked", () => {
+    const sys = FB.SYSTEM_FORMS.find((x) => x.systemKey === "test")!
+    const coreF = sys.fields.find((x) => x.lock === "core" && x.type !== "section")!, optF = sys.fields.find((x) => x.lock === "optional")!
+    expect([FB.canRemove(coreF), FB.canHide(coreF), FB.canRemove(optF), FB.canHide(optF)]).toEqual([false, false, false, true])
+    expect(FB.visibleFields({ fields: [{ ...optF, hidden: true }, coreF] }).map((x) => x.id)).toEqual([coreF.id])
+  })
+  it("answers: required, email / phone / number checked, other needs its text", () => {
+    const fields = [
+      { id: "a", type: "text" as const, label: "ชื่อ", required: true },
+      { id: "b", type: "email" as const, label: "อีเมล", required: false },
+      { id: "c", type: "phone" as const, label: "เบอร์", required: false },
+      { id: "d", type: "single" as const, label: "เลือก", required: false, options: ["x", "y"], allowOther: true },
+      { id: "e", type: "consent" as const, label: "ยอมรับ", required: true },
+    ]
+    expect(FB.validateAnswers({ fields }, { b: "nope", c: "081", d: "อื่นๆ: " })).toEqual({ a: "กรุณาตอบข้อนี้", b: "รูปแบบอีเมลไม่ถูกต้อง", c: "เบอร์โทรไม่ครบ", d: "พิมพ์คำตอบ “อื่นๆ”", e: "กรุณาติ๊กยอมรับ" })
+    expect(FB.validateAnswers({ fields }, { a: "นก", b: "a@b.co", c: "081-234-5678", d: "อื่นๆ: ใกล้บ้าน", e: true })).toEqual({})
+  })
+  it("summaries: choice counts (other grouped), score average + spread, texts", () => {
+    const multi = { id: "m", type: "multi" as const, label: "", required: false, options: ["ก", "ข"], allowOther: true }
+    const sc = { id: "s", type: "scale5" as const, label: "", required: false }
+    const rs = [{ answers: { m: ["ก", "อื่นๆ: x"], s: 5 } }, { answers: { m: ["ก", "ข"], s: 3 } }, { answers: { m: [], s: null } }]
+    expect(FB.summarizeField(multi, rs)).toEqual({ kind: "choice", answered: 2, rows: [{ label: "ก", count: 2 }, { label: "ข", count: 1 }, { label: "อื่นๆ", count: 1 }] })
+    expect(FB.summarizeField(sc, rs)).toEqual({ kind: "score", answered: 2, avg: 4, dist: [0, 0, 1, 0, 1] })
+    // "ไม่ใช่" is an answer (false), not a blank
+    const yn = { id: "y", type: "yesno" as const, label: "", required: true }
+    expect(FB.summarizeField(yn, [{ answers: { y: true } }, { answers: { y: false } }])).toMatchObject({ answered: 2, rows: [{ label: "ใช่", count: 1 }, { label: "ไม่ใช่", count: 1 }] })
+    expect(FB.validateAnswers({ fields: [yn] }, { y: false })).toEqual({})
+  })
+})

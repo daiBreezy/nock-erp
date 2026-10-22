@@ -1,7 +1,8 @@
 import { promises as fs } from "fs"
 import path from "path"
-import type { EnrollSubmission, EnrollToken, ExitAnswers, ExitResponse, ExitToken, SurveyAnswers, SurveyResponse, SurveyToken } from "@/domain/types"
+import type { CustomFormResponse, CustomFormToken, EnrollSubmission, EnrollToken, ExitAnswers, ExitResponse, ExitToken, SurveyAnswers, SurveyResponse, SurveyToken } from "@/domain/types"
 import { DATA_DIR } from "./data-dir"
+import { validateAnswers } from "@/domain/rules/form-builder"
 
 // File-based store for parent forms that are not Test/Trial (owner 2026-10-05: exit form; the yearly survey next) —
 // same reason as form-store.ts: the parent's page runs outside the ERP's localStorage, staff must see the answers.
@@ -209,4 +210,68 @@ export function submitSurvey(token: string, answers: SurveyAnswers, teachers: Re
 
 export async function listSurveyResponses() {
   return (await readSurvey()).responses
+}
+
+// ---------- custom forms made in the form builder (owner 2026-10-22) ----------
+
+interface CustomStore { tokens: CustomFormToken[]; responses: CustomFormResponse[] }
+const CUSTOM_FILE = path.join(DATA_DIR, "custom-forms.json")
+let customQueue: Promise<unknown> = Promise.resolve()
+
+async function readCustom(): Promise<CustomStore> {
+  try {
+    const parsed = JSON.parse(await fs.readFile(CUSTOM_FILE, "utf8")) as CustomStore
+    return { tokens: parsed.tokens ?? [], responses: parsed.responses ?? [] }
+  } catch {
+    return { tokens: [], responses: [] }
+  }
+}
+
+function mutateCustom<T>(fn: (s: CustomStore) => T): Promise<T> {
+  const result = customQueue.then(async () => {
+    const s = await readCustom()
+    const v = fn(s)
+    await fs.mkdir(DATA_DIR, { recursive: true })
+    await fs.writeFile(CUSTOM_FILE, JSON.stringify(s, null, 2), "utf8")
+    return v
+  })
+  customQueue = result.catch(() => undefined)
+  return result
+}
+
+/** "pc_" = a custom-form link; it carries a copy of the form, so later edits don't change a link already sent */
+export function createCustomToken(input: Omit<CustomFormToken, "token" | "kind" | "createdAt" | "expiresAt" | "used">): Promise<CustomFormToken> {
+  return mutateCustom((s) => {
+    const now = new Date()
+    const t: CustomFormToken = { ...input, token: `pc_${now.getTime().toString(36)}${Math.random().toString(36).slice(2, 8)}`, kind: "custom", createdAt: now.toISOString(), expiresAt: new Date(now.getTime() + 30 * 86_400_000).toISOString(), used: false }
+    s.tokens.push(t)
+    return t
+  })
+}
+
+export async function checkCustomToken(token: string): Promise<{ ok: true; token: CustomFormToken } | { ok: false; error: string }> {
+  const s = await readCustom()
+  const t = s.tokens.find((x) => x.token === token)
+  if (!t) return { ok: false, error: "invalid" }
+  if (t.used) return { ok: false, error: "used" }
+  if (new Date(t.expiresAt) < new Date()) return { ok: false, error: "expired" }
+  return { ok: true, token: t }
+}
+
+export function submitCustom(token: string, answers: CustomFormResponse["answers"]): Promise<{ ok: true; response: CustomFormResponse; token: CustomFormToken } | { ok: false; error: string; fields?: Record<string, string> }> {
+  return mutateCustom((s) => {
+    const t = s.tokens.find((x) => x.token === token)
+    if (!t) return { ok: false as const, error: "invalid" }
+    if (t.used) return { ok: false as const, error: "used" }
+    const errs = validateAnswers(t.form, answers)
+    if (Object.keys(errs).length) return { ok: false as const, error: "incomplete", fields: errs }
+    t.used = true
+    const response: CustomFormResponse = { id: `fr_${Date.now().toString(36)}`, formId: t.formId, token, familyId: t.familyId, branchId: t.branchId, answers, submittedAt: new Date().toISOString() }
+    s.responses.push(response)
+    return { ok: true as const, response, token: t }
+  })
+}
+
+export async function listCustomResponses() {
+  return (await readCustom()).responses
 }

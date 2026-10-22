@@ -8,6 +8,8 @@ import { reasonLabel } from "@/domain/rules/loss"
 import { generateSessions, isHoliday, sessionFromClass } from "@/domain/rules/scheduling"
 import { entitlementRounds } from "@/domain/rules/summaries"
 import { packageCovers } from "@/domain/rules/attendance"
+import { SYSTEM_FORMS } from "@/domain/rules/form-builder"
+import type { CustomFormResponse, FormDef } from "@/domain/types"
 import type {
   CalendarNote,
   Assessment, AppNotification, Attendance, DevTicket, NockQuestion, Branch, BusAddOn, DayBlocks, ChatMessage, CourseSummary, CreditNote, LessonBook, LessonTopic, Conversation, Course, Entitlement, Family, Holiday, Invoice, Klass, Lead, LessonSummary,
@@ -49,6 +51,9 @@ export interface DB {
   /** yearly parent survey (owner 2026-10-05): each send-out + the answers pulled from the form server */
   surveyCampaigns: SurveyCampaign[]
   surveyResponses: SurveyResponse[]
+  /** form builder (owner 2026-10-22): the ERP's own forms (tuned) + the company's own forms, and answers to those */
+  formDefs: FormDef[]
+  formResponses: CustomFormResponse[]
 }
 
 let seq = 0
@@ -656,6 +661,7 @@ export function buildSeed(now = new Date()): DB {
   }
 
   const { surveyCampaigns, surveyResponses } = buildSurveys({ today, branches, families, students, entitlements, classes, staff })
+  const { formDefs, formResponses } = buildForms({ today, families, students })
   assignSchools(students, branches)
 
   // owner 2026-10-12: names without titles (ด.ช. / คุณแม่ …), parent relationship as its own field, phones as plain digits
@@ -780,7 +786,7 @@ export function buildSeed(now = new Date()): DB {
   // owner 2026-10-21: the history leads' Test / Trial appointments — Reports split the funnel by the way leads went
   buildLeadAppointments({ today, leads, assessments })
 
-  return { branches, staff, holidays, courses, classes, sessions, attendance, summaries, courseSummaries, nockQuestions, devTickets, families, students, entitlements, leaves, invoices, busAddOns, creditNotes: [] as CreditNote[], lessonBooks, lessonTopics, leads, conversations, messages, notifications: [], system, notes, calendarNotes, busTrips: [] as BusTrip[], logs, assessments, surveyCampaigns, surveyResponses }
+  return { branches, staff, holidays, courses, classes, sessions, attendance, summaries, courseSummaries, nockQuestions, devTickets, families, students, entitlements, leaves, invoices, busAddOns, creditNotes: [] as CreditNote[], lessonBooks, lessonTopics, leads, conversations, messages, notifications: [], system, notes, calendarNotes, busTrips: [] as BusTrip[], logs, assessments, surveyCampaigns, surveyResponses, formDefs, formResponses }
 }
 
 /**
@@ -1116,6 +1122,49 @@ function assignSchools(students: Student[], branches: Branch[]) {
     st.schoolId = id
     st.school = name
   }
+}
+
+/** form builder demo (owner 2026-10-22): the system forms as they ship + two forms the company made, with answers */
+function buildForms(db: { today: string; families: Family[]; students: Student[] }) {
+  let seed = 777
+  const rnd = () => { seed = (seed * 1103515245 + 12345) % 2147483648; return seed / 2147483648 }
+  const pick = <T,>(xs: T[]) => xs[Math.floor(rnd() * xs.length)]
+  const at = (daysAgo: number) => `${addDays(db.today, -daysAgo)}T10:00:00.000Z`
+  const formDefs: FormDef[] = [
+    ...SYSTEM_FORMS.map((f) => ({ ...f, updatedAt: at(30) })),
+    { id: "fm_openhouse", kind: "custom", name: "แบบสอบถามหลังกิจกรรม Open House", description: "ขอบคุณที่มาร่วมงาน ช่วยตอบสั้นๆ 1 นาทีค่ะ", active: true, updatedAt: at(12), updatedBy: "u_nock",
+      fields: [
+        { id: "oh_like", type: "scale5", label: "พอใจกับกิจกรรมแค่ไหน", required: true },
+        { id: "oh_best", type: "multi", label: "ชอบกิจกรรมไหนบ้าง", required: true, options: ["ทดลองเรียนคณิต", "เกมภาษาอังกฤษ", "วิทย์ทดลอง", "พบครูประจำวิชา"], allowOther: true },
+        { id: "oh_next", type: "single", label: "สนใจคอร์สไหนต่อ", required: false, options: ["คณิต", "อังกฤษ", "วิทย์", "ยังไม่แน่ใจ"] },
+        { id: "oh_photo", type: "yesno", label: "ยินดีให้ใช้รูปกิจกรรมของน้องลงเพจ", required: true },
+        { id: "oh_msg", type: "textarea", label: "ข้อเสนอแนะ", required: false },
+      ] },
+    { id: "fm_camp", kind: "custom", name: "ลงทะเบียนค่ายภาษาอังกฤษปิดเทอม", description: "ค่าย 5 วัน · เลือกรอบที่สะดวก", active: true, updatedAt: at(5), updatedBy: "u_ploy",
+      fields: [
+        { id: "cp_sec", type: "section", label: "ข้อมูลน้อง", required: false },
+        { id: "cp_kid", type: "text", label: "ชื่อเล่นน้อง", required: true },
+        { id: "cp_age", type: "number", label: "อายุ (ปี)", required: true },
+        { id: "cp_round", type: "dropdown", label: "รอบที่สะดวก", required: true, options: ["รอบ 1 · 1–5 เม.ย.", "รอบ 2 · 8–12 เม.ย.", "รอบ 3 · 22–26 เม.ย."] },
+        { id: "cp_allergy", type: "textarea", label: "แพ้อาหาร / โรคประจำตัว", required: false },
+        { id: "cp_slip", type: "image", label: "แนบสลิปมัดจำ", required: false, help: "มัดจำ 1,000 บาท" },
+        { id: "cp_ok", type: "consent", label: "ยอมรับเงื่อนไขการเข้าค่ายและการยกเลิก", required: true },
+      ] },
+  ]
+  const fams = db.families.filter((f) => db.students.some((s) => s.familyId === f.id))
+  const formResponses: CustomFormResponse[] = []
+  fams.slice(0, 26).forEach((f, i) => {
+    const branchId = db.students.find((s) => s.familyId === f.id)!.branchId
+    formResponses.push({ id: `fr_oh_${f.id}`, formId: "fm_openhouse", token: `pc_seed_oh_${f.id}`, familyId: f.id, branchId, submittedAt: at(11 - (i % 9)), answers: {
+      oh_like: Math.min(5, 3 + Math.floor(rnd() * 3)), oh_best: [...new Set([pick(["ทดลองเรียนคณิต", "เกมภาษาอังกฤษ", "วิทย์ทดลอง"]), pick(["พบครูประจำวิชา", "เกมภาษาอังกฤษ", "อื่นๆ: มุมถ่ายรูป"])])],
+      oh_next: pick(["คณิต", "อังกฤษ", "วิทย์", "ยังไม่แน่ใจ"]), oh_photo: rnd() < 0.8, oh_msg: rnd() < 0.4 ? pick(["สนุกมากค่ะ", "อยากให้จัดวันเสาร์อีก", "ที่จอดรถน้อยไปนิด"]) : "" } })
+  })
+  fams.slice(30, 41).forEach((f, i) => {
+    const kid = db.students.find((s) => s.familyId === f.id)!
+    formResponses.push({ id: `fr_cp_${f.id}`, formId: "fm_camp", token: `pc_seed_cp_${f.id}`, familyId: f.id, branchId: kid.branchId, submittedAt: at(4 - (i % 4)), answers: {
+      cp_kid: kid.nickname, cp_age: 7 + Math.floor(rnd() * 6), cp_round: pick(["รอบ 1 · 1–5 เม.ย.", "รอบ 2 · 8–12 เม.ย.", "รอบ 3 · 22–26 เม.ย."]), cp_allergy: rnd() < 0.25 ? "แพ้กุ้ง" : "", cp_slip: rnd() < 0.7 ? "slip.jpg" : null, cp_ok: true } })
+  })
+  return { formDefs, formResponses }
 }
 
 function buildSurveys(db: { today: string; branches: Branch[]; families: Family[]; students: Student[]; entitlements: Entitlement[]; classes: Klass[]; staff: Staff[] }) {

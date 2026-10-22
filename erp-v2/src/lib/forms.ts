@@ -7,7 +7,7 @@
 import { FORM_TYPE_LABEL } from "@/domain/rules/forms"
 import { addDays } from "@/domain/dates"
 import { notAnswered, surveyRecipients, surveyWindow } from "@/domain/rules/survey"
-import type { Brand, EnrollSubmission, EnrollToken, ExitResponse, ExitToken, SurveyCampaign, SurveyToken, FormLang, FormOfferSlot, FormPrefill, FormSubjectOffer, FormSubmission, FormToken, FormType, ID, Result, EnrollClassOffer, EnrollPlan } from "@/domain/types"
+import type { CustomFormToken, FormDef, Brand, EnrollSubmission, EnrollToken, ExitResponse, ExitToken, SurveyCampaign, SurveyToken, FormLang, FormOfferSlot, FormPrefill, FormSubjectOffer, FormSubmission, FormToken, FormType, ID, Result, EnrollClassOffer, EnrollPlan } from "@/domain/types"
 import { useStore } from "@/store/store"
 
 async function postJson<T>(url: string, body: unknown): Promise<T> {
@@ -291,4 +291,26 @@ export async function broadcastSurvey(): Promise<Result<{ sent: number; lineSent
     if (conv) useStore.getState().sendChatMessage(conv.id, surveyText(surveyUrl(rec.token)))
   }
   return { ok: true, value: { sent: r.value.sent, lineSent: r.value.lineSent } }
+}
+
+/** form builder (owner 2026-10-22): send a company-made form to a family — through LINE when the family has a LINE chat,
+ *  otherwise just the link (copy and send it yourself) */
+export async function sendCustomForm(form: FormDef, family: { id: ID; branchId: ID; conversationId?: ID | null }): Promise<Result<{ url: string; sent: boolean }>> {
+  const res = await postJson<{ ok: boolean; token?: CustomFormToken; error?: string }>("/api/parent-forms/custom-token", {
+    formId: form.id, form: { id: form.id, name: form.name, description: form.description, fields: form.fields.filter((x) => !x.hidden) },
+    familyId: family.id, branchId: family.branchId, conversationId: family.conversationId ?? undefined,
+  })
+  if (!res.ok || !res.token) return { ok: false, error: res.error ?? "สร้างลิงก์ไม่สำเร็จ" }
+  const liffId = process.env.NEXT_PUBLIC_LIFF_ID
+  const isLine = !!family.conversationId?.startsWith("line_")
+  const url = isLine && liffId ? `https://liff.line.me/${liffId}?token=${res.token.token}` : `${window.location.origin}/liff/custom?token=${res.token.token}`
+  if (!isLine) return { ok: true, value: { url, sent: false } }
+  const sent = await postJson<{ ok: boolean; error?: string }>("/api/line/send", { conversationId: family.conversationId, text: `รบกวนผู้ปกครองช่วยตอบแบบฟอร์ม “${form.name}” ค่ะ 🙏\n${url}` })
+  if (!sent.ok) return { ok: false, error: sent.error ?? "ส่งทาง LINE ไม่สำเร็จ — คัดลอกลิงก์ส่งเองได้" }
+  return { ok: true, value: { url, sent: true } }
+}
+
+export async function pullCustomFormResponses() {
+  const r = await fetch("/api/parent-forms/custom-responses").then((x) => x.json()).catch(() => null)
+  if (r?.responses) useStore.getState().syncFormResponses(r.responses)
 }

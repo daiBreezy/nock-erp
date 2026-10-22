@@ -33,6 +33,8 @@ import * as Cfg from "@/domain/rules/settings"
 import * as Msg from "@/domain/rules/messages"
 import * as Loss from "@/domain/rules/loss"
 import * as Survey from "@/domain/rules/survey"
+import * as FB from "@/domain/rules/form-builder"
+import type { CustomFormResponse, FormDef } from "@/domain/types"
 import * as Nock from "@/domain/rules/nock"
 import * as Dev from "@/domain/rules/dev-tickets"
 import { toast } from "@/lib/toast"
@@ -285,6 +287,13 @@ type Store = DB & UIState & {
   syncSurveyResponses: (list: SurveyResponse[]) => Result<{ added: number }>
   /** a manager called an unhappy family */
   surveyFollowUp: (responseId: ID, note: string) => Result
+  /** form builder (owner 2026-10-22): save a form (a system form keeps its core fields) */
+  saveForm: (f: FormDef) => Result<FormDef>
+  /** a custom form can be deleted (its answers stay readable in the family's history) */
+  deleteForm: (id: ID) => Result
+  duplicateForm: (id: ID) => Result<FormDef>
+  /** custom-form answers pulled from the form server (only new ones are added) */
+  syncFormResponses: (list: CustomFormResponse[]) => Result<{ added: number }>
   saveSurveyWindow: (w: { from: string; to: string }) => Result
   /** enroll-now (owner 2026-10-05): the branch's Rich Menu link */
   setEnrollLink: (branchId: ID, link: Branch["enrollLink"]) => Result
@@ -2724,6 +2733,61 @@ export const useStore = create<Store>()(
         return { ok: true, value: { added: fresh.length } }
       },
 
+      saveForm: (f) => {
+        const s = get()
+        const perm = requirePerm(s.me(), "settings.manage")
+        if (!perm.ok) return perm
+        const errs = FB.validateForm(f)
+        if (errs.length) return fail(errs[0].message)
+        const prev = s.formDefs.find((x) => x.id === f.id)
+        if (prev?.kind === "system") {
+          // a system form's core fields are the ERP's own — they stay, unchanged
+          const coreIds = prev.fields.filter((x) => x.lock === "core").map((x) => x.id)
+          if (coreIds.some((id) => !f.fields.some((x) => x.id === id && !x.hidden))) return fail("ช่องหลักของระบบลบหรือซ่อนไม่ได้")
+        }
+        const saved: FormDef = { ...f, name: f.name.trim(), updatedAt: s.now().toISOString(), updatedBy: s.userId }
+        set({ formDefs: prev ? s.formDefs.map((x) => (x.id === f.id ? saved : x)) : [...s.formDefs, saved] })
+        return { ok: true, value: saved }
+      },
+
+      deleteForm: (id) => {
+        const s = get()
+        const perm = requirePerm(s.me(), "settings.manage")
+        if (!perm.ok) return perm
+        const f = s.formDefs.find((x) => x.id === id)
+        if (!f) return fail("ไม่พบฟอร์ม")
+        if (f.kind === "system") return fail("ฟอร์มของระบบลบไม่ได้ — ซ่อนช่องเสริมได้แทน")
+        set({ formDefs: s.formDefs.filter((x) => x.id !== id) })
+        return OK
+      },
+
+      duplicateForm: (id) => {
+        const s = get()
+        const perm = requirePerm(s.me(), "settings.manage")
+        if (!perm.ok) return perm
+        const f = s.formDefs.find((x) => x.id === id)
+        if (!f) return fail("ไม่พบฟอร์ม")
+        // a copy is always the company's own form: system locks dropped, hidden fields left out
+        const copy: FormDef = { ...f, id: uid("fm"), kind: "custom", systemKey: undefined, name: `${f.name} (สำเนา)`, active: true, updatedAt: s.now().toISOString(), updatedBy: s.userId,
+          fields: f.fields.filter((x) => !x.hidden).map((x) => ({ ...x, lock: undefined, hidden: undefined, id: FB.fieldId(), options: x.options?.length ? x.options : FB.hasOptions(x.type) ? ["ตัวเลือก 1", "ตัวเลือก 2"] : undefined })) }
+        set({ formDefs: [...s.formDefs, copy] })
+        return { ok: true, value: copy }
+      },
+
+      syncFormResponses: (list) => {
+        const s = get()
+        const known = new Set(s.formResponses.map((r) => r.id))
+        const fresh = list.filter((r) => !known.has(r.id))
+        if (fresh.length) {
+          const now = s.now()
+          set({
+            formResponses: [...s.formResponses, ...fresh],
+            notifications: [...fresh.map((r) => Notif.notify({ id: uid("no"), at: now, kind: "form_submitted", title: `ตอบฟอร์ม: ${s.formDefs.find((f) => f.id === r.formId)?.name ?? "ฟอร์ม"}`, body: s.families.find((f) => f.id === r.familyId)?.name ?? "ครอบครัว", fromId: undefined, audience: { roles: ["admin", "manager", "area_manager", "director"], branchId: r.branchId } })), ...s.notifications],
+          })
+        }
+        return { ok: true, value: { added: fresh.length } }
+      },
+
       surveyFollowUp: (responseId, note) => {
         const s = get()
         const perm = requirePerm(s.me(), "reports.view")
@@ -3124,7 +3188,7 @@ export const useStore = create<Store>()(
       // The parent app in LINE never writes staff data at all.
       storage: createJSONStorage(() => safeStorage),
       // bump when the data model changes; older saved data is replaced by fresh sample data
-      version: 112, // 112: every survey child has a teacher (demo teacher scores) · 111: some survey answers pick "อื่นๆ" (with text) · 110: parent survey answers in the shape of the school's real form · 109: Test / Trial appointment records for the history leads (funnel by way) · 106–108: (105 again — more second courses, repeated course breaks, their check-ins summarised) · 105: second courses (kept / dropped / bought again) + course check-ins with a long break — Reports' course trend · 104: (103 again — finished) · 103: sample leads spread over each branch's admins / managers / teachers (Members Conversion rate) · 102: fresh browsers start with the transport demo too (were missing vans / drivers / riders) · 101: Thonglor bus homes in two bunches + 1 family without a home pin (location analysis) · 100: (99 again — Both run named รับ-ส่ง) · 99: Thonglor — 2 vans + 2 zones + Saturday Both trip (owner) · 98: (97 again — both Saturday vans run Both) · 97: Bus Route rebuild — drivers as staff (one outsource), Saturday Both run at Sriracha · 96: (95 again — finished demo) · 95: Sriracha — 2 vans, zones North / South · 94: transport demo — each rider on their own paid bus invoice · 93: Transport — a van, a dozen children riding at Thonglor, busTrips · 92: demo child rides the bus on Math days only (English days open to ask for a ride) · 91: demo child with classes for LINE-linked families (parent app) · 90: Liclass bus — branch pin, fee distance bands, bus runs · 89: Note Calendar (ถาวร / ชั่วคราว) replaces the free-text session notes · 88: demo exit notices all "sent" · 87: 3 open exit notices · 86: course history capped at 8 sessions (storage size) · 85: course-history check per course · 84: + running rounds · 83: finished courses with a Course Summary get their session history · 82: per-subject levels in Bundle sessions · 80–81: Bundle demo students sit in the combo class for 3 months (charts) · 79: 1–5 understanding on session summaries + Bundle notes per subject · 78: Dev statuses กำลังทำ / เสร็จแล้ว / ไม่ทำ / เก็บไว้ก่อน · 77: images on Nock + Dev tickets · 76: คำถามถึง Dev examples · 75: Developer role + เรื่องถึง Dev · 74: Nock answers per person + thumbs per answer · 73: Nock locations + knowledge = answered questions + votes · 72: Nock question bank + knowledge · 71: Summer Memo + Summer course + paid Summer invoice · 68–70: session summaries in every stage this week + sample Course Summaries (Single + Bundle) · 65–67: names without titles, parent relationship, phones without dashes, subject colours · 61: real branches (owner 2026-10-07) · 62: CB = ตึกน้ำ · 63: sample schools · 64: schools from the Ministry list
+      version: 114, // 114: (113 again — system forms show their real choices) · 113: form builder — system forms + 2 company forms with answers · 112: every survey child has a teacher (demo teacher scores) · 111: some survey answers pick "อื่นๆ" (with text) · 110: parent survey answers in the shape of the school's real form · 109: Test / Trial appointment records for the history leads (funnel by way) · 106–108: (105 again — more second courses, repeated course breaks, their check-ins summarised) · 105: second courses (kept / dropped / bought again) + course check-ins with a long break — Reports' course trend · 104: (103 again — finished) · 103: sample leads spread over each branch's admins / managers / teachers (Members Conversion rate) · 102: fresh browsers start with the transport demo too (were missing vans / drivers / riders) · 101: Thonglor bus homes in two bunches + 1 family without a home pin (location analysis) · 100: (99 again — Both run named รับ-ส่ง) · 99: Thonglor — 2 vans + 2 zones + Saturday Both trip (owner) · 98: (97 again — both Saturday vans run Both) · 97: Bus Route rebuild — drivers as staff (one outsource), Saturday Both run at Sriracha · 96: (95 again — finished demo) · 95: Sriracha — 2 vans, zones North / South · 94: transport demo — each rider on their own paid bus invoice · 93: Transport — a van, a dozen children riding at Thonglor, busTrips · 92: demo child rides the bus on Math days only (English days open to ask for a ride) · 91: demo child with classes for LINE-linked families (parent app) · 90: Liclass bus — branch pin, fee distance bands, bus runs · 89: Note Calendar (ถาวร / ชั่วคราว) replaces the free-text session notes · 88: demo exit notices all "sent" · 87: 3 open exit notices · 86: course history capped at 8 sessions (storage size) · 85: course-history check per course · 84: + running rounds · 83: finished courses with a Course Summary get their session history · 82: per-subject levels in Bundle sessions · 80–81: Bundle demo students sit in the combo class for 3 months (charts) · 79: 1–5 understanding on session summaries + Bundle notes per subject · 78: Dev statuses กำลังทำ / เสร็จแล้ว / ไม่ทำ / เก็บไว้ก่อน · 77: images on Nock + Dev tickets · 76: คำถามถึง Dev examples · 75: Developer role + เรื่องถึง Dev · 74: Nock answers per person + thumbs per answer · 73: Nock locations + knowledge = answered questions + votes · 72: Nock question bank + knowledge · 71: Summer Memo + Summer course + paid Summer invoice · 68–70: session summaries in every stage this week + sample Course Summaries (Single + Bundle) · 65–67: names without titles, parent relationship, phones without dashes, subject colours · 61: real branches (owner 2026-10-07) · 62: CB = ตึกน้ำ · 63: sample schools · 64: schools from the Ministry list
       migrate: (old) => ({ ...withTransportDemo(withLinkedFamilyDemo(keepLineLinks(old as Partial<Store> | undefined, buildSeed()))), userId: "u_nock", branchId: "br_thl", clockOffset: 0 }) as unknown as Store,
       // persist data + UI state only, never the action functions
       partialize: (s) => Object.fromEntries(Object.entries(s).filter(([, v]) => typeof v !== "function")) as Partial<Store>,

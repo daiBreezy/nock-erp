@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { BellIcon, BookOpenIcon, CalendarDaysIcon, SparklesIcon, CheckIcon, PencilIcon, PlusIcon, ReceiptTextIcon, SlidersHorizontalIcon, UsersIcon, XIcon } from "lucide-react"
+import { BellIcon, BookOpenIcon, CalendarDaysIcon, ClipboardListIcon, SparklesIcon, CheckIcon, PencilIcon, PlusIcon, ReceiptTextIcon, SlidersHorizontalIcon, UsersIcon, XIcon } from "lucide-react"
 import { NativeSelect } from "@/components/app/native-select"
 import { Field } from "@/components/app/student-form"
 import { Button } from "@/components/ui/button"
@@ -21,6 +21,7 @@ import { cn } from "@/lib/utils"
 import { report } from "@/lib/feedback"
 import { useStore } from "@/store/store"
 import { SaveRow, SettingsCard } from "./common"
+import { FormsList } from "@/components/forms/form-builder"
 import { HolidayPlanner } from "./holiday-planner"
 import { AiSettings } from "./ai-settings"
 import { SubjectColorPicker } from "./subject-color-picker"
@@ -38,6 +39,8 @@ const SYSTEM_TABS: { id: string; label: string; icon: typeof SlidersHorizontalIc
   { id: "holidays", label: "วันหยุด", icon: CalendarDaysIcon, body: () => <GlobalHolidays /> },
   { id: "billing", label: "การเงิน", icon: ReceiptTextIcon, body: () => <InvoiceMemos /> },
   { id: "customers", label: "ลูกค้าและ CRM", icon: UsersIcon, body: () => <><LossReasons /><YearlySurvey /></> },
+  // owner 2026-10-22: the form builder — the company makes its own forms and tunes the ERP's
+  { id: "forms", label: "ฟอร์ม", icon: ClipboardListIcon, body: () => <FormsList /> },
   { id: "notifications", label: "การแจ้งเตือน", icon: BellIcon, body: () => <NotificationPrefs /> },
   // owner 2026-10-14: the AI model Nock uses — set here like LINE Integration
   { id: "ai", label: "AI (Nock)", icon: SparklesIcon, body: () => <><AiHelperToggle /><AiSettings /></> },
