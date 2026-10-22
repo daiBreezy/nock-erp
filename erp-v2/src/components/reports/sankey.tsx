@@ -29,14 +29,12 @@ export const BAND_OPACITY = {
   dim: 0.04,
 }
 
-/** owner 2026-10-22: the light running along a hovered band (left → right), like the ref's flame button — tweak here */
+/** owner 2026-10-22: the light running along a hovered band (left → right), after the ref's flame button (no white centre) — tweak here */
 export const BAND_FLOW = {
   /** seconds for the light to cross one band */
   seconds: 2.40,
   /** length of the light, as a share of the band's length */
   length: 2.40,
-  /** the hot centre of the light */
-  core: "#fffbeb",
   /** how soft the glow is (blur) — owner 2026-10-22: softer, no hard edge */
   blur: 40,
   /** how strong the light is (0 = invisible, 1 = full) */
@@ -130,9 +128,9 @@ export function Sankey({ columns, flows, total, heads, size = { w: 1000, h: 380 
               return (
                 <linearGradient key={l.i} id={`${uid}-f${l.i}`} gradientUnits="userSpaceOnUse" x1={x0 - w} x2={x0} y1={0} y2={0}>
                   <stop offset="0%" stopColor={from} stopOpacity={0} />
-                  <stop offset="35%" stopColor={from} stopOpacity={0.85} />
-                  <stop offset="50%" stopColor={BAND_FLOW.core} stopOpacity={1} />
-                  <stop offset="65%" stopColor={to} stopOpacity={0.85} />
+                  {/* owner 2026-10-22: no white centre — the band's own colours, strongest in the middle */}
+                  <stop offset="45%" stopColor={from} stopOpacity={1} />
+                  <stop offset="55%" stopColor={to} stopOpacity={1} />
                   <stop offset="100%" stopColor={to} stopOpacity={0} />
                   <animate attributeName="x1" from={x0 - w} to={x1} dur={`${BAND_FLOW.seconds}s`} repeatCount="indefinite" />
                   <animate attributeName="x2" from={x0} to={x1 + w} dur={`${BAND_FLOW.seconds}s`} repeatCount="indefinite" />
