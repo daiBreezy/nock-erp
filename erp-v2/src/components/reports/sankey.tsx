@@ -34,7 +34,7 @@ export const BAND_FLOW = {
   /** seconds for the light to cross one band */
   seconds: 2.40,
   /** length of the light, as a share of the band's length */
-  length: 2.40,
+  length:  3.40,
   /** how soft the glow is (blur) — owner 2026-10-22: softer, no hard edge */
   blur: 40,
   /** how strong the light is (0 = invisible, 1 = full) */
@@ -124,14 +124,13 @@ export function Sankey({ columns, flows, total, heads, size = { w: 1000, h: 380 
             </filter>
             {flowing.map((l) => {
               const x0 = xOf(l.f.col) + NW, x1 = xOf(l.f.col + 1), w = (x1 - x0) * BAND_FLOW.length
-              const from = box.get(`${l.f.col}|${l.f.from}`)!.node.color, to = box.get(`${l.f.col + 1}|${l.f.to}`)!.node.color
+              // the light is a moving window (white = see-through) over the band's own left → right colours: near the left it
+              // shows the left box's colour and turns into the right box's colour as it runs (owner 2026-10-22)
               return (
                 <linearGradient key={l.i} id={`${uid}-f${l.i}`} gradientUnits="userSpaceOnUse" x1={x0 - w} x2={x0} y1={0} y2={0}>
-                  <stop offset="0%" stopColor={from} stopOpacity={0} />
-                  {/* owner 2026-10-22: no white centre — the band's own colours, strongest in the middle */}
-                  <stop offset="45%" stopColor={from} stopOpacity={1} />
-                  <stop offset="55%" stopColor={to} stopOpacity={1} />
-                  <stop offset="100%" stopColor={to} stopOpacity={0} />
+                  <stop offset="0%" stopColor="#fff" stopOpacity={0} />
+                  <stop offset="50%" stopColor="#fff" stopOpacity={1} />
+                  <stop offset="100%" stopColor="#fff" stopOpacity={0} />
                   <animate attributeName="x1" from={x0 - w} to={x1} dur={`${BAND_FLOW.seconds}s`} repeatCount="indefinite" />
                   <animate attributeName="x2" from={x0} to={x1 + w} dur={`${BAND_FLOW.seconds}s`} repeatCount="indefinite" />
                 </linearGradient>
@@ -149,14 +148,14 @@ export function Sankey({ columns, flows, total, heads, size = { w: 1000, h: 380 
             return <path key={l.i} d={`M${x0},${l.y0} C${mx},${l.y0} ${mx},${l.y1} ${x1},${l.y1}`} fill="none" stroke={`url(#${uid}-g${l.i})`} strokeWidth={Math.max(1, l.h)}
               strokeOpacity={on(l) ? (hover ? BAND_OPACITY.focus : BAND_OPACITY.rest) : BAND_OPACITY.dim} onMouseEnter={() => setHover({ link: l.i })} className="transition-[stroke-opacity]" />
           })}
-          {/* owner 2026-10-22: the soft light stays inside its band — masked by the band's own shape */}
+          {/* owner 2026-10-22: the soft light stays inside its band — the mask is the band's shape seen through the moving window */}
           {flowing.map((l) => {
             const x0 = xOf(l.f.col) + NW, x1 = xOf(l.f.col + 1), mx = (x0 + x1) / 2
             const d = `M${x0},${l.y0} C${mx},${l.y0} ${mx},${l.y1} ${x1},${l.y1}`, w = Math.max(1.5, l.h)
             return (
               <g key={`f${l.i}`} className="pointer-events-none">
-                <mask id={`${uid}-m${l.i}`} maskUnits="userSpaceOnUse" x={0} y={0} width={W} height={H}><path d={d} fill="none" stroke="#fff" strokeWidth={w} /></mask>
-                <g mask={`url(#${uid}-m${l.i})`}><path d={d} fill="none" stroke={`url(#${uid}-f${l.i})`} strokeWidth={w} filter={`url(#${uid}-glow)`} opacity={BAND_FLOW.opacity} /></g>
+                <mask id={`${uid}-m${l.i}`} maskUnits="userSpaceOnUse" x={0} y={0} width={W} height={H}><path d={d} fill="none" stroke={`url(#${uid}-f${l.i})`} strokeWidth={w} /></mask>
+                <g mask={`url(#${uid}-m${l.i})`}><path d={d} fill="none" stroke={`url(#${uid}-g${l.i})`} strokeWidth={w} filter={`url(#${uid}-glow)`} opacity={BAND_FLOW.opacity} /></g>
               </g>
             )
           })}
