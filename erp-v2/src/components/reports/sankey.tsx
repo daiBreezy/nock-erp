@@ -22,9 +22,9 @@ const BOTTOM = 6, NW = 10, GAP = 12, PAD = 4
 /** how see-through the bands are (0 = invisible, 1 = solid) — tweak here */
 export const BAND_OPACITY = {
   /** every band, nothing hovered */
-  rest: 0.12,
+  rest: 0.16,
   /** the band(s) being hovered */
-  focus: 0.28,
+  focus: 0.24,
   /** the other bands while something is hovered */
   dim: 0.04,
 }
@@ -32,13 +32,13 @@ export const BAND_OPACITY = {
 /** owner 2026-10-22: the light running along a hovered band (left → right), like the ref's flame button — tweak here */
 export const BAND_FLOW = {
   /** seconds for the light to cross one band */
-  seconds: 1.6,
+  seconds: 2.40,
   /** length of the light, as a share of the band's length */
-  length: 0.45,
+  length: 2.40,
   /** the hot centre of the light */
   core: "#fffbeb",
   /** how soft the glow is (blur) — owner 2026-10-22: softer, no hard edge */
-  blur: 7,
+  blur: 40,
   /** how strong the light is (0 = invisible, 1 = full) */
   opacity: 1,
 }
@@ -119,8 +119,9 @@ export function Sankey({ columns, flows, total, heads, size = { w: 1000, h: 380 
                 <stop offset="50%" stopColor={b.node.split![0]} /><stop offset="50%" stopColor={b.node.split![1]} />
               </linearGradient>
             ))}
-            {/* only the blurred light (no sharp copy on top) — soft all round */}
-            <filter id={`${uid}-glow`} x="-10%" y="-100%" width="120%" height="300%">
+            {/* only the blurred light (no sharp copy on top) — soft all round. The blur area is the whole drawing: sized from the
+                band's centre line it was a thin strip on thick flat bands (the stroke isn't in that box) — owner 2026-10-22 */}
+            <filter id={`${uid}-glow`} filterUnits="userSpaceOnUse" x={0} y={0} width={W} height={H}>
               <feGaussianBlur stdDeviation={BAND_FLOW.blur} />
             </filter>
             {flowing.map((l) => {
