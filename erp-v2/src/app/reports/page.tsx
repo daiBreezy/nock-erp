@@ -10,7 +10,7 @@ import { InfoIcon, BanknoteIcon, CalendarDaysIcon, ChevronDownIcon, ClockIcon, D
 import { NativeSelect } from "@/components/app/native-select"
 import { StudentSheet } from "@/components/app/student-sheet"
 import { AttentionButton, AttentionDialog } from "@/components/reports/attention-dialog"
-import { Delta, Donut, DonutLegend, Empty, InfoTip, Radar, TopList, fmtNum, fmtPct, fmtShort, Heatmap, MonthBars, Panel, Rank, ShareBar, donutColor, tint } from "@/components/reports/charts"
+import { Delta, Donut, DonutLegend, Empty, InfoTip, TopList, fmtNum, fmtPct, fmtShort, Heatmap, MonthBars, Panel, Rank, ShareBar, donutColor, tint } from "@/components/reports/charts"
 import { DateRangePicker } from "@/components/app/date-range-picker"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { SummaryTab } from "@/components/reports/summary-tab"
@@ -32,7 +32,7 @@ import * as Survey from "@/domain/rules/survey"
 import { cn } from "@/lib/utils"
 import { useStore } from "@/store/store"
 import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card"
-import { HUE, tagHex } from "@/components/app/tags"
+import { HUE, tagChip, tagHex } from "@/components/app/tags"
 import { RoleChip, type ROLE_TONE } from "@/components/app/badges"
 import { subjectHex } from "@/components/app/subject-color"
 import { tx, uiLang, nm, sj } from "@/lib/i18n"
@@ -1379,6 +1379,31 @@ function NpsSplit({ responses }: { responses: SurveyResponse[] }) {
   )
 }
 
+const SAT_LEVELS = [1, 2, 3, 4, 5] as const
+
+/** each topic: one 100% bar split by how many answered 1…5 (red → emerald), the average on the right */
+function SatisfactionBars({ rows }: { rows: { key: string; label: string; score: number | null; prev: number | null; levels: number[] }[] }) {
+  return (
+    <ul className="space-y-3 text-sm">{rows.map((r) => {
+      const n = r.levels.reduce((a, x) => a + x, 0) || 1
+      return (
+        <li key={r.key} className="grid grid-cols-[minmax(0,15rem)_1fr_4.5rem] items-center gap-3">
+          <span className="truncate" title={r.label}>{r.label}</span>
+          <div className="flex h-6 overflow-hidden rounded-full bg-muted">{r.levels.map((c, i) => c ? (
+            <HoverCard key={i}>
+              <HoverCardTrigger render={<span className="grid place-items-center text-[11px] font-medium text-white/95 tabular-nums" style={{ flex: c, background: tagHex("satisfaction", `l${i + 1}` as "l1") }} />}>
+                {c / n >= 0.08 ? `${Math.round((c / n) * 100)}%` : ""}
+              </HoverCardTrigger>
+              <HoverCardContent side="top" className="w-auto text-sm">{r.label} · {i + 1} {tx(Survey.SCALE_LABEL[i + 1])} · {tx("{0} ครอบครัว", [c])} ({Math.round((c / n) * 100)}%)</HoverCardContent>
+            </HoverCard>
+          ) : null)}</div>
+          <span className="text-right tabular-nums"><span className="font-semibold">{r.score?.toFixed(1) ?? "—"}</span>{r.prev !== null && <span className="ml-1 text-[11px] text-muted-foreground">{r.prev.toFixed(1)}</span>}</span>
+        </li>
+      )
+    })}</ul>
+  )
+}
+
 /** what families typed under "อื่นๆ" — same text once with a count, scrolls past ~10 lines */
 function OtherTexts({ texts }: { texts: string[] }) {
   const rows = groupComments(texts)
@@ -1431,6 +1456,7 @@ function SatisfactionTab({ d, compare, f }: { d: ReportData; compare: boolean; f
   const rs = pick(curAll.responses), prs = pick(prevAll.responses)
   const s = Survey.summarize(rs, group ? 0 : curAll.summary.sent), p = Survey.summarize(prs, group ? 0 : prevAll.summary.sent)
   const topics = Survey.topicRanking(s)
+  const prevTopic = (k: string) => Survey.topicRanking(p).find((x) => x.key === k)?.score ?? null
   const teachers = Survey.teacherScores(rs).map((t) => ({ ...t, staff: staff.find((x) => x.id === t.teacherId) }))
   const toCall = Survey.toCall(rs, d.today)
   // waiting first (oldest answer first), then the ones already called
@@ -1451,14 +1477,11 @@ function SatisfactionTab({ d, compare, f }: { d: ReportData; compare: boolean; f
       </div>
       {/* owner 2026-10-22: the NPS card is the Overview's own card (NPS · reasons · improve), filtered here */}
       <NpsCard year={year} responses={rs} s={s} p={p} />
-      {/* owner 2026-10-22: the radar across the full width; teachers next to the courses parents asked for */}
-      {/* owner 2026-10-22: the five topics as a radar — this year filled, last year dashed */}
-      <Panel title={tx("ความพึงพอใจ 5 ด้าน (เฉลี่ย 1–5)")} hint={tx("คะแนน 5 = มากที่สุด · 1 = ไม่พอใจ · ยิ่งกว้างยิ่งดี · เส้นประ / ตัวเลขเล็ก = ปีก่อน · เลข 1–5 บนกราฟ = ข้อในรายการ")} fill>
-        {topics.length ? (
-          <Radar axes={Survey.TOPIC_KEYS.map((k) => ({ label: tx(Survey.TOPIC_SHORT[k]), full: tx(Survey.TOPIC_LABEL[k]) }))}
-            series={[{ name: tx("ปี {0}", [yearOf(year)]), values: Survey.TOPIC_KEYS.map((k) => s.scores[k]), color: NPS_HEX.promoter },
-              ...(p.responses ? [{ name: tx("ปี {0}", [yearOf(year - 1)]), values: Survey.TOPIC_KEYS.map((k) => p.scores[k]), color: "#9ca3af", dashed: true }] : [])]} />
-        ) : <Empty />}
+      {/* owner 2026-10-22: satisfaction from low to high — each topic one 100% bar split by the five answers (a radar only
+          showed the average); full width, teachers next to the courses parents asked for below */}
+      <Panel title={tx("ความพึงพอใจ 5 ด้าน")} hint={tx("แต่ละแถบ = ทุกครอบครัวที่ตอบข้อนั้น แบ่งตามระดับที่ตอบ 1–5 · ตัวเลขขวา = เฉลี่ย (ตัวเล็ก = ปีก่อน) · ต่ำสุดอยู่บน = ควรปรับก่อน · ชี้ที่สีเพื่อดูจำนวน")}
+        action={<div className="flex flex-wrap justify-end gap-1.5">{SAT_LEVELS.map((l) => <span key={l} className={cn("rounded-full px-2 py-0.5 text-xs", tagChip("satisfaction", `l${l}`))}>{l} {tx(Survey.SCALE_LABEL[l])}</span>)}</div>}>
+        {topics.length ? <SatisfactionBars rows={topics.map((t) => ({ key: t.key, label: tx(t.label), score: t.score, prev: prevTopic(t.key), levels: s.levels[t.key] }))} /> : <Empty />}
       </Panel>
       <div className="grid gap-4 lg:grid-cols-2">
         <Panel title={tx("คะแนนครู (จากผู้ปกครอง)")} hint={tx("เฉลี่ยข้อ “คุณครูผู้สอน” ของครอบครัวที่ครูสอนลูก · ครูเห็นแค่ค่าเฉลี่ยของตัวเอง ไม่เห็นว่าใครให้")} fill>

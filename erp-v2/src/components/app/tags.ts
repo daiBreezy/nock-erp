@@ -36,6 +36,8 @@ export const TAG_HUE = {
    *  long break gray, gone red; new = the students page's "new this month" sky */
   /** an NPS answer's group (0–6 / 7–8 / 9–10) */
   npsGroup: { promoter: "emerald", passive: "amber", detractor: "red" },
+  /** a 1–5 satisfaction answer (parent survey) — unsatisfied red → very satisfied emerald */
+  satisfaction: { l1: "red", l2: "orange", l3: "amber", l4: "lime", l5: "emerald" },
   studentFlow: { start: "emerald", new: "sky", returning: "violet", active: "emerald", paused: "gray", grace: "amber", future: "indigo", lost: "red" },
 } as const satisfies Record<string, Record<string, Hue>>
 export type TagFamily = keyof typeof TAG_HUE

@@ -1755,6 +1755,7 @@ describe("Yearly parent survey (owner 2026-10-05 · questions of the real form 2
     expect(s.reasons.find((x) => x.key === "teaching")).toMatchObject({ promoter: 2, detractor: 0, total: 2 })
     expect(s.reasons.find((x) => x.key === "value")).toMatchObject({ promoter: 0, detractor: 1 })
     expect(s.improve[0]).toMatchObject({ key: "challenge", count: 2 })
+    expect(s.levels.teacher).toEqual([0, 1, 0, 1, 1])
   })
   it("answers in the old shape are left out", () => {
     const old = { ...resp("z", 2, "no", 1), answers: { nps: 2 } } as unknown as SurveyResponseT

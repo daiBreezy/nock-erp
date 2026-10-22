@@ -6,8 +6,6 @@ import { cn } from "@/lib/utils"
 import { tx } from "@/lib/i18n"
 import { monthShort } from "@/domain/dates"
 import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card"
-import { ChartContainer, type ChartConfig } from "@/components/ui/chart"
-import { PolarAngleAxis, PolarGrid, PolarRadiusAxis, Radar as RadarArea, RadarChart } from "recharts"
 
 /** 880K · 1.3M · 950 — short money/number for cards and axes */
 export function fmtShort(n: number) {
@@ -256,69 +254,6 @@ export function TopList({ title, hint, icon, rows, top = 5, color, wide, fill }:
         ))}</ul>
       ) : <p className="text-xs text-muted-foreground">{tx("ไม่มี")}</p>}
       {rows.length > top && <button type="button" onClick={() => setOpen((o) => !o)} className="mt-2 pl-8 text-xs text-primary hover:underline">{open ? tx("ย่อเหลือ {0} อันดับ", [top]) : tx("ดูทั้งหมด {0} รายการ", [rows.length])}</button>}
-    </div>
-  )
-}
-
-/**
- * A radar ("spider web") chart — owner 2026-10-22 for the five satisfaction topics, built on shadcn's Radar Chart
- * (recharts, components/ui/chart). Chart on the left with numbered corners; on the right the legend and the numbered
- * list (name · this year · last year). Hovering a corner or a row lights up both (owner 2026-10-22).
- * Each series is a shape: the first filled, a `dashed` one an outline (last year).
- */
-export function Radar({ axes, series, min = 1, max = 5 }: { axes: { label: string; full?: string }[]; series: { name: string; values: (number | null)[]; color: string; dashed?: boolean }[]; min?: number; max?: number }) {
-  const [active, setActive] = useState<number | null>(null)
-  const config = Object.fromEntries(series.map((sr, i) => [`s${i}`, { label: sr.name, color: sr.color }])) satisfies ChartConfig
-  const data = axes.map((_, i) => ({ n: String(i + 1), ...Object.fromEntries(series.map((sr, k) => [`s${k}`, sr.values[i]])) }))
-  const main = series[0]
-  const fmt = (v: number | null | undefined) => (v === null || v === undefined ? "—" : v.toFixed(1))
-  return (
-    <div className="grid flex-1 items-center gap-6 lg:grid-cols-2">
-      <ChartContainer config={config} className="mx-auto aspect-square h-[340px] max-w-full">
-        <RadarChart data={data} outerRadius="76%" onMouseMove={(st) => { const i = Number(st?.activeTooltipIndex); setActive(Number.isFinite(i) ? i : null) }} onMouseLeave={() => setActive(null)}>
-          <PolarGrid />
-          <PolarRadiusAxis domain={[min, max]} tickCount={max - min + 1} tick={false} axisLine={false} />
-          <PolarAngleAxis dataKey="n" tick={(t: { x: number | string; y: number | string; payload: { value: string; index: number } }) => {
-            const i = t.payload.index, on = active === i
-            return (
-              <g transform={`translate(${t.x},${t.y})`} onMouseEnter={() => setActive(i)} onMouseLeave={() => setActive(null)} className="cursor-default">
-                <circle r={11} fill={on ? main?.color : "var(--color-muted)"} />
-                <text textAnchor="middle" dy={4} fontSize={11} fontWeight={600} fill={on ? "#fff" : "currentColor"}>{t.payload.value}</text>
-              </g>
-            )
-          }} />
-          {series.map((sr, k) => ({ sr, k })).reverse().map(({ sr, k }) => (
-            <RadarArea key={k} dataKey={`s${k}`} fill={`var(--color-s${k})`} fillOpacity={sr.dashed ? 0 : 0.25} stroke={`var(--color-s${k})`}
-              strokeWidth={sr.dashed ? 1.25 : 2} strokeDasharray={sr.dashed ? "4 3" : undefined} isAnimationActive={false}
-              dot={sr.dashed ? false : (d: { cx?: number; cy?: number; index?: number }) => <circle key={d.index} cx={d.cx} cy={d.cy} r={active === d.index ? 6 : 3.5} fill={sr.color} stroke="var(--color-card)" strokeWidth={active === d.index ? 2 : 0} />} />
-          ))}
-        </RadarChart>
-      </ChartContainer>
-      <div className="min-w-0 space-y-3">
-        <div className="flex flex-wrap gap-2 text-xs text-muted-foreground">
-          {series.map((sr) => (
-            <span key={sr.name} className="inline-flex items-center gap-1.5 rounded-full bg-muted px-2 py-0.5">
-              <span className="h-0.5 w-3" style={{ background: sr.dashed ? `repeating-linear-gradient(90deg, ${sr.color} 0 3px, transparent 3px 5px)` : sr.color }} />{sr.name}
-            </span>
-          ))}
-        </div>
-        <ul className="text-sm">
-          {axes.map((a, i) => {
-            const on = active === i
-            return (
-              <li key={i} onMouseEnter={() => setActive(i)} onMouseLeave={() => setActive(null)}
-                className={cn("grid grid-cols-[1.5rem_minmax(0,1fr)_auto] items-center gap-3 rounded-xl px-2 py-2 transition-colors", on && "bg-muted")}>
-                <span className={cn("grid size-6 place-items-center rounded-full text-[11px] font-semibold tabular-nums", on ? "text-white" : "bg-muted")} style={on ? { background: main?.color } : undefined}>{i + 1}</span>
-                <span className="truncate" title={a.full ?? a.label}>{a.full ?? a.label}</span>
-                <span className="text-right tabular-nums">
-                  <span className="font-semibold">{fmt(main?.values[i])}</span>
-                  {series.slice(1).map((sr) => <span key={sr.name} className="ml-2 text-xs text-muted-foreground">{fmt(sr.values[i])}</span>)}
-                </span>
-              </li>
-            )
-          })}
-        </ul>
-      </div>
     </div>
   )
 }

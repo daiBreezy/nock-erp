@@ -844,4 +844,7 @@ export const COVERAGE: Record<string, Entry> = {
   "ตอบเมื่อ": { en: "Answered", ja: "回答日" },
   "หลักสูตร": { en: "Course", ja: "カリキュラム" },
   "คะแนน 5 = มากที่สุด · 1 = ไม่พอใจ · ยิ่งกว้างยิ่งดี · เส้นประ / ตัวเลขเล็ก = ปีก่อน · เลข 1–5 บนกราฟ = ข้อในรายการ": { en: "5 = very satisfied · 1 = unsatisfied · wider is better · dashed / small number = last year · 1–5 on the chart = the list's rows", ja: "5 = 非常に満足 · 1 = 不満 · 広いほど良い · 点線 / 小さい数字 = 前年 · グラフの1–5 = リストの項目" },
+  "{0} ครอบครัว": { en: "{0} families", ja: "{0}家族" },
+  "ความพึงพอใจ 5 ด้าน": { en: "Satisfaction, 5 topics", ja: "満足度（5項目）" },
+  "แต่ละแถบ = ทุกครอบครัวที่ตอบข้อนั้น แบ่งตามระดับที่ตอบ 1–5 · ตัวเลขขวา = เฉลี่ย (ตัวเล็ก = ปีก่อน) · ต่ำสุดอยู่บน = ควรปรับก่อน · ชี้ที่สีเพื่อดูจำนวน": { en: "Each bar = every family that answered, split by their 1–5 answer · right = average (small = last year) · lowest on top = fix first · hover a colour for the count", ja: "各バー = 回答した全家族を1–5の回答で分割 · 右 = 平均（小 = 前年）· 低い順 = 優先改善 · 色にホバーで人数" },
 }
