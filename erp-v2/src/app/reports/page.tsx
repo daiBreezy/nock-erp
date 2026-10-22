@@ -455,31 +455,36 @@ function MembersConversion({ d }: { d: ReportData }) {
   )
 }
 
-/** NPS on the overview (owner 2026-10-21) — the latest survey round: score, who'd recommend us, why they scored as they
- *  did and the one thing they'd most like improved (the questions of the school's real form) */
+/** NPS on the overview (owner 2026-10-21) — the latest survey round */
 function NpsOverview({ d }: { d: ReportData }) {
   const year = d.surveyYears[0]
   if (year === undefined) return null
-  const cur = d.surveyOf(year), prev = d.surveyOf(year - 1)
-  const s = cur.summary, p = prev.summary
+  const cur = d.surveyOf(year)
+  return <NpsCard year={year} responses={cur.responses.filter(Survey.isCurrent)} s={cur.summary} p={d.surveyOf(year - 1).summary} />
+}
+
+/** owner 2026-10-21/22: the NPS card — score, who'd recommend us, why they scored as they did and the one thing they'd
+ *  most like improved (the questions of the school's real form). One card: the Overview and the Satisfaction tab
+ *  (with its year / subject / grade filter) show this same card. */
+function NpsCard({ year, responses, s, p }: { year: number; responses: SurveyResponse[]; s: ReturnType<typeof Survey.summarize>; p: ReturnType<typeof Survey.summarize> }) {
   return (
     <Panel title="NPS" hint={tx("แบบสอบถามผู้ปกครองปี {0} · แนะนำ 9–10 · เฉยๆ 7–8 · ไม่แนะนำ 0–6", [yearOf(year)])}>
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,2fr)] lg:gap-0 lg:divide-x">
-        <div className="flex flex-col justify-center lg:pr-6"><NpsScore nps={s.nps} prev={p.nps} responses={cur.responses.filter(Survey.isCurrent)} /></div>
+        <div className="flex flex-col justify-center lg:pr-6"><NpsScore nps={s.nps} prev={p.nps} responses={responses} /></div>
         <div className="grid gap-6 lg:grid-cols-2 lg:gap-0 lg:divide-x lg:pl-6">
           <div className="lg:pr-6">
-            <p className="mb-2 text-sm font-medium">{tx("เหตุผลที่ให้คะแนน")}</p>
-            <ReasonBars rows={s.reasons.slice(0, 5)} other={s.reasonOther} />
+            <p className="mb-2 flex items-center gap-1 text-sm font-medium">{tx("เหตุผลที่ให้คะแนน")}<InfoTip text={tx("เลือกได้หลายข้อ · สีในแถบ = กลุ่มที่เลือกเหตุผลนั้น (แนะนำ / เฉยๆ / ไม่แนะนำ) · ชี้ “อื่นๆ” เพื่อดูข้อความ")} /></p>
+            <ReasonBars rows={s.reasons} other={s.reasonOther} />
           </div>
           <div className="lg:pl-6">
-            <TopList title={tx("อยากให้ปรับปรุงมากที่สุด")} icon={<span className="size-2.5 rounded-full" style={{ background: NPS_HEX.passive }} />} color={NPS_HEX.passive} wide rows={s.improve.map((x) => ({ label: tx(x.label), value: x.count }))} />
+            <TopList title={tx("อยากให้ปรับปรุงมากที่สุด")} icon={<span className="size-2.5 rounded-full" style={{ background: NPS_HEX.passive }} />} color={NPS_HEX.passive} wide
+              rows={s.improve.map((x) => ({ label: tx(x.label), value: x.count, hover: x.key === "other" && s.improveOther.length ? <OtherTexts texts={s.improveOther} /> : undefined }))} />
           </div>
         </div>
       </div>
     </Panel>
   )
 }
-
 
 /** Ranked branch rows split into two columns once there are more than five — same layout as revenue by branch. */
 function SplitRanks<T extends { id: string; name: string }>({ rows, cols }: { rows: T[]; cols: { label: string; cell: (r: T) => React.ReactNode }[] }) {
@@ -1458,6 +1463,8 @@ function SatisfactionTab({ d, compare, f }: { d: ReportData; compare: boolean; f
         <Stat label={tx("ไม่แนะนำ (0–6)")} value={String(s.unhappy)} tone={s.unhappy ? "text-red-600" : undefined} sub={<span>{tx("โทรคุยภายใน 3 วัน")}</span>} />
         <Stat label={tx("ยังไม่ได้โทร")} value={String(toCall.length)} tone={toCall.some((x) => x.overdue) ? "text-red-600" : undefined} sub={<span>{tx("เกิน 3 วัน")} {toCall.filter((x) => x.overdue).length}</span>} />
       </div>
+      {/* owner 2026-10-22: the NPS card is the Overview's own card (NPS · reasons · improve), filtered here */}
+      <NpsCard year={year} responses={rs} s={s} p={p} />
       <div className="grid gap-4 lg:grid-cols-2">
         <Panel title={tx("ความพึงพอใจ 5 ด้าน (เฉลี่ย 1–5)")} hint={tx("5 = มากที่สุด · 1 = ไม่พอใจ · ต่ำสุดอยู่บน = ควรปรับก่อน · ตัวเลขเล็ก = ปีก่อน")} fill>
           {topics.length ? (
@@ -1470,19 +1477,11 @@ function SatisfactionTab({ d, compare, f }: { d: ReportData; compare: boolean; f
             ) })}</ul>
           ) : <Empty />}
         </Panel>
-        {compare && !group ? (
-          <Panel title={tx("NPS ตามสาขา")} hint={tx("ตัวเลขเล็ก = ปีก่อน · (ตอบ/ส่ง)")} fill>
-            <SplitRanks rows={[...curAll.byBranch].sort((a, b) => (b.nps ?? -999) - (a.nps ?? -999))} cols={[
-              { label: "NPS", cell: (b) => <span className={cn("font-medium", b.nps !== null && b.nps < 0 && "text-red-600")}>{b.nps === null ? "—" : `${b.nps > 0 ? "+" : ""}${b.nps}`}<span className="ml-1 text-[11px] font-normal text-muted-foreground">{prevAll.byBranch.find((x) => x.id === b.id)?.nps ?? "—"}</span></span> },
-              { label: tx("ตอบ"), cell: (b) => <span className="text-xs text-muted-foreground">{b.n}/{b.sent}</span> },
-            ]} />
-          </Panel>
-        ) : (
-          <Panel title="NPS" hint={tx("แบบสอบถามผู้ปกครองปี {0} · แนะนำ 9–10 · เฉยๆ 7–8 · ไม่แนะนำ 0–6", [yearOf(year)])} center><NpsScore nps={s.nps} prev={p.nps} responses={rs} /></Panel>
-        )}
+        <Panel title={tx("คอร์สที่อยากให้เปิดเพิ่ม")} sub={tx("รวม {0}", [courses.reduce((a, x) => a + x.value, 0)])} hint={tx("ผู้ปกครองพิมพ์เอง · ข้อความซ้ำรวมเป็นแถวเดียว · เกิน 8 แถวกด “ดูทั้งหมด”")} fill>
+          <TopList color={NPS_HEX.passive} top={8} fill rows={courses} />
+        </Panel>
       </div>
       <div className="grid gap-4 lg:grid-cols-2">
-        <Panel title={tx("เหตุผลที่ให้คะแนน")} hint={tx("เลือกได้หลายข้อ · สีในแถบ = กลุ่มที่เลือกเหตุผลนั้น (แนะนำ / เฉยๆ / ไม่แนะนำ) · ชี้ “อื่นๆ” เพื่อดูข้อความ")} fill><ReasonBars rows={s.reasons} other={s.reasonOther} /></Panel>
         <Panel title={tx("คะแนนครู (จากผู้ปกครอง)")} hint={tx("เฉลี่ยข้อ “คุณครูผู้สอน” ของครอบครัวที่ครูสอนลูก · ครูเห็นแค่ค่าเฉลี่ยของตัวเอง ไม่เห็นว่าใครให้")} fill>
           {teachers.length ? (
             <table className="w-full text-sm">
@@ -1498,15 +1497,14 @@ function SatisfactionTab({ d, compare, f }: { d: ReportData; compare: boolean; f
             </table>
           ) : <Empty>{tx("ยังไม่มีคะแนนครู (นักเรียนที่ตอบยังไม่อยู่ในคลาส)")}</Empty>}
         </Panel>
-      </div>
-      {/* owner 2026-10-22: the two "what parents ask for" cards side by side; the total on the title's line */}
-      <div className="grid gap-4 lg:grid-cols-2">
-        <Panel title={tx("อยากให้ปรับปรุงมากที่สุด")} sub={tx("รวม {0}", [s.improve.reduce((a, x) => a + x.count, 0)])} hint={tx("เลือกได้ 1 ข้อต่อครอบครัว · ชี้ “อื่นๆ” เพื่อดูข้อความ")} fill>
-          <TopList color={NPS_HEX.passive} top={7} fill rows={s.improve.map((x) => ({ label: tx(x.label), value: x.count, hover: x.key === "other" && s.improveOther.length ? <OtherTexts texts={s.improveOther} /> : undefined }))} />
-        </Panel>
-        <Panel title={tx("คอร์สที่อยากให้เปิดเพิ่ม")} sub={tx("รวม {0}", [courses.reduce((a, x) => a + x.value, 0)])} hint={tx("ผู้ปกครองพิมพ์เอง · ข้อความซ้ำรวมเป็นแถวเดียว · เกิน 8 แถวกด “ดูทั้งหมด”")} fill>
-          <TopList color={NPS_HEX.passive} top={8} fill rows={courses} />
-        </Panel>
+        {compare && !group && (
+          <Panel title={tx("NPS ตามสาขา")} hint={tx("ตัวเลขเล็ก = ปีก่อน · (ตอบ/ส่ง)")} fill>
+            <SplitRanks rows={[...curAll.byBranch].sort((a, b) => (b.nps ?? -999) - (a.nps ?? -999))} cols={[
+              { label: "NPS", cell: (b) => <span className={cn("font-medium", b.nps !== null && b.nps < 0 && "text-red-600")}>{b.nps === null ? "—" : `${b.nps > 0 ? "+" : ""}${b.nps}`}<span className="ml-1 text-[11px] font-normal text-muted-foreground">{prevAll.byBranch.find((x) => x.id === b.id)?.nps ?? "—"}</span></span> },
+              { label: tx("ตอบ"), cell: (b) => <span className="text-xs text-muted-foreground">{b.n}/{b.sent}</span> },
+            ]} />
+          </Panel>
+        )}
       </div>
       {/* outcome only (owner 2026-10-05: Reports show what's done — the calls themselves are on CRM) */}
       <Panel title={tx("ผลการติดตามผู้ปกครองที่ไม่พอใจ")} hint={tx("{0} ครอบครัว · โทรแล้ว {1} · รอโทร {2} (รายชื่อที่ต้องโทรอยู่หน้า CRM)", [unhappy.length, unhappy.filter((r) => r.followUp).length, unhappy.filter((r) => !r.followUp).length])}>
