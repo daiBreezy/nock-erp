@@ -34,24 +34,24 @@ export const BAND_FLOW = {
   /** seconds for the light to cross one column of bands */
   seconds: 0.80,
   /** length of the light, as a share of one column of bands */
-  length: 4.40,
+  length: 6.40,
   /** how soft the light's top / bottom edge is (blur across the band, capped at a quarter of its thickness) */
   blur: 80,
   /** how strong the light is (0 = invisible, 1 = full) */
-  opacity: 0.50,
+  opacity: 0.60,
   /** owner 2026-10-22: the bright centre of the light (at its brightest point) — its colour and strength (0 = no centre) */
-  core: "#fffbeb",
+  core: "#ffffff",
   coreOpacity: 0.4,
   /** owner 2026-10-22: white glowing sparkles inside the light, thickest where the light is brightest — at most this many per band (0 = none) */
   sparks: 500,
   /** sparkle size (radius) */
-  sparkSize: 0.32,
+  sparkSize: 0.24,
   /** how many sparkles per unit of band thickness (a thick band gets more) */
   sparkDensity: 1.5,
   /** how soft the sparkles' glow is */
   sparkGlow: 1.2,
   /** how far a sparkle wanders around its spot (share of the band's thickness) */
-  sparkWander: 0.35,
+  sparkWander: 1.35,
 }
 
 /** where the light is brightest along its window (0 = tail end, 1 = head) — a long tail behind, a short head in front */
