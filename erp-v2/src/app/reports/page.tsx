@@ -469,16 +469,16 @@ function NpsOverview({ d }: { d: ReportData }) {
 function NpsCard({ year, responses, s, p }: { year: number; responses: SurveyResponse[]; s: ReturnType<typeof Survey.summarize>; p: ReturnType<typeof Survey.summarize> }) {
   return (
     <Panel title="NPS" hint={tx("แบบสอบถามผู้ปกครองปี {0} · แนะนำ 9–10 · เฉยๆ 7–8 · ไม่แนะนำ 0–6", [yearOf(year)])}>
-      {/* owner 2026-10-22: left = the score, its split and the one thing to improve under it · right = why they scored */}
-      <div className="grid gap-6 lg:grid-cols-2 lg:gap-0 lg:divide-x">
-        <div className="space-y-6 lg:pr-6">
-          <NpsScore nps={s.nps} prev={p.nps} responses={responses} />
-          <TopList title={tx("อยากให้ปรับปรุงมากที่สุด")} icon={<span className="size-2.5 rounded-full" style={{ background: NPS_HEX.passive }} />} color={NPS_HEX.passive} wide
-            rows={s.improve.map((x) => ({ label: tx(x.label), value: x.count, hover: x.key === "other" && s.improveOther.length ? <OtherTexts texts={s.improveOther} /> : undefined }))} />
+      {/* owner 2026-10-22: the score across the full width on top · below: why they scored (left) and the one thing to improve (right) */}
+      <NpsScore nps={s.nps} prev={p.nps} responses={responses} />
+      <div className="mt-6 grid gap-6 border-t pt-5 lg:grid-cols-2 lg:gap-0 lg:divide-x">
+        <div className="lg:pr-6">
+          <p className="mb-3 flex items-center gap-1 text-sm font-medium">{tx("เหตุผลที่ให้คะแนน")}<InfoTip text={tx("เลือกได้หลายข้อ · สีในแถบ = กลุ่มที่เลือกเหตุผลนั้น (แนะนำ / เฉยๆ / ไม่แนะนำ) · ชี้ “อื่นๆ” เพื่อดูข้อความ")} /></p>
+          <ReasonBars rows={s.reasons} other={s.reasonOther} />
         </div>
         <div className="lg:pl-6">
-          <p className="mb-2 flex items-center gap-1 text-sm font-medium">{tx("เหตุผลที่ให้คะแนน")}<InfoTip text={tx("เลือกได้หลายข้อ · สีในแถบ = กลุ่มที่เลือกเหตุผลนั้น (แนะนำ / เฉยๆ / ไม่แนะนำ) · ชี้ “อื่นๆ” เพื่อดูข้อความ")} /></p>
-          <ReasonBars rows={s.reasons} other={s.reasonOther} />
+          <TopList title={tx("อยากให้ปรับปรุงมากที่สุด")} icon={<span className="size-2.5 rounded-full" style={{ background: NPS_HEX.passive }} />} color={NPS_HEX.passive} wide top={7}
+            rows={s.improve.map((x) => ({ label: tx(x.label), value: x.count, hover: x.key === "other" && s.improveOther.length ? <OtherTexts texts={s.improveOther} /> : undefined }))} />
         </div>
       </div>
     </Panel>
