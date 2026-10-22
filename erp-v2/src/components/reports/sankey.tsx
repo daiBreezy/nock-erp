@@ -32,14 +32,25 @@ export const BAND_OPACITY = {
 /** owner 2026-10-22: the light running along a hovered band (left → right), after the ref's flame button (no white centre) — tweak here */
 export const BAND_FLOW = {
   /** seconds for the light to cross one column of bands */
-  seconds: 2.40,
+  seconds: 0.80,
   /** length of the light, as a share of one column of bands */
-  length: 2.40,
+  length: 4.40,
   /** how soft the light's top / bottom edge is (blur across the band, capped at a quarter of its thickness) */
-  blur: 40,
+  blur: 80,
   /** how strong the light is (0 = invisible, 1 = full) */
-  opacity: 0.80,
+  opacity: 0.50,
+  /** owner 2026-10-22: sparkles riding with the head of the light — at most this many per band (thin bands get fewer; 0 = none) */
+  sparks: 100,
+  /** sparkle size (radius) */
+  sparkSize: 0.4,
 }
+
+/** where the light is brightest along its window (0 = tail end, 1 = head) — a long tail behind, a short head in front */
+const PEAK = 0.86
+/** the light's opacity along its window, tail → head: a long soft tail, a short bright head */
+const WINDOW: [number, number][] = [[0, 0], [0.12, 0.02], [0.28, 0.08], [0.44, 0.2], [0.58, 0.42], [0.7, 0.68], [0.8, 0.92], [PEAK, 1], [0.92, 0.6], [0.97, 0.15], [1, 0]]
+/** a steady pseudo-random number in 0…1 for a seed (sparkles look scattered but don't jump between renders) */
+const rand = (n: number) => { const x = Math.sin(n * 127.1 + 311.7) * 43758.5453; return x - Math.floor(x) }
 
 export function Sankey({ columns, flows, total, heads, size = { w: 1000, h: 380 }, unit = "คน", name = "เส้นทางของ Lead", minWidth = "min-w-[40rem]" }: {
   columns: SankeyColumn[]; flows: SankeyLink[]; total: number
@@ -81,6 +92,8 @@ export function Sankey({ columns, flows, total, heads, size = { w: 1000, h: 380 
   const firstCol = flowing.length ? Math.min(...flowing.map((l) => l.f.col)) : 0, lastCol = flowing.length ? Math.max(...flowing.map((l) => l.f.col)) : 0
   const span = xOf(1) - xOf(0), win = span * BAND_FLOW.length
   const runFrom = xOf(firstCol) + NW, runTo = xOf(lastCol + 1), cycle = (BAND_FLOW.seconds * (runTo - runFrom + win)) / span
+  /** share of the cycle at which the light's brightest point is at x */
+  const headAt = (x: number) => (x - runFrom + win * (1 - PEAK)) / (runTo - runFrom + win)
   // what's hovered: its colour(s) and one short line — "from → to · count · % of from" / "box · count · % of all"
   const hint: { colors: string[]; text: string } | null = !hover ? null
     : "link" in hover ? (() => { const l = links.find((x) => x.i === hover.link)!; const from = box.get(`${l.f.col}|${l.f.from}`)!.node, to = box.get(`${l.f.col + 1}|${l.f.to}`)!.node
@@ -124,10 +137,10 @@ export function Sankey({ columns, flows, total, heads, size = { w: 1000, h: 380 
               </linearGradient>
             ))}
             {/* the light: a moving window (white = see-through) over each band's own left → right colours — near the left it shows
-                the left box's colour, turning into the right box's as it runs. Opacity rises 0 → 1 → 0 smoothly. */}
+                the left box's colour, turning into the right box's as it runs. Opacity: a long soft tail rising to a short bright head (WINDOW). */}
             {flowing.length > 0 && (
               <linearGradient id={`${uid}-fw`} gradientUnits="userSpaceOnUse" x1={runFrom - win} x2={runFrom} y1={0} y2={0}>
-                {[[0, 0], [0.2, 0.1], [0.35, 0.5], [0.5, 1], [0.65, 0.5], [0.8, 0.1], [1, 0]].map(([o, a]) => <stop key={o} offset={o} stopColor="#fff" stopOpacity={a} />)}
+                {WINDOW.map(([o, a]) => <stop key={o} offset={o} stopColor="#fff" stopOpacity={a} />)}
                 <animate attributeName="x1" from={runFrom - win} to={runTo} dur={`${cycle}s`} repeatCount="indefinite" />
                 <animate attributeName="x2" from={runFrom} to={runTo + win} dur={`${cycle}s`} repeatCount="indefinite" />
               </linearGradient>
@@ -158,6 +171,26 @@ export function Sankey({ columns, flows, total, heads, size = { w: 1000, h: 380 
                   <feGaussianBlur stdDeviation={`0 ${Math.min(BAND_FLOW.blur, w / 4)}`} />
                 </filter>
                 <g mask={`url(#${uid}-m${l.i})`}><path d={d} fill="none" stroke={`url(#${uid}-g${l.i})`} strokeWidth={w} filter={`url(#${uid}-b${l.i})`} opacity={BAND_FLOW.opacity} /></g>
+                {/* sparkles: dots in the band's own colours riding along with the light's head, scattered across the band and
+                    twinkling; they only show while the head is on this band, and stay inside it */}
+                <mask id={`${uid}-s${l.i}`} maskUnits="userSpaceOnUse" x={0} y={0} width={W} height={H}><path d={d} fill="none" stroke="#fff" strokeWidth={w} /></mask>
+                <g mask={`url(#${uid}-s${l.i})`}>
+                  {Array.from({ length: Math.min(BAND_FLOW.sparks, Math.max(1, Math.round(w / 5))) }, (_, k) => {
+                    const seed = l.i * 31 + k, lead = (rand(seed) - 0.6) * 0.18 * span, dy = (rand(seed + 7) - 0.5) * w * 0.8
+                    const tA = headAt(x0 - lead), tB = headAt(x1 - lead), e = Math.min(0.015, (tB - tA) / 4)
+                    if (!(tA > 0 && tB < 1 && tB - tA > 4 * e)) return null
+                    const r = BAND_FLOW.sparkSize * (0.6 + rand(seed + 3) * 0.8)
+                    return (
+                      <g key={k} transform={`translate(0 ${dy})`}>
+                        <circle r={r} fill={`url(#${uid}-g${l.i})`} opacity={0}>
+                          <animateMotion path={d} keyPoints="0;0;1;1" keyTimes={`0;${tA};${tB};1`} calcMode="linear" dur={`${cycle}s`} repeatCount="indefinite" />
+                          <animate attributeName="opacity" values="0;0;1;1;0;0" keyTimes={`0;${tA};${tA + e};${tB - e};${tB};1`} dur={`${cycle}s`} repeatCount="indefinite" />
+                          <animate attributeName="r" values={`${r};${r * 1.7};${r}`} dur={`${0.5 + rand(seed + 5) * 0.6}s`} repeatCount="indefinite" />
+                        </circle>
+                      </g>
+                    )
+                  })}
+                </g>
               </g>
             )
           })}
