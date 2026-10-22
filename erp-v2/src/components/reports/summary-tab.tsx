@@ -79,7 +79,7 @@ function toInput(d: ReportData, period: PeriodKey, periodLabel: string, lossReas
     survey: sv && y !== undefined ? {
       year: y, nps: sv.summary.nps, npsPrev: svPrev?.summary.responses ? svPrev.summary.nps : null,
       weakest: weakest ? { label: tx(weakest.label), score: weakest.score! } : undefined,
-      toCall: sv.toCall.length, notContinuing: sv.summary.continueNext.no, wants: sv.wants.map((w) => ({ label: tx(w.want), count: w.count })),
+      toCall: sv.toCall.length, detractors: sv.summary.unhappy, improve: sv.summary.improve.map((w) => ({ label: tx(w.label), count: w.count })),
     } : undefined,
     branchLoad: d.branchLoad,
   }

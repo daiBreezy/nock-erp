@@ -2,60 +2,80 @@
 
 import { Suspense, useEffect, useState } from "react"
 import { useSearchParams } from "next/navigation"
-import { CheckCircle2Icon, LoaderCircleIcon, SendIcon, SmileIcon, StarIcon, XCircleIcon } from "lucide-react"
+import { CheckCircle2Icon, LoaderCircleIcon, SendIcon, SmileIcon, XCircleIcon } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
-import type { FormLang, SurveyAnswers, SurveyToken } from "@/domain/types"
+import type { FormLang, SurveyAnswers, SurveyImprove, SurveyReason, SurveyToken, SurveyTopic } from "@/domain/types"
 import { cn } from "@/lib/utils"
 
-// Yearly satisfaction survey for parents (owner 2026-10-05) — one per family, a few taps per child, TH / EN / JP.
-// The core questions stay the same every year so the school can compare years.
+// Yearly satisfaction survey for parents (owner 2026-10-05) — one per family, TH / EN / JP.
+// owner 2026-10-21: the questions are the school's real survey (Google Form, NockAcademy Bangna) so years compare —
+// Q1 subjects and Q2 grade are known from the enrolment and shown, not asked.
 
 const LANGS: { key: FormLang; label: string }[] = [{ key: "th", label: "TH" }, { key: "en", label: "EN" }, { key: "ja", label: "JP" }]
 
 const DICT = {
   th: {
-    title: (y: number) => `แบบสอบถามความพึงพอใจ ปี ${y + 543}`, hello: (f: string) => `เรียน ${f}`, intro: "ขอเวลาประมาณ 3 นาที ทุกความเห็นช่วยให้เราดูแลน้องๆ ได้ดีขึ้นค่ะ",
-    nps: "จะแนะนำเราให้เพื่อนหรือคนรู้จักไหม", npsLow: "ไม่แนะนำ", npsHigh: "แนะนำแน่นอน", overall: "ความพึงพอใจโดยรวม",
-    child: (n: string) => `สำหรับน้อง${n}`, teachers: "ครูผู้สอน", c: { teacher: "ครูผู้สอน", progress: "พัฒนาการของลูก", level: "เนื้อหาเหมาะกับระดับของลูก" },
-    service: "บริการของเรา", s: { admin: "การติดต่อแอดมิน", summary: "สรุปการเรียนที่ส่งให้", schedule: "ตารางเรียน / ความยืดหยุ่น", place: "สถานที่", bus: "รถรับส่ง", value: "ความคุ้มค่า" },
-    cont: "ปีหน้าจะให้ลูกเรียนกับเราต่อไหม", cn: { yes: "เรียนต่อ", maybe: "ยังไม่แน่ใจ", no: "ไม่เรียนต่อ" }, wants: "อยากให้เราเปิดอะไรเพิ่ม", wantsSub: "เลือกได้หลายข้อ (ไม่บังคับ)",
-    praise: "สิ่งที่ประทับใจ", improve: "สิ่งที่อยากให้ปรับปรุง", optional: "ไม่บังคับ", submit: "ส่งแบบสอบถาม", sending: "กำลังส่ง…", need: "กรุณาตอบ 2 ข้อที่มี * ก่อนส่ง",
+    title: (y: number) => `แบบสำรวจความคิดเห็นและความพึงพอใจของผู้ปกครอง ปี ${y + 543}`, hello: (f: string) => `เรียน ${f}`, intro: "ขอเวลาประมาณ 3 นาที ทุกความเห็นช่วยให้เราดูแลน้องๆ ได้ดีขึ้นค่ะ",
+    kids: "วิชาที่เรียน / ระดับชั้น", nps: "ผู้ปกครองมีแนวโน้มที่จะแนะนำ NockAcademy ให้กับผู้อื่นมากน้อยเพียงใด?", npsLow: "0 = ไม่แนะนำเลย", npsHigh: "10 = แนะนำอย่างยิ่ง",
+    reasons: "อะไรคือเหตุผลที่ทำให้ให้คะแนนดังกล่าว? (เลือกได้มากกว่า 1 ข้อ)",
+    r: { content: "เนื้อหาบทเรียนตรงตามหลักสูตรและเข้าใจง่าย", teaching: "เทคนิคการสอนของครูช่วยให้เด็กมีพัฒนาการที่ดีขึ้น", feedback: "ระบบ Feedback รายงานผลการเรียนที่ชัดเจนและสม่ำเสมอ", schedule: "ตารางเรียนที่สถาบันจัดไว้ให้มีความเหมาะสม", value: "ความคุ้มค่าของค่าเล่าเรียนเมื่อเทียบกับคุณภาพ", other: "อื่นๆ" },
+    scores: "ระดับความพึงพอใจต่อประสบการณ์การเรียนที่ NockAcademy ในแต่ละด้าน",
+    t: { teacher: "คุณครูผู้สอน", content: "คุณภาพหลักสูตรและเนื้อหาการสอน", feedback: "ระบบการให้ Feedback", value: "ความคุ้มค่าของค่าเล่าเรียน", place: "ห้องเรียน อาคารสถานที่" },
+    scale: { 5: "มากที่สุด", 4: "มาก", 3: "ปานกลาง", 2: "น้อย", 1: "ไม่พอใจ" } as Record<number, string>,
+    improve: "ท่านอยากให้เราปรับปรุงหรือเพิ่มเติมเรื่องใดมากที่สุด?",
+    i: { exam: "เพิ่มความเข้มข้นของเนื้อหาเพื่อการสอบแข่งขัน", challenge: "เพิ่มจำนวนโจทย์ท้าทายและคลังข้อสอบเก่า", activities: "เพิ่มกิจกรรมเสริมทักษะนอกเหนือจากวิชาหลัก", one_on_one: "เพิ่มการสื่อสารหรือการให้คำปรึกษาแบบตัวต่อตัวกับครูผู้สอน", school: "เนื้อหาที่ตรงกับหลักสูตรของโรงเรียนมากขึ้น", facility: "ความเรียบร้อยของอาคารสถานที่รวมถึงความสะอาดของสถาบัน", other: "อื่นๆ" },
+    otherPh: "โปรดระบุ", courses: "คอร์สที่อยากให้ NockAcademy School เปิดสอนเพิ่มเติม", optional: "ไม่บังคับ",
+    message: "ท่านมีข้อความใดอยากบอกครูทุกท่านและสถาบัน แนะนำ ติชม ความคิดเห็นเกี่ยวกับคอร์สเรียน หรือสิ่งที่ต้องการแจ้งโรงเรียน",
+    submit: "ส่งแบบสอบถาม", sending: "กำลังส่ง…", need: "กรุณาตอบข้อที่มี * ให้ครบก่อนส่ง",
     done: "ขอบคุณมากค่ะ", doneSub: "เราได้รับคำตอบแล้ว และจะนำไปปรับปรุงให้ดียิ่งขึ้น 🙏",
     invalid: { invalid: "ลิงก์นี้ไม่ถูกต้อง", used: "ตอบแบบสอบถามนี้แล้ว ขอบคุณค่ะ", expired: "หมดเวลาตอบแบบสอบถามปีนี้แล้ว ขอบคุณค่ะ" }, preview: "โหมดดูตัวอย่าง — ไม่ส่งข้อมูลจริง",
-    times: { "เสาร์เช้า": "เสาร์เช้า", "เสาร์บ่าย": "เสาร์บ่าย", "อาทิตย์": "อาทิตย์", "เย็นวันธรรมดา": "เย็นวันธรรมดา" } as Record<string, string>,
   },
   en: {
-    title: (y: number) => `Parent satisfaction survey ${y}`, hello: (f: string) => `Dear ${f}`, intro: "About 3 minutes — every answer helps us take better care of your child.",
-    nps: "Would you recommend us to a friend?", npsLow: "Not likely", npsHigh: "Very likely", overall: "Overall satisfaction",
-    child: (n: string) => `About ${n}`, teachers: "Teacher", c: { teacher: "Teacher", progress: "Your child's progress", level: "Content fits your child's level" },
-    service: "Our service", s: { admin: "Talking to our staff", summary: "Lesson summaries", schedule: "Schedule / flexibility", place: "Facilities", bus: "School bus", value: "Value for money" },
-    cont: "Will your child continue with us next year?", cn: { yes: "Yes", maybe: "Not sure", no: "No" }, wants: "What should we add?", wantsSub: "Pick any (optional)",
-    praise: "What you liked", improve: "What we could do better", optional: "Optional", submit: "Send", sending: "Sending…", need: "Please answer the 2 questions marked *",
+    title: (y: number) => `Parent feedback & satisfaction survey ${y}`, hello: (f: string) => `Dear ${f}`, intro: "About 3 minutes — every answer helps us take better care of your child.",
+    kids: "Subjects / grade", nps: "How likely are you to recommend NockAcademy to others?", npsLow: "0 = not at all", npsHigh: "10 = extremely likely",
+    reasons: "What are the reasons for your score? (pick any)",
+    r: { content: "Lessons follow the curriculum and are easy to understand", teaching: "Teachers' techniques help my child improve", feedback: "Clear, regular feedback on progress", schedule: "The class schedule suits us", value: "Good value for the quality", other: "Other" },
+    scores: "How satisfied are you with each part of learning at NockAcademy?",
+    t: { teacher: "Teachers", content: "Curriculum and teaching content", feedback: "Feedback system", value: "Value for money", place: "Classrooms and building" },
+    scale: { 5: "Very satisfied", 4: "Satisfied", 3: "Neutral", 2: "Slightly", 1: "Dissatisfied" } as Record<number, string>,
+    improve: "What would you most like us to improve or add?",
+    i: { exam: "More in-depth content for competitive exams", challenge: "More challenging problems and past papers", activities: "Activities beyond the core subjects", one_on_one: "More one-to-one talks with the teacher", school: "Content closer to my child's school curriculum", facility: "Tidier, cleaner building and classrooms", other: "Other" },
+    otherPh: "Please specify", courses: "Courses you'd like NockAcademy School to open", optional: "Optional",
+    message: "Any message for our teachers and school — suggestions, compliments, comments on the course, or anything you'd like to tell us",
+    submit: "Send", sending: "Sending…", need: "Please answer every question marked *",
     done: "Thank you!", doneSub: "We've received your answers and will use them to improve 🙏",
     invalid: { invalid: "This link is not valid", used: "You've already answered — thank you!", expired: "This year's survey has closed — thank you!" }, preview: "Preview — nothing is sent",
-    times: { "เสาร์เช้า": "Saturday morning", "เสาร์บ่าย": "Saturday afternoon", "อาทิตย์": "Sunday", "เย็นวันธรรมดา": "Weekday evenings" } as Record<string, string>,
   },
   ja: {
-    title: (y: number) => `${y}年度 保護者満足度アンケート`, hello: (f: string) => `${f} 様`, intro: "約3分で終わります。いただいたご意見はより良い指導のために活用します。",
-    nps: "当塾をお友達に勧めますか", npsLow: "勧めない", npsHigh: "ぜひ勧める", overall: "総合満足度",
-    child: (n: string) => `${n}さんについて`, teachers: "担当講師", c: { teacher: "講師", progress: "お子様の成長", level: "内容がレベルに合っている" },
-    service: "サービス", s: { admin: "スタッフの対応", summary: "授業レポート", schedule: "時間割・柔軟さ", place: "教室環境", bus: "送迎バス", value: "費用対効果" },
-    cont: "来年度も継続されますか", cn: { yes: "継続する", maybe: "検討中", no: "継続しない" }, wants: "追加してほしいもの", wantsSub: "複数選択可（任意）",
-    praise: "良かった点", improve: "改善してほしい点", optional: "任意", submit: "送信", sending: "送信中…", need: "* の2問にお答えください",
+    title: (y: number) => `${y}年度 保護者アンケート（ご意見・満足度）`, hello: (f: string) => `${f} 様`, intro: "約3分で終わります。いただいたご意見はより良い指導のために活用します。",
+    kids: "受講科目・学年", nps: "NockAcademy を他の方に勧める可能性はどのくらいですか？", npsLow: "0 = 全く勧めない", npsHigh: "10 = ぜひ勧める",
+    reasons: "その点数をつけた理由は何ですか？（複数選択可）",
+    r: { content: "カリキュラムに沿い分かりやすい内容", teaching: "講師の指導で子どもが成長している", feedback: "学習報告が明確で定期的", schedule: "時間割が合っている", value: "質に対して授業料が見合っている", other: "その他" },
+    scores: "NockAcademy での学習について、各項目の満足度をお答えください",
+    t: { teacher: "担当講師", content: "カリキュラム・指導内容", feedback: "フィードバック", value: "授業料の費用対効果", place: "教室・施設" },
+    scale: { 5: "とても満足", 4: "満足", 3: "普通", 2: "やや不満", 1: "不満" } as Record<number, string>,
+    improve: "最も改善・追加してほしいことは何ですか？",
+    i: { exam: "受験向けの内容を充実", challenge: "難問・過去問を増やす", activities: "主要科目以外の活動を増やす", one_on_one: "講師との個別相談を増やす", school: "学校のカリキュラムに合わせる", facility: "施設の整頓・清潔さ", other: "その他" },
+    otherPh: "具体的にご記入ください", courses: "NockAcademy School に開講してほしいコース", optional: "任意",
+    message: "講師・スクールへのメッセージ（ご提案・ご感想・コースについてのご意見・連絡事項など）",
+    submit: "送信", sending: "送信中…", need: "* の質問にすべてお答えください",
     done: "ありがとうございました", doneSub: "ご回答を受け付けました。今後の改善に活かします 🙏",
     invalid: { invalid: "無効なリンクです", used: "回答済みです。ありがとうございました", expired: "今年度のアンケートは終了しました" }, preview: "プレビュー — 送信されません",
-    times: { "เสาร์เช้า": "土曜午前", "เสาร์บ่าย": "土曜午後", "อาทิตย์": "日曜", "เย็นวันธรรมดา": "平日夕方" } as Record<string, string>,
   },
 }
 
 type Phase = "init" | "invalid" | "ready" | "sending" | "done"
 type Score = number | null
+const REASONS: SurveyReason[] = ["content", "teaching", "feedback", "schedule", "value", "other"]
+const TOPICS: SurveyTopic[] = ["teacher", "content", "feedback", "value", "place"]
+const IMPROVES: SurveyImprove[] = ["exam", "challenge", "activities", "one_on_one", "school", "facility", "other"]
 
 const previewToken = (): SurveyToken => ({
   token: "preview", kind: "survey", campaignId: "sv", year: new Date().getFullYear(), familyId: "f", familyName: "ครอบครัวสุขใจ", branchId: "b", branchName: "ทองหล่อ", brand: "nockacademy", lang: "th", usesBus: true,
-  children: [{ id: "a", nickname: "ใบเตย", grade: "ป.5", teacherIds: [], teacherNames: ["ครูได"] }, { id: "b", nickname: "ภูผา", grade: "ม.1", teacherIds: [], teacherNames: ["ครูแพร", "ครูมิ้นท์"] }],
-  wantOptions: ["คณิต", "อังกฤษ", "วิทย์", "เสาร์เช้า", "อาทิตย์", "เย็นวันธรรมดา"], conversationId: null, createdAt: "", expiresAt: "", used: false,
+  children: [{ id: "a", nickname: "ใบเตย", grade: "ป.5", teacherIds: [], teacherNames: ["ครูได"], subjects: ["คณิต"] }, { id: "b", nickname: "ภูผา", grade: "ม.1", teacherIds: [], teacherNames: ["ครูแพร", "ครูมิ้นท์"], subjects: ["อังกฤษ", "วิทย์"] }],
+  conversationId: null, createdAt: "", expiresAt: "", used: false,
 })
 
 export default function SurveyPage() {
@@ -71,13 +91,13 @@ function Survey() {
   const [tk, setTk] = useState<SurveyToken | null>(null)
   const [lang, setLang] = useState<FormLang>((params.get("lang") as FormLang) || "th")
   const [npsV, setNps] = useState<Score>(null)
-  const [overall, setOverall] = useState<Score>(null)
-  const [kids, setKids] = useState<SurveyAnswers["children"]>([])
-  const [service, setService] = useState<SurveyAnswers["service"]>({ admin: null, summary: null, schedule: null, place: null, bus: null, value: null })
-  const [cont, setCont] = useState<SurveyAnswers["continueNext"]>(null)
-  const [wants, setWants] = useState<string[]>([])
-  const [praise, setPraise] = useState("")
-  const [improve, setImprove] = useState("")
+  const [reasons, setReasons] = useState<SurveyReason[]>([])
+  const [reasonOther, setReasonOther] = useState("")
+  const [scores, setScores] = useState<Record<SurveyTopic, Score>>({ teacher: null, content: null, feedback: null, value: null, place: null })
+  const [improve, setImprove] = useState<SurveyImprove | null>(null)
+  const [improveOther, setImproveOther] = useState("")
+  const [courses, setCourses] = useState("")
+  const [message, setMessage] = useState("")
   const [tried, setTried] = useState(false)
   const t = DICT[lang]
 
@@ -88,19 +108,26 @@ function Survey() {
       if (cancelled) return
       if (!res.ok) { setError(res.error ?? "invalid"); setPhase("invalid"); return }
       setTk(res.token)
-      setKids(res.token.children.map((c: SurveyToken["children"][number]) => ({ studentId: c.id, teacher: null, progress: null, level: null })))
       if (!params.get("lang")) setLang(res.token.lang)
       setPhase("ready")
     })()
     return () => { cancelled = true }
   }, [tokenStr, preview]) // eslint-disable-line react-hooks/exhaustive-deps
 
+  // required as on the real form: Q3–Q6 and Q8 ("other" needs its words)
+  const missing = {
+    nps: npsV === null,
+    reasons: !reasons.length || (reasons.includes("other") && !reasonOther.trim()),
+    scores: TOPICS.some((k) => scores[k] === null),
+    improve: !improve || (improve === "other" && !improveOther.trim()),
+    message: !message.trim(),
+  }
   const submit = async () => {
     setTried(true)
-    if (npsV === null || !cont) return
+    if (Object.values(missing).some(Boolean)) return
     if (preview) { setPhase("done"); return }
     setPhase("sending")
-    const answers: SurveyAnswers = { nps: npsV, overall, children: kids, service: { ...service, bus: tk?.usesBus ? service.bus : null }, continueNext: cont, wants, praise: praise.trim(), improve: improve.trim(), lang }
+    const answers: SurveyAnswers = { nps: npsV, reasons, reasonOther: reasons.includes("other") ? reasonOther.trim() : "", scores, improve, improveOther: improve === "other" ? improveOther.trim() : "", wantCourses: courses.trim(), message: message.trim(), lang }
     const res = await fetch("/api/parent-forms/survey-submit", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ token: tokenStr, answers }) }).then((r) => r.json()).catch(() => ({ ok: false, error: "invalid" }))
     if (!res.ok) { setError(res.error ?? "invalid"); setPhase("invalid"); return }
     setPhase("done")
@@ -110,6 +137,7 @@ function Survey() {
   if (phase === "invalid") return <Centered><XCircleIcon className="size-10 text-muted-foreground" /><p className="text-center text-sm">{t.invalid[error]}</p></Centered>
   if (phase === "done") return <Centered><CheckCircle2Icon className="size-12 text-emerald-600" /><p className="text-lg font-semibold">{t.done}</p><p className="max-w-xs text-center text-sm text-muted-foreground">{t.doneSub}</p></Centered>
   const token = tk!
+  const chip = (on: boolean) => cn("rounded-2xl border px-3 py-2 text-left text-sm", on ? "border-primary bg-primary text-primary-foreground" : "bg-background")
   return (
     <div className="mx-auto min-h-dvh max-w-lg bg-muted/40 pb-28">
       <header className="sticky top-0 z-10 border-b bg-background/95 px-4 py-3 backdrop-blur">
@@ -122,60 +150,49 @@ function Survey() {
       </header>
       <main className="space-y-3 p-4">
         <Card><p className="font-medium">{t.hello(token.familyName)}</p><p className="mt-1 text-sm text-muted-foreground">{t.intro}</p></Card>
-        <Card title={`${t.nps} *`} error={tried && npsV === null}>
+        {/* Q1–Q2: from the enrolment */}
+        <Card title={t.kids}>
+          <ul className="space-y-1 text-sm">{token.children.map((c) => <li key={c.id}><span className="font-medium">{c.nickname}</span> · {c.grade}{c.subjects?.length ? ` · ${c.subjects.join(", ")}` : ""}</li>)}</ul>
+        </Card>
+        <Card title={`${t.nps} *`} error={tried && missing.nps}>
           <div className="grid grid-cols-11 gap-1">{Array.from({ length: 11 }, (_, n) => (
             <button key={n} type="button" onClick={() => setNps(n)} className={cn("h-9 rounded-lg border text-sm tabular-nums", npsV === n ? (n <= 6 ? "border-red-500 bg-red-500 text-white" : n <= 8 ? "border-amber-500 bg-amber-500 text-white" : "border-emerald-600 bg-emerald-600 text-white") : "bg-background")}>{n}</button>
           ))}</div>
           <div className="mt-1 flex justify-between text-[11px] text-muted-foreground"><span>{t.npsLow}</span><span>{t.npsHigh}</span></div>
         </Card>
-        <Card title={t.overall}><Stars value={overall} onChange={setOverall} big /></Card>
-        {token.children.map((c, i) => (
-          <Card key={c.id} title={t.child(c.nickname)} sub={c.teacherNames.filter(Boolean).length ? `${t.teachers}: ${c.teacherNames.filter(Boolean).join(", ")}` : undefined}>
-            <div className="space-y-2">{(Object.keys(t.c) as (keyof typeof t.c)[]).map((k) => (
-              <Row key={k} label={t.c[k]}><Stars value={kids[i]?.[k] ?? null} onChange={(v) => setKids((ks) => ks.map((x, j) => (j === i ? { ...x, [k]: v } : x)))} /></Row>
-            ))}</div>
-          </Card>
-        ))}
-        <Card title={t.service}>
-          <div className="space-y-2">{(Object.keys(t.s) as (keyof typeof t.s)[]).filter((k) => k !== "bus" || token.usesBus).map((k) => (
-            <Row key={k} label={t.s[k]}><Stars value={service[k]} onChange={(v) => setService((s) => ({ ...s, [k]: v }))} /></Row>
+        <Card title={`${t.reasons} *`} error={tried && missing.reasons}>
+          <div className="grid gap-2">{REASONS.map((k) => (
+            <button key={k} type="button" onClick={() => setReasons((x) => (x.includes(k) ? x.filter((y) => y !== k) : [...x, k]))} className={chip(reasons.includes(k))}>{t.r[k]}</button>
+          ))}</div>
+          {reasons.includes("other") && <Input className="mt-2" placeholder={t.otherPh} value={reasonOther} onChange={(e) => setReasonOther(e.target.value)} />}
+        </Card>
+        <Card title={`${t.scores} *`} error={tried && missing.scores}>
+          <div className="space-y-3">{TOPICS.map((k) => (
+            <div key={k}>
+              <p className="mb-1 text-sm">{t.t[k]}</p>
+              <div className="grid grid-cols-5 gap-1">{[5, 4, 3, 2, 1].map((n) => (
+                <button key={n} type="button" onClick={() => setScores((x) => ({ ...x, [k]: n }))} className={cn("rounded-lg border px-1 py-1.5 text-[11px] leading-tight", scores[k] === n ? (n <= 2 ? "border-red-500 bg-red-500 text-white" : n === 3 ? "border-amber-500 bg-amber-500 text-white" : "border-emerald-600 bg-emerald-600 text-white") : "bg-background")}>{t.scale[n]}</button>
+              ))}</div>
+            </div>
           ))}</div>
         </Card>
-        <Card title={`${t.cont} *`} error={tried && !cont}>
-          <div className="grid grid-cols-3 gap-2">{(["yes", "maybe", "no"] as const).map((k) => (
-            <button key={k} type="button" onClick={() => setCont(k)} className={cn("rounded-full border px-3 py-2 text-sm", cont === k ? "border-primary bg-primary text-primary-foreground" : "bg-background")}>{t.cn[k]}</button>
+        <Card title={`${t.improve} *`} error={tried && missing.improve}>
+          <div className="grid gap-2">{IMPROVES.map((k) => (
+            <button key={k} type="button" onClick={() => setImprove(k)} className={chip(improve === k)}>{t.i[k]}</button>
           ))}</div>
+          {improve === "other" && <Input className="mt-2" placeholder={t.otherPh} value={improveOther} onChange={(e) => setImproveOther(e.target.value)} />}
         </Card>
-        <Card title={t.wants} sub={t.wantsSub}>
-          <div className="flex flex-wrap gap-2">{token.wantOptions.map((w) => (
-            <button key={w} type="button" onClick={() => setWants((x) => (x.includes(w) ? x.filter((y) => y !== w) : [...x, w]))} className={cn("rounded-full border px-3 py-1.5 text-sm", wants.includes(w) ? "border-primary bg-primary text-primary-foreground" : "bg-background")}>{t.times[w] ?? w}</button>
-          ))}</div>
-        </Card>
-        <Card title={t.praise} sub={t.optional}><Textarea rows={3} value={praise} onChange={(e) => setPraise(e.target.value)} /></Card>
-        <Card title={t.improve} sub={t.optional}><Textarea rows={3} value={improve} onChange={(e) => setImprove(e.target.value)} /></Card>
+        <Card title={t.courses} sub={t.optional}><Textarea rows={2} value={courses} onChange={(e) => setCourses(e.target.value)} /></Card>
+        <Card title={`${t.message} *`} error={tried && missing.message}><Textarea rows={4} value={message} onChange={(e) => setMessage(e.target.value)} /></Card>
       </main>
       <div className="fixed inset-x-0 bottom-0 border-t bg-background/95 p-3 backdrop-blur">
         <div className="mx-auto max-w-lg">
-          {tried && (npsV === null || !cont) && <p className="mb-2 text-center text-xs text-red-600">{t.need}</p>}
+          {tried && Object.values(missing).some(Boolean) && <p className="mb-2 text-center text-xs text-red-600">{t.need}</p>}
           <Button className="h-11 w-full" disabled={phase === "sending"} onClick={submit}><SendIcon /> {phase === "sending" ? t.sending : t.submit}</Button>
         </div>
       </div>
     </div>
   )
-}
-
-function Stars({ value, onChange, big }: { value: Score; onChange: (v: Score) => void; big?: boolean }) {
-  return (
-    <div className="flex shrink-0 gap-0.5">{[1, 2, 3, 4, 5].map((n) => (
-      <button key={n} type="button" aria-label={`${n}`} onClick={() => onChange(value === n ? null : n)}>
-        <StarIcon className={cn(big ? "size-9" : "size-7", (value ?? 0) >= n ? "fill-amber-400 text-amber-400" : "text-muted-foreground/40")} />
-      </button>
-    ))}</div>
-  )
-}
-
-function Row({ label, children }: { label: string; children: React.ReactNode }) {
-  return <div className="flex items-center gap-2"><span className="min-w-0 flex-1 text-sm">{label}</span>{children}</div>
 }
 
 function Card({ title, sub, error, children }: { title?: string; sub?: string; error?: boolean; children: React.ReactNode }) {

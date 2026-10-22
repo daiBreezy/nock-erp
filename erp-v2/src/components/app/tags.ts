@@ -34,6 +34,8 @@ export const TAG_HUE = {
   attendance: { present: "emerald", absent: "red", leave: "sky" },
   /** how a student / course moves (Reports) — the student-status hues: studying emerald, waiting to renew amber, on a
    *  long break gray, gone red; new = the students page's "new this month" sky */
+  /** an NPS answer's group (0–6 / 7–8 / 9–10) */
+  npsGroup: { promoter: "emerald", passive: "amber", detractor: "red" },
   studentFlow: { start: "emerald", new: "sky", returning: "violet", active: "emerald", paused: "gray", grace: "amber", future: "indigo", lost: "red" },
 } as const satisfies Record<string, Record<string, Hue>>
 export type TagFamily = keyof typeof TAG_HUE

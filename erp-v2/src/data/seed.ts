@@ -11,7 +11,7 @@ import { packageCovers } from "@/domain/rules/attendance"
 import type {
   CalendarNote,
   Assessment, AppNotification, Attendance, DevTicket, NockQuestion, Branch, BusAddOn, DayBlocks, ChatMessage, CourseSummary, CreditNote, LessonBook, LessonTopic, Conversation, Course, Entitlement, Family, Holiday, Invoice, Klass, Lead, LessonSummary,
-  ActivityLog, PriceRow, Session, StudentNote, Staff, Student, StudentLeave, SurveyCampaign, SurveyResponse, SystemConfig, Weekday, BusTrip } from "@/domain/types"
+  ActivityLog, PriceRow, Session, StudentNote, Staff, Student, StudentLeave, SurveyCampaign, SurveyImprove, SurveyReason, SurveyResponse, SystemConfig, Weekday, BusTrip } from "@/domain/types"
 
 export interface DB {
   branches: Branch[]
@@ -1145,16 +1145,20 @@ function buildSurveys(db: { today: string; branches: Branch[]; families: Family[
       const day = Math.floor(rnd() * (y < year ? 25 : 18))
       const submitted = `${y}-09-${String(15 + Math.min(day, 15)).padStart(2, "0")}T${String(9 + Math.floor(rnd() * 10)).padStart(2, "0")}:00:00.000Z`
       if (submitted.slice(0, 10) > db.today) continue
-      const cont = nps <= 4 ? pick(["no", "maybe"] as const) : nps <= 6 ? pick(["maybe", "yes"] as const) : "yes"
+      const unhappy = nps <= 6
+      // owner 2026-10-21: the real form's questions — reasons lean on what this family feels about; the one thing to improve
+      const reasonPool: SurveyReason[] = unhappy ? ["schedule", "value", "content", "other"] : ["teaching", "content", "feedback", "value", "schedule"]
+      const reasons = [...new Set(Array.from({ length: 1 + Math.floor(rnd() * 3) }, () => pick(reasonPool)))]
+      const improve = pick<SurveyImprove>(["exam", "challenge", "challenge", "one_on_one", "school", "school", "activities", "facility"])
       responses.push({
         id: `svr_${y}_${r.familyId}`, token: r.token, campaignId: id, year: y, familyId: r.familyId, branchId: r.branchId, teachers, submittedAt: submitted,
+        kids: kids.map((k) => ({ grade: k.grade, subjects: [...new Set(db.classes.filter((c) => c.studentIds.includes(k.id)).flatMap((c) => c.subjects?.length ? c.subjects : [c.subject]))] })),
         answers: {
-          nps, overall: sc(), continueNext: cont,
-          children: kids.map((k) => ({ studentId: k.id, teacher: sc(0.2), progress: sc(-0.1), level: sc() })),
-          service: { admin: sc(0.1), summary: sc(-0.3), schedule: sc(-0.4), place: sc(0.1), bus: kids.some((k) => k.usesBus) ? sc(-0.2) : null, value: sc(-0.5) },
-          wants: rnd() < 0.5 ? [pick(["วิทย์", "อังกฤษ", "คณิต", "เสาร์เช้า", "อาทิตย์", "เย็นวันธรรมดา"])] : [],
-          praise: rnd() < 0.3 ? pick(["ครูใส่ใจลูกมาก", "ลูกชอบมาเรียน เกรดดีขึ้นชัดเจน", "แอดมินตอบไว", "สรุปการเรียนละเอียดดีค่ะ"]) : "",
-          improve: rnd() < 0.3 ? pick(["อยากให้มีเวลาเรียนวันอาทิตย์", "ที่จอดรถน้อย", "ค่าเรียนขึ้นบ่อย", "อยากได้การบ้านเพิ่ม"]) : "",
+          nps, reasons, reasonOther: reasons.includes("other") ? pick(["เดินทางสะดวก ใกล้บ้าน", "พี่น้องเรียนที่นี่อยู่แล้ว"]) : "",
+          scores: { teacher: sc(0.2), content: sc(), feedback: sc(-0.3), value: sc(-0.5), place: sc(0.1) },
+          improve, improveOther: "",
+          wantCourses: rnd() < 0.35 ? pick(["คอร์สติวสอบเข้า ม.4", "ภาษาจีน", "Coding สำหรับเด็ก", "ฟิสิกส์ ม.ปลาย", "คอร์ส Phonics"]) : "",
+          message: rnd() < 0.7 ? pick(unhappy ? ["อยากให้แจ้งการบ้านให้ผู้ปกครองทราบด้วยค่ะ", "ค่าเรียนสูงไปนิด", "ที่จอดรถน้อย", "อยากให้มีเวลาเรียนวันอาทิตย์"] : ["ขอบคุณคุณครูทุกท่านค่ะ ลูกชอบมาเรียน", "ครูใส่ใจลูกมาก", "เกรดดีขึ้นชัดเจน ขอบคุณค่ะ", "สรุปการเรียนละเอียดดีค่ะ"]) : "-",
           lang: pick(["th", "th", "th", "en", "ja"] as const),
         },
         // last year's unhappy families were all called; this year's some are still waiting

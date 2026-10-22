@@ -23,7 +23,7 @@ import { can, canCompareBranches, crossBranch, reportBranchIds } from "@/domain/
 import { BUSINESS_SHORT, COMPARE_LABEL, LEAD_PATHS, PERIODS, type FlowEntry, type FlowExit, type stockFlow, scopeBranchIds, type PeriodKey, type Range, type SchoolGroup, type SchoolRow, schoolsByGroup } from "@/domain/rules/reports"
 import { LEAD_SOURCE_LABEL } from "@/domain/rules/crm"
 import { reasonLabel } from "@/domain/rules/loss"
-import type { Branch, Weekday } from "@/domain/types"
+import type { Branch, SurveyCampaign, SurveyResponse, Weekday } from "@/domain/types"
 import { report } from "@/lib/feedback"
 import { useNow } from "@/lib/hooks"
 import { downloadReports } from "@/lib/reports-export"
@@ -453,33 +453,32 @@ function MembersConversion({ d }: { d: ReportData }) {
   )
 }
 
-/** NPS on the overview (owner 2026-10-21) — the latest survey round: score, who'd recommend us, what parents wrote */
+/** NPS on the overview (owner 2026-10-21) — the latest survey round: score, who'd recommend us, why they scored as they
+ *  did and the one thing they'd most like improved (the questions of the school's real form) */
 function NpsOverview({ d }: { d: ReportData }) {
   const year = d.surveyYears[0]
   if (year === undefined) return null
   const cur = d.surveyOf(year), prev = d.surveyOf(year - 1)
   const s = cur.summary, p = prev.summary
-  const v = cur.responses.map((r) => r.answers.nps).filter((x): x is number => x !== null)
-  const pro = v.filter((x) => x >= 9).length, pas = v.filter((x) => x >= 7 && x <= 8).length, det = v.filter((x) => x <= 6).length, n = Math.max(1, v.length)
   const dNps = s.nps !== null && p.nps !== null ? s.nps - p.nps : null
-  const texts = (good: boolean) => groupComments(cur.responses.map((r) => (good ? r.answers.praise : r.answers.improve)).filter((x): x is string => !!x))
   return (
     <Panel title="NPS" hint={tx("แบบสอบถามผู้ปกครองปี {0} · แนะนำ 9–10 · เฉยๆ 7–8 · ไม่แนะนำ 0–6", [yearOf(year)])}>
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,2fr)] lg:gap-0 lg:divide-x">
         <div className="flex flex-col justify-center gap-3 lg:pr-6">
           <div className="flex items-end gap-3">
             <p className={cn("text-4xl font-semibold tabular-nums", s.nps !== null && s.nps < 0 ? "text-red-600" : "text-emerald-600")}>{s.nps === null ? "—" : `${s.nps > 0 ? "+" : ""}${s.nps}`}</p>
-            <p className="pb-1 text-xs text-muted-foreground">{dNps === null ? tx("ปีก่อน —") : <span className={dNps >= 0 ? "text-emerald-600" : "text-red-600"}>{dNps >= 0 ? "▲" : "▼"} {Math.abs(dNps)} {tx("จากปีก่อน")}</span>}<span className="block">{tx("ตอบ {0} ครอบครัว", [v.length])}</span></p>
+            <p className="pb-1 text-xs text-muted-foreground">{dNps === null ? tx("ปีก่อน —") : <span className={dNps >= 0 ? "text-emerald-600" : "text-red-600"}>{dNps >= 0 ? "▲" : "▼"} {Math.abs(dNps)} {tx("จากปีก่อน")}</span>}<span className="block">{tx("ตอบ {0} ครอบครัว", [s.responses])}</span></p>
           </div>
-          <div className="flex h-3 overflow-hidden rounded-full bg-muted"><span className="bg-emerald-500" style={{ width: `${(pro / n) * 100}%` }} /><span className="bg-amber-400" style={{ width: `${(pas / n) * 100}%` }} /><span className="bg-red-500" style={{ width: `${(det / n) * 100}%` }} /></div>
-          <div className="flex justify-between text-xs"><span className="text-emerald-700">{tx("แนะนำ")} {pro}</span><span className="text-amber-700">{tx("เฉยๆ")} {pas}</span><span className="text-red-700">{tx("ไม่แนะนำ")} {det}</span></div>
+          <NpsSplit responses={cur.responses.filter(Survey.isCurrent)} />
         </div>
         <div className="grid gap-6 lg:grid-cols-2 lg:gap-0 lg:divide-x lg:pl-6">
-          {[true, false].map((good, c) => (
-            <div key={String(good)} className={c ? "lg:pl-6" : "lg:pr-6"}>
-              <TopList title={good ? tx("ประทับใจ") : tx("อยากให้ปรับปรุง")} icon={<span className={cn("size-2.5 rounded-full", good ? "bg-emerald-500" : "bg-amber-500")} />} color={good ? "#10b981" : "#f59e0b"} wide rows={texts(good)} />
-            </div>
-          ))}
+          <div className="lg:pr-6">
+            <p className="mb-2 text-sm font-medium">{tx("เหตุผลที่ให้คะแนน")}</p>
+            <ReasonBars rows={s.reasons.slice(0, 5)} />
+          </div>
+          <div className="lg:pl-6">
+            <TopList title={tx("อยากให้ปรับปรุงมากที่สุด")} icon={<span className="size-2.5 rounded-full" style={{ background: NPS_HEX.passive }} />} color={NPS_HEX.passive} wide rows={s.improve.map((x) => ({ label: tx(x.label), value: x.count }))} />
+          </div>
         </div>
       </div>
     </Panel>
@@ -1347,75 +1346,118 @@ function CrmTab({ d, compare }: { d: ReportData; compare: boolean }) {
 
 // ---------------- Satisfaction (yearly parent survey) ----------------
 
-const CONT = { yes: "เรียนต่อ", maybe: "ยังไม่แน่ใจ", no: "ไม่เรียนต่อ" } as const
+const NPS_HEX = { promoter: tagHex("npsGroup", "promoter"), passive: tagHex("npsGroup", "passive"), detractor: tagHex("npsGroup", "detractor") }
 
-/** Yearly parent survey (owner 2026-10-05): NPS vs last year, by branch, weakest topics, teachers, wishes, who to call. */
+/** promoters / passives / detractors of a set of answers — the bar under an NPS */
+function NpsSplit({ responses, big }: { responses: SurveyResponse[]; big?: boolean }) {
+  const v = responses.map((r) => r.answers.nps).filter((x): x is number => x !== null)
+  const pro = v.filter((x) => x >= 9).length, pas = v.filter((x) => x >= 7 && x <= 8).length, det = v.filter((x) => x <= 6).length, n = Math.max(1, v.length)
+  return (
+    <div className="space-y-2">
+      <div className={cn("flex overflow-hidden rounded-full bg-muted", big ? "h-4" : "h-3")}>
+        <span style={{ width: `${(pro / n) * 100}%`, background: NPS_HEX.promoter }} /><span style={{ width: `${(pas / n) * 100}%`, background: NPS_HEX.passive }} /><span style={{ width: `${(det / n) * 100}%`, background: NPS_HEX.detractor }} />
+      </div>
+      <div className="flex justify-between text-xs"><span style={{ color: NPS_HEX.promoter }}>{tx("แนะนำ")} {pro}</span><span style={{ color: NPS_HEX.passive }}>{tx("เฉยๆ")} {pas}</span><span style={{ color: NPS_HEX.detractor }}>{tx("ไม่แนะนำ")} {det}</span></div>
+    </div>
+  )
+}
+
+/** the real form's Q4 — each reason with who named it, split by NPS group */
+function ReasonBars({ rows }: { rows: ReturnType<typeof Survey.summarize>["reasons"] }) {
+  if (!rows.length) return <Empty />
+  const top = Math.max(...rows.map((r) => r.total))
+  return (
+    <ul className="space-y-2.5 text-sm">{rows.map((r) => (
+      <li key={r.key} className="space-y-1">
+        <div className="flex items-baseline justify-between gap-2"><span className="truncate">{tx(r.label)}</span><span className="shrink-0 tabular-nums">{r.total}</span></div>
+        <div className="flex h-2 overflow-hidden rounded-full bg-muted" style={{ width: `${Math.max(6, (r.total / top) * 100)}%` }}>
+          <span style={{ flex: r.promoter, background: NPS_HEX.promoter }} /><span style={{ flex: r.passive, background: NPS_HEX.passive }} /><span style={{ flex: r.detractor, background: NPS_HEX.detractor }} />
+        </div>
+      </li>
+    ))}</ul>
+  )
+}
+
+const realText = (t: string) => !!t.trim() && !/^[-–.\s]+$/.test(t.trim())
+
+/**
+ * The yearly parent survey (owner 2026-10-05; 2026-10-21: the questions of the school's real form — NPS + why,
+ * satisfaction on five topics, the one thing to improve, courses to open, a message to the school). Filter by the
+ * subject / level of the children (the real form's Q1–Q2, filled in from the enrolment).
+ */
 function SatisfactionTab({ d, compare }: { d: ReportData; compare: boolean }) {
   const [year, setYear] = useState<number | null>(d.surveyYears[0] ?? null)
+  const [group, setGroup] = useState("")
   const [showAllCalls, setShowAllCalls] = useState(false)
   const families = useStore((st) => st.families)
   const branches = useStore((st) => st.branches)
   const staff = useStore((st) => st.staff)
   if (year === null) return <Empty>{tx("ยังไม่เคยส่งแบบสอบถามความพึงพอใจ — ส่งได้ที่ Settings › ระบบ")}</Empty>
-  const cur = d.surveyOf(year), prev = d.surveyOf(year - 1)
-  const s = cur.summary, p = prev.summary
+  const curAll = d.surveyOf(year), prevAll = d.surveyOf(year - 1)
+  const pick = (rs: SurveyResponse[]) => rs.filter(Survey.isCurrent).filter((r) => !group || Survey.subjectGroups(r).includes(group))
+  const rs = pick(curAll.responses), prs = pick(prevAll.responses)
+  const s = Survey.summarize(rs, group ? 0 : curAll.summary.sent), p = Survey.summarize(prs, group ? 0 : prevAll.summary.sent)
+  const groups = [...new Set(curAll.responses.filter(Survey.isCurrent).flatMap(Survey.subjectGroups))].sort((a, b) => a.localeCompare(b, "th"))
   const topics = Survey.topicRanking(s)
   const prevTopic = (k: string) => Survey.topicRanking(p).find((x) => x.key === k)?.score ?? null
-  const unhappy = cur.responses.filter((r) => Survey.isUnhappy(r.answers)).sort((a, b) => Number(!!a.followUp) - Number(!!b.followUp) || a.submittedAt.localeCompare(b.submittedAt))
+  const teachers = Survey.teacherScores(rs).map((t) => ({ ...t, staff: staff.find((x) => x.id === t.teacherId) }))
+  const toCall = Survey.toCall(rs, d.today)
+  const unhappy = rs.filter((r) => Survey.isUnhappy(r.answers)).sort((a, b) => Number(!!a.followUp) - Number(!!b.followUp) || a.submittedAt.localeCompare(b.submittedAt))
   const fam = (id: string) => nm(families.find((f) => f.id === id)?.name ?? "—")
-  const comments = cur.responses.flatMap((r) => [r.answers.praise && { k: `${r.id}p`, text: r.answers.praise, good: true, r }, r.answers.improve && { k: `${r.id}i`, text: r.answers.improve, good: false, r }].filter(Boolean) as { k: string; text: string; good: boolean; r: (typeof cur.responses)[number] }[])
+  const improveText = (r: SurveyResponse) => (r.answers.improve === "other" ? r.answers.improveOther : r.answers.improve ? tx(Survey.IMPROVE_LABEL[r.answers.improve]) : "—")
+  const courses = groupComments(rs.map((r) => r.answers.wantCourses).filter(realText))
+  const messages = (good: boolean) => groupComments(rs.filter((r) => good === !Survey.isUnhappy(r.answers)).map((r) => r.answers.message).filter(realText))
   const dNps = s.nps !== null && p.nps !== null ? s.nps - p.nps : null
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-2">
         <span className="text-sm text-muted-foreground">{tx("รอบแบบสอบถามปี")}</span>
         <Segmented label={tx("ปี")} value={String(year)} onChange={(v) => setYear(Number(v))} options={d.surveyYears.map((y) => ({ value: String(y), label: String(yearOf(y)) }))} />
-        {cur.campaign && <InfoTip text={`${tx("ส่ง")} ${fmtDate(cur.campaign.sentAt.slice(0, 10))} ${tx("· ปิดรับ")} ${fmtDate(cur.campaign.to)} · ${tx("แบบสอบถามส่งปีละครั้ง จึงเลือกเป็นปี ไม่ใช้ช่วงเวลาด้านบน")}`} />}
+        {cur(curAll)}
+        <NativeSelect className="h-9 w-48" value={group} onChange={(e) => setGroup(e.target.value)} placeholder={tx("ทุกวิชา / ทุกระดับ")} options={groups.map((g) => ({ value: g, label: tx(g) }))} />
       </div>
-      <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-6">
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-5">
         <Stat label="NPS" value={s.nps === null ? "—" : `${s.nps > 0 ? "+" : ""}${s.nps}`} tone={s.nps !== null && s.nps < 0 ? "text-red-600" : "text-emerald-600"} sub={dNps === null ? <span>{tx("ปีก่อน —")}</span> : <span className={dNps >= 0 ? "text-emerald-600" : "text-red-600"}>{dNps >= 0 ? "▲" : "▼"} {Math.abs(dNps)}  {tx("จากปีก่อน (")}{p.nps})</span>} />
-        <Stat label={tx("ตอบแล้ว")} value={`${s.responses}/${s.sent}`} sub={<span>{fmtPct(s.rate)}</span>} />
-        <Stat label={tx("พอใจโดยรวม")} value={s.overall === null ? "—" : s.overall.toFixed(1)} sub={<span>{tx("ปีก่อน")} {p.overall === null ? "—" : p.overall.toFixed(1)}</span>} />
-        <Stat label={tx("ปีหน้าเรียนต่อ")} value={s.responses ? fmtPct(s.continueNext.yes / s.responses) : "—"} sub={<span>{tx("ไม่แน่ใจ")} {s.continueNext.maybe}  {tx("· ไม่ต่อ")} {s.continueNext.no}</span>} />
-        <Stat label={tx("ไม่พอใจ")} value={String(s.unhappy)} tone={s.unhappy ? "text-red-600" : undefined} sub={<span>{tx("แนะนำ 0–6 หรือไม่เรียนต่อ")}</span>} />
-        <Stat label={tx("ยังไม่ได้โทร")} value={String(cur.toCall.length)} tone={cur.toCall.some((x) => x.overdue) ? "text-red-600" : undefined} sub={<span>{tx("เกิน 3 วัน")} {cur.toCall.filter((x) => x.overdue).length}</span>} />
+        <Stat label={tx("ตอบแล้ว")} value={group ? String(s.responses) : `${s.responses}/${s.sent}`} sub={s.rate !== null ? <span>{fmtPct(s.rate)}</span> : undefined} />
+        <Stat label={tx("พอใจเฉลี่ย 5 ด้าน")} value={s.overall === null ? "—" : s.overall.toFixed(1)} sub={<span>{tx("ปีก่อน")} {p.overall === null ? "—" : p.overall.toFixed(1)}</span>} />
+        <Stat label={tx("ไม่แนะนำ (0–6)")} value={String(s.unhappy)} tone={s.unhappy ? "text-red-600" : undefined} sub={<span>{tx("โทรคุยภายใน 3 วัน")}</span>} />
+        <Stat label={tx("ยังไม่ได้โทร")} value={String(toCall.length)} tone={toCall.some((x) => x.overdue) ? "text-red-600" : undefined} sub={<span>{tx("เกิน 3 วัน")} {toCall.filter((x) => x.overdue).length}</span>} />
       </div>
       <div className="grid gap-4 lg:grid-cols-2">
-        <Panel title={tx("หัวข้อ (เฉลี่ย 1–5)")} hint={tx("ต่ำสุดอยู่บน = ควรปรับก่อน · ตัวเลขเล็ก = ปีก่อน")} fill>
+        <Panel title={tx("ความพึงพอใจ 5 ด้าน (เฉลี่ย 1–5)")} hint={tx("5 = มากที่สุด · 1 = ไม่พอใจ · ต่ำสุดอยู่บน = ควรปรับก่อน · ตัวเลขเล็ก = ปีก่อน")} fill>
           {topics.length ? (
             <ul className="space-y-2 text-sm">{topics.map((t) => { const pv = prevTopic(t.key); return (
-              <li key={t.key} className="grid grid-cols-[minmax(0,10rem)_1fr_5rem] items-center gap-2">
+              <li key={t.key} className="grid grid-cols-[minmax(0,12rem)_1fr_5rem] items-center gap-2">
                 <span className="truncate">{tx(t.label)}</span>
-                <ShareBar value={(t.score! - 1) / 4} color={t.score! < 3.5 ? "#dc2626" : t.score! < 4 ? "#f59e0b" : "#10b981"} />
+                <ShareBar value={(t.score! - 1) / 4} color={t.score! < 3.5 ? NPS_HEX.detractor : t.score! < 4 ? NPS_HEX.passive : NPS_HEX.promoter} />
                 <span className="text-right tabular-nums">{t.score!.toFixed(1)}{pv !== null && <span className="ml-1 text-[11px] text-muted-foreground">{pv.toFixed(1)}</span>}</span>
               </li>
             ) })}</ul>
           ) : <Empty />}
         </Panel>
-        {compare ? (
+        {compare && !group ? (
           <Panel title={tx("NPS ตามสาขา")} hint={tx("ตัวเลขเล็ก = ปีก่อน · (ตอบ/ส่ง)")} fill>
-            <SplitRanks rows={[...cur.byBranch].sort((a, b) => (b.nps ?? -999) - (a.nps ?? -999))} cols={[
-              { label: "NPS", cell: (b) => <span className={cn("font-medium", b.nps !== null && b.nps < 0 && "text-red-600")}>{b.nps === null ? "—" : `${b.nps > 0 ? "+" : ""}${b.nps}`}<span className="ml-1 text-[11px] font-normal text-muted-foreground">{prev.byBranch.find((x) => x.id === b.id)?.nps ?? "—"}</span></span> },
+            <SplitRanks rows={[...curAll.byBranch].sort((a, b) => (b.nps ?? -999) - (a.nps ?? -999))} cols={[
+              { label: "NPS", cell: (b) => <span className={cn("font-medium", b.nps !== null && b.nps < 0 && "text-red-600")}>{b.nps === null ? "—" : `${b.nps > 0 ? "+" : ""}${b.nps}`}<span className="ml-1 text-[11px] font-normal text-muted-foreground">{prevAll.byBranch.find((x) => x.id === b.id)?.nps ?? "—"}</span></span> },
               { label: tx("ตอบ"), cell: (b) => <span className="text-xs text-muted-foreground">{b.n}/{b.sent}</span> },
             ]} />
           </Panel>
         ) : (
-          <Panel title={tx("คะแนนแนะนำเพื่อน (0–10)")} hint={tx("แนะนำ 9–10 · เฉยๆ 7–8 · ไม่แนะนำ 0–6")} center>
-            {(() => { const v = cur.responses.map((r) => r.answers.nps).filter((x): x is number => x !== null); const pro = v.filter((x) => x >= 9).length, pas = v.filter((x) => x >= 7 && x <= 8).length, det = v.filter((x) => x <= 6).length; const n = Math.max(1, v.length); return (
-              <div className="space-y-2">
-                <div className="flex h-4 overflow-hidden rounded-full"><span className="bg-emerald-500" style={{ width: `${(pro / n) * 100}%` }} /><span className="bg-amber-400" style={{ width: `${(pas / n) * 100}%` }} /><span className="bg-red-500" style={{ width: `${(det / n) * 100}%` }} /></div>
-                <div className="flex justify-between text-xs"><span className="text-emerald-700">{tx("แนะนำ")} {pro}</span><span className="text-amber-700">{tx("เฉยๆ")} {pas}</span><span className="text-red-700">{tx("ไม่แนะนำ")} {det}</span></div>
-              </div>
-            ) })()}
-          </Panel>
+          <Panel title={tx("คะแนนแนะนำ (0–10)")} hint={tx("แนะนำ 9–10 · เฉยๆ 7–8 · ไม่แนะนำ 0–6")} center><NpsSplit responses={rs} big /></Panel>
         )}
       </div>
       <div className="grid gap-4 lg:grid-cols-2">
-        <Panel title={tx("คะแนนครู (จากผู้ปกครอง)")} hint={tx("เฉลี่ยข้อ “ครูผู้สอน” ของเด็กที่ครูสอน · ครูเห็นแค่ค่าเฉลี่ยของตัวเอง ไม่เห็นว่าใครให้")} fill>
-          {cur.teachers.length ? (
+        <Panel title={tx("เหตุผลที่ให้คะแนน")} hint={tx("เลือกได้หลายข้อ · สีในแถบ = กลุ่มที่เลือกเหตุผลนั้น (แนะนำ / เฉยๆ / ไม่แนะนำ)")} fill><ReasonBars rows={s.reasons} /></Panel>
+        <Panel title={tx("อยากให้ปรับปรุงมากที่สุด")} hint={tx("เลือกได้ 1 ข้อต่อครอบครัว")} fill>
+          <TopList title={tx("เรื่องที่เลือก")} icon={<SparklesIcon className="size-4 text-muted-foreground" />} color={NPS_HEX.passive} top={7} fill rows={s.improve.map((x) => ({ label: tx(x.label), value: x.count }))} />
+        </Panel>
+      </div>
+      <div className="grid gap-4 lg:grid-cols-2">
+        <Panel title={tx("คะแนนครู (จากผู้ปกครอง)")} hint={tx("เฉลี่ยข้อ “คุณครูผู้สอน” ของครอบครัวที่ครูสอนลูก · ครูเห็นแค่ค่าเฉลี่ยของตัวเอง ไม่เห็นว่าใครให้")} fill>
+          {teachers.length ? (
             <table className="w-full text-sm">
               <thead className="text-xs text-muted-foreground"><tr><th className="text-left font-normal">{tx("ครู")}</th>{compare && <th className="text-left font-normal">{tx("สาขา")}</th>}<th className="text-right font-normal">{tx("คะแนน")}</th><th className="text-right font-normal">{tx("จำนวน")}</th></tr></thead>
-              <tbody>{cur.teachers.map((t) => (
+              <tbody>{teachers.map((t) => (
                 <tr key={t.teacherId} className="border-t">
                   <td className="py-1.5">{nm(t.staff?.nickname ?? "—")}</td>
                   {compare && <td className="text-muted-foreground">{(t.staff?.branchIds ?? []).map((id) => branches.find((b) => b.id === id)?.code).filter(Boolean).join(", ")}</td>}
@@ -1426,8 +1468,8 @@ function SatisfactionTab({ d, compare }: { d: ReportData; compare: boolean }) {
             </table>
           ) : <Empty>{tx("ยังไม่มีคะแนนครู (นักเรียนที่ตอบยังไม่อยู่ในคลาส)")}</Empty>}
         </Panel>
-        <Panel title={tx("อยากให้เปิดเพิ่ม")} hint={tx("วิชา / เวลา ที่ผู้ปกครองขอ")} fill>
-          <TopList title={tx("ผู้ปกครองขอ")} icon={<SparklesIcon className="size-4 text-muted-foreground" />} color="#f59e0b" top={8} fill rows={cur.wants.map((w) => ({ label: tx(w.want), value: w.count }))} />
+        <Panel title={tx("คอร์สที่อยากให้เปิดเพิ่ม")} hint={tx("{0} ข้อความ", [courses.reduce((a, x) => a + x.value, 0)])} fill>
+          <TopList title={tx("ผู้ปกครองขอ")} icon={<SparklesIcon className="size-4 text-muted-foreground" />} color={NPS_HEX.passive} top={8} fill rows={courses} />
         </Panel>
       </div>
       {/* outcome only (owner 2026-10-05: Reports show what's done — the calls themselves are on CRM) */}
@@ -1435,13 +1477,13 @@ function SatisfactionTab({ d, compare }: { d: ReportData; compare: boolean }) {
         {unhappy.some((r) => r.followUp) ? (
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
-              <thead className="text-xs text-muted-foreground"><tr><th className="text-left font-normal">{tx("ครอบครัว")}</th>{compare && <th className="text-left font-normal">{tx("สาขา")}</th>}<th className="px-3 text-right font-normal">{tx("แนะนำ")}</th><th className="px-3 text-left font-normal">{tx("ปีหน้า")}</th><th className="px-3 text-left font-normal">{tx("โทรโดย")}</th><th className="text-left font-normal">{tx("ผลการคุย")}</th></tr></thead>
+              <thead className="text-xs text-muted-foreground"><tr><th className="text-left font-normal">{tx("ครอบครัว")}</th>{compare && <th className="text-left font-normal">{tx("สาขา")}</th>}<th className="px-3 text-right font-normal">{tx("แนะนำ")}</th><th className="px-3 text-left font-normal">{tx("อยากให้ปรับปรุง")}</th><th className="px-3 text-left font-normal">{tx("โทรโดย")}</th><th className="text-left font-normal">{tx("ผลการคุย")}</th></tr></thead>
               <tbody>{unhappy.filter((r) => r.followUp).slice(0, showAllCalls ? undefined : 10).map((r) => (
                 <tr key={r.id} className="border-t align-middle [&>td]:py-2">
                   <td>{fam(r.familyId)}</td>
                   {compare && <td className="text-muted-foreground">{branches.find((b) => b.id === r.branchId)?.code}</td>}
                   <td className="px-3 text-right text-red-600 tabular-nums">{r.answers.nps ?? "—"}/10</td>
-                  <td className="px-3 whitespace-nowrap">{r.answers.continueNext ? tx(CONT[r.answers.continueNext]) : "—"}</td>
+                  <td className="px-3">{improveText(r)}</td>
                   <td className="px-3 whitespace-nowrap text-muted-foreground">{nm(staff.find((x) => x.id === r.followUp!.by)?.nickname)} · {fmtDate(r.followUp!.at.slice(0, 10))}</td>
                   <td>{r.followUp!.note}</td>
                 </tr>
@@ -1451,20 +1493,22 @@ function SatisfactionTab({ d, compare }: { d: ReportData; compare: boolean }) {
           </div>
         ) : <Empty>{unhappy.length ? tx("ยังไม่มีการโทรที่บันทึกไว้") : tx("ไม่มีผู้ปกครองที่ไม่พอใจในปีนี้")}</Empty>}
       </Panel>
-      <Panel title={tx("ความเห็นจากผู้ปกครอง")} hint={tx("{0} ข้อความ", [comments.length])}>
-        {comments.length ? (
-          <div className="grid gap-6 lg:grid-cols-2 lg:gap-0 lg:divide-x">
-            {[true, false].map((good, c) => (
-              <div key={String(good)} className={c ? "lg:pl-6" : "lg:pr-6"}>
-                <TopList title={good ? tx("ประทับใจ") : tx("อยากให้ปรับปรุง")} icon={<span className={cn("size-2.5 rounded-full", good ? "bg-emerald-500" : "bg-amber-500")} />} color={good ? "#10b981" : "#f59e0b"} wide
-                  rows={groupComments(comments.filter((x) => x.good === good).map((x) => x.text))} />
-              </div>
-            ))}
-          </div>
-        ) : <Empty />}
+      <Panel title={tx("ข้อความถึงครูและสถาบัน")} hint={tx("แยกตามคะแนนแนะนำ · ข้อความซ้ำรวมเป็นแถวเดียว")}>
+        <div className="grid gap-6 lg:grid-cols-2 lg:gap-0 lg:divide-x">
+          {[true, false].map((good, c) => (
+            <div key={String(good)} className={c ? "lg:pl-6" : "lg:pr-6"}>
+              <TopList title={good ? tx("จากผู้ที่แนะนำ / เฉยๆ (7–10)") : tx("จากผู้ที่ไม่แนะนำ (0–6)")} icon={<span className="size-2.5 rounded-full" style={{ background: good ? NPS_HEX.promoter : NPS_HEX.detractor }} />} color={good ? NPS_HEX.promoter : NPS_HEX.detractor} wide rows={messages(good)} />
+            </div>
+          ))}
+        </div>
       </Panel>
     </div>
   )
+}
+
+/** the send-out's dates behind an ⓘ */
+function cur(c: { campaign?: SurveyCampaign }) {
+  return c.campaign ? <InfoTip text={`${tx("ส่ง")} ${fmtDate(c.campaign.sentAt.slice(0, 10))} ${tx("· ปิดรับ")} ${fmtDate(c.campaign.to)} · ${tx("แบบสอบถามส่งปีละครั้ง จึงเลือกเป็นปี ไม่ใช้ช่วงเวลาด้านบน")}`} /> : null
 }
 
 /** Same comment from many families → one row with a count (the survey has many identical short answers) */

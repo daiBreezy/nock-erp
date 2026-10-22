@@ -771,18 +771,26 @@ export interface LeadNote {
 }
 
 /** Yearly parent satisfaction survey (owner 2026-10-05): one form per family, child ratings inside, TH/EN/JP. */
+/** owner 2026-10-21: the questions of the school's real parent survey (Google Form, NockAcademy Bangna) — sent per
+ *  family by LINE so the school still knows who answered (subjects / grade come from the enrolment, not asked) */
+export type SurveyReason = "content" | "teaching" | "feedback" | "schedule" | "value" | "other"
+export type SurveyTopic = "teacher" | "content" | "feedback" | "value" | "place"
+export type SurveyImprove = "exam" | "challenge" | "activities" | "one_on_one" | "school" | "facility" | "other"
 export interface SurveyAnswers {
-  /** would recommend us, 0–10 */
+  /** Q3: would recommend us, 0–10 */
   nps: number | null
-  /** overall 1–5 */
-  overall: number | null
-  children: { studentId: ID; teacher: number | null; progress: number | null; level: number | null }[]
-  service: { admin: number | null; summary: number | null; schedule: number | null; place: number | null; bus: number | null; value: number | null }
-  continueNext: "yes" | "maybe" | "no" | null
-  /** subjects / times they would like us to open */
-  wants: string[]
-  praise: string
-  improve: string
+  /** Q4: why that score (several) — "other" with its text */
+  reasons: SurveyReason[]
+  reasonOther: string
+  /** Q5: satisfaction per topic, 5 = มากที่สุด … 1 = ไม่พอใจ */
+  scores: Record<SurveyTopic, number | null>
+  /** Q6: the one thing to improve most — "other" with its text */
+  improve: SurveyImprove | null
+  improveOther: string
+  /** Q7: courses they'd like us to open */
+  wantCourses: string
+  /** Q8: a message to the teachers and the school */
+  message: string
   lang: FormLang
 }
 
@@ -798,9 +806,7 @@ export interface SurveyToken {
   brand: Brand
   lang: FormLang
   usesBus: boolean
-  children: { id: ID; nickname: string; grade: string; teacherIds: ID[]; teacherNames: string[] }[]
-  /** subjects + time slots the "what should we open" question offers */
-  wantOptions: string[]
+  children: { id: ID; nickname: string; grade: string; teacherIds: ID[]; teacherNames: string[]; subjects: string[] }[]
   conversationId: ID | null
   createdAt: string
   expiresAt: string
@@ -816,6 +822,8 @@ export interface SurveyResponse {
   branchId: ID
   /** teachers of each child when sent — teacher scores go to them */
   teachers: Record<ID, ID[]>
+  /** each child's grade + subjects when sent (the real form's Q1–Q2, filled in by the system) */
+  kids?: { grade: string; subjects: string[] }[]
   answers: SurveyAnswers
   submittedAt: string
   /** unhappy → a manager calls them (owner: within 3 days) and notes what came of it */

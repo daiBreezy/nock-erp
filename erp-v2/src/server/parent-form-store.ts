@@ -200,7 +200,8 @@ export function submitSurvey(token: string, answers: SurveyAnswers, teachers: Re
     if (!t) return { ok: false as const, error: "invalid" }
     if (t.used) return { ok: false as const, error: "used" }
     t.used = true
-    const response: SurveyResponse = { id: `svr_${Date.now().toString(36)}`, token, campaignId: t.campaignId, year: t.year, familyId: t.familyId, branchId: t.branchId, teachers, answers, submittedAt: new Date().toISOString() }
+    const response: SurveyResponse = { id: `svr_${Date.now().toString(36)}`, token, campaignId: t.campaignId, year: t.year, familyId: t.familyId, branchId: t.branchId, teachers,
+      kids: t.children.map((c) => ({ grade: c.grade, subjects: c.subjects ?? [] })), answers, submittedAt: new Date().toISOString() }
     s.responses.push(response)
     return { ok: true as const, response, token: t }
   })

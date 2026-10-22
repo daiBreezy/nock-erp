@@ -160,8 +160,12 @@ export async function sendYearlySurvey(year: number, from: string, to: string): 
     return {
       campaignId, year, familyId: family.id, familyName: family.name, branchId: branch.id, branchName: branch.name, brand: branch.brand, lang: s.system.preferences.language,
       usesBus: kids.some((k) => k.usesBus), conversationId: conv?.id ?? null, expiresAt,
-      children: kids.map((k) => { const ids = [...new Set(s.classes.filter((c) => c.studentIds.includes(k.id) && c.teacherId).map((c) => c.teacherId!))]; return { id: k.id, nickname: k.nickname, grade: k.grade, teacherIds: ids, teacherNames: ids.map((t) => s.staff.find((x) => x.id === t)?.nickname ?? "") } }),
-      wantOptions: [...branch.subjects, "เสาร์เช้า", "เสาร์บ่าย", "อาทิตย์", "เย็นวันธรรมดา"],
+      children: kids.map((k) => {
+        const mine = s.classes.filter((c) => c.studentIds.includes(k.id))
+        const ids = [...new Set(mine.filter((c) => c.teacherId).map((c) => c.teacherId!))]
+        // the real form's Q1 (subjects) — filled in from the classes, not asked
+        return { id: k.id, nickname: k.nickname, grade: k.grade, teacherIds: ids, teacherNames: ids.map((t) => s.staff.find((x) => x.id === t)?.nickname ?? ""), subjects: [...new Set(mine.flatMap((c) => c.subjects?.length ? c.subjects : [c.subject]))] }
+      }),
     }
   })
   const res = await postJson<{ ok: boolean; tokens?: SurveyToken[]; error?: string }>("/api/parent-forms/survey", { tokens: inputs })

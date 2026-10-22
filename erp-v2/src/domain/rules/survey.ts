@@ -1,9 +1,10 @@
 // Yearly parent satisfaction survey (owner 2026-10-05): sent once a year (Sep–Oct window in Settings) to every family
-// with a child studying, one form per family with ratings per child, identified (so unhappy families get a call),
-// core questions the same every year so years compare. Teachers only ever see their own average.
+// with a child studying, one form per family, identified (so unhappy families get a call). Since 2026-10-21 the
+// questions are the school's real survey (Google Form) so years compare with what they collected before.
+// Teachers only ever see their own average.
 
 import { addDays } from "../dates"
-import type { DateStr, Entitlement, Family, ID, Student, SurveyAnswers, SurveyCampaign, SurveyResponse, SystemConfig } from "../types"
+import type { DateStr, Entitlement, Family, ID, Student, SurveyAnswers, SurveyCampaign, SurveyImprove, SurveyReason, SurveyResponse, SurveyTopic, SystemConfig } from "../types"
 
 export const DEFAULT_WINDOW = { from: "09-15", to: "10-15" }
 export const REMIND_AFTER_DAYS = 7
@@ -31,53 +32,75 @@ export function nps(values: (number | null)[]) {
 
 const mean = (vals: (number | null | undefined)[]) => { const v = vals.filter((x): x is number => typeof x === "number"); return v.length ? v.reduce((a, b) => a + b, 0) / v.length : null }
 
-export const SERVICE_KEYS = ["admin", "summary", "schedule", "place", "bus", "value"] as const
-export const SERVICE_LABEL: Record<(typeof SERVICE_KEYS)[number], string> = { admin: "การติดต่อแอดมิน", summary: "สรุปการเรียน", schedule: "ตารางเรียน / ความยืดหยุ่น", place: "สถานที่", bus: "รถรับส่ง", value: "ความคุ้มค่า" }
-export const CHILD_LABEL = { teacher: "ครูผู้สอน", progress: "พัฒนาการของลูก", level: "เนื้อหาเหมาะกับระดับ" } as const
+// owner 2026-10-21: the questions of the school's real survey (Google Form) — labels as the form words them
+export const REASON_KEYS = ["content", "teaching", "feedback", "schedule", "value", "other"] as const satisfies readonly SurveyReason[]
+export const REASON_LABEL: Record<SurveyReason, string> = {
+  content: "เนื้อหาบทเรียนตรงหลักสูตรและเข้าใจง่าย", teaching: "เทคนิคการสอนของครูช่วยให้เด็กพัฒนาขึ้น", feedback: "ระบบ Feedback รายงานผลการเรียนชัดเจนสม่ำเสมอ",
+  schedule: "ตารางเรียนเหมาะสม", value: "ค่าเล่าเรียนคุ้มค่าเมื่อเทียบกับคุณภาพ", other: "อื่นๆ",
+}
+export const TOPIC_KEYS = ["teacher", "content", "feedback", "value", "place"] as const satisfies readonly SurveyTopic[]
+export const TOPIC_LABEL: Record<SurveyTopic, string> = { teacher: "คุณครูผู้สอน", content: "คุณภาพหลักสูตรและเนื้อหาการสอน", feedback: "ระบบการให้ Feedback", value: "ความคุ้มค่าของค่าเล่าเรียน", place: "ห้องเรียน อาคารสถานที่" }
+/** the form's 5-point scale, 5 = best */
+export const SCALE_LABEL: Record<number, string> = { 5: "มากที่สุด", 4: "มาก", 3: "ปานกลาง", 2: "น้อย", 1: "ไม่พอใจ" }
+export const IMPROVE_KEYS = ["exam", "challenge", "activities", "one_on_one", "school", "facility", "other"] as const satisfies readonly SurveyImprove[]
+export const IMPROVE_LABEL: Record<SurveyImprove, string> = {
+  exam: "เพิ่มความเข้มข้นของเนื้อหาเพื่อการสอบแข่งขัน", challenge: "เพิ่มโจทย์ท้าทายและคลังข้อสอบเก่า", activities: "เพิ่มกิจกรรมเสริมทักษะนอกวิชาหลัก",
+  one_on_one: "เพิ่มการสื่อสาร / ปรึกษาตัวต่อตัวกับครู", school: "เนื้อหาตรงกับหลักสูตรของโรงเรียนมากขึ้น", facility: "ความเรียบร้อยและความสะอาดของสถานที่", other: "อื่นๆ",
+}
 
-/** Unhappy = wouldn't recommend (0–6) or not coming back next year — a manager calls them. */
-export const isUnhappy = (a: Pick<SurveyAnswers, "nps" | "continueNext">) => (a.nps !== null && a.nps <= 6) || a.continueNext === "no"
+/** NPS group of a 0–10 score */
+export const npsGroup = (n: number | null) => (n === null ? null : n >= 9 ? "promoter" : n >= 7 ? "passive" : "detractor")
+
+/** Unhappy = wouldn't recommend (0–6) — a manager calls them. */
+export const isUnhappy = (a: Pick<SurveyAnswers, "nps">) => a.nps !== null && a.nps <= 6
+
+/** answers in the current shape (older test answers from before 2026-10-21 are left out) */
+export const isCurrent = (r: Pick<SurveyResponse, "answers">) => !!r.answers && typeof r.answers === "object" && "scores" in r.answers
 
 export function summarize(responses: SurveyResponse[], sent: number) {
-  const a = responses.map((r) => r.answers)
-  const kids = a.flatMap((x) => x.children)
+  const rs = responses.filter(isCurrent)
+  const a = rs.map((r) => r.answers)
+  const scores = Object.fromEntries(TOPIC_KEYS.map((k) => [k, mean(a.map((x) => x.scores[k]))])) as Record<SurveyTopic, number | null>
   return {
-    responses: responses.length, sent, rate: sent ? responses.length / sent : null,
-    nps: nps(a.map((x) => x.nps)), overall: mean(a.map((x) => x.overall)),
-    continueNext: { yes: a.filter((x) => x.continueNext === "yes").length, maybe: a.filter((x) => x.continueNext === "maybe").length, no: a.filter((x) => x.continueNext === "no").length },
-    child: { teacher: mean(kids.map((k) => k.teacher)), progress: mean(kids.map((k) => k.progress)), level: mean(kids.map((k) => k.level)) },
-    service: Object.fromEntries(SERVICE_KEYS.map((k) => [k, mean(a.map((x) => x.service[k]))])) as Record<(typeof SERVICE_KEYS)[number], number | null>,
-    unhappy: responses.filter((r) => isUnhappy(r.answers)).length,
+    responses: rs.length, sent, rate: sent ? rs.length / sent : null,
+    nps: nps(a.map((x) => x.nps)),
+    /** the five topics' average (1–5) */
+    overall: mean(TOPIC_KEYS.map((k) => scores[k])),
+    scores,
+    /** why they scored as they did — per NPS group, most named first */
+    reasons: REASON_KEYS.map((k) => {
+      const by = (g: string) => a.filter((x) => x.reasons.includes(k) && npsGroup(x.nps) === g).length
+      return { key: k, label: REASON_LABEL[k], promoter: by("promoter"), passive: by("passive"), detractor: by("detractor"), total: a.filter((x) => x.reasons.includes(k)).length }
+    }).filter((x) => x.total).sort((x, y) => y.total - x.total),
+    /** the one thing to improve most, most picked first */
+    improve: IMPROVE_KEYS.map((k) => ({ key: k, label: IMPROVE_LABEL[k], count: a.filter((x) => x.improve === k).length })).filter((x) => x.count).sort((x, y) => y.count - x.count),
+    unhappy: rs.filter((r) => isUnhappy(r.answers)).length,
   }
 }
 
 /** Every topic ranked lowest first — what to fix. */
 export function topicRanking(s: ReturnType<typeof summarize>) {
-  return [
-    ...Object.entries(CHILD_LABEL).map(([k, label]) => ({ key: k, label, score: s.child[k as keyof typeof CHILD_LABEL] })),
-    ...SERVICE_KEYS.map((k) => ({ key: k, label: SERVICE_LABEL[k], score: s.service[k] })),
-  ].filter((x) => x.score !== null).sort((a, b) => a.score! - b.score!)
+  return TOPIC_KEYS.map((k) => ({ key: k, label: TOPIC_LABEL[k], score: s.scores[k] })).filter((x) => x.score !== null).sort((a, b) => a.score! - b.score!)
 }
 
-/** A teacher's average from the children they teach (their own number only — never who said what). */
+/** A teacher's average of the "คุณครูผู้สอน" score from the families whose children they teach (their own number only). */
 export function teacherScores(responses: SurveyResponse[]) {
   const by = new Map<ID, number[]>()
-  for (const r of responses) for (const c of r.answers.children) {
-    if (c.teacher === null) continue
-    for (const t of r.teachers[c.studentId] ?? []) by.set(t, [...(by.get(t) ?? []), c.teacher])
+  for (const r of responses.filter(isCurrent)) {
+    const v = r.answers.scores.teacher
+    if (v === null) continue
+    for (const t of new Set(Object.values(r.teachers).flat())) by.set(t, [...(by.get(t) ?? []), v])
   }
   return [...by.entries()].map(([teacherId, v]) => ({ teacherId, score: v.reduce((a, b) => a + b, 0) / v.length, ratings: v.length })).sort((a, b) => a.score - b.score)
 }
 
-export function wantsCount(responses: SurveyResponse[]) {
-  const by = new Map<string, number>()
-  responses.forEach((r) => r.answers.wants.forEach((w) => by.set(w, (by.get(w) ?? 0) + 1)))
-  return [...by.entries()].map(([want, count]) => ({ want, count })).sort((a, b) => b.count - a.count)
-}
+/** "subject · ประถม / มัธยม" of each child — the real form's Q1 options, filled in from the enrolment */
+export const levelOf = (grade: string) => (grade.startsWith("ม.") ? "มัธยม" : "ประถม")
+export const subjectGroups = (r: Pick<SurveyResponse, "kids">) => [...new Set((r.kids ?? []).flatMap((k) => k.subjects.map((s) => `${s} ${levelOf(k.grade)}`)))]
 
 /** Unhappy families nobody has called yet — overdue after CALL_WITHIN_DAYS. */
 export function toCall(responses: SurveyResponse[], today: DateStr) {
-  return responses.filter((r) => isUnhappy(r.answers) && !r.followUp)
+  return responses.filter((r) => isCurrent(r) && isUnhappy(r.answers) && !r.followUp)
     .map((r) => ({ r, due: addDays(r.submittedAt.slice(0, 10), CALL_WITHIN_DAYS), overdue: addDays(r.submittedAt.slice(0, 10), CALL_WITHIN_DAYS) < today }))
     .sort((a, b) => a.r.submittedAt.localeCompare(b.r.submittedAt))
 }

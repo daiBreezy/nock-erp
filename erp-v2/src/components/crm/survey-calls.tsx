@@ -13,7 +13,6 @@ import { useNow } from "@/lib/hooks"
 import { cn } from "@/lib/utils"
 import { useStore } from "@/store/store"
 
-const CONT = { yes: "เรียนต่อ", maybe: "ยังไม่แน่ใจ", no: "ไม่เรียนต่อ" } as const
 
 /**
  * Unhappy parents from the yearly survey (owner 2026-10-05: an action for the admin, so it lives on CRM — Reports only
@@ -39,8 +38,9 @@ export function SurveyCalls({ branchId }: { branchId: ID }) {
             <li key={r.id} className="flex flex-wrap items-center gap-2 rounded-2xl bg-background px-3 py-2 text-sm">
               <span className="font-medium">{fam?.name ?? "ครอบครัว"}</span>
               {parent && <a href={`tel:${parent.phone.replace(/\D/g, "")}`} className="text-xs text-sky-700 hover:underline">{parent.name} · {parent.phone}</a>}
-              <span className="text-xs text-red-700">แนะนำเพื่อน {r.answers.nps ?? "—"}/10{r.answers.continueNext ? ` · ${CONT[r.answers.continueNext]}` : ""}</span>
-              {r.answers.improve && <span className="text-xs text-muted-foreground">“{r.answers.improve}”</span>}
+              <span className="text-xs text-red-700">แนะนำเพื่อน {r.answers.nps ?? "—"}/10</span>
+              {r.answers.improve && <span className="text-xs text-muted-foreground">อยากให้ปรับปรุง: {r.answers.improve === "other" ? r.answers.improveOther : Survey.IMPROVE_LABEL[r.answers.improve]}</span>}
+              {r.answers.message && <span className="text-xs text-muted-foreground">“{r.answers.message}”</span>}
               <span className={cn("text-xs", overdue ? "font-medium text-red-700" : "text-muted-foreground")}>{overdue ? `เกินกำหนด (${fmtDate(due)})` : `โทรภายใน ${fmtDate(due)}`}</span>
               <span className="ml-auto flex min-w-64 flex-1 gap-1 sm:flex-none">
                 <Input className="h-8 text-xs" placeholder="โทรแล้วได้อะไร" value={notes[r.id] ?? ""} onChange={(e) => setNotes((n) => ({ ...n, [r.id]: e.target.value }))} />

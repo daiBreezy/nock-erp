@@ -51,7 +51,7 @@ export interface InsightInput {
   sales: { leads: number; enrolled: number; conversion: number | null; open: number; bestSource?: { label: string; conversion: number }; worstSource?: { label: string; conversion: number; leads: number } }
   attendance: { rate: number | null; prevRate: number | null; worstBranch?: { label: string; rate: number }; worstDay?: { label: string; rate: number }; frequentLeavers: number }
   teaching: { pendingWork: number; lowFill: number; overFill: number; busiestTeacher?: { label: string; hours: number } }
-  survey?: { year: number; nps: number | null; npsPrev: number | null; weakest?: { label: string; score: number }; toCall: number; notContinuing: number; wants: Counted[] }
+  survey?: { year: number; nps: number | null; npsPrev: number | null; weakest?: { label: string; score: number }; toCall: number; detractors: number; improve: Counted[] }
   /** sessions per weekday (0 = Sun … 6 = Sat) per branch — to pick the quietest branches and days for a pilot */
   branchLoad: { label: string; byWeekday: number[] }[]
 }
@@ -236,14 +236,14 @@ function satisfaction(i: InsightInput): Insight | null {
   if (!s || s.nps === null) return null
   const tone: InsightTone = s.nps < 0 ? "bad" : s.nps < NPS_OK || (s.npsPrev !== null && s.nps < s.npsPrev) ? "watch" : "good"
   const facts = [T("NPS ปี {0} {1}{2}{3}", [yearOf(s.year), s.nps > 0 ? "+" : "", s.nps, s.npsPrev !== null ? T(" (ปีก่อน {0})", [`${s.npsPrev > 0 ? "+" : ""}${s.npsPrev}`]) : ""])]
-  if (s.notContinuing) facts.push(T("ผู้ปกครองตอบว่าปีหน้าไม่เรียนต่อ {0} ครอบครัว", [s.notContinuing]))
+  if (s.detractors) facts.push(T("ผู้ปกครองไม่แนะนำ (0–6) {0} ครอบครัว", [s.detractors]))
   const causes: string[] = [], actions: string[] = []
   if (s.weakest) causes.push(T("หัวข้อคะแนนต่ำสุด: {0} {1}/5", [s.weakest.label, s.weakest.score.toFixed(1)]))
-  const w = s.wants.slice(0, 3)
-  if (w.length) causes.push(T("ผู้ปกครองขอเพิ่ม: {0}", [w.map((x) => `${x.label} ${x.count}`).join(" · ")]))
+  const w = s.improve.slice(0, 3)
+  if (w.length) causes.push(T("ผู้ปกครองอยากให้ปรับปรุง: {0}", [w.map((x) => `${x.label} ${x.count}`).join(" · ")]))
   if (s.toCall) actions.push(T("ยังมีผู้ปกครองไม่พอใจที่ยังไม่ได้โทร {0} ครอบครัว — โทรภายใน 3 วัน (รายชื่ออยู่หน้า CRM)", [s.toCall]))
   if (s.weakest) actions.push(T("ปรับเรื่อง \"{0}\" ก่อน เพราะคะแนนต่ำสุด", [s.weakest.label]))
-  if (w[0]) actions.push(T("พิจารณาเปิด \"{0}\" ที่ผู้ปกครองขอมากสุด", [w[0].label]))
+  if (w[0]) actions.push(T("เริ่มจาก \"{0}\" ที่ผู้ปกครองเลือกมากสุด", [w[0].label]))
   return { area: "satisfaction", tone, title: `NPS ${s.nps > 0 ? "+" : ""}${s.nps}`, facts, causes, actions }
 }
 
