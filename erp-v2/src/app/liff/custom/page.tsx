@@ -2,10 +2,8 @@
 
 import { Suspense, useEffect, useState } from "react"
 import { useSearchParams } from "next/navigation"
-import { CheckCircle2Icon, LoaderCircleIcon, SendIcon, XCircleIcon } from "lucide-react"
-import { Button } from "@/components/ui/button"
+import { CheckCircle2Icon, LoaderCircleIcon, XCircleIcon } from "lucide-react"
 import { FormRenderer } from "@/components/forms/form-renderer"
-import { validateAnswers } from "@/domain/rules/form-builder"
 import type { CustomFormToken, FormAnswer, ID } from "@/domain/types"
 import { tx, useUiLang } from "@/lib/i18n"
 import { cn } from "@/lib/utils"
@@ -29,24 +27,21 @@ function CustomForm() {
   const [why, setWhy] = useState(token ? "" : "invalid")
   const [t, setT] = useState<CustomFormToken | null>(null)
   const [answers, setAnswers] = useState<Record<ID, FormAnswer>>({})
-  const [errors, setErrors] = useState<Record<ID, string>>({})
 
   useEffect(() => {
     if (!token) return
     fetch(`/api/parent-forms/custom-token?token=${encodeURIComponent(token)}`).then((r) => r.json()).then((r) => {
-      if (r.ok) { setT(r.token); setPhase("ready") } else { setWhy(r.error ?? "invalid"); setPhase("invalid") }
+      // questions tied to the family's data start filled in (owner 2026-10-22 round 2)
+      if (r.ok) { setT(r.token); setAnswers(r.token.prefill ?? {}); setPhase("ready") } else { setWhy(r.error ?? "invalid"); setPhase("invalid") }
     }).catch(() => { setWhy("invalid"); setPhase("invalid") })
   }, [token])
 
   const submit = async () => {
     if (!t) return
-    const e = validateAnswers(t.form, answers)
-    setErrors(e)
-    if (Object.keys(e).length) { document.getElementById(`q-${Object.keys(e)[0]}`)?.scrollIntoView({ behavior: "smooth", block: "center" }); return }
     setPhase("sending")
     const r = await fetch("/api/parent-forms/custom-submit", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ token, answers }) }).then((x) => x.json()).catch(() => ({ ok: false, error: "network" }))
     if (r.ok) setPhase("done")
-    else if (r.fields) { setErrors(r.fields); setPhase("ready") }
+    else if (r.fields) setPhase("ready")
     else { setWhy(r.error ?? "invalid"); setPhase("invalid") }
   }
 
@@ -72,16 +67,7 @@ function CustomForm() {
         </div>
       )}
       {(phase === "ready" || phase === "sending") && t && (
-        <>
-          <FormRenderer form={t.form} answers={answers} errors={errors}
-            onChange={(id, v) => { setAnswers((a) => ({ ...a, [id]: v })); setErrors((e) => { const n = { ...e }; delete n[id]; return n }) }} />
-          <div className="fixed inset-x-0 bottom-0 border-t bg-background/95 px-4 py-3 backdrop-blur">
-            <div className="mx-auto max-w-md">
-              {Object.keys(errors).length > 0 && <p className="mb-2 text-center text-xs text-red-600">{tx("ยังตอบไม่ครบ {0} ข้อ", [Object.keys(errors).length])}</p>}
-              <Button className="w-full" size="lg" disabled={phase === "sending"} onClick={submit}>{phase === "sending" ? <LoaderCircleIcon className="animate-spin" /> : <SendIcon />} {phase === "sending" ? tx("กำลังส่ง…") : tx("ส่งคำตอบ")}</Button>
-            </div>
-          </div>
-        </>
+        <FormRenderer form={t.form} answers={answers} onChange={setAnswers} onSubmit={submit} submitting={phase === "sending"} sticky />
       )}
     </main>
   )

@@ -2603,3 +2603,40 @@ describe("Form builder", () => {
     expect(FB.validateAnswers({ fields: [yn] }, { y: false })).toEqual({})
   })
 })
+
+describe("Form builder round 2 — steps, groups, tied data, system choices, conditions (owner 2026-10-22)", () => {
+  type F = import("../types").FormField
+  const q = (id: string, type: F["type"], extra: Partial<F> = {}): F => ({ id, type, label: id, required: false, ...extra })
+  const form = { name: "สมัคร", fields: [
+    q("p1", "text", { required: true, bind: "parent.name" }),
+    q("tax", "yesno"), q("taxInfo", "textarea", { required: true, showIf: { field: "tax", value: "ใช่" } }),
+    q("step2", "page"),
+    q("kids", "section", { repeat: { add: "เพิ่มนักเรียน", max: 3 } }),
+    q("kName", "text", { required: true, bind: "child.nickname" }), q("kGrade", "dropdown", { source: "grades", bind: "child.grade" }),
+  ] }
+  it("steps split at a page; a repeating heading gathers the questions under it", () => {
+    const pages = FB.layout(form)
+    expect(pages.map((p) => p.title)).toEqual(["สมัคร", "step2"])
+    expect(pages[1].items).toMatchObject([{ kind: "group", section: { id: "kids" }, fields: [{ id: "kName" }, { id: "kGrade" }] }])
+  })
+  it("each step is checked alone; a condition hides its question; every group entry is checked", () => {
+    expect(FB.validateAnswers(form, { tax: false }, 0)).toEqual({ p1: "กรุณาตอบข้อนี้" })
+    expect(FB.validateAnswers(form, { p1: "นก", tax: true }, 0)).toEqual({ taxInfo: "กรุณาตอบข้อนี้" })
+    expect(FB.validateAnswers(form, {}, 1)).toEqual({ kids: "เพิ่มอย่างน้อย 1 ชุด" })
+    expect(FB.validateAnswers(form, { kids: [{ kName: "ภูมิ" }, {}] }, 1)).toEqual({ "kids.1.kName": "กรุณาตอบข้อนี้" })
+  })
+  it("tied questions start filled in (one entry per child) and send changes back; choices come from the branch", () => {
+    const fam = { id: "f", name: "ครอบครัว", parents: [{ name: "นก", phone: "081", lineLinked: false, primary: true }] } as unknown as import("../types").Family
+    const kids = [{ id: "s1", familyId: "f", nickname: "ภูมิ", grade: "ป.4" }, { id: "s2", familyId: "f", nickname: "ใบเตย", grade: "ป.2" }] as unknown as import("../types").Student[]
+    expect(FB.prefillFor(form, fam, kids)).toEqual({ p1: "นก", kids: [{ _studentId: "s1", kName: "ภูมิ", kGrade: "ป.4" }, { _studentId: "s2", kName: "ใบเตย", kGrade: "ป.2" }] })
+    const up = FB.bindUpdates(form, { p1: "นกน้อย", kids: [{ _studentId: "s1", kName: "ภูมิ", kGrade: "ป.5" }, { kName: "ใหม่" }] }, fam, kids)
+    expect(up.family.parents?.[0].name).toBe("นกน้อย")
+    expect(up.students).toEqual([{ id: "s1", patch: { grade: "ป.5" } }]) // the new child (no _studentId) is left for staff
+    expect(FB.resolveSources(form, { subjects: [], grades: ["ป.1", "ป.2"] }).fields.find((x) => x.id === "kGrade")!.options).toEqual(["ป.1", "ป.2"])
+  })
+  it("a child's data must sit in a repeating group; a condition must point up; a group needs questions", () => {
+    const bad = { name: "x", fields: [q("c", "text", { label: "ชื่อลูก", bind: "child.name" }), q("g", "section", { label: "ลูก", repeat: { add: "+", max: 2 } }), q("w", "text", { label: "เมื่อ", showIf: { field: "z", value: "ใช่" } })] }
+    expect(FB.validateForm(bad).map((e) => e.message)).toEqual(["ข้อมูลของลูกต้องอยู่ในกลุ่มที่เพิ่มได้หลายชุด", "เงื่อนไขต้องอ้างคำถามที่อยู่ก่อนหน้า"])
+    expect(FB.validateForm({ name: "x", fields: [q("t", "text"), q("g", "section", { repeat: { add: "+", max: 2 } })] }).map((e) => e.message)).toEqual(["กลุ่มที่เพิ่มได้หลายชุดต้องมีคำถามข้างใต้"])
+  })
+})

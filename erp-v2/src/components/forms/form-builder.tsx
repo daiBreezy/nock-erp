@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react"
 import { useRouter } from "next/navigation"
 import {
   AlignLeftIcon, ArrowDownIcon, ArrowUpIcon, CalendarIcon, CheckSquareIcon, ChevronDownIcon, CircleDotIcon, ClockIcon, CopyIcon, DownloadIcon, FileCheckIcon,
-  GaugeIcon, HashIcon, HeadingIcon, ImageIcon, ListIcon, LockIcon, MailIcon, PaperclipIcon, PhoneIcon, PlusIcon, SmileIcon, ThumbsUpIcon, Trash2Icon, TypeIcon, XIcon,
+  ChevronsRightIcon, EyeIcon, GaugeIcon, HashIcon, HeadingIcon, ImageIcon, LinkIcon, ListIcon, LockIcon, MailIcon, MapPinIcon, RepeatIcon, ServerIcon, PaperclipIcon, PhoneIcon, PlusIcon, SmileIcon, ThumbsUpIcon, Trash2Icon, TypeIcon, XIcon,
 } from "lucide-react"
 import { Pill } from "@/components/app/badges"
 import { EntityPanel, PanelBody, PanelFooter, PanelMore } from "@/components/app/form-shell"
@@ -19,7 +19,7 @@ import { Switch } from "@/components/ui/switch"
 import { Textarea } from "@/components/ui/textarea"
 import { fmtDate } from "@/domain/dates"
 import * as FB from "@/domain/rules/form-builder"
-import type { CustomFormResponse, FormAnswer, FormDef, FormField, FormFieldType, ID } from "@/domain/types"
+import type { CustomFormResponse, FormAnswer, FormDef, FormField, FormFieldType, GroupEntry, ID } from "@/domain/types"
 import { report } from "@/lib/feedback"
 import { nm, tx } from "@/lib/i18n"
 import { cn } from "@/lib/utils"
@@ -31,7 +31,7 @@ import { pullCustomFormResponses } from "@/lib/forms"
 /** one icon per kind of question */
 export const FIELD_ICON: Record<FormFieldType, typeof TypeIcon> = {
   section: HeadingIcon, text: TypeIcon, textarea: AlignLeftIcon, number: HashIcon, date: CalendarIcon, time: ClockIcon, phone: PhoneIcon, email: MailIcon,
-  single: CircleDotIcon, multi: CheckSquareIcon, dropdown: ListIcon, yesno: ThumbsUpIcon, nps: GaugeIcon, scale5: SmileIcon, file: PaperclipIcon, image: ImageIcon, consent: FileCheckIcon,
+  single: CircleDotIcon, multi: CheckSquareIcon, dropdown: ListIcon, yesno: ThumbsUpIcon, nps: GaugeIcon, scale5: SmileIcon, file: PaperclipIcon, image: ImageIcon, consent: FileCheckIcon, page: ChevronsRightIcon, address: MapPinIcon,
 }
 
 // ---------------- Settings › System › ฟอร์ม: every form ----------------
@@ -90,7 +90,8 @@ export function FormBuilder({ form }: { form: FormDef }) {
   const [d, setD] = useState<FormDef>(form)
   const [sel, setSel] = useState<ID | null>(form.fields.find((x) => !x.lock)?.id ?? null)
   const [answers, setAnswers] = useState<Record<ID, FormAnswer>>({})
-  const [tryErrs, setTryErrs] = useState<Record<ID, string>>({})
+  // a new key starts the preview over (first step, no answers)
+  const [run, setRun] = useState(0)
   const dirty = JSON.stringify(d) !== JSON.stringify(form)
   const errs = FB.validateForm(d)
   const errOf = (id: ID) => errs.find((e) => e.field === id)?.message
@@ -123,6 +124,7 @@ export function FormBuilder({ form }: { form: FormDef }) {
             <div className="space-y-3">
               <div><p className="mb-1 text-xs text-muted-foreground">{tx("ชื่อฟอร์ม")} *</p><Input value={d.name} disabled={sys} onChange={(e) => setD((x) => ({ ...x, name: e.target.value }))} aria-invalid={!d.name.trim()} /></div>
               <div><p className="mb-1 text-xs text-muted-foreground">{tx("คำอธิบาย (ขึ้นใต้ชื่อฟอร์ม)")}</p><Textarea rows={2} value={d.description ?? ""} onChange={(e) => setD((x) => ({ ...x, description: e.target.value }))} /></div>
+              <label className="flex items-center gap-2 text-sm"><Switch checked={!!d.review} onCheckedChange={(v) => setD((x) => ({ ...x, review: v || undefined }))} />{tx("มีขั้นตรวจสอบคำตอบก่อนส่ง")}<InfoTip text={tx("ขั้นสุดท้ายแสดงคำตอบทั้งหมด กด “แก้” กลับไปขั้นนั้นได้ — เหมือนฟอร์ม Test / Trial")} /></label>
             </div>
           </SettingsCard>
 
@@ -133,7 +135,7 @@ export function FormBuilder({ form }: { form: FormDef }) {
           </div>
           <ol className="space-y-2">
             {d.fields.map((f, i) => (
-              <FieldCard key={f.id} f={f} index={i} total={d.fields.length} open={sel === f.id} error={errOf(f.id)}
+              <FieldCard key={f.id} f={f} index={i} total={d.fields.length} open={sel === f.id} error={errOf(f.id)} before={d.fields.slice(0, i)} inGroup={!!FB.groupOf(d, f.id)}
                 onOpen={() => setSel(sel === f.id ? null : f.id)} onChange={(p) => patch(f.id, p)}
                 onMove={(by) => setD((x) => ({ ...x, fields: FB.moveField(x.fields, f.id, by) }))} onCopy={() => copy(f.id)} onRemove={() => remove(f.id)} />
             ))}
@@ -146,9 +148,9 @@ export function FormBuilder({ form }: { form: FormDef }) {
           <div className="mb-2 flex items-center gap-2 text-sm"><span className="font-medium">{tx("ตัวอย่างที่ผู้ปกครองเห็น")}</span><InfoTip text={tx("ลองกรอกได้ — ไม่มีอะไรถูกส่ง · กดคำถามเพื่อแก้ข้อนั้น")} /></div>
           <div className="mx-auto max-w-sm rounded-[2rem] border-8 border-foreground/80 bg-background shadow-lg">
             <div className="max-h-[70vh] overflow-y-auto p-4">
-              <FormRenderer form={d} answers={answers} errors={tryErrs} highlight={sel} onPick={setSel} onChange={(id, v) => { setAnswers((a) => ({ ...a, [id]: v })); setTryErrs((e) => { const n = { ...e }; delete n[id]; return n }) }} />
-              <Button className="mt-5 w-full" onClick={() => { const e = FB.validateAnswers(d, answers); setTryErrs(e); report(Object.keys(e).length ? { ok: false, error: tx("ยังตอบไม่ครบ {0} ข้อ", [Object.keys(e).length]) } : { ok: true, value: undefined }, tx("ลองส่งผ่าน — ครบทุกข้อ (ไม่ได้ส่งจริง)")) }}>{tx("ส่งคำตอบ")}</Button>
-              <button type="button" className="mt-2 w-full text-center text-xs text-muted-foreground hover:underline" onClick={() => { setAnswers({}); setTryErrs({}) }}>{tx("ล้างคำตอบที่ลองกรอก")}</button>
+              <FormRenderer key={run} form={d} answers={answers} highlight={sel} onPick={setSel} onChange={setAnswers}
+                onSubmit={() => report({ ok: true, value: undefined }, tx("ลองส่งผ่าน — ครบทุกข้อ (ไม่ได้ส่งจริง)"))} />
+              <button type="button" className="mt-3 w-full text-center text-xs text-muted-foreground hover:underline" onClick={() => { setAnswers({}); setRun((n) => n + 1) }}>{tx("ล้างคำตอบที่ลองกรอก")}</button>
             </div>
           </div>
         </div>
@@ -195,20 +197,26 @@ function AddMenu({ onAdd, wide }: { onAdd: (t: FormFieldType) => void; wide?: bo
 }
 
 /** one question — a summary line; opened, everything about it */
-function FieldCard({ f, index, total, open, error, onOpen, onChange, onMove, onCopy, onRemove }: {
+function FieldCard({ f, index, total, open, error, before, inGroup, onOpen, onChange, onMove, onCopy, onRemove }: {
   f: FormField; index: number; total: number; open: boolean; error?: string
+  /** the questions above it (for "แสดงเมื่อ") · whether it sits in a repeating group */
+  before: FormField[]; inGroup: boolean
   onOpen: () => void; onChange: (p: Partial<FormField>) => void; onMove: (by: -1 | 1) => void; onCopy: () => void; onRemove: () => void
 }) {
   const Icon = FIELD_ICON[f.type]
   const locked = !!f.lock
   return (
-    <li className={cn("rounded-2xl bg-card ring-1 ring-foreground/10 transition-shadow", open && "shadow-md ring-primary/40", error && "ring-red-400", f.hidden && "opacity-60")}>
+    <li className={cn("rounded-2xl bg-card ring-1 ring-foreground/10 transition-shadow", f.type === "page" && "bg-primary/5 ring-primary/30", inGroup && "ml-6", open && "shadow-md ring-primary/40", error && "ring-red-400", f.hidden && "opacity-60")}>
       <div className="flex items-center gap-2 px-3 py-2.5">
         <button type="button" onClick={onOpen} className="flex min-w-0 flex-1 items-center gap-2.5 text-left">
           <span className={cn("grid size-8 shrink-0 place-items-center rounded-lg", f.type === "section" ? "bg-muted" : "bg-primary/10 text-primary")}><Icon className="size-4" /></span>
           <span className="min-w-0">
-            <span className={cn("block truncate text-sm", f.type === "section" ? "font-semibold" : "font-medium", !f.label && "text-muted-foreground")}>{f.label || tx(f.type === "section" ? "หัวข้อ (ยังไม่ใส่)" : "คำถาม (ยังไม่ใส่)")}{f.required && f.type !== "section" && <span className="text-red-600"> *</span>}</span>
-            <span className="flex items-center gap-1.5 text-xs text-muted-foreground">{tx(FB.typeInfo(f.type).label)}
+            <span className={cn("block truncate text-sm", f.type === "section" || f.type === "page" ? "font-semibold" : "font-medium", !f.label && "text-muted-foreground")}>{f.label || tx(f.type === "section" || f.type === "page" ? "หัวข้อ (ยังไม่ใส่)" : "คำถาม (ยังไม่ใส่)")}{f.required && FB.answerable(f) && <span className="text-red-600"> *</span>}</span>
+            <span className="flex flex-wrap items-center gap-x-1.5 text-xs text-muted-foreground">{tx(FB.typeInfo(f.type).label)}
+              {f.repeat && <span className="inline-flex items-center gap-0.5 text-primary"><RepeatIcon className="size-3" />{tx("เพิ่มได้ {0} ชุด", [f.repeat.max])}</span>}
+              {f.bind && <span className="inline-flex items-center gap-0.5 text-sky-700 dark:text-sky-300"><LinkIcon className="size-3" />{tx(FB.BINDS.find((b) => b.key === f.bind)?.label ?? "")}</span>}
+              {f.source && <span className="inline-flex items-center gap-0.5 text-sky-700 dark:text-sky-300"><ServerIcon className="size-3" />{tx(FB.SOURCE_LABEL[f.source])}</span>}
+              {f.showIf && <span className="inline-flex items-center gap-0.5"><EyeIcon className="size-3" />{tx("แสดงเมื่อ “{0}”", [f.showIf.value])}</span>}
               {f.lock === "core" && <span className="inline-flex items-center gap-0.5"><LockIcon className="size-3" />{tx("ระบบต้องใช้")}</span>}
               {f.lock === "optional" && <span>· {f.hidden ? tx("ซ่อนอยู่") : tx("ช่องเสริมของระบบ")}</span>}
               {error && <span className="text-red-600">· {tx(error)}</span>}
@@ -230,7 +238,8 @@ function FieldCard({ f, index, total, open, error, onOpen, onChange, onMove, onC
                 options={FB.FIELD_TYPES.map((t) => ({ value: t.type, label: tx(t.label) }))} /></div>
           </div>
           <div><p className="mb-1 text-xs text-muted-foreground">{f.type === "section" ? tx("คำอธิบาย") : tx("คำอธิบายใต้คำถาม (ไม่บังคับ)")}</p><Input value={f.help ?? ""} onChange={(e) => onChange({ help: e.target.value || undefined })} /></div>
-          {FB.hasOptions(f.type) && <OptionsEditor f={f} onChange={onChange} />}
+          {FB.hasOptions(f.type) && !f.source && <OptionsEditor f={f} onChange={onChange} />}
+          <FieldExtras f={f} before={before} inGroup={inGroup} onChange={onChange} />
           <div className="flex flex-wrap items-center gap-x-5 gap-y-2 border-t pt-3 text-sm">
             {FB.answerable(f) && <label className="flex items-center gap-2"><Switch checked={f.required} onCheckedChange={(v) => onChange({ required: v })} />{tx("ต้องตอบ")}</label>}
             {(f.type === "single" || f.type === "multi") && <label className="flex items-center gap-2"><Switch checked={!!f.allowOther} onCheckedChange={(v) => onChange({ allowOther: v || undefined })} />{tx("มีช่อง “อื่นๆ”")}</label>}
@@ -248,6 +257,49 @@ function FieldCard({ f, index, total, open, error, onOpen, onChange, onMove, onC
         </div>
       )}
     </li>
+  )
+}
+
+/** owner 2026-10-22 round 2: what makes a question work like the ERP's own forms */
+function FieldExtras({ f, before, inGroup, onChange }: { f: FormField; before: FormField[]; inGroup: boolean; onChange: (p: Partial<FormField>) => void }) {
+  const targets = before.filter((x) => (FB.hasOptions(x.type) || x.type === "yesno") && !x.hidden)
+  const target = targets.find((x) => x.id === f.showIf?.field)
+  const valuesOf = (x?: FormField) => (!x ? [] : x.type === "yesno" ? ["ใช่", "ไม่ใช่"] : [...(x.options ?? []), ...(x.allowOther ? ["อื่นๆ"] : [])])
+  const binds = FB.BINDS.filter((b) => b.types.includes(f.type) && (!b.child || inGroup))
+  return (
+    <div className="grid gap-3 rounded-xl bg-muted/40 p-3 sm:grid-cols-2">
+      {f.type === "section" && (
+        <div className="space-y-2 sm:col-span-2">
+          <label className="flex items-center gap-2 text-sm"><Switch checked={!!f.repeat} onCheckedChange={(v) => onChange({ repeat: v ? { add: tx("เพิ่มอีกชุด"), max: 5 } : undefined })} />{tx("ให้คำถามใต้หัวข้อนี้เพิ่มได้หลายชุด")}<InfoTip text={tx("เช่น ข้อมูลนักเรียน — ผู้ปกครองกด “+ เพิ่มนักเรียน” ได้ · คำถามที่อยู่ใต้หัวข้อนี้ (จนถึงหัวข้อหรือขั้นถัดไป) จะเป็นหนึ่งชุด")} /></label>
+          {f.repeat && (
+            <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_8rem]">
+              <div><p className="mb-1 text-xs text-muted-foreground">{tx("ข้อความปุ่มเพิ่ม")}</p><Input value={f.repeat.add} onChange={(e) => onChange({ repeat: { ...f.repeat!, add: e.target.value } })} /></div>
+              <div><p className="mb-1 text-xs text-muted-foreground">{tx("เพิ่มได้สูงสุด")}</p><Input type="number" min={1} max={20} value={f.repeat.max} onChange={(e) => onChange({ repeat: { ...f.repeat!, max: Math.max(1, Math.min(20, Number(e.target.value) || 1)) } })} /></div>
+            </div>
+          )}
+        </div>
+      )}
+      {FB.answerable(f) && binds.length > 0 && (
+        <div><p className="mb-1 flex items-center gap-1 text-xs text-muted-foreground"><LinkIcon className="size-3" />{tx("ผูกกับข้อมูลในระบบ")}<InfoTip text={tx("ตอนส่ง ระบบใส่ข้อมูลเดิมให้ · ผู้ปกครองแก้แล้วส่ง ข้อมูลครอบครัว / นักเรียนอัปเดตตาม (ข้อมูลลูกต้องอยู่ในกลุ่มที่เพิ่มได้หลายชุด)")} /></p>
+          <NativeSelect className="w-full bg-background" value={f.bind ?? ""} placeholder={tx("ไม่ผูก")} onChange={(e) => onChange({ bind: (e.target.value || undefined) as FormField["bind"] })} options={binds.map((b) => ({ value: b.key, label: tx(b.label) }))} /></div>
+      )}
+      {FB.hasOptions(f.type) && (
+        <div><p className="mb-1 flex items-center gap-1 text-xs text-muted-foreground"><ServerIcon className="size-3" />{tx("ตัวเลือกมาจาก")}</p>
+          <NativeSelect className="w-full bg-background" value={f.source ?? ""} placeholder={tx("พิมพ์เอง")} onChange={(e) => onChange({ source: (e.target.value || undefined) as FormField["source"], options: e.target.value ? [] : f.options?.length ? f.options : ["ตัวเลือก 1", "ตัวเลือก 2"] })}
+            options={(Object.keys(FB.SOURCE_LABEL) as NonNullable<FormField["source"]>[]).map((k) => ({ value: k, label: tx(FB.SOURCE_LABEL[k]) }))} /></div>
+      )}
+      {f.type !== "page" && (
+        <div className={cn(f.type === "section" && "sm:col-span-2")}><p className="mb-1 flex items-center gap-1 text-xs text-muted-foreground"><EyeIcon className="size-3" />{tx("แสดงเมื่อ")}</p>
+          {targets.length ? (
+            <div className="flex gap-2">
+              <NativeSelect className="min-w-0 flex-1 bg-background" value={f.showIf?.field ?? ""} placeholder={tx("แสดงเสมอ")} onChange={(e) => { const t = targets.find((x) => x.id === e.target.value); onChange({ showIf: t ? { field: t.id, value: valuesOf(t)[0] ?? "" } : undefined }) }}
+                options={targets.map((x) => ({ value: x.id, label: x.label || tx("คำถาม (ยังไม่ใส่)") }))} />
+              {target && <NativeSelect className="w-36 bg-background" value={f.showIf!.value} onChange={(e) => onChange({ showIf: { field: target.id, value: e.target.value } })} options={valuesOf(target).map((v) => ({ value: v, label: v }))} />}
+            </div>
+          ) : <p className="text-xs text-muted-foreground">{tx("ใส่คำถามแบบเลือกไว้ข้างบนก่อน")}</p>}
+        </div>
+      )}
+    </div>
   )
 }
 
@@ -279,12 +331,14 @@ export function FormResponses({ form }: { form: FormDef }) {
   const rs = useMemo(() => all.filter((r) => r.formId === form.id).sort((a, b) => b.submittedAt.localeCompare(a.submittedAt)), [all, form.id])
   const [open, setOpen] = useState<CustomFormResponse | null>(null)
   useEffect(() => { pullCustomFormResponses() }, [])
-  const qs = form.fields.filter(FB.answerable)
+  const qs = FB.visibleFields(form).filter(FB.answerable)
+  // a question in a repeating group: every entry's answer, " / " between them
+  const cell = (q: FormField, r: CustomFormResponse) => FB.valuesIn(form, q, r).map((v) => FB.answerText(q, v)).join(" / ")
   const fam = (id: ID) => nm(families.find((f) => f.id === id)?.name ?? "—")
   const download = () => {
     const esc = (v: string) => `"${v.replace(/"/g, '""')}"`
     const head = [tx("ครอบครัว"), tx("สาขา"), tx("วันที่ตอบ"), ...qs.map((q) => q.label)]
-    const lines = rs.map((r) => [fam(r.familyId), branches.find((b) => b.id === r.branchId)?.name ?? "", r.submittedAt.slice(0, 10), ...qs.map((q) => FB.answerText(q, r.answers[q.id]))])
+    const lines = rs.map((r) => [fam(r.familyId), branches.find((b) => b.id === r.branchId)?.name ?? "", r.submittedAt.slice(0, 10), ...qs.map((q) => cell(q, r))])
     const blob = new Blob(["﻿" + [head, ...lines].map((l) => l.map((x) => esc(String(x))).join(",")).join("\n")], { type: "text/csv;charset=utf-8" })
     const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = `${form.name}.csv`; a.click(); URL.revokeObjectURL(a.href)
   }
@@ -296,7 +350,7 @@ export function FormResponses({ form }: { form: FormDef }) {
         <Button variant="outline" size="sm" className="ml-auto" onClick={download}><DownloadIcon /> {tx("ดาวน์โหลด (.csv)")}</Button>
       </div>
       <div className="grid gap-4 lg:grid-cols-2">
-        {qs.map((q) => <SummaryCard key={q.id} q={q} rs={rs} />)}
+        {qs.map((q) => <SummaryCard key={q.id} q={q} rs={rs} form={form} />)}
       </div>
       <SettingsCard title={tx("คำตอบทั้งหมด")} hint={tx("กดแถวเพื่อดูคำตอบครบทุกข้อ")}>
         <div className="overflow-x-auto">
@@ -307,7 +361,7 @@ export function FormResponses({ form }: { form: FormDef }) {
                 <td className="font-medium">{fam(r.familyId)}</td>
                 <td className="text-muted-foreground">{branches.find((b) => b.id === r.branchId)?.code}</td>
                 <td className="whitespace-nowrap text-muted-foreground">{fmtDate(r.submittedAt.slice(0, 10))}</td>
-                {qs.slice(0, 3).map((q) => <td key={q.id} className="max-w-48 truncate">{FB.answerText(q, r.answers[q.id])}</td>)}
+                {qs.slice(0, 3).map((q) => <td key={q.id} className="max-w-48 truncate">{cell(q, r)}</td>)}
               </tr>
             ))}</tbody>
           </table>
@@ -324,17 +378,27 @@ export function FormResponses({ form }: { form: FormDef }) {
   )
 }
 
-/** every question with its answer (the family panel shows the same) */
-export function ResponseAnswers({ form, r }: { form: Pick<FormDef, "fields">; r: Pick<CustomFormResponse, "answers"> }) {
+/** every question with its answer, step by step (a repeating group: one block per entry) — the family panel shows the same */
+export function ResponseAnswers({ form, r }: { form: FB.FormShape; r: Pick<CustomFormResponse, "answers"> }) {
   return (
-    <dl className="space-y-3 text-sm">{form.fields.filter(FB.answerable).map((q) => (
-      <div key={q.id}><dt className="text-xs text-muted-foreground">{q.label}</dt><dd className="whitespace-pre-line">{FB.answerText(q, r.answers[q.id])}</dd></div>
-    ))}</dl>
+    <div className="space-y-3 text-sm">{FB.layout(form).map((p, i) => (
+      <div key={i} className="space-y-2">
+        {FB.layout(form).length > 1 && <p className="text-xs font-semibold">{p.title}</p>}
+        <dl className="space-y-2">{p.items.map((it) => it.kind === "field" ? (
+          FB.answerable(it.field) && FB.isShown(it.field, r.answers) ? <div key={it.field.id}><dt className="text-xs text-muted-foreground">{it.field.label}</dt><dd className="whitespace-pre-line">{FB.answerText(it.field, r.answers[it.field.id])}</dd></div> : null
+        ) : ((Array.isArray(r.answers[it.section.id]) ? r.answers[it.section.id] : []) as GroupEntry[]).map((en, k) => (
+          <div key={`${it.section.id}${k}`} className="space-y-1.5 rounded-xl bg-muted/50 p-2">
+            <p className="text-xs font-medium">{it.section.label} {k + 1}</p>
+            {it.fields.filter((f) => FB.answerable(f) && FB.isShown(f, en, r.answers)).map((f) => <div key={f.id}><dt className="text-xs text-muted-foreground">{f.label}</dt><dd>{FB.answerText(f, en[f.id])}</dd></div>)}
+          </div>
+        )))}</dl>
+      </div>
+    ))}</div>
   )
 }
 
-function SummaryCard({ q, rs }: { q: FormField; rs: CustomFormResponse[] }) {
-  const s = FB.summarizeField(q, rs)
+function SummaryCard({ q, rs, form }: { q: FormField; rs: CustomFormResponse[]; form: FormDef }) {
+  const s = FB.summarizeField(q, rs, form)
   const Icon = FIELD_ICON[q.type]
   return (
     <section className="flex min-w-0 flex-col rounded-3xl bg-card p-4 shadow-sm ring-1 ring-foreground/10 sm:p-5">

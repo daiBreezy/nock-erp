@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react"
 import { ChevronDownIcon, ClipboardListIcon, SendIcon } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
+import { DropdownMenu, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { fmtDate } from "@/domain/dates"
 import type { Family, ID } from "@/domain/types"
 import { pullCustomFormResponses, sendCustomForm } from "@/lib/forms"
@@ -12,6 +12,7 @@ import { tx } from "@/lib/i18n"
 import { cn } from "@/lib/utils"
 import { useStore } from "@/store/store"
 import { ResponseAnswers } from "./form-builder"
+import { useSendForm } from "./send-form"
 
 /**
  * The family panel's forms (owner 2026-10-22: custom-form answers belong to a family) — what this family answered,
@@ -28,24 +29,26 @@ export function FamilyForms({ family }: { family: Family }) {
   useEffect(() => { pullCustomFormResponses() }, [])
   const mine = all.filter((r) => r.familyId === family.id).sort((a, b) => b.submittedAt.localeCompare(a.submittedAt))
   const sendable = forms.filter((f) => f.kind === "custom" && f.active)
-  const send = async (formId: ID) => {
-    const form = sendable.find((f) => f.id === formId)!
+  const sender = useSendForm(branchId, async (form, offers) => {
     setSending(true)
-    const r = await sendCustomForm(form, { id: family.id, branchId, conversationId: conv?.id })
+    const r = await sendCustomForm(form, { id: family.id, branchId, conversationId: conv?.id }, offers)
     setSending(false)
     if (r.ok && !r.value.sent) navigator.clipboard?.writeText(r.value.url).catch(() => undefined)
     report(r, (v) => (v.sent ? tx("ส่ง “{0}” ทาง LINE แล้ว", [form.name]) : tx("คัดลอกลิงก์ “{0}” แล้ว — ครอบครัวนี้ยังไม่มีแชท LINE ส่งลิงก์เองได้", [form.name])))
-  }
+  })
   return (
     <section className="space-y-2">
+      {sender.dialog}
       <div className="flex items-center">
         <h3 className="text-sm font-semibold">{tx("ฟอร์ม")} ({mine.length})</h3>
         {sendable.length > 0 && (
           <DropdownMenu>
             <DropdownMenuTrigger render={<Button size="xs" variant="ghost" className="ml-auto" disabled={sending} />}><SendIcon /> {tx("ส่งฟอร์ม")} <ChevronDownIcon className="text-muted-foreground" /></DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-64">
-              <DropdownMenuLabel>{conv?.id.startsWith("line_") ? tx("ส่งทาง LINE ถึงครอบครัวนี้") : tx("ยังไม่มีแชท LINE — จะคัดลอกลิงก์ให้")}</DropdownMenuLabel>
-              {sendable.map((f) => <DropdownMenuItem key={f.id} onClick={() => send(f.id)}><ClipboardListIcon />{f.name}</DropdownMenuItem>)}
+              <DropdownMenuGroup>
+                <DropdownMenuLabel>{conv?.id.startsWith("line_") ? tx("ส่งทาง LINE ถึงครอบครัวนี้") : tx("ยังไม่มีแชท LINE — จะคัดลอกลิงก์ให้")}</DropdownMenuLabel>
+                {sendable.map((f) => <DropdownMenuItem key={f.id} onClick={() => sender.start(f)}><ClipboardListIcon />{f.name}</DropdownMenuItem>)}
+              </DropdownMenuGroup>
             </DropdownMenuContent>
           </DropdownMenu>
         )}

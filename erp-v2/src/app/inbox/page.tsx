@@ -8,6 +8,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem,
 import { ExitRequestDialog } from "@/components/app/student-exit"
 import { BroadcastDialog } from "@/components/inbox/broadcast-dialog"
 import { sendCustomFormToChat, sendSurveyToChat } from "@/lib/forms"
+import { useSendForm } from "@/components/forms/send-form"
 import { SendEnrollDialog } from "@/components/inbox/send-enroll-dialog"
 import { InvoiceSheet } from "@/components/billing/invoice-sheet"
 import { Pill } from "@/components/app/badges"
@@ -173,6 +174,8 @@ export default function InboxPage() {
   const surveyCamps = useStore((s) => s.surveyCampaigns)
   // owner 2026-10-22: the company's own forms (Settings › ระบบ › ฟอร์ม) are sent from here too
   const customForms = useStore((s) => s.formDefs).filter((f) => f.kind === "custom" && f.active)
+  // a form with choices the admin offers (times / classes) asks for them first
+  const formSender = useSendForm(students.find((x) => x.familyId === family?.id)?.branchId ?? branch.id, async (f, offers) => { if (selected) report(await sendCustomFormToChat(selected.id, f, offers), `ส่ง “${f.name}” แล้ว`) })
   const lastAt = (xs: (string | undefined)[]) => xs.filter((x): x is string => !!x).sort().at(-1)
   const linkSent = (prefix: string) => lastAt(thread.filter((m) => m.author === "staff" && m.text.includes(`token=${prefix}`)).map((m) => m.at))
   const sentAt = {
@@ -255,6 +258,7 @@ export default function InboxPage() {
     // owner 2026-10-05: list + chat side by side, the divider between them drags to resize the list
     // owner 2026-10-15: no margin — fills everything under the 3.5rem top bar
     <div className="flex h-[calc(100vh-3.5rem)] overflow-hidden bg-card">
+      {formSender.dialog}
       {/* Conversation list */}
       <div className="flex shrink-0 flex-col" style={{ width: listWidth }}>
         <div className="space-y-2 border-b p-3">
@@ -447,7 +451,7 @@ export default function InboxPage() {
                               <DropdownMenuSeparator />
                               <DropdownMenuLabel>ฟอร์มที่สร้างเอง</DropdownMenuLabel>
                               {customForms.map((f) => (
-                                <DropdownMenuItem key={f.id} disabled={!family} onClick={async () => report(await sendCustomFormToChat(selected.id, f), `ส่ง “${f.name}” แล้ว`)}>
+                                <DropdownMenuItem key={f.id} disabled={!family} onClick={() => formSender.start(f)}>
                                   <ClipboardListIcon /><span className="truncate">{f.name}</span>{!family ? <Hint>เฉพาะลูกค้า</Hint> : <Sent at={lastAt(thread.filter((m) => m.author === "staff" && m.text.includes("token=pc_") && m.text.includes(`“${f.name}”`)).map((m) => m.at))} />}
                                 </DropdownMenuItem>
                               ))}

@@ -1668,6 +1668,8 @@ export type FormFieldType =
   | "scale5"    // 1–5
   | "file" | "image"
   | "consent"   // a box that must be ticked
+  | "page"      // owner 2026-10-22: a new step (ถัดไป / ย้อนกลับ) — its label is the step's title
+  | "address"   // owner 2026-10-22: address text + a pin on the map
 
 export interface FormField {
   id: ID
@@ -1684,7 +1686,22 @@ export interface FormField {
   lock?: "core" | "optional"
   /** an optional system field switched off */
   hidden?: boolean
+  /** a heading whose questions (until the next heading / step) repeat — "+ เพิ่มนักเรียน" up to `max` */
+  repeat?: { add: string; max: number }
+  /** owner 2026-10-22: tied to the family's / child's data — shown filled in, and the answer updates the record */
+  bind?: FormBind
+  /** choices that come from the system when the form is sent (the branch's subjects / grades, or what the admin offers) */
+  source?: "subjects" | "grades" | "offer"
+  /** shown only when an earlier question's answer is (or includes) this value */
+  showIf?: { field: ID; value: string }
 }
+
+/** what a question can be tied to — child.* inside a repeating group (one entry per child) */
+export type FormBind = "parent.name" | "parent.phone" | "parent.email" | "parent.relation" | "family.address" | "child.name" | "child.nickname" | "child.grade" | "child.birthDate" | "child.school"
+
+export interface AddressAnswer { address: string; lat?: number; lng?: number }
+/** one filled-in set of a repeating group (e.g. one child); `_studentId` = the child it was filled in from */
+export interface GroupEntry { [fieldId: string]: FormAnswer }
 
 export interface FormDef {
   id: ID
@@ -1697,12 +1714,14 @@ export interface FormDef {
   fields: FormField[]
   /** a custom form can be switched off (no new sends) */
   active: boolean
+  /** a last step showing every answer before sending (owner 2026-10-22, like the Test / Trial forms) */
+  review?: boolean
   updatedAt: string
   updatedBy?: ID
 }
 
 /** one answer: text / number as text, choices as a list, a file as its name */
-export type FormAnswer = string | string[] | number | boolean | null
+export type FormAnswer = string | string[] | number | boolean | null | AddressAnswer | GroupEntry[]
 
 /** a family's answers to a custom form */
 export interface CustomFormResponse {
@@ -1720,7 +1739,9 @@ export interface CustomFormToken {
   token: string
   kind: "custom"
   formId: ID
-  form: Pick<FormDef, "id" | "name" | "description" | "fields">
+  form: Pick<FormDef, "id" | "name" | "description" | "fields" | "review">
+  /** answers filled in from the family's data (bound questions) */
+  prefill?: Record<ID, FormAnswer>
   familyId: ID
   branchId: ID
   conversationId?: ID

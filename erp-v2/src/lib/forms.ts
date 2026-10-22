@@ -5,6 +5,7 @@
 // logic lives in one place, not copy-pasted across components).
 
 import { FORM_TYPE_LABEL } from "@/domain/rules/forms"
+import * as FB from "@/domain/rules/form-builder"
 import { addDays } from "@/domain/dates"
 import { notAnswered, surveyRecipients, surveyWindow } from "@/domain/rules/survey"
 import type { CustomFormToken, FormDef, Brand, EnrollSubmission, EnrollToken, ExitResponse, ExitToken, SurveyCampaign, SurveyToken, FormLang, FormOfferSlot, FormPrefill, FormSubjectOffer, FormSubmission, FormToken, FormType, ID, Result, EnrollClassOffer, EnrollPlan } from "@/domain/types"
@@ -294,9 +295,17 @@ export async function broadcastSurvey(): Promise<Result<{ sent: number; lineSent
 }
 
 /** form builder (owner 2026-10-22): a one-time link to a company-made form for a family — the link carries a copy of the form */
-async function customFormLink(form: FormDef, family: { id: ID; branchId: ID; conversationId?: ID | null }): Promise<Result<{ url: string; text: string }>> {
+async function customFormLink(form: FormDef, family: { id: ID; branchId: ID; conversationId?: ID | null }, offers?: Record<ID, string[]>): Promise<Result<{ url: string; text: string }>> {
+  // round 2 (owner 2026-10-22): choices from the branch / the admin's offer, and the family's data filled in
+  const s = useStore.getState()
+  const branch = s.branches.find((b) => b.id === family.branchId)
+  const fam = s.families.find((f) => f.id === family.id)
+  const kids = s.students.filter((x) => x.familyId === family.id && !x.archived)
+  const missing = FB.offerFields(form).find((x) => !offers?.[x.id]?.length)
+  if (missing) return { ok: false, error: `เลือกตัวเลือกให้ “${missing.label}” ก่อนส่ง` }
+  const sent = FB.resolveSources({ id: form.id, name: form.name, description: form.description, review: form.review, fields: form.fields.filter((x) => !x.hidden) }, { subjects: branch?.subjects ?? [], grades: branch?.grades ?? [], offers })
   const res = await postJson<{ ok: boolean; token?: CustomFormToken; error?: string }>("/api/parent-forms/custom-token", {
-    formId: form.id, form: { id: form.id, name: form.name, description: form.description, fields: form.fields.filter((x) => !x.hidden) },
+    formId: form.id, form: sent, prefill: fam ? FB.prefillFor(sent, fam, kids) : undefined,
     familyId: family.id, branchId: family.branchId, conversationId: family.conversationId ?? undefined,
   })
   if (!res.ok || !res.token) return { ok: false, error: res.error ?? "สร้างลิงก์ไม่สำเร็จ" }
@@ -306,8 +315,8 @@ async function customFormLink(form: FormDef, family: { id: ID; branchId: ID; con
 }
 
 /** from the family panel: through LINE when the family has a LINE chat, otherwise just the link (copy and send it yourself) */
-export async function sendCustomForm(form: FormDef, family: { id: ID; branchId: ID; conversationId?: ID | null }): Promise<Result<{ url: string; sent: boolean }>> {
-  const link = await customFormLink(form, family)
+export async function sendCustomForm(form: FormDef, family: { id: ID; branchId: ID; conversationId?: ID | null }, offers?: Record<ID, string[]>): Promise<Result<{ url: string; sent: boolean }>> {
+  const link = await customFormLink(form, family, offers)
   if (!link.ok) return link
   if (!family.conversationId?.startsWith("line_")) return { ok: true, value: { url: link.value.url, sent: false } }
   const sent = await postToChat(family.conversationId, link.value.text)
@@ -316,12 +325,12 @@ export async function sendCustomForm(form: FormDef, family: { id: ID; branchId: 
 }
 
 /** from Inbox › + › ฟอร์ม (owner 2026-10-22): post the link into this chat — the chat must belong to a family */
-export async function sendCustomFormToChat(conversationId: ID, form: FormDef): Promise<Result> {
+export async function sendCustomFormToChat(conversationId: ID, form: FormDef, offers?: Record<ID, string[]>): Promise<Result> {
   const s = useStore.getState()
   const conv = s.conversations.find((c) => c.id === conversationId)
   if (!conv?.familyId) return { ok: false, error: "ฟอร์มส่งให้ครอบครัว — ผูกแชทนี้กับครอบครัวก่อน" }
   const branchId = s.students.find((x) => x.familyId === conv.familyId)?.branchId ?? conv.branchId ?? s.branchId
-  const link = await customFormLink(form, { id: conv.familyId, branchId, conversationId })
+  const link = await customFormLink(form, { id: conv.familyId, branchId, conversationId }, offers)
   if (!link.ok) return link
   return postToChat(conversationId, link.value.text)
 }

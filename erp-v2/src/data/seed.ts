@@ -1140,14 +1140,22 @@ function buildForms(db: { today: string; families: Family[]; students: Student[]
         { id: "oh_photo", type: "yesno", label: "ยินดีให้ใช้รูปกิจกรรมของน้องลงเพจ", required: true },
         { id: "oh_msg", type: "textarea", label: "ข้อเสนอแนะ", required: false },
       ] },
-    { id: "fm_camp", kind: "custom", name: "ลงทะเบียนค่ายภาษาอังกฤษปิดเทอม", description: "ค่าย 5 วัน · เลือกรอบที่สะดวก", active: true, updatedAt: at(5), updatedBy: "u_ploy",
+    // round 2 (owner 2026-10-22): a form like the ERP's own — 3 steps, "+ เพิ่มน้อง", the family's data filled in, a review step
+    { id: "fm_camp", kind: "custom", name: "ลงทะเบียนค่ายภาษาอังกฤษปิดเทอม", description: "ค่าย 5 วัน · เลือกรอบที่สะดวก", active: true, review: true, updatedAt: at(5), updatedBy: "u_ploy",
       fields: [
-        { id: "cp_sec", type: "section", label: "ข้อมูลน้อง", required: false },
-        { id: "cp_kid", type: "text", label: "ชื่อเล่นน้อง", required: true },
-        { id: "cp_age", type: "number", label: "อายุ (ปี)", required: true },
+        { id: "cp_p_step", type: "page", label: "ผู้ปกครอง", required: false },
+        { id: "cp_parent", type: "text", label: "ชื่อผู้ปกครอง", required: true, bind: "parent.name" },
+        { id: "cp_phone", type: "phone", label: "เบอร์ติดต่อ", required: true, bind: "parent.phone" },
+        { id: "cp_bus", type: "yesno", label: "ต้องการรถรับส่ง", required: true },
+        { id: "cp_addr", type: "address", label: "ที่อยู่สำหรับรถรับส่ง", required: true, bind: "family.address", showIf: { field: "cp_bus", value: "ใช่" } },
+        { id: "cp_k_step", type: "page", label: "น้องที่เข้าค่าย", required: false },
+        { id: "cp_sec", type: "section", label: "น้อง", required: false, repeat: { add: "เพิ่มน้องอีกคน", max: 4 } },
+        { id: "cp_kid", type: "text", label: "ชื่อเล่นน้อง", required: true, bind: "child.nickname" },
+        { id: "cp_grade", type: "dropdown", label: "ระดับชั้น", required: true, source: "grades", bind: "child.grade" },
         { id: "cp_round", type: "dropdown", label: "รอบที่สะดวก", required: true, options: ["รอบ 1 · 1–5 เม.ย.", "รอบ 2 · 8–12 เม.ย.", "รอบ 3 · 22–26 เม.ย."] },
         { id: "cp_allergy", type: "textarea", label: "แพ้อาหาร / โรคประจำตัว", required: false },
-        { id: "cp_slip", type: "image", label: "แนบสลิปมัดจำ", required: false, help: "มัดจำ 1,000 บาท" },
+        { id: "cp_pay_step", type: "page", label: "ชำระมัดจำ", required: false },
+        { id: "cp_slip", type: "image", label: "แนบสลิปมัดจำ", required: false, help: "มัดจำ 1,000 บาทต่อคน" },
         { id: "cp_ok", type: "consent", label: "ยอมรับเงื่อนไขการเข้าค่ายและการยกเลิก", required: true },
       ] },
   ]
@@ -1160,9 +1168,13 @@ function buildForms(db: { today: string; families: Family[]; students: Student[]
       oh_next: pick(["คณิต", "อังกฤษ", "วิทย์", "ยังไม่แน่ใจ"]), oh_photo: rnd() < 0.8, oh_msg: rnd() < 0.4 ? pick(["สนุกมากค่ะ", "อยากให้จัดวันเสาร์อีก", "ที่จอดรถน้อยไปนิด"]) : "" } })
   })
   fams.slice(30, 41).forEach((f, i) => {
-    const kid = db.students.find((s) => s.familyId === f.id)!
-    formResponses.push({ id: `fr_cp_${f.id}`, formId: "fm_camp", token: `pc_seed_cp_${f.id}`, familyId: f.id, branchId: kid.branchId, submittedAt: at(4 - (i % 4)), answers: {
-      cp_kid: kid.nickname, cp_age: 7 + Math.floor(rnd() * 6), cp_round: pick(["รอบ 1 · 1–5 เม.ย.", "รอบ 2 · 8–12 เม.ย.", "รอบ 3 · 22–26 เม.ย."]), cp_allergy: rnd() < 0.25 ? "แพ้กุ้ง" : "", cp_slip: rnd() < 0.7 ? "slip.jpg" : null, cp_ok: true } })
+    const kids = db.students.filter((s) => s.familyId === f.id).slice(0, 2)
+    const bus = rnd() < 0.4
+    formResponses.push({ id: `fr_cp_${f.id}`, formId: "fm_camp", token: `pc_seed_cp_${f.id}`, familyId: f.id, branchId: kids[0].branchId, submittedAt: at(4 - (i % 4)), answers: {
+      cp_parent: (f.parents.find((p) => p.primary) ?? f.parents[0]).name, cp_phone: (f.parents.find((p) => p.primary) ?? f.parents[0]).phone, cp_bus: bus,
+      ...(bus ? { cp_addr: { address: f.address || "สุขุมวิท 55 คลองตันเหนือ วัฒนา กรุงเทพฯ" } } : {}),
+      cp_sec: kids.map((k) => ({ _studentId: k.id, cp_kid: k.nickname, cp_grade: k.grade, cp_round: pick(["รอบ 1 · 1–5 เม.ย.", "รอบ 2 · 8–12 เม.ย.", "รอบ 3 · 22–26 เม.ย."]), cp_allergy: rnd() < 0.25 ? "แพ้กุ้ง" : "" })),
+      cp_slip: rnd() < 0.7 ? "slip.jpg" : null, cp_ok: true } })
   })
   return { formDefs, formResponses }
 }
