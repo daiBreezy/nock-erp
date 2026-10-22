@@ -38,7 +38,7 @@ export const BAND_FLOW = {
   /** how soft the glow is (blur) — owner 2026-10-22: softer, no hard edge */
   blur: 40,
   /** how strong the light is (0 = invisible, 1 = full) */
-  opacity: 1,
+  opacity: 0.80,
 }
 
 export function Sankey({ columns, flows, total, heads, size = { w: 1000, h: 380 }, unit = "คน", name = "เส้นทางของ Lead", minWidth = "min-w-[40rem]" }: {
@@ -75,6 +75,15 @@ export function Sankey({ columns, flows, total, heads, size = { w: 1000, h: 380 
   const on = (l: (typeof links)[number]) => !hover || ("link" in hover ? hover.link === l.i : (l.f.col === hover.col && l.f.from === hover.key) || (l.f.col + 1 === hover.col && l.f.to === hover.key))
   // the hovered band(s) carry a light running left → right (none when the viewer asks for less motion)
   const flowing = hover && !still ? links.filter(on) : []
+  // the flowing bands' columns run one after another: slot k of n, each BAND_FLOW.seconds long
+  const firstCol = Math.min(...flowing.map((l) => l.f.col)), slots = flowing.length ? Math.max(...flowing.map((l) => l.f.col)) - firstCol + 1 : 1
+  const cycle = BAND_FLOW.seconds * slots
+  // keyTimes may not repeat a time (the browser drops the animation), so the first / last slot leave out their duplicate
+  const slot = (col: number, before: number, after: number) => {
+    const k = col - firstCol, t0 = k / slots, t1 = (k + 1) / slots
+    const pts: [number, number][] = [[0, before], ...(t0 > 0 ? [[t0, before] as [number, number]] : []), [t1, after], ...(t1 < 1 ? [[1, after] as [number, number]] : [])]
+    return { keyTimes: pts.map((x) => x[0]).join(";"), values: pts.map((x) => x[1]).join(";") }
+  }
   // what's hovered: its colour(s) and one short line — "from → to · count · % of from" / "box · count · % of all"
   const hint: { colors: string[]; text: string } | null = !hover ? null
     : "link" in hover ? (() => { const l = links.find((x) => x.i === hover.link)!; const from = box.get(`${l.f.col}|${l.f.from}`)!.node, to = box.get(`${l.f.col + 1}|${l.f.to}`)!.node
@@ -126,8 +135,11 @@ export function Sankey({ columns, flows, total, heads, size = { w: 1000, h: 380 
                   <stop offset="0%" stopColor="#fff" stopOpacity={0} />
                   <stop offset="50%" stopColor="#fff" stopOpacity={1} />
                   <stop offset="100%" stopColor="#fff" stopOpacity={0} />
-                  <animate attributeName="x1" from={x0 - w} to={x1} dur={`${BAND_FLOW.seconds}s`} repeatCount="indefinite" />
-                  <animate attributeName="x2" from={x0} to={x1 + w} dur={`${BAND_FLOW.seconds}s`} repeatCount="indefinite" />
+                  {/* owner 2026-10-22: hovering a box in the middle lights its left bands first, then its right bands — one
+                      flow left → middle → right. Each column of bands gets its own slot in one shared cycle; outside its slot
+                      the light waits off the band (left of it before, right of it after). */}
+                  <animate attributeName="x1" {...slot(l.f.col, x0 - w, x1)} dur={`${cycle}s`} repeatCount="indefinite" />
+                  <animate attributeName="x2" {...slot(l.f.col, x0, x1 + w)} dur={`${cycle}s`} repeatCount="indefinite" />
                 </linearGradient>
               )
             })}
