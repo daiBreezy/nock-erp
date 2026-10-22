@@ -462,17 +462,10 @@ function NpsOverview({ d }: { d: ReportData }) {
   if (year === undefined) return null
   const cur = d.surveyOf(year), prev = d.surveyOf(year - 1)
   const s = cur.summary, p = prev.summary
-  const dNps = s.nps !== null && p.nps !== null ? s.nps - p.nps : null
   return (
     <Panel title="NPS" hint={tx("แบบสอบถามผู้ปกครองปี {0} · แนะนำ 9–10 · เฉยๆ 7–8 · ไม่แนะนำ 0–6", [yearOf(year)])}>
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,2fr)] lg:gap-0 lg:divide-x">
-        <div className="flex flex-col justify-center gap-3 lg:pr-6">
-          <div className="flex items-end gap-3">
-            <p className={cn("text-4xl font-semibold tabular-nums", s.nps !== null && s.nps < 0 ? "text-red-600" : "text-emerald-600")}>{s.nps === null ? "—" : `${s.nps > 0 ? "+" : ""}${s.nps}`}</p>
-            <p className="pb-1 text-xs text-muted-foreground">{dNps === null ? tx("ปีก่อน —") : <span className={dNps >= 0 ? "text-emerald-600" : "text-red-600"}>{dNps >= 0 ? "▲" : "▼"} {Math.abs(dNps)} {tx("จากปีก่อน")}</span>}<span className="block">{tx("ตอบ {0} ครอบครัว", [s.responses])}</span></p>
-          </div>
-          <NpsSplit responses={cur.responses.filter(Survey.isCurrent)} />
-        </div>
+        <div className="flex flex-col justify-center lg:pr-6"><NpsScore nps={s.nps} prev={p.nps} responses={cur.responses.filter(Survey.isCurrent)} /></div>
         <div className="grid gap-6 lg:grid-cols-2 lg:gap-0 lg:divide-x lg:pl-6">
           <div className="lg:pr-6">
             <p className="mb-2 text-sm font-medium">{tx("เหตุผลที่ให้คะแนน")}</p>
@@ -1350,13 +1343,28 @@ function CrmTab({ d, compare }: { d: ReportData; compare: boolean }) {
 
 const NPS_HEX = { promoter: tagHex("npsGroup", "promoter"), passive: tagHex("npsGroup", "passive"), detractor: tagHex("npsGroup", "detractor") }
 
+/** owner 2026-10-22: the NPS block is one component — the Overview's NPS card and the Satisfaction tab show it alike:
+ *  the score, the change from last year, how many answered, then who'd recommend / is neutral / wouldn't */
+function NpsScore({ nps, prev, responses }: { nps: number | null; prev: number | null; responses: SurveyResponse[] }) {
+  const dNps = nps !== null && prev !== null ? nps - prev : null
+  return (
+    <div className="space-y-3">
+      <div className="flex items-end gap-3">
+        <p className={cn("text-4xl font-semibold tabular-nums", nps !== null && nps < 0 ? "text-red-600" : "text-emerald-600")}>{nps === null ? "—" : `${nps > 0 ? "+" : ""}${nps}`}</p>
+        <p className="pb-1 text-xs text-muted-foreground">{dNps === null ? tx("ปีก่อน —") : <span className={dNps >= 0 ? "text-emerald-600" : "text-red-600"}>{dNps >= 0 ? "▲" : "▼"} {Math.abs(dNps)} {tx("จากปีก่อน")}</span>}<span className="block">{tx("ตอบ {0} ครอบครัว", [responses.length])}</span></p>
+      </div>
+      <NpsSplit responses={responses} />
+    </div>
+  )
+}
+
 /** promoters / passives / detractors of a set of answers — the bar under an NPS */
-function NpsSplit({ responses, big }: { responses: SurveyResponse[]; big?: boolean }) {
+function NpsSplit({ responses }: { responses: SurveyResponse[] }) {
   const v = responses.map((r) => r.answers.nps).filter((x): x is number => x !== null)
   const pro = v.filter((x) => x >= 9).length, pas = v.filter((x) => x >= 7 && x <= 8).length, det = v.filter((x) => x <= 6).length, n = Math.max(1, v.length)
   return (
     <div className="space-y-2">
-      <div className={cn("flex overflow-hidden rounded-full bg-muted", big ? "h-4" : "h-3")}>
+      <div className="flex h-3 overflow-hidden rounded-full bg-muted">
         <span style={{ width: `${(pro / n) * 100}%`, background: NPS_HEX.promoter }} /><span style={{ width: `${(pas / n) * 100}%`, background: NPS_HEX.passive }} /><span style={{ width: `${(det / n) * 100}%`, background: NPS_HEX.detractor }} />
       </div>
       <div className="flex justify-between text-xs"><span style={{ color: NPS_HEX.promoter }}>{tx("แนะนำ")} {pro}</span><span style={{ color: NPS_HEX.passive }}>{tx("เฉยๆ")} {pas}</span><span style={{ color: NPS_HEX.detractor }}>{tx("ไม่แนะนำ")} {det}</span></div>
@@ -1470,7 +1478,7 @@ function SatisfactionTab({ d, compare, f }: { d: ReportData; compare: boolean; f
             ]} />
           </Panel>
         ) : (
-          <Panel title={tx("คะแนนแนะนำ (0–10)")} hint={tx("แนะนำ 9–10 · เฉยๆ 7–8 · ไม่แนะนำ 0–6")} center><NpsSplit responses={rs} big /></Panel>
+          <Panel title="NPS" hint={tx("แบบสอบถามผู้ปกครองปี {0} · แนะนำ 9–10 · เฉยๆ 7–8 · ไม่แนะนำ 0–6", [yearOf(year)])} center><NpsScore nps={s.nps} prev={p.nps} responses={rs} /></Panel>
         )}
       </div>
       <div className="grid gap-4 lg:grid-cols-2">
