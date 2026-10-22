@@ -1384,10 +1384,12 @@ const SAT_LEVELS = [1, 2, 3, 4, 5] as const
 /** each topic: one 100% bar split by how many answered 1…5 (red → emerald), the average on the right */
 function SatisfactionBars({ rows }: { rows: { key: string; label: string; score: number | null; prev: number | null; levels: number[] }[] }) {
   return (
-    <ul className="space-y-3 text-sm">{rows.map((r) => {
+    <ul className="space-y-2.5 text-sm">{rows.map((r, idx) => {
       const n = r.levels.reduce((a, x) => a + x, 0) || 1
       return (
-        <li key={r.key} className="grid grid-cols-[minmax(0,15rem)_1fr_4rem] items-center gap-3">
+        // owner 2026-10-22: the same columns as the ranked lists (TopList wide) — rank · name · bar · number · small number line up across cards
+        <li key={r.key} className="grid grid-cols-[1.25rem_minmax(0,18rem)_1fr_2rem_2.5rem] items-center gap-3">
+          <Rank n={idx + 1} />
           <span className="truncate" title={r.label}>{r.label}</span>
           {/* owner 2026-10-22: the same bar size as the lists around it; the share of each answer is on hover */}
           <div className="flex h-2.5 overflow-hidden rounded-full bg-muted">{r.levels.map((c, i) => c ? (
@@ -1396,7 +1398,8 @@ function SatisfactionBars({ rows }: { rows: { key: string; label: string; score:
               <HoverCardContent side="top" className="w-auto text-sm">{r.label} · {i + 1} {tx(Survey.SCALE_LABEL[i + 1])} · {tx("{0} ครอบครัว", [c])} ({Math.round((c / n) * 100)}%)</HoverCardContent>
             </HoverCard>
           ) : null)}</div>
-          <span className="text-right tabular-nums"><span className="font-semibold">{r.score?.toFixed(1) ?? "—"}</span>{r.prev !== null && <span className="ml-1 text-[11px] text-muted-foreground">{r.prev.toFixed(1)}</span>}</span>
+          <span className="text-right font-medium tabular-nums">{r.score?.toFixed(1) ?? "—"}</span>
+          <span className="text-right text-xs text-muted-foreground tabular-nums">{r.prev?.toFixed(1) ?? ""}</span>
         </li>
       )
     })}</ul>
