@@ -22,7 +22,7 @@ const BOTTOM = 6, NW = 10, GAP = 12, PAD = 4
 /** how see-through the bands are (0 = invisible, 1 = solid) — tweak here */
 export const BAND_OPACITY = {
   /** every band, nothing hovered */
-  rest: 0.16,
+  rest: 0.12,
   /** the band(s) being hovered */
   focus: 0.24,
   /** the other bands while something is hovered */
@@ -34,24 +34,24 @@ export const BAND_FLOW = {
   /** seconds for the light to cross one column of bands */
   seconds: 0.80,
   /** length of the light, as a share of one column of bands */
-  length: 6.40,
+  length: 10,
   /** how soft the light's top / bottom edge is (blur across the band, capped at a quarter of its thickness) */
-  blur: 80,
+  blur: 20,
   /** how strong the light is (0 = invisible, 1 = full) */
-  opacity: 0.60,
+  opacity: 0.50,
   /** owner 2026-10-22: the bright centre of the light (at its brightest point) — its colour and strength (0 = no centre) */
   core: "#ffffff",
-  coreOpacity: 0.4,
+  coreOpacity: 0.2,
   /** owner 2026-10-22: white glowing sparkles inside the light, thickest where the light is brightest — at most this many per band (0 = none) */
-  sparks: 500,
+  sparks: 200,
   /** sparkle size (radius) */
   sparkSize: 0.24,
   /** how many sparkles per unit of band thickness (a thick band gets more) */
   sparkDensity: 1.5,
   /** how soft the sparkles' glow is */
-  sparkGlow: 1.2,
+  sparkGlow: 0.6,
   /** how far a sparkle wanders around its spot (share of the band's thickness) */
-  sparkWander: 1.35,
+  sparkWander: 4.35,
 }
 
 /** where the light is brightest along its window (0 = tail end, 1 = head) — a long tail behind, a short head in front */
