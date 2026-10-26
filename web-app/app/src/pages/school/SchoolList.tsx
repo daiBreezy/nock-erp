@@ -1,11 +1,20 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { MapPin, Clock, ArrowRight, Navigation, MessageCircle, Phone, ChevronDown } from 'lucide-react'
+import { MapPin, Clock, ArrowRight, Navigation, MessageCircle, Phone } from 'lucide-react'
 import DesktopNav from '../../components/web/DesktopNav'
 import MarketingFooter from '../../components/web/MarketingFooter'
 import ContactFab from '../../components/web/ContactFab'
 import { LineIcon, FacebookIcon } from '../../components/BrandIcons'
 import { branches, regions, type Branch } from '../../data/school'
+import { Button } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
+import { Card } from '@/components/ui/card'
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from '@/components/ui/select'
+import {
+  DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem,
+} from '@/components/ui/dropdown-menu'
 
 /* โหลด Leaflet จาก CDN ครั้งเดียว (ฟรี ไม่ต้องใช้ API key) */
 let leafletPromise: Promise<any> | null = null
@@ -96,56 +105,48 @@ function BranchMap({ selected, onSelect }: { selected: string | null; onSelect: 
   return <div ref={elRef} className="h-[320px] w-full sm:h-[420px]" />
 }
 
+/* ปุ่มติดต่อ (แชท/เพจ/โทร) เป็น DropdownMenu ของ shadcn */
 function CardContact({ b }: { b: Branch }) {
-  const [open, setOpen] = useState(false)
   const channels = [
     { label: `LINE OA ${b.lineId}`, href: b.lineUrl, bg: 'bg-[#06C755]', icon: LineIcon, ext: true },
     { label: 'Facebook', href: b.facebookUrl, bg: 'bg-[#1877F2]', icon: FacebookIcon, ext: true },
     ...(b.phone ? [{ label: `โทร ${b.phone}`, href: `tel:${b.phone.replace(/[^0-9+]/g, '')}`, bg: 'bg-brand', icon: Phone, ext: false }] : []),
   ]
-  // เปิดด้วย hover (desktop) หรือ แตะ (mobile)
   return (
-    <div
-      className="relative shrink-0"
-      onMouseEnter={() => setOpen(true)}
-      onMouseLeave={() => setOpen(false)}
-    >
-      <button
-        onClick={() => setOpen((v) => !v)}
-        aria-label={`ติดต่อสาขา ${b.area}`}
-        aria-expanded={open}
-        className={`grid h-10 w-10 place-items-center rounded-full border transition-colors ${open ? 'border-brand bg-brand text-white' : 'border-line text-ink-soft hover:border-brand hover:text-brand'}`}
-      >
-        <MessageCircle size={18} />
-      </button>
-      {open && (
-        <div className="absolute bottom-11 left-0 z-30 w-56 overflow-hidden rounded-xl border border-line bg-white p-1.5 shadow-xl">
-          {channels.map((c) => (
-            <a
-              key={c.label}
-              href={c.href}
-              {...(c.ext ? { target: '_blank', rel: 'noopener noreferrer' } : {})}
-              className="flex items-center gap-3 rounded-lg px-2.5 py-2 hover:bg-surface-2"
-            >
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button
+          variant="outline"
+          size="icon"
+          aria-label={`ติดต่อสาขา ${b.area}`}
+          className="h-10 w-10 shrink-0 rounded-full border-line text-ink-soft hover:border-brand hover:text-brand data-[state=open]:border-brand data-[state=open]:bg-brand data-[state=open]:text-white"
+        >
+          <MessageCircle size={18} />
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="start" className="w-56">
+        {channels.map((c) => (
+          <DropdownMenuItem key={c.label} asChild>
+            <a href={c.href} {...(c.ext ? { target: '_blank', rel: 'noopener noreferrer' } : {})} className="cursor-pointer">
               <span className={`grid h-8 w-8 shrink-0 place-items-center rounded-full text-white ${c.bg}`}><c.icon size={17} /></span>
               <span className="truncate text-[13.5px] font-medium text-ink">{c.label}</span>
             </a>
-          ))}
-        </div>
-      )}
-    </div>
+          </DropdownMenuItem>
+        ))}
+      </DropdownMenuContent>
+    </DropdownMenu>
   )
 }
 
 function BranchCard({ b }: { b: Branch }) {
   return (
-    <div className="group flex flex-col rounded-2xl border border-line bg-white shadow-sm transition-shadow hover:shadow-md">
+    <Card className="group flex flex-col overflow-hidden rounded-2xl border-line shadow-sm transition-shadow hover:shadow-md">
       <Link to={`/school/${b.slug}`} target="_blank" rel="noopener noreferrer" className="block">
-        <div className="relative h-44 overflow-hidden rounded-t-2xl bg-surface-2">
+        <div className="relative h-44 overflow-hidden bg-surface-2">
           <img src={b.cover} alt={`สาขา ${b.area}`} className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105" />
-          <span className="absolute left-3 top-3 inline-flex items-center gap-1 rounded-pill bg-white/95 px-3 py-1 text-[13px] font-bold text-brand shadow-sm">
+          <Badge className="absolute left-3 top-3 gap-1 rounded-pill border-transparent bg-white/95 px-3 py-1 text-[13px] font-bold text-brand shadow-sm hover:bg-white">
             <MapPin size={14} /> {b.area}
-          </span>
+          </Badge>
         </div>
         <div className="p-5 pb-3">
           <p className="text-[11px] font-bold uppercase tracking-wide text-brand">NockAcademy School</p>
@@ -158,29 +159,32 @@ function BranchCard({ b }: { b: Branch }) {
       </Link>
       <div className="mt-auto flex items-center gap-2 px-5 pb-5">
         <CardContact b={b} />
-        <a
-          href={b.mapUrl}
-          target="_blank"
-          rel="noopener noreferrer"
+        <Button
+          asChild
+          variant="outline"
+          size="icon"
           aria-label={`แผนที่สาขา ${b.area}`}
-          className="grid h-10 w-10 shrink-0 place-items-center rounded-full border border-line text-ink-soft hover:border-brand hover:text-brand"
+          className="h-10 w-10 shrink-0 rounded-full border-line text-ink-soft hover:border-brand hover:text-brand"
         >
-          <Navigation size={18} />
-        </a>
-        <Link
-          to={`/school/${b.slug}`}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-pill border border-brand py-2.5 text-[14px] font-bold text-brand hover:bg-brand-soft"
+          <a href={b.mapUrl} target="_blank" rel="noopener noreferrer">
+            <Navigation size={18} />
+          </a>
+        </Button>
+        <Button
+          asChild
+          variant="outline"
+          className="h-auto flex-1 gap-1.5 rounded-pill border-brand py-2.5 text-[14px] font-bold text-brand hover:bg-brand-soft hover:text-brand"
         >
-          ดูรายละเอียด <ArrowRight size={16} />
-        </Link>
+          <Link to={`/school/${b.slug}`} target="_blank" rel="noopener noreferrer">
+            ดูรายละเอียด <ArrowRight size={16} />
+          </Link>
+        </Button>
       </div>
-    </div>
+    </Card>
   )
 }
 
-/* /school — รายชื่อสาขา NockAcademy School (แผนที่ปักหมุดทุกสาขา + chip กรอง + การ์ด) */
+/* /school — รายชื่อสาขา NockAcademy School (แผนที่ปักหมุดทุกสาขา + กรอง + การ์ด) */
 export default function SchoolList() {
   const [selected, setSelected] = useState<string | null>(null)
 
@@ -196,9 +200,9 @@ export default function SchoolList() {
 
       {/* hero */}
       <section className="bg-[#FFF1F2] px-5 py-12 text-center sm:py-16">
-        <span className="inline-flex items-center gap-1.5 rounded-pill bg-white/80 px-3.5 py-1.5 text-[13px] font-bold text-brand shadow-sm">
+        <Badge className="gap-1.5 rounded-pill border-transparent bg-white/80 px-3.5 py-1.5 text-[13px] font-bold text-brand shadow-sm hover:bg-white/80">
           <MapPin size={15} /> NockAcademy School
-        </span>
+        </Badge>
         <h1 className="mx-auto mt-4 max-w-[700px] text-[28px] font-extrabold leading-tight tracking-tight sm:text-[38px]">
           สถาบันกวดวิชา NockAcademy ใกล้บ้านคุณ
         </h1>
@@ -207,48 +211,48 @@ export default function SchoolList() {
         </p>
       </section>
 
-      {/* chips + map */}
+      {/* filter + map */}
       <section className="mx-auto max-w-[1200px] px-5 pt-10">
-        {/* filter — dropdown บนจอเล็ก (chips 8 อันเด้งหลายแถวเปลืองที่), chips บนจอใหญ่ */}
+        {/* filter — Select บนจอเล็ก, chips (Button) บนจอใหญ่ */}
         <div className="mb-4">
-          {/* มือถือ: dropdown เลือกสาขา (chevron อยู่ในขอบ ไม่ตกขอบ) */}
-          <label className="block sm:hidden">
-            <span className="mb-1.5 block text-[13px] font-semibold text-ink-soft">เลือกสาขา</span>
-            <div className="relative">
-              <select
-                value={selected ?? ''}
-                onChange={(e) => setSelected(e.target.value || null)}
-                className="w-full appearance-none rounded-pill border border-line bg-white py-3 pl-5 pr-12 text-[15px] font-semibold text-ink focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/20"
-              >
-                <option value="">ทุกสาขา ({branches.length})</option>
+          {/* มือถือ: shadcn Select */}
+          <div className="block sm:hidden">
+            <label className="mb-1.5 block text-[13px] font-semibold text-ink-soft">เลือกสาขา</label>
+            <Select value={selected ?? 'all'} onValueChange={(v) => setSelected(v === 'all' ? null : v)}>
+              <SelectTrigger className="h-11 rounded-pill border-line px-5 text-[15px] font-semibold text-ink">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">ทุกสาขา ({branches.length})</SelectItem>
                 {branches.map((b) => (
-                  <option key={b.slug} value={b.slug}>{b.area}</option>
+                  <SelectItem key={b.slug} value={b.slug}>{b.area}</SelectItem>
                 ))}
-              </select>
-              <ChevronDown size={18} className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-ink-mute" />
-            </div>
-          </label>
+              </SelectContent>
+            </Select>
+          </div>
 
           {/* จอใหญ่: chips */}
           <div className="hidden flex-wrap gap-2 sm:flex">
-            <button
+            <Button
+              variant={selected === null ? 'default' : 'outline'}
               onClick={() => setSelected(null)}
-              className={`rounded-pill px-4 py-2 text-[14px] font-semibold transition-colors ${
-                selected === null ? 'bg-brand text-white' : 'border border-line bg-white text-ink-soft hover:border-brand hover:text-brand'
+              className={`h-auto rounded-pill px-4 py-2 text-[14px] font-semibold ${
+                selected === null ? '' : 'border-line text-ink-soft hover:border-brand hover:bg-transparent hover:text-brand'
               }`}
             >
               ทั้งหมด ({branches.length})
-            </button>
+            </Button>
             {branches.map((b) => (
-              <button
+              <Button
                 key={b.slug}
+                variant={selected === b.slug ? 'default' : 'outline'}
                 onClick={() => toggle(b.slug)}
-                className={`rounded-pill px-4 py-2 text-[14px] font-semibold transition-colors ${
-                  selected === b.slug ? 'bg-brand text-white' : 'border border-line bg-white text-ink-soft hover:border-brand hover:text-brand'
+                className={`h-auto rounded-pill px-4 py-2 text-[14px] font-semibold ${
+                  selected === b.slug ? '' : 'border-line text-ink-soft hover:border-brand hover:bg-transparent hover:text-brand'
                 }`}
               >
                 {b.area}
-              </button>
+              </Button>
             ))}
           </div>
         </div>

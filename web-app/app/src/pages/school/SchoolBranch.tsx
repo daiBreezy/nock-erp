@@ -3,7 +3,7 @@ import { useParams, Navigate, Link } from 'react-router-dom'
 import type { ComponentType } from 'react'
 import {
   MapPin, Clock, Phone, ChevronRight, GraduationCap, CalendarDays,
-  Users, Image as ImageIcon, Star, Navigation, ThumbsUp, MessageCircle, X,
+  Users, Image as ImageIcon, Star, Navigation, ThumbsUp, MessageCircle,
   Calculator, Languages, FlaskConical, BookOpen, ArrowLeft,
 } from 'lucide-react'
 import type { ComponentType as CT } from 'react'
@@ -12,6 +12,12 @@ import MarketingFooter from '../../components/web/MarketingFooter'
 import ContactFab from '../../components/web/ContactFab'
 import { LineIcon, FacebookIcon } from '../../components/BrandIcons'
 import { getBranch, subjectChipClass, type Branch, type Course } from '../../data/school'
+import { Button } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
+import { Card } from '@/components/ui/card'
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle,
+} from '@/components/ui/dialog'
 
 const SUBJECT_ICON: Record<string, CT<{ size?: number }>> = {
   คณิต: Calculator, อังกฤษ: Languages, วิทย์: FlaskConical, ไทย: BookOpen,
@@ -20,7 +26,7 @@ const SUBJECT_ICON: Record<string, CT<{ size?: number }>> = {
 function CourseCard({ c }: { c: Course; i?: number }) {
   const Icon = SUBJECT_ICON[c.subjects[0]] ?? BookOpen
   return (
-    <div className="flex items-center gap-3 rounded-xl border border-line bg-white p-3">
+    <Card className="flex items-center gap-3 rounded-xl border-line p-3 shadow-none">
       <span className={`grid h-14 w-14 shrink-0 place-items-center rounded-lg ${subjectChipClass(c.subjects[0])}`}>
         <Icon size={24} />
       </span>
@@ -33,95 +39,88 @@ function CourseCard({ c }: { c: Course; i?: number }) {
           <span className="rounded-pill bg-surface-2 px-2 py-0.5 font-semibold text-ink-soft">{c.grade}</span>
         </div>
       </div>
-    </div>
+    </Card>
   )
 }
 
 type Review = Branch['testimonials'][number]
 function ReviewCard({ t }: { t: Review }) {
   return (
-    <div className="flex min-h-[188px] w-[300px] shrink-0 flex-col rounded-2xl border border-line bg-white p-5">
+    <Card className="flex min-h-[188px] w-[300px] shrink-0 flex-col rounded-2xl border-line p-5 shadow-none">
       <div className="mb-2 flex gap-0.5 text-[#FFB300]">
         {Array.from({ length: 5 }).map((_, j) => <Star key={j} size={15} fill="currentColor" />)}
       </div>
       {t.result && (
-        <span className="mb-2 inline-flex w-fit items-center gap-1 rounded-pill bg-success/10 px-2.5 py-0.5 text-[12px] font-bold text-success">
+        <Badge className="mb-2 w-fit gap-1 rounded-pill border-transparent bg-success/10 px-2.5 py-0.5 text-[12px] font-bold text-success hover:bg-success/10">
           <GraduationCap size={13} /> {t.result}
-        </span>
+        </Badge>
       )}
       <p className="line-clamp-3 flex-1 text-[14px] leading-relaxed text-ink">“{t.quote}”</p>
       <p className="mt-3 text-[13px] font-semibold text-ink-soft">— {t.name}</p>
-    </div>
+    </Card>
+  )
+}
+
+/* Dialog ครอบเนื้อหา modal — หัวข้อ + พื้นที่เลื่อน (ใช้ซ้ำทั้ง 3 modal) */
+function BranchModal({ title, onClose, children }: { title: string; onClose: () => void; children: React.ReactNode }) {
+  return (
+    <Dialog open onOpenChange={(o) => { if (!o) onClose() }}>
+      <DialogContent className="flex max-h-[88vh] w-full max-w-[760px] flex-col gap-0 overflow-hidden p-0">
+        <DialogHeader className="space-y-0 border-b border-line px-5 py-4 text-left">
+          <DialogTitle className="text-[16px] font-bold text-ink sm:text-[18px]">{title}</DialogTitle>
+        </DialogHeader>
+        <div className="flex-1 overflow-y-auto p-5">{children}</div>
+      </DialogContent>
+    </Dialog>
   )
 }
 
 function ReviewsModal({ branch, onClose }: { branch: Branch; onClose: () => void }) {
   return (
-    <div className="fixed inset-0 z-[100] flex items-end justify-center bg-black/50 sm:items-center sm:p-6" onClick={onClose}>
-      <div onClick={(e) => e.stopPropagation()} className="flex max-h-[88vh] w-full max-w-[720px] flex-col overflow-hidden rounded-t-2xl bg-white sm:rounded-2xl">
-        <div className="flex items-center justify-between border-b border-line px-5 py-4">
-          <h3 className="text-[16px] font-bold text-ink sm:text-[18px]">รีวิวทั้งหมด · สาขา{branch.area}</h3>
-          <button onClick={onClose} aria-label="ปิด" className="text-ink-mute hover:text-ink"><X size={22} /></button>
-        </div>
-        <div className="grid flex-1 gap-4 overflow-y-auto p-5 sm:grid-cols-2">
-          {branch.testimonials.map((t, i) => (
-            <div key={i} className="flex flex-col rounded-2xl border border-line bg-white p-5">
-              <div className="mb-2 flex gap-0.5 text-[#FFB300]">
-                {Array.from({ length: 5 }).map((_, j) => <Star key={j} size={15} fill="currentColor" />)}
-              </div>
-              {t.result && (
-                <span className="mb-2 inline-flex w-fit items-center gap-1 rounded-pill bg-success/10 px-2.5 py-0.5 text-[12px] font-bold text-success">
-                  <GraduationCap size={13} /> {t.result}
-                </span>
-              )}
-              <p className="flex-1 text-[14px] leading-relaxed text-ink">“{t.quote}”</p>
-              <p className="mt-3 text-[13px] font-semibold text-ink-soft">— {t.name}</p>
+    <BranchModal title={`รีวิวทั้งหมด · สาขา${branch.area}`} onClose={onClose}>
+      <div className="grid gap-4 sm:grid-cols-2">
+        {branch.testimonials.map((t, i) => (
+          <Card key={i} className="flex flex-col rounded-2xl border-line p-5 shadow-none">
+            <div className="mb-2 flex gap-0.5 text-[#FFB300]">
+              {Array.from({ length: 5 }).map((_, j) => <Star key={j} size={15} fill="currentColor" />)}
             </div>
-          ))}
-        </div>
+            {t.result && (
+              <Badge className="mb-2 w-fit gap-1 rounded-pill border-transparent bg-success/10 px-2.5 py-0.5 text-[12px] font-bold text-success hover:bg-success/10">
+                <GraduationCap size={13} /> {t.result}
+              </Badge>
+            )}
+            <p className="flex-1 text-[14px] leading-relaxed text-ink">“{t.quote}”</p>
+            <p className="mt-3 text-[13px] font-semibold text-ink-soft">— {t.name}</p>
+          </Card>
+        ))}
       </div>
-    </div>
+    </BranchModal>
   )
 }
 
 function GalleryModal({ branch, onClose }: { branch: Branch; onClose: () => void }) {
   return (
-    <div className="fixed inset-0 z-[100] flex items-end justify-center bg-black/60 sm:items-center sm:p-6" onClick={onClose}>
-      <div onClick={(e) => e.stopPropagation()} className="flex max-h-[88vh] w-full max-w-[760px] flex-col overflow-hidden rounded-t-2xl bg-white sm:rounded-2xl">
-        <div className="flex items-center justify-between border-b border-line px-5 py-4">
-          <h3 className="text-[16px] font-bold text-ink sm:text-[18px]">บรรยากาศห้องเรียน · สาขา{branch.area}</h3>
-          <button onClick={onClose} aria-label="ปิด" className="text-ink-mute hover:text-ink"><X size={22} /></button>
-        </div>
-        <div className="grid flex-1 gap-3 overflow-y-auto p-5 sm:grid-cols-2">
-          {branch.classroomPhotos.map((p, i) => (
-            <img key={i} src={p} alt={`ห้องเรียน ${i + 1}`} className="w-full rounded-xl border border-line object-cover" />
-          ))}
-        </div>
+    <BranchModal title={`บรรยากาศห้องเรียน · สาขา${branch.area}`} onClose={onClose}>
+      <div className="grid gap-3 sm:grid-cols-2">
+        {branch.classroomPhotos.map((p, i) => (
+          <img key={i} src={p} alt={`ห้องเรียน ${i + 1}`} className="w-full rounded-xl border border-line object-cover" />
+        ))}
       </div>
-    </div>
+    </BranchModal>
   )
 }
 
 function CoursesModal({ branch, onClose }: { branch: Branch; onClose: () => void }) {
   return (
-    <div className="fixed inset-0 z-[100] flex items-end justify-center bg-black/50 sm:items-center sm:p-6" onClick={onClose}>
-      <div
-        onClick={(e) => e.stopPropagation()}
-        className="flex max-h-[88vh] w-full max-w-[640px] flex-col overflow-hidden rounded-t-2xl bg-white sm:rounded-2xl"
-      >
-        <div className="flex items-center justify-between border-b border-line px-5 py-4">
-          <h3 className="text-[16px] font-bold text-ink sm:text-[18px]">คอร์สทั้งหมด · สาขา{branch.area} ({branch.courses.length})</h3>
-          <button onClick={onClose} aria-label="ปิด" className="text-ink-mute hover:text-ink"><X size={22} /></button>
-        </div>
-        <div className="grid flex-1 gap-3 overflow-y-auto p-5 sm:grid-cols-2">
-          {branch.courses.map((c, i) => <CourseCard key={i} c={c} i={i} />)}
-        </div>
+    <BranchModal title={`คอร์สทั้งหมด · สาขา${branch.area} (${branch.courses.length})`} onClose={onClose}>
+      <div className="grid gap-3 sm:grid-cols-2">
+        {branch.courses.map((c, i) => <CourseCard key={i} c={c} i={i} />)}
       </div>
-    </div>
+    </BranchModal>
   )
 }
 
-function Section({ icon: Icon, title, action, children }: { icon: ComponentType<{ size?: number }>; title: string; action?: React.ReactNode; children: React.ReactNode }) {
+function Section({ icon: Icon, title, action, children }: { icon: ComponentType<{ size?: number; className?: string }>; title: string; action?: React.ReactNode; children: React.ReactNode }) {
   return (
     <section className="mx-auto max-w-[900px] border-t border-line px-5 py-8">
       <div className="mb-4 flex items-center justify-between gap-3">
@@ -139,9 +138,13 @@ function Section({ icon: Icon, title, action, children }: { icon: ComponentType<
 /* ปุ่มลิงก์ "ดูทั้งหมด" ใช้บนหัวข้อ section */
 function SeeAll({ onClick, children }: { onClick: () => void; children: React.ReactNode }) {
   return (
-    <button onClick={onClick} className="inline-flex shrink-0 items-center gap-1 text-[13px] font-bold text-brand hover:underline">
+    <Button
+      variant="link"
+      onClick={onClick}
+      className="h-auto shrink-0 gap-1 p-0 text-[13px] font-bold text-brand hover:no-underline"
+    >
       {children} <ChevronRight size={15} />
-    </button>
+    </Button>
   )
 }
 
@@ -173,15 +176,17 @@ export default function SchoolBranch() {
         <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/45 to-black/25" />
         <div className="relative mx-auto flex min-h-[360px] max-w-[900px] flex-col justify-end px-5 pb-8 pt-24 sm:min-h-[420px]">
           {/* ปุ่มกลับ — ทับบนรูป มุมซ้ายบน */}
-          <Link
-            to="/school"
-            className="absolute left-5 top-5 inline-flex items-center gap-1.5 rounded-full bg-white/15 px-3.5 py-1.5 text-[13px] font-semibold text-white ring-1 ring-white/40 backdrop-blur transition-colors hover:bg-white/30"
+          <Button
+            asChild
+            className="absolute left-5 top-5 h-auto gap-1.5 rounded-full bg-white/15 px-3.5 py-1.5 text-[13px] font-semibold text-white ring-1 ring-white/40 backdrop-blur hover:bg-white/30"
           >
-            <ArrowLeft size={16} /> ทุกสาขา
-          </Link>
-          <span className="inline-flex w-fit items-center gap-1.5 rounded-pill bg-white/90 px-3 py-1 text-[13px] font-bold text-brand shadow-sm">
+            <Link to="/school">
+              <ArrowLeft size={16} /> ทุกสาขา
+            </Link>
+          </Button>
+          <Badge className="w-fit gap-1.5 rounded-pill border-transparent bg-white/90 px-3 py-1 text-[13px] font-bold text-brand shadow-sm hover:bg-white/90">
             <MapPin size={14} /> สาขา{branch.area}
-          </span>
+          </Badge>
           <h1 className="mt-3 text-[26px] font-extrabold leading-tight tracking-tight text-white drop-shadow sm:text-[34px]">{branch.heading}</h1>
           <p className="mt-3 max-w-[620px] text-[15px] leading-relaxed text-white/85 drop-shadow">{branch.tagline}</p>
           {/* ช่องทางติดต่อ = ไอคอนขาวโปร่ง บรรทัดใหม่ + hover tooltip */}
@@ -194,14 +199,16 @@ export default function SchoolBranch() {
               const Icon = c.icon
               return (
                 <div key={idx} className="group relative">
-                  <a
-                    href={c.href}
-                    {...(c.ext ? { target: '_blank', rel: 'noopener noreferrer' } : {})}
+                  <Button
+                    asChild
+                    size="icon"
                     aria-label={c.tip}
-                    className="grid h-10 w-10 place-items-center rounded-full bg-white/15 text-white ring-1 ring-white/40 backdrop-blur transition-colors hover:bg-white/30"
+                    className="h-10 w-10 rounded-full bg-white/15 text-white ring-1 ring-white/40 backdrop-blur hover:bg-white/30"
                   >
-                    <Icon size={20} />
-                  </a>
+                    <a href={c.href} {...(c.ext ? { target: '_blank', rel: 'noopener noreferrer' } : {})}>
+                      <Icon size={20} />
+                    </a>
+                  </Button>
                   <span className="pointer-events-none absolute bottom-full left-1/2 mb-2 -translate-x-1/2 whitespace-nowrap rounded-lg bg-ink px-2.5 py-1 text-[12px] font-medium text-white opacity-0 shadow-lg transition-opacity group-hover:opacity-100">
                     {c.tip}
                   </span>
@@ -217,10 +224,11 @@ export default function SchoolBranch() {
         icon={MapPin}
         title="ที่ตั้ง & การเดินทาง"
         action={
-          <a href={branch.mapUrl} target="_blank" rel="noopener noreferrer"
-            className="inline-flex shrink-0 items-center gap-1 text-[13px] font-bold text-brand hover:underline">
-            <Navigation size={15} /> นำทาง
-          </a>
+          <Button asChild variant="link" className="h-auto shrink-0 gap-1 p-0 text-[13px] font-bold text-brand hover:no-underline">
+            <a href={branch.mapUrl} target="_blank" rel="noopener noreferrer">
+              <Navigation size={15} /> นำทาง
+            </a>
+          </Button>
         }
       >
         {branch.address ? (
@@ -335,35 +343,37 @@ export default function SchoolBranch() {
         </div>
       </Section>
 
-      {/* contact — การ์ดแนวตั้ง เรียงได้หลายอัน */}
+      {/* contact — แถวแนวนอนกะทัดรัด */}
       <Section icon={Phone} title="ติดต่อสาขา">
-        {/* แถวแนวนอนกะทัดรัด — ไอคอน + ชื่อ/ค่า อยู่บรรทัดเดียวกัน ประหยัดพื้นที่ */}
         <div className="grid gap-2.5 sm:grid-cols-3 md:max-w-[640px]">
-          <a href={branch.lineUrl} target="_blank" rel="noopener noreferrer"
-            className="flex items-center gap-3 rounded-xl border border-line bg-white px-4 py-3 transition-colors hover:border-[#06C755]">
-            <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-[#06C755] text-white"><LineIcon size={22} /></span>
-            <div className="min-w-0">
-              <p className="text-[13.5px] font-bold text-ink">LINE Official</p>
-              <p className="truncate text-[12px] text-ink-soft">{branch.lineId}</p>
-            </div>
-          </a>
-          <a href={branch.facebookUrl} target="_blank" rel="noopener noreferrer"
-            className="flex items-center gap-3 rounded-xl border border-line bg-white px-4 py-3 transition-colors hover:border-[#1877F2]">
-            <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-[#1877F2] text-white"><FacebookIcon size={22} /></span>
-            <div className="min-w-0">
-              <p className="text-[13.5px] font-bold text-ink">Facebook</p>
-              <p className="truncate text-[12px] text-ink-soft">เพจสาขา{branch.area}</p>
-            </div>
-          </a>
-          {tel && (
-            <a href={tel}
-              className="flex items-center gap-3 rounded-xl border border-line bg-white px-4 py-3 transition-colors hover:border-brand">
-              <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-brand text-white"><Phone size={20} /></span>
+          <Card asChild className="rounded-xl border-line shadow-none transition-colors hover:border-[#06C755]">
+            <a href={branch.lineUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-3 px-4 py-3">
+              <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-[#06C755] text-white"><LineIcon size={22} /></span>
               <div className="min-w-0">
-                <p className="text-[13.5px] font-bold text-ink">โทรหาสาขา</p>
-                <p className="truncate text-[12px] text-ink-soft">{branch.phone}</p>
+                <p className="text-[13.5px] font-bold text-ink">LINE Official</p>
+                <p className="truncate text-[12px] text-ink-soft">{branch.lineId}</p>
               </div>
             </a>
+          </Card>
+          <Card asChild className="rounded-xl border-line shadow-none transition-colors hover:border-[#1877F2]">
+            <a href={branch.facebookUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-3 px-4 py-3">
+              <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-[#1877F2] text-white"><FacebookIcon size={22} /></span>
+              <div className="min-w-0">
+                <p className="text-[13.5px] font-bold text-ink">Facebook</p>
+                <p className="truncate text-[12px] text-ink-soft">เพจสาขา{branch.area}</p>
+              </div>
+            </a>
+          </Card>
+          {tel && (
+            <Card asChild className="rounded-xl border-line shadow-none transition-colors hover:border-brand">
+              <a href={tel} className="flex items-center gap-3 px-4 py-3">
+                <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-brand text-white"><Phone size={20} /></span>
+                <div className="min-w-0">
+                  <p className="text-[13.5px] font-bold text-ink">โทรหาสาขา</p>
+                  <p className="truncate text-[12px] text-ink-soft">{branch.phone}</p>
+                </div>
+              </a>
+            </Card>
           )}
         </div>
       </Section>
@@ -377,30 +387,33 @@ export default function SchoolBranch() {
       <Section icon={FacebookIcon} title="ข่าวสารจาก Facebook สาขา">
         <div className="grid gap-4 sm:grid-cols-2">
           {branch.facebookPosts.map((p, i) => (
-            <article key={i} className="overflow-hidden rounded-2xl border border-line bg-white">
-              <div className="flex items-center gap-3 px-4 pt-4">
-                <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-[#1877F2] text-white">
-                  <FacebookIcon size={22} />
-                </span>
-                <div>
-                  <p className="text-[14px] font-bold text-ink">NockAcademy สาขา{branch.area}</p>
-                  <p className="text-[12px] text-ink-mute">{p.date}</p>
+            <Card key={i} asChild className="overflow-hidden rounded-2xl border-line shadow-none">
+              <article>
+                <div className="flex items-center gap-3 px-4 pt-4">
+                  <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-[#1877F2] text-white">
+                    <FacebookIcon size={22} />
+                  </span>
+                  <div>
+                    <p className="text-[14px] font-bold text-ink">NockAcademy สาขา{branch.area}</p>
+                    <p className="text-[12px] text-ink-mute">{p.date}</p>
+                  </div>
                 </div>
-              </div>
-              <p className="whitespace-pre-line px-4 py-3 text-[14.5px] leading-relaxed text-ink">{p.text}</p>
-              {p.image && <img src={p.image} alt="" className="max-h-80 w-full object-cover" />}
-              <div className="flex items-center gap-4 border-t border-line px-4 py-2.5 text-[13px] text-ink-mute">
-                <span className="flex items-center gap-1.5"><ThumbsUp size={15} /> {p.likes}</span>
-                <span className="flex items-center gap-1.5"><MessageCircle size={15} /> {p.comments}</span>
-                <a href={p.url} target="_blank" rel="noopener noreferrer" className="ml-auto font-semibold text-brand hover:underline">ดูโพสต์</a>
-              </div>
-            </article>
+                <p className="whitespace-pre-line px-4 py-3 text-[14.5px] leading-relaxed text-ink">{p.text}</p>
+                {p.image && <img src={p.image} alt="" className="max-h-80 w-full object-cover" />}
+                <div className="flex items-center gap-4 border-t border-line px-4 py-2.5 text-[13px] text-ink-mute">
+                  <span className="flex items-center gap-1.5"><ThumbsUp size={15} /> {p.likes}</span>
+                  <span className="flex items-center gap-1.5"><MessageCircle size={15} /> {p.comments}</span>
+                  <a href={p.url} target="_blank" rel="noopener noreferrer" className="ml-auto font-semibold text-brand hover:underline">ดูโพสต์</a>
+                </div>
+              </article>
+            </Card>
           ))}
         </div>
-        <a href={branch.facebookUrl} target="_blank" rel="noopener noreferrer"
-          className="mt-4 inline-flex items-center gap-2 text-[14px] font-semibold text-brand hover:underline">
-          <FacebookIcon size={16} /> ดูโพสต์ทั้งหมดบนเพจ Facebook
-        </a>
+        <Button asChild variant="link" className="mt-4 h-auto gap-2 p-0 text-[14px] font-semibold text-brand hover:no-underline">
+          <a href={branch.facebookUrl} target="_blank" rel="noopener noreferrer">
+            <FacebookIcon size={16} /> ดูโพสต์ทั้งหมดบนเพจ Facebook
+          </a>
+        </Button>
         <p className="mt-2 text-[12px] text-ink-mute">* ตัวอย่างโพสต์ — ระบบจะดึงโพสต์จริงจากเพจผ่าน Facebook Graph API</p>
       </Section>
 

@@ -39,4 +39,9 @@ function serveMarketing() {
 export default defineConfig({
   base: './', // relative path เพื่อให้เปิดไฟล์ตรงๆ (file://) ได้
   plugins: [react(), viteSingleFile(), serveMarketing()],
+  resolve: {
+    alias: {
+      '@': path.resolve(path.dirname(fileURLToPath(import.meta.url)), 'src'),
+    },
+  },
 })

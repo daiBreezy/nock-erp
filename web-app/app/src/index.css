@@ -4,6 +4,55 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ── shadcn CSS variables — map เข้าสีแบรนด์เดิม (ค่า HSL) ──
+   primary = brand #FF5A5E · foreground = ink · border/input = line · destructive = live */
+@layer base {
+  :root {
+    --background: 0 0% 100%; /* surface.1 */
+    --foreground: 210 7% 11%; /* ink */
+    --card: 0 0% 100%;
+    --card-foreground: 210 7% 11%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 210 7% 11%;
+    --primary: 359 100% 68%; /* brand #FF5A5E */
+    --primary-foreground: 0 0% 100%;
+    --secondary: 228 16% 95%; /* surface.2 */
+    --secondary-foreground: 210 7% 11%;
+    --muted: 228 16% 95%; /* surface.2 */
+    --muted-foreground: 220 9% 46%; /* ink.soft */
+    --accent: 357 100% 95%; /* brand.soft */
+    --accent-foreground: 358 77% 45%; /* brand.dark เข้มพอให้อ่านบนพื้นชมพูอ่อน */
+    --destructive: 0 72% 59%; /* live #E24B4A */
+    --destructive-foreground: 0 0% 100%;
+    --border: 216 12% 92%; /* line #E8EAED */
+    --input: 216 12% 92%;
+    --ring: 359 100% 68%; /* brand */
+    --radius: 0.75rem;
+  }
+
+  .dark {
+    --background: 210 9% 11%;
+    --foreground: 0 0% 98%;
+    --card: 210 8% 14%;
+    --card-foreground: 0 0% 98%;
+    --popover: 210 8% 14%;
+    --popover-foreground: 0 0% 98%;
+    --primary: 359 100% 68%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 210 6% 20%;
+    --secondary-foreground: 0 0% 98%;
+    --muted: 210 6% 20%;
+    --muted-foreground: 220 9% 64%;
+    --accent: 358 40% 24%;
+    --accent-foreground: 357 100% 92%;
+    --destructive: 0 62% 50%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 210 6% 24%;
+    --input: 210 6% 24%;
+    --ring: 359 100% 68%;
+  }
+}
+
 :root {
   color-scheme: light;
 }

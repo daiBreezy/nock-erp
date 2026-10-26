@@ -5,6 +5,24 @@
 
 ---
 
+## 2026-10-26 — Web App: เริ่มแปลงเป็น shadcn/ui (เฟส 1 — Foundation + หน้า School)
+
+> เป้าหมายใหญ่: แปลง web-app ทั้งโปรเจกต์ (77 ไฟล์ / 46 หน้า) เป็น shadcn/ui — ทำเป็นเฟสๆ verify ทุกเฟส
+
+**ตัดสินใจ:** เลือก **shadcn** (ไม่ใช่ HeroUI) เพราะอยู่บน Tailwind เดียวกัน · เป็นเจ้าของโค้ด component เอง · ไม่เพิ่ม runtime theme engine · map token แบรนด์เดิมได้
+
+**เฟส 1 ทำแล้ว:**
+- **Foundation:** path alias `@/` (tsconfig.app + vite) · `src/lib/utils.ts` (cn) · `components.json` (style new-york) · ติดตั้ง Radix + cva/clsx/tailwind-merge/tailwindcss-animate/sonner
+- **Token mapping (สำคัญ):** `src/index.css` เพิ่ม CSS variables ของ shadcn map เข้าสีแบรนด์เดิม — `--primary` = brand #FF5A5E · `--foreground` = ink · `--border/--input` = line · `--destructive` = live · (มี `.dark` เผื่ออนาคต แต่แอปยัง light-only) · `tailwind.config.js` เพิ่ม token shadcn โดย**คง token เดิมครบ** (brand/ink/surface/line/subject) → โค้ดเก่ายังทำงานระหว่างย้าย
+- **Components (`src/components/ui/`):** button · card (เพิ่ม asChild) · badge · select · dialog · dropdown-menu
+- **แปลงหน้า School (pilot):** `SchoolList` (filter → shadcn Select บนมือถือ + chips เป็น Button · การ์ด → Card/Badge/Button · ปุ่มแชท → DropdownMenu) · `SchoolBranch` (3 modal → Dialog · การ์ดคอร์ส/รีวิว/ติดต่อ/FB → Card · ปุ่ม/ลิงก์ → Button · badge → Badge)
+- แก้ bug เดิม: `Section` icon type แคบไป (ไม่รับ className) ทำให้ `tsc -b` แดง — ขยาย type แล้ว
+- ✅ `tsc -b` / `vite build` / `oxlint` ผ่าน · Playwright จอ 390px + 1280px ยืนยันหน้าตาเหมือนเดิม (Select เปิดสวย, modal, การ์ด, contact)
+
+**เหลือทำ (เฟสต่อไป):** แปลงอีก ~44 หน้า/component ที่เหลือ (home, profile, exam, goal, homework, payment, marketing, auth, more, web/*, bottom-nav ฯลฯ) + เพิ่ม ui component ตามที่แต่ละหน้าใช้ (input, label, tabs, tooltip, sheet, toast/sonner, avatar, switch, checkbox ฯลฯ) — ทำทีละชุด build/screenshot ทุกชุด
+
+---
+
 ## 2026-10-26 — Web App: ขัด Responsive หน้า School (3 จุด)
 
 **ทำอะไร (web-app/app):**
