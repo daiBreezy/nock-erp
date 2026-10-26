@@ -1,6 +1,7 @@
 import { useLocation, useNavigate } from 'react-router-dom'
 import { Check, Clock } from 'lucide-react'
 import { fmtBaht } from '../../data/packages'
+import { Button } from '@/components/ui/button'
 
 type Plan = { name: string; price: number }
 
@@ -39,12 +40,12 @@ export default function PayResult() {
         </div>
       </div>
 
-      <button
+      <Button
         onClick={() => navigate('/', { replace: true })}
-        className="mt-8 w-full max-w-xs rounded-2xl bg-brand py-4 text-base font-semibold text-white"
+        className="mt-8 h-auto w-full max-w-xs rounded-2xl bg-brand py-4 text-base font-semibold hover:bg-brand-dark"
       >
         เสร็จสิ้น
-      </button>
+      </Button>
     </div>
   )
 }

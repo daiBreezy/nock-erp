@@ -3,6 +3,9 @@ import { useLocation, useNavigate } from 'react-router-dom'
 import { ChevronLeft, QrCode, Upload, Copy, Check } from 'lucide-react'
 import { payMethods, payeeBank, type PayMethodKey } from '../../data/payment'
 import { fmtBaht } from '../../data/packages'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
 
 type Plan = { name: string; price: number }
 
@@ -21,7 +24,7 @@ export default function Pay() {
   return (
     <div className="min-h-screen bg-surface-0 pb-32">
       <header className="sticky top-0 z-10 flex items-center gap-3 border-b border-line bg-surface-0/90 px-4 py-3 backdrop-blur">
-        <button onClick={() => navigate(-1)} aria-label="ย้อนกลับ" className="text-ink"><ChevronLeft size={24} /></button>
+        <Button variant="ghost" size="icon" onClick={() => navigate(-1)} aria-label="ย้อนกลับ" className="h-8 w-8 text-ink hover:bg-transparent"><ChevronLeft size={24} /></Button>
         <h1 className="text-lg font-semibold text-ink">{meta.label}</h1>
       </header>
 
@@ -60,15 +63,15 @@ export default function Pay() {
         {/* บัตร */}
         {method === 'card' && (
           <div className="space-y-4 rounded-card border border-line bg-surface-1 p-4">
-            <label className="block">
-              <span className="mb-1.5 block text-xs font-medium text-ink-soft">หมายเลขบัตร</span>
-              <input placeholder="1234 5678 9012 3456" className="h-12 w-full rounded-xl border border-line bg-surface-0 px-3 text-sm outline-none focus:ring-2 focus:ring-brand" />
-            </label>
+            <div>
+              <Label className="mb-1.5 block text-xs text-ink-soft">หมายเลขบัตร</Label>
+              <Input placeholder="1234 5678 9012 3456" className="h-12 rounded-xl border-line bg-surface-0 text-sm focus-visible:ring-2 focus-visible:ring-brand" />
+            </div>
             <div className="flex gap-3">
-              <label className="flex-1"><span className="mb-1.5 block text-xs font-medium text-ink-soft">วันหมดอายุ</span>
-                <input placeholder="MM/YY" className="h-12 w-full rounded-xl border border-line bg-surface-0 px-3 text-sm outline-none focus:ring-2 focus:ring-brand" /></label>
-              <label className="flex-1"><span className="mb-1.5 block text-xs font-medium text-ink-soft">CVV</span>
-                <input placeholder="123" className="h-12 w-full rounded-xl border border-line bg-surface-0 px-3 text-sm outline-none focus:ring-2 focus:ring-brand" /></label>
+              <div className="flex-1"><Label className="mb-1.5 block text-xs text-ink-soft">วันหมดอายุ</Label>
+                <Input placeholder="MM/YY" className="h-12 rounded-xl border-line bg-surface-0 text-sm focus-visible:ring-2 focus-visible:ring-brand" /></div>
+              <div className="flex-1"><Label className="mb-1.5 block text-xs text-ink-soft">CVV</Label>
+                <Input placeholder="123" className="h-12 rounded-xl border-line bg-surface-0 text-sm focus-visible:ring-2 focus-visible:ring-brand" /></div>
             </div>
           </div>
         )}
@@ -107,13 +110,13 @@ export default function Pay() {
       </div>
 
       <div className="fixed inset-x-0 bottom-0 z-10 mx-auto max-w-[440px] border-t border-line bg-surface-1 p-4">
-        <button
+        <Button
           onClick={finish}
           disabled={meta.needsSlip && !slipUploaded}
-          className="w-full rounded-2xl bg-brand py-4 text-base font-semibold text-white disabled:opacity-40"
+          className="h-auto w-full rounded-2xl bg-brand py-4 text-base font-semibold hover:bg-brand-dark disabled:opacity-40"
         >
           {meta.needsSlip ? 'ส่งสลิปเพื่อยืนยัน' : method === 'iap' ? 'ชำระผ่าน Store' : 'ชำระเงิน'}
-        </button>
+        </Button>
       </div>
     </div>
   )

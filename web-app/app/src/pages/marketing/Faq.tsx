@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Search, Plus } from 'lucide-react'
 import DesktopNav from '../../components/web/DesktopNav'
+import { Input } from '@/components/ui/input'
 import AppShowcase from '../../components/web/AppShowcase'
 import MarketingFooter from '../../components/web/MarketingFooter'
 
@@ -62,11 +63,11 @@ export default function Faq() {
         {/* search */}
         <div className="mb-6 flex items-center gap-2 rounded-pill border border-line bg-surface-1 px-5 py-3 text-ink-mute focus-within:border-brand">
           <Search size={20} className="shrink-0" />
-          <input
+          <Input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="ค้นหาคำถาม..."
-            className="w-full bg-transparent text-[15px] text-ink outline-none placeholder:text-ink-mute"
+            className="h-auto w-full border-0 bg-transparent px-0 py-0 text-[15px] text-ink shadow-none focus-visible:ring-0"
           />
         </div>
 

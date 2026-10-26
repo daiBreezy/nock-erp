@@ -1,6 +1,7 @@
 import { useNavigate } from 'react-router-dom'
 import { Check, Crown, Radio, School } from 'lucide-react'
 import { premiumPlans, perMonth, plusPricing, schoolPlans, fmtBaht } from '../../data/packages'
+import { Button } from '@/components/ui/button'
 
 // Component กลาง — ใช้ร่วมทั้ง Web และ App (responsive)
 export default function PricingPlans() {
@@ -33,12 +34,12 @@ export default function PricingPlans() {
               <li key={f} className="flex items-center gap-2"><Check size={16} className="text-success" /> {f}</li>
             ))}
           </ul>
-          <button
+          <Button
             onClick={() => buy('Premium Plus', plus.price, `ราคา ณ วันนี้ · เหลือ ${plus.remaining} วัน`)}
-            className="mt-4 w-full rounded-2xl bg-brand py-3.5 text-base font-semibold text-white"
+            className="mt-4 h-auto w-full rounded-2xl bg-brand py-3.5 text-base font-semibold hover:bg-brand-dark"
           >
             เลือกแพ็กเกจนี้
-          </button>
+          </Button>
           <p className="mt-2 text-center text-[11px] text-ink-mute">ยิ่งซื้อเร็ว ยิ่งคุ้ม — ราคาลดลงทุกวันจนถึงขั้นต่ำ ฿500</p>
         </div>
       </section>

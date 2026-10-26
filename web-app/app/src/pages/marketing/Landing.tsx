@@ -4,6 +4,7 @@ import {
   Star, Video, FileText, Target, Users, MapPin, GraduationCap, CalendarClock,
 } from 'lucide-react'
 import DesktopNav from '../../components/web/DesktopNav'
+import { Button } from '@/components/ui/button'
 import AppShowcase from '../../components/web/AppShowcase'
 import MarketingFooter from '../../components/web/MarketingFooter'
 import ContactFab from '../../components/web/ContactFab'
@@ -50,18 +51,19 @@ function Hero() {
           คลิปบทเรียน 4 วิชาหลัก พร้อมแบบฝึกหัด การสอบ และไลฟ์สอนสด ติดตามผลการเรียนได้จริง
         </p>
         <div className="mt-7 flex flex-wrap items-center justify-center gap-3">
-          <button
+          <Button
+            variant="outline"
             onClick={() => navigate('/')}
-            className="inline-flex items-center gap-2 rounded-pill border border-line bg-white px-6 py-3 text-[15px] font-bold text-ink hover:bg-surface-2"
+            className="h-auto gap-2 rounded-pill border-line bg-white px-6 py-3 text-[15px] font-bold text-ink hover:bg-surface-2"
           >
             <PlayCircle size={20} /> ดูตัวอย่างวิดีโอ
-          </button>
-          <button
+          </Button>
+          <Button
             onClick={() => navigate('/auth')}
-            className="inline-flex items-center gap-2 rounded-pill bg-brand px-7 py-3 text-[15px] font-bold text-white hover:bg-brand-dark"
+            className="h-auto gap-2 rounded-pill bg-brand px-7 py-3 text-[15px] font-bold hover:bg-brand-dark"
           >
             เริ่มเรียนฟรี
-          </button>
+          </Button>
         </div>
         <div className="mt-5 flex items-center justify-center gap-2.5 text-[13px] text-ink-mute">
           <span className="inline-flex gap-2 text-ink-soft">
@@ -262,12 +264,13 @@ function Pricing() {
               <div />
               {cols.map((c) => (
                 <div key={c.key} className={`rounded-b-2xl border-x border-b p-3 ${c.highlight ? 'border-brand bg-brand-soft/40' : 'border-line bg-white'}`}>
-                  <button
+                  <Button
+                    variant={c.highlight ? 'default' : 'outline'}
                     onClick={() => navigate('/checkout', { state: { name: c.name, price: c.price } })}
-                    className={`w-full rounded-pill py-2.5 text-[13px] font-bold ${c.highlight ? 'bg-brand text-white hover:bg-brand-dark' : 'border border-line text-ink hover:bg-surface-2'}`}
+                    className={`h-auto w-full rounded-pill py-2.5 text-[13px] font-bold ${c.highlight ? 'bg-brand hover:bg-brand-dark' : 'border-line text-ink hover:bg-surface-2'}`}
                   >
                     เลือก
-                  </button>
+                  </Button>
                 </div>
               ))}
             </div>
@@ -275,7 +278,7 @@ function Pricing() {
         </div>
         <p className="mt-4 text-center text-[12.5px] text-ink-mute">
           Premium+ ยิ่งสมัครเร็ว ยิ่งคุ้ม — ราคาลดลงทุกวันจนถึงขั้นต่ำ ฿500 ·{' '}
-          <button onClick={() => navigate('/courses')} className="font-semibold text-brand hover:underline">ดูรายละเอียดทั้งหมด</button>
+          <Button variant="link" onClick={() => navigate('/courses')} className="h-auto p-0 align-baseline text-[12.5px] font-semibold text-brand">ดูรายละเอียดทั้งหมด</Button>
         </p>
       </div>
     </section>

@@ -3,6 +3,7 @@ import { useLocation, useNavigate } from 'react-router-dom'
 import { ChevronLeft, Check, QrCode, Landmark, CreditCard, CalendarClock, Apple } from 'lucide-react'
 import { payMethods, type PayMethodKey } from '../../data/payment'
 import { fmtBaht } from '../../data/packages'
+import { Button } from '@/components/ui/button'
 
 type Plan = { name: string; price: number; detail?: string }
 
@@ -28,7 +29,7 @@ export default function Checkout() {
   return (
     <div className="min-h-screen bg-surface-0 pb-32">
       <header className="sticky top-0 z-10 flex items-center gap-3 border-b border-line bg-surface-0/90 px-4 py-3 backdrop-blur">
-        <button onClick={() => navigate(-1)} aria-label="ย้อนกลับ" className="text-ink"><ChevronLeft size={24} /></button>
+        <Button variant="ghost" size="icon" onClick={() => navigate(-1)} aria-label="ย้อนกลับ" className="h-8 w-8 text-ink hover:bg-transparent"><ChevronLeft size={24} /></Button>
         <h1 className="text-lg font-semibold text-ink">ชำระเงิน</h1>
       </header>
 
@@ -74,13 +75,13 @@ export default function Checkout() {
       </section>
 
       <div className="fixed inset-x-0 bottom-0 z-10 mx-auto max-w-[440px] border-t border-line bg-surface-1 p-4">
-        <button
+        <Button
           onClick={proceed}
           disabled={!method}
-          className="w-full rounded-2xl bg-brand py-4 text-base font-semibold text-white disabled:opacity-40"
+          className="h-auto w-full rounded-2xl bg-brand py-4 text-base font-semibold hover:bg-brand-dark disabled:opacity-40"
         >
           ดำเนินการต่อ
-        </button>
+        </Button>
       </div>
     </div>
   )

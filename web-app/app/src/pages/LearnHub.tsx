@@ -6,6 +6,8 @@ import {
 import DesktopNav from '../components/web/DesktopNav'
 import BottomNav from '../components/BottomNav'
 import TopBar from '../components/TopBar'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
 import Banner from '../components/home/Banner'
 import SystemUpdate from '../components/home/SystemUpdate'
 import LiveNext from '../components/home/LiveNext'
@@ -225,9 +227,9 @@ function DesktopHub() {
           <div className="mt-3 flex flex-wrap gap-1.5">
             <Tag subject="math">คณิตศาสตร์</Tag><Tag>ป.5</Tag><Tag>ป.6</Tag>
           </div>
-          <button onClick={() => navigate('/live/next')} className="mt-5 flex w-fit items-center gap-2 rounded-pill bg-brand px-6 py-3 text-sm font-semibold text-white hover:bg-brand-dark">
+          <Button onClick={() => navigate('/live/next')} className="mt-5 h-auto w-fit gap-2 rounded-pill bg-brand px-6 py-3 text-sm font-semibold hover:bg-brand-dark">
             <ArrowRight size={16} /> เข้าชมไลฟ์สด
-          </button>
+          </Button>
         </div>
       </section>
 
@@ -283,9 +285,9 @@ function DesktopHub() {
               <p className="text-sm text-ink-soft">ตั้งเป้าหมายเพื่อวางแผน และกระตุ้นการเรียนของคุณเอง</p>
             </div>
           </div>
-          <button onClick={() => navigate('/goal')} className="rounded-pill border border-brand bg-surface-1 px-4 py-2 text-sm font-medium text-brand">
+          <Button variant="outline" onClick={() => navigate('/goal')} className="h-auto rounded-pill border-brand bg-surface-1 px-4 py-2 text-sm font-medium text-brand hover:bg-brand-soft hover:text-brand">
             + สร้าง Goal เพิ่มเติม
-          </button>
+          </Button>
         </div>
         <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
           {goals.map((g, i) => (
@@ -310,7 +312,7 @@ function DesktopHub() {
       <section className="mt-9 flex flex-wrap items-center gap-3">
         {/* search — magnifier ขวา */}
         <div className="flex min-w-[260px] flex-1 items-center gap-2 rounded-pill bg-surface-2 px-5 py-3">
-          <input placeholder="eg. เตรียมสอบ, การคูณเลขยกกำลัง, ..." className="w-full bg-transparent text-sm outline-none placeholder:text-ink-mute" />
+          <Input placeholder="eg. เตรียมสอบ, การคูณเลขยกกำลัง, ..." className="h-auto w-full border-0 bg-transparent px-0 py-0 text-sm shadow-none focus-visible:ring-0" />
           <Search size={18} className="text-ink-mute" />
         </div>
         {/* subject pills */}

@@ -5,6 +5,17 @@
 
 ---
 
+## 2026-10-26 — Web App: shadcn เฟส 7 (payment/ + marketing/ + Pricing/Notifications)
+
+- **payment:** Checkout (back/CTA) · Pay (back/card Input+Label/CTA) · PayResult (CTA) → shadcn
+- **pricing:** PricingPlans (Premium Plus CTA→Button) · Pricing (back→Button) · UpgradeCard คงเป็น custom (gradient)
+- **marketing:** Landing (hero CTAs + pricing เลือก + ลิงก์→Button; subject cards/mockup คงเดิม) · Faq (search→Input; accordion animated คงเดิม)
+- **อื่นๆ:** Notifications (อ่านทั้งหมด→Button) · **ShareSheet → Sheet (bottom)** · LearnHub (search→Input + CTA หลัก→Button; การ์ด content เฉพาะทางคงเดิม)
+- marketing stubs (Article/Course/Grade/Term/NockForSchool 6 บรรทัด) ข้าม
+- ✅ `tsc -b` / `vite build` / `oxlint` ผ่าน · Playwright ยืนยัน (Pricing, Landing, Checkout)
+
+---
+
 ## 2026-10-26 — Web App: shadcn เฟส 6 (exam/ + homework/ + goal/)
 
 - **component ใหม่:** `progress`, `textarea`

@@ -1,5 +1,6 @@
 import { Radio, Heart, UserPlus, Medal, Megaphone } from 'lucide-react'
 import { notifications, type Noti } from '../data/social'
+import { Button } from '@/components/ui/button'
 
 const iconFor: Record<Noti['type'], { Icon: typeof Radio; tone: string }> = {
   live: { Icon: Radio, tone: 'bg-subject-thai text-subject-thai-ink' },
@@ -14,7 +15,7 @@ export default function Notifications() {
     <div className="min-h-screen bg-surface-0">
       <header className="flex items-center justify-between px-5 py-3">
         <h1 className="text-lg font-semibold text-ink">การแจ้งเตือน</h1>
-        <button className="text-sm font-medium text-brand">อ่านทั้งหมด</button>
+        <Button variant="link" className="h-auto p-0 text-sm font-medium text-brand hover:no-underline">อ่านทั้งหมด</Button>
       </header>
 
       <div className="divide-y divide-line border-y border-line bg-surface-1">
