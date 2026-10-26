@@ -5,6 +5,18 @@
 
 ---
 
+## 2026-10-26 — Web App: shadcn เฟส 8 — จบ migration ✅ (เก็บกวาด + สรุป)
+
+**แปลงครบทั้งโปรเจกต์แล้ว** (เฟส 1–7) — ทุกเฟส build + screenshot ผ่าน + merge เข้า main (Vercel auto-deploy)
+
+- **12 ui components** (`src/components/ui/`): button, card, badge, select, dialog, dropdown-menu, avatar, sheet, input, label, progress, textarea
+- **Token mapping:** สีแบรนด์เดิม map เข้า shadcn CSS variables (index.css) + คง token เดิมครบใน tailwind.config → ไม่มีหน้าไหนเพี้ยน
+- **ตั้งใจคงเป็น custom** (shadcn ไม่ได้ช่วย / เป็น UI เฉพาะทาง): Quiz (choice state), Focus timer ring, GoalCard/Ring, mood emoji, range slider, carousel (Banner), แถบพื้นสี (PromoBar/AnnouncementBar/SystemUpdate), ContactFab, subject-colored cards (SubjectGrid/ScheduleStrip), list rows (settings/terms/more/notifications), avatar-initial, podium (Ranking), Faq accordion (animated), UpgradeCard gradient
+- **ยังไม่ทำ:** marketing stubs (Article/Course/Grade/Term/NockForSchool ยังเป็น 6 บรรทัด placeholder) · `sonner` ติดตั้งไว้แล้วเผื่อทำ toast ภายหลัง (ยังไม่มีระบบ toast ใน web-app)
+- ✅ `tsc -b` (fresh), `vite build`, `oxlint` ผ่านหมด
+
+---
+
 ## 2026-10-26 — Web App: shadcn เฟส 7 (payment/ + marketing/ + Pricing/Notifications)
 
 - **payment:** Checkout (back/CTA) · Pay (back/card Input+Label/CTA) · PayResult (CTA) → shadcn
