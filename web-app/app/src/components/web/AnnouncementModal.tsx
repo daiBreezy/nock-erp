@@ -1,5 +1,8 @@
 import { useState } from 'react'
-import { Megaphone, X, ChevronLeft } from 'lucide-react'
+import { Megaphone, ChevronLeft } from 'lucide-react'
+import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 
 type Announcement = { id: string; title: string; date: string; excerpt: string; isNew: boolean; body: string[] }
 
@@ -22,20 +25,18 @@ export default function AnnouncementModal({ onClose }: { onClose: () => void }) 
   const [selected, setSelected] = useState<Announcement | null>(null)
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-black/40" onClick={onClose} />
-      <div className="relative flex max-h-[85vh] w-full max-w-2xl flex-col overflow-hidden rounded-card bg-surface-1 shadow-xl">
+    <Dialog open onOpenChange={(o) => { if (!o) onClose() }}>
+      <DialogContent className="flex max-h-[85vh] w-full max-w-2xl flex-col gap-0 overflow-hidden rounded-card p-0">
         {/* header */}
-        <div className="flex items-center justify-between border-b border-line px-5 py-4">
+        <DialogHeader className="space-y-0 border-b border-line px-5 py-4 pr-12 text-left">
           {selected ? (
             <button onClick={() => setSelected(null)} className="flex items-center gap-2 text-sm font-semibold text-ink">
               <ChevronLeft size={18} /> {selected.title}
             </button>
           ) : (
-            <h2 className="flex items-center gap-2 text-lg font-bold text-ink"><Megaphone size={20} className="text-brand" /> ประกาศ</h2>
+            <DialogTitle className="flex items-center gap-2 text-lg font-bold text-ink"><Megaphone size={20} className="text-brand" /> ประกาศ</DialogTitle>
           )}
-          <button onClick={onClose} aria-label="ปิด" className="text-ink-mute hover:text-ink"><X size={20} /></button>
-        </div>
+        </DialogHeader>
 
         {/* body */}
         <div className="flex-1 overflow-y-auto p-5">
@@ -54,7 +55,7 @@ export default function AnnouncementModal({ onClose }: { onClose: () => void }) 
                 <button key={a.id} onClick={() => setSelected(a)} className="rounded-card border border-line p-4 text-left hover:border-brand">
                   <div className="flex items-center justify-between">
                     <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-brand-soft text-brand"><Megaphone size={15} /></span>
-                    {a.isNew && <span className="rounded-pill bg-brand px-2 py-0.5 text-[10px] font-semibold text-white">New</span>}
+                    {a.isNew && <Badge className="rounded-pill border-transparent bg-brand px-2 py-0.5 text-[10px] font-semibold text-white hover:bg-brand">New</Badge>}
                   </div>
                   <p className="mt-2 text-[11px] text-ink-mute">{a.date}</p>
                   <p className="mt-1 line-clamp-2 text-sm font-semibold text-ink">{a.title}</p>
@@ -67,11 +68,11 @@ export default function AnnouncementModal({ onClose }: { onClose: () => void }) 
 
         {/* footer */}
         <div className="border-t border-line px-5 py-3">
-          <button onClick={selected ? () => setSelected(null) : onClose} className="text-sm font-medium text-brand hover:underline">
+          <Button variant="link" onClick={selected ? () => setSelected(null) : onClose} className="h-auto p-0 text-sm font-medium text-brand hover:no-underline">
             {selected ? 'กลับ' : 'ปิด'}
-          </button>
+          </Button>
         </div>
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   )
 }

@@ -5,6 +5,16 @@
 
 ---
 
+## 2026-10-26 — Web App: shadcn เฟส 2 (marketing shell + เมนูมือถือ)
+
+- **component ใหม่:** `avatar`, `sheet` (+ ของเฟส 1: button/card/badge/select/dialog/dropdown-menu)
+- **DesktopNav:** ปุ่ม login/สมัคร → Button · badge Premium/ป.6 → Badge · รูปโปรไฟล์ → Avatar · เมนู ⌄ → DropdownMenu (โปรไฟล์ / ออกจากระบบ ใช้ `logout` จริง) · **เพิ่มเมนูมือถือ Sheet (hamburger)** — เดิมจอเล็กไม่มี nav เลย ตอนนี้มีลิงก์ครบ + ปุ่ม login
+- **AnnouncementModal** → Dialog (จาก custom overlay) · **TopBar** ปุ่มปฏิทิน → Button
+- **คงเป็น custom (ตั้งใจ):** PromoBar / AnnouncementBar (แถบพื้นสี ปุ่มขาวบนสี — shadcn variant ไม่เข้า) · ContactFab (ปุ่มลอยเฉพาะทาง) · MarketingFooter (ลิงก์ nav plain — idiomatic) · BottomNav (NavLink)
+- ✅ `tsc -b` / `vite build` / `oxlint` ผ่าน · Playwright ยืนยัน เมนูมือถือ Sheet + Announcement Dialog + desktop nav
+
+---
+
 ## 2026-10-26 — Web App: เตรียมขึ้น Vercel (ยังไม่เคยขึ้น)
 
 - พบว่า **web-app ไม่เคยขึ้น Vercel** — ที่ขึ้นไว้คือ **erp-v2** เท่านั้น (https://nock-erp-three.vercel.app, Root = erp-v2, ตั้งค่าใน dashboard ไม่มี vercel.json)
