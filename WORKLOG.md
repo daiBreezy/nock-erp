@@ -5,6 +5,18 @@
 
 ---
 
+## 2026-10-26 — Web App: ขัด Responsive หน้า School (3 จุด)
+
+**ทำอะไร (web-app/app):**
+- **Filter เลือกสาขา (SchoolList):** จอเล็กเปลี่ยนจาก chips 8 อัน (เด้งหลายแถวเปลืองที่) → เป็น **dropdown "เลือกสาขา"** (`<select>` + `appearance-none`, chevron วางใน `pr-12` / `right-4` → ไม่ตกขอบอีก) · จอใหญ่ (sm+) ยังเป็น chips เหมือนเดิม
+- **การ์ดสาขา (SchoolList):** สลับลำดับปุ่มล่างการ์ด → ไอคอนแชท/แผนที่ **ฝั่งซ้าย**, ปุ่ม "ดูรายละเอียด" (flex-1) **ฝั่งขวา** · popup ปุ่มแชทย้าย anchor `right-0` → `left-0` (กันล้นขอบซ้าย)
+- **Section ติดต่อสาขา (SchoolBranch):** จากการ์ดแนวตั้งใบใหญ่ (p-5, วงกลม 48px) → **แถวแนวนอนกะทัดรัด** (px-4 py-3, วงกลม 40px, ไอคอน + ชื่อ/ค่า บรรทัดเดียว) ประหยัดพื้นที่แนวตั้งลงมาก
+
+**หมายเหตุ stack:** web-app ใช้ **React 19 + Tailwind v3 + lucide-react** (ไม่ใช่ shadcn — ไม่มี components.json / ui/ / Radix)
+- ✅ ผ่าน: `tsc --noEmit`, `oxlint`, `vite build` · ตรวจด้วย Playwright จอ 390px ครบ 3 จุด
+
+---
+
 ## 2026-10-26 — Web App: หน้า School (สาขา NockAcademy) ครบทั้งชุด
 
 **ทำอะไร (web-app/app — React):**

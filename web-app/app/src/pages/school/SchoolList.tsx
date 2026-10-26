@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { MapPin, Clock, ArrowRight, Navigation, MessageCircle, Phone } from 'lucide-react'
+import { MapPin, Clock, ArrowRight, Navigation, MessageCircle, Phone, ChevronDown } from 'lucide-react'
 import DesktopNav from '../../components/web/DesktopNav'
 import MarketingFooter from '../../components/web/MarketingFooter'
 import ContactFab from '../../components/web/ContactFab'
@@ -119,7 +119,7 @@ function CardContact({ b }: { b: Branch }) {
         <MessageCircle size={18} />
       </button>
       {open && (
-        <div className="absolute bottom-11 right-0 z-30 w-56 overflow-hidden rounded-xl border border-line bg-white p-1.5 shadow-xl">
+        <div className="absolute bottom-11 left-0 z-30 w-56 overflow-hidden rounded-xl border border-line bg-white p-1.5 shadow-xl">
           {channels.map((c) => (
             <a
               key={c.label}
@@ -157,14 +157,6 @@ function BranchCard({ b }: { b: Branch }) {
         </div>
       </Link>
       <div className="mt-auto flex items-center gap-2 px-5 pb-5">
-        <Link
-          to={`/school/${b.slug}`}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-pill border border-brand py-2.5 text-[14px] font-bold text-brand hover:bg-brand-soft"
-        >
-          ดูรายละเอียด <ArrowRight size={16} />
-        </Link>
         <CardContact b={b} />
         <a
           href={b.mapUrl}
@@ -175,6 +167,14 @@ function BranchCard({ b }: { b: Branch }) {
         >
           <Navigation size={18} />
         </a>
+        <Link
+          to={`/school/${b.slug}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-pill border border-brand py-2.5 text-[14px] font-bold text-brand hover:bg-brand-soft"
+        >
+          ดูรายละเอียด <ArrowRight size={16} />
+        </Link>
       </div>
     </div>
   )
@@ -209,27 +209,48 @@ export default function SchoolList() {
 
       {/* chips + map */}
       <section className="mx-auto max-w-[1200px] px-5 pt-10">
-        {/* filter chips */}
-        <div className="mb-4 flex flex-wrap gap-2">
-          <button
-            onClick={() => setSelected(null)}
-            className={`rounded-pill px-4 py-2 text-[14px] font-semibold transition-colors ${
-              selected === null ? 'bg-brand text-white' : 'border border-line bg-white text-ink-soft hover:border-brand hover:text-brand'
-            }`}
-          >
-            ทั้งหมด ({branches.length})
-          </button>
-          {branches.map((b) => (
+        {/* filter — dropdown บนจอเล็ก (chips 8 อันเด้งหลายแถวเปลืองที่), chips บนจอใหญ่ */}
+        <div className="mb-4">
+          {/* มือถือ: dropdown เลือกสาขา (chevron อยู่ในขอบ ไม่ตกขอบ) */}
+          <label className="block sm:hidden">
+            <span className="mb-1.5 block text-[13px] font-semibold text-ink-soft">เลือกสาขา</span>
+            <div className="relative">
+              <select
+                value={selected ?? ''}
+                onChange={(e) => setSelected(e.target.value || null)}
+                className="w-full appearance-none rounded-pill border border-line bg-white py-3 pl-5 pr-12 text-[15px] font-semibold text-ink focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/20"
+              >
+                <option value="">ทุกสาขา ({branches.length})</option>
+                {branches.map((b) => (
+                  <option key={b.slug} value={b.slug}>{b.area}</option>
+                ))}
+              </select>
+              <ChevronDown size={18} className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-ink-mute" />
+            </div>
+          </label>
+
+          {/* จอใหญ่: chips */}
+          <div className="hidden flex-wrap gap-2 sm:flex">
             <button
-              key={b.slug}
-              onClick={() => toggle(b.slug)}
+              onClick={() => setSelected(null)}
               className={`rounded-pill px-4 py-2 text-[14px] font-semibold transition-colors ${
-                selected === b.slug ? 'bg-brand text-white' : 'border border-line bg-white text-ink-soft hover:border-brand hover:text-brand'
+                selected === null ? 'bg-brand text-white' : 'border border-line bg-white text-ink-soft hover:border-brand hover:text-brand'
               }`}
             >
-              {b.area}
+              ทั้งหมด ({branches.length})
             </button>
-          ))}
+            {branches.map((b) => (
+              <button
+                key={b.slug}
+                onClick={() => toggle(b.slug)}
+                className={`rounded-pill px-4 py-2 text-[14px] font-semibold transition-colors ${
+                  selected === b.slug ? 'bg-brand text-white' : 'border border-line bg-white text-ink-soft hover:border-brand hover:text-brand'
+                }`}
+              >
+                {b.area}
+              </button>
+            ))}
+          </div>
         </div>
 
         {/* map — ปักหมุดทุกสาขา (isolate กัน z-index ของ Leaflet ทับ nav) */}

@@ -337,24 +337,32 @@ export default function SchoolBranch() {
 
       {/* contact — การ์ดแนวตั้ง เรียงได้หลายอัน */}
       <Section icon={Phone} title="ติดต่อสาขา">
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:max-w-[560px]">
+        {/* แถวแนวนอนกะทัดรัด — ไอคอน + ชื่อ/ค่า อยู่บรรทัดเดียวกัน ประหยัดพื้นที่ */}
+        <div className="grid gap-2.5 sm:grid-cols-3 md:max-w-[640px]">
           <a href={branch.lineUrl} target="_blank" rel="noopener noreferrer"
-            className="flex flex-col items-center gap-2 rounded-2xl border border-line bg-white p-5 text-center hover:border-[#06C755]">
-            <span className="grid h-12 w-12 place-items-center rounded-full bg-[#06C755] text-white"><LineIcon size={26} /></span>
-            <p className="text-[14px] font-bold text-ink">LINE Official</p>
-            <p className="break-all text-[12.5px] text-ink-soft">{branch.lineId}</p>
+            className="flex items-center gap-3 rounded-xl border border-line bg-white px-4 py-3 transition-colors hover:border-[#06C755]">
+            <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-[#06C755] text-white"><LineIcon size={22} /></span>
+            <div className="min-w-0">
+              <p className="text-[13.5px] font-bold text-ink">LINE Official</p>
+              <p className="truncate text-[12px] text-ink-soft">{branch.lineId}</p>
+            </div>
           </a>
           <a href={branch.facebookUrl} target="_blank" rel="noopener noreferrer"
-            className="flex flex-col items-center gap-2 rounded-2xl border border-line bg-white p-5 text-center hover:border-[#1877F2]">
-            <span className="grid h-12 w-12 place-items-center rounded-full bg-[#1877F2] text-white"><FacebookIcon size={26} /></span>
-            <p className="text-[14px] font-bold text-ink">Facebook</p>
-            <p className="text-[12.5px] text-ink-soft">เพจสาขา{branch.area}</p>
+            className="flex items-center gap-3 rounded-xl border border-line bg-white px-4 py-3 transition-colors hover:border-[#1877F2]">
+            <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-[#1877F2] text-white"><FacebookIcon size={22} /></span>
+            <div className="min-w-0">
+              <p className="text-[13.5px] font-bold text-ink">Facebook</p>
+              <p className="truncate text-[12px] text-ink-soft">เพจสาขา{branch.area}</p>
+            </div>
           </a>
           {tel && (
-            <a href={tel} className="flex flex-col items-center gap-2 rounded-2xl border border-line bg-white p-5 text-center hover:border-brand">
-              <span className="grid h-12 w-12 place-items-center rounded-full bg-brand text-white"><Phone size={24} /></span>
-              <p className="text-[14px] font-bold text-ink">โทรหาสาขา</p>
-              <p className="text-[12.5px] text-ink-soft">{branch.phone}</p>
+            <a href={tel}
+              className="flex items-center gap-3 rounded-xl border border-line bg-white px-4 py-3 transition-colors hover:border-brand">
+              <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-brand text-white"><Phone size={20} /></span>
+              <div className="min-w-0">
+                <p className="text-[13.5px] font-bold text-ink">โทรหาสาขา</p>
+                <p className="truncate text-[12px] text-ink-soft">{branch.phone}</p>
+              </div>
             </a>
           )}
         </div>
