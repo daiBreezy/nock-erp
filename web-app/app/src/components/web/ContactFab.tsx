@@ -3,9 +3,9 @@ import type { ComponentType } from 'react'
 import { Phone, MessagesSquare, X } from 'lucide-react'
 import { LineIcon, MessengerIcon } from '../BrandIcons'
 
-/* Float button ติดต่อแอดมิน — hover (desktop) หรือ กด (mobile) แล้วกางไอคอนช่องทางติดต่อ
-   ลิงก์ด้านล่างเป็น placeholder รอใส่ของจริง */
-type Action = {
+/* Float button ติดต่อ — hover (desktop) หรือ กด (mobile) แล้วกางไอคอนช่องทางติดต่อ
+   ใช้ซ้ำได้: ส่ง actions / mainIcon / mainBg / label เข้ามา (default = ติดต่อแอดมินของทั้งเว็บ) */
+export type Action = {
   label: string
   href: string
   bg: string
@@ -13,13 +13,23 @@ type Action = {
   external?: boolean
 }
 
-const actions: Action[] = [
+const DEFAULT_ACTIONS: Action[] = [
   { label: 'Line', href: 'https://line.me/R/ti/p/@nockacademy', bg: 'bg-[#06C755]', icon: LineIcon, external: true },
   { label: 'Messenger', href: 'https://m.me/nockacademy', bg: 'bg-[#0084FF]', icon: MessengerIcon, external: true },
   { label: 'โทรหาเรา', href: 'tel:021234567', bg: 'bg-[#22C55E]', icon: Phone },
 ]
 
-export default function ContactFab() {
+export default function ContactFab({
+  actions = DEFAULT_ACTIONS,
+  mainIcon: MainIcon = MessagesSquare,
+  mainBg = 'bg-brand',
+  label = 'ติดต่อแอดมิน',
+}: {
+  actions?: Action[]
+  mainIcon?: ComponentType<{ size?: number }>
+  mainBg?: string
+  label?: string
+}) {
   const [open, setOpen] = useState(false)
 
   return (
@@ -53,11 +63,11 @@ export default function ContactFab() {
       {/* ปุ่มหลัก */}
       <button
         onClick={() => setOpen((v) => !v)}
-        aria-label="ติดต่อแอดมิน"
+        aria-label={label}
         aria-expanded={open}
-        className="grid h-14 w-14 place-items-center rounded-full bg-brand text-white shadow-xl transition-transform hover:scale-105"
+        className={`grid h-14 w-14 place-items-center rounded-full text-white shadow-xl transition-transform hover:scale-105 ${mainBg}`}
       >
-        {open ? <X size={26} /> : <MessagesSquare size={26} />}
+        {open ? <X size={26} /> : <MainIcon size={26} />}
       </button>
     </div>
   )
