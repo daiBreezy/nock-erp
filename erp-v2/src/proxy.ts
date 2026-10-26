@@ -8,7 +8,9 @@ const PARENT_PATHS = [
   /^\/liff(\/|$)/,
   /^\/api\/line\/webhook$/,
   /^\/api\/forms\/(token|submit)$/,
-  /^\/api\/parent-forms\/(token|submit|enroll|enroll-submit|survey|survey-submit)$/,
+  /^\/api\/parent-forms\/(token|submit|enroll|enroll-submit|survey|survey-submit|custom-token|custom-submit)$/,
+  // owner 2026-10-22: the course catalog — the parent's taps (reading the catalog is GET-only, below)
+  /^\/api\/catalog\/request$/,
   /^\/api\/parent-view\/(me|requests)$/,
   // owner 2026-10-19: the driver app — its own trips by the secret in its link, and its taps
   /^\/api\/driver\/(me|event)$/,
@@ -18,7 +20,9 @@ const PARENT_PATHS = [
 ]
 /** a picture staff sent a parent — LINE fetches it by its id (GET only; uploading stays staff-only) */
 const PARENT_MEDIA = /^\/api\/line\/media\/[^/]+$/
-const isParentPath = (req: NextRequest) => PARENT_PATHS.some((r) => r.test(req.nextUrl.pathname)) || (req.method === "GET" && PARENT_MEDIA.test(req.nextUrl.pathname))
+/** the catalog itself — read by its link (GET); creating / refreshing a branch's link stays staff-only */
+const PARENT_GET = [PARENT_MEDIA, /^\/api\/catalog$/]
+const isParentPath = (req: NextRequest) => PARENT_PATHS.some((r) => r.test(req.nextUrl.pathname)) || (req.method === "GET" && PARENT_GET.some((r) => r.test(req.nextUrl.pathname)))
 
 /** came in through the internet tunnel (`npm run line`), not from this Mac or the office Wi-Fi */
 function viaTunnel(req: NextRequest) {
