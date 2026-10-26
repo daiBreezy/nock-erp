@@ -5,6 +5,18 @@
 
 ---
 
+## 2026-10-26 — Web App: shadcn เฟส 5 (profile/ + more/)
+
+- **EditProfile:** fields → Input/Label · FB connect / save / เปลี่ยนรูป / back → Button
+- **Nakama:** search → Input · tabs → Button · add → Button(icon) · back → Button
+- **Settings:** language toggle → Button · back → Button
+- **More:** sign-out confirm → **Sheet (bottom)** + Button
+- **Profile:** ปุ่มแก้ไข (icon) → Button
+- **คงเป็น custom:** list rows (settings/terms/more) · back-header ที่เหลือ · avatar-initial · Achievements grid · Ranking podium · UsageChart/Calendar
+- ✅ `tsc -b` / `vite build` ผ่าน · Playwright ยืนยัน (More sign-out Sheet, Nakama)
+
+---
+
 ## 2026-10-26 — Web App: shadcn เฟส 4 (auth/)
 
 - **component ใหม่:** `input`, `label`

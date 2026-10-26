@@ -4,6 +4,7 @@ import { me, usageStats, ranking, achievementGroups } from '../../data/profile'
 import UsageChart from '../../components/profile/UsageChart'
 import UsageCalendar from '../../components/profile/UsageCalendar'
 import UpgradeCard from '../../components/pricing/UpgradeCard'
+import { Button } from '@/components/ui/button'
 
 function fmtHours(min: number) {
   const h = Math.floor(min / 60)
@@ -39,13 +40,15 @@ export default function Profile() {
               <p className="text-lg font-semibold text-ink">{me.name}</p>
               <p className="text-sm text-ink-soft">{me.nickname} · {me.grade}</p>
             </div>
-            <button
+            <Button
+              variant="outline"
+              size="icon"
               onClick={() => navigate('/profile/edit')}
               aria-label="แก้ไขข้อมูล"
-              className="flex h-9 w-9 items-center justify-center rounded-full border border-line text-ink-soft"
+              className="h-9 w-9 rounded-full border-line text-ink-soft hover:text-brand"
             >
               <Pencil size={16} />
-            </button>
+            </Button>
           </div>
 
           <button

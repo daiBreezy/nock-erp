@@ -2,6 +2,9 @@ import { useNavigate } from 'react-router-dom'
 import { ChevronLeft } from 'lucide-react'
 import { me } from '../../data/profile'
 import { FacebookIcon } from '../../components/BrandIcons'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
 
 const fields: { label: string; value: string; type?: string }[] = [
   { label: 'ชื่อ - นามสกุล', value: me.name },
@@ -21,7 +24,7 @@ export default function EditProfile() {
   return (
     <div className="min-h-screen bg-surface-0 pb-28">
       <header className="sticky top-0 z-10 flex items-center gap-3 border-b border-line bg-surface-0/90 px-4 py-3 backdrop-blur">
-        <button onClick={() => navigate(-1)} aria-label="ย้อนกลับ" className="text-ink"><ChevronLeft size={24} /></button>
+        <Button variant="ghost" size="icon" onClick={() => navigate(-1)} aria-label="ย้อนกลับ" className="h-8 w-8 text-ink hover:bg-transparent"><ChevronLeft size={24} /></Button>
         <h1 className="text-lg font-semibold text-ink">แก้ไขข้อมูล</h1>
       </header>
 
@@ -30,32 +33,32 @@ export default function EditProfile() {
         <div className={`flex h-20 w-20 items-center justify-center rounded-full text-2xl font-semibold ${me.tone}`}>
           {me.initial}
         </div>
-        <button className="mt-2 text-sm font-medium text-brand">เปลี่ยนรูปโปรไฟล์</button>
+        <Button variant="link" className="mt-2 h-auto p-0 text-sm font-medium text-brand hover:no-underline">เปลี่ยนรูปโปรไฟล์</Button>
       </div>
 
       <div className="space-y-4 px-4">
         {fields.map((f) => (
-          <label key={f.label} className="block">
-            <span className="mb-1.5 block text-xs font-medium text-ink-soft">{f.label}</span>
-            <input
+          <div key={f.label}>
+            <Label className="mb-1.5 block text-xs text-ink-soft">{f.label}</Label>
+            <Input
               defaultValue={f.value}
-              className="h-11 w-full rounded-xl border border-line bg-surface-1 px-3 text-sm text-ink outline-none focus:ring-2 focus:ring-brand"
+              className="h-11 rounded-xl border-line bg-surface-1 text-sm text-ink focus-visible:ring-2 focus-visible:ring-brand"
             />
-          </label>
+          </div>
         ))}
 
-        <button className="flex w-full items-center justify-center gap-2 rounded-xl border border-line bg-surface-1 py-3 text-sm font-medium text-[#1877F2]">
+        <Button variant="outline" className="h-auto w-full gap-2 rounded-xl border-line bg-surface-1 py-3 text-sm font-medium text-[#1877F2] hover:bg-surface-2 hover:text-[#1877F2]">
           <FacebookIcon size={18} /> เชื่อมต่อกับ Facebook
-        </button>
+        </Button>
       </div>
 
       <div className="fixed inset-x-0 bottom-0 z-10 mx-auto max-w-[440px] border-t border-line bg-surface-1 p-4">
-        <button
+        <Button
           onClick={() => navigate(-1)}
-          className="w-full rounded-2xl bg-brand py-4 text-base font-semibold text-white active:scale-[0.99]"
+          className="h-auto w-full rounded-2xl bg-brand py-4 text-base font-semibold hover:bg-brand-dark active:scale-[0.99]"
         >
           บันทึก
-        </button>
+        </Button>
       </div>
     </div>
   )

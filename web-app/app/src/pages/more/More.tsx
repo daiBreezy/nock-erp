@@ -2,6 +2,8 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Users, Settings, FileText, Star, MessageCircle, LogOut, ChevronRight, Crown } from 'lucide-react'
 import { useAuth } from '../../auth/AuthContext'
+import { Button } from '@/components/ui/button'
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '@/components/ui/sheet'
 
 type Row = { label: string; Icon: typeof Users; onClick?: () => void; danger?: boolean }
 
@@ -59,19 +61,18 @@ export default function More() {
         <p className="pb-2 text-center text-xs text-ink-mute">NockAcademy · เวอร์ชัน 1.0.0</p>
       </div>
 
-      {confirmOut && (
-        <div className="fixed inset-0 z-30 mx-auto flex max-w-[440px] items-end bg-black/45" onClick={() => setConfirmOut(false)}>
-          <div className="w-full rounded-t-3xl bg-surface-1 p-6 pb-8" onClick={(e) => e.stopPropagation()}>
-            <div className="mx-auto mb-4 h-1.5 w-10 rounded-full bg-line" />
-            <p className="text-center text-lg font-semibold text-ink">ออกจากระบบ?</p>
-            <p className="mt-1 text-center text-sm text-ink-soft">คุณยังกลับเข้ามาเรียนต่อได้ทุกเมื่อ</p>
-            <div className="mt-6 space-y-2.5">
-              <button onClick={doSignOut} className="w-full rounded-2xl bg-live py-4 text-base font-semibold text-white">ออกจากระบบ</button>
-              <button onClick={() => setConfirmOut(false)} className="w-full rounded-2xl border border-line bg-surface-1 py-3.5 text-sm font-medium text-ink-soft">ยกเลิก</button>
-            </div>
+      <Sheet open={confirmOut} onOpenChange={setConfirmOut}>
+        <SheetContent side="bottom" className="mx-auto max-w-[440px] rounded-t-3xl p-6 pb-8">
+          <SheetHeader>
+            <SheetTitle className="text-center text-lg font-semibold text-ink">ออกจากระบบ?</SheetTitle>
+            <SheetDescription className="text-center text-sm text-ink-soft">คุณยังกลับเข้ามาเรียนต่อได้ทุกเมื่อ</SheetDescription>
+          </SheetHeader>
+          <div className="mt-6 space-y-2.5">
+            <Button onClick={doSignOut} className="h-auto w-full rounded-2xl bg-live py-4 text-base font-semibold text-white hover:bg-live/90">ออกจากระบบ</Button>
+            <Button variant="outline" onClick={() => setConfirmOut(false)} className="h-auto w-full rounded-2xl border-line bg-surface-1 py-3.5 text-sm font-medium text-ink-soft hover:bg-surface-2">ยกเลิก</Button>
           </div>
-        </div>
-      )}
+        </SheetContent>
+      </Sheet>
     </div>
   )
 }

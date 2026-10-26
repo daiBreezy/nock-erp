@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { ChevronLeft, ChevronRight, Globe, Award, Receipt, RotateCcw, UserX } from 'lucide-react'
+import { Button } from '@/components/ui/button'
 
 export default function Settings() {
   const navigate = useNavigate()
@@ -9,7 +10,7 @@ export default function Settings() {
   return (
     <div className="min-h-screen bg-surface-0 pb-10">
       <header className="sticky top-0 z-10 flex items-center gap-3 border-b border-line bg-surface-0/90 px-4 py-3 backdrop-blur">
-        <button onClick={() => navigate(-1)} aria-label="ย้อนกลับ" className="text-ink"><ChevronLeft size={24} /></button>
+        <Button variant="ghost" size="icon" onClick={() => navigate(-1)} aria-label="ย้อนกลับ" className="h-8 w-8 text-ink hover:bg-transparent"><ChevronLeft size={24} /></Button>
         <h1 className="text-lg font-semibold text-ink">การตั้งค่าทั่วไป</h1>
       </header>
 
@@ -21,8 +22,8 @@ export default function Settings() {
             <Globe size={20} className="text-brand" />
             <span className="flex-1 text-sm font-medium text-ink">ภาษาที่ใช้</span>
             <div className="flex rounded-pill bg-surface-2 p-0.5 text-xs">
-              <button onClick={() => setLang('th')} className={`rounded-pill px-3 py-1 ${lang === 'th' ? 'bg-brand text-white' : 'text-ink-soft'}`}>ไทย</button>
-              <button onClick={() => setLang('en')} className={`rounded-pill px-3 py-1 ${lang === 'en' ? 'bg-brand text-white' : 'text-ink-soft'}`}>EN</button>
+              <Button variant={lang === 'th' ? 'default' : 'ghost'} onClick={() => setLang('th')} className={`h-auto rounded-pill px-3 py-1 text-xs font-normal ${lang === 'th' ? '' : 'text-ink-soft hover:bg-transparent hover:text-ink'}`}>ไทย</Button>
+              <Button variant={lang === 'en' ? 'default' : 'ghost'} onClick={() => setLang('en')} className={`h-auto rounded-pill px-3 py-1 text-xs font-normal ${lang === 'en' ? '' : 'text-ink-soft hover:bg-transparent hover:text-ink'}`}>EN</Button>
             </div>
           </div>
         </div>
