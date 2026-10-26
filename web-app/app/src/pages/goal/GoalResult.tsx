@@ -2,6 +2,8 @@ import { useLocation, useNavigate } from 'react-router-dom'
 import { ChevronLeft, TrendingUp, ThumbsUp, AlertCircle, Target, PlayCircle, CalendarCheck, MessageCircle } from 'lucide-react'
 import { aiSummary, playlist } from '../../data/goal'
 import UpgradeCard from '../../components/pricing/UpgradeCard'
+import { Button } from '@/components/ui/button'
+import { Progress } from '@/components/ui/progress'
 
 export default function GoalResult() {
   const navigate = useNavigate()
@@ -11,7 +13,7 @@ export default function GoalResult() {
   return (
     <div className="min-h-screen bg-surface-0 pb-28 md:pb-0">
       <header className="sticky top-0 z-10 flex items-center gap-3 border-b border-line bg-surface-0/90 px-4 py-3 backdrop-blur">
-        <button onClick={() => navigate('/', { replace: true })} aria-label="ปิด" className="text-ink"><ChevronLeft size={24} /></button>
+        <Button variant="ghost" size="icon" onClick={() => navigate('/', { replace: true })} aria-label="ปิด" className="h-8 w-8 text-ink hover:bg-transparent"><ChevronLeft size={24} /></Button>
         <h1 className="text-lg font-semibold text-ink">ผลวิเคราะห์</h1>
       </header>
 
@@ -30,9 +32,7 @@ export default function GoalResult() {
             <TrendingUp size={24} className="mb-1 text-success" />
             <div className="text-right"><p className="text-xs text-ink-soft">เป้าหมาย</p><p className="text-2xl font-bold text-success">{aiSummary.target}%</p></div>
           </div>
-          <div className="mt-3 h-2.5 overflow-hidden rounded-full bg-surface-2">
-            <div className="h-full rounded-full bg-brand" style={{ width: `${aiSummary.current}%` }} />
-          </div>
+          <Progress value={aiSummary.current} className="mt-3 h-2.5 bg-surface-2" indicatorClassName="bg-brand" />
           <p className="mt-2 text-xs text-ink-soft">เพิ่มอีก {aiSummary.target - aiSummary.current}% ภายใน 1 เดือน ถ้าฝึกวันละ 15 นาที</p>
         </div>
       </section>
@@ -79,15 +79,15 @@ export default function GoalResult() {
       {/* Package + Contact */}
       <section className="px-4 pt-5">
         <UpgradeCard />
-        <button className="mt-2.5 flex w-full items-center justify-center gap-2 rounded-card border border-line bg-surface-1 py-3 text-sm font-medium text-ink">
+        <Button variant="outline" className="mt-2.5 h-auto w-full gap-2 rounded-card border-line bg-surface-1 py-3 text-sm font-medium text-ink hover:bg-surface-2">
           <MessageCircle size={18} className="text-brand" /> ปรึกษาทีมงาน
-        </button>
+        </Button>
       </section>
 
       {/* CTA ทำต่อให้ครบ (ถ้าไม่สมบูรณ์) */}
       {!complete && (
         <div className="fixed inset-x-0 bottom-0 z-10 mx-auto max-w-[440px] border-t border-line bg-surface-1 p-4 md:static md:z-auto md:max-w-none">
-          <button onClick={() => navigate('/goal/test')} className="w-full rounded-2xl bg-brand py-4 text-base font-semibold text-white">ทำต่อให้ครบ 10 ข้อ</button>
+          <Button onClick={() => navigate('/goal/test')} className="h-auto w-full rounded-2xl bg-brand py-4 text-base font-semibold hover:bg-brand-dark">ทำต่อให้ครบ 10 ข้อ</Button>
         </div>
       )}
     </div>

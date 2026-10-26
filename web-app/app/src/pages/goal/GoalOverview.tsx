@@ -3,6 +3,7 @@ import { ChevronLeft, Flag, Plus } from 'lucide-react'
 import DesktopNav from '../../components/web/DesktopNav'
 import type { SubjectKey } from '../../data/mock'
 import { subjectBg, subjectText } from '../../lib/subject'
+import { Button } from '@/components/ui/button'
 
 const subjectStroke: Record<SubjectKey, string> = {
   english: 'stroke-subject-english-ink',
@@ -60,16 +61,16 @@ function Content({ mobile = false }: { mobile?: boolean }) {
     <main className={mobile ? 'px-4 pb-10 pt-4' : 'mx-auto max-w-[1180px] px-6 pb-16 pt-6'}>
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-3">
-          <button onClick={() => navigate(-1)} aria-label="ย้อนกลับ" className="text-ink"><ChevronLeft size={22} /></button>
+          <Button variant="ghost" size="icon" onClick={() => navigate(-1)} aria-label="ย้อนกลับ" className="h-8 w-8 text-ink hover:bg-transparent"><ChevronLeft size={22} /></Button>
           <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-brand text-white"><Flag size={18} /></span>
           <div>
             <h1 className="text-lg font-bold text-ink md:text-xl">Set your Goal!</h1>
             <p className="text-xs text-ink-mute md:text-sm">ตั้งเป้าหมายเพื่อวางแผน และกระตุ้นการเรียนของคุณเอง!</p>
           </div>
         </div>
-        <button onClick={() => navigate('/goal')} className="flex items-center gap-1.5 rounded-pill border border-brand bg-surface-1 px-4 py-2 text-sm font-medium text-brand">
+        <Button variant="outline" onClick={() => navigate('/goal')} className="h-auto gap-1.5 rounded-pill border-brand bg-surface-1 px-4 py-2 text-sm font-medium text-brand hover:bg-brand-soft hover:text-brand">
           <Plus size={16} /> สร้าง Goal เพิ่มเติม
-        </button>
+        </Button>
       </div>
 
       <div className="mt-6 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">

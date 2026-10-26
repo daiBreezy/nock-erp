@@ -5,6 +5,16 @@
 
 ---
 
+## 2026-10-26 — Web App: shadcn เฟส 6 (exam/ + homework/ + goal/)
+
+- **component ใหม่:** `progress`, `textarea`
+- **exam:** ExamList (search→Input, back→Button) · ExamDetail (back + SubjectCard CTA/menu→Button) · ExamResult (progress→Progress, CTA→Button) · Solution (back→Button) · **Quiz คงเป็น custom** (ตัวเลือก state-color, navigator, bullet เฉพาะทาง)
+- **homework:** HomeworkRoom (back/custom input→Input/CTA→Button) · Result (CTA→Button) · Focus (จบโฟกัส→Button; ring timer คงเดิม)
+- **goal:** GoalOverview/GoalResult/LearningPlan/ParentLink/GoalSetup/GoalTest/GoalWizard — progress→Progress, back/X/CTA→Button, chips/option→Button · **คงเป็น custom:** choices (ก/ข/ค/ง), mood emoji, range slider, GoalCard ring, NumberOption
+- ✅ `tsc -b` / `vite build` / `oxlint` ผ่าน · Playwright ยืนยัน (GoalWizard, ExamList)
+
+---
+
 ## 2026-10-26 — Web App: shadcn เฟส 5 (profile/ + more/)
 
 - **EditProfile:** fields → Input/Label · FB connect / save / เปลี่ยนรูป / back → Button

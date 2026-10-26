@@ -2,6 +2,8 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { ChevronLeft, Plus, Circle } from 'lucide-react'
 import { focusSubjects, presetDurations, onlineMembers } from '../../data/homework'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
 
 const QUICK_KEY = 'nock.quickDurations'
 
@@ -44,9 +46,9 @@ export default function HomeworkRoom() {
   return (
     <div className="min-h-screen bg-surface-0 pb-32">
       <header className="sticky top-0 z-10 flex items-center gap-3 border-b border-line bg-surface-0/90 px-4 py-3 backdrop-blur">
-        <button onClick={() => navigate(-1)} aria-label="ย้อนกลับ" className="text-ink">
+        <Button variant="ghost" size="icon" onClick={() => navigate(-1)} aria-label="ย้อนกลับ" className="h-8 w-8 text-ink hover:bg-transparent">
           <ChevronLeft size={24} />
-        </button>
+        </Button>
         <h1 className="text-lg font-semibold text-ink">ห้องทำการบ้าน</h1>
       </header>
 
@@ -122,31 +124,31 @@ export default function HomeworkRoom() {
 
         {customOpen && (
           <div className="mt-3 flex items-center gap-2">
-            <input
+            <Input
               type="number"
               value={customVal}
               onChange={(e) => setCustomVal(e.target.value)}
               placeholder="จำนวนนาที"
-              className="h-11 w-32 rounded-xl border border-line bg-surface-1 px-3 text-sm outline-none focus:ring-2 focus:ring-brand"
+              className="h-11 w-32 rounded-xl border-line bg-surface-1 text-sm focus-visible:ring-2 focus-visible:ring-brand"
             />
-            <button
+            <Button
               onClick={addQuick}
-              className="h-11 rounded-xl bg-brand px-4 text-sm font-medium text-white"
+              className="h-11 rounded-xl bg-brand px-4 text-sm font-medium hover:bg-brand-dark"
             >
               เพิ่มเป็น Quick
-            </button>
+            </Button>
           </div>
         )}
       </section>
 
       {/* CTA */}
       <div className="fixed inset-x-0 bottom-0 z-10 mx-auto max-w-[440px] border-t border-line bg-surface-1 p-4">
-        <button
+        <Button
           onClick={start}
-          className="flex w-full items-center justify-center rounded-2xl bg-brand py-4 text-base font-semibold text-white active:scale-[0.99]"
+          className="h-auto w-full rounded-2xl bg-brand py-4 text-base font-semibold hover:bg-brand-dark active:scale-[0.99]"
         >
           เริ่มโฟกัส{minutes ? ` · ${minutes} นาที` : ''}
-        </button>
+        </Button>
       </div>
     </div>
   )

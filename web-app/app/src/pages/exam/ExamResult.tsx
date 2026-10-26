@@ -1,5 +1,7 @@
 import { useLocation, useNavigate, useParams } from 'react-router-dom'
 import { BookOpen, List } from 'lucide-react'
+import { Button } from '@/components/ui/button'
+import { Progress } from '@/components/ui/progress'
 
 type ResultState = { score: number; total: number; seconds: number; setId?: string }
 
@@ -26,24 +28,23 @@ export default function ExamResult() {
       <p className="mt-2 text-5xl font-semibold text-ink">
         {score}<span className="text-2xl text-ink-mute">/{total}</span>
       </p>
-      <div className="mt-4 h-2.5 w-full max-w-xs overflow-hidden rounded-full bg-surface-2">
-        <div className="h-full rounded-full bg-success" style={{ width: `${pct}%` }} />
-      </div>
+      <Progress value={pct} className="mt-4 h-2.5 w-full max-w-xs bg-surface-2" indicatorClassName="bg-success" />
       <p className="mt-3 text-sm text-ink-soft">ใช้เวลา {human(seconds)}</p>
 
       <div className="mt-10 w-full max-w-xs space-y-2.5">
-        <button
+        <Button
           onClick={() => navigate(`/exam/${id}/solution`, { state: { setId } })}
-          className="flex w-full items-center justify-center gap-2 rounded-2xl bg-brand py-4 text-base font-semibold text-white"
+          className="h-auto w-full gap-2 rounded-2xl bg-brand py-4 text-base font-semibold hover:bg-brand-dark"
         >
           <BookOpen size={18} /> เฉลยข้อสอบ
-        </button>
-        <button
+        </Button>
+        <Button
+          variant="outline"
           onClick={() => navigate('/exam', { replace: true })}
-          className="flex w-full items-center justify-center gap-2 rounded-2xl border border-line bg-surface-1 py-3.5 text-sm font-medium text-ink"
+          className="h-auto w-full gap-2 rounded-2xl border-line bg-surface-1 py-3.5 text-sm font-medium text-ink hover:bg-surface-2"
         >
           <List size={18} /> กลับไปหน้ารวมข้อสอบ
-        </button>
+        </Button>
       </div>
     </div>
   )

@@ -2,6 +2,8 @@ import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Flag, ArrowRight, ArrowLeft, Sparkles, ThumbsUp, Target, TrendingUp, Play, Rocket } from 'lucide-react'
 import { goalSubjects, targetSchools, grades, moods, buildGoalTest, aiSummary, playlist, planDurations, planTimes, type GoalType } from '../../data/goal'
+import { Button } from '@/components/ui/button'
+import { Progress } from '@/components/ui/progress'
 
 type StepType = 'goal' | 'subjects' | 'school' | 'grade' | 'confidence' | 'question' | 'cutscene' | 'result' | 'plan'
 type Phase = 'setup' | 'test' | 'result'
@@ -92,9 +94,7 @@ export default function GoalWizard() {
           {/* progress */}
           <div className="flex items-center gap-3">
             <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-brand text-sm">🏃</span>
-            <div className="h-2 flex-1 overflow-hidden rounded-full bg-surface-2">
-              <div className="h-full rounded-full bg-brand transition-all" style={{ width: `${((idx + 1) / total) * 100}%` }} />
-            </div>
+            <Progress value={((idx + 1) / total) * 100} className="h-2 flex-1 bg-surface-2" indicatorClassName="bg-brand" />
             <span className="shrink-0 text-sm font-medium text-ink-soft">{idx + 1}/{total}</span>
           </div>
 
@@ -121,7 +121,7 @@ export default function GoalWizard() {
                 <p className="mt-1.5 text-ink-soft">เลือกได้หลายวิชา แล้วกดถัดไป</p>
                 <div className="mt-6 flex flex-wrap gap-2.5">
                   {goalSubjects.map((s) => (
-                    <button key={s.key} onClick={() => toggleSubject(s.key)} className={`rounded-pill px-5 py-2.5 text-sm font-medium ${subjects.includes(s.key) ? 'bg-brand text-white' : 'border border-line bg-surface-1 text-ink-soft hover:border-brand/50'}`}>{s.label}</button>
+                    <Button key={s.key} variant={subjects.includes(s.key) ? 'default' : 'outline'} onClick={() => toggleSubject(s.key)} className={`h-auto rounded-pill px-5 py-2.5 text-sm font-medium ${subjects.includes(s.key) ? '' : 'border-line bg-surface-1 text-ink-soft hover:bg-surface-2'}`}>{s.label}</Button>
                   ))}
                 </div>
               </>
@@ -145,7 +145,7 @@ export default function GoalWizard() {
                 <p className="mt-1.5 text-ink-soft">ตอนนี้เรียนอยู่ชั้นไหน</p>
                 <div className="mt-6 flex flex-wrap gap-2.5">
                   {grades.map((g) => (
-                    <button key={g} onClick={() => pick(() => setGrade(g))} className={`rounded-pill px-5 py-2.5 text-sm font-medium ${grade === g ? 'bg-brand text-white' : 'border border-line bg-surface-1 text-ink-soft hover:border-brand/50'}`}>{g}</button>
+                    <Button key={g} variant={grade === g ? 'default' : 'outline'} onClick={() => pick(() => setGrade(g))} className={`h-auto rounded-pill px-5 py-2.5 text-sm font-medium ${grade === g ? '' : 'border-line bg-surface-1 text-ink-soft hover:bg-surface-2'}`}>{g}</Button>
                   ))}
                 </div>
               </>
@@ -203,7 +203,7 @@ export default function GoalWizard() {
                     <h2 className="mb-3 text-sm font-semibold text-ink">ระยะเวลา</h2>
                     <div className="space-y-2.5">
                       {planDurations.map((d) => (
-                        <button key={d} onClick={() => setDuration(d)} className={`w-full rounded-2xl border p-4 text-left text-sm font-medium ${duration === d ? 'border-brand bg-brand-soft text-ink' : 'border-line bg-surface-1 text-ink-soft hover:border-brand/50'}`}>{d}</button>
+                        <Button key={d} variant="outline" onClick={() => setDuration(d)} className={`h-auto w-full justify-start rounded-2xl border p-4 text-left text-sm font-medium ${duration === d ? 'border-brand bg-brand-soft text-ink hover:bg-brand-soft' : 'border-line bg-surface-1 text-ink-soft hover:bg-surface-2'}`}>{d}</Button>
                       ))}
                     </div>
                   </div>
@@ -215,7 +215,7 @@ export default function GoalWizard() {
                     <h2 className="mb-3 text-sm font-semibold text-ink">ช่วงเวลาที่สะดวก</h2>
                     <div className="flex flex-wrap gap-2">
                       {planTimes.map((t) => (
-                        <button key={t} onClick={() => toggleSlot(t)} className={`rounded-pill px-4 py-2 text-sm font-medium ${slots.includes(t) ? 'bg-brand text-white' : 'border border-line bg-surface-1 text-ink-soft hover:border-brand/50'}`}>{t}</button>
+                        <Button key={t} variant={slots.includes(t) ? 'default' : 'outline'} onClick={() => toggleSlot(t)} className={`h-auto rounded-pill px-4 py-2 text-sm font-medium ${slots.includes(t) ? '' : 'border-line bg-surface-1 text-ink-soft hover:bg-surface-2'}`}>{t}</Button>
                       ))}
                     </div>
                   </div>
@@ -226,21 +226,21 @@ export default function GoalWizard() {
 
           {/* footer */}
           <div className="mt-8 flex items-center justify-between border-t border-line pt-5">
-            <button onClick={cancel} className="text-sm font-semibold text-brand hover:underline">ยกเลิก</button>
+            <Button variant="link" onClick={cancel} className="h-auto p-0 text-sm font-semibold text-brand hover:no-underline">ยกเลิก</Button>
             <div className="flex items-center gap-2.5">
               {idx > 0 && (
-                <button onClick={goBack} className="flex items-center gap-1.5 rounded-pill bg-brand-soft px-5 py-2.5 text-sm font-semibold text-brand hover:bg-brand-soft/70">
+                <Button onClick={goBack} className="h-auto gap-1.5 rounded-pill bg-brand-soft px-5 py-2.5 text-sm font-semibold text-brand hover:bg-brand-soft/70">
                   <ArrowLeft size={16} /> ย้อนกลับ
-                </button>
+                </Button>
               )}
               {isLast ? (
-                <button onClick={() => navigate('/', { replace: true })} disabled={!complete} className="flex items-center gap-1.5 rounded-pill bg-brand px-6 py-2.5 text-sm font-semibold text-white hover:bg-brand-dark disabled:opacity-40">
+                <Button onClick={() => navigate('/', { replace: true })} disabled={!complete} className="h-auto gap-1.5 rounded-pill bg-brand px-6 py-2.5 text-sm font-semibold hover:bg-brand-dark disabled:opacity-40">
                   <Rocket size={16} /> เริ่มเรียนเลย
-                </button>
+                </Button>
               ) : (
-                <button onClick={goNext} disabled={!complete} className="flex items-center gap-1.5 rounded-pill bg-brand px-6 py-2.5 text-sm font-semibold text-white hover:bg-brand-dark disabled:opacity-40">
+                <Button onClick={goNext} disabled={!complete} className="h-auto gap-1.5 rounded-pill bg-brand px-6 py-2.5 text-sm font-semibold hover:bg-brand-dark disabled:opacity-40">
                   {step.type === 'result' ? 'สร้างแผนการเรียน' : 'ถัดไป'} <ArrowRight size={16} />
-                </button>
+                </Button>
               )}
             </div>
           </div>
@@ -274,9 +274,7 @@ function ResultContent() {
           <TrendingUp size={22} className="mb-1 text-success" />
           <div className="text-right"><p className="text-xs text-ink-mute">เป้าหมาย</p><p className="text-3xl font-extrabold text-success">{aiSummary.target}%</p></div>
         </div>
-        <div className="mt-3 h-2.5 overflow-hidden rounded-full bg-surface-2">
-          <div className="h-full rounded-full bg-brand" style={{ width: `${aiSummary.current}%` }} />
-        </div>
+        <Progress value={aiSummary.current} className="mt-3 h-2.5 bg-surface-2" indicatorClassName="bg-brand" />
         <p className="mt-2.5 text-xs text-ink-mute">นี่คือจุดเริ่มต้นของคุณ — เริ่มเรียนตามแผนเพื่อไปให้ถึงเป้าหมาย</p>
       </div>
       {/* AI cards */}

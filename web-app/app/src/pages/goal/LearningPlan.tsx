@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { ChevronLeft, Check } from 'lucide-react'
 import { planDurations, planTimes } from '../../data/goal'
+import { Button } from '@/components/ui/button'
 
 export default function LearningPlan() {
   const navigate = useNavigate()
@@ -19,7 +20,7 @@ export default function LearningPlan() {
         <div className="flex h-20 w-20 items-center justify-center rounded-full bg-success/10"><Check size={40} className="text-success" /></div>
         <h1 className="mt-5 text-xl font-semibold text-ink">สร้างแผนเรียนแล้ว!</h1>
         <p className="mt-2 max-w-xs text-sm text-ink-soft">แผน {duration?.split(' ')[0]} · วันละ {minutes} นาที ในช่วง {slots.join(', ')} ถูกบันทึกแล้ว</p>
-        <button onClick={() => navigate('/', { replace: true })} className="mt-8 w-full max-w-xs rounded-2xl bg-brand py-4 text-base font-semibold text-white">ไปหน้าหลัก</button>
+        <Button onClick={() => navigate('/', { replace: true })} className="mt-8 h-auto w-full max-w-xs rounded-2xl bg-brand py-4 text-base font-semibold hover:bg-brand-dark">ไปหน้าหลัก</Button>
       </div>
     )
   }
@@ -27,7 +28,7 @@ export default function LearningPlan() {
   return (
     <div className="min-h-screen bg-surface-0 pb-28 md:pb-0">
       <header className="sticky top-0 z-10 flex items-center gap-3 border-b border-line bg-surface-0/90 px-4 py-3 backdrop-blur">
-        <button onClick={() => navigate(-1)} aria-label="ย้อนกลับ" className="text-ink"><ChevronLeft size={24} /></button>
+        <Button variant="ghost" size="icon" onClick={() => navigate(-1)} aria-label="ย้อนกลับ" className="h-8 w-8 text-ink hover:bg-transparent"><ChevronLeft size={24} /></Button>
         <h1 className="text-lg font-semibold text-ink">สร้างแผนการเรียน</h1>
       </header>
 
@@ -36,7 +37,7 @@ export default function LearningPlan() {
           <h2 className="mb-3 text-sm font-semibold text-ink">ระยะเวลา</h2>
           <div className="space-y-2.5">
             {planDurations.map((d) => (
-              <button key={d} onClick={() => setDuration(d)} className={`w-full rounded-card border p-4 text-left text-sm font-medium ${duration === d ? 'border-brand bg-brand-soft text-ink' : 'border-line bg-surface-1 text-ink-soft'}`}>{d}</button>
+              <Button key={d} variant="outline" onClick={() => setDuration(d)} className={`h-auto w-full justify-start rounded-card border p-4 text-left text-sm font-medium ${duration === d ? 'border-brand bg-brand-soft text-ink hover:bg-brand-soft' : 'border-line bg-surface-1 text-ink-soft hover:bg-surface-2'}`}>{d}</Button>
             ))}
           </div>
         </div>
@@ -50,14 +51,14 @@ export default function LearningPlan() {
           <h2 className="mb-3 text-sm font-semibold text-ink">ช่วงเวลาที่สะดวก</h2>
           <div className="flex flex-wrap gap-2">
             {planTimes.map((t) => (
-              <button key={t} onClick={() => toggleSlot(t)} className={`rounded-pill px-4 py-2 text-sm font-medium ${slots.includes(t) ? 'bg-brand text-white' : 'border border-line bg-surface-1 text-ink-soft'}`}>{t}</button>
+              <Button key={t} variant={slots.includes(t) ? 'default' : 'outline'} onClick={() => toggleSlot(t)} className={`h-auto rounded-pill px-4 py-2 text-sm font-medium ${slots.includes(t) ? '' : 'border-line bg-surface-1 text-ink-soft hover:bg-surface-2'}`}>{t}</Button>
             ))}
           </div>
         </div>
       </div>
 
       <div className="fixed inset-x-0 bottom-0 z-10 mx-auto max-w-[440px] border-t border-line bg-surface-1 p-4 md:static md:z-auto md:max-w-none">
-        <button onClick={() => setDone(true)} disabled={!ready} className="w-full rounded-2xl bg-brand py-4 text-base font-semibold text-white disabled:opacity-40">สร้างแผนเรียน</button>
+        <Button onClick={() => setDone(true)} disabled={!ready} className="h-auto w-full rounded-2xl bg-brand py-4 text-base font-semibold hover:bg-brand-dark disabled:opacity-40">สร้างแผนเรียน</Button>
       </div>
     </div>
   )

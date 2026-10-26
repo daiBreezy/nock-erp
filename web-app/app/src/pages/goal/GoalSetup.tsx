@@ -2,6 +2,8 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { ChevronLeft, X } from 'lucide-react'
 import { goalSubjects, targetSchools, grades, moods, type GoalType } from '../../data/goal'
+import { Button } from '@/components/ui/button'
+import { Progress } from '@/components/ui/progress'
 
 // ในแอป = Student เท่านั้น (Parent journey อยู่บน Web)
 export default function GoalSetup() {
@@ -31,14 +33,12 @@ export default function GoalSetup() {
     <div className="flex min-h-screen flex-col bg-surface-0">
       <header className="flex items-center gap-3 px-4 py-3">
         {step > 0 ? (
-          <button onClick={back} aria-label="ย้อนกลับ" className="text-ink hover:text-brand"><ChevronLeft size={24} /></button>
+          <Button variant="ghost" size="icon" onClick={back} aria-label="ย้อนกลับ" className="h-8 w-8 text-ink hover:bg-transparent hover:text-brand"><ChevronLeft size={24} /></Button>
         ) : (
           <span className="w-6" />
         )}
-        <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-surface-2">
-          <div className="h-full rounded-full bg-brand transition-all" style={{ width: `${((step + 1) / totalSteps) * 100}%` }} />
-        </div>
-        <button onClick={exit} aria-label="ออกจากการสร้าง Goal" className="text-ink-mute hover:text-ink"><X size={22} /></button>
+        <Progress value={((step + 1) / totalSteps) * 100} className="h-1.5 flex-1 bg-surface-2" indicatorClassName="bg-brand" />
+        <Button variant="ghost" size="icon" onClick={exit} aria-label="ออกจากการสร้าง Goal" className="h-8 w-8 text-ink-mute hover:bg-transparent hover:text-ink"><X size={22} /></Button>
       </header>
 
       <div className="flex-1 px-5 pb-8 pt-4">
@@ -51,9 +51,9 @@ export default function GoalSetup() {
                 { v: 'improve' as GoalType, label: 'เพิ่มคะแนนสอบ', desc: 'ดึงคะแนนวิชาที่อยากพัฒนา' },
                 { v: 'entrance' as GoalType, label: 'สอบเข้า', desc: 'เตรียมสอบเข้าโรงเรียนเป้าหมาย' },
               ].map((o) => (
-                <button key={o.v} onClick={() => pick(() => setGoal(o.v))} className={`w-full rounded-card border p-4 text-left transition ${goal === o.v ? 'border-brand bg-brand-soft' : 'border-line bg-surface-1 hover:border-brand/50'}`}>
-                  <p className="text-sm font-medium text-ink">{o.label}</p><p className="text-xs text-ink-soft">{o.desc}</p>
-                </button>
+                <Button key={o.v} variant="outline" onClick={() => pick(() => setGoal(o.v))} className={`h-auto w-full flex-col items-start gap-0 whitespace-normal rounded-card border p-4 text-left ${goal === o.v ? 'border-brand bg-brand-soft hover:bg-brand-soft' : 'border-line bg-surface-1 hover:border-brand/50 hover:bg-surface-1'}`}>
+                  <p className="text-sm font-medium text-ink">{o.label}</p><p className="text-xs font-normal text-ink-soft">{o.desc}</p>
+                </Button>
               ))}
             </div>
           </>
@@ -65,7 +65,7 @@ export default function GoalSetup() {
             <p className="mt-1 text-sm text-ink-soft">เลือกได้หลายวิชา</p>
             <div className="mt-6 flex flex-wrap gap-2">
               {goalSubjects.map((s) => (
-                <button key={s.key} onClick={() => toggleSubject(s.key)} className={`rounded-pill px-4 py-2 text-sm font-medium ${subjects.includes(s.key) ? 'bg-brand text-white' : 'border border-line bg-surface-1 text-ink-soft'}`}>{s.label}</button>
+                <Button key={s.key} variant={subjects.includes(s.key) ? 'default' : 'outline'} onClick={() => toggleSubject(s.key)} className={`h-auto rounded-pill px-4 py-2 text-sm font-medium ${subjects.includes(s.key) ? '' : 'border-line bg-surface-1 text-ink-soft hover:bg-surface-2'}`}>{s.label}</Button>
               ))}
             </div>
           </>
@@ -76,7 +76,7 @@ export default function GoalSetup() {
             <h1 className="text-xl font-semibold text-ink">โรงเรียนเป้าหมาย</h1>
             <div className="mt-6 space-y-2.5">
               {targetSchools.map((s) => (
-                <button key={s} onClick={() => pick(() => setSchool(s))} className={`w-full rounded-card border p-4 text-left text-sm font-medium transition ${school === s ? 'border-brand bg-brand-soft text-ink' : 'border-line bg-surface-1 text-ink-soft hover:border-brand/50'}`}>{s}</button>
+                <Button key={s} variant="outline" onClick={() => pick(() => setSchool(s))} className={`h-auto w-full justify-start rounded-card border p-4 text-left text-sm font-medium ${school === s ? 'border-brand bg-brand-soft text-ink hover:bg-brand-soft' : 'border-line bg-surface-1 text-ink-soft hover:border-brand/50 hover:bg-surface-1'}`}>{s}</Button>
               ))}
             </div>
           </>
@@ -87,7 +87,7 @@ export default function GoalSetup() {
             <h1 className="text-xl font-semibold text-ink">ระดับชั้น</h1>
             <div className="mt-6 flex flex-wrap gap-2">
               {grades.map((g) => (
-                <button key={g} onClick={() => pick(() => setGrade(g))} className={`rounded-pill px-4 py-2 text-sm font-medium transition ${grade === g ? 'bg-brand text-white' : 'border border-line bg-surface-1 text-ink-soft hover:border-brand/50'}`}>{g}</button>
+                <Button key={g} variant={grade === g ? 'default' : 'outline'} onClick={() => pick(() => setGrade(g))} className={`h-auto rounded-pill px-4 py-2 text-sm font-medium ${grade === g ? '' : 'border-line bg-surface-1 text-ink-soft hover:bg-surface-2'}`}>{g}</Button>
               ))}
             </div>
           </>
@@ -111,13 +111,13 @@ export default function GoalSetup() {
 
       {showFooter && (
         <div className="border-t border-line p-4">
-          <button
+          <Button
             onClick={next}
             disabled={subjects.length === 0}
-            className="w-full rounded-2xl bg-brand py-4 text-base font-semibold text-white disabled:opacity-40"
+            className="h-auto w-full rounded-2xl bg-brand py-4 text-base font-semibold hover:bg-brand-dark disabled:opacity-40"
           >
             ถัดไป
-          </button>
+          </Button>
         </div>
       )}
     </div>

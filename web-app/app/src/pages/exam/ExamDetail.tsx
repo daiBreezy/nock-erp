@@ -3,6 +3,7 @@ import {
   ChevronLeft, Crown, ListChecks, Clock, Trophy, MoreVertical, ArrowRight, RotateCcw, BookOpenCheck,
 } from 'lucide-react'
 import DesktopNav from '../../components/web/DesktopNav'
+import { Button } from '@/components/ui/button'
 
 type State = 'new' | 'progress' | 'done'
 type SubjectExam = {
@@ -57,12 +58,12 @@ function SubjectCard({ ex, onStart }: { ex: SubjectExam; onStart: () => void }) 
       )}
 
       <div className="mt-auto flex items-center gap-2 pt-4">
-        <button aria-label="เมนู" className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-line text-ink-mute hover:text-ink">
+        <Button variant="outline" size="icon" aria-label="เมนู" className="h-9 w-9 shrink-0 rounded-full border-line text-ink-mute hover:text-ink">
           <MoreVertical size={16} />
-        </button>
-        <button onClick={onStart} className={`flex flex-1 items-center justify-center gap-1.5 rounded-pill py-2.5 text-sm font-semibold ${cta.cls}`}>
+        </Button>
+        <Button onClick={onStart} className={`h-auto flex-1 gap-1.5 rounded-pill py-2.5 text-sm font-semibold ${cta.cls}`}>
           <cta.Icon size={16} /> {cta.label}
-        </button>
+        </Button>
       </div>
     </div>
   )
@@ -74,7 +75,7 @@ function Content({ id, mobile = false }: { id: string; mobile?: boolean }) {
     <main className={mobile ? 'px-4 pb-10 pt-4' : 'mx-auto max-w-[1100px] px-6 pb-16 pt-6'}>
       {/* header */}
       <div className="flex items-center gap-3">
-        <button onClick={() => navigate(-1)} aria-label="ย้อนกลับ" className="text-ink"><ChevronLeft size={22} /></button>
+        <Button variant="ghost" size="icon" onClick={() => navigate(-1)} aria-label="ย้อนกลับ" className="h-8 w-8 text-ink hover:bg-transparent"><ChevronLeft size={22} /></Button>
         <div>
           <h1 className="text-lg font-bold text-ink md:text-xl">ย้อนกลับ</h1>
           <p className="text-xs text-ink-mute md:text-sm">เลือกหัวข้อข้อสอบที่ต้องการ</p>

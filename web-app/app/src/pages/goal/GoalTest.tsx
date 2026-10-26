@@ -2,6 +2,8 @@ import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { X, Sparkles } from 'lucide-react'
 import { buildGoalTest, cutScenes } from '../../data/goal'
+import { Button } from '@/components/ui/button'
+import { Progress } from '@/components/ui/progress'
 
 export default function GoalTest() {
   const navigate = useNavigate()
@@ -35,10 +37,10 @@ export default function GoalTest() {
   return (
     <div className="flex min-h-screen flex-col bg-surface-0">
       <header className="flex items-center justify-between px-4 py-3">
-        <button onClick={() => navigate(-1)} aria-label="ออก" className="text-ink-soft"><X size={22} /></button>
+        <Button variant="ghost" size="icon" onClick={() => navigate(-1)} aria-label="ออก" className="h-8 w-8 text-ink-soft hover:bg-transparent"><X size={22} /></Button>
         <span className="text-sm text-ink-soft">{current + 1}/10</span>
       </header>
-      <div className="h-1.5 bg-surface-2"><div className="h-full bg-brand transition-all" style={{ width: `${((current + 1) / 10) * 100}%` }} /></div>
+      <Progress value={((current + 1) / 10) * 100} className="h-1.5 rounded-none bg-surface-2" indicatorClassName="bg-brand" />
 
       <div className="flex-1 px-5 pb-8 pt-6">
         <p className="text-xs font-medium text-brand">คำถามที่ {current + 1}</p>
@@ -65,13 +67,13 @@ export default function GoalTest() {
 
             {cutScenes[cut].skippable ? (
               <div className="mt-6 space-y-2.5">
-                <button onClick={dismissCut} className="w-full rounded-2xl bg-brand py-3.5 text-sm font-semibold text-white">ทำต่อให้ครบ</button>
-                <button onClick={() => setConfirmSkip(true)} className="w-full rounded-2xl border border-line py-3 text-sm font-medium text-ink-soft">ดูผลเบื้องต้น</button>
+                <Button onClick={dismissCut} className="h-auto w-full rounded-2xl bg-brand py-3.5 text-sm font-semibold hover:bg-brand-dark">ทำต่อให้ครบ</Button>
+                <Button variant="outline" onClick={() => setConfirmSkip(true)} className="h-auto w-full rounded-2xl border-line py-3 text-sm font-medium text-ink-soft hover:bg-surface-2">ดูผลเบื้องต้น</Button>
               </div>
             ) : (
-              <button onClick={dismissCut} className="mt-6 w-full rounded-2xl bg-brand py-3.5 text-sm font-semibold text-white">
+              <Button onClick={dismissCut} className="mt-6 h-auto w-full rounded-2xl bg-brand py-3.5 text-sm font-semibold hover:bg-brand-dark">
                 {cut === 10 ? 'ดูผลวิเคราะห์' : 'ทำต่อ'}
-              </button>
+              </Button>
             )}
           </div>
         </div>
@@ -84,8 +86,8 @@ export default function GoalTest() {
             <p className="text-lg font-semibold text-ink">ดูผลแบบไม่สมบูรณ์?</p>
             <p className="mt-1 text-sm text-ink-soft">ทำครบ 10 ข้อ ผลวิเคราะห์จะแม่นยำกว่า · กลับมาทำต่อได้ภายหลัง</p>
             <div className="mt-6 space-y-2.5">
-              <button onClick={() => goResult(false)} className="w-full rounded-2xl bg-brand py-4 text-sm font-semibold text-white">ดูผลเบื้องต้น</button>
-              <button onClick={() => setConfirmSkip(false)} className="w-full rounded-2xl border border-line py-3 text-sm font-medium text-ink-soft">ทำต่อ</button>
+              <Button onClick={() => goResult(false)} className="h-auto w-full rounded-2xl bg-brand py-4 text-sm font-semibold hover:bg-brand-dark">ดูผลเบื้องต้น</Button>
+              <Button variant="outline" onClick={() => setConfirmSkip(false)} className="h-auto w-full rounded-2xl border-line py-3 text-sm font-medium text-ink-soft hover:bg-surface-2">ทำต่อ</Button>
             </div>
           </div>
         </div>

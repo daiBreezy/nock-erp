@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useLocation, useNavigate, useParams } from 'react-router-dom'
 import { ChevronLeft, ChevronDown, PlayCircle, Check } from 'lucide-react'
 import { getExam, getSet } from '../../data/exam'
+import { Button } from '@/components/ui/button'
 
 export default function Solution() {
   const navigate = useNavigate()
@@ -21,9 +22,9 @@ export default function Solution() {
   return (
     <div className="min-h-screen bg-surface-0 pb-10">
       <header className="sticky top-0 z-10 flex items-center gap-3 border-b border-line bg-surface-0/90 px-4 py-3 backdrop-blur">
-        <button onClick={() => navigate(-1)} aria-label="ย้อนกลับ" className="text-ink">
+        <Button variant="ghost" size="icon" onClick={() => navigate(-1)} aria-label="ย้อนกลับ" className="h-8 w-8 text-ink hover:bg-transparent">
           <ChevronLeft size={24} />
-        </button>
+        </Button>
         <h1 className="text-lg font-semibold text-ink">เฉลยข้อสอบ</h1>
       </header>
 

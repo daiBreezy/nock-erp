@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { focusSubjects } from '../../data/homework'
 import CheerLayer from '../../components/homework/CheerLayer'
+import { Button } from '@/components/ui/button'
 
 type FocusState = { subject: string; minutes: number | null }
 
@@ -83,12 +84,13 @@ export default function Focus() {
         </div>
       </div>
 
-      <button
+      <Button
+        variant="outline"
         onClick={() => finish(elapsed)}
-        className="rounded-pill border border-line bg-surface-1 px-8 py-3 text-base font-medium text-ink active:scale-95"
+        className="h-auto rounded-pill border-line bg-surface-1 px-8 py-3 text-base font-medium text-ink hover:bg-surface-2 active:scale-95"
       >
         จบการโฟกัส
-      </button>
+      </Button>
     </div>
   )
 }

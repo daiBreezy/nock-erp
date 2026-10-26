@@ -4,6 +4,8 @@ import DesktopNav from '../../components/web/DesktopNav'
 import BottomNav from '../../components/BottomNav'
 import type { SubjectKey } from '../../data/mock'
 import { subjectBg, subjectText } from '../../lib/subject'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
 
 type ExamSet = {
   id: string
@@ -68,7 +70,7 @@ function Content({ mobile = false }: { mobile?: boolean }) {
     <main className={mobile ? 'px-4 pb-24 pt-4' : 'mx-auto max-w-[1180px] px-6 pb-16 pt-6'}>
       {/* header */}
       <div className="flex items-center gap-3">
-        <button onClick={() => navigate(-1)} aria-label="ย้อนกลับ" className="text-ink"><ChevronLeft size={22} /></button>
+        <Button variant="ghost" size="icon" onClick={() => navigate(-1)} aria-label="ย้อนกลับ" className="h-8 w-8 text-ink hover:bg-transparent"><ChevronLeft size={22} /></Button>
         <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-subject-english text-subject-english-ink"><BookOpenCheck size={18} /></span>
         <div>
           <h1 className="text-lg font-bold text-ink md:text-xl">ห้องสอบ</h1>
@@ -99,7 +101,7 @@ function Content({ mobile = false }: { mobile?: boolean }) {
         </div>
         <div className="flex items-center gap-2 rounded-pill border border-line bg-surface-1 px-4 py-2.5 md:w-80">
           <Search size={16} className="text-ink-mute" />
-          <input placeholder="eg. เตรียมสอบ, การคูณเลขยกกำลัง, ..." className="w-full bg-transparent text-sm outline-none placeholder:text-ink-mute" />
+          <Input placeholder="eg. เตรียมสอบ, การคูณเลขยกกำลัง, ..." className="h-auto w-full border-0 bg-transparent px-0 py-0 text-sm shadow-none focus-visible:ring-0" />
         </div>
       </div>
 

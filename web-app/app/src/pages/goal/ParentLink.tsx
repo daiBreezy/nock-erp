@@ -1,6 +1,7 @@
 import { useNavigate } from 'react-router-dom'
 import { ChevronLeft, Link2, Copy, Check } from 'lucide-react'
 import { useState } from 'react'
+import { Button } from '@/components/ui/button'
 
 export default function ParentLink() {
   const navigate = useNavigate()
@@ -10,7 +11,7 @@ export default function ParentLink() {
   return (
     <div className="flex min-h-screen flex-col bg-surface-0 px-6">
       <header className="-mx-2 py-3">
-        <button onClick={() => navigate('/', { replace: true })} aria-label="ปิด" className="text-ink"><ChevronLeft size={24} /></button>
+        <Button variant="ghost" size="icon" onClick={() => navigate('/', { replace: true })} aria-label="ปิด" className="h-8 w-8 text-ink hover:bg-transparent"><ChevronLeft size={24} /></Button>
       </header>
 
       <div className="flex flex-1 flex-col items-center justify-center text-center">
@@ -32,8 +33,8 @@ export default function ParentLink() {
       </div>
 
       <div className="space-y-2.5 pb-6">
-        <button className="w-full rounded-2xl bg-brand py-4 text-base font-semibold text-white">แชร์ลิงก์ให้ลูก</button>
-        <button onClick={() => navigate('/', { replace: true })} className="w-full py-2 text-sm font-medium text-ink-soft">ไว้ทีหลัง</button>
+        <Button className="h-auto w-full rounded-2xl bg-brand py-4 text-base font-semibold hover:bg-brand-dark">แชร์ลิงก์ให้ลูก</Button>
+        <Button variant="ghost" onClick={() => navigate('/', { replace: true })} className="h-auto w-full py-2 text-sm font-medium text-ink-soft hover:bg-transparent">ไว้ทีหลัง</Button>
       </div>
     </div>
   )

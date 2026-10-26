@@ -1,6 +1,7 @@
 import { useLocation, useNavigate } from 'react-router-dom'
 import { Check, Heart, Clock } from 'lucide-react'
 import { focusSubjects } from '../../data/homework'
+import { Button } from '@/components/ui/button'
 
 type ResultState = { subject: string; seconds: number }
 
@@ -53,12 +54,12 @@ export default function Result() {
         บันทึกลงปฏิทินการใช้งานและคำนวณใน Ranking แล้ว
       </p>
 
-      <button
+      <Button
         onClick={() => navigate('/', { replace: true })}
-        className="mt-8 w-full max-w-xs rounded-2xl bg-brand py-4 text-base font-semibold text-white active:scale-[0.99]"
+        className="mt-8 h-auto w-full max-w-xs rounded-2xl bg-brand py-4 text-base font-semibold hover:bg-brand-dark active:scale-[0.99]"
       >
         เสร็จสิ้น
-      </button>
+      </Button>
     </div>
   )
 }
