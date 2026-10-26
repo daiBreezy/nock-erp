@@ -2,6 +2,8 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { X, XCircle } from 'lucide-react'
 import { FacebookIcon } from '../../components/BrandIcons'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
 
 function GoogleIcon({ size = 18 }: { size?: number }) {
   return (
@@ -24,7 +26,7 @@ export default function AuthLanding() {
       {/* header */}
       <div className="flex items-center justify-between border-b border-line px-5 py-4">
         <h1 className="text-lg font-bold text-ink">ลงชื่อเข้าใช้งาน / สร้างบัญชี ฟรี</h1>
-        <button onClick={() => navigate(-1)} aria-label="ปิด" className="text-ink-mute hover:text-ink"><X size={22} /></button>
+        <Button variant="ghost" size="icon" onClick={() => navigate(-1)} aria-label="ปิด" className="text-ink-mute hover:bg-transparent hover:text-ink"><X size={22} /></Button>
       </div>
 
       <div className="flex-1 px-5 py-6">
@@ -33,13 +35,13 @@ export default function AuthLanding() {
 
         {/* phone */}
         <div className="mt-5 flex items-center gap-2 rounded-xl border border-line px-4 focus-within:border-brand">
-          <input
+          <Input
             value={phone}
             onChange={(e) => setPhone(e.target.value.replace(/\D/g, ''))}
             inputMode="numeric"
             maxLength={10}
             placeholder="eg. 0812345678"
-            className="flex-1 bg-transparent py-3.5 text-sm outline-none placeholder:text-ink-mute"
+            className="flex-1 border-0 bg-transparent px-0 py-3.5 text-sm shadow-none focus-visible:ring-0"
           />
           {phone && (
             <button onClick={() => setPhone('')} aria-label="ล้าง" className="text-ink-mute hover:text-ink"><XCircle size={18} /></button>
@@ -53,13 +55,13 @@ export default function AuthLanding() {
           หากลูกค้ากดลงชื่อเข้าใช้งานด้วยวิธีหนึ่งด้านล่างต่อไปนี้ นั่นคือลูกค้าได้ยอมรับ <span className="font-medium text-brand underline">ข้อกำหนดในการให้บริการ</span> และ <span className="font-medium text-brand underline">นโยบายความเป็นส่วนตัว</span> ของ NockAcademy แล้ว
         </p>
 
-        <button
+        <Button
           onClick={() => navigate('/auth/otp', { state: { phone } })}
           disabled={!valid}
-          className="mt-5 w-full rounded-2xl bg-brand py-4 text-base font-semibold text-white disabled:opacity-40"
+          className="mt-5 h-auto w-full rounded-2xl bg-brand py-4 text-base font-semibold hover:bg-brand-dark disabled:opacity-40"
         >
           ลงชื่อเข้าใช้งาน
-        </button>
+        </Button>
 
         {/* divider */}
         <div className="my-5 flex items-center gap-3">
@@ -70,12 +72,12 @@ export default function AuthLanding() {
 
         {/* social */}
         <div className="space-y-2.5">
-          <button className="flex w-full items-center gap-3 rounded-2xl border border-line py-3.5 pl-5 text-sm font-medium text-ink">
+          <Button variant="outline" className="h-auto w-full justify-start gap-3 rounded-2xl border-line py-3.5 pl-5 text-sm font-medium text-ink hover:bg-surface-2">
             <FacebookIcon size={20} /> ลงชื่อเข้าใช้งานด้วย Facebook
-          </button>
-          <button className="flex w-full items-center gap-3 rounded-2xl border border-line py-3.5 pl-5 text-sm font-medium text-ink">
+          </Button>
+          <Button variant="outline" className="h-auto w-full justify-start gap-3 rounded-2xl border-line py-3.5 pl-5 text-sm font-medium text-ink hover:bg-surface-2">
             <GoogleIcon size={20} /> ลงชื่อเข้าใช้งานด้วย Google
-          </button>
+          </Button>
         </div>
       </div>
     </div>

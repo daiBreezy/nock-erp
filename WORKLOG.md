@@ -5,6 +5,18 @@
 
 ---
 
+## 2026-10-26 — Web App: shadcn เฟส 4 (auth/)
+
+- **component ใหม่:** `input`, `label`
+- **AuthLanding:** phone → Input · ปุ่ม/ปิด/social → Button (outline)
+- **EmailAuth:** email/password → Input (+ eye toggle) · toggle signin/signup → Button · ลืมรหัสผ่าน → Button(link) · label → Label
+- **OtpVerify:** ช่อง OTP 4 หลัก → Input · ปุ่ม/ย้อน/ปิด/ขอ OTP ใหม่/social → Button
+- **Welcome:** ชื่อเล่น → Input/Label · grade chips → Button (outline/default) · ปุ่ม → Button
+- ✅ `tsc -b` / `vite build` ผ่าน · Playwright ยืนยัน 4 หน้า (auth/email/otp/welcome)
+- หมายเหตุ: standing permission จากเจ้าของ = auto-merge ทุกเฟสเข้า main (Vercel อัปเดตเอง)
+
+---
+
 ## 2026-10-26 — Web App: shadcn เฟส 3 (Home + home/*)
 
 - **การ์ดแถว → Card asChild:** HomeworkCard · ShareCard · GoalEntry · ExamStrip (การ์ดสอบ)
