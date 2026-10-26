@@ -7,6 +7,8 @@ import {
 import DesktopNav from '../../components/web/DesktopNav'
 import { thumb } from '../../data/media'
 import type { SubjectKey } from '../../data/mock'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
 
 const messages = [
   { name: 'จอย', text: 'หนูตอบข้อ B ค่ะ', me: false },
@@ -30,7 +32,7 @@ function ChatPanel({ onClose, fill = false }: { onClose?: () => void; fill?: boo
     <div className={`flex flex-col bg-surface-1 ${fill ? 'h-full' : ''}`}>
       <div className="flex items-center justify-between border-b border-line px-4 py-3">
         <h2 className="font-semibold text-ink">Live Chat</h2>
-        <button onClick={onClose} aria-label="ปิด" className="text-ink-mute hover:text-ink"><X size={18} /></button>
+        <Button variant="ghost" size="icon" onClick={onClose} aria-label="ปิด" className="h-8 w-8 text-ink-mute hover:bg-transparent hover:text-ink"><X size={18} /></Button>
       </div>
       <div className={`flex flex-col gap-3 px-4 py-4 ${fill ? 'flex-1 justify-end overflow-y-auto' : ''}`}>
         {messages.map((m, i) => (
@@ -47,9 +49,9 @@ function ChatPanel({ onClose, fill = false }: { onClose?: () => void; fill?: boo
         ))}
       </div>
       <div className="flex items-center gap-2 border-t border-line px-3 py-3">
-        <button className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-surface-2 text-ink-soft"><Plus size={18} /></button>
-        <input placeholder="Aa" className="flex-1 rounded-pill bg-surface-2 px-4 py-2 text-sm outline-none" />
-        <button className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-brand text-white"><Send size={16} /></button>
+        <Button variant="ghost" size="icon" className="h-9 w-9 shrink-0 rounded-full bg-surface-2 text-ink-soft hover:bg-surface-2"><Plus size={18} /></Button>
+        <Input placeholder="Aa" className="h-auto flex-1 rounded-pill border-0 bg-surface-2 px-4 py-2 text-sm shadow-none focus-visible:ring-0" />
+        <Button size="icon" className="h-9 w-9 shrink-0 rounded-full bg-brand text-white hover:bg-brand-dark"><Send size={16} /></Button>
       </div>
     </div>
   )
@@ -62,7 +64,7 @@ function VideoListPanel({ fill = false }: { fill?: boolean }) {
       <h2 className="mb-3 font-semibold text-ink">Video List</h2>
       <div className={`space-y-3 pr-1 ${fill ? 'flex-1 overflow-y-auto' : ''}`}>
         {videoList.map((v) => (
-          <button key={v.id} onClick={() => navigate(`/learn/${v.subject}/${v.subject === 'math' ? 'm1-1' : v.subject === 'english' ? 'e1-1' : v.subject === 'science' ? 's1-1' : 't1-1'}`)} className="flex w-full gap-2.5 text-left">
+          <Button key={v.id} variant="ghost" onClick={() => navigate(`/learn/${v.subject}/${v.subject === 'math' ? 'm1-1' : v.subject === 'english' ? 'e1-1' : v.subject === 'science' ? 's1-1' : 't1-1'}`)} className="flex h-auto w-full justify-start gap-2.5 p-0 text-left hover:bg-transparent">
             <div className="relative h-14 w-24 shrink-0 overflow-hidden rounded-lg bg-surface-2">
               <img src={thumb(v.id)} alt="" className="h-full w-full object-cover" />
               {v.isNew && <span className="absolute left-1 top-1 rounded bg-brand px-1 py-0.5 text-[8px] font-semibold text-white">New</span>}
@@ -71,7 +73,7 @@ function VideoListPanel({ fill = false }: { fill?: boolean }) {
               <p className="line-clamp-2 text-[11px] font-medium leading-snug text-ink">ตะลุยแนวข้อสอบ จุฬาภรณ สอบเข้า ม.1 ตอนที่ 4 จำนวน...</p>
               <div className="mt-1 flex gap-1"><Tag>คณิตศาสตร์</Tag><Tag>ป.6</Tag></div>
             </div>
-          </button>
+          </Button>
         ))}
       </div>
     </div>

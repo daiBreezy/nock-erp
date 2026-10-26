@@ -8,6 +8,7 @@ import DesktopNav from '../../components/web/DesktopNav'
 import { thumb } from '../../data/media'
 import type { SubjectKey } from '../../data/mock'
 import { clipGroups, subjectMeta, findVideo } from '../../data/learn'
+import { Button } from '@/components/ui/button'
 
 type Tab = 'lesson' | 'practice' | 'exam'
 const TABS: { key: Tab; label: string; Icon: typeof Play }[] = [
@@ -22,9 +23,9 @@ function Player() {
   return (
     <div className="relative flex aspect-video items-center justify-center overflow-hidden bg-ink md:rounded-none">
       <img src={thumb('lesson-main')} alt="" className="absolute inset-0 h-full w-full object-cover" />
-      <button className="relative z-10 flex h-16 w-16 items-center justify-center rounded-full bg-white/85 transition hover:scale-105">
-        <Play size={28} className="ml-1 text-brand" fill="currentColor" />
-      </button>
+      <Button size="icon" className="relative z-10 h-16 w-16 rounded-full bg-white/85 text-brand transition hover:scale-105 hover:bg-white [&_svg]:size-7">
+        <Play size={28} className="ml-1" fill="currentColor" />
+      </Button>
       <div className="absolute bottom-3 left-4 right-4 z-10 flex items-center justify-between text-white">
         <Play size={18} />
         <div className="flex items-center gap-3">
@@ -49,15 +50,15 @@ function Details({ title, subject }: { title: string; subject: SubjectKey }) {
       <h2 className="mt-6 text-sm font-semibold text-ink">เอกสารประกอบการเรียน</h2>
       <div className="mt-2 grid gap-3 sm:grid-cols-2">
         {['จำนวนเต็ม (เอกสาร)', 'จำนวนเต็ม (สไลด์)'].map((d) => (
-          <button key={d} className="flex items-center gap-3 rounded-card bg-brand-soft/70 p-3 text-left hover:bg-brand-soft">
+          <Button key={d} variant="ghost" className="flex h-auto items-center justify-start gap-3 rounded-card bg-brand-soft/70 p-3 text-left hover:bg-brand-soft">
             <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-white text-brand">📄</span>
             <div className="min-w-0 flex-1">
-              <p className="text-[11px] text-ink-mute">{subjectMeta[subject].label}</p>
+              <p className="text-[11px] font-normal text-ink-mute">{subjectMeta[subject].label}</p>
               <p className="truncate text-sm font-medium text-ink">{d}</p>
-              <p className="text-[11px] text-ink-mute">ครูพี่ดาว · ป.6</p>
+              <p className="text-[11px] font-normal text-ink-mute">ครูพี่ดาว · ป.6</p>
             </div>
             <Download size={18} className="text-ink-soft" />
-          </button>
+          </Button>
         ))}
       </div>
     </>
@@ -96,10 +97,10 @@ function ChoiceRow({ i, correct, selected, revealed, onSelect }: { i: number; co
     ? cn === correct ? 'correct' : cn === selected ? 'wrong' : 'idle'
     : selected === cn ? 'selected' : 'idle'
   return (
-    <button disabled={revealed} onClick={onSelect} className={`flex w-full items-start gap-3 rounded-xl border-2 p-3 text-left ${borderCls[s]} ${!revealed && s === 'idle' ? 'hover:border-premium/50' : ''}`}>
+    <Button variant="outline" disabled={revealed} onClick={onSelect} className={`flex h-auto w-full items-start justify-start gap-3 whitespace-normal rounded-xl border-2 p-3 text-left disabled:opacity-100 ${borderCls[s]} ${!revealed && s === 'idle' ? 'hover:border-premium/50 hover:bg-transparent' : 'hover:bg-transparent'}`}>
       <Bullet n={cn} s={s} />
-      <span className="text-sm text-ink">{CHOICES[i]}</span>
-    </button>
+      <span className="text-sm font-normal text-ink">{CHOICES[i]}</span>
+    </Button>
   )
 }
 
@@ -109,7 +110,7 @@ function Nav({ current, statusOf, onJump }: { current: number; statusOf: (i: num
       {QUESTIONS.map((q, i) => {
         const st = statusOf(i)
         const cls = st === 'correct' ? 'bg-success/15 text-success' : st === 'wrong' ? 'bg-live/15 text-live' : i === current ? 'bg-premium text-white' : 'border border-line text-ink-soft'
-        return <button key={q.n} onClick={() => onJump(i)} className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-sm font-medium ${cls}`}>ข้อ {q.n}</button>
+        return <Button key={q.n} variant="ghost" onClick={() => onJump(i)} className={`h-9 shrink-0 rounded-full px-3 text-sm font-medium hover:bg-transparent ${cls}`}>ข้อ {q.n}</Button>
       })}
     </div>
   )
@@ -143,13 +144,13 @@ function PracticePanel() {
           </div>
         )}
         <div className="mt-5 flex justify-end">
-          <button
+          <Button
             onClick={() => setCurrent((c) => Math.min(QUESTIONS.length - 1, c + 1))}
             disabled={!revealed || current === QUESTIONS.length - 1}
-            className="flex items-center gap-1.5 rounded-pill bg-brand px-5 py-2.5 text-sm font-semibold text-white disabled:opacity-40"
+            className="h-auto gap-1.5 rounded-pill bg-brand px-5 py-2.5 text-sm font-semibold hover:bg-brand-dark disabled:opacity-40"
           >
             ข้อถัดไป <ChevronRight size={16} />
-          </button>
+          </Button>
         </div>
       </div>
     </div>
@@ -191,13 +192,13 @@ function ExamPanel() {
       </div>
       <div className="mt-5 flex justify-end">
         {submitted ? (
-          <button onClick={() => { setAnswers({}); setSubmitted(false) }} className="flex items-center gap-1.5 rounded-pill bg-premium/15 px-5 py-2.5 text-sm font-semibold text-premium">
+          <Button onClick={() => { setAnswers({}); setSubmitted(false) }} className="h-auto gap-1.5 rounded-pill bg-premium/15 px-5 py-2.5 text-sm font-semibold text-premium hover:bg-premium/25">
             <RotateCcw size={16} /> ทำอีกครั้ง
-          </button>
+          </Button>
         ) : (
-          <button onClick={() => setSubmitted(true)} className="flex items-center gap-1.5 rounded-pill bg-brand px-6 py-2.5 text-sm font-semibold text-white">
+          <Button onClick={() => setSubmitted(true)} className="h-auto gap-1.5 rounded-pill bg-brand px-6 py-2.5 text-sm font-semibold hover:bg-brand-dark">
             <ArrowRight size={16} /> ส่งคำตอบ
-          </button>
+          </Button>
         )}
       </div>
     </div>
@@ -222,18 +223,19 @@ function LessonTabs({ tab, onTab }: { tab: Tab; onTab: (t: Tab) => void }) {
         const dot =
           st === 'done' ? 'bg-success text-white' : st === 'current' ? 'bg-[#F0A92B] text-white' : 'bg-surface-2 text-ink-mute'
         return (
-          <button
+          <Button
             key={key}
+            variant="ghost"
             onClick={() => onTab(key)}
-            className={`flex w-full items-center gap-2.5 rounded-pill px-3 py-2 text-sm font-medium ${
-              st === 'current' ? 'bg-premium/15 text-ink' : 'text-ink-soft hover:bg-surface-2'
+            className={`flex h-auto w-full items-center justify-start gap-2.5 rounded-pill px-3 py-2 text-sm font-medium ${
+              st === 'current' ? 'bg-premium/15 text-ink hover:bg-premium/15' : 'text-ink-soft hover:bg-surface-2'
             }`}
           >
             <span className={`flex h-6 w-6 items-center justify-center rounded-full ${dot}`}>
               <Icon size={13} fill={st !== 'todo' && key !== 'exam' ? 'currentColor' : 'none'} />
             </span>
             {label}
-          </button>
+          </Button>
         )
       })}
     </div>
@@ -255,12 +257,12 @@ function Sidebar({
   return (
     <div className="flex h-full flex-col">
       <div className="flex items-center justify-between px-4 pt-4">
-        <button onClick={() => (onClose ? onClose() : navigate('/'))} className="flex items-center gap-2 text-sm font-medium text-ink">
+        <Button variant="ghost" onClick={() => (onClose ? onClose() : navigate('/'))} className="h-auto gap-2 p-0 text-sm font-medium text-ink hover:bg-transparent">
           <ChevronLeft size={18} /> หน้าหลัก
-        </button>
-        <button onClick={onClose} className="text-ink-mute hover:text-ink">
+        </Button>
+        <Button variant="ghost" size="icon" onClick={onClose} className="h-8 w-8 text-ink-mute hover:bg-transparent hover:text-ink">
           {onClose ? <X size={18} /> : <PanelLeftClose size={18} />}
-        </button>
+        </Button>
       </div>
 
       <div className="px-4 pt-4">
@@ -273,9 +275,9 @@ function Sidebar({
         <div className="rounded-card bg-premium/10 p-3">
           <div className="flex items-start justify-between">
             <Crown size={18} className={tab === 'exam' ? 'text-success' : 'text-math-ink'} fill={tab === 'exam' ? '#1D9E75' : '#D9A441'} />
-            <button onClick={() => setExpanded((v) => !v)} className="text-ink-mute">
+            <Button variant="ghost" size="icon" onClick={() => setExpanded((v) => !v)} className="h-6 w-6 text-ink-mute hover:bg-transparent">
               {expanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
-            </button>
+            </Button>
           </div>
           <div className="mt-2 flex gap-2.5">
             <img src={thumb(current.id)} alt="" className="h-12 w-16 shrink-0 rounded-lg object-cover" />
@@ -287,16 +289,17 @@ function Sidebar({
         {/* other lessons */}
         <div className="mt-3 space-y-2">
           {others.slice(0, 4).map((l) => (
-            <button
+            <Button
               key={l.id}
+              variant="outline"
               onClick={() => navigate(`/learn/${subject}/${l.id}`)}
-              className="flex w-full items-center gap-2.5 rounded-card border border-line bg-surface-1 p-2 text-left hover:border-brand"
+              className="flex h-auto w-full items-center justify-start gap-2.5 rounded-card border-line bg-surface-1 p-2 text-left hover:border-brand hover:bg-surface-1"
             >
               <Crown size={14} className={l.free ? 'text-success' : 'text-math-ink'} fill={l.free ? '#1D9E75' : '#D9A441'} />
               <img src={thumb(l.id)} alt="" className="h-9 w-12 shrink-0 rounded object-cover" />
               <p className="line-clamp-2 min-w-0 flex-1 text-[11px] font-medium text-ink">{l.title}</p>
               <ChevronDown size={14} className="text-ink-mute" />
-            </button>
+            </Button>
           ))}
         </div>
 
@@ -304,14 +307,15 @@ function Sidebar({
         <div className="mt-6">
           <p className="mb-2 text-sm font-semibold text-ink">บทเรียนถัดไป</p>
           {others[4] && (
-            <button
+            <Button
+              variant="outline"
               onClick={() => navigate(`/learn/${subject}/${others[4].id}`)}
-              className="flex w-full items-center gap-2.5 rounded-card border border-line bg-surface-1 p-2 text-left hover:border-brand"
+              className="flex h-auto w-full items-center justify-start gap-2.5 rounded-card border-line bg-surface-1 p-2 text-left hover:border-brand hover:bg-surface-1"
             >
               <Crown size={14} className="text-math-ink" fill="#D9A441" />
               <img src={thumb(others[4].id)} alt="" className="h-9 w-12 shrink-0 rounded object-cover" />
               <p className="line-clamp-2 min-w-0 flex-1 text-[11px] font-medium text-ink">{others[4].title}</p>
-            </button>
+            </Button>
           )}
         </div>
       </div>
@@ -370,24 +374,25 @@ export default function LessonVideo() {
       {/* ===== Mobile ===== */}
       <div className="flex min-h-screen flex-col bg-surface-0 md:hidden">
         <header className="sticky top-0 z-20 flex items-center gap-2 border-b border-line bg-surface-0/95 px-3 py-3 backdrop-blur">
-          <button onClick={() => setDrawer(true)} aria-label="สารบัญ"><Menu size={20} className="text-ink" /></button>
-          <button onClick={() => navigate(-1)} aria-label="ย้อนกลับ"><ChevronLeft size={20} className="text-ink" /></button>
+          <Button variant="ghost" size="icon" onClick={() => setDrawer(true)} aria-label="สารบัญ" className="h-8 w-8 text-ink hover:bg-transparent"><Menu size={20} /></Button>
+          <Button variant="ghost" size="icon" onClick={() => navigate(-1)} aria-label="ย้อนกลับ" className="h-8 w-8 text-ink hover:bg-transparent"><ChevronLeft size={20} /></Button>
           <p className="min-w-0 flex-1 truncate text-sm font-medium text-ink">{title}</p>
-          <button aria-label="แชร์"><Share2 size={18} className="text-ink-soft" /></button>
+          <Button variant="ghost" size="icon" aria-label="แชร์" className="h-8 w-8 text-ink-soft hover:bg-transparent"><Share2 size={18} /></Button>
         </header>
 
         {/* tabs */}
         <div className="flex gap-2 overflow-x-auto border-b border-line bg-surface-1 px-3 py-2 no-scrollbar">
           {TABS.map(({ key: k, label, Icon }) => (
-            <button
+            <Button
               key={k}
+              variant="ghost"
               onClick={() => setTab(k)}
-              className={`flex shrink-0 items-center gap-1.5 rounded-pill px-3.5 py-1.5 text-sm font-medium ${
-                tab === k ? 'bg-brand text-white' : 'bg-surface-2 text-ink-soft'
+              className={`h-auto shrink-0 gap-1.5 rounded-pill px-3.5 py-1.5 text-sm font-medium ${
+                tab === k ? 'bg-brand text-white hover:bg-brand-dark' : 'bg-surface-2 text-ink-soft hover:bg-surface-2'
               }`}
             >
               <Icon size={14} /> {label}
-            </button>
+            </Button>
           ))}
         </div>
 
@@ -397,12 +402,12 @@ export default function LessonVideo() {
         </div>
 
         {/* FAB */}
-        <button
+        <Button
           onClick={() => setTab('practice')}
-          className="fixed bottom-5 right-5 z-20 flex items-center gap-1.5 rounded-pill bg-brand px-5 py-3 text-sm font-semibold text-white shadow-lg"
+          className="fixed bottom-5 right-5 z-20 h-auto gap-1.5 rounded-pill bg-brand px-5 py-3 text-sm font-semibold shadow-lg hover:bg-brand-dark"
         >
           <PencilLine size={16} /> ทำแบบฝึกหัด
-        </button>
+        </Button>
 
         {/* drawer */}
         {drawer && (
