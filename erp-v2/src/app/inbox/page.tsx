@@ -263,7 +263,7 @@ export default function InboxPage() {
   return (
     // owner 2026-10-05: list + chat side by side, the divider between them drags to resize the list
     // owner 2026-10-15: no margin — fills everything under the 3.5rem top bar
-    <div className="flex h-[calc(100vh-3.5rem)] overflow-hidden bg-card">
+    <div className="relative flex h-[calc(100vh-3.5rem)] overflow-hidden bg-card">
       {formSender.dialog}
       {/* Conversation list */}
       <div className="flex shrink-0 flex-col" style={{ width: listWidth }}>
