@@ -179,6 +179,17 @@ export function findOfferSlots(params: {
   return out.sort((a, b) => (a.date === b.date ? toMinutes(a.start) - toMinutes(b.start) : a.date < b.date ? -1 : 1))
 }
 
+const TH_DAY = ["อา.", "จ.", "อ.", "พ.", "พฤ.", "ศ.", "ส."]
+const TH_MONTH = ["ม.ค.", "ก.พ.", "มี.ค.", "เม.ย.", "พ.ค.", "มิ.ย.", "ก.ค.", "ส.ค.", "ก.ย.", "ต.ค.", "พ.ย.", "ธ.ค."]
+/** Inbox › Calendar Preview (owner 2026-10-22): the times the admin ticked → a reply for the parent, one line per day,
+ *  always Thai (it goes to the parent, whatever language the admin's screen is in) */
+export function freeTimesReply(subject: string, picks: { date: DateStr; start: TimeStr; end: TimeStr }[]): string {
+  const days = new Map<DateStr, string[]>()
+  for (const p of [...picks].sort((a, b) => (a.date + a.start).localeCompare(b.date + b.start))) days.set(p.date, [...(days.get(p.date) ?? []), `${p.start}–${p.end}`])
+  const lines = [...days].map(([date, times]) => { const d = new Date(`${date}T00:00:00`); return `• ${TH_DAY[d.getDay()]} ${d.getDate()} ${TH_MONTH[d.getMonth()]} ${times.join(", ")}` })
+  return `ช่วงเวลาที่ว่างสำหรับ${subject ? `วิชา${subject}` : "เรียน"}ค่ะ\n${lines.join("\n")}\nสะดวกช่วงไหนแจ้งได้เลยนะคะ 😊`
+}
+
 /** Maps an approved "generic" slot to a Session draft ready for store.addSession — trial:true
  *  for both form types since both precede payment. */
 export function buildSessionDraftFromSlot(slot: FormOfferSlot, subject: string, branchId: ID, studentId: ID, type: FormType): Omit<Session, "id" | "customized" | "cancelled"> {

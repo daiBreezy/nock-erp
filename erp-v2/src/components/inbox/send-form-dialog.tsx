@@ -275,8 +275,9 @@ function Legend() {
 }
 
 /** a subject's (or the one-visit) offerable times — one row per day, time buttons in a tidy grid */
-function SlotDays({ title, color, items, picked, onToggle, empty }: {
-  title: string; color?: string
+/** day rows of same-size time buttons — also the Inbox Calendar Preview's list (`tall`: no height cap, the panel scrolls) */
+export function SlotDays({ title, color, items, picked, onToggle, empty, tall }: {
+  title: string; color?: string; tall?: boolean
   items: { key: string; date: string; start: string; end: string; kind: "free" | "class"; label?: string }[]
   picked: Set<string>; onToggle: (key: string) => void; empty: string
 }) {
@@ -294,12 +295,12 @@ function SlotDays({ title, color, items, picked, onToggle, empty }: {
         <span className={cn("ml-auto rounded-full px-2 py-0.5 text-xs", count ? "bg-foreground text-background" : "bg-muted text-muted-foreground")}>เลือกแล้ว {count}</span>
       </div>
       {!items.length ? <p className="p-4 text-center text-xs text-muted-foreground">{empty}</p> : (
-        <div className="max-h-72 divide-y overflow-y-auto">
+        <div className={cn("divide-y", !tall && "max-h-72 overflow-y-auto")}>
           {days.map(([date, list]) => (
-            <div key={date} className="grid grid-cols-[6.5rem_1fr] gap-3 px-3 py-2.5">
-              <p className="pt-1.5 text-xs font-medium text-muted-foreground">{fmtDate(date, { weekday: true })}</p>
+            <div key={date} className={cn("grid gap-3 px-3 py-2.5", tall ? "gap-1.5" : "grid-cols-[6.5rem_1fr]")}>
+              <p className={cn("text-xs font-medium text-muted-foreground", !tall && "pt-1.5")}>{fmtDate(date, { weekday: true })}</p>
               {/* owner 2026-10-22: every time button the same size — a class's name sits on its second line (cut short, full on hover) */}
-              <div className="grid grid-cols-[repeat(auto-fill,minmax(7.5rem,1fr))] gap-1.5">
+              <div className={cn("grid gap-1.5", tall ? "grid-cols-[repeat(auto-fill,minmax(6.5rem,1fr))]" : "grid-cols-[repeat(auto-fill,minmax(7.5rem,1fr))]")}>
                 {list.map((it) => {
                   const on = picked.has(it.key)
                   return (

@@ -2,7 +2,7 @@
 
 import Link from "next/link"
 import { Fragment, useCallback, useEffect, useLayoutEffect, useRef, useState } from "react"
-import { BookOpenIcon, FileSignatureIcon, InfoIcon, PenLineIcon, PlusIcon, RadioIcon, ArrowUpIcon, Loader2Icon, SparklesIcon, UserSearchIcon, UserCheckIcon, ChevronDownIcon, CheckIcon, ClipboardListIcon, FileTextIcon, GraduationCapIcon, HeartHandshakeIcon, ImageIcon, LogOutIcon, MegaphoneIcon, LayoutTemplateIcon, ReceiptIcon, SearchIcon, UserPlusIcon, XIcon, GripVerticalIcon, CheckCircle2Icon } from "lucide-react"
+import { BookOpenIcon, CalendarSearchIcon, FileSignatureIcon, InfoIcon, PenLineIcon, PlusIcon, RadioIcon, ArrowUpIcon, Loader2Icon, SparklesIcon, UserSearchIcon, UserCheckIcon, ChevronDownIcon, CheckIcon, ClipboardListIcon, FileTextIcon, GraduationCapIcon, HeartHandshakeIcon, ImageIcon, LogOutIcon, MegaphoneIcon, LayoutTemplateIcon, ReceiptIcon, SearchIcon, UserPlusIcon, XIcon, GripVerticalIcon, CheckCircle2Icon } from "lucide-react"
 import { NativeSelect } from "@/components/app/native-select"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuSub, DropdownMenuSubContent, DropdownMenuSubTrigger, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { ExitRequestDialog } from "@/components/app/student-exit"
@@ -10,6 +10,7 @@ import { BroadcastDialog } from "@/components/inbox/broadcast-dialog"
 import { sendCatalogToChat, sendCustomFormToChat, sendSurveyToChat } from "@/lib/forms"
 import { useSendForm } from "@/components/forms/send-form"
 import { CatalogRequestCard } from "@/components/inbox/catalog-request-card"
+import { CalendarPanel } from "@/components/inbox/calendar-panel"
 import { SendEnrollDialog } from "@/components/inbox/send-enroll-dialog"
 import { InvoiceSheet } from "@/components/billing/invoice-sheet"
 import { Pill } from "@/components/app/badges"
@@ -163,7 +164,9 @@ export default function InboxPage() {
   // unless you scrolled up to read
   const scroller = useRef<HTMLDivElement>(null)
   const threadEnd = useRef<HTMLDivElement>(null)
-  const composer = useRef<HTMLInputElement>(null)
+  const composer = useRef<HTMLTextAreaElement>(null)
+  // owner 2026-10-22: Calendar Preview beside the chat (free times → reply text · the week's sessions)
+  const [calOpen, setCalOpen] = useState(false)
   const atBottom = useRef(true)
   useLayoutEffect(() => { atBottom.current = true; threadEnd.current?.scrollIntoView({ block: "end" }) }, [selectedId])
   useLayoutEffect(() => { if (atBottom.current) threadEnd.current?.scrollIntoView({ block: "end" }) }, [thread.length])
@@ -381,6 +384,7 @@ export default function InboxPage() {
                   {selected.assigneeId && <><DropdownMenuSeparator /><DropdownMenuItem onClick={() => report(assign(selected.id, null), "ยกเลิกมอบหมายแล้ว")}>ยกเลิกมอบหมาย</DropdownMenuItem></>}
                 </DropdownMenuContent>
               </DropdownMenu>
+              <Button size="icon-sm" variant={calOpen ? "default" : "outline"} aria-label="ปฏิทิน / หาเวลาว่าง" title="ปฏิทิน / หาเวลาว่าง" onClick={() => setCalOpen((o) => !o)}><CalendarSearchIcon /></Button>
               <Button
                 size="icon-sm" variant="outline" aria-label="ข้อมูลติดต่อ"
                 onClick={() => { if (family) setOpenFamilyId(family.id); else if (lead) setOpenLeadId(lead.id); else setLinking(true) }}
@@ -484,8 +488,9 @@ export default function InboxPage() {
                     </DropdownMenuContent>
                   </DropdownMenu>
                   <input ref={imageInput} type="file" accept="image/*" hidden onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ""; if (f) uploadImage(f) }} />
-                  <Input ref={composer} value={draft} onChange={(e) => setDraft(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); submit() } }}
-                    placeholder="พิมพ์ตอบผู้ปกครอง… (// สำหรับโน้ตภายใน)" className="h-9 flex-1 border-0 bg-transparent px-1 shadow-none focus-visible:ring-0 dark:bg-transparent" />
+                  {/* grows with the text (times from the Calendar Preview come in several lines) · Enter sends, Shift+Enter = new line */}
+                  <textarea ref={composer} rows={1} value={draft} onChange={(e) => setDraft(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) { e.preventDefault(); submit() } }}
+                    placeholder="พิมพ์ตอบผู้ปกครอง… (// สำหรับโน้ตภายใน)" className={cn("max-h-40 min-h-9 flex-1", draft ? "field-sizing-content" : "h-9 overflow-hidden whitespace-nowrap", "resize-none bg-transparent px-1 py-2 text-sm outline-none placeholder:text-muted-foreground")} />
                   <Button size="icon" className="rounded-full" onClick={submit} disabled={!draft.trim() || sending} aria-label={sending ? "กำลังส่ง…" : "ส่ง"}>{sending ? <Loader2Icon className="animate-spin" /> : <ArrowUpIcon />}</Button>
                 </div>
                 <div className="flex items-center justify-between px-3 text-[11px] text-muted-foreground">
@@ -504,6 +509,10 @@ export default function InboxPage() {
         )}
       </div>
 
+      {calOpen && selected && (
+        <CalendarPanel key={selected.id} branchId={lead?.branchId ?? selected.branchId} subject={lead?.subject} onClose={() => setCalOpen(false)}
+          onInsert={(text) => { setDraft((d) => (d.trim() ? `${d}\n${text}` : text)); composer.current?.focus() }} />
+      )}
       {invoicePanel && <InvoiceSheet id={invoicePanel.id} defaultStudentId={invoicePanel.studentId} slipMediaId={invoicePanel.slip} onClose={() => setInvoicePanel(null)} />}
       {sendingEnroll && selected && <SendEnrollDialog conversationId={selected.id} onClose={() => setSendingEnroll(false)} onInvoice={() => openInvoice()} />}
       {composing && <ComposeDialog onClose={() => setComposing(false)} onSent={(id) => { setComposing(false); if (id) select(id) }} />}

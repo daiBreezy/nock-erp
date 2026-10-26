@@ -33,3 +33,11 @@ describe("course catalog (owner 2026-10-22)", () => {
     expect(requestText("trial", { name: "Math P4", weekday: 6, start: "10:00", minutes: 90 })).toBe("📅 ขอนัดทดลองเรียน: Math P4 · ทุก ส. 10:00–11:30")
   })
 })
+
+describe("Inbox calendar preview (owner 2026-10-22)", () => {
+  it("ticked times → one Thai line per day, in order", async () => {
+    const { freeTimesReply } = await import("./forms")
+    const text = freeTimesReply("คณิต", [{ date: "2026-10-24", start: "13:00", end: "14:00" }, { date: "2026-10-24", start: "10:00", end: "11:00" }, { date: "2026-10-26", start: "16:00", end: "17:00" }])
+    expect(text.split("\n")).toEqual(["ช่วงเวลาที่ว่างสำหรับวิชาคณิตค่ะ", "• ส. 24 ต.ค. 10:00–11:00, 13:00–14:00", "• จ. 26 ต.ค. 16:00–17:00", "สะดวกช่วงไหนแจ้งได้เลยนะคะ 😊"])
+  })
+})
