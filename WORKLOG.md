@@ -5,6 +5,16 @@
 
 ---
 
+## 2026-10-26 — Web App: shadcn เฟส 3 (Home + home/*)
+
+- **การ์ดแถว → Card asChild:** HomeworkCard · ShareCard · GoalEntry · ExamStrip (การ์ดสอบ)
+- **ปุ่ม/ลิงก์ → Button:** ExamStrip "ดูทั้งหมด" (link) · LiveNext toggle ประถม/มัธยม
+- **chip → Badge:** LiveNext (LIVE / ป.4-6) · ScheduleStrip (พรีเมียม) · ExamStrip (จำนวนข้อ / สถานะ)
+- **คงเป็น custom (ตั้งใจ):** Banner (carousel) · SubjectGrid + ScheduleStrip card (พื้นสีวิชา) · SystemUpdate (แถบสี) · grade chip พื้นสีวิชา
+- ✅ `tsc -b` / `vite build` ผ่าน · Playwright ยืนยันหน้า Home ครบ (มือถือ)
+
+---
+
 ## 2026-10-26 — Web App: shadcn เฟส 2 (marketing shell + เมนูมือถือ)
 
 - **component ใหม่:** `avatar`, `sheet` (+ ของเฟส 1: button/card/badge/select/dialog/dropdown-menu)

@@ -4,27 +4,25 @@ import { Bookmark, Users, Radio } from 'lucide-react'
 import { liveNext } from '../../data/mock'
 import { subjectBg, subjectText } from '../../lib/subject'
 import SectionTitle from '../SectionTitle'
+import { Button } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
 
 export default function LiveNext() {
   const navigate = useNavigate()
   const [level, setLevel] = useState<'primary' | 'secondary'>('primary')
+  const toggleCls = (on: boolean) =>
+    `h-auto rounded-pill px-3 py-1 text-xs font-normal ${on ? '' : 'text-ink-soft hover:bg-transparent hover:text-ink'}`
   return (
     <section className="px-4 pt-4">
       <SectionTitle
         right={
           <div className="flex rounded-pill bg-surface-2 p-0.5 text-xs">
-            <button
-              onClick={() => setLevel('primary')}
-              className={`rounded-pill px-3 py-1 ${level === 'primary' ? 'bg-brand text-white' : 'text-ink-soft'}`}
-            >
+            <Button variant={level === 'primary' ? 'default' : 'ghost'} onClick={() => setLevel('primary')} className={toggleCls(level === 'primary')}>
               ประถม
-            </button>
-            <button
-              onClick={() => setLevel('secondary')}
-              className={`rounded-pill px-3 py-1 ${level === 'secondary' ? 'bg-brand text-white' : 'text-ink-soft'}`}
-            >
+            </Button>
+            <Button variant={level === 'secondary' ? 'default' : 'ghost'} onClick={() => setLevel('secondary')} className={toggleCls(level === 'secondary')}>
               มัธยม
-            </button>
+            </Button>
           </div>
         }
       >
@@ -35,12 +33,12 @@ export default function LiveNext() {
         <div
           className={`${subjectBg[liveNext.subject]} relative flex h-40 items-end rounded-card p-3`}
         >
-          <span className="absolute left-3 top-3 flex items-center gap-1 rounded-pill bg-live px-2 py-1 text-[11px] font-medium text-white">
+          <Badge className="absolute left-3 top-3 gap-1 rounded-pill border-transparent bg-live px-2 py-1 text-[11px] font-medium text-white hover:bg-live">
             <Radio size={11} /> LIVE
-          </span>
-          <span className="absolute right-3 top-3 rounded-pill bg-white/70 px-2.5 py-1 text-[11px] font-medium text-ink">
+          </Badge>
+          <Badge className="absolute right-3 top-3 rounded-pill border-transparent bg-white/70 px-2.5 py-1 text-[11px] font-medium text-ink hover:bg-white/70">
             {liveNext.badge}
-          </span>
+          </Badge>
           <div className="rounded-xl bg-white/55 px-3 py-2 backdrop-blur-sm">
             <p className={`text-[13px] font-medium ${subjectText[liveNext.subject]}`}>
               คณิตศาสตร์ · {liveNext.date}

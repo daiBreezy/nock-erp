@@ -2,6 +2,7 @@ import { useNavigate } from 'react-router-dom'
 import { schedule } from '../../data/mock'
 import { subjectBg, subjectText } from '../../lib/subject'
 import SectionTitle from '../SectionTitle'
+import { Badge } from '@/components/ui/badge'
 
 export default function ScheduleStrip() {
   const navigate = useNavigate()
@@ -24,9 +25,9 @@ export default function ScheduleStrip() {
                 {s.grade}
               </span>
               {s.premium && (
-                <span className="rounded-md bg-premium px-1.5 py-0.5 text-[10px] font-medium text-white">
+                <Badge className="rounded-md border-transparent bg-premium px-1.5 py-0.5 text-[10px] font-medium text-white hover:bg-premium">
                   พรีเมียม
-                </span>
+                </Badge>
               )}
             </div>
             <p className={`mt-2 text-[13px] font-medium ${subjectText[s.subject]}`}>

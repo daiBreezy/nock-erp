@@ -2,16 +2,21 @@ import { Timer, ChevronRight, Circle } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { homeworkRoom } from '../../data/mock'
 import SectionTitle from '../SectionTitle'
+import { Card } from '@/components/ui/card'
 
 export default function HomeworkCard() {
   const navigate = useNavigate()
   return (
     <section className="px-4 pt-5">
       <SectionTitle>ห้องทำการบ้าน</SectionTitle>
-      <button
-        onClick={() => navigate('/homework')}
-        className="flex w-full items-center gap-3 rounded-card border border-line bg-surface-1 p-3.5 text-left active:scale-[0.99]"
+      <Card
+        asChild
+        className="rounded-card border-line bg-surface-1 shadow-none"
       >
+        <button
+          onClick={() => navigate('/homework')}
+          className="flex w-full items-center gap-3 p-3.5 text-left active:scale-[0.99]"
+        >
         <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-success/10">
           <Timer size={24} className="text-success" />
         </div>
@@ -22,8 +27,9 @@ export default function HomeworkCard() {
             {homeworkRoom.online} คนกำลังเรียน · จับเวลาโฟกัส
           </p>
         </div>
-        <ChevronRight size={20} className="text-ink-mute" />
-      </button>
+          <ChevronRight size={20} className="text-ink-mute" />
+        </button>
+      </Card>
     </section>
   )
 }
