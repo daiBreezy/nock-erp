@@ -5,6 +5,15 @@
 
 ---
 
+## 2026-10-26 — Web App: เตรียมขึ้น Vercel (ยังไม่เคยขึ้น)
+
+- พบว่า **web-app ไม่เคยขึ้น Vercel** — ที่ขึ้นไว้คือ **erp-v2** เท่านั้น (https://nock-erp-three.vercel.app, Root = erp-v2, ตั้งค่าใน dashboard ไม่มี vercel.json)
+- เพิ่ม **`web-app/app/vercel.json`** (framework vite · build `npm run build` · output `dist` · install `npm install --legacy-peer-deps` เพราะ React 19 + Radix) — ไม่กระทบ erp-v2 (คนละ root)
+- **ขั้นตอนฝั่งเจ้าของ (ต้องทำเองใน Vercel):** vercel.com → Add New Project → เลือก repo `nock-erp` → **Root Directory = `web-app/app`** → Deploy · push main = อัปเดตลิงก์เอง (ได้ URL ที่ 2 แยกจาก erp-v2)
+- Preview ชั่วคราว (snapshot, เฉพาะบัญชีเจ้าของ): Artifact https://claude.ai/artifact/E168eiS1Dp4qSzpqnsE8hD (กดเมนู โรงเรียน / `#/school`)
+
+---
+
 ## 2026-10-26 — Web App: เริ่มแปลงเป็น shadcn/ui (เฟส 1 — Foundation + หน้า School)
 
 > เป้าหมายใหญ่: แปลง web-app ทั้งโปรเจกต์ (77 ไฟล์ / 46 หน้า) เป็น shadcn/ui — ทำเป็นเฟสๆ verify ทุกเฟส
