@@ -7,10 +7,11 @@ import DesktopNav from '@/web/components/DesktopNav'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import type { SubjectKey } from '@/data/mock'
-import { clipGroups, subjectMeta } from '@/data/learn'
+import { clipGroups } from '@/data/learn'
 import { subjectBg, subjectText } from '@/lib/subject'
 import { bannerImg, thumb } from '@/data/media'
 import Thumbnail from '@/web/components/Thumbnail'
+import { GradeBadge, SubjectBadge } from '@/components/LearnBadges'
 
 // stroke สำหรับ Ring — เขียน class เต็มให้ Tailwind เห็น
 const subjectStroke: Record<SubjectKey, string> = {
@@ -87,18 +88,6 @@ function TierCrown({ free }: { free: boolean }) {
   return <Crown size={14} className={free ? 'text-success' : 'text-math-ink'} fill={free ? '#1D9E75' : '#D9A441'} />
 }
 
-function Tag({ children, subject }: { children: React.ReactNode; subject?: SubjectKey }) {
-  return (
-    <span
-      className={`rounded-pill px-2 py-0.5 text-[10px] font-medium ${
-        subject ? `${subjectBg[subject]} ${subjectText[subject]}` : 'bg-surface-2 text-ink-soft'
-      }`}
-    >
-      {children}
-    </span>
-  )
-}
-
 function IconBtn({ children }: { children: React.ReactNode }) {
   return (
     <Button variant="outline" size="icon" className="h-8 w-8 rounded-full border-line bg-transparent text-ink-soft shadow-none hover:border-brand hover:bg-transparent hover:text-brand">
@@ -131,9 +120,9 @@ function VideoCard({ card, onClick, variant = 'lesson' }: { card: Card; onClick:
         {card.title}
       </p>
       <div className="mt-1.5 flex flex-wrap gap-1">
-        <Tag subject={card.subject}>{subjectMeta[card.subject].label}</Tag>
-        <Tag>ป.5</Tag>
-        <Tag>ป.6</Tag>
+        <SubjectBadge subject={card.subject} />
+        <GradeBadge grade="ป.5" />
+        <GradeBadge grade="ป.6" />
       </div>
     </button>
   )
@@ -215,7 +204,7 @@ function DesktopHub() {
             ตะลุยแนวข้อสอบ จุฬาภรณ สอบเข้า ม.1 ตอนที่ 4 จำนวนเฉพาะ ห.ร.ม.และ ค.ร.น. (เสริม)
           </h2>
           <div className="mt-3 flex flex-wrap gap-1.5">
-            <Tag subject="math">คณิตศาสตร์</Tag><Tag>ป.5</Tag><Tag>ป.6</Tag>
+            <SubjectBadge subject="math" /><GradeBadge grade="ป.5" /><GradeBadge grade="ป.6" />
           </div>
           <Button onClick={() => navigate('/live/next')} className="mt-5 h-auto w-fit gap-2 rounded-pill bg-brand px-6 py-3 text-sm font-semibold hover:bg-brand-dark">
             <ArrowRight size={16} /> เข้าชมไลฟ์สด
@@ -259,7 +248,7 @@ function DesktopHub() {
                 ตะลุยแนวข้อสอบ จุฬาภรณ สอบเข้า ม.1 ตอนที่ 4 จำนวนเฉพาะ ห.ร.ม.และ ค.ร.น...
               </p>
               <div className="mt-1.5 flex flex-wrap gap-1">
-                <Tag subject={s.subject}>{subjectMeta[s.subject].label}</Tag><Tag>ป.5</Tag><Tag>ป.6</Tag>
+                <SubjectBadge subject={s.subject} /><GradeBadge grade="ป.5" /><GradeBadge grade="ป.6" />
               </div>
             </div>
           ))}
@@ -292,7 +281,7 @@ function DesktopHub() {
                 {g.tags.map((t) => (
                   <span key={t} className="rounded-pill bg-white/60 px-2 py-0.5 text-[10px] font-medium text-ink-soft">{t}</span>
                 ))}
-                <span className="rounded-pill bg-white/60 px-2 py-0.5 text-[10px] font-medium text-ink-soft">ป.6</span>
+                <GradeBadge grade="ป.6" className="bg-white/60" />
               </div>
             </button>
           ))}
@@ -356,7 +345,7 @@ function DesktopHub() {
                   เตรียมสอบเข้า รร.ดัง (จุฬาภรณ, เตรียมอุดมฯ, สวนกุหลาบ)
                 </p>
                 <div className="mt-2 flex flex-wrap gap-1">
-                  <Tag subject={tone}>{subjectMeta[tone].label}</Tag><Tag>อังกฤษ</Tag>
+                  <SubjectBadge subject={tone} /><SubjectBadge subject="english" />
                 </div>
               </div>
             </button>

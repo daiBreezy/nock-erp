@@ -3,12 +3,17 @@ import { useAppLayout } from '@/app/layout'
 import { useNavigate, useParams } from 'react-router-dom'
 import {
   ChevronLeft, ChevronRight, PanelLeftClose, Play, Check, Crown,
-  Download, Volume2, Maximize, PencilLine, Menu, Share2, X, ArrowRight, RotateCcw,
+  PencilLine, Menu, X, ArrowRight, RotateCcw,
 } from 'lucide-react'
 import { thumb } from '@/data/media'
 import type { SubjectKey } from '@/data/mock'
 import { clipGroups, subjectMeta, findVideo } from '@/data/learn'
 import { Button } from '@/components/ui/button'
+import WatchPlayer from '@/components/watch/WatchPlayer'
+import RelatedVideos from '@/components/watch/RelatedVideos'
+import { ChannelRow, DescriptionBox, DocumentsRow, WatchTitle } from '@/components/watch/WatchInfo'
+import { teacherOf } from '@/data/watch'
+import { gradeCode } from '@/lib/labels'
 import { Sheet, SheetContent, SheetTitle } from '@/components/ui/sheet'
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable'
 import { useSavedLayout } from '@/lib/useSavedLayout'
@@ -22,52 +27,6 @@ const TABS: { key: Tab; label: string; Icon: typeof Play }[] = [
 ]
 
 /* ---------- shared pieces ---------- */
-
-function Player() {
-  return (
-    <div className="relative flex aspect-video items-center justify-center overflow-hidden bg-ink md:rounded-none">
-      <img src={thumb('lesson-main')} alt="" className="absolute inset-0 h-full w-full object-cover" />
-      <Button size="icon" className="relative z-10 h-16 w-16 rounded-full bg-white/85 text-brand transition hover:scale-105 hover:bg-white [&_svg]:size-7">
-        <Play size={28} className="ml-1" fill="currentColor" />
-      </Button>
-      <div className="absolute bottom-3 left-4 right-4 z-10 flex items-center justify-between text-white">
-        <Play size={18} />
-        <div className="flex items-center gap-3">
-          <Volume2 size={18} />
-          <Maximize size={18} />
-        </div>
-      </div>
-    </div>
-  )
-}
-
-function Details({ title, subject }: { title: string; subject: SubjectKey }) {
-  return (
-    <>
-      <h1 className="text-lg font-bold leading-snug text-ink md:text-xl">{title}</h1>
-      <div className="mt-2 flex flex-wrap gap-1.5">
-        <span className="rounded-pill bg-brand-soft px-2.5 py-0.5 text-xs font-medium text-brand">{subjectMeta[subject].label}</span>
-        <span className="rounded-pill bg-brand-soft px-2.5 py-0.5 text-xs font-medium text-brand">ป.5</span>
-        <span className="rounded-pill bg-brand-soft px-2.5 py-0.5 text-xs font-medium text-brand">ป.6</span>
-      </div>
-
-      <h2 className="mt-6 text-sm font-semibold text-ink">เอกสารประกอบการเรียน</h2>
-      <div className="mt-2 grid gap-3 sm:grid-cols-2">
-        {['จำนวนเต็ม (เอกสาร)', 'จำนวนเต็ม (สไลด์)'].map((d) => (
-          <Button key={d} variant="ghost" className="flex h-auto items-center justify-start gap-3 rounded-card bg-brand-soft/70 p-3 text-left hover:bg-brand-soft">
-            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-white text-brand">📄</span>
-            <div className="min-w-0 flex-1">
-              <p className="text-[11px] font-normal text-ink-mute">{subjectMeta[subject].label}</p>
-              <p className="truncate text-sm font-medium text-ink">{d}</p>
-              <p className="text-[11px] font-normal text-ink-mute">ครูพี่ดาว · ป.6</p>
-            </div>
-            <Download size={18} className="text-ink-soft" />
-          </Button>
-        ))}
-      </div>
-    </>
-  )
-}
 
 /* ---------- แบบฝึกหัด / แบบทดสอบ ---------- */
 
@@ -353,14 +312,73 @@ export default function LessonVideo() {
     })),
   )
   const title = 'ตะลุยแนวข้อสอบ จุฬาภรณ สอบเข้า ม.1 ตอนที่ 4 จำนวนเฉพาะ ห.ร.ม.และ ค.ร.น. (เสริม)'
-  const courseTitle = `${subjectMeta[key].label} (พื้นฐาน) ม.1`
+  const courseTitle = `${subjectMeta[key].label} (พื้นฐาน) ${gradeCode(group.grade)}`
+  const teacher = teacherOf[key]
 
   const sidebarProps = {
     subject: key, courseTitle, groupTitle: `บทที่ 1 ${group.title}`,
     lessons, currentId: video.id, tab, onTab: setTab,
   }
 
-  // Tablet แนวนอน (แบบ ค): สารบัญซ้ายค้างไว้ | วิดีโอ + เนื้อหาขวา
+  // เนื้อหาหลัก (แบบ YouTube): ชื่อ · ครู + ปุ่ม · รายละเอียด · เอกสาร — หรือแบบฝึกหัด / แบบทดสอบ · แล้ววิดีโอที่เกี่ยวข้อง
+  const body = (
+    <div className="mx-auto max-w-[1280px] space-y-4 px-4 pb-12 pt-4 md:px-6">
+      {tab === 'lesson' ? (
+        <>
+          <WatchTitle>{title}</WatchTitle>
+          <ChannelRow teacher={teacher} />
+          <DescriptionBox stats={`1.2K ครั้ง · 3 วันที่แล้ว · ${video.duration} นาที`} subject={key} grades={[group.grade]}>
+            {`${courseTitle} · ${group.title}\nบทเรียน "${video.title}" อธิบายแนวคิดทีละขั้น พร้อมตัวอย่างโจทย์\nเรียนจบแล้วลองทำแบบฝึกหัดและแบบทดสอบท้ายบทได้เลย`}
+          </DescriptionBox>
+          <DocumentsRow subject={key} teacher={teacher} />
+        </>
+      ) : (
+        <TabPanel tab={tab} />
+      )}
+      <RelatedVideos subject={key} grade={group.grade} excludeId={`${key}/${video.id}`} className="pt-2" />
+    </div>
+  )
+
+  // แถบใต้วิดีโอ (จอแคบ): สารบัญ + บทเรียน / แบบฝึกหัด / แบบทดสอบ
+  const toolbar = (
+    <div className="no-scrollbar flex items-center gap-2 overflow-x-auto border-b border-line bg-surface-0 px-3 py-2">
+      <Button variant="ghost" onClick={() => setDrawer(true)} className="h-8 shrink-0 gap-1.5 rounded-lg bg-surface-2 px-3 text-sm font-medium text-ink hover:bg-line [&_svg]:size-4">
+        <Menu size={16} /> สารบัญ
+      </Button>
+      {TABS.map(({ key: k, label, Icon }) => (
+        <Button
+          key={k}
+          variant="ghost"
+          onClick={() => setTab(k)}
+          className={`h-8 shrink-0 gap-1.5 rounded-lg px-3 text-sm font-medium [&_svg]:size-3.5 ${
+            tab === k ? 'bg-ink text-white hover:bg-ink hover:text-white' : 'bg-surface-2 text-ink hover:bg-line'
+          }`}
+        >
+          <Icon size={14} /> {label}
+        </Button>
+      ))}
+    </div>
+  )
+
+  const drawerSheet = (
+    <Sheet open={drawer} onOpenChange={setDrawer}>
+      <SheetContent side="left" hideClose className="w-[85%] max-w-[340px] bg-surface-1 p-0 sm:max-w-[340px]">
+        <SheetTitle className="sr-only">สารบัญบทเรียน</SheetTitle>
+        <Sidebar {...sidebarProps} onClose={() => setDrawer(false)} />
+      </SheetContent>
+    </Sheet>
+  )
+
+  const fab = (
+    <Button
+      onClick={() => setTab('practice')}
+      className="fixed bottom-5 right-5 z-20 h-auto gap-1.5 rounded-pill bg-brand px-5 py-3 text-sm font-semibold shadow-lg hover:bg-brand-dark"
+    >
+      <PencilLine size={16} /> ทำแบบฝึกหัด
+    </Button>
+  )
+
+  // Tablet แนวนอน (แบบ ค): สารบัญซ้าย | วิดีโอ + เนื้อหาขวา (ลากปรับขนาดได้)
   if (layout === 'tablet-landscape') {
     return (
       <ResizablePanelGroup {...split} orientation="horizontal" className="!h-[100dvh] bg-surface-0">
@@ -370,70 +388,24 @@ export default function LessonVideo() {
         <ResizableHandle withHandle />
         <ResizablePanel id="main" minSize="40%">
           <div className="h-full overflow-y-auto">
-            <header className="sticky top-0 z-20 flex items-center gap-2 border-b border-line bg-surface-0/95 px-4 py-3 backdrop-blur">
-              <Button variant="ghost" size="icon" onClick={() => navigate(-1)} aria-label="ย้อนกลับ" className="h-8 w-8 text-ink hover:bg-transparent"><ChevronLeft size={20} /></Button>
-              <p className="min-w-0 flex-1 truncate text-sm font-medium text-ink">{title}</p>
-              <Button variant="ghost" size="icon" aria-label="แชร์" className="h-8 w-8 text-ink-soft hover:bg-transparent"><Share2 size={18} /></Button>
-            </header>
-            <Player />
-            <div className="max-w-4xl px-6 py-5">
-              {tab === 'lesson' ? <Details title={title} subject={key} /> : <TabPanel tab={tab} />}
-            </div>
+            <WatchPlayer src={thumb('lesson-main')} time={`3:12 / ${video.duration}`} onBack={() => navigate(-1)} fitHeight />
+            {body}
           </div>
         </ResizablePanel>
       </ResizablePanelGroup>
     )
   }
 
+  // มือถือ / Tablet แนวตั้ง: วิดีโอค้างด้านบน (แบบ YouTube app)
   return (
-    <div className="min-h-screen bg-surface-0">
-      {/* ===== Mobile ===== */}
-      <div className="flex min-h-[100dvh] flex-col bg-surface-0">
-        <header className="sticky top-0 z-20 flex items-center gap-2 border-b border-line bg-surface-0/95 px-3 py-3 backdrop-blur">
-          <Button variant="ghost" size="icon" onClick={() => setDrawer(true)} aria-label="สารบัญ" className="h-8 w-8 text-ink hover:bg-transparent"><Menu size={20} /></Button>
-          <Button variant="ghost" size="icon" onClick={() => navigate(-1)} aria-label="ย้อนกลับ" className="h-8 w-8 text-ink hover:bg-transparent"><ChevronLeft size={20} /></Button>
-          <p className="min-w-0 flex-1 truncate text-sm font-medium text-ink">{title}</p>
-          <Button variant="ghost" size="icon" aria-label="แชร์" className="h-8 w-8 text-ink-soft hover:bg-transparent"><Share2 size={18} /></Button>
-        </header>
-
-        {/* tabs */}
-        <div className="flex gap-2 overflow-x-auto border-b border-line bg-surface-1 px-3 py-2 no-scrollbar">
-          {TABS.map(({ key: k, label, Icon }) => (
-            <Button
-              key={k}
-              variant="ghost"
-              onClick={() => setTab(k)}
-              className={`h-auto shrink-0 gap-1.5 rounded-pill px-3.5 py-1.5 text-sm font-medium ${
-                tab === k ? 'bg-brand text-white hover:bg-brand-dark' : 'bg-surface-2 text-ink-soft hover:bg-surface-2'
-              }`}
-            >
-              <Icon size={14} /> {label}
-            </Button>
-          ))}
-        </div>
-
-        <Player />
-        <div className="flex-1 px-4 py-4">
-          {tab === 'lesson' ? <Details title={title} subject={key} /> : <TabPanel tab={tab} />}
-        </div>
-
-        {/* FAB */}
-        <Button
-          onClick={() => setTab('practice')}
-          className="fixed bottom-5 right-5 z-20 h-auto gap-1.5 rounded-pill bg-brand px-5 py-3 text-sm font-semibold shadow-lg hover:bg-brand-dark"
-        >
-          <PencilLine size={16} /> ทำแบบฝึกหัด
-        </Button>
-
-        {/* drawer */}
-        {/* สารบัญ — Sheet เลื่อนจากซ้าย */}
-        <Sheet open={drawer} onOpenChange={setDrawer}>
-          <SheetContent side="left" hideClose className="w-[85%] max-w-[340px] bg-surface-1 p-0 sm:max-w-[340px]">
-            <SheetTitle className="sr-only">สารบัญบทเรียน</SheetTitle>
-            <Sidebar {...sidebarProps} onClose={() => setDrawer(false)} />
-          </SheetContent>
-        </Sheet>
+    <div className="min-h-[100dvh] bg-surface-0">
+      <div className="sticky top-0 z-20">
+        <WatchPlayer src={thumb('lesson-main')} time={`3:12 / ${video.duration}`} onBack={() => navigate(-1)} />
+        {toolbar}
       </div>
+      {body}
+      {fab}
+      {drawerSheet}
     </div>
   )
 }

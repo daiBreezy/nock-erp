@@ -3,6 +3,7 @@ import { schedule } from '../../data/mock'
 import { subjectBg, subjectText } from '../../lib/subject'
 import SectionTitle from '../SectionTitle'
 import { Badge } from '@/components/ui/badge'
+import { gradeCode } from '@/lib/labels'
 
 export default function ScheduleStrip() {
   const navigate = useNavigate()
@@ -22,7 +23,7 @@ export default function ScheduleStrip() {
           >
             <div className="flex items-center justify-between">
               <span className={`rounded-md bg-white/50 px-1.5 py-0.5 text-[11px] font-medium ${subjectText[s.subject]}`}>
-                {s.grade}
+                {gradeCode(s.grade)}
               </span>
               {s.premium && (
                 <Badge className="rounded-md border-transparent bg-premium px-1.5 py-0.5 text-[10px] font-medium text-white hover:bg-premium">

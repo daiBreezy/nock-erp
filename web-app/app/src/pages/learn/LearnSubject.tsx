@@ -5,6 +5,7 @@ import type { SubjectKey } from '../../data/mock'
 import { clipGroups, subjectMeta } from '../../data/learn'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
+import { gradeCode } from '@/lib/labels'
 
 export default function LearnSubject() {
   const navigate = useNavigate()
@@ -59,7 +60,7 @@ export default function LearnSubject() {
                 </div>
                 <div className="min-w-0 flex-1">
                   <p className="text-sm font-medium text-ink">{g.title}</p>
-                  <p className="mt-0.5 text-xs font-normal text-ink-soft">{g.grade} · {g.videos.length} วิดีโอ · ดูแล้ว {watched}</p>
+                  <p className="mt-0.5 text-xs font-normal text-ink-soft">{gradeCode(g.grade)} · {g.videos.length} วิดีโอ · ดูแล้ว {watched}</p>
                 </div>
                 <ChevronDown size={20} className={`text-ink-mute transition ${isOpen ? 'rotate-180' : ''}`} />
               </Button>
