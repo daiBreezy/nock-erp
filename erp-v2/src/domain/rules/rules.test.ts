@@ -13,7 +13,7 @@ import { chatDayLabel, groupByDay } from "./inbox"
 import { familyFromLead, familyFromSubmission, familyNameFor, splitName, joinName, futureSessionsOf, matchExistingFamily, mergeSubmission, nicknameFrom, searchStudents, studentLabel, submissionChanges, validateFamily, validateStaff, validateStudent } from "./people"
 import { suggestFixes } from "./suggest"
 import { advanceStage, canSetStage, daysAgo, groupOf, restoreStage, siblingLead, validateLead } from "./crm"
-import { APPROVE_STAGE, ATTENDED_STAGE, buildFormPrefill, commonSlots, buildCombinedSessionDraft, buildSessionDraftFromSlot, findOfferSlots, lastAssessmentDate, openHourStarts, sessionKindLabel } from "./forms"
+import { APPROVE_STAGE, ATTENDED_STAGE, buildFormPrefill, commonSlots, buildCombinedSessionDraft, buildSessionDraftFromSlot, findOfferSlots, lastAssessmentDate, openHourStarts, planApproval, priorApproval, sessionKindLabel } from "./forms"
 import { customerRows, filterCustomers } from "./customers"
 import { invoiceMessage } from "./messages"
 import * as Refund from "./refunds"
@@ -1006,6 +1006,55 @@ describe("one visit for several subjects (owner 2026-09-30)", () => {
     const r = commonSlots(offers, ["Maths", "English"])
     expect(r.map((x) => `${x.date} ${x.start} ${x.minutes}`)).toEqual(["2026-10-01 13:00 120"])
     expect(Object.keys(r[0].bySubject)).toEqual(["Maths", "English"])
+  })
+})
+
+// grill (owner 2026-10-27): approving a Test/Trial form must be all-or-nothing and idempotent — the old
+// store loop booked each pick then `set` it, so a later pick failing left the first as an orphan Session,
+// and a re-approve after a transient error double-booked everything.
+describe("form approval is all-or-nothing + idempotent (grill 2026-10-27)", () => {
+  const teacher2 = staff("t2", ["teacher"])
+  const gen = (subject: string, date: string, start: string, teacherId = "t1", roomId = "r1"): FormOfferSlot =>
+    ({ id: `${subject}-${date}-${start}`, date, start, minutes: 60, source: "generic", teacherId, roomId, classId: null, sessionId: null })
+  const pick = (subject: string, slot: FormOfferSlot) => ({ chosenSubject: subject, chosenSlot: slot })
+  const base = { type: "test" as const, branch, staff: [teacher, teacher2], holidays, now: new Date("2026-09-20T09:00:00") }
+
+  it("one infeasible pick (a holiday) fails the whole approval — nothing is booked, so no orphan session", () => {
+    const r = planApproval({ ...base, sessions: [], picks: [pick("Maths", gen("Maths", "2026-10-01", "10:00")), pick("Maths", gen("Maths", "2026-10-13", "10:00"))] })
+    expect(r.ok).toBe(false)
+    if (!r.ok) expect(r.error).toContain("วันหยุด")
+  })
+
+  it("every pick feasible → one plan booking all of them, each as a new session", () => {
+    const r = planApproval({ ...base, sessions: [], picks: [pick("Maths", gen("Maths", "2026-10-01", "10:00")), pick("Maths", gen("Maths", "2026-10-02", "10:00"))] })
+    expect(r.ok).toBe(true)
+    if (!r.ok) return
+    expect(r.value.oneVisit).toBe(false)
+    expect(r.value.bookings.map((b) => b.kind)).toEqual(["new", "new"])
+  })
+
+  it("a later pick clashing with a session booked since the link was sent fails the whole plan (the first pick alone is fine)", () => {
+    const busy = { id: "se0", branchId: "b1", classId: "k1", subject: "Maths", date: "2026-10-01", start: "13:00", minutes: 60, teacherId: "t1", coTeacherIds: [], roomId: "r1", studentIds: ["x"], trial: false, customized: false, cancelled: false } as Session
+    const ok = pick("Maths", gen("Maths", "2026-10-01", "10:00"))
+    const clash = pick("Maths", gen("Maths", "2026-10-01", "13:00"))
+    expect(planApproval({ ...base, sessions: [busy], picks: [ok, clash] }).ok).toBe(false)
+    expect(planApproval({ ...base, sessions: [busy], picks: [ok] }).ok).toBe(true)
+  })
+
+  it("picks at the same date+time across subjects become one 2-hour visit, not two bookings", () => {
+    const r = planApproval({ ...base, sessions: [], picks: [pick("Maths", gen("Maths", "2026-10-01", "10:00")), pick("English", gen("English", "2026-10-01", "10:00", "t2"))] })
+    expect(r.ok).toBe(true)
+    if (!r.ok) return
+    expect(r.value.oneVisit).toBe(true)
+    expect(r.value.combinedDraft?.minutes).toBe(120)
+  })
+
+  it("re-approving the same submission is a no-op — priorApproval returns the first result (earliest session), so nothing is created twice", () => {
+    const asm = (subId: string, sessionId: string, date: string, start: string): Assessment =>
+      ({ id: `${subId}-${sessionId}`, type: "test", leadId: "l1", studentId: "stu1", sessionId, subject: "Maths", date, start, submissionId: subId })
+    const assessments = [asm("sub1", "se2", "2026-10-02", "10:00"), asm("sub1", "se1", "2026-10-01", "10:00")]
+    expect(priorApproval("sub1", assessments)).toEqual({ sessionId: "se1", studentId: "stu1", leadId: "l1" })
+    expect(priorApproval("sub2", assessments)).toBeNull()
   })
 })
 

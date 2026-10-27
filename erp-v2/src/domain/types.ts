@@ -721,6 +721,8 @@ export interface Assessment {
   leadId: ID
   studentId: ID
   sessionId: ID
+  /** the form submission this came from — lets re-approving the same submission be a no-op (no duplicate) */
+  submissionId?: ID
   subject: string
   date: DateStr
   start: TimeStr

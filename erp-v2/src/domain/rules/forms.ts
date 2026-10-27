@@ -4,9 +4,9 @@
 // liff/form/page.tsx.
 
 import { staffAt } from "./permissions"
-import { addDays, at, fromMinutes, overlaps, toMinutes } from "../dates"
-import type { Assessment, Branch, Course, DateStr, EnrollClassOffer, Family, FormOfferSlot, FormParentInput, FormPrefill, FormSubjectOffer, FormType, Holiday, ID, Klass, Lead, LeadStage, Session, Staff, Student, TimeStr } from "../types"
-import { classCapacity, hoursFor, isHoliday, slotProblem, teachersOf } from "./scheduling"
+import { addDays, at, fromMinutes, overlaps, toMinutes, weekdayOf } from "../dates"
+import type { Assessment, Branch, Course, DateStr, EnrollClassOffer, Family, FormOfferSlot, FormParentInput, FormPick, FormPrefill, FormSubjectOffer, FormType, Holiday, ID, Klass, Lead, LeadStage, Result, Session, Staff, Student, TimeStr } from "../types"
+import { classCapacity, hoursFor, isHoliday, sessionState, slotProblem, teachersOf, validateClass } from "./scheduling"
 
 export const FORM_TYPE_LABEL: Record<FormType, string> = { test: "สอบวัดระดับ", trial: "ทดลองเรียน" }
 
@@ -241,6 +241,90 @@ export function buildCombinedSessionDraft(
     trial: true,
     assessment: type,
   }
+}
+
+/**
+ * grill #2 (owner 2026-10-27): the result of a prior approval of this submission, if any — so re-approving
+ * is a no-op instead of a second student/session/assessment. Assessments carry their submissionId; the
+ * earliest-booked one holds the sessionId/studentId/leadId the first approval returned.
+ */
+export function priorApproval(
+  submissionId: ID,
+  assessments: Pick<Assessment, "submissionId" | "sessionId" | "studentId" | "leadId" | "date" | "start">[],
+): { sessionId: ID; studentId: ID; leadId: ID } | null {
+  const mine = assessments.filter((a) => a.submissionId === submissionId)
+  if (!mine.length) return null
+  const first = [...mine].sort((a, b) => (a.date + a.start).localeCompare(b.date + b.start))[0]
+  return { sessionId: first.sessionId, studentId: first.studentId, leadId: first.leadId }
+}
+
+/** One booking an approval will make: join an existing class occurrence, or create a new session from a generic slot. */
+export type ApprovalBooking =
+  | { kind: "join"; subject: string; sessionId: ID }
+  | { kind: "new"; subject: string; draft: Omit<Session, "id" | "customized" | "cancelled"> }
+
+export type ApprovalPlan = { oneVisit: boolean; combinedDraft?: Omit<Session, "id" | "customized" | "cancelled">; bookings: ApprovalBooking[] }
+
+/**
+ * grill #1 (owner 2026-10-27): approving a multi-subject form must be all-or-nothing. The old loop booked
+ * each pick and `set` it immediately, so a later pick failing (a teacher/room taken since the link was sent)
+ * left the earlier pick as an orphan Session — in the calendar, but with no Assessment and no lead advance.
+ * This proves EVERY pick is bookable first — same block rules as store.addSession / addStudentToSession,
+ * and later generic picks see the earlier ones so two picks can't silently claim one teacher/room — and
+ * returns the whole plan, or the first reason it can't be done. The store creates nothing until this is ok.
+ * Drafts carry no studentId (studentIds: []): the store fills in the real one at commit, after the plan passes.
+ */
+export function planApproval(params: {
+  picks: FormPick[]
+  type: FormType
+  branch: Branch
+  staff: Staff[]
+  sessions: Session[]
+  holidays: Holiday[]
+  now: Date
+  /** the child's existing Student id when returning — only used to block "already in this class", exactly as addStudentToSession does */
+  returningStudentId?: ID | null
+}): Result<ApprovalPlan> {
+  const { picks, type, branch, staff, sessions, holidays, now, returningStudentId } = params
+  if (!picks.length) return { ok: false, error: "ยังไม่ได้เลือกช่วงเวลา" }
+
+  const blockNew = (draft: Omit<Session, "id" | "customized" | "cancelled">, against: Session[]): string | null => {
+    if (isHoliday(draft.date, branch.id, holidays)) return "วันนั้นเป็นวันหยุด"
+    const issues = validateClass(
+      { ...draft, kind: "other", type: "group", weekday: weekdayOf(draft.date), startDate: draft.date, overrideReason: "session" },
+      { branch, staff, sessions: against, holidays, now },
+    ).filter((i) => i.level === "block")
+    return issues[0]?.message ?? null
+  }
+
+  const first = picks[0].chosenSlot
+  const oneVisit = picks.length >= 2 && picks.every((p) => p.chosenSlot.date === first.date && p.chosenSlot.start === first.start)
+
+  if (oneVisit) {
+    const combinedDraft = buildCombinedSessionDraft(picks.map((p) => ({ subject: p.chosenSubject, slot: p.chosenSlot })), branch.id, "", branch, sessions, type)
+    if (!combinedDraft) return { ok: false, error: "รวมช่วงเวลานี้เป็นคาบเดียวไม่ได้" }
+    const err = blockNew(combinedDraft, sessions)
+    if (err) return { ok: false, error: err }
+    return { ok: true, value: { oneVisit: true, combinedDraft, bookings: picks.map((p) => ({ kind: "new", subject: p.chosenSubject, draft: combinedDraft })) } }
+  }
+
+  const working = [...sessions]
+  const bookings: ApprovalBooking[] = []
+  for (const p of picks) {
+    if (p.chosenSlot.source === "class") {
+      const se = sessions.find((x) => x.id === p.chosenSlot.sessionId)
+      if (!se || se.cancelled || sessionState(se, now) === "closed") return { ok: false, error: `คาบของวิชา${p.chosenSubject}ปิดหรือยกเลิกไปแล้ว — เลือกช่วงใหม่` }
+      if (returningStudentId && se.studentIds.includes(returningStudentId)) return { ok: false, error: `นักเรียนอยู่ในคาบของวิชา${p.chosenSubject}แล้ว` }
+      bookings.push({ kind: "join", subject: p.chosenSubject, sessionId: p.chosenSlot.sessionId! })
+    } else {
+      const draft = buildSessionDraftFromSlot(p.chosenSlot, p.chosenSubject, branch.id, "", type)
+      const err = blockNew(draft, working)
+      if (err) return { ok: false, error: `วิชา${p.chosenSubject}: ${err}` }
+      working.push({ ...draft, id: `pf_${working.length}`, customized: true, cancelled: false })
+      bookings.push({ kind: "new", subject: p.chosenSubject, draft })
+    }
+  }
+  return { ok: true, value: { oneVisit: false, bookings } }
 }
 
 /** owner 2026-10-15: the classes an admin can offer in an enroll form — this branch's running weekly classes for

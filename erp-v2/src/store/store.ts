@@ -2964,10 +2964,27 @@ export const useStore = create<Store>()(
         const primaryLead = s.leads.find((x) => x.id === sub.primaryLeadId)
         if (!primaryLead) return fail("ไม่พบ Lead นี้")
 
+        // grill #2 (owner 2026-10-27): idempotent approval. A transient network error could leave the
+        // submission "pending" on the form server after the ERP already booked it (approveSubmission books
+        // first, then POSTs the review) — the admin would then re-approve and get a duplicate student/
+        // session/assessment. Assessments carry their submissionId, so a prior approval is self-evident:
+        // return the existing result instead of booking again (the caller re-POSTs the review to reconcile).
+        const already = Forms.priorApproval(sub.id, s.assessments)
+        if (already) return { ok: true, value: already, warnings: ["ฟอร์มนี้อนุมัติไปแล้ว — ใช้ผลเดิม"] }
+
+        const existingLead = sub.leadId ? s.leads.find((x) => x.id === sub.leadId) : undefined
+        const planBranch = s.branches.find((b) => b.id === (existingLead?.branchId ?? sub.branchId))
+        if (!planBranch) return fail("ไม่พบสาขานี้")
+
+        // grill #1 (owner 2026-10-27): prove EVERY pick can be booked BEFORE creating any lead/student/
+        // session — approval is all-or-nothing. A half-booked approval used to leave an orphan Session.
+        const plan = Forms.planApproval({ picks: sub.picks, type: sub.type, branch: planBranch, staff: s.staff, sessions: s.sessions, holidays: s.holidays, now: s.now(), returningStudentId: existingLead?.trialStudentId })
+        if (!plan.ok) return plan
+
         // resolve/create THIS child's own Lead — the first/primary child already has one; an "Add
         // another Student" child (leadId: null) gets a new sibling Lead here, copying source/assignee/
         // branch/LINE identity from the primary lead so it behaves exactly like a hand-created one
-        let lead = sub.leadId ? s.leads.find((x) => x.id === sub.leadId) : undefined
+        let lead = existingLead
         if (!lead) {
           const created: Lead = {
             id: uid("ld"), branchId: sub.branchId, name: sub.parents[0]?.name || primaryLead.name,
@@ -3030,36 +3047,29 @@ export const useStore = create<Store>()(
           }
         }
 
-        // owner 2026-10-22: picks at one shared time = one visit (one 2-hour room block); picks at different times (Trial /
-        // a Test split into separate days) = each subject booked on its own
-        const first = sub.picks[0].chosenSlot
-        const oneVisit = sub.picks.length >= 2 && sub.picks.every((p) => p.chosenSlot.date === first.date && p.chosenSlot.start === first.start)
-        const bookOne = (p: (typeof sub.picks)[number]): Result<ID> => {
-          if (p.chosenSlot.source === "class") {
-            const r = get().addStudentToSession(p.chosenSlot.sessionId!, studentId!, "one")
-            return r.ok ? { ok: true, value: p.chosenSlot.sessionId! } : r
-          }
-          const r = get().addSession(Forms.buildSessionDraftFromSlot(p.chosenSlot, p.chosenSubject, lead.branchId, studentId!, sub.type))
+        // commit the plan proved feasible above (owner 2026-10-22: picks at one shared time = one visit /
+        // one 2-hour room block; different times = each subject booked on its own). Booking must not partially
+        // succeed — if a commit unexpectedly fails, roll the sessions back to before this approval (grill #1).
+        const sessionsBefore = get().sessions
+        const bookNew = (draft: Omit<Session, "id" | "customized" | "cancelled">): Result<ID> => {
+          const r = get().addSession({ ...draft, studentIds: [studentId!] })
           return r.ok ? { ok: true, value: r.value.id } : r
         }
         const bookedPicks: { subject: string; sessionId: ID }[] = []
-        if (oneVisit) {
-          const branch = s.branches.find((b) => b.id === lead.branchId)!
-          const draft = Forms.buildCombinedSessionDraft(sub.picks.map((p) => ({ subject: p.chosenSubject, slot: p.chosenSlot })), lead.branchId, studentId, branch, s.sessions, sub.type)
-          if (!draft) return fail("รวมช่วงเวลานี้เป็นคาบเดียวไม่ได้")
-          const r = get().addSession(draft)
-          if (!r.ok) return r
-          for (const p of sub.picks) bookedPicks.push({ subject: p.chosenSubject, sessionId: r.value.id })
+        if (plan.value.oneVisit) {
+          const r = bookNew(plan.value.combinedDraft!)
+          if (!r.ok) { set({ sessions: sessionsBefore }); return r }
+          for (const p of sub.picks) bookedPicks.push({ subject: p.chosenSubject, sessionId: r.value })
         } else {
-          for (const p of sub.picks) {
-            const r = bookOne(p)
-            if (!r.ok) return r
-            bookedPicks.push({ subject: p.chosenSubject, sessionId: r.value })
+          for (const b of plan.value.bookings) {
+            const r = b.kind === "join" ? get().addStudentToSession(b.sessionId, studentId!, "one") : bookNew(b.draft)
+            if (!r.ok) { set({ sessions: sessionsBefore }); return r }
+            bookedPicks.push({ subject: b.subject, sessionId: b.kind === "join" ? b.sessionId : (r.value as ID) })
           }
         }
         const sessionsOf = bookedPicks.map((x) => ({ ...x, session: get().sessions.find((y) => y.id === x.sessionId)! })).sort((x, y) => (x.session.date + x.session.start).localeCompare(y.session.date + y.session.start))
         const sessionId = sessionsOf[0].sessionId, booked = sessionsOf[0].session
-        const assessments: Assessment[] = sessionsOf.map((x) => ({ id: uid("as"), type: sub.type, leadId, studentId: studentId!, sessionId: x.sessionId, subject: x.subject, date: x.session.date, start: x.session.start }))
+        const assessments: Assessment[] = sessionsOf.map((x) => ({ id: uid("as"), type: sub.type, leadId, studentId: studentId!, sessionId: x.sessionId, subject: x.subject, date: x.session.date, start: x.session.start, submissionId: sub.id }))
         set((cur) => ({ assessments: [...cur.assessments, ...assessments] }))
         advanceLead(leadId, Forms.APPROVE_STAGE[sub.type], { trialStudentId: studentId, scheduledAt: at(booked.date, booked.start).toISOString() })
         log("class", [studentId], `นัด${Forms.FORM_TYPE_LABEL[sub.type]}`, sessionsOf.map((x) => `${x.subject} · ${fmtDate(x.session.date, { weekday: true })} ${x.session.start}`).join(" · "))
