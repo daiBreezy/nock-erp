@@ -44,7 +44,7 @@ export default function HomeworkRoom() {
   const allDurations = [...presetDurations, ...quick]
 
   return (
-    <div className="min-h-screen bg-surface-0 pb-32">
+    <div className="flex min-h-screen flex-col bg-surface-0">
       <header className="sticky top-0 z-10 flex items-center gap-3 border-b border-line bg-surface-0/90 px-4 py-3 backdrop-blur">
         <Button variant="ghost" size="icon" onClick={() => navigate(-1)} aria-label="ย้อนกลับ" className="h-8 w-8 text-ink hover:bg-transparent">
           <ChevronLeft size={24} />
@@ -142,7 +142,7 @@ export default function HomeworkRoom() {
       </section>
 
       {/* CTA */}
-      <div className="fixed inset-x-0 bottom-0 z-10 mx-auto max-w-[440px] border-t border-line bg-surface-1 p-4">
+      <div className="sticky bottom-0 z-10 mt-auto pb-[max(1rem,env(safe-area-inset-bottom))] border-t border-line bg-surface-1 p-4">
         <Button
           onClick={start}
           className="h-auto w-full rounded-2xl bg-brand py-4 text-base font-semibold hover:bg-brand-dark active:scale-[0.99]"

@@ -5,6 +5,35 @@
 
 ---
 
+## 2026-10-27 — Web App: แยก Web/Learn กับ Mobile App ออกจากกัน (เฟส 1)
+
+**ตัดสินใจ (เจ้าของ):**
+- **Web/Learn** = เปิดผ่าน browser → Desktop + Tablet + Mobile · **Mobile App** = โหลดจาก Store (Capacitor) → Mobile + Tablet — เป็นอิสระต่อกัน
+- ตอนนี้ **repo เดียว แยกโฟลเดอร์** (แบบ ก) · อนาคตค่อยแยกเป็นคนละโปรเจกต์ (แบบ ข)
+- App บน Tablet: **แนวตั้ง = แบบ ก** (BottomNav + เนื้อหา 2 คอลัมน์) · **แนวนอน = แบบ ข+ค** (Navigation Rail ด้านซ้าย + รายการ | รายละเอียด)
+
+**ทำอะไร (`web-app/app/src`):**
+- `web/` = Web/Learn (WebApp routes, `components/` เดิมของ web, หน้า marketing/school, LearnHub/Exam/Quiz/Goals/Lesson/Live เวอร์ชัน Web) · `app/` = Mobile App (MobileApp routes + AppShell, BottomNav, NavRail, TopBar, หน้าเวอร์ชัน App) · ที่เหลือ (`data/ lib/ auth/ components/ pages/`) = ใช้ร่วม
+- **กฎ:** `web/` กับ `app/` ห้าม import กันเอง — บังคับด้วย oxlint `no-restricted-imports` (`.oxlintrc.json`)
+- เลือกโหมดตอนเปิด (`src/mode.ts`): แอป native = App เสมอ · browser = Web · ดู App บน browser ด้วย `?app` (จำใน session) กลับด้วย `?web` — เช่น `http://localhost:5199/?app#/`
+- ขนาดจอ App (`app/layout.ts`): ด้านสั้น < 600px = มือถือ · ≥ 600 = Tablet (กว้าง > สูง = แนวนอน) — หมุนจอแล้วเปลี่ยนทันที
+- หน้า Web บนมือถือ: ใช้เมนู Web (hamburger) ไม่มี BottomNav ของ App แล้ว · หน้าที่ยังไม่มีเวอร์ชัน Web → เมนู Web + คอลัมน์กลาง 720px
+- ลบ `pages/Home.tsx` เก่า (ไม่มี route ใช้แล้ว) · ✅ `tsc -b`, `vite build`, `oxlint` ผ่าน · ดูในเบราว์เซอร์แล้ว: มือถือ (Web/App), Tablet แนวตั้ง/แนวนอน, หน้าเรียนแบบ ค
+
+**รอบ 2 (วันเดียวกัน):**
+- แบบ ค บน Tablet แนวนอนเพิ่ม: **ห้องสอบ** (`app/pages/exam/ExamSplit.tsx` รายการชุดข้อสอบซ้าย | รายละเอียดขวา, `/exam` ยังไม่เลือก = ข้อความชวนเลือก) · **ไลฟ์** (วิดีโอ + รายละเอียดซ้าย | แชทสดค้างขวา)
+- แถบปุ่มล่าง (Checkout, Pay, EditProfile, HomeworkRoom, LearningPlan, GoalResult) เปลี่ยนจาก fixed กว้าง 440px กลางจอ → `sticky bottom-0` กว้างเท่าหน้า + เว้นขอบล่าง iPhone (safe-area)
+- **shadcn เฟส 8 จบ:** LearnHub (web) + LiveStream (web + app) — ปุ่มไอคอน / ลิงก์ "ดูทั้งหมด" / ปุ่มแจ้งเตือน / chip กรอง → `Button` · ที่เหลือเป็นการ์ดกดได้ทั้งใบ (ตั้งใจคง custom ตามเฟสก่อน)
+- ✅ `tsc -b`, `vite build`, `oxlint` (0 error) · ดูในเบราว์เซอร์แล้ว
+- **Accordion (shadcn)** ในสารบัญหน้าเรียน (Web + App): เปิดทีละบท บทที่ดูอยู่เปิดไว้ · ในบท = บทเรียน / แบบฝึกหัด / แบบทดสอบ (บทอื่นกดแล้วพาไปบทนั้น)
+- **Resizable (shadcn, `react-resizable-panels` 4.14.5)** จอแบ่งทุกหน้าลากปรับขนาดได้ + จำขนาดไว้ (`lib/useSavedLayout.ts`, localStorage): Web หน้าเรียน (สารบัญ | วิดีโอ) · Web ไลฟ์ จอ xl (แชท | วิดีโอ | รายการวิดีโอ) · App แนวนอน หน้าเรียน / ไลฟ์ (วิดีโอ | แชท) / ห้องสอบ (รายการ | รายละเอียด) — หน้าใหม่ที่เป็นจอแบ่งให้ใช้ตัวนี้
+
+**เหลือทำ (TODO):**
+- [ ] หน้าที่ยังใช้ร่วม (`src/pages/` — profile, more, homework, pricing, checkout, auth, goal, exam result/solution, learn subject) → แยกเป็นเวอร์ชัน Web / App เมื่อออกแบบหน้าตาแต่ละฝั่งแล้ว (ตอนนี้ทั้งสองฝั่งแสดงเป็นคอลัมน์กลาง 720px — Web ยังไม่มีดีไซน์ Desktop ของหน้าเหล่านี้)
+- [ ] ของที่แก้ค้างในเครื่องที่ทำงาน (DesktopNav เมนูมือถือ + SchoolList) เก็บไว้ใน `git stash` — cloud ทำซ้ำไปแล้ว น่าจะทิ้งได้ แต่ยังไม่ได้เทียบ
+
+---
+
 ## 2026-10-26 — Web App: shadcn เฟส 8 — จบ migration ✅ (เก็บกวาด + สรุป)
 
 **แปลงครบทั้งโปรเจกต์แล้ว** (เฟส 1–7) — ทุกเฟส build + screenshot ผ่าน + merge เข้า main (Vercel auto-deploy)

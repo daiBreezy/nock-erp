@@ -11,7 +11,7 @@ export default function GoalResult() {
   const { complete } = (location.state as { complete: boolean; answered: number }) || { complete: true }
 
   return (
-    <div className="min-h-screen bg-surface-0 pb-28 md:pb-0">
+    <div className="flex min-h-screen flex-col bg-surface-0">
       <header className="sticky top-0 z-10 flex items-center gap-3 border-b border-line bg-surface-0/90 px-4 py-3 backdrop-blur">
         <Button variant="ghost" size="icon" onClick={() => navigate('/', { replace: true })} aria-label="ปิด" className="h-8 w-8 text-ink hover:bg-transparent"><ChevronLeft size={24} /></Button>
         <h1 className="text-lg font-semibold text-ink">ผลวิเคราะห์</h1>
@@ -86,7 +86,7 @@ export default function GoalResult() {
 
       {/* CTA ทำต่อให้ครบ (ถ้าไม่สมบูรณ์) */}
       {!complete && (
-        <div className="fixed inset-x-0 bottom-0 z-10 mx-auto max-w-[440px] border-t border-line bg-surface-1 p-4 md:static md:z-auto md:max-w-none">
+        <div className="sticky bottom-0 z-10 mt-auto pb-[max(1rem,env(safe-area-inset-bottom))] border-t border-line bg-surface-1 p-4 md:static md:z-auto">
           <Button onClick={() => navigate('/goal/test')} className="h-auto w-full rounded-2xl bg-brand py-4 text-base font-semibold hover:bg-brand-dark">ทำต่อให้ครบ 10 ข้อ</Button>
         </div>
       )}
