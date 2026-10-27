@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import {
-  ChevronLeft, ChevronRight, PanelLeftClose, Play, Check, Crown,
+  ChevronRight, Play, Check, Crown,
   PencilLine, Menu, X, ArrowRight, RotateCcw,
 } from 'lucide-react'
 import DesktopNav from '@/web/components/DesktopNav'
@@ -11,7 +11,7 @@ import { clipGroups, subjectMeta, findVideo } from '@/data/learn'
 import { Button } from '@/components/ui/button'
 import WatchPlayer from '@/components/watch/WatchPlayer'
 import RelatedVideos from '@/components/watch/RelatedVideos'
-import { ChannelRow, DescriptionBox, DocumentsRow, WatchTitle } from '@/components/watch/WatchInfo'
+import { DocumentsRow, ShowPanelButton, WatchMeta, WatchTitle } from '@/components/watch/WatchInfo'
 import { teacherOf } from '@/data/watch'
 import { gradeCode } from '@/lib/labels'
 import { Sheet, SheetContent, SheetTitle } from '@/components/ui/sheet'
@@ -104,7 +104,7 @@ function PracticePanel() {
         </div>
         {revealed && (
           <div className={`mt-4 rounded-xl px-4 py-3 text-sm font-medium ${answers[q.n] === q.correct ? 'bg-success/10 text-success' : 'bg-live/10 text-live'}`}>
-            {answers[q.n] === q.correct ? '✓ ถูกต้อง! เก่งมาก' : '✗ ยังไม่ถูก ลองดูเฉลยสีเขียวนะ'}
+            {answers[q.n] === q.correct ? <><Check size={14} className="mr-1 inline" /> ถูกต้อง! เก่งมาก</> : <><X size={14} className="mr-1 inline" /> ยังไม่ถูก ลองดูเฉลยสีเขียวนะ</>}
           </div>
         )}
         <div className="mt-5 flex justify-end">
@@ -220,18 +220,17 @@ function Sidebar({
 
   return (
     <div className="flex h-full flex-col">
-      <div className="flex items-center justify-between px-4 pt-4">
-        <Button variant="ghost" onClick={() => (onClose ? onClose() : navigate('/'))} className="h-auto gap-2 p-0 text-sm font-medium text-ink hover:bg-transparent">
-          <ChevronLeft size={18} /> หน้าหลัก
-        </Button>
-        <Button variant="ghost" size="icon" onClick={onClose} className="h-8 w-8 text-ink-mute hover:bg-transparent hover:text-ink">
-          {onClose ? <X size={18} /> : <PanelLeftClose size={18} />}
-        </Button>
-      </div>
-
-      <div className="px-4 pt-4">
-        <h2 className="text-lg font-bold leading-tight text-ink">{courseTitle}</h2>
-        <p className="mt-0.5 text-sm text-ink-soft">{groupTitle}</p>
+      {/* หัวสารบัญ — ไม่มีปุ่มย้อนกลับ/ย่อ (ซ่อนแผงด้วยปุ่มมุมมองบนตัวเล่น) · ในแผงเลื่อน (มือถือ) มีปุ่มปิด */}
+      <div className="flex items-start justify-between gap-2 px-4 pt-4">
+        <div className="min-w-0">
+          <h2 className="text-lg font-bold leading-tight text-ink">{courseTitle}</h2>
+          <p className="mt-0.5 text-sm text-ink-soft">{groupTitle}</p>
+        </div>
+        {onClose && (
+          <Button variant="ghost" size="icon" onClick={onClose} aria-label="ปิดสารบัญ" className="h-8 w-8 shrink-0 text-ink-mute hover:bg-transparent hover:text-ink">
+            <X size={18} />
+          </Button>
+        )}
       </div>
 
       <div className="mt-4 flex-1 overflow-y-auto px-4 pb-6">
@@ -297,6 +296,7 @@ export default function LessonVideo() {
   const found = videoId ? findVideo(key, videoId) : null
   const [tab, setTab] = useState<Tab>('lesson')
   const [drawer, setDrawer] = useState(false)
+  const [theater, setTheater] = useState(false)
   const split = useSavedLayout('web-lesson')
   const wide = useMediaQuery('(min-width: 768px)')
 
@@ -327,10 +327,10 @@ export default function LessonVideo() {
       {tab === 'lesson' ? (
         <>
           <WatchTitle>{title}</WatchTitle>
-          <ChannelRow teacher={teacher} />
-          <DescriptionBox stats={`1.2K ครั้ง · 3 วันที่แล้ว · ${video.duration} นาที`} subject={key} grades={[group.grade]}>
-            {`${courseTitle} · ${group.title}\nบทเรียน "${video.title}" อธิบายแนวคิดทีละขั้น พร้อมตัวอย่างโจทย์\nเรียนจบแล้วลองทำแบบฝึกหัดและแบบทดสอบท้ายบทได้เลย`}
-          </DescriptionBox>
+          <WatchMeta
+            teacher={teacher} when={`อัปโหลดเมื่อ 3 วันที่แล้ว · ${video.duration} นาที`} subject={key} grades={[group.grade]}
+            action={theater ? <ShowPanelButton onClick={() => setTheater(false)} /> : undefined}
+          />
           <DocumentsRow subject={key} teacher={teacher} />
         </>
       ) : (
@@ -380,22 +380,30 @@ export default function LessonVideo() {
   )
 
   if (wide) {
+    const player = (
+      <WatchPlayer
+        src={thumb('lesson-main')} time={`3:12 / ${video.duration}`} onBack={() => navigate(-1)} fitHeight
+        viewMode={{ theater, onToggle: () => setTheater((v) => !v) }}
+      />
+    )
     return (
       <div className="min-h-screen bg-surface-0">
         <DesktopNav />
-        {/* จอแบ่ง ลากปรับขนาดได้ (จำขนาดไว้) — สารบัญ | วิดีโอ + เนื้อหา */}
-        <ResizablePanelGroup {...split} orientation="horizontal" className="!h-[calc(100vh-112px)]">
-          <ResizablePanel id="toc" defaultSize={320} minSize={240} maxSize="45%" className="bg-surface-1">
-            <Sidebar {...sidebarProps} />
-          </ResizablePanel>
-          <ResizableHandle withHandle />
-          <ResizablePanel id="main" minSize="40%">
-            <div className="h-full overflow-y-auto">
-              <WatchPlayer src={thumb('lesson-main')} time={`3:12 / ${video.duration}`} onBack={() => navigate(-1)} fitHeight />
-              {body}
-            </div>
-          </ResizablePanel>
-        </ResizablePanelGroup>
+        {theater ? (
+          // โหมดโรงภาพยนตร์: ซ่อนสารบัญ วิดีโอเต็มกว้าง
+          <>{player}{body}</>
+        ) : (
+          // มุมมองปกติ: วิดีโอ + เนื้อหา | สารบัญขวา — ลากปรับขนาดได้ (จำขนาดไว้)
+          <ResizablePanelGroup {...split} orientation="horizontal" className="!h-[calc(100vh-112px)]">
+            <ResizablePanel id="main" minSize="40%">
+              <div className="h-full overflow-y-auto">{player}{body}</div>
+            </ResizablePanel>
+            <ResizableHandle withHandle />
+            <ResizablePanel id="toc" defaultSize={340} minSize={260} maxSize="45%" className="bg-surface-1">
+              <Sidebar {...sidebarProps} />
+            </ResizablePanel>
+          </ResizablePanelGroup>
+        )}
       </div>
     )
   }

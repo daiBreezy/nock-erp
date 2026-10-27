@@ -16,23 +16,38 @@ import {
   DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem,
 } from '@/components/ui/dropdown-menu'
 
-/* โหลด Leaflet จาก CDN ครั้งเดียว (ฟรี ไม่ต้องใช้ API key) */
-let leafletPromise: Promise<any> | null = null
-function loadLeaflet(): Promise<any> {
-  const w = window as any
-  if (w.L) return Promise.resolve(w.L)
-  if (leafletPromise) return leafletPromise
-  leafletPromise = new Promise((resolve, reject) => {
-    const css = document.createElement('link')
-    css.rel = 'stylesheet'
-    css.href = 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css'
-    document.head.appendChild(css)
+/*
+ * โหลด Leaflet + MapLibre (วาดแผนที่แบบ vector) จาก CDN ครั้งเดียว
+ * แผนที่ = OpenFreeMap สไตล์ Liberty — ฟรี ไม่ต้องใช้ API key (CARTO ต้องใช้ key แล้ว)
+ */
+const addCss = (href: string) => {
+  const l = document.createElement('link')
+  l.rel = 'stylesheet'
+  l.href = href
+  document.head.appendChild(l)
+}
+const addScript = (src: string) =>
+  new Promise<void>((resolve, reject) => {
     const s = document.createElement('script')
-    s.src = 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js'
-    s.onload = () => resolve((window as any).L)
+    s.src = src
+    s.onload = () => resolve()
     s.onerror = reject
     document.head.appendChild(s)
   })
+
+let leafletPromise: Promise<any> | null = null
+function loadLeaflet(): Promise<any> {
+  const w = window as any
+  if (w.L?.maplibreGL) return Promise.resolve(w.L)
+  if (leafletPromise) return leafletPromise
+  addCss('https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css')
+  addCss('https://cdnjs.cloudflare.com/ajax/libs/maplibre-gl/4.7.1/maplibre-gl.min.css')
+  leafletPromise = Promise.all([
+    addScript('https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js'),
+    addScript('https://cdnjs.cloudflare.com/ajax/libs/maplibre-gl/4.7.1/maplibre-gl.min.js'),
+  ])
+    .then(() => addScript('https://unpkg.com/@maplibre/maplibre-gl-leaflet@0.1.3/leaflet-maplibre-gl.js'))
+    .then(() => w.L)
   return leafletPromise
 }
 
@@ -48,18 +63,20 @@ function BranchMap({ selected, onSelect }: { selected: string | null; onSelect: 
     let cancelled = false
     loadLeaflet().then((L) => {
       if (cancelled || !elRef.current || mapRef.current) return
-      const map = L.map(elRef.current, { scrollWheelZoom: false }).setView([13.4, 100.8], 8)
-      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        maxZoom: 19,
-        attribution: '&copy; OpenStreetMap',
+      const map = L.map(elRef.current, { scrollWheelZoom: false, zoomControl: false }).setView([13.4, 100.8], 8)
+      // แผนที่โทนสะอาด (OpenFreeMap Liberty) — ต้องแสดง attribution
+      L.maplibreGL({
+        style: 'https://tiles.openfreemap.org/styles/liberty',
+        attribution: '<a href="https://openfreemap.org" target="_blank">OpenFreeMap</a> &copy; <a href="https://www.openmaptiles.org/" target="_blank">OpenMapTiles</a> &copy; <a href="https://www.openstreetmap.org/copyright" target="_blank">OpenStreetMap</a>',
       }).addTo(map)
+      L.control.zoom({ position: 'bottomright' }).addTo(map)
       const icon = (color: string) =>
         L.divIcon({ className: '', html: pinSvg(color), iconSize: [30, 40], iconAnchor: [15, 40], popupAnchor: [0, -34] })
       branches.forEach((b) => {
         const m = L.marker([b.lat, b.lng], { icon: icon('#FF5A5E') }).addTo(map)
         m.bindPopup(
           `<div style="width:220px;font-family:inherit">
-             <img src="${b.cover}" alt="" style="display:block;width:100%;height:120px;object-fit:cover"/>
+             <img src="${b.cover}" alt="" style="display:block;width:100%;height:110px;object-fit:cover"/>
              <div style="padding:10px 12px 12px">
                <div style="font-weight:700;font-size:14px;color:#1A1C1E">NockAcademy ${b.area}</div>
                <div style="font-size:12px;color:#6B7280;margin-top:2px">${b.region} · ติวเตอร์มืออาชีพ ครบทุกวิชา</div>
@@ -69,7 +86,8 @@ function BranchMap({ selected, onSelect }: { selected: string | null; onSelect: 
                </div>
              </div>
            </div>`,
-          { closeButton: false, minWidth: 220, maxWidth: 240 },
+          // autoPan เปิดเฉพาะตอนเลือกสาขา (ชี้เมาส์แล้วแผนที่ไม่ขยับ) · เว้นขอบบนให้ป๊อปอัปเห็นเต็มใบ
+          { closeButton: false, minWidth: 220, maxWidth: 240, autoPan: false, autoPanPaddingTopLeft: [16, 24], autoPanPaddingBottomRight: [16, 16] },
         )
         m.on('mouseover', () => m.openPopup())
         m.on('click', () => onSelect(b.slug))
@@ -94,15 +112,26 @@ function BranchMap({ selected, onSelect }: { selected: string | null; onSelect: 
     if (!map) return
     if (selected && markersRef.current[selected]) {
       const b = branches.find((x) => x.slug === selected)!
-      map.flyTo([b.lat, b.lng], 15, { duration: 0.6 })
-      markersRef.current[selected].openPopup()
+      // หมุดไม่ต้องอยู่กลาง: เลื่อนให้หมุดอยู่ค่อนล่าง (~72% ของความสูง) ป๊อปอัปด้านบนจะมีที่พอ
+      const z = 15
+      const h = map.getSize().y
+      const target = map.unproject(map.project([b.lat, b.lng], z).subtract([0, h * 0.22]), z)
+      const marker = markersRef.current[selected]
+      map.closePopup()
+      map.flyTo(target, z, { duration: 0.6 })
+      map.once('moveend', () => {
+        const popup = marker.getPopup()
+        popup.options.autoPan = true // กันกรณีจอเตี้ย: ขยับแผนที่ให้ป๊อปอัปเห็นเต็มใบ
+        marker.openPopup()
+        popup.options.autoPan = false
+      })
     } else {
       map.closePopup()
       map.flyToBounds(branches.map((b) => [b.lat, b.lng]), { padding: [40, 40], duration: 0.6 })
     }
   }, [selected])
 
-  return <div ref={elRef} className="h-[320px] w-full sm:h-[420px]" />
+  return <div ref={elRef} className="h-[400px] w-full sm:h-[440px]" />
 }
 
 /* ปุ่มติดต่อ (แชท/เพจ/โทร) เป็น DropdownMenu ของ shadcn */

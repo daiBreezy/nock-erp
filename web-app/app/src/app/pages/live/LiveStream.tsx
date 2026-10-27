@@ -8,7 +8,7 @@ import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/componen
 import WatchPlayer from '@/components/watch/WatchPlayer'
 import LiveChatPanel from '@/components/watch/LiveChatPanel'
 import RelatedVideos from '@/components/watch/RelatedVideos'
-import { ChannelRow, DescriptionBox, DocumentsRow, GoalCta, LiveChatCard, WatchTitle } from '@/components/watch/WatchInfo'
+import { DocumentsRow, LiveChatCard, WatchMeta, WatchTitle } from '@/components/watch/WatchInfo'
 import { useSavedLayout } from '@/lib/useSavedLayout'
 
 const TITLE = 'ตะลุยแนวข้อสอบ จุฬาภรณ สอบเข้า ม.1 ตอนที่ 4 จำนวนเฉพาะ ห.ร.ม.และ ค.ร.น. (เสริม)'
@@ -23,6 +23,7 @@ export default function LiveStream() {
   const navigate = useNavigate()
   const layout = useAppLayout()
   const [chatOpen, setChatOpen] = useState(false)
+  const [theater, setTheater] = useState(false)
   const split = useSavedLayout('app-live')
   const teacher = teacherOf[SUBJECT]
   const landscape = layout === 'tablet-landscape'
@@ -30,29 +31,30 @@ export default function LiveStream() {
   const details = (
     <div className="space-y-4 px-4 pb-10 pt-3">
       <WatchTitle>[LIVE] {TITLE}</WatchTitle>
-      <ChannelRow teacher={teacher} />
-      <DescriptionBox stats="86 คนกำลังดู · เริ่มไลฟ์เมื่อ 21 นาทีที่แล้ว" subject={SUBJECT} grades={['ป.5', 'ป.6']}>
-        {`ไลฟ์ติวสด ${TITLE}\nทบทวนจำนวนเฉพาะ การหา ห.ร.ม. และ ค.ร.น. พร้อมตะลุยโจทย์ข้อสอบเข้า ม.1 ปีล่าสุด\nถามครูได้เลยในแชทสด`}
-      </DescriptionBox>
-      {!landscape && <LiveChatCard onOpen={() => setChatOpen(true)} />}
+      <WatchMeta teacher={teacher} when="เริ่มไลฟ์เมื่อ 21 นาทีที่แล้ว" subject={SUBJECT} grades={['ป.5', 'ป.6']} />
+      {(!landscape || theater) && <LiveChatCard onOpen={() => (landscape ? setTheater(false) : setChatOpen(true))} />}
       <DocumentsRow subject={SUBJECT} teacher={teacher} />
-      <GoalCta />
       <RelatedVideos subject={SUBJECT} grade="ป.6" />
     </div>
   )
 
   if (landscape) {
+    // Tablet แนวนอน: ปุ่มมุมมองบนตัวเล่น — ปกติ = แชทข้าง / โรงภาพยนตร์ = ซ่อนแชท วิดีโอเต็มกว้าง
+    const player = (
+      <WatchPlayer
+        src={thumb('live-main')} live onBack={() => navigate(-1)} fitHeight
+        viewMode={{ theater, onToggle: () => setTheater((v) => !v) }}
+      />
+    )
+    if (theater) return <div className="min-h-[100dvh] bg-surface-0">{player}{details}</div>
     return (
       <ResizablePanelGroup {...split} orientation="horizontal" className="!h-[100dvh] bg-surface-0">
         <ResizablePanel id="main" minSize="45%">
-          <div className="h-full overflow-y-auto">
-            <WatchPlayer src={thumb('live-main')} live viewers="86" onBack={() => navigate(-1)} fitHeight />
-            {details}
-          </div>
+          <div className="h-full overflow-y-auto">{player}{details}</div>
         </ResizablePanel>
         <ResizableHandle withHandle />
         <ResizablePanel id="chat" defaultSize={340} minSize={260} maxSize="50%">
-          <LiveChatPanel />
+          <LiveChatPanel onClose={() => setTheater(true)} />
         </ResizablePanel>
       </ResizablePanelGroup>
     )
@@ -60,7 +62,7 @@ export default function LiveStream() {
 
   return (
     <div className="min-h-[100dvh] bg-surface-0">
-      <WatchPlayer src={thumb('live-main')} live viewers="86" onBack={() => navigate(-1)} className="sticky top-0 z-20" />
+      <WatchPlayer src={thumb('live-main')} live onBack={() => navigate(-1)} className="sticky top-0 z-20" />
       {details}
 
       {/* แชทสด — แผงเลื่อนขึ้นจากล่าง ใต้วิดีโอ (แบบ YouTube app) */}

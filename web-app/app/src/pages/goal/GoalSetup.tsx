@@ -100,7 +100,7 @@ export default function GoalSetup() {
             <div className="mt-8 flex justify-between">
               {moods.map((m) => (
                 <button key={m.v} onClick={() => pick(() => setMood(m.v), true)} className={`flex flex-col items-center gap-1.5 rounded-xl p-2 transition ${mood === m.v ? 'bg-brand-soft' : 'hover:bg-surface-2'}`}>
-                  <span className="text-3xl">{m.emoji}</span>
+                  <m.Icon size={30} strokeWidth={1.75} />
                   <span className={`text-[11px] ${mood === m.v ? 'font-medium text-brand' : 'text-ink-mute'}`}>{m.label}</span>
                 </button>
               ))}

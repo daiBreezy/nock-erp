@@ -114,3 +114,9 @@ body {
 .cheer-bump {
   animation: cheer-bump 0.35s ease-out;
 }
+
+/* แผนที่สาขา (Leaflet) — เครดิตแผนที่ตัวเล็ก ไม่กินพื้นที่บนมือถือ */
+.leaflet-control-attribution {
+  font-size: 10px;
+  line-height: 1.4;
+}

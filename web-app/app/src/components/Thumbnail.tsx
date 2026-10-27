@@ -15,9 +15,9 @@ export default function Thumbnail({
 }) {
   if (variant === 'lesson') {
     return (
-      <div className={`relative ${className}`}>
-        {/* การ์ดซ้อนด้านหลัง */}
-        <div className={`absolute -top-1.5 left-2 right-2 h-4 ${rounded} bg-brand-soft`} />
+      <div className={`relative pt-1.5 ${className}`}>
+        {/* การ์ดซ้อนด้านหลัง — อยู่ในแถบ 6px บนสุด (ทุกแบบเว้นแถบนี้เท่ากัน ภาพจึงตรงกันในตาราง) */}
+        <div className={`absolute left-2 right-2 top-0 h-4 ${rounded} bg-brand-soft`} />
         <div className={`relative aspect-video overflow-hidden ${rounded} bg-surface-2 shadow-sm`}>
           <img src={src} alt="" loading="lazy" className="h-full w-full object-cover" />
           {children}
@@ -28,16 +28,18 @@ export default function Thumbnail({
 
   const started = variant === 'live-started'
   return (
-    <div className={`relative aspect-video overflow-hidden ${rounded} bg-surface-2 ${className}`}>
-      <img src={src} alt="" loading="lazy" className={`h-full w-full object-cover ${started ? 'scale-105 blur-[3px] brightness-90' : ''}`} />
-      {started && (
-        <span className="absolute inset-0 flex items-center justify-center">
-          <span className="flex items-center gap-1.5 rounded-pill bg-live px-3 py-1.5 text-xs font-semibold text-white shadow">
-            <Radio size={13} /> Live
+    <div className={`pt-1.5 ${className}`}>
+      <div className={`relative aspect-video overflow-hidden ${rounded} bg-surface-2`}>
+        <img src={src} alt="" loading="lazy" className={`h-full w-full object-cover ${started ? 'scale-105 blur-[3px] brightness-90' : ''}`} />
+        {started && (
+          <span className="absolute inset-0 flex items-center justify-center">
+            <span className="flex items-center gap-1.5 rounded-pill bg-live px-3 py-1.5 text-xs font-semibold text-white shadow">
+              <Radio size={13} /> Live
+            </span>
           </span>
-        </span>
-      )}
-      {children}
+        )}
+        {children}
+      </div>
     </div>
   )
 }

@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Flag, ArrowRight, ArrowLeft, Sparkles, ThumbsUp, Target, TrendingUp, Play, Rocket } from 'lucide-react'
+import { Flag, ArrowRight, ArrowLeft, Sparkles, ThumbsUp, Target, TrendingUp, Play, Rocket, Footprints } from 'lucide-react'
 import { goalSubjects, targetSchools, grades, moods, buildGoalTest, aiSummary, playlist, planDurations, planTimes, type GoalType } from '../../data/goal'
 import { Button } from '@/components/ui/button'
 import { Slider } from '@/components/ui/slider'
@@ -94,7 +94,7 @@ export default function GoalWizard() {
         <div className="rounded-3xl bg-surface-1 p-6 shadow-sm md:p-8">
           {/* progress */}
           <div className="flex items-center gap-3">
-            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-brand text-sm">🏃</span>
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-brand text-white"><Footprints size={18} /></span>
             <Progress value={((idx + 1) / total) * 100} className="h-2 flex-1 bg-surface-2" indicatorClassName="bg-brand" />
             <span className="shrink-0 text-sm font-medium text-ink-soft">{idx + 1}/{total}</span>
           </div>
@@ -159,7 +159,7 @@ export default function GoalWizard() {
                 <div className="mt-8 flex justify-between">
                   {moods.map((m) => (
                     <button key={m.v} onClick={() => pick(() => setMood(m.v))} className={`flex flex-col items-center gap-2 rounded-2xl p-3 ${mood === m.v ? 'bg-brand-soft' : 'hover:bg-surface-2'}`}>
-                      <span className="text-4xl">{m.emoji}</span>
+                      <m.Icon size={36} strokeWidth={1.75} />
                       <span className={`text-xs ${mood === m.v ? 'font-medium text-brand' : 'text-ink-mute'}`}>{m.label}</span>
                     </button>
                   ))}

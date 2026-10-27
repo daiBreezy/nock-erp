@@ -1,7 +1,7 @@
 import { useNavigate } from 'react-router-dom'
 import {
-  ChevronRight, ChevronLeft, Play, Search, Radio, Crown, Flag,
-  ListChecks, MessageSquare, Bell, Eye, Volume2, Maximize, ArrowRight, CalendarDays, Check, ChevronDown,
+  ChevronRight, ChevronLeft, Play, Search, Radio, Flag,
+  ListChecks, Bell, Eye, Volume2, Maximize, ArrowRight, CalendarDays, Check, ChevronDown,
 } from 'lucide-react'
 import DesktopNav from '@/web/components/DesktopNav'
 import { Button } from '@/components/ui/button'
@@ -10,7 +10,8 @@ import type { SubjectKey } from '@/data/mock'
 import { clipGroups } from '@/data/learn'
 import { subjectBg, subjectText } from '@/lib/subject'
 import { bannerImg, thumb } from '@/data/media'
-import Thumbnail from '@/web/components/Thumbnail'
+import Thumbnail from '@/components/Thumbnail'
+import VideoCard, { TierCrown } from '@/components/VideoCard'
 import { GradeBadge, SubjectBadge } from '@/components/LearnBadges'
 
 // stroke สำหรับ Ring — เขียน class เต็มให้ Tailwind เห็น
@@ -84,47 +85,11 @@ function Ring({ pct, tone }: { pct: number; tone: string }) {
   )
 }
 
-function TierCrown({ free }: { free: boolean }) {
-  return <Crown size={14} className={free ? 'text-success' : 'text-math-ink'} fill={free ? '#1D9E75' : '#D9A441'} />
-}
-
 function IconBtn({ children }: { children: React.ReactNode }) {
   return (
     <Button variant="outline" size="icon" className="h-8 w-8 rounded-full border-line bg-transparent text-ink-soft shadow-none hover:border-brand hover:bg-transparent hover:text-brand">
       {children}
     </Button>
-  )
-}
-
-/** การ์ดวิดีโอมาตรฐาน (thumbnail + meta row + title + chips) ตรงตาม Figma */
-function VideoCard({ card, onClick, variant = 'lesson' }: { card: Card; onClick: () => void; variant?: 'live' | 'lesson' }) {
-  return (
-    <button onClick={onClick} className="group w-full text-left">
-      <Thumbnail src={thumb(card.id)} variant={variant}>
-        {card.isNew && (
-          <span className="absolute right-2 top-2 z-10 rounded-pill bg-brand px-2 py-0.5 text-[10px] font-semibold text-white">New</span>
-        )}
-        <div className="absolute inset-0 flex items-center justify-center bg-black/10 opacity-0 transition group-hover:opacity-100">
-          <span className="flex h-11 w-11 items-center justify-center rounded-full bg-white/85">
-            <Play size={18} className="ml-0.5 text-brand" fill="currentColor" />
-          </span>
-        </div>
-      </Thumbnail>
-      {/* meta row */}
-      <div className="mt-2 flex items-center gap-2.5 text-ink-mute">
-        <TierCrown free={card.free} />
-        <span className="flex items-center gap-1 text-[11px]"><MessageSquare size={12} /> {card.comments}</span>
-        <span className="ml-auto text-[11px]">{card.duration}</span>
-      </div>
-      <p className="mt-1 line-clamp-2 text-[12px] font-medium leading-snug text-ink group-hover:text-brand">
-        {card.title}
-      </p>
-      <div className="mt-1.5 flex flex-wrap gap-1">
-        <SubjectBadge subject={card.subject} />
-        <GradeBadge grade="ป.5" />
-        <GradeBadge grade="ป.6" />
-      </div>
-    </button>
   )
 }
 
@@ -148,7 +113,12 @@ function Rail({
       </div>
       <div className="grid grid-cols-2 gap-x-4 gap-y-6 sm:grid-cols-3 lg:grid-cols-5">
         {cards.slice(0, rows * 5).map((c) => (
-          <VideoCard key={c.id} card={c} variant={variant} onClick={() => navigate(`/learn/${c.id.split('-x')[0]}`)} />
+          <VideoCard
+            key={c.id}
+            v={{ thumb: thumb(c.id), title: c.title, subject: c.subject, grades: ['ป.5', 'ป.6'], free: c.free, comments: c.comments, duration: c.duration, isNew: c.isNew }}
+            variant={variant}
+            onClick={() => navigate(`/learn/${c.id.split('-x')[0]}`)}
+          />
         ))}
       </div>
     </section>

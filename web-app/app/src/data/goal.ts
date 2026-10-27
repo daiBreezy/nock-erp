@@ -1,3 +1,4 @@
+import { Angry, Frown, Laugh, Meh, Smile } from 'lucide-react'
 export type Role = 'student' | 'parent'
 export type GoalType = 'improve' | 'entrance'
 
@@ -21,12 +22,13 @@ export const targetSchools = [
 export const grades = ['ป.4', 'ป.5', 'ป.6', 'ม.1', 'ม.2', 'ม.3', 'ม.4', 'ม.5', 'ม.6']
 
 // Confidence = 5 mood
+// ใช้ไอคอน (lucide) เท่านั้น ไม่ใช้ emoji
 export const moods = [
-  { v: 1, label: 'น้อยมาก', emoji: '😣' },
-  { v: 2, label: 'น้อย', emoji: '😕' },
-  { v: 3, label: 'กลาง', emoji: '😐' },
-  { v: 4, label: 'ดี', emoji: '🙂' },
-  { v: 5, label: 'ดีมาก', emoji: '😄' },
+  { v: 1, label: 'น้อยมาก', Icon: Angry },
+  { v: 2, label: 'น้อย', Icon: Frown },
+  { v: 3, label: 'กลาง', Icon: Meh },
+  { v: 4, label: 'ดี', Icon: Smile },
+  { v: 5, label: 'ดีมาก', Icon: Laugh },
 ]
 
 // Test = 10 ข้อ/วิชา, skip ได้หลังข้อ 5

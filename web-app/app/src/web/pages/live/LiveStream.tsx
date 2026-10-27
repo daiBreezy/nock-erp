@@ -8,7 +8,7 @@ import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/componen
 import WatchPlayer from '@/components/watch/WatchPlayer'
 import LiveChatPanel from '@/components/watch/LiveChatPanel'
 import RelatedVideos from '@/components/watch/RelatedVideos'
-import { ChannelRow, DescriptionBox, DocumentsRow, GoalCta, LiveChatCard, WatchTitle } from '@/components/watch/WatchInfo'
+import { DocumentsRow, LiveChatCard, WatchMeta, WatchTitle } from '@/components/watch/WatchInfo'
 import { useSavedLayout } from '@/lib/useSavedLayout'
 import { useMediaQuery } from '@/lib/useMediaQuery'
 
@@ -17,12 +17,12 @@ const SUBJECT = 'math' as const
 
 /**
  * หน้าไลฟ์ (Web) — โครงแบบ YouTube
- * จอกว้าง (≥1280): วิดีโอ + รายละเอียด | แชทสดด้านขวา (ลากปรับขนาดได้ ปิดได้ → กลับมาเป็นการ์ด "เปิดแชท")
+ * จอกว้าง (≥1024): วิดีโอ + รายละเอียด | แชทสดด้านขวา (ลากปรับขนาดได้) · ปุ่มมุมมองบนตัวเล่น: ปกติ = มีแชทข้าง / โรงภาพยนตร์ = ซ่อนแชท วิดีโอเต็มกว้าง
  * จอแคบกว่า: คอลัมน์เดียว — วิดีโอ · ชื่อ · ครู + ปุ่ม · รายละเอียด | การ์ดแชท · เอกสาร · วิดีโอที่เกี่ยวข้อง · แชทเปิดเป็นแผงด้านข้าง
  */
 export default function LiveStream() {
   const navigate = useNavigate()
-  const wide = useMediaQuery('(min-width: 1280px)')
+  const wide = useMediaQuery('(min-width: 1024px)')
   const [sidePanel, setSidePanel] = useState(true)
   const [sheet, setSheet] = useState(false)
   const split = useSavedLayout('web-live-chat')
@@ -31,18 +31,15 @@ export default function LiveStream() {
 
   const main = (
     <>
-      <WatchPlayer src={thumb('live-main')} live viewers="86" onBack={() => navigate(-1)} fitHeight />
+      <WatchPlayer
+        src={thumb('live-main')} live onBack={() => navigate(-1)} fitHeight
+        viewMode={wide ? { theater: !sidePanel, onToggle: () => setSidePanel((v) => !v) } : undefined}
+      />
       <div className="mx-auto max-w-[1280px] space-y-4 px-4 pb-12 pt-4 md:px-6">
         <WatchTitle>[LIVE] {TITLE}</WatchTitle>
-        <ChannelRow teacher={teacher} />
-        <div className={chatBeside ? '' : 'grid gap-3 md:grid-cols-2'}>
-          <DescriptionBox stats="86 คนกำลังดู · เริ่มไลฟ์เมื่อ 21 นาทีที่แล้ว" subject={SUBJECT} grades={['ป.5', 'ป.6']}>
-            {`ไลฟ์ติวสด ${TITLE}\nทบทวนจำนวนเฉพาะ การหา ห.ร.ม. และ ค.ร.น. พร้อมตะลุยโจทย์ข้อสอบเข้า ม.1 ปีล่าสุด\nถามครูได้เลยในแชทสด`}
-          </DescriptionBox>
-          {!chatBeside && <LiveChatCard onOpen={() => (wide ? setSidePanel(true) : setSheet(true))} />}
-        </div>
+        <WatchMeta teacher={teacher} when="เริ่มไลฟ์เมื่อ 21 นาทีที่แล้ว" subject={SUBJECT} grades={['ป.5', 'ป.6']} />
+        {!chatBeside && <LiveChatCard onOpen={() => (wide ? setSidePanel(true) : setSheet(true))} />}
         <DocumentsRow subject={SUBJECT} teacher={teacher} />
-        <GoalCta />
         <RelatedVideos subject={SUBJECT} grade="ป.6" className="pt-2" />
       </div>
     </>
