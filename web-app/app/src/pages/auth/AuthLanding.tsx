@@ -44,7 +44,7 @@ export default function AuthLanding() {
             className="flex-1 border-0 bg-transparent px-0 py-3.5 text-sm shadow-none focus-visible:ring-0"
           />
           {phone && (
-            <button onClick={() => setPhone('')} aria-label="ล้าง" className="text-ink-mute hover:text-ink"><XCircle size={18} /></button>
+            <Button variant="ghost" size="icon" onClick={() => setPhone('')} aria-label="ล้าง" className="h-auto shadow-none [&_svg]:size-auto w-auto p-0 hover:bg-transparent text-ink-mute hover:text-ink"><XCircle size={18} /></Button>
           )}
         </div>
 

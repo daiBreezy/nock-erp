@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Search, Plus } from 'lucide-react'
 import DesktopNav from '@/web/components/DesktopNav'
 import { Input } from '@/components/ui/input'
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion'
 import AppShowcase from '@/web/components/AppShowcase'
 import MarketingFooter from '@/web/components/MarketingFooter'
 
@@ -40,7 +41,7 @@ const faqs: QA[] = [
 ]
 
 export default function Faq() {
-  const [open, setOpen] = useState(0)
+  const [open, setOpen] = useState('0')
   const [query, setQuery] = useState('')
 
   const filtered = faqs
@@ -75,40 +76,23 @@ export default function Faq() {
           <p className="py-8 text-center text-sm text-ink-mute">ไม่พบคำถามที่ตรงกับ "{query}"</p>
         )}
 
-        {filtered.map((f) => {
-          const isOpen = open === f.i
-          return (
-            <div
+        <Accordion type="single" collapsible value={open} onValueChange={setOpen} className="space-y-3">
+          {filtered.map((f) => (
+            <AccordionItem
               key={f.i}
-              className={`mb-3 overflow-hidden rounded-card border bg-surface-1 transition-colors ${
-                isOpen ? 'border-brand shadow-sm' : 'border-line'
-              }`}
+              value={String(f.i)}
+              className="overflow-hidden rounded-card border border-line bg-surface-1 transition-colors data-[state=open]:border-brand data-[state=open]:shadow-sm"
             >
-              <button
-                onClick={() => setOpen(isOpen ? -1 : f.i)}
-                className="flex w-full items-center gap-3.5 px-5 py-4 text-left"
-              >
-                <span
-                  className={`grid shrink-0 place-items-center rounded-full bg-brand-soft text-brand transition-transform ${
-                    isOpen ? 'rotate-45' : ''
-                  }`}
-                  style={{ height: 26, width: 26 }}
-                >
+              <AccordionTrigger className="group gap-3.5 px-5 py-4 hover:no-underline [&>svg]:hidden">
+                <span className="grid h-[26px] w-[26px] shrink-0 place-items-center rounded-full bg-brand-soft text-brand transition-transform group-data-[state=open]:rotate-45">
                   <Plus size={18} />
                 </span>
                 <span className="flex-1 text-[16px] font-semibold text-ink">{f.q}</span>
-              </button>
-              <div
-                className="grid transition-all duration-200 ease-out"
-                style={{ gridTemplateRows: isOpen ? '1fr' : '0fr' }}
-              >
-                <div className="overflow-hidden">
-                  <p className="pb-4 pl-[60px] pr-5 text-[14.5px] leading-relaxed text-ink-soft">{f.a}</p>
-                </div>
-              </div>
-            </div>
-          )
-        })}
+              </AccordionTrigger>
+              <AccordionContent className="pb-4 pl-[60px] pr-5 text-[14.5px] leading-relaxed text-ink-soft">{f.a}</AccordionContent>
+            </AccordionItem>
+          ))}
+        </Accordion>
 
         <p className="mt-8 text-center text-sm text-ink-soft">
           ยังไม่เจอคำตอบที่ต้องการ?{' '}

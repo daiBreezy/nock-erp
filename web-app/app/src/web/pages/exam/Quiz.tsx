@@ -2,6 +2,8 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { ChevronLeft, ChevronRight, ListChecks, Clock, ArrowRight, BookOpenCheck, Check, X, Trophy, RotateCcw } from 'lucide-react'
 import DesktopNav from '@/web/components/DesktopNav'
+import { Button } from '@/components/ui/button'
+import { Checkbox } from '@/components/ui/checkbox'
 
 type Choice = { n: number; text?: string }
 type Question = {
@@ -105,10 +107,10 @@ function IntroCard({ onStart }: { onStart: () => void }) {
       <p className="text-sm leading-relaxed text-ink">ก่อนเริ่มสอบ ลองหลับตา แล้วหายใจ เข้า - ออกลึกๆ ก่อนเริ่มสอบ จะช่วยให้มีสมาธิมากขึ้นนะ!</p>
       <p className="mt-4 text-lg font-bold text-ink">แต่ถ้าพร้อมแล้ว ก็ไปลุยกันเลย</p>
       <label className="mt-4 flex items-center gap-2 text-sm text-ink">
-        <button onClick={() => setTimed((v) => !v)} className={`flex h-5 w-5 items-center justify-center rounded ${timed ? 'bg-brand text-white' : 'border border-ink-mute'}`}>{timed && <Check size={13} />}</button>
+        <Checkbox checked={timed} onCheckedChange={(v) => setTimed(v === true)} className="h-5 w-5 rounded border-ink-mute data-[state=checked]:border-brand data-[state=checked]:bg-brand data-[state=checked]:text-white" />
         จับเวลาการสอบด้วย
       </label>
-      <button onClick={onStart} className="mt-4 flex items-center justify-center gap-1.5 rounded-pill bg-brand py-2.5 text-sm font-semibold text-white hover:bg-brand-dark"><ArrowRight size={16} /> เริ่มทำข้อสอบเลย</button>
+      <Button onClick={onStart} className="h-auto shadow-none [&_svg]:size-auto w-full mt-4 flex items-center justify-center gap-1.5 rounded-pill bg-brand py-2.5 text-sm font-semibold text-white hover:bg-brand-dark"><ArrowRight size={16} /> เริ่มทำข้อสอบเลย</Button>
     </div>
   )
 }
@@ -118,7 +120,7 @@ function SubmitCard({ onSubmit }: { onSubmit: () => void }) {
     <div className="flex flex-col rounded-card bg-[#8FE3C4] p-5 text-[#0F5C40]">
       <p className="text-lg font-bold">เรียบร้อยแล้ว ส่งคำตอบเลยดีกว่า</p>
       <p className="mt-1 text-sm">กดส่งคำตอบ แล้วดูเฉลยกันเถอะ</p>
-      <button onClick={onSubmit} className="mt-5 flex items-center justify-center gap-1.5 rounded-pill bg-brand py-2.5 text-sm font-semibold text-white hover:bg-brand-dark"><Check size={16} /> ส่งคำตอบ</button>
+      <Button onClick={onSubmit} className="h-auto shadow-none [&_svg]:size-auto w-full mt-5 flex items-center justify-center gap-1.5 rounded-pill bg-brand py-2.5 text-sm font-semibold text-white hover:bg-brand-dark"><Check size={16} /> ส่งคำตอบ</Button>
     </div>
   )
 }
@@ -130,9 +132,9 @@ function ScoreCard({ correct, total, pct, onRetry, onFinish, onRank }: { correct
       <div className="mt-2 flex items-center justify-between text-sm"><span>คะแนน</span><span className="text-lg font-bold">{pct}%</span></div>
       <div className="mt-1 flex items-center gap-1.5 text-sm"><Clock size={14} /> 00:53:51</div>
       <p className="mt-4 text-base font-bold">เรียบร้อยแล้ว ดูเฉลยรายข้อได้เลย</p>
-      <button onClick={onRank} className="mt-4 flex items-center justify-center gap-1.5 rounded-pill bg-white/50 py-2 text-sm font-medium"><Trophy size={15} /> ดูอันดับ</button>
-      <button onClick={onRetry} className="mt-2 flex items-center justify-center gap-1.5 rounded-pill bg-white/50 py-2 text-sm font-medium"><RotateCcw size={15} /> ลองอีกครั้ง</button>
-      <button onClick={onFinish} className="mt-2 flex items-center justify-center gap-1.5 rounded-pill bg-success py-2.5 text-sm font-semibold text-white"><Check size={16} /> เสร็จสิ้น</button>
+      <Button onClick={onRank} className="text-inherit h-auto shadow-none [&_svg]:size-auto w-full hover:bg-white/70 mt-4 flex items-center justify-center gap-1.5 rounded-pill bg-white/50 py-2 text-sm font-medium"><Trophy size={15} /> ดูอันดับ</Button>
+      <Button onClick={onRetry} className="text-inherit h-auto shadow-none [&_svg]:size-auto w-full hover:bg-white/70 mt-2 flex items-center justify-center gap-1.5 rounded-pill bg-white/50 py-2 text-sm font-medium"><RotateCcw size={15} /> ลองอีกครั้ง</Button>
+      <Button onClick={onFinish} className="h-auto shadow-none [&_svg]:size-auto w-full hover:bg-success/90 mt-2 flex items-center justify-center gap-1.5 rounded-pill bg-success py-2.5 text-sm font-semibold text-white"><Check size={16} /> เสร็จสิ้น</Button>
     </div>
   )
 }
@@ -179,7 +181,7 @@ export default function Quiz() {
   const header = (
     <div className="flex items-start justify-between gap-4">
       <div className="flex items-center gap-3">
-        <button onClick={() => navigate(-1)} aria-label="ย้อนกลับ" className="text-ink"><ChevronLeft size={22} /></button>
+        <Button variant="ghost" size="icon" onClick={() => navigate(-1)} aria-label="ย้อนกลับ" className="h-auto shadow-none [&_svg]:size-auto w-auto p-0 hover:bg-transparent text-ink"><ChevronLeft size={22} /></Button>
         <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-subject-english text-subject-english-ink"><BookOpenCheck size={18} /></span>
         <div>
           <h1 className="text-base font-bold leading-tight text-ink md:text-lg">เตรียมสอบเข้า รร.ดัง (จุฬาภร, เตรียมอุดมฯ, สวนกุหลาบ)</h1>
@@ -228,13 +230,13 @@ export default function Quiz() {
           <QuestionCard q={questions[current]} selected={answers[questions[current].n]} submitted={submitted} onSelect={(cn) => select(questions[current].n, cn)} />
         </div>
         <div className="sticky bottom-0 flex items-center gap-3 border-t border-line bg-surface-1 px-4 py-3">
-          <button onClick={() => setCurrent((c) => Math.max(0, c - 1))} disabled={current === 0} className="flex h-10 w-10 items-center justify-center rounded-full border border-line text-ink-soft disabled:opacity-40"><ChevronLeft size={18} /></button>
+          <Button variant="outline" onClick={() => setCurrent((c) => Math.max(0, c - 1))} disabled={current === 0} className="h-auto shadow-none [&_svg]:size-auto bg-transparent p-0 flex h-10 w-10 items-center justify-center rounded-full border border-line text-ink-soft disabled:opacity-40"><ChevronLeft size={18} /></Button>
           {current < questions.length - 1 ? (
-            <button onClick={() => setCurrent((c) => c + 1)} className="flex flex-1 items-center justify-center gap-1.5 rounded-pill bg-brand py-2.5 text-sm font-semibold text-white">ข้อถัดไป <ChevronRight size={16} /></button>
+            <Button onClick={() => setCurrent((c) => c + 1)} className="h-auto shadow-none [&_svg]:size-auto hover:bg-brand-dark flex flex-1 items-center justify-center gap-1.5 rounded-pill bg-brand py-2.5 text-sm font-semibold text-white">ข้อถัดไป <ChevronRight size={16} /></Button>
           ) : submitted ? (
-            <button onClick={() => navigate('/exam')} className="flex flex-1 items-center justify-center gap-1.5 rounded-pill bg-success py-2.5 text-sm font-semibold text-white"><Check size={16} /> เสร็จสิ้น</button>
+            <Button onClick={() => navigate('/exam')} className="h-auto shadow-none [&_svg]:size-auto hover:bg-success/90 flex flex-1 items-center justify-center gap-1.5 rounded-pill bg-success py-2.5 text-sm font-semibold text-white"><Check size={16} /> เสร็จสิ้น</Button>
           ) : (
-            <button onClick={() => setSubmitted(true)} className="flex flex-1 items-center justify-center gap-1.5 rounded-pill bg-brand py-2.5 text-sm font-semibold text-white"><Check size={16} /> ส่งคำตอบ</button>
+            <Button onClick={() => setSubmitted(true)} className="h-auto shadow-none [&_svg]:size-auto hover:bg-brand-dark flex flex-1 items-center justify-center gap-1.5 rounded-pill bg-brand py-2.5 text-sm font-semibold text-white"><Check size={16} /> ส่งคำตอบ</Button>
           )}
         </div>
       </div>

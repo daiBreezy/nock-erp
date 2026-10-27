@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { ChevronLeft, Check } from 'lucide-react'
 import { planDurations, planTimes } from '../../data/goal'
 import { Button } from '@/components/ui/button'
+import { Slider } from '@/components/ui/slider'
 
 export default function LearningPlan() {
   const navigate = useNavigate()
@@ -44,7 +45,7 @@ export default function LearningPlan() {
 
         <div>
           <h2 className="mb-3 text-sm font-semibold text-ink">เวลาเรียน/วัน · {minutes} นาที</h2>
-          <input type="range" min={10} max={120} step={5} value={minutes} onChange={(e) => setMinutes(+e.target.value)} className="w-full" />
+          <Slider min={10} max={120} step={5} value={[minutes]} onValueChange={([v]) => setMinutes(v)} aria-label="เวลาเรียนต่อวัน (นาที)" className="py-2 [&_.bg-primary]:bg-brand [&_[role=slider]]:border-brand" />
         </div>
 
         <div>

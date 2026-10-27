@@ -58,9 +58,9 @@ export default function EmailAuth() {
                 placeholder="อย่างน้อย 8 ตัวอักษร"
                 className="h-12 flex-1 border-0 bg-transparent px-0 text-sm shadow-none focus-visible:ring-0"
               />
-              <button onClick={() => setShow((s) => !s)} aria-label="แสดงรหัสผ่าน" className="text-ink-mute">
+              <Button variant="ghost" size="icon" onClick={() => setShow((s) => !s)} aria-label="แสดงรหัสผ่าน" className="h-auto shadow-none [&_svg]:size-auto w-auto p-0 hover:bg-transparent text-ink-mute">
                 {show ? <EyeOff size={18} /> : <Eye size={18} />}
-              </button>
+              </Button>
             </div>
           </div>
           {mode === 'signin' && (

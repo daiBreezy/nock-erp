@@ -4,6 +4,7 @@ import { ChevronLeft, Plus, Circle } from 'lucide-react'
 import { focusSubjects, presetDurations, onlineMembers } from '../../data/homework'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
 
 const QUICK_KEY = 'nock.quickDurations'
 
@@ -13,6 +14,14 @@ function loadQuick(): number[] {
   } catch {
     return []
   }
+}
+
+// chip วิชาที่เลือก: คงสีวิชาไว้ตอน hover (ToggleGroup ตั้ง hover:bg-muted ไว้) — เขียนคลาสเต็มให้ Tailwind เห็น
+const keepBgOnHover: Record<string, string> = {
+  'bg-subject-math': 'hover:bg-subject-math hover:text-subject-math-ink',
+  'bg-subject-english': 'hover:bg-subject-english hover:text-subject-english-ink',
+  'bg-subject-thai': 'hover:bg-subject-thai hover:text-subject-thai-ink',
+  'bg-subject-science': 'hover:bg-subject-science hover:text-subject-science-ink',
 }
 
 export default function HomeworkRoom() {
@@ -73,53 +82,48 @@ export default function HomeworkRoom() {
       {/* เลือกวิชา */}
       <section className="px-4 pt-6">
         <h2 className="mb-3 text-base font-semibold text-ink">เลือกวิชา</h2>
-        <div className="flex flex-wrap gap-2">
-          {focusSubjects.map((s) => {
-            const active = s.key === subject
-            return (
-              <button
-                key={s.key}
-                onClick={() => setSubject(s.key)}
-                className={`rounded-pill px-4 py-2 text-sm font-medium transition ${
-                  active ? s.tone + ' ring-2 ring-brand' : 'bg-surface-1 text-ink-soft border border-line'
-                }`}
-              >
-                {s.label}
-              </button>
-            )
-          })}
-        </div>
+        <ToggleGroup type="single" value={subject} onValueChange={(v) => v && setSubject(v as typeof subject)} className="flex-wrap justify-start gap-2">
+          {focusSubjects.map((s) => (
+            <ToggleGroupItem
+              key={s.key}
+              value={s.key}
+              className={`h-auto rounded-pill border px-4 py-2 text-sm font-medium transition ${
+                s.key === subject ? `${s.tone} ${keepBgOnHover[s.tone.split(' ')[0]] ?? ''} border-transparent ring-2 ring-brand` : 'border-line bg-surface-1 text-ink-soft hover:bg-surface-2 hover:text-ink'
+              }`}
+            >
+              {s.label}
+            </ToggleGroupItem>
+          ))}
+        </ToggleGroup>
       </section>
 
       {/* เลือกเวลา */}
       <section className="px-4 pt-6">
         <h2 className="mb-3 text-base font-semibold text-ink">ตั้งเวลาโฟกัส</h2>
         <div className="flex flex-wrap gap-2">
-          {allDurations.map((d) => (
-            <button
-              key={d}
-              onClick={() => setMinutes(d)}
-              className={`rounded-pill px-4 py-2 text-sm font-medium transition ${
-                minutes === d ? 'bg-brand text-white' : 'bg-surface-1 text-ink-soft border border-line'
-              }`}
-            >
-              {d} นาที
-            </button>
-          ))}
-          <button
-            onClick={() => setMinutes(null)}
-            className={`rounded-pill px-4 py-2 text-sm font-medium transition ${
-              minutes === null ? 'bg-brand text-white' : 'bg-surface-1 text-ink-soft border border-line'
-            }`}
+          <ToggleGroup
+            type="single"
+            value={minutes === null ? 'none' : String(minutes)}
+            onValueChange={(v) => v && setMinutes(v === 'none' ? null : Number(v))}
+            className="contents"
           >
-            ไม่จับเวลา
-          </button>
-          <button
+            {[...allDurations.map((d) => ({ v: String(d), label: `${d} นาที` })), { v: 'none', label: 'ไม่จับเวลา' }].map((o) => (
+              <ToggleGroupItem
+                key={o.v}
+                value={o.v}
+                className="h-auto rounded-pill border border-line bg-surface-1 px-4 py-2 text-sm font-medium text-ink-soft transition hover:bg-surface-2 hover:text-ink data-[state=on]:border-transparent data-[state=on]:bg-brand data-[state=on]:text-white data-[state=on]:hover:bg-brand-dark data-[state=on]:hover:text-white"
+              >
+                {o.label}
+              </ToggleGroupItem>
+            ))}
+          </ToggleGroup>
+          <Button
+            variant="outline"
             onClick={() => setCustomOpen(true)}
-            className="flex items-center gap-1 rounded-pill border border-dashed border-line bg-surface-1 px-4 py-2 text-sm font-medium text-ink-soft"
+            className="h-auto gap-1 rounded-pill border-dashed border-line bg-surface-1 px-4 py-2 text-sm font-medium text-ink-soft shadow-none hover:bg-surface-2"
           >
             <Plus size={16} /> กำหนดเอง
-          </button>
+          </Button>
         </div>
 
         {customOpen && (

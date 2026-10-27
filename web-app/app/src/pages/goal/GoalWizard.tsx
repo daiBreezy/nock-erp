@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { Flag, ArrowRight, ArrowLeft, Sparkles, ThumbsUp, Target, TrendingUp, Play, Rocket } from 'lucide-react'
 import { goalSubjects, targetSchools, grades, moods, buildGoalTest, aiSummary, playlist, planDurations, planTimes, type GoalType } from '../../data/goal'
 import { Button } from '@/components/ui/button'
+import { Slider } from '@/components/ui/slider'
 import { Progress } from '@/components/ui/progress'
 
 type StepType = 'goal' | 'subjects' | 'school' | 'grade' | 'confidence' | 'question' | 'cutscene' | 'result' | 'plan'
@@ -209,7 +210,7 @@ export default function GoalWizard() {
                   </div>
                   <div>
                     <h2 className="mb-3 text-sm font-semibold text-ink">เวลาเรียน/วัน · <span className="text-brand">{minutes} นาที</span></h2>
-                    <input type="range" min={10} max={120} step={5} value={minutes} onChange={(e) => setMinutes(+e.target.value)} className="w-full accent-brand" />
+                    <Slider min={10} max={120} step={5} value={[minutes]} onValueChange={([v]) => setMinutes(v)} aria-label="เวลาเรียนต่อวัน (นาที)" className="py-2 [&_.bg-primary]:bg-brand [&_[role=slider]]:border-brand" />
                   </div>
                   <div>
                     <h2 className="mb-3 text-sm font-semibold text-ink">ช่วงเวลาที่สะดวก</h2>

@@ -9,6 +9,7 @@ import { thumb } from '@/data/media'
 import type { SubjectKey } from '@/data/mock'
 import { clipGroups, subjectMeta, findVideo } from '@/data/learn'
 import { Button } from '@/components/ui/button'
+import { Sheet, SheetContent, SheetTitle } from '@/components/ui/sheet'
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable'
 import { useSavedLayout } from '@/lib/useSavedLayout'
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion'
@@ -425,14 +426,13 @@ export default function LessonVideo() {
         </Button>
 
         {/* drawer */}
-        {drawer && (
-          <div className="fixed inset-0 z-40">
-            <div className="absolute inset-0 bg-black/40" onClick={() => setDrawer(false)} />
-            <div className="absolute left-0 top-0 h-full w-[85%] max-w-[340px] bg-surface-1 shadow-xl">
-              <Sidebar {...sidebarProps} onClose={() => setDrawer(false)} />
-            </div>
-          </div>
-        )}
+        {/* สารบัญ — Sheet เลื่อนจากซ้าย */}
+        <Sheet open={drawer} onOpenChange={setDrawer}>
+          <SheetContent side="left" hideClose className="w-[85%] max-w-[340px] bg-surface-1 p-0 sm:max-w-[340px]">
+            <SheetTitle className="sr-only">สารบัญบทเรียน</SheetTitle>
+            <Sidebar {...sidebarProps} onClose={() => setDrawer(false)} />
+          </SheetContent>
+        </Sheet>
       </div>
     </div>
   )

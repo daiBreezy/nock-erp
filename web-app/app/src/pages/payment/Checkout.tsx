@@ -1,9 +1,10 @@
 import { useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
-import { ChevronLeft, Check, QrCode, Landmark, CreditCard, CalendarClock, Apple } from 'lucide-react'
+import { ChevronLeft, QrCode, Landmark, CreditCard, CalendarClock, Apple } from 'lucide-react'
 import { payMethods, type PayMethodKey } from '../../data/payment'
 import { fmtBaht } from '../../data/packages'
 import { Button } from '@/components/ui/button'
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 
 type Plan = { name: string; price: number; detail?: string }
 
@@ -48,15 +49,15 @@ export default function Checkout() {
       {/* เลือกวิธีจ่าย */}
       <section className="px-4 pt-5">
         <h2 className="mb-3 text-base font-semibold text-ink">เลือกวิธีชำระเงิน</h2>
-        <div className="space-y-2.5">
+        <RadioGroup value={method ?? ''} onValueChange={(v) => setMethod(v as PayMethodKey)} className="gap-2.5">
           {payMethods.map((m) => {
             const Icon = methodIcon[m.key]
             const active = method === m.key
             return (
-              <button
+              <label
                 key={m.key}
-                onClick={() => setMethod(m.key)}
-                className={`flex w-full items-center gap-3 rounded-card border p-4 text-left ${active ? 'border-brand bg-brand-soft' : 'border-line bg-surface-1'}`}
+                htmlFor={`pay-${m.key}`}
+                className={`flex w-full cursor-pointer items-center gap-3 rounded-card border p-4 text-left ${active ? 'border-brand bg-brand-soft' : 'border-line bg-surface-1'}`}
               >
                 <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${active ? 'bg-brand text-white' : 'bg-surface-2 text-ink-soft'}`}>
                   <Icon size={20} />
@@ -65,13 +66,11 @@ export default function Checkout() {
                   <p className="text-sm font-medium text-ink">{m.label}</p>
                   <p className="mt-0.5 text-xs text-ink-soft">{m.desc}</p>
                 </div>
-                <span className={`flex h-5 w-5 items-center justify-center rounded-full border ${active ? 'border-brand bg-brand text-white' : 'border-line'}`}>
-                  {active && <Check size={13} />}
-                </span>
-              </button>
+                <RadioGroupItem id={`pay-${m.key}`} value={m.key} className="h-5 w-5 border-line text-white shadow-none data-[state=checked]:border-brand data-[state=checked]:bg-brand" />
+              </label>
             )
           })}
-        </div>
+        </RadioGroup>
       </section>
 
       <div className="sticky bottom-0 z-10 mt-auto pb-[max(1rem,env(safe-area-inset-bottom))] border-t border-line bg-surface-1 p-4">

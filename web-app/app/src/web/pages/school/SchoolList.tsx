@@ -273,9 +273,9 @@ export default function SchoolList() {
           <>
             <h2 className="mb-5 flex items-center gap-2 text-[22px] font-bold tracking-tight">
               <MapPin size={20} className="text-brand" /> สาขา{branches.find((b) => b.slug === selected)?.area}
-              <button onClick={() => setSelected(null)} className="ml-2 text-[14px] font-normal text-brand hover:underline">
+              <Button variant="link" onClick={() => setSelected(null)} className="h-auto shadow-none [&_svg]:size-auto p-0 ml-2 text-[14px] font-normal text-brand hover:underline">
                 ดูทุกสาขา
-              </button>
+              </Button>
             </h2>
             <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
               <BranchCard b={branches.find((b) => b.slug === selected)!} />

@@ -4,6 +4,7 @@ import { X, Sparkles } from 'lucide-react'
 import { buildGoalTest, cutScenes } from '../../data/goal'
 import { Button } from '@/components/ui/button'
 import { Progress } from '@/components/ui/progress'
+import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog'
 
 export default function GoalTest() {
   const navigate = useNavigate()
@@ -55,43 +56,48 @@ export default function GoalTest() {
         </div>
       </div>
 
-      {/* Cut-scene */}
-      {cut && (
-        <div className="fixed inset-0 z-30 flex items-center justify-center bg-black/50 px-6">
-          <div className="w-full max-w-[400px] rounded-3xl bg-surface-1 p-6 text-center">
-            <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-full bg-subject-science">
-              <Sparkles size={28} className="text-subject-science-ink" />
-            </div>
-            <p className="text-lg font-semibold text-ink">{cutScenes[cut].title}</p>
-            <p className="mt-1.5 text-sm text-ink-soft">{cutScenes[cut].detail}</p>
-
-            {cutScenes[cut].skippable ? (
-              <div className="mt-6 space-y-2.5">
-                <Button onClick={dismissCut} className="h-auto w-full rounded-2xl bg-brand py-3.5 text-sm font-semibold hover:bg-brand-dark">ทำต่อให้ครบ</Button>
-                <Button variant="outline" onClick={() => setConfirmSkip(true)} className="h-auto w-full rounded-2xl border-line py-3 text-sm font-medium text-ink-soft hover:bg-surface-2">ดูผลเบื้องต้น</Button>
+      {/* Cut-scene — ต้องเลือกปุ่มเท่านั้น (ปิดด้วยฉากหลัง / Esc ไม่ได้) */}
+      <Dialog open={cut !== null}>
+        <DialogContent
+          hideClose
+          onEscapeKeyDown={(e) => e.preventDefault()}
+          onInteractOutside={(e) => e.preventDefault()}
+          className="w-[calc(100%-3rem)] max-w-[400px] gap-0 rounded-3xl border-0 bg-surface-1 p-6 text-center sm:rounded-3xl"
+        >
+          {cut !== null && (
+            <>
+              <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-full bg-subject-science">
+                <Sparkles size={28} className="text-subject-science-ink" />
               </div>
-            ) : (
-              <Button onClick={dismissCut} className="mt-6 h-auto w-full rounded-2xl bg-brand py-3.5 text-sm font-semibold hover:bg-brand-dark">
-                {cut === 10 ? 'ดูผลวิเคราะห์' : 'ทำต่อ'}
-              </Button>
-            )}
-          </div>
-        </div>
-      )}
+              <DialogTitle className="text-lg font-semibold text-ink">{cutScenes[cut].title}</DialogTitle>
+              <DialogDescription className="mt-1.5 text-sm text-ink-soft">{cutScenes[cut].detail}</DialogDescription>
+
+              {cutScenes[cut].skippable ? (
+                <div className="mt-6 space-y-2.5">
+                  <Button onClick={dismissCut} className="h-auto w-full rounded-2xl bg-brand py-3.5 text-sm font-semibold hover:bg-brand-dark">ทำต่อให้ครบ</Button>
+                  <Button variant="outline" onClick={() => setConfirmSkip(true)} className="h-auto w-full rounded-2xl border-line py-3 text-sm font-medium text-ink-soft hover:bg-surface-2">ดูผลเบื้องต้น</Button>
+                </div>
+              ) : (
+                <Button onClick={dismissCut} className="mt-6 h-auto w-full rounded-2xl bg-brand py-3.5 text-sm font-semibold hover:bg-brand-dark">
+                  {cut === 10 ? 'ดูผลวิเคราะห์' : 'ทำต่อ'}
+                </Button>
+              )}
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
 
       {/* ยืนยัน skip → ผลไม่สมบูรณ์ */}
-      {confirmSkip && (
-        <div className="fixed inset-0 z-40 flex items-end justify-center bg-black/45 px-0 md:items-center md:px-6">
-          <div className="w-full max-w-[440px] rounded-t-3xl bg-surface-1 p-6 pb-8 text-center md:rounded-3xl md:pb-6">
-            <p className="text-lg font-semibold text-ink">ดูผลแบบไม่สมบูรณ์?</p>
-            <p className="mt-1 text-sm text-ink-soft">ทำครบ 10 ข้อ ผลวิเคราะห์จะแม่นยำกว่า · กลับมาทำต่อได้ภายหลัง</p>
-            <div className="mt-6 space-y-2.5">
-              <Button onClick={() => goResult(false)} className="h-auto w-full rounded-2xl bg-brand py-4 text-sm font-semibold hover:bg-brand-dark">ดูผลเบื้องต้น</Button>
-              <Button variant="outline" onClick={() => setConfirmSkip(false)} className="h-auto w-full rounded-2xl border-line py-3 text-sm font-medium text-ink-soft hover:bg-surface-2">ทำต่อ</Button>
-            </div>
+      <Dialog open={confirmSkip} onOpenChange={setConfirmSkip}>
+        <DialogContent hideClose className="w-[calc(100%-2rem)] max-w-[440px] gap-0 rounded-3xl border-0 bg-surface-1 p-6 text-center sm:rounded-3xl">
+          <DialogTitle className="text-lg font-semibold text-ink">ดูผลแบบไม่สมบูรณ์?</DialogTitle>
+          <DialogDescription className="mt-1 text-sm text-ink-soft">ทำครบ 10 ข้อ ผลวิเคราะห์จะแม่นยำกว่า · กลับมาทำต่อได้ภายหลัง</DialogDescription>
+          <div className="mt-6 space-y-2.5">
+            <Button onClick={() => goResult(false)} className="h-auto w-full rounded-2xl bg-brand py-4 text-sm font-semibold hover:bg-brand-dark">ดูผลเบื้องต้น</Button>
+            <Button variant="outline" onClick={() => setConfirmSkip(false)} className="h-auto w-full rounded-2xl border-line py-3 text-sm font-medium text-ink-soft hover:bg-surface-2">ทำต่อ</Button>
           </div>
-        </div>
-      )}
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

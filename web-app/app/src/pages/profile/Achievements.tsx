@@ -1,6 +1,7 @@
 import { useNavigate } from 'react-router-dom'
 import { ChevronLeft, Medal, Lock } from 'lucide-react'
 import { achievementGroups } from '../../data/profile'
+import { Button } from '@/components/ui/button'
 
 export default function Achievements() {
   const navigate = useNavigate()
@@ -8,7 +9,7 @@ export default function Achievements() {
   return (
     <div className="min-h-screen bg-surface-0 pb-10">
       <header className="sticky top-0 z-10 flex items-center gap-3 border-b border-line bg-surface-0/90 px-4 py-3 backdrop-blur">
-        <button onClick={() => navigate(-1)} aria-label="ย้อนกลับ" className="text-ink"><ChevronLeft size={24} /></button>
+        <Button variant="ghost" size="icon" onClick={() => navigate(-1)} aria-label="ย้อนกลับ" className="h-auto shadow-none [&_svg]:size-auto w-auto p-0 hover:bg-transparent text-ink"><ChevronLeft size={24} /></Button>
         <h1 className="text-lg font-semibold text-ink">ความสำเร็จ</h1>
       </header>
 

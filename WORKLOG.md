@@ -27,6 +27,7 @@
 - ✅ `tsc -b`, `vite build`, `oxlint` (0 error) · ดูในเบราว์เซอร์แล้ว
 - **Accordion (shadcn)** ในสารบัญหน้าเรียน (Web + App): เปิดทีละบท บทที่ดูอยู่เปิดไว้ · ในบท = บทเรียน / แบบฝึกหัด / แบบทดสอบ (บทอื่นกดแล้วพาไปบทนั้น)
 - **Resizable (shadcn, `react-resizable-panels` 4.14.5)** จอแบ่งทุกหน้าลากปรับขนาดได้ + จำขนาดไว้ (`lib/useSavedLayout.ts`, localStorage): Web หน้าเรียน (สารบัญ | วิดีโอ) · Web ไลฟ์ จอ xl (แชท | วิดีโอ | รายการวิดีโอ) · App แนวนอน หน้าเรียน / ไลฟ์ (วิดีโอ | แชท) / ห้องสอบ (รายการ | รายละเอียด) — หน้าใหม่ที่เป็นจอแบ่งให้ใช้ตัวนี้
+- **shadcn รอบเก็บกวาด (raw `<button>` 97 → 57 ที่เหลือคือการ์ด/แถวรายการ/UI เฉพาะทางที่ตั้งใจเก็บ):** ปุ่ม CTA + ปุ่มไอคอน (Quiz, ย้อนกลับ, ปฏิทิน, auth) → `Button`, จับเวลาใน Quiz → `Checkbox` · ห้องสอบ: ข้อสอบ/คะแนนรวม → `Tabs`, ตัวกรอง → `DropdownMenu` (วิชา/ชั้นกรองจริง) · FAQ + เฉลย → `Accordion` · ลิ้นชักสารบัญ/แชท → `Sheet` (เพิ่ม `hideClose`), ป๊อปอัป GoalTest → `Dialog` · ชำระเงิน → `RadioGroup`, นาทีเรียน → `Slider`, chip ห้องการบ้าน → `ToggleGroup` · เพิ่ม ui: tabs, radio-group, slider, toggle, toggle-group, checkbox
 
 **เหลือทำ (TODO):**
 - [ ] หน้าที่ยังใช้ร่วม (`src/pages/` — profile, more, homework, pricing, checkout, auth, goal, exam result/solution, learn subject) → แยกเป็นเวอร์ชัน Web / App เมื่อออกแบบหน้าตาแต่ละฝั่งแล้ว (ตอนนี้ทั้งสองฝั่งแสดงเป็นคอลัมน์กลาง 720px — Web ยังไม่มีดีไซน์ Desktop ของหน้าเหล่านี้)

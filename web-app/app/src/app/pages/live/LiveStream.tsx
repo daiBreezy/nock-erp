@@ -8,6 +8,7 @@ import {
 import { thumb } from '@/data/media'
 import type { SubjectKey } from '@/data/mock'
 import { Button } from '@/components/ui/button'
+import { Sheet, SheetContent, SheetTitle } from '@/components/ui/sheet'
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable'
 import { useSavedLayout } from '@/lib/useSavedLayout'
 import { Input } from '@/components/ui/input'
@@ -216,14 +217,13 @@ export default function LiveStream() {
       </div>
 
       {/* chat drawer (tablet + mobile) */}
-      {chatOpen && (
-        <div className="fixed inset-0 z-40">
-          <div className="absolute inset-0 bg-black/40" onClick={() => setChatOpen(false)} />
-          <div className="absolute right-0 top-0 h-full w-[85%] max-w-[360px] shadow-xl">
-            <ChatPanel fill onClose={() => setChatOpen(false)} />
-          </div>
-        </div>
-      )}
+      {/* แชทสด — Sheet เลื่อนจากขวา */}
+      <Sheet open={chatOpen} onOpenChange={setChatOpen}>
+        <SheetContent side="right" hideClose className="w-[85%] max-w-[360px] p-0 sm:max-w-[360px]">
+          <SheetTitle className="sr-only">Live Chat</SheetTitle>
+          <ChatPanel fill onClose={() => setChatOpen(false)} />
+        </SheetContent>
+      </Sheet>
     </div>
   )
 }

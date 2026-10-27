@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { activeDays } from '../../data/profile'
+import { Button } from '@/components/ui/button'
 
 const typeColor: Record<string, string> = {
   homework: '#4F46E5',
@@ -38,9 +39,9 @@ export default function UsageCalendar() {
   return (
     <div>
       <div className="mb-3 flex items-center justify-between">
-        <button onClick={prev} aria-label="เดือนก่อนหน้า" className="text-ink-soft"><ChevronLeft size={20} /></button>
+        <Button variant="ghost" size="icon" onClick={prev} aria-label="เดือนก่อนหน้า" className="h-auto shadow-none [&_svg]:size-auto w-auto p-0 hover:bg-transparent text-ink-soft"><ChevronLeft size={20} /></Button>
         <span className="text-sm font-medium text-ink">{monthNames[month]} {year + 543}</span>
-        <button onClick={next} aria-label="เดือนถัดไป" className="text-ink-soft"><ChevronRight size={20} /></button>
+        <Button variant="ghost" size="icon" onClick={next} aria-label="เดือนถัดไป" className="h-auto shadow-none [&_svg]:size-auto w-auto p-0 hover:bg-transparent text-ink-soft"><ChevronRight size={20} /></Button>
       </div>
       <div className="grid grid-cols-7 gap-1 text-center">
         {['อา', 'จ', 'อ', 'พ', 'พฤ', 'ศ', 'ส'].map((d) => (
