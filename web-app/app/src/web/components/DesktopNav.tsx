@@ -74,7 +74,7 @@ export default function DesktopNav() {
                     </div>
                   </div>
                 </div>
-                <Avatar className="border border-line bg-surface-2">
+                <Avatar className="rounded-full border border-line bg-surface-2">
                   <AvatarImage src="https://api.dicebear.com/9.x/adventurer/svg?seed=Joe" alt="โปรไฟล์" />
                   <AvatarFallback>โจ้</AvatarFallback>
                 </Avatar>

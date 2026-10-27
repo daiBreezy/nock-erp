@@ -1,14 +1,14 @@
 import { useNavigate } from 'react-router-dom'
 import {
-  Flame, PlayCircle, Monitor, Tablet, Smartphone, Radio, Send, Check, Crown,
-  Star, Video, FileText, Target, Users, MapPin, GraduationCap, CalendarClock,
+  Flame, PlayCircle, Monitor, Tablet, Smartphone, Radio, Send,
+  Star, Video, FileText, Target, MapPin, GraduationCap, CalendarClock,
 } from 'lucide-react'
 import DesktopNav from '@/web/components/DesktopNav'
 import { Button } from '@/components/ui/button'
 import AppShowcase from '@/web/components/AppShowcase'
 import MarketingFooter from '@/web/components/MarketingFooter'
 import ContactFab from '@/web/components/ContactFab'
-import { plusPricing, premiumPlans, perMonth, fmtBaht } from '@/data/packages'
+import CoursePlans, { LearnersPill, PaymentMethods } from '@/web/components/CoursePlans'
 import { subjectMeta } from '@/data/learn'
 import type { SubjectKey } from '@/data/mock'
 import liveStill from '@/assets/media/Screenshot00006.png'
@@ -200,84 +200,21 @@ function Live() {
 /* ---------- 4. Course / ราคา ---------- */
 function Pricing() {
   const navigate = useNavigate()
-  const plus = plusPricing()
-  const p = (m: number) => premiumPlans.find((x) => x.months === m)!
-  const cols = [
-    { key: 'plus', name: 'Premium+', badge: 'ยอดนิยม', price: plus.price, note: `เหลือ ${plus.remaining} วัน`, live: true, highlight: true },
-    { key: 'p12', name: 'Premium 12 เดือน', price: p(12).price, note: `~฿${fmtBaht(perMonth(p(12)))}/เดือน`, live: false },
-    { key: 'p6', name: 'Premium 6 เดือน', price: p(6).price, note: `~฿${fmtBaht(perMonth(p(6)))}/เดือน`, live: false },
-    { key: 'p3', name: 'Premium 3 เดือน', price: p(3).price, note: `~฿${fmtBaht(perMonth(p(3)))}/เดือน`, live: false },
-  ]
-  const rows: { label: string; all?: boolean; plusOnly?: boolean }[] = [
-    { label: 'คลิปบทเรียนครบ 4 วิชา', all: true },
-    { label: 'แบบฝึกหัด + ระบบสอบ', all: true },
-    { label: 'Personalize Goal (AI)', all: true },
-    { label: 'ดูไลฟ์ย้อนหลังทั้งหมด', all: true },
-    { label: 'ไลฟ์สอนสดทุกวัน', plusOnly: true },
-  ]
-  const cell = (has: boolean) =>
-    has ? <Check size={18} className="mx-auto text-success" /> : <span className="mx-auto block h-px w-3 bg-line" />
-
   return (
     <section className="border-t border-line bg-surface-1 py-16">
-      <div className="mx-auto max-w-[1100px] px-5">
-        <Heading
-          eyebrow={
-            <span className="inline-flex items-center gap-2 rounded-pill bg-brand-soft px-3.5 py-1.5 text-[13px] font-bold text-brand">
-              <Users size={15} /> เพื่อนร่วมเรียนกว่า 17,573+ คน
-            </span>
-          }
-          title="Course ของเรา"
-          sub="เลือกแพ็กเกจที่ใช่ ครบทุกวิชา ป.4–ม.6 · Premium+ รวมไลฟ์สอนสดทุกวัน"
-        />
-        <div className="overflow-x-auto">
-          <div className="min-w-[680px]">
-            {/* header */}
-            <div className="grid grid-cols-[1.4fr_repeat(4,1fr)] gap-3">
-              <div />
-              {cols.map((c) => (
-                <div key={c.key} className={`rounded-t-2xl border-x border-t p-4 text-center ${c.highlight ? 'border-brand bg-brand-soft/40' : 'border-line bg-white'}`}>
-                  {c.badge && (
-                    <span className="mb-1.5 inline-flex items-center gap-1 rounded-pill bg-brand px-2.5 py-0.5 text-[11px] font-bold text-white">
-                      <Crown size={11} /> {c.badge}
-                    </span>
-                  )}
-                  <p className="text-[13.5px] font-bold text-ink">{c.name}</p>
-                  <p className="mt-1 text-[22px] font-extrabold text-brand">฿{fmtBaht(c.price)}</p>
-                  <p className="text-[11.5px] text-ink-mute">{c.note}</p>
-                </div>
-              ))}
-            </div>
-            {/* rows */}
-            {rows.map((r, ri) => (
-              <div key={r.label} className="grid grid-cols-[1.4fr_repeat(4,1fr)] gap-3">
-                <div className={`flex items-center px-1 py-3 text-[13.5px] text-ink ${ri === rows.length - 1 ? '' : 'border-b border-line'}`}>{r.label}</div>
-                {cols.map((c) => (
-                  <div key={c.key} className={`flex items-center justify-center border-x px-4 py-3 ${c.highlight ? 'border-brand bg-brand-soft/20' : 'border-line bg-white'}`}>
-                    {cell(r.all ? true : r.plusOnly ? c.live : false)}
-                  </div>
-                ))}
-              </div>
-            ))}
-            {/* CTA row */}
-            <div className="grid grid-cols-[1.4fr_repeat(4,1fr)] gap-3">
-              <div />
-              {cols.map((c) => (
-                <div key={c.key} className={`rounded-b-2xl border-x border-b p-3 ${c.highlight ? 'border-brand bg-brand-soft/40' : 'border-line bg-white'}`}>
-                  <Button
-                    variant={c.highlight ? 'default' : 'outline'}
-                    onClick={() => navigate('/checkout', { state: { name: c.name, price: c.price } })}
-                    className={`h-auto w-full rounded-pill py-2.5 text-[13px] font-bold ${c.highlight ? 'bg-brand hover:bg-brand-dark' : 'border-line text-ink hover:bg-surface-2'}`}
-                  >
-                    เลือก
-                  </Button>
-                </div>
-              ))}
-            </div>
-          </div>
+      <div className="mx-auto max-w-[1200px] px-5">
+        <div className="mx-auto mb-8 max-w-[720px] text-center">
+          <h2 className="text-[26px] font-extrabold tracking-tight text-ink sm:text-[32px]">Course ของเรา</h2>
+          <p className="mt-2.5 text-[15px] leading-relaxed text-ink-soft">
+            สามารถใช้งานได้ไม่จำกัดวิชา (คณิตศาสตร์, วิทยาศาสตร์, ภาษาอังกฤษ, ภาษาไทย) ไลฟ์สดทุกวัน (จันทร์-ศุกร์)
+            <br className="hidden sm:block" /> มีบทเรียน มากกว่า 2,000+ คลิป 4,000+ แบบฝึกหัด และดูประวัติการไลฟ์ได้ บนทุกอุปกรณ์
+          </p>
+          <div className="mt-5 flex justify-center"><LearnersPill /></div>
+          <div className="mt-4"><PaymentMethods /></div>
         </div>
-        <p className="mt-4 text-center text-[12.5px] text-ink-mute">
-          Premium+ ยิ่งสมัครเร็ว ยิ่งคุ้ม — ราคาลดลงทุกวันจนถึงขั้นต่ำ ฿500 ·{' '}
+        <CoursePlans />
+        <p className="mt-5 text-center text-[12.5px] text-ink-mute">
+          Premium Plus+ คิดราคาตามระยะเวลาที่เหลือ ถึงวันสิ้นสุดคอร์ส ·{' '}
           <Button variant="link" onClick={() => navigate('/courses')} className="h-auto p-0 align-baseline text-[12.5px] font-semibold text-brand">ดูรายละเอียดทั้งหมด</Button>
         </p>
       </div>
