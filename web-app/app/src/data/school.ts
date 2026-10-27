@@ -7,10 +7,13 @@ import clsA from '../assets/media/Screenshot00004.png'
 import clsB from '../assets/media/Screenshot00006.png'
 import clsC from '../assets/media/Screenshot00007.png'
 import clsD from '../assets/media/Screenshot00005.png'
+import { CLASS_RAW } from './schoolClasses'
 
 export type Region = 'กรุงเทพฯ' | 'ชลบุรี'
 export type FbPost = { date: string; text: string; image?: string; likes: number; comments: number; url: string }
 export type Teacher = { name: string; subject: string; fullName?: string; photo?: string }
+/** คลาสในตารางเรียนของสาขา (จริง จาก Sheet) — วัน · เวลา · วิชา (ชื่อสั้น) · ชั้น (ว่าง = ไม่ระบุ) */
+export type ClassRow = { day: string; start: string; end: string; subjects: string[]; grades: string[] }
 export type Course = { name: string; duration: string; subjects: string[]; grade: string; levels: string[]; price: number; fee?: number }
 
 export type Branch = {
@@ -36,7 +39,7 @@ export type Branch = {
   courses: Course[]
   subjectTags: string[]
   levelTags: string[]
-  timetable: { day: string; slots: string }[]
+  classes: ClassRow[]
   teachers: Teacher[]
   classroomPhotos: string[]
   testimonials: { quote: string; name: string; result?: string }[]
@@ -49,12 +52,6 @@ const COMMON_HOURS = [
   { day: 'จันทร์ – ศุกร์', time: '15:00 – 20:00 น.' },
   { day: 'เสาร์ – อาทิตย์', time: '09:00 – 17:00 น.' },
   { day: 'วันหยุดนักขัตฤกษ์', time: 'ปิดทำการ' },
-]
-const COMMON_TIMETABLE = [
-  { day: 'จันทร์ / พุธ', slots: 'คณิต 17:00 · อังกฤษ 18:30' },
-  { day: 'อังคาร / พฤหัส', slots: 'วิทย์ 17:00 · ไทย 18:30' },
-  { day: 'เสาร์', slots: 'ติวเข้มทุกวิชา 09:00 – 15:00' },
-  { day: 'อาทิตย์', slots: 'ติวสอบเข้า ม.1 / ม.4 10:00 – 16:00' },
 ]
 const COMMON_TESTIMONIALS = [
   { quote: 'ลูกสอบเข้า ม.1 ได้ เพราะติวที่นี่มาตั้งแต่ ป.5 ครูดูแลดีมากค่ะ', name: 'คุณแม่น้องปีใหม่', result: 'สอบติด ม.1' },
@@ -292,7 +289,9 @@ export const branches: Branch[] = RAW.map(([slug, area, region, lat, lng, mapUrl
     courses,
     subjectTags,
     levelTags,
-    timetable: COMMON_TIMETABLE,
+    classes: (CLASS_RAW[slug] ?? []).map(([day, start, end, subj, grade]) => ({
+      day, start, end, subjects: subj.split(','), grades: grade ? [grade] : [],
+    })),
     // รูปครูจริง (public/teachers) · ครูที่ยังไม่มีรูป → undefined (การ์ดจะโชว์ตัวอักษรแทน)
     teachers: teachers.map((t) => ({
       ...t,

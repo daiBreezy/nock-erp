@@ -4,20 +4,121 @@ import type { ComponentType } from 'react'
 import {
   MapPin, Clock, Phone, ChevronRight, GraduationCap, CalendarDays,
   Users, Image as ImageIcon, Star, Navigation, ThumbsUp, MessageCircle,
-  Calculator, Languages, FlaskConical, BookOpen, ArrowLeft,
+  Calculator, Languages, FlaskConical, BookOpen, ArrowLeft, ArrowUpDown, ArrowUp, ArrowDown, ChevronDown, ChevronUp,
 } from 'lucide-react'
 import type { ComponentType as CT } from 'react'
 import DesktopNav from '@/web/components/DesktopNav'
 import MarketingFooter from '@/web/components/MarketingFooter'
 import ContactFab from '@/web/components/ContactFab'
 import { LineIcon, FacebookIcon } from '@/components/BrandIcons'
-import { getBranch, subjectChipClass, type Branch, type Course } from '@/data/school'
+import { getBranch, subjectChipClass, type Branch, type ClassRow, type Course } from '@/data/school'
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Card } from '@/components/ui/card'
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle,
 } from '@/components/ui/dialog'
+
+/* ---------- ตารางเรียน: ตาราง shadcn · กดหัวคอลัมน์เพื่อเรียง · แสดงเพิ่ม / ย่อ ---------- */
+
+const DAY_ORDER = ['จันทร์', 'อังคาร', 'พุธ', 'พฤหัสบดี', 'ศุกร์', 'เสาร์', 'อาทิตย์']
+const gradeNum = (g: string) => {
+  const m = g.match(/^(ป|ม)\.(\d+)/)
+  return m ? (m[1] === 'ป' ? 0 : 6) + Number(m[2]) : 99
+}
+// ป. = ฟ้า · ม. = ม่วง (เขียนคลาสเต็มให้ Tailwind เห็น)
+const gradeChip = (g: string) => (g.startsWith('ม') ? 'bg-violet-100 text-violet-800' : 'bg-sky-100 text-sky-800')
+
+type SortKey = 'day' | 'time' | 'subject' | 'grade'
+const SORTERS: Record<SortKey, (a: ClassRow, b: ClassRow) => number> = {
+  subject: (a, b) => a.subjects[0].localeCompare(b.subjects[0], 'th'),
+  day: (a, b) => DAY_ORDER.indexOf(a.day) - DAY_ORDER.indexOf(b.day) || a.start.localeCompare(b.start),
+  time: (a, b) => a.start.localeCompare(b.start),
+  grade: (a, b) => Math.min(...a.grades.map(gradeNum), 99) - Math.min(...b.grades.map(gradeNum), 99),
+}
+// ลำดับคอลัมน์ตามเจ้าของ: วัน · เวลา · วิชา · ชั้น
+const COLUMNS: { key: SortKey; label: string }[] = [
+  { key: 'day', label: 'วัน' },
+  { key: 'time', label: 'เวลา' },
+  { key: 'subject', label: 'วิชา' },
+  { key: 'grade', label: 'ชั้น' },
+]
+const PREVIEW = 5
+
+function ScheduleTable({ rows }: { rows: ClassRow[] }) {
+  const [sort, setSort] = useState<{ key: SortKey; dir: 1 | -1 }>({ key: 'day', dir: 1 })
+  const [expanded, setExpanded] = useState(false)
+  const sorted = [...rows].sort((a, b) => SORTERS[sort.key](a, b) * sort.dir)
+  const shown = expanded ? sorted : sorted.slice(0, PREVIEW)
+  const toggle = (key: SortKey) => setSort((s) => (s.key === key ? { key, dir: s.dir === 1 ? -1 : 1 } : { key, dir: 1 }))
+
+  return (
+    <div>
+      <div className="overflow-hidden rounded-2xl border border-line bg-white">
+        <Table className="min-w-[520px]">
+          <TableHeader className="bg-surface-1">
+            <TableRow className="border-line hover:bg-transparent">
+              {COLUMNS.map((c) => {
+                const active = sort.key === c.key
+                const Icon = !active ? ArrowUpDown : sort.dir === 1 ? ArrowUp : ArrowDown
+                return (
+                  <TableHead key={c.key} className="h-12 px-4" aria-sort={active ? (sort.dir === 1 ? 'ascending' : 'descending') : 'none'}>
+                    <Button
+                      variant="ghost"
+                      onClick={() => toggle(c.key)}
+                      className={`h-auto gap-1 p-0 text-[13px] font-medium hover:bg-transparent [&_svg]:size-3.5 ${active ? 'text-ink' : 'text-ink-mute hover:text-ink'}`}
+                    >
+                      {c.label} <Icon size={14} />
+                    </Button>
+                  </TableHead>
+                )
+              })}
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {shown.map((r) => (
+              <TableRow key={`${r.day}-${r.start}-${r.end}-${r.subjects.join()}-${r.grades.join()}`} className="border-line hover:bg-surface-1">
+                <TableCell className="px-4 py-3.5 text-[14px] text-ink">
+                  <span className="flex items-center gap-2 whitespace-nowrap"><CalendarDays size={16} className="text-ink-mute" /> {r.day}</span>
+                </TableCell>
+                <TableCell className="px-4 py-3.5 text-[14px] text-ink">
+                  <span className="flex items-center gap-2 whitespace-nowrap"><Clock size={16} className="text-ink-mute" /> {r.start}–{r.end}</span>
+                </TableCell>
+                <TableCell className="px-4 py-3.5">
+                  <div className="flex flex-wrap gap-1">
+                    {r.subjects.map((sj) => (
+                      <Badge key={sj} variant="outline" className={`rounded-pill border-transparent px-2.5 py-0.5 text-[12px] font-medium ${subjectChipClass(sj)}`}>{sj}</Badge>
+                    ))}
+                  </div>
+                </TableCell>
+                <TableCell className="px-4 py-3.5">
+                  <div className="flex flex-wrap gap-1">
+                    {r.grades.length === 0 && <span className="text-[13px] text-ink-mute">ไม่ระบุ</span>}
+                    {r.grades.map((g) => (
+                      <Badge key={g} variant="outline" className={`rounded-md border-transparent px-2 py-0.5 text-[12px] font-semibold ${gradeChip(g)}`}>{g}</Badge>
+                    ))}
+                  </div>
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </div>
+      {rows.length > PREVIEW && (
+        <div className="mt-3 flex justify-center">
+          <Button
+            variant="outline"
+            onClick={() => setExpanded((v) => !v)}
+            className="h-9 gap-1.5 rounded-pill border-line bg-transparent px-4 text-[13px] font-semibold text-ink shadow-none hover:bg-surface-1 [&_svg]:size-4"
+          >
+            {expanded ? <>แสดงน้อยลง <ChevronUp size={16} /></> : <>แสดงเพิ่ม ({rows.length - PREVIEW}) <ChevronDown size={16} /></>}
+          </Button>
+        </div>
+      )}
+    </div>
+  )
+}
 
 const SUBJECT_ICON: Record<string, CT<{ size?: number }>> = {
   คณิต: Calculator, อังกฤษ: Languages, วิทย์: FlaskConical, ไทย: BookOpen,
@@ -276,14 +377,7 @@ export default function SchoolBranch() {
 
       {/* timetable */}
       <Section icon={CalendarDays} title="ตารางเรียน">
-        <div className="divide-y divide-line overflow-hidden rounded-2xl border border-line">
-          {branch.timetable.map((t) => (
-            <div key={t.day} className="flex flex-col gap-0.5 bg-white px-5 py-3.5 sm:flex-row sm:items-center sm:justify-between">
-              <span className="text-[15px] font-medium text-ink">{t.day}</span>
-              <span className="text-[14px] text-ink-soft">{t.slots}</span>
-            </div>
-          ))}
-        </div>
+        <ScheduleTable rows={branch.classes} />
       </Section>
 
       {/* teachers */}
