@@ -30,9 +30,9 @@ export default function AnnouncementModal({ onClose }: { onClose: () => void }) 
         {/* header */}
         <DialogHeader className="space-y-0 border-b border-line px-5 py-4 pr-12 text-left">
           {selected ? (
-            <button onClick={() => setSelected(null)} className="flex items-center gap-2 text-sm font-semibold text-ink">
+            <Button variant="ghost" onClick={() => setSelected(null)} className="h-auto justify-start gap-2 whitespace-normal p-0 text-left text-sm font-semibold text-ink hover:bg-transparent [&_svg]:size-[18px]">
               <ChevronLeft size={18} /> {selected.title}
-            </button>
+            </Button>
           ) : (
             <DialogTitle className="flex items-center gap-2 text-lg font-bold text-ink"><Megaphone size={20} className="text-brand" /> ประกาศ</DialogTitle>
           )}

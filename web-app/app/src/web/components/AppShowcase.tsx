@@ -1,5 +1,6 @@
 import { useNavigate } from 'react-router-dom'
 import { Download, Monitor, Tablet, Smartphone } from 'lucide-react'
+import { Button } from '@/components/ui/button'
 import logoIcon from '@/assets/media/full-icon.png'
 import downloadDevices from '@/assets/media/download-devices.png'
 
@@ -21,12 +22,12 @@ export default function AppShowcase() {
           <p className="mb-5 mt-2 max-w-sm text-[15px] text-ink-soft">
             ยังมีฟีเจอร์อีกมากมายในแอปของเรา เรียน ทำแบบฝึกหัด และติดตามผลได้ทุกที่
           </p>
-          <button
+          <Button
             onClick={() => navigate('/auth')}
-            className="inline-flex items-center gap-2 rounded-pill bg-brand px-7 py-3.5 text-[15px] font-bold text-white hover:bg-brand-dark"
+            className="h-auto gap-2 rounded-pill bg-brand px-7 py-3.5 text-[15px] font-bold text-white hover:bg-brand-dark [&_svg]:size-5"
           >
             <Download size={20} /> Download for free!
-          </button>
+          </Button>
           <div className="mt-5 flex items-center gap-2.5 text-[13px] text-ink-mute">
             <span className="inline-flex gap-2 text-ink-soft">
               <Monitor size={18} />
