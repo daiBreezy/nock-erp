@@ -1,13 +1,13 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { ChevronLeft, ChevronDown, Search, Crown, ListChecks, BookOpenCheck } from 'lucide-react'
+import { ChevronLeft, Crown, ListChecks, BookOpenCheck } from 'lucide-react'
+import { FilterBar, FilterSelect, GRADE_FILTER, SearchInput, SUBJECT_FILTER, gradeMatches } from '@/components/SearchFilter'
+import AbstractThumb from '@/components/AbstractThumb'
 import DesktopNav from '@/web/components/DesktopNav'
 import type { SubjectKey } from '@/data/mock'
 import { subjectBg, subjectText } from '@/lib/subject'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { DropdownMenu, DropdownMenuContent, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 
 type ExamSet = {
   id: string
@@ -36,27 +36,13 @@ const exams: ExamSet[] = [
   { id: 'e13', subject: 'english', title: 'เตรียมสอบเข้า รร.ดัง (จุฬาภรณ, เตรียมอุดมฯ, สวนกุหลาบ)', grade: 'ม.1-3', questions: 100, isNew: false, owned: false, tags: ['คณิต (เพิ่มเติม)', 'อังกฤษ'] },
 ]
 
-/** ตัวกรองห้องสอบ — แต่ละอันเป็น Dropdown เลือกได้ 1 ค่า (ค่าแรก = ทั้งหมด) · วิชา / ชั้น กรองรายการจริง */
-const filters = [
-  { key: 'subject', options: ['ทุกวิชา', 'คณิตศาสตร์', 'ภาษาอังกฤษ', 'ภาษาไทย', 'วิทยาศาสตร์'] },
-  { key: 'grade', options: ['ทุกชั้นเรียน', 'ป.4-6', 'ป.6', 'ม.1-3'] },
-  { key: 'term', options: ['ทุกช่วงสอบ', 'สอบเข้า ม.1', 'สอบเข้า ม.4', 'กลางภาค', 'ปลายภาค'] },
-  { key: 'sort', options: ['ใหม่ที่สุด', 'ยอดนิยม', 'จำนวนข้อน้อย → มาก'] },
-  { key: 'status', options: ['ทั้งหมด', 'ยังไม่ได้ทำ', 'ทำแล้ว'] },
-] as const
-
-type FilterKey = (typeof filters)[number]['key']
-
-const subjectByLabel: Record<string, SubjectKey> = {
-  คณิตศาสตร์: 'math', ภาษาอังกฤษ: 'english', ภาษาไทย: 'thai', วิทยาศาสตร์: 'science',
-}
 
 function ExamCard({ ex, onClick }: { ex: ExamSet; onClick: () => void }) {
   return (
     <button onClick={onClick} className="group flex h-full flex-col overflow-hidden rounded-card text-left shadow-sm transition hover:shadow-md">
       {/* photo */}
-      <div className="relative flex aspect-[4/3] items-center justify-center bg-surface-2">
-        <BookOpenCheck size={26} className="text-ink-mute" />
+      <div className="relative aspect-[4/3] overflow-hidden bg-surface-2">
+        <AbstractThumb seed={ex.id} className="transition-transform duration-300 group-hover:scale-105" />
         {ex.isNew && (
           <span className="absolute right-2 top-2 rounded-pill bg-brand px-2 py-0.5 text-[10px] font-semibold text-white">New</span>
         )}
@@ -82,13 +68,12 @@ function ExamCard({ ex, onClick }: { ex: ExamSet; onClick: () => void }) {
 function Content({ mobile = false }: { mobile?: boolean }) {
   const navigate = useNavigate()
   const [view, setView] = useState('exams')
-  const [picked, setPicked] = useState<Record<FilterKey, string>>(
-    () => Object.fromEntries(filters.map((f) => [f.key, f.options[0]])) as Record<FilterKey, string>,
-  )
+  const [query, setQuery] = useState('')
+  const [subject, setSubject] = useState('all')
+  const [grade, setGrade] = useState('all')
+  const q = query.trim().toLowerCase()
   const shown = exams.filter(
-    (ex) =>
-      (picked.subject === filters[0].options[0] || ex.subject === subjectByLabel[picked.subject]) &&
-      (picked.grade === filters[1].options[0] || ex.grade === picked.grade),
+    (ex) => (subject === 'all' || ex.subject === subject) && gradeMatches(ex.grade, grade) && (!q || ex.title.toLowerCase().includes(q)),
   )
   return (
     <main className={mobile ? 'px-4 pb-24 pt-4' : 'mx-auto max-w-[1180px] px-6 pb-16 pt-6'}>
@@ -102,50 +87,28 @@ function Content({ mobile = false }: { mobile?: boolean }) {
         </div>
       </div>
 
-      {/* toggle + filters */}
+      {/* toggle */}
       <Tabs value={view} onValueChange={setView}>
         <div className="mt-5 flex flex-wrap items-center gap-2">
           <TabsList className="h-auto rounded-pill bg-surface-2 p-0.5">
             <TabsTrigger value="exams" className="rounded-pill px-4 py-1.5 text-ink-soft data-[state=active]:bg-ink data-[state=active]:text-white">ข้อสอบ</TabsTrigger>
             <TabsTrigger value="score" className="rounded-pill px-4 py-1.5 text-ink-soft data-[state=active]:bg-ink data-[state=active]:text-white">คะแนนรวม</TabsTrigger>
           </TabsList>
-          <div className="flex flex-1 flex-wrap items-center gap-2 md:justify-end">
-            {filters.map((f) => (
-              <DropdownMenu key={f.key}>
-                <DropdownMenuTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    className={`h-auto gap-1.5 rounded-pill px-3 py-1.5 text-xs font-medium md:text-sm [&_svg]:size-[13px] ${
-                      picked[f.key] !== f.options[0] ? 'bg-brand-soft text-brand hover:bg-brand-soft hover:text-brand' : 'bg-premium/10 text-ink-soft hover:bg-premium/15 hover:text-brand'
-                    }`}
-                  >
-                    {picked[f.key]} <ChevronDown size={13} />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="start">
-                  <DropdownMenuRadioGroup value={picked[f.key]} onValueChange={(v) => setPicked((p) => ({ ...p, [f.key]: v }))}>
-                    {f.options.map((o) => (
-                      <DropdownMenuRadioItem key={o} value={o}>{o}</DropdownMenuRadioItem>
-                    ))}
-                  </DropdownMenuRadioGroup>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            ))}
-          </div>
         </div>
 
         <TabsContent value="exams" className="mt-0">
-        {/* section title + search */}
-        <div className="mt-6 flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
-          <div>
-            <h2 className="text-lg font-bold text-ink">ชุดข้อสอบ</h2>
-            <p className="text-sm text-ink-mute">มากดสอบก่อนลงสนามจริงกันเถอะ</p>
-          </div>
-          <div className="flex items-center gap-2 rounded-pill border border-line bg-surface-1 px-4 py-2.5 md:w-80">
-            <Search size={16} className="text-ink-mute" />
-            <Input placeholder="eg. เตรียมสอบ, การคูณเลขยกกำลัง, ..." className="h-auto w-full border-0 bg-transparent px-0 py-0 text-sm shadow-none focus-visible:ring-0" />
-          </div>
+        {/* section title + ค้นหา (ซ้าย) / ตัวกรอง วิชา · ชั้น (ขวา) */}
+        <div className="mt-6">
+          <h2 className="text-lg font-bold text-ink">ชุดข้อสอบ</h2>
+          <p className="text-sm text-ink-mute">มากดสอบก่อนลงสนามจริงกันเถอะ</p>
         </div>
+        <FilterBar
+          className="mt-4"
+          search={<SearchInput value={query} onChange={setQuery} placeholder="eg. เตรียมสอบ, การคูณเลขยกกำลัง, ..." />}
+        >
+          <FilterSelect label="วิชา" value={subject} onValueChange={setSubject} options={SUBJECT_FILTER} />
+          <FilterSelect label="ชั้นเรียน" value={grade} onValueChange={setGrade} options={GRADE_FILTER} />
+        </FilterBar>
 
         {/* grid */}
         <div className="mt-5 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">

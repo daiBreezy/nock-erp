@@ -1,9 +1,9 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { ChevronLeft, Search, UserPlus, Check } from 'lucide-react'
+import { ChevronLeft, UserPlus, Check } from 'lucide-react'
+import { SearchInput } from '@/components/SearchFilter'
 import { myFriends, suggestedFriends, type Person } from '../../data/social'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
 
 function PersonRow({ person, added, onAdd, isFriend }: { person: Person; added?: boolean; onAdd?: () => void; isFriend?: boolean }) {
   return (
@@ -69,15 +69,7 @@ export default function Nakama() {
 
       {/* search */}
       <div className="px-4 pt-3">
-        <div className="flex items-center gap-2 rounded-xl border border-line bg-surface-1 px-3">
-          <Search size={18} className="text-ink-mute" />
-          <Input
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="ค้นหาเพื่อน"
-            className="h-11 flex-1 border-0 bg-transparent px-0 text-sm shadow-none focus-visible:ring-0"
-          />
-        </div>
+        <SearchInput value={query} onChange={setQuery} placeholder="ค้นหาเพื่อน" className="max-w-[360px]" />
       </div>
 
       <div className="mt-3 divide-y divide-line border-y border-line bg-surface-1">

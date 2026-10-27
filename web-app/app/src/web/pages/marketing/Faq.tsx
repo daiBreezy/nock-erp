@@ -1,7 +1,7 @@
 import { useState } from 'react'
-import { Search, Plus } from 'lucide-react'
+import { Plus } from 'lucide-react'
+import { SearchInput } from '@/components/SearchFilter'
 import DesktopNav from '@/web/components/DesktopNav'
-import { Input } from '@/components/ui/input'
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion'
 import AppShowcase from '@/web/components/AppShowcase'
 import MarketingFooter from '@/web/components/MarketingFooter'
@@ -62,15 +62,7 @@ export default function Faq() {
       {/* list */}
       <div className="mx-auto max-w-[760px] px-5 pb-16 pt-8">
         {/* search */}
-        <div className="mb-6 flex items-center gap-2 rounded-pill border border-line bg-surface-1 px-5 py-3 text-ink-mute focus-within:border-brand">
-          <Search size={20} className="shrink-0" />
-          <Input
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="ค้นหาคำถาม..."
-            className="h-auto w-full border-0 bg-transparent px-0 py-0 text-[15px] text-ink shadow-none focus-visible:ring-0"
-          />
-        </div>
+        <SearchInput value={query} onChange={setQuery} placeholder="ค้นหาคำถาม..." className="mb-6 max-w-[360px]" />
 
         {filtered.length === 0 && (
           <p className="py-8 text-center text-sm text-ink-mute">ไม่พบคำถามที่ตรงกับ "{query}"</p>

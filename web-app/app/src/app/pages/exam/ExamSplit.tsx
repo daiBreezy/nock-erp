@@ -1,15 +1,23 @@
 import { NavLink } from 'react-router-dom'
-import { BookOpenCheck, Crown, ListChecks, Search } from 'lucide-react'
-import { Input } from '@/components/ui/input'
+import { useState } from 'react'
+import { BookOpenCheck, Crown, ListChecks } from 'lucide-react'
+import { FilterSelect, GRADE_FILTER, SearchInput, SUBJECT_FILTER, gradeMatches } from '@/components/SearchFilter'
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable'
 import { useSavedLayout } from '@/lib/useSavedLayout'
-import { subjectBg, subjectText } from '@/lib/subject'
+import AbstractThumb from '@/components/AbstractThumb'
 import { exams } from './examSets'
 import { ExamDetailContent } from './ExamDetail'
 
 /** ห้องสอบบน Tablet แนวนอน (แบบ ค) — รายการชุดข้อสอบซ้าย | รายละเอียดชุดที่เลือกขวา */
 export default function ExamSplit({ id }: { id?: string }) {
   const split = useSavedLayout('app-exam')
+  const [query, setQuery] = useState('')
+  const [subject, setSubject] = useState('all')
+  const [grade, setGrade] = useState('all')
+  const q = query.trim().toLowerCase()
+  const shown = exams.filter(
+    (ex) => (subject === 'all' || ex.subject === subject) && gradeMatches(ex.grade, grade) && (!q || ex.title.toLowerCase().includes(q)),
+  )
   return (
     <ResizablePanelGroup {...split} orientation="horizontal" className="!h-[100dvh] bg-surface-0">
       <ResizablePanel id="list" defaultSize={340} minSize={260} maxSize="50%" className="bg-surface-1">
@@ -19,17 +27,19 @@ export default function ExamSplit({ id }: { id?: string }) {
               <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-subject-english text-subject-english-ink"><BookOpenCheck size={18} /></span>
               <div>
                 <h1 className="text-lg font-bold text-ink">ห้องสอบ</h1>
-                <p className="text-xs text-ink-mute">{exams.length} ชุดข้อสอบ</p>
+                <p className="text-xs text-ink-mute">{shown.length} ชุดข้อสอบ</p>
               </div>
             </div>
-            <div className="mt-3 flex items-center gap-2 rounded-pill border border-line bg-surface-0 px-3.5 py-2">
-              <Search size={15} className="text-ink-mute" />
-              <Input placeholder="ค้นหาชุดข้อสอบ" className="h-auto w-full border-0 bg-transparent px-0 py-0 text-sm shadow-none focus-visible:ring-0" />
+            {/* แผงแคบ → ค้นหาเต็มแถว แล้วตัวกรอง วิชา · ชั้น เป็นแถวถัดไป */}
+            <SearchInput value={query} onChange={setQuery} placeholder="ค้นหาชุดข้อสอบ" className="mt-3" />
+            <div className="mt-2 grid grid-cols-2 gap-2">
+              <FilterSelect label="วิชา" value={subject} onValueChange={setSubject} options={SUBJECT_FILTER} className="w-full min-w-0" />
+              <FilterSelect label="ชั้นเรียน" value={grade} onValueChange={setGrade} options={GRADE_FILTER} className="w-full min-w-0" />
             </div>
           </div>
 
           <div className="min-h-0 flex-1 overflow-y-auto p-2">
-            {exams.map((ex) => (
+            {shown.map((ex) => (
               <NavLink
                 key={ex.id}
                 to={`/exam/${ex.id}`}
@@ -37,8 +47,8 @@ export default function ExamSplit({ id }: { id?: string }) {
                   `flex gap-3 rounded-card p-2.5 text-left transition-colors ${isActive ? 'bg-brand-soft' : 'hover:bg-surface-2'}`
                 }
               >
-                <span className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-xl ${subjectBg[ex.subject]} ${subjectText[ex.subject]}`}>
-                  <BookOpenCheck size={20} />
+                <span className="h-12 w-16 shrink-0 overflow-hidden rounded-xl">
+                  <AbstractThumb seed={ex.id} />
                 </span>
                 <span className="min-w-0 flex-1">
                   <span className="line-clamp-2 text-[13px] font-semibold leading-snug text-ink">{ex.title}</span>

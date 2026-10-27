@@ -1,10 +1,14 @@
+import { useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import Autoplay from 'embla-carousel-autoplay'
 import {
   Flame, PlayCircle, Monitor, Tablet, Smartphone, Radio, Send,
-  Star, Video, FileText, Target, MapPin, GraduationCap, CalendarClock,
+  Play, MapPin, CalendarClock,
 } from 'lucide-react'
 import DesktopNav from '@/web/components/DesktopNav'
 import { Button } from '@/components/ui/button'
+import HowItWorks, { type Step } from '@/components/ui/how-it-works'
+import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from '@/components/ui/carousel'
 import AppShowcase from '@/web/components/AppShowcase'
 import MarketingFooter from '@/web/components/MarketingFooter'
 import ContactFab from '@/web/components/ContactFab'
@@ -82,35 +86,78 @@ function Hero() {
 }
 
 /* ---------- 2. ผลตอบรับจากผู้ใช้งานจริง ---------- */
-const testimonials = [
-  { q: 'คลิปสั้น เข้าใจง่าย ลูกชอบเรียนเอง ไม่ต้องบังคับเลยค่ะ', name: 'คุณแม่น้องปีใหม่', role: 'ผู้ปกครอง · ม.2' },
-  { q: 'จากไม่ชอบเลข ตอนนี้ทำข้อสอบได้เกือบเต็ม ขอบคุณครูดาวมากครับ', name: 'น้องพลอย', role: 'นักเรียน · ม.3' },
-  { q: 'ไลฟ์สอนสดถามได้ทันที เหมือนเรียนพิเศษตัวต่อตัวเลย', name: 'น้องเจ', role: 'นักเรียน · ม.5' },
-  { q: 'แบบฝึกหัดเยอะ ระบบสอบช่วยให้รู้จุดอ่อนของลูกได้จริง', name: 'คุณพ่อน้องข้าวปั้น', role: 'ผู้ปกครอง · ป.6' },
-]
+// โปสเตอร์ "ขอแสดงความยินดี น้องผู้ผ่านการสอบคัดเลือก" 23 ใบ — ดาวน์โหลดจาก Production (nockacademy.com) เก็บไว้ที่ public/testimonials
+const REVIEW_POSTERS = Array.from({ length: 23 }, (_, i) => `/testimonials/review-${String(i + 1).padStart(2, '0')}.webp`)
+// คลิปสัมภาษณ์ (ตาม Production) — youtu.be/wbHOA5RZeaM
+const REVIEW_VIDEO = { id: 'wbHOA5RZeaM', title: 'จากนักเรียนประจำจังหวัด สู่ว่าที่นักเรียน "เตรียมอุดม" เตรียมตัวยังไงให้สอบติด กับน้องพราว' }
+
+/** แสดงรูปปก + ปุ่ม Play ก่อน กดแล้วค่อยโหลด YouTube (หน้า Landing ไม่หนัก) */
+function YouTubeLite({ id, title }: { id: string; title: string }) {
+  const [play, setPlay] = useState(false)
+  return (
+    <div className="relative aspect-video overflow-hidden rounded-2xl bg-ink shadow-lg">
+      {play ? (
+        <iframe
+          src={`https://www.youtube-nocookie.com/embed/${id}?autoplay=1&rel=0`}
+          title={title}
+          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+          referrerPolicy="strict-origin-when-cross-origin"
+          allowFullScreen
+          className="absolute inset-0 h-full w-full"
+        />
+      ) : (
+        <button onClick={() => setPlay(true)} aria-label={`เล่นวิดีโอ: ${title}`} className="group absolute inset-0">
+          <img src={`https://i.ytimg.com/vi/${id}/maxresdefault.jpg`} alt="" loading="lazy" className="h-full w-full object-cover" />
+          <span className="absolute left-1/2 top-1/2 grid size-16 -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full bg-brand text-white shadow-lg transition group-hover:scale-110">
+            <Play size={26} fill="currentColor" className="ml-1" />
+          </span>        </button>
+      )}
+    </div>
+  )
+}
+
 function Testimonials() {
+  const autoplay = useRef(Autoplay({ delay: 3500, stopOnInteraction: false, stopOnMouseEnter: true }))
   return (
     <section className="border-t border-line bg-surface-1 py-16">
       <div className="mx-auto max-w-[1200px] px-5">
-        <Heading title="ผลตอบรับจากผู้ใช้งานจริง" sub="เสียงจากผู้ปกครองและนักเรียนที่เรียนกับเราจริง" />
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          {testimonials.map((t) => (
-            <div key={t.name} className="flex flex-col rounded-2xl border border-line bg-white p-5 shadow-sm">
-              <div className="mb-3 flex gap-0.5 text-[#FFB300]">
-                {Array.from({ length: 5 }).map((_, i) => <Star key={i} size={15} fill="currentColor" />)}
-              </div>
-              <p className="flex-1 text-[14.5px] leading-relaxed text-ink">“{t.q}”</p>
-              <div className="mt-4 flex items-center gap-3">
-                <span className="grid h-9 w-9 place-items-center rounded-full bg-brand-soft text-sm font-bold text-brand">
-                  {t.name.slice(-1)}
-                </span>
-                <div className="leading-tight">
-                  <p className="text-[13.5px] font-bold text-ink">{t.name}</p>
-                  <p className="text-[12px] text-ink-mute">{t.role}</p>
-                </div>
-              </div>
+        <Carousel opts={{ align: 'start', loop: true }} plugins={[autoplay.current]}>
+          {/* หัวข้อชิดซ้าย + ปุ่มเลื่อนขวา (ตาม Production) */}
+          <div className="mb-6 flex items-end justify-between gap-4">
+            <div>
+              <h2 className="text-[26px] font-extrabold tracking-tight text-ink sm:text-[32px]">ผลตอบรับจากผู้ใช้งานจริง</h2>
+              <p className="mt-1.5 text-[15px] text-ink-soft">น้องๆ ที่สอบติดโรงเรียนในฝันกับ NockAcademy</p>
             </div>
-          ))}
+            <div className="hidden shrink-0 gap-2 sm:flex">
+              <CarouselPrevious className="static size-10 translate-y-0 border-line" />
+              <CarouselNext className="static size-10 translate-y-0 border-line" />
+            </div>
+          </div>
+          <CarouselContent>
+            {REVIEW_POSTERS.map((src, i) => (
+              <CarouselItem key={src} className="basis-[78%] sm:basis-1/2 lg:basis-1/3 xl:basis-1/4">
+                <img
+                  src={src}
+                  alt={`รีวิวจากผู้เรียน NockAcademy ${i + 1}`}
+                  loading="lazy"
+                  className="aspect-square w-full rounded-2xl border border-line bg-surface-2 object-cover"
+                />
+              </CarouselItem>
+            ))}
+          </CarouselContent>
+        </Carousel>
+
+        {/* วิดีโอสัมภาษณ์ + ข้อความ */}
+        <div className="mt-12 grid items-center gap-8 md:grid-cols-[1.1fr_1fr] md:gap-12">
+          <YouTubeLite id={REVIEW_VIDEO.id} title={REVIEW_VIDEO.title} />
+          <div>
+            <h3 className="text-[20px] font-bold text-ink sm:text-[22px]">ทุกความสำเร็จ เริ่มต้นจากความเข้าใจ</h3>
+            <p className="mt-3 text-[15px] leading-relaxed text-ink-soft">
+              NockAcademy พร้อมซัพพอร์ตทุกเป้าหมาย ด้วยระบบการเรียนที่ยืดหยุ่น ปรับตามไลฟ์สไตล์ของน้องๆ ได้จริง
+              ผ่านคลิปบทเรียน แบบฝึกหัดและคลังข้อสอบเพื่อเน้นย้ำจุดสำคัญ รวมถึงไลฟ์สอนสด ที่สามารถถาม-ตอบแบบใกล้ชิดกับคุณครู
+            </p>
+            <p className="mt-3 text-[15px] leading-relaxed text-ink-soft">เสริมสร้างความรู้ พร้อมก้าวสู่เป้าหมายการเรียนได้อย่างมั่นใจ</p>
+          </div>
         </div>
       </div>
     </section>
@@ -223,28 +270,23 @@ function Pricing() {
 }
 
 /* ---------- 5. ฟีเจอร์ของเรา ---------- */
-const features = [
-  { icon: Video, title: 'คลิปบทเรียน 2,000+', desc: 'ครบ 4 วิชาหลัก ทุกระดับชั้น ป.4–ม.6 เรียนซ้ำได้ไม่จำกัด' },
-  { icon: FileText, title: 'แบบฝึกหัด 4,000+', desc: 'ฝึกจริงหลังเรียนทุกบท พร้อมเฉลยละเอียดทีละขั้น' },
-  { icon: GraduationCap, title: 'ระบบการสอบ', desc: 'ห้องสอบเสมือนจริง วัดผลและรู้จุดอ่อนรายวิชา' },
-  { icon: Target, title: 'Personalize Goal (AI)', desc: 'AI วิเคราะห์จุดอ่อน วางแผนการเรียนเฉพาะคน' },
-  { icon: Radio, title: 'ไลฟ์สอนสดทุกวัน', desc: 'เรียนสดกับครูตัวจริง ถามตอบได้ทันที (Premium+)' },
-  { icon: Monitor, title: 'เรียนได้ทุกอุปกรณ์', desc: 'เว็บ มือถือ แท็บเล็ต ข้อมูลซิงก์ต่อเนื่องทุกเครื่อง' },
-]
+// เนื้อหา + ภาพหน้าจอแอปบน iPad ตาม Production (nockacademy.com) — ภาพเก็บไว้ที่ public/features
+const features: Step[] = [
+  { title: 'ไลฟ์สดทุกวัน', description: 'เรียนสดกับคุณครู ถามได้ทันทีระหว่างเรียน', image: '/features/feature-1.webp', theme: 'pink' },
+  { title: '4000+ คลิป', description: 'ทบทวนบทเรียนได้ทุกที่ ทุกเวลา ตามจังหวะของตัวเอง', image: '/features/feature-2.webp', theme: 'blue' },
+  { title: 'ห้องสอบ', description: 'เตรียมพร้อมก่อนสอบ พร้อมเฉลยให้เข้าใจ', image: '/features/feature-3.webp', theme: 'purple' },
+  { title: 'แบบทดสอบ', description: 'ฝึกทำโจทย์และเช็กความเข้าใจในแต่ละบทเรียน', image: '/features/feature-4.webp', theme: 'amber' },
+  { title: 'ห้องเรียนไม่จำกัดวิชา', description: 'ครบทุกวิชาหลัก เลือกเรียนได้ตามต้องการ', image: '/features/feature-5.webp', theme: 'pink' },
+].map((f) => ({ ...f, imageAlt: `ภาพ${f.title}` }) as Step)
+// การ์ดปิดท้าย — ไม่มีรูป จึงเตี้ยกว่าใบอื่น
+features.push({ title: 'และ Feature อื่นๆ อีกมากมาย', theme: 'purple' })
 function Features() {
   return (
-    <section className="border-t border-line bg-surface-0 py-16">
+    <section className="border-t border-line bg-white py-16">
       <div className="mx-auto max-w-[1200px] px-5">
-        <Heading title="ฟีเจอร์ของเรา" sub="ทุกเครื่องมือที่ช่วยให้ลูกคุณเรียนเก่งขึ้นจริง ครบในที่เดียว" />
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {features.map((f) => (
-            <div key={f.title} className="rounded-2xl border border-line bg-white p-6 shadow-sm">
-              <span className="mb-4 grid h-12 w-12 place-items-center rounded-xl bg-brand-soft text-brand"><f.icon size={24} /></span>
-              <h3 className="text-[16px] font-bold text-ink">{f.title}</h3>
-              <p className="mt-1.5 text-[14px] leading-relaxed text-ink-soft">{f.desc}</p>
-            </div>
-          ))}
-        </div>
+        <Heading title="ฟีเจอร์ของเรา" />
+        {/* การ์ดปักหมุดเอียงสลับซ้าย/ขวา + เส้นประเชื่อม (How it works) · รูปหน้าจอ iPad ในการ์ด */}
+        <HowItWorks steps={features} />
       </div>
     </section>
   )

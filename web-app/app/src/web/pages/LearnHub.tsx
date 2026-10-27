@@ -1,16 +1,18 @@
+import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
-  ChevronRight, ChevronLeft, Play, Search, Radio, Flag,
-  ListChecks, Bell, Eye, Volume2, Maximize, ArrowRight, CalendarDays, Check, ChevronDown,
+  ChevronRight, ChevronLeft, Play, Radio, Flag,
+  ListChecks, Bell, Eye, Volume2, Maximize, ArrowRight, CalendarDays, Plus,
 } from 'lucide-react'
 import DesktopNav from '@/web/components/DesktopNav'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
+import { FilterBar, FilterSelect, GRADE_FILTER, SearchInput, SUBJECT_FILTER, gradeMatches } from '@/components/SearchFilter'
 import type { SubjectKey } from '@/data/mock'
 import { clipGroups } from '@/data/learn'
 import { subjectBg, subjectText } from '@/lib/subject'
 import { bannerImg, thumb } from '@/data/media'
 import Thumbnail from '@/components/Thumbnail'
+import AbstractThumb from '@/components/AbstractThumb'
 import VideoCard, { TierCrown } from '@/components/VideoCard'
 import { GradeBadge, SubjectBadge } from '@/components/LearnBadges'
 
@@ -76,7 +78,7 @@ function Ring({ pct, tone }: { pct: number; tone: string }) {
   const c = 2 * Math.PI * r
   return (
     <svg viewBox="0 0 40 40" className="h-10 w-10 -rotate-90">
-      <circle cx="20" cy="20" r={r} fill="none" strokeWidth="4" className="stroke-white/50" />
+      <circle cx="20" cy="20" r={r} fill="none" strokeWidth="4" className="stroke-black/[0.06]" />
       <circle
         cx="20" cy="20" r={r} fill="none" strokeWidth="4" strokeLinecap="round"
         strokeDasharray={c} strokeDashoffset={c * (1 - pct / 100)} className={tone}
@@ -92,6 +94,38 @@ function IconBtn({ children }: { children: React.ReactNode }) {
     </Button>
   )
 }
+
+/**
+ * Section เด่น (Goal / ห้องสอบ) — พื้นสีเข้มเต็มแผง + การ์ดขาวด้านใน
+ * ให้ต่างจากแถววิดีโอที่วางบนพื้นขาวชัดเจน มองแวบเดียวก็แยกออก
+ */
+function FeatureBand({
+  tone, icon, title, subtitle, action, children,
+}: {
+  tone: 'goal' | 'exam'; icon: React.ReactNode; title: string; subtitle: string; action: React.ReactNode; children: React.ReactNode
+}) {
+  const bg = tone === 'goal' ? 'bg-gradient-to-br from-[#FF5A5E] to-[#FF8A6B]' : 'bg-gradient-to-br from-[#3D3A9E] to-premium'
+  return (
+    <section className={`relative mt-10 overflow-hidden rounded-[20px] ${bg} p-4 md:p-6`}>
+      {/* วงกลมจางมุมขวาบน — ตกแต่งเบาๆ */}
+      <span aria-hidden className="pointer-events-none absolute -right-16 -top-24 size-64 rounded-full bg-white/10" />
+      <span aria-hidden className="pointer-events-none absolute right-40 -top-10 size-24 rounded-full bg-white/10" />
+      <div className="relative mb-5 flex flex-wrap items-center justify-between gap-3">
+        <div className="flex items-center gap-3">
+          <span className="flex size-11 items-center justify-center rounded-2xl bg-white/20 text-white">{icon}</span>
+          <div>
+            <h2 className="text-xl font-bold text-white">{title}</h2>
+            <p className="text-sm text-white/80">{subtitle}</p>
+          </div>
+        </div>
+        {action}
+      </div>
+      <div className="relative">{children}</div>
+    </section>
+  )
+}
+
+const bandAction = 'h-9 gap-1 rounded-pill bg-white px-4 text-sm font-semibold shadow-none hover:bg-white/90'
 
 /** แถว rail มาตรฐาน — 5 ใบ/แถว (grid ยืดหยุ่นตามจอ) */
 function Rail({
@@ -129,6 +163,13 @@ function Rail({
 
 function DesktopHub() {
   const navigate = useNavigate()
+  const [query, setQuery] = useState('')
+  const [subject, setSubject] = useState('all')
+  const [grade, setGrade] = useState('all')
+  const q = query.trim().toLowerCase()
+  const filtered = allCards.filter(
+    (c) => (subject === 'all' || c.subject === subject) && gradeMatches(c.grade, grade) && (!q || c.title.toLowerCase().includes(q)),
+  )
 
   const schedule = [
     { subject: 'math' as SubjectKey, day: 'วันนี้', time: '19:00-19:50', waiting: 12, live: true },
@@ -226,92 +267,81 @@ function DesktopHub() {
       </section>
 
       {/* 5 · Set your Goal! */}
-      <section className="mt-9 rounded-card bg-brand-soft/50 p-4 md:p-6">
-        <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
-          <div className="flex items-center gap-3">
-            <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-brand text-white"><Flag size={18} /></span>
-            <div>
-              <h2 className="text-lg font-bold text-ink">Set your Goal!</h2>
-              <p className="text-sm text-ink-soft">ตั้งเป้าหมายเพื่อวางแผน และกระตุ้นการเรียนของคุณเอง</p>
-            </div>
-          </div>
-          <Button variant="outline" onClick={() => navigate('/goal')} className="h-auto rounded-pill border-brand bg-surface-1 px-4 py-2 text-sm font-medium text-brand hover:bg-brand-soft hover:text-brand">
-            + สร้าง Goal เพิ่มเติม
+      <FeatureBand
+        tone="goal"
+        icon={<Flag size={20} />}
+        title="Set your Goal!"
+        subtitle="ตั้งเป้าหมายเพื่อวางแผน และกระตุ้นการเรียนของคุณเอง"
+        action={
+          <Button onClick={() => navigate('/goal')} className={`${bandAction} text-brand`}>
+            <Plus size={16} /> สร้าง Goal เพิ่มเติม
           </Button>
-        </div>
+        }
+      >
         <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
           {goals.map((g, i) => (
-            <button key={i} onClick={() => navigate('/goals')} className={`${subjectBg[g.subject]} relative rounded-card p-4 text-left transition hover:brightness-95`}>
+            <button key={i} onClick={() => navigate('/goals')} className="relative rounded-2xl bg-surface-1 p-4 text-left shadow-sm transition hover:-translate-y-0.5 hover:shadow-md">
               <div className="flex items-start justify-between">
                 <Ring pct={g.pct} tone={subjectStroke[g.subject]} />
-                <span className="rounded-pill bg-ink/85 px-2 py-0.5 text-[11px] font-semibold text-white">{g.pct}%</span>
+                <span className={`rounded-pill ${subjectBg[g.subject]} px-2 py-0.5 text-[12px] font-bold ${subjectText[g.subject]}`}>{g.pct}%</span>
               </div>
-              <p className={`mt-3 text-base font-bold ${subjectText[g.subject]}`}>{g.title}</p>
+              <p className="mt-3 text-base font-bold text-ink">{g.title}</p>
               <div className="mt-3 flex flex-wrap gap-1">
                 {g.tags.map((t) => (
-                  <span key={t} className="rounded-pill bg-white/60 px-2 py-0.5 text-[10px] font-medium text-ink-soft">{t}</span>
+                  <span key={t} className="rounded-pill bg-surface-2 px-2 py-0.5 text-[10px] font-medium text-ink-soft">{t}</span>
                 ))}
-                <GradeBadge grade="ป.6" className="bg-white/60" />
+                <GradeBadge grade="ป.6" />
               </div>
             </button>
           ))}
         </div>
-      </section>
+      </FeatureBand>
 
       {/* 6 · Search + filter */}
-      <section className="mt-9 flex flex-wrap items-center gap-3">
-        {/* search — magnifier ขวา */}
-        <div className="flex min-w-0 basis-full items-center sm:min-w-[260px] sm:basis-auto sm:flex-1 gap-2 rounded-pill bg-surface-2 px-5 py-3">
-          <Input placeholder="eg. เตรียมสอบ, การคูณเลขยกกำลัง, ..." className="h-auto w-full border-0 bg-transparent px-0 py-0 text-sm shadow-none focus-visible:ring-0" />
-          <Search size={18} className="text-ink-mute" />
-        </div>
-        {/* subject pills */}
-        <div className="flex flex-wrap items-center gap-2">
-          {['ทั้งหมด', 'อังกฤษ', 'คณิต', 'ชีวะ', 'ไทย'].map((f, i) => (
-            <Button
-              key={f}
-              variant="ghost"
-              className={`h-auto rounded-pill px-4 py-2 text-sm font-medium ${i === 0 ? 'bg-premium/20 text-premium hover:bg-premium/25 hover:text-premium' : 'bg-surface-1 text-ink-soft hover:bg-surface-2'}`}
-            >
-              {f}
-            </Button>
-          ))}
-          <Button variant="ghost" className="h-auto gap-1.5 rounded-pill bg-premium/20 px-4 py-2 text-sm font-medium text-premium hover:bg-premium/25 hover:text-premium [&_svg]:size-3.5">
-            <Check size={14} /> ทุกชั้นเรียน <ChevronDown size={14} />
-          </Button>
-        </div>
-      </section>
+      <FilterBar
+        className="mt-9"
+        search={<SearchInput value={query} onChange={setQuery} placeholder="eg. เตรียมสอบ, การคูณเลขยกกำลัง, ..." />}
+      >
+        <FilterSelect label="วิชา" value={subject} onValueChange={setSubject} options={SUBJECT_FILTER} />
+        <FilterSelect label="ชั้นเรียน" value={grade} onValueChange={setGrade} options={GRADE_FILTER} />
+      </FilterBar>
 
-      {/* 7-8 · ไลฟ์สดย้อนหลัง */}
-      <Rail variant="live" title="หัวข้อไลฟ์สดย้อนหลังล่าสุด" subtitle="กดย้อนดูคลิปที่เคยผ่านการไลฟ์สดไปแล้ว เพื่อทบทวนอีกครั้ง" cards={allCards.slice(0, 5)} />
-      <Rail variant="live" title="หัวข้อไลฟ์สดย้อนหลังยอดนิยม" subtitle="กดย้อนดูคลิปที่เคยผ่านการไลฟ์สดไปแล้ว เพื่อทบทวนอีกครั้ง" cards={allCards.slice(5, 10)} />
+      {/* 7-8 · ไลฟ์สดย้อนหลัง — กรองตามค้นหา / วิชา / ชั้น ด้านบน */}
+      {filtered.length === 0 ? (
+        <p className="mt-9 rounded-card border border-dashed border-line py-10 text-center text-sm text-ink-mute">ไม่พบคลิปที่ตรงกับการค้นหาหรือตัวกรอง</p>
+      ) : (
+        <>
+          <Rail variant="live" title="หัวข้อไลฟ์สดย้อนหลังล่าสุด" subtitle="กดย้อนดูคลิปที่เคยผ่านการไลฟ์สดไปแล้ว เพื่อทบทวนอีกครั้ง" cards={filtered.slice(0, 5)} />
+          {filtered.length > 5 && (
+            <Rail variant="live" title="หัวข้อไลฟ์สดย้อนหลังยอดนิยม" subtitle="กดย้อนดูคลิปที่เคยผ่านการไลฟ์สดไปแล้ว เพื่อทบทวนอีกครั้ง" cards={filtered.slice(5, 10)} />
+          )}
+        </>
+      )}
 
       {/* 9 · ห้องสอบ (band) */}
-      <section className="mt-9 rounded-card bg-subject-english/40 p-4 md:p-6">
-        <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
-          <div className="flex items-center gap-3">
-            <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-subject-english text-subject-english-ink"><ListChecks size={18} /></span>
-            <div>
-              <h2 className="text-lg font-bold text-ink">ห้องสอบ</h2>
-              <p className="text-sm text-ink-soft">เลือกชุดข้อสอบที่ต้องการ</p>
-            </div>
-          </div>
-          <Button variant="link" onClick={() => navigate('/exam')} className="h-auto gap-1 p-0 text-sm font-medium text-brand">
+      <FeatureBand
+        tone="exam"
+        icon={<ListChecks size={20} />}
+        title="ห้องสอบ"
+        subtitle="เลือกชุดข้อสอบที่ต้องการ"
+        action={
+          <Button onClick={() => navigate('/exam')} className={`${bandAction} text-[#3D3A9E]`}>
             ดูทั้งหมด <ChevronRight size={16} />
           </Button>
-        </div>
+        }
+      >
         <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
           {(['thai', 'science', 'math', 'english', 'thai'] as SubjectKey[]).map((tone, i) => (
-            <button key={i} onClick={() => navigate('/exam')} className="group overflow-hidden rounded-card bg-surface-1 text-left shadow-sm">
-              <div className="relative flex aspect-[4/3] items-center justify-center bg-surface-2">
-                <ListChecks size={22} className="text-ink-mute" />
+            <button key={i} onClick={() => navigate('/exam')} className="group overflow-hidden rounded-2xl bg-surface-1 text-left shadow-sm transition hover:-translate-y-0.5 hover:shadow-md">
+              <div className="relative aspect-[4/3] overflow-hidden bg-surface-2">
+                <AbstractThumb seed={`hub-${i}`} className="transition-transform duration-300 group-hover:scale-105" />
                 {i % 3 === 0 && <span className="absolute right-2 top-2 rounded-pill bg-brand px-2 py-0.5 text-[10px] font-semibold text-white">New</span>}
               </div>
-              <div className={`${subjectBg[tone]} p-3`}>
+              <div className="p-3">
                 <div className="flex items-center gap-2 text-[11px] font-medium text-ink-soft">
                   <TierCrown free={i % 2 === 0} /> <ListChecks size={12} /> 100 ข้อ · ม.1
                 </div>
-                <p className={`mt-1.5 line-clamp-2 text-[12px] font-semibold ${subjectText[tone]}`}>
+                <p className="mt-1.5 line-clamp-2 text-[12.5px] font-semibold leading-snug text-ink">
                   เตรียมสอบเข้า รร.ดัง (จุฬาภรณ, เตรียมอุดมฯ, สวนกุหลาบ)
                 </p>
                 <div className="mt-2 flex flex-wrap gap-1">
@@ -321,7 +351,7 @@ function DesktopHub() {
             </button>
           ))}
         </div>
-      </section>
+      </FeatureBand>
 
       {/* 10 · ดูต่อจากครั้งที่แล้ว */}
       <Rail title="ดูต่อจากครั้งที่แล้ว" subtitle="กดย้อนดูคลิปที่เคยดูไปแล้ว เพื่อทบทวนอีกครั้ง" cards={allCards.slice(10, 15)} />
