@@ -12,7 +12,8 @@ export function invoiceMessage(inv: Invoice, totals: InvoiceTotals, ctx: { stude
   return [
     `📄 ใบแจ้งค่าเรียน ${inv.number ?? ""}`.trim(),
     `นักเรียน: ${ctx.student.nickname} (${ctx.student.name}) · ${ctx.student.grade}`,
-    ...totals.lines.map((l) => (l.course && l.quote ? `${l.course.name} · ${fmtDate(l.quote.from)} – ${fmtDate(l.quote.to, { year: true })} · ${l.quote.sessions.length} คาบ` : null)),
+    // owner Row 35 (2026-10-28): show BOTH the course name and the class(es) it runs on
+    ...totals.lines.map((l) => (l.course && l.quote ? `${l.course.name}${l.klasses.length ? ` · ${l.klasses.map((k) => k.name).join(" + ")}` : ""} · ${fmtDate(l.quote.from)} – ${fmtDate(l.quote.to, { year: true })} · ${l.quote.sessions.length} คาบ` : null)),
     totals.bus ? `ค่ารถ ${fmtMoney(totals.bus)}` : null,
     totals.busExtra ? `ค่ารถเพิ่ม (รอบก่อน ${(inv.busExtras ?? []).map((x) => fmtDate(x.date)).join(", ")}) ${fmtMoney(totals.busExtra)}` : null,
     ...inv.advance.map((a) => `${a.name} ${fmtMoney(a.amount)}`),

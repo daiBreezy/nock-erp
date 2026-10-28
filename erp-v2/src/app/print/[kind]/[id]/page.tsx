@@ -40,13 +40,17 @@ export default function PrintDocument() {
   if (!ready || !customer) return <p className="p-10 text-center text-sm text-muted-foreground">ไม่พบเอกสาร หรือยังออกเอกสารนี้ไม่ได้</p>
 
   const totals = invoiceTotals(inv, { branch, courses: s.courses, classes: s.classes, holidays: s.holidays })
-  const items = cn ? Doc.creditNoteItems(cn) : Doc.invoiceItems(inv, totals, branch)
+  // owner Row 36 (2026-10-28): Liclass paper prints in Japanese, NockAcademy in Thai — English stays the 2nd line
+  const lang = Doc.docLang(branch.brand)
+  const L = Doc.DOC_LABELS[lang]
+  const items = cn ? Doc.creditNoteItems(cn, branch.brand) : Doc.invoiceItems(inv, totals, branch)
   const total = cn ? creditNoteTotal(cn) : totals.total
   const { date: invDate, dueBy } = Doc.invoiceDates(inv)
   const date = kind === "receipt" ? Doc.receiptDate(inv) : kind === "credit-note" ? cn!.createdAt.slice(0, 10) : invDate
   const signer = Doc.preparedBy(cn ?? inv, s.staff)
-  const [th, en] = TITLE[kind]
-  const memo = [Doc.invoiceMemo(inv, { brandMemo: s.system.invoiceMemos[branch.brand], branch, courses: s.courses, classes: s.classes }).memo, kind === "credit-note" ? `อ้างอิงใบแจ้งหนี้ ${inv.number} · ${[...cn!.reasons, cn!.remark].filter(Boolean).join(", ")}` : inv.noteToParent].filter(Boolean).join("\n")
+  const [, en] = TITLE[kind]
+  const titlePrimary = kind === "credit-note" ? L.creditNote : L[kind]
+  const memo = [Doc.invoiceMemo(inv, { brandMemo: s.system.invoiceMemos[branch.brand], branch, courses: s.courses, classes: s.classes }).memo, kind === "credit-note" ? `${L.invRef} ${inv.number} · ${[...cn!.reasons, cn!.remark].filter(Boolean).join(", ")}` : inv.noteToParent].filter(Boolean).join("\n")
   const rows = [...items, ...Array.from({ length: Math.max(0, 8 - items.length) }, () => null)]
 
   return (
@@ -68,10 +72,10 @@ export default function PrintDocument() {
             <p className="font-semibold">{company.nameEn}</p>
             <p>{company.addressTh} ({company.office.split("/")[0].trim()})</p>
             <p>{company.addressEn} ({company.office.split("/").pop()?.trim()})</p>
-            <p>เลขประจำตัวผู้เสียภาษี / Tax ID Number {company.taxId}</p>
+            <p>{L.taxId} / Tax ID Number {company.taxId}</p>
           </div>
           <div className="text-right">
-            <p className="text-xl font-bold">{th}</p>
+            <p className="text-xl font-bold">{titlePrimary}</p>
             <p className="text-sm font-semibold tracking-widest">{en}</p>
           </div>
         </header>
@@ -79,9 +83,9 @@ export default function PrintDocument() {
         <section className="mt-3 grid grid-cols-[1fr_auto] gap-6">
           <table className="[&_td]:py-0.5 [&_td]:align-top">
             <tbody>
-              <tr><td className="w-40">ชื่อลูกค้า<br /><span className="text-neutral-500">Customer Name</span></td><td className="font-medium">{customer.name}</td></tr>
-              <tr><td>ที่อยู่<br /><span className="text-neutral-500">Address</span></td><td>{customer.address || "—"}</td></tr>
-              <tr><td>เลขประจำตัวผู้เสียภาษี<br /><span className="text-neutral-500">Tax ID Number</span></td><td>{customer.taxId || "—"}</td></tr>
+              <tr><td className="w-40">{L.customerName}<br /><span className="text-neutral-500">Customer Name</span></td><td className="font-medium">{customer.name}</td></tr>
+              <tr><td>{L.address}<br /><span className="text-neutral-500">Address</span></td><td>{customer.address || "—"}</td></tr>
+              <tr><td>{L.taxId}<br /><span className="text-neutral-500">Tax ID Number</span></td><td>{customer.taxId || "—"}</td></tr>
             </tbody>
           </table>
           <table className="self-start [&_td]:px-2 [&_td]:py-0.5">
@@ -95,7 +99,7 @@ export default function PrintDocument() {
 
         <table className="mt-3 w-full border border-neutral-800 [&_td]:border-x [&_td]:border-neutral-800 [&_td]:px-2 [&_th]:border [&_th]:border-neutral-800 [&_th]:px-2 [&_th]:py-1">
           <thead className="bg-neutral-100 text-center">
-            <tr><th className="w-12">ลำดับ<br />Item</th><th>รายการ<br />Description</th><th className="w-14">จำนวน<br />Q&apos;ty</th><th className="w-24">ราคาต่อหน่วย<br />Unit Price</th><th className="w-28">จำนวนเงิน (บาท)<br />Amount (Baht)</th></tr>
+            <tr><th className="w-12">{L.item}<br />Item</th><th>{L.description}<br />Description</th><th className="w-14">{L.qty}<br />Q&apos;ty</th><th className="w-24">{L.unitPrice}<br />Unit Price</th><th className="w-28">{L.amount}<br />Amount (Baht)</th></tr>
           </thead>
           <tbody>
             {rows.map((it, i) => (
@@ -114,17 +118,17 @@ export default function PrintDocument() {
           <div className="space-y-2">
             {kind === "invoice" && branch.bankAccount.number && (
               <p className="whitespace-pre-line">
-                <b>ช่องทางชำระเงิน:</b>{"\n"}ธนาคาร{branch.bankAccount.bank} {branch.bankAccount.branchName}{"\n"}เลขที่บัญชี {branch.bankAccount.number}{"\n"}ชื่อบัญชี {branch.bankAccount.name}
+                <b>{L.payChannel}:</b>{"\n"}{L.bank}{branch.bankAccount.bank} {branch.bankAccount.branchName}{"\n"}{L.accountNo} {branch.bankAccount.number}{"\n"}{L.accountName} {branch.bankAccount.name}
               </p>
             )}
-            {kind === "credit-note" && cn!.refund && <p><b>โอนคืน:</b> {d(cn!.refund.date)} · จาก {cn!.refund.fromAccount} · {cn!.refund.reference}</p>}
+            {kind === "credit-note" && cn!.refund && <p><b>{L.refund}:</b> {d(cn!.refund.date)} · {cn!.refund.fromAccount} · {cn!.refund.reference}</p>}
             <p className="whitespace-pre-line"><b>Memo :</b> {memo}</p>
           </div>
           <table className="w-72 self-start [&_td]:px-2 [&_td]:py-0.5">
             <tbody>
-              <tr><td>รวมราคา / Sub Total</td><td className="text-right tabular-nums">{money(total)}</td></tr>
-              <tr><td>{Doc.VAT_RATE_LABEL}</td><td className="text-right tabular-nums">{money(0)}</td></tr>
-              <tr className="border-t-2 border-neutral-800 font-bold"><td>จำนวนเงินรวมทั้งสิ้น / Total</td><td className="text-right tabular-nums">{money(total)}</td></tr>
+              <tr><td>{L.subTotal} / Sub Total</td><td className="text-right tabular-nums">{money(total)}</td></tr>
+              <tr><td>{L.vat} / VAT 7%</td><td className="text-right tabular-nums">{money(0)}</td></tr>
+              <tr className="border-t-2 border-neutral-800 font-bold"><td>{L.total} / Total</td><td className="text-right tabular-nums">{money(total)}</td></tr>
               {kind === "invoice" && <tr><td>*Total Due By</td><td className="text-right">{d(dueBy)}</td></tr>}
             </tbody>
           </table>
@@ -133,12 +137,12 @@ export default function PrintDocument() {
         <footer className="mt-10 grid grid-cols-2 gap-10 text-center">
           <div>
             <p className="border-b border-dotted border-neutral-500 pb-1">{signer}</p>
-            <p>{kind === "receipt" ? "ผู้รับเงิน / PAYEE BY" : "ผู้จัดทำ / PREPARED BY"}</p>
+            <p>{kind === "receipt" ? `${L.payeeBy} / PAYEE BY` : `${L.preparedBy} / PREPARED BY`}</p>
           </div>
           <div>
             <p className="border-b border-dotted border-neutral-500 pb-1">{signer}</p>
-            <p>ผู้มีอำนาจ / AUTHORIZED SIGNATURE</p>
-            {kind !== "invoice" && <p className="mt-1">วันที่ / DATE {d(date)}</p>}
+            <p>{L.authorized} / AUTHORIZED SIGNATURE</p>
+            {kind !== "invoice" && <p className="mt-1">{L.date} / DATE {d(date)}</p>}
           </div>
         </footer>
         <p className="mt-6 text-right text-[10px] text-neutral-400">{fmtMoney(total)} · {number}</p>

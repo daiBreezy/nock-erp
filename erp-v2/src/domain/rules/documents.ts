@@ -32,43 +32,82 @@ export interface DocItem {
   amount: number
 }
 
+// owner Row 36 (2026-10-28): a Liclass document prints in Japanese (its parents are 100% Japanese), NockAcademy in
+// Thai. English stays as the second line on the paper. This lives here, not in the screen translator — printed
+// documents carry their own language by brand (see i18n-coverage SKIP list).
+export type DocLang = "th" | "ja"
+export const docLang = (brand: Branch["brand"]): DocLang => (brand === "liclass" ? "ja" : "th")
+
+/** the fixed words inside an invoice line (course name, dates, counts stay as-is) */
+const ITEM_TERMS: Record<DocLang, { course: string; sessions: string; trips: string; courseFee: string; promo: string; bus: string; busExtra: string; book: string; special: string; creditDeduction: string; rounding: string }> = {
+  th: { course: "ค่าคอร์ส", sessions: "คาบ", trips: "เที่ยว", courseFee: "Course fee (ค่าอุปกรณ์)", promo: "ส่วนลดโปรโมชัน", bus: "ค่ารถรับส่ง", busExtra: "ค่ารถเพิ่ม (รอบก่อน)", book: "ค่าหนังสือ", special: "ส่วนลดพิเศษ", creditDeduction: "หักเครดิตคอร์ส (จากใบลดหนี้)", rounding: "ปัดเศษ" },
+  ja: { course: "コース料金 ", sessions: "回", trips: "便", courseFee: "教材費", promo: "プロモーション割引", bus: "送迎バス代", busExtra: "追加バス代（前回分）", book: "書籍代", special: "特別割引", creditDeduction: "コースクレジット控除（クレジットノートより）", rounding: "端数調整" },
+}
+
+/** the labels on the printed paper (primary line) — English is the second line, added by the print page */
+export const DOC_LABELS: Record<DocLang, {
+  invoice: string; receipt: string; creditNote: string
+  customerName: string; address: string; taxId: string
+  item: string; description: string; qty: string; unitPrice: string; amount: string
+  payChannel: string; bank: string; accountNo: string; accountName: string
+  refund: string; subTotal: string; vat: string; total: string
+  payeeBy: string; preparedBy: string; authorized: string; date: string; invRef: string
+}> = {
+  th: {
+    invoice: "ใบแจ้งหนี้", receipt: "ใบเสร็จรับเงิน", creditNote: "ใบลดหนี้",
+    customerName: "ชื่อลูกค้า", address: "ที่อยู่", taxId: "เลขประจำตัวผู้เสียภาษี",
+    item: "ลำดับ", description: "รายการ", qty: "จำนวน", unitPrice: "ราคาต่อหน่วย", amount: "จำนวนเงิน (บาท)",
+    payChannel: "ช่องทางชำระเงิน", bank: "ธนาคาร", accountNo: "เลขที่บัญชี", accountName: "ชื่อบัญชี",
+    refund: "โอนคืน", subTotal: "รวมราคา", vat: "ภาษีมูลค่าเพิ่ม 7%", total: "จำนวนเงินรวมทั้งสิ้น",
+    payeeBy: "ผู้รับเงิน", preparedBy: "ผู้จัดทำ", authorized: "ผู้มีอำนาจ", date: "วันที่", invRef: "อ้างอิงใบแจ้งหนี้",
+  },
+  ja: {
+    invoice: "請求書", receipt: "領収書", creditNote: "クレジットノート",
+    customerName: "顧客名", address: "住所", taxId: "納税者番号",
+    item: "項目", description: "内容", qty: "数量", unitPrice: "単価", amount: "金額（バーツ）",
+    payChannel: "お支払い方法", bank: "銀行", accountNo: "口座番号", accountName: "口座名義",
+    refund: "返金", subTotal: "小計", vat: "消費税 7%", total: "合計",
+    payeeBy: "受領者", preparedBy: "作成者", authorized: "承認者", date: "日付", invRef: "請求書番号",
+  },
+}
+
 export function invoiceItems(inv: Invoice, totals: InvoiceTotals, branch: Branch): DocItem[] {
   const items: DocItem[] = []
+  const t = ITEM_TERMS[docLang(branch.brand)]
   const one = (description: string, amount: number) => amount && items.push({ description, qty: 1, unitPrice: amount, amount })
   for (const l of totals.lines) {
     if (!l.course || !l.quote) continue
     const classes = l.klasses.map((k) => k.name).join(" + ")
     if (l.course.unit === "month") {
       // one row per month — pro-rated months have their own price
-      for (const p of l.quote.periods) one(`ค่าคอร์ส${l.course.name} · ${fmtMonth(p.month + "-01")} (${p.sessions.length} คาบ${p.factor < 1 ? ` · ${Math.round(p.factor * 100)}%` : ""}) · ${classes}`, p.amount)
+      for (const p of l.quote.periods) one(`${t.course}${l.course.name} · ${fmtMonth(p.month + "-01")} (${p.sessions.length} ${t.sessions}${p.factor < 1 ? ` · ${Math.round(p.factor * 100)}%` : ""}) · ${classes}`, p.amount)
     } else {
       items.push({
-        description: `ค่าคอร์ส${l.course.name} · ${packageLabel(l.course)} · ${fmtDate(l.quote.from)} – ${fmtDate(l.quote.to, { year: true })} (${l.quote.slots.length} คาบ) · ${classes}`,
+        description: `${t.course}${l.course.name} · ${packageLabel(l.course)} · ${fmtDate(l.quote.from)} – ${fmtDate(l.quote.to, { year: true })} (${l.quote.slots.length} ${t.sessions}) · ${classes}`,
         qty: l.line.periods, unitPrice: l.course.price, amount: l.amount,
       })
     }
-    one(`Course fee (ค่าอุปกรณ์) · ${l.course.name}`, l.courseFee)
-    one(`ส่วนลดโปรโมชัน${l.promotionName ? ` · ${l.promotionName}` : ""}`, -l.promotion)
+    one(`${t.courseFee} · ${l.course.name}`, l.courseFee)
+    one(`${t.promo}${l.promotionName ? ` · ${l.promotionName}` : ""}`, -l.promotion)
   }
   const legs = inv.bus.reduce((a, x) => a + Number(x.pickup) + Number(x.dropoff), 0)
   if (totals.bus) {
     const fee = branch.fees.find((f) => f.id === inv.busFeeId)
-    items.push({ description: `ค่ารถรับส่ง${fee ? ` · ${fee.name}` : ""} (${legs} เที่ยว)`, qty: legs, unitPrice: busRate(branch, inv.busFeeId), amount: totals.bus })
+    items.push({ description: `${t.bus}${fee ? ` · ${fee.name}` : ""} (${legs} ${t.trips})`, qty: legs, unitPrice: busRate(branch, inv.busFeeId), amount: totals.bus })
   }
-  if (totals.busExtra) one(`ค่ารถเพิ่ม (รอบก่อน) · ${(inv.busExtras ?? []).map((x) => fmtDate(x.date)).join(", ")}`, totals.busExtra)
-  one("ค่าหนังสือ", totals.book)
+  if (totals.busExtra) one(`${t.busExtra} · ${(inv.busExtras ?? []).map((x) => fmtDate(x.date)).join(", ")}`, totals.busExtra)
+  one(t.book, totals.book)
   for (const a of inv.advance) one(a.name, a.amount)
-  one(`ส่วนลดพิเศษ${inv.concession?.remark ? ` · ${inv.concession.remark}` : ""}`, -totals.concession)
-  one("หักเครดิตคอร์ส (จากใบลดหนี้)", -totals.credit)
+  one(`${t.special}${inv.concession?.remark ? ` · ${inv.concession.remark}` : ""}`, -totals.concession)
+  one(t.creditDeduction, -totals.credit)
+  one(t.rounding, totals.rounding) // owner Row 34: Liclass round-up shown as its own line so the rows still add up
   return items
 }
 
-export function creditNoteItems(cn: CreditNote): DocItem[] {
-  return cn.items.map((i) => ({ description: `คืน${i.label}`, qty: 1, unitPrice: i.amount, amount: i.amount }))
+export function creditNoteItems(cn: CreditNote, brand: Branch["brand"] = "nockacademy"): DocItem[] {
+  const refund = docLang(brand) === "ja" ? "返金: " : "คืน"
+  return cn.items.map((i) => ({ description: `${refund}${i.label}`, qty: 1, unitPrice: i.amount, amount: i.amount }))
 }
-
-/** VAT line: shown as 7% = 0 like the paper template (tuition is not charged VAT) */
-export const VAT_RATE_LABEL = "ภาษีมูลค่าเพิ่ม 7% / VAT 7%"
 
 export interface DocParty {
   name: string

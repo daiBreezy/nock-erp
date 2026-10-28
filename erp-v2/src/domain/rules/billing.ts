@@ -202,9 +202,14 @@ export interface InvoiceTotals {
   concession: number
   /** course credit from Credit Notes taken off */
   credit: number
+  /** owner Row 34 (2026-10-28): Liclass rounds the invoice total up to the nearest ฿10 — this is how much was added (0 otherwise) */
+  rounding: number
   total: number
   lines: LineQuote[]
 }
+
+/** round up to the nearest `step` (owner Row 34: Liclass bills up to the next ฿10 — 3,524 → 3,530) */
+export const roundUpTo = (n: number, step: number) => (step > 0 ? Math.ceil(n / step) * step : n)
 
 export function quoteLine(line: CourseLine, ctx: { branch: Branch; courses: Course[]; classes: Klass[]; holidays: Holiday[] }, promotions = true): LineQuote {
   const course = ctx.courses.find((c) => c.id === line.courseId)
@@ -232,8 +237,10 @@ export function invoiceTotals(inv: Invoice, ctx: { branch: Branch; courses: Cour
   const busExtra = (inv.busExtras ?? []).reduce((a, x) => a + x.amount, 0)
   const concession = inv.concession?.amount ?? 0
   const credit = (inv.creditsUsed ?? []).reduce((a, x) => a + x.amount, 0)
-  const total = course + courseFee - promotion + bus + busExtra + inv.bookFee + advance - concession - credit
-  return { course, courseFee, promotion, bus, busExtra, book: inv.bookFee, advance, concession, credit, total, lines }
+  const raw = course + courseFee - promotion + bus + busExtra + inv.bookFee + advance - concession - credit
+  // owner Row 34: Liclass rounds the whole invoice up to the next ฿10; the delta is shown as its own "ปัดเศษ" line
+  const total = ctx.branch.brand === "liclass" ? roundUpTo(raw, 10) : raw
+  return { course, courseFee, promotion, bus, busExtra, book: inv.bookFee, advance, concession, credit, rounding: total - raw, total, lines }
 }
 
 /** Why a class is not an obvious fit for this course — never a block (owner 2026-09-30: "we're very flexible", any

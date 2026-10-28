@@ -8,7 +8,7 @@ import {
   AlertTriangleIcon, BanIcon, CalendarClockIcon, CheckIcon, ChevronLeftIcon, ChevronRightIcon, ClockIcon, EllipsisVerticalIcon, FlameIcon,
   GraduationCapIcon, LogOutIcon, PencilIcon, SendIcon, StarIcon, Trash2Icon, UserMinusIcon, UserPlusIcon, UsersRoundIcon, XIcon,
   RotateCcwIcon,
-  CalendarDaysIcon, Clock3Icon, DoorOpenIcon, UserIcon, UsersIcon,
+  CalendarDaysIcon, Clock3Icon, DoorOpenIcon, UserIcon, UsersIcon, HistoryIcon,
 } from "lucide-react"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
@@ -20,7 +20,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { LongLeaveFields } from "@/components/app/leave-dialog"
-import { addDays, endTime, fmtDate, fmtDateTime, fromMinutes, TH_DAYS_FULL, toMinutes } from "@/domain/dates"
+import { addDays, endTime, fmtDate, fmtDateTime, fromMinutes, TH_DAYS_FULL, toDateStr, toMinutes } from "@/domain/dates"
 import * as Att from "@/domain/rules/attendance"
 import * as Seats from "@/domain/rules/seats"
 import { CalendarNotes } from "@/components/calendar/calendar-notes-ui"
@@ -311,8 +311,16 @@ function StudentRow({ s, sid, viewOnly, canManage, mine, text, setText, selectab
   const L = useLookup()
   const [open, setOpen] = useState<"student" | "reschedule" | "remove" | "seat" | "leave" | null>(null)
   const [otherSession, setOtherSession] = useState<ID | null>(null)
+  const [historyOpen, setHistoryOpen] = useState(false)
 
   const stu = L.student(sid)
+  // owner Row 48 (2026-10-28): every past lesson summary for this student, so the teacher can follow what was taught
+  const today = toDateStr(now)
+  const pastSummaries = summaries
+    .filter((x) => x.studentId === sid && x.sessionId !== s.id && x.text?.trim())
+    .map((x) => ({ x, se: allSessions.find((y) => y.id === x.sessionId) }))
+    .filter((r): r is { x: LessonSummary; se: Session } => !!r.se && r.se.date <= today)
+    .sort((a, b) => (b.se.date + b.se.start).localeCompare(a.se.date + a.se.start))
   const a = attendance.find((x) => x.sessionId === s.id && x.studentId === sid)
   const ent = Att.coveringEntitlement(sid, s, entitlements)
   const asm = assessmentIn(s.id, sid, assessments)
@@ -435,8 +443,10 @@ function StudentRow({ s, sid, viewOnly, canManage, mine, text, setText, selectab
       )}
       {asm && <div className={indent}><AssessmentNote a={asm} editable={canManage || mine} /></div>}
       {a?.status === "present" && (
-        <div className={indent}>
+        <div className={cn(indent, "space-y-1.5")}>
           <SummaryInline key={lessonKey(summaries.find((x) => x.sessionId === s.id && x.studentId === sid))} session={s} sessionId={s.id} studentId={sid} summary={summaries.find((x) => x.sessionId === s.id && x.studentId === sid)} viewOnly={viewOnly} text={text} setText={setText} />
+          {/* owner Row 48: after check-in, a button to read every past summary for this student */}
+          {pastSummaries.length > 0 && <Button size="xs" variant="ghost" className="text-muted-foreground" onClick={() => setHistoryOpen(true)}><HistoryIcon className="size-3.5" />{`ประวัติสรุป ${pastSummaries.length} ครั้ง`}</Button>}
         </div>
       )}
 
@@ -445,6 +455,29 @@ function StudentRow({ s, sid, viewOnly, canManage, mine, text, setText, selectab
       {open === "remove" && <RemoveDialog s={s} studentId={sid} onClose={() => setOpen(null)} />}
       {open === "seat" && <SeatDialog s={s} studentId={sid} onClose={() => setOpen(null)} />}
       {open === "leave" && <LeaveDialog s={s} studentId={sid} onClose={() => setOpen(null)} />}
+      {historyOpen && (
+        <Dialog open onOpenChange={(o) => !o && setHistoryOpen(false)}>
+          <DialogContent className="max-w-lg">
+            <DialogHeader>
+              <DialogTitle>{`ประวัติสรุปของ ${stu?.nickname ?? ""}`}</DialogTitle>
+              <DialogDescription>{`สรุปการเรียนที่ผ่านมาทั้งหมด ${pastSummaries.length} ครั้ง`}</DialogDescription>
+            </DialogHeader>
+            <div className="max-h-[60vh] space-y-2.5 overflow-y-auto">
+              {pastSummaries.map(({ x, se }) => (
+                <div key={x.id} className="rounded-xl border p-3 text-sm">
+                  <p className="flex flex-wrap items-center gap-x-2 gap-y-1 font-medium">
+                    {fmtDate(se.date, { weekday: true, year: true })} · {se.subject}
+                    {x.level ? <Pill tone="blue">{`ความเข้าใจ ${x.level}/5`}</Pill> : null}
+                    <span className="ml-auto text-xs font-normal text-muted-foreground">{SUMMARY_STATUS_LABEL[x.status]}</span>
+                  </p>
+                  {x.detail && <p className="mt-1 text-xs text-muted-foreground">{x.detail}</p>}
+                  <p className="mt-1 whitespace-pre-line">{x.text}</p>
+                </div>
+              ))}
+            </div>
+          </DialogContent>
+        </Dialog>
+      )}
       <SessionSheet sessionId={otherSession} onClose={() => setOtherSession(null)} />
     </li>
   )

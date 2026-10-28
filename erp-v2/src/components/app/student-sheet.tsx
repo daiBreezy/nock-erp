@@ -333,18 +333,20 @@ function SessionList({ stu }: { stu: Student }) {
   const invoices = useStore((s) => s.invoices)
   const now = useNow()
   const today = toDateStr(now)
-  const [back, setBack] = useState(14)
   const legs = useMemo(() => new Map(invoices.filter((i) => i.studentId === stu.id && i.status !== "void").flatMap((i) => i.bus.map((l) => [l.date, l] as const))), [invoices, stu.id])
+  // owner Row 44/49 (2026-10-28): show EVERY session — past and upcoming — not just a recent window, so parents can be
+  // told the full schedule and the exact number of sessions (10 of 10, not "5 left")
   const mine = sessions
     .filter((s) => s.studentIds.includes(stu.id) || attendance.some((a) => a.sessionId === s.id && a.studentId === stu.id))
-    .filter((s) => daysBetween(s.date, today) <= back && daysBetween(today, s.date) <= 42 && !removedWithClass(s, classes))
+    .filter((s) => !removedWithClass(s, classes))
     .sort((a, b) => (a.date + a.start).localeCompare(b.date + b.start))
   const days = [...new Set(mine.map((s) => s.date))]
-  const hasOlder = sessions.some((s) => s.studentIds.includes(stu.id) && daysBetween(s.date, today) > back)
+  const active = mine.filter((s) => !s.cancelled)
+  const done = active.filter((s) => s.date < today).length
   return (
     <div className="space-y-4">
-      {hasOlder && <Button size="xs" variant="ghost" onClick={() => setBack(back + 28)}>แสดงคาบก่อนหน้า</Button>}
-      {days.length === 0 && <p className="rounded-xl border border-dashed p-8 text-center text-sm text-muted-foreground">ไม่มีคาบในช่วงนี้</p>}
+      {active.length > 0 && <p className="text-sm text-muted-foreground tabular-nums">{`ทั้งหมด ${active.length} คาบ · เรียนไปแล้ว ${done} · เหลือ ${active.length - done}`}</p>}
+      {days.length === 0 && <p className="rounded-xl border border-dashed p-8 text-center text-sm text-muted-foreground">ไม่มีคาบ</p>}
       {days.map((d) => (
         <section key={d}>
           <p className={cn("mb-1.5 text-sm font-semibold", d === today && "text-primary")}>{fmtDate(d, { weekday: true, year: true })}{d === today && " · วันนี้"}</p>

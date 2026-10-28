@@ -91,7 +91,8 @@ export default function ClassesPage() {
   type Row = (typeof rows)[number]
   const columns: Column<Row>[] = [
     { id: "subject", label: "วิชา", width: "120px", sort: "subject", cell: (c) => <div className="flex gap-1">{subjectsOf(c).map((x) => <span key={x} className={cn("rounded-full px-2 py-0.5 text-xs font-medium", subjectColor(x).chip)}>{x}</span>)}</div> },
-    { id: "name", label: "ชื่อคลาส", width: "170px", sort: "name", required: true, className: "font-medium", cell: (c) => c.name },
+    // owner Row 16 (2026-10-28): when a class is linked to a course, show the course name under the class name
+    { id: "name", label: "ชื่อคลาส", width: "180px", sort: "name", required: true, className: "font-medium", cell: (c) => { const co = courseOf(c); return <div className="leading-tight">{c.name}{co && <div className="text-xs font-normal text-muted-foreground">{co.name}</div>}</div> } },
     { id: "day", label: "วัน", width: "110px", sort: "day", cell: (c) => <span className="flex items-center gap-1.5"><CalendarIcon className="size-4 shrink-0 text-muted-foreground" />{c.kind === "learning" ? TH_DAYS_FULL[c.weekday] : fmtDate(c.startDate, { weekday: true })}</span> },
     { id: "time", label: "เวลา", width: "130px", sort: "time", className: "tabular-nums", cell: (c) => <span className="flex items-center gap-1.5"><ClockIcon className="size-4 shrink-0 text-muted-foreground" />{c.start}–{endTime(c.start, c.minutes)}</span> },
     { id: "grade", label: "ชั้น", width: "100px", sort: "grade", cell: (c) => <div className="flex gap-1" title={c.grades.join(", ")}>{gradeRanges(c.grades).map((g) => <span key={g} className={cn("rounded-md px-1.5 py-0.5 text-xs font-semibold", gradeTone(g))}>{g}</span>)}</div> },

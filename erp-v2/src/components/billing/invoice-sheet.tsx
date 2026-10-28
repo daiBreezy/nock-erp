@@ -195,6 +195,7 @@ function Body({ id, slipMediaId, onEdit }: { id: ID; slipMediaId?: string; onEdi
               {inv.advance.map((a) => <tr key={a.feeId}><td className="px-3 py-1.5">{a.name}</td><td className="px-3 py-1.5 text-right">{fmtMoney(a.amount)}</td></tr>)}
               {totals.credit > 0 && <tr className="text-violet-700"><td className="px-3 py-1.5">หักเครดิตคอร์ส</td><td className="px-3 py-1.5 text-right">−{fmtMoney(totals.credit)}</td></tr>}
               {totals.concession > 0 && <tr className="text-emerald-700"><td className="px-3 py-1.5">ส่วนลดพิเศษ · {inv.concession?.remark}</td><td className="px-3 py-1.5 text-right">−{fmtMoney(totals.concession)}</td></tr>}
+              {totals.rounding > 0 && <tr className="text-muted-foreground"><td className="px-3 py-1.5">ปัดเศษ (Liclass ปัดขึ้นหลักสิบ)</td><td className="px-3 py-1.5 text-right">+{fmtMoney(totals.rounding)}</td></tr>}
               <tr className="font-semibold"><td className="px-3 py-2">ยอดรวม</td><td className="px-3 py-2 text-right text-base">{fmtMoney(totals.total)}</td></tr>
             </tbody>
           </table>

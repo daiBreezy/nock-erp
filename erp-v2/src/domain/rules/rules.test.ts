@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest"
 import type { DevTicket, NockAnswer, NockQuestion, Role, Assessment, Attendance, Branch, BusAddOn, CreditNote, LessonSummary, Course, Entitlement, Family, FormSubmission, Lead, Student, FormOfferSlot, Holiday, Invoice, Klass, Session, Staff, StudentLeave, Weekday } from "../types"
 import { applyClassEdit, applyToSessions, canChangeTeachers, canMoveToClass, canUndoClassMove, canRescheduleStudent, movesOf, mondayOf, removedWithClass, canSave, closesBranch, holidayImpact, hoursFor, isHoliday, overlappingRows, periodsIn, introducedConflicts, editSingleSession, findConflicts, generateSessions, moveSession, sessionState, validateClass, workState } from "./scheduling"
 import { activeLeave, nextClassDates, teacherLeaveCancels, leaveRunSessions, balance, studentState, leaveLedger, packageCovers, canMark, canSaveLeave, coveringEntitlement, effectiveTo, leavesUsed, lowBalanceAlert, removeFromClass, renewalFollowUpDue, resolveEntitlements } from "./attendance"
-import { bestPromotion, duplicateBusDay, billedOn, busAddOnAmount, pendingBusAddOns, validateBusAddOn, carriedMinutes, weekKey, classOptionsFor, defaultAdvance, entryFeeWaiver, invoiceSessionDates, invoiceTotals, validateInvoiceDraft, canApprove, canConfirmPayment, canForceApprove, canForceConfirmPayment, canSend, canVoid, defaultBusLegs, busTotal, nextInvoiceNumber, quoteCourse } from "./billing"
+import { bestPromotion, duplicateBusDay, billedOn, busAddOnAmount, pendingBusAddOns, validateBusAddOn, carriedMinutes, weekKey, classOptionsFor, defaultAdvance, entryFeeWaiver, invoiceSessionDates, invoiceTotals, validateInvoiceDraft, canApprove, canConfirmPayment, canForceApprove, canForceConfirmPayment, canSend, canVoid, defaultBusLegs, busTotal, nextInvoiceNumber, quoteCourse, roundUpTo } from "./billing"
 import { can } from "./permissions"
 import { chartPrice, defaultCourseName, filterCourses, validateCourse } from "./course"
 import { busRate, copyHours, gradeLabel, subjectLabel, priceOf, priceRange, setPrice, validateBranchInfo, validateDurations, validateHoliday, validatePromotion, validateSpecialPeriods, everyDay, subjectAbbr } from "./settings"
@@ -214,6 +214,21 @@ describe("billing", () => {
 
   it("BL-5: periods below 1 rejected", () => {
     expect(quoteCourse({ course: monthPkg, klasses: [klass()], startDate: "2026-09-29", periods: -1, holidays }).ok).toBe(false)
+  })
+
+  // owner Row 34 (2026-10-28): Liclass rounds the invoice total up to the next ฿10 (3,524 → 3,530), NockAcademy exact
+  it("Row 34: Liclass rounds the invoice total up to the nearest ฿10", () => {
+    expect(roundUpTo(3524, 10)).toBe(3530)
+    expect(roundUpTo(3530, 10)).toBe(3530)
+    expect(roundUpTo(0, 10)).toBe(0)
+    const inv: Invoice = { id: "i", branchId: "b1", studentId: "a", number: null, lines: [], bus: [], bookFee: 3524, advance: [], concession: null, noteToParent: "", status: "draft", pdf: "none", createdBy: "adm", createdAt: "", payments: [] }
+    const base = { courses: [], classes: [], holidays: [] }
+    const na = invoiceTotals(inv, { ...base, branch })
+    expect(na.total).toBe(3524)
+    expect(na.rounding).toBe(0)
+    const li = invoiceTotals(inv, { ...base, branch: { ...branch, brand: "liclass" } })
+    expect(li.total).toBe(3530)
+    expect(li.rounding).toBe(6)
   })
 
   it("BL-6: bus legs opt-in", () => {

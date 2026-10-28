@@ -57,6 +57,7 @@ function ClassView({ id, onEdit, onClose }: { id: ID; onEdit: () => void; onClos
   const branch = useBranch()
   const now = useNow()
   const L = useLookup()
+  const course = useStore((s) => s.courses).find((x) => x.id === k.courseId)
   const [closing, setClosing] = useState(false)
   const [reason, setReason] = useState("")
   const [removing, setRemoving] = useState<ID | null>(null)
@@ -68,6 +69,8 @@ function ClassView({ id, onEdit, onClose }: { id: ID; onEdit: () => void; onClos
     <>
       <SheetHeader className="shrink-0 border-b pb-3">
         <SheetTitle className="text-lg">{k.name}</SheetTitle>
+        {/* owner Row 16 (2026-10-28): show the linked course name so the class is easy to place */}
+        {course && <p className="text-sm font-medium text-muted-foreground">{course.name}</p>}
         <SheetDescription>{k.subject} · {k.grades.join(", ")} · {k.type === "single" ? "เดี่ยว" : "กลุ่ม"}{!k.active && " · ปิดแล้ว"}</SheetDescription>
       </SheetHeader>
       <PanelBody>
