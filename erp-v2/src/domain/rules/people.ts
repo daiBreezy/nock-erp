@@ -91,6 +91,15 @@ export function validateFamily(f: Pick<Family, "name" | "parents" | "postcode">)
 }
 
 /** "ภูมิ (ด.ช. ภูมิ ใจดี · ป.5 · ครอบครัวใจดี)" — nicknames repeat, so lists that act on a student show enough to tell them apart */
+/** owner Row 41 (2026-10-28): how many unique families a set of students represents — siblings share one family,
+ *  an unlinked student counts as one (its own parent) — so e.g. 100 students can be 70 families. */
+export function uniqueFamilies(students: Pick<Student, "familyId">[]): number {
+  const fams = new Set<ID>()
+  let solo = 0
+  for (const s of students) { if (s.familyId) fams.add(s.familyId); else solo++ }
+  return fams.size + solo
+}
+
 export function studentLabel(s: Pick<Student, "nickname" | "name" | "grade">, familyName?: string) {
   return `${s.nickname} (${[s.name, s.grade, familyName].filter(Boolean).join(" · ")})`
 }

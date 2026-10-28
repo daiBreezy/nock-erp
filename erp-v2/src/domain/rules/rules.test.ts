@@ -10,7 +10,7 @@ import { busRate, copyHours, gradeLabel, subjectLabel, priceOf, priceRange, setP
 import { forceAudience, isUnread, messageAudience, noteRecipients, notify, validateMessage, visibleTo } from "./notifications"
 import * as Sum from "./summaries"
 import { chatDayLabel, groupByDay } from "./inbox"
-import { familyFromLead, familyFromSubmission, familyNameFor, splitName, joinName, futureSessionsOf, matchExistingFamily, mergeSubmission, nicknameFrom, searchStudents, studentLabel, submissionChanges, validateFamily, validateStaff, validateStudent } from "./people"
+import { familyFromLead, familyFromSubmission, familyNameFor, splitName, joinName, futureSessionsOf, matchExistingFamily, mergeSubmission, nicknameFrom, searchStudents, studentLabel, submissionChanges, uniqueFamilies, validateFamily, validateStaff, validateStudent } from "./people"
 import { suggestFixes } from "./suggest"
 import { advanceStage, canSetStage, daysAgo, groupOf, restoreStage, siblingLead, validateLead } from "./crm"
 import { APPROVE_STAGE, ATTENDED_STAGE, buildFormPrefill, commonSlots, buildCombinedSessionDraft, buildSessionDraftFromSlot, findOfferSlots, lastAssessmentDate, openHourStarts, planApproval, priorApproval, sessionKindLabel } from "./forms"
@@ -895,6 +895,12 @@ describe("renewals + customer picker tell same-nickname students apart", () => {
   it("labels carry full name, grade and family", () => {
     expect(studentLabel(students[0], "ครอบครัวใจดี")).toBe("ภูมิ (ด.ช. ภูมิ ใจดี · ป.5 · ครอบครัวใจดี)")
     expect(studentLabel(students[1])).toBe("ภูมิ (ด.ญ. ภูมิ รักเรียน · ป.4)")
+  })
+
+  // owner Row 41 (2026-10-28): siblings collapse to one family; an unlinked student counts as its own
+  it("uniqueFamilies: 4 students, 2 share a family, 1 unlinked = 3 families", () => {
+    expect(uniqueFamilies([{ familyId: "f1" }, { familyId: "f1" }, { familyId: "f2" }, { familyId: null }])).toBe(3)
+    expect(uniqueFamilies([])).toBe(0)
   })
 
   it("search by name / family / phone, filter by type and grade, sort", () => {

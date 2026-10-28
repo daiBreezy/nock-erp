@@ -2,7 +2,7 @@
 
 import { familyShortName, PARENT_RELATIONS } from "@/domain/rules/people"
 import { useMemo, useState } from "react"
-import { MapPinOffIcon, MessageCircleIcon, PlusIcon, SearchIcon, UnlinkIcon, UsersIcon } from "lucide-react"
+import { MapPinOffIcon, MessageCircleIcon, PlusIcon, SearchIcon, UnlinkIcon, UsersIcon, UsersRoundIcon } from "lucide-react"
 import { Page, PageHeader, KpiRow, Toolbar } from "@/components/app/page-layout"
 import { Kpi } from "@/components/app/kpi"
 import { BranchCodes, useBranchScope } from "@/components/app/branch-scope"
@@ -33,6 +33,7 @@ export default function FamiliesPage() {
   const [q, setQ] = useState("")
   const [lineF, setLineF] = useState("")
   const [noAddr, setNoAddr] = useState(false)
+  const [multi, setMulti] = useState(false) // owner Row 41: families with more than one child
   const [openId, setOpenId] = useState<ID | null>(null)
   const { sort, toggle } = useSort<FamSort>("name")
 
@@ -59,6 +60,7 @@ export default function FamiliesPage() {
   const inScope = families.filter((f) => { const k = kidsOf.get(f.id) ?? []; return k.length === 0 || k.some((s) => scope.ids.includes(s.branchId)) })
   const lineDone = (f: Family) => linkedCount(f) === f.parents.length
   const rows = inScope
+    .filter((f) => !multi || (kidsOf.get(f.id)?.length ?? 0) >= 2)
     .filter((f) => !noAddr || (!f.address && !f.postcode))
     .filter((f) => !lineF || (lineF === "linked" ? linkedCount(f) === f.parents.length : linkedCount(f) < f.parents.length))
     .filter((f) => !needle || `${f.name} ${f.parents.map((p) => `${p.name} ${p.phone}`).join(" ")} ${(kidsOf.get(f.id) ?? []).map((s) => `${s.nickname} ${s.name}`).join(" ")}`.toLowerCase().includes(needle))
@@ -74,7 +76,7 @@ export default function FamiliesPage() {
   const pg = usePage(useFocusFirst(rows, focusKeys))
   const orphans = students.filter((s) => scope.ids.includes(s.branchId) && !s.familyId).length
 
-  const kpi = { all: inScope.length, linked: inScope.filter(lineDone).length, missing: inScope.filter((f) => !lineDone(f)).length, noAddr: inScope.filter((f) => !f.address && !f.postcode).length }
+  const kpi = { all: inScope.length, multi: inScope.filter((f) => (kidsOf.get(f.id)?.length ?? 0) >= 2).length, linked: inScope.filter(lineDone).length, missing: inScope.filter((f) => !lineDone(f)).length, noAddr: inScope.filter((f) => !f.address && !f.postcode).length }
 
   const columns: Column<Family>[] = [
     { id: "name", label: "ครอบครัว", width: "150px", sort: "name", required: true, className: "font-medium", cell: (f) => (
@@ -124,7 +126,8 @@ export default function FamiliesPage() {
       <PageHeader title="ครอบครัว" description="ผู้ปกครอง ช่องทางติดต่อ LINE และลูกที่เรียนอยู่"
         actions={<Button onClick={() => setOpenId("new")}><PlusIcon /> เพิ่มครอบครัว</Button>} />
       <KpiRow>
-        <Kpi icon={UsersIcon} label="ครอบครัวทั้งหมด" value={kpi.all} onClick={() => { setLineF(""); setNoAddr(false) }} />
+        <Kpi icon={UsersIcon} label="ครอบครัวทั้งหมด" value={kpi.all} onClick={() => { setLineF(""); setNoAddr(false); setMulti(false) }} />
+        <Kpi icon={UsersRoundIcon} label="มีลูกหลายคน" value={kpi.multi} tone="violet" onClick={() => setMulti(!multi)} active={multi} />
         <Kpi icon={MessageCircleIcon} label="ผูก LINE ครบ" value={kpi.linked} tone="emerald" onClick={() => setLineF(lineF === "linked" ? "" : "linked")} active={lineF === "linked"} />
         <Kpi icon={UnlinkIcon} label="ยังผูก LINE ไม่ครบ" value={kpi.missing} tone="amber" valueClassName={kpi.missing ? "text-amber-700" : undefined} onClick={() => setLineF(lineF === "missing" ? "" : "missing")} active={lineF === "missing"} />
         <Kpi icon={MapPinOffIcon} label="ยังไม่มีที่อยู่" value={kpi.noAddr} tone="red" valueClassName={kpi.noAddr ? "text-red-700" : undefined} onClick={() => setNoAddr(!noAddr)} active={noAddr} />

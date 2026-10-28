@@ -21,6 +21,7 @@ import * as Att from "@/domain/rules/attendance"
 import { canApprove as canApproveInvoice, invoiceTotals } from "@/domain/rules/billing"
 import { can, seesAllSessions } from "@/domain/rules/permissions"
 import * as R from "@/domain/rules/reports"
+import { uniqueFamilies } from "@/domain/rules/people"
 import { findConflicts, sessionState, STATE_LABEL, workState } from "@/domain/rules/scheduling"
 import * as Survey from "@/domain/rules/survey"
 import * as Today from "@/domain/rules/today"
@@ -106,6 +107,8 @@ export default function DashboardPage() {
   // ---------- current-state numbers ----------
   const statusOf = new Map(students.map((s) => [s.id, Att.studentStatus(s, entitlements, leaves, today)]))
   const activeStudents = [...statusOf.values()].filter((v) => v === "active" || v === "renewal").length
+  // owner Row 41 (2026-10-28): how many unique families those active students are — "60 students, really 45 families"
+  const activeFamilies = uniqueFamilies(students.filter((s) => { const v = statusOf.get(s.id); return v === "active" || v === "renewal" }))
   // owner 2026-10-06: a renewal check-in that got no answer can be snoozed to a later date (renewalFollowUpDue) —
   // keeps this to "needs doing today", not an ever-growing pile of names already being chased
   const renewals = students
@@ -199,7 +202,7 @@ export default function DashboardPage() {
 
       {hasOverview && (
         <KpiRow>
-          <Kpi icon={GraduationCapIcon} label={tx("นักเรียนที่เรียนอยู่")} value={String(activeStudents)} tone="emerald" sub={tx("จากทั้งหมด {0} คน", [students.length])} />
+          <Kpi icon={GraduationCapIcon} label={tx("นักเรียนที่เรียนอยู่")} value={String(activeStudents)} tone="emerald" sub={tx("จากทั้งหมด {0} คน · {1} ครอบครัว", [students.length, activeFamilies])} />
           <Kpi icon={BanknoteIcon} label={tx("รายรับ{0}", [tx(RANGE_LABEL[range])])} value={fmtMoney(rev.total)} tone="violet" sub={<span className="flex items-center gap-1"><Delta value={revChange} /> {tx(R.COMPARE_LABEL[periodKey])}</span>} />
           <Kpi icon={UserPlusIcon} label={tx("นักเรียนใหม่ · {0}", [tx(RANGE_LABEL[range])])} value={`+${fmtNum(newCount)}`} tone="sky" sub={<span className="flex items-center gap-1"><Delta value={R.change(newCount, newPrev, prevRange, since)} /> {tx(R.COMPARE_LABEL[periodKey])}</span>} />
           <Kpi icon={UserSearchIcon} label={tx("ลีดที่กำลังตาม")} value={String(activeLeads.length)} tone={newLeads.length ? "amber" : "emerald"} sub={newLeads.length ? tx("{0} รายใหม่ยังไม่ติดต่อ", [newLeads.length]) : tx("ติดต่อครบแล้ว")} />

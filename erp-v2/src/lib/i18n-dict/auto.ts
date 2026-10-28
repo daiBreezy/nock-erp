@@ -702,6 +702,8 @@ export const AUTO: Record<string, Entry> = {
   "ประวัติสรุปของ {0}": { en: "Summary history of {0}", ja: "{0}のサマリー履歴" },
   "สรุปการเรียนที่ผ่านมาทั้งหมด {0} ครั้ง": { en: "All {0} past lesson summaries", ja: "過去の授業サマリー全{0}件" },
   "ความเข้าใจ {0}/5": { en: "Understanding {0}/5", ja: "理解度 {0}/5" },
+  "จากทั้งหมด {0} คน · {1} ครอบครัว": { en: "of {0} total · {1} families", ja: "全{0}名 · {1}家族" },
+  "มีลูกหลายคน": { en: "More than one child", ja: "きょうだい在籍" },
   "ปัดเศษ (Liclass ปัดขึ้นหลักสิบ)": { en: "Rounding (Liclass rounds up to the nearest 10)", ja: "端数調整（Liclassは10バーツ単位で切り上げ）" },
   "โน้ตถึงครู · {0}": { en: "Note for the teacher · {0}", ja: "先生へのメモ · {0}" },
   "เพิ่มล่าสุด": { en: "Recently added", ja: "最近追加" },
