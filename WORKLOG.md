@@ -5,6 +5,25 @@
 
 ---
 
+## 2026-10-28 — erp-v2: แก้บั๊ก Form approval (all-or-nothing + idempotent) จากการ grill
+
+**ที่มา:** ลองใช้สกิล grill (plugin "Skills For Real Engineers" ของ Matt Pocock) ซักฟีเจอร์ Form ของ erp-v2 ทั้ง flow/validation + ความเชื่อมโยงข้อมูล + edge cases → เจอบั๊กจริง 2 จุดในขั้นตอน approve ฟอร์ม Test/Trial แล้วแก้รอบนี้
+
+**ทำอะไร (`erp-v2/src`):**
+- **บั๊ก 1 — Partial booking (orphan session):** เดิมใน `store.approveTestTrialSubmission` ฟอร์มหลายวิชาคนละเวลา จองทีละ pick แล้ว `set` ทันที ถ้า pick หลัง fail (ครู/ห้องถูกจองไประหว่างที่ parent ถือลิงก์) → คาบของ pick แรกค้างในปฏิทิน แต่ไม่มี Assessment/ไม่ advance lead → เพิ่ม pure `planApproval()` ใน `domain/rules/forms.ts` validate **ทุก pick** ก่อน (กฎ block เดียวกับ `addSession`/`addStudentToSession`; pick generic ตัวหลังเห็นตัวก่อนหน้า กันแย่งครู/ห้องกันเอง) store จะไม่สร้างอะไรเลยถ้าแผนไม่ผ่าน + มี session rollback กัน commit พลาดกลางคัน
+- **บั๊ก 2 — Re-approve ซ้ำ = ข้อมูลซ้ำ:** `approveSubmission` (lib) จอง store ก่อน แล้วค่อย POST review ถ้า POST fail submission ค้าง "pending" → กด approve ซ้ำได้ Student/Session/Assessment ซ้ำ → เพิ่ม `submissionId` ลง `Assessment` + pure `priorApproval()` ถ้าเคยอนุมัติแล้วคืนผลเดิม (no-op) ให้ caller re-POST ไป reconcile server
+- **test:** +5 เคสใน `rules.test.ts` (holiday ล้มทั้งแผน, ทุก pick ผ่าน, pick ชนล้มทั้งแผน, รวม 2 ชม., idempotent) · **i18n:** +EN/JA 4 ข้อความใหม่ใน `lib/i18n-dict/auto.ts` (ตามกฎแปลทุกหน้า)
+- ✅ `tsc --noEmit` + `npm test` (352 ผ่าน) · commit `3b8a35c` push ขึ้น origin/main แล้ว
+
+**เหลือทำ (คำถาม product จาก grill — ยังไม่ได้แตะ):**
+- [ ] เด็กคนเดิมที่มีหลาย Lead (sibling leadId:null) เกิด Student ซ้ำได้ (`trialStudentId` ผูก 1 Lead = 1 Student) — ใครรวมร่าง?
+- [ ] `matchExistingFamily` จับคู่ด้วยเบอร์พ่อแม่คนไหนก็ได้ → เสี่ยง false-merge (ญาติใช้เบอร์เดียว) / ซ้ำ (พิมพ์เบอร์ต่างฟอร์แมต) — ควรให้แอดมินยืนยันก่อน merge ไหม
+- [ ] `Assessment` store `date`/`start` เป็นสำเนา ขัดกฎ "derive ไม่ store" — ตั้งใจเป็น snapshot วันนัด หรือหลุด?
+- [ ] lead stage กับฟอร์มหลายวิชาคนละวัน (`scheduledAt` = คาบแรก; attended เกิดตอนเช็คชื่อวิชาแรก แล้ววิชาที่ค้าง?)
+- [ ] จุดเล็ก: token mint ก่อนเช็ค env (orphan token), 2 คลาสจริงเวลาเดียวกัน approve ไม่ได้, แยก LINE/mock ด้วย `id.startsWith("line_")` (ควรมี field channel), submission ต้อง pull เองถึงเห็น
+
+---
+
 ## 2026-10-27 (บ่าย) — Web App: ภาพปกข้อสอบ, Section เด่น, Search/Filter, Landing ผลตอบรับ + ฟีเจอร์
 
 **ตัดสินใจ (เจ้าของ):**
