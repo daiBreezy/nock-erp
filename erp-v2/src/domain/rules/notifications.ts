@@ -38,6 +38,14 @@ export function visibleTo(n: AppNotification, me: Staff): boolean {
 
 export const isUnread = (n: AppNotification, me: Staff) => !n.readBy.includes(me.id)
 
+/** owner Row 12 (2026-10-28): who to ping when a note is written on a class session — that session's teacher(s),
+ *  never the person who wrote it (so an admin writing a note doesn't notify themselves if they also teach it).
+ *  No session (a plain student note) → nobody is pinged. */
+export function noteRecipients(session: { teacherId: ID | null; coTeacherIds?: ID[] } | null | undefined, writerId: ID): ID[] {
+  if (!session) return []
+  return [session.teacherId, ...(session.coTeacherIds ?? [])].filter((x): x is ID => !!x && x !== writerId)
+}
+
 /** Force Approve: everyone at the branch + every Director (in any branch), always. */
 export function forceAudience(branchId: ID, staff: Staff[]): Audience {
   return { roles: ALL_ROLES, branchId, staffIds: staff.filter((s) => s.active && s.roles.includes("director")).map((s) => s.id) }

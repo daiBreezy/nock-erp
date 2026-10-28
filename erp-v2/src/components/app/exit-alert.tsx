@@ -53,6 +53,25 @@ export function ExitAlert() {
 }
 
 /**
+ * โน้ตถึงครู (owner 2026-10-28 · Row 12): when an admin writes a note on a class session, the session's teacher(s)
+ * get a floating card the next time they open the ERP — so a worksheet/lecture heads-up never gets missed.
+ */
+export function NoteAlert() {
+  const router = useRouter()
+  const me = useStore((s) => s.me())
+  const notifications = useStore((s) => s.notifications)
+  useEffect(() => {
+    const t = setTimeout(() => {
+      notifications.filter((n) => n.kind === "student_note" && visibleTo(n, me) && isUnread(n, me)).slice(0, 3).forEach((n) => {
+        if (once(`nockerp-note:${me.id}:${n.id}`)) notify({ kind: "note", title: n.title, body: n.body, action: { label: "ดูการแจ้งเตือน", onClick: () => router.push("/notifications") } })
+      })
+    }, 1000)
+    return () => clearTimeout(t)
+  }, [me, notifications, router])
+  return null
+}
+
+/**
  * แจ้งลา / แจ้งลาออก from parents in LINE (owner 2026-10-14: "ยิงเข้ามาที่ระบบ ให้ Admin ได้รับทราบ") — checked every
  * 20 s; a new one becomes a notification and pops up for the office team, with a button to handle it.
  */

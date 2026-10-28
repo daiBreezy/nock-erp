@@ -695,6 +695,8 @@ export const AUTO: Record<string, Entry> = {
   "ยืนยัน": { en: "Confirm", ja: "確定" },
   "รายชื่อ": { en: "List", ja: "名簿" },
   "ล้างทั้งหมด": { en: "Clear all", ja: "すべてクリア" },
+  "ดูการแจ้งเตือน": { en: "View notification", ja: "通知を見る" },
+  "โน้ตถึงครู · {0}": { en: "Note for the teacher · {0}", ja: "先生へのメモ · {0}" },
   "เพิ่มล่าสุด": { en: "Recently added", ja: "最近追加" },
   "เรียงตามชั้น": { en: "Sort by grade", ja: "学年順" },
   "เรียงตามชื่อ": { en: "Sort by name", ja: "名前順" },

@@ -925,8 +925,17 @@ export const useStore = create<Store>()(
         const s = get()
         if (!can(s.me(), "student.view")) return fail("คุณไม่มีสิทธิ์")
         if (!text.trim()) return fail("พิมพ์โน้ตก่อน")
-        set({ notes: [...s.notes, { id: uid("nt"), studentId, by: s.userId, at: s.now().toISOString(), text: text.trim(), sessionId }] })
-        log("note", [studentId], "เพิ่มโน้ต", text.trim().slice(0, 80))
+        const body = text.trim()
+        // owner Row 12 (2026-10-28): a note written on a class session pings that session's teacher(s) — they teach
+        // from it (e.g. "เรียนเลขด้วยชีตภาษาอังกฤษ"). The writer is never notified about their own note (fromId).
+        const se = sessionId ? s.sessions.find((x) => x.id === sessionId) : undefined
+        const teacherIds = Notif.noteRecipients(se, s.userId)
+        const stu = s.students.find((x) => x.id === studentId)
+        const notes = teacherIds.length
+          ? [Notif.notify({ id: uid("no"), at: s.now(), kind: "student_note", title: `โน้ตถึงครู · ${stu?.nickname ?? "นักเรียน"}`, body: `${se ? `${se.subject} ${fmtDate(se.date)} · ` : ""}${body}`, fromId: s.userId, audience: { staffIds: teacherIds } })]
+          : []
+        set({ notes: [...s.notes, { id: uid("nt"), studentId, by: s.userId, at: s.now().toISOString(), text: body, sessionId }], ...(notes.length ? { notifications: [...notes, ...s.notifications] } : {}) })
+        log("note", [studentId], "เพิ่มโน้ต", body.slice(0, 80))
         return OK
       },
 

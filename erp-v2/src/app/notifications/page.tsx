@@ -38,7 +38,7 @@ const TOPICS: { key: Topic; label: string; icon: typeof BellIcon }[] = [
 ]
 const KIND_TOPIC: Record<NotificationKind, Topic> = {
   low_sessions: "renewal", session_cancelled: "schedule", holiday_impact: "schedule", student_leave: "schedule",
-  approval_needed: "approval", force_approved: "approval", form_submitted: "forms", message: "message", info: "other", nock: "message", student_exit: "renewal", parent_request: "requests",
+  approval_needed: "approval", force_approved: "approval", form_submitted: "forms", message: "message", info: "other", nock: "message", student_exit: "renewal", parent_request: "requests", student_note: "teaching",
 }
 
 interface Alert {

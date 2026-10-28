@@ -35,7 +35,7 @@ import { NAV, navFor } from "./nav"
 import { DemoPanel } from "./demo-panel"
 import { NockWidget } from "@/components/nock/nock-widget"
 import { NotiToaster } from "@/components/app/noti"
-import { ExitAlert, ParentRequestWatcher } from "@/components/app/exit-alert"
+import { ExitAlert, NoteAlert, ParentRequestWatcher } from "@/components/app/exit-alert"
 import { startScreenTranslation } from "@/lib/screen-translate"
 import { ThemeTuner } from "./theme-tuner"
 import { FocusBanner } from "./focus-banner"
@@ -180,6 +180,7 @@ function Shell({ children }: { children: ReactNode }) {
         {/* owner 2026-10-15: Noti — notification popups top-right, on the Toast design */}
         <NotiToaster />
         <ExitAlert />
+        <NoteAlert />
         <ParentRequestWatcher />
         <ScreenTranslator />
         <ThemeTuner />

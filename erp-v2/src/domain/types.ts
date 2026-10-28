@@ -1408,6 +1408,8 @@ export type NotificationKind =
   | "student_exit"
   /** owner 2026-10-14: a parent sent แจ้งลา / แจ้งลาออก from LINE */
   | "parent_request"
+  /** owner 2026-10-28 (Row 12): a note written on a class session — pings that session's teacher(s) */
+  | "student_note"
 
 /** One internal notification — the single team-communication channel (see domain/rules/notifications.ts). */
 export interface AppNotification {

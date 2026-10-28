@@ -7,7 +7,7 @@ import { bestPromotion, duplicateBusDay, billedOn, busAddOnAmount, pendingBusAdd
 import { can } from "./permissions"
 import { chartPrice, defaultCourseName, filterCourses, validateCourse } from "./course"
 import { busRate, copyHours, gradeLabel, subjectLabel, priceOf, priceRange, setPrice, validateBranchInfo, validateDurations, validateHoliday, validatePromotion, validateSpecialPeriods, everyDay, subjectAbbr } from "./settings"
-import { forceAudience, isUnread, messageAudience, notify, validateMessage, visibleTo } from "./notifications"
+import { forceAudience, isUnread, messageAudience, noteRecipients, notify, validateMessage, visibleTo } from "./notifications"
 import * as Sum from "./summaries"
 import { chatDayLabel, groupByDay } from "./inbox"
 import { familyFromLead, familyFromSubmission, familyNameFor, splitName, joinName, futureSessionsOf, matchExistingFamily, mergeSubmission, nicknameFrom, searchStudents, studentLabel, submissionChanges, validateFamily, validateStaff, validateStudent } from "./people"
@@ -621,6 +621,13 @@ describe("force approve & central notifications (owner 2026-09-26)", () => {
     expect(validateMessage({ kind: "branch" }, " ")).toMatch(/ข้อความ/)
     expect(validateMessage({ kind: "people", staffIds: [] }, "hi")).toMatch(/ผู้รับ/)
     expect(validateMessage({ kind: "role", role: "teacher" }, "hi")).toBeNull()
+  })
+  // owner Row 12 (2026-10-28): a note on a class session pings that session's teacher(s), never the writer
+  it("a session note pings the session's teachers, not the writer; no session pings no one", () => {
+    expect(noteRecipients({ teacherId: "t1", coTeacherIds: ["t2"] }, "adm").sort()).toEqual(["t1", "t2"])
+    expect(noteRecipients({ teacherId: "t1", coTeacherIds: ["t2"] }, "t1")).toEqual(["t2"]) // the teacher who wrote it isn't pinged
+    expect(noteRecipients({ teacherId: null, coTeacherIds: [] }, "adm")).toEqual([]) // unstaffed class
+    expect(noteRecipients(undefined, "adm")).toEqual([]) // a plain student note (no session) pings no one
   })
 })
 
