@@ -492,7 +492,7 @@ function Subjects() {
 }
 
 /* ---------- 7. โรงเรียนของเรา — ซ้าย Liclass School (คนญี่ปุ่น) | ขวา NockAcademy School (→ หน้าโรงเรียน) ---------- */
-// ลิงก์ Liclass School — เจ้าของจะส่งให้ทีหลัง (ว่าง = ปุ่มแสดง "เร็วๆ นี้" กดไม่ได้)
+// ลิงก์ Liclass School — เจ้าของจะส่งให้ทีหลัง (ว่าง = ไปหน้า Coming Soon /liclass)
 const LICLASS_URL = ''
 
 function Schools() {
@@ -503,7 +503,7 @@ function Schools() {
       name: 'Liclass School',
       desc: 'โรงเรียนสำหรับ “คนญี่ปุ่น” ของเรา',
       cta: LICLASS_URL ? 'ดูรายละเอียด' : 'เร็วๆ นี้',
-      onClick: LICLASS_URL ? () => window.open(LICLASS_URL, '_blank', 'noopener') : undefined,
+      onClick: LICLASS_URL ? () => window.open(LICLASS_URL, '_blank', 'noopener') : () => navigate('/liclass'),
       tone: 'bg-subject-english text-subject-english-ink',
       // ห้องเรียนแบบญี่ปุ่น (Unsplash, ใช้ฟรี) — เปลี่ยนเป็นรูปจริงของ Liclass เมื่อได้มา
       image: 'https://images.unsplash.com/photo-1617721926586-4eecce739745?w=900&q=70&auto=format&fit=crop',
@@ -526,21 +526,20 @@ function Schools() {
           <button
             key={c.name}
             onClick={c.onClick}
-            disabled={!c.onClick}
-            className="group relative flex flex-col items-start overflow-hidden rounded-card border border-line bg-white p-6 text-left shadow-sm transition enabled:hover:-translate-y-0.5 enabled:hover:shadow-md disabled:cursor-default sm:p-8"
+            className="group relative flex flex-col items-start overflow-hidden rounded-card border border-line bg-white p-6 text-left shadow-sm transition hover:-translate-y-0.5 hover:shadow-md sm:p-8"
           >
             {/* รูปพื้นหลังชิดขวา จางเข้าสีขาวทางซ้าย ให้ข้อความอ่านชัด */}
             <img
               src={c.image}
               alt=""
               loading="lazy"
-              className="pointer-events-none absolute inset-y-0 right-0 h-full w-3/4 object-cover transition-transform duration-500 [mask-image:linear-gradient(to_right,transparent,black_100%)] group-enabled:group-hover:scale-105"
+              className="pointer-events-none absolute inset-y-0 right-0 h-full w-3/4 object-cover transition-transform duration-500 [mask-image:linear-gradient(to_right,transparent,black_100%)] group-hover:scale-105"
             />
             <span className={`relative rounded-pill px-3 py-1 text-[13px] font-bold ${c.tone}`}>{c.eyebrow}</span>
             <h2 className="relative mt-4 text-[26px] font-extrabold tracking-tight text-ink sm:text-[30px]">{c.name}</h2>
             <p className="relative mt-2 max-w-[50%] text-[15px] leading-relaxed text-ink-soft">{c.desc}</p>
-            <span className={`relative mt-6 inline-flex items-center gap-1.5 text-[14px] font-bold ${c.onClick ? 'text-brand' : 'text-ink-mute'}`}>
-              {c.cta} {c.onClick && <ArrowRight size={16} className="transition-transform group-hover:translate-x-0.5" />}
+            <span className="relative mt-6 inline-flex items-center gap-1.5 text-[14px] font-bold text-brand">
+              {c.cta} <ArrowRight size={16} className="transition-transform group-hover:translate-x-0.5" />
             </span>
           </button>
         ))}

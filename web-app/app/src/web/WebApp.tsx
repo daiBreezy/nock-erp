@@ -9,6 +9,7 @@ import Course from '@/web/pages/marketing/Course'
 import Article from '@/web/pages/marketing/Article'
 import Term from '@/web/pages/marketing/Term'
 import NockForSchool from '@/web/pages/marketing/NockForSchool'
+import Liclass from '@/web/pages/marketing/Liclass'
 import SchoolList from '@/web/pages/school/SchoolList'
 import SchoolBranch from '@/web/pages/school/SchoolBranch'
 import HomeworkRoom from '@/pages/homework/HomeworkRoom'
@@ -109,6 +110,7 @@ export default function App() {
         <Route path="/articles" element={<Article />} />
         <Route path="/terms" element={<Term />} />
         <Route path="/nock-for-school" element={<NockForSchool />} />
+        <Route path="/liclass" element={<Liclass />} />
 
         {/* School — รายชื่อสาขา + หน้าสาขา (responsive web) */}
         <Route path="/school" element={<SchoolList />} />
