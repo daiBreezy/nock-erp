@@ -24,6 +24,28 @@
 
 ---
 
+## 2026-10-28 (บ่าย) — Web App: Landing Hero แยกชั้น + Parallax, Live สว่าง, ฟอนต์ Montserrat
+
+**ตัดสินใจ (เจ้าของ):**
+- ฟอนต์อังกฤษ/ตัวเลข = **Montserrat** · ไทย = Noto Sans Thai (`tailwind.config.js` `fontFamily.sans` + import บรรทัด 1 ของ `index.css` น้ำหนัก 400–800)
+- Hero: ภาพแยกชิ้นลอยแยกกัน · เมฆ + วิดีโอ + Quiz + Chat ขึ้นเร็วกว่า Tablet ตอน scroll (ความเร็วไม่เท่ากัน) · ขอบล่าง Section วิ่งขึ้นบังรูป · ไม่มีปุ่มใน Hero · พื้น = ท้องฟ้ายามเช้า (แบบ A)
+- Live section กลับเป็นโทนสว่าง (แบบ A: ชมพู → พีช → ม่วงอ่อน + แสงฟุ้งลอย) · ไม่มีเส้นแบ่ง Section บน Landing
+
+**ทำอะไร (`web-app/app`):**
+- **Hero แยกชั้น:** 15 ชิ้นใน `public/landing-hero/*.webp` (Tablet, ครูดาว + เงา, Live Quiz, Chat, วิดีโอ 5, เมฆ 5 ก้อนที่ตัดแยกจากไฟล์เมฆรวม) · ตำแหน่ง % หาโดยสคริปต์เทียบกับ `web-app/assets/Landing/Full Hero.png` (OpenCV, ไม่ได้เก็บใน repo) — Chat วางมือ (ไฟล์สัดส่วนไม่ตรงรูปรวม) · ตั้งค่าที่ `HERO_LAYERS` ใน `Landing.tsx` (`float` / `dur` / `delay` / `rise`)
+- **Parallax ลื่น:** ใช้ CSS scroll-driven animation (`.hero-rise` ใน `index.css`, `animation-timeline: scroll()`) — เดิม JS ขยับช้ากว่า scroll 1 เฟรม = กระตุก · เบราว์เซอร์ไม่รองรับ → JS fallback · `--hero-k` ย่อการขยับบนมือถือ · ทั้งภาพช้ากว่าหน้า `--rise: -0.16`
+- **Live (Landing):** วิดีโอ = คลิปวน 11 วิจาก Production (`api.nockacademy.com/upload/schedule/file1789727990.mp4`, ~10 MB, ลิงก์ตรง) · แชทพิมพ์ส่งได้ (ข้อความขึ้นขวา แบบ Production) · list hover ได้แต่กดไม่ได้ · กระดิ่งไม่มีพื้น · หัว: ป้าย Live + ข้อความซ้าย / ปุ่มขวา
+- **แชทหน้าไลฟ์ (Web + App):** `components/watch/LiveChatPanel.tsx` แบบเดียวกับ Landing (สะอาดแบบแชท AI, ส่งได้, ตัดปุ่มอีโมจิ)
+- **Course:** การ์ดกว้างขั้นต่ำ 184px (ชื่อคอร์สบรรทัดเดียว) เลื่อนแนวนอนเมื่อไม่พอ · Hover = ลอย + เงา + ขอบเข้มตามสีการ์ด
+- **Hero อื่นๆ:** แถบเหลือง "ออนไลน์" อยู่หลังตัวอักษร (`isolate` + `-z-10`) · ระยะล่างตัดพื้นใสด้วย `-mb-[8.5%]`
+- ✅ `tsc -b`, `oxlint` · ดูในเบราว์เซอร์แล้ว (Desktop + มือถือ)
+
+**เหลือทำ:**
+- [ ] `src/assets/landing/hero-visual.png` (ภาพ Hero ก้อนเดียวเดิม) ไม่ได้ใช้แล้ว — ลบได้
+- [ ] ลิงก์ Liclass School (`LICLASS_URL`) รอเจ้าของส่ง · Nav กว้าง 1280px ยังไม่ตรงกับ section 1200px
+
+---
+
 ## 2026-10-28 — Web App: Landing (โรงเรียน · ไลฟ์สด) + หน้าสาขา + ความโค้งการ์ด
 
 **ตัดสินใจ (เจ้าของ):**

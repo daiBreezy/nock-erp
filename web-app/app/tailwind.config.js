@@ -7,7 +7,8 @@ export default {
   theme: {
     extend: {
       fontFamily: {
-        sans: ['"Noto Sans Thai"', 'system-ui', 'sans-serif'],
+        // อังกฤษ/ตัวเลข = Montserrat · ไทย = Noto Sans Thai (Montserrat ไม่มีตัวไทย เบราว์เซอร์จะใช้ตัวถัดไปเอง)
+        sans: ['Montserrat', '"Noto Sans Thai"', 'system-ui', 'sans-serif'],
       },
       colors: {
         /* ── โทเคนแบรนด์เดิม (คงไว้ให้โค้ดเดิมทำงานได้ระหว่างย้ายไป shadcn) ── */

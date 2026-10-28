@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+Thai:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&family=Noto+Sans+Thai:wght@400;500;600;700;800&display=swap');
 
 @tailwind base;
 @tailwind components;
@@ -122,22 +122,48 @@ body {
 }
 
 
-/* Landing › ไลฟ์สด — พื้นไล่สีเข้มที่ไหลช้าๆ ตลอดเวลา */
-@keyframes live-flow {
-  0% { background-position: 0% 50%; }
-  50% { background-position: 100% 50%; }
-  100% { background-position: 0% 50%; }
-}
+/* Landing › ไลฟ์สด — พื้นไล่สีสว่าง ชมพู → พีช → ชมพูม่วง (นิ่ง) · ความเคลื่อนไหวมาจากแสงฟุ้ง .live-drift ที่ขยับด้วย transform */
 @keyframes live-drift {
-  0%, 100% { transform: translate(0, 0) scale(1); }
-  50% { transform: translate(8%, 6%) scale(1.15); }
+  0%, 100% { transform: translate3d(0, 0, 0) scale(1); }
+  50% { transform: translate3d(8%, 6%, 0) scale(1.15); }
 }
-.live-flow {
-  background: linear-gradient(120deg, #15131a, #3b1220, #1a1530, #2a0f1c, #15131a);
-  background-size: 300% 300%;
-  animation: live-flow 20s ease-in-out infinite;
-}
-.live-drift { animation: live-drift 16s ease-in-out infinite; }
+.live-bg { background: linear-gradient(120deg, #FFF1F2 0%, #FFF4EC 50%, #FBEFFF 100%); }
+.live-drift { animation: live-drift 16s ease-in-out infinite; will-change: transform; }
 @media (prefers-reduced-motion: reduce) {
-  .live-flow, .live-drift { animation: none; }
+  .live-drift { animation: none; }
 }
+
+/* Landing › Hero — แต่ละชิ้นลอยขึ้นลงช้าๆ แยกจังหวะกัน (ตั้ง --float / --dur / --delay ต่อชิ้น) */
+@keyframes hero-float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(var(--float, -10px)); }
+}
+.hero-float { animation: hero-float var(--dur, 6s) ease-in-out var(--delay, 0s) infinite; will-change: transform; }
+@media (prefers-reduced-motion: reduce) {
+  .hero-float { animation: none; }
+}
+
+/* Landing › Hero Parallax — --rise = ความเร็วขึ้นเพิ่มเทียบกับหน้า (ติดลบ = ช้ากว่าหน้า) · --hero-k = ย่อตามขนาดภาพ
+   รองรับ scroll-driven animation → วิ่งบน compositor พร้อมการ scroll (ลื่น ไม่หน่วงเฟรม)
+   ไม่รองรับ → JS เขียน --hero-scroll ทุกเฟรม (fallback) */
+.hero-rise {
+  transform: translate3d(0, calc(var(--hero-scroll, 0) * var(--hero-k, 1) * var(--rise, 0) * -1px), 0);
+}
+@keyframes hero-rise {
+  from { transform: translate3d(0, 0, 0); }
+  to { transform: translate3d(0, calc(var(--hero-k, 1) * var(--rise, 0) * -1400px), 0); }
+}
+@supports (animation-timeline: scroll()) {
+  .hero-rise {
+    transform: none;
+    animation: hero-rise linear both;
+    animation-timeline: scroll(root);
+    animation-range: 0px 1400px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .hero-rise { animation: none; transform: none; }
+}
+
+/* Landing › Hero — ท้องฟ้ายามเช้า: ฟ้าอ่อนด้านบน → ชมพูพีช → ขาวที่ขอบล่าง (ต่อ section ขาวถัดไปเนียน) */
+.hero-sky { background: linear-gradient(180deg, #F7DBDF 0%, #FFF1F2 62%, #FFF6F4 82%, #FFFFFF 100%); }

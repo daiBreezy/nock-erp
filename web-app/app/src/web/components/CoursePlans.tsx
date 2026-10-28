@@ -56,10 +56,10 @@ export function PaymentMethods() {
 
 const tone = (p: CoursePlan) =>
   p.isPremiumPlus
-    ? { card: 'border-violet-200 bg-violet-50/70', name: 'bg-violet-100 text-violet-700', price: 'text-violet-700', pill: 'bg-violet-100 text-violet-700', badge: 'bg-violet-600' }
+    ? { card: 'border-violet-200 bg-violet-50/70 hover:border-violet-400 hover:shadow-violet-500/15', name: 'bg-violet-100 text-violet-700', price: 'text-violet-700', pill: 'bg-violet-100 text-violet-700', badge: 'bg-violet-600' }
     : p.badge
-      ? { card: 'border-amber-300 bg-amber-50/80', name: 'bg-amber-100 text-amber-700', price: 'text-amber-600', pill: 'bg-amber-100 text-amber-700', badge: 'bg-amber-500' }
-      : { card: 'border-line bg-white', name: 'bg-amber-50 text-amber-700', price: 'text-amber-600', pill: 'bg-amber-50 text-amber-700', badge: '' }
+      ? { card: 'border-amber-300 bg-amber-50/80 hover:border-amber-400 hover:shadow-amber-500/20', name: 'bg-amber-100 text-amber-700', price: 'text-amber-600', pill: 'bg-amber-100 text-amber-700', badge: 'bg-amber-500' }
+      : { card: 'border-line bg-white hover:border-amber-300 hover:shadow-amber-500/15', name: 'bg-amber-50 text-amber-700', price: 'text-amber-600', pill: 'bg-amber-50 text-amber-700', badge: '' }
 
 // ทุกแถวสูงคงที่ → ทุกอย่างตรงกันทุกคอลัมน์ (หัวการ์ดก็แบ่งช่องคงที่ ไม่จัดกลางตามเนื้อหา)
 const ROW = { head: 'h-[118px]', meta: 'h-12', course: 'h-14', perk: 'h-12', cta: 'h-16' }
@@ -114,15 +114,16 @@ function PlanCta({ p }: { p: CoursePlan }) {
 export default function CoursePlans() {
   const metaRows: { label: string; cls: string; cell: (p: CoursePlan) => React.ReactNode }[] = [
     { label: 'ระยะเวลา', cls: ROW.meta, cell: (p) => <span className={cn('whitespace-nowrap rounded-pill px-2.5 py-0.5 text-[12px] font-semibold', tone(p).pill)}>{durationCell(p)}</span> },
-    { label: 'คอร์สเรียน', cls: ROW.course, cell: (p) => <span className="line-clamp-2 px-2 text-[12.5px] leading-snug text-ink">{p.courseName ?? '—'}</span> },
+    { label: 'คอร์สเรียน', cls: ROW.course, cell: (p) => <span className="whitespace-nowrap px-2 text-[12.5px] leading-snug text-ink">{p.courseName ?? '—'}</span> },
     { label: 'ระดับชั้น', cls: ROW.meta, cell: (p) => <span className={cn('text-[12.5px]', p.isPremiumPlus ? 'rounded-md bg-sky-100 px-2 py-0.5 font-semibold text-sky-800' : 'text-ink-soft')}>{p.grade}</span> },
   ]
   const label = 'flex border-b border-line pr-2'
   return (
-    <div className="no-scrollbar -mx-5 snap-x snap-mandatory scroll-pl-[160px] overflow-x-auto px-5 pt-3 sm:scroll-pl-[218px] xl:snap-none">
-      <div className="grid w-max min-w-full grid-cols-[132px_repeat(6,minmax(152px,1fr))] gap-x-2 pr-5 xl:w-auto xl:min-w-0 xl:pr-0 sm:grid-cols-[190px_repeat(6,minmax(156px,1fr))] xl:grid-cols-[196px_repeat(6,minmax(148px,1fr))] xl:gap-x-3">
+    // การ์ดกว้างขั้นต่ำ 184px (ชื่อคอร์สยาวสุดอยู่บรรทัดเดียว) · พื้นที่ไม่พอ = เลื่อนการ์ดแนวนอน (คอลัมน์ชื่อแถวค้างซ้าย)
+    <div className="no-scrollbar -mx-5 snap-x snap-mandatory scroll-pl-[160px] overflow-x-auto px-5 pb-6 pt-5 sm:scroll-pl-[208px] xl:scroll-pl-[212px]">
+      <div className="grid w-max min-w-full grid-cols-[132px_repeat(6,minmax(184px,1fr))] gap-x-2 pr-5 sm:grid-cols-[180px_repeat(6,minmax(184px,1fr))] xl:gap-x-3">
         {/* ชื่อแถว — ค้างซ้ายตอนเลื่อนการ์ด · ยื่นทับขอบซ้าย 20px (ไม่ให้การ์ดโผล่ข้างหลัง) · เงาขอบขวาบอกว่ามีการ์ดเลื่อนอยู่ใต้ */}
-        <div className="sticky -left-5 z-10 -ml-5 -mt-3 bg-surface-1 pl-5 pt-3 shadow-[8px_0_10px_-8px_rgba(0,0,0,0.12)] xl:shadow-none">
+        <div className="sticky -left-5 z-10 -ml-5 -mt-5 bg-surface-1 pl-5 pt-5 shadow-[8px_0_10px_-8px_rgba(0,0,0,0.12)] xl:shadow-none">
           <div className={ROW.head} />
           {metaRows.map((r) => (
             <div key={r.label} className={cn(label, 'items-center text-[12.5px] text-ink-soft sm:text-[13px]', r.cls)}>{r.label}</div>
@@ -137,7 +138,8 @@ export default function CoursePlans() {
 
         {/* การ์ดแพ็กเกจ — ป้าย Popular วางบนขอบบนของการ์ด ไม่กินพื้นที่ */}
         {COURSE_PLANS.map((p) => (
-          <div key={p.id} className={cn('relative snap-start rounded-card border', tone(p).card)}>
+          // hover: ลอยขึ้นเล็กน้อย + เงา + ขอบเข้มขึ้นตามสีการ์ด
+          <div key={p.id} className={cn('relative snap-start rounded-card border transition duration-200 hover:-translate-y-1 hover:shadow-xl', tone(p).card)}>
             {p.badge && (
               <span className={cn('absolute -top-2.5 left-1/2 z-[1] -translate-x-1/2 whitespace-nowrap rounded-pill px-2.5 py-0.5 text-[10.5px] font-bold leading-4 text-white shadow-sm', tone(p).badge)}>
                 {p.badge}
