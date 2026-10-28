@@ -232,10 +232,10 @@ export default function SchoolList() {
         <Badge className="gap-1.5 rounded-pill border-transparent bg-white/80 px-3.5 py-1.5 text-[13px] font-bold text-brand shadow-sm hover:bg-white/80">
           <MapPin size={15} /> NockAcademy School
         </Badge>
-        <h1 className="mx-auto mt-4 max-w-[700px] text-[28px] font-extrabold leading-tight tracking-tight sm:text-[38px]">
+        <h1 className="mx-auto mt-4 max-w-[700px] text-[28px] md:max-w-none md:whitespace-nowrap font-extrabold leading-tight tracking-tight sm:text-[38px]">
           สถาบันกวดวิชา NockAcademy ใกล้บ้านคุณ
         </h1>
-        <p className="mx-auto mt-3 max-w-[560px] text-[15px] leading-relaxed text-ink-soft">
+        <p className="mx-auto mt-3 max-w-[560px] text-[15px] leading-relaxed text-ink-soft md:max-w-none md:whitespace-nowrap">
           เรียนพิเศษกับติวเตอร์ตัวจริงที่สาขา ครบ 4 วิชาหลัก ป.4 – ม.6 เลือกสาขาที่สะดวกแล้วทักหาเราได้เลย
         </p>
       </section>
