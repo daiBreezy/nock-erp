@@ -126,6 +126,7 @@ function CreateCreditNote({ inv, onClose }: { inv: Invoice; onClose: () => void 
   const [reasons, setReasons] = useState<string[]>([])
   const [remark, setRemark] = useState("")
   const [stopFrom, setStopFrom] = useState("")
+  const today = toDateStr(useNow(60_000))
   const room = paidAmount(inv) - Refund.alreadyGivenBack(inv.id, notes)
   const chosen = items.filter((i) => picked[i.key] !== undefined).map((i) => ({ key: i.key, label: i.label, courseId: i.courseId, amount: Number(picked[i.key]) || 0 }))
   const total = chosen.reduce((a, i) => a + i.amount, 0)
@@ -185,10 +186,13 @@ function CreateCreditNote({ inv, onClose }: { inv: Invoice; onClose: () => void 
               const hint = l && stopFrom ? Refund.unusedShare(l, stopFrom) : null
               return (
                 <div key={i.key} className="flex flex-wrap items-center gap-2 p-2 text-sm">
-                  <label className="flex min-w-0 flex-1 items-center gap-2">
-                    <Checkbox checked={on} onCheckedChange={(v) => setPicked((p) => { const n = { ...p }; if (v) n[i.key] = String(hint ? Math.min(hint.amount, i.max) : i.max); else delete n[i.key]; return n })} />
-                    <span className="truncate">{i.label}</span>
-                    <span className="text-xs text-muted-foreground">สูงสุด {fmtMoney(i.max)}</span>
+                  <label className="flex min-w-0 flex-1 items-start gap-2">
+                    <Checkbox className="mt-0.5" checked={on} onCheckedChange={(v) => setPicked((p) => { const n = { ...p }; if (v) n[i.key] = String(hint ? Math.min(hint.amount, i.max) : i.max); else delete n[i.key]; return n })} />
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate">{i.label} <span className="text-xs font-normal text-muted-foreground">สูงสุด {fmtMoney(i.max)}</span></span>
+                      {/* owner Row 50: per-course progress so the admin can judge how much of each course to give back */}
+                      {l?.quote && <span className="block text-xs text-muted-foreground">{`เรียนไปแล้ว ${l.quote.slots.filter((x) => x.date < today).length}/${l.quote.slots.length} คาบ · ถึง ${fmtDate(l.quote.to, { year: true })}`}</span>}
+                    </span>
                   </label>
                   {on && (
                     <>
