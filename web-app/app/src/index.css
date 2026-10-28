@@ -121,3 +121,23 @@ body {
   line-height: 1.4;
 }
 
+
+/* Landing › ไลฟ์สด — พื้นไล่สีเข้มที่ไหลช้าๆ ตลอดเวลา */
+@keyframes live-flow {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+@keyframes live-drift {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  50% { transform: translate(8%, 6%) scale(1.15); }
+}
+.live-flow {
+  background: linear-gradient(120deg, #15131a, #3b1220, #1a1530, #2a0f1c, #15131a);
+  background-size: 300% 300%;
+  animation: live-flow 20s ease-in-out infinite;
+}
+.live-drift { animation: live-drift 16s ease-in-out infinite; }
+@media (prefers-reduced-motion: reduce) {
+  .live-flow, .live-drift { animation: none; }
+}

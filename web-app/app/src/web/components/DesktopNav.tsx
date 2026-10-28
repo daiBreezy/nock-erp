@@ -21,7 +21,6 @@ const navLinks: NavItem[] = [
   { label: 'ชั้นเรียน', to: '/grade' },
   { label: 'คลิป', to: '/', end: true },
   { label: 'คอร์สเรียน', to: '/courses' },
-  { label: 'โรงเรียน', to: '/school' },
   { label: 'บทความ', to: '/articles' },
   { label: 'คำถามที่พบบ่อย', to: '/faq' },
 ]

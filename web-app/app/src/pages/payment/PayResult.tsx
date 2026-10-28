@@ -27,7 +27,7 @@ export default function PayResult() {
           : `เปิดใช้งาน ${plan.name} แล้ว เริ่มดู Live สดและเนื้อหาทั้งหมดได้เลย`}
       </p>
 
-      <div className="mt-6 w-full max-w-xs rounded-2xl bg-surface-1 p-4 text-left">
+      <div className="mt-6 w-full max-w-xs rounded-card bg-surface-1 p-4 text-left">
         <div className="flex items-center justify-between">
           <span className="text-sm text-ink-soft">{plan.name}</span>
           <span className="text-sm font-semibold text-ink">฿{fmtBaht(plan.price)}</span>

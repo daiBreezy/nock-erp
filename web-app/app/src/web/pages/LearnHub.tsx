@@ -195,7 +195,7 @@ function DesktopHub() {
 
       {/* 3 · Live ตอนนี้ — วิดีโอคมชัด (player) ซ้าย + รายละเอียดขวา */}
       <section className="mt-8 grid gap-8 md:grid-cols-[1.15fr_1fr] md:items-center">
-        <button onClick={() => navigate('/live/next')} className="relative flex aspect-video items-center justify-center overflow-hidden rounded-card bg-ink">
+        <button onClick={() => navigate('/live/next')} className="relative flex aspect-video items-center justify-center overflow-hidden rounded-2xl bg-ink">
           <img src={thumb('live-hero')} alt="" className="absolute inset-0 h-full w-full object-cover" />
           <span className="absolute left-3 top-3 z-10 flex items-center gap-2 text-white">
             <span className="flex items-center gap-1 rounded-pill bg-live px-2 py-1 text-[11px] font-semibold"><Radio size={11} /> Live</span>
@@ -280,7 +280,7 @@ function DesktopHub() {
       >
         <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
           {goals.map((g, i) => (
-            <button key={i} onClick={() => navigate('/goals')} className="relative rounded-2xl bg-surface-1 p-4 text-left shadow-sm transition hover:-translate-y-0.5 hover:shadow-md">
+            <button key={i} onClick={() => navigate('/goals')} className="relative rounded-card bg-surface-1 p-4 text-left shadow-sm transition hover:-translate-y-0.5 hover:shadow-md">
               <div className="flex items-start justify-between">
                 <Ring pct={g.pct} tone={subjectStroke[g.subject]} />
                 <span className={`rounded-pill ${subjectBg[g.subject]} px-2 py-0.5 text-[12px] font-bold ${subjectText[g.subject]}`}>{g.pct}%</span>
@@ -332,7 +332,7 @@ function DesktopHub() {
       >
         <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
           {(['thai', 'science', 'math', 'english', 'thai'] as SubjectKey[]).map((tone, i) => (
-            <button key={i} onClick={() => navigate('/exam')} className="group overflow-hidden rounded-2xl bg-surface-1 text-left shadow-sm transition hover:-translate-y-0.5 hover:shadow-md">
+            <button key={i} onClick={() => navigate('/exam')} className="group overflow-hidden rounded-card bg-surface-1 text-left shadow-sm transition hover:-translate-y-0.5 hover:shadow-md">
               <div className="relative aspect-[4/3] overflow-hidden bg-surface-2">
                 <AbstractThumb seed={`hub-${i}`} className="transition-transform duration-300 group-hover:scale-105" />
                 {i % 3 === 0 && <span className="absolute right-2 top-2 rounded-pill bg-brand px-2 py-0.5 text-[10px] font-semibold text-white">New</span>}

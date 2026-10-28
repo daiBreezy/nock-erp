@@ -2,8 +2,8 @@ import { useEffect, useState } from 'react'
 import { useParams, Navigate, Link } from 'react-router-dom'
 import type { ComponentType } from 'react'
 import {
-  MapPin, Clock, Phone, ChevronRight, GraduationCap, CalendarDays,
-  Users, Image as ImageIcon, Star, Navigation, ThumbsUp, MessageCircle,
+  MapPin, Clock, ChevronRight, X, GraduationCap, CalendarDays,
+  Users, Image as ImageIcon, Navigation, ThumbsUp, MessageCircle,
   Calculator, Languages, FlaskConical, BookOpen, ArrowLeft, ArrowUpDown, ArrowUp, ArrowDown, ChevronDown, ChevronUp,
 } from 'lucide-react'
 import type { ComponentType as CT } from 'react'
@@ -16,9 +16,12 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Card } from '@/components/ui/card'
+import * as DialogPrimitive from '@radix-ui/react-dialog'
 import {
-  Dialog, DialogContent, DialogHeader, DialogTitle,
+  Dialog, DialogClose, DialogContent, DialogHeader, DialogOverlay, DialogPortal, DialogTitle,
 } from '@/components/ui/dialog'
+import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious, type CarouselApi } from '@/components/ui/carousel'
+import { cn } from '@/lib/utils'
 
 /* ---------- ตารางเรียน: ตาราง shadcn · กดหัวคอลัมน์เพื่อเรียง · แสดงเพิ่ม / ย่อ ---------- */
 
@@ -55,7 +58,7 @@ function ScheduleTable({ rows }: { rows: ClassRow[] }) {
 
   return (
     <div>
-      <div className="overflow-hidden rounded-2xl border border-line bg-white">
+      <div className="overflow-hidden rounded-card border border-line bg-white">
         <Table className="min-w-[520px]">
           <TableHeader className="bg-surface-1">
             <TableRow className="border-line hover:bg-transparent">
@@ -144,25 +147,7 @@ function CourseCard({ c }: { c: Course; i?: number }) {
   )
 }
 
-type Review = Branch['testimonials'][number]
-function ReviewCard({ t }: { t: Review }) {
-  return (
-    <Card className="flex min-h-[188px] w-[300px] shrink-0 flex-col rounded-2xl border-line p-5 shadow-none">
-      <div className="mb-2 flex gap-0.5 text-[#FFB300]">
-        {Array.from({ length: 5 }).map((_, j) => <Star key={j} size={15} fill="currentColor" />)}
-      </div>
-      {t.result && (
-        <Badge className="mb-2 w-fit gap-1 rounded-pill border-transparent bg-success/10 px-2.5 py-0.5 text-[12px] font-bold text-success hover:bg-success/10">
-          <GraduationCap size={13} /> {t.result}
-        </Badge>
-      )}
-      <p className="line-clamp-3 flex-1 text-[14px] leading-relaxed text-ink">“{t.quote}”</p>
-      <p className="mt-3 text-[13px] font-semibold text-ink-soft">— {t.name}</p>
-    </Card>
-  )
-}
-
-/* Dialog ครอบเนื้อหา modal — หัวข้อ + พื้นที่เลื่อน (ใช้ซ้ำทั้ง 3 modal) */
+/* Dialog ครอบเนื้อหา modal — หัวข้อ + พื้นที่เลื่อน (คอร์สทั้งหมด) */
 function BranchModal({ title, onClose, children }: { title: string; onClose: () => void; children: React.ReactNode }) {
   return (
     <Dialog open onOpenChange={(o) => { if (!o) onClose() }}>
@@ -176,38 +161,105 @@ function BranchModal({ title, onClose, children }: { title: string; onClose: () 
   )
 }
 
-function ReviewsModal({ branch, onClose }: { branch: Branch; onClose: () => void }) {
+/* ---------- รูปสาขา: Header เลื่อนดูได้ (มีมากกว่า 1 รูป) + Lightbox พื้นดำ ---------- */
+
+/** จุดบอกตำแหน่งรูป + กดเพื่อไปรูปนั้น */
+function Dots({ api, count, className }: { api: CarouselApi; count: number; className?: string }) {
+  const [index, setIndex] = useState(0)
+  useEffect(() => {
+    if (!api) return
+    const onSelect = () => setIndex(api.selectedScrollSnap())
+    onSelect()
+    api.on('select', onSelect)
+    return () => {
+      api.off('select', onSelect)
+    }
+  }, [api])
   return (
-    <BranchModal title={`รีวิวทั้งหมด · สาขา${branch.area}`} onClose={onClose}>
-      <div className="grid gap-4 sm:grid-cols-2">
-        {branch.testimonials.map((t, i) => (
-          <Card key={i} className="flex flex-col rounded-2xl border-line p-5 shadow-none">
-            <div className="mb-2 flex gap-0.5 text-[#FFB300]">
-              {Array.from({ length: 5 }).map((_, j) => <Star key={j} size={15} fill="currentColor" />)}
-            </div>
-            {t.result && (
-              <Badge className="mb-2 w-fit gap-1 rounded-pill border-transparent bg-success/10 px-2.5 py-0.5 text-[12px] font-bold text-success hover:bg-success/10">
-                <GraduationCap size={13} /> {t.result}
-              </Badge>
-            )}
-            <p className="flex-1 text-[14px] leading-relaxed text-ink">“{t.quote}”</p>
-            <p className="mt-3 text-[13px] font-semibold text-ink-soft">— {t.name}</p>
-          </Card>
-        ))}
-      </div>
-    </BranchModal>
+    <div className={cn('flex items-center gap-1.5', className)}>
+      {Array.from({ length: count }).map((_, i) => (
+        <button
+          key={i}
+          aria-label={`รูปที่ ${i + 1}`}
+          onClick={() => api?.scrollTo(i)}
+          className={cn('h-1.5 rounded-full transition-all', i === index ? 'w-5 bg-white' : 'w-1.5 bg-white/50 hover:bg-white/80')}
+        />
+      ))}
+    </div>
   )
 }
 
-function GalleryModal({ branch, onClose }: { branch: Branch; onClose: () => void }) {
+/** พื้นหลัง Header — รูปเดียว = ภาพนิ่ง · หลายรูป = ปัด/กดลูกศรเลื่อนดูได้ (รูปชุดเดียวกับบรรยากาศห้องเรียน) */
+function HeroPhotos({ photos, alt }: { photos: string[]; alt: string }) {
+  const [api, setApi] = useState<CarouselApi>()
+  if (photos.length <= 1) return <img src={photos[0]} alt={alt} className="absolute inset-0 h-full w-full object-cover" />
   return (
-    <BranchModal title={`บรรยากาศห้องเรียน · สาขา${branch.area}`} onClose={onClose}>
-      <div className="grid gap-3 sm:grid-cols-2">
-        {branch.classroomPhotos.map((p, i) => (
-          <img key={i} src={p} alt={`ห้องเรียน ${i + 1}`} className="w-full rounded-xl border border-line object-cover" />
+    <Carousel setApi={setApi} opts={{ loop: true }} className="absolute inset-0 [&>div:first-child]:h-full">
+      <CarouselContent className="ml-0 h-full">
+        {photos.map((p, i) => (
+          <CarouselItem key={p} className="h-full pl-0">
+            <img src={p} alt={`${alt} ${i + 1}`} className="h-full w-full object-cover" />
+          </CarouselItem>
         ))}
-      </div>
-    </BranchModal>
+      </CarouselContent>
+      <CarouselPrevious className="left-4 z-20 hidden size-10 border-0 bg-transparent text-white shadow-none hover:bg-white/20 hover:text-white sm:inline-flex [&_svg]:!size-5" />
+      <CarouselNext className="right-4 z-20 hidden size-10 border-0 bg-transparent text-white shadow-none hover:bg-white/20 hover:text-white sm:inline-flex [&_svg]:!size-5" />
+      <Dots api={api} count={photos.length} className="absolute bottom-4 right-5 z-20" />
+    </Carousel>
+  )
+}
+
+/** Lightbox — พื้นดำบังหน้า · รูปลอยกลางจอ เลื่อนดูทีละรูป · กดที่ว่าง / Esc / ปุ่ม X เพื่อปิด */
+function PhotoLightbox({ photos, start, alt, onClose }: { photos: string[]; start: number; alt: string; onClose: () => void }) {
+  const [api, setApi] = useState<CarouselApi>()
+  const [index, setIndex] = useState(start)
+  useEffect(() => {
+    if (!api) return
+    const onSelect = () => setIndex(api.selectedScrollSnap())
+    api.on('select', onSelect)
+    return () => {
+      api.off('select', onSelect)
+    }
+  }, [api])
+  return (
+    <Dialog open onOpenChange={(o) => { if (!o) onClose() }}>
+      <DialogPortal>
+        <DialogOverlay className="bg-black/95" />
+        <DialogPrimitive.Content
+          aria-describedby={undefined}
+          className="fixed inset-0 z-50 outline-none"
+          // กดที่ว่าง (ไม่ใช่รูป / ปุ่ม) = ปิด
+          onClick={(e) => {
+            if (!(e.target as HTMLElement).closest('img, button')) onClose()
+          }}
+        >
+          <DialogTitle className="sr-only">{alt}</DialogTitle>
+          <Carousel setApi={setApi} opts={{ startIndex: start, loop: photos.length > 1 }} className="h-full [&>div:first-child]:h-full">
+            <CarouselContent className="ml-0 h-full">
+              {photos.map((p, i) => (
+                <CarouselItem key={p} className="flex h-full items-center justify-center p-4 pl-4 sm:px-20 sm:py-14">
+                  <img src={p} alt={`${alt} ${i + 1}`} className="max-h-full max-w-full rounded-xl object-contain shadow-2xl" />
+                </CarouselItem>
+              ))}
+            </CarouselContent>
+            {photos.length > 1 && (
+              <>
+                <CarouselPrevious className="left-4 hidden size-11 border-0 bg-transparent text-white shadow-none hover:bg-white/20 hover:text-white sm:inline-flex [&_svg]:!size-5" />
+                <CarouselNext className="right-4 hidden size-11 border-0 bg-transparent text-white shadow-none hover:bg-white/20 hover:text-white sm:inline-flex [&_svg]:!size-5" />
+              </>
+            )}
+          </Carousel>
+          <p className="pointer-events-none absolute left-5 top-4 text-[14px] font-semibold text-white/80">
+            {index + 1} / {photos.length}
+          </p>
+          <DialogClose asChild>
+            <Button size="icon" variant="ghost" aria-label="ปิด" className="absolute right-3 top-3 size-10 rounded-full text-white hover:bg-white/15 hover:text-white">
+              <X size={22} />
+            </Button>
+          </DialogClose>
+        </DialogPrimitive.Content>
+      </DialogPortal>
+    </Dialog>
   )
 }
 
@@ -249,12 +301,14 @@ function SeeAll({ onClick, children }: { onClick: () => void; children: React.Re
   )
 }
 
+// ตารางเรียน: ซ่อนไว้ก่อน — เปิดเมื่อดึงคลาสจริงจาก ERP ได้
+const SHOW_SCHEDULE = false
+
 export default function SchoolBranch() {
   const { branch: slug } = useParams()
   const branch = getBranch(slug)
   const [coursesOpen, setCoursesOpen] = useState(false)
-  const [reviewsOpen, setReviewsOpen] = useState(false)
-  const [galleryOpen, setGalleryOpen] = useState(false)
+  const [photoAt, setPhotoAt] = useState<number | null>(null)
 
   useEffect(() => {
     if (branch) document.title = `${branch.titleKeyword} เรียนพิเศษ ป.–ม. | NockAcademy`
@@ -262,7 +316,6 @@ export default function SchoolBranch() {
 
   if (!branch) return <Navigate to="/school" replace />
 
-  const tel = branch.phone ? `tel:${branch.phone.replace(/[^0-9+]/g, '')}` : ''
   const mapSrc = `https://maps.google.com/maps?q=${branch.lat},${branch.lng}&z=16&hl=th&output=embed`
 
   return (
@@ -273,13 +326,14 @@ export default function SchoolBranch() {
           NOTE: ภาพพื้นหลัง (branch.cover) ตอนนี้ใช้รูปตัวอย่าง — รูปสถานที่จริงจาก Google Maps
           ต้องใช้ Street View Static / Places Photo API (มี API key) ถึงจะดึงมาได้ */}
       <section className="relative overflow-hidden">
-        <img src={branch.cover} alt={`สาขา ${branch.area}`} className="absolute inset-0 h-full w-full object-cover" />
-        <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/45 to-black/25" />
-        <div className="relative mx-auto flex min-h-[360px] max-w-[900px] flex-col justify-end px-5 pb-8 pt-24 sm:min-h-[420px]">
+        <HeroPhotos photos={branch.classroomPhotos.length ? branch.classroomPhotos : [branch.cover]} alt={`สาขา ${branch.area}`} />
+        <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/85 via-black/45 to-black/25" />
+        {/* ชั้นข้อความไม่รับการแตะ → ปัดรูปข้างหลังได้ (ปุ่มกลับรับการแตะเอง) */}
+        <div className="pointer-events-none relative mx-auto flex min-h-[360px] max-w-[900px] flex-col justify-end px-5 pb-8 pt-24 sm:min-h-[420px]">
           {/* ปุ่มกลับ — ทับบนรูป มุมซ้ายบน */}
           <Button
             asChild
-            className="absolute left-5 top-5 h-auto gap-1.5 rounded-full bg-white/15 px-3.5 py-1.5 text-[13px] font-semibold text-white ring-1 ring-white/40 backdrop-blur hover:bg-white/30"
+            className="pointer-events-auto absolute left-5 top-5 h-auto gap-1.5 rounded-full bg-white/15 px-3.5 py-1.5 text-[13px] font-semibold text-white ring-1 ring-white/40 backdrop-blur hover:bg-white/30"
           >
             <Link to="/school">
               <ArrowLeft size={16} /> ทุกสาขา
@@ -290,95 +344,8 @@ export default function SchoolBranch() {
           </Badge>
           <h1 className="mt-3 text-[26px] font-extrabold leading-tight tracking-tight text-white drop-shadow sm:text-[34px]">{branch.heading}</h1>
           <p className="mt-3 max-w-[620px] text-[15px] leading-relaxed text-white/85 drop-shadow">{branch.tagline}</p>
-          {/* ช่องทางติดต่อ = ไอคอนขาวโปร่ง บรรทัดใหม่ + hover tooltip */}
-          <div className="mt-4 flex items-center gap-2.5">
-            {[
-              { href: branch.lineUrl, ext: true, icon: LineIcon, tip: `LINE ${branch.lineId}` },
-              { href: branch.facebookUrl, ext: true, icon: FacebookIcon, tip: 'Facebook เพจสาขา' },
-              ...(tel ? [{ href: tel, ext: false, icon: Phone, tip: `โทร ${branch.phone}` }] : []),
-            ].map((c, idx) => {
-              const Icon = c.icon
-              return (
-                <div key={idx} className="group relative">
-                  <Button
-                    asChild
-                    size="icon"
-                    aria-label={c.tip}
-                    className="h-10 w-10 rounded-full bg-white/15 text-white ring-1 ring-white/40 backdrop-blur hover:bg-white/30"
-                  >
-                    <a href={c.href} {...(c.ext ? { target: '_blank', rel: 'noopener noreferrer' } : {})}>
-                      <Icon size={20} />
-                    </a>
-                  </Button>
-                  <span className="pointer-events-none absolute bottom-full left-1/2 mb-2 -translate-x-1/2 whitespace-nowrap rounded-lg bg-ink px-2.5 py-1 text-[12px] font-medium text-white opacity-0 shadow-lg transition-opacity group-hover:opacity-100">
-                    {c.tip}
-                  </span>
-                </div>
-              )
-            })}
-          </div>
         </div>
       </section>
-
-      {/* address + map + directions */}
-      <Section
-        icon={MapPin}
-        title="ที่ตั้ง & การเดินทาง"
-        action={
-          <Button asChild variant="link" className="h-auto shrink-0 gap-1 p-0 text-[13px] font-bold text-brand hover:no-underline">
-            <a href={branch.mapUrl} target="_blank" rel="noopener noreferrer">
-              <Navigation size={15} /> นำทาง
-            </a>
-          </Button>
-        }
-      >
-        {branch.address ? (
-          <p className="text-[15px] leading-relaxed text-ink">{branch.address}</p>
-        ) : (
-          <p className="text-[15px] leading-relaxed text-ink-soft">ดูตำแหน่งที่ตั้งของสาขาได้จากแผนที่ด้านล่าง หรือกดปุ่มนำทาง</p>
-        )}
-        <div className="mt-4 overflow-hidden rounded-2xl border border-line shadow-sm">
-          <iframe title={`แผนที่สาขา ${branch.area}`} src={mapSrc} className="h-64 w-full sm:h-80" loading="lazy" referrerPolicy="no-referrer-when-downgrade" />
-        </div>
-        {branch.directions.length > 0 && (
-          <div className="mt-4 rounded-2xl bg-surface-2 p-4">
-            <p className="mb-2 flex items-center gap-1.5 text-[14px] font-bold text-ink"><Navigation size={16} className="text-brand" /> จุดสังเกตใกล้เคียง</p>
-            <ul className="space-y-1.5 text-[14px] text-ink-soft">
-              {branch.directions.map((d) => (
-                <li key={d} className="flex items-start gap-2"><span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-brand" /> {d}</li>
-              ))}
-            </ul>
-          </div>
-        )}
-      </Section>
-
-      {/* opening hours */}
-      <Section icon={Clock} title="เวลาทำการ">
-        <div className="divide-y divide-line overflow-hidden rounded-2xl border border-line">
-          {branch.hours.map((h) => (
-            <div key={h.day} className="flex items-center justify-between bg-white px-5 py-3.5 text-[15px]">
-              <span className="font-medium text-ink">{h.day}</span>
-              <span className="text-ink-soft">{h.time}</span>
-            </div>
-          ))}
-        </div>
-      </Section>
-
-      {/* courses + fees — โชว์ไม่กี่คอร์ส + ปุ่มดูทั้งหมด (modal) */}
-      <Section
-        icon={GraduationCap}
-        title="คอร์สที่เปิดสอน"
-        action={branch.courses.length > 4 ? <SeeAll onClick={() => setCoursesOpen(true)}>ดูทั้งหมด ({branch.courses.length})</SeeAll> : undefined}
-      >
-        <div className="grid gap-3 sm:grid-cols-2">
-          {branch.courses.slice(0, 4).map((c, i) => <CourseCard key={i} c={c} i={i} />)}
-        </div>
-      </Section>
-
-      {/* timetable */}
-      <Section icon={CalendarDays} title="ตารางเรียน">
-        <ScheduleTable rows={branch.classes} />
-      </Section>
 
       {/* teachers */}
       <Section icon={Users} title="ติวเตอร์ประจำสาขา">
@@ -386,7 +353,7 @@ export default function SchoolBranch() {
           {branch.teachers.map((t) => {
             const initial = t.name.replace(/^ครู/, '').charAt(0) || t.name.charAt(0)
             return (
-              <div key={t.name} className="group relative aspect-[3/4] overflow-hidden rounded-2xl border border-line bg-gradient-to-b from-brand-soft to-surface-2">
+              <div key={t.name} className="group relative aspect-[3/4] overflow-hidden rounded-card border border-line bg-gradient-to-b from-brand-soft to-surface-2">
                 {/* รูปครู: ถ้ามีรูป → แสดงรูป, ถ้าไม่มี → ตัวอักษร placeholder */}
                 {t.photo ? (
                   <img src={t.photo} alt={t.name} className="absolute inset-0 h-full w-full object-cover" />
@@ -410,65 +377,83 @@ export default function SchoolBranch() {
         </div>
       </Section>
 
+      {/* courses + fees — โชว์ไม่กี่คอร์ส + ปุ่มดูทั้งหมด (modal) */}
+      <Section
+        icon={GraduationCap}
+        title="คอร์สที่เปิดสอน"
+        action={branch.courses.length > 4 ? <SeeAll onClick={() => setCoursesOpen(true)}>ดูทั้งหมด ({branch.courses.length})</SeeAll> : undefined}
+      >
+        <div className="grid gap-3 sm:grid-cols-2">
+          {branch.courses.slice(0, 4).map((c, i) => <CourseCard key={i} c={c} i={i} />)}
+        </div>
+      </Section>
+
+      {/* timetable — ซ่อนไว้ก่อน (เจ้าของ 2026-10-28) · อนาคตดึงคลาสจริงจาก ERP */}
+      {SHOW_SCHEDULE && (
+        <Section icon={CalendarDays} title="ตารางเรียน">
+          <ScheduleTable rows={branch.classes} />
+        </Section>
+      )}
+
+      {/* แผนที่ (ซ้าย) + เวลาทำการ (ขวา) — หัวข้อร่วมกัน · จอแคบเรียงลง */}
+      <Section
+        icon={MapPin}
+        title="แผนที่และเวลาทำการ"
+        action={
+          <Button asChild variant="link" className="h-auto shrink-0 gap-1 p-0 text-[13px] font-bold text-brand hover:no-underline">
+            <a href={branch.mapUrl} target="_blank" rel="noopener noreferrer">
+              <Navigation size={15} /> นำทาง
+            </a>
+          </Button>
+        }
+      >
+        <div className="grid gap-4 md:grid-cols-[1.5fr_1fr] md:items-stretch">
+          <div className="flex flex-col">
+            {branch.address && <p className="mb-3 text-[15px] leading-relaxed text-ink">{branch.address}</p>}
+            <div className="min-h-72 flex-1 overflow-hidden rounded-card border border-line shadow-sm">
+              <iframe title={`แผนที่สาขา ${branch.area}`} src={mapSrc} className="h-full min-h-72 w-full" loading="lazy" referrerPolicy="no-referrer-when-downgrade" />
+            </div>
+          </div>
+          {/* เวลาทำการ — list ไม่มีกรอบ · ใต้ list = ปุ่ม LINE (ติดต่อเรา มีช่องทางเดียว ไม่ต้องแยก section) */}
+          <div className="flex flex-col">
+            <p className="flex items-center gap-2 text-[14px] font-bold text-ink">
+              <Clock size={16} className="text-brand" /> เวลาทำการ
+            </p>
+            <ul className="mt-1 divide-y divide-line">
+              {branch.hours.map((h) => (
+                <li key={h.day} className="flex items-center justify-between gap-3 py-3 text-[14.5px]">
+                  <span className="font-medium text-ink">{h.day}</span>
+                  <span className="text-right text-ink-soft">{h.time}</span>
+                </li>
+              ))}
+            </ul>
+            <Button asChild className="mt-4 h-11 gap-2 rounded-pill bg-[#06C755] md:mt-auto text-[14px] font-bold text-white shadow-none hover:bg-[#05b14c]">
+              <a href={branch.lineUrl} target="_blank" rel="noopener noreferrer">
+                <LineIcon size={20} /> ติดต่อเราทาง LINE {branch.lineId}
+              </a>
+            </Button>
+          </div>
+        </div>
+        {branch.directions.length > 0 && (
+          <div className="mt-4 rounded-card bg-surface-2 p-4">
+            <p className="mb-2 flex items-center gap-1.5 text-[14px] font-bold text-ink"><Navigation size={16} className="text-brand" /> จุดสังเกตใกล้เคียง</p>
+            <ul className="space-y-1.5 text-[14px] text-ink-soft">
+              {branch.directions.map((d) => (
+                <li key={d} className="flex items-start gap-2"><span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-brand" /> {d}</li>
+              ))}
+            </ul>
+          </div>
+        )}
+      </Section>
+
       {/* classroom photos — คลิกเพื่อดูทั้งหมด */}
-      <Section icon={ImageIcon} title="บรรยากาศห้องเรียน" action={<SeeAll onClick={() => setGalleryOpen(true)}>ดูทั้งหมด</SeeAll>}>
+      <Section icon={ImageIcon} title="บรรยากาศห้องเรียน" action={<SeeAll onClick={() => setPhotoAt(0)}>ดูทั้งหมด</SeeAll>}>
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
           {branch.classroomPhotos.map((p, i) => (
-            <button key={i} onClick={() => setGalleryOpen(true)} className="group relative overflow-hidden rounded-xl border border-line">
+            <button key={i} onClick={() => setPhotoAt(i)} className="group relative overflow-hidden rounded-xl border border-line">
               <img src={p} alt={`ห้องเรียนสาขา ${branch.area} ${i + 1}`} className="aspect-square w-full object-cover transition-transform group-hover:scale-105" />
             </button>
           ))}
-        </div>
-      </Section>
-
-      {/* testimonials — การ์ดเท่ากัน เลื่อนอัตโนมัติช้าๆ hover หยุด + ดูทั้งหมด */}
-      <Section icon={Star} title="ผลสอบ & รีวิวจากผู้ปกครอง" action={<SeeAll onClick={() => setReviewsOpen(true)}>ดูทั้งหมด</SeeAll>}>
-        <style>{`
-          @keyframes reviewMarquee { from { transform: translateX(0) } to { transform: translateX(-50%) } }
-          @media (prefers-reduced-motion: reduce){ .review-track{ animation: none !important } }
-        `}</style>
-        <div className="group relative -mx-5 overflow-hidden px-5">
-          <div className="review-track flex w-max gap-4 [animation:reviewMarquee_26s_linear_infinite] group-hover:[animation-play-state:paused]">
-            {[...branch.testimonials, ...branch.testimonials].map((t, i) => <ReviewCard key={i} t={t} />)}
-          </div>
-          {/* ขอบจางซ้าย-ขวา */}
-          <div className="pointer-events-none absolute inset-y-0 left-0 w-10 bg-gradient-to-r from-surface-1 to-transparent" />
-          <div className="pointer-events-none absolute inset-y-0 right-0 w-10 bg-gradient-to-l from-surface-1 to-transparent" />
-        </div>
-      </Section>
-
-      {/* contact — แถวแนวนอนกะทัดรัด */}
-      <Section icon={Phone} title="ติดต่อสาขา">
-        <div className="grid gap-2.5 sm:grid-cols-3 md:max-w-[640px]">
-          <Card asChild className="rounded-xl border-line shadow-none transition-colors hover:border-[#06C755]">
-            <a href={branch.lineUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-3 px-4 py-3">
-              <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-[#06C755] text-white"><LineIcon size={22} /></span>
-              <div className="min-w-0">
-                <p className="text-[13.5px] font-bold text-ink">LINE Official</p>
-                <p className="truncate text-[12px] text-ink-soft">{branch.lineId}</p>
-              </div>
-            </a>
-          </Card>
-          <Card asChild className="rounded-xl border-line shadow-none transition-colors hover:border-[#1877F2]">
-            <a href={branch.facebookUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-3 px-4 py-3">
-              <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-[#1877F2] text-white"><FacebookIcon size={22} /></span>
-              <div className="min-w-0">
-                <p className="text-[13.5px] font-bold text-ink">Facebook</p>
-                <p className="truncate text-[12px] text-ink-soft">เพจสาขา{branch.area}</p>
-              </div>
-            </a>
-          </Card>
-          {tel && (
-            <Card asChild className="rounded-xl border-line shadow-none transition-colors hover:border-brand">
-              <a href={tel} className="flex items-center gap-3 px-4 py-3">
-                <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-brand text-white"><Phone size={20} /></span>
-                <div className="min-w-0">
-                  <p className="text-[13.5px] font-bold text-ink">โทรหาสาขา</p>
-                  <p className="truncate text-[12px] text-ink-soft">{branch.phone}</p>
-                </div>
-              </a>
-            </Card>
-          )}
         </div>
       </Section>
 
@@ -480,8 +465,8 @@ export default function SchoolBranch() {
           แล้วทำ endpoint ฝั่งเราดึงมา cache ก่อนส่งให้หน้านี้ map เป็นการ์ดด้านล่าง */}
       <Section icon={FacebookIcon} title="ข่าวสารจาก Facebook สาขา">
         <div className="grid gap-4 sm:grid-cols-2">
-          {branch.facebookPosts.map((p, i) => (
-            <Card key={i} asChild className="overflow-hidden rounded-2xl border-line shadow-none">
+          {branch.facebookPosts.slice(0, 2).map((p, i) => (
+            <Card key={i} asChild className="overflow-hidden rounded-card border-line shadow-none">
               <article>
                 <div className="flex items-center gap-3 px-4 pt-4">
                   <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-[#1877F2] text-white">
@@ -514,19 +499,12 @@ export default function SchoolBranch() {
       <MarketingFooter />
 
       {coursesOpen && <CoursesModal branch={branch} onClose={() => setCoursesOpen(false)} />}
-      {reviewsOpen && <ReviewsModal branch={branch} onClose={() => setReviewsOpen(false)} />}
-      {galleryOpen && <GalleryModal branch={branch} onClose={() => setGalleryOpen(false)} />}
+      {photoAt !== null && (
+        <PhotoLightbox photos={branch.classroomPhotos} start={photoAt} alt={`ห้องเรียนสาขา ${branch.area}`} onClose={() => setPhotoAt(null)} />
+      )}
 
-      {/* ติดต่อสาขาแบบ FAB มุมขวาล่าง — แตะ LINE แล้วกาง LINE OA + เบอร์โทร */}
-      <ContactFab
-        label={`ติดต่อสาขา${branch.area}`}
-        mainIcon={LineIcon}
-        mainBg="bg-[#06C755]"
-        actions={[
-          { label: `LINE OA ${branch.lineId}`, href: branch.lineUrl, bg: 'bg-[#06C755]', icon: LineIcon, external: true },
-          ...(tel ? [{ label: `โทร ${branch.phone}`, href: tel, bg: 'bg-brand', icon: Phone }] : []),
-        ]}
-      />
+      {/* FAB มุมขวาล่าง — LINE อย่างเดียว (กดแล้วเปิด LINE OA ของสาขา) */}
+      <ContactFab actions={[{ label: `LINE OA ${branch.lineId}`, href: branch.lineUrl, bg: 'bg-[#06C755]', icon: LineIcon, external: true }]} />
     </div>
   )
 }

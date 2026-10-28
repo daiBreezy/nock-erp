@@ -269,7 +269,7 @@ function ResultContent() {
       <h1 className="text-2xl font-bold text-ink">ผลประเมินจากแบบทดสอบ</h1>
       <p className="mt-1.5 text-sm text-ink-soft">จากแบบทดสอบวัดระดับ เราวิเคราะห์จุดแข็ง-จุดอ่อน และตั้งเป้าหมายให้คุณ</p>
       {/* baseline vs target */}
-      <div className="mt-5 rounded-2xl border border-line p-4">
+      <div className="mt-5 rounded-card border border-line p-4">
         <div className="flex items-end justify-between">
           <div><p className="text-xs text-ink-mute">คะแนนวัดระดับวันนี้</p><p className="text-3xl font-extrabold text-ink">{aiSummary.current}%</p></div>
           <TrendingUp size={22} className="mb-1 text-success" />
@@ -285,7 +285,7 @@ function ResultContent() {
           { Icon: Target, label: 'จุดที่ต้องพัฒนา', text: aiSummary.weak },
           { Icon: TrendingUp, label: 'คำแนะนำ', text: aiSummary.improve },
         ].map(({ Icon, label, text }) => (
-          <div key={label} className="flex gap-3 rounded-2xl border border-line p-4">
+          <div key={label} className="flex gap-3 rounded-card border border-line p-4">
             <Icon size={18} className="mt-0.5 shrink-0 text-brand" />
             <div><p className="text-sm font-semibold text-ink">{label}</p><p className="mt-0.5 text-sm text-ink-soft">{text}</p></div>
           </div>

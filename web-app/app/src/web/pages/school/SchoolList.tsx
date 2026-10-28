@@ -169,7 +169,7 @@ function CardContact({ b }: { b: Branch }) {
 
 function BranchCard({ b }: { b: Branch }) {
   return (
-    <Card className="group flex flex-col overflow-hidden rounded-2xl border-line shadow-sm transition-shadow hover:shadow-md">
+    <Card className="group flex flex-col overflow-hidden rounded-card border-line shadow-sm transition-shadow hover:shadow-md">
       <Link to={`/school/${b.slug}`} target="_blank" rel="noopener noreferrer" className="block">
         <div className="relative h-44 overflow-hidden bg-surface-2">
           <img src={b.cover} alt={`สาขา ${b.area}`} className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105" />
@@ -291,7 +291,7 @@ export default function SchoolList() {
           .leaflet-popup-content-wrapper{ padding:0; overflow:hidden; border-radius:14px }
           .leaflet-popup-content{ margin:0; width:220px !important }
         `}</style>
-        <div className="isolate overflow-hidden rounded-2xl border border-line shadow-sm">
+        <div className="isolate overflow-hidden rounded-card border border-line shadow-sm">
           <BranchMap selected={selected} onSelect={setSelected} />
         </div>
       </section>

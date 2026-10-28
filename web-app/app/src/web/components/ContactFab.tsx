@@ -32,6 +32,22 @@ export default function ContactFab({
 }) {
   const [open, setOpen] = useState(false)
 
+  // ช่องทางเดียว → ปุ่มหลักเป็นลิงก์ไปเลย ไม่ต้องกางเมนู
+  if (actions.length === 1) {
+    const a = actions[0]
+    return (
+      <a
+        href={a.href}
+        {...(a.external ? { target: '_blank', rel: 'noopener noreferrer' } : {})}
+        aria-label={a.label}
+        title={a.label}
+        className={`fixed bottom-5 right-5 z-40 grid h-14 w-14 place-items-center rounded-full text-white shadow-xl transition-transform hover:scale-105 ${a.bg}`}
+      >
+        <a.icon size={26} />
+      </a>
+    )
+  }
+
   return (
     <div
       className="group fixed bottom-5 right-5 z-40 flex flex-col items-end gap-3"

@@ -6,8 +6,8 @@ import logoFull from '@/assets/media/full-icon.png'
 /** Footer โทนสว่าง (ใช้ร่วมทุกหน้า marketing) อิงดีไซน์ Figma จริง — 3 คอลัมน์ */
 export default function MarketingFooter() {
   return (
-    <footer className="border-t border-line bg-[#FFF3F4] px-5 py-12 text-sm text-ink-soft">
-      <div className="mx-auto max-w-[1200px]">
+    <footer className="border-t border-line bg-[#FFF3F4] text-sm text-ink-soft">
+      <div className="mx-auto max-w-[1200px] px-5 py-12">
         <img src={logoFull} alt="NockAcademy" className="mb-8 h-9 w-auto" />
         <div className="grid gap-8 sm:grid-cols-3">
           <div>
@@ -44,9 +44,10 @@ export default function MarketingFooter() {
             <Link to="/nock-for-school" className="block py-1 text-left hover:text-brand">Nockacademy สำหรับโรงเรียน</Link>
           </div>
         </div>
-        <div className="mt-10 text-center text-[12.5px] text-ink-mute">
-          Copyright © 2026 NockAcademy
-        </div>
+      </div>
+      {/* แถบ Copyright แยกใต้ Footer — สูง 32px */}
+      <div className="flex h-10 items-center justify-center bg-[#FFF3F4] px-5 text-[12.5px] text-ink-mute">
+        Copyright © 2026 NockAcademy
       </div>
     </footer>
   )

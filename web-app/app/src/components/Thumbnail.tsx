@@ -9,7 +9,7 @@ type Variant = 'live' | 'live-started' | 'lesson'
  * - lesson       : คลิปบทเรียน → มีการ์ดซ้อนด้านหลัง (stacked)
  */
 export default function Thumbnail({
-  src, variant = 'live', className = '', rounded = 'rounded-card', children,
+  src, variant = 'live', className = '', rounded = 'rounded-2xl', children,
 }: {
   src: string; variant?: Variant; className?: string; rounded?: string; children?: React.ReactNode
 }) {

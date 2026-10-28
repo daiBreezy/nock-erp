@@ -77,7 +77,7 @@ export default {
         },
       },
       borderRadius: {
-        card: '16px',
+        card: '24px', // ความโค้งมนของการ์ดทั้งเว็บ — แก้ที่นี่ที่เดียว (ใช้ class rounded-card)
         pill: '999px',
         lg: 'var(--radius)',
         md: 'calc(var(--radius) - 2px)',

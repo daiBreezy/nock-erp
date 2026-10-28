@@ -137,7 +137,7 @@ export default function CoursePlans() {
 
         {/* การ์ดแพ็กเกจ — ป้าย Popular วางบนขอบบนของการ์ด ไม่กินพื้นที่ */}
         {COURSE_PLANS.map((p) => (
-          <div key={p.id} className={cn('relative snap-start rounded-2xl border', tone(p).card)}>
+          <div key={p.id} className={cn('relative snap-start rounded-card border', tone(p).card)}>
             {p.badge && (
               <span className={cn('absolute -top-2.5 left-1/2 z-[1] -translate-x-1/2 whitespace-nowrap rounded-pill px-2.5 py-0.5 text-[10.5px] font-bold leading-4 text-white shadow-sm', tone(p).badge)}>
                 {p.badge}

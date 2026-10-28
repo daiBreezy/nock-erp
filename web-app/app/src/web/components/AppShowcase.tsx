@@ -10,7 +10,8 @@ export default function AppShowcase() {
   return (
     <section className="bg-[#FFF3F4]">
       <div className="mx-auto grid max-w-[1200px] items-center gap-10 px-5 py-14 md:grid-cols-[1.1fr_1fr]">
-        <div className="flex items-center justify-center">
+        {/* ภาพชิดซ้ายของคอลัมน์ (จอ md+) ให้ขอบซ้ายตรงกับ section อื่น */}
+        <div className="flex items-center justify-center md:justify-start">
           <img
             src={downloadDevices}
             alt="แอป NockAcademy บนมือถือและแท็บเล็ต"

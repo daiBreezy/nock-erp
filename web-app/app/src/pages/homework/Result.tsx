@@ -30,7 +30,7 @@ export default function Result() {
       <p className="mt-1 text-sm text-ink-soft">วิชา{subject.label}</p>
 
       <div className="mt-8 w-full max-w-xs space-y-3">
-        <div className="flex items-center gap-3 rounded-2xl bg-surface-1 p-4 text-left">
+        <div className="flex items-center gap-3 rounded-card bg-surface-1 p-4 text-left">
           <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-brand-soft">
             <Clock size={22} className="text-brand" />
           </div>
@@ -39,7 +39,7 @@ export default function Result() {
             <p className="text-lg font-semibold text-ink">{human(state.seconds)}</p>
           </div>
         </div>
-        <div className="flex items-center gap-3 rounded-2xl bg-surface-1 p-4 text-left">
+        <div className="flex items-center gap-3 rounded-card bg-surface-1 p-4 text-left">
           <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-subject-thai">
             <Heart size={22} className="text-subject-thai-ink" />
           </div>
