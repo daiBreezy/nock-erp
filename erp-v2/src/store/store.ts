@@ -664,7 +664,7 @@ export const useStore = create<Store>()(
         const after = s.sessions.map((x) => (x.id === id ? next : x))
         const clash = Sch.introducedConflicts(s.sessions, after, [id], branch, s.staff).added[0]
         if (clash) return fail(clash.message)
-        set({ sessions: s.sessions.map((x) => (x.id === id ? next : x)) })
+        set({ sessions: after, assessments: Forms.assessmentsFollowSessions(s.assessments, after) })
         return OK
       },
 
@@ -689,6 +689,7 @@ export const useStore = create<Store>()(
         if (added[0]) return fail(`ย้ายไม่ได้ — ${added[0].message}`)
         set({
           sessions: r.sessions,
+          assessments: Forms.assessmentsFollowSessions(s.assessments, r.sessions),
           classes: r.classPatch && src.classId ? s.classes.map((c) => (c.id === src.classId ? { ...c, ...r.classPatch } : c)) : s.classes,
         })
         return { ok: true, value: { moved: r.movedIds.length, kept: r.kept }, warnings: [...new Set(remaining.map((c) => `ยังชนอยู่ (ปัญหาเดิม): ${c.message}`))] }
@@ -1628,7 +1629,9 @@ export const useStore = create<Store>()(
         log("attendance", [studentId], before ? "แก้การเช็คชื่อ" : "เช็คชื่อ", `${se.subject} ${fmtDate(se.date)} ${se.start} · ${before ? `${L[before.status]} → ` : ""}${L[status]}${status === "leave" ? (opts?.noQuota ? " (ไม่หักโควตา)" : " (หักโควตา)") : ""}`)
         // the child really came to the test/trial → lead moves on by itself
         const asm = Forms.assessmentIn(sessionId, studentId, s.assessments)
-        if (asm && status === "present") advanceLead(asm.leadId, Forms.ATTENDED_STAGE[asm.type])
+        // several subjects on different days → moves on only after the last one
+        if (asm && status === "present" && Forms.allAssessmentsAttended(asm.leadId, asm.type, s.assessments, get().attendance))
+          advanceLead(asm.leadId, Forms.ATTENDED_STAGE[asm.type])
         syncMakeUp(studentId, beforeEnds)
         // C5: leave beyond quota is allowed but flagged (quota rule awaiting owner confirmation)
         if (status === "leave" && !opts?.noQuota) {

@@ -13,7 +13,7 @@ import { chatDayLabel, groupByDay } from "./inbox"
 import { findFamilyDuplicates, findStudentDuplicates, familyFromLead, familyFromSubmission, familyNameFor, splitName, joinName, futureSessionsOf, matchExistingFamily, mergeSubmission, nicknameFrom, searchStudents, studentLabel, submissionChanges, uniqueFamilies, validateFamily, validateStaff, validateStudent } from "./people"
 import { suggestFixes } from "./suggest"
 import { advanceStage, canSetStage, daysAgo, groupOf, restoreStage, siblingLead, validateLead } from "./crm"
-import { APPROVE_STAGE, ATTENDED_STAGE, buildFormPrefill, commonSlots, buildCombinedSessionDraft, buildSessionDraftFromSlot, findOfferSlots, lastAssessmentDate, openHourStarts, planApproval, priorApproval, sessionKindLabel } from "./forms"
+import { allAssessmentsAttended, APPROVE_STAGE, assessmentsFollowSessions, ATTENDED_STAGE, buildFormPrefill, commonSlots, buildCombinedSessionDraft, buildSessionDraftFromSlot, findOfferSlots, lastAssessmentDate, openHourStarts, planApproval, priorApproval, sessionKindLabel } from "./forms"
 import { customerRows, filterCustomers } from "./customers"
 import { invoiceMessage } from "./messages"
 import * as Refund from "./refunds"
@@ -2754,5 +2754,23 @@ describe("possible duplicates — the system suggests, the admin decides (owner 
     expect(findFamilyDuplicates({ name: "ใหม่", parents: [{ name: "x", phone: "081-111-1111", lineLinked: false, primary: true }] }, families)[0].reasons[0]).toContain("0811111111")
     expect(findFamilyDuplicates({ name: "ใหม่", parents: [], lineUserId: "U1" }, [fam("f3", "", { lineUserId: "U1" })])[0].reasons).toEqual(["LINE เดียวกัน"])
     expect(findFamilyDuplicates({ name: "ใหม่", parents: [{ name: "x", phone: "0899999999", lineLinked: false, primary: true }] }, families)).toEqual([])
+  })
+})
+
+describe("lead with several test/trial subjects on different days", () => {
+  const asm = (id: string, sessionId: string) => ({ id, type: "trial" as const, leadId: "ld1", studentId: "st1", sessionId, subject: "x", date: "2026-11-01", start: "10:00" })
+  const all = [asm("a1", "se1"), asm("a2", "se2")]
+  it("stays 'ทดลองเรียนนัดแล้ว' until the child came to every subject", () => {
+    expect(allAssessmentsAttended("ld1", "trial", all, [{ sessionId: "se1", studentId: "st1", status: "present" }])).toBe(false)
+    expect(allAssessmentsAttended("ld1", "trial", all, [{ sessionId: "se1", studentId: "st1", status: "present" }, { sessionId: "se2", studentId: "st1", status: "absent" }])).toBe(false)
+    expect(allAssessmentsAttended("ld1", "trial", all, [{ sessionId: "se1", studentId: "st1", status: "present" }, { sessionId: "se2", studentId: "st1", status: "present" }])).toBe(true)
+  })
+})
+
+describe("test/trial record follows its session when moved", () => {
+  it("takes the new date/time; keeps the old one if the session is gone", () => {
+    const a = { id: "a1", type: "test" as const, leadId: "ld1", studentId: "st1", sessionId: "se1", subject: "x", date: "2026-11-01", start: "10:00" }
+    expect(assessmentsFollowSessions([a], [{ id: "se1", date: "2026-11-03", start: "13:00" }])[0]).toMatchObject({ date: "2026-11-03", start: "13:00" })
+    expect(assessmentsFollowSessions([a], [])[0]).toBe(a)
   })
 })

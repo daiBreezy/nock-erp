@@ -5,7 +5,7 @@
 
 import { staffAt } from "./permissions"
 import { addDays, at, fromMinutes, overlaps, toMinutes, weekdayOf } from "../dates"
-import type { Assessment, Branch, Course, DateStr, EnrollClassOffer, Family, FormOfferSlot, FormParentInput, FormPick, FormPrefill, FormSubjectOffer, FormType, Holiday, ID, Klass, Lead, LeadStage, Result, Session, Staff, Student, TimeStr } from "../types"
+import type { Assessment, Attendance, Branch, Course, DateStr, EnrollClassOffer, Family, FormOfferSlot, FormParentInput, FormPick, FormPrefill, FormSubjectOffer, FormType, Holiday, ID, Klass, Lead, LeadStage, Result, Session, Staff, Student, TimeStr } from "../types"
 import { classCapacity, hoursFor, isHoliday, sessionState, slotProblem, teachersOf, validateClass } from "./scheduling"
 
 export const FORM_TYPE_LABEL: Record<FormType, string> = { test: "สอบวัดระดับ", trial: "ทดลองเรียน" }
@@ -41,6 +41,22 @@ export function buildFormPrefill(input: {
 export const APPROVE_STAGE: Record<FormType, LeadStage> = { test: "test_scheduled", trial: "trial_scheduled" }
 /** marked "มา" in that session → the test/trial really happened */
 export const ATTENDED_STAGE: Record<FormType, LeadStage> = { test: "tested", trial: "trialed" }
+
+/**
+ * A form can book several subjects on different days: the lead only moves to "สอบแล้ว" / "ทดลองเรียนแล้ว"
+ * once the child came to every one of them (owner 2026-10-29) — still a lead until the invoice is paid.
+ */
+export function allAssessmentsAttended(leadId: ID, type: FormType, all: Assessment[], attendance: Pick<Attendance, "sessionId" | "studentId" | "status">[]) {
+  return all
+    .filter((a) => a.leadId === leadId && a.type === type)
+    .every((a) => attendance.some((x) => x.sessionId === a.sessionId && x.studentId === a.studentId && x.status === "present"))
+}
+
+/** test/trial session moved to another day/time → the record follows (date/start are kept only for history if the session is gone) */
+export function assessmentsFollowSessions(all: Assessment[], sessions: Pick<Session, "id" | "date" | "start">[]): Assessment[] {
+  const byId = new Map(sessions.map((x) => [x.id, x]))
+  return all.map((a) => { const se = byId.get(a.sessionId); return se && (se.date !== a.date || se.start !== a.start) ? { ...a, date: se.date, start: se.start } : a })
+}
 
 /** "สอบวัดระดับ" / "ทดลองเรียน" for a session, or null for a normal class session */
 export function sessionKindLabel(s: Pick<Session, "trial" | "assessment">): string | null {
