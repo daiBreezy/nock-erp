@@ -23,7 +23,7 @@ import { CHANNEL_LABEL, followUpState, REACHED, RESULT_LABEL } from "@/domain/ru
 import { Sheet, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetTitle } from "@/components/ui/sheet"
 import { Textarea } from "@/components/ui/textarea"
 import { fmtDate, fmtDateTime } from "@/domain/dates"
-import { BOARD_GROUPS, daysAgoLabel, groupOf, LEAD_SOURCE_LABEL, scheduleInfo, STAGE_FOR_GROUP, stageGroupLabel } from "@/domain/rules/crm"
+import { BOARD_GROUPS, daysAgoLabel, groupOf, LEAD_SOURCE_LABEL, leadSubjects, scheduleInfo, STAGE_FOR_GROUP, stageGroupLabel } from "@/domain/rules/crm"
 import { can } from "@/domain/rules/permissions"
 import type { Assessment, FormSubmission, ID, Lead, LeadStage } from "@/domain/types"
 import { report } from "@/lib/feedback"
@@ -132,7 +132,7 @@ function Body({ id, onEdit }: { id: ID; onEdit: () => void }) {
           <div className="min-w-0">
             <SheetTitle className="text-lg">{lead.name} <span className={cn("ml-1 rounded px-1.5 py-0.5 align-middle text-xs", gradeTone(lead.childGrade))}>{lead.childGrade}</span></SheetTitle>
             <SheetDescription className="flex flex-wrap items-center gap-x-1.5">
-              <span className={cn("rounded-full px-2 py-0.5 text-xs font-medium", subjectColor(lead.subject).chip)}>{lead.subject}</span>
+              {leadSubjects(lead).map((x) => <span key={x} className={cn("rounded-full px-2 py-0.5 text-xs font-medium", subjectColor(x).chip)}>{x}</span>)}
               <span>{LEAD_SOURCE_LABEL[lead.source]} · {daysAgoLabel(lead.createdAt, now)}</span>
               {lead.direct && <Pill tone="green">สมัครตรง</Pill>}
             </SheetDescription>

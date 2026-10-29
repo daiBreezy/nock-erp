@@ -35,7 +35,7 @@ export default function DesktopNav() {
       <PromoBar />
 
       <header className="border-b border-line bg-surface-1/95 backdrop-blur">
-        <div className="mx-auto flex h-16 max-w-[1280px] items-center gap-6 px-6">
+        <div className="mx-auto flex h-16 max-w-[1200px] items-center gap-6 px-5">
           <NavLink to="/" className="flex shrink-0 items-center">
             <img src={logoFull} alt="NOCK ACADEMY" className="h-9 w-auto" />
           </NavLink>

@@ -2955,4 +2955,6 @@ export const AUTO: Record<string, Entry> = {
   "ไม่มีวัน{0}ในช่วง {1} ที่เหลืออยู่": { en: "No {0} left in period {1}", ja: "期間{1}に残りの{0}はありません" },
   "ไม่มีวันเรียนวันสุดท้าย": { en: "No last day of class", ja: "最終授業日がありません" },
   "ไม่มีสิทธิ์ลบ": { en: "No permission to delete", ja: "削除する権限がありません" },
+  "เด็กใหม่ — คาบนี้เป็นคาบแรกที่มาเรียนกับเรา (ยังไม่เคยมีการเช็คชื่อมาก่อน) · ครูควรทำความรู้จัก/ประเมินระดับ": { en: "New student — this is their first class with us (no attendance before) · get to know them / check their level", ja: "新入生 — 当校での初回授業です（出席記録なし）· 様子を見てレベルを確認してください" },
+  "เช่น ปราณี ใจดี (ไม่ต้องใส่ คุณแม่/คุณพ่อ)": { en: "e.g. Pranee Jaidee (no Mom/Dad title)", ja: "例：Pranee Jaidee（「お母さん/お父さん」は不要）" },
 }

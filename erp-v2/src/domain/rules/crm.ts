@@ -102,6 +102,11 @@ export function restoreStage(l: Pick<Lead, "archivedFrom">): LeadStage {
   return l.archivedFrom && l.archivedFrom !== "archived" ? l.archivedFrom : "new"
 }
 
+/** every subject a lead is interested in (owner 2026-10-29) — older leads have only `subject` */
+export function leadSubjects(l: Pick<Lead, "subject" | "subjects">): string[] {
+  return l.subjects?.length ? l.subjects : [l.subject]
+}
+
 export function validateLead(l: Pick<Lead, "name" | "childGrade" | "subject" | "phone">): string | null {
   if (!l.name.trim()) return "ใส่ชื่อผู้ปกครองหรือผู้ติดต่อ"
   if (!l.childGrade.trim()) return "ใส่ระดับชั้นของลูก"

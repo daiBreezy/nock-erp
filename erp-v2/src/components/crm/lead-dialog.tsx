@@ -5,7 +5,9 @@ import { Button } from "@/components/ui/button"
 import { FormShell, useInPanel } from "@/components/app/form-shell"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { LEAD_SOURCE_LABEL } from "@/domain/rules/crm"
+import { LEAD_SOURCE_LABEL, leadSubjects } from "@/domain/rules/crm"
+import { subjectColor } from "@/components/app/subject-color"
+import { cn } from "@/lib/utils"
 import { can } from "@/domain/rules/permissions"
 import type { Lead } from "@/domain/types"
 import { report } from "@/lib/feedback"
@@ -24,7 +26,10 @@ export function LeadDialog({ onClose, initialName, initial, onSaved, lead: editi
 
   const [name, setName] = useState(editing?.name ?? initialName ?? "")
   const [childGrade, setChildGrade] = useState(editing?.childGrade ?? branch.grades[0] ?? "")
-  const [subject, setSubject] = useState(editing?.subject ?? branch.subjects[0] ?? "")
+  // owner 2026-10-29: a family can be interested in more than one subject — tick every one; the first is the main one
+  const [subjects, setSubjects] = useState<string[]>(editing ? leadSubjects(editing) : branch.subjects.slice(0, 1))
+  const subject = subjects[0] ?? ""
+  const toggleSubject = (x: string) => setSubjects((cur) => (cur.includes(x) ? cur.filter((y) => y !== x) : [...cur, x]))
   const [source, setSource] = useState<Lead["source"]>(editing?.source ?? initial?.source ?? "line")
   const [phone, setPhone] = useState(editing?.phone ?? "")
   const [lineId, setLineId] = useState(editing?.lineId ?? "")
@@ -35,9 +40,9 @@ export function LeadDialog({ onClose, initialName, initial, onSaved, lead: editi
 
   const submit = () => {
     const lead: Lead = editing
-      ? { ...editing, name, childGrade, subject, source, assigneeId: assigneeId || null, phone, lineId }
+      ? { ...editing, name, childGrade, subject, subjects, source, assigneeId: assigneeId || null, phone, lineId }
       : {
-        id: `ld_${Date.now().toString(36)}`, branchId: branch.id, name, childGrade, subject, source,
+        id: `ld_${Date.now().toString(36)}`, branchId: branch.id, name, childGrade, subject, subjects, source,
         stage: "new", assigneeId: assigneeId || null, phone, lineId, createdAt: now.toISOString(), notes: [], convertedStudentId: null,
       }
     const r = saveLead(lead)
@@ -53,13 +58,23 @@ export function LeadDialog({ onClose, initialName, initial, onSaved, lead: editi
       footer={<><Button variant="ghost" onClick={onClose}>ยกเลิก</Button><Button disabled={!name.trim() || !phone.trim()} onClick={submit}>{editing ? "บันทึก" : "เพิ่ม Lead"}</Button></>}>
         <div className="grid gap-3 sm:grid-cols-2">
           <Field label="ชื่อผู้ปกครอง/ผู้ติดต่อ *" className="sm:col-span-2">
-            <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="เช่น คุณแม่ ปราณี" />
+            <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="เช่น ปราณี ใจดี (ไม่ต้องใส่ คุณแม่/คุณพ่อ)" />
           </Field>
           <Field label="ระดับชั้นของลูก *">
             <NativeSelect value={childGrade} onChange={(e) => setChildGrade(e.target.value)} options={branch.grades.map((g) => ({ value: g, label: g }))} />
           </Field>
-          <Field label="วิชาที่สนใจ *">
-            <NativeSelect value={subject} onChange={(e) => setSubject(e.target.value)} options={branch.subjects.map((s) => ({ value: s, label: s }))} />
+          <Field label="วิชาที่สนใจ * (เลือกได้หลายวิชา)" className="sm:col-span-2">
+            <div className="flex flex-wrap gap-1.5">
+              {branch.subjects.map((x) => {
+                const on = subjects.includes(x)
+                return (
+                  <button key={x} type="button" aria-pressed={on} onClick={() => toggleSubject(x)}
+                    className={cn("rounded-full px-3 py-1 text-sm font-medium ring-1 ring-inset", on ? cn(subjectColor(x).chip, "ring-transparent") : "text-muted-foreground ring-border hover:bg-muted")}>
+                    {x}
+                  </button>
+                )
+              })}
+            </div>
           </Field>
           <Field label="ช่องทาง">
             <NativeSelect value={source} onChange={(e) => setSource(e.target.value as Lead["source"])} options={SOURCES.map((s) => ({ value: s, label: LEAD_SOURCE_LABEL[s] }))} />
@@ -68,7 +83,7 @@ export function LeadDialog({ onClose, initialName, initial, onSaved, lead: editi
             <NativeSelect value={assigneeId} onChange={(e) => setAssigneeId(e.target.value)} placeholder="ยังไม่มอบหมาย" options={assignable.map((s) => ({ value: s.id, label: s.nickname }))} />
           </Field>
           <Field label="เบอร์โทร *">
-            <Input value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="081-234-5678" />
+            <Input value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="0812345678" />
           </Field>
           <Field label="LINE ID">
             <Input value={lineId} onChange={(e) => setLineId(e.target.value)} placeholder="@line_id" />

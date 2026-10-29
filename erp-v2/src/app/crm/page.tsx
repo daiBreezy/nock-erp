@@ -22,7 +22,7 @@ import { fetchEnrollSubmissions } from "@/lib/forms"
 import { fmtDate, toDateStr } from "@/domain/dates"
 import { leadFlags } from "@/domain/rules/reports"
 import { useFocusFirst } from "@/components/app/focus-banner"
-import { crmKpis, DRAGGABLE_STAGES, groupOf, LEAD_SOURCE_LABEL, leadDetail, stageGroupLabel, PIPELINE_GROUPS, type LeadDetail } from "@/domain/rules/crm"
+import { crmKpis, DRAGGABLE_STAGES, groupOf, LEAD_SOURCE_LABEL, leadDetail, leadSubjects, stageGroupLabel, PIPELINE_GROUPS, type LeadDetail } from "@/domain/rules/crm"
 import { can } from "@/domain/rules/permissions"
 import type { ID, Lead, Staff } from "@/domain/types"
 import { report } from "@/lib/feedback"
@@ -91,7 +91,7 @@ export default function CrmPage() {
   const matches = (l: Lead) => {
     if (!showArchived && (l.stage === "archived" || l.stage === "enrolled")) return false
     if (assigneeFilter !== "all" && l.assigneeId !== assigneeFilter) return false
-    if (search && !`${l.name} ${l.subject} ${l.childGrade}`.toLowerCase().includes(search.toLowerCase())) return false
+    if (search && !`${l.name} ${leadSubjects(l).join(" ")} ${l.childGrade}`.toLowerCase().includes(search.toLowerCase())) return false
     return true
   }
   const shown = leads.filter(matches)
@@ -126,7 +126,8 @@ export default function CrmPage() {
     // owner 2026-10-15: every list shows which branch each row comes from
     { id: "branch", label: "สาขา", width: "72px", cell: (l) => <BranchCode code={scope.code(l.branchId)} /> },
     { id: "grade", label: "ชั้น", width: "76px", sort: "grade", cell: (l) => <EditCell kind="select" value={l.childGrade} disabled={ro(l)} display={<GradeCell grade={l.childGrade} tone={gradeTone(l.childGrade)} />} options={branch.grades.map((g) => ({ value: g, label: g }))} onSave={(v) => edit(l, { childGrade: v })} /> },
-    { id: "subject", label: "วิชา", width: "96px", sort: "subject", cell: (l) => <EditCell kind="select" value={l.subject} disabled={ro(l)} display={<span className={cn("rounded-full px-2 py-0.5 text-xs font-medium", subjectColor(l.subject).chip)}>{l.subject}</span>} options={branch.subjects.map((x) => ({ value: x, label: x }))} onSave={(v) => edit(l, { subject: v })} /> },
+    // owner 2026-10-29: every subject of interest as chips (more than one → change them in the Lead panel)
+    { id: "subject", label: "วิชา", width: "96px", sort: "subject", cell: (l) => <div className="flex gap-1">{leadSubjects(l).map((x) => <span key={x} className={cn("rounded-full px-2 py-0.5 text-xs font-medium", subjectColor(x).chip)}>{x}</span>)}</div> },
     { id: "source", label: "ช่องทาง", width: "104px", sort: "source", className: "text-muted-foreground", cell: (l) => <EditCell kind="select" value={l.source} disabled={ro(l)} display={LEAD_SOURCE_LABEL[l.source]} options={Object.entries(LEAD_SOURCE_LABEL).map(([value, label]) => ({ value, label }))} onSave={(v) => edit(l, { source: v as Lead["source"] })} /> },
     // owner 2026-10-12: one colour per step of the funnel
     { id: "stage", label: "ขั้นตอน", width: "104px", sort: "stage", cell: (l) => <span className={cn("rounded-full px-2 py-0.5 text-xs font-medium", STAGE_TONE(l.stage === "enrolled" ? "enrolled" : groupOf(l.stage).key))}>{stageGroupLabel(l.stage)}</span> },
@@ -276,7 +277,7 @@ function LeadCard({ lead, now, staff, draggable, onOpen, onRestore, branchCode }
       </div>
 
       <div className="mt-2 flex items-center justify-between gap-2">
-        <span className={cn("shrink-0 rounded-full px-2 py-0.5 text-[11px] font-medium", subjectColor(lead.subject).chip)}>{lead.subject}</span>
+        <span className="flex min-w-0 flex-wrap gap-1">{leadSubjects(lead).map((x) => <span key={x} className={cn("shrink-0 rounded-full px-2 py-0.5 text-[11px] font-medium", subjectColor(x).chip)}>{x}</span>)}</span>
         {lead.direct && lead.stage !== "enrolled" ? (
           <Pill tone="green">สมัครตรง</Pill>
         ) : lead.stage === "new" || lead.stage === "contacting" ? (

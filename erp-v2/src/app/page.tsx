@@ -7,6 +7,7 @@ import { useState } from "react"
 import { ArrowRightIcon, BanknoteIcon, CheckCircle2Icon, ChartColumnIcon, ChevronRightIcon, GraduationCapIcon, HistoryIcon, SparklesIcon, UserMinusIcon, UserPlusIcon, UserSearchIcon, XCircleIcon } from "lucide-react"
 import { SessionStateBadge } from "@/components/app/badges"
 import { KpiRow, Page, PageHeader, Segmented } from "@/components/app/page-layout"
+import { useBranchScope } from "@/components/app/branch-scope"
 import { SessionSheet } from "@/components/app/session-sheet"
 import { subjectColor } from "@/components/app/subject-color"
 import { DailyBriefCard } from "@/components/dashboard/daily-brief"
@@ -48,23 +49,26 @@ export default function DashboardPage() {
   const now = useNow()
   const today = toDateStr(now)
   const branch = useBranch()
+  // feedback Row 42 (Area / Regional Manager): the same branch filter as every list — several branches together or one
+  const scope = useBranchScope()
+  const inScope = (branchId: string) => scope.ids.includes(branchId)
   const me = useStore((s) => s.me())
   const sessions = useStore((s) => s.sessions)
   const attendance = useStore((s) => s.attendance)
   const summaries = useStore((s) => s.summaries)
-  const invoices = useStore((s) => s.invoices).filter((x) => x.branchId === branch.id)
-  const creditNotes = useStore((s) => s.creditNotes).filter((x) => x.branchId === branch.id)
+  const invoices = useStore((s) => s.invoices).filter((x) => inScope(x.branchId))
+  const creditNotes = useStore((s) => s.creditNotes).filter((x) => inScope(x.branchId))
   const courses = useStore((s) => s.courses)
   const classes = useStore((s) => s.classes)
   const holidays = useStore((s) => s.holidays)
   const entitlements = useEntitlements()
   const leaves = useStore((s) => s.leaves)
   const staff = useStore((s) => s.staff)
-  const students = useStore((s) => s.students).filter((x) => x.branchId === branch.id)
+  const students = useStore((s) => s.students).filter((x) => inScope(x.branchId))
   const families = useStore((s) => s.families)
   const surveyResponses = useStore((s) => s.surveyResponses)
   const parentRequests = useStore((s) => s.parentRequests ?? [])
-  const leads = useStore((s) => s.leads).filter((x) => x.branchId === branch.id)
+  const leads = useStore((s) => s.leads).filter((x) => inScope(x.branchId))
   const L = useLookup()
   const [openSessionId, setOpenSessionId] = useState<string | null>(null)
   const [showPast, setShowPast] = useState(false)
@@ -76,7 +80,7 @@ export default function DashboardPage() {
   const periodRange = R.periodRange(periodKey, today)
 
   const mineOnly = !seesAllSessions(me)
-  const branchSessions = sessions.filter((s) => s.branchId === branch.id && !s.cancelled)
+  const branchSessions = sessions.filter((s) => inScope(s.branchId) && !s.cancelled)
   const todays = branchSessions.filter((s) => s.date === today && (!mineOnly || s.teacherId === me.id)).sort((a, b) => a.start.localeCompare(b.start))
 
   // owner 2026-10-06: "ความคืบหน้าวันนี้" — two honestly-measurable completion bars (no fabricated totals), scoped
@@ -129,7 +133,7 @@ export default function DashboardPage() {
       .map((a) => {
         const se = sessions.find((x) => x.id === a.sessionId)
         const stu = students.find((x) => x.id === a.studentId)
-        if (!se || !stu || se.branchId !== branch.id) return null
+        if (!se || !stu || !inScope(se.branchId)) return null
         return { at: a.markedAt, text: `${a.status === "present" ? tx("เข้าเรียน") : tx("ขาดเรียน")} · ${nm(stu.nickname)} · ${sj(se.subject)}`, tone: a.status === "present" ? ("blue" as const) : ("red" as const) }
       })
       .filter((x): x is { at: string; text: string; tone: "blue" | "red" } => !!x)
@@ -144,10 +148,10 @@ export default function DashboardPage() {
   const revPrev = R.revenueIn(revRows, prevRange)
   const revChange = R.change(rev.total, revPrev.total, prevRange, since)
   const events = hasOverview ? R.studentEvents({ students, entitlements, rows: revRows, today }) : []
-  const newCount = R.countEvents(events, periodRange, "new", branch.id)
-  const newPrev = R.countEvents(events, prevRange, "new", branch.id)
-  const lostCount = R.countEvents(events, periodRange, "lost", branch.id)
-  const lostPrev = R.countEvents(events, prevRange, "lost", branch.id)
+  const newCount = R.countEvents(events, periodRange, "new")
+  const newPrev = R.countEvents(events, prevRange, "new")
+  const lostCount = R.countEvents(events, periodRange, "lost")
+  const lostPrev = R.countEvents(events, prevRange, "lost")
   const leadsInRange = leads.filter((l) => R.inRange(l.createdAt.slice(0, 10), periodRange)).length
   const leadsPrevRange = leads.filter((l) => R.inRange(l.createdAt.slice(0, 10), prevRange)).length
 
@@ -162,11 +166,11 @@ export default function DashboardPage() {
   const mtd = R.periodRange("mtd", today)
   const attentionItems = hasOverview ? R.needsAttention({
     today, now, rows: revRows, range: mtd, prevRange: R.compareRange("mtd", mtd),
-    invoices, entitlements: scopedEnts, attendance, sessions: sessions.filter((s) => s.branchId === branch.id),
-    classes: classes.filter((k) => k.branchId === branch.id), leads,
+    invoices, entitlements: scopedEnts, attendance, sessions: sessions.filter((s) => inScope(s.branchId)),
+    classes: classes.filter((k) => inScope(k.branchId)), leads,
     activeNow, activeBefore, pendingSummaries: 0, conflicts: 0,
-    surveyToCall: Survey.toCall(surveyResponses.filter((r) => r.branchId === branch.id), today).length,
-    parentRequests: parentRequests.filter((r) => r.status === "new" && (r.branchId ?? students.find((x) => x.id === r.studentId)?.branchId) === branch.id).length,
+    surveyToCall: Survey.toCall(surveyResponses.filter((r) => inScope(r.branchId)), today).length,
+    parentRequests: parentRequests.filter((r) => { const b = r.branchId ?? students.find((x) => x.id === r.studentId)?.branchId; return r.status === "new" && !!b && inScope(b) }).length,
     students, families: families.filter((f) => studentFamilyIds.has(f.id)),
   }, tx, { keepZero: true }) : []
 
@@ -198,6 +202,7 @@ export default function DashboardPage() {
           <Segmented label={tx("ช่วงเวลา")} value={range} onChange={(v) => setRangeParam(v as RangeKey)}
             options={[{ value: "today", label: tx("วันนี้") }, { value: "week", label: tx("สัปดาห์นี้") }, { value: "month", label: tx("เดือนนี้") }]} />
           <ActivityButton items={recentActivity} today={today} />
+          {scope.select}
         </>} />
 
       {hasOverview && (
@@ -252,8 +257,8 @@ export default function DashboardPage() {
       ) : (
         // week/month (dashboard.view only): how the period went, not a task queue — for the operational
         // detail (alerts, pending renewals) switch back to "วันนี้", for a full breakdown go to Reports
-        <PeriodOverview range={periodRange} rangeLabel={tx(RANGE_LABEL[range])} revRows={revRows.filter((x) => x.branchId === branch.id)} events={events.filter((e) => e.branchId === branch.id)}
-          students={students} leads={leads} sessions={branchSessions} allSessions={sessions.filter((x) => x.branchId === branch.id)} attendance={attendance}
+        <PeriodOverview range={periodRange} rangeLabel={tx(RANGE_LABEL[range])} revRows={revRows.filter((x) => inScope(x.branchId))} events={events}
+          students={students} leads={leads} sessions={branchSessions} allSessions={sessions.filter((x) => inScope(x.branchId))} attendance={attendance}
           lostCount={lostCount} lostPrev={lostPrev} leadsInRange={leadsInRange} leadsPrevRange={leadsPrevRange} prevRange={prevRange} since={since} compareLabel={tx(R.COMPARE_LABEL[periodKey])} />
       )}
 

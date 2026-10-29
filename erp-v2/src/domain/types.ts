@@ -1115,7 +1115,10 @@ export interface Lead {
   branchId: ID
   name: string
   childGrade: string
+  /** the first subject of interest — colour, filters, reports */
   subject: string
+  /** owner 2026-10-29: every subject the family is interested in (first = `subject`); unset = just `subject` */
+  subjects?: string[]
   source: LeadSource
   stage: LeadStage
   assigneeId: ID | null

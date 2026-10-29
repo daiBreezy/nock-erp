@@ -52,7 +52,8 @@ function useFillHeight<T extends HTMLElement>() {
   return [ref, h] as const
 }
 const DAY_START = 8 * 60
-const DAY_END = 21 * 60
+// feedback Row 32 / 18: branches open until 22:00 — the grid shows up to 22:00
+const DAY_END = 22 * 60
 
 const mondayOf = (d: DateStr) => addDays(d, -((weekdayOf(d) + 6) % 7))
 
