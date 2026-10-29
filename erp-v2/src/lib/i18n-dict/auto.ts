@@ -3024,4 +3024,7 @@ export const AUTO: Record<string, Entry> = {
   "แก้รถรับส่งวันนี้": { en: "Change this day's bus", ja: "この日の送迎を変更" },
   "รถรับส่ง {0}": { en: "Bus {0}", ja: "送迎 {0}" },
   "เพิ่ม = เรียกเก็บในใบถัดไป · เอาออก = รถไม่มารับ (ไม่คืนเงินรอบที่จ่ายแล้ว)": { en: "Add = charged on the next invoice · Remove = the bus won't come (paid rides are not refunded)", ja: "追加＝次回の請求書で請求 · 削除＝送迎なし（支払済みは返金なし）" },
+  "โทร {0}": { en: "Call {0}", ja: "{0}に電話" },
+  "Note ในปฏิทิน": { en: "Calendar notes", ja: "カレンダーのメモ" },
+  "Note ที่แสดงบนการ์ดคาบในปฏิทิน — 📌 = ถาวร (ทุกคาบของคลาส) · เพิ่ม / แก้ / ลบ ได้ที่นี่เหมือนในปฏิทิน": { en: "Notes shown on the session cards in the calendar — 📌 = permanent (every session of the class) · add / edit / delete here, same as in the calendar", ja: "カレンダーの授業カードに表示されるメモ — 📌＝固定（クラスの全授業） · カレンダーと同じくここで追加・編集・削除できます" },
 }

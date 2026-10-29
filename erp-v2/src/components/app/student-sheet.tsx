@@ -7,15 +7,14 @@ import Link from "next/link"
 import { useMemo, useState } from "react"
 import {
   ArchiveRestoreIcon, DoorOpenIcon, BusIcon, CakeIcon, CalendarDaysIcon, CalendarIcon, GraduationCapIcon,
-  MessageSquareIcon, MessagesSquareIcon, PencilIcon, PhoneIcon, PlaneIcon, PlusIcon, ReceiptIcon, SearchIcon, SendIcon, StickyNoteIcon, StoreIcon, UsersIcon,
-  ChevronRightIcon, HistoryIcon,
+  MessageSquareIcon, MessagesSquareIcon, PencilIcon, PhoneIcon, PlaneIcon, PlusIcon, ReceiptIcon, SearchIcon, StickyNoteIcon, StoreIcon, UsersIcon,
+  ChevronRightIcon, HistoryIcon, ArrowUpIcon,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet"
 import { EntityPanel, PanelFooter, PanelForm, PanelMore } from "./form-shell"
 import { Tabs } from "./page-layout"
 import { Input } from "@/components/ui/input"
-import { Textarea } from "@/components/ui/textarea"
 import { daysBetween, endTime, fmtDate, fmtDateTime, fmtMoney, toDateStr, weekdayShort } from "@/domain/dates"
 import * as Att from "@/domain/rules/attendance"
 import { INVOICE_STATUS_LABEL, invoiceTotals } from "@/domain/rules/billing"
@@ -29,7 +28,8 @@ import { useStore } from "@/store/store"
 import { Pill } from "./badges"
 import { Pager, usePage } from "./data-table"
 import { ColumnsMenu, DataTable, type Column } from "./data-grid"
-import { FilterChipGroup } from "./filter-chip-group"
+import { NativeSelect } from "./native-select"
+import { CalendarNotes } from "@/components/calendar/calendar-notes-ui"
 import { Kpi } from "./kpi"
 import { busDaysOf } from "@/domain/rules/parent-view"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
@@ -115,17 +115,14 @@ function Body({ id, onEdit }: { id: ID; onEdit: () => void }) {
             <SheetDescription className="flex flex-wrap items-center gap-1.5">
               {stu.grade && <span className={cn("rounded-md px-1.5 py-0.5 text-xs font-semibold", gradeTone(stu.grade))}>{stu.grade}</span>}
               <Pill tone={STATUS_PILL[state.status].tone}>{STATUS_PILL[state.status].label}</Pill>
-              <span className="text-xs">{stateDetail(state, today) || "สถานะคำนวณอัตโนมัติจากแพ็กเกจและการลา"}</span>
+              {/* owner 2026-10-29: helper text on hover only */}
+              <InfoTip text={stateDetail(state, today) || "สถานะคำนวณอัตโนมัติจากแพ็กเกจและการลา"} />
             </SheetDescription>
           </div>
-          {fam && (
-            <span className="ml-auto flex shrink-0 items-center gap-1.5 rounded-full border py-1 pr-1 pl-1 text-sm">
-              <span className={cn("grid size-7 place-items-center rounded-full text-xs font-semibold", avatarTone(fam.id))}>{initial(fam.name.replace(/^ครอบครัว/, ""))}</span>
-              <Link href="/families" className="max-w-32 truncate hover:underline">{fam.name.replace(/^ครอบครัว\s*/, "")}</Link>
-              {primary && (
-                <a href={`tel:${primary.phone.replace(/\D/g, "")}`} title={`โทร ${primary.name} ${primary.phone}`} className="grid size-7 place-items-center rounded-full bg-primary/10 text-primary hover:bg-primary/20"><PhoneIcon className="size-3.5" /></a>
-              )}
-            </span>
+          {/* owner 2026-10-29: just the call button */}
+          {primary && (
+            <a href={`tel:${primary.phone.replace(/\D/g, "")}`} title={`โทร ${primary.name} ${primary.phone}`} aria-label={`โทร ${primary.name}`}
+              className="ml-auto grid size-9 shrink-0 place-items-center rounded-full bg-primary/10 text-primary hover:bg-primary/20"><PhoneIcon className="size-4" /></a>
           )}
         </div>
         <Tabs className="-mx-4 border-b-0 px-3" value={seg} onChange={setSeg} options={SEGS.filter((x) => x.id !== "billing" || can(me, "billing.view")).map((x) => ({ value: x.id, label: x.label }))} />
@@ -206,11 +203,12 @@ const rawTo = useStore((s) => s.entitlements.find((x) => x.id === e.id)?.to)
           {extended && <Pill tone="violet" title={`เดิมจบ ${fmtDate(rawTo!, { year: true })}`}>เลื่อนวันจบจากการลา</Pill>}
         </p>
       </div>
-      {c && <PackageBadge course={c} size="md" />}
-      <Pill tone={expired ? "gray" : renewal ? "amber" : "green"}>{expired ? "หมดแล้ว" : renewal ? "Renewal" : "Enroll"}</Pill>
-      {(renewal || expired) && can(me, "billing.manage") && <Button size="xs" variant="outline" onClick={() => setRenewing(true)}>ต่ออายุ</Button>}
+      {/* owner 2026-10-29: fixed slots (badge · status · ต่ออายุ · bar) so every row lines up, with or without the button */}
+      <span className="flex w-12 shrink-0 justify-end">{c && <PackageBadge course={c} size="md" />}</span>
+      <Pill tone={expired ? "gray" : renewal ? "amber" : "green"} className="w-20 shrink-0 justify-center">{expired ? "หมดแล้ว" : renewal ? "Renewal" : "Enroll"}</Pill>
+      <span className="flex w-16 shrink-0 justify-center">{(renewal || expired) && can(me, "billing.manage") && <Button size="xs" variant="outline" onClick={() => setRenewing(true)}>ต่ออายุ</Button>}</span>
       {renewing && <InvoiceSheet id="new" defaultStudentId={stu.id} renewEntitlementId={e.id} onClose={() => setRenewing(false)} />}
-      <div className="w-40 shrink-0 text-right">
+      <div className="w-40 shrink-0 text-left">
         <p className="text-xs tabular-nums">{p.label}</p>
         <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-muted"><div className={cn("h-full rounded-full", renewal ? "bg-red-600" : "bg-primary")} style={{ width: `${p.ratio * 100}%` }} /></div>
       </div>
@@ -370,9 +368,8 @@ function SessionList({ stu, ents }: { stu: Student; ents: Entitlement[] }) {
     { id: "teacher", label: "ครู", width: "1%", cell: (s) => staff.find((x) => x.id === s.teacherId)?.nickname ?? <span className="text-muted-foreground">ยังไม่มีครู</span> },
     { id: "bus", label: "รถรับส่ง", width: "1%", align: "center", defaultHidden: true, info: "P = รับ (Pickup) · D = ส่ง (Drop) · B = ทั้งรับและส่ง — กดเพื่อแก้ (คาบที่ยังไม่ถึง)",
       cell: (s) => <BusTag studentId={stu.id} date={s.date} legs={legs.get(s.date)} editable={canBus && s.date >= today && !s.cancelled} /> },
-    { id: "status", label: "สถานะ", width: "1%", align: "right", cell: (s) => { const x = studentSessionStatus(s); return <Pill tone={x.tone}>{x.label}</Pill> } },
-    { id: "actions", label: "จัดการ", required: true, width: "1%", align: "right",
-      cell: (s) => <span className="inline-flex opacity-0 transition-opacity group-hover/row:opacity-100 focus-within:opacity-100 has-[[aria-expanded=true]]:opacity-100"><StudentSessionMenu s={s} studentId={stu.id} /></span> },
+    // same-width pills so the column lines up whatever the label
+    { id: "status", label: "สถานะ", width: "1%", align: "right", cell: (s) => { const x = studentSessionStatus(s); return <Pill tone={x.tone} className="w-24 justify-center">{x.label}</Pill> } },
   ]
 
   // per course: held so far = มา + ขาด + ลา + ยังไม่เช็ค
@@ -382,16 +379,9 @@ function SessionList({ stu, ents }: { stu: Student; ents: Entitlement[] }) {
 
   return (
     <div className="space-y-3">
-      <div className="flex items-center gap-2">
-        <FilterChipGroup value={subject} onChange={setSubject} className="flex-1"
-          options={[{ value: "", label: "ทุกวิชา", count: all.length }, ...subjects.map((x) => ({ value: x, label: x, count: all.filter((s) => subjectsOf(s).includes(x)).length }))]} />
-        <ColumnsMenu id="student-sessions" columns={columns} />
-      </div>
-      {active.length > 0 && <p className="text-sm text-muted-foreground tabular-nums">{`ทั้งหมด ${active.length} คาบ · เรียนไปแล้ว ${done} · เหลือ ${active.length - done}`}</p>}
-      <DataTable id="student-sessions" columns={columns} rows={mine} rowKey={(s) => s.id} minWidth={560}
-        rowClassName={(s) => cn(s.cancelled && "opacity-45", s.date === today && "bg-primary/5")} empty="ไม่มีคาบ" />
+      {/* owner 2026-10-29: the per-course cards always on top */}
       {packages.length > 0 && (
-        <section className="space-y-2 pt-2">
+        <section className="space-y-2">
           <h3 className="text-sm font-semibold">การเข้าเรียนต่อคอร์ส</h3>
           {/* owner 2026-10-29: one card per course instead of a table */}
           <div className="grid gap-3 sm:grid-cols-2">
@@ -416,6 +406,15 @@ function SessionList({ stu, ents }: { stu: Student; ents: Entitlement[] }) {
           </div>
         </section>
       )}
+      <div className="flex items-center gap-2">
+        <NativeSelect className="w-48" value={subject} onChange={(e) => setSubject(e.target.value)}
+          options={[{ value: "", label: `ทุกวิชา (${all.length})` }, ...subjects.map((x) => ({ value: x, label: `${x} (${all.filter((s) => subjectsOf(s).includes(x)).length})` }))]} />
+        {active.length > 0 && <p className="text-sm text-muted-foreground tabular-nums">{`ทั้งหมด ${active.length} คาบ · เรียนไปแล้ว ${done} · เหลือ ${active.length - done}`}</p>}
+        <span className="ml-auto"><ColumnsMenu id="student-sessions" columns={columns} /></span>
+      </div>
+      <DataTable id="student-sessions" columns={columns} rows={mine} rowKey={(s) => s.id} minWidth={520} maxHeight="calc(100dvh - 16rem)"
+        rowActions={(s) => <StudentSessionMenu s={s} studentId={stu.id} />}
+        rowClassName={(s) => cn(s.cancelled && "opacity-45", s.date === today && "bg-primary/5")} empty="ไม่มีคาบ" />
     </div>
   )
 }
@@ -496,10 +495,40 @@ function NoteSeg({ stu }: { stu: Student }) {
   const userId = useStore((s) => s.userId)
   const add = useStore((s) => s.addStudentNote)
   const sessions = useStore((s) => s.sessions)
+  const calendarNotes = useStore((s) => s.calendarNotes)
+  const me = useStore((s) => s.me())
+  const now = useNow()
   const [text, setText] = useState("")
   const send = () => { if (report(add(stu.id, text), "บันทึกโน้ตแล้ว")) setText("") }
+  // owner 2026-10-29: the Note Calendar of this student too — managed the same way as on the calendar.
+  // One group per session: a session's own notes, a class's pinned notes on its next session, and the next session of
+  // each class the student is in (so a note can be added for the coming class).
+  const mineSessions = sessions.filter((x) => x.studentIds.includes(stu.id) && !x.cancelled)
+  const nextOf = (classId: ID) => mineSessions.filter((x) => x.classId === classId && sessionState(x, now) === "upcoming").sort((a, b) => (a.date + a.start).localeCompare(b.date + b.start))[0]
+    ?? mineSessions.filter((x) => x.classId === classId).sort((a, b) => (b.date + b.start).localeCompare(a.date + a.start))[0]
+  const noteSessionIds = new Set<ID>()
+  for (const n of calendarNotes.filter((x) => x.studentId === stu.id)) {
+    const se = n.sessionId ? sessions.find((x) => x.id === n.sessionId) : n.classId ? nextOf(n.classId) : undefined
+    if (se) noteSessionIds.add(se.id)
+  }
+  for (const classId of new Set(mineSessions.map((x) => x.classId).filter((x): x is ID => !!x))) { const se = nextOf(classId); if (se && sessionState(se, now) === "upcoming") noteSessionIds.add(se.id) }
+  const noteSessions = [...noteSessionIds].map((id) => sessions.find((x) => x.id === id)!).sort((a, b) => (a.date + a.start).localeCompare(b.date + b.start))
+  const canNote = (se: Session) => can(me, "session.manage") || se.teacherId === me.id || se.coTeacherIds.includes(me.id)
   return (
     <div className="flex h-full flex-col">
+      {noteSessions.length > 0 && (
+        <section className="mb-4 space-y-2">
+          <h3 className="flex items-center gap-1 text-sm font-semibold">Note ในปฏิทิน <InfoTip text="Note ที่แสดงบนการ์ดคาบในปฏิทิน — 📌 = ถาวร (ทุกคาบของคลาส) · เพิ่ม / แก้ / ลบ ได้ที่นี่เหมือนในปฏิทิน" /></h3>
+          <ul className="divide-y rounded-3xl bg-card shadow-sm ring-1 ring-foreground/5">
+            {noteSessions.map((se) => (
+              <li key={se.id} className="flex gap-3 px-4 py-2.5">
+                <span className="w-28 shrink-0 text-xs text-muted-foreground tabular-nums">{fmtDate(se.date, { weekday: true })} {se.start}<br />{subjectsOf(se).join(" + ")}</span>
+                <div className="min-w-0 flex-1"><CalendarNotes s={se} studentId={stu.id} canEdit={canNote(se)} /></div>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
       <div className="flex-1 space-y-3">
         {notes.length === 0 && <p className="rounded-xl border border-dashed p-8 text-center text-sm text-muted-foreground">ยังไม่มีโน้ต — ใช้จดเรื่องที่ทีมควรรู้เกี่ยวกับนักเรียนคนนี้</p>}
         {notes.map((n) => {
@@ -519,9 +548,12 @@ function NoteSeg({ stu }: { stu: Student }) {
         })}
       </div>
       <p className="my-2 flex items-center justify-center gap-1 text-xs text-muted-foreground"><MessageSquareIcon className="size-3.5" /> ข้อมูลภายในเท่านั้น — ผู้ปกครองไม่เห็น</p>
-      <div className="flex items-end gap-2 rounded-2xl border p-2">
-        <Textarea rows={1} className="min-h-9 flex-1 resize-none border-0 bg-transparent shadow-none" value={text} onChange={(e) => setText(e.target.value)} placeholder="พิมพ์โน้ต…" onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send() } }} />
-        <Button size="icon" disabled={!text.trim()} aria-label="บันทึกโน้ต" onClick={send}><SendIcon /></Button>
+      {/* owner 2026-10-29: the same type bar as the Inbox */}
+      <div className="flex items-center gap-1.5 rounded-3xl border bg-background p-1.5 shadow-sm transition-colors focus-within:border-ring/60">
+        <textarea rows={1} value={text} onChange={(e) => setText(e.target.value)} placeholder="พิมพ์โน้ต…"
+          onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) { e.preventDefault(); send() } }}
+          className={cn("max-h-40 min-h-9 flex-1", text ? "field-sizing-content" : "h-9 overflow-hidden whitespace-nowrap", "resize-none bg-transparent px-3 py-2 text-sm outline-none placeholder:text-muted-foreground")} />
+        <Button size="icon" className="rounded-full" disabled={!text.trim()} aria-label="บันทึกโน้ต" onClick={send}><ArrowUpIcon /></Button>
       </div>
     </div>
   )

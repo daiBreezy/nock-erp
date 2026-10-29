@@ -103,7 +103,7 @@ const SLIDE = "flex w-0 shrink-0 items-center overflow-hidden opacity-0 transiti
 const justify = (a?: Column<unknown>["align"]) => (a === "right" ? "justify-end" : a === "center" ? "justify-center" : "justify-start")
 const textAlign = (a?: Column<unknown>["align"]) => (a === "right" ? "text-right" : a === "center" ? "text-center" : "text-left")
 
-export function DataTable<R>({ id, columns, rows, rowKey, onRowClick, rowClassName, rowProps, sort, onSort, empty, minWidth = 900, expanded }: {
+export function DataTable<R>({ id, columns, rows, rowKey, onRowClick, rowClassName, rowProps, sort, onSort, empty, minWidth = 900, expanded, rowActions, maxHeight }: {
   /** one id per table — the saved layout is kept under it */
   id: string
   columns: Column<R>[]
@@ -118,6 +118,10 @@ export function DataTable<R>({ id, columns, rows, rowKey, onRowClick, rowClassNa
   minWidth?: number
   /** owner 2026-10-19 (Bus Route): a row that opens in place — what to show under it (null = closed) */
   expanded?: (row: R) => ReactNode
+  /** owner 2026-10-29: row actions are not a column — the ⋯ floats over the end of the row on hover only */
+  rowActions?: (row: R) => ReactNode
+  /** rows scroll inside the table and the header stays in view (owner 2026-10-29) */
+  maxHeight?: string
 }) {
   const L = useLayout(id, columns)
   const cols = L.visible
@@ -126,7 +130,8 @@ export function DataTable<R>({ id, columns, rows, rowKey, onRowClick, rowClassNa
   const [over, setOver] = useState<string | null>(null)
   // owner 2026-10-29: the column under the pointer (header) is tinted top to bottom, so you can see which one you are on
   const [hoverCol, setHoverCol] = useState<string | null>(null)
-  const fixed = !!L.widths && cols.every((c) => L.widths![c.id])
+  // widths saved for a different set of columns (one added / removed in the code since) are stale — fit content again
+  const fixed = !!L.widths && cols.every((c) => L.widths![c.id]) && Object.keys(L.widths).every((k) => columns.some((c) => c.id === k))
   const totalWidth = fixed ? cols.reduce((a, c) => a + L.widths![c.id], 0) : 0
   /** drag a column edge: every column's current width is taken as the start, then only the dragged edge moves.
    *  The last column is dragged by its LEFT edge (owner) — it and the column before it trade width. */
@@ -179,7 +184,7 @@ export function DataTable<R>({ id, columns, rows, rowKey, onRowClick, rowClassNa
 
   return (
     <div className="overflow-hidden rounded-3xl bg-card shadow-sm ring-1 ring-foreground/5">
-      <div className="overflow-x-auto">
+      <div className={maxHeight ? "overflow-auto" : "overflow-x-auto"} style={maxHeight ? { maxHeight } : undefined}>
         <table className={cn("text-sm [&_td]:align-middle [&_th]:align-middle", fixed ? "table-fixed" : "w-full")} style={fixed ? { width: totalWidth, minWidth: "100%" } : { minWidth }}>
           <colgroup>{cols.map((c) => <col key={c.id} style={fixed ? { width: L.widths![c.id] } : c.width ? { width: c.width } : undefined} />)}</colgroup>
           <thead className={HEAD}>
@@ -196,7 +201,7 @@ export function DataTable<R>({ id, columns, rows, rowKey, onRowClick, rowClassNa
                     onDragOver={(e) => { if (e.dataTransfer.types.includes(DRAG_TYPE)) { e.preventDefault(); setOver(c.id) } }}
                     onDragLeave={() => setOver((o) => (o === c.id ? null : o))}
                     onDrop={(e) => { const src = e.dataTransfer.getData(DRAG_TYPE); setOver(null); if (src) L.move(src, c.id) }}
-                    className={cn("group/th relative px-3 py-2.5 font-medium whitespace-nowrap", textAlign(c.align), stickyCls(c, true), hoverCol === c.id && "bg-primary/10 text-foreground", over === c.id && "bg-primary/10 shadow-[inset_2px_0_0_var(--primary)]")}>
+                    className={cn("group/th relative px-3 py-2.5 font-medium whitespace-nowrap", maxHeight && "sticky top-0 z-[5] bg-[color-mix(in_oklab,var(--muted)_40%,var(--card))]", textAlign(c.align), stickyCls(c, true), maxHeight && sticky(c) && "z-20", hoverCol === c.id && "bg-primary/10 text-foreground", over === c.id && "bg-primary/10 shadow-[inset_2px_0_0_var(--primary)]")}>
                     {/* owner 2026-10-12: the pin / drag icons take no room until the header is hovered — then they slide in
                         and the label gets shorter (…) inside the SAME column width: hovering never widens a column.
                         owner 2026-10-29: drag handle goes LAST, lock → pin. The invisible sizer gives the column its width. */}
@@ -246,10 +251,17 @@ export function DataTable<R>({ id, columns, rows, rowKey, onRowClick, rowClassNa
               return (
                 <Fragment key={rowKey(r)}>
                   <tr onClick={onRowClick && (() => onRowClick(r))} {...rowProps?.(r)} className={cn("group/row", ROW, "[&>td]:whitespace-nowrap", !onRowClick && "cursor-default", more != null && "bg-primary/5 hover:bg-primary/5", rowClassName?.(r))}>
-                    {cols.map((c) => (
+                    {cols.map((c, ci) => (
                       <td key={c.id} style={sticky(c) ? { left: left[c.id] ?? 0 } : undefined}
-                        className={cn(textAlign(c.align), stickyCls(c, false), fixed && "overflow-hidden text-ellipsis", hoverCol === c.id && "bg-primary/5", typeof c.className === "function" ? c.className(r) : c.className)}>
+                        className={cn(textAlign(c.align), stickyCls(c, false), fixed && "overflow-hidden text-ellipsis", hoverCol === c.id && "bg-primary/5", rowActions && ci === cols.length - 1 && !sticky(c) && "relative", typeof c.className === "function" ? c.className(r) : c.className)}>
                         {c.cell(r)}
+                        {rowActions && ci === cols.length - 1 && (
+                          // over the last cell, so nothing moves: hidden until the row is hovered (or its menu is open)
+                          <span onClick={(e) => e.stopPropagation()}
+                            className="absolute inset-y-0 right-0 flex items-center bg-gradient-to-l from-[color-mix(in_oklab,var(--muted)_40%,var(--card))] from-70% to-transparent pr-2 pl-8 opacity-0 transition-opacity group-hover/row:opacity-100 focus-within:opacity-100 has-[[aria-expanded=true]]:opacity-100">
+                            {rowActions(r)}
+                          </span>
+                        )}
                       </td>
                     ))}
                   </tr>
