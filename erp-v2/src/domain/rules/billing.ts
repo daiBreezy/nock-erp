@@ -1,6 +1,6 @@
 // Billing rules: one pricing function feeds Create, Edit, Detail and PDF (BL-2, BL-3, BL-4).
 
-import { addMonths, endOfMonth, fmtDate, fromMinutes, monthKey, nextWeekday, addDays, toMinutes, weekdayOf } from "../dates"
+import { addMonths, endOfMonth, fmtDate, fmtMoney, fromMinutes, monthKey, nextWeekday, addDays, toMinutes, weekdayOf } from "../dates"
 import type { AdvanceItem, Branch, BusAddOn, Entitlement, Leftover, Student, Weekday, BusLeg, Course, CourseLine, DateStr, Fee, Holiday, ID, Invoice, Klass, PriceUnit, Result, Role, Staff } from "../types"
 import { purchaseOf } from "./course"
 import { requireForceRemark } from "./notifications"
@@ -428,6 +428,47 @@ export function canRecordPayment(inv: Invoice, amount: number, total: number): R
   if (pending + amount > total) return { ok: false, error: `ยอดเกิน — ค้างชำระ ${total - pending} บาท` }
   return { ok: true, value: undefined }
 }
+
+/**
+ * One slip, several invoices (owner 2026-10-29): siblings keep their own invoices, the parent transfers once.
+ * Same family + same branch (one bank account), every invoice payable, and the slip covers exactly what they still owe.
+ */
+export function canRecordGroupPayment(invs: { inv: Invoice; familyId: ID | null | undefined; owed: number }[], amount: number): Result {
+  if (invs.length < 2) return { ok: false, error: "เลือกใบแจ้งหนี้อย่างน้อย 2 ใบ" }
+  const fam = invs[0].familyId
+  if (!fam || invs.some((x) => x.familyId !== fam)) return { ok: false, error: "จ่ายรวมได้เฉพาะใบแจ้งหนี้ของครอบครัวเดียวกัน" }
+  if (invs.some((x) => x.inv.branchId !== invs[0].inv.branchId)) return { ok: false, error: "จ่ายรวมได้เฉพาะใบแจ้งหนี้สาขาเดียวกัน" }
+  if (invs.some((x) => !["approved", "sent"].includes(x.inv.status))) return { ok: false, error: "ต้องอนุมัติใบแจ้งหนี้ทุกใบก่อนรับเงิน" }
+  if (invs.some((x) => x.owed <= 0)) return { ok: false, error: "มีใบที่ไม่มียอดค้างแล้ว" }
+  const sum = invs.reduce((a, x) => a + x.owed, 0)
+  if (amount !== sum) return { ok: false, error: `ยอดในสลิปต้องเท่ากับยอดค้างรวม ${fmtMoney(sum)}` }
+  return { ok: true, value: undefined }
+}
+
+/** owed = total − everything recorded (confirmed or not) */
+export const owedOn = (inv: Invoice, total: number) => total - paidAmount(inv, false)
+
+/** invoices paid with the same slip as this one (itself included), oldest number first */
+export function paymentGroup(inv: Invoice, all: Invoice[]): Invoice[] {
+  const ids = new Set(inv.payments.map((p) => p.groupId).filter(Boolean))
+  if (!ids.size) return [inv]
+  return all.filter((x) => x.payments.some((p) => p.groupId && ids.has(p.groupId))).sort((a, b) => (a.number ?? "").localeCompare(b.number ?? ""))
+}
+
+/**
+ * Receipts for one slip: the admin picks which invoices share one receipt (default: all of them).
+ * A combined receipt takes the number of its first invoice (receipt number = invoice number, owner 13 Jul); the rest keep their own.
+ */
+export function receiptNumbersFor(group: Pick<Invoice, "id" | "number">[], combinedIds: ID[]): Map<ID, string> {
+  const sorted = [...group].sort((a, b) => (a.number ?? "").localeCompare(b.number ?? ""))
+  const head = sorted.find((x) => combinedIds.includes(x.id))
+  const together = combinedIds.length >= 2 && head
+  return new Map(sorted.map((x) => [x.id, (together && combinedIds.includes(x.id) ? head.number : x.number) ?? ""]))
+}
+
+/** the invoices printed on this receipt (same receipt number, paid) */
+export const invoicesOnReceipt = (receiptNumber: string, all: Invoice[]) =>
+  all.filter((x) => x.status === "paid" && x.receiptNumber === receiptNumber).sort((a, b) => (a.number ?? "").localeCompare(b.number ?? ""))
 
 /** BL-18: the person who recorded a payment cannot confirm it. */
 export function canConfirmPayment(p: { recordedBy: ID; confirmedBy?: ID }, user: Staff, branchId: ID): Result {

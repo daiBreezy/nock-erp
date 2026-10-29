@@ -36,6 +36,16 @@ export function receiptMessage(inv: Invoice, total: number, ctx: { student: Stud
   ].filter(Boolean).join("\n")
 }
 
+/** one slip for several children → one receipt message listing each invoice */
+export function familyReceiptMessage(receiptNumber: string, rows: { number: string; total: number; student: Pick<Student, "nickname"> }[]): string {
+  return [
+    `🧾 ใบเสร็จรับเงิน ${receiptNumber}`,
+    `ได้รับชำระ ${fmtMoney(rows.reduce((a, r) => a + r.total, 0))} เรียบร้อยแล้วค่ะ`,
+    ...rows.map((r) => `• ${r.student.nickname} · ${r.number} · ${fmtMoney(r.total)}`),
+    "ขอบคุณค่ะ 😊",
+  ].join("\n")
+}
+
 /** Parents get the whole lesson (owner 2026-09-30): Book, Topic, Lesson Detail and the per-session feedback. */
 export function summaryMessage(sum: LessonSummary, ctx: { student: Student; session: Pick<Session, "subject" | "date" | "start">; book?: string; topic?: string }): string {
   return [

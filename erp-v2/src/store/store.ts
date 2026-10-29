@@ -255,6 +255,10 @@ type Store = DB & UIState & {
   recordRefund: (id: ID, r: { fromAccount: string; date: DateStr; reference: string }) => Result
   recordPayment: (id: ID, p: { amount: number; method: "transfer" | "cash"; reference: string; slip?: string }) => Result
   confirmPayment: (invoiceId: ID, paymentId: ID, forceRemark?: string) => Result<{ paid: boolean }>
+  /** one slip for several invoices of the same family — confirming any of them confirms the whole slip */
+  recordGroupPayment: (invoiceIds: ID[], p: { amount: number; method: "transfer" | "cash"; reference: string; slip?: string }) => Result
+  /** which invoices paid with one slip share one receipt (the rest get their own) */
+  setReceiptGrouping: (invoiceId: ID, combinedIds: ID[]) => Result
 
   saveLead: (l: Lead) => Result<Lead>
   moveLeadStage: (id: ID, stage: LeadStage) => Result
@@ -467,6 +471,76 @@ export const useStore = create<Store>()(
       const leadOfStudent = (studentId: ID) => get().leads.find((l) => l.trialStudentId === studentId || l.convertedStudentId === studentId)
       const advanceLead = (leadId: ID, stage: LeadStage, extra: Partial<Lead> = {}) =>
         set((cur) => ({ leads: cur.leads.map((l) => (l.id === leadId ? { ...l, ...extra, stage: CRM.advanceStage(l.stage, stage) } : l)) }))
+
+      /** quiet = part of a one-slip group: the caller sends one Force notice and one combined receipt */
+      const confirmOne = (invoiceId: ID, paymentId: ID, forceRemark: string | undefined, quiet: boolean): Result<{ paid: boolean }> => {
+        const s = get()
+        const inv = s.invoices.find((x) => x.id === invoiceId)!
+        const pay = inv.payments.find((p) => p.id === paymentId)!
+        const forced = forceRemark !== undefined
+        const r = forced ? Bill.canForceConfirmPayment(pay, s.me(), inv.branchId, forceRemark) : Bill.canConfirmPayment(pay, s.me(), inv.branchId)
+        if (!r.ok) return r
+        const payments = inv.payments.map((p) =>
+          p.id === paymentId ? { ...p, confirmedBy: s.userId, forced: forced ? { by: s.userId, at: s.now().toISOString(), remark: forceRemark.trim() } : undefined } : p,
+        )
+        if (forced && !quiet) set({ notifications: [forceNotice(s, inv.branchId, "ยืนยันยอดเงิน", `${inv.number ?? ""} · ${fmtMoney(pay.amount)}`, forceRemark), ...s.notifications] })
+        const ctx = ctxOf(s, inv.branchId)
+        const totals = Bill.invoiceTotals(inv, ctx)
+        const paid = payments.filter((p) => p.confirmedBy).reduce((a, p) => a + p.amount, 0) >= totals.total
+        let next: Invoice = { ...inv, payments }
+        let { entitlements, classes, sessions } = s
+        if (paid) {
+          next = { ...next, status: "paid", receiptNumber: inv.number ?? undefined } // the receipt carries the invoice's number
+          // auto-claim: entitlement covers exactly the paid window (BL-19) and the student joins the class sessions in it
+          const invBranch = s.branches.find((b) => b.id === inv.branchId)
+          for (const l of totals.lines) {
+            if (!l.course || !l.quote) continue
+            const q = l.quote, co = l.course, classIds = l.line.classIds
+            const paidSlot = new Set(q.slots.map((x) => `${x.classId}|${x.date}`))
+            // hour packs are counted; week and month packs are a window with any number of sessions
+            // hour packs are used up by minutes really attended (owner 2026-09-30)
+            entitlements = [...entitlements, { id: uid("en"), studentId: inv.studentId, courseId: co.id, subjects: co.subjects, classIds, invoiceId: inv.id, kind: co.unit === "hour" ? "sessions" : "subscription", from: q.from, to: q.to, sessionsTotal: q.slots.length, leaveQuota: invBranch ? Cfg.leaveQuotaFor(invBranch, co.unit, co.duration, l.line.periods, q.slots.length) : undefined, minutesTotal: co.unit === "hour" ? q.slots.reduce((m, x) => m + x.minutes, 0) : undefined, carryMinutes: q.carryOut || undefined }]
+            // join the class — with their part of it when they attend only part (standing seat)
+            classes = classes.map((c) => {
+              if (!classIds.includes(c.id)) return c
+              const seat = l.line.seats?.[c.id]
+              const joined = c.studentIds.includes(inv.studentId) ? c : { ...c, studentIds: [...c.studentIds, inv.studentId] }
+              return seat ? { ...joined, seats: { ...joined.seats, [inv.studentId]: seat } } : joined
+            })
+            sessions = sessions.map((x) => (x.classId && paidSlot.has(`${x.classId}|${x.date}`) && !x.studentIds.includes(inv.studentId) ? { ...x, studentIds: [...x.studentIds, inv.studentId] } : x))
+          }
+        }
+        set({ invoices: s.invoices.map((x) => (x.id === invoiceId ? next : x)), entitlements, classes, sessions })
+        log("billing", [inv.studentId], forced ? "Force ยืนยันยอดเงิน" : "ยืนยันยอดเงิน", `${inv.number} · ${fmtMoney(pay.amount)}${forced ? ` · เหตุผล: ${forceRemark!.trim()}` : ""}`)
+        if (paid) {
+          log("billing", [inv.studentId], "ชำระครบ", `${inv.number} · ออกใบเสร็จ ${next.receiptNumber}${inv.lines.length ? " · ระบบเพิ่มเข้าคลาสอัตโนมัติ" : ""}`, true)
+          // payment confirmed = the lead is a student now — nobody has to press "convert" (owner 2026-09-28)
+          const lead = leadOfStudent(inv.studentId)
+          if (lead && lead.stage !== "enrolled") {
+            const stu = get().students.find((x) => x.id === inv.studentId)!
+            if (!stu.familyId) {
+              const familyId = ensureLeadFamily(lead, { studentName: stu.name })
+              set((cur) => ({ students: cur.students.map((x) => (x.id === stu.id ? { ...x, familyId } : x)) }))
+            }
+            set((cur) => ({ leads: cur.leads.map((l) => (l.id === lead.id ? { ...l, stage: "enrolled", convertedStudentId: inv.studentId } : l)) }))
+            log("profile", [inv.studentId], "ลงทะเบียนเป็นนักเรียน", `อัตโนมัติจากการยืนยันยอด ${inv.number} · Lead ${lead.name}`, true)
+          }
+          // receipt goes to the parent by itself (a one-slip group sends one combined receipt instead)
+          if (quiet) return { ok: true, value: { paid } }
+          const st = get()
+          const stu = st.students.find((x) => x.id === inv.studentId)!
+          // the earliest class across every course on the invoice
+          const first = totals.lines
+            .flatMap((l) => (l.quote?.slots[0] ? st.sessions.filter((x) => x.classId === l.quote!.slots[0].classId && x.date === l.quote!.slots[0].date) : []))
+            .sort((a, b) => (a.date + a.start).localeCompare(b.date + b.start))[0]
+          const receiptDelivery = pushLine(stu.familyId, Msg.receiptMessage(next, totals.total, { student: stu, firstSession: first }), (ok, error) => {
+            set((cur) => ({ invoices: cur.invoices.map((x) => (x.id === invoiceId ? { ...x, receiptDelivery: ok ? "delivered" : "failed" } : x)) }))
+            if (!ok) toast.error(`ส่งใบเสร็จ ${next.receiptNumber} ทาง LINE ไม่สำเร็จ — ${error ?? ""}`)
+          })
+          set((cur) => ({ invoices: cur.invoices.map((x) => (x.id === invoiceId ? { ...x, receiptDelivery } : x)) }))
+        }
+        return { ok: true, value: { paid } }
+      }
 
       /** the lead's family: reuse one already on the same LINE (siblings), else create it from the lead;
        *  the lead's chats become that family's chats so invoices/summaries reach the same LINE */
@@ -2495,70 +2569,70 @@ export const useStore = create<Store>()(
 
       confirmPayment: (invoiceId, paymentId, forceRemark) => {
         const s = get()
-        const inv = s.invoices.find((x) => x.id === invoiceId)!
-        const pay = inv.payments.find((p) => p.id === paymentId)!
+        const pay = s.invoices.find((x) => x.id === invoiceId)?.payments.find((p) => p.id === paymentId)
+        if (!pay) return fail("ไม่พบรายการรับเงิน")
+        if (!pay.groupId) return confirmOne(invoiceId, paymentId, forceRemark, false)
+        // one slip → every invoice on it is confirmed together (checked first: all or nothing)
         const forced = forceRemark !== undefined
-        const r = forced ? Bill.canForceConfirmPayment(pay, s.me(), inv.branchId, forceRemark) : Bill.canConfirmPayment(pay, s.me(), inv.branchId)
-        if (!r.ok) return r
-        const payments = inv.payments.map((p) =>
-          p.id === paymentId ? { ...p, confirmedBy: s.userId, forced: forced ? { by: s.userId, at: s.now().toISOString(), remark: forceRemark.trim() } : undefined } : p,
-        )
-        if (forced) set({ notifications: [forceNotice(s, inv.branchId, "ยืนยันยอดเงิน", `${inv.number ?? ""} · ${fmtMoney(pay.amount)}`, forceRemark), ...s.notifications] })
-        const ctx = ctxOf(s, inv.branchId)
-        const totals = Bill.invoiceTotals(inv, ctx)
-        const paid = payments.filter((p) => p.confirmedBy).reduce((a, p) => a + p.amount, 0) >= totals.total
-        let next: Invoice = { ...inv, payments }
-        let { entitlements, classes, sessions } = s
-        if (paid) {
-          next = { ...next, status: "paid", receiptNumber: inv.number ?? undefined } // the receipt carries the invoice's number
-          // auto-claim: entitlement covers exactly the paid window (BL-19) and the student joins the class sessions in it
-          const invBranch = s.branches.find((b) => b.id === inv.branchId)
-          for (const l of totals.lines) {
-            if (!l.course || !l.quote) continue
-            const q = l.quote, co = l.course, classIds = l.line.classIds
-            const paidSlot = new Set(q.slots.map((x) => `${x.classId}|${x.date}`))
-            // hour packs are counted; week and month packs are a window with any number of sessions
-            // hour packs are used up by minutes really attended (owner 2026-09-30)
-            entitlements = [...entitlements, { id: uid("en"), studentId: inv.studentId, courseId: co.id, subjects: co.subjects, classIds, invoiceId: inv.id, kind: co.unit === "hour" ? "sessions" : "subscription", from: q.from, to: q.to, sessionsTotal: q.slots.length, leaveQuota: invBranch ? Cfg.leaveQuotaFor(invBranch, co.unit, co.duration, l.line.periods, q.slots.length) : undefined, minutesTotal: co.unit === "hour" ? q.slots.reduce((m, x) => m + x.minutes, 0) : undefined, carryMinutes: q.carryOut || undefined }]
-            // join the class — with their part of it when they attend only part (standing seat)
-            classes = classes.map((c) => {
-              if (!classIds.includes(c.id)) return c
-              const seat = l.line.seats?.[c.id]
-              const joined = c.studentIds.includes(inv.studentId) ? c : { ...c, studentIds: [...c.studentIds, inv.studentId] }
-              return seat ? { ...joined, seats: { ...joined.seats, [inv.studentId]: seat } } : joined
-            })
-            sessions = sessions.map((x) => (x.classId && paidSlot.has(`${x.classId}|${x.date}`) && !x.studentIds.includes(inv.studentId) ? { ...x, studentIds: [...x.studentIds, inv.studentId] } : x))
-          }
+        const members = s.invoices.flatMap((i) => i.payments.filter((p) => p.groupId === pay.groupId && !p.confirmedBy).map((p) => ({ i, p })))
+        for (const { i, p } of members) {
+          const r = forced ? Bill.canForceConfirmPayment(p, s.me(), i.branchId, forceRemark) : Bill.canConfirmPayment(p, s.me(), i.branchId)
+          if (!r.ok) return r
         }
-        set({ invoices: s.invoices.map((x) => (x.id === invoiceId ? next : x)), entitlements, classes, sessions })
-        log("billing", [inv.studentId], forced ? "Force ยืนยันยอดเงิน" : "ยืนยันยอดเงิน", `${inv.number} · ${fmtMoney(pay.amount)}${forced ? ` · เหตุผล: ${forceRemark!.trim()}` : ""}`)
+        for (const { i, p } of members) confirmOne(i.id, p.id, forceRemark, true)
+        const total = members.reduce((a, x) => a + x.p.amount, 0)
+        const numbers = members.map((x) => x.i.number).join(", ")
+        if (forced) set((cur) => ({ notifications: [forceNotice(s, members[0].i.branchId, "ยืนยันยอดเงิน", `${numbers} · ${fmtMoney(total)}`, forceRemark), ...cur.notifications] }))
+        const st = get()
+        const group = Bill.paymentGroup(st.invoices.find((x) => x.id === invoiceId)!, st.invoices)
+        const paid = group.every((x) => x.status === "paid")
         if (paid) {
-          log("billing", [inv.studentId], "ชำระครบ", `${inv.number} · ออกใบเสร็จ ${next.receiptNumber}${inv.lines.length ? " · ระบบเพิ่มเข้าคลาสอัตโนมัติ" : ""}`, true)
-          // payment confirmed = the lead is a student now — nobody has to press "convert" (owner 2026-09-28)
-          const lead = leadOfStudent(inv.studentId)
-          if (lead && lead.stage !== "enrolled") {
-            const stu = get().students.find((x) => x.id === inv.studentId)!
-            if (!stu.familyId) {
-              const familyId = ensureLeadFamily(lead, { studentName: stu.name })
-              set((cur) => ({ students: cur.students.map((x) => (x.id === stu.id ? { ...x, familyId } : x)) }))
-            }
-            set((cur) => ({ leads: cur.leads.map((l) => (l.id === lead.id ? { ...l, stage: "enrolled", convertedStudentId: inv.studentId } : l)) }))
-            log("profile", [inv.studentId], "ลงทะเบียนเป็นนักเรียน", `อัตโนมัติจากการยืนยันยอด ${inv.number} · Lead ${lead.name}`, true)
-          }
-          // receipt goes to the parent by itself
-          const st = get()
-          const stu = st.students.find((x) => x.id === inv.studentId)!
-          // the earliest class across every course on the invoice
-          const first = totals.lines
-            .flatMap((l) => (l.quote?.slots[0] ? st.sessions.filter((x) => x.classId === l.quote!.slots[0].classId && x.date === l.quote!.slots[0].date) : []))
-            .sort((a, b) => (a.date + a.start).localeCompare(b.date + b.start))[0]
-          const receiptDelivery = pushLine(stu.familyId, Msg.receiptMessage(next, totals.total, { student: stu, firstSession: first }), (ok, error) => {
-            set((cur) => ({ invoices: cur.invoices.map((x) => (x.id === invoiceId ? { ...x, receiptDelivery: ok ? "delivered" : "failed" } : x)) }))
-            if (!ok) toast.error(`ส่งใบเสร็จ ${next.receiptNumber} ทาง LINE ไม่สำเร็จ — ${error ?? ""}`)
+          // default: one receipt for the whole slip — the admin can split it afterwards
+          const nums = Bill.receiptNumbersFor(group, group.map((x) => x.id))
+          const receipt = nums.get(group[0].id)!
+          const ids = new Set(group.map((x) => x.id))
+          set((cur) => ({ invoices: cur.invoices.map((x) => (ids.has(x.id) ? { ...x, receiptNumber: nums.get(x.id) } : x)) }))
+          const rows = group.map((x) => ({ number: x.number ?? "", total: Bill.invoiceTotals(x, ctxOf(st, x.branchId)).total, student: st.students.find((y) => y.id === x.studentId)! }))
+          log("billing", group.map((x) => x.studentId), "ออกใบเสร็จรวม", `${receipt} · ${rows.map((r) => r.number).join(" + ")} · ${fmtMoney(rows.reduce((a, r) => a + r.total, 0))}`, true)
+          const familyId = rows[0].student.familyId
+          const receiptDelivery = pushLine(familyId, Msg.familyReceiptMessage(receipt, rows), (ok, error) => {
+            set((cur) => ({ invoices: cur.invoices.map((x) => (ids.has(x.id) ? { ...x, receiptDelivery: ok ? "delivered" : "failed" } : x)) }))
+            if (!ok) toast.error(`ส่งใบเสร็จ ${receipt} ทาง LINE ไม่สำเร็จ — ${error ?? ""}`)
           })
-          set((cur) => ({ invoices: cur.invoices.map((x) => (x.id === invoiceId ? { ...x, receiptDelivery } : x)) }))
+          set((cur) => ({ invoices: cur.invoices.map((x) => (ids.has(x.id) ? { ...x, receiptDelivery } : x)) }))
         }
         return { ok: true, value: { paid } }
+      },
+
+      recordGroupPayment: (invoiceIds, p) => {
+        const s = get()
+        const perm = requirePerm(s.me(), "billing.manage")
+        if (!perm.ok) return perm
+        const invs = invoiceIds.map((id) => s.invoices.find((x) => x.id === id)).filter((x): x is Invoice => !!x)
+        const rows = invs.map((inv) => ({ inv, familyId: s.students.find((x) => x.id === inv.studentId)?.familyId, owed: Bill.owedOn(inv, Bill.invoiceTotals(inv, ctxOf(s, inv.branchId)).total) }))
+        const r = Bill.canRecordGroupPayment(rows, p.amount)
+        if (!r.ok) return r
+        const groupId = uid("pg")
+        const at = s.now().toISOString()
+        const share = new Map(rows.map((x) => [x.inv.id, x.owed]))
+        set({ invoices: s.invoices.map((x) => (share.has(x.id) ? { ...x, payments: [...x.payments, { id: uid("pay"), ...p, amount: share.get(x.id)!, groupId, recordedBy: s.userId, recordedAt: at }] } : x)) })
+        log("billing", invs.map((x) => x.studentId), "บันทึกรับเงิน (สลิปเดียว)", `${invs.map((x) => x.number).join(" + ")} · ${fmtMoney(p.amount)}`)
+        return OK
+      },
+
+      setReceiptGrouping: (invoiceId, combinedIds) => {
+        const s = get()
+        const perm = requirePerm(s.me(), "billing.manage")
+        if (!perm.ok) return perm
+        const inv = s.invoices.find((x) => x.id === invoiceId)
+        if (!inv) return fail("ไม่พบใบแจ้งหนี้")
+        const group = Bill.paymentGroup(inv, s.invoices)
+        if (group.length < 2) return fail("ใบนี้ไม่ได้จ่ายรวมกับใบอื่น")
+        if (group.some((x) => x.status !== "paid")) return fail("ต้องยืนยันยอดเงินครบทุกใบก่อน")
+        const nums = Bill.receiptNumbersFor(group, combinedIds.filter((id) => group.some((x) => x.id === id)))
+        set({ invoices: s.invoices.map((x) => (nums.has(x.id) ? { ...x, receiptNumber: nums.get(x.id) } : x)) })
+        log("billing", group.map((x) => x.studentId), "จัดใบเสร็จ", [...new Set(nums.values())].join(" · "))
+        return OK
       },
 
       // ---------------- CRM ----------------

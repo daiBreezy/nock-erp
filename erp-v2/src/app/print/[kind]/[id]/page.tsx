@@ -3,7 +3,7 @@
 import { useParams } from "next/navigation"
 import { PrinterIcon } from "lucide-react"
 import { fmtMoney } from "@/domain/dates"
-import { invoiceTotals } from "@/domain/rules/billing"
+import { invoiceTotals, invoicesOnReceipt } from "@/domain/rules/billing"
 import * as Doc from "@/domain/rules/documents"
 import { creditNoteTotal } from "@/domain/rules/refunds"
 import { useStore } from "@/store/store"
@@ -34,24 +34,34 @@ export default function PrintDocument() {
   const company = s.system.company
 
   const ready = inv && branch && stu && (kind !== "receipt" || inv.receiptNumber) && (kind !== "credit-note" || cn)
-  const customer = stu ? Doc.customerOf(stu, fam) : null
+  const baseCustomer = stu ? Doc.customerOf(stu, fam) : null
   const number = kind === "credit-note" ? cn?.number : kind === "receipt" ? inv?.receiptNumber : inv?.number
 
-  if (!ready || !customer) return <p className="p-10 text-center text-sm text-muted-foreground">ไม่พบเอกสาร หรือยังออกเอกสารนี้ไม่ได้</p>
+  if (!ready || !baseCustomer) return <p className="p-10 text-center text-sm text-muted-foreground">ไม่พบเอกสาร หรือยังออกเอกสารนี้ไม่ได้</p>
 
-  const totals = invoiceTotals(inv, { branch, courses: s.courses, classes: s.classes, holidays: s.holidays })
+  const ctx = { branch, courses: s.courses, classes: s.classes, holidays: s.holidays }
+  const totals = invoiceTotals(inv, ctx)
+  // one slip for siblings (owner 2026-10-29): a combined receipt lists every invoice on it, each child's lines labelled
+  const onReceipt = kind === "receipt" ? invoicesOnReceipt(inv.receiptNumber!, s.invoices).filter((x) => x.branchId === inv.branchId) : []
+  const combined = onReceipt.length > 1
+  // a combined receipt is the parent's (they paid for every child) unless the family has its own tax name
+  const payer = fam?.parents.find((p) => p.primary) ?? fam?.parents[0]
+  const customer = combined && !fam?.taxInfo?.customerName && payer?.name ? { ...baseCustomer, name: payer.name } : baseCustomer
   // owner Row 36 (2026-10-28): Liclass paper prints in Japanese, NockAcademy in Thai — English stays the 2nd line
   const lang = Doc.docLang(branch.brand)
   const L = Doc.DOC_LABELS[lang]
-  const items = cn ? Doc.creditNoteItems(cn, branch.brand) : Doc.invoiceItems(inv, totals, branch)
-  const total = cn ? creditNoteTotal(cn) : totals.total
+  const nick = (studentId: string) => s.students.find((x) => x.id === studentId)?.nickname ?? ""
+  const items = cn ? Doc.creditNoteItems(cn, branch.brand)
+    : combined ? onReceipt.flatMap((x) => Doc.invoiceItems(x, invoiceTotals(x, ctx), branch).map((it) => ({ ...it, description: `${nick(x.studentId)} · ${it.description}` })))
+    : Doc.invoiceItems(inv, totals, branch)
+  const total = cn ? creditNoteTotal(cn) : combined ? onReceipt.reduce((a, x) => a + invoiceTotals(x, ctx).total, 0) : totals.total
   const { date: invDate, dueBy } = Doc.invoiceDates(inv)
-  const date = kind === "receipt" ? Doc.receiptDate(inv) : kind === "credit-note" ? cn!.createdAt.slice(0, 10) : invDate
+  const date = kind === "receipt" ? (combined ? onReceipt.map((x) => Doc.receiptDate(x) ?? "").sort().at(-1) || null : Doc.receiptDate(inv)) : kind === "credit-note" ? cn!.createdAt.slice(0, 10) : invDate
   const signer = Doc.preparedBy(cn ?? inv, s.staff)
   const [, en] = TITLE[kind]
   const titlePrimary = kind === "credit-note" ? L.creditNote : L[kind]
-  const memo = [Doc.invoiceMemo(inv, { brandMemo: s.system.invoiceMemos[branch.brand], branch, courses: s.courses, classes: s.classes }).memo, kind === "credit-note" ? `${L.invRef} ${inv.number} · ${[...cn!.reasons, cn!.remark].filter(Boolean).join(", ")}` : inv.noteToParent].filter(Boolean).join("\n")
-  const rows = [...items, ...Array.from({ length: Math.max(0, 8 - items.length) }, () => null)]
+  const memo = [Doc.invoiceMemo(inv, { brandMemo: s.system.invoiceMemos[branch.brand], branch, courses: s.courses, classes: s.classes }).memo, kind === "credit-note" ? `${L.invRef} ${inv.number} · ${[...cn!.reasons, cn!.remark].filter(Boolean).join(", ")}` : combined ? `${L.invRef} ${onReceipt.map((x) => x.number).join(", ")}` : inv.noteToParent].filter(Boolean).join("\n")
+  const rows: (typeof items[number] | null)[] = [...items, ...Array.from({ length: Math.max(0, 8 - items.length) }, () => null)]
 
   return (
     <div className="min-h-screen bg-neutral-200 py-6 print:bg-white print:py-0">
@@ -93,6 +103,7 @@ export default function PrintDocument() {
               <tr><td className="font-semibold">NO.</td><td className="font-mono">{number}</td></tr>
               <tr><td className="font-semibold">DATE</td><td>{d(date)}</td></tr>
               {kind === "credit-note" && <tr><td className="font-semibold">REF.</td><td className="font-mono">{inv.number}</td></tr>}
+              {combined && <tr><td className="font-semibold align-top">REF.</td><td className="font-mono">{onReceipt.map((x) => <div key={x.id}>{x.number}</div>)}</td></tr>}
             </tbody>
           </table>
         </section>

@@ -1395,6 +1395,8 @@ export interface Payment {
   confirmedBy?: ID
   /** set when the recorder confirmed their own payment (Force) */
   forced?: ForcedAction
+  /** one slip for several invoices of the same family (owner 2026-10-29): each invoice keeps its own share, same groupId + slip */
+  groupId?: ID
 }
 
 /** Force Approve (owner 2026-09-26): skip maker–checker, remark always required, whole branch + Director notified. */

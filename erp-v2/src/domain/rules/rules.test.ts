@@ -9,6 +9,7 @@ import { chartPrice, defaultCourseName, filterCourses, validateCourse } from "./
 import { busRate, copyHours, gradeLabel, subjectLabel, priceOf, priceRange, setPrice, validateBranchInfo, validateDurations, validateHoliday, validatePromotion, validateSpecialPeriods, everyDay, subjectAbbr } from "./settings"
 import { forceAudience, isUnread, messageAudience, noteRecipients, notify, validateMessage, visibleTo } from "./notifications"
 import * as Sum from "./summaries"
+import * as Pay from "./billing"
 import { chatDayLabel, groupByDay } from "./inbox"
 import { findFamilyDuplicates, findStudentDuplicates, familyFromLead, familyFromSubmission, familyNameFor, splitName, joinName, futureSessionsOf, matchExistingFamily, mergeSubmission, nicknameFrom, searchStudents, studentLabel, submissionChanges, uniqueFamilies, validateFamily, validateStaff, validateStudent } from "./people"
 import { suggestFixes } from "./suggest"
@@ -2772,5 +2773,30 @@ describe("test/trial record follows its session when moved", () => {
     const a = { id: "a1", type: "test" as const, leadId: "ld1", studentId: "st1", sessionId: "se1", subject: "x", date: "2026-11-01", start: "10:00" }
     expect(assessmentsFollowSessions([a], [{ id: "se1", date: "2026-11-03", start: "13:00" }])[0]).toMatchObject({ date: "2026-11-03", start: "13:00" })
     expect(assessmentsFollowSessions([a], [])[0]).toBe(a)
+  })
+})
+
+describe("one slip for several invoices of a family (owner 2026-10-29)", () => {
+  const inv = (id: string, number: string, extra: Partial<Invoice> = {}) => ({ id, number, branchId: "b1", studentId: id, status: "sent", payments: [], ...extra }) as unknown as Invoice
+  const a = inv("i1", "INV-001"), b = inv("i2", "INV-002")
+  it("same family + branch, approved, and the slip equals what is owed", () => {
+    expect(Pay.canRecordGroupPayment([{ inv: a, familyId: "f1", owed: 3000 }, { inv: b, familyId: "f1", owed: 2000 }], 5000).ok).toBe(true)
+    expect(Pay.canRecordGroupPayment([{ inv: a, familyId: "f1", owed: 3000 }, { inv: b, familyId: "f1", owed: 2000 }], 4000).ok).toBe(false)
+    expect(Pay.canRecordGroupPayment([{ inv: a, familyId: "f1", owed: 3000 }, { inv: b, familyId: "f2", owed: 2000 }], 5000).ok).toBe(false)
+    expect(Pay.canRecordGroupPayment([{ inv: a, familyId: "f1", owed: 3000 }, { inv: { ...b, branchId: "b2" }, familyId: "f1", owed: 2000 }], 5000).ok).toBe(false)
+    expect(Pay.canRecordGroupPayment([{ inv: a, familyId: "f1", owed: 3000 }, { inv: { ...b, status: "draft" }, familyId: "f1", owed: 2000 }], 5000).ok).toBe(false)
+    expect(Pay.canRecordGroupPayment([{ inv: a, familyId: "f1", owed: 3000 }], 3000).ok).toBe(false)
+  })
+  it("receipts: combined ones take the first invoice's number, the rest keep their own", () => {
+    const c = inv("i3", "INV-003")
+    expect([...Pay.receiptNumbersFor([b, a, c], ["i1", "i2", "i3"]).values()]).toEqual(["INV-001", "INV-001", "INV-001"])
+    expect(Object.fromEntries(Pay.receiptNumbersFor([a, b, c], ["i2", "i3"]))).toEqual({ i1: "INV-001", i2: "INV-002", i3: "INV-002" })
+    expect([...Pay.receiptNumbersFor([a, b], ["i1"]).values()]).toEqual(["INV-001", "INV-002"])
+  })
+  it("finds the invoices paid with the same slip", () => {
+    const pay = (groupId?: string) => ({ id: "p", amount: 1, method: "transfer", reference: "", recordedBy: "u", recordedAt: "", groupId }) as Invoice["payments"][number]
+    const g1 = inv("i1", "INV-001", { payments: [pay("g")] }), g2 = inv("i2", "INV-002", { payments: [pay("g")] }), lone = inv("i3", "INV-003", { payments: [pay()] })
+    expect(Pay.paymentGroup(g2, [lone, g2, g1]).map((x) => x.id)).toEqual(["i1", "i2"])
+    expect(Pay.paymentGroup(lone, [lone, g1]).map((x) => x.id)).toEqual(["i3"])
   })
 })
