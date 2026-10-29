@@ -483,6 +483,49 @@ function StudentRow({ s, sid, viewOnly, canManage, mine, text, setText, selectab
   )
 }
 
+/**
+ * The student's own actions on one session, from anywhere (owner 2026-10-29 — e.g. the student panel's session list):
+ * ย้ายคาบ (Re-schedule, once or permanently) · ลา · เวลาเรียน · เปิดคาบ · เอาออกจากคลาส. Same rules as the session sheet.
+ */
+export function StudentSessionMenu({ s, studentId }: { s: Session; studentId: ID }) {
+  const me = useStore((st) => st.me())
+  const attendance = useStore((st) => st.attendance)
+  const now = useNow(30_000)
+  const [open, setOpen] = useState<"reschedule" | "remove" | "seat" | "leave" | "session" | null>(null)
+  const canManage = can(me, "session.manage")
+  const mine = s.teacherId === me.id || s.coTeacherIds.includes(me.id)
+  const canMove = can(me, "student.move") && (canManage || mine)
+  const a = attendance.find((x) => x.sessionId === s.id && x.studentId === studentId)
+  const st = state(s, now)
+  const canLeave = can(me, "attendance.mark") && (canManage || mine) && Att.canMark(s, "leave", now).ok
+  return (
+    <>
+      <DropdownMenu>
+        <DropdownMenuTrigger render={<Button size="icon-sm" variant="ghost" aria-label="จัดการคาบนี้" onClick={(e) => e.stopPropagation()} />}><EllipsisVerticalIcon /></DropdownMenuTrigger>
+        <DropdownMenuContent align="end" className="w-64">
+          <DropdownMenuItem disabled={!canMove || st !== "upcoming" || !!a || s.cancelled} onClick={() => setOpen("reschedule")}>
+            <CalendarClockIcon /><span className="flex flex-col"><span>ย้ายคาบ (Re-schedule)</span><span className="text-xs text-muted-foreground">ครั้งเดียว (สัปดาห์นี้ / หน้า) หรือถาวร</span></span>
+          </DropdownMenuItem>
+          <DropdownMenuItem disabled={!canLeave || s.cancelled} onClick={() => setOpen("leave")}><LogOutIcon /> ลา</DropdownMenuItem>
+          {canManage && <DropdownMenuItem disabled={st === "closed" || s.cancelled} onClick={() => setOpen("seat")}><ClockIcon /> เวลาเรียน (บางชั่วโมง)</DropdownMenuItem>}
+          <DropdownMenuItem onClick={() => setOpen("session")}><CalendarDaysIcon /> เปิดคาบนี้</DropdownMenuItem>
+          {canManage && st !== "closed" && !s.cancelled && (
+            <>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem variant="destructive" onClick={() => setOpen("remove")}><UserMinusIcon /> เอาออกจากคลาส</DropdownMenuItem>
+            </>
+          )}
+        </DropdownMenuContent>
+      </DropdownMenu>
+      {open === "reschedule" && <RescheduleDialog from={s} studentId={studentId} onClose={() => setOpen(null)} />}
+      {open === "remove" && <RemoveDialog s={s} studentId={studentId} onClose={() => setOpen(null)} />}
+      {open === "seat" && <SeatDialog s={s} studentId={studentId} onClose={() => setOpen(null)} />}
+      {open === "leave" && <LeaveDialog s={s} studentId={studentId} onClose={() => setOpen(null)} />}
+      <SessionSheet sessionId={open === "session" ? s.id : null} onClose={() => setOpen(null)} />
+    </>
+  )
+}
+
 const state = sessionState
 // re-read Book / Topic / Detail when "Summary Template" (or anyone) changes them on the saved summary
 const lessonKey = (x?: LessonSummary) => `${x?.id ?? "new"}|${x?.bookId ?? ""}|${x?.topicId ?? ""}|${x?.detail ?? ""}`

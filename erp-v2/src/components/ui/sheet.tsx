@@ -36,28 +36,73 @@ function SheetOverlay({ className, ...props }: SheetPrimitive.Backdrop.Props) {
   )
 }
 
+/**
+ * Every right-side panel can be dragged wider / narrower by its left edge (owner 2026-10-29). The width is kept
+ * per panel size (this browser) — double-click the edge to go back to the default.
+ */
+const WIDTH_PREFIX = "nockerp-panel-width:"
+function usePanelWidth(key: string) {
+  const [width, setWidth] = React.useState<number | null>(() => {
+    try { const v = Number(localStorage.getItem(WIDTH_PREFIX + key)); return v > 0 ? v : null } catch { return null }
+  })
+  const save = (w: number | null) => {
+    setWidth(w)
+    try { if (w) localStorage.setItem(WIDTH_PREFIX + key, String(w)); else localStorage.removeItem(WIDTH_PREFIX + key) } catch {}
+  }
+  return [width, save] as const
+}
+
+function ResizeHandle({ onResize, onReset }: { onResize: (w: number) => void; onReset: () => void }) {
+  const start = (e: React.PointerEvent<HTMLDivElement>) => {
+    e.preventDefault()
+    const el = e.currentTarget
+    el.setPointerCapture(e.pointerId)
+    const move = (ev: PointerEvent) => onResize(Math.min(Math.max(window.innerWidth - ev.clientX, 360), window.innerWidth - 48))
+    const up = () => { el.removeEventListener("pointermove", move); el.removeEventListener("pointerup", up); document.body.style.cursor = "" }
+    document.body.style.cursor = "col-resize"
+    el.addEventListener("pointermove", move)
+    el.addEventListener("pointerup", up)
+  }
+  return (
+    <div role="separator" aria-orientation="vertical" aria-label="ลากเพื่อขยาย / ย่อ" title="ลากเพื่อขยาย / ย่อ · ดับเบิลคลิก = ขนาดเดิม"
+      onPointerDown={start} onDoubleClick={onReset}
+      className="group/resize absolute inset-y-0 -left-1.5 z-20 hidden w-3 cursor-col-resize touch-none sm:block">
+      <span className="absolute inset-y-0 left-1/2 w-0.5 -translate-x-1/2 bg-transparent transition-colors group-hover/resize:bg-primary/40 group-active/resize:bg-primary" />
+    </div>
+  )
+}
+
 function SheetContent({
   className,
   children,
   side = "right",
   showCloseButton = true,
+  resizeKey,
+  style,
   ...props
 }: SheetPrimitive.Popup.Props & {
   side?: "top" | "right" | "bottom" | "left"
   showCloseButton?: boolean
+  /** panels sharing a key share their dragged width — defaults to the panel's max-w size */
+  resizeKey?: string
 }) {
+  const key = resizeKey ?? (typeof className === "string" ? className.match(/max-w-\w+/)?.[0] : undefined) ?? "sm"
+  const [width, setWidth] = usePanelWidth(key)
+  const resizable = side === "right"
   return (
     <SheetPortal>
       <SheetOverlay />
       <SheetPrimitive.Popup
         data-slot="sheet-content"
         data-side={side}
+        style={resizable && width ? { width: `min(${width}px, 100vw)`, maxWidth: "none", ...(typeof style === "object" ? style : {}) } : style}
         className={cn(
           "fixed z-50 flex flex-col bg-popover bg-clip-padding text-sm text-popover-foreground shadow-xl transition duration-200 ease-in-out data-ending-style:opacity-0 data-starting-style:opacity-0 data-[side=bottom]:inset-x-0 data-[side=bottom]:bottom-0 data-[side=bottom]:h-auto data-[side=bottom]:border-t data-[side=bottom]:data-ending-style:translate-y-[2.5rem] data-[side=bottom]:data-starting-style:translate-y-[2.5rem] data-[side=left]:inset-y-0 data-[side=left]:left-0 data-[side=left]:h-full data-[side=left]:w-3/4 data-[side=left]:border-r data-[side=left]:data-ending-style:translate-x-[-2.5rem] data-[side=left]:data-starting-style:translate-x-[-2.5rem] data-[side=right]:inset-y-0 data-[side=right]:right-0 data-[side=right]:h-full data-[side=right]:w-3/4 data-[side=right]:border-l data-[side=right]:data-ending-style:translate-x-[2.5rem] data-[side=right]:data-starting-style:translate-x-[2.5rem] data-[side=top]:inset-x-0 data-[side=top]:top-0 data-[side=top]:h-auto data-[side=top]:border-b data-[side=top]:data-ending-style:translate-y-[-2.5rem] data-[side=top]:data-starting-style:translate-y-[-2.5rem] data-[side=left]:sm:max-w-sm data-[side=right]:sm:max-w-sm",
           className
         )}
         {...props}
       >
+        {resizable && <ResizeHandle onResize={setWidth} onReset={() => setWidth(null)} />}
         {children}
         {showCloseButton && (
           <SheetPrimitive.Close

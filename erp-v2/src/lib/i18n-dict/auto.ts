@@ -3002,4 +3002,9 @@ export const AUTO: Record<string, Entry> = {
   "ใบนี้ไม่ได้จ่ายรวมกับใบอื่น": { en: "This invoice was not paid together with others", ja: "この請求書は他とまとめて支払われていません" },
   "ต้องยืนยันยอดเงินครบทุกใบก่อน": { en: "Confirm the payment on every invoice first", ja: "先にすべての請求書の入金を確認してください" },
   "จัดใบเสร็จ": { en: "Receipts grouped", ja: "領収書をまとめ直し" },
+  "จัดการคาบนี้": { en: "Manage this session", ja: "この授業を管理" },
+  "เวลาเรียน (บางชั่วโมง)": { en: "Study time (part of the session)", ja: "受講時間（一部のみ）" },
+  "การเข้าเรียนต่อคอร์ส": { en: "Attendance by course", ja: "コース別の出席" },
+  "ลากเพื่อขยาย / ย่อ": { en: "Drag to resize", ja: "ドラッグでサイズ変更" },
+  "ลากเพื่อขยาย / ย่อ · ดับเบิลคลิก = ขนาดเดิม": { en: "Drag to resize · double-click = default size", ja: "ドラッグでサイズ変更 · ダブルクリックで元のサイズ" },
 }

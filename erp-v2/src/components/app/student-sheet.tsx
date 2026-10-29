@@ -6,8 +6,8 @@ import { BusAddOns } from "@/components/billing/bus-addons"
 import Link from "next/link"
 import { useMemo, useState } from "react"
 import {
-  ArchiveRestoreIcon, DoorOpenIcon, ArrowUpRightIcon, BusIcon, CakeIcon, CalendarDaysIcon, CalendarIcon, ClockIcon, FileTextIcon, GraduationCapIcon,
-  MessageSquareIcon, MessagesSquareIcon, PencilIcon, PhoneIcon, PlaneIcon, PlusIcon, ReceiptIcon, SearchIcon, SendIcon, StickyNoteIcon, StoreIcon, UserRoundIcon, UsersIcon,
+  ArchiveRestoreIcon, DoorOpenIcon, BusIcon, CakeIcon, CalendarDaysIcon, CalendarIcon, GraduationCapIcon,
+  MessageSquareIcon, MessagesSquareIcon, PencilIcon, PhoneIcon, PlaneIcon, PlusIcon, ReceiptIcon, SearchIcon, SendIcon, StickyNoteIcon, StoreIcon, UsersIcon,
   ChevronRightIcon, HistoryIcon,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
@@ -21,13 +21,16 @@ import * as Att from "@/domain/rules/attendance"
 import { INVOICE_STATUS_LABEL, invoiceTotals } from "@/domain/rules/billing"
 import { can } from "@/domain/rules/permissions"
 import { removedWithClass, subjectsOf, workState } from "@/domain/rules/scheduling"
-import type { Entitlement, ID, LogCategory, Session, Student, StudentLeave } from "@/domain/types"
+import type { ActivityLog, Entitlement, ID, Invoice, LogCategory, Session, Student, StudentLeave } from "@/domain/types"
 import { report } from "@/lib/feedback"
 import { useEntitlements, useNow } from "@/lib/hooks"
 import { cn } from "@/lib/utils"
 import { useStore } from "@/store/store"
 import { Pill } from "./badges"
 import { Pager, usePage } from "./data-table"
+import { ColumnsMenu, DataTable, type Column } from "./data-grid"
+import { FilterChipGroup } from "./filter-chip-group"
+import { StudentSessionMenu } from "./session-sheet"
 import { AssessmentNote } from "./assessment-note"
 import { LeaveDialog } from "./leave-dialog"
 import { PackageBadge } from "./package-badge"
@@ -292,16 +295,16 @@ function Overview({ stu, ents, today, status, onNotRenewing, onHistory, onEditLe
 
 // ---------------------------------------------------------------- Class (Session | Attendance)
 
-type ClassSub = "session" | "attendance" | "history"
+type ClassSub = "session" | "history"
 function ClassSeg({ stu, ents, sub, setSub }: { stu: Student; ents: Entitlement[]; sub: ClassSub; setSub: (s: ClassSub) => void }) {
   return (
     <div className="space-y-3">
       <div className="flex gap-4 border-b text-sm">
-        {([["session", "คาบเรียน"], ["attendance", "การเข้าเรียน"], ["history", "ประวัติคอร์ส"]] as const).map(([k, l]) => (
+        {([["session", "คาบเรียน"], ["history", "ประวัติคอร์ส"]] as const).map(([k, l]) => (
           <button key={k} onClick={() => setSub(k)} className={cn("-mb-px border-b-2 pb-2", sub === k ? "border-primary font-medium text-primary" : "border-transparent text-muted-foreground")}>{l}</button>
         ))}
       </div>
-      {sub === "session" ? <SessionList stu={stu} /> : sub === "attendance" ? <AttendanceList stu={stu} ents={ents} /> : <CourseHistory stu={stu} ents={ents} />}
+      {sub === "session" ? <SessionList stu={stu} ents={ents} /> : <CourseHistory stu={stu} ents={ents} />}
     </div>
   )
 }
@@ -314,129 +317,81 @@ function CourseHistory({ stu, ents }: { stu: Student; ents: Entitlement[] }) {
   return <ul className="divide-y">{past.map((e) => <PackageRow key={e.id} e={e} stu={stu} today={today} />)}</ul>
 }
 
-function Teacher({ id }: { id: ID | null }) {
-  const t = useStore((s) => s.staff.find((x) => x.id === id))
-  return (
-    <span className="flex items-center gap-1.5">
-      <span className={cn("grid size-6 shrink-0 place-items-center rounded-full text-[10px] font-semibold", t ? avatarTone(t.id) : "bg-muted")}>{t ? initial(t.nickname) : "?"}</span>
-      <span className="truncate">{t?.nickname ?? "ยังไม่มีครู"}</span>
-    </span>
-  )
-}
+const ATT_LABEL = { present: "มา", absent: "ขาด", leave: "ลา" } as const
+const ATT_TONE = { present: "green", absent: "red", leave: "amber" } as const
 
-/** Sessions grouped by day; pickup/drop-off shown only for bus students (Liclass, from the invoice's bus legs). */
-function SessionList({ stu }: { stu: Student }) {
+/**
+ * คาบเรียน + การเข้าเรียน in one list (owner 2026-10-29): every session past and upcoming with its check-in, filter by
+ * subject, and ⋯ on each row to re-schedule / leave / open it right here. Pickup / drop-off only for bus students.
+ */
+function SessionList({ stu, ents }: { stu: Student; ents: Entitlement[] }) {
   const sessions = useStore((s) => s.sessions)
   const classes = useStore((s) => s.classes)
   const attendance = useStore((s) => s.attendance)
   const summaries = useStore((s) => s.summaries)
   const invoices = useStore((s) => s.invoices)
+  const staff = useStore((s) => s.staff)
+  const leaves = useStore((s) => s.leaves)
+  const courses = useStore((s) => s.courses)
   const now = useNow()
   const today = toDateStr(now)
+  const [subject, setSubject] = useState("")
   const legs = useMemo(() => new Map(invoices.filter((i) => i.studentId === stu.id && i.status !== "void").flatMap((i) => i.bus.map((l) => [l.date, l] as const))), [invoices, stu.id])
-  // owner Row 44/49 (2026-10-28): show EVERY session — past and upcoming — not just a recent window, so parents can be
-  // told the full schedule and the exact number of sessions (10 of 10, not "5 left")
-  const mine = sessions
+  // owner Row 44/49 (2026-10-28): EVERY session — past and upcoming — so parents can be told the full schedule
+  const all = sessions
     .filter((s) => s.studentIds.includes(stu.id) || attendance.some((a) => a.sessionId === s.id && a.studentId === stu.id))
     .filter((s) => !removedWithClass(s, classes))
     .sort((a, b) => (a.date + a.start).localeCompare(b.date + b.start))
-  const days = [...new Set(mine.map((s) => s.date))]
+  const subjects = [...new Set(all.flatMap(subjectsOf))]
+  const mine = subject ? all.filter((s) => subjectsOf(s).includes(subject)) : all
   const active = mine.filter((s) => !s.cancelled)
   const done = active.filter((s) => s.date < today).length
-  return (
-    <div className="space-y-4">
-      {active.length > 0 && <p className="text-sm text-muted-foreground tabular-nums">{`ทั้งหมด ${active.length} คาบ · เรียนไปแล้ว ${done} · เหลือ ${active.length - done}`}</p>}
-      {days.length === 0 && <p className="rounded-xl border border-dashed p-8 text-center text-sm text-muted-foreground">ไม่มีคาบ</p>}
-      {days.map((d) => (
-        <section key={d}>
-          <p className={cn("mb-1.5 text-sm font-semibold", d === today && "text-primary")}>{fmtDate(d, { weekday: true, year: true })}{d === today && " · วันนี้"}</p>
-          <table className="w-full overflow-hidden rounded-2xl text-sm ring-1 ring-foreground/10">
-            <thead className="bg-muted/50 text-xs text-muted-foreground">
-              <tr className="[&>th]:px-3 [&>th]:py-1.5 [&>th]:text-left [&>th]:font-medium"><th>เวลา</th><th>วิชา</th><th>ครู</th>{stu.usesBus && <><th>รับ</th><th>ส่ง</th></>}<th className="text-right!">สถานะ</th></tr>
-            </thead>
-            <tbody>
-              {mine.filter((s) => s.date === d).map((s) => {
-                const leg = legs.get(s.date)
-                const att = attendance.find((a) => a.sessionId === s.id && a.studentId === stu.id)
-                return (
-                  <tr key={s.id} className={cn("border-t [&>td]:px-3 [&>td]:py-2", s.cancelled && "opacity-45")}>
-                    <td className="whitespace-nowrap tabular-nums"><span className="flex items-center gap-1"><ClockIcon className="size-3.5 text-muted-foreground" />{s.start}–{endTime(s.start, s.minutes)}</span></td>
-                    <td><div className="flex flex-wrap gap-1">{subjectsOf(s).map((x) => <span key={x} className={cn("rounded-full px-2 py-0.5 text-xs", subjectColor(x).chip)}>{x}</span>)}</div></td>
-                    <td><Teacher id={s.teacherId} /></td>
-                    {stu.usesBus && <><td>{leg?.pickup ? "✓" : "—"}</td><td>{leg?.dropoff ? "✓" : "—"}</td></>}
-                    <td className="text-right">
-                      {att ? <Pill tone={att.status === "present" ? "green" : att.status === "absent" ? "red" : "amber"}>{att.status === "present" ? "มา" : att.status === "absent" ? "ขาด" : "ลา"}</Pill>
-                        : <WorkChip w={workState(s, now, attendance, summaries)} students={s.studentIds.length} />}
-                    </td>
-                  </tr>
-                )
-              })}
-            </tbody>
-          </table>
-        </section>
-      ))}
-    </div>
-  )
-}
+  const att = (s: Session) => attendance.find((a) => a.sessionId === s.id && a.studentId === stu.id)
 
-function AttendanceList({ stu, ents }: { stu: Student; ents: Entitlement[] }) {
-  const sessions = useStore((s) => s.sessions)
-  const attendance = useStore((s) => s.attendance)
-  const leaves = useStore((s) => s.leaves)
-  const courses = useStore((s) => s.courses)
-  const today = toDateStr(useNow())
-  const mine = ents.filter((e) => e.studentId === stu.id).sort((a, b) => b.to.localeCompare(a.to))
-  const rows = attendance
-    .filter((a) => a.studentId === stu.id)
-    .map((a) => ({ a, s: sessions.find((x) => x.id === a.sessionId)! }))
-    .filter((x) => x.s)
-    .sort((x, y) => (y.s.date + y.s.start).localeCompare(x.s.date + x.s.start))
-  const pg = usePage(rows, 15)
+  const columns: Column<Session>[] = [
+    { id: "date", label: "วันที่", required: true, cell: (s) => <span className={cn(s.date === today && "font-medium text-primary")}>{fmtDate(s.date, { weekday: true, year: true })}{s.date === today && " · วันนี้"}</span> },
+    { id: "time", label: "เวลา", className: "tabular-nums", cell: (s) => `${s.start}–${endTime(s.start, s.minutes)}` },
+    { id: "subject", label: "วิชา", cell: (s) => <span className="flex gap-1">{subjectsOf(s).map((x) => <span key={x} className={cn("rounded-full px-2 py-0.5 text-xs", subjectColor(x).chip)}>{x}</span>)}</span> },
+    { id: "teacher", label: "ครู", cell: (s) => staff.find((x) => x.id === s.teacherId)?.nickname ?? <span className="text-muted-foreground">ยังไม่มีครู</span> },
+    ...(stu.usesBus ? [
+      { id: "pickup", label: "รับ", align: "center", cell: (s) => (legs.get(s.date)?.pickup ? "✓" : "—") },
+      { id: "dropoff", label: "ส่ง", align: "center", cell: (s) => (legs.get(s.date)?.dropoff ? "✓" : "—") },
+    ] satisfies Column<Session>[] : []),
+    { id: "status", label: "สถานะ", align: "right", cell: (s) => { const a = att(s); return a ? <Pill tone={ATT_TONE[a.status]}>{ATT_LABEL[a.status]}</Pill> : <WorkChip w={workState(s, now, attendance, summaries)} students={s.studentIds.length} /> } },
+    { id: "actions", label: "จัดการ", required: true, align: "right", width: "3rem", cell: (s) => <StudentSessionMenu s={s} studentId={stu.id} /> },
+  ]
+
+  // per course: held so far = มา + ขาด + ลา + ยังไม่เช็ค
+  const packages = ents.filter((e) => e.studentId === stu.id && (!subject || e.subjects.includes(subject))).sort((a, b) => b.to.localeCompare(a.to))
+  const courseCols: Column<Entitlement>[] = [
+    { id: "course", label: "คอร์ส", required: true, cell: (e) => courses.find((x) => x.id === e.courseId)?.name ?? "—" },
+    { id: "held", label: "ผ่านไปแล้ว", className: "tabular-nums", cell: (e) => { const h = heldOf(e); const unmarked = h.length - attOf(h).length; return <>{h.length} คาบ{unmarked > 0 && <span className="text-xs text-amber-700"> · ยังไม่เช็ค {unmarked}</span>}</> } },
+    { id: "present", label: "มา", align: "right", className: "tabular-nums text-emerald-700", cell: (e) => attOf(heldOf(e)).filter((a) => a.status === "present").length },
+    { id: "absent", label: "ขาด", align: "right", className: "tabular-nums text-red-700", cell: (e) => attOf(heldOf(e)).filter((a) => a.status === "absent").length },
+    { id: "leave", label: "ลา (โควตา)", align: "right", className: "tabular-nums text-amber-700", cell: (e) => `${Att.leavesUsed(e, sessions, attendance, leaves)}/${Att.leaveQuota(e)}` },
+  ]
+  const heldOf = (e: Entitlement) => sessions.filter((s) => Att.packageCovers(e, s) && s.studentIds.includes(stu.id) && !s.cancelled && s.date <= today)
+  const attOf = (held: Session[]) => attendance.filter((a) => a.studentId === stu.id && held.some((s) => s.id === a.sessionId))
+
   return (
-    <div className="space-y-4">
-      <table className="w-full overflow-hidden rounded-2xl text-sm ring-1 ring-foreground/10">
-        <thead className="bg-muted/50 text-xs text-muted-foreground">
-          <tr className="[&>th]:px-3 [&>th]:py-1.5 [&>th]:text-left [&>th]:font-medium"><th>คอร์ส</th><th>ผ่านไปแล้ว</th><th>มา</th><th>ขาด</th><th>ลา (โควตา)</th></tr>
-        </thead>
-        <tbody>
-          {mine.map((e) => {
-            // held = every session of this package that has already happened; มา + ขาด + ลา + ยังไม่เช็ค = held
-            const held = sessions.filter((s) => Att.packageCovers(e, s) && s.studentIds.includes(stu.id) && !s.cancelled && s.date <= today)
-            const att = attendance.filter((a) => a.studentId === stu.id && held.some((s) => s.id === a.sessionId))
-            const n = (st: string) => att.filter((a) => a.status === st).length
-            const unmarked = held.length - att.length
-            const c = courses.find((x) => x.id === e.courseId)
-            return (
-              <tr key={e.id} className="border-t [&>td]:px-3 [&>td]:py-2">
-                <td><span className="flex items-center gap-2"><span className={cn("grid size-8 place-items-center rounded-lg text-xs font-semibold", subjectColor(c?.subjects[0] ?? "").chip)}>{(c?.subjects[0] ?? "?").slice(0, 2)}</span>{c?.name}</span></td>
-                <td className="tabular-nums">{held.length} คาบ{unmarked > 0 && <span className="text-xs text-amber-700"> · ยังไม่เช็ค {unmarked}</span>}</td>
-                <td className="tabular-nums text-emerald-700">{n("present")}</td>
-                <td className="tabular-nums text-red-700">{n("absent")}</td>
-                <td className="tabular-nums text-amber-700">{Att.leavesUsed(e, sessions, attendance, leaves)}/{Att.leaveQuota(e)}</td>
-              </tr>
-            )
-          })}
-          {mine.length === 0 && <tr><td colSpan={5} className="p-4 text-center text-muted-foreground">ยังไม่มีแพ็กเกจ</td></tr>}
-        </tbody>
-      </table>
-      <table className="w-full overflow-hidden rounded-2xl text-sm ring-1 ring-foreground/10">
-        <thead className="bg-muted/50 text-xs text-muted-foreground">
-          <tr className="[&>th]:px-3 [&>th]:py-1.5 [&>th]:text-left [&>th]:font-medium"><th>วันที่</th><th>วิชา</th><th>ครู</th><th className="text-right!">สถานะ</th><th className="w-8" /></tr>
-        </thead>
-        <tbody>
-          {pg.rows.map(({ a, s }) => (
-            <tr key={s.id} className="border-t [&>td]:px-3 [&>td]:py-2">
-              <td className="whitespace-nowrap"><span className="flex items-center gap-1"><CalendarIcon className="size-3.5 text-muted-foreground" />{fmtDate(s.date, { weekday: true, year: true })}</span></td>
-              <td><div className="flex flex-wrap gap-1">{subjectsOf(s).map((x) => <span key={x} className={cn("rounded-full px-2 py-0.5 text-xs", subjectColor(x).chip)}>{x}</span>)}</div></td>
-              <td><Teacher id={s.teacherId} /></td>
-              <td className="text-right"><Pill tone={a.status === "present" ? "green" : a.status === "absent" ? "red" : "amber"}>{a.status === "present" ? "มา" : a.status === "absent" ? "ขาด" : "ลา"}</Pill></td>
-              <td><Link href={`/calendar?sessionId=${s.id}`} aria-label="เปิดคาบนี้" className="text-muted-foreground hover:text-foreground"><ArrowUpRightIcon className="size-4" /></Link></td>
-            </tr>
-          ))}
-          {rows.length === 0 && <tr><td colSpan={5} className="p-4 text-center text-muted-foreground">ยังไม่มีประวัติเช็คชื่อ</td></tr>}
-        </tbody>
-      </table>
-      <Pager {...pg} unit="คาบ" />
+    <div className="space-y-3">
+      <div className="flex items-center gap-2">
+        <FilterChipGroup value={subject} onChange={setSubject} className="flex-1"
+          options={[{ value: "", label: "ทุกวิชา", count: all.length }, ...subjects.map((x) => ({ value: x, label: x, count: all.filter((s) => subjectsOf(s).includes(x)).length }))]} />
+        <ColumnsMenu id="student-sessions" columns={columns} />
+      </div>
+      {active.length > 0 && <p className="text-sm text-muted-foreground tabular-nums">{`ทั้งหมด ${active.length} คาบ · เรียนไปแล้ว ${done} · เหลือ ${active.length - done}`}</p>}
+      <DataTable id="student-sessions" columns={columns} rows={mine} rowKey={(s) => s.id} minWidth={560}
+        rowClassName={(s) => cn(s.cancelled && "opacity-45", s.date === today && "bg-primary/5")} empty="ไม่มีคาบ" />
+      {packages.length > 0 && (
+        <>
+          <div className="flex items-center pt-2">
+            <h3 className="text-sm font-semibold">การเข้าเรียนต่อคอร์ส</h3>
+            <span className="ml-auto"><ColumnsMenu id="student-course-attendance" columns={courseCols} /></span>
+          </div>
+          <DataTable id="student-course-attendance" columns={courseCols} rows={packages} rowKey={(e) => e.id} minWidth={480} />
+        </>
+      )}
     </div>
   )
 }
@@ -451,33 +406,22 @@ function BillingSeg({ stu }: { stu: Student }) {
   const courses = useStore((s) => s.courses)
   const classes = useStore((s) => s.classes)
   const holidays = useStore((s) => s.holidays)
+  const subjectsOfInv = (i: Invoice) => [...new Set(i.lines.flatMap((l) => courses.find((x) => x.id === l.courseId)?.subjects ?? []))]
+  const invoiceCols: Column<Invoice>[] = [
+    { id: "number", label: "เลขที่", required: true, className: "tabular-nums", cell: (i) => i.number ?? "—" },
+    { id: "items", label: "รายการ", cell: (i) => { const subjects = subjectsOfInv(i); return <span className="flex items-center gap-1">{subjects.length ? subjects.map((x) => <span key={x} className={cn("rounded-full px-2 py-0.5 text-xs", subjectColor(x).chip)}>{x}</span>) : <span className="text-xs text-muted-foreground">{i.busExtras?.length ? "ค่ารถเพิ่ม" : "ค่าอื่นๆ"}</span>}{i.status === "paid" && subjects.length > 0 && <span className="text-[11px] text-emerald-700">✓ เข้าคลาสแล้ว</span>}</span> } },
+    { id: "date", label: "วันที่", cell: (i) => fmtDate(i.createdAt.slice(0, 10), { year: true }) },
+    { id: "total", label: "ยอด", align: "right", className: "tabular-nums", cell: (i) => fmtMoney(invoiceTotals(i, { branch: branches.find((b) => b.id === i.branchId)!, courses, classes, holidays }).total) },
+    { id: "status", label: "สถานะ", align: "right", cell: (i) => <Pill tone={i.status === "paid" ? "green" : i.status === "void" ? "gray" : i.status === "draft" ? "gray" : "amber"}>{INVOICE_STATUS_LABEL[i.status]}</Pill> },
+  ]
   return (
     <div className="space-y-3">
-      <div className="flex items-center">
+      <div className="flex items-center gap-2">
         <p className="text-sm text-muted-foreground">กดแถวเพื่อเปิดใบแจ้งหนี้ · จ่ายครบแล้วระบบเพิ่มเข้าคลาสให้อัตโนมัติ</p>
         {can(me, "billing.manage") && <Button size="sm" variant="outline" className="ml-auto" onClick={() => setInvoice("new")}><PlusIcon /> ใบแจ้งหนี้ใหม่</Button>}
+        <ColumnsMenu id="student-invoices" columns={invoiceCols} />
       </div>
-      <table className="w-full overflow-hidden rounded-2xl text-sm ring-1 ring-foreground/10">
-        <thead className="bg-muted/50 text-xs text-muted-foreground">
-          <tr className="[&>th]:px-3 [&>th]:py-1.5 [&>th]:text-left [&>th]:font-medium"><th>เลขที่</th><th>รายการ</th><th>วันที่</th><th className="text-right!">ยอด</th><th className="text-right!">สถานะ</th></tr>
-        </thead>
-        <tbody>
-          {invoices.map((i) => {
-            const subjects = [...new Set(i.lines.flatMap((l) => courses.find((x) => x.id === l.courseId)?.subjects ?? []))]
-            const total = invoiceTotals(i, { branch: branches.find((b) => b.id === i.branchId)!, courses, classes, holidays }).total
-            return (
-              <tr key={i.id} className="cursor-pointer border-t hover:bg-muted/40 [&>td]:px-3 [&>td]:py-2" onClick={() => setInvoice(i.id)}>
-                <td className="whitespace-nowrap tabular-nums"><span className="flex items-center gap-1.5"><FileTextIcon className="size-4 text-muted-foreground" />{i.number ?? "—"}</span></td>
-                <td><div className="flex flex-wrap gap-1">{subjects.length ? subjects.map((x) => <span key={x} className={cn("rounded-full px-2 py-0.5 text-xs", subjectColor(x).chip)}>{x}</span>) : <span className="text-xs text-muted-foreground">{i.busExtras?.length ? "ค่ารถเพิ่ม" : "ค่าอื่นๆ"}</span>}{i.status === "paid" && subjects.length > 0 && <span className="text-[11px] text-emerald-700">✓ เข้าคลาสแล้ว</span>}</div></td>
-                <td className="whitespace-nowrap text-xs">{fmtDate(i.createdAt.slice(0, 10), { year: true })}</td>
-                <td className="text-right tabular-nums">{fmtMoney(total)}</td>
-                <td className="text-right"><Pill tone={i.status === "paid" ? "green" : i.status === "void" ? "gray" : i.status === "draft" ? "gray" : "amber"}>{INVOICE_STATUS_LABEL[i.status]}</Pill></td>
-              </tr>
-            )
-          })}
-          {invoices.length === 0 && <tr><td colSpan={5} className="p-6 text-center text-muted-foreground">ยังไม่มีใบแจ้งหนี้</td></tr>}
-        </tbody>
-      </table>
+      <DataTable id="student-invoices" columns={invoiceCols} rows={invoices} rowKey={(i) => i.id} onRowClick={(i) => setInvoice(i.id)} minWidth={520} empty="ยังไม่มีใบแจ้งหนี้" />
       <BusAddOns stu={stu} />
       <InvoiceSheet id={invoice} defaultStudentId={stu.id} onClose={() => setInvoice(null)} />
     </div>
@@ -526,7 +470,6 @@ function NoteSeg({ stu }: { stu: Student }) {
 // ---------------------------------------------------------------- Timeline
 
 const CAT_LABEL: Record<LogCategory, string> = { profile: "ข้อมูลนักเรียน", class: "คลาส", attendance: "เช็คชื่อ/สรุป", billing: "การเงิน", note: "โน้ต" }
-const CAT_ICON: Record<LogCategory, typeof PencilIcon> = { profile: UserRoundIcon, class: GraduationCapIcon, attendance: CalendarIcon, billing: ReceiptIcon, note: StickyNoteIcon }
 
 function TimelineSeg({ stu }: { stu: Student }) {
   const logs = useStore((s) => s.logs)
@@ -540,6 +483,12 @@ function TimelineSeg({ stu }: { stu: Student }) {
     .filter((l) => !needle || `${l.action} ${l.detail} ${staff.find((x) => x.id === l.by)?.nickname ?? "ระบบ"}`.toLowerCase().includes(needle))
     .sort((a, b) => b.at.localeCompare(a.at))
   const pg = usePage(rows, 20)
+  const logCols: Column<ActivityLog>[] = [
+    { id: "at", label: "วันที่", required: true, className: "tabular-nums", cell: (l) => fmtDateTime(l.at) },
+    { id: "type", label: "ประเภท", cell: (l) => CAT_LABEL[l.category] },
+    { id: "by", label: "ทำโดย", cell: (l) => staff.find((x) => x.id === l.by)?.nickname ?? <span className="text-muted-foreground">ระบบ</span> },
+    { id: "event", label: "เหตุการณ์", className: "min-w-64 whitespace-normal!", cell: (l) => <><span className="font-medium">{l.action}</span> <span className="text-muted-foreground">{l.detail}</span></> },
+  ]
   return (
     <div className="space-y-3">
       <div className="flex flex-wrap items-center gap-2">
@@ -552,29 +501,9 @@ function TimelineSeg({ stu }: { stu: Student }) {
           <SearchIcon className="absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" />
           <Input className="h-8 w-48 pl-8" value={q} onChange={(e) => setQ(e.target.value)} placeholder="ค้นหาใน Log" />
         </div>
+        <ColumnsMenu id="student-timeline" columns={logCols} />
       </div>
-      <table className="w-full text-sm">
-        <thead className="border-b text-xs text-muted-foreground">
-          <tr className="[&>th]:px-2 [&>th]:py-1.5 [&>th]:text-left [&>th]:font-medium"><th className="w-8" /><th>วันที่</th><th>ทำโดย</th><th>เหตุการณ์</th></tr>
-        </thead>
-        <tbody>
-          {pg.rows.map((l) => {
-            const Icon = CAT_ICON[l.category]
-            const by = staff.find((x) => x.id === l.by)
-            return (
-              <tr key={l.id} className="border-b last:border-0 [&>td]:px-2 [&>td]:py-2.5 [&>td]:align-top">
-                <td><Icon className="size-4 text-muted-foreground" /></td>
-                <td className="whitespace-nowrap text-xs tabular-nums">{fmtDateTime(l.at)}</td>
-                <td className="whitespace-nowrap">
-                  {by ? <span className="flex items-center gap-1.5"><span className={cn("grid size-6 place-items-center rounded-full text-[10px] font-semibold", avatarTone(by.id))}>{initial(by.nickname)}</span>{by.nickname}</span> : <span className="text-muted-foreground">ระบบ</span>}
-                </td>
-                <td><span className="font-medium">{l.action}</span> <span className="text-muted-foreground">{l.detail}</span></td>
-              </tr>
-            )
-          })}
-          {rows.length === 0 && <tr><td colSpan={4} className="p-6 text-center text-muted-foreground">ยังไม่มีประวัติ</td></tr>}
-        </tbody>
-      </table>
+      <DataTable id="student-timeline" columns={logCols} rows={pg.rows} rowKey={(l) => l.id} minWidth={520} empty="ยังไม่มีประวัติ" />
       <Pager {...pg} unit="รายการ" />
     </div>
   )
