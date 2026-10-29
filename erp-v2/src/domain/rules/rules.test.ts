@@ -10,7 +10,7 @@ import { busRate, copyHours, gradeLabel, subjectLabel, priceOf, priceRange, setP
 import { forceAudience, isUnread, messageAudience, noteRecipients, notify, validateMessage, visibleTo } from "./notifications"
 import * as Sum from "./summaries"
 import { chatDayLabel, groupByDay } from "./inbox"
-import { familyFromLead, familyFromSubmission, familyNameFor, splitName, joinName, futureSessionsOf, matchExistingFamily, mergeSubmission, nicknameFrom, searchStudents, studentLabel, submissionChanges, uniqueFamilies, validateFamily, validateStaff, validateStudent } from "./people"
+import { findFamilyDuplicates, findStudentDuplicates, familyFromLead, familyFromSubmission, familyNameFor, splitName, joinName, futureSessionsOf, matchExistingFamily, mergeSubmission, nicknameFrom, searchStudents, studentLabel, submissionChanges, uniqueFamilies, validateFamily, validateStaff, validateStudent } from "./people"
 import { suggestFixes } from "./suggest"
 import { advanceStage, canSetStage, daysAgo, groupOf, restoreStage, siblingLead, validateLead } from "./crm"
 import { APPROVE_STAGE, ATTENDED_STAGE, buildFormPrefill, commonSlots, buildCombinedSessionDraft, buildSessionDraftFromSlot, findOfferSlots, lastAssessmentDate, openHourStarts, planApproval, priorApproval, sessionKindLabel } from "./forms"
@@ -2727,5 +2727,32 @@ describe("Form builder — drag & drop", () => {
     const ids = (xs: { id: string }[]) => xs.map((x) => x.id).join("")
     expect(ids(FB.moveFieldTo([f("a"), f("b"), f("c"), f("d")], "a", "c"))).toBe("bcad")
     expect(ids(FB.moveFieldTo([f("a"), f("b"), f("c"), f("d")], "d", "b"))).toBe("adbc")
+  })
+})
+
+describe("possible duplicates — the system suggests, the admin decides (owner 2026-10-29)", () => {
+  const fam = (id: string, phone: string, extra: Partial<Family> = {}): Family => ({ id, name: `ครอบครัว${id}`, parents: [{ name: "แม่", phone, lineLinked: false, primary: true }], ...extra })
+  const stu = (id: string, name: string, nickname: string, familyId: string | null, extra: Partial<Student> = {}): Student =>
+    ({ id, familyId, branchId: "b1", name, nickname, grade: "ป.5", usesBus: false, createdAt: "", createdBranchId: "b1", ...extra })
+  const families = [fam("f1", "0811111111"), fam("f2", "0822222222")]
+  const students = [stu("s1", "ภูมิ ใจดี", "ภูมิ", "f1", { birthDate: "2015-03-12" }), stu("s2", "ใบเตย สุขใจ", "เตย", "f2", { archived: { at: "", by: "", reason: "ย้าย" } })]
+
+  it("same full name ignoring titles and spaces", () => {
+    expect(findStudentDuplicates({ name: "ด.ช. ภูมิ  ใจดี", nickname: "ภูมิ", familyId: null }, students, families).map((h) => h.record.id)).toEqual(["s1"])
+  })
+  it("same nickname + birthday, or + a parent phone already on file — a returning (archived) student is found too", () => {
+    expect(findStudentDuplicates({ name: "ภูมิใจ ดีมาก", nickname: "ภูมิ", birthDate: "2015-03-12", familyId: null }, students, families)[0].reasons).toContain("ชื่อเล่นและวันเกิดเหมือนกัน")
+    const withPhone = [...families, fam("f9", "0822222222")]
+    const hit = findStudentDuplicates({ name: "ใบเตย ใหม่", nickname: "เตย", familyId: "f9" }, students, withPhone)
+    expect(hit.map((h) => h.record.id)).toEqual(["s2"])
+  })
+  it("a sibling (same family, different nickname) is not a duplicate; editing never matches itself", () => {
+    expect(findStudentDuplicates({ name: "ภูผา ใจดี", nickname: "ภูผา", familyId: "f1" }, students, families)).toEqual([])
+    expect(findStudentDuplicates({ id: "s1", name: "ภูมิ ใจดี", nickname: "ภูมิ", familyId: "f1" }, students, families)).toEqual([])
+  })
+  it("families: a parent phone in any format, the LINE account, or same name + address", () => {
+    expect(findFamilyDuplicates({ name: "ใหม่", parents: [{ name: "x", phone: "081-111-1111", lineLinked: false, primary: true }] }, families)[0].reasons[0]).toContain("0811111111")
+    expect(findFamilyDuplicates({ name: "ใหม่", parents: [], lineUserId: "U1" }, [fam("f3", "", { lineUserId: "U1" })])[0].reasons).toEqual(["LINE เดียวกัน"])
+    expect(findFamilyDuplicates({ name: "ใหม่", parents: [{ name: "x", phone: "0899999999", lineLinked: false, primary: true }] }, families)).toEqual([])
   })
 })

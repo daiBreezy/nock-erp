@@ -198,6 +198,57 @@ export function matchExistingFamily(families: Family[], criteria: { lineUserId?:
   return families.find((f) => f.parents.some((p) => wanted.has(digits(p.phone)) || (p.altPhones ?? []).some((x) => wanted.has(digits(x))))) ?? null
 }
 
+/**
+ * Possible duplicates (owner 2026-10-29): the system only SUGGESTS — the admin decides "same person → merge" or
+ * "different → keep separate". Happens after an import, or when a returning student / family is added again.
+ */
+export interface DuplicateHit<T> { record: T; reasons: string[] }
+
+/** names compared without titles, spaces or case ("ด.ช. ภูมิ  ใจดี" = "ภูมิ ใจดี") */
+export const sameName = (a: string, b: string) => {
+  const n = (x: string) => nameParts(x).join("").toLowerCase()
+  return !!n(a) && n(a) === n(b)
+}
+
+/** students that may be this new student — same full name, or same nickname + birthday / family / parent phone */
+export function findStudentDuplicates(
+  input: Pick<Student, "name" | "nickname" | "birthDate" | "familyId"> & { id?: ID },
+  students: Student[], families: Pick<Family, "id" | "parents">[],
+): DuplicateHit<Student>[] {
+  const phonesOf = (familyId: ID | null) => new Set((families.find((f) => f.id === familyId)?.parents ?? []).flatMap((p) => [p.phone, ...(p.altPhones ?? [])]).map(digits).filter(Boolean))
+  const myPhones = phonesOf(input.familyId)
+  const nick = input.nickname.trim().toLowerCase()
+  const hits: DuplicateHit<Student>[] = []
+  for (const s of students) {
+    if (s.id === input.id) continue
+    const reasons: string[] = []
+    if (sameName(s.name, input.name)) reasons.push("ชื่อ-นามสกุลเหมือนกัน")
+    const sameNick = !!nick && s.nickname.trim().toLowerCase() === nick
+    if (sameNick && input.birthDate && s.birthDate === input.birthDate) reasons.push("ชื่อเล่นและวันเกิดเหมือนกัน")
+    if (sameNick && input.familyId && s.familyId === input.familyId) reasons.push("ชื่อเล่นเหมือนกันในครอบครัวเดียวกัน")
+    if (sameNick && myPhones.size && [...phonesOf(s.familyId)].some((x) => myPhones.has(x))) reasons.push("ชื่อเล่นเหมือนกัน และเบอร์ผู้ปกครองตรงกัน")
+    if (reasons.length) hits.push({ record: s, reasons })
+  }
+  return hits
+}
+
+/** families that may be this new family — a parent phone or the LINE account already on file, or same name + address */
+export function findFamilyDuplicates(input: Pick<Family, "name" | "parents" | "address"> & { id?: ID; lineUserId?: string }, families: Family[]): DuplicateHit<Family>[] {
+  const wanted = new Set(input.parents.flatMap((p) => [p.phone, ...(p.altPhones ?? [])]).map(digits).filter(Boolean))
+  const addr = (x?: string) => (x ?? "").replace(/\s+/g, "").toLowerCase()
+  const hits: DuplicateHit<Family>[] = []
+  for (const f of families) {
+    if (f.id === input.id) continue
+    const reasons: string[] = []
+    if (input.lineUserId && f.lineUserId === input.lineUserId) reasons.push("LINE เดียวกัน")
+    const phone = f.parents.flatMap((p) => [p.phone, ...(p.altPhones ?? [])]).map(digits).find((x) => wanted.has(x))
+    if (phone) reasons.push(`เบอร์ ${phone} ตรงกัน`)
+    if (familyShortName(f.name) && familyShortName(f.name) === familyShortName(input.name) && addr(f.address) && addr(f.address) === addr(input.address)) reasons.push("ชื่อครอบครัวและที่อยู่เหมือนกัน")
+    if (reasons.length) hits.push({ record: f, reasons })
+  }
+  return hits
+}
+
 export function validateStudent(s: Pick<Student, "name" | "nickname" | "grade" | "birthDate">, today: DateStr): FieldError[] {
   const errs: FieldError[] = []
   if (!s.name.trim()) errs.push({ field: "name", message: "ใส่ชื่อ-นามสกุล" })

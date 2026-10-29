@@ -7,7 +7,8 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { FormShell, useInPanel } from "./form-shell"
 import { DICT } from "@/app/liff/form/i18n"
 import { emptyFamilyDraft, emptyParentDraft, FamilyFields, ParentFields, parentDraftOf, parentInputOf, type FamilyDraft, type ParentDraft } from "@/components/people/person-fields"
-import { familyNameFor, validateFamily } from "@/domain/rules/people"
+import { familyNameFor, familyShortName, findFamilyDuplicates, validateFamily, type DuplicateHit } from "@/domain/rules/people"
+import { DuplicateDialog } from "./duplicate-dialog"
 import type { Family, Parent } from "@/domain/types"
 import { uid } from "@/data/seed"
 import { report } from "@/lib/feedback"
@@ -25,6 +26,9 @@ type Row = { draft: ParentDraft; stored?: Parent }
  */
 export function FamilyForm({ family, initialName, initialParent, onClose, onSaved }: { family?: Family; initialName?: string; initialParent?: { name: string; phone?: string }; onClose: () => void; onSaved?: (f: Family) => void }) {
   const save = useStore((s) => s.saveFamily)
+  const families = useStore((s) => s.families)
+  const students = useStore((s) => s.students)
+  const [dupes, setDupes] = useState<DuplicateHit<Family>[] | null>(null)
   const [rows, setRows] = useState<Row[]>(() =>
     family?.parents.length
       ? family.parents.map((p) => ({ draft: parentDraftOf(p), stored: p }))
@@ -57,13 +61,31 @@ export function FamilyForm({ family, initialName, initialParent, onClose, onSave
   const setDraft = (i: number, patch: Partial<ParentDraft>) => setRows((rs) => rs.map((r, j) => (j === i ? { ...r, draft: { ...r.draft, ...patch } } : r)))
 
   const inPanel = useInPanel()
-  const submit = () => {
-    setTouched(true)
-    const r = save(built)
-    if (report(r, "บันทึกครอบครัวแล้ว")) {
+  const finish = (r: ReturnType<typeof save>, msg: string) => {
+    if (report(r, msg)) {
       onSaved?.(r.value)
       if (!inPanel) onClose()
     }
+  }
+  const submit = () => {
+    setTouched(true)
+    if (errs.length) { finish(save(built), ""); return }
+    // owner 2026-10-29: a new family whose phone / LINE / address is already on file → the admin decides
+    const hits = family ? [] : findFamilyDuplicates(built, families)
+    if (hits.length) { setDupes(hits); return }
+    finish(save(built), "บันทึกครอบครัวแล้ว")
+  }
+  /** รวม: keep the family on file — add the parents typed here that it doesn't have yet, fill in empty fields */
+  const mergeInto = (old: Family) => {
+    const digits = (x: string) => x.replace(/\D/g, "")
+    const known = new Set(old.parents.flatMap((p) => [p.phone, ...(p.altPhones ?? [])]).map(digits))
+    const extra = built.parents.filter((p) => !known.has(digits(p.phone))).map((p) => ({ ...p, primary: false }))
+    finish(save({
+      ...old, parents: [...old.parents, ...extra],
+      address: old.address ?? built.address, postcode: old.postcode ?? built.postcode, province: old.province ?? built.province,
+      location: old.location ?? built.location, addressNote: old.addressNote ?? built.addressNote, taxInfo: old.taxInfo ?? built.taxInfo,
+      sources: old.sources ?? built.sources,
+    }), extra.length ? `ใช้ครอบครัวเดิม "${familyShortName(old.name)}" · เพิ่มผู้ปกครอง ${extra.length} คน — ไม่ได้สร้างซ้ำ` : `ใช้ครอบครัวเดิม "${familyShortName(old.name)}" — ไม่ได้สร้างซ้ำ`)
   }
 
   return (
@@ -99,6 +121,16 @@ export function FamilyForm({ family, initialName, initialParent, onClose, onSave
             errors={{ name: err("name"), postcode: err("postcode") }} />
         </div>
       </section>
+      {dupes && (
+        <DuplicateDialog title="พบครอบครัวที่อาจซ้ำ" description="ระบบพบครอบครัวที่อาจเป็นครอบครัวเดียวกัน — ถ้าใช่ ให้รวมกับครอบครัวเดิม ถ้าไม่ใช่ ให้เพิ่มเป็นครอบครัวใหม่" hits={dupes} mergeLabel="รวม — ใช้ครอบครัวนี้" newLabel="ไม่ใช่ — เพิ่มเป็นครอบครัวใหม่"
+          onClose={() => setDupes(null)} onNew={() => { setDupes(null); finish(save(built), "บันทึกครอบครัวแล้ว") }} onMerge={(old) => { setDupes(null); mergeInto(old) }}
+          render={(x) => (
+            <span className="flex flex-col">
+              <span className="font-medium">{familyShortName(x.name)} <span className="font-normal text-muted-foreground">· {x.parents.map((p) => `${p.name} ${p.phone}`).join(", ")}</span></span>
+              <span className="text-xs text-muted-foreground">ลูก: {students.filter((y) => y.familyId === x.id).map((y) => y.nickname).join(", ") || "—"}</span>
+            </span>
+          )} />
+      )}
     </FormShell>
   )
 }

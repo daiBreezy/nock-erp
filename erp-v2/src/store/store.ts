@@ -301,7 +301,8 @@ type Store = DB & UIState & {
   setCatalogLink: (branchId: ID, link: Branch["catalogLink"]) => Result
   /** enroll-now application → family + students + a "สมัครตรง" lead at รอชำระ + a draft invoice per child */
   /** owner 2026-10-16: without a course = family + student (+ lead) only — the admin picks course + classes on the invoice panel */
-  approveEnrollment: (sub: EnrollSubmission, plan: { childIndex: number; courseId?: ID; classIds?: ID[]; startDate?: DateStr; periods?: number }[]) => Result<{ studentIds: ID[]; invoiceIds: ID[] }>
+  /** opts.newFamily (owner 2026-10-29): the admin said the matching family on file is NOT this family → create a new one */
+  approveEnrollment: (sub: EnrollSubmission, plan: { childIndex: number; courseId?: ID; classIds?: ID[]; startDate?: DateStr; periods?: number }[], opts?: { newFamily?: boolean }) => Result<{ studentIds: ID[]; invoiceIds: ID[] }>
   /** the reason list (Settings) — one list for lost leads and students who leave */
   saveLossReasons: (list: LossReason[]) => Result
   /** sends an archived lead back to the stage it was archived from — a deliberate action, so unlike
@@ -317,7 +318,8 @@ type Store = DB & UIState & {
    *  its own `picks[]` already carries all of them, merged here into one shared 2-hour room block.
    *  Lazily creates that child's Lead first if this is an "Add another Student" child (`leadId: null`). */
   /** applyChanges: the parent edited details of a family/child we already have — staff confirmed updating them */
-  approveTestTrialSubmission: (sub: FormSubmission, opts?: { applyChanges?: boolean }) => Result<{ sessionId: ID; studentId: ID; leadId: ID }>
+  /** opts.newFamily (owner 2026-10-29): the admin decided the family on file with the same phone / LINE is a different family */
+  approveTestTrialSubmission: (sub: FormSubmission, opts?: { applyChanges?: boolean; newFamily?: boolean }) => Result<{ sessionId: ID; studentId: ID; leadId: ID }>
 
   openConversation: (id: ID) => void
   assignConversation: (id: ID, staffId: ID | null) => Result
@@ -2845,7 +2847,7 @@ export const useStore = create<Store>()(
         return OK
       },
 
-      approveEnrollment: (sub, plan) => {
+      approveEnrollment: (sub, plan, opts) => {
         const s = get()
         for (const p of ["student.manage", "billing.manage", "lead.manage"] as const) { const perm = requirePerm(s.me(), p); if (!perm.ok) return perm }
         if (!plan.length) return fail("เลือกคอร์สอย่างน้อย 1 คน")
@@ -2853,7 +2855,8 @@ export const useStore = create<Store>()(
         if (!branch) return fail("ไม่พบสาขา")
         const now = s.now()
         // same family when the LINE account or any parent phone is already on file (siblings, returning families)
-        const matched = People.matchExistingFamily(s.families, { lineUserId: sub.lineUserId, phones: sub.parents.map((p) => p.phone) })
+        // owner 2026-10-29: the system suggests the match, the admin decides (opts.newFamily = keep them apart)
+        const matched = opts?.newFamily ? null : People.matchExistingFamily(s.families, { lineUserId: sub.lineUserId, phones: sub.parents.map((p) => p.phone) })
         const family = matched ?? People.familyFromSubmission(sub.children[0].name, sub.parents, { name: sub.familyName, nameEn: sub.familyNameEn, address: sub.familyAddress, postcode: sub.familyPostcode, province: sub.familyProvince, location: sub.familyLocation, addressNote: sub.familyAddressNote, sources: sub.acquisitions, taxInfo: sub.taxInfo }, sub.lineUserId, uid("fam"))
         const parent = sub.parents.find((p) => p.primary) ?? sub.parents[0]
         const students: Student[] = [], leads: Lead[] = [], invoices: Invoice[] = [], stuIds: ID[] = []
@@ -3026,7 +3029,8 @@ export const useStore = create<Store>()(
           // conflict-safe: reuse an existing family (matched by LINE identity, then by any parent phone
           // already on file) instead of creating a duplicate for a returning family or a sibling — never
           // overwrites what's on file, staff review any differences before this point (SubmissionReviewCard)
-          const matched = People.matchExistingFamily(s.families, { lineUserId: lead.lineUserId, phones: sub.parents.map((p) => p.phone) })
+          // owner 2026-10-29: the system suggests the match, the admin decides (opts.newFamily = keep them apart)
+          const matched = opts?.newFamily ? null : People.matchExistingFamily(s.families, { lineUserId: lead.lineUserId, phones: sub.parents.map((p) => p.phone) })
           const family = matched ?? People.familyFromSubmission(sub.studentName, sub.parents, { name: sub.familyName, nameEn: sub.familyNameEn, address: sub.familyAddress, postcode: sub.familyPostcode, province: sub.familyProvince, location: sub.familyLocation, addressNote: sub.familyAddressNote, sources: sub.acquisitions, taxInfo: sub.taxInfo }, lead.lineUserId, uid("fam"))
           set((cur) => ({
             families: matched ? cur.families : [...cur.families, family],

@@ -2,7 +2,7 @@
 
 import { useState } from "react"
 import Link from "next/link"
-import { CalendarIcon, CheckIcon, ClipboardListIcon, GraduationCapIcon, PencilIcon, UserRoundSearchIcon, XIcon } from "lucide-react"
+import { CalendarIcon, CheckIcon, ClipboardListIcon, GraduationCapIcon, PencilIcon, XIcon } from "lucide-react"
 import { Confirmation, ConfirmationActions, ConfirmationBody, ConfirmationHeader, ConfirmationResult } from "@/components/ai-elements/confirmation"
 import { Button } from "@/components/ui/button"
 import { fmtDate } from "@/domain/dates"
@@ -15,6 +15,7 @@ import { report } from "@/lib/feedback"
 import { useBranch, useNow } from "@/lib/hooks"
 import { useStore } from "@/store/store"
 import { SlotPicker } from "./slot-picker"
+import { FamilyMatchChoice } from "@/components/app/family-match-choice"
 
 
 /**
@@ -42,14 +43,16 @@ export function SubmissionReviewCard({ submission: sub, onChanged }: { submissio
   const matchedFamily = sub.status === "pending" ? matchExistingFamily(families, { lineUserId: sub.lineUserId, phones: sub.parents.map((p) => p.phone) }) : null
   // a child we already know (test → trial) or a family on file: what did the parent change in this form?
   const knownStudent = students.find((x) => x.id === leads.find((l) => l.id === sub.leadId)?.trialStudentId)
-  const knownFamily = families.find((f) => f.id === knownStudent?.familyId) ?? matchedFamily ?? undefined
+  // owner 2026-10-29: the match is a suggestion — the admin picks รวม / แยก before approving
+  const [newFamily, setNewFamily] = useState(false)
+  const knownFamily = families.find((f) => f.id === knownStudent?.familyId) ?? (newFamily ? undefined : matchedFamily) ?? undefined
   const changes = sub.status === "pending" ? submissionChanges(knownFamily, knownStudent, sub) : []
   const [applyChanges, setApplyChanges] = useState(true)
 
   const approve = async () => {
     setBusy(true)
     try {
-      if (report(await approveSubmission(sub, { applyChanges: changes.length > 0 && applyChanges }), changes.length && applyChanges ? `อนุมัติแล้ว + อัปเดตข้อมูล ${changes.length} รายการ` : "อนุมัติแล้ว — สร้างคาบเรียนจริงแล้ว")) onChanged()
+      if (report(await approveSubmission(sub, { applyChanges: changes.length > 0 && applyChanges, newFamily }), changes.length && applyChanges ? `อนุมัติแล้ว + อัปเดตข้อมูล ${changes.length} รายการ` : "อนุมัติแล้ว — สร้างคาบเรียนจริงแล้ว")) onChanged()
     } finally {
       setBusy(false)
     }
@@ -105,10 +108,8 @@ export function SubmissionReviewCard({ submission: sub, onChanged }: { submissio
       </div>
 
 
-      {matchedFamily && (
-        <p className="mt-1.5 flex items-start gap-1 rounded-lg bg-sky-50 p-1.5 text-[11px] text-sky-900 dark:bg-sky-950 dark:text-sky-200">
-          <UserRoundSearchIcon className="mt-0.5 size-3 shrink-0" /> พบครอบครัว &quot;{matchedFamily.name}&quot; ที่มีอยู่แล้ว (เบอร์/LINE ตรงกัน) — กดอนุมัติจะผูกนักเรียนคนนี้เข้าครอบครัวเดิม ไม่สร้างซ้ำ
-        </p>
+      {matchedFamily && !knownStudent && (
+        <FamilyMatchChoice className="mt-1.5" familyName={matchedFamily.name} reason="เบอร์ / LINE ตรงกัน" newFamily={newFamily} onChange={setNewFamily} />
       )}
 
       {changes.length > 0 && (

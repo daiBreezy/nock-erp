@@ -10,8 +10,8 @@ import { matchExistingFamily } from "@/domain/rules/people"
 import type { EnrollSubmission, ID } from "@/domain/types"
 import { report } from "@/lib/feedback"
 import { fetchEnrollSubmissions, markEnrollReviewed } from "@/lib/forms"
-import { cn } from "@/lib/utils"
 import { useStore } from "@/store/store"
+import { FamilyMatchChoice } from "@/components/app/family-match-choice"
 
 const PKG = { month: "รายเดือน", hour: "แพ็กชั่วโมง", week: "รายสัปดาห์", unsure: "ยังไม่แน่ใจ" } as const
 const DAYS = ["อา", "จ", "อ", "พ", "พฤ", "ศ", "ส"]
@@ -58,10 +58,12 @@ export function EnrollReviewDialog({ sub, onClose, onDone }: { sub: EnrollSubmis
   const approve = useStore((st) => st.approveEnrollment)
   const matched = matchExistingFamily(s.families, { lineUserId: sub.lineUserId, phones: sub.parents.map((p) => p.phone) })
   const [busy, setBusy] = useState(false)
+  // owner 2026-10-29: the match is a suggestion — the admin picks รวม / แยก before approving
+  const [newFamily, setNewFamily] = useState(false)
 
   const submit = async () => {
     setBusy(true)
-    const r = approve(sub, sub.children.map((_, i) => ({ childIndex: i })))
+    const r = approve(sub, sub.children.map((_, i) => ({ childIndex: i })), { newFamily })
     if (report(r, (v) => `สร้างนักเรียน ${v.studentIds.length} คนแล้ว — เลือกคอร์ส + คลาสในใบแจ้งหนี้ได้เลย`)) {
       await markEnrollReviewed(sub.id, "approved", r.value.studentIds)
       onDone(r.value.studentIds); onClose()
@@ -82,7 +84,7 @@ export function EnrollReviewDialog({ sub, onClose, onDone }: { sub: EnrollSubmis
           {sub.parents.map((p, i) => <p key={i}>{p.name} · {p.phone}{p.relationship ? ` · ${p.relationship}` : ""}{p.primary ? " · ผู้ติดต่อหลัก" : ""}</p>)}
           {sub.familyAddress && <p className="text-muted-foreground">{[sub.familyAddress, sub.familyProvince, sub.familyPostcode].filter(Boolean).join(" ")}</p>}
           {sub.taxInfo?.taxId && <p className="text-muted-foreground">ใบกำกับภาษี: {sub.taxInfo.customerName} · {sub.taxInfo.taxId}</p>}
-          <p className={cn("text-xs", matched ? "text-amber-700" : "text-muted-foreground")}>{matched ? `พบครอบครัวเดิม "${matched.name}" (LINE หรือเบอร์ตรงกัน) — จะเพิ่มนักเรียนเข้าครอบครัวนี้` : "ครอบครัวใหม่"}</p>
+          {matched ? <FamilyMatchChoice familyName={matched.name} reason="LINE หรือเบอร์ตรงกัน" newFamily={newFamily} onChange={setNewFamily} /> : <p className="text-xs text-muted-foreground">ครอบครัวใหม่</p>}
         </section>
         {sub.children.map((c, i) => (
           <section key={i} className="space-y-1 rounded-2xl border p-3 text-sm">
