@@ -20,7 +20,7 @@ import { daysBetween, endTime, fmtDate, fmtDateTime, fmtMoney, toDateStr } from 
 import * as Att from "@/domain/rules/attendance"
 import { INVOICE_STATUS_LABEL, invoiceTotals } from "@/domain/rules/billing"
 import { can } from "@/domain/rules/permissions"
-import { removedWithClass, subjectsOf, workState } from "@/domain/rules/scheduling"
+import { removedWithClass, sessionState, subjectsOf } from "@/domain/rules/scheduling"
 import type { ActivityLog, Entitlement, ID, Invoice, LogCategory, Session, Student, StudentLeave } from "@/domain/types"
 import { report } from "@/lib/feedback"
 import { useEntitlements, useNow } from "@/lib/hooks"
@@ -38,7 +38,6 @@ import { RenewalFollowUpSection } from "./renewal-followup"
 import { StudentForm } from "./student-form"
 import { stateDetail, STATUS_PILL } from "./student-status"
 import { avatarTone, gradeTone, initial, subjectColor } from "./subject-color"
-import { WorkChip } from "./work-state"
 import { InfoTip } from "./info-tip"
 
 export { STATUS_PILL } from "./student-status"
@@ -328,7 +327,6 @@ function SessionList({ stu, ents }: { stu: Student; ents: Entitlement[] }) {
   const sessions = useStore((s) => s.sessions)
   const classes = useStore((s) => s.classes)
   const attendance = useStore((s) => s.attendance)
-  const summaries = useStore((s) => s.summaries)
   const invoices = useStore((s) => s.invoices)
   const staff = useStore((s) => s.staff)
   const leaves = useStore((s) => s.leaves)
@@ -347,9 +345,17 @@ function SessionList({ stu, ents }: { stu: Student; ents: Entitlement[] }) {
   const active = mine.filter((s) => !s.cancelled)
   const done = active.filter((s) => s.date < today).length
   const att = (s: Session) => attendance.find((a) => a.sessionId === s.id && a.studentId === stu.id)
+  // this student's status in the session — one short pill (the class-wide check-in count belongs to the session, not here)
+  const studentSessionStatus = (s: Session): { label: string; tone: "green" | "red" | "amber" | "blue" | "gray" } => {
+    const a = att(s)
+    if (a) return { label: ATT_LABEL[a.status], tone: ATT_TONE[a.status] }
+    const st = sessionState(s, now)
+    return st === "cancelled" ? { label: "ยกเลิก", tone: "gray" } : st === "upcoming" ? { label: "รอเริ่ม", tone: "gray" } : st === "live" ? { label: "กำลังเรียน", tone: "blue" } : { label: "ยังไม่เช็คชื่อ", tone: "amber" }
+  }
 
   const columns: Column<Session>[] = [
-    { id: "date", label: "วันที่", required: true, cell: (s) => <span className={cn(s.date === today && "font-medium text-primary")}>{fmtDate(s.date, { weekday: true, year: true })}{s.date === today && " · วันนี้"}</span> },
+    // owner 2026-10-29: every cell the same shape so the columns line up — today is the highlighted row, not longer text
+    { id: "date", label: "วันที่", required: true, cell: (s) => <span className={cn(s.date === today && "font-medium text-primary")}>{fmtDate(s.date, { weekday: true, year: true })}</span> },
     { id: "time", label: "เวลา", className: "tabular-nums", cell: (s) => `${s.start}–${endTime(s.start, s.minutes)}` },
     { id: "subject", label: "วิชา", cell: (s) => <span className="flex gap-1">{subjectsOf(s).map((x) => <span key={x} className={cn("rounded-full px-2 py-0.5 text-xs", subjectColor(x).chip)}>{x}</span>)}</span> },
     { id: "teacher", label: "ครู", cell: (s) => staff.find((x) => x.id === s.teacherId)?.nickname ?? <span className="text-muted-foreground">ยังไม่มีครู</span> },
@@ -357,7 +363,7 @@ function SessionList({ stu, ents }: { stu: Student; ents: Entitlement[] }) {
       { id: "pickup", label: "รับ", align: "center", cell: (s) => (legs.get(s.date)?.pickup ? "✓" : "—") },
       { id: "dropoff", label: "ส่ง", align: "center", cell: (s) => (legs.get(s.date)?.dropoff ? "✓" : "—") },
     ] satisfies Column<Session>[] : []),
-    { id: "status", label: "สถานะ", align: "right", cell: (s) => { const a = att(s); return a ? <Pill tone={ATT_TONE[a.status]}>{ATT_LABEL[a.status]}</Pill> : <WorkChip w={workState(s, now, attendance, summaries)} students={s.studentIds.length} /> } },
+    { id: "status", label: "สถานะ", cell: (s) => { const x = studentSessionStatus(s); return <Pill tone={x.tone}>{x.label}</Pill> } },
     { id: "actions", label: "จัดการ", required: true, align: "right", width: "3rem", cell: (s) => <StudentSessionMenu s={s} studentId={stu.id} /> },
   ]
 
