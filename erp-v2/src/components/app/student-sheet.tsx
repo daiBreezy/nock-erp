@@ -16,7 +16,7 @@ import { EntityPanel, PanelFooter, PanelForm, PanelMore } from "./form-shell"
 import { Tabs } from "./page-layout"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
-import { daysBetween, endTime, fmtDate, fmtDateTime, fmtMoney, toDateStr } from "@/domain/dates"
+import { daysBetween, endTime, fmtDate, fmtDateTime, fmtMoney, toDateStr, weekdayShort } from "@/domain/dates"
 import * as Att from "@/domain/rules/attendance"
 import { INVOICE_STATUS_LABEL, invoiceTotals } from "@/domain/rules/billing"
 import { can } from "@/domain/rules/permissions"
@@ -30,6 +30,9 @@ import { Pill } from "./badges"
 import { Pager, usePage } from "./data-table"
 import { ColumnsMenu, DataTable, type Column } from "./data-grid"
 import { FilterChipGroup } from "./filter-chip-group"
+import { Kpi } from "./kpi"
+import { busDaysOf } from "@/domain/rules/parent-view"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { StudentSessionMenu } from "./session-sheet"
 import { AssessmentNote } from "./assessment-note"
 import { LeaveDialog } from "./leave-dialog"
@@ -334,7 +337,9 @@ function SessionList({ stu, ents }: { stu: Student; ents: Entitlement[] }) {
   const now = useNow()
   const today = toDateStr(now)
   const [subject, setSubject] = useState("")
-  const legs = useMemo(() => new Map(invoices.filter((i) => i.studentId === stu.id && i.status !== "void").flatMap((i) => i.bus.map((l) => [l.date, l] as const))), [invoices, stu.id])
+  const busAddOns = useStore((s) => s.busAddOns)
+  // paid legs + extra rides − rides the parent cancelled (same as the bus plan)
+  const legs = useMemo(() => busDaysOf(stu.id, invoices, busAddOns), [invoices, busAddOns, stu.id])
   // owner Row 44/49 (2026-10-28): EVERY session — past and upcoming — so parents can be told the full schedule
   const all = sessions
     .filter((s) => s.studentIds.includes(stu.id) || attendance.some((a) => a.sessionId === s.id && a.studentId === stu.id))
@@ -344,6 +349,7 @@ function SessionList({ stu, ents }: { stu: Student; ents: Entitlement[] }) {
   const mine = subject ? all.filter((s) => subjectsOf(s).includes(subject)) : all
   const active = mine.filter((s) => !s.cancelled)
   const done = active.filter((s) => s.date < today).length
+  const canBus = can(useStore((s) => s.me()), "billing.manage")
   const att = (s: Session) => attendance.find((a) => a.sessionId === s.id && a.studentId === stu.id)
   // this student's status in the session — one short pill (the class-wide check-in count belongs to the session, not here)
   const studentSessionStatus = (s: Session): { label: string; tone: "green" | "red" | "amber" | "blue" | "gray" } => {
@@ -353,29 +359,24 @@ function SessionList({ stu, ents }: { stu: Student; ents: Entitlement[] }) {
     return st === "cancelled" ? { label: "ยกเลิก", tone: "gray" } : st === "upcoming" ? { label: "รอเริ่ม", tone: "gray" } : st === "live" ? { label: "กำลังเรียน", tone: "blue" } : { label: "ยังไม่เช็คชื่อ", tone: "amber" }
   }
 
+  // owner 2026-10-29: day and date in their own columns · time on top, minutes below · bus = one P / D / B tag,
+  // hidden until the admin turns it on (and editable here) · status on the right · ⋯ only on row hover.
+  // "1%" = shrink to content, so the spare width goes to the subject column instead of spreading everywhere.
   const columns: Column<Session>[] = [
-    // owner 2026-10-29: every cell the same shape so the columns line up — today is the highlighted row, not longer text
-    { id: "date", label: "วันที่", required: true, cell: (s) => <span className={cn(s.date === today && "font-medium text-primary")}>{fmtDate(s.date, { weekday: true, year: true })}</span> },
-    { id: "time", label: "เวลา", className: "tabular-nums", cell: (s) => `${s.start}–${endTime(s.start, s.minutes)}` },
+    { id: "day", label: "วัน", width: "1%", cell: (s) => <span className={cn(s.date === today && "font-medium text-primary")}>{weekdayShort(new Date(`${s.date}T00:00:00`).getDay())}</span> },
+    { id: "date", label: "วันที่", required: true, width: "1%", cell: (s) => <span className={cn(s.date === today && "font-medium text-primary")}>{fmtDate(s.date, { year: true })}</span> },
+    { id: "time", label: "เวลา", width: "1%", cell: (s) => <span className="flex flex-col leading-tight tabular-nums">{s.start}–{endTime(s.start, s.minutes)}<span className="text-xs text-muted-foreground">{s.minutes} นาที</span></span> },
     { id: "subject", label: "วิชา", cell: (s) => <span className="flex gap-1">{subjectsOf(s).map((x) => <span key={x} className={cn("rounded-full px-2 py-0.5 text-xs", subjectColor(x).chip)}>{x}</span>)}</span> },
-    { id: "teacher", label: "ครู", cell: (s) => staff.find((x) => x.id === s.teacherId)?.nickname ?? <span className="text-muted-foreground">ยังไม่มีครู</span> },
-    ...(stu.usesBus ? [
-      { id: "pickup", label: "รับ", align: "center", cell: (s) => (legs.get(s.date)?.pickup ? "✓" : "—") },
-      { id: "dropoff", label: "ส่ง", align: "center", cell: (s) => (legs.get(s.date)?.dropoff ? "✓" : "—") },
-    ] satisfies Column<Session>[] : []),
-    { id: "status", label: "สถานะ", cell: (s) => { const x = studentSessionStatus(s); return <Pill tone={x.tone}>{x.label}</Pill> } },
-    { id: "actions", label: "จัดการ", required: true, align: "right", width: "3rem", cell: (s) => <StudentSessionMenu s={s} studentId={stu.id} /> },
+    { id: "teacher", label: "ครู", width: "1%", cell: (s) => staff.find((x) => x.id === s.teacherId)?.nickname ?? <span className="text-muted-foreground">ยังไม่มีครู</span> },
+    { id: "bus", label: "รถรับส่ง", width: "1%", align: "center", defaultHidden: true, info: "P = รับ (Pickup) · D = ส่ง (Drop) · B = ทั้งรับและส่ง — กดเพื่อแก้ (คาบที่ยังไม่ถึง)",
+      cell: (s) => <BusTag studentId={stu.id} date={s.date} legs={legs.get(s.date)} editable={canBus && s.date >= today && !s.cancelled} /> },
+    { id: "status", label: "สถานะ", width: "1%", align: "right", cell: (s) => { const x = studentSessionStatus(s); return <Pill tone={x.tone}>{x.label}</Pill> } },
+    { id: "actions", label: "จัดการ", required: true, width: "1%", align: "right",
+      cell: (s) => <span className="inline-flex opacity-0 transition-opacity group-hover/row:opacity-100 focus-within:opacity-100 has-[[aria-expanded=true]]:opacity-100"><StudentSessionMenu s={s} studentId={stu.id} /></span> },
   ]
 
   // per course: held so far = มา + ขาด + ลา + ยังไม่เช็ค
   const packages = ents.filter((e) => e.studentId === stu.id && (!subject || e.subjects.includes(subject))).sort((a, b) => b.to.localeCompare(a.to))
-  const courseCols: Column<Entitlement>[] = [
-    { id: "course", label: "คอร์ส", required: true, cell: (e) => courses.find((x) => x.id === e.courseId)?.name ?? "—" },
-    { id: "held", label: "ผ่านไปแล้ว", className: "tabular-nums", cell: (e) => { const h = heldOf(e); const unmarked = h.length - attOf(h).length; return <>{h.length} คาบ{unmarked > 0 && <span className="text-xs text-amber-700"> · ยังไม่เช็ค {unmarked}</span>}</> } },
-    { id: "present", label: "มา", align: "right", className: "tabular-nums text-emerald-700", cell: (e) => attOf(heldOf(e)).filter((a) => a.status === "present").length },
-    { id: "absent", label: "ขาด", align: "right", className: "tabular-nums text-red-700", cell: (e) => attOf(heldOf(e)).filter((a) => a.status === "absent").length },
-    { id: "leave", label: "ลา (โควตา)", align: "right", className: "tabular-nums text-amber-700", cell: (e) => `${Att.leavesUsed(e, sessions, attendance, leaves)}/${Att.leaveQuota(e)}` },
-  ]
   const heldOf = (e: Entitlement) => sessions.filter((s) => Att.packageCovers(e, s) && s.studentIds.includes(stu.id) && !s.cancelled && s.date <= today)
   const attOf = (held: Session[]) => attendance.filter((a) => a.studentId === stu.id && held.some((s) => s.id === a.sessionId))
 
@@ -390,15 +391,68 @@ function SessionList({ stu, ents }: { stu: Student; ents: Entitlement[] }) {
       <DataTable id="student-sessions" columns={columns} rows={mine} rowKey={(s) => s.id} minWidth={560}
         rowClassName={(s) => cn(s.cancelled && "opacity-45", s.date === today && "bg-primary/5")} empty="ไม่มีคาบ" />
       {packages.length > 0 && (
-        <>
-          <div className="flex items-center pt-2">
-            <h3 className="text-sm font-semibold">การเข้าเรียนต่อคอร์ส</h3>
-            <span className="ml-auto"><ColumnsMenu id="student-course-attendance" columns={courseCols} /></span>
+        <section className="space-y-2 pt-2">
+          <h3 className="text-sm font-semibold">การเข้าเรียนต่อคอร์ส</h3>
+          {/* owner 2026-10-29: one card per course instead of a table */}
+          <div className="grid gap-3 sm:grid-cols-2">
+            {packages.map((e) => {
+              const held = heldOf(e)
+              const marks = attOf(held)
+              const n = (st: string) => marks.filter((a) => a.status === st).length
+              const unmarked = held.length - marks.length
+              const course = courses.find((x) => x.id === e.courseId)
+              return (
+                <Kpi key={e.id} icon={GraduationCapIcon} tone={e.to < today ? "violet" : "sky"} label={course?.name ?? "—"} value={`${n("present")}/${held.length}`}
+                  sub={`มาเรียน · ${fmtDate(e.from)} → ${fmtDate(e.to, { year: true })}`}>
+                  <div className="flex flex-wrap gap-1.5 text-xs">
+                    <Pill tone="green">{`มา ${n("present")}`}</Pill>
+                    <Pill tone="red">{`ขาด ${n("absent")}`}</Pill>
+                    <Pill tone="amber">{`ลา ${Att.leavesUsed(e, sessions, attendance, leaves)}/${Att.leaveQuota(e)}`}</Pill>
+                    {unmarked > 0 && <Pill tone="gray">{`ยังไม่เช็ค ${unmarked}`}</Pill>}
+                  </div>
+                </Kpi>
+              )
+            })}
           </div>
-          <DataTable id="student-course-attendance" columns={courseCols} rows={packages} rowKey={(e) => e.id} minWidth={480} />
-        </>
+        </section>
       )}
     </div>
+  )
+}
+
+const BUS_TAG = { P: "bg-sky-100 text-sky-800 dark:bg-sky-950 dark:text-sky-200", D: "bg-violet-100 text-violet-800 dark:bg-violet-950 dark:text-violet-200", B: "bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-200" } as const
+
+/** P = pickup · D = drop · B = both (owner 2026-10-29) — click to change that day's rides: added legs are charged on the
+ *  next invoice, removed ones stop the bus (paid rides are not refunded) — same as a parent's request in LINE. */
+function BusTag({ studentId, date, legs, editable }: { studentId: ID; date: string; legs?: { pickup: boolean; dropoff: boolean }; editable: boolean }) {
+  const add = useStore((s) => s.addBusAddOns)
+  const cancel = useStore((s) => s.cancelBusRides)
+  const [open, setOpen] = useState(false)
+  const [p, setP] = useState(!!legs?.pickup)
+  const [d, setD] = useState(!!legs?.dropoff)
+  const kind = legs?.pickup && legs?.dropoff ? "B" : legs?.pickup ? "P" : legs?.dropoff ? "D" : null
+  const tag = kind ? <span className={cn("inline-grid size-6 place-items-center rounded-full text-xs font-semibold", BUS_TAG[kind])}>{kind}</span> : <span className="text-muted-foreground">—</span>
+  if (!editable) return tag
+  const save = () => {
+    const cur = { pickup: !!legs?.pickup, dropoff: !!legs?.dropoff }
+    const plus = { pickup: p && !cur.pickup, dropoff: d && !cur.dropoff }
+    const minus = { pickup: !p && cur.pickup, dropoff: !d && cur.dropoff }
+    let ok = true
+    if (plus.pickup || plus.dropoff) ok = report(add(studentId, [{ date, ...plus }], null, "แก้จากหน้านักเรียน"), "เพิ่มรอบรถแล้ว — เรียกเก็บในใบถัดไป") && ok
+    if (ok && (minus.pickup || minus.dropoff)) ok = report(cancel(studentId, [{ date, ...minus }], "แก้จากหน้านักเรียน"), "ยกเลิกรอบรถแล้ว")
+    if (ok) setOpen(false)
+  }
+  return (
+    <Popover open={open} onOpenChange={(o) => { setOpen(o); if (o) { setP(!!legs?.pickup); setD(!!legs?.dropoff) } }}>
+      <PopoverTrigger render={<button type="button" aria-label="แก้รถรับส่งวันนี้" className="rounded-full hover:ring-2 hover:ring-primary/30" />}>{tag}</PopoverTrigger>
+      <PopoverContent align="center" className="w-56 space-y-2 p-3 text-sm">
+        <p className="font-medium">{`รถรับส่ง ${fmtDate(date, { weekday: true })}`}</p>
+        <label className="flex items-center gap-2"><input type="checkbox" checked={p} onChange={(e) => setP(e.target.checked)} /> รับ (Pickup)</label>
+        <label className="flex items-center gap-2"><input type="checkbox" checked={d} onChange={(e) => setD(e.target.checked)} /> ส่ง (Drop)</label>
+        <p className="text-xs text-muted-foreground">เพิ่ม = เรียกเก็บในใบถัดไป · เอาออก = รถไม่มารับ (ไม่คืนเงินรอบที่จ่ายแล้ว)</p>
+        <div className="flex justify-end"><Button size="xs" onClick={save}>บันทึก</Button></div>
+      </PopoverContent>
+    </Popover>
   )
 }
 
