@@ -39,6 +39,7 @@ import { LeaveDialog } from "./leave-dialog"
 import { PackageBadge } from "./package-badge"
 import { RenewalFollowUpSection } from "./renewal-followup"
 import { StudentForm } from "./student-form"
+import { AddToClassDialog } from "./add-to-class-dialog"
 import { stateDetail, STATUS_PILL } from "./student-status"
 import { avatarTone, gradeTone, initial, subjectColor } from "./subject-color"
 import { InfoTip } from "./info-tip"
@@ -334,7 +335,9 @@ function SessionList({ stu, ents }: { stu: Student; ents: Entitlement[] }) {
   const courses = useStore((s) => s.courses)
   const now = useNow()
   const today = toDateStr(now)
+  const me = useStore((s) => s.me())
   const [subject, setSubject] = useState("")
+  const [adding, setAdding] = useState(false)
   const busAddOns = useStore((s) => s.busAddOns)
   // paid legs + extra rides − rides the parent cancelled (same as the bus plan)
   const legs = useMemo(() => busDaysOf(stu.id, invoices, busAddOns), [invoices, busAddOns, stu.id])
@@ -410,11 +413,14 @@ function SessionList({ stu, ents }: { stu: Student; ents: Entitlement[] }) {
         <NativeSelect className="w-48" value={subject} onChange={(e) => setSubject(e.target.value)}
           options={[{ value: "", label: `ทุกวิชา (${all.length})` }, ...subjects.map((x) => ({ value: x, label: `${x} (${all.filter((s) => subjectsOf(s).includes(x)).length})` }))]} />
         {active.length > 0 && <p className="text-sm text-muted-foreground tabular-nums">{`ทั้งหมด ${active.length} คาบ · เรียนไปแล้ว ${done} · เหลือ ${active.length - done}`}</p>}
-        <span className="ml-auto"><ColumnsMenu id="student-sessions" columns={columns} /></span>
+        {/* owner Row 25 (2026-11-02): add this student into a class straight from the panel — no new-student form needed */}
+        {can(me, "session.manage") && <Button size="sm" variant="outline" className="ml-auto" onClick={() => setAdding(true)}><PlusIcon /> เพิ่มเข้าคลาส</Button>}
+        <span className={cn(can(me, "session.manage") || "ml-auto")}><ColumnsMenu id="student-sessions" columns={columns} /></span>
       </div>
       <DataTable id="student-sessions" columns={columns} rows={mine} rowKey={(s) => s.id} minWidth={520} maxHeight="calc(100dvh - 16rem)"
         rowActions={(s) => <StudentSessionMenu s={s} studentId={stu.id} />}
         rowClassName={(s) => cn(s.cancelled && "opacity-45", s.date === today && "bg-primary/5")} empty="ไม่มีคาบ" />
+      {adding && <AddToClassDialog stu={stu} onClose={() => setAdding(false)} />}
     </div>
   )
 }

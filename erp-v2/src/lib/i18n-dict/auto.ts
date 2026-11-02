@@ -3027,4 +3027,7 @@ export const AUTO: Record<string, Entry> = {
   "โทร {0}": { en: "Call {0}", ja: "{0}に電話" },
   "Note ในปฏิทิน": { en: "Calendar notes", ja: "カレンダーのメモ" },
   "Note ที่แสดงบนการ์ดคาบในปฏิทิน — 📌 = ถาวร (ทุกคาบของคลาส) · เพิ่ม / แก้ / ลบ ได้ที่นี่เหมือนในปฏิทิน": { en: "Notes shown on the session cards in the calendar — 📌 = permanent (every session of the class) · add / edit / delete here, same as in the calendar", ja: "カレンダーの授業カードに表示されるメモ — 📌＝固定（クラスの全授業） · カレンダーと同じくここで追加・編集・削除できます" },
+  "เพิ่มเข้าคลาส": { en: "Add to a class", ja: "クラスに追加" },
+  "เพิ่ม {0} เข้าคลาส": { en: "Add {0} to a class", ja: "{0}をクラスに追加" },
+  "เลือกคลาสที่จะเข้า — เริ่มจากคาบถัดไป ขึ้นปฏิทินทันที · ยังไม่จ่ายเงินระบบจะเตือนในคาบให้ออกใบแจ้งหนี้": { en: "Pick the classes to join — from the next session on, straight onto the calendar · if unpaid, the system reminds you in the session to issue an invoice", ja: "参加するクラスを選択 — 次回の授業からカレンダーに即反映 · 未払いの場合は授業で請求書発行を通知します" },
 }

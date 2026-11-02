@@ -164,8 +164,9 @@ export function Field({ label, hint, error, className, children }: { label: Reac
   )
 }
 
-/** classes to join (Row 25) — the student's grade first, then the rest; tap to pick, several allowed */
-function ClassPicker({ classes, grade, picked, onToggle, teacherName, hasNext }: { classes: Klass[]; grade: string; picked: string[]; onToggle: (id: string) => void; teacherName: (id: string | null) => string; hasNext: (id: string) => boolean }) {
+/** classes to join (Row 25) — the student's grade first, then the rest; tap to pick, several allowed.
+ *  `joined` (owner 2026-11-02) marks classes the student is already in, shown greyed as "อยู่แล้ว" (add-to-class panel). */
+export function ClassPicker({ classes, grade, picked, onToggle, teacherName, hasNext, joined }: { classes: Klass[]; grade: string; picked: string[]; onToggle: (id: string) => void; teacherName: (id: string | null) => string; hasNext: (id: string) => boolean; joined?: Set<string> }) {
   const fits = (k: Klass) => !grade || !k.grades.length || k.grades.includes(grade)
   const list = [...classes].sort((a, b) => Number(fits(b)) - Number(fits(a)) || ((a.weekday + 6) % 7) - ((b.weekday + 6) % 7) || a.start.localeCompare(b.start))
   if (!list.length) return <p className="text-xs text-muted-foreground">สาขานี้ยังไม่มีคลาส</p>
@@ -174,12 +175,15 @@ function ClassPicker({ classes, grade, picked, onToggle, teacherName, hasNext }:
       {list.map((k) => {
         const on = picked.includes(k.id)
         const next = hasNext(k.id)
+        const already = joined?.has(k.id) ?? false
+        const disabled = !next || already
         return (
           <li key={k.id}>
-            <button type="button" aria-pressed={on} disabled={!next} onClick={() => onToggle(k.id)}
-              className={cn("flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-sm", on ? "bg-primary/10 ring-1 ring-primary ring-inset" : "hover:bg-muted", !fits(k) && !on && "opacity-60", !next && "cursor-not-allowed opacity-40")}>
+            <button type="button" aria-pressed={on} disabled={disabled} onClick={() => onToggle(k.id)}
+              className={cn("flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-sm", on ? "bg-primary/10 ring-1 ring-primary ring-inset" : "hover:bg-muted", !fits(k) && !on && "opacity-60", disabled && "cursor-not-allowed opacity-40")}>
               <span className="flex gap-1">{subjectsOf(k).map((x) => <span key={x} className={cn("rounded-full px-1.5 text-[11px] font-medium", subjectColor(x).chip)}>{x}</span>)}</span>
               <span className="min-w-0 flex-1 truncate font-medium">{k.name}</span>
+              {already && <span className="shrink-0 text-xs font-medium text-emerald-700">อยู่แล้ว</span>}
               <span className="shrink-0 text-xs text-muted-foreground tabular-nums">{TH_DAYS_FULL[k.weekday]} {k.start}–{endTime(k.start, k.minutes)} · {teacherName(k.teacherId)} · {k.studentIds.length} คน</span>
             </button>
           </li>
