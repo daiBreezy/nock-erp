@@ -501,7 +501,8 @@ export function canMoveToClass(from: Session, to: Pick<Klass, "id" | "active" | 
   if (from.classId === to.id) return { ok: false, error: "อยู่ในคลาสนี้อยู่แล้ว" }
   if (!to.active) return { ok: false, error: "คลาสนั้นปิดแล้ว" }
   if (to.branchId !== from.branchId) return { ok: false, error: "ย้ายได้เฉพาะคลาสในสาขาเดียวกัน" }
-  if (sessionState(from, now) !== "upcoming") return { ok: false, error: "ย้ายได้ตั้งแต่คาบที่ยังไม่เริ่ม" }
+  // owner 2026-11-02: no time lock — managing a session is allowed any time until its summary is sent (enforced in the store)
+  if (from.cancelled) return { ok: false, error: "คาบนี้ยกเลิกแล้ว" }
   if (to.studentIds.includes(studentId)) return { ok: false, error: "นักเรียนอยู่ในคลาสนั้นแล้ว" }
   const cap = classCapacity(to)
   const warnings = [
@@ -516,7 +517,8 @@ export function canMoveToClass(from: Session, to: Pick<Klass, "id" | "active" | 
 export function canRescheduleStudent(from: Session, to: Session, studentId: ID, now: Date, capacity: number): Result {
   if (from.id === to.id) return { ok: false, error: "เลือกคาบอื่นที่ไม่ใช่คาบนี้" }
   if (!from.studentIds.includes(studentId)) return { ok: false, error: "นักเรียนไม่ได้อยู่ในคาบนี้" }
-  if (sessionState(from, now) === "closed" || from.cancelled) return { ok: false, error: "คาบเดิมปิดหรือยกเลิกแล้ว" }
+  // owner 2026-11-02: the source session can be moved any time (until locked); only the destination must be upcoming
+  if (from.cancelled) return { ok: false, error: "คาบเดิมยกเลิกแล้ว" }
   if (to.cancelled || sessionState(to, now) !== "upcoming") return { ok: false, error: "ย้ายไปได้เฉพาะคาบที่ยังไม่เริ่ม" }
   const w0 = mondayOf(from.date), w = mondayOf(to.date)
   if (w < w0 || w > addDays(w0, 7 * (RESCHEDULE_WEEKS - 1))) return { ok: false, error: "ย้ายได้ภายในสัปดาห์นี้และสัปดาห์หน้าเท่านั้น — ไกลกว่านั้นให้บันทึกเป็นการลา" }
@@ -528,11 +530,9 @@ export function canRescheduleStudent(from: Session, to: Session, studentId: ID, 
 /** Teachers change only before class — except a session that started with NO teacher may still get one,
  *  otherwise nobody can take attendance or write the summaries (E2E 2026-09-28). Closed/cancelled stay locked. */
 export function canChangeTeachers(s: Session, now: Date): Result {
-  const st = sessionState(s, now)
-  if (st === "upcoming") return { ok: true, value: undefined }
-  if (st === "cancelled" || st === "closed") return { ok: false, error: "คาบนี้ปิดหรือยกเลิกแล้ว" }
-  if (!s.teacherId) return { ok: true, value: undefined }
-  return { ok: false, error: "เปลี่ยนครูได้เฉพาะคาบที่ยังไม่เริ่ม" }
+  // owner 2026-11-02: teachers can be changed any time until the session is locked (summary sent); only a cancelled
+  // session is off-limits here (the sent-lock is enforced in the store).
+  return sessionState(s, now) === "cancelled" ? { ok: false, error: "คาบนี้ยกเลิกแล้ว" } : { ok: true, value: undefined }
 }
 
 export function applyToSessions(

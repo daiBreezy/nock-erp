@@ -838,11 +838,11 @@ describe("end-to-end loop gaps", () => {
     expect(nicknameFrom("มะปราง")).toBe("มะปราง")
   })
 
-  it("a session that started with no teacher can still get one (else nobody can mark/summarise); a staffed one cannot", () => {
+  it("owner 2026-11-02: a session's teacher can be changed any time (even after it started); only a cancelled one can't", () => {
     const base = generateSessions(klass({ teacherId: null }), [], id)[0] // Tue 29 Sep 10:00–11:00
     const during = new Date("2026-09-29T10:30:00")
     expect(canChangeTeachers(base, during).ok).toBe(true)
-    expect(canChangeTeachers({ ...base, teacherId: "t1" }, during).ok).toBe(false)
+    expect(canChangeTeachers({ ...base, teacherId: "t1" }, during).ok).toBe(true) // staffed + started: now allowed (until locked)
     expect(canChangeTeachers({ ...base, cancelled: true }, during).ok).toBe(false)
     expect(canChangeTeachers({ ...base, teacherId: "t1" }, new Date("2026-09-28T10:00:00")).ok).toBe(true)
   })

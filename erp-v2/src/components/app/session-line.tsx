@@ -24,15 +24,16 @@ export function SessionLine({ s, title, sub, children, actions, status, onOpen, 
 }) {
   return (
     <div role="button" tabIndex={0} data-focus={focus} onClick={onOpen} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onOpen() } }}
-      className={cn("flex w-full cursor-pointer flex-wrap items-center gap-3 px-3 py-2.5 text-left outline-none hover:bg-muted/40 focus-visible:bg-muted/40", className)}>
+      className={cn("flex w-full cursor-pointer items-center gap-3 px-3 py-2.5 text-left outline-none hover:bg-muted/40 focus-visible:bg-muted/40", className)}>
       <span className={cn("w-1 self-stretch rounded-full", subjectColor(s.subject).bar)} />
-      <span className="w-24 text-sm tabular-nums">{s.start}–{endTime(s.start, s.minutes)}</span>
-      <span className="min-w-40 flex-1">
-        <span className="block text-sm font-medium">{title}</span>
-        {sub && <span className="block text-xs text-muted-foreground">{sub}</span>}
+      {/* time and subject stack on the left (owner 2026-11-02); status sits on the right */}
+      <span className="min-w-0 flex-1">
+        <span className="block text-xs text-muted-foreground tabular-nums">{s.start}–{endTime(s.start, s.minutes)}</span>
+        <span className="block truncate text-sm font-medium">{title}</span>
+        {sub && <span className="block truncate text-xs text-muted-foreground">{sub}</span>}
         {children}
       </span>
-      {actions && <span className="flex flex-wrap items-center gap-1.5" onClick={(e) => e.stopPropagation()}>{actions}</span>}
+      {actions && <span className="flex flex-wrap items-center justify-end gap-1.5" onClick={(e) => e.stopPropagation()}>{actions}</span>}
       {status && <span className="flex shrink-0 justify-end">{status}</span>}
     </div>
   )

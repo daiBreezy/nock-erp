@@ -732,7 +732,8 @@ export const useStore = create<Store>()(
         if (!perm.ok) return perm
         const cur = s.sessions.find((x) => x.id === id)
         if (!cur) return fail("ไม่พบคาบเรียน")
-        if (Sch.sessionState(cur, s.now()) !== "upcoming") return fail("แก้ได้เฉพาะคาบที่ยังไม่เริ่ม")
+        if (cur.cancelled) return fail("คาบนี้ยกเลิกแล้ว")
+        if (Sum.sessionLocked(cur.id, s.summaries)) return fail("คาบนี้ส่งสรุปให้ผู้ปกครองแล้ว แก้ไขไม่ได้")
         const next = Sch.editSingleSession(cur, patch)
         const branch = s.branches.find((b) => b.id === cur.branchId)!
         const after = s.sessions.map((x) => (x.id === id ? next : x))
@@ -750,7 +751,8 @@ export const useStore = create<Store>()(
         const src = s.sessions.find((x) => x.id === id)
         if (!src) return fail("ไม่พบคาบเรียน")
         const now = s.now()
-        if (Sch.sessionState(src, now) !== "upcoming") return fail("ย้ายได้เฉพาะคาบที่ยังไม่เริ่ม")
+        if (src.cancelled) return fail("คาบนี้ยกเลิกแล้ว")
+        if (Sum.sessionLocked(src.id, s.summaries)) return fail("คาบนี้ส่งสรุปให้ผู้ปกครองแล้ว แก้ไขไม่ได้")
         const branch = s.branches.find((b) => b.id === src.branchId)!
         const moved = { ...src, date: target.date, start: target.start }
         if (at(target.date, target.start) < now) return fail("ย้ายไปเวลาที่ผ่านมาแล้วไม่ได้")
@@ -778,6 +780,7 @@ export const useStore = create<Store>()(
         const now = s.now()
         const allowed = Sch.canChangeTeachers(src, now)
         if (!allowed.ok) return allowed
+        if (Sum.sessionLocked(src.id, s.summaries)) return fail("คาบนี้ส่งสรุปให้ผู้ปกครองแล้ว แก้ไขไม่ได้")
         if (!teacherId && coTeacherIds.length) return fail("เลือกครูหลักก่อน")
         const co = coTeacherIds.filter((t) => t !== teacherId)
         const inactive = [teacherId, ...co].map((t) => s.staff.find((x) => x.id === t)).find((t) => t && !t.active)
@@ -799,7 +802,8 @@ export const useStore = create<Store>()(
         if (!perm.ok) return perm
         const src = s.sessions.find((x) => x.id === id)!
         const now = s.now()
-        if (Sch.sessionState(src, now) === "closed" || src.cancelled) return fail("คาบนี้ปิดหรือยกเลิกแล้ว")
+        if (src.cancelled) return fail("คาบนี้ยกเลิกแล้ว")
+        if (Sum.sessionLocked(src.id, s.summaries)) return fail("คาบนี้ส่งสรุปให้ผู้ปกครองแล้ว แก้ไขไม่ได้")
         if (src.studentIds.includes(studentId)) return fail("นักเรียนอยู่ในคาบนี้แล้ว")
         const klass = s.classes.find((c) => c.id === src.classId)
         const cap = klass ? Sch.CAPACITY[klass.type] : Sch.CAPACITY.group
@@ -1355,7 +1359,7 @@ export const useStore = create<Store>()(
         if (!perm.ok) return perm
         if (!reason.trim()) return fail("กรอกเหตุผลการยกเลิก")
         const cur = s.sessions.find((x) => x.id === id)!
-        if (Sch.sessionState(cur, s.now()) !== "upcoming") return fail("ยกเลิกได้เฉพาะคาบที่ยังไม่เริ่ม")
+        if (Sum.sessionLocked(cur.id, s.summaries)) return fail("คาบนี้ส่งสรุปให้ผู้ปกครองแล้ว แก้ไขไม่ได้")
         set({
           sessions: s.sessions.map((x) => (x.id === id ? { ...x, cancelled: true, cancelReason: reason } : x)),
           notifications: [
@@ -1604,7 +1608,8 @@ export const useStore = create<Store>()(
         if (!perm.ok) return perm
         const se = s.sessions.find((x) => x.id === sessionId)
         if (!se) return fail("ไม่พบคาบเรียน")
-        if (Sch.sessionState(se, s.now()) === "closed" || se.cancelled) return fail("คาบนี้ปิดหรือยกเลิกไปแล้ว")
+        if (se.cancelled) return fail("คาบนี้ยกเลิกไปแล้ว")
+        if (Sum.sessionLocked(se.id, s.summaries)) return fail("คาบนี้ส่งสรุปให้ผู้ปกครองแล้ว แก้ไขไม่ได้")
         if (!se.teacherId) return fail("คาบนี้ยังไม่มีครูหลัก")
         if (!reason.trim()) return fail("กรอกเหตุผลที่ครูลา")
         const record = { teacherId: se.teacherId, reason: reason.trim(), substituteId, by: s.userId, at: s.now().toISOString() }
@@ -1786,6 +1791,7 @@ export const useStore = create<Store>()(
         const klass = s.classes.find((k) => k.id === to.classId)
         const r = Sch.canRescheduleStudent(from, to, studentId, s.now(), klass ? Sch.CAPACITY[klass.type] : Sch.CAPACITY.group)
         if (!r.ok) return r
+        if (Sum.sessionLocked(from.id, s.summaries)) return fail("คาบนี้ส่งสรุปให้ผู้ปกครองแล้ว แก้ไขไม่ได้")
         if (s.attendance.some((a) => a.sessionId === fromSessionId && a.studentId === studentId)) return fail("เช็คชื่อคาบเดิมไปแล้ว — ล้างการเช็คชื่อก่อน")
         set({
           sessions: s.sessions.map((x) =>
@@ -1829,6 +1835,7 @@ export const useStore = create<Store>()(
         if (!can(s.me(), "session.manage") && !Sch.teachersOf(from).includes(s.userId)) return fail("ครูย้ายได้เฉพาะนักเรียนในคาบที่ตัวเองสอน")
         const r = Sch.canMoveToClass(from, to, studentId, s.now(), s.students.find((x) => x.id === studentId)?.grade)
         if (!r.ok) return r
+        if (Sum.sessionLocked(from.id, s.summaries)) return fail("คาบนี้ส่งสรุปให้ผู้ปกครองแล้ว แก้ไขไม่ได้")
         const oldClass = s.classes.find((k) => k.id === from.classId)!
         const now = s.now()
         const marked = (sid: ID) => s.attendance.some((a) => a.sessionId === sid && a.studentId === studentId)

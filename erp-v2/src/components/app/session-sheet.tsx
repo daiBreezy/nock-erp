@@ -276,7 +276,7 @@ function Body({ id, onClose }: { id: ID; onClose: () => void }) {
             <DropdownMenuTrigger render={<Button size="icon" variant="outline" aria-label="จัดการคลาส" />}><EllipsisVerticalIcon /></DropdownMenuTrigger>
             <DropdownMenuContent align="start" className="w-60">
               <DropdownMenuItem onClick={() => (klass ? setEditingClass(true) : setPostponing(true))}><PencilIcon /> {klass ? "แก้คลาส" : "แก้คาบนี้"}</DropdownMenuItem>
-              <DropdownMenuItem disabled={state !== "upcoming"} onClick={() => setPostponing(true)}><LogOutIcon /> เลื่อนคาบ (Postpone)</DropdownMenuItem>
+              <DropdownMenuItem disabled={locked || s.cancelled} onClick={() => setPostponing(true)}><LogOutIcon /> เลื่อนคาบ (Postpone)</DropdownMenuItem>
               <DropdownMenuItem disabled={locked || !s.teacherId} onClick={() => setTeacherLeave(true)}>
                 <UserMinusIcon /><span className="flex flex-col"><span>ครูลา</span><span className="text-xs text-muted-foreground">มีครูสอนแทน หรือยกเลิกคาบ</span></span>
               </DropdownMenuItem>
@@ -286,7 +286,7 @@ function Body({ id, onClose }: { id: ID; onClose: () => void }) {
           </DropdownMenu>
         )}
         <span className="ml-auto" />
-        {canManage && state !== "closed" && !s.cancelled && (
+        {canManage && !locked && !s.cancelled && (
           <Button variant="secondary" onClick={() => setAdding(true)}><UserPlusIcon /> เพิ่มนักเรียน</Button>
         )}
       </div>
@@ -295,7 +295,7 @@ function Body({ id, onClose }: { id: ID; onClose: () => void }) {
       {teacherLeave && <TeacherLeaveDialog s={s} onClose={() => setTeacherLeave(false)} />}
       {teachersOpen && <TeachersDialog id={s.id} onClose={() => setTeachersOpen(false)} />}
       {adding && <AddStudentDialog id={s.id} onClose={() => setAdding(false)} />}
-      {deleting && <DeleteDialog s={s} canCancel={state === "upcoming"} onClose={() => setDeleting(false)} onDone={onClose} />}
+      {deleting && <DeleteDialog s={s} canCancel={!locked} onClose={() => setDeleting(false)} onDone={onClose} />}
       <ClassSheet key={editingClass ? "edit" : "closed"} startEditing id={editingClass && klass ? klass.id : null} onClose={() => setEditingClass(false)} />
     </>
   )
@@ -396,8 +396,8 @@ function StudentRow({ s, sid, viewOnly, canManage, mine, text, setText, selectab
             {onLongLeave && <Pill tone="violet" className="shrink-0" title={`${fmtDate(onLongLeave.from)} – ${fmtDate(onLongLeave.to, { year: true })} · ${onLongLeave.reason}`}>ลาพักยาว</Pill>}
             {/* tap to change which hours this student attends — works before attendance (parent called ahead) */}
             {/* default = the whole class (owner 2026-09-30); tap to set a part of it */}
-            {(partial || (canManage && state(s, now) !== "closed" && !s.cancelled)) && (
-              <button type="button" disabled={!canManage || state(s, now) === "closed" || s.cancelled} onClick={() => setOpen("seat")}
+            {(partial || (canManage && !locked && !s.cancelled)) && (
+              <button type="button" disabled={!canManage || locked || s.cancelled} onClick={() => setOpen("seat")}
                 title={partial ? `เรียนเฉพาะ ${Seats.seatTime(s.start, seat)}${s.seats?.[sid] ? " (คาบนี้)" : " (ทุกคาบ)"} · กดเพื่อเปลี่ยน` : "กดเพื่อตั้งให้เรียนแค่บางชั่วโมง"}
                 className={cn("shrink-0 rounded-full px-2 py-0.5 text-xs font-medium", partial ? "bg-violet-100 text-violet-800 dark:bg-violet-950 dark:text-violet-200" : "border border-dashed text-muted-foreground hover:bg-muted")}>
                 {Seats.seatLabel(seat, s.minutes)}
@@ -423,7 +423,7 @@ function StudentRow({ s, sid, viewOnly, canManage, mine, text, setText, selectab
             className={pill + " data-[on=true]:bg-emerald-600 data-[on=true]:text-white"}>มา</button>
           <button type="button" data-on={a?.status === "leave"} disabled={!canMarkHere || !Att.canMark(s, "leave", now).ok} onClick={() => setOpen("leave")}
             title="ลา — เลือกหักโควตา / ไม่หักโควตา และจำนวนคาบ" className={pill + " data-[on=true]:bg-amber-500 data-[on=true]:text-white"}>{a?.status === "leave" && a.noQuota ? "ลา*" : "ลา"}</button>
-          <button type="button" disabled={!canMove || state(s, now) !== "upcoming" || !!a || s.cancelled} onClick={() => setOpen("reschedule")}
+          <button type="button" disabled={!canMove || locked || !!a || s.cancelled} onClick={() => setOpen("reschedule")}
             title="ย้ายวัน — ครั้งนี้ครั้งเดียว (สัปดาห์นี้ / หน้า) หรือย้ายคลาสถาวร" className={pill}>ย้ายวัน</button>
         </span>
         {/* per-student ⋮ — teachers get it too (profile / re-schedule); managers also get seat + remove.
@@ -435,7 +435,7 @@ function StudentRow({ s, sid, viewOnly, canManage, mine, text, setText, selectab
               <DropdownMenuItem onClick={() => setOpen("student")}><UserIcon /> เปิดโปรไฟล์นักเรียน</DropdownMenuItem>
               {pastSummaries.length > 0 && <DropdownMenuItem onClick={() => setHistoryOpen(true)}><HistoryIcon /> {`ประวัติสรุป ${pastSummaries.length} ครั้ง`}</DropdownMenuItem>}
               {canMove && (
-                <DropdownMenuItem disabled={state(s, now) !== "upcoming" || !!a} onClick={() => setOpen("reschedule")}>
+                <DropdownMenuItem disabled={locked || !!a} onClick={() => setOpen("reschedule")}>
                   <CalendarClockIcon /><span className="flex flex-col"><span>ย้ายคาบ (Re-schedule)</span><span className="text-xs text-muted-foreground">ครั้งเดียว (สัปดาห์นี้ / หน้า) หรือถาวร</span></span>
                 </DropdownMenuItem>
               )}
@@ -521,26 +521,27 @@ function StudentRow({ s, sid, viewOnly, canManage, mine, text, setText, selectab
 export function StudentSessionMenu({ s, studentId }: { s: Session; studentId: ID }) {
   const me = useStore((st) => st.me())
   const attendance = useStore((st) => st.attendance)
+  const summaries = useStore((st) => st.summaries)
   const now = useNow(30_000)
   const [open, setOpen] = useState<"reschedule" | "remove" | "seat" | "leave" | "session" | null>(null)
   const canManage = can(me, "session.manage")
   const mine = s.teacherId === me.id || s.coTeacherIds.includes(me.id)
   const canMove = can(me, "student.move") && (canManage || mine)
   const a = attendance.find((x) => x.sessionId === s.id && x.studentId === studentId)
-  const st = state(s, now)
+  const locked = Sum.sessionLocked(s.id, summaries)
   const canLeave = can(me, "attendance.mark") && (canManage || mine) && Att.canMark(s, "leave", now).ok
   return (
     <>
       <DropdownMenu>
         <DropdownMenuTrigger render={<Button size="icon-sm" variant="ghost" aria-label="จัดการคาบนี้" onClick={(e) => e.stopPropagation()} />}><EllipsisVerticalIcon /></DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="w-64">
-          <DropdownMenuItem disabled={!canMove || st !== "upcoming" || !!a || s.cancelled} onClick={() => setOpen("reschedule")}>
+          <DropdownMenuItem disabled={!canMove || locked || !!a || s.cancelled} onClick={() => setOpen("reschedule")}>
             <CalendarClockIcon /><span className="flex flex-col"><span>ย้ายคาบ (Re-schedule)</span><span className="text-xs text-muted-foreground">ครั้งเดียว (สัปดาห์นี้ / หน้า) หรือถาวร</span></span>
           </DropdownMenuItem>
           <DropdownMenuItem disabled={!canLeave || s.cancelled} onClick={() => setOpen("leave")}><LogOutIcon /> ลา</DropdownMenuItem>
-          {canManage && <DropdownMenuItem disabled={st === "closed" || s.cancelled} onClick={() => setOpen("seat")}><ClockIcon /> เวลาเรียน (บางชั่วโมง)</DropdownMenuItem>}
+          {canManage && <DropdownMenuItem disabled={locked || s.cancelled} onClick={() => setOpen("seat")}><ClockIcon /> เวลาเรียน (บางชั่วโมง)</DropdownMenuItem>}
           <DropdownMenuItem onClick={() => setOpen("session")}><CalendarDaysIcon /> เปิดคาบนี้</DropdownMenuItem>
-          {canManage && st !== "closed" && !s.cancelled && (
+          {canManage && !locked && !s.cancelled && (
             <>
               <DropdownMenuSeparator />
               <DropdownMenuItem variant="destructive" onClick={() => setOpen("remove")}><UserMinusIcon /> เอาออกจากคลาส</DropdownMenuItem>
@@ -1298,16 +1299,3 @@ function AddStudentDialog({ id, onClose }: { id: ID; onClose: () => void }) {
 }
 
 /** 1–5 "ความเข้าใจ" chips (owner 2026-10-14) — tap again to clear */
-function LevelPicker({ label, value, onChange, info }: { label: string; value?: number; onChange: (v: number | undefined) => void; info?: boolean }) {
-  return (
-    <div className="flex flex-wrap items-center gap-1.5 text-xs">
-      <span className="text-muted-foreground">{label}</span>
-      {[1, 2, 3, 4, 5].map((n) => (
-        <button key={n} type="button" aria-pressed={value === n} title={LEVEL_LABEL[n]} onClick={() => onChange(value === n ? undefined : n)}
-          className={cn("grid size-7 place-items-center rounded-full border text-xs font-medium tabular-nums", value === n ? "border-primary bg-primary text-primary-foreground" : "hover:bg-muted")}>{n}</button>
-      ))}
-      {value && <span className="text-muted-foreground">{LEVEL_LABEL[value]}</span>}
-      {info && <InfoTip text="ไม่บังคับ · 1 = ยังไม่เข้าใจ … 5 = เข้าใจดีมาก — ใช้วาดกราฟพัฒนาการใน Course Summary" />}
-    </div>
-  )
-}
