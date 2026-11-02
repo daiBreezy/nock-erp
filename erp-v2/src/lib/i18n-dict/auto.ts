@@ -3,6 +3,13 @@ import type { Entry } from "./index"
 // owner 2026-10-14 ("แปลภาษาทุกหน้า"): every Thai phrase in the staff UI, translated — read by the screen
 // translator (lib/screen-translate.ts) and tx(). Curated per-page files override these.
 export const AUTO: Record<string, Entry> = {
+  // owner 2026-11-02: session panel + attendance/summary timing
+  "ผู้ช่วย": { en: "Assistant", ja: "アシスタント" },
+  "คาบนี้ส่งสรุปให้ผู้ปกครองแล้ว แก้ไขไม่ได้": { en: "This session's summary has been sent to parents — it can't be edited", ja: "この授業の要約は保護者へ送信済みのため編集できません" },
+  "ส่งสรุปถึงผู้ปกครองแล้ว — คาบนี้ถูกล็อก แก้ไขไม่ได้": { en: "Summary sent to parents — this session is locked and can't be edited", ja: "要約を保護者へ送信済み — この授業はロックされ編集できません" },
+  "ส่งอนุมัติได้หลังคาบเรียนจบ — ระหว่างนี้บันทึกร่างไว้ก่อนได้": { en: "You can submit for approval after the class ends — save a draft until then", ja: "承認申請は授業終了後に可能です — それまでは下書きを保存できます" },
+  "ส่งได้หลังคาบเรียนจบแล้ว": { en: "Can be submitted after the class ends", ja: "授業終了後に申請できます" },
+  "ส่งสรุปได้หลังคาบเรียนจบแล้ว — ระหว่างนี้บันทึกร่างไว้ก่อนได้": { en: "Summaries can be submitted after the class ends — save a draft until then", ja: "要約は授業終了後に申請できます — それまでは下書きを保存できます" },
   "เลือกผู้ให้บริการ": { en: "Choose a provider", ja: "プロバイダーを選択" },
   "ใส่ API key": { en: "Enter the API key", ja: "APIキーを入力" },
   "AI ตอบกลับไม่เป็นรูปแบบที่อ่านได้": { en: "The AI reply couldn't be read", ja: "AIの返答を読み取れませんでした" },

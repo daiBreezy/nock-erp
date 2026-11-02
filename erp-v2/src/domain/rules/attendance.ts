@@ -8,16 +8,17 @@ import { isHoliday, sessionState, subjectsOf } from "./scheduling"
 
 /** Attendance can be prepared any time before the session closes, even before it starts (owner 2026-09-29 —
  *  replaces staging's C2 "leave only in advance"). Closed/cancelled sessions stay locked. */
+// owner 2026-11-02: attendance can be edited at any time — upcoming, live, ended or closed — so a teacher can
+// prepare ahead and fix an old session. The only time-based block is a cancelled session; the whole-session lock
+// once a summary has been sent to parents is enforced where the summaries list is on hand (store / UI).
 export function canMark(s: Session, _status: AttendanceStatus, now: Date): Result {
-  const st = sessionState(s, now)
-  if (st === "cancelled") return { ok: false, error: "คาบนี้ถูกยกเลิกแล้ว" }
-  if (st === "closed") return { ok: false, error: "คาบนี้ปิดแล้ว แก้ไขการเช็คชื่อไม่ได้" }
+  if (sessionState(s, now) === "cancelled") return { ok: false, error: "คาบนี้ถูกยกเลิกแล้ว" }
   return { ok: true, value: undefined }
 }
 
-/** C3: clearing a mark is allowed while the session is still open. */
+/** C3: clearing a mark follows the same rule as marking. */
 export function canClear(s: Session, now: Date): Result {
-  return sessionState(s, now) === "closed" ? { ok: false, error: "คาบนี้ปิดแล้ว" } : { ok: true, value: undefined }
+  return sessionState(s, now) === "cancelled" ? { ok: false, error: "คาบนี้ถูกยกเลิกแล้ว" } : { ok: true, value: undefined }
 }
 
 export function activeEntitlements(studentId: ID, ents: Entitlement[], date: string) {

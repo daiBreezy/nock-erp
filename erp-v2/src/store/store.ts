@@ -1377,6 +1377,7 @@ export const useStore = create<Store>()(
         if (a?.status !== "present") return fail("ติ๊ก \"มา\" ก่อน แล้วค่อยเลือกเวลาที่เรียนจริง")
         const open = Att.canMark(se, "present", s.now())
         if (!open.ok) return open
+        if (Sum.sessionLocked(sessionId, s.summaries)) return fail("คาบนี้ส่งสรุปให้ผู้ปกครองแล้ว แก้ไขไม่ได้")
         const seat = Seats.seatOf(se, studentId, s.classes.find((k) => k.id === se.classId))
         if (minutes !== null && (!(minutes > 0) || minutes > se.minutes)) return fail("เวลาเรียนต้องมากกว่า 0 และไม่เกินความยาวคาบ")
         const value = minutes === null || minutes === seat.minutes ? undefined : minutes
@@ -1672,7 +1673,7 @@ export const useStore = create<Store>()(
         const classIds = ent?.classIds.length ? ent.classIds : start.classId ? [start.classId] : []
         const run = start.classId ? Att.leaveRunSessions(studentId, start, s.sessions, classIds, count) : count > 0 ? [start] : []
         const runIds = new Set(run.map((x) => x.id))
-        const closed = (id: ID) => { const x = byId.get(id); return !x || !Att.canMark(x, "leave", now).ok }
+        const closed = (id: ID) => { const x = byId.get(id); return !x || x.cancelled || Sch.sessionState(x, now) === "closed" }
         const beforeEnds = resolvedFor(studentId)
         // keep: other students' marks, this student's marks outside the group, and group marks on closed sessions
         const keep = s.attendance.filter((a) => !(a.studentId === studentId && ((cur?.leaveGroup && a.leaveGroup === cur.leaveGroup && !closed(a.sessionId)) || (runIds.has(a.sessionId) && a.status === "leave"))))
@@ -1694,6 +1695,7 @@ export const useStore = create<Store>()(
         if (!can(me, "session.manage") && se.teacherId !== me.id && !se.coTeacherIds.includes(me.id)) return fail("เช็คชื่อได้เฉพาะคาบที่คุณสอน")
         const r = Att.canMark(se, status, s.now())
         if (!r.ok) return r
+        if (Sum.sessionLocked(sessionId, s.summaries)) return fail("คาบนี้ส่งสรุปให้ผู้ปกครองแล้ว แก้ไขไม่ได้")
         const rest = s.attendance.filter((a) => !(a.sessionId === sessionId && a.studentId === studentId))
         const beforeEnds = resolvedFor(studentId)
         // C3: summaries only exist for present students; keep text as draft instead of deleting silently
@@ -1752,6 +1754,7 @@ export const useStore = create<Store>()(
         if (!can(me, "session.manage") && se.teacherId !== me.id && !se.coTeacherIds.includes(me.id)) return fail("แก้การเช็คชื่อได้เฉพาะคาบที่คุณสอน")
         const r = Att.canClear(se, s.now())
         if (!r.ok) return r
+        if (Sum.sessionLocked(sessionId, s.summaries)) return fail("คาบนี้ส่งสรุปให้ผู้ปกครองแล้ว แก้ไขไม่ได้")
         const beforeEnds = resolvedFor(studentId)
         set({ attendance: s.attendance.filter((a) => !(a.sessionId === sessionId && a.studentId === studentId)) })
         log("attendance", [studentId], "ล้างการเช็คชื่อ", `${se.subject} ${fmtDate(se.date)} ${se.start}`)
@@ -1981,6 +1984,10 @@ export const useStore = create<Store>()(
         } else if (!can(me, "summary.write") && !can(me, "summary.approve")) return fail("คุณไม่มีสิทธิ์เขียนสรุป")
         const se = s.sessions.find((x) => x.id === sessionId)
         if (!can(me, "session.manage") && se && se.teacherId !== me.id && !se.coTeacherIds.includes(me.id)) return fail("เขียนสรุปได้เฉพาะคาบที่คุณสอน")
+        // owner 2026-11-02: draft any time, but a summary can only be submitted once the session has ended; a session
+        // whose summary already reached parents is locked.
+        if (se && Sum.sessionLocked(sessionId, s.summaries)) return fail("คาบนี้ส่งสรุปให้ผู้ปกครองแล้ว แก้ไขไม่ได้")
+        if (submit && se && !Sch.hasEnded(se, s.now())) return fail("ส่งสรุปได้หลังคาบเรียนจบแล้ว — ระหว่างนี้บันทึกร่างไว้ก่อนได้")
         const at = s.now().toISOString()
         const L = lesson ? { bookId: lesson.bookId || undefined, topicId: lesson.topicId || undefined, detail: lesson.detail?.trim() || undefined, level: lesson.level && lesson.level >= 1 && lesson.level <= 5 ? Math.round(lesson.level) : undefined,
           subjectLevels: lesson.subjectLevels && Object.keys(lesson.subjectLevels).length ? Object.fromEntries(Object.entries(lesson.subjectLevels).filter(([, v]) => v >= 1 && v <= 5).map(([k, v]) => [k, Math.round(v)])) : undefined } : {}

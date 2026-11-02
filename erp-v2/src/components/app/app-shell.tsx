@@ -10,13 +10,14 @@ import { usePublishParentViews } from "@/lib/parent-app"
 import { usePublishDriverTrips } from "@/lib/driver"
 import { useLineLinkSync } from "@/lib/line-links"
 import { useEffect, useState, useSyncExternalStore, type ReactNode } from "react"
-import { ArrowLeftRightIcon, BellIcon, CheckIcon, ChevronDownIcon, ChevronRightIcon, GlobeIcon, LockIcon, MapPinIcon, SearchIcon, SunIcon } from "lucide-react"
+import { ArrowLeftRightIcon, BellIcon, CheckIcon, ChevronDownIcon, ChevronRightIcon, GlobeIcon, LockIcon, MapPinIcon, MenuIcon, PanelLeftIcon, SearchIcon, SunIcon } from "lucide-react"
+import { Button } from "@/components/ui/button"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { branchShort, nm, tx, UI_LANGS, useT, useUiLang } from "@/lib/i18n"
 import { BUSINESS_SHORT } from "@/domain/rules/reports"
 import {
   Sidebar, SidebarContent, SidebarFooter, SidebarGroup, SidebarGroupLabel, SidebarHeader, SidebarInset, SidebarMenu,
-  SidebarMenuBadge, SidebarMenuButton, SidebarMenuItem, SidebarProvider, SidebarTrigger,
+  SidebarMenuBadge, SidebarMenuButton, SidebarMenuItem, SidebarProvider, useSidebar,
 } from "@/components/ui/sidebar"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Separator } from "@/components/ui/separator"
@@ -157,17 +158,19 @@ function Shell({ children }: { children: ReactNode }) {
       <SidebarInset className="min-w-0">
         {/* owner 2026-10-16: no background — the page (and a tuned theme's gradient) shows through; blur keeps it readable */}
         <header className="sticky top-0 z-20 flex h-14 items-center gap-2 border-b px-3 backdrop-blur-md md:px-4 bg-background/95">
-          <SidebarTrigger />
+          <HeaderMenuButton />
           <Separator orientation="vertical" className="mx-1 h-5" />
-          {/* breadcrumb only — the page's own header carries the big title (owner 2026-10-09) */}
+          {/* breadcrumb only — the page's own header carries the big title (owner 2026-10-09) ·
+              mobile: just the page title (no group prefix) so the bar stays uncluttered */}
           <nav aria-label="breadcrumb" className="flex min-w-0 items-center gap-1.5 text-sm">
-            {currentGroup && <><span className="truncate text-muted-foreground">{t(currentGroup)}</span><ChevronRightIcon className="size-3.5 shrink-0 text-muted-foreground" /></>}
+            {currentGroup && <span className="hidden truncate text-muted-foreground md:inline">{t(currentGroup)}</span>}
+            {currentGroup && <ChevronRightIcon className="hidden size-3.5 shrink-0 text-muted-foreground md:inline" />}
             <span className="truncate font-medium">{current ? t(current.label) : "NockERP"}</span>
           </nav>
           <div className="ml-auto flex items-center gap-2">
             <CurrentPeriodChip />
-            {/* branch stays visible on phones too, where the sidebar is hidden */}
-            <span className="flex items-center gap-1 rounded-full bg-primary/10 px-2.5 py-1 text-xs font-medium text-primary"><MapPinIcon className="size-3.5" />{branchShort(branch)}</span>
+            {/* branch + its switcher live in the drawer's user card on phones — here only from md up */}
+            <span className="hidden items-center gap-1 rounded-full bg-primary/10 px-2.5 py-1 text-xs font-medium text-primary md:flex"><MapPinIcon className="size-3.5" />{branchShort(branch)}</span>
             <LanguageChip />
           </div>
         </header>
@@ -186,6 +189,18 @@ function Shell({ children }: { children: ReactNode }) {
         <ThemeTuner />
       </SidebarInset>
     </SidebarProvider>
+  )
+}
+
+/** The header's menu button: a hamburger on phones (opens the drawer), the panel-toggle on desktop. */
+function HeaderMenuButton() {
+  const { toggleSidebar } = useSidebar()
+  const t = useT()
+  return (
+    <Button variant="ghost" size="icon-sm" onClick={toggleSidebar} aria-label={t("เมนู")} data-sidebar="trigger">
+      <MenuIcon className="md:hidden" />
+      <PanelLeftIcon className="hidden md:block" />
+    </Button>
   )
 }
 

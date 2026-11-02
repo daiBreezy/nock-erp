@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet"
+import { useSidePanel } from "@/hooks/use-mobile"
 import { cn } from "@/lib/utils"
 import { InfoTip } from "./info-tip"
 
@@ -56,9 +57,17 @@ export function FormShell({ title, description, onClose, footer, children, class
 
 /** The side panel itself — Header · Body · Bottom, only the body scrolls (owner 2026-10-09) */
 export function EntityPanel({ open, onClose, children, wide }: { open: boolean; onClose: () => void; children: React.ReactNode; wide?: boolean }) {
+  // phones + tablet-portrait: a bottom sheet; only a wide landscape screen gets the right-hand panel (owner 2026-11-02)
+  const sidePanel = useSidePanel()
   return (
     <Sheet open={open} onOpenChange={(o) => !o && onClose()}>
-      <SheetContent className={cn("flex h-full w-full flex-col gap-0 overflow-hidden p-0", wide ? "data-[side=right]:sm:max-w-2xl" : "data-[side=right]:sm:max-w-xl")}>{children}</SheetContent>
+      <SheetContent side={sidePanel ? "right" : "bottom"}
+        style={sidePanel ? undefined : { height: "92dvh" }}
+        className={cn("flex w-full flex-col gap-0 overflow-hidden p-0",
+          sidePanel ? cn("h-full", wide ? "data-[side=right]:sm:max-w-2xl" : "data-[side=right]:sm:max-w-xl") : "rounded-t-2xl")}>
+        {!sidePanel && <div className="mx-auto mt-2 h-1.5 w-10 shrink-0 rounded-full bg-muted" />}
+        {children}
+      </SheetContent>
     </Sheet>
   )
 }

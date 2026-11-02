@@ -122,10 +122,11 @@ describe("scheduling", () => {
 
 describe("attendance", () => {
   const [s] = generateSessions(klass(), [], id)
-  it("owner 2026-09-29: attendance can be prepared before class; closed sessions stay locked", () => {
+  it("owner 2026-11-02: attendance can be edited any time — before, during and after the class (even a closed one)", () => {
     expect(canMark(s, "present", new Date(2026, 8, 28, 9, 0)).ok).toBe(true)
     expect(canMark(s, "leave", new Date(2026, 8, 28, 9, 0)).ok).toBe(true)
-    expect(canMark(s, "present", new Date(2026, 9, 1, 9, 0)).ok).toBe(false)
+    // a session days in the past ("closed") is still editable now (lock is by sent-summary, not by time)
+    expect(canMark(s, "present", new Date(2026, 9, 1, 9, 0)).ok).toBe(true)
   })
 
   it("F1: removing a student clears future sessions", () => {
@@ -979,10 +980,24 @@ describe("leave quota and re-schedule", () => {
   })
 })
 
-describe("summary send deadline (owner 2026-09-29)", () => {
-  it("must reach the parent within 7 days after the class", () => {
-    expect(Sum.sendDeadline({ date: "2026-09-29" }, new Date(2026, 9, 1))).toEqual({ deadline: "2026-10-06", overdue: false, daysLeft: 5 })
+describe("summary send deadline (owner 2026-11-02)", () => {
+  it("must reach the parent within 3 days after the class; past that it is overdue", () => {
+    expect(Sum.sendDeadline({ date: "2026-09-29" }, new Date(2026, 9, 1))).toEqual({ deadline: "2026-10-02", overdue: false, daysLeft: 1 })
     expect(Sum.sendDeadline({ date: "2026-09-29" }, new Date(2026, 9, 8)).overdue).toBe(true)
+  })
+})
+
+describe("session timing rules (owner 2026-11-02)", () => {
+  const [s] = generateSessions(klass(), [], id)
+  it("hasEnded: false before/during the class, true after its end time", () => {
+    expect(Sch.hasEnded(s, new Date(2026, 8, 28, 9, 0))).toBe(false) // before it starts
+    expect(Sch.hasEnded(s, new Date(2026, 9, 1, 9, 0))).toBe(true) // days later
+  })
+  it("sessionLocked: a session with a sent summary is locked; a draft does not lock it", () => {
+    const sums = [{ sessionId: "se1", status: "sent" as const }, { sessionId: "se2", status: "draft" as const }]
+    expect(Sum.sessionLocked("se1", sums)).toBe(true)
+    expect(Sum.sessionLocked("se2", sums)).toBe(false)
+    expect(Sum.sessionLocked("se3", sums)).toBe(false)
   })
 })
 

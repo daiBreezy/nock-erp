@@ -80,8 +80,8 @@ export function CalendarNotes({ s, studentId, canEdit }: { s: Session; studentId
         <NoteEditor kind="temporary" canPermanent={canPermanent}
           onDone={(text, kind) => { setAdding(false); if (text) report(add(s.id, studentId, text, kind), `บันทึก Note ${NOTE_KIND_LABEL[kind]}แล้ว`) }} />
       ) : canEdit && (
-        <button type="button" onClick={() => setAdding(true)} className="flex items-center gap-1 text-xs text-muted-foreground italic hover:text-foreground">
-          <PlusIcon className="size-3" />Note
+        <button type="button" onClick={() => setAdding(true)} className="inline-flex h-9 items-center gap-1 rounded-full border border-dashed px-3 text-sm text-muted-foreground hover:bg-muted hover:text-foreground sm:h-auto sm:border-0 sm:px-0 sm:text-xs sm:italic">
+          <PlusIcon className="size-4 sm:size-3" />Note
         </button>
       )}
     </div>

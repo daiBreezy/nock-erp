@@ -49,10 +49,16 @@ export function canForceApprove(s: SummaryLike, user: Staff, remark: string): Re
   return miss ? { ok: false, error: miss } : { ok: true, value: undefined }
 }
 
-/** Owner 2026-09-29: a summary must reach the parent within 7 days after the class ended. */
-export const SEND_WITHIN_DAYS = 7
+/** Owner 2026-11-02: a summary must reach the parent within 3 days after the class ended; past that it turns Overdue. */
+export const SEND_WITHIN_DAYS = 3
 
-/** last moment to send (end of the 7th day after the session) and whether it has passed */
+/** A whole session is locked once ANY of its summaries has been sent to parents — no more attendance / summary /
+ *  class edits on it (owner 2026-11-02). */
+export function sessionLocked(sessionId: ID, summaries: Pick<LessonSummary, "sessionId" | "status">[]): boolean {
+  return summaries.some((x) => x.sessionId === sessionId && x.status === "sent")
+}
+
+/** last moment to send (end of the 3rd day after the session) and whether it has passed */
 export function sendDeadline(se: Pick<Session, "date">, now: Date): { deadline: DateStr; overdue: boolean; daysLeft: number } {
   const deadline = addDays(se.date, SEND_WITHIN_DAYS)
   const daysLeft = daysBetween(toDateStr(now), deadline)

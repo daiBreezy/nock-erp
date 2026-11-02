@@ -122,6 +122,13 @@ export function sessionState(s: Session, now: Date): SessionState {
   return now < closeAt ? "ended" : "closed"
 }
 
+/** True once the session's end time has passed (ended or closed). Attendance & summaries stay editable before
+ *  and after this, but a summary can only be submitted / sent once the session has ended (owner 2026-11-02). */
+export function hasEnded(s: Session, now: Date): boolean {
+  const st = sessionState(s, now)
+  return st === "ended" || st === "closed"
+}
+
 export const STATE_LABEL: Record<SessionState, string> = {
   upcoming: "กำลังจะถึง",
   live: "กำลังเรียน",
