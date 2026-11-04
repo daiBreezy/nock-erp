@@ -563,7 +563,6 @@ export function StudentSessionMenu({ s, studentId }: { s: Session; studentId: ID
   )
 }
 
-const state = sessionState
 // re-read Book / Topic / Detail when "Summary Template" (or anyone) changes them on the saved summary
 const lessonKey = (x?: LessonSummary) => `${x?.id ?? "new"}|${x?.bookId ?? ""}|${x?.topicId ?? ""}|${x?.detail ?? ""}`
 
@@ -754,8 +753,9 @@ function MovedOutRow({ s, studentId, toSessionId, canManage }: { s: Session; stu
   )
 }
 
-/** "Select date for Reschedule" (owner design): same subject, any day of THIS week, sessions grouped by teacher */
-function RescheduleDialog({ from, studentId, onClose }: { from: Session; studentId: ID; onClose: () => void }) {
+/** "Select date for Reschedule" (owner design): same subject, any day of THIS week, sessions grouped by teacher.
+ *  `initialMode` lets the student-panel open it straight on the "from now on" (ย้ายวัน/คาบ) tab. */
+export function RescheduleDialog({ from, studentId, onClose, initialMode = "once" }: { from: Session; studentId: ID; onClose: () => void; initialMode?: "once" | "always" }) {
   const sessions = useStore((st) => st.sessions)
   const classes = useStore((st) => st.classes)
   const move = useStore((st) => st.rescheduleStudent)
@@ -767,8 +767,11 @@ function RescheduleDialog({ from, studentId, onClose }: { from: Session; student
   const monday = mondayOf(from.date)
   const lastDay = addDays(monday, 7 * RESCHEDULE_WEEKS - 1)
   // owner 2026-10-14: ย้ายวัน has two kinds — this session only, or from now on (another class)
-  const [mode, setMode] = useState<"once" | "always">("once")
+  const [mode, setMode] = useState<"once" | "always">(initialMode)
   const [toClass, setToClass] = useState<ID | null>(null)
+  // owner 2026-11-04: how many upcoming sessions the "from now on" move covers — all (full transfer) or a chosen number
+  const [moveAll, setMoveAll] = useState(true)
+  const [moveN, setMoveN] = useState(1)
   const moveToClass = useStore((st) => st.moveStudentToClass)
   const logs = useStore((st) => st.logs)
   const entitlements = useStore((st) => st.entitlements)
@@ -794,6 +797,10 @@ function RescheduleDialog({ from, studentId, onClose }: { from: Session; student
     .filter((x) => x.branchId === from.branchId && x.date === day && x.id !== from.id && !x.cancelled && (!subject || subjectsOf(x).includes(subject)))
     .sort((a, b) => a.start.localeCompare(b.start))
   const byTeacher = [...new Set(options.map((x) => x.teacherId ?? ""))]
+  // owner 2026-11-04: upcoming sessions still in the old class — the most you could move "from now on"
+  const oldRemaining = from.classId ? sessions.filter((x) => x.classId === from.classId && x.date >= from.date && x.studentIds.includes(studentId) && sessionState(x, now) === "upcoming").length : 0
+  const moveCount = moveAll ? undefined : Math.min(moveN, oldRemaining - 1)
+  const moveStaying = oldRemaining - (moveCount ?? 0)
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()}>
       <DialogContent className="flex max-h-[90vh] flex-col lg:max-w-lg">
@@ -818,7 +825,21 @@ function RescheduleDialog({ from, studentId, onClose }: { from: Session; student
             </details>
           )}
         </div>
-        {mode === "always" ? <ClassMovePicker from={from} studentId={studentId} value={toClass} onChange={setToClass} entitlementTo={entitlements.find((e) => e.studentId === studentId && e.to >= from.date && from.classId && e.classIds.includes(from.classId))?.to} /> : <>
+        {mode === "always" ? <>
+        <ClassMovePicker from={from} studentId={studentId} value={toClass} onChange={setToClass} entitlementTo={entitlements.find((e) => e.studentId === studentId && e.to >= from.date && from.classId && e.classIds.includes(from.classId))?.to} />
+        {/* owner 2026-11-04: choose how many of the remaining sessions to move — all, or just the next N (student then attends both days) */}
+        {toClass && oldRemaining > 1 && (
+          <div className="shrink-0 space-y-2 rounded-2xl bg-muted/50 p-3">
+            <p className="text-sm font-medium">ย้ายกี่คาบ?</p>
+            <div className="flex flex-wrap items-center gap-2">
+              <button type="button" onClick={() => setMoveAll(true)} className={cn("h-9 rounded-full px-3.5 text-sm ring-1 ring-foreground/10", moveAll ? "bg-primary/10 font-medium text-primary ring-primary/40" : "hover:bg-muted")}>{`ทุกคาบที่เหลือ (${oldRemaining})`}</button>
+              <button type="button" onClick={() => setMoveAll(false)} className={cn("h-9 rounded-full px-3.5 text-sm ring-1 ring-foreground/10", !moveAll ? "bg-primary/10 font-medium text-primary ring-primary/40" : "hover:bg-muted")}>เลือกจำนวน</button>
+              {!moveAll && <NativeSelect className="h-9 w-28" value={String(moveCount)} onChange={(e) => setMoveN(Number(e.target.value))} options={Array.from({ length: oldRemaining - 1 }, (_, i) => ({ value: String(i + 1), label: `${i + 1} คาบ` }))} />}
+            </div>
+            {!moveAll && <p className="text-xs text-muted-foreground">{`ย้าย ${moveCount} คาบถัดไป · อีก ${moveStaying} คาบยังอยู่คลาสเดิม — นักเรียนเรียนทั้งสองวัน`}</p>}
+          </div>
+        )}
+        </> : <>
         <div className="flex flex-wrap items-center gap-2">
           <NativeSelect className="h-9 w-32" value={subject} onChange={(e) => { setSubject(e.target.value); setPick(null) }} placeholder="ทุกวิชา" options={branch.subjects.map((x) => ({ value: x, label: x }))} />
           <div className="ml-auto flex items-center gap-1 rounded-full bg-muted px-1 py-1">
@@ -876,7 +897,7 @@ function RescheduleDialog({ from, studentId, onClose }: { from: Session; student
         <DialogFooter>
           <Button variant="ghost" onClick={onClose}>ยกเลิก</Button>
           {mode === "always"
-            ? <Button disabled={!toClass} onClick={() => toClass && report(moveToClass(from.id, studentId, toClass), (v) => `ย้ายคลาสถาวรแล้ว · ออก ${v.removed} คาบ · เข้า ${v.added} คาบ`) && onClose()}><CheckIcon /> ย้ายคลาสถาวร</Button>
+            ? <Button disabled={!toClass} onClick={() => toClass && report(moveToClass(from.id, studentId, toClass, moveCount), (v) => `ย้ายแล้ว · ออก ${v.removed} คาบ · เข้า ${v.added} คาบ`) && onClose()}><CheckIcon /> {moveAll ? "ย้ายคลาสถาวร" : `ย้าย ${moveCount} คาบ`}</Button>
             : creating
             ? <Button disabled={!agreed || nMinutes < 5} onClick={createAndMove}><CheckIcon /> สร้างคาบและย้าย</Button>
             : <Button disabled={!pick} onClick={() => pick && report(move(from.id, studentId, pick), "ย้ายคาบแล้ว") && onClose()}><CheckIcon /> ยืนยัน</Button>}

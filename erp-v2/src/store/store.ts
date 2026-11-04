@@ -176,8 +176,10 @@ type Store = DB & UIState & {
   removeStudentFromSession: (sessionId: ID, studentId: ID) => Result
   /** Re-schedule inside the same week (owner 2026-09-29) — Admin decides after talking to the parent */
   rescheduleStudent: (fromSessionId: ID, studentId: ID, toSessionId: ID) => Result
-  /** owner 2026-10-14: ย้ายวันถาวร — from this session on, the student is in another class of the same subject */
-  moveStudentToClass: (fromSessionId: ID, studentId: ID, toClassId: ID) => Result<{ added: number; removed: number }>
+  /** owner 2026-10-14: ย้ายวันถาวร — from this session on, the student is in another class of the same subject.
+   *  owner 2026-11-04: `count` moves only the next N upcoming sessions (leaving the rest in the old class, so the
+   *  student attends both days); omit it to move every upcoming session (a full, permanent transfer). */
+  moveStudentToClass: (fromSessionId: ID, studentId: ID, toClassId: ID, count?: number) => Result<{ added: number; removed: number }>
   /** every ย้ายคลาสถาวร, for taking one back */
   classMoves: ClassMove[]
   undoClassMove: (moveId: ID) => Result
@@ -1842,7 +1844,7 @@ export const useStore = create<Store>()(
         return OK
       },
 
-      moveStudentToClass: (fromSessionId, studentId, toClassId) => {
+      moveStudentToClass: (fromSessionId, studentId, toClassId, count) => {
         const s = get()
         const perm = requirePerm(s.me(), "student.move")
         if (!perm.ok) return perm
@@ -1856,21 +1858,30 @@ export const useStore = create<Store>()(
         const oldClass = s.classes.find((k) => k.id === from.classId)!
         const now = s.now()
         const marked = (sid: ID) => s.attendance.some((a) => a.sessionId === sid && a.studentId === studentId)
+        const byDate = (a: Session, b: Session) => (a.date + a.start).localeCompare(b.date + b.start)
         // from this session on: out of the old class's sessions (not checked in yet), into the new class's upcoming ones
-        const leaving = s.sessions.filter((x) => x.classId === oldClass.id && x.date >= from.date && x.studentIds.includes(studentId) && Sch.sessionState(x, now) === "upcoming" && !marked(x.id))
-        const joining = s.sessions.filter((x) => x.classId === to.id && x.date >= from.date && !x.cancelled && !x.studentIds.includes(studentId) && Sch.sessionState(x, now) === "upcoming")
+        const leavingAll = s.sessions.filter((x) => x.classId === oldClass.id && x.date >= from.date && x.studentIds.includes(studentId) && Sch.sessionState(x, now) === "upcoming" && !marked(x.id)).sort(byDate)
+        const joiningAll = s.sessions.filter((x) => x.classId === to.id && x.date >= from.date && !x.cancelled && !x.studentIds.includes(studentId) && Sch.sessionState(x, now) === "upcoming").sort(byDate)
+        // owner 2026-11-04: `count` moves only the next N of each; omit = all. A partial move keeps the student in the
+        // old class for the sessions that stay (so they attend both days); only a full move removes them from it.
+        const n = count && count > 0 ? Math.min(count, leavingAll.length, joiningAll.length) : undefined
+        if (count !== undefined && (!n || n < 1)) return fail("ไม่มีคาบว่างพอให้ย้าย — เลือกจำนวนน้อยลง หรือดูคาบของคลาสปลายทาง")
+        const leaving = n === undefined ? leavingAll : leavingAll.slice(0, n)
+        const joining = n === undefined ? joiningAll : joiningAll.slice(0, n)
+        const fullMove = leaving.length >= leavingAll.length // no old-class session left → leave the class for good
         const leaveIds = new Set(leaving.map((x) => x.id)), joinIds = new Set(joining.map((x) => x.id))
         const widened = s.entitlements.filter((e) => e.studentId === studentId && e.to >= from.date && e.classIds.includes(oldClass.id) && !e.classIds.includes(to.id)).map((e) => e.id)
         const move: ClassMove = { id: uid("mv"), studentId, fromClassId: oldClass.id, toClassId: to.id, fromSessionId: from.id, at: now.toISOString(), by: s.userId, leftSessionIds: [...leaveIds], joinedSessionIds: [...joinIds], entitlementIds: widened }
         set({
           classMoves: [...(s.classMoves ?? []), move],
-          classes: s.classes.map((k) => (k.id === oldClass.id ? { ...k, studentIds: k.studentIds.filter((y) => y !== studentId) } : k.id === to.id ? { ...k, studentIds: [...k.studentIds, studentId] } : k)),
+          // a partial move keeps the student on the old class roster; only a full move takes them off it
+          classes: s.classes.map((k) => (k.id === oldClass.id && fullMove ? { ...k, studentIds: k.studentIds.filter((y) => y !== studentId) } : k.id === to.id && !k.studentIds.includes(studentId) ? { ...k, studentIds: [...k.studentIds, studentId] } : k)),
           sessions: s.sessions.map((x) => (leaveIds.has(x.id) ? { ...x, studentIds: x.studentIds.filter((y) => y !== studentId) } : joinIds.has(x.id) ? { ...x, studentIds: [...x.studentIds, studentId] } : x)),
           // the running package now pays for the new class too — its end date stays (owner 2026-10-14: no extension)
           entitlements: s.entitlements.map((e) => (e.studentId === studentId && e.to >= from.date && e.classIds.includes(oldClass.id) && !e.classIds.includes(to.id) ? { ...e, classIds: [...e.classIds, to.id] } : e)),
         })
         const when = (k: typeof to) => `ทุก${TH_DAYS_FULL[k.weekday]} ${k.start}`
-        log("class", [studentId], Sch.MOVE_CLASS_ACTION, `${oldClass.name} (${when(oldClass)}) → ${to.name} (${when(to)}) · มีผลตั้งแต่ ${fmtDate(from.date, { weekday: true, year: true })} · ออก ${leaving.length} คาบ · เข้า ${joining.length} คาบ`)
+        log("class", [studentId], Sch.MOVE_CLASS_ACTION, `${oldClass.name} (${when(oldClass)}) → ${to.name} (${when(to)})${fullMove ? "" : ` · ${leaving.length} คาบ (ย้ายบางส่วน · อยู่ทั้งสองคลาส)`} · มีผลตั้งแต่ ${fmtDate(from.date, { weekday: true, year: true })} · ออก ${leaving.length} คาบ · เข้า ${joining.length} คาบ`)
         return { ok: true, value: { added: joining.length, removed: leaving.length }, warnings: r.warnings }
       },
 

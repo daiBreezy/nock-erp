@@ -15,7 +15,7 @@ import { SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet
 import { EntityPanel, PanelFooter, PanelForm, PanelMore } from "./form-shell"
 import { Tabs } from "./page-layout"
 import { Input } from "@/components/ui/input"
-import { daysBetween, endTime, fmtDate, fmtDateTime, fmtMoney, toDateStr, weekdayShort } from "@/domain/dates"
+import { daysBetween, endTime, fmtDate, fmtDateTime, fmtMoney, TH_DAYS_FULL, toDateStr, weekdayShort } from "@/domain/dates"
 import * as Att from "@/domain/rules/attendance"
 import { INVOICE_STATUS_LABEL, invoiceTotals } from "@/domain/rules/billing"
 import { can } from "@/domain/rules/permissions"
@@ -33,7 +33,8 @@ import { CalendarNotes } from "@/components/calendar/calendar-notes-ui"
 import { Kpi } from "./kpi"
 import { busDaysOf } from "@/domain/rules/parent-view"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
-import { StudentSessionMenu } from "./session-sheet"
+import { RescheduleDialog, StudentSessionMenu } from "./session-sheet"
+import { CalendarClockIcon } from "lucide-react"
 import { AssessmentNote } from "./assessment-note"
 import { LeaveDialog } from "./leave-dialog"
 import { PackageBadge } from "./package-badge"
@@ -184,7 +185,6 @@ function PackageRow({ e, stu, today }: { e: Entitlement; stu: Student; today: st
   const [renewing, setRenewing] = useState(false)
 const me = useStore((s) => s.me())
 const courses = useStore((s) => s.courses)
-const classes = useStore((s) => s.classes)
 const sessions = useStore((s) => s.sessions)
 const attendance = useStore((s) => s.attendance)
 const rawTo = useStore((s) => s.entitlements.find((x) => x.id === e.id)?.to)
@@ -194,26 +194,60 @@ const rawTo = useStore((s) => s.entitlements.find((x) => x.id === e.id)?.to)
   const renewal = !expired && p.low
   const extended = rawTo !== undefined && rawTo !== e.to
   return (
-    <li className={cn("flex items-center gap-3 py-2.5", expired && "opacity-50")}>
-      <span className={cn("grid size-11 shrink-0 place-items-center rounded-xl text-sm font-semibold", subjectColor(c?.subjects[0] ?? "").chip)}>{(c?.subjects[0] ?? "?").slice(0, 2)}</span>
-      <div className="min-w-0 flex-1">
-        <p className="truncate font-medium">{c?.name ?? "คอร์ส"}</p>
-        <p className="flex flex-wrap items-center gap-1 text-xs text-muted-foreground">
-          <CalendarIcon className="size-3" /> {fmtDate(e.from)} → {fmtDate(e.to, { year: true })}
-          {e.classIds.length > 0 && <span>· {classes.filter((k) => e.classIds.includes(k.id)).map((k) => k.name).join(" + ")}</span>}
-          {extended && <Pill tone="violet" title={`เดิมจบ ${fmtDate(rawTo!, { year: true })}`}>เลื่อนวันจบจากการลา</Pill>}
-        </p>
+    <li className={cn("py-2.5", expired && "opacity-50")}>
+      <div className="flex items-center gap-3">
+        <span className={cn("grid size-11 shrink-0 place-items-center rounded-xl text-sm font-semibold", subjectColor(c?.subjects[0] ?? "").chip)}>{(c?.subjects[0] ?? "?").slice(0, 2)}</span>
+        <div className="min-w-0 flex-1">
+          <p className="truncate font-medium">{c?.name ?? "คอร์ส"}</p>
+          <p className="flex flex-wrap items-center gap-1 text-xs text-muted-foreground">
+            <CalendarIcon className="size-3" /> {fmtDate(e.from)} → {fmtDate(e.to, { year: true })}
+            {extended && <Pill tone="violet" title={`เดิมจบ ${fmtDate(rawTo!, { year: true })}`}>เลื่อนวันจบจากการลา</Pill>}
+          </p>
+        </div>
+        {/* owner 2026-10-29: fixed slots (badge · status · ต่ออายุ · bar) so every row lines up, with or without the button */}
+        <span className="flex w-12 shrink-0 justify-end">{c && <PackageBadge course={c} size="md" />}</span>
+        <Pill tone={expired ? "gray" : renewal ? "amber" : "green"} className="w-20 shrink-0 justify-center">{expired ? "หมดแล้ว" : renewal ? "Renewal" : "Enroll"}</Pill>
+        <span className="flex w-16 shrink-0 justify-center">{(renewal || expired) && can(me, "billing.manage") && <Button size="xs" variant="outline" onClick={() => setRenewing(true)}>ต่ออายุ</Button>}</span>
+        {renewing && <InvoiceSheet id="new" defaultStudentId={stu.id} renewEntitlementId={e.id} onClose={() => setRenewing(false)} />}
+        <div className="w-40 shrink-0 text-left">
+          <p className="text-xs tabular-nums">{p.label}</p>
+          <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-muted"><div className={cn("h-full rounded-full", renewal ? "bg-red-600" : "bg-primary")} style={{ width: `${p.ratio * 100}%` }} /></div>
+        </div>
       </div>
-      {/* owner 2026-10-29: fixed slots (badge · status · ต่ออายุ · bar) so every row lines up, with or without the button */}
-      <span className="flex w-12 shrink-0 justify-end">{c && <PackageBadge course={c} size="md" />}</span>
-      <Pill tone={expired ? "gray" : renewal ? "amber" : "green"} className="w-20 shrink-0 justify-center">{expired ? "หมดแล้ว" : renewal ? "Renewal" : "Enroll"}</Pill>
-      <span className="flex w-16 shrink-0 justify-center">{(renewal || expired) && can(me, "billing.manage") && <Button size="xs" variant="outline" onClick={() => setRenewing(true)}>ต่ออายุ</Button>}</span>
-      {renewing && <InvoiceSheet id="new" defaultStudentId={stu.id} renewEntitlementId={e.id} onClose={() => setRenewing(false)} />}
-      <div className="w-40 shrink-0 text-left">
-        <p className="text-xs tabular-nums">{p.label}</p>
-        <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-muted"><div className={cn("h-full rounded-full", renewal ? "bg-red-600" : "bg-primary")} style={{ width: `${p.ratio * 100}%` }} /></div>
-      </div>
+      {/* owner 2026-11-04: list the classes the student attends for this course — each day/time with a ย้ายวัน/คาบ button */}
+      {!expired && <ClassTransferList e={e} stu={stu} today={today} />}
     </li>
+  )
+}
+
+/** The classes a student attends under one course, with a per-class "move day / sessions" action (owner 2026-11-04). */
+function ClassTransferList({ e, stu, today }: { e: Entitlement; stu: Student; today: string }) {
+  const classes = useStore((s) => s.classes)
+  const sessions = useStore((s) => s.sessions)
+  const me = useStore((s) => s.me())
+  const now = useNow(60_000)
+  const [moveFrom, setMoveFrom] = useState<Session | null>(null)
+  const canMove = can(me, "student.move") && (can(me, "session.manage") || me.roles.includes("teacher"))
+  // a class counts if the student has an upcoming session in it under this package (so a finished day drops off)
+  const rows = e.classIds.map((cid) => {
+    const k = classes.find((x) => x.id === cid)
+    if (!k) return null
+    const next = sessions.filter((x) => x.classId === cid && x.studentIds.includes(stu.id) && x.date >= today && !x.cancelled && sessionState(x, now) === "upcoming")
+      .sort((a, b) => (a.date + a.start).localeCompare(b.date + b.start))[0]
+    const ahead = sessions.filter((x) => x.classId === cid && x.studentIds.includes(stu.id) && x.date >= today && !x.cancelled && sessionState(x, now) === "upcoming").length
+    return next ? { k, next, ahead } : null
+  }).filter((x): x is { k: NonNullable<ReturnType<typeof classes.find>>; next: Session; ahead: number } => !!x)
+  if (rows.length === 0) return null
+  return (
+    <ul className="mt-2 space-y-1 pl-14">
+      {rows.map(({ k, next, ahead }) => (
+        <li key={k.id} className="flex items-center gap-2 rounded-xl bg-muted/40 px-3 py-1.5 text-xs">
+          <span className="min-w-0 flex-1 truncate"><span className="font-medium">{k.name}</span> <span className="text-muted-foreground">· ทุก{TH_DAYS_FULL[k.weekday]} {k.start}–{endTime(k.start, k.minutes)} · {`เหลือ ${ahead} คาบ`}</span></span>
+          {canMove && <button type="button" onClick={() => setMoveFrom(next)} className="inline-flex shrink-0 items-center gap-1 rounded-full px-2 py-1 font-medium text-primary hover:bg-primary/10"><CalendarClockIcon className="size-3.5" /> ย้ายวัน/คาบ</button>}
+        </li>
+      ))}
+      {moveFrom && <RescheduleDialog from={moveFrom} studentId={stu.id} initialMode="always" onClose={() => setMoveFrom(null)} />}
+    </ul>
   )
 }
 
