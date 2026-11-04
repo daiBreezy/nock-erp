@@ -1208,6 +1208,7 @@ export const AUTO: Record<string, Entry> = {
   "ไม่ระบุโรงเรียน": { en: "No school", ja: "学校未登録" },
   "รอเช็ค {0}": { en: "Pending {0}", ja: "保留 {0}" },
   "ย้ายวัน/คาบ": { en: "Move day / sessions", ja: "日程/回数を変更" },
+  "จำนวนคาบที่จะย้าย": { en: "Number of sessions to move", ja: "移動する回数" },
   "ย้ายกี่คาบ?": { en: "How many sessions?", ja: "何回分を移動？" },
   "เลือกจำนวน": { en: "Choose a number", ja: "回数を選ぶ" },
   "ทุกคาบที่เหลือ ({0})": { en: "All remaining ({0})", ja: "残り全部（{0}）" },

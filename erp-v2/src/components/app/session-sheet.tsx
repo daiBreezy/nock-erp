@@ -803,7 +803,8 @@ export function RescheduleDialog({ from, studentId, onClose, initialMode = "once
   const moveStaying = oldRemaining - (moveCount ?? 0)
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="flex max-h-[90vh] flex-col lg:max-w-lg">
+      {/* owner 2026-11-04: fixed height · Header (title + tabs) / Body (scrolls) / Bottom (count + CTA) — never bounces */}
+      <DialogContent className="flex h-[88dvh] flex-col lg:max-w-lg">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2"><CalendarClockIcon className="size-5" /> ย้ายวัน · {L.student(studentId)?.nickname}</DialogTitle>
           <DialogDescription className="sr-only">ย้ายคาบนี้ครั้งเดียว หรือย้ายคลาสถาวร</DialogDescription>
@@ -834,7 +835,8 @@ export function RescheduleDialog({ from, studentId, onClose, initialMode = "once
             <div className="flex flex-wrap items-center gap-2">
               <button type="button" onClick={() => setMoveAll(true)} className={cn("h-9 rounded-full px-3.5 text-sm ring-1 ring-foreground/10", moveAll ? "bg-primary/10 font-medium text-primary ring-primary/40" : "hover:bg-muted")}>{`ทุกคาบที่เหลือ (${oldRemaining})`}</button>
               <button type="button" onClick={() => setMoveAll(false)} className={cn("h-9 rounded-full px-3.5 text-sm ring-1 ring-foreground/10", !moveAll ? "bg-primary/10 font-medium text-primary ring-primary/40" : "hover:bg-muted")}>เลือกจำนวน</button>
-              {!moveAll && <NativeSelect className="h-9 w-28" value={String(moveCount)} onChange={(e) => setMoveN(Number(e.target.value))} options={Array.from({ length: oldRemaining - 1 }, (_, i) => ({ value: String(i + 1), label: `${i + 1} คาบ` }))} />}
+              {!moveAll && <Input type="number" min={1} max={oldRemaining - 1} value={moveN} onChange={(e) => setMoveN(Math.max(1, Math.min(oldRemaining - 1, Number(e.target.value) || 1)))} className="h-9 w-20 text-center" aria-label="จำนวนคาบที่จะย้าย" />}
+              {!moveAll && <span className="text-sm text-muted-foreground">/ {oldRemaining} คาบ</span>}
             </div>
             {!moveAll && <p className="text-xs text-muted-foreground">{`ย้าย ${moveCount} คาบถัดไป · อีก ${moveStaying} คาบยังอยู่คลาสเดิม — นักเรียนเรียนทั้งสองวัน`}</p>}
           </div>
@@ -917,15 +919,37 @@ function ClassMovePicker({ from, studentId, value, onChange, entitlementTo }: { 
   // every open class of the branch — subject / grade / day / time are free (owner 2026-10-14); same subject first
   const same = (k: (typeof classes)[number]) => subjectsOf(from).some((x) => (k.subjects?.length ? k.subjects : [k.subject]).includes(x))
   const [q, setQ] = useState("")
-  const options = classes.filter((k) => k.active && k.branchId === from.branchId && k.id !== from.classId && (!q.trim() || `${k.name} ${k.subject} ${k.grades.join(" ")} ${L.teacher(k.teacherId).label}`.toLowerCase().includes(q.trim().toLowerCase())))
+  // owner 2026-11-04: filter the class list by day · subject · teacher
+  const [dayF, setDayF] = useState("")
+  const [subjF, setSubjF] = useState("")
+  const [teacherF, setTeacherF] = useState("")
+  const inBranch = classes.filter((k) => k.active && k.branchId === from.branchId && k.id !== from.classId)
+  const classSubjects = (k: (typeof classes)[number]) => (k.subjects?.length ? k.subjects : [k.subject])
+  const subjOptions = [...new Set(inBranch.flatMap(classSubjects))]
+  const teacherOptions = [...new Set(inBranch.map((k) => k.teacherId).filter((x): x is ID => !!x))]
+  const dayOptions = [...new Set(inBranch.map((k) => k.weekday))].sort((a, b) => (a + 6) % 7 - (b + 6) % 7)
+  const options = inBranch
+    .filter((k) => dayF === "" || k.weekday === Number(dayF))
+    .filter((k) => !subjF || classSubjects(k).includes(subjF))
+    .filter((k) => !teacherF || k.teacherId === teacherF)
+    .filter((k) => !q.trim() || `${k.name} ${k.subject} ${k.grades.join(" ")} ${L.teacher(k.teacherId).label}`.toLowerCase().includes(q.trim().toLowerCase()))
     .sort((a, b) => Number(same(b)) - Number(same(a)) || (a.weekday + 6) % 7 - (b.weekday + 6) % 7 || a.start.localeCompare(b.start))
   const picked = classes.find((k) => k.id === value)
   const ahead = (classId: ID) => sessions.filter((x) => x.classId === classId && x.date >= from.date && !x.cancelled && (!entitlementTo || x.date <= entitlementTo)).length
   return (
-    <div className="min-h-0 flex-1 space-y-2 overflow-y-auto">
-      <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="ค้นหาคลาส / วิชา / ชั้น / ครู" className="h-9" />
-      {current && <p className="text-xs text-muted-foreground">คลาสเดิม: <b className="text-foreground">{current.name}</b> · ทุก{TH_DAYS_FULL[current.weekday]} {current.start}–{endTime(current.start, current.minutes)}</p>}
-      {options.length === 0 && <p className="rounded-2xl border border-dashed p-4 text-center text-sm text-muted-foreground">ไม่พบคลาส — สร้างคลาสใหม่ที่หน้า คลาส แล้วกลับมาย้าย</p>}
+    <div className="flex min-h-0 flex-1 flex-col gap-2">
+      {/* fixed filter bar — stays put while the class list below scrolls */}
+      <div className="shrink-0 space-y-2">
+        <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="ค้นหาคลาส / วิชา / ชั้น / ครู" className="h-9" />
+        <div className="grid grid-cols-3 gap-2">
+          <NativeSelect className="h-9" value={dayF} onChange={(e) => setDayF(e.target.value)} placeholder="ทุกวัน" options={dayOptions.map((d) => ({ value: String(d), label: TH_DAYS_FULL[d] }))} />
+          <NativeSelect className="h-9" value={subjF} onChange={(e) => setSubjF(e.target.value)} placeholder="ทุกวิชา" options={subjOptions.map((x) => ({ value: x, label: x }))} />
+          <NativeSelect className="h-9" value={teacherF} onChange={(e) => setTeacherF(e.target.value)} placeholder="ครูทุกคน" options={teacherOptions.map((t) => ({ value: t, label: L.teacher(t).label }))} />
+        </div>
+        {current && <p className="text-xs text-muted-foreground">คลาสเดิม: <b className="text-foreground">{current.name}</b> · ทุก{TH_DAYS_FULL[current.weekday]} {current.start}–{endTime(current.start, current.minutes)}</p>}
+      </div>
+      <div className="min-h-0 flex-1 space-y-2 overflow-y-auto">
+      {options.length === 0 && <p className="rounded-2xl border border-dashed p-4 text-center text-sm text-muted-foreground">ไม่พบคลาส — ลองปรับตัวกรอง หรือสร้างคลาสใหม่ที่หน้า คลาส</p>}
       {options.map((k) => {
         const check = canMoveToClass(from, k, studentId, now, L.student(studentId)?.grade)
         const cap = classCapacity(k)
@@ -948,6 +972,7 @@ function ClassMovePicker({ from, studentId, value, onChange, entitlementTo }: { 
           <span className="mt-1 block text-xs opacity-80">บันทึกลง Log ทุกครั้ง: ใครย้าย · เมื่อไร · จากไหน ไปไหน</span>
         </p>
       )}
+      </div>
     </div>
   )
 }
