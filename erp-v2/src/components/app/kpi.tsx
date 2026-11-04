@@ -19,7 +19,7 @@ export type KpiTone = keyof typeof KPI_TONE
  * Fills its grid cell. Clickable when it filters the list below.
  */
 export function Kpi({
-  icon: Icon, label, value, sub, tone = "primary", valueClassName, onClick, active, children, className,
+  icon: Icon, label, value, sub, tone = "primary", valueClassName, onClick, active, children, className, compact,
 }: {
   icon: React.ComponentType<{ className?: string }>
   label: React.ReactNode
@@ -33,16 +33,19 @@ export function Kpi({
   /** optional body text / content under the numbers */
   children?: React.ReactNode
   className?: string
+  /** owner 2026-11-04: tighter card for a 4-across tablet row — the icon hides where the card is narrowest */
+  compact?: boolean
 }) {
   const Tag = onClick ? "button" : "div"
   return (
     <Tag type={onClick ? "button" : undefined} onClick={onClick} aria-pressed={onClick ? !!active : undefined}
-      className={cn("flex h-full min-h-24 w-full flex-col justify-center gap-2 rounded-3xl bg-card p-4 text-left shadow-sm ring-1 ring-foreground/5", onClick && "transition hover:ring-foreground/20", active && "ring-2 ring-primary hover:ring-primary", className)}>
+      className={cn("flex h-full w-full flex-col justify-center gap-2 rounded-3xl bg-card text-left shadow-sm ring-1 ring-foreground/5", compact ? "min-h-20 p-3" : "min-h-24 p-4", onClick && "transition hover:ring-foreground/20", active && "ring-2 ring-primary hover:ring-primary", className)}>
       <div className="flex w-full items-center gap-3">
-        <span className={cn("grid size-10 shrink-0 place-items-center rounded-2xl", KPI_TONE[tone])}><Icon className="size-5" /></span>
+        {/* compact: show the icon on a phone (wide 2-up cards) and on wide screens, hide it only in the cramped tablet row */}
+        <span className={cn("grid size-10 shrink-0 place-items-center rounded-2xl", compact && "sm:hidden lg:grid", KPI_TONE[tone])}><Icon className="size-5" /></span>
         <div className="min-w-0 flex-1">
           <p className="truncate text-xs text-muted-foreground">{label}</p>
-          <p className={cn("truncate text-2xl leading-tight font-semibold tabular-nums", valueClassName)}>{value}</p>
+          <p className={cn("text-2xl leading-tight font-semibold tabular-nums", valueClassName)}>{value}</p>
           {sub && <p className="truncate text-xs leading-4 text-muted-foreground">{sub}</p>}
         </div>
       </div>

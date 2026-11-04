@@ -5,6 +5,7 @@ import type { Entry } from "./index"
 export const AUTO: Record<string, Entry> = {
   // owner 2026-11-02: session panel + attendance/summary timing
   "ผู้ช่วย": { en: "Assistant", ja: "アシスタント" },
+  "ฉัน": { en: "Me", ja: "自分" },
   "คาบนี้ส่งสรุปให้ผู้ปกครองแล้ว แก้ไขไม่ได้": { en: "This session's summary has been sent to parents — it can't be edited", ja: "この授業の要約は保護者へ送信済みのため編集できません" },
   "ส่งสรุปถึงผู้ปกครองแล้ว — คาบนี้ถูกล็อก แก้ไขไม่ได้": { en: "Summary sent to parents — this session is locked and can't be edited", ja: "要約を保護者へ送信済み — この授業はロックされ編集できません" },
   "ส่งอนุมัติได้หลังคาบเรียนจบ — ระหว่างนี้บันทึกร่างไว้ก่อนได้": { en: "You can submit for approval after the class ends — save a draft until then", ja: "承認申請は授業終了後に可能です — それまでは下書きを保存できます" },
@@ -1556,7 +1557,7 @@ export const AUTO: Record<string, Entry> = {
   "ย้ายคาบถัดไปของคลาสเดิม ไปเรียนคาบถัดไปของคลาสใหม่": { en: "Move the old class's next session to the new class's next session", ja: "元のクラスの次の授業を新しいクラスの次の授業へ移動" },
   "ย้ายมาจาก {0}": { en: "Moved from {0}", ja: "{0}から振替" },
   "ย้ายแล้ว": { en: "Moved", ja: "移動済み" },
-  "รอเริ่ม": { en: "Not started", ja: "開始前" },
+  "รอเริ่ม": { en: "Upcoming", ja: "予定" },
   "ลา · ยกเลิกคลาส": { en: "Leave · class cancelled", ja: "休み · 休講" },
   "ลา · เปลี่ยนครู": { en: "Leave · teacher changed", ja: "休み · 講師変更" },
   "ลากไปวางที่คาบอื่นเพื่อย้าย": { en: "Drag onto another session to move", ja: "別の授業にドラッグして移動" },
@@ -3037,4 +3038,10 @@ export const AUTO: Record<string, Entry> = {
   "เพิ่มเข้าคลาส": { en: "Add to a class", ja: "クラスに追加" },
   "เพิ่ม {0} เข้าคลาส": { en: "Add {0} to a class", ja: "{0}をクラスに追加" },
   "เลือกคลาสที่จะเข้า — เริ่มจากคาบถัดไป ขึ้นปฏิทินทันที · ยังไม่จ่ายเงินระบบจะเตือนในคาบให้ออกใบแจ้งหนี้": { en: "Pick the classes to join — from the next session on, straight onto the calendar · if unpaid, the system reminds you in the session to issue an invoice", ja: "参加するクラスを選択 — 次回の授業からカレンダーに即反映 · 未払いの場合は授業で請求書発行を通知します" },
+  "เอาออกจากคาบนี้": { en: "Remove from this session", ja: "この授業から外す" },
+  "จัดการได้เฉพาะคาบที่คุณสอน": { en: "You can only manage sessions you teach", ja: "担当する授業のみ管理できます" },
+  "{0} {1} {2} · โดยครูผู้สอน": { en: "{0} {1} {2} · by the teacher", ja: "{0} {1} {2} · 担当講師による" },
+  "แก้คาบเรียน": { en: "edited the session", ja: "授業を編集" },
+  "เพิ่ม {0} เข้าคาบ": { en: "added {0} to the session", ja: "{0}を授業に追加" },
+  "เอานักเรียนออกจากคาบ": { en: "removed a student from the session", ja: "生徒を授業から外しました" },
 }

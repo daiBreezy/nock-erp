@@ -161,6 +161,8 @@ function Body({ id, onClose }: { id: ID; onClose: () => void }) {
               <GradeChips max={8} grades={s.studentIds.map((sid) => L.student(sid)?.grade ?? "")} planned={klass?.grades} />
               <SessionStateBadge state={state} />
               <KindChip s={s} klass={klass} />
+              {/* owner 2026-11-04: a full / over-capacity class shows it right in the header (detail is in the body note) */}
+              {s.studentIds.length >= cap && <Pill tone={s.studentIds.length > cap ? "red" : "amber"}>เต็ม</Pill>}
               {s.customized && s.classId && <Pill>แก้เฉพาะคาบนี้</Pill>}
             </div>
           </div>
@@ -175,11 +177,11 @@ function Body({ id, onClose }: { id: ID; onClose: () => void }) {
             )}
           </p>
         )}
-        {/* real tabs — a full-width underline bar, not two pill buttons (owner 2026-11-02) */}
-        <div className="-mb-3 mt-2 flex">
+        {/* real tabs — an underline bar hugging its labels (owner 2026-11-04: no full-width stretch) */}
+        <div className="-mb-3 mt-2 flex gap-1">
           {([["students", `รายชื่อนักเรียน (${s.studentIds.length})`], ["info", "ข้อมูลคาบ"]] as const).map(([k, label]) => (
             <button key={k} type="button" onClick={() => setTab(k)}
-              className={cn("flex-1 border-b-2 px-3 pb-2.5 pt-1 text-sm transition", tab === k ? "border-primary font-medium text-foreground" : "border-transparent text-muted-foreground hover:text-foreground")}>{label}</button>
+              className={cn("border-b-2 px-3 pb-2.5 pt-1 text-sm transition", tab === k ? "border-primary font-medium text-foreground" : "border-transparent text-muted-foreground hover:text-foreground")}>{label}</button>
           ))}
         </div>
       </SheetHeader>
@@ -271,22 +273,25 @@ function Body({ id, onClose }: { id: ID; onClose: () => void }) {
       </div>
 
       <div className="flex items-center gap-2 border-t px-5 py-3">
-        {canManage && !s.cancelled && (
+        {/* owner 2026-11-04: a teacher can manage their own session (edit / add / remove) — the admin is notified */}
+        {(canManage || mine) && !s.cancelled && (
           <DropdownMenu>
             <DropdownMenuTrigger render={<Button size="icon" variant="outline" aria-label="จัดการคลาส" />}><EllipsisVerticalIcon /></DropdownMenuTrigger>
             <DropdownMenuContent align="start" className="w-60">
-              <DropdownMenuItem onClick={() => (klass ? setEditingClass(true) : setPostponing(true))}><PencilIcon /> {klass ? "แก้คลาส" : "แก้คาบนี้"}</DropdownMenuItem>
-              <DropdownMenuItem disabled={locked || s.cancelled} onClick={() => setPostponing(true)}><LogOutIcon /> เลื่อนคาบ (Postpone)</DropdownMenuItem>
-              <DropdownMenuItem disabled={locked || !s.teacherId} onClick={() => setTeacherLeave(true)}>
-                <UserMinusIcon /><span className="flex flex-col"><span>ครูลา</span><span className="text-xs text-muted-foreground">มีครูสอนแทน หรือยกเลิกคาบ</span></span>
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem variant="destructive" onClick={() => setDeleting(true)}><Trash2Icon /> ลบ</DropdownMenuItem>
+              <DropdownMenuItem disabled={locked} onClick={() => (klass && canManage ? setEditingClass(true) : setPostponing(true))}><PencilIcon /> {klass && canManage ? "แก้คลาส" : "แก้คาบนี้"}</DropdownMenuItem>
+              {canManage && <DropdownMenuItem disabled={locked || s.cancelled} onClick={() => setPostponing(true)}><LogOutIcon /> เลื่อนคาบ (Postpone)</DropdownMenuItem>}
+              {canManage && (
+                <DropdownMenuItem disabled={locked || !s.teacherId} onClick={() => setTeacherLeave(true)}>
+                  <UserMinusIcon /><span className="flex flex-col"><span>ครูลา</span><span className="text-xs text-muted-foreground">มีครูสอนแทน หรือยกเลิกคาบ</span></span>
+                </DropdownMenuItem>
+              )}
+              {canManage && <><DropdownMenuSeparator />
+                <DropdownMenuItem variant="destructive" onClick={() => setDeleting(true)}><Trash2Icon /> ลบ</DropdownMenuItem></>}
             </DropdownMenuContent>
           </DropdownMenu>
         )}
         <span className="ml-auto" />
-        {canManage && !locked && !s.cancelled && (
+        {(canManage || mine) && !locked && !s.cancelled && (
           <Button variant="secondary" onClick={() => setAdding(true)}><UserPlusIcon /> เพิ่มนักเรียน</Button>
         )}
       </div>
@@ -428,7 +433,7 @@ function StudentRow({ s, sid, viewOnly, canManage, mine, text, setText, selectab
         </span>
         {/* per-student ⋮ — teachers get it too (profile / re-schedule); managers also get seat + remove.
             44px trigger on phones so it's easy to tap (owner 2026-11-02) */}
-        {(canManage || mine) && state(s, now) !== "closed" && !s.cancelled ? (
+        {(canManage || mine) && !locked && !s.cancelled ? (
           <DropdownMenu>
             <DropdownMenuTrigger render={<Button size="icon-sm" variant="ghost" className="size-9 shrink-0 self-start sm:size-8" aria-label={`จัดการ ${stu?.nickname}`} />}><EllipsisVerticalIcon /></DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-64">
@@ -444,8 +449,8 @@ function StudentRow({ s, sid, viewOnly, canManage, mine, text, setText, selectab
                   <ClockIcon /><span className="flex flex-col"><span>เวลาเรียนของ{stu?.nickname}</span><span className="text-xs text-muted-foreground">เรียนแค่บางชั่วโมง (คาบนี้ / ทุกคาบ)</span></span>
                 </DropdownMenuItem>
               )}
-              {canManage && <><DropdownMenuSeparator />
-                <DropdownMenuItem variant="destructive" onClick={() => setOpen("remove")}><UserMinusIcon /> เอาออกจากคลาส</DropdownMenuItem></>}
+              {(canManage || mine) && <><DropdownMenuSeparator />
+                <DropdownMenuItem variant="destructive" onClick={() => setOpen("remove")}><UserMinusIcon /> {canManage ? "เอาออกจากคลาส" : "เอาออกจากคาบนี้"}</DropdownMenuItem></>}
             </DropdownMenuContent>
           </DropdownMenu>
         ) : <span className="size-9 shrink-0 sm:size-8" />}
@@ -929,6 +934,8 @@ function ClassMovePicker({ from, studentId, value, onChange, entitlementTo }: { 
 function RemoveDialog({ s, studentId, onClose }: { s: Session; studentId: ID; onClose: () => void }) {
   const removeOne = useStore((st) => st.removeStudentFromSession)
   const removeClass = useStore((st) => st.removeStudentFromClass)
+  // only a manager can take a student out of the whole class; a teacher removes them from this session only
+  const canManage = useStore((st) => can(st.me(), "session.manage"))
   const L = useLookup()
   const [scope, setScope] = useState<MoveScope>("one")
   const name = L.student(studentId)?.nickname
@@ -939,7 +946,7 @@ function RemoveDialog({ s, studentId, onClose }: { s: Session; studentId: ID; on
           <DialogTitle>เอา {name} ออกจากคลาส?</DialogTitle>
           <DialogDescription>เช่น เพิ่มมาผิดคน · ประวัติการเรียนและการเงินยังอยู่ครบ</DialogDescription>
         </DialogHeader>
-        <ScopePick value={scope} onChange={setScope} hasClass={!!s.classId} one="เฉพาะคาบนี้" following="ออกจากคลาสนี้ (คาบนี้และคาบถัดไปทั้งหมด)" />
+        <ScopePick value={scope} onChange={setScope} hasClass={!!s.classId && canManage} one="เฉพาะคาบนี้" following="ออกจากคลาสนี้ (คาบนี้และคาบถัดไปทั้งหมด)" />
         <DialogFooter>
           <Button variant="ghost" onClick={onClose}>ไม่เอาออก</Button>
           <Button variant="destructive" onClick={() =>
@@ -1036,8 +1043,8 @@ function SummaryInline({ session, sessionId, studentId, summary, viewOnly, text,
   return (
     // owner 2026-11-02: no card frame, no divider line — full-width, clean
     <div className="space-y-2 pt-1">
-      {/* title + status on line 1; the due date and last editor on a quiet second line */}
-      <div className="space-y-0.5">
+      {/* narrow: title+status over the due/editor line · wide (room enough): one row, info left and right */}
+      <div className="space-y-0.5 sm:flex sm:items-center sm:justify-between sm:gap-3 sm:space-y-0">
         <div className="flex items-center gap-2 text-xs">
           <span className="font-medium">สรุปการเรียน</span>
           <Pill tone={tone}>{status ? SUMMARY_STATUS_LABEL[status] : "ยังไม่เขียน"}</Pill>
@@ -1091,13 +1098,13 @@ function SummaryInline({ session, sessionId, studentId, summary, viewOnly, text,
             {/* history hugs the left gutter · Save only as wide as it needs · Send fills to the right gutter */}
             {historyCount > 0 && onHistory && (
               <Button size="xs" variant="ghost" aria-label={`ประวัติสรุป ${historyCount} ครั้ง`} title={`ประวัติสรุป ${historyCount} ครั้ง`}
-                className="size-10 shrink-0 p-0 text-muted-foreground sm:size-6" onClick={onHistory}>
+                className="mr-auto size-10 shrink-0 p-0 text-muted-foreground lg:size-6" onClick={onHistory}>
                 <HistoryIcon className="size-4" />
               </Button>
             )}
-            <Button size="xs" variant="outline" className="h-10 shrink-0 sm:h-6" onClick={() => report(save(sessionId, studentId, text, false, lesson), "บันทึกร่างแล้ว")}>Save Draft</Button>
+            <Button size="xs" variant="outline" className="h-10 shrink-0 lg:h-6" onClick={() => report(save(sessionId, studentId, text, false, lesson), "บันทึกร่างแล้ว")}>Save Draft</Button>
             {/* owner 2026-11-02: can only submit once the class has ended — draft before that */}
-            <Button size="xs" className="h-10 flex-1 sm:h-6 sm:flex-none" disabled={!text.trim() || !hasEnded(session, now)} title={!hasEnded(session, now) ? "ส่งได้หลังคาบเรียนจบแล้ว" : undefined} onClick={() => report(save(sessionId, studentId, text, true, lesson), "ส่งให้ผู้อนุมัติแล้ว")}><SendIcon /> {status === "changes_requested" ? "ส่งอีกครั้ง" : "ส่งอนุมัติ"}</Button>
+            <Button size="xs" className="h-10 lg:h-6" disabled={!text.trim() || !hasEnded(session, now)} title={!hasEnded(session, now) ? "ส่งได้หลังคาบเรียนจบแล้ว" : undefined} onClick={() => report(save(sessionId, studentId, text, true, lesson), "ส่งให้ผู้อนุมัติแล้ว")}><SendIcon /> {status === "changes_requested" ? "ส่งอีกครั้ง" : "ส่งอนุมัติ"}</Button>
           </>
         )}
         {status === "submitted" && can(me, "summary.approve") && summary && !Sum.canApprove(summary, me).ok && (

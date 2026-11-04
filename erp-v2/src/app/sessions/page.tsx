@@ -35,7 +35,7 @@ export default function SessionsPage() {
   const staff = useStore((s) => s.staff)
   const L = useLookup()
   // owner 2026-10-09: the shared date control — default this week (same on Sessions / Attendance / Summaries)
-  const period = usePeriod("week")
+  const period = usePeriod("week", { modes: ["day", "week"] })
   // everyone sees every session by default; teachers get a one-tap "only mine" filter
   const [teacher, setTeacher] = useState("all")
   const [workParam, setWorkParam] = useQueryState<WorkState | "all">("work", "all")
@@ -66,24 +66,24 @@ export default function SessionsPage() {
   return (
     <Page>
       <PageHeader title="คาบเรียน & เช็คชื่อ" description="คาบที่ต้องเช็คชื่อและเขียนสรุป — กดคาบเพื่อเปิดทำงาน" />
-      <KpiRow>
-        <Kpi icon={CalendarDaysIcon} label="คาบในช่วงนี้" value={withState.filter(({ w }) => w.state !== "cancelled").length} onClick={() => setWork(null)} />
-        <Kpi icon={ClipboardCheckIcon} label="รอเช็คชื่อ" value={counts.needs_attendance ?? 0} tone="red" valueClassName={counts.needs_attendance ? "text-red-700" : undefined} onClick={() => pick("needs_attendance")} active={work === "needs_attendance"} />
-        <Kpi icon={PenLineIcon} label="รอสรุป" value={counts.needs_summary ?? 0} tone="amber" valueClassName={counts.needs_summary ? "text-amber-700" : undefined} onClick={() => pick("needs_summary")} active={work === "needs_summary"} />
-        <Kpi icon={CircleCheckIcon} label="เสร็จแล้ว" value={counts.done ?? 0} tone="emerald" onClick={() => pick("done")} active={work === "done"} />
+      <KpiRow className="sm:grid-cols-4">
+        <Kpi compact icon={CalendarDaysIcon} label="คาบในช่วงนี้" value={withState.filter(({ w }) => w.state !== "cancelled").length} onClick={() => setWork(null)} />
+        <Kpi compact icon={ClipboardCheckIcon} label="รอเช็คชื่อ" value={counts.needs_attendance ?? 0} tone="red" valueClassName={counts.needs_attendance ? "text-red-700" : undefined} onClick={() => pick("needs_attendance")} active={work === "needs_attendance"} />
+        <Kpi compact icon={PenLineIcon} label="รอสรุป" value={counts.needs_summary ?? 0} tone="amber" valueClassName={counts.needs_summary ? "text-amber-700" : undefined} onClick={() => pick("needs_summary")} active={work === "needs_summary"} />
+        <Kpi compact icon={CircleCheckIcon} label="เสร็จแล้ว" value={counts.done ?? 0} tone="emerald" onClick={() => pick("done")} active={work === "done"} />
       </KpiRow>
       <Toolbar>{period.control}</Toolbar>
       {/* owner 2026-10-13: search left · filters right (subject · teacher · status · branch last) */}
       <FilterBar search={<SearchBox value={q} onChange={setQ} placeholder="ค้นหาคลาส / ครู / นักเรียน" />}>
-        <NativeSelect className="h-9 w-32" value={subject} onChange={(e) => setSubject(e.target.value)} placeholder="ทุกวิชา" options={branch.subjects.map((x) => ({ value: x, label: x }))} />
-        <NativeSelect className="h-9 w-36" value={teacher} onChange={(e) => setTeacher(e.target.value)}
+        <NativeSelect className="h-9 w-full sm:w-32" value={subject} onChange={(e) => setSubject(e.target.value)} placeholder="ทุกวิชา" options={branch.subjects.map((x) => ({ value: x, label: x }))} />
+        <NativeSelect className="h-9 w-full sm:w-36" value={teacher} onChange={(e) => setTeacher(e.target.value)}
           options={[
             { value: "all", label: "ครูทุกคน" },
             ...(me.roles.includes("teacher") ? [{ value: me.id, label: "เฉพาะคาบของฉัน" }] : []),
             ...staff.map((t) => staffAt(t, branch.id)).filter((t) => t.roles.includes("teacher") && t.branchIds.includes(branch.id) && t.id !== me.id).map((t) => ({ value: t.id, label: t.nickname })),
           ]} />
         {/* every state, incl. the ones without a card (รอเริ่ม / กำลังเรียน / ยกเลิก) */}
-        <NativeSelect className="h-9 w-40" value={work ?? ""} onChange={(e) => setWork((e.target.value || null) as WorkState | null)} placeholder={`ทุกสถานะ (${withState.length})`}
+        <NativeSelect className="h-9 w-full sm:w-40" value={work ?? ""} onChange={(e) => setWork((e.target.value || null) as WorkState | null)} placeholder={`ทุกสถานะ (${withState.length})`}
           options={WORK_ORDER.map((w) => ({ value: w, label: `${WORK_LABEL[w]} (${counts[w] ?? 0})` }))} />
         {scope.select}
       </FilterBar>
@@ -95,10 +95,13 @@ export default function SessionsPage() {
           <div className="divide-y overflow-hidden rounded-3xl bg-card shadow-sm ring-1 ring-foreground/5">
             {shown.filter(({ s }) => s.date === d).map(({ s, w }) => {
               const t = L.teacher(s.teacherId)
+              // owner 2026-11-04: a teacher's own sessions stand out from the rest of the branch's
+              const mine = s.teacherId === me.id || s.coTeacherIds.includes(me.id)
               return (
                 <SessionLine key={s.id} s={s} onOpen={() => setOpenId(s.id)} focus={w.state === "needs_attendance" ? "unmarked" : undefined}
-                  title={<>{classes.find((k) => k.id === s.classId)?.name ?? s.subject}<KindChip s={s} klass={classes.find((k) => k.id === s.classId)} className="ml-2" />{scope.multi && <span className="ml-2 align-middle"><BranchCode code={scope.code(s.branchId)} /></span>}</>}
-                  sub={<><span className={cn(t.missing && "text-amber-700")}>{t.label}</span> · {L.room(s.roomId)} · {s.studentIds.length} คน</>}
+                  className={cn(mine && "bg-primary/[0.04]")}
+                  title={<>{mine && <span className="mr-1.5 rounded-full bg-primary/15 px-1.5 py-px align-middle text-[10px] font-semibold text-primary">ฉัน</span>}{classes.find((k) => k.id === s.classId)?.name ?? s.subject}<KindChip s={s} klass={classes.find((k) => k.id === s.classId)} className="ml-2" />{scope.multi && <span className="ml-2 align-middle"><BranchCode code={scope.code(s.branchId)} /></span>}</>}
+                  sub={<><span className={cn(mine ? "font-medium text-primary" : t.missing && "text-amber-700")}>{t.label}</span> · {L.room(s.roomId)} · {s.studentIds.length} คน</>}
                   status={<WorkChip w={w} students={s.studentIds.length} />} />
               )
             })}

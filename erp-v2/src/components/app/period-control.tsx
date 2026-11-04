@@ -14,7 +14,8 @@ const MODES: { key: Exclude<PeriodMode, "custom">; label: string }[] = [
   { key: "day", label: "วันนี้" }, { key: "week", label: "สัปดาห์นี้" }, { key: "month", label: "เดือนนี้" },
 ]
 
-export function usePeriod(initial: PeriodMode = "week") {
+export function usePeriod(initial: PeriodMode = "week", opts?: { modes?: Exclude<PeriodMode, "custom">[] }) {
+  const shownModes = opts?.modes ? MODES.filter((m) => opts.modes!.includes(m.key)) : MODES
   const today = toDateStr(useNow())
   const [mode, setMode] = useQueryState<PeriodMode>("period", initial)
   const [at, setAt] = useQueryState<string>("at", "")
@@ -35,11 +36,12 @@ export function usePeriod(initial: PeriodMode = "week") {
   const setCustom = (r: { from: DateStr; to: DateStr }) => { setMode("custom"); setFrom(r.from); setTo(r.to); setAt("") }
   const current = isCurrent(mode, anchor, today)
   const control = (
-    <div className="flex flex-wrap items-center gap-2">
-      <div role="group" aria-label="ช่วงเวลา" className="inline-flex h-9 items-center rounded-full bg-muted p-1">
-        {MODES.map((m) => (
+    // phones: the mode switch and the stepper each take their own full-width row (owner 2026-11-04)
+    <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
+      <div role="group" aria-label="ช่วงเวลา" className="flex h-9 w-full items-center rounded-full bg-muted p-1 sm:inline-flex sm:w-auto">
+        {shownModes.map((m) => (
           <button key={m.key} type="button" aria-pressed={mode === m.key} onClick={() => pick(m.key)}
-            className={cn("h-7 rounded-full px-3 text-sm", mode === m.key ? "bg-background font-medium shadow-sm" : "text-muted-foreground hover:text-foreground")}>{m.label}</button>
+            className={cn("h-7 flex-1 rounded-full px-3 text-sm whitespace-nowrap sm:flex-none", mode === m.key ? "bg-background font-medium shadow-sm" : "text-muted-foreground hover:text-foreground")}>{m.label}</button>
         ))}
         <DateRangePicker segment from={range.from} to={range.to} active={mode === "custom"} onChange={setCustom} />
       </div>

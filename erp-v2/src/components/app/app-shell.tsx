@@ -163,14 +163,14 @@ function Shell({ children }: { children: ReactNode }) {
           {/* breadcrumb only — the page's own header carries the big title (owner 2026-10-09) ·
               mobile: just the page title (no group prefix) so the bar stays uncluttered */}
           <nav aria-label="breadcrumb" className="flex min-w-0 items-center gap-1.5 text-sm">
-            {currentGroup && <span className="hidden truncate text-muted-foreground md:inline">{t(currentGroup)}</span>}
-            {currentGroup && <ChevronRightIcon className="hidden size-3.5 shrink-0 text-muted-foreground md:inline" />}
+            {currentGroup && <span className="hidden truncate text-muted-foreground lg:inline">{t(currentGroup)}</span>}
+            {currentGroup && <ChevronRightIcon className="hidden size-3.5 shrink-0 text-muted-foreground lg:inline" />}
             <span className="truncate font-medium">{current ? t(current.label) : "NockERP"}</span>
           </nav>
           <div className="ml-auto flex items-center gap-2">
             <CurrentPeriodChip />
             {/* branch + its switcher live in the drawer's user card on phones — here only from md up */}
-            <span className="hidden items-center gap-1 rounded-full bg-primary/10 px-2.5 py-1 text-xs font-medium text-primary md:flex"><MapPinIcon className="size-3.5" />{branchShort(branch)}</span>
+            <span className="hidden items-center gap-1 rounded-full bg-primary/10 px-2.5 py-1 text-xs font-medium text-primary lg:flex"><MapPinIcon className="size-3.5" />{branchShort(branch)}</span>
             <LanguageChip />
           </div>
         </header>
@@ -198,8 +198,8 @@ function HeaderMenuButton() {
   const t = useT()
   return (
     <Button variant="ghost" size="icon-sm" onClick={toggleSidebar} aria-label={t("เมนู")} data-sidebar="trigger">
-      <MenuIcon className="md:hidden" />
-      <PanelLeftIcon className="hidden md:block" />
+      <MenuIcon className="lg:hidden" />
+      <PanelLeftIcon className="hidden lg:block" />
     </Button>
   )
 }
@@ -335,7 +335,7 @@ function CurrentPeriodChip() {
   if (!p) return null
   return (
     <Link href={`/settings/branches/${branch.id}`} title={`${p.name}: ${fmtDate(p.from)} – ${fmtDate(p.to, { year: true })} · ${periodHours(p)}`}
-      className="hidden items-center gap-1 rounded-full bg-amber-50 px-2.5 py-1 text-xs font-medium text-amber-900 ring-1 ring-amber-200 md:flex">
+      className="hidden items-center gap-1 rounded-full bg-amber-50 px-2.5 py-1 text-xs font-medium text-amber-900 ring-1 ring-amber-200 lg:flex">
       <SunIcon className="size-3.5 text-amber-600" /> {t("ช่วง")} {p.name} · {t("ถึง")} {fmtDate(p.to)}
     </Link>
   )

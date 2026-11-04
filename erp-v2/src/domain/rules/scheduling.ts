@@ -439,11 +439,12 @@ export function workState(s: Session, now: Date, attendance: Attendance[], summa
   return { state: "done", ...base }
 }
 
+// owner 2026-11-04: the shortest clear name in every language — status chips must not stretch a list / table row
 export const WORK_LABEL: Record<WorkState, string> = {
   scheduled: "รอเริ่ม",
   live: "กำลังเรียน",
-  needs_attendance: "รอเช็คชื่อ",
-  needs_summary: "รอสรุป",
+  needs_attendance: "เช็คชื่อ",
+  needs_summary: "สรุป",
   done: "เสร็จแล้ว",
   cancelled: "ยกเลิก",
 }

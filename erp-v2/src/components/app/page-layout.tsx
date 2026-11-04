@@ -35,7 +35,7 @@ export function KpiRow({ children, className }: { children: React.ReactNode; cla
 /** The one search box for list pages (owner 2026-10-13: Sessions · Attendance · Summaries got one too) — h-9 like every toolbar control */
 export function SearchBox({ value, onChange, placeholder, className }: { value: string; onChange: (v: string) => void; placeholder: string; className?: string }) {
   return (
-    <div className={cn("relative w-full sm:w-64", className)}>
+    <div className={cn("relative w-full sm:min-w-56 sm:flex-1", className)}>
       <SearchIcon className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" />
       <input type="search" value={value} onChange={(e) => onChange(e.target.value)} placeholder={placeholder}
         className="h-9 w-full min-w-0 rounded-3xl border border-transparent bg-input/50 pr-3 pl-8 text-sm outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/30" />
@@ -45,10 +45,11 @@ export function SearchBox({ value, onChange, placeholder, className }: { value: 
 
 /** Second toolbar row (owner 2026-10-13): search on the left, filters on the right (branch chip last) */
 export function FilterBar({ search, children }: { search: React.ReactNode; children?: React.ReactNode }) {
+  // phones: search on its own full-width row, filters in a tidy 2-column grid; desktop: one inline right-aligned row
   return (
-    <div className="flex flex-wrap items-center gap-2">
+    <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
       {search}
-      {children && <div className="ml-auto flex flex-wrap items-center justify-end gap-2">{children}</div>}
+      {children && <div className="grid grid-cols-2 gap-2 *:min-w-0 sm:flex sm:flex-none sm:flex-wrap sm:items-center sm:justify-end">{children}</div>}
     </div>
   )
 }

@@ -48,14 +48,14 @@ export function workDetail(w: WorkInfo, students: number) {
   }
 }
 
-export function WorkChip({ w, students, className }: { w: WorkInfo; students: number; className?: string }) {
+// owner 2026-11-04: just the short status name — no progress count, so the chip never stretches the row (the
+// count / overdue detail still shows in the session panel, which has room). `students` is kept for call sites.
+export function WorkChip({ w, className }: { w: WorkInfo; students?: number; className?: string }) {
   const Icon = WORK_ICON[w.state]
-  const detail = workDetail(w, students)
   return (
     <span className={cn("inline-flex shrink-0 items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold whitespace-nowrap", WORK_CHIP[w.state], className)}>
       <Icon className={cn("size-3", w.state === "live" && "animate-pulse")} />
       {WORK_LABEL[w.state]}
-      {detail && <span className="font-normal opacity-90">· {detail}</span>}
     </span>
   )
 }

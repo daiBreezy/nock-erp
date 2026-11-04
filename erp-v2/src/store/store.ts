@@ -403,6 +403,22 @@ const ctxOf = (s: DB, branchId: ID) => ({
   courses: s.courses, classes: s.classes, holidays: s.holidays,
 })
 
+/** owner 2026-11-04: a Manager/Admin manages any session; a teacher may manage their OWN session, and when they do,
+ *  the branch's office (Admin / Manager) is notified so nothing changes behind their back. */
+const sessionManager = (s: DB & { userId: ID }, se: Session): { ok: true; viaTeacher: boolean } | { ok: false; error: string } => {
+  const me = s.staff.find((x) => x.id === s.userId)!
+  if (can(me, "session.manage")) return { ok: true, viaTeacher: false }
+  if (se.teacherId === s.userId || se.coTeacherIds.includes(s.userId)) return { ok: true, viaTeacher: true }
+  return { ok: false, error: "จัดการได้เฉพาะคาบที่คุณสอน" }
+}
+const teacherEditNotice = (s: DB & { userId: ID; now: () => Date }, se: Session, what: string) =>
+  Notif.notify({
+    id: uid("no"), at: s.now(), kind: "info", fromId: s.userId,
+    title: `ครู${s.staff.find((x) => x.id === s.userId)?.nickname ?? ""} ${what}`,
+    body: `${se.subject} ${fmtDate(se.date, { weekday: true })} ${se.start} · โดยครูผู้สอน`,
+    audience: { roles: OFFICE_ROLES, branchId: se.branchId },
+  })
+
 const L = (s: { branches: Branch[] }, roomId: ID | null) => s.branches.flatMap((b) => b.rooms).find((r) => r.id === roomId)?.name ?? "ไม่ระบุห้อง"
 
 /** what the last drag & drop move replaced — one-step undo from the toast (not persisted) */
@@ -728,10 +744,10 @@ export const useStore = create<Store>()(
 
       editSession: (id, patch) => {
         const s = get()
-        const perm = requirePerm(s.me(), "session.manage")
-        if (!perm.ok) return perm
         const cur = s.sessions.find((x) => x.id === id)
         if (!cur) return fail("ไม่พบคาบเรียน")
+        const perm = sessionManager(s, cur)
+        if (!perm.ok) return perm
         if (cur.cancelled) return fail("คาบนี้ยกเลิกแล้ว")
         if (Sum.sessionLocked(cur.id, s.summaries)) return fail("คาบนี้ส่งสรุปให้ผู้ปกครองแล้ว แก้ไขไม่ได้")
         const next = Sch.editSingleSession(cur, patch)
@@ -739,7 +755,7 @@ export const useStore = create<Store>()(
         const after = s.sessions.map((x) => (x.id === id ? next : x))
         const clash = Sch.introducedConflicts(s.sessions, after, [id], branch, s.staff).added[0]
         if (clash) return fail(clash.message)
-        set({ sessions: after, assessments: Forms.assessmentsFollowSessions(s.assessments, after) })
+        set({ sessions: after, assessments: Forms.assessmentsFollowSessions(s.assessments, after), ...(perm.viaTeacher ? { notifications: [teacherEditNotice(s, cur, "แก้คาบเรียน"), ...s.notifications] } : {}) })
         return OK
       },
 
@@ -798,9 +814,9 @@ export const useStore = create<Store>()(
 
       addStudentToSession: (id, studentId, scope) => {
         const s = get()
-        const perm = requirePerm(s.me(), "session.manage")
-        if (!perm.ok) return perm
         const src = s.sessions.find((x) => x.id === id)!
+        const perm = sessionManager(s, src)
+        if (!perm.ok) return perm
         const now = s.now()
         if (src.cancelled) return fail("คาบนี้ยกเลิกแล้ว")
         if (Sum.sessionLocked(src.id, s.summaries)) return fail("คาบนี้ส่งสรุปให้ผู้ปกครองแล้ว แก้ไขไม่ได้")
@@ -823,6 +839,7 @@ export const useStore = create<Store>()(
         set({
           sessions: r.sessions,
           classes: scope === "following" && klass ? s.classes.map((c) => (c.id === klass.id && !c.studentIds.includes(studentId) ? { ...c, studentIds: [...c.studentIds, studentId] } : c)) : s.classes,
+          ...(perm.viaTeacher ? { notifications: [teacherEditNotice(s, src, `เพิ่ม ${stu.nickname} เข้าคาบ`), ...s.notifications] } : {}),
         })
         log("class", [studentId], scope === "following" && klass ? "เข้าคลาส" : "เข้าคาบ", `${klass?.name ?? src.subject} · ${fmtDate(src.date)} ${src.start}${r.changedIds.length > 1 ? ` · ${r.changedIds.length} คาบ` : ""}${src.trial ? " · ทดลองเรียน" : ""}`)
         return { ok: true, value: { changed: r.changedIds.length }, warnings }
@@ -1769,13 +1786,13 @@ export const useStore = create<Store>()(
 
       removeStudentFromSession: (sessionId, studentId) => {
         const s = get()
-        const perm = requirePerm(s.me(), "session.manage")
-        if (!perm.ok) return perm
         const se = s.sessions.find((x) => x.id === sessionId)
         if (!se || !se.studentIds.includes(studentId)) return fail("นักเรียนไม่ได้อยู่ในคาบนี้")
-        if (Sch.sessionState(se, s.now()) === "closed") return fail("คาบนี้ปิดแล้ว")
+        const perm = sessionManager(s, se)
+        if (!perm.ok) return perm
+        if (Sum.sessionLocked(se.id, s.summaries)) return fail("คาบนี้ส่งสรุปให้ผู้ปกครองแล้ว แก้ไขไม่ได้")
         if (s.attendance.some((a) => a.sessionId === sessionId && a.studentId === studentId)) return fail("เช็คชื่อไปแล้ว — ล้างการเช็คชื่อก่อนถึงจะเอาออกได้")
-        set({ sessions: s.sessions.map((x) => (x.id === sessionId ? { ...x, studentIds: x.studentIds.filter((y) => y !== studentId), rescheduledIn: x.rescheduledIn?.filter((y) => y !== studentId) } : x)) })
+        set({ sessions: s.sessions.map((x) => (x.id === sessionId ? { ...x, studentIds: x.studentIds.filter((y) => y !== studentId), rescheduledIn: x.rescheduledIn?.filter((y) => y !== studentId) } : x)), ...(perm.viaTeacher ? { notifications: [teacherEditNotice(s, se, "เอานักเรียนออกจากคาบ"), ...s.notifications] } : {}) })
         log("class", [studentId], "เอาออกจากคาบ", `${se.subject} ${fmtDate(se.date, { weekday: true })} ${se.start}`)
         return OK
       },
