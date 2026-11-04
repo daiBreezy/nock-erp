@@ -850,7 +850,7 @@ export function RescheduleDialog({ from, studentId, onClose, initialMode = "once
             <Button size="icon-sm" variant="ghost" aria-label="วันถัดไป" disabled={day >= lastDay} onClick={() => { setDay(addDays(day, 1)); setPick(null) }}><ChevronRightIcon /></Button>
           </div>
         </div>
-        <div className="min-h-0 flex-1 space-y-3 overflow-y-auto">
+        <div className="min-h-0 flex-1 space-y-3 overflow-y-auto px-0.5 py-1">
           {options.length === 0 && <p className="rounded-2xl border border-dashed p-4 text-center text-sm text-muted-foreground">วันนี้ไม่มีคาบ{subject && `วิชา${subject}`} — ลองวันอื่น หรือสร้างคาบใหม่ด้านล่าง</p>}
           {byTeacher.map((tid) => (
             <section key={tid || "none"} className="space-y-1.5">
@@ -948,7 +948,8 @@ function ClassMovePicker({ from, studentId, value, onChange, entitlementTo }: { 
         </div>
         {current && <p className="text-xs text-muted-foreground">คลาสเดิม: <b className="text-foreground">{current.name}</b> · ทุก{TH_DAYS_FULL[current.weekday]} {current.start}–{endTime(current.start, current.minutes)}</p>}
       </div>
-      <div className="min-h-0 flex-1 space-y-2 overflow-y-auto">
+      {/* px/py so a selected card's ring-2 isn't clipped by the scroll container */}
+      <div className="min-h-0 flex-1 space-y-2 overflow-y-auto px-0.5 py-1">
       {options.length === 0 && <p className="rounded-2xl border border-dashed p-4 text-center text-sm text-muted-foreground">ไม่พบคลาส — ลองปรับตัวกรอง หรือสร้างคลาสใหม่ที่หน้า คลาส</p>}
       {options.map((k) => {
         const check = canMoveToClass(from, k, studentId, now, L.student(studentId)?.grade)
