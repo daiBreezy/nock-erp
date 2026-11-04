@@ -23,7 +23,7 @@ export function SendEnrollDialog({ conversationId, onClose, onInvoice }: { conve
   }
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="lg:max-w-md">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2"><UserPlusIcon className="size-5" /> ส่งใบสมัครเรียน</DialogTitle>
           <DialogDescription>ขอข้อมูลครอบครัวจากผู้ปกครอง — คอร์สและคลาสที่คุยกันในแชท เลือกตอนสร้างใบแจ้งหนี้</DialogDescription>

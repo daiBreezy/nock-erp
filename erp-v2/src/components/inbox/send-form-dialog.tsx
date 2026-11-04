@@ -118,7 +118,7 @@ export function SendFormDialog({
 
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="flex max-h-[90vh] flex-col gap-0 p-0 sm:max-w-2xl">
+      <DialogContent className="flex max-h-[90vh] flex-col gap-0 p-0 lg:max-w-2xl">
         <DialogHeader className="border-b px-6 pb-4 pt-6">
           <DialogTitle>ส่งฟอร์ม{step !== "type" ? FORM_TYPE_LABEL[type] : ""}</DialogTitle>
           <DialogDescription>

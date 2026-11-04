@@ -525,7 +525,7 @@ export default function InboxPage() {
       )}
       {linking && selected && (
         <Dialog open onOpenChange={(o) => !o && setLinking(false)}>
-          <DialogContent className="sm:max-w-sm">
+          <DialogContent className="lg:max-w-sm">
             <DialogHeader>
               <DialogTitle>เชื่อมโยงบทสนทนานี้</DialogTitle>
               <DialogDescription>ยังไม่ผูกกับครอบครัวหรือ Lead — บทสนทนานี้จะจำการผูกไว้ถาวร (แม้เป็นข้อความ LINE จริง)</DialogDescription>

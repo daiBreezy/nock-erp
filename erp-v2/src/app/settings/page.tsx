@@ -97,7 +97,7 @@ function AddBranchDialog({ onClose }: { onClose: () => void }) {
   const [f, setF] = useState<{ name: string; code: string; brand: Branch["brand"]; province: string }>({ name: "", code: "", brand: "nockacademy", province: "BKK" })
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="lg:max-w-md">
         <DialogHeader>
           <DialogTitle>{tx("เพิ่มสาขา")}</DialogTitle>
           <DialogDescription>{tx("ตั้งค่าที่เหลือ (เวลาเปิด วิชา ราคา ฯลฯ) ต่อได้ในหน้าสาขา — เวลาเปิดตั้งต้นคัดลอกจากสาขาปัจจุบัน")}</DialogDescription>

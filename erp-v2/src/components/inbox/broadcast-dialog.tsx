@@ -61,7 +61,7 @@ export function BroadcastDialog({ conversations, onClose }: { conversations: Con
 
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="sm:max-w-lg">
+      <DialogContent className="lg:max-w-lg">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2"><MegaphoneIcon className="size-5 text-primary" /> Broadcast</DialogTitle>
           <DialogDescription>ส่งครั้งเดียว ถึงทุกคนในกลุ่ม — แต่ละครอบครัวได้รับเป็นแชทส่วนตัว</DialogDescription>

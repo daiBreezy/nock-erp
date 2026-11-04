@@ -613,7 +613,7 @@ function LeaveDialog({ s, studentId, onClose }: { s: Session; studentId: ID; onC
   }
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="lg:max-w-md">
         <DialogHeader>
           <DialogTitle>{group.length ? "แก้การลา" : "ลา"} · {L.student(studentId)?.nickname}</DialogTitle>
           <DialogDescription>เริ่ม {fmtDate(start.date, { weekday: true })} {start.start} · {group.length ? `ตอนนี้ลา ${group.length} คาบ — ลดจำนวน = กลับมาเรียนก่อน, เพิ่ม = ลาต่อ` : "ไม่มา = ลา เลือกแบบตามดุลพินิจ"}</DialogDescription>
@@ -675,7 +675,7 @@ function SeatDialog({ s, studentId, onClose }: { s: Session; studentId: ID; onCl
   const same = (a: Seat, b: Seat) => a.offset === b.offset && a.minutes === b.minutes
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="lg:max-w-md">
         <DialogHeader>
           <DialogTitle>เวลาเรียนของ{L.student(studentId)?.nickname}</DialogTitle>
           <DialogDescription>คาบ {s.start}–{endTime(s.start, s.minutes)} · แพ็กชั่วโมงหักตามเวลาที่เรียนจริง ราคารายเดือนเท่าเดิม</DialogDescription>
@@ -796,7 +796,7 @@ function RescheduleDialog({ from, studentId, onClose }: { from: Session; student
   const byTeacher = [...new Set(options.map((x) => x.teacherId ?? ""))]
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="flex max-h-[90vh] flex-col sm:max-w-lg">
+      <DialogContent className="flex max-h-[90vh] flex-col lg:max-w-lg">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2"><CalendarClockIcon className="size-5" /> ย้ายวัน · {L.student(studentId)?.nickname}</DialogTitle>
           <DialogDescription className="sr-only">ย้ายคาบนี้ครั้งเดียว หรือย้ายคลาสถาวร</DialogDescription>
@@ -941,7 +941,7 @@ function RemoveDialog({ s, studentId, onClose }: { s: Session; studentId: ID; on
   const name = L.student(studentId)?.nickname
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="lg:max-w-md">
         <DialogHeader>
           <DialogTitle>เอา {name} ออกจากคลาส?</DialogTitle>
           <DialogDescription>เช่น เพิ่มมาผิดคน · ประวัติการเรียนและการเงินยังอยู่ครบ</DialogDescription>
@@ -973,7 +973,7 @@ function DeleteDialog({ s, canCancel, onClose, onDone }: { s: Session; canCancel
   const mathOk = Number(answer) === q[0] + q[1]
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="lg:max-w-md">
         <DialogHeader>
           <DialogTitle>ลบ</DialogTitle>
           <DialogDescription>ระบบแจ้งทีมงานให้ติดต่อผู้ปกครอง · ประวัติที่เรียนไปแล้วยังอยู่</DialogDescription>
@@ -1049,13 +1049,14 @@ function SummaryInline({ session, sessionId, studentId, summary, viewOnly, text,
           <span className="font-medium">สรุปการเรียน</span>
           <Pill tone={tone}>{status ? SUMMARY_STATUS_LABEL[status] : "ยังไม่เขียน"}</Pill>
         </div>
+        {/* owner 2026-11-04: editor stamp first, the send-deadline LAST — so the deadline's colour/width never shifts the stamp out of line */}
         <div className="flex flex-wrap items-center gap-x-2 text-[11px] text-muted-foreground">
+          {summary && <span>{who(summary.lastEditorId)} · {fmtDateTime(summary.history[summary.history.length - 1]?.at ?? new Date().toISOString())}</span>}
           {status !== "sent" && (
             <span className={cn(due.overdue ? "font-medium text-red-700" : due.daysLeft <= 2 && "text-amber-700")}>
               {due.overdue ? `เลยกำหนดส่ง ${-due.daysLeft} วัน` : `ส่งภายใน ${fmtDate(due.deadline, { weekday: true })}`}
             </span>
           )}
-          {summary && <span>{who(summary.lastEditorId)} · {fmtDateTime(summary.history[summary.history.length - 1]?.at ?? new Date().toISOString())}</span>}
         </div>
       </div>
       {status === "changes_requested" && lastChange?.note && <p className="mb-1.5 rounded-md bg-red-50 p-2 text-xs text-red-800">ขอแก้: {lastChange.note}</p>}
@@ -1155,7 +1156,7 @@ function TeacherLeaveDialog({ s, onClose }: { s: Session; onClose: () => void })
     (v) => (mode === "sub" ? `${L.teacher(subId).label} สอนแทนแล้ว` : `ยกเลิกคาบแล้ว · เลื่อนวันจบคอร์สให้นักเรียน ${v.extended} คน`)) && onClose()
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="lg:max-w-md">
         <DialogHeader>
           <DialogTitle>{L.teacher(s.teacherId).label} ลา</DialogTitle>
           <DialogDescription>{s.subject} · {fmtDate(s.date, { weekday: true })} {s.start}–{endTime(s.start, s.minutes)} · นักเรียน {s.studentIds.length} คน</DialogDescription>
@@ -1195,7 +1196,7 @@ function EditSessionDialog({ id, onClose }: { id: ID; onClose: () => void }) {
   const [roomId, setRoomId] = useState(s.roomId ?? "")
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="lg:max-w-md">
         <DialogHeader>
           <DialogTitle>แก้เฉพาะคาบนี้</DialogTitle>
           <DialogDescription>คาบอื่นของคลาสไม่เปลี่ยน · คาบนี้จะไม่ถูกทับเมื่อแก้ทั้งคลาส</DialogDescription>
@@ -1247,7 +1248,7 @@ function TeachersDialog({ id, onClose }: { id: ID; onClose: () => void }) {
   const teachers = staff.map((t) => staffAt(t, branch.id)).filter((t) => t.active && t.roles.includes("teacher") && t.branchIds.includes(branch.id))
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="sm:max-w-lg">
+      <DialogContent className="lg:max-w-lg">
         <DialogHeader>
           <DialogTitle>เปลี่ยน / เพิ่มครู</DialogTitle>
           <DialogDescription>เลือกได้หลายคน · กด ★ เพื่อเลือกครูหลัก · ระบบตรวจเวลาชนของครูทุกคน</DialogDescription>
@@ -1281,7 +1282,7 @@ function AddStudentDialog({ id, onClose }: { id: ID; onClose: () => void }) {
   const cap = classCapacity(klass)
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="sm:max-w-lg">
+      <DialogContent className="lg:max-w-lg">
         <DialogHeader>
           <DialogTitle>เพิ่มนักเรียน</DialogTitle>
           <DialogDescription>ตอนนี้ {s.studentIds.length}/{cap} คน{klass ? ` · คลาส ${klass.name} (${klass.grades.join(", ")})` : ""}</DialogDescription>

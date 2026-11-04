@@ -13,10 +13,12 @@ export const KPI_TONE = {
 export type KpiTone = keyof typeof KPI_TONE
 
 /**
- * KPI card — one structure everywhere (owner 2026-10-09): icon (always) · label · number · sub text (optional) ·
- * optional body below that may make the card taller. Same minimum height everywhere and the content is centred
- * vertically, so a card without sub text never looks stuck at the top.
- * Fills its grid cell. Clickable when it filters the list below.
+ * KPI card — one structure everywhere. Responsive (owner 2026-11-04):
+ *  · Desktop (≥1024): icon on the left · label · number — the familiar wide card.
+ *  · Tablet / phone (<1024): no icon (less clutter); label sits on top in a fixed two-line box, so the number
+ *    lands at the SAME height on every card in the row even when one label wraps and another doesn't.
+ * Same minimum height everywhere, content centred vertically. Fills its grid cell. Clickable when it filters
+ * the list below.
  */
 export function Kpi({
   icon: Icon, label, value, sub, tone = "primary", valueClassName, onClick, active, children, className, compact,
@@ -33,18 +35,19 @@ export function Kpi({
   /** optional body text / content under the numbers */
   children?: React.ReactNode
   className?: string
-  /** owner 2026-11-04: tighter card for a 4-across tablet row — the icon hides where the card is narrowest */
+  /** owner 2026-11-04: tighter card (smaller min-height / padding) for a dense row */
   compact?: boolean
 }) {
   const Tag = onClick ? "button" : "div"
   return (
     <Tag type={onClick ? "button" : undefined} onClick={onClick} aria-pressed={onClick ? !!active : undefined}
-      className={cn("flex h-full w-full flex-col justify-center gap-2 rounded-3xl bg-card text-left shadow-sm ring-1 ring-foreground/5", compact ? "min-h-20 p-3" : "min-h-24 p-4", onClick && "transition hover:ring-foreground/20", active && "ring-2 ring-primary hover:ring-primary", className)}>
+      className={cn("flex h-full w-full flex-col justify-center gap-1.5 rounded-3xl bg-card text-left shadow-sm ring-1 ring-foreground/5 lg:gap-2", compact ? "min-h-16 p-3 lg:min-h-20" : "min-h-20 p-3.5 lg:min-h-24 lg:p-4", onClick && "transition hover:ring-foreground/20", active && "ring-2 ring-primary hover:ring-primary", className)}>
       <div className="flex w-full items-center gap-3">
-        {/* compact: show the icon on a phone (wide 2-up cards) and on wide screens, hide it only in the cramped tablet row */}
-        <span className={cn("grid size-10 shrink-0 place-items-center rounded-2xl", compact && "sm:hidden lg:grid", KPI_TONE[tone])}><Icon className="size-5" /></span>
-        <div className="min-w-0 flex-1">
-          <p className="truncate text-xs text-muted-foreground">{label}</p>
+        {/* icon only on desktop — tablet/phone drop it to keep the row compact */}
+        <span className={cn("hidden size-10 shrink-0 place-items-center rounded-2xl lg:grid", KPI_TONE[tone])}><Icon className="size-5" /></span>
+        <div className="flex min-w-0 flex-1 flex-col">
+          {/* fixed two-line box below desktop so every card's number starts at the same height */}
+          <p className="line-clamp-2 min-h-[2rem] text-xs leading-4 text-muted-foreground lg:line-clamp-none lg:min-h-0 lg:truncate">{label}</p>
           <p className={cn("text-2xl leading-tight font-semibold tabular-nums", valueClassName)}>{value}</p>
           {sub && <p className="truncate text-xs leading-4 text-muted-foreground">{sub}</p>}
         </div>

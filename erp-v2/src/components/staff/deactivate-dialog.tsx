@@ -24,7 +24,7 @@ export function DeactivateDialog({ s, onClose }: { s: Staff; onClose: () => void
   const candidates = staff.map((t) => staffAt(t, branch.id)).filter((t) => t.id !== s.id && t.active && t.roles.includes("teacher") && t.branchIds.includes(branch.id))
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="lg:max-w-md">
         <DialogHeader>
           <DialogTitle>ปิดบัญชี {s.nickname}?</DialogTitle>
           <DialogDescription>ประวัติการสอนเดิมยังอยู่และแสดงชื่อเป็น &quot;{s.nickname} (ออกแล้ว)&quot;</DialogDescription>

@@ -18,7 +18,7 @@ export function ParentPreview({ family, onClose }: { family: Family; onClose: ()
   const view = useMemo(() => buildParentView(family), [family, deps]) // eslint-disable-line react-hooks/exhaustive-deps
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="lg:max-w-md">
         <DialogHeader>
           <DialogTitle>App ผู้ปกครอง · {family.name}</DialogTitle>
           <DialogDescription>

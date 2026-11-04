@@ -217,7 +217,7 @@ function HolidayDialog({ draft, branch, onClose, onSave }: { draft: Draft; branc
   const text = msg.text || holidayParentText(d.name || "…", d.date ? fmtDate(d.date, { weekday: true }) : "…", cancel)
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="lg:max-w-md">
         <DialogHeader>
           <DialogTitle>{d.id ? tx("แก้วันหยุด") : branch ? tx("เพิ่มวันหยุดของสาขา{0}", [branch.name]) : tx("เพิ่มวันหยุดบริษัท")}</DialogTitle>
           <DialogDescription>{branch ? tx("มีผลเฉพาะสาขานี้") : tx("มีผลกับทุกสาขา — สาขาเลือกเปิดทำการเองได้ที่หน้าสาขา")}</DialogDescription>
@@ -257,7 +257,7 @@ function CloseDayDialog({ holiday, branch, affected: list, onClose, onConfirm }:
   const text = msg.text || holidayParentText(holiday.name, fmtDate(holiday.date, { weekday: true }), cancel)
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="lg:max-w-md">
         <DialogHeader>
           <DialogTitle>{tx("สาขา")}{branch.name}{tx("หยุดวัน")}{holiday.name}?</DialogTitle>
           <DialogDescription>{fmtDate(holiday.date, { weekday: true, year: true })}</DialogDescription>

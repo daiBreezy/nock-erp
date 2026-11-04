@@ -75,7 +75,7 @@ export function ConflictResolver({ sessionIds, onClose, onOpen }: { sessionIds: 
 
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-xl">
+      <DialogContent className="max-h-[90vh] overflow-y-auto lg:max-w-xl">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2"><AlertTriangleIcon className="size-5 text-red-600" /> แก้คาบชน</DialogTitle>
           <DialogDescription>{conflicts.length ? `${conflicts.length} จุด · เลือกวิธีแก้ของแต่ละจุด แล้วแก้ทีละจุดหรือทั้งหมด` : "ไม่มีคาบชนที่ต้องแก้แล้ว"}</DialogDescription>

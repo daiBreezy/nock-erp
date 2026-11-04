@@ -74,7 +74,7 @@ export function EnrollReviewDialog({ sub, onClose, onDone }: { sub: EnrollSubmis
 
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="max-h-[92vh] overflow-y-auto sm:max-w-xl">
+      <DialogContent className="max-h-[92vh] overflow-y-auto lg:max-w-xl">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2"><ClipboardListIcon className="size-5" /> ใบสมัครเรียน · ส่งเมื่อ {fmtDateTime(sub.submittedAt)}</DialogTitle>
           <DialogDescription>ตรวจข้อมูล → สร้างครอบครัว + นักเรียน แล้วเปิดใบแจ้งหนี้ให้เลือกคอร์ส + คลาสที่ตกลงในแชท · ตอบเป็นภาษา {sub.lang.toUpperCase()}</DialogDescription>

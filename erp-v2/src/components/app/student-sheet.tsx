@@ -394,14 +394,16 @@ function SessionList({ stu, ents }: { stu: Student; ents: Entitlement[] }) {
               const n = (st: string) => marks.filter((a) => a.status === st).length
               const unmarked = held.length - marks.length
               const course = courses.find((x) => x.id === e.courseId)
+              // owner 2026-11-04: the big number = คาบที่เช็คแล้ว / คาบทั้งหมดของคอร์ส (Done / Total), not Present/held.
+              // "ขาด" (absent) dropped — the check-in only offers มา / ลา, so an Absent count is always 0 and just confuses.
+              const total = sessions.filter((s) => Att.packageCovers(e, s) && s.studentIds.includes(stu.id) && !s.cancelled).length
               return (
-                <Kpi key={e.id} icon={GraduationCapIcon} tone={e.to < today ? "violet" : "sky"} label={course?.name ?? "—"} value={`${n("present")}/${held.length}`}
-                  sub={`มาเรียน · ${fmtDate(e.from)} → ${fmtDate(e.to, { year: true })}`}>
+                <Kpi key={e.id} icon={GraduationCapIcon} tone={e.to < today ? "violet" : "sky"} label={course?.name ?? "—"} value={`${marks.length}/${total}`}
+                  sub={`${fmtDate(e.from)} → ${fmtDate(e.to, { year: true })}`}>
                   <div className="flex flex-wrap gap-1.5 text-xs">
                     <Pill tone="green">{`มา ${n("present")}`}</Pill>
-                    <Pill tone="red">{`ขาด ${n("absent")}`}</Pill>
                     <Pill tone="amber">{`ลา ${Att.leavesUsed(e, sessions, attendance, leaves)}/${Att.leaveQuota(e)}`}</Pill>
-                    {unmarked > 0 && <Pill tone="gray">{`ยังไม่เช็ค ${unmarked}`}</Pill>}
+                    {unmarked > 0 && <Pill tone="gray">{`รอเช็ค ${unmarked}`}</Pill>}
                   </div>
                 </Kpi>
               )

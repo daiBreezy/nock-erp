@@ -34,7 +34,7 @@ function OfferDialog({ form, branchId, onClose, onSend }: { form: FormDef; branc
   const ready = fields.every((x) => picked[x.id]?.length)
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="sm:max-w-lg">
+      <DialogContent className="lg:max-w-lg">
         <DialogHeader>
           <DialogTitle>{tx("ส่ง “{0}”", [form.name])}</DialogTitle>
           <DialogDescription>{tx("เลือกตัวเลือกที่จะเสนอให้ผู้ปกครองเลือก")}</DialogDescription>

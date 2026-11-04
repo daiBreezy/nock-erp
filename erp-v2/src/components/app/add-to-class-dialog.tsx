@@ -40,7 +40,7 @@ export function AddToClassDialog({ stu, onClose }: { stu: Student; onClose: () =
   }
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="lg:max-w-md">
         <DialogHeader><DialogTitle>{`เพิ่ม ${stu.nickname} เข้าคลาส`}</DialogTitle></DialogHeader>
         <p className="text-sm text-muted-foreground">เลือกคลาสที่จะเข้า — เริ่มจากคาบถัดไป ขึ้นปฏิทินทันที · ยังไม่จ่ายเงินระบบจะเตือนในคาบให้ออกใบแจ้งหนี้</p>
         <ClassPicker classes={pool} grade={stu.grade} picked={classIds} joined={joined}

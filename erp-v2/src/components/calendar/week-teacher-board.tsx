@@ -313,7 +313,7 @@ function TeacherDayDialog({ mode, teacherId, date, onClose }: { mode: "substitut
     : report(cancelDay(teacherId, date, reason), (v) => `ยกเลิก ${v.sessions} คาบ · เลื่อนวันจบให้นักเรียน ${v.students} คน`)) && onClose()
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="lg:max-w-md">
         <DialogHeader>
           <DialogTitle>{mode === "substitute" ? "เปลี่ยนครู (ทั้งวัน)" : "ยกเลิกคลาส (ทั้งวัน)"} · {L.teacher(teacherId).label}</DialogTitle>
           <DialogDescription>{DAY_FULL[weekdayOf(date)]} {fmtDate(date, { year: true })} · {day.length} คาบ · นักเรียน {students} คน</DialogDescription>
@@ -362,7 +362,7 @@ function MoveStudentDialog({ from, studentId, to, onClose }: { from: string; stu
   }
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="lg:max-w-md">
         <DialogHeader>
           <DialogTitle>ย้าย{L.student(studentId)?.nickname}</DialogTitle>
           <DialogDescription>จาก {label(a)}<br />ไป {label(b)}</DialogDescription>

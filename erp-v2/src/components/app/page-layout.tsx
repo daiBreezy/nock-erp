@@ -26,9 +26,9 @@ export function PageHeader({ title, description, actions }: { title: React.React
   )
 }
 
-/** 2 columns on phones, up to 4 across */
+/** owner 2026-11-04: 2 columns on phones · 3 across on tablet (no icon, less wasted space) · up to 4 on desktop */
 export function KpiRow({ children, className }: { children: React.ReactNode; className?: string }) {
-  return <div className={cn("grid grid-cols-2 gap-3 lg:grid-cols-4", className)}>{children}</div>
+  return <div className={cn("grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4", className)}>{children}</div>
 }
 
 /** filters on the left (branch chip first), `end` on the right */

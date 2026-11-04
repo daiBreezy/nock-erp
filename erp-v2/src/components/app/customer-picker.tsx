@@ -50,7 +50,7 @@ export function CustomerPicker({
 
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="flex max-h-[90vh] flex-col gap-3 sm:max-w-lg">
+      <DialogContent className="flex max-h-[90vh] flex-col gap-3 lg:max-w-lg">
         <DialogHeader className="flex-row items-center gap-2 border-b pb-3">
           <UserRoundIcon className="size-5" />
           <DialogTitle>{title}</DialogTitle>

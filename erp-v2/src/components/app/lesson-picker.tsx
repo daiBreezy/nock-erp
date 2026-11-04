@@ -82,7 +82,7 @@ export function CatalogManager({ kind, items, onClose }: { kind: "book" | "topic
   const [merging, setMerging] = useState<ID | null>(null)
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-lg">
+      <DialogContent className="max-h-[85vh] overflow-y-auto lg:max-w-lg">
         <DialogHeader>
           <DialogTitle>จัดการ{kind === "book" ? "หนังสือ" : "บทเรียน"}</DialogTitle>
           <DialogDescription>แก้ชื่อแล้วทุกสรุปที่ใช้อยู่เปลี่ยนตาม · รายการซ้ำให้ &quot;รวมเข้ากับ&quot; อันที่จะเก็บไว้</DialogDescription>

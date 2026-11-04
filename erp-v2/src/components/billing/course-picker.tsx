@@ -56,7 +56,7 @@ export function CoursePicker({ branch, today, studentGrade, studentId, onInvoice
   return (
     <>
       <Dialog open onOpenChange={(o) => !o && onClose()}>
-        <DialogContent className="flex max-h-[92vh] flex-col gap-3 sm:max-w-5xl">
+        <DialogContent className="flex max-h-[92vh] flex-col gap-3 lg:max-w-5xl">
           <DialogHeader>
             <DialogTitle>เลือกคอร์ส {picked.length > 0 && <span className="text-primary">({picked.length})</span>}</DialogTitle>
             <DialogDescription>เลือกได้หลายคอร์สในใบเดียว · เฉพาะคอร์สของสาขา{branchLabel(branch)}</DialogDescription>

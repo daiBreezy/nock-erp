@@ -41,7 +41,7 @@ export function MoveDialog({ sessionId, target, onClose }: { sessionId: string; 
 
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="sm:max-w-lg">
+      <DialogContent className="lg:max-w-lg">
         <DialogHeader>
           <DialogTitle>ย้าย {klass?.name ?? s.subject}</DialogTitle>
           <DialogDescription>ตรวจสอบการเปลี่ยนแปลง แล้วเลือกว่าจะใช้กับคาบไหน</DialogDescription>

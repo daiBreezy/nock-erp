@@ -1206,6 +1206,8 @@ export const AUTO: Record<string, Entry> = {
   "ไม่มีคอร์สที่ใช้อยู่": { en: "No active course", ja: "受講中のコースなし" },
   "ไม่ระบุวันเกิด": { en: "No date of birth", ja: "生年月日未登録" },
   "ไม่ระบุโรงเรียน": { en: "No school", ja: "学校未登録" },
+  "รอเช็ค {0}": { en: "Pending {0}", ja: "保留 {0}" },
+  "คาบคงเหลือ — เฉพาะแพ็กเกจแบบนับคาบ · รายเดือน/เหมาจ่าย = ไม่จำกัด (—)": { en: "Sessions left — only for session-based packs · monthly / flat-rate = unlimited (—)", ja: "残り回数 — 回数制パッケージのみ · 月額/定額＝無制限（—）" },
   "✓ เข้าคลาสแล้ว": { en: "✓ In the class", ja: "✓ クラスに参加済み" },
   "· {0} วันแล้ว": { en: "· {0} days ago", ja: "· {0}日前" },
   "จ่ายแล้ว · เริ่มเรียน {0}": { en: "Paid · starts {0}", ja: "支払済み · {0}開始" },

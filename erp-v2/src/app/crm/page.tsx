@@ -181,7 +181,7 @@ export default function CrmPage() {
       </div>
 
       <Dialog open={workOpen} onOpenChange={setWorkOpen}>
-        <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-3xl">
+        <DialogContent className="max-h-[85vh] overflow-y-auto lg:max-w-3xl">
           <DialogHeader>
             <DialogTitle>ต้องจัดการ</DialogTitle>
             <DialogDescription>ใบสมัครเรียนที่รอตรวจ และผู้ปกครองที่ไม่พอใจซึ่งต้องโทรคุย</DialogDescription>

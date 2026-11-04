@@ -37,7 +37,7 @@ export function TripSheet({ t, branch, onClose }: { t: TripPlan; branch: Branch;
   }
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="max-h-[92vh] overflow-y-auto sm:max-w-2xl">
+      <DialogContent className="max-h-[92vh] overflow-y-auto lg:max-w-2xl">
         <DialogHeader>
           <DialogTitle className="flex flex-wrap items-center gap-2">{`${KIND_LABEL[t.round.kind]} ${t.round.time}${t.round.name ? ` · ${t.round.name}` : ""}`} <TripStatus t={t} /></DialogTitle>
           <DialogDescription>{`${fmtDate(t.date, { weekday: true, year: true })} · ${t.vehicle ? `${t.vehicle.name} (${t.vehicle.plate})` : "ยังไม่ได้เลือกรถ"} · ${t.driver ? `${t.driver.nickname} ${t.driver.phone}` : "ยังไม่มีคนขับ"} · ที่นั่ง ${t.used}/${t.seats}`}</DialogDescription>

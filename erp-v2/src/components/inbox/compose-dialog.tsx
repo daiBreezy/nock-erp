@@ -38,7 +38,7 @@ export function ComposeDialog({ onClose, onSent }: { onClose: () => void; onSent
 
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="lg:max-w-md">
         <DialogHeader>
           <DialogTitle>เริ่มบทสนทนาใหม่</DialogTitle>
           <DialogDescription>ถ้ามีบทสนทนากับครอบครัว/Lead นี้อยู่แล้ว ข้อความจะต่อในอันเดิม</DialogDescription>

@@ -27,7 +27,7 @@ export function TripTimeDialog({ t, onClose }: { t: TripPlan; onClose: () => voi
   const [time, setT] = useState(t.round.time)
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="sm:max-w-sm">
+      <DialogContent className="lg:max-w-sm">
         <DialogHeader>
           <DialogTitle>เปลี่ยนเวลาเฉพาะวันนี้</DialogTitle>
           <DialogDescription>{`${KIND_LABEL[t.round.kind]} · ${fmtDate(t.date, { weekday: true })} — รอบประจำสัปดาห์ไม่เปลี่ยน · เวลาถึงแต่ละจุดคำนวณใหม่`}</DialogDescription>
@@ -47,7 +47,7 @@ export function TripCancelDialog({ t, onClose }: { t: TripPlan; onClose: () => v
   const [reason, setReason] = useState("")
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="lg:max-w-md">
         <DialogHeader>
           <DialogTitle>{`ยกเลิก${KIND_LABEL[t.round.kind]} ${t.round.time} วันนี้`}</DialogTitle>
           <DialogDescription>{`${fmtDate(t.date, { weekday: true })} · เด็ก ${t.stops.length} คนบนเที่ยวนี้จะย้ายไปกล่อง "ต้องตัดสินใจ" ให้เลือกรอบอื่น — กู้คืนได้ภายหลัง`}</DialogDescription>
@@ -84,7 +84,7 @@ export function AddRiderDialog({ t, branch, onClose }: { t: TripPlan; branch: Br
   const rate = busRate(branch, null)
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="lg:max-w-md">
         <DialogHeader>
           <DialogTitle>{`เพิ่มเด็กเข้า${KIND_LABEL[t.round.kind]} ${t.round.time}`}</DialogTitle>
           <DialogDescription>{`${fmtDate(t.date, { weekday: true })} เท่านั้น · ถ้าเด็กยังไม่ได้ซื้อรอบนี้ = รอบรถเพิ่ม เก็บในรายชื่อนักเรียน คิดในใบแจ้งหนี้รอบถัดไป`}</DialogDescription>
@@ -124,7 +124,7 @@ export function ExtraTripDialog({ branch, date, trip, onClose }: { branch: Branc
   const [d, setD] = useState<NonNullable<BusTrip["extra"]>>(trip?.extra ?? { kind: "dropoff", time: "17:00", seats: vans[0]?.seats ?? 10, vehicleId: vans[0]?.id, name: "" })
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="lg:max-w-md">
         <DialogHeader>
           <DialogTitle>{trip ? "แก้เที่ยวพิเศษ" : "เพิ่มเที่ยวพิเศษ"}</DialogTitle>
           <DialogDescription>{`${fmtDate(date, { weekday: true })} วันเดียว — เช่น ทัศนศึกษา วันสอบ · เพิ่มเด็กเข้าเที่ยวได้หลังสร้าง`}</DialogDescription>
@@ -163,7 +163,7 @@ export function DayCrewDialog({ t, branch, onClose }: { t: TripPlan; branch: Bra
   }
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="sm:max-w-sm">
+      <DialogContent className="lg:max-w-sm">
         <DialogHeader>
           <DialogTitle>เปลี่ยนรถ / คนขับวันนี้</DialogTitle>
           <DialogDescription>{`${KIND_LABEL[t.round.kind]} ${t.round.time} · ${fmtDate(t.date, { weekday: true })} เท่านั้น — รอบประจำไม่เปลี่ยน`}</DialogDescription>

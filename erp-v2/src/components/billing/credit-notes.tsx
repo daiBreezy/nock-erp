@@ -140,7 +140,7 @@ function CreateCreditNote({ inv, onClose }: { inv: Invoice; onClose: () => void 
 
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="max-h-[92vh] overflow-y-auto sm:max-w-xl">
+      <DialogContent className="max-h-[92vh] overflow-y-auto lg:max-w-xl">
         <DialogHeader>
           <DialogTitle>ใบลดหนี้ · อ้างถึง {inv.number}</DialogTitle>
           <DialogDescription>ใบแจ้งหนี้และใบเสร็จเดิมไม่เปลี่ยน · ชำระแล้ว {fmtMoney(paidAmount(inv))}{room < paidAmount(inv) && ` · คืนไปแล้ว ${fmtMoney(paidAmount(inv) - room)}`}</DialogDescription>

@@ -121,7 +121,7 @@ export function LeadLostDialog({ lead, onClose }: { lead: Lead; onClose: () => v
   const today = toDateStr(now)
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
+      <DialogContent className="max-h-[90vh] overflow-y-auto lg:max-w-lg">
         <DialogHeader>
           <DialogTitle>ปิด Lead · {lead.name}</DialogTitle>
           <DialogDescription>

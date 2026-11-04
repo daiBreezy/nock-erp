@@ -779,7 +779,7 @@ function StudentsTab({ d, compare, onOpen }: { d: ReportData; compare: boolean; 
         </Panel>
       )}
       <Dialog open={listOpen} onOpenChange={setListOpen}>
-        <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-4xl">
+        <DialogContent className="max-h-[85vh] overflow-y-auto lg:max-w-4xl">
           <DialogHeader><DialogTitle>{tx("ความเคลื่อนไหวนักเรียน")}</DialogTitle><DialogDescription>{tx("{0} รายการในช่วงนี้ · ล่าสุดอยู่บน · กดชื่อเพื่อเปิดข้อมูลนักเรียน", [events.length])}</DialogDescription></DialogHeader>
           <div className="grid gap-6 md:grid-cols-3 md:gap-0 md:divide-x">
             {(["new", "returning", "lost"] as const).map((kind, c) => (
@@ -1212,7 +1212,7 @@ function ExitPanelReport({ d }: { d: ReportData }) {
         ) : <Empty>{tx("ยังไม่มีผู้ปกครองตอบฟอร์มแจ้งออกในช่วงนี้")}</Empty>}
       </Panel>
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-2xl">
+        <DialogContent className="max-h-[85vh] overflow-y-auto lg:max-w-2xl">
           <DialogHeader><DialogTitle>{tx("คะแนนจากผู้ปกครองที่ออก")}</DialogTitle><DialogDescription>{tx("เฉลี่ย 1–5 · NPS = % แนะนำ (9–10) − % ไม่แนะนำ (0–6)")}</DialogDescription></DialogHeader>
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
           {(Object.keys(SC) as (keyof typeof SC)[]).map((k) => <Stat key={k} label={SC[k]} value={e.scores[k] === null ? "—" : e.scores[k]!.toFixed(1)} tone={e.scores[k] !== null && e.scores[k]! < 3.5 ? "text-red-600" : undefined} />)}

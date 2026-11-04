@@ -127,7 +127,7 @@ function PromotionDialog({ branch, initial, onClose, onDone }: { branch: Branch;
   }
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="lg:max-w-md">
         <DialogHeader>
           <DialogTitle>{branch.promotions.some((x) => x.id === p.id) ? tx("แก้โปรโมชัน") : tx("เพิ่มโปรโมชัน")}</DialogTitle>
           <DialogDescription>{tx("กดบันทึกโปรโมชันที่หน้าแท็บอีกครั้งเพื่อยืนยัน")}</DialogDescription>

@@ -23,7 +23,7 @@ export function DuplicateDialog<T extends { id: string }>({ title, description, 
 }) {
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="sm:max-w-lg">
+      <DialogContent className="lg:max-w-lg">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2"><CopyIcon className="size-5 text-amber-600" /> {title}</DialogTitle>
           <DialogDescription>{description}</DialogDescription>

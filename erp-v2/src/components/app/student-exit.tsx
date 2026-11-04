@@ -56,7 +56,7 @@ export function ExitRequestDialog({ stu, onClose, onCloseNow }: { stu: Student; 
 
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="lg:max-w-md">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2"><DoorOpenIcon className="size-5" /> แจ้งออก · {stu.nickname}</DialogTitle>
           <DialogDescription>ส่งแบบฟอร์มให้ผู้ปกครองบอกเหตุผล ให้คะแนน และบอกว่าจะกลับมาไหม (ไทย / English / 日本語) · ได้คำตอบแล้วค่อยกดปิดการออก</DialogDescription>
@@ -218,7 +218,7 @@ export function CloseExitDialog({ stu, response, onClose }: { stu: Student; resp
   const err = Loss.validateExitClose(input, system.lossReasons)
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
+      <DialogContent className="max-h-[90vh] overflow-y-auto lg:max-w-lg">
         <DialogHeader>
           <DialogTitle>ปิดการออก · {stu.nickname}</DialogTitle>
           <DialogDescription>{a ? "ใช้คำตอบของผู้ปกครอง (แก้เหตุผลได้ถ้าคุยแล้วได้ข้อมูลเพิ่ม)" : "ผู้ปกครองยังไม่ได้ตอบ — เลือกเหตุผลที่รู้จากที่คุยกัน"} · เอาออกจากคลาส หลังวันเรียนวันสุดท้าย · ประวัติยังอยู่ครบ กด “กลับมาเรียน” ได้ภายหลัง</DialogDescription>

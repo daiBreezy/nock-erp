@@ -67,7 +67,7 @@ export function BlocksDialog({ branch, date, onClose, scope: initialScope = "day
 
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
+      <DialogContent className="max-h-[90vh] overflow-y-auto lg:max-w-lg">
         <DialogHeader>
           <DialogTitle>ตั้งช่วงเวลาคลาส</DialogTitle>
           <DialogDescription>วัน{DAY_FULL[wd]} {fmtDate(date, { year: true })} · {branch.name} · แถวของตารางครูและช่วงที่เลือกได้ตอนสร้างคลาส</DialogDescription>

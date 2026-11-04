@@ -23,7 +23,7 @@ export function AttentionButton({ count, onClick, className }: { count: number; 
 export function AttentionDialog({ open, onClose, items }: { open: boolean; onClose: () => void; items: AttentionItem[] }) {
   return (
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-lg">
+      <DialogContent className="max-h-[85vh] overflow-y-auto lg:max-w-lg">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2"><AlertTriangleIcon className="size-5 text-red-600" /> Need Attention</DialogTitle>
           <DialogDescription>{items.length ? tx("{0} เรื่องที่ควรดู · กดเพื่อไปหน้าที่แก้ได้", [items.length]) : tx("ไม่มีเรื่องที่ต้องดูตอนนี้")}</DialogDescription>

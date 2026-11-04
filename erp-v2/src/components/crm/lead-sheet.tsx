@@ -299,7 +299,7 @@ function Body({ id, onEdit }: { id: ID; onEdit: () => void }) {
       {archiving && <LeadLostDialog lead={lead} onClose={() => setArchiving(false)} />}
       {followingUp && (
         <Dialog open onOpenChange={(o) => !o && setFollowingUp(false)}>
-          <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-lg">
+          <DialogContent className="max-h-[85vh] overflow-y-auto lg:max-w-lg">
             <DialogHeader><DialogTitle>บันทึกการติดตาม · {lead.name}</DialogTitle><DialogDescription>โทร / ทัก LINE แล้วได้ผลยังไง — ใช้ตัดสินใจว่าควรปิด Lead ไหม</DialogDescription></DialogHeader>
             <FollowUpSection lead={lead} canManage={canManage} onClose={() => { setFollowingUp(false); setArchiving(true) }} />
           </DialogContent>
@@ -307,7 +307,7 @@ function Body({ id, onEdit }: { id: ID; onEdit: () => void }) {
       )}
       {enrolling && (
         <Dialog open onOpenChange={(o) => !o && setEnrolling(false)}>
-          <DialogContent className="sm:max-w-md">
+          <DialogContent className="lg:max-w-md">
             <DialogHeader><DialogTitle>ส่งใบสมัครเรียน · {lead.name}</DialogTitle><DialogDescription>สมัครทันที ไม่ต้องสอบ / ทดลองเรียน</DialogDescription></DialogHeader>
             <EnrollLinkButton lead={lead} />
           </DialogContent>

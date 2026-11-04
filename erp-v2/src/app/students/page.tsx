@@ -7,8 +7,6 @@ import { useState } from "react"
 import { DownloadIcon, GraduationCapIcon, LogOutIcon, PlusIcon, RefreshCwIcon, SearchIcon, SparklesIcon, UnlinkIcon } from "lucide-react"
 import { GenderIcon, Pill } from "@/components/app/badges"
 import { NativeSelect } from "@/components/app/native-select"
-import { PACKAGE_LEGEND, PackageBadge } from "@/components/app/package-badge"
-import { packageLabel } from "@/domain/rules/course"
 import { StudentSheet } from "@/components/app/student-sheet"
 import { STATUS_PILL } from "@/components/app/student-status"
 import { GradeCell, gradeCompare, Pager, usePage, useSort } from "@/components/app/data-table"
@@ -25,7 +23,7 @@ import type { ID, Student } from "@/domain/types"
 import { EditCell } from "@/components/app/inline-edit"
 import { report } from "@/lib/feedback"
 
-type StudentSort = "nickname" | "name" | "grade" | "family" | "course" | "package" | "enroll" | "end" | "status" | "left"
+type StudentSort = "nickname" | "name" | "grade" | "family" | "course" | "enroll" | "end" | "status" | "left"
 import { useBranch, useEntitlements, useNow, useQueryState } from "@/lib/hooks"
 import { cn } from "@/lib/utils"
 import { useStore } from "@/store/store"
@@ -91,7 +89,6 @@ export default function StudentsPage() {
         : k === "name" ? a.s.name.localeCompare(b.s.name, "th")
           : k === "grade" ? byGrade(a.s.grade, b.s.grade)
             : k === "course" ? (a.mainCourse?.name ?? "\uffff").localeCompare(b.mainCourse?.name ?? "\uffff", "th")
-              : k === "package" ? (a.mainCourse ? packageLabel(a.mainCourse) : "\uffff").localeCompare(b.mainCourse ? packageLabel(b.mainCourse) : "\uffff", "th", { numeric: true })
               : k === "enroll" ? (a.main?.from ?? "9").localeCompare(b.main?.from ?? "9")
                 : k === "end" ? (a.main?.to ?? "9").localeCompare(b.main?.to ?? "9")
               : k === "family" ? familyShortName(a.fam?.name ?? "").localeCompare(familyShortName(b.fam?.name ?? ""), "th")
@@ -150,15 +147,15 @@ export default function StudentsPage() {
         </span>
       ) : <span className="text-muted-foreground">—</span>
     ) },
-    { id: "package", label: "Package", width: "100px", sort: "package", info: PACKAGE_LEGEND, cell: (r) => (r.mainCourse ? <PackageBadge course={r.mainCourse} className={cn(ended(r) && "opacity-60")} /> : <span className="text-muted-foreground">—</span>) },
     { id: "enroll", label: "Enroll date", width: "100px", sort: "enroll", className: "text-muted-foreground tabular-nums", cell: ({ main }) => (main ? fmtDate(main.from) : "—") },
     { id: "end", label: "End date", width: "100px", sort: "end", cell: ({ main }) => (main ? fmtDate(main.to) : "—"),
       className: (r) => cn("tabular-nums", ended(r) ? "text-muted-foreground" : r.main && r.main.to <= addDays(today, 7) ? "font-medium text-amber-700" : "text-muted-foreground") },
-    { id: "left", label: "เหลือ", width: "80px", sort: "left", align: "right", className: (r) => cn("tabular-nums", left(r) <= 2 && "font-semibold text-red-700"),
+    // owner 2026-11-04: "เหลือ" (sessions left) counts only session-based packs — monthly / flat-rate show — (unlimited)
+    { id: "left", label: "เหลือ", width: "80px", sort: "left", align: "right", info: "คาบคงเหลือ — เฉพาะแพ็กเกจแบบนับคาบ · รายเดือน/เหมาจ่าย = ไม่จำกัด (—)", className: (r) => cn("tabular-nums", left(r) <= 2 && "font-semibold text-red-700"),
       cell: (r) => { const n = left(r); return Number.isFinite(n) ? `${n} คาบ` : <span className="text-muted-foreground">—</span> } },
-    { id: "status", label: "สถานะ", width: "124px", sort: "status", align: "right", cell: ({ st, ex }) => ex
-      // owner 2026-10-14: a student who gave notice stands out — talk to the family, or close it (Archive)
-      ? <Pill tone="red" title={`แจ้งออก · เรียนวันสุดท้าย ${fmtDate(ex.lastDate, { weekday: true })}${ex.answered ? " · ผู้ปกครองตอบฟอร์มแล้ว" : ""} — คุยกับผู้ปกครอง หรือปิดเรื่อง (Archive) ใน Panel นักเรียน`}><LogOutIcon className="size-3" />{ex.overdue ? "แจ้งออก · เลยวัน" : `แจ้งออก · ${fmtDate(ex.lastDate)}`}</Pill>
+    // owner 2026-11-04: keep the status pill short — the date / details live in the tooltip, not the chip
+    { id: "status", label: "สถานะ", width: "112px", sort: "status", align: "right", cell: ({ st, ex }) => ex
+      ? <Pill tone="red" title={`แจ้งออก · เรียนวันสุดท้าย ${fmtDate(ex.lastDate, { weekday: true })}${ex.answered ? " · ผู้ปกครองตอบฟอร์มแล้ว" : ""} — คุยกับผู้ปกครอง หรือปิดเรื่อง (Archive) ใน Panel นักเรียน`}><LogOutIcon className="size-3" />{ex.overdue ? "แจ้งออก · เลยวัน" : "แจ้งออก"}</Pill>
       : <Pill tone={STATUS_PILL[st].tone}>{STATUS_PILL[st].label}</Pill> },
   ]
 

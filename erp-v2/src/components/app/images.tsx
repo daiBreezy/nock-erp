@@ -56,7 +56,7 @@ export function ImageGallery({ images, size = "md" }: { images?: string[]; size?
         ))}
       </div>
       <Dialog open={open !== null} onOpenChange={(o) => !o && setOpen(null)}>
-        <DialogContent className="max-w-[min(92vw,1100px)] gap-2 p-3 sm:max-w-[min(92vw,1100px)]">
+        <DialogContent className="max-w-[min(92vw,1100px)] gap-2 p-3 lg:max-w-[min(92vw,1100px)]">
           <DialogTitle className="text-sm">รูป {open !== null ? open + 1 : 0} / {n}</DialogTitle>
           {open !== null && (
             <div className="relative grid place-items-center">

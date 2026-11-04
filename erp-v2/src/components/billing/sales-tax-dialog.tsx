@@ -61,7 +61,7 @@ export function SalesTaxDialog() {
   return (
     <Dialog>
       <DialogTrigger render={<Button variant="outline" />}><FileSpreadsheetIcon /> รายงานภาษีขาย</DialogTrigger>
-      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
+      <DialogContent className="max-h-[90vh] overflow-y-auto lg:max-w-2xl">
         <DialogHeader>
           <DialogTitle>รายงานภาษีขาย (Sales Tax Report)</DialogTitle>
           <DialogDescription>ทั้งบริษัท ({s.system.company.nameTh}) · {branches.map((b) => b.name).join(", ")} · 1 แท็บต่อเดือน เรียงตามวันที่เงินเข้า · ใบลดหนี้เป็นแถวติดลบในเดือนที่ออก</DialogDescription>

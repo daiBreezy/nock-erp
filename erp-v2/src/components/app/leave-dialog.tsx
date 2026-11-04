@@ -27,7 +27,7 @@ export function LeaveDialog({ studentId, leave, onClose }: { studentId: ID; leav
 
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="lg:max-w-md">
         <DialogHeader>
           <DialogTitle>{leave ? "แก้ไขการลาพักยาว" : "บันทึกการลาพักยาว (ไม่หักโควตา)"}</DialogTitle>
         </DialogHeader>
