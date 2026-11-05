@@ -131,7 +131,7 @@ export function PrintDocument({ kind, id, bare = false }: { kind: Kind; id: stri
           {kind === "invoice" && qrCells && (
             <svg viewBox={`0 0 ${qrCells.n + 2} ${qrCells.n + 2}`} className="size-[24mm] shrink-0" shapeRendering="crispEdges" aria-label="LINE">
               <rect width="100%" height="100%" fill="#fff" />
-              {qrCells.dark.map(([x, y]) => <rect key={`${x}-${y}`} x={x + 1} y={y + 1} width="1" height="1" fill="#000" />)}
+              {qrCells.dark.map(([x, y]) => <rect key={`${x}-${y}`} x={x + 1} y={y + 1} width="1" height="1" fill="#06C755" />)}
             </svg>
           )}
         </section>
