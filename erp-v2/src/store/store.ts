@@ -269,7 +269,7 @@ type Store = DB & UIState & {
   recordPayment: (id: ID, p: { amount: number; method: "transfer" | "cash"; reference: string; slip?: string; paidOn?: DateStr; remark?: string }) => Result
   confirmPayment: (invoiceId: ID, paymentId: ID, forceRemark?: string) => Result<{ paid: boolean }>
   /** one slip for several invoices of the same family — confirming any of them confirms the whole slip */
-  recordGroupPayment: (invoiceIds: ID[], p: { amount: number; method: "transfer" | "cash"; reference: string; slip?: string; paidOn?: DateStr; remark?: string }) => Result
+  recordGroupPayment: (invoiceIds: ID[], p: { amount: number; method: "transfer" | "cash"; reference: string; slip?: string; paidOn?: DateStr; remark?: string; receiptMode?: "combined" | "separate" }) => Result
   /** which invoices paid with one slip share one receipt (the rest get their own) */
   setReceiptGrouping: (invoiceId: ID, combinedIds: ID[]) => Result
 
@@ -2730,13 +2730,15 @@ export const useStore = create<Store>()(
         const group = Bill.paymentGroup(st.invoices.find((x) => x.id === invoiceId)!, st.invoices)
         const paid = group.every((x) => x.status === "paid")
         if (paid) {
-          // default: one receipt for the whole slip — the admin can split it afterwards
-          const nums = Bill.receiptNumbersFor(group, group.map((x) => x.id))
-          const receipt = nums.get(group[0].id)!
+          // the choice made when the slip was recorded: one receipt for the whole slip (default) or one per student —
+          // the admin can still change it afterwards
+          const separate = members[0].p.receiptMode === "separate"
+          const nums = Bill.receiptNumbersFor(group, separate ? [] : group.map((x) => x.id))
+          const receipt = [...new Set(nums.values())].join(", ")
           const ids = new Set(group.map((x) => x.id))
           set((cur) => ({ invoices: cur.invoices.map((x) => (ids.has(x.id) ? { ...x, receiptNumber: nums.get(x.id) } : x)) }))
           const rows = group.map((x) => ({ number: x.number ?? "", total: Bill.invoiceTotals(x, ctxOf(st, x.branchId)).total, student: st.students.find((y) => y.id === x.studentId)! }))
-          log("billing", group.map((x) => x.studentId), "ออกใบเสร็จรวม", `${receipt} · ${rows.map((r) => r.number).join(" + ")} · ${fmtMoney(rows.reduce((a, r) => a + r.total, 0))}`, true)
+          log("billing", group.map((x) => x.studentId), separate ? "ออกใบเสร็จแยกรายนักเรียน" : "ออกใบเสร็จรวม", `${receipt} · ${rows.map((r) => r.number).join(" + ")} · ${fmtMoney(rows.reduce((a, r) => a + r.total, 0))}`, true)
           const familyId = rows[0].student.familyId
           const receiptDelivery = pushLine(familyId, Msg.familyReceiptMessage(receipt, rows), (ok, error) => {
             set((cur) => ({ invoices: cur.invoices.map((x) => (ids.has(x.id) ? { ...x, receiptDelivery: ok ? "delivered" : "failed" } : x)) }))

@@ -7,7 +7,7 @@ import { SalesTaxDialog } from "@/components/billing/sales-tax-dialog"
 import { RenewalDraftsDialog } from "@/components/billing/renewal-drafts-dialog"
 import { Suspense, useState } from "react"
 import { useSearchParams } from "next/navigation"
-import { BadgeCheckIcon, CopyPlusIcon, FileClockIcon, HourglassIcon, PlusIcon, SearchIcon, SendIcon, WalletIcon, type LucideIcon } from "lucide-react"
+import { BadgeCheckIcon, CopyPlusIcon, Link2Icon, FileClockIcon, HourglassIcon, PlusIcon, SearchIcon, SendIcon, WalletIcon, type LucideIcon } from "lucide-react"
 import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card"
 import { Pill } from "@/components/app/badges"
 import { InvoiceSheet } from "@/components/billing/invoice-sheet"
@@ -24,6 +24,7 @@ import { gradeTone } from "@/components/app/subject-color"
 import { invoiceOverdue, paymentUnconfirmed } from "@/domain/rules/reports"
 import { cn } from "@/lib/utils"
 import { useStore } from "@/store/store"
+import type { Invoice, Student } from "@/domain/types"
 
 type BillSort = "number" | "created" | "student" | "grade" | "total" | "status"
 type Filter = "all" | "pending" | "draft" | "pending_approval" | "awaiting_payment" | "to_confirm" | "paid" | "void"
@@ -110,8 +111,16 @@ function BillingPage() {
   const pg = usePage(visible)
 
   type Row = (typeof visible)[number]
+  // invoices linked to be sent together (owner 2026-11-05): same colour chip on every row of a bundle, hover = who
+  const bundles = new Map<string, Invoice[]>()
+  invoices.filter((i) => i.bundleId && i.status !== "void").forEach((i) => bundles.set(i.bundleId!, [...(bundles.get(i.bundleId!) ?? []), i]))
   const columns: Column<Row>[] = [
-    { id: "number", label: "เลขที่", width: "130px", sort: "number", required: true, className: "font-medium tabular-nums", cell: ({ inv }) => (inv.number ? <MidText text={inv.number} head={3} tail={10} /> : <span className="text-muted-foreground">—</span>) },
+    { id: "number", label: "เลขที่", width: "130px", sort: "number", required: true, className: "font-medium tabular-nums", cell: ({ inv }) => (
+      <span className="flex items-center gap-1">
+        <span className="min-w-0 flex-1">{inv.number ? <MidText text={inv.number} head={3} tail={10} /> : <span className="text-muted-foreground">—</span>}</span>
+        {inv.bundleId && bundles.get(inv.bundleId) && <BundleChip inv={inv} members={bundles.get(inv.bundleId)!} students={students} />}
+      </span>
+    ) },
     { id: "created", label: "สร้างเมื่อ", width: "96px", sort: "created", className: "text-muted-foreground tabular-nums", cell: ({ inv }) => fmtDate(inv.createdAt.slice(0, 10)) },
     { id: "student", label: "นักเรียน", width: "120px", sort: "student", cell: ({ student }) => student?.nickname ?? "—" },
     // owner 2026-10-15: every list shows which branch each row comes from
@@ -175,6 +184,23 @@ function BillingPage() {
   )
 }
 
+
+const BUNDLE_TONES = ["bg-sky-100 text-sky-800", "bg-violet-100 text-violet-800", "bg-emerald-100 text-emerald-800", "bg-amber-100 text-amber-900", "bg-rose-100 text-rose-800", "bg-teal-100 text-teal-800"]
+const bundleTone = (id: string) => BUNDLE_TONES[[...id].reduce((a, c) => a + c.charCodeAt(0), 0) % BUNDLE_TONES.length]
+
+/** link chip on a row: the colour is the bundle's (every linked invoice shares it) · hover lists the linked invoices */
+function BundleChip({ inv, members, students }: { inv: Invoice; members: Invoice[]; students: Student[] }) {
+  const others = members.filter((x) => x.id !== inv.id)
+  return (
+    <HoverCard>
+      <HoverCardTrigger render={<span className={cn("inline-flex shrink-0 items-center gap-0.5 rounded-full px-1.5 py-0.5 text-[11px] font-semibold", bundleTone(inv.bundleId!))} aria-label="เชื่อมกับใบอื่น" />}><Link2Icon className="size-3" />{members.length}</HoverCardTrigger>
+      <HoverCardContent side="right" className="w-auto max-w-72 text-xs">
+        <p className="mb-1 font-medium">เชื่อมไว้ — ส่งผู้ปกครองทีเดียวกับ</p>
+        {others.map((x) => <p key={x.id} className="flex gap-2"><span className="font-mono">{x.number ?? "ร่าง"}</span><span>{students.find((s) => s.id === x.studentId)?.nickname}</span><span className="text-muted-foreground">{Bill.INVOICE_STATUS_LABEL[x.status]}</span></p>)}
+      </HoverCardContent>
+    </HoverCard>
+  )
+}
 
 /** a small warning icon after the status; hover says what it means */
 function Flag({ icon: Icon, tone, text }: { icon: LucideIcon; tone: string; text: string }) {

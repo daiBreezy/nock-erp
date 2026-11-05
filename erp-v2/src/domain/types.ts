@@ -1411,6 +1411,8 @@ export interface Payment {
   /** the day the money arrived (the payment dialog's "วันที่ชำระ") */
   paidOn?: DateStr
   remark?: string
+  /** several invoices on one slip: one receipt for all ("combined", the default) or one per student ("separate") — owner 2026-11-05 */
+  receiptMode?: "combined" | "separate"
   /** one slip for several invoices of the same family (owner 2026-10-29): each invoice keeps its own share, same groupId + slip */
   groupId?: ID
 }

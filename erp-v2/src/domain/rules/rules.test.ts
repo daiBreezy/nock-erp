@@ -2810,6 +2810,8 @@ describe("one slip for several invoices of a family (owner 2026-10-29)", () => {
     expect([...Pay.receiptNumbersFor([b, a, c], ["i1", "i2", "i3"]).values()]).toEqual(["RC-001", "RC-001", "RC-001"])
     expect(Object.fromEntries(Pay.receiptNumbersFor([a, b, c], ["i2", "i3"]))).toEqual({ i1: "RC-001", i2: "RC-002", i3: "RC-002" })
     expect([...Pay.receiptNumbersFor([a, b], ["i1"]).values()]).toEqual(["RC-001", "RC-002"])
+    // "one receipt per student" = nobody combined
+    expect([...Pay.receiptNumbersFor([a, b, c], []).values()]).toEqual(["RC-001", "RC-002", "RC-003"])
   })
   it("finds the invoices paid with the same slip", () => {
     const pay = (groupId?: string) => ({ id: "p", amount: 1, method: "transfer", reference: "", recordedBy: "u", recordedAt: "", groupId }) as Invoice["payments"][number]

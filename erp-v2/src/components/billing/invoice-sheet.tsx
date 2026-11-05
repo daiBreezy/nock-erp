@@ -175,7 +175,17 @@ function Body({ id, slipMediaId, onEdit, onDuplicated }: { id: ID; slipMediaId?:
   ) : null
   const groupNode = group.length > 1 && group.every((x) => x.status === "paid") ? (
     <div className="mt-1.5 space-y-1.5 rounded-lg border p-2.5">
-      <p className="text-xs font-medium">ใบเสร็จของสลิปนี้ — ติ๊กใบที่จะรวมเป็นใบเสร็จเดียว (ไม่ติ๊ก = แยกใบ)</p>
+      <p className="text-xs font-medium">ใบเสร็จของสลิปนี้</p>
+      <div className="flex gap-1.5">
+        {([["combined", "รวมทุกใบ", group.map((x) => x.id)], ["separate", "แยกรายนักเรียน", [] as ID[]]] as const).map(([k, label, ids]) => {
+          const on = k === "combined" ? combined.length === group.length : combined.length === 0
+          return (
+            <button key={k} type="button" disabled={!manage} aria-pressed={on} onClick={() => !on && report(act.regroup(inv.id, [...ids]), k === "combined" ? "รวมเป็นใบเสร็จเดียวแล้ว" : "แยกใบเสร็จรายนักเรียนแล้ว")}
+              className={cn("flex-1 rounded-full border px-3 py-1 text-xs disabled:opacity-60", on ? "border-foreground bg-foreground text-background" : "hover:bg-muted")}>{label}</button>
+          )
+        })}
+      </div>
+      <p className="text-xs text-muted-foreground">หรือติ๊กเลือกเองว่าใบไหนรวมกัน (ไม่ติ๊ก = แยกใบ)</p>
       {group.map((x) => (
         <label key={x.id} className="flex items-center gap-2 text-xs">
           <input type="checkbox" disabled={!manage} checked={combined.includes(x.id)} onChange={() => setReceiptIds(toggle(combined, x.id))} />
