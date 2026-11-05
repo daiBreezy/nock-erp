@@ -91,4 +91,7 @@ export const KIT: Record<string, Entry> = {
   "ไม่มีคอร์ส": { en: "No course", ja: "コースなし" },
   "ใบนี้ไม่มีคอร์ส (เก็บเฉพาะค่าอื่นๆ)": { en: "No course on this invoice (other fees only)", ja: "この請求書にコースはありません（その他の費用のみ）" },
   "ไม่มีค่าแรกเข้า / ค่าสอบ / ค่าหนังสือ": { en: "No entry / test / book fee", ja: "入会金・テスト料・教材費なし" },
+  "สรุปยอด": { en: "Summary", ja: "合計" },
+  "ซ่อนรายละเอียด": { en: "Hide details", ja: "詳細を隠す" },
+  "ดูรายละเอียดใบแจ้งหนี้ทั้งหมด": { en: "Show full invoice details", ja: "請求書の詳細をすべて表示" },
 }

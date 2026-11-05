@@ -2,7 +2,7 @@
 
 import { ForceApprove } from "@/components/app/force-approve"
 import { Fragment, useEffect, useState } from "react"
-import { AlertTriangleIcon, CheckIcon, CircleIcon, FileTextIcon, ImageIcon, Loader2Icon, PencilIcon, RefreshCwIcon, SendIcon, XCircleIcon } from "lucide-react"
+import { AlertTriangleIcon, CheckIcon, ChevronDownIcon, CircleIcon, FileTextIcon, ImageIcon, Loader2Icon, PencilIcon, RefreshCwIcon, SendIcon, XCircleIcon } from "lucide-react"
 import { Pill } from "@/components/app/badges"
 import { NativeSelect } from "@/components/app/native-select"
 import { Button } from "@/components/ui/button"
@@ -26,8 +26,17 @@ import { useShallow } from "zustand/react/shallow"
 import { useStore } from "@/store/store"
 import { invoiceTone } from "./status"
 import { CreditNotes } from "./credit-notes"
-import { Section } from "./section"
 import { DocThumbs, type DocItem } from "./doc-thumbs"
+
+/** a titled group inside the expanded billing info */
+function Block({ title, hint, children }: { title: string; hint?: string; children: React.ReactNode }) {
+  return (
+    <div className="space-y-1.5">
+      <h4 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{title}{hint && <span className="ml-1.5 font-normal normal-case">· {hint}</span>}</h4>
+      {children}
+    </div>
+  )
+}
 
 /**
  * Invoice side panel (owner 2026-10-09 — same pattern as every entity): the invoice and its next step; แก้ไข switches
@@ -71,7 +80,7 @@ function Body({ id, slipMediaId, onEdit }: { id: ID; slipMediaId?: string; onEdi
   const act = useStore(useShallow((s) => ({ gen: s.generatePdf, approve: s.approveInvoice, send: s.sendInvoice, void: s.voidInvoice, notifyVoid: s.notifyVoid, pay: s.recordPayment, payGroup: s.recordGroupPayment, confirm: s.confirmPayment, regroup: s.setReceiptGrouping })))
   const invoices = useStore((s) => s.invoices)
   const [note, setNote] = useState(inv?.noteToParent ?? "")
-  const [openSec, setOpenSec] = useState(6)
+  const [showAll, setShowAll] = useState(false)
   const [voiding, setVoiding] = useState(false)
   const [reason, setReason] = useState("")
   const [amount, setAmount] = useState("")
@@ -184,8 +193,21 @@ function Body({ id, slipMediaId, onEdit }: { id: ID; slipMediaId?: string; onEdi
       <PanelBody>
         {inv.status === "void" && <p className="rounded-lg bg-red-50 p-3 text-sm text-red-800">ยกเลิกแล้ว: {inv.voidReason}</p>}
         {/* Billing info as an accordion (owner 2026-11-05): Student · Promotion · Course · Advance · Bus · Summary */}
-        <div className="rounded-xl border px-4">
-          <Section n={1} title="Student" open={openSec === 1} onToggle={() => setOpenSec(openSec === 1 ? 0 : 1)} summary={`${stu?.nickname ?? "—"} · ${stu?.grade ?? ""}`}>
+        {/* Billing info (owner 2026-11-05): the summary always visible; one expander opens the whole invoice */}
+        <section className="rounded-xl border px-4 py-3">
+          <h3 className="mb-1 text-sm font-semibold">สรุปยอด</h3>
+          <table className="w-full text-sm tabular-nums"><tbody>
+            {([["ค่าเรียน", totals.course + totals.courseFee], ["Advance / ค่าหนังสือ", totals.advance + totals.book], ["ค่ารถ", totals.bus + totals.busExtra]] as const).filter(([, v]) => v > 0).map(([l, v]) => <tr key={l}><td className="py-0.5">{l}</td><td className="py-0.5 text-right">{fmtMoney(v)}</td></tr>)}
+            {totals.promotion + totals.credit + totals.concession > 0 && <tr className="text-emerald-700"><td className="py-0.5">ส่วนลด / โปรโมชัน</td><td className="py-0.5 text-right">−{fmtMoney(totals.promotion + totals.credit + totals.concession)}</td></tr>}
+            {totals.rounding > 0 && <tr className="text-muted-foreground"><td className="py-0.5">ปัดเศษ (Liclass ปัดขึ้นหลักสิบ)</td><td className="py-0.5 text-right">+{fmtMoney(totals.rounding)}</td></tr>}
+            <tr className="border-t font-semibold"><td className="py-1.5">ยอดรวม</td><td className="py-1.5 text-right text-base">{fmtMoney(totals.total)}</td></tr>
+          </tbody></table>
+          <button type="button" aria-expanded={showAll} onClick={() => setShowAll(!showAll)} className="mt-1 flex w-full items-center justify-center gap-1 rounded-lg py-1.5 text-xs text-primary hover:bg-muted/50">
+            {showAll ? "ซ่อนรายละเอียด" : "ดูรายละเอียดใบแจ้งหนี้ทั้งหมด"}<ChevronDownIcon className={cn("size-3.5 transition-transform", showAll && "rotate-180")} />
+          </button>
+          {showAll && (
+            <div className="mt-2 space-y-4 border-t pt-3">
+          <Block title="Student">
             <p className="text-sm"><span className="font-medium">{stu?.nickname}</span> <span className="text-muted-foreground">{stu?.name} · {stu?.grade}</span></p>
             <p className="text-xs text-muted-foreground">{fam ? `${fam.name} · ${fam.parents.find((p) => p.primary)?.name ?? ""}` : "ยังไม่ผูกครอบครัว"}</p>
             {memo.memo && (
@@ -193,8 +215,8 @@ function Body({ id, slipMediaId, onEdit }: { id: ID; slipMediaId?: string; onEdi
                 <span className="font-medium text-foreground">Memo บนใบแจ้งหนี้ + ใบเสร็จ{memo.periods.length ? ` · จากช่วง ${memo.periods.map((p) => p.name).join(", ")}` : " · ของแบรนด์"}</span>{"\n"}{memo.memo}
               </p>
             )}
-          </Section>
-          <Section n={2} title="Promotion" hint="ส่วนลด / โปรโมชัน" open={openSec === 2} onToggle={() => setOpenSec(openSec === 2 ? 0 : 2)} summary={totals.promotion + totals.credit + totals.concession > 0 ? `ลด ${fmtMoney(totals.promotion + totals.credit + totals.concession)}` : "ไม่มี"}>
+          </Block>
+          <Block title="Promotion" hint="ส่วนลด / โปรโมชัน">
             <table className="w-full text-sm tabular-nums"><tbody className="divide-y">
               {totals.lines.filter((l) => l.promotion > 0).map((l) => <tr key={l.line.id} className="text-emerald-700"><td className="py-1">{l.course?.name} · {l.promotionName}</td><td className="py-1 text-right">−{fmtMoney(l.promotion)}</td></tr>)}
               {totals.lines.filter((l) => l.bonusMinutes > 0).map((l) => <tr key={`b${l.line.id}`} className="text-emerald-700"><td className="py-1" colSpan={2}>{l.course?.name} · {l.bonusName} — แถมเวลาเรียนเพิ่ม {l.bonusMinutes / 60} ชม. (ไม่เพิ่มราคา)</td></tr>)}
@@ -202,8 +224,8 @@ function Body({ id, slipMediaId, onEdit }: { id: ID; slipMediaId?: string; onEdi
               {totals.concession > 0 && <tr className="text-emerald-700"><td className="py-1">ส่วนลดพิเศษ · {inv.concession?.remark}</td><td className="py-1 text-right">−{fmtMoney(totals.concession)}</td></tr>}
             </tbody></table>
             {totals.promotion + totals.credit + totals.concession === 0 && !totals.lines.some((l) => l.bonusMinutes > 0) && <p className="text-xs text-muted-foreground">ไม่มีส่วนลด / โปรโมชันในใบนี้</p>}
-          </Section>
-          <Section n={3} title="Course" open={openSec === 3} onToggle={() => setOpenSec(openSec === 3 ? 0 : 3)} summary={totals.lines.length ? `${totals.lines.length} คอร์ส · ${fmtMoney(totals.course + totals.courseFee)}` : "ไม่มีคอร์ส"}>
+          </Block>
+          <Block title="Course">
             {totals.lines.length === 0 && <p className="text-xs text-muted-foreground">ใบนี้ไม่มีคอร์ส (เก็บเฉพาะค่าอื่นๆ)</p>}
             <table className="w-full text-sm tabular-nums"><tbody className="divide-y">
               {totals.lines.map(({ line, course, klasses, quote, courseFee }) => course && quote && (
@@ -227,28 +249,24 @@ function Body({ id, slipMediaId, onEdit }: { id: ID; slipMediaId?: string; onEdi
                 </Fragment>
               ))}
             </tbody></table>
-          </Section>
-          <Section n={4} title="Advance" hint="ไม่บังคับ" open={openSec === 4} onToggle={() => setOpenSec(openSec === 4 ? 0 : 4)} summary={totals.advance + totals.book > 0 ? fmtMoney(totals.advance + totals.book) : "ไม่มี"}>
+          </Block>
+          <Block title="Advance" hint="ไม่บังคับ">
             <table className="w-full text-sm tabular-nums"><tbody className="divide-y">
               {inv.advance.map((a) => <tr key={a.feeId}><td className="py-1">{a.name}</td><td className="py-1 text-right">{fmtMoney(a.amount)}</td></tr>)}
               {totals.book > 0 && <tr><td className="py-1">ค่าหนังสือ</td><td className="py-1 text-right">{fmtMoney(totals.book)}</td></tr>}
             </tbody></table>
             {totals.advance + totals.book === 0 && <p className="text-xs text-muted-foreground">ไม่มีค่าแรกเข้า / ค่าสอบ / ค่าหนังสือ</p>}
-          </Section>
-          <Section n={5} title="Bus" hint="ไม่บังคับ" open={openSec === 5} onToggle={() => setOpenSec(openSec === 5 ? 0 : 5)} summary={totals.bus + totals.busExtra > 0 ? fmtMoney(totals.bus + totals.busExtra) : "ไม่ใช้"}>
+          </Block>
+          <Block title="Bus" hint="ไม่บังคับ">
             <table className="w-full text-sm tabular-nums"><tbody className="divide-y">
               {totals.bus > 0 && <tr><td className="py-1">ค่ารถ {branch.fees.find((f) => f.id === inv.busFeeId)?.name ?? ""} ({inv.bus.reduce((a, l) => a + +l.pickup + +l.dropoff, 0)} เที่ยว)</td><td className="py-1 text-right">{fmtMoney(totals.bus)}</td></tr>}
               {totals.busExtra > 0 && <tr><td className="py-1">ค่ารถเพิ่ม (รอบก่อน) · {(inv.busExtras ?? []).map((x) => fmtDate(x.date)).join(", ")}</td><td className="py-1 text-right">{fmtMoney(totals.busExtra)}</td></tr>}
             </tbody></table>
             {totals.bus + totals.busExtra === 0 && <p className="text-xs text-muted-foreground">ไม่ได้ใช้รถรับส่ง</p>}
-          </Section>
-          <Section n={6} title="Summary" open={openSec === 6} onToggle={() => setOpenSec(openSec === 6 ? 0 : 6)} summary={fmtMoney(totals.total)}>
-            <table className="w-full text-sm tabular-nums"><tbody className="divide-y">
-              {totals.rounding > 0 && <tr className="text-muted-foreground"><td className="py-1">ปัดเศษ (Liclass ปัดขึ้นหลักสิบ)</td><td className="py-1 text-right">+{fmtMoney(totals.rounding)}</td></tr>}
-              <tr className="font-semibold"><td className="py-2">ยอดรวม</td><td className="py-2 text-right text-base">{fmtMoney(totals.total)}</td></tr>
-            </tbody></table>
-          </Section>
-        </div>
+          </Block>
+            </div>
+          )}
+        </section>
 
         <section>
           <h3 className="mb-2 text-sm font-semibold">ขั้นตอน</h3>
