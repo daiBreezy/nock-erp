@@ -1373,6 +1373,8 @@ export interface Invoice {
   delivery?: LineDelivery
   deliveryError?: string
   voidReason?: string
+  /** set only when staff pressed "notify the parent" after voiding — voiding itself never messages anyone */
+  voidNotifiedAt?: string
   payments: Payment[]
   receiptNumber?: string
   /** the receipt message to the parent, pushed automatically when the invoice becomes paid */

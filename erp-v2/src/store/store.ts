@@ -210,6 +210,8 @@ type Store = DB & UIState & {
   approveInvoice: (id: ID, forceRemark?: string) => Result
   sendInvoice: (id: ID, note: string) => Result<{ delivered: boolean }>
   voidInvoice: (id: ID, reason: string) => Result
+  /** optional, manual: tell the parent on LINE that a voided invoice was cancelled (never automatic) */
+  notifyVoid: (id: ID) => Result<{ delivered: boolean }>
   /** extra bus days after paying — the bus runs now, the charge waits for the next invoice */
   addBusAddOns: (studentId: ID, days: { date: DateStr; pickup: boolean; dropoff: boolean }[], busFeeId: ID | null, note: string) => Result<{ count: number; amount: number }>
   /** only while not billed yet */
@@ -2594,6 +2596,23 @@ export const useStore = create<Store>()(
         set({ invoices: s.invoices.map((x) => (x.id === id ? { ...x, status: "void", voidReason: reason } : x)) })
         log("billing", [inv.studentId], "ยกเลิกใบแจ้งหนี้", `${inv.number ?? "ร่าง"} · ${reason}`)
         return OK
+      },
+
+      notifyVoid: (id) => {
+        const s = get()
+        const perm = requirePerm(s.me(), "billing.manage")
+        if (!perm.ok) return perm
+        const inv = s.invoices.find((x) => x.id === id)
+        if (!inv || inv.status !== "void") return fail("แจ้งได้เฉพาะใบที่ยกเลิกแล้ว")
+        if (inv.voidNotifiedAt) return fail("แจ้งผู้ปกครองเรื่องใบนี้ไปแล้ว")
+        const stu = s.students.find((x) => x.id === inv.studentId)!
+        const delivery = pushLine(stu.familyId, Msg.voidMessage(inv, { student: stu }), (ok, error) => {
+          log("billing", [inv.studentId], "แจ้งผู้ปกครองว่ายกเลิกใบ", `${inv.number ?? "ร่าง"} · ${ok ? "ถึงผู้ปกครองทาง LINE แล้ว" : `ส่ง LINE ไม่สำเร็จ: ${error ?? ""}`}`)
+          if (!ok) toast.error(`แจ้งยกเลิกใบ ${inv.number} ทาง LINE ไม่สำเร็จ — ${error ?? ""}`)
+        })
+        if (delivery === "no_line") return fail("ครอบครัวนี้ยังไม่ผูก LINE — แจ้งทางอื่นแทน")
+        set({ invoices: s.invoices.map((x) => (x.id === id ? { ...x, voidNotifiedAt: s.now().toISOString() } : x)) })
+        return { ok: true, value: { delivered: true } }
       },
 
       recordPayment: (id, p) => {

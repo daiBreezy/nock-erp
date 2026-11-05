@@ -26,6 +26,15 @@ export function invoiceMessage(inv: Invoice, totals: InvoiceTotals, ctx: { stude
   ].filter(Boolean).join("\n")
 }
 
+/** Sent only when staff press "notify the parent" — voiding an invoice never messages anyone by itself (owner 2026-11-05, #52). */
+export function voidMessage(inv: Invoice, ctx: { student: Student }): string {
+  return [
+    `ขออภัยค่ะ ใบแจ้งหนี้ ${inv.number ?? ""} ของ ${ctx.student.nickname} ถูกยกเลิกแล้ว`.replace("  ", " "),
+    "ไม่ต้องชำระใบนี้ค่ะ — ทางโรงเรียนจะส่งใบใหม่ให้หากมีการเปลี่ยนแปลง",
+    "ขอบคุณค่ะ 🙏",
+  ].join("\n")
+}
+
 export function receiptMessage(inv: Invoice, total: number, ctx: { student: Student; firstSession?: Pick<Session, "date" | "start"> }): string {
   return [
     `🧾 ใบเสร็จรับเงิน ${inv.receiptNumber ?? ""}`.trim(),

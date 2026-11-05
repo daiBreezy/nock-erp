@@ -66,7 +66,7 @@ function Body({ id, slipMediaId, onEdit }: { id: ID; slipMediaId?: string; onEdi
   const classes = useStore((s) => s.classes)
   const holidays = useStore((s) => s.holidays)
   const brandMemos = useStore((s) => s.system.invoiceMemos)
-  const act = useStore(useShallow((s) => ({ gen: s.generatePdf, approve: s.approveInvoice, send: s.sendInvoice, void: s.voidInvoice, pay: s.recordPayment, payGroup: s.recordGroupPayment, confirm: s.confirmPayment, regroup: s.setReceiptGrouping })))
+  const act = useStore(useShallow((s) => ({ gen: s.generatePdf, approve: s.approveInvoice, send: s.sendInvoice, void: s.voidInvoice, notifyVoid: s.notifyVoid, pay: s.recordPayment, payGroup: s.recordGroupPayment, confirm: s.confirmPayment, regroup: s.setReceiptGrouping })))
   const invoices = useStore((s) => s.invoices)
   const [note, setNote] = useState(inv?.noteToParent ?? "")
   const [voiding, setVoiding] = useState(false)
@@ -309,7 +309,14 @@ function Body({ id, slipMediaId, onEdit }: { id: ID; slipMediaId?: string; onEdi
               {manage && receiptIds && <Button size="xs" variant="outline" onClick={() => report(act.regroup(inv.id, receiptIds), "จัดใบเสร็จแล้ว") && setReceiptIds(null)}>บันทึกการจัดใบเสร็จ</Button>}
             </div>
           )}
-          {inv.status === "void" && <p className="text-sm text-muted-foreground">ใบนี้ถูกยกเลิก</p>}
+          {inv.status === "void" && (
+            <div className="flex flex-wrap items-center gap-2">
+              <p className="text-sm text-muted-foreground">ใบนี้ถูกยกเลิก — ระบบไม่ได้แจ้งผู้ปกครองให้อัตโนมัติ</p>
+              {manage && (inv.voidNotifiedAt
+                ? <span className="text-xs text-muted-foreground">แจ้งผู้ปกครองแล้ว</span>
+                : <Button size="xs" variant="outline" onClick={() => report(act.notifyVoid(inv.id), "ส่งข้อความแจ้งผู้ปกครองแล้ว")}>แจ้งผู้ปกครองว่ายกเลิกใบนี้</Button>)}
+            </div>
+          )}
         </section>
 
         {inv.payments.length > 0 && (
