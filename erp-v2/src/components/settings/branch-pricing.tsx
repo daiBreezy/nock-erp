@@ -12,7 +12,7 @@ import { Input } from "@/components/ui/input"
 import { Switch } from "@/components/ui/switch"
 import { fmtDate, fmtMoney, weekdayShort } from "@/domain/dates"
 import { MapPin } from "@/app/liff/form/map-pin"
-import { durationsOf, FEE_KIND_LABEL, PRICE_UNIT_LABEL, validateFee, validatePromotion } from "@/domain/rules/settings"
+import { brandPriceUnits, durationsOf, FEE_KIND_LABEL, PRICE_UNIT_LABEL, validateFee, validatePromotion } from "@/domain/rules/settings"
 import type { Branch, BusRound, Fee, FeeKind, PriceUnit, Promotion, Weekday } from "@/domain/types"
 import { uid } from "@/data/seed"
 import { report } from "@/lib/feedback"
@@ -140,7 +140,7 @@ function PromotionDialog({ branch, initial, onClose, onDone }: { branch: Branch;
           <Field label={p.type === "bonus_hours" ? tx("จำนวนชั่วโมงที่แถม") : tx("มูลค่าส่วนลด")}><Input type="number" min={0} value={p.value || ""} onChange={(e) => setP({ ...p, value: Number(e.target.value) })} placeholder={tx("เช่น 20")} /></Field>
           <Field label={tx("ประเภทแพ็กเกจ")}>
             <NativeSelect value={p.unit} onChange={(e) => { const unit = e.target.value as PriceUnit; setP({ ...p, unit, minDuration: durationsOf(branch, unit)[0] ?? 1 }) }}
-              options={(["hour", "week", "month"] as PriceUnit[]).filter((u) => p.type !== "bonus_hours" || u === "hour").map((u) => ({ value: u, label: tx(PRICE_UNIT_LABEL[u]) }))} />
+              options={brandPriceUnits(branch.brand).filter((u) => p.type !== "bonus_hours" || u === "hour").map((u) => ({ value: u, label: tx(PRICE_UNIT_LABEL[u]) }))} />
           </Field>
           <Field label={tx("ระยะขั้นต่ำ")}>
             {p.unit === "month" ? (

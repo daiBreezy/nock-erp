@@ -5,7 +5,7 @@ import { COURSE_FORMAT_LABEL, packageLabel, priceUnitSuffix } from "@/domain/rul
 import { CoursePicker } from "./course-picker"
 import { autoCredits } from "@/domain/rules/refunds"
 import { PackageBadge } from "@/components/app/package-badge"
-import { busRate } from "@/domain/rules/settings"
+import { brandUsesBus, busRate } from "@/domain/rules/settings"
 import { useState } from "react"
 import { AlertTriangleIcon, BusIcon, CalendarIcon, CheckIcon, HistoryIcon, MapPinIcon, PlusIcon, UserRoundSearchIcon, XIcon } from "lucide-react"
 import { NativeSelect } from "@/components/app/native-select"
@@ -39,6 +39,8 @@ type LineDraft = { id: string; courseId: string; classIds: string[]; startDate: 
 
 export function InvoiceEditor({ invoice, defaultStudentId, renewEntitlementId, onClose, onSaved }: { invoice?: Invoice; defaultStudentId?: string; renewEntitlementId?: string; onClose: () => void; onSaved: (inv: Invoice) => void }) {
   const branch = useBranch()
+  // NockAcademy has no bus service (owner 2026-11-05): no legs, no extra bus days, no Bus section
+  const busOn = brandUsesBus(branch.brand)
   const now = useNow(60_000)
   const today = toDateStr(now)
   const me = useStore((s) => s.userId)
@@ -126,7 +128,7 @@ export function InvoiceEditor({ invoice, defaultStudentId, renewEntitlementId, o
   const waiver = entryFeeWaiver(student, invoices, branch.fees, invoice?.id)
   const advanceFees = branch.fees.filter((f) => f.kind === "entry" || f.kind === "mock")
   const busFees = branch.fees.filter((f) => f.kind === "bus")
-  const pendingExtras = studentId ? pendingBusAddOns(studentId, busAddOns, invoices, invoice?.id) : []
+  const pendingExtras = busOn && studentId ? pendingBusAddOns(studentId, busAddOns, invoices, invoice?.id) : []
   const extraIds = extrasPicked ?? pendingExtras.map((a) => a.id)
   const busExtras: BusExtraLine[] = pendingExtras.filter((a) => extraIds.includes(a.id)).map((a) => ({ addOnId: a.id, date: a.date, pickup: a.pickup, dropoff: a.dropoff, amount: a.amount }))
   // owner 2026-10-16: distance from the branch → which bus fee type (or outside the bus area)
@@ -164,7 +166,7 @@ export function InvoiceEditor({ invoice, defaultStudentId, renewEntitlementId, o
   const ctx = { branch, courses, classes, holidays }
   // bus legs follow the real class days of every course, once per day; default ticked only if the student rides the bus (BL-6)
   const baseLines = invoiceTotals(base, ctx).lines
-  const busDates = invoiceSessionDates(baseLines)
+  const busDates = busOn ? invoiceSessionDates(baseLines) : []
   // course credit from Credit Notes: taken automatically, the admin can untick a course
   const credits = studentId ? autoCredits(studentId, baseLines, creditNotes, invoices, invoice?.id) : []
   const creditsUsed = credits.filter((c) => !creditSkip.includes(c.courseId))
@@ -379,6 +381,7 @@ export function InvoiceEditor({ invoice, defaultStudentId, renewEntitlementId, o
         <div className="space-y-1 sm:max-w-xs"><Label className="text-xs">ค่าหนังสือ</Label><Input type="number" min={0} value={bookFee} onChange={(e) => setBookFee(Math.max(0, Number(e.target.value)))} /></div>
         </Section>
 
+        {busOn && (
         <Section n={5} open={openSec === 5} onToggle={() => setOpenSec(openSec === 5 ? 0 : 5)} summary={totals.bus + totals.busExtra > 0 ? fmtMoney(totals.bus + totals.busExtra) : "ไม่ใช้"} title="Bus" hint="ไม่บังคับ">
         {busDates.length > 0 && (
           <details className="rounded-lg border" open={legs.some((l) => l.pickup || l.dropoff)}>
@@ -441,8 +444,9 @@ export function InvoiceEditor({ invoice, defaultStudentId, renewEntitlementId, o
 
         {busDates.length === 0 && pendingExtras.length === 0 && <p className="text-xs text-muted-foreground">เลือกคอร์สและคลาสก่อน — ระบบจะแสดงรอบรับ-ส่งตามวันเรียนจริงให้ติ๊ก</p>}
         </Section>
+        )}
 
-        <Section n={6} open={openSec === 6} onToggle={() => setOpenSec(openSec === 6 ? 0 : 6)} summary={fmtMoney(totals.total)} title="Summary">
+        <Section n={busOn ? 6 : 5} open={openSec === 6} onToggle={() => setOpenSec(openSec === 6 ? 0 : 6)} summary={fmtMoney(totals.total)} title="Summary">
         <div className="space-y-1 rounded-lg bg-muted/50 p-3 text-sm tabular-nums">
           {[["ค่าเรียน", totals.course], ["Course fee", totals.courseFee], ["ค่ารถ", totals.bus], ["ค่ารถเพิ่ม (รอบก่อน)", totals.busExtra], ["ค่าหนังสือ", totals.book], ["Advance (ค่าแรกเข้า/สอบ)", totals.advance]].filter(([, v]) => (v as number) > 0).map(([l, v]) => (
             <div key={l as string} className="flex justify-between"><span>{l}</span><span>{fmtMoney(v as number)}</span></div>

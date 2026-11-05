@@ -6,7 +6,7 @@ import { activeLeave, nextClassDates, teacherLeaveCancels, leaveRunSessions, bal
 import { bestPromotion, duplicateBusDay, billedOn, busAddOnAmount, pendingBusAddOns, validateBusAddOn, carriedMinutes, weekKey, classOptionsFor, defaultAdvance, entryFeeWaiver, invoiceSessionDates, invoiceTotals, validateInvoiceDraft, canApprove, canConfirmPayment, canForceApprove, canForceConfirmPayment, canSend, canVoid, defaultBusLegs, busTotal, nextInvoiceNumber, quoteCourse, roundUpTo, familyPromotion, lastNoteFor, bestBonusHours, FAMILY_PROMO_TIERS } from "./billing"
 import { can } from "./permissions"
 import { chartPrice, defaultCourseName, filterCourses, validateCourse } from "./course"
-import { busRate, copyHours, gradeLabel, subjectLabel, priceOf, priceRange, setPrice, validateBranchInfo, validateDurations, validateHoliday, validatePromotion, validateSpecialPeriods, everyDay, subjectAbbr } from "./settings"
+import { brandPriceUnits, brandUsesBus, busRate, copyHours, gradeLabel, subjectLabel, priceOf, priceRange, setPrice, validateBranchInfo, validateDurations, validateHoliday, validatePromotion, validateSpecialPeriods, everyDay, subjectAbbr } from "./settings"
 import { forceAudience, isUnread, messageAudience, noteRecipients, notify, validateMessage, visibleTo } from "./notifications"
 import * as Sum from "./summaries"
 import * as Pay from "./billing"
@@ -2945,5 +2945,14 @@ describe("message to the parent is remembered per student (owner 2026-11-05)", (
   })
   it("void invoices and empty notes are skipped", () => {
     expect(lastNoteFor("s1", [n("a", "s1", "ok", "2026-10-01"), n("b", "s1", "ยกเลิก", "2026-11-01", "void"), n("c", "s1", "  ", "2026-11-02")])).toBe("ok")
+  })
+})
+
+describe("brand rules (owner 2026-11-05)", () => {
+  it("Liclass has no Monthly package; NockAcademy has no bus", () => {
+    expect(brandPriceUnits("liclass")).toEqual(["hour", "week"])
+    expect(brandPriceUnits("nockacademy")).toEqual(["hour", "week", "month"])
+    expect(brandUsesBus("liclass")).toBe(true)
+    expect(brandUsesBus("nockacademy")).toBe(false)
   })
 })

@@ -13,7 +13,7 @@ import { Input } from "@/components/ui/input"
 import { fmtDate, fmtMoney } from "@/domain/dates"
 import { COURSE_FORMAT_LABEL, courseSeats, filterCourses, packageLabel, packKey, priceUnitSuffix, type CourseFilter } from "@/domain/rules/course"
 import { can } from "@/domain/rules/permissions"
-import { branchLabel } from "@/domain/rules/settings"
+import { brandPriceUnits, branchLabel } from "@/domain/rules/settings"
 import type { Branch, Course, ID } from "@/domain/types"
 import { cn } from "@/lib/utils"
 import { HEAD } from "@/components/app/data-table"
@@ -49,7 +49,7 @@ export function CoursePicker({ branch, today, studentGrade, studentId, onInvoice
   const [creating, setCreating] = useState<Course | null>(null)
 
   const branchCourses = filterCourses(allCourses, branch.id, { q: "", subject: "", format: "", pack: "" }, today)
-  const list = filterCourses(allCourses, branch.id, f, today).filter((c) => !grade || !c.grades.length || c.grades.includes(grade))
+  const list = filterCourses(allCourses, branch.id, f, today).filter((c) => !grade || !c.grades.length || c.grades.includes(grade)).filter((c) => brandPriceUnits(branch.brand).includes(c.unit))
   const packs = [...new Map(branchCourses.map((c) => [packKey(c), packageLabel(c)])).entries()].map(([value, label]) => ({ value, label }))
   const toggle = (id: ID) => setPicked((p) => (p.includes(id) ? p.filter((x) => x !== id) : [...p, id]))
 

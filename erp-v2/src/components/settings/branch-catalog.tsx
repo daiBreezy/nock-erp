@@ -5,7 +5,7 @@ import { useState } from "react"
 import { CheckIcon, PlusIcon, XIcon } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { defaultLeaveQuota, durationsOf, GRADE_GROUPS, LEAVE_EVERY_SESSIONS, HOURS_PER_SESSION, setLeaveQuota, PRICE_UNIT_LABEL, priceOf, setPrice, sortGrades } from "@/domain/rules/settings"
+import { defaultLeaveQuota, durationsOf, GRADE_GROUPS, LEAVE_EVERY_SESSIONS, HOURS_PER_SESSION, setLeaveQuota, PRICE_UNIT_LABEL, brandPriceUnits, priceOf, setPrice, sortGrades } from "@/domain/rules/settings"
 import type { Branch, PriceUnit } from "@/domain/types"
 import { cn } from "@/lib/utils"
 import { useStore } from "@/store/store"
@@ -90,7 +90,7 @@ export function PackagesTab({ branch }: { branch: Branch }) {
   return (
     <SettingsCard title={tx("แพ็กเกจ & ตารางราคา (Packages)")} hint={tx("ราคาแนะนำต่อ วิชา × ระดับชั้น × ระยะเวลา — ใช้เติมราคาอัตโนมัติตอนสร้างคอร์ส (แก้ราคาจริงที่คอร์สได้)")}>
       <div className="mb-3 inline-flex rounded-full bg-muted p-1">
-        {(["hour", "week", "month"] as PriceUnit[]).map((u) => (
+        {brandPriceUnits(b.brand).map((u) => (
           <button key={u} onClick={() => setUnit(u)} className={cn("rounded-full px-4 py-1 text-sm", unit === u ? "bg-background font-medium shadow-sm" : "text-muted-foreground")}>{tx(PRICE_UNIT_LABEL[u])}</button>
         ))}
       </div>

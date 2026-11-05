@@ -15,6 +15,7 @@ import * as Bill from "@/domain/rules/billing"
 import { invoiceMemo } from "@/domain/rules/documents"
 import { packageLabel } from "@/domain/rules/course"
 import { can } from "@/domain/rules/permissions"
+import { brandUsesBus } from "@/domain/rules/settings"
 import type { ID } from "@/domain/types"
 import { report } from "@/lib/feedback"
 import { slipDataUrl } from "@/lib/image"
@@ -324,6 +325,7 @@ function Body({ id, slipMediaId, onEdit }: { id: ID; slipMediaId?: string; onEdi
             </tbody></table>
             {totals.advance + totals.book === 0 && <p className="text-xs text-muted-foreground">ไม่มีค่าแรกเข้า / ค่าสอบ / ค่าหนังสือ</p>}
           </Block>
+          {brandUsesBus(branch.brand) && (
           <Block title="Bus" hint="ไม่บังคับ">
             <table className="w-full text-sm tabular-nums"><tbody className="divide-y">
               {totals.bus > 0 && <tr><td className="py-1">ค่ารถ {branch.fees.find((f) => f.id === inv.busFeeId)?.name ?? ""} ({inv.bus.reduce((a, l) => a + +l.pickup + +l.dropoff, 0)} เที่ยว)</td><td className="py-1 text-right">{fmtMoney(totals.bus)}</td></tr>}
@@ -331,6 +333,7 @@ function Body({ id, slipMediaId, onEdit }: { id: ID; slipMediaId?: string; onEdi
             </tbody></table>
             {totals.bus + totals.busExtra === 0 && <p className="text-xs text-muted-foreground">ไม่ได้ใช้รถรับส่ง</p>}
           </Block>
+          )}
               </div>
             </div>
           )}

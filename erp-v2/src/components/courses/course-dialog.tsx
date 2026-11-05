@@ -13,7 +13,7 @@ import { Input } from "@/components/ui/input"
 import { Switch } from "@/components/ui/switch"
 import { fmtDate, fmtMoney } from "@/domain/dates"
 import { chartPrice, defaultCourseName, needsPriceReason } from "@/domain/rules/course"
-import { durationLabel, durationsOf, GRADE_GROUPS, PRICE_UNIT_LABEL, priceRange, sortGrades } from "@/domain/rules/settings"
+import { brandPriceUnits, durationLabel, durationsOf, GRADE_GROUPS, PRICE_UNIT_LABEL, priceRange, sortGrades } from "@/domain/rules/settings"
 import type { Branch, Course, PriceUnit } from "@/domain/types"
 import { uid } from "@/data/seed"
 import { report } from "@/lib/feedback"
@@ -168,7 +168,7 @@ export function CourseDialog({ branch, initial, onClose, onSaved }: { branch: Br
               : c.unit === "week" ? "ซื้อเป็นสัปดาห์ นับจากวันเริ่ม เรียนกี่คาบก็ได้ในช่วงนั้น"
                 : "รายเดือนตามปฏิทิน (วันที่ 1 – สิ้นเดือน) เรียนกี่คาบก็ได้ · เดือนแรก pro-rate 100/60/30%"}>
               <NativeSelect value={c.unit} onChange={(e) => { const unit = e.target.value as PriceUnit; set({ unit, duration: unit === "month" ? 1 : durationsOf(branch, unit)[0] ?? 0 }) }}
-                options={UNITS.map((u) => ({ value: u, label: PRICE_UNIT_LABEL[u] }))} />
+                options={brandPriceUnits(branch.brand).concat(c.unit && !brandPriceUnits(branch.brand).includes(c.unit) ? [c.unit] : []).map((u) => ({ value: u, label: PRICE_UNIT_LABEL[u] }))} />
             </Field>
             {c.unit !== "month" && (
               <Field label="ระยะเวลา *">

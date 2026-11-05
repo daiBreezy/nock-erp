@@ -11,6 +11,10 @@ export const FEE_KIND_LABEL: Record<FeeKind, { title: string; hint: string }> = 
   mock: { title: "ค่าสอบ Mock test", hint: "เก็บครั้งเดียว — เป็นรายการ Advance Optional ในใบแจ้งหนี้" },
 }
 
+/** Brand rules (owner 2026-11-05): Liclass has no Monthly packages · NockAcademy has no bus service. */
+export const brandPriceUnits = (brand: Branch["brand"]): PriceUnit[] => (brand === "liclass" ? ["hour", "week"] : ["hour", "week", "month"])
+export const brandUsesBus = (brand: Branch["brand"]) => brand === "liclass"
+
 export const PRICE_UNIT_LABEL: Record<PriceUnit, string> = { hour: "รายชั่วโมง", week: "รายสัปดาห์", month: "รายเดือน" }
 
 export function durationLabel(unit: PriceUnit, d: number) {
