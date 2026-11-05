@@ -202,18 +202,15 @@ const rawTo = useStore((s) => s.entitlements.find((x) => x.id === e.id)?.to)
           <p className="truncate font-medium">{c?.name ?? "คอร์ส"}</p>
           <p className="flex flex-wrap items-center gap-1 text-xs text-muted-foreground">
             <CalendarIcon className="size-3" /> {fmtDate(e.from)} → {fmtDate(e.to, { year: true })}
+            <span className="tabular-nums">· {p.label}</span>
             {extended && <Pill tone="violet" title={`เดิมจบ ${fmtDate(rawTo!, { year: true })}`}>เลื่อนวันจบจากการลา</Pill>}
           </p>
         </div>
-        {/* owner 2026-10-29: fixed slots (badge · status · ต่ออายุ · bar) so every row lines up, with or without the button */}
+        {/* owner 2026-11-05: no progress bar; slots badge · ต่ออายุ · status — status is always last and hugs its text */}
         <span className="flex w-12 shrink-0 justify-end">{c && <PackageBadge course={c} size="md" />}</span>
-        <Pill tone={expired ? "gray" : renewal ? "amber" : "green"} className="w-20 shrink-0 justify-center">{expired ? "หมดแล้ว" : renewal ? "Renewal" : "Enroll"}</Pill>
         <span className="flex w-16 shrink-0 justify-center">{(renewal || expired) && can(me, "billing.manage") && <Button size="xs" variant="outline" onClick={() => setRenewing(true)}>ต่ออายุ</Button>}</span>
         {renewing && <InvoiceSheet id="new" defaultStudentId={stu.id} renewEntitlementId={e.id} onClose={() => setRenewing(false)} />}
-        <div className="w-40 shrink-0 text-left">
-          <p className="text-xs tabular-nums">{p.label}</p>
-          <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-muted"><div className={cn("h-full rounded-full", renewal ? "bg-red-600" : "bg-primary")} style={{ width: `${p.ratio * 100}%` }} /></div>
-        </div>
+        <span className="flex shrink-0 justify-end"><Pill tone={expired ? "gray" : renewal ? "amber" : "green"}>{expired ? "หมดแล้ว" : renewal ? "Renewal" : "Enroll"}</Pill></span>
       </div>
       {/* owner 2026-11-04: list the classes the student attends for this course — each day/time with a ย้ายวัน/คาบ button */}
       {!expired && <ClassTransferList e={e} stu={stu} today={today} />}
@@ -407,7 +404,7 @@ function SessionList({ stu, ents }: { stu: Student; ents: Entitlement[] }) {
     { id: "bus", label: "รถรับส่ง", width: "1%", align: "center", defaultHidden: true, info: "P = รับ (Pickup) · D = ส่ง (Drop) · B = ทั้งรับและส่ง — กดเพื่อแก้ (คาบที่ยังไม่ถึง)",
       cell: (s) => <BusTag studentId={stu.id} date={s.date} legs={legs.get(s.date)} editable={canBus && s.date >= today && !s.cancelled} /> },
     // same-width pills so the column lines up whatever the label
-    { id: "status", label: "สถานะ", width: "1%", align: "right", cell: (s) => { const x = studentSessionStatus(s); return <Pill tone={x.tone} className="w-24 justify-center">{x.label}</Pill> } },
+    { id: "status", label: "สถานะ", width: "1%", align: "right", cell: (s) => { const x = studentSessionStatus(s); return <Pill tone={x.tone}>{x.label}</Pill> } },
   ]
 
   // per course: held so far = มา + ขาด + ลา + ยังไม่เช็ค
@@ -418,12 +415,12 @@ function SessionList({ stu, ents }: { stu: Student; ents: Entitlement[] }) {
   return (
     <div className="space-y-3">
       {/* owner 2026-10-29: the per-course cards always on top */}
-      {packages.length > 0 && (
+      {packages.some((e) => e.to >= today) && (
         <section className="space-y-2">
           <h3 className="text-sm font-semibold">การเข้าเรียนต่อคอร์ส</h3>
           {/* owner 2026-10-29: one card per course instead of a table */}
           <div className="grid gap-3 sm:grid-cols-2">
-            {packages.map((e) => {
+            {packages.filter((e) => e.to >= today).map((e) => {
               const held = heldOf(e)
               const marks = attOf(held)
               const n = (st: string) => marks.filter((a) => a.status === st).length
