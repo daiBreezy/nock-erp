@@ -64,16 +64,17 @@ export function PrintDocument({ kind, id, bare = false }: { kind: Kind; id: stri
   const [, en] = TITLE[kind]
   const titlePrimary = kind === "credit-note" ? L.creditNote : L[kind]
   const memo = [Doc.invoiceMemo(inv, { brandMemo: s.system.invoiceMemos[branch.brand], branch, courses: s.courses, classes: s.classes }).memo, kind === "credit-note" ? `${L.invRef} ${inv.number} · ${[...cn!.reasons, cn!.remark].filter(Boolean).join(", ")}` : combined ? `${L.invRef} ${onReceipt.map((x) => x.number).join(", ")}` : inv.noteToParent].filter(Boolean).join("\n")
-  // the branch's LINE add-friend QR (template: top right of the invoice, green)
-  const qrCells = (() => {
-    const url = branch.lineOa?.addFriendUrl
-    if (!url) return null
+  // QR codes: the branch's LINE add-friend (template: top right of the invoice, green) · PromptPay payment with the amount (owner 2026-11-05)
+  const qrOf = (data: string | null | undefined) => {
+    if (!data) return null
     const q = qrcode(0, "M")
-    q.addData(url)
+    q.addData(data)
     q.make()
     const n = q.getModuleCount()
     return { n, dark: Array.from({ length: n * n }, (_, i) => [i % n, Math.floor(i / n)] as const).filter(([x, y]) => q.isDark(y, x)) }
-  })()
+  }
+  const qrCells = qrOf(branch.lineOa?.addFriendUrl)
+  const payQr = kind === "invoice" ? qrOf(branch.bankAccount.promptPayId ? Doc.promptPayPayload(branch.bankAccount.promptPayId, total) : null) : null
   const rows: (typeof items[number] | null)[] = [...items, ...Array.from({ length: 0 }, () => null)]
 
   return (
@@ -151,7 +152,7 @@ export function PrintDocument({ kind, id, bare = false }: { kind: Kind; id: stri
             ))}
             {/* the open space of the table — a receipt carries its PAID stamp here */}
             <tr className="align-top">
-              <td className="h-[30mm]" />
+              <td className="h-[20mm]" />
               <td className="relative">
                 {kind === "receipt" && <span className="absolute bottom-3 left-1/2 -translate-x-1/2 -rotate-6 rounded-sm border-2 border-[#c0392b] px-3 py-0.5 text-[20px] font-bold tracking-widest text-[#c0392b] opacity-80">PAID</span>}
               </td>
@@ -166,6 +167,19 @@ export function PrintDocument({ kind, id, bare = false }: { kind: Kind; id: stri
               <p className="whitespace-pre-line text-[11px]">
                 {L.bank}：{branch.bankAccount.bank}{"\n"}{branch.bankAccount.branchName ? `${branch.bankAccount.branchName}\n` : ""}{L.accountNo}：{branch.bankAccount.number}{"\n"}{L.accountName}：{branch.bankAccount.name}
               </p>
+            )}
+            {payQr && (
+              <div className="mt-2 flex items-center gap-2">
+                <svg viewBox={`0 0 ${payQr.n + 2} ${payQr.n + 2}`} className="size-[24mm] shrink-0" shapeRendering="crispEdges" aria-label="PromptPay">
+                  <rect width="100%" height="100%" fill="#fff" />
+                  {payQr.dark.map(([x, y]) => <rect key={`${x}-${y}`} x={x + 1} y={y + 1} width="1" height="1" fill="#1a3c6e" />)}
+                </svg>
+                <div className="leading-snug">
+                  <p className="text-[11px] font-semibold">{L.scanToPay}</p>
+                  <p className="text-neutral-700">Scan to pay · PromptPay</p>
+                  <p className="mt-0.5 text-[12px] font-semibold tabular-nums">฿ {money(total)}</p>
+                </div>
+              </div>
             )}
             {kind === "credit-note" && cn!.refund && <p><b>{L.refund}:</b> {d(cn!.refund.date)} · {cn!.refund.fromAccount} · {cn!.refund.reference}</p>}
           </div>

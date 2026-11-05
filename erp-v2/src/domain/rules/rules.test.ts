@@ -3050,3 +3050,26 @@ describe("renumber saved documents (owner 2026-11-05)", () => {
     expect(renumberDocuments(s).invoices.map((i) => i.number)).toEqual(s.invoices.map((i) => i.number))
   })
 })
+
+describe("PromptPay payment QR (owner 2026-11-05)", () => {
+  it("CRC-16/CCITT-FALSE matches the standard check value", () => {
+    expect(Doc.crc16("123456789")).toBe("29B1")
+  })
+  it("the ID kind: phone 10 digits · tax ID 13 · e-wallet 15 · else nothing", () => {
+    expect(Doc.promptPayKind("081-234-5678")).toBe("phone")
+    expect(Doc.promptPayKind("0205557003965")).toBe("tax")
+    expect(Doc.promptPayKind("004999000000000")).toBe("wallet")
+    expect(Doc.promptPayKind("12345")).toBeNull()
+    expect(Doc.promptPayPayload("12345", 100)).toBeNull()
+  })
+  it("a phone payload with an amount: dynamic QR, 66 country form, amount, THB, valid checksum", () => {
+    const p = Doc.promptPayPayload("0812345678", 1020)!
+    expect(p.startsWith("000201010212")).toBe(true)
+    expect(p).toContain("0016A000000677010111")
+    expect(p).toContain("01130066812345678")
+    expect(p).toContain("5802TH5303764")
+    expect(p).toContain("54071020.00")
+    expect(p.slice(-4)).toBe(Doc.crc16(p.slice(0, -4)))
+    expect(Doc.promptPayPayload("0812345678", 0)!.startsWith("000201010211")).toBe(true) // no amount = static
+  })
+})

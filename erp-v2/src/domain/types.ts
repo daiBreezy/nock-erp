@@ -223,7 +223,7 @@ export interface Branch {
    *  (`defaultLeaveQuota`: 1 session = 2 hrs, 4 sessions = 1 leave). 0 = no leave allowed. */
   leaveQuotas?: Partial<Record<PriceUnit, Record<number, number>>>
   priceChart: PriceRow[]
-  bankAccount: { bank: string; branchName: string; name: string; number: string }
+  bankAccount: { bank: string; branchName: string; name: string; number: string; /** PromptPay ID for the payment QR on the invoice: phone (10 digits) · tax ID (13) · e-wallet (15) — owner 2026-11-05 */ promptPayId?: string }
   /** legacy simple flag — kept so existing "delivered via LINE" simulation logic still works; set from the server-side /api/line/status check */
   lineOaConnected: boolean
   /** owner 2026-10-15: this branch uses Nock (the AI helper) — unset = on; Settings › System can turn it off everywhere */

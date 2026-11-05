@@ -197,4 +197,10 @@ export const KIT: Record<string, Entry> = {
   "ออกใบเสร็จรวมได้เฉพาะใบของสาขาเดียวกัน": { en: "A combined receipt only covers invoices of the same branch", ja: "まとめて発行できるのは同じ校舎の請求書のみです" },
   "ใบเสร็จรวมได้เฉพาะใบของครอบครัวเดียวกัน": { en: "A combined receipt only covers invoices of the same family", ja: "まとめて発行できるのは同じ家族の請求書のみです" },
   "ยังไม่ได้ออกใบเสร็จ — ออกใบเสร็จก่อน": { en: "No receipt yet — issue the receipt first", ja: "領収書が未発行です — 先に発行してください" },
+  "PromptPay ID (QR จ่ายเงินบนใบแจ้งหนี้)": { en: "PromptPay ID (payment QR on the invoice)", ja: "PromptPay ID（請求書の支払いQR）" },
+  "เบอร์โทร 10 หลัก · เลขผู้เสียภาษี 13 หลัก · e-Wallet 15 หลัก": { en: "Phone (10 digits) · tax ID (13) · e-Wallet (15)", ja: "電話番号（10桁）・納税者番号（13桁）・e-Wallet（15桁）" },
+  "ใบแจ้งหนี้จะมี QR ให้ผู้ปกครองสแกนจ่ายพร้อมยอดเงินอัตโนมัติ": { en: "The invoice gets a QR the parent can scan to pay, with the amount filled in", ja: "請求書に、金額入りで保護者がスキャンして支払えるQRが付きます" },
+  "PromptPay ID ไม่ถูกต้อง — ต้องเป็นเบอร์โทร 10 หลัก เลขผู้เสียภาษี 13 หลัก หรือ e-Wallet 15 หลัก": { en: "Invalid PromptPay ID — use a 10-digit phone, 13-digit tax ID or 15-digit e-Wallet", ja: "PromptPay IDが正しくありません — 電話番号10桁・納税者番号13桁・e-Wallet15桁のいずれか" },
+  "ไม่ใส่ = ไม่มี QR จ่ายเงินบนใบแจ้งหนี้": { en: "Leave empty = no payment QR on the invoice", ja: "空欄＝請求書に支払いQRなし" },
+  "PromptPay ID ไม่ถูกต้อง": { en: "Invalid PromptPay ID", ja: "PromptPay IDが正しくありません" },
 }

@@ -51,7 +51,7 @@ export const DOC_LABELS: Record<DocLang, {
   item: string; description: string; qty: string; unitPrice: string; amount: string
   payChannel: string; bank: string; accountNo: string; accountName: string
   refund: string; subTotal: string; vat: string; total: string
-  payeeBy: string; preparedBy: string; authorized: string; date: string; invRef: string
+  payeeBy: string; preparedBy: string; authorized: string; date: string; invRef: string; scanToPay: string
 }> = {
   th: {
     invoice: "ใบแจ้งหนี้", receipt: "ใบเสร็จรับเงิน", creditNote: "ใบลดหนี้",
@@ -59,7 +59,7 @@ export const DOC_LABELS: Record<DocLang, {
     item: "ลำดับ", description: "รายการ", qty: "จำนวน", unitPrice: "ราคาต่อหน่วย", amount: "จำนวนเงิน (บาท)",
     payChannel: "ช่องทางชำระเงิน", bank: "ธนาคาร", accountNo: "เลขที่บัญชี", accountName: "ชื่อบัญชี",
     refund: "โอนคืน", subTotal: "รวมราคา", vat: "ภาษีมูลค่าเพิ่ม 7%", total: "จำนวนเงินรวมทั้งสิ้น",
-    payeeBy: "ผู้รับเงิน", preparedBy: "ผู้จัดทำ", authorized: "ผู้มีอำนาจ", date: "วันที่", invRef: "อ้างอิงใบแจ้งหนี้",
+    payeeBy: "ผู้รับเงิน", preparedBy: "ผู้จัดทำ", authorized: "ผู้มีอำนาจ", date: "วันที่", invRef: "อ้างอิงใบแจ้งหนี้", scanToPay: "สแกน QR เพื่อชำระเงิน",
   },
   ja: {
     invoice: "請求書", receipt: "領収書", creditNote: "クレジットノート",
@@ -67,7 +67,7 @@ export const DOC_LABELS: Record<DocLang, {
     item: "項目", description: "内容", qty: "数量", unitPrice: "単価", amount: "金額（バーツ）",
     payChannel: "お支払い方法", bank: "銀行", accountNo: "口座番号", accountName: "口座名義",
     refund: "返金", subTotal: "小計", vat: "消費税 7%", total: "合計",
-    payeeBy: "受領者", preparedBy: "作成者", authorized: "承認者", date: "日付", invRef: "請求書番号",
+    payeeBy: "受領者", preparedBy: "作成者", authorized: "承認者", date: "日付", invRef: "請求書番号", scanToPay: "QRコードでお支払い",
   },
 }
 
@@ -142,6 +142,43 @@ export const preparedBy = (inv: Pick<Invoice, "createdBy">, staff: Pick<Staff, "
 }
 
 /** File name like the template: "<number> <customer name>" */
+// ---------- PromptPay payment QR (owner 2026-11-05) ----------
+
+/** CRC-16/CCITT-FALSE (poly 0x1021, init 0xFFFF) — the checksum EMVCo QR payloads end with */
+export function crc16(text: string): string {
+  let crc = 0xffff
+  for (let i = 0; i < text.length; i++) {
+    crc ^= text.charCodeAt(i) << 8
+    for (let b = 0; b < 8; b++) crc = crc & 0x8000 ? ((crc << 1) ^ 0x1021) & 0xffff : (crc << 1) & 0xffff
+  }
+  return crc.toString(16).toUpperCase().padStart(4, "0")
+}
+
+/** "0812345678" (phone) · 13 digits (tax / citizen ID) · 15 digits (e-wallet) — or null when it is none of these */
+export function promptPayKind(id: string): "phone" | "tax" | "wallet" | null {
+  const d = id.replace(/\D/g, "")
+  return /^0\d{9}$/.test(d) ? "phone" : d.length === 13 ? "tax" : d.length === 15 ? "wallet" : null
+}
+
+/** The Thai QR Payment (PromptPay credit transfer) payload for this amount — scanned in any Thai banking app. null when the
+ *  ID is not a valid PromptPay ID. */
+export function promptPayPayload(id: string, amount: number): string | null {
+  const kind = promptPayKind(id)
+  if (!kind) return null
+  const d = id.replace(/\D/g, "")
+  const tlv = (tag: string, value: string) => `${tag}${String(value.length).padStart(2, "0")}${value}`
+  const proxy = kind === "phone" ? tlv("01", `0066${d.slice(1)}`) : kind === "tax" ? tlv("02", d) : tlv("03", d)
+  const dynamic = amount > 0
+  const body = [
+    tlv("00", "01"), tlv("01", dynamic ? "12" : "11"),
+    tlv("29", tlv("00", "A000000677010111") + proxy),
+    tlv("58", "TH"), tlv("53", "764"),
+    dynamic ? tlv("54", amount.toFixed(2)) : "",
+  ].join("")
+  const withCrcTag = `${body}6304`
+  return withCrcTag + crc16(withCrcTag)
+}
+
 export const documentFileName = (number: string, customer: string) => `${number} ${customer}`.replace(/[\\/:*?"<>|]/g, "").trim()
 
 // ---------- Sales Tax Report (owner file "Sales Tax report.xlsx") ----------

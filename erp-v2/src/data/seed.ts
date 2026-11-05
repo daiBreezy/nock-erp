@@ -143,7 +143,7 @@ export function buildSeed(now = new Date()): DB {
       ],
       packageDurations: { hour: [12, 24, 48, 72, 96], week: [4, 8] },
       priceChart: chart(["คณิต", "อังกฤษ", "วิทย์"], ["ป.4", "ป.5", "ป.6", "ม.1", "ม.2", "ม.3"]),
-      bankAccount: { bank: "กสิกรไทย", branchName: "สาขาทองหล่อ", name: "บจก. ลิคลาส เอดูเคชั่น", number: "123-4-56789-0" }, lineOaConnected: true,
+      bankAccount: { bank: "กสิกรไทย", branchName: "สาขาทองหล่อ", name: "บจก. ลิคลาส เอดูเคชั่น", number: "123-4-56789-0", promptPayId: "0205557003965" /* sample = the company tax ID — replace in Settings › Bank */ }, lineOaConnected: true,
       lineOa: { channelId: "1657800001", botBasicId: "@nockacademy", addFriendUrl: "https://lin.ee/p4w3XA7" },
     },
     {

@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Switch } from "@/components/ui/switch"
 import { ROLE_LABEL, staffInBranch } from "@/domain/rules/permissions"
+import { promptPayKind } from "@/domain/rules/documents"
 import { fmtDate, fmtMoney, TH_DAYS_FULL } from "@/domain/dates"
 import { KNOWN_PROVINCES } from "@/domain/rules/settings"
 import type { Branch } from "@/domain/types"
@@ -175,8 +176,12 @@ export function BankTab({ branch }: { branch: Branch }) {
           <Field label={tx("สาขาธนาคาร")}><Input value={ba.branchName} onChange={(e) => set({ branchName: e.target.value })} /></Field>
           <Field label={tx("เลขบัญชี")}><Input value={ba.number} onChange={(e) => set({ number: e.target.value })} /></Field>
           <Field label={tx("ชื่อบัญชี")}><Input value={ba.name} onChange={(e) => set({ name: e.target.value })} /></Field>
+          <Field label={tx("PromptPay ID (QR จ่ายเงินบนใบแจ้งหนี้)")} className="sm:col-span-2">
+            <Input value={ba.promptPayId ?? ""} onChange={(e) => set({ promptPayId: e.target.value })} placeholder={tx("เบอร์โทร 10 หลัก · เลขผู้เสียภาษี 13 หลัก · e-Wallet 15 หลัก")} aria-invalid={!!ba.promptPayId && !promptPayKind(ba.promptPayId)} />
+            <p className="mt-1 text-xs text-muted-foreground">{ba.promptPayId ? (promptPayKind(ba.promptPayId) ? tx("ใบแจ้งหนี้จะมี QR ให้ผู้ปกครองสแกนจ่ายพร้อมยอดเงินอัตโนมัติ") : tx("PromptPay ID ไม่ถูกต้อง — ต้องเป็นเบอร์โทร 10 หลัก เลขผู้เสียภาษี 13 หลัก หรือ e-Wallet 15 หลัก")) : tx("ไม่ใส่ = ไม่มี QR จ่ายเงินบนใบแจ้งหนี้")}</p>
+          </Field>
         </div>
-        <SaveRow dirty={dirty} onReset={reset} onSave={() => save(tx("บันทึกบัญชีธนาคารแล้ว"))} />
+        <SaveRow dirty={dirty} onReset={reset} onSave={() => (!ba.promptPayId || promptPayKind(ba.promptPayId) ? save(tx("บันทึกบัญชีธนาคารแล้ว")) : report({ ok: false, error: tx("PromptPay ID ไม่ถูกต้อง") }, ""))} />
       </SettingsCard>
       <SettingsCard title="Invoice Memo" hint={tx("ใช้ร่วมกันทุกสาขาของแบรนด์ {0} — พิมพ์ในช่อง Memo ของใบแจ้งหนี้ใหม่ทุกใบ (แก้เฉพาะใบได้)", [tx(BRAND_LABEL[branch.brand])])}
         action={<Button size="xs" variant="outline" nativeButton={false} render={<Link href="/settings?view=system" />}>{tx("แก้ที่ Settings → System")}</Button>}>
