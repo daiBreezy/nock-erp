@@ -4,10 +4,11 @@ import { Page as PageShell, PageHeader, KpiRow, ShowChip, Segmented } from "@/co
 import { Kpi } from "@/components/app/kpi"
 import { BranchCode, useBranchScope } from "@/components/app/branch-scope"
 import { SalesTaxDialog } from "@/components/billing/sales-tax-dialog"
+import { FamilyInvoiceDialog } from "@/components/billing/family-invoice-dialog"
 import { RenewalDraftsDialog } from "@/components/billing/renewal-drafts-dialog"
 import { Suspense, useState } from "react"
 import { useSearchParams } from "next/navigation"
-import { BadgeCheckIcon, CopyPlusIcon, Link2Icon, FileClockIcon, HourglassIcon, PlusIcon, SearchIcon, SendIcon, WalletIcon, type LucideIcon } from "lucide-react"
+import { BadgeCheckIcon, CopyPlusIcon, Link2Icon, UsersRoundIcon, FileClockIcon, HourglassIcon, PlusIcon, SearchIcon, SendIcon, WalletIcon, type LucideIcon } from "lucide-react"
 import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card"
 import { Pill } from "@/components/app/badges"
 import { InvoiceSheet } from "@/components/billing/invoice-sheet"
@@ -52,6 +53,7 @@ function BillingPage() {
   const [showDone, setShowDone] = useQueryState<"0" | "1">("done", "1")
   const [q, setQ] = useState("")
   const [renewing, setRenewing] = useState(false)
+  const [familyOpen, setFamilyOpen] = useState(false)
   // ?new=<studentId> opens the panel on a new invoice pre-filled (from the student panel)
   const [openId, setOpenId] = useState<string | null>(() => params.get("open") ?? (params.get("new") ? "new" : null))
   const presetStudent = params.get("new") ?? undefined
@@ -145,6 +147,7 @@ function BillingPage() {
       <PageHeader title="ใบแจ้งหนี้ & รับเงิน" description="ออกใบแจ้งหนี้ อนุมัติ ส่งผู้ปกครอง รับเงิน และยืนยันยอด"
         actions={<>
           {can(me, "billing.view") && <SalesTaxDialog />}
+          {can(me, "billing.manage") && <Button variant="outline" onClick={() => setFamilyOpen(true)}><UsersRoundIcon /> สร้างทั้งครอบครัว</Button>}
           {can(me, "billing.manage") && <Button variant="outline" onClick={() => setRenewing(true)}><CopyPlusIcon /> ต่ออายุหลายคน</Button>}
           {can(me, "billing.manage") && <Button onClick={() => setOpenId("new")}><PlusIcon /> สร้างใบแจ้งหนี้</Button>}
         </>} />
@@ -178,6 +181,7 @@ function BillingPage() {
         sort={sort} onSort={toggle} minWidth={1080} empty="ไม่มีใบแจ้งหนี้ในหมวดนี้" />
       <Pager {...pg} unit="ใบ" />
 
+      {familyOpen && <FamilyInvoiceDialog onClose={() => setFamilyOpen(false)} onCreated={(id) => setOpenId(id)} />}
       {renewing && <RenewalDraftsDialog branchIds={scope.ids} onClose={() => setRenewing(false)} />}
       <InvoiceSheet id={openId} slipMediaId={openId === params.get("open") ? slipFromChat : undefined} defaultStudentId={presetStudent} renewEntitlementId={renewFrom} onClose={() => setOpenId(null)} />
     </PageShell>

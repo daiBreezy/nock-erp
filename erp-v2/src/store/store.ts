@@ -216,6 +216,8 @@ type Store = DB & UIState & {
   createRenewalDrafts: (ids: ID[]) => Result<{ created: Invoice[]; failed: { id: ID; error: string }[] }>
   /** owner 2026-11-05: link invoices of one family so they go to the parent in a single message; unlink to separate */
   linkInvoices: (ids: ID[]) => Result
+  /** owner 2026-11-05: a family set — Drafts from each child's last invoice, linked as one set from the start */
+  createFamilyBundle: (sourceIds: ID[]) => Result<{ created: Invoice[]; failed: { id: ID; error: string }[] }>
   unlinkInvoice: (id: ID) => Result
   /** the message to the parent can be edited any time before it is sent / the invoice is paid (owner 2026-11-05) */
   setInvoiceNote: (id: ID, note: string) => Result
@@ -2639,13 +2641,28 @@ export const useStore = create<Store>()(
         return { ok: true, value: { created, failed } }
       },
 
+      createFamilyBundle: (sourceIds) => {
+        const s = get()
+        const perm = requirePerm(s.me(), "billing.manage")
+        if (!perm.ok) return perm
+        const r = get().createRenewalDrafts(sourceIds)
+        if (!r.ok) return r
+        if (r.value.created.length >= 2) {
+          const l = get().linkInvoices(r.value.created.map((x) => x.id))
+          if (!l.ok) return l
+        }
+        return r
+      },
+
       linkInvoices: (ids) => {
         const s = get()
         const perm = requirePerm(s.me(), "billing.manage")
         if (!perm.ok) return perm
         const list = ids.map((id) => s.invoices.find((x) => x.id === id)).filter((x): x is Invoice => !!x)
         if (list.length < 2) return fail("เลือกใบแจ้งหนี้อย่างน้อย 2 ใบ")
-        if (list.some((x) => x.status === "void" || x.status === "paid")) return fail("เชื่อมได้เฉพาะใบที่ยังไม่ชำระ / ยังไม่ยกเลิก")
+        // a family set is decided while everything is still a Draft (owner 2026-11-05) — after approval: void the set and re-create
+        const touched = s.invoices.filter((x) => x.bundleId && list.some((l) => l.bundleId === x.bundleId))
+        if ([...list, ...touched].some((x) => x.status !== "draft")) return fail("เพิ่ม/ถอดสมาชิกของชุดได้เฉพาะตอนยังเป็น Draft ทั้งชุด")
         const fam = new Set(list.map((x) => s.students.find((y) => y.id === x.studentId)?.familyId ?? `solo-${x.id}`))
         if (fam.size > 1 || [...fam][0]?.startsWith("solo-")) return fail("เชื่อมได้เฉพาะใบของคนในครอบครัวเดียวกัน")
         if (new Set(list.map((x) => x.branchId)).size > 1) return fail("เชื่อมได้เฉพาะใบของสาขาเดียวกัน")
@@ -2663,6 +2680,7 @@ export const useStore = create<Store>()(
         if (!perm.ok) return perm
         const inv = s.invoices.find((x) => x.id === id)
         if (!inv?.bundleId) return fail("ใบนี้ไม่ได้เชื่อมกับใบอื่น")
+        if (s.invoices.filter((x) => x.bundleId === inv.bundleId).some((x) => x.status !== "draft")) return fail("เพิ่ม/ถอดสมาชิกของชุดได้เฉพาะตอนยังเป็น Draft ทั้งชุด")
         const left = s.invoices.filter((x) => x.bundleId === inv.bundleId && x.id !== id)
         // a bundle of one is no bundle
         set({ invoices: s.invoices.map((x) => (x.id === id || (left.length < 2 && x.bundleId === inv.bundleId) ? { ...x, bundleId: undefined } : x)) })

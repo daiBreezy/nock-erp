@@ -80,7 +80,7 @@ function Body({ id, slipMediaId, onEdit, onDuplicated }: { id: ID; slipMediaId?:
   const classes = useStore((s) => s.classes)
   const holidays = useStore((s) => s.holidays)
   const brandMemos = useStore((s) => s.system.invoiceMemos)
-  const act = useStore(useShallow((s) => ({ gen: s.generatePdf, approve: s.approveInvoice, send: s.sendInvoice, void: s.voidInvoice, notifyVoid: s.notifyVoid, link: s.linkInvoices, unlink: s.unlinkInvoice, duplicate: s.duplicateInvoice, setNote: s.setInvoiceNote, pay: s.recordPayment, payGroup: s.recordGroupPayment, confirm: s.confirmPayment, regroup: s.setReceiptGrouping })))
+  const act = useStore(useShallow((s) => ({ gen: s.generatePdf, approve: s.approveInvoice, send: s.sendInvoice, void: s.voidInvoice, notifyVoid: s.notifyVoid, duplicate: s.duplicateInvoice, setNote: s.setInvoiceNote, pay: s.recordPayment, payGroup: s.recordGroupPayment, confirm: s.confirmPayment, regroup: s.setReceiptGrouping })))
   const invoices = useStore((s) => s.invoices)
   // the message to the parent: this invoice's, else the one from this student's last invoice — editable until it is sent
   const prevNote = inv ? Bill.lastNoteFor(inv.studentId, invoices, inv.id) : ""
@@ -126,26 +126,6 @@ function Body({ id, slipMediaId, onEdit, onDuplicated }: { id: ID; slipMediaId?:
   const combined = receiptIds ?? group.filter((x) => x.receiptNumber && group.filter((y) => y.receiptNumber === x.receiptNumber).length > 1).map((x) => x.id)
   const toggle = (list: ID[], id: ID) => (list.includes(id) ? list.filter((x) => x !== id) : [...list, id])
 
-  // siblings' invoices that can go to the parent in the same message (owner 2026-11-05)
-  const mates = fam && manage && inv.status !== "paid" && inv.status !== "void"
-    ? invoices.filter((x) => x.id !== inv.id && x.branchId === inv.branchId && x.status !== "void" && x.status !== "paid" && students.find((y) => y.id === x.studentId)?.familyId === fam.id)
-    : []
-  const bundleNode = mates.length > 0 ? (
-    <div className="mt-1.5 space-y-1 rounded-lg border p-2.5">
-      <p className="text-xs font-medium">ส่งพร้อมใบของพี่น้อง (ข้อความเดียวถึงผู้ปกครอง)</p>
-      {mates.map((x) => {
-        const on = !!inv.bundleId && x.bundleId === inv.bundleId
-        return (
-          <label key={x.id} className="flex cursor-pointer items-center gap-2 text-xs">
-            <input type="checkbox" checked={on} onChange={() => report(on ? act.unlink(x.id) : act.link([inv.id, x.id]), on ? "แยกใบออกแล้ว" : "เชื่อมใบแล้ว — ส่งผู้ปกครองทีเดียว")} />
-            <span className="font-mono">{x.number ?? "ร่าง"}</span><span>{nick(x.studentId)}</span>
-            <span className="ml-auto text-muted-foreground">{Bill.INVOICE_STATUS_LABEL[x.status]}</span>
-          </label>
-        )
-      })}
-      {inv.bundleId && <p className="text-xs text-muted-foreground">กด “ส่งผู้ปกครอง” ครั้งเดียว — ข้อความรวมทุกใบที่เชื่อมไว้ (ต้องอนุมัติครบทุกใบก่อน)</p>}
-    </div>
-  ) : null
   // payments + shared-slip receipt grouping live under their own steps (owner 2026-11-05)
   const paymentsNode = inv.payments.length > 0 ? (
     <ul className="divide-y rounded-lg border text-sm">
@@ -228,7 +208,6 @@ function Body({ id, slipMediaId, onEdit, onDuplicated }: { id: ID; slipMediaId?:
     },
     {
       label: "ส่งถึงผู้ปกครอง",
-      extra: bundleNode,
       state: inv.delivery === "delivered" ? "done" : inv.delivery === "no_line" || inv.delivery === "failed" ? "warn" : inv.status === "approved" || inv.delivery === "sending" ? "current" : "todo",
       meta: inv.sentAt ? fmtDateTime(inv.sentAt) : undefined,
       detail: inv.delivery === "delivered" ? "ถึงผู้ปกครองทาง LINE"
