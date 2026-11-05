@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest"
 import type { DevTicket, NockAnswer, NockQuestion, Role, Assessment, Attendance, Branch, BusAddOn, CreditNote, LessonSummary, Course, Entitlement, Family, FormSubmission, Lead, Student, Seat, FormOfferSlot, Holiday, Invoice, Klass, Session, Staff, StudentLeave, Weekday } from "../types"
 import { applyClassEdit, applyToSessions, canChangeTeachers, canMoveToClass, canUndoClassMove, canRescheduleStudent, movesOf, mondayOf, removedWithClass, canSave, closesBranch, holidayImpact, hoursFor, isHoliday, overlappingRows, periodsIn, introducedConflicts, editSingleSession, findConflicts, generateSessions, moveSession, sessionState, validateClass, workState } from "./scheduling"
 import { activeLeave, nextClassDates, teacherLeaveCancels, leaveRunSessions, balance, studentState, leaveLedger, packageCovers, canMark, canSaveLeave, coveringEntitlement, effectiveTo, leavesUsed, lowBalanceAlert, removeFromClass, renewalFollowUpDue, resolveEntitlements } from "./attendance"
-import { bestPromotion, duplicateBusDay, billedOn, busAddOnAmount, pendingBusAddOns, validateBusAddOn, carriedMinutes, weekKey, classOptionsFor, defaultAdvance, entryFeeWaiver, invoiceSessionDates, invoiceTotals, validateInvoiceDraft, canApprove, canConfirmPayment, canForceApprove, canForceConfirmPayment, canSend, canVoid, defaultBusLegs, busTotal, nextInvoiceNumber, quoteCourse, roundUpTo, familyPromotion, lastNoteFor, renewalDraft, bestBonusHours, FAMILY_PROMO_TIERS } from "./billing"
+import { bestPromotion, duplicateBusDay, billedOn, busAddOnAmount, pendingBusAddOns, validateBusAddOn, carriedMinutes, weekKey, classOptionsFor, defaultAdvance, entryFeeWaiver, invoiceSessionDates, invoiceTotals, validateInvoiceDraft, canApprove, canConfirmPayment, canForceApprove, canForceConfirmPayment, canSend, canVoid, defaultBusLegs, busTotal, nextInvoiceNumber, quoteCourse, roundUpTo, familyPromotion, lastNoteFor, renewalCandidates, renewalDraft, bestBonusHours, FAMILY_PROMO_TIERS } from "./billing"
 import { can } from "./permissions"
 import { chartPrice, defaultCourseName, filterCourses, validateCourse } from "./course"
 import { brandPriceUnits, brandUsesBus, busRate, copyHours, gradeLabel, subjectLabel, priceOf, priceRange, setPrice, validateBranchInfo, validateDurations, validateHoliday, validatePromotion, validateSpecialPeriods, everyDay, subjectAbbr } from "./settings"
@@ -2980,5 +2980,25 @@ describe("duplicate / renewal draft (owner 2026-11-05)", () => {
     const end = invoiceTotals(old, ctx).lines[0].quote!.to
     expect(make("2026-10-01").lines[0].startDate > end).toBe(true)
     expect(make("2030-01-01").lines[0].startDate).toBe("2030-01-01")
+  })
+})
+
+describe("renewal candidates (owner 2026-11-05)", () => {
+  const pkg: Course = { ...monthPkg, id: "h10", unit: "hour", duration: 10, price: 6000 }
+  const ctx = { branch, courses: [pkg], classes: [klass({ id: "k90", minutes: 90 })], holidays: [] }
+  const mk = (id: string, studentId: string, status: Invoice["status"], createdAt: string, startDate: string, lines = true): Invoice => ({ id, branchId: "b1", studentId, number: id, lines: lines ? [{ id: "l" + id, courseId: "h10", classIds: ["k90"], startDate, periods: 1, leftover: "drop" }] : [], bus: [], bookFee: 0, advance: [], concession: null, noteToParent: "", status, pdf: "none", createdBy: "u", createdAt, payments: [] })
+  it("each student's latest paid invoice, soonest-ending first; a newer draft or void/other-fees invoice is handled", () => {
+    const list = [
+      mk("a1", "a", "paid", "2026-08-01T00:00:00Z", "2026-08-04"),
+      mk("a2", "a", "paid", "2026-10-01T00:00:00Z", "2026-10-06"),   // a's latest
+      mk("b1", "b", "paid", "2026-09-01T00:00:00Z", "2026-09-01"),
+      mk("b2", "b", "draft", "2026-10-20T00:00:00Z", "2026-11-01"),  // b already has a draft waiting → not a candidate
+      mk("c1", "c", "paid", "2026-09-01T00:00:00Z", "2026-09-01"),
+      mk("c2", "c", "void", "2026-10-20T00:00:00Z", "2026-11-01"),   // void is ignored → c1 stays
+      mk("d1", "d", "paid", "2026-10-01T00:00:00Z", "2026-10-06", false), // other fees only
+    ]
+    const r = renewalCandidates(list, () => ctx)
+    expect(r.map((x) => x.inv.id)).toEqual(["c1", "a2"])
+    expect(r[0].end < r[1].end).toBe(true)
   })
 })

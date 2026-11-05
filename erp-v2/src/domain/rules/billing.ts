@@ -389,6 +389,20 @@ export function renewalDraft(inv: Invoice, o: { id: ID; today: DateStr; nowIso: 
   }
 }
 
+/** Who can be renewed (owner 2026-11-05): each student's LATEST live invoice with courses, when it is paid — i.e. nothing
+ *  newer (a draft already waiting counts) — with the day its last course ends. Soonest-ending first. */
+export function renewalCandidates(invoices: Invoice[], ctxFor: (branchId: ID) => { branch: Branch; courses: Course[]; classes: Klass[]; holidays: Holiday[] }): { inv: Invoice; end: DateStr }[] {
+  const latest = new Map<ID, Invoice>()
+  for (const i of invoices.filter((x) => x.status !== "void" && x.lines.length > 0)) {
+    const cur = latest.get(i.studentId)
+    if (!cur || i.createdAt > cur.createdAt) latest.set(i.studentId, i)
+  }
+  return [...latest.values()].filter((i) => i.status === "paid").map((inv) => {
+    const ends = invoiceTotals(inv, ctxFor(inv.branchId)).lines.map((l) => l.quote?.to).filter((d): d is DateStr => !!d).sort()
+    return { inv, end: ends[ends.length - 1] ?? inv.createdAt.slice(0, 10) }
+  }).sort((a, b) => a.end.localeCompare(b.end))
+}
+
 /** Legs × the bus fee type's price. */
 export const busAddOnAmount = (a: Pick<BusAddOn, "pickup" | "dropoff">, rate: number) => (Number(a.pickup) + Number(a.dropoff)) * rate
 
