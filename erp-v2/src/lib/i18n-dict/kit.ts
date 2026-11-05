@@ -69,4 +69,8 @@ export const KIT: Record<string, Entry> = {
   "(ต้องเกิน": { en: "(must exceed", ja: "（必要：" },
   "ชม. · คนที่เรียนมากสุด": { en: "h · most by one child", ja: "時間超・最多の1人：" },
   "ชม.)": { en: "h)", ja: "時間）" },
+  "เพิ่มอย่างน้อย 1 ช่วง": { en: "Add at least 1 window", ja: "1つ以上の時間帯を追加してください" },
+  "กลับไปเลือกตามชั่วโมง": { en: "Back to picking by hour", ja: "時間ごとの選択に戻る" },
+  "เอาช่วงนี้ออก": { en: "Remove this window", ja: "この時間帯を削除" },
+  "เลือกตามชั่วโมง หรือกำหนดเอง (หลายช่วงได้)": { en: "Pick by hour or set your own (several windows allowed)", ja: "時間ごと、またはカスタム（複数可）" },
 }

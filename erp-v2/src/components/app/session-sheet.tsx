@@ -663,14 +663,8 @@ function SeatDialog({ s, studentId, onClose }: { s: Session; studentId: ID; onCl
   const L = useLookup()
   const current = Seats.seatOf(s, studentId, klass)
   const [pick, setPick] = useState<Seat>(current)
-  // or typed by hand: from what time, for how many minutes (45 / 25 / 30 …)
-  const preset = !!current.more?.length || Seats.seatOptions(s.minutes).some((o) => o.offset === current.offset && o.minutes === current.minutes)
-  const [custom, setCustom] = useState(!preset)
-  const [from, setFrom] = useState(fromMinutes(toMinutes(s.start) + current.offset))
-  const [mins, setMins] = useState(String(current.minutes))
-  const customSeat: Seat = { offset: toMinutes(from) - toMinutes(s.start), minutes: Number(mins) }
-  const customError = !(customSeat.minutes > 0) ? "ใส่จำนวนนาที" : customSeat.offset < 0 || customSeat.offset + customSeat.minutes > s.minutes ? `ต้องอยู่ในเวลาคาบ ${s.start}–${endTime(s.start, s.minutes)}` : null
-  const chosen = custom ? customSeat : pick
+  const [error, setError] = useState<string | null>(null)
+  const chosen = pick
   const [scope, setScope] = useState<"session" | "class">(s.seats?.[studentId] || !klass ? "session" : "class")
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()}>
@@ -680,26 +674,13 @@ function SeatDialog({ s, studentId, onClose }: { s: Session; studentId: ID; onCl
           <DialogDescription>คาบ {s.start}–{endTime(s.start, s.minutes)} · แพ็กชั่วโมงหักตามเวลาที่เรียนจริง ราคารายเดือนเท่าเดิม</DialogDescription>
         </DialogHeader>
         <div className="grid gap-1.5">
-          <button type="button" aria-pressed={!custom && !Seats.isPartial(pick, s.minutes)} onClick={() => { setPick(Seats.fullSeat(s.minutes)); setCustom(false) }}
-            className={cn("flex items-center justify-between rounded-xl border px-3 py-2 text-sm", !custom && !Seats.isPartial(pick, s.minutes) ? "border-primary bg-primary/5 font-medium" : "hover:bg-muted/50")}>
+          <button type="button" aria-pressed={!Seats.isPartial(pick, s.minutes)} onClick={() => setPick(Seats.fullSeat(s.minutes))}
+            className={cn("flex items-center justify-between rounded-xl border px-3 py-2 text-sm", !Seats.isPartial(pick, s.minutes) ? "border-primary bg-primary/5 font-medium" : "hover:bg-muted/50")}>
             <span>{Seats.seatLabel(Seats.fullSeat(s.minutes), s.minutes)}</span><span className="text-xs text-muted-foreground tabular-nums">{Seats.seatTime(s.start, Seats.fullSeat(s.minutes))}</span>
           </button>
-          {s.minutes > 60 && (
-            <div className={cn("space-y-1.5 rounded-xl border px-3 py-2 text-sm", !custom ? "border-primary bg-primary/5" : "")}>
-              <button type="button" className="w-full text-left font-medium" onClick={() => setCustom(false)}>เลือกตามชั่วโมง (เลือกได้หลายช่วง)</button>
-              {!custom && <SeatHours classMinutes={s.minutes} start={s.start} value={Seats.isPartial(pick, s.minutes) ? pick : undefined} onChange={(v) => setPick(v ?? Seats.fullSeat(s.minutes))} />}
-            </div>
-          )}
-          <div className={cn("space-y-2 rounded-xl border px-3 py-2 text-sm", custom ? "border-primary bg-primary/5" : "")}>
-            <button type="button" className="w-full text-left font-medium" onClick={() => setCustom(true)}>กำหนดเอง</button>
-            {custom && (
-              <div className="flex flex-wrap items-center gap-2">
-                เริ่ม <Input type="time" step={300} className="h-8 w-28" value={from} onChange={(e) => setFrom(e.target.value)} />
-                เรียน <Input type="number" min={5} step={5} className="h-8 w-20" value={mins} onChange={(e) => setMins(e.target.value)} /> นาที
-                {!customError && <span className="text-xs text-muted-foreground tabular-nums">{Seats.seatTime(s.start, customSeat)}</span>}
-                {customError && <span className="w-full text-xs text-red-700">{customError}</span>}
-              </div>
-            )}
+          <div className="space-y-1.5 rounded-xl border px-3 py-2 text-sm">
+            <p className="font-medium">เลือกตามชั่วโมง หรือกำหนดเอง (หลายช่วงได้)</p>
+            <SeatHours classMinutes={s.minutes} start={s.start} value={Seats.isPartial(pick, s.minutes) ? pick : undefined} onChange={(v) => setPick(v ?? Seats.fullSeat(s.minutes))} onError={setError} />
           </div>
         </div>
         {klass && (
@@ -712,7 +693,7 @@ function SeatDialog({ s, studentId, onClose }: { s: Session; studentId: ID; onCl
         )}
         <DialogFooter>
           <Button variant="ghost" onClick={onClose}>ยกเลิก</Button>
-          <Button disabled={custom && !!customError} onClick={() => report(setSeat(scope, scope === "class" ? klass!.id : s.id, studentId, chosen), "บันทึกเวลาเรียนแล้ว") && onClose()}>บันทึก</Button>
+          <Button disabled={!!error} onClick={() => report(setSeat(scope, scope === "class" ? klass!.id : s.id, studentId, chosen), "บันทึกเวลาเรียนแล้ว") && onClose()}>บันทึก</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
