@@ -9,7 +9,7 @@ import { FamilyInvoiceDialog } from "@/components/billing/family-invoice-dialog"
 import { RenewalDraftsDialog } from "@/components/billing/renewal-drafts-dialog"
 import { Suspense, useState } from "react"
 import { useSearchParams } from "next/navigation"
-import { BadgeCheckIcon, ChevronDownIcon, CopyPlusIcon, Link2Icon, UsersRoundIcon, FileClockIcon, HourglassIcon, PlusIcon, SearchIcon, WalletIcon } from "lucide-react"
+import { Loader2Icon, BadgeCheckIcon, ChevronDownIcon, CopyPlusIcon, Link2Icon, UsersRoundIcon, FileClockIcon, HourglassIcon, PlusIcon, SearchIcon, WalletIcon } from "lucide-react"
 import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card"
 import { Pill } from "@/components/app/badges"
 import { InvoiceSheet } from "@/components/billing/invoice-sheet"
@@ -26,6 +26,7 @@ import { gradeTone } from "@/components/app/subject-color"
 import { invoiceOverdue, paymentUnconfirmed } from "@/domain/rules/reports"
 import { cn } from "@/lib/utils"
 import { useStore } from "@/store/store"
+import { report } from "@/lib/feedback"
 import type { Invoice, Student } from "@/domain/types"
 
 type BillSort = "number" | "created" | "student" | "grade" | "total" | "status"
@@ -143,7 +144,7 @@ function BillingPage() {
         onClick={(e) => { e.stopPropagation(); setOpenGroups((g) => (g.includes(inv.bundleId!) ? g.filter((x) => x !== inv.bundleId) : [...g, inv.bundleId!])) }}>
         <ChevronDownIcon className={cn("size-5 transition-transform", openGroups.includes(inv.bundleId!) && "rotate-180")} />
       </Button>
-    ) : <InvThumb id={inv.id} />) },
+    ) : inv.status === "draft" && inv.pdf !== "ready" ? <AddPdfTile inv={inv} /> : <InvThumb id={inv.id} />) },
     { id: "number", label: "เลขที่", width: "130px", sort: "number", required: true, className: "font-medium tabular-nums", cell: ({ inv, group, member }) => (
       <span className="flex items-center gap-1">
         <span className="min-w-0 flex-1">{inv.number ? <MidText text={inv.number} head={3} tail={10} /> : <span className="text-muted-foreground">—</span>}</span>
@@ -235,6 +236,19 @@ function BillingPage() {
 
 // 1:1 — the thumbnail (top of the page) and the set's dropdown button share one size
 const THUMB = 40
+
+/** a Draft without its PDF yet: an "add" tile of the same size — click creates the PDF (owner 2026-11-05) */
+function AddPdfTile({ inv }: { inv: Invoice }) {
+  const gen = useStore((s) => s.generatePdf)
+  const busy = inv.pdf === "generating"
+  return (
+    <button type="button" disabled={busy} aria-label={busy ? "กำลังสร้าง PDF" : inv.pdf === "failed" ? "ลองสร้าง PDF อีกครั้ง" : "สร้าง PDF"} title={busy ? "กำลังสร้าง PDF…" : "สร้าง PDF"}
+      onClick={(e) => { e.stopPropagation(); report(gen(inv.id), (v) => `กำลังสร้าง PDF · เลขที่ ${v.number}`) }}
+      className="grid shrink-0 place-items-center rounded-md border border-dashed text-muted-foreground hover:bg-muted hover:text-foreground disabled:opacity-60" style={{ width: THUMB, height: THUMB }}>
+      {busy ? <Loader2Icon className="size-4 animate-spin" /> : <PlusIcon className="size-5" />}
+    </button>
+  )
+}
 
 /** the invoice page, drawn small (the real document scaled down — no iframe, so a full page of rows stays light) */
 function InvThumb({ id }: { id: string }) {

@@ -44,8 +44,9 @@ export function BundleOverview({ members, onOpen, onAddChild }: { members: Invoi
   const rows = members.map((inv) => ({ inv, total: Bill.invoiceTotals(inv, ctxOf(inv)).total, owed: Bill.owedOn(inv, Bill.invoiceTotals(inv, ctxOf(inv)).total) }))
   const grand = rows.reduce((a, r) => a + r.total, 0)
   const allDraft = members.every((x) => x.status === "draft")
-  const [note, setNote] = useState(first.noteToParent || Bill.lastNoteFor(first.studentId, invoices, first.id))
-  const noteSaved = members.every((x) => (x.noteToParent || "") === note.trim())
+  // each child keeps their own message (editable here or in their tab — both are the same data)
+  const [notes, setNotes] = useState<Record<ID, string>>(() => Object.fromEntries(members.map((m) => [m.id, m.noteToParent || Bill.lastNoteFor(m.studentId, invoices, m.id)])))
+  const anyNote = members.some((m) => (notes[m.id] ?? m.noteToParent).trim())
   const [pay, setPay] = useState(false)
   const [voiding, setVoiding] = useState(false)
   const [reason, setReason] = useState("")
@@ -65,12 +66,23 @@ export function BundleOverview({ members, onOpen, onAddChild }: { members: Invoi
     for (const i of list) { const r = f(i); if (!r.ok) { report(r, ""); return false } }
     return true
   }
-  const docs: DocItem[] = members.every((x) => x.pdf === "ready") ? [{ key: "bundle", kind: "invoice", label: `ใบแจ้งหนี้ครอบครัว${fam?.name ?? ""} (${members.length} ใบ)`, src: `/print/bundle/${first.bundleId}` }] : []
-  const steps = [
-    { label: "สร้าง PDF", done: members.filter((x) => x.pdf === "ready").length, docs },
+  // documents of the set on their steps (owner 2026-11-05): create PDFs · upload the slip · receipts
+  const slips = [...new Set(members.flatMap((m) => m.payments.map((p) => p.slip)).filter((x): x is string => !!x))]
+  const receipts = [...new Map(members.filter((m) => m.receiptNumber).map((m) => [m.receiptNumber!, m])).values()]
+  const pdfDocs: DocItem[] = [
+    ...(members.every((x) => x.pdf === "ready") ? [{ key: "bundle", kind: "invoice" as const, label: `ใบแจ้งหนี้ครอบครัว${fam?.name ?? ""} (${members.length} ใบ)`, src: `/print/bundle/${first.bundleId}` }] : []),
+    ...members.filter((x) => x.pdf === "ready").map((x) => ({ key: x.id, kind: "invoice" as const, label: `ใบแจ้งหนี้ ${stu(x.studentId)?.nickname ?? ""} ${x.number ?? ""}`.trim(), src: `/print/invoice/${x.id}` })),
+  ]
+  const generating = members.some((x) => x.pdf === "generating")
+  const steps: { label: string; done: number; detail?: string; docs?: DocItem[]; onAdd?: () => void; addLabel?: string }[] = [
+    { label: "สร้าง PDF", done: members.filter((x) => x.pdf === "ready").length, docs: pdfDocs, addLabel: "สร้าง PDF ทั้งชุด",
+      onAdd: manage && drafts.length > 0 && !generating ? () => each(drafts, (i) => act.gen(i.id)) && report({ ok: true, value: undefined }, `กำลังสร้าง PDF ${drafts.length} ใบ`) : undefined },
     { label: "อนุมัติ", done: members.filter((x) => ["approved", "sent", "paid"].includes(x.status)).length },
-    { label: "ส่งถึงผู้ปกครอง", done: members.filter((x) => x.delivery === "delivered" || x.status === "paid").length },
-    { label: "รับเงิน", done: members.filter((x) => x.status === "paid").length },
+    { label: "ส่งถึงผู้ปกครอง", done: members.filter((x) => x.delivery === "delivered" || x.status === "paid").length, detail: "ข้อความเดียว รวมใบของทุกคน" },
+    { label: "รับเงิน (สลิปเดียวทั้งชุด)", done: members.filter((x) => x.status === "paid").length, docs: slips.map((src, i) => ({ key: `slip${i}`, kind: "slip" as const, label: `สลิป${slips.length > 1 ? ` ${i + 1}` : ""}`, src })),
+      addLabel: "อัปโหลดสลิปการชำระเงิน (ทั้งชุด)", onAdd: manage && payable.length > 0 ? () => setPay(true) : undefined },
+    { label: "ใบเสร็จ", done: members.filter((x) => x.receiptNumber).length, detail: receipts.length ? undefined : "ออกให้อัตโนมัติเมื่อยืนยันเงินครบ — เลือกรวม/แยกตอนอัปโหลดสลิป",
+      docs: receipts.map((m) => ({ key: `rc${m.id}`, kind: "receipt" as const, label: `ใบเสร็จ ${m.receiptNumber}`, src: `/print/receipt/${m.id}` })) },
   ]
 
   return (
@@ -86,11 +98,19 @@ export function BundleOverview({ members, onOpen, onAddChild }: { members: Invoi
       <PanelBody>
         <section className="space-y-1.5">
           <Label className="text-xs">ข้อความถึงผู้ปกครอง
-            <InfoTip text="ข้อความเดียวสำหรับทั้งชุด — บันทึกให้ทุกใบอัตโนมัติเมื่อพิมพ์เสร็จ ข้อความครั้งก่อนของนักเรียนจะขึ้นมาให้ แก้ได้จนกว่าจะส่ง" />
+            <InfoTip text="ข้อความของนักเรียนแต่ละคนอยู่ในกล่องเดียวกัน — แก้ที่นี่หรือในแท็บของแต่ละคนก็ได้ (เป็นข้อมูลเดียวกัน) บันทึกให้อัตโนมัติเมื่อพิมพ์เสร็จ ข้อความครั้งก่อนของนักเรียนจะขึ้นมาให้ แก้ได้จนกว่าจะส่ง" />
           </Label>
-          <Textarea rows={2} value={note} disabled={!manage} onChange={(e) => setNote(e.target.value)}
-            onBlur={() => { if (manage && !noteSaved && each(members.filter((x) => x.status !== "paid"), (i) => act.setNote(i.id, note))) report({ ok: true, value: undefined }, "บันทึกข้อความแล้ว") }}
-            placeholder="เช่น ค่าเรียนเดือนตุลาคม ชำระภายใน 5 ต.ค." />
+          <div className="divide-y rounded-2xl bg-input/50">
+            {members.map((m) => (
+              <div key={m.id} className="px-3 py-2">
+                <p className="text-xs font-medium text-muted-foreground">{stu(m.studentId)?.nickname}</p>
+                <textarea rows={1} value={notes[m.id] ?? ""} disabled={!manage || m.status === "paid"} placeholder="เช่น ค่าเรียนเดือนตุลาคม ชำระภายใน 5 ต.ค."
+                  onChange={(e) => setNotes((n) => ({ ...n, [m.id]: e.target.value }))}
+                  onBlur={() => { if (manage && m.status !== "paid" && (notes[m.id] ?? "").trim() !== (m.noteToParent || "")) report(act.setNote(m.id, notes[m.id] ?? ""), "บันทึกข้อความแล้ว") }}
+                  className="field-sizing-content min-h-8 w-full resize-none bg-transparent text-sm outline-none placeholder:text-muted-foreground disabled:opacity-60" />
+              </div>
+            ))}
+          </div>
         </section>
 
         <section className="divide-y rounded-lg border">
@@ -129,8 +149,8 @@ export function BundleOverview({ members, onOpen, onAddChild }: { members: Invoi
                   <span className={cn("mt-0.5 grid size-5 shrink-0 place-items-center rounded-full", state === "done" ? "bg-emerald-600 text-white" : state === "current" ? "bg-sky-600 text-white" : "border text-muted-foreground")}>
                     {state === "done" ? <CheckIcon className="size-3" /> : <span className="size-1.5 rounded-full bg-current" />}
                   </span>
-                  <div className="min-w-0 flex-1"><div className="text-sm font-medium">{s.label}</div><div className="text-xs text-muted-foreground">{s.done}/{members.length} ใบ</div></div>
-                  {s.docs && <DocThumbs docs={s.docs} />}
+                  <div className="min-w-0 flex-1"><div className="text-sm font-medium">{s.label}</div><div className="text-xs text-muted-foreground">{s.done}/{members.length} ใบ</div>{s.detail && <div className="text-xs text-muted-foreground">{s.detail}</div>}</div>
+                  {s.docs && <DocThumbs docs={s.docs} onAdd={s.onAdd} addLabel={s.addLabel} />}
                 </li>
               )
             })}
@@ -176,7 +196,7 @@ export function BundleOverview({ members, onOpen, onAddChild }: { members: Invoi
             <Button className="ml-auto" onClick={() => each(pending, (i) => act.approve(i.id)) && report({ ok: true, value: undefined }, "อนุมัติทั้งชุดแล้ว — พร้อมส่งผู้ปกครอง")}><CheckIcon /> อนุมัติทั้งชุด</Button>
           )}
           {drafts.length === 0 && pending.length === 0 && toSend.length > 0 && (
-            <Button className="ml-auto" disabled={!note.trim()} onClick={() => report(act.send(toSend[0].id, note), (v) => (v.delivered ? "ส่งทั้งชุดทาง LINE แล้ว (ข้อความเดียว)" : "บันทึกแล้ว แต่ยังไม่ถึงผู้ปกครอง (ไม่มี LINE)"))}><SendIcon /> ส่งผู้ปกครอง (ข้อความเดียว)</Button>
+            <Button className="ml-auto" disabled={!anyNote} onClick={() => report(act.send(toSend[0].id, notes[toSend[0].id] ?? toSend[0].noteToParent), (v) => (v.delivered ? "ส่งทั้งชุดทาง LINE แล้ว (ข้อความเดียว)" : "บันทึกแล้ว แต่ยังไม่ถึงผู้ปกครอง (ไม่มี LINE)"))}><SendIcon /> ส่งผู้ปกครอง (ข้อความเดียว)</Button>
           )}
           {drafts.length === 0 && pending.length === 0 && toSend.length === 0 && payable.length > 0 && (
             <Button className="ml-auto" onClick={() => setPay(true)}><WalletIcon /> รับเงินทั้งชุด</Button>

@@ -217,6 +217,8 @@ function Body({ id, slipMediaId, onEdit, onDuplicated }: { id: ID; slipMediaId?:
       label: "สร้าง PDF",
       state: inv.pdf === "ready" ? "done" : inv.pdf === "failed" ? "warn" : inv.status === "void" ? "todo" : "current",
       docs: docsFor.invoice,
+      onAdd: inv.status === "draft" && inv.pdf !== "ready" && inv.pdf !== "generating" && manage ? () => report(act.gen(inv.id), (v) => `กำลังสร้าง PDF · เลขที่ ${v.number}`) : undefined,
+      addLabel: "สร้าง PDF",
       detail: inv.pdf === "ready" ? "พร้อม" : inv.pdf === "generating" ? "กำลังสร้าง…" : inv.pdf === "failed" ? "สร้างไม่สำเร็จ — กดลองใหม่" : "ยังไม่สร้าง PDF",
     },
     {

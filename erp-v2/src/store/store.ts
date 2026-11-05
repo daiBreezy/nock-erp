@@ -2226,7 +2226,10 @@ export const useStore = create<Store>()(
       sendInvoice: (id, note) => {
         const s = get()
         const inv = { ...s.invoices.find((x) => x.id === id)!, noteToParent: note }
-        const r = Bill.canSend(inv)
+        // a family set: each child keeps their own message — at least one of them must have one
+        const setMates = inv.bundleId ? s.invoices.filter((x) => x.id !== id && x.bundleId === inv.bundleId && x.status !== "void" && x.status !== "paid") : []
+        const anyNote = !!note.trim() || setMates.some((x) => x.noteToParent.trim())
+        const r = Bill.canSend(setMates.length ? { ...inv, noteToParent: anyNote ? "x" : "" } : inv)
         if (!r.ok) return r
         const stu = s.students.find((x) => x.id === inv.studentId)!
         const ctx = ctxOf(s, inv.branchId)
@@ -2236,7 +2239,7 @@ export const useStore = create<Store>()(
         if (notReady) return fail(`ใบ ${notReady.number ?? "ร่าง"} ที่เชื่อมไว้ยังไม่อนุมัติ — อนุมัติก่อน หรือยกเลิกการเชื่อมต่อ`)
         const sentIds = new Set([id, ...mates.map((x) => x.id)])
         const text = mates.length
-          ? Msg.invoiceBundleMessage([inv, ...mates].map((x) => ({ inv: x, totals: Bill.invoiceTotals(x, ctxOf(s, x.branchId)), student: s.students.find((y) => y.id === x.studentId)! })), { branch: ctx.branch }, note)
+          ? Msg.invoiceBundleMessage([inv, ...mates].map((x) => ({ inv: x, totals: Bill.invoiceTotals(x, ctxOf(s, x.branchId)), student: s.students.find((y) => y.id === x.studentId)! })), { branch: ctx.branch })
           : Msg.invoiceMessage(inv, Bill.invoiceTotals(inv, ctx), { student: stu, branch: ctx.branch })
         const delivery = pushLine(stu.familyId, text, (ok, error) => {
           set((st) => ({ invoices: st.invoices.map((x) => (sentIds.has(x.id) ? { ...x, delivery: ok ? "delivered" : "failed", deliveryError: ok ? undefined : error } : x)) }))

@@ -179,4 +179,7 @@ export const KIT: Record<string, Entry> = {
   "บันทึกรับเงินแล้ว รออีกคนตรวจยืนยัน": { en: "Payment recorded — waiting for someone else to confirm", ja: "入金記録済み — 別の担当者の確認待ち" },
   "ไม่ถึงผู้ปกครอง": { en: "Not reached the parent", ja: "保護者に未到達" },
   "เช่น ผู้ปกครอง block OA": { en: "e.g. the parent blocked the OA", ja: "例：保護者がOAをブロック" },
+  "ข้อความเดียว รวมใบของทุกคน": { en: "One message covering everyone's invoice", ja: "全員分の請求書を1通で" },
+  "อัปโหลดสลิปการชำระเงิน (ทั้งชุด)": { en: "Upload the pay slip (whole set)", ja: "振込明細をアップロード（セット全体）" },
+  "ออกให้อัตโนมัติเมื่อยืนยันเงินครบ — เลือกรวม/แยกตอนอัปโหลดสลิป": { en: "Issued automatically once the payment is confirmed — choose combined / separate when uploading the slip", ja: "入金確認後に自動発行 — まとめる／分けるは明細アップロード時に選択" },
 }

@@ -31,15 +31,15 @@ export function invoiceMessage(inv: Invoice, totals: InvoiceTotals, ctx: { stude
 
 /** Siblings' invoices linked together (owner 2026-11-05): ONE message — each child's invoice, the grand total, the bank
  *  once, and the sender's note. */
-export function invoiceBundleMessage(items: { inv: Invoice; totals: InvoiceTotals; student: Student }[], ctx: { branch: Branch }, note: string): string {
+export function invoiceBundleMessage(items: { inv: Invoice; totals: InvoiceTotals; student: Student }[], ctx: { branch: Branch }): string {
   const total = items.reduce((a, x) => a + x.totals.total, 0)
   return [
     `📄 ใบแจ้งค่าเรียน (รวม ${items.length} ใบ)`,
-    ...items.flatMap((x) => ["", ...invoiceBody(x.inv, x.totals, x)]),
+    // each child's own message sits under that child's invoice (owner 2026-11-05)
+    ...items.flatMap((x) => ["", ...invoiceBody(x.inv, x.totals, x), x.inv.noteToParent.trim() ? `📝 ${x.inv.noteToParent.trim()}` : null]),
     "",
     `ยอดชำระรวมทั้งหมด ${fmtMoney(total)}`,
     bankLine(ctx.branch),
-    note.trim() || null,
     "ชำระแล้วส่งรูปสลิปในแชทนี้ได้เลยค่ะ (สลิปเดียวสำหรับทุกใบได้) 🙏",
   ].filter((x) => x !== null).join("\n")
 }
