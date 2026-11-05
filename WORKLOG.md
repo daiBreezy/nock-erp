@@ -1999,3 +1999,12 @@ branch `erp-v2/mobile-session-sheet` · 4 commits (ไม่ push) · สเป�
 - **#54 Partial time (เฟส 3):** `Seat.more?` = หลายช่วงต่อคาบ (เช่น ชม.1+3 ของคลาส 3 ชม.) · `seats.ts`: `seatTotal/seatWindows/seatFromBlocks/blocksOf/validateSeat/shiftSeat` · ใช้ `SeatHours` (chip ต่อชั่วโมง) ใน 3 ที่: invoice-editor (course picker line), Student panel (⋯ → เวลาเรียน + โชว์ช่วงเวลาในคอลัมน์เวลา), Session panel (SeatDialog) · ใบ/entitlement/balance คิดตามเวลารวม
 - tests +20 ใน `rules.test.ts` ผ่านหมด
 - **ค้างอยู่ (ไม่ใช่ของงานนี้):** `i18n-coverage.test.ts` ล้ม 1 เคส — 40 ข้อความไทยในหน้า `/kit` (commit b046da5) ยังไม่มี EN/JA · **ยังไม่ได้ mark ใน Google Sheet** feedback row 52–55 + Refund (ไม่มีสิทธิ์เข้าถึงจาก session นี้) · UI ยังไม่ได้เปิดดูในเบราว์เซอร์ (ตรวจแค่ tsc/eslint/test)
+
+## 2026-11-05 (ต่อ) — erp-v2 billing: UI รอบใหญ่ตามเจ้าของ + ข้อมูลแบรนด์ + Duplicate/Renewal/พี่น้อง
+- **กฎแบรนด์ (เจ้าของยืนยัน):** Liclass ไม่มีแพ็กเกจรายเดือน · NockAcademy ไม่มี Bus → `brandPriceUnits` / `brandUsesBus` (settings.ts) ใช้ใน Settings (แพ็กเกจ/โปรฯ), Course dialog, Course picker, Invoice editor + detail (ซ่อน Bus). **ยังไม่ได้ซ่อนเมนู "รถรับส่ง" ใน sidebar** สำหรับสาขา NockAcademy
+- **Invoice panel:** Student/Promotion/Course/Advance/Bus/Summary เป็น accordion ตอนสร้าง · ตอนดูใบ = แถวสรุป (เลขที่ + ยอดรวม) กดขยายเห็นทั้งใบ · Stepper มีเส้นเชื่อม · เอกสาร (ใบแจ้งหนี้/สลิป/ใบเสร็จ) เป็น thumbnail 1:1 บนแถว step (หลายใบ = stack เอียง ±2°) กดเปิด PDF + ดาวน์โหลด/แชร์ · สลิป: ปุ่ม + เปิด dialog อัปโหลดสลิป · การรับเงิน/ใบเสร็จรวม/Force Approve อยู่ใต้ step ของมัน · แถวข้อมูลของ step = วันที่ก่อน ตามด้วยผู้ทำ, บรรทัดล่างข้อมูลอื่น
+- **ข้อความถึงผู้ปกครอง:** field เดียว + ⓘ · บันทึกเมื่อ blur · ใบใหม่ของนักเรียนคนเดิมดึงข้อความล่าสุดมาให้ (`lastNoteFor`) · ปุ่มส่งอยู่ bottom bar
+- **Duplicate:** ใบที่ชำระครบ → "ทำซ้ำเป็น Draft ใหม่" (`renewalDraft`: คอร์ส/คลาส/งวด/ข้อความเดิม, เริ่มวันถัดจากจบเดิม, ตัดสลิป/รถ/เครดิต/ส่วนลดพิเศษ/Family%/ค่าแรกเข้า) · **ต่ออายุหลายคน:** ปุ่มที่หน้า Billing เลือกนักเรียน → สร้าง Draft จากใบล่าสุดทีละหลายใบ (`renewalCandidates`)
+- **พี่น้อง:** editor แนะนำให้ถามผู้ปกครองเรื่องลูกอีกคน (สร้าง Draft จากใบเดิมของเขาได้ในคลิกเดียว → นับ Family Promotion) · เชื่อมใบพี่น้องที่ step "ส่งถึงผู้ปกครอง" → ส่ง LINE ข้อความเดียวรวมทุกใบ (`Invoice.bundleId`, `invoiceBundleMessage`; ต้องอนุมัติครบทุกใบ)
+- MidText (เลขที่ใบในตาราง) ย่อเมื่อคอลัมน์แคบ เต็มเมื่อลากกว้าง
+- tests 388 ผ่าน · ยังไม่ได้ push หลัง commit ล่าสุด
