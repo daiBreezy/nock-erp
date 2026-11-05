@@ -33,6 +33,7 @@ import { CalendarNotes } from "@/components/calendar/calendar-notes-ui"
 import { Kpi } from "./kpi"
 import { busDaysOf } from "@/domain/rules/parent-view"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import * as Seats from "@/domain/rules/seats"
 import { RescheduleDialog, StudentSessionMenu } from "./session-sheet"
 import { CalendarClockIcon } from "lucide-react"
 import { AssessmentNote } from "./assessment-note"
@@ -400,7 +401,7 @@ function SessionList({ stu, ents }: { stu: Student; ents: Entitlement[] }) {
   const columns: Column<Session>[] = [
     { id: "day", label: "วัน", width: "1%", cell: (s) => <span className={cn(s.date === today && "font-medium text-primary")}>{weekdayShort(new Date(`${s.date}T00:00:00`).getDay())}</span> },
     { id: "date", label: "วันที่", required: true, width: "1%", cell: (s) => <span className={cn(s.date === today && "font-medium text-primary")}>{fmtDate(s.date, { year: true })}</span> },
-    { id: "time", label: "เวลา", width: "1%", cell: (s) => <span className="flex flex-col leading-tight tabular-nums">{s.start}–{endTime(s.start, s.minutes)}<span className="text-xs text-muted-foreground">{s.minutes} นาที</span></span> },
+    { id: "time", label: "เวลา", width: "1%", cell: (s) => <span className="flex flex-col leading-tight tabular-nums">{s.start}–{endTime(s.start, s.minutes)}<span className="text-xs text-muted-foreground">{(() => { const seat = Seats.seatOf(s, stu.id, classes.find((k) => k.id === s.classId)); return Seats.isPartial(seat, s.minutes) ? `เรียน ${Seats.seatTime(s.start, seat)}` : `${s.minutes} นาที` })()}</span></span> },
     { id: "subject", label: "วิชา", cell: (s) => <span className="flex gap-1">{subjectsOf(s).map((x) => <span key={x} className={cn("rounded-full px-2 py-0.5 text-xs", subjectColor(x).chip)}>{x}</span>)}</span> },
     { id: "teacher", label: "ครู", width: "1%", cell: (s) => staff.find((x) => x.id === s.teacherId)?.nickname ?? <span className="text-muted-foreground">ยังไม่มีครู</span> },
     { id: "bus", label: "รถรับส่ง", width: "1%", align: "center", defaultHidden: true, info: "P = รับ (Pickup) · D = ส่ง (Drop) · B = ทั้งรับและส่ง — กดเพื่อแก้ (คาบที่ยังไม่ถึง)",

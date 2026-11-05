@@ -20,7 +20,8 @@ import * as Att from "@/domain/rules/attendance"
 import { busTotal, carriedMinutes, familyPromotion, invoiceHours, pendingBusAddOns, classChoices, classOptionsFor, defaultAdvance, defaultBusLegs, entryFeeWaiver, invoiceSessionDates, invoiceTotals, validateInvoiceDraft, type LineQuote } from "@/domain/rules/billing"
 import { lastAssessmentDate } from "@/domain/rules/forms"
 import type { AdvanceItem, BusExtraLine, BusLeg, CourseLine, Entitlement, Family, Invoice, Klass, Leftover, Seat } from "@/domain/types"
-import { isPartial, seatLabel, seatOptions, seatTime } from "@/domain/rules/seats"
+import { isPartial } from "@/domain/rules/seats"
+import { SeatHours } from "@/components/app/seat-hours"
 import { CAPACITY } from "@/domain/rules/scheduling"
 import { uid } from "@/data/seed"
 import { report } from "@/lib/feedback"
@@ -469,14 +470,11 @@ function LineCard({ index, draft, quote, studentId, studentGrade, choices, overl
         {chosen.filter((k) => k.minutes > 60).map((k) => {
         const seat = draft.seats?.[k.id] ?? { offset: 0, minutes: k.minutes }
         return (
-          <label key={k.id} className="flex flex-wrap items-center gap-2 text-xs">
+          <div key={k.id} className="flex flex-wrap items-center gap-2 text-xs">
             <span className="text-muted-foreground">เวลาเรียนใน {WEEKDAY_SHORT[k.weekday]} {k.name}:</span>
-            <select className="rounded-full border bg-background px-2 py-0.5" value={`${seat.offset}-${seat.minutes}`}
-              onChange={(e) => { const [offset, minutes] = e.target.value.split("-").map(Number); onChange({ seats: { ...draft.seats, [k.id]: { offset, minutes } } }) }}>
-              {seatOptions(k.minutes).map((o) => <option key={`${o.offset}-${o.minutes}`} value={`${o.offset}-${o.minutes}`}>{seatLabel(o, k.minutes)} · {seatTime(k.start, o)}</option>)}
-            </select>
+            <SeatHours className="basis-full" classMinutes={k.minutes} start={k.start} value={draft.seats?.[k.id]} onChange={(v) => { const rest = { ...draft.seats }; if (v) rest[k.id] = v; else delete rest[k.id]; onChange({ seats: rest }) }} />
             {isPartial(seat, k.minutes) && <span className="text-violet-700">ราคาคอร์สเท่าเดิม · แพ็กชั่วโมงนับคาบตามเวลาที่เรียน</span>}
-          </label>
+          </div>
         )
       })}
       {fits.length === 0 && !showAll && <p className="text-xs text-muted-foreground">ไม่มีคลาสที่ตรงวิชา/รูปแบบของคอร์สนี้ — กด &quot;แสดงคลาสอื่น&quot; เพื่อเลือกคลาสไหนก็ได้</p>}

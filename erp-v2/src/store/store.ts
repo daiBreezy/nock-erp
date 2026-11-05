@@ -1405,9 +1405,9 @@ export const useStore = create<Store>()(
         if (Sum.sessionLocked(sessionId, s.summaries)) return fail("คาบนี้ส่งสรุปให้ผู้ปกครองแล้ว แก้ไขไม่ได้")
         const seat = Seats.seatOf(se, studentId, s.classes.find((k) => k.id === se.classId))
         if (minutes !== null && (!(minutes > 0) || minutes > se.minutes)) return fail("เวลาเรียนต้องมากกว่า 0 และไม่เกินความยาวคาบ")
-        const value = minutes === null || minutes === seat.minutes ? undefined : minutes
+        const value = minutes === null || minutes === Seats.seatTotal(seat) ? undefined : minutes
         set({ attendance: s.attendance.map((x) => (x === a ? { ...x, minutes: value } : x)) })
-        log("attendance", [studentId], "แก้เวลาเรียนจริง", `${se.subject} ${fmtDate(se.date)} ${se.start} · มาเรียน ${Seats.fmtLen(value ?? seat.minutes)}`)
+        log("attendance", [studentId], "แก้เวลาเรียนจริง", `${se.subject} ${fmtDate(se.date)} ${se.start} · มาเรียน ${Seats.fmtLen(value ?? Seats.seatTotal(seat))}`)
         return OK
       },
 
@@ -1518,7 +1518,7 @@ export const useStore = create<Store>()(
         for (const sid of add) {
           const k = s.classes.find((c) => c.id === drop.classId)
           const seat = Seats.seatOf(drop, sid, k)
-          if (Seats.isPartial(seat, keep.minutes) || keep.minutes !== drop.minutes) seats[sid] = { offset: Math.max(0, toMinutes(drop.start) - toMinutes(keep.start) + seat.offset), minutes: seat.minutes }
+          if (Seats.isPartial(seat, keep.minutes) || keep.minutes !== drop.minutes) seats[sid] = Seats.shiftSeat(seat, toMinutes(drop.start) - toMinutes(keep.start))
           if (drop.notes?.[sid]) notes[sid] = drop.notes[sid]
         }
         set({
@@ -1610,7 +1610,8 @@ export const useStore = create<Store>()(
         if (!can(s.me(), "session.manage")) return fail("คุณไม่มีสิทธิ์จัดเวลาเรียนของนักเรียน")
         const len = scope === "class" ? s.classes.find((k) => k.id === id)?.minutes : s.sessions.find((x) => x.id === id)?.minutes
         if (!len) return fail("ไม่พบคลาส/คาบ")
-        if (seat && (seat.offset < 0 || seat.minutes <= 0 || seat.offset + seat.minutes > len)) return fail("ช่วงเวลาไม่อยู่ในคาบ")
+        const bad = seat ? Seats.validateSeat(seat, len) : null
+        if (bad) return fail(bad)
         const put = <T extends { seats?: Record<ID, Seat> }>(x: T): T => {
           const seats = { ...x.seats }
           if (seat && Seats.isPartial(seat, len)) seats[studentId] = seat

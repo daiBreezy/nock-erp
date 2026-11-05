@@ -1,6 +1,6 @@
 // Attendance, entitlements and student status (C1–C7, F4, F7, F8).
 
-import { minutesCharged, seatOf } from "./seats"
+import { minutesCharged, seatOf, seatTotal } from "./seats"
 import { addDays, daysBetween, fmtDate, weekdayOf } from "../dates"
 import type { Attendance, AttendanceStatus, Course, DateStr, Entitlement, Holiday, ID, Klass, Result, Session, Staff, Student, StudentLeave } from "../types"
 import { can } from "./permissions"
@@ -69,7 +69,7 @@ export function balance(e: Entitlement, sessions: Session[], attendance: Attenda
     .filter((a) => a.studentId === e.studentId && byId.has(a.sessionId))
     .reduce((m, a) => { const se = byId.get(a.sessionId)!; return m + minutesCharged(a, seatOf(se, e.studentId, klass(se.classId))) }, 0)
   const first = classes.find((k) => e.classIds.includes(k.id))
-  const usual = (first && seatOf({ minutes: first.minutes }, e.studentId, first).minutes) || [...byId.values()][0]?.minutes || 60
+  const usual = (first && seatTotal(seatOf({ minutes: first.minutes }, e.studentId, first))) || [...byId.values()][0]?.minutes || 60
   const remainingMinutes = Math.max(0, e.minutesTotal - usedMinutes)
   const remaining = Math.floor(remainingMinutes / usual)
   return { kind: e.kind, used, total: used + remaining, remaining, until: e.to, remainingMinutes, totalMinutes: e.minutesTotal }

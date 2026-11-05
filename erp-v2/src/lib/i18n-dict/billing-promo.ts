@@ -13,4 +13,6 @@ export const BILLING_PROMO: Record<string, Entry> = {
   "โปรโมชัน · {0} — แถมเวลาเรียนเพิ่ม {1} ชม. (ไม่เพิ่มราคา)": { en: "Promotion · {0} — {1} h of extra class time (price unchanged)", ja: "キャンペーン · {0} — {1}時間追加（価格据え置き）" },
   "คืนเงิน (Refund)": { en: "Refund", ja: "返金" },
   "คืนเงิน (Refund) · ใบลดหนี้ อ้างถึง": { en: "Refund · credit note for", ja: "返金・クレジットノート（対象）" },
+  "เลือกตามชั่วโมง (เลือกได้หลายช่วง)": { en: "Pick by hour (several windows allowed)", ja: "時間ごとに選択（複数可）" },
+  "ช่วงเวลาซ้อนกัน": { en: "Time windows overlap", ja: "時間帯が重なっています" },
 }

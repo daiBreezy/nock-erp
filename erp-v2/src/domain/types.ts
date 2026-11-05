@@ -491,6 +491,9 @@ export type AttendanceStatus = "present" | "absent" | "leave"
 export interface Seat {
   offset: number
   minutes: number
+  /** more windows after the first one (owner 2026-11-05, #54): a 3-hour class, hours 1 and 3 only =
+   *  { offset: 0, minutes: 60, more: [{ offset: 120, minutes: 60 }] }. Sorted, no overlap. */
+  more?: { offset: number; minutes: number }[]
 }
 
 export interface Attendance {

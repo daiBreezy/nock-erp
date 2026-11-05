@@ -3,6 +3,7 @@
 import { addMonths, endOfMonth, fmtDate, fmtMoney, fromMinutes, monthKey, nextWeekday, addDays, toMinutes, weekdayOf } from "../dates"
 import type { AdvanceItem, Branch, BusAddOn, Entitlement, Leftover, Student, Weekday, BusLeg, Course, CourseLine, DateStr, Fee, Holiday, ID, Invoice, Klass, PriceUnit, Result, Role, Staff } from "../types"
 import { purchaseOf } from "./course"
+import { seatTotal, seatWindows } from "./seats"
 import { requireForceRemark } from "./notifications"
 import { inBranch } from "./permissions"
 import { isHoliday } from "./scheduling"
@@ -256,7 +257,7 @@ export function quoteLine(line: CourseLine, ctx: { branch: Branch; courses: Cour
   const course = ctx.courses.find((c) => c.id === line.courseId)
   // a student who attends part of a class (1 of 2 hours) is quoted on their own part — sessions follow their minutes
   const klasses = line.classIds.map((id) => ctx.classes.find((c) => c.id === id)).filter((k): k is Klass => !!k)
-    .map((k) => { const seat = line.seats?.[k.id]; return seat ? { ...k, minutes: seat.minutes, start: fromMinutes(toMinutes(k.start) + seat.offset) } : k })
+    .map((k) => { const seat = line.seats?.[k.id]; return seat ? { ...k, minutes: seatTotal(seat), start: fromMinutes(toMinutes(k.start) + seatWindows(seat)[0].offset) } : k })
   // bonus-hours promotion: free minutes on top of the hours bought (chosen from the course + periods, not from the quote)
   const purchase = course ? purchaseOf(course, line.periods) : null
   const bonus = course && purchase && promotions ? bestBonusHours(ctx.branch, purchase, line.startDate) : null

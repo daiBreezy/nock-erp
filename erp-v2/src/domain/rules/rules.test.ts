@@ -1,6 +1,6 @@
 // Regression tests: each case reproduces a bug found on Dev staging and proves the rule prevents it.
 import { describe, expect, it } from "vitest"
-import type { DevTicket, NockAnswer, NockQuestion, Role, Assessment, Attendance, Branch, BusAddOn, CreditNote, LessonSummary, Course, Entitlement, Family, FormSubmission, Lead, Student, FormOfferSlot, Holiday, Invoice, Klass, Session, Staff, StudentLeave, Weekday } from "../types"
+import type { DevTicket, NockAnswer, NockQuestion, Role, Assessment, Attendance, Branch, BusAddOn, CreditNote, LessonSummary, Course, Entitlement, Family, FormSubmission, Lead, Student, Seat, FormOfferSlot, Holiday, Invoice, Klass, Session, Staff, StudentLeave, Weekday } from "../types"
 import { applyClassEdit, applyToSessions, canChangeTeachers, canMoveToClass, canUndoClassMove, canRescheduleStudent, movesOf, mondayOf, removedWithClass, canSave, closesBranch, holidayImpact, hoursFor, isHoliday, overlappingRows, periodsIn, introducedConflicts, editSingleSession, findConflicts, generateSessions, moveSession, sessionState, validateClass, workState } from "./scheduling"
 import { activeLeave, nextClassDates, teacherLeaveCancels, leaveRunSessions, balance, studentState, leaveLedger, packageCovers, canMark, canSaveLeave, coveringEntitlement, effectiveTo, leavesUsed, lowBalanceAlert, removeFromClass, renewalFollowUpDue, resolveEntitlements } from "./attendance"
 import { bestPromotion, duplicateBusDay, billedOn, busAddOnAmount, pendingBusAddOns, validateBusAddOn, carriedMinutes, weekKey, classOptionsFor, defaultAdvance, entryFeeWaiver, invoiceSessionDates, invoiceTotals, validateInvoiceDraft, canApprove, canConfirmPayment, canForceApprove, canForceConfirmPayment, canSend, canVoid, defaultBusLegs, busTotal, nextInvoiceNumber, quoteCourse, roundUpTo, familyPromotion, bestBonusHours, FAMILY_PROMO_TIERS } from "./billing"
@@ -2895,5 +2895,42 @@ describe("refund by session (owner 2026-11-05)", () => {
     const att = [mk("s1", "present"), mk("s2", "absent"), mk("s3", "leave"), mk("s4", "leave")]
     expect(Refund.consumedSessions(e, ss, att)).toBe(3) // 2 taken + 1 leave beyond the quota of 1
     expect(Refund.consumedSessions(e, ss, att.slice(0, 3))).toBe(2) // one leave = inside the quota
+  })
+})
+
+describe("partial time with several windows (owner 2026-11-05, #54)", () => {
+  it("hours 1 and 3 of a 3-hour class are two windows; neighbours merge into one", () => {
+    expect(Seats.seatFromBlocks(180, [0, 2])).toEqual({ offset: 0, minutes: 60, more: [{ offset: 120, minutes: 60 }] })
+    expect(Seats.seatFromBlocks(180, [1, 2])).toEqual({ offset: 60, minutes: 120 })
+    expect(Seats.seatFromBlocks(180, [])).toBeNull()
+    const s = Seats.seatFromBlocks(180, [0, 2])!
+    expect(Seats.seatTotal(s)).toBe(120)
+    expect(Seats.isPartial(s, 180)).toBe(true)
+    expect(Seats.seatTime("16:00", s)).toBe("16:00–17:00 + 18:00–19:00")
+    expect(Seats.blocksOf(s, 180)).toEqual([0, 2])
+    expect(Seats.seatLabel(s, 180)).toBe("เรียน 2 ชม. (2 ช่วง)")
+  })
+  it("windows must stay inside the class and not overlap", () => {
+    expect(Seats.validateSeat({ offset: 0, minutes: 60, more: [{ offset: 120, minutes: 60 }] }, 180)).toBeNull()
+    expect(Seats.validateSeat({ offset: 0, minutes: 90, more: [{ offset: 60, minutes: 60 }] }, 180)).toMatch(/ซ้อน/)
+    expect(Seats.validateSeat({ offset: 0, minutes: 60, more: [{ offset: 150, minutes: 60 }] }, 180)).toMatch(/ไม่อยู่ในคาบ/)
+  })
+  it("the invoice charges only the hours attended: a 3-hour class, 2 hours, gives 1.5× the sessions", () => {
+    const pkg: Course = { ...monthPkg, id: "h24", unit: "hour", duration: 24, price: 6000 }
+    const k3 = klass({ id: "k3", minutes: 180 })
+    const inv = (seats?: Record<string, Seat>): Invoice => ({ id: "i", branchId: "b1", studentId: "a", number: null, lines: [{ id: "l", courseId: "h24", classIds: ["k3"], startDate: "2026-10-06", periods: 1, seats }], bus: [], bookFee: 0, advance: [], concession: null, noteToParent: "", status: "draft", pdf: "none", createdBy: "adm", createdAt: "", payments: [] })
+    const ctx = { branch, courses: [pkg], classes: [k3], holidays: [] }
+    expect(invoiceTotals(inv(), ctx).lines[0].quote?.slots.length).toBe(8) // 24 h ÷ 3 h
+    const two = invoiceTotals(inv({ k3: Seats.seatFromBlocks(180, [0, 2])! }), ctx)
+    expect(two.lines[0].quote?.slots.length).toBe(12) // 24 h ÷ 2 h
+    expect(two.lines[0].quote?.slots[0].minutes).toBe(120)
+    expect(two.total).toBe(6000)
+  })
+  it("a multi-window seat is charged by its total on an hour pack", () => {
+    const seat = Seats.seatFromBlocks(180, [0, 2])!
+    expect(Seats.minutesCharged({ status: "absent" }, seat)).toBe(120)
+    expect(Seats.minutesCharged({ status: "present" }, seat)).toBe(120)
+    expect(Seats.minutesCharged({ status: "leave" }, seat)).toBe(0)
+    expect(Seats.shiftSeat(seat, 60)).toEqual({ offset: 60, minutes: 60, more: [{ offset: 180, minutes: 60 }] })
   })
 })
