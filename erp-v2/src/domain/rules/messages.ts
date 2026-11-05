@@ -8,7 +8,8 @@ import type { InvoiceTotals } from "./billing"
 const bankLine = (b: Branch) =>
   b.bankAccount.number ? `โอนเข้า ${b.bankAccount.bank} ${b.bankAccount.number} (${b.bankAccount.name})` : "ชำระที่เคาน์เตอร์สาขา"
 
-export function invoiceMessage(inv: Invoice, totals: InvoiceTotals, ctx: { student: Student; branch: Branch }): string {
+/** the invoice's own lines, up to and including what to pay */
+function invoiceBody(inv: Invoice, totals: InvoiceTotals, ctx: { student: Student }): (string | null)[] {
   return [
     `📄 ใบแจ้งค่าเรียน ${inv.number ?? ""}`.trim(),
     `นักเรียน: ${ctx.student.nickname} (${ctx.student.name}) · ${ctx.student.grade}`,
@@ -21,10 +22,26 @@ export function invoiceMessage(inv: Invoice, totals: InvoiceTotals, ctx: { stude
     ...totals.lines.filter((l) => l.bonusMinutes).map((l) => `🎁 ${l.bonusName ?? "โปรโมชัน"}: แถมเวลาเรียนเพิ่ม ${l.bonusMinutes / 60} ชม.`),
     totals.credit ? `หักเครดิตคอร์ส -${fmtMoney(totals.credit)}` : null,
     `ยอดชำระ ${fmtMoney(totals.total)}`,
+  ]
+}
+
+export function invoiceMessage(inv: Invoice, totals: InvoiceTotals, ctx: { student: Student; branch: Branch }): string {
+  return [...invoiceBody(inv, totals, ctx), bankLine(ctx.branch), inv.noteToParent.trim() || null, "ชำระแล้วส่งรูปสลิปในแชทนี้ได้เลยค่ะ 🙏"].filter(Boolean).join("\n")
+}
+
+/** Siblings' invoices linked together (owner 2026-11-05): ONE message — each child's invoice, the grand total, the bank
+ *  once, and the sender's note. */
+export function invoiceBundleMessage(items: { inv: Invoice; totals: InvoiceTotals; student: Student }[], ctx: { branch: Branch }, note: string): string {
+  const total = items.reduce((a, x) => a + x.totals.total, 0)
+  return [
+    `📄 ใบแจ้งค่าเรียน (รวม ${items.length} ใบ)`,
+    ...items.flatMap((x) => ["", ...invoiceBody(x.inv, x.totals, x)]),
+    "",
+    `ยอดชำระรวมทั้งหมด ${fmtMoney(total)}`,
     bankLine(ctx.branch),
-    inv.noteToParent.trim() || null,
-    "ชำระแล้วส่งรูปสลิปในแชทนี้ได้เลยค่ะ 🙏",
-  ].filter(Boolean).join("\n")
+    note.trim() || null,
+    "ชำระแล้วส่งรูปสลิปในแชทนี้ได้เลยค่ะ (สลิปเดียวสำหรับทุกใบได้) 🙏",
+  ].filter((x) => x !== null).join("\n")
 }
 
 /** Sent only when staff press "notify the parent" — voiding an invoice never messages anyone by itself (owner 2026-11-05, #52). */

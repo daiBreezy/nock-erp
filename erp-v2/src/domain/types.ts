@@ -1362,6 +1362,8 @@ export interface Invoice {
   /** Advance Optional (Staging): entry / mock fees picked from General Fees — name + price copied so a later price change never rewrites an invoice */
   advance: AdvanceItem[]
   concession: { amount: number; remark: string } | null
+  /** siblings' invoices linked to be sent to the parent as ONE message (owner 2026-11-05) */
+  bundleId?: ID
   /** made by Duplicate / bulk renewal from this invoice (owner 2026-11-05) */
   duplicatedFrom?: ID
   /** auto-applied best promotion (id kept so the invoice shows which one) */

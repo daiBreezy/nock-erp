@@ -214,6 +214,9 @@ type Store = DB & UIState & {
   duplicateInvoice: (id: ID) => Result<Invoice>
   /** owner 2026-11-05: renewal drafts for many students at once, each from that student's last invoice */
   createRenewalDrafts: (ids: ID[]) => Result<{ created: Invoice[]; failed: { id: ID; error: string }[] }>
+  /** owner 2026-11-05: link invoices of one family so they go to the parent in a single message; unlink to separate */
+  linkInvoices: (ids: ID[]) => Result
+  unlinkInvoice: (id: ID) => Result
   /** the message to the parent can be edited any time before it is sent / the invoice is paid (owner 2026-11-05) */
   setInvoiceNote: (id: ID, note: string) => Result
   /** optional, manual: tell the parent on LINE that a voided invoice was cancelled (never automatic) */
@@ -2225,13 +2228,20 @@ export const useStore = create<Store>()(
         if (!r.ok) return r
         const stu = s.students.find((x) => x.id === inv.studentId)!
         const ctx = ctxOf(s, inv.branchId)
-        const text = Msg.invoiceMessage(inv, Bill.invoiceTotals(inv, ctx), { student: stu, branch: ctx.branch })
+        // linked siblings' invoices go together in ONE message (owner 2026-11-05)
+        const mates = inv.bundleId ? s.invoices.filter((x) => x.id !== id && x.bundleId === inv.bundleId && x.status !== "void" && x.status !== "paid") : []
+        const notReady = mates.find((x) => x.status !== "approved" && x.status !== "sent")
+        if (notReady) return fail(`ใบ ${notReady.number ?? "ร่าง"} ที่เชื่อมไว้ยังไม่อนุมัติ — อนุมัติก่อน หรือยกเลิกการเชื่อมต่อ`)
+        const sentIds = new Set([id, ...mates.map((x) => x.id)])
+        const text = mates.length
+          ? Msg.invoiceBundleMessage([inv, ...mates].map((x) => ({ inv: x, totals: Bill.invoiceTotals(x, ctxOf(s, x.branchId)), student: s.students.find((y) => y.id === x.studentId)! })), { branch: ctx.branch }, note)
+          : Msg.invoiceMessage(inv, Bill.invoiceTotals(inv, ctx), { student: stu, branch: ctx.branch })
         const delivery = pushLine(stu.familyId, text, (ok, error) => {
-          set((st) => ({ invoices: st.invoices.map((x) => (x.id === id ? { ...x, delivery: ok ? "delivered" : "failed", deliveryError: ok ? undefined : error } : x)) }))
+          set((st) => ({ invoices: st.invoices.map((x) => (sentIds.has(x.id) ? { ...x, delivery: ok ? "delivered" : "failed", deliveryError: ok ? undefined : error } : x)) }))
           log("billing", [inv.studentId], "ส่งใบแจ้งหนี้", `${inv.number} · ${ok ? "ถึงผู้ปกครองทาง LINE แล้ว" : `ส่ง LINE ไม่สำเร็จ: ${error ?? ""}`}`)
           if (!ok) toast.error(`ส่งใบแจ้งหนี้ ${inv.number} ทาง LINE ไม่สำเร็จ — ${error ?? ""}`)
         })
-        set({ invoices: s.invoices.map((x) => (x.id === id ? { ...inv, status: "sent", sentAt: s.now().toISOString(), delivery, deliveryError: undefined } : x)) })
+        set({ invoices: s.invoices.map((x) => (x.id === id ? { ...inv, status: "sent", sentAt: s.now().toISOString(), delivery, deliveryError: undefined } : sentIds.has(x.id) ? { ...x, status: "sent", sentAt: s.now().toISOString(), delivery, deliveryError: undefined } : x)) })
         if (delivery !== "sending") log("billing", [inv.studentId], "ส่งใบแจ้งหนี้", `${inv.number} · ${delivery === "delivered" ? "ส่งทาง LINE แล้ว" : "ยังไม่ถึงผู้ปกครอง (ไม่มี LINE)"}`)
         // lead's child got an invoice → the lead is waiting for payment
         const lead = leadOfStudent(inv.studentId)
@@ -2627,6 +2637,36 @@ export const useStore = create<Store>()(
           else failed.push({ id, error: r.error })
         }
         return { ok: true, value: { created, failed } }
+      },
+
+      linkInvoices: (ids) => {
+        const s = get()
+        const perm = requirePerm(s.me(), "billing.manage")
+        if (!perm.ok) return perm
+        const list = ids.map((id) => s.invoices.find((x) => x.id === id)).filter((x): x is Invoice => !!x)
+        if (list.length < 2) return fail("เลือกใบแจ้งหนี้อย่างน้อย 2 ใบ")
+        if (list.some((x) => x.status === "void" || x.status === "paid")) return fail("เชื่อมได้เฉพาะใบที่ยังไม่ชำระ / ยังไม่ยกเลิก")
+        const fam = new Set(list.map((x) => s.students.find((y) => y.id === x.studentId)?.familyId ?? `solo-${x.id}`))
+        if (fam.size > 1 || [...fam][0]?.startsWith("solo-")) return fail("เชื่อมได้เฉพาะใบของคนในครอบครัวเดียวกัน")
+        if (new Set(list.map((x) => x.branchId)).size > 1) return fail("เชื่อมได้เฉพาะใบของสาขาเดียวกัน")
+        // joining one that is already in a bundle pulls its whole bundle along
+        const bundleIds = new Set(list.map((x) => x.bundleId).filter(Boolean))
+        const bundleId = [...bundleIds][0] ?? uid("bd")
+        set({ invoices: s.invoices.map((x) => (list.some((l) => l.id === x.id) || (x.bundleId && bundleIds.has(x.bundleId)) ? { ...x, bundleId } : x)) })
+        log("billing", list.map((x) => x.studentId), "เชื่อมใบแจ้งหนี้พี่น้อง", `${list.map((x) => x.number ?? "ร่าง").join(" + ")} · ส่งผู้ปกครองทีเดียว`)
+        return OK
+      },
+
+      unlinkInvoice: (id) => {
+        const s = get()
+        const perm = requirePerm(s.me(), "billing.manage")
+        if (!perm.ok) return perm
+        const inv = s.invoices.find((x) => x.id === id)
+        if (!inv?.bundleId) return fail("ใบนี้ไม่ได้เชื่อมกับใบอื่น")
+        const left = s.invoices.filter((x) => x.bundleId === inv.bundleId && x.id !== id)
+        // a bundle of one is no bundle
+        set({ invoices: s.invoices.map((x) => (x.id === id || (left.length < 2 && x.bundleId === inv.bundleId) ? { ...x, bundleId: undefined } : x)) })
+        return OK
       },
 
       setInvoiceNote: (id, note) => {

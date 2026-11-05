@@ -18,7 +18,7 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { addDays, fmtDate, fmtMoney, fmtMonth, toDateStr } from "@/domain/dates"
 import * as Att from "@/domain/rules/attendance"
-import { busTotal, carriedMinutes, lastNoteFor, familyPromotion, invoiceHours, FAMILY_PROMO_TIERS, pendingBusAddOns, classChoices, classOptionsFor, defaultAdvance, defaultBusLegs, entryFeeWaiver, invoiceSessionDates, invoiceTotals, validateInvoiceDraft, type LineQuote } from "@/domain/rules/billing"
+import { busTotal, carriedMinutes, lastNoteFor, lastPaidInvoice, familyPromotion, invoiceHours, FAMILY_PROMO_TIERS, pendingBusAddOns, classChoices, classOptionsFor, defaultAdvance, defaultBusLegs, entryFeeWaiver, invoiceSessionDates, invoiceTotals, validateInvoiceDraft, type LineQuote } from "@/domain/rules/billing"
 import { lastAssessmentDate } from "@/domain/rules/forms"
 import type { AdvanceItem, BusExtraLine, BusLeg, CourseLine, Entitlement, Family, Invoice, Klass, Leftover, Seat } from "@/domain/types"
 import { isPartial } from "@/domain/rules/seats"
@@ -53,6 +53,7 @@ export function InvoiceEditor({ invoice, defaultStudentId, renewEntitlementId, o
   const entitlements = useEntitlements()
   const assessments = useStore((s) => s.assessments)
   const save = useStore((s) => s.saveInvoice)
+  const duplicate = useStore((s) => s.duplicateInvoice)
   const leadToStudent = useStore((s) => s.convertLeadToStudent)
   const [picking, setPicking] = useState(false)
   const [pickingCourses, setPickingCourses] = useState(false)
@@ -187,6 +188,8 @@ export function InvoiceEditor({ invoice, defaultStudentId, renewEntitlementId, o
     ? invoices.filter((i) => i.id !== newId && i.status !== "void" && i.branchId === branch.id && i.createdAt.slice(0, 10) === (invoice?.createdAt ?? now.toISOString()).slice(0, 10)
       && students.find((x) => x.id === i.studentId)?.familyId === student.familyId && i.studentId !== studentId)
     : []
+  // the other children of this family at this branch
+  const brothers = student?.familyId ? students.filter((x) => x.familyId === student.familyId && x.id !== studentId) : []
   const siblingHours = siblingInvoices.map((i) => ({ inv: i, hours: invoiceHours(invoiceTotals(i, ctx)) }))
   const familyTier = studentId ? familyPromotion([{ studentId, hours: invoiceHours({ lines: baseLines }) }, ...siblingHours.map((s) => ({ studentId: s.inv.studentId, hours: s.hours }))]) : null
   const familyPct = familyOn && familyTier ? familyTier.pct : 0
@@ -256,6 +259,25 @@ export function InvoiceEditor({ invoice, defaultStudentId, renewEntitlementId, o
             ))}
           </ul>
         )}
+        {/* siblings (owner 2026-11-05): suggest asking the parent about the other children today — they share the Family Promotion */}
+        {student?.familyId && brothers.length > 0 && (
+          <div className="space-y-1.5 rounded-xl border border-sky-300 p-3 text-sm dark:border-sky-800">
+            <p className={cn("flex items-center gap-2 font-semibold", AI_TONE.text)}><AiIcon className="size-6" /> ถามผู้ปกครองว่าจะต่อคอร์สของลูกอีกคนด้วยไหม — ได้รับ Family Promotion</p>
+            {brothers.map((b) => {
+              const has = siblingInvoices.some((i) => i.studentId === b.id)
+              const last = lastPaidInvoice(b.id, invoices)
+              return (
+                <div key={b.id} className="flex flex-wrap items-center gap-2 text-xs">
+                  <span className="font-medium">{b.nickname}</span><span className="text-muted-foreground">{b.grade}</span>
+                  {has ? <span className="ml-auto text-emerald-700">มีใบวันนี้แล้ว ✓</span>
+                    : last ? <Button size="xs" variant="outline" className="ml-auto" onClick={() => report(duplicate(last.id), (v) => `สร้าง Draft ให้ ${b.nickname} แล้ว · ${v.number}`)}>สร้าง Draft ให้ {b.nickname} จากใบเดิม</Button>
+                      : <span className="ml-auto text-muted-foreground">ยังไม่มีใบเดิม — สร้างใบใหม่เอง</span>}
+                </div>
+              )
+            })}
+          </div>
+        )}
+
         {familyTier && (
           <div className={cn("flex flex-wrap items-center gap-3 rounded-xl border border-sky-300 p-3 text-sm dark:border-sky-800", AI_TONE.soft)}>
             <AiIcon />

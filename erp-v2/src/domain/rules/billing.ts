@@ -389,6 +389,10 @@ export function renewalDraft(inv: Invoice, o: { id: ID; today: DateStr; nowIso: 
   }
 }
 
+/** The student's last finished (paid) invoice that has courses — what a sibling Draft is made from. */
+export const lastPaidInvoice = (studentId: ID, invoices: Invoice[]): Invoice | undefined =>
+  invoices.filter((i) => i.studentId === studentId && i.status === "paid" && i.lines.length > 0).sort((a, b) => b.createdAt.localeCompare(a.createdAt))[0]
+
 /** Who can be renewed (owner 2026-11-05): each student's LATEST live invoice with courses, when it is paid — i.e. nothing
  *  newer (a draft already waiting counts) — with the day its last course ends. Soonest-ending first. */
 export function renewalCandidates(invoices: Invoice[], ctxFor: (branchId: ID) => { branch: Branch; courses: Course[]; classes: Klass[]; holidays: Holiday[] }): { inv: Invoice; end: DateStr }[] {

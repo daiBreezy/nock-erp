@@ -16,7 +16,7 @@ import { suggestFixes } from "./suggest"
 import { advanceStage, canSetStage, daysAgo, groupOf, restoreStage, siblingLead, validateLead } from "./crm"
 import { allAssessmentsAttended, APPROVE_STAGE, assessmentsFollowSessions, ATTENDED_STAGE, buildFormPrefill, commonSlots, buildCombinedSessionDraft, buildSessionDraftFromSlot, findOfferSlots, lastAssessmentDate, openHourStarts, planApproval, priorApproval, sessionKindLabel } from "./forms"
 import { customerRows, filterCustomers } from "./customers"
-import { invoiceMessage } from "./messages"
+import { invoiceMessage, invoiceBundleMessage } from "./messages"
 import * as Refund from "./refunds"
 import * as Doc from "./documents"
 import * as Seats from "./seats"
@@ -3000,5 +3000,22 @@ describe("renewal candidates (owner 2026-11-05)", () => {
     const r = renewalCandidates(list, () => ctx)
     expect(r.map((x) => x.inv.id)).toEqual(["c1", "a2"])
     expect(r[0].end < r[1].end).toBe(true)
+  })
+})
+
+describe("siblings' invoices sent together (owner 2026-11-05)", () => {
+  const pkg: Course = { ...monthPkg, id: "h10", unit: "hour", duration: 10, price: 6000 }
+  const ctx = { branch: { ...branch, bankAccount: { bank: "KBank", branchName: "", name: "NockAcademy", number: "123-4" } }, courses: [pkg], classes: [klass({ id: "k90", minutes: 90 })], holidays: [] }
+  const mk = (id: string, studentId: string, number: string): Invoice => ({ id, branchId: "b1", studentId, number, lines: [{ id: "l" + id, courseId: "h10", classIds: ["k90"], startDate: "2026-10-06", periods: 1, leftover: "drop" }], bus: [], bookFee: 0, advance: [], concession: null, noteToParent: "", status: "approved", pdf: "ready", createdBy: "u", createdAt: "", payments: [] })
+  const stu = (id: string, nickname: string) => ({ id, nickname, name: nickname, grade: "ป.5" }) as unknown as Student
+  it("one message: each child's invoice, the grand total, the bank once and the sender's note", () => {
+    const a = mk("i1", "a", "INV-1"), b = mk("i2", "b", "INV-2")
+    const items = [{ inv: a, totals: invoiceTotals(a, ctx), student: stu("a", "ก้อง") }, { inv: b, totals: invoiceTotals(b, ctx), student: stu("b", "ขิม") }]
+    const text = invoiceBundleMessage(items, { branch: ctx.branch }, "ชำระภายใน 5 พ.ย.")
+    expect(text).toContain("INV-1")
+    expect(text).toContain("INV-2")
+    expect(text).toContain("ยอดชำระรวมทั้งหมด")
+    expect(text).toContain("ชำระภายใน 5 พ.ย.")
+    expect(text.match(/โอนเข้า KBank/g)?.length).toBe(1)
   })
 })
