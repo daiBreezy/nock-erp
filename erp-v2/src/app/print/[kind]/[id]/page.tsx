@@ -1,5 +1,6 @@
 "use client"
 
+import { useSyncExternalStore } from "react"
 import { useParams } from "next/navigation"
 import { PrinterIcon } from "lucide-react"
 import { fmtMoney } from "@/domain/dates"
@@ -26,6 +27,8 @@ const money = (n: number) => n.toLocaleString("en-US", { minimumFractionDigits: 
 export default function PrintDocument() {
   const { kind, id } = useParams<{ kind: Kind; id: string }>()
   const s = useStore()
+  // #embed = shown inside the invoice panel (thumbnail / viewer): no toolbar, no grey backdrop
+  const embed = useSyncExternalStore(() => () => {}, () => location.hash === "#embed", () => false)
   const cn = kind === "credit-note" ? s.creditNotes.find((x) => x.id === id) : undefined
   const inv = s.invoices.find((x) => x.id === (cn ? cn.invoiceId : id))
   const branch = s.branches.find((b) => b.id === inv?.branchId)
@@ -64,16 +67,16 @@ export default function PrintDocument() {
   const rows: (typeof items[number] | null)[] = [...items, ...Array.from({ length: Math.max(0, 8 - items.length) }, () => null)]
 
   return (
-    <div className="min-h-screen bg-neutral-200 py-6 print:bg-white print:py-0">
+    <div className={embed ? "bg-white" : "min-h-screen bg-neutral-200 py-6 print:bg-white print:py-0"}>
       {/* React 19 hoists <title> — the saved PDF is named like the template: "<number> <customer>" */}
       <title>{Doc.documentFileName(number!, customer.name)}</title>
       <style>{`@page { size: A4; margin: 12mm } @media print { body { -webkit-print-color-adjust: exact; print-color-adjust: exact } }`}</style>
-      <div className="mx-auto mb-4 flex max-w-[210mm] items-center gap-3 px-2 print:hidden">
+      <div className={embed ? "hidden" : "mx-auto mb-4 flex max-w-[210mm] items-center gap-3 px-2 print:hidden"}>
         <span className="text-sm text-neutral-600">{Doc.documentFileName(number!, customer.name)}.pdf</span>
         <button onClick={() => window.print()} className="ml-auto inline-flex items-center gap-2 rounded-full bg-neutral-900 px-4 py-2 text-sm font-medium text-white"><PrinterIcon className="size-4" /> พิมพ์ / บันทึก PDF</button>
       </div>
 
-      <article className="mx-auto w-[210mm] bg-white p-[12mm] text-[11px] leading-snug text-neutral-900 shadow print:w-auto print:p-0 print:shadow-none">
+      <article className={`mx-auto w-[210mm] bg-white p-[12mm] text-[11px] leading-snug text-neutral-900 print:w-auto print:p-0 print:shadow-none ${embed ? "" : "shadow"}`}>
         <header className="flex items-start gap-4 border-b-2 border-neutral-800 pb-3">
           {/* eslint-disable-next-line @next/next/no-img-element -- static brand asset in a print page */}
           <img src="/brand/logo-full.png" alt="" className="h-12 w-auto" />

@@ -26,6 +26,8 @@ import { useShallow } from "zustand/react/shallow"
 import { useStore } from "@/store/store"
 import { invoiceTone } from "./status"
 import { CreditNotes } from "./credit-notes"
+import { Section } from "./section"
+import { DocThumbs, type DocItem } from "./doc-thumbs"
 
 /**
  * Invoice side panel (owner 2026-10-09 — same pattern as every entity): the invoice and its next step; แก้ไข switches
@@ -69,6 +71,7 @@ function Body({ id, slipMediaId, onEdit }: { id: ID; slipMediaId?: string; onEdi
   const act = useStore(useShallow((s) => ({ gen: s.generatePdf, approve: s.approveInvoice, send: s.sendInvoice, void: s.voidInvoice, notifyVoid: s.notifyVoid, pay: s.recordPayment, payGroup: s.recordGroupPayment, confirm: s.confirmPayment, regroup: s.setReceiptGrouping })))
   const invoices = useStore((s) => s.invoices)
   const [note, setNote] = useState(inv?.noteToParent ?? "")
+  const [openSec, setOpenSec] = useState(6)
   const [voiding, setVoiding] = useState(false)
   const [reason, setReason] = useState("")
   const [amount, setAmount] = useState("")
@@ -121,11 +124,20 @@ function Body({ id, slipMediaId, onEdit }: { id: ID; slipMediaId?: string; onEdi
     setAmount(ids.length ? String(owed(inv) + picked.reduce((a, x) => a + owed(x), 0)) : "")
   }
 
-  const steps: { label: string; state: "done" | "current" | "todo" | "warn"; detail: string }[] = [
+  // documents shown on their step: invoice PDF · pay slips (one slip shared by siblings counts once) · receipts (one per receipt number)
+  const slips = [...new Set(inv.payments.map((p) => p.slip).filter((x): x is string => !!x))]
+  const receipts = [...new Map(group.filter((x) => x.receiptNumber).map((x) => [x.receiptNumber!, x])).values()]
+  const docsFor = {
+    invoice: inv.pdf === "ready" ? [{ key: "inv", kind: "invoice" as const, label: `ใบแจ้งหนี้ ${inv.number ?? ""}`.trim(), src: `/print/invoice/${inv.id}` }] : [],
+    slip: slips.map((src, i) => ({ key: `slip${i}`, kind: "slip" as const, label: `สลิป${slips.length > 1 ? ` ${i + 1}` : ""}`, src })),
+    receipt: receipts.map((x) => ({ key: `rc${x.id}`, kind: "receipt" as const, label: `ใบเสร็จ ${x.receiptNumber}`, src: `/print/receipt/${x.id}` })),
+  } satisfies Record<string, DocItem[]>
+  const steps: { label: string; state: "done" | "current" | "todo" | "warn"; detail: string; docs?: DocItem[] }[] = [
     { label: "สร้างใบ", state: "done", detail: `${who(inv.createdBy)} · ${fmtDateTime(inv.createdAt)}` },
     {
       label: "สร้าง PDF",
       state: inv.pdf === "ready" ? "done" : inv.pdf === "failed" ? "warn" : inv.status === "void" ? "todo" : "current",
+      docs: docsFor.invoice,
       detail: inv.pdf === "ready" ? "พร้อม" : inv.pdf === "generating" ? "กำลังสร้าง…" : inv.pdf === "failed" ? "สร้างไม่สำเร็จ — กดลองใหม่" : "ยังไม่สร้าง PDF",
     },
     {
@@ -144,11 +156,13 @@ function Body({ id, slipMediaId, onEdit }: { id: ID; slipMediaId?: string; onEdi
     {
       label: "รับเงิน (บันทึก + ยืนยันโดยอีกคน)",
       state: inv.status === "paid" ? "done" : paidAll > 0 ? "current" : "todo",
+      docs: docsFor.slip,
       detail: inv.payments.length ? `ยืนยันแล้ว ${fmtMoney(paidConfirmed)} / ${fmtMoney(totals.total)}` : "—",
     },
     {
       label: "ใบเสร็จ + เข้าคลาสอัตโนมัติ",
       state: !inv.receiptNumber ? "todo" : inv.receiptDelivery === "failed" || inv.receiptDelivery === "no_line" ? "warn" : "done",
+      docs: docsFor.receipt,
       detail: !inv.receiptNumber ? "—" : `${inv.receiptNumber}${inv.receiptNumber !== inv.number ? ` (รวม)` : ""} · ${inv.receiptDelivery === "delivered" ? "ส่งใบเสร็จทาง LINE แล้ว" : inv.receiptDelivery === "sending" ? "กำลังส่งใบเสร็จทาง LINE…" : inv.receiptDelivery === "failed" ? "ส่งใบเสร็จทาง LINE ไม่สำเร็จ" : inv.receiptDelivery === "no_line" ? "ไม่มี LINE — ส่งใบเสร็จทางอื่น" : "ออกใบเสร็จแล้ว"}`,
     },
   ]
@@ -165,30 +179,37 @@ function Body({ id, slipMediaId, onEdit }: { id: ID; slipMediaId?: string; onEdi
         <SheetDescription>
           {stu?.nickname} ({stu?.grade}) · {fam?.name ?? "ยังไม่ผูกครอบครัว"}
         </SheetDescription>
-        {(inv.pdf === "ready" || inv.receiptNumber) && (
-          <div className="flex flex-wrap gap-2 pt-1">
-            {inv.pdf === "ready" && <Button size="xs" variant="outline" nativeButton={false} render={<a href={`/print/invoice/${inv.id}`} target="_blank" rel="noreferrer" />}><FileTextIcon /> PDF ใบแจ้งหนี้</Button>}
-            {inv.receiptNumber && <Button size="xs" variant="outline" nativeButton={false} render={<a href={`/print/receipt/${inv.id}`} target="_blank" rel="noreferrer" />}><FileTextIcon /> PDF ใบเสร็จ</Button>}
-          </div>
-        )}
       </SheetHeader>
 
       <PanelBody>
         {inv.status === "void" && <p className="rounded-lg bg-red-50 p-3 text-sm text-red-800">ยกเลิกแล้ว: {inv.voidReason}</p>}
-        {/* owner 2026-10-13: the Memo this invoice + its receipt print — a special period's own Memo for its courses */}
-        {memo.memo && (
-          <p className="rounded-lg bg-muted/50 p-3 text-xs whitespace-pre-line text-muted-foreground">
-            <span className="font-medium text-foreground">Memo บนใบแจ้งหนี้ + ใบเสร็จ{memo.periods.length ? ` · จากช่วง ${memo.periods.map((p) => p.name).join(", ")}` : " · ของแบรนด์"}</span>{"\n"}{memo.memo}
-          </p>
-        )}
-
-        <section className="rounded-lg border">
-          <table className="w-full text-sm tabular-nums">
-            <tbody className="divide-y">
-              {totals.lines.map(({ line, course, klasses, quote, courseFee, promotion, promotionName, bonusMinutes, bonusName }) => course && quote && (
+        {/* Billing info as an accordion (owner 2026-11-05): Student · Promotion · Course · Advance · Bus · Summary */}
+        <div className="rounded-xl border px-4">
+          <Section n={1} title="Student" open={openSec === 1} onToggle={() => setOpenSec(openSec === 1 ? 0 : 1)} summary={`${stu?.nickname ?? "—"} · ${stu?.grade ?? ""}`}>
+            <p className="text-sm"><span className="font-medium">{stu?.nickname}</span> <span className="text-muted-foreground">{stu?.name} · {stu?.grade}</span></p>
+            <p className="text-xs text-muted-foreground">{fam ? `${fam.name} · ${fam.parents.find((p) => p.primary)?.name ?? ""}` : "ยังไม่ผูกครอบครัว"}</p>
+            {memo.memo && (
+              <p className="rounded-lg bg-muted/50 p-3 text-xs whitespace-pre-line text-muted-foreground">
+                <span className="font-medium text-foreground">Memo บนใบแจ้งหนี้ + ใบเสร็จ{memo.periods.length ? ` · จากช่วง ${memo.periods.map((p) => p.name).join(", ")}` : " · ของแบรนด์"}</span>{"\n"}{memo.memo}
+              </p>
+            )}
+          </Section>
+          <Section n={2} title="Promotion" hint="ส่วนลด / โปรโมชัน" open={openSec === 2} onToggle={() => setOpenSec(openSec === 2 ? 0 : 2)} summary={totals.promotion + totals.credit + totals.concession > 0 ? `ลด ${fmtMoney(totals.promotion + totals.credit + totals.concession)}` : "ไม่มี"}>
+            <table className="w-full text-sm tabular-nums"><tbody className="divide-y">
+              {totals.lines.filter((l) => l.promotion > 0).map((l) => <tr key={l.line.id} className="text-emerald-700"><td className="py-1">{l.course?.name} · {l.promotionName}</td><td className="py-1 text-right">−{fmtMoney(l.promotion)}</td></tr>)}
+              {totals.lines.filter((l) => l.bonusMinutes > 0).map((l) => <tr key={`b${l.line.id}`} className="text-emerald-700"><td className="py-1" colSpan={2}>{l.course?.name} · {l.bonusName} — แถมเวลาเรียนเพิ่ม {l.bonusMinutes / 60} ชม. (ไม่เพิ่มราคา)</td></tr>)}
+              {totals.credit > 0 && <tr className="text-violet-700"><td className="py-1">หักเครดิตคอร์ส</td><td className="py-1 text-right">−{fmtMoney(totals.credit)}</td></tr>}
+              {totals.concession > 0 && <tr className="text-emerald-700"><td className="py-1">ส่วนลดพิเศษ · {inv.concession?.remark}</td><td className="py-1 text-right">−{fmtMoney(totals.concession)}</td></tr>}
+            </tbody></table>
+            {totals.promotion + totals.credit + totals.concession === 0 && !totals.lines.some((l) => l.bonusMinutes > 0) && <p className="text-xs text-muted-foreground">ไม่มีส่วนลด / โปรโมชันในใบนี้</p>}
+          </Section>
+          <Section n={3} title="Course" open={openSec === 3} onToggle={() => setOpenSec(openSec === 3 ? 0 : 3)} summary={totals.lines.length ? `${totals.lines.length} คอร์ส · ${fmtMoney(totals.course + totals.courseFee)}` : "ไม่มีคอร์ส"}>
+            {totals.lines.length === 0 && <p className="text-xs text-muted-foreground">ใบนี้ไม่มีคอร์ส (เก็บเฉพาะค่าอื่นๆ)</p>}
+            <table className="w-full text-sm tabular-nums"><tbody className="divide-y">
+              {totals.lines.map(({ line, course, klasses, quote, courseFee }) => course && quote && (
                 <Fragment key={line.id}>
                   <tr>
-                    <td className="px-3 py-2" colSpan={2}>
+                    <td className="py-2" colSpan={2}>
                       <div className="font-medium">{course.name}</div>
                       <div className="text-xs text-muted-foreground">
                         {klasses.map((k) => k.name).join(" + ")} · {fmtDate(quote.from)} → {fmtDate(quote.to, { year: true })} · {quote.sessions.length} คาบ · {quote.hours} ชม.
@@ -198,26 +219,36 @@ function Body({ id, slipMediaId, onEdit }: { id: ID; slipMediaId?: string; onEdi
                   </tr>
                   {quote.periods.map((p) => (
                     <tr key={p.month} className="text-muted-foreground">
-                      <td className="px-3 py-1 pl-6">{course.unit === "month" ? `${fmtMonth(p.month + "-01")} · ${p.sessions.length} คาบ (${Math.round(p.factor * 100)}%)` : `${packageLabel(course)} × ${line.periods} · ${p.sessions.length} คาบ`}</td>
-                      <td className="px-3 py-1 text-right">{fmtMoney(p.amount)}</td>
+                      <td className="py-1 pl-4">{course.unit === "month" ? `${fmtMonth(p.month + "-01")} · ${p.sessions.length} คาบ (${Math.round(p.factor * 100)}%)` : `${packageLabel(course)} × ${line.periods} · ${p.sessions.length} คาบ`}</td>
+                      <td className="py-1 text-right">{fmtMoney(p.amount)}</td>
                     </tr>
                   ))}
-                  {courseFee > 0 && <tr className="text-muted-foreground"><td className="px-3 py-1 pl-6">Course fee (ค่าอุปกรณ์)</td><td className="px-3 py-1 text-right">{fmtMoney(courseFee)}</td></tr>}
-                  {promotion > 0 && <tr className="text-emerald-700"><td className="px-3 py-1 pl-6">โปรโมชัน · {promotionName}</td><td className="px-3 py-1 text-right">−{fmtMoney(promotion)}</td></tr>}
-                  {bonusMinutes > 0 && <tr className="text-emerald-700"><td className="px-3 py-1 pl-6" colSpan={2}>โปรโมชัน · {bonusName} — แถมเวลาเรียนเพิ่ม {bonusMinutes / 60} ชม. (ไม่เพิ่มราคา)</td></tr>}
+                  {courseFee > 0 && <tr className="text-muted-foreground"><td className="py-1 pl-4">Course fee (ค่าอุปกรณ์)</td><td className="py-1 text-right">{fmtMoney(courseFee)}</td></tr>}
                 </Fragment>
               ))}
-              {totals.bus > 0 && <tr><td className="px-3 py-1.5">ค่ารถ {branch.fees.find((f) => f.id === inv.busFeeId)?.name ?? ""} ({inv.bus.reduce((a, l) => a + +l.pickup + +l.dropoff, 0)} เที่ยว)</td><td className="px-3 py-1.5 text-right">{fmtMoney(totals.bus)}</td></tr>}
-              {totals.book > 0 && <tr><td className="px-3 py-1.5">ค่าหนังสือ</td><td className="px-3 py-1.5 text-right">{fmtMoney(totals.book)}</td></tr>}
-              {totals.busExtra > 0 && <tr><td className="px-3 py-1.5">ค่ารถเพิ่ม (รอบก่อน) · {(inv.busExtras ?? []).map((x) => fmtDate(x.date)).join(", ")}</td><td className="px-3 py-1.5 text-right">{fmtMoney(totals.busExtra)}</td></tr>}
-              {inv.advance.map((a) => <tr key={a.feeId}><td className="px-3 py-1.5">{a.name}</td><td className="px-3 py-1.5 text-right">{fmtMoney(a.amount)}</td></tr>)}
-              {totals.credit > 0 && <tr className="text-violet-700"><td className="px-3 py-1.5">หักเครดิตคอร์ส</td><td className="px-3 py-1.5 text-right">−{fmtMoney(totals.credit)}</td></tr>}
-              {totals.concession > 0 && <tr className="text-emerald-700"><td className="px-3 py-1.5">ส่วนลดพิเศษ · {inv.concession?.remark}</td><td className="px-3 py-1.5 text-right">−{fmtMoney(totals.concession)}</td></tr>}
-              {totals.rounding > 0 && <tr className="text-muted-foreground"><td className="px-3 py-1.5">ปัดเศษ (Liclass ปัดขึ้นหลักสิบ)</td><td className="px-3 py-1.5 text-right">+{fmtMoney(totals.rounding)}</td></tr>}
-              <tr className="font-semibold"><td className="px-3 py-2">ยอดรวม</td><td className="px-3 py-2 text-right text-base">{fmtMoney(totals.total)}</td></tr>
-            </tbody>
-          </table>
-        </section>
+            </tbody></table>
+          </Section>
+          <Section n={4} title="Advance" hint="ไม่บังคับ" open={openSec === 4} onToggle={() => setOpenSec(openSec === 4 ? 0 : 4)} summary={totals.advance + totals.book > 0 ? fmtMoney(totals.advance + totals.book) : "ไม่มี"}>
+            <table className="w-full text-sm tabular-nums"><tbody className="divide-y">
+              {inv.advance.map((a) => <tr key={a.feeId}><td className="py-1">{a.name}</td><td className="py-1 text-right">{fmtMoney(a.amount)}</td></tr>)}
+              {totals.book > 0 && <tr><td className="py-1">ค่าหนังสือ</td><td className="py-1 text-right">{fmtMoney(totals.book)}</td></tr>}
+            </tbody></table>
+            {totals.advance + totals.book === 0 && <p className="text-xs text-muted-foreground">ไม่มีค่าแรกเข้า / ค่าสอบ / ค่าหนังสือ</p>}
+          </Section>
+          <Section n={5} title="Bus" hint="ไม่บังคับ" open={openSec === 5} onToggle={() => setOpenSec(openSec === 5 ? 0 : 5)} summary={totals.bus + totals.busExtra > 0 ? fmtMoney(totals.bus + totals.busExtra) : "ไม่ใช้"}>
+            <table className="w-full text-sm tabular-nums"><tbody className="divide-y">
+              {totals.bus > 0 && <tr><td className="py-1">ค่ารถ {branch.fees.find((f) => f.id === inv.busFeeId)?.name ?? ""} ({inv.bus.reduce((a, l) => a + +l.pickup + +l.dropoff, 0)} เที่ยว)</td><td className="py-1 text-right">{fmtMoney(totals.bus)}</td></tr>}
+              {totals.busExtra > 0 && <tr><td className="py-1">ค่ารถเพิ่ม (รอบก่อน) · {(inv.busExtras ?? []).map((x) => fmtDate(x.date)).join(", ")}</td><td className="py-1 text-right">{fmtMoney(totals.busExtra)}</td></tr>}
+            </tbody></table>
+            {totals.bus + totals.busExtra === 0 && <p className="text-xs text-muted-foreground">ไม่ได้ใช้รถรับส่ง</p>}
+          </Section>
+          <Section n={6} title="Summary" open={openSec === 6} onToggle={() => setOpenSec(openSec === 6 ? 0 : 6)} summary={fmtMoney(totals.total)}>
+            <table className="w-full text-sm tabular-nums"><tbody className="divide-y">
+              {totals.rounding > 0 && <tr className="text-muted-foreground"><td className="py-1">ปัดเศษ (Liclass ปัดขึ้นหลักสิบ)</td><td className="py-1 text-right">+{fmtMoney(totals.rounding)}</td></tr>}
+              <tr className="font-semibold"><td className="py-2">ยอดรวม</td><td className="py-2 text-right text-base">{fmtMoney(totals.total)}</td></tr>
+            </tbody></table>
+          </Section>
+        </div>
 
         <section>
           <h3 className="mb-2 text-sm font-semibold">ขั้นตอน</h3>
@@ -230,6 +261,7 @@ function Body({ id, slipMediaId, onEdit }: { id: ID; slipMediaId?: string; onEdi
                 <div>
                   <div className="text-sm font-medium">{s.label}</div>
                   <div className="text-xs text-muted-foreground">{s.detail}</div>
+                  {s.docs && <DocThumbs docs={s.docs} />}
                 </div>
               </li>
             ))}
