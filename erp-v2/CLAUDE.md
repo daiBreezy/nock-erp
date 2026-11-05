@@ -33,6 +33,7 @@ src/app/<route>/page.tsx     ← หน้าต่างๆ
 4. Select ใช้ `NativeSelect` (ใช้บน iPad/มือถือได้ดี) ไม่ใช้ Base UI Select
 5. ข้อความ UI เป็นภาษาไทย · วันที่ใช้ `fmtDate` (มีวันที่เสมอ ไม่โชว์ ISO)
 6. เพิ่มกฎใหม่ → เพิ่ม test ใน `rules.test.ts` ด้วย
+7. **งาน responsive/มือถือ/แท็บเล็ต → อ่าน `RESPONSIVE.md` ก่อน** — breakpoint 3 ระดับ (base/sm/lg เท่านั้น ห้าม md/xl) · responsive อยู่ใน component กลาง หน้าห้ามเขียน breakpoint เอง · ตรวจด้วย `read_page` ถ่าย screenshot เฉพาะหน้าตัวแทน (ประหยัด credit)
 
 ## โหมดสาธิต (มุมซ้ายล่าง)
 สลับคน/บทบาท (Director นก · Admin พลอย · Manager ต้น · Teacher ครูได/ครูมิ้นท์) · เลื่อนเวลาระบบ ±ชม./วัน (ดูสถานะคาบเปลี่ยน) · รีเซ็ตข้อมูล
