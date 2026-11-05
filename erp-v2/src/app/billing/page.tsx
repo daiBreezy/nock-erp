@@ -8,7 +8,7 @@ import { FamilyInvoiceDialog } from "@/components/billing/family-invoice-dialog"
 import { RenewalDraftsDialog } from "@/components/billing/renewal-drafts-dialog"
 import { Suspense, useState } from "react"
 import { useSearchParams } from "next/navigation"
-import { BadgeCheckIcon, CopyPlusIcon, Link2Icon, UsersRoundIcon, FileClockIcon, HourglassIcon, PlusIcon, SearchIcon, SendIcon, WalletIcon, type LucideIcon } from "lucide-react"
+import { BadgeCheckIcon, ChevronRightIcon, CopyPlusIcon, Link2Icon, UsersRoundIcon, FileClockIcon, HourglassIcon, PlusIcon, SearchIcon, SendIcon, WalletIcon, type LucideIcon } from "lucide-react"
 import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card"
 import { Pill } from "@/components/app/badges"
 import { InvoiceSheet } from "@/components/billing/invoice-sheet"
@@ -110,36 +110,66 @@ function BillingPage() {
                 : a.inv.createdAt.localeCompare(b.inv.createdAt)
       return sort.desc ? -v : v
     })
-  const pg = usePage(visible)
-
-  type Row = (typeof visible)[number]
+  // family sets (owner 2026-11-05): linked invoices are ONE row (expand to see each child's invoice)
+  type BaseRow = (typeof visible)[number]
+  type Row = BaseRow & { group?: BaseRow[]; member?: boolean }
+  const [openGroups, setOpenGroups] = useState<string[]>([])
+  const display: Row[] = (() => {
+    const out: Row[] = []
+    const done = new Set<string>()
+    for (const r of visible) {
+      const b = r.inv.bundleId
+      const mates = b ? visible.filter((x) => x.inv.bundleId === b) : []
+      if (!b || mates.length < 2) { out.push(r); continue }
+      if (done.has(b)) continue
+      done.add(b)
+      out.push({ ...r, group: mates })
+      if (openGroups.includes(b)) mates.forEach((m) => out.push({ ...m, member: true }))
+    }
+    return out
+  })()
+  const pg = usePage(display)
   // invoices linked to be sent together (owner 2026-11-05): same colour chip on every row of a bundle, hover = who
   const bundles = new Map<string, Invoice[]>()
   invoices.filter((i) => i.bundleId && i.status !== "void").forEach((i) => bundles.set(i.bundleId!, [...(bundles.get(i.bundleId!) ?? []), i]))
+  const STATUS_ORDER: Invoice["status"][] = ["draft", "pending_approval", "approved", "sent", "paid", "void"]
+  const courseNames = (i: Invoice) => i.lines.map((l) => courses.find((c) => c.id === l.courseId)?.name).filter(Boolean).join(", ") || (i.busExtras?.length ? "ค่ารถเพิ่ม" : "ค่าอื่นๆ")
   const columns: Column<Row>[] = [
-    { id: "number", label: "เลขที่", width: "130px", sort: "number", required: true, className: "font-medium tabular-nums", cell: ({ inv }) => (
-      <span className="flex items-center gap-1">
+    { id: "number", label: "เลขที่", width: "130px", sort: "number", required: true, className: "font-medium tabular-nums", cell: ({ inv, group, member }) => (
+      <span className={cn("flex items-center gap-1", member && "pl-5")}>
+        {group && (
+          <button type="button" aria-label="ดูใบของแต่ละคน" aria-expanded={openGroups.includes(inv.bundleId!)} className="grid size-5 shrink-0 place-items-center rounded hover:bg-muted"
+            onClick={(e) => { e.stopPropagation(); setOpenGroups((g) => (g.includes(inv.bundleId!) ? g.filter((x) => x !== inv.bundleId) : [...g, inv.bundleId!])) }}>
+            <ChevronRightIcon className={cn("size-3.5 transition-transform", openGroups.includes(inv.bundleId!) && "rotate-90")} />
+          </button>
+        )}
         <span className="min-w-0 flex-1">{inv.number ? <MidText text={inv.number} head={3} tail={10} /> : <span className="text-muted-foreground">—</span>}</span>
-        {inv.bundleId && bundles.get(inv.bundleId) && <BundleChip inv={inv} members={bundles.get(inv.bundleId)!} students={students} />}
+        {group ? <span className="inline-flex shrink-0 items-center gap-0.5 rounded-full bg-primary/10 px-1.5 py-0.5 text-[11px] font-semibold text-primary"><UsersRoundIcon className="size-3" />{group.length}</span>
+          : !member && inv.bundleId && bundles.get(inv.bundleId) && <BundleChip inv={inv} members={bundles.get(inv.bundleId)!} students={students} />}
       </span>
     ) },
     { id: "created", label: "สร้างเมื่อ", width: "96px", sort: "created", className: "text-muted-foreground tabular-nums", cell: ({ inv }) => fmtDate(inv.createdAt.slice(0, 10)) },
-    { id: "student", label: "นักเรียน", width: "120px", sort: "student", cell: ({ student }) => student?.nickname ?? "—" },
+    { id: "student", label: "นักเรียน", width: "120px", sort: "student", cell: ({ student, group }) => (group ? group.map((g) => g.student?.nickname).filter(Boolean).join(", ") : student?.nickname ?? "—") },
     // owner 2026-10-15: every list shows which branch each row comes from
     { id: "branch", label: "สาขา", width: "72px", cell: ({ inv }) => <BranchCode code={scope.code(inv.branchId)} /> },
-    { id: "grade", label: "ชั้น", width: "76px", sort: "grade", cell: ({ student }) => student && <GradeCell grade={student.grade} tone={gradeTone(student.grade)} /> },
-    { id: "lines", label: "รายการ", width: "200px", className: "text-muted-foreground", cell: ({ inv }) => inv.lines.map((l) => courses.find((c) => c.id === l.courseId)?.name).filter(Boolean).join(", ") || (inv.busExtras?.length ? "ค่ารถเพิ่ม" : "ค่าอื่นๆ") },
-    { id: "total", label: "ยอด", width: "110px", sort: "total", align: "right", className: "font-medium tabular-nums", cell: ({ total }) => fmtMoney(total) },
-    { id: "paid", label: "จ่ายแล้ว", width: "110px", align: "right", className: "text-muted-foreground tabular-nums", cell: ({ paid }) => (paid > 0 ? fmtMoney(paid) : "—") },
+    { id: "grade", label: "ชั้น", width: "76px", sort: "grade", cell: ({ student, group }) => !group && student && <GradeCell grade={student.grade} tone={gradeTone(student.grade)} /> },
+    { id: "lines", label: "รายการ", width: "200px", className: "text-muted-foreground", cell: ({ inv, group }) => (group ? group.map((g) => courseNames(g.inv)).join(" · ") : courseNames(inv)) },
+    { id: "total", label: "ยอด", width: "110px", sort: "total", align: "right", className: "font-medium tabular-nums", cell: ({ total, group }) => fmtMoney(group ? group.reduce((a, g) => a + g.total, 0) : total) },
+    { id: "paid", label: "จ่ายแล้ว", width: "110px", align: "right", className: "text-muted-foreground tabular-nums", cell: ({ paid, group }) => { const p = group ? group.reduce((a, g) => a + g.paid, 0) : paid; return p > 0 ? fmtMoney(p) : "—" } },
     // owner 2026-10-07: the old "การส่ง / เงิน" column folded in — a small icon after the status, hover = what's wrong
-    { id: "status", label: "สถานะ", width: "150px", sort: "status", align: "right", cell: ({ inv, toConfirm }) => (
+    { id: "status", label: "สถานะ", width: "150px", sort: "status", align: "right", cell: ({ inv: own, toConfirm, group }) => {
+      // a set shows its least-advanced member's status (+ how many are at it)
+      const inv = group ? group.map((g) => g.inv).sort((a, b) => STATUS_ORDER.indexOf(a.status) - STATUS_ORDER.indexOf(b.status))[0] : own
+      const same = group ? group.filter((g) => g.inv.status === inv.status).length : 0
+      return (
       <span className="flex items-center justify-end gap-1">
-        <Pill tone={invoiceTone(inv)}>{inv.pdf === "generating" ? "กำลังสร้าง PDF" : inv.pdf === "failed" ? "PDF ไม่สำเร็จ" : Bill.INVOICE_STATUS_LABEL[inv.status]}</Pill>
+        <Pill tone={invoiceTone(inv)}>{inv.pdf === "generating" ? "กำลังสร้าง PDF" : inv.pdf === "failed" ? "PDF ไม่สำเร็จ" : Bill.INVOICE_STATUS_LABEL[inv.status]}{group && same < group.length ? ` ${same}/${group.length}` : ""}</Pill>
         {inv.delivery === "no_line" && <Flag icon={SendIcon} tone="text-amber-600" text="ไม่ถึงผู้ปกครอง — ครอบครัวยังไม่ผูก LINE ต้องส่งใบเอง" />}
         {inv.delivery === "failed" && <Flag icon={SendIcon} tone="text-red-600" text="ส่ง LINE ไม่สำเร็จ — เช่น ผู้ปกครอง block OA" />}
         {toConfirm && <Flag icon={WalletIcon} tone="text-violet-600" text="รอยืนยันเงิน — บันทึกรับเงินแล้ว รออีกคนตรวจยืนยัน" />}
       </span>
-    ) },
+      )
+    } },
   ]
 
   return (
@@ -176,7 +206,7 @@ function BillingPage() {
 
       {/* owner 2026-10-07: a real table — number, date, student, grade, amounts and status each in their own column;
           scrolls inside the card on phones (BL-23) · owner 2026-10-12: columns arranged per person (DataTable) */}
-      <DataTable id="billing" columns={columns} rows={pg.rows} rowKey={(r) => r.inv.id} onRowClick={(r) => setOpenId(r.inv.id)}
+      <DataTable id="billing" columns={columns} rows={pg.rows} rowKey={(r) => `${r.member ? "m:" : r.group ? "g:" : ""}${r.inv.id}`} rowClassName={(r) => (r.member ? "bg-muted/40" : r.group ? "bg-primary/[0.03]" : undefined)} onRowClick={(r) => setOpenId(r.inv.id)}
         rowProps={({ inv }) => ({ "data-focus": [Bill.canApprove(inv, me).ok && "invoice_approve", invoiceOverdue(inv, now) && "unpaid", paymentUnconfirmed(inv, now) && "unconfirmed"].filter(Boolean).join(" ") || undefined })}
         sort={sort} onSort={toggle} minWidth={1080} empty="ไม่มีใบแจ้งหนี้ในหมวดนี้" />
       <Pager {...pg} unit="ใบ" />

@@ -174,4 +174,5 @@ export const KIT: Record<string, Entry> = {
   "สร้าง PDF ทั้งชุด": { en: "Create PDFs for the whole set", ja: "セット全体のPDFを作成" },
   "อนุมัติทั้งชุดแล้ว — พร้อมส่งผู้ปกครอง": { en: "Whole set approved — ready to send to the parent", ja: "セット全体を承認しました — 保護者に送信できます" },
   "อนุมัติทั้งชุด": { en: "Approve the whole set", ja: "セット全体を承認" },
+  "ดูใบของแต่ละคน": { en: "Show each child's invoice", ja: "各自の請求書を表示" },
 }
