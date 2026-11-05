@@ -175,4 +175,8 @@ export const KIT: Record<string, Entry> = {
   "อนุมัติทั้งชุดแล้ว — พร้อมส่งผู้ปกครอง": { en: "Whole set approved — ready to send to the parent", ja: "セット全体を承認しました — 保護者に送信できます" },
   "อนุมัติทั้งชุด": { en: "Approve the whole set", ja: "セット全体を承認" },
   "ดูใบของแต่ละคน": { en: "Show each child's invoice", ja: "各自の請求書を表示" },
+  "รอยืนยันเงิน": { en: "Awaiting confirmation", ja: "入金確認待ち" },
+  "บันทึกรับเงินแล้ว รออีกคนตรวจยืนยัน": { en: "Payment recorded — waiting for someone else to confirm", ja: "入金記録済み — 別の担当者の確認待ち" },
+  "ไม่ถึงผู้ปกครอง": { en: "Not reached the parent", ja: "保護者に未到達" },
+  "เช่น ผู้ปกครอง block OA": { en: "e.g. the parent blocked the OA", ja: "例：保護者がOAをブロック" },
 }

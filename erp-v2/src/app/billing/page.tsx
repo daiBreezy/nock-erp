@@ -8,7 +8,7 @@ import { FamilyInvoiceDialog } from "@/components/billing/family-invoice-dialog"
 import { RenewalDraftsDialog } from "@/components/billing/renewal-drafts-dialog"
 import { Suspense, useState } from "react"
 import { useSearchParams } from "next/navigation"
-import { BadgeCheckIcon, ChevronRightIcon, CornerDownRightIcon, FileTextIcon, CopyPlusIcon, Link2Icon, UsersRoundIcon, FileClockIcon, HourglassIcon, PlusIcon, SearchIcon, SendIcon, WalletIcon, type LucideIcon } from "lucide-react"
+import { BadgeCheckIcon, CopyPlusIcon, Link2Icon, UsersRoundIcon, FileClockIcon, HourglassIcon, PlusIcon, SearchIcon, WalletIcon } from "lucide-react"
 import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card"
 import { Pill } from "@/components/app/badges"
 import { InvoiceSheet } from "@/components/billing/invoice-sheet"
@@ -137,18 +137,14 @@ function BillingPage() {
   const columns: Column<Row>[] = [
     { id: "number", label: "เลขที่", width: "130px", sort: "number", required: true, className: "font-medium tabular-nums", cell: ({ inv, group, member }) => (
       <span className="flex items-center gap-1">
-        {/* every row has the same leading slot, so the numbers line up: set = expand arrow · child = ↳ · single invoice = document */}
-        {group ? (
-          <button type="button" aria-label="ดูใบของแต่ละคน" aria-expanded={openGroups.includes(inv.bundleId!)} className="grid size-5 shrink-0 place-items-center rounded hover:bg-muted"
-            onClick={(e) => { e.stopPropagation(); setOpenGroups((g) => (g.includes(inv.bundleId!) ? g.filter((x) => x !== inv.bundleId) : [...g, inv.bundleId!])) }}>
-            <ChevronRightIcon className={cn("size-3.5 transition-transform", openGroups.includes(inv.bundleId!) && "rotate-90")} />
-          </button>
-        ) : (
-          <span className="grid size-5 shrink-0 place-items-center text-muted-foreground/60" aria-hidden>{member ? <CornerDownRightIcon className="size-3.5" /> : <FileTextIcon className="size-3.5" />}</span>
-        )}
         <span className="min-w-0 flex-1">{inv.number ? <MidText text={inv.number} head={3} tail={10} /> : <span className="text-muted-foreground">—</span>}</span>
-        {group ? <span className="inline-flex shrink-0 items-center gap-0.5 rounded-full bg-primary/10 px-1.5 py-0.5 text-[11px] font-semibold text-primary"><UsersRoundIcon className="size-3" />{group.length}</span>
-          : !member && inv.bundleId && bundles.get(inv.bundleId) && <BundleChip inv={inv} members={bundles.get(inv.bundleId)!} students={students} />}
+        {group ? (
+          // the set's chip IS the expander (nothing in front of the number, so the numbers stay aligned)
+          <button type="button" aria-label="ดูใบของแต่ละคน" aria-expanded={openGroups.includes(inv.bundleId!)} className="shrink-0 rounded-full bg-primary/10 px-2 py-0.5 text-[11px] font-semibold text-primary hover:bg-primary/20"
+            onClick={(e) => { e.stopPropagation(); setOpenGroups((g) => (g.includes(inv.bundleId!) ? g.filter((x) => x !== inv.bundleId) : [...g, inv.bundleId!])) }}>
+            {group.length} ใบ {openGroups.includes(inv.bundleId!) ? "▴" : "▾"}
+          </button>
+        ) : !member && inv.bundleId && bundles.get(inv.bundleId) && <BundleChip inv={inv} members={bundles.get(inv.bundleId)!} students={students} />}
       </span>
     ) },
     { id: "created", label: "สร้างเมื่อ", width: "96px", sort: "created", className: "text-muted-foreground tabular-nums", cell: ({ inv }) => fmtDate(inv.createdAt.slice(0, 10)) },
@@ -164,13 +160,24 @@ function BillingPage() {
       // a set shows its least-advanced member's status (+ how many are at it)
       const inv = group ? group.map((g) => g.inv).sort((a, b) => STATUS_ORDER.indexOf(a.status) - STATUS_ORDER.indexOf(b.status))[0] : own
       const same = group ? group.filter((g) => g.inv.status === inv.status).length : 0
+      // owner 2026-11-05: no icons around the status — a problem is the pill's own text (and colour), hover explains it.
+      // Delivery / confirm problems only matter until the invoice is paid.
+      const open = inv.status !== "paid" && inv.status !== "void"
+      const issue = !open ? null
+        : toConfirm ? { text: "รอยืนยันเงิน", tone: "violet" as const, why: "บันทึกรับเงินแล้ว รออีกคนตรวจยืนยัน" }
+          : inv.delivery === "no_line" ? { text: "ไม่ถึงผู้ปกครอง", tone: "amber" as const, why: "ครอบครัวยังไม่ผูก LINE ต้องส่งใบเอง" }
+            : inv.delivery === "failed" ? { text: "ส่ง LINE ไม่สำเร็จ", tone: "red" as const, why: "เช่น ผู้ปกครอง block OA" } : null
+      const label = inv.pdf === "generating" ? "กำลังสร้าง PDF" : inv.pdf === "failed" ? "PDF ไม่สำเร็จ" : Bill.INVOICE_STATUS_LABEL[inv.status]
+      const pill = <Pill tone={issue?.tone ?? invoiceTone(inv)}>{issue ? issue.text : label}{group && same < group.length ? ` ${same}/${group.length}` : ""}</Pill>
       return (
-      <span className="flex items-center justify-end gap-1">
-        <Pill tone={invoiceTone(inv)}>{inv.pdf === "generating" ? "กำลังสร้าง PDF" : inv.pdf === "failed" ? "PDF ไม่สำเร็จ" : Bill.INVOICE_STATUS_LABEL[inv.status]}{group && same < group.length ? ` ${same}/${group.length}` : ""}</Pill>
-        {inv.delivery === "no_line" && <Flag icon={SendIcon} tone="text-amber-600" text="ไม่ถึงผู้ปกครอง — ครอบครัวยังไม่ผูก LINE ต้องส่งใบเอง" />}
-        {inv.delivery === "failed" && <Flag icon={SendIcon} tone="text-red-600" text="ส่ง LINE ไม่สำเร็จ — เช่น ผู้ปกครอง block OA" />}
-        {toConfirm && <Flag icon={WalletIcon} tone="text-violet-600" text="รอยืนยันเงิน — บันทึกรับเงินแล้ว รออีกคนตรวจยืนยัน" />}
-      </span>
+        <span className="flex items-center justify-end">
+          {issue ? (
+            <HoverCard>
+              <HoverCardTrigger render={<span className="cursor-default" />}>{pill}</HoverCardTrigger>
+              <HoverCardContent>{label} · {issue.why}</HoverCardContent>
+            </HoverCard>
+          ) : pill}
+        </span>
       )
     } },
   ]
@@ -235,16 +242,6 @@ function BundleChip({ inv, members, students }: { inv: Invoice; members: Invoice
         <p className="mb-1 font-medium">เชื่อมไว้ — ส่งผู้ปกครองทีเดียวกับ</p>
         {others.map((x) => <p key={x.id} className="flex gap-2"><span className="font-mono">{x.number ?? "ร่าง"}</span><span>{students.find((s) => s.id === x.studentId)?.nickname}</span><span className="text-muted-foreground">{Bill.INVOICE_STATUS_LABEL[x.status]}</span></p>)}
       </HoverCardContent>
-    </HoverCard>
-  )
-}
-
-/** a small warning icon after the status; hover says what it means */
-function Flag({ icon: Icon, tone, text }: { icon: LucideIcon; tone: string; text: string }) {
-  return (
-    <HoverCard>
-      <HoverCardTrigger render={<span className={cn("grid size-5 cursor-default place-items-center", tone)} aria-label={text} />}><Icon className="size-3.5" /></HoverCardTrigger>
-      <HoverCardContent>{text}</HoverCardContent>
     </HoverCard>
   )
 }
