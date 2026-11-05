@@ -136,6 +136,12 @@ export function receiptDate(inv: Pick<Invoice, "payments">): DateStr | null {
 }
 
 /** "ผู้จัดทำ" and "ผู้มีอำนาจ" are both the admin who created the invoice (owner 2026-09-30). */
+/** Real first name + surname for a signature (no nickname); Liclass prints the English name when there is one */
+export const signatureName = (id: string | undefined | null, staff: Pick<Staff, "id" | "name" | "nameEn">[], brand: Branch["brand"]) => {
+  const s = staff.find((x) => x.id === id)
+  return s ? (brand === "liclass" ? s.nameEn?.trim() || s.name : s.name) : ""
+}
+
 export const preparedBy = (inv: Pick<Invoice, "createdBy">, staff: Pick<Staff, "id" | "name" | "nickname">[]) => {
   const s = staff.find((x) => x.id === inv.createdBy)
   return s ? `${s.name} (${s.nickname})` : "—"

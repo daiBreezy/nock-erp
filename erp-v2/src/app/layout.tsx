@@ -1,5 +1,5 @@
 import type { Metadata } from "next"
-import { Inter, Noto_Sans_Thai } from "next/font/google"
+import { Charmonman, Inter, Noto_Sans_Thai } from "next/font/google"
 import { ShellGate } from "@/components/app/shell-gate"
 import { Toaster } from "@/components/ui/toast"
 import { TooltipProvider } from "@/components/ui/tooltip"
@@ -7,6 +7,8 @@ import "./globals.css"
 
 const inter = Inter({ variable: "--font-inter", subsets: ["latin"] })
 const thai = Noto_Sans_Thai({ variable: "--font-thai", subsets: ["thai"] })
+// handwriting for the signatures on invoices / receipts (Thai + Latin)
+const sign = Charmonman({ variable: "--font-sign", subsets: ["thai", "latin"], weight: "400" })
 
 export const metadata: Metadata = {
   title: "NockERP v2 · Prototype",
@@ -17,7 +19,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     // LINE's in-app browser (Android) writes safe-area styles onto <html> before React loads — not our markup, so
     // don't flag it as a hydration mismatch (only this element's own attributes are exempt)
-    <html lang="th" className={`${inter.variable} ${thai.variable} h-full antialiased`} suppressHydrationWarning>
+    <html lang="th" className={`${inter.variable} ${thai.variable} ${sign.variable} h-full antialiased`} suppressHydrationWarning>
       <body className="min-h-full" style={{ fontFamily: "var(--font-inter), var(--font-thai), system-ui, sans-serif" }}>
         <TooltipProvider>
           <ShellGate>{children}</ShellGate>

@@ -3,7 +3,6 @@
 import { useSyncExternalStore } from "react"
 import { PrinterIcon } from "lucide-react"
 import qrcode from "qrcode-generator"
-import { fmtMoney } from "@/domain/dates"
 import { invoiceTotals, invoicesOnReceipt } from "@/domain/rules/billing"
 import * as Doc from "@/domain/rules/documents"
 import { creditNoteTotal } from "@/domain/rules/refunds"
@@ -60,7 +59,9 @@ export function PrintDocument({ kind, id, bare = false }: { kind: Kind; id: stri
   const total = cn ? creditNoteTotal(cn) : combined ? onReceipt.reduce((a, x) => a + invoiceTotals(x, ctx).total, 0) : totals.total
   const { date: invDate, dueBy } = Doc.invoiceDates(inv)
   const date = kind === "receipt" ? (combined ? onReceipt.map((x) => Doc.receiptDate(x) ?? "").sort().at(-1) || null : Doc.receiptDate(inv)) : kind === "credit-note" ? cn!.createdAt.slice(0, 10) : invDate
-  const signer = Doc.preparedBy(cn ?? inv, s.staff)
+  // real first name + surname on the signature lines (owner 2026-11-05)
+  const signer = Doc.signatureName((cn ?? inv).createdBy, s.staff, branch.brand)
+  const authorizer = Doc.signatureName((cn ?? inv).approvedBy, s.staff, branch.brand)
   const [, en] = TITLE[kind]
   const titlePrimary = kind === "credit-note" ? L.creditNote : L[kind]
   const memo = [Doc.invoiceMemo(inv, { brandMemo: s.system.invoiceMemos[branch.brand], branch, courses: s.courses, classes: s.classes }).memo, kind === "credit-note" ? `${L.invRef} ${inv.number} · ${[...cn!.reasons, cn!.remark].filter(Boolean).join(", ")}` : combined ? `${L.invRef} ${onReceipt.map((x) => x.number).join(", ")}` : inv.noteToParent].filter(Boolean).join("\n")
@@ -91,42 +92,41 @@ export function PrintDocument({ kind, id, bare = false }: { kind: Kind; id: stri
           centred, Tax ID box left / NO. + DATE boxes right with the title in the middle, customer block (+ LINE QR on an
           invoice), a tall bordered items table, bank info / PAID stamp, totals, Memo, signatures */}
       <article className={`mx-auto min-h-[297mm] w-[210mm] bg-white p-[12mm] print:min-h-0 text-[11px] leading-snug text-neutral-900 print:w-auto print:p-0 print:shadow-none ${embed ? "" : "shadow"}`}>
-        <header className="text-center">
+        {/* logo left · company name + addresses right-aligned */}
+        <header className="flex items-start justify-between gap-6">
           {/* eslint-disable-next-line @next/next/no-img-element -- static brand asset in a print page */}
-          <img src="/brand/invoice-logo.svg" alt="" className="mx-auto h-[18mm] w-auto" />
-          <p className="mt-2 text-[13px] font-bold">{company.nameTh}</p>
-          <p className="text-[13px] font-bold">{company.nameEn}</p>
-          <p className="text-[12px]">{company.addressTh} ({company.office.split("/")[0].trim()})</p>
-          <p className="text-[12px]">{company.addressEn} ({company.office.split("/").pop()?.trim()})</p>
+          <img src="/brand/invoice-logo.svg" alt="" className="h-[20mm] w-auto shrink-0" />
+          <div className="text-right">
+            <p className="text-[13px] font-bold">{company.nameTh}</p>
+            <p className="text-[13px] font-bold">{company.nameEn}</p>
+            <p className="text-[11px]">{company.addressTh} ({company.office.split("/")[0].trim()})</p>
+            <p className="text-[11px]">{company.addressEn} ({company.office.split("/").pop()?.trim()})</p>
+          </div>
         </header>
 
         <section className="mt-5 grid grid-cols-[1fr_auto_1fr] items-start gap-4">
           <div>
-            <p>{L.taxId}</p>
-            <p className="text-center text-neutral-700">Tax ID Number</p>
-            <p className="mt-0.5 w-56 border border-neutral-800 px-2 py-0.5 text-center text-[12px] tabular-nums">{company.taxId}</p>
+            {/* one line for the label, the number on the second line — left aligned */}
+            <p>{L.taxId} / Tax ID Number</p>
+            <p className="mt-0.5 w-56 border border-neutral-800 px-2 py-0.5 text-[12px] tabular-nums">{company.taxId}</p>
           </div>
-          <div className="pt-6 text-center">
-            <p className="text-[12px]">{titlePrimary}</p>
+          <div className="pt-4 text-center">
+            <p className="text-[13px] font-semibold">{titlePrimary}</p>
             <p className="text-[12px]">{en}</p>
           </div>
-          <div className="space-y-1">
-            <p className="text-right">{en}</p>
-            <div className="flex items-center justify-end gap-1"><span className="text-[12px]">NO.</span><span className="w-40 border border-neutral-800 px-2 py-0.5 text-center text-[12px] font-mono">{number}</span></div>
-            <div className="flex items-center justify-end gap-1 pt-3"><span className="text-[12px]">DATE</span><span className="w-40 border border-neutral-800 px-2 py-0.5 text-center text-[12px]">{d(date)}</span></div>
+          <div className="space-y-1.5">
+            <div className="flex items-center justify-end gap-1"><span className="text-[12px]">NO.</span><span className="w-60 whitespace-nowrap border border-neutral-800 px-2 py-0.5 text-center text-[12px] font-mono">{number}</span></div>
+            <div className="flex items-center justify-end gap-1"><span className="text-[12px]">DATE</span><span className="w-60 border border-neutral-800 px-2 py-0.5 text-center text-[12px]">{d(date)}</span></div>
             {kind === "credit-note" && <p className="text-right text-[10px]">REF. <span className="font-mono">{inv.number}</span></p>}
             {combined && <p className="text-right text-[10px]">REF. <span className="font-mono">{onReceipt.map((x) => x.number).join(", ")}</span></p>}
           </div>
         </section>
 
         <section className="mt-4 grid grid-cols-[1fr_auto] items-start gap-4">
-          <div className="space-y-1.5">
-            <p><span className="text-[12px]">{L.customerName}</span><span className="ml-8 text-[12px] font-semibold text-[#3f6bb5]">{customer.name}</span></p>
-            <p className="text-neutral-700">Customer Name</p>
-            <p className="text-[12px]">{L.address}{customer.address ? <span className="ml-8">{customer.address}</span> : null}</p>
-            <p className="text-neutral-700">Address</p>
-            <p className="text-[12px]">{L.taxId}{customer.taxId ? <span className="ml-8">{customer.taxId}</span> : null}</p>
-            <p className="text-neutral-700">Tax ID Number</p>
+          <div className="space-y-1.5 text-[12px]">
+            <p><span>{L.customerName} / Customer Name</span><span className="ml-6 font-semibold text-[#3f6bb5]">{customer.name}</span></p>
+            <p><span>{L.address} / Address</span>{customer.address ? <span className="ml-6">{customer.address}</span> : null}</p>
+            <p><span>{L.taxId} / Tax ID Number</span>{customer.taxId ? <span className="ml-6">{customer.taxId}</span> : null}</p>
           </div>
           {kind === "invoice" && qrCells && (
             <svg viewBox={`0 0 ${qrCells.n + 2} ${qrCells.n + 2}`} className="size-[24mm] shrink-0" shapeRendering="crispEdges" aria-label="LINE">
@@ -144,7 +144,7 @@ export function PrintDocument({ kind, id, bare = false }: { kind: Kind; id: stri
             {rows.map((it, i) => (
               <tr key={i} className="align-top">
                 <td className="py-0.5 text-right">{it ? i + 1 : ""}</td>
-                <td className="relative py-0.5 text-right">{it?.description}</td>
+                <td className="relative py-0.5 text-left">{it?.description}</td>
                 <td className="py-0.5 text-right tabular-nums">{it ? it.qty : ""}</td>
                 <td className="py-0.5">{it && <span className="flex justify-between tabular-nums"><span>฿</span><span>{money(it.unitPrice)}</span></span>}</td>
                 <td className="py-0.5">{it && <span className="flex justify-between tabular-nums"><span>฿</span><span>{money(it.amount)}</span></span>}</td>
@@ -152,7 +152,7 @@ export function PrintDocument({ kind, id, bare = false }: { kind: Kind; id: stri
             ))}
             {/* the open space of the table — a receipt carries its PAID stamp here */}
             <tr className="align-top">
-              <td className="h-[20mm]" />
+              <td className="h-[46mm]" />
               <td className="relative">
                 {kind === "receipt" && <span className="absolute bottom-3 left-1/2 -translate-x-1/2 -rotate-6 rounded-sm border-2 border-[#c0392b] px-3 py-0.5 text-[20px] font-bold tracking-widest text-[#c0392b] opacity-80">PAID</span>}
               </td>
@@ -161,33 +161,35 @@ export function PrintDocument({ kind, id, bare = false }: { kind: Kind; id: stri
           </tbody>
         </table>
 
-        <section className="grid grid-cols-[1fr_58mm] border-x-2 border-b-2 border-neutral-800">
+        <section className="grid grid-cols-[1fr_62mm] border-x-2 border-b-2 border-neutral-800">
           <div className="p-2">
-            {kind === "invoice" && branch.bankAccount.number && (
-              <p className="whitespace-pre-line text-[11px]">
-                {L.bank}：{branch.bankAccount.bank}{"\n"}{branch.bankAccount.branchName ? `${branch.bankAccount.branchName}\n` : ""}{L.accountNo}：{branch.bankAccount.number}{"\n"}{L.accountName}：{branch.bankAccount.name}
-              </p>
-            )}
-            {payQr && (
-              <div className="mt-2 flex items-center gap-2">
-                <svg viewBox={`0 0 ${payQr.n + 2} ${payQr.n + 2}`} className="size-[24mm] shrink-0" shapeRendering="crispEdges" aria-label="PromptPay">
-                  <rect width="100%" height="100%" fill="#fff" />
-                  {payQr.dark.map(([x, y]) => <rect key={`${x}-${y}`} x={x + 1} y={y + 1} width="1" height="1" fill="#1a3c6e" />)}
-                </svg>
-                <div className="leading-snug">
-                  <p className="text-[11px] font-semibold">{L.scanToPay}</p>
-                  <p className="text-neutral-700">Scan to pay · PromptPay</p>
-                  <p className="mt-0.5 text-[12px] font-semibold tabular-nums">฿ {money(total)}</p>
-                </div>
+            {/* payment QR on the left, the bank account beside it on the same line */}
+            {kind === "invoice" && (payQr || branch.bankAccount.number) && (
+              <div className="flex items-start gap-3">
+                {payQr && (
+                  <div className="shrink-0 text-center">
+                    <svg viewBox={`0 0 ${payQr.n + 2} ${payQr.n + 2}`} className="size-[26mm]" shapeRendering="crispEdges" aria-label="PromptPay">
+                      <rect width="100%" height="100%" fill="#fff" />
+                      {payQr.dark.map(([x, y]) => <rect key={`${x}-${y}`} x={x + 1} y={y + 1} width="1" height="1" fill="#1a3c6e" />)}
+                    </svg>
+                    <p className="text-[9px] leading-tight">{L.scanToPay}</p>
+                    <p className="text-[9px] leading-tight text-neutral-700">Scan to pay · PromptPay</p>
+                  </div>
+                )}
+                {branch.bankAccount.number && (
+                  <p className="whitespace-pre-line text-[11px]">
+                    {L.bank}：{branch.bankAccount.bank}{"\n"}{branch.bankAccount.branchName ? `${branch.bankAccount.branchName}\n` : ""}{L.accountNo}：{branch.bankAccount.number}{"\n"}{L.accountName}：{branch.bankAccount.name}
+                  </p>
+                )}
               </div>
             )}
             {kind === "credit-note" && cn!.refund && <p><b>{L.refund}:</b> {d(cn!.refund.date)} · {cn!.refund.fromAccount} · {cn!.refund.reference}</p>}
           </div>
-          <table className="w-full border-l-2 border-neutral-800 [&_td]:px-2 [&_td]:py-1 [&_tr+tr_td]:border-t [&_tr+tr_td]:border-neutral-800">
+          {/* labels on the left, amounts on the right — no VAT any more */}
+          <table className="w-full border-l-2 border-neutral-800 [&_td]:px-2 [&_td]:py-1.5 [&_tr+tr_td]:border-t [&_tr+tr_td]:border-neutral-800">
             <tbody>
-              <tr><td className="text-center">{L.subTotal}<br /><span className="text-neutral-700">Sub Total</span></td><td className="w-24"><span className="flex justify-between tabular-nums"><span>฿</span><span>{money(total)}</span></span></td></tr>
-              <tr><td className="text-center">{L.vat}<br /><span className="text-neutral-700">VAT 7%</span></td><td><span className="flex justify-between tabular-nums"><span>฿</span><span>{money(0)}</span></span></td></tr>
-              <tr className="font-semibold"><td className="text-center">{L.total}<br /><span className="font-normal text-neutral-700">Total</span></td><td><span className="flex justify-between tabular-nums"><span>฿</span><span>{money(total)}</span></span></td></tr>
+              <tr><td className="text-left">{L.subTotal} / Sub Total</td><td className="w-24"><span className="flex justify-between tabular-nums"><span>฿</span><span>{money(total)}</span></span></td></tr>
+              <tr className="font-semibold"><td className="text-left">{L.total} / Total</td><td><span className="flex justify-between tabular-nums"><span>฿</span><span>{money(total)}</span></span></td></tr>
             </tbody>
           </table>
         </section>
@@ -196,32 +198,17 @@ export function PrintDocument({ kind, id, bare = false }: { kind: Kind; id: stri
           <p className="whitespace-pre-line"><b className="text-[12px]">Memo :</b> {memo}</p>
         </div>
 
-        {kind === "invoice" ? (
-          <footer className="mt-2 grid grid-cols-[1fr_auto] items-start gap-6">
-            <p />
-            <p className="text-right"><b>*Total Due By</b>   <span className="ml-4 text-[12px]">{d(dueBy)}</span></p>
-            <div />
-            <div className="mt-2 text-center">
-              <p>{L.preparedBy}</p><p>PREPARED BY</p>
-              <p className="mt-1 font-serif italic">......{signer}......</p>
-              <p className="mt-2">{L.authorized}</p><p>AUTHORIZED SIGNATURE</p>
-              <p className="mt-1 font-serif italic">...............</p>
+        {kind === "invoice" && <p className="mt-2 text-right"><b>*Total Due By</b>   <span className="ml-4 text-[12px]">{d(dueBy)}</span></p>}
+
+        {/* signatures side by side, on the right of the page: handwriting-style real name, role (TH/JP + EN) under the line */}
+        <footer className="mt-6 flex justify-end gap-8 text-center">
+          {([[kind === "receipt" ? L.payeeBy : L.preparedBy, kind === "receipt" ? "PAYEE BY" : "PREPARED BY", signer], [L.authorized, "AUTHORIZED SIGNATURE", authorizer]] as const).map(([th, en2, name]) => (
+            <div key={en2} className="w-[52mm]">
+              <p className="min-h-[9mm] border-b border-dotted border-neutral-500 pb-0.5 text-[16px] leading-tight" style={{ fontFamily: "var(--font-sign), cursive" }}>{name}</p>
+              <p className="mt-1">{th} / {en2}</p>
             </div>
-          </footer>
-        ) : (
-          <footer className="mt-4 grid grid-cols-2 gap-6 text-center">
-            <div className="pt-6">
-              <p>{L.payeeBy}</p><p>PAYEE BY</p>
-              <p className="mt-1 font-serif italic">...............{signer}...............</p>
-            </div>
-            <div>
-              <p>REMARK</p>
-              <p>{L.authorized}</p><p>AUTHORIZED SIGNATURE</p>
-              <p className="mt-1 font-serif italic">...............................</p>
-              <p className="mt-2">{L.date}</p><p>DATE...............{d(date)}...............</p>
-            </div>
-          </footer>
-        )}
+          ))}
+        </footer>
       </article>
     </div>
   )
