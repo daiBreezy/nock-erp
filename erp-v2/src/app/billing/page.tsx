@@ -8,7 +8,7 @@ import { FamilyInvoiceDialog } from "@/components/billing/family-invoice-dialog"
 import { RenewalDraftsDialog } from "@/components/billing/renewal-drafts-dialog"
 import { Suspense, useState } from "react"
 import { useSearchParams } from "next/navigation"
-import { BadgeCheckIcon, ChevronRightIcon, CopyPlusIcon, Link2Icon, UsersRoundIcon, FileClockIcon, HourglassIcon, PlusIcon, SearchIcon, SendIcon, WalletIcon, type LucideIcon } from "lucide-react"
+import { BadgeCheckIcon, ChevronRightIcon, CornerDownRightIcon, FileTextIcon, CopyPlusIcon, Link2Icon, UsersRoundIcon, FileClockIcon, HourglassIcon, PlusIcon, SearchIcon, SendIcon, WalletIcon, type LucideIcon } from "lucide-react"
 import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card"
 import { Pill } from "@/components/app/badges"
 import { InvoiceSheet } from "@/components/billing/invoice-sheet"
@@ -136,12 +136,15 @@ function BillingPage() {
   const courseNames = (i: Invoice) => i.lines.map((l) => courses.find((c) => c.id === l.courseId)?.name).filter(Boolean).join(", ") || (i.busExtras?.length ? "ค่ารถเพิ่ม" : "ค่าอื่นๆ")
   const columns: Column<Row>[] = [
     { id: "number", label: "เลขที่", width: "130px", sort: "number", required: true, className: "font-medium tabular-nums", cell: ({ inv, group, member }) => (
-      <span className={cn("flex items-center gap-1", member && "pl-5")}>
-        {group && (
+      <span className="flex items-center gap-1">
+        {/* every row has the same leading slot, so the numbers line up: set = expand arrow · child = ↳ · single invoice = document */}
+        {group ? (
           <button type="button" aria-label="ดูใบของแต่ละคน" aria-expanded={openGroups.includes(inv.bundleId!)} className="grid size-5 shrink-0 place-items-center rounded hover:bg-muted"
             onClick={(e) => { e.stopPropagation(); setOpenGroups((g) => (g.includes(inv.bundleId!) ? g.filter((x) => x !== inv.bundleId) : [...g, inv.bundleId!])) }}>
             <ChevronRightIcon className={cn("size-3.5 transition-transform", openGroups.includes(inv.bundleId!) && "rotate-90")} />
           </button>
+        ) : (
+          <span className="grid size-5 shrink-0 place-items-center text-muted-foreground/60" aria-hidden>{member ? <CornerDownRightIcon className="size-3.5" /> : <FileTextIcon className="size-3.5" />}</span>
         )}
         <span className="min-w-0 flex-1">{inv.number ? <MidText text={inv.number} head={3} tail={10} /> : <span className="text-muted-foreground">—</span>}</span>
         {group ? <span className="inline-flex shrink-0 items-center gap-0.5 rounded-full bg-primary/10 px-1.5 py-0.5 text-[11px] font-semibold text-primary"><UsersRoundIcon className="size-3" />{group.length}</span>
