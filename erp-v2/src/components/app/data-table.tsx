@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useLayoutEffect, useRef, useState } from "react"
 import { ChevronLeftIcon, ChevronRightIcon } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card"
@@ -69,11 +69,29 @@ export function GradeCell({ grade, tone }: { grade: string; tone: string }) {
  * and the end (running number) are what people scan for; hover shows the whole thing.
  */
 export function MidText({ text, head = 6, tail = 4, className }: { text: string; head?: number; tail?: number; className?: string }) {
+  // owner 2026-11-05: shortened while the column is narrow, the full text once it is dragged wide enough
+  const box = useRef<HTMLSpanElement>(null)
+  const full = useRef<HTMLSpanElement>(null)
+  const [fits, setFits] = useState(false)
+  useLayoutEffect(() => {
+    const el = box.current
+    if (!el) return
+    const check = () => setFits((full.current?.offsetWidth ?? Infinity) <= el.clientWidth)
+    check()
+    const ro = new ResizeObserver(check)
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [text])
   if (text.length <= head + tail + 1) return <span className={className}>{text}</span>
   return (
-    <HoverCard>
-      <HoverCardTrigger render={<span className={cn("cursor-default whitespace-nowrap", className)} />}>{text.slice(0, head)}…{text.slice(-tail)}</HoverCardTrigger>
-      <HoverCardContent>{text}</HoverCardContent>
-    </HoverCard>
+    <span ref={box} className="relative block w-full">
+      <span ref={full} aria-hidden className={cn("pointer-events-none invisible absolute left-0 top-0 whitespace-nowrap", className)}>{text}</span>
+      {fits ? <span className={cn("whitespace-nowrap", className)}>{text}</span> : (
+        <HoverCard>
+          <HoverCardTrigger render={<span className={cn("cursor-default whitespace-nowrap", className)} />}>{text.slice(0, head)}…{text.slice(-tail)}</HoverCardTrigger>
+          <HoverCardContent>{text}</HoverCardContent>
+        </HoverCard>
+      )}
+    </span>
   )
 }
