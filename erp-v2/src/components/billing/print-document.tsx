@@ -75,7 +75,7 @@ export function PrintDocument({ kind, id, bare = false }: { kind: Kind; id: stri
         <button onClick={() => window.print()} className="ml-auto inline-flex items-center gap-2 rounded-full bg-neutral-900 px-4 py-2 text-sm font-medium text-white"><PrinterIcon className="size-4" /> พิมพ์ / บันทึก PDF</button>
       </div>
 
-      <article className={`mx-auto w-[210mm] bg-white p-[12mm] text-[11px] leading-snug text-neutral-900 print:w-auto print:p-0 print:shadow-none ${embed ? "" : "shadow"}`}>
+      <article className={`mx-auto min-h-[297mm] w-[210mm] bg-white p-[12mm] print:min-h-0 text-[11px] leading-snug text-neutral-900 print:w-auto print:p-0 print:shadow-none ${embed ? "" : "shadow"}`}>
         <header className="flex items-start gap-4 border-b-2 border-neutral-800 pb-3">
           {/* eslint-disable-next-line @next/next/no-img-element -- static brand asset in a print page */}
           <img src="/brand/invoice-logo.svg" alt="" className="h-12 w-auto" />
