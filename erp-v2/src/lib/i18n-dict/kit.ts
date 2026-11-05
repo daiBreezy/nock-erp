@@ -76,4 +76,6 @@ export const KIT: Record<string, Entry> = {
   "ส่วนลด / โปรโมชัน": { en: "Discounts / promotions", ja: "割引・キャンペーン" },
   "ยังไม่มีโปรโมชันที่ใช้กับใบนี้ — โปรโมชันของสาขา (ลด % / ลดบาท / แถมชม.) จะใส่ให้อัตโนมัติตามคอร์สที่เลือก · ส่วนลดพิเศษใส่ได้ด้านล่าง": { en: "No promotion applies to this invoice yet — branch promotions (% off / amount off / bonus hours) are added automatically for the chosen courses · a special discount can be entered below", ja: "この請求書に適用されるキャンペーンはまだありません — 校舎のキャンペーン（％引き・金額引き・無料時間）は選択したコースに応じて自動適用・特別割引は下で入力できます" },
   "เลือกคอร์สและคลาสก่อน — ระบบจะแสดงรอบรับ-ส่งตามวันเรียนจริงให้ติ๊ก": { en: "Choose a course and class first — pick-up / drop-off legs for the real class days will appear to tick", ja: "先にコースとクラスを選択してください — 実際の授業日の送迎が表示されます" },
+  "ยังไม่ได้เลือก": { en: "Not chosen yet", ja: "未選択" },
+  "ลด {0}": { en: "Off {0}", ja: "{0}割引" },
 }

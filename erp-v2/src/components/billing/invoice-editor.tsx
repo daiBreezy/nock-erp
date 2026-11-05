@@ -7,7 +7,7 @@ import { autoCredits } from "@/domain/rules/refunds"
 import { PackageBadge } from "@/components/app/package-badge"
 import { busRate } from "@/domain/rules/settings"
 import { useState } from "react"
-import { AlertTriangleIcon, BusIcon, CalendarIcon, CheckIcon, HistoryIcon, MapPinIcon, PlusIcon, UserRoundSearchIcon, XIcon } from "lucide-react"
+import { AlertTriangleIcon, ChevronDownIcon, BusIcon, CalendarIcon, CheckIcon, HistoryIcon, MapPinIcon, PlusIcon, UserRoundSearchIcon, XIcon } from "lucide-react"
 import { NativeSelect } from "@/components/app/native-select"
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
@@ -80,6 +80,8 @@ export function InvoiceEditor({ invoice, defaultStudentId, renewEntitlementId, o
   // extra bus days from before: all pulled in by default, untick to leave them for a later invoice
   const [extrasPicked, setExtrasPicked] = useState<string[] | null>(invoice ? (invoice.busExtras ?? []).map((x) => x.addOnId) : null)
   // Family Promotion: switched on from the banner below (owner 2026-11-05); the % follows the tier the hours reach
+  // sections work like an FAQ: opening one closes the others (owner 2026-11-05)
+  const [openSec, setOpenSec] = useState(studentId ? 3 : 1)
   const [familyOn, setFamilyOn] = useState(invoice?.familyPromoPct != null)
   const [concession, setConcession] = useState(invoice?.concession?.amount ?? 0)
   const [concessionRemark, setConcessionRemark] = useState(invoice?.concession?.remark ?? "")
@@ -206,7 +208,7 @@ export function InvoiceEditor({ invoice, defaultStudentId, renewEntitlementId, o
         <Button disabled={errors.length > 0} onClick={submit}>{invoice ? "บันทึก" : "สร้างใบแจ้งหนี้ (ออกเลขทันที)"}</Button>
       </>}>
 
-        <Section n={1} title="Student">
+        <Section n={1} open={openSec === 1} onToggle={() => setOpenSec(openSec === 1 ? 0 : 1)} summary={student ? `${student.nickname} · ${student.grade}` : "ยังไม่ได้เลือก"} title="Student">
         <div className="space-y-1">
           <Label className="text-xs">นักเรียน *</Label>
           {student ? (
@@ -240,7 +242,7 @@ export function InvoiceEditor({ invoice, defaultStudentId, renewEntitlementId, o
 
         </Section>
 
-        <Section n={2} title="Promotion" hint="ส่วนลด / โปรโมชัน">
+        <Section n={2} open={openSec === 2} onToggle={() => setOpenSec(openSec === 2 ? 0 : 2)} summary={totals.promotion + totals.credit + totals.concession > 0 ? `ลด ${fmtMoney(totals.promotion + totals.credit + totals.concession)}` : "ไม่มี"} title="Promotion" hint="ส่วนลด / โปรโมชัน">
         {!familyTier && siblingHours.length === 0 && credits.length === 0 && !totals.lines.some((l) => l.promotion > 0 || l.bonusMinutes > 0) && concession === 0 && (
           <p className="text-xs text-muted-foreground">ยังไม่มีโปรโมชันที่ใช้กับใบนี้ — โปรโมชันของสาขา (ลด % / ลดบาท / แถมชม.) จะใส่ให้อัตโนมัติตามคอร์สที่เลือก · ส่วนลดพิเศษใส่ได้ด้านล่าง</p>
         )}
@@ -302,7 +304,7 @@ export function InvoiceEditor({ invoice, defaultStudentId, renewEntitlementId, o
 
         </Section>
 
-        <Section n={3} title="Course">
+        <Section n={3} open={openSec === 3} onToggle={() => setOpenSec(openSec === 3 ? 0 : 3)} summary={lines.length ? `${lines.length} คอร์ส · ${fmtMoney(totals.course + totals.courseFee)}` : "ยังไม่ได้เลือก"} title="Course">
         <div className="space-y-2">
           <div className="flex items-center gap-2">
             <Label className="text-xs">คอร์ส {lines.length > 0 && `(${lines.length})`}</Label>
@@ -344,7 +346,7 @@ export function InvoiceEditor({ invoice, defaultStudentId, renewEntitlementId, o
 
         </Section>
 
-        <Section n={4} title="Advance" hint="ไม่บังคับ">
+        <Section n={4} open={openSec === 4} onToggle={() => setOpenSec(openSec === 4 ? 0 : 4)} summary={totals.advance + totals.book > 0 ? fmtMoney(totals.advance + totals.book) : "ไม่มี"} title="Advance" hint="ไม่บังคับ">
         {advanceFees.length > 0 && (
           <div className="space-y-1.5">
             <Label className="text-xs">Advance Optional (ค่าแรกเข้า / สอบ)</Label>
@@ -376,7 +378,7 @@ export function InvoiceEditor({ invoice, defaultStudentId, renewEntitlementId, o
         <div className="space-y-1 sm:max-w-xs"><Label className="text-xs">ค่าหนังสือ</Label><Input type="number" min={0} value={bookFee} onChange={(e) => setBookFee(Math.max(0, Number(e.target.value)))} /></div>
         </Section>
 
-        <Section n={5} title="Bus" hint="ไม่บังคับ">
+        <Section n={5} open={openSec === 5} onToggle={() => setOpenSec(openSec === 5 ? 0 : 5)} summary={totals.bus + totals.busExtra > 0 ? fmtMoney(totals.bus + totals.busExtra) : "ไม่ใช้"} title="Bus" hint="ไม่บังคับ">
         {busDates.length > 0 && (
           <details className="rounded-lg border" open={legs.some((l) => l.pickup || l.dropoff)}>
             <summary className="flex cursor-pointer items-center gap-2 px-3 py-2 text-sm">
@@ -439,7 +441,7 @@ export function InvoiceEditor({ invoice, defaultStudentId, renewEntitlementId, o
         {busDates.length === 0 && pendingExtras.length === 0 && <p className="text-xs text-muted-foreground">เลือกคอร์สและคลาสก่อน — ระบบจะแสดงรอบรับ-ส่งตามวันเรียนจริงให้ติ๊ก</p>}
         </Section>
 
-        <Section n={6} title="Summary">
+        <Section n={6} open={openSec === 6} onToggle={() => setOpenSec(openSec === 6 ? 0 : 6)} summary={fmtMoney(totals.total)} title="Summary">
         <div className="space-y-1 rounded-lg bg-muted/50 p-3 text-sm tabular-nums">
           {[["ค่าเรียน", totals.course], ["Course fee", totals.courseFee], ["ค่ารถ", totals.bus], ["ค่ารถเพิ่ม (รอบก่อน)", totals.busExtra], ["ค่าหนังสือ", totals.book], ["Advance (ค่าแรกเข้า/สอบ)", totals.advance]].filter(([, v]) => (v as number) > 0).map(([l, v]) => (
             <div key={l as string} className="flex justify-between"><span>{l}</span><span>{fmtMoney(v as number)}</span></div>
@@ -456,15 +458,19 @@ export function InvoiceEditor({ invoice, defaultStudentId, renewEntitlementId, o
   )
 }
 
-/** A titled block of the invoice form (owner 2026-11-05): Student · Promotion · Course · Advance · Bus · Summary */
-function Section({ n, title, hint, children }: { n: number; title: string; hint?: string; children: React.ReactNode }) {
+/** A titled block of the invoice form (owner 2026-11-05): Student · Promotion · Course · Advance · Bus · Summary —
+ *  accordion rows, one open at a time; the collapsed row shows a one-line summary. Content stays mounted when closed. */
+function Section({ n, title, hint, summary, open, onToggle, children }: { n: number; title: string; hint?: string; summary: string; open: boolean; onToggle: () => void; children: React.ReactNode }) {
   return (
-    <section className="space-y-3 rounded-2xl border p-4">
-      <h3 className="flex items-center gap-2 text-sm font-semibold">
-        <span className="grid size-5 place-items-center rounded-full bg-foreground text-[11px] text-background">{n}</span>{title}
-        {hint && <span className="text-xs font-normal text-muted-foreground">· {hint}</span>}
-      </h3>
-      {children}
+    <section className="border-b last:border-b-0">
+      <button type="button" aria-expanded={open} onClick={onToggle} className="flex w-full items-center gap-2 py-3 text-left">
+        <span className="grid size-5 shrink-0 place-items-center rounded-full bg-foreground text-[11px] text-background">{n}</span>
+        <span className="text-sm font-semibold">{title}</span>
+        {hint && <span className="text-xs text-muted-foreground">· {hint}</span>}
+        {!open && <span className="ml-auto truncate text-xs text-muted-foreground tabular-nums">{summary}</span>}
+        <ChevronDownIcon className={cn("size-4 shrink-0 text-muted-foreground transition-transform", open ? "" : "-rotate-90", open && "ml-auto")} />
+      </button>
+      <div hidden={!open} className="space-y-3 pb-4">{children}</div>
     </section>
   )
 }
