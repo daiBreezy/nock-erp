@@ -167,14 +167,17 @@ export function PrintDocument({ kind, id, bare = false }: { kind: Kind; id: stri
             {kind === "invoice" && (payQr || branch.bankAccount.number) && (
               <div className="flex items-start gap-3">
                 {payQr && (
-                  <div className="shrink-0 text-center">
-                    <svg viewBox={`0 0 ${payQr.n + 2} ${payQr.n + 2}`} className="size-[26mm]" shapeRendering="crispEdges" aria-label="PromptPay">
+                  <>
+                    <svg viewBox={`0 0 ${payQr.n + 2} ${payQr.n + 2}`} className="size-[26mm] shrink-0" shapeRendering="crispEdges" aria-label="PromptPay">
                       <rect width="100%" height="100%" fill="#fff" />
                       {payQr.dark.map(([x, y]) => <rect key={`${x}-${y}`} x={x + 1} y={y + 1} width="1" height="1" fill="#1a3c6e" />)}
                     </svg>
-                    <p className="text-[9px] leading-tight">{L.scanToPay}</p>
-                    <p className="text-[9px] leading-tight text-neutral-700">Scan to pay · PromptPay</p>
-                  </div>
+                    {/* the caption sits beside the QR, like the bank account beside it */}
+                    <div className="w-[24mm] shrink-0 text-[11px] leading-snug">
+                      <p>{L.scanToPay}</p>
+                      <p>Scan to pay · PromptPay</p>
+                    </div>
+                  </>
                 )}
                 {branch.bankAccount.number && (
                   <p className="whitespace-pre-line text-[11px]">
