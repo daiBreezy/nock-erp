@@ -267,7 +267,7 @@ type Store = DB & UIState & {
   createCreditNote: (input: Pick<CreditNote, "invoiceId" | "mode" | "items" | "reasons" | "remark" | "stopFrom">) => Result<CreditNote>
   approveCreditNote: (id: ID, forceRemark?: string) => Result
   voidCreditNote: (id: ID, reason: string) => Result
-  recordRefund: (id: ID, r: { fromAccount: string; date: DateStr; reference: string }) => Result
+  recordRefund: (id: ID, r: { fromAccount: string; date: DateStr; reference: string; slip?: string; remark?: string }) => Result
   recordPayment: (id: ID, p: { amount: number; method: "transfer" | "cash"; reference: string; slip?: string; paidOn?: DateStr; remark?: string }) => Result
   confirmPayment: (invoiceId: ID, paymentId: ID, forceRemark?: string) => Result<{ paid: boolean }>
   /** one slip for several invoices of the same family — confirming any of them confirms the whole slip */
@@ -2594,7 +2594,7 @@ export const useStore = create<Store>()(
         const cn = s.creditNotes.find((x) => x.id === id)!
         const err = Refund.validateRefundRecord(cn, rec)
         if (err) return fail(err)
-        set({ creditNotes: s.creditNotes.map((x) => (x.id === id ? { ...x, refund: { fromAccount: rec.fromAccount.trim(), date: rec.date, reference: rec.reference.trim(), recordedBy: s.userId, recordedAt: s.now().toISOString() } } : x)) })
+        set({ creditNotes: s.creditNotes.map((x) => (x.id === id ? { ...x, refund: { fromAccount: rec.fromAccount.trim(), date: rec.date, reference: rec.reference.trim(), slip: rec.slip, remark: rec.remark?.trim() || undefined, recordedBy: s.userId, recordedAt: s.now().toISOString() } } : x)) })
         log("billing", [cn.studentId], "โอนคืนเงิน", `${cn.number} · ${fmtMoney(Refund.creditNoteTotal(cn))} · จาก ${rec.fromAccount.trim()} · ${fmtDate(rec.date)} · ${rec.reference.trim()}`)
         return OK
       },

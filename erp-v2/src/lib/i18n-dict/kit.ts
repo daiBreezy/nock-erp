@@ -203,4 +203,8 @@ export const KIT: Record<string, Entry> = {
   "PromptPay ID ไม่ถูกต้อง — ต้องเป็นเบอร์โทร 10 หลัก เลขผู้เสียภาษี 13 หลัก หรือ e-Wallet 15 หลัก": { en: "Invalid PromptPay ID — use a 10-digit phone, 13-digit tax ID or 15-digit e-Wallet", ja: "PromptPay IDが正しくありません — 電話番号10桁・納税者番号13桁・e-Wallet15桁のいずれか" },
   "ไม่ใส่ = ไม่มี QR จ่ายเงินบนใบแจ้งหนี้": { en: "Leave empty = no payment QR on the invoice", ja: "空欄＝請求書に支払いQRなし" },
   "PromptPay ID ไม่ถูกต้อง": { en: "Invalid PromptPay ID", ja: "PromptPay IDが正しくありません" },
+  "บันทึกการโอนคืน": { en: "Record refund transfer", ja: "返金振込を記録" },
+  "· บัญชีที่เงินออก ใช้เทียบ Statement": { en: "· the account the money left from, to match the statement", ja: "· 出金口座（明細照合用）" },
+  "จำนวนเงินที่โอนคืน": { en: "Amount transferred back", ja: "返金額" },
+  "รูปสลิปโอนคืน (ไม่บังคับ)": { en: "Refund slip image (optional)", ja: "返金スリップ画像（任意）" },
 }

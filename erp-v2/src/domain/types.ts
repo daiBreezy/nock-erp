@@ -1298,7 +1298,7 @@ export interface CreditNote {
   forced?: ForcedAction
   voidReason?: string
   /** refund mode: the money actually sent back — from which account, so the statement line has a document */
-  refund?: { fromAccount: string; date: DateStr; reference: string; recordedBy: ID; recordedAt: string }
+  refund?: { fromAccount: string; date: DateStr; reference: string; slip?: string; remark?: string; recordedBy: ID; recordedAt: string }
 }
 
 /** Course credit taken off an invoice */

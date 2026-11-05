@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { CheckIcon, ReceiptIcon, Undo2Icon, WalletIcon } from "lucide-react"
+import { CheckIcon, ImageIcon, ReceiptIcon, Undo2Icon, UploadIcon, WalletIcon } from "lucide-react"
 import { Pill } from "@/components/app/badges"
 import { ForceApprove } from "@/components/app/force-approve"
 import { Button } from "@/components/ui/button"
@@ -16,6 +16,7 @@ import { can } from "@/domain/rules/permissions"
 import * as Refund from "@/domain/rules/refunds"
 import type { CreditMode, CreditNote, Invoice } from "@/domain/types"
 import { report } from "@/lib/feedback"
+import { slipDataUrl } from "@/lib/image"
 import { useNow } from "@/lib/hooks"
 import { cn } from "@/lib/utils"
 import { useShallow } from "zustand/react/shallow"
@@ -49,13 +50,9 @@ export function CreditNotes({ inv }: { inv: Invoice }) {
 function NoteCard({ n, who, manage }: { n: CreditNote; who: (id?: string) => string; manage: boolean }) {
   const act = useStore(useShallow((s) => ({ approve: s.approveCreditNote, void: s.voidCreditNote, refund: s.recordRefund })))
   const me = useStore((s) => s.me())
-  const branch = useStore((s) => s.branches.find((b) => b.id === n.branchId)!)
-  const today = toDateStr(useNow(60_000))
   const [voiding, setVoiding] = useState(false)
   const [reason, setReason] = useState("")
-  const [acc, setAcc] = useState("")
-  const [date, setDate] = useState(today)
-  const [ref, setRef] = useState("")
+  const [recording, setRecording] = useState(false)
   const check = Refund.canApproveCreditNote(n, me)
   const canForce = Refund.canForceApproveCreditNote(n, me, "x").ok
   return (
@@ -92,23 +89,63 @@ function NoteCard({ n, who, manage }: { n: CreditNote; who: (id?: string) => str
 
       {n.mode === "refund" && n.status === "approved" && (
         n.refund ? (
-          <p className="rounded-md bg-emerald-50 p-2 text-xs text-emerald-900 dark:bg-emerald-950 dark:text-emerald-200">
-            โอนคืนแล้ว {fmtDate(n.refund.date, { year: true })} · จาก {n.refund.fromAccount} · {n.refund.reference} · บันทึกโดย {who(n.refund.recordedBy)}
-          </p>
+          <div className="flex items-start gap-2 rounded-md bg-emerald-50 p-2 text-xs text-emerald-900 dark:bg-emerald-950 dark:text-emerald-200">
+            {/* eslint-disable-next-line @next/next/no-img-element -- data URL */}
+            {n.refund.slip && <img src={n.refund.slip} alt="สลิปโอนคืน" className="size-12 shrink-0 rounded-lg object-cover" />}
+            <p>โอนคืนแล้ว {fmtDate(n.refund.date, { year: true })} · จาก {n.refund.fromAccount} · {n.refund.reference}{n.refund.remark && ` · ${n.refund.remark}`} · บันทึกโดย {who(n.refund.recordedBy)}</p>
+          </div>
         ) : manage && (
-          <div className="space-y-2 border-t pt-2">
-            <Label className="text-xs">บันทึกการโอนคืน — บัญชีที่เงินออก ใช้เทียบ Statement</Label>
-            <div className="grid gap-2 sm:grid-cols-3">
-              <Input list={`acc-${n.id}`} value={acc} onChange={(e) => setAcc(e.target.value)} placeholder="โอนจากบัญชี" />
-              <datalist id={`acc-${n.id}`}>{branch.bankAccount.number && <option value={`${branch.bankAccount.bank} ${branch.bankAccount.number}`} />}</datalist>
-              <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
-              <Input value={ref} onChange={(e) => setRef(e.target.value)} placeholder="เลขอ้างอิงการโอน" />
-            </div>
-            <Button size="xs" onClick={() => report(act.refund(n.id, { fromAccount: acc, date, reference: ref }), "บันทึกการโอนคืนแล้ว")}>บันทึกโอนคืน</Button>
+          <div className="border-t pt-2">
+            <Button size="xs" onClick={() => setRecording(true)}><UploadIcon /> บันทึกการโอนคืน</Button>
           </div>
         )
       )}
+      {recording && <RefundDialog n={n} onClose={() => setRecording(false)} />}
     </div>
+  )
+}
+
+/** Record the transfer back — same shape as Upload Pay Slip: account · date · amount (read-only) · slip image · reference · remark. */
+function RefundDialog({ n, onClose }: { n: CreditNote; onClose: () => void }) {
+  const record = useStore((s) => s.recordRefund)
+  const branch = useStore((s) => s.branches.find((b) => b.id === n.branchId)!)
+  const today = toDateStr(useNow(60_000))
+  const [acc, setAcc] = useState(branch.bankAccount.number ? `${branch.bankAccount.bank} ${branch.bankAccount.number}` : "")
+  const [date, setDate] = useState(today)
+  const [ref, setRef] = useState("")
+  const [slip, setSlip] = useState<string | undefined>()
+  const [remark, setRemark] = useState("")
+  return (
+    <Dialog open onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="max-h-[92vh] overflow-y-auto lg:max-w-lg">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2"><UploadIcon className="size-4" /> บันทึกการโอนคืน</DialogTitle>
+          <DialogDescription>{n.number} · บัญชีที่เงินออก ใช้เทียบ Statement</DialogDescription>
+        </DialogHeader>
+        <div className="grid gap-3 sm:grid-cols-2">
+          <div className="space-y-1 sm:col-span-2"><Label className="text-xs">โอนจากบัญชี</Label><Input value={acc} onChange={(e) => setAcc(e.target.value)} placeholder="โอนจากบัญชี" /></div>
+          <div className="space-y-1"><Label className="text-xs">วันที่โอนคืน</Label><Input type="date" value={date} max={today} onChange={(e) => setDate(e.target.value)} /></div>
+          <div className="space-y-1"><Label className="text-xs">จำนวนเงินที่โอนคืน</Label><Input readOnly value={fmtMoney(Refund.creditNoteTotal(n))} /></div>
+        </div>
+        <div className="space-y-3 rounded-2xl border p-3">
+          <div className="space-y-1">
+            <Label className="text-xs">รูปสลิปโอนคืน (ไม่บังคับ)</Label>
+            <label className="flex cursor-pointer items-center gap-3 rounded-2xl border border-dashed p-2 text-xs text-muted-foreground hover:bg-muted/40">
+              {/* eslint-disable-next-line @next/next/no-img-element -- data URL */}
+              {slip ? <img src={slip} alt="สลิป" className="size-14 rounded-lg object-cover" /> : <span className="grid size-14 place-items-center rounded-lg border border-dashed"><ImageIcon className="size-5" /></span>}
+              {slip ? "เปลี่ยนรูปสลิป" : "เลือกรูปสลิป"}
+              <input type="file" accept="image/*" className="hidden" onChange={async (e) => { const f = e.target.files?.[0]; if (f) setSlip(await slipDataUrl(f)) }} />
+            </label>
+          </div>
+          <div className="space-y-1"><Label className="text-xs">เลขอ้างอิงการโอน</Label><Input value={ref} onChange={(e) => setRef(e.target.value)} placeholder="เลขอ้างอิง / เลขที่รายการ" /></div>
+        </div>
+        <div className="space-y-1"><Label className="text-xs">หมายเหตุ</Label><Input value={remark} onChange={(e) => setRemark(e.target.value)} placeholder="หมายเหตุ (ไม่บังคับ)" /></div>
+        <DialogFooter>
+          <Button variant="ghost" onClick={onClose}>ยกเลิก</Button>
+          <Button onClick={() => report(record(n.id, { fromAccount: acc, date, reference: ref, slip, remark }), "บันทึกการโอนคืนแล้ว") && onClose()}><CheckIcon /> บันทึกโอนคืน</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   )
 }
 
