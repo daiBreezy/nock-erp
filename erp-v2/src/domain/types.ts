@@ -165,7 +165,8 @@ export interface PriceRow {
 export interface Promotion {
   id: ID
   name: string
-  type: "pct" | "amount"
+  /** pct / amount = money off the tuition · bonus_hours = free hours added to the package (value = hours, hour packs only) */
+  type: "pct" | "amount" | "bonus_hours"
   value: number
   /** which package type it discounts, and the minimum duration bought (hours / weeks / months) */
   unit: PriceUnit
@@ -1360,6 +1361,8 @@ export interface Invoice {
   concession: { amount: number; remark: string } | null
   /** auto-applied best promotion (id kept so the invoice shows which one) */
   promotionId?: ID | null
+  /** Family Promotion % set on this invoice (owner 2026-11-05): system-wide, off the tuition of every course on it */
+  familyPromoPct?: number
   noteToParent: string
   status: InvoiceStatus
   pdf: "none" | "generating" | "ready" | "failed"

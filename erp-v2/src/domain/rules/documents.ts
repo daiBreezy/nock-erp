@@ -89,6 +89,7 @@ export function invoiceItems(inv: Invoice, totals: InvoiceTotals, branch: Branch
     }
     one(`${t.courseFee} · ${l.course.name}`, l.courseFee)
     one(`${t.promo}${l.promotionName ? ` · ${l.promotionName}` : ""}`, -l.promotion)
+    if (l.bonusMinutes) items.push({ description: `${l.bonusName ?? t.promo} · +${l.bonusMinutes / 60} h`, qty: 1, unitPrice: 0, amount: 0 })
   }
   const legs = inv.bus.reduce((a, x) => a + Number(x.pickup) + Number(x.dropoff), 0)
   if (totals.bus) {

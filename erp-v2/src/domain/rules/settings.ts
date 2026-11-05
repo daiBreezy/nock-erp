@@ -134,6 +134,7 @@ export function validatePromotion(p: Promotion): string | null {
   if (!p.name.trim()) return "ใส่ชื่อโปรโมชัน"
   if (!(p.value > 0)) return "ส่วนลดต้องมากกว่า 0"
   if (p.type === "pct" && p.value > 100) return "ส่วนลดเปอร์เซ็นต์ต้องไม่เกิน 100"
+  if (p.type === "bonus_hours" && p.unit !== "hour") return "โปรแถมชั่วโมงใช้ได้กับแพ็กเกจรายชั่วโมงเท่านั้น"
   if (!(p.minDuration > 0)) return "เลือกระยะขั้นต่ำ"
   if (p.from && p.to && p.from > p.to) return "วันสิ้นสุดต้องหลังวันเริ่ม"
   return null

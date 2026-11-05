@@ -6,4 +6,9 @@ export const BILLING_PROMO: Record<string, Entry> = {
   "แจ้งผู้ปกครองแล้ว": { en: "Parent notified", ja: "保護者に通知済み" },
   "แจ้งผู้ปกครองว่ายกเลิกใบนี้": { en: "Tell the parent this invoice was cancelled", ja: "保護者にこの請求書の取消を連絡" },
   "ส่งข้อความแจ้งผู้ปกครองแล้ว": { en: "Message sent to the parent", ja: "保護者にメッセージを送信しました" },
+  "แถม": { en: "Bonus", ja: "追加" },
+  "ชม.": { en: "h", ja: "時間" },
+  "แถมชั่วโมงเรียน (ไม่ลดเงิน)": { en: "Bonus hours (no money off)", ja: "無料レッスン時間（値引きなし）" },
+  "จำนวนชั่วโมงที่แถม": { en: "Free hours added", ja: "追加する無料時間" },
+  "โปรโมชัน · {0} — แถมเวลาเรียนเพิ่ม {1} ชม. (ไม่เพิ่มราคา)": { en: "Promotion · {0} — {1} h of extra class time (price unchanged)", ja: "キャンペーン · {0} — {1}時間追加（価格据え置き）" },
 }

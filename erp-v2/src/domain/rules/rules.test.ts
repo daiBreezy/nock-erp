@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest"
 import type { DevTicket, NockAnswer, NockQuestion, Role, Assessment, Attendance, Branch, BusAddOn, CreditNote, LessonSummary, Course, Entitlement, Family, FormSubmission, Lead, Student, FormOfferSlot, Holiday, Invoice, Klass, Session, Staff, StudentLeave, Weekday } from "../types"
 import { applyClassEdit, applyToSessions, canChangeTeachers, canMoveToClass, canUndoClassMove, canRescheduleStudent, movesOf, mondayOf, removedWithClass, canSave, closesBranch, holidayImpact, hoursFor, isHoliday, overlappingRows, periodsIn, introducedConflicts, editSingleSession, findConflicts, generateSessions, moveSession, sessionState, validateClass, workState } from "./scheduling"
 import { activeLeave, nextClassDates, teacherLeaveCancels, leaveRunSessions, balance, studentState, leaveLedger, packageCovers, canMark, canSaveLeave, coveringEntitlement, effectiveTo, leavesUsed, lowBalanceAlert, removeFromClass, renewalFollowUpDue, resolveEntitlements } from "./attendance"
-import { bestPromotion, duplicateBusDay, billedOn, busAddOnAmount, pendingBusAddOns, validateBusAddOn, carriedMinutes, weekKey, classOptionsFor, defaultAdvance, entryFeeWaiver, invoiceSessionDates, invoiceTotals, validateInvoiceDraft, canApprove, canConfirmPayment, canForceApprove, canForceConfirmPayment, canSend, canVoid, defaultBusLegs, busTotal, nextInvoiceNumber, quoteCourse, roundUpTo } from "./billing"
+import { bestPromotion, duplicateBusDay, billedOn, busAddOnAmount, pendingBusAddOns, validateBusAddOn, carriedMinutes, weekKey, classOptionsFor, defaultAdvance, entryFeeWaiver, invoiceSessionDates, invoiceTotals, validateInvoiceDraft, canApprove, canConfirmPayment, canForceApprove, canForceConfirmPayment, canSend, canVoid, defaultBusLegs, busTotal, nextInvoiceNumber, quoteCourse, roundUpTo, familyPromotion, bestBonusHours, FAMILY_PROMO_TIERS } from "./billing"
 import { can } from "./permissions"
 import { chartPrice, defaultCourseName, filterCourses, validateCourse } from "./course"
 import { busRate, copyHours, gradeLabel, subjectLabel, priceOf, priceRange, setPrice, validateBranchInfo, validateDurations, validateHoliday, validatePromotion, validateSpecialPeriods, everyDay, subjectAbbr } from "./settings"
@@ -2813,5 +2813,61 @@ describe("one slip for several invoices of a family (owner 2026-10-29)", () => {
     const g1 = inv("i1", "INV-001", { payments: [pay("g")] }), g2 = inv("i2", "INV-002", { payments: [pay("g")] }), lone = inv("i3", "INV-003", { payments: [pay()] })
     expect(Pay.paymentGroup(g2, [lone, g2, g1]).map((x) => x.id)).toEqual(["i1", "i2"])
     expect(Pay.paymentGroup(lone, [lone, g1]).map((x) => x.id)).toEqual(["i3"])
+  })
+})
+
+describe("promotions: Family Promotion + bonus hours (owner 2026-11-05)", () => {
+  const m = (...h: number[]) => h.map((hours, i) => ({ studentId: `s${i}`, hours }))
+  it("family tiers are strictly over 72 h (10%) and 96 h (15%)", () => {
+    expect(FAMILY_PROMO_TIERS).toEqual([{ overHours: 72, pct: 10 }, { overHours: 96, pct: 15 }])
+    expect(familyPromotion(m(72))).toBeNull()
+    expect(familyPromotion(m(36, 36))).toBeNull()
+    expect(familyPromotion(m(73))?.pct).toBe(10)
+    expect(familyPromotion(m(96))?.pct).toBe(10)
+    expect(familyPromotion(m(97))?.pct).toBe(15)
+  })
+  it("family total OR one child reaches the tier, whichever first", () => {
+    const together = familyPromotion(m(40, 40))
+    expect(together).toMatchObject({ pct: 10, basis: "family", hours: 80 })
+    expect(familyPromotion(m(80, 10))).toMatchObject({ pct: 10, basis: "single", hours: 80 })
+  })
+  it("tier above 96 h together gives 15%", () => {
+    expect(familyPromotion(m(50, 50))?.pct).toBe(15)
+  })
+  it("the discount comes off the tuition only, for every sibling invoice", () => {
+    const pkg: Course = { ...monthPkg, id: "h10", unit: "hour", duration: 10, price: 6000, courseFee: 500 }
+    const k90 = klass({ id: "k90", minutes: 90 })
+    const ctx = { branch, courses: [pkg], classes: [k90], holidays: [] }
+    const mk = (studentId: string, familyPromoPct?: number): Invoice => ({ id: "i" + studentId, branchId: "b1", studentId, number: null, lines: [{ id: "l", courseId: "h10", classIds: ["k90"], startDate: "2026-09-29", periods: 1, leftover: "drop" }], bus: [], bookFee: 300, advance: [], concession: null, noteToParent: "", status: "draft", pdf: "none", createdBy: "adm", createdAt: "", payments: [], familyPromoPct })
+    for (const sid of ["a", "b"]) {
+      const t = invoiceTotals(mk(sid, 10), ctx)
+      expect(t.promotion).toBe(600) // 10% of 6000 tuition, not of fee/book
+      expect(t.total).toBe(6000 + 500 - 600 + 300)
+      expect(t.lines[0].family).toBe(true)
+    }
+    expect(invoiceTotals(mk("a"), ctx).promotion).toBe(0)
+  })
+  it("a bigger branch promotion wins over the family one (no stacking)", () => {
+    const pkg: Course = { ...monthPkg, id: "h10", unit: "hour", duration: 10, price: 6000 }
+    const b = { ...branch, promotions: [{ id: "p", name: "Big", type: "pct" as const, value: 20, unit: "hour" as const, minDuration: 10, active: true }] }
+    const inv: Invoice = { id: "i", branchId: "b1", studentId: "a", number: null, lines: [{ id: "l", courseId: "h10", classIds: ["k90"], startDate: "2026-09-29", periods: 1, leftover: "drop" }], bus: [], bookFee: 0, advance: [], concession: null, noteToParent: "", status: "draft", pdf: "none", createdBy: "adm", createdAt: "", payments: [], familyPromoPct: 10 }
+    const t = invoiceTotals(inv, { branch: b, courses: [pkg], classes: [klass({ id: "k90", minutes: 90 })], holidays: [] })
+    expect(t.promotion).toBe(1200)
+    expect(t.lines[0].family).toBeUndefined()
+  })
+  it("bonus hours add free time to the hour pack and no money off", () => {
+    const pkg: Course = { ...monthPkg, id: "h10", unit: "hour", duration: 10, price: 6000 }
+    const k90 = klass({ id: "k90", minutes: 90 })
+    const b = { ...branch, promotions: [{ id: "bx", name: "+3h", type: "bonus_hours" as const, value: 3, unit: "hour" as const, minDuration: 10, active: true }] }
+    const inv: Invoice = { id: "i", branchId: "b1", studentId: "a", number: null, lines: [{ id: "l", courseId: "h10", classIds: ["k90"], startDate: "2026-09-29", periods: 1, leftover: "drop" }], bus: [], bookFee: 0, advance: [], concession: null, noteToParent: "", status: "draft", pdf: "none", createdBy: "adm", createdAt: "", payments: [] }
+    const plain = invoiceTotals(inv, { branch, courses: [pkg], classes: [k90], holidays: [] })
+    const bonus = invoiceTotals(inv, { branch: b, courses: [pkg], classes: [k90], holidays: [] })
+    expect(bonus.total).toBe(plain.total)
+    expect(bonus.promotion).toBe(0)
+    expect(bonus.lines[0].bonusMinutes).toBe(180)
+    expect(bonus.lines[0].quote!.slots.length).toBe(plain.lines[0].quote!.slots.length + 2) // 180 min = 2 sessions of 90
+    expect(bestBonusHours(b, { unit: "hour", amount: 5 }, "2026-09-29")).toBeNull()
+    expect(bestBonusHours(b, { unit: "week", amount: 10 }, "2026-09-29")).toBeNull()
+    expect(bestPromotion(b, { unit: "hour", amount: 10 }, 6000, "2026-09-29")).toBeNull()
   })
 })

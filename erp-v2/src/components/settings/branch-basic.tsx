@@ -152,7 +152,7 @@ export function BranchInfoTab({ branch, onJump }: { branch: Branch; onJump: (tab
         </SettingsCard>
         <SettingsCard title={tx("โปรโมชัน & บุคลากร")} action={edit("promotions")}>
           <div className="space-y-3">
-            <InfoRow label={tx("โปรโมชันที่เปิดอยู่")}>{chips(b.promotions.filter((p) => p.active).map((p) => `${p.name} · ${p.type === "pct" ? `${p.value}%` : fmtMoney(p.value)}`))}</InfoRow>
+            <InfoRow label={tx("โปรโมชันที่เปิดอยู่")}>{chips(b.promotions.filter((p) => p.active).map((p) => `${p.name} · ${p.type === "pct" ? `${p.value}%` : p.type === "bonus_hours" ? `+${p.value} ${tx("ชม.")}` : fmtMoney(p.value)}`))}</InfoRow>
             <InfoRow label={tx("บุคลากร ({0} คน)", [people.length])}>{chips(people.map((x) => x.nickname))}</InfoRow>
           </div>
         </SettingsCard>

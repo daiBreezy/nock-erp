@@ -185,7 +185,7 @@ function Body({ id, slipMediaId, onEdit }: { id: ID; slipMediaId?: string; onEdi
         <section className="rounded-lg border">
           <table className="w-full text-sm tabular-nums">
             <tbody className="divide-y">
-              {totals.lines.map(({ line, course, klasses, quote, courseFee, promotion, promotionName }) => course && quote && (
+              {totals.lines.map(({ line, course, klasses, quote, courseFee, promotion, promotionName, bonusMinutes, bonusName }) => course && quote && (
                 <Fragment key={line.id}>
                   <tr>
                     <td className="px-3 py-2" colSpan={2}>
@@ -204,6 +204,7 @@ function Body({ id, slipMediaId, onEdit }: { id: ID; slipMediaId?: string; onEdi
                   ))}
                   {courseFee > 0 && <tr className="text-muted-foreground"><td className="px-3 py-1 pl-6">Course fee (ค่าอุปกรณ์)</td><td className="px-3 py-1 text-right">{fmtMoney(courseFee)}</td></tr>}
                   {promotion > 0 && <tr className="text-emerald-700"><td className="px-3 py-1 pl-6">โปรโมชัน · {promotionName}</td><td className="px-3 py-1 text-right">−{fmtMoney(promotion)}</td></tr>}
+                  {bonusMinutes > 0 && <tr className="text-emerald-700"><td className="px-3 py-1 pl-6" colSpan={2}>โปรโมชัน · {bonusName} — แถมเวลาเรียนเพิ่ม {bonusMinutes / 60} ชม. (ไม่เพิ่มราคา)</td></tr>}
                 </Fragment>
               ))}
               {totals.bus > 0 && <tr><td className="px-3 py-1.5">ค่ารถ {branch.fees.find((f) => f.id === inv.busFeeId)?.name ?? ""} ({inv.bus.reduce((a, l) => a + +l.pickup + +l.dropoff, 0)} เที่ยว)</td><td className="px-3 py-1.5 text-right">{fmtMoney(totals.bus)}</td></tr>}

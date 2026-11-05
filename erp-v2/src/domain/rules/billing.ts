@@ -90,6 +90,8 @@ export function quoteCourse(opts: {
   openDays?: Weekday[]
   /** hour packs: minutes carried in from the previous package */
   carryIn?: number
+  /** hour packs: free minutes from a bonus-hours promotion — added to what is bought, price unchanged */
+  bonusMinutes?: number
   leftover?: Leftover
 }): Result<CourseQuote> {
   const { course, klasses, startDate, holidays } = opts
@@ -124,7 +126,7 @@ export function quoteCourse(opts: {
 
   // hour packs: whole sessions the minutes pay for, in real class order across every class, at each class's real
   // length (24 h at 1:30 = 16 sessions) · what doesn't fill the next session is the leftover (owner 2026-09-30)
-  const bought = course.duration * 60 * opts.periods + (opts.carryIn ?? 0)
+  const bought = course.duration * 60 * opts.periods + (opts.carryIn ?? 0) + (opts.bonusMinutes ?? 0)
   // scan until the meetings found go past what was bought — the first one over is the "next session"
   const { slots, skipped } = classSlots(klasses, first, holidays, (_, taken) => taken.reduce((a, x) => a + x.minutes, 0) > bought)
   let used = 0
@@ -168,15 +170,49 @@ export function busTotal(legs: BusLeg[], perLeg: number) {
   return legs.reduce((a, l) => a + (l.pickup ? perLeg : 0) + (l.dropoff ? perLeg : 0), 0)
 }
 
-/** Best active promotion for this package type whose minimum duration the purchase reaches */
+const promoActive = (p: Branch["promotions"][number], purchase: { unit: PriceUnit; amount: number }, date: DateStr) =>
+  p.active && p.unit === purchase.unit && purchase.amount >= p.minDuration && (!p.from || p.from <= date) && (!p.to || date <= p.to)
+
+/** Best active money promotion (pct / amount) for this package type whose minimum duration the purchase reaches */
 export function bestPromotion(branch: Branch, purchase: { unit: PriceUnit; amount: number }, courseAmount: number, date: DateStr) {
-  const eligible = (branch.promotions ?? []).filter(
-    (p) => p.active && p.unit === purchase.unit && purchase.amount >= p.minDuration && (!p.from || p.from <= date) && (!p.to || date <= p.to),
-  )
+  const eligible = (branch.promotions ?? []).filter((p) => p.type !== "bonus_hours" && promoActive(p, purchase, date))
   const value = (p: (typeof eligible)[number]) => (p.type === "pct" ? Math.round((courseAmount * p.value) / 100) : Math.min(p.value, courseAmount))
   const best = eligible.sort((a, b) => value(b) - value(a))[0]
   return best ? { promotion: best, discount: value(best) } : null
 }
+
+/** Best bonus-hours promotion (owner 2026-11-05): free hours on an hour pack — no money off, more time in the entitlement */
+export function bestBonusHours(branch: Branch, purchase: { unit: PriceUnit; amount: number }, date: DateStr) {
+  if (purchase.unit !== "hour") return null
+  const best = (branch.promotions ?? []).filter((p) => p.type === "bonus_hours" && p.value > 0 && promoActive(p, purchase, date)).sort((a, b) => b.value - a.value)[0]
+  return best ? { promotion: best, minutes: Math.round(best.value * 60) } : null
+}
+
+/** Family Promotion (owner 2026-11-05, #53): system-wide, not per branch. Strictly MORE than the hours counts
+ *  (72 h exactly = no discount). Tiers are a constant so the owner can tune them in one place. */
+export const FAMILY_PROMO_TIERS: { overHours: number; pct: number }[] = [
+  { overHours: 72, pct: 10 },
+  { overHours: 96, pct: 15 },
+]
+
+export interface FamilyPromo { pct: number; overHours: number; /** which hours reached it */ basis: "family" | "single"; hours: number }
+
+/** Siblings invoiced the same day + the hours each buys → the tier the family reaches, from the family total or any
+ *  one child, whichever gets there first (i.e. the higher tier). The discount then goes to EVERY sibling invoiced. */
+export function familyPromotion(members: { studentId: ID; hours: number }[]): FamilyPromo | null {
+  const total = members.reduce((a, m) => a + m.hours, 0)
+  const top = Math.max(0, ...members.map((m) => m.hours))
+  let found: FamilyPromo | null = null
+  for (const t of [...FAMILY_PROMO_TIERS].sort((a, b) => a.overHours - b.overHours)) {
+    // one child over the line implies the family total is over it too — "single" is the more specific reason
+    if (top > t.overHours) found = { pct: t.pct, overHours: t.overHours, basis: "single", hours: top }
+    else if (total > t.overHours) found = { pct: t.pct, overHours: t.overHours, basis: "family", hours: total }
+  }
+  return found
+}
+
+/** Hours a set of invoices buys (real sessions × real length), for the family tier */
+export const invoiceHours = (t: Pick<InvoiceTotals, "lines">) => t.lines.reduce((a, l) => a + (l.quote?.hours ?? 0), 0)
 
 /** One course line priced: the same quote feeds the editor, the invoice sheet, the PDF and enrolment on payment. */
 export interface LineQuote {
@@ -188,6 +224,11 @@ export interface LineQuote {
   courseFee: number
   promotion: number
   promotionName?: string
+  /** bonus-hours promotion: free minutes added to this hour pack (money unchanged) */
+  bonusMinutes: number
+  bonusName?: string
+  /** this line's promotion is the Family Promotion */
+  family?: boolean
 }
 
 export interface InvoiceTotals {
@@ -211,25 +252,37 @@ export interface InvoiceTotals {
 /** round up to the nearest `step` (owner Row 34: Liclass bills up to the next ฿10 — 3,524 → 3,530) */
 export const roundUpTo = (n: number, step: number) => (step > 0 ? Math.ceil(n / step) * step : n)
 
-export function quoteLine(line: CourseLine, ctx: { branch: Branch; courses: Course[]; classes: Klass[]; holidays: Holiday[] }, promotions = true): LineQuote {
+export function quoteLine(line: CourseLine, ctx: { branch: Branch; courses: Course[]; classes: Klass[]; holidays: Holiday[] }, promotions = true, familyPct = 0): LineQuote {
   const course = ctx.courses.find((c) => c.id === line.courseId)
   // a student who attends part of a class (1 of 2 hours) is quoted on their own part — sessions follow their minutes
   const klasses = line.classIds.map((id) => ctx.classes.find((c) => c.id === id)).filter((k): k is Klass => !!k)
     .map((k) => { const seat = line.seats?.[k.id]; return seat ? { ...k, minutes: seat.minutes, start: fromMinutes(toMinutes(k.start) + seat.offset) } : k })
+  // bonus-hours promotion: free minutes on top of the hours bought (chosen from the course + periods, not from the quote)
+  const purchase = course ? purchaseOf(course, line.periods) : null
+  const bonus = course && purchase && promotions ? bestBonusHours(ctx.branch, purchase, line.startDate) : null
   let quote: CourseQuote | null = null
   if (course && klasses.length) {
-    const r = quoteCourse({ course, klasses, startDate: line.startDate, periods: line.periods, holidays: ctx.holidays, openDays: openDaysOf(ctx.branch), carryIn: line.carryIn, leftover: line.leftover })
+    const r = quoteCourse({ course, klasses, startDate: line.startDate, periods: line.periods, holidays: ctx.holidays, openDays: openDaysOf(ctx.branch), carryIn: line.carryIn, bonusMinutes: bonus?.minutes, leftover: line.leftover })
     if (r.ok) quote = r.value
   }
   const amount = quote?.total ?? 0
   // each course gets its own best promotion (a promotion is per package type + duration)
-  const promo = course && promotions ? bestPromotion(ctx.branch, purchaseOf(course, line.periods), amount, line.startDate) : null
+  const promo = course && purchase && promotions ? bestPromotion(ctx.branch, purchase, amount, line.startDate) : null
+  // Family Promotion: % off the tuition only; if a branch promotion is worth more it wins (no stacking)
+  const fam = familyPct > 0 ? Math.round((amount * familyPct) / 100) : 0
+  const useFamily = fam > (promo?.discount ?? 0)
   // course fee (equipment) is charged on top of the price on every purchase
-  return { line, course, klasses, quote, amount, courseFee: course?.courseFee ?? 0, promotion: promo?.discount ?? 0, promotionName: promo?.promotion.name }
+  return {
+    line, course, klasses, quote, amount, courseFee: course?.courseFee ?? 0,
+    promotion: useFamily ? fam : promo?.discount ?? 0,
+    promotionName: useFamily ? `Family Promotion −${familyPct}%` : promo?.promotion.name,
+    family: useFamily || undefined,
+    bonusMinutes: bonus?.minutes ?? 0, bonusName: bonus?.promotion.name,
+  }
 }
 
 export function invoiceTotals(inv: Invoice, ctx: { branch: Branch; courses: Course[]; classes: Klass[]; holidays: Holiday[] }): InvoiceTotals {
-  const lines = inv.lines.map((l) => quoteLine(l, ctx, inv.promotionId !== null))
+  const lines = inv.lines.map((l) => quoteLine(l, ctx, inv.promotionId !== null, inv.familyPromoPct ?? 0))
   const sum = (f: (l: LineQuote) => number) => lines.reduce((a, l) => a + f(l), 0)
   const course = sum((l) => l.amount), courseFee = sum((l) => l.courseFee), promotion = sum((l) => l.promotion)
   const bus = busTotal(inv.bus, busRate(ctx.branch, inv.busFeeId))

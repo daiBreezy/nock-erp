@@ -99,7 +99,7 @@ export function PromotionsTab({ branch }: { branch: Branch }) {
           <div key={p.id} className="flex flex-wrap items-center gap-2 p-3 text-sm">
             <TagIcon className="size-4 text-muted-foreground" />
             <span className="font-medium">{p.name}</span>
-            <Pill tone="violet">{tx("ลด")} {p.type === "pct" ? `${p.value}%` : fmtMoney(p.value)}</Pill>
+            <Pill tone="violet">{p.type === "bonus_hours" ? `${tx("แถม")} ${p.value} ${tx("ชม.")}` : <>{tx("ลด")} {p.type === "pct" ? `${p.value}%` : fmtMoney(p.value)}</>}</Pill>
             <span className="text-xs text-muted-foreground">{tx(PRICE_UNIT_LABEL[p.unit])}  {tx("· ขั้นต่ำ")} {durationText(p.unit, p.minDuration)}{p.from || p.to ? ` · ${p.from ? fmtDate(p.from) : "…"} → ${p.to ? fmtDate(p.to) : tx("ไม่มีวันสิ้นสุด")}` : ""}</span>
             <span className="ml-auto flex items-center gap-2">
               <Switch checked={p.active} onCheckedChange={(v) => upsert({ ...p, active: v })} aria-label={tx("เปิดใช้")} />
@@ -135,12 +135,12 @@ function PromotionDialog({ branch, initial, onClose, onDone }: { branch: Branch;
         <div className="grid gap-3 sm:grid-cols-2">
           <Field label={tx("ชื่อโปรโมชัน *")} className="sm:col-span-2"><Input value={p.name} onChange={(e) => setP({ ...p, name: e.target.value })} placeholder={tx("เช่น Special Discount")} /></Field>
           <Field label={tx("ประเภทส่วนลด")}>
-            <NativeSelect value={p.type} onChange={(e) => setP({ ...p, type: e.target.value as Promotion["type"] })} options={[{ value: "pct", label: tx("เปอร์เซ็นต์ (%)") }, { value: "amount", label: tx("จำนวนเงิน (฿)") }]} />
+            <NativeSelect value={p.type} onChange={(e) => { const type = e.target.value as Promotion["type"]; setP({ ...p, type, ...(type === "bonus_hours" && p.unit !== "hour" ? { unit: "hour" as PriceUnit, minDuration: durationsOf(branch, "hour")[0] ?? 1 } : {}) }) }} options={[{ value: "pct", label: tx("เปอร์เซ็นต์ (%)") }, { value: "amount", label: tx("จำนวนเงิน (฿)") }, { value: "bonus_hours", label: tx("แถมชั่วโมงเรียน (ไม่ลดเงิน)") }]} />
           </Field>
-          <Field label={tx("มูลค่าส่วนลด")}><Input type="number" min={0} value={p.value || ""} onChange={(e) => setP({ ...p, value: Number(e.target.value) })} placeholder={tx("เช่น 20")} /></Field>
+          <Field label={p.type === "bonus_hours" ? tx("จำนวนชั่วโมงที่แถม") : tx("มูลค่าส่วนลด")}><Input type="number" min={0} value={p.value || ""} onChange={(e) => setP({ ...p, value: Number(e.target.value) })} placeholder={tx("เช่น 20")} /></Field>
           <Field label={tx("ประเภทแพ็กเกจ")}>
             <NativeSelect value={p.unit} onChange={(e) => { const unit = e.target.value as PriceUnit; setP({ ...p, unit, minDuration: durationsOf(branch, unit)[0] ?? 1 }) }}
-              options={(["hour", "week", "month"] as PriceUnit[]).map((u) => ({ value: u, label: tx(PRICE_UNIT_LABEL[u]) }))} />
+              options={(["hour", "week", "month"] as PriceUnit[]).filter((u) => p.type !== "bonus_hours" || u === "hour").map((u) => ({ value: u, label: tx(PRICE_UNIT_LABEL[u]) }))} />
           </Field>
           <Field label={tx("ระยะขั้นต่ำ")}>
             {p.unit === "month" ? (

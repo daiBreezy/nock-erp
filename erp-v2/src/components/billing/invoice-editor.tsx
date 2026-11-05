@@ -17,7 +17,7 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { addDays, fmtDate, fmtMoney, fmtMonth, toDateStr } from "@/domain/dates"
 import * as Att from "@/domain/rules/attendance"
-import { busTotal, carriedMinutes, pendingBusAddOns, classChoices, classOptionsFor, defaultAdvance, defaultBusLegs, entryFeeWaiver, invoiceSessionDates, invoiceTotals, validateInvoiceDraft, type LineQuote } from "@/domain/rules/billing"
+import { busTotal, carriedMinutes, familyPromotion, invoiceHours, pendingBusAddOns, classChoices, classOptionsFor, defaultAdvance, defaultBusLegs, entryFeeWaiver, invoiceSessionDates, invoiceTotals, validateInvoiceDraft, type LineQuote } from "@/domain/rules/billing"
 import { lastAssessmentDate } from "@/domain/rules/forms"
 import type { AdvanceItem, BusExtraLine, BusLeg, CourseLine, Entitlement, Family, Invoice, Klass, Leftover, Seat } from "@/domain/types"
 import { isPartial, seatLabel, seatOptions, seatTime } from "@/domain/rules/seats"
@@ -26,6 +26,7 @@ import { uid } from "@/data/seed"
 import { report } from "@/lib/feedback"
 import { useBranch, useEntitlements, useNow } from "@/lib/hooks"
 import { cn } from "@/lib/utils"
+import { AI_TONE, AiIcon } from "@/components/app/ai"
 import { useStore } from "@/store/store"
 import { InfoTip } from "@/components/app/info-tip"
 import { busZone, checkRide, distanceKm, rideTimes, type RoundCheck } from "@/domain/rules/bus"
@@ -76,6 +77,8 @@ export function InvoiceEditor({ invoice, defaultStudentId, renewEntitlementId, o
   const [creditSkip, setCreditSkip] = useState<string[]>([])
   // extra bus days from before: all pulled in by default, untick to leave them for a later invoice
   const [extrasPicked, setExtrasPicked] = useState<string[] | null>(invoice ? (invoice.busExtras ?? []).map((x) => x.addOnId) : null)
+  // Family Promotion: switched on from the banner below (owner 2026-11-05); the % follows the tier the hours reach
+  const [familyOn, setFamilyOn] = useState(invoice?.familyPromoPct != null)
   const [concession, setConcession] = useState(invoice?.concession?.amount ?? 0)
   const [concessionRemark, setConcessionRemark] = useState(invoice?.concession?.remark ?? "")
 
@@ -162,6 +165,7 @@ export function InvoiceEditor({ invoice, defaultStudentId, renewEntitlementId, o
   const creditsUsed = credits.filter((c) => !creditSkip.includes(c.courseId))
   const legs: BusLeg[] = !busTouched ? defaultBusLegs(busDates, !!student?.usesBus) : busDates.map((d) => bus.find((b) => b.date === d) ?? { date: d, pickup: false, dropoff: false })
   const draft: Invoice = { ...base, bus: legs, creditsUsed }
+  // (familyPromoPct is added to the saved invoice below, after the tier is known)
   // owner 2026-10-16: each class day — is there a bus run for that time, and is it full?
   const rounds = branch.busRounds ?? []
   const busCtx = { branchId: branch.id, invoices, busAddOns, classes, excludeInvoiceId: invoice?.id }
@@ -171,7 +175,15 @@ export function InvoiceEditor({ invoice, defaultStudentId, renewEntitlementId, o
     return { pickup: checkRide("pickup", l.date, t, rounds, busCtx, studentId), dropoff: checkRide("dropoff", l.date, t, rounds, busCtx, studentId) }
   })
   const problemDays = rounds.length ? legs.filter((l, i) => (["pickup", "dropoff"] as const).some((k) => l[k] && (!rideChecks[i][k].round || rideChecks[i][k].full))).length : 0
-  const totals = invoiceTotals(draft, ctx)
+  // Family Promotion: siblings invoiced the same day (other invoices still alive) + this draft's hours → the tier reached
+  const siblingInvoices = student?.familyId
+    ? invoices.filter((i) => i.id !== newId && i.status !== "void" && i.branchId === branch.id && i.createdAt.slice(0, 10) === (invoice?.createdAt ?? now.toISOString()).slice(0, 10)
+      && students.find((x) => x.id === i.studentId)?.familyId === student.familyId && i.studentId !== studentId)
+    : []
+  const siblingHours = siblingInvoices.map((i) => ({ inv: i, hours: invoiceHours(invoiceTotals(i, ctx)) }))
+  const familyTier = studentId ? familyPromotion([{ studentId, hours: invoiceHours({ lines: baseLines }) }, ...siblingHours.map((s) => ({ studentId: s.inv.studentId, hours: s.hours }))]) : null
+  const familyPct = familyOn && familyTier ? familyTier.pct : 0
+  const totals = invoiceTotals({ ...draft, familyPromoPct: familyPct || undefined }, ctx)
   const errors = [
     ...(!studentId ? ["เลือกนักเรียน"] : []),
     ...courseLines.filter((l) => l.overlapRemark !== undefined && !l.overlapRemark.trim()).map((l) => `นักเรียนมีแพ็กเกจ ${courses.find((c) => c.id === l.courseId)?.name ?? ""} อยู่แล้ว — ใส่เหตุผลที่ซื้อซ้ำ`),
@@ -179,7 +191,7 @@ export function InvoiceEditor({ invoice, defaultStudentId, renewEntitlementId, o
   ]
 
   const submit = () => {
-    const r = save(draft)
+    const r = save({ ...draft, familyPromoPct: familyPct || undefined })
     if (report(r, (v) => `บันทึกแล้ว · เลขที่ ${v.number} (ใบจริง — มีปัญหาให้ยกเลิก ไม่ลบ)`)) onSaved(r.value)
   }
 
@@ -377,6 +389,20 @@ export function InvoiceEditor({ invoice, defaultStudentId, renewEntitlementId, o
           </div>
         )}
 
+        {familyTier && (
+          <div className={cn("flex flex-wrap items-center gap-3 rounded-xl border border-sky-300 p-3 text-sm dark:border-sky-800", AI_TONE.soft)}>
+            <AiIcon />
+            <div className="min-w-0 flex-1">
+              <p className={cn("font-semibold", AI_TONE.text)}>Family Promotion −{familyTier.pct}% — ใส่ให้พี่น้องทุกคนที่ออกใบวันนี้</p>
+              <p className="text-xs text-muted-foreground">
+                {familyTier.basis === "single" ? `มีคนเรียน ${familyTier.hours} ชม. (เกิน ${familyTier.overHours} ชม.)` : `ชั่วโมงรวมทั้งครอบครัว ${familyTier.hours} ชม. (เกิน ${familyTier.overHours} ชม.)`} · ลดเฉพาะค่าเรียน
+                {siblingHours.length > 0 && ` · ใบของพี่น้อง: ${siblingHours.map((s) => `${students.find((x) => x.id === s.inv.studentId)?.nickname ?? ""} ${s.inv.number ?? "ร่าง"}${s.inv.familyPromoPct ? " ✓" : " (ยังไม่ได้ใส่ — ต้องแก้ใบนั้นด้วย)"}`).join(", ")}`}
+              </p>
+            </div>
+            <Button size="sm" variant={familyOn ? "secondary" : "default"} onClick={() => setFamilyOn(!familyOn)}>{familyOn ? <><CheckIcon /> ใส่แล้ว (กดเพื่อเอาออก)</> : "ใส่ Family Promotion"}</Button>
+          </div>
+        )}
+
         <div className="space-y-1 rounded-lg bg-muted/50 p-3 text-sm tabular-nums">
           {[["ค่าเรียน", totals.course], ["Course fee", totals.courseFee], ["ค่ารถ", totals.bus], ["ค่ารถเพิ่ม (รอบก่อน)", totals.busExtra], ["ค่าหนังสือ", totals.book], ["Advance (ค่าแรกเข้า/สอบ)", totals.advance]].filter(([, v]) => (v as number) > 0).map(([l, v]) => (
             <div key={l as string} className="flex justify-between"><span>{l}</span><span>{fmtMoney(v as number)}</span></div>
@@ -539,6 +565,9 @@ function LineCard({ index, draft, quote, studentId, studentGrade, choices, overl
               ))}
               {quote!.promotion > 0 && (
                 <tr className="text-emerald-700"><td className="px-3 py-1.5" colSpan={3}>โปรโมชัน · {quote!.promotionName}</td><td className="px-3 py-1.5 text-right tabular-nums">−{fmtMoney(quote!.promotion)}</td></tr>
+              )}
+              {quote!.bonusMinutes > 0 && (
+                <tr className="text-emerald-700"><td className="px-3 py-1.5" colSpan={4}>โปรโมชัน · {quote!.bonusName} — แถมเวลาเรียนเพิ่ม {quote!.bonusMinutes / 60} ชม. (ราคาเท่าเดิม)</td></tr>
               )}
             </tbody>
           </table>
