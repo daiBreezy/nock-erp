@@ -12,6 +12,7 @@ import { NativeSelect } from "@/components/app/native-select"
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
 import { FormShell } from "@/components/app/form-shell"
+import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
@@ -566,7 +567,20 @@ function LineCard({ index, draft, quote, studentId, studentGrade, choices, overl
               {q.periods.map((p) => (
                 <tr key={p.month} className="border-b last:border-0">
                   <td className="px-3 py-1.5">{course.unit === "month" ? fmtMonth(p.month + "-01") : `${packageLabel(course)} × ${periods}`}</td>
-                  <td className="px-3 py-1.5 text-xs text-muted-foreground">{p.sessions.map((d) => fmtDate(d)).join(", ") || "—"}</td>
+                  <td className="px-3 py-1.5 text-xs text-muted-foreground">
+                    {p.sessions.length === 0 ? "—" : (
+                      <HoverCard>
+                        <HoverCardTrigger render={<button type="button" className="cursor-default underline decoration-dotted underline-offset-4" />}>
+                          {fmtDate(p.sessions[0])} → {fmtDate(p.sessions[p.sessions.length - 1])} · {p.sessions.length} คาบ
+                        </HoverCardTrigger>
+                        <HoverCardContent align="start" className="max-h-72 w-52 overflow-y-auto">
+                          <ol className="space-y-0.5 text-xs tabular-nums">
+                            {p.sessions.map((d, i) => <li key={`${d}-${i}`} className="flex gap-2"><span className="w-5 text-right text-muted-foreground">{i + 1}</span>{fmtDate(d, { weekday: true })}</li>)}
+                          </ol>
+                        </HoverCardContent>
+                      </HoverCard>
+                    )}
+                  </td>
                   <td className="px-3 py-1.5 text-right text-xs text-muted-foreground">{course.unit === "month" ? `${p.weeks?.length ?? 0} สัปดาห์ · ${p.sessions.length} คาบ → ${Math.round(p.factor * 100)}%` : `${p.sessions.length} คาบ`}</td>
                   <td className="px-3 py-1.5 text-right font-medium tabular-nums">{fmtMoney(p.amount)}</td>
                 </tr>
