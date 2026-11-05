@@ -108,15 +108,15 @@ export function PrintDocument({ kind, id, bare = false }: { kind: Kind; id: stri
           <div>
             {/* one line for the label, the number on the second line — left aligned */}
             <p>{L.taxId} / Tax ID Number</p>
-            <p className="mt-0.5 w-56 border border-neutral-800 px-2 py-0.5 text-[12px] tabular-nums">{company.taxId}</p>
+            <p className="mt-0.5 w-56 border border-neutral-700 px-2 py-0.5 text-[12px] tabular-nums">{company.taxId}</p>
           </div>
           <div className="pt-4 text-center">
             <p className="text-[13px] font-semibold">{titlePrimary}</p>
             <p className="text-[12px]">{en}</p>
           </div>
           <div className="space-y-1.5">
-            <div className="flex items-center justify-end gap-1"><span className="text-[12px]">NO.</span><span className="w-60 whitespace-nowrap border border-neutral-800 px-2 py-0.5 text-center text-[12px] font-mono">{number}</span></div>
-            <div className="flex items-center justify-end gap-1"><span className="text-[12px]">DATE</span><span className="w-60 border border-neutral-800 px-2 py-0.5 text-center text-[12px]">{d(date)}</span></div>
+            <div className="flex items-center justify-end gap-1"><span className="text-[12px]">NO.</span><span className="w-60 whitespace-nowrap border border-neutral-700 px-2 py-0.5 text-center text-[12px] font-mono">{number}</span></div>
+            <div className="flex items-center justify-end gap-1"><span className="text-[12px]">DATE</span><span className="w-60 border border-neutral-700 px-2 py-0.5 text-center text-[12px]">{d(date)}</span></div>
             {kind === "credit-note" && <p className="text-right text-[10px]">REF. <span className="font-mono">{inv.number}</span></p>}
             {combined && <p className="text-right text-[10px]">REF. <span className="font-mono">{onReceipt.map((x) => x.number).join(", ")}</span></p>}
           </div>
@@ -131,12 +131,12 @@ export function PrintDocument({ kind, id, bare = false }: { kind: Kind; id: stri
           {kind === "invoice" && qrCells && (
             <svg viewBox={`0 0 ${qrCells.n + 2} ${qrCells.n + 2}`} className="size-[24mm] shrink-0" shapeRendering="crispEdges" aria-label="LINE">
               <rect width="100%" height="100%" fill="#fff" />
-              {qrCells.dark.map(([x, y]) => <rect key={`${x}-${y}`} x={x + 1} y={y + 1} width="1" height="1" fill="#06C755" />)}
+              {qrCells.dark.map(([x, y]) => <rect key={`${x}-${y}`} x={x + 1} y={y + 1} width="1" height="1" fill="#000" />)}
             </svg>
           )}
         </section>
 
-        <table className="mt-2 w-full border-2 border-neutral-800 [&_td]:px-2 [&_th]:border-b [&_th]:border-neutral-800 [&_th]:px-2 [&_th]:py-1 [&_th+th]:border-l [&_td+td]:border-l [&_td+td]:border-neutral-800">
+        <table className="mt-2 w-full border border-neutral-700 [&_td]:px-2 [&_th]:border-b [&_th]:border-neutral-700 [&_th]:px-2 [&_th]:py-1 [&_th+th]:border-l [&_td+td]:border-l [&_td+td]:border-neutral-700">
           <thead className="text-center">
             <tr><th className="w-12">{L.item}<br /><span className="font-normal">Item</span></th><th>{L.description}<br /><span className="font-normal">Description</span></th><th className="w-16">{L.qty}<br /><span className="font-normal">Q&apos;ty</span></th><th className="w-28">{L.unitPrice}<br /><span className="font-normal">Unit Price</span></th><th className="w-32">{L.amount}<br /><span className="font-normal">Amount (Baht)</span></th></tr>
           </thead>
@@ -161,7 +161,7 @@ export function PrintDocument({ kind, id, bare = false }: { kind: Kind; id: stri
           </tbody>
         </table>
 
-        <section className="grid grid-cols-[1fr_62mm] border-x-2 border-b-2 border-neutral-800">
+        <section className="grid grid-cols-[1fr_62mm] border-x border-b border-neutral-700">
           <div className="p-2">
             {/* payment QR on the left, the bank account beside it on the same line */}
             {kind === "invoice" && (payQr || branch.bankAccount.number) && (
@@ -169,7 +169,7 @@ export function PrintDocument({ kind, id, bare = false }: { kind: Kind; id: stri
                 {payQr && (
                   <svg viewBox={`0 0 ${payQr.n + 2} ${payQr.n + 2}`} className="size-[26mm] shrink-0" shapeRendering="crispEdges" aria-label="PromptPay">
                     <rect width="100%" height="100%" fill="#fff" />
-                    {payQr.dark.map(([x, y]) => <rect key={`${x}-${y}`} x={x + 1} y={y + 1} width="1" height="1" fill="#1a3c6e" />)}
+                    {payQr.dark.map(([x, y]) => <rect key={`${x}-${y}`} x={x + 1} y={y + 1} width="1" height="1" fill="#000" />)}
                   </svg>
                 )}
                 {/* beside the QR, top to bottom: the bank account, then the scan-to-pay sub text */}
@@ -188,7 +188,7 @@ export function PrintDocument({ kind, id, bare = false }: { kind: Kind; id: stri
             {kind === "credit-note" && cn!.refund && <p><b>{L.refund}:</b> {d(cn!.refund.date)} · {cn!.refund.fromAccount} · {cn!.refund.reference}</p>}
           </div>
           {/* labels on the left, amounts on the right — no VAT any more */}
-          <table className="w-full border-l-2 border-neutral-800 [&_td]:px-2 [&_td]:py-1.5 [&_tr+tr_td]:border-t [&_tr+tr_td]:border-neutral-800">
+          <table className="w-full border-l border-neutral-700 [&_td]:px-2 [&_td]:py-1.5 [&_tr+tr_td]:border-t [&_tr+tr_td]:border-neutral-700">
             <tbody>
               <tr><td className="text-left">{L.subTotal} / Sub Total</td><td className="w-24"><span className="flex justify-between tabular-nums"><span>฿</span><span>{money(total)}</span></span></td></tr>
               <tr className="font-semibold"><td className="text-left">{L.total} / Total</td><td><span className="flex justify-between tabular-nums"><span>฿</span><span>{money(total)}</span></span></td></tr>
@@ -196,7 +196,7 @@ export function PrintDocument({ kind, id, bare = false }: { kind: Kind; id: stri
           </table>
         </section>
 
-        <div className="mt-1 border-2 border-neutral-800 px-2 py-1">
+        <div className="mt-1 border border-neutral-700 px-2 py-1">
           <p className="whitespace-pre-line"><b className="text-[12px]">Memo :</b> {memo}</p>
         </div>
 

@@ -156,7 +156,7 @@ export function buildSeed(now = new Date()): DB {
       fees: [{ id: "fee_bus_ari", kind: "bus", name: "Standard", price: 120 }], promotions: [],
       packageDurations: { hour: [12, 24, 48], week: [] },
       priceChart: chart(["คณิต", "อังกฤษ"], ["ป.1", "ป.2", "ป.3", "ป.4", "ป.5", "ป.6"], 0.85),
-      bankAccount: { bank: "ไทยพาณิชย์", branchName: "สาขาบางนา", name: "บจก. นกอะคาเดมี่", number: "987-6-54321-0" }, lineOaConnected: false,
+      bankAccount: { bank: "ไทยพาณิชย์", branchName: "สาขาบางนา", name: "บจก. นกอะคาเดมี่", number: "987-6-54321-0", promptPayId: "0205557003965" }, lineOaConnected: false,
       lineOa: { channelId: "", botBasicId: "", addFriendUrl: "" },
     },
     // the rest of the company (owner 2026-10-01: ~12 branches — NockAcademy 10, Liclass 2). Names are placeholders
@@ -177,7 +177,7 @@ export function buildSeed(now = new Date()): DB {
       fees: [{ id: `${id}_bus`, kind: "bus", name: "Standard", price: 150 }], promotions: [],
       packageDurations: { hour: [12, 24, 48, 72, 96], week: [4] },
       priceChart: chart(["คณิต", "อังกฤษ", "วิทย์"], ["ป.4", "ป.5", "ป.6", "ม.1", "ม.2", "ม.3"], brand === "liclass" ? 0.85 : 1),
-      bankAccount: { bank: "กสิกรไทย", branchName: `สาขา${name}`, name: brand === "liclass" ? "บจก. ลิคลาส เอดูเคชั่น" : "บจก. นกอะคาเดมี่", number: "000-0-00000-0" }, lineOaConnected: false,
+      bankAccount: { bank: "กสิกรไทย", branchName: `สาขา${name}`, name: brand === "liclass" ? "บจก. ลิคลาส เอดูเคชั่น" : "บจก. นกอะคาเดมี่", number: "000-0-00000-0", promptPayId: "0205557003965" }, lineOaConnected: false,
       lineOa: { channelId: "", botBasicId: "", addFriendUrl: "" },
     })),
   ]
