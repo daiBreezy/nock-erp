@@ -274,6 +274,8 @@ type Store = DB & UIState & {
   recordGroupPayment: (invoiceIds: ID[], p: { amount: number; method: "transfer" | "cash"; reference: string; slip?: string; paidOn?: DateStr; remark?: string; receiptMode?: "combined" | "separate" }) => Result
   /** which invoices paid with one slip share one receipt (the rest get their own) */
   setReceiptGrouping: (invoiceId: ID, combinedIds: ID[]) => Result
+  /** owner 2026-11-05: confirming the slip enrols the student at once; the receipt(s) are issued LATER — together or one per student */
+  issueReceipts: (invoiceIds: ID[], mode: "combined" | "separate") => Result
 
   saveLead: (l: Lead) => Result<Lead>
   moveLeadStage: (id: ID, stage: LeadStage) => Result
@@ -521,7 +523,9 @@ export const useStore = create<Store>()(
         let next: Invoice = { ...inv, payments }
         let { entitlements, classes, sessions } = s
         if (paid) {
-          next = { ...next, status: "paid", receiptNumber: Bill.receiptNumberOf(inv.number) || undefined } // the receipt carries the invoice's number
+          // owner 2026-11-05: confirming the pay slip = paid + the student joins the class right away; the RECEIPT is issued later
+          // (issueReceipts) — it does not have to happen at the same moment
+          next = { ...next, status: "paid" }
           // auto-claim: entitlement covers exactly the paid window (BL-19) and the student joins the class sessions in it
           const invBranch = s.branches.find((b) => b.id === inv.branchId)
           for (const l of totals.lines) {
@@ -544,7 +548,7 @@ export const useStore = create<Store>()(
         set({ invoices: s.invoices.map((x) => (x.id === invoiceId ? next : x)), entitlements, classes, sessions })
         log("billing", [inv.studentId], forced ? "Force ยืนยันยอดเงิน" : "ยืนยันยอดเงิน", `${inv.number} · ${fmtMoney(pay.amount)}${forced ? ` · เหตุผล: ${forceRemark!.trim()}` : ""}`)
         if (paid) {
-          log("billing", [inv.studentId], "ชำระครบ", `${inv.number} · ออกใบเสร็จ ${next.receiptNumber}${inv.lines.length ? " · ระบบเพิ่มเข้าคลาสอัตโนมัติ" : ""}`, true)
+          log("billing", [inv.studentId], "ชำระครบ", `${inv.number}${inv.lines.length ? " · ระบบเพิ่มเข้าคลาสอัตโนมัติ" : ""} · ยังไม่ออกใบเสร็จ`, true)
           // payment confirmed = the lead is a student now — nobody has to press "convert" (owner 2026-09-28)
           const lead = leadOfStudent(inv.studentId)
           if (lead && lead.stage !== "enrolled") {
@@ -556,19 +560,6 @@ export const useStore = create<Store>()(
             set((cur) => ({ leads: cur.leads.map((l) => (l.id === lead.id ? { ...l, stage: "enrolled", convertedStudentId: inv.studentId } : l)) }))
             log("profile", [inv.studentId], "ลงทะเบียนเป็นนักเรียน", `อัตโนมัติจากการยืนยันยอด ${inv.number} · Lead ${lead.name}`, true)
           }
-          // receipt goes to the parent by itself (a one-slip group sends one combined receipt instead)
-          if (quiet) return { ok: true, value: { paid } }
-          const st = get()
-          const stu = st.students.find((x) => x.id === inv.studentId)!
-          // the earliest class across every course on the invoice
-          const first = totals.lines
-            .flatMap((l) => (l.quote?.slots[0] ? st.sessions.filter((x) => x.classId === l.quote!.slots[0].classId && x.date === l.quote!.slots[0].date) : []))
-            .sort((a, b) => (a.date + a.start).localeCompare(b.date + b.start))[0]
-          const receiptDelivery = pushLine(stu.familyId, Msg.receiptMessage(next, totals.total, { student: stu, firstSession: first }), (ok, error) => {
-            set((cur) => ({ invoices: cur.invoices.map((x) => (x.id === invoiceId ? { ...x, receiptDelivery: ok ? "delivered" : "failed" } : x)) }))
-            if (!ok) toast.error(`ส่งใบเสร็จ ${next.receiptNumber} ทาง LINE ไม่สำเร็จ — ${error ?? ""}`)
-          })
-          set((cur) => ({ invoices: cur.invoices.map((x) => (x.id === invoiceId ? { ...x, receiptDelivery } : x)) }))
         }
         return { ok: true, value: { paid } }
       }
@@ -2750,23 +2741,6 @@ export const useStore = create<Store>()(
         const st = get()
         const group = Bill.paymentGroup(st.invoices.find((x) => x.id === invoiceId)!, st.invoices)
         const paid = group.every((x) => x.status === "paid")
-        if (paid) {
-          // the choice made when the slip was recorded: one receipt for the whole slip (default) or one per student —
-          // the admin can still change it afterwards
-          const separate = members[0].p.receiptMode === "separate"
-          const nums = Bill.receiptNumbersFor(group, separate ? [] : group.map((x) => x.id))
-          const receipt = [...new Set(nums.values())].join(", ")
-          const ids = new Set(group.map((x) => x.id))
-          set((cur) => ({ invoices: cur.invoices.map((x) => (ids.has(x.id) ? { ...x, receiptNumber: nums.get(x.id) } : x)) }))
-          const rows = group.map((x) => ({ number: x.number ?? "", total: Bill.invoiceTotals(x, ctxOf(st, x.branchId)).total, student: st.students.find((y) => y.id === x.studentId)! }))
-          log("billing", group.map((x) => x.studentId), separate ? "ออกใบเสร็จแยกรายนักเรียน" : "ออกใบเสร็จรวม", `${receipt} · ${rows.map((r) => r.number).join(" + ")} · ${fmtMoney(rows.reduce((a, r) => a + r.total, 0))}`, true)
-          const familyId = rows[0].student.familyId
-          const receiptDelivery = pushLine(familyId, Msg.familyReceiptMessage(receipt, rows), (ok, error) => {
-            set((cur) => ({ invoices: cur.invoices.map((x) => (ids.has(x.id) ? { ...x, receiptDelivery: ok ? "delivered" : "failed" } : x)) }))
-            if (!ok) toast.error(`ส่งใบเสร็จ ${receipt} ทาง LINE ไม่สำเร็จ — ${error ?? ""}`)
-          })
-          set((cur) => ({ invoices: cur.invoices.map((x) => (ids.has(x.id) ? { ...x, receiptDelivery } : x)) }))
-        }
         return { ok: true, value: { paid } }
       },
 
@@ -2786,6 +2760,43 @@ export const useStore = create<Store>()(
         return OK
       },
 
+      issueReceipts: (invoiceIds, mode) => {
+        const s = get()
+        const perm = requirePerm(s.me(), "billing.manage")
+        if (!perm.ok) return perm
+        const list = invoiceIds.map((id) => s.invoices.find((x) => x.id === id)).filter((x): x is Invoice => !!x)
+        if (!list.length) return fail("เลือกใบที่จะออกใบเสร็จ")
+        if (list.some((x) => x.status !== "paid")) return fail("ออกใบเสร็จได้เฉพาะใบที่ยืนยันยอดเงินครบแล้ว")
+        if (list.some((x) => x.receiptNumber)) return fail("ใบนี้ออกใบเสร็จไปแล้ว — เปลี่ยนรวม/แยกได้ที่หัวข้อใบเสร็จ")
+        if (new Set(list.map((x) => x.branchId)).size > 1) return fail("ออกใบเสร็จรวมได้เฉพาะใบของสาขาเดียวกัน")
+        const together = mode === "combined" && list.length > 1
+        if (together && new Set(list.map((x) => s.students.find((y) => y.id === x.studentId)?.familyId ?? `solo-${x.id}`)).size > 1) return fail("ใบเสร็จรวมได้เฉพาะใบของครอบครัวเดียวกัน")
+        const nums = Bill.receiptNumbersFor(list, together ? list.map((x) => x.id) : [])
+        const ids = new Set(list.map((x) => x.id))
+        set({ invoices: s.invoices.map((x) => (ids.has(x.id) ? { ...x, receiptNumber: nums.get(x.id) } : x)) })
+        const st = get()
+        log("billing", list.map((x) => x.studentId), together ? "ออกใบเสร็จรวม" : "ออกใบเสร็จ", `${[...new Set(nums.values())].join(", ")} · ${list.map((x) => x.number).join(" + ")}`, true)
+        const deliver = (group: Invoice[], number: string) => {
+          const gids = new Set(group.map((x) => x.id))
+          const rows = group.map((x) => ({ number: x.number ?? "", total: Bill.invoiceTotals(x, ctxOf(st, x.branchId)).total, student: st.students.find((y) => y.id === x.studentId)! }))
+          const text = group.length > 1
+            ? Msg.familyReceiptMessage(number, rows)
+            : (() => {
+              const x = group[0]
+              const totals = Bill.invoiceTotals(x, ctxOf(st, x.branchId))
+              const first = totals.lines.flatMap((l) => (l.quote?.slots[0] ? st.sessions.filter((y) => y.classId === l.quote!.slots[0].classId && y.date === l.quote!.slots[0].date) : [])).sort((a, b) => (a.date + a.start).localeCompare(b.date + b.start))[0]
+              return Msg.receiptMessage({ ...x, receiptNumber: number }, totals.total, { student: rows[0].student, firstSession: first })
+            })()
+          const receiptDelivery = pushLine(rows[0].student.familyId, text, (ok, error) => {
+            set((cur) => ({ invoices: cur.invoices.map((x) => (gids.has(x.id) ? { ...x, receiptDelivery: ok ? "delivered" : "failed" } : x)) }))
+            if (!ok) toast.error(`ส่งใบเสร็จ ${number} ทาง LINE ไม่สำเร็จ — ${error ?? ""}`)
+          })
+          set((cur) => ({ invoices: cur.invoices.map((x) => (gids.has(x.id) ? { ...x, receiptDelivery } : x)) }))
+        }
+        for (const number of new Set(nums.values())) deliver(list.filter((x) => nums.get(x.id) === number), number)
+        return OK
+      },
+
       setReceiptGrouping: (invoiceId, combinedIds) => {
         const s = get()
         const perm = requirePerm(s.me(), "billing.manage")
@@ -2795,6 +2806,7 @@ export const useStore = create<Store>()(
         const group = Bill.paymentGroup(inv, s.invoices)
         if (group.length < 2) return fail("ใบนี้ไม่ได้จ่ายรวมกับใบอื่น")
         if (group.some((x) => x.status !== "paid")) return fail("ต้องยืนยันยอดเงินครบทุกใบก่อน")
+        if (!group.some((x) => x.receiptNumber)) return fail("ยังไม่ได้ออกใบเสร็จ — ออกใบเสร็จก่อน")
         const nums = Bill.receiptNumbersFor(group, combinedIds.filter((id) => group.some((x) => x.id === id)))
         set({ invoices: s.invoices.map((x) => (nums.has(x.id) ? { ...x, receiptNumber: nums.get(x.id) } : x)) })
         log("billing", group.map((x) => x.studentId), "จัดใบเสร็จ", [...new Set(nums.values())].join(" · "))

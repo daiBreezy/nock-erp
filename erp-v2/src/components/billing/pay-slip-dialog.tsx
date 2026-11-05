@@ -30,8 +30,6 @@ export function PaySlipDialog({ inv, owed, siblings, initialSlip, onClose }: { i
   const owedAll = owed + siblings.filter((x) => withIds.includes(x.id)).reduce((a, x) => a + x.owed, 0)
   const [amount, setAmount] = useState(String(owed))
   const [slip, setSlip] = useState<string | undefined>(initialSlip)
-  // several invoices on one slip: one receipt for all, or one per student (owner 2026-11-05)
-  const [receiptMode, setReceiptMode] = useState<"combined" | "separate">("combined")
   const [ref, setRef] = useState("")
   const [remark, setRemark] = useState("")
   const toggle = (id: ID) => {
@@ -40,7 +38,7 @@ export function PaySlipDialog({ inv, owed, siblings, initialSlip, onClose }: { i
     setAmount(String(owed + siblings.filter((x) => next.includes(x.id)).reduce((a, x) => a + x.owed, 0)))
   }
   const submit = () => {
-    const p = { amount: Number(amount), method, reference: ref, slip, paidOn, remark: remark.trim() || undefined, receiptMode }
+    const p = { amount: Number(amount), method, reference: ref, slip, paidOn, remark: remark.trim() || undefined }
     const r = withIds.length ? payGroup([inv.id, ...withIds], p) : pay(inv.id, p)
     if (report(r, withIds.length ? "บันทึกรับเงินแล้ว (สลิปเดียวหลายใบ) — รอคนอื่นยืนยันยอด" : "บันทึกรับเงินแล้ว — รอคนอื่นยืนยันยอด")) onClose()
   }
@@ -72,12 +70,6 @@ export function PaySlipDialog({ inv, owed, siblings, initialSlip, onClose }: { i
             {withIds.length > 0 && (
               <>
                 <p className="text-xs text-muted-foreground">ยอดในสลิปต้องเท่ากับยอดค้างรวม {fmtMoney(owedAll)}</p>
-                <div className="flex gap-1.5 pt-1">
-                  {([["combined", "ใบเสร็จรวมทุกใบ"], ["separate", "ใบเสร็จแยกรายนักเรียน"]] as const).map(([k, label]) => (
-                    <button key={k} type="button" aria-pressed={receiptMode === k} onClick={() => setReceiptMode(k)}
-                      className={`flex-1 rounded-full border px-3 py-1 text-xs ${receiptMode === k ? "border-foreground bg-foreground text-background" : "hover:bg-muted"}`}>{label}</button>
-                  ))}
-                </div>
               </>
             )}
           </div>

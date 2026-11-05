@@ -27,6 +27,7 @@ import { invoiceTone } from "./status"
 import { CreditNotes } from "./credit-notes"
 import { DocThumbs, type DocItem } from "./doc-thumbs"
 import { PaySlipDialog } from "./pay-slip-dialog"
+import { IssueReceiptDialog } from "./issue-receipt-dialog"
 import { BundleOverview } from "./bundle-overview"
 import { InfoTip } from "@/components/app/info-tip"
 
@@ -115,6 +116,7 @@ function Body({ id, slipMediaId, onEdit, onDuplicated }: { id: ID; slipMediaId?:
   const [voiding, setVoiding] = useState(false)
   const [reason, setReason] = useState("")
   const [payOpen, setPayOpen] = useState(!!slipMediaId)
+  const [receiptOpen, setReceiptOpen] = useState(false)
   const [slip, setSlip] = useState<string | undefined>()
   // one slip for siblings' invoices (owner 2026-10-29)
   const [receiptIds, setReceiptIds] = useState<ID[] | null>(null)
@@ -179,7 +181,7 @@ function Body({ id, slipMediaId, onEdit, onDuplicated }: { id: ID; slipMediaId?:
                   })}
                 </ul>
   ) : null
-  const groupNode = group.length > 1 && group.every((x) => x.status === "paid") ? (
+  const groupNode = group.length > 1 && group.every((x) => x.status === "paid") && group.some((x) => x.receiptNumber) ? (
     <div className="mt-1.5 space-y-1.5 rounded-lg border p-2.5">
       <p className="text-xs font-medium">ใบเสร็จของสลิปนี้</p>
       <div className="flex gap-1.5">
@@ -251,14 +253,16 @@ function Body({ id, slipMediaId, onEdit, onDuplicated }: { id: ID; slipMediaId?:
       onAdd: canAddPayment ? () => setPayOpen(true) : undefined,
       addLabel: "อัปโหลดสลิปการชำระเงิน",
       meta: inv.payments.length ? `${fmtDateTime(inv.payments[inv.payments.length - 1].recordedAt)} · ${who(inv.payments[inv.payments.length - 1].recordedBy)}` : undefined,
-      detail: inv.payments.length ? `ยืนยันแล้ว ${fmtMoney(paidConfirmed)} / ${fmtMoney(totals.total)}` : "—",
+      detail: inv.payments.length ? `ยืนยันแล้ว ${fmtMoney(paidConfirmed)} / ${fmtMoney(totals.total)}${inv.status === "paid" ? " · นักเรียนเข้าคลาสแล้ว" : " · ยืนยันยอดแล้วนักเรียนเข้าคลาสทันที"}` : "—",
     },
     {
-      label: "ใบเสร็จ + เข้าคลาสอัตโนมัติ",
-      state: !inv.receiptNumber ? "todo" : inv.receiptDelivery === "failed" || inv.receiptDelivery === "no_line" ? "warn" : "done",
+      label: "ใบเสร็จ (ออกภายหลังได้)",
+      state: !inv.receiptNumber ? (inv.status === "paid" ? "current" : "todo") : inv.receiptDelivery === "failed" || inv.receiptDelivery === "no_line" ? "warn" : "done",
       docs: docsFor.receipt,
+      onAdd: inv.status === "paid" && !inv.receiptNumber && manage ? () => setReceiptOpen(true) : undefined,
+      addLabel: "ออกใบเสร็จ",
       extra: groupNode,
-      detail: !inv.receiptNumber ? "—" : `${inv.receiptNumber}${inv.receiptNumber !== Bill.receiptNumberOf(inv.number) ? ` (รวม)` : ""} · ${inv.receiptDelivery === "delivered" ? "ส่งใบเสร็จทาง LINE แล้ว" : inv.receiptDelivery === "sending" ? "กำลังส่งใบเสร็จทาง LINE…" : inv.receiptDelivery === "failed" ? "ส่งใบเสร็จทาง LINE ไม่สำเร็จ" : inv.receiptDelivery === "no_line" ? "ไม่มี LINE — ส่งใบเสร็จทางอื่น" : "ออกใบเสร็จแล้ว"}${inv.status === "paid" ? " · นักเรียนถูกเพิ่มเข้าคลาสตามช่วงที่จ่ายแล้ว" : ""}`,
+      detail: !inv.receiptNumber ? (inv.status === "paid" ? "ยังไม่ออกใบเสร็จ — ออกภายหลังได้" : "—") : `${inv.receiptNumber}${inv.receiptNumber !== Bill.receiptNumberOf(inv.number) ? ` (รวม)` : ""} · ${inv.receiptDelivery === "delivered" ? "ส่งใบเสร็จทาง LINE แล้ว" : inv.receiptDelivery === "sending" ? "กำลังส่งใบเสร็จทาง LINE…" : inv.receiptDelivery === "failed" ? "ส่งใบเสร็จทาง LINE ไม่สำเร็จ" : inv.receiptDelivery === "no_line" ? "ไม่มี LINE — ส่งใบเสร็จทางอื่น" : "ออกใบเสร็จแล้ว"}`,
     },
   ]
 
@@ -435,6 +439,7 @@ function Body({ id, slipMediaId, onEdit, onDuplicated }: { id: ID; slipMediaId?:
           </section>
         )}
       </PanelBody>
+      {receiptOpen && <IssueReceiptDialog invoices={group.filter((x) => x.status === "paid" && !x.receiptNumber)} onClose={() => setReceiptOpen(false)} />}
       {payOpen && (
         <PaySlipDialog inv={inv} owed={owed(inv)} initialSlip={slip} onClose={() => setPayOpen(false)}
           siblings={siblingsPayable.map((x) => ({ id: x.id, number: x.number ?? "", nickname: nick(x.studentId), owed: owed(x) }))} />
