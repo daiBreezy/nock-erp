@@ -123,6 +123,47 @@ function Body({ id, slipMediaId, onEdit }: { id: ID; slipMediaId?: string; onEdi
   const combined = receiptIds ?? group.filter((x) => x.receiptNumber && group.filter((y) => y.receiptNumber === x.receiptNumber).length > 1).map((x) => x.id)
   const toggle = (list: ID[], id: ID) => (list.includes(id) ? list.filter((x) => x !== id) : [...list, id])
 
+  // payments + shared-slip receipt grouping live under their own steps (owner 2026-11-05)
+  const paymentsNode = inv.payments.length > 0 ? (
+    <ul className="divide-y rounded-lg border text-sm">
+                  {inv.payments.map((p) => {
+                    const c = Bill.canConfirmPayment(p, me, inv.branchId)
+                    return (
+                      <li key={p.id} className="flex flex-wrap items-center gap-2 p-2.5">
+                        <span className="font-medium tabular-nums">{fmtMoney(p.amount)}</span>
+                        <span className="text-muted-foreground">{p.method === "cash" ? "เงินสด" : "โอน"} {p.reference && `· ${p.reference}`}</span>
+                        <span className="text-xs text-muted-foreground">บันทึกโดย {who(p.recordedBy)}</span>
+                        {p.groupId && group.length > 1 && <Pill tone="blue">สลิปเดียวกับ {group.filter((x) => x.id !== inv.id).map((x) => `${x.number} ${nick(x.studentId)}`).join(", ")}</Pill>}
+                        <span className="ml-auto">
+                          {p.confirmedBy ? (
+                            <Pill tone={p.forced ? "amber" : "green"} title={p.forced?.remark}>{p.forced ? "Force · " : ""}ยืนยันโดย {who(p.confirmedBy)}</Pill>
+                          ) : c.ok ? (
+                            <Button size="xs" onClick={() => report(act.confirm(inv.id, p.id), (v) => (v.paid ? "ยืนยันแล้ว · ชำระครบ ออกใบเสร็จ + เพิ่มเข้าคลาสแล้ว" : "ยืนยันยอดแล้ว"))}>ยืนยันยอด</Button>
+                          ) : Bill.canForceConfirmPayment(p, me, inv.branchId, "x").ok ? (
+                            <ForceApprove label="Force ยืนยันยอด" onForce={(remark) => act.confirm(inv.id, p.id, remark)} success="Force ยืนยันยอดแล้ว — แจ้งทั้งสาขา + Director" />
+                          ) : (
+                            <Pill tone="amber" className="whitespace-normal">รอคนอื่นยืนยัน</Pill>
+                          )}
+                        </span>
+                      </li>
+                    )
+                  })}
+                </ul>
+  ) : null
+  const groupNode = group.length > 1 && group.every((x) => x.status === "paid") ? (
+    <div className="mt-1.5 space-y-1.5 rounded-lg border p-2.5">
+      <p className="text-xs font-medium">ใบเสร็จของสลิปนี้ — ติ๊กใบที่จะรวมเป็นใบเสร็จเดียว (ไม่ติ๊ก = แยกใบ)</p>
+      {group.map((x) => (
+        <label key={x.id} className="flex items-center gap-2 text-xs">
+          <input type="checkbox" disabled={!manage} checked={combined.includes(x.id)} onChange={() => setReceiptIds(toggle(combined, x.id))} />
+          <span className="font-mono">{x.number}</span>
+          <span>{nick(x.studentId)}</span>
+          <span className="ml-auto text-muted-foreground">ใบเสร็จ <span className="font-mono">{x.receiptNumber}</span></span>
+        </label>
+      ))}
+      {manage && receiptIds && <Button size="xs" variant="outline" onClick={() => report(act.regroup(inv.id, receiptIds), "จัดใบเสร็จแล้ว") && setReceiptIds(null)}>บันทึกการจัดใบเสร็จ</Button>}
+    </div>
+  ) : null
   // documents shown on their step: invoice PDF · pay slips (one slip shared by siblings counts once) · receipts (one per receipt number)
   const slips = [...new Set(inv.payments.map((p) => p.slip).filter((x): x is string => !!x))]
   const receipts = [...new Map(group.filter((x) => x.receiptNumber).map((x) => [x.receiptNumber!, x])).values()]
@@ -163,6 +204,7 @@ function Body({ id, slipMediaId, onEdit }: { id: ID; slipMediaId?: string; onEdi
       label: "รับเงิน (บันทึก + ยืนยันโดยอีกคน)",
       state: inv.status === "paid" ? "done" : paidAll > 0 ? "current" : "todo",
       docs: docsFor.slip,
+      extra: paymentsNode,
       onAdd: canAddPayment ? () => setPayOpen(true) : undefined,
       addLabel: "อัปโหลดสลิปการชำระเงิน",
       detail: inv.payments.length ? `ยืนยันแล้ว ${fmtMoney(paidConfirmed)} / ${fmtMoney(totals.total)}` : "—",
@@ -171,12 +213,13 @@ function Body({ id, slipMediaId, onEdit }: { id: ID; slipMediaId?: string; onEdi
       label: "ใบเสร็จ + เข้าคลาสอัตโนมัติ",
       state: !inv.receiptNumber ? "todo" : inv.receiptDelivery === "failed" || inv.receiptDelivery === "no_line" ? "warn" : "done",
       docs: docsFor.receipt,
-      detail: !inv.receiptNumber ? "—" : `${inv.receiptNumber}${inv.receiptNumber !== inv.number ? ` (รวม)` : ""} · ${inv.receiptDelivery === "delivered" ? "ส่งใบเสร็จทาง LINE แล้ว" : inv.receiptDelivery === "sending" ? "กำลังส่งใบเสร็จทาง LINE…" : inv.receiptDelivery === "failed" ? "ส่งใบเสร็จทาง LINE ไม่สำเร็จ" : inv.receiptDelivery === "no_line" ? "ไม่มี LINE — ส่งใบเสร็จทางอื่น" : "ออกใบเสร็จแล้ว"}`,
+      extra: groupNode,
+      detail: !inv.receiptNumber ? "—" : `${inv.receiptNumber}${inv.receiptNumber !== inv.number ? ` (รวม)` : ""} · ${inv.receiptDelivery === "delivered" ? "ส่งใบเสร็จทาง LINE แล้ว" : inv.receiptDelivery === "sending" ? "กำลังส่งใบเสร็จทาง LINE…" : inv.receiptDelivery === "failed" ? "ส่งใบเสร็จทาง LINE ไม่สำเร็จ" : inv.receiptDelivery === "no_line" ? "ไม่มี LINE — ส่งใบเสร็จทางอื่น" : "ออกใบเสร็จแล้ว"}${inv.status === "paid" ? " · นักเรียนถูกเพิ่มเข้าคลาสตามช่วงที่จ่ายแล้ว" : ""}`,
     },
   ]
 
   // the action box only when it has something to show (sending + recording money now live in the Note section / the payment step)
-  const showAction = (inv.status === "draft" && manage) || (inv.status === "pending_approval" && approveCheck.ok) || inv.status === "paid" || inv.status === "void" || (group.length > 1 && group.every((x) => x.status === "paid"))
+  const showAction = (inv.status === "draft" && manage) || (inv.status === "pending_approval" && approveCheck.ok) || inv.status === "void"
   const canSendNote = (inv.status === "approved" || (inv.status === "sent" && (inv.delivery === "no_line" || inv.delivery === "failed"))) && manage
   const noteEditable = manage && inv.status !== "paid" && inv.status !== "void"
   const noteSaved = (inv.noteToParent || "") === note.trim()
@@ -319,22 +362,6 @@ function Body({ id, slipMediaId, onEdit }: { id: ID; slipMediaId?: string; onEdi
         <section className="space-y-2 rounded-lg border p-3">
           {inv.status === "draft" && manage && <p className="text-sm text-muted-foreground">ร่าง — ตรวจรายการแล้วกด “สร้าง PDF” ด้านล่าง เพื่อส่งให้คนอื่นอนุมัติ</p>}
           {inv.status === "pending_approval" && approveCheck.ok && <p className="text-sm text-muted-foreground">รออนุมัติ — ตรวจ PDF แล้วกด “อนุมัติ PDF” ด้านล่าง</p>}
-          {inv.status === "paid" && <p className="text-sm text-emerald-700">ชำระครบ · ใบเสร็จ {inv.receiptNumber} · นักเรียนถูกเพิ่มเข้าคลาสตามช่วงที่จ่ายแล้ว{inv.receiptDelivery === "delivered" ? " · ส่งใบเสร็จทาง LINE แล้ว" : ""}</p>}
-          {/* one slip for several invoices: the admin picks which share one receipt */}
-          {group.length > 1 && group.every((x) => x.status === "paid") && (
-            <div className="space-y-1.5 border-t pt-2">
-              <p className="text-xs font-medium">ใบเสร็จของสลิปนี้ — ติ๊กใบที่จะรวมเป็นใบเสร็จเดียว (ไม่ติ๊ก = แยกใบ)</p>
-              {group.map((x) => (
-                <label key={x.id} className="flex items-center gap-2 text-xs">
-                  <input type="checkbox" disabled={!manage} checked={combined.includes(x.id)} onChange={() => setReceiptIds(toggle(combined, x.id))} />
-                  <span className="font-mono">{x.number}</span>
-                  <span>{nick(x.studentId)}</span>
-                  <span className="ml-auto text-muted-foreground">ใบเสร็จ <span className="font-mono">{x.receiptNumber}</span></span>
-                </label>
-              ))}
-              {manage && receiptIds && <Button size="xs" variant="outline" onClick={() => report(act.regroup(inv.id, receiptIds), "จัดใบเสร็จแล้ว") && setReceiptIds(null)}>บันทึกการจัดใบเสร็จ</Button>}
-            </div>
-          )}
           {inv.status === "void" && (
             <div className="flex flex-wrap items-center gap-2">
               <p className="text-sm text-muted-foreground">ใบนี้ถูกยกเลิก — ระบบไม่ได้แจ้งผู้ปกครองให้อัตโนมัติ</p>
@@ -346,43 +373,6 @@ function Body({ id, slipMediaId, onEdit }: { id: ID; slipMediaId?: string; onEdi
         </section>
         )}
 
-        {inv.payments.length > 0 && (
-          <section>
-            <h3 className="mb-2 text-sm font-semibold">การรับเงิน</h3>
-            <ul className="divide-y rounded-lg border text-sm">
-              {inv.payments.map((p) => {
-                const c = Bill.canConfirmPayment(p, me, inv.branchId)
-                return (
-                  <li key={p.id} className="flex flex-wrap items-center gap-2 p-2.5">
-                    <span className="font-medium tabular-nums">{fmtMoney(p.amount)}</span>
-                    <span className="text-muted-foreground">{p.method === "cash" ? "เงินสด" : "โอน"} {p.reference && `· ${p.reference}`}</span>
-                    <span className="text-xs text-muted-foreground">บันทึกโดย {who(p.recordedBy)}</span>
-                    {p.groupId && group.length > 1 && <Pill tone="blue">สลิปเดียวกับ {group.filter((x) => x.id !== inv.id).map((x) => `${x.number} ${nick(x.studentId)}`).join(", ")}</Pill>}
-                    {p.slip && (
-                      <details className="w-full [&[open]>summary]:hidden">
-                        {/* eslint-disable @next/next/no-img-element -- data URL slip */}
-                        <summary className="flex cursor-pointer items-center gap-2 text-xs text-sky-700"><img src={p.slip} alt="สลิป" className="size-10 rounded-md object-cover" /> ดูสลิป</summary>
-                        <img src={p.slip} alt="สลิป" className="mt-1 max-h-96 rounded-lg" />
-                        {/* eslint-enable @next/next/no-img-element */}
-                      </details>
-                    )}
-                    <span className="ml-auto">
-                      {p.confirmedBy ? (
-                        <Pill tone={p.forced ? "amber" : "green"} title={p.forced?.remark}>{p.forced ? "Force · " : ""}ยืนยันโดย {who(p.confirmedBy)}</Pill>
-                      ) : c.ok ? (
-                        <Button size="xs" onClick={() => report(act.confirm(inv.id, p.id), (v) => (v.paid ? "ยืนยันแล้ว · ชำระครบ ออกใบเสร็จ + เพิ่มเข้าคลาสแล้ว" : "ยืนยันยอดแล้ว"))}>ยืนยันยอด</Button>
-                      ) : Bill.canForceConfirmPayment(p, me, inv.branchId, "x").ok ? (
-                        <ForceApprove label="Force ยืนยันยอด" onForce={(remark) => act.confirm(inv.id, p.id, remark)} success="Force ยืนยันยอดแล้ว — แจ้งทั้งสาขา + Director" />
-                      ) : (
-                        <Pill tone="amber" className="whitespace-normal">รอคนอื่นยืนยัน</Pill>
-                      )}
-                    </span>
-                  </li>
-                )
-              })}
-            </ul>
-          </section>
-        )}
 
         <CreditNotes inv={inv} />
 
