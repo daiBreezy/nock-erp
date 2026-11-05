@@ -5,6 +5,19 @@
 
 ---
 
+## 2026-11-05 — erp-v2: เจ้าของยืนยัน business decision 3 ข้อ (ส่วนใหญ่ build ไว้ตรงแล้ว) + วางระบบประหยัด credit
+
+**ระบบประหยัด credit (เช้า):** `erp-v2/RESPONSIVE.md` (breakpoint 3 ระดับ base/sm/lg ห้าม md/xl · responsive อยู่ใน component กลาง หน้าห้ามเขียนเอง · DataTable จอ <640 ยุบเป็นการ์ด · ตรวจด้วย read_page ไม่ screenshot) · หน้า `/kit` คลังคอมโพเนนต์ (ลากปรับกว้างดู reflow + light/dark · ตรวจ responsive ที่เดียว) · commit b819776 + b046da5 บน branch `erp-v2/mobile-session-sheet` (ยังไม่ push) · memory: credit-saving-habits (แชทใหม่ต่องาน · งานจักรกลใช้ Sonnet · Explore · ตรวจรอบเดียว)
+
+**เจ้าของยืนยัน business rule 3 ข้อ (จาก TODO "15 ข้อใน Sheet" เก่ารอบ 4 — ส่วนใหญ่ถูก build เฟส 1–3 ไปแล้ว):**
+1. **ค่าแรกเข้า (Entry fee):** Admin ตัดสินเองว่าจะใส่ในใบไหม แต่ **ระบบต้อง suggest ว่าเป็นใบแรกของนักเรียน** → ✅ erp-v2 ทำแล้ว: `defaultAdvance`/`entryFeeWaiver` ใส่ค่าแรกเข้าอัตโนมัติในใบแรก (ยังไม่เคยจ่าย/ไม่ใช่ imported) + hint "นักเรียนยังไม่เคยจ่ายค่าแรกเข้า — ใส่ให้แล้ว กดเอาออกได้" + ติ๊กออกได้ (invoice-editor.tsx:365) · เหลือ polish เล็ก: ข้อความ hint พูดถึง "ใบแรก" ให้ตรงภาษาเจ้าของ (optional)
+2. **รถรับส่ง (Bus):** 1 คัน **ทำได้หลาย route/วัน** (เช้ารับ-เย็นส่ง คันเดียวกันได้) · ปัจจุบัน **ทองหล่อ 1 คัน · ศรีราชา 2 คัน · Liclass เท่านั้น** · **คนขับ = พนักงานที่เราจ้างมาขับ** (ไม่ใช่ vendor) → ✅ model ตรง: `Vehicle.driverId` = Staff role `driver` (ไม่มีสิทธิ์เข้า ERP ใช้ driver app) · trip หลายรอบ/วันได้
+3. **Lead vs Student = Customer คนเดียวกัน:** ยังไม่จ่าย = Lead · จ่ายแล้ว = Student · แยกสถานะไว้แค่ให้เห็นภาพรวม (Lead กี่คน/Student กี่คน) — เป็น logic วางไว้เฉยๆ → ไม่ต้อง build เพิ่ม · ระบบรายชื่อซ้ำ (แนะนำ Admin ตัดสินรวม/แยก) พอแล้ว
+
+**ยังเปิด (ฝั่ง Dev ไม่ใช่ erp-v2):** Final-gate ปิดเดือน (spec 08) · Business line × branch matrix (spec 12)
+
+---
+
 ## 2026-10-29 (ดึก) — erp-v2: หน้านักเรียน › คลาส รวมคาบเรียน + การเข้าเรียน · Side Panel ลากขยายได้ · ตารางใช้ Table Setting
 
 **เจ้าของขอ:** คาบเรียน + การเข้าเรียนรวมแท็บเดียว · List มีเส้นแบ่ง Header เดียว · กรองวิชา · ตัดไอคอน · วันอยู่หน้าเวลา · ย้ายคาบ/Reschedule ได้จากทุกที่ · Side Panel ทุกอันลากขยาย/ย่อได้ · ทุก Table มี Table Setting เหมือนกัน
