@@ -167,23 +167,22 @@ export function PrintDocument({ kind, id, bare = false }: { kind: Kind; id: stri
             {kind === "invoice" && (payQr || branch.bankAccount.number) && (
               <div className="flex items-start gap-3">
                 {payQr && (
-                  <>
-                    <svg viewBox={`0 0 ${payQr.n + 2} ${payQr.n + 2}`} className="size-[26mm] shrink-0" shapeRendering="crispEdges" aria-label="PromptPay">
-                      <rect width="100%" height="100%" fill="#fff" />
-                      {payQr.dark.map(([x, y]) => <rect key={`${x}-${y}`} x={x + 1} y={y + 1} width="1" height="1" fill="#1a3c6e" />)}
-                    </svg>
-                    {/* the caption sits beside the QR, like the bank account beside it */}
-                    <div className="w-[24mm] shrink-0 text-[11px] leading-snug">
-                      <p>{L.scanToPay}</p>
-                      <p>Scan to pay · PromptPay</p>
-                    </div>
-                  </>
+                  <svg viewBox={`0 0 ${payQr.n + 2} ${payQr.n + 2}`} className="size-[26mm] shrink-0" shapeRendering="crispEdges" aria-label="PromptPay">
+                    <rect width="100%" height="100%" fill="#fff" />
+                    {payQr.dark.map(([x, y]) => <rect key={`${x}-${y}`} x={x + 1} y={y + 1} width="1" height="1" fill="#1a3c6e" />)}
+                  </svg>
                 )}
-                {branch.bankAccount.number && (
-                  <p className="whitespace-pre-line text-[11px]">
-                    {L.bank}：{branch.bankAccount.bank}{"\n"}{branch.bankAccount.branchName ? `${branch.bankAccount.branchName}\n` : ""}{L.accountNo}：{branch.bankAccount.number}{"\n"}{L.accountName}：{branch.bankAccount.name}
-                  </p>
-                )}
+                {/* beside the QR, top to bottom: the bank account, then the scan-to-pay sub text */}
+                <div className="flex min-h-[26mm] flex-col justify-between">
+                  {branch.bankAccount.number && (
+                    <p className="whitespace-pre-line text-[11px]">
+                      {L.bank}：{branch.bankAccount.bank}{"\n"}{branch.bankAccount.branchName ? `${branch.bankAccount.branchName}\n` : ""}{L.accountNo}：{branch.bankAccount.number}{"\n"}{L.accountName}：{branch.bankAccount.name}
+                    </p>
+                  )}
+                  {payQr && (
+                    <p className="text-[10px] leading-snug text-neutral-700">{L.scanToPay}<br />Scan to pay · PromptPay</p>
+                  )}
+                </div>
               </div>
             )}
             {kind === "credit-note" && cn!.refund && <p><b>{L.refund}:</b> {d(cn!.refund.date)} · {cn!.refund.fromAccount} · {cn!.refund.reference}</p>}
