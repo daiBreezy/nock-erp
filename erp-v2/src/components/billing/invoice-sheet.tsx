@@ -27,6 +27,7 @@ import { invoiceTone } from "./status"
 import { CreditNotes } from "./credit-notes"
 import { DocThumbs, type DocItem } from "./doc-thumbs"
 import { PaySlipDialog } from "./pay-slip-dialog"
+import { BundleOverview } from "./bundle-overview"
 import { InfoTip } from "@/components/app/info-tip"
 
 /** a titled group inside the expanded billing info */
@@ -57,8 +58,24 @@ function Panel({ id, slipMediaId, defaultStudentId, renewEntitlementId, onClose 
   const [editing, setEditing] = useState(isNew)
   // after Duplicate the panel moves on to the new draft
   const [dupId, setDupId] = useState<ID | null>(null)
-  const shownId = dupId ?? (isNew ? createdId : id)
-  const inv = useStore((s) => (shownId ? s.invoices.find((x) => x.id === shownId) : undefined))
+  // a family set (owner 2026-11-05): tabs  รวม | child | child …  — the set is worked on as one, a child's own invoice in its tab
+  const [tab, setTab] = useState<"all" | ID>("all")
+  const [addingFor, setAddingFor] = useState<ID | null>(null)
+  const baseId = dupId ?? (isNew ? createdId : id)
+  const invoices = useStore((s) => s.invoices)
+  const students = useStore((s) => s.students)
+  const link = useStore((s) => s.linkInvoices)
+  const baseInv = baseId ? invoices.find((x) => x.id === baseId) : undefined
+  const members = baseInv?.bundleId ? invoices.filter((x) => x.bundleId === baseInv.bundleId && x.status !== "void") : []
+  const isBundle = members.length >= 2
+  const shownId = isBundle && tab !== "all" ? tab : baseId
+  const inv = shownId ? invoices.find((x) => x.id === shownId) : undefined
+  if (addingFor && isBundle) return (
+    <PanelForm>
+      <InvoiceEditor defaultStudentId={addingFor} onClose={() => setAddingFor(null)}
+        onSaved={(v) => { report(link([members[0].id, v.id]), "เพิ่มลูกเข้าชุดแล้ว"); setAddingFor(null); setTab(v.id) }} />
+    </PanelForm>
+  )
   if (editing && (inv || (isNew && !createdId))) return (
     <PanelForm>
       <InvoiceEditor invoice={inv} defaultStudentId={inv ? undefined : defaultStudentId} renewEntitlementId={inv ? undefined : renewEntitlementId}
@@ -66,7 +83,16 @@ function Panel({ id, slipMediaId, defaultStudentId, renewEntitlementId, onClose 
         onSaved={(v) => { if (isNew) setCreatedId(v.id); setEditing(false) }} />
     </PanelForm>
   )
-  return shownId ? <Body key={shownId} id={shownId} slipMediaId={slipMediaId} onEdit={() => setEditing(true)} onDuplicated={setDupId} /> : null
+  const tabs = isBundle && (
+    <div role="tablist" className="flex shrink-0 gap-1 overflow-x-auto border-b px-3 pt-3 pr-14">
+      {([["all", `รวม (${members.length})`], ...members.map((m) => [m.id, students.find((x) => x.id === m.studentId)?.nickname ?? "—"] as const)] as const).map(([k, label]) => (
+        <button key={k} role="tab" type="button" aria-selected={tab === k} onClick={() => setTab(k as "all" | ID)}
+          className={cn("-mb-px shrink-0 rounded-t-lg border-b-2 px-3 py-1.5 text-sm", tab === k ? "border-primary font-medium text-primary" : "border-transparent text-muted-foreground hover:text-foreground")}>{label}</button>
+      ))}
+    </div>
+  )
+  if (isBundle && tab === "all") return <>{tabs}<BundleOverview members={members} onOpen={setTab} onAddChild={setAddingFor} /></>
+  return shownId ? <>{tabs}<Body key={shownId} id={shownId} slipMediaId={slipMediaId} onEdit={() => setEditing(true)} onDuplicated={setDupId} /></> : null
 }
 
 function Body({ id, slipMediaId, onEdit, onDuplicated }: { id: ID; slipMediaId?: string; onEdit: () => void; onDuplicated: (id: ID) => void }) {
