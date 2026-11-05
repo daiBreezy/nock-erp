@@ -182,4 +182,5 @@ export const KIT: Record<string, Entry> = {
   "ข้อความเดียว รวมใบของทุกคน": { en: "One message covering everyone's invoice", ja: "全員分の請求書を1通で" },
   "อัปโหลดสลิปการชำระเงิน (ทั้งชุด)": { en: "Upload the pay slip (whole set)", ja: "振込明細をアップロード（セット全体）" },
   "ออกให้อัตโนมัติเมื่อยืนยันเงินครบ — เลือกรวม/แยกตอนอัปโหลดสลิป": { en: "Issued automatically once the payment is confirmed — choose combined / separate when uploading the slip", ja: "入金確認後に自動発行 — まとめる／分けるは明細アップロード時に選択" },
+  "ใบแจ้งหนี้{0} ({1} ใบ)": { en: "Invoices of {0} ({1})", ja: "{0}の請求書（{1}件）" },
 }
