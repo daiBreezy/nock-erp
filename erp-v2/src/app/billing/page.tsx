@@ -139,11 +139,10 @@ function BillingPage() {
     // owner 2026-11-05: the invoice itself at the very front of every row (a set shows a dropdown tile of the SAME size;
     // opening it lists every child's invoice, each with its own thumbnail)
     { id: "thumb", label: "", width: "64px", required: true, cell: ({ inv, group }) => (group ? (
-      <button type="button" aria-label="ดูใบของแต่ละคน" aria-expanded={openGroups.includes(inv.bundleId!)} style={{ width: THUMB_W, height: THUMB_H }}
-        className="grid shrink-0 place-items-center rounded-md border bg-muted/50 text-muted-foreground hover:bg-muted hover:text-foreground"
+      <Button type="button" variant="outline" size="icon" aria-label="ดูใบของแต่ละคน" aria-expanded={openGroups.includes(inv.bundleId!)} className="rounded-full" style={{ width: THUMB, height: THUMB }}
         onClick={(e) => { e.stopPropagation(); setOpenGroups((g) => (g.includes(inv.bundleId!) ? g.filter((x) => x !== inv.bundleId) : [...g, inv.bundleId!])) }}>
         <ChevronDownIcon className={cn("size-5 transition-transform", openGroups.includes(inv.bundleId!) && "rotate-180")} />
-      </button>
+      </Button>
     ) : <InvThumb id={inv.id} />) },
     { id: "number", label: "เลขที่", width: "130px", sort: "number", required: true, className: "font-medium tabular-nums", cell: ({ inv, group, member }) => (
       <span className="flex items-center gap-1">
@@ -234,14 +233,14 @@ function BillingPage() {
 }
 
 
-const THUMB_W = 40
-const THUMB_H = 56
+// 1:1 — the thumbnail (top of the page) and the set's dropdown button share one size
+const THUMB = 40
 
 /** the invoice page, drawn small (the real document scaled down — no iframe, so a full page of rows stays light) */
 function InvThumb({ id }: { id: string }) {
   return (
-    <span aria-hidden className="relative block shrink-0 overflow-hidden rounded-md border bg-white shadow-sm" style={{ width: THUMB_W, height: THUMB_H }}>
-      <span className="pointer-events-none absolute top-0 left-0 block origin-top-left" style={{ width: 794, transform: `scale(${THUMB_W / 794})` }}><PrintDocument kind="invoice" id={id} bare /></span>
+    <span aria-hidden className="relative block shrink-0 overflow-hidden rounded-md border bg-white shadow-sm" style={{ width: THUMB, height: THUMB }}>
+      <span className="pointer-events-none absolute top-0 left-0 block origin-top-left" style={{ width: 794, transform: `scale(${THUMB / 794})` }}><PrintDocument kind="invoice" id={id} bare /></span>
     </span>
   )
 }
