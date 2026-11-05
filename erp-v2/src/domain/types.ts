@@ -1372,6 +1372,7 @@ export interface Invoice {
   createdBy: ID
   createdAt: string
   approvedBy?: ID
+  approvedAt?: string
   /** set when the approver skipped maker–checker (approved their own invoice) — remark is mandatory */
   forced?: ForcedAction
   sentAt?: string

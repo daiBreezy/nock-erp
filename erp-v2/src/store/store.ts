@@ -2207,7 +2207,7 @@ export const useStore = create<Store>()(
         const r = forced ? Bill.canForceApprove(inv, s.me(), forceRemark) : Bill.canApprove(inv, s.me())
         if (!r.ok) return r
         set({
-          invoices: s.invoices.map((x) => (x.id === id ? { ...x, status: "approved", approvedBy: s.userId, forced: forced ? { by: s.userId, at: s.now().toISOString(), remark: forceRemark.trim() } : undefined } : x)),
+          invoices: s.invoices.map((x) => (x.id === id ? { ...x, status: "approved", approvedBy: s.userId, approvedAt: s.now().toISOString(), forced: forced ? { by: s.userId, at: s.now().toISOString(), remark: forceRemark.trim() } : undefined } : x)),
           notifications: forced ? [forceNotice(s, inv.branchId, "ใบแจ้งหนี้", inv.number ?? "", forceRemark), ...s.notifications] : s.notifications,
         })
         log("billing", [inv.studentId], forced ? "Force Approve ใบแจ้งหนี้" : "อนุมัติใบแจ้งหนี้", `${inv.number}${forced ? ` · เหตุผล: ${forceRemark!.trim()}` : ""}`)

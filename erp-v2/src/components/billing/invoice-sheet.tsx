@@ -173,8 +173,8 @@ function Body({ id, slipMediaId, onEdit }: { id: ID; slipMediaId?: string; onEdi
     slip: slips.map((src, i) => ({ key: `slip${i}`, kind: "slip" as const, label: `สลิป${slips.length > 1 ? ` ${i + 1}` : ""}`, src })),
     receipt: receipts.map((x) => ({ key: `rc${x.id}`, kind: "receipt" as const, label: `ใบเสร็จ ${x.receiptNumber}`, src: `/print/receipt/${x.id}` })),
   } satisfies Record<string, DocItem[]>
-  const steps: { label: string; state: "done" | "current" | "todo" | "warn"; detail: string; docs?: DocItem[]; onAdd?: () => void; addLabel?: string; extra?: React.ReactNode }[] = [
-    { label: "สร้างใบ", state: "done", detail: `${who(inv.createdBy)} · ${fmtDateTime(inv.createdAt)}` },
+  const steps: { label: string; state: "done" | "current" | "todo" | "warn"; /** line 1: the date first, then who did it (owner 2026-11-05) · line 2: everything else */ meta?: string; detail: string; docs?: DocItem[]; onAdd?: () => void; addLabel?: string; extra?: React.ReactNode }[] = [
+    { label: "สร้างใบ", state: "done", meta: `${fmtDateTime(inv.createdAt)} · ${who(inv.createdBy)}`, detail: "" },
     {
       label: "สร้าง PDF",
       state: inv.pdf === "ready" ? "done" : inv.pdf === "failed" ? "warn" : inv.status === "void" ? "todo" : "current",
@@ -191,12 +191,14 @@ function Body({ id, slipMediaId, onEdit }: { id: ID; slipMediaId?: string; onEdi
         </div>
       ) : undefined,
       state: inv.approvedBy ? "done" : inv.status === "pending_approval" ? "current" : "todo",
-      detail: inv.approvedBy ? (inv.forced ? `Force Approve โดย ${who(inv.approvedBy)} · เหตุผล: ${inv.forced.remark}` : `อนุมัติโดย ${who(inv.approvedBy)}`) : inv.status === "pending_approval" ? "รออนุมัติ" : "—",
+      meta: inv.approvedBy ? `${inv.approvedAt ? `${fmtDateTime(inv.approvedAt)} · ` : ""}${who(inv.approvedBy)}` : undefined,
+      detail: inv.approvedBy ? (inv.forced ? `Force Approve · เหตุผล: ${inv.forced.remark}` : "") : inv.status === "pending_approval" ? "รออนุมัติ" : "—",
     },
     {
       label: "ส่งถึงผู้ปกครอง",
       state: inv.delivery === "delivered" ? "done" : inv.delivery === "no_line" || inv.delivery === "failed" ? "warn" : inv.status === "approved" || inv.delivery === "sending" ? "current" : "todo",
-      detail: inv.delivery === "delivered" ? `ถึงผู้ปกครองทาง LINE · ${fmtDateTime(inv.sentAt!)}`
+      meta: inv.sentAt ? fmtDateTime(inv.sentAt) : undefined,
+      detail: inv.delivery === "delivered" ? "ถึงผู้ปกครองทาง LINE"
         : inv.delivery === "sending" ? "กำลังส่งทาง LINE…"
         : inv.delivery === "failed" ? `ส่ง LINE ไม่สำเร็จ — ${inv.deliveryError ?? "ลองส่งอีกครั้ง"}`
         : inv.delivery === "no_line" ? "ยังไม่ถึงผู้ปกครอง — ไม่มี LINE (ต้องส่งทางอื่น)" : "—",
@@ -208,6 +210,7 @@ function Body({ id, slipMediaId, onEdit }: { id: ID; slipMediaId?: string; onEdi
       extra: paymentsNode,
       onAdd: canAddPayment ? () => setPayOpen(true) : undefined,
       addLabel: "อัปโหลดสลิปการชำระเงิน",
+      meta: inv.payments.length ? `${fmtDateTime(inv.payments[inv.payments.length - 1].recordedAt)} · ${who(inv.payments[inv.payments.length - 1].recordedBy)}` : undefined,
       detail: inv.payments.length ? `ยืนยันแล้ว ${fmtMoney(paidConfirmed)} / ${fmtMoney(totals.total)}` : "—",
     },
     {
@@ -351,7 +354,8 @@ function Body({ id, slipMediaId, onEdit }: { id: ID; slipMediaId?: string; onEdi
                 </span>
                 <div className="min-w-0 flex-1">
                   <div className="text-sm font-medium">{s.label}</div>
-                  <div className="text-xs text-muted-foreground">{s.detail}</div>
+                  {s.meta && <div className="text-xs text-muted-foreground">{s.meta}</div>}
+                  {s.detail && <div className="text-xs text-muted-foreground">{s.detail}</div>}
                   {s.extra}
                 </div>
                 {s.docs && <DocThumbs docs={s.docs} onAdd={s.onAdd} addLabel={s.addLabel} />}
