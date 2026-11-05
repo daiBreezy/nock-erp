@@ -4,11 +4,12 @@ import { Page as PageShell, PageHeader, KpiRow, ShowChip, Segmented } from "@/co
 import { Kpi } from "@/components/app/kpi"
 import { BranchCode, useBranchScope } from "@/components/app/branch-scope"
 import { SalesTaxDialog } from "@/components/billing/sales-tax-dialog"
+import { PrintDocument } from "@/components/billing/print-document"
 import { FamilyInvoiceDialog } from "@/components/billing/family-invoice-dialog"
 import { RenewalDraftsDialog } from "@/components/billing/renewal-drafts-dialog"
 import { Suspense, useState } from "react"
 import { useSearchParams } from "next/navigation"
-import { BadgeCheckIcon, CopyPlusIcon, Link2Icon, UsersRoundIcon, FileClockIcon, HourglassIcon, PlusIcon, SearchIcon, WalletIcon } from "lucide-react"
+import { BadgeCheckIcon, ChevronDownIcon, CopyPlusIcon, Link2Icon, UsersRoundIcon, FileClockIcon, HourglassIcon, PlusIcon, SearchIcon, WalletIcon } from "lucide-react"
 import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card"
 import { Pill } from "@/components/app/badges"
 import { InvoiceSheet } from "@/components/billing/invoice-sheet"
@@ -112,7 +113,7 @@ function BillingPage() {
     })
   // family sets (owner 2026-11-05): linked invoices are ONE row (expand to see each child's invoice)
   type BaseRow = (typeof visible)[number]
-  type Row = BaseRow & { group?: BaseRow[]; member?: boolean }
+  type Row = BaseRow & { group?: BaseRow[]; member?: boolean; lastMember?: boolean }
   const [openGroups, setOpenGroups] = useState<string[]>([])
   const display: Row[] = (() => {
     const out: Row[] = []
@@ -124,7 +125,7 @@ function BillingPage() {
       if (done.has(b)) continue
       done.add(b)
       out.push({ ...r, group: mates })
-      if (openGroups.includes(b)) mates.forEach((m) => out.push({ ...m, member: true }))
+      if (openGroups.includes(b)) mates.forEach((m, i) => out.push({ ...m, member: true, lastMember: i === mates.length - 1 }))
     }
     return out
   })()
@@ -135,16 +136,20 @@ function BillingPage() {
   const STATUS_ORDER: Invoice["status"][] = ["draft", "pending_approval", "approved", "sent", "paid", "void"]
   const courseNames = (i: Invoice) => i.lines.map((l) => courses.find((c) => c.id === l.courseId)?.name).filter(Boolean).join(", ") || (i.busExtras?.length ? "ค่ารถเพิ่ม" : "ค่าอื่นๆ")
   const columns: Column<Row>[] = [
+    // owner 2026-11-05: the invoice itself at the very front of every row (a set shows a dropdown tile of the SAME size;
+    // opening it lists every child's invoice, each with its own thumbnail)
+    { id: "thumb", label: "", width: "64px", required: true, cell: ({ inv, group }) => (group ? (
+      <button type="button" aria-label="ดูใบของแต่ละคน" aria-expanded={openGroups.includes(inv.bundleId!)} style={{ width: THUMB_W, height: THUMB_H }}
+        className="grid shrink-0 place-items-center rounded-md border bg-muted/50 text-muted-foreground hover:bg-muted hover:text-foreground"
+        onClick={(e) => { e.stopPropagation(); setOpenGroups((g) => (g.includes(inv.bundleId!) ? g.filter((x) => x !== inv.bundleId) : [...g, inv.bundleId!])) }}>
+        <ChevronDownIcon className={cn("size-5 transition-transform", openGroups.includes(inv.bundleId!) && "rotate-180")} />
+      </button>
+    ) : <InvThumb id={inv.id} />) },
     { id: "number", label: "เลขที่", width: "130px", sort: "number", required: true, className: "font-medium tabular-nums", cell: ({ inv, group, member }) => (
       <span className="flex items-center gap-1">
         <span className="min-w-0 flex-1">{inv.number ? <MidText text={inv.number} head={3} tail={10} /> : <span className="text-muted-foreground">—</span>}</span>
-        {group ? (
-          // the set's chip IS the expander (nothing in front of the number, so the numbers stay aligned)
-          <button type="button" aria-label="ดูใบของแต่ละคน" aria-expanded={openGroups.includes(inv.bundleId!)} className="shrink-0 rounded-full bg-primary/10 px-2 py-0.5 text-[11px] font-semibold text-primary hover:bg-primary/20"
-            onClick={(e) => { e.stopPropagation(); setOpenGroups((g) => (g.includes(inv.bundleId!) ? g.filter((x) => x !== inv.bundleId) : [...g, inv.bundleId!])) }}>
-            {group.length} ใบ {openGroups.includes(inv.bundleId!) ? "▴" : "▾"}
-          </button>
-        ) : !member && inv.bundleId && bundles.get(inv.bundleId) && <BundleChip inv={inv} members={bundles.get(inv.bundleId)!} students={students} />}
+        {group ? <span className="shrink-0 rounded-full bg-primary/10 px-2 py-0.5 text-[11px] font-semibold text-primary">{group.length} ใบ</span>
+          : !member && inv.bundleId && bundles.get(inv.bundleId) && <BundleChip inv={inv} members={bundles.get(inv.bundleId)!} students={students} />}
       </span>
     ) },
     { id: "created", label: "สร้างเมื่อ", width: "96px", sort: "created", className: "text-muted-foreground tabular-nums", cell: ({ inv }) => fmtDate(inv.createdAt.slice(0, 10)) },
@@ -209,14 +214,14 @@ function BillingPage() {
           <SearchIcon className="absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" />
           <Input className="pl-8" placeholder="ค้นหาเลขที่ / ชื่อนักเรียน" value={q} onChange={(e) => setQ(e.target.value)} />
         </div>
-        <ColumnsMenu id="billing" columns={columns} />
+        <ColumnsMenu id="billing-v2" columns={columns} />
         {/* owner 2026-10-09: branch chip always last in the row */}
         {scope.select}
       </div>
 
       {/* owner 2026-10-07: a real table — number, date, student, grade, amounts and status each in their own column;
           scrolls inside the card on phones (BL-23) · owner 2026-10-12: columns arranged per person (DataTable) */}
-      <DataTable id="billing" columns={columns} rows={pg.rows} rowKey={(r) => `${r.member ? "m:" : r.group ? "g:" : ""}${r.inv.id}`} rowClassName={(r) => (r.member ? "bg-muted/40" : r.group ? "bg-primary/[0.03]" : undefined)} onRowClick={(r) => setOpenId(r.inv.id)}
+      <DataTable id="billing-v2" columns={columns} rows={pg.rows} rowKey={(r) => `${r.member ? "m:" : r.group ? "g:" : ""}${r.inv.id}`} rowClassName={(r) => (r.member ? cn("bg-muted/40", r.lastMember && "[&>td]:border-b-2 [&>td]:border-b-primary/40") : r.group ? cn("bg-primary/[0.03]", openGroups.includes(r.inv.bundleId!) && "[&>td]:border-t-2 [&>td]:border-t-primary/40") : undefined)} onRowClick={(r) => setOpenId(r.inv.id)}
         rowProps={({ inv }) => ({ "data-focus": [Bill.canApprove(inv, me).ok && "invoice_approve", invoiceOverdue(inv, now) && "unpaid", paymentUnconfirmed(inv, now) && "unconfirmed"].filter(Boolean).join(" ") || undefined })}
         sort={sort} onSort={toggle} minWidth={1080} empty="ไม่มีใบแจ้งหนี้ในหมวดนี้" />
       <Pager {...pg} unit="ใบ" />
@@ -228,6 +233,18 @@ function BillingPage() {
   )
 }
 
+
+const THUMB_W = 40
+const THUMB_H = 56
+
+/** the invoice page, drawn small (the real document scaled down — no iframe, so a full page of rows stays light) */
+function InvThumb({ id }: { id: string }) {
+  return (
+    <span aria-hidden className="relative block shrink-0 overflow-hidden rounded-md border bg-white shadow-sm" style={{ width: THUMB_W, height: THUMB_H }}>
+      <span className="pointer-events-none absolute top-0 left-0 block origin-top-left" style={{ width: 794, transform: `scale(${THUMB_W / 794})` }}><PrintDocument kind="invoice" id={id} bare /></span>
+    </span>
+  )
+}
 
 const BUNDLE_TONES = ["bg-sky-100 text-sky-800", "bg-violet-100 text-violet-800", "bg-emerald-100 text-emerald-800", "bg-amber-100 text-amber-900", "bg-rose-100 text-rose-800", "bg-teal-100 text-teal-800"]
 const bundleTone = (id: string) => BUNDLE_TONES[[...id].reduce((a, c) => a + c.charCodeAt(0), 0) % BUNDLE_TONES.length]
