@@ -78,7 +78,7 @@ export function PrintDocument({ kind, id, bare = false }: { kind: Kind; id: stri
       <article className={`mx-auto w-[210mm] bg-white p-[12mm] text-[11px] leading-snug text-neutral-900 print:w-auto print:p-0 print:shadow-none ${embed ? "" : "shadow"}`}>
         <header className="flex items-start gap-4 border-b-2 border-neutral-800 pb-3">
           {/* eslint-disable-next-line @next/next/no-img-element -- static brand asset in a print page */}
-          <img src="/brand/logo-full.png" alt="" className="h-12 w-auto" />
+          <img src="/brand/invoice-logo.svg" alt="" className="h-12 w-auto" />
           <div className="flex-1">
             <p className="text-sm font-bold">{company.nameTh}</p>
             <p className="font-semibold">{company.nameEn}</p>

@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest"
 import type { DevTicket, NockAnswer, NockQuestion, Role, Assessment, Attendance, Branch, BusAddOn, CreditNote, LessonSummary, Course, Entitlement, Family, FormSubmission, Lead, Student, Seat, FormOfferSlot, Holiday, Invoice, Klass, Session, Staff, StudentLeave, Weekday } from "../types"
 import { applyClassEdit, applyToSessions, canChangeTeachers, canMoveToClass, canUndoClassMove, canRescheduleStudent, movesOf, mondayOf, removedWithClass, canSave, closesBranch, holidayImpact, hoursFor, isHoliday, overlappingRows, periodsIn, introducedConflicts, editSingleSession, findConflicts, generateSessions, moveSession, sessionState, validateClass, workState } from "./scheduling"
 import { activeLeave, nextClassDates, teacherLeaveCancels, leaveRunSessions, balance, studentState, leaveLedger, packageCovers, canMark, canSaveLeave, coveringEntitlement, effectiveTo, leavesUsed, lowBalanceAlert, removeFromClass, renewalFollowUpDue, resolveEntitlements } from "./attendance"
-import { bestPromotion, duplicateBusDay, billedOn, busAddOnAmount, pendingBusAddOns, validateBusAddOn, carriedMinutes, weekKey, classOptionsFor, defaultAdvance, entryFeeWaiver, invoiceSessionDates, invoiceTotals, validateInvoiceDraft, canApprove, canConfirmPayment, canForceApprove, canForceConfirmPayment, canSend, canVoid, defaultBusLegs, busTotal, nextInvoiceNumber, quoteCourse, roundUpTo, familyPromotion, receiptNumberOf, lastNoteFor, renewalCandidates, renewalDraft, bestBonusHours, FAMILY_PROMO_TIERS } from "./billing"
+import { bestPromotion, duplicateBusDay, billedOn, busAddOnAmount, pendingBusAddOns, validateBusAddOn, carriedMinutes, weekKey, classOptionsFor, defaultAdvance, entryFeeWaiver, invoiceSessionDates, invoiceTotals, validateInvoiceDraft, canApprove, canConfirmPayment, canForceApprove, canForceConfirmPayment, canSend, canVoid, defaultBusLegs, busTotal, nextInvoiceNumber, quoteCourse, roundUpTo, familyPromotion, receiptNumberOf, lastNoteFor, renumberDocuments, renewalCandidates, renewalDraft, bestBonusHours, FAMILY_PROMO_TIERS } from "./billing"
 import { can } from "./permissions"
 import { chartPrice, defaultCourseName, filterCourses, validateCourse } from "./course"
 import { brandPriceUnits, brandUsesBus, busRate, copyHours, gradeLabel, subjectLabel, priceOf, priceRange, setPrice, validateBranchInfo, validateDurations, validateHoliday, validatePromotion, validateSpecialPeriods, everyDay, subjectAbbr } from "./settings"
@@ -3023,5 +3023,30 @@ describe("siblings' invoices sent together (owner 2026-11-05)", () => {
     expect(text).toContain("ชำระภายใน 5 พ.ย.") // each child's own message
     expect(text).toContain("ขิมเรียนวันเสาร์")
     expect(text.match(/โอนเข้า KBank/g)?.length).toBe(1)
+  })
+})
+
+describe("renumber saved documents (owner 2026-11-05)", () => {
+  const brs = [{ id: "b1", brand: "liclass" as const, code: "TL" }, { id: "b2", brand: "nockacademy" as const, code: "BN" }]
+  const inv = (id: string, number: string | null, branchId: string, createdAt: string, receiptNumber?: string) => ({ id, number, branchId, createdAt, receiptNumber }) as unknown as Invoice
+  it("old numbers become the new format, after the new ones of the same day; receipts follow as RC-", () => {
+    const s = renumberDocuments({
+      branches: brs,
+      invoices: [
+        inv("a", "691105-02-001-0001", "b1", "2026-11-05T01:00:00Z", "691105-02-001-0001"),
+        inv("b", "691105-02-001-0002", "b1", "2026-11-05T02:00:00Z"),
+        inv("n", "INV-LIS-TL-691105-001", "b1", "2026-11-05T03:00:00Z"), // already new — untouched
+        inv("c", "691101-01-001-5967", "b2", "2026-11-01T01:00:00Z", "691101-01-001-5967"),
+        inv("d", null, "b1", "2026-11-05T04:00:00Z"),
+      ],
+      creditNotes: [{ id: "cn", number: "CN-691101-01-001-0001", branchId: "b2", createdAt: "2026-11-01T05:00:00Z" }],
+    })
+    const num = Object.fromEntries(s.invoices.map((i) => [i.id, i.number]))
+    expect(num).toEqual({ a: "INV-LIS-TL-691105-002", b: "INV-LIS-TL-691105-003", n: "INV-LIS-TL-691105-001", c: "INV-NAS-BN-691101-001", d: null })
+    expect(s.invoices.find((i) => i.id === "a")!.receiptNumber).toBe("RC-LIS-TL-691105-002")
+    expect(s.invoices.find((i) => i.id === "c")!.receiptNumber).toBe("RC-NAS-BN-691101-001")
+    expect(s.creditNotes[0].number).toBe("CN-NAS-BN-691101-001")
+    // running it again changes nothing
+    expect(renumberDocuments(s).invoices.map((i) => i.number)).toEqual(s.invoices.map((i) => i.number))
   })
 })

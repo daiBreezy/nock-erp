@@ -492,6 +492,44 @@ export function nextInvoiceNumber(kind: "INV" | "CN", branch: Pick<Branch, "bran
   return documentNumber(kind, branch, date, max + 1)
 }
 
+const OLD_DOC_NUMBER = /^(CN-)?(\d{6})-(01|02)-(\d{3})-(\d+)$/
+
+/**
+ * Old-format numbers (yymmdd-01|02-001-0001, owner 2026-09-30) → the new format (owner 2026-11-05) for data saved in a
+ * browser. Numbers already in the new format stay exactly as they are; the old ones take the next free running numbers
+ * of their day + branch, oldest first, so nothing collides. Receipts follow their invoice's new number (RC-…).
+ */
+export function renumberDocuments<T extends { invoices: Invoice[]; creditNotes: { id: ID; number: string; branchId: ID; createdAt: string }[]; branches: Pick<Branch, "id" | "brand" | "code">[] }>(s: T): T {
+  const branchOf = (id: ID) => s.branches.find((b) => b.id === id)
+  const headOf = (kind: "INV" | "CN", ymd: string, b: Pick<Branch, "brand" | "code">) => `${kind}-${BUSINESS_CODE[b.brand]}-${b.code}-${ymd}-`
+  const used = new Map<string, number>() // head → highest running already taken (new format)
+  const take = (n: string | null | undefined) => {
+    const m = n?.match(/^(.*-)(\d+)$/)
+    if (m && /^(INV|CN)-[A-Z]{3}-[A-Z]{2,3}-\d{6}-$/.test(m[1])) used.set(m[1], Math.max(used.get(m[1]) ?? 0, Number(m[2])))
+  }
+  s.invoices.forEach((i) => take(i.number))
+  s.creditNotes.forEach((c) => take(c.number))
+  const map = new Map<string, string>() // old number → new number
+  const assign = <R extends { number: string | null; createdAt: string; branchId: ID }>(rows: R[]) => {
+    const old = rows.filter((r) => r.number && OLD_DOC_NUMBER.test(r.number) && branchOf(r.branchId)).sort((a, b) => a.createdAt.localeCompare(b.createdAt) || a.number!.localeCompare(b.number!))
+    for (const r of old) {
+      const m = r.number!.match(OLD_DOC_NUMBER)!
+      const head = headOf(m[1] ? "CN" : "INV", m[2], branchOf(r.branchId)!)
+      const next = (used.get(head) ?? 0) + 1
+      used.set(head, next)
+      map.set(r.number!, `${head}${String(next).padStart(3, "0")}`)
+    }
+  }
+  assign(s.invoices)
+  assign(s.creditNotes.map((c) => ({ ...c, number: c.number as string | null })))
+  const mapped = (n: string | null | undefined) => (n ? map.get(n) ?? n : n)
+  return {
+    ...s,
+    invoices: s.invoices.map((i) => ({ ...i, number: mapped(i.number) ?? null, receiptNumber: i.receiptNumber && map.has(i.receiptNumber) ? receiptNumberOf(map.get(i.receiptNumber)) : i.receiptNumber })),
+    creditNotes: s.creditNotes.map((c) => ({ ...c, number: mapped(c.number) as string })),
+  }
+}
+
 /** BL-14: approver must be a different person with an approver role. */
 export function canApprove(inv: Invoice, user: Staff): Result {
   if (inv.status !== "pending_approval") return { ok: false, error: "ใบนี้ไม่ได้อยู่ในสถานะรออนุมัติ" }
