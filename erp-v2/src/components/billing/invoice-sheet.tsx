@@ -141,7 +141,7 @@ function Body({ id, slipMediaId, onEdit }: { id: ID; slipMediaId?: string; onEdi
     slip: slips.map((src, i) => ({ key: `slip${i}`, kind: "slip" as const, label: `สลิป${slips.length > 1 ? ` ${i + 1}` : ""}`, src })),
     receipt: receipts.map((x) => ({ key: `rc${x.id}`, kind: "receipt" as const, label: `ใบเสร็จ ${x.receiptNumber}`, src: `/print/receipt/${x.id}` })),
   } satisfies Record<string, DocItem[]>
-  const steps: { label: string; state: "done" | "current" | "todo" | "warn"; detail: string; docs?: DocItem[] }[] = [
+  const steps: { label: string; state: "done" | "current" | "todo" | "warn"; detail: string; docs?: DocItem[]; extra?: React.ReactNode }[] = [
     { label: "สร้างใบ", state: "done", detail: `${who(inv.createdBy)} · ${fmtDateTime(inv.createdAt)}` },
     {
       label: "สร้าง PDF",
@@ -151,6 +151,13 @@ function Body({ id, slipMediaId, onEdit }: { id: ID; slipMediaId?: string; onEdi
     },
     {
       label: "อนุมัติ (คนอื่นที่ไม่ใช่คนสร้าง)",
+      // Force Approve sits right under its own step (owner 2026-11-05)
+      extra: inv.status === "pending_approval" && !approveCheck.ok ? (
+        <div className="mt-1.5 space-y-1.5">
+          <p className="text-xs text-muted-foreground">{approveCheck.error}</p>
+          {canForce && <ForceApprove label="Force Approve PDF" onForce={(remark) => act.approve(inv.id, remark)} success="Force Approve แล้ว — แจ้งทั้งสาขา + Director" />}
+        </div>
+      ) : undefined,
       state: inv.approvedBy ? "done" : inv.status === "pending_approval" ? "current" : "todo",
       detail: inv.approvedBy ? (inv.forced ? `Force Approve โดย ${who(inv.approvedBy)} · เหตุผล: ${inv.forced.remark}` : `อนุมัติโดย ${who(inv.approvedBy)}`) : inv.status === "pending_approval" ? "รออนุมัติ" : "—",
     },
@@ -180,11 +187,11 @@ function Body({ id, slipMediaId, onEdit }: { id: ID; slipMediaId?: string; onEdi
     <>
       <SheetHeader className="shrink-0 border-b pb-3">
         <div className="flex items-center gap-2 pr-8">
-          <Pill tone={invoiceTone(inv)}>{Bill.INVOICE_STATUS_LABEL[inv.status]}</Pill>
+          <SheetTitle className="min-w-0 flex-1 truncate text-lg">{inv.number ?? "—"}</SheetTitle>
           {inv.delivery === "no_line" && <Pill tone="amber">ไม่มี LINE</Pill>}
           {inv.delivery === "failed" && <Pill tone="red">ส่ง LINE ไม่สำเร็จ</Pill>}
+          <Pill tone={invoiceTone(inv)}>{Bill.INVOICE_STATUS_LABEL[inv.status]}</Pill>
         </div>
-        <SheetTitle className="text-lg">{inv.number ?? "—"}</SheetTitle>
         <SheetDescription>
           {stu?.nickname} ({stu?.grade}) · {fam?.name ?? "ยังไม่ผูกครอบครัว"}
         </SheetDescription>
@@ -279,6 +286,7 @@ function Body({ id, slipMediaId, onEdit }: { id: ID; slipMediaId?: string; onEdi
                 <div className="min-w-0 flex-1">
                   <div className="text-sm font-medium">{s.label}</div>
                   <div className="text-xs text-muted-foreground">{s.detail}</div>
+                  {s.extra}
                 </div>
                 {s.docs && <DocThumbs docs={s.docs} />}
               </li>
@@ -287,18 +295,10 @@ function Body({ id, slipMediaId, onEdit }: { id: ID; slipMediaId?: string; onEdi
         </section>
 
         {/* ---------- next action for the current state ---------- */}
+        {!(inv.status === "pending_approval" && !approveCheck.ok) && (
         <section className="space-y-2 rounded-lg border p-3">
           {inv.status === "draft" && manage && <p className="text-sm text-muted-foreground">ร่าง — ตรวจรายการแล้วกด “สร้าง PDF” ด้านล่าง เพื่อส่งให้คนอื่นอนุมัติ</p>}
-          {inv.status === "pending_approval" && (
-            approveCheck.ok ? (
-              <p className="text-sm text-muted-foreground">รออนุมัติ — ตรวจ PDF แล้วกด “อนุมัติ PDF” ด้านล่าง</p>
-            ) : (
-              <div className="space-y-2">
-                <p className="text-sm text-muted-foreground">{approveCheck.error}</p>
-                {canForce && <ForceApprove label="Force Approve PDF" onForce={(remark) => act.approve(inv.id, remark)} success="Force Approve แล้ว — แจ้งทั้งสาขา + Director" />}
-              </div>
-            )
-          )}
+          {inv.status === "pending_approval" && approveCheck.ok && <p className="text-sm text-muted-foreground">รออนุมัติ — ตรวจ PDF แล้วกด “อนุมัติ PDF” ด้านล่าง</p>}
           {(inv.status === "approved" || (inv.status === "sent" && (inv.delivery === "no_line" || inv.delivery === "failed"))) && manage && (
             <div className="space-y-2">
               <Label className="text-xs">ข้อความถึงผู้ปกครอง *</Label>
@@ -369,6 +369,7 @@ function Body({ id, slipMediaId, onEdit }: { id: ID; slipMediaId?: string; onEdi
             </div>
           )}
         </section>
+        )}
 
         {inv.payments.length > 0 && (
           <section>
