@@ -42,6 +42,8 @@ export function BundleOverview({ members, onOpen, onAddChild }: { members: Invoi
   const fam = families.find((f) => f.id === stu(first.studentId)?.familyId)
   const ctxOf = (i: Invoice) => ({ branch: branches.find((b) => b.id === i.branchId)!, courses, classes, holidays })
   const rows = members.map((inv) => ({ inv, total: Bill.invoiceTotals(inv, ctxOf(inv)).total, owed: Bill.owedOn(inv, Bill.invoiceTotals(inv, ctxOf(inv)).total) }))
+  // family names already start with "ครอบครัว" ("ครอบครัวชัยมงคล")
+  const famLabel = fam ? (fam.name.startsWith("ครอบครัว") ? fam.name : `ครอบครัว${fam.name}`) : "ครอบครัว"
   const grand = rows.reduce((a, r) => a + r.total, 0)
   const allDraft = members.every((x) => x.status === "draft")
   // each child keeps their own message (editable here or in their tab — both are the same data)
@@ -70,7 +72,7 @@ export function BundleOverview({ members, onOpen, onAddChild }: { members: Invoi
   const slips = [...new Set(members.flatMap((m) => m.payments.map((p) => p.slip)).filter((x): x is string => !!x))]
   const receipts = [...new Map(members.filter((m) => m.receiptNumber).map((m) => [m.receiptNumber!, m])).values()]
   const pdfDocs: DocItem[] = [
-    ...(members.every((x) => x.pdf === "ready") ? [{ key: "bundle", kind: "invoice" as const, label: `ใบแจ้งหนี้ครอบครัว${fam?.name ?? ""} (${members.length} ใบ)`, src: `/print/bundle/${first.bundleId}` }] : []),
+    ...(members.every((x) => x.pdf === "ready") ? [{ key: "bundle", kind: "invoice" as const, label: `ใบแจ้งหนี้${famLabel} (${members.length} ใบ)`, src: `/print/bundle/${first.bundleId}` }] : []),
     ...members.filter((x) => x.pdf === "ready").map((x) => ({ key: x.id, kind: "invoice" as const, label: `ใบแจ้งหนี้ ${stu(x.studentId)?.nickname ?? ""} ${x.number ?? ""}`.trim(), src: `/print/invoice/${x.id}` })),
   ]
   const generating = members.some((x) => x.pdf === "generating")
@@ -89,7 +91,7 @@ export function BundleOverview({ members, onOpen, onAddChild }: { members: Invoi
     <>
       <SheetHeader className="shrink-0 border-b pb-3">
         <div className="flex items-center gap-2 pr-8">
-          <SheetTitle className="min-w-0 flex-1 truncate text-lg">ครอบครัว{fam?.name ?? ""} · {members.length} ใบ</SheetTitle>
+          <SheetTitle className="min-w-0 flex-1 truncate text-lg">{famLabel} · {members.length} ใบ</SheetTitle>
           <span className="font-semibold tabular-nums">{fmtMoney(grand)}</span>
         </div>
         <SheetDescription>ชุดเดียวกัน — ส่ง อนุมัติ และรับเงินพร้อมกัน · แท็บของแต่ละคนอยู่ด้านบน</SheetDescription>
