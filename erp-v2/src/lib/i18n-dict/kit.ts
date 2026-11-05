@@ -106,4 +106,8 @@ export const KIT: Record<string, Entry> = {
   "เลขอ้างอิง / เลขที่รายการ": { en: "Reference / transaction number", ja: "参照番号・取引番号" },
   "หมายเหตุ (ไม่บังคับ)": { en: "Remarks (optional)", ja: "備考（任意）" },
   "ใบที่ชำระแล้ว / ยกเลิกแล้ว แก้ข้อความไม่ได้": { en: "The message can't be edited on a paid / void invoice", ja: "支払済み・取消済みの請求書のメッセージは編集できません" },
+  "ข้อความของ": { en: "The message for", ja: "次のメッセージ：" },
+  "กด “ส่งผู้ปกครอง” ที่ปุ่มด้านล่าง — ยอด รายการ และเลขบัญชีจะอยู่ในข้อความ": { en: "Press “Send to parent” at the bottom — the amount, items and bank account go in the message", ja: "下の「保護者に送信」を押すと、金額・内訳・口座がメッセージに入ります" },
+  "(ส่งเข้าแชท LINE ของ{0}จริง)": { en: "(sent to the real LINE chat of {0})", ja: "（{0}のLINEチャットに実際に送信）" },
+  "ผู้ปกครองยังไม่ผูก LINE — ระบบจะบันทึกว่าส่งแล้วแต่ “ยังไม่ถึงผู้ปกครอง” ต้องส่งทางอื่น": { en: "The parent hasn't linked LINE — it will be logged as sent but “not reached”; send another way", ja: "保護者がLINE未連携 — 送信済みとして記録されますが「未到達」です。別の方法で送ってください" },
 }

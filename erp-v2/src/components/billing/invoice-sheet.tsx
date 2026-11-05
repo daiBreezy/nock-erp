@@ -26,6 +26,7 @@ import { invoiceTone } from "./status"
 import { CreditNotes } from "./credit-notes"
 import { DocThumbs, type DocItem } from "./doc-thumbs"
 import { PaySlipDialog } from "./pay-slip-dialog"
+import { InfoTip } from "@/components/app/info-tip"
 
 /** a titled group inside the expanded billing info */
 function Block({ title, hint, children }: { title: string; hint?: string; children: React.ReactNode }) {
@@ -198,39 +199,38 @@ function Body({ id, slipMediaId, onEdit }: { id: ID; slipMediaId?: string; onEdi
         {/* Billing info as an accordion (owner 2026-11-05): Student · Promotion · Course · Advance · Bus · Summary */}
         {/* the message to the parent (owner 2026-11-05): remembered per student — the last one comes back on the next invoice, editable until it is sent */}
         {inv.status !== "void" && (noteEditable || inv.noteToParent) && (
-          <section className="space-y-2 rounded-xl border p-3">
-            <Label className="text-xs">ข้อความถึงผู้ปกครอง{canSendNote ? " *" : ""}</Label>
-            <Textarea rows={2} value={note} disabled={!noteEditable} onChange={(e) => setNote(e.target.value)} placeholder="เช่น ค่าเรียนเดือนตุลาคม ชำระภายใน 5 ต.ค." />
-            {noteEditable && !inv.noteToParent && prevNote && note.trim() === prevNote && <p className="text-xs text-muted-foreground">ข้อความจากใบก่อนหน้าของ{stu?.nickname} — แก้หรือลบได้ก่อนส่ง</p>}
-            {canSendNote && fam?.lineUserId && <p className="text-xs text-emerald-700">ส่งเข้าแชท LINE ของ{fam.name}จริง — ยอด รายการ และเลขบัญชีจะอยู่ในข้อความ</p>}
-            {canSendNote && !fam?.parents.some((p) => p.lineLinked) && <p className="text-xs text-amber-700">ผู้ปกครองยังไม่ผูก LINE — ระบบจะบันทึกว่าส่งแล้วแต่ &quot;ยังไม่ถึงผู้ปกครอง&quot; ต้องส่งทางอื่น</p>}
-            {noteEditable && (
-              <div className="flex flex-wrap gap-2">
-                <Button size="sm" variant="outline" disabled={noteSaved} onClick={() => report(act.setNote(inv.id, note), "บันทึกข้อความแล้ว")}>บันทึกข้อความ</Button>
-                {canSendNote && (
-                  <Button size="sm" disabled={!note.trim()} onClick={() => report(act.send(inv.id, note), (v) => (v.delivered ? "ส่งทาง LINE แล้ว" : "บันทึกแล้ว แต่ยังไม่ถึงผู้ปกครอง (ไม่มี LINE)"))}>
-                    <SendIcon /> {inv.status === "sent" ? "ส่งอีกครั้ง" : "ส่งผู้ปกครอง"}
-                  </Button>
-                )}
-              </div>
-            )}
+          <section className="space-y-1.5">
+            <Label className="text-xs">ข้อความถึงผู้ปกครอง{canSendNote ? " *" : ""}
+              <InfoTip text={<>
+                <span className="block">ใส่ข้อความถึงผู้ปกครองที่จะไปพร้อมใบแจ้งหนี้ — บันทึกให้อัตโนมัติเมื่อพิมพ์เสร็จ แก้ได้จนกว่าใบจะชำระแล้ว</span>
+                <span className="mt-1 block">ข้อความของ{stu?.nickname}ในครั้งก่อนจะขึ้นมาให้เสมอ แก้หรือลบได้ก่อนส่ง</span>
+                {canSendNote && <span className="mt-1 block">กด “ส่งผู้ปกครอง” ที่ปุ่มด้านล่าง — ยอด รายการ และเลขบัญชีจะอยู่ในข้อความ{fam?.lineUserId ? ` (ส่งเข้าแชท LINE ของ${fam.name}จริง)` : ""}</span>}
+                {canSendNote && !fam?.parents.some((p) => p.lineLinked) && <span className="mt-1 block text-amber-700">ผู้ปกครองยังไม่ผูก LINE — ระบบจะบันทึกว่าส่งแล้วแต่ “ยังไม่ถึงผู้ปกครอง” ต้องส่งทางอื่น</span>}
+              </>} />
+            </Label>
+            <Textarea rows={2} value={note} disabled={!noteEditable} onChange={(e) => setNote(e.target.value)}
+              onBlur={() => { if (noteEditable && !noteSaved) report(act.setNote(inv.id, note), "บันทึกข้อความแล้ว") }}
+              placeholder="เช่น ค่าเรียนเดือนตุลาคม ชำระภายใน 5 ต.ค." />
           </section>
         )}
 
         {/* Billing info (owner 2026-11-05): the summary always visible; one expander opens the whole invoice */}
-        <section className="rounded-xl border px-4 py-3">
-          <h3 className="mb-1 text-sm font-semibold">สรุปยอด</h3>
-          <table className="w-full text-sm tabular-nums"><tbody>
-            {([["ค่าเรียน", totals.course + totals.courseFee], ["Advance / ค่าหนังสือ", totals.advance + totals.book], ["ค่ารถ", totals.bus + totals.busExtra]] as const).filter(([, v]) => v > 0).map(([l, v]) => <tr key={l}><td className="py-0.5">{l}</td><td className="py-0.5 text-right">{fmtMoney(v)}</td></tr>)}
-            {totals.promotion + totals.credit + totals.concession > 0 && <tr className="text-emerald-700"><td className="py-0.5">ส่วนลด / โปรโมชัน</td><td className="py-0.5 text-right">−{fmtMoney(totals.promotion + totals.credit + totals.concession)}</td></tr>}
-            {totals.rounding > 0 && <tr className="text-muted-foreground"><td className="py-0.5">ปัดเศษ (Liclass ปัดขึ้นหลักสิบ)</td><td className="py-0.5 text-right">+{fmtMoney(totals.rounding)}</td></tr>}
-            <tr className="border-t font-semibold"><td className="py-1.5">ยอดรวม</td><td className="py-1.5 text-right text-base">{fmtMoney(totals.total)}</td></tr>
-          </tbody></table>
-          <button type="button" aria-expanded={showAll} onClick={() => setShowAll(!showAll)} className="mt-1 flex w-full items-center justify-center gap-1 rounded-lg py-1.5 text-xs text-primary hover:bg-muted/50">
-            {showAll ? "ซ่อนรายละเอียด" : "ดูรายละเอียดใบแจ้งหนี้ทั้งหมด"}<ChevronDownIcon className={cn("size-3.5 transition-transform", showAll && "rotate-180")} />
+        <section className="rounded-lg border px-3">
+          <button type="button" aria-expanded={showAll} onClick={() => setShowAll(!showAll)} className="flex w-full items-center gap-2 py-2 text-left text-sm">
+            <span className="font-mono text-xs text-muted-foreground">{inv.number ?? "ร่าง"}</span>
+            <span className="ml-auto text-xs text-muted-foreground">ยอดรวม</span>
+            <span className="font-semibold tabular-nums">{fmtMoney(totals.total)}</span>
+            <ChevronDownIcon className={cn("size-4 shrink-0 text-muted-foreground transition-transform", showAll && "rotate-180")} />
           </button>
           {showAll && (
-            <div className="mt-2 space-y-4 border-t pt-3">
+            <div className="space-y-3 border-t py-3">
+              <table className="w-full text-xs tabular-nums"><tbody>
+                {([["ค่าเรียน", totals.course + totals.courseFee], ["Advance / ค่าหนังสือ", totals.advance + totals.book], ["ค่ารถ", totals.bus + totals.busExtra]] as const).filter(([, v]) => v > 0).map(([l, v]) => <tr key={l}><td className="py-0.5">{l}</td><td className="py-0.5 text-right">{fmtMoney(v)}</td></tr>)}
+                {totals.promotion + totals.credit + totals.concession > 0 && <tr className="text-emerald-700"><td className="py-0.5">ส่วนลด / โปรโมชัน</td><td className="py-0.5 text-right">−{fmtMoney(totals.promotion + totals.credit + totals.concession)}</td></tr>}
+                {totals.rounding > 0 && <tr className="text-muted-foreground"><td className="py-0.5">ปัดเศษ (Liclass ปัดขึ้นหลักสิบ)</td><td className="py-0.5 text-right">+{fmtMoney(totals.rounding)}</td></tr>}
+                <tr className="border-t font-semibold"><td className="py-1">ยอดรวม</td><td className="py-1 text-right text-sm">{fmtMoney(totals.total)}</td></tr>
+              </tbody></table>
+              <div className="space-y-4 border-t pt-3">
           <Block title="Student">
             <p className="text-sm"><span className="font-medium">{stu?.nickname}</span> <span className="text-muted-foreground">{stu?.name} · {stu?.grade}</span></p>
             <p className="text-xs text-muted-foreground">{fam ? `${fam.name} · ${fam.parents.find((p) => p.primary)?.name ?? ""}` : "ยังไม่ผูกครอบครัว"}</p>
@@ -288,15 +288,18 @@ function Body({ id, slipMediaId, onEdit }: { id: ID; slipMediaId?: string; onEdi
             </tbody></table>
             {totals.bus + totals.busExtra === 0 && <p className="text-xs text-muted-foreground">ไม่ได้ใช้รถรับส่ง</p>}
           </Block>
+              </div>
             </div>
           )}
         </section>
 
         <section>
           <h3 className="mb-2 text-sm font-semibold">ขั้นตอน</h3>
-          <ol className="space-y-2">
-            {steps.map((s) => (
-              <li key={s.label} className="flex items-start gap-2.5">
+          <ol>
+            {steps.map((s, i) => (
+              <li key={s.label} className="relative flex items-start gap-2.5 pb-4 last:pb-0">
+                {/* the line joining this status icon to the next one — it is a stepper */}
+                {i < steps.length - 1 && <span aria-hidden className={cn("absolute left-[9.5px] top-6 -bottom-0.5 w-px", s.state === "done" ? "bg-emerald-600" : "bg-border")} />}
                 <span className={cn("mt-0.5 grid size-5 shrink-0 place-items-center rounded-full", s.state === "done" ? "bg-emerald-600 text-white" : s.state === "current" ? "bg-sky-600 text-white" : s.state === "warn" ? "bg-amber-500 text-white" : "border text-muted-foreground")}>
                   {s.state === "done" ? <CheckIcon className="size-3" /> : s.state === "warn" ? <AlertTriangleIcon className="size-3" /> : <CircleIcon className="size-2" />}
                 </span>
@@ -406,6 +409,11 @@ function Body({ id, slipMediaId, onEdit }: { id: ID; slipMediaId?: string; onEdi
           <PanelMore items={[manage && !voiding && { label: "ยกเลิกใบแจ้งหนี้", icon: XCircleIcon, destructive: true, onClick: () => setVoiding(true) }]} />
           {manage && (inv.status === "draft" || inv.status === "pending_approval") && <Button className="ml-auto" variant="outline" onClick={onEdit}><PencilIcon /> {inv.status === "draft" ? "แก้ไข" : "แก้ (ต้องสร้าง PDF ใหม่)"}</Button>}
           {inv.status === "pending_approval" && approveCheck.ok && <Button className={manage ? undefined : "ml-auto"} onClick={() => report(act.approve(inv.id), "อนุมัติแล้ว — พร้อมส่งผู้ปกครอง")}><CheckIcon /> อนุมัติ PDF</Button>}
+          {canSendNote && (
+            <Button className="ml-auto" disabled={!note.trim()} onClick={() => report(act.send(inv.id, note), (v) => (v.delivered ? "ส่งทาง LINE แล้ว" : "บันทึกแล้ว แต่ยังไม่ถึงผู้ปกครอง (ไม่มี LINE)"))}>
+              <SendIcon /> {inv.status === "sent" ? "ส่งอีกครั้ง" : "ส่งผู้ปกครอง"}
+            </Button>
+          )}
           {inv.status === "draft" && (
             <Button disabled={inv.pdf === "generating"} onClick={() => report(act.gen(inv.id), (v) => `กำลังสร้าง PDF · เลขที่ ${v.number}`)}>
               {inv.pdf === "generating" ? <Loader2Icon className="animate-spin" /> : inv.pdf === "failed" ? <RefreshCwIcon /> : <FileTextIcon />}
