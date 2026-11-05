@@ -1,7 +1,7 @@
 "use client"
 
 import { useRef, useState } from "react"
-import { ChevronLeftIcon, ChevronRightIcon, DownloadIcon, FileTextIcon, Share2Icon } from "lucide-react"
+import { ChevronLeftIcon, ChevronRightIcon, DownloadIcon, FileTextIcon, PlusIcon, Share2Icon } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
@@ -40,15 +40,15 @@ function Thumb({ doc, w, className }: { doc: DocItem; w: number; className?: str
  * Documents on a stepper step (owner 2026-11-05): one document = a thumbnail; two or more (pay slips / receipts) = a
  * stack, front card tilted −2°, the one behind +2°. Click → the document open as a PDF/image with Download and Share.
  */
-export function DocThumbs({ docs }: { docs: DocItem[] }) {
+export function DocThumbs({ docs, onAdd, addLabel }: { docs: DocItem[]; /** not uploaded yet (or one more to add): a "+" tile that opens the upload dialog */ onAdd?: () => void; addLabel?: string }) {
   const [open, setOpen] = useState<number | null>(null)
-  if (!docs.length) return null
+  if (!docs.length && !onAdd) return null
   const W = 56
   const stacked = docs.length > 1
   return (
-    <>
-      <HoverCard>
-        <HoverCardTrigger render={<button type="button" onClick={() => setOpen(0)} className="ml-auto shrink-0 rounded-lg p-1 hover:bg-muted/50" aria-label={docs.map((d) => d.label).join(", ")} />}>
+    <div className="ml-auto flex shrink-0 items-center gap-1">
+      {docs.length > 0 && <HoverCard>
+        <HoverCardTrigger render={<button type="button" onClick={() => setOpen(0)} className="shrink-0 rounded-lg p-1 hover:bg-muted/50" aria-label={docs.map((d) => d.label).join(", ")} />}>
           {/* one document = a thumbnail · several = a stack, front card −2°, the one behind +2° */}
           <span className="relative block" style={{ width: W + (stacked ? 12 : 0), height: W + (stacked ? 6 : 0) }}>
             {stacked && <Thumb doc={docs[1]} w={W} className="absolute left-3 top-0 rotate-2" />}
@@ -59,9 +59,17 @@ export function DocThumbs({ docs }: { docs: DocItem[] }) {
           {docs.map((d) => <p key={d.key} className="font-medium">{d.label}</p>)}
           <p className="text-muted-foreground">กดเพื่อเปิด</p>
         </HoverCardContent>
-      </HoverCard>
+      </HoverCard>}
+      {onAdd && (
+        <HoverCard>
+          <HoverCardTrigger render={<button type="button" onClick={onAdd} aria-label={addLabel} className="grid shrink-0 place-items-center rounded-md border border-dashed text-muted-foreground hover:bg-muted/50 hover:text-foreground" style={{ width: W, height: W }} />}>
+            <PlusIcon className="size-5" />
+          </HoverCardTrigger>
+          <HoverCardContent side="left" className="w-auto text-xs">{addLabel}</HoverCardContent>
+        </HoverCard>
+      )}
       {open !== null && <Viewer docs={docs} index={open} onIndex={setOpen} onClose={() => setOpen(null)} />}
-    </>
+    </div>
   )
 }
 

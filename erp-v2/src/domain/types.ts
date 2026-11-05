@@ -1403,6 +1403,9 @@ export interface Payment {
   confirmedBy?: ID
   /** set when the recorder confirmed their own payment (Force) */
   forced?: ForcedAction
+  /** the day the money arrived (the payment dialog's "วันที่ชำระ") */
+  paidOn?: DateStr
+  remark?: string
   /** one slip for several invoices of the same family (owner 2026-10-29): each invoice keeps its own share, same groupId + slip */
   groupId?: ID
 }

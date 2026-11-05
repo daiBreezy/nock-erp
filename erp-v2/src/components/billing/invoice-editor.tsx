@@ -18,7 +18,7 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { addDays, fmtDate, fmtMoney, fmtMonth, toDateStr } from "@/domain/dates"
 import * as Att from "@/domain/rules/attendance"
-import { busTotal, carriedMinutes, familyPromotion, invoiceHours, FAMILY_PROMO_TIERS, pendingBusAddOns, classChoices, classOptionsFor, defaultAdvance, defaultBusLegs, entryFeeWaiver, invoiceSessionDates, invoiceTotals, validateInvoiceDraft, type LineQuote } from "@/domain/rules/billing"
+import { busTotal, carriedMinutes, lastNoteFor, familyPromotion, invoiceHours, FAMILY_PROMO_TIERS, pendingBusAddOns, classChoices, classOptionsFor, defaultAdvance, defaultBusLegs, entryFeeWaiver, invoiceSessionDates, invoiceTotals, validateInvoiceDraft, type LineQuote } from "@/domain/rules/billing"
 import { lastAssessmentDate } from "@/domain/rules/forms"
 import type { AdvanceItem, BusExtraLine, BusLeg, CourseLine, Entitlement, Family, Invoice, Klass, Leftover, Seat } from "@/domain/types"
 import { isPartial } from "@/domain/rules/seats"
@@ -154,7 +154,7 @@ export function InvoiceEditor({ invoice, defaultStudentId, renewEntitlementId, o
     busExtras,
     bookFee, advance,
     concession: concession > 0 ? { amount: concession, remark: concessionRemark } : null,
-    noteToParent: invoice?.noteToParent ?? "",
+    noteToParent: invoice?.noteToParent ?? lastNoteFor(studentId, invoices),
     status: "draft",
     pdf: "none",
     createdBy: invoice?.createdBy ?? me,

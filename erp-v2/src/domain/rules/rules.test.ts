@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest"
 import type { DevTicket, NockAnswer, NockQuestion, Role, Assessment, Attendance, Branch, BusAddOn, CreditNote, LessonSummary, Course, Entitlement, Family, FormSubmission, Lead, Student, Seat, FormOfferSlot, Holiday, Invoice, Klass, Session, Staff, StudentLeave, Weekday } from "../types"
 import { applyClassEdit, applyToSessions, canChangeTeachers, canMoveToClass, canUndoClassMove, canRescheduleStudent, movesOf, mondayOf, removedWithClass, canSave, closesBranch, holidayImpact, hoursFor, isHoliday, overlappingRows, periodsIn, introducedConflicts, editSingleSession, findConflicts, generateSessions, moveSession, sessionState, validateClass, workState } from "./scheduling"
 import { activeLeave, nextClassDates, teacherLeaveCancels, leaveRunSessions, balance, studentState, leaveLedger, packageCovers, canMark, canSaveLeave, coveringEntitlement, effectiveTo, leavesUsed, lowBalanceAlert, removeFromClass, renewalFollowUpDue, resolveEntitlements } from "./attendance"
-import { bestPromotion, duplicateBusDay, billedOn, busAddOnAmount, pendingBusAddOns, validateBusAddOn, carriedMinutes, weekKey, classOptionsFor, defaultAdvance, entryFeeWaiver, invoiceSessionDates, invoiceTotals, validateInvoiceDraft, canApprove, canConfirmPayment, canForceApprove, canForceConfirmPayment, canSend, canVoid, defaultBusLegs, busTotal, nextInvoiceNumber, quoteCourse, roundUpTo, familyPromotion, bestBonusHours, FAMILY_PROMO_TIERS } from "./billing"
+import { bestPromotion, duplicateBusDay, billedOn, busAddOnAmount, pendingBusAddOns, validateBusAddOn, carriedMinutes, weekKey, classOptionsFor, defaultAdvance, entryFeeWaiver, invoiceSessionDates, invoiceTotals, validateInvoiceDraft, canApprove, canConfirmPayment, canForceApprove, canForceConfirmPayment, canSend, canVoid, defaultBusLegs, busTotal, nextInvoiceNumber, quoteCourse, roundUpTo, familyPromotion, lastNoteFor, bestBonusHours, FAMILY_PROMO_TIERS } from "./billing"
 import { can } from "./permissions"
 import { chartPrice, defaultCourseName, filterCourses, validateCourse } from "./course"
 import { busRate, copyHours, gradeLabel, subjectLabel, priceOf, priceRange, setPrice, validateBranchInfo, validateDurations, validateHoliday, validatePromotion, validateSpecialPeriods, everyDay, subjectAbbr } from "./settings"
@@ -2932,5 +2932,18 @@ describe("partial time with several windows (owner 2026-11-05, #54)", () => {
     expect(Seats.minutesCharged({ status: "present" }, seat)).toBe(120)
     expect(Seats.minutesCharged({ status: "leave" }, seat)).toBe(0)
     expect(Seats.shiftSeat(seat, 60)).toEqual({ offset: 60, minutes: 60, more: [{ offset: 180, minutes: 60 }] })
+  })
+})
+
+describe("message to the parent is remembered per student (owner 2026-11-05)", () => {
+  const n = (id: string, studentId: string, noteToParent: string, createdAt: string, status: Invoice["status"] = "paid") => ({ id, studentId, noteToParent, createdAt, status })
+  it("the next invoice starts from the student's latest earlier note", () => {
+    const list = [n("a", "s1", "ชำระภายใน 5 ต.ค.", "2026-10-01"), n("b", "s1", "ชำระภายใน 5 พ.ย.", "2026-11-01"), n("c", "s2", "อื่น", "2026-11-02")]
+    expect(lastNoteFor("s1", list)).toBe("ชำระภายใน 5 พ.ย.")
+    expect(lastNoteFor("s1", list, "b")).toBe("ชำระภายใน 5 ต.ค.") // editing b itself: look before it
+    expect(lastNoteFor("s3", list)).toBe("")
+  })
+  it("void invoices and empty notes are skipped", () => {
+    expect(lastNoteFor("s1", [n("a", "s1", "ok", "2026-10-01"), n("b", "s1", "ยกเลิก", "2026-11-01", "void"), n("c", "s1", "  ", "2026-11-02")])).toBe("ok")
   })
 })

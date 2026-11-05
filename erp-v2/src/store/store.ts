@@ -210,6 +210,8 @@ type Store = DB & UIState & {
   approveInvoice: (id: ID, forceRemark?: string) => Result
   sendInvoice: (id: ID, note: string) => Result<{ delivered: boolean }>
   voidInvoice: (id: ID, reason: string) => Result
+  /** the message to the parent can be edited any time before it is sent / the invoice is paid (owner 2026-11-05) */
+  setInvoiceNote: (id: ID, note: string) => Result
   /** optional, manual: tell the parent on LINE that a voided invoice was cancelled (never automatic) */
   notifyVoid: (id: ID) => Result<{ delivered: boolean }>
   /** extra bus days after paying — the bus runs now, the charge waits for the next invoice */
@@ -257,10 +259,10 @@ type Store = DB & UIState & {
   approveCreditNote: (id: ID, forceRemark?: string) => Result
   voidCreditNote: (id: ID, reason: string) => Result
   recordRefund: (id: ID, r: { fromAccount: string; date: DateStr; reference: string }) => Result
-  recordPayment: (id: ID, p: { amount: number; method: "transfer" | "cash"; reference: string; slip?: string }) => Result
+  recordPayment: (id: ID, p: { amount: number; method: "transfer" | "cash"; reference: string; slip?: string; paidOn?: DateStr; remark?: string }) => Result
   confirmPayment: (invoiceId: ID, paymentId: ID, forceRemark?: string) => Result<{ paid: boolean }>
   /** one slip for several invoices of the same family — confirming any of them confirms the whole slip */
-  recordGroupPayment: (invoiceIds: ID[], p: { amount: number; method: "transfer" | "cash"; reference: string; slip?: string }) => Result
+  recordGroupPayment: (invoiceIds: ID[], p: { amount: number; method: "transfer" | "cash"; reference: string; slip?: string; paidOn?: DateStr; remark?: string }) => Result
   /** which invoices paid with one slip share one receipt (the rest get their own) */
   setReceiptGrouping: (invoiceId: ID, combinedIds: ID[]) => Result
 
@@ -2596,6 +2598,17 @@ export const useStore = create<Store>()(
         if (!r.ok) return r
         set({ invoices: s.invoices.map((x) => (x.id === id ? { ...x, status: "void", voidReason: reason } : x)) })
         log("billing", [inv.studentId], "ยกเลิกใบแจ้งหนี้", `${inv.number ?? "ร่าง"} · ${reason}`)
+        return OK
+      },
+
+      setInvoiceNote: (id, note) => {
+        const s = get()
+        const perm = requirePerm(s.me(), "billing.manage")
+        if (!perm.ok) return perm
+        const inv = s.invoices.find((x) => x.id === id)
+        if (!inv) return fail("ไม่พบใบแจ้งหนี้")
+        if (inv.status === "paid" || inv.status === "void") return fail("ใบที่ชำระแล้ว / ยกเลิกแล้ว แก้ข้อความไม่ได้")
+        set({ invoices: s.invoices.map((x) => (x.id === id ? { ...x, noteToParent: note.trim() } : x)) })
         return OK
       },
 

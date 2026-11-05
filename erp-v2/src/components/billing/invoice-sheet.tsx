@@ -2,11 +2,9 @@
 
 import { ForceApprove } from "@/components/app/force-approve"
 import { Fragment, useEffect, useState } from "react"
-import { AlertTriangleIcon, CheckIcon, ChevronDownIcon, CircleIcon, FileTextIcon, ImageIcon, Loader2Icon, PencilIcon, RefreshCwIcon, SendIcon, XCircleIcon } from "lucide-react"
+import { AlertTriangleIcon, CheckIcon, ChevronDownIcon, CircleIcon, FileTextIcon, Loader2Icon, PencilIcon, RefreshCwIcon, SendIcon, XCircleIcon } from "lucide-react"
 import { Pill } from "@/components/app/badges"
-import { NativeSelect } from "@/components/app/native-select"
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet"
 import { EntityPanel, PanelBody, PanelFooter, PanelForm, PanelMore } from "@/components/app/form-shell"
@@ -27,6 +25,7 @@ import { useStore } from "@/store/store"
 import { invoiceTone } from "./status"
 import { CreditNotes } from "./credit-notes"
 import { DocThumbs, type DocItem } from "./doc-thumbs"
+import { PaySlipDialog } from "./pay-slip-dialog"
 
 /** a titled group inside the expanded billing info */
 function Block({ title, hint, children }: { title: string; hint?: string; children: React.ReactNode }) {
@@ -77,18 +76,17 @@ function Body({ id, slipMediaId, onEdit }: { id: ID; slipMediaId?: string; onEdi
   const classes = useStore((s) => s.classes)
   const holidays = useStore((s) => s.holidays)
   const brandMemos = useStore((s) => s.system.invoiceMemos)
-  const act = useStore(useShallow((s) => ({ gen: s.generatePdf, approve: s.approveInvoice, send: s.sendInvoice, void: s.voidInvoice, notifyVoid: s.notifyVoid, pay: s.recordPayment, payGroup: s.recordGroupPayment, confirm: s.confirmPayment, regroup: s.setReceiptGrouping })))
+  const act = useStore(useShallow((s) => ({ gen: s.generatePdf, approve: s.approveInvoice, send: s.sendInvoice, void: s.voidInvoice, notifyVoid: s.notifyVoid, setNote: s.setInvoiceNote, pay: s.recordPayment, payGroup: s.recordGroupPayment, confirm: s.confirmPayment, regroup: s.setReceiptGrouping })))
   const invoices = useStore((s) => s.invoices)
-  const [note, setNote] = useState(inv?.noteToParent ?? "")
+  // the message to the parent: this invoice's, else the one from this student's last invoice — editable until it is sent
+  const prevNote = inv ? Bill.lastNoteFor(inv.studentId, invoices, inv.id) : ""
+  const [note, setNote] = useState(inv?.noteToParent || prevNote)
   const [showAll, setShowAll] = useState(false)
   const [voiding, setVoiding] = useState(false)
   const [reason, setReason] = useState("")
-  const [amount, setAmount] = useState("")
-  const [method, setMethod] = useState<"transfer" | "cash">("transfer")
-  const [ref, setRef] = useState("")
+  const [payOpen, setPayOpen] = useState(!!slipMediaId)
   const [slip, setSlip] = useState<string | undefined>()
   // one slip for siblings' invoices (owner 2026-10-29)
-  const [withIds, setWithIds] = useState<ID[]>([])
   const [receiptIds, setReceiptIds] = useState<ID[] | null>(null)
   // "ใช้เป็นสลิป" from the LINE chat: the parent's photo arrives pre-attached, amount = what is still owed
   useEffect(() => {
@@ -101,11 +99,6 @@ function Body({ id, slipMediaId, onEdit }: { id: ID; slipMediaId?: string; onEdi
       .catch(() => report({ ok: false, error: "ดึงรูปสลิปจากแชทไม่สำเร็จ — แนบรูปเองได้" }, ""))
     return () => { cancelled = true }
   }, [slipMediaId])
-  useEffect(() => {
-    if (!slipMediaId || !inv) return
-    const owed = Bill.invoiceTotals(inv, { branch, courses, classes, holidays }).total - inv.payments.reduce((a, p) => a + p.amount, 0)
-    if (owed > 0) setAmount(String(owed)) // eslint-disable-line react-hooks/set-state-in-effect
-  }, [slipMediaId]) // eslint-disable-line react-hooks/exhaustive-deps
   if (!inv) return null
 
   const totals = Bill.invoiceTotals(inv, { branch, courses, classes, holidays })
@@ -119,6 +112,7 @@ function Body({ id, slipMediaId, onEdit }: { id: ID; slipMediaId?: string; onEdi
   // "x" stands in for the remark — only asks whether Force is available at all
   const canForce = Bill.canForceApprove(inv, me, "x").ok
   const manage = can(me, "billing.manage")
+  const canAddPayment = (inv.status === "approved" || inv.status === "sent") && manage && paidAll < totals.total
   const ctx = { branch, courses, classes, holidays }
   const owed = (x: typeof inv) => Bill.owedOn(x, Bill.invoiceTotals(x, ctx).total)
   const nick = (studentId: ID) => students.find((x) => x.id === studentId)?.nickname ?? "—"
@@ -127,11 +121,6 @@ function Body({ id, slipMediaId, onEdit }: { id: ID; slipMediaId?: string; onEdi
   const group = Bill.paymentGroup(inv, invoices)
   const combined = receiptIds ?? group.filter((x) => x.receiptNumber && group.filter((y) => y.receiptNumber === x.receiptNumber).length > 1).map((x) => x.id)
   const toggle = (list: ID[], id: ID) => (list.includes(id) ? list.filter((x) => x !== id) : [...list, id])
-  const pickWith = (ids: ID[]) => {
-    setWithIds(ids)
-    const picked = invoices.filter((x) => ids.includes(x.id))
-    setAmount(ids.length ? String(owed(inv) + picked.reduce((a, x) => a + owed(x), 0)) : "")
-  }
 
   // documents shown on their step: invoice PDF · pay slips (one slip shared by siblings counts once) · receipts (one per receipt number)
   const slips = [...new Set(inv.payments.map((p) => p.slip).filter((x): x is string => !!x))]
@@ -141,7 +130,7 @@ function Body({ id, slipMediaId, onEdit }: { id: ID; slipMediaId?: string; onEdi
     slip: slips.map((src, i) => ({ key: `slip${i}`, kind: "slip" as const, label: `สลิป${slips.length > 1 ? ` ${i + 1}` : ""}`, src })),
     receipt: receipts.map((x) => ({ key: `rc${x.id}`, kind: "receipt" as const, label: `ใบเสร็จ ${x.receiptNumber}`, src: `/print/receipt/${x.id}` })),
   } satisfies Record<string, DocItem[]>
-  const steps: { label: string; state: "done" | "current" | "todo" | "warn"; detail: string; docs?: DocItem[]; extra?: React.ReactNode }[] = [
+  const steps: { label: string; state: "done" | "current" | "todo" | "warn"; detail: string; docs?: DocItem[]; onAdd?: () => void; addLabel?: string; extra?: React.ReactNode }[] = [
     { label: "สร้างใบ", state: "done", detail: `${who(inv.createdBy)} · ${fmtDateTime(inv.createdAt)}` },
     {
       label: "สร้าง PDF",
@@ -173,6 +162,8 @@ function Body({ id, slipMediaId, onEdit }: { id: ID; slipMediaId?: string; onEdi
       label: "รับเงิน (บันทึก + ยืนยันโดยอีกคน)",
       state: inv.status === "paid" ? "done" : paidAll > 0 ? "current" : "todo",
       docs: docsFor.slip,
+      onAdd: canAddPayment ? () => setPayOpen(true) : undefined,
+      addLabel: "อัปโหลดสลิปการชำระเงิน",
       detail: inv.payments.length ? `ยืนยันแล้ว ${fmtMoney(paidConfirmed)} / ${fmtMoney(totals.total)}` : "—",
     },
     {
@@ -183,6 +174,11 @@ function Body({ id, slipMediaId, onEdit }: { id: ID; slipMediaId?: string; onEdi
     },
   ]
 
+  // the action box only when it has something to show (sending + recording money now live in the Note section / the payment step)
+  const showAction = (inv.status === "draft" && manage) || (inv.status === "pending_approval" && approveCheck.ok) || inv.status === "paid" || inv.status === "void" || (group.length > 1 && group.every((x) => x.status === "paid"))
+  const canSendNote = (inv.status === "approved" || (inv.status === "sent" && (inv.delivery === "no_line" || inv.delivery === "failed"))) && manage
+  const noteEditable = manage && inv.status !== "paid" && inv.status !== "void"
+  const noteSaved = (inv.noteToParent || "") === note.trim()
   return (
     <>
       <SheetHeader className="shrink-0 border-b pb-3">
@@ -200,6 +196,27 @@ function Body({ id, slipMediaId, onEdit }: { id: ID; slipMediaId?: string; onEdi
       <PanelBody>
         {inv.status === "void" && <p className="rounded-lg bg-red-50 p-3 text-sm text-red-800">ยกเลิกแล้ว: {inv.voidReason}</p>}
         {/* Billing info as an accordion (owner 2026-11-05): Student · Promotion · Course · Advance · Bus · Summary */}
+        {/* the message to the parent (owner 2026-11-05): remembered per student — the last one comes back on the next invoice, editable until it is sent */}
+        {inv.status !== "void" && (noteEditable || inv.noteToParent) && (
+          <section className="space-y-2 rounded-xl border p-3">
+            <Label className="text-xs">ข้อความถึงผู้ปกครอง{canSendNote ? " *" : ""}</Label>
+            <Textarea rows={2} value={note} disabled={!noteEditable} onChange={(e) => setNote(e.target.value)} placeholder="เช่น ค่าเรียนเดือนตุลาคม ชำระภายใน 5 ต.ค." />
+            {noteEditable && !inv.noteToParent && prevNote && note.trim() === prevNote && <p className="text-xs text-muted-foreground">ข้อความจากใบก่อนหน้าของ{stu?.nickname} — แก้หรือลบได้ก่อนส่ง</p>}
+            {canSendNote && fam?.lineUserId && <p className="text-xs text-emerald-700">ส่งเข้าแชท LINE ของ{fam.name}จริง — ยอด รายการ และเลขบัญชีจะอยู่ในข้อความ</p>}
+            {canSendNote && !fam?.parents.some((p) => p.lineLinked) && <p className="text-xs text-amber-700">ผู้ปกครองยังไม่ผูก LINE — ระบบจะบันทึกว่าส่งแล้วแต่ &quot;ยังไม่ถึงผู้ปกครอง&quot; ต้องส่งทางอื่น</p>}
+            {noteEditable && (
+              <div className="flex flex-wrap gap-2">
+                <Button size="sm" variant="outline" disabled={noteSaved} onClick={() => report(act.setNote(inv.id, note), "บันทึกข้อความแล้ว")}>บันทึกข้อความ</Button>
+                {canSendNote && (
+                  <Button size="sm" disabled={!note.trim()} onClick={() => report(act.send(inv.id, note), (v) => (v.delivered ? "ส่งทาง LINE แล้ว" : "บันทึกแล้ว แต่ยังไม่ถึงผู้ปกครอง (ไม่มี LINE)"))}>
+                    <SendIcon /> {inv.status === "sent" ? "ส่งอีกครั้ง" : "ส่งผู้ปกครอง"}
+                  </Button>
+                )}
+              </div>
+            )}
+          </section>
+        )}
+
         {/* Billing info (owner 2026-11-05): the summary always visible; one expander opens the whole invoice */}
         <section className="rounded-xl border px-4 py-3">
           <h3 className="mb-1 text-sm font-semibold">สรุปยอด</h3>
@@ -288,62 +305,17 @@ function Body({ id, slipMediaId, onEdit }: { id: ID; slipMediaId?: string; onEdi
                   <div className="text-xs text-muted-foreground">{s.detail}</div>
                   {s.extra}
                 </div>
-                {s.docs && <DocThumbs docs={s.docs} />}
+                {s.docs && <DocThumbs docs={s.docs} onAdd={s.onAdd} addLabel={s.addLabel} />}
               </li>
             ))}
           </ol>
         </section>
 
         {/* ---------- next action for the current state ---------- */}
-        {!(inv.status === "pending_approval" && !approveCheck.ok) && (
+        {showAction && (
         <section className="space-y-2 rounded-lg border p-3">
           {inv.status === "draft" && manage && <p className="text-sm text-muted-foreground">ร่าง — ตรวจรายการแล้วกด “สร้าง PDF” ด้านล่าง เพื่อส่งให้คนอื่นอนุมัติ</p>}
           {inv.status === "pending_approval" && approveCheck.ok && <p className="text-sm text-muted-foreground">รออนุมัติ — ตรวจ PDF แล้วกด “อนุมัติ PDF” ด้านล่าง</p>}
-          {(inv.status === "approved" || (inv.status === "sent" && (inv.delivery === "no_line" || inv.delivery === "failed"))) && manage && (
-            <div className="space-y-2">
-              <Label className="text-xs">ข้อความถึงผู้ปกครอง *</Label>
-              <Textarea rows={2} value={note} onChange={(e) => setNote(e.target.value)} placeholder="เช่น ค่าเรียนเดือนตุลาคม ชำระภายใน 5 ต.ค." />
-              {fam?.lineUserId && <p className="text-xs text-emerald-700">ส่งเข้าแชท LINE ของ{fam.name}จริง — ยอด รายการ และเลขบัญชีจะอยู่ในข้อความ</p>}
-              {!fam?.parents.some((p) => p.lineLinked) && <p className="text-xs text-amber-700">ผู้ปกครองยังไม่ผูก LINE — ระบบจะบันทึกว่าส่งแล้วแต่ &quot;ยังไม่ถึงผู้ปกครอง&quot; ต้องส่งทางอื่น</p>}
-              <Button size="sm" disabled={!note.trim()} onClick={() => report(act.send(inv.id, note), (v) => (v.delivered ? "ส่งทาง LINE แล้ว" : "บันทึกแล้ว แต่ยังไม่ถึงผู้ปกครอง (ไม่มี LINE)"))}>
-                <SendIcon /> {inv.status === "sent" ? "ส่งอีกครั้ง" : "ส่งผู้ปกครอง"}
-              </Button>
-            </div>
-          )}
-          {(inv.status === "approved" || inv.status === "sent") && manage && paidAll < totals.total && (
-            <div className="space-y-2 border-t pt-2">
-              <Label className="text-xs">บันทึกรับเงิน (ค้าง {fmtMoney(totals.total - paidAll)})</Label>
-              <div className="grid grid-cols-3 gap-2">
-                <Input type="number" min={1} placeholder="จำนวนเงิน" value={amount} onChange={(e) => setAmount(e.target.value)} />
-                <NativeSelect value={method} onChange={(e) => setMethod(e.target.value as "transfer" | "cash")} options={[{ value: "transfer", label: "โอน" }, { value: "cash", label: "เงินสด" }]} />
-                <Input placeholder="เลขอ้างอิง" value={ref} onChange={(e) => setRef(e.target.value)} />
-              </div>
-              <label className="flex cursor-pointer items-center gap-2 rounded-2xl border border-dashed p-2 text-xs text-muted-foreground hover:bg-muted/40">
-                {/* eslint-disable-next-line @next/next/no-img-element -- data URL, nothing for next/image to optimise */}
-                {slip ? <img src={slip} alt="สลิป" className="size-12 rounded-lg object-cover" /> : <ImageIcon className="size-5" />}
-                {slip ? "เปลี่ยนรูปสลิป" : "แนบรูปสลิป (ไม่บังคับ)"}
-                <input type="file" accept="image/*" className="hidden" onChange={async (e) => { const f = e.target.files?.[0]; if (f) setSlip(await slipDataUrl(f)) }} />
-              </label>
-              {siblingsPayable.length > 0 && (
-                <div className="space-y-1 rounded-2xl bg-muted/40 p-2">
-                  <p className="text-xs font-medium">จ่ายรวมกับใบของพี่น้อง (สลิปเดียว)</p>
-                  {siblingsPayable.map((x) => (
-                    <label key={x.id} className="flex cursor-pointer items-center gap-2 text-xs">
-                      <input type="checkbox" checked={withIds.includes(x.id)} onChange={() => pickWith(toggle(withIds, x.id))} />
-                      <span className="font-mono">{x.number}</span>
-                      <span>{nick(x.studentId)}</span>
-                      <span className="ml-auto tabular-nums text-muted-foreground">ค้าง {fmtMoney(owed(x))}</span>
-                    </label>
-                  ))}
-                  {withIds.length > 0 && <p className="text-xs text-muted-foreground">ยอดในสลิปต้องเท่ากับยอดค้างรวม {fmtMoney(owed(inv) + invoices.filter((x) => withIds.includes(x.id)).reduce((a, x) => a + owed(x), 0))}</p>}
-                </div>
-              )}
-              <Button size="sm" variant="secondary" onClick={() => report(
-                withIds.length ? act.payGroup([inv.id, ...withIds], { amount: Number(amount), method, reference: ref, slip }) : act.pay(inv.id, { amount: Number(amount), method, reference: ref, slip }),
-                withIds.length ? "บันทึกรับเงินแล้ว (สลิปเดียวหลายใบ) — รอคนอื่นยืนยันยอด" : "บันทึกรับเงินแล้ว — รอคนอื่นยืนยันยอด",
-              ) && (setAmount(""), setRef(""), setSlip(undefined), setWithIds([]))}>บันทึกรับเงิน</Button>
-            </div>
-          )}
           {inv.status === "paid" && <p className="text-sm text-emerald-700">ชำระครบ · ใบเสร็จ {inv.receiptNumber} · นักเรียนถูกเพิ่มเข้าคลาสตามช่วงที่จ่ายแล้ว{inv.receiptDelivery === "delivered" ? " · ส่งใบเสร็จทาง LINE แล้ว" : ""}</p>}
           {/* one slip for several invoices: the admin picks which share one receipt */}
           {group.length > 1 && group.every((x) => x.status === "paid") && (
@@ -423,6 +395,10 @@ function Body({ id, slipMediaId, onEdit }: { id: ID; slipMediaId?: string; onEdi
           </section>
         )}
       </PanelBody>
+      {payOpen && (
+        <PaySlipDialog inv={inv} owed={owed(inv)} initialSlip={slip} onClose={() => setPayOpen(false)}
+          siblings={siblingsPayable.map((x) => ({ id: x.id, number: x.number ?? "", nickname: nick(x.studentId), owed: owed(x) }))} />
+      )}
       {/* Header · Body · Bottom — destructive left, edit right (owner 2026-10-09) */}
       {(manage || (inv.status === "pending_approval" && approveCheck.ok)) && inv.status !== "void" && inv.status !== "paid" && (
         <PanelFooter>

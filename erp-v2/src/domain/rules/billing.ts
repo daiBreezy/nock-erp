@@ -361,6 +361,15 @@ export function carriedMinutes(studentId: ID, courseId: ID, ents: Entitlement[],
   return Math.max(0, kept - used)
 }
 
+/** The message to the parent from this student's latest earlier invoice — shown again on the next one so staff can keep,
+ *  edit or clear it before sending (owner 2026-11-05). */
+export function lastNoteFor(studentId: ID, invoices: Pick<Invoice, "id" | "studentId" | "status" | "noteToParent" | "createdAt">[], exceptInvoiceId?: ID): string {
+  const prev = invoices
+    .filter((i) => i.id !== exceptInvoiceId && i.studentId === studentId && i.status !== "void" && i.noteToParent.trim())
+    .sort((a, b) => b.createdAt.localeCompare(a.createdAt))[0]
+  return prev?.noteToParent.trim() ?? ""
+}
+
 /** Legs × the bus fee type's price. */
 export const busAddOnAmount = (a: Pick<BusAddOn, "pickup" | "dropoff">, rate: number) => (Number(a.pickup) + Number(a.dropoff)) * rate
 
