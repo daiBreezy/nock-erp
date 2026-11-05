@@ -204,11 +204,11 @@ function CreateCreditNote({ inv, onClose }: { inv: Invoice; onClose: () => void 
                       <span className="block truncate">{i.label} <span className="text-xs font-normal text-muted-foreground">สูงสุด {fmtMoney(i.max)}</span></span>
                       {/* owner Row 50: per-course progress so the admin can judge how much of each course to give back */}
                       {l?.quote && <span className="block text-xs text-muted-foreground">{ses ? `ใช้ไปแล้ว ${ses.used}/${ses.total} คาบ (ตามเช็คชื่อ) · ค่าเรียนคาบละ ${fmtMoney(Math.round(ses.perSession))} · ถึง ${fmtDate(l.quote.to, { year: true })}` : `เรียนไปแล้ว ${l.quote.slots.filter((x) => x.date < today).length}/${l.quote.slots.length} คาบ · ถึง ${fmtDate(l.quote.to, { year: true })}`}</span>}
+                      {on && ses && <button type="button" className="mt-0.5 block text-left text-xs text-primary underline" onClick={() => setPicked((p) => ({ ...p, [i.key]: String(Math.min(ses.amount, i.max)) }))}>แนะนำ {fmtMoney(Math.round(ses.perSession))} × {ses.remaining} คาบที่เหลือ = {fmtMoney(ses.amount)}</button>}
                     </span>
                   </label>
                   {on && (
                     <>
-                      {ses && <button type="button" className="text-xs text-primary underline" onClick={() => setPicked((p) => ({ ...p, [i.key]: String(Math.min(ses.amount, i.max)) }))}>แนะนำ {fmtMoney(Math.round(ses.perSession))} × {ses.remaining} คาบที่เหลือ = {fmtMoney(ses.amount)}</button>}
                       <Input type="number" min={0} max={i.max} className="w-28" value={picked[i.key]} aria-invalid={Number(picked[i.key]) > i.max} onChange={(e) => setPicked((p) => ({ ...p, [i.key]: e.target.value }))} />
                     </>
                   )}
