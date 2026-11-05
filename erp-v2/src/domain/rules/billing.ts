@@ -469,18 +469,27 @@ export function validateInvoiceDraft(inv: Invoice, totals: InvoiceTotals, opts: 
 }
 
 /** Business type in document numbers (owner 2026-09-30): NA = NockAcademy, LI = Liclass */
-export const BUSINESS_CODE: Record<Branch["brand"], string> = { nockacademy: "01", liclass: "02" }
+export const BUSINESS_CODE: Record<Branch["brand"], string> = { nockacademy: "NAS", liclass: "LIS" }
+
+/** พ.ศ. 2 digits + month + day: 2026-11-05 → "691105" */
+export const buddhistYmd = (date: DateStr) => String((Number(date.slice(0, 4)) + 543) % 100).padStart(2, "0") + date.slice(5, 7) + date.slice(8, 10)
+
+/** One place that writes a document number (owner 2026-11-05): [type]-[business]-[branch]-[yymmdd]-[running 3 digits]
+ *  e.g. INV-LIS-TL-691105-002 */
+export const documentNumber = (kind: "INV" | "CN" | "RC", branch: Pick<Branch, "brand" | "code">, date: DateStr, running: number) =>
+  `${kind}-${BUSINESS_CODE[branch.brand]}-${branch.code}-${buddhistYmd(date)}-${String(running).padStart(3, "0")}`
+
+/** The receipt carries its invoice's number with the RC prefix: INV-LIS-TL-691105-002 → RC-LIS-TL-691105-002 */
+export const receiptNumberOf = (invoiceNumber: string | null | undefined) => (invoiceNumber ?? "").replace(/^INV-/, "RC-")
 
 /**
- * Document number = yymmdd-business-branch-running (owner 2026-09-30): 690930-01-001-0001 — พ.ศ. 2 digits, issued the
- * moment the invoice is created (a real document from then on: problems are voided, never deleted). Running restarts
- * each day per business + branch. The receipt carries the same number; a Credit Note is "CN-" + the same pattern.
+ * Issued the moment the invoice is created (a real document from then on: problems are voided, never deleted). The
+ * running number restarts each day per business + branch · 3 digits.
  */
-export function nextInvoiceNumber(kind: "INV" | "CN", branch: Pick<Branch, "brand" | "branchNo">, date: DateStr, existing: (string | undefined | null)[]) {
-  const ymd = String((Number(date.slice(0, 4)) + 543) % 100).padStart(2, "0") + date.slice(5, 7) + date.slice(8, 10)
-  const head = `${kind === "CN" ? "CN-" : ""}${ymd}-${BUSINESS_CODE[branch.brand]}-${branch.branchNo}-`
-  const max = existing.filter((n): n is string => !!n && n.startsWith(head)).reduce((m, n) => Math.max(m, Number(n.slice(head.length))), 0)
-  return head + String(max + 1).padStart(4, "0")
+export function nextInvoiceNumber(kind: "INV" | "CN", branch: Pick<Branch, "brand" | "code">, date: DateStr, existing: (string | undefined | null)[]) {
+  const head = documentNumber(kind, branch, date, 0).slice(0, -3)
+  const max = existing.filter((n): n is string => !!n && n.startsWith(head)).reduce((m, n) => Math.max(m, Number(n.slice(head.length)) || 0), 0)
+  return documentNumber(kind, branch, date, max + 1)
 }
 
 /** BL-14: approver must be a different person with an approver role. */
@@ -563,7 +572,7 @@ export function receiptNumbersFor(group: Pick<Invoice, "id" | "number">[], combi
   const sorted = [...group].sort((a, b) => (a.number ?? "").localeCompare(b.number ?? ""))
   const head = sorted.find((x) => combinedIds.includes(x.id))
   const together = combinedIds.length >= 2 && head
-  return new Map(sorted.map((x) => [x.id, (together && combinedIds.includes(x.id) ? head.number : x.number) ?? ""]))
+  return new Map(sorted.map((x) => [x.id, receiptNumberOf(together && combinedIds.includes(x.id) ? head.number : x.number)]))
 }
 
 /** the invoices printed on this receipt (same receipt number, paid) */

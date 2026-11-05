@@ -3,7 +3,7 @@
 import { addDays, fromMinutes, nextWeekday, toDateStr, toMinutes, weekdayOf } from "@/domain/dates"
 import { chartPrice } from "@/domain/rules/course"
 import { cleanParent, cleanStudent, formatPhone, splitParentTitle } from "@/domain/rules/people"
-import { invoiceTotals } from "@/domain/rules/billing"
+import { documentNumber, invoiceTotals, receiptNumberOf } from "@/domain/rules/billing"
 import { reasonLabel } from "@/domain/rules/loss"
 import { generateSessions, isHoliday, sessionFromClass } from "@/domain/rules/scheduling"
 import { entitlementRounds } from "@/domain/rules/summaries"
@@ -539,14 +539,14 @@ export function buildSeed(now = new Date()): DB {
     msg("m_5b", "cv_5", "internal", "u_ton", "แม่สะดวกเช้าวันศุกร์ นัดไว้ 10:00 วิชาวิทย์แล้วค่ะ", 1, 10, 30),
   ]
 
-  // yymmdd-business-branch-running, พ.ศ. 2 digits — same as nextInvoiceNumber (Liclass = 02, ทองหล่อ = 001)
-  const docNo = (d: string, n: number) => `${String((Number(d.slice(0, 4)) + 543) % 100).padStart(2, "0")}${d.slice(5, 7)}${d.slice(8, 10)}-02-001-${String(n).padStart(4, "0")}`
+  // INV-LIS-TL-691105-002 — the same writer as nextInvoiceNumber (Liclass ทองหล่อ); a receipt is RC-…
+  const docNo = (d: string, n: number) => documentNumber("INV", { brand: "liclass", code: "TL" }, d, n)
   const invoices: Invoice[] = [
     {
       id: "inv_paid", branchId: "br_thl", studentId: "stu_1", number: docNo(monthStart, 1),
       lines: [{ id: "ln_1", courseId: "co_math5", classIds: ["cl_math5"], startDate: monthStart, periods: 1 }], bus: [], bookFee: 0, advance: [],
       concession: null, noteToParent: "ค่าเรียนคณิตเดือนนี้", status: "paid", pdf: "ready", createdBy: "u_ploy", createdAt: iso(monthStart),
-      approvedBy: "u_nock", sentAt: iso(monthStart), delivery: "delivered", receiptNumber: docNo(monthStart, 1),
+      approvedBy: "u_nock", sentAt: iso(monthStart), delivery: "delivered", receiptNumber: receiptNumberOf(docNo(monthStart, 1)),
       payments: [{ id: "pay_1", amount: 4500, method: "transfer", reference: "KBank 1234", recordedBy: "u_ploy", recordedAt: iso(monthStart), confirmedBy: "u_nock" }],
     },
     {
@@ -564,7 +564,7 @@ export function buildSeed(now = new Date()): DB {
       id: "inv_summer", branchId: "br_thl", studentId: "stu_14", number: docNo(today, 3),
       lines: [{ id: "ln_4", courseId: "co_summer_eng", classIds: ["cl_summer_eng"], startDate: addDays(monday, 42), periods: 1 }], bus: [], bookFee: 0, advance: [],
       concession: null, noteToParent: "ค่าเรียน Summer English Camp", status: "paid", pdf: "ready", createdBy: "u_ploy", createdAt: iso(today),
-      approvedBy: "u_ton", sentAt: iso(today), delivery: "delivered", receiptNumber: docNo(today, 3),
+      approvedBy: "u_ton", sentAt: iso(today), delivery: "delivered", receiptNumber: receiptNumberOf(docNo(today, 3)),
       payments: [{ id: "pay_summer", amount: 8900, method: "transfer", reference: "SCB 5521", recordedBy: "u_ploy", recordedAt: iso(today), confirmedBy: "u_ton" }],
     },
   ]
@@ -833,11 +833,11 @@ function buildCourseHistory(db: { today: string; branches: Branch[]; courses: Co
         if (from > db.today) break
         const periods = Math.min(2, count - k)
         const id = `inv_c${st.id.slice(5)}_${spans.length}`
-        const no = `${String((Number(from.slice(0, 4)) + 543) % 100).padStart(2, "0")}${from.slice(5, 7)}${from.slice(8, 10)}-${branch.brand === "liclass" ? "02" : "01"}-${branch.branchNo}-${++running}`
+        const no = documentNumber("INV", branch, from, ++running)
         const inv: Invoice = {
           id, branchId: branch.id, studentId: st.id, number: no, lines: [{ id: `ln_${id}`, courseId: course.id, classIds: [klass.id], startDate: from, periods }],
           bus: [], bookFee: 0, advance: [], concession: null, noteToParent: "", status: "paid", pdf: "ready", createdBy: "u_ploy", createdAt: iso(addDays(from, -2)), approvedBy: "u_nock",
-          sentAt: iso(addDays(from, -2)), delivery: "delivered", receiptNumber: no,
+          sentAt: iso(addDays(from, -2)), delivery: "delivered", receiptNumber: receiptNumberOf(no),
           payments: [{ id: `pay_${id}`, amount: 0, method: "transfer", reference: "", recordedBy: "u_ploy", recordedAt: iso(from, 11), confirmedBy: "u_nock" }],
         }
         inv.payments[0].amount = invoiceTotals(inv, { branch, courses: db.courses, classes: db.classes, holidays: [] }).total
@@ -1043,12 +1043,12 @@ function buildHistory(db: { today: string; branches: Branch[]; courses: Course[]
       if (paidOn > db.today) break
       const id = `inv_h${i}_${k}`
       const n = ++running
-      const no = `${String((Number(paidOn.slice(0, 4)) + 543) % 100).padStart(2, "0")}${paidOn.slice(5, 7)}${paidOn.slice(8, 10)}-${branch.brand === "liclass" ? "02" : "01"}-${branch.branchNo}-${n}`
+      const no = documentNumber("INV", branch, paidOn, n)
       db.invoices.push({
         id, branchId: branch.id, studentId: sid, number: no, lines: [{ id: `ln_h${i}_${k}`, courseId: course.id, classIds: [klass.id], startDate: at, periods: 1 }],
         bus: [], bookFee: k === 0 && rnd() < 0.4 ? 350 : 0, advance: [], concession: rnd() < 0.1 ? { amount: 200, remark: "ส่วนลดพี่น้อง" } : null,
         noteToParent: "", status: "paid", pdf: "ready", createdBy: "u_ploy", createdAt: iso(addDays(at, -2)), approvedBy: "u_nock", sentAt: iso(addDays(at, -2)), delivery: "delivered",
-        receiptNumber: no, payments: [{ id: `pay_h${i}_${k}`, amount: 0, method: "transfer", reference: "", recordedBy: "u_ploy", recordedAt: iso(paidOn, 11), confirmedBy: "u_nock" }],
+        receiptNumber: receiptNumberOf(no), payments: [{ id: `pay_h${i}_${k}`, amount: 0, method: "transfer", reference: "", recordedBy: "u_ploy", recordedAt: iso(paidOn, 11), confirmedBy: "u_nock" }],
       })
       db.entitlements.push({ id: `en_h${i}_${k}`, studentId: sid, courseId: course.id, subjects: course.subjects, classIds: [], invoiceId: id, kind: course.unit === "hour" ? "sessions" : "subscription", from: at, to: addDays(at, len - 1), sessionsTotal: course.unit === "hour" ? 6 : 4 })
       if (rnd() < 0.05) leaves.push({ id: `lv_h${i}_${k}`, studentId: sid, from: addDays(at, 7), to: addDays(at, 35), reason: "ไปต่างประเทศกับครอบครัว", createdBy: "u_ploy", createdAt: iso(at) })

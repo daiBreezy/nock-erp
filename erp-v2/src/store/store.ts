@@ -519,7 +519,7 @@ export const useStore = create<Store>()(
         let next: Invoice = { ...inv, payments }
         let { entitlements, classes, sessions } = s
         if (paid) {
-          next = { ...next, status: "paid", receiptNumber: inv.number ?? undefined } // the receipt carries the invoice's number
+          next = { ...next, status: "paid", receiptNumber: Bill.receiptNumberOf(inv.number) || undefined } // the receipt carries the invoice's number
           // auto-claim: entitlement covers exactly the paid window (BL-19) and the student joins the class sessions in it
           const invBranch = s.branches.find((b) => b.id === inv.branchId)
           for (const l of totals.lines) {

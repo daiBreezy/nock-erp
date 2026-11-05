@@ -1,4 +1,5 @@
 import { addDays, toDateStr } from "../domain/dates"
+import { documentNumber, receiptNumberOf } from "../domain/rules/billing"
 import { autoZones, compassDeg } from "../domain/rules/transport"
 import type { Branch, BusAddOn, BusRound, Entitlement, Family, Invoice, Klass, Session, Staff, Student, Vehicle } from "../domain/types"
 
@@ -116,7 +117,6 @@ function setupBranch<T extends Db>(db: T, branchId: string, o: Setup, now: Date)
     : branch.busZones
   const rate = fees.find((f) => f.kind === "bus")?.price ?? branch.busFeePerLeg
   const busFeeId = fees.find((f) => f.kind === "bus")?.id ?? null
-  const yymmdd = `${String((now.getFullYear() + 543) % 100).padStart(2, "0")}${String(now.getMonth() + 1).padStart(2, "0")}01`
   // each child's bus is on a paid invoice of their own ("ค่ารถรับส่ง") — the class dates for 6 weeks around today
   const busInvoices: Invoice[] = riders.flatMap((s, i): Invoice[] => {
     const classIds = db.classes.filter((k) => k.studentIds.includes(s.id)).map((k) => k.id)
@@ -125,11 +125,11 @@ function setupBranch<T extends Db>(db: T, branchId: string, o: Setup, now: Date)
     const legs = dates.map((date) => ({ date, pickup: i % 5 !== 1, dropoff: i % 5 !== 0 }))
     if (!legs.length || db.invoices.some((x) => x.id === `inv_bus_${s.id}`)) return []
     const amount = legs.reduce((n, l) => n + Number(l.pickup) + Number(l.dropoff), 0) * rate
-    const no = `${yymmdd}-02-${branch.branchNo}-9${String(i).padStart(3, "0")}`
+    const no = documentNumber("INV", branch, `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-01`, 900 + i)
     const at = `${addDays(today, -9)}T10:00:00.000Z`
     return [{
       id: `inv_bus_${s.id}`, branchId, studentId: s.id, number: no, lines: [], bus: legs, busFeeId, bookFee: 0, advance: [], concession: null,
-      noteToParent: "ค่ารถรับส่ง", status: "paid", pdf: "ready", createdBy: "u_ploy", createdAt: at, approvedBy: "u_nock", sentAt: at, delivery: "delivered", receiptNumber: no,
+      noteToParent: "ค่ารถรับส่ง", status: "paid", pdf: "ready", createdBy: "u_ploy", createdAt: at, approvedBy: "u_nock", sentAt: at, delivery: "delivered", receiptNumber: receiptNumberOf(no),
       payments: [{ id: `pay_bus_${s.id}`, amount, method: "transfer", reference: "", recordedBy: "u_ploy", recordedAt: at, confirmedBy: "u_nock" }],
     }]
   })

@@ -241,7 +241,7 @@ function Body({ id, slipMediaId, onEdit, onDuplicated }: { id: ID; slipMediaId?:
       state: !inv.receiptNumber ? "todo" : inv.receiptDelivery === "failed" || inv.receiptDelivery === "no_line" ? "warn" : "done",
       docs: docsFor.receipt,
       extra: groupNode,
-      detail: !inv.receiptNumber ? "—" : `${inv.receiptNumber}${inv.receiptNumber !== inv.number ? ` (รวม)` : ""} · ${inv.receiptDelivery === "delivered" ? "ส่งใบเสร็จทาง LINE แล้ว" : inv.receiptDelivery === "sending" ? "กำลังส่งใบเสร็จทาง LINE…" : inv.receiptDelivery === "failed" ? "ส่งใบเสร็จทาง LINE ไม่สำเร็จ" : inv.receiptDelivery === "no_line" ? "ไม่มี LINE — ส่งใบเสร็จทางอื่น" : "ออกใบเสร็จแล้ว"}${inv.status === "paid" ? " · นักเรียนถูกเพิ่มเข้าคลาสตามช่วงที่จ่ายแล้ว" : ""}`,
+      detail: !inv.receiptNumber ? "—" : `${inv.receiptNumber}${inv.receiptNumber !== Bill.receiptNumberOf(inv.number) ? ` (รวม)` : ""} · ${inv.receiptDelivery === "delivered" ? "ส่งใบเสร็จทาง LINE แล้ว" : inv.receiptDelivery === "sending" ? "กำลังส่งใบเสร็จทาง LINE…" : inv.receiptDelivery === "failed" ? "ส่งใบเสร็จทาง LINE ไม่สำเร็จ" : inv.receiptDelivery === "no_line" ? "ไม่มี LINE — ส่งใบเสร็จทางอื่น" : "ออกใบเสร็จแล้ว"}${inv.status === "paid" ? " · นักเรียนถูกเพิ่มเข้าคลาสตามช่วงที่จ่ายแล้ว" : ""}`,
     },
   ]
 

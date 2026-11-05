@@ -111,7 +111,7 @@ function BillingPage() {
 
   type Row = (typeof visible)[number]
   const columns: Column<Row>[] = [
-    { id: "number", label: "เลขที่", width: "130px", sort: "number", required: true, className: "font-medium tabular-nums", cell: ({ inv }) => (inv.number ? <MidText text={inv.number} /> : <span className="text-muted-foreground">—</span>) },
+    { id: "number", label: "เลขที่", width: "130px", sort: "number", required: true, className: "font-medium tabular-nums", cell: ({ inv }) => (inv.number ? <MidText text={inv.number} head={3} tail={10} /> : <span className="text-muted-foreground">—</span>) },
     { id: "created", label: "สร้างเมื่อ", width: "96px", sort: "created", className: "text-muted-foreground tabular-nums", cell: ({ inv }) => fmtDate(inv.createdAt.slice(0, 10)) },
     { id: "student", label: "นักเรียน", width: "120px", sort: "student", cell: ({ student }) => student?.nickname ?? "—" },
     // owner 2026-10-15: every list shows which branch each row comes from

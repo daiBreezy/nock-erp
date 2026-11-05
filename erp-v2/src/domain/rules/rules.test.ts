@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest"
 import type { DevTicket, NockAnswer, NockQuestion, Role, Assessment, Attendance, Branch, BusAddOn, CreditNote, LessonSummary, Course, Entitlement, Family, FormSubmission, Lead, Student, Seat, FormOfferSlot, Holiday, Invoice, Klass, Session, Staff, StudentLeave, Weekday } from "../types"
 import { applyClassEdit, applyToSessions, canChangeTeachers, canMoveToClass, canUndoClassMove, canRescheduleStudent, movesOf, mondayOf, removedWithClass, canSave, closesBranch, holidayImpact, hoursFor, isHoliday, overlappingRows, periodsIn, introducedConflicts, editSingleSession, findConflicts, generateSessions, moveSession, sessionState, validateClass, workState } from "./scheduling"
 import { activeLeave, nextClassDates, teacherLeaveCancels, leaveRunSessions, balance, studentState, leaveLedger, packageCovers, canMark, canSaveLeave, coveringEntitlement, effectiveTo, leavesUsed, lowBalanceAlert, removeFromClass, renewalFollowUpDue, resolveEntitlements } from "./attendance"
-import { bestPromotion, duplicateBusDay, billedOn, busAddOnAmount, pendingBusAddOns, validateBusAddOn, carriedMinutes, weekKey, classOptionsFor, defaultAdvance, entryFeeWaiver, invoiceSessionDates, invoiceTotals, validateInvoiceDraft, canApprove, canConfirmPayment, canForceApprove, canForceConfirmPayment, canSend, canVoid, defaultBusLegs, busTotal, nextInvoiceNumber, quoteCourse, roundUpTo, familyPromotion, lastNoteFor, renewalCandidates, renewalDraft, bestBonusHours, FAMILY_PROMO_TIERS } from "./billing"
+import { bestPromotion, duplicateBusDay, billedOn, busAddOnAmount, pendingBusAddOns, validateBusAddOn, carriedMinutes, weekKey, classOptionsFor, defaultAdvance, entryFeeWaiver, invoiceSessionDates, invoiceTotals, validateInvoiceDraft, canApprove, canConfirmPayment, canForceApprove, canForceConfirmPayment, canSend, canVoid, defaultBusLegs, busTotal, nextInvoiceNumber, quoteCourse, roundUpTo, familyPromotion, receiptNumberOf, lastNoteFor, renewalCandidates, renewalDraft, bestBonusHours, FAMILY_PROMO_TIERS } from "./billing"
 import { can } from "./permissions"
 import { chartPrice, defaultCourseName, filterCourses, validateCourse } from "./course"
 import { brandPriceUnits, brandUsesBus, busRate, copyHours, gradeLabel, subjectLabel, priceOf, priceRange, setPrice, validateBranchInfo, validateDurations, validateHoliday, validatePromotion, validateSpecialPeriods, everyDay, subjectAbbr } from "./settings"
@@ -240,9 +240,12 @@ describe("billing", () => {
 
   it("BL-9: sequential numbers per branch and month", () => {
     // yymmdd(พ.ศ.)-business-branch-running (owner 2026-09-30): runs per day per business + branch
-    expect(nextInvoiceNumber("INV", branch, "2026-09-30", ["690930-01-002-0003", "690929-01-002-0009", "690930-02-002-0007", null])).toBe("690930-01-002-0004")
-    expect(nextInvoiceNumber("INV", { ...branch, brand: "liclass" }, "2026-09-30", ["690930-01-002-0003"])).toBe("690930-02-002-0001")
-    expect(nextInvoiceNumber("CN", branch, "2026-10-01", ["690930-01-002-0003"])).toBe("CN-691001-01-002-0001")
+    expect(nextInvoiceNumber("INV", branch, "2026-09-30", ["INV-NAS-TST-690930-003", "INV-NAS-TST-690929-009", "INV-LIS-TST-690930-007", null])).toBe("INV-NAS-TST-690930-004")
+    expect(nextInvoiceNumber("INV", { ...branch, brand: "liclass" }, "2026-09-30", ["INV-NAS-TST-690930-003"])).toBe("INV-LIS-TST-690930-001")
+    expect(nextInvoiceNumber("CN", branch, "2026-10-01", ["INV-NAS-TST-690930-003"])).toBe("CN-NAS-TST-691001-001")
+    // the owner's example: INV-LIS-TL-691105-002 · the receipt carries the same number with RC-
+    expect(nextInvoiceNumber("INV", { brand: "liclass", code: "TL" }, "2026-11-05", ["INV-LIS-TL-691105-001"])).toBe("INV-LIS-TL-691105-002")
+    expect(receiptNumberOf("INV-LIS-TL-691105-002")).toBe("RC-LIS-TL-691105-002")
   })
 
   const inv = (p: Partial<Invoice> = {}): Invoice => ({
@@ -2804,9 +2807,9 @@ describe("one slip for several invoices of a family (owner 2026-10-29)", () => {
   })
   it("receipts: combined ones take the first invoice's number, the rest keep their own", () => {
     const c = inv("i3", "INV-003")
-    expect([...Pay.receiptNumbersFor([b, a, c], ["i1", "i2", "i3"]).values()]).toEqual(["INV-001", "INV-001", "INV-001"])
-    expect(Object.fromEntries(Pay.receiptNumbersFor([a, b, c], ["i2", "i3"]))).toEqual({ i1: "INV-001", i2: "INV-002", i3: "INV-002" })
-    expect([...Pay.receiptNumbersFor([a, b], ["i1"]).values()]).toEqual(["INV-001", "INV-002"])
+    expect([...Pay.receiptNumbersFor([b, a, c], ["i1", "i2", "i3"]).values()]).toEqual(["RC-001", "RC-001", "RC-001"])
+    expect(Object.fromEntries(Pay.receiptNumbersFor([a, b, c], ["i2", "i3"]))).toEqual({ i1: "RC-001", i2: "RC-002", i3: "RC-002" })
+    expect([...Pay.receiptNumbersFor([a, b], ["i1"]).values()]).toEqual(["RC-001", "RC-002"])
   })
   it("finds the invoices paid with the same slip", () => {
     const pay = (groupId?: string) => ({ id: "p", amount: 1, method: "transfer", reference: "", recordedBy: "u", recordedAt: "", groupId }) as Invoice["payments"][number]
