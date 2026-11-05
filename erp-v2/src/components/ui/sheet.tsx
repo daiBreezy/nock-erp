@@ -55,17 +55,26 @@ function usePanelWidth(key: string) {
   return [width, save] as const
 }
 
-function ResizeHandle({ onResize, onReset }: { onResize: (w: number) => void; onReset: () => void }) {
-  const start = (e: React.PointerEvent<HTMLDivElement>) => {
+/**
+ * Shared edge-drag (owner 2026-11-05): captures the pointer on a vertical handle and streams the live clientX until
+ * release, keeping the drag loop in one place. Used by the panel resize handle below and by the component gallery's
+ * resizable frames (`/kit`) so neither re-writes the pointer bookkeeping.
+ */
+export function useEdgeDrag(onDragX: (clientX: number) => void) {
+  return (e: React.PointerEvent<HTMLElement>) => {
     e.preventDefault()
     const el = e.currentTarget
     el.setPointerCapture(e.pointerId)
-    const move = (ev: PointerEvent) => onResize(Math.min(Math.max(window.innerWidth - ev.clientX, 360), window.innerWidth - 48))
+    const move = (ev: PointerEvent) => onDragX(ev.clientX)
     const up = () => { el.removeEventListener("pointermove", move); el.removeEventListener("pointerup", up); document.body.style.cursor = "" }
     document.body.style.cursor = "col-resize"
     el.addEventListener("pointermove", move)
     el.addEventListener("pointerup", up)
   }
+}
+
+function ResizeHandle({ onResize, onReset }: { onResize: (w: number) => void; onReset: () => void }) {
+  const start = useEdgeDrag((x) => onResize(Math.min(Math.max(window.innerWidth - x, 360), window.innerWidth - 48)))
   return (
     <div role="separator" aria-orientation="vertical" aria-label="ลากเพื่อขยาย / ย่อ" title="ลากเพื่อขยาย / ย่อ · ดับเบิลคลิก = ขนาดเดิม"
       onPointerDown={start} onDoubleClick={onReset}

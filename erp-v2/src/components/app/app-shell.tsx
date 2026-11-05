@@ -77,6 +77,9 @@ export function AppShell({ children }: { children: ReactNode }) {
   if (pathname.startsWith("/liff")) return <>{children}</>
   // printable documents (invoice / receipt / credit note): just the paper, nothing around it
   if (pathname.startsWith("/print")) return <>{children}</>
+  // /kit/preview is the component gallery's inner viewport, loaded inside a resizable iframe so the design system's
+  // sm:/lg: breakpoints re-evaluate against the frame width — it must render bare, with no sidebar around it
+  if (pathname.startsWith("/kit/preview")) return <>{children}</>
   if (!mounted)
     return (
       <div className="flex h-screen gap-4 p-4">

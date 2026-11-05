@@ -1974,3 +1974,6 @@ persist 24→25 · 85 tests · ทดสอบในเบราว์เซอ�
 - [x] ~~โฟลเดอร์เดิม 4 อันที่กระจายอยู่~~ ✅ เสร็จ — เทียบแล้วไฟล์งานเหมือน monorepo เป๊ะ (ต่างแค่ .DS_Store/.git/node_modules) → ย้ายเข้า `Projects/_ARCHIVE_pre-monorepo_2026-09-16/` แล้ว (ยังไม่ลบ เผื่อถอย; มั่นใจแล้วค่อยลบกล่องนี้ทีหลัง) ตอนนี้ `Projects/` เหลือแค่ `nock-erp/` + กล่อง archive
 - [x] ~~ตั้งให้ Claude push แทนได้~~ ✅ เสร็จ — ย้าย session มาที่ `nock-erp/` แล้ว + เพิ่ม allow rules ใน `.claude/settings.local.json` (git pull/push/commit/... ) → สั่ง "pull"/"push" ได้เลย
 - [ ] เครื่องที่บ้าน: `git clone` monorepo ลงมา (แยกจาก repo ERP เก่า) — และสร้าง `.claude/settings.local.json` ที่นั่นด้วย (ไฟล์ local ไม่ตามมากับ git) ถ้าอยากให้ Claude push แทนได้เหมือนเครื่องนี้
+
+## 2026-11-05 — erp-v2: หน้า /kit คลังคอมโพเนนต์ (responsive one-stop)
+- เพิ่มหน้า `/kit` (เครื่องมือภายใน dev/design ไม่อยู่ใน sidebar) โชว์ component ชั้น 2 ทุกตัวแบบรันจริง ในเฟรม iframe (viewport ย่อย) ที่ลากขอบปรับกว้างได้ + ปุ่ม preset base/sm/lg + สลับ light/dark ทั้งหน้า → ตรวจ responsive ที่เดียว ไม่ต้องไล่ถ่าย screenshot ทุกหน้า. ใช้ซ้ำกลไกลากจาก sheet.tsx (`useEdgeDrag` ที่แยกออกมา). preview = `/kit/preview?only=…` (บายพาส AppShell ให้เรนเดอร์เปล่า). tsc+eslint ผ่าน.
