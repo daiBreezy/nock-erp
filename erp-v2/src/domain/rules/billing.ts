@@ -370,6 +370,25 @@ export function lastNoteFor(studentId: ID, invoices: Pick<Invoice, "id" | "stude
   return prev?.noteToParent.trim() ?? ""
 }
 
+/** Duplicate / renewal (owner 2026-11-05): a finished invoice → a NEW draft with the same courses, classes, periods and
+ *  message. Each course starts the day after the old one ends (never before today); everything that belonged to that one
+ *  moment — payments, bus legs, extra bus days, credit, one-off discount, the Family % and the entry fee — is left out for
+ *  the admin to decide. */
+export function renewalDraft(inv: Invoice, o: { id: ID; today: DateStr; nowIso: string; createdBy: ID; ctx: { branch: Branch; courses: Course[]; classes: Klass[]; holidays: Holiday[] }; newId: () => ID }): Invoice {
+  const q = invoiceTotals(inv, o.ctx).lines
+  const lines = inv.lines.map((l, i) => {
+    const end = q[i]?.quote?.to
+    const next = end ? addDays(end, 1) : o.today
+    return { id: o.newId(), courseId: l.courseId, classIds: l.classIds, startDate: next > o.today ? next : o.today, periods: l.periods, leftover: l.leftover, seats: l.seats }
+  })
+  const entry = new Set(o.ctx.branch.fees.filter((f) => f.kind === "entry").map((f) => f.id))
+  return {
+    id: o.id, branchId: inv.branchId, studentId: inv.studentId, number: null, lines, bus: [], busFeeId: inv.busFeeId ?? null, busExtras: [],
+    bookFee: inv.bookFee, advance: inv.advance.filter((a) => !entry.has(a.feeId)), concession: null, promotionId: inv.promotionId,
+    noteToParent: inv.noteToParent, status: "draft", pdf: "none", createdBy: o.createdBy, createdAt: o.nowIso, payments: [], duplicatedFrom: inv.id,
+  }
+}
+
 /** Legs × the bus fee type's price. */
 export const busAddOnAmount = (a: Pick<BusAddOn, "pickup" | "dropoff">, rate: number) => (Number(a.pickup) + Number(a.dropoff)) * rate
 

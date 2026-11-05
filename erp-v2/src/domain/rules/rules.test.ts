@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest"
 import type { DevTicket, NockAnswer, NockQuestion, Role, Assessment, Attendance, Branch, BusAddOn, CreditNote, LessonSummary, Course, Entitlement, Family, FormSubmission, Lead, Student, Seat, FormOfferSlot, Holiday, Invoice, Klass, Session, Staff, StudentLeave, Weekday } from "../types"
 import { applyClassEdit, applyToSessions, canChangeTeachers, canMoveToClass, canUndoClassMove, canRescheduleStudent, movesOf, mondayOf, removedWithClass, canSave, closesBranch, holidayImpact, hoursFor, isHoliday, overlappingRows, periodsIn, introducedConflicts, editSingleSession, findConflicts, generateSessions, moveSession, sessionState, validateClass, workState } from "./scheduling"
 import { activeLeave, nextClassDates, teacherLeaveCancels, leaveRunSessions, balance, studentState, leaveLedger, packageCovers, canMark, canSaveLeave, coveringEntitlement, effectiveTo, leavesUsed, lowBalanceAlert, removeFromClass, renewalFollowUpDue, resolveEntitlements } from "./attendance"
-import { bestPromotion, duplicateBusDay, billedOn, busAddOnAmount, pendingBusAddOns, validateBusAddOn, carriedMinutes, weekKey, classOptionsFor, defaultAdvance, entryFeeWaiver, invoiceSessionDates, invoiceTotals, validateInvoiceDraft, canApprove, canConfirmPayment, canForceApprove, canForceConfirmPayment, canSend, canVoid, defaultBusLegs, busTotal, nextInvoiceNumber, quoteCourse, roundUpTo, familyPromotion, lastNoteFor, bestBonusHours, FAMILY_PROMO_TIERS } from "./billing"
+import { bestPromotion, duplicateBusDay, billedOn, busAddOnAmount, pendingBusAddOns, validateBusAddOn, carriedMinutes, weekKey, classOptionsFor, defaultAdvance, entryFeeWaiver, invoiceSessionDates, invoiceTotals, validateInvoiceDraft, canApprove, canConfirmPayment, canForceApprove, canForceConfirmPayment, canSend, canVoid, defaultBusLegs, busTotal, nextInvoiceNumber, quoteCourse, roundUpTo, familyPromotion, lastNoteFor, renewalDraft, bestBonusHours, FAMILY_PROMO_TIERS } from "./billing"
 import { can } from "./permissions"
 import { chartPrice, defaultCourseName, filterCourses, validateCourse } from "./course"
 import { brandPriceUnits, brandUsesBus, busRate, copyHours, gradeLabel, subjectLabel, priceOf, priceRange, setPrice, validateBranchInfo, validateDurations, validateHoliday, validatePromotion, validateSpecialPeriods, everyDay, subjectAbbr } from "./settings"
@@ -2954,5 +2954,31 @@ describe("brand rules (owner 2026-11-05)", () => {
     expect(brandPriceUnits("nockacademy")).toEqual(["hour", "week", "month"])
     expect(brandUsesBus("liclass")).toBe(true)
     expect(brandUsesBus("nockacademy")).toBe(false)
+  })
+})
+
+describe("duplicate / renewal draft (owner 2026-11-05)", () => {
+  const pkg: Course = { ...monthPkg, id: "h10", unit: "hour", duration: 10, price: 6000 }
+  const k90 = klass({ id: "k90", minutes: 90 })
+  const b = { ...branch, fees: [{ id: "fe", kind: "entry" as const, name: "แรกเข้า", price: 500 }, { id: "fm", kind: "mock" as const, name: "Mock", price: 800 }] }
+  const ctx = { branch: b, courses: [pkg], classes: [k90], holidays: [] }
+  const old: Invoice = { id: "i0", branchId: "b1", studentId: "a", number: "INV-1", lines: [{ id: "l0", courseId: "h10", classIds: ["k90"], startDate: "2026-09-29", periods: 1, leftover: "drop" }], bus: [{ date: "2026-09-29", pickup: true, dropoff: true }], busExtras: [], bookFee: 300,
+    advance: [{ feeId: "fe", name: "แรกเข้า", amount: 500 }, { feeId: "fm", name: "Mock", amount: 800 }], concession: { amount: 100, remark: "x" }, familyPromoPct: 10, noteToParent: "ชำระภายใน 5 ธ.ค.",
+    status: "paid", pdf: "ready", createdBy: "adm", createdAt: "2026-09-28T00:00:00Z", payments: [{ id: "p", amount: 1, method: "cash", reference: "", recordedBy: "adm", recordedAt: "" }], receiptNumber: "RC-1" }
+  const make = (today: string) => renewalDraft(old, { id: "new", today, nowIso: "x", createdBy: "u", ctx, newId: () => "ln-new" })
+  it("a new draft: same courses, classes, periods, note, book fee — nothing of the old moment", () => {
+    const d = make("2026-10-01")
+    expect(d).toMatchObject({ id: "new", number: null, status: "draft", pdf: "none", payments: [], bus: [], concession: null, duplicatedFrom: "i0", noteToParent: "ชำระภายใน 5 ธ.ค.", bookFee: 300, createdBy: "u" })
+    expect(d.receiptNumber).toBeUndefined()
+    expect(d.familyPromoPct).toBeUndefined()
+    expect(d.lines[0]).toMatchObject({ id: "ln-new", courseId: "h10", classIds: ["k90"], periods: 1, leftover: "drop" })
+  })
+  it("the entry fee is not charged again; other advance items stay", () => {
+    expect(make("2026-10-01").advance.map((a) => a.feeId)).toEqual(["fm"])
+  })
+  it("each course starts the day after the old one ended, never before today", () => {
+    const end = invoiceTotals(old, ctx).lines[0].quote!.to
+    expect(make("2026-10-01").lines[0].startDate > end).toBe(true)
+    expect(make("2030-01-01").lines[0].startDate).toBe("2030-01-01")
   })
 })

@@ -110,4 +110,6 @@ export const KIT: Record<string, Entry> = {
   "กด “ส่งผู้ปกครอง” ที่ปุ่มด้านล่าง — ยอด รายการ และเลขบัญชีจะอยู่ในข้อความ": { en: "Press “Send to parent” at the bottom — the amount, items and bank account go in the message", ja: "下の「保護者に送信」を押すと、金額・内訳・口座がメッセージに入ります" },
   "(ส่งเข้าแชท LINE ของ{0}จริง)": { en: "(sent to the real LINE chat of {0})", ja: "（{0}のLINEチャットに実際に送信）" },
   "ผู้ปกครองยังไม่ผูก LINE — ระบบจะบันทึกว่าส่งแล้วแต่ “ยังไม่ถึงผู้ปกครอง” ต้องส่งทางอื่น": { en: "The parent hasn't linked LINE — it will be logged as sent but “not reached”; send another way", ja: "保護者がLINE未連携 — 送信済みとして記録されますが「未到達」です。別の方法で送ってください" },
+  "ทำซ้ำเป็น Draft ใหม่": { en: "Duplicate as a new Draft", ja: "新しい下書きとして複製" },
+  "ทำซ้ำได้หลังจบกระบวนการ (ชำระครบแล้ว) เท่านั้น": { en: "Only a finished (fully paid) invoice can be duplicated", ja: "完了（全額支払済み）の請求書のみ複製できます" },
 }

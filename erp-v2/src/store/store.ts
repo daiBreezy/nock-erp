@@ -210,6 +210,10 @@ type Store = DB & UIState & {
   approveInvoice: (id: ID, forceRemark?: string) => Result
   sendInvoice: (id: ID, note: string) => Result<{ delivered: boolean }>
   voidInvoice: (id: ID, reason: string) => Result
+  /** owner 2026-11-05: a finished (paid) invoice → a new Draft with the same courses, for the admin to edit */
+  duplicateInvoice: (id: ID) => Result<Invoice>
+  /** owner 2026-11-05: renewal drafts for many students at once, each from that student's last invoice */
+  createRenewalDrafts: (ids: ID[]) => Result<{ created: Invoice[]; failed: { id: ID; error: string }[] }>
   /** the message to the parent can be edited any time before it is sent / the invoice is paid (owner 2026-11-05) */
   setInvoiceNote: (id: ID, note: string) => Result
   /** optional, manual: tell the parent on LINE that a voided invoice was cancelled (never automatic) */
@@ -2599,6 +2603,30 @@ export const useStore = create<Store>()(
         set({ invoices: s.invoices.map((x) => (x.id === id ? { ...x, status: "void", voidReason: reason } : x)) })
         log("billing", [inv.studentId], "ยกเลิกใบแจ้งหนี้", `${inv.number ?? "ร่าง"} · ${reason}`)
         return OK
+      },
+
+      duplicateInvoice: (id) => {
+        const s = get()
+        const perm = requirePerm(s.me(), "billing.manage")
+        if (!perm.ok) return perm
+        const inv = s.invoices.find((x) => x.id === id)
+        if (!inv) return fail("ไม่พบใบแจ้งหนี้")
+        if (inv.status !== "paid") return fail("ทำซ้ำได้หลังจบกระบวนการ (ชำระครบแล้ว) เท่านั้น")
+        const draft = Bill.renewalDraft(inv, { id: uid("inv"), today: toDateStr(s.now()), nowIso: s.now().toISOString(), createdBy: s.userId, ctx: ctxOf(s, inv.branchId), newId: () => uid("ln") })
+        return get().saveInvoice(draft)
+      },
+
+      createRenewalDrafts: (ids) => {
+        const s = get()
+        const perm = requirePerm(s.me(), "billing.manage")
+        if (!perm.ok) return perm
+        const created: Invoice[] = [], failed: { id: ID; error: string }[] = []
+        for (const id of ids) {
+          const r = get().duplicateInvoice(id)
+          if (r.ok) created.push(r.value)
+          else failed.push({ id, error: r.error })
+        }
+        return { ok: true, value: { created, failed } }
       },
 
       setInvoiceNote: (id, note) => {

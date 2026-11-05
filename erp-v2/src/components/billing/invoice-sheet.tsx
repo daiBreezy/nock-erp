@@ -2,7 +2,7 @@
 
 import { ForceApprove } from "@/components/app/force-approve"
 import { Fragment, useEffect, useState } from "react"
-import { AlertTriangleIcon, CheckIcon, ChevronDownIcon, CircleIcon, FileTextIcon, Loader2Icon, PencilIcon, RefreshCwIcon, SendIcon, XCircleIcon } from "lucide-react"
+import { AlertTriangleIcon, CheckIcon, ChevronDownIcon, CopyIcon, CircleIcon, FileTextIcon, Loader2Icon, PencilIcon, RefreshCwIcon, SendIcon, XCircleIcon } from "lucide-react"
 import { Pill } from "@/components/app/badges"
 import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
@@ -55,7 +55,9 @@ function Panel({ id, slipMediaId, defaultStudentId, renewEntitlementId, onClose 
   const isNew = id === "new"
   const [createdId, setCreatedId] = useState<ID | null>(null)
   const [editing, setEditing] = useState(isNew)
-  const shownId = isNew ? createdId : id
+  // after Duplicate the panel moves on to the new draft
+  const [dupId, setDupId] = useState<ID | null>(null)
+  const shownId = dupId ?? (isNew ? createdId : id)
   const inv = useStore((s) => (shownId ? s.invoices.find((x) => x.id === shownId) : undefined))
   if (editing && (inv || (isNew && !createdId))) return (
     <PanelForm>
@@ -64,10 +66,10 @@ function Panel({ id, slipMediaId, defaultStudentId, renewEntitlementId, onClose 
         onSaved={(v) => { if (isNew) setCreatedId(v.id); setEditing(false) }} />
     </PanelForm>
   )
-  return shownId ? <Body id={shownId} slipMediaId={slipMediaId} onEdit={() => setEditing(true)} /> : null
+  return shownId ? <Body key={shownId} id={shownId} slipMediaId={slipMediaId} onEdit={() => setEditing(true)} onDuplicated={setDupId} /> : null
 }
 
-function Body({ id, slipMediaId, onEdit }: { id: ID; slipMediaId?: string; onEdit: () => void }) {
+function Body({ id, slipMediaId, onEdit, onDuplicated }: { id: ID; slipMediaId?: string; onEdit: () => void; onDuplicated: (id: ID) => void }) {
   const inv = useStore((s) => s.invoices.find((x) => x.id === id))
   const branch = useBranch()
   const me = useStore((s) => s.me())
@@ -78,7 +80,7 @@ function Body({ id, slipMediaId, onEdit }: { id: ID; slipMediaId?: string; onEdi
   const classes = useStore((s) => s.classes)
   const holidays = useStore((s) => s.holidays)
   const brandMemos = useStore((s) => s.system.invoiceMemos)
-  const act = useStore(useShallow((s) => ({ gen: s.generatePdf, approve: s.approveInvoice, send: s.sendInvoice, void: s.voidInvoice, notifyVoid: s.notifyVoid, setNote: s.setInvoiceNote, pay: s.recordPayment, payGroup: s.recordGroupPayment, confirm: s.confirmPayment, regroup: s.setReceiptGrouping })))
+  const act = useStore(useShallow((s) => ({ gen: s.generatePdf, approve: s.approveInvoice, send: s.sendInvoice, void: s.voidInvoice, notifyVoid: s.notifyVoid, duplicate: s.duplicateInvoice, setNote: s.setInvoiceNote, pay: s.recordPayment, payGroup: s.recordGroupPayment, confirm: s.confirmPayment, regroup: s.setReceiptGrouping })))
   const invoices = useStore((s) => s.invoices)
   // the message to the parent: this invoice's, else the one from this student's last invoice — editable until it is sent
   const prevNote = inv ? Bill.lastNoteFor(inv.studentId, invoices, inv.id) : ""
@@ -398,6 +400,12 @@ function Body({ id, slipMediaId, onEdit }: { id: ID; slipMediaId?: string; onEdi
       {payOpen && (
         <PaySlipDialog inv={inv} owed={owed(inv)} initialSlip={slip} onClose={() => setPayOpen(false)}
           siblings={siblingsPayable.map((x) => ({ id: x.id, number: x.number ?? "", nickname: nick(x.studentId), owed: owed(x) }))} />
+      )}
+      {/* a finished invoice can be duplicated into a new Draft (owner 2026-11-05) */}
+      {inv.status === "paid" && manage && (
+        <PanelFooter>
+          <Button className="ml-auto" variant="outline" onClick={() => { const r = act.duplicate(inv.id); if (report(r, (v) => `สร้าง Draft ใหม่จากใบนี้แล้ว · ${v.number}`)) onDuplicated(r.value.id) }}><CopyIcon /> ทำซ้ำเป็น Draft ใหม่</Button>
+        </PanelFooter>
       )}
       {/* Header · Body · Bottom — destructive left, edit right (owner 2026-10-09) */}
       {(manage || (inv.status === "pending_approval" && approveCheck.ok)) && inv.status !== "void" && inv.status !== "paid" && (
