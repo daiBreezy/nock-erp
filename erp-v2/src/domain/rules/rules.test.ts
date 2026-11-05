@@ -3073,3 +3073,13 @@ describe("PromptPay payment QR (owner 2026-11-05)", () => {
     expect(Doc.promptPayPayload("0812345678", 0)!.startsWith("000201010211")).toBe(true) // no amount = static
   })
 })
+
+describe("signature name (owner 2026-11-05)", () => {
+  const staff = [{ id: "a", name: "สมชาย ใจดี", nameEn: "Somchai Jaidee" }, { id: "b", name: "สมหญิง รักเรียน", nameEn: undefined }]
+  it("always English: the English name, else the Thai name romanized", () => {
+    expect(Doc.signatureName("a", staff)).toBe("Somchai Jaidee")
+    expect(/[ก-๙]/.test(Doc.signatureName("b", staff))).toBe(false)
+    expect(Doc.signatureName("b", staff).length).toBeGreaterThan(3)
+    expect(Doc.signatureName("zzz", staff)).toBe("")
+  })
+})

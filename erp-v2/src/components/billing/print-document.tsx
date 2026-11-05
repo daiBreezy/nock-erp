@@ -60,8 +60,8 @@ export function PrintDocument({ kind, id, bare = false }: { kind: Kind; id: stri
   const { date: invDate, dueBy } = Doc.invoiceDates(inv)
   const date = kind === "receipt" ? (combined ? onReceipt.map((x) => Doc.receiptDate(x) ?? "").sort().at(-1) || null : Doc.receiptDate(inv)) : kind === "credit-note" ? cn!.createdAt.slice(0, 10) : invDate
   // real first name + surname on the signature lines (owner 2026-11-05)
-  const signer = Doc.signatureName((cn ?? inv).createdBy, s.staff, branch.brand)
-  const authorizer = Doc.signatureName((cn ?? inv).approvedBy, s.staff, branch.brand)
+  const signer = Doc.signatureName((cn ?? inv).createdBy, s.staff)
+  const authorizer = Doc.signatureName((cn ?? inv).approvedBy, s.staff)
   const [, en] = TITLE[kind]
   const titlePrimary = kind === "credit-note" ? L.creditNote : L[kind]
   const memo = [Doc.invoiceMemo(inv, { brandMemo: s.system.invoiceMemos[branch.brand], branch, courses: s.courses, classes: s.classes }).memo, kind === "credit-note" ? `${L.invRef} ${inv.number} · ${[...cn!.reasons, cn!.remark].filter(Boolean).join(", ")}` : combined ? `${L.invRef} ${onReceipt.map((x) => x.number).join(", ")}` : inv.noteToParent].filter(Boolean).join("\n")
@@ -204,7 +204,7 @@ export function PrintDocument({ kind, id, bare = false }: { kind: Kind; id: stri
         <footer className="mt-6 flex justify-end gap-8 text-center">
           {([[kind === "receipt" ? L.payeeBy : L.preparedBy, kind === "receipt" ? "PAYEE BY" : "PREPARED BY", signer], [L.authorized, "AUTHORIZED SIGNATURE", authorizer]] as const).map(([th, en2, name]) => (
             <div key={en2} className="w-[52mm]">
-              <p className="min-h-[9mm] border-b border-dotted border-neutral-500 pb-0.5 text-[16px] leading-tight" style={{ fontFamily: "var(--font-sign), cursive" }}>{name}</p>
+              <p className="min-h-[11mm] border-b border-dotted border-neutral-500 pb-0.5 text-[26px] leading-none" style={{ fontFamily: "var(--font-sign), cursive" }}>{name}</p>
               <p className="mt-1">{th} / {en2}</p>
             </div>
           ))}

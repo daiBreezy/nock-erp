@@ -6,6 +6,7 @@ import { endOfMonth, fmtDate, fmtMonth } from "../dates"
 import type { Branch, Course, CreditNote, DateStr, Family, Invoice, Klass, SpecialPeriod, Staff, Student } from "../types"
 import { packageLabel } from "./course"
 import { busRate } from "./settings"
+import { romanizeName } from "./romanize"
 import type { InvoiceTotals } from "./billing"
 
 /**
@@ -136,10 +137,11 @@ export function receiptDate(inv: Pick<Invoice, "payments">): DateStr | null {
 }
 
 /** "ผู้จัดทำ" and "ผู้มีอำนาจ" are both the admin who created the invoice (owner 2026-09-30). */
-/** Real first name + surname for a signature (no nickname); Liclass prints the English name when there is one */
-export const signatureName = (id: string | undefined | null, staff: Pick<Staff, "id" | "name" | "nameEn">[], brand: Branch["brand"]) => {
+/** Real first name + surname for a signature (no nickname) — ALWAYS in English (the script font has no Thai): the staff's
+ *  English name, else their Thai name romanized */
+export const signatureName = (id: string | undefined | null, staff: Pick<Staff, "id" | "name" | "nameEn">[]) => {
   const s = staff.find((x) => x.id === id)
-  return s ? (brand === "liclass" ? s.nameEn?.trim() || s.name : s.name) : ""
+  return s ? s.nameEn?.trim() || romanizeName(s.name) : ""
 }
 
 export const preparedBy = (inv: Pick<Invoice, "createdBy">, staff: Pick<Staff, "id" | "name" | "nickname">[]) => {

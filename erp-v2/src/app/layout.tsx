@@ -1,5 +1,5 @@
 import type { Metadata } from "next"
-import { Charmonman, Inter, Noto_Sans_Thai } from "next/font/google"
+import { Inter, Ms_Madi, Noto_Sans_Thai } from "next/font/google"
 import { ShellGate } from "@/components/app/shell-gate"
 import { Toaster } from "@/components/ui/toast"
 import { TooltipProvider } from "@/components/ui/tooltip"
@@ -7,8 +7,8 @@ import "./globals.css"
 
 const inter = Inter({ variable: "--font-inter", subsets: ["latin"] })
 const thai = Noto_Sans_Thai({ variable: "--font-thai", subsets: ["thai"] })
-// handwriting for the signatures on invoices / receipts (Thai + Latin)
-const sign = Charmonman({ variable: "--font-sign", subsets: ["thai", "latin"], weight: "400" })
+// the signature on every invoice / receipt (owner 2026-11-05: Ms Madi, Latin only — so a signature is always an English name)
+const sign = Ms_Madi({ variable: "--font-sign", subsets: ["latin"], weight: "400" })
 
 export const metadata: Metadata = {
   title: "NockERP v2 · Prototype",
