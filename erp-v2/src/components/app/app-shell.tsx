@@ -115,11 +115,14 @@ function Shell({ children }: { children: ReactNode }) {
       <Sidebar collapsible="icon">
         {/* top: logo, then search + notifications — always in sight (owner 2026-09-29) */}
         <SidebarHeader className="gap-2">
-          <Link href="/" className="flex h-10 items-center px-1.5 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-0" aria-label="NockAcademy">
-            {/* eslint-disable-next-line @next/next/no-img-element -- static brand file */}
-            <img src="/brand/logo-full.png" alt="NockAcademy" className="h-8 w-auto group-data-[collapsible=icon]:hidden" />
-            {/* eslint-disable-next-line @next/next/no-img-element -- static brand file */}
-            <img src="/brand/logo-icon.png" alt="NockAcademy" className="hidden size-8 group-data-[collapsible=icon]:block" />
+          <Link href="/" className="flex h-10 items-center px-1.5 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-0" aria-label="Learno">
+            {/* the ERP's own logo (owner 2026-11-05): black wordmark on light, white on dark; the icon alone when the menu is collapsed */}
+            {/* eslint-disable @next/next/no-img-element -- static brand files */}
+            <img src="/brand/learno-logo-light.png" alt="Learno" className="h-7 w-auto group-data-[collapsible=icon]:hidden dark:hidden" />
+            <img src="/brand/learno-logo-dark.png" alt="Learno" className="hidden h-7 w-auto group-data-[collapsible=icon]:hidden dark:block dark:group-data-[collapsible=icon]:hidden" />
+            <img src="/brand/learno-icon.png" alt="Learno" className="hidden size-8 group-data-[collapsible=icon]:block dark:group-data-[collapsible=icon]:hidden" />
+            <img src="/brand/learno-icon-dark.png" alt="Learno" className="hidden size-8 dark:group-data-[collapsible=icon]:block" />
+            {/* eslint-enable @next/next/no-img-element */}
           </Link>
           <SmartSearch />
           <NotificationCard />
