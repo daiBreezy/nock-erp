@@ -85,18 +85,18 @@ function Panel({ id, slipMediaId, defaultStudentId, renewEntitlementId, onClose 
     </PanelForm>
   )
   const tabs = isBundle && (
-    <div role="tablist" className="flex shrink-0 gap-1 overflow-x-auto border-b px-3 pt-3 pr-14">
+    <div role="tablist" className="flex shrink-0 gap-1 overflow-x-auto border-b px-4 pt-2">
       {([["all", `รวม (${members.length})`], ...members.map((m) => [m.id, students.find((x) => x.id === m.studentId)?.nickname ?? "—"] as const)] as const).map(([k, label]) => (
         <button key={k} role="tab" type="button" aria-selected={tab === k} onClick={() => setTab(k as "all" | ID)}
           className={cn("-mb-px shrink-0 rounded-t-lg border-b-2 px-3 py-1.5 text-sm", tab === k ? "border-primary font-medium text-primary" : "border-transparent text-muted-foreground hover:text-foreground")}>{label}</button>
       ))}
     </div>
   )
-  if (isBundle && tab === "all") return <>{tabs}<BundleOverview members={members} onOpen={setTab} onAddChild={setAddingFor} /></>
-  return shownId ? <>{tabs}<Body key={shownId} id={shownId} slipMediaId={slipMediaId} onEdit={() => setEditing(true)} onDuplicated={setDupId} /></> : null
+  if (isBundle && tab === "all") return <BundleOverview members={members} onOpen={setTab} onAddChild={setAddingFor} tabs={tabs} />
+  return shownId ? <Body key={shownId} id={shownId} slipMediaId={slipMediaId} onEdit={() => setEditing(true)} onDuplicated={setDupId} tabs={tabs} /> : null
 }
 
-function Body({ id, slipMediaId, onEdit, onDuplicated }: { id: ID; slipMediaId?: string; onEdit: () => void; onDuplicated: (id: ID) => void }) {
+function Body({ id, slipMediaId, onEdit, onDuplicated, tabs }: { id: ID; slipMediaId?: string; onEdit: () => void; onDuplicated: (id: ID) => void; /** the family set's tabs — they sit right under the header */ tabs?: React.ReactNode }) {
   const inv = useStore((s) => s.invoices.find((x) => x.id === id))
   const branch = useBranch()
   const me = useStore((s) => s.me())
@@ -284,6 +284,7 @@ function Body({ id, slipMediaId, onEdit, onDuplicated }: { id: ID; slipMediaId?:
           {stu?.nickname} ({stu?.grade}) · {fam?.name ?? "ยังไม่ผูกครอบครัว"}
         </SheetDescription>
       </SheetHeader>
+      {tabs}
 
       <PanelBody>
         {inv.status === "void" && <p className="rounded-lg bg-red-50 p-3 text-sm text-red-800">ยกเลิกแล้ว: {inv.voidReason}</p>}

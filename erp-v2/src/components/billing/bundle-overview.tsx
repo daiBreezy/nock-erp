@@ -27,7 +27,7 @@ import { invoiceTone } from "./status"
  * The family set as ONE thing (owner 2026-11-05): the children's invoices linked from the start, worked on together —
  * one PDF, one message, one approval, one slip, one choice of receipts. The children's own tabs sit next to this one.
  */
-export function BundleOverview({ members, onOpen, onAddChild }: { members: Invoice[]; onOpen: (id: ID) => void; onAddChild: (studentId: ID) => void }) {
+export function BundleOverview({ members, onOpen, onAddChild, tabs }: { members: Invoice[]; onOpen: (id: ID) => void; onAddChild: (studentId: ID) => void; tabs?: React.ReactNode }) {
   const me = useStore((s) => s.me())
   const students = useStore((s) => s.students)
   const families = useStore((s) => s.families)
@@ -129,6 +129,7 @@ export function BundleOverview({ members, onOpen, onAddChild }: { members: Invoi
         </div>
         <SheetDescription>ชุดเดียวกัน — ส่ง อนุมัติ และรับเงินพร้อมกัน · แท็บของแต่ละคนอยู่ด้านบน</SheetDescription>
       </SheetHeader>
+      {tabs}
 
       <PanelBody>
         <section className="space-y-1.5">
