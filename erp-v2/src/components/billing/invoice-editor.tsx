@@ -17,7 +17,7 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { addDays, fmtDate, fmtMoney, fmtMonth, toDateStr } from "@/domain/dates"
 import * as Att from "@/domain/rules/attendance"
-import { busTotal, carriedMinutes, familyPromotion, invoiceHours, pendingBusAddOns, classChoices, classOptionsFor, defaultAdvance, defaultBusLegs, entryFeeWaiver, invoiceSessionDates, invoiceTotals, validateInvoiceDraft, type LineQuote } from "@/domain/rules/billing"
+import { busTotal, carriedMinutes, familyPromotion, invoiceHours, FAMILY_PROMO_TIERS, pendingBusAddOns, classChoices, classOptionsFor, defaultAdvance, defaultBusLegs, entryFeeWaiver, invoiceSessionDates, invoiceTotals, validateInvoiceDraft, type LineQuote } from "@/domain/rules/billing"
 import { lastAssessmentDate } from "@/domain/rules/forms"
 import type { AdvanceItem, BusExtraLine, BusLeg, CourseLine, Entitlement, Family, Invoice, Klass, Leftover, Seat } from "@/domain/types"
 import { isPartial } from "@/domain/rules/seats"
@@ -401,6 +401,16 @@ export function InvoiceEditor({ invoice, defaultStudentId, renewEntitlementId, o
               </p>
             </div>
             <Button size="sm" variant={familyOn ? "secondary" : "default"} onClick={() => setFamilyOn(!familyOn)}>{familyOn ? <><CheckIcon /> ใส่แล้ว (กดเพื่อเอาออก)</> : "ใส่ Family Promotion"}</Button>
+          </div>
+        )}
+
+        {!familyTier && siblingHours.length > 0 && (
+          <div className={cn("flex items-center gap-3 rounded-xl border border-sky-300 p-3 text-sm dark:border-sky-800", AI_TONE.soft)}>
+            <AiIcon />
+            <p className="min-w-0 flex-1 text-xs text-muted-foreground">
+              <span className={cn("font-semibold", AI_TONE.text)}>พี่น้องในครอบครัวเดียวกันออกใบวันนี้ — ยังไม่เข้า Family Promotion</span>{" "}
+              (ต้องเกิน {FAMILY_PROMO_TIERS[0].overHours} ชม.: ครอบครัวรวม {Math.round((invoiceHours({ lines: baseLines }) + siblingHours.reduce((a, x) => a + x.hours, 0)) * 10) / 10} ชม. · คนที่เรียนมากสุด {Math.round(Math.max(invoiceHours({ lines: baseLines }), ...siblingHours.map((x) => x.hours)) * 10) / 10} ชม.)
+            </p>
           </div>
         )}
 

@@ -65,4 +65,8 @@ export const KIT: Record<string, Entry> = {
   "โปรแถมชั่วโมงใช้ได้กับแพ็กเกจรายชั่วโมงเท่านั้น": { en: "Bonus hours only work with hour packages", ja: "無料時間は時間制パッケージのみ" },
   "แจ้งผู้ปกครองว่ายกเลิกใบ": { en: "Tell the parent the invoice was cancelled", ja: "保護者に請求書の取消を連絡" },
   "แจ้งยกเลิกใบ {0} ทาง LINE ไม่สำเร็จ — {1}": { en: "Couldn't notify the cancellation of {0} on LINE — {1}", ja: "請求書{0}の取消をLINEで通知できませんでした — {1}" },
+  "พี่น้องในครอบครัวเดียวกันออกใบวันนี้ — ยังไม่เข้า Family Promotion": { en: "Siblings are invoiced today — not eligible for Family Promotion yet", ja: "兄弟が本日請求されています — ファミリープロモーションは未達" },
+  "(ต้องเกิน": { en: "(must exceed", ja: "（必要：" },
+  "ชม. · คนที่เรียนมากสุด": { en: "h · most by one child", ja: "時間超・最多の1人：" },
+  "ชม.)": { en: "h)", ja: "時間）" },
 }
