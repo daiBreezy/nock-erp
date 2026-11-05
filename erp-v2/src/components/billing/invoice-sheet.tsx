@@ -272,15 +272,15 @@ function Body({ id, slipMediaId, onEdit }: { id: ID; slipMediaId?: string; onEdi
           <h3 className="mb-2 text-sm font-semibold">ขั้นตอน</h3>
           <ol className="space-y-2">
             {steps.map((s) => (
-              <li key={s.label} className="flex gap-2.5">
+              <li key={s.label} className="flex items-start gap-2.5">
                 <span className={cn("mt-0.5 grid size-5 shrink-0 place-items-center rounded-full", s.state === "done" ? "bg-emerald-600 text-white" : s.state === "current" ? "bg-sky-600 text-white" : s.state === "warn" ? "bg-amber-500 text-white" : "border text-muted-foreground")}>
                   {s.state === "done" ? <CheckIcon className="size-3" /> : s.state === "warn" ? <AlertTriangleIcon className="size-3" /> : <CircleIcon className="size-2" />}
                 </span>
-                <div>
+                <div className="min-w-0 flex-1">
                   <div className="text-sm font-medium">{s.label}</div>
                   <div className="text-xs text-muted-foreground">{s.detail}</div>
-                  {s.docs && <DocThumbs docs={s.docs} />}
                 </div>
+                {s.docs && <DocThumbs docs={s.docs} />}
               </li>
             ))}
           </ol>

@@ -3,6 +3,7 @@
 import { useRef, useState } from "react"
 import { ChevronLeftIcon, ChevronRightIcon, DownloadIcon, FileTextIcon, Share2Icon } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { report } from "@/lib/feedback"
 import { cn } from "@/lib/utils"
@@ -21,12 +22,12 @@ const PAGE_W = 794 // A4 at 96 dpi — the print page is laid out at this width,
 const embedSrc = (d: DocItem) => (d.kind === "slip" ? d.src : `${d.src}#embed`)
 
 function Thumb({ doc, w, className }: { doc: DocItem; w: number; className?: string }) {
-  const h = Math.round(w * 1.414)
+  const h = w // 1:1 — the top of the page / the middle of the slip
   return (
     <span className={cn("relative block overflow-hidden rounded-md border bg-white shadow-sm", className)} style={{ width: w, height: h }}>
       {doc.kind === "slip" ? (
         // eslint-disable-next-line @next/next/no-img-element -- data URL slip
-        <img src={doc.src} alt={doc.label} className="size-full object-cover" />
+        <img src={doc.src} alt={doc.label} className="size-full object-cover object-top" />
       ) : (
         <iframe src={embedSrc(doc)} title={doc.label} tabIndex={-1} loading="lazy" aria-hidden
           className="pointer-events-none absolute left-0 top-0 origin-top-left border-0 bg-white" style={{ width: PAGE_W, height: Math.round(PAGE_W * 1.414), transform: `scale(${w / PAGE_W})` }} />
@@ -42,20 +43,23 @@ function Thumb({ doc, w, className }: { doc: DocItem; w: number; className?: str
 export function DocThumbs({ docs }: { docs: DocItem[] }) {
   const [open, setOpen] = useState<number | null>(null)
   if (!docs.length) return null
-  const W = 84
+  const W = 56
   const stacked = docs.length > 1
   return (
     <>
-      <button type="button" onClick={() => setOpen(0)} className="group mt-1.5 flex items-center gap-3 rounded-lg p-1 text-left hover:bg-muted/50" aria-label={docs.map((d) => d.label).join(", ")}>
-        <span className="relative block" style={{ width: W + (stacked ? 14 : 0), height: Math.round(W * 1.414) + (stacked ? 8 : 0) }}>
-          {stacked && <Thumb doc={docs[1]} w={W} className="absolute left-3 top-0 rotate-2" />}
-          <Thumb doc={docs[0]} w={W} className={cn(stacked ? "absolute left-0 top-1 -rotate-2" : "")} />
-        </span>
-        <span className="text-xs text-muted-foreground">
-          <span className="block font-medium text-foreground">{stacked ? `${docs.length} ใบ` : docs[0].label}</span>
-          {stacked ? docs.map((d) => d.label).join(" · ") : "กดเพื่อเปิด"}
-        </span>
-      </button>
+      <HoverCard>
+        <HoverCardTrigger render={<button type="button" onClick={() => setOpen(0)} className="ml-auto shrink-0 rounded-lg p-1 hover:bg-muted/50" aria-label={docs.map((d) => d.label).join(", ")} />}>
+          {/* one document = a thumbnail · several = a stack, front card −2°, the one behind +2° */}
+          <span className="relative block" style={{ width: W + (stacked ? 12 : 0), height: W + (stacked ? 6 : 0) }}>
+            {stacked && <Thumb doc={docs[1]} w={W} className="absolute left-3 top-0 rotate-2" />}
+            <Thumb doc={docs[0]} w={W} className={cn(stacked ? "absolute left-0 top-1.5 -rotate-2" : "")} />
+          </span>
+        </HoverCardTrigger>
+        <HoverCardContent side="left" className="w-auto max-w-64 text-xs">
+          {docs.map((d) => <p key={d.key} className="font-medium">{d.label}</p>)}
+          <p className="text-muted-foreground">กดเพื่อเปิด</p>
+        </HoverCardContent>
+      </HoverCard>
       {open !== null && <Viewer docs={docs} index={open} onIndex={setOpen} onClose={() => setOpen(null)} />}
     </>
   )
