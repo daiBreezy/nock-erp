@@ -206,6 +206,7 @@ export function InvoiceEditor({ invoice, defaultStudentId, renewEntitlementId, o
         <Button disabled={errors.length > 0} onClick={submit}>{invoice ? "บันทึก" : "สร้างใบแจ้งหนี้ (ออกเลขทันที)"}</Button>
       </>}>
 
+        <Section n={1} title="Student">
         <div className="space-y-1">
           <Label className="text-xs">นักเรียน *</Label>
           {student ? (
@@ -237,6 +238,71 @@ export function InvoiceEditor({ invoice, defaultStudentId, renewEntitlementId, o
           )}
         </div>
 
+        </Section>
+
+        <Section n={2} title="Promotion" hint="ส่วนลด / โปรโมชัน">
+        {!familyTier && siblingHours.length === 0 && credits.length === 0 && !totals.lines.some((l) => l.promotion > 0 || l.bonusMinutes > 0) && concession === 0 && (
+          <p className="text-xs text-muted-foreground">ยังไม่มีโปรโมชันที่ใช้กับใบนี้ — โปรโมชันของสาขา (ลด % / ลดบาท / แถมชม.) จะใส่ให้อัตโนมัติตามคอร์สที่เลือก · ส่วนลดพิเศษใส่ได้ด้านล่าง</p>
+        )}
+        {totals.lines.some((l) => l.promotion > 0 || l.bonusMinutes > 0) && (
+          <ul className="space-y-0.5 text-sm text-emerald-700">
+            {totals.lines.filter((l) => l.promotion > 0 || l.bonusMinutes > 0).map((l) => (
+              <li key={l.line.id} className="flex justify-between gap-2"><span>{l.course?.name} · {l.promotionName ?? l.bonusName}{l.bonusMinutes > 0 && l.promotion === 0 ? ` — แถม ${l.bonusMinutes / 60} ชม.` : ""}</span>{l.promotion > 0 && <span className="tabular-nums">−{fmtMoney(l.promotion)}</span>}</li>
+            ))}
+          </ul>
+        )}
+        {familyTier && (
+          <div className={cn("flex flex-wrap items-center gap-3 rounded-xl border border-sky-300 p-3 text-sm dark:border-sky-800", AI_TONE.soft)}>
+            <AiIcon />
+            <div className="min-w-0 flex-1">
+              <p className={cn("font-semibold", AI_TONE.text)}>Family Promotion −{familyTier.pct}% — ใส่ให้พี่น้องทุกคนที่ออกใบวันนี้</p>
+              <p className="text-xs text-muted-foreground">
+                {familyTier.basis === "single" ? `มีคนเรียน ${familyTier.hours} ชม. (เกิน ${familyTier.overHours} ชม.)` : `ชั่วโมงรวมทั้งครอบครัว ${familyTier.hours} ชม. (เกิน ${familyTier.overHours} ชม.)`} · ลดเฉพาะค่าเรียน
+                {siblingHours.length > 0 && ` · ใบของพี่น้อง: ${siblingHours.map((s) => `${students.find((x) => x.id === s.inv.studentId)?.nickname ?? ""} ${s.inv.number ?? "ร่าง"}${s.inv.familyPromoPct ? " ✓" : " (ยังไม่ได้ใส่ — ต้องแก้ใบนั้นด้วย)"}`).join(", ")}`}
+              </p>
+            </div>
+            <Button size="sm" variant={familyOn ? "secondary" : "default"} onClick={() => setFamilyOn(!familyOn)}>{familyOn ? <><CheckIcon /> ใส่แล้ว (กดเพื่อเอาออก)</> : "ใส่ Family Promotion"}</Button>
+          </div>
+        )}
+
+        {!familyTier && siblingHours.length > 0 && (
+          <div className={cn("flex items-center gap-3 rounded-xl border border-sky-300 p-3 text-sm dark:border-sky-800", AI_TONE.soft)}>
+            <AiIcon />
+            <p className="min-w-0 flex-1 text-xs text-muted-foreground">
+              <span className={cn("font-semibold", AI_TONE.text)}>พี่น้องในครอบครัวเดียวกันออกใบวันนี้ — ยังไม่เข้า Family Promotion</span>{" "}
+              (ต้องเกิน {FAMILY_PROMO_TIERS[0].overHours} ชม.: ครอบครัวรวม {Math.round((invoiceHours({ lines: baseLines }) + siblingHours.reduce((a, x) => a + x.hours, 0)) * 10) / 10} ชม. · คนที่เรียนมากสุด {Math.round(Math.max(invoiceHours({ lines: baseLines }), ...siblingHours.map((x) => x.hours)) * 10) / 10} ชม.)
+            </p>
+          </div>
+        )}
+
+        {credits.length > 0 && (
+          <div className="space-y-1.5 rounded-lg border border-violet-200 bg-violet-50/60 p-3 dark:border-violet-900 dark:bg-violet-950/30">
+            <p className="flex items-center gap-1 text-sm font-medium">เครดิตคอร์ส (จากใบลดหนี้) — หักให้อัตโนมัติ <InfoTip text="ติ๊กออกถ้ายังไม่ใช้เครดิตในใบนี้" /></p>
+            {[...new Set(credits.map((c) => c.courseId))].map((cid) => {
+              const amount = credits.filter((c) => c.courseId === cid).reduce((a, c) => a + c.amount, 0)
+              const on = !creditSkip.includes(cid)
+              return (
+                <label key={cid} className="flex items-center gap-2 text-sm">
+                  <Checkbox checked={on} onCheckedChange={(v) => setCreditSkip(v ? creditSkip.filter((x) => x !== cid) : [...creditSkip, cid])} />
+                  {courses.find((c) => c.id === cid)?.name}
+                  <span className="ml-auto tabular-nums text-violet-800 dark:text-violet-200">−{fmtMoney(amount)}</span>
+                </label>
+              )
+            })}
+          </div>
+        )}
+
+        <div className="space-y-1 sm:max-w-xs"><Label className="text-xs">ส่วนลดพิเศษ (Concession)</Label><Input type="number" min={0} value={concession} onChange={(e) => setConcession(Math.max(0, Number(e.target.value)))} /></div>
+        {concession > 0 && (
+          <div className="space-y-1">
+            <Label className="text-xs">เหตุผลของส่วนลด *</Label>
+            <Textarea rows={2} value={concessionRemark} onChange={(e) => setConcessionRemark(e.target.value)} placeholder="ทุกส่วนลดต้องมีเหตุผล" aria-invalid={!concessionRemark.trim()} />
+          </div>
+        )}
+
+        </Section>
+
+        <Section n={3} title="Course">
         <div className="space-y-2">
           <div className="flex items-center gap-2">
             <Label className="text-xs">คอร์ส {lines.length > 0 && `(${lines.length})`}</Label>
@@ -276,6 +342,41 @@ export function InvoiceEditor({ invoice, defaultStudentId, renewEntitlementId, o
           )}
         </div>
 
+        </Section>
+
+        <Section n={4} title="Advance" hint="ไม่บังคับ">
+        {advanceFees.length > 0 && (
+          <div className="space-y-1.5">
+            <Label className="text-xs">Advance Optional (ค่าแรกเข้า / สอบ)</Label>
+            <div className="flex flex-wrap gap-1.5">
+              {advanceFees.map((f) => {
+                const on = advance.some((a) => a.feeId === f.id)
+                const paidBefore = f.kind === "entry" && waiver
+                return (
+                  <button key={f.id} type="button" aria-pressed={on}
+                    onClick={() => setAdvancePicked(on ? advance.filter((a) => a.feeId !== f.id) : [...advance, { feeId: f.id, name: f.name, amount: f.price }])}
+                    className={cn("flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs", on ? "border-primary bg-primary/10 text-primary" : "hover:bg-muted")}>
+                    {on && <CheckIcon className="size-3" />}{f.name} · {fmtMoney(advance.find((a) => a.feeId === f.id)?.amount ?? f.price)}
+                    {paidBefore && <span className="text-muted-foreground">({waiver.reason === "imported" ? "นักเรียนเก่า" : "เคยจ่ายแล้ว"})</span>}
+                  </button>
+                )
+              })}
+            </div>
+            {waiver?.reason === "imported" && (
+              <p className="flex items-start gap-1.5 rounded-lg bg-sky-50 p-2 text-xs text-sky-900 dark:bg-sky-950 dark:text-sky-200">
+                <HistoryIcon className="mt-0.5 size-3.5 shrink-0" />
+                <span><b>นักเรียนเก่า</b> — นำเข้าจาก{waiver.source} ({fmtDate(waiver.at.slice(0, 10), { year: true })}) เคยซื้อคอร์สกับเราแล้ว <b>ไม่ต้องเก็บค่าแรกเข้า</b></span>
+              </p>
+            )}
+            {waiver?.reason === "paid" && <p className="text-xs text-muted-foreground">ยกเว้นค่าแรกเข้าให้อัตโนมัติ — จ่ายแล้วในใบ {waiver.invoice.number}</p>}
+            {!waiver && studentId && advancePicked === null && advance.length > 0 && <p className="text-xs text-muted-foreground">นักเรียนยังไม่เคยจ่ายค่าแรกเข้า — ใส่ให้แล้ว กดเพื่อเอาออกได้</p>}
+          </div>
+        )}
+
+        <div className="space-y-1 sm:max-w-xs"><Label className="text-xs">ค่าหนังสือ</Label><Input type="number" min={0} value={bookFee} onChange={(e) => setBookFee(Math.max(0, Number(e.target.value)))} /></div>
+        </Section>
+
+        <Section n={5} title="Bus" hint="ไม่บังคับ">
         {busDates.length > 0 && (
           <details className="rounded-lg border" open={legs.some((l) => l.pickup || l.dropoff)}>
             <summary className="flex cursor-pointer items-center gap-2 px-3 py-2 text-sm">
@@ -335,86 +436,10 @@ export function InvoiceEditor({ invoice, defaultStudentId, renewEntitlementId, o
           </div>
         )}
 
-        {credits.length > 0 && (
-          <div className="space-y-1.5 rounded-lg border border-violet-200 bg-violet-50/60 p-3 dark:border-violet-900 dark:bg-violet-950/30">
-            <p className="flex items-center gap-1 text-sm font-medium">เครดิตคอร์ส (จากใบลดหนี้) — หักให้อัตโนมัติ <InfoTip text="ติ๊กออกถ้ายังไม่ใช้เครดิตในใบนี้" /></p>
-            {[...new Set(credits.map((c) => c.courseId))].map((cid) => {
-              const amount = credits.filter((c) => c.courseId === cid).reduce((a, c) => a + c.amount, 0)
-              const on = !creditSkip.includes(cid)
-              return (
-                <label key={cid} className="flex items-center gap-2 text-sm">
-                  <Checkbox checked={on} onCheckedChange={(v) => setCreditSkip(v ? creditSkip.filter((x) => x !== cid) : [...creditSkip, cid])} />
-                  {courses.find((c) => c.id === cid)?.name}
-                  <span className="ml-auto tabular-nums text-violet-800 dark:text-violet-200">−{fmtMoney(amount)}</span>
-                </label>
-              )
-            })}
-          </div>
-        )}
+        {busDates.length === 0 && pendingExtras.length === 0 && <p className="text-xs text-muted-foreground">เลือกคอร์สและคลาสก่อน — ระบบจะแสดงรอบรับ-ส่งตามวันเรียนจริงให้ติ๊ก</p>}
+        </Section>
 
-        {advanceFees.length > 0 && (
-          <div className="space-y-1.5">
-            <Label className="text-xs">Advance Optional (ค่าแรกเข้า / สอบ)</Label>
-            <div className="flex flex-wrap gap-1.5">
-              {advanceFees.map((f) => {
-                const on = advance.some((a) => a.feeId === f.id)
-                const paidBefore = f.kind === "entry" && waiver
-                return (
-                  <button key={f.id} type="button" aria-pressed={on}
-                    onClick={() => setAdvancePicked(on ? advance.filter((a) => a.feeId !== f.id) : [...advance, { feeId: f.id, name: f.name, amount: f.price }])}
-                    className={cn("flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs", on ? "border-primary bg-primary/10 text-primary" : "hover:bg-muted")}>
-                    {on && <CheckIcon className="size-3" />}{f.name} · {fmtMoney(advance.find((a) => a.feeId === f.id)?.amount ?? f.price)}
-                    {paidBefore && <span className="text-muted-foreground">({waiver.reason === "imported" ? "นักเรียนเก่า" : "เคยจ่ายแล้ว"})</span>}
-                  </button>
-                )
-              })}
-            </div>
-            {waiver?.reason === "imported" && (
-              <p className="flex items-start gap-1.5 rounded-lg bg-sky-50 p-2 text-xs text-sky-900 dark:bg-sky-950 dark:text-sky-200">
-                <HistoryIcon className="mt-0.5 size-3.5 shrink-0" />
-                <span><b>นักเรียนเก่า</b> — นำเข้าจาก{waiver.source} ({fmtDate(waiver.at.slice(0, 10), { year: true })}) เคยซื้อคอร์สกับเราแล้ว <b>ไม่ต้องเก็บค่าแรกเข้า</b></span>
-              </p>
-            )}
-            {waiver?.reason === "paid" && <p className="text-xs text-muted-foreground">ยกเว้นค่าแรกเข้าให้อัตโนมัติ — จ่ายแล้วในใบ {waiver.invoice.number}</p>}
-            {!waiver && studentId && advancePicked === null && advance.length > 0 && <p className="text-xs text-muted-foreground">นักเรียนยังไม่เคยจ่ายค่าแรกเข้า — ใส่ให้แล้ว กดเพื่อเอาออกได้</p>}
-          </div>
-        )}
-
-        <div className="grid gap-3 sm:grid-cols-2">
-          <div className="space-y-1"><Label className="text-xs">ค่าหนังสือ</Label><Input type="number" min={0} value={bookFee} onChange={(e) => setBookFee(Math.max(0, Number(e.target.value)))} /></div>
-          <div className="space-y-1"><Label className="text-xs">ส่วนลดพิเศษ (Concession)</Label><Input type="number" min={0} value={concession} onChange={(e) => setConcession(Math.max(0, Number(e.target.value)))} /></div>
-        </div>
-        {concession > 0 && (
-          <div className="space-y-1">
-            <Label className="text-xs">เหตุผลของส่วนลด *</Label>
-            <Textarea rows={2} value={concessionRemark} onChange={(e) => setConcessionRemark(e.target.value)} placeholder="ทุกส่วนลดต้องมีเหตุผล" aria-invalid={!concessionRemark.trim()} />
-          </div>
-        )}
-
-        {familyTier && (
-          <div className={cn("flex flex-wrap items-center gap-3 rounded-xl border border-sky-300 p-3 text-sm dark:border-sky-800", AI_TONE.soft)}>
-            <AiIcon />
-            <div className="min-w-0 flex-1">
-              <p className={cn("font-semibold", AI_TONE.text)}>Family Promotion −{familyTier.pct}% — ใส่ให้พี่น้องทุกคนที่ออกใบวันนี้</p>
-              <p className="text-xs text-muted-foreground">
-                {familyTier.basis === "single" ? `มีคนเรียน ${familyTier.hours} ชม. (เกิน ${familyTier.overHours} ชม.)` : `ชั่วโมงรวมทั้งครอบครัว ${familyTier.hours} ชม. (เกิน ${familyTier.overHours} ชม.)`} · ลดเฉพาะค่าเรียน
-                {siblingHours.length > 0 && ` · ใบของพี่น้อง: ${siblingHours.map((s) => `${students.find((x) => x.id === s.inv.studentId)?.nickname ?? ""} ${s.inv.number ?? "ร่าง"}${s.inv.familyPromoPct ? " ✓" : " (ยังไม่ได้ใส่ — ต้องแก้ใบนั้นด้วย)"}`).join(", ")}`}
-              </p>
-            </div>
-            <Button size="sm" variant={familyOn ? "secondary" : "default"} onClick={() => setFamilyOn(!familyOn)}>{familyOn ? <><CheckIcon /> ใส่แล้ว (กดเพื่อเอาออก)</> : "ใส่ Family Promotion"}</Button>
-          </div>
-        )}
-
-        {!familyTier && siblingHours.length > 0 && (
-          <div className={cn("flex items-center gap-3 rounded-xl border border-sky-300 p-3 text-sm dark:border-sky-800", AI_TONE.soft)}>
-            <AiIcon />
-            <p className="min-w-0 flex-1 text-xs text-muted-foreground">
-              <span className={cn("font-semibold", AI_TONE.text)}>พี่น้องในครอบครัวเดียวกันออกใบวันนี้ — ยังไม่เข้า Family Promotion</span>{" "}
-              (ต้องเกิน {FAMILY_PROMO_TIERS[0].overHours} ชม.: ครอบครัวรวม {Math.round((invoiceHours({ lines: baseLines }) + siblingHours.reduce((a, x) => a + x.hours, 0)) * 10) / 10} ชม. · คนที่เรียนมากสุด {Math.round(Math.max(invoiceHours({ lines: baseLines }), ...siblingHours.map((x) => x.hours)) * 10) / 10} ชม.)
-            </p>
-          </div>
-        )}
-
+        <Section n={6} title="Summary">
         <div className="space-y-1 rounded-lg bg-muted/50 p-3 text-sm tabular-nums">
           {[["ค่าเรียน", totals.course], ["Course fee", totals.courseFee], ["ค่ารถ", totals.bus], ["ค่ารถเพิ่ม (รอบก่อน)", totals.busExtra], ["ค่าหนังสือ", totals.book], ["Advance (ค่าแรกเข้า/สอบ)", totals.advance]].filter(([, v]) => (v as number) > 0).map(([l, v]) => (
             <div key={l as string} className="flex justify-between"><span>{l}</span><span>{fmtMoney(v as number)}</span></div>
@@ -424,8 +449,23 @@ export function InvoiceEditor({ invoice, defaultStudentId, renewEntitlementId, o
           {totals.concession > 0 && <div className="flex justify-between text-emerald-700"><span>ส่วนลดพิเศษ</span><span>−{fmtMoney(totals.concession)}</span></div>}
           <div className={cn("flex justify-between border-t pt-1 text-base font-semibold", totals.total < 0 && "text-red-700")}><span>ยอดรวม</span><span>{fmtMoney(totals.total)}</span></div>
         </div>
+        </Section>
+
 
     </FormShell>
+  )
+}
+
+/** A titled block of the invoice form (owner 2026-11-05): Student · Promotion · Course · Advance · Bus · Summary */
+function Section({ n, title, hint, children }: { n: number; title: string; hint?: string; children: React.ReactNode }) {
+  return (
+    <section className="space-y-3 rounded-2xl border p-4">
+      <h3 className="flex items-center gap-2 text-sm font-semibold">
+        <span className="grid size-5 place-items-center rounded-full bg-foreground text-[11px] text-background">{n}</span>{title}
+        {hint && <span className="text-xs font-normal text-muted-foreground">· {hint}</span>}
+      </h3>
+      {children}
+    </section>
   )
 }
 
