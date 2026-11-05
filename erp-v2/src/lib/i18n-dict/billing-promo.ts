@@ -11,4 +11,6 @@ export const BILLING_PROMO: Record<string, Entry> = {
   "แถมชั่วโมงเรียน (ไม่ลดเงิน)": { en: "Bonus hours (no money off)", ja: "無料レッスン時間（値引きなし）" },
   "จำนวนชั่วโมงที่แถม": { en: "Free hours added", ja: "追加する無料時間" },
   "โปรโมชัน · {0} — แถมเวลาเรียนเพิ่ม {1} ชม. (ไม่เพิ่มราคา)": { en: "Promotion · {0} — {1} h of extra class time (price unchanged)", ja: "キャンペーン · {0} — {1}時間追加（価格据え置き）" },
+  "คืนเงิน (Refund)": { en: "Refund", ja: "返金" },
+  "คืนเงิน (Refund) · ใบลดหนี้ อ้างถึง": { en: "Refund · credit note for", ja: "返金・クレジットノート（対象）" },
 }

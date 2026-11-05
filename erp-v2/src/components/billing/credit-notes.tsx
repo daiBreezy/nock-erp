@@ -35,7 +35,7 @@ export function CreditNotes({ inv }: { inv: Invoice }) {
     <section className="space-y-2">
       <div className="flex items-center gap-2">
         <h3 className="text-sm font-semibold">คืนเงิน / ลดหนี้</h3>
-        {manage && inv.status === "paid" && <Button size="xs" variant="outline" className="ml-auto" onClick={() => setCreating(true)}><Undo2Icon /> ทำใบลดหนี้</Button>}
+        {manage && inv.status === "paid" && <Button size="xs" variant="outline" className="ml-auto" onClick={() => setCreating(true)}><Undo2Icon /> คืนเงิน (Refund)</Button>}
       </div>
       {!notes.length && <p className="text-xs text-muted-foreground">ใบแจ้งหนี้และใบเสร็จที่จ่ายแล้วแก้ไม่ได้ — การคืนเงินหรือเก็บเป็นเครดิตทำเป็นใบลดหนี้ (Credit Note) อ้างถึงใบนี้</p>}
       {notes.map((n) => (
@@ -119,6 +119,10 @@ function CreateCreditNote({ inv, onClose }: { inv: Invoice; onClose: () => void 
   const holidays = useStore((s) => s.holidays)
   const notes = useStore((s) => s.creditNotes)
   const create = useStore((s) => s.createCreditNote)
+  const entitlements = useStore((s) => s.entitlements)
+  const sessions = useStore((s) => s.sessions)
+  const attendance = useStore((s) => s.attendance)
+  const leaves = useStore((s) => s.leaves)
   const totals = invoiceTotals(inv, { branch, courses, classes, holidays })
   const items = Refund.refundableItems(inv, totals, notes)
   const [mode, setMode] = useState<CreditMode>("refund")
@@ -130,6 +134,14 @@ function CreateCreditNote({ inv, onClose }: { inv: Invoice; onClose: () => void 
   const room = paidAmount(inv) - Refund.alreadyGivenBack(inv.id, notes)
   const chosen = items.filter((i) => picked[i.key] !== undefined).map((i) => ({ key: i.key, label: i.label, courseId: i.courseId, amount: Number(picked[i.key]) || 0 }))
   const total = chosen.reduce((a, i) => a + i.amount, 0)
+  // refund by session: tuition ÷ all sessions × sessions not yet used (attendance rules), per course line
+  const bySession = (key: string) => {
+    const l = lineOf(key)
+    if (!l) return null
+    const ents = entitlements.filter((e) => e.invoiceId === inv.id && e.courseId === l.line.courseId)
+    const used = ents.reduce((a, e) => a + Refund.consumedSessions(e, sessions, attendance, leaves), 0)
+    return Refund.refundBySession(l, used)
+  }
   const lineOf = (key: string) => totals.lines.find((l) => `line:${l.line.id}` === key)
   const hasCourse = items.some((i) => i.key.startsWith("line:"))
 
@@ -142,7 +154,7 @@ function CreateCreditNote({ inv, onClose }: { inv: Invoice; onClose: () => void 
     <Dialog open onOpenChange={(o) => !o && onClose()}>
       <DialogContent className="max-h-[92vh] overflow-y-auto lg:max-w-xl">
         <DialogHeader>
-          <DialogTitle>ใบลดหนี้ · อ้างถึง {inv.number}</DialogTitle>
+          <DialogTitle>คืนเงิน (Refund) · ใบลดหนี้ อ้างถึง {inv.number}</DialogTitle>
           <DialogDescription>ใบแจ้งหนี้และใบเสร็จเดิมไม่เปลี่ยน · ชำระแล้ว {fmtMoney(paidAmount(inv))}{room < paidAmount(inv) && ` · คืนไปแล้ว ${fmtMoney(paidAmount(inv) - room)}`}</DialogDescription>
         </DialogHeader>
 
@@ -183,20 +195,20 @@ function CreateCreditNote({ inv, onClose }: { inv: Invoice; onClose: () => void 
             {items.map((i) => {
               const on = picked[i.key] !== undefined
               const l = lineOf(i.key)
-              const hint = l && stopFrom ? Refund.unusedShare(l, stopFrom) : null
+              const ses = bySession(i.key)
               return (
                 <div key={i.key} className="flex flex-wrap items-center gap-2 p-2 text-sm">
                   <label className="flex min-w-0 flex-1 items-start gap-2">
-                    <Checkbox className="mt-0.5" checked={on} onCheckedChange={(v) => setPicked((p) => { const n = { ...p }; if (v) n[i.key] = String(hint ? Math.min(hint.amount, i.max) : i.max); else delete n[i.key]; return n })} />
+                    <Checkbox className="mt-0.5" checked={on} onCheckedChange={(v) => setPicked((p) => { const n = { ...p }; if (v) n[i.key] = String(ses ? Math.min(ses.amount, i.max) : i.max); else delete n[i.key]; return n })} />
                     <span className="min-w-0 flex-1">
                       <span className="block truncate">{i.label} <span className="text-xs font-normal text-muted-foreground">สูงสุด {fmtMoney(i.max)}</span></span>
                       {/* owner Row 50: per-course progress so the admin can judge how much of each course to give back */}
-                      {l?.quote && <span className="block text-xs text-muted-foreground">{`เรียนไปแล้ว ${l.quote.slots.filter((x) => x.date < today).length}/${l.quote.slots.length} คาบ · ถึง ${fmtDate(l.quote.to, { year: true })}`}</span>}
+                      {l?.quote && <span className="block text-xs text-muted-foreground">{ses ? `ใช้ไปแล้ว ${ses.used}/${ses.total} คาบ (ตามเช็คชื่อ) · ค่าเรียนคาบละ ${fmtMoney(Math.round(ses.perSession))} · ถึง ${fmtDate(l.quote.to, { year: true })}` : `เรียนไปแล้ว ${l.quote.slots.filter((x) => x.date < today).length}/${l.quote.slots.length} คาบ · ถึง ${fmtDate(l.quote.to, { year: true })}`}</span>}
                     </span>
                   </label>
                   {on && (
                     <>
-                      {hint && <button type="button" className="text-xs text-primary underline" onClick={() => setPicked((p) => ({ ...p, [i.key]: String(Math.min(hint.amount, i.max)) }))}>ตามคาบที่เหลือ {hint.unused}/{hint.of} = {fmtMoney(hint.amount)}</button>}
+                      {ses && <button type="button" className="text-xs text-primary underline" onClick={() => setPicked((p) => ({ ...p, [i.key]: String(Math.min(ses.amount, i.max)) }))}>แนะนำ {fmtMoney(Math.round(ses.perSession))} × {ses.remaining} คาบที่เหลือ = {fmtMoney(ses.amount)}</button>}
                       <Input type="number" min={0} max={i.max} className="w-28" value={picked[i.key]} aria-invalid={Number(picked[i.key]) > i.max} onChange={(e) => setPicked((p) => ({ ...p, [i.key]: e.target.value }))} />
                     </>
                   )}

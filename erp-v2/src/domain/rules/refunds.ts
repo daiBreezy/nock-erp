@@ -3,7 +3,8 @@
 //  · credit → no cash back, kept as credit for the same student + course and taken off their next invoice
 // Maker–checker like invoices. The staff picks what to give back and how much, per item.
 
-import type { CreditNote, CreditNoteItem, DateStr, ID, Invoice, Result, Staff } from "../types"
+import { leaveQuota, leavesUsed, packageCovers } from "./attendance"
+import type { Attendance, Entitlement, Session, StudentLeave, CreditNote, CreditNoteItem, DateStr, ID, Invoice, Result, Staff } from "../types"
 import { APPROVER_ROLES, paidAmount, type InvoiceTotals, type LineQuote } from "./billing"
 import { requireForceRemark } from "./notifications"
 import { inBranch } from "./permissions"
@@ -116,4 +117,36 @@ export function autoCredits(studentId: ID, lines: LineQuote[], notes: CreditNote
     }
   }
   return out
+}
+
+/** Sessions a package has used up, by the consumption rules: present + absent-without-notice count, a leave inside the
+ *  leave quota does not, a leave beyond the quota does (owner 2026-11-05, refund base). */
+export function consumedSessions(e: Entitlement, sessions: Session[], attendance: Attendance[], leaves: StudentLeave[] = []): number {
+  const ids = new Set(sessions.filter((s) => packageCovers(e, s)).map((s) => s.id))
+  const marked = attendance.filter((a) => a.studentId === e.studentId && ids.has(a.sessionId))
+  const taken = marked.filter((a) => a.status !== "leave").length
+  const overQuota = Math.max(0, leavesUsed(e, sessions, attendance, leaves) - leaveQuota(e))
+  return taken + overQuota
+}
+
+export interface SessionRefund {
+  /** tuition of the course on the invoice (price − promotion; no course fee / bus / book / entry fee) */
+  tuition: number
+  total: number
+  used: number
+  remaining: number
+  perSession: number
+  /** suggested money back — the admin can change it */
+  amount: number
+}
+
+/** Refund by session (owner 2026-11-05): price per session = tuition ÷ all sessions of the course; suggestion =
+ *  price per session × (all − used). 10 sessions, 3 used → 7 sessions back. */
+export function refundBySession(l: Pick<LineQuote, "amount" | "promotion" | "quote">, used: number): SessionRefund | null {
+  const total = l.quote?.slots.length ?? 0
+  if (!total) return null
+  const tuition = Math.max(0, l.amount - l.promotion)
+  const u = Math.min(total, Math.max(0, used))
+  const remaining = total - u
+  return { tuition, total, used: u, remaining, perSession: tuition / total, amount: Math.round((tuition * remaining) / total) }
 }

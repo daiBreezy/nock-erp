@@ -2871,3 +2871,29 @@ describe("promotions: Family Promotion + bonus hours (owner 2026-11-05)", () => 
     expect(bestPromotion(b, { unit: "hour", amount: 10 }, 6000, "2026-09-29")).toBeNull()
   })
 })
+
+describe("refund by session (owner 2026-11-05)", () => {
+  const line = (amount: number, promotion: number, n: number) => ({ amount, promotion, quote: { slots: Array.from({ length: n }, (_, i) => ({ date: `2026-10-${String(i + 1).padStart(2, "0")}`, classId: "k", start: "16:00", minutes: 60 })) } }) as unknown as Parameters<typeof Refund.refundBySession>[0]
+  it("price per session = tuition ÷ all sessions; refund = price × (all − used)", () => {
+    const r = Refund.refundBySession(line(5000, 0, 10), 3)!
+    expect(r).toMatchObject({ total: 10, used: 3, remaining: 7, perSession: 500, amount: 3500 })
+  })
+  it("tuition is net of promotion and excludes fees (only amount − promotion)", () => {
+    expect(Refund.refundBySession(line(6000, 600, 10), 4)!.amount).toBe(3240)
+  })
+  it("nothing used = all back; all used = 0; used beyond total is capped; no sessions = no suggestion", () => {
+    expect(Refund.refundBySession(line(5000, 0, 10), 0)!.amount).toBe(5000)
+    expect(Refund.refundBySession(line(5000, 0, 10), 10)!.amount).toBe(0)
+    expect(Refund.refundBySession(line(5000, 0, 10), 12)!.remaining).toBe(0)
+    expect(Refund.refundBySession(line(5000, 0, 0), 0)).toBeNull()
+  })
+  it("used = present + absent + leave over the quota; leave inside the quota does not count", () => {
+    const e: Entitlement = { id: "e", studentId: "a", courseId: "c", subjects: ["Maths"], classIds: ["k"], invoiceId: "i", kind: "sessions", from: "2026-10-01", to: "2026-12-31", sessionsTotal: 8, leaveQuota: 1 }
+    const se = (id: string, date: string): Session => ({ id, branchId: "b1", classId: "k", subject: "Maths", date, start: "16:00", minutes: 60, teacherId: "t1", coTeacherIds: [], roomId: "r1", studentIds: ["a"], trial: false, customized: false, cancelled: false })
+    const ss = ["1", "2", "3", "4", "5"].map((n) => se("s" + n, `2026-10-0${n}`))
+    const mk = (id: string, status: Attendance["status"]): Attendance => ({ sessionId: id, studentId: "a", status, markedBy: "t", markedAt: "" })
+    const att = [mk("s1", "present"), mk("s2", "absent"), mk("s3", "leave"), mk("s4", "leave")]
+    expect(Refund.consumedSessions(e, ss, att)).toBe(3) // 2 taken + 1 leave beyond the quota of 1
+    expect(Refund.consumedSessions(e, ss, att.slice(0, 3))).toBe(2) // one leave = inside the quota
+  })
+})
