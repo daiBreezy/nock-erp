@@ -157,21 +157,21 @@ function TripView({ t, events, busy, onBack, onTap }: { t: Trip; events: Ev[]; b
       <main className="space-y-3 p-3">
         {/* the stop to go to now — big, with call / navigate */}
         {cur && (
-          <section className="space-y-3 rounded-3xl bg-background p-4 shadow-sm ring-2 ring-primary">
-            <p className="text-xs font-medium text-primary">{curIn ? `ถึงแล้ว ${hhmm(curIn.at)} — รอ${verb(cur)}เด็ก` : "ไปที่นี่ต่อ"}</p>
+          <section className="-mx-3 -mt-3 space-y-3 bg-primary p-5 text-primary-foreground">
+            <p className="text-sm font-medium text-primary-foreground/80">{curIn ? `ถึงแล้ว ${hhmm(curIn.at)} — รอ${verb(cur)}เด็ก` : "ไปที่นี่ต่อ"}</p>
             <div>
               <p className="flex flex-wrap items-center gap-1.5 text-xl font-semibold">
                 <span className={cn("rounded-full px-2 py-0.5 text-xs", cur.leg === "pickup" ? "bg-sky-100 text-sky-800" : "bg-amber-100 text-amber-900")}>{verb(cur)}</span>
-                {cur.nickname} <span className="text-sm font-normal text-muted-foreground">{cur.grade}</span>
+                {cur.nickname} <span className="text-sm font-normal text-primary-foreground/70">{cur.grade}</span>
                 {cur.adult && <span className="flex items-center gap-0.5 rounded-full bg-violet-100 px-1.5 text-xs font-normal text-violet-800"><UserIcon className="size-3" />+ผู้ปกครอง</span>}
               </p>
-              <Address className="mt-1 text-base text-foreground/80" text={[cur.addressNote, cur.address].filter(Boolean).join(" · ")} />
-              <p className="mt-1 text-sm tabular-nums">{`ประมาณ ${cur.eta ?? "—"}`}</p>
+              <Address className="mt-1 text-base text-primary-foreground/90 [&_button]:text-primary-foreground [&_button]:underline" text={[cur.addressNote, cur.address].filter(Boolean).join(" · ")} />
+              <p className="mt-1 text-base font-medium tabular-nums">{`ประมาณ ${cur.eta ?? "—"}`}</p>
             </div>
             {/* owner 2026-10-20: "ยังไม่ถึง" is a proper button on the same line as call / navigate */}
             <div className={cn("grid gap-2", curIn ? "grid-cols-3" : "grid-cols-2")}>
-              {cur.phone ? <a href={`tel:${cur.phone.replace(/[^0-9+]/g, "")}`} className="flex h-12 items-center justify-center gap-1.5 rounded-2xl border text-sm font-medium"><PhoneIcon className="size-4 shrink-0" />{curIn ? "โทร" : "โทรผู้ปกครอง"}</a> : <span />}
-              {cur.loc ? <a href={`https://www.google.com/maps/dir/?api=1&destination=${cur.loc.lat},${cur.loc.lng}`} target="_blank" rel="noreferrer" className="flex h-12 items-center justify-center gap-1.5 rounded-2xl border text-sm font-medium"><NavigationIcon className="size-4 shrink-0" />นำทาง</a> : <span />}
+              {cur.phone ? <a href={`tel:${cur.phone.replace(/[^0-9+]/g, "")}`} className="flex h-12 items-center justify-center gap-1.5 rounded-2xl border border-white/40 bg-white/15 text-sm font-medium"><PhoneIcon className="size-4 shrink-0" />{curIn ? "โทร" : "โทรผู้ปกครอง"}</a> : <span />}
+              {cur.loc ? <a href={`https://www.google.com/maps/dir/?api=1&destination=${cur.loc.lat},${cur.loc.lng}`} target="_blank" rel="noreferrer" className="flex h-12 items-center justify-center gap-1.5 rounded-2xl border border-white/40 bg-white/15 text-sm font-medium"><NavigationIcon className="size-4 shrink-0" />นำทาง</a> : <span />}
               {curIn && <button type="button" disabled={busy} onClick={() => onTap("undo", cur.key)} className="flex h-12 items-center justify-center gap-1.5 rounded-2xl border border-amber-300 bg-amber-50 text-sm font-medium text-amber-900 disabled:opacity-50"><RotateCcwIcon className="size-4 shrink-0" />ยังไม่ถึง</button>}
             </div>
           </section>
