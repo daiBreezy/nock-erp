@@ -102,7 +102,7 @@ export function CatalogApp({ token, preview, embedded }: { token: string; previe
       {open ? (
         <div className="space-y-4 px-4 pt-4">
           <button type="button" onClick={() => setOpenId(null)} className="flex items-center gap-1 text-sm text-muted-foreground"><ArrowLeftIcon className="size-4" />{tx("กลับ")}</button>
-          <div className="relative overflow-hidden rounded-lg">
+          <div className="relative overflow-hidden rounded-[8px]">
             {cover(open, "aspect-[16/9]")}
             {fav(open.id, "absolute top-2 right-2")}
           </div>
@@ -111,8 +111,8 @@ export function CatalogApp({ token, preview, embedded }: { token: string; previe
             <p className="text-xs text-muted-foreground">{meta(open)}</p>
             <p className="text-sm font-medium">{price(open)}</p>
           </div>
-          {note && <p className="rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-900 dark:bg-amber-950/40 dark:text-amber-200">{note}</p>}
-          <div className="divide-y overflow-hidden rounded-lg border bg-card">
+          {note && <p className="rounded-[8px] bg-amber-50 px-3 py-2 text-sm text-amber-900 dark:bg-amber-950/40 dark:text-amber-200">{note}</p>}
+          <div className="divide-y overflow-hidden rounded-[8px] border bg-card">
             {(() => {
               const classes = open.classIds.map(classOf).filter((k): k is EnrollClassOffer => !!k).filter((k) => !grade || k.grades.includes(grade))
               return classes.length ? classes.map((k) => {
@@ -170,11 +170,11 @@ export function CatalogApp({ token, preview, embedded }: { token: string; previe
 
           <div className="space-y-3 px-4 pt-1">
             <p className="text-xs text-muted-foreground">{tx("{0} คอร์ส", [courses.length])}</p>
-            {note && <p className="rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-900 dark:bg-amber-950/40 dark:text-amber-200">{note}</p>}
+            {note && <p className="rounded-[8px] bg-amber-50 px-3 py-2 text-sm text-amber-900 dark:bg-amber-950/40 dark:text-amber-200">{note}</p>}
             <div className="grid grid-cols-2 gap-3">
               {courses.map((c) => (
                 <div key={c.id} role="button" tabIndex={0} onClick={() => { setNote(""); setOpenId(c.id) }} onKeyDown={(e) => { if (e.key === "Enter") setOpenId(c.id) }}
-                  className="relative cursor-pointer overflow-hidden rounded-lg bg-card text-left shadow-sm ring-1 ring-foreground/5">
+                  className="relative cursor-pointer overflow-hidden rounded-[8px] bg-card text-left shadow-sm ring-1 ring-foreground/5">
                   {cover(c, "aspect-[4/3]")}
                   {fav(c.id, "absolute top-2 right-2")}
                   <div className="space-y-0.5 p-2.5">
@@ -185,7 +185,7 @@ export function CatalogApp({ token, preview, embedded }: { token: string; previe
                 </div>
               ))}
             </div>
-            {!courses.length && <p className="rounded-lg border border-dashed p-8 text-center text-sm text-muted-foreground">{tx("ยังไม่มีคอร์สสำหรับตัวเลือกนี้ — ลองเปลี่ยนระดับชั้น / วิชา")}</p>}
+            {!courses.length && <p className="rounded-[8px] border border-dashed p-8 text-center text-sm text-muted-foreground">{tx("ยังไม่มีคอร์สสำหรับตัวเลือกนี้ — ลองเปลี่ยนระดับชั้น / วิชา")}</p>}
           </div>
         </>
       )}

@@ -24,8 +24,8 @@ import { cn } from "@/lib/utils"
 import { useUiLang } from "@/lib/i18n"
 
 // the map loads only when a parent opens "ปักหมุดบ้าน" (Leaflet is big — the rest of the app stays light in LINE)
-const CatalogApp = dynamic(() => import("@/app/liff/catalog/catalog-app").then((m) => m.CatalogApp), { ssr: false, loading: () => <div className="h-40 animate-pulse rounded-lg bg-muted" /> })
-const MapPin = dynamic(() => import("@/app/liff/form/map-pin").then((m) => m.MapPin), { ssr: false, loading: () => <div className="h-full animate-pulse rounded-lg bg-muted" /> })
+const CatalogApp = dynamic(() => import("@/app/liff/catalog/catalog-app").then((m) => m.CatalogApp), { ssr: false, loading: () => <div className="h-40 animate-pulse rounded-[8px] bg-muted" /> })
+const MapPin = dynamic(() => import("@/app/liff/form/map-pin").then((m) => m.MapPin), { ssr: false, loading: () => <div className="h-full animate-pulse rounded-[8px] bg-muted" /> })
 
 const DICT = {
   th: {
@@ -175,7 +175,7 @@ export function ParentApp({ view, lang: initialLang, today, framed, openCourseSu
       <main className={cn("flex-1 space-y-4 p-3", framed ? "pb-3" : "pb-24")}>
         {/* owner 2026-10-19: a family on the bus without a home pin is asked for it, wherever they are in the app */}
         {paid && usesBus && !view.home && !(cur === "request" && ask === "home") && (
-          <button type="button" onClick={() => { setAsk("home"); setTab("request") }} className="flex w-full items-center gap-3 rounded-lg bg-amber-50 p-3 text-left text-sm text-amber-900 ring-1 ring-amber-200">
+          <button type="button" onClick={() => { setAsk("home"); setTab("request") }} className="flex w-full items-center gap-3 rounded-[8px] bg-amber-50 p-3 text-left text-sm text-amber-900 ring-1 ring-amber-200">
             <MapPinHouseIcon className="size-5 shrink-0" /><span className="min-w-0 flex-1">{t.homeBanner}</span>
             <span className="shrink-0 rounded-full bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground">{t.homeBannerBtn}</span>
           </button>
@@ -227,7 +227,7 @@ function Overview({ view, t, lang, today, dayLabel, nick, onDrill }: { view: Par
               <Pill tone={c.left ? "gray" : "blue"}>{c.left ? t.leftTag : c.grade}</Pill>
             </button>
             {next.length > 0 && (
-              <div className="overflow-hidden rounded-lg bg-card text-sm ring-1 ring-foreground/5">
+              <div className="overflow-hidden rounded-[8px] bg-card text-sm ring-1 ring-foreground/5">
                 {next.map((x) => (
                   <button key={x.sessionId} type="button" onClick={() => onDrill(c.id, x.courseId)} className="flex w-full items-center gap-2 px-3 py-1.5 text-left">
                     <span className={cn("w-14 shrink-0 text-xs", x.date === today ? "font-medium text-red-600 dark:text-red-400" : "text-muted-foreground")}>{dayLabel(x.date)}</span>
@@ -258,16 +258,16 @@ function CourseRows({ pkgs, t, lang, onPick }: { child?: ParentChild; pkgs: Pare
         const stats = [[t.statDone, `${p.done}/${p.sessions}`], [t.statPresent, `${p.present}`], [t.statLeave, `${p.leaves}/${p.leaveQuota}`], [t.statLeft, p.remaining != null ? `${p.remaining}` : "–"]]
         return (
           // owner ref 2026-11-06: subject tile · name + dates · link · 4 equal numbers in one outlined pill · one line per weekly class with its own progress
-          <section key={i} className="space-y-3 rounded-lg bg-card p-4 shadow-sm ring-1 ring-foreground/5">
+          <section key={i} className="space-y-3 rounded-[16px] bg-card p-4 shadow-sm ring-1 ring-foreground/5">
             <div className="flex items-center gap-3">
-              <span className={cn("grid size-11 shrink-0 place-items-center rounded-lg text-sm font-semibold", subjectColor(p.subject ?? "").chip)}>{(p.subject ?? "?").slice(0, 2)}</span>
+              <span className={cn("grid size-11 shrink-0 place-items-center rounded-[8px] text-sm font-semibold", subjectColor(p.subject ?? "").chip)}>{(p.subject ?? "?").slice(0, 2)}</span>
               <span className="min-w-0 flex-1">
                 <span className="block truncate text-base font-semibold">{p.course}</span>
                 <span className="block truncate text-xs text-muted-foreground">{fmtDay(p.from, lang)} → {fmtDay(p.until, lang)}</span>
               </span>
               {onPick && <button type="button" onClick={() => onPick(p.courseId)} className="flex shrink-0 items-center gap-0.5 text-xs text-primary">{t.openSchedule}<ChevronRightIcon className="size-3.5" /></button>}
             </div>
-            <div className="grid grid-cols-4 divide-x rounded-lg border py-2 text-center">
+            <div className="grid grid-cols-4 divide-x rounded-[8px] border py-2 text-center">
               {stats.map(([label, value]) => (
                 <div key={label}><p className="text-lg leading-tight font-semibold tabular-nums">{value}</p><p className="text-[11px] text-muted-foreground">{label}</p></div>
               ))}
@@ -321,7 +321,7 @@ function Study({ today, course, setCourse, kids, nick, t, lang, dayLabel, csId, 
     <>
       {only?.left && (
         // owner 2026-10-14: a child who left — history stays, and the family can ask to come back
-        <section className="space-y-2 rounded-lg bg-card ring-1 ring-foreground/5 p-4 text-center shadow-sm">
+        <section className="space-y-2 rounded-[8px] bg-card ring-1 ring-foreground/5 p-4 text-center shadow-sm">
           <p className="font-medium">{t.leftSince(fmtDay(only.left.since, lang))}</p>
           <p className="text-sm text-muted-foreground">{t.leftNote}</p>
           <Button className="mx-auto mt-1" onClick={onReturn}>{t.returnReq}</Button>
@@ -345,7 +345,7 @@ function Study({ today, course, setCourse, kids, nick, t, lang, dayLabel, csId, 
             <section className="space-y-1.5">
               <p className="flex items-center gap-1.5 px-1 text-xs font-semibold text-muted-foreground"><GraduationCapIcon className="size-3.5" />{t.courseEnd}</p>
               {ends.map((x) => (
-                <button key={x.id} type="button" onClick={() => setCsId(x.id)} className="flex w-full items-center gap-3 rounded-lg bg-card ring-1 ring-foreground/5 p-3 text-left shadow-sm">
+                <button key={x.id} type="button" onClick={() => setCsId(x.id)} className="flex w-full items-center gap-3 rounded-[8px] bg-card ring-1 ring-foreground/5 p-3 text-left shadow-sm">
                   <span className="min-w-0 flex-1">
                     <span className="block truncate font-medium">{x.course}</span>
                     <span className="block text-xs text-muted-foreground">{fmtDay(x.from, lang)} – {fmtDay(x.to, lang)} · {t.view}</span>
@@ -370,7 +370,7 @@ function PastRow({ r, t, lang, tag }: { r: { date: string; start: string; subjec
   const [open, setOpen] = useState(false)
   const tone = { present: "green", absent: "red", leave: "amber" } as const
   return (
-    <li className="rounded-lg bg-muted/70 text-muted-foreground">
+    <li className="rounded-[8px] bg-muted/70 text-muted-foreground">
       <button type="button" aria-expanded={open} onClick={() => setOpen(!open)} className="flex w-full items-start gap-3 px-3 py-2.5 text-left">
         <span className="w-24 shrink-0">
           <span className="block truncate text-xs">{fmtDay(r.date, lang)}</span>
@@ -386,7 +386,7 @@ function PastRow({ r, t, lang, tag }: { r: { date: string; start: string; subjec
       {open && (
         <div className="space-y-2 border-t px-3 pt-2.5 pb-3">
           {(tag || r.sum?.teacher) && <p className="flex flex-wrap gap-x-3 text-xs text-muted-foreground">{r.sum?.teacher && <span className="flex items-center gap-1"><UserIcon className="size-3" />{t.teacher} {r.sum.teacher}</span>}{tag && <span>{tag}</span>}</p>}
-          <div className="flex items-start gap-1.5 rounded-lg bg-muted/50 p-2 text-xs">
+          <div className="flex items-start gap-1.5 rounded-[8px] bg-muted/50 p-2 text-xs">
             <MessageSquareTextIcon className="mt-0.5 size-3.5 shrink-0 text-muted-foreground" />
             {r.sum ? (
               <span className="min-w-0 flex-1">
@@ -437,7 +437,7 @@ function ClassCard({ dayText, isToday, c, first, child, t, hasBus, tag, onReques
     if (r.ok) { setLeave(false); setRide({}); setNote(""); setAct(null); setOpen(false) }
   }
   return (
-    <article className={cn("rounded-lg bg-card shadow-sm ring-1 ring-foreground/5", c.cancelled && "opacity-60")}>
+    <article className={cn("rounded-[8px] bg-card shadow-sm ring-1 ring-foreground/5", c.cancelled && "opacity-60")}>
       {/* owner 2026-11-06: day over time on the left (fixed column) · subject (may wrap to 2 lines) with who / which course under it · the card grows with long text */}
       <button type="button" aria-expanded={open} onClick={() => { setOpen(!open); setMsg(null) }} className="flex w-full items-start gap-3 px-3 py-2.5 text-left">
         <span className="w-24 shrink-0">
@@ -457,7 +457,7 @@ function ClassCard({ dayText, isToday, c, first, child, t, hasBus, tag, onReques
         </span>
         <ChevronDownIcon className={cn("size-4 shrink-0 self-center text-muted-foreground transition-transform", open && "rotate-180")} />
       </button>
-      {msg && <p className={cn("mx-3 mb-2 rounded-lg p-2 text-xs", msg.ok ? "bg-emerald-50 text-emerald-800" : "bg-red-50 text-red-800")}>{msg.text}</p>}
+      {msg && <p className={cn("mx-3 mb-2 rounded-[8px] p-2 text-xs", msg.ok ? "bg-emerald-50 text-emerald-800" : "bg-red-50 text-red-800")}>{msg.text}</p>}
       {open && (
         <div className="space-y-2.5 border-t px-3 pt-2.5 pb-3">
           <p className="flex flex-wrap gap-x-3 text-xs text-muted-foreground">
@@ -474,7 +474,7 @@ function ClassCard({ dayText, isToday, c, first, child, t, hasBus, tag, onReques
             ))}
           </div>
           {act === "leave" && (
-            <label className={cn("flex w-full items-center gap-2.5 rounded-lg border p-3 text-sm", leaveWaiting ? "opacity-50" : "cursor-pointer", leave && "border-primary bg-primary/5")}>
+            <label className={cn("flex w-full items-center gap-2.5 rounded-[8px] border p-3 text-sm", leaveWaiting ? "opacity-50" : "cursor-pointer", leave && "border-primary bg-primary/5")}>
               <Checkbox checked={leave} disabled={leaveWaiting} onCheckedChange={(v) => setLeave(!!v)} />{t.leaveThis}
             </label>
           )}
@@ -530,7 +530,7 @@ function CourseEnd({ cs, t, lang, onBack }: { cs: ParentCourseSummary; t: T; lan
   const block = (label: string, v: string) => {
     const ls = lines(v)
     return ls.length ? (
-      <div className="rounded-lg bg-card ring-1 ring-foreground/5 p-3 shadow-sm">
+      <div className="rounded-[8px] bg-card ring-1 ring-foreground/5 p-3 shadow-sm">
         <p className="mb-1 text-xs font-medium text-muted-foreground">{label}</p>
         <div className="space-y-1 text-sm">{ls.map((l, i) => <p key={i} className="flex items-start gap-1.5">{l.subject && !only && <span className={cn("shrink-0 rounded-full px-1.5 py-0.5 text-[11px]", subjectColor(l.subject).chip)}>{l.subject}</span>}<span>{l.text}</span></p>)}</div>
       </div>
@@ -539,7 +539,7 @@ function CourseEnd({ cs, t, lang, onBack }: { cs: ParentCourseSummary; t: T; lan
   return (
     <div className="space-y-3">
       <button type="button" onClick={onBack} className="flex items-center gap-1 px-1 text-sm text-muted-foreground"><ArrowLeftIcon className="size-4" />{t.back}</button>
-      <section className="rounded-lg bg-card ring-1 ring-foreground/5 p-3 shadow-sm">
+      <section className="rounded-[8px] bg-card ring-1 ring-foreground/5 p-3 shadow-sm">
         <p className="flex items-center gap-1.5 text-xs text-muted-foreground"><GraduationCapIcon className="size-3.5" />{t.courseEnd}</p>
         <p className="mt-0.5 text-lg font-semibold">{cs.course}</p>
         <p className="text-xs text-muted-foreground">{fmtDay(cs.from, lang)} – {fmtDay(cs.to, lang)}{cs.teacher && ` · ${t.by} ${cs.teacher}`}</p>
@@ -550,7 +550,7 @@ function CourseEnd({ cs, t, lang, onBack }: { cs: ParentCourseSummary; t: T; lan
       {block(t.overall, cs.overallProgress)}
       {block(t.strengths, cs.strengths)}
       {block(t.improve, cs.toImprove)}
-      <section className="space-y-2 rounded-lg bg-card ring-1 ring-foreground/5 p-3 shadow-sm">
+      <section className="space-y-2 rounded-[8px] bg-card ring-1 ring-foreground/5 p-3 shadow-sm">
         <p className="text-sm font-semibold">{t.progress}{only && ` · ${only}`}</p>
         <CourseProgress rows={rows} />
       </section>
@@ -591,10 +591,10 @@ function RequestTab({ paid, setLang, updatedAt, view, child, t, lang, today, onR
   const ready = mode === "exit" ? !!lastDate : mode === "home" ? !!homeLoc : mode === "return"
   return (
     <div className="space-y-3">
-      {msg && <p className={cn("rounded-lg p-3 text-sm", msg.ok ? "bg-emerald-50 text-emerald-800" : "bg-red-50 text-red-800")}>{msg.text}</p>}
+      {msg && <p className={cn("rounded-[8px] p-3 text-sm", msg.ok ? "bg-emerald-50 text-emerald-800" : "bg-red-50 text-red-800")}>{msg.text}</p>}
       {/* owner 2026-11-06: อื่นๆ is a LIST of what you can do — language (dropdown at the right) for everyone; the rest once the family has paid */}
       {!mode && (
-        <div className="divide-y overflow-hidden rounded-lg bg-card ring-1 ring-foreground/5">
+        <div className="divide-y overflow-hidden rounded-[8px] bg-card ring-1 ring-foreground/5">
           <div className="flex items-center gap-3 px-3 py-2.5">
             <span className="min-w-0 flex-1 font-medium">{t.language}</span>
             <NativeSelect className="w-32 shrink-0" value={lang} onChange={(e) => setLang(e.target.value as FormLang)} options={[{ value: "th", label: "ไทย" }, { value: "en", label: "English" }, { value: "ja", label: "日本語" }]} />
@@ -609,13 +609,13 @@ function RequestTab({ paid, setLang, updatedAt, view, child, t, lang, today, onR
         </div>
       )}
       {!mode ? null : (
-        <section className="space-y-3 rounded-lg bg-card ring-1 ring-foreground/5 p-3 shadow-sm">
+        <section className="space-y-3 rounded-[8px] bg-card ring-1 ring-foreground/5 p-3 shadow-sm">
           <button type="button" onClick={() => setMode(null)} className="flex items-center gap-1 text-sm text-muted-foreground"><ArrowLeftIcon className="size-4" />{t.back}</button>
           <p className="text-lg font-semibold">{mode === "return" ? t.returnReq : mode === "home" ? t.homeReq : t.exitReq}</p>
           {mode === "home" ? (
             <div className="space-y-2">
               <p className="text-xs text-muted-foreground">{view.home ? t.homeHave : t.homePick}</p>
-              <div className="h-64 overflow-hidden rounded-lg"><MapPin value={homeLoc} onChange={setHomeLoc} locateLabel={t.locate} /></div>
+              <div className="h-64 overflow-hidden rounded-[8px]"><MapPin value={homeLoc} onChange={setHomeLoc} locateLabel={t.locate} /></div>
               <div className="space-y-1.5"><Label>{t.homeNote}</Label>
                 <Input value={homeNote} onChange={(e) => setHomeNote(e.target.value)} placeholder={t.homeNotePh} />
               </div>
@@ -653,7 +653,7 @@ function RequestTab({ paid, setLang, updatedAt, view, child, t, lang, today, onR
         <section className="space-y-1.5">
           <p className="px-1 text-xs font-semibold text-muted-foreground">{t.myRequests}</p>
           {mine.map((r) => (
-            <article key={r.id} className="rounded-lg bg-card ring-1 ring-foreground/5 p-3 text-sm shadow-sm">
+            <article key={r.id} className="rounded-[8px] bg-card ring-1 ring-foreground/5 p-3 text-sm shadow-sm">
               <div className="flex items-center gap-2">
                 <span className="min-w-0 flex-1 font-medium">{r.kind === "leave" ? `${t.leaveReq} · ${t.classes(r.sessions?.length ?? 0)}` : r.kind === "return" ? t.returnReq : r.kind === "bus" ? t.busReq : r.kind === "home" ? t.homeReq : `${t.exitReq} · ${fmtDay(r.lastDate!, lang)}`}</span>
 <Pill tone={r.status === "new" ? "amber" : r.status === "done" ? "green" : "gray"}>{t[`st_${r.status}`]}</Pill>
@@ -675,5 +675,5 @@ function Catalog({ token, preview }: { token: string; preview?: CatalogToken }) 
 }
 
 function Empty({ text }: { text: string }) {
-  return <p className="rounded-lg border border-dashed bg-background p-8 text-center text-sm text-muted-foreground">{text}</p>
+  return <p className="rounded-[8px] border border-dashed bg-background p-8 text-center text-sm text-muted-foreground">{text}</p>
 }
