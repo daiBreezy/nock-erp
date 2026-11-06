@@ -228,4 +228,8 @@ export const KIT: Record<string, Entry> = {
   "ลองกดเล่นได้เลย — ใช้ครอบครัวตัวอย่าง · กด เริ่มใหม่ เพื่อกลับไปเริ่มต้น": { en: "Try it — uses a sample family · press Restart to start over", ja: "自由に試せます（サンプル家庭を使用）・「やり直す」で最初から" },
   "ความพึงพอใจประจำปี (NPS)": { en: "Annual satisfaction (NPS)", ja: "年次満足度調査（NPS）" },
   "แนะนำ NockAcademy ให้ผู้อื่น: ไม่แนะนำ / อาจจะแนะนำ / แนะนำแน่นอน *": { en: "Recommend NockAcademy to others: would not / maybe / definitely *", ja: "NockAcademyを他の人に勧める：勧めない／どちらとも／ぜひ勧める *" },
+  "ผู้ปกครองไปด้วย {0}": { en: "Parent rides along {0}", ja: "保護者が同乗 {0}" },
+  "+{0} เที่ยว {1}": { en: "+{0} trips {1}", ja: "+{0}便 {1}" },
+  "({0}/เที่ยว)": { en: "({0}/trip)", ja: "（1便{0}）" },
+  "ค่ารถเพิ่มเก็บในรายชื่อนักเรียน รวมในใบแจ้งหนี้รอบถัดไป": { en: "Extra rides are added to the student's list and charged on the next invoice", ja: "追加の送迎は生徒の一覧に追加され、次回の請求書に含まれます" },
 }

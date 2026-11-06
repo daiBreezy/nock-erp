@@ -187,7 +187,7 @@ export function ExitPanel({ stu, bare, preview }: { stu: Student; bare?: boolean
       <div className="flex flex-wrap justify-end gap-1.5">
         {!token && !ex.fromParentRequest && <Button size="sm" variant="outline" disabled={sending} onClick={sendNow}><SendIcon /> {sending ? "กำลังส่ง…" : "ส่งฟอร์มให้ผู้ปกครอง"}</Button>}
         <Button size="sm" variant="ghost" onClick={() => (preview ? report({ ok: true, value: undefined }, "ตัวอย่าง — กดจริงจะยกเลิกการแจ้งออก (นักเรียนเรียนต่อ)") : report(cancel(stu.id), `${stu.nickname} เรียนต่อ — ยกเลิกแจ้งออกแล้ว`))}><UndoIcon /> ไม่ออกแล้ว</Button>
-        <Button size="sm" onClick={() => (preview ? report({ ok: true, value: undefined }, "ตัวอย่าง — กดจริงจะเปิดหน้าปิดการออก (เหตุผล · เงินที่เหลือ · วันสุดท้าย)") : setClosing(true))}>{resp || ex.fromParentRequest ? "ปิดการออก" : "ปิดการออก (ไม่รอคำตอบ)"}</Button>
+        <Button size="sm" variant="destructive" onClick={() => (preview ? report({ ok: true, value: undefined }, "ตัวอย่าง — กดจริงจะเปิดหน้าปิดการออก (เหตุผล · เงินที่เหลือ · วันสุดท้าย)") : setClosing(true))}>{resp || ex.fromParentRequest ? "ปิดการออก" : "ปิดการออก (ไม่รอคำตอบ)"}</Button>
       </div>
       {closing && <CloseExitDialog stu={stu} response={resp} onClose={() => setClosing(false)} />}
     </section>

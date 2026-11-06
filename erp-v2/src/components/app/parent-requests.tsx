@@ -5,6 +5,7 @@
 import { useState } from "react"
 import dynamic from "next/dynamic"
 import { BusIcon, MapPinHouseIcon, UserIcon, CalendarOffIcon, CheckIcon, DoorOpenIcon, EllipsisIcon, RotateCcwIcon, XIcon } from "lucide-react"
+import { InfoTip } from "./info-tip"
 import { Pill } from "./badges"
 import { Confirmation, ConfirmationActions, ConfirmationBody, ConfirmationHeader, ConfirmationResult } from "@/components/ai-elements/confirmation"
 import { Button } from "@/components/ui/button"
@@ -178,35 +179,45 @@ export function RequestCard({ r, preview }: { r: ParentRequest; preview?: boolea
             })}
           </ul>
         ) : r.kind === "bus" ? (
-          <div className="space-y-1">
-            <ul className="space-y-1 text-xs">
-              {r.bus?.map((x) => {
-                return (
-                  <li key={x.date} className="flex flex-wrap items-center gap-1.5">
-                    <span className="w-28 shrink-0 font-medium">{`${fmtDate(x.date, { weekday: true })} ${x.start}`}</span>
+          // owner 2026-11-06: hierarchy — the day, then what changes that day (chips), then ONE line with the money; the rules live in an ⓘ
+          <div className="space-y-2">
+            <ul className="divide-y">
+              {r.bus?.map((x) => (
+                <li key={x.date} className="flex items-start gap-3 py-2 first:pt-0 last:pb-0">
+                  <span className="w-24 shrink-0 text-sm leading-6 font-semibold">{fmtDate(x.date, { weekday: true })}<span className="block text-xs font-normal text-muted-foreground">{x.start}</span></span>
+                  <span className="flex min-w-0 flex-1 flex-wrap items-center gap-1.5 text-xs">
                     {(["pickup", "dropoff"] as const).filter((leg) => x[leg]).map((leg) => {
                       const add = x[leg] === "add"
                       return (
-                        <span key={leg} className={cn("rounded-full px-2 py-0.5", add ? "bg-emerald-50 text-emerald-800" : "bg-red-50 text-red-700")}>
-                          {`${add ? "+ ขอ" : "✕ ยกเลิก"}${leg === "pickup" ? "รับ" : "ส่ง"}`}
+                        <span key={leg} className={cn("rounded-full px-2 py-0.5 font-medium", add ? "bg-emerald-50 text-emerald-800" : "bg-red-50 text-red-700")}>
+                          {`${add ? "+" : "✕"} ${leg === "pickup" ? "รับ" : "ส่ง"}`}
                           {add && <Seats leg={leg} date={x.date} need={1 + Number(!!x.adult)} />}
                         </span>
                       )
                     })}
                     {/* owner 2026-10-19: a parent riding along — one more seat on each leg the child rides, no charge */}
                     {withAdult.filter((l) => l.date === x.date).map((l) => (
-                      <span key="adult" className="flex items-center gap-1 rounded-full bg-violet-50 px-2 py-0.5 text-violet-800">
-                        <UserIcon className="size-3" />{`+ ผู้ปกครองไปด้วย (${[l.pickup && "รับ", l.dropoff && "ส่ง"].filter(Boolean).join("+")}) · ไม่คิดเงิน`}
+                      <span key="adult" className="flex items-center gap-1 rounded-full bg-violet-50 px-2 py-0.5 font-medium text-violet-800">
+                        <UserIcon className="size-3" />{`ผู้ปกครองไปด้วย ${[l.pickup && "รับ", l.dropoff && "ส่ง"].filter(Boolean).join("+")}`}
                         {(["pickup", "dropoff"] as const).filter((leg) => l[leg] && x[leg] !== "add").map((leg) => <Seats key={leg} leg={leg} date={x.date} need={2} />)}
                       </span>
                     ))}
-                  </li>
-                )
-              })}
+                  </span>
+                </li>
+              ))}
             </ul>
-            {withAdult.length > 0 && <p className="text-xs text-muted-foreground">ผู้ปกครองนั่งไปด้วย = ใช้ 1 ที่นั่งต่อเที่ยว ไม่คิดค่ารถ</p>}
-            {addTrips > 0 && <p className="text-xs text-muted-foreground">{`ค่ารถเพิ่ม ${addTrips} เที่ยว × ${fmtMoney(rate)} = ${fmtMoney(addTrips * rate)} → เก็บในรายชื่อนักเรียน รวมในใบแจ้งหนี้รอบถัดไป`}</p>}
-            {cancelTrips > 0 && <p className="text-xs text-muted-foreground">ยกเลิกรอบที่ยังไม่เรียกเก็บ = ไม่คิดเงิน · รอบที่จ่ายแล้ว = ไม่คืนเงิน</p>}
+            {(addTrips > 0 || cancelTrips > 0) && (
+              <p className="flex flex-wrap items-center gap-x-1.5 border-t pt-2 text-sm">
+                {addTrips > 0 && <span><b>{`+${addTrips} เที่ยว ${fmtMoney(addTrips * rate)}`}</b> <span className="text-muted-foreground">{`(${fmtMoney(rate)}/เที่ยว)`}</span></span>}
+                {addTrips > 0 && cancelTrips > 0 && <span className="text-muted-foreground">·</span>}
+                {cancelTrips > 0 && <span><b>{`ยกเลิก ${cancelTrips} เที่ยว`}</b></span>}
+                <InfoTip text={<span className="block space-y-1.5">
+                  {addTrips > 0 && <span className="block">ค่ารถเพิ่มเก็บในรายชื่อนักเรียน รวมในใบแจ้งหนี้รอบถัดไป</span>}
+                  {cancelTrips > 0 && <span className="block">ยกเลิกรอบที่ยังไม่เรียกเก็บ = ไม่คิดเงิน · รอบที่จ่ายแล้ว = ไม่คืนเงิน</span>}
+                  {withAdult.length > 0 && <span className="block">ผู้ปกครองนั่งไปด้วย = ใช้ 1 ที่นั่งต่อเที่ยว ไม่คิดค่ารถ</span>}
+                </span>} />
+              </p>
+            )}
           </div>
         ) : r.kind === "home" && r.home ? (
           <div className="space-y-1.5 text-xs">

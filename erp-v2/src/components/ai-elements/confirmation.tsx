@@ -46,7 +46,7 @@ export function ConfirmationBody({ className, ...props }: React.ComponentProps<"
 }
 
 export function ConfirmationActions({ className, ...props }: React.ComponentProps<"div">) {
-  return <div data-slot="confirmation-actions" className={cn("flex items-center justify-end gap-1.5 border-t bg-muted/30 px-3.5 py-2.5", className)} {...props} />
+  return <div data-slot="confirmation-actions" className={cn("flex flex-wrap items-center justify-end gap-1.5 border-t bg-muted/30 px-3.5 py-2.5", className)} {...props} />
 }
 
 export function ConfirmationResult({ className, ...props }: React.ComponentProps<"div">) {
