@@ -78,7 +78,7 @@ export function EnrollSubmissionChatCard({ message, conversation }: { message: C
       <Confirmation state={state} className="max-w-md">
         <ConfirmationHeader state={state} icon={<UserPlusIcon />} label={!sub ? (subs ? "ไม่พบใบสมัคร" : "กำลังโหลด…") : sub.status === "pending" ? "รอสร้างนักเรียน" : sub.status === "approved" ? "สร้างนักเรียนแล้ว" : "ปิดใบสมัคร"}
           title={<>ผู้ปกครองส่งใบสมัครเรียน <span className="font-normal text-muted-foreground">· {fmtDateTime(message.at)}</span></>} />
-        <ConfirmationBody className="pl-[3.25rem] text-xs text-muted-foreground">
+        <ConfirmationBody className="text-xs text-muted-foreground">
           {sub ? sub.children.map((c, i) => <p key={i}><span className="font-medium text-foreground">{c.nickname || c.name}</span> · {c.grade}{c.classIds?.length ? ` · ${c.classIds.length} คลาส` : ""} · เริ่ม {fmtDate(c.startDate, { weekday: true })}{c.bus ? " · รถรับส่ง" : ""}</p>) : message.text.replace("📝 ", "")}
         </ConfirmationBody>
         {sub?.status === "pending" && (

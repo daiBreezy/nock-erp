@@ -1,6 +1,7 @@
 "use client"
 
 import { CheckCircle2Icon, CircleDashedIcon, ClockIcon, XCircleIcon } from "lucide-react"
+import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card"
 import { cn } from "@/lib/utils"
 
 // AI Elements "Confirmation" (ui.shadcn.com/docs/ai-elements/confirmation) — a card that asks to approve or deny before
@@ -30,13 +31,17 @@ export function Confirmation({ state, className, ...props }: React.ComponentProp
   )
 }
 
-export function ConfirmationHeader({ icon, title, state, label, className }: { icon?: React.ReactNode; title: React.ReactNode; state: ConfirmationState; label?: string; className?: string }) {
+/** owner 2026-11-06: no leading type icon (it only pushed the body to the right) — the state is an icon at the end, its words on hover */
+export function ConfirmationHeader({ title, state, label, className }: { icon?: React.ReactNode; title: React.ReactNode; state: ConfirmationState; label?: string; className?: string }) {
   const s = STATE[state]
+  const words = label ?? s.label
   return (
     <div data-slot="confirmation-header" className={cn("flex items-center gap-2 px-3.5 pt-3", className)}>
-      {icon && <span aria-hidden className="grid size-7 shrink-0 place-items-center rounded-full bg-muted text-muted-foreground [&>svg]:size-3.5">{icon}</span>}
       <span className="min-w-0 flex-1 truncate font-medium">{title}</span>
-      <span className={cn("flex shrink-0 items-center gap-1 text-xs font-medium [&>svg]:size-3.5", s.tone)}>{s.icon}{label ?? s.label}</span>
+      <HoverCard>
+        <HoverCardTrigger render={<span role="img" aria-label={words} tabIndex={0} className={cn("grid size-6 shrink-0 place-items-center rounded-full [&>svg]:size-4", s.tone)} />}>{s.icon}</HoverCardTrigger>
+        <HoverCardContent side="bottom" align="end" className="w-auto px-3 py-1.5 text-xs">{words}</HoverCardContent>
+      </HoverCard>
     </div>
   )
 }
