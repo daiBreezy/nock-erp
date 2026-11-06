@@ -183,9 +183,9 @@ export function RequestCard({ r, preview }: { r: ParentRequest; preview?: boolea
           <div className="space-y-2">
             <ul className="divide-y">
               {r.bus?.map((x) => (
-                <li key={x.date} className="flex items-start gap-3 py-2 first:pt-0 last:pb-0">
-                  <span className="w-20 shrink-0 text-sm leading-6 font-semibold">{fmtDate(x.date, { weekday: true })}<span className="block text-xs font-normal text-muted-foreground">{x.start}</span></span>
-                  <span className="flex min-w-0 flex-1 flex-col items-start gap-1 text-xs">
+                <li key={x.date} className="space-y-1.5 py-2.5 first:pt-0 last:pb-0">
+                  <span className="block text-sm font-semibold">{fmtDate(x.date, { weekday: true })}<span className="ml-1.5 text-xs font-normal text-muted-foreground">{x.start}</span></span>
+                  <span className="flex flex-col items-start gap-1 text-xs">
                     {(["pickup", "dropoff"] as const).filter((leg) => x[leg]).map((leg) => {
                       const add = x[leg] === "add"
                       return (
