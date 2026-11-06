@@ -5,6 +5,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { toDateStr } from "@/domain/dates"
 import type { Family } from "@/domain/types"
 import { buildParentView } from "@/lib/parent-app"
+import { catalogSnapshot } from "@/lib/forms"
 import { useMemo } from "react"
 import { useShallow } from "zustand/react/shallow"
 import { useNow } from "@/lib/hooks"
@@ -16,6 +17,7 @@ export function ParentPreview({ family, onClose }: { family: Family; onClose: ()
   // rebuilt when the data a parent sees changes
   const deps = useStore(useShallow((s) => [s.sessions, s.attendance, s.summaries, s.students, s.invoices, s.busAddOns, s.entitlements]))
   const view = useMemo(() => buildParentView(family), [family, deps]) // eslint-disable-line react-hooks/exhaustive-deps
+  const catalog = useMemo(() => { const b = view.children[0] ? useStore.getState().students.find((x) => x.id === view.children[0].id)?.branchId : undefined; const t = new Date().toISOString(); return b ? { token: "preview", kind: "catalog" as const, ...catalogSnapshot(b), createdAt: t, updatedAt: t } : undefined }, [view])
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()}>
       <DialogContent className="lg:max-w-md">
@@ -28,7 +30,7 @@ export function ParentPreview({ family, onClose }: { family: Family; onClose: ()
           </DialogDescription>
         </DialogHeader>
         <div className="relative mx-auto h-[640px] w-full max-w-[375px] overflow-y-auto rounded-[2rem] border-8 border-foreground/80">
-          <ParentApp view={view} today={toDateStr(now)} framed />
+          <ParentApp view={view} today={toDateStr(now)} framed catalogPreview={catalog} />
         </div>
       </DialogContent>
     </Dialog>

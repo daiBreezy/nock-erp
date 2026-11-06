@@ -4,15 +4,16 @@
 // so the same screen runs on the parent's phone (/liff/parent) and in the staff preview (Family › ดูแบบผู้ปกครอง).
 import { useState } from "react"
 import dynamic from "next/dynamic"
-import { ArrowLeftIcon, ChevronDownIcon, RotateCcwIcon, CalendarOffIcon, ClipboardPenIcon, LoaderCircleIcon, BusIcon, MapPinHouseIcon, CalendarDaysIcon, CheckIcon, ChevronRightIcon, GraduationCapIcon, ClockIcon, DoorOpenIcon, MessageSquareTextIcon, PackageIcon, UserIcon, XIcon } from "lucide-react"
+import { ArrowLeftIcon, BookOpenIcon, ChevronDownIcon, RotateCcwIcon, CalendarOffIcon, ClipboardPenIcon, LoaderCircleIcon, BusIcon, MapPinHouseIcon, CalendarDaysIcon, CheckIcon, ChevronRightIcon, GraduationCapIcon, ClockIcon, DoorOpenIcon, MessageSquareTextIcon, PackageIcon, UserIcon, XIcon } from "lucide-react"
 import type { ParentChild, ParentCourseSummary, ParentView } from "@/domain/rules/parent-view"
 import { progressForSubject } from "@/domain/rules/summaries"
 import { CourseProgress } from "@/components/app/course-progress"
 import { subjectColor } from "@/components/app/subject-color"
-import type { FormLang, ParentRequest } from "@/domain/types"
+import type { CatalogToken, FormLang, ParentRequest } from "@/domain/types"
 import { cn } from "@/lib/utils"
 
 // the map loads only when a parent opens "ปักหมุดบ้าน" (Leaflet is big — the rest of the app stays light in LINE)
+const CatalogApp = dynamic(() => import("@/app/liff/catalog/catalog-app").then((m) => m.CatalogApp), { ssr: false, loading: () => <div className="h-40 animate-pulse rounded-2xl bg-muted" /> })
 const MapPin = dynamic(() => import("@/app/liff/form/map-pin").then((m) => m.MapPin), { ssr: false, loading: () => <div className="h-full animate-pulse rounded-xl bg-muted" /> })
 
 const DICT = {
@@ -34,6 +35,7 @@ const DICT = {
     busReq: "ขอ / ยกเลิกรอบรถ", busReqSub: "ขอรถรับ-ส่งเพิ่ม หรือยกเลิกรอบที่ไม่ใช้", busPick: "แตะ รับ / ส่ง ของแต่ละวัน เพื่อขอเพิ่มหรือยกเลิก",
     busAdd: "ขอเพิ่ม", busCancel: "ยกเลิก", busCost: "รอบที่ขอเพิ่มคิดค่ารถในใบแจ้งหนี้รอบถัดไป · ยกเลิกรอบที่จ่ายแล้วไม่คืนเงิน", trips: (n: number) => `${n} เที่ยว`,
     adult: "ผู้ปกครอง", adultGo: "ผู้ปกครองไปด้วย", adultNote: "ผู้ปกครองนั่งรถไปด้วยได้ ไม่คิดค่ารถ (ใช้ 1 ที่นั่ง)",
+    catalog: "Catalog", catalogOff: "ยังไม่มีแคตตาล็อกของสาขานี้ — ถามแอดมินได้เลยค่ะ", pastTab: "ผ่านไปแล้ว", seq: (n: number, t: number) => `คาบที่ ${n}/${t}`, noSummaryYet: "ครูยังไม่ได้ส่งสรุปของคาบนี้", chipLeave: "แจ้งลา", chipBus: "ขอรถรับ-ส่ง",
     study: "การเรียน", all: "ทั้งหมด", upcomingH: "คาบที่จะถึง", pastH: "คาบที่ผ่านมา", manage: "แจ้งลา / รถรับ-ส่ง", leaveThis: "แจ้งลาคาบนี้", waiting: "รอแอดมิน", leaveSent: "แจ้งลาแล้ว", busSent: "ขอรถแล้ว", ridesOf: "รถรับ-ส่งของวันนั้น", pickAny: "เลือกสิ่งที่ต้องการแจ้ง", showAll: "ดูทั้งหมด", hide: "ซ่อน",
   },
   en: {
@@ -54,6 +56,7 @@ const DICT = {
     busReq: "Add / cancel bus rides", busReqSub: "Ask for extra pick-ups / drop-offs, or cancel ones you don't need", busPick: "Tap Pick-up / Drop-off on a day to add or cancel it",
     busAdd: "Add", busCancel: "Cancel", busCost: "Extra rides are charged on the next invoice · paid rides you cancel aren't refunded", trips: (n: number) => `${n} ride${n > 1 ? "s" : ""}`,
     adult: "Parent", adultGo: "Parent rides along", adultNote: "A parent can ride along for free (takes 1 seat)",
+    catalog: "Catalog", catalogOff: "No catalog for this branch yet — please ask our staff", pastTab: "Past", seq: (n: number, t: number) => `Class ${n}/${t}`, noSummaryYet: "No summary sent for this class yet", chipLeave: "Absence", chipBus: "Bus",
     study: "Learning", all: "All", upcomingH: "Upcoming classes", pastH: "Past classes", manage: "Absence / bus", leaveThis: "Report absence for this class", waiting: "Waiting", leaveSent: "Absence sent", busSent: "Bus asked", ridesOf: "Bus on that day", pickAny: "Pick what to send", showAll: "Show all", hide: "Hide",
   },
   ja: {
@@ -74,6 +77,7 @@ const DICT = {
     busReq: "送迎の追加／キャンセル", busReqSub: "送迎の追加依頼、または不要な便のキャンセル", busPick: "日ごとに「お迎え／お送り」をタップして追加・キャンセル",
     busAdd: "追加", busCancel: "キャンセル", busCost: "追加分は次回の請求書に加算・支払い済みの便のキャンセルは返金なし", trips: (n: number) => `${n}便`,
     adult: "保護者", adultGo: "保護者も同乗", adultNote: "保護者の同乗は無料です（1席使用）",
+    catalog: "Catalog", catalogOff: "この校舎のカタログはまだありません — スタッフにお尋ねください", pastTab: "終了", seq: (n: number, t: number) => `第${n}回/${t}`, noSummaryYet: "この授業のレポートはまだ送られていません", chipLeave: "欠席", chipBus: "送迎",
     study: "学習", all: "すべて", upcomingH: "これからの授業", pastH: "これまでの授業", manage: "欠席／送迎", leaveThis: "この授業を欠席する", waiting: "確認待ち", leaveSent: "欠席連絡済み", busSent: "送迎依頼済み", ridesOf: "その日の送迎", pickAny: "連絡する内容を選択", showAll: "すべて表示", hide: "閉じる",
   },
 }
@@ -89,7 +93,7 @@ function fmtDay(date: string, lang: FormLang) {
   return `${DAYS[lang][w]} ${d} ${MONTHS[lang as "th" | "en"][m - 1]}`
 }
 
-type Tab = "study" | "request"
+type Tab = "study" | "catalog" | "request"
 
 /** what the parent sends — the LIFF page posts it with LINE's proof of who they are */
 export type BusAsk = { date: string; pickup?: "add" | "cancel"; dropoff?: "add" | "cancel"; adult?: boolean }
@@ -99,7 +103,9 @@ export type ParentRequestInput = { kind: "leave"; studentId: string; sessionIds:
   | { kind: "home"; studentId: string; home: { lat: number; lng: number; addressNote?: string }; note?: string }
 
 /** `framed` = inside the staff preview's phone frame: the tab bar sticks to the frame, not the browser window */
-export function ParentApp({ view, lang: initialLang, today, framed, openCourseSummary, onRequest, requests, openAction }: { view: ParentView; lang?: FormLang; today: string; framed?: boolean
+export function ParentApp({ view, lang: initialLang, today, framed, openCourseSummary, onRequest, requests, openAction, catalogPreview }: { view: ParentView; lang?: FormLang; today: string; framed?: boolean
+  /** staff preview: the branch catalog built from this browser's data (a parent's phone uses view.catalogToken) */
+  catalogPreview?: CatalogToken
   /** opened from the สรุปจบคอร์ส LINE message (…&cs=<id>) — go straight to it */
   openCourseSummary?: string
   /** แจ้งลา / แจ้งลาออก (owner 2026-10-14) — unset in the staff preview (the forms show, nothing is sent) */
@@ -126,6 +132,7 @@ export function ParentApp({ view, lang: initialLang, today, framed, openCourseSu
   // owner 2026-11-06: schedule + attendance + summaries + bus are ONE page; absences and bus asks live on each class row
   const tabs: { key: Tab; label: string; icon: typeof CalendarDaysIcon }[] = [
     { key: "study", label: t.study, icon: CalendarDaysIcon },
+    { key: "catalog", label: t.catalog, icon: BookOpenIcon },
     { key: "request", label: t.request, icon: ClipboardPenIcon },
   ]
 
@@ -162,6 +169,7 @@ export function ParentApp({ view, lang: initialLang, today, framed, openCourseSu
         )}
         {!child ? null : tab === "study"
           ? <Study key={child.id} view={view} child={child} t={t} lang={lang} dayLabel={dayLabel} csId={csId} setCsId={setCsId} onRequest={onRequest} requests={requests} onReturn={() => setTab("request")} />
+          : tab === "catalog" ? (view.catalogToken || catalogPreview ? <Catalog token={view.catalogToken ?? ""} preview={catalogPreview} /> : <Empty text={t.catalogOff} />)
           : <RequestTab key={`${child.id}|${ask ?? ""}`} view={view} child={child} t={t} lang={lang} today={today} onRequest={onRequest} requests={requests} initial={ask} />}
         <p className="pt-2 text-center text-[11px] text-muted-foreground">{t.updated} {(() => { const g = new Date(view.generatedAt); return `${fmtDay(`${g.getFullYear()}-${String(g.getMonth() + 1).padStart(2, "0")}-${String(g.getDate()).padStart(2, "0")}`, lang)} ${String(g.getHours()).padStart(2, "0")}:${String(g.getMinutes()).padStart(2, "0")}` })()}</p>
       </main>
@@ -185,7 +193,7 @@ function Study({ child, t, lang, dayLabel, csId, setCsId, onRequest, requests, o
   onRequest?: (input: ParentRequestInput) => Promise<{ ok: boolean; error?: string }>; requests?: ParentRequest[]; onReturn: () => void
 }) {
   const [course, setCourse] = useState("")
-  const [showPast, setShowPast] = useState(false)
+  const [view, setView] = useState<"all" | "past">("all")
   const open = csId ? child.courseSummaries?.find((x) => x.id === csId) : undefined
   if (open) return <CourseEnd cs={open} t={t} lang={lang} onBack={() => setCsId(null)} />
   const hasBus = child.brand === "liclass" || child.busDays.length > 0
@@ -222,6 +230,13 @@ function Study({ child, t, lang, dayLabel, csId, setCsId, onRequest, requests, o
           ))}
         </div>
       )}
+      <div className="flex rounded-full bg-muted p-1">
+        {([["all", t.all], ["past", t.pastTab]] as const).map(([k, label]) => (
+          <button key={k} type="button" onClick={() => setView(k)} className={cn("flex-1 rounded-full px-3 py-1.5 text-sm", view === k ? "bg-background font-medium shadow-sm" : "text-muted-foreground")}>{label}{k === "past" && <span className="ml-1 text-xs text-muted-foreground">{past.length}</span>}</button>
+        ))}
+      </div>
+      {view === "all" && (
+        <>
       {!child.left && (
         <>
           <p className="px-1 pt-1 text-sm font-semibold">{t.upcomingH}</p>
@@ -261,39 +276,48 @@ function Study({ child, t, lang, dayLabel, csId, setCsId, onRequest, requests, o
           ))}
         </section>
       )}
-      <button type="button" aria-expanded={showPast} onClick={() => setShowPast(!showPast)} className="flex w-full items-center gap-2 rounded-2xl bg-background px-3 py-2.5 text-left text-sm font-semibold shadow-sm">
-        <span className="min-w-0 flex-1">{t.pastH} <span className="font-normal text-muted-foreground">({past.length}{attendance.length > 0 ? ` · ${t.rate} ${present}/${attendance.length}` : ""})</span></span>
-        <ChevronDownIcon className={cn("size-4 text-muted-foreground transition-transform", showPast && "rotate-180")} />
-      </button>
-      {showPast && (past.length === 0 ? <Empty text={t.noAttendance} /> : (
-        <ul className="divide-y overflow-hidden rounded-2xl bg-background shadow-sm">
-          {past.map((r, i) => <PastRow key={`${r.date}${r.start}${i}`} r={r} t={t} lang={lang} tag={many && !course ? courseName(r.courseId) : undefined} />)}
-        </ul>
-      ))}
+        </>
+      )}
+      {view === "past" && (
+        <>
+          {attendance.length > 0 && (
+            <section className="rounded-2xl bg-background p-3 text-center shadow-sm">
+              <p className="text-xs text-muted-foreground">{t.rate}</p>
+              <p className="text-2xl font-semibold tabular-nums">{present} / {attendance.length}</p>
+            </section>
+          )}
+          {past.length === 0 ? <Empty text={t.noAttendance} /> : (
+            <ul className="space-y-1.5">
+              {past.map((r, i) => <PastRow key={`${r.date}${r.start}${i}`} r={r} t={t} lang={lang} tag={many && !course ? courseName(r.courseId) : undefined} />)}
+            </ul>
+          )}
+        </>
+      )}
     </>
   )
 }
 
 function PastRow({ r, t, lang, tag }: { r: { date: string; start: string; subjects: string[]; status?: "present" | "absent" | "leave"; sum?: { teacher: string; text: string; detail?: string } }; t: T; lang: FormLang; tag?: string }) {
-  const [open, setOpen] = useState(false)
   const tone = { present: "bg-emerald-100 text-emerald-800", absent: "bg-red-100 text-red-800", leave: "bg-amber-100 text-amber-900" }
   return (
-    <li className="px-3 py-2 text-sm">
+    <li className="rounded-2xl bg-background p-3 text-sm shadow-sm">
       <div className="flex items-center gap-2">
-        <span className="w-28 shrink-0 text-xs text-muted-foreground">{fmtDay(r.date, lang)} {r.start}</span>
-        <span className="min-w-0 flex-1 truncate">{r.subjects.join(" + ")}{tag && <span className="ml-1.5 text-[11px] text-muted-foreground">{tag}</span>}</span>
+        <span className="min-w-0 flex-1">
+          <span className="block truncate font-medium">{r.subjects.join(" + ")}{tag && <span className="ml-1.5 text-[11px] font-normal text-muted-foreground">{tag}</span>}</span>
+          <span className="block text-xs text-muted-foreground">{fmtDay(r.date, lang)} {r.start}</span>
+        </span>
         {r.status && <span className={cn("flex items-center gap-1 rounded-full px-2 py-0.5 text-xs", tone[r.status])}>{r.status === "present" ? <CheckIcon className="size-3" /> : r.status === "absent" ? <XIcon className="size-3" /> : <ClockIcon className="size-3" />}{t[r.status]}</span>}
       </div>
-      {r.sum && (
-        <button type="button" onClick={() => setOpen(!open)} className="mt-1 flex w-full items-start gap-1.5 rounded-xl bg-muted/50 p-2 text-left text-xs">
-          <MessageSquareTextIcon className="mt-0.5 size-3.5 shrink-0 text-muted-foreground" />
+      <div className="mt-2 flex items-start gap-1.5 rounded-xl bg-muted/50 p-2 text-xs">
+        <MessageSquareTextIcon className="mt-0.5 size-3.5 shrink-0 text-muted-foreground" />
+        {r.sum ? (
           <span className="min-w-0 flex-1">
             {r.sum.detail && <span className="block font-medium">{r.sum.detail}</span>}
-            <span className={cn("block whitespace-pre-line", !open && "line-clamp-2")}>{r.sum.text}</span>
-            {open && r.sum.teacher && <span className="mt-0.5 block text-muted-foreground">{t.teacher} {r.sum.teacher}</span>}
+            <span className="block whitespace-pre-line">{r.sum.text}</span>
+            {r.sum.teacher && <span className="mt-0.5 block text-muted-foreground">{t.teacher} {r.sum.teacher}</span>}
           </span>
-        </button>
-      )}
+        ) : <span className="text-muted-foreground">{t.noSummaryYet}</span>}
+      </div>
     </li>
   )
 }
@@ -306,6 +330,7 @@ function ClassCard({ c, first, child, t, hasBus, tag, onRequest, requests }: {
   onRequest?: (input: ParentRequestInput) => Promise<{ ok: boolean; error?: string }>; requests?: ParentRequest[]
 }) {
   const [open, setOpen] = useState(false)
+  const [act, setAct] = useState<"leave" | "bus" | null>(null)
   const [leave, setLeave] = useState(false)
   const [ride, setRide] = useState<Ride>({})
   const [note, setNote] = useState("")
@@ -321,6 +346,7 @@ function ClassCard({ c, first, child, t, hasBus, tag, onRequest, requests }: {
   const rideChanged = !!(ride.pickup || ride.dropoff || (ride.adult && canAdult))
   const ready = (leave && !leaveWaiting) || rideChanged
   const canAct = !c.cancelled
+  const courseLabel = child.courses.find((x) => x.id === c.courseId)?.name
   const send = async () => {
     if (!onRequest) return
     setBusy(true)
@@ -329,18 +355,17 @@ function ClassCard({ c, first, child, t, hasBus, tag, onRequest, requests }: {
     if (r.ok && rideChanged) r = await onRequest({ kind: "bus", studentId: child.id, bus: [{ date: c.date, ...ride, adult: canAdult ? ride.adult : undefined }], note })
     setBusy(false)
     setMsg(r.ok ? { ok: true, text: t.sent } : { ok: false, text: r.error ?? "ส่งไม่สำเร็จ" })
-    if (r.ok) { setLeave(false); setRide({}); setNote(""); setOpen(false) }
+    if (r.ok) { setLeave(false); setRide({}); setNote(""); setAct(null); setOpen(false) }
   }
   return (
     <article className={cn("rounded-2xl bg-background shadow-sm", c.cancelled && "opacity-60")}>
       <button type="button" aria-expanded={open} onClick={() => { setOpen(!open); setMsg(null) }} className="flex w-full items-center gap-2.5 px-3 py-2 text-left">
-        <span className="w-[4.5rem] shrink-0 text-sm font-semibold tabular-nums">{c.start}<span className="font-normal text-muted-foreground">–{c.end}</span></span>
+        <span className="shrink-0 whitespace-nowrap text-sm font-semibold tabular-nums">{c.start}<span className="font-normal text-muted-foreground">–{c.end}</span></span>
         <span className="min-w-0 flex-1">
           <span className={cn("block truncate text-sm font-medium", c.cancelled && "line-through")}>{c.subjects.join(" + ")}{tag && <span className="ml-1.5 text-[11px] font-normal text-muted-foreground">{tag}</span>}</span>
           {c.cancelled && <span className="block text-xs font-medium text-red-700">{t.cancelled}{c.cancelReason ? ` · ${c.cancelReason}` : ""}</span>}
-          {(!c.cancelled && c.bus) || leaveWaiting || busWaiting ? (
+          {leaveWaiting || busWaiting ? (
             <span className="mt-0.5 flex flex-wrap gap-1">
-              {!c.cancelled && c.bus && <BusChips bus={c.bus} t={t} />}
               {leaveWaiting && <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[11px] text-amber-900">{t.leaveSent} · {t.waiting}</span>}
               {busWaiting && <span className="rounded-full bg-sky-100 px-2 py-0.5 text-[11px] text-sky-800">{t.busSent} · {t.waiting}</span>}
             </span>
@@ -355,14 +380,22 @@ function ClassCard({ c, first, child, t, hasBus, tag, onRequest, requests }: {
             {c.teachers.length > 0 && <span className="flex items-center gap-1"><UserIcon className="size-3" />{t.teacher} {c.teachers.join(", ")}</span>}
             {c.room && <span className="flex items-center gap-1"><DoorOpenIcon className="size-3" />{c.room}</span>}
           </p>
+          {(courseLabel || c.seq) && <p className="-mt-1.5 text-[11px] text-muted-foreground">{[courseLabel, c.seq && t.seq(c.seq.n, c.seq.total)].filter(Boolean).join(" · ")}</p>}
+          {!c.cancelled && c.bus && <BusChips bus={c.bus} t={t} />}
           {canAct && (
             <>
-          <p className="text-xs text-muted-foreground">{t.pickAny}</p>
+          <div className="flex gap-1.5">
+            {([["leave", t.chipLeave, CalendarOffIcon], ...(hasBus && first ? [["bus", t.chipBus, BusIcon]] as const : [])] as const).map(([k, label, Icon]) => (
+              <button key={k} type="button" aria-pressed={act === k} onClick={() => setAct(act === k ? null : k)} className={cn("flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm ring-1", act === k ? "bg-primary/10 font-medium text-primary ring-primary/40" : "text-muted-foreground ring-foreground/15")}><Icon className="size-3.5" />{label}</button>
+            ))}
+          </div>
+          {act === "leave" && (
           <button type="button" disabled={leaveWaiting} onClick={() => setLeave(!leave)} className={cn("flex w-full items-center gap-2.5 rounded-xl p-2.5 text-left text-sm ring-1 disabled:opacity-50", leave ? "bg-amber-50 ring-amber-400" : "ring-foreground/10")}>
             <span className={cn("grid size-5 shrink-0 place-items-center rounded-md border", leave ? "border-amber-500 bg-amber-500 text-white" : "border-muted-foreground/40")}>{leave && <CheckIcon className="size-3.5" />}</span>
             <CalendarOffIcon className="size-4 text-amber-700" />{t.leaveThis}
           </button>
-          {hasBus && first && (
+          )}
+          {act === "bus" && hasBus && first && (
             <div className="space-y-1.5">
               <p className="text-xs font-medium text-muted-foreground">{t.ridesOf}</p>
               <div className="flex flex-wrap items-center gap-2">
@@ -386,10 +419,10 @@ function ClassCard({ c, first, child, t, hasBus, tag, onRequest, requests }: {
               <p className="rounded-xl bg-amber-50 p-2 text-xs text-amber-900">{t.busCost} · {t.adultNote}</p>
             </div>
           )}
-          <textarea rows={2} value={note} onChange={(e) => setNote(e.target.value)} placeholder={t.noteLabel} className="w-full rounded-xl border bg-background p-2.5 text-sm" />
-          <button type="button" disabled={!ready || busy || !onRequest} onClick={send} className="flex h-10 w-full items-center justify-center gap-2 rounded-full bg-primary text-sm font-medium text-primary-foreground disabled:opacity-50">
+          {act && <textarea rows={2} value={note} onChange={(e) => setNote(e.target.value)} placeholder={t.noteLabel} className="w-full rounded-xl border bg-background p-2.5 text-sm" />}
+          {act && <button type="button" disabled={!ready || busy || !onRequest} onClick={send} className="flex h-10 w-full items-center justify-center gap-2 rounded-full bg-primary text-sm font-medium text-primary-foreground disabled:opacity-50">
             {busy && <LoaderCircleIcon className="size-4 animate-spin" />}{!onRequest ? t.preview : busy ? t.sending : t.send}
-          </button>
+          </button>}
             </>
           )}
         </div>
@@ -555,6 +588,10 @@ function RequestTab({ view, child, t, lang, today, onRequest, requests, initial 
       )}
     </div>
   )
+}
+
+function Catalog({ token, preview }: { token: string; preview?: CatalogToken }) {
+  return <div className="-mx-3 -mt-3"><CatalogApp token={token} preview={preview} /></div>
 }
 
 function Empty({ text }: { text: string }) {

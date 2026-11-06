@@ -35,7 +35,7 @@ export function usePublishParentViews() {
     kick()
     const unsub = useStore.subscribe((s, prev) => {
       if (s.sessions !== prev.sessions || s.attendance !== prev.attendance || s.summaries !== prev.summaries || s.families !== prev.families ||
-        s.students !== prev.students || s.invoices !== prev.invoices || s.busAddOns !== prev.busAddOns || s.entitlements !== prev.entitlements || s.courseSummaries !== prev.courseSummaries) kick()
+        s.students !== prev.students || s.invoices !== prev.invoices || s.busAddOns !== prev.busAddOns || s.entitlements !== prev.entitlements || s.branches !== prev.branches || s.courseSummaries !== prev.courseSummaries) kick()
     })
     return () => { clearTimeout(timer); unsub() }
   }, [])

@@ -11,6 +11,8 @@ export interface ParentClass {
   sessionId: ID
   /** the course (package) that pays for this class — the parent app filters by it (owner 2026-11-06) */
   courseId?: ID
+  /** "คาบที่ n / total" of the package that pays for it */
+  seq?: { n: number; total: number }
   date: DateStr
   start: TimeStr
   end: TimeStr
@@ -73,6 +75,8 @@ export interface ParentView {
   generatedAt: string
   /** reasons a parent can pick on แจ้งลาออก (owner 2026-10-14) — the same list the office closes an exit with */
   exitReasons?: { id: ID; label: string; en?: string; ja?: string }[]
+  /** the branch's published catalog link (the parent app's Catalog tab reads it) */
+  catalogToken?: string
   /** the house pin the school has for the bus (owner 2026-10-19) — the parent can send it / move it */
   home?: { lat: number; lng: number; addressNote?: string }
 }
@@ -125,12 +129,21 @@ export function parentView(family: Family, ctx: ParentCtx): ParentView {
     const bus = busDaysOf(stu.id, ctx.invoices, ctx.busAddOns)
     const myEnts = ctx.entitlements.filter((e) => e.studentId === stu.id)
     const courseOf = (s: Session) => myEnts.find((e) => packageCovers(e, s))?.courseId
+    const covered = new Map<ID, Session[]>()
+    const seqOf = (s: Session) => {
+      const e = myEnts.find((x) => packageCovers(x, s))
+      if (!e) return undefined
+      if (!covered.has(e.id)) covered.set(e.id, mine.filter((x) => !x.cancelled && packageCovers(e, x)).sort((a, b) => (a.date + a.start).localeCompare(b.date + b.start)))
+      const list = covered.get(e.id)!
+      const i = list.findIndex((x) => x.id === s.id)
+      return i < 0 ? undefined : { n: i + 1, total: list.length }
+    }
     const upcoming = mine
       .filter((s) => s.date >= today && s.date <= horizon && !s.pausedBy && (sessionState(s, ctx.now) !== "closed"))
       .filter((s) => !(s.cancelled && s.date < today))
       .sort((a, b) => (a.date + a.start).localeCompare(b.date + b.start))
       .map((s) => ({
-        sessionId: s.id, courseId: courseOf(s), date: s.date, start: s.start, end: endTime(s.start, s.minutes), subjects: subjectsOf(s),
+        sessionId: s.id, courseId: courseOf(s), seq: seqOf(s), date: s.date, start: s.start, end: endTime(s.start, s.minutes), subjects: subjectsOf(s),
         className: ctx.classes.find((k) => k.id === s.classId)?.name ?? subjectsOf(s).join(" + "),
         teachers: teachersOf(s).map(teacher).filter(Boolean),
         room: branch?.rooms.find((r) => r.id === s.roomId)?.name ?? null,
@@ -189,6 +202,7 @@ export function parentView(family: Family, ctx: ParentCtx): ParentView {
     familyId: family.id, familyName: family.name, familyNameEn: family.nameEn,
     home: family.location ? { ...family.location, addressNote: family.addressNote } : undefined,
     lineUserIds: family.lineUserId ? [family.lineUserId] : [],
+    catalogToken: ctx.branches.find((b) => b.id === kids[0]?.branchId)?.catalogLink?.token,
     children, generatedAt: ctx.now.toISOString(), exitReasons: ctx.exitReasons,
   }
 }
