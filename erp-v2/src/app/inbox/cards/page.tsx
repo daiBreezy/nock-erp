@@ -61,9 +61,6 @@ function Outcome({ children }: { children: React.ReactNode }) {
   return <p className="rounded-2xl border border-dashed p-4 text-sm text-muted-foreground">{children}</p>
 }
 
-/** a small grey caption above each example */
-const Label = ({ children }: { children: React.ReactNode }) => <p className="pt-4 text-xs font-medium text-muted-foreground">{children}</p>
-
 export default function InboxCardsPreview() {
   const now = useNow(60_000)
   const today = toDateStr(now)
@@ -140,24 +137,46 @@ export default function InboxCardsPreview() {
         { title: "Admin จัดการ", hint: "ที่ CRM / Reports", node: <Outcome>ไม่แนะนำ → CRM ให้ Admin / Manager โทรคุยใน 3 วัน · ผลรวมที่ Reports › ความพึงพอใจ (NPS เทียบปีก่อน · รายสาขา · คะแนนครู)</Outcome> },
       ]} />
 
-      <Section title="1. การ์ดที่ต้องจัดการ" hint="ผู้ปกครองส่งมาจาก LINE — ปุ่มอยู่ในการ์ด กดแล้วแชทตอบผู้ปกครองให้อัตโนมัติ">
-        <Label>แจ้งลาหยุด · รอดำเนินการ</Label>
-        <div className="max-w-md"><RequestCard preview r={req({ kind: "leave", sessions: leaveSessions.length ? leaveSessions : [{ sessionId: "x", date: addDays(today, 2), start: "16:00", subjects: ["คณิต"] }], note: "ไปต่างจังหวัดกับครอบครัวค่ะ" })} /></div>
-        <Label>แจ้งลาออก · รอดำเนินการ</Label>
-        <div className="max-w-md"><RequestCard preview r={req({ kind: "exit", lastDate: addDays(today, 14), reasonIds: reasons.slice(0, 2).map((x) => x.id), note: "ย้ายบ้านค่ะ" })} /></div>
-        <Label>ขอ / ยกเลิกรอบรถ · รอดำเนินการ (อนุมัติ = รอบที่เพิ่มเก็บในรายชื่อนักเรียน คิดเงินในใบแจ้งหนี้รอบถัดไป)</Label>
-        <div className="max-w-md"><RequestCard preview r={busReq({ note: "วันอังคารแม่ไปรับไม่ทันค่ะ" })} /></div>
-        <Label>ปักหมุดบ้าน (รถรับส่ง) · รอดำเนินการ (บันทึก = ใช้หมุดนี้กับครอบครัว · ดูระยะทางและโซนก่อน)</Label>
-        {homeReq && <div className="max-w-md"><RequestCard preview r={homeReq} /></div>}
-        <Label>อยากกลับมาเรียน · รอดำเนินการ</Label>
-        <div className="max-w-md"><RequestCard preview r={req({ kind: "return", startDate: addDays(today, 7), note: "อยากกลับมาเรียนคณิตเหมือนเดิมค่ะ" })} /></div>
-        <Label>จัดการแล้ว — แสดงผลและใครทำ</Label>
-        <div className="max-w-md"><RequestCard preview r={req({ kind: "leave", status: "done", sessions: leaveSessions.slice(0, 1), handledBy: "u_ploy", handledAt: at(0, "09:30"), result: "บันทึกลา 1 คาบ (หักโควตา)" })} /></div>
-        <div className="max-w-md"><RequestCard preview r={busReq({ id: "demo_bus_done", status: "done", handledBy: "u_ploy", handledAt: at(0, "10:05"), result: "เพิ่มรอบรถ 2 เที่ยว ฿300 — เก็บในใบแจ้งหนี้รอบถัดไป · ยกเลิก 1 เที่ยว (1 เที่ยวจ่ายแล้ว ไม่คืนเงิน)" })} /></div>
-        <div className="max-w-md"><RequestCard preview r={req({ kind: "return", status: "declined", handledBy: "u_ploy", handledAt: at(0, "11:00"), result: "คลาสเต็มช่วงนี้ — แอดมินจะโทรเสนอเวลาอื่นค่ะ" })} /></div>
-      </Section>
+      {/* owner 2026-11-06: what a parent asks for from LINE, state by state — what they tap → the card in the Inbox → how the admin closes it */}
+      <FlowSection title="Flow แจ้งลาหยุด" steps={[
+        { title: "ผู้ปกครองส่งจาก LINE", hint: "ตารางเรียน › การ์ดคาบ › แจ้งลา", node: <Outcome>เลือกคาบที่จะลา (ได้หลายคาบ) + หมายเหตุ → ส่ง</Outcome> },
+        { title: "การ์ดเข้า Inbox", hint: "รอดำเนินการ", node: <RequestCard preview r={req({ kind: "leave", sessions: leaveSessions.length ? leaveSessions : [{ sessionId: "x", date: addDays(today, 2), start: "16:00", subjects: ["คณิต"] }], note: "ไปต่างจังหวัดกับครอบครัวค่ะ" })} /> },
+        { title: "Admin จัดการ", hint: "บันทึกลา (หัก / ไม่หักโควตา) → แชทตอบผู้ปกครองให้เอง", node: <div className="space-y-3">
+          <RequestCard preview r={req({ kind: "leave", status: "done", sessions: leaveSessions.slice(0, 1), handledBy: "u_ploy", handledAt: at(0, "09:30"), result: "บันทึกลา 1 คาบ (หักโควตา)" })} />
+          <RequestCard preview r={req({ id: "demo_leave_no", kind: "leave", status: "declined", sessions: leaveSessions.slice(0, 1), handledBy: "u_ploy", handledAt: at(0, "09:35"), result: "คาบนี้เริ่มไปแล้ว — บันทึกลาย้อนหลังไม่ได้ค่ะ" })} /></div> },
+      ]} />
+      <FlowSection title="Flow แจ้งลาออก" steps={[
+        { title: "ผู้ปกครองส่งจาก LINE", hint: "อื่นๆ › แจ้งลาออก", node: <Outcome>เลือกน้อง + วันเรียนวันสุดท้าย + เหตุผล + หมายเหตุ → ส่ง</Outcome> },
+        { title: "การ์ดเข้า Inbox", hint: "รอดำเนินการ", node: <RequestCard preview r={req({ kind: "exit", lastDate: addDays(today, 14), reasonIds: reasons.slice(0, 2).map((x) => x.id), note: "ย้ายบ้านค่ะ" })} /> },
+        { title: "Admin จัดการ", hint: "รับเรื่อง → โทรคุย → ปิดการออก (ต่อด้วย Flow แจ้งหยุดเรียน)", node: <div className="space-y-3">
+          <RequestCard preview r={req({ kind: "exit", status: "done", lastDate: addDays(today, 14), reasonIds: reasons.slice(0, 1).map((x) => x.id), handledBy: "u_ploy", handledAt: at(0, "09:40"), result: "รับเรื่องแจ้งออกแล้ว — โทรคุยกับผู้ปกครอง แล้วปิดเรื่องในหน้านักเรียน" })} />
+          <RequestCard preview r={req({ id: "demo_exit_no", kind: "exit", status: "declined", lastDate: addDays(today, 14), handledBy: "u_ploy", handledAt: at(0, "09:45"), result: "ผู้ปกครองขอยกเลิกเรื่องแล้ว — เรียนต่อตามเดิมค่ะ" })} /></div> },
+      ]} />
+      <FlowSection title="Flow ขอ / ยกเลิกรอบรถ" steps={[
+        { title: "ผู้ปกครองส่งจาก LINE", hint: "ตารางเรียน › การ์ดคาบ › ขอรถ", node: <Outcome>เลือกวันที่จะขอรถรับ / ส่ง หรือยกเลิกรถที่จองไว้ (+ ผู้ปกครองนั่งไปด้วย) → ส่ง</Outcome> },
+        { title: "การ์ดเข้า Inbox", hint: "รอดำเนินการ — เห็นที่นั่งว่างของแต่ละรอบ", node: <RequestCard preview r={busReq({ note: "วันอังคารแม่ไปรับไม่ทันค่ะ" })} /> },
+        { title: "Admin จัดการ", hint: "อนุมัติ = รอบที่เพิ่มเก็บในรายชื่อนักเรียน คิดเงินในใบแจ้งหนี้รอบถัดไป", node: <div className="space-y-3">
+          <RequestCard preview r={busReq({ id: "demo_bus_done", status: "done", handledBy: "u_ploy", handledAt: at(0, "10:05"), result: "เพิ่มรอบรถ 2 เที่ยว ฿300 — เก็บในใบแจ้งหนี้รอบถัดไป · ยกเลิก 1 เที่ยว (1 เที่ยวจ่ายแล้ว ไม่คืนเงิน)" })} />
+          <RequestCard preview r={busReq({ id: "demo_bus_no", status: "declined", handledBy: "u_ploy", handledAt: at(0, "10:10"), result: "ที่นั่งรอบนั้นเต็ม — แอดมินจะโทรเสนอรอบอื่นค่ะ" })} /></div> },
+      ]} />
+      {homeReq && (
+        <FlowSection title="Flow ปักหมุดบ้าน (รถรับส่ง)" steps={[
+          { title: "ผู้ปกครองส่งจาก LINE", hint: "อื่นๆ › ปักหมุดบ้าน", node: <Outcome>ปักหมุดบ้านบนแผนที่ + รายละเอียดที่อยู่ (นักเรียนที่ใช้รถต้องมี) → ส่ง</Outcome> },
+          { title: "การ์ดเข้า Inbox", hint: "รอดำเนินการ — ดูระยะทางและโซนก่อน", node: <RequestCard preview r={homeReq} /> },
+          { title: "Admin จัดการ", hint: "บันทึก = ใช้หมุดนี้กับทั้งครอบครัว", node: <div className="space-y-3">
+            <RequestCard preview r={{ ...homeReq, id: "demo_home_done", status: "done", handledBy: "u_ploy", handledAt: at(0, "10:20"), result: "บันทึกหมุดบ้านแล้ว · 1.2 กม. จากสาขา · โซน A" }} />
+            <RequestCard preview r={{ ...homeReq, id: "demo_home_no", status: "declined", handledBy: "u_ploy", handledAt: at(0, "10:25"), result: "หมุดอยู่นอกพื้นที่รถรับส่ง — แอดมินจะโทรคุยทางเลือกค่ะ" }} /></div> },
+        ]} />
+      )}
+      <FlowSection title="Flow อยากกลับมาเรียน" steps={[
+        { title: "ผู้ปกครองส่งจาก LINE", hint: "นักเรียนที่ออกไปแล้ว", node: <Outcome>เลือกวันที่อยากเริ่มเรียนอีกครั้ง + หมายเหตุ → ส่ง</Outcome> },
+        { title: "การ์ดเข้า Inbox", hint: "รอดำเนินการ", node: <RequestCard preview r={req({ kind: "return", startDate: addDays(today, 7), note: "อยากกลับมาเรียนคณิตเหมือนเดิมค่ะ" })} /> },
+        { title: "Admin จัดการ", hint: "กู้คืนนักเรียน → จัดคลาส → ออกใบแจ้งหนี้", node: <div className="space-y-3">
+          <RequestCard preview r={req({ id: "demo_return_done", kind: "return", status: "done", startDate: addDays(today, 7), handledBy: "u_ploy", handledAt: at(0, "10:50"), result: "กู้คืนนักเรียนแล้ว — โทรคุย จัดคลาส แล้วออกใบแจ้งหนี้" })} />
+          <RequestCard preview r={req({ kind: "return", status: "declined", startDate: addDays(today, 7), handledBy: "u_ploy", handledAt: at(0, "11:00"), result: "คลาสเต็มช่วงนี้ — แอดมินจะโทรเสนอเวลาอื่นค่ะ" })} /></div> },
+      ]} />
 
-      <Section title="2. ข้อความทั่วไป" hint="ข้อความของเรา · ของผู้ปกครอง · โน้ตภายใน (ผู้ปกครองไม่เห็น)">
+      <Section title="ข้อความทั่วไป" hint="ข้อความของเรา · ของผู้ปกครอง · โน้ตภายใน (ผู้ปกครองไม่เห็น)">
         <MessageBubble message={msg("m1", "parent", "สวัสดีค่ะ พรุ่งนี้น้องขอลา 1 วันนะคะ", at(0, "08:00"))} conversation={CONV} staff={staff} />
         <MessageBubble message={msg("m2", "staff", "รับทราบค่ะ แอดมินบันทึกลาให้เรียบร้อยแล้วนะคะ 🙏", at(0, "08:05"))} conversation={CONV} staff={staff} />
         <MessageBubble message={msg("m3", "internal", "ผู้ปกครองขอลาบ่อย — ลองเสนอเปลี่ยนวันเรียน", at(0, "08:06"))} conversation={CONV} staff={staff} />
