@@ -18,7 +18,7 @@ import { cn } from "@/lib/utils"
 const DICT = {
   th: {
     title: (y: number) => `แบบสำรวจความคิดเห็นและความพึงพอใจของผู้ปกครอง ปี ${y + 543}`, hello: (f: string) => `เรียน ${f}`, intro: "ขอเวลาประมาณ 3 นาที ทุกความเห็นช่วยให้เราดูแลน้องๆ ได้ดีขึ้นค่ะ",
-    kids: "วิชาที่เรียน / ระดับชั้น", nps: "ผู้ปกครองมีแนวโน้มที่จะแนะนำ NockAcademy ให้กับผู้อื่นมากน้อยเพียงใด?", npsLow: "0 = ไม่แนะนำเลย", npsHigh: "10 = แนะนำอย่างยิ่ง",
+    kids: "วิชาที่เรียน / ระดับชั้น", nps: "ผู้ปกครองมีแนวโน้มที่จะแนะนำ NockAcademy ให้กับผู้อื่นมากน้อยเพียงใด?", npsOpts: ["ไม่แนะนำ", "อาจจะแนะนำ", "แนะนำแน่นอน"],
     reasons: "อะไรคือเหตุผลที่ทำให้ให้คะแนนดังกล่าว? (เลือกได้มากกว่า 1 ข้อ)",
     r: { content: "เนื้อหาบทเรียนตรงตามหลักสูตรและเข้าใจง่าย", teaching: "เทคนิคการสอนของครูช่วยให้เด็กมีพัฒนาการที่ดีขึ้น", feedback: "ระบบ Feedback รายงานผลการเรียนที่ชัดเจนและสม่ำเสมอ", schedule: "ตารางเรียนที่สถาบันจัดไว้ให้มีความเหมาะสม", value: "ความคุ้มค่าของค่าเล่าเรียนเมื่อเทียบกับคุณภาพ", other: "อื่นๆ" },
     scores: "ระดับความพึงพอใจต่อประสบการณ์การเรียนที่ NockAcademy ในแต่ละด้าน",
@@ -34,7 +34,7 @@ const DICT = {
   },
   en: {
     title: (y: number) => `Parent feedback & satisfaction survey ${y}`, hello: (f: string) => `Dear ${f}`, intro: "About 3 minutes — every answer helps us take better care of your child.",
-    kids: "Subjects / grade", nps: "How likely are you to recommend NockAcademy to others?", npsLow: "0 = not at all", npsHigh: "10 = extremely likely",
+    kids: "Subjects / grade", nps: "How likely are you to recommend NockAcademy to others?", npsOpts: ["Would not", "Maybe", "Definitely"],
     reasons: "What are the reasons for your score? (pick any)",
     r: { content: "Lessons follow the curriculum and are easy to understand", teaching: "Teachers' techniques help my child improve", feedback: "Clear, regular feedback on progress", schedule: "The class schedule suits us", value: "Good value for the quality", other: "Other" },
     scores: "How satisfied are you with each part of learning at NockAcademy?",
@@ -50,7 +50,7 @@ const DICT = {
   },
   ja: {
     title: (y: number) => `${y}年度 保護者アンケート（ご意見・満足度）`, hello: (f: string) => `${f} 様`, intro: "約3分で終わります。いただいたご意見はより良い指導のために活用します。",
-    kids: "受講科目・学年", nps: "NockAcademy を他の方に勧める可能性はどのくらいですか？", npsLow: "0 = 全く勧めない", npsHigh: "10 = ぜひ勧める",
+    kids: "受講科目・学年", nps: "NockAcademy を他の方に勧める可能性はどのくらいですか？", npsOpts: ["勧めない", "どちらとも", "ぜひ勧める"],
     reasons: "その点数をつけた理由は何ですか？（複数選択可）",
     r: { content: "カリキュラムに沿い分かりやすい内容", teaching: "講師の指導で子どもが成長している", feedback: "学習報告が明確で定期的", schedule: "時間割が合っている", value: "質に対して授業料が見合っている", other: "その他" },
     scores: "NockAcademy での学習について、各項目の満足度をお答えください",
@@ -155,10 +155,12 @@ function Survey() {
           <ul className="space-y-1.5 text-base">{token.children.map((c) => <li key={c.id}><span className="font-medium">{c.nickname}</span> · {c.grade}{c.subjects?.length ? ` · ${c.subjects.join(", ")}` : ""}</li>)}</ul>
         </Card>
         <Card title={`${t.nps} *`} error={tried && missing.nps}>
-          <div className="grid grid-cols-6 gap-2.5">{Array.from({ length: 11 }, (_, n) => (
-            <button key={n} type="button" onClick={() => setNps(n)} className={cn("h-12 rounded-full border text-base font-medium tabular-nums", npsV === n ? (n <= 6 ? "border-red-500 bg-red-500 text-white" : n <= 8 ? "border-amber-500 bg-amber-500 text-white" : "border-emerald-600 bg-emerald-600 text-white") : "bg-background")}>{n}</button>
+          <div className="grid grid-cols-3">{NPS_CHOICES.map(({ value, Face, on }, i) => (
+            <button key={value} type="button" aria-pressed={npsV !== null && npsBucket(npsV) === i} onClick={() => setNps(value)} className="flex flex-col items-center gap-1.5">
+              <span className={cn("grid size-14 place-items-center rounded-full border-2 transition-colors", npsV !== null && npsBucket(npsV) === i ? on : "border-border bg-background text-muted-foreground")}><Face className="size-7" /></span>
+              <span className={cn("text-sm leading-tight", npsV !== null && npsBucket(npsV) === i ? "font-semibold text-foreground" : "text-muted-foreground")}>{t.npsOpts[i]}</span>
+            </button>
           ))}</div>
-          <div className="mt-2.5 flex justify-between text-xs text-muted-foreground"><span>{t.npsLow}</span><span>{t.npsHigh}</span></div>
         </Card>
         <Card title={`${t.reasons} *`} error={tried && missing.reasons}>
           <div className="grid gap-2.5">{REASONS.map((k) => (
@@ -201,6 +203,13 @@ function Survey() {
   )
 }
 
+// owner 2026-11-06: three choices instead of 0–10 — stored as a representative NPS score (detractor 0–6 → 3, passive 7–8 → 8, promoter 9–10 → 10)
+const NPS_CHOICES = [
+  { value: 3, Face: FrownIcon, on: "border-red-500 bg-red-500 text-white" },
+  { value: 8, Face: MehIcon, on: "border-amber-500 bg-amber-500 text-white" },
+  { value: 10, Face: LaughIcon, on: "border-emerald-600 bg-emerald-600 text-white" },
+]
+const npsBucket = (n: number) => (n <= 6 ? 0 : n <= 8 ? 1 : 2)
 const FACES: Record<number, typeof SmileIcon> = { 5: LaughIcon, 4: SmileIcon, 3: MehIcon, 2: FrownIcon, 1: AngryIcon }
 const FACE_ON = (n: number) => (n <= 2 ? "border-red-500 bg-red-500 text-white" : n === 3 ? "border-amber-500 bg-amber-500 text-white" : "border-emerald-600 bg-emerald-600 text-white")
 
