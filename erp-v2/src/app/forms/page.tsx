@@ -1,13 +1,13 @@
 "use client"
 
-import { Page, PageHeader, Tabs } from "@/components/app/page-layout"
+import { Page, PageHeader, Segmented, Tabs } from "@/components/app/page-layout"
 import { LinePreview } from "@/components/forms/line-preview"
+import { PreviewLayout } from "@/components/forms/preview-layout"
 import { useState } from "react"
-import { ArrowRightIcon, FileTextIcon, MessageCircleIcon, ExternalLinkIcon, RotateCwIcon, SendIcon, SmartphoneIcon, UserRoundIcon } from "lucide-react"
+import { ArrowRightIcon, FileTextIcon, MessageCircleIcon, ExternalLinkIcon, SendIcon, UserRoundIcon } from "lucide-react"
 import { NativeSelect } from "@/components/app/native-select"
 import { Button } from "@/components/ui/button"
 import type { FormLang } from "@/domain/types"
-import { cn } from "@/lib/utils"
 
 // Every parent form in one place (owner 2026-10-05: "อยากเห็น Form ได้ทันที ไม่ต้องส่งก่อน") — open each one right
 // away in preview mode (nothing is sent), see what it asks and where the answers land in the ERP.
@@ -94,55 +94,38 @@ export default function FormsPage() {
       <title>ฟอร์มผู้ปกครอง · NockERP</title>
       <PageHeader title="ฟอร์มผู้ปกครอง" description="เปิดดูทุกฟอร์มได้ทันที (โหมดตัวอย่าง — กดส่งได้ แต่ไม่มีข้อมูลไปจริง) · ดูว่าแต่ละฟอร์มถามอะไร และข้อมูลไปลงตรงไหนในระบบ" />
       <Tabs value={tab} onChange={setTab} options={[{ value: "forms", label: "ฟอร์ม", icon: FileTextIcon }, { value: "line", label: "LINE OA Preview", icon: MessageCircleIcon }]} />
-      {tab === "line" ? <LinePreview /> : <>
-      <div className="flex flex-wrap gap-2">
-        {FORMS.map((x) => (
-          <button key={x.key} type="button" onClick={() => setKey(x.key)}
-            className={cn("rounded-2xl border px-4 py-2 text-left", x.key === key ? "border-primary bg-primary/5 ring-1 ring-primary" : "bg-card hover:bg-muted")}>
-            <span className="block text-sm font-medium">{x.name}</span>
-            <span className="block text-xs text-muted-foreground">{x.short}</span>
-          </button>
-        ))}
-      </div>
-      <div className="grid gap-4 lg:grid-cols-[1fr_400px]">
-        <section className="space-y-4 rounded-3xl bg-card p-5 shadow-sm ring-1 ring-foreground/10">
-          <div className="grid gap-3 sm:grid-cols-2">
-            <Info icon={UserRoundIcon} title="ใครกรอก">{f.who}</Info>
-            <Info icon={SendIcon} title="ส่งยังไง">{f.how}</Info>
-          </div>
-          <div className="space-y-3">
-            <p className="text-sm font-semibold">ถามอะไรบ้าง <span className="font-normal text-muted-foreground">(* = ต้องกรอก)</span></p>
-            {f.steps.map((s) => (
-              <div key={s.title} className="rounded-2xl border p-3">
-                <p className="mb-1.5 text-sm font-medium">{s.title}</p>
-                <ul className="list-disc space-y-1 pl-5 text-sm">{s.fields.map((x) => <li key={x}>{x}</li>)}</ul>
-              </div>
-            ))}
-          </div>
-          <div>
-            <p className="mb-1.5 text-sm font-semibold">ส่งแล้วไปไหนในระบบ</p>
-            <ol className="space-y-1.5">{f.lands.map((x, i) => (
-              <li key={x} className="flex items-start gap-2 text-sm"><span className="grid size-5 shrink-0 place-items-center rounded-full bg-primary/10 text-[11px] font-medium text-primary">{i + 1}</span>{x}</li>
-            ))}</ol>
-          </div>
-          <p className="flex items-center gap-1 text-xs text-muted-foreground"><ArrowRightIcon className="size-3" /> ทุกฟอร์มผู้ปกครองสลับภาษาไทย / English / 日本語 ได้เองที่หัวฟอร์ม</p>
-        </section>
-
-        <section className="space-y-2">
-          <div className="flex flex-wrap items-center gap-1.5">
-            <SmartphoneIcon className="size-4 text-muted-foreground" />
-            <NativeSelect className="w-28" value={lang} onChange={(e) => setLang(e.target.value as FormLang)} options={[{ value: "th", label: "ไทย" }, { value: "en", label: "English" }, { value: "ja", label: "日本語" }]} />
-            {f.brandMatters && <NativeSelect className="w-36" value={brand} onChange={(e) => setBrand(e.target.value as "nockacademy" | "liclass")} options={[{ value: "nockacademy", label: "NockAcademy" }, { value: "liclass", label: "Liclass" }]} />}
-            <Button size="sm" variant="outline" className="ml-auto" onClick={() => setReload((n) => n + 1)}><RotateCwIcon /> เริ่มใหม่</Button>
-            <Button size="icon-xs" variant="ghost" aria-label="เปิดในแท็บใหม่" nativeButton={false} render={<a href={url} target="_blank" rel="noreferrer" />}><ExternalLinkIcon /></Button>
-          </div>
-          {/* the real form, in preview mode, at phone size */}
-          <div className="mx-auto w-[390px] overflow-hidden rounded-[2.5rem] border-8 border-zinc-800 bg-zinc-800 shadow-xl">
-            <iframe key={`${url}-${reload}`} src={url} title={f.name} className="h-[760px] w-full rounded-[1.9rem] bg-white" />
-          </div>
-        </section>
-      </div>
-      </>}
+      {tab === "line" ? <LinePreview /> : (
+        <PreviewLayout onRestart={() => setReload((n) => n + 1)}
+          picker={<Segmented value={key} onChange={setKey} label="ฟอร์ม" options={FORMS.map((x) => ({ value: x.key, label: x.name }))} />}
+          controls={<>
+            <NativeSelect className="w-32" value={lang} onChange={(e) => setLang(e.target.value as FormLang)} options={[{ value: "th", label: "ไทย" }, { value: "en", label: "English" }, { value: "ja", label: "日本語" }]} />
+            {f.brandMatters && <NativeSelect className="w-40" value={brand} onChange={(e) => setBrand(e.target.value as "nockacademy" | "liclass")} options={[{ value: "nockacademy", label: "NockAcademy" }, { value: "liclass", label: "Liclass" }]} />}
+            <Button size="icon" variant="ghost" aria-label="เปิดในแท็บใหม่" nativeButton={false} render={<a href={url} target="_blank" rel="noreferrer" />}><ExternalLinkIcon /></Button>
+          </>}
+          phone={<iframe key={`${url}-${reload}`} src={url} title={f.name} className="h-full w-full rounded-[1.9rem] bg-white" />}
+          info={<>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <Info icon={UserRoundIcon} title="ใครกรอก">{f.who}</Info>
+              <Info icon={SendIcon} title="ส่งยังไง">{f.how}</Info>
+            </div>
+            <div className="space-y-3">
+              <p className="text-sm font-semibold">ถามอะไรบ้าง <span className="font-normal text-muted-foreground">(* = ต้องกรอก)</span></p>
+              {f.steps.map((s) => (
+                <div key={s.title} className="rounded-2xl border p-3">
+                  <p className="mb-1.5 text-sm font-medium">{s.title}</p>
+                  <ul className="list-disc space-y-1 pl-5 text-sm">{s.fields.map((x) => <li key={x}>{x}</li>)}</ul>
+                </div>
+              ))}
+            </div>
+            <div>
+              <p className="mb-1.5 text-sm font-semibold">ส่งแล้วไปไหนในระบบ</p>
+              <ol className="space-y-1.5">{f.lands.map((x, i) => (
+                <li key={x} className="flex items-start gap-2 text-sm"><span className="grid size-5 shrink-0 place-items-center rounded-full bg-primary/10 text-[11px] font-medium text-primary">{i + 1}</span>{x}</li>
+              ))}</ol>
+            </div>
+            <p className="flex items-center gap-1 text-xs text-muted-foreground"><ArrowRightIcon className="size-3" /> ทุกฟอร์มผู้ปกครองสลับภาษาไทย / English / 日本語 ได้เองที่หัวฟอร์ม</p>
+          </>} />
+      )}
     </Page>
   )
 }

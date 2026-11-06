@@ -3,8 +3,8 @@
 // LINE OA preview (owner 2026-11-06): what each kind of LINE user sees — a parent who hasn't paid yet, a parent who
 // has, and a bus driver — in a phone frame, on the ฟอร์มผู้ปกครอง page.
 import { useMemo, useState } from "react"
-import { BusIcon, LockOpenIcon, LockIcon, RotateCwIcon } from "lucide-react"
-import { Button } from "@/components/ui/button"
+import { ArrowRightIcon, BusIcon, LockOpenIcon, LockIcon, UserRoundIcon } from "lucide-react"
+import { PreviewLayout } from "./preview-layout"
 import { DriverApp } from "@/components/driver/driver-app"
 import { Segmented } from "@/components/app/page-layout"
 import { ParentApp } from "@/components/parent/parent-app"
@@ -17,28 +17,45 @@ import { useStore } from "@/store/store"
 
 type Who = "unpaid" | "paid" | "driver"
 
+const INFO: Record<Who, { who: string; sees: string[]; how: string }> = {
+  unpaid: {
+    who: "ผู้ปกครองที่ยังไม่ชำระเงิน (ยังไม่มีใบแจ้งหนี้ที่จ่ายแล้ว)",
+    sees: ["คอร์ส (Catalog) — ดูคอร์สและตารางเรียนของสาขา กดหัวใจเก็บที่สนใจ", "อื่นๆ — เปลี่ยนภาษา · คำขอของฉัน"],
+    how: "ชำระเงินแล้วเมนูที่เหลือจะเปิดให้อัตโนมัติ",
+  },
+  paid: {
+    who: "ผู้ปกครองที่ชำระเงินแล้ว",
+    sees: ["ภาพรวม — ทุกคน ทุกคอร์ส คาบถัดไป", "ตารางเรียน — เจาะทีละคน / คอร์ส / คาบ · สรุปหลังเรียน · แจ้งลา · ขอรถรับ-ส่ง", "คอร์ส (Catalog)", "อื่นๆ — ปักหมุดบ้าน · แจ้งออก · ขอรถกลับ · ภาษา"],
+    how: "ข้อมูลอัปเดตอัตโนมัติจาก ERP",
+  },
+  driver: {
+    who: "คนขับรถรับส่ง (ของโรงเรียน หรือ Outsource) — ลิงก์แอปของแต่ละคน ไม่ต้องล็อกอิน",
+    sees: ["รายการเที่ยวรถของวัน — แตะเพื่อเปิดเที่ยว", "เส้นทางทีละจุด: โทรผู้ปกครอง · นำทาง · ถึงบ้านแล้ว · รับ/ส่งแล้ว · ไม่มา · แก้ล่าสุด", "จบเที่ยว"],
+    how: "แอดมินอนุมัติเที่ยวรถที่หน้ารถรับส่ง → ขึ้นในแอปคนขับ · ออฟฟิศเห็นสถานะสดบน Bus Route",
+  },
+}
+
 export function LinePreview() {
   const [who, setWho] = useState<Who>("unpaid")
   const [run, setRun] = useState(0) // restart: the phone is rebuilt from scratch
+  const i = INFO[who]
   return (
-    <div className="space-y-3">
-      <div className="flex flex-wrap items-center justify-center gap-2">
-        <Segmented<Who> value={who} onChange={setWho} label="มุมมอง LINE OA" options={[
-          { value: "unpaid", label: "ผู้ปกครอง · ยังไม่จ่าย", icon: LockIcon },
-          { value: "paid", label: "ผู้ปกครอง · จ่ายแล้ว", icon: LockOpenIcon },
-          { value: "driver", label: "คนขับ", icon: BusIcon },
-        ]} />
-        <Button variant="outline" onClick={() => setRun((n) => n + 1)}><RotateCwIcon /> เริ่มใหม่</Button>
-      </div>
-      <p className="text-center text-sm text-muted-foreground">
-        {who === "unpaid" && "ผู้ปกครองที่ยังไม่ชำระเงิน — เห็นเฉพาะ คอร์ส (Catalog) และ อื่นๆ"}
-        {who === "paid" && "ผู้ปกครองที่ชำระเงินแล้ว — เห็นครบ ภาพรวม · ตารางเรียน · คอร์ส · อื่นๆ (แจ้งลา / ขอรถ / แจ้งออก)"}
-        {who === "driver" && "คนขับรถรับส่ง — ตัวอย่างเที่ยววันนี้ ลองกดเริ่มวิ่ง / ถึงบ้านแล้ว / รับแล้ว / ไม่มา ได้เลย (ไม่ส่งข้อมูลจริง)"}
-      </p>
-      <div className="mx-auto h-[760px] w-[390px] overflow-hidden rounded-[2.5rem] border-8 border-zinc-800 bg-zinc-800 shadow-xl">
-        {who === "driver" ? <div key={run} className="h-full overflow-y-auto rounded-[1.9rem] bg-white [transform:translateZ(0)]"><DriverApp token="preview" demo /></div> : <ParentPhone key={`${who}-${run}`} paid={who === "paid"} />}
-      </div>
-    </div>
+    <PreviewLayout onRestart={() => setRun((n) => n + 1)}
+      picker={<Segmented<Who> value={who} onChange={setWho} label="มุมมอง LINE OA" options={[
+        { value: "unpaid", label: "ผู้ปกครอง · ยังไม่จ่าย", icon: LockIcon },
+        { value: "paid", label: "ผู้ปกครอง · จ่ายแล้ว", icon: LockOpenIcon },
+        { value: "driver", label: "คนขับ", icon: BusIcon },
+      ]} />}
+      phone={who === "driver" ? <div key={run} className="h-full overflow-y-auto rounded-[1.9rem] bg-white [transform:translateZ(0)]"><DriverApp token="preview" demo /></div> : <ParentPhone key={`${who}-${run}`} paid={who === "paid"} />}
+      info={<>
+        <div className="rounded-2xl bg-muted/50 p-3"><p className="mb-1 flex items-center gap-1.5 text-xs font-medium text-muted-foreground"><UserRoundIcon className="size-3.5" />ใครใช้</p><p className="text-sm">{i.who}</p></div>
+        <div className="space-y-2">
+          <p className="text-sm font-semibold">เห็นอะไรบ้าง</p>
+          <ul className="list-disc space-y-1 pl-5 text-sm">{i.sees.map((x) => <li key={x}>{x}</li>)}</ul>
+        </div>
+        <p className="flex items-center gap-1 text-xs text-muted-foreground"><ArrowRightIcon className="size-3" />{i.how}</p>
+        <p className="text-xs text-muted-foreground">{who === "driver" ? "ลองกดเล่นได้เลย (ไม่ส่งข้อมูลจริง) · กด เริ่มใหม่ เพื่อกลับไปเริ่มต้น" : "ลองกดเล่นได้เลย — ใช้ครอบครัวตัวอย่าง · กด เริ่มใหม่ เพื่อกลับไปเริ่มต้น"}</p>
+      </>} />
   )
 }
 
