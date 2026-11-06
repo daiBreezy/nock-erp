@@ -12,7 +12,7 @@ export function IconChoices({ choices, onPick, cols }: { choices: IconChoice[]; 
     <div className={cn("grid", cols === 3 ? "grid-cols-3" : "grid-cols-5")}>
       {choices.map((c) => (
         <button key={c.key} type="button" aria-pressed={c.active} aria-label={c.label} onClick={() => onPick(c.key)} className="flex flex-col items-center gap-1.5">
-          <span className={cn("grid size-14 place-items-center rounded-full border-2 transition-colors", c.active ? c.on : "border-border bg-background text-muted-foreground")}>
+          <span className={cn("grid size-14 place-items-center rounded-full border-2 transition-colors", c.active ? c.on : "border-border bg-background text-muted-foreground/50")}>
             <c.icon className={cn("size-7", c.active && c.fillIcon && "fill-current")} strokeWidth={1} />
           </span>
           {c.label && <span className={cn("text-sm leading-tight", c.active ? "font-semibold text-foreground" : "text-muted-foreground")}>{c.label}</span>}
