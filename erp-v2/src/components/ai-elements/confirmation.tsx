@@ -31,12 +31,13 @@ export function Confirmation({ state, className, ...props }: React.ComponentProp
   )
 }
 
-/** owner 2026-11-06: no leading type icon (it only pushed the body to the right) — the state is an icon at the end, its words on hover */
-export function ConfirmationHeader({ title, state, label, className }: { icon?: React.ReactNode; title: React.ReactNode; state: ConfirmationState; label?: string; className?: string }) {
+/** owner 2026-11-06: type icon in the header, a divider under it, then the body at full width (no indent); the state is an icon at the end, its words on hover */
+export function ConfirmationHeader({ icon, title, state, label, className }: { icon?: React.ReactNode; title: React.ReactNode; state: ConfirmationState; label?: string; className?: string }) {
   const s = STATE[state]
   const words = label ?? s.label
   return (
-    <div data-slot="confirmation-header" className={cn("flex items-center gap-2 px-3.5 pt-3", className)}>
+    <div data-slot="confirmation-header" className={cn("flex items-center gap-2 border-b px-3.5 py-2.5", className)}>
+      {icon && <span aria-hidden className="grid size-7 shrink-0 place-items-center rounded-full bg-muted text-muted-foreground [&>svg]:size-3.5">{icon}</span>}
       <span className="min-w-0 flex-1 truncate font-medium">{title}</span>
       <HoverCard>
         <HoverCardTrigger render={<span role="img" aria-label={words} tabIndex={0} className={cn("grid size-6 shrink-0 place-items-center rounded-full [&>svg]:size-4", s.tone)} />}>{s.icon}</HoverCardTrigger>
@@ -47,7 +48,7 @@ export function ConfirmationHeader({ title, state, label, className }: { icon?: 
 }
 
 export function ConfirmationBody({ className, ...props }: React.ComponentProps<"div">) {
-  return <div data-slot="confirmation-body" className={cn("px-3.5 pt-2 pb-3", className)} {...props} />
+  return <div data-slot="confirmation-body" className={cn("px-3.5 py-3", className)} {...props} />
 }
 
 export function ConfirmationActions({ className, ...props }: React.ComponentProps<"div">) {
