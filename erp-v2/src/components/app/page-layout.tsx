@@ -6,6 +6,7 @@
 //   Toolbar — branch chip first · search · filters · (right) view switch / count
 //   Content — the table, full width
 // Same width and spacing everywhere; Calendar and Inbox stay full-screen work areas.
+import { Children } from "react"
 import { ChevronLeftIcon, ChevronRightIcon, EyeIcon, EyeOffIcon, SearchIcon } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card"
@@ -28,7 +29,9 @@ export function PageHeader({ title, description, actions }: { title: React.React
 
 /** owner 2026-11-04: 2 columns on phones · 3 across on tablet (no icon, less wasted space) · up to 4 on desktop */
 export function KpiRow({ children, className }: { children: React.ReactNode; className?: string }) {
-  return <div className={cn("grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4", className)}>{children}</div>
+  // owner 2026-11-06: on desktop the KPI cards sit in ONE row — 5 or 6 cards no longer wrap under the first four
+  const n = Children.toArray(children).length
+  return <div className={cn("grid grid-cols-2 gap-3 sm:grid-cols-3", n >= 6 ? "lg:grid-cols-6" : n === 5 ? "lg:grid-cols-5" : "lg:grid-cols-4", className)}>{children}</div>
 }
 
 /** filters on the left (branch chip first), `end` on the right */
