@@ -68,7 +68,7 @@ export function DriverApp({ token, demo }: { token: string; demo?: boolean }) {
   const open = (trips ?? []).find((t) => t.tripId === openId)
   if (error) return <div className="flex min-h-dvh items-center justify-center p-6 text-center text-sm text-muted-foreground">{error}</div>
   if (!trips) return <div className="flex min-h-dvh items-center justify-center"><LoaderCircleIcon className="size-6 animate-spin text-muted-foreground" /></div>
-  if (open) return <TripView t={open} events={events} busy={busy} onBack={() => setOpenId(null)} onTap={(type, key) => tap(open.tripId, type, key)} />
+  if (open) return <TripView t={open} events={events} busy={busy} onBack={() => setOpenId(null)} onTap={(type, key) => tap(open.tripId, type, key)} speed={demo ? 60 : 1} />
   return (
     <div className="mx-auto min-h-dvh max-w-lg bg-muted/40 pb-10">
       <header className="sticky top-0 z-10 space-y-2 bg-background/95 px-4 py-3 shadow-sm backdrop-blur">
@@ -123,8 +123,73 @@ export function DriverApp({ token, demo }: { token: string; demo?: boolean }) {
   )
 }
 
+
+const toMin = (hhmm: string | null | undefined) => { const m = /^(\d{1,2}):(\d{2})/.exec(hhmm ?? ""); return m ? Number(m[1]) * 60 + Number(m[2]) : null }
+
+/** from the branch → 1 → 2 → … → the branch, with a little van that drives along it: it leaves a node when the driver
+ *  checks out of it and covers the next leg in the planned time (owner 2026-11-06). `speed` > 1 only in the staff demo. */
+function RouteStrip({ t, p, speed }: { t: Trip; p: ReturnType<typeof progress>; speed: number }) {
+  const n = t.stops.length
+  const [now, setNow] = useState(() => Date.now())
+  const moving = !!p.started && !p.finished
+  useEffect(() => { if (!moving) return; const id = setInterval(() => setNow(Date.now()), 1000); return () => clearInterval(id) }, [moving])
+  // planned minute of each node: leave the start, each stop's estimate, arrive at the end
+  const plan: number[] = [toMin(t.depart) ?? 0]
+  t.stops.forEach((s) => plan.push(toMin(s.eta) ?? plan[plan.length - 1] + 5))
+  plan.push(toMin(t.finish) ?? plan[plan.length - 1] + 10)
+  let f = 0
+  if (p.finished) f = n + 1
+  else if (p.started) {
+    const open = t.stops.findIndex((s) => !p.outOf(s.key))
+    const target = open === -1 ? n + 1 : open + 1 // node the van is heading to
+    const prev = target - 1
+    if (open !== -1 && p.inOf(t.stops[open].key)) f = target // checked in = standing at the house
+    else {
+      const leftAt = prev === 0 ? p.started : p.outOf(t.stops[prev - 1].key)
+      const dur = Math.max(2, plan[target] - plan[prev])
+      const elapsed = leftAt ? Math.max(0, ((now - new Date(leftAt.at).getTime()) / 60000) * speed) : 0
+      f = prev + Math.min(0.97, elapsed / dur)
+    }
+  }
+  const pct = (i: number) => `${(i / (n + 1)) * 100}%`
+  const nodes = [{ label: t.branchName, icon: t.kind === "pickup" ? BusIcon : SchoolIcon }, ...t.stops.map((s, i) => ({ label: s.nickname, icon: null, n: i + 1 })), { label: t.branchName, icon: SchoolIcon }]
+  return (
+    <div className="mx-5 pb-9">
+      <div className="relative h-14 pt-7">
+        <div className="absolute inset-x-0 top-[calc(1.75rem+14px)] h-0.5 -translate-y-1/2 rounded-full bg-sky-300" />
+        <div className="absolute top-[calc(1.75rem+14px)] left-0 h-0.5 -translate-y-1/2 rounded-full bg-sky-600 transition-[width] duration-1000 ease-linear" style={{ width: pct(f) }} />
+        {nodes.map((nd, i) => {
+          const reached = i <= f, here = Math.abs(i - f) < 0.001
+          return (
+            <div key={i} className="absolute top-7 flex w-14 -translate-x-1/2 flex-col items-center gap-1" style={{ left: pct(i) }}>
+              <span className={cn("grid size-7 place-items-center rounded-full text-xs font-semibold", reached ? "bg-sky-600 text-white" : "bg-white text-sky-800 ring-1 ring-sky-300", here && "ring-2 ring-sky-900")}>
+                {nd.icon ? <nd.icon className="size-3.5" /> : (nd as { n: number }).n}
+              </span>
+              <span className="w-full truncate text-center text-[11px] leading-tight text-sky-900">{nd.label}</span>
+            </div>
+          )
+        })}
+        <div className="absolute top-0 -translate-x-1/2 transition-[left] duration-1000 ease-linear" style={{ left: pct(f) }}><Van running={moving && f % 1 !== 0} /></div>
+      </div>
+    </div>
+  )
+}
+
+/** a cute little van — bobs while it drives */
+function Van({ running }: { running: boolean }) {
+  return (
+    <svg viewBox="0 0 44 28" className={cn("h-7 w-11 drop-shadow-sm", running && "animate-[van-bob_0.5s_ease-in-out_infinite]")} aria-hidden="true">
+      <path d="M4 20V10a4 4 0 0 1 4-4h19a4 4 0 0 1 3 1.4l6.6 7.4a4 4 0 0 1 1 2.6V20a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2Z" fill="#fff" stroke="#0369a1" strokeWidth="1.6" strokeLinejoin="round" />
+      <rect x="8" y="9" width="8" height="6" rx="1.5" fill="#bae6fd" /><rect x="18" y="9" width="8" height="6" rx="1.5" fill="#bae6fd" />
+      <path d="M28 9h2.3a2 2 0 0 1 1.5.7l4 4.6H28Z" fill="#bae6fd" />
+      <path d="M4 17h36" stroke="#38bdf8" strokeWidth="1.6" /><circle cx="39.5" cy="18.5" r="1.1" fill="#fbbf24" />
+      <circle cx="12" cy="22" r="3.4" fill="#1e293b" /><circle cx="12" cy="22" r="1.3" fill="#e2e8f0" /><circle cx="31" cy="22" r="3.4" fill="#1e293b" /><circle cx="31" cy="22" r="1.3" fill="#e2e8f0" />
+    </svg>
+  )
+}
+
 /** one drive: start → every stop → end, the current stop up front, the next step in the bottom bar */
-function TripView({ t, events, busy, onBack, onTap }: { t: Trip; events: Ev[]; busy: boolean; onBack: () => void; onTap: (type: string, stopKey?: string) => void }) {
+function TripView({ t, events, busy, onBack, onTap, speed }: { t: Trip; events: Ev[]; busy: boolean; onBack: () => void; onTap: (type: string, stopKey?: string) => void; speed: number }) {
   const p = progress(t, events)
   const cur = p.current
   const curIn = cur ? p.inOf(cur.key) : undefined
@@ -156,26 +221,27 @@ function TripView({ t, events, busy, onBack, onTap }: { t: Trip; events: Ev[]; b
 
       <main className="space-y-3 p-3">
         {/* the stop to go to now — big, with call / navigate */}
-        {cur && (
-          <section className="-mx-3 -mt-3 space-y-3 bg-primary p-5 text-primary-foreground">
-            <p className="text-sm font-medium text-primary-foreground/80">{curIn ? `ถึงแล้ว ${hhmm(curIn.at)} — รอ${verb(cur)}เด็ก` : "ไปที่นี่ต่อ"}</p>
+        <section className="-mx-3 -mt-3 space-y-4 bg-sky-100 p-5 text-sky-950">
+          <RouteStrip t={t} p={p} speed={speed} />
+          {cur && (<div className="space-y-3">
+            <p className="text-sm font-medium text-sky-800">{curIn ? `ถึงแล้ว ${hhmm(curIn.at)} — รอ${verb(cur)}เด็ก` : "ไปที่นี่ต่อ"}</p>
             <div>
               <p className="flex flex-wrap items-center gap-1.5 text-xl font-semibold">
-                <span className={cn("rounded-full px-2 py-0.5 text-xs", cur.leg === "pickup" ? "bg-sky-100 text-sky-800" : "bg-amber-100 text-amber-900")}>{verb(cur)}</span>
-                {cur.nickname} <span className="text-sm font-normal text-primary-foreground/70">{cur.grade}</span>
+                <span className={cn("rounded-full px-2 py-0.5 text-xs", cur.leg === "pickup" ? "bg-white text-sky-800" : "bg-amber-100 text-amber-900")}>{verb(cur)}</span>
+                {cur.nickname} <span className="text-sm font-normal text-sky-800">{cur.grade}</span>
                 {cur.adult && <span className="flex items-center gap-0.5 rounded-full bg-violet-100 px-1.5 text-xs font-normal text-violet-800"><UserIcon className="size-3" />+ผู้ปกครอง</span>}
               </p>
-              <Address className="mt-1 text-base text-primary-foreground/90 [&_button]:text-primary-foreground [&_button]:underline" text={[cur.addressNote, cur.address].filter(Boolean).join(" · ")} />
+              <Address className="mt-1 text-base text-sky-950 [&_button]:text-sky-900 [&_button]:underline" text={[cur.addressNote, cur.address].filter(Boolean).join(" · ")} />
               <p className="mt-1 text-base font-medium tabular-nums">{`ประมาณ ${cur.eta ?? "—"}`}</p>
             </div>
             {/* owner 2026-10-20: "ยังไม่ถึง" is a proper button on the same line as call / navigate */}
             <div className={cn("grid gap-2", curIn ? "grid-cols-3" : "grid-cols-2")}>
-              {cur.phone ? <a href={`tel:${cur.phone.replace(/[^0-9+]/g, "")}`} className="flex h-12 items-center justify-center gap-1.5 rounded-2xl border border-white/40 bg-white/15 text-sm font-medium"><PhoneIcon className="size-4 shrink-0" />{curIn ? "โทร" : "โทรผู้ปกครอง"}</a> : <span />}
-              {cur.loc ? <a href={`https://www.google.com/maps/dir/?api=1&destination=${cur.loc.lat},${cur.loc.lng}`} target="_blank" rel="noreferrer" className="flex h-12 items-center justify-center gap-1.5 rounded-2xl border border-white/40 bg-white/15 text-sm font-medium"><NavigationIcon className="size-4 shrink-0" />นำทาง</a> : <span />}
+              {cur.phone ? <a href={`tel:${cur.phone.replace(/[^0-9+]/g, "")}`} className="flex h-12 items-center justify-center gap-1.5 rounded-2xl border border-sky-300 bg-white/70 text-sm font-medium"><PhoneIcon className="size-4 shrink-0" />{curIn ? "โทร" : "โทรผู้ปกครอง"}</a> : <span />}
+              {cur.loc ? <a href={`https://www.google.com/maps/dir/?api=1&destination=${cur.loc.lat},${cur.loc.lng}`} target="_blank" rel="noreferrer" className="flex h-12 items-center justify-center gap-1.5 rounded-2xl border border-sky-300 bg-white/70 text-sm font-medium"><NavigationIcon className="size-4 shrink-0" />นำทาง</a> : <span />}
               {curIn && <button type="button" disabled={busy} onClick={() => onTap("undo", cur.key)} className="flex h-12 items-center justify-center gap-1.5 rounded-2xl border border-amber-300 bg-amber-50 text-sm font-medium text-amber-900 disabled:opacity-50"><RotateCcwIcon className="size-4 shrink-0" />ยังไม่ถึง</button>}
             </div>
-          </section>
-        )}
+          </div>)}
+        </section>
 
         {/* the whole drive: from → each stop → to — every stop with its estimate, check in and check out (owner 2026-10-20) */}
         <section className="overflow-hidden rounded-3xl bg-background shadow-sm">
