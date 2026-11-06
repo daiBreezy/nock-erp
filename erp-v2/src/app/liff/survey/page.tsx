@@ -172,7 +172,7 @@ function Survey() {
           <div className="space-y-6">{TOPICS.map((k) => (
             <div key={k}>
               <p className="mb-3 text-base font-medium">{t.t[k]}</p>
-              <div className="grid grid-cols-5">{[5, 4, 3, 2, 1].map((n) => {
+              <div className="grid grid-cols-5">{[1, 2, 3, 4, 5].map((n) => {
                 const Face = FACES[n], on = scores[k] === n
                 return (
                   <button key={n} type="button" aria-pressed={on} onClick={() => setScores((x) => ({ ...x, [k]: n }))} className="flex flex-col items-center gap-1.5">
