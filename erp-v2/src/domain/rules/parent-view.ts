@@ -61,7 +61,9 @@ export interface ParentChild {
   courses: { id: ID; name: string }[]
   packages: { courseId?: ID; course: string; remaining: number | null; total: number | null; from: DateStr; until: DateStr
     /** the course KPI card (same numbers as the student panel): classes checked / all classes of the package, present, leave used / quota */
-    done: number; sessions: number; present: number; leaves: number; leaveQuota: number }[]
+    done: number; sessions: number; present: number; leaves: number; leaveQuota: number
+    /** first subject of the course (the coloured tile) + one line per weekly class with its own progress (owner ref 2026-11-06) */
+    subject?: string; slots: { weekday: number; start: TimeStr; minutes: number; done: number; total: number }[] }[]
   /** bus days ahead (pickup / drop-off), for students who bought the bus */
   busDays: { date: DateStr; pickup: boolean; dropoff: boolean; adult?: boolean }[]
   courseSummaries: ParentCourseSummary[]
@@ -175,6 +177,16 @@ export function parentView(family: Family, ctx: ParentCtx): ParentView {
         const marks = ctx.attendance.filter((a) => a.studentId === stu.id && held.some((x) => x.id === a.sessionId))
         return {
           courseId: e.courseId, course: ctx.courses.find((c) => c.id === e.courseId)?.name ?? "", remaining: counted ? b.remaining : null, total: counted ? b.total : null, from: e.from, until: b.until,
+          subject: ctx.courses.find((c) => c.id === e.courseId)?.subjects[0],
+          slots: [...held.reduce((m, x) => {
+            const [yy, mm, dd] = x.date.split("-").map(Number)
+            const weekday = new Date(yy, mm - 1, dd).getDay()
+            const k = `${x.classId ?? ""}|${weekday}|${x.start}`
+            const g = m.get(k) ?? { weekday, start: x.start, minutes: x.minutes, done: 0, total: 0 }
+            g.total++
+            if (marks.some((a) => a.sessionId === x.id)) g.done++
+            return m.set(k, g)
+          }, new Map<string, { weekday: number; start: TimeStr; minutes: number; done: number; total: number }>()).values()].sort((a, b) => a.weekday - b.weekday || a.start.localeCompare(b.start)),
           done: marks.length, sessions: held.length, present: marks.filter((a) => a.status === "present").length, leaves: leavesUsed(e, ctx.sessions, ctx.attendance), leaveQuota: leaveQuota(e),
         }
       })
