@@ -10,7 +10,7 @@ import { progressForSubject } from "@/domain/rules/summaries"
 import { InfoTip } from "@/components/app/info-tip"
 import { FilterChipGroup } from "@/components/app/filter-chip-group"
 import { NativeSelect } from "@/components/app/native-select"
-import { Segmented } from "@/components/app/page-layout"
+import { Segmented, Tabs } from "@/components/app/page-layout"
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Input } from "@/components/ui/input"
@@ -168,7 +168,7 @@ export function ParentApp({ view, lang: initialLang, today, framed, openCourseSu
           <p className="truncate text-xs text-muted-foreground">{brand === "liclass" ? "Liclass" : "NockAcademy"} · {child?.branchName}</p>
         </div>
         {view.children.length > 1 && cur === "study" && (
-          <FilterChipGroup layout="scroll" value={childId} onChange={(id) => { setChildId(id); setCourse("") }} options={[{ value: "", label: t.all }, ...view.children.map((c) => ({ value: c.id, label: `${nick(c)} ${c.left ? t.leftTag : c.grade}` }))]} />
+          <Tabs className="-mx-4 px-4" value={childId} onChange={(id) => { setChildId(id); setCourse("") }} options={[{ value: "", label: t.all }, ...view.children.map((c) => ({ value: c.id, label: nick(c) }))]} />
         )}
       </header>
 
@@ -441,8 +441,8 @@ function ClassCard({ dayText, isToday, c, first, child, t, hasBus, tag, onReques
       {/* owner 2026-11-06: day over time on the left (fixed column) · subject (may wrap to 2 lines) with who / which course under it · the card grows with long text */}
       <button type="button" aria-expanded={open} onClick={() => { setOpen(!open); setMsg(null) }} className="flex w-full items-start gap-3 px-3 py-2.5 text-left">
         <span className="w-24 shrink-0">
-          <span className={cn("block truncate text-xs", isToday ? "font-medium text-red-600 dark:text-red-400" : "text-muted-foreground")}>{dayText}</span>
-          <span className="block whitespace-nowrap text-sm font-semibold tabular-nums">{c.start}<span className="font-normal text-muted-foreground">–{c.end}</span></span>
+          <span className={cn("block truncate text-sm font-semibold", isToday && "text-red-600 dark:text-red-400")}>{dayText}</span>
+          <span className="block whitespace-nowrap text-xs tabular-nums text-muted-foreground">{c.start}–{c.end}</span>
         </span>
         <span className="min-w-0 flex-1">
           <span className={cn("line-clamp-2 text-sm font-medium break-words", c.cancelled && "line-through")}>{c.subjects.join(" + ")}</span>
@@ -460,11 +460,13 @@ function ClassCard({ dayText, isToday, c, first, child, t, hasBus, tag, onReques
       {msg && <p className={cn("mx-3 mb-2 rounded-[8px] p-2 text-xs", msg.ok ? "bg-emerald-50 text-emerald-800" : "bg-red-50 text-red-800")}>{msg.text}</p>}
       {open && (
         <div className="space-y-2.5 border-t px-3 pt-2.5 pb-3">
-          <p className="flex flex-wrap gap-x-3 text-xs text-muted-foreground">
-            {c.teachers.length > 0 && <span className="flex items-center gap-1"><UserIcon className="size-3" />{t.teacher} {c.teachers.join(", ")}</span>}
-            {c.room && <span className="flex items-center gap-1"><DoorOpenIcon className="size-3" />{c.room}</span>}
-          </p>
-          {(courseLabel || c.seq) && <p className="-mt-1.5 text-[11px] text-muted-foreground">{[courseLabel, c.seq && t.seq(c.seq.n, c.seq.total)].filter(Boolean).join(" · ")}</p>}
+          <div className="flex flex-wrap items-center justify-between gap-1.5">
+            {(courseLabel || c.seq) && <Pill tone="gray" className="max-w-full"><BookOpenIcon className="size-3 shrink-0" /><span className="truncate">{[courseLabel, c.seq && t.seq(c.seq.n, c.seq.total)].filter(Boolean).join(" · ")}</span></Pill>}
+            <span className="flex flex-wrap gap-1.5">
+              {c.teachers.length > 0 && <Pill tone="gray" className="max-w-full"><UserIcon className="size-3 shrink-0" /><span className="truncate">{c.teachers.join(", ")}</span></Pill>}
+              {c.room && <Pill tone="gray" className="max-w-full"><DoorOpenIcon className="size-3 shrink-0" /><span className="truncate">{c.room}</span></Pill>}
+            </span>
+          </div>
           {!c.cancelled && c.bus && <BusChips bus={c.bus} t={t} />}
           {canAct && (
             <>
