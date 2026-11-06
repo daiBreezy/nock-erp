@@ -160,7 +160,7 @@ export function ParentApp({ view, lang: initialLang, today, framed, openCourseSu
   ]
 
   return (
-    <div className={cn("mx-auto flex max-w-lg flex-col bg-muted/40", framed ? "min-h-full" : "min-h-dvh")}>
+    <div className={cn("mx-auto flex max-w-lg flex-col bg-background", framed ? "min-h-full" : "min-h-dvh")}>
       {/* owner 2026-11-06: no blue band, no greeting — a quiet line of who/where; the child switcher only where a child is the subject */}
       <header className="space-y-2.5 px-4 pt-4">
         <div>
