@@ -2,7 +2,8 @@
 
 import { Suspense, useEffect, useState } from "react"
 import { useSearchParams } from "next/navigation"
-import { CheckCircle2Icon, HeartHandshakeIcon, LoaderCircleIcon, SendIcon, StarIcon, XCircleIcon } from "lucide-react"
+import { CheckCircle2Icon, FrownIcon, HeartHandshakeIcon, LaughIcon, LoaderCircleIcon, MehIcon, SendIcon, StarIcon, XCircleIcon } from "lucide-react"
+import { IconChoices } from "../icon-choices"
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Textarea } from "@/components/ui/textarea"
@@ -23,7 +24,7 @@ const DICT = {
     lastDay: "เรียนวันสุดท้าย", reason: "เหตุผลหลักที่หยุดเรียน", reasonSub: "เลือก 1 ข้อ", others: "มีเหตุผลอื่นด้วยไหม", othersSub: "เลือกได้หลายข้อ (ไม่บังคับ)",
     rate: "ให้คะแนนเรา", rateSub: "1 = ควรปรับปรุง · 5 = ดีมาก", scores: { teacher: "ครูผู้สอน", content: "เนื้อหาและการเรียน", admin: "การดูแลจากแอดมิน", value: "ความคุ้มค่า" },
     comeBack: "คิดว่าจะกลับมาเรียนกับเราไหม", cb: { yes: "กลับมาแน่นอน", maybe: "อาจจะ", no: "คงไม่" }, when: "ประมาณเดือนไหน",
-    nps: "จะแนะนำเราให้เพื่อนไหม", npsLow: "ไม่แนะนำ", npsHigh: "แนะนำแน่นอน", comment: "อยากบอกอะไรเราไหม", commentPh: "คำชม สิ่งที่อยากให้ปรับปรุง หรืออะไรก็ได้ (ไม่บังคับ)",
+    nps: "จะแนะนำเราให้เพื่อนไหม", npsOpts: ["ไม่แนะนำ", "อาจจะแนะนำ", "แนะนำแน่นอน"], comment: "อยากบอกอะไรเราไหม", commentPh: "คำชม สิ่งที่อยากให้ปรับปรุง หรืออะไรก็ได้ (ไม่บังคับ)",
     contact: "ยินดีให้ติดต่อเมื่อมีคอร์สหรือโปรโมชันใหม่", submit: "ส่งแบบฟอร์ม", sending: "กำลังส่ง…",
     done: "ได้รับแบบฟอร์มแล้ว", doneSub: "ขอบคุณมากค่ะ หวังว่าจะได้ดูแลน้องๆ อีกครั้งนะคะ 🙏",
     invalid: { invalid: "ลิงก์นี้ไม่ถูกต้อง", used: "ส่งแบบฟอร์มนี้ไปแล้ว ขอบคุณค่ะ", expired: "ลิงก์หมดอายุแล้ว — ติดต่อสถาบันเพื่อขอลิงก์ใหม่" }, needReason: "เลือกเหตุผลหลักก่อนส่ง", preview: "โหมดดูตัวอย่าง — ไม่ส่งข้อมูลจริง",
@@ -33,7 +34,7 @@ const DICT = {
     lastDay: "Last day of class", reason: "Main reason for stopping", reasonSub: "Pick one", others: "Any other reasons?", othersSub: "Pick any (optional)",
     rate: "Rate us", rateSub: "1 = needs work · 5 = excellent", scores: { teacher: "Teacher", content: "Lessons & content", admin: "Support from our staff", value: "Value for money" },
     comeBack: "Would you come back to study with us?", cb: { yes: "Yes", maybe: "Maybe", no: "Probably not" }, when: "Around which month?",
-    nps: "Would you recommend us to a friend?", npsLow: "Not likely", npsHigh: "Very likely", comment: "Anything you'd like to tell us?", commentPh: "Compliments, suggestions, anything (optional)",
+    nps: "Would you recommend us to a friend?", npsOpts: ["Would not", "Maybe", "Definitely"], comment: "Anything you'd like to tell us?", commentPh: "Compliments, suggestions, anything (optional)",
     contact: "You may contact me about new courses or offers", submit: "Send", sending: "Sending…",
     done: "Thank you!", doneSub: "We've received your form. We hope to see your child again 🙏",
     invalid: { invalid: "This link is not valid", used: "This form has already been sent. Thank you!", expired: "This link has expired — please contact the school for a new one" }, needReason: "Please pick the main reason", preview: "Preview — nothing is sent",
@@ -43,7 +44,7 @@ const DICT = {
     lastDay: "最終受講日", reason: "退塾の主な理由", reasonSub: "1つお選びください", others: "その他の理由", othersSub: "複数選択可（任意）",
     rate: "評価", rateSub: "1 = 改善が必要 · 5 = とても良い", scores: { teacher: "講師", content: "授業内容", admin: "スタッフの対応", value: "費用対効果" },
     comeBack: "また通塾されるご予定はありますか", cb: { yes: "はい", maybe: "検討中", no: "いいえ" }, when: "何月頃ですか",
-    nps: "お友達に当塾を勧めますか", npsLow: "勧めない", npsHigh: "ぜひ勧める", comment: "ご意見・ご感想", commentPh: "良かった点、改善点など（任意）",
+    nps: "お友達に当塾を勧めますか", npsOpts: ["勧めない", "どちらとも", "ぜひ勧める"], comment: "ご意見・ご感想", commentPh: "良かった点、改善点など（任意）",
     contact: "新しいコースやキャンペーンのご案内を受け取る", submit: "送信", sending: "送信中…",
     done: "送信しました", doneSub: "ご協力ありがとうございました。またお会いできることを願っています 🙏",
     invalid: { invalid: "無効なリンクです", used: "このフォームは送信済みです。ありがとうございました", expired: "リンクの有効期限が切れています。教室までご連絡ください" }, needReason: "主な理由をお選びください", preview: "プレビュー — 送信されません",
@@ -127,9 +128,9 @@ function ExitForm() {
         </div>
         {preview && <p className="mt-2 rounded-lg bg-amber-100 px-2 py-1 text-center text-xs text-amber-900">{t.preview}</p>}
       </header>
-      <main className="space-y-3 p-4">
+      <main className="space-y-4 p-4">
         <Card>
-          <p className="font-medium">{t.hello(tk.familyName)}</p>
+          <p className="text-lg font-semibold">{t.hello(tk.familyName)}</p>
           <p className="mt-1 text-sm text-muted-foreground">{t.intro}</p>
           <div className="mt-3 flex flex-wrap gap-1.5">{tk.students.map((s) => <span key={s.id} className="rounded-full bg-primary/10 px-2.5 py-1 text-sm text-primary">{s.nickname} · {s.grade}</span>)}</div>
           <p className="mt-2 text-sm"><span className="text-muted-foreground">{t.lastDay}:</span> {fmt(tk.lastDate)}</p>
@@ -143,40 +144,41 @@ function ExitForm() {
           </Card>
         )}
         <Card title={t.rate} sub={t.rateSub}>
-          <div className="space-y-2.5">
+          <div className="space-y-6">
             {(Object.keys(t.scores) as (keyof ExitAnswers["scores"])[]).map((k) => (
-              <div key={k} className="flex items-center gap-2">
-                <span className="flex-1 text-sm">{t.scores[k]}</span>
-                {[1, 2, 3, 4, 5].map((n) => (
-                  <button key={n} type="button" aria-label={`${t.scores[k]} ${n}`} onClick={() => setScores((s) => ({ ...s, [k]: s[k] === n ? null : n }))}>
-                    <StarIcon className={cn("size-7", (scores[k] ?? 0) >= n ? "fill-amber-400 text-amber-400" : "text-muted-foreground/40")} />
-                  </button>
-                ))}
+              <div key={k}>
+                <p className="mb-3 text-base font-medium">{t.scores[k]}</p>
+                <IconChoices cols={5} onPick={(v) => setScores((s) => ({ ...s, [k]: s[k] === Number(v) ? null : Number(v) }))}
+                  choices={[1, 2, 3, 4, 5].map((n) => ({ key: String(n), label: String(n), icon: StarIcon, fillIcon: true, active: (scores[k] ?? 0) >= n, on: "border-amber-400 bg-amber-400 text-white" }))} />
               </div>
             ))}
           </div>
         </Card>
         <Card title={t.comeBack} error={tried && !comeBack ? " " : undefined}>
-          <div className="grid grid-cols-3 gap-2">{(["yes", "maybe", "no"] as const).map((k) => <Pick key={k} on={comeBack === k} onClick={() => setComeBack(k)} block>{t.cb[k]}</Pick>)}</div>
+          <IconChoices cols={3} onPick={(v) => setComeBack(v as ExitAnswers["comeBack"])} choices={[
+            { key: "no", label: t.cb.no, icon: FrownIcon, active: comeBack === "no", on: "border-red-500 bg-red-500 text-white" },
+            { key: "maybe", label: t.cb.maybe, icon: MehIcon, active: comeBack === "maybe", on: "border-amber-500 bg-amber-500 text-white" },
+            { key: "yes", label: t.cb.yes, icon: LaughIcon, active: comeBack === "yes", on: "border-emerald-600 bg-emerald-600 text-white" },
+          ]} />
           {comeBack && comeBack !== "no" && (
             <div className="mt-3"><p className="mb-1.5 text-sm text-muted-foreground">{t.when}</p>
               <div className="flex flex-wrap gap-1.5">{months.map((m) => <Pick key={m} on={month === m} onClick={() => setMonth(month === m ? "" : m)}>{monthLabel(m)}</Pick>)}</div></div>
           )}
         </Card>
         <Card title={t.nps}>
-          <div className="grid grid-cols-11 gap-1">{Array.from({ length: 11 }, (_, n) => (
-            <button key={n} type="button" onClick={() => setNps(nps === n ? null : n)}
-              className={cn("h-9 rounded-lg border text-sm tabular-nums", nps === n ? (n <= 6 ? "border-red-500 bg-red-500 text-white" : n <= 8 ? "border-amber-500 bg-amber-500 text-white" : "border-emerald-600 bg-emerald-600 text-white") : "bg-background")}>{n}</button>
-          ))}</div>
-          <div className="mt-1 flex justify-between text-[11px] text-muted-foreground"><span>{t.npsLow}</span><span>{t.npsHigh}</span></div>
+          <IconChoices cols={3} onPick={(v) => setNps(nps === Number(v) ? null : Number(v))} choices={[
+            { key: "3", label: t.npsOpts[0], icon: FrownIcon, active: nps !== null && nps <= 6, on: "border-red-500 bg-red-500 text-white" },
+            { key: "8", label: t.npsOpts[1], icon: MehIcon, active: nps !== null && nps >= 7 && nps <= 8, on: "border-amber-500 bg-amber-500 text-white" },
+            { key: "10", label: t.npsOpts[2], icon: LaughIcon, active: nps !== null && nps >= 9, on: "border-emerald-600 bg-emerald-600 text-white" },
+          ]} />
         </Card>
-        <Card title={t.comment}><Textarea rows={4} value={comment} onChange={(e) => setComment(e.target.value)} placeholder={t.commentPh} /></Card>
+        <Card title={t.comment}><Textarea rows={5} className="text-base" value={comment} onChange={(e) => setComment(e.target.value)} placeholder={t.commentPh} /></Card>
         <label className="flex items-center gap-2 px-1 text-sm"><Checkbox checked={contactOk} onCheckedChange={(v) => setContactOk(!!v)} />{t.contact}</label>
       </main>
       <div className="fixed inset-x-0 bottom-0 border-t bg-background/95 p-3 backdrop-blur">
         <div className="mx-auto max-w-lg">
           {tried && (!reasonId || !comeBack) && <p className="mb-2 text-center text-xs text-red-600">{!reasonId ? t.needReason : t.comeBack}</p>}
-          <Button className="h-11 w-full" disabled={phase === "sending"} onClick={submit}><SendIcon /> {phase === "sending" ? t.sending : t.submit}</Button>
+          <Button className="h-12 w-full text-base" disabled={phase === "sending"} onClick={submit}><SendIcon /> {phase === "sending" ? t.sending : t.submit}</Button>
         </div>
       </div>
     </div>
@@ -185,8 +187,8 @@ function ExitForm() {
 
 function Card({ title, sub, error, children }: { title?: string; sub?: string; error?: string; children: React.ReactNode }) {
   return (
-    <section className={cn("rounded-2xl bg-background p-4 shadow-sm ring-1 ring-foreground/5", error && "ring-2 ring-red-400")}>
-      {title && <div className="mb-3"><p className="font-medium">{title}</p>{sub && <p className="text-xs text-muted-foreground">{sub}</p>}</div>}
+    <section className={cn("rounded-2xl bg-background p-5 shadow-sm ring-1 ring-foreground/5", error && "ring-2 ring-red-400")}>
+      {title && <div className="mb-4"><p className="text-base font-semibold leading-snug">{title}</p>{sub && <p className="mt-0.5 text-sm text-muted-foreground">{sub}</p>}</div>}
       {children}
     </section>
   )
@@ -195,7 +197,7 @@ function Card({ title, sub, error, children }: { title?: string; sub?: string; e
 function Pick({ on, onClick, children, block }: { on: boolean; onClick: () => void; children: React.ReactNode; block?: boolean }) {
   return (
     <button type="button" aria-pressed={on} onClick={onClick}
-      className={cn("rounded-full border px-3 py-2 text-sm transition-colors", block && "w-full", on ? "border-primary bg-primary text-primary-foreground" : "bg-background hover:bg-muted")}>{children}</button>
+      className={cn("min-h-11 rounded-full border px-4 py-2.5 text-base transition-colors", block && "w-full", on ? "border-primary bg-primary text-primary-foreground" : "bg-background hover:bg-muted")}>{children}</button>
   )
 }
 
