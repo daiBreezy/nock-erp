@@ -157,7 +157,7 @@ function Survey() {
         <Card title={`${t.nps} *`} error={tried && missing.nps}>
           <div className="grid grid-cols-3">{NPS_CHOICES.map(({ value, Face, on }, i) => (
             <button key={value} type="button" aria-pressed={npsV !== null && npsBucket(npsV) === i} onClick={() => setNps(value)} className="flex flex-col items-center gap-1.5">
-              <span className={cn("grid size-14 place-items-center rounded-full border-2 transition-colors", npsV !== null && npsBucket(npsV) === i ? on : "border-border bg-background text-muted-foreground")}><Face className="size-7" /></span>
+              <span className={cn("grid size-14 place-items-center rounded-full border-2 transition-colors", npsV !== null && npsBucket(npsV) === i ? on : "border-border bg-background text-muted-foreground")}><Face className="size-7" strokeWidth={1} /></span>
               <span className={cn("text-sm leading-tight", npsV !== null && npsBucket(npsV) === i ? "font-semibold text-foreground" : "text-muted-foreground")}>{t.npsOpts[i]}</span>
             </button>
           ))}</div>
@@ -176,7 +176,7 @@ function Survey() {
                 const Face = FACES[n], on = scores[k] === n
                 return (
                   <button key={n} type="button" aria-pressed={on} onClick={() => setScores((x) => ({ ...x, [k]: n }))} className="flex flex-col items-center gap-1.5">
-                    <span className={cn("grid size-14 place-items-center rounded-full border-2 transition-colors", on ? FACE_ON(n) : "border-border bg-background text-muted-foreground")}><Face className="size-7" /></span>
+                    <span className={cn("grid size-14 place-items-center rounded-full border-2 transition-colors", on ? FACE_ON(n) : "border-border bg-background text-muted-foreground")}><Face className="size-7" strokeWidth={1} /></span>
                     <span className={cn("text-xs leading-tight", on ? "font-semibold text-foreground" : "text-muted-foreground")}>{t.scale[n]}</span>
                   </button>
                 )
