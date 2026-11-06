@@ -7,6 +7,7 @@ import type { Branch, FormOfferSlot, Holiday, Klass, Session, Staff } from "@/do
 import { cn } from "@/lib/utils"
 import { useStore } from "@/store/store"
 import { Pill } from "../app/badges"
+import { DateRangePicker } from "../app/date-range-picker"
 import { NativeSelect } from "../app/native-select"
 import { Label } from "../ui/label"
 
@@ -44,18 +45,15 @@ export function SlotPicker({
 
   return (
     <div className="space-y-3">
-      <div className="grid grid-cols-3 gap-2">
+      <div className="grid grid-cols-[1fr_1.4fr] gap-2">
         <div>
           <Label className="mb-1 text-xs">วิชา</Label>
           <NativeSelect value={subject} onChange={(e) => onSubjectChange(e.target.value)} options={subjectOptions.map((s) => ({ value: s, label: s }))} />
         </div>
         <div>
-          <Label className="mb-1 text-xs">จากวันที่</Label>
-          <input type="date" value={from} onChange={(e) => setFrom(e.target.value)} className="h-9 w-full rounded-3xl border bg-input/50 px-3 text-sm" />
-        </div>
-        <div>
-          <Label className="mb-1 text-xs">ถึงวันที่</Label>
-          <input type="date" value={to} onChange={(e) => setTo(e.target.value)} className="h-9 w-full rounded-3xl border bg-input/50 px-3 text-sm" />
+          <Label className="mb-1 text-xs">ช่วงวันที่</Label>
+          {/* owner 2026-11-06: one range control, not a start and an end field */}
+          <DateRangePicker plain from={from} to={to} className="w-full justify-start" onChange={(r) => { setFrom(r.from); setTo(r.to) }} />
         </div>
       </div>
 
