@@ -103,7 +103,7 @@ export function FamilySheet({ id: target, onClose }: { id: ID | "new" | null; on
               {/* Bottom = actions (owner 2026-10-09) */}
               <PanelFooter>
                 <Button variant="outline" onClick={() => setParentApp(true)}><SmartphoneIcon /> ดูแบบผู้ปกครอง</Button>
-                <Button className="ml-auto" onClick={() => setEditing(true)}><PencilIcon /> แก้ไข</Button>
+                <Button variant="outline" className="ml-auto" onClick={() => setEditing(true)}><PencilIcon /> แก้ไข</Button>
               </PanelFooter>
             </>
           )}
