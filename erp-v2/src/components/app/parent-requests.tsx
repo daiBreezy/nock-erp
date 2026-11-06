@@ -169,7 +169,7 @@ export function RequestCard({ r, preview }: { r: ParentRequest; preview?: boolea
   return (
     <Confirmation state={state} className="max-w-none">
       <ConfirmationHeader state={state} icon={<Icon />} label={open ? "รอดำเนินการ" : r.status === "done" ? "ดำเนินการแล้ว" : "ไม่ดำเนินการ"}
-        title={<>{title} · {L.student(r.studentId)?.nickname ?? r.studentNickname} <span className="font-normal text-muted-foreground">· {r.familyName} · {fmtDateTime(r.createdAt)}</span></>} />
+        title={<>{title} · {L.student(r.studentId)?.nickname ?? r.studentNickname} <span className="block text-xs font-normal text-muted-foreground">{r.familyName} · {fmtDateTime(r.createdAt)}</span></>} />
       <ConfirmationBody className="space-y-1">
         {r.kind === "leave" ? (
           <ul className="flex flex-wrap gap-1.5 text-xs">

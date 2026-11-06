@@ -36,9 +36,9 @@ export function ConfirmationHeader({ icon, title, state, label, className }: { i
   const s = STATE[state]
   const words = label ?? s.label
   return (
-    <div data-slot="confirmation-header" className={cn("flex items-center gap-2 border-b px-3.5 py-2.5", className)}>
+    <div data-slot="confirmation-header" className={cn("flex items-start gap-2 border-b px-3.5 py-2.5", className)}>
       {icon && <span aria-hidden className="grid size-7 shrink-0 place-items-center rounded-full bg-muted text-muted-foreground [&>svg]:size-3.5">{icon}</span>}
-      <span className="min-w-0 flex-1 truncate font-medium">{title}</span>
+      <span className="min-w-0 flex-1 self-center leading-snug font-medium">{title}</span>
       <HoverCard>
         <HoverCardTrigger render={<span role="img" aria-label={words} tabIndex={0} className={cn("grid size-6 shrink-0 place-items-center rounded-full [&>svg]:size-4", s.tone)} />}>{s.icon}</HoverCardTrigger>
         <HoverCardContent side="bottom" align="end" className="w-auto px-3 py-1.5 text-xs">{words}</HoverCardContent>

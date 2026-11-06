@@ -38,7 +38,7 @@ export function ExitFormCardView({ at, kids, linked, preview }: { at: string; ki
     <div className="flex">
       <Confirmation state={state} className="max-w-md">
         <ConfirmationHeader state={state} icon={<DoorOpenIcon />} label={open ? "รอดำเนินการ" : kids.length ? "ปิดเรื่องแล้ว" : "ไม่มีเรื่องค้าง"}
-          title={<>ผู้ปกครองส่งฟอร์มแจ้งออก <span className="font-normal text-muted-foreground">· {fmtDateTime(at)}</span></>} />
+          title={<>ผู้ปกครองส่งฟอร์มแจ้งออก <span className="block text-xs font-normal text-muted-foreground">{fmtDateTime(at)}</span></>} />
         <ConfirmationBody className="space-y-3">
           {kids.length ? kids.map((stu) => <ExitPanel key={stu.id} stu={stu} bare preview={preview} />)
             : <p className="text-xs text-muted-foreground">{linked ? "ไม่มีเรื่องแจ้งออกที่เปิดอยู่ — ปิดเรื่องแล้ว หรือนักเรียนกลับมาเรียนแล้ว" : "ผูกแชทนี้กับครอบครัวก่อน จึงจะเห็นคำตอบและปิดการออกได้"}</p>}
@@ -77,7 +77,7 @@ export function EnrollSubmissionChatCard({ message, conversation }: { message: C
     <div className="flex">
       <Confirmation state={state} className="max-w-md">
         <ConfirmationHeader state={state} icon={<UserPlusIcon />} label={!sub ? (subs ? "ไม่พบใบสมัคร" : "กำลังโหลด…") : sub.status === "pending" ? "รอสร้างนักเรียน" : sub.status === "approved" ? "สร้างนักเรียนแล้ว" : "ปิดใบสมัคร"}
-          title={<>ผู้ปกครองส่งใบสมัครเรียน <span className="font-normal text-muted-foreground">· {fmtDateTime(message.at)}</span></>} />
+          title={<>ผู้ปกครองส่งใบสมัครเรียน <span className="block text-xs font-normal text-muted-foreground">{fmtDateTime(message.at)}</span></>} />
         <ConfirmationBody className="text-xs text-muted-foreground">
           {sub ? sub.children.map((c, i) => <p key={i}><span className="font-medium text-foreground">{c.nickname || c.name}</span> · {c.grade}{c.classIds?.length ? ` · ${c.classIds.length} คลาส` : ""} · เริ่ม {fmtDate(c.startDate, { weekday: true })}{c.bus ? " · รถรับส่ง" : ""}</p>) : message.text.replace("📝 ", "")}
         </ConfirmationBody>
