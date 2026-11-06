@@ -1,5 +1,6 @@
 "use client"
 
+import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card"
 import Link from "next/link"
 import { Fragment, useCallback, useEffect, useLayoutEffect, useRef, useState } from "react"
 import { BookOpenIcon, CalendarSearchIcon, FileSignatureIcon, InfoIcon, PenLineIcon, PlusIcon, RadioIcon, ArrowUpIcon, Loader2Icon, SparklesIcon, UserSearchIcon, UserCheckIcon, ChevronDownIcon, CheckIcon, ClipboardListIcon, FileTextIcon, GraduationCapIcon, HeartHandshakeIcon, ImageIcon, LogOutIcon, MegaphoneIcon, LayoutTemplateIcon, ReceiptIcon, SearchIcon, UserPlusIcon, XIcon, GripVerticalIcon, CheckCircle2Icon } from "lucide-react"
@@ -578,8 +579,13 @@ function Hint({ children }: { children: React.ReactNode }) {
   return <span className="ml-auto pl-3 text-[10px] font-normal">{children}</span>
 }
 
-/** ✓ the form already went to this chat (with when) — the item stays clickable to send it again */
+/** ✓ the form already went to this chat — an icon only (owner 2026-11-06); the date on hover; the item stays clickable to send it again */
 function Sent({ at }: { at?: string }) {
   if (!at) return null
-  return <span className="ml-auto flex items-center gap-1 pl-3 text-[10px] font-normal text-emerald-700" title="ส่งไปแล้ว — กดเพื่อส่งใหม่"><CheckCircle2Icon className="size-3.5 text-emerald-600" />ส่งแล้ว {fmtDate(at.slice(0, 10))}</span>
+  return (
+    <HoverCard>
+      <HoverCardTrigger render={<span role="img" aria-label="ส่งแล้ว" className="ml-auto grid size-5 shrink-0 place-items-center pl-3" />}><CheckCircle2Icon className="size-4 text-emerald-600" /></HoverCardTrigger>
+      <HoverCardContent side="right" className="w-auto px-3 py-1.5 text-xs"><span className="block">ส่งแล้ว {fmtDate(at.slice(0, 10))}</span><span className="block text-muted-foreground">กดเพื่อส่งใหม่</span></HoverCardContent>
+    </HoverCard>
+  )
 }
