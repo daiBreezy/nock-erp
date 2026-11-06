@@ -117,12 +117,12 @@ export default function InboxCardsPreview() {
       <FlowSection title="Flow ฟอร์มสอบวัดระดับ (Test)" steps={[
         { title: "Admin ส่งไป", hint: "รอผู้ปกครองตอบ", node: <FormRequestBubble message={msg("f1", "staff", "", at(0, "10:00"), { kind: "form_request", meta: { formKind: "form_request", token: "t_wait", type: "test", subjects: ["คณิต"] } })} submissions={subs} /> },
         { title: "ผู้ปกครองส่งกลับมา", hint: "รออนุมัติ — แอดมินตรวจ / แก้เวลา", node: <FormRequestBubble message={msg("f2", "staff", "", at(0, "10:00"), { kind: "form_request", meta: { formKind: "form_request", token: "t_pending", type: "test", subjects: ["คณิต"] } })} submissions={subs} /> },
-        { title: "Admin จัดการ", hint: "อนุมัติ = จองคาบสอบจริง", node: <FormRequestBubble message={msg("f3", "staff", "", at(0, "10:00"), { kind: "form_request", meta: { formKind: "form_request", token: "t_ok", type: "test", subjects: ["คณิต"] } })} submissions={subs} /> },
+        { title: "Admin จัดการ", hint: "อนุมัติ = จองคาบสอบจริง · หรือปฏิเสธ", node: <div className="space-y-3"><FormRequestBubble message={msg("f3", "staff", "", at(0, "10:00"), { kind: "form_request", meta: { formKind: "form_request", token: "t_ok", type: "test", subjects: ["คณิต"] } })} submissions={subs} /><FormRequestBubble message={msg("f4", "staff", "", at(0, "10:01"), { kind: "form_request", meta: { formKind: "form_request", token: "t_no", type: "test", subjects: ["คณิต"] } })} submissions={subs} /></div> },
       ]} />
       <FlowSection title="Flow ฟอร์มทดลองเรียน (Trial)" steps={[
         { title: "Admin ส่งไป", hint: "รอผู้ปกครองตอบ", node: <FormRequestBubble message={msg("t1", "staff", "", at(0, "10:00"), { kind: "form_request", meta: { formKind: "form_request", token: "t_wait", type: "trial", subjects: ["อังกฤษ"] } })} submissions={subs} /> },
         { title: "ผู้ปกครองส่งกลับมา", hint: "รออนุมัติ — แอดมินตรวจ / แก้เวลา", node: <FormRequestBubble message={msg("t2", "staff", "", at(0, "10:00"), { kind: "form_request", meta: { formKind: "form_request", token: "t_pending", type: "trial", subjects: ["อังกฤษ"] } })} submissions={subs} /> },
-        { title: "Admin จัดการ", hint: "อนุมัติ = จองเข้าคาบ / คลาสจริง", node: <FormRequestBubble message={msg("t3", "staff", "", at(0, "10:00"), { kind: "form_request", meta: { formKind: "form_request", token: "t_ok", type: "trial", subjects: ["อังกฤษ"] } })} submissions={subs} /> },
+        { title: "Admin จัดการ", hint: "อนุมัติ = จองเข้าคาบ / คลาสจริง · หรือปฏิเสธ", node: <div className="space-y-3"><FormRequestBubble message={msg("t3", "staff", "", at(0, "10:00"), { kind: "form_request", meta: { formKind: "form_request", token: "t_ok", type: "trial", subjects: ["อังกฤษ"] } })} submissions={subs} /><FormRequestBubble message={msg("t4", "staff", "", at(0, "10:01"), { kind: "form_request", meta: { formKind: "form_request", token: "t_no", type: "trial", subjects: ["อังกฤษ"] } })} submissions={subs} /></div> },
       ]} />
       <FlowSection title="Flow ใบสมัครเรียน" steps={[
         { title: "Admin ส่งไป", hint: "เลือกคลาสที่เสนอแล้วส่งในแชท", node: <FormLinkBubble message={msg("e1", "staff", "กรอกใบสมัครเรียนได้ที่ลิงก์นี้เลยค่ะ 🙏\nhttps://liff.line.me/demo?token=demo3", at(0, "11:02"))} answered={false} /> },
@@ -151,30 +151,13 @@ export default function InboxCardsPreview() {
         {homeReq && <div className="max-w-md"><RequestCard preview r={homeReq} /></div>}
         <Label>อยากกลับมาเรียน · รอดำเนินการ</Label>
         <div className="max-w-md"><RequestCard preview r={req({ kind: "return", startDate: addDays(today, 7), note: "อยากกลับมาเรียนคณิตเหมือนเดิมค่ะ" })} /></div>
-        <Label>ผู้ปกครองส่งฟอร์มแจ้งออกกลับมา · รอดำเนินการ (มีคำตอบ + ปิดการออก / ไม่ออกแล้ว)</Label>
-        {answered && <ExitFormCardView at={at(-1, "20:15")} kids={[answered]} linked preview={{ response }} />}
         <Label>จัดการแล้ว — แสดงผลและใครทำ</Label>
         <div className="max-w-md"><RequestCard preview r={req({ kind: "leave", status: "done", sessions: leaveSessions.slice(0, 1), handledBy: "u_ploy", handledAt: at(0, "09:30"), result: "บันทึกลา 1 คาบ (หักโควตา)" })} /></div>
         <div className="max-w-md"><RequestCard preview r={busReq({ id: "demo_bus_done", status: "done", handledBy: "u_ploy", handledAt: at(0, "10:05"), result: "เพิ่มรอบรถ 2 เที่ยว ฿300 — เก็บในใบแจ้งหนี้รอบถัดไป · ยกเลิก 1 เที่ยว (1 เที่ยวจ่ายแล้ว ไม่คืนเงิน)" })} /></div>
         <div className="max-w-md"><RequestCard preview r={req({ kind: "return", status: "declined", handledBy: "u_ploy", handledAt: at(0, "11:00"), result: "คลาสเต็มช่วงนี้ — แอดมินจะโทรเสนอเวลาอื่นค่ะ" })} /></div>
-        {closed && <ExitFormCardView at={at(-3, "18:00")} kids={[closed]} linked preview={{ response: null }} />}
       </Section>
 
-      <Section title="2. การ์ดที่เราส่งให้ผู้ปกครอง" hint="ฟอร์มทุกแบบเป็นการ์ดเดียวกัน — สถานะเปลี่ยนเองเมื่อผู้ปกครองตอบ">
-        <Label>ฟอร์มสอบวัดระดับ / ทดลองเรียน — รอผู้ปกครองตอบ · รออนุมัติ · อนุมัติแล้ว · ปฏิเสธแล้ว</Label>
-        <FormRequestBubble message={msg("r1", "staff", "", at(0, "10:00"), { kind: "form_request", meta: { formKind: "form_request", token: "t_wait", type: "test", subjects: ["คณิต"] } })} submissions={subs} />
-        <FormRequestBubble message={msg("r2", "staff", "", at(0, "10:01"), { kind: "form_request", meta: { formKind: "form_request", token: "t_pending", type: "trial", subjects: ["อังกฤษ"] } })} submissions={subs} />
-        <FormRequestBubble message={msg("r3", "staff", "", at(0, "10:02"), { kind: "form_request", meta: { formKind: "form_request", token: "t_ok", type: "trial", subjects: ["คณิต", "วิทย์"] } })} submissions={subs} />
-        <FormRequestBubble message={msg("r4", "staff", "", at(0, "10:03"), { kind: "form_request", meta: { formKind: "form_request", token: "t_no", type: "test", subjects: ["อังกฤษ"] } })} submissions={subs} />
-        <Label>ฟอร์มแจ้งลาออก — รอผู้ปกครองตอบ · ผู้ปกครองตอบแล้ว</Label>
-        <FormLinkBubble message={msg("l1", "staff", `รบกวนผู้ปกครองช่วยตอบแบบฟอร์มสั้นๆ เรื่องการหยุดเรียนของ${kid2?.nickname ?? "น้อง"}ค่ะ 🙏\nhttps://liff.line.me/demo?token=demo1`, at(0, "11:00"))} answered={false} />
-        <FormLinkBubble message={msg("l2", "staff", `รบกวนผู้ปกครองช่วยตอบแบบฟอร์มสั้นๆ เรื่องการหยุดเรียนของ${kid2?.nickname ?? "น้อง"}ค่ะ 🙏\nhttps://liff.line.me/demo?token=demo2`, at(0, "11:01"))} answered />
-        <Label>ใบสมัครเรียน · แบบสอบถามความพึงพอใจ</Label>
-        <FormLinkBubble message={msg("l3", "staff", "กรอกใบสมัครเรียนได้ที่ลิงก์นี้เลยค่ะ 🙏\nhttps://liff.line.me/demo?token=demo3", at(0, "11:02"))} answered={false} />
-        <FormLinkBubble message={msg("l4", "staff", "ขอเวลา 3 นาทีช่วยตอบแบบสอบถามความพึงพอใจประจำปีหน่อยนะคะ 🙏\nhttps://liff.line.me/demo?token=demo4", at(0, "11:03"))} answered={false} />
-      </Section>
-
-      <Section title="3. ข้อความทั่วไป" hint="ข้อความของเรา · ของผู้ปกครอง · โน้ตภายใน (ผู้ปกครองไม่เห็น)">
+      <Section title="2. ข้อความทั่วไป" hint="ข้อความของเรา · ของผู้ปกครอง · โน้ตภายใน (ผู้ปกครองไม่เห็น)">
         <MessageBubble message={msg("m1", "parent", "สวัสดีค่ะ พรุ่งนี้น้องขอลา 1 วันนะคะ", at(0, "08:00"))} conversation={CONV} staff={staff} />
         <MessageBubble message={msg("m2", "staff", "รับทราบค่ะ แอดมินบันทึกลาให้เรียบร้อยแล้วนะคะ 🙏", at(0, "08:05"))} conversation={CONV} staff={staff} />
         <MessageBubble message={msg("m3", "internal", "ผู้ปกครองขอลาบ่อย — ลองเสนอเปลี่ยนวันเรียน", at(0, "08:06"))} conversation={CONV} staff={staff} />
