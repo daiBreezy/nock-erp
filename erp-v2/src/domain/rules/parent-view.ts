@@ -9,6 +9,7 @@ import { courseProgressRows, entitlementRounds, type ProgressRow } from "./summa
 
 export interface ParentClass {
   sessionId: ID
+  classId?: ID
   /** the course (package) that pays for this class — the parent app filters by it (owner 2026-11-06) */
   courseId?: ID
   /** "คาบที่ n / total" of the package that pays for it */
@@ -145,7 +146,7 @@ export function parentView(family: Family, ctx: ParentCtx): ParentView {
       .filter((s) => !(s.cancelled && s.date < today))
       .sort((a, b) => (a.date + a.start).localeCompare(b.date + b.start))
       .map((s) => ({
-        sessionId: s.id, courseId: courseOf(s), seq: seqOf(s), date: s.date, start: s.start, end: endTime(s.start, s.minutes), subjects: subjectsOf(s),
+        sessionId: s.id, classId: s.classId ?? undefined, courseId: courseOf(s), seq: seqOf(s), date: s.date, start: s.start, end: endTime(s.start, s.minutes), subjects: subjectsOf(s),
         className: ctx.classes.find((k) => k.id === s.classId)?.name ?? subjectsOf(s).join(" + "),
         teachers: teachersOf(s).map(teacher).filter(Boolean),
         room: branch?.rooms.find((r) => r.id === s.roomId)?.name ?? null,
