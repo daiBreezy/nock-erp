@@ -169,8 +169,7 @@ function RouteStrip({ t, p, speed }: { t: Trip; p: ReturnType<typeof progress>; 
             {nd.icon ? <nd.icon className="size-3.5" /> : (nd as { n: number }).n}
           </span>
         ))}
-        {/* eslint-disable-next-line @next/next/no-img-element -- static asset */}
-        <img src="/brand/van-top.png" alt="" className="absolute top-1/2 h-5 w-auto -translate-x-1/2 -translate-y-1/2 transition-[left] duration-1000 ease-linear" style={{ left: at }} />
+        {/* the van (public/brand/van-top.png) is hidden for now — owner 2026-11-06; put the <img> back here to show it again */}
       </div>
       <div className="mt-1.5 flex justify-between gap-3 text-xs text-sky-900">
         <span className="min-w-0 truncate">{ends[0].label}</span>
