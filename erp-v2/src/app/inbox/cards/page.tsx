@@ -33,7 +33,7 @@ function Section({ title, hint, children }: { title: string; hint: string; child
 }
 
 /** a small grey caption above each example */
-const Label = ({ children }: { children: React.ReactNode }) => <p className="-mb-3 pt-2 text-xs font-medium text-muted-foreground">{children}</p>
+const Label = ({ children }: { children: React.ReactNode }) => <p className="pt-4 text-xs font-medium text-muted-foreground">{children}</p>
 
 export default function InboxCardsPreview() {
   const now = useNow(60_000)
