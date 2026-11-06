@@ -151,25 +151,26 @@ function RouteStrip({ t, p, speed }: { t: Trip; p: ReturnType<typeof progress>; 
       f = prev + Math.min(0.97, elapsed / dur)
     }
   }
-  const pct = (i: number) => `${(i / (n + 1)) * 100}%`
-  const nodes = [{ label: t.branchName, icon: t.kind === "pickup" ? BusIcon : SchoolIcon }, ...t.stops.map((s, i) => ({ label: s.nickname, icon: null, n: i + 1 })), { label: t.branchName, icon: SchoolIcon }]
+  // only the leg being driven: where it left → where it's going; the next leg shows once it has set off
+  const prev = p.finished ? n : Math.min(n, Math.floor(f))
+  const target = Math.min(n + 1, prev + 1)
+  const q = Math.max(0, Math.min(1, f - prev))
+  const all = [{ label: t.branchName, icon: t.kind === "pickup" ? BusIcon : SchoolIcon }, ...t.stops.map((s, i) => ({ label: s.nickname, icon: null, n: i + 1 })), { label: t.branchName, icon: SchoolIcon }]
+  const ends = [all[prev], all[target]]
   return (
-    <div className="mx-5 pb-9">
+    <div key={prev} className="mx-8 animate-in pb-9 duration-500 fade-in">
       <div className="relative h-14 pt-7">
         <div className="absolute inset-x-0 top-[calc(1.75rem+14px)] h-0.5 -translate-y-1/2 rounded-full bg-sky-300" />
-        <div className="absolute top-[calc(1.75rem+14px)] left-0 h-0.5 -translate-y-1/2 rounded-full bg-sky-600 transition-[width] duration-1000 ease-linear" style={{ width: pct(f) }} />
-        {nodes.map((nd, i) => {
-          const reached = i <= f, here = Math.abs(i - f) < 0.001
-          return (
-            <div key={i} className="absolute top-7 flex w-14 -translate-x-1/2 flex-col items-center gap-1" style={{ left: pct(i) }}>
-              <span className={cn("grid size-7 place-items-center rounded-full text-xs font-semibold", reached ? "bg-sky-600 text-white" : "bg-white text-sky-800 ring-1 ring-sky-300", here && "ring-2 ring-sky-900")}>
-                {nd.icon ? <nd.icon className="size-3.5" /> : (nd as { n: number }).n}
-              </span>
-              <span className="w-full truncate text-center text-[11px] leading-tight text-sky-900">{nd.label}</span>
-            </div>
-          )
-        })}
-        <div className="absolute top-0 -translate-x-1/2 transition-[left] duration-1000 ease-linear" style={{ left: pct(f) }}><Van running={moving && f % 1 !== 0} /></div>
+        <div className="absolute top-[calc(1.75rem+14px)] left-0 h-0.5 -translate-y-1/2 rounded-full bg-sky-600 transition-[width] duration-1000 ease-linear" style={{ width: `${q * 100}%` }} />
+        {ends.map((nd, i) => (
+          <div key={i} className="absolute top-7 flex w-24 -translate-x-1/2 flex-col items-center gap-1" style={{ left: i === 0 ? "0%" : "100%" }}>
+            <span className={cn("grid size-7 place-items-center rounded-full text-xs font-semibold", i === 0 || q >= 1 ? "bg-sky-600 text-white" : "bg-white text-sky-800 ring-1 ring-sky-300")}>
+              {nd.icon ? <nd.icon className="size-3.5" /> : (nd as { n: number }).n}
+            </span>
+            <span className="w-full truncate text-center text-xs leading-tight text-sky-900">{nd.label}</span>
+          </div>
+        ))}
+        <div className="absolute top-0 -translate-x-1/2 transition-[left] duration-1000 ease-linear" style={{ left: `${q * 100}%` }}><Van running={moving && q > 0 && q < 1} /></div>
       </div>
     </div>
   )
@@ -269,7 +270,7 @@ function TripView({ t, events, busy, onBack, onTap, speed }: { t: Trip; events: 
                     </span>
                     {out && p.started && !p.finished && <button type="button" disabled={busy} onClick={() => onTap("undo", s.key)} className="flex h-8 shrink-0 items-center gap-1 rounded-full border px-2.5 text-xs text-muted-foreground"><RotateCcwIcon className="size-3" />แก้</button>}
                   </div>
-                  <div className="mt-2 ml-11 grid grid-cols-3 gap-1.5 text-center">
+                  <div className="mt-2 ml-11 grid grid-cols-3 divide-x text-center">
                     <TimeCell label="ประมาณ" value={s.eta ?? "—"} />
                     <TimeCell label="Check in" value={inn ? hhmm(inn.at) : "—"} tone={inn ? "bg-violet-600 text-white" : undefined} />
                     <TimeCell label={out?.type === "noshow" ? "ไม่มา" : "Check out"} value={out ? hhmm(out.at) : "—"} tone={out ? (out.type === "noshow" ? "bg-red-600 text-white" : "bg-emerald-600 text-white") : undefined} />
@@ -319,11 +320,12 @@ function EndRow({ icon, title, label, time, done }: { icon: React.ReactNode; tit
 
 /** one of a stop's three times — estimate / check in / check out */
 function TimeCell({ label, value, tone }: { label: string; value: string; tone?: string }) {
-  // owner 2026-10-20: "มองสี ไม่ชัด" — a filled cell once the time is in, a clear outline before
+  // owner 2026-11-06: no boxes — plain text with a divider between; a time that's in takes the colour of its meaning
+  const color = tone?.includes("violet") ? "text-violet-700" : tone?.includes("red") ? "text-red-700" : tone?.includes("emerald") ? "text-emerald-700" : ""
   return (
-    <span className={cn("rounded-xl px-1 py-1.5 ring-1", tone ?? "bg-background ring-foreground/15", tone && "ring-transparent")}>
-      <span className={cn("block text-[11px] font-medium", tone ? "text-white/90" : "text-foreground/60")}>{label}</span>
-      <span className={cn("block text-base font-bold tabular-nums", value === "—" && "text-foreground/35")}>{value}</span>
+    <span className="px-1 py-0.5">
+      <span className="block text-[11px] font-medium text-foreground/60">{label}</span>
+      <span className={cn("block text-base font-bold tabular-nums", value === "—" ? "text-foreground/35" : color)}>{value}</span>
     </span>
   )
 }
