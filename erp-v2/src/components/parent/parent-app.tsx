@@ -2,13 +2,14 @@
 
 // Parent app v1 (owner 2026-10-09) — what a parent sees inside LINE. Pure view of a ParentView: no store, no staff data,
 // so the same screen runs on the parent's phone (/liff/parent) and in the staff preview (Family › ดูแบบผู้ปกครอง).
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import dynamic from "next/dynamic"
-import { ArrowLeftIcon, BookOpenIcon, EllipsisIcon, LayoutDashboardIcon, ChevronDownIcon, RotateCcwIcon, CalendarOffIcon, LoaderCircleIcon, BusIcon, MapPinHouseIcon, CalendarDaysIcon, ChevronRightIcon, GraduationCapIcon, DoorOpenIcon, MessageSquareTextIcon, UserIcon } from "lucide-react"
+import { ArrowLeftIcon, BookOpenIcon, EllipsisIcon, LayoutDashboardIcon, ChevronDownIcon, CalendarOffIcon, LoaderCircleIcon, BusIcon, MapPinHouseIcon, CalendarDaysIcon, ChevronRightIcon, GraduationCapIcon, DoorOpenIcon, MessageSquareTextIcon, UserIcon } from "lucide-react"
 import type { ParentChild, ParentCourseSummary, ParentView } from "@/domain/rules/parent-view"
 import { progressForSubject } from "@/domain/rules/summaries"
 import { InfoTip } from "@/components/app/info-tip"
 import { FilterChipGroup } from "@/components/app/filter-chip-group"
+import { NativeSelect } from "@/components/app/native-select"
 import { Segmented } from "@/components/app/page-layout"
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
@@ -20,10 +21,11 @@ import { CourseProgress } from "@/components/app/course-progress"
 import { subjectColor } from "@/components/app/subject-color"
 import type { CatalogToken, FormLang, ParentRequest } from "@/domain/types"
 import { cn } from "@/lib/utils"
+import { useUiLang } from "@/lib/i18n"
 
 // the map loads only when a parent opens "ปักหมุดบ้าน" (Leaflet is big — the rest of the app stays light in LINE)
-const CatalogApp = dynamic(() => import("@/app/liff/catalog/catalog-app").then((m) => m.CatalogApp), { ssr: false, loading: () => <div className="h-40 animate-pulse rounded-2xl bg-muted" /> })
-const MapPin = dynamic(() => import("@/app/liff/form/map-pin").then((m) => m.MapPin), { ssr: false, loading: () => <div className="h-full animate-pulse rounded-xl bg-muted" /> })
+const CatalogApp = dynamic(() => import("@/app/liff/catalog/catalog-app").then((m) => m.CatalogApp), { ssr: false, loading: () => <div className="h-40 animate-pulse rounded-lg bg-muted" /> })
+const MapPin = dynamic(() => import("@/app/liff/form/map-pin").then((m) => m.MapPin), { ssr: false, loading: () => <div className="h-full animate-pulse rounded-lg bg-muted" /> })
 
 const DICT = {
   th: {
@@ -94,7 +96,6 @@ const DICT = {
   },
 }
 
-const LANGS: { key: FormLang; label: string }[] = [{ key: "th", label: "TH" }, { key: "en", label: "EN" }, { key: "ja", label: "JP" }]
 const DAYS = { th: ["อา.", "จ.", "อ.", "พ.", "พฤ.", "ศ.", "ส."], en: ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"], ja: ["日", "月", "火", "水", "木", "金", "土"] }
 const MONTHS = { th: ["ม.ค.", "ก.พ.", "มี.ค.", "เม.ย.", "พ.ค.", "มิ.ย.", "ก.ค.", "ส.ค.", "ก.ย.", "ต.ค.", "พ.ย.", "ธ.ค."], en: ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"] }
 
@@ -130,8 +131,13 @@ export function ParentApp({ view, lang: initialLang, today, framed, openCourseSu
   const [lang, setLang] = useState<FormLang>(initialLang ?? (brand === "liclass" && /[\u3040-\u30ff\u4e00-\u9fff]/.test(view.familyName) ? "ja" : "th"))
   const opened = openCourseSummary ? view.children.find((c) => c.courseSummaries?.some((x) => x.id === openCourseSummary)) : undefined
   const [childId, setChildId] = useState(opened?.id ?? view.children[0]?.id ?? "")
-  const [tab, setTab] = useState<Tab>(opened || openAction === "leave" || openAction === "bus" ? "study" : openAction === "exit" || openAction === "home" ? "request" : "overview")
-  const [ask, setAsk] = useState(openAction)
+  const paid = view.paid !== false
+  const [tab, setTab] = useState<Tab>(!paid ? "catalog" : opened || openAction === "leave" || openAction === "bus" ? "study" : openAction === "exit" || openAction === "home" ? "request" : "overview")
+  const [ask, setAsk] = useState(paid ? openAction : undefined)
+  // an unpaid family only sees Catalog + อื่นๆ — whatever tab state says
+  const cur: Tab = paid || tab === "catalog" || tab === "request" ? tab : "catalog"
+  // the catalog speaks the parent app's language
+  useEffect(() => { useUiLang.getState().setLang(lang) }, [lang])
   // owner 2026-11-06: Overview = every child · course · weekly class; tapping one drills into ตารางเรียน (child → course → class)
   const [course, setCourse] = useState("")
   const drill = (childId: string, courseId = "") => { setChildId(childId); setCourse(courseId); setTab("study"); setCsId(null) }
@@ -148,8 +154,7 @@ export function ParentApp({ view, lang: initialLang, today, framed, openCourseSu
   const usesBus = view.children.some((c) => c.busDays.length > 0)
   // owner 2026-11-06: schedule + attendance + summaries + bus are ONE page; absences and bus asks live on each class row
   const tabs: { key: Tab; label: string; icon: typeof CalendarDaysIcon }[] = [
-    { key: "overview", label: t.overview, icon: LayoutDashboardIcon },
-    { key: "study", label: t.schedule, icon: CalendarDaysIcon },
+    ...(paid ? [{ key: "overview" as Tab, label: t.overview, icon: LayoutDashboardIcon }, { key: "study" as Tab, label: t.schedule, icon: CalendarDaysIcon }] : []),
     { key: "catalog", label: t.catalog, icon: BookOpenIcon },
     { key: "request", label: t.more, icon: EllipsisIcon },
   ]
@@ -158,30 +163,33 @@ export function ParentApp({ view, lang: initialLang, today, framed, openCourseSu
     <div className={cn("mx-auto flex max-w-lg flex-col bg-muted/40", framed ? "min-h-full" : "min-h-dvh")}>
       {/* owner 2026-11-06: no blue band, no greeting — a quiet line of who/where; the child switcher only where a child is the subject */}
       <header className="space-y-2.5 px-4 pt-4">
-        <p className="flex items-baseline gap-2"><span className="min-w-0 truncate text-lg font-semibold">{family}</span><span className="shrink-0 text-[11px] text-muted-foreground">{brand === "liclass" ? "Liclass" : "NockAcademy"} · {child?.branchName}</span></p>
-        {view.children.length > 1 && tab === "study" && (
+        <div>
+          <p className="truncate text-lg font-semibold">{family}</p>
+          <p className="truncate text-xs text-muted-foreground">{brand === "liclass" ? "Liclass" : "NockAcademy"} · {child?.branchName}</p>
+        </div>
+        {view.children.length > 1 && cur === "study" && (
           <FilterChipGroup layout="scroll" value={childId} onChange={(id) => { setChildId(id); setCourse("") }} options={[{ value: "", label: t.all }, ...view.children.map((c) => ({ value: c.id, label: `${nick(c)} ${c.left ? t.leftTag : c.grade}` }))]} />
         )}
       </header>
 
       <main className={cn("flex-1 space-y-4 p-3", framed ? "pb-3" : "pb-24")}>
         {/* owner 2026-10-19: a family on the bus without a home pin is asked for it, wherever they are in the app */}
-        {usesBus && !view.home && !(tab === "request" && ask === "home") && (
-          <button type="button" onClick={() => { setAsk("home"); setTab("request") }} className="flex w-full items-center gap-3 rounded-2xl bg-amber-50 p-3 text-left text-sm text-amber-900 ring-1 ring-amber-200">
+        {paid && usesBus && !view.home && !(cur === "request" && ask === "home") && (
+          <button type="button" onClick={() => { setAsk("home"); setTab("request") }} className="flex w-full items-center gap-3 rounded-lg bg-amber-50 p-3 text-left text-sm text-amber-900 ring-1 ring-amber-200">
             <MapPinHouseIcon className="size-5 shrink-0" /><span className="min-w-0 flex-1">{t.homeBanner}</span>
             <span className="shrink-0 rounded-full bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground">{t.homeBannerBtn}</span>
           </button>
         )}
-        {!child ? null : tab === "overview" ? <Overview view={view} t={t} lang={lang} today={today} dayLabel={dayLabel} nick={nick} onDrill={drill} />
-          : tab === "study"
+        {!child ? null : cur === "overview" ? <Overview view={view} t={t} lang={lang} today={today} dayLabel={dayLabel} nick={nick} onDrill={drill} />
+          : cur === "study"
           ? <Study key={childId} today={today} course={course} setCourse={setCourse} kids={kids} nick={nick} t={t} lang={lang} dayLabel={dayLabel} csId={csId} setCsId={setCsId} onRequest={onRequest} requests={requests} onReturn={() => setTab("request")} />
-          : tab === "catalog" ? (view.catalogToken || catalogPreview ? <Catalog token={view.catalogToken ?? ""} preview={catalogPreview} /> : <Empty text={t.catalogOff} />)
-          : <RequestTab key={`${child.id}|${ask ?? ""}`} lang={lang} setLang={setLang} updatedAt={view.generatedAt} view={view} child={child} t={t} today={today} onRequest={onRequest} requests={requests} initial={ask} />}
+          : cur === "catalog" ? (view.catalogToken || catalogPreview ? <Catalog token={view.catalogToken ?? ""} preview={catalogPreview} /> : <Empty text={t.catalogOff} />)
+          : <RequestTab paid={paid} key={`${child.id}|${ask ?? ""}`} lang={lang} setLang={setLang} updatedAt={view.generatedAt} view={view} child={child} t={t} today={today} onRequest={onRequest} requests={requests} initial={ask} />}
       </main>
 
       <nav className={cn("z-10 mx-auto flex w-full max-w-lg border-t bg-background/95 backdrop-blur", framed ? "sticky bottom-0" : "fixed inset-x-0 bottom-0")}>
         {tabs.map((x) => (
-          <button key={x.key} type="button" onClick={() => { setTab(x.key); setCsId(null) }} className={cn("flex flex-1 flex-col items-center gap-0.5 py-2 text-[11px]", tab === x.key ? "font-medium text-primary" : "text-muted-foreground")}>
+          <button key={x.key} type="button" onClick={() => { setTab(x.key); setCsId(null) }} className={cn("flex flex-1 flex-col items-center gap-0.5 py-2 text-[11px]", cur === x.key ? "font-medium text-primary" : "text-muted-foreground")}>
             <x.icon className="size-5" />{x.label}
           </button>
         ))}
@@ -219,10 +227,10 @@ function Overview({ view, t, lang, today, dayLabel, nick, onDrill }: { view: Par
               <Pill tone={c.left ? "gray" : "blue"}>{c.left ? t.leftTag : c.grade}</Pill>
             </button>
             {next.length > 0 && (
-              <div className="overflow-hidden rounded-2xl bg-card text-sm ring-1 ring-foreground/5">
+              <div className="overflow-hidden rounded-lg bg-card text-sm ring-1 ring-foreground/5">
                 {next.map((x) => (
-                  <button key={x.sessionId} type="button" onClick={() => onDrill(c.id, x.courseId)} className={cn("flex w-full items-center gap-2 px-3 py-1.5 text-left", x.date === today && "bg-red-50 dark:bg-red-950/40")}>
-                    <span className="w-14 shrink-0 text-xs text-muted-foreground">{dayLabel(x.date)}</span>
+                  <button key={x.sessionId} type="button" onClick={() => onDrill(c.id, x.courseId)} className="flex w-full items-center gap-2 px-3 py-1.5 text-left">
+                    <span className={cn("w-14 shrink-0 text-xs", x.date === today ? "font-medium text-red-600 dark:text-red-400" : "text-muted-foreground")}>{dayLabel(x.date)}</span>
                     <span className="shrink-0 font-semibold tabular-nums">{x.start}</span>
                     <span className="min-w-0 flex-1 truncate">{x.subjects.join(" + ")}</span>
                   </button>
@@ -250,16 +258,16 @@ function CourseRows({ pkgs, t, lang, onPick }: { child?: ParentChild; pkgs: Pare
         const stats = [[t.statDone, `${p.done}/${p.sessions}`], [t.statPresent, `${p.present}`], [t.statLeave, `${p.leaves}/${p.leaveQuota}`], [t.statLeft, p.remaining != null ? `${p.remaining}` : "–"]]
         return (
           // owner ref 2026-11-06: subject tile · name + dates · link · 4 equal numbers in one outlined pill · one line per weekly class with its own progress
-          <section key={i} className="space-y-3 rounded-3xl bg-card p-4 shadow-sm ring-1 ring-foreground/5">
+          <section key={i} className="space-y-3 rounded-lg bg-card p-4 shadow-sm ring-1 ring-foreground/5">
             <div className="flex items-center gap-3">
-              <span className={cn("grid size-11 shrink-0 place-items-center rounded-xl text-sm font-semibold", subjectColor(p.subject ?? "").chip)}>{(p.subject ?? "?").slice(0, 2)}</span>
+              <span className={cn("grid size-11 shrink-0 place-items-center rounded-lg text-sm font-semibold", subjectColor(p.subject ?? "").chip)}>{(p.subject ?? "?").slice(0, 2)}</span>
               <span className="min-w-0 flex-1">
                 <span className="block truncate text-base font-semibold">{p.course}</span>
                 <span className="block truncate text-xs text-muted-foreground">{fmtDay(p.from, lang)} → {fmtDay(p.until, lang)}</span>
               </span>
               {onPick && <button type="button" onClick={() => onPick(p.courseId)} className="flex shrink-0 items-center gap-0.5 text-xs text-primary">{t.openSchedule}<ChevronRightIcon className="size-3.5" /></button>}
             </div>
-            <div className="grid grid-cols-4 divide-x rounded-2xl border py-2 text-center">
+            <div className="grid grid-cols-4 divide-x rounded-lg border py-2 text-center">
               {stats.map(([label, value]) => (
                 <div key={label}><p className="text-lg leading-tight font-semibold tabular-nums">{value}</p><p className="text-[11px] text-muted-foreground">{label}</p></div>
               ))}
@@ -313,7 +321,7 @@ function Study({ today, course, setCourse, kids, nick, t, lang, dayLabel, csId, 
     <>
       {only?.left && (
         // owner 2026-10-14: a child who left — history stays, and the family can ask to come back
-        <section className="space-y-2 rounded-3xl bg-card ring-1 ring-foreground/5 p-4 text-center shadow-sm">
+        <section className="space-y-2 rounded-lg bg-card ring-1 ring-foreground/5 p-4 text-center shadow-sm">
           <p className="font-medium">{t.leftSince(fmtDay(only.left.since, lang))}</p>
           <p className="text-sm text-muted-foreground">{t.leftNote}</p>
           <Button className="mx-auto mt-1" onClick={onReturn}>{t.returnReq}</Button>
@@ -337,7 +345,7 @@ function Study({ today, course, setCourse, kids, nick, t, lang, dayLabel, csId, 
             <section className="space-y-1.5">
               <p className="flex items-center gap-1.5 px-1 text-xs font-semibold text-muted-foreground"><GraduationCapIcon className="size-3.5" />{t.courseEnd}</p>
               {ends.map((x) => (
-                <button key={x.id} type="button" onClick={() => setCsId(x.id)} className="flex w-full items-center gap-3 rounded-3xl bg-card ring-1 ring-foreground/5 p-3 text-left shadow-sm">
+                <button key={x.id} type="button" onClick={() => setCsId(x.id)} className="flex w-full items-center gap-3 rounded-lg bg-card ring-1 ring-foreground/5 p-3 text-left shadow-sm">
                   <span className="min-w-0 flex-1">
                     <span className="block truncate font-medium">{x.course}</span>
                     <span className="block text-xs text-muted-foreground">{fmtDay(x.from, lang)} – {fmtDay(x.to, lang)} · {t.view}</span>
@@ -362,7 +370,7 @@ function PastRow({ r, t, lang, tag }: { r: { date: string; start: string; subjec
   const [open, setOpen] = useState(false)
   const tone = { present: "green", absent: "red", leave: "amber" } as const
   return (
-    <li className="rounded-3xl bg-muted/70 text-muted-foreground">
+    <li className="rounded-lg bg-muted/70 text-muted-foreground">
       <button type="button" aria-expanded={open} onClick={() => setOpen(!open)} className="flex w-full items-start gap-3 px-3 py-2.5 text-left">
         <span className="w-24 shrink-0">
           <span className="block truncate text-xs">{fmtDay(r.date, lang)}</span>
@@ -373,12 +381,12 @@ function PastRow({ r, t, lang, tag }: { r: { date: string; start: string; subjec
           {tag && <span className="block truncate text-xs">{tag}</span>}
         </span>
         {r.status && <Pill tone={tone[r.status]}>{t[r.status]}</Pill>}
-        <ChevronDownIcon className={cn("mt-1 size-4 shrink-0 transition-transform", open && "rotate-180")} />
+        <ChevronDownIcon className={cn("size-4 shrink-0 self-center transition-transform", open && "rotate-180")} />
       </button>
       {open && (
         <div className="space-y-2 border-t px-3 pt-2.5 pb-3">
           {(tag || r.sum?.teacher) && <p className="flex flex-wrap gap-x-3 text-xs text-muted-foreground">{r.sum?.teacher && <span className="flex items-center gap-1"><UserIcon className="size-3" />{t.teacher} {r.sum.teacher}</span>}{tag && <span>{tag}</span>}</p>}
-          <div className="flex items-start gap-1.5 rounded-xl bg-muted/50 p-2 text-xs">
+          <div className="flex items-start gap-1.5 rounded-lg bg-muted/50 p-2 text-xs">
             <MessageSquareTextIcon className="mt-0.5 size-3.5 shrink-0 text-muted-foreground" />
             {r.sum ? (
               <span className="min-w-0 flex-1">
@@ -429,7 +437,7 @@ function ClassCard({ dayText, isToday, c, first, child, t, hasBus, tag, onReques
     if (r.ok) { setLeave(false); setRide({}); setNote(""); setAct(null); setOpen(false) }
   }
   return (
-    <article className={cn("rounded-3xl shadow-sm ring-1", isToday ? "bg-red-50 ring-red-100 dark:bg-red-950/40 dark:ring-red-900" : "bg-card ring-foreground/5", c.cancelled && "opacity-60")}>
+    <article className={cn("rounded-lg bg-card shadow-sm ring-1 ring-foreground/5", c.cancelled && "opacity-60")}>
       {/* owner 2026-11-06: day over time on the left (fixed column) · subject (may wrap to 2 lines) with who / which course under it · the card grows with long text */}
       <button type="button" aria-expanded={open} onClick={() => { setOpen(!open); setMsg(null) }} className="flex w-full items-start gap-3 px-3 py-2.5 text-left">
         <span className="w-24 shrink-0">
@@ -447,9 +455,9 @@ function ClassCard({ dayText, isToday, c, first, child, t, hasBus, tag, onReques
             </span>
           ) : null}
         </span>
-        <ChevronDownIcon className={cn("mt-1 size-4 shrink-0 text-muted-foreground transition-transform", open && "rotate-180")} />
+        <ChevronDownIcon className={cn("size-4 shrink-0 self-center text-muted-foreground transition-transform", open && "rotate-180")} />
       </button>
-      {msg && <p className={cn("mx-3 mb-2 rounded-xl p-2 text-xs", msg.ok ? "bg-emerald-50 text-emerald-800" : "bg-red-50 text-red-800")}>{msg.text}</p>}
+      {msg && <p className={cn("mx-3 mb-2 rounded-lg p-2 text-xs", msg.ok ? "bg-emerald-50 text-emerald-800" : "bg-red-50 text-red-800")}>{msg.text}</p>}
       {open && (
         <div className="space-y-2.5 border-t px-3 pt-2.5 pb-3">
           <p className="flex flex-wrap gap-x-3 text-xs text-muted-foreground">
@@ -466,7 +474,7 @@ function ClassCard({ dayText, isToday, c, first, child, t, hasBus, tag, onReques
             ))}
           </div>
           {act === "leave" && (
-            <label className={cn("flex w-full items-center gap-2.5 rounded-2xl border p-3 text-sm", leaveWaiting ? "opacity-50" : "cursor-pointer", leave && "border-primary bg-primary/5")}>
+            <label className={cn("flex w-full items-center gap-2.5 rounded-lg border p-3 text-sm", leaveWaiting ? "opacity-50" : "cursor-pointer", leave && "border-primary bg-primary/5")}>
               <Checkbox checked={leave} disabled={leaveWaiting} onCheckedChange={(v) => setLeave(!!v)} />{t.leaveThis}
             </label>
           )}
@@ -522,7 +530,7 @@ function CourseEnd({ cs, t, lang, onBack }: { cs: ParentCourseSummary; t: T; lan
   const block = (label: string, v: string) => {
     const ls = lines(v)
     return ls.length ? (
-      <div className="rounded-3xl bg-card ring-1 ring-foreground/5 p-3 shadow-sm">
+      <div className="rounded-lg bg-card ring-1 ring-foreground/5 p-3 shadow-sm">
         <p className="mb-1 text-xs font-medium text-muted-foreground">{label}</p>
         <div className="space-y-1 text-sm">{ls.map((l, i) => <p key={i} className="flex items-start gap-1.5">{l.subject && !only && <span className={cn("shrink-0 rounded-full px-1.5 py-0.5 text-[11px]", subjectColor(l.subject).chip)}>{l.subject}</span>}<span>{l.text}</span></p>)}</div>
       </div>
@@ -531,7 +539,7 @@ function CourseEnd({ cs, t, lang, onBack }: { cs: ParentCourseSummary; t: T; lan
   return (
     <div className="space-y-3">
       <button type="button" onClick={onBack} className="flex items-center gap-1 px-1 text-sm text-muted-foreground"><ArrowLeftIcon className="size-4" />{t.back}</button>
-      <section className="rounded-3xl bg-card ring-1 ring-foreground/5 p-3 shadow-sm">
+      <section className="rounded-lg bg-card ring-1 ring-foreground/5 p-3 shadow-sm">
         <p className="flex items-center gap-1.5 text-xs text-muted-foreground"><GraduationCapIcon className="size-3.5" />{t.courseEnd}</p>
         <p className="mt-0.5 text-lg font-semibold">{cs.course}</p>
         <p className="text-xs text-muted-foreground">{fmtDay(cs.from, lang)} – {fmtDay(cs.to, lang)}{cs.teacher && ` · ${t.by} ${cs.teacher}`}</p>
@@ -542,7 +550,7 @@ function CourseEnd({ cs, t, lang, onBack }: { cs: ParentCourseSummary; t: T; lan
       {block(t.overall, cs.overallProgress)}
       {block(t.strengths, cs.strengths)}
       {block(t.improve, cs.toImprove)}
-      <section className="space-y-2 rounded-3xl bg-card ring-1 ring-foreground/5 p-3 shadow-sm">
+      <section className="space-y-2 rounded-lg bg-card ring-1 ring-foreground/5 p-3 shadow-sm">
         <p className="text-sm font-semibold">{t.progress}{only && ` · ${only}`}</p>
         <CourseProgress rows={rows} />
       </section>
@@ -551,8 +559,8 @@ function CourseEnd({ cs, t, lang, onBack }: { cs: ParentCourseSummary; t: T; lan
 }
 
 /** แจ้งลาหยุด / แจ้งลาออก (owner 2026-10-14) — goes to the office team in the ERP; the parent is told on LINE */
-function RequestTab({ setLang, updatedAt, view, child, t, lang, today, onRequest, requests, initial }: {
-  setLang: (l: FormLang) => void; updatedAt: string
+function RequestTab({ paid, setLang, updatedAt, view, child, t, lang, today, onRequest, requests, initial }: {
+  paid: boolean; setLang: (l: FormLang) => void; updatedAt: string
   view: ParentView; child: ParentChild; t: T; lang: FormLang; today: string
   onRequest?: (input: ParentRequestInput) => Promise<{ ok: boolean; error?: string }>; requests?: ParentRequest[]; initial?: "leave" | "exit" | "bus" | "home"
 }) {
@@ -583,29 +591,31 @@ function RequestTab({ setLang, updatedAt, view, child, t, lang, today, onRequest
   const ready = mode === "exit" ? !!lastDate : mode === "home" ? !!homeLoc : mode === "return"
   return (
     <div className="space-y-3">
-      {msg && <p className={cn("rounded-2xl p-3 text-sm", msg.ok ? "bg-emerald-50 text-emerald-800" : "bg-red-50 text-red-800")}>{msg.text}</p>}
+      {msg && <p className={cn("rounded-lg p-3 text-sm", msg.ok ? "bg-emerald-50 text-emerald-800" : "bg-red-50 text-red-800")}>{msg.text}</p>}
+      {/* owner 2026-11-06: อื่นๆ is a LIST of what you can do — language (dropdown at the right) for everyone; the rest once the family has paid */}
       {!mode && (
-        <div className="space-y-1.5"><Label>{t.language}</Label><Segmented className="w-full [&>button]:flex-1" label={t.language} value={lang} onChange={setLang} options={LANGS.map((l) => ({ value: l.key, label: l.label }))} /></div>
-      )}
-      {!mode ? (
-        <div className="grid gap-2">
-          {(child.left ? [["return", RotateCcwIcon, t.returnReq, t.returnSub]] as const
-            : [...(hasBus ? [["home", MapPinHouseIcon, t.homeReq, t.homeReqSub]] as const : []), ["exit", DoorOpenIcon, t.exitReq, t.exitReqSub]] as const).map(([k, Icon, title, sub]) => (
-            <button key={k} type="button" onClick={() => { setMode(k); setMsg(null) }} className="flex items-center gap-3 rounded-3xl bg-card ring-1 ring-foreground/5 p-4 text-left shadow-sm">
-              <span className={cn("grid size-11 shrink-0 place-items-center rounded-xl", k === "return" ? "bg-emerald-100 text-emerald-700" : k === "home" ? "bg-sky-100 text-sky-800" : "bg-red-100 text-red-700")}><Icon className="size-5" /></span>
-              <span className="min-w-0 flex-1"><span className="block font-medium">{title}</span><span className="block text-xs text-muted-foreground">{sub}</span></span>
-              <ChevronRightIcon className="size-4 text-muted-foreground" />
+        <div className="divide-y overflow-hidden rounded-lg bg-card ring-1 ring-foreground/5">
+          <div className="flex items-center gap-3 px-3 py-2.5">
+            <span className="min-w-0 flex-1 font-medium">{t.language}</span>
+            <NativeSelect className="w-32 shrink-0" value={lang} onChange={(e) => setLang(e.target.value as FormLang)} options={[{ value: "th", label: "ไทย" }, { value: "en", label: "English" }, { value: "ja", label: "日本語" }]} />
+          </div>
+          {paid && (child.left ? [["return", t.returnReq, t.returnSub]] as const
+            : [...(hasBus ? [["home", t.homeReq, t.homeReqSub]] as const : []), ["exit", t.exitReq, t.exitReqSub]] as const).map(([k, title, sub]) => (
+            <button key={k} type="button" onClick={() => { setMode(k); setMsg(null) }} className="flex w-full items-center gap-3 px-3 py-3 text-left">
+              <span className="min-w-0 flex-1"><span className="block font-medium">{title}</span><span className="block truncate text-xs text-muted-foreground">{sub}</span></span>
+              <ChevronRightIcon className="size-4 shrink-0 text-muted-foreground" />
             </button>
           ))}
         </div>
-      ) : (
-        <section className="space-y-3 rounded-3xl bg-card ring-1 ring-foreground/5 p-3 shadow-sm">
+      )}
+      {!mode ? null : (
+        <section className="space-y-3 rounded-lg bg-card ring-1 ring-foreground/5 p-3 shadow-sm">
           <button type="button" onClick={() => setMode(null)} className="flex items-center gap-1 text-sm text-muted-foreground"><ArrowLeftIcon className="size-4" />{t.back}</button>
           <p className="text-lg font-semibold">{mode === "return" ? t.returnReq : mode === "home" ? t.homeReq : t.exitReq}</p>
           {mode === "home" ? (
             <div className="space-y-2">
               <p className="text-xs text-muted-foreground">{view.home ? t.homeHave : t.homePick}</p>
-              <div className="h-64 overflow-hidden rounded-xl"><MapPin value={homeLoc} onChange={setHomeLoc} locateLabel={t.locate} /></div>
+              <div className="h-64 overflow-hidden rounded-lg"><MapPin value={homeLoc} onChange={setHomeLoc} locateLabel={t.locate} /></div>
               <div className="space-y-1.5"><Label>{t.homeNote}</Label>
                 <Input value={homeNote} onChange={(e) => setHomeNote(e.target.value)} placeholder={t.homeNotePh} />
               </div>
@@ -639,11 +649,11 @@ function RequestTab({ setLang, updatedAt, view, child, t, lang, today, onRequest
           </Button>
         </section>
       )}
-      {mine.length > 0 && (
+      {paid && mine.length > 0 && (
         <section className="space-y-1.5">
           <p className="px-1 text-xs font-semibold text-muted-foreground">{t.myRequests}</p>
           {mine.map((r) => (
-            <article key={r.id} className="rounded-3xl bg-card ring-1 ring-foreground/5 p-3 text-sm shadow-sm">
+            <article key={r.id} className="rounded-lg bg-card ring-1 ring-foreground/5 p-3 text-sm shadow-sm">
               <div className="flex items-center gap-2">
                 <span className="min-w-0 flex-1 font-medium">{r.kind === "leave" ? `${t.leaveReq} · ${t.classes(r.sessions?.length ?? 0)}` : r.kind === "return" ? t.returnReq : r.kind === "bus" ? t.busReq : r.kind === "home" ? t.homeReq : `${t.exitReq} · ${fmtDay(r.lastDate!, lang)}`}</span>
 <Pill tone={r.status === "new" ? "amber" : r.status === "done" ? "green" : "gray"}>{t[`st_${r.status}`]}</Pill>
@@ -661,9 +671,9 @@ function RequestTab({ setLang, updatedAt, view, child, t, lang, today, onRequest
 }
 
 function Catalog({ token, preview }: { token: string; preview?: CatalogToken }) {
-  return <div className="-mx-3 -mt-3"><CatalogApp token={token} preview={preview} /></div>
+  return <div className="-mx-3 -mt-4"><CatalogApp embedded token={token} preview={preview} /></div>
 }
 
 function Empty({ text }: { text: string }) {
-  return <p className="rounded-2xl border border-dashed bg-background p-8 text-center text-sm text-muted-foreground">{text}</p>
+  return <p className="rounded-lg border border-dashed bg-background p-8 text-center text-sm text-muted-foreground">{text}</p>
 }

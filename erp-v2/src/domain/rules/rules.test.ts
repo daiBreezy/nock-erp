@@ -2213,6 +2213,15 @@ describe("parent app v1 (owner 2026-10-09)", () => {
     expect(c.upcoming).toEqual([])
     expect(c.attendance).toHaveLength(1)
   })
+  // owner 2026-11-06: a family that never paid only sees the Catalog + อื่นๆ in the parent app
+  it("paid = some child's invoice is paid (or has a confirmed payment); drafts / sent / void don't count", () => {
+    const inv = (status: Invoice["status"], payments: unknown[] = []) => ({ studentId: "a", status, payments, bus: [] }) as unknown as Invoice
+    const paidOf = (invoices: Invoice[]) => parentView(fam, { ...base, invoices, sessions: [], attendance: [], summaries: [] }).paid
+    expect(paidOf([])).toBe(false)
+    expect(paidOf([inv("draft"), inv("sent"), inv("void", [{ confirmedBy: "u" }])])).toBe(false)
+    expect(paidOf([inv("paid")])).toBe(true)
+    expect(paidOf([inv("sent", [{ confirmedBy: "u" }])])).toBe(true)
+  })
   it("bus days come from paid / sent invoices and extra days — never drafts or void", () => {
     const inv = (status: Invoice["status"], date: string) => ({ studentId: "a", status, bus: [{ date, pickup: true, dropoff: false }] }) as unknown as Invoice
     const m = busDaysOf("a", [inv("paid", "2026-10-12"), inv("draft", "2026-10-13"), inv("void", "2026-10-14")], [{ studentId: "a", date: "2026-10-12", pickup: false, dropoff: true } as BusAddOn])

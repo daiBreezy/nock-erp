@@ -1,12 +1,13 @@
 "use client"
 
 import { useEffect, useMemo, useState } from "react"
-import { BookOpenIcon, CalendarCheckIcon, CheckIcon, GraduationCapIcon, HeartIcon, LoaderCircleIcon, UserIcon, UsersIcon, XCircleIcon } from "lucide-react"
+import { ArrowLeftIcon, CalendarCheckIcon, CheckIcon, HeartIcon, LoaderCircleIcon, XCircleIcon } from "lucide-react"
 import { NativeSelect } from "@/components/app/native-select"
 import { Button } from "@/components/ui/button"
 import { DAY, endTime, filterCatalog } from "@/domain/rules/catalog"
 import type { CatalogCourse, CatalogToken, EnrollClassOffer, ID } from "@/domain/types"
 import { tx, useUiLang } from "@/lib/i18n"
+import { subjectColor } from "@/components/app/subject-color"
 import { cn } from "@/lib/utils"
 
 /**
@@ -14,7 +15,9 @@ import { cn } from "@/lib/utils"
  * Filter by grade / subject → each course's starting price and its classes (day, time, teacher, seats left).
  * "สนใจ" / "ทดลองเรียน" land as a card in the admin's chat; "สมัคร" opens the enroll form offering that class.
  */
-export function CatalogApp({ token, preview }: { token: string; preview?: CatalogToken }) {
+export function CatalogApp({ token, preview, embedded }: { token: string; preview?: CatalogToken
+  /** inside the parent app: no title, no language switch (those live in อื่นๆ), nothing sticky — the parent app's own header is above */
+  embedded?: boolean }) {
   const lang = useUiLang((s) => s.lang)
   const setLang = useUiLang((s) => s.setLang)
   const [t, setT] = useState<CatalogToken | null>(preview ?? null)
@@ -25,6 +28,12 @@ export function CatalogApp({ token, preview }: { token: string; preview?: Catalo
   const [sent, setSent] = useState<Record<string, "interest" | "trial">>({})
   const [busy, setBusy] = useState<string | null>(null)
   const [note, setNote] = useState("")
+  // owner 2026-11-06: tap a cover card to open the course; ♥ keeps favourites on this phone
+  const [openId, setOpenId] = useState<ID | null>(null)
+  // this component only renders in the browser (dynamic, ssr: false) so localStorage is safe to read up front
+  const [favs, setFavs] = useState<ID[]>(() => { try { return JSON.parse(localStorage.getItem("nockerp-catalog-fav") ?? "[]") } catch { return [] } })
+  const [onlyFav, setOnlyFav] = useState(false)
+  const toggleFav = (id: ID) => setFavs((cur) => { const next = cur.includes(id) ? cur.filter((x) => x !== id) : [...cur, id]; try { localStorage.setItem("nockerp-catalog-fav", JSON.stringify(next)) } catch { /* ignore */ } return next })
 
   useEffect(() => {
     if (preview) return
@@ -47,7 +56,7 @@ export function CatalogApp({ token, preview }: { token: string; preview?: Catalo
     return () => { dead = true }
   }, [token, preview])
 
-  const courses = useMemo(() => (t ? filterCatalog(t.courses, { grade, subject }) : []), [t, grade, subject])
+  const courses = useMemo(() => (t ? filterCatalog(t.courses, { grade, subject }).filter((c) => !onlyFav || favs.includes(c.id)) : []), [t, grade, subject, onlyFav, favs])
   if (failed) return <Center><XCircleIcon className="size-10 text-muted-foreground" /><p className="font-medium">{tx("ลิงก์นี้ไม่ถูกต้อง")}</p></Center>
   if (!t) return <Center><LoaderCircleIcon className="size-6 animate-spin text-muted-foreground" /></Center>
   const subjectName = (s: string) => (lang !== "th" && t.subjectNames?.[s]?.[lang]) || tx(s)
@@ -69,81 +78,117 @@ export function CatalogApp({ token, preview }: { token: string; preview?: Catalo
     else setSent((x) => ({ ...x, [key]: action }))
   }
 
-  return (
-    <main className="mx-auto min-h-dvh max-w-md bg-background pb-10">
-      <header className="sticky top-0 z-10 space-y-3 border-b bg-background/95 px-4 pb-3 pt-4 backdrop-blur">
-        <div className="flex items-start gap-2">
-          <div className="min-w-0 flex-1">
-            <p className="text-xs text-muted-foreground">{t.branchName}</p>
-            <h1 className="text-lg font-semibold">{tx("คอร์สเรียนและตารางเรียน")}</h1>
-          </div>
-          <div className="flex rounded-full bg-muted p-0.5">{(["th", "en", "ja"] as const).map((l) => (
-            <button key={l} type="button" onClick={() => setLang(l)} className={cn("rounded-full px-2.5 py-1 text-xs", lang === l ? "bg-background font-medium shadow-sm" : "text-muted-foreground")}>{l === "ja" ? "JP" : l.toUpperCase()}</button>
-          ))}</div>
-        </div>
-        <div className="flex gap-2">
-          <NativeSelect className="w-36 shrink-0" value={grade} onChange={(e) => setGrade(e.target.value)} placeholder={tx("ทุกระดับชั้น")} options={t.grades.map((g) => ({ value: g, label: g }))} />
-          <div className="flex min-w-0 gap-1.5 overflow-x-auto [scrollbar-width:none]">
-            {[["", tx("ทุกวิชา")], ...t.subjects.map((s) => [s, subjectName(s)])].map(([v, label]) => (
-              <button key={v} type="button" onClick={() => setSubject(v)} className={cn("shrink-0 rounded-full border px-3 text-sm", subject === v ? "border-foreground/40 bg-muted font-medium" : "text-muted-foreground")}>{label}</button>
-            ))}
-          </div>
-        </div>
-      </header>
-
-      <div className="space-y-3 px-4 pt-4">
-        <p className="text-xs text-muted-foreground">{tx("{0} คอร์ส", [courses.length])}</p>
-        {note && <p className="rounded-xl bg-amber-50 px-3 py-2 text-sm text-amber-900 dark:bg-amber-950/40 dark:text-amber-200">{note}</p>}
-        {courses.map((c) => {
-          const classes = c.classIds.map(classOf).filter((k): k is EnrollClassOffer => !!k).filter((k) => !grade || k.grades.includes(grade))
-          return (
-            <section key={c.id} className="overflow-hidden rounded-3xl border bg-card">
-              <div className="space-y-1.5 p-4">
-                <div className="flex items-start gap-2">
-                  <BookOpenIcon className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
-                  <h2 className="min-w-0 flex-1 font-semibold leading-snug">{c.name}</h2>
-                </div>
-                <div className="flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
-                  <span className="inline-flex items-center gap-1"><GraduationCapIcon className="size-3.5" />{c.grades.join(", ")}</span>
-                  <span>·</span>
-                  <span className="inline-flex items-center gap-1">{c.format === "single" ? <UserIcon className="size-3.5" /> : <UsersIcon className="size-3.5" />}{c.format === "single" ? tx("เรียนเดี่ยว") : tx("เรียนกลุ่ม")}</span>
-                </div>
-                <p className="text-sm font-medium">{price(c)}</p>
-              </div>
-              <div className="divide-y border-t">
-                {classes.length ? classes.map((k) => {
-                  const key = `${c.id}|${k.id}`, done = sent[key], full = k.seatsLeft <= 0
-                  return (
-                    <div key={k.id} className="space-y-2 px-4 py-3">
-                      <div className="flex items-center gap-2 text-sm">
-                        <CalendarCheckIcon className="size-4 shrink-0 text-muted-foreground" />
-                        <span className="min-w-0 flex-1"><span className="block font-medium">{when(k)}</span><span className="block text-xs text-muted-foreground">{k.name}{k.teacher && ` · ${tx("ครู")}${lang === "th" ? "" : " "}${k.teacher.replace(/^ครู/, "")}`}</span></span>
-                        <span className={cn("shrink-0 rounded-full px-2 py-0.5 text-xs", full ? "bg-muted text-muted-foreground" : "bg-emerald-50 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-200")}>{full ? tx("เต็ม") : tx("เหลือ {0} ที่", [k.seatsLeft])}</span>
-                      </div>
-                      {done ? (
-                        <p className="flex items-center gap-1.5 text-xs text-emerald-700 dark:text-emerald-300"><CheckIcon className="size-3.5" />{done === "trial" ? tx("ส่งคำขอทดลองเรียนแล้ว — แอดมินจะติดต่อกลับในแชท") : tx("ส่งถึงแอดมินแล้ว — แอดมินจะติดต่อกลับในแชท")}</p>
-                      ) : (
-                        <div className="grid grid-cols-3 gap-1.5">
-                          <Button size="sm" variant="outline" disabled={!!busy} onClick={() => ask("interest", c.id, k)}><HeartIcon /> {tx("สนใจ")}</Button>
-                          <Button size="sm" variant="outline" disabled={!!busy || full} onClick={() => ask("trial", c.id, k)}>{tx("ทดลองเรียน")}</Button>
-                          <Button size="sm" disabled={!!busy || full} onClick={() => ask("enroll", c.id, k)}>{busy === key + "enroll" ? <LoaderCircleIcon className="animate-spin" /> : null}{tx("สมัครเรียน")}</Button>
-                        </div>
-                      )}
-                    </div>
-                  )
-                }) : (
-                  <div className="flex items-center gap-2 px-4 py-3 text-sm">
-                    <p className="min-w-0 flex-1 text-xs text-muted-foreground">{tx("ยังไม่มีรอบเรียน — กดสนใจ แอดมินจะหาเวลาที่สะดวกให้")}</p>
-                    {sent[`${c.id}|`] ? <span className="flex items-center gap-1 text-xs text-emerald-700 dark:text-emerald-300"><CheckIcon className="size-3.5" />{tx("ส่งแล้ว")}</span>
-                      : <Button size="sm" variant="outline" disabled={!!busy} onClick={() => ask("interest", c.id)}><HeartIcon /> {tx("สนใจ")}</Button>}
-                  </div>
-                )}
-              </div>
-            </section>
-          )
-        })}
-        {!courses.length && <p className="rounded-3xl border border-dashed p-8 text-center text-sm text-muted-foreground">{tx("ยังไม่มีคอร์สสำหรับตัวเลือกนี้ — ลองเปลี่ยนระดับชั้น / วิชา")}</p>}
+  const open = openId ? t.courses.find((c) => c.id === openId) : undefined
+  const meta = (c: CatalogCourse) => `${c.grades.join(", ")} · ${c.format === "single" ? tx("เรียนเดี่ยว") : tx("เรียนกลุ่ม")}`
+  // the cover: the course picture, else the subject's colour with its name big (owner 2026-11-06: "Card Course ให้แสดงเป็นรูป")
+  const cover = (c: CatalogCourse, className?: string) => {
+    const sc = subjectColor(c.subjects[0] ?? "")
+    // eslint-disable-next-line @next/next/no-img-element -- catalog pictures are data / remote URLs
+    return c.image ? <img src={c.image} alt={c.name} className={cn("w-full object-cover", className)} /> : (
+      <div className={cn("grid w-full place-items-center px-3 text-center", sc.chip, className)}>
+        <span className="line-clamp-2 text-xl font-bold break-words">{c.subjects.map(subjectName).join(" + ")}</span>
       </div>
+    )
+  }
+  const fav = (id: ID, className?: string) => (
+    <button type="button" aria-pressed={favs.includes(id)} aria-label={tx("สนใจ")} onClick={(e) => { e.stopPropagation(); toggleFav(id) }}
+      className={cn("grid size-8 place-items-center rounded-full bg-background/90 shadow-sm", className)}>
+      <HeartIcon className={cn("size-4", favs.includes(id) ? "fill-primary text-primary" : "text-muted-foreground")} />
+    </button>
+  )
+
+  return (
+    <main className={cn("mx-auto max-w-md bg-background", embedded ? "pb-4" : "min-h-dvh pb-10")}>
+      {open ? (
+        <div className="space-y-4 px-4 pt-4">
+          <button type="button" onClick={() => setOpenId(null)} className="flex items-center gap-1 text-sm text-muted-foreground"><ArrowLeftIcon className="size-4" />{tx("กลับ")}</button>
+          <div className="relative overflow-hidden rounded-lg">
+            {cover(open, "aspect-[16/9]")}
+            {fav(open.id, "absolute top-2 right-2")}
+          </div>
+          <div className="space-y-1">
+            <h2 className="text-lg font-semibold leading-snug break-words">{open.name}</h2>
+            <p className="text-xs text-muted-foreground">{meta(open)}</p>
+            <p className="text-sm font-medium">{price(open)}</p>
+          </div>
+          {note && <p className="rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-900 dark:bg-amber-950/40 dark:text-amber-200">{note}</p>}
+          <div className="divide-y overflow-hidden rounded-lg border bg-card">
+            {(() => {
+              const classes = open.classIds.map(classOf).filter((k): k is EnrollClassOffer => !!k).filter((k) => !grade || k.grades.includes(grade))
+              return classes.length ? classes.map((k) => {
+                const key = `${open.id}|${k.id}`, done = sent[key], full = k.seatsLeft <= 0
+                return (
+                  <div key={k.id} className="space-y-2 px-3 py-3">
+                    <div className="flex items-start gap-2 text-sm">
+                      <CalendarCheckIcon className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
+                      <span className="min-w-0 flex-1"><span className="block font-medium">{when(k)}</span><span className="block text-xs break-words text-muted-foreground">{k.name}{k.teacher && ` · ${tx("ครู")}${lang === "th" ? "" : " "}${k.teacher.replace(/^ครู/, "")}`}</span></span>
+                      <span className={cn("shrink-0 rounded-full px-2 py-0.5 text-xs", full ? "bg-muted text-muted-foreground" : "bg-emerald-50 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-200")}>{full ? tx("เต็ม") : tx("เหลือ {0} ที่", [k.seatsLeft])}</span>
+                    </div>
+                    {done ? (
+                      <p className="flex items-center gap-1.5 text-xs text-emerald-700 dark:text-emerald-300"><CheckIcon className="size-3.5" />{done === "trial" ? tx("ส่งคำขอทดลองเรียนแล้ว — แอดมินจะติดต่อกลับในแชท") : tx("ส่งถึงแอดมินแล้ว — แอดมินจะติดต่อกลับในแชท")}</p>
+                    ) : (
+                      <div className="grid grid-cols-3 gap-1.5">
+                        <Button size="sm" variant="outline" disabled={!!busy} onClick={() => ask("interest", open.id, k)}><HeartIcon /> {tx("สนใจ")}</Button>
+                        <Button size="sm" variant="outline" disabled={!!busy || full} onClick={() => ask("trial", open.id, k)}>{tx("ทดลองเรียน")}</Button>
+                        <Button size="sm" disabled={!!busy || full} onClick={() => ask("enroll", open.id, k)}>{busy === key + "enroll" ? <LoaderCircleIcon className="animate-spin" /> : null}{tx("สมัครเรียน")}</Button>
+                      </div>
+                    )}
+                  </div>
+                )
+              }) : (
+                <div className="flex items-center gap-2 px-3 py-3 text-sm">
+                  <p className="min-w-0 flex-1 text-xs text-muted-foreground">{tx("ยังไม่มีรอบเรียน — กดสนใจ แอดมินจะหาเวลาที่สะดวกให้")}</p>
+                  {sent[`${open.id}|`] ? <span className="flex items-center gap-1 text-xs text-emerald-700 dark:text-emerald-300"><CheckIcon className="size-3.5" />{tx("ส่งแล้ว")}</span>
+                    : <Button size="sm" variant="outline" disabled={!!busy} onClick={() => ask("interest", open.id)}><HeartIcon /> {tx("สนใจ")}</Button>}
+                </div>
+              )
+            })()}
+          </div>
+        </div>
+      ) : (
+        <>
+          <header className={cn("space-y-3 bg-background px-4 pb-3", embedded ? "pt-4" : "sticky top-0 z-10 border-b pt-4 backdrop-blur")}>
+            {!embedded && (
+              <div className="flex items-start gap-2">
+                <div className="min-w-0 flex-1">
+                  <p className="text-xs text-muted-foreground">{t.branchName}</p>
+                  <h1 className="text-lg font-semibold">{tx("คอร์สเรียนและตารางเรียน")}</h1>
+                </div>
+                <div className="flex rounded-full bg-muted p-0.5">{(["th", "en", "ja"] as const).map((l) => (
+                  <button key={l} type="button" onClick={() => setLang(l)} className={cn("rounded-full px-2.5 py-1 text-xs", lang === l ? "bg-background font-medium shadow-sm" : "text-muted-foreground")}>{l === "ja" ? "JP" : l.toUpperCase()}</button>
+                ))}</div>
+              </div>
+            )}
+            <div className="flex gap-2">
+              <NativeSelect className="min-w-0 flex-1" value={grade} onChange={(e) => setGrade(e.target.value)} placeholder={tx("ทุกระดับชั้น")} options={t.grades.map((g) => ({ value: g, label: g }))} />
+              <NativeSelect className="min-w-0 flex-1" value={subject} onChange={(e) => setSubject(e.target.value)} placeholder={tx("ทุกวิชา")} options={t.subjects.map((s) => ({ value: s, label: subjectName(s) }))} />
+              <button type="button" aria-pressed={onlyFav} aria-label={tx("สนใจ")} onClick={() => setOnlyFav(!onlyFav)} className={cn("grid size-9 shrink-0 place-items-center rounded-full border", onlyFav ? "border-primary bg-primary/10" : "")}>
+                <HeartIcon className={cn("size-4", onlyFav ? "fill-primary text-primary" : "text-muted-foreground")} />
+              </button>
+            </div>
+          </header>
+
+          <div className="space-y-3 px-4 pt-1">
+            <p className="text-xs text-muted-foreground">{tx("{0} คอร์ส", [courses.length])}</p>
+            {note && <p className="rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-900 dark:bg-amber-950/40 dark:text-amber-200">{note}</p>}
+            <div className="grid grid-cols-2 gap-3">
+              {courses.map((c) => (
+                <div key={c.id} role="button" tabIndex={0} onClick={() => { setNote(""); setOpenId(c.id) }} onKeyDown={(e) => { if (e.key === "Enter") setOpenId(c.id) }}
+                  className="relative cursor-pointer overflow-hidden rounded-lg bg-card text-left shadow-sm ring-1 ring-foreground/5">
+                  {cover(c, "aspect-[4/3]")}
+                  {fav(c.id, "absolute top-2 right-2")}
+                  <div className="space-y-0.5 p-2.5">
+                    <p className="line-clamp-2 text-sm leading-snug font-semibold break-words">{c.name}</p>
+                    <p className="truncate text-xs text-muted-foreground">{meta(c)}</p>
+                    <p className="truncate text-xs font-medium">{price(c)}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+            {!courses.length && <p className="rounded-lg border border-dashed p-8 text-center text-sm text-muted-foreground">{tx("ยังไม่มีคอร์สสำหรับตัวเลือกนี้ — ลองเปลี่ยนระดับชั้น / วิชา")}</p>}
+          </div>
+        </>
+      )}
     </main>
   )
 }

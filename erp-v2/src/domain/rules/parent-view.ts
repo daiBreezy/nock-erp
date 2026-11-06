@@ -80,6 +80,8 @@ export interface ParentView {
   generatedAt: string
   /** reasons a parent can pick on แจ้งลาออก (owner 2026-10-14) — the same list the office closes an exit with */
   exitReasons?: { id: ID; label: string; en?: string; ja?: string }[]
+  /** has any child of this family paid an invoice? Unpaid families only see Catalog + อื่นๆ (owner 2026-11-06) */
+  paid?: boolean
   /** the branch's published catalog link (the parent app's Catalog tab reads it) */
   catalogToken?: string
   /** the house pin the school has for the bus (owner 2026-10-19) — the parent can send it / move it */
@@ -222,6 +224,7 @@ export function parentView(family: Family, ctx: ParentCtx): ParentView {
     familyId: family.id, familyName: family.name, familyNameEn: family.nameEn,
     home: family.location ? { ...family.location, addressNote: family.addressNote } : undefined,
     lineUserIds: family.lineUserId ? [family.lineUserId] : [],
+    paid: ctx.invoices.some((i) => kids.some((k) => k.id === i.studentId) && i.status !== "void" && (i.status === "paid" || i.payments.some((x) => x.confirmedBy))),
     catalogToken: ctx.branches.find((b) => b.id === kids[0]?.branchId)?.catalogLink?.token,
     children, generatedAt: ctx.now.toISOString(), exitReasons: ctx.exitReasons,
   }

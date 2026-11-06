@@ -1806,6 +1806,8 @@ export interface CatalogCourse {
   /** one package (price + course fee) — shown as "เริ่มต้น" */
   price: number
   classIds: ID[]
+  /** cover picture (data / https URL) — without one the catalog draws a cover from the subject colour */
+  image?: string
 }
 
 /** the branch's catalog link — a snapshot of its courses + classes (the parent's page can't read the ERP) */
