@@ -109,7 +109,7 @@ export default function InboxCardsPreview() {
       {/* a back link goes first, on the left, above the title (owner 2026-11-06) */}
       <Link href="/inbox" className="inline-flex w-fit items-center gap-1 text-sm text-muted-foreground hover:text-foreground"><ChevronLeftIcon className="size-4" />กลับไป Inbox</Link>
       <PageHeader title="ตัวอย่างการ์ดในแชท"
-        description="ทุกการ์ดที่ Inbox แสดงได้ ในทุกสถานะ — ข้อมูลตัวอย่าง กดปุ่มได้แต่ไม่บันทึกจริง" />กลับไป Inbox</Link>} />
+        description="ทุกการ์ดที่ Inbox แสดงได้ ในทุกสถานะ — ข้อมูลตัวอย่าง กดปุ่มได้แต่ไม่บันทึกจริง" />
 
       {/* owner 2026-11-06: every form's journey as states side by side — Admin sends → the parent sends it back → Admin handles */}
       <FlowSection title="Flow ฟอร์มสอบวัดระดับ (Test)" steps={[
