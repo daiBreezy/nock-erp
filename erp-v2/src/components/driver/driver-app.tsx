@@ -164,18 +164,15 @@ function RouteStrip({ t, p, speed }: { t: Trip; p: ReturnType<typeof progress>; 
     <div key={prev} className="animate-in duration-500 fade-in">
       <div className="relative h-8 overflow-hidden rounded-full bg-sky-300/70">
         <div className="absolute inset-y-0 left-0 rounded-full transition-[width] duration-1000 ease-linear" style={{ width: `min(100%, calc(${at} + 24px))`, background: "linear-gradient(90deg, #4a93d3, #2a5a82)" }} />
+        {/* eslint-disable-next-line @next/next/no-img-element -- static asset */}
+        <img src="/brand/van-top.png" alt="" className="absolute top-1/2 z-[1] h-5 w-auto -translate-x-1/2 -translate-y-1/2 transition-[left] duration-1000 ease-linear" style={{ left: at }} />
         {ends.map((nd, i) => (
-          <span key={i} className={cn("absolute top-1/2 grid size-6 -translate-y-1/2 place-items-center rounded-full text-sm font-semibold", i === 0 ? "left-1 bg-sky-100 text-sky-600" : "right-1 bg-sky-500 text-white")}>
+          <span key={i} className={cn("absolute z-10 top-1/2 grid size-6 -translate-y-1/2 place-items-center rounded-full text-sm font-semibold", i === 0 ? "left-1 bg-sky-100 text-sky-600" : "right-1 bg-sky-500 text-white")}>
             {nd.icon ? <nd.icon className="size-3.5" /> : (nd as { n: number }).n}
           </span>
         ))}
       </div>
-      {/* the van drives on its own lane under the track, below the number badges (owner 2026-11-06) */}
-      <div className="relative mt-1 h-5">
-        {/* eslint-disable-next-line @next/next/no-img-element -- static asset */}
-        <img src="/brand/van-top.png" alt="" className="absolute top-0 h-5 w-auto -translate-x-1/2 transition-[left] duration-1000 ease-linear" style={{ left: at }} />
-      </div>
-      <div className="mt-1 flex justify-between gap-3 text-xs text-sky-900">
+      <div className="mt-1.5 flex justify-between gap-3 text-xs text-sky-900">
         <span className="min-w-0 truncate">{ends[0].label}</span>
         <span className="min-w-0 truncate text-right">{ends[1].label}</span>
       </div>
