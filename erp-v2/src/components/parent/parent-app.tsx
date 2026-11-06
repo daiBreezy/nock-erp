@@ -7,7 +7,6 @@ import dynamic from "next/dynamic"
 import { ArrowLeftIcon, BookOpenIcon, LayoutDashboardIcon, ChevronDownIcon, RotateCcwIcon, CalendarOffIcon, ClipboardPenIcon, LoaderCircleIcon, BusIcon, MapPinHouseIcon, CalendarDaysIcon, ChevronRightIcon, GraduationCapIcon, DoorOpenIcon, MessageSquareTextIcon, UserIcon } from "lucide-react"
 import type { ParentChild, ParentCourseSummary, ParentView } from "@/domain/rules/parent-view"
 import { progressForSubject } from "@/domain/rules/summaries"
-import { Kpi } from "@/components/app/kpi"
 import { InfoTip } from "@/components/app/info-tip"
 import { FilterChipGroup } from "@/components/app/filter-chip-group"
 import { Segmented } from "@/components/app/page-layout"
@@ -45,7 +44,7 @@ const DICT = {
     busReq: "ขอ / ยกเลิกรอบรถ", busReqSub: "ขอรถรับ-ส่งเพิ่ม หรือยกเลิกรอบที่ไม่ใช้", busPick: "แตะ รับ / ส่ง ของแต่ละวัน เพื่อขอเพิ่มหรือยกเลิก",
     busAdd: "ขอเพิ่ม", busCancel: "ยกเลิก", busCost: "รอบที่ขอเพิ่มคิดค่ารถในใบแจ้งหนี้รอบถัดไป · ยกเลิกรอบที่จ่ายแล้วไม่คืนเงิน", trips: (n: number) => `${n} เที่ยว`,
     adult: "ผู้ปกครอง", adultGo: "ผู้ปกครองไปด้วย", adultNote: "ผู้ปกครองนั่งรถไปด้วยได้ ไม่คิดค่ารถ (ใช้ 1 ที่นั่ง)",
-    overview: "ภาพรวม", classesHeld: "คลาสที่เรียนอยู่", everyDay: (d: string) => `ทุก ${d}`, openSchedule: "ดูตารางเรียน", noCourses: "ยังไม่มีคอร์สที่เรียนอยู่", students: (n: number) => `${n} คน`, nextShort: "ถัดไป",
+    statDone: "เรียนแล้ว", statPresent: "มา", statLeave: "ลา", statLeft: "เหลือ", overview: "ภาพรวม", classesHeld: "คลาสที่เรียนอยู่", everyDay: (d: string) => `ทุก ${d}`, openSchedule: "ดูตารางเรียน", noCourses: "ยังไม่มีคอร์สที่เรียนอยู่", students: (n: number) => `${n} คน`, nextShort: "ถัดไป",
     doneOf: "เรียนแล้ว / ทั้งหมด", leftN: (n: number) => `เหลือ ${n} คาบ`, catalog: "Catalog", catalogOff: "ยังไม่มีแคตตาล็อกของสาขานี้ — ถามแอดมินได้เลยค่ะ", pastTab: "ผ่านไปแล้ว", seq: (n: number, t: number) => `คาบที่ ${n}/${t}`, noSummaryYet: "ครูยังไม่ได้ส่งสรุปของคาบนี้", chipLeave: "แจ้งลา", chipBus: "ขอรถรับ-ส่ง",
     study: "การเรียน", all: "ทั้งหมด", upcomingH: "คาบที่จะถึง", pastH: "คาบที่ผ่านมา", manage: "แจ้งลา / รถรับ-ส่ง", leaveThis: "แจ้งลาคาบนี้", waiting: "รอแอดมิน", leaveSent: "แจ้งลาแล้ว", busSent: "ขอรถแล้ว", ridesOf: "รถรับ-ส่งของวันนั้น", pickAny: "เลือกสิ่งที่ต้องการแจ้ง", showAll: "ดูทั้งหมด", hide: "ซ่อน",
   },
@@ -67,7 +66,7 @@ const DICT = {
     busReq: "Add / cancel bus rides", busReqSub: "Ask for extra pick-ups / drop-offs, or cancel ones you don't need", busPick: "Tap Pick-up / Drop-off on a day to add or cancel it",
     busAdd: "Add", busCancel: "Cancel", busCost: "Extra rides are charged on the next invoice · paid rides you cancel aren't refunded", trips: (n: number) => `${n} ride${n > 1 ? "s" : ""}`,
     adult: "Parent", adultGo: "Parent rides along", adultNote: "A parent can ride along for free (takes 1 seat)",
-    overview: "Overview", classesHeld: "Weekly classes", everyDay: (d: string) => `Every ${d}`, openSchedule: "Open schedule", noCourses: "No courses yet", students: (n: number) => `${n} children`, nextShort: "Next",
+    statDone: "Done", statPresent: "Present", statLeave: "Leave", statLeft: "Left", overview: "Overview", classesHeld: "Weekly classes", everyDay: (d: string) => `Every ${d}`, openSchedule: "Open schedule", noCourses: "No courses yet", students: (n: number) => `${n} children`, nextShort: "Next",
     doneOf: "Done / total classes", leftN: (n: number) => `${n} left`, catalog: "Catalog", catalogOff: "No catalog for this branch yet — please ask our staff", pastTab: "Past", seq: (n: number, t: number) => `Class ${n}/${t}`, noSummaryYet: "No summary sent for this class yet", chipLeave: "Absence", chipBus: "Bus",
     study: "Learning", all: "All", upcomingH: "Upcoming classes", pastH: "Past classes", manage: "Absence / bus", leaveThis: "Report absence for this class", waiting: "Waiting", leaveSent: "Absence sent", busSent: "Bus asked", ridesOf: "Bus on that day", pickAny: "Pick what to send", showAll: "Show all", hide: "Hide",
   },
@@ -89,7 +88,7 @@ const DICT = {
     busReq: "送迎の追加／キャンセル", busReqSub: "送迎の追加依頼、または不要な便のキャンセル", busPick: "日ごとに「お迎え／お送り」をタップして追加・キャンセル",
     busAdd: "追加", busCancel: "キャンセル", busCost: "追加分は次回の請求書に加算・支払い済みの便のキャンセルは返金なし", trips: (n: number) => `${n}便`,
     adult: "保護者", adultGo: "保護者も同乗", adultNote: "保護者の同乗は無料です（1席使用）",
-    overview: "概要", classesHeld: "通っているクラス", everyDay: (d: string) => `毎週${d}`, openSchedule: "時間割を見る", noCourses: "受講中のコースはありません", students: (n: number) => `${n}名`, nextShort: "次回",
+    statDone: "受講", statPresent: "出席", statLeave: "欠席", statLeft: "残り", overview: "概要", classesHeld: "通っているクラス", everyDay: (d: string) => `毎週${d}`, openSchedule: "時間割を見る", noCourses: "受講中のコースはありません", students: (n: number) => `${n}名`, nextShort: "次回",
     doneOf: "受講済み / 全体", leftN: (n: number) => `残り${n}回`, catalog: "Catalog", catalogOff: "この校舎のカタログはまだありません — スタッフにお尋ねください", pastTab: "終了", seq: (n: number, t: number) => `第${n}回/${t}`, noSummaryYet: "この授業のレポートはまだ送られていません", chipLeave: "欠席", chipBus: "送迎",
     study: "学習", all: "すべて", upcomingH: "これからの授業", pastH: "これまでの授業", manage: "欠席／送迎", leaveThis: "この授業を欠席する", waiting: "確認待ち", leaveSent: "欠席連絡済み", busSent: "送迎依頼済み", ridesOf: "その日の送迎", pickAny: "連絡する内容を選択", showAll: "すべて表示", hide: "閉じる",
   },
@@ -219,56 +218,73 @@ function Chip({ on, onClick, children, disabled, state }: { on?: boolean; onClic
 
 /** owner 2026-11-06: the whole family at a glance — every child, every course (KPI card), every weekly class; each one opens ตารางเรียน on that child / course */
 function Overview({ view, t, lang, dayLabel, nick, onDrill }: { view: ParentView; t: T; lang: FormLang; dayLabel: (d: string) => string; nick: (c: ParentChild) => string; onDrill: (childId: string, courseId?: string) => void }) {
-  const weekday = (d: string) => { const [y, m, dd] = d.split("-").map(Number); return DAYS[lang][new Date(y, m - 1, dd).getDay()] }
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
       {view.children.map((c) => {
         const next = c.upcoming.find((x) => !x.cancelled)
-        // weekly classes this child holds, per course: one line per class (day · time · subjects · teacher · room)
-        const weekly = (courseId?: string) => {
-          const seen = new Map<string, ParentChild["upcoming"][number]>()
-          c.upcoming.filter((x) => !x.cancelled && (!courseId || x.courseId === courseId)).forEach((x) => { const k = `${x.classId ?? x.className}|${weekday(x.date)}|${x.start}`; if (!seen.has(k)) seen.set(k, x) })
-          return [...seen.values()]
-        }
         return (
-          <section key={c.id} className="space-y-2.5">
-            <button type="button" onClick={() => onDrill(c.id)} className="flex w-full items-center gap-2 px-1 text-left">
-              <UserIcon className="size-4 text-muted-foreground" />
-              <span className="min-w-0 flex-1 truncate font-semibold">{nick(c)} <span className="text-xs font-normal text-muted-foreground">{c.left ? t.leftTag : c.grade}</span></span>
+          // one card per child: name · next class · each course (name, weekly days under it, 4 equal stats)
+          <section key={c.id} className="divide-y overflow-hidden rounded-3xl bg-card shadow-sm ring-1 ring-foreground/5">
+            <button type="button" onClick={() => onDrill(c.id)} className="flex w-full items-center gap-2 px-3 py-2.5 text-left">
+              <span className="min-w-0 flex-1 truncate text-base font-semibold">{nick(c)} <span className="text-sm font-normal text-muted-foreground">{c.left ? t.leftTag : c.grade}</span></span>
               <span className="flex items-center gap-0.5 text-xs text-primary">{t.openSchedule}<ChevronRightIcon className="size-3.5" /></span>
             </button>
             {next && (
-              <button type="button" onClick={() => onDrill(c.id, next.courseId)} className="flex w-full items-center gap-2.5 rounded-3xl bg-card ring-1 ring-foreground/5 px-3 py-2 text-left shadow-sm">
+              <button type="button" onClick={() => onDrill(c.id, next.courseId)} className="flex w-full items-center gap-2.5 px-3 py-2 text-left">
                 <span className="text-xs text-muted-foreground">{t.next}</span>
                 <span className="shrink-0 whitespace-nowrap text-sm font-semibold tabular-nums">{dayLabel(next.date)} {next.start}</span>
-                <span className="min-w-0 flex-1 truncate text-sm font-medium">{next.subjects.join(" + ")}</span>
+                <span className="min-w-0 flex-1 truncate text-sm">{next.subjects.join(" + ")}</span>
                 <ChevronRightIcon className="size-4 shrink-0 text-muted-foreground" />
               </button>
             )}
-            {c.left ? <p className="px-1 text-xs text-muted-foreground">{t.leftSince(fmtDay(c.left.since, lang))}</p>
-              : c.packages.length === 0 ? <Empty text={t.noCourses} />
-              : c.packages.map((p, i) => (
-                <div key={i} className="space-y-1">
-                  <Kpi compact icon={GraduationCapIcon} tone="sky" label={p.course} value={`${p.done}/${p.sessions}`} sub={`${t.doneOf} · ${fmtDay(p.from, lang)} → ${fmtDay(p.until, lang)}`} onClick={() => onDrill(c.id, p.courseId)}>
-                    <div className="flex flex-wrap gap-1.5">
-                      <Pill tone="green">{`${t.present} ${p.present}`}</Pill>
-                      <Pill tone="amber">{`${t.leave} ${p.leaves}/${p.leaveQuota}`}</Pill>
-                      {p.remaining != null && <Pill tone="gray">{t.leftN(p.remaining)}</Pill>}
-                    </div>
-                  </Kpi>
-                  {weekly(p.courseId).length > 0 && (
-                    <ul className="space-y-0.5 px-2 text-xs text-muted-foreground">
-                      {weekly(p.courseId).map((x) => (
-                        <li key={`${x.classId}${x.start}${weekday(x.date)}`} className="flex flex-wrap items-center gap-x-1.5">
-                          <CalendarDaysIcon className="size-3" /><span className="font-medium text-foreground">{t.everyDay(weekday(x.date))} {x.start}–{x.end}</span>
-                          <span className="min-w-0 truncate">{x.subjects.join(" + ")}{x.teachers.length ? ` · ${x.teachers.join(", ")}` : ""}{x.room ? ` · ${x.room}` : ""}</span>
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-                </div>
-              ))}
+            {c.left ? <p className="px-3 py-3 text-xs text-muted-foreground">{t.leftSince(fmtDay(c.left.since, lang))}</p>
+              : c.packages.length === 0 ? <p className="px-3 py-3 text-sm text-muted-foreground">{t.noCourses}</p>
+              : <CourseRows child={c} pkgs={c.packages} t={t} lang={lang} onPick={(courseId) => onDrill(c.id, courseId)} />}
           </section>
+        )
+      })}
+    </div>
+  )
+}
+
+/** the weekly classes a child holds in a course — one line per class, found from the days ahead */
+function weeklyOf(child: ParentChild, courseId: string | undefined, lang: FormLang) {
+  const day = (d: string) => { const [y, m, dd] = d.split("-").map(Number); return DAYS[lang][new Date(y, m - 1, dd).getDay()] }
+  const seen = new Map<string, { day: string; x: ParentChild["upcoming"][number] }>()
+  child.upcoming.filter((x) => !x.cancelled && (!courseId || x.courseId === courseId)).forEach((x) => { const k = `${x.classId ?? x.className}|${day(x.date)}|${x.start}`; if (!seen.has(k)) seen.set(k, { day: day(x.date), x }) })
+  return [...seen.values()]
+}
+
+/**
+ * owner 2026-11-06: a course is a ROW, not a KPI card — name (+ until) · its weekly days right under the name · four EQUAL stats
+ * (done / present / leave / left) filling the width with hairline dividers, no colour. Same rows in Overview and ตารางเรียน.
+ */
+function CourseRows({ child, pkgs, t, lang, onPick }: { child: ParentChild; pkgs: ParentChild["packages"]; t: T; lang: FormLang; onPick?: (courseId?: string) => void }) {
+  return (
+    <div className="divide-y">
+      {pkgs.map((p, i) => {
+        const Tag = onPick ? "button" : "div"
+        const weekly = weeklyOf(child, p.courseId, lang)
+        const stats = [[t.statDone, `${p.done}/${p.sessions}`], [t.statPresent, `${p.present}`], [t.statLeave, `${p.leaves}/${p.leaveQuota}`], [t.statLeft, p.remaining != null ? `${p.remaining}` : "–"]]
+        return (
+          <Tag key={i} type={onPick ? "button" : undefined} onClick={onPick ? () => onPick(p.courseId) : undefined} className="block w-full space-y-2 px-3 py-3 text-left">
+            <span className="flex items-baseline gap-2">
+              <span className="min-w-0 flex-1 truncate font-semibold">{p.course}</span>
+              <span className="shrink-0 text-xs text-muted-foreground">{t.until} {fmtDay(p.until, lang)}</span>
+            </span>
+            {weekly.length > 0 && (
+              <span className="block space-y-0.5 text-xs text-muted-foreground">
+                {weekly.map(({ day, x }) => (
+                  <span key={`${x.classId}${x.start}${day}`} className="block truncate"><span className="font-medium text-foreground">{t.everyDay(day)} {x.start}–{x.end}</span> · {x.subjects.join(" + ")}{x.teachers.length ? ` · ${x.teachers.join(", ")}` : ""}{x.room ? ` · ${x.room}` : ""}</span>
+                ))}
+              </span>
+            )}
+            <span className="grid grid-cols-4 divide-x rounded-2xl border text-center">
+              {stats.map(([label, value]) => (
+                <span key={label} className="block px-1 py-1.5"><span className="block text-[11px] text-muted-foreground">{label}</span><span className="block text-sm font-semibold tabular-nums">{value}</span></span>
+              ))}
+            </span>
+          </Tag>
         )
       })}
     </div>
@@ -311,19 +327,8 @@ function Study({ course, setCourse, child, t, lang, dayLabel, csId, setCsId, onR
       )}
       {many && <FilterChipGroup layout="scroll" value={course} onChange={setCourse} options={[{ value: "", label: t.all }, ...child.courses.map((c) => ({ value: c.id, label: c.name }))]} />}
       <Segmented className="w-full [&>button]:flex-1" label={t.schedule} value={view} onChange={setView} options={[{ value: "all", label: t.all }, { value: "past", label: `${t.pastTab} ${past.length}` }]} />
-      {/* owner 2026-11-06: the course card IS the KPI card — same on both tabs: course · done / all classes · present · leave · left */}
       {pkgs.length > 0 && (
-        <div className="grid gap-2">
-          {pkgs.map((p, i) => (
-            <Kpi key={i} compact icon={GraduationCapIcon} tone="sky" label={p.course} value={`${p.done}/${p.sessions}`} sub={`${t.doneOf} · ${fmtDay(p.from, lang)} → ${fmtDay(p.until, lang)}`}>
-              <div className="flex flex-wrap gap-1.5">
-                <Pill tone="green">{`${t.present} ${p.present}`}</Pill>
-                <Pill tone="amber">{`${t.leave} ${p.leaves}/${p.leaveQuota}`}</Pill>
-                {p.remaining != null && <Pill tone="gray">{t.leftN(p.remaining)}</Pill>}
-              </div>
-            </Kpi>
-          ))}
-        </div>
+        <div className="overflow-hidden rounded-3xl bg-card shadow-sm ring-1 ring-foreground/5"><CourseRows child={child} pkgs={pkgs} t={t} lang={lang} /></div>
       )}
       {view === "all" && (
         <>
