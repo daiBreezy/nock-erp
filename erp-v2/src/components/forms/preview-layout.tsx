@@ -22,7 +22,7 @@ export function PreviewLayout({ picker, controls, onRestart, phone, info }: {
       </div>
       <div className="grid items-start gap-4 lg:grid-cols-[390px_1fr]">
         <div className="mx-auto h-[760px] w-[390px] max-w-full overflow-hidden rounded-[2.5rem] border-8 border-zinc-800 bg-zinc-800 shadow-xl">{phone}</div>
-        <section className="space-y-4 rounded-3xl bg-card p-5 shadow-sm ring-1 ring-foreground/10">{info}</section>
+        <section className="h-[760px] max-h-[760px] space-y-4 overflow-y-auto rounded-3xl bg-card p-5 shadow-sm ring-1 ring-foreground/10">{info}</section>
       </div>
     </div>
   )
