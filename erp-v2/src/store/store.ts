@@ -356,7 +356,7 @@ type Store = DB & UIState & {
   linkConversationToFamily: (conversationId: ID, familyId: ID) => Result
   /** owner 2026-10-20: put back LINE ↔ family links the server kept (this browser lost them) — only families with no
    *  LINE yet, and only a LINE account no other family has; returns how many came back */
-  restoreLineLinks: (links: { lineUserId: string; familyId: ID }[]) => number
+  restoreLineLinks: (links: { lineUserId: string; familyId: ID; familyName?: string }[]) => number
   linkConversationToLead: (conversationId: ID, leadId: ID) => Result
 }
 

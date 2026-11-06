@@ -30,6 +30,12 @@ describe("restoreLinks", () => {
     expect(out.families[0].parents[0].lineLinked).toBe(true)
     expect(out.conversations[0]).toMatchObject({ familyId: "a", name: "ครอบครัวa" })
   })
+  // owner 2026-11-06: the family name the office gave must win over the sample name — never the other way round
+  it("takes the server's family name for a family already linked to the same LINE account", () => {
+    const out = restoreLinks({ families: [{ ...fam("a", "U1"), name: "ครอบครัวใจสู้" }], conversations: [conv("line_U1", "a")] }, [{ lineUserId: "U1", familyId: "a", familyName: "ครอบครัวบรีซซี่" }])
+    expect(out.families[0].name).toBe("ครอบครัวบรีซซี่")
+    expect(out.conversations[0].name).toBe("ครอบครัวบรีซซี่")
+  })
   it("never takes over a link made here, nor a LINE account another family has", () => {
     const out = restoreLinks({ families: [fam("a", "U9"), fam("b", "U1")], conversations: [] }, [{ lineUserId: "U1", familyId: "a" }, { lineUserId: "U2", familyId: "a" }])
     expect(out.restored).toBe(0)

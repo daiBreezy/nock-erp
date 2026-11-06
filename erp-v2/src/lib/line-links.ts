@@ -18,7 +18,7 @@ export function useLineLinkSync() {
       void fetch("/api/line/links", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ links }) })
         .then((r) => { if (!r.ok) sent = "" }).catch(() => { sent = "" })
     }
-    fetch("/api/line/links").then((r) => r.json()).then((j: { ok?: boolean; links?: { lineUserId: string; familyId: string }[] }) => {
+    fetch("/api/line/links").then((r) => r.json()).then((j: { ok?: boolean; links?: { lineUserId: string; familyId: string; familyName?: string }[] }) => {
       if (alive && j.ok && j.links?.length) useStore.getState().restoreLineLinks(j.links)
     }).catch(() => {}).finally(() => { if (alive) push() })
     const unsub = useStore.subscribe((s, p) => { if (s.families !== p.families) push() })
