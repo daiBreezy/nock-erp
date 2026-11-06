@@ -207,4 +207,9 @@ export const KIT: Record<string, Entry> = {
   "· บัญชีที่เงินออก ใช้เทียบ Statement": { en: "· the account the money left from, to match the statement", ja: "· 出金口座（明細照合用）" },
   "จำนวนเงินที่โอนคืน": { en: "Amount transferred back", ja: "返金額" },
   "รูปสลิปโอนคืน (ไม่บังคับ)": { en: "Refund slip image (optional)", ja: "返金スリップ画像（任意）" },
+  "มุมมอง LINE OA": { en: "LINE OA view", ja: "LINE OAの表示" },
+  "ผู้ปกครองที่ยังไม่ชำระเงิน — เห็นเฉพาะ คอร์ส (Catalog) และ อื่นๆ": { en: "A parent who hasn't paid yet — sees only Catalog and More", ja: "未払いの保護者 — カタログと「その他」のみ" },
+  "ผู้ปกครองที่ชำระเงินแล้ว — เห็นครบ ภาพรวม · ตารางเรียน · คอร์ส · อื่นๆ (แจ้งลา / ขอรถ / แจ้งออก)": { en: "A parent who has paid — sees everything: Overview · Schedule · Catalog · More (leave / bus / exit requests)", ja: "支払い済みの保護者 — 概要・時間割・カタログ・その他（欠席/送迎/退会の連絡）をすべて表示" },
+  "คนขับรถรับส่ง — ตัวอย่างเที่ยววันนี้ ลองกดเริ่มวิ่ง / ถึงบ้านแล้ว / รับแล้ว / ไม่มา ได้เลย (ไม่ส่งข้อมูลจริง)": { en: "Bus driver — sample trips for today; try Start / Arrived / Picked up / No-show (nothing is really sent)", ja: "送迎ドライバー — 本日のサンプル便。出発/到着/乗車/不在を試せます（実際には送信されません）" },
+  "ยังไม่มีครอบครัวตัวอย่างให้แสดง": { en: "No sample family to show yet", ja: "表示できるサンプル家庭がありません" },
 }

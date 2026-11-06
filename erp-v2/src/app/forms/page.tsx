@@ -4,6 +4,7 @@ import { Page, PageHeader, Tabs } from "@/components/app/page-layout"
 import { LinePreview } from "@/components/forms/line-preview"
 import { useState } from "react"
 import { ArrowRightIcon, FileTextIcon, MessageCircleIcon, ExternalLinkIcon, RotateCwIcon, SendIcon, SmartphoneIcon, UserRoundIcon } from "lucide-react"
+import { NativeSelect } from "@/components/app/native-select"
 import { Button } from "@/components/ui/button"
 import type { FormLang } from "@/domain/types"
 import { cn } from "@/lib/utils"
@@ -79,7 +80,6 @@ const FORMS: FormDoc[] = [
   },
 ]
 
-const LANGS: { key: FormLang; label: string }[] = [{ key: "th", label: "ไทย" }, { key: "en", label: "EN" }, { key: "ja", label: "日本語" }]
 
 export default function FormsPage() {
   const [tab, setTab] = useState<"forms" | "line">("forms")
@@ -131,9 +131,9 @@ export default function FormsPage() {
         <section className="space-y-2">
           <div className="flex flex-wrap items-center gap-1.5">
             <SmartphoneIcon className="size-4 text-muted-foreground" />
-            <div className="flex rounded-full bg-muted p-0.5">{LANGS.map((l) => <button key={l.key} type="button" onClick={() => setLang(l.key)} className={cn("rounded-full px-2.5 py-1 text-xs", lang === l.key ? "bg-background font-medium shadow-sm" : "text-muted-foreground")}>{l.label}</button>)}</div>
-            {f.brandMatters && <div className="flex rounded-full bg-muted p-0.5">{(["nockacademy", "liclass"] as const).map((b) => <button key={b} type="button" onClick={() => setBrand(b)} className={cn("rounded-full px-2.5 py-1 text-xs", brand === b ? "bg-background font-medium shadow-sm" : "text-muted-foreground")}>{b === "nockacademy" ? "NockAcademy" : "Liclass"}</button>)}</div>}
-            <Button size="icon-xs" variant="ghost" className="ml-auto" aria-label="เริ่มใหม่" onClick={() => setReload((n) => n + 1)}><RotateCwIcon /></Button>
+            <NativeSelect className="w-28" value={lang} onChange={(e) => setLang(e.target.value as FormLang)} options={[{ value: "th", label: "ไทย" }, { value: "en", label: "English" }, { value: "ja", label: "日本語" }]} />
+            {f.brandMatters && <NativeSelect className="w-36" value={brand} onChange={(e) => setBrand(e.target.value as "nockacademy" | "liclass")} options={[{ value: "nockacademy", label: "NockAcademy" }, { value: "liclass", label: "Liclass" }]} />}
+            <Button size="sm" variant="outline" className="ml-auto" onClick={() => setReload((n) => n + 1)}><RotateCwIcon /> เริ่มใหม่</Button>
             <Button size="icon-xs" variant="ghost" aria-label="เปิดในแท็บใหม่" nativeButton={false} render={<a href={url} target="_blank" rel="noreferrer" />}><ExternalLinkIcon /></Button>
           </div>
           {/* the real form, in preview mode, at phone size */}

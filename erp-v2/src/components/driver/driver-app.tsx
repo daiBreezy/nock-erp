@@ -9,6 +9,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { ArrowLeftIcon, BusIcon, CheckIcon, ChevronRightIcon, FlagIcon, LoaderCircleIcon, MapIcon, MapPinCheckIcon, NavigationIcon, PhoneIcon, PlayIcon, RotateCcwIcon, SchoolIcon, UserIcon, UserXIcon } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { DEMO_DRIVER, demoTrips } from "@/data/driver-demo"
+import { today } from "@/lib/today"
 
 interface Stop { key: string; nickname: string; name: string; grade: string; leg: "pickup" | "dropoff"; adult: boolean; phone: string; address?: string; addressNote?: string; loc?: { lat: number; lng: number }; eta: string | null }
 interface Trip { tripId: string; driverName: string; branchName: string; date: string; kind: "pickup" | "dropoff" | "both"; time: string; name?: string; depart: string; finish: string; vehicle: { name: string; plate: string } | null; seats: number; used: number; km?: number; stops: Stop[] }
@@ -16,7 +18,6 @@ interface Ev { tripId: string; type: "start" | "arrive" | "done" | "noshow" | "f
 
 const KIND = { pickup: "รอบรับ", dropoff: "รอบส่ง", both: "รอบรับ-ส่ง" } as const
 const hhmm = (iso: string) => { const d = new Date(iso); return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}` }
-const today = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}` }
 const DAYS = ["อา.", "จ.", "อ.", "พ.", "พฤ.", "ศ.", "ส."]
 const dayLabel = (d: string) => { const x = new Date(`${d}T12:00:00`); return `${DAYS[x.getDay()]} ${x.getDate()}/${x.getMonth() + 1}` }
 
@@ -33,9 +34,9 @@ function progress(t: Trip, events: Ev[]) {
   return { started, finished, inOf, outOf, current, done, lastMarked }
 }
 
-export function DriverApp({ token }: { token: string }) {
-  const [trips, setTrips] = useState<Trip[] | null>(null)
-  const [name, setName] = useState("")
+export function DriverApp({ token, demo }: { token: string; demo?: boolean }) {
+  const [trips, setTrips] = useState<Trip[] | null>(() => (demo ? demoTrips() : null))
+  const [name, setName] = useState(demo ? DEMO_DRIVER : "")
   const [events, setEvents] = useState<Ev[]>([])
   const [error, setError] = useState("")
   const [busy, setBusy] = useState(false)
@@ -45,8 +46,18 @@ export function DriverApp({ token }: { token: string }) {
     if (!j.ok) { setError("ลิงก์นี้ใช้ไม่ได้ — ขอลิงก์ใหม่จากแอดมิน"); return }
     setTrips(j.trips); setEvents(j.events); setName(j.driverName ?? j.trips[0]?.driverName ?? "")
   }).catch(() => setError("เชื่อมต่อไม่ได้ — ลองใหม่อีกครั้ง")), [token])
-  useEffect(() => { load(); const t = setInterval(load, 30_000); return () => clearInterval(t) }, [load])
+  useEffect(() => { if (demo) return; load(); const t = setInterval(load, 30_000); return () => clearInterval(t) }, [load, demo])
   const tap = async (tripId: string, type: string, stopKey?: string) => {
+    if (demo) { // same rules as the server: one check in + one check out per stop, undo takes back the last mark
+      setEvents((es) => {
+        const at = new Date().toISOString(), mine = (x: Ev) => x.tripId === tripId && x.stopKey === stopKey
+        if (type === "undo") { const last = es.filter(mine).sort((a, b) => a.at.localeCompare(b.at)).at(-1); return es.filter((x) => x !== last) }
+        const slot = (t: string) => (t === "arrive" ? "in" : "out")
+        const kept = stopKey ? es.filter((x) => !(mine(x) && slot(x.type) === slot(type))) : es.filter((x) => !(x.tripId === tripId && !x.stopKey && x.type === type))
+        return [...kept, { tripId, type: type as Ev["type"], stopKey, at }]
+      })
+      return
+    }
     setBusy(true)
     await fetch("/api/driver/event", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ t: token, tripId, type, stopKey }) }).catch(() => {})
     await load()

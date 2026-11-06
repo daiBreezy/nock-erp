@@ -6,6 +6,7 @@ import {
   CakeIcon, CalendarClockIcon, CheckCircle2Icon, CheckIcon, ChevronLeftIcon, ChevronRightIcon, ClipboardCheckIcon, HeartIcon, LoaderCircleIcon,
   MailIcon, MapPinIcon, MessageCircleIcon, PencilIcon, PhoneIcon, PlusIcon, ReceiptIcon, SchoolIcon, SendIcon, StickyNoteIcon, TrashIcon, UserRoundIcon, UsersIcon, XCircleIcon,
 } from "lucide-react"
+import { NativeSelect } from "@/components/app/native-select"
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
 import { addDays, endTime, toDateStr } from "@/domain/dates"
@@ -16,7 +17,7 @@ import type { Brand, EnrollClassOffer, EnrollCourseOption, EnrollPlan, EnrollTok
 import { cn } from "@/lib/utils"
 import { emptyFamilyDraft, emptyParentDraft, emptyStudentDraft, FamilyFields, ParentFields, parentDraftOf, parentInputOf, StudentFields, studentDraftOf, studentInputOf, type FamilyDraft, type ParentDraft, type StudentDraft } from "@/components/people/person-fields"
 import { joinName } from "@/domain/rules/people"
-import { DICT, fmtBirth, fmtFormDate, LANGS } from "./i18n"
+import { DICT, fmtBirth, fmtFormDate } from "./i18n"
 import { classTimeLabel, courseLine, ENROLL_DICT, EnrollFields, enrollValid, timeLabel, type EnrollFieldsValue } from "./enroll"
 import { enrollClassValid } from "@/domain/rules/forms"
 
@@ -77,6 +78,8 @@ export function LiffForm() {
   const [separate, setSeparate] = useState(false)
   const [grades, setGrades] = useState<string[]>([])
   const [branchName, setBranchName] = useState("")
+  const [brandId, setBrandId] = useState<Brand>("nockacademy")
+  const brandName = brandId === "liclass" ? "Liclass" : "NockAcademy"
   const [lineUserId, setLineUserId] = useState("")
   const [displayName, setDisplayName] = useState("")
   const [known, setKnown] = useState(false)
@@ -149,7 +152,7 @@ export function LiffForm() {
         if (cancelled) return
         setToken(pf)
         setEnroll({ courses: tk.courses, subjects: tk.subjects, busOffered: tk.brand === "liclass", classOffers: tk.classOffers, plan: tk.plan })
-        setGrades(tk.grades); setBranchName(tk.branchName); setSubjectNames(tk.subjectNames ?? {})
+        setGrades(tk.grades); setBranchName(tk.branchName); setBrandId(tk.brand); setSubjectNames(tk.subjectNames ?? {})
         if (!params.get("lang") && tk.lang) setLang(tk.lang)
         applyPrefill(tk.prefill ?? (previewEnroll ? previewData("trial").prefill : null), tk.grades, [], "")
         if (previewEnroll) setStudents((ss) => ss.map((st) => ({ ...st, enroll: { ...emptyEnroll(), classIds: ["k1", "k3"], startDate: addDays(toDateStr(new Date()), 7) } })))
@@ -161,7 +164,7 @@ export function LiffForm() {
         setFormType(preview); setOffers(d.offers); setGrades(d.grades); setDisplayName("ผู้ปกครอง"); setLineUserId("preview"); setSeparate(preview === "trial")
         setSubjectNames({ "คณิต": { en: "Math", ja: "数学" }, "อังกฤษ": { en: "English", ja: "英語" }, "วิทย์": { en: "Science", ja: "理科" } })
         const b = (params.get("brand") as Brand) || (preview === "trial" ? "liclass" : "nockacademy")
-        setBranchName(b === "liclass" ? "Liclass บางนา" : "ทองหล่อ")
+        setBranchName(b === "liclass" ? "Liclass บางนา" : "ทองหล่อ"); setBrandId(b)
         applyPrefill(d.prefill, d.grades, d.offers, "")
         // and a time already picked for each subject they're interested in
         setStudents((ss) => ss.map((st) => ({ ...st, chosen: Object.fromEntries(st.activeSubjects.map((sub) => [sub, d.offers.find((o) => o.subject === sub)!.slots[1]])) })))
@@ -190,7 +193,7 @@ export function LiffForm() {
         if (cancelled) return
         if (!data.ok) { setError(data.error ?? "ลิงก์นี้ใช้ไม่ได้แล้ว"); setPhase("invalid"); return }
         if (!data.offers?.length) { setError("ยังไม่มีช่วงเวลาให้เลือก — ติดต่อสถาบันโดยตรง"); setPhase("invalid"); return }
-        setFormType(data.type); setOffers(data.offers); setGrades(data.grades ?? []); setBranchName(data.branchName ?? ""); setSubjectNames(data.subjectNames ?? {}); setSeparate(data.visit === "separate")
+        setFormType(data.type); setOffers(data.offers); setGrades(data.grades ?? []); setBranchName(data.branchName ?? ""); if (data.brand) setBrandId(data.brand); setSubjectNames(data.subjectNames ?? {}); setSeparate(data.visit === "separate")
         if (!params.get("lang") && data.lang) setLang(data.lang)
         applyPrefill(data.prefill, data.grades ?? [], data.offers, profile.displayName)
         setPhase("ready")
@@ -271,14 +274,13 @@ export function LiffForm() {
   return (
     <div className="min-h-screen bg-muted/40 pb-28">
       <div className="mx-auto max-w-lg space-y-4 p-4">
-        {/* header: logo · branch · language */}
-        <header className="flex items-center gap-2 rounded-3xl bg-card px-4 py-3 shadow-sm ring-1 ring-foreground/5">
-          {/* eslint-disable-next-line @next/next/no-img-element -- static brand file */}
-          <img src="/brand/logo-full.png" alt="NockAcademy" className="h-7 w-auto" />
-          {branchName && <span className="ml-auto flex items-center gap-1 rounded-full bg-primary/10 px-2.5 py-1 text-xs font-medium text-primary"><MapPinIcon className="size-3.5" />{branchName}</span>}
-          <span className={cn("flex overflow-hidden rounded-full border text-xs", !branchName && "ml-auto")}>
-            {LANGS.map((l) => <button key={l.key} type="button" onClick={() => setLang(l.key)} className={cn("px-2 py-1", lang === l.key ? "bg-foreground text-background" : "text-muted-foreground")}>{l.label}</button>)}
-          </span>
+        {/* owner 2026-11-06: the same header as the LINE OA app — a quiet two-line title, the language as a dropdown */}
+        <header className="flex items-center gap-3">
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-lg font-semibold">{brandName}</p>
+            {branchName && <p className="truncate text-xs text-muted-foreground">{branchName}</p>}
+          </div>
+          <NativeSelect className="w-32 shrink-0" value={lang} onChange={(e) => setLang(e.target.value as FormLang)} options={[{ value: "th", label: "ไทย" }, { value: "en", label: "English" }, { value: "ja", label: "日本語" }]} />
         </header>
         {preview && <p className="rounded-2xl bg-amber-100 px-3 py-2 text-center text-xs text-amber-900">{t.previewBadge}</p>}
         {phase === "done" && <p className="flex items-center gap-2 rounded-2xl bg-emerald-100 px-3 py-2.5 text-sm text-emerald-900"><CheckCircle2Icon className="size-4 shrink-0" />{enroll ? `${te.sent} · ${te.sentSub}` : `${t.sent(formType)} · ${t.sentSub}`}</p>}
