@@ -34,6 +34,7 @@ const DICT = {
     busReq: "ขอ / ยกเลิกรอบรถ", busReqSub: "ขอรถรับ-ส่งเพิ่ม หรือยกเลิกรอบที่ไม่ใช้", busPick: "แตะ รับ / ส่ง ของแต่ละวัน เพื่อขอเพิ่มหรือยกเลิก",
     busAdd: "ขอเพิ่ม", busCancel: "ยกเลิก", busCost: "รอบที่ขอเพิ่มคิดค่ารถในใบแจ้งหนี้รอบถัดไป · ยกเลิกรอบที่จ่ายแล้วไม่คืนเงิน", trips: (n: number) => `${n} เที่ยว`,
     adult: "ผู้ปกครอง", adultGo: "ผู้ปกครองไปด้วย", adultNote: "ผู้ปกครองนั่งรถไปด้วยได้ ไม่คิดค่ารถ (ใช้ 1 ที่นั่ง)",
+    study: "การเรียน", all: "ทั้งหมด", upcomingH: "คาบที่จะถึง", pastH: "คาบที่ผ่านมา", manage: "แจ้งลา / รถรับ-ส่ง", leaveThis: "แจ้งลาคาบนี้", waiting: "รอแอดมิน", leaveSent: "แจ้งลาแล้ว", busSent: "ขอรถแล้ว", ridesOf: "รถรับ-ส่งของวันนั้น", pickAny: "เลือกสิ่งที่ต้องการแจ้ง", showAll: "ดูทั้งหมด", hide: "ซ่อน",
   },
   en: {
     hello: "Hello", schedule: "Schedule", summaries: "Summaries", attendance: "Attendance", bus: "School bus",
@@ -53,6 +54,7 @@ const DICT = {
     busReq: "Add / cancel bus rides", busReqSub: "Ask for extra pick-ups / drop-offs, or cancel ones you don't need", busPick: "Tap Pick-up / Drop-off on a day to add or cancel it",
     busAdd: "Add", busCancel: "Cancel", busCost: "Extra rides are charged on the next invoice · paid rides you cancel aren't refunded", trips: (n: number) => `${n} ride${n > 1 ? "s" : ""}`,
     adult: "Parent", adultGo: "Parent rides along", adultNote: "A parent can ride along for free (takes 1 seat)",
+    study: "Learning", all: "All", upcomingH: "Upcoming classes", pastH: "Past classes", manage: "Absence / bus", leaveThis: "Report absence for this class", waiting: "Waiting", leaveSent: "Absence sent", busSent: "Bus asked", ridesOf: "Bus on that day", pickAny: "Pick what to send", showAll: "Show all", hide: "Hide",
   },
   ja: {
     hello: "こんにちは", schedule: "時間割", summaries: "授業レポート", attendance: "出欠", bus: "送迎バス",
@@ -72,6 +74,7 @@ const DICT = {
     busReq: "送迎の追加／キャンセル", busReqSub: "送迎の追加依頼、または不要な便のキャンセル", busPick: "日ごとに「お迎え／お送り」をタップして追加・キャンセル",
     busAdd: "追加", busCancel: "キャンセル", busCost: "追加分は次回の請求書に加算・支払い済みの便のキャンセルは返金なし", trips: (n: number) => `${n}便`,
     adult: "保護者", adultGo: "保護者も同乗", adultNote: "保護者の同乗は無料です（1席使用）",
+    study: "学習", all: "すべて", upcomingH: "これからの授業", pastH: "これまでの授業", manage: "欠席／送迎", leaveThis: "この授業を欠席する", waiting: "確認待ち", leaveSent: "欠席連絡済み", busSent: "送迎依頼済み", ridesOf: "その日の送迎", pickAny: "連絡する内容を選択", showAll: "すべて表示", hide: "閉じる",
   },
 }
 
@@ -86,7 +89,7 @@ function fmtDay(date: string, lang: FormLang) {
   return `${DAYS[lang][w]} ${d} ${MONTHS[lang as "th" | "en"][m - 1]}`
 }
 
-type Tab = "schedule" | "summaries" | "attendance" | "bus" | "request"
+type Tab = "study" | "request"
 
 /** what the parent sends — the LIFF page posts it with LINE's proof of who they are */
 export type BusAsk = { date: string; pickup?: "add" | "cancel"; dropoff?: "add" | "cancel"; adult?: boolean }
@@ -109,7 +112,7 @@ export function ParentApp({ view, lang: initialLang, today, framed, openCourseSu
   const [lang, setLang] = useState<FormLang>(initialLang ?? (brand === "liclass" && /[\u3040-\u30ff\u4e00-\u9fff]/.test(view.familyName) ? "ja" : "th"))
   const opened = openCourseSummary ? view.children.find((c) => c.courseSummaries?.some((x) => x.id === openCourseSummary)) : undefined
   const [childId, setChildId] = useState(opened?.id ?? view.children[0]?.id ?? "")
-  const [tab, setTab] = useState<Tab>(opened ? "summaries" : openAction ? "request" : "schedule")
+  const [tab, setTab] = useState<Tab>(opened ? "study" : openAction === "exit" || openAction === "home" ? "request" : "study")
   const [ask, setAsk] = useState(openAction)
   const [csId, setCsId] = useState<string | null>(opened ? openCourseSummary! : null)
   const t = DICT[lang]
@@ -120,11 +123,9 @@ export function ParentApp({ view, lang: initialLang, today, framed, openCourseSu
   const tomorrow = (() => { const [y, m, d] = today.split("-").map(Number); const x = new Date(y, m - 1, d + 1); return `${x.getFullYear()}-${String(x.getMonth() + 1).padStart(2, "0")}-${String(x.getDate()).padStart(2, "0")}` })()
   const dayLabel = (d: string) => (d === today ? t.today : d === tomorrow ? t.tomorrow : fmtDay(d, lang))
   const usesBus = view.children.some((c) => c.busDays.length > 0)
+  // owner 2026-11-06: schedule + attendance + summaries + bus are ONE page; absences and bus asks live on each class row
   const tabs: { key: Tab; label: string; icon: typeof CalendarDaysIcon }[] = [
-    { key: "schedule", label: t.schedule, icon: CalendarDaysIcon },
-    { key: "summaries", label: t.summaries, icon: MessageSquareTextIcon },
-    { key: "attendance", label: t.attendance, icon: CheckIcon },
-    ...(usesBus ? [{ key: "bus" as Tab, label: t.bus, icon: BusIcon }] : []),
+    { key: "study", label: t.study, icon: CalendarDaysIcon },
     { key: "request", label: t.request, icon: ClipboardPenIcon },
   ]
 
@@ -159,46 +160,9 @@ export function ParentApp({ view, lang: initialLang, today, framed, openCourseSu
             <span className="shrink-0 rounded-full bg-amber-500 px-3 py-1.5 text-xs font-semibold text-white">{t.homeBannerBtn}</span>
           </button>
         )}
-        {!child ? null : tab === "schedule" && child.left ? (
-          // owner 2026-10-14: a child who left — history stays, and the family can ask to come back
-          <section className="space-y-2 rounded-2xl bg-background p-4 text-center shadow-sm">
-            <p className="font-medium">{t.leftSince(fmtDay(child.left.since, lang))}</p>
-            <p className="text-sm text-muted-foreground">{t.leftNote}</p>
-            <button type="button" onClick={() => setTab("request")} className="mx-auto mt-1 flex h-10 items-center gap-2 rounded-full bg-primary px-5 text-sm font-medium text-primary-foreground">{t.returnReq}</button>
-          </section>
-        ) : tab === "schedule" ? <Schedule child={child} t={t} dayLabel={dayLabel} lang={lang} /> : tab === "summaries" ? (() => {
-          const open = csId ? child.courseSummaries?.find((x) => x.id === csId) : undefined
-          if (open) return <CourseEnd cs={open} t={t} lang={lang} onBack={() => setCsId(null)} />
-          const ends = child.courseSummaries ?? []
-          return (
-            <>
-              {ends.length > 0 && (
-                <section className="space-y-1.5">
-                  <p className="flex items-center gap-1.5 px-1 text-xs font-semibold text-muted-foreground"><GraduationCapIcon className="size-3.5" />{t.courseEnd}</p>
-                  {ends.map((x) => (
-                    <button key={x.id} type="button" onClick={() => setCsId(x.id)} className="flex w-full items-center gap-3 rounded-2xl bg-background p-3 text-left shadow-sm">
-                      <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-primary/10 text-primary"><GraduationCapIcon className="size-5" /></span>
-                      <span className="min-w-0 flex-1">
-                        <span className="block truncate font-medium">{x.course}</span>
-                        <span className="block text-xs text-muted-foreground">{fmtDay(x.from, lang)} – {fmtDay(x.to, lang)} · {t.view}</span>
-                      </span>
-                      <ChevronRightIcon className="size-4 shrink-0 text-muted-foreground" />
-                    </button>
-                  ))}
-                </section>
-              )}
-              {ends.length > 0 && child.summaries.length > 0 && <p className="px-1 pt-1 text-xs font-semibold text-muted-foreground">{t.lessonNotes}</p>}
-              {child.summaries.length === 0 && !ends.length ? <Empty text={t.noSummary} /> : child.summaries.map((s, i) => (
-                <article key={i} className="rounded-2xl bg-background p-3 shadow-sm">
-                  <p className="text-xs text-muted-foreground">{fmtDay(s.date, lang)} · {s.subjects.join(" + ")} · {t.teacher} {s.teacher}</p>
-                  {s.detail && <p className="mt-1 text-xs font-medium">{s.detail}</p>}
-                  <p className="mt-1 text-sm whitespace-pre-line">{s.text}</p>
-                </article>
-              ))}
-            </>
-          )
-        })() : tab === "request" ? <RequestTab key={`${child.id}|${ask ?? ""}`} view={view} child={child} t={t} lang={lang} today={today} onRequest={onRequest} requests={requests} initial={ask} />
-        : tab === "attendance" ? <AttendanceList child={child} t={t} lang={lang} /> : <BusList child={child} t={t} lang={lang} dayLabel={dayLabel} />}
+        {!child ? null : tab === "study"
+          ? <Study key={child.id} view={view} child={child} t={t} lang={lang} dayLabel={dayLabel} csId={csId} setCsId={setCsId} onRequest={onRequest} requests={requests} onReturn={() => setTab("request")} />
+          : <RequestTab key={`${child.id}|${ask ?? ""}`} view={view} child={child} t={t} lang={lang} today={today} onRequest={onRequest} requests={requests} initial={ask} />}
         <p className="pt-2 text-center text-[11px] text-muted-foreground">{t.updated} {(() => { const g = new Date(view.generatedAt); return `${fmtDay(`${g.getFullYear()}-${String(g.getMonth() + 1).padStart(2, "0")}-${String(g.getDate()).padStart(2, "0")}`, lang)} ${String(g.getHours()).padStart(2, "0")}:${String(g.getMinutes()).padStart(2, "0")}` })()}</p>
       </main>
 
@@ -215,16 +179,55 @@ export function ParentApp({ view, lang: initialLang, today, framed, openCourseSu
 
 type T = (typeof DICT)["th"]
 
-function Schedule({ child, t, dayLabel, lang }: { child: ParentChild; t: T; dayLabel: (d: string) => string; lang: FormLang }) {
+/** owner 2026-11-06: ตารางเรียน + การเข้าเรียน + สรุปการเรียน + รถรับส่ง in one page — filter by course or see everything; absence / bus asks sit on each class */
+function Study({ child, t, lang, dayLabel, csId, setCsId, onRequest, requests, onReturn }: {
+  view: ParentView; child: ParentChild; t: T; lang: FormLang; dayLabel: (d: string) => string; csId: string | null; setCsId: (id: string | null) => void
+  onRequest?: (input: ParentRequestInput) => Promise<{ ok: boolean; error?: string }>; requests?: ParentRequest[]; onReturn: () => void
+}) {
+  const [course, setCourse] = useState("")
+  const [allPast, setAllPast] = useState(false)
+  const open = csId ? child.courseSummaries?.find((x) => x.id === csId) : undefined
+  if (open) return <CourseEnd cs={open} t={t} lang={lang} onBack={() => setCsId(null)} />
+  const hasBus = child.brand === "liclass" || child.busDays.length > 0
+  const inC = (x: { courseId?: string }) => !course || x.courseId === course
+  const courseName = (id?: string) => child.courses.find((c) => c.id === id)?.name
+  const many = child.courses.length > 1
+  const upcoming = child.upcoming.filter(inC)
   const days = new Map<string, ParentChild["upcoming"]>()
-  child.upcoming.forEach((c) => days.set(c.date, [...(days.get(c.date) ?? []), c]))
+  upcoming.forEach((c) => days.set(c.date, [...(days.get(c.date) ?? []), c]))
+  const ends = (child.courseSummaries ?? []).filter(inC)
+  const attendance = child.attendance.filter(inC)
+  const key = (x: { date: string; subjects: string[] }) => `${x.date}|${x.subjects.join("+")}`
+  const sums = new Map(child.summaries.filter(inC).map((x) => [key(x), x]))
+  const past: { date: string; start: string; subjects: string[]; courseId?: string; status?: "present" | "absent" | "leave"; sum?: ParentChild["summaries"][number] }[] = attendance.map((a) => ({ ...a, sum: sums.get(key(a)) }))
+  const used = new Set(past.map((r) => (r.sum ? key(r.sum) : "")))
+  child.summaries.filter(inC).filter((x) => !used.has(key(x))).forEach((x) => past.push({ date: x.date, start: "", subjects: x.subjects, courseId: x.courseId, sum: x }))
+  past.sort((a, b) => (b.date + b.start).localeCompare(a.date + a.start))
+  const present = attendance.filter((a) => a.status === "present").length
+  const pkgs = child.packages.filter(inC)
+  const shown = allPast ? past : past.slice(0, 5)
   return (
     <>
-      {child.packages.length > 0 && (
+      {child.left && (
+        // owner 2026-10-14: a child who left — history stays, and the family can ask to come back
+        <section className="space-y-2 rounded-2xl bg-background p-4 text-center shadow-sm">
+          <p className="font-medium">{t.leftSince(fmtDay(child.left.since, lang))}</p>
+          <p className="text-sm text-muted-foreground">{t.leftNote}</p>
+          <button type="button" onClick={onReturn} className="mx-auto mt-1 flex h-10 items-center gap-2 rounded-full bg-primary px-5 text-sm font-medium text-primary-foreground">{t.returnReq}</button>
+        </section>
+      )}
+      {many && (
+        <div className="-mx-3 flex gap-1.5 overflow-x-auto px-3">
+          {[{ id: "", name: t.all }, ...child.courses].map((c) => (
+            <button key={c.id || "all"} type="button" onClick={() => setCourse(c.id)} className={cn("shrink-0 rounded-full px-3 py-1.5 text-sm ring-1", course === c.id ? "bg-primary font-medium text-primary-foreground ring-primary" : "bg-background ring-foreground/10")}>{c.name}</button>
+          ))}
+        </div>
+      )}
+      {pkgs.length > 0 && (
         <section className="rounded-2xl bg-background p-3 shadow-sm">
           <p className="mb-1.5 flex items-center gap-1.5 text-xs font-medium text-muted-foreground"><PackageIcon className="size-3.5" />{t.packages}</p>
           <ul className="space-y-1.5">
-            {child.packages.map((p, i) => (
+            {pkgs.map((p, i) => (
               <li key={i} className="flex items-baseline justify-between gap-2 text-sm">
                 <span className="truncate">{p.course}</span>
                 <span className="shrink-0 text-xs text-muted-foreground">{p.remaining != null && p.total != null ? `${t.left(p.remaining, p.total)} · ` : ""}{t.until} {fmtDay(p.until, lang)}</span>
@@ -233,31 +236,171 @@ function Schedule({ child, t, dayLabel, lang }: { child: ParentChild; t: T; dayL
           </ul>
         </section>
       )}
-      {days.size === 0 ? <Empty text={t.noClass} /> : [...days.entries()].map(([date, list]) => (
-        <section key={date} className="space-y-1.5">
-          <p className="px-1 text-xs font-semibold text-muted-foreground">{dayLabel(date)}</p>
-          {list.map((c) => (
-            <article key={c.sessionId} className={cn("rounded-2xl bg-background p-3 shadow-sm", c.cancelled && "opacity-60")}>
-              <div className="flex items-start gap-3">
-                <div className="w-14 shrink-0 text-center">
-                  <p className="text-base font-semibold tabular-nums">{c.start}</p>
-                  <p className="text-[11px] text-muted-foreground tabular-nums">{c.end}</p>
-                </div>
-                <div className="min-w-0 flex-1">
-                  <p className={cn("truncate font-medium", c.cancelled && "line-through")}>{c.subjects.join(" + ")}</p>
-                  <p className="flex flex-wrap gap-x-3 text-xs text-muted-foreground">
-                    {c.teachers.length > 0 && <span className="flex items-center gap-1"><UserIcon className="size-3" />{t.teacher} {c.teachers.join(", ")}</span>}
-                    {c.room && <span className="flex items-center gap-1"><DoorOpenIcon className="size-3" />{c.room}</span>}
-                  </p>
-                  {c.cancelled && <p className="mt-1 text-xs font-medium text-red-700">{t.cancelled}{c.cancelReason ? ` · ${c.cancelReason}` : ""}</p>}
-                  {!c.cancelled && c.bus && <BusChips bus={c.bus} t={t} />}
-                </div>
-              </div>
-            </article>
+      {ends.length > 0 && (
+        <section className="space-y-1.5">
+          <p className="flex items-center gap-1.5 px-1 text-xs font-semibold text-muted-foreground"><GraduationCapIcon className="size-3.5" />{t.courseEnd}</p>
+          {ends.map((x) => (
+            <button key={x.id} type="button" onClick={() => setCsId(x.id)} className="flex w-full items-center gap-3 rounded-2xl bg-background p-3 text-left shadow-sm">
+              <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-primary/10 text-primary"><GraduationCapIcon className="size-5" /></span>
+              <span className="min-w-0 flex-1">
+                <span className="block truncate font-medium">{x.course}</span>
+                <span className="block text-xs text-muted-foreground">{fmtDay(x.from, lang)} – {fmtDay(x.to, lang)} · {t.view}</span>
+              </span>
+              <ChevronRightIcon className="size-4 shrink-0 text-muted-foreground" />
+            </button>
           ))}
         </section>
-      ))}
+      )}
+      {!child.left && (
+        <>
+          <p className="px-1 pt-1 text-sm font-semibold">{t.upcomingH}</p>
+          {days.size === 0 ? <Empty text={t.noClass} /> : [...days.entries()].map(([date, list]) => (
+            <section key={date} className="space-y-1.5">
+              <p className="px-1 text-xs font-semibold text-muted-foreground">{dayLabel(date)}</p>
+              {list.map((c, i) => <ClassCard key={c.sessionId} c={c} first={i === 0} child={child} t={t} hasBus={hasBus} tag={many && !course ? courseName(c.courseId) : undefined} onRequest={onRequest} requests={requests} />)}
+            </section>
+          ))}
+        </>
+      )}
+      <p className="px-1 pt-2 text-sm font-semibold">{t.pastH}</p>
+      {attendance.length > 0 && (
+        <section className="rounded-2xl bg-background p-3 text-center shadow-sm">
+          <p className="text-xs text-muted-foreground">{t.rate}</p>
+          <p className="text-2xl font-semibold tabular-nums">{present} / {attendance.length}</p>
+        </section>
+      )}
+      {past.length === 0 ? <Empty text={t.noAttendance} /> : (
+        <ul className="divide-y overflow-hidden rounded-2xl bg-background shadow-sm">
+          {shown.map((r, i) => <PastRow key={`${r.date}${r.start}${i}`} r={r} t={t} lang={lang} tag={many && !course ? courseName(r.courseId) : undefined} />)}
+        </ul>
+      )}
+      {past.length > 5 && <button type="button" onClick={() => setAllPast(!allPast)} className="mx-auto block rounded-full px-4 py-1.5 text-sm text-primary">{allPast ? t.hide : `${t.showAll} (${past.length})`}</button>}
     </>
+  )
+}
+
+function PastRow({ r, t, lang, tag }: { r: { date: string; start: string; subjects: string[]; status?: "present" | "absent" | "leave"; sum?: { teacher: string; text: string; detail?: string } }; t: T; lang: FormLang; tag?: string }) {
+  const [open, setOpen] = useState(false)
+  const tone = { present: "bg-emerald-100 text-emerald-800", absent: "bg-red-100 text-red-800", leave: "bg-amber-100 text-amber-900" }
+  return (
+    <li className="px-3 py-2 text-sm">
+      <div className="flex items-center gap-2">
+        <span className="w-28 shrink-0 text-xs text-muted-foreground">{fmtDay(r.date, lang)} {r.start}</span>
+        <span className="min-w-0 flex-1 truncate">{r.subjects.join(" + ")}{tag && <span className="ml-1.5 text-[11px] text-muted-foreground">{tag}</span>}</span>
+        {r.status && <span className={cn("flex items-center gap-1 rounded-full px-2 py-0.5 text-xs", tone[r.status])}>{r.status === "present" ? <CheckIcon className="size-3" /> : r.status === "absent" ? <XIcon className="size-3" /> : <ClockIcon className="size-3" />}{t[r.status]}</span>}
+      </div>
+      {r.sum && (
+        <button type="button" onClick={() => setOpen(!open)} className="mt-1 flex w-full items-start gap-1.5 rounded-xl bg-muted/50 p-2 text-left text-xs">
+          <MessageSquareTextIcon className="mt-0.5 size-3.5 shrink-0 text-muted-foreground" />
+          <span className="min-w-0 flex-1">
+            {r.sum.detail && <span className="block font-medium">{r.sum.detail}</span>}
+            <span className={cn("block whitespace-pre-line", !open && "line-clamp-2")}>{r.sum.text}</span>
+            {open && r.sum.teacher && <span className="mt-0.5 block text-muted-foreground">{t.teacher} {r.sum.teacher}</span>}
+          </span>
+        </button>
+      )}
+    </li>
+  )
+}
+
+type Ride = { pickup?: "add" | "cancel"; dropoff?: "add" | "cancel"; adult?: boolean }
+
+/** one class ahead — and the two things a parent does with it: report an absence, ask for / cancel its bus ride */
+function ClassCard({ c, first, child, t, hasBus, tag, onRequest, requests }: {
+  c: ParentChild["upcoming"][number]; first: boolean; child: ParentChild; t: T; hasBus: boolean; tag?: string
+  onRequest?: (input: ParentRequestInput) => Promise<{ ok: boolean; error?: string }>; requests?: ParentRequest[]
+}) {
+  const [open, setOpen] = useState(false)
+  const [leave, setLeave] = useState(false)
+  const [ride, setRide] = useState<Ride>({})
+  const [note, setNote] = useState("")
+  const [busy, setBusy] = useState(false)
+  const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null)
+  const mine = (requests ?? []).filter((r) => r.studentId === child.id && r.status === "new")
+  const leaveWaiting = mine.some((r) => r.kind === "leave" && r.sessions?.some((x) => x.date === c.date && x.start === c.start))
+  const busWaiting = mine.some((r) => r.kind === "bus" && r.bus?.some((x) => x.date === c.date))
+  const booked: { pickup: boolean; dropoff: boolean; adult?: boolean } = child.busDays.find((b) => b.date === c.date) ?? { pickup: false, dropoff: false }
+  const rides = (leg: "pickup" | "dropoff") => (ride[leg] === "add" ? true : ride[leg] === "cancel" ? false : booked[leg])
+  const toggle = (leg: "pickup" | "dropoff") => setRide((r) => ({ ...r, [leg]: r[leg] ? undefined : booked[leg] ? "cancel" : "add" }))
+  const canAdult = rides("pickup") || rides("dropoff")
+  const rideChanged = !!(ride.pickup || ride.dropoff || (ride.adult && canAdult))
+  const ready = (leave && !leaveWaiting) || rideChanged
+  const canAct = !c.cancelled
+  const send = async () => {
+    if (!onRequest) return
+    setBusy(true)
+    let r: { ok: boolean; error?: string } = { ok: true }
+    if (leave && !leaveWaiting) r = await onRequest({ kind: "leave", studentId: child.id, sessionIds: [c.sessionId], note })
+    if (r.ok && rideChanged) r = await onRequest({ kind: "bus", studentId: child.id, bus: [{ date: c.date, ...ride, adult: canAdult ? ride.adult : undefined }], note })
+    setBusy(false)
+    setMsg(r.ok ? { ok: true, text: t.sent } : { ok: false, text: r.error ?? "ส่งไม่สำเร็จ" })
+    if (r.ok) { setLeave(false); setRide({}); setNote(""); setOpen(false) }
+  }
+  return (
+    <article className={cn("rounded-2xl bg-background p-3 shadow-sm", c.cancelled && "opacity-60")}>
+      <div className="flex items-start gap-3">
+        <div className="w-14 shrink-0 text-center">
+          <p className="text-base font-semibold tabular-nums">{c.start}</p>
+          <p className="text-[11px] text-muted-foreground tabular-nums">{c.end}</p>
+        </div>
+        <div className="min-w-0 flex-1">
+          <p className={cn("truncate font-medium", c.cancelled && "line-through")}>{c.subjects.join(" + ")}{tag && <span className="ml-1.5 text-[11px] font-normal text-muted-foreground">{tag}</span>}</p>
+          <p className="flex flex-wrap gap-x-3 text-xs text-muted-foreground">
+            {c.teachers.length > 0 && <span className="flex items-center gap-1"><UserIcon className="size-3" />{t.teacher} {c.teachers.join(", ")}</span>}
+            {c.room && <span className="flex items-center gap-1"><DoorOpenIcon className="size-3" />{c.room}</span>}
+          </p>
+          {c.cancelled && <p className="mt-1 text-xs font-medium text-red-700">{t.cancelled}{c.cancelReason ? ` · ${c.cancelReason}` : ""}</p>}
+          {!c.cancelled && c.bus && <BusChips bus={c.bus} t={t} />}
+          {(leaveWaiting || busWaiting) && (
+            <p className="mt-1.5 flex flex-wrap gap-1.5">
+              {leaveWaiting && <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[11px] text-amber-900">{t.leaveSent} · {t.waiting}</span>}
+              {busWaiting && <span className="rounded-full bg-sky-100 px-2 py-0.5 text-[11px] text-sky-800">{t.busSent} · {t.waiting}</span>}
+            </p>
+          )}
+        </div>
+        {canAct && (
+          <button type="button" aria-expanded={open} onClick={() => { setOpen(!open); setMsg(null) }} className={cn("shrink-0 rounded-full px-3 py-1.5 text-xs font-medium ring-1", open ? "bg-primary/10 text-primary ring-primary/40" : "text-muted-foreground ring-foreground/15")}>{hasBus ? t.manage : t.leaveReq}</button>
+        )}
+      </div>
+      {msg && <p className={cn("mt-2 rounded-xl p-2 text-xs", msg.ok ? "bg-emerald-50 text-emerald-800" : "bg-red-50 text-red-800")}>{msg.text}</p>}
+      {open && canAct && (
+        <div className="mt-3 space-y-2.5 border-t pt-3">
+          <p className="text-xs text-muted-foreground">{t.pickAny}</p>
+          <button type="button" disabled={leaveWaiting} onClick={() => setLeave(!leave)} className={cn("flex w-full items-center gap-2.5 rounded-xl p-2.5 text-left text-sm ring-1 disabled:opacity-50", leave ? "bg-amber-50 ring-amber-400" : "ring-foreground/10")}>
+            <span className={cn("grid size-5 shrink-0 place-items-center rounded-md border", leave ? "border-amber-500 bg-amber-500 text-white" : "border-muted-foreground/40")}>{leave && <CheckIcon className="size-3.5" />}</span>
+            <CalendarOffIcon className="size-4 text-amber-700" />{t.leaveThis}
+          </button>
+          {hasBus && first && (
+            <div className="space-y-1.5">
+              <p className="text-xs font-medium text-muted-foreground">{t.ridesOf}</p>
+              <div className="flex flex-wrap items-center gap-2">
+                {(["pickup", "dropoff"] as const).map((leg) => {
+                  const want = ride[leg], on = booked[leg]
+                  return (
+                    <button key={leg} type="button" onClick={() => toggle(leg)}
+                      className={cn("rounded-full px-2.5 py-1.5 text-xs font-medium ring-1",
+                        want === "add" ? "bg-emerald-100 text-emerald-800 ring-emerald-400" : want === "cancel" ? "bg-red-50 text-red-700 line-through ring-red-300" : on ? "bg-sky-100 text-sky-800 ring-sky-300" : "text-muted-foreground ring-foreground/15")}>
+                      {want === "add" ? `+ ${t.busAdd} ` : want === "cancel" ? `${t.busCancel} ` : ""}{leg === "pickup" ? t.pickup : t.dropoff}
+                    </button>
+                  )
+                })}
+                {booked.adult ? <span className="rounded-full bg-violet-100 px-2.5 py-1.5 text-xs font-medium text-violet-800">{t.adultGo}</span> : (
+                  <button type="button" disabled={!canAdult} onClick={() => setRide((r) => ({ ...r, adult: !r.adult }))}
+                    className={cn("flex items-center gap-1 rounded-full px-2.5 py-1.5 text-xs font-medium ring-1 disabled:opacity-40", ride.adult && canAdult ? "bg-violet-100 text-violet-800 ring-violet-400" : "text-muted-foreground ring-foreground/15")}>
+                    <UserIcon className="size-3.5" />{ride.adult && canAdult ? `+ ${t.adult}` : t.adult}
+                  </button>
+                )}
+              </div>
+              <p className="rounded-xl bg-amber-50 p-2 text-xs text-amber-900">{t.busCost} · {t.adultNote}</p>
+            </div>
+          )}
+          <textarea rows={2} value={note} onChange={(e) => setNote(e.target.value)} placeholder={t.noteLabel} className="w-full rounded-xl border bg-background p-2.5 text-sm" />
+          <button type="button" disabled={!ready || busy || !onRequest} onClick={send} className="flex h-10 w-full items-center justify-center gap-2 rounded-full bg-primary text-sm font-medium text-primary-foreground disabled:opacity-50">
+            {busy && <LoaderCircleIcon className="size-4 animate-spin" />}{!onRequest ? t.preview : busy ? t.sending : t.send}
+          </button>
+        </div>
+      )}
+    </article>
   )
 }
 
@@ -268,51 +411,6 @@ function BusChips({ bus, t }: { bus: { pickup: boolean; dropoff: boolean; adult?
       {bus.dropoff && <span className="flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-[11px] text-amber-900"><BusIcon className="size-3" />{t.dropoff}</span>}
       {bus.adult && <span className="flex items-center gap-1 rounded-full bg-violet-100 px-2 py-0.5 text-[11px] text-violet-800"><UserIcon className="size-3" />{t.adultGo}</span>}
     </p>
-  )
-}
-
-function AttendanceList({ child, t, lang }: { child: ParentChild; t: T; lang: FormLang }) {
-  if (child.attendance.length === 0) return <Empty text={t.noAttendance} />
-  const present = child.attendance.filter((a) => a.status === "present").length
-  const tone = { present: "bg-emerald-100 text-emerald-800", absent: "bg-red-100 text-red-800", leave: "bg-amber-100 text-amber-900" }
-  return (
-    <>
-      <section className="rounded-2xl bg-background p-3 text-center shadow-sm">
-        <p className="text-xs text-muted-foreground">{t.rate}</p>
-        <p className="text-2xl font-semibold tabular-nums">{present} / {child.attendance.length}</p>
-      </section>
-      <ul className="divide-y overflow-hidden rounded-2xl bg-background shadow-sm">
-        {child.attendance.map((a, i) => (
-          <li key={i} className="flex items-center gap-2 px-3 py-2 text-sm">
-            <span className="w-28 shrink-0 text-xs text-muted-foreground">{fmtDay(a.date, lang)} {a.start}</span>
-            <span className="min-w-0 flex-1 truncate">{a.subjects.join(" + ")}</span>
-            <span className={cn("flex items-center gap-1 rounded-full px-2 py-0.5 text-xs", tone[a.status])}>{a.status === "present" ? <CheckIcon className="size-3" /> : a.status === "absent" ? <XIcon className="size-3" /> : <ClockIcon className="size-3" />}{t[a.status]}</span>
-          </li>
-        ))}
-      </ul>
-    </>
-  )
-}
-
-function BusList({ child, t, lang, dayLabel }: { child: ParentChild; t: T; lang: FormLang; dayLabel: (d: string) => string }) {
-  if (child.busDays.length === 0) return <Empty text={t.noBus} />
-  const classAt = (d: string) => child.upcoming.find((c) => c.date === d && !c.cancelled)
-  return (
-    <>
-      <p className="rounded-2xl bg-amber-50 p-3 text-xs text-amber-900">{t.busNote}</p>
-      <ul className="divide-y overflow-hidden rounded-2xl bg-background shadow-sm">
-        {child.busDays.map((b) => {
-          const c = classAt(b.date)
-          return (
-            <li key={b.date} className="flex items-center gap-2 px-3 py-2 text-sm">
-              <span className="w-24 shrink-0 font-medium">{dayLabel(b.date)}</span>
-              <span className="min-w-0 flex-1 truncate text-xs text-muted-foreground">{c ? `${c.start}–${c.end} · ${c.subjects.join(" + ")}` : fmtDay(b.date, lang)}</span>
-              <BusChips bus={b} t={t} />
-            </li>
-          )
-        })}
-      </ul>
-    </>
   )
 }
 
@@ -367,45 +465,38 @@ function RequestTab({ view, child, t, lang, today, onRequest, requests, initial 
 }) {
   // owner 2026-10-19: bus rides can be asked for / cancelled where the school runs a bus (Liclass, or already riding)
   const hasBus = child.brand === "liclass" || child.busDays.length > 0
-  const [mode, setMode] = useState<"leave" | "exit" | "return" | "bus" | "home" | null>(child.left ? "return" : (initial === "bus" || initial === "home") && !hasBus ? null : initial ?? null)
+  const [mode, setMode] = useState<"exit" | "return" | "home" | null>(child.left ? "return" : initial === "home" && !hasBus ? null : initial === "exit" || initial === "home" ? initial : null)
   // owner 2026-10-19: the house pin for the bus — starts where the school has it (if anywhere)
   const [homeLoc, setHomeLoc] = useState<{ lat: number; lng: number } | undefined>(view.home ? { lat: view.home.lat, lng: view.home.lng } : undefined)
   const [homeNote, setHomeNote] = useState(view.home?.addressNote ?? "")
-  const [busAsk, setBusAsk] = useState<Record<string, BusAsk>>({})
   const [startDate, setStartDate] = useState("")
-  const [picked, setPicked] = useState<string[]>([])
   const [lastDate, setLastDate] = useState(child.packages.map((p) => p.until).sort().at(-1) ?? today)
   const [reasons, setReasons] = useState<string[]>([])
   const [note, setNote] = useState("")
   const [busy, setBusy] = useState(false)
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null)
-  const classes = child.upcoming.filter((c) => !c.cancelled)
   const mine = (requests ?? []).filter((r) => r.studentId === child.id)
   const label = (r: { label: string; en?: string; ja?: string }) => (lang === "en" && r.en) || (lang === "ja" && r.ja) || r.label
   const submit = async () => {
     if (!onRequest || !mode) return
     setBusy(true)
     const r = await onRequest(mode === "home" ? { kind: "home", studentId: child.id, home: { ...homeLoc!, addressNote: homeNote.trim() || undefined }, note }
-      : mode === "bus" ? { kind: "bus", studentId: child.id, bus: Object.values(busAsk).filter((x) => x.pickup || x.dropoff || x.adult), note }
-      : mode === "leave" ? { kind: "leave", studentId: child.id, sessionIds: picked, note }
       : mode === "return" ? { kind: "return", studentId: child.id, startDate: startDate || undefined, note }
       : { kind: "exit", studentId: child.id, lastDate, reasonIds: reasons, note })
     setBusy(false)
     setMsg(r.ok ? { ok: true, text: t.sent } : { ok: false, text: r.error ?? "ส่งไม่สำเร็จ" })
-    if (r.ok) { setMode(null); setPicked([]); setReasons([]); setNote(""); setStartDate(""); setBusAsk({}) }
+    if (r.ok) { setMode(null); setReasons([]); setNote(""); setStartDate("") }
   }
-  const busTrips = Object.values(busAsk).reduce((n, x) => n + Number(!!x.pickup) + Number(!!x.dropoff), 0)
-  const busAdults = Object.values(busAsk).filter((x) => x.adult).length
-  const ready = mode === "leave" ? picked.length > 0 : mode === "exit" ? !!lastDate : mode === "bus" ? busTrips + busAdults > 0 : mode === "home" ? !!homeLoc : mode === "return"
+  const ready = mode === "exit" ? !!lastDate : mode === "home" ? !!homeLoc : mode === "return"
   return (
     <div className="space-y-3">
       {msg && <p className={cn("rounded-2xl p-3 text-sm", msg.ok ? "bg-emerald-50 text-emerald-800" : "bg-red-50 text-red-800")}>{msg.text}</p>}
       {!mode ? (
         <div className="grid gap-2">
           {(child.left ? [["return", RotateCcwIcon, t.returnReq, t.returnSub]] as const
-            : [["leave", CalendarOffIcon, t.leaveReq, t.leaveReqSub], ...(hasBus ? [["bus", BusIcon, t.busReq, t.busReqSub], ["home", MapPinHouseIcon, t.homeReq, t.homeReqSub]] as const : []), ["exit", DoorOpenIcon, t.exitReq, t.exitReqSub]] as const).map(([k, Icon, title, sub]) => (
+            : [...(hasBus ? [["home", MapPinHouseIcon, t.homeReq, t.homeReqSub]] as const : []), ["exit", DoorOpenIcon, t.exitReq, t.exitReqSub]] as const).map(([k, Icon, title, sub]) => (
             <button key={k} type="button" onClick={() => { setMode(k); setMsg(null) }} className="flex items-center gap-3 rounded-2xl bg-background p-4 text-left shadow-sm">
-              <span className={cn("grid size-11 shrink-0 place-items-center rounded-xl", k === "leave" ? "bg-amber-100 text-amber-800" : k === "return" ? "bg-emerald-100 text-emerald-700" : k === "bus" || k === "home" ? "bg-sky-100 text-sky-800" : "bg-red-100 text-red-700")}><Icon className="size-5" /></span>
+              <span className={cn("grid size-11 shrink-0 place-items-center rounded-xl", k === "return" ? "bg-emerald-100 text-emerald-700" : k === "home" ? "bg-sky-100 text-sky-800" : "bg-red-100 text-red-700")}><Icon className="size-5" /></span>
               <span className="min-w-0 flex-1"><span className="block font-medium">{title}</span><span className="block text-xs text-muted-foreground">{sub}</span></span>
               <ChevronRightIcon className="size-4 text-muted-foreground" />
             </button>
@@ -414,7 +505,7 @@ function RequestTab({ view, child, t, lang, today, onRequest, requests, initial 
       ) : (
         <section className="space-y-3 rounded-2xl bg-background p-3 shadow-sm">
           <button type="button" onClick={() => setMode(null)} className="flex items-center gap-1 text-sm text-muted-foreground"><ArrowLeftIcon className="size-4" />{t.back}</button>
-          <p className="text-lg font-semibold">{mode === "leave" ? t.leaveReq : mode === "return" ? t.returnReq : mode === "bus" ? t.busReq : mode === "home" ? t.homeReq : t.exitReq}</p>
+          <p className="text-lg font-semibold">{mode === "return" ? t.returnReq : mode === "home" ? t.homeReq : t.exitReq}</p>
           {mode === "home" ? (
             <div className="space-y-2">
               <p className="text-xs text-muted-foreground">{view.home ? t.homeHave : t.homePick}</p>
@@ -423,26 +514,10 @@ function RequestTab({ view, child, t, lang, today, onRequest, requests, initial 
                 <input value={homeNote} onChange={(e) => setHomeNote(e.target.value)} placeholder={t.homeNotePh} className="h-10 w-full rounded-xl border bg-background px-3 text-sm" />
               </label>
             </div>
-          ) : mode === "bus" ? (
-            <BusPicker child={child} t={t} lang={lang} ask={busAsk} onChange={setBusAsk} />
           ) : mode === "return" ? (
             <label className="block space-y-1"><span className="text-xs font-medium text-muted-foreground">{t.startFrom}</span>
               <input type="date" min={today} value={startDate} onChange={(e) => setStartDate(e.target.value)} className="h-10 w-full rounded-xl border bg-background px-3 text-sm" />
             </label>
-          ) : mode === "leave" ? (
-            <div className="space-y-1.5">
-              <p className="text-xs font-medium text-muted-foreground">{t.pickClasses}</p>
-              {classes.length === 0 ? <Empty text={t.noUpcoming} /> : classes.map((c) => {
-                const on = picked.includes(c.sessionId)
-                return (
-                  <button key={c.sessionId} type="button" onClick={() => setPicked(on ? picked.filter((x) => x !== c.sessionId) : [...picked, c.sessionId])}
-                    className={cn("flex w-full items-center gap-3 rounded-xl p-2.5 text-left ring-1", on ? "bg-amber-50 ring-amber-400" : "ring-foreground/10")}>
-                    <span className={cn("grid size-5 shrink-0 place-items-center rounded-md border", on ? "border-amber-500 bg-amber-500 text-white" : "border-muted-foreground/40")}>{on && <CheckIcon className="size-3.5" />}</span>
-                    <span className="min-w-0 flex-1 text-sm"><span className="font-medium">{fmtDay(c.date, lang)} {c.start}–{c.end}</span><span className="block truncate text-xs text-muted-foreground">{c.subjects.join(" + ")}{c.teachers.length ? ` · ${t.teacher} ${c.teachers.join(", ")}` : ""}</span></span>
-                  </button>
-                )
-              })}
-            </div>
           ) : (
             <div className="space-y-3">
               <label className="block space-y-1"><span className="text-xs font-medium text-muted-foreground">{t.lastDay}</span>
@@ -464,7 +539,7 @@ function RequestTab({ view, child, t, lang, today, onRequest, requests, initial 
             <textarea rows={3} value={note} onChange={(e) => setNote(e.target.value)} className="w-full rounded-xl border bg-background p-2.5 text-sm" />
           </label>
           <button type="button" disabled={!ready || busy || !onRequest} onClick={submit} className="flex h-11 w-full items-center justify-center gap-2 rounded-full bg-primary text-sm font-medium text-primary-foreground disabled:opacity-50">
-            {busy && <LoaderCircleIcon className="size-4 animate-spin" />}{!onRequest ? t.preview : busy ? t.sending : `${t.send}${mode === "leave" && picked.length ? ` · ${t.classes(picked.length)}` : mode === "bus" && busTrips ? ` · ${t.trips(busTrips)}` : ""}`}
+            {busy && <LoaderCircleIcon className="size-4 animate-spin" />}{!onRequest ? t.preview : busy ? t.sending : t.send}
           </button>
         </section>
       )}
@@ -484,52 +559,6 @@ function RequestTab({ view, child, t, lang, today, onRequest, requests, initial 
           ))}
         </section>
       )}
-    </div>
-  )
-}
-
-/** owner 2026-10-19: every class day ahead with its pick-up / drop-off — tap a booked one to cancel it, an open one to ask for it */
-function BusPicker({ child, t, lang, ask, onChange }: { child: ParentChild; t: T; lang: FormLang; ask: Record<string, BusAsk>; onChange: (a: Record<string, BusAsk>) => void }) {
-  const days = [...new Map(child.upcoming.filter((c) => !c.cancelled).map((c) => [c.date, c])).values()]
-  if (!days.length) return <Empty text={t.noUpcoming} />
-  const toggle = (date: string, leg: "pickup" | "dropoff", booked: boolean) => {
-    const cur = ask[date] ?? { date }
-    const next = { ...cur, [leg]: cur[leg] ? undefined : booked ? "cancel" : "add" }
-    onChange({ ...ask, [date]: next })
-  }
-  // owner 2026-10-19: a parent can ride along (free, one seat) on a day the child rides
-  const toggleAdult = (date: string) => { const cur = ask[date] ?? { date }; onChange({ ...ask, [date]: { ...cur, adult: !cur.adult } }) }
-  return (
-    <div className="space-y-1.5">
-      <p className="text-xs font-medium text-muted-foreground">{t.busPick}</p>
-      {days.map((c) => {
-        const booked: { pickup: boolean; dropoff: boolean; adult?: boolean } = child.busDays.find((b) => b.date === c.date) ?? { pickup: false, dropoff: false }
-        const a = ask[c.date]
-        const rides = (leg: "pickup" | "dropoff") => (a?.[leg] === "add" ? true : a?.[leg] === "cancel" ? false : booked[leg])
-        const canAdult = rides("pickup") || rides("dropoff")
-        return (
-          <div key={c.date} className="flex flex-wrap items-center gap-2 rounded-xl p-2.5 ring-1 ring-foreground/10">
-            <span className="min-w-0 flex-1 text-sm"><span className="font-medium">{fmtDay(c.date, lang)}</span><span className="block truncate text-xs text-muted-foreground">{c.start}–{c.end} · {c.subjects.join(" + ")}</span></span>
-            {(["pickup", "dropoff"] as const).map((leg) => {
-              const want = ask[c.date]?.[leg], on = booked[leg]
-              return (
-                <button key={leg} type="button" onClick={() => toggle(c.date, leg, on)}
-                  className={cn("rounded-full px-2.5 py-1.5 text-xs font-medium ring-1",
-                    want === "add" ? "bg-emerald-100 text-emerald-800 ring-emerald-400" : want === "cancel" ? "bg-red-50 text-red-700 line-through ring-red-300" : on ? "bg-sky-100 text-sky-800 ring-sky-300" : "text-muted-foreground ring-foreground/15")}>
-                  {want === "add" ? `+ ${t.busAdd}` : ""}{leg === "pickup" ? t.pickup : t.dropoff}
-                </button>
-              )
-            })}
-            {booked.adult ? <span className="rounded-full bg-violet-100 px-2.5 py-1.5 text-xs font-medium text-violet-800">{t.adultGo}</span> : (
-              <button type="button" disabled={!canAdult} onClick={() => toggleAdult(c.date)}
-                className={cn("flex items-center gap-1 rounded-full px-2.5 py-1.5 text-xs font-medium ring-1 disabled:opacity-40", a?.adult && canAdult ? "bg-violet-100 text-violet-800 ring-violet-400" : "text-muted-foreground ring-foreground/15")}>
-                <UserIcon className="size-3.5" />{a?.adult && canAdult ? `+ ${t.adult}` : t.adult}
-              </button>
-            )}
-          </div>
-        )
-      })}
-      <p className="rounded-xl bg-amber-50 p-2.5 text-xs text-amber-900">{t.busCost} · {t.adultNote}</p>
     </div>
   )
 }

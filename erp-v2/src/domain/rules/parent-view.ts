@@ -3,12 +3,14 @@
 // to the parent, packages left. Pure — the ERP builds it, the parent's phone only reads it.
 import type { Attendance, Branch, BusAddOn, Course, CourseSummary, DateStr, Entitlement, Family, ID, Invoice, Klass, LessonSummary, Session, Staff, Student, TimeStr } from "../types"
 import { addDays, endTime, toDateStr } from "../dates"
-import { balance } from "./attendance"
+import { balance, packageCovers } from "./attendance"
 import { sessionState, subjectsOf, teachersOf } from "./scheduling"
 import { courseProgressRows, entitlementRounds, type ProgressRow } from "./summaries"
 
 export interface ParentClass {
   sessionId: ID
+  /** the course (package) that pays for this class — the parent app filters by it (owner 2026-11-06) */
+  courseId?: ID
   date: DateStr
   start: TimeStr
   end: TimeStr
@@ -25,6 +27,7 @@ export interface ParentClass {
 /** สรุปจบคอร์ส as the parent sees it in LINE (owner 2026-10-14) — only once the school has sent it */
 export interface ParentCourseSummary {
   id: ID
+  courseId?: ID
   course: string
   bundle: boolean
   subjects: string[]
@@ -49,9 +52,11 @@ export interface ParentChild {
   branchName: string
   brand: Branch["brand"]
   upcoming: ParentClass[]
-  attendance: { date: DateStr; start: TimeStr; subjects: string[]; status: Attendance["status"] }[]
-  summaries: { date: DateStr; subjects: string[]; teacher: string; text: string; detail?: string }[]
-  packages: { course: string; remaining: number | null; total: number | null; until: DateStr }[]
+  attendance: { courseId?: ID; date: DateStr; start: TimeStr; subjects: string[]; status: Attendance["status"] }[]
+  summaries: { courseId?: ID; date: DateStr; subjects: string[]; teacher: string; text: string; detail?: string }[]
+  /** the courses this child has classes / history in — the filter chips */
+  courses: { id: ID; name: string }[]
+  packages: { courseId?: ID; course: string; remaining: number | null; total: number | null; until: DateStr }[]
   /** bus days ahead (pickup / drop-off), for students who bought the bus */
   busDays: { date: DateStr; pickup: boolean; dropoff: boolean; adult?: boolean }[]
   courseSummaries: ParentCourseSummary[]
@@ -118,12 +123,14 @@ export function parentView(family: Family, ctx: ParentCtx): ParentView {
     const branch = ctx.branches.find((b) => b.id === stu.branchId)
     const mine = ctx.sessions.filter((s) => s.studentIds.includes(stu.id))
     const bus = busDaysOf(stu.id, ctx.invoices, ctx.busAddOns)
+    const myEnts = ctx.entitlements.filter((e) => e.studentId === stu.id)
+    const courseOf = (s: Session) => myEnts.find((e) => packageCovers(e, s))?.courseId
     const upcoming = mine
       .filter((s) => s.date >= today && s.date <= horizon && !s.pausedBy && (sessionState(s, ctx.now) !== "closed"))
       .filter((s) => !(s.cancelled && s.date < today))
       .sort((a, b) => (a.date + a.start).localeCompare(b.date + b.start))
       .map((s) => ({
-        sessionId: s.id, date: s.date, start: s.start, end: endTime(s.start, s.minutes), subjects: subjectsOf(s),
+        sessionId: s.id, courseId: courseOf(s), date: s.date, start: s.start, end: endTime(s.start, s.minutes), subjects: subjectsOf(s),
         className: ctx.classes.find((k) => k.id === s.classId)?.name ?? subjectsOf(s).join(" + "),
         teachers: teachersOf(s).map(teacher).filter(Boolean),
         room: branch?.rooms.find((r) => r.id === s.roomId)?.name ?? null,
@@ -133,14 +140,14 @@ export function parentView(family: Family, ctx: ParentCtx): ParentView {
     const byId = new Map(mine.map((s) => [s.id, s]))
     const attendance = ctx.attendance
       .filter((a) => a.studentId === stu.id && byId.has(a.sessionId))
-      .map((a) => { const s = byId.get(a.sessionId)!; return { date: s.date, start: s.start, subjects: subjectsOf(s), status: a.status } })
+      .map((a) => { const s = byId.get(a.sessionId)!; return { courseId: courseOf(s), date: s.date, start: s.start, subjects: subjectsOf(s), status: a.status } })
       .filter((a) => a.date <= today)
       .sort((a, b) => (b.date + b.start).localeCompare(a.date + a.start))
       .slice(0, PARENT_HISTORY)
     // only what the school already sent to the parent — drafts / waiting for approval stay inside
     const summaries = ctx.summaries
       .filter((x) => x.studentId === stu.id && x.status === "sent" && byId.has(x.sessionId))
-      .map((x) => { const s = byId.get(x.sessionId)!; return { date: s.date, subjects: subjectsOf(s), teacher: teacher(x.authorId), text: x.text, detail: x.detail } })
+      .map((x) => { const s = byId.get(x.sessionId)!; return { courseId: courseOf(s), date: s.date, subjects: subjectsOf(s), teacher: teacher(x.authorId), text: x.text, detail: x.detail } })
       .sort((a, b) => b.date.localeCompare(a.date))
       .slice(0, PARENT_HISTORY)
     const packages = ctx.entitlements
@@ -148,7 +155,7 @@ export function parentView(family: Family, ctx: ParentCtx): ParentView {
       .map((e) => {
         const b = balance(e, ctx.sessions, ctx.attendance, ctx.classes)
         const counted = e.kind === "sessions"
-        return { course: ctx.courses.find((c) => c.id === e.courseId)?.name ?? "", remaining: counted ? b.remaining : null, total: counted ? b.total : null, until: b.until }
+        return { courseId: e.courseId, course: ctx.courses.find((c) => c.id === e.courseId)?.name ?? "", remaining: counted ? b.remaining : null, total: counted ? b.total : null, until: b.until }
       })
     // owner 2026-10-14: the Course End Summary opens from its LINE message — summary + progress charts
     const rounds = entitlementRounds(ctx.entitlements.filter((e) => e.studentId === stu.id))
@@ -160,7 +167,7 @@ export function parentView(family: Family, ctx: ParentCtx): ParentView {
         const course = ctx.courses.find((c) => c.id === round?.courseId)
         if (!round || !course) return []
         return [{
-          id: cs.id, course: course.name, bundle: course.kind === "bundle", subjects: course.subjects, from: round.from, to: round.to,
+          id: cs.id, courseId: round.courseId, course: course.name, bundle: course.kind === "bundle", subjects: course.subjects, from: round.from, to: round.to,
           teacher: teacher(cs.authorId), sentAt: cs.history.findLast((h) => h.action === "send")?.at,
           overallProgress: cs.overallProgress, toImprove: cs.toImprove, strengths: cs.strengths,
           progress: courseProgressRows(round, { entitlements: ctx.entitlements, sessions: ctx.sessions, summaries: sentNotes, attendance: ctx.attendance }, today),
@@ -168,10 +175,12 @@ export function parentView(family: Family, ctx: ParentCtx): ParentView {
       })
       .sort((a, b) => b.to.localeCompare(a.to))
     const busDays = [...bus.entries()].filter(([d]) => d >= today && d <= horizon).sort(([a], [b]) => a.localeCompare(b)).map(([date, v]) => ({ date, ...v }))
+    const courseIds = new Set([...upcoming.map((x) => x.courseId), ...attendance.map((x) => x.courseId), ...summaries.map((x) => x.courseId), ...courseSummaries.map((x) => x.courseId), ...myEnts.filter((e) => e.to >= today).map((e) => e.courseId)].filter((x): x is ID => !!x))
+    const courses = [...courseIds].map((id) => ({ id, name: ctx.courses.find((c) => c.id === id)?.name ?? "" })).filter((c) => c.name)
     const left = stu.archived ? { since: stu.exit?.lastDate ?? stu.archived.at.slice(0, 10) } : undefined
     return {
       id: stu.id, nickname: stu.nickname, name: stu.name, nameEn: stu.nameEn, nicknameEn: stu.nicknameEn, grade: stu.grade,
-      branchName: branch?.name ?? "", brand: branch?.brand ?? "nockacademy", upcoming, attendance, summaries, packages, busDays, courseSummaries,
+      branchName: branch?.name ?? "", brand: branch?.brand ?? "nockacademy", upcoming, attendance, summaries, courses, packages, busDays, courseSummaries,
       // a child who left: history only — no classes ahead, no packages, no bus
       ...(left ? { left, upcoming: [], packages: [], busDays: [] } : {}),
     }
