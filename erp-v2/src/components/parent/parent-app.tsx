@@ -4,10 +4,18 @@
 // so the same screen runs on the parent's phone (/liff/parent) and in the staff preview (Family › ดูแบบผู้ปกครอง).
 import { useState } from "react"
 import dynamic from "next/dynamic"
-import { ArrowLeftIcon, BookOpenIcon, LayoutDashboardIcon, ChevronDownIcon, RotateCcwIcon, CalendarOffIcon, ClipboardPenIcon, LoaderCircleIcon, BusIcon, MapPinHouseIcon, CalendarDaysIcon, CheckIcon, ChevronRightIcon, GraduationCapIcon, DoorOpenIcon, MessageSquareTextIcon, UserIcon, } from "lucide-react"
+import { ArrowLeftIcon, BookOpenIcon, LayoutDashboardIcon, ChevronDownIcon, RotateCcwIcon, CalendarOffIcon, ClipboardPenIcon, LoaderCircleIcon, BusIcon, MapPinHouseIcon, CalendarDaysIcon, ChevronRightIcon, GraduationCapIcon, DoorOpenIcon, MessageSquareTextIcon, UserIcon } from "lucide-react"
 import type { ParentChild, ParentCourseSummary, ParentView } from "@/domain/rules/parent-view"
 import { progressForSubject } from "@/domain/rules/summaries"
 import { Kpi } from "@/components/app/kpi"
+import { InfoTip } from "@/components/app/info-tip"
+import { FilterChipGroup } from "@/components/app/filter-chip-group"
+import { Segmented } from "@/components/app/page-layout"
+import { Button } from "@/components/ui/button"
+import { Checkbox } from "@/components/ui/checkbox"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { Textarea } from "@/components/ui/textarea"
 import { Pill } from "@/components/app/badges"
 import { CourseProgress } from "@/components/app/course-progress"
 import { subjectColor } from "@/components/app/subject-color"
@@ -168,12 +176,12 @@ export function ParentApp({ view, lang: initialLang, today, framed, openCourseSu
         )}
       </header>
 
-      <main className={cn("flex-1 space-y-3 p-3", framed ? "pb-3" : "pb-24")}>
+      <main className={cn("flex-1 space-y-4 p-3", framed ? "pb-3" : "pb-24")}>
         {/* owner 2026-10-19: a family on the bus without a home pin is asked for it, wherever they are in the app */}
         {usesBus && !view.home && !(tab === "request" && ask === "home") && (
           <button type="button" onClick={() => { setAsk("home"); setTab("request") }} className="flex w-full items-center gap-3 rounded-2xl bg-amber-50 p-3 text-left text-sm text-amber-900 ring-1 ring-amber-200">
             <MapPinHouseIcon className="size-5 shrink-0" /><span className="min-w-0 flex-1">{t.homeBanner}</span>
-            <span className="shrink-0 rounded-full bg-amber-500 px-3 py-1.5 text-xs font-semibold text-white">{t.homeBannerBtn}</span>
+            <span className="shrink-0 rounded-full bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground">{t.homeBannerBtn}</span>
           </button>
         )}
         {!child ? null : tab === "overview" ? <Overview view={view} t={t} lang={lang} dayLabel={dayLabel} nick={nick} onDrill={drill} />
@@ -197,11 +205,23 @@ export function ParentApp({ view, lang: initialLang, today, framed, openCourseSu
 
 type T = (typeof DICT)["th"]
 
+/** one chip look for every pick-one / toggle in the parent app — same as ShowChip / FilterChipGroup in the ERP (h-9 · pill · picked = pink outline) */
+function Chip({ on, onClick, children, disabled, state }: { on?: boolean; onClick: () => void; children: React.ReactNode; disabled?: boolean; state?: "add" | "cancel" | "booked" }) {
+  return (
+    <button type="button" aria-pressed={!!on} disabled={disabled} onClick={onClick}
+      className={cn("inline-flex h-9 items-center gap-1.5 rounded-3xl border px-3 text-sm whitespace-nowrap transition-colors disabled:opacity-40",
+        state === "add" ? "border-emerald-400 bg-emerald-100 font-medium text-emerald-800" : state === "cancel" ? "border-red-300 bg-red-50 text-red-700 line-through" : state === "booked" ? "border-sky-300 bg-sky-100 text-sky-800"
+          : on ? "border-primary bg-primary/10 font-medium text-primary" : "text-muted-foreground hover:bg-muted/50")}>
+      {children}
+    </button>
+  )
+}
+
 /** owner 2026-11-06: the whole family at a glance — every child, every course (KPI card), every weekly class; each one opens ตารางเรียน on that child / course */
 function Overview({ view, t, lang, dayLabel, nick, onDrill }: { view: ParentView; t: T; lang: FormLang; dayLabel: (d: string) => string; nick: (c: ParentChild) => string; onDrill: (childId: string, courseId?: string) => void }) {
   const weekday = (d: string) => { const [y, m, dd] = d.split("-").map(Number); return DAYS[lang][new Date(y, m - 1, dd).getDay()] }
   return (
-    <>
+    <div className="space-y-6">
       {view.children.map((c) => {
         const next = c.upcoming.find((x) => !x.cancelled)
         // weekly classes this child holds, per course: one line per class (day · time · subjects · teacher · room)
@@ -211,14 +231,14 @@ function Overview({ view, t, lang, dayLabel, nick, onDrill }: { view: ParentView
           return [...seen.values()]
         }
         return (
-          <section key={c.id} className="space-y-2">
+          <section key={c.id} className="space-y-2.5">
             <button type="button" onClick={() => onDrill(c.id)} className="flex w-full items-center gap-2 px-1 text-left">
               <UserIcon className="size-4 text-muted-foreground" />
               <span className="min-w-0 flex-1 truncate font-semibold">{nick(c)} <span className="text-xs font-normal text-muted-foreground">{c.left ? t.leftTag : c.grade}</span></span>
               <span className="flex items-center gap-0.5 text-xs text-primary">{t.openSchedule}<ChevronRightIcon className="size-3.5" /></span>
             </button>
             {next && (
-              <button type="button" onClick={() => onDrill(c.id, next.courseId)} className="flex w-full items-center gap-2.5 rounded-2xl bg-background px-3 py-2 text-left shadow-sm">
+              <button type="button" onClick={() => onDrill(c.id, next.courseId)} className="flex w-full items-center gap-2.5 rounded-3xl bg-card ring-1 ring-foreground/5 px-3 py-2 text-left shadow-sm">
                 <span className="text-xs text-muted-foreground">{t.next}</span>
                 <span className="shrink-0 whitespace-nowrap text-sm font-semibold tabular-nums">{dayLabel(next.date)} {next.start}</span>
                 <span className="min-w-0 flex-1 truncate text-sm font-medium">{next.subjects.join(" + ")}</span>
@@ -251,7 +271,7 @@ function Overview({ view, t, lang, dayLabel, nick, onDrill }: { view: ParentView
           </section>
         )
       })}
-    </>
+    </div>
   )
 }
 
@@ -283,24 +303,14 @@ function Study({ course, setCourse, child, t, lang, dayLabel, csId, setCsId, onR
     <>
       {child.left && (
         // owner 2026-10-14: a child who left — history stays, and the family can ask to come back
-        <section className="space-y-2 rounded-2xl bg-background p-4 text-center shadow-sm">
+        <section className="space-y-2 rounded-3xl bg-card ring-1 ring-foreground/5 p-4 text-center shadow-sm">
           <p className="font-medium">{t.leftSince(fmtDay(child.left.since, lang))}</p>
           <p className="text-sm text-muted-foreground">{t.leftNote}</p>
-          <button type="button" onClick={onReturn} className="mx-auto mt-1 flex h-10 items-center gap-2 rounded-full bg-primary px-5 text-sm font-medium text-primary-foreground">{t.returnReq}</button>
+          <Button className="mx-auto mt-1" onClick={onReturn}>{t.returnReq}</Button>
         </section>
       )}
-      {many && (
-        <div className="-mx-3 flex gap-1.5 overflow-x-auto px-3">
-          {[{ id: "", name: t.all }, ...child.courses].map((c) => (
-            <button key={c.id || "all"} type="button" onClick={() => setCourse(c.id)} className={cn("shrink-0 rounded-full px-3 py-1.5 text-sm ring-1", course === c.id ? "bg-primary font-medium text-primary-foreground ring-primary" : "bg-background ring-foreground/10")}>{c.name}</button>
-          ))}
-        </div>
-      )}
-      <div className="flex rounded-full bg-muted p-1">
-        {([["all", t.all], ["past", t.pastTab]] as const).map(([k, label]) => (
-          <button key={k} type="button" onClick={() => setView(k)} className={cn("flex-1 rounded-full px-3 py-1.5 text-sm", view === k ? "bg-background font-medium shadow-sm" : "text-muted-foreground")}>{label}{k === "past" && <span className="ml-1 text-xs text-muted-foreground">{past.length}</span>}</button>
-        ))}
-      </div>
+      {many && <FilterChipGroup layout="scroll" value={course} onChange={setCourse} options={[{ value: "", label: t.all }, ...child.courses.map((c) => ({ value: c.id, label: c.name }))]} />}
+      <Segmented className="w-full [&>button]:flex-1" label={t.schedule} value={view} onChange={setView} options={[{ value: "all", label: t.all }, { value: "past", label: `${t.pastTab} ${past.length}` }]} />
       {/* owner 2026-11-06: the course card IS the KPI card — same on both tabs: course · done / all classes · present · leave · left */}
       {pkgs.length > 0 && (
         <div className="grid gap-2">
@@ -332,7 +342,7 @@ function Study({ course, setCourse, child, t, lang, dayLabel, csId, setCsId, onR
         <section className="space-y-1.5">
           <p className="flex items-center gap-1.5 px-1 text-xs font-semibold text-muted-foreground"><GraduationCapIcon className="size-3.5" />{t.courseEnd}</p>
           {ends.map((x) => (
-            <button key={x.id} type="button" onClick={() => setCsId(x.id)} className="flex w-full items-center gap-3 rounded-2xl bg-background p-3 text-left shadow-sm">
+            <button key={x.id} type="button" onClick={() => setCsId(x.id)} className="flex w-full items-center gap-3 rounded-3xl bg-card ring-1 ring-foreground/5 p-3 text-left shadow-sm">
               <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-primary/10 text-primary"><GraduationCapIcon className="size-5" /></span>
               <span className="min-w-0 flex-1">
                 <span className="block truncate font-medium">{x.course}</span>
@@ -362,7 +372,7 @@ function PastRow({ r, t, lang, tag }: { r: { date: string; start: string; subjec
   const [open, setOpen] = useState(false)
   const tone = { present: "green", absent: "red", leave: "amber" } as const
   return (
-    <li className="rounded-2xl bg-background shadow-sm">
+    <li className="rounded-3xl bg-card ring-1 ring-foreground/5 shadow-sm">
       <button type="button" aria-expanded={open} onClick={() => setOpen(!open)} className="flex w-full items-center gap-2.5 px-3 py-2 text-left">
         <span className="shrink-0 whitespace-nowrap text-sm font-semibold tabular-nums">{fmtDay(r.date, lang)}<span className="font-normal text-muted-foreground"> {r.start}</span></span>
         <span className="min-w-0 flex-1 truncate text-sm font-medium">{r.subjects.join(" + ")}</span>
@@ -423,7 +433,7 @@ function ClassCard({ c, first, child, t, hasBus, tag, onRequest, requests }: {
     if (r.ok) { setLeave(false); setRide({}); setNote(""); setAct(null); setOpen(false) }
   }
   return (
-    <article className={cn("rounded-2xl bg-background shadow-sm", c.cancelled && "opacity-60")}>
+    <article className={cn("rounded-3xl bg-card ring-1 ring-foreground/5 shadow-sm", c.cancelled && "opacity-60")}>
       <button type="button" aria-expanded={open} onClick={() => { setOpen(!open); setMsg(null) }} className="flex w-full items-center gap-2.5 px-3 py-2 text-left">
         <span className="shrink-0 whitespace-nowrap text-sm font-semibold tabular-nums">{c.start}<span className="font-normal text-muted-foreground">–{c.end}</span></span>
         <span className="min-w-0 flex-1">
@@ -431,8 +441,8 @@ function ClassCard({ c, first, child, t, hasBus, tag, onRequest, requests }: {
           {c.cancelled && <span className="block text-xs font-medium text-red-700">{t.cancelled}{c.cancelReason ? ` · ${c.cancelReason}` : ""}</span>}
           {leaveWaiting || busWaiting ? (
             <span className="mt-0.5 flex flex-wrap gap-1">
-              {leaveWaiting && <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[11px] text-amber-900">{t.leaveSent} · {t.waiting}</span>}
-              {busWaiting && <span className="rounded-full bg-sky-100 px-2 py-0.5 text-[11px] text-sky-800">{t.busSent} · {t.waiting}</span>}
+              {leaveWaiting && <Pill tone="amber">{t.leaveSent} · {t.waiting}</Pill>}
+              {busWaiting && <Pill tone="blue">{t.busSent} · {t.waiting}</Pill>}
             </span>
           ) : null}
         </span>
@@ -451,43 +461,38 @@ function ClassCard({ c, first, child, t, hasBus, tag, onRequest, requests }: {
             <>
           <div className="flex gap-1.5">
             {([["leave", t.chipLeave, CalendarOffIcon], ...(hasBus && first ? [["bus", t.chipBus, BusIcon]] as const : [])] as const).map(([k, label, Icon]) => (
-              <button key={k} type="button" aria-pressed={act === k} onClick={() => setAct(act === k ? null : k)} className={cn("flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm ring-1", act === k ? "bg-primary/10 font-medium text-primary ring-primary/40" : "text-muted-foreground ring-foreground/15")}><Icon className="size-3.5" />{label}</button>
+              <Chip key={k} on={act === k} onClick={() => setAct(act === k ? null : k)}><Icon className="size-4" />{label}</Chip>
             ))}
           </div>
           {act === "leave" && (
-          <button type="button" disabled={leaveWaiting} onClick={() => setLeave(!leave)} className={cn("flex w-full items-center gap-2.5 rounded-xl p-2.5 text-left text-sm ring-1 disabled:opacity-50", leave ? "bg-amber-50 ring-amber-400" : "ring-foreground/10")}>
-            <span className={cn("grid size-5 shrink-0 place-items-center rounded-md border", leave ? "border-amber-500 bg-amber-500 text-white" : "border-muted-foreground/40")}>{leave && <CheckIcon className="size-3.5" />}</span>
-            <CalendarOffIcon className="size-4 text-amber-700" />{t.leaveThis}
-          </button>
+            <label className={cn("flex w-full items-center gap-2.5 rounded-2xl border p-3 text-sm", leaveWaiting ? "opacity-50" : "cursor-pointer", leave && "border-primary bg-primary/5")}>
+              <Checkbox checked={leave} disabled={leaveWaiting} onCheckedChange={(v) => setLeave(!!v)} />{t.leaveThis}
+            </label>
           )}
           {act === "bus" && hasBus && first && (
-            <div className="space-y-1.5">
-              <p className="text-xs font-medium text-muted-foreground">{t.ridesOf}</p>
+            <div className="space-y-2">
+              <p className="flex items-center gap-1 text-xs font-medium text-muted-foreground">{t.ridesOf}<InfoTip text={`${t.busCost} · ${t.adultNote}`} /></p>
               <div className="flex flex-wrap items-center gap-2">
                 {(["pickup", "dropoff"] as const).map((leg) => {
                   const want = ride[leg], on = booked[leg]
                   return (
-                    <button key={leg} type="button" onClick={() => toggle(leg)}
-                      className={cn("rounded-full px-2.5 py-1.5 text-xs font-medium ring-1",
-                        want === "add" ? "bg-emerald-100 text-emerald-800 ring-emerald-400" : want === "cancel" ? "bg-red-50 text-red-700 line-through ring-red-300" : on ? "bg-sky-100 text-sky-800 ring-sky-300" : "text-muted-foreground ring-foreground/15")}>
+                    <Chip key={leg} onClick={() => toggle(leg)} state={want === "add" ? "add" : want === "cancel" ? "cancel" : on ? "booked" : undefined}>
                       {want === "add" ? `+ ${t.busAdd} ` : want === "cancel" ? `${t.busCancel} ` : ""}{leg === "pickup" ? t.pickup : t.dropoff}
-                    </button>
+                    </Chip>
                   )
                 })}
-                {booked.adult ? <span className="rounded-full bg-violet-100 px-2.5 py-1.5 text-xs font-medium text-violet-800">{t.adultGo}</span> : (
-                  <button type="button" disabled={!canAdult} onClick={() => setRide((r) => ({ ...r, adult: !r.adult }))}
-                    className={cn("flex items-center gap-1 rounded-full px-2.5 py-1.5 text-xs font-medium ring-1 disabled:opacity-40", ride.adult && canAdult ? "bg-violet-100 text-violet-800 ring-violet-400" : "text-muted-foreground ring-foreground/15")}>
-                    <UserIcon className="size-3.5" />{ride.adult && canAdult ? `+ ${t.adult}` : t.adult}
-                  </button>
+                {booked.adult ? <Pill tone="violet">{t.adultGo}</Pill> : (
+                  <Chip on={!!ride.adult && canAdult} disabled={!canAdult} onClick={() => setRide((r) => ({ ...r, adult: !r.adult }))}><UserIcon className="size-4" />{ride.adult && canAdult ? `+ ${t.adult}` : t.adult}</Chip>
                 )}
               </div>
-              <p className="rounded-xl bg-amber-50 p-2 text-xs text-amber-900">{t.busCost} · {t.adultNote}</p>
             </div>
           )}
-          {act && <textarea rows={2} value={note} onChange={(e) => setNote(e.target.value)} placeholder={t.noteLabel} className="w-full rounded-xl border bg-background p-2.5 text-sm" />}
-          {act && <button type="button" disabled={!ready || busy || !onRequest} onClick={send} className="flex h-10 w-full items-center justify-center gap-2 rounded-full bg-primary text-sm font-medium text-primary-foreground disabled:opacity-50">
-            {busy && <LoaderCircleIcon className="size-4 animate-spin" />}{!onRequest ? t.preview : busy ? t.sending : t.send}
-          </button>}
+          {act && <Textarea rows={2} value={note} onChange={(e) => setNote(e.target.value)} placeholder={t.noteLabel} />}
+          {act && (
+            <Button className="w-full" size="lg" disabled={!ready || busy || !onRequest} onClick={send}>
+              {busy && <LoaderCircleIcon className="animate-spin" />}{!onRequest ? t.preview : busy ? t.sending : t.send}
+            </Button>
+          )}
             </>
           )}
         </div>
@@ -498,10 +503,10 @@ function ClassCard({ c, first, child, t, hasBus, tag, onRequest, requests }: {
 
 function BusChips({ bus, t }: { bus: { pickup: boolean; dropoff: boolean; adult?: boolean }; t: T }) {
   return (
-    <span className="flex gap-1.5">
-      {bus.pickup && <span className="flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-[11px] text-amber-900"><BusIcon className="size-3" />{t.pickup}</span>}
-      {bus.dropoff && <span className="flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-[11px] text-amber-900"><BusIcon className="size-3" />{t.dropoff}</span>}
-      {bus.adult && <span className="flex items-center gap-1 rounded-full bg-violet-100 px-2 py-0.5 text-[11px] text-violet-800"><UserIcon className="size-3" />{t.adultGo}</span>}
+    <span className="flex flex-wrap gap-1.5">
+      {bus.pickup && <Pill tone="amber"><BusIcon className="size-3" />{t.pickup}</Pill>}
+      {bus.dropoff && <Pill tone="amber"><BusIcon className="size-3" />{t.dropoff}</Pill>}
+      {bus.adult && <Pill tone="violet"><UserIcon className="size-3" />{t.adultGo}</Pill>}
     </span>
   )
 }
@@ -516,7 +521,7 @@ function CourseEnd({ cs, t, lang, onBack }: { cs: ParentCourseSummary; t: T; lan
   const block = (label: string, v: string) => {
     const ls = lines(v)
     return ls.length ? (
-      <div className="rounded-2xl bg-background p-3 shadow-sm">
+      <div className="rounded-3xl bg-card ring-1 ring-foreground/5 p-3 shadow-sm">
         <p className="mb-1 text-xs font-medium text-muted-foreground">{label}</p>
         <div className="space-y-1 text-sm">{ls.map((l, i) => <p key={i} className="flex items-start gap-1.5">{l.subject && !only && <span className={cn("shrink-0 rounded-full px-1.5 py-0.5 text-[11px]", subjectColor(l.subject).chip)}>{l.subject}</span>}<span>{l.text}</span></p>)}</div>
       </div>
@@ -525,24 +530,18 @@ function CourseEnd({ cs, t, lang, onBack }: { cs: ParentCourseSummary; t: T; lan
   return (
     <div className="space-y-3">
       <button type="button" onClick={onBack} className="flex items-center gap-1 px-1 text-sm text-muted-foreground"><ArrowLeftIcon className="size-4" />{t.back}</button>
-      <section className="rounded-2xl bg-background p-3 shadow-sm">
+      <section className="rounded-3xl bg-card ring-1 ring-foreground/5 p-3 shadow-sm">
         <p className="flex items-center gap-1.5 text-xs text-muted-foreground"><GraduationCapIcon className="size-3.5" />{t.courseEnd}</p>
         <p className="mt-0.5 text-lg font-semibold">{cs.course}</p>
         <p className="text-xs text-muted-foreground">{fmtDay(cs.from, lang)} – {fmtDay(cs.to, lang)}{cs.teacher && ` · ${t.by} ${cs.teacher}`}</p>
         {cs.bundle && (
-          <div className="mt-2.5 flex gap-1 overflow-x-auto rounded-full bg-muted p-1">
-            {["", ...cs.subjects].map((x) => (
-              <button key={x || "all"} type="button" onClick={() => setOnly(x)} className={cn("flex flex-1 items-center justify-center gap-1.5 rounded-full px-3 py-1 text-sm whitespace-nowrap", only === x ? "bg-background font-medium shadow-sm" : "text-muted-foreground")}>
-                {x && <span className={cn("size-2 rounded-full", subjectColor(x).bar)} />}{x || t.whole}
-              </button>
-            ))}
-          </div>
+          <FilterChipGroup className="mt-2.5" layout="scroll" value={only} onChange={setOnly} options={["", ...cs.subjects].map((x) => ({ value: x, label: x || t.whole }))} />
         )}
       </section>
       {block(t.overall, cs.overallProgress)}
       {block(t.strengths, cs.strengths)}
       {block(t.improve, cs.toImprove)}
-      <section className="space-y-2 rounded-2xl bg-background p-3 shadow-sm">
+      <section className="space-y-2 rounded-3xl bg-card ring-1 ring-foreground/5 p-3 shadow-sm">
         <p className="text-sm font-semibold">{t.progress}{only && ` · ${only}`}</p>
         <CourseProgress rows={rows} />
       </section>
@@ -587,7 +586,7 @@ function RequestTab({ view, child, t, lang, today, onRequest, requests, initial 
         <div className="grid gap-2">
           {(child.left ? [["return", RotateCcwIcon, t.returnReq, t.returnSub]] as const
             : [...(hasBus ? [["home", MapPinHouseIcon, t.homeReq, t.homeReqSub]] as const : []), ["exit", DoorOpenIcon, t.exitReq, t.exitReqSub]] as const).map(([k, Icon, title, sub]) => (
-            <button key={k} type="button" onClick={() => { setMode(k); setMsg(null) }} className="flex items-center gap-3 rounded-2xl bg-background p-4 text-left shadow-sm">
+            <button key={k} type="button" onClick={() => { setMode(k); setMsg(null) }} className="flex items-center gap-3 rounded-3xl bg-card ring-1 ring-foreground/5 p-4 text-left shadow-sm">
               <span className={cn("grid size-11 shrink-0 place-items-center rounded-xl", k === "return" ? "bg-emerald-100 text-emerald-700" : k === "home" ? "bg-sky-100 text-sky-800" : "bg-red-100 text-red-700")}><Icon className="size-5" /></span>
               <span className="min-w-0 flex-1"><span className="block font-medium">{title}</span><span className="block text-xs text-muted-foreground">{sub}</span></span>
               <ChevronRightIcon className="size-4 text-muted-foreground" />
@@ -595,54 +594,54 @@ function RequestTab({ view, child, t, lang, today, onRequest, requests, initial 
           ))}
         </div>
       ) : (
-        <section className="space-y-3 rounded-2xl bg-background p-3 shadow-sm">
+        <section className="space-y-3 rounded-3xl bg-card ring-1 ring-foreground/5 p-3 shadow-sm">
           <button type="button" onClick={() => setMode(null)} className="flex items-center gap-1 text-sm text-muted-foreground"><ArrowLeftIcon className="size-4" />{t.back}</button>
           <p className="text-lg font-semibold">{mode === "return" ? t.returnReq : mode === "home" ? t.homeReq : t.exitReq}</p>
           {mode === "home" ? (
             <div className="space-y-2">
               <p className="text-xs text-muted-foreground">{view.home ? t.homeHave : t.homePick}</p>
               <div className="h-64 overflow-hidden rounded-xl"><MapPin value={homeLoc} onChange={setHomeLoc} locateLabel={t.locate} /></div>
-              <label className="block space-y-1"><span className="text-xs font-medium text-muted-foreground">{t.homeNote}</span>
-                <input value={homeNote} onChange={(e) => setHomeNote(e.target.value)} placeholder={t.homeNotePh} className="h-10 w-full rounded-xl border bg-background px-3 text-sm" />
-              </label>
+              <div className="space-y-1.5"><Label>{t.homeNote}</Label>
+                <Input value={homeNote} onChange={(e) => setHomeNote(e.target.value)} placeholder={t.homeNotePh} />
+              </div>
             </div>
           ) : mode === "return" ? (
-            <label className="block space-y-1"><span className="text-xs font-medium text-muted-foreground">{t.startFrom}</span>
-              <input type="date" min={today} value={startDate} onChange={(e) => setStartDate(e.target.value)} className="h-10 w-full rounded-xl border bg-background px-3 text-sm" />
-            </label>
+            <div className="space-y-1.5"><Label>{t.startFrom}</Label>
+              <Input type="date" min={today} value={startDate} onChange={(e) => setStartDate(e.target.value)} />
+            </div>
           ) : (
             <div className="space-y-3">
-              <label className="block space-y-1"><span className="text-xs font-medium text-muted-foreground">{t.lastDay}</span>
-                <input type="date" min={today} value={lastDate} onChange={(e) => setLastDate(e.target.value)} className="h-10 w-full rounded-xl border bg-background px-3 text-sm" />
-              </label>
+              <div className="space-y-1.5"><Label>{t.lastDay}</Label>
+                <Input type="date" min={today} value={lastDate} onChange={(e) => setLastDate(e.target.value)} />
+              </div>
               {!!view.exitReasons?.length && (
                 <div className="space-y-1.5"><p className="text-xs font-medium text-muted-foreground">{t.whyLeave}</p>
                   <div className="flex flex-wrap gap-1.5">
                     {view.exitReasons.map((r) => {
                       const on = reasons.includes(r.id)
-                      return <button key={r.id} type="button" onClick={() => setReasons(on ? reasons.filter((x) => x !== r.id) : [...reasons, r.id])} className={cn("rounded-full px-3 py-1.5 text-sm ring-1", on ? "bg-primary/10 font-medium text-primary ring-primary/40" : "ring-foreground/10")}>{label(r)}</button>
+                      return <Chip key={r.id} on={on} onClick={() => setReasons(on ? reasons.filter((x) => x !== r.id) : [...reasons, r.id])}>{label(r)}</Chip>
                     })}
                   </div>
                 </div>
               )}
             </div>
           )}
-          <label className="block space-y-1"><span className="text-xs font-medium text-muted-foreground">{t.noteLabel}</span>
-            <textarea rows={3} value={note} onChange={(e) => setNote(e.target.value)} className="w-full rounded-xl border bg-background p-2.5 text-sm" />
-          </label>
-          <button type="button" disabled={!ready || busy || !onRequest} onClick={submit} className="flex h-11 w-full items-center justify-center gap-2 rounded-full bg-primary text-sm font-medium text-primary-foreground disabled:opacity-50">
-            {busy && <LoaderCircleIcon className="size-4 animate-spin" />}{!onRequest ? t.preview : busy ? t.sending : t.send}
-          </button>
+          <div className="space-y-1.5"><Label>{t.noteLabel}</Label>
+            <Textarea rows={3} value={note} onChange={(e) => setNote(e.target.value)} />
+          </div>
+          <Button className="w-full" size="lg" disabled={!ready || busy || !onRequest} onClick={submit}>
+            {busy && <LoaderCircleIcon className="animate-spin" />}{!onRequest ? t.preview : busy ? t.sending : t.send}
+          </Button>
         </section>
       )}
       {mine.length > 0 && (
         <section className="space-y-1.5">
           <p className="px-1 text-xs font-semibold text-muted-foreground">{t.myRequests}</p>
           {mine.map((r) => (
-            <article key={r.id} className="rounded-2xl bg-background p-3 text-sm shadow-sm">
+            <article key={r.id} className="rounded-3xl bg-card ring-1 ring-foreground/5 p-3 text-sm shadow-sm">
               <div className="flex items-center gap-2">
                 <span className="min-w-0 flex-1 font-medium">{r.kind === "leave" ? `${t.leaveReq} · ${t.classes(r.sessions?.length ?? 0)}` : r.kind === "return" ? t.returnReq : r.kind === "bus" ? t.busReq : r.kind === "home" ? t.homeReq : `${t.exitReq} · ${fmtDay(r.lastDate!, lang)}`}</span>
-                <span className={cn("rounded-full px-2 py-0.5 text-[11px]", r.status === "new" ? "bg-amber-100 text-amber-900" : r.status === "done" ? "bg-emerald-100 text-emerald-800" : "bg-muted text-muted-foreground")}>{t[`st_${r.status}`]}</span>
+<Pill tone={r.status === "new" ? "amber" : r.status === "done" ? "green" : "gray"}>{t[`st_${r.status}`]}</Pill>
               </div>
               {r.kind === "leave" && <p className="text-xs text-muted-foreground">{r.sessions?.map((x) => `${fmtDay(x.date, lang)} ${x.start}`).join(" · ")}</p>}
               {r.kind === "bus" && <p className="text-xs text-muted-foreground">{r.bus?.map((x) => `${fmtDay(x.date, lang)} ${[x.pickup && `${t.pickup} ${x.pickup === "add" ? "+" : "✕"}`, x.dropoff && `${t.dropoff} ${x.dropoff === "add" ? "+" : "✕"}`, x.adult && `+ ${t.adult}`].filter(Boolean).join(", ")}`).join(" · ")}</p>}
