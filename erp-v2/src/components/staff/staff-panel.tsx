@@ -108,7 +108,7 @@ function StaffView({ s, onEdit }: { s: Staff; onEdit: () => void }) {
             <>
               {/* owner 2026-10-12: negative actions behind ⋯ */}
               <PanelMore items={[{ label: "ปิดบัญชี", icon: UserXIcon, destructive: true, disabled: !deact.ok, title: deact.ok ? undefined : (deact as { error: string }).error, onClick: () => setLeaving(true) }]} />
-              <Button className="ml-auto" onClick={onEdit}><PencilIcon /> แก้ไข</Button>
+              <Button variant="outline" className="ml-auto" onClick={onEdit}><PencilIcon /> แก้ไข</Button>
             </>
           ) : <Button className="ml-auto" onClick={() => report(reactivate(s.id), `เปิดบัญชี ${s.nickname} แล้ว`)}>เปิดบัญชีใหม่</Button>}
         </div>

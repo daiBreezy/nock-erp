@@ -125,7 +125,7 @@ function ClassView({ id, onEdit, onClose }: { id: ID; onEdit: () => void; onClos
         <PanelFooter>
           {/* owner 2026-10-12: negative actions behind ⋯ */}
           <PanelMore items={[{ label: "ปิดคลาส", icon: PowerIcon, destructive: true, onClick: () => setClosing(true) }]} />
-          <Button className="ml-auto" onClick={onEdit}><PencilIcon /> แก้ไข</Button>
+          <Button variant="outline" className="ml-auto" onClick={onEdit}><PencilIcon /> แก้ไข</Button>
         </PanelFooter>
       )}
       <StudentSheet studentId={studentOpen} onClose={() => setStudentOpen(null)} />

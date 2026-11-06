@@ -240,7 +240,7 @@ function PanelDemo() {
         <PanelFooter>
           <PanelMore items={[{ label: "ปิดบัญชี", icon: Trash2Icon, destructive: true, onClick: () => {} }]} />
           <Button variant="outline" className="ml-auto" onClick={() => setView(false)}>ปิด</Button>
-          <Button onClick={() => setView(false)}><PencilIcon /> แก้ไข</Button>
+          <Button variant="outline" onClick={() => setView(false)}><PencilIcon /> แก้ไข</Button>
         </PanelFooter>
       </EntityPanel>
 

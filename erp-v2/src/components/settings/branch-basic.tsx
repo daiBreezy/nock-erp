@@ -102,7 +102,7 @@ export function BranchInfoTab({ branch, onJump }: { branch: Branch; onJump: (tab
   return (
     <div className="space-y-4">
       <SettingsCard title={tx("ข้อมูลสาขา")} hint={tx("ข้อมูลทั่วไปของสาขา — รหัสสาขาใช้ในเลขใบแจ้งหนี้/ใบเสร็จ")}
-        action={<Button size="sm" onClick={() => setEditing(true)}><PencilIcon /> {tx("แก้ไข")}</Button>}>
+        action={<Button size="sm" variant="outline" onClick={() => setEditing(true)}><PencilIcon /> {tx("แก้ไข")}</Button>}>
         <div className="grid gap-x-6 gap-y-3 sm:grid-cols-3">
           <InfoRow label={tx("แบรนด์ (School type)")}>{BRAND_LABEL[b.brand]}</InfoRow>
           <InfoRow label={tx("รหัสสาขา (Branch ID)")}>{b.code}</InfoRow>

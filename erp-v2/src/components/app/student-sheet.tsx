@@ -155,7 +155,7 @@ function Body({ id, onEdit }: { id: ID; onEdit: () => void }) {
             <Button size="icon" variant="outline" className="ml-auto rounded-full" disabled aria-label="ยังไม่มีแชท" title="ครอบครัวนี้ยังไม่มีแชท LINE ใน Inbox"><MessagesSquareIcon /></Button>
           )}
           {can(me, "billing.manage") && <Button variant="outline" onClick={() => setInvoice("new")}><ReceiptIcon /> ออกใบแจ้งหนี้</Button>}
-          {can(me, "student.manage") && <Button onClick={onEdit}><PencilIcon /> แก้ไข</Button>}
+          {can(me, "student.manage") && <Button variant="outline" onClick={onEdit}><PencilIcon /> แก้ไข</Button>}
         </PanelFooter>
       )}
       <InvoiceSheet id={invoice} defaultStudentId={stu.id} onClose={() => setInvoice(null)} />

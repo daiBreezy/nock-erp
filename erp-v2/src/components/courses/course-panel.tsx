@@ -121,7 +121,7 @@ function CourseView({ c, st, onEdit }: { c: Course; st?: CourseStats; onEdit: ()
           {/* owner 2026-10-12: negative actions behind ⋯ */}
           <PanelMore items={[{ label: c.active ? "ปิดขาย" : "เปิดขายอีกครั้ง", icon: PowerIcon, destructive: c.active, onClick: () => report(save({ ...c, active: !c.active }), c.active ? "ปิดขายคอร์สแล้ว" : "เปิดขายคอร์สแล้ว") }]} />
           <Button variant="outline" className="ml-auto" onClick={() => report(duplicate(c.id), "ทำสำเนาคอร์สแล้ว — แก้ชื่อ/ระดับชั้นต่อได้")}><CopyIcon /> ทำสำเนา</Button>
-          <Button onClick={onEdit}><PencilIcon /> แก้ไข</Button>
+          <Button variant="outline" onClick={onEdit}><PencilIcon /> แก้ไข</Button>
         </PanelFooter>
       )}
     </>
