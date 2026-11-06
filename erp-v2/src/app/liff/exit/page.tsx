@@ -149,7 +149,7 @@ function ExitForm() {
               <div key={k}>
                 <p className="mb-3 text-base font-medium">{t.scores[k]}</p>
                 <IconChoices cols={5} onPick={(v) => setScores((s) => ({ ...s, [k]: s[k] === Number(v) ? null : Number(v) }))}
-                  choices={[1, 2, 3, 4, 5].map((n) => ({ key: String(n), label: String(n), icon: StarIcon, fillIcon: true, active: (scores[k] ?? 0) >= n, on: "border-amber-400 bg-amber-400 text-white" }))} />
+                  choices={[1, 2, 3, 4, 5].map((n) => ({ key: String(n), label: String(n), icon: StarIcon, fillIcon: true, active: (scores[k] ?? 0) >= n, on: STAR_TONE(scores[k] ?? 0) }))} />
               </div>
             ))}
           </div>
@@ -184,6 +184,9 @@ function ExitForm() {
     </div>
   )
 }
+
+// the stars share one colour, by the score given (owner 2026-11-06): 1 red · 2–3 orange · 4–5 green
+const STAR_TONE = (n: number) => (n <= 1 ? "border-red-500 bg-red-500 text-white" : n <= 3 ? "border-orange-500 bg-orange-500 text-white" : "border-emerald-600 bg-emerald-600 text-white")
 
 function Card({ title, sub, error, children }: { title?: string; sub?: string; error?: string; children: React.ReactNode }) {
   return (
