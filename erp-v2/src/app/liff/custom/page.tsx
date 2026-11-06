@@ -6,14 +6,13 @@ import { CheckCircle2Icon, LoaderCircleIcon, XCircleIcon } from "lucide-react"
 import { FormRenderer } from "@/components/forms/form-renderer"
 import type { CustomFormToken, FormAnswer, ID } from "@/domain/types"
 import { tx, useUiLang } from "@/lib/i18n"
-import { cn } from "@/lib/utils"
+import { NativeSelect } from "@/components/app/native-select"
 
 // A form the company built in Settings › System › ฟอร์ม (owner 2026-10-22), as the family fills it in — opened from
 // the LINE link. The link carries a copy of the form, so it reads nothing from the ERP. TH / EN / JP for the page's own
 // words; the questions are the company's.
 
 type Phase = "init" | "invalid" | "ready" | "sending" | "done"
-const LANGS = [{ key: "th", label: "TH" }, { key: "en", label: "EN" }, { key: "ja", label: "JP" }] as const
 
 export default function CustomFormPage() {
   return <Suspense fallback={null}><CustomForm /></Suspense>
@@ -48,9 +47,7 @@ function CustomForm() {
   return (
     <main className="mx-auto min-h-dvh max-w-md bg-background px-4 pb-24 pt-4">
       <div className="mb-4 flex justify-end">
-        <div className="flex rounded-full bg-muted p-0.5">{LANGS.map((l) => (
-          <button key={l.key} type="button" onClick={() => setLang(l.key)} className={cn("rounded-full px-2.5 py-1 text-xs", lang === l.key ? "bg-background font-medium shadow-sm" : "text-muted-foreground")}>{l.label}</button>
-        ))}</div>
+        <NativeSelect className="w-32 shrink-0" value={lang} onChange={(e) => setLang(e.target.value as typeof lang)} options={[{ value: "th", label: "ไทย" }, { value: "en", label: "English" }, { value: "ja", label: "日本語" }]} />
       </div>
       {phase === "init" && <div className="grid place-items-center py-24 text-muted-foreground"><LoaderCircleIcon className="size-6 animate-spin" /></div>}
       {phase === "invalid" && (

@@ -7,13 +7,13 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import type { FormLang, SurveyAnswers, SurveyImprove, SurveyReason, SurveyToken, SurveyTopic } from "@/domain/types"
+import { NativeSelect } from "@/components/app/native-select"
 import { cn } from "@/lib/utils"
 
 // Yearly satisfaction survey for parents (owner 2026-10-05) — one per family, TH / EN / JP.
 // owner 2026-10-21: the questions are the school's real survey (Google Form, NockAcademy Bangna) so years compare —
 // Q1 subjects and Q2 grade are known from the enrolment and shown, not asked.
 
-const LANGS: { key: FormLang; label: string }[] = [{ key: "th", label: "TH" }, { key: "en", label: "EN" }, { key: "ja", label: "JP" }]
 
 const DICT = {
   th: {
@@ -144,7 +144,7 @@ function Survey() {
         <div className="flex items-center gap-2">
           <SmileIcon className="size-5 text-primary" />
           <div className="min-w-0 flex-1"><p className="truncate font-semibold">{t.title(token.year)}</p><p className="truncate text-xs text-muted-foreground">{token.brand === "liclass" ? "Liclass" : "NockAcademy"} · {token.branchName}</p></div>
-          <div className="flex rounded-full bg-muted p-0.5">{LANGS.map((l) => <button key={l.key} type="button" onClick={() => setLang(l.key)} className={cn("rounded-full px-2.5 py-1 text-xs", lang === l.key ? "bg-background font-medium shadow-sm" : "text-muted-foreground")}>{l.label}</button>)}</div>
+          <NativeSelect className="w-32 shrink-0" value={lang} onChange={(e) => setLang(e.target.value as FormLang)} options={[{ value: "th", label: "ไทย" }, { value: "en", label: "English" }, { value: "ja", label: "日本語" }]} />
         </div>
         {preview && <p className="mt-2 rounded-lg bg-amber-100 px-2 py-1 text-center text-xs text-amber-900">{t.preview}</p>}
       </header>

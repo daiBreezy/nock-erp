@@ -9,12 +9,12 @@ import { Textarea } from "@/components/ui/textarea"
 import { addDays, toDateStr } from "@/domain/dates"
 import { reasonsForStudent } from "@/domain/rules/loss"
 import type { ExitAnswers, ExitToken, FormLang } from "@/domain/types"
+import { NativeSelect } from "@/components/app/native-select"
 import { cn } from "@/lib/utils"
 
 // The exit form a parent fills when a child stops studying (owner 2026-10-05) — TH / EN / JP, one page, mostly taps.
 // Opens from the LINE link or a copied link: the one-time token is all it needs.
 
-const LANGS: { key: FormLang; label: string }[] = [{ key: "th", label: "TH" }, { key: "en", label: "EN" }, { key: "ja", label: "JP" }]
 const LOCALE: Record<FormLang, string> = { th: "th-TH", en: "en-GB", ja: "ja-JP" }
 
 const DICT = {
@@ -123,7 +123,7 @@ function ExitForm() {
         <div className="flex items-center gap-2">
           <HeartHandshakeIcon className="size-5 text-primary" />
           <div className="min-w-0 flex-1"><p className="font-semibold">{t.title}</p><p className="truncate text-xs text-muted-foreground">{tk.brand === "liclass" ? "Liclass" : "NockAcademy"} · {tk.branchName}</p></div>
-          <div className="flex rounded-full bg-muted p-0.5">{LANGS.map((l) => <button key={l.key} type="button" onClick={() => setLang(l.key)} className={cn("rounded-full px-2.5 py-1 text-xs", lang === l.key ? "bg-background font-medium shadow-sm" : "text-muted-foreground")}>{l.label}</button>)}</div>
+          <NativeSelect className="w-32 shrink-0" value={lang} onChange={(e) => setLang(e.target.value as FormLang)} options={[{ value: "th", label: "ไทย" }, { value: "en", label: "English" }, { value: "ja", label: "日本語" }]} />
         </div>
         {preview && <p className="mt-2 rounded-lg bg-amber-100 px-2 py-1 text-center text-xs text-amber-900">{t.preview}</p>}
       </header>

@@ -154,9 +154,7 @@ export function CatalogApp({ token, preview, embedded }: { token: string; previe
                   <p className="text-xs text-muted-foreground">{t.branchName}</p>
                   <h1 className="text-lg font-semibold">{tx("คอร์สเรียนและตารางเรียน")}</h1>
                 </div>
-                <div className="flex rounded-full bg-muted p-0.5">{(["th", "en", "ja"] as const).map((l) => (
-                  <button key={l} type="button" onClick={() => setLang(l)} className={cn("rounded-full px-2.5 py-1 text-xs", lang === l ? "bg-background font-medium shadow-sm" : "text-muted-foreground")}>{l === "ja" ? "JP" : l.toUpperCase()}</button>
-                ))}</div>
+                <NativeSelect className="w-32 shrink-0" value={lang} onChange={(e) => setLang(e.target.value as typeof lang)} options={[{ value: "th", label: "ไทย" }, { value: "en", label: "English" }, { value: "ja", label: "日本語" }]} />
               </div>
             )}
             <div className="flex gap-2">
