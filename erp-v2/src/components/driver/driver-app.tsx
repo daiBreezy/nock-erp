@@ -157,35 +157,26 @@ function RouteStrip({ t, p, speed }: { t: Trip; p: ReturnType<typeof progress>; 
   const q = Math.max(0, Math.min(1, f - prev))
   const all = [{ label: t.branchName, icon: t.kind === "pickup" ? BusIcon : SchoolIcon }, ...t.stops.map((s, i) => ({ label: s.nickname, icon: null, n: i + 1 })), { label: t.branchName, icon: SchoolIcon }]
   const ends = [all[prev], all[target]]
+  // owner ref 2026-11-06: a thick rounded track — a light badge at the start, a solid one at the end, the van on top
+  // driving between them, the track behind it going dark as it goes. Positions: badge centres at 24px from each end.
+  const at = `calc(24px + ${q} * (100% - 48px))`
   return (
-    <div key={prev} className="mx-8 animate-in pb-9 duration-500 fade-in">
-      <div className="relative h-14 pt-7">
-        <div className="absolute inset-x-0 top-[calc(1.75rem+14px)] h-0.5 -translate-y-1/2 rounded-full bg-sky-300" />
-        <div className="absolute top-[calc(1.75rem+14px)] left-0 h-0.5 -translate-y-1/2 rounded-full bg-sky-600 transition-[width] duration-1000 ease-linear" style={{ width: `${q * 100}%` }} />
+    <div key={prev} className="animate-in duration-500 fade-in">
+      <div className="relative h-14 overflow-hidden rounded-full bg-sky-300/70">
+        <div className="absolute inset-y-0 left-0 rounded-full transition-[width] duration-1000 ease-linear" style={{ width: `min(100%, calc(${at} + 30px))`, background: "linear-gradient(90deg, #4a93d3, #2a5a82)" }} />
         {ends.map((nd, i) => (
-          <div key={i} className="absolute top-7 flex w-24 -translate-x-1/2 flex-col items-center gap-1" style={{ left: i === 0 ? "0%" : "100%" }}>
-            <span className={cn("grid size-7 place-items-center rounded-full text-xs font-semibold", i === 0 || q >= 1 ? "bg-sky-600 text-white" : "bg-white text-sky-800 ring-1 ring-sky-300")}>
-              {nd.icon ? <nd.icon className="size-3.5" /> : (nd as { n: number }).n}
-            </span>
-            <span className="w-full truncate text-center text-xs leading-tight text-sky-900">{nd.label}</span>
-          </div>
+          <span key={i} className={cn("absolute top-1/2 grid size-10 -translate-y-1/2 place-items-center rounded-full text-lg font-semibold", i === 0 ? "left-1 bg-sky-100 text-sky-600" : "right-1 bg-sky-500 text-white")}>
+            {nd.icon ? <nd.icon className="size-5" /> : (nd as { n: number }).n}
+          </span>
         ))}
-        <div className="absolute top-0 -translate-x-1/2 transition-[left] duration-1000 ease-linear" style={{ left: `${q * 100}%` }}><Van running={moving && q > 0 && q < 1} /></div>
+        {/* eslint-disable-next-line @next/next/no-img-element -- static asset */}
+        <img src="/brand/van-top.png" alt="" className="absolute top-1/2 h-8 w-auto -translate-x-1/2 -translate-y-1/2 transition-[left] duration-1000 ease-linear" style={{ left: at }} />
+      </div>
+      <div className="mt-1.5 flex justify-between gap-3 text-xs text-sky-900">
+        <span className="min-w-0 truncate">{ends[0].label}</span>
+        <span className="min-w-0 truncate text-right">{ends[1].label}</span>
       </div>
     </div>
-  )
-}
-
-/** a cute little van — bobs while it drives */
-function Van({ running }: { running: boolean }) {
-  return (
-    <svg viewBox="0 0 44 28" className={cn("h-7 w-11 drop-shadow-sm", running && "animate-[van-bob_0.5s_ease-in-out_infinite]")} aria-hidden="true">
-      <path d="M4 20V10a4 4 0 0 1 4-4h19a4 4 0 0 1 3 1.4l6.6 7.4a4 4 0 0 1 1 2.6V20a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2Z" fill="#fff" stroke="#0369a1" strokeWidth="1.6" strokeLinejoin="round" />
-      <rect x="8" y="9" width="8" height="6" rx="1.5" fill="#bae6fd" /><rect x="18" y="9" width="8" height="6" rx="1.5" fill="#bae6fd" />
-      <path d="M28 9h2.3a2 2 0 0 1 1.5.7l4 4.6H28Z" fill="#bae6fd" />
-      <path d="M4 17h36" stroke="#38bdf8" strokeWidth="1.6" /><circle cx="39.5" cy="18.5" r="1.1" fill="#fbbf24" />
-      <circle cx="12" cy="22" r="3.4" fill="#1e293b" /><circle cx="12" cy="22" r="1.3" fill="#e2e8f0" /><circle cx="31" cy="22" r="3.4" fill="#1e293b" /><circle cx="31" cy="22" r="1.3" fill="#e2e8f0" />
-    </svg>
   )
 }
 
