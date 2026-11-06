@@ -259,8 +259,8 @@ export function RequestCard({ r, preview }: { r: ParentRequest; preview?: boolea
             </DropdownMenuContent>
           </DropdownMenu>
           {r.kind === "leave" ? <>
-            <Button size="sm" variant="outline" disabled={busy} onClick={() => (preview ? toast.info("ตัวอย่าง — กดจริงจะบันทึก และแจ้งผู้ปกครองทาง LINE") : recordLeave(true))}>บันทึกลา · ไม่หักโควตา</Button>
-            <Button size="sm" disabled={busy} onClick={() => (preview ? toast.info("ตัวอย่าง — กดจริงจะบันทึก และแจ้งผู้ปกครองทาง LINE") : recordLeave(false))}><CheckIcon /> บันทึกลา · หักโควตา</Button>
+            <Button size="sm" variant="outline" disabled={busy} onClick={() => (preview ? toast.info("ตัวอย่าง — กดจริงจะบันทึก และแจ้งผู้ปกครองทาง LINE") : recordLeave(true))}>ไม่ใช้โควตา</Button>
+            <Button size="sm" disabled={busy} onClick={() => (preview ? toast.info("ตัวอย่าง — กดจริงจะบันทึก และแจ้งผู้ปกครองทาง LINE") : recordLeave(false))}><CheckIcon /> ใช้โควตา</Button>
           </> : r.kind === "bus" ? <Button size="sm" disabled={busy} onClick={() => (preview ? toast.info("ตัวอย่าง — กดจริงจะบันทึก และแจ้งผู้ปกครองทาง LINE") : approveBus())}><CheckIcon /> อนุมัติ</Button>
             : r.kind === "home" ? <Button size="sm" disabled={busy} onClick={() => (preview ? toast.info("ตัวอย่าง — กดจริงจะบันทึก และแจ้งผู้ปกครองทาง LINE") : approveHome())}><CheckIcon /> บันทึกหมุดบ้าน</Button>
             : r.kind === "return" ? <Button size="sm" disabled={busy} onClick={() => (preview ? toast.info("ตัวอย่าง — กดจริงจะบันทึก และแจ้งผู้ปกครองทาง LINE") : acceptReturn())}><CheckIcon /> รับเรื่อง · กู้คืนนักเรียน</Button>

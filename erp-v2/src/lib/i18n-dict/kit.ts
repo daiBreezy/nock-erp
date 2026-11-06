@@ -232,4 +232,6 @@ export const KIT: Record<string, Entry> = {
   "+{0} เที่ยว {1}": { en: "+{0} trips {1}", ja: "+{0}便 {1}" },
   "({0}/เที่ยว)": { en: "({0}/trip)", ja: "（1便{0}）" },
   "ค่ารถเพิ่มเก็บในรายชื่อนักเรียน รวมในใบแจ้งหนี้รอบถัดไป": { en: "Extra rides are added to the student's list and charged on the next invoice", ja: "追加の送迎は生徒の一覧に追加され、次回の請求書に含まれます" },
+  "ใช้โควตา": { en: "Use quota", ja: "枠を消費" },
+  "ไม่ใช้โควตา": { en: "Don't use quota", ja: "枠を消費しない" },
 }
