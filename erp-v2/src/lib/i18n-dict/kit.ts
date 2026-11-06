@@ -226,4 +226,5 @@ export const KIT: Record<string, Entry> = {
   "เห็นอะไรบ้าง": { en: "What they see", ja: "表示される内容" },
   "ลองกดเล่นได้เลย (ไม่ส่งข้อมูลจริง) · กด เริ่มใหม่ เพื่อกลับไปเริ่มต้น": { en: "Try it — nothing is really sent · press Restart to start over", ja: "自由に試せます（実際には送信されません）・「やり直す」で最初から" },
   "ลองกดเล่นได้เลย — ใช้ครอบครัวตัวอย่าง · กด เริ่มใหม่ เพื่อกลับไปเริ่มต้น": { en: "Try it — uses a sample family · press Restart to start over", ja: "自由に試せます（サンプル家庭を使用）・「やり直す」で最初から" },
+  "ความพึงพอใจประจำปี (NPS)": { en: "Annual satisfaction (NPS)", ja: "年次満足度調査（NPS）" },
 }

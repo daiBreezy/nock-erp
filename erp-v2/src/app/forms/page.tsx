@@ -1,6 +1,6 @@
 "use client"
 
-import { Page, PageHeader, Segmented, Tabs } from "@/components/app/page-layout"
+import { Page, Segmented, Tabs } from "@/components/app/page-layout"
 import { LinePreview } from "@/components/forms/line-preview"
 import { PreviewLayout } from "@/components/forms/preview-layout"
 import { useState } from "react"
@@ -26,7 +26,7 @@ interface FormDoc {
 
 const FORMS: FormDoc[] = [
   {
-    key: "test", name: "สอบวัดระดับ (Test)", short: "นัดสอบวัดระดับ",
+    key: "test", name: "Test", short: "นัดสอบวัดระดับ",
     url: (lang, brand) => `/liff/form?preview=test&lang=${lang}&brand=${brand}`, brandMatters: true,
     who: "ผู้ปกครองของ Lead", how: "Admin กด \"ส่งฟอร์ม\" ในหน้า Lead หรือ Inbox → เลือกวิชา + เวลาที่จะเสนอ → ส่งลิงก์ทาง LINE (ต้องผูก LINE ก่อน)",
     steps: [
@@ -37,7 +37,7 @@ const FORMS: FormDoc[] = [
     lands: ["Inbox: การ์ดตรวจฟอร์ม (แก้เวลาได้) → อนุมัติ", "อนุมัติ = จองคาบสอบจริงในปฏิทิน + สร้าง/ผูกครอบครัวและนักเรียน", "Lead เลื่อนเป็น \"นัดสอบวัดระดับ\" → เช็คชื่อ \"มา\" แล้วเป็น \"สอบแล้ว\" เอง"],
   },
   {
-    key: "trial", name: "ทดลองเรียน (Trial)", short: "นัดทดลองเรียน",
+    key: "trial", name: "Trial", short: "นัดทดลองเรียน",
     url: (lang, brand) => `/liff/form?preview=trial&lang=${lang}&brand=${brand}`, brandMatters: true,
     who: "ผู้ปกครองของ Lead (ปกติหลังสอบแล้ว)", how: "เหมือนฟอร์มสอบ — Admin ส่งจากหน้า Lead / Inbox · ครอบครัวเดิมเห็นข้อมูลที่เคยให้ไว้แล้ว แค่ตรวจ",
     steps: [
@@ -69,7 +69,7 @@ const FORMS: FormDoc[] = [
     lands: ["หน้านักเรียน: แผง \"แจ้งออก\" เห็นคำตอบ → \"ปิดการออก\" (เลือกคืนเงิน / เครดิต / ไม่มี)", "Archive + ออกจากคลาสหลังวันสุดท้าย · ตอบ \"กลับ / อาจจะ\" → Lead ไว้โทรหาเดือนนั้น", "Reports › นักเรียน: ทำไมนักเรียนออก + คะแนน"],
   },
   {
-    key: "survey", name: "ความพึงพอใจประจำปี", short: "ปีละครั้ง ก.ย.–ต.ค.",
+    key: "survey", name: "NPS", short: "ปีละครั้ง ก.ย.–ต.ค.",
     url: (lang) => `/liff/survey?preview=1&lang=${lang}`,
     who: "ทุกครอบครัวที่ลูกยังเรียนอยู่ (1 ฟอร์มต่อครอบครัว)", how: "Settings › ระบบ › \"แบบสอบถามความพึงพอใจประจำปี\" → ส่งปีนี้ (LINE หรือลิงก์) · เตือน 1 ครั้งหลัง 7 วัน",
     steps: [
@@ -80,6 +80,8 @@ const FORMS: FormDoc[] = [
   },
 ]
 
+
+const FULL: Record<string, string> = { test: "สอบวัดระดับ (Test)", trial: "ทดลองเรียน (Trial)", survey: "ความพึงพอใจประจำปี (NPS)" }
 
 export default function FormsPage() {
   const [tab, setTab] = useState<"forms" | "line">("forms")
@@ -92,8 +94,7 @@ export default function FormsPage() {
   return (
     <Page>
       <title>ฟอร์มผู้ปกครอง · NockERP</title>
-      <PageHeader title="ฟอร์มผู้ปกครอง" />
-      <Tabs value={tab} onChange={setTab} options={[{ value: "forms", label: "ฟอร์ม", icon: FileTextIcon }, { value: "line", label: "LINE OA Preview", icon: MessageCircleIcon }]} />
+            <Tabs value={tab} onChange={setTab} options={[{ value: "forms", label: "ฟอร์ม", icon: FileTextIcon }, { value: "line", label: "LINE OA Preview", icon: MessageCircleIcon }]} />
       {tab === "line" ? <LinePreview /> : (
         <PreviewLayout onRestart={() => setReload((n) => n + 1)}
           picker={<Segmented value={key} onChange={setKey} label="ฟอร์ม" options={FORMS.map((x) => ({ value: x.key, label: x.name }))} />}
@@ -104,6 +105,7 @@ export default function FormsPage() {
           </>}
           phone={<iframe key={`${url}-${reload}`} src={url} title={f.name} className="h-full w-full rounded-[1.9rem] bg-white" />}
           info={<>
+            <div><h2 className="text-base font-semibold">{FULL[f.key] ?? f.name}</h2><p className="text-sm text-muted-foreground">{f.short}</p></div>
             <p className="text-xs text-muted-foreground">เปิดดูทุกฟอร์มได้ทันที (โหมดตัวอย่าง — กดส่งได้ แต่ไม่มีข้อมูลไปจริง) · ดูว่าแต่ละฟอร์มถามอะไร และข้อมูลไปลงตรงไหนในระบบ</p>
             <div className="grid gap-3 sm:grid-cols-2">
               <Info icon={UserRoundIcon} title="ใครกรอก">{f.who}</Info>

@@ -144,7 +144,7 @@ function Survey() {
         <div className="flex items-center gap-2">
           <SmileIcon className="size-5 text-primary" />
           <div className="min-w-0 flex-1"><p className="truncate font-semibold">{t.title(token.year)}</p><p className="truncate text-xs text-muted-foreground">{token.brand === "liclass" ? "Liclass" : "NockAcademy"} · {token.branchName}</p></div>
-          <NativeSelect className="w-32 shrink-0" value={lang} onChange={(e) => setLang(e.target.value as FormLang)} options={[{ value: "th", label: "ไทย" }, { value: "en", label: "English" }, { value: "ja", label: "日本語" }]} />
+          {!preview && <NativeSelect className="w-32 shrink-0" value={lang} onChange={(e) => setLang(e.target.value as FormLang)} options={[{ value: "th", label: "ไทย" }, { value: "en", label: "English" }, { value: "ja", label: "日本語" }]} />}
         </div>
         {preview && <p className="mt-2 rounded-lg bg-amber-100 px-2 py-1 text-center text-xs text-amber-900">{t.preview}</p>}
       </header>

@@ -280,7 +280,7 @@ export function LiffForm() {
             <p className="truncate text-lg font-semibold">{brandName}</p>
             {branchName && <p className="truncate text-xs text-muted-foreground">{branchName}</p>}
           </div>
-          <NativeSelect className="w-32 shrink-0" value={lang} onChange={(e) => setLang(e.target.value as FormLang)} options={[{ value: "th", label: "ไทย" }, { value: "en", label: "English" }, { value: "ja", label: "日本語" }]} />
+          {!preview && <NativeSelect className="w-32 shrink-0" value={lang} onChange={(e) => setLang(e.target.value as FormLang)} options={[{ value: "th", label: "ไทย" }, { value: "en", label: "English" }, { value: "ja", label: "日本語" }]} />}
         </header>
         {preview && <p className="rounded-2xl bg-amber-100 px-3 py-2 text-center text-xs text-amber-900">{t.previewBadge}</p>}
         {phase === "done" && <p className="flex items-center gap-2 rounded-2xl bg-emerald-100 px-3 py-2.5 text-sm text-emerald-900"><CheckCircle2Icon className="size-4 shrink-0" />{enroll ? `${te.sent} · ${te.sentSub}` : `${t.sent(formType)} · ${t.sentSub}`}</p>}

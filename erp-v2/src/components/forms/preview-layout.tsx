@@ -15,7 +15,7 @@ export function PreviewLayout({ picker, controls, onRestart, phone, info }: {
 }) {
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-center gap-2">
+      <div className="flex flex-wrap items-center gap-2 [&>button]:whitespace-nowrap">
         {picker}
         {controls}
         <Button variant="outline" onClick={onRestart}><RotateCwIcon /> เริ่มใหม่</Button>
