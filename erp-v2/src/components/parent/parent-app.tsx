@@ -363,11 +363,17 @@ function PastRow({ r, t, lang, tag }: { r: { date: string; start: string; subjec
   const tone = { present: "green", absent: "red", leave: "amber" } as const
   return (
     <li className="rounded-3xl bg-muted/70 text-muted-foreground">
-      <button type="button" aria-expanded={open} onClick={() => setOpen(!open)} className="flex w-full items-center gap-2.5 px-3 py-2 text-left">
-        <span className="shrink-0 whitespace-nowrap text-sm font-semibold tabular-nums">{fmtDay(r.date, lang)}<span className="font-normal text-muted-foreground"> {r.start}</span></span>
-        <span className="min-w-0 flex-1 truncate text-sm">{r.subjects.join(" + ")}</span>
+      <button type="button" aria-expanded={open} onClick={() => setOpen(!open)} className="flex w-full items-start gap-3 px-3 py-2.5 text-left">
+        <span className="w-24 shrink-0">
+          <span className="block truncate text-xs">{fmtDay(r.date, lang)}</span>
+          <span className="block whitespace-nowrap text-sm font-semibold tabular-nums">{r.start || "–"}</span>
+        </span>
+        <span className="min-w-0 flex-1">
+          <span className="line-clamp-2 text-sm font-medium break-words">{r.subjects.join(" + ")}</span>
+          {tag && <span className="block truncate text-xs">{tag}</span>}
+        </span>
         {r.status && <Pill tone={tone[r.status]}>{t[r.status]}</Pill>}
-        <ChevronDownIcon className={cn("size-4 shrink-0 text-muted-foreground transition-transform", open && "rotate-180")} />
+        <ChevronDownIcon className={cn("mt-1 size-4 shrink-0 transition-transform", open && "rotate-180")} />
       </button>
       {open && (
         <div className="space-y-2 border-t px-3 pt-2.5 pb-3">
@@ -424,20 +430,24 @@ function ClassCard({ dayText, isToday, c, first, child, t, hasBus, tag, onReques
   }
   return (
     <article className={cn("rounded-3xl shadow-sm ring-1", isToday ? "bg-red-50 ring-red-100 dark:bg-red-950/40 dark:ring-red-900" : "bg-card ring-foreground/5", c.cancelled && "opacity-60")}>
-      <button type="button" aria-expanded={open} onClick={() => { setOpen(!open); setMsg(null) }} className="flex w-full items-center gap-2.5 px-3 py-2 text-left">
-        <span className={cn("w-14 shrink-0 text-xs", isToday ? "font-medium text-red-600 dark:text-red-400" : "text-muted-foreground")}>{dayText}</span>
-        <span className="shrink-0 whitespace-nowrap text-sm font-semibold tabular-nums">{c.start}<span className="font-normal text-muted-foreground">–{c.end}</span></span>
+      {/* owner 2026-11-06: day over time on the left (fixed column) · subject (may wrap to 2 lines) with who / which course under it · the card grows with long text */}
+      <button type="button" aria-expanded={open} onClick={() => { setOpen(!open); setMsg(null) }} className="flex w-full items-start gap-3 px-3 py-2.5 text-left">
+        <span className="w-24 shrink-0">
+          <span className={cn("block truncate text-xs", isToday ? "font-medium text-red-600 dark:text-red-400" : "text-muted-foreground")}>{dayText}</span>
+          <span className="block whitespace-nowrap text-sm font-semibold tabular-nums">{c.start}<span className="font-normal text-muted-foreground">–{c.end}</span></span>
+        </span>
         <span className="min-w-0 flex-1">
-          <span className={cn("block truncate text-sm font-medium", c.cancelled && "line-through")}>{c.subjects.join(" + ")}{tag && <span className="ml-1.5 text-[11px] font-normal text-muted-foreground">{tag}</span>}</span>
+          <span className={cn("line-clamp-2 text-sm font-medium break-words", c.cancelled && "line-through")}>{c.subjects.join(" + ")}</span>
+          {tag && <span className="block truncate text-xs text-muted-foreground">{tag}</span>}
           {c.cancelled && <span className="block text-xs font-medium text-red-700">{t.cancelled}{c.cancelReason ? ` · ${c.cancelReason}` : ""}</span>}
           {leaveWaiting || busWaiting ? (
-            <span className="mt-0.5 flex flex-wrap gap-1">
+            <span className="mt-1 flex flex-wrap gap-1">
               {leaveWaiting && <Pill tone="amber">{t.leaveSent} · {t.waiting}</Pill>}
               {busWaiting && <Pill tone="blue">{t.busSent} · {t.waiting}</Pill>}
             </span>
           ) : null}
         </span>
-        <ChevronDownIcon className={cn("size-4 shrink-0 text-muted-foreground transition-transform", open && "rotate-180")} />
+        <ChevronDownIcon className={cn("mt-1 size-4 shrink-0 text-muted-foreground transition-transform", open && "rotate-180")} />
       </button>
       {msg && <p className={cn("mx-3 mb-2 rounded-xl p-2 text-xs", msg.ok ? "bg-emerald-50 text-emerald-800" : "bg-red-50 text-red-800")}>{msg.text}</p>}
       {open && (
