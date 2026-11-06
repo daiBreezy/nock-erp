@@ -2,7 +2,7 @@
 
 import { Suspense, useEffect, useState } from "react"
 import { useSearchParams } from "next/navigation"
-import { CheckCircle2Icon, LoaderCircleIcon, SendIcon, SmileIcon, XCircleIcon } from "lucide-react"
+import { AngryIcon, CheckCircle2Icon, FrownIcon, LaughIcon, LoaderCircleIcon, MehIcon, SendIcon, SmileIcon, XCircleIcon } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
@@ -137,7 +137,7 @@ function Survey() {
   if (phase === "invalid") return <Centered><XCircleIcon className="size-10 text-muted-foreground" /><p className="text-center text-sm">{t.invalid[error]}</p></Centered>
   if (phase === "done") return <Centered><CheckCircle2Icon className="size-12 text-emerald-600" /><p className="text-lg font-semibold">{t.done}</p><p className="max-w-xs text-center text-sm text-muted-foreground">{t.doneSub}</p></Centered>
   const token = tk!
-  const chip = (on: boolean) => cn("rounded-2xl border px-3 py-2 text-left text-sm", on ? "border-primary bg-primary text-primary-foreground" : "bg-background")
+  const chip = (on: boolean) => cn("min-h-12 rounded-2xl border px-4 py-3 text-left text-base leading-snug", on ? "border-primary bg-primary text-primary-foreground" : "bg-background")
   return (
     <div className="mx-auto min-h-dvh max-w-lg bg-muted/40 pb-28">
       <header className="sticky top-0 z-10 border-b bg-background/95 px-4 py-3 backdrop-blur">
@@ -148,57 +148,66 @@ function Survey() {
         </div>
         {preview && <p className="mt-2 rounded-lg bg-amber-100 px-2 py-1 text-center text-xs text-amber-900">{t.preview}</p>}
       </header>
-      <main className="space-y-3 p-4">
-        <Card><p className="font-medium">{t.hello(token.familyName)}</p><p className="mt-1 text-sm text-muted-foreground">{t.intro}</p></Card>
+      <main className="space-y-4 p-4">
+        <Card><p className="text-lg font-semibold">{t.hello(token.familyName)}</p><p className="mt-1.5 text-sm text-muted-foreground">{t.intro}</p></Card>
         {/* Q1–Q2: from the enrolment */}
         <Card title={t.kids}>
-          <ul className="space-y-1 text-sm">{token.children.map((c) => <li key={c.id}><span className="font-medium">{c.nickname}</span> · {c.grade}{c.subjects?.length ? ` · ${c.subjects.join(", ")}` : ""}</li>)}</ul>
+          <ul className="space-y-1.5 text-base">{token.children.map((c) => <li key={c.id}><span className="font-medium">{c.nickname}</span> · {c.grade}{c.subjects?.length ? ` · ${c.subjects.join(", ")}` : ""}</li>)}</ul>
         </Card>
         <Card title={`${t.nps} *`} error={tried && missing.nps}>
-          <div className="grid grid-cols-11 gap-1">{Array.from({ length: 11 }, (_, n) => (
-            <button key={n} type="button" onClick={() => setNps(n)} className={cn("h-9 rounded-lg border text-sm tabular-nums", npsV === n ? (n <= 6 ? "border-red-500 bg-red-500 text-white" : n <= 8 ? "border-amber-500 bg-amber-500 text-white" : "border-emerald-600 bg-emerald-600 text-white") : "bg-background")}>{n}</button>
+          <div className="grid grid-cols-6 gap-2.5">{Array.from({ length: 11 }, (_, n) => (
+            <button key={n} type="button" onClick={() => setNps(n)} className={cn("h-12 rounded-full border text-base font-medium tabular-nums", npsV === n ? (n <= 6 ? "border-red-500 bg-red-500 text-white" : n <= 8 ? "border-amber-500 bg-amber-500 text-white" : "border-emerald-600 bg-emerald-600 text-white") : "bg-background")}>{n}</button>
           ))}</div>
-          <div className="mt-1 flex justify-between text-[11px] text-muted-foreground"><span>{t.npsLow}</span><span>{t.npsHigh}</span></div>
+          <div className="mt-2.5 flex justify-between text-xs text-muted-foreground"><span>{t.npsLow}</span><span>{t.npsHigh}</span></div>
         </Card>
         <Card title={`${t.reasons} *`} error={tried && missing.reasons}>
-          <div className="grid gap-2">{REASONS.map((k) => (
+          <div className="grid gap-2.5">{REASONS.map((k) => (
             <button key={k} type="button" onClick={() => setReasons((x) => (x.includes(k) ? x.filter((y) => y !== k) : [...x, k]))} className={chip(reasons.includes(k))}>{t.r[k]}</button>
           ))}</div>
           {reasons.includes("other") && <Input className="mt-2" placeholder={t.otherPh} value={reasonOther} onChange={(e) => setReasonOther(e.target.value)} />}
         </Card>
         <Card title={`${t.scores} *`} error={tried && missing.scores}>
-          <div className="space-y-3">{TOPICS.map((k) => (
+          <div className="space-y-6">{TOPICS.map((k) => (
             <div key={k}>
-              <p className="mb-1 text-sm">{t.t[k]}</p>
-              <div className="grid grid-cols-5 gap-1">{[5, 4, 3, 2, 1].map((n) => (
-                <button key={n} type="button" onClick={() => setScores((x) => ({ ...x, [k]: n }))} className={cn("rounded-lg border px-1 py-1.5 text-[11px] leading-tight", scores[k] === n ? (n <= 2 ? "border-red-500 bg-red-500 text-white" : n === 3 ? "border-amber-500 bg-amber-500 text-white" : "border-emerald-600 bg-emerald-600 text-white") : "bg-background")}>{t.scale[n]}</button>
-              ))}</div>
+              <p className="mb-3 text-base font-medium">{t.t[k]}</p>
+              <div className="grid grid-cols-5">{[5, 4, 3, 2, 1].map((n) => {
+                const Face = FACES[n], on = scores[k] === n
+                return (
+                  <button key={n} type="button" aria-pressed={on} onClick={() => setScores((x) => ({ ...x, [k]: n }))} className="flex flex-col items-center gap-1.5">
+                    <span className={cn("grid size-14 place-items-center rounded-full border-2 transition-colors", on ? FACE_ON(n) : "border-border bg-background text-muted-foreground")}><Face className="size-7" /></span>
+                    <span className={cn("text-xs leading-tight", on ? "font-semibold text-foreground" : "text-muted-foreground")}>{t.scale[n]}</span>
+                  </button>
+                )
+              })}</div>
             </div>
           ))}</div>
         </Card>
         <Card title={`${t.improve} *`} error={tried && missing.improve}>
-          <div className="grid gap-2">{IMPROVES.map((k) => (
+          <div className="grid gap-2.5">{IMPROVES.map((k) => (
             <button key={k} type="button" onClick={() => setImprove(k)} className={chip(improve === k)}>{t.i[k]}</button>
           ))}</div>
           {improve === "other" && <Input className="mt-2" placeholder={t.otherPh} value={improveOther} onChange={(e) => setImproveOther(e.target.value)} />}
         </Card>
-        <Card title={t.courses} sub={t.optional}><Textarea rows={2} value={courses} onChange={(e) => setCourses(e.target.value)} /></Card>
-        <Card title={`${t.message} *`} error={tried && missing.message}><Textarea rows={4} value={message} onChange={(e) => setMessage(e.target.value)} /></Card>
+        <Card title={t.courses} sub={t.optional}><Textarea rows={3} className="text-base" value={courses} onChange={(e) => setCourses(e.target.value)} /></Card>
+        <Card title={`${t.message} *`} error={tried && missing.message}><Textarea rows={5} className="text-base" value={message} onChange={(e) => setMessage(e.target.value)} /></Card>
       </main>
       <div className="fixed inset-x-0 bottom-0 border-t bg-background/95 p-3 backdrop-blur">
         <div className="mx-auto max-w-lg">
           {tried && Object.values(missing).some(Boolean) && <p className="mb-2 text-center text-xs text-red-600">{t.need}</p>}
-          <Button className="h-11 w-full" disabled={phase === "sending"} onClick={submit}><SendIcon /> {phase === "sending" ? t.sending : t.submit}</Button>
+          <Button className="h-12 w-full text-base" disabled={phase === "sending"} onClick={submit}><SendIcon /> {phase === "sending" ? t.sending : t.submit}</Button>
         </div>
       </div>
     </div>
   )
 }
 
+const FACES: Record<number, typeof SmileIcon> = { 5: LaughIcon, 4: SmileIcon, 3: MehIcon, 2: FrownIcon, 1: AngryIcon }
+const FACE_ON = (n: number) => (n <= 2 ? "border-red-500 bg-red-500 text-white" : n === 3 ? "border-amber-500 bg-amber-500 text-white" : "border-emerald-600 bg-emerald-600 text-white")
+
 function Card({ title, sub, error, children }: { title?: string; sub?: string; error?: boolean; children: React.ReactNode }) {
   return (
-    <section className={cn("rounded-2xl bg-background p-4 shadow-sm ring-1 ring-foreground/5", error && "ring-2 ring-red-400")}>
-      {title && <div className="mb-3"><p className="font-medium">{title}</p>{sub && <p className="text-xs text-muted-foreground">{sub}</p>}</div>}
+    <section className={cn("rounded-2xl bg-background p-5 shadow-sm ring-1 ring-foreground/5", error && "ring-2 ring-red-400")}>
+      {title && <div className="mb-4"><p className="text-base font-semibold leading-snug">{title}</p>{sub && <p className="mt-0.5 text-sm text-muted-foreground">{sub}</p>}</div>}
       {children}
     </section>
   )
