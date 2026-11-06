@@ -3,7 +3,7 @@
 // owner 2026-10-15: "ทำให้ฉันเห็นตัวอย่างได้หน่อย" — every card the Inbox chat can show, in every state, with sample
 // data. The buttons work as a preview: they say what they would do and never change real data.
 import Link from "next/link"
-import { ChevronLeftIcon } from "lucide-react"
+import { ChevronLeftIcon, ChevronRightIcon } from "lucide-react"
 import { Page, PageHeader } from "@/components/app/page-layout"
 import { RequestCard } from "@/components/app/parent-requests"
 import { FormLinkBubble, FormRequestBubble } from "@/components/inbox/form-request-bubble"
@@ -29,6 +29,21 @@ function Section({ title, hint, children }: { title: string; hint: string; child
         <div className="mx-auto max-w-3xl space-y-6">{children}</div>
       </div>
     </section>
+  )
+}
+
+/** owner 2026-11-06: one form's whole journey as states side by side — Admin sends → the parent sends it back → Admin handles */
+function Flow({ steps }: { steps: { title: string; hint: string; node: React.ReactNode }[] }) {
+  return (
+    <div className="grid items-start gap-3 lg:grid-cols-[1fr_auto_1fr_auto_1fr]">
+      {steps.flatMap((st, i) => [
+        <div key={st.title} className="min-w-0 space-y-2">
+          <div className="flex items-center gap-2"><span className="grid size-6 shrink-0 place-items-center rounded-full bg-primary/10 text-xs font-semibold text-primary">{i + 1}</span><div><p className="text-sm font-semibold leading-tight">{st.title}</p><p className="text-xs text-muted-foreground">{st.hint}</p></div></div>
+          {st.node}
+        </div>,
+        ...(i < steps.length - 1 ? [<ChevronRightIcon key={`a${i}`} className="mt-1 hidden size-5 self-start text-muted-foreground lg:block" />] : []),
+      ])}
+    </div>
   )
 }
 
@@ -83,6 +98,20 @@ export default function InboxCardsPreview() {
       <PageHeader title="ตัวอย่างการ์ดในแชท"
         description="ทุกการ์ดที่ Inbox แสดงได้ ในทุกสถานะ — ข้อมูลตัวอย่าง กดปุ่มได้แต่ไม่บันทึกจริง"
         actions={<Link href="/inbox" className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"><ChevronLeftIcon className="size-4" />กลับไป Inbox</Link>} />
+
+      <section className="space-y-3">
+        <div>
+          <h2 className="text-base font-semibold">Flow ฟอร์มสอบวัดระดับ (Test)</h2>
+          <p className="text-sm text-muted-foreground">Admin ส่งไป → ผู้ปกครองส่งกลับมา → Admin จัดการ — การ์ดใบเดียวกัน สถานะเปลี่ยนเอง</p>
+        </div>
+        <div className="rounded-3xl bg-card p-6 shadow-sm ring-1 ring-foreground/5">
+          <Flow steps={[
+            { title: "Admin ส่งไป", hint: "รอผู้ปกครองตอบ", node: <FormRequestBubble message={msg("f1", "staff", "", at(0, "10:00"), { kind: "form_request", meta: { formKind: "form_request", token: "t_wait", type: "test", subjects: ["คณิต"] } })} submissions={subs} /> },
+            { title: "ผู้ปกครองส่งกลับมา", hint: "รออนุมัติ — แอดมินตรวจ / แก้เวลา", node: <FormRequestBubble message={msg("f2", "staff", "", at(0, "10:00"), { kind: "form_request", meta: { formKind: "form_request", token: "t_pending", type: "test", subjects: ["คณิต"] } })} submissions={subs} /> },
+            { title: "Admin จัดการ", hint: "อนุมัติ = จองคาบสอบจริง", node: <FormRequestBubble message={msg("f3", "staff", "", at(0, "10:00"), { kind: "form_request", meta: { formKind: "form_request", token: "t_ok", type: "test", subjects: ["คณิต"] } })} submissions={subs} /> },
+          ]} />
+        </div>
+      </section>
 
       <Section title="1. การ์ดที่ต้องจัดการ" hint="ผู้ปกครองส่งมาจาก LINE — ปุ่มอยู่ในการ์ด กดแล้วแชทตอบผู้ปกครองให้อัตโนมัติ">
         <Label>แจ้งลาหยุด · รอดำเนินการ</Label>
