@@ -1,8 +1,9 @@
 "use client"
 
-import { Page, PageHeader } from "@/components/app/page-layout"
+import { Page, PageHeader, Tabs } from "@/components/app/page-layout"
+import { LinePreview } from "@/components/forms/line-preview"
 import { useState } from "react"
-import { ArrowRightIcon, ExternalLinkIcon, RotateCwIcon, SendIcon, SmartphoneIcon, UserRoundIcon } from "lucide-react"
+import { ArrowRightIcon, FileTextIcon, MessageCircleIcon, ExternalLinkIcon, RotateCwIcon, SendIcon, SmartphoneIcon, UserRoundIcon } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import type { FormLang } from "@/domain/types"
 import { cn } from "@/lib/utils"
@@ -81,6 +82,7 @@ const FORMS: FormDoc[] = [
 const LANGS: { key: FormLang; label: string }[] = [{ key: "th", label: "ไทย" }, { key: "en", label: "EN" }, { key: "ja", label: "日本語" }]
 
 export default function FormsPage() {
+  const [tab, setTab] = useState<"forms" | "line">("forms")
   const [key, setKey] = useState("enroll")
   const [lang, setLang] = useState<FormLang>("th")
   const [brand, setBrand] = useState<"nockacademy" | "liclass">("nockacademy")
@@ -91,6 +93,8 @@ export default function FormsPage() {
     <Page>
       <title>ฟอร์มผู้ปกครอง · NockERP</title>
       <PageHeader title="ฟอร์มผู้ปกครอง" description="เปิดดูทุกฟอร์มได้ทันที (โหมดตัวอย่าง — กดส่งได้ แต่ไม่มีข้อมูลไปจริง) · ดูว่าแต่ละฟอร์มถามอะไร และข้อมูลไปลงตรงไหนในระบบ" />
+      <Tabs value={tab} onChange={setTab} options={[{ value: "forms", label: "ฟอร์ม", icon: FileTextIcon }, { value: "line", label: "LINE OA Preview", icon: MessageCircleIcon }]} />
+      {tab === "line" ? <LinePreview /> : <>
       <div className="flex flex-wrap gap-2">
         {FORMS.map((x) => (
           <button key={x.key} type="button" onClick={() => setKey(x.key)}
@@ -138,6 +142,7 @@ export default function FormsPage() {
           </div>
         </section>
       </div>
+      </>}
     </Page>
   )
 }
