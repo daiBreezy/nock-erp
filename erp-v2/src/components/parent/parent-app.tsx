@@ -4,7 +4,7 @@
 // so the same screen runs on the parent's phone (/liff/parent) and in the staff preview (Family › ดูแบบผู้ปกครอง).
 import { useState } from "react"
 import dynamic from "next/dynamic"
-import { ArrowLeftIcon, RotateCcwIcon, CalendarOffIcon, ClipboardPenIcon, LoaderCircleIcon, BusIcon, MapPinHouseIcon, CalendarDaysIcon, CheckIcon, ChevronRightIcon, GraduationCapIcon, ClockIcon, DoorOpenIcon, MessageSquareTextIcon, PackageIcon, UserIcon, XIcon } from "lucide-react"
+import { ArrowLeftIcon, ChevronDownIcon, RotateCcwIcon, CalendarOffIcon, ClipboardPenIcon, LoaderCircleIcon, BusIcon, MapPinHouseIcon, CalendarDaysIcon, CheckIcon, ChevronRightIcon, GraduationCapIcon, ClockIcon, DoorOpenIcon, MessageSquareTextIcon, PackageIcon, UserIcon, XIcon } from "lucide-react"
 import type { ParentChild, ParentCourseSummary, ParentView } from "@/domain/rules/parent-view"
 import { progressForSubject } from "@/domain/rules/summaries"
 import { CourseProgress } from "@/components/app/course-progress"
@@ -185,7 +185,7 @@ function Study({ child, t, lang, dayLabel, csId, setCsId, onRequest, requests, o
   onRequest?: (input: ParentRequestInput) => Promise<{ ok: boolean; error?: string }>; requests?: ParentRequest[]; onReturn: () => void
 }) {
   const [course, setCourse] = useState("")
-  const [allPast, setAllPast] = useState(false)
+  const [showPast, setShowPast] = useState(false)
   const open = csId ? child.courseSummaries?.find((x) => x.id === csId) : undefined
   if (open) return <CourseEnd cs={open} t={t} lang={lang} onBack={() => setCsId(null)} />
   const hasBus = child.brand === "liclass" || child.busDays.length > 0
@@ -205,7 +205,6 @@ function Study({ child, t, lang, dayLabel, csId, setCsId, onRequest, requests, o
   past.sort((a, b) => (b.date + b.start).localeCompare(a.date + a.start))
   const present = attendance.filter((a) => a.status === "present").length
   const pkgs = child.packages.filter(inC)
-  const shown = allPast ? past : past.slice(0, 5)
   return (
     <>
       {child.left && (
@@ -222,6 +221,17 @@ function Study({ child, t, lang, dayLabel, csId, setCsId, onRequest, requests, o
             <button key={c.id || "all"} type="button" onClick={() => setCourse(c.id)} className={cn("shrink-0 rounded-full px-3 py-1.5 text-sm ring-1", course === c.id ? "bg-primary font-medium text-primary-foreground ring-primary" : "bg-background ring-foreground/10")}>{c.name}</button>
           ))}
         </div>
+      )}
+      {!child.left && (
+        <>
+          <p className="px-1 pt-1 text-sm font-semibold">{t.upcomingH}</p>
+          {days.size === 0 ? <Empty text={t.noClass} /> : [...days.entries()].map(([date, list]) => (
+            <section key={date} className="space-y-1.5">
+              <p className="px-1 text-xs font-semibold text-muted-foreground">{dayLabel(date)}</p>
+              {list.map((c, i) => <ClassCard key={c.sessionId} c={c} first={i === 0} child={child} t={t} hasBus={hasBus} tag={many && !course ? courseName(c.courseId) : undefined} onRequest={onRequest} requests={requests} />)}
+            </section>
+          ))}
+        </>
       )}
       {pkgs.length > 0 && (
         <section className="rounded-2xl bg-background p-3 shadow-sm">
@@ -251,30 +261,15 @@ function Study({ child, t, lang, dayLabel, csId, setCsId, onRequest, requests, o
           ))}
         </section>
       )}
-      {!child.left && (
-        <>
-          <p className="px-1 pt-1 text-sm font-semibold">{t.upcomingH}</p>
-          {days.size === 0 ? <Empty text={t.noClass} /> : [...days.entries()].map(([date, list]) => (
-            <section key={date} className="space-y-1.5">
-              <p className="px-1 text-xs font-semibold text-muted-foreground">{dayLabel(date)}</p>
-              {list.map((c, i) => <ClassCard key={c.sessionId} c={c} first={i === 0} child={child} t={t} hasBus={hasBus} tag={many && !course ? courseName(c.courseId) : undefined} onRequest={onRequest} requests={requests} />)}
-            </section>
-          ))}
-        </>
-      )}
-      <p className="px-1 pt-2 text-sm font-semibold">{t.pastH}</p>
-      {attendance.length > 0 && (
-        <section className="rounded-2xl bg-background p-3 text-center shadow-sm">
-          <p className="text-xs text-muted-foreground">{t.rate}</p>
-          <p className="text-2xl font-semibold tabular-nums">{present} / {attendance.length}</p>
-        </section>
-      )}
-      {past.length === 0 ? <Empty text={t.noAttendance} /> : (
+      <button type="button" aria-expanded={showPast} onClick={() => setShowPast(!showPast)} className="flex w-full items-center gap-2 rounded-2xl bg-background px-3 py-2.5 text-left text-sm font-semibold shadow-sm">
+        <span className="min-w-0 flex-1">{t.pastH} <span className="font-normal text-muted-foreground">({past.length}{attendance.length > 0 ? ` · ${t.rate} ${present}/${attendance.length}` : ""})</span></span>
+        <ChevronDownIcon className={cn("size-4 text-muted-foreground transition-transform", showPast && "rotate-180")} />
+      </button>
+      {showPast && (past.length === 0 ? <Empty text={t.noAttendance} /> : (
         <ul className="divide-y overflow-hidden rounded-2xl bg-background shadow-sm">
-          {shown.map((r, i) => <PastRow key={`${r.date}${r.start}${i}`} r={r} t={t} lang={lang} tag={many && !course ? courseName(r.courseId) : undefined} />)}
+          {past.map((r, i) => <PastRow key={`${r.date}${r.start}${i}`} r={r} t={t} lang={lang} tag={many && !course ? courseName(r.courseId) : undefined} />)}
         </ul>
-      )}
-      {past.length > 5 && <button type="button" onClick={() => setAllPast(!allPast)} className="mx-auto block rounded-full px-4 py-1.5 text-sm text-primary">{allPast ? t.hide : `${t.showAll} (${past.length})`}</button>}
+      ))}
     </>
   )
 }
@@ -337,34 +332,31 @@ function ClassCard({ c, first, child, t, hasBus, tag, onRequest, requests }: {
     if (r.ok) { setLeave(false); setRide({}); setNote(""); setOpen(false) }
   }
   return (
-    <article className={cn("rounded-2xl bg-background p-3 shadow-sm", c.cancelled && "opacity-60")}>
-      <div className="flex items-start gap-3">
-        <div className="w-14 shrink-0 text-center">
-          <p className="text-base font-semibold tabular-nums">{c.start}</p>
-          <p className="text-[11px] text-muted-foreground tabular-nums">{c.end}</p>
-        </div>
-        <div className="min-w-0 flex-1">
-          <p className={cn("truncate font-medium", c.cancelled && "line-through")}>{c.subjects.join(" + ")}{tag && <span className="ml-1.5 text-[11px] font-normal text-muted-foreground">{tag}</span>}</p>
+    <article className={cn("rounded-2xl bg-background shadow-sm", c.cancelled && "opacity-60")}>
+      <button type="button" aria-expanded={open} onClick={() => { setOpen(!open); setMsg(null) }} className="flex w-full items-center gap-2.5 px-3 py-2 text-left">
+        <span className="w-[4.5rem] shrink-0 text-sm font-semibold tabular-nums">{c.start}<span className="font-normal text-muted-foreground">–{c.end}</span></span>
+        <span className="min-w-0 flex-1">
+          <span className={cn("block truncate text-sm font-medium", c.cancelled && "line-through")}>{c.subjects.join(" + ")}{tag && <span className="ml-1.5 text-[11px] font-normal text-muted-foreground">{tag}</span>}</span>
+          {c.cancelled && <span className="block text-xs font-medium text-red-700">{t.cancelled}{c.cancelReason ? ` · ${c.cancelReason}` : ""}</span>}
+          {(!c.cancelled && c.bus) || leaveWaiting || busWaiting ? (
+            <span className="mt-0.5 flex flex-wrap gap-1">
+              {!c.cancelled && c.bus && <BusChips bus={c.bus} t={t} />}
+              {leaveWaiting && <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[11px] text-amber-900">{t.leaveSent} · {t.waiting}</span>}
+              {busWaiting && <span className="rounded-full bg-sky-100 px-2 py-0.5 text-[11px] text-sky-800">{t.busSent} · {t.waiting}</span>}
+            </span>
+          ) : null}
+        </span>
+        <ChevronDownIcon className={cn("size-4 shrink-0 text-muted-foreground transition-transform", open && "rotate-180")} />
+      </button>
+      {msg && <p className={cn("mx-3 mb-2 rounded-xl p-2 text-xs", msg.ok ? "bg-emerald-50 text-emerald-800" : "bg-red-50 text-red-800")}>{msg.text}</p>}
+      {open && (
+        <div className="space-y-2.5 border-t px-3 pt-2.5 pb-3">
           <p className="flex flex-wrap gap-x-3 text-xs text-muted-foreground">
             {c.teachers.length > 0 && <span className="flex items-center gap-1"><UserIcon className="size-3" />{t.teacher} {c.teachers.join(", ")}</span>}
             {c.room && <span className="flex items-center gap-1"><DoorOpenIcon className="size-3" />{c.room}</span>}
           </p>
-          {c.cancelled && <p className="mt-1 text-xs font-medium text-red-700">{t.cancelled}{c.cancelReason ? ` · ${c.cancelReason}` : ""}</p>}
-          {!c.cancelled && c.bus && <BusChips bus={c.bus} t={t} />}
-          {(leaveWaiting || busWaiting) && (
-            <p className="mt-1.5 flex flex-wrap gap-1.5">
-              {leaveWaiting && <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[11px] text-amber-900">{t.leaveSent} · {t.waiting}</span>}
-              {busWaiting && <span className="rounded-full bg-sky-100 px-2 py-0.5 text-[11px] text-sky-800">{t.busSent} · {t.waiting}</span>}
-            </p>
-          )}
-        </div>
-        {canAct && (
-          <button type="button" aria-expanded={open} onClick={() => { setOpen(!open); setMsg(null) }} className={cn("shrink-0 rounded-full px-3 py-1.5 text-xs font-medium ring-1", open ? "bg-primary/10 text-primary ring-primary/40" : "text-muted-foreground ring-foreground/15")}>{hasBus ? t.manage : t.leaveReq}</button>
-        )}
-      </div>
-      {msg && <p className={cn("mt-2 rounded-xl p-2 text-xs", msg.ok ? "bg-emerald-50 text-emerald-800" : "bg-red-50 text-red-800")}>{msg.text}</p>}
-      {open && canAct && (
-        <div className="mt-3 space-y-2.5 border-t pt-3">
+          {canAct && (
+            <>
           <p className="text-xs text-muted-foreground">{t.pickAny}</p>
           <button type="button" disabled={leaveWaiting} onClick={() => setLeave(!leave)} className={cn("flex w-full items-center gap-2.5 rounded-xl p-2.5 text-left text-sm ring-1 disabled:opacity-50", leave ? "bg-amber-50 ring-amber-400" : "ring-foreground/10")}>
             <span className={cn("grid size-5 shrink-0 place-items-center rounded-md border", leave ? "border-amber-500 bg-amber-500 text-white" : "border-muted-foreground/40")}>{leave && <CheckIcon className="size-3.5" />}</span>
@@ -398,6 +390,8 @@ function ClassCard({ c, first, child, t, hasBus, tag, onRequest, requests }: {
           <button type="button" disabled={!ready || busy || !onRequest} onClick={send} className="flex h-10 w-full items-center justify-center gap-2 rounded-full bg-primary text-sm font-medium text-primary-foreground disabled:opacity-50">
             {busy && <LoaderCircleIcon className="size-4 animate-spin" />}{!onRequest ? t.preview : busy ? t.sending : t.send}
           </button>
+            </>
+          )}
         </div>
       )}
     </article>
@@ -406,11 +400,11 @@ function ClassCard({ c, first, child, t, hasBus, tag, onRequest, requests }: {
 
 function BusChips({ bus, t }: { bus: { pickup: boolean; dropoff: boolean; adult?: boolean }; t: T }) {
   return (
-    <p className="mt-1.5 flex gap-1.5">
+    <span className="flex gap-1.5">
       {bus.pickup && <span className="flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-[11px] text-amber-900"><BusIcon className="size-3" />{t.pickup}</span>}
       {bus.dropoff && <span className="flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-[11px] text-amber-900"><BusIcon className="size-3" />{t.dropoff}</span>}
       {bus.adult && <span className="flex items-center gap-1 rounded-full bg-violet-100 px-2 py-0.5 text-[11px] text-violet-800"><UserIcon className="size-3" />{t.adultGo}</span>}
-    </p>
+    </span>
   )
 }
 
