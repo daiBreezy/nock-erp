@@ -25,7 +25,7 @@ export function DemoPanel() {
 
   return (
     <Popover>
-      <PopoverTrigger render={<Button variant="outline" size="sm" className="w-full justify-start gap-2 group-data-[collapsible=icon]:size-8 group-data-[collapsible=icon]:p-0" />}>
+      <PopoverTrigger render={<Button variant="outline" size="sm" className="w-full justify-start gap-2 group-data-[collapsible=icon]:size-8 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:p-0" />}>
         <FlaskConicalIcon />
         <span className="truncate group-data-[collapsible=icon]:hidden">โหมดสาธิต</span>
       </PopoverTrigger>

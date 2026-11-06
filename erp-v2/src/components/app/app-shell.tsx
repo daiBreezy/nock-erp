@@ -9,14 +9,14 @@ import { usePathname, useRouter } from "next/navigation"
 import { usePublishParentViews } from "@/lib/parent-app"
 import { usePublishDriverTrips } from "@/lib/driver"
 import { useLineLinkSync } from "@/lib/line-links"
-import { useEffect, useState, useSyncExternalStore, type ReactNode } from "react"
+import { Fragment, useEffect, useState, useSyncExternalStore, type ReactNode } from "react"
 import { ArrowLeftRightIcon, BellIcon, CheckIcon, ChevronDownIcon, ChevronRightIcon, GlobeIcon, LockIcon, MapPinIcon, MenuIcon, PanelLeftIcon, SearchIcon, SunIcon } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { branchShort, nm, tx, UI_LANGS, useT, useUiLang } from "@/lib/i18n"
 import { BUSINESS_SHORT } from "@/domain/rules/reports"
 import {
-  Sidebar, SidebarContent, SidebarFooter, SidebarGroup, SidebarGroupLabel, SidebarHeader, SidebarInset, SidebarMenu,
+  Sidebar, SidebarContent, SidebarFooter, SidebarGroup, SidebarGroupLabel, SidebarHeader, SidebarInset, SidebarMenu, SidebarSeparator,
   SidebarMenuBadge, SidebarMenuButton, SidebarMenuItem, SidebarProvider, useSidebar,
 } from "@/components/ui/sidebar"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
@@ -128,11 +128,13 @@ function Shell({ children }: { children: ReactNode }) {
           <NotificationCard />
         </SidebarHeader>
         <SidebarContent>
-          {NAV.map((g) => {
+          {NAV.map((g, gi) => {
             const items = g.items.filter((i) => canAny(me, i.perm)) // G1: hide what the role can't use
             if (!items.length) return null
             return (
-              <SidebarGroup key={g.group}>
+              <Fragment key={g.group}>
+              {gi > 0 && <SidebarSeparator />}
+              <SidebarGroup>
                 <SidebarGroupLabel>{t(g.group)}</SidebarGroupLabel>
                 <SidebarMenu>
                   {items.map((i) => {
@@ -153,6 +155,7 @@ function Shell({ children }: { children: ReactNode }) {
                   })}
                 </SidebarMenu>
               </SidebarGroup>
+              </Fragment>
             )
           })}
         </SidebarContent>
