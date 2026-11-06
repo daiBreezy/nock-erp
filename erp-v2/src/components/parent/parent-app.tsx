@@ -138,6 +138,8 @@ export function ParentApp({ view, lang: initialLang, today, framed, openCourseSu
   const [csId, setCsId] = useState<string | null>(opened ? openCourseSummary! : null)
   const t = DICT[lang]
   const child = view.children.find((c) => c.id === childId) ?? view.children[0]
+  // ตารางเรียน can show every child at once (childId "")
+  const kids = childId === "" && tab === "study" ? view.children : child ? [child] : []
   const latin = lang !== "th" && !(lang === "ja" && brand === "liclass")
   const nick = (c: ParentChild) => (latin && c.nicknameEn) || c.nickname
   const family = (latin && view.familyNameEn) || view.familyName
@@ -156,12 +158,9 @@ export function ParentApp({ view, lang: initialLang, today, framed, openCourseSu
     <div className={cn("mx-auto flex max-w-lg flex-col bg-muted/40", framed ? "min-h-full" : "min-h-dvh")}>
       {/* owner 2026-11-06: no blue band, no greeting — a quiet line of who/where; the child switcher only where a child is the subject */}
       <header className="space-y-2.5 px-4 pt-4">
-        <div>
-          <p className="text-[11px] text-muted-foreground">{brand === "liclass" ? "Liclass" : "NockAcademy"} · {child?.branchName}</p>
-          <p className="truncate text-lg font-semibold">{family}</p>
-        </div>
+        <p className="flex items-baseline gap-2"><span className="min-w-0 truncate text-lg font-semibold">{family}</span><span className="shrink-0 text-[11px] text-muted-foreground">{brand === "liclass" ? "Liclass" : "NockAcademy"} · {child?.branchName}</span></p>
         {view.children.length > 1 && tab === "study" && (
-          <FilterChipGroup layout="scroll" value={child?.id ?? ""} onChange={(id) => { setChildId(id); setCourse("") }} options={view.children.map((c) => ({ value: c.id, label: `${nick(c)} ${c.left ? t.leftTag : c.grade}` }))} />
+          <FilterChipGroup layout="scroll" value={childId} onChange={(id) => { setChildId(id); setCourse("") }} options={[{ value: "", label: t.all }, ...view.children.map((c) => ({ value: c.id, label: `${nick(c)} ${c.left ? t.leftTag : c.grade}` }))]} />
         )}
       </header>
 
@@ -175,7 +174,7 @@ export function ParentApp({ view, lang: initialLang, today, framed, openCourseSu
         )}
         {!child ? null : tab === "overview" ? <Overview view={view} t={t} lang={lang} today={today} dayLabel={dayLabel} nick={nick} onDrill={drill} />
           : tab === "study"
-          ? <Study key={child.id} today={today} course={course} setCourse={setCourse} view={view} child={child} t={t} lang={lang} dayLabel={dayLabel} csId={csId} setCsId={setCsId} onRequest={onRequest} requests={requests} onReturn={() => setTab("request")} />
+          ? <Study key={childId} today={today} course={course} setCourse={setCourse} kids={kids} nick={nick} t={t} lang={lang} dayLabel={dayLabel} csId={csId} setCsId={setCsId} onRequest={onRequest} requests={requests} onReturn={() => setTab("request")} />
           : tab === "catalog" ? (view.catalogToken || catalogPreview ? <Catalog token={view.catalogToken ?? ""} preview={catalogPreview} /> : <Empty text={t.catalogOff} />)
           : <RequestTab key={`${child.id}|${ask ?? ""}`} lang={lang} setLang={setLang} updatedAt={view.generatedAt} view={view} child={child} t={t} today={today} onRequest={onRequest} requests={requests} initial={ask} />}
       </main>
@@ -282,84 +281,79 @@ function CourseRows({ pkgs, t, lang, onPick }: { child?: ParentChild; pkgs: Pare
   )
 }
 
-/** owner 2026-11-06: ตารางเรียน + การเข้าเรียน + สรุปการเรียน + รถรับส่ง in one page — filter by course or see everything; absence / bus asks sit on each class */
-function Study({ today, course, setCourse, child, t, lang, dayLabel, csId, setCsId, onRequest, requests, onReturn }: {
-  today: string; course: string; setCourse: (id: string) => void; view: ParentView; child: ParentChild; t: T; lang: FormLang; dayLabel: (d: string) => string; csId: string | null; setCsId: (id: string | null) => void
+/** owner 2026-11-06: ตารางเรียน + การเข้าเรียน + สรุปการเรียน + รถรับส่ง in one page — all children or one, all courses or one; absence / bus asks sit on each class.
+ *  No KPI / course card here (that is the Overview's job); the day sits IN the row so there are no day headings (owner: "กินพื้นที่มากเกินไป"). */
+function Study({ today, course, setCourse, kids, nick, t, lang, dayLabel, csId, setCsId, onRequest, requests, onReturn }: {
+  today: string; course: string; setCourse: (id: string) => void; kids: ParentChild[]; nick: (c: ParentChild) => string; t: T; lang: FormLang; dayLabel: (d: string) => string; csId: string | null; setCsId: (id: string | null) => void
   onRequest?: (input: ParentRequestInput) => Promise<{ ok: boolean; error?: string }>; requests?: ParentRequest[]; onReturn: () => void
 }) {
   const [view, setView] = useState<"all" | "past">("all")
-  const open = csId ? child.courseSummaries?.find((x) => x.id === csId) : undefined
+  const open = csId ? kids.flatMap((k) => k.courseSummaries ?? []).find((x) => x.id === csId) : undefined
   if (open) return <CourseEnd cs={open} t={t} lang={lang} onBack={() => setCsId(null)} />
-  const hasBus = child.brand === "liclass" || child.busDays.length > 0
+  const multi = kids.length > 1
+  const courses = [...new Map(kids.flatMap((k) => k.courses).map((c) => [c.id, c])).values()]
+  const many = courses.length > 1
   const inC = (x: { courseId?: string }) => !course || x.courseId === course
-  const courseName = (id?: string) => child.courses.find((c) => c.id === id)?.name
-  const many = child.courses.length > 1
-  const upcoming = child.upcoming.filter(inC)
-  const days = new Map<string, ParentChild["upcoming"]>()
-  upcoming.forEach((c) => days.set(c.date, [...(days.get(c.date) ?? []), c]))
-  const ends = (child.courseSummaries ?? []).filter(inC)
-  const attendance = child.attendance.filter(inC)
+  const courseName = (id?: string) => courses.find((c) => c.id === id)?.name
+  const tagOf = (k: ParentChild, courseId?: string) => [multi ? nick(k) : "", many && !course ? courseName(courseId) ?? "" : ""].filter(Boolean).join(" · ") || undefined
+  const hasBusOf = (k: ParentChild) => k.brand === "liclass" || k.busDays.length > 0
+  const upcoming = kids.filter((k) => !k.left).flatMap((k) => k.upcoming.filter(inC).map((c) => ({ k, c }))).sort((a, b) => (a.c.date + a.c.start).localeCompare(b.c.date + b.c.start))
+  const firstOfDay = new Set<string>()
+  const ends = kids.flatMap((k) => (k.courseSummaries ?? []).filter(inC))
   const key = (x: { date: string; subjects: string[] }) => `${x.date}|${x.subjects.join("+")}`
-  const sums = new Map(child.summaries.filter(inC).map((x) => [key(x), x]))
-  const past: { date: string; start: string; subjects: string[]; courseId?: string; status?: "present" | "absent" | "leave"; sum?: ParentChild["summaries"][number] }[] = attendance.map((a) => ({ ...a, sum: sums.get(key(a)) }))
-  const used = new Set(past.map((r) => (r.sum ? key(r.sum) : "")))
-  child.summaries.filter(inC).filter((x) => !used.has(key(x))).forEach((x) => past.push({ date: x.date, start: "", subjects: x.subjects, courseId: x.courseId, sum: x }))
-  past.sort((a, b) => (b.date + b.start).localeCompare(a.date + a.start))
-  const pkgs = child.packages.filter(inC)
+  const past = kids.flatMap((k) => {
+    const sums = new Map(k.summaries.filter(inC).map((x) => [key(x), x]))
+    const rows: { k: ParentChild; date: string; start: string; subjects: string[]; courseId?: string; status?: "present" | "absent" | "leave"; sum?: ParentChild["summaries"][number] }[] = k.attendance.filter(inC).map((a) => ({ ...a, k, sum: sums.get(key(a)) }))
+    const used = new Set(rows.map((r) => (r.sum ? key(r.sum) : "")))
+    k.summaries.filter(inC).filter((x) => !used.has(key(x))).forEach((x) => rows.push({ k, date: x.date, start: "", subjects: x.subjects, courseId: x.courseId, sum: x }))
+    return rows
+  }).sort((a, b) => (b.date + b.start).localeCompare(a.date + a.start))
+  const only = kids.length === 1 ? kids[0] : undefined
   return (
     <>
-      {child.left && (
+      {only?.left && (
         // owner 2026-10-14: a child who left — history stays, and the family can ask to come back
         <section className="space-y-2 rounded-3xl bg-card ring-1 ring-foreground/5 p-4 text-center shadow-sm">
-          <p className="font-medium">{t.leftSince(fmtDay(child.left.since, lang))}</p>
+          <p className="font-medium">{t.leftSince(fmtDay(only.left.since, lang))}</p>
           <p className="text-sm text-muted-foreground">{t.leftNote}</p>
           <Button className="mx-auto mt-1" onClick={onReturn}>{t.returnReq}</Button>
         </section>
       )}
-      {many && <FilterChipGroup layout="scroll" value={course} onChange={setCourse} options={[{ value: "", label: t.all }, ...child.courses.map((c) => ({ value: c.id, label: c.name }))]} />}
+      {many && <FilterChipGroup layout="scroll" value={course} onChange={setCourse} options={[{ value: "", label: t.all }, ...courses.map((c) => ({ value: c.id, label: c.name }))]} />}
       <Segmented className="w-full [&>button]:flex-1" label={t.schedule} value={view} onChange={setView} options={[{ value: "all", label: t.all }, { value: "past", label: `${t.pastTab} ${past.length}` }]} />
-      {pkgs.length > 0 && (
-        <CourseRows pkgs={pkgs} t={t} lang={lang} />
-      )}
       {view === "all" && (
         <>
-      {!child.left && (
-        <>
-          <p className="px-1 pt-1 text-sm font-semibold">{t.upcomingH}</p>
-          {days.size === 0 ? <Empty text={t.noClass} /> : [...days.entries()].map(([date, list]) => (
-            <section key={date} className="space-y-1.5">
-              <p className="px-1 text-xs font-semibold text-muted-foreground">{dayLabel(date)}</p>
-              {list.map((c, i) => <ClassCard key={c.sessionId} isToday={c.date === today} c={c} first={i === 0} child={child} t={t} hasBus={hasBus} tag={many && !course ? courseName(c.courseId) : undefined} onRequest={onRequest} requests={requests} />)}
+          {upcoming.length === 0 ? <Empty text={t.noClass} /> : (
+            <div className="space-y-1.5">
+              {upcoming.map(({ k, c }) => {
+                const d = `${k.id}|${c.date}`
+                const first = !firstOfDay.has(d)
+                firstOfDay.add(d)
+                return <ClassCard key={`${k.id}${c.sessionId}`} isToday={c.date === today} dayText={dayLabel(c.date)} c={c} first={first} child={k} t={t} hasBus={hasBusOf(k)} tag={tagOf(k, c.courseId)} onRequest={onRequest} requests={requests} />
+              })}
+            </div>
+          )}
+          {ends.length > 0 && (
+            <section className="space-y-1.5">
+              <p className="flex items-center gap-1.5 px-1 text-xs font-semibold text-muted-foreground"><GraduationCapIcon className="size-3.5" />{t.courseEnd}</p>
+              {ends.map((x) => (
+                <button key={x.id} type="button" onClick={() => setCsId(x.id)} className="flex w-full items-center gap-3 rounded-3xl bg-card ring-1 ring-foreground/5 p-3 text-left shadow-sm">
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate font-medium">{x.course}</span>
+                    <span className="block text-xs text-muted-foreground">{fmtDay(x.from, lang)} – {fmtDay(x.to, lang)} · {t.view}</span>
+                  </span>
+                  <ChevronRightIcon className="size-4 shrink-0 text-muted-foreground" />
+                </button>
+              ))}
             </section>
-          ))}
-        </>
-      )}
-      {ends.length > 0 && (
-        <section className="space-y-1.5">
-          <p className="flex items-center gap-1.5 px-1 text-xs font-semibold text-muted-foreground"><GraduationCapIcon className="size-3.5" />{t.courseEnd}</p>
-          {ends.map((x) => (
-            <button key={x.id} type="button" onClick={() => setCsId(x.id)} className="flex w-full items-center gap-3 rounded-3xl bg-card ring-1 ring-foreground/5 p-3 text-left shadow-sm">
-              <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-primary/10 text-primary"><GraduationCapIcon className="size-5" /></span>
-              <span className="min-w-0 flex-1">
-                <span className="block truncate font-medium">{x.course}</span>
-                <span className="block text-xs text-muted-foreground">{fmtDay(x.from, lang)} – {fmtDay(x.to, lang)} · {t.view}</span>
-              </span>
-              <ChevronRightIcon className="size-4 shrink-0 text-muted-foreground" />
-            </button>
-          ))}
-        </section>
-      )}
-        </>
-      )}
-      {view === "past" && (
-        <>
-          {past.length === 0 ? <Empty text={t.noAttendance} /> : (
-            <ul className="space-y-1.5">
-              {past.map((r, i) => <PastRow key={`${r.date}${r.start}${i}`} r={r} t={t} lang={lang} tag={many && !course ? courseName(r.courseId) : undefined} />)}
-            </ul>
           )}
         </>
       )}
+      {view === "past" && (past.length === 0 ? <Empty text={t.noAttendance} /> : (
+        <ul className="space-y-1.5">
+          {past.map((r, i) => <PastRow key={`${r.k.id}${r.date}${r.start}${i}`} r={r} t={t} lang={lang} tag={tagOf(r.k, r.courseId)} />)}
+        </ul>
+      ))}
     </>
   )
 }
@@ -396,8 +390,8 @@ function PastRow({ r, t, lang, tag }: { r: { date: string; start: string; subjec
 type Ride = { pickup?: "add" | "cancel"; dropoff?: "add" | "cancel"; adult?: boolean }
 
 /** one class ahead — and the two things a parent does with it: report an absence, ask for / cancel its bus ride */
-function ClassCard({ isToday, c, first, child, t, hasBus, tag, onRequest, requests }: {
-  isToday: boolean; c: ParentChild["upcoming"][number]; first: boolean; child: ParentChild; t: T; hasBus: boolean; tag?: string
+function ClassCard({ dayText, isToday, c, first, child, t, hasBus, tag, onRequest, requests }: {
+  dayText: string; isToday: boolean; c: ParentChild["upcoming"][number]; first: boolean; child: ParentChild; t: T; hasBus: boolean; tag?: string
   onRequest?: (input: ParentRequestInput) => Promise<{ ok: boolean; error?: string }>; requests?: ParentRequest[]
 }) {
   const [open, setOpen] = useState(false)
@@ -431,6 +425,7 @@ function ClassCard({ isToday, c, first, child, t, hasBus, tag, onRequest, reques
   return (
     <article className={cn("rounded-3xl shadow-sm ring-1", isToday ? "bg-red-50 ring-red-100 dark:bg-red-950/40 dark:ring-red-900" : "bg-card ring-foreground/5", c.cancelled && "opacity-60")}>
       <button type="button" aria-expanded={open} onClick={() => { setOpen(!open); setMsg(null) }} className="flex w-full items-center gap-2.5 px-3 py-2 text-left">
+        <span className={cn("w-14 shrink-0 text-xs", isToday ? "font-medium text-red-600 dark:text-red-400" : "text-muted-foreground")}>{dayText}</span>
         <span className="shrink-0 whitespace-nowrap text-sm font-semibold tabular-nums">{c.start}<span className="font-normal text-muted-foreground">–{c.end}</span></span>
         <span className="min-w-0 flex-1">
           <span className={cn("block truncate text-sm font-medium", c.cancelled && "line-through")}>{c.subjects.join(" + ")}{tag && <span className="ml-1.5 text-[11px] font-normal text-muted-foreground">{tag}</span>}</span>
