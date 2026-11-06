@@ -155,22 +155,22 @@ function RouteStrip({ t, p, speed }: { t: Trip; p: ReturnType<typeof progress>; 
   const prev = p.finished ? n : Math.min(n, Math.floor(f))
   const target = Math.min(n + 1, prev + 1)
   const q = Math.max(0, Math.min(1, f - prev))
-  const all = [{ label: t.branchName, icon: t.kind === "pickup" ? BusIcon : SchoolIcon }, ...t.stops.map((s, i) => ({ label: s.nickname, icon: null, n: i + 1 })), { label: t.branchName, icon: SchoolIcon }]
+  const all = [{ label: t.branchName, icon: SchoolIcon }, ...t.stops.map((s, i) => ({ label: s.nickname, icon: null, n: i + 1 })), { label: t.branchName, icon: SchoolIcon }]
   const ends = [all[prev], all[target]]
   // owner ref 2026-11-06: a thick rounded track — a light badge at the start, a solid one at the end, the van on top
   // driving between them, the track behind it going dark as it goes. Positions: badge centres at 24px from each end.
-  const at = `calc(24px + ${q} * (100% - 48px))`
+  const at = `calc(16px + ${q} * (100% - 32px))`
   return (
     <div key={prev} className="animate-in duration-500 fade-in">
-      <div className="relative h-14 overflow-hidden rounded-full bg-sky-300/70">
-        <div className="absolute inset-y-0 left-0 rounded-full transition-[width] duration-1000 ease-linear" style={{ width: `min(100%, calc(${at} + 30px))`, background: "linear-gradient(90deg, #4a93d3, #2a5a82)" }} />
+      <div className="relative h-8 overflow-hidden rounded-full bg-sky-300/70">
+        <div className="absolute inset-y-0 left-0 rounded-full transition-[width] duration-1000 ease-linear" style={{ width: `min(100%, calc(${at} + 24px))`, background: "linear-gradient(90deg, #4a93d3, #2a5a82)" }} />
         {ends.map((nd, i) => (
-          <span key={i} className={cn("absolute top-1/2 grid size-10 -translate-y-1/2 place-items-center rounded-full text-lg font-semibold", i === 0 ? "left-1 bg-sky-100 text-sky-600" : "right-1 bg-sky-500 text-white")}>
-            {nd.icon ? <nd.icon className="size-5" /> : (nd as { n: number }).n}
+          <span key={i} className={cn("absolute top-1/2 grid size-6 -translate-y-1/2 place-items-center rounded-full text-sm font-semibold", i === 0 ? "left-1 bg-sky-100 text-sky-600" : "right-1 bg-sky-500 text-white")}>
+            {nd.icon ? <nd.icon className="size-3.5" /> : (nd as { n: number }).n}
           </span>
         ))}
         {/* eslint-disable-next-line @next/next/no-img-element -- static asset */}
-        <img src="/brand/van-top.png" alt="" className="absolute top-1/2 h-8 w-auto -translate-x-1/2 -translate-y-1/2 transition-[left] duration-1000 ease-linear" style={{ left: at }} />
+        <img src="/brand/van-top.png" alt="" className="absolute top-1/2 h-5 w-auto -translate-x-1/2 -translate-y-1/2 transition-[left] duration-1000 ease-linear" style={{ left: at }} />
       </div>
       <div className="mt-1.5 flex justify-between gap-3 text-xs text-sky-900">
         <span className="min-w-0 truncate">{ends[0].label}</span>
@@ -239,7 +239,7 @@ function TripView({ t, events, busy, onBack, onTap, speed }: { t: Trip; events: 
         <section className="overflow-hidden rounded-3xl bg-background shadow-sm">
           <p className="border-b px-4 py-2.5 text-xs font-medium text-muted-foreground">เส้นทางรอบนี้</p>
           <ol className="divide-y">
-            <EndRow icon={t.kind === "pickup" ? <BusIcon className="size-4" /> : <SchoolIcon className="size-4" />}
+            <EndRow icon={t.kind === "pickup" ? <PlayIcon className="size-4" /> : <SchoolIcon className="size-4" />}
               title={t.kind === "pickup" ? "เริ่มวิ่ง — ไปบ้านแรก" : `ออกจาก${t.branchName}`} label={p.started ? "ออกแล้ว" : "เวลาออก"} time={p.started ? hhmm(p.started.at) : t.depart} done={!!p.started} />
             {t.stops.map((s, i) => {
               const out = p.outOf(s.key), inn = p.inOf(s.key), now = s.key === cur?.key
