@@ -46,7 +46,7 @@ export function LinePreview() {
         { value: "paid", label: "ผู้ปกครอง · จ่ายแล้ว", icon: LockOpenIcon },
         { value: "driver", label: "คนขับ", icon: BusIcon },
       ]} />}
-      phone={who === "driver" ? <div key={run} className="h-full overflow-y-auto rounded-[1.9rem] bg-white [transform:translateZ(0)]"><DriverApp token="preview" demo /></div> : <ParentPhone key={`${who}-${run}`} paid={who === "paid"} />}
+      phone={who === "driver" ? <div key={run} className="relative h-full overflow-hidden rounded-[1.9rem] bg-white [transform:translateZ(0)]"><div className="h-full overflow-y-auto"><DriverApp token="preview" demo /></div></div> : <ParentPhone key={`${who}-${run}`} paid={who === "paid"} />}
       info={<>
         <div className="rounded-2xl bg-muted/50 p-3"><p className="mb-1 flex items-center gap-1.5 text-xs font-medium text-muted-foreground"><UserRoundIcon className="size-3.5" />ใครใช้</p><p className="text-sm">{i.who}</p></div>
         <div className="space-y-2">
