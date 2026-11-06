@@ -47,6 +47,20 @@ function Flow({ steps }: { steps: { title: string; hint: string; node: React.Rea
   )
 }
 
+function FlowSection({ title, steps }: { title: string; steps: { title: string; hint: string; node: React.ReactNode }[] }) {
+  return (
+    <section className="space-y-3">
+      <h2 className="text-base font-semibold">{title}</h2>
+      <div className="rounded-3xl bg-card p-6 shadow-sm ring-1 ring-foreground/5"><Flow steps={steps} /></div>
+    </section>
+  )
+}
+
+/** a step that ends outside the chat (CRM, Reports) — said in words, not drawn as a card the Inbox doesn't have */
+function Outcome({ children }: { children: React.ReactNode }) {
+  return <p className="rounded-2xl border border-dashed p-4 text-sm text-muted-foreground">{children}</p>
+}
+
 /** a small grey caption above each example */
 const Label = ({ children }: { children: React.ReactNode }) => <p className="pt-4 text-xs font-medium text-muted-foreground">{children}</p>
 
@@ -99,19 +113,32 @@ export default function InboxCardsPreview() {
         description="ทุกการ์ดที่ Inbox แสดงได้ ในทุกสถานะ — ข้อมูลตัวอย่าง กดปุ่มได้แต่ไม่บันทึกจริง"
         actions={<Link href="/inbox" className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"><ChevronLeftIcon className="size-4" />กลับไป Inbox</Link>} />
 
-      <section className="space-y-3">
-        <div>
-          <h2 className="text-base font-semibold">Flow ฟอร์มสอบวัดระดับ (Test)</h2>
-          <p className="text-sm text-muted-foreground">Admin ส่งไป → ผู้ปกครองส่งกลับมา → Admin จัดการ — การ์ดใบเดียวกัน สถานะเปลี่ยนเอง</p>
-        </div>
-        <div className="rounded-3xl bg-card p-6 shadow-sm ring-1 ring-foreground/5">
-          <Flow steps={[
-            { title: "Admin ส่งไป", hint: "รอผู้ปกครองตอบ", node: <FormRequestBubble message={msg("f1", "staff", "", at(0, "10:00"), { kind: "form_request", meta: { formKind: "form_request", token: "t_wait", type: "test", subjects: ["คณิต"] } })} submissions={subs} /> },
-            { title: "ผู้ปกครองส่งกลับมา", hint: "รออนุมัติ — แอดมินตรวจ / แก้เวลา", node: <FormRequestBubble message={msg("f2", "staff", "", at(0, "10:00"), { kind: "form_request", meta: { formKind: "form_request", token: "t_pending", type: "test", subjects: ["คณิต"] } })} submissions={subs} /> },
-            { title: "Admin จัดการ", hint: "อนุมัติ = จองคาบสอบจริง", node: <FormRequestBubble message={msg("f3", "staff", "", at(0, "10:00"), { kind: "form_request", meta: { formKind: "form_request", token: "t_ok", type: "test", subjects: ["คณิต"] } })} submissions={subs} /> },
-          ]} />
-        </div>
-      </section>
+      {/* owner 2026-11-06: every form's journey as states side by side — Admin sends → the parent sends it back → Admin handles */}
+      <FlowSection title="Flow ฟอร์มสอบวัดระดับ (Test)" steps={[
+        { title: "Admin ส่งไป", hint: "รอผู้ปกครองตอบ", node: <FormRequestBubble message={msg("f1", "staff", "", at(0, "10:00"), { kind: "form_request", meta: { formKind: "form_request", token: "t_wait", type: "test", subjects: ["คณิต"] } })} submissions={subs} /> },
+        { title: "ผู้ปกครองส่งกลับมา", hint: "รออนุมัติ — แอดมินตรวจ / แก้เวลา", node: <FormRequestBubble message={msg("f2", "staff", "", at(0, "10:00"), { kind: "form_request", meta: { formKind: "form_request", token: "t_pending", type: "test", subjects: ["คณิต"] } })} submissions={subs} /> },
+        { title: "Admin จัดการ", hint: "อนุมัติ = จองคาบสอบจริง", node: <FormRequestBubble message={msg("f3", "staff", "", at(0, "10:00"), { kind: "form_request", meta: { formKind: "form_request", token: "t_ok", type: "test", subjects: ["คณิต"] } })} submissions={subs} /> },
+      ]} />
+      <FlowSection title="Flow ฟอร์มทดลองเรียน (Trial)" steps={[
+        { title: "Admin ส่งไป", hint: "รอผู้ปกครองตอบ", node: <FormRequestBubble message={msg("t1", "staff", "", at(0, "10:00"), { kind: "form_request", meta: { formKind: "form_request", token: "t_wait", type: "trial", subjects: ["อังกฤษ"] } })} submissions={subs} /> },
+        { title: "ผู้ปกครองส่งกลับมา", hint: "รออนุมัติ — แอดมินตรวจ / แก้เวลา", node: <FormRequestBubble message={msg("t2", "staff", "", at(0, "10:00"), { kind: "form_request", meta: { formKind: "form_request", token: "t_pending", type: "trial", subjects: ["อังกฤษ"] } })} submissions={subs} /> },
+        { title: "Admin จัดการ", hint: "อนุมัติ = จองเข้าคาบ / คลาสจริง", node: <FormRequestBubble message={msg("t3", "staff", "", at(0, "10:00"), { kind: "form_request", meta: { formKind: "form_request", token: "t_ok", type: "trial", subjects: ["อังกฤษ"] } })} submissions={subs} /> },
+      ]} />
+      <FlowSection title="Flow ใบสมัครเรียน" steps={[
+        { title: "Admin ส่งไป", hint: "เลือกคลาสที่เสนอแล้วส่งในแชท", node: <FormLinkBubble message={msg("e1", "staff", "กรอกใบสมัครเรียนได้ที่ลิงก์นี้เลยค่ะ 🙏\nhttps://liff.line.me/demo?token=demo3", at(0, "11:02"))} answered={false} /> },
+        { title: "ผู้ปกครองส่งกลับมา", hint: "เลือกคลาสที่สะดวก + ยอมรับเงื่อนไข", node: <FormLinkBubble message={msg("e2", "staff", "กรอกใบสมัครเรียนได้ที่ลิงก์นี้เลยค่ะ 🙏\nhttps://liff.line.me/demo?token=demo3", at(0, "11:02"))} answered /> },
+        { title: "Admin จัดการ", hint: "ที่ CRM", node: <Outcome>Lead “ใบสมัครเรียนรอจัดคลาส” → เลือกคอร์ส / แพ็กเกจ + วันเริ่ม → สร้างครอบครัว + นักเรียน + ร่างใบแจ้งหนี้ → จ่ายครบ = เข้าคลาส</Outcome> },
+      ]} />
+      <FlowSection title="Flow แจ้งหยุดเรียน" steps={[
+        { title: "Admin ส่งไป", hint: "ที่หน้านักเรียน กด \"แจ้งออก\"", node: <FormLinkBubble message={msg("x1", "staff", `รบกวนผู้ปกครองช่วยตอบแบบฟอร์มสั้นๆ เรื่องการหยุดเรียนของ${kid2?.nickname ?? "น้อง"}ค่ะ 🙏\nhttps://liff.line.me/demo?token=demo1`, at(0, "11:00"))} answered={false} /> },
+        { title: "ผู้ปกครองส่งกลับมา", hint: "มีคำตอบ + ปิดการออก / ไม่ออกแล้ว", node: answered ? <ExitFormCardView at={at(-1, "20:15")} kids={[answered]} linked preview={{ response }} /> : <Outcome>ยังไม่มีนักเรียนตัวอย่าง</Outcome> },
+        { title: "Admin จัดการ", hint: "ปิดการออก — คืนเงิน / เครดิต / ไม่มี", node: closed ? <ExitFormCardView at={at(-3, "18:00")} kids={[closed]} linked preview={{ response: null }} /> : <Outcome>ยังไม่มีนักเรียนตัวอย่าง</Outcome> },
+      ]} />
+      <FlowSection title="Flow ความพึงพอใจประจำปี (NPS)" steps={[
+        { title: "Admin ส่งไป", hint: "Settings › ระบบ › ส่งปีนี้", node: <FormLinkBubble message={msg("n1", "staff", "ขอเวลา 3 นาทีช่วยตอบแบบสอบถามความพึงพอใจประจำปีหน่อยนะคะ 🙏\nhttps://liff.line.me/demo?token=demo4", at(0, "11:03"))} answered={false} /> },
+        { title: "ผู้ปกครองส่งกลับมา", hint: "1 ฟอร์มต่อครอบครัว", node: <FormLinkBubble message={msg("n2", "staff", "ขอเวลา 3 นาทีช่วยตอบแบบสอบถามความพึงพอใจประจำปีหน่อยนะคะ 🙏\nhttps://liff.line.me/demo?token=demo4", at(0, "11:03"))} answered /> },
+        { title: "Admin จัดการ", hint: "ที่ CRM / Reports", node: <Outcome>ไม่แนะนำ → CRM ให้ Admin / Manager โทรคุยใน 3 วัน · ผลรวมที่ Reports › ความพึงพอใจ (NPS เทียบปีก่อน · รายสาขา · คะแนนครู)</Outcome> },
+      ]} />
 
       <Section title="1. การ์ดที่ต้องจัดการ" hint="ผู้ปกครองส่งมาจาก LINE — ปุ่มอยู่ในการ์ด กดแล้วแชทตอบผู้ปกครองให้อัตโนมัติ">
         <Label>แจ้งลาหยุด · รอดำเนินการ</Label>
