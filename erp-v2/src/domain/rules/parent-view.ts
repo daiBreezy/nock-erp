@@ -3,7 +3,7 @@
 // to the parent, packages left. Pure — the ERP builds it, the parent's phone only reads it.
 import type { Attendance, Branch, BusAddOn, Course, CourseSummary, DateStr, Entitlement, Family, ID, Invoice, Klass, LessonSummary, Session, Staff, Student, TimeStr } from "../types"
 import { addDays, endTime, toDateStr } from "../dates"
-import { balance, packageCovers } from "./attendance"
+import { balance, leaveQuota, leavesUsed, packageCovers } from "./attendance"
 import { sessionState, subjectsOf, teachersOf } from "./scheduling"
 import { courseProgressRows, entitlementRounds, type ProgressRow } from "./summaries"
 
@@ -58,7 +58,9 @@ export interface ParentChild {
   summaries: { courseId?: ID; date: DateStr; subjects: string[]; teacher: string; text: string; detail?: string }[]
   /** the courses this child has classes / history in — the filter chips */
   courses: { id: ID; name: string }[]
-  packages: { courseId?: ID; course: string; remaining: number | null; total: number | null; until: DateStr }[]
+  packages: { courseId?: ID; course: string; remaining: number | null; total: number | null; from: DateStr; until: DateStr
+    /** the course KPI card (same numbers as the student panel): classes checked / all classes of the package, present, leave used / quota */
+    done: number; sessions: number; present: number; leaves: number; leaveQuota: number }[]
   /** bus days ahead (pickup / drop-off), for students who bought the bus */
   busDays: { date: DateStr; pickup: boolean; dropoff: boolean; adult?: boolean }[]
   courseSummaries: ParentCourseSummary[]
@@ -168,7 +170,12 @@ export function parentView(family: Family, ctx: ParentCtx): ParentView {
       .map((e) => {
         const b = balance(e, ctx.sessions, ctx.attendance, ctx.classes)
         const counted = e.kind === "sessions"
-        return { courseId: e.courseId, course: ctx.courses.find((c) => c.id === e.courseId)?.name ?? "", remaining: counted ? b.remaining : null, total: counted ? b.total : null, until: b.until }
+        const held = mine.filter((x) => !x.cancelled && packageCovers(e, x))
+        const marks = ctx.attendance.filter((a) => a.studentId === stu.id && held.some((x) => x.id === a.sessionId))
+        return {
+          courseId: e.courseId, course: ctx.courses.find((c) => c.id === e.courseId)?.name ?? "", remaining: counted ? b.remaining : null, total: counted ? b.total : null, from: e.from, until: b.until,
+          done: marks.length, sessions: held.length, present: marks.filter((a) => a.status === "present").length, leaves: leavesUsed(e, ctx.sessions, ctx.attendance), leaveQuota: leaveQuota(e),
+        }
       })
     // owner 2026-10-14: the Course End Summary opens from its LINE message — summary + progress charts
     const rounds = entitlementRounds(ctx.entitlements.filter((e) => e.studentId === stu.id))

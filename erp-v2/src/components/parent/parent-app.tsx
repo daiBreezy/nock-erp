@@ -7,6 +7,8 @@ import dynamic from "next/dynamic"
 import { ArrowLeftIcon, BookOpenIcon, ChevronDownIcon, RotateCcwIcon, CalendarOffIcon, ClipboardPenIcon, LoaderCircleIcon, BusIcon, MapPinHouseIcon, CalendarDaysIcon, CheckIcon, ChevronRightIcon, GraduationCapIcon, ClockIcon, DoorOpenIcon, MessageSquareTextIcon, PackageIcon, UserIcon, XIcon } from "lucide-react"
 import type { ParentChild, ParentCourseSummary, ParentView } from "@/domain/rules/parent-view"
 import { progressForSubject } from "@/domain/rules/summaries"
+import { Kpi } from "@/components/app/kpi"
+import { Pill } from "@/components/app/badges"
 import { CourseProgress } from "@/components/app/course-progress"
 import { subjectColor } from "@/components/app/subject-color"
 import type { CatalogToken, FormLang, ParentRequest } from "@/domain/types"
@@ -35,7 +37,7 @@ const DICT = {
     busReq: "ขอ / ยกเลิกรอบรถ", busReqSub: "ขอรถรับ-ส่งเพิ่ม หรือยกเลิกรอบที่ไม่ใช้", busPick: "แตะ รับ / ส่ง ของแต่ละวัน เพื่อขอเพิ่มหรือยกเลิก",
     busAdd: "ขอเพิ่ม", busCancel: "ยกเลิก", busCost: "รอบที่ขอเพิ่มคิดค่ารถในใบแจ้งหนี้รอบถัดไป · ยกเลิกรอบที่จ่ายแล้วไม่คืนเงิน", trips: (n: number) => `${n} เที่ยว`,
     adult: "ผู้ปกครอง", adultGo: "ผู้ปกครองไปด้วย", adultNote: "ผู้ปกครองนั่งรถไปด้วยได้ ไม่คิดค่ารถ (ใช้ 1 ที่นั่ง)",
-    catalog: "Catalog", catalogOff: "ยังไม่มีแคตตาล็อกของสาขานี้ — ถามแอดมินได้เลยค่ะ", pastTab: "ผ่านไปแล้ว", seq: (n: number, t: number) => `คาบที่ ${n}/${t}`, noSummaryYet: "ครูยังไม่ได้ส่งสรุปของคาบนี้", chipLeave: "แจ้งลา", chipBus: "ขอรถรับ-ส่ง",
+    doneOf: "เรียนแล้ว / ทั้งหมด", leftN: (n: number) => `เหลือ ${n} คาบ`, catalog: "Catalog", catalogOff: "ยังไม่มีแคตตาล็อกของสาขานี้ — ถามแอดมินได้เลยค่ะ", pastTab: "ผ่านไปแล้ว", seq: (n: number, t: number) => `คาบที่ ${n}/${t}`, noSummaryYet: "ครูยังไม่ได้ส่งสรุปของคาบนี้", chipLeave: "แจ้งลา", chipBus: "ขอรถรับ-ส่ง",
     study: "การเรียน", all: "ทั้งหมด", upcomingH: "คาบที่จะถึง", pastH: "คาบที่ผ่านมา", manage: "แจ้งลา / รถรับ-ส่ง", leaveThis: "แจ้งลาคาบนี้", waiting: "รอแอดมิน", leaveSent: "แจ้งลาแล้ว", busSent: "ขอรถแล้ว", ridesOf: "รถรับ-ส่งของวันนั้น", pickAny: "เลือกสิ่งที่ต้องการแจ้ง", showAll: "ดูทั้งหมด", hide: "ซ่อน",
   },
   en: {
@@ -56,7 +58,7 @@ const DICT = {
     busReq: "Add / cancel bus rides", busReqSub: "Ask for extra pick-ups / drop-offs, or cancel ones you don't need", busPick: "Tap Pick-up / Drop-off on a day to add or cancel it",
     busAdd: "Add", busCancel: "Cancel", busCost: "Extra rides are charged on the next invoice · paid rides you cancel aren't refunded", trips: (n: number) => `${n} ride${n > 1 ? "s" : ""}`,
     adult: "Parent", adultGo: "Parent rides along", adultNote: "A parent can ride along for free (takes 1 seat)",
-    catalog: "Catalog", catalogOff: "No catalog for this branch yet — please ask our staff", pastTab: "Past", seq: (n: number, t: number) => `Class ${n}/${t}`, noSummaryYet: "No summary sent for this class yet", chipLeave: "Absence", chipBus: "Bus",
+    doneOf: "Done / total classes", leftN: (n: number) => `${n} left`, catalog: "Catalog", catalogOff: "No catalog for this branch yet — please ask our staff", pastTab: "Past", seq: (n: number, t: number) => `Class ${n}/${t}`, noSummaryYet: "No summary sent for this class yet", chipLeave: "Absence", chipBus: "Bus",
     study: "Learning", all: "All", upcomingH: "Upcoming classes", pastH: "Past classes", manage: "Absence / bus", leaveThis: "Report absence for this class", waiting: "Waiting", leaveSent: "Absence sent", busSent: "Bus asked", ridesOf: "Bus on that day", pickAny: "Pick what to send", showAll: "Show all", hide: "Hide",
   },
   ja: {
@@ -77,7 +79,7 @@ const DICT = {
     busReq: "送迎の追加／キャンセル", busReqSub: "送迎の追加依頼、または不要な便のキャンセル", busPick: "日ごとに「お迎え／お送り」をタップして追加・キャンセル",
     busAdd: "追加", busCancel: "キャンセル", busCost: "追加分は次回の請求書に加算・支払い済みの便のキャンセルは返金なし", trips: (n: number) => `${n}便`,
     adult: "保護者", adultGo: "保護者も同乗", adultNote: "保護者の同乗は無料です（1席使用）",
-    catalog: "Catalog", catalogOff: "この校舎のカタログはまだありません — スタッフにお尋ねください", pastTab: "終了", seq: (n: number, t: number) => `第${n}回/${t}`, noSummaryYet: "この授業のレポートはまだ送られていません", chipLeave: "欠席", chipBus: "送迎",
+    doneOf: "受講済み / 全体", leftN: (n: number) => `残り${n}回`, catalog: "Catalog", catalogOff: "この校舎のカタログはまだありません — スタッフにお尋ねください", pastTab: "終了", seq: (n: number, t: number) => `第${n}回/${t}`, noSummaryYet: "この授業のレポートはまだ送られていません", chipLeave: "欠席", chipBus: "送迎",
     study: "学習", all: "すべて", upcomingH: "これからの授業", pastH: "これまでの授業", manage: "欠席／送迎", leaveThis: "この授業を欠席する", waiting: "確認待ち", leaveSent: "欠席連絡済み", busSent: "送迎依頼済み", ridesOf: "その日の送迎", pickAny: "連絡する内容を選択", showAll: "すべて表示", hide: "閉じる",
   },
 }
@@ -235,6 +237,20 @@ function Study({ child, t, lang, dayLabel, csId, setCsId, onRequest, requests, o
           <button key={k} type="button" onClick={() => setView(k)} className={cn("flex-1 rounded-full px-3 py-1.5 text-sm", view === k ? "bg-background font-medium shadow-sm" : "text-muted-foreground")}>{label}{k === "past" && <span className="ml-1 text-xs text-muted-foreground">{past.length}</span>}</button>
         ))}
       </div>
+      {/* owner 2026-11-06: the course card IS the KPI card — same on both tabs: course · done / all classes · present · leave · left */}
+      {pkgs.length > 0 && (
+        <div className="grid gap-2">
+          {pkgs.map((p, i) => (
+            <Kpi key={i} compact icon={GraduationCapIcon} tone="sky" label={p.course} value={`${p.done}/${p.sessions}`} sub={`${t.doneOf} · ${fmtDay(p.from, lang)} → ${fmtDay(p.until, lang)}`}>
+              <div className="flex flex-wrap gap-1.5">
+                <Pill tone="green">{`${t.present} ${p.present}`}</Pill>
+                <Pill tone="amber">{`${t.leave} ${p.leaves}/${p.leaveQuota}`}</Pill>
+                {p.remaining != null && <Pill tone="gray">{t.leftN(p.remaining)}</Pill>}
+              </div>
+            </Kpi>
+          ))}
+        </div>
+      )}
       {view === "all" && (
         <>
       {!child.left && (
@@ -247,19 +263,6 @@ function Study({ child, t, lang, dayLabel, csId, setCsId, onRequest, requests, o
             </section>
           ))}
         </>
-      )}
-      {pkgs.length > 0 && (
-        <section className="rounded-2xl bg-background p-3 shadow-sm">
-          <p className="mb-1.5 flex items-center gap-1.5 text-xs font-medium text-muted-foreground"><PackageIcon className="size-3.5" />{t.packages}</p>
-          <ul className="space-y-1.5">
-            {pkgs.map((p, i) => (
-              <li key={i} className="flex items-baseline justify-between gap-2 text-sm">
-                <span className="truncate">{p.course}</span>
-                <span className="shrink-0 text-xs text-muted-foreground">{p.remaining != null && p.total != null ? `${t.left(p.remaining, p.total)} · ` : ""}{t.until} {fmtDay(p.until, lang)}</span>
-              </li>
-            ))}
-          </ul>
-        </section>
       )}
       {ends.length > 0 && (
         <section className="space-y-1.5">
@@ -280,12 +283,6 @@ function Study({ child, t, lang, dayLabel, csId, setCsId, onRequest, requests, o
       )}
       {view === "past" && (
         <>
-          {attendance.length > 0 && (
-            <section className="rounded-2xl bg-background p-3 text-center shadow-sm">
-              <p className="text-xs text-muted-foreground">{t.rate}</p>
-              <p className="text-2xl font-semibold tabular-nums">{present} / {attendance.length}</p>
-            </section>
-          )}
           {past.length === 0 ? <Empty text={t.noAttendance} /> : (
             <ul className="space-y-1.5">
               {past.map((r, i) => <PastRow key={`${r.date}${r.start}${i}`} r={r} t={t} lang={lang} tag={many && !course ? courseName(r.courseId) : undefined} />)}
@@ -298,26 +295,30 @@ function Study({ child, t, lang, dayLabel, csId, setCsId, onRequest, requests, o
 }
 
 function PastRow({ r, t, lang, tag }: { r: { date: string; start: string; subjects: string[]; status?: "present" | "absent" | "leave"; sum?: { teacher: string; text: string; detail?: string } }; t: T; lang: FormLang; tag?: string }) {
-  const tone = { present: "bg-emerald-100 text-emerald-800", absent: "bg-red-100 text-red-800", leave: "bg-amber-100 text-amber-900" }
+  const [open, setOpen] = useState(false)
+  const tone = { present: "green", absent: "red", leave: "amber" } as const
   return (
-    <li className="rounded-2xl bg-background p-3 text-sm shadow-sm">
-      <div className="flex items-center gap-2">
-        <span className="min-w-0 flex-1">
-          <span className="block truncate font-medium">{r.subjects.join(" + ")}{tag && <span className="ml-1.5 text-[11px] font-normal text-muted-foreground">{tag}</span>}</span>
-          <span className="block text-xs text-muted-foreground">{fmtDay(r.date, lang)} {r.start}</span>
-        </span>
-        {r.status && <span className={cn("flex items-center gap-1 rounded-full px-2 py-0.5 text-xs", tone[r.status])}>{r.status === "present" ? <CheckIcon className="size-3" /> : r.status === "absent" ? <XIcon className="size-3" /> : <ClockIcon className="size-3" />}{t[r.status]}</span>}
-      </div>
-      <div className="mt-2 flex items-start gap-1.5 rounded-xl bg-muted/50 p-2 text-xs">
-        <MessageSquareTextIcon className="mt-0.5 size-3.5 shrink-0 text-muted-foreground" />
-        {r.sum ? (
-          <span className="min-w-0 flex-1">
-            {r.sum.detail && <span className="block font-medium">{r.sum.detail}</span>}
-            <span className="block whitespace-pre-line">{r.sum.text}</span>
-            {r.sum.teacher && <span className="mt-0.5 block text-muted-foreground">{t.teacher} {r.sum.teacher}</span>}
-          </span>
-        ) : <span className="text-muted-foreground">{t.noSummaryYet}</span>}
-      </div>
+    <li className="rounded-2xl bg-background shadow-sm">
+      <button type="button" aria-expanded={open} onClick={() => setOpen(!open)} className="flex w-full items-center gap-2.5 px-3 py-2 text-left">
+        <span className="shrink-0 whitespace-nowrap text-sm font-semibold tabular-nums">{fmtDay(r.date, lang)}<span className="font-normal text-muted-foreground"> {r.start}</span></span>
+        <span className="min-w-0 flex-1 truncate text-sm font-medium">{r.subjects.join(" + ")}</span>
+        {r.status && <Pill tone={tone[r.status]}>{t[r.status]}</Pill>}
+        <ChevronDownIcon className={cn("size-4 shrink-0 text-muted-foreground transition-transform", open && "rotate-180")} />
+      </button>
+      {open && (
+        <div className="space-y-2 border-t px-3 pt-2.5 pb-3">
+          {(tag || r.sum?.teacher) && <p className="flex flex-wrap gap-x-3 text-xs text-muted-foreground">{r.sum?.teacher && <span className="flex items-center gap-1"><UserIcon className="size-3" />{t.teacher} {r.sum.teacher}</span>}{tag && <span>{tag}</span>}</p>}
+          <div className="flex items-start gap-1.5 rounded-xl bg-muted/50 p-2 text-xs">
+            <MessageSquareTextIcon className="mt-0.5 size-3.5 shrink-0 text-muted-foreground" />
+            {r.sum ? (
+              <span className="min-w-0 flex-1">
+                {r.sum.detail && <span className="block font-medium">{r.sum.detail}</span>}
+                <span className="block whitespace-pre-line">{r.sum.text}</span>
+              </span>
+            ) : <span className="text-muted-foreground">{t.noSummaryYet}</span>}
+          </div>
+        </div>
+      )}
     </li>
   )
 }
