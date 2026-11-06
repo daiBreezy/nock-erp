@@ -92,7 +92,7 @@ export default function FormsPage() {
   return (
     <Page>
       <title>ฟอร์มผู้ปกครอง · NockERP</title>
-      <PageHeader title="ฟอร์มผู้ปกครอง" description="เปิดดูทุกฟอร์มได้ทันที (โหมดตัวอย่าง — กดส่งได้ แต่ไม่มีข้อมูลไปจริง) · ดูว่าแต่ละฟอร์มถามอะไร และข้อมูลไปลงตรงไหนในระบบ" />
+      <PageHeader title="ฟอร์มผู้ปกครอง" />
       <Tabs value={tab} onChange={setTab} options={[{ value: "forms", label: "ฟอร์ม", icon: FileTextIcon }, { value: "line", label: "LINE OA Preview", icon: MessageCircleIcon }]} />
       {tab === "line" ? <LinePreview /> : (
         <PreviewLayout onRestart={() => setReload((n) => n + 1)}
@@ -104,6 +104,7 @@ export default function FormsPage() {
           </>}
           phone={<iframe key={`${url}-${reload}`} src={url} title={f.name} className="h-full w-full rounded-[1.9rem] bg-white" />}
           info={<>
+            <p className="text-xs text-muted-foreground">เปิดดูทุกฟอร์มได้ทันที (โหมดตัวอย่าง — กดส่งได้ แต่ไม่มีข้อมูลไปจริง) · ดูว่าแต่ละฟอร์มถามอะไร และข้อมูลไปลงตรงไหนในระบบ</p>
             <div className="grid gap-3 sm:grid-cols-2">
               <Info icon={UserRoundIcon} title="ใครกรอก">{f.who}</Info>
               <Info icon={SendIcon} title="ส่งยังไง">{f.how}</Info>
