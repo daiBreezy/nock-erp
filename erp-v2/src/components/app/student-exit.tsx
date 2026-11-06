@@ -97,21 +97,27 @@ export function ExitRequestDialog({ stu, onClose, onCloseNow }: { stu: Student; 
 }
 
 /** The parent's answers, as staff read them. */
+function Row({ label, children }: { label: string; children: React.ReactNode }) {
+  return <div><dt className="text-xs text-muted-foreground">{label}</dt><dd>{children}</dd></div>
+}
+
 export function ExitAnswersView({ answers }: { answers: NonNullable<Student["exit"]>["answers"] }) {
   const system = useStore((s) => s.system)
   if (!answers) return null
   return (
-    <dl className="grid grid-cols-[7rem_1fr] gap-x-2 gap-y-1 text-sm">
-      <dt className="text-muted-foreground">เหตุผลหลัก</dt><dd className="font-medium">{Loss.reasonLabel(answers.reasonId, system.lossReasons)}</dd>
-      {answers.otherReasonIds.length > 0 && <><dt className="text-muted-foreground">เหตุผลอื่น</dt><dd>{answers.otherReasonIds.map((x) => Loss.reasonLabel(x, system.lossReasons)).join(", ")}</dd></>}
-      <dt className="text-muted-foreground">คะแนน</dt>
-      <dd className="flex flex-wrap gap-x-3">{(Object.keys(SCORE_LABEL) as (keyof typeof SCORE_LABEL)[]).map((k) => (
-        <span key={k} className="flex items-center gap-0.5">{SCORE_LABEL[k]} {answers.scores[k] ?? "—"}{answers.scores[k] ? <StarIcon className="size-3 fill-amber-400 text-amber-400" /> : null}</span>
-      ))}</dd>
-      <dt className="text-muted-foreground">จะกลับมาไหม</dt><dd>{COME_BACK[answers.comeBack]}{answers.comeBackMonth ? ` · ราว ${fmtDate(`${answers.comeBackMonth}-01`, { year: true }).split(" ").slice(1).join(" ")}` : ""}</dd>
-      <dt className="text-muted-foreground">แนะนำเพื่อน</dt><dd className={cn(answers.nps !== null && answers.nps <= 6 && "text-red-700")}>{answers.nps ?? "—"} / 10</dd>
-      {answers.comment && <><dt className="text-muted-foreground">ความเห็น</dt><dd>“{answers.comment}”</dd></>}
-      <dt className="text-muted-foreground">ติดต่อกลับได้</dt><dd>{answers.contactOk ? "ได้" : "ไม่ต้องการ"} · ตอบเป็นภาษา {answers.lang.toUpperCase()}</dd>
+    // owner 2026-11-06: one answer per line — the question small above, the answer under it
+    <dl className="space-y-2.5 text-sm">
+      <Row label="เหตุผลหลัก"><span className="font-medium">{Loss.reasonLabel(answers.reasonId, system.lossReasons)}</span></Row>
+      {answers.otherReasonIds.length > 0 && <Row label="เหตุผลอื่น">{answers.otherReasonIds.map((x) => Loss.reasonLabel(x, system.lossReasons)).join(", ")}</Row>}
+      <Row label="คะแนน">
+        <span className="block space-y-0.5">{(Object.keys(SCORE_LABEL) as (keyof typeof SCORE_LABEL)[]).map((k) => (
+          <span key={k} className="flex items-center gap-1.5"><span className="w-24 shrink-0 text-muted-foreground">{SCORE_LABEL[k]}</span>{answers.scores[k] ?? "—"}{answers.scores[k] ? <StarIcon className="size-3 fill-amber-400 text-amber-400" /> : null}</span>
+        ))}</span>
+      </Row>
+      <Row label="จะกลับมาไหม">{COME_BACK[answers.comeBack]}{answers.comeBackMonth ? ` · ราว ${fmtDate(`${answers.comeBackMonth}-01`, { year: true }).split(" ").slice(1).join(" ")}` : ""}</Row>
+      <Row label="แนะนำเพื่อน"><span className={cn(answers.nps !== null && answers.nps <= 6 && "text-red-700")}>{answers.nps ?? "—"} / 10</span></Row>
+      {answers.comment && <Row label="ความเห็น">“{answers.comment}”</Row>}
+      <Row label="ติดต่อกลับได้">{answers.contactOk ? "ได้" : "ไม่ต้องการ"} · ตอบเป็นภาษา {answers.lang.toUpperCase()}</Row>
     </dl>
   )
 }
@@ -170,10 +176,9 @@ export function ExitPanel({ stu, bare, preview }: { stu: Student; bare?: boolean
   const link = token ? `${typeof window !== "undefined" ? window.location.origin : ""}/liff/exit?token=${token}` : ""
   return (
     <section className={bare ? "space-y-2" : "space-y-2 rounded-2xl border border-amber-300 bg-amber-50 p-3 dark:border-amber-800 dark:bg-amber-950/30"}>
-      <div className="flex flex-wrap items-center gap-2">
-        <DoorOpenIcon className="size-4 text-amber-700" />
-        <p className="flex-1 text-sm font-medium">แจ้งออก · เรียนวันสุดท้าย {fmtDate(ex.lastDate, { weekday: true })}</p>
-        <span className={cn("rounded-full px-2 py-0.5 text-xs", resp ? "bg-emerald-100 text-emerald-800" : "bg-amber-100 text-amber-900")}>{resp ? `ผู้ปกครองตอบแล้ว ${fmtDateTime(resp.submittedAt)}` : ex.fromParentRequest ? `ผู้ปกครองแจ้งทาง LINE ${fmtDateTime(ex.sentAt)}` : token ? `ส่งฟอร์มแล้ว ${fmtDateTime(ex.sentAt)} · รอคำตอบ` : "ยังไม่ได้ส่งฟอร์ม"}</span>
+      <div className="space-y-1.5">
+        <p className="flex items-center gap-2 text-sm font-medium">{!bare && <DoorOpenIcon className="size-4 text-amber-700" />}แจ้งออก · เรียนวันสุดท้าย {fmtDate(ex.lastDate, { weekday: true })}</p>
+        <span className={cn("inline-block rounded-full px-2 py-0.5 text-xs", resp ? "bg-emerald-100 text-emerald-800" : "bg-amber-100 text-amber-900")}>{resp ? `ผู้ปกครองตอบแล้ว ${fmtDateTime(resp.submittedAt)}` : ex.fromParentRequest ? `ผู้ปกครองแจ้งทาง LINE ${fmtDateTime(ex.sentAt)}` : token ? `ส่งฟอร์มแล้ว ${fmtDateTime(ex.sentAt)} · รอคำตอบ` : "ยังไม่ได้ส่งฟอร์ม"}</span>
       </div>
       {/* owner 2026-10-14: the parent told us from LINE — their reasons are already here, no form needed */}
       {ex.fromParentRequest && !resp && (ex.reasonId || ex.note) && <ReasonLine reasonId={ex.reasonId} note={ex.note} />}
