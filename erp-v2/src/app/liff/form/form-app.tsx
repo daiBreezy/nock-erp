@@ -277,18 +277,16 @@ export function LiffForm() {
         {/* owner 2026-11-06: the same header as the LINE OA app — a quiet two-line title, the language as a dropdown */}
         <header className="flex items-center gap-3">
           <div className="min-w-0 flex-1">
-            <p className="truncate text-lg font-semibold">{brandName}</p>
-            {branchName && <p className="truncate text-xs text-muted-foreground">{branchName}</p>}
+            {/* owner 2026-11-09: the FORM's name on top; business · branch under it (no second title below the header) */}
+            <p className="truncate text-lg font-semibold">{enroll ? te.title : t.formTitle(formType)}</p>
+            <p className="truncate text-xs text-muted-foreground">{brandName}{branchName ? ` · ${branchName}` : ""}</p>
           </div>
           {!preview && <NativeSelect className="w-32 shrink-0" value={lang} onChange={(e) => setLang(e.target.value as FormLang)} options={[{ value: "th", label: "ไทย" }, { value: "en", label: "English" }, { value: "ja", label: "日本語" }]} />}
         </header>
         {preview && <p className="rounded-2xl bg-amber-100 px-3 py-2 text-center text-xs text-amber-900">{t.previewBadge}</p>}
         {phase === "done" && <p className="flex items-center gap-2 rounded-2xl bg-emerald-100 px-3 py-2.5 text-sm text-emerald-900"><CheckCircle2Icon className="size-4 shrink-0" />{enroll ? `${te.sent} · ${te.sentSub}` : `${t.sent(formType)} · ${t.sentSub}`}</p>}
 
-        <div>
-          <h1 className="text-xl font-semibold">{enroll ? te.title : t.formTitle(formType)}</h1>
-          {displayName && phase !== "done" && <p className="text-sm text-muted-foreground">{t.hello(displayName)}</p>}
-        </div>
+        {displayName && phase !== "done" && <p className="text-sm text-muted-foreground">{t.hello(displayName)}</p>}
 
         <ol className="flex flex-wrap items-center gap-1.5 text-xs">
           {t.steps.map((label, i) => (
@@ -371,7 +369,7 @@ type Names = { subject: (x: string) => string; grade: (g: string) => string }
 
 function ParentCard({ t, lang, p, primary, linked, onEdit }: { t: T; lang: FormLang; p: ParentBlock; primary: boolean; linked?: string; onEdit?: () => void }) {
   return (
-    <Card>
+    <Card done>
       <div className="flex items-center gap-2">
         <span className="grid size-10 place-items-center rounded-full bg-primary/10 font-semibold text-primary">{p.first.slice(0, 1)}</span>
         <div className="min-w-0 flex-1">
@@ -403,7 +401,7 @@ function StudentCard({ t, lang, names, n, formType, student: s, grades, offers, 
   const age = ageOf(s.birthDate)
 
   return (
-    <Card>
+    <Card done={!s.editing}>
       {s.editing ? (
         <>
           <div className="flex items-center justify-between">
@@ -508,7 +506,7 @@ function Summary({ t, lang, names, parents, primaryIdx, fam, linked, students, o
   return (
     <div className="space-y-3">
       <p className="text-sm font-semibold">{t.parentTitle}</p>
-      <Card>
+      <Card done>
         <div className="flex items-center gap-2">
           <UsersIcon className="size-5 text-primary" />
           <p className="flex-1 font-semibold">{fam.name.trim() || t.familyNamePh(parents[primaryIdx]?.last ?? "")}{fam.nameEn.trim() && <span className="font-normal text-muted-foreground"> · {fam.nameEn}</span>}</p>
@@ -538,7 +536,7 @@ function Summary({ t, lang, names, parents, primaryIdx, fam, linked, students, o
       {students.map((s) => {
         const age = ageOf(s.birthDate)
         return (
-          <Card key={s.key}>
+          <Card key={s.key} done>
             <div className="flex items-center gap-2">
               <span className="grid size-10 place-items-center rounded-full bg-primary/10 font-semibold text-primary">{(s.nickname || s.first).slice(0, 1)}</span>
               <p className="min-w-0 flex-1 truncate font-semibold">{fullName(s)}{s.nickname && <span className="font-normal text-muted-foreground"> ({s.nickname})</span>}</p>
@@ -595,8 +593,9 @@ function SectionHead({ icon: Icon, title, sub, action }: { icon: React.Component
   )
 }
 
-function Card({ children }: { children: React.ReactNode }) {
-  return <div className="space-y-3 border-t pt-4 first:border-t-0 first:pt-0">{children}</div>
+/** a section being filled = flat, divider above; a section already filled in (`done`) = a card (owner 2026-11-09) */
+function Card({ children, done }: { children: React.ReactNode; done?: boolean }) {
+  return <div className={done ? "space-y-3 rounded-2xl bg-card p-4 shadow-sm ring-1 ring-foreground/5" : "space-y-3 border-t pt-4 first:border-t-0 first:pt-0"}>{children}</div>
 }
 
 function Line({ icon: Icon, children }: { icon: React.ComponentType<{ className?: string }>; children: React.ReactNode }) {
