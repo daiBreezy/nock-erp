@@ -34,7 +34,7 @@ const DICT = {
     teacher: "ครู", room: "ห้อง", cancelled: "งดเรียน", pickup: "รถรับ", dropoff: "รถส่ง", busNote: "เวลารถรับ-ส่งแอดมินจะแจ้งทาง LINE",
     noSummary: "ยังไม่มีสรุปการเรียน", noAttendance: "ยังไม่มีประวัติการเข้าเรียน", noBus: "ไม่ได้ใช้รถรับส่ง", present: "มาเรียน", absent: "ขาด", leave: "ลา",
     rate: "มาเรียน", updated: "อัปเดต", today: "วันนี้", tomorrow: "พรุ่งนี้",
-    courseEnd: "สรุปจบคอร์ส", newTag: "ใหม่", noCourseEnd: "ยังไม่มีสรุปจบคอร์ส", lessonNotes: "สรุปรายคาบ", view: "ดูสรุปและพัฒนาการ", back: "กลับ", whole: "ทั้งคอร์ส",
+    courseEnd: "สรุปจบคอร์ส", newTag: "ใหม่", nextClasses: "คาบเรียนถัดไป", allCourses: "คอร์สเรียนทั้งหมด", noCourseEnd: "ยังไม่มีสรุปจบคอร์ส", lessonNotes: "สรุปรายคาบ", view: "ดูสรุปและพัฒนาการ", back: "กลับ", whole: "ทั้งคอร์ส",
     overall: "ภาพรวมพัฒนาการ", strengths: "จุดแข็ง", improve: "สิ่งที่ควรฝึกเพิ่ม", progress: "พัฒนาการ", by: "สรุปโดย",
     request: "แจ้งเรื่อง", leaveReq: "แจ้งลาหยุด", leaveReqSub: "เลือกคาบที่จะไม่มาเรียน", exitReq: "แจ้งลาออก", exitReqSub: "แจ้งหยุดเรียน · แอดมินจะติดต่อกลับ",
     pickClasses: "เลือกคาบที่จะลา", noUpcoming: "ไม่มีคาบเรียนใน 30 วันข้างหน้า", noteLabel: "หมายเหตุถึงแอดมิน (ไม่บังคับ)", send: "ส่ง", sending: "กำลังส่ง…",
@@ -56,7 +56,7 @@ const DICT = {
     teacher: "Teacher", room: "Room", cancelled: "No class", pickup: "Pick-up", dropoff: "Drop-off", busNote: "Bus times will be sent on LINE by our staff",
     noSummary: "No lesson summaries yet", noAttendance: "No attendance yet", noBus: "Not using the school bus", present: "Present", absent: "Absent", leave: "Leave",
     rate: "Attended", updated: "Updated", today: "Today", tomorrow: "Tomorrow",
-    courseEnd: "Course summaries", newTag: "New", noCourseEnd: "No course summary yet", lessonNotes: "Lesson notes", view: "View summary & progress", back: "Back", whole: "Whole course",
+    courseEnd: "Course summaries", newTag: "New", nextClasses: "Next classes", allCourses: "All courses", noCourseEnd: "No course summary yet", lessonNotes: "Lesson notes", view: "View summary & progress", back: "Back", whole: "Whole course",
     overall: "Overall progress", strengths: "Strengths", improve: "To improve", progress: "Progress", by: "By",
     request: "Requests", leaveReq: "Report an absence", leaveReqSub: "Pick the classes your child will miss", exitReq: "Stop studying", exitReqSub: "Let us know · our staff will call you",
     pickClasses: "Classes to miss", noUpcoming: "No classes in the next 30 days", noteLabel: "Note to our staff (optional)", send: "Send", sending: "Sending…",
@@ -78,7 +78,7 @@ const DICT = {
     teacher: "講師", room: "教室", cancelled: "休講", pickup: "お迎え", dropoff: "お送り", busNote: "送迎時間はスタッフからLINEでお知らせします",
     noSummary: "授業レポートはまだありません", noAttendance: "出欠の記録はまだありません", noBus: "送迎バスの利用なし", present: "出席", absent: "欠席", leave: "お休み",
     rate: "出席率", updated: "更新", today: "今日", tomorrow: "明日",
-    courseEnd: "コース修了レポート", newTag: "新着", noCourseEnd: "コース修了レポートはまだありません", lessonNotes: "授業レポート", view: "レポートと成長を見る", back: "戻る", whole: "コース全体",
+    courseEnd: "コース修了レポート", newTag: "新着", nextClasses: "次の授業", allCourses: "受講中のコース", noCourseEnd: "コース修了レポートはまだありません", lessonNotes: "授業レポート", view: "レポートと成長を見る", back: "戻る", whole: "コース全体",
     overall: "全体の成長", strengths: "得意なところ", improve: "練習したいところ", progress: "成長の記録", by: "担当",
     request: "連絡", leaveReq: "お休みの連絡", leaveReqSub: "お休みする授業を選んでください", exitReq: "退会の連絡", exitReqSub: "スタッフからご連絡します",
     pickClasses: "お休みする授業", noUpcoming: "30日以内の授業はありません", noteLabel: "スタッフへのメモ（任意）", send: "送信", sending: "送信中…",
@@ -229,6 +229,8 @@ function Overview({ view, t, lang, today, dayLabel, nick, onDrill }: { view: Par
               <Pill tone={c.left ? "gray" : "blue"}>{c.left ? t.leftTag : c.grade}</Pill>
             </button>
             {next.length > 0 && (
+              <div className="space-y-1.5">
+              <p className="px-1 text-xs font-semibold text-muted-foreground">{t.nextClasses}</p>
               <div className="overflow-hidden rounded-[8px] bg-card text-sm ring-1 ring-foreground/5">
                 {next.map((x) => (
                   <button key={x.sessionId} type="button" onClick={() => onDrill(c.id, x.courseId)} className="flex w-full items-center gap-2 px-3 py-1.5 text-left">
@@ -238,10 +240,16 @@ function Overview({ view, t, lang, today, dayLabel, nick, onDrill }: { view: Par
                   </button>
                 ))}
               </div>
+              </div>
             )}
             {c.left ? <p className="text-xs text-muted-foreground">{t.leftSince(fmtDay(c.left.since, lang))}</p>
               : c.packages.length === 0 ? <p className="text-sm text-muted-foreground">{t.noCourses}</p>
-              : <CourseRows pkgs={c.packages} t={t} lang={lang} onPick={(courseId) => onDrill(c.id, courseId)} />}
+              : (
+                <div className="space-y-1.5">
+                  <p className="px-1 text-xs font-semibold text-muted-foreground">{t.allCourses}</p>
+                  <CourseRows pkgs={c.packages} t={t} lang={lang} onPick={(courseId) => onDrill(c.id, courseId)} />
+                </div>
+              )}
           </section>
         )
       })}
