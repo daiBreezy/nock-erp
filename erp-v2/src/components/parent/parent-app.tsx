@@ -2,7 +2,7 @@
 
 // Parent app v1 (owner 2026-10-09) — what a parent sees inside LINE. Pure view of a ParentView: no store, no staff data,
 // so the same screen runs on the parent's phone (/liff/parent) and in the staff preview (Family › ดูแบบผู้ปกครอง).
-import { useEffect, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import dynamic from "next/dynamic"
 import { ArrowLeftIcon, BookOpenIcon, EllipsisIcon, LayoutDashboardIcon, ChevronDownIcon, CalendarOffIcon, LoaderCircleIcon, BusIcon, MapPinHouseIcon, CalendarDaysIcon, ChevronRightIcon, GraduationCapIcon, DoorOpenIcon, MessageSquareTextIcon, UserIcon } from "lucide-react"
 import type { ParentChild, ParentCourseSummary, ParentView } from "@/domain/rules/parent-view"
@@ -153,6 +153,23 @@ export function ParentApp({ view, lang: initialLang, today, framed, openCourseSu
   const dayLabel = (d: string) => (d === today ? t.today : d === tomorrow ? t.tomorrow : fmtDay(d, lang))
   const usesBus = view.children.some((c) => c.busDays.length > 0)
   // owner 2026-11-06: schedule + attendance + summaries + bus are ONE page; absences and bus asks live on each class row
+  const showChildTabs = view.children.length > 1 && (cur === "study" || cur === "overview")
+  const childTabs = showChildTabs ? (
+    <Tabs className="-mx-4 px-4" value={childId} onChange={(id) => { setChildId(id); setCourse("") }} options={[{ value: "", label: t.all }, ...view.children.map((c) => ({ value: c.id, label: nick(c) }))]} />
+  ) : null
+  // the compact bar shows once the full header has left the screen (works for the framed preview and the real LINE page alike)
+  const headerRef = useRef<HTMLElement>(null)
+  const [compact, setCompact] = useState(false)
+  useEffect(() => {
+    const el = headerRef.current
+    if (!el || typeof IntersectionObserver === "undefined") return
+    // watch inside the nearest scrolling box (the framed preview scrolls an inner div; the real LINE page scrolls the window → root null)
+    let root: HTMLElement | null = el.parentElement
+    while (root && !/(auto|scroll)/.test(getComputedStyle(root).overflowY)) root = root.parentElement
+    const io = new IntersectionObserver(([e]) => setCompact(!e.isIntersecting), { root })
+    io.observe(el)
+    return () => io.disconnect()
+  }, [])
   const tabs: { key: Tab; label: string; icon: typeof CalendarDaysIcon }[] = [
     ...(paid ? [{ key: "overview" as Tab, label: t.overview, icon: LayoutDashboardIcon }, { key: "study" as Tab, label: t.schedule, icon: CalendarDaysIcon }] : []),
     { key: "catalog", label: t.catalog, icon: BookOpenIcon },
@@ -162,15 +179,22 @@ export function ParentApp({ view, lang: initialLang, today, framed, openCourseSu
   return (
     <div className={cn("mx-auto flex max-w-lg flex-col bg-background", framed ? "min-h-full" : "min-h-dvh")}>
       {/* owner 2026-11-06: no blue band, no greeting — a quiet line of who/where; the child switcher only where a child is the subject */}
-      <header className="space-y-2.5 px-4 pt-4">
+      <header ref={headerRef} className="space-y-2.5 px-4 pt-4">
         <div>
           <p className="truncate text-lg font-semibold">{family}</p>
           <p className="truncate text-xs text-muted-foreground">{brand === "liclass" ? "Liclass" : "NockAcademy"} · {child?.branchName}</p>
         </div>
-        {view.children.length > 1 && (cur === "study" || cur === "overview") && (
-          <Tabs className="-mx-4 px-4" value={childId} onChange={(id) => { setChildId(id); setCourse("") }} options={[{ value: "", label: t.all }, ...view.children.map((c) => ({ value: c.id, label: nick(c) }))]} />
-        )}
+        {childTabs}
       </header>
+      {/* owner 2026-11-09 (option ข): the header never scrolls away for good — once the full one is out of sight a small bar takes
+          its place at the top (family name + the child tabs). It lives in a zero-height sticky wrapper, so showing / hiding it
+          never moves the content (no jump, no scroll ping-pong) */}
+      <div className="pointer-events-none sticky top-0 z-20 h-0">
+        <div className={cn("pointer-events-auto absolute inset-x-0 top-0 flex items-center gap-2 border-b bg-background/95 px-4 backdrop-blur transition-opacity duration-150", compact ? "opacity-100" : "invisible opacity-0")} aria-hidden={!compact}>
+          <p className={cn("truncate text-sm font-semibold", childTabs ? "max-w-[34%] shrink-0" : "py-2.5")}>{family}</p>
+          {childTabs && <div className="min-w-0 flex-1">{childTabs}</div>}
+        </div>
+      </div>
 
       <main className={cn("flex-1 space-y-4 p-3", framed ? "pb-3" : "pb-24")}>
         {/* owner 2026-10-19: a family on the bus without a home pin is asked for it, wherever they are in the app */}
