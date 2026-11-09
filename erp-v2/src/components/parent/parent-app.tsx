@@ -155,20 +155,33 @@ export function ParentApp({ view, lang: initialLang, today, framed, openCourseSu
   // owner 2026-11-06: schedule + attendance + summaries + bus are ONE page; absences and bus asks live on each class row
   const showChildTabs = view.children.length > 1 && (cur === "study" || cur === "overview")
   const childTabs = showChildTabs ? (
-    <Tabs className="-mx-4 px-4" value={childId} onChange={(id) => { setChildId(id); setCourse("") }} options={[{ value: "", label: t.all }, ...view.children.map((c) => ({ value: c.id, label: nick(c) }))]} />
+    <Tabs className="border-b-0" value={childId} onChange={(id) => { setChildId(id); setCourse("") }} options={[{ value: "", label: t.all }, ...view.children.map((c) => ({ value: c.id, label: nick(c) }))]} />
   ) : null
-  // the compact bar shows once the full header has left the screen (works for the framed preview and the real LINE page alike)
+  // owner 2026-11-09: the header shrinks WITH the scroll, no jump. It is sticky with a negative `top` equal to its big block, so the
+  // family name + branch scroll away smoothly and the bar (small name + child tabs) stays. --p (0→1) is the scroll progress; it
+  // only fades the small name in. The header's flow height never changes → no layout shift, no scroll ping-pong.
   const headerRef = useRef<HTMLElement>(null)
-  const [compact, setCompact] = useState(false)
+  const bigRef = useRef<HTMLDivElement>(null)
+  const [bigH, setBigH] = useState(60)
   useEffect(() => {
-    const el = headerRef.current
-    if (!el || typeof IntersectionObserver === "undefined") return
-    // watch inside the nearest scrolling box (the framed preview scrolls an inner div; the real LINE page scrolls the window → root null)
-    let root: HTMLElement | null = el.parentElement
-    while (root && !/(auto|scroll)/.test(getComputedStyle(root).overflowY)) root = root.parentElement
-    const io = new IntersectionObserver(([e]) => setCompact(!e.isIntersecting), { root })
-    io.observe(el)
-    return () => io.disconnect()
+    const el = headerRef.current, big = bigRef.current
+    if (!el || !big) return
+    const h = big.offsetHeight
+    setBigH(h)
+    // scroll box: the nearest scrolling ancestor (the framed preview scrolls an inner div; the real LINE page scrolls the window)
+    let box: HTMLElement | null = el.parentElement
+    while (box && !/(auto|scroll)/.test(getComputedStyle(box).overflowY)) box = box.parentElement
+    let raf = 0
+    const update = () => {
+      raf = 0
+      const top = box ? box.scrollTop : window.scrollY
+      el.style.setProperty("--p", String(Math.min(1, Math.max(0, top / Math.max(1, h)))))
+    }
+    const onScroll = () => { if (!raf) raf = requestAnimationFrame(update) }
+    update()
+    const target: HTMLElement | Window = box ?? window
+    target.addEventListener("scroll", onScroll, { passive: true })
+    return () => { target.removeEventListener("scroll", onScroll); if (raf) cancelAnimationFrame(raf) }
   }, [])
   const tabs: { key: Tab; label: string; icon: typeof CalendarDaysIcon }[] = [
     ...(paid ? [{ key: "overview" as Tab, label: t.overview, icon: LayoutDashboardIcon }, { key: "study" as Tab, label: t.schedule, icon: CalendarDaysIcon }] : []),
@@ -179,22 +192,17 @@ export function ParentApp({ view, lang: initialLang, today, framed, openCourseSu
   return (
     <div className={cn("mx-auto flex max-w-lg flex-col bg-background", framed ? "min-h-full" : "min-h-dvh")}>
       {/* owner 2026-11-06: no blue band, no greeting — a quiet line of who/where; the child switcher only where a child is the subject */}
-      <header ref={headerRef} className="space-y-2.5 px-4 pt-4">
-        <div>
+      <header ref={headerRef} style={{ top: -bigH }} className="sticky z-20 bg-background [--p:0]">
+        <div ref={bigRef} className="px-4 pb-2.5 pt-4">
           <p className="truncate text-lg font-semibold">{family}</p>
           <p className="truncate text-xs text-muted-foreground">{brand === "liclass" ? "Liclass" : "NockAcademy"} · {child?.branchName}</p>
         </div>
-        {childTabs}
-      </header>
-      {/* owner 2026-11-09 (option ข): the header never scrolls away for good — once the full one is out of sight a small bar takes
-          its place at the top (family name + the child tabs). It lives in a zero-height sticky wrapper, so showing / hiding it
-          never moves the content (no jump, no scroll ping-pong) */}
-      <div className="pointer-events-none sticky top-0 z-20 h-0">
-        <div className={cn("pointer-events-auto absolute inset-x-0 top-0 flex items-center gap-2 border-b bg-background/95 px-4 backdrop-blur transition-opacity duration-150", compact ? "opacity-100" : "invisible opacity-0")} aria-hidden={!compact}>
-          <p className={cn("truncate text-sm font-semibold", childTabs ? "max-w-[34%] shrink-0" : "py-2.5")}>{family}</p>
+        {/* the bar that stays: small name (slides in as you scroll) + the child tabs. One child → no tabs, the bar just hangs under the header */}
+        <div className={cn("flex items-center gap-2 border-b bg-background/95 px-4 backdrop-blur", !childTabs && "pointer-events-none absolute inset-x-0 top-full py-2.5")} style={!childTabs ? { opacity: "var(--p)" } : undefined}>
+          <p className="truncate text-sm font-semibold" style={{ maxWidth: "calc(var(--p) * 34%)", opacity: "var(--p)", flexShrink: 0 }}>{family}</p>
           {childTabs && <div className="min-w-0 flex-1">{childTabs}</div>}
         </div>
-      </div>
+      </header>
 
       <main className={cn("flex-1 space-y-4 p-3", framed ? "pb-3" : "pb-24")}>
         {/* owner 2026-10-19: a family on the bus without a home pin is asked for it, wherever they are in the app */}
@@ -292,7 +300,8 @@ function CourseRows({ pkgs, t, lang, onPick }: { child?: ParentChild; pkgs: Pare
         const stats = [[t.statDone, `${p.done}/${p.sessions}`], [t.statPresent, `${p.present}`], [t.statLeave, `${p.leaves}/${p.leaveQuota}`], [t.statLeft, p.remaining != null ? `${p.remaining}` : "–"]]
         return (
           // owner ref 2026-11-06: subject tile · name + dates · link · 4 equal numbers in one outlined pill · one line per weekly class with its own progress
-          <section key={i} className="space-y-3 rounded-[16px] bg-card p-4 shadow-sm ring-1 ring-foreground/5">
+          // owner 2026-11-09: each course card carries its subject's light colour (the same one as the calendar) so the courses tell apart at a glance
+          <section key={i} className={cn("space-y-3 rounded-[16px] border p-4 shadow-sm", subjectColor(p.subject ?? "").soft)}>
             <div className="flex items-center gap-3">
               <span className={cn("grid size-11 shrink-0 place-items-center rounded-[8px] text-sm font-semibold", subjectColor(p.subject ?? "").chip)}>{(p.subject ?? "?").slice(0, 2)}</span>
               <span className="min-w-0 flex-1">
@@ -301,7 +310,7 @@ function CourseRows({ pkgs, t, lang, onPick }: { child?: ParentChild; pkgs: Pare
               </span>
               {onPick && <button type="button" onClick={() => onPick(p.courseId)} className="flex shrink-0 items-center gap-0.5 text-xs text-primary">{t.openSchedule}<ChevronRightIcon className="size-3.5" /></button>}
             </div>
-            <div className="grid grid-cols-4 divide-x rounded-[8px] border py-2 text-center">
+            <div className="grid grid-cols-4 divide-x rounded-[8px] border bg-background/70 py-2 text-center">
               {stats.map(([label, value]) => (
                 <div key={label}><p className="text-lg leading-tight font-semibold tabular-nums">{value}</p><p className="text-[11px] text-muted-foreground">{label}</p></div>
               ))}
