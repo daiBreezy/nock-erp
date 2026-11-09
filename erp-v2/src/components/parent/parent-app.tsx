@@ -201,13 +201,14 @@ export function ParentApp({ view, lang: initialLang, today, framed, openCourseSu
       <header ref={headerRef} style={{ top: -bigH }} className="group sticky z-20 bg-background [--p:0]">
         <div ref={bigRef} className="px-4 pb-2.5 pt-4">
           {summaryKid ? (
-            <div className="flex items-center gap-1">
-              <button type="button" aria-label={t.back} onClick={() => setCsId(null)} className="-ml-2 grid size-9 shrink-0 place-items-center rounded-full text-muted-foreground hover:bg-muted"><ArrowLeftIcon className="size-5" /></button>
-              <p className="min-w-0 flex-1 truncate text-lg font-semibold">{nick(summaryKid)}</p>
+            <div className="flex items-center gap-1.5">
+              <button type="button" aria-label={t.back} onClick={() => setCsId(null)} className="-ml-1.5 grid size-7 shrink-0 place-items-center rounded-full text-muted-foreground hover:bg-muted"><ArrowLeftIcon className="size-5" /></button>
+              {/* the child's name, then the family — small and light (owner 2026-11-09) */}
+              <p className="min-w-0 flex-1 truncate"><span className="text-lg font-semibold">{nick(summaryKid)}</span><span className="ml-2 text-xs text-muted-foreground/70">{family}</span></p>
               <Pill tone="blue">{summaryKid.grade}</Pill>
             </div>
           ) : <p className="truncate text-lg font-semibold">{family}</p>}
-          <p className={cn("truncate text-xs text-muted-foreground", summaryKid && "pl-8")}>{brand === "liclass" ? "Liclass" : "NockAcademy"} · {child?.branchName}</p>
+          <p className={cn("truncate text-xs leading-4 text-muted-foreground", summaryKid && "pl-[34px]")}>{brand === "liclass" ? "Liclass" : "NockAcademy"} · {child?.branchName}</p>
         </div>
         {/* the bar that stays: small name (slides in as you scroll) + the child tabs. No tabs → the bar just hangs under the header */}
         <div className={cn("flex items-center gap-2 border-b bg-background/95 px-4 backdrop-blur", !barBody && "pointer-events-none absolute inset-x-0 top-full py-2.5 group-data-[stuck=true]:pointer-events-auto")} style={!barBody ? { opacity: "var(--p)" } : undefined}>
