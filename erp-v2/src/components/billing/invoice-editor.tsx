@@ -519,8 +519,9 @@ function LineCard({ index, draft, quote, studentId, studentGrade, choices, overl
   const q = quote?.quote
   const mismatch = studentGrade && course && !course.grades.includes(studentGrade)
   if (!course) return null
+  // container queries (@…): the card reacts to ITS OWN width — a narrow side panel on a wide screen stays one row per class
   return (
-    <div className="space-y-3 rounded-2xl border p-3">
+    <div className="@container space-y-3 rounded-2xl border p-3">
       <div className="flex items-start gap-2">
         <span className="grid size-6 shrink-0 place-items-center rounded-full bg-muted text-xs font-semibold">{index + 1}</span>
         <div className="min-w-0 flex-1">
@@ -542,16 +543,16 @@ function LineCard({ index, draft, quote, studentId, studentGrade, choices, overl
           {picking && days.length > 1 && (
             <>
               {/* wide: the shared segmented switch · phone: a dropdown (the 8 day pills did not fit) */}
-              <Segmented className="hidden sm:inline-flex" label="วัน" value={String(day ?? "all")} onChange={(v) => setDay(v === "all" ? null : Number(v))}
+              <Segmented className="hidden @lg:inline-flex" label="วัน" value={String(day ?? "all")} onChange={(v) => setDay(v === "all" ? null : Number(v))}
                 options={[{ value: "all", label: "ทุกวัน" }, ...days.map((d) => ({ value: String(d), label: WEEKDAY_SHORT[d] }))]} />
-              <NativeSelect className="w-36 sm:hidden" aria-label="วัน" value={String(day ?? "all")} onChange={(e) => setDay(e.target.value === "all" ? null : Number(e.target.value))}
+              <NativeSelect className="w-36 @lg:hidden" aria-label="วัน" value={String(day ?? "all")} onChange={(e) => setDay(e.target.value === "all" ? null : Number(e.target.value))}
                 options={[{ value: "all", label: "ทุกวัน" }, ...days.map((d) => ({ value: String(d), label: WEEKDAY_SHORT[d] }))]} />
             </>
           )}
           {chosen.length > 0 && <Button size="sm" variant="outline" onClick={() => setOpenPicker((v) => !v)}>{picking ? "เสร็จ" : "เพิ่ม / เปลี่ยนคลาส"}</Button>}
         </div>
         {fits.length === 0 && !showAll && picking && <p className="text-xs text-muted-foreground">ไม่มีคลาสที่ตรงวิชา/รูปแบบของคอร์สนี้ — กด &quot;แสดงคลาสอื่น&quot; เพื่อเลือกคลาสไหนก็ได้</p>}
-        <div className="grid gap-1.5 sm:grid-cols-2">
+        <div className="grid gap-1.5 @3xl:grid-cols-2">
           {choices.filter(({ klass: k, warnings }) => (picking ? ((showAll || !warnings.length || draft.classIds.includes(k.id)) && (day === null || k.weekday === day || draft.classIds.includes(k.id))) : draft.classIds.includes(k.id))).map(({ klass: k, warnings }) => {
             const t = staff.find((x) => x.id === k.teacherId)
             const cap = CAPACITY[k.type]
@@ -560,12 +561,12 @@ function LineCard({ index, draft, quote, studentId, studentGrade, choices, overl
             const notes = [...(t?.active ? [] : ["ยังไม่มีครู"]), ...(over ? [`เกินที่แนะนำ ${cap} คน`] : []), ...warnings]
             const seat = draft.seats?.[k.id] ?? { offset: 0, minutes: k.minutes }
             return (
-              <div key={k.id} className={cn("space-y-1", on && k.minutes > 60 && "sm:col-span-2")}>
+              <div key={k.id} className={cn("space-y-1", on && k.minutes > 60 && "@3xl:col-span-2")}>
                 <button type="button" onClick={() => toggleClass(k.id)} aria-pressed={on}
                   className={cn("flex min-h-9 w-full items-center gap-2 rounded-xl border px-3 py-1.5 text-left text-sm", on ? "border-primary bg-primary/5" : "hover:bg-muted/50", warnings.length > 0 && !on && "border-dashed")}>
                   <span className={cn("grid size-4 shrink-0 place-items-center rounded border", on && "border-primary bg-primary text-primary-foreground")}>{on && <CheckIcon className="size-3" />}</span>
                   <span className="min-w-0 flex-1 truncate"><span className="font-medium">{WEEKDAY_SHORT[k.weekday]} {k.start}</span> · {k.name}</span>
-                  <span className="hidden shrink-0 text-xs text-muted-foreground sm:inline">{t?.active ? `ครู${t.nickname}` : "ยังไม่มีครู"} · {k.minutes} นาที · {k.studentIds.length} คน</span>
+                  <span className="hidden shrink-0 text-xs text-muted-foreground @md:inline @3xl:hidden @4xl:inline">{t?.active ? `ครู${t.nickname}` : "ยังไม่มีครู"} · {k.minutes} นาที · {k.studentIds.length} คน</span>
                   {/* the icon slot is ALWAYS there (empty when no warning) so the meta text ends at the same x in every row */}
                   <span className="grid size-4 shrink-0 place-items-center text-amber-600">
                     {notes.length > 0 && (
@@ -665,7 +666,7 @@ function LineCard({ index, draft, quote, studentId, studentGrade, choices, overl
                       </HoverCard>
                     )}
                   </td>
-                  {course.unit === "month" && <td className="hidden px-3 py-1.5 text-right text-xs text-muted-foreground sm:table-cell">{`${p.weeks?.length ?? 0} สัปดาห์ → ${Math.round(p.factor * 100)}%`}</td>}
+                  {course.unit === "month" && <td className="hidden px-3 py-1.5 text-right text-xs text-muted-foreground @md:table-cell">{`${p.weeks?.length ?? 0} สัปดาห์ → ${Math.round(p.factor * 100)}%`}</td>}
                   <td className="px-3 py-1.5 text-right font-medium tabular-nums">{fmtMoney(p.amount)}</td>
                 </tr>
               ))}
