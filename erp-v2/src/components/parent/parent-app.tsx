@@ -603,8 +603,9 @@ function CourseEnd({ cs, t, lang, onBack }: { cs: ParentCourseSummary; t: T; lan
       {block(t.overall, cs.overallProgress)}
       {block(t.strengths, cs.strengths)}
       {block(t.improve, cs.toImprove)}
-      <section className="space-y-2 rounded-[8px] bg-card ring-1 ring-foreground/5 p-3 shadow-sm">
-        <p className="text-sm font-semibold">{t.progress}{only && ` · ${only}`}</p>
+      {/* owner 2026-11-09: no outer card — the numbers and charts are cards already; a frame around them only ate the edges */}
+      <section className="space-y-2">
+        <p className="px-1 text-sm font-semibold">{t.progress}{only && ` · ${only}`}</p>
         <CourseProgress rows={rows} hideAi />
       </section>
     </div>
