@@ -11,7 +11,7 @@ import { ParentApp } from "@/components/parent/parent-app"
 import { toDateStr } from "@/domain/dates"
 import type { ParentCourseSummary } from "@/domain/rules/parent-view"
 import type { Family } from "@/domain/types"
-import { SAMPLE_COURSE, SAMPLE_IMPROVE, SAMPLE_OVERALL, SAMPLE_STRENGTHS, SAMPLE_TEACHER } from "@/data/line-preview-sample"
+import { SAMPLE_SESSION_DETAILS, SAMPLE_SESSION_NOTES, SAMPLE_COURSE, SAMPLE_IMPROVE, SAMPLE_OVERALL, SAMPLE_STRENGTHS, SAMPLE_TEACHER } from "@/data/line-preview-sample"
 import { catalogSnapshot } from "@/lib/forms"
 import { useNow } from "@/lib/hooks"
 import { buildParentView } from "@/lib/parent-app"
@@ -71,6 +71,8 @@ function ParentPhone({ paid }: { paid: boolean }) {
     const v = { ...buildParentView(family), paid }
     // owner 2026-11-09: a sample course summary (already "sent") so the preview shows the card on the Overview and the full page
     const kid = v.children[0]
+    // sample session notes at real length replace the short seed ones, so the rows are judged at the length parents really get
+    if (paid && kid) kid.summaries = kid.summaries.map((x, i) => ({ ...x, text: SAMPLE_SESSION_NOTES[i % SAMPLE_SESSION_NOTES.length], detail: x.detail ?? SAMPLE_SESSION_DETAILS[i % SAMPLE_SESSION_DETAILS.length] }))
     if (paid && kid && !(kid.courseSummaries ?? []).length) {
       const day = (n: number) => toDateStr(new Date(new Date(`${toDateStr(now)}T12:00:00`).getTime() - n * 86_400_000))
       const rows = [60, 53, 46, 39, 32, 25, 18, 11, 4].map((n, i) => ({ date: day(n), attended: (i === 3 ? "leave" : "present") as "leave" | "present" }))

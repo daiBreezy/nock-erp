@@ -5,7 +5,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react"
 import dynamic from "next/dynamic"
 import { AI_TONE, AiIcon } from "@/components/app/ai"
-import { ArrowLeftIcon, BookOpenIcon, EllipsisIcon, LayoutDashboardIcon, ChevronDownIcon, CalendarOffIcon, LoaderCircleIcon, BusIcon, MapPinHouseIcon, CalendarDaysIcon, ChevronRightIcon, GraduationCapIcon, DoorOpenIcon, MessageSquareTextIcon, UserIcon } from "lucide-react"
+import { ArrowLeftIcon, BookOpenIcon, EllipsisIcon, LayoutDashboardIcon, ChevronDownIcon, CalendarOffIcon, LoaderCircleIcon, BusIcon, MapPinHouseIcon, CalendarDaysIcon, ChevronRightIcon, DoorOpenIcon, UserIcon } from "lucide-react"
 import type { ParentChild, ParentCourseSummary, ParentView } from "@/domain/rules/parent-view"
 import { progressForSubject } from "@/domain/rules/summaries"
 import { InfoTip } from "@/components/app/info-tip"
@@ -415,18 +415,11 @@ function Study({ today, course, setCourse, kids, nick, t, lang, dayLabel, csId, 
             const owner = kids.find((k) => (k.courseSummaries ?? []).some((c) => c.id === x.id))
             const fresh = daysBetween(x.sentAt?.slice(0, 10) ?? x.to, today) <= 30
             return (
-              <button key={x.id} type="button" onClick={() => setCsId(x.id)} className="block w-full rounded-[16px] bg-card p-4 text-left shadow-sm ring-1 ring-foreground/5">
-                <span className="flex items-center gap-3">
-                  <span className="grid size-11 shrink-0 place-items-center rounded-[8px] bg-primary/10 text-primary"><GraduationCapIcon className="size-5" /></span>
-                  <span className="min-w-0 flex-1">
-                    <span className="flex items-center gap-2"><span className="min-w-0 flex-1 truncate text-base font-semibold">{multi && owner ? `${nick(owner)} · ` : ""}{x.course}</span>{fresh && <Pill tone="red">{t.newTag}</Pill>}</span>
-                    <span className="block truncate text-xs text-muted-foreground">{fmtDay(x.from, lang)} – {fmtDay(x.to, lang)}{x.teacher && ` · ${t.by} ${x.teacher}`}</span>
-                  </span>
-                </span>
-                {/* the reading drops under the title — full width, no indent from the icon — 3 lines only */}
-                <span className="mt-3 line-clamp-3 text-sm text-muted-foreground">{x.overallProgress.replace(/\s*\n\s*/g, " ")}</span>
+              <CourseSummaryCard key={x.id} cs={x} t={t} lang={lang} prefix={multi && owner ? `${nick(owner)} · ` : undefined} fresh={fresh} onOpen={() => setCsId(x.id)}>
+                {/* the reading drops under the title — full width — 3 lines only */}
+                <span className="mt-3 line-clamp-3 block text-sm text-muted-foreground">{x.overallProgress.replace(/\s*\n\s*/g, " ")}</span>
                 <span className="mt-2 flex items-center gap-0.5 text-xs font-medium text-primary">{t.view}<ChevronRightIcon className="size-3.5" /></span>
-              </button>
+              </CourseSummaryCard>
             )
           })}
         </div>
@@ -454,16 +447,16 @@ function PastRow({ r, t, lang, tag }: { r: { date: string; start: string; subjec
       </button>
       {open && (
         <div className="space-y-2 border-t px-3 pt-2.5 pb-3">
-          {(tag || r.sum?.teacher) && <p className="flex flex-wrap gap-x-3 text-xs text-muted-foreground">{r.sum?.teacher && <span className="flex items-center gap-1"><UserIcon className="size-3" />{t.teacher} {r.sum.teacher}</span>}{tag && <span>{tag}</span>}</p>}
-          <div className="flex items-start gap-1.5 rounded-[8px] bg-muted/50 p-2 text-xs">
-            <MessageSquareTextIcon className="mt-0.5 size-3.5 shrink-0 text-muted-foreground" />
-            {r.sum ? (
-              <span className="min-w-0 flex-1">
-                {r.sum.detail && <span className="block font-medium">{r.sum.detail}</span>}
-                <span className="block whitespace-pre-line">{r.sum.text}</span>
-              </span>
-            ) : <span className="text-muted-foreground">{t.noSummaryYet}</span>}
-          </div>
+          {/* owner 2026-11-09: no icons — one line each: teacher, course, then the summary. A summary the teacher wrote is a white, readable
+              block; one NOT written yet is a dashed, quiet line — the two must not look alike */}
+          {r.sum?.teacher && <p className="text-xs text-muted-foreground">{t.teacher} {r.sum.teacher}</p>}
+          {tag && <p className="text-xs text-muted-foreground">{tag}</p>}
+          {r.sum ? (
+            <div className="rounded-[12px] bg-background p-3 text-sm text-foreground shadow-sm ring-1 ring-foreground/5">
+              {r.sum.detail && <p className="mb-1 text-xs font-medium text-muted-foreground">{r.sum.detail}</p>}
+              <p className="whitespace-pre-line leading-relaxed">{r.sum.text}</p>
+            </div>
+          ) : <p className="rounded-[12px] border border-dashed px-3 py-2 text-xs italic text-muted-foreground">{t.noSummaryYet}</p>}
         </div>
       )}
     </li>
@@ -614,14 +607,11 @@ function CourseEnd({ cs, t, lang }: { cs: ParentCourseSummary; t: T; lang: FormL
   }
   return (
     <div className="space-y-3">
-      <section className="rounded-[16px] bg-card ring-1 ring-foreground/5 p-3 shadow-sm">
-        <p className="flex items-center gap-1.5 text-xs text-muted-foreground"><GraduationCapIcon className="size-3.5" />{t.courseEnd}</p>
-        <p className="mt-0.5 text-lg font-semibold">{cs.course}</p>
-        <p className="text-xs text-muted-foreground">{fmtDay(cs.from, lang)} – {fmtDay(cs.to, lang)}{cs.teacher && ` · ${t.by} ${cs.teacher}`}</p>
+      <CourseSummaryCard cs={cs} t={t} lang={lang}>
         {cs.bundle && (
           <FilterChipGroup className="mt-2.5" layout="scroll" value={only} onChange={setOnly} options={["", ...cs.subjects].map((x) => ({ value: x, label: x || t.whole }))} />
         )}
-      </section>
+      </CourseSummaryCard>
       {/* owner 2026-11-09: ภาพรวมพัฒนาการ = the whole course in words, in the AI blue. (The per-session summaries live in ตารางเรียน › ผ่านไปแล้ว — not repeated here.) */}
       <section className={cn("overflow-hidden rounded-[16px] shadow-sm ring-1 ring-foreground/5", AI_TONE.surface)}>
         <p className="flex items-center gap-2 px-3 pb-1 pt-3"><AiIcon className="size-6" /><span className={cn("text-sm font-semibold", AI_TONE.text)}>{t.overall}{only && ` · ${only}`}</span></p>
@@ -714,6 +704,21 @@ function ClampedParagraphs({ paras, showSubject, readAll, less, maxLines = 10, c
       </div>
     </div>
   )
+}
+
+/** The course-summary card — the SAME look on the list (ตารางเรียน › สรุปจบคอร์ส) and at the top of the summary page (owner 2026-11-09):
+ *  small caption, big course name, dates · teacher. The list adds the 3-line reading + link as children. No icon in front. */
+function CourseSummaryCard({ cs, t, lang, prefix, fresh, onOpen, children }: { cs: ParentCourseSummary; t: T; lang: FormLang; prefix?: string; fresh?: boolean; onOpen?: () => void; children?: React.ReactNode }) {
+  const inner = (
+    <>
+      <span className="flex items-center gap-2 text-xs text-muted-foreground"><span className="flex-1">{t.courseEnd}</span>{fresh && <Pill tone="red">{t.newTag}</Pill>}</span>
+      <span className="mt-0.5 block text-lg font-semibold">{prefix}{cs.course}</span>
+      <span className="block text-xs text-muted-foreground">{fmtDay(cs.from, lang)} – {fmtDay(cs.to, lang)}{cs.teacher && ` · ${t.by} ${cs.teacher}`}</span>
+      {children}
+    </>
+  )
+  const cls = "block w-full rounded-[16px] bg-card p-4 text-left shadow-sm ring-1 ring-foreground/5"
+  return onOpen ? <button type="button" onClick={onOpen} className={cls}>{inner}</button> : <section className={cls}>{inner}</section>
 }
 
 /** แจ้งลาหยุด / แจ้งลาออก (owner 2026-10-14) — goes to the office team in the ERP; the parent is told on LINE */
