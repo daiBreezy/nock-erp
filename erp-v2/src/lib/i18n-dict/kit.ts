@@ -267,4 +267,8 @@ export const KIT: Record<string, Entry> = {
   "ยกเลิกใบแจ้งหนี้ (Void)": { en: "Void invoice", ja: "請求書の取消（Void）" },
   "วันที่เลือกเป็นวันหยุดบริษัท — ระบบข้ามไปคาบถัดไปให้": { en: "The chosen day is a company holiday — the system skips to the next session", ja: "選んだ日は会社の休日です — 次の授業に自動でスキップされます" },
   "ข้อความจริงที่ระบบส่งให้ผู้ปกครอง · Liclass = ญี่ปุ่น + อังกฤษ · NockAcademy = ไทย + อังกฤษ — ดูอย่างเดียว ไม่ส่งจริง": { en: "The real texts the system sends to parents · Liclass = Japanese + English · NockAcademy = Thai + English — view only, nothing is sent", ja: "システムが保護者に送る実際のメッセージ · Liclass＝日本語＋英語 · NockAcademy＝タイ語＋英語 — 閲覧のみで送信されません" },
+  "กล้าถามครูมากขึ้น": { en: "Asks the teacher more", ja: "先生に自分から質問できました" },
+  "อังกฤษ ป.4–ม.1 รายเดือน": { en: "English P.4–M.1 Monthly", ja: "英語 小4〜中1 月謝" },
+  "ตั้งใจฟัง · กล้าถามเมื่อไม่เข้าใจ": { en: "Listens well · asks when unsure", ja: "集中力が高い · 質問をよくする" },
+  "ฝึกอ่านบทความยาวเพิ่มอีกนิด": { en: "Practise a little more long reading", ja: "長文の読解をもう少し練習しましょう" },
 }

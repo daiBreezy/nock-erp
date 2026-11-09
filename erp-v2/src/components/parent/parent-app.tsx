@@ -34,7 +34,7 @@ const DICT = {
     teacher: "ครู", room: "ห้อง", cancelled: "งดเรียน", pickup: "รถรับ", dropoff: "รถส่ง", busNote: "เวลารถรับ-ส่งแอดมินจะแจ้งทาง LINE",
     noSummary: "ยังไม่มีสรุปการเรียน", noAttendance: "ยังไม่มีประวัติการเข้าเรียน", noBus: "ไม่ได้ใช้รถรับส่ง", present: "มาเรียน", absent: "ขาด", leave: "ลา",
     rate: "มาเรียน", updated: "อัปเดต", today: "วันนี้", tomorrow: "พรุ่งนี้",
-    courseEnd: "สรุปจบคอร์ส", lessonNotes: "สรุปรายคาบ", view: "ดูสรุปและพัฒนาการ", back: "กลับ", whole: "ทั้งคอร์ส",
+    courseEnd: "สรุปจบคอร์ส", newTag: "ใหม่", lessonNotes: "สรุปรายคาบ", view: "ดูสรุปและพัฒนาการ", back: "กลับ", whole: "ทั้งคอร์ส",
     overall: "ภาพรวมพัฒนาการ", strengths: "จุดแข็ง", improve: "สิ่งที่ควรฝึกเพิ่ม", progress: "พัฒนาการ", by: "สรุปโดย",
     request: "แจ้งเรื่อง", leaveReq: "แจ้งลาหยุด", leaveReqSub: "เลือกคาบที่จะไม่มาเรียน", exitReq: "แจ้งลาออก", exitReqSub: "แจ้งหยุดเรียน · แอดมินจะติดต่อกลับ",
     pickClasses: "เลือกคาบที่จะลา", noUpcoming: "ไม่มีคาบเรียนใน 30 วันข้างหน้า", noteLabel: "หมายเหตุถึงแอดมิน (ไม่บังคับ)", send: "ส่ง", sending: "กำลังส่ง…",
@@ -56,7 +56,7 @@ const DICT = {
     teacher: "Teacher", room: "Room", cancelled: "No class", pickup: "Pick-up", dropoff: "Drop-off", busNote: "Bus times will be sent on LINE by our staff",
     noSummary: "No lesson summaries yet", noAttendance: "No attendance yet", noBus: "Not using the school bus", present: "Present", absent: "Absent", leave: "Leave",
     rate: "Attended", updated: "Updated", today: "Today", tomorrow: "Tomorrow",
-    courseEnd: "Course summaries", lessonNotes: "Lesson notes", view: "View summary & progress", back: "Back", whole: "Whole course",
+    courseEnd: "Course summaries", newTag: "New", lessonNotes: "Lesson notes", view: "View summary & progress", back: "Back", whole: "Whole course",
     overall: "Overall progress", strengths: "Strengths", improve: "To improve", progress: "Progress", by: "By",
     request: "Requests", leaveReq: "Report an absence", leaveReqSub: "Pick the classes your child will miss", exitReq: "Stop studying", exitReqSub: "Let us know · our staff will call you",
     pickClasses: "Classes to miss", noUpcoming: "No classes in the next 30 days", noteLabel: "Note to our staff (optional)", send: "Send", sending: "Sending…",
@@ -78,7 +78,7 @@ const DICT = {
     teacher: "講師", room: "教室", cancelled: "休講", pickup: "お迎え", dropoff: "お送り", busNote: "送迎時間はスタッフからLINEでお知らせします",
     noSummary: "授業レポートはまだありません", noAttendance: "出欠の記録はまだありません", noBus: "送迎バスの利用なし", present: "出席", absent: "欠席", leave: "お休み",
     rate: "出席率", updated: "更新", today: "今日", tomorrow: "明日",
-    courseEnd: "コース修了レポート", lessonNotes: "授業レポート", view: "レポートと成長を見る", back: "戻る", whole: "コース全体",
+    courseEnd: "コース修了レポート", newTag: "新着", lessonNotes: "授業レポート", view: "レポートと成長を見る", back: "戻る", whole: "コース全体",
     overall: "全体の成長", strengths: "得意なところ", improve: "練習したいところ", progress: "成長の記録", by: "担当",
     request: "連絡", leaveReq: "お休みの連絡", leaveReqSub: "お休みする授業を選んでください", exitReq: "退会の連絡", exitReqSub: "スタッフからご連絡します",
     pickClasses: "お休みする授業", noUpcoming: "30日以内の授業はありません", noteLabel: "スタッフへのメモ（任意）", send: "送信", sending: "送信中…",
@@ -180,7 +180,7 @@ export function ParentApp({ view, lang: initialLang, today, framed, openCourseSu
             <span className="shrink-0 rounded-full bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground">{t.homeBannerBtn}</span>
           </button>
         )}
-        {!child ? null : cur === "overview" ? <Overview view={view} t={t} lang={lang} today={today} dayLabel={dayLabel} nick={nick} onDrill={drill} />
+        {!child ? null : cur === "overview" ? <Overview view={view} t={t} lang={lang} today={today} dayLabel={dayLabel} nick={nick} onDrill={drill} onOpenSummary={(kidId, id) => { setChildId(kidId); setCourse(""); setTab("study"); setCsId(id) }} />
           : cur === "study"
           ? <Study key={childId} today={today} course={course} setCourse={setCourse} kids={kids} nick={nick} t={t} lang={lang} dayLabel={dayLabel} csId={csId} setCsId={setCsId} onRequest={onRequest} requests={requests} onReturn={() => setTab("request")} />
           : cur === "catalog" ? (view.catalogToken || catalogPreview ? <Catalog token={view.catalogToken ?? ""} preview={catalogPreview} /> : <Empty text={t.catalogOff} />)
@@ -198,6 +198,8 @@ export function ParentApp({ view, lang: initialLang, today, framed, openCourseSu
   )
 }
 
+const daysBetween = (a: string, b: string) => Math.round((new Date(`${b}T12:00:00`).getTime() - new Date(`${a}T12:00:00`).getTime()) / 86_400_000)
+
 type T = (typeof DICT)["th"]
 
 /** one chip look for every pick-one / toggle in the parent app — same as ShowChip / FilterChipGroup in the ERP (h-9 · pill · picked = pink outline) */
@@ -213,9 +215,30 @@ function Chip({ on, onClick, children, disabled, state }: { on?: boolean; onClic
 }
 
 /** owner 2026-11-06: the whole family at a glance — every child, every course (KPI card), every weekly class; each one opens ตารางเรียน on that child / course */
-function Overview({ view, t, lang, today, dayLabel, nick, onDrill }: { view: ParentView; t: T; lang: FormLang; today: string; dayLabel: (d: string) => string; nick: (c: ParentChild) => string; onDrill: (childId: string, courseId?: string) => void }) {
+function Overview({ view, t, lang, today, dayLabel, nick, onDrill, onOpenSummary }: { onOpenSummary: (childId: string, csId: string) => void; view: ParentView; t: T; lang: FormLang; today: string; dayLabel: (d: string) => string; nick: (c: ParentChild) => string; onDrill: (childId: string, courseId?: string) => void }) {
   return (
     // owner 2026-11-06: no cards — children are told apart by ONE divider; name (big) > next classes (small nested card) > courses (name, days, 4 numbers)
+    <div className="space-y-4">
+      {/* owner 2026-11-09: the course summary is the moment a parent decides to continue — it sits on top of the Overview the day it is
+          sent (the newest of each child, "new" for 30 days), not at the end of the schedule */}
+      {view.children.flatMap((c) => {
+        const latest = [...(c.courseSummaries ?? [])].sort((a, b) => (b.sentAt ?? b.to).localeCompare(a.sentAt ?? a.to))[0]
+        return latest ? [{ c, cs: latest }] : []
+      }).map(({ c, cs }) => {
+        const fresh = daysBetween(cs.sentAt?.slice(0, 10) ?? cs.to, today) <= 30
+        return (
+          <button key={cs.id} type="button" onClick={() => onOpenSummary(c.id, cs.id)} className="flex w-full items-start gap-3 rounded-[16px] bg-card p-4 text-left shadow-sm ring-1 ring-primary/30">
+            <span className="grid size-11 shrink-0 place-items-center rounded-[8px] bg-primary/10 text-primary"><GraduationCapIcon className="size-5" /></span>
+            <span className="min-w-0 flex-1">
+              <span className="flex items-center gap-2 text-xs text-muted-foreground"><span className="font-semibold text-foreground">{t.courseEnd}</span>{fresh && <Pill tone="red">{t.newTag}</Pill>}</span>
+              <span className="mt-0.5 block truncate text-base font-semibold">{view.children.length > 1 ? `${nick(c)} · ` : ""}{cs.course}</span>
+              <span className="block truncate text-xs text-muted-foreground">{fmtDay(cs.from, lang)} – {fmtDay(cs.to, lang)}{cs.teacher && ` · ${t.by} ${cs.teacher}`}</span>
+              <span className="mt-1.5 line-clamp-2 block text-sm text-muted-foreground">{cs.overallProgress.replace(/\s*\n\s*/g, " ")}</span>
+              <span className="mt-2 flex items-center gap-0.5 text-xs font-medium text-primary">{t.view}<ChevronRightIcon className="size-3.5" /></span>
+            </span>
+          </button>
+        )
+      })}
     <div className="divide-y">
       {view.children.map((c) => {
         const next = c.upcoming.filter((x) => !x.cancelled).slice(0, 2)
@@ -243,6 +266,7 @@ function Overview({ view, t, lang, today, dayLabel, nick, onDrill }: { view: Par
           </section>
         )
       })}
+    </div>
     </div>
   )
 }
