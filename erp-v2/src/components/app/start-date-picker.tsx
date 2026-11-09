@@ -34,7 +34,7 @@ export function StartDatePicker({ value, onChange, today, closed, className }: {
   const isSel = (d: Date) => toDateStr(d) === value
   const calendar = (
     <Calendar mode="single" locale={LOCALES[lang]} defaultMonth={parseDate(value)} selected={parseDate(value)} onSelect={(d) => d && pick(d)}
-      className={isMobile ? "w-full" : undefined} classNames={isMobile ? { root: "w-full" } : undefined}
+      className="w-full" classNames={{ root: "w-full" }}
       modifiers={{
         isToday: (d) => toDateStr(d) === today && !isSel(d),
         gone: (d) => toDateStr(d) < today && !isSel(d) && !names.has(toDateStr(d)),
@@ -87,7 +87,8 @@ export function StartDatePicker({ value, onChange, today, closed, className }: {
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger render={<button type="button" className={trigger} />}>{label}</PopoverTrigger>
-      <PopoverContent align="start" className="w-auto p-0">{calendar}{legend}</PopoverContent>
+      {/* as wide as the field it opens from — the days fill the popup, no empty strip on the right */}
+      <PopoverContent align="start" className="w-(--anchor-width) min-w-72 p-0">{calendar}{legend}</PopoverContent>
     </Popover>
   )
 }
