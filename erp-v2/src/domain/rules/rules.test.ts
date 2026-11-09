@@ -16,7 +16,7 @@ import { suggestFixes } from "./suggest"
 import { advanceStage, canSetStage, daysAgo, groupOf, restoreStage, siblingLead, validateLead } from "./crm"
 import { allAssessmentsAttended, APPROVE_STAGE, assessmentsFollowSessions, ATTENDED_STAGE, buildFormPrefill, commonSlots, buildCombinedSessionDraft, buildSessionDraftFromSlot, findOfferSlots, lastAssessmentDate, openHourStarts, planApproval, priorApproval, sessionKindLabel } from "./forms"
 import { customerRows, filterCustomers } from "./customers"
-import { invoiceMessage, invoiceBundleMessage, receiptMessage } from "./messages"
+import { invoiceMessage, invoiceBundleMessage, receiptMessage, voidMessage, familyReceiptMessage } from "./messages"
 import * as Refund from "./refunds"
 import * as Doc from "./documents"
 import * as Seats from "./seats"
@@ -1486,6 +1486,41 @@ describe("sheet rows 56 + 60 (retroactive invoice, course summary after payment)
   })
 })
 
+describe("parent message language (owner 2026-11-09): Liclass = Japanese + English, NockAcademy = Thai + English", () => {
+  const k = klass({ id: "k1", weekday: 2 })
+  const inv: Invoice = {
+    id: "i", branchId: "b1", studentId: "a", number: "INV-1", lines: [{ id: "l", courseId: "c1", classIds: ["k1"], startDate: "2026-10-20", periods: 1 }],
+    bus: [], bookFee: 0, advance: [], concession: null, noteToParent: "", status: "approved", pdf: "ready", createdBy: "adm", createdAt: "2026-10-01T03:00:00Z", payments: [],
+  }
+  const stu = { id: "a", familyId: null, branchId: "b1", name: "ด.ช. ภูมิ", nickname: "ภูมิ", grade: "ป.5", usesBus: false, createdAt: "", createdBranchId: "b1" } as Student
+  const thai = /[\u0E00-\u0E3E\u0E40-\u0E7F]/ // Thai letters — not ฿ (U+0E3F), the currency sign
+  const lang = (brand: "liclass" | "nockacademy") => {
+    const b: Branch = { ...branch, brand, promotions: [] }
+    const t = invoiceTotals(inv, { branch: b, courses: [{ ...monthPkg, name: "Mirai" }], classes: [{ ...k, name: "Eng" }], holidays: [] })
+    return { b, t }
+  }
+  it("Liclass: no Thai letter anywhere in the invoice, receipt, void or family receipt", () => {
+    const { b, t } = lang("liclass")
+    const bank = { ...b, bankAccount: { ...b.bankAccount, bank: "KBank", name: "Liclass Co" } }
+    for (const text of [
+      invoiceMessage(inv, t, { student: { ...stu, name: "Pum", nickname: "Pum" }, branch: bank }),
+      receiptMessage({ ...inv, receiptNumber: "RC-1" }, t.total, { student: { ...stu, name: "Pum", nickname: "Pum" }, totals: t, branch: bank }),
+      voidMessage(inv, { student: { ...stu, name: "Pum", nickname: "Pum" }, brand: "liclass" }),
+      familyReceiptMessage("RC-1", [{ number: "INV-1", total: 100, student: { nickname: "Pum" } }], "liclass"),
+    ]) { expect(text).not.toMatch(thai); expect(text).toMatch(/[\u3040-\u30FF]/); expect(text).toMatch(/Invoice|Receipt|cancelled|received/) }
+  })
+  it("NockAcademy: Thai + English, no Japanese", () => {
+    const { b, t } = lang("nockacademy")
+    const text = invoiceMessage(inv, t, { student: stu, branch: b })
+    expect(text).toMatch(thai); expect(text).toContain("Amount due"); expect(text).not.toMatch(/[\u3040-\u30FF]/)
+  })
+  it("the staff's own note goes out once, as written", () => {
+    const { b, t } = lang("nockacademy")
+    const text = invoiceMessage({ ...inv, noteToParent: "ขอบคุณที่ต่อคอร์ส" }, t, { student: stu, branch: b })
+    expect(text.split("ขอบคุณที่ต่อคอร์ส").length - 1).toBe(1)
+  })
+})
+
 describe("flexible class time: 1 of 2 hours (owner 2026-09-30)", () => {
   const k120 = klass({ id: "k2h", minutes: 120, start: "16:00" })
   const sess = (id: string, date: string, p: Partial<Session> = {}): Session => ({ id, branchId: "b1", classId: "k2h", subject: "Maths", date, start: "16:00", minutes: 120, teacherId: "t1", coTeacherIds: [], roomId: "r1", studentIds: ["a"], trial: false, customized: false, cancelled: false, ...p })
@@ -1557,9 +1592,9 @@ describe("lesson summary: Book / Topic / Lesson Detail / Feedback (owner 2026-09
   it("parents get Book, Topic, Lesson Detail and the feedback", () => {
     const text = summaryMessage({ id: "s", sessionId: "x", studentId: "a", text: "ตั้งใจเรียนดีมาก", detail: "หน้า 12–15", status: "approved", authorId: "t", lastEditorId: "t", history: [] },
       { student: { id: "a", familyId: null, branchId: "b1", name: "ด.ช. โจ้", nickname: "โจ้", grade: "ป.3", usesBus: false, createdAt: "", createdBranchId: "b1" }, session: { subject: "อังกฤษ", date: "2026-10-01", start: "16:00" }, book: "Hello English 1", topic: "Unit 2" })
-    expect(text).toContain("หนังสือ: Hello English 1")
-    expect(text).toContain("บทเรียน: Unit 2")
-    expect(text).toContain("รายละเอียด: หน้า 12–15")
+    expect(text).toContain("หนังสือ / Book: Hello English 1")
+    expect(text).toContain("บทเรียน / Topic: Unit 2")
+    expect(text).toContain("รายละเอียด / Details: หน้า 12–15")
     expect(text).toContain("ตั้งใจเรียนดีมาก")
   })
 })

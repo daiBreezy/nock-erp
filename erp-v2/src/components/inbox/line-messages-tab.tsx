@@ -42,7 +42,7 @@ export function LineMessagesTab() {
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-3">
         <Segmented value={brand} onChange={setBrand} label="แบรนด์" options={[{ value: "liclass", label: "Liclass" }, { value: "nockacademy", label: "NockAcademy" }]} />
-        <p className="text-sm text-muted-foreground">ข้อความจริงที่ระบบส่งให้ผู้ปกครอง สร้างจากใบแจ้งหนี้ตัวอย่างในระบบ — ดูอย่างเดียว ไม่ส่งจริง</p>
+        <p className="text-sm text-muted-foreground">ข้อความจริงที่ระบบส่งให้ผู้ปกครอง · Liclass = ญี่ปุ่น + อังกฤษ · NockAcademy = ไทย + อังกฤษ — ดูอย่างเดียว ไม่ส่งจริง</p>
       </div>
       {!sample ? (
         <p className="rounded-2xl border border-dashed p-4 text-sm text-muted-foreground">ยังไม่มีใบแจ้งหนี้ของแบรนด์นี้ให้ทำตัวอย่าง</p>

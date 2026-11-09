@@ -266,4 +266,5 @@ export const KIT: Record<string, Entry> = {
   "หลังยืนยันยอดเงิน — มีสรุปคอร์สต่อท้าย (วัน-เวลาเรียน วันเริ่ม/จบ วันหยุด ลาได้กี่ครั้ง)": { en: "After the payment is confirmed — the course summary follows (days and times, start/end, closed days, leaves allowed)", ja: "入金確認後 — コース概要付き（曜日・時間、開始/終了、休校日、欠席可能回数）" },
   "ยกเลิกใบแจ้งหนี้ (Void)": { en: "Void invoice", ja: "請求書の取消（Void）" },
   "วันที่เลือกเป็นวันหยุดบริษัท — ระบบข้ามไปคาบถัดไปให้": { en: "The chosen day is a company holiday — the system skips to the next session", ja: "選んだ日は会社の休日です — 次の授業に自動でスキップされます" },
+  "ข้อความจริงที่ระบบส่งให้ผู้ปกครอง · Liclass = ญี่ปุ่น + อังกฤษ · NockAcademy = ไทย + อังกฤษ — ดูอย่างเดียว ไม่ส่งจริง": { en: "The real texts the system sends to parents · Liclass = Japanese + English · NockAcademy = Thai + English — view only, nothing is sent", ja: "システムが保護者に送る実際のメッセージ · Liclass＝日本語＋英語 · NockAcademy＝タイ語＋英語 — 閲覧のみで送信されません" },
 }

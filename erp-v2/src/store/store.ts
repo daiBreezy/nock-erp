@@ -2116,7 +2116,7 @@ export const useStore = create<Store>()(
         const r = Sum.canSend(cur, parents)
         if (!r.ok) return r
         const se = s.sessions.find((x) => x.id === cur.sessionId)!
-        const delivery = pushLine(stu.familyId, Msg.summaryMessage(cur, { student: stu, session: se, book: s.lessonBooks.find((b) => b.id === cur.bookId)?.name, topic: s.lessonTopics.find((t) => t.id === cur.topicId)?.name }), (ok, error) => {
+        const delivery = pushLine(stu.familyId, Msg.summaryMessage(cur, { student: stu, session: se, book: s.lessonBooks.find((b) => b.id === cur.bookId)?.name, topic: s.lessonTopics.find((t) => t.id === cur.topicId)?.name, brand: s.branches.find((b) => b.id === stu.branchId)?.brand }), (ok, error) => {
           if (ok) return log("attendance", [cur.studentId], "ส่งสรุปการเรียน", "ถึงผู้ปกครองทาง LINE แล้ว")
           // not delivered → back to "approved" so it can be sent again
           set((st) => ({ summaries: st.summaries.map((x) => (x.id === id ? { ...x, status: "approved", history: x.history.slice(0, -1) } : x)) }))
@@ -2182,7 +2182,7 @@ export const useStore = create<Store>()(
         if (!r.ok) return r
         const ent = s.entitlements.find((x) => x.id === cur.entitlementId)!
         const course = s.courses.find((x) => x.id === ent.courseId)
-        const delivery = pushLine(stu.familyId, Msg.courseSummaryMessage(cur, { student: stu, course: { name: course?.name ?? "คอร์ส" }, entitlement: ent },
+        const delivery = pushLine(stu.familyId, Msg.courseSummaryMessage(cur, { student: stu, course: { name: course?.name ?? "Course" }, entitlement: ent, brand: s.branches.find((b) => b.id === stu.branchId)?.brand },
           process.env.NEXT_PUBLIC_LIFF_ID ? `https://liff.line.me/${process.env.NEXT_PUBLIC_LIFF_ID}?app=parent&cs=${cur.id}` : undefined), (ok, error) => {
           if (ok) return log("attendance", [cur.studentId], "ส่งสรุปจบคอร์ส", "ถึงผู้ปกครองทาง LINE แล้ว")
           set((st) => ({ courseSummaries: st.courseSummaries.map((x) => (x.id === id ? { ...x, status: "approved", history: x.history.slice(0, -1) } : x)) }))
@@ -2741,7 +2741,7 @@ export const useStore = create<Store>()(
         if (!inv || inv.status !== "void") return fail("แจ้งได้เฉพาะใบที่ยกเลิกแล้ว")
         if (inv.voidNotifiedAt) return fail("แจ้งผู้ปกครองเรื่องใบนี้ไปแล้ว")
         const stu = s.students.find((x) => x.id === inv.studentId)!
-        const delivery = pushLine(stu.familyId, Msg.voidMessage(inv, { student: stu }), (ok, error) => {
+        const delivery = pushLine(stu.familyId, Msg.voidMessage(inv, { student: stu, brand: s.branches.find((b) => b.id === inv.branchId)?.brand }), (ok, error) => {
           log("billing", [inv.studentId], "แจ้งผู้ปกครองว่ายกเลิกใบ", `${inv.number ?? "ร่าง"} · ${ok ? "ถึงผู้ปกครองทาง LINE แล้ว" : `ส่ง LINE ไม่สำเร็จ: ${error ?? ""}`}`)
           if (!ok) toast.error(`แจ้งยกเลิกใบ ${inv.number} ทาง LINE ไม่สำเร็จ — ${error ?? ""}`)
         })
@@ -2821,7 +2821,7 @@ export const useStore = create<Store>()(
           const gids = new Set(group.map((x) => x.id))
           const rows = group.map((x) => ({ number: x.number ?? "", total: Bill.invoiceTotals(x, ctxOf(st, x.branchId)).total, student: st.students.find((y) => y.id === x.studentId)! }))
           const text = group.length > 1
-            ? Msg.familyReceiptMessage(number, rows)
+            ? Msg.familyReceiptMessage(number, rows, ctxOf(st, group[0].branchId).branch.brand)
             : (() => {
               const x = group[0]
               const totals = Bill.invoiceTotals(x, ctxOf(st, x.branchId))
