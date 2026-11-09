@@ -589,8 +589,9 @@ function BusChips({ bus, t }: { bus: { pickup: boolean; dropoff: boolean; adult?
 
 /** one สรุปจบคอร์ส — the summary (a Bundle per subject too) and the progress charts */
 /** a section of the course summary: a small icon tile + its name (no frame around the section) */
-function SectionHead({ icon: Icon, tone, label }: { icon: typeof TargetIcon; tone: string; label: string }) {
-  return <p className="flex items-center gap-2 text-sm font-semibold"><span className={cn("grid size-7 shrink-0 place-items-center rounded-[10px]", tone)}><Icon className="size-4" /></span>{label}</p>
+function SectionHead({ icon: Icon, tone, text, label }: { icon: typeof TargetIcon; tone: string; text: string; label: string }) {
+  // same size as the blue reading's heading (icon tile 24px + name) — the text sits UNDER it, from the card's left edge
+  return <p className="flex items-center gap-2"><span className={cn("grid size-6 shrink-0 place-items-center rounded-xl", tone)}><Icon className="size-4" /></span><span className={cn("text-sm font-semibold", text)}>{label}</span></p>
 }
 
 function CourseEnd({ cs, t, lang }: { cs: ParentCourseSummary; t: T; lang: FormLang }) {
@@ -602,15 +603,15 @@ function CourseEnd({ cs, t, lang }: { cs: ParentCourseSummary; t: T; lang: FormL
   const leave = done.filter((r) => r.attended === "leave").length
   const absent = done.filter((r) => r.attended === "absent").length
   const lines = (v: string) => v.split("\n").map((l) => l.trim()).filter(Boolean)
-    .map((l) => { const m = l.match(/^([^:：]{1,20})[:：]\s*(.*)$/); return m && cs.subjects.includes(m[1].trim()) ? { subject: m[1].trim(), text: m[2] } : { subject: "", text: l } })
+    .map((l) => { const m = l.match(/^([^:：]{1,20})[:：]\s*(.*)$/); return m && cs.subjects.includes(m[1].trim()) ? { subject: m[1].trim(), text: m[2], heading: false } : { subject: "", text: l, heading: /[:：]$/.test(l) && l.length <= 40 } })
     .filter((l) => !only || l.subject === only)
   // owner 2026-11-09: each section is its own coloured card (blue reading · green strengths · amber to-improve · grey attendance), an icon tile + its name on top
-  const block = (label: string, v: string, icon: typeof TargetIcon, tone: string, card: string) => {
+  const block = (label: string, v: string, icon: typeof TargetIcon, tone: string, text: string, card: string) => {
     const ls = lines(v)
     return ls.length ? (
-      <section className={cn("space-y-1.5 rounded-[16px] p-4", card)}>
-        <SectionHead icon={icon} tone={tone} label={label} />
-        <div className="space-y-1 pl-9 text-sm">{ls.map((l, i) => <p key={i}>{l.subject && !only && <span className={cn("mr-1.5 inline-block rounded-full px-1.5 py-0.5 align-middle text-[11px] leading-none", subjectColor(l.subject).chip)}>{l.subject}</span>}{l.text}</p>)}</div>
+      <section className={cn("space-y-2 rounded-[16px] px-3 pb-3 pt-3", card)}>
+        <SectionHead icon={icon} tone={tone} text={text} label={label} />
+        <div className="space-y-2 text-sm leading-relaxed">{ls.map((l, i) => <p key={i} className={cn(l.heading && "pt-1 font-semibold")}>{l.subject && !only && <span className={cn("mr-1.5 inline-block rounded-full px-1.5 py-0.5 align-middle text-[11px] leading-none", subjectColor(l.subject).chip)}>{l.subject}</span>}{l.text}</p>)}</div>
       </section>
     ) : null
   }
@@ -628,11 +629,11 @@ function CourseEnd({ cs, t, lang }: { cs: ParentCourseSummary; t: T; lang: FormL
           <ClampedParagraphs className="px-3 pb-3" paras={lines(cs.overallProgress)} showSubject={!only} readAll={t.readAll} less={t.lessText} />
         )}
       </section>
-      {block(t.strengths, cs.strengths, ThumbsUpIcon, "bg-emerald-100 text-emerald-700", "bg-emerald-50 ring-1 ring-emerald-200")}
-      {block(t.improve, cs.toImprove, TargetIcon, "bg-amber-100 text-amber-700", "bg-amber-50 ring-1 ring-amber-200")}
+      {block(t.strengths, cs.strengths, ThumbsUpIcon, "bg-emerald-100 text-emerald-700", "text-emerald-800", "bg-emerald-50 ring-1 ring-emerald-200")}
+      {block(t.improve, cs.toImprove, TargetIcon, "bg-amber-100 text-amber-700", "text-amber-800", "bg-amber-50 ring-1 ring-amber-200")}
       {/* owner 2026-11-09: attendance is a plain row of numbers at the very bottom */}
-      <section className="space-y-2.5 rounded-[16px] bg-muted/60 p-4 ring-1 ring-foreground/5">
-        <SectionHead icon={CalendarCheckIcon} tone="bg-background text-muted-foreground" label={t.attendanceLabel} />
+      <section className="space-y-2.5 rounded-[16px] bg-muted/60 px-3 pb-3 pt-3 ring-1 ring-foreground/5">
+        <SectionHead icon={CalendarCheckIcon} tone="bg-background text-muted-foreground" text="text-foreground" label={t.attendanceLabel} />
         <div className="grid grid-cols-4 divide-x pl-0 text-center">
           {[[t.statDone, `${done.length}`], [t.statPresent, `${present}`], [t.statLeave, `${leave}`], [t.absent, `${absent}`]].map(([label, value]) => (
             <div key={label}><p className="text-lg leading-tight font-semibold tabular-nums">{value}</p><p className="text-[11px] text-muted-foreground">{label}</p></div>
@@ -648,7 +649,7 @@ function CourseEnd({ cs, t, lang }: { cs: ParentCourseSummary; t: T; lang: FormL
  * black, bold (owner 2026-11-09). The cut point is measured with a hidden copy of the text (binary search on characters), so the
  * link never drops onto a line of its own. Short texts show in full with no link.
  */
-function ClampedParagraphs({ paras, showSubject, readAll, less, maxLines = 10, className }: { paras: { subject: string; text: string }[]; showSubject: boolean; readAll: string; less: string; maxLines?: number; className?: string }) {
+function ClampedParagraphs({ paras, showSubject, readAll, less, maxLines = 10, className }: { paras: { subject: string; text: string; heading?: boolean }[]; showSubject: boolean; readAll: string; less: string; maxLines?: number; className?: string }) {
   const wrapRef = useRef<HTMLDivElement>(null)
   const [expanded, setExpanded] = useState(false)
   const [cut, setCut] = useState<number | null>(null) // null = it fits, no link
@@ -672,7 +673,7 @@ function ClampedParagraphs({ paras, showSubject, readAll, less, maxLines = 10, c
           const part = x.text.slice(0, Math.max(0, left))
           left -= x.text.length
           const el = document.createElement("p")
-          el.style.cssText = `margin:${i ? 8 : 0}px 0 0;line-height:${LH}px`
+          el.style.cssText = `margin:${i ? 8 : 0}px 0 0;line-height:${LH}px;font-weight:${x.heading ? 600 : 400}`
           el.textContent = part
           if (suffix && n < total && left <= 0) { el.append(" "); const b = document.createElement("span"); b.style.cssText = "font-weight:700;display:inline-block;white-space:nowrap"; b.textContent = readAll; el.append(b) }
           probe.appendChild(el)
@@ -708,7 +709,7 @@ function ClampedParagraphs({ paras, showSubject, readAll, less, maxLines = 10, c
     <div className={className}>
       <div ref={wrapRef} className="space-y-2 text-sm" style={{ lineHeight: "22px" }}>
         {view.map((x, i) => !x.visible ? null : (
-          <p key={i}>
+          <p key={i} className={cn(x.heading && "pt-1 font-semibold")}>
             {x.subject && showSubject && <span className={cn("mr-1.5 inline-block rounded-full px-1.5 py-0.5 align-middle text-[11px] leading-none", subjectColor(x.subject).chip)}>{x.subject}</span>}
             {x.shown}{i === lastIdx && cut !== null && <> {link(collapsed ? readAll : less)}</>}
           </p>

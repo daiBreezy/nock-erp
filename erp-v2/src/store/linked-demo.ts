@@ -5,9 +5,6 @@ import type { Attendance, Branch, Course, CourseSummary, Entitlement, Family, In
 type Db = { branches: Branch[]; courses: Course[]; classes: Klass[]; sessions: Session[]; attendance: Attendance[]; summaries: LessonSummary[]; courseSummaries?: CourseSummary[]; families: Family[]; students: Student[]; entitlements: Entitlement[]; invoices: Invoice[] }
 
 // owner 2026-11-09: session notes are LONG in real life (5-10 lines on a phone) - the demo ones are too, so the parent app's rows are judged at real length
-const COURSE_STRENGTHS = "ตั้งใจเรียน มีสมาธิตลอดคาบ · กล้าถามเมื่อไม่เข้าใจ · ตรวจงานตัวเองก่อนส่ง"
-const COURSE_IMPROVE = "ฝึกทอนเศษส่วนให้เป็นอย่างต่ำ · ทบทวนคำศัพท์ใหม่ทุกวันก่อนนอน · อ่านบทความภาษาอังกฤษที่ยาวขึ้นสัปดาห์ละ 1–2 เรื่อง"
-
 const NOTES = [
   "วันนี้เรียนเรื่องเศษส่วนต่อจากคาบที่แล้ว น้องเข้าใจเรื่องการเปรียบเทียบเศษส่วนที่ตัวส่วนต่างกันได้ดีขึ้นมาก ทำแบบฝึกหัดหน้า 12–15 ได้ครบทุกข้อและตรวจคำตอบด้วยตัวเองก่อนส่ง\nช่วงกลางคาบมีโจทย์ปัญหาคำพูดที่ต้องแปลงเป็นเศษส่วนก่อน น้องอ่านโจทย์ช้าลงและขีดเส้นใต้ตัวเลขสำคัญ ซึ่งเป็นวิธีที่ครูแนะนำไว้ ได้ผลดีมากค่ะ\nสิ่งที่ยังต้องฝึกคือการทอนเศษส่วนให้เป็นอย่างต่ำ บางข้อยังลืมตรวจว่าหารต่อได้อีกไหม ฝากทบทวนที่บ้านวันละ 5 ข้อ\nการบ้านวันนี้: แบบฝึกหัดหน้า 16 ข้อ 1–10 และลองสร้างโจทย์เศษส่วนจากของใช้ในบ้านให้ครูดูหนึ่งข้อ\nโดยรวมวันนี้น้องตั้งใจเรียนมาก มีสมาธิตลอดคาบ และกล้าถามเมื่อไม่เข้าใจ",
   "คาบนี้ทบทวนคำศัพท์ Unit 4 และฝึกอ่านบทสั้นๆ เกี่ยวกับกิจวัตรประจำวัน น้องอ่านออกเสียงชัดขึ้นกว่าสัปดาห์ก่อนอย่างเห็นได้ชัด และกล้าตอบคำถามเป็นภาษาอังกฤษเต็มประโยค\nยังสะกดคำศัพท์ใหม่ผิดบ้าง เช่น vegetable และ breakfast ให้ลองเขียนซ้ำคำละ 5 รอบแล้วทดสอบตัวเอง\nช่วงท้ายคาบทำเกมทายคำศัพท์เป็นกลุ่ม น้องสนุกและช่วยเพื่อนในกลุ่มด้วย เป็นพฤติกรรมที่ดีมากค่ะ\nการบ้าน: Workbook หน้า 20–21 และท่องคำศัพท์ 15 คำที่ครูแจกให้",
@@ -15,13 +12,10 @@ const NOTES = [
 ]
 
 // owner 2026-11-09: a LONG course reading (about 14 lines on a phone) for the demo course summary
-const COURSE_OVERALL = [
-  "ตลอดคอร์สที่ผ่านมา น้องมีพัฒนาการที่ดีขึ้นอย่างต่อเนื่องทั้งความเข้าใจและความมั่นใจในการเรียน ช่วงแรกยังลังเลเวลาตอบคำถามในห้อง แต่ตอนนี้กล้ายกมือและอธิบายวิธีคิดของตัวเองให้เพื่อนฟังได้แล้วค่ะ",
-  "ด้านคณิตศาสตร์ น้องเข้าใจเรื่องเศษส่วนและการเปรียบเทียบตัวเลขดีขึ้นมาก ทำโจทย์ปัญหาหลายขั้นตอนได้เองเกือบทุกข้อ และเริ่มตรวจคำตอบด้วยตัวเองก่อนส่งทุกครั้ง สิ่งที่ยังต้องฝึกคือการทอนเศษส่วนให้เป็นอย่างต่ำและการอ่านโจทย์ให้ครบก่อนลงมือคิด",
-  "ด้านภาษาอังกฤษ น้องอ่านออกเสียงชัดขึ้นและจำคำศัพท์ได้เร็วขึ้น เล่นเกมคำศัพท์กับเพื่อนอย่างสนุก ยังสะกดคำศัพท์ยาวผิดบ้าง แต่แก้ได้เองเมื่อครูชี้ให้ดู ซึ่งเป็นสัญญาณที่ดี",
-  "ด้านพฤติกรรมการเรียน น้องตั้งใจ มีสมาธิตลอดคาบส่วนใหญ่ ส่งงานครบเกือบทุกครั้ง และช่วยเพื่อนในกลุ่มเสมอ ช่วงท้ายคาบบางวันจะเริ่มเหนื่อย แนะนำให้นอนพักผ่อนให้เพียงพอ",
-  "ครูแนะนำให้ต่อคอร์สถัดไปเพื่อต่อยอดความรู้ที่สร้างไว้ และเพิ่มการฝึกที่บ้านวันละ 10–15 นาที จะช่วยให้พัฒนาไปได้เร็วขึ้นอีกมากค่ะ",
-].join("\n")
+// owner 2026-11-09: section texts at real length, split under small headings (a line ending with ":" is a heading)
+export const COURSE_OVERALL = "ภาพรวมทั้งคอร์ส:\nตลอดสองเดือนที่ผ่านมา น้องมีพัฒนาการที่ดีขึ้นอย่างต่อเนื่องทั้งความเข้าใจและความมั่นใจในการเรียน ช่วงแรกยังลังเลเวลาตอบคำถามในห้อง แต่ตอนนี้กล้ายกมือและอธิบายวิธีคิดของตัวเองให้เพื่อนฟังได้แล้วค่ะ\nด้านคณิตศาสตร์:\nน้องเข้าใจเรื่องเศษส่วนและการเปรียบเทียบตัวเลขดีขึ้นมาก ทำโจทย์ปัญหาหลายขั้นตอนได้เองเกือบทุกข้อ และเริ่มตรวจคำตอบด้วยตัวเองก่อนส่งทุกครั้ง สิ่งที่ยังต้องฝึกคือการทอนเศษส่วนให้เป็นอย่างต่ำและการอ่านโจทย์ให้ครบก่อนลงมือคิด\nด้านภาษาอังกฤษ:\nน้องอ่านออกเสียงชัดขึ้นและจำคำศัพท์ได้เร็วขึ้น เล่นเกมคำศัพท์กับเพื่อนอย่างสนุก ยังสะกดคำศัพท์ยาวผิดบ้าง แต่แก้ได้เองเมื่อครูชี้ให้ดู ซึ่งเป็นสัญญาณที่ดี\nด้านพฤติกรรมการเรียน:\nน้องตั้งใจ มีสมาธิตลอดคาบส่วนใหญ่ ส่งงานครบเกือบทุกครั้ง และช่วยเพื่อนในกลุ่มเสมอ ช่วงท้ายคาบบางวันจะเริ่มเหนื่อย แนะนำให้นอนพักผ่อนให้เพียงพอ\nข้อแนะนำจากครู:\nครูแนะนำให้ต่อคอร์สถัดไปเพื่อต่อยอดความรู้ที่สร้างไว้ และเพิ่มการฝึกที่บ้านวันละ 10–15 นาที จะช่วยให้พัฒนาไปได้เร็วขึ้นอีกมากค่ะ"
+export const COURSE_STRENGTHS = "ด้านการเรียนรู้:\nเข้าใจเรื่องใหม่ได้เร็ว จับใจความสำคัญของโจทย์ได้ดี และเชื่อมโยงสิ่งที่เรียนใหม่กับความรู้เดิมได้เอง\nด้านพฤติกรรม:\nตั้งใจฟัง มีสมาธิตลอดคาบ ส่งงานครบ และช่วยเพื่อนในกลุ่มเสมอ เป็นตัวอย่างที่ดีให้เพื่อนในห้อง\nด้านทักษะ:\nกล้าถามเมื่อไม่เข้าใจ ตรวจงานตัวเองก่อนส่ง และอธิบายวิธีคิดของตัวเองให้ครูฟังได้อย่างเป็นลำดับ"
+export const COURSE_IMPROVE = "คณิตศาสตร์:\nฝึกทอนเศษส่วนให้เป็นอย่างต่ำทุกครั้ง และอ่านโจทย์ให้ครบก่อนลงมือคิด ทำแบบฝึกหัดวันละ 5 ข้อ\nภาษาอังกฤษ:\nทบทวนคำศัพท์ใหม่ทุกวันก่อนนอน เขียนคำที่สะกดผิดซ้ำคำละ 5 รอบ แล้วทดสอบตัวเอง\nการอ่าน:\nอ่านบทความภาษาอังกฤษที่ยาวขึ้นสัปดาห์ละ 1–2 เรื่อง แล้วเล่าให้ผู้ปกครองฟังสั้นๆ\nการพักผ่อน:\nนอนพักผ่อนให้เพียงพอก่อนวันเรียน ช่วงท้ายคาบน้องจะได้ไม่เหนื่อยและเสียสมาธิ"
 
 /**
  * Owner 2026-10-19 ("ใส่ Mockup data … อยากเห็นว่าเวลาเปิดแล้วเห็นว่ามี Class เรียนไหมบ้าง"): a family linked to a real
@@ -109,10 +103,17 @@ export function withLinkedCourseSummary<T extends { families: Family[]; students
   const today = toDateStr(now)
   const made: CourseSummary[] = []
   const replace = new Set<string>()
+  const refreshed = new Map<string, CourseSummary>()
   for (const fam of db.families.filter((f) => f.lineUserId)) {
     const kids = db.students.filter((x) => x.familyId === fam.id && !x.archived)
     const kidIds = new Set(kids.map((k) => k.id))
-    if ((db.courseSummaries ?? []).some((c) => c.status === "sent" && kidIds.has(c.studentId))) continue
+    const sentOnes = (db.courseSummaries ?? []).filter((c) => c.status === "sent" && kidIds.has(c.studentId))
+    if (sentOnes.length) {
+      // the demo one follows the current sample texts; a real, teacher-written one is never touched
+      const demo = sentOnes.find((c) => c.id === `cs_demo_${fam.id}`)
+      if (demo && (demo.overallProgress !== COURSE_OVERALL || demo.strengths !== COURSE_STRENGTHS || demo.toImprove !== COURSE_IMPROVE)) refreshed.set(demo.id, { ...demo, overallProgress: COURSE_OVERALL, strengths: COURSE_STRENGTHS, toImprove: COURSE_IMPROVE })
+      continue
+    }
     const rounds = kids.flatMap((k) => entitlementRounds(db.entitlements.filter((e) => e.studentId === k.id)))
     const newest = (a: { to: string }, b: { to: string }) => b.to.localeCompare(a.to)
     const pick = rounds.filter((r) => r.to < today).sort(newest)[0] ?? [...rounds].sort(newest)[0]
@@ -124,6 +125,6 @@ export function withLinkedCourseSummary<T extends { families: Family[]; students
       history: [{ at: `${today}T09:00:00.000Z`, by: "u_dai", action: "submit" }, { at: `${today}T10:00:00.000Z`, by: "u_nock", action: "approve" }, { at: `${today}T11:00:00.000Z`, by: "u_ploy", action: "send" }],
     })
   }
-  if (!made.length) return db
-  return { ...db, courseSummaries: [...(db.courseSummaries ?? []).filter((c) => !replace.has(c.entitlementId) && !made.some((m) => m.id === c.id)), ...made] }
+  if (!made.length && !refreshed.size) return db
+  return { ...db, courseSummaries: [...(db.courseSummaries ?? []).map((c) => refreshed.get(c.id) ?? c).filter((c) => !replace.has(c.entitlementId) && !made.some((m) => m.id === c.id)), ...made] }
 }
