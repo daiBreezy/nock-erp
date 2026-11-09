@@ -7,7 +7,7 @@ import { autoCredits } from "@/domain/rules/refunds"
 import { PackageBadge } from "@/components/app/package-badge"
 import { brandUsesBus, busRate } from "@/domain/rules/settings"
 import { useState } from "react"
-import { AlertTriangleIcon, BusIcon, CalendarIcon, CheckIcon, HistoryIcon, MapPinIcon, PlusIcon, UserRoundSearchIcon, XIcon } from "lucide-react"
+import { AlertTriangleIcon, BusIcon, ChevronDownIcon, CalendarIcon, CheckIcon, HistoryIcon, MapPinIcon, PlusIcon, UserRoundSearchIcon, XIcon } from "lucide-react"
 import { NativeSelect } from "@/components/app/native-select"
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
@@ -20,10 +20,12 @@ import { addDays, fmtDate, fmtMoney, fmtMonth, toDateStr } from "@/domain/dates"
 import * as Att from "@/domain/rules/attendance"
 import { busTotal, carriedMinutes, lastNoteFor, lastPaidInvoice, familyPromotion, invoiceHours, FAMILY_PROMO_TIERS, pendingBusAddOns, classChoices, classOptionsFor, defaultAdvance, isBackdated, defaultBusLegs, setAllBusLegs, usesNoBus, entryFeeWaiver, invoiceSessionDates, invoiceTotals, validateInvoiceDraft, type LineQuote } from "@/domain/rules/billing"
 import { lastAssessmentDate } from "@/domain/rules/forms"
-import type { AdvanceItem, BusExtraLine, BusLeg, CourseLine, Entitlement, Family, Invoice, Klass, Leftover, Seat } from "@/domain/types"
+import type { Holiday, AdvanceItem, BusExtraLine, BusLeg, CourseLine, Entitlement, Family, Invoice, Klass, Leftover, Seat } from "@/domain/types"
 import { isPartial } from "@/domain/rules/seats"
 import { SeatHours } from "@/components/app/seat-hours"
-import { CAPACITY } from "@/domain/rules/scheduling"
+import { CAPACITY, closesBranch } from "@/domain/rules/scheduling"
+import { StartDatePicker } from "@/components/app/start-date-picker"
+import { Segmented } from "@/components/app/page-layout"
 import { uid } from "@/data/seed"
 import { report } from "@/lib/feedback"
 import { useBranch, useEntitlements, useNow } from "@/lib/hooks"
@@ -360,7 +362,7 @@ export function InvoiceEditor({ invoice, defaultStudentId, renewEntitlementId, o
           {lines.map((l, i) => (
             <LineCard key={l.id} index={i} draft={l} quote={totals.lines[i]} studentId={studentId} studentGrade={student?.grade}
               choices={classChoices(totals.lines[i]?.course, classes, branch.id, staff, student?.grade)}
-              today={today} overlapTo={studentId ? Att.activeEntitlements(studentId, entitlements, l.startDate).find((e) => e.courseId === l.courseId)?.to : undefined}
+              today={today} closed={holidays.filter((h) => closesBranch(h, branch.id))} overlapTo={studentId ? Att.activeEntitlements(studentId, entitlements, l.startDate).find((e) => e.courseId === l.courseId)?.to : undefined}
               onChange={(patch) => patchLine(l.id, patch)} onRemove={() => removeLine(l.id)} />
           ))}
           {pickingCourses && (
@@ -496,18 +498,20 @@ export function InvoiceEditor({ invoice, defaultStudentId, renewEntitlementId, o
 const WEEKDAY_SHORT = ["อา.", "จ.", "อ.", "พ.", "พฤ.", "ศ.", "ส."]
 const LEFTOVER_CHOICES: [Leftover, string][] = [["carry", "เก็บไว้กับนักเรียน (รวมแพ็กถัดไป)"], ["extra", "เพิ่ม +1 คาบ (ไม่เก็บเงินเพิ่ม)"], ["drop", "ตัดเศษทิ้ง"]]
 
-function LineCard({ index, draft, quote, studentId, studentGrade, choices, overlapTo, today, onChange, onRemove }: {
-  index: number; draft: LineDraft; quote?: LineQuote; studentId: string; studentGrade?: string; choices: { klass: Klass; warnings: string[] }[]; overlapTo?: string; today: string
+function LineCard({ index, draft, quote, studentId, studentGrade, choices, overlapTo, today, closed, onChange, onRemove }: {
+  index: number; draft: LineDraft; quote?: LineQuote; studentId: string; studentGrade?: string; choices: { klass: Klass; warnings: string[] }[]; overlapTo?: string; today: string; closed: Holiday[]
   onChange: (patch: Partial<LineDraft>) => void; onRemove: () => void
 }) {
   const staff = useStore((s) => s.staff)
   const course = quote?.course
   const [day, setDay] = useState<number | null>(null)
+  const [openPicker, setOpenPicker] = useState(false)
   const classes = choices.map((c) => c.klass)
   // any class is allowed (owner 2026-09-30) — the ones that fit show first, the rest behind one tap, with the reason
   const [showAll, setShowAll] = useState(false)
   const fits = choices.filter((c) => !c.warnings.length)
   const chosen = classes.filter((k) => draft.classIds.includes(k.id))
+  const picking = chosen.length === 0 || openPicker
   const days = [...new Set(classes.map((k) => k.weekday))].sort()
   const toggleClass = (id: string) => onChange({ classIds: draft.classIds.includes(id) ? draft.classIds.filter((x) => x !== id) : [...draft.classIds, id] })
   const periods = Number(draft.periodsText)
@@ -516,66 +520,73 @@ function LineCard({ index, draft, quote, studentId, studentGrade, choices, overl
   const mismatch = studentGrade && course && !course.grades.includes(studentGrade)
   if (!course) return null
   return (
-    <div className="space-y-2.5 rounded-xl border p-3">
+    <div className="space-y-3 rounded-2xl border p-3">
       <div className="flex items-start gap-2">
         <span className="grid size-6 shrink-0 place-items-center rounded-full bg-muted text-xs font-semibold">{index + 1}</span>
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2 font-medium">{course.name} <PackageBadge course={course} /></div>
-          <p className="text-xs text-muted-foreground">
-            {course.kind === "bundle" ? "Bundle" : "Single"} · เรียน{COURSE_FORMAT_LABEL[course.format]} · {fmtMoney(course.price)} {priceUnitSuffix(course)}
-            {course.courseFee > 0 && ` · Course fee ${fmtMoney(course.courseFee)}`}
+          <p className="truncate text-xs text-muted-foreground">
+            {fmtMoney(course.price)} {priceUnitSuffix(course)}
+            {course.courseFee > 0 && ` · Course fee ${fmtMoney(course.courseFee)}`} · {course.kind === "bundle" ? "Bundle" : "Single"} · เรียน{COURSE_FORMAT_LABEL[course.format]}
           </p>
           {mismatch && <p className="flex items-center gap-1 text-xs text-amber-700"><AlertTriangleIcon className="size-3" /> เกรด {studentGrade} ไม่ตรงกับคอร์ส ({course.grades.join(", ")})</p>}
         </div>
         <Button size="icon-xs" variant="ghost" aria-label="เอาคอร์สนี้ออก" onClick={onRemove}><XIcon /></Button>
       </div>
 
-      {/* one course, several classes (อ. + พฤ.) — each counted as its own class (owner 2026-09-30) */}
-      <div className="space-y-1.5">
-        <div className="flex flex-wrap items-center gap-1.5">
-          <Label className="mr-1 text-xs">คลาสที่จะเรียน * {chosen.length > 0 && <span className="text-muted-foreground">({chosen.length} คลาส)</span>}</Label>
-          {days.length > 1 && [null, ...days].map((d) => (
-            <button key={d ?? "all"} type="button" onClick={() => setDay(d)}
-              className={cn("rounded-full px-2 py-0.5 text-[11px]", day === d ? "bg-foreground text-background" : "bg-muted text-muted-foreground hover:text-foreground")}>
-              {d === null ? "ทุกวัน" : WEEKDAY_SHORT[d]}
-            </button>
-          ))}
+      {/* one course, several classes (อ. + พฤ.) — each counted as its own class (owner 2026-09-30).
+          2026-11-09: one row per class (a single line on a phone); the picked ones show alone, the rest open behind "เพิ่ม/เปลี่ยนคลาส" */}
+      <div className="space-y-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <Label className="mr-auto text-xs">คลาสที่จะเรียน * {chosen.length > 0 && <span className="text-muted-foreground">({chosen.length} คลาส)</span>}</Label>
+          {picking && days.length > 1 && (
+            <>
+              {/* wide: the shared segmented switch · phone: a dropdown (the 8 day pills did not fit) */}
+              <Segmented className="hidden sm:inline-flex" label="วัน" value={String(day ?? "all")} onChange={(v) => setDay(v === "all" ? null : Number(v))}
+                options={[{ value: "all", label: "ทุกวัน" }, ...days.map((d) => ({ value: String(d), label: WEEKDAY_SHORT[d] }))]} />
+              <NativeSelect className="w-36 sm:hidden" aria-label="วัน" value={String(day ?? "all")} onChange={(e) => setDay(e.target.value === "all" ? null : Number(e.target.value))}
+                options={[{ value: "all", label: "ทุกวัน" }, ...days.map((d) => ({ value: String(d), label: WEEKDAY_SHORT[d] }))]} />
+            </>
+          )}
+          {chosen.length > 0 && <Button size="sm" variant="outline" onClick={() => setOpenPicker((v) => !v)}>{picking ? "เสร็จ" : "เพิ่ม / เปลี่ยนคลาส"}</Button>}
         </div>
-        {chosen.filter((k) => k.minutes > 60).map((k) => {
-        const seat = draft.seats?.[k.id] ?? { offset: 0, minutes: k.minutes }
-        return (
-          <div key={k.id} className="flex flex-wrap items-center gap-2 text-xs">
-            <span className="text-muted-foreground">เวลาเรียนใน {WEEKDAY_SHORT[k.weekday]} {k.name}:</span>
-            <SeatHours className="basis-full" classMinutes={k.minutes} start={k.start} value={draft.seats?.[k.id]} onChange={(v) => { const rest = { ...draft.seats }; if (v) rest[k.id] = v; else delete rest[k.id]; onChange({ seats: rest }) }} />
-            {isPartial(seat, k.minutes) && <span className="text-violet-700">ราคาคอร์สเท่าเดิม · แพ็กชั่วโมงนับคาบตามเวลาที่เรียน</span>}
-          </div>
-        )
-      })}
-      {fits.length === 0 && !showAll && <p className="text-xs text-muted-foreground">ไม่มีคลาสที่ตรงวิชา/รูปแบบของคอร์สนี้ — กด &quot;แสดงคลาสอื่น&quot; เพื่อเลือกคลาสไหนก็ได้</p>}
-        <div className="grid gap-1.5 sm:grid-cols-2">
-          {choices.filter(({ klass: k, warnings }) => (showAll || !warnings.length || draft.classIds.includes(k.id)) && (day === null || k.weekday === day || draft.classIds.includes(k.id))).map(({ klass: k, warnings }) => {
+        {fits.length === 0 && !showAll && picking && <p className="text-xs text-muted-foreground">ไม่มีคลาสที่ตรงวิชา/รูปแบบของคอร์สนี้ — กด &quot;แสดงคลาสอื่น&quot; เพื่อเลือกคลาสไหนก็ได้</p>}
+        <div className="space-y-1.5">
+          {choices.filter(({ klass: k, warnings }) => (picking ? ((showAll || !warnings.length || draft.classIds.includes(k.id)) && (day === null || k.weekday === day || draft.classIds.includes(k.id))) : draft.classIds.includes(k.id))).map(({ klass: k, warnings }) => {
             const t = staff.find((x) => x.id === k.teacherId)
             const cap = CAPACITY[k.type]
             const over = k.studentIds.length >= cap && !k.studentIds.includes(studentId)
             const on = draft.classIds.includes(k.id)
+            const notes = [...(t?.active ? [] : ["ยังไม่มีครู"]), ...(over ? [`เกินที่แนะนำ ${cap} คน`] : []), ...warnings]
+            const seat = draft.seats?.[k.id] ?? { offset: 0, minutes: k.minutes }
             return (
-              <button key={k.id} type="button" onClick={() => toggleClass(k.id)} aria-pressed={on}
-                className={cn("flex items-start gap-2 rounded-lg border px-2.5 py-1.5 text-left text-xs", on ? "border-primary bg-primary/5" : "hover:bg-muted/50", warnings.length && !on && "border-dashed")}>
-                <span className={cn("mt-0.5 grid size-4 shrink-0 place-items-center rounded border", on && "border-primary bg-primary text-primary-foreground")}>{on && <CheckIcon className="size-3" />}</span>
-                <span className="min-w-0">
-                  <span className="block font-medium">{WEEKDAY_SHORT[k.weekday]} {k.start} · {k.name}</span>
-                  <span className="text-muted-foreground">
-                    {t?.active ? `ครู${t.nickname}` : <span className="text-amber-700">ยังไม่มีครู</span>} · {k.minutes} นาที · {k.studentIds.length} คน{over && <span className="text-amber-700"> (เกินที่แนะนำ {cap})</span>}
-                  </span>
-                  {warnings.length > 0 && <span className="block text-amber-700">⚠ {warnings.join(" · ")}</span>}
-                </span>
-              </button>
+              <div key={k.id} className="space-y-1">
+                <button type="button" onClick={() => toggleClass(k.id)} aria-pressed={on}
+                  className={cn("flex min-h-9 w-full items-center gap-2 rounded-xl border px-3 py-1.5 text-left text-sm", on ? "border-primary bg-primary/5" : "hover:bg-muted/50", warnings.length > 0 && !on && "border-dashed")}>
+                  <span className={cn("grid size-4 shrink-0 place-items-center rounded border", on && "border-primary bg-primary text-primary-foreground")}>{on && <CheckIcon className="size-3" />}</span>
+                  <span className="min-w-0 flex-1 truncate"><span className="font-medium">{WEEKDAY_SHORT[k.weekday]} {k.start}</span> · {k.name}</span>
+                  <span className="hidden shrink-0 text-xs text-muted-foreground sm:inline">{t?.active ? `ครู${t.nickname}` : "ยังไม่มีครู"} · {k.minutes} นาที · {k.studentIds.length} คน</span>
+                  {notes.length > 0 && (
+                    <HoverCard>
+                      <HoverCardTrigger render={<span className="shrink-0 text-amber-600" />}><AlertTriangleIcon className="size-4" /></HoverCardTrigger>
+                      <HoverCardContent className="w-auto max-w-64 space-y-0.5 text-xs">{notes.map((n) => <p key={n}>{n}</p>)}</HoverCardContent>
+                    </HoverCard>
+                  )}
+                </button>
+                {on && k.minutes > 60 && (
+                  <div className="flex flex-wrap items-center gap-2 pl-3 text-xs">
+                    <span className="text-muted-foreground">เวลาเรียน</span>
+                    <SeatHours className="basis-full" classMinutes={k.minutes} start={k.start} value={draft.seats?.[k.id]} onChange={(v) => { const rest = { ...draft.seats }; if (v) rest[k.id] = v; else delete rest[k.id]; onChange({ seats: rest }) }} />
+                    {isPartial(seat, k.minutes) && <span className="text-violet-700">ราคาคอร์สเท่าเดิม · แพ็กชั่วโมงนับคาบตามเวลาที่เรียน</span>}
+                  </div>
+                )}
+              </div>
             )
           })}
         </div>
       </div>
 
-      {choices.length > fits.length && (
+      {picking && choices.length > fits.length && (
         <button type="button" className="text-xs text-primary underline" onClick={() => setShowAll((v) => !v)}>
           {showAll ? "ซ่อนคลาสที่ไม่ตรง" : `แสดงคลาสอื่น (${choices.length - fits.length}) — เลือกได้แต่ไม่ตรงวิชา/ระดับ/รูปแบบ`}
         </button>
@@ -584,7 +595,7 @@ function LineCard({ index, draft, quote, studentId, studentGrade, choices, overl
       <div className="grid grid-cols-2 gap-2">
         <div className="space-y-1">
           <Label className="text-xs">เริ่มเรียนตั้งแต่</Label>
-          <Input type="date" value={draft.startDate} onChange={(e) => onChange({ startDate: e.target.value })} />
+          <StartDatePicker value={draft.startDate} today={today} closed={closed} onChange={(d) => onChange({ startDate: d })} />
         </div>
         <div className="space-y-1">
           <Label className="text-xs">จำนวน{course.unit === "month" ? "เดือน" : "แพ็ก"} *</Label>
@@ -626,7 +637,7 @@ function LineCard({ index, draft, quote, studentId, studentGrade, choices, overl
       )}
 
       {q && (
-        <div className="rounded-lg border">
+        <div className="rounded-xl border">
           <div className="flex flex-wrap items-center gap-x-4 gap-y-1 border-b bg-muted/40 px-3 py-1.5 text-xs">
             <span className="flex items-center gap-1 font-medium"><CalendarIcon className="size-3.5" /> {fmtDate(q.from, { weekday: true })} → {fmtDate(q.to, { year: true })}</span>
             <span>{q.sessions.length} คาบ · {q.hours} ชม.</span>
@@ -641,7 +652,7 @@ function LineCard({ index, draft, quote, studentId, studentGrade, choices, overl
                     {p.sessions.length === 0 ? "—" : (
                       <HoverCard>
                         <HoverCardTrigger render={<button type="button" className="cursor-default underline decoration-dotted underline-offset-4" />}>
-                          {fmtDate(p.sessions[0])} → {fmtDate(p.sessions[p.sessions.length - 1])} · {p.sessions.length} คาบ
+                          {course.unit === "month" ? `${fmtDate(p.sessions[0])} → ${fmtDate(p.sessions[p.sessions.length - 1])} · ${p.sessions.length} คาบ` : `ดูวันเรียนทั้ง ${p.sessions.length} คาบ`}
                         </HoverCardTrigger>
                         <HoverCardContent align="start" className="max-h-72 w-52 overflow-y-auto">
                           <ol className="space-y-0.5 text-xs tabular-nums">
@@ -651,7 +662,7 @@ function LineCard({ index, draft, quote, studentId, studentGrade, choices, overl
                       </HoverCard>
                     )}
                   </td>
-                  <td className="px-3 py-1.5 text-right text-xs text-muted-foreground">{course.unit === "month" ? `${p.weeks?.length ?? 0} สัปดาห์ · ${p.sessions.length} คาบ → ${Math.round(p.factor * 100)}%` : `${p.sessions.length} คาบ`}</td>
+                  {course.unit === "month" && <td className="hidden px-3 py-1.5 text-right text-xs text-muted-foreground sm:table-cell">{`${p.weeks?.length ?? 0} สัปดาห์ → ${Math.round(p.factor * 100)}%`}</td>}
                   <td className="px-3 py-1.5 text-right font-medium tabular-nums">{fmtMoney(p.amount)}</td>
                 </tr>
               ))}

@@ -3,14 +3,16 @@
 // owner 2026-10-15: "ทำให้ฉันเห็นตัวอย่างได้หน่อย" — every card the Inbox chat can show, in every state, with sample
 // data. The buttons work as a preview: they say what they would do and never change real data.
 import Link from "next/link"
+import { useState } from "react"
 import { ChevronLeftIcon, ChevronRightIcon } from "lucide-react"
-import { Page, PageHeader } from "@/components/app/page-layout"
+import { Page, PageHeader, Tabs } from "@/components/app/page-layout"
 import { RequestCard } from "@/components/app/parent-requests"
 import { FormLinkBubble, FormRequestBubble } from "@/components/inbox/form-request-bubble"
 import { MessageBubble } from "@/components/inbox/message-bubble"
 import { ExitFormCardView } from "@/components/inbox/parent-cards"
 import { addDays, toDateStr } from "@/domain/dates"
 import type { ChatMessage, Conversation, ExitResponse, FormSubmission, ParentRequest, Student } from "@/domain/types"
+import { LineMessagesTab } from "@/components/inbox/line-messages-tab"
 import { useNow } from "@/lib/hooks"
 import { useStore } from "@/store/store"
 
@@ -62,6 +64,7 @@ function Outcome({ children }: { children: React.ReactNode }) {
 }
 
 export default function InboxCardsPreview() {
+  const [tab, setTab] = useState<"cards" | "line">("cards")
   const now = useNow(60_000)
   const today = toDateStr(now)
   const at = (days: number, time: string) => new Date(`${addDays(today, days)}T${time}:00`).toISOString()
@@ -110,6 +113,8 @@ export default function InboxCardsPreview() {
       <Link href="/inbox" className="inline-flex w-fit items-center gap-1 text-sm text-muted-foreground hover:text-foreground"><ChevronLeftIcon className="size-4" />กลับไป Inbox</Link>
       <PageHeader title="ตัวอย่างการ์ดในแชท"
         description="ทุกการ์ดที่ Inbox แสดงได้ ในทุกสถานะ — ข้อมูลตัวอย่าง กดปุ่มได้แต่ไม่บันทึกจริง" />
+      <Tabs value={tab} onChange={setTab} options={[{ value: "cards", label: "การ์ดในแชท" }, { value: "line", label: "ข้อความ LINE ที่ระบบส่ง" }]} />
+      {tab === "line" ? <LineMessagesTab /> : <>
 
       {/* owner 2026-11-06: every form's journey as states side by side — Admin sends → the parent sends it back → Admin handles */}
       <FlowSection title="Flow ฟอร์มสอบวัดระดับ (Test)" steps={[
@@ -182,6 +187,7 @@ export default function InboxCardsPreview() {
         <MessageBubble message={msg("m2", "staff", "รับทราบค่ะ แอดมินบันทึกลาให้เรียบร้อยแล้วนะคะ 🙏", at(0, "08:05"))} conversation={CONV} staff={staff} />
         <MessageBubble message={msg("m3", "internal", "ผู้ปกครองขอลาบ่อย — ลองเสนอเปลี่ยนวันเรียน", at(0, "08:06"))} conversation={CONV} staff={staff} />
       </Section>
+      </>}
     </Page>
   )
 }
