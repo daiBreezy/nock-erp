@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { useShallow } from "zustand/react/shallow"
 import { ChevronLeftIcon, ChevronRightIcon, PencilIcon, PlusIcon, RepeatIcon, TrashIcon } from "lucide-react"
 import { Segmented } from "@/components/app/page-layout"
@@ -72,6 +72,7 @@ export function HolidayPlanner({ branch }: { branch?: Branch }) {
   const [draft, setDraft] = useState<Draft | null>(null)
   const [closing, setClosing] = useState<Holiday | null>(null)
   const [removing, setRemoving] = useState<Holiday | null>(null)
+  const listRef = useRef<HTMLDivElement>(null)
   const [brandFilter, setBrandFilter] = useState<"all" | Brand>("all")
 
   const isBranch = !!branch
@@ -87,6 +88,12 @@ export function HolidayPlanner({ branch }: { branch?: Branch }) {
   const counts = { all: yearDays(() => true), na: yearDays((h) => holidayForBrand(h, "nockacademy")), li: yearDays((h) => holidayForBrand(h, "liclass")) }
   const listed = visible.filter((h) => (scope === "month" ? h.date.slice(0, 7) === anchor.slice(0, 7) : h.date.startsWith(year)))
   const months = Object.entries(listed.reduce<Record<string, Holiday[]>>((m, h) => { (m[h.date.slice(0, 7)] ??= []).push(h); return m }, {})).sort(([a], [b]) => a.localeCompare(b))
+  // the list opens at the current month (owner 2026-11-09)
+  const listKey = `${year}|${scope}|${brandFilter}`
+  useEffect(() => {
+    const box = listRef.current, cur = box?.querySelector<HTMLElement>(`[data-month="${today.slice(0, 7)}"]`)
+    if (box && cur) box.scrollTop = cur.offsetTop - box.offsetTop - 4
+  }, [listKey, today])
   const closed = (h: Holiday) => (isBranch ? closesBranch(h, branch.id) : true)
   const canEdit = (h: Holiday) => (h.branchId === null ? !isBranch && manageCompany : manageBranch)
 
@@ -102,8 +109,9 @@ export function HolidayPlanner({ branch }: { branch?: Branch }) {
   const periodOf = (d: string) => periods.find((p) => p.from <= d && d <= p.to)
 
   return (
-    <div className="grid gap-4 lg:grid-cols-[minmax(0,22rem)_1fr]">
-      <section className="space-y-3">
+    // company mode (owner 2026-11-09): no frame, fills the page height; wider gap between the list and the calendar
+    <div className={cn("grid gap-8 lg:grid-cols-[minmax(0,22rem)_1fr]", !isBranch && "lg:h-[calc(100dvh-14rem)] lg:min-h-[34rem]")}>
+      <section className={cn("space-y-3", !isBranch && "flex min-h-0 flex-col space-y-0 gap-3")}>
         <div className="flex items-start gap-2">
           <div className="flex-1">
             <h3 className="font-semibold">{isBranch ? tx("วันหยุด") : tx("ปฏิทินวันหยุดบริษัท")}</h3>
@@ -121,12 +129,12 @@ export function HolidayPlanner({ branch }: { branch?: Branch }) {
         )}
         <NativeSelect className="h-9 w-44" value={scope} onChange={(e) => setScope(e.target.value as "year" | "month")}
           options={[{ value: "year", label: tx("ทั้งปี {0}", [yearOf(Number(year))]) }, { value: "month", label: tx("เฉพาะ{0}", [tx(TH_MONTH[first.getMonth()])]) }]} />
-        <div className="-m-1 max-h-[32rem] space-y-1.5 overflow-y-auto p-1">
+        <div ref={listRef} className={cn("-m-1 space-y-1.5 overflow-y-auto p-1", isBranch ? "max-h-[32rem]" : "min-h-0 flex-1")}>
           {listed.length === 0 && <p className="rounded-xl border border-dashed p-6 text-center text-sm text-muted-foreground">{tx("ไม่มีวันหยุดในช่วงนี้")}</p>}
           {months.map(([month, items]) => (
-            <div key={month} className="space-y-1">
+            <div key={month} data-month={month} className="space-y-1">
               <div className="flex items-baseline gap-2 px-1 pt-2">
-                <span className="text-xs font-semibold">{tx(TH_MONTH[Number(month.slice(5)) - 1])}</span>
+                <span className={cn("flex items-center gap-1.5 text-xs font-semibold", month === today.slice(0, 7) && "text-primary")}>{month === today.slice(0, 7) && <span className="size-1.5 rounded-full bg-primary" />}{tx(TH_MONTH[Number(month.slice(5)) - 1])}</span>
                 <span className="ml-auto text-xs tabular-nums text-muted-foreground">{tx("{0} วัน", [new Set(items.map((h) => h.date)).size])}</span>
               </div>
               {items.map((h) => {
@@ -167,7 +175,7 @@ export function HolidayPlanner({ branch }: { branch?: Branch }) {
         )}
       </section>
 
-      <section className="rounded-3xl bg-card p-3 shadow-sm ring-1 ring-foreground/5">
+      <section className={cn("rounded-3xl bg-card p-3 shadow-sm ring-1 ring-foreground/5", !isBranch && "flex min-h-0 flex-col")}>
         <div className="mb-2 flex items-center gap-2">
           <Button size="icon-sm" variant="outline" aria-label={tx("เดือนก่อน")} onClick={() => setAnchor(shiftMonth(anchor, -1))}><ChevronLeftIcon /></Button>
           <span className="min-w-36 text-center font-medium">{tx(TH_MONTH[first.getMonth()])} {yearOf(first.getFullYear())}</span>
@@ -179,7 +187,7 @@ export function HolidayPlanner({ branch }: { branch?: Branch }) {
             {periods.map((p) => <PeriodBanner key={p.id} period={p} />)}
           </div>
         )}
-        <div className="grid grid-cols-7 overflow-hidden rounded-2xl border text-sm">
+        <div className={cn("grid grid-cols-7 overflow-hidden rounded-2xl border text-sm", !isBranch && "min-h-0 flex-1")} style={isBranch ? undefined : { gridTemplateRows: `auto repeat(${rows.length / 7}, minmax(0, 1fr))` }}>
           {DOW.map((d) => <div key={d} className="border-b bg-muted/40 py-1.5 text-center text-xs text-muted-foreground">{weekdayShort((DOW.indexOf(d) + 1) % 7)}</div>)}
           {rows.map((d) => {
             const inMonth = parseDate(d).getMonth() === first.getMonth()

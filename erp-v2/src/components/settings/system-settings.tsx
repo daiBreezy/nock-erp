@@ -140,11 +140,8 @@ function SubjectCatalog() {
 
 /** Company-wide calendar — same planner as the branch view, in company mode. */
 function GlobalHolidays() {
-  return (
-    <SettingsCard title={tx("วันหยุดบริษัท (Holidays)")} hint={tx("วันหยุดตามประเพณี + วันหยุดบริษัท — ทุกสาขาเห็นในแท็บวันหยุดของตัวเอง และเลือกเปิดทำการเป็นรายสาขาได้")}>
-      <HolidayPlanner />
-    </SettingsCard>
-  )
+  // no card around it (owner 2026-11-09) — the planner has its own heading and fills the page
+  return <HolidayPlanner />
 }
 
 /** Why customers stop (owner 2026-10-05) — one list for the close-lead form and the student exit form (TH/EN/JP). */
