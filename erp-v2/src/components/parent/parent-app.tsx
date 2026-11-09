@@ -417,7 +417,7 @@ function Study({ today, course, setCourse, kids, nick, t, lang, dayLabel, csId, 
             return (
               <CourseSummaryCard key={x.id} cs={x} t={t} lang={lang} prefix={multi && owner ? `${nick(owner)} · ` : undefined} fresh={fresh} onOpen={() => setCsId(x.id)}>
                 {/* the reading drops under the title — full width — 3 lines only */}
-                <span className="mt-3 line-clamp-3 block text-sm text-muted-foreground">{x.overallProgress.replace(/\s*\n\s*/g, " ")}</span>
+                <span className="mt-3 line-clamp-3 text-sm text-muted-foreground">{x.overallProgress.replace(/\s*\n\s*/g, " ")}</span>
                 <span className="mt-2 flex items-center gap-0.5 text-xs font-medium text-primary">{t.view}<ChevronRightIcon className="size-3.5" /></span>
               </CourseSummaryCard>
             )
