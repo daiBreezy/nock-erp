@@ -2,8 +2,9 @@
 
 import { useState } from "react"
 import { useShallow } from "zustand/react/shallow"
-import { CalendarDaysIcon, ChevronLeftIcon, ChevronRightIcon, PencilIcon, PlusIcon, RepeatIcon, TrashIcon } from "lucide-react"
+import { ChevronLeftIcon, ChevronRightIcon, PencilIcon, PlusIcon, RepeatIcon, TrashIcon } from "lucide-react"
 import { Segmented } from "@/components/app/page-layout"
+import { HUE, TAG_HUE } from "@/components/app/tags"
 import { NativeSelect } from "@/components/app/native-select"
 import { Field } from "@/components/app/student-form"
 import { Button } from "@/components/ui/button"
@@ -36,8 +37,21 @@ type Draft = { id?: string; name: string; date: string; category: HolidayCategor
   /** adding: also the same day in each of the next N years (0 = just this one) · editing a series row: apply to the whole series */
   repeat: number; scope: "one" | "series" }
 
-const BRAND_LABEL: Record<Brand, string> = { nockacademy: "NockAcademy", liclass: "Liclass" }
-const brandOf = (h: Holiday) => (h.branchId !== null ? null : h.brand ? BRAND_LABEL[h.brand] : tx("ทั้งสองแบรนด์"))
+// owner 2026-11-09: on this page brands are NA / LI; a day's colour says whom it closes — NA only, LI only, or both
+const BRAND_LABEL: Record<Brand, string> = { nockacademy: "NA", liclass: "LI" }
+type Scope = "na" | "li" | "both" | "branch"
+const scopeOf = (h: Holiday): Scope => (h.branchId !== null ? "branch" : h.brand === "nockacademy" ? "na" : h.brand === "liclass" ? "li" : "both")
+const SCOPE_TEXT: Record<Scope, string> = { na: "text-sky-700", li: "text-violet-700", both: "text-rose-700", branch: "text-slate-700" }
+const SCOPE_BG: Record<Scope, string> = { na: "bg-sky-50", li: "bg-violet-50", both: "bg-rose-50", branch: "bg-slate-100" }
+const SCOPE_BAR: Record<Scope, string> = { na: "bg-sky-400", li: "bg-violet-400", both: "bg-rose-400", branch: "bg-slate-400" }
+const BRAND_CHIP: Record<Brand, string> = { nockacademy: HUE[TAG_HUE.holidayBrand.na].chip, liclass: HUE[TAG_HUE.holidayBrand.li].chip }
+/** the day when several holidays fall on it: both brands if they together close both */
+const dayScope = (hs: Holiday[]): Scope => {
+  const s = new Set(hs.map(scopeOf))
+  if (s.has("both") || (s.has("na") && s.has("li"))) return "both"
+  return s.has("na") ? "na" : s.has("li") ? "li" : "branch"
+}
+const brandsOf = (h: Holiday): Brand[] => (h.branchId !== null ? [] : h.brand ? [h.brand] : ["nockacademy", "liclass"])
 /** the default is laid out 5 years ahead (the app keeps it going) */
 const DEFAULT_REPEAT = 5
 
@@ -68,7 +82,11 @@ export function HolidayPlanner({ branch }: { branch?: Branch }) {
   const visible = all
     .filter((h) => (isBranch ? h.branchId === branch.id || (h.branchId === null && holidayForBrand(h, branch.brand)) : h.branchId === null && (brandFilter === "all" || !h.brand || h.brand === brandFilter)))
     .sort((a, b) => a.date.localeCompare(b.date))
+  // days in the year each brand is closed (company holidays; a day closing both counts for both)
+  const yearDays = (pred: (h: Holiday) => boolean) => new Set(all.filter((h) => h.branchId === null && h.date.startsWith(year) && pred(h)).map((h) => h.date)).size
+  const counts = { all: yearDays(() => true), na: yearDays((h) => holidayForBrand(h, "nockacademy")), li: yearDays((h) => holidayForBrand(h, "liclass")) }
   const listed = visible.filter((h) => (scope === "month" ? h.date.slice(0, 7) === anchor.slice(0, 7) : h.date.startsWith(year)))
+  const months = Object.entries(listed.reduce<Record<string, Holiday[]>>((m, h) => { (m[h.date.slice(0, 7)] ??= []).push(h); return m }, {})).sort(([a], [b]) => a.localeCompare(b))
   const closed = (h: Holiday) => (isBranch ? closesBranch(h, branch.id) : true)
   const canEdit = (h: Holiday) => (h.branchId === null ? !isBranch && manageCompany : manageBranch)
 
@@ -97,42 +115,50 @@ export function HolidayPlanner({ branch }: { branch?: Branch }) {
         </div>
         {!isBranch && (
           <Segmented<"all" | Brand> value={brandFilter} onChange={setBrandFilter} label={tx("แบรนด์")} className="w-full [&>button]:flex-1 [&>button]:justify-center"
-            options={[{ value: "all", label: tx("ทุกแบรนด์") }, { value: "nockacademy", label: BRAND_LABEL.nockacademy }, { value: "liclass", label: BRAND_LABEL.liclass }]} />
+            options={([["all", tx("ทั้งหมด"), counts.all], ["nockacademy", BRAND_LABEL.nockacademy, counts.na], ["liclass", BRAND_LABEL.liclass, counts.li]] as const).map(([value, label, n]) => ({
+              value, label: <>{label}<span className="tabular-nums text-muted-foreground">{n}</span></>,
+            }))} />
         )}
         <NativeSelect className="h-9 w-44" value={scope} onChange={(e) => setScope(e.target.value as "year" | "month")}
           options={[{ value: "year", label: tx("ทั้งปี {0}", [yearOf(Number(year))]) }, { value: "month", label: tx("เฉพาะ{0}", [tx(TH_MONTH[first.getMonth()])]) }]} />
         <div className="-m-1 max-h-[32rem] space-y-1.5 overflow-y-auto p-1">
           {listed.length === 0 && <p className="rounded-xl border border-dashed p-6 text-center text-sm text-muted-foreground">{tx("ไม่มีวันหยุดในช่วงนี้")}</p>}
-          {listed.map((h) => {
-            const isClosed = closed(h)
-            return (
-              <div key={h.id} onClick={() => setAnchor(monthStart(h.date))}
-                className={cn("flex cursor-pointer items-center gap-3 rounded-2xl p-2.5 transition-colors hover:bg-muted/50", isClosed ? "bg-card ring-1 ring-foreground/5" : "bg-muted/40 opacity-60", h.date < today && "opacity-50")}>
-                <span className={cn("grid size-9 shrink-0 place-items-center rounded-xl", h.category === "company" ? "bg-violet-100 text-violet-700" : h.category === "branch" ? "bg-sky-100 text-sky-700" : "bg-rose-100 text-rose-700")}>
-                  <CalendarDaysIcon className="size-4" />
-                </span>
-                <span className="min-w-0 flex-1">
-                  <span className="flex items-center gap-1 text-[11px] text-muted-foreground">{tx(HOLIDAY_CATEGORY_LABEL[h.category])}{brandOf(h) && <> · {brandOf(h)}</>}{h.seriesId && <span className="flex items-center gap-0.5 text-primary" title={tx("วันหยุดประจำปี — ตั้งไว้หลายปี")}><RepeatIcon className="size-3" />{tx("ทุกปี")}</span>}</span>
-                  <span className="block truncate text-sm font-medium">{h.name}</span>
-                  <span className="block text-xs text-muted-foreground">{fmtDate(h.date, { weekday: true, year: true })}</span>
-                </span>
-                {isBranch && h.branchId === null ? (
-                  manageBranch ? (
-                    <span className="flex items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
-                      <span className="text-[11px] text-muted-foreground">{isClosed ? tx("หยุด") : tx("เปิดทำการ")}</span>
-                      <Switch checked={isClosed} aria-label={tx("สาขานี้หยุดวันนี้")}
-                        onCheckedChange={(v) => (v ? setClosing(h) : report(act.setOpen(h.id, branch.id, true, false), tx("{0}เปิดทำการวัน{1} — คาบที่ยกเลิกไปแล้วไม่ถูกคืนอัตโนมัติ", [branch.name, h.name])))} />
-                    </span>
-                  ) : <span className="text-[11px] text-muted-foreground">{isClosed ? tx("หยุด") : tx("เปิดทำการ")}</span>
-                ) : canEdit(h) && (
-                  <span className="flex" onClick={(e) => e.stopPropagation()}>
-                    <Button size="icon-sm" variant="ghost" aria-label={tx("แก้")} onClick={() => setDraft({ id: h.id, name: h.name, date: h.date, category: h.category, brand: h.brand, seriesId: h.seriesId, repeat: 0, scope: "one" })}><PencilIcon /></Button>
-                    <Button size="icon-sm" variant="ghost" aria-label={tx("ลบ")} onClick={() => (h.seriesId ? setRemoving(h) : report(act.remove(h.id), tx("ลบวันหยุดแล้ว (คาบที่ยกเลิกไปแล้วไม่ถูกคืนอัตโนมัติ)")))}><TrashIcon /></Button>
-                  </span>
-                )}
+          {months.map(([month, items]) => (
+            <div key={month} className="space-y-1">
+              <div className="flex items-baseline gap-2 px-1 pt-2">
+                <span className="text-xs font-semibold">{tx(TH_MONTH[Number(month.slice(5)) - 1])}</span>
+                <span className="ml-auto text-xs tabular-nums text-muted-foreground">{tx("{0} วัน", [new Set(items.map((h) => h.date)).size])}</span>
               </div>
-            )
-          })}
+              {items.map((h) => {
+                const isClosed = closed(h)
+                const sc = scopeOf(h)
+                const d = parseDate(h.date)
+                return (
+                  <div key={h.id} onClick={() => setAnchor(monthStart(h.date))}
+                    className={cn("group/row flex cursor-pointer items-center gap-2.5 rounded-xl py-1.5 pr-2 pl-2 transition-colors hover:bg-muted/50", !isClosed && "opacity-50", h.date < today && "opacity-50")}>
+                    <span className={cn("h-8 w-1 shrink-0 rounded-full", SCOPE_BAR[sc])} />
+                    <span className="w-12 shrink-0 text-xs text-muted-foreground tabular-nums"><span className="block">{weekdayShort(weekdayOf(h.date))}</span><span className="block text-sm font-semibold text-foreground">{d.getDate()}</span></span>
+                    <span className={cn("min-w-0 flex-1 truncate text-sm font-medium", !isClosed && "line-through")} title={h.name}>{h.name}{h.seriesId && <RepeatIcon className="ml-1 inline size-3 text-muted-foreground" aria-label={tx("ทุกปี")} />}</span>
+                    {brandsOf(h).length > 0 && <span className="flex shrink-0 gap-1">{brandsOf(h).map((b) => <span key={b} className={cn("rounded px-1.5 py-0.5 text-[10px] font-semibold", BRAND_CHIP[b])}>{BRAND_LABEL[b]}</span>)}</span>}
+                    {isBranch && h.branchId === null ? (
+                      manageBranch ? (
+                        <span className="flex shrink-0 items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
+                          <Switch checked={isClosed} aria-label={tx("สาขานี้หยุดวันนี้")} title={isClosed ? tx("หยุด") : tx("เปิดทำการ")}
+                            onCheckedChange={(v) => (v ? setClosing(h) : report(act.setOpen(h.id, branch.id, true, false), tx("{0}เปิดทำการวัน{1} — คาบที่ยกเลิกไปแล้วไม่ถูกคืนอัตโนมัติ", [branch.name, h.name])))} />
+                        </span>
+                      ) : null
+                    ) : canEdit(h) && (
+                      // owner 2026-11-09: the edit / delete icons show only on hover
+                      <span className="flex shrink-0 opacity-0 transition-opacity group-hover/row:opacity-100 focus-within:opacity-100" onClick={(e) => e.stopPropagation()}>
+                        <Button size="icon-sm" variant="ghost" aria-label={tx("แก้")} onClick={() => setDraft({ id: h.id, name: h.name, date: h.date, category: h.category, brand: h.brand, seriesId: h.seriesId, repeat: 0, scope: "one" })}><PencilIcon /></Button>
+                        <Button size="icon-sm" variant="ghost" aria-label={tx("ลบ")} onClick={() => (h.seriesId ? setRemoving(h) : report(act.remove(h.id), tx("ลบวันหยุดแล้ว (คาบที่ยกเลิกไปแล้วไม่ถูกคืนอัตโนมัติ)")))}><TrashIcon /></Button>
+                      </span>
+                    )}
+                  </div>
+                )
+              })}
+            </div>
+          ))}
         </div>
         {!isBranch && manageCompany && (
           <Button size="sm" variant="ghost" className="w-full" onClick={() => report(act.loadThai(), (v) => (v.added ? tx("เพิ่มวันหยุดไทยตัวอย่าง {0} วัน", [v.added]) : tx("มีวันหยุดไทยตัวอย่างครบแล้ว")))}>
@@ -159,19 +185,20 @@ export function HolidayPlanner({ branch }: { branch?: Branch }) {
             const inMonth = parseDate(d).getMonth() === first.getMonth()
             const hs = visible.filter((h) => h.date === d)
             const shut = hs.some(closed)
+            const sc = dayScope(hs.filter(closed))
             const canAdd = (isBranch ? manageBranch : manageCompany) && inMonth && !hs.some((h) => (isBranch ? h.branchId === branch.id : h.branchId === null))
             const n = isBranch ? sessions.filter((s) => !s.cancelled && s.date === d && s.branchId === branch.id).length : 0
             const sp = periodOf(d)
             return (
-              <div key={d} className={cn("group relative min-h-20 border-r border-b p-1.5 [&:nth-child(7n)]:border-r-0", !inMonth && "bg-muted/20 text-muted-foreground/50", sp && inMonth && "bg-amber-50", shut && inMonth && "bg-rose-50", d === today && "ring-2 ring-primary ring-inset")}>
+              <div key={d} className={cn("group relative min-h-20 border-r border-b p-1.5 [&:nth-child(7n)]:border-r-0", !inMonth && "bg-muted/20 text-muted-foreground/50", sp && inMonth && "bg-amber-50", shut && inMonth && SCOPE_BG[sc], d === today && "ring-2 ring-primary ring-inset")}>
                 {sp && <span className="absolute inset-x-0 top-0 h-1 bg-amber-400" />}
                 <div className="flex items-center justify-between">
-                  <span className={cn("text-xs", shut && "font-semibold text-rose-700")}>{parseDate(d).getDate()}</span>
+                  <span className={cn("text-xs", shut && cn("font-semibold", SCOPE_TEXT[sc]))}>{parseDate(d).getDate()}</span>
                   {n > 0 && inMonth && <span className="text-[10px] text-muted-foreground">{n}  {tx("คาบ")}</span>}
                 </div>
                 {sp && inMonth && (d === sp.from || parseDate(d).getDate() === 1 || weekdayOf(d) === 1) && <p className="truncate text-[10px] font-medium text-amber-700">☀ {sp.name}</p>}
                 {hs.map((h) => (
-                  <p key={h.id} className={cn("mt-0.5 truncate text-[11px]", closed(h) ? "text-rose-700" : "text-muted-foreground line-through")} title={`${h.name} · ${tx(HOLIDAY_CATEGORY_LABEL[h.category])}`}>{h.name}</p>
+                  <p key={h.id} className={cn("mt-0.5 truncate text-[11px]", closed(h) ? SCOPE_TEXT[scopeOf(h)] : "text-muted-foreground line-through")} title={`${h.name} · ${tx(HOLIDAY_CATEGORY_LABEL[h.category])}`}>{h.name}</p>
                 ))}
                 {canAdd && (
                   <button onClick={() => openAdd(d)} className="absolute inset-x-1.5 bottom-1.5 hidden items-center justify-center gap-1 rounded-lg border border-dashed border-primary/40 py-0.5 text-[11px] text-primary group-hover:flex">
@@ -183,7 +210,12 @@ export function HolidayPlanner({ branch }: { branch?: Branch }) {
           })}
         </div>
         <p className="mt-2 flex flex-wrap gap-3 text-[11px] text-muted-foreground">
-          <span className="flex items-center gap-1"><span className="size-2.5 rounded-sm bg-rose-200" />  {tx("หยุด")}</span>
+          {!isBranch && <>
+            <span className="flex items-center gap-1"><span className="size-2.5 rounded-sm bg-sky-200" />{BRAND_LABEL.nockacademy}</span>
+            <span className="flex items-center gap-1"><span className="size-2.5 rounded-sm bg-violet-200" />{BRAND_LABEL.liclass}</span>
+            <span className="flex items-center gap-1"><span className="size-2.5 rounded-sm bg-rose-200" />{BRAND_LABEL.nockacademy} + {BRAND_LABEL.liclass}</span>
+          </>}
+          {isBranch && <span className="flex items-center gap-1"><span className="size-2.5 rounded-sm bg-rose-200" />  {tx("หยุด")}</span>}
           {isBranch && <span className="flex items-center gap-1"><span className="size-2.5 rounded-sm bg-amber-300" />  {tx("ช่วงเวลาพิเศษ")}</span>}
           {isBranch && <span className="line-through">{tx("ชื่อขีดฆ่า = วันหยุดบริษัทที่สาขานี้เปิดทำการ")}</span>}
           <span>{tx("เอาเมาส์ชี้ช่องว่างเพื่อเพิ่มวันหยุด")}</span>
@@ -273,7 +305,7 @@ function HolidayDialog({ draft, branch, onClose, onSave }: { draft: Draft; branc
         {!branch && (
           <Field label={tx("แบรนด์ที่หยุด")}>
             <NativeSelect value={d.brand ?? ""} onChange={(e) => setD({ ...d, brand: (e.target.value || undefined) as Brand | undefined })}
-              options={[{ value: "", label: tx("ทั้งสองแบรนด์") }, { value: "nockacademy", label: BRAND_LABEL.nockacademy }, { value: "liclass", label: BRAND_LABEL.liclass }]} />
+              options={[{ value: "", label: `${BRAND_LABEL.nockacademy} + ${BRAND_LABEL.liclass}` }, { value: "nockacademy", label: BRAND_LABEL.nockacademy }, { value: "liclass", label: BRAND_LABEL.liclass }]} />
           </Field>
         )}
         {!d.id ? (
