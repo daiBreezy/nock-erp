@@ -34,7 +34,7 @@ const DICT = {
     teacher: "ครู", room: "ห้อง", cancelled: "งดเรียน", pickup: "รถรับ", dropoff: "รถส่ง", busNote: "เวลารถรับ-ส่งแอดมินจะแจ้งทาง LINE",
     noSummary: "ยังไม่มีสรุปการเรียน", noAttendance: "ยังไม่มีประวัติการเข้าเรียน", noBus: "ไม่ได้ใช้รถรับส่ง", present: "มาเรียน", absent: "ขาด", leave: "ลา",
     rate: "มาเรียน", updated: "อัปเดต", today: "วันนี้", tomorrow: "พรุ่งนี้",
-    courseEnd: "สรุปจบคอร์ส", newTag: "ใหม่", lessonNotes: "สรุปรายคาบ", view: "ดูสรุปและพัฒนาการ", back: "กลับ", whole: "ทั้งคอร์ส",
+    courseEnd: "สรุปจบคอร์ส", newTag: "ใหม่", noCourseEnd: "ยังไม่มีสรุปจบคอร์ส", lessonNotes: "สรุปรายคาบ", view: "ดูสรุปและพัฒนาการ", back: "กลับ", whole: "ทั้งคอร์ส",
     overall: "ภาพรวมพัฒนาการ", strengths: "จุดแข็ง", improve: "สิ่งที่ควรฝึกเพิ่ม", progress: "พัฒนาการ", by: "สรุปโดย",
     request: "แจ้งเรื่อง", leaveReq: "แจ้งลาหยุด", leaveReqSub: "เลือกคาบที่จะไม่มาเรียน", exitReq: "แจ้งลาออก", exitReqSub: "แจ้งหยุดเรียน · แอดมินจะติดต่อกลับ",
     pickClasses: "เลือกคาบที่จะลา", noUpcoming: "ไม่มีคาบเรียนใน 30 วันข้างหน้า", noteLabel: "หมายเหตุถึงแอดมิน (ไม่บังคับ)", send: "ส่ง", sending: "กำลังส่ง…",
@@ -56,7 +56,7 @@ const DICT = {
     teacher: "Teacher", room: "Room", cancelled: "No class", pickup: "Pick-up", dropoff: "Drop-off", busNote: "Bus times will be sent on LINE by our staff",
     noSummary: "No lesson summaries yet", noAttendance: "No attendance yet", noBus: "Not using the school bus", present: "Present", absent: "Absent", leave: "Leave",
     rate: "Attended", updated: "Updated", today: "Today", tomorrow: "Tomorrow",
-    courseEnd: "Course summaries", newTag: "New", lessonNotes: "Lesson notes", view: "View summary & progress", back: "Back", whole: "Whole course",
+    courseEnd: "Course summaries", newTag: "New", noCourseEnd: "No course summary yet", lessonNotes: "Lesson notes", view: "View summary & progress", back: "Back", whole: "Whole course",
     overall: "Overall progress", strengths: "Strengths", improve: "To improve", progress: "Progress", by: "By",
     request: "Requests", leaveReq: "Report an absence", leaveReqSub: "Pick the classes your child will miss", exitReq: "Stop studying", exitReqSub: "Let us know · our staff will call you",
     pickClasses: "Classes to miss", noUpcoming: "No classes in the next 30 days", noteLabel: "Note to our staff (optional)", send: "Send", sending: "Sending…",
@@ -78,7 +78,7 @@ const DICT = {
     teacher: "講師", room: "教室", cancelled: "休講", pickup: "お迎え", dropoff: "お送り", busNote: "送迎時間はスタッフからLINEでお知らせします",
     noSummary: "授業レポートはまだありません", noAttendance: "出欠の記録はまだありません", noBus: "送迎バスの利用なし", present: "出席", absent: "欠席", leave: "お休み",
     rate: "出席率", updated: "更新", today: "今日", tomorrow: "明日",
-    courseEnd: "コース修了レポート", newTag: "新着", lessonNotes: "授業レポート", view: "レポートと成長を見る", back: "戻る", whole: "コース全体",
+    courseEnd: "コース修了レポート", newTag: "新着", noCourseEnd: "コース修了レポートはまだありません", lessonNotes: "授業レポート", view: "レポートと成長を見る", back: "戻る", whole: "コース全体",
     overall: "全体の成長", strengths: "得意なところ", improve: "練習したいところ", progress: "成長の記録", by: "担当",
     request: "連絡", leaveReq: "お休みの連絡", leaveReqSub: "お休みする授業を選んでください", exitReq: "退会の連絡", exitReqSub: "スタッフからご連絡します",
     pickClasses: "お休みする授業", noUpcoming: "30日以内の授業はありません", noteLabel: "スタッフへのメモ（任意）", send: "送信", sending: "送信中…",
@@ -130,7 +130,7 @@ export function ParentApp({ view, lang: initialLang, today, framed, openCourseSu
   // Japanese families at Liclass open in Japanese, everyone else in Thai — the chip switches any time
   const [lang, setLang] = useState<FormLang>(initialLang ?? (brand === "liclass" && /[\u3040-\u30ff\u4e00-\u9fff]/.test(view.familyName) ? "ja" : "th"))
   const opened = openCourseSummary ? view.children.find((c) => c.courseSummaries?.some((x) => x.id === openCourseSummary)) : undefined
-  const [childId, setChildId] = useState(opened?.id ?? view.children[0]?.id ?? "")
+  const [childId, setChildId] = useState(opened?.id ?? (view.children.length > 1 ? "" : view.children[0]?.id ?? ""))
   const paid = view.paid !== false
   const [tab, setTab] = useState<Tab>(!paid ? "catalog" : opened || openAction === "leave" || openAction === "bus" ? "study" : openAction === "exit" || openAction === "home" ? "request" : "overview")
   const [ask, setAsk] = useState(paid ? openAction : undefined)
@@ -167,7 +167,7 @@ export function ParentApp({ view, lang: initialLang, today, framed, openCourseSu
           <p className="truncate text-lg font-semibold">{family}</p>
           <p className="truncate text-xs text-muted-foreground">{brand === "liclass" ? "Liclass" : "NockAcademy"} · {child?.branchName}</p>
         </div>
-        {view.children.length > 1 && cur === "study" && (
+        {view.children.length > 1 && (cur === "study" || cur === "overview") && (
           <Tabs className="-mx-4 px-4" value={childId} onChange={(id) => { setChildId(id); setCourse("") }} options={[{ value: "", label: t.all }, ...view.children.map((c) => ({ value: c.id, label: nick(c) }))]} />
         )}
       </header>
@@ -180,7 +180,7 @@ export function ParentApp({ view, lang: initialLang, today, framed, openCourseSu
             <span className="shrink-0 rounded-full bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground">{t.homeBannerBtn}</span>
           </button>
         )}
-        {!child ? null : cur === "overview" ? <Overview view={view} t={t} lang={lang} today={today} dayLabel={dayLabel} nick={nick} onDrill={drill} onOpenSummary={(kidId, id) => { setChildId(kidId); setCourse(""); setTab("study"); setCsId(id) }} />
+        {!child ? null : cur === "overview" ? <Overview view={childId ? { ...view, children: view.children.filter((c) => c.id === childId) } : view} t={t} lang={lang} today={today} dayLabel={dayLabel} nick={nick} onDrill={drill} />
           : cur === "study"
           ? <Study key={childId} today={today} course={course} setCourse={setCourse} kids={kids} nick={nick} t={t} lang={lang} dayLabel={dayLabel} csId={csId} setCsId={setCsId} onRequest={onRequest} requests={requests} onReturn={() => setTab("request")} />
           : cur === "catalog" ? (view.catalogToken || catalogPreview ? <Catalog token={view.catalogToken ?? ""} preview={catalogPreview} /> : <Empty text={t.catalogOff} />)
@@ -215,30 +215,9 @@ function Chip({ on, onClick, children, disabled, state }: { on?: boolean; onClic
 }
 
 /** owner 2026-11-06: the whole family at a glance — every child, every course (KPI card), every weekly class; each one opens ตารางเรียน on that child / course */
-function Overview({ view, t, lang, today, dayLabel, nick, onDrill, onOpenSummary }: { onOpenSummary: (childId: string, csId: string) => void; view: ParentView; t: T; lang: FormLang; today: string; dayLabel: (d: string) => string; nick: (c: ParentChild) => string; onDrill: (childId: string, courseId?: string) => void }) {
+function Overview({ view, t, lang, today, dayLabel, nick, onDrill }: { view: ParentView; t: T; lang: FormLang; today: string; dayLabel: (d: string) => string; nick: (c: ParentChild) => string; onDrill: (childId: string, courseId?: string) => void }) {
   return (
     // owner 2026-11-06: no cards — children are told apart by ONE divider; name (big) > next classes (small nested card) > courses (name, days, 4 numbers)
-    <div className="space-y-4">
-      {/* owner 2026-11-09: the course summary is the moment a parent decides to continue — it sits on top of the Overview the day it is
-          sent (the newest of each child, "new" for 30 days), not at the end of the schedule */}
-      {view.children.flatMap((c) => {
-        const latest = [...(c.courseSummaries ?? [])].sort((a, b) => (b.sentAt ?? b.to).localeCompare(a.sentAt ?? a.to))[0]
-        return latest ? [{ c, cs: latest }] : []
-      }).map(({ c, cs }) => {
-        const fresh = daysBetween(cs.sentAt?.slice(0, 10) ?? cs.to, today) <= 30
-        return (
-          <button key={cs.id} type="button" onClick={() => onOpenSummary(c.id, cs.id)} className="flex w-full items-start gap-3 rounded-[16px] bg-card p-4 text-left shadow-sm ring-1 ring-primary/30">
-            <span className="grid size-11 shrink-0 place-items-center rounded-[8px] bg-primary/10 text-primary"><GraduationCapIcon className="size-5" /></span>
-            <span className="min-w-0 flex-1">
-              <span className="flex items-center gap-2 text-xs text-muted-foreground"><span className="font-semibold text-foreground">{t.courseEnd}</span>{fresh && <Pill tone="red">{t.newTag}</Pill>}</span>
-              <span className="mt-0.5 block truncate text-base font-semibold">{view.children.length > 1 ? `${nick(c)} · ` : ""}{cs.course}</span>
-              <span className="block truncate text-xs text-muted-foreground">{fmtDay(cs.from, lang)} – {fmtDay(cs.to, lang)}{cs.teacher && ` · ${t.by} ${cs.teacher}`}</span>
-              <span className="mt-1.5 line-clamp-2 block text-sm text-muted-foreground">{cs.overallProgress.replace(/\s*\n\s*/g, " ")}</span>
-              <span className="mt-2 flex items-center gap-0.5 text-xs font-medium text-primary">{t.view}<ChevronRightIcon className="size-3.5" /></span>
-            </span>
-          </button>
-        )
-      })}
     <div className="divide-y">
       {view.children.map((c) => {
         const next = c.upcoming.filter((x) => !x.cancelled).slice(0, 2)
@@ -266,7 +245,6 @@ function Overview({ view, t, lang, today, dayLabel, nick, onDrill, onOpenSummary
           </section>
         )
       })}
-    </div>
     </div>
   )
 }
@@ -319,7 +297,8 @@ function Study({ today, course, setCourse, kids, nick, t, lang, dayLabel, csId, 
   today: string; course: string; setCourse: (id: string) => void; kids: ParentChild[]; nick: (c: ParentChild) => string; t: T; lang: FormLang; dayLabel: (d: string) => string; csId: string | null; setCsId: (id: string | null) => void
   onRequest?: (input: ParentRequestInput) => Promise<{ ok: boolean; error?: string }>; requests?: ParentRequest[]; onReturn: () => void
 }) {
-  const [view, setView] = useState<"all" | "past">("all")
+  // owner 2026-11-09: the course summaries have their own segment (ทั้งหมด · ผ่านไปแล้ว · สรุปจบคอร์ส) — not on the Overview, not at the foot of the schedule
+  const [view, setView] = useState<"all" | "past" | "ends">(csId ? "ends" : "all")
   const open = csId ? kids.flatMap((k) => k.courseSummaries ?? []).find((x) => x.id === csId) : undefined
   if (open) return <CourseEnd cs={open} t={t} lang={lang} onBack={() => setCsId(null)} />
   const multi = kids.length > 1
@@ -352,7 +331,7 @@ function Study({ today, course, setCourse, kids, nick, t, lang, dayLabel, csId, 
         </section>
       )}
       {many && <FilterChipGroup layout="scroll" value={course} onChange={setCourse} options={[{ value: "", label: t.all }, ...courses.map((c) => ({ value: c.id, label: c.name }))]} />}
-      <Segmented className="w-full [&>button]:flex-1" label={t.schedule} value={view} onChange={setView} options={[{ value: "all", label: t.all }, { value: "past", label: `${t.pastTab} ${past.length}` }]} />
+      <Segmented className="w-full [&>button]:flex-1" label={t.schedule} value={view} onChange={setView} options={[{ value: "all", label: t.all }, { value: "past", label: `${t.pastTab} ${past.length}` }, { value: "ends", label: `${t.courseEnd} ${ends.length}` }]} />
       {view === "all" && (
         <>
           {upcoming.length === 0 ? <Empty text={t.noClass} /> : (
@@ -365,26 +344,31 @@ function Study({ today, course, setCourse, kids, nick, t, lang, dayLabel, csId, 
               })}
             </div>
           )}
-          {ends.length > 0 && (
-            <section className="space-y-1.5">
-              <p className="flex items-center gap-1.5 px-1 text-xs font-semibold text-muted-foreground"><GraduationCapIcon className="size-3.5" />{t.courseEnd}</p>
-              {ends.map((x) => (
-                <button key={x.id} type="button" onClick={() => setCsId(x.id)} className="flex w-full items-center gap-3 rounded-[8px] bg-card ring-1 ring-foreground/5 p-3 text-left shadow-sm">
-                  <span className="min-w-0 flex-1">
-                    <span className="block truncate font-medium">{x.course}</span>
-                    <span className="block text-xs text-muted-foreground">{fmtDay(x.from, lang)} – {fmtDay(x.to, lang)} · {t.view}</span>
-                  </span>
-                  <ChevronRightIcon className="size-4 shrink-0 text-muted-foreground" />
-                </button>
-              ))}
-            </section>
-          )}
         </>
       )}
       {view === "past" && (past.length === 0 ? <Empty text={t.noAttendance} /> : (
         <ul className="space-y-1.5">
           {past.map((r, i) => <PastRow key={`${r.k.id}${r.date}${r.start}${i}`} r={r} t={t} lang={lang} tag={tagOf(r.k, r.courseId)} />)}
         </ul>
+      ))}
+      {view === "ends" && (ends.length === 0 ? <Empty text={t.noCourseEnd} /> : (
+        <div className="space-y-2.5">
+          {[...ends].sort((a, b) => (b.sentAt ?? b.to).localeCompare(a.sentAt ?? a.to)).map((x) => {
+            const owner = kids.find((k) => (k.courseSummaries ?? []).some((c) => c.id === x.id))
+            const fresh = daysBetween(x.sentAt?.slice(0, 10) ?? x.to, today) <= 30
+            return (
+              <button key={x.id} type="button" onClick={() => setCsId(x.id)} className="flex w-full items-start gap-3 rounded-[16px] bg-card p-4 text-left shadow-sm ring-1 ring-foreground/5">
+                <span className="grid size-11 shrink-0 place-items-center rounded-[8px] bg-primary/10 text-primary"><GraduationCapIcon className="size-5" /></span>
+                <span className="min-w-0 flex-1">
+                  <span className="flex items-center gap-2"><span className="min-w-0 flex-1 truncate text-base font-semibold">{multi && owner ? `${nick(owner)} · ` : ""}{x.course}</span>{fresh && <Pill tone="red">{t.newTag}</Pill>}</span>
+                  <span className="block truncate text-xs text-muted-foreground">{fmtDay(x.from, lang)} – {fmtDay(x.to, lang)}{x.teacher && ` · ${t.by} ${x.teacher}`}</span>
+                  <span className="mt-1.5 line-clamp-2 block text-sm text-muted-foreground">{x.overallProgress.replace(/\s*\n\s*/g, " ")}</span>
+                  <span className="mt-2 flex items-center gap-0.5 text-xs font-medium text-primary">{t.view}<ChevronRightIcon className="size-3.5" /></span>
+                </span>
+              </button>
+            )
+          })}
+        </div>
       ))}
     </>
   )
