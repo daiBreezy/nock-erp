@@ -304,8 +304,9 @@ export function LiffForm() {
             </div>
             {!preview && <NativeSelect className="w-32 shrink-0" value={lang} onChange={(e) => setLang(e.target.value as FormLang)} options={[{ value: "th", label: "ไทย" }, { value: "en", label: "English" }, { value: "ja", label: "日本語" }]} />}
           </div>
-          <div className="flex h-10 items-center border-b bg-background/95 px-4 backdrop-blur">
-            <p className="truncate text-sm font-semibold" style={{ opacity: "var(--p)" }}>{enroll ? te.title : t.formTitle(formType)}</p>
+          {/* the slim bar HANGS under the header (out of flow → no empty gap at the top) and fades in as the big block scrolls away */}
+          <div className="pointer-events-none absolute inset-x-0 top-full flex h-10 items-center border-b bg-background/95 px-4 backdrop-blur" style={{ opacity: "var(--p)" }}>
+            <p className="truncate text-sm font-semibold">{enroll ? te.title : t.formTitle(formType)}</p>
           </div>
         </header>
         {preview && <p className="rounded-2xl bg-amber-100 px-3 py-2 text-center text-xs text-amber-900">{t.previewBadge}</p>}
