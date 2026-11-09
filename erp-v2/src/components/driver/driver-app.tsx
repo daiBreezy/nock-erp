@@ -164,8 +164,7 @@ function RouteStrip({ t, p, speed }: { t: Trip; p: ReturnType<typeof progress>; 
     <div key={prev} className="animate-in duration-500 fade-in">
       <div className="relative h-8 overflow-hidden rounded-full bg-sky-300/70">
         <div className="absolute inset-y-0 left-0 rounded-full transition-[width] duration-1000 ease-linear" style={{ width: `min(100%, calc(${at} + 24px))`, background: "linear-gradient(90deg, #4a93d3, #2a5a82)" }} />
-        {/* eslint-disable-next-line @next/next/no-img-element -- static asset */}
-        <img src="/brand/van-top.png" alt="" className="absolute top-1/2 z-[1] h-5 w-auto -translate-x-1/2 -translate-y-1/2 transition-[left] duration-1000 ease-linear" style={{ left: at }} />
+        {/* the van (public/brand/van-top.png) is hidden — owner 2026-11-09; put the <img> back here to show it again */}
         {ends.map((nd, i) => (
           <span key={i} className={cn("absolute z-10 top-1/2 grid size-6 -translate-y-1/2 place-items-center rounded-full text-sm font-semibold", i === 0 ? "left-1 bg-sky-100 text-sky-600" : "right-1 bg-sky-500 text-white")}>
             {nd.icon ? <nd.icon className="size-3.5" /> : (nd as { n: number }).n}
@@ -197,7 +196,7 @@ function TripView({ t, events, busy, onBack, onTap, speed }: { t: Trip; events: 
   const navAll = t.stops.filter((s) => s.loc)
   return (
     <div className="mx-auto min-h-dvh max-w-lg bg-muted/40 pb-32">
-      <header className="sticky top-0 z-10 bg-background/95 px-3 py-2.5 shadow-sm backdrop-blur">
+      <header className="sticky top-0 z-30 bg-background/95 px-3 py-2.5 shadow-sm backdrop-blur">
         <div className="flex items-center gap-2">
           <button type="button" onClick={onBack} aria-label="กลับ" className="grid size-10 shrink-0 place-items-center rounded-full hover:bg-muted"><ArrowLeftIcon className="size-5" /></button>
           <div className="min-w-0 flex-1">
@@ -208,12 +207,11 @@ function TripView({ t, events, busy, onBack, onTap, speed }: { t: Trip; events: 
             {p.finished ? `เสร็จ ${hhmm(p.finished.at)}` : p.started ? `${p.done}/${t.stops.length}` : "ยังไม่เริ่ม"}
           </span>
         </div>
-        {p.started && <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-muted"><div className="h-full rounded-full bg-primary transition-all" style={{ width: `${(p.done / Math.max(1, t.stops.length)) * 100}%` }} /></div>}
       </header>
 
       <main className="space-y-3 p-3">
         {/* the stop to go to now — big, with call / navigate */}
-        <section className="-mx-3 -mt-3 space-y-4 bg-sky-100 p-5 text-sky-950">
+        <section className="relative isolate -mx-3 -mt-3 space-y-4 bg-sky-100 p-5 text-sky-950">
           <RouteStrip t={t} p={p} speed={speed} />
           {cur && (<div className="space-y-3">
             <p className="text-sm font-medium text-sky-800">{curIn ? `ถึงแล้ว ${hhmm(curIn.at)} — รอ${verb(cur)}เด็ก` : "ไปที่นี่ต่อ"}</p>
