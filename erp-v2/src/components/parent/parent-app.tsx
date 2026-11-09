@@ -161,7 +161,7 @@ export function ParentApp({ view, lang: initialLang, today, framed, openCourseSu
   // a course summary belongs to ONE child: the header's name BECOMES the child's name with a back arrow in front (owner 2026-11-09)
   // an open Catalog course carries its back arrow on this header too (same as the course summary)
   const [catalogBack, setCatalogBack] = useState<{ back: () => void } | null>(null)
-  const catalogOpen = cur === "catalog" ? catalogBack : null
+  const catalogOpen = cur === "catalog" || cur === "request" ? catalogBack : null // an open request form (pin home / return / exit) carries its back arrow here too
   const summaryKid = cur === "study" && csId ? view.children.find((c) => (c.courseSummaries ?? []).some((x) => x.id === csId)) : undefined
   const barBody = childTabs
   // owner 2026-11-09: the header shrinks WITH the scroll, no jump. It is sticky with a negative `top` equal to its big block, so the
@@ -243,7 +243,7 @@ export function ParentApp({ view, lang: initialLang, today, framed, openCourseSu
           : cur === "study"
           ? <Study key={childId} today={today} course={course} setCourse={setCourse} kids={kids} nick={nick} t={t} lang={lang} dayLabel={dayLabel} csId={csId} setCsId={setCsId} onRequest={onRequest} requests={requests} onReturn={() => setTab("request")} />
           : cur === "catalog" ? (view.catalogToken || catalogPreview ? <Catalog token={view.catalogToken ?? ""} preview={catalogPreview} onDetail={(b) => setCatalogBack(b ? { back: b } : null)} /> : <Empty text={t.catalogOff} />)
-          : <RequestTab paid={paid} key={`${child.id}|${ask ?? ""}`} lang={lang} setLang={setLang} updatedAt={view.generatedAt} view={view} child={child} t={t} today={today} onRequest={onRequest} requests={requests} initial={ask} />}
+          : <RequestTab paid={paid} key={`${child.id}|${ask ?? ""}`} lang={lang} setLang={setLang} updatedAt={view.generatedAt} view={view} child={child} t={t} today={today} onRequest={onRequest} requests={requests} initial={ask} onDetail={(b) => setCatalogBack(b ? { back: b } : null)} />}
       </main>
 
       <nav className={cn("z-10 mx-auto flex w-full max-w-lg border-t bg-background/95 backdrop-blur", framed ? "sticky bottom-0" : "fixed inset-x-0 bottom-0")}>
@@ -745,7 +745,8 @@ function CourseSummaryCard({ cs, t, lang, prefix, fresh, onOpen, framed = true, 
 }
 
 /** แจ้งลาหยุด / แจ้งลาออก (owner 2026-10-14) — goes to the office team in the ERP; the parent is told on LINE */
-function RequestTab({ paid, setLang, updatedAt, view, child, t, lang, today, onRequest, requests, initial }: {
+function RequestTab({ paid, setLang, updatedAt, view, child, t, lang, today, onRequest, requests, initial, onDetail }: {
+  onDetail: (back: (() => void) | null) => void
   paid: boolean; setLang: (l: FormLang) => void; updatedAt: string
   view: ParentView; child: ParentChild; t: T; lang: FormLang; today: string
   onRequest?: (input: ParentRequestInput) => Promise<{ ok: boolean; error?: string }>; requests?: ParentRequest[]; initial?: "leave" | "exit" | "bus" | "home"
@@ -753,6 +754,12 @@ function RequestTab({ paid, setLang, updatedAt, view, child, t, lang, today, onR
   // owner 2026-10-19: bus rides can be asked for / cancelled where the school runs a bus (Liclass, or already riding)
   const hasBus = child.brand === "liclass" || child.busDays.length > 0
   const [mode, setMode] = useState<"exit" | "return" | "home" | null>(child.left ? "return" : initial === "home" && !hasBus ? null : initial === "exit" || initial === "home" ? initial : null)
+  // the header carries the back arrow while a form is open (owner 2026-11-09)
+  useEffect(() => {
+    onDetail(mode ? () => setMode(null) : null)
+    return () => onDetail(null)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mode])
   // owner 2026-10-19: the house pin for the bus — starts where the school has it (if anywhere)
   const [homeLoc, setHomeLoc] = useState<{ lat: number; lng: number } | undefined>(view.home ? { lat: view.home.lat, lng: view.home.lng } : undefined)
   const [homeNote, setHomeNote] = useState(view.home?.addressNote ?? "")
@@ -796,7 +803,6 @@ function RequestTab({ paid, setLang, updatedAt, view, child, t, lang, today, onR
       )}
       {!mode ? null : (
         <section className="space-y-3">
-          <button type="button" onClick={() => setMode(null)} className="flex items-center gap-1 text-sm text-muted-foreground"><ArrowLeftIcon className="size-4" />{t.back}</button>
           <p className="text-lg font-semibold">{mode === "return" ? t.returnReq : mode === "home" ? t.homeReq : t.exitReq}</p>
           {mode === "home" ? (
             <div className="space-y-2">
