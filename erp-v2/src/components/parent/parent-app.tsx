@@ -607,7 +607,7 @@ function CourseEnd({ cs, t, lang }: { cs: ParentCourseSummary; t: T; lang: FormL
   const block = (label: string, v: string) => {
     const ls = lines(v)
     return ls.length ? (
-      <div className="rounded-[12px] bg-card ring-1 ring-foreground/5 p-3 shadow-sm">
+      <div className="rounded-[16px] bg-card ring-1 ring-foreground/5 p-3 shadow-sm">
         <p className="mb-1 text-xs font-medium text-muted-foreground">{label}</p>
         <div className="space-y-1 text-sm">{ls.map((l, i) => <p key={i} className="flex items-start gap-1.5">{l.subject && !only && <span className={cn("shrink-0 rounded-full px-1.5 py-0.5 text-[11px]", subjectColor(l.subject).chip)}>{l.subject}</span>}<span>{l.text}</span></p>)}</div>
       </div>
@@ -615,7 +615,7 @@ function CourseEnd({ cs, t, lang }: { cs: ParentCourseSummary; t: T; lang: FormL
   }
   return (
     <div className="space-y-3">
-      <section className="rounded-[12px] bg-card ring-1 ring-foreground/5 p-3 shadow-sm">
+      <section className="rounded-[16px] bg-card ring-1 ring-foreground/5 p-3 shadow-sm">
         <p className="flex items-center gap-1.5 text-xs text-muted-foreground"><GraduationCapIcon className="size-3.5" />{t.courseEnd}</p>
         <p className="mt-0.5 text-lg font-semibold">{cs.course}</p>
         <p className="text-xs text-muted-foreground">{fmtDay(cs.from, lang)} – {fmtDay(cs.to, lang)}{cs.teacher && ` · ${t.by} ${cs.teacher}`}</p>
@@ -624,17 +624,17 @@ function CourseEnd({ cs, t, lang }: { cs: ParentCourseSummary; t: T; lang: FormL
         )}
       </section>
       {/* owner 2026-11-09: a course ends with WORDS, not charts — simple numbers, the teacher's overall reading, then what happened week by week */}
-      <div className="grid grid-cols-4 divide-x rounded-[12px] border bg-card py-2 text-center">
+      <div className="grid grid-cols-4 divide-x rounded-[16px] border bg-card py-2 text-center">
         {[[t.statDone, `${done.length}`], [t.statPresent, `${present}`], [t.statLeave, `${leave}`], [t.absent, `${absent}`]].map(([label, value]) => (
           <div key={label}><p className="text-lg leading-tight font-semibold tabular-nums">{value}</p><p className="text-[11px] text-muted-foreground">{label}</p></div>
         ))}
       </div>
       {/* owner 2026-11-09: ภาพรวมพัฒนาการ = the whole course in words — in the AI blue (it reads every session): the overall reading is always
           shown, the summary of each session sits below, collapsed one by one */}
-      <section className={cn("overflow-hidden rounded-[12px] shadow-sm ring-1 ring-foreground/5", AI_TONE.surface)}>
+      <section className={cn("overflow-hidden rounded-[16px] shadow-sm ring-1 ring-foreground/5", AI_TONE.surface)}>
         <p className="flex items-center gap-2 px-3 pb-1 pt-3"><AiIcon className="size-6" /><span className={cn("text-sm font-semibold", AI_TONE.text)}>{t.overall}{only && ` · ${only}`}</span></p>
         {lines(cs.overallProgress).length > 0 && (
-          <div className="space-y-1 px-3 pb-3 text-sm">{lines(cs.overallProgress).map((l, i) => <p key={i} className="flex items-start gap-1.5">{l.subject && !only && <span className={cn("shrink-0 rounded-full px-1.5 py-0.5 text-[11px]", subjectColor(l.subject).chip)}>{l.subject}</span>}<span>{l.text}</span></p>)}</div>
+          <div className="space-y-2 px-3 pb-3 text-sm leading-relaxed">{lines(cs.overallProgress).map((l, i) => <p key={i} className="flex items-start gap-1.5">{l.subject && !only && <span className={cn("shrink-0 rounded-full px-1.5 py-0.5 text-[11px]", subjectColor(l.subject).chip)}>{l.subject}</span>}<span>{l.text}</span></p>)}</div>
         )}
         <div className={cn("border-t border-sky-200/60", AI_TONE.soft)}>
           {sessions.length === 0 ? <p className="p-3 text-sm text-muted-foreground">{t.noSessions}</p> : (
@@ -646,7 +646,7 @@ function CourseEnd({ cs, t, lang }: { cs: ParentCourseSummary; t: T; lang: FormL
               {showSessions && (
                 <ul className="space-y-1.5 px-1.5 pb-1.5">
                   {sessions.map((r, i) => (
-                    <li key={`${r.date}${i}`} className="rounded-[12px] bg-background/80 p-3 text-sm">
+                    <li key={`${r.date}${i}`} className="rounded-[16px] bg-background/80 p-3 text-sm">
                       <p className="flex items-center gap-1.5"><span className="font-semibold">{t.sessionN(r.n)}</span><span className="text-xs text-muted-foreground">{fmtDay(r.date, lang)}</span>{r.subjects?.length ? <span className={cn("rounded-full px-1.5 py-0.5 text-[11px]", subjectColor(r.subjects[0]).chip)}>{r.subjects.join(" + ")}</span> : null}</p>
                       {r.detail && <p className="mt-0.5 text-xs text-muted-foreground">{r.detail}</p>}
                       <p className="mt-1 whitespace-pre-line">{r.text}</p>
