@@ -82,10 +82,10 @@ function Panel({ studentId, familyId, onClose }: { studentId: ID | "new"; family
             onClose={() => (stu ? setEditing(false) : onClose())}
             onSaved={(x) => { if (isNew) setCreatedId(x.id); setEditing(false) }} />
         </PanelForm>
-      ) : id ? <Body id={id} onEdit={() => setEditing(true)} /> : null
+      ) : id ? <Body id={id} onEdit={() => setEditing(true)} invoiceOnOpen={isNew && !!createdId} /> : null
 }
 
-function Body({ id, onEdit }: { id: ID; onEdit: () => void }) {
+function Body({ id, onEdit, invoiceOnOpen }: { id: ID; onEdit: () => void; invoiceOnOpen?: boolean }) {
   const stu = useStore((s) => s.students.find((x) => x.id === id))
   const fam = useStore((s) => s.families.find((f) => f.id === stu?.familyId))
   const conv = useStore((s) => s.conversations.find((c) => c.familyId && c.familyId === stu?.familyId))
@@ -96,7 +96,8 @@ function Body({ id, onEdit }: { id: ID; onEdit: () => void }) {
   const today = toDateStr(useNow())
   const [seg, setSeg] = useState<Seg>("overview")
   // owner 2026-10-16: the invoice opens as a panel right here — no jump to Billing
-  const [invoice, setInvoice] = useState<ID | "new" | null>(null)
+  // sheet row 58 (Dear, 8 Nov): a student just created goes straight to a new invoice for them (if this person may bill)
+  const [invoice, setInvoice] = useState<ID | "new" | null>(invoiceOnOpen && can(me, "billing.manage") ? "new" : null)
   const [classSub, setClassSub] = useState<ClassSub>("session")
   const [leaveDialog, setLeaveDialog] = useState<{ leave?: StudentLeave } | null>(null)
   const canLeave = can(me, "attendance.leave_override")

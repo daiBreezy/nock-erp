@@ -2826,7 +2826,7 @@ export const useStore = create<Store>()(
               const x = group[0]
               const totals = Bill.invoiceTotals(x, ctxOf(st, x.branchId))
               const first = totals.lines.flatMap((l) => (l.quote?.slots[0] ? st.sessions.filter((y) => y.classId === l.quote!.slots[0].classId && y.date === l.quote!.slots[0].date) : [])).sort((a, b) => (a.date + a.start).localeCompare(b.date + b.start))[0]
-              return Msg.receiptMessage({ ...x, receiptNumber: number }, totals.total, { student: rows[0].student, firstSession: first })
+              return Msg.receiptMessage({ ...x, receiptNumber: number }, totals.total, { student: rows[0].student, firstSession: first, totals, branch: ctxOf(st, x.branchId).branch })
             })()
           const receiptDelivery = pushLine(rows[0].student.familyId, text, (ok, error) => {
             set((cur) => ({ invoices: cur.invoices.map((x) => (gids.has(x.id) ? { ...x, receiptDelivery: ok ? "delivered" : "failed" } : x)) }))

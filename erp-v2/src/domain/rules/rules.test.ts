@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest"
 import type { DevTicket, NockAnswer, NockQuestion, Role, Assessment, Attendance, Branch, BusAddOn, CreditNote, LessonSummary, Course, Entitlement, Family, FormSubmission, Lead, Student, Seat, FormOfferSlot, Holiday, Invoice, Klass, Session, Staff, StudentLeave, Weekday } from "../types"
 import { applyClassEdit, applyToSessions, canChangeTeachers, canMoveToClass, canUndoClassMove, canRescheduleStudent, movesOf, mondayOf, removedWithClass, canSave, closesBranch, holidayImpact, setBranchBrands, sameDayInYears, missingSeriesRows, holidayForBrand, hoursFor, isHoliday, overlappingRows, periodsIn, introducedConflicts, editSingleSession, findConflicts, generateSessions, moveSession, sessionState, validateClass, workState } from "./scheduling"
 import { activeLeave, nextClassDates, teacherLeaveCancels, leaveRunSessions, balance, studentState, leaveLedger, packageCovers, canMark, canSaveLeave, coveringEntitlement, effectiveTo, leavesUsed, lowBalanceAlert, removeFromClass, renewalFollowUpDue, resolveEntitlements } from "./attendance"
-import { bestPromotion, duplicateBusDay, billedOn, busAddOnAmount, pendingBusAddOns, validateBusAddOn, carriedMinutes, weekKey, classOptionsFor, defaultAdvance, entryFeeWaiver, invoiceSessionDates, invoiceTotals, validateInvoiceDraft, canApprove, canConfirmPayment, canForceApprove, canForceConfirmPayment, canSend, canVoid, defaultBusLegs, setAllBusLegs, usesNoBus, busTotal, nextInvoiceNumber, quoteCourse, roundUpTo, familyPromotion, receiptNumberOf, lastNoteFor, renumberDocuments, renewalCandidates, renewalDraft, bestBonusHours, FAMILY_PROMO_TIERS } from "./billing"
+import { bestPromotion, duplicateBusDay, billedOn, busAddOnAmount, pendingBusAddOns, validateBusAddOn, carriedMinutes, weekKey, classOptionsFor, defaultAdvance, entryFeeWaiver, invoiceSessionDates, invoiceTotals, validateInvoiceDraft, canApprove, canConfirmPayment, canForceApprove, canForceConfirmPayment, canSend, canVoid, isBackdated, defaultBusLegs, setAllBusLegs, usesNoBus, busTotal, nextInvoiceNumber, quoteCourse, roundUpTo, familyPromotion, receiptNumberOf, lastNoteFor, renumberDocuments, renewalCandidates, renewalDraft, bestBonusHours, FAMILY_PROMO_TIERS } from "./billing"
 import { can } from "./permissions"
 import { chartPrice, defaultCourseName, filterCourses, validateCourse } from "./course"
 import { brandPriceUnits, brandUsesBus, busRate, copyHours, gradeLabel, subjectLabel, priceOf, priceRange, setPrice, validateBranchInfo, validateDurations, validateHoliday, THAI_HOLIDAYS_FIXED, THAI_HOLIDAYS_MOVING, validatePromotion, validateSpecialPeriods, everyDay, subjectAbbr } from "./settings"
@@ -16,7 +16,7 @@ import { suggestFixes } from "./suggest"
 import { advanceStage, canSetStage, daysAgo, groupOf, restoreStage, siblingLead, validateLead } from "./crm"
 import { allAssessmentsAttended, APPROVE_STAGE, assessmentsFollowSessions, ATTENDED_STAGE, buildFormPrefill, commonSlots, buildCombinedSessionDraft, buildSessionDraftFromSlot, findOfferSlots, lastAssessmentDate, openHourStarts, planApproval, priorApproval, sessionKindLabel } from "./forms"
 import { customerRows, filterCustomers } from "./customers"
-import { invoiceMessage, invoiceBundleMessage } from "./messages"
+import { invoiceMessage, invoiceBundleMessage, receiptMessage } from "./messages"
 import * as Refund from "./refunds"
 import * as Doc from "./documents"
 import * as Seats from "./seats"
@@ -1455,6 +1455,34 @@ describe("Liclass invoice feedback (Pin, 6 Oct)", () => {
     const t = invoiceTotals({ ...inv, bus: none, busFeeId: "bs" }, ctx)
     expect(t.bus).toBe(0)
     expect(Doc.invoiceItems({ ...inv, bus: none }, t, li).some((i) => i.description.startsWith("送迎バス代"))).toBe(false)
+  })
+})
+
+describe("sheet rows 56 + 60 (retroactive invoice, course summary after payment)", () => {
+  const k = klass({ id: "k1", weekday: 2 })
+  const b: Branch = { ...branch, promotions: [] }
+  const inv: Invoice = {
+    id: "i", branchId: "b1", studentId: "a", number: "N1", lines: [{ id: "l", courseId: "c1", classIds: ["k1"], startDate: "2026-10-20", periods: 1 }],
+    bus: [], bookFee: 0, advance: [], concession: null, noteToParent: "", status: "draft", pdf: "none", createdBy: "adm", createdAt: "2026-11-05T03:00:00Z", payments: [],
+  }
+  const ctx = { branch: b, courses: [monthPkg], classes: [k], holidays: [] }
+
+  it("row 56: a start date before today is allowed but needs a reason", () => {
+    expect(isBackdated("2026-10-20", "2026-11-05")).toBe(true)
+    expect(isBackdated("2026-11-05", "2026-11-05")).toBe(false)
+    const t = invoiceTotals(inv, ctx)
+    expect(validateInvoiceDraft(inv, t, { today: "2026-11-05" }).some((e) => e.includes("ย้อนหลัง"))).toBe(true)
+    const ok = { ...inv, lines: [{ ...inv.lines[0], backdateRemark: "ลูกค้าจ่ายแล้ว ออกใบตามหลัง" }] }
+    expect(validateInvoiceDraft(ok, invoiceTotals(ok, ctx), { today: "2026-11-05" }).some((e) => e.includes("ย้อนหลัง"))).toBe(false)
+  })
+
+  it("row 60: the receipt message carries the course summary (hours, days, start–end, leaves)", () => {
+    const t = invoiceTotals(inv, ctx)
+    const text = receiptMessage({ ...inv, receiptNumber: "RC-1" }, t.total, { student: { nickname: "เดีย", name: "เดีย ก" } as Student, totals: t, branch: b })
+    expect(text).toContain("ชั่วโมง")
+    expect(text).toContain("เริ่มเรียน")
+    expect(text).toContain("ลาได้")
+    expect(text).toContain("จบคอร์ส")
   })
 })
 

@@ -1,9 +1,10 @@
 // Parent-facing LINE texts (E2E 2026-09-28: invoices, receipts and summaries used to be "sent" only as a flag —
 // now they go out as real LINE messages). One builder per document so every screen sends the same words.
 
-import { fmtDate, fmtMoney } from "../dates"
+import { fmtDate, fmtMoney, fromMinutes, toMinutes, weekdayOf } from "../dates"
 import type { Branch, Course, CourseSummary, Entitlement, Invoice, LessonSummary, Session, Student } from "../types"
 import type { InvoiceTotals } from "./billing"
+import { leaveQuotaFor } from "./settings"
 
 const bankLine = (b: Branch) =>
   b.bankAccount.number ? `โอนเข้า ${b.bankAccount.bank} ${b.bankAccount.number} (${b.bankAccount.name})` : "ชำระที่เคาน์เตอร์สาขา"
@@ -53,14 +54,40 @@ export function voidMessage(inv: Invoice, ctx: { student: Student }): string {
   ].join("\n")
 }
 
-export function receiptMessage(inv: Invoice, total: number, ctx: { student: Student; firstSession?: Pick<Session, "date" | "start"> }): string {
+const DAY_TH = ["อาทิตย์", "จันทร์", "อังคาร", "พุธ", "พฤหัสบดี", "ศุกร์", "เสาร์"]
+
+/** Sheet row 60 (Dear, 8 Nov): what the parent needs to know once the payment is in — per course: hours, the days and
+ *  times, start and end, the days the school is closed, and how many leaves they get. */
+export function courseSummaryLines(totals: InvoiceTotals, branch: Branch): string[] {
+  return totals.lines.flatMap((l) => {
+    if (!l.course || !l.quote || !l.quote.slots.length) return []
+    const q = l.quote
+    // one "day time-time" per distinct class (a day can have two classes)
+    const when = [...new Map(q.slots.map((x) => [`${weekdayOf(x.date)}|${x.start}|${x.minutes}`, x])).values()]
+      .map((x) => `${DAY_TH[weekdayOf(x.date)]} ${x.start}-${fromMinutes(toMinutes(x.start) + x.minutes)}`)
+    const leaves = leaveQuotaFor(branch, l.course.unit, l.course.duration, l.line.periods, q.sessions.length)
+    return [
+      "",
+      `✅ ${l.course.name}`,
+      `✅ ${q.hours} ชั่วโมง (${q.sessions.length} ครั้ง)`,
+      `✅ ${when.join(" · ")}`,
+      `✅ เริ่มเรียน ${fmtDate(q.from, { year: true })} · จบคอร์ส ${fmtDate(q.to, { year: true })}`,
+      q.skipped.length ? `✅ วันหยุดสถาบัน ${q.skipped.map((d) => fmtDate(d, { year: true })).join(", ")}` : null,
+      `✅ ลาได้ ${leaves} ครั้ง`,
+    ].filter((x): x is string => x !== null)
+  })
+}
+
+export function receiptMessage(inv: Invoice, total: number, ctx: { student: Student; firstSession?: Pick<Session, "date" | "start">; totals?: InvoiceTotals; branch?: Branch }): string {
   return [
     `🧾 ใบเสร็จรับเงิน ${inv.receiptNumber ?? ""}`.trim(),
     `ได้รับชำระ ${fmtMoney(total)} สำหรับ ${inv.number} เรียบร้อยแล้วค่ะ`,
     `นักเรียน: ${ctx.student.nickname} (${ctx.student.name})`,
     ctx.firstSession ? `เริ่มเรียน ${fmtDate(ctx.firstSession.date, { weekday: true })} เวลา ${ctx.firstSession.start} น.` : null,
+    ...(ctx.totals && ctx.branch ? courseSummaryLines(ctx.totals, ctx.branch) : []),
+    "",
     "ขอบคุณค่ะ 😊",
-  ].filter(Boolean).join("\n")
+  ].filter((x) => x !== null).join("\n")
 }
 
 /** one slip for several children → one receipt message listing each invoice */

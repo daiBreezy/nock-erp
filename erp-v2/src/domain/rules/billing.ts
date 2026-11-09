@@ -450,7 +450,10 @@ export function invoiceSessionDates(lines: LineQuote[]): DateStr[] {
 /** owner 2026-09-26: every office role approves — but only for its own branch (Area Manager+ any branch) */
 export const APPROVER_ROLES: Role[] = ["super_admin", "director", "area_manager", "manager", "admin"]
 
-export function validateInvoiceDraft(inv: Invoice, totals: InvoiceTotals, opts: { lastAssessment?: DateStr | null } = {}): string[] {
+/** Retroactive invoice (sheet row 56): any start date before today is allowed, with a reason. */
+export const isBackdated = (startDate: DateStr, today?: DateStr) => !!today && startDate < today
+
+export function validateInvoiceDraft(inv: Invoice, totals: InvoiceTotals, opts: { lastAssessment?: DateStr | null; today?: DateStr } = {}): string[] {
   const errs: string[] = []
   if (!inv.lines.length && totals.total === 0) errs.push("ยังไม่มีรายการในใบแจ้งหนี้")
   const many = totals.lines.length > 1
@@ -463,6 +466,7 @@ export function validateInvoiceDraft(inv: Invoice, totals: InvoiceTotals, opts: 
       errs.push(`${tag}วันเริ่มเรียนต้องหลังวันสอบ/ทดลองเรียน (${fmtDate(opts.lastAssessment)}) — เลื่อนวันเริ่มเรียน`)
     if (l.line.classIds.length && l.quote && l.quote.sessions.length === 0) errs.push(`${tag}ช่วงที่เลือกไม่มีคาบเรียนเลย (ติดวันหยุดทั้งหมด) — เลื่อนวันเริ่มหรือเพิ่มจำนวนงวด`)
     if (!Number.isInteger(l.line.periods) || l.line.periods < 1) errs.push(`${tag}จำนวนงวดต้องตั้งแต่ 1 ขึ้นไป`)
+    if (isBackdated(l.line.startDate, opts.today) && !l.line.backdateRemark?.trim()) errs.push(`${tag}วันเริ่มเรียนย้อนหลัง (ก่อนวันนี้) — ใส่เหตุผล`)
   })
   const keys = inv.lines.flatMap((l) => l.classIds.map((c) => `${l.courseId}|${c}`))
   if (new Set(keys).size < keys.length) errs.push("มีคอร์ส + คลาสเดียวกันซ้ำในใบนี้ — รวมเป็นรายการเดียวแล้วเพิ่มจำนวนงวด")

@@ -252,4 +252,7 @@ export const KIT: Record<string, Entry> = {
   "เพิ่มวันหยุดไทยตัวอย่าง {0} วัน": { en: "Added {0} sample Thai holidays", ja: "タイの祝日サンプルを{0}日追加しました" },
   "มีวันหยุดไทยตัวอย่างครบแล้ว": { en: "The Thai holiday sample is already in", ja: "タイの祝日サンプルはすでに登録済みです" },
   "นักเรียนไม่ใช้รถรับส่ง (ไม่เก็บค่ารถ)": { en: "Student does not use the bus (no bus fee)", ja: "送迎バスを利用しない（バス代なし）" },
+  "ใบแจ้งหนี้ย้อนหลัง — เริ่มเรียนก่อนวันนี้ ใส่เหตุผลได้เลย": { en: "Retroactive invoice — the start date is before today, give a reason", ja: "遡及請求書 — 開始日が今日より前です。理由を入力してください" },
+  "เช่น ลูกค้าจ่ายแล้ว ออกใบตามหลัง": { en: "e.g. the customer already paid, invoice issued afterwards", ja: "例：お客様は支払い済みで、請求書を後から発行" },
+  "{0}วันเริ่มเรียนย้อนหลัง (ก่อนวันนี้) — ใส่เหตุผล": { en: "{0}Start date is in the past (before today) — give a reason", ja: "{0}開始日が過去（今日より前）です — 理由を入力してください" },
 }

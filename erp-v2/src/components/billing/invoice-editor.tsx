@@ -18,7 +18,7 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { addDays, fmtDate, fmtMoney, fmtMonth, toDateStr } from "@/domain/dates"
 import * as Att from "@/domain/rules/attendance"
-import { busTotal, carriedMinutes, lastNoteFor, lastPaidInvoice, familyPromotion, invoiceHours, FAMILY_PROMO_TIERS, pendingBusAddOns, classChoices, classOptionsFor, defaultAdvance, defaultBusLegs, setAllBusLegs, usesNoBus, entryFeeWaiver, invoiceSessionDates, invoiceTotals, validateInvoiceDraft, type LineQuote } from "@/domain/rules/billing"
+import { busTotal, carriedMinutes, lastNoteFor, lastPaidInvoice, familyPromotion, invoiceHours, FAMILY_PROMO_TIERS, pendingBusAddOns, classChoices, classOptionsFor, defaultAdvance, isBackdated, defaultBusLegs, setAllBusLegs, usesNoBus, entryFeeWaiver, invoiceSessionDates, invoiceTotals, validateInvoiceDraft, type LineQuote } from "@/domain/rules/billing"
 import { lastAssessmentDate } from "@/domain/rules/forms"
 import type { AdvanceItem, BusExtraLine, BusLeg, CourseLine, Entitlement, Family, Invoice, Klass, Leftover, Seat } from "@/domain/types"
 import { isPartial } from "@/domain/rules/seats"
@@ -35,7 +35,7 @@ import { busZone, checkRide, distanceKm, rideTimes, type RoundCheck } from "@/do
 import { BusMap } from "./bus-map"
 import { Section } from "./section"
 
-type LineDraft = { id: string; courseId: string; classIds: string[]; startDate: string; periodsText: string; overlapRemark: string; leftover?: Leftover; seats?: Record<string, Seat> }
+type LineDraft = { id: string; courseId: string; classIds: string[]; startDate: string; periodsText: string; overlapRemark: string; backdateRemark?: string; leftover?: Leftover; seats?: Record<string, Seat> }
 
 export function InvoiceEditor({ invoice, defaultStudentId, renewEntitlementId, onClose, onSaved }: { invoice?: Invoice; defaultStudentId?: string; renewEntitlementId?: string; onClose: () => void; onSaved: (inv: Invoice) => void }) {
   const branch = useBranch()
@@ -66,7 +66,7 @@ export function InvoiceEditor({ invoice, defaultStudentId, renewEntitlementId, o
   const [newId] = useState(() => invoice?.id ?? uid("inv"))
   const [studentId, setStudentId] = useState(invoice?.studentId ?? renewFrom?.studentId ?? defaultStudentId ?? "")
   const [lines, setLines] = useState<LineDraft[]>(() =>
-    invoice ? invoice.lines.map((l) => ({ id: l.id, courseId: l.courseId, classIds: l.classIds, startDate: l.startDate, periodsText: String(l.periods), overlapRemark: l.overlapRemark ?? "", leftover: l.leftover, seats: l.seats }))
+    invoice ? invoice.lines.map((l) => ({ id: l.id, courseId: l.courseId, classIds: l.classIds, startDate: l.startDate, periodsText: String(l.periods), overlapRemark: l.overlapRemark ?? "", backdateRemark: l.backdateRemark, leftover: l.leftover, seats: l.seats }))
       : renewFrom ? [{ id: uid("ln"), courseId: renewFrom.courseId, classIds: renewFrom.classIds, startDate: renewStart(renewFrom), periodsText: "1", overlapRemark: "" }]
         : [])
   const [bus, setBus] = useState<BusLeg[]>(invoice?.bus ?? [])
@@ -144,7 +144,7 @@ export function InvoiceEditor({ invoice, defaultStudentId, renewEntitlementId, o
     // hour packs: minutes this student kept from the previous package of this course come in automatically
     const course = courses.find((c) => c.id === l.courseId)
     const carryIn = course?.unit === "hour" && studentId ? carriedMinutes(studentId, l.courseId, entitlements, invoices, invoice?.id) : 0
-    return { id: l.id, courseId: l.courseId, classIds: l.classIds, startDate: l.startDate, periods: Number.isInteger(periods) && periods >= 1 ? periods : 0, overlapRemark: overlap ? l.overlapRemark : undefined, carryIn: carryIn || undefined, leftover: l.leftover, seats: pickSeats(l) }
+    return { id: l.id, courseId: l.courseId, classIds: l.classIds, startDate: l.startDate, periods: Number.isInteger(periods) && periods >= 1 ? periods : 0, overlapRemark: overlap ? l.overlapRemark : undefined, backdateRemark: isBackdated(l.startDate, today) ? l.backdateRemark : undefined, carryIn: carryIn || undefined, leftover: l.leftover, seats: pickSeats(l) }
   })
   const base: Invoice = {
     id: newId,
@@ -197,7 +197,7 @@ export function InvoiceEditor({ invoice, defaultStudentId, renewEntitlementId, o
   const errors = [
     ...(!studentId ? ["เลือกนักเรียน"] : []),
     ...courseLines.filter((l) => l.overlapRemark !== undefined && !l.overlapRemark.trim()).map((l) => `นักเรียนมีแพ็กเกจ ${courses.find((c) => c.id === l.courseId)?.name ?? ""} อยู่แล้ว — ใส่เหตุผลที่ซื้อซ้ำ`),
-    ...validateInvoiceDraft(draft, totals, { lastAssessment: studentId ? lastAssessmentDate(studentId, assessments) : null }),
+    ...validateInvoiceDraft(draft, totals, { today, lastAssessment: studentId ? lastAssessmentDate(studentId, assessments) : null }),
   ]
 
   const submit = () => {
@@ -360,7 +360,7 @@ export function InvoiceEditor({ invoice, defaultStudentId, renewEntitlementId, o
           {lines.map((l, i) => (
             <LineCard key={l.id} index={i} draft={l} quote={totals.lines[i]} studentId={studentId} studentGrade={student?.grade}
               choices={classChoices(totals.lines[i]?.course, classes, branch.id, staff, student?.grade)}
-              overlapTo={studentId ? Att.activeEntitlements(studentId, entitlements, l.startDate).find((e) => e.courseId === l.courseId)?.to : undefined}
+              today={today} overlapTo={studentId ? Att.activeEntitlements(studentId, entitlements, l.startDate).find((e) => e.courseId === l.courseId)?.to : undefined}
               onChange={(patch) => patchLine(l.id, patch)} onRemove={() => removeLine(l.id)} />
           ))}
           {pickingCourses && (
@@ -496,8 +496,8 @@ export function InvoiceEditor({ invoice, defaultStudentId, renewEntitlementId, o
 const WEEKDAY_SHORT = ["อา.", "จ.", "อ.", "พ.", "พฤ.", "ศ.", "ส."]
 const LEFTOVER_CHOICES: [Leftover, string][] = [["carry", "เก็บไว้กับนักเรียน (รวมแพ็กถัดไป)"], ["extra", "เพิ่ม +1 คาบ (ไม่เก็บเงินเพิ่ม)"], ["drop", "ตัดเศษทิ้ง"]]
 
-function LineCard({ index, draft, quote, studentId, studentGrade, choices, overlapTo, onChange, onRemove }: {
-  index: number; draft: LineDraft; quote?: LineQuote; studentId: string; studentGrade?: string; choices: { klass: Klass; warnings: string[] }[]; overlapTo?: string
+function LineCard({ index, draft, quote, studentId, studentGrade, choices, overlapTo, today, onChange, onRemove }: {
+  index: number; draft: LineDraft; quote?: LineQuote; studentId: string; studentGrade?: string; choices: { klass: Klass; warnings: string[] }[]; overlapTo?: string; today: string
   onChange: (patch: Partial<LineDraft>) => void; onRemove: () => void
 }) {
   const staff = useStore((s) => s.staff)
@@ -591,6 +591,13 @@ function LineCard({ index, draft, quote, studentId, studentGrade, choices, overl
           <Input type="number" min={1} step={1} value={draft.periodsText} aria-invalid={!periodsValid} onChange={(e) => onChange({ periodsText: e.target.value })} />
         </div>
       </div>
+
+      {isBackdated(draft.startDate, today) && (
+        <div className="space-y-1 rounded-lg border border-amber-300 bg-amber-50 p-2 dark:bg-amber-950/30">
+          <p className="text-xs text-amber-900 dark:text-amber-200">ใบแจ้งหนี้ย้อนหลัง — เริ่มเรียนก่อนวันนี้ ใส่เหตุผลได้เลย</p>
+          <Input value={draft.backdateRemark ?? ""} onChange={(e) => onChange({ backdateRemark: e.target.value })} placeholder="เช่น ลูกค้าจ่ายแล้ว ออกใบตามหลัง" />
+        </div>
+      )}
 
       {overlapTo && (
         <div className="space-y-1 rounded-lg border border-amber-300 bg-amber-50 p-2 dark:bg-amber-950/30">

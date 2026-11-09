@@ -1336,6 +1336,8 @@ export interface CourseLine {
   periods: number
   /** required when the student already has an active entitlement for the course */
   overlapRemark?: string
+  /** Sheet row 56 (Petch, 5 Nov): a start date before today (a retroactive invoice) is allowed without limit but needs a reason */
+  backdateRemark?: string
   /** hour packs: minutes carried in from the student's previous package of this course */
   carryIn?: number
   /** per class: the part of the class this student attends (unset = the whole class) */
