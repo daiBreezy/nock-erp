@@ -11,7 +11,7 @@ import { ParentApp } from "@/components/parent/parent-app"
 import { toDateStr } from "@/domain/dates"
 import type { ParentCourseSummary } from "@/domain/rules/parent-view"
 import type { Family } from "@/domain/types"
-import { SAMPLE_COURSE, SAMPLE_IMPROVE, SAMPLE_OVERALL, SAMPLE_STRENGTHS, SAMPLE_TEACHER, SAMPLE_WEEK_DETAILS, SAMPLE_WEEK_NOTES } from "@/data/line-preview-sample"
+import { SAMPLE_COURSE, SAMPLE_IMPROVE, SAMPLE_OVERALL, SAMPLE_STRENGTHS, SAMPLE_TEACHER } from "@/data/line-preview-sample"
 import { catalogSnapshot } from "@/lib/forms"
 import { useNow } from "@/lib/hooks"
 import { buildParentView } from "@/lib/parent-app"
@@ -73,7 +73,7 @@ function ParentPhone({ paid }: { paid: boolean }) {
     const kid = v.children[0]
     if (paid && kid && !(kid.courseSummaries ?? []).length) {
       const day = (n: number) => toDateStr(new Date(new Date(`${toDateStr(now)}T12:00:00`).getTime() - n * 86_400_000))
-      const rows = [60, 53, 46, 39, 32, 25, 18, 11, 4].map((n, i) => ({ date: day(n), attended: (i === 3 ? "leave" : "present") as "leave" | "present", text: SAMPLE_WEEK_NOTES[i] || undefined, detail: SAMPLE_WEEK_DETAILS[i] || undefined }))
+      const rows = [60, 53, 46, 39, 32, 25, 18, 11, 4].map((n, i) => ({ date: day(n), attended: (i === 3 ? "leave" : "present") as "leave" | "present" }))
       const cs: ParentCourseSummary = {
         id: "preview_cs", course: kid.packages[0]?.course ?? SAMPLE_COURSE, bundle: false, subjects: [], from: day(60), to: day(2), teacher: SAMPLE_TEACHER, sentAt: `${day(1)}T10:00:00`,
         overallProgress: SAMPLE_OVERALL,

@@ -415,14 +415,17 @@ function Study({ today, course, setCourse, kids, nick, t, lang, dayLabel, csId, 
             const owner = kids.find((k) => (k.courseSummaries ?? []).some((c) => c.id === x.id))
             const fresh = daysBetween(x.sentAt?.slice(0, 10) ?? x.to, today) <= 30
             return (
-              <button key={x.id} type="button" onClick={() => setCsId(x.id)} className="flex w-full items-start gap-3 rounded-[16px] bg-card p-4 text-left shadow-sm ring-1 ring-foreground/5">
-                <span className="grid size-11 shrink-0 place-items-center rounded-[8px] bg-primary/10 text-primary"><GraduationCapIcon className="size-5" /></span>
-                <span className="min-w-0 flex-1">
-                  <span className="flex items-center gap-2"><span className="min-w-0 flex-1 truncate text-base font-semibold">{multi && owner ? `${nick(owner)} · ` : ""}{x.course}</span>{fresh && <Pill tone="red">{t.newTag}</Pill>}</span>
-                  <span className="block truncate text-xs text-muted-foreground">{fmtDay(x.from, lang)} – {fmtDay(x.to, lang)}{x.teacher && ` · ${t.by} ${x.teacher}`}</span>
-                  <span className="mt-1.5 line-clamp-2 block text-sm text-muted-foreground">{x.overallProgress.replace(/\s*\n\s*/g, " ")}</span>
-                  <span className="mt-2 flex items-center gap-0.5 text-xs font-medium text-primary">{t.view}<ChevronRightIcon className="size-3.5" /></span>
+              <button key={x.id} type="button" onClick={() => setCsId(x.id)} className="block w-full rounded-[16px] bg-card p-4 text-left shadow-sm ring-1 ring-foreground/5">
+                <span className="flex items-center gap-3">
+                  <span className="grid size-11 shrink-0 place-items-center rounded-[8px] bg-primary/10 text-primary"><GraduationCapIcon className="size-5" /></span>
+                  <span className="min-w-0 flex-1">
+                    <span className="flex items-center gap-2"><span className="min-w-0 flex-1 truncate text-base font-semibold">{multi && owner ? `${nick(owner)} · ` : ""}{x.course}</span>{fresh && <Pill tone="red">{t.newTag}</Pill>}</span>
+                    <span className="block truncate text-xs text-muted-foreground">{fmtDay(x.from, lang)} – {fmtDay(x.to, lang)}{x.teacher && ` · ${t.by} ${x.teacher}`}</span>
+                  </span>
                 </span>
+                {/* the reading drops under the title — full width, no indent from the icon — 3 lines only */}
+                <span className="mt-3 line-clamp-3 text-sm text-muted-foreground">{x.overallProgress.replace(/\s*\n\s*/g, " ")}</span>
+                <span className="mt-2 flex items-center gap-0.5 text-xs font-medium text-primary">{t.view}<ChevronRightIcon className="size-3.5" /></span>
               </button>
             )
           })}
@@ -597,10 +600,6 @@ function CourseEnd({ cs, t, lang }: { cs: ParentCourseSummary; t: T; lang: FormL
   const present = done.filter((r) => r.attended === "present").length
   const leave = done.filter((r) => r.attended === "leave").length
   const absent = done.filter((r) => r.attended === "absent").length
-  // the course's sessions in order — "session n" = the n-th class of the course, so it matches the schedule even when some have no note
-  const sessions = rows.map((r, i) => ({ ...r, n: i + 1 })).filter((r) => r.text)
-  // one button shows / hides every session summary together (owner 2026-11-09) — collapsed by default so the page stays short
-  const [showSessions, setShowSessions] = useState(false)
   const lines = (v: string) => v.split("\n").map((l) => l.trim()).filter(Boolean)
     .map((l) => { const m = l.match(/^([^:：]{1,20})[:：]\s*(.*)$/); return m && cs.subjects.includes(m[1].trim()) ? { subject: m[1].trim(), text: m[2] } : { subject: "", text: l } })
     .filter((l) => !only || l.subject === only)
@@ -623,34 +622,12 @@ function CourseEnd({ cs, t, lang }: { cs: ParentCourseSummary; t: T; lang: FormL
           <FilterChipGroup className="mt-2.5" layout="scroll" value={only} onChange={setOnly} options={["", ...cs.subjects].map((x) => ({ value: x, label: x || t.whole }))} />
         )}
       </section>
-      {/* owner 2026-11-09: ภาพรวมพัฒนาการ = the whole course in words — in the AI blue (it reads every session): the overall reading is always
-          shown, the summary of each session sits below, collapsed one by one */}
+      {/* owner 2026-11-09: ภาพรวมพัฒนาการ = the whole course in words, in the AI blue. (The per-session summaries live in ตารางเรียน › ผ่านไปแล้ว — not repeated here.) */}
       <section className={cn("overflow-hidden rounded-[16px] shadow-sm ring-1 ring-foreground/5", AI_TONE.surface)}>
         <p className="flex items-center gap-2 px-3 pb-1 pt-3"><AiIcon className="size-6" /><span className={cn("text-sm font-semibold", AI_TONE.text)}>{t.overall}{only && ` · ${only}`}</span></p>
         {lines(cs.overallProgress).length > 0 && (
           <ClampedParagraphs className="px-3 pb-3" paras={lines(cs.overallProgress)} showSubject={!only} readAll={t.readAll} less={t.lessText} />
         )}
-        <div className={cn("border-t border-sky-200/60", AI_TONE.soft)}>
-          {sessions.length === 0 ? <p className="p-3 text-sm text-muted-foreground">{t.noSessions}</p> : (
-            <>
-              <button type="button" aria-expanded={showSessions} onClick={() => setShowSessions((v) => !v)} className="flex w-full items-center justify-between gap-2 px-3 py-2.5 text-left text-sm font-medium text-primary">
-                {showSessions ? t.hideSessions : t.showSessions(sessions.length)}
-                <ChevronDownIcon className={cn("size-4 shrink-0 transition-transform", showSessions && "rotate-180")} />
-              </button>
-              {showSessions && (
-                <ul className="space-y-1.5 px-1.5 pb-1.5">
-                  {sessions.map((r, i) => (
-                    <li key={`${r.date}${i}`} className="rounded-[16px] bg-background/80 p-3 text-sm">
-                      <p className="flex items-center gap-1.5"><span className="font-semibold">{t.sessionN(r.n)}</span><span className="text-xs text-muted-foreground">{fmtDay(r.date, lang)}</span>{r.subjects?.length ? <span className={cn("rounded-full px-1.5 py-0.5 text-[11px]", subjectColor(r.subjects[0]).chip)}>{r.subjects.join(" + ")}</span> : null}</p>
-                      {r.detail && <p className="mt-0.5 text-xs text-muted-foreground">{r.detail}</p>}
-                      <p className="mt-1 whitespace-pre-line">{r.text}</p>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </>
-          )}
-        </div>
       </section>
       {block(t.strengths, cs.strengths)}
       {block(t.improve, cs.toImprove)}

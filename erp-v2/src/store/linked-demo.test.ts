@@ -19,6 +19,17 @@ describe("demo classes for LINE-linked families", () => {
     expect(db.summaries.some((x) => x.studentId === kid.id && x.status === "sent")).toBe(true)
   })
 
+  it("the demo child also gets LONG session notes and a sent, long course summary (owner 2026-11-09)", () => {
+    const db = withLinkedFamilyDemo({ ...seed, families: seed.families.map((f) => (f.id === fam.id ? { ...f, lineUserId: "Uowner" } : f)) }, now)
+    const kid = db.students.find((s) => s.id === `stu_demo_${fam.id}`)!
+    const notes = db.summaries.filter((x) => x.studentId === kid.id && x.status === "sent")
+    expect(notes.some((n) => n.text.split("\n").length >= 3 && n.text.length > 200)).toBe(true)
+    const cs = (db.courseSummaries ?? []).find((c) => c.studentId === kid.id)!
+    expect(cs.status).toBe("sent")
+    expect(cs.overallProgress.split("\n").length).toBeGreaterThanOrEqual(4)
+    expect(db.entitlements.some((e) => e.id === cs.entitlementId)).toBe(true)
+  })
+
   it("families without LINE, or already with classes ahead, are left alone", () => {
     expect(withLinkedFamilyDemo(seed, now).students.length).toBe(seed.students.length)
   })
