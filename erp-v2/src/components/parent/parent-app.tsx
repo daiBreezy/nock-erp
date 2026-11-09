@@ -2,7 +2,7 @@
 
 // Parent app v1 (owner 2026-10-09) — what a parent sees inside LINE. Pure view of a ParentView: no store, no staff data,
 // so the same screen runs on the parent's phone (/liff/parent) and in the staff preview (Family › ดูแบบผู้ปกครอง).
-import { useEffect, useRef, useState } from "react"
+import { useEffect, useLayoutEffect, useRef, useState } from "react"
 import dynamic from "next/dynamic"
 import { AI_TONE, AiIcon } from "@/components/app/ai"
 import { ArrowLeftIcon, BookOpenIcon, EllipsisIcon, LayoutDashboardIcon, ChevronDownIcon, CalendarOffIcon, LoaderCircleIcon, BusIcon, MapPinHouseIcon, CalendarDaysIcon, ChevronRightIcon, GraduationCapIcon, DoorOpenIcon, MessageSquareTextIcon, UserIcon } from "lucide-react"
@@ -34,7 +34,7 @@ const DICT = {
     teacher: "ครู", room: "ห้อง", cancelled: "งดเรียน", pickup: "รถรับ", dropoff: "รถส่ง", busNote: "เวลารถรับ-ส่งแอดมินจะแจ้งทาง LINE",
     noSummary: "ยังไม่มีสรุปการเรียน", noAttendance: "ยังไม่มีประวัติการเข้าเรียน", noBus: "ไม่ได้ใช้รถรับส่ง", present: "มาเรียน", absent: "ขาด", leave: "ลา",
     rate: "มาเรียน", updated: "อัปเดต", today: "วันนี้", tomorrow: "พรุ่งนี้",
-    courseEnd: "สรุปจบคอร์ส", newTag: "ใหม่", showSessions: (n: number) => `ดูสรุปทุกคาบ (${n} คาบ)`, hideSessions: "ซ่อนสรุปทุกคาบ", noSessions: "ยังไม่มีสรุปรายคาบ", sessionN: (n: number) => `คาบที่ ${n}`, nextClasses: "คาบเรียนถัดไป", allCourses: "คอร์สเรียนทั้งหมด", noCourseEnd: "ยังไม่มีสรุปจบคอร์ส", lessonNotes: "สรุปรายคาบ", view: "ดูสรุปและพัฒนาการ", back: "กลับ", whole: "ทั้งคอร์ส",
+    courseEnd: "สรุปจบคอร์ส", newTag: "ใหม่", showSessions: (n: number) => `ดูสรุปทุกคาบ (${n} คาบ)`, hideSessions: "ซ่อนสรุปทุกคาบ", readAll: "...อ่านทั้งหมด", lessText: "...ย่อข้อความ", noSessions: "ยังไม่มีสรุปรายคาบ", sessionN: (n: number) => `คาบที่ ${n}`, nextClasses: "คาบเรียนถัดไป", allCourses: "คอร์สเรียนทั้งหมด", noCourseEnd: "ยังไม่มีสรุปจบคอร์ส", lessonNotes: "สรุปรายคาบ", view: "ดูสรุปและพัฒนาการ", back: "กลับ", whole: "ทั้งคอร์ส",
     overall: "ภาพรวมพัฒนาการ", strengths: "จุดแข็ง", improve: "สิ่งที่ควรฝึกเพิ่ม", progress: "พัฒนาการ", by: "สรุปโดย",
     request: "แจ้งเรื่อง", leaveReq: "แจ้งลาหยุด", leaveReqSub: "เลือกคาบที่จะไม่มาเรียน", exitReq: "แจ้งลาออก", exitReqSub: "แจ้งหยุดเรียน · แอดมินจะติดต่อกลับ",
     pickClasses: "เลือกคาบที่จะลา", noUpcoming: "ไม่มีคาบเรียนใน 30 วันข้างหน้า", noteLabel: "หมายเหตุถึงแอดมิน (ไม่บังคับ)", send: "ส่ง", sending: "กำลังส่ง…",
@@ -56,7 +56,7 @@ const DICT = {
     teacher: "Teacher", room: "Room", cancelled: "No class", pickup: "Pick-up", dropoff: "Drop-off", busNote: "Bus times will be sent on LINE by our staff",
     noSummary: "No lesson summaries yet", noAttendance: "No attendance yet", noBus: "Not using the school bus", present: "Present", absent: "Absent", leave: "Leave",
     rate: "Attended", updated: "Updated", today: "Today", tomorrow: "Tomorrow",
-    courseEnd: "Course summaries", newTag: "New", showSessions: (n: number) => `Show every session summary (${n})`, hideSessions: "Hide session summaries", noSessions: "No session summaries yet", sessionN: (n: number) => `Session ${n}`, nextClasses: "Next classes", allCourses: "All courses", noCourseEnd: "No course summary yet", lessonNotes: "Lesson notes", view: "View summary & progress", back: "Back", whole: "Whole course",
+    courseEnd: "Course summaries", newTag: "New", showSessions: (n: number) => `Show every session summary (${n})`, hideSessions: "Hide session summaries", readAll: "...Read all", lessText: "...Show less", noSessions: "No session summaries yet", sessionN: (n: number) => `Session ${n}`, nextClasses: "Next classes", allCourses: "All courses", noCourseEnd: "No course summary yet", lessonNotes: "Lesson notes", view: "View summary & progress", back: "Back", whole: "Whole course",
     overall: "Overall progress", strengths: "Strengths", improve: "To improve", progress: "Progress", by: "By",
     request: "Requests", leaveReq: "Report an absence", leaveReqSub: "Pick the classes your child will miss", exitReq: "Stop studying", exitReqSub: "Let us know · our staff will call you",
     pickClasses: "Classes to miss", noUpcoming: "No classes in the next 30 days", noteLabel: "Note to our staff (optional)", send: "Send", sending: "Sending…",
@@ -78,7 +78,7 @@ const DICT = {
     teacher: "講師", room: "教室", cancelled: "休講", pickup: "お迎え", dropoff: "お送り", busNote: "送迎時間はスタッフからLINEでお知らせします",
     noSummary: "授業レポートはまだありません", noAttendance: "出欠の記録はまだありません", noBus: "送迎バスの利用なし", present: "出席", absent: "欠席", leave: "お休み",
     rate: "出席率", updated: "更新", today: "今日", tomorrow: "明日",
-    courseEnd: "コース修了レポート", newTag: "新着", showSessions: (n: number) => `各回のまとめを見る（${n}回分）`, hideSessions: "各回のまとめを閉じる", noSessions: "授業ごとのまとめはまだありません", sessionN: (n: number) => `第${n}回`, nextClasses: "次の授業", allCourses: "受講中のコース", noCourseEnd: "コース修了レポートはまだありません", lessonNotes: "授業レポート", view: "レポートと成長を見る", back: "戻る", whole: "コース全体",
+    courseEnd: "コース修了レポート", newTag: "新着", showSessions: (n: number) => `各回のまとめを見る（${n}回分）`, hideSessions: "各回のまとめを閉じる", readAll: "…すべて読む", lessText: "…閉じる", noSessions: "授業ごとのまとめはまだありません", sessionN: (n: number) => `第${n}回`, nextClasses: "次の授業", allCourses: "受講中のコース", noCourseEnd: "コース修了レポートはまだありません", lessonNotes: "授業レポート", view: "レポートと成長を見る", back: "戻る", whole: "コース全体",
     overall: "全体の成長", strengths: "得意なところ", improve: "練習したいところ", progress: "成長の記録", by: "担当",
     request: "連絡", leaveReq: "お休みの連絡", leaveReqSub: "お休みする授業を選んでください", exitReq: "退会の連絡", exitReqSub: "スタッフからご連絡します",
     pickClasses: "お休みする授業", noUpcoming: "30日以内の授業はありません", noteLabel: "スタッフへのメモ（任意）", send: "送信", sending: "送信中…",
@@ -601,6 +601,20 @@ function CourseEnd({ cs, t, lang }: { cs: ParentCourseSummary; t: T; lang: FormL
   const sessions = rows.map((r, i) => ({ ...r, n: i + 1 })).filter((r) => r.text)
   // one button shows / hides every session summary together (owner 2026-11-09) — collapsed by default so the page stays short
   const [showSessions, setShowSessions] = useState(false)
+  // a long overall reading is cut at 10 lines with "...อ่านทั้งหมด" (owner 2026-11-09)
+  const CLAMP = 220 // 10 lines × 22px (text-sm + leading-relaxed)
+  const textRef = useRef<HTMLDivElement>(null)
+  const [clampable, setClampable] = useState(false)
+  const [expanded, setExpanded] = useState(false)
+  useLayoutEffect(() => {
+    const el = textRef.current
+    if (!el) return
+    const measure = () => setClampable(el.scrollHeight > CLAMP + 6)
+    measure()
+    const ro = new ResizeObserver(measure)
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [cs.overallProgress, only])
   const lines = (v: string) => v.split("\n").map((l) => l.trim()).filter(Boolean)
     .map((l) => { const m = l.match(/^([^:：]{1,20})[:：]\s*(.*)$/); return m && cs.subjects.includes(m[1].trim()) ? { subject: m[1].trim(), text: m[2] } : { subject: "", text: l } })
     .filter((l) => !only || l.subject === only)
@@ -623,18 +637,16 @@ function CourseEnd({ cs, t, lang }: { cs: ParentCourseSummary; t: T; lang: FormL
           <FilterChipGroup className="mt-2.5" layout="scroll" value={only} onChange={setOnly} options={["", ...cs.subjects].map((x) => ({ value: x, label: x || t.whole }))} />
         )}
       </section>
-      {/* owner 2026-11-09: a course ends with WORDS, not charts — simple numbers, the teacher's overall reading, then what happened week by week */}
-      <div className="grid grid-cols-4 divide-x rounded-[16px] border bg-card py-2 text-center">
-        {[[t.statDone, `${done.length}`], [t.statPresent, `${present}`], [t.statLeave, `${leave}`], [t.absent, `${absent}`]].map(([label, value]) => (
-          <div key={label}><p className="text-lg leading-tight font-semibold tabular-nums">{value}</p><p className="text-[11px] text-muted-foreground">{label}</p></div>
-        ))}
-      </div>
       {/* owner 2026-11-09: ภาพรวมพัฒนาการ = the whole course in words — in the AI blue (it reads every session): the overall reading is always
           shown, the summary of each session sits below, collapsed one by one */}
       <section className={cn("overflow-hidden rounded-[16px] shadow-sm ring-1 ring-foreground/5", AI_TONE.surface)}>
         <p className="flex items-center gap-2 px-3 pb-1 pt-3"><AiIcon className="size-6" /><span className={cn("text-sm font-semibold", AI_TONE.text)}>{t.overall}{only && ` · ${only}`}</span></p>
         {lines(cs.overallProgress).length > 0 && (
-          <div className="space-y-2 px-3 pb-3 text-sm leading-relaxed">{lines(cs.overallProgress).map((l, i) => <p key={i} className="flex items-start gap-1.5">{l.subject && !only && <span className={cn("shrink-0 rounded-full px-1.5 py-0.5 text-[11px]", subjectColor(l.subject).chip)}>{l.subject}</span>}<span>{l.text}</span></p>)}</div>
+          <div className="relative px-3 pb-3">
+            <div ref={textRef} className="space-y-2 text-sm leading-relaxed" style={clampable && !expanded ? { maxHeight: CLAMP, overflow: "hidden" } : undefined}>{lines(cs.overallProgress).map((l, i) => <p key={i} className="flex items-start gap-1.5" style={{ lineHeight: "22px" }}>{l.subject && !only && <span className={cn("shrink-0 rounded-full px-1.5 py-0.5 text-[11px]", subjectColor(l.subject).chip)}>{l.subject}</span>}<span>{l.text}</span></p>)}</div>
+            {clampable && !expanded && <div className="pointer-events-none absolute inset-x-3 bottom-8 h-10 bg-gradient-to-t from-white/80 to-transparent" />}
+            {clampable && <button type="button" onClick={() => setExpanded((v) => !v)} className="mt-1 text-sm font-medium text-primary">{expanded ? t.lessText : t.readAll}</button>}
+          </div>
         )}
         <div className={cn("border-t border-sky-200/60", AI_TONE.soft)}>
           {sessions.length === 0 ? <p className="p-3 text-sm text-muted-foreground">{t.noSessions}</p> : (
@@ -660,6 +672,12 @@ function CourseEnd({ cs, t, lang }: { cs: ParentCourseSummary; t: T; lang: FormL
       </section>
       {block(t.strengths, cs.strengths)}
       {block(t.improve, cs.toImprove)}
+      {/* owner 2026-11-09: attendance is a plain row of numbers at the very bottom */}
+      <div className="grid grid-cols-4 divide-x rounded-[16px] border bg-card py-2 text-center">
+        {[[t.statDone, `${done.length}`], [t.statPresent, `${present}`], [t.statLeave, `${leave}`], [t.absent, `${absent}`]].map(([label, value]) => (
+          <div key={label}><p className="text-lg leading-tight font-semibold tabular-nums">{value}</p><p className="text-[11px] text-muted-foreground">{label}</p></div>
+        ))}
+      </div>
     </div>
   )
 }
