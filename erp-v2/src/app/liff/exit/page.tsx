@@ -2,7 +2,7 @@
 
 import { Suspense, useEffect, useState } from "react"
 import { useSearchParams } from "next/navigation"
-import { CheckCircle2Icon, FrownIcon, HeartHandshakeIcon, LaughIcon, LoaderCircleIcon, MehIcon, SendIcon, StarIcon, XCircleIcon } from "lucide-react"
+import { CheckCircle2Icon, FrownIcon, LaughIcon, LoaderCircleIcon, MehIcon, SendIcon, StarIcon, XCircleIcon } from "lucide-react"
 import { IconChoices } from "../icon-choices"
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
@@ -10,7 +10,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { addDays, toDateStr } from "@/domain/dates"
 import { reasonsForStudent } from "@/domain/rules/loss"
 import type { ExitAnswers, ExitToken, FormLang } from "@/domain/types"
-import { NativeSelect } from "@/components/app/native-select"
+import { ShrinkHeader } from "@/components/forms/shrink-header"
 import { cn } from "@/lib/utils"
 
 // The exit form a parent fills when a child stops studying (owner 2026-10-05) — TH / EN / JP, one page, mostly taps.
@@ -120,14 +120,7 @@ function ExitForm() {
   const tk = tok!
   return (
     <div className="mx-auto min-h-dvh max-w-lg bg-background pb-28">
-      <header className="sticky top-0 z-10 border-b bg-background/95 px-4 py-3 backdrop-blur">
-        <div className="flex items-center gap-2">
-          <HeartHandshakeIcon className="size-5 text-primary" />
-          <div className="min-w-0 flex-1"><p className="truncate text-lg font-semibold">{t.title}</p><p className="truncate text-xs text-muted-foreground">{tk.brand === "liclass" ? "Liclass" : "NockAcademy"} · {tk.branchName}</p></div>
-          {!preview && <NativeSelect className="w-32 shrink-0" value={lang} onChange={(e) => setLang(e.target.value as FormLang)} options={[{ value: "th", label: "ไทย" }, { value: "en", label: "English" }, { value: "ja", label: "日本語" }]} />}
-        </div>
-        {preview && <p className="mt-2 rounded-lg bg-amber-100 px-2 py-1 text-center text-xs text-amber-900">{t.preview}</p>}
-      </header>
+      <ShrinkHeader title={t.title} subtitle={`${tk.brand === "liclass" ? "Liclass" : "NockAcademy"} · ${tk.branchName}`} lang={lang} onLang={preview ? undefined : setLang} />
       <main className="space-y-4 p-4">
         <Card>
           <p className="text-xl font-semibold">{t.hello(tk.familyName)}</p>
