@@ -601,20 +601,6 @@ function CourseEnd({ cs, t, lang }: { cs: ParentCourseSummary; t: T; lang: FormL
   const sessions = rows.map((r, i) => ({ ...r, n: i + 1 })).filter((r) => r.text)
   // one button shows / hides every session summary together (owner 2026-11-09) — collapsed by default so the page stays short
   const [showSessions, setShowSessions] = useState(false)
-  // a long overall reading is cut at 10 lines with "...อ่านทั้งหมด" (owner 2026-11-09)
-  const CLAMP = 220 // 10 lines × 22px (text-sm + leading-relaxed)
-  const textRef = useRef<HTMLDivElement>(null)
-  const [clampable, setClampable] = useState(false)
-  const [expanded, setExpanded] = useState(false)
-  useLayoutEffect(() => {
-    const el = textRef.current
-    if (!el) return
-    const measure = () => setClampable(el.scrollHeight > CLAMP + 6)
-    measure()
-    const ro = new ResizeObserver(measure)
-    ro.observe(el)
-    return () => ro.disconnect()
-  }, [cs.overallProgress, only])
   const lines = (v: string) => v.split("\n").map((l) => l.trim()).filter(Boolean)
     .map((l) => { const m = l.match(/^([^:：]{1,20})[:：]\s*(.*)$/); return m && cs.subjects.includes(m[1].trim()) ? { subject: m[1].trim(), text: m[2] } : { subject: "", text: l } })
     .filter((l) => !only || l.subject === only)
@@ -642,11 +628,7 @@ function CourseEnd({ cs, t, lang }: { cs: ParentCourseSummary; t: T; lang: FormL
       <section className={cn("overflow-hidden rounded-[16px] shadow-sm ring-1 ring-foreground/5", AI_TONE.surface)}>
         <p className="flex items-center gap-2 px-3 pb-1 pt-3"><AiIcon className="size-6" /><span className={cn("text-sm font-semibold", AI_TONE.text)}>{t.overall}{only && ` · ${only}`}</span></p>
         {lines(cs.overallProgress).length > 0 && (
-          <div className="relative px-3 pb-3">
-            <div ref={textRef} className="space-y-2 text-sm leading-relaxed" style={clampable && !expanded ? { maxHeight: CLAMP, overflow: "hidden" } : undefined}>{lines(cs.overallProgress).map((l, i) => <p key={i} className="flex items-start gap-1.5" style={{ lineHeight: "22px" }}>{l.subject && !only && <span className={cn("shrink-0 rounded-full px-1.5 py-0.5 text-[11px]", subjectColor(l.subject).chip)}>{l.subject}</span>}<span>{l.text}</span></p>)}</div>
-            {clampable && !expanded && <div className="pointer-events-none absolute inset-x-3 bottom-8 h-10 bg-gradient-to-t from-white/80 to-transparent" />}
-            {clampable && <button type="button" onClick={() => setExpanded((v) => !v)} className="mt-1 text-sm font-medium text-primary">{expanded ? t.lessText : t.readAll}</button>}
-          </div>
+          <ClampedParagraphs className="px-3 pb-3" paras={lines(cs.overallProgress)} showSubject={!only} readAll={t.readAll} less={t.lessText} />
         )}
         <div className={cn("border-t border-sky-200/60", AI_TONE.soft)}>
           {sessions.length === 0 ? <p className="p-3 text-sm text-muted-foreground">{t.noSessions}</p> : (
@@ -676,6 +658,81 @@ function CourseEnd({ cs, t, lang }: { cs: ParentCourseSummary; t: T; lang: FormL
       <div className="grid grid-cols-4 divide-x rounded-[16px] border bg-card py-2 text-center">
         {[[t.statDone, `${done.length}`], [t.statPresent, `${present}`], [t.statLeave, `${leave}`], [t.absent, `${absent}`]].map(([label, value]) => (
           <div key={label}><p className="text-lg leading-tight font-semibold tabular-nums">{value}</p><p className="text-[11px] text-muted-foreground">{label}</p></div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+/**
+ * A long text cut at `maxLines` lines with the action INLINE at the very end of the last visible line ("…ข้อความ ...อ่านทั้งหมด") —
+ * black, bold (owner 2026-11-09). The cut point is measured with a hidden copy of the text (binary search on characters), so the
+ * link never drops onto a line of its own. Short texts show in full with no link.
+ */
+function ClampedParagraphs({ paras, showSubject, readAll, less, maxLines = 10, className }: { paras: { subject: string; text: string }[]; showSubject: boolean; readAll: string; less: string; maxLines?: number; className?: string }) {
+  const wrapRef = useRef<HTMLDivElement>(null)
+  const [expanded, setExpanded] = useState(false)
+  const [cut, setCut] = useState<number | null>(null) // null = it fits, no link
+  const sig = paras.map((x) => x.text).join("\u0001")
+  useLayoutEffect(() => {
+    const wrap = wrapRef.current
+    if (!wrap) return
+    const LH = 22
+    const measure = () => {
+      const w = wrap.clientWidth
+      if (!w) return
+      const probe = document.createElement("div")
+      probe.style.cssText = `position:absolute;visibility:hidden;left:0;top:0;width:${w}px;font-size:14px;line-height:${LH}px`
+      wrap.parentElement?.appendChild(probe)
+      const total = paras.reduce((a, x) => a + x.text.length, 0)
+      const linesFor = (n: number, suffix = true) => {
+        probe.replaceChildren()
+        let left = n
+        paras.forEach((x, i) => {
+          if (left <= 0 && i > 0) return
+          const part = x.text.slice(0, Math.max(0, left))
+          left -= x.text.length
+          const el = document.createElement("p")
+          el.style.cssText = `margin:${i ? 8 : 0}px 0 0;line-height:${LH}px`
+          el.textContent = part
+          if (suffix && n < total && left <= 0) { el.append(" "); const b = document.createElement("span"); b.style.cssText = "font-weight:700;display:inline-block;white-space:nowrap"; b.textContent = readAll; el.append(b) }
+          probe.appendChild(el)
+        })
+        return [...probe.children].reduce((a, c) => a + Math.round(c.getBoundingClientRect().height / LH), 0)
+      }
+      if (linesFor(total, false) <= maxLines) setCut(null)
+      else {
+        // the cut must keep the link on the SAME line as the last words: adding it may not add a line
+        const ok = (n: number) => { const withLink = linesFor(n); return withLink <= maxLines && withLink === linesFor(n, false) }
+        let lo = 0, hi = total - 1
+        while (lo < hi) { const mid = Math.ceil((lo + hi) / 2); if (linesFor(mid) <= maxLines) lo = mid; else hi = mid - 1 }
+        while (lo > 0 && !ok(lo)) lo--
+        setCut(lo)
+      }
+      probe.remove()
+    }
+    measure()
+    const ro = new ResizeObserver(measure)
+    ro.observe(wrap)
+    return () => ro.disconnect()
+  }, [sig, readAll, maxLines]) // eslint-disable-line react-hooks/exhaustive-deps
+  const collapsed = cut !== null && !expanded
+  // which characters of each paragraph are shown (pure — no mutation while rendering)
+  const view = paras.map((x, i) => {
+    const start = paras.slice(0, i).reduce((acc, y) => acc + y.text.length, 0)
+    const take = collapsed ? Math.max(0, Math.min(x.text.length, cut! - start)) : x.text.length
+    return { ...x, shown: x.text.slice(0, take), visible: !collapsed || i === 0 || start < cut!, last: collapsed ? start + x.text.length >= cut! && start <= cut! : i === paras.length - 1 }
+  })
+  const lastIdx = collapsed ? view.findIndex((v) => v.visible && v.last) : paras.length - 1
+  const link = (label: string) => <button type="button" onClick={() => setExpanded((v) => !v)} className="inline-block whitespace-nowrap font-bold text-foreground">{label}</button>
+  return (
+    <div className={className}>
+      <div ref={wrapRef} className="space-y-2 text-sm" style={{ lineHeight: "22px" }}>
+        {view.map((x, i) => !x.visible ? null : (
+          <p key={i}>
+            {x.subject && showSubject && <span className={cn("mr-1.5 inline-block rounded-full px-1.5 py-0.5 align-middle text-[11px] leading-none", subjectColor(x.subject).chip)}>{x.subject}</span>}
+            {x.shown}{i === lastIdx && cut !== null && <> {link(collapsed ? readAll : less)}</>}
+          </p>
         ))}
       </div>
     </div>
