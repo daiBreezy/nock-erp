@@ -88,6 +88,25 @@ export function LiffForm() {
   const [parents, setParents] = useState<ParentBlock[]>([emptyParent()])
   const [primaryIdx, setPrimaryIdx] = useState(0)
   const [fam, setFam] = useState<FamilyDraft>(emptyFamilyDraft)
+  // the header's scroll progress (see the header below)
+  const [hdr, setHdr] = useState<HTMLElement | null>(null)
+  const bigRef = useRef<HTMLDivElement>(null)
+  const [bigH, setBigH] = useState(60)
+  useEffect(() => {
+    const big = bigRef.current
+    if (!hdr || !big) return
+    const h = big.offsetHeight
+    setBigH(h)
+    let box: HTMLElement | null = hdr.parentElement
+    while (box && !/(auto|scroll)/.test(getComputedStyle(box).overflowY)) box = box.parentElement
+    let raf = 0
+    const update = () => { raf = 0; hdr.style.setProperty("--p", String(Math.min(1, Math.max(0, (box ? box.scrollTop : window.scrollY) / Math.max(1, h))))) }
+    const onScroll = () => { if (!raf) raf = requestAnimationFrame(update) }
+    update()
+    const target: HTMLElement | Window = box ?? window
+    target.addEventListener("scroll", onScroll, { passive: true })
+    return () => { target.removeEventListener("scroll", onScroll); if (raf) cancelAnimationFrame(raf) }
+  }, [hdr])
   const [students, setStudents] = useState<StudentBlock[]>([])
   const [enroll, setEnroll] = useState<EnrollInfo | null>(null)
   const [terms, setTerms] = useState(false)
@@ -274,14 +293,20 @@ export function LiffForm() {
   return (
     <div className="min-h-screen bg-background pb-28">
       <div className="mx-auto max-w-lg space-y-4 p-4">
-        {/* owner 2026-11-06: the same header as the LINE OA app — a quiet two-line title, the language as a dropdown */}
-        <header className="flex items-center gap-3">
-          <div className="min-w-0 flex-1">
-            {/* owner 2026-11-09: the FORM's name on top; business · branch under it (no second title below the header) */}
-            <p className="truncate text-lg font-semibold">{enroll ? te.title : t.formTitle(formType)}</p>
-            <p className="truncate text-xs text-muted-foreground">{brandName}{branchName ? ` · ${branchName}` : ""}</p>
+        {/* owner 2026-11-06/09: the same header as the LINE OA app — the form's name on top, business · branch under it, the language as a dropdown.
+            It SHRINKS with the scroll (not vanishes): sticky with a negative `top` = its big block, so the two-line title scrolls away and a slim bar
+            with the form name stays; --p (0→1) fades that small name in. Flow height never changes → no jump. */}
+        <header ref={setHdr} style={{ top: -bigH }} className="sticky z-20 -mx-4 -mt-4 bg-background [--p:0]">
+          <div ref={bigRef} className="flex items-center gap-3 px-4 pb-2.5 pt-4">
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-lg font-semibold">{enroll ? te.title : t.formTitle(formType)}</p>
+              <p className="truncate text-xs text-muted-foreground">{brandName}{branchName ? ` · ${branchName}` : ""}</p>
+            </div>
+            {!preview && <NativeSelect className="w-32 shrink-0" value={lang} onChange={(e) => setLang(e.target.value as FormLang)} options={[{ value: "th", label: "ไทย" }, { value: "en", label: "English" }, { value: "ja", label: "日本語" }]} />}
           </div>
-          {!preview && <NativeSelect className="w-32 shrink-0" value={lang} onChange={(e) => setLang(e.target.value as FormLang)} options={[{ value: "th", label: "ไทย" }, { value: "en", label: "English" }, { value: "ja", label: "日本語" }]} />}
+          <div className="flex h-10 items-center border-b bg-background/95 px-4 backdrop-blur">
+            <p className="truncate text-sm font-semibold" style={{ opacity: "var(--p)" }}>{enroll ? te.title : t.formTitle(formType)}</p>
+          </div>
         </header>
         {preview && <p className="rounded-2xl bg-amber-100 px-3 py-2 text-center text-xs text-amber-900">{t.previewBadge}</p>}
         {phase === "done" && <p className="flex items-center gap-2 rounded-2xl bg-emerald-100 px-3 py-2.5 text-sm text-emerald-900"><CheckCircle2Icon className="size-4 shrink-0" />{enroll ? `${te.sent} · ${te.sentSub}` : `${t.sent(formType)} · ${t.sentSub}`}</p>}
