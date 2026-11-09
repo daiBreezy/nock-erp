@@ -432,8 +432,10 @@ function PastRow({ r, t, lang, tag }: { r: { date: string; start: string; subjec
   const [open, setOpen] = useState(false)
   const tone = { present: "green", absent: "red", leave: "amber" } as const
   return (
-    <li className="rounded-[8px] bg-muted/70 text-muted-foreground">
-      <button type="button" aria-expanded={open} onClick={() => setOpen(!open)} className="flex w-full items-start gap-3 px-3 py-2.5 text-left">
+    // owner 2026-11-09: collapsed = the quiet grey "past" row; OPEN = it turns into a white card with a coloured ring and a filled chevron — the
+    // two states must be told apart at a glance
+    <li className={cn("overflow-hidden rounded-[16px] transition-colors", open ? "bg-card text-foreground shadow-sm ring-1 ring-primary/30" : "bg-muted/70 text-muted-foreground")}>
+      <button type="button" aria-expanded={open} onClick={() => setOpen(!open)} className="flex w-full items-start gap-3 px-4 py-3 text-left">
         <span className="w-24 shrink-0">
           <span className="block truncate text-xs">{fmtDay(r.date, lang)}</span>
           <span className="block whitespace-nowrap text-sm font-semibold tabular-nums">{r.start || "–"}</span>
@@ -443,18 +445,19 @@ function PastRow({ r, t, lang, tag }: { r: { date: string; start: string; subjec
           {tag && <span className="block truncate text-xs">{tag}</span>}
         </span>
         {r.status && <Pill tone={tone[r.status]}>{t[r.status]}</Pill>}
-        <ChevronDownIcon className={cn("size-4 shrink-0 self-center transition-transform", open && "rotate-180")} />
+        <span className={cn("grid size-7 shrink-0 place-items-center self-center rounded-full", open ? "bg-primary text-primary-foreground" : "bg-background text-muted-foreground")}>
+          <ChevronDownIcon className={cn("size-4 transition-transform", open && "rotate-180")} />
+        </span>
       </button>
       {open && (
-        <div className="space-y-2 border-t px-3 pt-2.5 pb-3">
-          {/* owner 2026-11-09: no icons — one line each: teacher, course, then the summary. A summary the teacher wrote is a white, readable
-              block; one NOT written yet is a dashed, quiet line — the two must not look alike */}
-          {r.sum?.teacher && <p className="text-xs text-muted-foreground">{t.teacher} {r.sum.teacher}</p>}
-          {tag && <p className="text-xs text-muted-foreground">{tag}</p>}
+        <div className="space-y-2.5 border-t px-4 pb-4 pt-3">
+          {/* no icons — one meta line, then the summary: a written one is a soft block (long text cut at 10 lines with an inline "...อ่านทั้งหมด"),
+              a missing one a dashed, quiet line — the two must not look alike */}
+          {(r.sum?.teacher || tag) && <p className="text-xs text-muted-foreground">{[r.sum?.teacher && `${t.teacher} ${r.sum.teacher}`, tag].filter(Boolean).join(" · ")}</p>}
           {r.sum ? (
-            <div className="rounded-[12px] bg-background p-3 text-sm text-foreground shadow-sm ring-1 ring-foreground/5">
-              {r.sum.detail && <p className="mb-1 text-xs font-medium text-muted-foreground">{r.sum.detail}</p>}
-              <p className="whitespace-pre-line leading-relaxed">{r.sum.text}</p>
+            <div className="rounded-[12px] bg-muted/50">
+              {r.sum.detail && <p className="px-3 pt-3 text-xs font-semibold text-foreground">{r.sum.detail}</p>}
+              <ClampedParagraphs className="p-3" paras={r.sum.text.split("\n").map((x) => x.trim()).filter(Boolean).map((text) => ({ subject: "", text }))} showSubject={false} readAll={t.readAll} less={t.lessText} />
             </div>
           ) : <p className="rounded-[12px] border border-dashed px-3 py-2 text-xs italic text-muted-foreground">{t.noSummaryYet}</p>}
         </div>
