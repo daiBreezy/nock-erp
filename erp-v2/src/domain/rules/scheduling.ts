@@ -3,7 +3,7 @@
 
 import { subjectsAt, worksOn } from "./permissions"
 import { addDays, at, endTime, fmtDate, fromMinutes, nextWeekday, overlaps, parseDate, toMinutes, weekdayOf } from "../dates"
-import type { ClassBlock, ClassMove, Course, DayBlocks, Attendance, Branch, DateStr, Holiday, ID, Klass, Result, Session, SpecialPeriod, Staff, TimeStr, Weekday } from "../types"
+import type { Brand, ClassBlock, ClassMove, Course, DayBlocks, Attendance, Branch, DateStr, Holiday, ID, Klass, Result, Session, SpecialPeriod, Staff, TimeStr, Weekday } from "../types"
 
 export const GENERATE_WEEKS = 8
 /** Soft limits only (owner 2026-09-30): a class takes any number of students — the app warns above 6, and above 3 for a
@@ -44,13 +44,55 @@ export function slotProblem(branch: Branch, date: DateStr, start: TimeStr, minut
   return null
 }
 
-/** A company-wide holiday closes every branch except those that toggled it off (openBranchIds). */
+// Which brand each branch belongs to — the store keeps this in step with its branches (keep-brands.ts), so the
+// holiday rules can stay `isHoliday(date, branchId, holidays)` everywhere. A branch it doesn't know counts as every brand.
+let BRAND_OF: Record<ID, Brand> = {}
+export function setBranchBrands(branches: { id: ID; brand: Brand }[]) {
+  BRAND_OF = Object.fromEntries(branches.map((b) => [b.id, b.brand]))
+}
+
+/** does this holiday concern the brand? (company-wide holidays can be for one brand only; branch ones always do) */
+export function holidayForBrand(h: Pick<Holiday, "branchId" | "brand">, brand: Brand | undefined) {
+  return h.branchId !== null || !h.brand || !brand || h.brand === brand
+}
+
+/** A company-wide holiday closes every branch of its brand (both when no brand is set) except those that toggled it off (openBranchIds). */
 export function closesBranch(h: Holiday, branchId: ID) {
-  return h.branchId === branchId || (h.branchId === null && !h.openBranchIds?.includes(branchId))
+  if (h.branchId === branchId) return true
+  return h.branchId === null && holidayForBrand(h, BRAND_OF[branchId]) && !h.openBranchIds?.includes(branchId)
 }
 
 export function isHoliday(date: DateStr, branchId: ID, holidays: Holiday[]) {
   return holidays.find((h) => h.date === date && closesBranch(h, branchId))
+}
+
+/** the same holiday in the years after it (month + day kept; 29 Feb only in leap years) — the "every year" default */
+export function sameDayInYears(date: DateStr, years: number[]): DateStr[] {
+  const [, m, d] = date.split("-")
+  return years.flatMap((y) => {
+    const out = `${y}-${m}-${d}`
+    const real = new Date(`${out}T12:00:00`)
+    return real.getMonth() + 1 === Number(m) && real.getDate() === Number(d) ? [out] : []
+  })
+}
+
+/** Rows to lay out so every "every year" series reaches `throughYear` — the same day after its last row (owner 2026-11-09:
+ *  the company's default holidays are set once and keep going; a year that already has the day is left alone). */
+export function missingSeriesRows(holidays: Holiday[], throughYear: number): Omit<Holiday, "id">[] {
+  const last = new Map<ID, Holiday>()
+  for (const h of holidays) if (h.seriesId && (!last.has(h.seriesId) || h.date > last.get(h.seriesId)!.date)) last.set(h.seriesId, h)
+  const out: Omit<Holiday, "id">[] = []
+  for (const [seriesId, h] of last) {
+    const from = Number(h.date.slice(0, 4)) + 1
+    const years = Array.from({ length: Math.max(0, throughYear - from + 1) }, (_, i) => from + i)
+    for (const date of sameDayInYears(h.date, years)) {
+      if (holidays.some((x) => x.date === date && x.branchId === h.branchId && (x.brand === h.brand || !x.brand || !h.brand))) continue
+      const rest: Partial<Holiday> = { ...h } // each year starts closed everywhere again
+      delete rest.id; delete rest.openBranchIds
+      out.push({ ...(rest as Omit<Holiday, "id">), date, seriesId })
+    }
+  }
+  return out
 }
 
 /** A1/A12: learning classes repeat weekly for 8 weeks skipping holidays; other kinds are one-off. */
@@ -561,8 +603,8 @@ export function applyToSessions(
 
 /** A10: sessions hit by a new holiday */
 /** Sessions a holiday would cancel — for a company holiday, only at branches that stay closed. */
-export function holidayImpact(date: DateStr, branchId: ID | null, sessions: Session[], openBranchIds: ID[] = []) {
-  return sessions.filter((s) => !s.cancelled && s.date === date && (branchId === null ? !openBranchIds.includes(s.branchId) : s.branchId === branchId))
+export function holidayImpact(date: DateStr, branchId: ID | null, sessions: Session[], openBranchIds: ID[] = [], brand?: Brand) {
+  return sessions.filter((s) => !s.cancelled && s.date === date && (branchId === null ? !openBranchIds.includes(s.branchId) && holidayForBrand({ branchId: null, brand }, BRAND_OF[s.branchId]) : s.branchId === branchId))
 }
 
 const PRIO = { high: 3, medium: 2, low: 1 } as const

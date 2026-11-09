@@ -51,7 +51,13 @@ function ScreenTranslator() {
   return null
 }
 
+/** owner 2026-11-09: the company's "every year" holidays are set once and keep going — lay them out 5 years ahead whenever the app opens */
+function useHolidayHorizon() {
+  useEffect(() => { useStore.getState().extendHolidaySeries(new Date().getFullYear() + 5) }, [])
+}
+
 function ParentAppPublisher() {
+  useHolidayHorizon()
   usePublishParentViews()
   // owner 2026-10-19: the approved bus trips for the drivers' app
   usePublishDriverTrips()

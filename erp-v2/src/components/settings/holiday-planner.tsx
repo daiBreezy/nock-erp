@@ -2,20 +2,22 @@
 
 import { useState } from "react"
 import { useShallow } from "zustand/react/shallow"
-import { CalendarDaysIcon, ChevronLeftIcon, ChevronRightIcon, PencilIcon, PlusIcon, TrashIcon } from "lucide-react"
+import { CalendarDaysIcon, ChevronLeftIcon, ChevronRightIcon, PencilIcon, PlusIcon, RepeatIcon, TrashIcon } from "lucide-react"
+import { Segmented } from "@/components/app/page-layout"
 import { NativeSelect } from "@/components/app/native-select"
 import { Field } from "@/components/app/student-form"
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
+import { InfoTip } from "@/components/app/info-tip"
 import { Switch } from "@/components/ui/switch"
 import { addDays, fmtDate, parseDate, toDateStr, weekdayOf, yearOf, weekdayShort } from "@/domain/dates"
 import { can, inBranch } from "@/domain/rules/permissions"
-import { closesBranch, holidayImpact, periodsIn } from "@/domain/rules/scheduling"
+import { closesBranch, holidayForBrand, holidayImpact, periodsIn } from "@/domain/rules/scheduling"
 import { PeriodBanner } from "@/components/app/period-banner"
 import { HOLIDAY_CATEGORY_LABEL } from "@/domain/rules/settings"
-import type { Branch, Holiday, HolidayCategory } from "@/domain/types"
+import type { Branch, Brand, Holiday, HolidayCategory } from "@/domain/types"
 import { report } from "@/lib/feedback"
 import { useNow } from "@/lib/hooks"
 import { cn } from "@/lib/utils"
@@ -30,7 +32,14 @@ const DOW = ["จ.", "อ.", "พ.", "พฤ.", "ศ.", "ส.", "อา."]
 const monthStart = (d: string) => d.slice(0, 7) + "-01"
 const shiftMonth = (d: string, n: number) => { const x = parseDate(d); return toDateStr(new Date(x.getFullYear(), x.getMonth() + n, 1)) }
 
-type Draft = { id?: string; name: string; date: string; category: HolidayCategory }
+type Draft = { id?: string; name: string; date: string; category: HolidayCategory; brand?: Brand; seriesId?: string
+  /** adding: also the same day in each of the next N years (0 = just this one) · editing a series row: apply to the whole series */
+  repeat: number; scope: "one" | "series" }
+
+const BRAND_LABEL: Record<Brand, string> = { nockacademy: "NockAcademy", liclass: "Liclass" }
+const brandOf = (h: Holiday) => (h.branchId !== null ? null : h.brand ? BRAND_LABEL[h.brand] : tx("ทั้งสองแบรนด์"))
+/** the default is laid out 5 years ahead (the app keeps it going) */
+const DEFAULT_REPEAT = 5
 
 /**
  * Holiday planner (owner design 2026-09-28): list on the left + month calendar on the right.
@@ -48,19 +57,22 @@ export function HolidayPlanner({ branch }: { branch?: Branch }) {
   const [scope, setScope] = useState<"year" | "month">("year")
   const [draft, setDraft] = useState<Draft | null>(null)
   const [closing, setClosing] = useState<Holiday | null>(null)
+  const [removing, setRemoving] = useState<Holiday | null>(null)
+  const [brandFilter, setBrandFilter] = useState<"all" | Brand>("all")
 
   const isBranch = !!branch
   const manageBranch = isBranch && can(me, "holiday.manage") && inBranch(me, branch.id)
   const manageCompany = can(me, "settings.manage")
   const year = anchor.slice(0, 4)
+  // owner 2026-11-09: Liclass and NockAcademy keep different calendars — a branch sees its own brand's company holidays only
   const visible = all
-    .filter((h) => (isBranch ? h.branchId === null || h.branchId === branch.id : h.branchId === null))
+    .filter((h) => (isBranch ? h.branchId === branch.id || (h.branchId === null && holidayForBrand(h, branch.brand)) : h.branchId === null && (brandFilter === "all" || !h.brand || h.brand === brandFilter)))
     .sort((a, b) => a.date.localeCompare(b.date))
   const listed = visible.filter((h) => (scope === "month" ? h.date.slice(0, 7) === anchor.slice(0, 7) : h.date.startsWith(year)))
   const closed = (h: Holiday) => (isBranch ? closesBranch(h, branch.id) : true)
   const canEdit = (h: Holiday) => (h.branchId === null ? !isBranch && manageCompany : manageBranch)
 
-  const openAdd = (date = today) => setDraft({ name: "", date, category: isBranch ? "branch" : "traditional" })
+  const openAdd = (date = today) => setDraft({ name: "", date, category: isBranch ? "branch" : "traditional", brand: !isBranch && brandFilter !== "all" ? brandFilter : undefined, repeat: 0, scope: "one" })
 
   // month grid, Monday first (same as every calendar view in the system)
   const first = parseDate(anchor)
@@ -83,6 +95,10 @@ export function HolidayPlanner({ branch }: { branch?: Branch }) {
           </div>
           {(isBranch ? manageBranch : manageCompany) && <Button size="sm" variant="outline" onClick={() => openAdd()}><PlusIcon />  {tx("เพิ่ม")}</Button>}
         </div>
+        {!isBranch && (
+          <Segmented<"all" | Brand> value={brandFilter} onChange={setBrandFilter} label={tx("แบรนด์")} className="w-full [&>button]:flex-1 [&>button]:justify-center"
+            options={[{ value: "all", label: tx("ทุกแบรนด์") }, { value: "nockacademy", label: BRAND_LABEL.nockacademy }, { value: "liclass", label: BRAND_LABEL.liclass }]} />
+        )}
         <NativeSelect className="h-9 w-44" value={scope} onChange={(e) => setScope(e.target.value as "year" | "month")}
           options={[{ value: "year", label: tx("ทั้งปี {0}", [yearOf(Number(year))]) }, { value: "month", label: tx("เฉพาะ{0}", [tx(TH_MONTH[first.getMonth()])]) }]} />
         <div className="max-h-[32rem] space-y-1.5 overflow-y-auto pr-1">
@@ -96,7 +112,7 @@ export function HolidayPlanner({ branch }: { branch?: Branch }) {
                   <CalendarDaysIcon className="size-4" />
                 </span>
                 <span className="min-w-0 flex-1">
-                  <span className="block text-[11px] text-muted-foreground">{tx(HOLIDAY_CATEGORY_LABEL[h.category])}</span>
+                  <span className="flex items-center gap-1 text-[11px] text-muted-foreground">{tx(HOLIDAY_CATEGORY_LABEL[h.category])}{brandOf(h) && <> · {brandOf(h)}</>}{h.seriesId && <span className="flex items-center gap-0.5 text-primary" title={tx("วันหยุดประจำปี — ตั้งไว้หลายปี")}><RepeatIcon className="size-3" />{tx("ทุกปี")}</span>}</span>
                   <span className="block truncate text-sm font-medium">{h.name}</span>
                   <span className="block text-xs text-muted-foreground">{fmtDate(h.date, { weekday: true, year: true })}</span>
                 </span>
@@ -110,8 +126,8 @@ export function HolidayPlanner({ branch }: { branch?: Branch }) {
                   ) : <span className="text-[11px] text-muted-foreground">{isClosed ? tx("หยุด") : tx("เปิดทำการ")}</span>
                 ) : canEdit(h) && (
                   <span className="flex" onClick={(e) => e.stopPropagation()}>
-                    <Button size="icon-sm" variant="ghost" aria-label={tx("แก้")} onClick={() => setDraft({ id: h.id, name: h.name, date: h.date, category: h.category })}><PencilIcon /></Button>
-                    <Button size="icon-sm" variant="ghost" aria-label={tx("ลบ")} onClick={() => report(act.remove(h.id), tx("ลบวันหยุดแล้ว (คาบที่ยกเลิกไปแล้วไม่ถูกคืนอัตโนมัติ)"))}><TrashIcon /></Button>
+                    <Button size="icon-sm" variant="ghost" aria-label={tx("แก้")} onClick={() => setDraft({ id: h.id, name: h.name, date: h.date, category: h.category, brand: h.brand, seriesId: h.seriesId, repeat: 0, scope: "one" })}><PencilIcon /></Button>
+                    <Button size="icon-sm" variant="ghost" aria-label={tx("ลบ")} onClick={() => (h.seriesId ? setRemoving(h) : report(act.remove(h.id), tx("ลบวันหยุดแล้ว (คาบที่ยกเลิกไปแล้วไม่ถูกคืนอัตโนมัติ)")))}><TrashIcon /></Button>
                   </span>
                 )}
               </div>
@@ -173,11 +189,27 @@ export function HolidayPlanner({ branch }: { branch?: Branch }) {
         <HolidayDialog draft={draft} branch={branch} onClose={() => setDraft(null)}
           onSave={(d, cancel) => {
             const ok = d.id
-              ? report(act.update(d.id, { name: d.name, date: d.date, category: d.category }), tx("แก้วันหยุดแล้ว"))
-              : report(act.add({ name: d.name, date: d.date, category: d.category, branchId: branch?.id ?? null }, cancel), (v) => tx("เพิ่มวันหยุดแล้ว{0}", [v.affected ? tx(" · {0} {1} คาบ", [cancel ? tx("ยกเลิก") : tx("กระทบ"), v.affected]) : ""]))
+              ? report(act.update(d.id, { name: d.name, date: d.date, category: d.category, brand: d.brand }, d.scope), tx("แก้วันหยุดแล้ว"))
+              : report(act.add({ name: d.name, date: d.date, category: d.category, branchId: branch?.id ?? null, ...(d.brand && !branch ? { brand: d.brand } : {}) }, cancel, d.repeat),
+                (v) => tx("เพิ่มวันหยุดแล้ว{0}", [(v.created > 1 ? tx(" · ตั้งไว้ {0} ปี", [v.created]) : "") + (v.affected ? tx(" · {0} {1} คาบ", [cancel ? tx("ยกเลิก") : tx("กระทบ"), v.affected]) : "")]))
             if (ok) setDraft(null)
             return ok
           }} />
+      )}
+      {removing && (
+        <Dialog open onOpenChange={(o) => !o && setRemoving(null)}>
+          <DialogContent className="lg:max-w-sm">
+            <DialogHeader>
+              <DialogTitle>{tx("ลบวันหยุด {0}", [removing.name])}</DialogTitle>
+              <DialogDescription>{tx("เป็นวันหยุดประจำปี — ตั้งไว้หลายปี เลือกว่าจะลบแค่ปีนี้หรือทุกปีต่อจากนี้")}</DialogDescription>
+            </DialogHeader>
+            <DialogFooter>
+              <Button variant="ghost" onClick={() => setRemoving(null)}>{tx("ยกเลิก")}</Button>
+              <Button variant="outline" onClick={() => { if (report(act.remove(removing.id, "one"), tx("ลบวันหยุดแล้ว (คาบที่ยกเลิกไปแล้วไม่ถูกคืนอัตโนมัติ)"))) setRemoving(null) }}>{tx("ลบเฉพาะ {0}", [fmtDate(removing.date, { year: true })])}</Button>
+              <Button variant="destructive" onClick={() => { if (report(act.remove(removing.id, "series"), tx("ลบวันหยุดแล้ว (คาบที่ยกเลิกไปแล้วไม่ถูกคืนอัตโนมัติ)"))) setRemoving(null) }}>{tx("ลบทุกปีต่อจากนี้")}</Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       )}
       {closing && branch && (
         <CloseDayDialog holiday={closing} branch={branch} affected={holidayImpact(closing.date, branch.id, sessions)} onClose={() => setClosing(null)}
@@ -211,7 +243,7 @@ function HolidayDialog({ draft, branch, onClose, onSave }: { draft: Draft; branc
   const sessions = useStore((s) => s.sessions)
   const [d, setD] = useState(draft)
   const [cancel, setCancel] = useState(true)
-  const affected = !d.id && d.date ? holidayImpact(d.date, branch?.id ?? null, sessions) : []
+  const affected = !d.id && d.date ? holidayImpact(d.date, branch?.id ?? null, sessions, [], d.brand) : []
   const chats = familyChatsOf(affected)
   const [msg, setMsg] = useState<ParentMsg>({ on: false, text: "" })
   const text = msg.text || holidayParentText(d.name || "…", d.date ? fmtDate(d.date, { weekday: true }) : "…", cancel)
@@ -232,6 +264,24 @@ function HolidayDialog({ draft, branch, onClose, onSave }: { draft: Draft; branc
             )}
           </Field>
         </div>
+        {/* owner 2026-11-09: which brand it closes, and the "every year" default laid out several years ahead */}
+        {!branch && (
+          <Field label={tx("แบรนด์ที่หยุด")}>
+            <NativeSelect value={d.brand ?? ""} onChange={(e) => setD({ ...d, brand: (e.target.value || undefined) as Brand | undefined })}
+              options={[{ value: "", label: tx("ทั้งสองแบรนด์") }, { value: "nockacademy", label: BRAND_LABEL.nockacademy }, { value: "liclass", label: BRAND_LABEL.liclass }]} />
+          </Field>
+        )}
+        {!d.id ? (
+          <div className="flex flex-wrap items-center gap-2 rounded-2xl bg-muted/50 p-3">
+            <Switch checked={d.repeat > 0} onCheckedChange={(v) => setD({ ...d, repeat: v ? DEFAULT_REPEAT : 0 })} aria-label={tx("ซ้ำทุกปี")} />
+            <span className="flex-1 text-sm font-medium">{tx("ซ้ำทุกปี (วันที่เดิม)")}<InfoTip className="ml-1" text={tx("ใช้กับวันหยุดที่ตรงวันเดิมทุกปี เช่น วันแม่ ปีใหม่ — ตั้งครั้งเดียวไว้หลายปี วันหยุดที่เปลี่ยนตามปี (วันพระใหญ่ วันหยุดชดเชย) ให้เพิ่มทีละปีเมื่อประกาศ")} /></span>
+            {d.repeat > 0 && <NativeSelect className="w-36" value={String(d.repeat)} onChange={(e) => setD({ ...d, repeat: Number(e.target.value) })} options={[1, 2, 3, 5, 10].map((n) => ({ value: String(n), label: tx("ไปอีก {0} ปี", [n]) }))} />}
+          </div>
+        ) : d.seriesId ? (
+          <Field label={tx("แก้ชื่อ / ประเภท / แบรนด์ของ")}>
+            <NativeSelect value={d.scope} onChange={(e) => setD({ ...d, scope: e.target.value as "one" | "series" })} options={[{ value: "one", label: tx("เฉพาะวันนี้") }, { value: "series", label: tx("ทุกปีในชุดนี้") }]} />
+          </Field>
+        ) : null}
         {affected.length > 0 && (
           <div className="rounded-md bg-amber-50 p-2 text-sm text-amber-900">
             

@@ -74,9 +74,13 @@ type Store = DB & UIState & {
   addStudentToSession: (id: ID, studentId: ID, scope: Sch.MoveScope) => Result<{ changed: number }>
 
   /** branchId null = company holiday (System, Director) · branchId set = that branch's own holiday (Admin/Manager of the branch) */
-  addHoliday: (h: Omit<Holiday, "id">, cancelAffected: boolean) => Result<{ affected: number }>
-  updateHoliday: (id: ID, patch: Pick<Holiday, "name" | "date" | "category">) => Result
-  removeHoliday: (id: ID) => Result
+  /** `repeatYears` > 0 = the "every year" default: the same day in each of the next N years too (one series) */
+  addHoliday: (h: Omit<Holiday, "id">, cancelAffected: boolean, repeatYears?: number) => Result<{ affected: number; created: number }>
+  /** `scope: "series"` applies name / category / brand to every year of the series (the date stays this row's) */
+  updateHoliday: (id: ID, patch: Pick<Holiday, "name" | "date" | "category"> & { brand?: Holiday["brand"] }, scope?: "one" | "series") => Result
+  removeHoliday: (id: ID, scope?: "one" | "series") => Result
+  /** keep every "every year" series laid out until `throughYear` (called when the app opens) — adds nothing when already there */
+  extendHolidaySeries: (throughYear: number) => number
   /** per-branch toggle on a company holiday: open = the branch works that day */
   setHolidayOpen: (holidayId: ID, branchId: ID, open: boolean, cancelAffected: boolean) => Result<{ affected: number }>
   saveFamily: (f: Family) => Result<Family>
@@ -852,40 +856,57 @@ export const useStore = create<Store>()(
       },
 
       // A10: adding a holiday shows affected sessions and can cancel them in one go
-      addHoliday: (h, cancelAffected) => {
+      addHoliday: (h, cancelAffected, repeatYears = 0) => {
         const s = get()
         const perm = holidayPerm(s, h.branchId)
         if (!perm.ok) return perm
         const err = Cfg.validateHoliday(h)
         if (err) return fail(err)
-        if (s.holidays.some((x) => x.date === h.date && x.branchId === h.branchId)) return fail("มีวันหยุดวันนี้แล้ว")
-        const affected = Sch.holidayImpact(h.date, h.branchId, s.sessions, h.openBranchIds)
-        set({ holidays: [...s.holidays, { ...h, name: h.name.trim(), id: uid("hol") }], ...closeDay(s, affected, h.name, h.date, cancelAffected, h.branchId) })
-        return { ok: true, value: { affected: affected.length } }
+        // owner 2026-11-09: one day can be a holiday for each brand separately — only the same brand (or "both") clashes
+        const clash = (date: DateStr) => s.holidays.some((x) => x.date === date && x.branchId === h.branchId && (x.brand === h.brand || !x.brand || !h.brand))
+        if (clash(h.date)) return fail("มีวันหยุดวันนี้แล้ว")
+        const years = Array.from({ length: Math.max(0, Math.min(10, Math.floor(repeatYears))) }, (_, i) => Number(h.date.slice(0, 4)) + i + 1)
+        const dates = [h.date, ...Sch.sameDayInYears(h.date, years).filter((d) => !clash(d))]
+        const seriesId = dates.length > 1 ? uid("hs") : undefined
+        const rows: Holiday[] = dates.map((date) => ({ ...h, date, name: h.name.trim(), id: uid("hol"), ...(seriesId ? { seriesId } : {}) }))
+        const affected = dates.flatMap((d) => Sch.holidayImpact(d, h.branchId, s.sessions, h.openBranchIds, h.brand))
+        set({ holidays: [...s.holidays, ...rows], ...closeDay(s, affected, h.name, h.date, cancelAffected, h.branchId) })
+        return { ok: true, value: { affected: affected.length, created: rows.length } }
       },
 
-      updateHoliday: (id, patch) => {
+      updateHoliday: (id, patch, scope = "one") => {
         const s = get()
         const cur = s.holidays.find((h) => h.id === id)
         if (!cur) return fail("ไม่พบวันหยุด")
         const perm = holidayPerm(s, cur.branchId)
         if (!perm.ok) return perm
-        const next = { ...cur, ...patch, name: patch.name.trim() }
+        const { brand, ...rest } = patch
+        const next = { ...cur, ...rest, name: patch.name.trim(), brand: cur.branchId === null ? brand : undefined }
         const err = Cfg.validateHoliday(next)
         if (err) return fail(err)
-        if (s.holidays.some((x) => x.id !== id && x.date === next.date && x.branchId === next.branchId)) return fail("มีวันหยุดวันนี้แล้ว")
-        set({ holidays: s.holidays.map((h) => (h.id === id ? next : h)) })
+        if (s.holidays.some((x) => x.id !== id && x.date === next.date && x.branchId === next.branchId && (x.brand === next.brand || !x.brand || !next.brand))) return fail("มีวันหยุดวันนี้แล้ว")
+        const together = (x: Holiday) => scope === "series" && cur.seriesId && x.seriesId === cur.seriesId
+        set({ holidays: s.holidays.map((h) => (h.id === id ? next : together(h) ? { ...h, name: next.name, category: next.category, brand: next.brand } : h)) })
         return OK
       },
 
-      removeHoliday: (id) => {
+      removeHoliday: (id, scope = "one") => {
         const s = get()
         const cur = s.holidays.find((h) => h.id === id)
         if (!cur) return fail("ไม่พบวันหยุด")
         const perm = holidayPerm(s, cur.branchId)
         if (!perm.ok) return perm
-        set({ holidays: s.holidays.filter((h) => h.id !== id) })
+        // the whole series: this year's row and the ones after it — years already past stay as history
+        const gone = (h: Holiday) => h.id === id || (scope === "series" && !!cur.seriesId && h.seriesId === cur.seriesId && h.date >= cur.date)
+        set({ holidays: s.holidays.filter((h) => !gone(h)) })
         return OK
+      },
+
+      extendHolidaySeries: (throughYear) => {
+        const s = get()
+        const add = Sch.missingSeriesRows(s.holidays, throughYear).map((h) => ({ ...h, id: uid("hol") }))
+        if (add.length) set({ holidays: [...s.holidays, ...add] })
+        return add.length
       },
 
       setHolidayOpen: (holidayId, branchId, open, cancelAffected) => {
@@ -3503,6 +3524,10 @@ export const useStore = create<Store>()(
     },
   ),
 )
+
+// the holiday rules need to know each branch's brand (Liclass / NockAcademy keep different calendars) — keep that in step with the branches
+Sch.setBranchBrands(useStore.getState().branches)
+useStore.subscribe((s, prev) => { if (s.branches !== prev.branches) Sch.setBranchBrands(s.branches) })
 
 /** saved data from before the payment QR: every branch gets the sample PromptPay ID (the company tax ID — replace it in Settings › Bank); nothing else changes */
 function withSamplePromptPay(s: Store): Store {

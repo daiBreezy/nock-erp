@@ -1,7 +1,7 @@
 // Regression tests: each case reproduces a bug found on Dev staging and proves the rule prevents it.
 import { describe, expect, it } from "vitest"
 import type { DevTicket, NockAnswer, NockQuestion, Role, Assessment, Attendance, Branch, BusAddOn, CreditNote, LessonSummary, Course, Entitlement, Family, FormSubmission, Lead, Student, Seat, FormOfferSlot, Holiday, Invoice, Klass, Session, Staff, StudentLeave, Weekday } from "../types"
-import { applyClassEdit, applyToSessions, canChangeTeachers, canMoveToClass, canUndoClassMove, canRescheduleStudent, movesOf, mondayOf, removedWithClass, canSave, closesBranch, holidayImpact, hoursFor, isHoliday, overlappingRows, periodsIn, introducedConflicts, editSingleSession, findConflicts, generateSessions, moveSession, sessionState, validateClass, workState } from "./scheduling"
+import { applyClassEdit, applyToSessions, canChangeTeachers, canMoveToClass, canUndoClassMove, canRescheduleStudent, movesOf, mondayOf, removedWithClass, canSave, closesBranch, holidayImpact, setBranchBrands, sameDayInYears, missingSeriesRows, holidayForBrand, hoursFor, isHoliday, overlappingRows, periodsIn, introducedConflicts, editSingleSession, findConflicts, generateSessions, moveSession, sessionState, validateClass, workState } from "./scheduling"
 import { activeLeave, nextClassDates, teacherLeaveCancels, leaveRunSessions, balance, studentState, leaveLedger, packageCovers, canMark, canSaveLeave, coveringEntitlement, effectiveTo, leavesUsed, lowBalanceAlert, removeFromClass, renewalFollowUpDue, resolveEntitlements } from "./attendance"
 import { bestPromotion, duplicateBusDay, billedOn, busAddOnAmount, pendingBusAddOns, validateBusAddOn, carriedMinutes, weekKey, classOptionsFor, defaultAdvance, entryFeeWaiver, invoiceSessionDates, invoiceTotals, validateInvoiceDraft, canApprove, canConfirmPayment, canForceApprove, canForceConfirmPayment, canSend, canVoid, defaultBusLegs, busTotal, nextInvoiceNumber, quoteCourse, roundUpTo, familyPromotion, receiptNumberOf, lastNoteFor, renumberDocuments, renewalCandidates, renewalDraft, bestBonusHours, FAMILY_PROMO_TIERS } from "./billing"
 import { can } from "./permissions"
@@ -3090,5 +3090,62 @@ describe("signature name (owner 2026-11-05)", () => {
     expect(/[ก-๙]/.test(Doc.signatureName("b", staff))).toBe(false)
     expect(Doc.signatureName("b", staff).length).toBeGreaterThan(3)
     expect(Doc.signatureName("zzz", staff)).toBe("")
+  })
+})
+
+describe("holidays per brand + years (owner 2026-11-09)", () => {
+  // b1 = Liclass, b2 = NockAcademy
+  const brands = () => setBranchBrands([{ id: "b1", brand: "liclass" }, { id: "b2", brand: "nockacademy" }])
+  const liclassOnly: Holiday = { id: "h_l", branchId: null, date: "2026-11-16", name: "Liclass closed", category: "company", brand: "liclass" }
+  const both: Holiday = { id: "h_b", branchId: null, date: "2026-12-31", name: "New Year's Eve", category: "traditional" }
+
+  it("a brand's holiday closes only that brand's branches; with no brand it closes both", () => {
+    brands()
+    expect(closesBranch(liclassOnly, "b1")).toBe(true)
+    expect(closesBranch(liclassOnly, "b2")).toBe(false)
+    expect(closesBranch(both, "b1") && closesBranch(both, "b2")).toBe(true)
+    expect(holidayForBrand(liclassOnly, "nockacademy")).toBe(false)
+    setBranchBrands([])
+  })
+
+  it("its sessions are hit only at the brand's branches", () => {
+    brands()
+    const s = (branchId: string) => ({ id: branchId, branchId, date: "2026-11-16", cancelled: false }) as unknown as Session
+    expect(holidayImpact("2026-11-16", null, [s("b1"), s("b2")], [], "liclass").map((x) => x.branchId)).toEqual(["b1"])
+    setBranchBrands([])
+  })
+
+  it("INVOICE: a Liclass holiday on the start date moves a Liclass course's first class — a NockAcademy course still starts that day", () => {
+    brands()
+    const mon = (branchId: string) => quoteCourse({ course: monthPkg, klasses: [klass({ branchId, weekday: 1, startDate: "2026-11-09" })], startDate: "2026-11-16", periods: 1, holidays: [liclassOnly] })
+    const lic = mon("b1"), noc = mon("b2")
+    expect(lic.ok && noc.ok).toBe(true)
+    if (!lic.ok || !noc.ok) return
+    expect(lic.value.skipped).toContain("2026-11-16")
+    expect(lic.value.sessions[0]).toBe("2026-11-23")
+    expect(noc.value.sessions[0]).toBe("2026-11-16")
+    setBranchBrands([])
+  })
+
+  it("an 'every year' default is the same day in the following years (29 Feb only when it exists)", () => {
+    expect(sameDayInYears("2026-12-31", [2027, 2028])).toEqual(["2027-12-31", "2028-12-31"])
+    expect(sameDayInYears("2028-02-29", [2029, 2030, 2032])).toEqual(["2032-02-29"])
+  })
+
+  it("a series is kept laid out to the horizon without doubling rows, and each year starts closed everywhere", () => {
+    const rows: Holiday[] = [
+      { id: "a", branchId: null, date: "2026-08-12", name: "Mother's Day", category: "traditional", seriesId: "s1", openBranchIds: ["b2"] },
+      { id: "b", branchId: null, date: "2027-08-12", name: "Mother's Day", category: "traditional", seriesId: "s1" },
+      { id: "c", branchId: null, date: "2026-11-16", name: "one-off", category: "company" },
+    ]
+    const add = missingSeriesRows(rows, 2029)
+    expect(add.map((h) => h.date)).toEqual(["2028-08-12", "2029-08-12"])
+    expect(add.every((h) => h.seriesId === "s1" && !h.openBranchIds)).toBe(true)
+    expect(missingSeriesRows([...rows, ...add.map((h, i) => ({ ...h, id: `n${i}` }))], 2029)).toEqual([])
+  })
+
+  it("brand can only be set on a company-wide holiday", () => {
+    expect(validateHoliday({ name: "x", date: "2026-11-16", branchId: "b1", category: "branch", brand: "liclass" })).toMatch(/แบรนด์/)
+    expect(validateHoliday({ name: "x", date: "2026-11-16", branchId: null, category: "company", brand: "liclass" })).toBeNull()
   })
 })

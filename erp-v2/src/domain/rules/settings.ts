@@ -169,10 +169,11 @@ export const HOLIDAY_CATEGORY_LABEL: Record<HolidayCategory, string> = {
   branch: "วันหยุดของสาขา",
 }
 
-export function validateHoliday(h: Pick<Holiday, "name" | "date" | "branchId" | "category">): string | null {
+export function validateHoliday(h: Pick<Holiday, "name" | "date" | "branchId" | "category"> & { brand?: Holiday["brand"] }): string | null {
   if (!h.name.trim()) return "ใส่ชื่อวันหยุด"
   if (!h.date) return "เลือกวันที่"
   if (h.branchId === null && h.category === "branch") return "วันหยุดของบริษัทต้องเป็นประเภทประเพณีหรือบริษัท"
+  if (h.branchId !== null && h.brand) return "เลือกแบรนด์ได้เฉพาะวันหยุดของบริษัท"
   if (h.branchId !== null && h.category !== "branch") return "วันหยุดที่สาขาสร้างเป็นประเภท 'วันหยุดของสาขา' เท่านั้น"
   return null
 }

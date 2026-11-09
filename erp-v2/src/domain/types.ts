@@ -361,6 +361,10 @@ export interface Holiday {
   category: HolidayCategory
   /** company-wide holidays only: branches that decided to stay OPEN that day (per-branch toggle off) */
   openBranchIds?: ID[]
+  /** company-wide holidays only (owner 2026-11-09): which brand it closes — absent = both brands; Liclass and NockAcademy keep different calendars */
+  brand?: Brand
+  /** the "every year" default: rows laid out for several years from one entry share a series (edit / remove them together) */
+  seriesId?: ID
 }
 
 export type CourseKind = "single" | "bundle"
