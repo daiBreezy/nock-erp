@@ -121,7 +121,7 @@ function Item({ it, answers, set, errors, highlight, onPick, count }: {
       <Heading f={g} />
       <div className="mt-3 space-y-3">
         {list.map((en, i) => (
-          <div key={i} className="space-y-4 rounded-3xl bg-card p-4 shadow-sm ring-1 ring-foreground/5">
+          <div key={i} className="space-y-4 border-t pt-4 first:border-t-0 first:pt-0">
             <div className="flex items-center">
               <p className="text-sm font-semibold">{g.label} {list.length > 1 && i + 1}</p>
               {list.length > 1 && <Button size="icon-sm" variant="ghost" className="ml-auto text-muted-foreground" aria-label={tx("ลบ")} onClick={(e) => { e.stopPropagation(); set(g.id, list.filter((_, j) => j !== i)) }}><Trash2Icon /></Button>}
@@ -170,7 +170,7 @@ function Question({ f, no, v, set, error }: { f: FormField; no: number; v: FormA
 function Review({ form, answers, onEdit }: { form: Pick<FormDef, "name" | "fields">; answers: Answers; onEdit: (step: number) => void }) {
   return (
     <div className="space-y-3">{layout(form).map((p, i) => (
-      <div key={i} className="rounded-3xl bg-card p-4 shadow-sm ring-1 ring-foreground/5">
+      <div key={i} className="border-t pt-4 first:border-t-0 first:pt-0">
         <div className="mb-2 flex items-center"><p className="text-sm font-semibold">{p.title}</p><Button size="xs" variant="ghost" className="ml-auto" onClick={() => onEdit(i)}><PencilIcon /> {tx("แก้")}</Button></div>
         <dl className="space-y-1.5 text-sm">{p.items.map((it) => it.kind === "field" ? (
           answerable(it.field) && isShown(it.field, answers) ? <div key={it.field.id}><dt className="text-xs text-muted-foreground">{it.field.label}</dt><dd>{answerText(it.field, answers[it.field.id])}</dd></div> : null

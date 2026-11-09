@@ -272,7 +272,7 @@ export function LiffForm() {
   )
 
   return (
-    <div className="min-h-screen bg-muted/40 pb-28">
+    <div className="min-h-screen bg-background pb-28">
       <div className="mx-auto max-w-lg space-y-4 p-4">
         {/* owner 2026-11-06: the same header as the LINE OA app — a quiet two-line title, the language as a dropdown */}
         <header className="flex items-center gap-3">
@@ -596,7 +596,7 @@ function SectionHead({ icon: Icon, title, sub, action }: { icon: React.Component
 }
 
 function Card({ children }: { children: React.ReactNode }) {
-  return <div className="space-y-3 rounded-3xl bg-card p-4 shadow-sm ring-1 ring-foreground/5">{children}</div>
+  return <div className="space-y-3 border-t pt-4 first:border-t-0 first:pt-0">{children}</div>
 }
 
 function Line({ icon: Icon, children }: { icon: React.ComponentType<{ className?: string }>; children: React.ReactNode }) {

@@ -139,7 +139,7 @@ function Survey() {
   const token = tk!
   const chip = (on: boolean) => cn("min-h-12 rounded-2xl border px-4 py-3 text-left text-base leading-snug", on ? "border-primary bg-primary text-primary-foreground" : "bg-background")
   return (
-    <div className="mx-auto min-h-dvh max-w-lg bg-muted/40 pb-28">
+    <div className="mx-auto min-h-dvh max-w-lg bg-background pb-28">
       <header className="sticky top-0 z-10 border-b bg-background/95 px-4 py-3 backdrop-blur">
         <div className="flex items-center gap-2">
           <SmileIcon className="size-5 text-primary" />
@@ -215,7 +215,7 @@ const FACE_ON = (n: number) => (n <= 2 ? "border-red-500 bg-red-500 text-white" 
 
 function Card({ title, sub, error, children }: { title?: string; sub?: string; error?: boolean; children: React.ReactNode }) {
   return (
-    <section className={cn("space-y-3 rounded-3xl bg-card p-4 shadow-sm ring-1 ring-foreground/5", error && "ring-2 ring-red-400")}>
+    <section className={cn("space-y-3 border-t pt-4 first:border-t-0 first:pt-0", error && "rounded-2xl p-3 ring-2 ring-red-400")}>
       {title && <div><p className="text-sm font-semibold">{title}</p>{sub && <p className="text-xs text-muted-foreground">{sub}</p>}</div>}
       {children}
     </section>
