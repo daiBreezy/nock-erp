@@ -34,7 +34,7 @@ import * as Msg from "@/domain/rules/messages"
 import * as Loss from "@/domain/rules/loss"
 import * as Survey from "@/domain/rules/survey"
 import * as FB from "@/domain/rules/form-builder"
-import type { CustomFormResponse, FormDef } from "@/domain/types"
+import type { HomePin, CustomFormResponse, FormDef } from "@/domain/types"
 import * as Nock from "@/domain/rules/nock"
 import * as Dev from "@/domain/rules/dev-tickets"
 import { toast } from "@/lib/toast"
@@ -268,7 +268,7 @@ type Store = DB & UIState & {
   /** put a home in a zone by hand (null = by direction again) */
   setFamilyZone: (familyId: ID, zoneId: ID | null) => Result
   /** the house pin for the bus (owner 2026-10-19) — from the parent (approved in the chat) or set by the admin */
-  setFamilyHome: (familyId: ID, loc: { lat: number; lng: number }, addressNote?: string) => Result
+  setFamilyHome: (familyId: ID, loc: { lat: number; lng: number }, addressNote?: string, addr?: Partial<Pick<HomePin, "address" | "addressParts" | "province" | "postcode">>) => Result
   /** refund / credit on a paid invoice — the invoice itself never changes */
   createCreditNote: (input: Pick<CreditNote, "invoiceId" | "mode" | "items" | "reasons" | "remark" | "stopFrom">) => Result<CreditNote>
   approveCreditNote: (id: ID, forceRemark?: string) => Result
@@ -2511,12 +2511,12 @@ export const useStore = create<Store>()(
         })
         return OK
       },
-      setFamilyHome: (familyId, loc, addressNote) => {
+      setFamilyHome: (familyId, loc, addressNote, addr) => {
         const s = get()
         const perm = requirePerm(s.me(), "session.manage")
         if (!perm.ok) return perm
         if (!Number.isFinite(loc.lat) || !Number.isFinite(loc.lng)) return fail("ปักหมุดบ้านบนแผนที่ก่อน")
-        set({ families: s.families.map((f) => (f.id === familyId ? { ...f, location: { lat: loc.lat, lng: loc.lng }, addressNote: addressNote?.trim() || f.addressNote } : f)) })
+        set({ families: s.families.map((f) => (f.id === familyId ? { ...f, location: { lat: loc.lat, lng: loc.lng }, addressNote: addressNote?.trim() || f.addressNote, address: addr?.address ?? f.address, addressParts: addr?.addressParts ?? f.addressParts, province: addr?.province ?? f.province, postcode: addr?.postcode ?? f.postcode } : f)) })
         return OK
       },
       setFamilyZone: (familyId, zoneId) => {

@@ -5,6 +5,10 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react"
 import dynamic from "next/dynamic"
 import { AI_TONE, AiIcon } from "@/components/app/ai"
+import { DICT as FORM_DICT } from "@/app/liff/form/i18n"
+import { addressPartsOf } from "@/domain/rules/address"
+import type { AddressDraft } from "@/components/people/person-fields"
+import type { HomePin } from "@/domain/types"
 import { ArrowLeftIcon, BookOpenIcon, EllipsisIcon, LayoutDashboardIcon, ChevronDownIcon, CalendarOffIcon, LoaderCircleIcon, BusIcon, MapPinHouseIcon, CalendarDaysIcon, CalendarCheckIcon, TargetIcon, ThumbsUpIcon, ChevronRightIcon, DoorOpenIcon, UserIcon } from "lucide-react"
 import type { ParentChild, ParentCourseSummary, ParentView } from "@/domain/rules/parent-view"
 import { progressForSubject } from "@/domain/rules/summaries"
@@ -25,7 +29,8 @@ import { useUiLang } from "@/lib/i18n"
 
 // the map loads only when a parent opens "ปักหมุดบ้าน" (Leaflet is big — the rest of the app stays light in LINE)
 const CatalogApp = dynamic(() => import("@/app/liff/catalog/catalog-app").then((m) => m.CatalogApp), { ssr: false, loading: () => <div className="h-40 animate-pulse rounded-[8px] bg-muted" /> })
-const MapPin = dynamic(() => import("@/app/liff/form/map-pin").then((m) => m.MapPin), { ssr: false, loading: () => <div className="h-full animate-pulse rounded-[8px] bg-muted" /> })
+// the SAME address block as the LINE form / family panel (owner 2026-11-09: pin home = the parent's address, one thing)
+const AddressFields = dynamic(() => import("@/components/people/person-fields").then((m) => m.AddressFields), { ssr: false, loading: () => <div className="h-64 animate-pulse rounded-2xl bg-muted" /> })
 
 const DICT = {
   th: {
@@ -113,7 +118,7 @@ export type BusAsk = { date: string; pickup?: "add" | "cancel"; dropoff?: "add" 
 export type ParentRequestInput = { kind: "leave"; studentId: string; sessionIds: string[]; note?: string } | { kind: "exit"; studentId: string; lastDate: string; reasonIds: string[]; note?: string }
   | { kind: "bus"; studentId: string; bus: BusAsk[]; note?: string }
   | { kind: "return"; studentId: string; startDate?: string; note?: string }
-  | { kind: "home"; studentId: string; home: { lat: number; lng: number; addressNote?: string }; note?: string }
+  | { kind: "home"; studentId: string; home: Pick<HomePin, "lat" | "lng"> & Partial<HomePin>; note?: string }
 
 /** `framed` = inside the staff preview's phone frame: the tab bar sticks to the frame, not the browser window */
 export function ParentApp({ view, lang: initialLang, today, framed, openCourseSummary, onRequest, requests, openAction, catalogPreview }: { view: ParentView; lang?: FormLang; today: string; framed?: boolean
@@ -761,8 +766,11 @@ function RequestTab({ paid, setLang, updatedAt, view, child, t, lang, today, onR
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mode])
   // owner 2026-10-19: the house pin for the bus — starts where the school has it (if anywhere)
-  const [homeLoc, setHomeLoc] = useState<{ lat: number; lng: number } | undefined>(view.home ? { lat: view.home.lat, lng: view.home.lng } : undefined)
-  const [homeNote, setHomeNote] = useState(view.home?.addressNote ?? "")
+  const [addr, setAddr] = useState<AddressDraft>(() => ({
+    location: view.home ? { lat: view.home.lat, lng: view.home.lng } : undefined, addressNote: view.home?.addressNote ?? "", address: view.home?.address ?? "",
+    parts: addressPartsOf(view.home?.address, view.home?.addressParts), province: view.home?.province ?? "", postcode: view.home?.postcode ?? "",
+  }))
+  const homeLoc = addr.location
   const [startDate, setStartDate] = useState("")
   const [lastDate, setLastDate] = useState(child.packages.map((p) => p.until).sort().at(-1) ?? today)
   const [reasons, setReasons] = useState<string[]>([])
@@ -774,7 +782,7 @@ function RequestTab({ paid, setLang, updatedAt, view, child, t, lang, today, onR
   const submit = async () => {
     if (!onRequest || !mode) return
     setBusy(true)
-    const r = await onRequest(mode === "home" ? { kind: "home", studentId: child.id, home: { ...homeLoc!, addressNote: homeNote.trim() || undefined }, note }
+    const r = await onRequest(mode === "home" ? { kind: "home", studentId: child.id, home: { ...homeLoc!, addressNote: addr.addressNote.trim() || undefined, address: addr.address.trim() || undefined, addressParts: addr.address.trim() ? addr.parts : undefined, province: addr.province.trim() || undefined, postcode: addr.postcode.trim() || undefined }, note }
       : mode === "return" ? { kind: "return", studentId: child.id, startDate: startDate || undefined, note }
       : { kind: "exit", studentId: child.id, lastDate, reasonIds: reasons, note })
     setBusy(false)
@@ -807,10 +815,7 @@ function RequestTab({ paid, setLang, updatedAt, view, child, t, lang, today, onR
           {mode === "home" ? (
             <div className="space-y-2">
               <p className="text-xs text-muted-foreground">{view.home ? t.homeHave : t.homePick}</p>
-              <div className="h-64 overflow-hidden rounded-2xl"><MapPin value={homeLoc} onChange={setHomeLoc} locateLabel={t.locate} /></div>
-              <div className="space-y-1.5"><Label>{t.homeNote}</Label>
-                <Input value={homeNote} onChange={(e) => setHomeNote(e.target.value)} placeholder={t.homeNotePh} />
-              </div>
+              <AddressFields t={FORM_DICT[lang]} value={addr} onChange={(patch) => setAddr((x) => ({ ...x, ...patch }))} />
             </div>
           ) : mode === "return" ? (
             <div className="space-y-1.5"><Label>{t.startFrom}</Label>

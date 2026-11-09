@@ -20,7 +20,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { romanizeName } from "@/domain/rules/romanize"
-import { composeAddress } from "@/domain/rules/address"
+import { addressPartsOf, composeAddress } from "@/domain/rules/address"
 import { joinName, splitName } from "@/domain/rules/people"
 import type { AddressParts, FormParentInput, Gender, LeadSource } from "@/domain/types"
 import { cn } from "@/lib/utils"
@@ -40,8 +40,7 @@ export interface FamilyDraft {
 
 export const emptyParentDraft = (name = ""): ParentDraft => ({ ...splitName(name), nameEn: "", phones: [""], email: "", rel: "", birthDate: "" })
 export const emptyStudentDraft = (grade = ""): StudentDraft => ({ first: "", last: "", nameEn: "", nickname: "", nicknameEn: "", gender: "", grade, birthDate: "", school: "", note: "" })
-/** a saved address with no parts (older records) opens as house no. = the whole line, so nothing is lost and it can be refined */
-export const addressPartsOf = (address: string | undefined, parts: AddressParts | undefined): AddressParts => parts ?? (address?.trim() ? { houseNo: address.trim() } : {})
+export { addressPartsOf }
 
 export const emptyFamilyDraft = (): FamilyDraft => ({ name: "", nameEn: "", acquisitions: [], address: "", parts: {}, province: "", postcode: "", addressNote: "", wantTax: false, tax: { customerName: "", taxId: "", address: "" } })
 
@@ -135,14 +134,7 @@ export function FamilyFields({ t, value: f, onChange, parentLast, errors = {} }:
         </div>
       </Group>
       <Group title={t.address} sub={`${t.addressSub} · ${t.pinSub}`}>
-        <MapPin value={f.location} onChange={(location) => onChange({ location })} locateLabel={t.locate} />
-        {/* owner 2026-11-09: split like Grab / LINE MAN — one field per line; `address` is recomposed from the parts */}
-        {(["houseNo", "building", "soi", "road", "subdistrict", "district"] as const).map((k) => (
-          <F key={k} label={t.addrPart[k]}><Input value={f.parts[k] ?? ""} onChange={(e) => { const parts = { ...f.parts, [k]: e.target.value }; onChange({ parts, address: composeAddress(parts, f.province) }) }} /></F>
-        ))}
-        <F label={t.province}><Input value={f.province} onChange={(e) => onChange({ province: e.target.value, address: composeAddress(f.parts, e.target.value) })} /></F>
-        <F label={t.postcode} error={errors.postcode}><Input inputMode="numeric" maxLength={5} value={f.postcode} onChange={(e) => onChange({ postcode: e.target.value })} /></F>
-        <F label={t.addressNote}><Textarea rows={2} value={f.addressNote} onChange={(e) => onChange({ addressNote: e.target.value })} placeholder={t.addressNotePh} /></F>
+        <AddressFields t={t} value={f} onChange={onChange} errors={errors} />
       </Group>
       {/* the checkbox's own label is this group's heading — no second title above it */}
       <Group>
@@ -194,6 +186,24 @@ export function StudentFields({ t, value: s, onChange, grades, gradeLabel = (g) 
         <Textarea rows={2} maxLength={250} value={s.note} onChange={(e) => onChange({ note: e.target.value })} placeholder={t.notePh} />
       </Group>
     </div>
+  )
+}
+
+export type AddressDraft = Pick<FamilyDraft, "address" | "parts" | "province" | "postcode" | "location" | "addressNote">
+
+/** map pin + the lean address fields (owner 2026-11-09): province → postcode → address line → sub-district / district → directions.
+ *  The LINE form, the admin family panel AND the parent app's "pin home" page all use this one block. `address` is recomposed from the parts. */
+export function AddressFields({ t, value: f, onChange, errors = {} }: { t: FieldsDict; value: AddressDraft; onChange: (patch: Partial<AddressDraft>) => void; errors?: Errors }) {
+  const setPart = (k: keyof AddressParts, v: string) => { const parts = { ...f.parts, [k]: v }; onChange({ parts, address: composeAddress(parts) }) }
+  return (
+    <>
+      <MapPin value={f.location} onChange={(location) => onChange({ location })} locateLabel={t.locate} />
+      <F label={t.province}><Input value={f.province} onChange={(e) => onChange({ province: e.target.value })} /></F>
+      <F label={t.postcode} error={errors.postcode}><Input inputMode="numeric" maxLength={5} value={f.postcode} onChange={(e) => onChange({ postcode: e.target.value })} /></F>
+      <F label={t.addrPart.line}><Input value={f.parts.line ?? ""} placeholder={t.addrLinePh} onChange={(e) => setPart("line", e.target.value)} /></F>
+      <F label={t.addrPart.area}><Input value={f.parts.area ?? ""} placeholder={t.addrAreaPh} onChange={(e) => setPart("area", e.target.value)} /></F>
+      <F label={t.addressNote}><Textarea rows={2} value={f.addressNote} onChange={(e) => onChange({ addressNote: e.target.value })} placeholder={t.addressNotePh} /></F>
+    </>
   )
 }
 

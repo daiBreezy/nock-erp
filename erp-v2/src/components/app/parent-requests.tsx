@@ -143,7 +143,7 @@ export function RequestCard({ r, preview }: { r: ParentRequest; preview?: boolea
   const approveHome = async () => {
     if (!r.home) return
     setBusy(true)
-    if (report(setFamilyHome(r.familyId, r.home, r.home.addressNote), "")) {
+    if (report(setFamilyHome(r.familyId, r.home, r.home.addressNote, r.home), "")) {
       const km = branch?.location ? ` · ${Math.round(distanceKm(branch.location, r.home) * 10) / 10} กม. จากสาขา` : ""
       await finish("done", `บันทึกหมุดบ้านแล้ว${km}${homeZone ? ` · โซน ${homeZone.name}` : ""}`, notice(brandOfReq, "doneHome", nameArg(r.studentNickname)))
     }

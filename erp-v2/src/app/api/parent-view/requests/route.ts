@@ -4,7 +4,7 @@ import { viewForLineUser } from "@/server/parent-app-store"
 import { lineUserFromIdToken, pushLineText } from "@/server/line-auth"
 import { addRequest, listRequests } from "@/server/parent-request-store"
 import { recordInboundMessage, recordOutboundMessage } from "@/server/line-store"
-import type { BusChange } from "@/domain/types"
+import type { BusChange, HomePin } from "@/domain/types"
 
 // Parent side of แจ้งลา / แจ้งลาออก (owner 2026-10-14). LINE proves who is asking; only their own children and their
 // own upcoming classes can be named — nothing else is trusted from the phone.
@@ -27,7 +27,7 @@ export async function GET(req: Request) {
 export async function POST(req: Request) {
   const w = await who(req)
   if (!w) return NextResponse.json({ ok: false, error: "auth" }, { status: 401 })
-  const b = (await req.json().catch(() => ({}))) as { kind?: string; studentId?: string; sessionIds?: string[]; lastDate?: string; startDate?: string; reasonIds?: string[]; note?: string; home?: { lat?: number; lng?: number; addressNote?: string }; bus?: { date?: string; pickup?: string; dropoff?: string; adult?: boolean }[] }
+  const b = (await req.json().catch(() => ({}))) as { kind?: string; studentId?: string; sessionIds?: string[]; lastDate?: string; startDate?: string; reasonIds?: string[]; note?: string; home?: Partial<HomePin>; bus?: { date?: string; pickup?: string; dropoff?: string; adult?: boolean }[] }
   const child = w.view.children.find((c) => c.id === b.studentId)
   if (!child) return NextResponse.json({ ok: false, error: "เลือกนักเรียน" }, { status: 400 })
   const note = (b.note ?? "").trim().slice(0, 500) || undefined
@@ -70,7 +70,11 @@ export async function POST(req: Request) {
     const lat = Number(b.home?.lat), lng = Number(b.home?.lng)
     if (!Number.isFinite(lat) || !Number.isFinite(lng) || lat < 5 || lat > 21 || lng < 97 || lng > 106) return NextResponse.json({ ok: false, error: "ปักหมุดบ้านบนแผนที่ก่อน" }, { status: 400 })
     const addressNote = (b.home?.addressNote ?? "").trim().slice(0, 200) || undefined
-    saved = await addRequest({ ...base, kind: "home", home: { lat, lng, addressNote } })
+    const clip = (v: unknown, n: number) => (typeof v === "string" ? v.trim().slice(0, n) : "") || undefined
+    const parts = { line: clip(b.home?.addressParts?.line, 200), area: clip(b.home?.addressParts?.area, 120) }
+    const postcode = clip(b.home?.postcode, 5)
+    if (postcode && !/^\d{5}$/.test(postcode)) return NextResponse.json({ ok: false, error: "รหัสไปรษณีย์ต้องเป็นตัวเลข 5 หลัก" }, { status: 400 })
+    saved = await addRequest({ ...base, kind: "home", home: { lat, lng, addressNote, address: [parts.line, parts.area].filter(Boolean).join(" ") || undefined, addressParts: parts.line || parts.area ? parts : undefined, province: clip(b.home?.province, 60), postcode } })
     text = notice(w.view.brand, "reqHome", nameArg(child.nickname))
   } else if (b.kind === "exit") {
     if (!b.lastDate || !/^\d{4}-\d{2}-\d{2}$/.test(b.lastDate)) return NextResponse.json({ ok: false, error: "เลือกวันเรียนวันสุดท้าย" }, { status: 400 })

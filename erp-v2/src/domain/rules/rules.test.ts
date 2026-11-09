@@ -3261,15 +3261,11 @@ describe("holidays per brand + years (owner 2026-11-09)", () => {
 })
 
 describe("composeAddress (address parts → one line)", () => {
-  it("joins the parts and adds ซอย / ถนน / แขวง / เขต prefixes for Bangkok", () => {
-    expect(composeAddress({ houseNo: "12/3", building: "หมู่บ้านพฤกษา", soi: "2", road: "พระราม 9", subdistrict: "บางกะปิ", district: "ห้วยขวาง" }, "กรุงเทพมหานคร"))
-      .toBe("12/3 หมู่บ้านพฤกษา ซอย 2 ถนน พระราม 9 แขวง บางกะปิ เขต ห้วยขวาง")
-  })
-  it("uses ตำบล / อำเภอ outside Bangkok and never doubles a prefix the parent typed", () => {
-    expect(composeAddress({ houseNo: "9", soi: "ซอย 5", subdistrict: "ต.ศรีราชา", district: "ศรีราชา" }, "ชลบุรี")).toBe("9 ซอย 5 ต.ศรีราชา อำเภอ ศรีราชา")
+  it("joins the address line and the area", () => {
+    expect(composeAddress({ line: "12/3 หมู่บ้านพฤกษา ซอย 2 ถนน พระราม 9", area: "แขวงบางกะปิ เขตห้วยขวาง" })).toBe("12/3 หมู่บ้านพฤกษา ซอย 2 ถนน พระราม 9 แขวงบางกะปิ เขตห้วยขวาง")
   })
   it("empty / missing parts give an empty line", () => {
     expect(composeAddress(undefined)).toBe("")
-    expect(composeAddress({ houseNo: "  " })).toBe("")
+    expect(composeAddress({ line: "  ", area: "" })).toBe("")
   })
 })

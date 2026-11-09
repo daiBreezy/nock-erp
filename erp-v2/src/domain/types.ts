@@ -612,7 +612,12 @@ export interface Parent {
 
 /** The address split the way Grab / LINE MAN ask for it (owner 2026-11-09). `Family.address` stays the ONE composed line
  *  (invoices, driver sheet, reports read that) — `composeAddress` builds it from these parts. */
-export interface AddressParts { houseNo?: string; building?: string; soi?: string; road?: string; subdistrict?: string; district?: string }
+/** Lean on purpose (owner 2026-11-09, "ฟิลด์เยอะเกินไป"): `line` = house no. · village / building · soi · road in one field;
+ *  `area` = sub-district · district. Province and postcode are their own fields; the pin + directions do the rest. */
+export interface AddressParts { line?: string; area?: string }
+
+/** the house pin + address a parent sends from the app's Other tab (same fields as the LINE form's address) */
+export interface HomePin { lat: number; lng: number; addressNote?: string; address?: string; addressParts?: AddressParts; province?: string; postcode?: string }
 
 export interface Family {
   id: ID
@@ -1020,7 +1025,7 @@ export interface ParentRequest {
   /** bus: per class day, which legs to add or cancel (the parent's ask — the admin approves or declines) */
   bus?: BusChange[]
   /** home: where the house is (+ how to find it) — saved on the family when the admin approves */
-  home?: { lat: number; lng: number; addressNote?: string }
+  home?: HomePin
   /** return: when they'd like to start again */
   startDate?: DateStr
   /** exit: last day + why */

@@ -1,7 +1,7 @@
 // Parent app v1 (owner 2026-10-09) — "School to Parent" inside LINE: what one family sees about their children.
 // Read only: classes ahead (day · time · teacher · subject · room), bus legs booked, attendance, summaries already sent
 // to the parent, packages left. Pure — the ERP builds it, the parent's phone only reads it.
-import type { Attendance, Brand, Branch, BusAddOn, Course, CourseSummary, DateStr, Entitlement, Family, ID, Invoice, Klass, LessonSummary, Session, Staff, Student, TimeStr } from "../types"
+import type { Attendance, Brand, Branch, BusAddOn, HomePin, Course, CourseSummary, DateStr, Entitlement, Family, ID, Invoice, Klass, LessonSummary, Session, Staff, Student, TimeStr } from "../types"
 import { addDays, endTime, toDateStr } from "../dates"
 import { balance, leaveQuota, leavesUsed, packageCovers } from "./attendance"
 import { sessionState, subjectsOf, teachersOf } from "./scheduling"
@@ -87,7 +87,7 @@ export interface ParentView {
   /** the branch's published catalog link (the parent app's Catalog tab reads it) */
   catalogToken?: string
   /** the house pin the school has for the bus (owner 2026-10-19) — the parent can send it / move it */
-  home?: { lat: number; lng: number; addressNote?: string }
+  home?: HomePin
 }
 
 export const PARENT_DAYS_AHEAD = 30
@@ -224,7 +224,7 @@ export function parentView(family: Family, ctx: ParentCtx): ParentView {
   })
   return {
     familyId: family.id, familyName: family.name, familyNameEn: family.nameEn,
-    home: family.location ? { ...family.location, addressNote: family.addressNote } : undefined,
+    home: family.location ? { ...family.location, addressNote: family.addressNote, address: family.address, addressParts: family.addressParts, province: family.province, postcode: family.postcode } : undefined,
     lineUserIds: family.lineUserId ? [family.lineUserId] : [],
     paid: ctx.invoices.some((i) => kids.some((k) => k.id === i.studentId) && i.status !== "void" && (i.status === "paid" || i.payments.some((x) => x.confirmedBy))),
     catalogToken: ctx.branches.find((b) => b.id === kids[0]?.branchId)?.catalogLink?.token,
