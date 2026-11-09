@@ -251,4 +251,5 @@ export const KIT: Record<string, Entry> = {
   "ใส่ชุดวันหยุดไทย (ตัวอย่าง · 13 วัน/ปี)": { en: "Add the Thai holiday set (sample · 13 days/year)", ja: "タイの祝日セットを追加（サンプル・年13日）" },
   "เพิ่มวันหยุดไทยตัวอย่าง {0} วัน": { en: "Added {0} sample Thai holidays", ja: "タイの祝日サンプルを{0}日追加しました" },
   "มีวันหยุดไทยตัวอย่างครบแล้ว": { en: "The Thai holiday sample is already in", ja: "タイの祝日サンプルはすでに登録済みです" },
+  "นักเรียนไม่ใช้รถรับส่ง (ไม่เก็บค่ารถ)": { en: "Student does not use the bus (no bus fee)", ja: "送迎バスを利用しない（バス代なし）" },
 }

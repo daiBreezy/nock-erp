@@ -167,6 +167,10 @@ export function defaultBusLegs(sessions: DateStr[], usesBus: boolean): BusLeg[] 
   return sessions.map((date) => ({ date, pickup: usesBus, dropoff: usesBus }))
 }
 
+/** Tick (or untick) every leg — "this student does not use the bus at all" = all unticked, no bus fee on the invoice. */
+export const setAllBusLegs = (legs: BusLeg[], on: boolean): BusLeg[] => legs.map((l) => ({ ...l, pickup: on, dropoff: on }))
+export const usesNoBus = (legs: BusLeg[]) => legs.every((l) => !l.pickup && !l.dropoff)
+
 export function busTotal(legs: BusLeg[], perLeg: number) {
   return legs.reduce((a, l) => a + (l.pickup ? perLeg : 0) + (l.dropoff ? perLeg : 0), 0)
 }

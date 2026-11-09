@@ -97,9 +97,10 @@ export function PrintDocument({ kind, id, bare = false }: { kind: Kind; id: stri
           {/* eslint-disable-next-line @next/next/no-img-element -- static brand asset in a print page */}
           <img src="/brand/invoice-logo.svg" alt="" className="h-[20mm] w-auto shrink-0" />
           <div className="text-right">
-            <p className="text-[13px] font-bold">{company.nameTh}</p>
+            {/* Liclass parents cannot read Thai (Pin, 6 Oct): the Japanese paper drops the Thai name + address, English stays */}
+            {lang === "th" && <p className="text-[13px] font-bold">{company.nameTh}</p>}
             <p className="text-[13px] font-bold">{company.nameEn}</p>
-            <p className="text-[11px]">{company.addressTh} ({company.office.split("/")[0].trim()})</p>
+            {lang === "th" && <p className="text-[11px]">{company.addressTh} ({company.office.split("/")[0].trim()})</p>}
             <p className="text-[11px]">{company.addressEn} ({company.office.split("/").pop()?.trim()})</p>
           </div>
         </header>

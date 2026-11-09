@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest"
 import type { DevTicket, NockAnswer, NockQuestion, Role, Assessment, Attendance, Branch, BusAddOn, CreditNote, LessonSummary, Course, Entitlement, Family, FormSubmission, Lead, Student, Seat, FormOfferSlot, Holiday, Invoice, Klass, Session, Staff, StudentLeave, Weekday } from "../types"
 import { applyClassEdit, applyToSessions, canChangeTeachers, canMoveToClass, canUndoClassMove, canRescheduleStudent, movesOf, mondayOf, removedWithClass, canSave, closesBranch, holidayImpact, setBranchBrands, sameDayInYears, missingSeriesRows, holidayForBrand, hoursFor, isHoliday, overlappingRows, periodsIn, introducedConflicts, editSingleSession, findConflicts, generateSessions, moveSession, sessionState, validateClass, workState } from "./scheduling"
 import { activeLeave, nextClassDates, teacherLeaveCancels, leaveRunSessions, balance, studentState, leaveLedger, packageCovers, canMark, canSaveLeave, coveringEntitlement, effectiveTo, leavesUsed, lowBalanceAlert, removeFromClass, renewalFollowUpDue, resolveEntitlements } from "./attendance"
-import { bestPromotion, duplicateBusDay, billedOn, busAddOnAmount, pendingBusAddOns, validateBusAddOn, carriedMinutes, weekKey, classOptionsFor, defaultAdvance, entryFeeWaiver, invoiceSessionDates, invoiceTotals, validateInvoiceDraft, canApprove, canConfirmPayment, canForceApprove, canForceConfirmPayment, canSend, canVoid, defaultBusLegs, busTotal, nextInvoiceNumber, quoteCourse, roundUpTo, familyPromotion, receiptNumberOf, lastNoteFor, renumberDocuments, renewalCandidates, renewalDraft, bestBonusHours, FAMILY_PROMO_TIERS } from "./billing"
+import { bestPromotion, duplicateBusDay, billedOn, busAddOnAmount, pendingBusAddOns, validateBusAddOn, carriedMinutes, weekKey, classOptionsFor, defaultAdvance, entryFeeWaiver, invoiceSessionDates, invoiceTotals, validateInvoiceDraft, canApprove, canConfirmPayment, canForceApprove, canForceConfirmPayment, canSend, canVoid, defaultBusLegs, setAllBusLegs, usesNoBus, busTotal, nextInvoiceNumber, quoteCourse, roundUpTo, familyPromotion, receiptNumberOf, lastNoteFor, renumberDocuments, renewalCandidates, renewalDraft, bestBonusHours, FAMILY_PROMO_TIERS } from "./billing"
 import { can } from "./permissions"
 import { chartPrice, defaultCourseName, filterCourses, validateCourse } from "./course"
 import { brandPriceUnits, brandUsesBus, busRate, copyHours, gradeLabel, subjectLabel, priceOf, priceRange, setPrice, validateBranchInfo, validateDurations, validateHoliday, THAI_HOLIDAYS_FIXED, THAI_HOLIDAYS_MOVING, validatePromotion, validateSpecialPeriods, everyDay, subjectAbbr } from "./settings"
@@ -1416,6 +1416,45 @@ describe("paper invoice / receipt (owner template INV + REC, 2026-09-30)", () =>
     expect(Doc.invoiceDates(inv)).toEqual({ date: "2026-09-30", dueBy: "2026-09-30" })
     expect(Doc.documentFileName("690930-01-002-0001", "ด.ช.ภูมิ/ใจดี")).toBe("690930-01-002-0001 ด.ช.ภูมิใจดี")
     expect(Doc.receiptDate({ payments: [{ id: "p", amount: 1, method: "cash", reference: "", recordedBy: "a", recordedAt: "2026-10-02T09:00:00Z", confirmedBy: "m" }] })).toBe("2026-10-02")
+  })
+})
+
+describe("Liclass invoice feedback (Pin, 6 Oct)", () => {
+  const k = klass({ id: "k1", weekday: 2, name: "Eng Active+Math" })
+  const li: Branch = { ...branch, brand: "liclass", fees: [{ id: "bs", kind: "bus", name: "Standard", price: 150 }], promotions: [] }
+  const mirai: Course = { ...monthPkg, name: "Mirai", courseFee: 180 }
+  const inv: Invoice = {
+    id: "i", branchId: "b1", studentId: "a", number: null, lines: [{ id: "l", courseId: "c1", classIds: ["k1"], startDate: "2026-10-20", periods: 1 }],
+    bus: [], bookFee: 0, advance: [], concession: null, noteToParent: "", status: "draft", pdf: "none", createdBy: "adm", createdAt: "2026-09-30T03:00:00Z", payments: [],
+  }
+  const ctx = { branch: li, courses: [mirai], classes: [k], holidays: [] }
+
+  it("the course's fixed charge (Course fee) is added to the invoice by itself", () => {
+    const t = invoiceTotals(inv, ctx)
+    expect(t.courseFee).toBe(180)
+    expect(t.total).toBe(roundUpTo(t.course + 180, 10))
+  })
+
+  it("the Liclass paper names the course, not the class, and the round-up row keeps the lines adding up", () => {
+    const t = invoiceTotals(inv, ctx)
+    const items = Doc.invoiceItems(inv, t, li)
+    expect(items.some((i) => i.description.includes("Eng Active+Math"))).toBe(false)
+    expect(items.some((i) => i.description.includes("Mirai"))).toBe(true)
+    expect(items.reduce((a, i) => a + i.amount, 0)).toBe(t.total)
+    // NockAcademy keeps the class names
+    const na = Doc.invoiceItems(inv, invoiceTotals(inv, { ...ctx, branch: { ...li, brand: "nockacademy" } }), { ...li, brand: "nockacademy" })
+    expect(na.some((i) => i.description.includes("Eng Active+Math"))).toBe(true)
+  })
+
+  it("a student who does not ride the bus at all: untick every leg, no bus fee", () => {
+    const legs = defaultBusLegs(["2026-10-20", "2026-10-27"], true)
+    expect(usesNoBus(legs)).toBe(false)
+    const none = setAllBusLegs(legs, false)
+    expect(usesNoBus(none)).toBe(true)
+    expect(busTotal(none, 150)).toBe(0)
+    const t = invoiceTotals({ ...inv, bus: none, busFeeId: "bs" }, ctx)
+    expect(t.bus).toBe(0)
+    expect(Doc.invoiceItems({ ...inv, bus: none }, t, li).some((i) => i.description.startsWith("送迎バス代"))).toBe(false)
   })
 })
 

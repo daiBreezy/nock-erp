@@ -78,13 +78,15 @@ export function invoiceItems(inv: Invoice, totals: InvoiceTotals, branch: Branch
   const one = (description: string, amount: number) => amount && items.push({ description, qty: 1, unitPrice: amount, amount })
   for (const l of totals.lines) {
     if (!l.course || !l.quote) continue
-    const classes = l.klasses.map((k) => k.name).join(" + ")
+    // Liclass (Pin, 6 Oct): the description names the COURSE (already first in the line), not the class names
+    const classes = docLang(branch.brand) === "ja" ? "" : l.klasses.map((k) => k.name).join(" + ")
+    const tail = classes ? ` · ${classes}` : ""
     if (l.course.unit === "month") {
       // one row per month — pro-rated months have their own price
-      for (const p of l.quote.periods) one(`${t.course}${l.course.name} · ${fmtMonth(p.month + "-01")} (${p.sessions.length} ${t.sessions}${p.factor < 1 ? ` · ${Math.round(p.factor * 100)}%` : ""}) · ${classes}`, p.amount)
+      for (const p of l.quote.periods) one(`${t.course}${l.course.name} · ${fmtMonth(p.month + "-01")} (${p.sessions.length} ${t.sessions}${p.factor < 1 ? ` · ${Math.round(p.factor * 100)}%` : ""})${tail}`, p.amount)
     } else {
       items.push({
-        description: `${t.course}${l.course.name} · ${packageLabel(l.course)} · ${fmtDate(l.quote.from)} – ${fmtDate(l.quote.to, { year: true })} (${l.quote.slots.length} ${t.sessions}) · ${classes}`,
+        description: `${t.course}${l.course.name} · ${packageLabel(l.course)} · ${fmtDate(l.quote.from)} – ${fmtDate(l.quote.to, { year: true })} (${l.quote.slots.length} ${t.sessions})${tail}`,
         qty: l.line.periods, unitPrice: l.course.price, amount: l.amount,
       })
     }

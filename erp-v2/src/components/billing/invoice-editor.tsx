@@ -18,7 +18,7 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { addDays, fmtDate, fmtMoney, fmtMonth, toDateStr } from "@/domain/dates"
 import * as Att from "@/domain/rules/attendance"
-import { busTotal, carriedMinutes, lastNoteFor, lastPaidInvoice, familyPromotion, invoiceHours, FAMILY_PROMO_TIERS, pendingBusAddOns, classChoices, classOptionsFor, defaultAdvance, defaultBusLegs, entryFeeWaiver, invoiceSessionDates, invoiceTotals, validateInvoiceDraft, type LineQuote } from "@/domain/rules/billing"
+import { busTotal, carriedMinutes, lastNoteFor, lastPaidInvoice, familyPromotion, invoiceHours, FAMILY_PROMO_TIERS, pendingBusAddOns, classChoices, classOptionsFor, defaultAdvance, defaultBusLegs, setAllBusLegs, usesNoBus, entryFeeWaiver, invoiceSessionDates, invoiceTotals, validateInvoiceDraft, type LineQuote } from "@/domain/rules/billing"
 import { lastAssessmentDate } from "@/domain/rules/forms"
 import type { AdvanceItem, BusExtraLine, BusLeg, CourseLine, Entitlement, Family, Invoice, Klass, Leftover, Seat } from "@/domain/types"
 import { isPartial } from "@/domain/rules/seats"
@@ -406,6 +406,12 @@ export function InvoiceEditor({ invoice, defaultStudentId, renewEntitlementId, o
         {busOn && (
         <Section n={5} open={openSec === 5} onToggle={() => setOpenSec(openSec === 5 ? 0 : 5)} summary={totals.bus + totals.busExtra > 0 ? fmtMoney(totals.bus + totals.busExtra) : "ไม่ใช้"} title="Bus" hint="ไม่บังคับ">
         {busDates.length > 0 && (
+          <label className="flex items-center gap-2 text-sm">
+            <Checkbox checked={usesNoBus(legs)} onCheckedChange={(v) => { setBusTouched(true); setBus(setAllBusLegs(legs, !v)) }} />
+            นักเรียนไม่ใช้รถรับส่ง (ไม่เก็บค่ารถ)
+          </label>
+        )}
+        {busDates.length > 0 && (
           <details className="rounded-lg border" open={legs.some((l) => l.pickup || l.dropoff)}>
             <summary className="flex cursor-pointer items-center gap-2 px-3 py-2 text-sm">
               <BusIcon className="size-4" /> ค่ารถ ({busFees.find((f) => f.id === feeId)?.name ?? "ค่ารถ"} {fmtMoney(rate)}/เที่ยว)
@@ -474,6 +480,7 @@ export function InvoiceEditor({ invoice, defaultStudentId, renewEntitlementId, o
             <div key={l as string} className="flex justify-between"><span>{l}</span><span>{fmtMoney(v as number)}</span></div>
           ))}
           {totals.promotion > 0 && <div className="flex justify-between text-emerald-700"><span>โปรโมชัน</span><span>−{fmtMoney(totals.promotion)}</span></div>}
+          {totals.rounding > 0 && <div className="flex justify-between text-muted-foreground"><span>ปัดเศษ (Liclass ปัดขึ้นหลักสิบ)</span><span>+{fmtMoney(totals.rounding)}</span></div>}
           {totals.credit > 0 && <div className="flex justify-between text-violet-700"><span>หักเครดิตคอร์ส</span><span>−{fmtMoney(totals.credit)}</span></div>}
           {totals.concession > 0 && <div className="flex justify-between text-emerald-700"><span>ส่วนลดพิเศษ</span><span>−{fmtMoney(totals.concession)}</span></div>}
           <div className={cn("flex justify-between border-t pt-1 text-base font-semibold", totals.total < 0 && "text-red-700")}><span>ยอดรวม</span><span>{fmtMoney(totals.total)}</span></div>
