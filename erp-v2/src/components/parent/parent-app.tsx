@@ -158,6 +158,15 @@ export function ParentApp({ view, lang: initialLang, today, framed, openCourseSu
   const childTabs = showChildTabs ? (
     <Tabs className="border-b-0" value={childId} onChange={(id) => { setChildId(id); setCourse("") }} options={[{ value: "", label: t.all }, ...view.children.map((c) => ({ value: c.id, label: nick(c) }))]} />
   ) : null
+  // a course summary belongs to ONE child: the bar says whose it is (instead of the child tabs)
+  const summaryKid = cur === "study" && csId ? view.children.find((c) => (c.courseSummaries ?? []).some((x) => x.id === csId)) : undefined
+  const barBody = childTabs ?? (summaryKid ? (
+    <div className="flex min-w-0 items-center gap-2 py-1.5">
+      <span className="grid size-7 shrink-0 place-items-center rounded-full bg-muted text-sm font-semibold text-muted-foreground">{nick(summaryKid).slice(0, 1)}</span>
+      <span className="min-w-0 flex-1 truncate text-base font-semibold">{nick(summaryKid)}</span>
+      <Pill tone="blue">{summaryKid.grade}</Pill>
+    </div>
+  ) : null)
   // owner 2026-11-09: the header shrinks WITH the scroll, no jump. It is sticky with a negative `top` equal to its big block, so the
   // family name + branch scroll away smoothly and the bar (small name + child tabs) stays. --p (0→1) is the scroll progress; it
   // only fades the small name in. The header's flow height never changes → no layout shift, no scroll ping-pong.
@@ -199,9 +208,9 @@ export function ParentApp({ view, lang: initialLang, today, framed, openCourseSu
           <p className="truncate text-xs text-muted-foreground">{brand === "liclass" ? "Liclass" : "NockAcademy"} · {child?.branchName}</p>
         </div>
         {/* the bar that stays: small name (slides in as you scroll) + the child tabs. One child → no tabs, the bar just hangs under the header */}
-        <div className={cn("flex items-center gap-2 border-b bg-background/95 px-4 backdrop-blur", !childTabs && "pointer-events-none absolute inset-x-0 top-full py-2.5")} style={!childTabs ? { opacity: "var(--p)" } : undefined}>
+        <div className={cn("flex items-center gap-2 border-b bg-background/95 px-4 backdrop-blur", !barBody && "pointer-events-none absolute inset-x-0 top-full py-2.5")} style={!barBody ? { opacity: "var(--p)" } : undefined}>
           <p className="truncate text-sm font-semibold" style={{ maxWidth: "calc(var(--p) * 34%)", opacity: "var(--p)", flexShrink: 0 }}>{family}</p>
-          {childTabs && <div className="min-w-0 flex-1">{childTabs}</div>}
+          {barBody && <div className="min-w-0 flex-1">{barBody}</div>}
         </div>
       </header>
 
