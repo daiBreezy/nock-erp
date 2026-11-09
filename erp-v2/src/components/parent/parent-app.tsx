@@ -153,7 +153,8 @@ export function ParentApp({ view, lang: initialLang, today, framed, openCourseSu
   const dayLabel = (d: string) => (d === today ? t.today : d === tomorrow ? t.tomorrow : fmtDay(d, lang))
   const usesBus = view.children.some((c) => c.busDays.length > 0)
   // owner 2026-11-06: schedule + attendance + summaries + bus are ONE page; absences and bus asks live on each class row
-  const showChildTabs = view.children.length > 1 && (cur === "study" || cur === "overview")
+  // a course summary belongs to ONE child — no child tabs above it (owner 2026-11-09)
+  const showChildTabs = view.children.length > 1 && !(cur === "study" && csId) && (cur === "study" || cur === "overview")
   const childTabs = showChildTabs ? (
     <Tabs className="border-b-0" value={childId} onChange={(id) => { setChildId(id); setCourse("") }} options={[{ value: "", label: t.all }, ...view.children.map((c) => ({ value: c.id, label: nick(c) }))]} />
   ) : null
