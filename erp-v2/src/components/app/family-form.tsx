@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
 import { FormShell, useInPanel } from "./form-shell"
 import { DICT } from "@/app/liff/form/i18n"
-import { emptyFamilyDraft, emptyParentDraft, FamilyFields, ParentFields, parentDraftOf, parentInputOf, type FamilyDraft, type ParentDraft } from "@/components/people/person-fields"
+import { addressPartsOf, emptyFamilyDraft, emptyParentDraft, FamilyFields, ParentFields, parentDraftOf, parentInputOf, type FamilyDraft, type ParentDraft } from "@/components/people/person-fields"
 import { familyNameFor, familyShortName, findFamilyDuplicates, validateFamily, type DuplicateHit } from "@/domain/rules/people"
 import { DuplicateDialog } from "./duplicate-dialog"
 import type { Family, Parent } from "@/domain/types"
@@ -37,7 +37,7 @@ export function FamilyForm({ family, initialName, initialParent, onClose, onSave
   const [primaryIdx, setPrimaryIdx] = useState(() => Math.max(0, family?.parents.findIndex((p) => p.primary) ?? 0))
   const [fam, setFam] = useState<FamilyDraft>(() => family ? {
     name: family.name, nameEn: family.nameEn ?? "", acquisitions: family.sources ?? [],
-    address: family.address ?? "", province: family.province ?? "", postcode: family.postcode ?? "", location: family.location, addressNote: family.addressNote ?? "",
+    address: family.address ?? "", parts: addressPartsOf(family.address, family.addressParts), province: family.province ?? "", postcode: family.postcode ?? "", location: family.location, addressNote: family.addressNote ?? "",
     wantTax: !!family.taxInfo, tax: family.taxInfo ?? { customerName: "", taxId: "", address: "" },
   } : { ...emptyFamilyDraft(), name: initialName ?? "" })
   const [touched, setTouched] = useState(false)
@@ -52,7 +52,7 @@ export function FamilyForm({ family, initialName, initialParent, onClose, onSave
       return { ...stored, name: p.name, nameEn: p.nameEn, phone: p.phone, altPhones: p.altPhones?.length ? p.altPhones : undefined, email: p.email, relationship: p.relationship, birthDate: p.birthDate, primary: i === primaryIdx, lineLinked: stored?.lineLinked ?? false }
     }),
     sources: fam.acquisitions.length ? fam.acquisitions : undefined,
-    address: fam.address.trim() || undefined, province: fam.province.trim() || undefined, postcode: fam.postcode.trim() || undefined,
+    address: fam.address.trim() || undefined, addressParts: fam.address.trim() ? fam.parts : undefined, province: fam.province.trim() || undefined, postcode: fam.postcode.trim() || undefined,
     location: fam.location, addressNote: fam.addressNote.trim() || undefined,
     taxInfo: fam.wantTax && (fam.tax.customerName.trim() || fam.tax.taxId.trim()) ? fam.tax : undefined,
   }
@@ -82,7 +82,7 @@ export function FamilyForm({ family, initialName, initialParent, onClose, onSave
     const extra = built.parents.filter((p) => !known.has(digits(p.phone))).map((p) => ({ ...p, primary: false }))
     finish(save({
       ...old, parents: [...old.parents, ...extra],
-      address: old.address ?? built.address, postcode: old.postcode ?? built.postcode, province: old.province ?? built.province,
+      address: old.address ?? built.address, addressParts: old.addressParts ?? built.addressParts, postcode: old.postcode ?? built.postcode, province: old.province ?? built.province,
       location: old.location ?? built.location, addressNote: old.addressNote ?? built.addressNote, taxInfo: old.taxInfo ?? built.taxInfo,
       sources: old.sources ?? built.sources,
     }), extra.length ? `ใช้ครอบครัวเดิม "${familyShortName(old.name)}" · เพิ่มผู้ปกครอง ${extra.length} คน — ไม่ได้สร้างซ้ำ` : `ใช้ครอบครัวเดิม "${familyShortName(old.name)}" — ไม่ได้สร้างซ้ำ`)

@@ -28,7 +28,7 @@ export function buildFormPrefill(input: {
   return {
     parents,
     familyName: f?.name, familyNameEn: f?.nameEn,
-    address: f?.address, postcode: f?.postcode, province: f?.province, location: f?.location, addressNote: f?.addressNote,
+    address: f?.address, addressParts: f?.addressParts, postcode: f?.postcode, province: f?.province, location: f?.location, addressNote: f?.addressNote,
     acquisitions: f?.sources?.length ? f.sources : [input.lead.source], taxInfo: f?.taxInfo,
     students: input.students.map((s) => ({
       name: s.name, nickname: s.nickname, grade: s.grade, birthDate: s.birthDate, school: s.school, note: s.note,

@@ -11,6 +11,7 @@ import { forceAudience, isUnread, messageAudience, noteRecipients, notify, valid
 import * as Sum from "./summaries"
 import * as Pay from "./billing"
 import { chatDayLabel, groupByDay } from "./inbox"
+import { composeAddress } from "./address"
 import { findFamilyDuplicates, findStudentDuplicates, familyFromLead, familyFromSubmission, familyNameFor, splitName, joinName, futureSessionsOf, matchExistingFamily, mergeSubmission, nicknameFrom, searchStudents, studentLabel, submissionChanges, uniqueFamilies, validateFamily, validateStaff, validateStudent } from "./people"
 import { suggestFixes } from "./suggest"
 import { advanceStage, canSetStage, daysAgo, groupOf, restoreStage, siblingLead, validateLead } from "./crm"
@@ -3256,5 +3257,19 @@ describe("holidays per brand + years (owner 2026-11-09)", () => {
     expect(THAI_HOLIDAYS_MOVING.filter(([, d]) => d.startsWith("2026"))).toHaveLength(2)
     expect(THAI_HOLIDAYS_MOVING.filter(([, d]) => d.startsWith("2027"))).toHaveLength(2)
     expect(new Set(THAI_HOLIDAYS_FIXED.map(([, md]) => md)).size).toBe(11)
+  })
+})
+
+describe("composeAddress (address parts → one line)", () => {
+  it("joins the parts and adds ซอย / ถนน / แขวง / เขต prefixes for Bangkok", () => {
+    expect(composeAddress({ houseNo: "12/3", building: "หมู่บ้านพฤกษา", soi: "2", road: "พระราม 9", subdistrict: "บางกะปิ", district: "ห้วยขวาง" }, "กรุงเทพมหานคร"))
+      .toBe("12/3 หมู่บ้านพฤกษา ซอย 2 ถนน พระราม 9 แขวง บางกะปิ เขต ห้วยขวาง")
+  })
+  it("uses ตำบล / อำเภอ outside Bangkok and never doubles a prefix the parent typed", () => {
+    expect(composeAddress({ houseNo: "9", soi: "ซอย 5", subdistrict: "ต.ศรีราชา", district: "ศรีราชา" }, "ชลบุรี")).toBe("9 ซอย 5 ต.ศรีราชา อำเภอ ศรีราชา")
+  })
+  it("empty / missing parts give an empty line", () => {
+    expect(composeAddress(undefined)).toBe("")
+    expect(composeAddress({ houseNo: "  " })).toBe("")
   })
 })

@@ -18,7 +18,7 @@ const THAI = /[\u0E01-\u0E3A\u0E40-\u0E5B]/
  *  documents (Thai by law), LINE messages to parents, and the Thai name spellers */
 const SKIP = [
   /^lib\/i18n-dict\//, /\.test\.tsx?$/, /^data\//, /^app\/liff\//, /^app\/api\//, /^server\//, /^app\/print\//,
-  /^components\/parent\//, /^domain\/rules\/messages\.ts$/, /^domain\/rules\/romanize\.ts$/, /^lib\/screen-translate\.ts$/,
+  /^components\/parent\//, /^domain\/rules\/messages\.ts$/, /^domain\/rules\/address\.ts$/, /^domain\/rules\/romanize\.ts$/, /^lib\/screen-translate\.ts$/,
   /^domain\/rules\/documents\.ts$/, /^store\/linked-demo\.ts$/, /^store\/transport-demo\.ts$/, /^lib\/sales-tax-export\.ts$/, /^proxy\.ts$/, /^app\/inbox\/cards\//, /^components\/inbox\/line-messages-tab\.tsx$/, // the owner's preview pages (sample parent messages) stay Thai like /inbox/cards
 ]
 

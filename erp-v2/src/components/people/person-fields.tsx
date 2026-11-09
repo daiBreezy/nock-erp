@@ -20,8 +20,9 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { romanizeName } from "@/domain/rules/romanize"
+import { composeAddress } from "@/domain/rules/address"
 import { joinName, splitName } from "@/domain/rules/people"
-import type { FormParentInput, Gender, LeadSource } from "@/domain/types"
+import type { AddressParts, FormParentInput, Gender, LeadSource } from "@/domain/types"
 import { cn } from "@/lib/utils"
 
 export type FieldsDict = (typeof DICT)["th"]
@@ -33,13 +34,16 @@ export interface ParentDraft { first: string; last: string; nameEn: string; phon
 export interface StudentDraft { first: string; last: string; nameEn: string; nickname: string; nicknameEn: string; gender: Gender | ""; grade: string; birthDate: string; school: string; schoolId?: string; note: string }
 export interface FamilyDraft {
   name: string; nameEn: string; acquisitions: LeadSource[]
-  address: string; province: string; postcode: string; location?: { lat: number; lng: number }; addressNote: string
+  address: string; parts: AddressParts; province: string; postcode: string; location?: { lat: number; lng: number }; addressNote: string
   wantTax: boolean; tax: { customerName: string; taxId: string; address: string }
 }
 
 export const emptyParentDraft = (name = ""): ParentDraft => ({ ...splitName(name), nameEn: "", phones: [""], email: "", rel: "", birthDate: "" })
 export const emptyStudentDraft = (grade = ""): StudentDraft => ({ first: "", last: "", nameEn: "", nickname: "", nicknameEn: "", gender: "", grade, birthDate: "", school: "", note: "" })
-export const emptyFamilyDraft = (): FamilyDraft => ({ name: "", nameEn: "", acquisitions: [], address: "", province: "", postcode: "", addressNote: "", wantTax: false, tax: { customerName: "", taxId: "", address: "" } })
+/** a saved address with no parts (older records) opens as house no. = the whole line, so nothing is lost and it can be refined */
+export const addressPartsOf = (address: string | undefined, parts: AddressParts | undefined): AddressParts => parts ?? (address?.trim() ? { houseNo: address.trim() } : {})
+
+export const emptyFamilyDraft = (): FamilyDraft => ({ name: "", nameEn: "", acquisitions: [], address: "", parts: {}, province: "", postcode: "", addressNote: "", wantTax: false, tax: { customerName: "", taxId: "", address: "" } })
 
 /** a stored parent (family on file or a form answer) → the fields */
 export function parentDraftOf(p: { name: string; nameEn?: string; phone: string; altPhones?: string[]; email?: string; relationship?: string; birthDate?: string }): ParentDraft {
@@ -132,8 +136,11 @@ export function FamilyFields({ t, value: f, onChange, parentLast, errors = {} }:
       </Group>
       <Group title={t.address} sub={`${t.addressSub} · ${t.pinSub}`}>
         <MapPin value={f.location} onChange={(location) => onChange({ location })} locateLabel={t.locate} />
-        <F label={t.addressLine}><Input value={f.address} onChange={(e) => onChange({ address: e.target.value })} /></F>
-        <F label={t.province}><Input value={f.province} onChange={(e) => onChange({ province: e.target.value })} /></F>
+        {/* owner 2026-11-09: split like Grab / LINE MAN — one field per line; `address` is recomposed from the parts */}
+        {(["houseNo", "building", "soi", "road", "subdistrict", "district"] as const).map((k) => (
+          <F key={k} label={t.addrPart[k]}><Input value={f.parts[k] ?? ""} onChange={(e) => { const parts = { ...f.parts, [k]: e.target.value }; onChange({ parts, address: composeAddress(parts, f.province) }) }} /></F>
+        ))}
+        <F label={t.province}><Input value={f.province} onChange={(e) => onChange({ province: e.target.value, address: composeAddress(f.parts, e.target.value) })} /></F>
         <F label={t.postcode} error={errors.postcode}><Input inputMode="numeric" maxLength={5} value={f.postcode} onChange={(e) => onChange({ postcode: e.target.value })} /></F>
         <F label={t.addressNote}><Textarea rows={2} value={f.addressNote} onChange={(e) => onChange({ addressNote: e.target.value })} placeholder={t.addressNotePh} /></F>
       </Group>

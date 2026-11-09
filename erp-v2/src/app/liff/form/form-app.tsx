@@ -15,7 +15,7 @@ import { CatalogApp } from "../catalog/catalog-app"
 import { gradeLabel, subjectLabel } from "@/domain/rules/settings"
 import type { Brand, EnrollClassOffer, EnrollCourseOption, EnrollPlan, EnrollToken, FormLang, FormToken, FormOfferSlot, FormPrefill, FormSubjectOffer, FormType } from "@/domain/types"
 import { cn } from "@/lib/utils"
-import { emptyFamilyDraft, emptyParentDraft, emptyStudentDraft, FamilyFields, ParentFields, parentDraftOf, parentInputOf, StudentFields, studentDraftOf, studentInputOf, type FamilyDraft, type ParentDraft, type StudentDraft } from "@/components/people/person-fields"
+import { addressPartsOf, emptyFamilyDraft, emptyParentDraft, emptyStudentDraft, FamilyFields, ParentFields, parentDraftOf, parentInputOf, StudentFields, studentDraftOf, studentInputOf, type FamilyDraft, type ParentDraft, type StudentDraft } from "@/components/people/person-fields"
 import { joinName } from "@/domain/rules/people"
 import { DICT, fmtBirth, fmtFormDate } from "./i18n"
 import { classTimeLabel, courseLine, ENROLL_DICT, EnrollFields, enrollValid, timeLabel, type EnrollFieldsValue } from "./enroll"
@@ -103,7 +103,7 @@ export function LiffForm() {
       setPrimaryIdx(Math.max(0, p.parents.findIndex((x) => x.primary)))
       setFam({
         name: p.familyName ?? "", nameEn: p.familyNameEn ?? "", acquisitions: p.acquisitions ?? [],
-        address: p.address ?? "", province: p.province ?? "", postcode: p.postcode ?? "", location: p.location, addressNote: p.addressNote ?? "",
+        address: p.address ?? "", parts: addressPartsOf(p.address, p.addressParts), province: p.province ?? "", postcode: p.postcode ?? "", location: p.location, addressNote: p.addressNote ?? "",
         wantTax: !!p.taxInfo, tax: p.taxInfo ?? { customerName: "", taxId: "", address: "" },
       })
       setKnown(true)
@@ -217,7 +217,7 @@ export function LiffForm() {
   /** the household answers, as both submit APIs take them */
   const familyPayload = () => ({
     familyName: fam.name.trim() || undefined, familyNameEn: fam.nameEn.trim() || undefined,
-    familyAddress: fam.address || undefined, familyPostcode: fam.postcode || undefined, familyProvince: fam.province || undefined, acquisitions: fam.acquisitions.length ? fam.acquisitions : undefined,
+    familyAddress: fam.address || undefined, familyAddressParts: fam.address ? fam.parts : undefined, familyPostcode: fam.postcode || undefined, familyProvince: fam.province || undefined, acquisitions: fam.acquisitions.length ? fam.acquisitions : undefined,
     familyLocation: fam.location, familyAddressNote: fam.addressNote || undefined, taxInfo: fam.wantTax ? fam.tax : undefined,
   })
   const submit = async () => {

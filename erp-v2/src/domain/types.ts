@@ -610,6 +610,10 @@ export interface Parent {
   lineId?: string
 }
 
+/** The address split the way Grab / LINE MAN ask for it (owner 2026-11-09). `Family.address` stays the ONE composed line
+ *  (invoices, driver sheet, reports read that) — `composeAddress` builds it from these parts. */
+export interface AddressParts { houseNo?: string; building?: string; soi?: string; road?: string; subdistrict?: string; district?: string }
+
 export interface Family {
   id: ID
   name: string
@@ -617,6 +621,7 @@ export interface Family {
   nameEn?: string
   parents: Parent[]
   address?: string
+  addressParts?: AddressParts
   postcode?: string
   province?: string
   /** pin for the bus driver (Liclass) + how to find the house ("หมู่บ้านพฤกษา ซอย 2 หลังซ้ายมือ") */
@@ -929,6 +934,7 @@ export interface EnrollSubmission {
   lineName?: string
   parents: FormParentInput[]
   familyAddress?: string
+  familyAddressParts?: AddressParts
   familyPostcode?: string
   familyProvince?: string
   familyLocation?: { lat: number; lng: number }
@@ -1540,6 +1546,7 @@ export type FormLang = "th" | "en" | "ja"
 export interface FormPrefill {
   parents: FormParentInput[]
   address?: string
+  addressParts?: AddressParts
   postcode?: string
   province?: string
   location?: { lat: number; lng: number }
@@ -1589,6 +1596,7 @@ export interface FormSubmission {
   lineUserId: string
   parents: FormParentInput[]
   familyAddress?: string
+  familyAddressParts?: AddressParts
   familyPostcode?: string
   familyProvince?: string
   familyLocation?: { lat: number; lng: number }

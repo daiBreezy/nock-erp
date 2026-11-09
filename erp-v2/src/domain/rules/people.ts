@@ -156,7 +156,7 @@ export function familyFromLead(
  *  of collapsing to the lead's single name/phone — used once the form actually collected full parent
  *  details (see approveTestTrialSubmission). The first parent listed is the one who logged into LINE to
  *  submit, so only they get `lineLinked`/`primary`; others can be corrected by staff afterwards. */
-export function familyFromSubmission(studentName: string, parents: FormParentInput[], family: { name?: string; nameEn?: string; address?: string; postcode?: string; province?: string; location?: Family["location"]; addressNote?: string; sources?: Family["sources"]; taxInfo?: Family["taxInfo"] }, lineUserId: string | undefined, id: ID): Family {
+export function familyFromSubmission(studentName: string, parents: FormParentInput[], family: { name?: string; nameEn?: string; address?: string; addressParts?: import("../types").AddressParts; postcode?: string; province?: string; location?: Family["location"]; addressNote?: string; sources?: Family["sources"]; taxInfo?: Family["taxInfo"] }, lineUserId: string | undefined, id: ID): Family {
   // the parent marked "default contact" on the form is primary; none marked → the first one
   const primaryAt = Math.max(0, parents.findIndex((p) => p.primary))
   // owner 2026-10-15: the typed family name, else the main parent's surname, else the child's
@@ -174,6 +174,7 @@ export function familyFromSubmission(studentName: string, parents: FormParentInp
       lineLinked: i === 0 && !!lineUserId, primary: i === primaryAt,
     })),
     address: family.address?.trim() || undefined,
+    addressParts: family.addressParts,
     postcode: family.postcode?.trim() || undefined,
     province: family.province?.trim() || undefined,
     location: family.location,
@@ -422,7 +423,7 @@ export function mergeSubmission(family: Family | undefined, student: Student | u
     }
     f = {
       ...f, parents,
-      address: keep(f.address, sub.familyAddress), province: keep(f.province, sub.familyProvince), postcode: keep(f.postcode, sub.familyPostcode),
+      address: keep(f.address, sub.familyAddress), addressParts: sub.familyAddressParts ?? f.addressParts, province: keep(f.province, sub.familyProvince), postcode: keep(f.postcode, sub.familyPostcode),
       addressNote: keep(f.addressNote, sub.familyAddressNote), location: sub.familyLocation ?? f.location,
       sources: [...new Set([...(f.sources ?? []), ...(sub.acquisitions ?? [])])],
       taxInfo: sub.taxInfo?.taxId ? sub.taxInfo : f.taxInfo,

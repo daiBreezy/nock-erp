@@ -10,7 +10,7 @@ export async function POST(req: Request) {
   if (!body.token || !body.parents?.length || !body.children?.length || !body.acceptedTerms) return NextResponse.json({ ok: false, error: "ข้อมูลไม่ครบ" }, { status: 400 })
   const { token, ...rest } = body
   const r = await submitEnroll(token, {
-    lineUserId: rest.lineUserId, lineName: rest.lineName, parents: rest.parents!, familyAddress: rest.familyAddress, familyPostcode: rest.familyPostcode, familyProvince: rest.familyProvince,
+    lineUserId: rest.lineUserId, lineName: rest.lineName, parents: rest.parents!, familyAddress: rest.familyAddress, familyAddressParts: rest.familyAddressParts, familyPostcode: rest.familyPostcode, familyProvince: rest.familyProvince,
     familyLocation: rest.familyLocation, familyAddressNote: rest.familyAddressNote, acquisitions: rest.acquisitions, taxInfo: rest.taxInfo, familyName: rest.familyName?.trim() || undefined, familyNameEn: rest.familyNameEn?.trim() || undefined, children: rest.children!, acceptedTerms: true, lang: rest.lang ?? "th",
   })
   if (!r.ok) return NextResponse.json(r)
