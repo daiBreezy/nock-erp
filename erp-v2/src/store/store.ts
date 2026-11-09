@@ -79,6 +79,8 @@ type Store = DB & UIState & {
   /** `scope: "series"` applies name / category / brand to every year of the series (the date stays this row's) */
   updateHoliday: (id: ID, patch: Pick<Holiday, "name" | "date" | "category"> & { brand?: Holiday["brand"] }, scope?: "one" | "series") => Result
   removeHoliday: (id: ID, scope?: "one" | "series") => Result
+  /** the Thai traditional-holiday mockup (≈13 a year) for both brands — skips days already set; returns how many rows were added */
+  loadThaiHolidayMock: () => Result<{ added: number }>
   /** keep every "every year" series laid out until `throughYear` (called when the app opens) — adds nothing when already there */
   extendHolidaySeries: (throughYear: number) => number
   /** per-branch toggle on a company holiday: open = the branch works that day */
@@ -900,6 +902,24 @@ export const useStore = create<Store>()(
         const gone = (h: Holiday) => h.id === id || (scope === "series" && !!cur.seriesId && h.seriesId === cur.seriesId && h.date >= cur.date)
         set({ holidays: s.holidays.filter((h) => !gone(h)) })
         return OK
+      },
+
+      loadThaiHolidayMock: () => {
+        const s = get()
+        const perm = holidayPerm(s, null)
+        if (!perm.ok) return perm
+        const year = s.now().getFullYear()
+        const rows: Holiday[] = []
+        const taken = (date: DateStr) => s.holidays.some((x) => x.date === date && x.branchId === null) || rows.some((x) => x.date === date)
+        for (const [name, md] of Cfg.THAI_HOLIDAYS_FIXED) {
+          const seriesId = uid("hs")
+          for (const date of Sch.sameDayInYears(`${year}-${md}`, Array.from({ length: 6 }, (_, i) => year + i))) {
+            if (!taken(date)) rows.push({ id: uid("hol"), branchId: null, date, name, category: "traditional", seriesId })
+          }
+        }
+        for (const [name, date] of Cfg.THAI_HOLIDAYS_MOVING) if (date.slice(0, 4) >= String(year) && !taken(date)) rows.push({ id: uid("hol"), branchId: null, date, name, category: "traditional" })
+        if (rows.length) set({ holidays: [...s.holidays, ...rows] })
+        return { ok: true, value: { added: rows.length } }
       },
 
       extendHolidaySeries: (throughYear) => {

@@ -178,6 +178,20 @@ export function validateHoliday(h: Pick<Holiday, "name" | "date" | "branchId" | 
   return null
 }
 
+/**
+ * Mockup of the Thai traditional holidays (owner 2026-11-09: "ประมาณ 13 วันต่อปี" — the labour-law minimum is 13).
+ * 11 fall on the same date every year (laid out as "every year" series) + 2 Buddhist days that move yearly (given for
+ * 2026–2027 only, approximate — replace with the official announcement).
+ */
+export const THAI_HOLIDAYS_FIXED: [name: string, monthDay: string][] = [
+  ["วันขึ้นปีใหม่", "01-01"], ["วันจักรี", "04-06"], ["วันสงกรานต์", "04-13"], ["วันสงกรานต์", "04-14"], ["วันสงกรานต์", "04-15"],
+  ["วันแรงงานแห่งชาติ", "05-01"], ["วันเฉลิมพระชนมพรรษา ร.10", "07-28"], ["วันแม่แห่งชาติ", "08-12"], ["วันปิยมหาราช", "10-23"],
+  ["วันพ่อแห่งชาติ", "12-05"], ["วันสิ้นปี", "12-31"],
+]
+export const THAI_HOLIDAYS_MOVING: [name: string, date: string][] = [
+  ["วันมาฆบูชา", "2026-03-03"], ["วันวิสาขบูชา", "2026-05-31"], ["วันมาฆบูชา", "2027-02-21"], ["วันวิสาขบูชา", "2027-05-20"],
+]
+
 /** Special periods (e.g. summer 08:00–22:00 every day): a date range whose hours replace the weekly hours.
  *  Ranges must not overlap — otherwise it is ambiguous which hours a date gets. */
 export function validateSpecialPeriods(list: SpecialPeriod[]): string | null {

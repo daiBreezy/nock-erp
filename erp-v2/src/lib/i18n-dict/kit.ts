@@ -248,4 +248,7 @@ export const KIT: Record<string, Entry> = {
   "ไปอีก {0} ปี": { en: "For {0} more years", ja: "あと{0}年分" },
   "แก้ชื่อ / ประเภท / แบรนด์ของ": { en: "Edit name / type / brand for", ja: "名前・種類・ブランドの変更範囲" },
   "เลือกแบรนด์ได้เฉพาะวันหยุดของบริษัท": { en: "A brand can only be set on a company holiday", ja: "ブランドを選べるのは会社の休日のみです" },
+  "ใส่ชุดวันหยุดไทย (ตัวอย่าง · 13 วัน/ปี)": { en: "Add the Thai holiday set (sample · 13 days/year)", ja: "タイの祝日セットを追加（サンプル・年13日）" },
+  "เพิ่มวันหยุดไทยตัวอย่าง {0} วัน": { en: "Added {0} sample Thai holidays", ja: "タイの祝日サンプルを{0}日追加しました" },
+  "มีวันหยุดไทยตัวอย่างครบแล้ว": { en: "The Thai holiday sample is already in", ja: "タイの祝日サンプルはすでに登録済みです" },
 }

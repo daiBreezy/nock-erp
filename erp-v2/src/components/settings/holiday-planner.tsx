@@ -51,7 +51,7 @@ export function HolidayPlanner({ branch }: { branch?: Branch }) {
   const me = useStore((s) => s.me())
   const all = useStore((s) => s.holidays)
   const sessions = useStore((s) => s.sessions)
-  const act = useStore(useShallow((s) => ({ add: s.addHoliday, update: s.updateHoliday, remove: s.removeHoliday, setOpen: s.setHolidayOpen })))
+  const act = useStore(useShallow((s) => ({ loadThai: s.loadThaiHolidayMock, add: s.addHoliday, update: s.updateHoliday, remove: s.removeHoliday, setOpen: s.setHolidayOpen })))
   const today = toDateStr(useNow())
   const [anchor, setAnchor] = useState(monthStart(today))
   const [scope, setScope] = useState<"year" | "month">("year")
@@ -101,7 +101,7 @@ export function HolidayPlanner({ branch }: { branch?: Branch }) {
         )}
         <NativeSelect className="h-9 w-44" value={scope} onChange={(e) => setScope(e.target.value as "year" | "month")}
           options={[{ value: "year", label: tx("ทั้งปี {0}", [yearOf(Number(year))]) }, { value: "month", label: tx("เฉพาะ{0}", [tx(TH_MONTH[first.getMonth()])]) }]} />
-        <div className="max-h-[32rem] space-y-1.5 overflow-y-auto pr-1">
+        <div className="-m-1 max-h-[32rem] space-y-1.5 overflow-y-auto p-1">
           {listed.length === 0 && <p className="rounded-xl border border-dashed p-6 text-center text-sm text-muted-foreground">{tx("ไม่มีวันหยุดในช่วงนี้")}</p>}
           {listed.map((h) => {
             const isClosed = closed(h)
@@ -134,6 +134,11 @@ export function HolidayPlanner({ branch }: { branch?: Branch }) {
             )
           })}
         </div>
+        {!isBranch && manageCompany && (
+          <Button size="sm" variant="ghost" className="w-full" onClick={() => report(act.loadThai(), (v) => (v.added ? tx("เพิ่มวันหยุดไทยตัวอย่าง {0} วัน", [v.added]) : tx("มีวันหยุดไทยตัวอย่างครบแล้ว")))}>
+            <PlusIcon /> {tx("ใส่ชุดวันหยุดไทย (ตัวอย่าง · 13 วัน/ปี)")}
+          </Button>
+        )}
       </section>
 
       <section className="rounded-3xl bg-card p-3 shadow-sm ring-1 ring-foreground/5">

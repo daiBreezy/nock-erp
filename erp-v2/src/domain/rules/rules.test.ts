@@ -6,7 +6,7 @@ import { activeLeave, nextClassDates, teacherLeaveCancels, leaveRunSessions, bal
 import { bestPromotion, duplicateBusDay, billedOn, busAddOnAmount, pendingBusAddOns, validateBusAddOn, carriedMinutes, weekKey, classOptionsFor, defaultAdvance, entryFeeWaiver, invoiceSessionDates, invoiceTotals, validateInvoiceDraft, canApprove, canConfirmPayment, canForceApprove, canForceConfirmPayment, canSend, canVoid, defaultBusLegs, busTotal, nextInvoiceNumber, quoteCourse, roundUpTo, familyPromotion, receiptNumberOf, lastNoteFor, renumberDocuments, renewalCandidates, renewalDraft, bestBonusHours, FAMILY_PROMO_TIERS } from "./billing"
 import { can } from "./permissions"
 import { chartPrice, defaultCourseName, filterCourses, validateCourse } from "./course"
-import { brandPriceUnits, brandUsesBus, busRate, copyHours, gradeLabel, subjectLabel, priceOf, priceRange, setPrice, validateBranchInfo, validateDurations, validateHoliday, validatePromotion, validateSpecialPeriods, everyDay, subjectAbbr } from "./settings"
+import { brandPriceUnits, brandUsesBus, busRate, copyHours, gradeLabel, subjectLabel, priceOf, priceRange, setPrice, validateBranchInfo, validateDurations, validateHoliday, THAI_HOLIDAYS_FIXED, THAI_HOLIDAYS_MOVING, validatePromotion, validateSpecialPeriods, everyDay, subjectAbbr } from "./settings"
 import { forceAudience, isUnread, messageAudience, noteRecipients, notify, validateMessage, visibleTo } from "./notifications"
 import * as Sum from "./summaries"
 import * as Pay from "./billing"
@@ -3147,5 +3147,12 @@ describe("holidays per brand + years (owner 2026-11-09)", () => {
   it("brand can only be set on a company-wide holiday", () => {
     expect(validateHoliday({ name: "x", date: "2026-11-16", branchId: "b1", category: "branch", brand: "liclass" })).toMatch(/แบรนด์/)
     expect(validateHoliday({ name: "x", date: "2026-11-16", branchId: null, category: "company", brand: "liclass" })).toBeNull()
+  })
+
+  it("the Thai mockup is 13 holidays a year (11 on a fixed date + 2 moving Buddhist days)", () => {
+    expect(THAI_HOLIDAYS_FIXED).toHaveLength(11)
+    expect(THAI_HOLIDAYS_MOVING.filter(([, d]) => d.startsWith("2026"))).toHaveLength(2)
+    expect(THAI_HOLIDAYS_MOVING.filter(([, d]) => d.startsWith("2027"))).toHaveLength(2)
+    expect(new Set(THAI_HOLIDAYS_FIXED.map(([, md]) => md)).size).toBe(11)
   })
 })
