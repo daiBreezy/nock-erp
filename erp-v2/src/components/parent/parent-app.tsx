@@ -4,6 +4,7 @@
 // so the same screen runs on the parent's phone (/liff/parent) and in the staff preview (Family › ดูแบบผู้ปกครอง).
 import { useEffect, useRef, useState } from "react"
 import dynamic from "next/dynamic"
+import { AI_TONE, AiIcon } from "@/components/app/ai"
 import { ArrowLeftIcon, BookOpenIcon, EllipsisIcon, LayoutDashboardIcon, ChevronDownIcon, CalendarOffIcon, LoaderCircleIcon, BusIcon, MapPinHouseIcon, CalendarDaysIcon, ChevronRightIcon, GraduationCapIcon, DoorOpenIcon, MessageSquareTextIcon, UserIcon } from "lucide-react"
 import type { ParentChild, ParentCourseSummary, ParentView } from "@/domain/rules/parent-view"
 import { progressForSubject } from "@/domain/rules/summaries"
@@ -33,7 +34,7 @@ const DICT = {
     teacher: "ครู", room: "ห้อง", cancelled: "งดเรียน", pickup: "รถรับ", dropoff: "รถส่ง", busNote: "เวลารถรับ-ส่งแอดมินจะแจ้งทาง LINE",
     noSummary: "ยังไม่มีสรุปการเรียน", noAttendance: "ยังไม่มีประวัติการเข้าเรียน", noBus: "ไม่ได้ใช้รถรับส่ง", present: "มาเรียน", absent: "ขาด", leave: "ลา",
     rate: "มาเรียน", updated: "อัปเดต", today: "วันนี้", tomorrow: "พรุ่งนี้",
-    courseEnd: "สรุปจบคอร์ส", newTag: "ใหม่", fromSessions: (n: number) => `สรุปจากทุกคาบ (${n} คาบ)`, noSessions: "ยังไม่มีสรุปรายคาบ", sessionN: (n: number) => `คาบที่ ${n}`, nextClasses: "คาบเรียนถัดไป", allCourses: "คอร์สเรียนทั้งหมด", noCourseEnd: "ยังไม่มีสรุปจบคอร์ส", lessonNotes: "สรุปรายคาบ", view: "ดูสรุปและพัฒนาการ", back: "กลับ", whole: "ทั้งคอร์ส",
+    courseEnd: "สรุปจบคอร์ส", newTag: "ใหม่", fromSessions: (n: number) => `สรุปจากทุกคาบ (${n} คาบ)`, noSessions: "ยังไม่มีสรุปรายคาบ", expandAll: "ขยายทั้งหมด", collapseAll: "ย่อทั้งหมด", sessionN: (n: number) => `คาบที่ ${n}`, nextClasses: "คาบเรียนถัดไป", allCourses: "คอร์สเรียนทั้งหมด", noCourseEnd: "ยังไม่มีสรุปจบคอร์ส", lessonNotes: "สรุปรายคาบ", view: "ดูสรุปและพัฒนาการ", back: "กลับ", whole: "ทั้งคอร์ส",
     overall: "ภาพรวมพัฒนาการ", strengths: "จุดแข็ง", improve: "สิ่งที่ควรฝึกเพิ่ม", progress: "พัฒนาการ", by: "สรุปโดย",
     request: "แจ้งเรื่อง", leaveReq: "แจ้งลาหยุด", leaveReqSub: "เลือกคาบที่จะไม่มาเรียน", exitReq: "แจ้งลาออก", exitReqSub: "แจ้งหยุดเรียน · แอดมินจะติดต่อกลับ",
     pickClasses: "เลือกคาบที่จะลา", noUpcoming: "ไม่มีคาบเรียนใน 30 วันข้างหน้า", noteLabel: "หมายเหตุถึงแอดมิน (ไม่บังคับ)", send: "ส่ง", sending: "กำลังส่ง…",
@@ -55,7 +56,7 @@ const DICT = {
     teacher: "Teacher", room: "Room", cancelled: "No class", pickup: "Pick-up", dropoff: "Drop-off", busNote: "Bus times will be sent on LINE by our staff",
     noSummary: "No lesson summaries yet", noAttendance: "No attendance yet", noBus: "Not using the school bus", present: "Present", absent: "Absent", leave: "Leave",
     rate: "Attended", updated: "Updated", today: "Today", tomorrow: "Tomorrow",
-    courseEnd: "Course summaries", newTag: "New", fromSessions: (n: number) => `From every session (${n})`, noSessions: "No session summaries yet", sessionN: (n: number) => `Session ${n}`, nextClasses: "Next classes", allCourses: "All courses", noCourseEnd: "No course summary yet", lessonNotes: "Lesson notes", view: "View summary & progress", back: "Back", whole: "Whole course",
+    courseEnd: "Course summaries", newTag: "New", fromSessions: (n: number) => `From every session (${n})`, noSessions: "No session summaries yet", expandAll: "Expand all", collapseAll: "Collapse all", sessionN: (n: number) => `Session ${n}`, nextClasses: "Next classes", allCourses: "All courses", noCourseEnd: "No course summary yet", lessonNotes: "Lesson notes", view: "View summary & progress", back: "Back", whole: "Whole course",
     overall: "Overall progress", strengths: "Strengths", improve: "To improve", progress: "Progress", by: "By",
     request: "Requests", leaveReq: "Report an absence", leaveReqSub: "Pick the classes your child will miss", exitReq: "Stop studying", exitReqSub: "Let us know · our staff will call you",
     pickClasses: "Classes to miss", noUpcoming: "No classes in the next 30 days", noteLabel: "Note to our staff (optional)", send: "Send", sending: "Sending…",
@@ -77,7 +78,7 @@ const DICT = {
     teacher: "講師", room: "教室", cancelled: "休講", pickup: "お迎え", dropoff: "お送り", busNote: "送迎時間はスタッフからLINEでお知らせします",
     noSummary: "授業レポートはまだありません", noAttendance: "出欠の記録はまだありません", noBus: "送迎バスの利用なし", present: "出席", absent: "欠席", leave: "お休み",
     rate: "出席率", updated: "更新", today: "今日", tomorrow: "明日",
-    courseEnd: "コース修了レポート", newTag: "新着", fromSessions: (n: number) => `各回のまとめ（${n}回分）`, noSessions: "授業ごとのまとめはまだありません", sessionN: (n: number) => `第${n}回`, nextClasses: "次の授業", allCourses: "受講中のコース", noCourseEnd: "コース修了レポートはまだありません", lessonNotes: "授業レポート", view: "レポートと成長を見る", back: "戻る", whole: "コース全体",
+    courseEnd: "コース修了レポート", newTag: "新着", fromSessions: (n: number) => `各回のまとめ（${n}回分）`, noSessions: "授業ごとのまとめはまだありません", expandAll: "すべて開く", collapseAll: "すべて閉じる", sessionN: (n: number) => `第${n}回`, nextClasses: "次の授業", allCourses: "受講中のコース", noCourseEnd: "コース修了レポートはまだありません", lessonNotes: "授業レポート", view: "レポートと成長を見る", back: "戻る", whole: "コース全体",
     overall: "全体の成長", strengths: "得意なところ", improve: "練習したいところ", progress: "成長の記録", by: "担当",
     request: "連絡", leaveReq: "お休みの連絡", leaveReqSub: "お休みする授業を選んでください", exitReq: "退会の連絡", exitReqSub: "スタッフからご連絡します",
     pickClasses: "お休みする授業", noUpcoming: "30日以内の授業はありません", noteLabel: "スタッフへのメモ（任意）", send: "送信", sending: "送信中…",
@@ -598,6 +599,10 @@ function CourseEnd({ cs, t, lang }: { cs: ParentCourseSummary; t: T; lang: FormL
   const absent = done.filter((r) => r.attended === "absent").length
   // the course's sessions in order — "session n" = the n-th class of the course, so it matches the schedule even when some have no note
   const sessions = rows.map((r, i) => ({ ...r, n: i + 1 })).filter((r) => r.text)
+  // each session starts collapsed (owner 2026-11-09); the overall reading above it is always shown
+  const [openN, setOpenN] = useState<Set<number>>(new Set())
+  const allOpen = sessions.length > 0 && sessions.every((r) => openN.has(r.n))
+  const toggle = (n: number) => setOpenN((cur) => { const x = new Set(cur); if (x.has(n)) x.delete(n); else x.add(n); return x })
   const lines = (v: string) => v.split("\n").map((l) => l.trim()).filter(Boolean)
     .map((l) => { const m = l.match(/^([^:：]{1,20})[:：]\s*(.*)$/); return m && cs.subjects.includes(m[1].trim()) ? { subject: m[1].trim(), text: m[2] } : { subject: "", text: l } })
     .filter((l) => !only || l.subject === only)
@@ -626,24 +631,42 @@ function CourseEnd({ cs, t, lang }: { cs: ParentCourseSummary; t: T; lang: FormL
           <div key={label}><p className="text-lg leading-tight font-semibold tabular-nums">{value}</p><p className="text-[11px] text-muted-foreground">{label}</p></div>
         ))}
       </div>
-      {/* owner 2026-11-09: ภาพรวมพัฒนาการ = the whole course in words: the teacher's overall reading, then the summary of EVERY session in order */}
-      <section className="space-y-1.5">
-        <p className="px-1 text-sm font-semibold">{t.overall}{only && ` · ${only}`}</p>
-        <div className="divide-y rounded-[8px] bg-card shadow-sm ring-1 ring-foreground/5">
-          {lines(cs.overallProgress).length > 0 && (
-            <div className="space-y-1 p-3 text-sm">{lines(cs.overallProgress).map((l, i) => <p key={i} className="flex items-start gap-1.5">{l.subject && !only && <span className={cn("shrink-0 rounded-full px-1.5 py-0.5 text-[11px]", subjectColor(l.subject).chip)}>{l.subject}</span>}<span>{l.text}</span></p>)}</div>
-          )}
-          {sessions.length === 0 ? <p className="p-3 text-sm text-muted-foreground">{t.noSessions}</p> : (
-            <ul className="divide-y">
-              <li className="px-3 py-1.5 text-xs font-medium text-muted-foreground">{t.fromSessions(sessions.length)}</li>
-              {sessions.map((r, i) => (
-                <li key={`${r.date}${i}`} className="p-3 text-sm">
-                  <p className="flex items-center gap-1.5"><span className="font-semibold">{t.sessionN(r.n)}</span><span className="text-xs text-muted-foreground">{fmtDay(r.date, lang)}</span>{r.subjects?.length ? <span className={cn("rounded-full px-1.5 py-0.5 text-[11px]", subjectColor(r.subjects[0]).chip)}>{r.subjects.join(" + ")}</span> : null}</p>
-                  {r.detail && <p className="mt-0.5 text-xs text-muted-foreground">{r.detail}</p>}
-                  <p className="mt-1 whitespace-pre-line">{r.text}</p>
-                </li>
-              ))}
-            </ul>
+      {/* owner 2026-11-09: ภาพรวมพัฒนาการ = the whole course in words — in the AI blue (it reads every session): the overall reading is always
+          shown, the summary of each session sits below, collapsed one by one */}
+      <section className={cn("overflow-hidden rounded-[8px] shadow-sm ring-1 ring-foreground/5", AI_TONE.surface)}>
+        <p className="flex items-center gap-2 px-3 pb-1 pt-3"><AiIcon className="size-6" /><span className={cn("text-sm font-semibold", AI_TONE.text)}>{t.overall}{only && ` · ${only}`}</span></p>
+        {lines(cs.overallProgress).length > 0 && (
+          <div className="space-y-1 px-3 pb-3 text-sm">{lines(cs.overallProgress).map((l, i) => <p key={i} className="flex items-start gap-1.5">{l.subject && !only && <span className={cn("shrink-0 rounded-full px-1.5 py-0.5 text-[11px]", subjectColor(l.subject).chip)}>{l.subject}</span>}<span>{l.text}</span></p>)}</div>
+        )}
+        <div className={cn("border-t border-sky-200/60 px-1.5 py-1.5", AI_TONE.soft)}>
+          {sessions.length === 0 ? <p className="p-2 text-sm text-muted-foreground">{t.noSessions}</p> : (
+            <>
+              <div className="flex items-center justify-between px-2 py-1">
+                <p className="text-xs font-medium text-muted-foreground">{t.fromSessions(sessions.length)}</p>
+                <button type="button" onClick={() => setOpenN(allOpen ? new Set() : new Set(sessions.map((r) => r.n)))} className="text-xs font-medium text-primary">{allOpen ? t.collapseAll : t.expandAll}</button>
+              </div>
+              <ul className="space-y-1">
+                {sessions.map((r, i) => {
+                  const isOpen = openN.has(r.n)
+                  return (
+                    <li key={`${r.date}${i}`} className="rounded-xl bg-background/80">
+                      <button type="button" aria-expanded={isOpen} onClick={() => toggle(r.n)} className="flex w-full items-center gap-1.5 px-2.5 py-2 text-left text-sm">
+                        <span className="font-semibold">{t.sessionN(r.n)}</span>
+                        <span className="text-xs text-muted-foreground">{fmtDay(r.date, lang)}</span>
+                        {r.subjects?.length ? <span className={cn("rounded-full px-1.5 py-0.5 text-[11px]", subjectColor(r.subjects[0]).chip)}>{r.subjects.join(" + ")}</span> : null}
+                        <ChevronDownIcon className={cn("ml-auto size-4 shrink-0 text-muted-foreground transition-transform", isOpen && "rotate-180")} />
+                      </button>
+                      {isOpen && (
+                        <div className="px-2.5 pb-2.5 text-sm">
+                          {r.detail && <p className="text-xs text-muted-foreground">{r.detail}</p>}
+                          <p className="mt-0.5 whitespace-pre-line">{r.text}</p>
+                        </div>
+                      )}
+                    </li>
+                  )
+                })}
+              </ul>
+            </>
           )}
         </div>
       </section>
