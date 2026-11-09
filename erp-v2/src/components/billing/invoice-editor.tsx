@@ -551,7 +551,7 @@ function LineCard({ index, draft, quote, studentId, studentGrade, choices, overl
           {chosen.length > 0 && <Button size="sm" variant="outline" onClick={() => setOpenPicker((v) => !v)}>{picking ? "เสร็จ" : "เพิ่ม / เปลี่ยนคลาส"}</Button>}
         </div>
         {fits.length === 0 && !showAll && picking && <p className="text-xs text-muted-foreground">ไม่มีคลาสที่ตรงวิชา/รูปแบบของคอร์สนี้ — กด &quot;แสดงคลาสอื่น&quot; เพื่อเลือกคลาสไหนก็ได้</p>}
-        <div className="space-y-1.5">
+        <div className="grid gap-1.5 sm:grid-cols-2">
           {choices.filter(({ klass: k, warnings }) => (picking ? ((showAll || !warnings.length || draft.classIds.includes(k.id)) && (day === null || k.weekday === day || draft.classIds.includes(k.id))) : draft.classIds.includes(k.id))).map(({ klass: k, warnings }) => {
             const t = staff.find((x) => x.id === k.teacherId)
             const cap = CAPACITY[k.type]
@@ -560,18 +560,21 @@ function LineCard({ index, draft, quote, studentId, studentGrade, choices, overl
             const notes = [...(t?.active ? [] : ["ยังไม่มีครู"]), ...(over ? [`เกินที่แนะนำ ${cap} คน`] : []), ...warnings]
             const seat = draft.seats?.[k.id] ?? { offset: 0, minutes: k.minutes }
             return (
-              <div key={k.id} className="space-y-1">
+              <div key={k.id} className={cn("space-y-1", on && k.minutes > 60 && "sm:col-span-2")}>
                 <button type="button" onClick={() => toggleClass(k.id)} aria-pressed={on}
                   className={cn("flex min-h-9 w-full items-center gap-2 rounded-xl border px-3 py-1.5 text-left text-sm", on ? "border-primary bg-primary/5" : "hover:bg-muted/50", warnings.length > 0 && !on && "border-dashed")}>
                   <span className={cn("grid size-4 shrink-0 place-items-center rounded border", on && "border-primary bg-primary text-primary-foreground")}>{on && <CheckIcon className="size-3" />}</span>
                   <span className="min-w-0 flex-1 truncate"><span className="font-medium">{WEEKDAY_SHORT[k.weekday]} {k.start}</span> · {k.name}</span>
                   <span className="hidden shrink-0 text-xs text-muted-foreground sm:inline">{t?.active ? `ครู${t.nickname}` : "ยังไม่มีครู"} · {k.minutes} นาที · {k.studentIds.length} คน</span>
-                  {notes.length > 0 && (
-                    <HoverCard>
-                      <HoverCardTrigger render={<span className="shrink-0 text-amber-600" />}><AlertTriangleIcon className="size-4" /></HoverCardTrigger>
-                      <HoverCardContent className="w-auto max-w-64 space-y-0.5 text-xs">{notes.map((n) => <p key={n}>{n}</p>)}</HoverCardContent>
-                    </HoverCard>
-                  )}
+                  {/* the icon slot is ALWAYS there (empty when no warning) so the meta text ends at the same x in every row */}
+                  <span className="grid size-4 shrink-0 place-items-center text-amber-600">
+                    {notes.length > 0 && (
+                      <HoverCard>
+                        <HoverCardTrigger render={<span className="grid place-items-center" />}><AlertTriangleIcon className="size-4" /></HoverCardTrigger>
+                        <HoverCardContent className="w-auto max-w-64 space-y-0.5 text-xs">{notes.map((n) => <p key={n}>{n}</p>)}</HoverCardContent>
+                      </HoverCard>
+                    )}
+                  </span>
                 </button>
                 {on && k.minutes > 60 && (
                   <div className="flex flex-wrap items-center gap-2 pl-3 text-xs">
