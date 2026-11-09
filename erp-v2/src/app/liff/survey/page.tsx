@@ -149,7 +149,7 @@ function Survey() {
         {preview && <p className="mt-2 rounded-lg bg-amber-100 px-2 py-1 text-center text-xs text-amber-900">{t.preview}</p>}
       </header>
       <main className="space-y-4 p-4">
-        <Card><p className="text-lg font-semibold">{t.hello(token.familyName)}</p><p className="mt-1.5 text-sm text-muted-foreground">{t.intro}</p></Card>
+        <Card><p className="text-xl font-semibold">{t.hello(token.familyName)}</p><p className="text-sm text-muted-foreground">{t.intro}</p></Card>
         {/* Q1–Q2: from the enrolment */}
         <Card title={t.kids}>
           <ul className="space-y-1.5 text-base">{token.children.map((c) => <li key={c.id}><span className="font-medium">{c.nickname}</span> · {c.grade}{c.subjects?.length ? ` · ${c.subjects.join(", ")}` : ""}</li>)}</ul>
@@ -171,7 +171,7 @@ function Survey() {
         <Card title={`${t.scores} *`} error={tried && missing.scores}>
           <div className="space-y-6">{TOPICS.map((k) => (
             <div key={k}>
-              <p className="mb-3 text-base font-medium">{t.t[k]}</p>
+              <p className="mb-2 text-sm font-semibold">{t.t[k]}</p>
               <div className="grid grid-cols-5">{[1, 2, 3, 4, 5].map((n) => {
                 const Face = FACES[n], on = scores[k] === n
                 return (
@@ -215,8 +215,8 @@ const FACE_ON = (n: number) => (n <= 2 ? "border-red-500 bg-red-500 text-white" 
 
 function Card({ title, sub, error, children }: { title?: string; sub?: string; error?: boolean; children: React.ReactNode }) {
   return (
-    <section className={cn("rounded-2xl bg-background p-5 shadow-sm ring-1 ring-foreground/5", error && "ring-2 ring-red-400")}>
-      {title && <div className="mb-4"><p className="text-base font-semibold leading-snug">{title}</p>{sub && <p className="mt-0.5 text-sm text-muted-foreground">{sub}</p>}</div>}
+    <section className={cn("space-y-3 rounded-3xl bg-card p-4 shadow-sm ring-1 ring-foreground/5", error && "ring-2 ring-red-400")}>
+      {title && <div><p className="text-sm font-semibold">{title}</p>{sub && <p className="text-xs text-muted-foreground">{sub}</p>}</div>}
       {children}
     </section>
   )

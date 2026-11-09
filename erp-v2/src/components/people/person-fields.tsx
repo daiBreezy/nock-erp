@@ -72,49 +72,53 @@ const optional = (t: FieldsDict, label: string) => `${label} · ${t.optional}`
 export function ParentFields({ t, value: p, onChange, linked, errors = {} }: { t: FieldsDict; value: ParentDraft; onChange: (patch: Partial<ParentDraft>) => void; linked?: string; errors?: Errors }) {
   const autoEn = /[฀-๿]/.test(joinName(p)) ? romanizeName(joinName(p)) : ""
   return (
-    <div className="space-y-3">
-      <div className="grid grid-cols-2 gap-2">
+    // owner 2026-11-09: ONE field per line, each group under a small heading (name · general · contact)
+    <div className="space-y-4">
+      <Group title={t.grpName} first>
         <F label={`${t.firstName} *`} error={errors.name}><Input value={p.first} onChange={(e) => onChange({ first: e.target.value })} /></F>
         <F label={t.lastName}><Input value={p.last} onChange={(e) => onChange({ last: e.target.value })} /></F>
-        <F label={optional(t, t.nameEn)} className="col-span-2"><Input lang="en" value={p.nameEn} placeholder={autoEn || "English"} onChange={(e) => onChange({ nameEn: e.target.value })} /></F>
+        <F label={optional(t, t.nameEn)}><Input lang="en" value={p.nameEn} placeholder={autoEn || "English"} onChange={(e) => onChange({ nameEn: e.target.value })} /></F>
+      </Group>
+      <Group title={t.grpBasic}>
         <F label={t.relationship}>
           <NativeSelect value={p.rel} onChange={(e) => onChange({ rel: e.target.value as RelKey | "" })} placeholder={t.select} options={REL_KEYS.map((k) => ({ value: k, label: t.rel[k] }))} />
         </F>
         <F label={t.birthDate}><Input type="date" value={p.birthDate} onChange={(e) => onChange({ birthDate: e.target.value })} /></F>
-        <F label={t.email} className="col-span-2"><Input type="email" value={p.email} onChange={(e) => onChange({ email: e.target.value })} /></F>
-      </div>
-      {/* LINE is linked by opening the form in LINE (or from the Inbox) — nobody types a LINE ID (owner 2026-10-15) */}
-      {linked && <p className="flex items-center gap-1.5 rounded-3xl bg-emerald-50 px-3 py-2 text-sm text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300"><CheckIcon className="size-4" />{t.lineLinked(linked)}</p>}
-      <div className="space-y-1.5">
-        <Label className="text-xs">{t.phone} *</Label>
-        {p.phones.map((ph, k) => (
-          <div key={k} className="flex items-center gap-1.5">
-            <Input inputMode="tel" value={ph} placeholder="0812345678" onChange={(e) => onChange({ phones: p.phones.map((x, j) => (j === k ? e.target.value : x)) })} />
-            {k === 0 ? <span className="shrink-0 rounded-full bg-primary/10 px-2 py-1 text-[11px] text-primary">{t.defaultTag}</span> : (
-              <>
-                <Button size="xs" variant="ghost" className="shrink-0" onClick={() => onChange({ phones: [ph, ...p.phones.filter((_, j) => j !== k)] })}>{t.makeDefault}</Button>
-                <Button size="icon-xs" variant="ghost" className="shrink-0 text-red-600" aria-label={t.remove} onClick={() => onChange({ phones: p.phones.filter((_, j) => j !== k) })}><TrashIcon /></Button>
-              </>
-            )}
-          </div>
-        ))}
-        {errors.phone && <p className="text-xs text-red-700">{errors.phone}</p>}
-        <Button size="xs" variant="secondary" onClick={() => onChange({ phones: [...p.phones, ""] })}><PlusIcon /> {t.addPhone}</Button>
-      </div>
+      </Group>
+      <Group title={t.grpContact}>
+        {/* LINE is linked by opening the form in LINE (or from the Inbox) — nobody types a LINE ID (owner 2026-10-15) */}
+        {linked && <p className="flex items-center gap-1.5 rounded-3xl bg-emerald-50 px-3 py-2 text-sm text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300"><CheckIcon className="size-4" />{t.lineLinked(linked)}</p>}
+        <F label={t.email}><Input type="email" value={p.email} onChange={(e) => onChange({ email: e.target.value })} /></F>
+        <div className="min-w-0 space-y-1.5">
+          <Label className="text-xs">{t.phone} *</Label>
+          {p.phones.map((ph, k) => (
+            <div key={k} className="flex items-center gap-1.5">
+              <Input inputMode="tel" value={ph} placeholder="0812345678" onChange={(e) => onChange({ phones: p.phones.map((x, j) => (j === k ? e.target.value : x)) })} />
+              {k === 0 ? <span className="shrink-0 rounded-full bg-primary/10 px-2 py-1 text-[11px] text-primary">{t.defaultTag}</span> : (
+                <>
+                  <Button size="xs" variant="ghost" className="shrink-0" onClick={() => onChange({ phones: [ph, ...p.phones.filter((_, j) => j !== k)] })}>{t.makeDefault}</Button>
+                  <Button size="icon-xs" variant="ghost" className="shrink-0 text-red-600" aria-label={t.remove} onClick={() => onChange({ phones: p.phones.filter((_, j) => j !== k) })}><TrashIcon /></Button>
+                </>
+              )}
+            </div>
+          ))}
+          {errors.phone && <p className="text-xs text-red-700">{errors.phone}</p>}
+          <Button size="xs" variant="secondary" onClick={() => onChange({ phones: [...p.phones, ""] })}><PlusIcon /> {t.addPhone}</Button>
+        </div>
+      </Group>
     </div>
   )
 }
 
 export function FamilyFields({ t, value: f, onChange, parentLast, errors = {} }: { t: FieldsDict; value: FamilyDraft; onChange: (patch: Partial<FamilyDraft>) => void; parentLast: string; errors?: Errors }) {
   return (
-    <div className="space-y-3">
-      <div className="grid grid-cols-2 gap-2">
+    // owner 2026-11-09: ONE field per line (province and postcode too), every group under its heading
+    <div className="space-y-4">
+      <Group title={t.grpFamily} first>
         <F label={optional(t, t.familyName)} hint={t.familyNameSub} error={errors.name}><Input value={f.name} placeholder={t.familyNamePh(parentLast.trim())} onChange={(e) => onChange({ name: e.target.value })} /></F>
         <F label={optional(t, t.familyNameEn)}><Input lang="en" value={f.nameEn} placeholder="English" onChange={(e) => onChange({ nameEn: e.target.value })} /></F>
-      </div>
-      <div className="border-t pt-3">
-        <p className="text-sm font-semibold">{t.acquisition}</p>
-        <p className="mb-2 text-xs text-muted-foreground">{t.acquisitionSub}</p>
+      </Group>
+      <Group title={t.acquisition} sub={t.acquisitionSub}>
         <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-3">
           {SOURCE_KEYS.map((k) => {
             const on = f.acquisitions.includes(k)
@@ -125,30 +129,25 @@ export function FamilyFields({ t, value: f, onChange, parentLast, errors = {} }:
             )
           })}
         </div>
-      </div>
-      <div className="space-y-2 border-t pt-3">
-        <div><p className="text-sm font-semibold">{t.address}</p><p className="text-xs text-muted-foreground">{t.addressSub} · {t.pinSub}</p></div>
+      </Group>
+      <Group title={t.address} sub={`${t.addressSub} · ${t.pinSub}`}>
         <MapPin value={f.location} onChange={(location) => onChange({ location })} locateLabel={t.locate} />
-        <Input value={f.address} onChange={(e) => onChange({ address: e.target.value })} placeholder={t.addressLine} />
-        <div className="grid grid-cols-2 gap-2">
-          <Input value={f.province} onChange={(e) => onChange({ province: e.target.value })} placeholder={t.province} />
-          <div>
-            <Input inputMode="numeric" maxLength={5} value={f.postcode} onChange={(e) => onChange({ postcode: e.target.value })} placeholder={t.postcode} />
-            {errors.postcode && <p className="mt-0.5 text-xs text-red-700">{errors.postcode}</p>}
-          </div>
-        </div>
+        <F label={t.addressLine}><Input value={f.address} onChange={(e) => onChange({ address: e.target.value })} /></F>
+        <F label={t.province}><Input value={f.province} onChange={(e) => onChange({ province: e.target.value })} /></F>
+        <F label={t.postcode} error={errors.postcode}><Input inputMode="numeric" maxLength={5} value={f.postcode} onChange={(e) => onChange({ postcode: e.target.value })} /></F>
         <F label={t.addressNote}><Textarea rows={2} value={f.addressNote} onChange={(e) => onChange({ addressNote: e.target.value })} placeholder={t.addressNotePh} /></F>
-      </div>
-      <div className="border-t pt-3">
+      </Group>
+      {/* the checkbox's own label is this group's heading — no second title above it */}
+      <Group>
         <label className="flex items-start gap-2 text-sm"><Checkbox checked={f.wantTax} onCheckedChange={(v) => onChange({ wantTax: !!v })} className="mt-0.5" /><span><span className="font-semibold">{t.tax}</span><span className="block text-xs text-muted-foreground">{t.taxSub}</span></span></label>
         {f.wantTax && (
-          <div className="mt-2 grid grid-cols-2 gap-2">
+          <div className="space-y-3">
             <F label={t.taxName}><Input value={f.tax.customerName} onChange={(e) => onChange({ tax: { ...f.tax, customerName: e.target.value } })} /></F>
             <F label={t.taxId}><Input inputMode="numeric" value={f.tax.taxId} onChange={(e) => onChange({ tax: { ...f.tax, taxId: e.target.value } })} /></F>
-            <F label={t.taxAddress} className="col-span-2"><Input value={f.tax.address} onChange={(e) => onChange({ tax: { ...f.tax, address: e.target.value } })} /></F>
+            <F label={t.taxAddress}><Input value={f.tax.address} onChange={(e) => onChange({ tax: { ...f.tax, address: e.target.value } })} /></F>
           </div>
         )}
-      </div>
+      </Group>
     </div>
   )
 }
@@ -163,24 +162,41 @@ export function StudentFields({ t, value: s, onChange, grades, gradeLabel = (g) 
   const autoEn = /[฀-๿]/.test(full) ? romanizeName(full) : ""
   const autoNickEn = /[฀-๿]/.test(s.nickname) ? romanizeName(s.nickname) : ""
   return (
-    <div className="space-y-2">
-      <div className="grid grid-cols-2 gap-2">
+    // owner 2026-11-09: ONE field per line, each group under a small heading (name · general · school · note)
+    <div className="space-y-4">
+      <Group title={t.grpStudentName} first>
         <F label={`${t.firstName} *`} error={errors.name}><Input value={s.first} onChange={(e) => onChange({ first: e.target.value })} /></F>
         <F label={t.lastName}><Input value={s.last} onChange={(e) => onChange({ last: e.target.value })} /></F>
         <F label={t.nickname} error={errors.nickname}><Input value={s.nickname} placeholder={s.first} onChange={(e) => onChange({ nickname: e.target.value })} /></F>
+        <F label={optional(t, t.nameEn)}><Input lang="en" value={s.nameEn} placeholder={autoEn || "English"} onChange={(e) => onChange({ nameEn: e.target.value })} /></F>
+        <F label={optional(t, t.nicknameEn)}><Input lang="en" value={s.nicknameEn} placeholder={autoNickEn || "English"} onChange={(e) => onChange({ nicknameEn: e.target.value })} /></F>
+      </Group>
+      <Group title={t.grpBasic}>
         <F label={`${t.grade} *`} error={errors.grade}>
           <NativeSelect value={s.grade} onChange={(e) => onChange({ grade: e.target.value })} placeholder={t.select} options={grades.map((g) => ({ value: g, label: gradeLabel(g) }))} />
         </F>
-        <F label={optional(t, t.nameEn)}><Input lang="en" value={s.nameEn} placeholder={autoEn || "English"} onChange={(e) => onChange({ nameEn: e.target.value })} /></F>
-        <F label={optional(t, t.nicknameEn)}><Input lang="en" value={s.nicknameEn} placeholder={autoNickEn || "English"} onChange={(e) => onChange({ nicknameEn: e.target.value })} /></F>
         <F label={optional(t, t.gender)}>
           <NativeSelect value={s.gender} onChange={(e) => onChange({ gender: e.target.value as Gender | "" })} placeholder={t.select} options={(["male", "female"] as const).map((g) => ({ value: g, label: t.genders[g] }))} />
         </F>
         <F label={`${t.birthDate}${age !== null ? ` · ${t.age(age)}` : ""}`} error={errors.birthDate}><Input type="date" max={maxBirth} value={s.birthDate} onChange={(e) => onChange({ birthDate: e.target.value })} /></F>
-        <F label={t.school} className="col-span-2"><SchoolPicker value={s.school} schoolId={s.schoolId} province={province} onChange={(v) => onChange({ school: v.school ?? "", schoolId: v.schoolId })} /></F>
-      </div>
-      <F label={t.note}><Textarea rows={2} maxLength={250} value={s.note} onChange={(e) => onChange({ note: e.target.value })} placeholder={t.notePh} /></F>
+      </Group>
+      <Group title={t.school}>
+        <SchoolPicker value={s.school} schoolId={s.schoolId} province={province} onChange={(v) => onChange({ school: v.school ?? "", schoolId: v.schoolId })} />
+      </Group>
+      <Group title={t.note}>
+        <Textarea rows={2} maxLength={250} value={s.note} onChange={(e) => onChange({ note: e.target.value })} placeholder={t.notePh} />
+      </Group>
     </div>
+  )
+}
+
+/** a group of fields under a small heading (the first one has no rule above it) — the same heading look as the rest of the forms */
+function Group({ title, sub, first, children }: { title?: string; sub?: string; first?: boolean; children: React.ReactNode }) {
+  return (
+    <section className={cn("space-y-2.5", !first && "border-t pt-4")}>
+      {title && <div><p className="text-sm font-semibold">{title}</p>{sub && <p className="text-xs text-muted-foreground">{sub}</p>}</div>}
+      {children}
+    </section>
   )
 }
 

@@ -123,17 +123,17 @@ function ExitForm() {
       <header className="sticky top-0 z-10 border-b bg-background/95 px-4 py-3 backdrop-blur">
         <div className="flex items-center gap-2">
           <HeartHandshakeIcon className="size-5 text-primary" />
-          <div className="min-w-0 flex-1"><p className="font-semibold">{t.title}</p><p className="truncate text-xs text-muted-foreground">{tk.brand === "liclass" ? "Liclass" : "NockAcademy"} · {tk.branchName}</p></div>
+          <div className="min-w-0 flex-1"><p className="truncate text-lg font-semibold">{t.title}</p><p className="truncate text-xs text-muted-foreground">{tk.brand === "liclass" ? "Liclass" : "NockAcademy"} · {tk.branchName}</p></div>
           {!preview && <NativeSelect className="w-32 shrink-0" value={lang} onChange={(e) => setLang(e.target.value as FormLang)} options={[{ value: "th", label: "ไทย" }, { value: "en", label: "English" }, { value: "ja", label: "日本語" }]} />}
         </div>
         {preview && <p className="mt-2 rounded-lg bg-amber-100 px-2 py-1 text-center text-xs text-amber-900">{t.preview}</p>}
       </header>
       <main className="space-y-4 p-4">
         <Card>
-          <p className="text-lg font-semibold">{t.hello(tk.familyName)}</p>
-          <p className="mt-1 text-sm text-muted-foreground">{t.intro}</p>
-          <div className="mt-3 flex flex-wrap gap-1.5">{tk.students.map((s) => <span key={s.id} className="rounded-full bg-primary/10 px-2.5 py-1 text-sm text-primary">{s.nickname} · {s.grade}</span>)}</div>
-          <p className="mt-2 text-sm"><span className="text-muted-foreground">{t.lastDay}:</span> {fmt(tk.lastDate)}</p>
+          <p className="text-xl font-semibold">{t.hello(tk.familyName)}</p>
+          <p className="text-sm text-muted-foreground">{t.intro}</p>
+          <div className="flex flex-wrap gap-1.5">{tk.students.map((s) => <span key={s.id} className="rounded-full bg-primary/10 px-2.5 py-1 text-sm text-primary">{s.nickname} · {s.grade}</span>)}</div>
+          <p className="text-sm"><span className="text-muted-foreground">{t.lastDay}:</span> {fmt(tk.lastDate)}</p>
         </Card>
         <Card title={t.reason} sub={t.reasonSub} error={tried && !reasonId ? t.needReason : undefined}>
           <div className="flex flex-wrap gap-2">{tk.reasons.map((r) => <Pick key={r.id} on={reasonId === r.id} onClick={() => setReasonId(r.id)}>{label(r)}</Pick>)}</div>
@@ -147,7 +147,7 @@ function ExitForm() {
           <div className="space-y-6">
             {(Object.keys(t.scores) as (keyof ExitAnswers["scores"])[]).map((k) => (
               <div key={k}>
-                <p className="mb-3 text-base font-medium">{t.scores[k]}</p>
+                <p className="mb-2 text-sm font-semibold">{t.scores[k]}</p>
                 <IconChoices cols={5} onPick={(v) => setScores((s) => ({ ...s, [k]: s[k] === Number(v) ? null : Number(v) }))}
                   choices={[1, 2, 3, 4, 5].map((n) => ({ key: String(n), label: String(n), icon: StarIcon, fillIcon: true, active: (scores[k] ?? 0) >= n, on: STAR_TONE(scores[k] ?? 0) }))} />
               </div>
@@ -190,8 +190,8 @@ const STAR_TONE = (n: number) => (n <= 1 ? "border-red-500 bg-red-500 text-white
 
 function Card({ title, sub, error, children }: { title?: string; sub?: string; error?: string; children: React.ReactNode }) {
   return (
-    <section className={cn("rounded-2xl bg-background p-5 shadow-sm ring-1 ring-foreground/5", error && "ring-2 ring-red-400")}>
-      {title && <div className="mb-4"><p className="text-base font-semibold leading-snug">{title}</p>{sub && <p className="mt-0.5 text-sm text-muted-foreground">{sub}</p>}</div>}
+    <section className={cn("space-y-3 rounded-3xl bg-card p-4 shadow-sm ring-1 ring-foreground/5", error && "ring-2 ring-red-400")}>
+      {title && <div><p className="text-sm font-semibold">{title}</p>{sub && <p className="text-xs text-muted-foreground">{sub}</p>}</div>}
       {children}
     </section>
   )
@@ -200,7 +200,7 @@ function Card({ title, sub, error, children }: { title?: string; sub?: string; e
 function Pick({ on, onClick, children, block }: { on: boolean; onClick: () => void; children: React.ReactNode; block?: boolean }) {
   return (
     <button type="button" aria-pressed={on} onClick={onClick}
-      className={cn("min-h-11 rounded-full border px-4 py-2.5 text-base transition-colors", block && "w-full", on ? "border-primary bg-primary text-primary-foreground" : "bg-background hover:bg-muted")}>{children}</button>
+      className={cn("min-h-11 rounded-full border px-4 py-2.5 text-sm transition-colors", block && "w-full", on ? "border-primary bg-primary text-primary-foreground" : "bg-background hover:bg-muted")}>{children}</button>
   )
 }
 

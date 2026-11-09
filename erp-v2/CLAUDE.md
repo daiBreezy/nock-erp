@@ -100,3 +100,9 @@ src/app/<route>/page.tsx     ← หน้าต่างๆ
 | BL-15/16 | สถานะ "ไม่ถึงผู้ปกครอง" · ส่งต้องมีข้อความ |
 | BL-19 | สิทธิ์เรียนครอบคลุมเฉพาะช่วงที่จ่าย |
 | G1–G4 | `permissions.ts` ซ่อนเมนู + บล็อก action ใน store |
+
+## มาตรฐานฟอร์ม (เจ้าของสั่ง 2026-11-09) — ทุกฟอร์มผู้ปกครอง (`/liff/form` · `/liff/exit` · `/liff/survey` · `/liff/custom`) + แผงแอดมิน
+- หน้า: `max-w-lg` · `bg-muted/40` · `p-4` · `space-y-4`; หัวหน้า `text-xl font-semibold`; หัวแบรนด์ `text-lg font-semibold` + สาขา `text-xs muted`
+- การ์ดกลุ่ม: `rounded-3xl bg-card p-4 shadow-sm ring-1 ring-foreground/5` + `space-y-3` (ห้าม `rounded-2xl border p-3` / `p-5`)
+- หัวข้อกลุ่ม `text-sm font-semibold` + คำอธิบาย `text-xs muted`; ป้ายช่อง `text-xs`; คำถามยาว (survey/custom/exit) `text-sm font-semibold`; ตัวเลือก/ชิป `text-sm` (สูง ≥ `min-h-11` บนมือถือ)
+- **ช่องกรอก 1 ช่อง = 1 บรรทัด** ไม่ใช้ `grid-cols-2` กับ input (จังหวัด / รหัสไปรษณีย์ แยกบรรทัด); กลุ่มช่องอยู่ใต้หัวข้อกลุ่ม (ชื่อ · ข้อมูลทั่วไป · ติดต่อ · ที่อยู่ …) — ช่องฟอร์มกลางอยู่ที่ `components/people/person-fields.tsx` (`Group` + `F`)

@@ -45,7 +45,7 @@ function CustomForm() {
   }
 
   return (
-    <main className="mx-auto min-h-dvh max-w-md bg-background px-4 pb-24 pt-4">
+    <main className="mx-auto min-h-dvh max-w-lg bg-muted/40 p-4 pb-28">
       <div className="mb-4 flex justify-end">
         <NativeSelect className="w-32 shrink-0" value={lang} onChange={(e) => setLang(e.target.value as typeof lang)} options={[{ value: "th", label: "ไทย" }, { value: "en", label: "English" }, { value: "ja", label: "日本語" }]} />
       </div>

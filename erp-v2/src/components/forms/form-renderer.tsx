@@ -78,7 +78,7 @@ export function FormRenderer({ form, answers, onChange, onSubmit, submitting, hi
   return (
     <div className="space-y-4" data-form-top>
       <div>
-        <h1 className="text-lg font-semibold leading-snug">{form.name || tx("ชื่อฟอร์ม")}</h1>
+        <h1 className="text-xl font-semibold">{form.name || tx("ชื่อฟอร์ม")}</h1>
         {form.description && step === 0 && <p className="mt-1 whitespace-pre-line text-sm text-muted-foreground">{form.description}</p>}
       </div>
       {steps > 1 && (
@@ -93,7 +93,7 @@ export function FormRenderer({ form, answers, onChange, onSubmit, submitting, hi
         <Item key={it.kind === "field" ? it.field.id : it.section.id} it={it} answers={answers} set={set} errors={errors} highlight={highlight} onPick={onPick} count={count} />
       ))}
       {errCount > 0 && <p className="text-center text-xs text-red-600">{tx("ยังตอบไม่ครบ {0} ข้อ", [errCount])}</p>}
-      {sticky ? <div className="fixed inset-x-0 bottom-0 z-10 border-t bg-background/95 px-4 py-3 backdrop-blur"><div className="mx-auto max-w-md">{buttons}</div></div> : buttons}
+      {sticky ? <div className="fixed inset-x-0 bottom-0 z-10 border-t bg-background/95 px-4 py-3 backdrop-blur"><div className="mx-auto max-w-lg">{buttons}</div></div> : buttons}
     </div>
   )
 }
@@ -121,7 +121,7 @@ function Item({ it, answers, set, errors, highlight, onPick, count }: {
       <Heading f={g} />
       <div className="mt-3 space-y-3">
         {list.map((en, i) => (
-          <div key={i} className="space-y-4 rounded-2xl border p-3">
+          <div key={i} className="space-y-4 rounded-3xl bg-card p-4 shadow-sm ring-1 ring-foreground/5">
             <div className="flex items-center">
               <p className="text-sm font-semibold">{g.label} {list.length > 1 && i + 1}</p>
               {list.length > 1 && <Button size="icon-sm" variant="ghost" className="ml-auto text-muted-foreground" aria-label={tx("ลบ")} onClick={(e) => { e.stopPropagation(); set(g.id, list.filter((_, j) => j !== i)) }}><Trash2Icon /></Button>}
@@ -145,7 +145,7 @@ function Item({ it, answers, set, errors, highlight, onPick, count }: {
 function Heading({ f }: { f: FormField }) {
   return (
     <div className="border-b pb-1.5 pt-2">
-      <p className="font-semibold">{f.label || tx("หัวข้อ")}</p>
+      <p className="text-sm font-semibold">{f.label || tx("หัวข้อ")}</p>
       {f.help && <p className="text-sm text-muted-foreground">{f.help}</p>}
     </div>
   )
@@ -156,7 +156,7 @@ function Question({ f, no, v, set, error }: { f: FormField; no: number; v: FormA
     <div className="space-y-2" data-form-error={error ? "" : undefined}>
       {f.type !== "consent" && (
         <div>
-          <p className="text-sm font-medium">{no}. {f.label || tx("คำถาม")}{f.required && <span className="text-red-600"> *</span>}</p>
+          <p className="text-sm font-semibold">{no}. {f.label || tx("คำถาม")}{f.required && <span className="text-red-600"> *</span>}</p>
           {f.help && <p className="text-xs text-muted-foreground">{f.help}</p>}
         </div>
       )}
@@ -170,7 +170,7 @@ function Question({ f, no, v, set, error }: { f: FormField; no: number; v: FormA
 function Review({ form, answers, onEdit }: { form: Pick<FormDef, "name" | "fields">; answers: Answers; onEdit: (step: number) => void }) {
   return (
     <div className="space-y-3">{layout(form).map((p, i) => (
-      <div key={i} className="rounded-2xl border p-3">
+      <div key={i} className="rounded-3xl bg-card p-4 shadow-sm ring-1 ring-foreground/5">
         <div className="mb-2 flex items-center"><p className="text-sm font-semibold">{p.title}</p><Button size="xs" variant="ghost" className="ml-auto" onClick={() => onEdit(i)}><PencilIcon /> {tx("แก้")}</Button></div>
         <dl className="space-y-1.5 text-sm">{p.items.map((it) => it.kind === "field" ? (
           answerable(it.field) && isShown(it.field, answers) ? <div key={it.field.id}><dt className="text-xs text-muted-foreground">{it.field.label}</dt><dd>{answerText(it.field, answers[it.field.id])}</dd></div> : null
