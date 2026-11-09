@@ -795,13 +795,13 @@ function RequestTab({ paid, setLang, updatedAt, view, child, t, lang, today, onR
         </div>
       )}
       {!mode ? null : (
-        <section className="space-y-3 rounded-[8px] bg-card ring-1 ring-foreground/5 p-3 shadow-sm">
+        <section className="space-y-3">
           <button type="button" onClick={() => setMode(null)} className="flex items-center gap-1 text-sm text-muted-foreground"><ArrowLeftIcon className="size-4" />{t.back}</button>
           <p className="text-lg font-semibold">{mode === "return" ? t.returnReq : mode === "home" ? t.homeReq : t.exitReq}</p>
           {mode === "home" ? (
             <div className="space-y-2">
               <p className="text-xs text-muted-foreground">{view.home ? t.homeHave : t.homePick}</p>
-              <div className="h-64 overflow-hidden rounded-[8px]"><MapPin value={homeLoc} onChange={setHomeLoc} locateLabel={t.locate} /></div>
+              <div className="h-64 overflow-hidden rounded-2xl"><MapPin value={homeLoc} onChange={setHomeLoc} locateLabel={t.locate} /></div>
               <div className="space-y-1.5"><Label>{t.homeNote}</Label>
                 <Input value={homeNote} onChange={(e) => setHomeNote(e.target.value)} placeholder={t.homeNotePh} />
               </div>
