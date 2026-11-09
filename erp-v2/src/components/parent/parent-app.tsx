@@ -159,6 +159,9 @@ export function ParentApp({ view, lang: initialLang, today, framed, openCourseSu
     <Tabs className="border-b-0" value={childId} onChange={(id) => { setChildId(id); setCourse("") }} options={[{ value: "", label: t.all }, ...view.children.map((c) => ({ value: c.id, label: nick(c) }))]} />
   ) : null
   // a course summary belongs to ONE child: the header's name BECOMES the child's name with a back arrow in front (owner 2026-11-09)
+  // an open Catalog course carries its back arrow on this header too (same as the course summary)
+  const [catalogBack, setCatalogBack] = useState<{ back: () => void } | null>(null)
+  const catalogOpen = cur === "catalog" ? catalogBack : null
   const summaryKid = cur === "study" && csId ? view.children.find((c) => (c.courseSummaries ?? []).some((x) => x.id === csId)) : undefined
   const barBody = childTabs
   // owner 2026-11-09: the header shrinks WITH the scroll, no jump. It is sticky with a negative `top` equal to its big block, so the
@@ -207,13 +210,20 @@ export function ParentApp({ view, lang: initialLang, today, framed, openCourseSu
               <p className="min-w-0 flex-1 truncate"><span className="text-lg font-semibold">{nick(summaryKid)}</span><span className="ml-2 text-xs text-muted-foreground/70">{family}</span></p>
               <Pill tone="blue">{summaryKid.grade}</Pill>
             </div>
+          ) : catalogOpen ? (
+            <div className="flex items-center gap-1.5">
+              <button type="button" aria-label={t.back} onClick={catalogOpen.back} className="-ml-1.5 grid size-7 shrink-0 place-items-center rounded-full text-muted-foreground hover:bg-muted"><ArrowLeftIcon className="size-5" /></button>
+              <p className="min-w-0 flex-1 truncate text-lg font-semibold">{family}</p>
+            </div>
           ) : <p className="truncate text-lg font-semibold">{family}</p>}
-          <p className={cn("truncate text-xs leading-4 text-muted-foreground", summaryKid && "pl-[34px]")}>{brand === "liclass" ? "Liclass" : "NockAcademy"} · {child?.branchName}</p>
+          <p className={cn("truncate text-xs leading-4 text-muted-foreground", (summaryKid || catalogOpen) && "pl-[34px]")}>{brand === "liclass" ? "Liclass" : "NockAcademy"} · {child?.branchName}</p>
         </div>
         {/* the bar that stays: small name (slides in as you scroll) + the child tabs. No tabs → the bar just hangs under the header */}
         <div className={cn("flex items-center gap-2 border-b bg-background/95 px-4 backdrop-blur", !barBody && "pointer-events-none absolute inset-x-0 top-full py-2.5 group-data-[stuck=true]:pointer-events-auto")} style={!barBody ? { opacity: "var(--p)" } : undefined}>
           {summaryKid ? (
             <button type="button" aria-label={t.back} onClick={() => setCsId(null)} className="flex min-w-0 items-center gap-1 text-sm font-semibold"><ArrowLeftIcon className="size-4 shrink-0" /><span className="truncate">{nick(summaryKid)}</span></button>
+          ) : catalogOpen ? (
+            <button type="button" aria-label={t.back} onClick={catalogOpen.back} className="flex min-w-0 items-center gap-1 text-sm font-semibold"><ArrowLeftIcon className="size-4 shrink-0" /><span className="truncate">{family}</span></button>
           ) : (
             <p className="truncate text-sm font-semibold" style={{ maxWidth: "calc(var(--p) * 34%)", opacity: "var(--p)", flexShrink: 0 }}>{family}</p>
           )}
@@ -232,7 +242,7 @@ export function ParentApp({ view, lang: initialLang, today, framed, openCourseSu
         {!child ? null : cur === "overview" ? <Overview view={childId ? { ...view, children: view.children.filter((c) => c.id === childId) } : view} t={t} lang={lang} today={today} dayLabel={dayLabel} nick={nick} onDrill={drill} />
           : cur === "study"
           ? <Study key={childId} today={today} course={course} setCourse={setCourse} kids={kids} nick={nick} t={t} lang={lang} dayLabel={dayLabel} csId={csId} setCsId={setCsId} onRequest={onRequest} requests={requests} onReturn={() => setTab("request")} />
-          : cur === "catalog" ? (view.catalogToken || catalogPreview ? <Catalog token={view.catalogToken ?? ""} preview={catalogPreview} /> : <Empty text={t.catalogOff} />)
+          : cur === "catalog" ? (view.catalogToken || catalogPreview ? <Catalog token={view.catalogToken ?? ""} preview={catalogPreview} onDetail={(b) => setCatalogBack(b ? { back: b } : null)} /> : <Empty text={t.catalogOff} />)
           : <RequestTab paid={paid} key={`${child.id}|${ask ?? ""}`} lang={lang} setLang={setLang} updatedAt={view.generatedAt} view={view} child={child} t={t} today={today} onRequest={onRequest} requests={requests} initial={ask} />}
       </main>
 
@@ -846,8 +856,8 @@ function RequestTab({ paid, setLang, updatedAt, view, child, t, lang, today, onR
   )
 }
 
-function Catalog({ token, preview }: { token: string; preview?: CatalogToken }) {
-  return <div className="-mx-3 -mt-4"><CatalogApp embedded token={token} preview={preview} /></div>
+function Catalog({ token, preview, onDetail }: { token: string; preview?: CatalogToken; onDetail: (back: (() => void) | null) => void }) {
+  return <div className="-mx-3 -mt-4"><CatalogApp embedded token={token} preview={preview} onDetail={onDetail} /></div>
 }
 
 function Empty({ text }: { text: string }) {

@@ -15,7 +15,9 @@ import { cn } from "@/lib/utils"
  * Filter by grade / subject → each course's starting price and its classes (day, time, teacher, seats left).
  * "สนใจ" / "ทดลองเรียน" land as a card in the admin's chat; "สมัคร" opens the enroll form offering that class.
  */
-export function CatalogApp({ token, preview, embedded }: { token: string; preview?: CatalogToken
+export function CatalogApp({ token, preview, embedded, onDetail }: { token: string; preview?: CatalogToken
+  /** inside the parent app: called with a back function while a course is open (null when the list shows) — the PARENT APP's header then carries the back arrow, like the course summary (owner 2026-11-09) */
+  onDetail?: (back: (() => void) | null) => void
   /** inside the parent app: no title, no language switch (those live in อื่นๆ), nothing sticky — the parent app's own header is above */
   embedded?: boolean }) {
   const lang = useUiLang((s) => s.lang)
@@ -30,6 +32,11 @@ export function CatalogApp({ token, preview, embedded }: { token: string; previe
   const [note, setNote] = useState("")
   // owner 2026-11-06: tap a cover card to open the course; ♥ keeps favourites on this phone
   const [openId, setOpenId] = useState<ID | null>(null)
+  useEffect(() => {
+    onDetail?.(openId ? () => setOpenId(null) : null)
+    return () => onDetail?.(null)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [openId])
   // this component only renders in the browser (dynamic, ssr: false) so localStorage is safe to read up front
   const [favs, setFavs] = useState<ID[]>(() => { try { return JSON.parse(localStorage.getItem("nockerp-catalog-fav") ?? "[]") } catch { return [] } })
   const [onlyFav, setOnlyFav] = useState(false)
@@ -101,7 +108,7 @@ export function CatalogApp({ token, preview, embedded }: { token: string; previe
     <main className={cn("mx-auto max-w-md bg-background", embedded ? "pb-4" : "min-h-dvh pb-10")}>
       {open ? (
         <div className="space-y-4 px-4 pt-4">
-          <button type="button" onClick={() => setOpenId(null)} className="flex items-center gap-1 text-sm text-muted-foreground"><ArrowLeftIcon className="size-4" />{tx("กลับ")}</button>
+          {!(embedded && onDetail) && <button type="button" onClick={() => setOpenId(null)} className="flex items-center gap-1 text-sm text-muted-foreground"><ArrowLeftIcon className="size-4" />{tx("กลับ")}</button>}
           <div className="relative overflow-hidden rounded-[8px]">
             {cover(open, "aspect-[16/9]")}
             {fav(open.id, "absolute top-2 right-2")}
