@@ -604,11 +604,11 @@ function CourseEnd({ cs, t, lang }: { cs: ParentCourseSummary; t: T; lang: FormL
   const lines = (v: string) => v.split("\n").map((l) => l.trim()).filter(Boolean)
     .map((l) => { const m = l.match(/^([^:：]{1,20})[:：]\s*(.*)$/); return m && cs.subjects.includes(m[1].trim()) ? { subject: m[1].trim(), text: m[2] } : { subject: "", text: l } })
     .filter((l) => !only || l.subject === only)
-  // owner 2026-11-09: no frames on this page (the blue reading is the only card) — each section = a small icon tile + its name, the text under it
-  const block = (label: string, v: string, icon: typeof TargetIcon, tone: string) => {
+  // owner 2026-11-09: each section is its own coloured card (blue reading · green strengths · amber to-improve · grey attendance), an icon tile + its name on top
+  const block = (label: string, v: string, icon: typeof TargetIcon, tone: string, card: string) => {
     const ls = lines(v)
     return ls.length ? (
-      <section className="space-y-1.5">
+      <section className={cn("space-y-1.5 rounded-[16px] p-4", card)}>
         <SectionHead icon={icon} tone={tone} label={label} />
         <div className="space-y-1 pl-9 text-sm">{ls.map((l, i) => <p key={i}>{l.subject && !only && <span className={cn("mr-1.5 inline-block rounded-full px-1.5 py-0.5 align-middle text-[11px] leading-none", subjectColor(l.subject).chip)}>{l.subject}</span>}{l.text}</p>)}</div>
       </section>
@@ -628,11 +628,11 @@ function CourseEnd({ cs, t, lang }: { cs: ParentCourseSummary; t: T; lang: FormL
           <ClampedParagraphs className="px-3 pb-3" paras={lines(cs.overallProgress)} showSubject={!only} readAll={t.readAll} less={t.lessText} />
         )}
       </section>
-      {block(t.strengths, cs.strengths, ThumbsUpIcon, "bg-emerald-100 text-emerald-700")}
-      {block(t.improve, cs.toImprove, TargetIcon, "bg-amber-100 text-amber-700")}
+      {block(t.strengths, cs.strengths, ThumbsUpIcon, "bg-emerald-100 text-emerald-700", "bg-emerald-50 ring-1 ring-emerald-200")}
+      {block(t.improve, cs.toImprove, TargetIcon, "bg-amber-100 text-amber-700", "bg-amber-50 ring-1 ring-amber-200")}
       {/* owner 2026-11-09: attendance is a plain row of numbers at the very bottom */}
-      <section className="space-y-2">
-        <SectionHead icon={CalendarCheckIcon} tone="bg-sky-100 text-sky-700" label={t.attendanceLabel} />
+      <section className="space-y-2.5 rounded-[16px] bg-muted/60 p-4 ring-1 ring-foreground/5">
+        <SectionHead icon={CalendarCheckIcon} tone="bg-background text-muted-foreground" label={t.attendanceLabel} />
         <div className="grid grid-cols-4 divide-x pl-0 text-center">
           {[[t.statDone, `${done.length}`], [t.statPresent, `${present}`], [t.statLeave, `${leave}`], [t.absent, `${absent}`]].map(([label, value]) => (
             <div key={label}><p className="text-lg leading-tight font-semibold tabular-nums">{value}</p><p className="text-[11px] text-muted-foreground">{label}</p></div>

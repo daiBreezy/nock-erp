@@ -1,9 +1,13 @@
 import { addDays, toDateStr } from "../domain/dates"
+import { entitlementRounds } from "../domain/rules/summaries"
 import type { Attendance, Branch, Course, CourseSummary, Entitlement, Family, Invoice, Klass, LessonSummary, Session, Student } from "../domain/types"
 
 type Db = { branches: Branch[]; courses: Course[]; classes: Klass[]; sessions: Session[]; attendance: Attendance[]; summaries: LessonSummary[]; courseSummaries?: CourseSummary[]; families: Family[]; students: Student[]; entitlements: Entitlement[]; invoices: Invoice[] }
 
 // owner 2026-11-09: session notes are LONG in real life (5-10 lines on a phone) - the demo ones are too, so the parent app's rows are judged at real length
+const COURSE_STRENGTHS = "ตั้งใจเรียน มีสมาธิตลอดคาบ · กล้าถามเมื่อไม่เข้าใจ · ตรวจงานตัวเองก่อนส่ง"
+const COURSE_IMPROVE = "ฝึกทอนเศษส่วนให้เป็นอย่างต่ำ · ทบทวนคำศัพท์ใหม่ทุกวันก่อนนอน · อ่านบทความภาษาอังกฤษที่ยาวขึ้นสัปดาห์ละ 1–2 เรื่อง"
+
 const NOTES = [
   "วันนี้เรียนเรื่องเศษส่วนต่อจากคาบที่แล้ว น้องเข้าใจเรื่องการเปรียบเทียบเศษส่วนที่ตัวส่วนต่างกันได้ดีขึ้นมาก ทำแบบฝึกหัดหน้า 12–15 ได้ครบทุกข้อและตรวจคำตอบด้วยตัวเองก่อนส่ง\nช่วงกลางคาบมีโจทย์ปัญหาคำพูดที่ต้องแปลงเป็นเศษส่วนก่อน น้องอ่านโจทย์ช้าลงและขีดเส้นใต้ตัวเลขสำคัญ ซึ่งเป็นวิธีที่ครูแนะนำไว้ ได้ผลดีมากค่ะ\nสิ่งที่ยังต้องฝึกคือการทอนเศษส่วนให้เป็นอย่างต่ำ บางข้อยังลืมตรวจว่าหารต่อได้อีกไหม ฝากทบทวนที่บ้านวันละ 5 ข้อ\nการบ้านวันนี้: แบบฝึกหัดหน้า 16 ข้อ 1–10 และลองสร้างโจทย์เศษส่วนจากของใช้ในบ้านให้ครูดูหนึ่งข้อ\nโดยรวมวันนี้น้องตั้งใจเรียนมาก มีสมาธิตลอดคาบ และกล้าถามเมื่อไม่เข้าใจ",
   "คาบนี้ทบทวนคำศัพท์ Unit 4 และฝึกอ่านบทสั้นๆ เกี่ยวกับกิจวัตรประจำวัน น้องอ่านออกเสียงชัดขึ้นกว่าสัปดาห์ก่อนอย่างเห็นได้ชัด และกล้าตอบคำถามเป็นภาษาอังกฤษเต็มประโยค\nยังสะกดคำศัพท์ใหม่ผิดบ้าง เช่น vegetable และ breakfast ให้ลองเขียนซ้ำคำละ 5 รอบแล้วทดสอบตัวเอง\nช่วงท้ายคาบทำเกมทายคำศัพท์เป็นกลุ่ม น้องสนุกและช่วยเพื่อนในกลุ่มด้วย เป็นพฤติกรรมที่ดีมากค่ะ\nการบ้าน: Workbook หน้า 20–21 และท่องคำศัพท์ 15 คำที่ครูแจกให้",
@@ -78,7 +82,7 @@ export function withLinkedFamilyDemo<T extends Db>(db: T, now = new Date()): T {
     const csEnt = entitlements[0]
     const courseSummaries: CourseSummary[] = csEnt ? [{
       id: `cs_demo_${fam.id}`, entitlementId: csEnt.id, studentId: sid, status: "sent", authorId: "u_dai", lastEditorId: "u_dai",
-      overallProgress: COURSE_OVERALL, strengths: "ตั้งใจเรียน มีสมาธิตลอดคาบ · กล้าถามเมื่อไม่เข้าใจ · ตรวจงานตัวเองก่อนส่ง", toImprove: "ฝึกทอนเศษส่วนให้เป็นอย่างต่ำ · ทบทวนคำศัพท์ใหม่ทุกวันก่อนนอน · อ่านบทความภาษาอังกฤษที่ยาวขึ้นสัปดาห์ละ 1–2 เรื่อง",
+      overallProgress: COURSE_OVERALL, strengths: COURSE_STRENGTHS, toImprove: COURSE_IMPROVE,
       history: [{ at: `${today}T09:00:00.000Z`, by: "u_dai", action: "submit" }, { at: `${today}T10:00:00.000Z`, by: "u_nock", action: "approve" }, { at: `${today}T11:00:00.000Z`, by: "u_ploy", action: "send" }],
     }] : []
     out = {
@@ -93,4 +97,33 @@ export function withLinkedFamilyDemo<T extends Db>(db: T, now = new Date()): T {
     }
   }
   return out
+}
+
+/**
+ * Owner 2026-11-09 ("ทำให้ครอบครัว Breezy ที่กู Link กับไลน์ไว้ มี Course Summary ให้หน่อย"): every family linked to a real LINE account
+ * gets ONE sent, long Course Summary — on its newest FINISHED course round, else its newest running one — so the parent app opened from
+ * the Rich Menu shows the page. Saved data is kept (this runs on load, idempotent): a family that already has a sent summary is left alone,
+ * a not-yet-sent summary on the chosen round is replaced.
+ */
+export function withLinkedCourseSummary<T extends { families: Family[]; students: Student[]; entitlements: Entitlement[]; courseSummaries?: CourseSummary[] }>(db: T, now = new Date()): T {
+  const today = toDateStr(now)
+  const made: CourseSummary[] = []
+  const replace = new Set<string>()
+  for (const fam of db.families.filter((f) => f.lineUserId)) {
+    const kids = db.students.filter((x) => x.familyId === fam.id && !x.archived)
+    const kidIds = new Set(kids.map((k) => k.id))
+    if ((db.courseSummaries ?? []).some((c) => c.status === "sent" && kidIds.has(c.studentId))) continue
+    const rounds = kids.flatMap((k) => entitlementRounds(db.entitlements.filter((e) => e.studentId === k.id)))
+    const newest = (a: { to: string }, b: { to: string }) => b.to.localeCompare(a.to)
+    const pick = rounds.filter((r) => r.to < today).sort(newest)[0] ?? [...rounds].sort(newest)[0]
+    if (!pick) continue
+    replace.add(pick.representativeId)
+    made.push({
+      id: `cs_demo_${fam.id}`, entitlementId: pick.representativeId, studentId: pick.studentId, status: "sent", authorId: "u_dai", lastEditorId: "u_dai",
+      overallProgress: COURSE_OVERALL, strengths: COURSE_STRENGTHS, toImprove: COURSE_IMPROVE,
+      history: [{ at: `${today}T09:00:00.000Z`, by: "u_dai", action: "submit" }, { at: `${today}T10:00:00.000Z`, by: "u_nock", action: "approve" }, { at: `${today}T11:00:00.000Z`, by: "u_ploy", action: "send" }],
+    })
+  }
+  if (!made.length) return db
+  return { ...db, courseSummaries: [...(db.courseSummaries ?? []).filter((c) => !replace.has(c.entitlementId) && !made.some((m) => m.id === c.id)), ...made] }
 }
