@@ -206,6 +206,8 @@ export type Insight = { tone: "good" | "watch" | "info"; text: string }
 
 export interface ProgressRow {
   date: DateStr; attended: "present" | "leave" | "absent" | null; level?: number; text?: string
+  /** the teacher's "detail" line of that session's summary (what was covered) — the parent's week-by-week page shows it */
+  detail?: string
   /** the session's subjects + a Bundle session's per-subject understanding — for the per-subject view */
   subjects?: string[]; subjectLevels?: Record<string, number>
 }
@@ -221,7 +223,7 @@ export function courseProgressRows(round: Pick<EntitlementRound, "entitlementIds
     .map((se) => {
       const sm = db.summaries.find((x) => x.sessionId === se.id && x.studentId === round.studentId)
       return { date: se.date, attended: db.attendance.find((a) => a.sessionId === se.id && a.studentId === round.studentId)?.status ?? null,
-        level: sm?.level, text: sm?.text, subjects: subjectsOf(se), subjectLevels: sm?.subjectLevels }
+        level: sm?.level, text: sm?.text, detail: sm?.detail?.trim() || undefined, subjects: subjectsOf(se), subjectLevels: sm?.subjectLevels }
     })
 }
 

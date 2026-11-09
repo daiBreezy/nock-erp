@@ -11,6 +11,7 @@ import { ParentApp } from "@/components/parent/parent-app"
 import { toDateStr } from "@/domain/dates"
 import type { ParentCourseSummary } from "@/domain/rules/parent-view"
 import type { Family } from "@/domain/types"
+import { SAMPLE_COURSE, SAMPLE_IMPROVE, SAMPLE_OVERALL, SAMPLE_STRENGTHS, SAMPLE_TEACHER, SAMPLE_WEEK_DETAILS, SAMPLE_WEEK_NOTES } from "@/data/line-preview-sample"
 import { catalogSnapshot } from "@/lib/forms"
 import { useNow } from "@/lib/hooks"
 import { buildParentView } from "@/lib/parent-app"
@@ -72,12 +73,12 @@ function ParentPhone({ paid }: { paid: boolean }) {
     const kid = v.children[0]
     if (paid && kid && !(kid.courseSummaries ?? []).length) {
       const day = (n: number) => toDateStr(new Date(new Date(`${toDateStr(now)}T12:00:00`).getTime() - n * 86_400_000))
-      const rows = [60, 53, 46, 39, 32, 25, 18, 11, 4].map((n, i) => ({ date: day(n), attended: (i === 3 ? "leave" : "present") as "leave" | "present", level: [2, 2, 3, 3, 3, 4, 4, 4, 5][i], text: i === 8 ? "กล้าถามครูมากขึ้น" : undefined }))
+      const rows = [60, 53, 46, 39, 32, 25, 18, 11, 4].map((n, i) => ({ date: day(n), attended: (i === 3 ? "leave" : "present") as "leave" | "present", text: SAMPLE_WEEK_NOTES[i] || undefined, detail: SAMPLE_WEEK_DETAILS[i] || undefined }))
       const cs: ParentCourseSummary = {
-        id: "preview_cs", course: kid.packages[0]?.course ?? "อังกฤษ ป.4–ม.1 รายเดือน", bundle: false, subjects: [], from: day(60), to: day(2), teacher: "ครูได", sentAt: `${day(1)}T10:00:00`,
-        overallProgress: "ช่วงสองเดือนนี้เข้าใจไวยากรณ์ดีขึ้นมาก กล้าตอบในห้องมากขึ้น และอ่านได้คล่องขึ้นเรื่อยๆ ค่ะ",
-        strengths: "ตั้งใจฟัง · กล้าถามเมื่อไม่เข้าใจ",
-        toImprove: "ฝึกอ่านบทความยาวเพิ่มอีกนิด",
+        id: "preview_cs", course: kid.packages[0]?.course ?? SAMPLE_COURSE, bundle: false, subjects: [], from: day(60), to: day(2), teacher: SAMPLE_TEACHER, sentAt: `${day(1)}T10:00:00`,
+        overallProgress: SAMPLE_OVERALL,
+        strengths: SAMPLE_STRENGTHS,
+        toImprove: SAMPLE_IMPROVE,
         progress: rows,
       }
       return { ...v, children: [{ ...kid, courseSummaries: [cs] }, ...v.children.slice(1)] }
