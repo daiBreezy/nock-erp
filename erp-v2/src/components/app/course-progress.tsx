@@ -12,13 +12,13 @@ import { cn } from "@/lib/utils"
 
 const MONTHS = ["ม.ค.", "ก.พ.", "มี.ค.", "เม.ย.", "พ.ค.", "มิ.ย.", "ก.ค.", "ส.ค.", "ก.ย.", "ต.ค.", "พ.ย.", "ธ.ค."]
 
-export function CourseProgress({ rows, aiInsights }: { rows: Sum.ProgressRow[]; aiInsights?: Sum.Insight[] | null }) {
+/** `hideAi` = the AI box is placed elsewhere (the parent app puts it right under the course name — <AiInsightBox />).
+ *  Layout follows the card's OWN width (container queries): 2×2 numbers + one chart per line when narrow, 4 across + 2 charts side by side when wide. */
+export function CourseProgress({ rows, aiInsights, hideAi }: { rows: Sum.ProgressRow[]; aiInsights?: Sum.Insight[] | null; hideAi?: boolean }) {
   const p = Sum.courseProgress(rows)
-  // owner 2026-10-14: the cards always show (empty states inside) — an old course with no sessions on record isn't blank
-  const insights = aiInsights?.length ? aiInsights : p.insights
   return (
-    <div className="space-y-3">
-      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+    <div className="@container space-y-3">
+      <div className="grid grid-cols-2 gap-2 @3xl:grid-cols-4">
         <Stat label="เช็คชื่อแล้ว" value={`${p.attended}`} sub={`จาก ${p.sessions} คาบที่ผ่านมา`} />
         <Stat label="มาเรียน" value={p.rate === null ? "—" : `${Math.round(p.rate * 100)}%`} sub={`ลา ${p.leave} · ขาด ${p.attended - p.present - p.leave}`}
           tone={p.rate === null ? undefined : p.rate >= 0.9 ? "good" : p.rate < 0.75 ? "watch" : undefined} />
@@ -29,7 +29,7 @@ export function CourseProgress({ rows, aiInsights }: { rows: Sum.ProgressRow[]; 
           icon={p.trend === null ? null : p.trend >= 0 ? <TrendingUpIcon className="size-4" /> : <TrendingDownIcon className="size-4" />} />
       </div>
 
-      <div className="grid gap-3 lg:grid-cols-[3fr_2fr]">
+      <div className="grid gap-3 @3xl:grid-cols-[3fr_2fr]">
         <ChartCard title="ความเข้าใจรายคาบ" info="ครูให้คะแนน 1–5 ตอนเขียนสรุปคาบ (ความเข้าใจวันนี้) · เส้นประ = ค่าเฉลี่ย 3 คาบล่าสุด">
           <LevelChart rows={rows} />
         </ChartCard>
@@ -38,7 +38,18 @@ export function CourseProgress({ rows, aiInsights }: { rows: Sum.ProgressRow[]; 
         </ChartCard>
       </div>
 
-      <div className={cn("rounded-2xl p-3", AI_TONE.surface)}>
+      {!hideAi && <AiInsightBox rows={rows} aiInsights={aiInsights} />}
+    </div>
+  )
+}
+
+/** the reading of the numbers in plain words — the same box in the staff panel and in the parent app */
+export function AiInsightBox({ rows, aiInsights }: { rows: Sum.ProgressRow[]; aiInsights?: Sum.Insight[] | null }) {
+  const p = Sum.courseProgress(rows)
+  // owner 2026-10-14: always shows (empty state inside) — an old course with no sessions on record isn't blank
+  const insights = aiInsights?.length ? aiInsights : p.insights
+  return (
+    <div className={cn("rounded-2xl p-3", AI_TONE.surface)}>
         <div className="mb-2 flex items-center gap-2">
           <AiIcon className="size-7" />
           <p className={cn("text-sm font-semibold", AI_TONE.text)}>AI ประเมินพัฒนาการ</p>
@@ -56,7 +67,6 @@ export function CourseProgress({ rows, aiInsights }: { rows: Sum.ProgressRow[]; 
           ))}
         </ul>
       </div>
-    </div>
   )
 }
 

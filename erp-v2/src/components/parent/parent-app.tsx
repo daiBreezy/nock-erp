@@ -17,7 +17,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Pill } from "@/components/app/badges"
-import { CourseProgress } from "@/components/app/course-progress"
+import { AiInsightBox, CourseProgress } from "@/components/app/course-progress"
 import { subjectColor } from "@/components/app/subject-color"
 import type { CatalogToken, FormLang, ParentRequest } from "@/domain/types"
 import { cn } from "@/lib/utils"
@@ -565,12 +565,14 @@ function CourseEnd({ cs, t, lang, onBack }: { cs: ParentCourseSummary; t: T; lan
           <FilterChipGroup className="mt-2.5" layout="scroll" value={only} onChange={setOnly} options={["", ...cs.subjects].map((x) => ({ value: x, label: x || t.whole }))} />
         )}
       </section>
+      {/* owner 2026-11-09: the AI reading sits right under the course name — the first thing the parent reads */}
+      <AiInsightBox rows={rows} />
       {block(t.overall, cs.overallProgress)}
       {block(t.strengths, cs.strengths)}
       {block(t.improve, cs.toImprove)}
       <section className="space-y-2 rounded-[8px] bg-card ring-1 ring-foreground/5 p-3 shadow-sm">
         <p className="text-sm font-semibold">{t.progress}{only && ` · ${only}`}</p>
-        <CourseProgress rows={rows} />
+        <CourseProgress rows={rows} hideAi />
       </section>
     </div>
   )
