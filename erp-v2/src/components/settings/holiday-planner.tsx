@@ -110,7 +110,7 @@ export function HolidayPlanner({ branch }: { branch?: Branch }) {
 
   return (
     // company mode (owner 2026-11-09): no frame, fills the page height; wider gap between the list and the calendar
-    <div className={cn("grid gap-8 lg:grid-cols-[minmax(0,22rem)_1fr]", !isBranch && "lg:h-[calc(100dvh-14rem)] lg:min-h-[34rem]")}>
+    <div className={cn("grid gap-8 lg:grid-cols-[minmax(0,22rem)_1fr]", !isBranch && "lg:h-[calc(100dvh-22rem)] lg:min-h-[34rem]")}>
       <section className={cn("space-y-3", !isBranch && "flex min-h-0 flex-col space-y-0 gap-3")}>
         <div className="flex items-start gap-2">
           <div className="flex-1">
