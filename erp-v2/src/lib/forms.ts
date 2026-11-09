@@ -4,7 +4,7 @@
 // API routes, so LeadSheet and Inbox never duplicate this logic (CLAUDE.md rule #1: business
 // logic lives in one place, not copy-pasted across components).
 
-import { FORM_TYPE_LABEL } from "@/domain/rules/forms"
+import { customFormMessage, formLinkMessage, holidayMessage, notice, surveyMessage, nameArg } from "@/domain/rules/messages"
 import * as FB from "@/domain/rules/form-builder"
 import { buildCatalog } from "@/domain/rules/catalog"
 import { addDays } from "@/domain/dates"
@@ -16,6 +16,9 @@ async function postJson<T>(url: string, body: unknown): Promise<T> {
   const res = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) })
   return res.json() as Promise<T>
 }
+
+/** which brand a branch belongs to — picks the language of every parent message (Liclass: Japanese + English, NockAcademy: Thai + English) */
+const brandOfBranch = (branchId: ID | undefined): Brand | undefined => useStore.getState().branches.find((b) => b.id === branchId)?.brand
 
 export async function sendTestTrialForm(input: {
   leadId: ID; branchId: ID; conversationId: ID; lineUserId: string; type: FormType; offers: FormSubjectOffer[]; grades: string[]
@@ -32,8 +35,7 @@ export async function sendTestTrialForm(input: {
   if (!liffId) return { ok: false, error: "ยังไม่ได้ตั้งค่า NEXT_PUBLIC_LIFF_ID ใน .env.local" }
 
   const url = `https://liff.line.me/${liffId}?token=${tokenRes.token.token}`
-  const subjects = input.offers.map((o) => o.subject).join(", ")
-  const text = `กรุณากรอกแบบฟอร์ม${FORM_TYPE_LABEL[input.type]}ที่ลิงก์นี้ค่ะ 🙏 (${subjects})\n${url}`
+  const text = formLinkMessage(input.brand ?? brandOfBranch(input.branchId), input.type, input.offers.map((o) => o.subject), url)
 
   const sendRes = await postJson<{ ok: boolean; error?: string }>("/api/line/send", {
     conversationId: input.conversationId, text,
@@ -83,7 +85,7 @@ export async function sendExitForm(input: Omit<ExitToken, "token" | "kind" | "cr
   if (!isLine) return { ok: true, value: { token: res.token.token, url, sent: false } }
   const names = input.students.map((s) => s.nickname).join(", ")
   const sent = await postJson<{ ok: boolean; error?: string }>("/api/line/send", {
-    conversationId: input.conversationId, text: `รบกวนผู้ปกครองช่วยตอบแบบฟอร์มสั้นๆ เรื่องการหยุดเรียนของ${names}ค่ะ 🙏 (ประมาณ 2 นาที)\n${url}`,
+    conversationId: input.conversationId, text: notice(input.brand, "exitForm", nameArg(names), url),
   })
   if (!sent.ok) return { ok: false, error: sent.error ?? "ส่งทาง LINE ไม่สำเร็จ — คัดลอกลิงก์ส่งเองได้" }
   return { ok: true, value: { token: res.token.token, url, sent: true } }
@@ -125,7 +127,7 @@ export async function sendEnrollForm(lead: { id: ID; branchId: ID; name: string;
   if (!res.ok || !res.token) return { ok: false, error: res.error ?? "สร้างลิงก์ไม่สำเร็จ" }
   const url = enrollUrl(res.token.token)
   if (!conversationId) return { ok: true, value: { url, sent: false } }
-  const sent = await postJson<{ ok: boolean; error?: string }>("/api/line/send", { conversationId, text: `กรอกใบสมัครเรียนได้ที่ลิงก์นี้เลยค่ะ 🙏 แอดมินจะจัดคลาสและส่งใบแจ้งหนี้ให้ทันที\n${url}` })
+  const sent = await postJson<{ ok: boolean; error?: string }>("/api/line/send", { conversationId, text: notice(brandOfBranch(lead.branchId), "enrollGeneral", url) })
   if (!sent.ok) return { ok: false, error: sent.error ?? "ส่งทาง LINE ไม่สำเร็จ" }
   return { ok: true, value: { url, sent: true } }
 }
@@ -143,7 +145,7 @@ const surveyUrl = (token: string) => {
   const liffId = process.env.NEXT_PUBLIC_LIFF_ID
   return liffId ? `https://liff.line.me/${liffId}?token=${token}` : `${window.location.origin}/liff/survey?token=${token}`
 }
-const surveyText = (url: string) => `ขอเวลา 3 นาทีช่วยตอบแบบสอบถามความพึงพอใจประจำปีหน่อยนะคะ 🙏 ทุกความเห็นช่วยให้เราดูแลน้องๆ ได้ดีขึ้น\n${url}`
+const surveyText = (url: string, brand?: Brand, remind = false) => surveyMessage(brand, url, remind)
 
 /**
  * Yearly parent survey (owner 2026-10-05): one link per family with a child studying today, pushed in LINE where the
@@ -175,7 +177,7 @@ export async function sendYearlySurvey(year: number, from: string, to: string): 
   let lineSent = 0
   for (const t of res.tokens) {
     if (!t.conversationId?.startsWith("line_")) continue
-    const r = await postJson<{ ok: boolean }>("/api/line/send", { conversationId: t.conversationId, text: surveyText(surveyUrl(t.token)) })
+    const r = await postJson<{ ok: boolean }>("/api/line/send", { conversationId: t.conversationId, text: surveyText(surveyUrl(t.token), t.brand) })
     if (r.ok) lineSent++
   }
   const rec = s.recordSurveySent({ id: campaignId, year, from, to, recipients: res.tokens.map((t) => ({ familyId: t.familyId, branchId: t.branchId, token: t.token, viaLine: !!t.conversationId?.startsWith("line_") })) })
@@ -191,7 +193,7 @@ export async function remindSurvey(campaign: SurveyCampaign): Promise<Result<{ r
   for (const x of waiting) {
     const conv = s.conversations.find((c) => c.familyId === x.familyId && c.id.startsWith("line_"))
     if (!conv) continue
-    const r = await postJson<{ ok: boolean }>("/api/line/send", { conversationId: conv.id, text: `แจ้งเตือนอีกครั้งค่ะ — ${surveyText(surveyUrl(x.token))}` })
+    const r = await postJson<{ ok: boolean }>("/api/line/send", { conversationId: conv.id, text: surveyText(surveyUrl(x.token), brandOfBranch(x.branchId), true) })
     if (r.ok) n++
   }
   s.markSurveyReminded(campaign.id)
@@ -232,9 +234,9 @@ export async function sendEnrollToChat(conversationId: ID, classOffers?: EnrollC
   const url = enrollUrl(res.token.token)
   // owner 2026-10-15: with class offers the parent just picks the classes that suit them
   const sent = await postToChat(conv.id, classOffers?.length
-    ? `กรอกใบสมัครเรียน และเลือกคลาสที่สะดวกได้ที่ลิงก์นี้เลยค่ะ 🙏 แอดมินจะส่งใบแจ้งหนี้ให้ทันที\n${url}`
-    : classOffers ? `กรอกข้อมูลสมัครเรียนได้ที่ลิงก์นี้เลยค่ะ 🙏 ได้รับแล้วแอดมินจะส่งใบแจ้งหนี้ตามที่คุยกันไว้ให้ค่ะ\n${url}`
-    : `กรอกใบสมัครเรียนได้ที่ลิงก์นี้เลยค่ะ 🙏 แอดมินจะจัดคลาสและส่งใบแจ้งหนี้ให้ทันที\n${url}`)
+    ? notice(brandOfBranch(conv.branchId), "enrollPick", url)
+    : classOffers ? notice(brandOfBranch(conv.branchId), "enrollPlan", url)
+    : notice(brandOfBranch(conv.branchId), "enrollGeneral", url))
   return sent.ok ? { ok: true, value: { url } } : sent
 }
 
@@ -264,6 +266,14 @@ export async function broadcastText(conversationIds: ID[], text: string): Promis
   return { ok: true, value: { sent, failed } }
 }
 
+/** like broadcastText, but each chat gets its own text (per-brand language) */
+export async function broadcastTexts(items: { id: ID; text: string }[]): Promise<Result<{ sent: number; failed: number }>> {
+  if (!items.length) return { ok: false, error: "ไม่มีแชทในกลุ่มที่เลือก" }
+  let sent = 0, failed = 0
+  for (const it of items) { if ((await postToChat(it.id, it.text)).ok) sent++; else failed++ }
+  return { ok: true, value: { sent, failed } }
+}
+
 /** The chat of each family whose children are in these sessions — real LINE chat first, else the demo chat. */
 export function familyChatsOf(sessions: { studentIds: ID[] }[]): ID[] {
   const s = useStore.getState()
@@ -275,8 +285,8 @@ export function familyChatsOf(sessions: { studentIds: ID[] }[]): ID[] {
 }
 
 /** A10 (owner 2026-10-09): the admin decides whether parents hear about a new holiday — default message to edit. */
-export function holidayParentText(name: string, date: string, cancelled: boolean) {
-  return `แจ้งวันหยุด: ${name} (${date}) สถาบันปิดทำการค่ะ${cancelled ? " คาบเรียนวันนั้นงดเรียน แอดมินจะติดต่อเพื่อนัดเรียนชดเชยนะคะ" : ""} 🙏`
+export function holidayParentText(brand: Brand | undefined, name: string, date: string, cancelled: boolean) {
+  return holidayMessage(brand, name, date, cancelled)
 }
 
 /** Broadcast the yearly survey: opens this year's round (one link per family) — mock chats get the link in the thread too. */
@@ -290,7 +300,7 @@ export async function broadcastSurvey(): Promise<Result<{ sent: number; lineSent
   const camp = useStore.getState().surveyCampaigns.find((c) => c.year === year)
   for (const rec of camp?.recipients ?? []) {
     const conv = useStore.getState().conversations.find((c) => c.familyId === rec.familyId && !c.id.startsWith("line_"))
-    if (conv) useStore.getState().sendChatMessage(conv.id, surveyText(surveyUrl(rec.token)))
+    if (conv) useStore.getState().sendChatMessage(conv.id, surveyText(surveyUrl(rec.token), brandOfBranch(rec.branchId)))
   }
   return { ok: true, value: { sent: r.value.sent, lineSent: r.value.lineSent } }
 }
@@ -312,7 +322,7 @@ async function customFormLink(form: FormDef, family: { id: ID; branchId: ID; con
   if (!res.ok || !res.token) return { ok: false, error: res.error ?? "สร้างลิงก์ไม่สำเร็จ" }
   const liffId = process.env.NEXT_PUBLIC_LIFF_ID
   const url = family.conversationId?.startsWith("line_") && liffId ? `https://liff.line.me/${liffId}?token=${res.token.token}` : `${window.location.origin}/liff/custom?token=${res.token.token}`
-  return { ok: true, value: { url, text: `รบกวนผู้ปกครองช่วยตอบแบบฟอร์ม “${form.name}” ค่ะ 🙏\n${url}` } }
+  return { ok: true, value: { url, text: customFormMessage(branch?.brand, form.name, url) } }
 }
 
 /** from the family panel: through LINE when the family has a LINE chat, otherwise just the link (copy and send it yourself) */
@@ -374,5 +384,5 @@ export async function sendCatalogToChat(conversationId: ID): Promise<Result> {
   if (!conv) return { ok: false, error: "ไม่พบบทสนทนานี้" }
   const link = await publishCatalogLink(conv.branchId)
   if (!link.ok) return link
-  return postToChat(conv.id, `ดูคอร์สและตารางเรียนทั้งหมดของสาขาได้ที่ลิงก์นี้เลยค่ะ 📚 เลือกระดับชั้น / วิชาที่สนใจ แล้วกด "สนใจ" ได้เลยนะคะ\n${link.value.url}`)
+  return postToChat(conv.id, notice(brandOfBranch(conv.branchId), "catalog", link.value.url))
 }

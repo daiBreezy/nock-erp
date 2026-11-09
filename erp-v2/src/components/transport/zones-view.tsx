@@ -23,6 +23,7 @@ import { uid } from "@/data/seed"
 import { report } from "@/lib/feedback"
 import { useNow } from "@/lib/hooks"
 import { cn } from "@/lib/utils"
+import { nameArg, notice } from "@/domain/rules/messages"
 import { useStore } from "@/store/store"
 import { ZoneAnalysisCard } from "./zone-analysis-card"
 import { ZONE_DOT, ZoneMap } from "./zone-map"
@@ -149,13 +150,14 @@ export function ZonesView({ branch }: { branch: Branch }) {
 function BusHomesTable({ homes, zones, onZone }: { homes: Home[]; zones: BusZone[]; onZone: (h: Home, zoneId: string | null) => void }) {
   const router = useRouter()
   const conversations = useStore((s) => s.conversations)
+  const branches = useStore((s) => s.branches)
   const askPin = (h: Home) => {
     const c = conversations.find((x) => x.familyId === h.fam.id)
     if (!c) return
     const liff = process.env.NEXT_PUBLIC_LIFF_ID
     const url = liff ? `https://liff.line.me/${liff}?app=parent&act=home` : `${window.location.origin}/liff/form?app=parent&act=home`
     // the message waits in the chat box — the admin reads it and presses send
-    try { sessionStorage.setItem("inbox-draft", JSON.stringify({ conversationId: c.id, text: `สวัสดีค่ะ รบกวนช่วยปักหมุดบ้านสำหรับรถรับส่งของ${h.kids.map((k) => k.nickname).join(" และ ")}ให้หน่อยนะคะ กดลิงก์นี้แล้วแตะแผนที่ตรงบ้านได้เลยค่ะ 🙏\n${url}` })) } catch { /* private mode — the chat opens without the draft */ }
+    try { sessionStorage.setItem("inbox-draft", JSON.stringify({ conversationId: c.id, text: notice(branches.find((b) => b.id === h.kids[0]?.branchId)?.brand, "pinAsk", nameArg(h.kids.map((k) => k.nickname).join(" & ")), url) })) } catch { /* private mode — the chat opens without the draft */ }
     router.push(`/inbox?conversation=${c.id}`)
   }
   const columns: Column<Home>[] = [

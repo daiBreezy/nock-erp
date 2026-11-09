@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/button"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { Textarea } from "@/components/ui/textarea"
 import { fmtDate, fmtDateTime, fmtMoney } from "@/domain/dates"
+import { busDoneMessage, leaveDoneMessage, nameArg, notice } from "@/domain/rules/messages"
 import { busChangeLegs, checkRide, companionLegs, distanceKm, rideTimes } from "@/domain/rules/bus"
 import { compassDeg, zoneName, zoneOf } from "@/domain/rules/transport"
 import { busDaysOf } from "@/domain/rules/parent-view"
@@ -78,20 +79,19 @@ export function RequestCard({ r, preview }: { r: ParentRequest; preview?: boolea
     const done = (r.sessions ?? []).filter((x) => markLeave(x.sessionId, r.studentId, { count: 1, noQuota }).ok)
     const failed = (r.sessions?.length ?? 0) - done.length
     if (!done.length) { setBusy(false); return toast.error("บันทึกลาไม่ได้ — คาบอาจเริ่มไปแล้ว หรือถูกยกเลิก") }
-    const days = done.map((x) => `${fmtDate(x.date, { weekday: true })} ${x.start}`).join(", ")
     await finish("done", `บันทึกลา ${done.length} คาบ (${noQuota ? "ไม่หักโควตา" : "หักโควตา"})${failed ? ` · ${failed} คาบบันทึกไม่ได้` : ""}`,
-      `บันทึกการลาของ${r.studentNickname}แล้วค่ะ ${days} 🙏`)
+      leaveDoneMessage(brandOfReq, r.studentNickname, done))
     setBusy(false)
   }
   const acceptExit = async () => {
     setBusy(true)
-    if (report(exitFromParent(r), "")) await finish("done", "รับเรื่องแจ้งออกแล้ว — โทรคุยกับผู้ปกครอง แล้วปิดเรื่องในหน้านักเรียน", `รับเรื่องการหยุดเรียนของ${r.studentNickname}แล้วค่ะ แอดมินจะติดต่อกลับเร็วๆ นี้ 🙏`)
+    if (report(exitFromParent(r), "")) await finish("done", "รับเรื่องแจ้งออกแล้ว — โทรคุยกับผู้ปกครอง แล้วปิดเรื่องในหน้านักเรียน", notice(brandOfReq, "doneExit", nameArg(r.studentNickname)))
     setBusy(false)
   }
   // owner 2026-10-14: a child who left wants to come back — restore them, then arrange a class + invoice as usual
   const acceptReturn = async () => {
     setBusy(true)
-    if (report(restoreStudent(r.studentId), "")) await finish("done", "กู้คืนนักเรียนแล้ว — โทรคุย จัดคลาส แล้วออกใบแจ้งหนี้", `ยินดีต้อนรับ${r.studentNickname}กลับมาค่ะ 😊 แอดมินจะติดต่อกลับเพื่อจัดคลาสให้นะคะ`)
+    if (report(restoreStudent(r.studentId), "")) await finish("done", "กู้คืนนักเรียนแล้ว — โทรคุย จัดคลาส แล้วออกใบแจ้งหนี้", notice(brandOfReq, "doneReturn", nameArg(r.studentNickname)))
     setBusy(false)
   }
   // owner 2026-10-19: extra rides go on the student's list and onto the next invoice; cancelled ones come off the bus
@@ -99,6 +99,8 @@ export function RequestCard({ r, preview }: { r: ParentRequest; preview?: boolea
   const branch = branches.find((b) => b.id === (r.branchId ?? stu?.branchId))
   const feeId = invoices.filter((i) => i.studentId === r.studentId && i.status !== "void" && i.busFeeId).sort((a, b) => b.createdAt.localeCompare(a.createdAt))[0]?.busFeeId
     ?? branch?.fees.find((f) => f.kind === "bus")?.id ?? null
+  // the family's brand decides the language of what the parent is told (Liclass: Japanese + English, NockAcademy: Thai + English)
+  const brandOfReq = branch?.brand
   const rate = branch ? busRate(branch, feeId ?? "") : 0
   const adds = busChangeLegs(r.bus ?? [], "add"), cancels = busChangeLegs(r.bus ?? [], "cancel")
   const addTrips = adds.reduce((n, x) => n + Number(x.pickup) + Number(x.dropoff), 0)
@@ -111,27 +113,26 @@ export function RequestCard({ r, preview }: { r: ParentRequest; preview?: boolea
   const withAdult = companionLegs(r.bus ?? [], booked)
   const approveBus = async () => {
     setBusy(true)
-    const parts: string[] = [], reply: string[] = []
+    const parts: string[] = []
+    let busAmount = 0
     // the parent's seats first — they follow the child's rides as asked (computed before the rides change)
     if (withAdult.length) {
       const p = addBusCompanions(r.studentId, withAdult, "ผู้ปกครองขอไปด้วยทาง LINE")
       if (!p.ok) { setBusy(false); return report(p, "") }
       parts.push(`ผู้ปกครองนั่งไปด้วย ${withAdult.length} วัน (ไม่คิดเงิน)`)
-      reply.push(`ผู้ปกครองนั่งรถไปด้วย ${withAdult.length} วัน (ไม่มีค่าใช้จ่าย)`)
     }
     if (adds.length) {
       const a = addBusAddOns(r.studentId, adds, feeId, "ผู้ปกครองขอทาง LINE")
       if (!a.ok) { setBusy(false); return report(a, "") }
       parts.push(`เพิ่มรอบรถ ${addTrips} เที่ยว ${fmtMoney(a.value.amount)} — เก็บในใบแจ้งหนี้รอบถัดไป`)
-      reply.push(`เพิ่มรถรับส่ง ${addTrips} เที่ยว (${fmtMoney(a.value.amount)} รวมในใบแจ้งหนี้รอบถัดไป)`)
+      busAmount = a.value.amount
     }
     if (cancels.length) {
       const c = cancelBusRides(r.studentId, cancels, "ผู้ปกครองยกเลิกทาง LINE")
       if (!c.ok) { setBusy(false); return report(c, "") }
       parts.push(`ยกเลิก ${cancelTrips} เที่ยว${c.value.stopped ? ` (${c.value.stopped} เที่ยวจ่ายแล้ว ไม่คืนเงิน)` : ""}`)
-      reply.push(`ยกเลิกรถ ${cancelTrips} เที่ยว`)
     }
-    await finish("done", parts.join(" · "), `${reply.join(" และ")}ของ${r.studentNickname}เรียบร้อยแล้วค่ะ 🙏`)
+    await finish("done", parts.join(" · "), busDoneMessage(brandOfReq, r.studentNickname, { withDays: withAdult.length || undefined, addTrips: addTrips || undefined, amount: busAmount, cancelTrips: cancelTrips || undefined }))
     setBusy(false)
   }
   // owner 2026-10-19: a parent pinned the house — check it on the map, then save it on the family
@@ -144,7 +145,7 @@ export function RequestCard({ r, preview }: { r: ParentRequest; preview?: boolea
     setBusy(true)
     if (report(setFamilyHome(r.familyId, r.home, r.home.addressNote), "")) {
       const km = branch?.location ? ` · ${Math.round(distanceKm(branch.location, r.home) * 10) / 10} กม. จากสาขา` : ""
-      await finish("done", `บันทึกหมุดบ้านแล้ว${km}${homeZone ? ` · โซน ${homeZone.name}` : ""}`, `บันทึกตำแหน่งบ้านสำหรับรถรับส่งของ${r.studentNickname}เรียบร้อยแล้วค่ะ 🙏`)
+      await finish("done", `บันทึกหมุดบ้านแล้ว${km}${homeZone ? ` · โซน ${homeZone.name}` : ""}`, notice(brandOfReq, "doneHome", nameArg(r.studentNickname)))
     }
     setBusy(false)
   }

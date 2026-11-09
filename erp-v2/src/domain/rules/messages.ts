@@ -206,3 +206,129 @@ export function courseSummaryMessage(cs: CourseSummary, ctx: { student: Student;
     link ? `📊 ${two("chart")}: ${link}` : null,
   ].filter((x) => x !== null).join("\n")
 }
+
+
+// ---------- notices: form links, announcements, automatic replies (owner 2026-11-09: same two-language rule) ----------
+
+type Arg = string | number | ((l: MsgLang) => string)
+/** an argument that is a name from the data (student, course, form) — written in each message language */
+export const nameArg = (t: string): Arg => (l) => dn(l, t)
+/** an argument that is a date — written in each message language */
+export const dateArg = (d: DateStr, o: { weekday?: boolean; year?: boolean } = {}): Arg => (l) => dateIn(l, d, o)
+
+const N: Record<MsgLang, Record<string, string>> = {
+  th: {
+    formLink: "กรุณากรอกแบบฟอร์ม{0}ที่ลิงก์นี้ค่ะ 🙏 ({1})\n{2}",
+    exitForm: "รบกวนผู้ปกครองช่วยตอบแบบฟอร์มสั้นๆ เรื่องการหยุดเรียนของ{0}ค่ะ 🙏 (ประมาณ 2 นาที)\n{1}",
+    enrollGeneral: "กรอกใบสมัครเรียนได้ที่ลิงก์นี้เลยค่ะ 🙏 แอดมินจะจัดคลาสและส่งใบแจ้งหนี้ให้ทันที\n{0}",
+    enrollPick: "กรอกใบสมัครเรียน และเลือกคลาสที่สะดวกได้ที่ลิงก์นี้เลยค่ะ 🙏 แอดมินจะส่งใบแจ้งหนี้ให้ทันที\n{0}",
+    enrollPlan: "กรอกข้อมูลสมัครเรียนได้ที่ลิงก์นี้เลยค่ะ 🙏 ได้รับแล้วแอดมินจะส่งใบแจ้งหนี้ตามที่คุยกันไว้ให้ค่ะ\n{0}",
+    survey: "ขอเวลา 3 นาทีช่วยตอบแบบสอบถามความพึงพอใจประจำปีหน่อยนะคะ 🙏 ทุกความเห็นช่วยให้เราดูแลน้องๆ ได้ดีขึ้น\n{0}",
+    surveyRemind: "แจ้งเตือนอีกครั้งค่ะ — ",
+    customForm: "รบกวนผู้ปกครองช่วยตอบแบบฟอร์ม “{0}” ค่ะ 🙏\n{1}",
+    catalog: "ดูคอร์สและตารางเรียนทั้งหมดของสาขาได้ที่ลิงก์นี้เลยค่ะ 📚 เลือกระดับชั้น / วิชาที่สนใจ แล้วกด \"สนใจ\" ได้เลยนะคะ\n{0}",
+    holiday: "แจ้งวันหยุด: {0} ({1}) สถาบันปิดทำการค่ะ{2} 🙏",
+    holidayCancelled: " คาบเรียนวันนั้นงดเรียน แอดมินจะติดต่อเพื่อนัดเรียนชดเชยนะคะ",
+    firstClass: "พรุ่งนี้เป็นวันเรียนวันแรกของ{0}ค่ะ 🎉 {1} เวลา {2} น. · {3}\nแล้วพบกันนะคะ 😊",
+    renewal: "คอร์ส {1} ของ{0}เหลืออีก {2} คาบ (ถึง {3}) ค่ะ หากต้องการเรียนต่อ แจ้งแอดมินได้เลยนะคะ 🙏",
+    pinAsk: "สวัสดีค่ะ รบกวนช่วยปักหมุดบ้านสำหรับรถรับส่งของ{0}ให้หน่อยนะคะ กดลิงก์นี้แล้วแตะแผนที่ตรงบ้านได้เลยค่ะ 🙏\n{1}",
+    reqReturn: "ได้รับเรื่องอยากกลับมาเรียนของ{0}แล้วค่ะ ดีใจมากเลย 😊 แอดมินจะติดต่อกลับเพื่อจัดคลาสให้นะคะ",
+    reqLeave: "ได้รับแจ้งลาของ{0} {1} คาบแล้วค่ะ แอดมินจะยืนยันกลับอีกครั้ง 🙏",
+    reqBus: "ได้รับคำขอเรื่องรถรับส่งของ{0}แล้วค่ะ แอดมินจะเช็ครอบรถแล้วยืนยันกลับนะคะ 🙏",
+    reqHome: "ได้รับตำแหน่งบ้านสำหรับรถรับส่งของ{0}แล้วค่ะ แอดมินจะตรวจแล้วจัดรถให้นะคะ 🙏",
+    reqExit: "ได้รับแจ้งหยุดเรียนของ{0}แล้วค่ะ แอดมินจะติดต่อกลับเพื่อคุยรายละเอียดนะคะ 🙏",
+    doneLeave: "บันทึกการลาของ{0}แล้วค่ะ {1} 🙏",
+    doneExit: "รับเรื่องการหยุดเรียนของ{0}แล้วค่ะ แอดมินจะติดต่อกลับเร็วๆ นี้ 🙏",
+    doneReturn: "ยินดีต้อนรับ{0}กลับมาค่ะ 😊 แอดมินจะติดต่อกลับเพื่อจัดคลาสให้นะคะ",
+    doneHome: "บันทึกตำแหน่งบ้านสำหรับรถรับส่งของ{0}เรียบร้อยแล้วค่ะ 🙏",
+    doneBus: "{0}ของ{1}เรียบร้อยแล้วค่ะ 🙏",
+    busWith: "ผู้ปกครองนั่งรถไปด้วย {0} วัน (ไม่มีค่าใช้จ่าย)", busAdd: "เพิ่มรถรับส่ง {0} เที่ยว ({1} รวมในใบแจ้งหนี้รอบถัดไป)", busCancel: "ยกเลิกรถ {0} เที่ยว", and: " และ",
+    typeTest: "สอบวัดระดับ", typeTrial: "ทดลองเรียน",
+  },
+  ja: {
+    formLink: "{0}のフォームを、こちらのリンクからご記入ください 🙏（{1}）\n{2}",
+    exitForm: "{0}さんのご退会について、短いアンケートにご協力をお願いします 🙏（約2分）\n{1}",
+    enrollGeneral: "こちらのリンクから入会申込書をご記入ください 🙏 クラスを手配し、すぐに請求書をお送りします\n{0}",
+    enrollPick: "入会申込書のご記入と、ご都合のよいクラスのご選択をこちらからお願いします 🙏 すぐに請求書をお送りします\n{0}",
+    enrollPlan: "こちらから入会情報をご記入ください 🙏 受け取り次第、ご相談どおりの請求書をお送りします\n{0}",
+    survey: "年に一度の満足度アンケートにご協力ください（約3分）🙏 いただいたご意見は、お子さまへのより良いサポートに活かします\n{0}",
+    surveyRemind: "再度のご案内です — ",
+    customForm: "フォーム「{0}」へのご回答をお願いします 🙏\n{1}",
+    catalog: "各校のコースと時間割はこちらからご覧いただけます 📚 学年・教科をお選びのうえ「興味あり」を押してください\n{0}",
+    holiday: "休校のお知らせ：{0}（{1}）は休校日です。{2} 🙏",
+    holidayCancelled: "当日の授業はお休みです。振替日程は改めてご連絡します。",
+    firstClass: "明日は{0}さんの初回授業です 🎉 {1} {2}・{3}\nお会いできるのを楽しみにしています 😊",
+    renewal: "{0}さんの{1}は残り{2}回（{3}まで）です。ご継続をご希望の場合は、お知らせください 🙏",
+    pinAsk: "{0}さんの送迎バス用に、ご自宅の位置情報（ピン）の登録をお願いします。こちらのリンクを開き、地図でご自宅をタップしてください 🙏\n{1}",
+    reqReturn: "{0}さんの復学のご希望を受け付けました。とても嬉しいです 😊 クラスの手配のため、担当よりご連絡します。",
+    reqLeave: "{0}さんの欠席連絡（{1}回分）を受け付けました。担当から改めて確認のご連絡をします 🙏",
+    reqBus: "{0}さんの送迎バスのご依頼を受け付けました。便を確認のうえ、ご連絡します 🙏",
+    reqHome: "{0}さんの送迎用のご自宅位置を受け取りました。確認のうえ、バスを手配します 🙏",
+    reqExit: "{0}さんの退会のご連絡を受け付けました。詳細について担当からご連絡します 🙏",
+    doneLeave: "{0}さんの欠席を記録しました。{1} 🙏",
+    doneExit: "{0}さんの退会のご連絡を受け付けました。担当から近日中にご連絡します 🙏",
+    doneReturn: "{0}さんのお戻りを歓迎します 😊 クラスの手配のため、担当よりご連絡します。",
+    doneHome: "{0}さんの送迎用のご自宅位置を登録しました 🙏",
+    doneBus: "{1}さんの{0}を完了しました 🙏",
+    busWith: "保護者の方が{0}日間バスに同乗（無料）", busAdd: "送迎バスを{0}便追加（{1}、次回の請求書に含みます）", busCancel: "送迎バスを{0}便キャンセル", and: "、",
+    typeTest: "レベルテスト", typeTrial: "体験授業",
+  },
+  en: {
+    formLink: "Please fill in the {0} form at this link 🙏 ({1})\n{2}",
+    exitForm: "Could you please answer a short form about {0} leaving the school 🙏 (about 2 minutes)\n{1}",
+    enrollGeneral: "Please fill in the enrolment form at this link 🙏 We will arrange the class and send the invoice right away\n{0}",
+    enrollPick: "Please fill in the enrolment form and pick the classes that suit you 🙏 We will send the invoice right away\n{0}",
+    enrollPlan: "Please fill in the enrolment details at this link 🙏 Once received, we will send the invoice as we discussed\n{0}",
+    survey: "Could you spare 3 minutes for our yearly satisfaction survey? 🙏 Every comment helps us care for the children better\n{0}",
+    surveyRemind: "A gentle reminder — ",
+    customForm: "Please answer the form “{0}” 🙏\n{1}",
+    catalog: "You can see all courses and timetables of the branch at this link 📚 Pick a grade / subject and tap \"Interested\"\n{0}",
+    holiday: "Holiday notice: {0} ({1}) — the school is closed.{2} 🙏",
+    holidayCancelled: " Classes that day are cancelled; we will contact you to arrange make-up classes.",
+    firstClass: "Tomorrow is {0}'s first class 🎉 {1} at {2} · {3}\nSee you then 😊",
+    renewal: "{0}'s course {1} has {2} sessions left (until {3}). If you would like to continue, please let us know 🙏",
+    pinAsk: "Hello! Could you please pin your home location for {0}'s school bus? Open this link and tap your house on the map 🙏\n{1}",
+    reqReturn: "We received the request for {0} to come back. We are so happy 😊 The admin will contact you to arrange a class.",
+    reqLeave: "We received the leave notice for {0} ({1} sessions). The admin will confirm shortly 🙏",
+    reqBus: "We received the bus request for {0}. The admin will check the bus rounds and confirm 🙏",
+    reqHome: "We received the home location for {0}'s bus. The admin will check it and arrange the bus 🙏",
+    reqExit: "We received the notice that {0} will stop studying. The admin will contact you about the details 🙏",
+    doneLeave: "Leave recorded for {0}: {1} 🙏",
+    doneExit: "We received the notice that {0} will stop studying. The admin will contact you soon 🙏",
+    doneReturn: "Welcome back, {0}! 😊 The admin will contact you to arrange a class.",
+    doneHome: "The home location for {0}'s bus has been saved 🙏",
+    doneBus: "Done for {1}: {0} 🙏",
+    busWith: "a parent rides along for {0} days (free)", busAdd: "added {0} bus trips ({1}, included in the next invoice)", busCancel: "cancelled {0} bus trips", and: " and ",
+    typeTest: "placement test", typeTrial: "trial class",
+  },
+}
+export type NoticeKey = Exclude<keyof (typeof N)["th"], "and" | "typeTest" | "typeTrial" | "holidayCancelled" | "surveyRemind" | "busWith" | "busAdd" | "busCancel">
+const fill = (l: MsgLang, text: string, args: Arg[]) => text.replace(/\{(\d)\}/g, (_, i) => { const a = args[Number(i)]; return typeof a === "function" ? a(l) : String(a ?? "") })
+
+/** a notice in both languages of the brand; args can be plain values or per-language functions (nameArg, dateArg) */
+export function notice(brand: Brand | undefined, key: NoticeKey, ...args: Arg[]): string {
+  return both(brand, (l) => fill(l, N[l][key], args))
+}
+/** the Test / Trial form link — the type word and the subjects in each language */
+export const formLinkMessage = (brand: Brand | undefined, type: "test" | "trial", subjects: string[], url: string) =>
+  both(brand, (l) => fill(l, N[l].formLink, [N[l][type === "test" ? "typeTest" : "typeTrial"], subjects.map((x) => dn(l, x)).join(", "), url]))
+/** yearly survey link; `remind` = the one reminder 7 days later */
+export const surveyMessage = (brand: Brand | undefined, url: string, remind = false) =>
+  both(brand, (l) => `${remind ? N[l].surveyRemind : ""}${fill(l, N[l].survey, [url])}`)
+export const holidayMessage = (brand: Brand | undefined, name: string, date: DateStr, cancelled: boolean) =>
+  both(brand, (l) => fill(l, N[l].holiday, [dn(l, name), dateIn(l, date, { weekday: true }), cancelled ? N[l].holidayCancelled : ""]))
+export const customFormMessage = (brand: Brand | undefined, formName: string, url: string) => both(brand, (l) => fill(l, N[l].customForm, [dn(l, formName), url]))
+/** what the admin's bus approval tells the parent: parts = [parent rides along days, trips added + amount, trips cancelled] */
+export function busDoneMessage(brand: Brand | undefined, nickname: string, p: { withDays?: number; addTrips?: number; amount?: number; cancelTrips?: number }) {
+  return both(brand, (l) => {
+    const parts = [
+      p.withDays ? fill(l, N[l].busWith, [p.withDays]) : null,
+      p.addTrips ? fill(l, N[l].busAdd, [p.addTrips, fmtMoney(p.amount ?? 0)]) : null,
+      p.cancelTrips ? fill(l, N[l].busCancel, [p.cancelTrips]) : null,
+    ].filter((x): x is string => !!x)
+    return fill(l, N[l].doneBus, [parts.join(N[l].and), dn(l, nickname)])
+  })
+}
+/** the leave the admin recorded: each day + time written in the message language */
+export const leaveDoneMessage = (brand: Brand | undefined, nickname: string, days: { date: DateStr; start: string }[]) =>
+  both(brand, (l) => fill(l, N[l].doneLeave, [dn(l, nickname), days.map((d) => `${dateIn(l, d.date, { weekday: true })} ${d.start}`).join(", ")]))

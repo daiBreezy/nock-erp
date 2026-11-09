@@ -1,3 +1,4 @@
+import { nameArg, notice } from "@/domain/rules/messages"
 import { NextResponse } from "next/server"
 import { viewForLineUser } from "@/server/parent-app-store"
 import { lineUserFromIdToken, pushLineText } from "@/server/line-auth"
@@ -38,13 +39,13 @@ export async function POST(req: Request) {
   if (b.kind === "return") {
     const startDate = b.startDate && /^\d{4}-\d{2}-\d{2}$/.test(b.startDate) ? b.startDate : undefined
     saved = await addRequest({ ...base, kind: "return", startDate })
-    text = `ได้รับเรื่องอยากกลับมาเรียนของ${child.nickname}แล้วค่ะ ดีใจมากเลย 😊 แอดมินจะติดต่อกลับเพื่อจัดคลาสให้นะคะ`
+    text = notice(w.view.brand, "reqReturn", nameArg(child.nickname))
   } else if (b.kind === "leave") {
     const sessions = child.upcoming.filter((s) => !s.cancelled && (b.sessionIds ?? []).includes(s.sessionId))
       .map((s) => ({ sessionId: s.sessionId, date: s.date, start: s.start, subjects: s.subjects }))
     if (!sessions.length) return NextResponse.json({ ok: false, error: "เลือกคาบที่จะลา" }, { status: 400 })
     saved = await addRequest({ ...base, kind: "leave", sessions })
-    text = `ได้รับแจ้งลาของ${child.nickname} ${sessions.length} คาบแล้วค่ะ แอดมินจะยืนยันกลับอีกครั้ง 🙏`
+    text = notice(w.view.brand, "reqLeave", nameArg(child.nickname), sessions.length)
   } else if (b.kind === "bus") {
     // owner 2026-10-19: ask for extra rides / cancel rides — only the child's own class days, checked against what is
     // booked now (add = a leg that isn't booked, cancel = one that is); the admin approves in the chat
@@ -63,18 +64,18 @@ export async function POST(req: Request) {
     }
     if (!changes.length) return NextResponse.json({ ok: false, error: "เลือกรอบรถที่จะขอหรือยกเลิก" }, { status: 400 })
     saved = await addRequest({ ...base, kind: "bus", bus: changes })
-    text = `ได้รับคำขอเรื่องรถรับส่งของ${child.nickname}แล้วค่ะ แอดมินจะเช็ครอบรถแล้วยืนยันกลับนะคะ 🙏`
+    text = notice(w.view.brand, "reqBus", nameArg(child.nickname))
   } else if (b.kind === "home") {
     // owner 2026-10-19: the parent pins the house for the bus — a real spot in Thailand, the admin checks it in the chat
     const lat = Number(b.home?.lat), lng = Number(b.home?.lng)
     if (!Number.isFinite(lat) || !Number.isFinite(lng) || lat < 5 || lat > 21 || lng < 97 || lng > 106) return NextResponse.json({ ok: false, error: "ปักหมุดบ้านบนแผนที่ก่อน" }, { status: 400 })
     const addressNote = (b.home?.addressNote ?? "").trim().slice(0, 200) || undefined
     saved = await addRequest({ ...base, kind: "home", home: { lat, lng, addressNote } })
-    text = `ได้รับตำแหน่งบ้านสำหรับรถรับส่งของ${child.nickname}แล้วค่ะ แอดมินจะตรวจแล้วจัดรถให้นะคะ 🙏`
+    text = notice(w.view.brand, "reqHome", nameArg(child.nickname))
   } else if (b.kind === "exit") {
     if (!b.lastDate || !/^\d{4}-\d{2}-\d{2}$/.test(b.lastDate)) return NextResponse.json({ ok: false, error: "เลือกวันเรียนวันสุดท้าย" }, { status: 400 })
     saved = await addRequest({ ...base, kind: "exit", lastDate: b.lastDate, reasonIds: (b.reasonIds ?? []).slice(0, 8) })
-    text = `ได้รับแจ้งหยุดเรียนของ${child.nickname}แล้วค่ะ แอดมินจะติดต่อกลับเพื่อคุยรายละเอียดนะคะ 🙏`
+    text = notice(w.view.brand, "reqExit", nameArg(child.nickname))
   } else {
     return NextResponse.json({ ok: false, error: "kind" }, { status: 400 })
   }

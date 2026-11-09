@@ -1,7 +1,7 @@
 // Parent app v1 (owner 2026-10-09) — "School to Parent" inside LINE: what one family sees about their children.
 // Read only: classes ahead (day · time · teacher · subject · room), bus legs booked, attendance, summaries already sent
 // to the parent, packages left. Pure — the ERP builds it, the parent's phone only reads it.
-import type { Attendance, Branch, BusAddOn, Course, CourseSummary, DateStr, Entitlement, Family, ID, Invoice, Klass, LessonSummary, Session, Staff, Student, TimeStr } from "../types"
+import type { Attendance, Brand, Branch, BusAddOn, Course, CourseSummary, DateStr, Entitlement, Family, ID, Invoice, Klass, LessonSummary, Session, Staff, Student, TimeStr } from "../types"
 import { addDays, endTime, toDateStr } from "../dates"
 import { balance, leaveQuota, leavesUsed, packageCovers } from "./attendance"
 import { sessionState, subjectsOf, teachersOf } from "./scheduling"
@@ -75,6 +75,8 @@ export interface ParentView {
   familyId: ID
   familyName: string
   familyNameEn?: string
+  /** the brand of the family's branch — picks the language of the automatic replies (owner 2026-11-09) */
+  brand?: Brand
   lineUserIds: string[]
   children: ParentChild[]
   generatedAt: string
@@ -226,6 +228,7 @@ export function parentView(family: Family, ctx: ParentCtx): ParentView {
     lineUserIds: family.lineUserId ? [family.lineUserId] : [],
     paid: ctx.invoices.some((i) => kids.some((k) => k.id === i.studentId) && i.status !== "void" && (i.status === "paid" || i.payments.some((x) => x.confirmedBy))),
     catalogToken: ctx.branches.find((b) => b.id === kids[0]?.branchId)?.catalogLink?.token,
+    brand: ctx.branches.find((b) => b.id === kids[0]?.branchId)?.brand,
     children, generatedAt: ctx.now.toISOString(), exitReasons: ctx.exitReasons,
   }
 }

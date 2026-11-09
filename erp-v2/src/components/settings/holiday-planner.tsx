@@ -25,7 +25,7 @@ import { cn } from "@/lib/utils"
 import { useStore } from "@/store/store"
 import { tx } from "@/lib/i18n"
 import { Textarea } from "@/components/ui/textarea"
-import { broadcastText, familyChatsOf, holidayParentText } from "@/lib/forms"
+import { broadcastText, broadcastTexts, familyChatsOf, holidayParentText } from "@/lib/forms"
 import { toast } from "@/lib/toast"
 
 const TH_MONTH = ["มกราคม", "กุมภาพันธ์", "มีนาคม", "เมษายน", "พฤษภาคม", "มิถุนายน", "กรกฎาคม", "สิงหาคม", "กันยายน", "ตุลาคม", "พฤศจิกายน", "ธันวาคม"]
@@ -277,9 +277,15 @@ function ParentNotice({ chats, msg, setMsg }: { chats: number; msg: ParentMsg; s
   )
 }
 
-async function sendParentNotice(chatIds: string[], msg: ParentMsg) {
+/** `build` = the unedited default for a brand — each family gets it in ITS brand's language (Liclass: Japanese + English,
+ *  NockAcademy: Thai + English); text the admin edited goes out as typed, to everyone */
+async function sendParentNotice(chatIds: string[], msg: ParentMsg, build?: (brand: Brand) => string) {
   if (!msg.on || !chatIds.length) return
-  const r = await broadcastText(chatIds, msg.text)
+  const st = useStore.getState()
+  const brandOf = (convId: string) => st.branches.find((b) => b.id === st.conversations.find((c) => c.id === convId)?.branchId)?.brand ?? "nockacademy"
+  const r = msg.text.trim() || !build
+    ? await broadcastText(chatIds, msg.text || (build ? build("nockacademy") : ""))
+    : await broadcastTexts(chatIds.map((id) => ({ id, text: build(brandOf(id)) })))
   if (r.ok) toast.success(tx("แจ้งผู้ปกครองแล้ว {0} ครอบครัว{1}", [r.value.sent, r.value.failed ? tx(" · ไม่สำเร็จ {0}", [r.value.failed]) : ""]))
   else toast.error(r.error)
 }
@@ -291,7 +297,8 @@ function HolidayDialog({ draft, branch, onClose, onSave }: { draft: Draft; branc
   const affected = !d.id && d.date ? holidayImpact(d.date, branch?.id ?? null, sessions, [], d.brand) : []
   const chats = familyChatsOf(affected)
   const [msg, setMsg] = useState<ParentMsg>({ on: false, text: "" })
-  const text = msg.text || holidayParentText(d.name || "…", d.date ? fmtDate(d.date, { weekday: true }) : "…", cancel)
+  const draftOf = (b: Brand) => holidayParentText(b, d.name || "…", d.date || toDateStr(new Date()), cancel)
+  const text = msg.text || draftOf(branch?.brand ?? d.brand ?? "nockacademy")
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()}>
       <DialogContent className="lg:max-w-md">
@@ -337,7 +344,7 @@ function HolidayDialog({ draft, branch, onClose, onSave }: { draft: Draft; branc
         )}
         <DialogFooter>
           <Button variant="ghost" onClick={onClose}>{tx("ยกเลิก")}</Button>
-          <Button disabled={!d.name.trim() || !d.date} onClick={() => { if (onSave(d, cancel)) void sendParentNotice(chats, { ...msg, text }) }}>{d.id ? tx("บันทึก") : tx("เพิ่มวันหยุด")}</Button>
+          <Button disabled={!d.name.trim() || !d.date} onClick={() => { if (onSave(d, cancel)) void sendParentNotice(chats, msg, draftOf) }}>{d.id ? tx("บันทึก") : tx("เพิ่มวันหยุด")}</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
@@ -349,7 +356,8 @@ function CloseDayDialog({ holiday, branch, affected: list, onClose, onConfirm }:
   const affected = list.length
   const chats = familyChatsOf(list)
   const [msg, setMsg] = useState<ParentMsg>({ on: false, text: "" })
-  const text = msg.text || holidayParentText(holiday.name, fmtDate(holiday.date, { weekday: true }), cancel)
+  const draftOf = (b: Brand) => holidayParentText(b, holiday.name, holiday.date, cancel)
+  const text = msg.text || draftOf(branch.brand)
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()}>
       <DialogContent className="lg:max-w-md">
@@ -367,7 +375,7 @@ function CloseDayDialog({ holiday, branch, affected: list, onClose, onConfirm }:
         ) : <p className="text-sm text-muted-foreground">{tx("วันนั้นสาขานี้ไม่มีคาบ")}</p>}
         <DialogFooter>
           <Button variant="ghost" onClick={onClose}>{tx("ยกเลิก")}</Button>
-          <Button onClick={() => { if (onConfirm(cancel)) void sendParentNotice(chats, { ...msg, text }) }}>{tx("ยืนยันหยุด")}</Button>
+          <Button onClick={() => { if (onConfirm(cancel)) void sendParentNotice(chats, msg, draftOf) }}>{tx("ยืนยันหยุด")}</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
