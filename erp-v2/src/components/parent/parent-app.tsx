@@ -158,15 +158,9 @@ export function ParentApp({ view, lang: initialLang, today, framed, openCourseSu
   const childTabs = showChildTabs ? (
     <Tabs className="border-b-0" value={childId} onChange={(id) => { setChildId(id); setCourse("") }} options={[{ value: "", label: t.all }, ...view.children.map((c) => ({ value: c.id, label: nick(c) }))]} />
   ) : null
-  // a course summary belongs to ONE child: the bar says whose it is (instead of the child tabs)
+  // a course summary belongs to ONE child: the header's name BECOMES the child's name with a back arrow in front (owner 2026-11-09)
   const summaryKid = cur === "study" && csId ? view.children.find((c) => (c.courseSummaries ?? []).some((x) => x.id === csId)) : undefined
-  const barBody = childTabs ?? (summaryKid ? (
-    <div className="flex min-w-0 items-center gap-2 py-1.5">
-      <span className="grid size-7 shrink-0 place-items-center rounded-full bg-muted text-sm font-semibold text-muted-foreground">{nick(summaryKid).slice(0, 1)}</span>
-      <span className="min-w-0 flex-1 truncate text-base font-semibold">{nick(summaryKid)}</span>
-      <Pill tone="blue">{summaryKid.grade}</Pill>
-    </div>
-  ) : null)
+  const barBody = childTabs
   // owner 2026-11-09: the header shrinks WITH the scroll, no jump. It is sticky with a negative `top` equal to its big block, so the
   // family name + branch scroll away smoothly and the bar (small name + child tabs) stays. --p (0→1) is the scroll progress; it
   // only fades the small name in. The header's flow height never changes → no layout shift, no scroll ping-pong.
@@ -185,7 +179,9 @@ export function ParentApp({ view, lang: initialLang, today, framed, openCourseSu
     const update = () => {
       raf = 0
       const top = box ? box.scrollTop : window.scrollY
-      el.style.setProperty("--p", String(Math.min(1, Math.max(0, top / Math.max(1, h)))))
+      const p = Math.min(1, Math.max(0, top / Math.max(1, h)))
+      el.style.setProperty("--p", String(p))
+      el.dataset.stuck = p > 0.6 ? "true" : "false"
     }
     const onScroll = () => { if (!raf) raf = requestAnimationFrame(update) }
     update()
@@ -202,14 +198,24 @@ export function ParentApp({ view, lang: initialLang, today, framed, openCourseSu
   return (
     <div className={cn("mx-auto flex max-w-lg flex-col bg-background", framed ? "min-h-full" : "min-h-dvh")}>
       {/* owner 2026-11-06: no blue band, no greeting — a quiet line of who/where; the child switcher only where a child is the subject */}
-      <header ref={headerRef} style={{ top: -bigH }} className="sticky z-20 bg-background [--p:0]">
+      <header ref={headerRef} style={{ top: -bigH }} className="group sticky z-20 bg-background [--p:0]">
         <div ref={bigRef} className="px-4 pb-2.5 pt-4">
-          <p className="truncate text-lg font-semibold">{family}</p>
-          <p className="truncate text-xs text-muted-foreground">{brand === "liclass" ? "Liclass" : "NockAcademy"} · {child?.branchName}</p>
+          {summaryKid ? (
+            <div className="flex items-center gap-1">
+              <button type="button" aria-label={t.back} onClick={() => setCsId(null)} className="-ml-2 grid size-9 shrink-0 place-items-center rounded-full text-muted-foreground hover:bg-muted"><ArrowLeftIcon className="size-5" /></button>
+              <p className="min-w-0 flex-1 truncate text-lg font-semibold">{nick(summaryKid)}</p>
+              <Pill tone="blue">{summaryKid.grade}</Pill>
+            </div>
+          ) : <p className="truncate text-lg font-semibold">{family}</p>}
+          <p className={cn("truncate text-xs text-muted-foreground", summaryKid && "pl-8")}>{brand === "liclass" ? "Liclass" : "NockAcademy"} · {child?.branchName}</p>
         </div>
-        {/* the bar that stays: small name (slides in as you scroll) + the child tabs. One child → no tabs, the bar just hangs under the header */}
-        <div className={cn("flex items-center gap-2 border-b bg-background/95 px-4 backdrop-blur", !barBody && "pointer-events-none absolute inset-x-0 top-full py-2.5")} style={!barBody ? { opacity: "var(--p)" } : undefined}>
-          <p className="truncate text-sm font-semibold" style={{ maxWidth: "calc(var(--p) * 34%)", opacity: "var(--p)", flexShrink: 0 }}>{family}</p>
+        {/* the bar that stays: small name (slides in as you scroll) + the child tabs. No tabs → the bar just hangs under the header */}
+        <div className={cn("flex items-center gap-2 border-b bg-background/95 px-4 backdrop-blur", !barBody && "pointer-events-none absolute inset-x-0 top-full py-2.5 group-data-[stuck=true]:pointer-events-auto")} style={!barBody ? { opacity: "var(--p)" } : undefined}>
+          {summaryKid ? (
+            <button type="button" aria-label={t.back} onClick={() => setCsId(null)} className="flex min-w-0 items-center gap-1 text-sm font-semibold"><ArrowLeftIcon className="size-4 shrink-0" /><span className="truncate">{nick(summaryKid)}</span></button>
+          ) : (
+            <p className="truncate text-sm font-semibold" style={{ maxWidth: "calc(var(--p) * 34%)", opacity: "var(--p)", flexShrink: 0 }}>{family}</p>
+          )}
           {barBody && <div className="min-w-0 flex-1">{barBody}</div>}
         </div>
       </header>
@@ -351,7 +357,7 @@ function Study({ today, course, setCourse, kids, nick, t, lang, dayLabel, csId, 
   // owner 2026-11-09: the course summaries have their own segment (ทั้งหมด · ผ่านไปแล้ว · สรุปจบคอร์ส) — not on the Overview, not at the foot of the schedule
   const [view, setView] = useState<"all" | "past" | "ends">(csId ? "ends" : "all")
   const open = csId ? kids.flatMap((k) => k.courseSummaries ?? []).find((x) => x.id === csId) : undefined
-  if (open) return <CourseEnd cs={open} t={t} lang={lang} onBack={() => setCsId(null)} />
+  if (open) return <CourseEnd cs={open} t={t} lang={lang} />
   const multi = kids.length > 1
   const courses = [...new Map(kids.flatMap((k) => k.courses).map((c) => [c.id, c])).values()]
   const many = courses.length > 1
@@ -582,7 +588,7 @@ function BusChips({ bus, t }: { bus: { pickup: boolean; dropoff: boolean; adult?
 }
 
 /** one สรุปจบคอร์ส — the summary (a Bundle per subject too) and the progress charts */
-function CourseEnd({ cs, t, lang, onBack }: { cs: ParentCourseSummary; t: T; lang: FormLang; onBack: () => void }) {
+function CourseEnd({ cs, t, lang }: { cs: ParentCourseSummary; t: T; lang: FormLang }) {
   const [only, setOnly] = useState("")
   const rows = only ? progressForSubject(cs.progress, only, cs.subjects) : cs.progress
   const lines = (v: string) => v.split("\n").map((l) => l.trim()).filter(Boolean)
@@ -599,7 +605,6 @@ function CourseEnd({ cs, t, lang, onBack }: { cs: ParentCourseSummary; t: T; lan
   }
   return (
     <div className="space-y-3">
-      <button type="button" onClick={onBack} className="flex items-center gap-1 px-1 text-sm text-muted-foreground"><ArrowLeftIcon className="size-4" />{t.back}</button>
       <section className="rounded-[8px] bg-card ring-1 ring-foreground/5 p-3 shadow-sm">
         <p className="flex items-center gap-1.5 text-xs text-muted-foreground"><GraduationCapIcon className="size-3.5" />{t.courseEnd}</p>
         <p className="mt-0.5 text-lg font-semibold">{cs.course}</p>
