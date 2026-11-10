@@ -1,11 +1,12 @@
 import type { Metadata } from "next"
-import { Inter, Ms_Madi, Noto_Sans_Thai } from "next/font/google"
+import { Ms_Madi, Noto_Sans, Noto_Sans_Thai } from "next/font/google"
 import { ShellGate } from "@/components/app/shell-gate"
 import { Toaster } from "@/components/ui/toast"
 import { TooltipProvider } from "@/components/ui/tooltip"
 import "./globals.css"
 
-const inter = Inter({ variable: "--font-inter", subsets: ["latin"] })
+// Design System (owner 2026-11-10): Noto Sans ทุกภาษา — EN Noto Sans · TH Noto Sans Thai · JP Noto Sans JP (โหลดเฉพาะ /liff, ดู liff/layout.tsx)
+const latin = Noto_Sans({ variable: "--font-latin", subsets: ["latin"] })
 const thai = Noto_Sans_Thai({ variable: "--font-thai", subsets: ["thai"] })
 // the signature on every invoice / receipt (owner 2026-11-05: Ms Madi, Latin only — so a signature is always an English name)
 const sign = Ms_Madi({ variable: "--font-sign", subsets: ["latin"], weight: "400" })
@@ -19,8 +20,8 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     // LINE's in-app browser (Android) writes safe-area styles onto <html> before React loads — not our markup, so
     // don't flag it as a hydration mismatch (only this element's own attributes are exempt)
-    <html lang="th" className={`${inter.variable} ${thai.variable} ${sign.variable} h-full antialiased`} suppressHydrationWarning>
-      <body className="min-h-full" style={{ fontFamily: "var(--font-inter), var(--font-thai), system-ui, sans-serif" }}>
+    <html lang="th" className={`${latin.variable} ${thai.variable} ${sign.variable} h-full antialiased`} suppressHydrationWarning>
+      <body className="min-h-full" style={{ fontFamily: "var(--font-latin), var(--font-thai), system-ui, sans-serif" }}>
         <TooltipProvider>
           <ShellGate>{children}</ShellGate>
           {/* system feedback (saved / error) — bottom-right; notifications are the Noti, top-right (components/app/noti.tsx) */}
