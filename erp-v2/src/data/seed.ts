@@ -350,6 +350,20 @@ export function buildSeed(now = new Date()): DB {
     if (room) { clashB.roomId = room; sessions.push(clashB); showcaseList.push(clashB) }
   }
 
+  // owner 2026-11-10: a busy day — fill today so the dashboard shows a full day (the past ones pick up attendance /
+  // summaries from the normal history loop below, so the Pulse donut and progress bars are populated too). fit() keeps
+  // every added session clash-free; these are not in the showcase set, so they are treated as ordinary sessions.
+  const demoSubjects = ["คณิต", "อังกฤษ", "วิทย์", "ภาษาไทย"]
+  const demoTeachers = ["u_jo", "u_dai", "u_prae", "u_mint"]
+  const demoStudents = ["stu_1", "stu_2", "stu_3", "stu_4", "stu_5", "stu_6", "stu_10", "stu_11", "stu_12", "stu_13", "stu_14", "stu_15", "stu_16", "stu_17", "stu_18", "stu_19", "stu_20", "stu_21"]
+  for (let i = 0; i < 14; i++) {
+    const startMin = 9 * 60 + i * 40 // 09:00 → ~18:00, spaced 40 min
+    const n = 3 + (i % 4)
+    const kids = Array.from({ length: n }, (_, j) => demoStudents[(i * 3 + j) % demoStudents.length])
+    const x = one(demoSubjects[i % demoSubjects.length], startMin, 60, demoTeachers[i % demoTeachers.length], ["rm_1", "rm_2", "rm_3"][i % 3], [...new Set(kids)])
+    if (fit(x)) sessions.push(x)
+  }
+
   const attendance: Attendance[] = []
   const summaries: LessonSummary[] = []
   const nowMs = now.getTime()

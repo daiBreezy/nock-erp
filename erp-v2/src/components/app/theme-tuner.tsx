@@ -26,6 +26,9 @@ export interface ThemeSettings {
 }
 
 const DEFAULTS: ThemeSettings = { pageBg: "#ffffff", pageBg2: "", cardColor: "#ffffff", cardOpacity: 100, cardBlur: 0, cardRing: 5, primary: "", aiWash: 80 }
+// owner 2026-11-10: 12 one-tap brand colours — click one and the whole system re-themes (every component uses the
+// `primary` token). Semantic colours (green = up, red = urgent, subject colours) stay fixed. "" = the brand default.
+const BRAND_SWATCHES = ["#E11D48", "#DC2626", "#EA580C", "#D97706", "#CA8A04", "#16A34A", "#0D9488", "#0891B2", "#2563EB", "#4F46E5", "#7C3AED", "#DB2777"]
 /** one-click starting points (owner 2026-10-13: white-on-white showed no change, so start from something visible) */
 const PRESETS: { name: string; swatch: string; t: Partial<ThemeSettings> }[] = [
   { name: "ปกติ", swatch: "linear-gradient(135deg,#fff,#f4f4f5)", t: {} },
@@ -156,7 +159,17 @@ export function ThemeTuner() {
       </Group>
 
       <Group title="สีอื่น">
-        <ColorRow label="สีแบรนด์" value={t.primary} optional placeholder="ค่าเดิม" onChange={(primary) => set({ primary })} />
+        {/* owner 2026-11-10: tap a brand colour → the whole system re-themes */}
+        <div className="flex flex-wrap items-center gap-1.5">
+          {BRAND_SWATCHES.map((c) => (
+            <button key={c} type="button" aria-label={`สีแบรนด์ ${c}`} onClick={() => set({ primary: c })}
+              className={cn("size-6 rounded-full ring-1 ring-foreground/10 transition hover:scale-110", (t.primary || "").toLowerCase() === c.toLowerCase() && "ring-2 ring-offset-2 ring-offset-popover ring-foreground")}
+              style={{ background: c }} />
+          ))}
+          <button type="button" aria-label="สีแบรนด์ค่าเดิม" onClick={() => set({ primary: "" })}
+            className={cn("grid size-6 place-items-center rounded-full border border-dashed text-muted-foreground transition hover:bg-muted", !t.primary && "ring-2 ring-offset-2 ring-offset-popover ring-foreground")}><RotateCcwIcon className="size-3" /></button>
+        </div>
+        <ColorRow label="สีแบรนด์ (หรือใส่เอง)" value={t.primary} optional placeholder="ค่าเดิม" onChange={(primary) => set({ primary })} />
         <Slider label="ฝ้าขาวบนการ์ด AI" value={t.aiWash} min={0} max={100} unit="%" onChange={(aiWash) => set({ aiWash })} />
       </Group>
 

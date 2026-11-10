@@ -3076,6 +3076,9 @@ export const AUTO: Record<string, Entry> = {
   "{0} → {1} · {2} คาบในอนาคต": { en: "{0} → {1} · {2} upcoming session(s)", ja: "{0} → {1} · 今後{2}コマ" },
   "กรอกเหตุผลที่เก็บคอร์สเข้าคลัง": { en: "Enter a reason for archiving this course", ja: "このコースをアーカイブする理由を入力" },
   "เก็บคอร์สเข้าคลัง": { en: "Archive course", ja: "コースをアーカイブ" },
+  "สีแบรนด์ {0}": { en: "Brand colour {0}", ja: "ブランドカラー {0}" },
+  "สีแบรนด์ค่าเดิม": { en: "Default brand colour", ja: "既定のブランドカラー" },
+  "สีแบรนด์ (หรือใส่เอง)": { en: "Brand colour (or enter your own)", ja: "ブランドカラー（自分で入力）" },
   // NEGATIVE-ACTIONS.md — UI strings (lists, panels, math gate, transfer)
   "ที่เก็บเข้าคลัง": { en: "Archived", ja: "アーカイブ済み" },
   "เอากลับจากคลัง": { en: "Restore from archive", ja: "アーカイブから復元" },
