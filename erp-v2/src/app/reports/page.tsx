@@ -6,7 +6,7 @@ import { BranchChip, scopeOptions as buildScopeOptions } from "@/components/app/
 import Link from "next/link"
 import { Fragment, Suspense, useEffect, useMemo, useState } from "react"
 import { useSearchParams } from "next/navigation"
-import { InfoIcon, BanknoteIcon, CalendarDaysIcon, ChevronDownIcon, ClockIcon, DownloadIcon, FileSpreadsheetIcon, PrinterIcon, SchoolIcon, SparklesIcon, UsersIcon, UserCheckIcon } from "lucide-react"
+import { InfoIcon, BanknoteIcon, ChevronDownIcon, ClockIcon, DownloadIcon, FileSpreadsheetIcon, PrinterIcon, SchoolIcon, SparklesIcon, UsersIcon, UserCheckIcon } from "lucide-react"
 import { NativeSelect } from "@/components/app/native-select"
 import { StudentSheet } from "@/components/app/student-sheet"
 import { AttentionButton, AttentionDialog } from "@/components/reports/attention-dialog"
@@ -120,7 +120,6 @@ function Reports() {
       <KpiRow>
         <Kpi icon={BanknoteIcon} label={tx("รายได้ · {0}", [periodLabel])} value={fmtNum(d.kpi.revenue)} sub={<><Delta value={d.kpi.revenueChange} /> <span>{tx(COMPARE_LABEL[period])}</span></>} />
         <Kpi icon={UsersIcon} label={tx("นักเรียน Active")} value={fmtNum(d.kpi.active)} sub={<><Delta value={d.kpi.activeChange} /> <span>{tx("vs ต้นช่วง · Pause")} {d.kpi.paused}</span></>} />
-        <Kpi icon={CalendarDaysIcon} label={tx("คาบสัปดาห์นี้")} value={fmtNum(d.kpi.weekSessions)} sub={<span>{tx("ไม่นับคาบที่ยกเลิก")}</span>} />
         <Kpi icon={UserCheckIcon} label={tx("อัตราเข้าเรียน · {0}", [periodLabel])} value={fmtPct(d.kpi.attendance)} sub={<><Delta value={d.kpi.attendanceChange} /> <span>{tx(COMPARE_LABEL[period])}</span> <InfoTip text={tx("อัตราเข้าเรียน = มา ÷ (มา + ลา)")} /></>} />
         <AttentionButton count={d.kpi.attention} onClick={() => setShowAttention(true)} />
       </KpiRow>

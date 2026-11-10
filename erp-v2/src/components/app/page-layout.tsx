@@ -29,13 +29,20 @@ export function PageHeader({ title, description, actions }: { title: React.React
 
 /**
  * Design System › Kpi (2026-11-10): the columns follow the card count so a row never ends with a lone card.
- *   2 → 2 · 3 → 3 · 4 → 2+2 then 4 on desktop · 6 → 2 / 3+3 / 6.  Only 2, 3, 4 or 6 cards are allowed;
+ *   2 → 2 · 3 → 3 · 4 → 2+2 then 4 on desktop · 6 → 2 / 3+3.  Only 2, 3, 4 or 6 cards are allowed;
  *   5 still renders (2 / 3 / 5) but warns in development — trim to 4 or add a 6th.
  */
 export function KpiRow({ children }: { children: React.ReactNode }) {
   const n = Children.toArray(children).length
   if (process.env.NODE_ENV !== "production" && ![0, 2, 3, 4, 6].includes(n)) console.warn(`KpiRow: ${n} cards — the Design System allows 2, 3, 4 or 6`)
-  const cols = n === 2 ? "grid-cols-2" : n === 3 ? "grid-cols-3" : n === 4 ? "grid-cols-2 lg:grid-cols-4" : n === 6 ? "grid-cols-2 sm:grid-cols-3 lg:grid-cols-6" : "grid-cols-2 sm:grid-cols-3 lg:grid-cols-5"
+  // each column is at most 18rem (288px) so cards never stretch wide on big screens; 6 cards stay 3 + 3 so none drops
+  // under the 160px minimum next to the sidebar
+  const cols =
+    n === 2 ? "grid-cols-[repeat(2,minmax(0,18rem))]"
+    : n === 3 ? "grid-cols-3 sm:grid-cols-[repeat(3,minmax(0,18rem))]"
+    : n === 4 ? "grid-cols-[repeat(2,minmax(0,18rem))] lg:grid-cols-[repeat(4,minmax(0,18rem))]"
+    : n === 6 ? "grid-cols-[repeat(2,minmax(0,18rem))] sm:grid-cols-[repeat(3,minmax(0,18rem))]"
+    : "grid-cols-[repeat(2,minmax(0,18rem))] sm:grid-cols-[repeat(3,minmax(0,18rem))] lg:grid-cols-[repeat(5,minmax(0,18rem))]"
   return <div className={cn("grid gap-3", cols)}>{children}</div>
 }
 

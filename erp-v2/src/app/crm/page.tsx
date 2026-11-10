@@ -3,7 +3,7 @@
 import { ListPage, ShowChip, Segmented, SearchBox } from "@/components/app/page-layout"
 import { BranchCode, useBranchScope } from "@/components/app/branch-scope"
 import { useEffect, useState } from "react"
-import { BellRingIcon, CalendarClockIcon, ChevronRightIcon, LayoutGridIcon, PlusIcon, RotateCcwIcon, TableIcon, TrendingUpIcon, UserCheckIcon, UserSearchIcon, UsersIcon } from "lucide-react"
+import { BellRingIcon, CalendarClockIcon, ChevronRightIcon, LayoutGridIcon, PlusIcon, RotateCcwIcon, TableIcon, TrendingUpIcon, UserCheckIcon, UsersIcon } from "lucide-react"
 import { Pill } from "@/components/app/badges"
 import { GradeCell, gradeCompare, Pager, usePage, useSort } from "@/components/app/data-table"
 import { ColumnsMenu, DataTable, type Column } from "@/components/app/data-grid"
@@ -141,7 +141,6 @@ export default function CrmPage() {
         actions={canManage && <Button onClick={() => setOpenLead("new")}><PlusIcon /> เพิ่ม Lead</Button>}
       kpis={<>
         <Kpi icon={UsersIcon} label="Lead ทั้งหมด" value={kpis.total} sub={`${kpis.active} รายกำลังตาม`} />
-        <Kpi icon={UserSearchIcon} label="กำลังตาม" value={kpis.active} tone="sky" sub={activeCount ? "ยังไม่ปิดการขาย" : "เคลียร์หมดแล้ว"} />
         <Kpi
           icon={CalendarClockIcon} label="นัดสอบ/ทดลองต้องดูแล" value={kpis.dueSoon + kpis.overdue} tone={kpis.overdue ? "red" : "amber"}
           emphasis={!!kpis.overdue}

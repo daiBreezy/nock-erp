@@ -4,6 +4,8 @@ import type { Entry } from "./index"
 // translator (lib/screen-translate.ts) and tx(). Curated per-page files override these.
 export const AUTO: Record<string, Entry> = {
   // Design System (2026-11-10): search placeholders + ThemeSettings
+  "ต้องตามเรื่อง": { en: "Needs follow-up", ja: "要フォロー" },
+  "ไม่ผูกครอบครัว": { en: "no family", ja: "家族未登録" },
   "ค้นหาครู / ชั้น / วิชา / ห้อง": { en: "Search teacher / grade / subject / room", ja: "講師・学年・科目・教室を検索" },
   "ค้นหาคอร์ส / วิชา / ระดับชั้น": { en: "Search course / subject / grade", ja: "コース・科目・学年を検索" },
   "ค้นหาครอบครัว / ผู้ปกครอง / เบอร์ / ชื่อลูก": { en: "Search family / parent / phone / child", ja: "家族・保護者・電話・子どもの名前を検索" },

@@ -4,7 +4,7 @@ import { familyShortName } from "@/domain/rules/people"
 import { ListPage, SearchBox } from "@/components/app/page-layout"
 import { Kpi } from "@/components/app/kpi"
 import { useState } from "react"
-import { DownloadIcon, GraduationCapIcon, LogOutIcon, PlusIcon, RefreshCwIcon, SparklesIcon, UnlinkIcon } from "lucide-react"
+import { DownloadIcon, GraduationCapIcon, LogOutIcon, PlusIcon, RefreshCwIcon, SparklesIcon, TriangleAlertIcon, UnlinkIcon } from "lucide-react"
 import { GenderIcon, Pill } from "@/components/app/badges"
 import { NativeSelect } from "@/components/app/native-select"
 import { StudentSheet } from "@/components/app/student-sheet"
@@ -74,7 +74,7 @@ export default function StudentsPage() {
     .filter((r) => !grade || r.s.grade === grade)
     // "exiting" = gave notice, not closed yet (owner 2026-10-14) — a status of its own on top of Active / Renewal …
     .filter((r) => !status || (status === "exiting" ? !!r.ex : r.st === status))
-    .filter((r) => noFamily !== "none" || !r.s.familyId)
+    .filter((r) => (noFamily === "none" ? !r.s.familyId : noFamily === "attention" ? !!r.ex || !r.s.familyId : true))
     .filter((r) => !q || `${r.s.name} ${r.s.nickname} ${r.fam?.name ?? ""} ${r.fam?.parents.map((p) => p.phone).join(" ") ?? ""}`.includes(q))
     .sort((a, b) => {
       // owner 2026-10-14: gave notice first, then packages about to run out — always on top, whatever the sort;
@@ -118,6 +118,8 @@ export default function StudentsPage() {
     fresh: rows.filter((r) => entitlements.filter((e) => e.studentId === r.s.id).map((e) => e.from).sort()[0]?.slice(0, 7) === month).length,
     noFamily: rows.filter((r) => !r.s.familyId).length,
     exiting: rows.filter((r) => r.ex).length,
+    // Design System (owner 2026-11-10): exits + students without a family = one "needs follow-up" card (4 KPIs max)
+    attention: rows.filter((r) => r.ex || !r.s.familyId).length,
   }
   const pick = (v: string) => setStatus(status === v ? "" : v)
 
@@ -168,8 +170,9 @@ export default function StudentsPage() {
         <Kpi icon={GraduationCapIcon} label="กำลังเรียน" value={kpi.active} tone="emerald" onClick={() => pick("active")} active={status === "active"} />
         <Kpi icon={RefreshCwIcon} label="รอต่อคอร์ส" value={kpi.renewal} tone="amber" emphasis={!!(kpi.renewal)} onClick={() => pick("renewal")} active={status === "renewal"} />
         <Kpi icon={SparklesIcon} label="นักเรียนใหม่เดือนนี้" value={kpi.fresh} tone="sky" />
-        <Kpi icon={LogOutIcon} label="แจ้งออก (รอปิดเรื่อง)" value={kpi.exiting} tone="red" emphasis={!!(kpi.exiting)} onClick={() => pick("exiting")} active={status === "exiting"} />
-        <Kpi icon={UnlinkIcon} label="ยังไม่ผูกครอบครัว" value={kpi.noFamily} tone="red" emphasis={!!(kpi.noFamily)} onClick={() => setNoFamily(noFamily ? "" : "none")} active={noFamily === "none"} />
+        <Kpi icon={TriangleAlertIcon} label="ต้องตามเรื่อง" value={kpi.attention} tone="amber" emphasis={!!kpi.attention}
+          sub={<>แจ้งออก {kpi.exiting}{" · "}ไม่ผูกครอบครัว {kpi.noFamily}</>}
+          onClick={() => { setStatus(""); setNoFamily(noFamily === "attention" ? "" : "attention") }} active={noFamily === "attention"} />
       </>}
       search={<SearchBox value={q} onChange={setQ} placeholder="ค้นหาชื่อ / ชื่อเล่น / ครอบครัว / เบอร์" />}
       filters={<>
