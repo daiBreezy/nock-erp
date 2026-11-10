@@ -1,84 +1,73 @@
 "use client"
 
 import Link from "next/link"
-import { BanknoteIcon, CheckIcon, ChevronRightIcon, ClipboardCheckIcon, GraduationCapIcon, RefreshCwIcon, UserSearchIcon, UsersIcon, type LucideIcon } from "lucide-react"
-import { focusHref, TOPIC_COLUMNS, TOPIC_GROUP_LABEL, type Topic, type TopicGroup } from "@/domain/rules/today"
+import { CheckIcon, ChevronRightIcon, ClipboardCheckIcon, UsersIcon, type LucideIcon } from "lucide-react"
+import { focusHref, type Topic, type TopicGroup } from "@/domain/rules/today"
 import { tx } from "@/lib/i18n"
 import { cn } from "@/lib/utils"
 
-const GROUP_ICON: Record<TopicGroup, LucideIcon> = {
-  today: ClipboardCheckIcon, customers: RefreshCwIcon, money: BanknoteIcon, students: UsersIcon, teaching: GraduationCapIcon, sales: UserSearchIcon,
-}
+// NEGATIVE of clutter (owner 2026-11-10 dashboard round): two FIXED boxes that never move — operational work on the
+// left, customer follow-up on the right. Each box keeps its place for every role; a box with nothing shows a tidy
+// "เรียบร้อย" empty state instead of disappearing, so the layout is muscle-memory stable.
+const LEFT_GROUPS: TopicGroup[] = ["today", "teaching", "money"]
+const RIGHT_GROUPS: TopicGroup[] = ["customers", "sales", "students"]
 
-/**
- * "ต้องจัดการ" (owner 2026-10-07): every kind of work as one row with its count — งานประจำวัน, รอต่อคอร์ส, ลีดใหม่
- * and everything Need Attention flags — in two columns. A row opens the page holding that list with ?focus=, which
- * highlights it there. Topics with nothing to do stay listed (ticked) so you can see they were checked.
- */
+/** "ต้องจัดการ" split into two permanent columns (owner 2026-11-10). */
 export function TaskBoard({ topics }: { topics: Topic[] }) {
-  const groups = TOPIC_COLUMNS.flat().filter((g) => topics.some((t) => t.group === g))
-  // two columns: the planned split when both sides have something, else balance by rows
-  let cols = TOPIC_COLUMNS.map((c) => c.filter((g) => groups.includes(g)))
-  if (cols.some((c) => !c.length)) {
-    const size = (g: TopicGroup) => topics.filter((t) => t.group === g).length + 1
-    const total = groups.reduce((n, g) => n + size(g), 0)
-    const left: TopicGroup[] = []
-    let n = 0
-    for (const g of groups) { if (n < total / 2 || !left.length) { left.push(g); n += size(g) } }
-    cols = [left, groups.filter((g) => !left.includes(g))]
-  }
-  const open = topics.filter((t) => t.count > 0)
-  const total = open.reduce((n, t) => n + t.count, 0)
-  // owner 2026-10-13: one card per group (was one big card with two lists)
   return (
-    <section className="space-y-3">
-      <div>
-        <h2 className="text-base font-semibold">{tx("ต้องจัดการ")}</h2>
-        <p className="text-sm text-muted-foreground">{open.length ? tx("{0} งาน ใน {1} หัวข้อ · กดหัวข้อเพื่อไปที่รายการนั้น", [total, open.length]) : tx("ไม่มีงานค้าง")}</p>
-      </div>
-      <div className="grid gap-4 md:grid-cols-2">
-        {cols.map((col, i) => (
-          <div key={i} className="space-y-4">
-            {col.map((g) => <Group key={g} group={g} topics={topics.filter((t) => t.group === g)} />)}
-          </div>
-        ))}
-      </div>
+    <section className="grid items-stretch gap-4 lg:grid-cols-2">
+      <TaskColumn title={tx("ต้องทำวันนี้")} icon={ClipboardCheckIcon} topics={topics.filter((t) => LEFT_GROUPS.includes(t.group))}
+        empty={tx("งานประจำวันเคลียร์หมดแล้ว")} />
+      <TaskColumn title={tx("ติดตามลูกค้า")} icon={UsersIcon} topics={topics.filter((t) => RIGHT_GROUPS.includes(t.group))}
+        empty={tx("ไม่มีลูกค้าที่ต้องติดตามตอนนี้")} />
     </section>
   )
 }
 
-function Group({ group, topics }: { group: TopicGroup; topics: Topic[] }) {
-  const Icon = GROUP_ICON[group]
-  const sum = topics.reduce((n, t) => n + t.count, 0)
-  // work first (biggest on top), done topics after
+/** One fixed box: work rows first (most on top), done topics ticked after; a designed empty state when there is none. */
+function TaskColumn({ title, icon: Icon, topics, empty }: { title: string; icon: LucideIcon; topics: Topic[]; empty: string }) {
+  const open = topics.filter((t) => t.count > 0)
+  const total = open.reduce((n, t) => n + t.count, 0)
   const sorted = [...topics].sort((a, b) => (b.count > 0 ? 1 : 0) - (a.count > 0 ? 1 : 0) || (b.urgent ?? 0) - (a.urgent ?? 0) || b.count - a.count)
   return (
-    <section className="space-y-1 rounded-3xl bg-card p-3 shadow-sm ring-1 ring-foreground/5">
-      <h3 className="flex items-center gap-2 px-2 pb-1.5 text-sm font-semibold">
-        <span className={cn("grid size-8 place-items-center rounded-xl", sum > 0 ? "bg-primary/10 text-primary" : "bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300")}><Icon className="size-4" /></span>
-        {tx(TOPIC_GROUP_LABEL[group])}
-        {sum > 0 ? <span className="ml-auto text-xs font-medium text-muted-foreground tabular-nums">{tx("{0} งาน", [sum])}</span> : <span className="ml-auto text-xs font-normal text-emerald-700">{tx("เรียบร้อย")}</span>}
-      </h3>
-      {sorted.map((t) => {
-        const done = t.count === 0
-        return (
-          <Link key={t.key} href={focusHref(t.href, t.key)} className={cn("group flex items-center gap-3 rounded-xl px-2 py-1.5 hover:bg-muted/60", done && "opacity-55")}>
-            <span className="min-w-0 flex-1">
-              <span className="block truncate text-sm font-medium">{t.title}</span>
-              <span className="block truncate text-xs text-muted-foreground">{t.detail}</span>
-            </span>
-            {done ? (
-              <span className="grid size-6 shrink-0 place-items-center rounded-full bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300"><CheckIcon className="size-3.5" /></span>
-            ) : (
-              <span className="flex shrink-0 items-center gap-1">
-                {!!t.urgent && <span className="rounded-full bg-red-600 px-2 py-0.5 text-xs font-semibold text-white tabular-nums">{tx("ด่วน {0}", [t.urgent])}</span>}
-                <span className={cn("min-w-7 rounded-full px-2 py-0.5 text-center text-xs font-semibold tabular-nums", group === "today" || group === "customers" ? "bg-red-100 text-red-800 dark:bg-red-950 dark:text-red-200" : "bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-200")}>{t.count}</span>
-              </span>
-            )}
-            <ChevronRightIcon className="size-4 shrink-0 text-muted-foreground" />
-          </Link>
-        )
-      })}
+    <section className="flex flex-col rounded-3xl bg-card p-3 shadow-sm ring-1 ring-foreground/5">
+      <h2 className="flex items-center gap-2 px-2 pb-2 text-sm font-semibold">
+        <span className={cn("grid size-8 place-items-center rounded-xl", total > 0 ? "bg-primary/10 text-primary" : "bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300")}><Icon className="size-4" /></span>
+        {title}
+        {total > 0
+          ? <span className="ml-auto text-xs font-medium text-muted-foreground tabular-nums">{tx("{0} งาน", [total])}</span>
+          : <span className="ml-auto text-xs font-normal text-emerald-700">{tx("เรียบร้อย")}</span>}
+      </h2>
+      {/* empty state: no topics at all for this box — keep the box, fill it (owner: อย่าโล่ง) */}
+      {topics.length === 0 ? (
+        <div className="flex flex-1 flex-col items-center justify-center gap-1.5 py-8 text-center">
+          <span className="grid size-9 place-items-center rounded-full bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300"><CheckIcon className="size-4.5" /></span>
+          <p className="text-sm text-muted-foreground">{empty}</p>
+        </div>
+      ) : (
+        <div className="space-y-0.5">
+          {sorted.map((t) => {
+            const done = t.count === 0
+            return (
+              <Link key={t.key} href={focusHref(t.href, t.key)} className={cn("group flex items-center gap-3 rounded-xl px-2 py-1.5 hover:bg-muted/60", done && "opacity-55")}>
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-sm font-medium">{t.title}</span>
+                  <span className="block truncate text-xs text-muted-foreground">{t.detail}</span>
+                </span>
+                {done ? (
+                  <span className="grid size-6 shrink-0 place-items-center rounded-full bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300"><CheckIcon className="size-3.5" /></span>
+                ) : (
+                  <span className="flex shrink-0 items-center gap-1">
+                    {!!t.urgent && <span className="rounded-full bg-red-600 px-2 py-0.5 text-xs font-semibold text-white tabular-nums">{tx("ด่วน {0}", [t.urgent])}</span>}
+                    <span className={cn("min-w-7 rounded-full px-2 py-0.5 text-center text-xs font-semibold tabular-nums", t.group === "today" || t.group === "customers" ? "bg-red-100 text-red-800 dark:bg-red-950 dark:text-red-200" : "bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-200")}>{t.count}</span>
+                  </span>
+                )}
+                <ChevronRightIcon className="size-4 shrink-0 text-muted-foreground" />
+              </Link>
+            )
+          })}
+        </div>
+      )}
     </section>
   )
 }

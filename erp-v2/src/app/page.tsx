@@ -2,11 +2,10 @@
 import { KindChip } from "@/components/calendar/session-meta"
 
 import { Kpi } from "@/components/app/kpi"
-import Link from "next/link"
 import { useState } from "react"
-import { ArrowRightIcon, BanknoteIcon, CheckCircle2Icon, ChartColumnIcon, ChevronRightIcon, GraduationCapIcon, HistoryIcon, SparklesIcon, UserMinusIcon, UserPlusIcon, UserSearchIcon, XCircleIcon } from "lucide-react"
+import { BanknoteIcon, CheckCircle2Icon, ChevronRightIcon, GraduationCapIcon, HistoryIcon, SparklesIcon, UserPlusIcon, UserSearchIcon, XCircleIcon } from "lucide-react"
 import { SessionStateBadge } from "@/components/app/badges"
-import { KpiRow, Page, PageHeader, Segmented } from "@/components/app/page-layout"
+import { KpiRow, Page, PageHeader } from "@/components/app/page-layout"
 import { useBranchScope } from "@/components/app/branch-scope"
 import { SessionSheet } from "@/components/app/session-sheet"
 import { subjectColor } from "@/components/app/subject-color"
@@ -28,10 +27,9 @@ import * as Survey from "@/domain/rules/survey"
 import * as Today from "@/domain/rules/today"
 import type { Topic } from "@/domain/rules/today"
 import type { Attendance, Session } from "@/domain/types"
-import { useBranch, useEntitlements, useLookup, useNow, useQueryState } from "@/lib/hooks"
+import { useBranch, useEntitlements, useLookup, useNow } from "@/lib/hooks"
 import { cn } from "@/lib/utils"
 import { useStore } from "@/store/store"
-import { LEAD_SOURCE_LABEL } from "@/domain/rules/crm"
 import { tx, nm, sj } from "@/lib/i18n"
 
 type RangeKey = "today" | "week" | "month"
@@ -74,8 +72,8 @@ export default function DashboardPage() {
   const [showPast, setShowPast] = useState(false)
 
   const hasOverview = can(me, "dashboard.view")
-  const [rangeParam, setRangeParam] = useQueryState<RangeKey>("range", "today")
-  const range: RangeKey = hasOverview ? rangeParam : "today"
+  // owner 2026-11-10: Dashboard is "today" only now — week/month went to Reports, so the range never changes
+  const range: RangeKey = "today"
   const periodKey = PERIOD_OF[range]
   const periodRange = R.periodRange(periodKey, today)
 
@@ -150,10 +148,6 @@ export default function DashboardPage() {
   const events = hasOverview ? R.studentEvents({ students, entitlements, rows: revRows, today }) : []
   const newCount = R.countEvents(events, periodRange, "new")
   const newPrev = R.countEvents(events, prevRange, "new")
-  const lostCount = R.countEvents(events, periodRange, "lost")
-  const lostPrev = R.countEvents(events, prevRange, "lost")
-  const leadsInRange = leads.filter((l) => R.inRange(l.createdAt.slice(0, 10), periodRange)).length
-  const leadsPrevRange = leads.filter((l) => R.inRange(l.createdAt.slice(0, 10), prevRange)).length
 
   // owner 2026-10-06: same Need Attention rules as Reports (domain/rules/reports.ts needsAttention — the one
   // source of truth), scoped to this branch; from 2026-10-07 they are rows of the "ต้องจัดการ" board
@@ -199,8 +193,6 @@ export default function DashboardPage() {
       {/* owner 2026-10-09: same header and width as every page */}
       <PageHeader title={`${tx("สวัสดี")} ${nm(me.nickname)}`} description={`${fmtDate(today, { weekday: true, year: true })} ${tx("· สาขา")}${nm(branch.name)}`}
         actions={hasOverview && <>
-          <Segmented label={tx("ช่วงเวลา")} value={range} onChange={(v) => setRangeParam(v as RangeKey)}
-            options={[{ value: "today", label: tx("วันนี้") }, { value: "week", label: tx("สัปดาห์นี้") }, { value: "month", label: tx("เดือนนี้") }]} />
           <ActivityButton items={recentActivity} today={today} />
           {scope.select}
         </>} />
@@ -214,11 +206,11 @@ export default function DashboardPage() {
         </KpiRow>
       )}
 
-      {range === "today" ? (
-        <>
-          <div className="grid items-stretch gap-4 lg:grid-cols-5">
-            <DailyBriefCard brief={brief} className="lg:col-span-3" />
-            <Card className="lg:col-span-2">
+      {/* owner 2026-11-10 (dashboard round): fixed-box layout — same boxes in the same place for every role, each with
+          its own empty state. Dashboard is "today" only; week/month analytics moved to Reports. */}
+      <div className="grid items-stretch gap-4 lg:grid-cols-2">
+        <DailyBriefCard brief={brief} />
+        <Card>
               <CardHeader>
                 <CardTitle>{mineOnly ? tx("คาบของฉันวันนี้") : tx("คาบเรียนวันนี้")}</CardTitle>
                 <CardDescription>{todays.length}  {tx("คาบ · สถานะเปลี่ยนตามเวลาจริงอัตโนมัติ")}</CardDescription>
@@ -250,17 +242,9 @@ export default function DashboardPage() {
                 })()}
               </CardContent>
             </Card>
-          </div>
+      </div>
 
-          <TaskBoard topics={topics} />
-        </>
-      ) : (
-        // week/month (dashboard.view only): how the period went, not a task queue — for the operational
-        // detail (alerts, pending renewals) switch back to "วันนี้", for a full breakdown go to Reports
-        <PeriodOverview range={periodRange} rangeLabel={tx(RANGE_LABEL[range])} revRows={revRows.filter((x) => inScope(x.branchId))} events={events}
-          students={students} leads={leads} sessions={branchSessions} allSessions={sessions.filter((x) => inScope(x.branchId))} attendance={attendance}
-          lostCount={lostCount} lostPrev={lostPrev} leadsInRange={leadsInRange} leadsPrevRange={leadsPrevRange} prevRange={prevRange} since={since} compareLabel={tx(R.COMPARE_LABEL[periodKey])} />
-      )}
+      <TaskBoard topics={topics} />
 
       <SessionSheet sessionId={openSessionId} onClose={() => setOpenSessionId(null)} />
     </Page>
@@ -365,125 +349,3 @@ function HeaderProgress({ label, done, total }: { label: string; done: number; t
   )
 }
 
-
-/**
- * Week / month on the dashboard (owner 2026-10-12: "ทำไมไม่มีข้อมูลอะไรขึ้นมาแสดงเลย") — how the period went:
- * revenue day by day, classes held, attendance, who joined, who left and where new leads came from.
- */
-function PeriodOverview({ range, rangeLabel, revRows, events, students, leads, sessions, allSessions, attendance, lostCount, lostPrev, leadsInRange, leadsPrevRange, prevRange, since, compareLabel }: {
-  range: R.Range; rangeLabel: string; revRows: R.RevenueRow[]; events: R.StudentEvent[]
-  students: { id: string; nickname: string; grade: string }[]; leads: { id: string; name: string; source: string; createdAt: string }[]
-  sessions: Session[]; allSessions: Session[]; attendance: Attendance[]
-  lostCount: number; lostPrev: number; leadsInRange: number; leadsPrevRange: number; prevRange: R.Range; since: string | null; compareLabel: string
-}) {
-  const today = toDateStr(useNow())
-  const upTo = range.to < today ? range.to : today
-  const days: string[] = []
-  for (let d = range.from; d <= upTo; d = addDays(d, 1)) days.push(d)
-  const perDay = days.map((d) => ({ d, total: revRows.filter((x) => x.date === d).reduce((a, x) => a + x.total, 0) }))
-  const max = Math.max(1, ...perDay.map((x) => x.total))
-  const revTotal = perDay.reduce((a, x) => a + x.total, 0)
-
-  const inRange = (d: string) => R.inRange(d, range)
-  const held = sessions.filter((x) => inRange(x.date) && x.date <= today)
-  const ahead = sessions.filter((x) => inRange(x.date) && x.date > today)
-  const cancelled = allSessions.filter((x) => inRange(x.date) && x.cancelled)
-  const att = R.attendanceRate(sessions, attendance, { from: range.from, to: upTo })
-  const marks = attendance.filter((a) => held.some((x) => x.id === a.sessionId))
-  const absent = marks.filter((a) => a.status === "absent").length
-
-  const joined = events.filter((e) => e.kind === "new" && inRange(e.date))
-  const left = events.filter((e) => e.kind === "lost" && inRange(e.date))
-  const newLeads = leads.filter((l) => inRange(l.createdAt.slice(0, 10)))
-  const bySource = Object.entries(newLeads.reduce<Record<string, number>>((m, l) => ({ ...m, [l.source]: (m[l.source] ?? 0) + 1 }), {})).sort((a, b) => b[1] - a[1])
-
-  return (
-    <div className="space-y-4">
-      <div className="grid gap-3 sm:grid-cols-3">
-        <Kpi icon={CheckCircle2Icon} label={tx("มาเรียน · {0}", [rangeLabel])} value={att.rate === null ? "—" : `${Math.round(att.rate * 100)}%`} tone="emerald" sub={tx("มา {0} · ลา {1} · ขาด {2}", [att.present, att.leave, absent])} />
-        <Kpi icon={UserMinusIcon} label={tx("นักเรียนหลุด · {0}", [rangeLabel])} value={`−${fmtNum(lostCount)}`} tone={lostCount ? "red" : "emerald"} sub={<span className="flex items-center gap-1"><Delta value={R.change(lostCount, lostPrev, prevRange, since)} invert /> {compareLabel}</span>} />
-        <Kpi icon={UserSearchIcon} label={tx("Lead ใหม่ · {0}", [rangeLabel])} value={fmtNum(leadsInRange)} tone="sky" sub={<span className="flex items-center gap-1"><Delta value={R.change(leadsInRange, leadsPrevRange, prevRange, since)} /> {compareLabel}</span>} />
-      </div>
-
-      <div className="grid gap-4 lg:grid-cols-3">
-        <Card className="lg:col-span-2">
-          <CardHeader><CardTitle>{tx("รายรับรายวัน")}</CardTitle><CardDescription>{fmtMoney(revTotal)} · {perDay.filter((x) => x.total).length} {tx("วันที่มีรับเงิน")}</CardDescription></CardHeader>
-          <CardContent>
-            <div className="flex h-40 items-end gap-1">
-              {perDay.map((x) => (
-                <HoverCard key={x.d}>
-                  <HoverCardTrigger render={<div className="flex h-full min-w-0 flex-1 flex-col justify-end" />}>
-                    <div className={cn("w-full rounded-t-md", x.total ? "bg-violet-500" : "bg-muted", x.d === today && "bg-primary")} style={{ height: `${Math.max(2, (x.total / max) * 100)}%` }} />
-                  </HoverCardTrigger>
-                  <HoverCardContent>{fmtDate(x.d, { weekday: true })} · {fmtMoney(x.total)}</HoverCardContent>
-                </HoverCard>
-              ))}
-            </div>
-            <div className="mt-1 flex gap-1 text-[10px] text-muted-foreground tabular-nums">
-              {perDay.map((x, i) => <span key={x.d} className="min-w-0 flex-1 text-center">{days.length <= 7 ? fmtDate(x.d, { weekday: true }).split(" ")[0] : i % 5 === 0 || x.d === today ? Number(x.d.slice(8)) : ""}</span>)}
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader><CardTitle>{tx("คาบเรียน")}</CardTitle><CardDescription>{rangeLabel}</CardDescription></CardHeader>
-          <CardContent className="space-y-2 text-sm">
-            <p className="flex justify-between"><span className="text-muted-foreground">{tx("เรียนไปแล้ว")}</span><span className="font-medium tabular-nums">{held.length} {tx("คาบ")}</span></p>
-            <p className="flex justify-between"><span className="text-muted-foreground">{tx("ที่เหลือในช่วงนี้")}</span><span className="font-medium tabular-nums">{ahead.length} {tx("คาบ")}</span></p>
-            <p className="flex justify-between"><span className="text-muted-foreground">{tx("ยกเลิก")}</span><span className={cn("font-medium tabular-nums", cancelled.length && "text-red-700")}>{cancelled.length} {tx("คาบ")}</span></p>
-            <p className="flex justify-between"><span className="text-muted-foreground">{tx("นักเรียนที่มาเรียน")}</span><span className="font-medium tabular-nums">{new Set(marks.filter((a) => a.status === "present").map((a) => a.studentId)).size} {tx("คน")}</span></p>
-          </CardContent>
-        </Card>
-      </div>
-
-      <div className="grid gap-4 lg:grid-cols-3">
-        <Card>
-          <CardHeader><CardTitle className="flex items-center gap-2"><UserPlusIcon className="size-4 text-emerald-600" />{tx("นักเรียนใหม่")} <span className="text-muted-foreground">{joined.length}</span></CardTitle></CardHeader>
-          <CardContent><PeopleList students={students} list={joined} empty={tx("ยังไม่มีนักเรียนใหม่ในช่วงนี้")} tone="bg-emerald-500" /></CardContent>
-        </Card>
-        <Card>
-          <CardHeader><CardTitle className="flex items-center gap-2"><UserMinusIcon className="size-4 text-red-600" />{tx("นักเรียนหลุด")} <span className="text-muted-foreground">{left.length}</span></CardTitle></CardHeader>
-          <CardContent><PeopleList students={students} list={left} empty={tx("ไม่มีนักเรียนหลุดในช่วงนี้")} tone="bg-red-500" /></CardContent>
-        </Card>
-        <Card>
-          <CardHeader><CardTitle className="flex items-center gap-2"><UserSearchIcon className="size-4 text-sky-600" />{tx("Lead ใหม่ตามช่องทาง")} <span className="text-muted-foreground">{newLeads.length}</span></CardTitle></CardHeader>
-          <CardContent>
-            {bySource.length === 0 ? <p className="py-3 text-center text-sm text-muted-foreground">{tx("ยังไม่มี Lead ใหม่ในช่วงนี้")}</p> : (
-              <ul className="space-y-2 text-sm">
-                {bySource.map(([src, n]) => (
-                  <li key={src} className="flex items-center gap-2">
-                    <span className="w-24 shrink-0 truncate">{LEAD_SOURCE_LABEL[src as keyof typeof LEAD_SOURCE_LABEL] ?? src}</span>
-                    <span className="h-2 flex-1 overflow-hidden rounded-full bg-muted"><span className="block h-full rounded-full bg-sky-500" style={{ width: `${(n / newLeads.length) * 100}%` }} /></span>
-                    <span className="w-6 text-right tabular-nums">{n}</span>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </CardContent>
-        </Card>
-      </div>
-
-      <Link href="/reports" className="flex items-center justify-center gap-1.5 rounded-xl border border-dashed p-3 text-sm text-muted-foreground hover:bg-muted/40 hover:text-foreground">
-        <ChartColumnIcon className="size-4" />  {tx("ดูรายละเอียดเพิ่มที่ Reports")} <ArrowRightIcon className="size-3.5" />
-      </Link>
-    </div>
-  )
-}
-
-function PeopleList({ students, list, empty, tone }: { students: { id: string; nickname: string; grade: string }[]; list: R.StudentEvent[]; empty: string; tone: string }) {
-  if (list.length === 0) return <p className="py-3 text-center text-sm text-muted-foreground">{empty}</p>
-  return (
-    <ul className="divide-y text-sm">
-      {list.map((e) => {
-        const s = students.find((x) => x.id === e.studentId)
-        return (
-          <li key={`${e.studentId}-${e.date}`} className="flex items-center gap-2 py-1.5">
-            <span className={cn("size-1.5 shrink-0 rounded-full", tone)} />
-            <span className="font-medium">{s?.nickname ?? "?"}</span><span className="text-xs text-muted-foreground">{s?.grade}</span>
-            <span className="ml-auto text-xs text-muted-foreground tabular-nums">{fmtDate(e.date, { weekday: true })}</span>
-          </li>
-        )
-      })}
-    </ul>
-  )
-}

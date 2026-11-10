@@ -92,4 +92,8 @@ export const DASHBOARD: Record<string, Entry> = {
   "แพ็กเกจหมดอายุ {0}": { en: "package ends {0}", ja: "{0}にパッケージ終了" },
   "ใช้คาบหมดแล้ว": { en: "all sessions used", ja: "全コマ消化済み" },
   "{0} สอนชนเวลา {1}": { en: "{0} double-booked at {1}", ja: "{0}は{1}に授業が重複" },
+  // dashboard round (owner 2026-11-10): the two fixed task boxes
+  "ต้องทำวันนี้": { en: "To do today", ja: "今日やること" },
+  "ติดตามลูกค้า": { en: "Follow up customers", ja: "顧客フォロー" },
+  "ไม่มีลูกค้าที่ต้องติดตามตอนนี้": { en: "No customers to follow up right now", ja: "今フォローすべき顧客はいません" },
 }
