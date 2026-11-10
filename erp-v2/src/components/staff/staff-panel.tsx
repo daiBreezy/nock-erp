@@ -4,7 +4,7 @@
 // Summaries · Note · Log). "แก้ไข" switches the same panel to the edit form; "เพิ่มบุคลากร" opens it empty and turns
 // into the information view once saved. Roles / subjects / working days are set per branch.
 import { useMemo, useState } from "react"
-import { PencilIcon, PlusIcon, TrashIcon, UserXIcon } from "lucide-react"
+import { ArrowLeftRightIcon, PencilIcon, PlusIcon, TrashIcon, UserXIcon } from "lucide-react"
 import { PanelMore } from "@/components/app/form-shell"
 import { RangeStepper } from "@/components/app/page-layout"
 import { SessionSheet } from "@/components/app/session-sheet"
@@ -32,6 +32,7 @@ import { useBranch, useEntitlements, useNow } from "@/lib/hooks"
 import { cn } from "@/lib/utils"
 import { useStore } from "@/store/store"
 import { DeactivateDialog } from "./deactivate-dialog"
+import { TransferDialog } from "./transfer-dialog"
 import { Tabs } from "@/components/app/page-layout"
 import { InfoTip } from "@/components/app/info-tip"
 
@@ -72,6 +73,7 @@ function StaffView({ s, onEdit }: { s: Staff; onEdit: () => void }) {
   const reactivate = useStore((st) => st.reactivateStaff)
   const [tab, setTab] = useState<Tab>("info")
   const [leaving, setLeaving] = useState(false)
+  const [transferring, setTransferring] = useState(false)
   // one week for the overview / sessions / summaries tabs, and the session panel opened from them
   const today = toDateStr(useNow())
   const [week, setWeek] = useState(() => mondayOf(today))
@@ -106,14 +108,16 @@ function StaffView({ s, onEdit }: { s: Staff; onEdit: () => void }) {
         <div className="flex shrink-0 items-center gap-2 border-t bg-background px-4 py-3">
           {s.active ? (
             <>
-              {/* owner 2026-10-12: negative actions behind ⋯ */}
+              {/* owner 2026-10-12: negative actions behind ⋯ · NEGATIVE-ACTIONS.md §4: โอนงาน is its own button */}
               <PanelMore items={[{ label: "ปิดบัญชี", icon: UserXIcon, destructive: true, disabled: !deact.ok, title: deact.ok ? undefined : (deact as { error: string }).error, onClick: () => setLeaving(true) }]} />
+              <Button variant="outline" onClick={() => setTransferring(true)}><ArrowLeftRightIcon /> โอนงาน</Button>
               <Button variant="outline" className="ml-auto" onClick={onEdit}><PencilIcon /> แก้ไข</Button>
             </>
           ) : <Button className="ml-auto" onClick={() => report(reactivate(s.id), `เปิดบัญชี ${s.nickname} แล้ว`)}>เปิดบัญชีใหม่</Button>}
         </div>
       )}
       {leaving && <DeactivateDialog s={s} onClose={() => setLeaving(false)} />}
+      {transferring && <TransferDialog s={s} onClose={() => setTransferring(false)} />}
       {/* the session's own panel — check attendance / write summaries right there (owner 2026-10-09) */}
       <SessionSheet sessionId={openSession} onClose={() => setOpenSession(null)} />
     </>

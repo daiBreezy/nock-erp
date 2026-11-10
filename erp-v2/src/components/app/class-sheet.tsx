@@ -2,7 +2,7 @@
 
 import { staffAt } from "@/domain/rules/permissions"
 import { useState } from "react"
-import { PencilIcon, PowerIcon, UserMinusIcon } from "lucide-react"
+import { ArchiveIcon, ArchiveRestoreIcon, PencilIcon, UserMinusIcon } from "lucide-react"
 import { NativeSelect } from "@/components/app/native-select"
 import { StudentSheet } from "@/components/app/student-sheet"
 import { Field } from "@/components/app/student-form"
@@ -53,6 +53,7 @@ function ClassView({ id, onEdit, onClose }: { id: ID; onEdit: () => void; onClos
   const sessions = useStore((s) => s.sessions)
   const me = useStore((s) => s.me())
   const deactivate = useStore((s) => s.deactivateClass)
+  const restore = useStore((s) => s.restoreClass)
   const remove = useStore((s) => s.removeStudentFromClass)
   const branch = useBranch()
   const now = useNow()
@@ -112,19 +113,22 @@ function ClassView({ id, onEdit, onClose }: { id: ID; onEdit: () => void; onClos
         </section>
         {closing && (
           <section className="space-y-2 rounded-2xl border border-red-200 p-3">
-            <p className="text-sm">ปิดคลาสจะ <b>ยกเลิก {future.length} คาบที่ยังไม่เริ่ม</b> และคลาสนี้จะไม่ถูกเสนอให้ย้ายเรียนชดเชยอีก · ประวัติที่เรียนไปแล้วยังอยู่</p>
+            {/* NEGATIVE-ACTIONS.md: archive, never hard-delete — upcoming sessions are soft-cancelled, history stays */}
+            <p className="text-sm">เก็บคลาสเข้าคลังจะ <b>ยกเลิก {future.length} คาบที่ยังไม่เริ่ม</b> และคลาสนี้จะไม่ถูกเสนอให้ย้ายเรียนชดเชยอีก · ประวัติที่เรียนไปแล้วยังอยู่ · เอากลับมาได้</p>
             <Textarea rows={2} placeholder="เหตุผล (จำเป็น)" value={reason} onChange={(e) => setReason(e.target.value)} />
             <div className="flex justify-end gap-2">
-              <Button size="sm" variant="ghost" onClick={() => setClosing(false)}>ไม่ปิด</Button>
-              <Button size="sm" variant="destructive" disabled={!reason.trim()} onClick={() => report(deactivate(k.id, reason), (v) => `ปิดคลาสแล้ว · ยกเลิก ${v.cancelled} คาบ`) && onClose()}>ยืนยันปิดคลาส</Button>
+              <Button size="sm" variant="ghost" onClick={() => setClosing(false)}>ไม่เก็บ</Button>
+              <Button size="sm" variant="destructive" disabled={!reason.trim()} onClick={() => report(deactivate(k.id, reason), (v) => `เก็บคลาสเข้าคลังแล้ว · ยกเลิก ${v.cancelled} คาบ`) && onClose()}>ยืนยันเก็บเข้าคลัง</Button>
             </div>
           </section>
         )}
       </PanelBody>
-      {manage && k.active && (
+      {manage && (
         <PanelFooter>
-          {/* owner 2026-10-12: negative actions behind ⋯ */}
-          <PanelMore items={[{ label: "ปิดคลาส", icon: PowerIcon, destructive: true, onClick: () => setClosing(true) }]} />
+          {/* owner 2026-10-12: negative actions behind ⋯ · NEGATIVE-ACTIONS.md §5: archived class can be restored */}
+          {k.active
+            ? <PanelMore items={[{ label: "เก็บเข้าคลัง", icon: ArchiveIcon, destructive: true, onClick: () => setClosing(true) }]} />
+            : <Button variant="outline" onClick={() => report(restore(k.id), "เอาคลาสกลับจากคลังแล้ว")}><ArchiveRestoreIcon /> เอากลับจากคลัง</Button>}
           <Button variant="outline" className="ml-auto" onClick={onEdit}><PencilIcon /> แก้ไข</Button>
         </PanelFooter>
       )}

@@ -1,15 +1,18 @@
 "use client"
 
 import { useState } from "react"
-import { CopyIcon, MessageCircleIcon, PencilIcon, SmartphoneIcon, UserPlusIcon } from "lucide-react"
+import { ArchiveIcon, ArchiveRestoreIcon, CopyIcon, MessageCircleIcon, PencilIcon, SmartphoneIcon, Trash2Icon, UserPlusIcon } from "lucide-react"
 import { ParentPreview } from "@/components/parent/parent-preview"
 import { toast } from "@/lib/toast"
 import { Pill } from "@/components/app/badges"
+import { MathGate } from "@/components/app/math-gate"
+import { ReasonDialog } from "@/components/app/reason-dialog"
 import { StudentSheet } from "@/components/app/student-sheet"
 import { gradeTone } from "@/components/app/subject-color"
 import { Button } from "@/components/ui/button"
 import { SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet"
-import { EntityPanel, PanelBody, PanelFooter, PanelForm } from "./form-shell"
+import { can } from "@/domain/rules/permissions"
+import { EntityPanel, PanelBody, PanelFooter, PanelForm, PanelMore } from "./form-shell"
 import { FamilyForm } from "./family-form"
 import { FamilyForms } from "@/components/forms/family-forms"
 import { fmtDateTime } from "@/domain/dates"
@@ -35,9 +38,16 @@ export function FamilySheet({ id: target, onClose }: { id: ID | "new" | null; on
   const kids = useStore((s) => s.students).filter((s) => s.familyId === id)
   const genCode = useStore((s) => s.generateLineCode)
   const simulate = useStore((s) => s.simulateLineLink)
+  const me = useStore((s) => s.me())
+  const archive = useStore((s) => s.archiveFamily)
+  const restore = useStore((s) => s.restoreFamily)
+  const del = useStore((s) => s.deleteFamily)
   const now = useNow()
   const [studentOpen, setStudentOpen] = useState<ID | null>(null)
   const [parentApp, setParentApp] = useState(false)
+  const [archiving, setArchiving] = useState(false)
+  const [deleting, setDeleting] = useState(false)
+  const manage = can(me, "family.manage")
   const code = f?.lineCode && lineCodeValid(f, now).ok ? f.lineCode : null
 
   return (
@@ -52,8 +62,11 @@ export function FamilySheet({ id: target, onClose }: { id: ID | "new" | null; on
           ) : f && (
             <>
               <SheetHeader className="shrink-0 border-b pb-3">
-                <SheetTitle className="text-lg">{f.name}</SheetTitle>
-                <SheetDescription>{f.address ? `${f.address}${f.postcode ? ` ${f.postcode}` : ""}` : "ยังไม่มีที่อยู่"}</SheetDescription>
+                <div className="flex items-center gap-2">
+                  <SheetTitle className="text-lg">{f.name}</SheetTitle>
+                  {f.archived && <Pill tone="gray">เก็บเข้าคลัง</Pill>}
+                </div>
+                <SheetDescription>{f.archived ? `เก็บเข้าคลัง · ${f.archived.reason}` : f.address ? `${f.address}${f.postcode ? ` ${f.postcode}` : ""}` : "ยังไม่มีที่อยู่"}</SheetDescription>
               </SheetHeader>
               <PanelBody>
                 <section className="space-y-2">
@@ -100,11 +113,19 @@ export function FamilySheet({ id: target, onClose }: { id: ID | "new" | null; on
                 </section>
                 <FamilyForms family={f} />
               </PanelBody>
-              {/* Bottom = actions (owner 2026-10-09) */}
+              {/* Bottom = actions (owner 2026-10-09) · NEGATIVE-ACTIONS.md §2–3: archive / restore / delete */}
               <PanelFooter>
                 <Button variant="outline" onClick={() => setParentApp(true)}><SmartphoneIcon /> ดูแบบผู้ปกครอง</Button>
-                <Button variant="outline" className="ml-auto" onClick={() => setEditing(true)}><PencilIcon /> แก้ไข</Button>
+                {manage && (f.archived
+                  ? <Button variant="outline" className="ml-auto" onClick={() => report(restore(f.id), "เอาครอบครัวกลับจากคลังแล้ว")}><ArchiveRestoreIcon /> เอากลับจากคลัง</Button>
+                  : <PanelMore className="ml-auto" items={[
+                      { label: "เก็บเข้าคลัง", icon: ArchiveIcon, destructive: true, onClick: () => setArchiving(true) },
+                      { label: "ลบถาวร", icon: Trash2Icon, destructive: true, disabled: kids.length > 0, title: kids.length > 0 ? "ครอบครัวนี้มีนักเรียนผูกอยู่ — เก็บเข้าคลังแทน" : undefined, onClick: () => setDeleting(true) },
+                    ]} />)}
+                <Button variant="outline" className={cn(!manage && "ml-auto")} onClick={() => setEditing(true)}><PencilIcon /> แก้ไข</Button>
               </PanelFooter>
+              <ReasonDialog open={archiving} title={`เก็บครอบครัว “${f.name}” เข้าคลัง`} description="ครอบครัวจะหายจากลิสต์ปกติแต่ประวัติยังอยู่ — เอากลับมาได้" onConfirm={(r) => report(archive(f.id, r), "เก็บครอบครัวเข้าคลังแล้ว")} onClose={() => setArchiving(false)} />
+              <MathGate open={deleting} title={`ลบครอบครัว “${f.name}”`} warning="การลบนี้ย้อนกลับไม่ได้ — ครอบครัวนี้ยังไม่มีนักเรียนผูกอยู่" onConfirm={() => { if (report(del(f.id), "ลบครอบครัวแล้ว")) onClose() }} onClose={() => setDeleting(false)} />
             </>
           )}
       </EntityPanel>

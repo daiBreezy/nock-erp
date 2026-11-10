@@ -307,6 +307,15 @@ export interface SystemSettings {
   summaryDeadlineHours: number
 }
 
+/** Negative-action metadata (NEGATIVE-ACTIONS.md): one shared "เก็บเข้าคลัง (Archived)" status across every entity.
+ *  Set when a record with history is hidden instead of deleted. `active:false` mirrors it for legacy filters; the
+ *  record stays for Report/Log and can be restored. See store `archive*`/`restore*`. */
+export interface Archived {
+  at: string
+  by: ID
+  reason: string
+}
+
 export interface Staff {
   id: ID
   name: string
@@ -319,6 +328,8 @@ export interface Staff {
   branchIds: ID[]
   subjects: string[]
   active: boolean
+  /** NEGATIVE-ACTIONS.md: set when this staff is archived (left the school). Mirrors `active:false`; restorable. */
+  archived?: Archived
   canLogin: boolean
   email?: string
   /** part-time teacher — offered as a substitute when a teacher is on leave (owner 2026-09-30) */
@@ -397,6 +408,9 @@ export interface Course {
   from?: DateStr
   to?: DateStr
   active: boolean
+  /** NEGATIVE-ACTIONS.md: set when the course is archived (เก็บเข้าคลัง). Was sold before, so cannot be hard-deleted.
+   *  Mirrors `active:false` (ปิดขาย = archived under the unified status); restorable. */
+  archived?: Archived
   /** owner 2026-10-13: most students one class of this course may hold — unset = the class type's default (CAPACITY) */
   maxStudents?: number
   /** owner 2026-10-13: a course made for a special period (e.g. Summer) — its invoices + receipts print that period's Memo */
@@ -431,6 +445,9 @@ export interface Klass {
   minutes: number
   startDate: DateStr
   active: boolean
+  /** NEGATIVE-ACTIONS.md: set when the class is archived (had sessions, so kept for history). Mirrors `active:false`;
+   *  upcoming sessions are soft-cancelled (never hard-deleted), the class is restorable. */
+  archived?: Archived
   studentIds: ID[]
   /** students who attend only part of this class every time (standing arrangement) */
   seats?: Record<ID, Seat>
@@ -642,6 +659,9 @@ export interface Family {
   lineUserId?: string
   /** for receipts — optional, most families never fill this in */
   taxInfo?: { customerName: string; taxId: string; address: string }
+  /** NEGATIVE-ACTIONS.md: set when the family is archived (kept because a student has history). Restorable.
+   *  A family with no student attached is hard-deleted (math gate) instead. */
+  archived?: Archived
 }
 
 export type Gender = "male" | "female"
@@ -675,7 +695,7 @@ export interface Student {
   createdAt: string
   createdBranchId: ID
   /** left the school for good — set by hand. (Active/Inactive is automatic: packages + long leave) */
-  archived?: { at: string; by: ID; reason: string }
+  archived?: Archived
   /** leaving (owner 2026-10-05): the parent tells the admin → the admin sends the exit form → closes it */
   exit?: StudentExit
   /** brought in by the import of the old system's students (owner 2026-09-30): they already bought courses with us,

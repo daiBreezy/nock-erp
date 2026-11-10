@@ -1,6 +1,6 @@
 "use client"
 
-import { Page, PageHeader, KpiRow, Toolbar } from "@/components/app/page-layout"
+import { Page, PageHeader, KpiRow, ShowChip, Toolbar } from "@/components/app/page-layout"
 import { BranchCode, useBranchScope } from "@/components/app/branch-scope"
 import { Pager, usePage, useSort } from "@/components/app/data-table"
 import { ColumnsMenu, DataTable, type Column } from "@/components/app/data-grid"
@@ -45,11 +45,15 @@ export default function CoursesPage() {
   const [subjectF, setSubjectF] = useState("")
   const [kindF, setKindF] = useState("")
   const [unitF, setUnitF] = useState("")
+  const [showArchived, setShowArchived] = useState(false) // NEGATIVE-ACTIONS.md §5: ดูที่เก็บเข้าคลัง
   const { sort, toggle } = useSort<SortKey>("subject")
   // the course panel: an id = that course, a Course = a new one being created
   const [panel, setPanel] = useState<ID | Course | null>(null)
 
-  const scoped = courses.filter((c) => scope.ids.includes(c.branchId))
+  // NEGATIVE-ACTIONS.md §5: archived (the unified "เก็บเข้าคลัง" / old ปิดขาย) are hidden until the ShowChip is on
+  const scopedAll = courses.filter((c) => scope.ids.includes(c.branchId))
+  const archivedCount = scopedAll.filter((c) => c.archived).length
+  const scoped = showArchived ? scopedAll : scopedAll.filter((c) => !c.archived)
 
   // per-course stats: enrolled = students holding a still-valid package of the course; revenue = paid invoices
   const stats = useMemo(() => {
@@ -86,18 +90,19 @@ export default function CoursesPage() {
     })
   const pg = usePage(list)
 
+  const activeCourses = scopedAll.filter((c) => !c.archived)
   const kpi = {
-    total: scoped.length,
-    single: scoped.filter((c) => c.kind === "single").length,
-    bundle: scoped.filter((c) => c.kind === "bundle").length,
-    students: new Set(entitlements.filter((e) => e.to >= today && scoped.some((c) => c.id === e.courseId)).map((e) => e.studentId)).size,
-    revenue: scoped.reduce((a, c) => a + stats.get(c.id)!.revenue, 0),
+    total: activeCourses.length,
+    single: activeCourses.filter((c) => c.kind === "single").length,
+    bundle: activeCourses.filter((c) => c.kind === "bundle").length,
+    students: new Set(entitlements.filter((e) => e.to >= today && activeCourses.some((c) => c.id === e.courseId)).map((e) => e.studentId)).size,
+    revenue: activeCourses.reduce((a, c) => a + stats.get(c.id)!.revenue, 0),
   }
 
   const columns: Column<Course>[] = [
     { id: "subject", label: "วิชา", width: "120px", sort: "subject", cell: (c) => <div className="flex gap-1">{c.subjects.map((x) => <span key={x} className={cn("rounded-full px-2 py-0.5 text-xs font-medium", subjectColor(x).chip)}>{x}</span>)}</div> },
     { id: "name", label: "ชื่อคอร์ส", width: "200px", sort: "name", required: true, cell: (c) => (
-      <span className="flex items-center gap-1.5"><span className="font-medium">{c.name}</span>{!c.active && <Pill>ปิดขาย</Pill>}</span>
+      <span className="flex items-center gap-1.5"><span className="font-medium">{c.name}</span>{c.archived && <Pill tone="gray">เก็บเข้าคลัง</Pill>}</span>
     ) },
     { id: "grades", label: "ระดับชั้น", width: "110px", cell: (c) => <div className="flex gap-1" title={c.grades.join(", ")}>{gradeRanges(c.grades).map((g) => <span key={g} className={cn("rounded-md px-1.5 py-0.5 text-xs font-semibold", gradeTone(g))}>{g}</span>)}</div> },
     { id: "kind", label: "ประเภท", width: "100px", sort: "kind", cell: (c) => <Pill tone={c.kind === "bundle" ? "violet" : "gray"}>{c.kind === "bundle" ? <><LayersIcon className="size-3" /> Bundle</> : "Single"}</Pill> },
@@ -135,6 +140,7 @@ export default function CoursesPage() {
         <NativeSelect className="h-9 w-32" value={kindF} onChange={(e) => setKindF(e.target.value)} placeholder="ทุกประเภท" options={[{ value: "single", label: "Single" }, { value: "bundle", label: "Bundle" }]} />
         <NativeSelect className="h-9 w-36" value={unitF} onChange={(e) => setUnitF(e.target.value)} placeholder="ทุกแพ็กเกจ" options={(["hour", "week", "month"] as PriceUnit[]).map((u) => ({ value: u, label: PRICE_UNIT_LABEL[u] }))} />
         {/* owner 2026-10-09: branch chip always last in the row */}
+        {(archivedCount > 0 || showArchived) && <ShowChip label="ที่เก็บเข้าคลัง" on={showArchived} count={archivedCount} onChange={setShowArchived} />}
         <ColumnsMenu id="courses" columns={columns} />
         {scope.select}
       </>}>
@@ -147,7 +153,7 @@ export default function CoursesPage() {
       {/* owner 2026-10-12: subject and course name in their own columns, branch as its code only, package as the badge
           (legend on the header ⓘ) · columns arranged per person (DataTable) */}
       <DataTable id="courses" columns={columns} rows={pg.rows} rowKey={(c) => c.id} onRowClick={(c) => setPanel(c.id)}
-        rowClassName={(c) => cn(panel === c.id && "bg-primary/5", !c.active && "opacity-50")} sort={sort} onSort={toggle} minWidth={1180} empty="ไม่มีคอร์สตามเงื่อนไข" />
+        rowClassName={(c) => cn(panel === c.id && "bg-primary/5", c.archived && "opacity-50")} sort={sort} onSort={toggle} minWidth={1180} empty="ไม่มีคอร์สตามเงื่อนไข" />
       <Pager {...pg} unit="คอร์ส" />
 
       <CoursePanel key={typeof panel === "string" ? panel : panel?.id ?? "none"} target={panel} stats={(id) => stats.get(id)} onClose={() => setPanel(null)} />

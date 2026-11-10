@@ -3,7 +3,7 @@
 import { familyShortName, PARENT_RELATIONS } from "@/domain/rules/people"
 import { useMemo, useState } from "react"
 import { MapPinOffIcon, MessageCircleIcon, PlusIcon, SearchIcon, UnlinkIcon, UsersIcon, UsersRoundIcon } from "lucide-react"
-import { Page, PageHeader, KpiRow, Toolbar } from "@/components/app/page-layout"
+import { Page, PageHeader, KpiRow, ShowChip, Toolbar } from "@/components/app/page-layout"
 import { Kpi } from "@/components/app/kpi"
 import { BranchCodes, useBranchScope } from "@/components/app/branch-scope"
 import { Pill } from "@/components/app/badges"
@@ -34,6 +34,7 @@ export default function FamiliesPage() {
   const [lineF, setLineF] = useState("")
   const [noAddr, setNoAddr] = useState(false)
   const [multi, setMulti] = useState(false) // owner Row 41: families with more than one child
+  const [showArchived, setShowArchived] = useState(false) // NEGATIVE-ACTIONS.md §5: ดูที่เก็บเข้าคลัง
   const [openId, setOpenId] = useState<ID | null>(null)
   const { sort, toggle } = useSort<FamSort>("name")
 
@@ -58,8 +59,11 @@ export default function FamiliesPage() {
   const needle = q.trim().toLowerCase()
   // a family belongs to this branch if one of its children studies here (or it has no children yet)
   const inScope = families.filter((f) => { const k = kidsOf.get(f.id) ?? []; return k.length === 0 || k.some((s) => scope.ids.includes(s.branchId)) })
+  // NEGATIVE-ACTIONS.md §5: hide archived families by default; the ShowChip brings them back so they can be restored
+  const active = inScope.filter((f) => !f.archived)
+  const archivedCount = inScope.length - active.length
   const lineDone = (f: Family) => linkedCount(f) === f.parents.length
-  const rows = inScope
+  const rows = (showArchived ? inScope : active)
     .filter((f) => !multi || (kidsOf.get(f.id)?.length ?? 0) >= 2)
     .filter((f) => !noAddr || (!f.address && !f.postcode))
     .filter((f) => !lineF || (lineF === "linked" ? linkedCount(f) === f.parents.length : linkedCount(f) < f.parents.length))
@@ -76,12 +80,13 @@ export default function FamiliesPage() {
   const pg = usePage(useFocusFirst(rows, focusKeys))
   const orphans = students.filter((s) => scope.ids.includes(s.branchId) && !s.familyId).length
 
-  const kpi = { all: inScope.length, multi: inScope.filter((f) => (kidsOf.get(f.id)?.length ?? 0) >= 2).length, linked: inScope.filter(lineDone).length, missing: inScope.filter((f) => !lineDone(f)).length, noAddr: inScope.filter((f) => !f.address && !f.postcode).length }
+  const kpi = { all: active.length, multi: active.filter((f) => (kidsOf.get(f.id)?.length ?? 0) >= 2).length, linked: active.filter(lineDone).length, missing: active.filter((f) => !lineDone(f)).length, noAddr: active.filter((f) => !f.address && !f.postcode).length }
 
   const columns: Column<Family>[] = [
     { id: "name", label: "ครอบครัว", width: "150px", sort: "name", required: true, className: "font-medium", cell: (f) => (
-      <div className="flex min-w-0 items-center">
-        <EditCell value={f.name} display={familyShortName(f.name)} disabled={!manage} className="flex-1" onSave={(v) => edit(f, { name: v })} />
+      <div className="flex min-w-0 items-center gap-1">
+        <EditCell value={f.name} display={familyShortName(f.name)} disabled={!manage || !!f.archived} className="min-w-0 flex-1" onSave={(v) => edit(f, { name: v })} />
+        {f.archived && <Pill tone="gray">เก็บเข้าคลัง</Pill>}
       </div>
     ) },
     // owner 2026-10-15: every list shows which branch each row comes from
@@ -138,6 +143,7 @@ export default function FamiliesPage() {
           <Input className="pl-8" placeholder="ครอบครัว / ผู้ปกครอง / เบอร์ / ชื่อลูก" value={q} onChange={(e) => setQ(e.target.value)} />
         </div>
         <NativeSelect className="h-9 w-40" value={lineF} onChange={(e) => setLineF(e.target.value)} placeholder="LINE ทั้งหมด" options={[{ value: "linked", label: "ผูก LINE ครบ" }, { value: "missing", label: "ยังผูกไม่ครบ" }]} />
+        {(archivedCount > 0 || showArchived) && <ShowChip label="ที่เก็บเข้าคลัง" on={showArchived} count={archivedCount} onChange={setShowArchived} />}
       </Toolbar>
       {orphans > 0 && <p className="rounded-lg bg-amber-50 p-2.5 text-sm text-amber-900">นักเรียน {orphans} คนยังไม่ผูกครอบครัว — ส่งใบแจ้งหนี้/สรุปทาง LINE ไม่ได้ (ดูได้ที่หน้านักเรียน)</p>}
 

@@ -8,6 +8,7 @@ import {
 } from "lucide-react"
 import { Pill } from "@/components/app/badges"
 import { EntityPanel, PanelBody, PanelFooter, PanelMore } from "@/components/app/form-shell"
+import { MathGate } from "@/components/app/math-gate"
 import { NativeSelect } from "@/components/app/native-select"
 import { HEAD, ROW } from "@/components/app/data-table"
 import { Empty, InfoTip, ShareBar, TopList } from "@/components/reports/charts"
@@ -94,6 +95,7 @@ export function FormBuilder({ form }: { form: FormDef }) {
   const [run, setRun] = useState(0)
   // preview: ถัดไป without filling in (owner 2026-10-22) — switch on to test the checks
   const [checks, setChecks] = useState(false)
+  const [deleting, setDeleting] = useState(false)
   // drag & drop: the field being dragged and the one it's over
   const [drag, setDrag] = useState<ID | null>(null)
   const [over, setOver] = useState<ID | null>(null)
@@ -169,8 +171,11 @@ export function FormBuilder({ form }: { form: FormDef }) {
         <div className="mx-auto flex max-w-7xl flex-wrap items-center gap-2 px-4 py-3 md:px-6">
           <PanelMore items={[
             { label: tx("ทำสำเนาเป็นฟอร์มใหม่"), icon: CopyIcon, onClick: () => { const r = duplicateForm(d.id); if (report(r, tx("ทำสำเนาแล้ว"))) router.push(`/settings/forms/${r.value.id}`) } },
-            !sys && { label: tx("ลบฟอร์ม"), icon: Trash2Icon, destructive: true, onClick: () => { if (confirm(tx("ลบฟอร์ม “{0}”? คำตอบที่เคยได้ยังดูได้ที่หน้าครอบครัว", [d.name]))) { if (report(deleteForm(d.id), tx("ลบฟอร์มแล้ว"))) router.push("/settings?view=system&sys=forms") } } },
+            // NEGATIVE-ACTIONS.md §1: hard delete passes the math gate instead of a plain confirm()
+            !sys && { label: tx("ลบถาวร"), icon: Trash2Icon, destructive: true, onClick: () => setDeleting(true) },
           ]} />
+          <MathGate open={deleting} title={tx("ลบฟอร์ม “{0}”", [d.name])} warning={tx("การลบนี้ย้อนกลับไม่ได้ — คำตอบที่เคยได้ยังดูได้ที่หน้าครอบครัว แต่ตัวฟอร์มจะหายถาวร")}
+            onConfirm={() => { if (report(deleteForm(d.id), tx("ลบฟอร์มแล้ว"))) router.push("/settings?view=system&sys=forms") }} onClose={() => setDeleting(false)} />
           <p className={cn("text-sm", errs.length ? "text-red-600" : "text-muted-foreground")}>
             {errs.length ? tx("ต้องแก้ {0} จุดก่อนบันทึก — {1}", [errs.length, tx(errs[0].message)]) : dirty ? tx("ยังไม่ได้บันทึก") : tx("บันทึกแล้ว")}
           </p>

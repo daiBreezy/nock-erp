@@ -28,6 +28,7 @@ import * as Sum from "@/domain/rules/summaries"
 import * as People from "@/domain/rules/people"
 import * as Forms from "@/domain/rules/forms"
 import * as CourseR from "@/domain/rules/course"
+import * as Neg from "@/domain/rules/negative"
 import * as Notif from "@/domain/rules/notifications"
 import * as Cfg from "@/domain/rules/settings"
 import * as Msg from "@/domain/rules/messages"
@@ -66,7 +67,9 @@ type Store = DB & UIState & {
   createClasses: (base: Omit<Sch.ClassDraft, "weekday" | "start" | "minutes"> & { name: string; grades: string[] }, rows: { weekday: Klass["weekday"]; start: string; minutes: number }[]) => Result<{ classes: number; sessions: number }>
   updateClass: (id: ID, patch: Partial<Pick<Klass, "teacherId" | "coTeacherIds" | "roomId" | "start" | "minutes" | "weekday" | "name">>) => Result<{ changed: number; kept: number }>
   moveSession: (id: ID, target: Sch.MoveTarget, scope: Sch.MoveScope) => Result<{ moved: number; kept: number }>
+  /** NEGATIVE-ACTIONS.md: archive a class (soft-cancel upcoming sessions, keep history). Restorable. */
   deactivateClass: (id: ID, reason: string) => Result<{ cancelled: number }>
+  restoreClass: (id: ID) => Result
   addSession: (s: Omit<Session, "id" | "customized" | "cancelled">) => Result<Session>
   editSession: (id: ID, patch: Partial<Pick<Session, "date" | "start" | "minutes" | "teacherId" | "roomId">>) => Result
   cancelSession: (id: ID, reason: string) => Result<{ students: number }>
@@ -86,6 +89,10 @@ type Store = DB & UIState & {
   /** per-branch toggle on a company holiday: open = the branch works that day */
   setHolidayOpen: (holidayId: ID, branchId: ID, open: boolean, cancelAffected: boolean) => Result<{ affected: number }>
   saveFamily: (f: Family) => Result<Family>
+  /** NEGATIVE-ACTIONS.md §2: a family with student history → archive (restorable); an empty one → hard delete (UI math gate). */
+  archiveFamily: (id: ID, reason: string) => Result
+  restoreFamily: (id: ID) => Result
+  deleteFamily: (id: ID) => Result
   generateLineCode: (familyId: ID) => Result<{ code: string }>
   simulateLineLink: (familyId: ID, parentIndex: number) => Result
   saveStudent: (s: Student) => Result<Student>
@@ -101,10 +108,15 @@ type Store = DB & UIState & {
   saveStaff: (s: Staff) => Result<Staff>
   deactivateStaff: (id: ID, replacementId: ID | null) => Result<{ reassigned: number }>
   reactivateStaff: (id: ID) => Result
+  /** NEGATIVE-ACTIONS.md §4: standalone hand-over A→B (future sessions + classes), without closing A's account. */
+  transferStaffWork: (fromId: ID, toId: ID) => Result<{ reassigned: number }>
   /** Staff panel › Note (owner 2026-10-09) */
   addStaffNote: (staffId: ID, text: string) => Result
   saveCourse: (c: Course) => Result<Course>
   duplicateCourse: (id: ID) => Result<Course>
+  /** NEGATIVE-ACTIONS.md: course that was sold → archive (เก็บเข้าคลัง = the old "ปิดขาย", now needs a reason). Restorable. */
+  archiveCourse: (id: ID, reason: string) => Result<Course>
+  restoreCourse: (id: ID) => Result<Course>
   deleteCourse: (id: ID) => Result<Course>
   saveBranch: (b: Branch) => Result
   addBranch: (input: { name: string; code: string; brand: Branch["brand"]; province: string }) => Result<Branch>
@@ -725,18 +737,30 @@ export const useStore = create<Store>()(
         if (!reason.trim()) return fail("กรอกเหตุผล")
         let cancelled = 0
         const now = s.now()
-        const marked = new Set(s.attendance.map((a) => a.sessionId))
-        // deleted class (owner 2026-09-29): sessions not started are removed for good — ones already holding a mark
-        // (e.g. leave recorded ahead) are kept cancelled for the record; past sessions stay as history
-        const sessions = s.sessions.flatMap((x) => {
-          if (x.classId !== id || Sch.sessionState(x, now) !== "upcoming") return [x]
+        // NEGATIVE-ACTIONS.md §3: archive, never hard-delete. Every upcoming session is SOFT-cancelled (kept with a
+        // reason) — the old code silently removed unmarked ones, which broke Report/history. Past sessions stay as-is.
+        const sessions = s.sessions.map((x) => {
+          if (x.classId !== id || x.cancelled || Sch.sessionState(x, now) !== "upcoming") return x
           cancelled++
-          return marked.has(x.id) ? [{ ...x, cancelled: true, cancelReason: reason }] : []
+          return { ...x, cancelled: true, cancelReason: reason.trim() }
         })
-        set({ classes: s.classes.map((c) => (c.id === id ? { ...c, active: false } : c)), sessions })
+        set({ classes: s.classes.map((c) => (c.id === id ? { ...c, active: false, archived: { at: now.toISOString(), by: s.userId, reason: reason.trim() } } : c)), sessions })
         const k = s.classes.find((c) => c.id === id)
-        log("class", k?.studentIds ?? [], "ลบคลาส", `${k?.name ?? ""} · ลบ ${cancelled} คาบที่ยังไม่เริ่ม · ${reason.trim()}`)
+        log("class", k?.studentIds ?? [], "เก็บคลาสเข้าคลัง", `${k?.name ?? ""} · ยกเลิก ${cancelled} คาบที่ยังไม่เริ่ม · ${reason.trim()}`)
         return { ok: true, value: { cancelled } }
+      },
+
+      // NEGATIVE-ACTIONS.md §5: bring an archived class back. Soft-cancelled sessions stay cancelled (history) — the
+      // admin regenerates the schedule from the calendar afterwards.
+      restoreClass: (id) => {
+        const s = get()
+        const perm = requirePerm(s.me(), "class.manage")
+        if (!perm.ok) return perm
+        const k = s.classes.find((c) => c.id === id)
+        if (!k) return fail("ไม่พบคลาส")
+        set({ classes: s.classes.map((c) => (c.id === id ? { ...c, active: true, archived: undefined } : c)) })
+        log("class", k.studentIds, "เอาคลาสกลับจากคลัง", `${k.name} · ตั้งคาบใหม่ได้จากปฏิทิน`)
+        return OK
       },
 
       addSession: (input) => {
@@ -954,6 +978,42 @@ export const useStore = create<Store>()(
         return { ok: true, value: clean }
       },
 
+      // NEGATIVE-ACTIONS.md §2–3: Family had no negative action at all. A family with any student (archived counts) is
+      // kept — archive it; a truly empty family can be hard-deleted (UI puts the math gate before this call).
+      archiveFamily: (id, reason) => {
+        const s = get()
+        const perm = requirePerm(s.me(), "family.manage")
+        if (!perm.ok) return perm
+        if (!reason.trim()) return fail("กรอกเหตุผลที่เก็บครอบครัวนี้เข้าคลัง")
+        const fam = s.families.find((x) => x.id === id)
+        if (!fam) return fail("ไม่พบครอบครัว")
+        set({ families: s.families.map((x) => (x.id === id ? { ...x, archived: { at: s.now().toISOString(), by: s.userId, reason: reason.trim() } } : x)) })
+        log("profile", [], "เก็บครอบครัวเข้าคลัง", `${fam.name} · ${reason.trim()}`)
+        return OK
+      },
+
+      restoreFamily: (id) => {
+        const s = get()
+        const perm = requirePerm(s.me(), "family.manage")
+        if (!perm.ok) return perm
+        set({ families: s.families.map((x) => (x.id === id ? { ...x, archived: undefined } : x)) })
+        return OK
+      },
+
+      deleteFamily: (id) => {
+        const s = get()
+        const perm = requirePerm(s.me(), "family.manage")
+        if (!perm.ok) return perm
+        const fam = s.families.find((x) => x.id === id)
+        if (!fam) return fail("ไม่พบครอบครัว")
+        // no dead-ends: a family with any student (even archived) cannot be deleted — point to archive instead
+        const blocked = Neg.canDeleteFamily(id, s.students)
+        if (blocked) return fail(blocked)
+        set({ families: s.families.filter((x) => x.id !== id) })
+        log("profile", [], "ลบครอบครัว", fam.name)
+        return OK
+      },
+
       generateLineCode: (familyId) => {
         const s = get()
         const perm = requirePerm(s.me(), "family.manage")
@@ -1122,10 +1182,33 @@ export const useStore = create<Store>()(
           coTeacherIds: x.coTeacherIds.filter((c) => c !== id && c !== replacementId),
         })
         set({
-          staff: s.staff.map((x) => (x.id === id ? { ...x, active: false } : x)),
+          staff: s.staff.map((x) => (x.id === id ? { ...x, active: false, archived: { at: s.now().toISOString(), by: s.userId, reason: "ปิดบัญชีพนักงาน (ออกจากงาน)" } } : x)),
           sessions: s.sessions.map((x) => (ids.has(x.id) ? { ...x, ...swap(x) } : x)),
           classes: s.classes.map((c) => (c.teacherId === id || c.coTeacherIds.includes(id) ? { ...c, ...swap(c) } : c)),
         })
+        return { ok: true, value: { reassigned: future.length } }
+      },
+
+      // NEGATIVE-ACTIONS.md §4: hand over A→B as its own action — reassign every future session + class, A stays active.
+      transferStaffWork: (fromId, toId) => {
+        const s = get()
+        const perm = requirePerm(s.me(), "staff.manage")
+        if (!perm.ok) return perm
+        if (fromId === toId) return fail("เลือกผู้รับงานคนอื่น")
+        const from = s.staff.find((x) => x.id === fromId)
+        const to = s.staff.find((x) => x.id === toId)
+        if (!from || !to) return fail("ไม่พบพนักงาน")
+        const future = People.futureSessionsOf(fromId, s.sessions, toDateStr(s.now()))
+        const ids = new Set(future.map((x) => x.id))
+        const swap = (x: { teacherId: ID | null; coTeacherIds: ID[] }) => ({
+          teacherId: x.teacherId === fromId ? toId : x.teacherId,
+          coTeacherIds: x.coTeacherIds.map((c) => (c === fromId ? toId : c)).filter((c, i, a) => a.indexOf(c) === i),
+        })
+        set({
+          sessions: s.sessions.map((x) => (ids.has(x.id) ? { ...x, ...swap(x) } : x)),
+          classes: s.classes.map((c) => (c.teacherId === fromId || c.coTeacherIds.includes(fromId) ? { ...c, ...swap(c) } : c)),
+        })
+        log("class", [], "โอนงานครู", `${from.nickname} → ${to.nickname} · ${future.length} คาบในอนาคต`)
         return { ok: true, value: { reassigned: future.length } }
       },
 
@@ -1133,7 +1216,7 @@ export const useStore = create<Store>()(
         const s = get()
         const perm = requirePerm(s.me(), "staff.manage")
         if (!perm.ok) return perm
-        set({ staff: s.staff.map((x) => (x.id === id ? { ...x, active: true } : x)) })
+        set({ staff: s.staff.map((x) => (x.id === id ? { ...x, active: true, archived: undefined } : x)) })
         return OK
       },
 
@@ -1160,6 +1243,31 @@ export const useStore = create<Store>()(
         const copy: Course = { ...src, id: uid("co"), name: `${src.name} (สำเนา)` }
         set({ courses: [...s.courses, copy] })
         return { ok: true, value: copy }
+      },
+
+      // NEGATIVE-ACTIONS.md: course that was sold → เก็บเข้าคลัง (the unified status; replaces the old active-only "ปิดขาย").
+      archiveCourse: (id, reason) => {
+        const s = get()
+        const perm = requirePerm(s.me(), "course.manage")
+        if (!perm.ok) return perm
+        if (!reason.trim()) return fail("กรอกเหตุผลที่เก็บคอร์สเข้าคลัง")
+        const course = s.courses.find((c) => c.id === id)
+        if (!course) return fail("ไม่พบคอร์ส")
+        const next: Course = { ...course, active: false, archived: { at: s.now().toISOString(), by: s.userId, reason: reason.trim() } }
+        set({ courses: s.courses.map((c) => (c.id === id ? next : c)) })
+        log("profile", [], "เก็บคอร์สเข้าคลัง", `${course.name} · ${reason.trim()}`)
+        return { ok: true, value: next }
+      },
+
+      restoreCourse: (id) => {
+        const s = get()
+        const perm = requirePerm(s.me(), "course.manage")
+        if (!perm.ok) return perm
+        const course = s.courses.find((c) => c.id === id)
+        if (!course) return fail("ไม่พบคอร์ส")
+        const next: Course = { ...course, active: true, archived: undefined }
+        set({ courses: s.courses.map((c) => (c.id === id ? next : c)) })
+        return { ok: true, value: next }
       },
 
       // owner 2026-11-10 (sheet row 22): delete a course added by mistake — only when nothing has ever used it

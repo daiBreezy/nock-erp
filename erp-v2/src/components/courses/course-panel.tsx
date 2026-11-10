@@ -3,9 +3,11 @@
 // Course side panel (owner 2026-10-09): click a course → its information; แก้ไข switches the same panel to the form;
 // สร้างคอร์ส opens it empty and turns into the information view once saved. Header · Body · Bottom like every panel.
 import { useState } from "react"
-import { CalendarIcon, ClockIcon, CopyIcon, DoorOpenIcon, LayersIcon, PencilIcon, PowerIcon, Trash2Icon } from "lucide-react"
+import { ArchiveIcon, ArchiveRestoreIcon, CalendarIcon, ClockIcon, CopyIcon, DoorOpenIcon, LayersIcon, PencilIcon, Trash2Icon } from "lucide-react"
 import { Pill } from "@/components/app/badges"
 import { InfoTip } from "@/components/app/info-tip"
+import { MathGate } from "@/components/app/math-gate"
+import { ReasonDialog } from "@/components/app/reason-dialog"
 import { EntityPanel, PanelBody, PanelFooter, PanelForm, PanelMore } from "@/components/app/form-shell"
 import { PackageBadge } from "@/components/app/package-badge"
 import { gradeTone, subjectColor } from "@/components/app/subject-color"
@@ -62,9 +64,12 @@ function CourseView({ c, st, onEdit, onClose }: { c: Course; st?: CourseStats; o
   const entitlements = useStore((s) => s.entitlements)
   const invoices = useStore((s) => s.invoices)
   const branches = useStore((s) => s.branches)
-  const save = useStore((s) => s.saveCourse)
+  const archive = useStore((s) => s.archiveCourse)
+  const restore = useStore((s) => s.restoreCourse)
   const duplicate = useStore((s) => s.duplicateCourse)
   const del = useStore((s) => s.deleteCourse)
+  const [archiving, setArchiving] = useState(false)
+  const [deleting, setDeleting] = useState(false)
   const L = useLookup()
   const manage = can(me, "course.manage")
   const br = branches.find((b) => b.id === c.branchId)
@@ -83,7 +88,7 @@ function CourseView({ c, st, onEdit, onClose }: { c: Course; st?: CourseStats; o
         </div>
         <div className="flex flex-wrap items-center gap-1">
           <Pill tone={c.kind === "bundle" ? "violet" : "gray"}>{c.kind === "bundle" ? <><LayersIcon className="size-3" /> Bundle</> : "Single"}</Pill>
-          <Pill tone={c.active ? "green" : "gray"}>{c.active ? "เปิดขาย" : "ปิดขาย"}</Pill>
+          <Pill tone={c.active ? "green" : "gray"}>{c.active ? "เปิดขาย" : "เก็บเข้าคลัง"}</Pill>
           <PackageBadge course={c} />
         </div>
       </SheetHeader>
@@ -124,10 +129,15 @@ function CourseView({ c, st, onEdit, onClose }: { c: Course; st?: CourseStats; o
         <PanelFooter>
           {/* owner 2026-10-12: negative actions behind ⋯ */}
           <PanelMore items={[
-            { label: c.active ? "ปิดขาย" : "เปิดขายอีกครั้ง", icon: PowerIcon, destructive: c.active, onClick: () => report(save({ ...c, active: !c.active }), c.active ? "ปิดขายคอร์สแล้ว" : "เปิดขายคอร์สแล้ว") },
-            // owner 2026-11-10 (sheet row 22): ลบคอร์สที่เพิ่มผิด — เปิดได้เฉพาะคอร์สที่ไม่เคยมีใครซื้อ/ไม่อยู่ในใบแจ้งหนี้/ไม่มีคลาสผูก
-            { label: "ลบคอร์ส", icon: Trash2Icon, destructive: true, disabled: !!delBlock, title: delBlock ?? undefined, onClick: () => { if (confirm(`ลบคอร์ส “${c.name}”? การลบนี้ย้อนกลับไม่ได้`)) { if (report(del(c.id), "ลบคอร์สแล้ว")) onClose() } } },
+            // NEGATIVE-ACTIONS.md: unified status — "ปิดขาย" is now เก็บเข้าคลัง (needs a reason); restore brings it back
+            c.active
+              ? { label: "เก็บเข้าคลัง", icon: ArchiveIcon, destructive: true, onClick: () => setArchiving(true) }
+              : { label: "เอากลับจากคลัง", icon: ArchiveRestoreIcon, onClick: () => report(restore(c.id), "เอาคอร์สกลับมาเปิดขายแล้ว") },
+            // sheet row 22: ลบคอร์สที่เพิ่มผิด — เปิดได้เฉพาะคอร์สที่ไม่เคยมีใครซื้อ/ไม่อยู่ในใบแจ้งหนี้/ไม่มีคลาสผูก · ผ่านด่านเลข
+            { label: "ลบถาวร", icon: Trash2Icon, destructive: true, disabled: !!delBlock, title: delBlock ?? undefined, onClick: () => setDeleting(true) },
           ]} />
+          <ReasonDialog open={archiving} title={`เก็บคอร์ส “${c.name}” เข้าคลัง`} description="คอร์สจะหายจากลิสต์ปกติแต่ประวัติยังอยู่ — เอากลับมาได้" onConfirm={(r) => report(archive(c.id, r), "เก็บคอร์สเข้าคลังแล้ว")} onClose={() => setArchiving(false)} />
+          <MathGate open={deleting} title={`ลบคอร์ส “${c.name}”`} warning="การลบนี้ย้อนกลับไม่ได้ — คอร์สนี้ยังไม่เคยมีใครซื้อ" onConfirm={() => { if (report(del(c.id), "ลบคอร์สแล้ว")) onClose() }} onClose={() => setDeleting(false)} />
           <Button variant="outline" className="ml-auto" onClick={() => report(duplicate(c.id), "ทำสำเนาคอร์สแล้ว — แก้ชื่อ/ระดับชั้นต่อได้")}><CopyIcon /> ทำสำเนา</Button>
           <Button variant="outline" onClick={onEdit}><PencilIcon /> แก้ไข</Button>
         </PanelFooter>

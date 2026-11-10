@@ -89,12 +89,12 @@ export interface MoreItem { label: ReactNode; icon?: ComponentType; onClick: () 
  * ปิดขาย, ปิดคลาส, ยกเลิกใบ …) lives here — nothing red sits next to the main buttons, so it can't be hit by mistake.
  * Renders nothing when there is nothing to show.
  */
-export function PanelMore({ items }: { items: (MoreItem | false | null | undefined)[] }) {
+export function PanelMore({ items, className }: { items: (MoreItem | false | null | undefined)[]; className?: string }) {
   const list = items.filter(Boolean) as MoreItem[]
   if (!list.length) return null
   return (
     <DropdownMenu>
-      <DropdownMenuTrigger render={<Button size="icon" variant="outline" className="rounded-full" aria-label="เพิ่มเติม" />}><EllipsisIcon /></DropdownMenuTrigger>
+      <DropdownMenuTrigger render={<Button size="icon" variant="outline" className={cn("rounded-full", className)} aria-label="เพิ่มเติม" />}><EllipsisIcon /></DropdownMenuTrigger>
       <DropdownMenuContent align="start" side="top" className="w-52">
         {list.map((it, i) => {
           const Icon = it.icon
