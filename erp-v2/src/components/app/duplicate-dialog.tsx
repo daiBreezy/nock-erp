@@ -33,7 +33,7 @@ export function DuplicateDialog<T extends { id: string }>({ title, description, 
             <li key={h.record.id} className="flex items-center gap-3 rounded-2xl border p-3">
               <div className="min-w-0 flex-1 space-y-1">
                 <div className="text-sm">{render(h.record)}</div>
-                <div className="flex flex-wrap gap-1">{h.reasons.map((r) => <span key={r} className="rounded-full bg-amber-100 px-2 py-0.5 text-[11px] text-amber-900">{r}</span>)}</div>
+                <div className="flex flex-wrap gap-1">{h.reasons.map((r) => <span key={r} className="rounded-full bg-amber-100 px-2 py-0.5 text-2xs text-amber-900">{r}</span>)}</div>
               </div>
               <Button size="sm" variant="outline" onClick={() => onMerge(h.record)}><MergeIcon /> {mergeLabel}</Button>
             </li>

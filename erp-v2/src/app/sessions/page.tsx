@@ -66,11 +66,11 @@ export default function SessionsPage() {
   return (
     <Page>
       <PageHeader title="คาบเรียน & เช็คชื่อ" description="คาบที่ต้องเช็คชื่อและเขียนสรุป — กดคาบเพื่อเปิดทำงาน" />
-      <KpiRow className="sm:grid-cols-4">
-        <Kpi compact icon={CalendarDaysIcon} label="คาบในช่วงนี้" value={withState.filter(({ w }) => w.state !== "cancelled").length} onClick={() => setWork(null)} />
-        <Kpi compact icon={ClipboardCheckIcon} label="รอเช็คชื่อ" value={counts.needs_attendance ?? 0} tone="red" valueClassName={counts.needs_attendance ? "text-red-700" : undefined} onClick={() => pick("needs_attendance")} active={work === "needs_attendance"} />
-        <Kpi compact icon={PenLineIcon} label="รอสรุป" value={counts.needs_summary ?? 0} tone="amber" valueClassName={counts.needs_summary ? "text-amber-700" : undefined} onClick={() => pick("needs_summary")} active={work === "needs_summary"} />
-        <Kpi compact icon={CircleCheckIcon} label="เสร็จแล้ว" value={counts.done ?? 0} tone="emerald" onClick={() => pick("done")} active={work === "done"} />
+      <KpiRow>
+        <Kpi icon={CalendarDaysIcon} label="คาบในช่วงนี้" value={withState.filter(({ w }) => w.state !== "cancelled").length} onClick={() => setWork(null)} />
+        <Kpi icon={ClipboardCheckIcon} label="รอเช็คชื่อ" value={counts.needs_attendance ?? 0} tone="red" emphasis={!!(counts.needs_attendance)} onClick={() => pick("needs_attendance")} active={work === "needs_attendance"} />
+        <Kpi icon={PenLineIcon} label="รอสรุป" value={counts.needs_summary ?? 0} tone="amber" emphasis={!!(counts.needs_summary)} onClick={() => pick("needs_summary")} active={work === "needs_summary"} />
+        <Kpi icon={CircleCheckIcon} label="เสร็จแล้ว" value={counts.done ?? 0} tone="emerald" onClick={() => pick("done")} active={work === "done"} />
       </KpiRow>
       <Toolbar>{period.control}</Toolbar>
       {/* owner 2026-10-13: search left · filters right (subject · teacher · status · branch last) */}
@@ -100,7 +100,7 @@ export default function SessionsPage() {
               return (
                 <SessionLine key={s.id} s={s} onOpen={() => setOpenId(s.id)} focus={w.state === "needs_attendance" ? "unmarked" : undefined}
                   className={cn(mine && "bg-primary/[0.04]")}
-                  title={<>{mine && <span className="mr-1.5 rounded-full bg-primary/15 px-1.5 py-px align-middle text-[10px] font-semibold text-primary">ฉัน</span>}{classes.find((k) => k.id === s.classId)?.name ?? s.subject}<KindChip s={s} klass={classes.find((k) => k.id === s.classId)} className="ml-2" />{scope.multi && <span className="ml-2 align-middle"><BranchCode code={scope.code(s.branchId)} /></span>}</>}
+                  title={<>{mine && <span className="mr-1.5 rounded-full bg-primary/15 px-1.5 py-px align-middle text-2xs font-semibold text-primary">ฉัน</span>}{classes.find((k) => k.id === s.classId)?.name ?? s.subject}<KindChip s={s} klass={classes.find((k) => k.id === s.classId)} className="ml-2" />{scope.multi && <span className="ml-2 align-middle"><BranchCode code={scope.code(s.branchId)} /></span>}</>}
                   sub={<><span className={cn(mine ? "font-medium text-primary" : t.missing && "text-amber-700")}>{t.label}</span> · {L.room(s.roomId)} · {s.studentIds.length} คน</>}
                   status={<WorkChip w={w} students={s.studentIds.length} />} />
               )

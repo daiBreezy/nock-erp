@@ -325,14 +325,14 @@ export default function InboxPage() {
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center justify-between gap-1">
                     <span className={cn("truncate text-sm", c.unread ? "font-semibold" : "font-medium")}>{c.name}</span>
-                    <span className="shrink-0 text-[10px] text-muted-foreground">{lm ? fmtDateTime(lm.at).split(" ")[1] : ""}</span>
+                    <span className="shrink-0 text-2xs text-muted-foreground">{lm ? fmtDateTime(lm.at).split(" ")[1] : ""}</span>
                   </div>
                   <div className="mt-0.5 flex items-center gap-1">
-                    {isLive(c.id) && <Pill tone="blue" className="px-1.5 py-0 text-[9px]"><RadioIcon className="size-2.5" /> LIVE</Pill>}
-                    <Pill tone={type === "customer" ? "green" : type === "lead" ? "amber" : "gray"} className="px-1.5 py-0 text-[9px]">{CONVERSATION_TYPE_LABEL[type]}</Pill>
+                    {isLive(c.id) && <Pill tone="blue" className="px-1.5 py-0 text-2xs"><RadioIcon className="size-2.5" /> LIVE</Pill>}
+                    <Pill tone={type === "customer" ? "green" : type === "lead" ? "amber" : "gray"} className="px-1.5 py-0 text-2xs">{CONVERSATION_TYPE_LABEL[type]}</Pill>
                     <span className="truncate text-xs text-muted-foreground">{lm?.text ?? "—"}</span>
                   </div>
-                  <div className="mt-0.5 text-[10px] text-muted-foreground">{c.assigneeId ? staff.find((s) => s.id === c.assigneeId)?.nickname : "ยังไม่มอบหมาย"}</div>
+                  <div className="mt-0.5 text-2xs text-muted-foreground">{c.assigneeId ? staff.find((s) => s.id === c.assigneeId)?.nickname : "ยังไม่มอบหมาย"}</div>
                 </div>
               </button>
             )
@@ -494,7 +494,7 @@ export default function InboxPage() {
                     placeholder="พิมพ์ตอบผู้ปกครอง… (// สำหรับโน้ตภายใน)" className={cn("max-h-40 min-h-9 flex-1", draft ? "field-sizing-content" : "h-9 overflow-hidden whitespace-nowrap", "resize-none bg-transparent px-1 py-2 text-sm outline-none placeholder:text-muted-foreground")} />
                   <Button size="icon" className="rounded-full" onClick={submit} disabled={!draft.trim() || sending} aria-label={sending ? "กำลังส่ง…" : "ส่ง"}>{sending ? <Loader2Icon className="animate-spin" /> : <ArrowUpIcon />}</Button>
                 </div>
-                <div className="flex items-center justify-between px-3 text-[11px] text-muted-foreground">
+                <div className="flex items-center justify-between px-3 text-2xs text-muted-foreground">
                   <span>พิมพ์ <code className="rounded bg-muted px-1">{"//"}</code> ขึ้นต้น = โน้ตภายใน ผู้ปกครองไม่เห็น</span>
                   {isLive(selected.id) ? (
                     <span className="inline-flex items-center gap-1 text-sky-700"><RadioIcon className="size-3" /> ข้อความไหลจาก LINE จริง — sync ทุก 4 วิ</span>
@@ -576,7 +576,7 @@ export default function InboxPage() {
 
 /** why a menu item is greyed out — small, on the right, never wraps the label */
 function Hint({ children }: { children: React.ReactNode }) {
-  return <span className="ml-auto pl-3 text-[10px] font-normal">{children}</span>
+  return <span className="ml-auto pl-3 text-2xs font-normal">{children}</span>
 }
 
 /** ✓ the form already went to this chat — an icon only (owner 2026-11-06); the date on hover; the item stays clickable to send it again */

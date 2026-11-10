@@ -35,6 +35,7 @@ import { DeactivateDialog } from "./deactivate-dialog"
 import { TransferDialog } from "./transfer-dialog"
 import { Tabs } from "@/components/app/page-layout"
 import { InfoTip } from "@/components/app/info-tip"
+import { Empty } from "@/components/app/empty"
 
 const WEEK: Weekday[] = [1, 2, 3, 4, 5, 6, 0]
 type Tab = "info" | "sessions" | "summaries" | "notes" | "log"
@@ -144,9 +145,9 @@ function useWeek(teacherId: ID, week: string) {
 function Stat({ label, value, sub, tone }: { label: string; value: React.ReactNode; sub?: React.ReactNode; tone?: string }) {
   return (
     <div className="flex-1 px-2 text-center">
-      <p className="text-[11px] text-muted-foreground">{label}</p>
+      <p className="text-2xs text-muted-foreground">{label}</p>
       <p className={cn("text-lg font-semibold tabular-nums", tone)}>{value}</p>
-      {sub && <p className="text-[11px] text-muted-foreground">{sub}</p>}
+      {sub && <p className="text-2xs text-muted-foreground">{sub}</p>}
     </div>
   )
 }
@@ -330,7 +331,7 @@ function SummariesTab({ s, week, onOpen }: { s: Staff; week: string; onOpen: (id
                   <span className="text-xs text-muted-foreground tabular-nums">{fmtDate(r.session.date, { weekday: true })} {r.session.start}</span>
                   <span className="truncate">{name(r.session)}</span>
                   <span className="text-right text-xs tabular-nums">{r.written}/{r.needed}</span>
-                  <span className="flex justify-end"><span className={cn("rounded-full px-2 py-0.5 text-[11px] whitespace-nowrap", state.c)}>{state.t}</span></span>
+                  <span className="flex justify-end"><span className={cn("rounded-full px-2 py-0.5 text-2xs whitespace-nowrap", state.c)}>{state.t}</span></span>
                 </button>
               </li>
             )
@@ -384,9 +385,6 @@ function LogTab({ s }: { s: Staff }) {
   )
 }
 
-function Empty({ text }: { text: string }) {
-  return <p className="rounded-2xl border border-dashed p-6 text-center text-sm text-muted-foreground">{text}</p>
-}
 
 // ---------------- edit ----------------
 

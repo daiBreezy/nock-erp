@@ -94,9 +94,9 @@ function CourseView({ c, st, onEdit, onClose }: { c: Course; st?: CourseStats; o
       </SheetHeader>
       <PanelBody>
         <div className="flex divide-x rounded-2xl bg-muted/50 py-2 text-center">
-          <div className="flex-1"><p className="text-[11px] text-muted-foreground">นักเรียนที่เรียนอยู่</p><p className="text-lg font-semibold tabular-nums">{st?.students ?? 0}</p></div>
-          <div className="flex-1"><p className="text-[11px] text-muted-foreground">คลาสที่ผูก</p><p className="text-lg font-semibold tabular-nums">{linked.length}</p></div>
-          <div className="flex-1"><p className="text-[11px] text-muted-foreground">รายได้ (ชำระแล้ว)</p><p className="text-lg font-semibold tabular-nums">{fmtMoney(st?.revenue ?? 0)}</p></div>
+          <div className="flex-1"><p className="text-2xs text-muted-foreground">นักเรียนที่เรียนอยู่</p><p className="text-lg font-semibold tabular-nums">{st?.students ?? 0}</p></div>
+          <div className="flex-1"><p className="text-2xs text-muted-foreground">คลาสที่ผูก</p><p className="text-lg font-semibold tabular-nums">{linked.length}</p></div>
+          <div className="flex-1"><p className="text-2xs text-muted-foreground">รายได้ (ชำระแล้ว)</p><p className="text-lg font-semibold tabular-nums">{fmtMoney(st?.revenue ?? 0)}</p></div>
         </div>
         <section className="divide-y rounded-2xl border px-3">
           <Row label="ระดับชั้น"><span className="flex flex-wrap gap-1">{gradeRanges(c.grades).map((g) => <span key={g} className={cn("rounded-md px-1.5 py-0.5 text-xs font-semibold", gradeTone(g))}>{g}</span>)}</span></Row>

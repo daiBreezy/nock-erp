@@ -26,6 +26,7 @@ import { subjectColor } from "@/components/app/subject-color"
 import type { CatalogToken, FormLang, ParentRequest } from "@/domain/types"
 import { cn } from "@/lib/utils"
 import { useUiLang } from "@/lib/i18n"
+import { Empty } from "@/components/app/empty"
 
 // the map loads only when a parent opens "ปักหมุดบ้าน" (Leaflet is big — the rest of the app stays light in LINE)
 const CatalogApp = dynamic(() => import("@/app/liff/catalog/catalog-app").then((m) => m.CatalogApp), { ssr: false, loading: () => <div className="h-40 animate-pulse rounded-[8px] bg-muted" /> })
@@ -253,7 +254,7 @@ export function ParentApp({ view, lang: initialLang, today, framed, openCourseSu
 
       <nav className={cn("z-10 mx-auto flex w-full max-w-lg border-t bg-background/95 backdrop-blur", framed ? "sticky bottom-0" : "fixed inset-x-0 bottom-0")}>
         {tabs.map((x) => (
-          <button key={x.key} type="button" onClick={() => { setTab(x.key); setCsId(null) }} className={cn("flex flex-1 flex-col items-center gap-0.5 py-2 text-[11px]", cur === x.key ? "font-medium text-primary" : "text-muted-foreground")}>
+          <button key={x.key} type="button" onClick={() => { setTab(x.key); setCsId(null) }} className={cn("flex flex-1 flex-col items-center gap-0.5 py-2 text-2xs", cur === x.key ? "font-medium text-primary" : "text-muted-foreground")}>
             <x.icon className="size-5" />{x.label}
           </button>
         ))}
@@ -344,7 +345,7 @@ function CourseRows({ pkgs, t, lang, onPick }: { child?: ParentChild; pkgs: Pare
             </div>
             <div className="grid grid-cols-4 divide-x rounded-[8px] border bg-background/70 py-2 text-center">
               {stats.map(([label, value]) => (
-                <div key={label}><p className="text-lg leading-tight font-semibold tabular-nums">{value}</p><p className="text-[11px] text-muted-foreground">{label}</p></div>
+                <div key={label}><p className="text-lg leading-tight font-semibold tabular-nums">{value}</p><p className="text-2xs text-muted-foreground">{label}</p></div>
               ))}
             </div>
             {p.slots.length > 0 && (
@@ -626,7 +627,7 @@ function CourseEnd({ cs, t, lang }: { cs: ParentCourseSummary; t: T; lang: FormL
     return ls.length ? (
       <section className={cn("space-y-2 rounded-[16px] px-3 pb-3 pt-3", card)}>
         <SectionHead icon={icon} tone={tone} text={text} label={label} />
-        <div className="space-y-2 text-sm leading-relaxed">{ls.map((l, i) => <p key={i} className={cn(l.heading && "pt-1 font-semibold")}>{l.subject && !only && <span className={cn("mr-1.5 inline-block rounded-full px-1.5 py-0.5 align-middle text-[11px] leading-none", subjectColor(l.subject).chip)}>{l.subject}</span>}{l.text}</p>)}</div>
+        <div className="space-y-2 text-sm leading-relaxed">{ls.map((l, i) => <p key={i} className={cn(l.heading && "pt-1 font-semibold")}>{l.subject && !only && <span className={cn("mr-1.5 inline-block rounded-full px-1.5 py-0.5 align-middle text-2xs leading-none", subjectColor(l.subject).chip)}>{l.subject}</span>}{l.text}</p>)}</div>
       </section>
     ) : null
   }
@@ -651,7 +652,7 @@ function CourseEnd({ cs, t, lang }: { cs: ParentCourseSummary; t: T; lang: FormL
         <SectionHead icon={CalendarCheckIcon} tone="bg-background text-muted-foreground" text="text-foreground" label={t.attendanceLabel} />
         <div className="grid grid-cols-4 divide-x pl-0 text-center">
           {[[t.statDone, `${done.length}`], [t.statPresent, `${present}`], [t.statLeave, `${leave}`], [t.absent, `${absent}`]].map(([label, value]) => (
-            <div key={label}><p className="text-lg leading-tight font-semibold tabular-nums">{value}</p><p className="text-[11px] text-muted-foreground">{label}</p></div>
+            <div key={label}><p className="text-lg leading-tight font-semibold tabular-nums">{value}</p><p className="text-2xs text-muted-foreground">{label}</p></div>
           ))}
         </div>
       </section>
@@ -725,7 +726,7 @@ function ClampedParagraphs({ paras, showSubject, readAll, less, maxLines = 10, c
       <div ref={wrapRef} className="space-y-2 text-sm" style={{ lineHeight: "22px" }}>
         {view.map((x, i) => !x.visible ? null : (
           <p key={i} className={cn(x.heading && "pt-1 font-semibold")}>
-            {x.subject && showSubject && <span className={cn("mr-1.5 inline-block rounded-full px-1.5 py-0.5 align-middle text-[11px] leading-none", subjectColor(x.subject).chip)}>{x.subject}</span>}
+            {x.subject && showSubject && <span className={cn("mr-1.5 inline-block rounded-full px-1.5 py-0.5 align-middle text-2xs leading-none", subjectColor(x.subject).chip)}>{x.subject}</span>}
             {x.shown}{i === lastIdx && cut !== null && <> {link(collapsed ? readAll : less)}</>}
           </p>
         ))}
@@ -862,7 +863,7 @@ function RequestTab({ paid, setLang, updatedAt, view, child, t, lang, today, onR
           ))}
         </section>
       )}
-      {!mode && <p className="pt-2 text-center text-[11px] text-muted-foreground">{t.updated} {(() => { const g = new Date(updatedAt); return `${fmtDay(`${g.getFullYear()}-${String(g.getMonth() + 1).padStart(2, "0")}-${String(g.getDate()).padStart(2, "0")}`, lang)} ${String(g.getHours()).padStart(2, "0")}:${String(g.getMinutes()).padStart(2, "0")}` })()}</p>}
+      {!mode && <p className="pt-2 text-center text-2xs text-muted-foreground">{t.updated} {(() => { const g = new Date(updatedAt); return `${fmtDay(`${g.getFullYear()}-${String(g.getMonth() + 1).padStart(2, "0")}-${String(g.getDate()).padStart(2, "0")}`, lang)} ${String(g.getHours()).padStart(2, "0")}:${String(g.getMinutes()).padStart(2, "0")}` })()}</p>}
     </div>
   )
 }
@@ -871,6 +872,3 @@ function Catalog({ token, preview, onDetail }: { token: string; preview?: Catalo
   return <div className="-mx-3 -mt-4"><CatalogApp embedded token={token} preview={preview} onDetail={onDetail} /></div>
 }
 
-function Empty({ text }: { text: string }) {
-  return <p className="rounded-[8px] border border-dashed bg-background p-8 text-center text-sm text-muted-foreground">{text}</p>
-}

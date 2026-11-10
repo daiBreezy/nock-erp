@@ -64,7 +64,7 @@ export function ClassCard({ s, d }: { s: Session; d: CardData }) {
           <div className="min-w-0 flex-1">
             <div className={cn("truncate text-sm font-semibold", !live && c.text, w.state === "cancelled" && "line-through")}>
               {klass?.name ?? subjectsOf(s).join(" + ")}
-              <KindChip s={s} className="ml-1.5 px-1.5 py-px text-[10px]" />
+              <KindChip s={s} className="ml-1.5 px-1.5 py-px text-2xs" />
             </div>
             <div className={cn("text-xs tabular-nums", live ? "text-white/80" : "text-muted-foreground")}>
               {s.start}–{endTime(s.start, s.minutes)} · {s.minutes} นาที
@@ -87,7 +87,7 @@ export function ClassCard({ s, d }: { s: Session; d: CardData }) {
         </div>
 
         {conflicts && (
-          <ul className="mt-1.5 space-y-0.5 rounded-md bg-red-600 px-1.5 py-1 text-[11px] font-medium text-white">
+          <ul className="mt-1.5 space-y-0.5 rounded-md bg-red-600 px-1.5 py-1 text-2xs font-medium text-white">
             {conflicts.map((m) => (
               <li key={m} className="flex items-center gap-1"><AlertTriangleIcon className="size-3 shrink-0" />{m}</li>
             ))}
@@ -104,14 +104,14 @@ export function ClassCard({ s, d }: { s: Session; d: CardData }) {
               const onLeave = activeLeave(sid, s.date, d.leaves)
               return (
                 <li key={sid} className={cn("flex min-w-0 items-center gap-1.5", onLeave && "opacity-50")} title={onLeave ? `${stu?.name} · ลาพักยาว: ${onLeave.reason}` : stu?.name}>
-                  <span className={cn("grid size-5 shrink-0 place-items-center rounded-full text-[10px] font-semibold", avatarTone(sid))}>{initial(stu?.nickname ?? "?")}</span>
+                  <span className={cn("grid size-5 shrink-0 place-items-center rounded-full text-2xs font-semibold", avatarTone(sid))}>{initial(stu?.nickname ?? "?")}</span>
                   <span className={cn("min-w-0 flex-1 truncate text-xs", a?.status === "absent" && "line-through opacity-60")}>{stu?.nickname}</span>
                   {a?.status === "present" && <CheckIcon className={cn("size-3 shrink-0", live ? "text-white" : "text-emerald-600")} />}
                   {a?.status === "absent" && <XIcon className="size-3 shrink-0 text-red-600" />}
-                  {a?.status === "leave" && <span className="shrink-0 text-[10px] font-semibold text-amber-600">ลา</span>}
-                  {onLeave && <span className="shrink-0 text-[10px] font-semibold text-violet-600">ลาพักยาว</span>}
+                  {a?.status === "leave" && <span className="shrink-0 text-2xs font-semibold text-amber-600">ลา</span>}
+                  {onLeave && <span className="shrink-0 text-2xs font-semibold text-violet-600">ลาพักยาว</span>}
                   {wrote && <NotebookPenIcon className={cn("size-3 shrink-0", live ? "text-white" : "text-sky-600")} />}
-                  <span className={cn("shrink-0 rounded px-1 text-[10px] font-semibold", gradeTone(stu?.grade ?? ""))}>{stu?.grade}</span>
+                  <span className={cn("shrink-0 rounded px-1 text-2xs font-semibold", gradeTone(stu?.grade ?? ""))}>{stu?.grade}</span>
                 </li>
               )
             })}

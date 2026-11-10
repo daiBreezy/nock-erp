@@ -50,10 +50,10 @@ const bucketOf = (status: SummaryStatus | undefined): Bucket => (!status ? "to_w
 /** the 6 stages as KPI cards — click one to list it (standard page: KPI row above the toolbar) */
 function BucketRow({ active, onPick, count, focus }: { active: Bucket | "all"; onPick: (b: Bucket) => void; count: (b: Bucket) => number; focus?: boolean }) {
   return (
-    <KpiRow className="sm:grid-cols-3 xl:grid-cols-6">
+    <KpiRow>
       {BUCKETS.map((t) => (
         <div key={t.key} data-focus={focus ? FOCUS_OF[t.key] : undefined} className="h-full rounded-3xl">
-          <Kpi icon={BUCKET_ICON[t.key]} tone={BUCKET_TONE[t.key]} label={t.label} value={count(t.key)} valueClassName={t.tone} onClick={() => onPick(t.key)} active={active === t.key} />
+          <Kpi icon={BUCKET_ICON[t.key]} tone={BUCKET_TONE[t.key]} label={t.label} value={count(t.key)} emphasis onClick={() => onPick(t.key)} active={active === t.key} />
         </div>
       ))}
     </KpiRow>

@@ -11,7 +11,7 @@ export function GradeChips({ grades, planned = [], max = 4, size = "sm", classNa
   const mix = grades.length ? gradeMix(grades) : gradeMix(planned).map((g) => ({ ...g, count: 0 }))
   if (!mix.length) return null
   const shown = mix.slice(0, max)
-  const text = size === "xs" ? "text-[10px] px-1" : "text-[11px] px-1.5"
+  const text = size === "xs" ? "text-2xs px-1" : "text-2xs px-1.5"
   return (
     <span className={cn("inline-flex flex-wrap items-center gap-1", className)} title={mix.map((g) => `${g.grade}${g.count ? ` ${g.count} คน` : ""}`).join(" · ")}>
       {shown.map((g) => (

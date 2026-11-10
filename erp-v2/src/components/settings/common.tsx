@@ -60,7 +60,7 @@ export function SaveRow({ dirty, onSave, onReset, label = tx("บันทึก
 export function InfoRow({ label, children }: { label: string; children: ReactNode }) {
   return (
     <div>
-      <p className="text-[11px] font-medium tracking-wide text-muted-foreground uppercase">{label}</p>
+      <p className="text-2xs font-medium tracking-wide text-muted-foreground uppercase">{label}</p>
       <div className="text-sm">{children || <span className="text-muted-foreground">—</span>}</div>
     </div>
   )

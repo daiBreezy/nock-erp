@@ -45,7 +45,7 @@ export function SchoolPicker({ value, schoolId, province, onChange, className }:
       >
         <SchoolIcon className="size-4 shrink-0 text-muted-foreground" />
         <span className={cn("min-w-0 flex-1 truncate", !value && "text-muted-foreground")} title={value}>{value || "ค้นหาโรงเรียน"}</span>
-        {value && !schoolId && <span className="shrink-0 rounded bg-amber-100 px-1 text-[10px] text-amber-800" title="พิมพ์เอง — ไม่อยู่ในรายชื่อกระทรวงศึกษาธิการ">พิมพ์เอง</span>}
+        {value && !schoolId && <span className="shrink-0 rounded bg-amber-100 px-1 text-2xs text-amber-800" title="พิมพ์เอง — ไม่อยู่ในรายชื่อกระทรวงศึกษาธิการ">พิมพ์เอง</span>}
         {value
           ? <span role="button" tabIndex={-1} aria-label="ล้าง" onClick={(e) => { e.stopPropagation(); onChange({ school: undefined, schoolId: undefined }) }} className="shrink-0 text-muted-foreground hover:text-foreground"><XIcon className="size-3.5" /></span>
           : <ChevronDownIcon className="size-4 shrink-0 text-muted-foreground" />}
@@ -84,7 +84,7 @@ export function SchoolPicker({ value, schoolId, province, onChange, className }:
             <PencilLineIcon className="size-3.5" /> ไม่มีในรายชื่อ — ใช้ชื่อ “{q.trim()}”
           </button>
         )}
-        <p className="border-t px-3 py-1.5 text-[11px] text-muted-foreground">รายชื่อจากกระทรวงศึกษาธิการ (กรุงเทพฯ + ชลบุรี)</p>
+        <p className="border-t px-3 py-1.5 text-2xs text-muted-foreground">รายชื่อจากกระทรวงศึกษาธิการ (กรุงเทพฯ + ชลบุรี)</p>
       </PopoverContent>
     </Popover>
   )

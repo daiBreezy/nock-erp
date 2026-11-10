@@ -254,7 +254,7 @@ export function LineTab({ branch }: { branch: Branch }) {
               </div>
             ) : (
               <label className="flex size-20 shrink-0 cursor-pointer flex-col items-center justify-center gap-1 rounded-lg border border-dashed text-muted-foreground hover:bg-muted/50">
-                <UploadIcon className="size-4" /><span className="text-[10px]">{tx("อัปโหลด")}</span>
+                <UploadIcon className="size-4" /><span className="text-2xs">{tx("อัปโหลด")}</span>
                 <input type="file" accept="image/png,image/jpeg,image/webp,image/gif" className="hidden" onChange={(e) => {
                   const file = e.target.files?.[0]
                   if (!file) return

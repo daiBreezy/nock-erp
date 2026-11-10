@@ -1,19 +1,18 @@
 "use client"
 
-import { Page, PageHeader, KpiRow, ShowChip, Toolbar } from "@/components/app/page-layout"
+import { ListPage, Page, PageHeader, KpiRow, ShowChip, FilterBar, SearchBox } from "@/components/app/page-layout"
 import { BranchCode, useBranchScope } from "@/components/app/branch-scope"
 import { Pager, usePage, useSort } from "@/components/app/data-table"
 import { ColumnsMenu, DataTable, type Column } from "@/components/app/data-grid"
 import { useMemo, useState } from "react"
-import { BookOpenIcon, LayersIcon, PlusIcon, SearchIcon, StarIcon, UsersIcon, WalletIcon } from "lucide-react"
+import { BookOpenIcon, LayersIcon, PlusIcon, StarIcon, UsersIcon, WalletIcon } from "lucide-react"
 import { Pill } from "@/components/app/badges"
-import { Kpi } from "@/components/app/kpi"
+import { Kpi, kpiMoney } from "@/components/app/kpi"
 import { NativeSelect } from "@/components/app/native-select"
 import { gradeTone, subjectColor } from "@/components/app/subject-color"
 import { emptyCourse } from "@/components/courses/course-dialog"
 import { CoursePanel } from "@/components/courses/course-panel"
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
 import { fmtDate, fmtMoney, toDateStr } from "@/domain/dates"
 import { invoiceTotals } from "@/domain/rules/billing"
 import { PACKAGE_LEGEND, PackageBadge } from "@/components/app/package-badge"
@@ -124,18 +123,16 @@ export default function CoursesPage() {
   ]
 
   return (
-    <Page>
-      <PageHeader title="คอร์ส" description="คอร์สที่เปิดขาย แพ็กเกจ ราคา และคลาสที่ผูก"
-        actions={manage && <Button onClick={() => setPanel(emptyCourse(branch))}><PlusIcon /> สร้างคอร์ส</Button>} />
-
-      <KpiRow>
+    <ListPage title="คอร์ส" description="คอร์สที่เปิดขาย แพ็กเกจ ราคา และคลาสที่ผูก"
+        actions={manage && <Button onClick={() => setPanel(emptyCourse(branch))}><PlusIcon /> สร้างคอร์ส</Button>}
+      kpis={<>
         <Kpi icon={BookOpenIcon} label="คอร์สทั้งหมด" value={kpi.total} />
         <Kpi icon={StarIcon} label="Single / Bundle" value={<>{kpi.single} <span className="text-base text-muted-foreground">/</span> {kpi.bundle}</>} sub="คอร์สวิชาเดียว / หลายวิชา" tone="violet" />
         <Kpi icon={UsersIcon} label="นักเรียนที่ลงเรียน" value={kpi.students} />
-        <Kpi icon={WalletIcon} label="รายได้จากคอร์ส (ชำระแล้ว)" value={fmtMoney(kpi.revenue)} />
-      </KpiRow>
-
-      <Toolbar end={<>
+        <Kpi icon={WalletIcon} label="รายได้จากคอร์ส (ชำระแล้ว)" value={kpiMoney(kpi.revenue)} />
+      </>}
+      search={<SearchBox value={q} onChange={setQ} placeholder="ค้นหาคอร์ส / วิชา / ระดับชั้น" />}
+      filters={<>
         <NativeSelect className="h-9 w-32" value={subjectF} onChange={(e) => setSubjectF(e.target.value)} placeholder="ทุกวิชา" options={subjects.map((s) => ({ value: s, label: s }))} />
         <NativeSelect className="h-9 w-32" value={kindF} onChange={(e) => setKindF(e.target.value)} placeholder="ทุกประเภท" options={[{ value: "single", label: "Single" }, { value: "bundle", label: "Bundle" }]} />
         <NativeSelect className="h-9 w-36" value={unitF} onChange={(e) => setUnitF(e.target.value)} placeholder="ทุกแพ็กเกจ" options={(["hour", "week", "month"] as PriceUnit[]).map((u) => ({ value: u, label: PRICE_UNIT_LABEL[u] }))} />
@@ -144,12 +141,6 @@ export default function CoursesPage() {
         <ColumnsMenu id="courses" columns={columns} />
         {scope.select}
       </>}>
-        <div className="relative">
-          <SearchIcon className="absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
-          <Input className="w-56 pl-9" value={q} onChange={(e) => setQ(e.target.value)} placeholder="ค้นหาชื่อคอร์ส วิชา ระดับชั้น" />
-        </div>
-      </Toolbar>
-
       {/* owner 2026-10-12: subject and course name in their own columns, branch as its code only, package as the badge
           (legend on the header ⓘ) · columns arranged per person (DataTable) */}
       <DataTable id="courses" columns={columns} rows={pg.rows} rowKey={(c) => c.id} onRowClick={(c) => setPanel(c.id)}
@@ -157,6 +148,6 @@ export default function CoursesPage() {
       <Pager {...pg} unit="คอร์ส" />
 
       <CoursePanel key={typeof panel === "string" ? panel : panel?.id ?? "none"} target={panel} stats={(id) => stats.get(id)} onClose={() => setPanel(null)} />
-    </Page>
+    </ListPage>
   )
 }

@@ -348,7 +348,7 @@ export function LiffForm() {
             {step === "student" && <Button disabled={!studentsValid} onClick={() => setStep("summary")}>{t.next} <ChevronRightIcon /></Button>}
             {step === "summary" && <Button disabled={phase === "submitting"} onClick={submit}>{phase === "submitting" ? <LoaderCircleIcon className="animate-spin" /> : <SendIcon />} {t.submit}</Button>}
           </div>
-          {((step === "parent" && !parentsValid) || (step === "student" && !studentsValid)) && <p className="pb-2 text-center text-[11px] text-muted-foreground">{t.required}</p>}
+          {((step === "parent" && !parentsValid) || (step === "student" && !studentsValid)) && <p className="pb-2 text-center text-2xs text-muted-foreground">{t.required}</p>}
         </footer>
       )}
     </div>

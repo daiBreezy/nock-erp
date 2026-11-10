@@ -114,7 +114,7 @@ export default function NockPage() {
       {tab === "dev" ? <DevTicketsView creating={newTicket} onCreated={() => setNewTicket(false)} /> : <>
       <KpiRow>
         <Kpi icon={MessagesSquareIcon} label="คำถามทั้งหมด" value={filtered.length} onClick={() => setStatus("")} active={!status} />
-        <Kpi icon={CircleHelpIcon} label="ยังไม่มีคำตอบ" value={count("unanswered")} tone="red" valueClassName={count("unanswered") ? "text-red-700" : undefined} onClick={() => { setStatus(status === "unanswered" ? "" : "unanswered") }} active={status === "unanswered"} />
+        <Kpi icon={CircleHelpIcon} label="ยังไม่มีคำตอบ" value={count("unanswered")} tone="red" emphasis={!!(count("unanswered"))} onClick={() => { setStatus(status === "unanswered" ? "" : "unanswered") }} active={status === "unanswered"} />
         <Kpi icon={SparklesIcon} label="Nock ตอบเอง" value={count("ai")} tone="sky" onClick={() => { setStatus(status === "ai" ? "" : "ai") }} active={status === "ai"} />
         <Kpi icon={BookOpenCheckIcon} label="คลังความรู้" value={count("answered")} tone="emerald" onClick={() => { setStatus(status === "answered" ? "" : "answered") }} active={status === "answered"}
           sub={votes.up + votes.down ? <span className="inline-flex items-center gap-1"><ThumbsUpIcon className="size-3 text-emerald-600" /> ช่วยได้ {Math.round((votes.up / (votes.up + votes.down)) * 100)}% ({votes.up + votes.down} โหวต)</span> : "ยังไม่มีโหวต"} />

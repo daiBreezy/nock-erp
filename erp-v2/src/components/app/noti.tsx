@@ -90,7 +90,7 @@ function NotiList() {
           <div className="flex min-w-0 flex-1 flex-col gap-1">
             <div className="flex items-start gap-2">
               <ToastTitle className="line-clamp-2 min-w-0 flex-1 font-semibold" />
-              {data && <span className="mt-0.5 shrink-0 text-[11px] text-muted-foreground">{ago(data.at)}</span>}
+              {data && <span className="mt-0.5 shrink-0 text-2xs text-muted-foreground">{ago(data.at)}</span>}
             </div>
             <ToastDescription className="line-clamp-2 text-xs" />
             {t.actionProps && <ToastAction render={<Button variant="outline" size="xs" />} className="mt-1 self-start" />}

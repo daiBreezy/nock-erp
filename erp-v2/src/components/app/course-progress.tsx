@@ -75,7 +75,7 @@ function Stat({ label, value, sub, tone, icon }: { label: string; value: string;
     <div className="rounded-2xl border p-2.5">
       <p className="text-xs text-muted-foreground">{label}</p>
       <p className={cn("flex items-center gap-1 text-xl font-semibold tabular-nums", tone === "good" && "text-emerald-700", tone === "watch" && "text-amber-700")}>{value}{icon}</p>
-      <p className="truncate text-[11px] text-muted-foreground">{sub}</p>
+      <p className="truncate text-2xs text-muted-foreground">{sub}</p>
     </div>
   )
 }
@@ -109,7 +109,7 @@ function LevelChart({ rows }: { rows: Sum.ProgressRow[] }) {
       {[1, 2, 3, 4, 5].map((v) => (
         <g key={v}>
           <line x1={L} x2={W - R} y1={y(v)} y2={y(v)} className="stroke-muted-foreground/15" strokeDasharray={v === 1 ? undefined : "2 3"} />
-          <text x={L - 6} y={y(v) + 3} textAnchor="end" className="fill-muted-foreground text-[9px]">{v}</text>
+          <text x={L - 6} y={y(v) + 3} textAnchor="end" className="fill-muted-foreground text-2xs">{v}</text>
         </g>
       ))}
       <path d={area} fill="url(#lvl-fill)" />
@@ -121,7 +121,7 @@ function LevelChart({ rows }: { rows: Sum.ProgressRow[] }) {
         </circle>
       ))}
       {[...new Set(ticks)].map((i) => (
-        <text key={i} x={x(i)} y={H - 6} textAnchor={i === 0 ? "start" : i === pts.length - 1 ? "end" : "middle"} className="fill-muted-foreground text-[9px]">{fmtDate(pts[i].date)}</text>
+        <text key={i} x={x(i)} y={H - 6} textAnchor={i === 0 ? "start" : i === pts.length - 1 ? "end" : "middle"} className="fill-muted-foreground text-2xs">{fmtDate(pts[i].date)}</text>
       ))}
     </svg>
   )
@@ -146,18 +146,18 @@ function AttendanceBars({ rows }: { rows: Sum.ProgressRow[] }) {
           const total = m.present + m.leave + m.absent
           return (
             <div key={k} className="flex h-full flex-1 flex-col items-center justify-end gap-1" title={`มา ${m.present} · ลา ${m.leave} · ขาด ${m.absent}`}>
-              <span className="text-[10px] tabular-nums text-muted-foreground">{total}</span>
+              <span className="text-2xs tabular-nums text-muted-foreground">{total}</span>
               <div className="flex w-full max-w-8 flex-col-reverse overflow-hidden rounded-md" style={{ height: `${(total / max) * 90}px` }}>
                 <div className="bg-emerald-500" style={{ flex: m.present }} />
                 <div className="bg-amber-400" style={{ flex: m.leave }} />
                 <div className="bg-rose-500" style={{ flex: m.absent }} />
               </div>
-              <span className="text-[10px] text-muted-foreground">{MONTHS[Number(k.slice(5, 7)) - 1]}</span>
+              <span className="text-2xs text-muted-foreground">{MONTHS[Number(k.slice(5, 7)) - 1]}</span>
             </div>
           )
         })}
       </div>
-      <div className="mt-2 flex justify-center gap-3 text-[11px] text-muted-foreground">
+      <div className="mt-2 flex justify-center gap-3 text-2xs text-muted-foreground">
         <span className="flex items-center gap-1"><span className="size-2 rounded-full bg-emerald-500" />มา</span>
         <span className="flex items-center gap-1"><span className="size-2 rounded-full bg-amber-400" />ลา</span>
         <span className="flex items-center gap-1"><span className="size-2 rounded-full bg-rose-500" />ขาด</span>

@@ -5,16 +5,11 @@ import { CloseExitDialog, ExitPanel, ExitRequestDialog } from "./student-exit"
 import { BusAddOns } from "@/components/billing/bus-addons"
 import Link from "next/link"
 import { useMemo, useState } from "react"
-import {
-  ArchiveRestoreIcon, DoorOpenIcon, BusIcon, CakeIcon, CalendarDaysIcon, CalendarIcon, GraduationCapIcon,
-  MessageSquareIcon, MessagesSquareIcon, PencilIcon, PhoneIcon, PlaneIcon, PlusIcon, ReceiptIcon, SearchIcon, StickyNoteIcon, StoreIcon, UsersIcon,
-  ChevronRightIcon, HistoryIcon, ArrowUpIcon,
-} from "lucide-react"
+import { ArchiveRestoreIcon, DoorOpenIcon, BusIcon, CakeIcon, CalendarDaysIcon, CalendarIcon, GraduationCapIcon, MessageSquareIcon, MessagesSquareIcon, PencilIcon, PhoneIcon, PlaneIcon, PlusIcon, ReceiptIcon, StickyNoteIcon, StoreIcon, UsersIcon, ChevronRightIcon, HistoryIcon, ArrowUpIcon } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet"
 import { EntityPanel, PanelFooter, PanelForm, PanelMore } from "./form-shell"
-import { Tabs } from "./page-layout"
-import { Input } from "@/components/ui/input"
+import { Tabs, SearchBox } from "./page-layout"
 import { daysBetween, endTime, fmtDate, fmtDateTime, fmtMoney, TH_DAYS_FULL, toDateStr, weekdayShort } from "@/domain/dates"
 import * as Att from "@/domain/rules/attendance"
 import { INVOICE_STATUS_LABEL, invoiceTotals } from "@/domain/rules/billing"
@@ -509,7 +504,7 @@ function BillingSeg({ stu }: { stu: Student }) {
   const subjectsOfInv = (i: Invoice) => [...new Set(i.lines.flatMap((l) => courses.find((x) => x.id === l.courseId)?.subjects ?? []))]
   const invoiceCols: Column<Invoice>[] = [
     { id: "number", label: "เลขที่", required: true, className: "tabular-nums", cell: (i) => i.number ?? "—" },
-    { id: "items", label: "รายการ", cell: (i) => { const subjects = subjectsOfInv(i); return <span className="flex items-center gap-1">{subjects.length ? subjects.map((x) => <span key={x} className={cn("rounded-full px-2 py-0.5 text-xs", subjectColor(x).chip)}>{x}</span>) : <span className="text-xs text-muted-foreground">{i.busExtras?.length ? "ค่ารถเพิ่ม" : "ค่าอื่นๆ"}</span>}{i.status === "paid" && subjects.length > 0 && <span className="text-[11px] text-emerald-700">✓ เข้าคลาสแล้ว</span>}</span> } },
+    { id: "items", label: "รายการ", cell: (i) => { const subjects = subjectsOfInv(i); return <span className="flex items-center gap-1">{subjects.length ? subjects.map((x) => <span key={x} className={cn("rounded-full px-2 py-0.5 text-xs", subjectColor(x).chip)}>{x}</span>) : <span className="text-xs text-muted-foreground">{i.busExtras?.length ? "ค่ารถเพิ่ม" : "ค่าอื่นๆ"}</span>}{i.status === "paid" && subjects.length > 0 && <span className="text-2xs text-emerald-700">✓ เข้าคลาสแล้ว</span>}</span> } },
     { id: "date", label: "วันที่", cell: (i) => fmtDate(i.createdAt.slice(0, 10), { year: true }) },
     { id: "total", label: "ยอด", align: "right", className: "tabular-nums", cell: (i) => fmtMoney(invoiceTotals(i, { branch: branches.find((b) => b.id === i.branchId)!, courses, classes, holidays }).total) },
     { id: "status", label: "สถานะ", align: "right", cell: (i) => <Pill tone={i.status === "paid" ? "green" : i.status === "void" ? "gray" : i.status === "draft" ? "gray" : "amber"}>{INVOICE_STATUS_LABEL[i.status]}</Pill> },
@@ -579,10 +574,10 @@ function NoteSeg({ stu }: { stu: Student }) {
             <div key={n.id} className={cn("flex items-end gap-2", mineN && "flex-row-reverse")}>
               <span className={cn("grid size-8 shrink-0 place-items-center rounded-full text-xs font-semibold", avatarTone(n.by))}>{initial(by?.nickname ?? "?")}</span>
               <div className={cn("max-w-[80%] rounded-2xl p-3 text-sm", mineN ? "bg-primary/10" : "bg-muted")}>
-                <p className="mb-1 flex gap-3 text-[11px] text-muted-foreground"><span>{by?.nickname ?? "?"}</span><span className="ml-auto">{fmtDateTime(n.at)}</span></p>
+                <p className="mb-1 flex gap-3 text-2xs text-muted-foreground"><span>{by?.nickname ?? "?"}</span><span className="ml-auto">{fmtDateTime(n.at)}</span></p>
                 <p className="whitespace-pre-wrap">{n.text}</p>
                 {/* written on a class in the calendar board (owner 2026-10-12) */}
-                {n.sessionId && (() => { const se = sessions.find((x) => x.id === n.sessionId); return se ? <p className="mt-1 text-[11px] text-muted-foreground">จากคาบ {se.subject} · {fmtDate(se.date)} {se.start}</p> : null })()}
+                {n.sessionId && (() => { const se = sessions.find((x) => x.id === n.sessionId); return se ? <p className="mt-1 text-2xs text-muted-foreground">จากคาบ {se.subject} · {fmtDate(se.date)} {se.start}</p> : null })()}
               </div>
             </div>
           )
@@ -630,10 +625,7 @@ function TimelineSeg({ stu }: { stu: Student }) {
             <button key={c || "all"} onClick={() => setCat(c)} className={cn("rounded-full border px-3 py-1 text-xs", cat === c ? "border-primary bg-primary/10 text-primary" : "hover:bg-muted")}>{c ? CAT_LABEL[c] : "ทั้งหมด"}</button>
           ))}
         </div>
-        <div className="relative ml-auto">
-          <SearchIcon className="absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" />
-          <Input className="h-8 w-48 pl-8" value={q} onChange={(e) => setQ(e.target.value)} placeholder="ค้นหาใน Log" />
-        </div>
+        <SearchBox value={q} onChange={setQ} placeholder="ค้นหาใน Log" />
         <ColumnsMenu id="student-timeline" columns={logCols} />
       </div>
       <DataTable id="student-timeline" columns={logCols} rows={pg.rows} rowKey={(l) => l.id} minWidth={520} empty="ยังไม่มีประวัติ" />

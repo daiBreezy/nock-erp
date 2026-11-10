@@ -205,7 +205,7 @@ function NockPanel({ onClose, corner }: { onClose: () => void; corner: Corner })
               ? <DropdownMenuItem onClick={() => setView("chat")}><ArrowLeftIcon /> กลับไปคุยกับ Nock</DropdownMenuItem>
               : <DropdownMenuItem onClick={() => { setDevFrom(null); setView("dev") }}><CodeXmlIcon /><span className="flex flex-col"><span>ส่งถึง Dev</span><span className="text-xs text-muted-foreground">แจ้งปัญหา ขอความช่วยเหลือ เสนอแนะ</span></span></DropdownMenuItem>}
             <DropdownMenuItem render={<Link href="/nock" onClick={onClose} />}><LibraryBigIcon /> คลังคำถาม Nock</DropdownMenuItem>
-            <p className="px-2 pt-1.5 pb-1 text-[11px] text-muted-foreground">{model === undefined ? "…" : model ? `ตอบด้วย ${model}` : "ตอบจากคู่มือ + คำตอบของทีม"}</p>
+            <p className="px-2 pt-1.5 pb-1 text-2xs text-muted-foreground">{model === undefined ? "…" : model ? `ตอบด้วย ${model}` : "ตอบจากคู่มือ + คำตอบของทีม"}</p>
           </DropdownMenuContent>
         </DropdownMenu>
         <Button size="icon-sm" variant="ghost" className="text-muted-foreground" aria-label="ปิด" onClick={onClose}><XIcon /></Button>
@@ -245,7 +245,7 @@ function NockPanel({ onClose, corner }: { onClose: () => void; corner: Corner })
             <Button type="submit" size="icon-sm" className="ml-auto rounded-full" disabled={!text.trim() || !!pending} aria-label="ส่ง"><ArrowUpIcon /></Button>
           </div>
         </div>
-        {mine.length > 0 && <p className="pt-1.5 text-center text-[10px] text-muted-foreground">Nock อาจตอบผิดได้</p>}
+        {mine.length > 0 && <p className="pt-1.5 text-center text-2xs text-muted-foreground">Nock อาจตอบผิดได้</p>}
       </form>
       </>}
     </div>
@@ -287,7 +287,7 @@ function DevTicketForm({ from, onDone, onLink }: { from?: NockQuestion | null; o
       <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="หัวเรื่องสั้นๆ" className="h-9 w-full rounded-2xl bg-muted/60 px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring/20" />
       <textarea value={detail} onChange={(e) => setDetail(e.target.value)} rows={5} placeholder={kind === "bug" ? "ทำอะไรอยู่ แล้วเกิดอะไรขึ้น (ควรเป็นอย่างไร)" : kind === "idea" ? "อยากให้ระบบมีอะไร ช่วยงานแบบไหน" : "เล่ารายละเอียด"} className="w-full resize-none rounded-2xl bg-muted/60 px-3 py-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring/20" />
       <LocationPicker value={locs} onChange={setLocs} placeholder="เลือก Part ของระบบ (จำเป็น)" />
-      <p className="text-[11px] text-muted-foreground">แนบให้อัตโนมัติ: หน้า {pageUrl} · สาขา{branch?.name} · {me.roles.map((r) => ROLE_LABEL[r]).join(", ")}</p>
+      <p className="text-2xs text-muted-foreground">แนบให้อัตโนมัติ: หน้า {pageUrl} · สาขา{branch?.name} · {me.roles.map((r) => ROLE_LABEL[r]).join(", ")}</p>
       <div className="flex justify-end gap-2">
         <Button size="sm" variant="ghost" onClick={onDone}>ยกเลิก</Button>
         <Button size="sm" disabled={!title.trim() || !detail.trim() || !locs.length} onClick={() => { const r = send({ kind, title, detail, locations: locs, pageUrl }); if (r.ok) setSent(r.value.number); else toast.error(r.error) }}><SendIcon /> ส่งถึง Dev</Button>
@@ -341,7 +341,7 @@ function Exchange({ q, onRate, onLink, onDev }: { q: NockQuestion; onRate: (help
     <div className="space-y-3">
       <div>
         <Bubble from="me">{q.question}</Bubble>
-        {!!q.locations?.length && <p className="mt-1 flex items-center justify-end gap-1 text-[10px] text-muted-foreground"><MapPinIcon className="size-3" />{(q.locations ?? []).map(Nock.locationLabel).join(", ")}</p>}
+        {!!q.locations?.length && <p className="mt-1 flex items-center justify-end gap-1 text-2xs text-muted-foreground"><MapPinIcon className="size-3" />{(q.locations ?? []).map(Nock.locationLabel).join(", ")}</p>}
       </div>
       {q.aiAnswer ? (
         <Bubble from="nock">

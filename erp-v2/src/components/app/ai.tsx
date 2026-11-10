@@ -26,5 +26,5 @@ export function AiIcon({ className }: { className?: string }) {
 
 /** small "AI" tag for content mixed into other cards */
 export function AiChip({ className }: { className?: string }) {
-  return <span className={cn("inline-flex items-center gap-1 rounded-full bg-sky-100 px-2 py-0.5 text-[11px] font-semibold text-sky-700 dark:bg-sky-950 dark:text-sky-300", className)}><SparklesIcon className="size-3" />AI</span>
+  return <span className={cn("inline-flex items-center gap-1 rounded-full bg-sky-100 px-2 py-0.5 text-2xs font-semibold text-sky-700 dark:bg-sky-950 dark:text-sky-300", className)}><SparklesIcon className="size-3" />AI</span>
 }

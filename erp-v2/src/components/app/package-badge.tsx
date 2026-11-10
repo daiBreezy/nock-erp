@@ -14,7 +14,7 @@ export function PackageBadge({ course, size = "sm", className }: { course: Pick<
   const s = STYLE[course.unit]
   return (
     <span title={`แพ็กเกจ ${packageLabel(course)}`} className={cn("inline-flex shrink-0 items-center gap-1 whitespace-nowrap", className)}>
-      <span className={cn("grid place-items-center rounded-full font-extrabold text-white", s.bg, size === "sm" ? "size-5 text-[11px]" : "size-7 text-sm")}>{s.letter}</span>
+      <span className={cn("grid place-items-center rounded-full font-extrabold text-white", s.bg, size === "sm" ? "size-5 text-2xs" : "size-7 text-sm")}>{s.letter}</span>
       <span className={cn("text-muted-foreground tabular-nums", size === "sm" ? "text-sm" : "text-base")}>{course.duration}</span>
     </span>
   )
@@ -26,7 +26,7 @@ export const PACKAGE_LEGEND = (
     <div className="font-medium">ประเภทแพ็กเกจ</div>
     {(["hour", "week", "month"] as const).map((u) => (
       <div key={u} className="flex items-center gap-1.5">
-        <span className={cn("grid size-4 place-items-center rounded-full text-[10px] font-extrabold text-white", STYLE[u].bg)}>{STYLE[u].letter}</span>
+        <span className={cn("grid size-4 place-items-center rounded-full text-2xs font-extrabold text-white", STYLE[u].bg)}>{STYLE[u].letter}</span>
         {u === "hour" ? "รายชั่วโมง — ตัวเลข = จำนวนชั่วโมง" : u === "week" ? "รายสัปดาห์ — ตัวเลข = จำนวนสัปดาห์" : "รายเดือน"}
       </div>
     ))}

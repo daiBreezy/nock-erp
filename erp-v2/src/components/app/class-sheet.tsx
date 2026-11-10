@@ -76,9 +76,9 @@ function ClassView({ id, onEdit, onClose }: { id: ID; onEdit: () => void; onClos
       </SheetHeader>
       <PanelBody>
         <div className="flex divide-x rounded-2xl bg-muted/50 py-2 text-center">
-          <div className="flex-1"><p className="text-[11px] text-muted-foreground">เรียนไปแล้ว</p><p className="text-lg font-semibold tabular-nums">{past} คาบ</p></div>
-          <div className="flex-1"><p className="text-[11px] text-muted-foreground">เหลือ</p><p className="text-lg font-semibold tabular-nums">{future.length} คาบ</p></div>
-          <div className="flex-1"><p className="text-[11px] text-muted-foreground">นักเรียน</p><p className="text-lg font-semibold tabular-nums">{k.studentIds.length}/{classCapacity(k)}</p></div>
+          <div className="flex-1"><p className="text-2xs text-muted-foreground">เรียนไปแล้ว</p><p className="text-lg font-semibold tabular-nums">{past} คาบ</p></div>
+          <div className="flex-1"><p className="text-2xs text-muted-foreground">เหลือ</p><p className="text-lg font-semibold tabular-nums">{future.length} คาบ</p></div>
+          <div className="flex-1"><p className="text-2xs text-muted-foreground">นักเรียน</p><p className="text-lg font-semibold tabular-nums">{k.studentIds.length}/{classCapacity(k)}</p></div>
         </div>
         <section className="divide-y rounded-2xl border px-3">
           <Row label="วัน · เวลา">{TH_DAYS_FULL[k.weekday]} {k.start}–{endTime(k.start, k.minutes)} <span className="text-xs text-muted-foreground">({k.minutes} นาที)</span></Row>
@@ -94,7 +94,7 @@ function ClassView({ id, onEdit, onClose }: { id: ID; onEdit: () => void; onClos
               return (
                 <li key={sid} className="flex items-center gap-2 p-2">
                   <button onClick={() => setStudentOpen(sid)} className="min-w-0 flex-1 truncate text-left text-sm hover:underline">
-                    {st?.nickname} <span className={cn("rounded px-1 text-[10px] font-semibold", gradeTone(st?.grade ?? ""))}>{st?.grade}</span>
+                    {st?.nickname} <span className={cn("rounded px-1 text-2xs font-semibold", gradeTone(st?.grade ?? ""))}>{st?.grade}</span>
                   </button>
                   {k.active && manage && (removing === sid ? (
                     <span className="flex items-center gap-1 text-xs">

@@ -200,7 +200,7 @@ function AddMenu({ onAdd, wide }: { onAdd: (t: FormFieldType) => void; wide?: bo
             <DropdownMenuLabel>{tx(g.label)}</DropdownMenuLabel>
             {FB.FIELD_TYPES.filter((t) => t.group === g.id).map((t) => {
               const Icon = FIELD_ICON[t.type]
-              return <DropdownMenuItem key={t.type} onClick={() => onAdd(t.type)}><Icon /><span className="flex-1">{tx(t.label)}</span><span className="text-[11px] text-muted-foreground">{tx(t.hint)}</span></DropdownMenuItem>
+              return <DropdownMenuItem key={t.type} onClick={() => onAdd(t.type)}><Icon /><span className="flex-1">{tx(t.label)}</span><span className="text-2xs text-muted-foreground">{tx(t.hint)}</span></DropdownMenuItem>
             })}
           </DropdownMenuGroup>
         ))}

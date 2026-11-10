@@ -134,7 +134,7 @@ function KpiDemo() {
       <Kpi icon={BookOpenIcon} label="คลาสที่เปิดอยู่" value={128} tone="primary" />
       <Kpi icon={UsersIcon} label="นักเรียน" value={"1,240"} tone="emerald" />
       <Kpi icon={UserRoundIcon} label="ครู" value={36} tone="violet" />
-      <Kpi icon={RefreshCwIcon} label="ใกล้หมดแพ็กเกจ (ต่อคอร์ส)" value={9} tone="amber" valueClassName="text-amber-700" />
+      <Kpi icon={RefreshCwIcon} label="ใกล้หมดแพ็กเกจ (ต่อคอร์ส)" value={9} tone="amber" emphasis />
     </KpiRow>
   )
 }

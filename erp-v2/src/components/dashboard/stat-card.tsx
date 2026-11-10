@@ -29,7 +29,7 @@ export function DeltaPill({ value, suffix = "%" }: { value: number | null; suffi
   if (value === null || !isFinite(value)) return null
   const up = value >= 0
   return (
-    <span className={cn("rounded-full px-1.5 py-0.5 text-[11px] font-medium tabular-nums", up ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300" : "bg-red-100 text-red-700 dark:bg-red-950 dark:text-red-300")}>
+    <span className={cn("rounded-full px-1.5 py-0.5 text-2xs font-medium tabular-nums", up ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300" : "bg-red-100 text-red-700 dark:bg-red-950 dark:text-red-300")}>
       {up ? "▲" : "▼"} {up ? "+" : ""}{Math.round(value)}{suffix}
     </span>
   )
@@ -37,7 +37,7 @@ export function DeltaPill({ value, suffix = "%" }: { value: number | null; suffi
 
 /** a small neutral count pill ("2 ใหม่") */
 export function CountPill({ children, tone = "muted" }: { children: React.ReactNode; tone?: "muted" | "warn" }) {
-  return <span className={cn("rounded-full px-1.5 py-0.5 text-[11px] font-medium", tone === "warn" ? "bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300" : "bg-muted text-muted-foreground")}>{children}</span>
+  return <span className={cn("rounded-full px-1.5 py-0.5 text-2xs font-medium", tone === "warn" ? "bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300" : "bg-muted text-muted-foreground")}>{children}</span>
 }
 
 /** brand-coloured sparkline (var(--primary) → re-themes with the colour switcher) */
@@ -74,7 +74,7 @@ export function AttBar({ present, leave, absent }: { present: number; leave: num
         <span style={{ width: `${(leave / total) * 100}%` }} className="bg-amber-500" />
         <span style={{ width: `${(absent / total) * 100}%` }} className="bg-red-500" />
       </div>
-      <div className="mt-1.5 flex gap-2.5 text-[11px] text-muted-foreground">
+      <div className="mt-1.5 flex gap-2.5 text-2xs text-muted-foreground">
         <span><span className="mr-1 inline-block size-1.5 rounded-full bg-emerald-500 align-middle" />{tx("มา")} {present}</span>
         <span><span className="mr-1 inline-block size-1.5 rounded-full bg-amber-500 align-middle" />{tx("ลา")} {leave}</span>
         {absent > 0 && <span><span className="mr-1 inline-block size-1.5 rounded-full bg-red-500 align-middle" />{tx("ขาด")} {absent}</span>}

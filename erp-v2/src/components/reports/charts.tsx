@@ -36,6 +36,7 @@ export function Delta({ value, invert, className }: { value: number | null; inve
  *  (owner 2026-10-01: cards side by side are the same height — the content should fill it, not leave a gap). */
 export { InfoTip } from "@/components/app/info-tip"
 import { InfoTip } from "@/components/app/info-tip"
+import { Empty as SharedEmpty } from "@/components/app/empty"
 
 export function Panel({ title, sub, hint, action, children, className, center, fill }: { title: string
   /** owner 2026-10-22: a short note on the title's line (e.g. "รวม 23") instead of a line of its own */
@@ -54,8 +55,9 @@ export function Panel({ title, sub, hint, action, children, className, center, f
   )
 }
 
+/** reports' empty state — the shared Empty (Design System) with the reports default text */
 export function Empty({ children = tx("ยังไม่มีข้อมูลในช่วงนี้") }: { children?: ReactNode }) {
-  return <p className="rounded-2xl border border-dashed p-6 text-center text-sm text-muted-foreground">{children}</p>
+  return <SharedEmpty>{children}</SharedEmpty>
 }
 
 const TH_MONTH_SHORT = ["ม.ค.", "ก.พ.", "มี.ค.", "เม.ย.", "พ.ค.", "มิ.ย.", "ก.ค.", "ส.ค.", "ก.ย.", "ต.ค.", "พ.ย.", "ธ.ค."]
@@ -96,7 +98,7 @@ export function MonthBars({ thisYear, lastYear, current, unit = "", currentLastY
           )
         })}
       </div>
-      <div className="mt-1 flex gap-1.5 text-center text-[10px] text-muted-foreground sm:gap-2.5">
+      <div className="mt-1 flex gap-1.5 text-center text-2xs text-muted-foreground sm:gap-2.5">
         {TH_MONTH_SHORT.map((m, i) => <span key={m} className={cn("flex-1", (hover === i || (hover === null && i === current)) && "font-semibold text-foreground")}>{monthShort(i)}</span>)}
       </div>
       <div className="mt-2 flex gap-3 text-xs text-muted-foreground">
@@ -117,32 +119,32 @@ function MonthTip({ month, thisYear, lastYear, fmt, unit, side, top, toDate, for
     // beside the bar, level with its top (like the ref) — never above the chart
     <div className={cn("pointer-events-none absolute z-20 w-56 rounded-2xl bg-popover p-3 text-left shadow-lg ring-1 ring-foreground/10",
       side === "right" ? "left-full ml-1" : "right-full mr-1")} style={{ top: `${Math.max(0, top)}%` }}>
-      <p className="mb-1.5 text-[11px] font-medium text-muted-foreground">{tx(TH_MONTH_FULL[month])}</p>
+      <p className="mb-1.5 text-2xs font-medium text-muted-foreground">{tx(TH_MONTH_FULL[month])}</p>
       <div className="flex items-start gap-2">
         <span className="mt-1.5 size-1.5 shrink-0 rounded-full bg-primary" />
         <div className="flex-1">
-          <p className="text-[11px] text-muted-foreground">{tx("ปีนี้")}</p>
+          <p className="text-2xs text-muted-foreground">{tx("ปีนี้")}</p>
           <p className="text-sm font-semibold tabular-nums">{thisYear === null ? "—" : `${fmt(thisYear)}${unit}`}</p>
         </div>
-        {pct !== null && <span className={cn("rounded-full px-1.5 py-0.5 text-[10px] font-semibold tabular-nums", pct >= 0 ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300" : "bg-red-100 text-red-700 dark:bg-red-950 dark:text-red-300")}>{pct >= 0 ? "+" : ""}{pct}%</span>}
+        {pct !== null && <span className={cn("rounded-full px-1.5 py-0.5 text-2xs font-semibold tabular-nums", pct >= 0 ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300" : "bg-red-100 text-red-700 dark:bg-red-950 dark:text-red-300")}>{pct >= 0 ? "+" : ""}{pct}%</span>}
       </div>
       {forecast !== undefined && (
         <div className="mt-2 flex items-start gap-2 border-t border-dashed pt-2">
           <span className="mt-1.5 size-1.5 shrink-0 rounded-full bg-primary/40" />
           <div className="flex-1">
-            <p className="text-[11px] text-primary">{tx("คาดการณ์ทั้งเดือน")}</p>
+            <p className="text-2xs text-primary">{tx("คาดการณ์ทั้งเดือน")}</p>
             <p className="text-sm font-semibold text-primary tabular-nums">{fmt(forecast)}{unit}</p>
           </div>
-          {fpct !== null && <span className={cn("rounded-full px-1.5 py-0.5 text-[10px] font-semibold tabular-nums", fpct >= 0 ? "bg-emerald-100 text-emerald-700" : "bg-red-100 text-red-700")}>{fpct >= 0 ? "+" : ""}{fpct}%</span>}
+          {fpct !== null && <span className={cn("rounded-full px-1.5 py-0.5 text-2xs font-semibold tabular-nums", fpct >= 0 ? "bg-emerald-100 text-emerald-700" : "bg-red-100 text-red-700")}>{fpct >= 0 ? "+" : ""}{fpct}%</span>}
         </div>
       )}
       {lastYear !== null && (
         <div className="mt-2 flex items-start gap-2 border-t border-dashed pt-2">
           <span className="mt-1.5 size-1.5 shrink-0 rounded-full bg-primary/30" />
           <div>
-            <p className="text-[11px] text-muted-foreground">{tx("ปีที่แล้ว")}{toDate ? ` (${toDate.label})` : ""}</p>
+            <p className="text-2xs text-muted-foreground">{tx("ปีที่แล้ว")}{toDate ? ` (${toDate.label})` : ""}</p>
             <p className="text-sm tabular-nums">{toDate ? `${fmt(toDate.value)}${unit}` : lastYear ? `${fmt(lastYear)}${unit}` : "—"}</p>
-            {toDate && lastYear ? <p className="text-[10px] text-muted-foreground">{tx("ทั้งเดือน")} {fmt(lastYear)}{unit}</p> : null}
+            {toDate && lastYear ? <p className="text-2xs text-muted-foreground">{tx("ทั้งเดือน")} {fmt(lastYear)}{unit}</p> : null}
           </div>
         </div>
       )}
@@ -173,7 +175,7 @@ export function Donut({ parts, center, sub, colors }: { parts: { label: string; 
   return (
     <div className="relative mx-auto grid size-40 place-items-center rounded-full" style={{ background: `conic-gradient(${stops || "var(--color-muted) 0deg 360deg"})` }}>
       <div className="grid size-28 place-items-center rounded-full bg-card text-center">
-        <div><p className="text-xl font-semibold tabular-nums">{center}</p><p className="text-[11px] text-muted-foreground">{sub}</p></div>
+        <div><p className="text-xl font-semibold tabular-nums">{center}</p><p className="text-2xs text-muted-foreground">{sub}</p></div>
       </div>
     </div>
   )
@@ -301,5 +303,5 @@ export function Heatmap<R extends string | number, C extends string | number>({ 
 }
 
 export function Rank({ n }: { n: number }) {
-  return <span className="grid size-5 shrink-0 place-items-center rounded-full bg-muted text-[10px] font-medium tabular-nums">{n}</span>
+  return <span className="grid size-5 shrink-0 place-items-center rounded-full bg-muted text-2xs font-medium tabular-nums">{n}</span>
 }

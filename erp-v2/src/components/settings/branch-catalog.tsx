@@ -183,7 +183,7 @@ export function PackagesTab({ branch }: { branch: Branch }) {
 function GradeGroupRows({ name, grades, cols, children }: { name: string; grades: string[]; cols: number; children: (grade: string) => React.ReactNode }) {
   return (
     <>
-      <tr><td colSpan={cols + 1} className="bg-muted/30 px-2 py-1 text-[11px] font-medium tracking-wide text-muted-foreground uppercase">{name}</td></tr>
+      <tr><td colSpan={cols + 1} className="bg-muted/30 px-2 py-1 text-2xs font-medium tracking-wide text-muted-foreground uppercase">{name}</td></tr>
       {grades.map((g) => (
         <tr key={g} className="border-t">
           <td className="p-2 font-medium">{g}</td>

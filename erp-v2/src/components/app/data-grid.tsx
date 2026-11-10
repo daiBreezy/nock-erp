@@ -288,7 +288,7 @@ export function ColumnsMenu<R>({ id, columns }: { id: string; columns: Column<R>
       <HoverCard>
         <HoverCardTrigger render={<PopoverTrigger render={<button type="button" aria-label="การจัดการคอลัมน์" className={cn("relative grid size-9 shrink-0 place-items-center rounded-full", L.custom ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground hover:text-foreground")} />} />}>
           <Columns3Icon className="size-4" />
-          {L.hidden.length > 0 && <span className="absolute -top-1 -right-1 rounded-full bg-primary px-1 text-[10px] leading-4 font-semibold text-primary-foreground tabular-nums">{L.hidden.length}</span>}
+          {L.hidden.length > 0 && <span className="absolute -top-1 -right-1 rounded-full bg-primary px-1 text-2xs leading-4 font-semibold text-primary-foreground tabular-nums">{L.hidden.length}</span>}
         </HoverCardTrigger>
         <HoverCardContent>การจัดการคอลัมน์{L.hidden.length > 0 ? ` · ซ่อน ${L.hidden.length}` : ""}</HoverCardContent>
       </HoverCard>

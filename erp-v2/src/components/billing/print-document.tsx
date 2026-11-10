@@ -91,17 +91,17 @@ export function PrintDocument({ kind, id, bare = false }: { kind: Kind; id: stri
       {/* Layout follows the owner's template (Invocie asset/INV Test.jpg · RE Test.jpg): logo on top, company name + addresses
           centred, Tax ID box left / NO. + DATE boxes right with the title in the middle, customer block (+ LINE QR on an
           invoice), a tall bordered items table, bank info / PAID stamp, totals, Memo, signatures */}
-      <article className={`mx-auto min-h-[297mm] w-[210mm] bg-white p-[12mm] print:min-h-0 text-[11px] leading-snug text-neutral-900 print:w-auto print:p-0 print:shadow-none ${embed ? "" : "shadow"}`}>
+      <article className={`mx-auto min-h-[297mm] w-[210mm] bg-white p-[12mm] print:min-h-0 text-2xs leading-snug text-neutral-900 print:w-auto print:p-0 print:shadow-none ${embed ? "" : "shadow"}`}>
         {/* logo left · company name + addresses right-aligned */}
         <header className="flex items-start justify-between gap-6">
           {/* eslint-disable-next-line @next/next/no-img-element -- static brand asset in a print page */}
           <img src="/brand/invoice-logo.svg" alt="" className="h-[20mm] w-auto shrink-0" />
           <div className="text-right">
             {/* Liclass parents cannot read Thai (Pin, 6 Oct): the Japanese paper drops the Thai name + address, English stays */}
-            {lang === "th" && <p className="text-[13px] font-bold">{company.nameTh}</p>}
-            <p className="text-[13px] font-bold">{company.nameEn}</p>
-            {lang === "th" && <p className="text-[11px]">{company.addressTh} ({company.office.split("/")[0].trim()})</p>}
-            <p className="text-[11px]">{company.addressEn} ({company.office.split("/").pop()?.trim()})</p>
+            {lang === "th" && <p className="text-sm font-bold">{company.nameTh}</p>}
+            <p className="text-sm font-bold">{company.nameEn}</p>
+            {lang === "th" && <p className="text-2xs">{company.addressTh} ({company.office.split("/")[0].trim()})</p>}
+            <p className="text-2xs">{company.addressEn} ({company.office.split("/").pop()?.trim()})</p>
           </div>
         </header>
 
@@ -109,22 +109,22 @@ export function PrintDocument({ kind, id, bare = false }: { kind: Kind; id: stri
           <div>
             {/* one line for the label, the number on the second line — left aligned */}
             <p>{L.taxId} / Tax ID Number</p>
-            <p className="mt-0.5 w-56 border border-neutral-700 px-2 py-0.5 text-[12px] tabular-nums">{company.taxId}</p>
+            <p className="mt-0.5 w-56 border border-neutral-700 px-2 py-0.5 text-xs tabular-nums">{company.taxId}</p>
           </div>
           <div className="pt-4 text-center">
-            <p className="text-[13px] font-semibold">{titlePrimary}</p>
-            <p className="text-[12px]">{en}</p>
+            <p className="text-sm font-semibold">{titlePrimary}</p>
+            <p className="text-xs">{en}</p>
           </div>
           <div className="space-y-1.5">
-            <div className="flex items-center justify-end gap-1"><span className="text-[12px]">NO.</span><span className="w-60 whitespace-nowrap border border-neutral-700 px-2 py-0.5 text-center text-[12px] font-mono">{number}</span></div>
-            <div className="flex items-center justify-end gap-1"><span className="text-[12px]">DATE</span><span className="w-60 border border-neutral-700 px-2 py-0.5 text-center text-[12px]">{d(date)}</span></div>
-            {kind === "credit-note" && <p className="text-right text-[10px]">REF. <span className="font-mono">{inv.number}</span></p>}
-            {combined && <p className="text-right text-[10px]">REF. <span className="font-mono">{onReceipt.map((x) => x.number).join(", ")}</span></p>}
+            <div className="flex items-center justify-end gap-1"><span className="text-xs">NO.</span><span className="w-60 whitespace-nowrap border border-neutral-700 px-2 py-0.5 text-center text-xs font-mono">{number}</span></div>
+            <div className="flex items-center justify-end gap-1"><span className="text-xs">DATE</span><span className="w-60 border border-neutral-700 px-2 py-0.5 text-center text-xs">{d(date)}</span></div>
+            {kind === "credit-note" && <p className="text-right text-2xs">REF. <span className="font-mono">{inv.number}</span></p>}
+            {combined && <p className="text-right text-2xs">REF. <span className="font-mono">{onReceipt.map((x) => x.number).join(", ")}</span></p>}
           </div>
         </section>
 
         <section className="mt-4 grid grid-cols-[1fr_auto] items-start gap-4">
-          <div className="space-y-1.5 text-[12px]">
+          <div className="space-y-1.5 text-xs">
             <p><span>{L.customerName} / Customer Name</span><span className="ml-6 font-semibold text-[#3f6bb5]">{customer.name}</span></p>
             <p><span>{L.address} / Address</span>{customer.address ? <span className="ml-6">{customer.address}</span> : null}</p>
             <p><span>{L.taxId} / Tax ID Number</span>{customer.taxId ? <span className="ml-6">{customer.taxId}</span> : null}</p>
@@ -176,12 +176,12 @@ export function PrintDocument({ kind, id, bare = false }: { kind: Kind; id: stri
                 {/* beside the QR, top to bottom: the bank account, then the scan-to-pay sub text */}
                 <div className="flex min-h-[26mm] flex-col justify-between">
                   {branch.bankAccount.number && (
-                    <p className="whitespace-pre-line text-[11px]">
+                    <p className="whitespace-pre-line text-2xs">
                       {L.bank}：{branch.bankAccount.bank}{"\n"}{branch.bankAccount.branchName ? `${branch.bankAccount.branchName}\n` : ""}{L.accountNo}：{branch.bankAccount.number}{"\n"}{L.accountName}：{branch.bankAccount.name}
                     </p>
                   )}
                   {payQr && (
-                    <p className="text-[10px] leading-snug text-neutral-700">{L.scanToPay}<br />Scan to pay · PromptPay</p>
+                    <p className="text-2xs leading-snug text-neutral-700">{L.scanToPay}<br />Scan to pay · PromptPay</p>
                   )}
                 </div>
               </div>
@@ -198,10 +198,10 @@ export function PrintDocument({ kind, id, bare = false }: { kind: Kind; id: stri
         </section>
 
         <div className="mt-1 border border-neutral-700 px-2 py-1">
-          <p className="whitespace-pre-line"><b className="text-[12px]">Memo :</b> {memo}</p>
+          <p className="whitespace-pre-line"><b className="text-xs">Memo :</b> {memo}</p>
         </div>
 
-        {kind === "invoice" && <p className="mt-2 text-right"><b>*Total Due By</b>   <span className="ml-4 text-[12px]">{d(dueBy)}</span></p>}
+        {kind === "invoice" && <p className="mt-2 text-right"><b>*Total Due By</b>   <span className="ml-4 text-xs">{d(dueBy)}</span></p>}
 
         {/* signatures side by side, on the right of the page: handwriting-style real name, role (TH/JP + EN) under the line */}
         <footer className="mt-6 flex justify-end gap-8 text-center">

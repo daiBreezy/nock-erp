@@ -123,7 +123,7 @@ export default function FormsPage() {
             <div>
               <p className="mb-1.5 text-sm font-semibold">ส่งแล้วไปไหนในระบบ</p>
               <ol className="space-y-1.5">{f.lands.map((x, i) => (
-                <li key={x} className="flex items-start gap-2 text-sm"><span className="grid size-5 shrink-0 place-items-center rounded-full bg-primary/10 text-[11px] font-medium text-primary">{i + 1}</span>{x}</li>
+                <li key={x} className="flex items-start gap-2 text-sm"><span className="grid size-5 shrink-0 place-items-center rounded-full bg-primary/10 text-2xs font-medium text-primary">{i + 1}</span>{x}</li>
               ))}</ol>
             </div>
             <p className="flex items-center gap-1 text-xs text-muted-foreground"><ArrowRightIcon className="size-3" /> ทุกฟอร์มผู้ปกครองสลับภาษาไทย / English / 日本語 ได้เองที่หัวฟอร์ม</p>

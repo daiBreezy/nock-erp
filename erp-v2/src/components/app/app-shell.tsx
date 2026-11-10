@@ -115,6 +115,11 @@ function Shell({ children }: { children: ReactNode }) {
   const badges = navBadges({ conversations, leads, sessions, attendance, summaries, invoices }, me, branch.id, now)
   const t = useT()
   const lang = useUiLang((s) => s.lang)
+  // Design System › ธีมและแบรนด์: the whole UI takes the colour of the business this branch belongs to
+  // (globals.css `[data-brand]`) — switching to a Liclass branch turns it blue, a Nock Academy branch pink
+  useEffect(() => {
+    document.documentElement.setAttribute("data-brand", branch.brand)
+  }, [branch.brand])
 
   return (
     <SidebarProvider>
@@ -153,7 +158,7 @@ function Shell({ children }: { children: ReactNode }) {
                             {n > 0 && <span className="absolute -top-1 -right-1 hidden size-2 rounded-full bg-red-600 ring-2 ring-sidebar group-data-[collapsible=icon]:block" />}
                           </span>
                           <span>{t(i.label)}</span>
-                          {i.soon && <Pill className="ml-auto px-1.5 py-0 text-[10px]">{t("เร็วๆ นี้")}</Pill>}
+                          {i.soon && <Pill className="ml-auto px-1.5 py-0 text-2xs">{t("เร็วๆ นี้")}</Pill>}
                         </SidebarMenuButton>
                         {n > 0 && <SidebarMenuBadge className="rounded-full bg-red-600 text-white peer-hover/menu-button:text-white peer-data-active/menu-button:text-white">{n > 99 ? "99+" : n}</SidebarMenuBadge>}
                       </SidebarMenuItem>
@@ -237,7 +242,7 @@ function SmartSearch() {
         className="flex h-9 w-full items-center gap-2 rounded-full border bg-card px-3 text-sm text-muted-foreground shadow-xs hover:bg-muted group-data-[collapsible=icon]:size-8 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-0">
         <SearchIcon className="size-4 shrink-0" />
         <span className="truncate group-data-[collapsible=icon]:hidden">{t("ค้นหานักเรียน / ครอบครัว / Lead")}</span>
-        <kbd className="ml-auto rounded border px-1 text-[10px] group-data-[collapsible=icon]:hidden">⌘K</kbd>
+        <kbd className="ml-auto rounded border px-1 text-2xs group-data-[collapsible=icon]:hidden">⌘K</kbd>
       </button>
       {open && (
         <CustomerPicker kinds={["student", "family", "lead"]} title="ค้นหา" onClose={() => setOpen(false)}
@@ -294,7 +299,7 @@ function UserCard() {
         <span className={cn("grid size-9 shrink-0 place-items-center rounded-full font-semibold group-data-[collapsible=icon]:size-8", avatarTone(me.id))}>{initial(me.nickname)}</span>
         <div className="min-w-0 leading-tight group-data-[collapsible=icon]:hidden">
           <div className="text-sm font-semibold break-words">{nm(me.nickname)} <span className="font-normal text-muted-foreground">{me.name !== me.nickname ? nm(me.name) : ""}</span></div>
-          <div className="mt-0.5 flex flex-wrap gap-1">{me.roles.map((r) => <span key={r} className={cn("rounded-full px-1.5 text-[10px] font-medium", ROLE_TONE[r])}>{ROLE_LABEL[r]}</span>)}</div>
+          <div className="mt-0.5 flex flex-wrap gap-1">{me.roles.map((r) => <span key={r} className={cn("rounded-full px-1.5 text-2xs font-medium", ROLE_TONE[r])}>{ROLE_LABEL[r]}</span>)}</div>
         </div>
       </div>
       <div className="mt-2 space-y-1 group-data-[collapsible=icon]:hidden">
@@ -317,8 +322,8 @@ function UserCard() {
                           <button type="button" onClick={() => { setBranch(b.id); setOpen(false) }}
                             className={cn("flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-sm hover:bg-muted", b.id === branchId && "bg-primary/10 font-medium text-primary")}>
                             <span className="min-w-0 flex-1 break-words">{BUSINESS_SHORT[b.brand]} · {nm(b.name)}</span>
-                            {!b.active && <Pill className="px-1 py-0 text-[10px]">{t("ปิด")}</Pill>}
-                            <span className="text-[10px] text-muted-foreground">{b.code}</span>
+                            {!b.active && <Pill className="px-1 py-0 text-2xs">{t("ปิด")}</Pill>}
+                            <span className="text-2xs text-muted-foreground">{b.code}</span>
                             <CheckIcon className={cn("size-4", b.id !== branchId && "invisible")} />
                           </button>
                         </li>

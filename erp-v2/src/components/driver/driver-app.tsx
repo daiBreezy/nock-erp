@@ -250,10 +250,10 @@ function TripView({ t, events, busy, onBack, onTap, speed }: { t: Trip; events: 
                     </span>
                     <span className="min-w-0 flex-1">
                       <span className="flex items-center gap-1.5 font-medium">
-                        <span className={cn("shrink-0 rounded-full px-1.5 text-[11px]", s.leg === "pickup" ? "bg-sky-100 text-sky-800" : "bg-amber-100 text-amber-900")}>{verb(s)}</span>
+                        <span className={cn("shrink-0 rounded-full px-1.5 text-2xs", s.leg === "pickup" ? "bg-sky-100 text-sky-800" : "bg-amber-100 text-amber-900")}>{verb(s)}</span>
                         <span className="truncate">{s.nickname}</span>
                         {s.adult && <UserIcon className="size-3.5 shrink-0 text-violet-700" />}
-                        {out?.type === "noshow" && <span className="shrink-0 rounded-full bg-red-50 px-1.5 text-[11px] text-red-700">ไม่มา</span>}
+                        {out?.type === "noshow" && <span className="shrink-0 rounded-full bg-red-50 px-1.5 text-2xs text-red-700">ไม่มา</span>}
                       </span>
                       <Address className="text-sm text-foreground/75" text={[s.addressNote, s.address].filter(Boolean).join(" · ")} />
                     </span>
@@ -302,7 +302,7 @@ function EndRow({ icon, title, label, time, done }: { icon: React.ReactNode; tit
     <li className="flex items-center gap-3 px-4 py-3">
       <span className={cn("grid size-8 shrink-0 place-items-center rounded-full", done ? "bg-emerald-500 text-white" : "bg-foreground text-background")}>{icon}</span>
       <span className="min-w-0 flex-1 truncate font-medium">{title}</span>
-      <span className="shrink-0 text-right"><span className="block text-sm font-semibold tabular-nums">{time}</span><span className="block text-[11px] text-muted-foreground">{label}</span></span>
+      <span className="shrink-0 text-right"><span className="block text-sm font-semibold tabular-nums">{time}</span><span className="block text-2xs text-muted-foreground">{label}</span></span>
     </li>
   )
 }
@@ -313,7 +313,7 @@ function TimeCell({ label, value, tone }: { label: string; value: string; tone?:
   const color = tone?.includes("violet") ? "text-violet-700" : tone?.includes("red") ? "text-red-700" : tone?.includes("emerald") ? "text-emerald-700" : ""
   return (
     <span className="px-1 py-0.5">
-      <span className="block text-[11px] font-medium text-foreground/60">{label}</span>
+      <span className="block text-2xs font-medium text-foreground/60">{label}</span>
       <span className={cn("block text-base font-bold tabular-nums", value === "—" ? "text-foreground/35" : color)}>{value}</span>
     </span>
   )

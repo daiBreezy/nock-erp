@@ -149,7 +149,7 @@ function Body({ round }: { round: Sum.EntitlementRound }) {
       <PanelBody>
         <MetaGrid rows={[
           ["นักเรียน", <>{student.name}{family && <Link href="/families" className="text-xs text-primary underline">{family.name}</Link>}</>],
-          ["คอร์ส", <>{course?.name}{bundle && <Pill tone="violet"><LayersIcon className="size-3" /> Bundle</Pill>}{course?.subjects.map((x) => <span key={x} className={cn("rounded-full px-1.5 py-0.5 text-[11px]", subjectColor(x).chip)}>{x}</span>)}</>],
+          ["คอร์ส", <>{course?.name}{bundle && <Pill tone="violet"><LayersIcon className="size-3" /> Bundle</Pill>}{course?.subjects.map((x) => <span key={x} className={cn("rounded-full px-1.5 py-0.5 text-2xs", subjectColor(x).chip)}>{x}</span>)}</>],
           ["ช่วงเรียน", <>{fmtDate(round.from)} – {fmtDate(round.to, { year: true })}{round.entitlementIds.length > 1 && <span className="text-muted-foreground">({round.entitlementIds.length} รอบต่อเนื่อง)</span>}<span className="text-muted-foreground">· {branch?.name}</span></>],
           ...(status === "sent" ? [] : [["กำหนดส่ง", <span key="d" className={cn(due.overdue || due.daysLeft <= 2 ? "font-medium text-red-700" : "")}>{fmtDate(due.deadline, { weekday: true })} · {due.overdue ? `เลย ${-due.daysLeft} วัน` : `อีก ${due.daysLeft} วัน`}</span>] as [string, React.ReactNode]]),
           ...(cs ? [["เขียนโดย", L.teacher(cs.authorId).label] as [string, React.ReactNode]] : []),
@@ -205,7 +205,7 @@ function Body({ round }: { round: Sum.EntitlementRound }) {
               {notesShown.slice().reverse().map(({ se, sm, text }) => (
                 <li key={se.id} className="flex items-start gap-3 px-3 py-2 text-sm">
                   <span className="w-16 shrink-0 text-xs text-muted-foreground">{fmtDate(se.date)}</span>
-                  <span className="min-w-0 flex-1">{bundle && !only && subjectsOf(se).length < 2 && subjectsOf(se).map((x) => <span key={x} className={cn("mr-1 rounded-full px-1.5 py-0.5 text-[11px]", subjectColor(x).chip)}>{x}</span>)}{text}</span>
+                  <span className="min-w-0 flex-1">{bundle && !only && subjectsOf(se).length < 2 && subjectsOf(se).map((x) => <span key={x} className={cn("mr-1 rounded-full px-1.5 py-0.5 text-2xs", subjectColor(x).chip)}>{x}</span>)}{text}</span>
                   {(() => { const lv = only ? sm.subjectLevels?.[only] ?? sm.level : sm.level; return lv && <span className="shrink-0 text-xs text-muted-foreground tabular-nums" title={Sum.LEVEL_LABEL[lv]}>{lv}/5</span> })()}
                 </li>
               ))}
@@ -259,7 +259,7 @@ function SummaryField({ label, value, subjects, only }: { label: string; value: 
         {lines.map((line, i) => {
           const m = line.match(/^([^:：]{1,20})[:：]\s*(.*)$/)
           return m && subjects.includes(m[1].trim())
-            ? <p key={i} className="flex items-start gap-1.5"><span className={cn("shrink-0 rounded-full px-1.5 py-0.5 text-[11px]", subjectColor(m[1].trim()).chip)}>{m[1].trim()}</span><span>{m[2]}</span></p>
+            ? <p key={i} className="flex items-start gap-1.5"><span className={cn("shrink-0 rounded-full px-1.5 py-0.5 text-2xs", subjectColor(m[1].trim()).chip)}>{m[1].trim()}</span><span>{m[2]}</span></p>
             : <p key={i} className="whitespace-pre-wrap">{line}</p>
         })}
       </div>

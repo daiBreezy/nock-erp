@@ -32,7 +32,7 @@ export function ZoneAnalysisCard({ homes, kids, pinned, spots, options, current,
             <ol className="space-y-1">
               {spots.slice(0, 5).map((s, i) => (
                 <li key={i} className="flex items-center gap-2 rounded-xl bg-muted/50 px-3 py-1.5 text-sm">
-                  <span className="grid size-5 shrink-0 place-items-center rounded-full bg-rose-100 text-[11px] font-semibold text-rose-700">{i + 1}</span>
+                  <span className="grid size-5 shrink-0 place-items-center rounded-full bg-rose-100 text-2xs font-semibold text-rose-700">{i + 1}</span>
                   <span className="min-w-0 flex-1">{`${s.direction} · ${s.km} กม. จากสาขา`}</span>
                   <span className="shrink-0 text-xs text-muted-foreground tabular-nums">{`${s.homes} บ้าน · ${s.kids} คน`}</span>
                 </li>
@@ -47,8 +47,8 @@ export function ZoneAnalysisCard({ homes, kids, pinned, spots, options, current,
             <div key={o.count} className={cn("space-y-1.5 rounded-2xl p-3 ring-1", o.recommended ? "bg-primary/5 ring-primary/30" : "ring-foreground/10")}>
               <div className="flex flex-wrap items-center gap-2">
                 <span className="font-medium">{o.count === 1 ? "ไม่แบ่ง (1 โซน)" : `${o.count} โซน`}</span>
-                {o.recommended && <span className="rounded-full bg-primary px-2 py-0.5 text-[11px] font-semibold text-primary-foreground">แนะนำ</span>}
-                {o.count === current && <span className="rounded-full bg-muted px-2 py-0.5 text-[11px] text-muted-foreground">ใช้อยู่</span>}
+                {o.recommended && <span className="rounded-full bg-primary px-2 py-0.5 text-2xs font-semibold text-primary-foreground">แนะนำ</span>}
+                {o.count === current && <span className="rounded-full bg-muted px-2 py-0.5 text-2xs text-muted-foreground">ใช้อยู่</span>}
                 <span className="ml-auto text-xs text-muted-foreground tabular-nums">{`นานสุด ~${o.longest} นาที · รวม ${o.totalKm} กม. · มากสุด ${o.peak}/${o.seats} ที่ต่อเที่ยว`}</span>
                 <Button size="xs" variant={o.recommended ? "default" : "outline"} onClick={() => onApply(o)}><CheckIcon /> ใช้แบบนี้</Button>
               </div>

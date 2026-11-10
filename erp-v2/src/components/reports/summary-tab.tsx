@@ -121,7 +121,7 @@ export function SummaryTab({ d, period, periodLabel, scopeLabel }: { d: ReportDa
             <ol className="space-y-2 text-sm">
               {headline.map((h, i) => (
                 <li key={h.area} className="grid grid-cols-[1.5rem_6.5rem_1fr] items-baseline gap-2">
-                  <span className={cn("grid size-5 place-items-center rounded-full text-[11px] font-medium", AI_TONE.solid)}>{i + 1}</span>
+                  <span className={cn("grid size-5 place-items-center rounded-full text-2xs font-medium", AI_TONE.solid)}>{i + 1}</span>
                   <span className="text-xs text-muted-foreground">{tx(AREA[h.area].label)}</span>
                   <span>{h.action}</span>
                 </li>

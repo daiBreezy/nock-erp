@@ -113,7 +113,7 @@ export function SubmissionReviewCard({ submission: sub, onChanged }: { submissio
       )}
 
       {changes.length > 0 && (
-        <div className="mt-1.5 space-y-1 rounded-lg border border-amber-300 bg-amber-50 p-2 text-[11px] text-amber-950 dark:bg-amber-950/40 dark:text-amber-100">
+        <div className="mt-1.5 space-y-1 rounded-lg border border-amber-300 bg-amber-50 p-2 text-2xs text-amber-950 dark:bg-amber-950/40 dark:text-amber-100">
           <p className="font-semibold">ผู้ปกครองแก้ข้อมูลในฟอร์ม {changes.length} รายการ{knownFamily ? ` · ${knownFamily.name}` : ""}</p>
           <ul className="space-y-0.5">
             {changes.map((c) => <li key={c.key}>{c.label}: <span className="line-through opacity-60">{c.from}</span> → <b>{c.to}</b></li>)}

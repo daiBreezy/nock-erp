@@ -31,12 +31,12 @@ export function ImageAttach({ value, onChange, className }: { value: string[]; o
         ))}
         {value.length < MAX && (
           <label className={cn("grid size-20 cursor-pointer place-items-center rounded-xl border border-dashed text-muted-foreground hover:bg-muted/50", busy && "opacity-50")}>
-            <span className="flex flex-col items-center gap-0.5 text-[11px]"><ImagePlusIcon className="size-5" />{busy ? "กำลังใส่…" : "เพิ่มรูป"}</span>
+            <span className="flex flex-col items-center gap-0.5 text-2xs"><ImagePlusIcon className="size-5" />{busy ? "กำลังใส่…" : "เพิ่มรูป"}</span>
             <input type="file" accept="image/*" multiple className="hidden" onChange={(e) => { add([...(e.target.files ?? [])]); e.target.value = "" }} />
           </label>
         )}
       </div>
-      <p className="text-[11px] text-muted-foreground">แนบได้ {MAX} รูป · วางภาพหน้าจอด้วย ⌘V ได้</p>
+      <p className="text-2xs text-muted-foreground">แนบได้ {MAX} รูป · วางภาพหน้าจอด้วย ⌘V ได้</p>
     </div>
   )
 }

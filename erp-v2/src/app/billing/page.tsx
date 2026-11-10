@@ -1,7 +1,7 @@
 "use client"
 
-import { Page as PageShell, PageHeader, KpiRow, ShowChip, Segmented } from "@/components/app/page-layout"
-import { Kpi } from "@/components/app/kpi"
+import { FilterBar, Page as PageShell, PageHeader, KpiRow, ShowChip, Segmented, SearchBox } from "@/components/app/page-layout"
+import { Kpi, kpiMoney } from "@/components/app/kpi"
 import { BranchCode, useBranchScope } from "@/components/app/branch-scope"
 import { SalesTaxDialog } from "@/components/billing/sales-tax-dialog"
 import { PrintDocument } from "@/components/billing/print-document"
@@ -9,13 +9,12 @@ import { FamilyInvoiceDialog } from "@/components/billing/family-invoice-dialog"
 import { RenewalDraftsDialog } from "@/components/billing/renewal-drafts-dialog"
 import { Suspense, useState } from "react"
 import { useSearchParams } from "next/navigation"
-import { Loader2Icon, BadgeCheckIcon, ChevronDownIcon, CopyPlusIcon, Link2Icon, UsersRoundIcon, FileClockIcon, HourglassIcon, PlusIcon, SearchIcon, WalletIcon } from "lucide-react"
+import { Loader2Icon, BadgeCheckIcon, ChevronDownIcon, CopyPlusIcon, Link2Icon, UsersRoundIcon, FileClockIcon, HourglassIcon, PlusIcon, WalletIcon } from "lucide-react"
 import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card"
 import { Pill } from "@/components/app/badges"
 import { InvoiceSheet } from "@/components/billing/invoice-sheet"
 import { invoiceTone } from "@/components/billing/status"
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
 import { fmtDate, fmtMoney, toDateStr } from "@/domain/dates"
 import * as Bill from "@/domain/rules/billing"
 import { can } from "@/domain/rules/permissions"
@@ -80,9 +79,9 @@ function BillingPage() {
   const month = toDateStr(new Date()).slice(0, 7)
   const cards = [
     { key: "pending_approval" as Filter, icon: FileClockIcon, tone: "amber" as const, label: "รออนุมัติ PDF", value: rows.filter((r) => r.inv.status === "pending_approval").length, unit: "ใบ" },
-    { key: "awaiting_payment" as Filter, icon: HourglassIcon, tone: "sky" as const, label: "รอชำระ", value: fmtMoney(rows.filter((r) => ["approved", "sent"].includes(r.inv.status)).reduce((a, r) => a + r.total - r.paid, 0)), unit: "" },
+    { key: "awaiting_payment" as Filter, icon: HourglassIcon, tone: "sky" as const, label: "รอชำระ", value: kpiMoney(rows.filter((r) => ["approved", "sent"].includes(r.inv.status)).reduce((a, r) => a + r.total - r.paid, 0)), unit: "" },
     { key: "to_confirm" as Filter, icon: WalletIcon, tone: "violet" as const, label: "รอยืนยันยอดเงิน", value: rows.filter((r) => r.toConfirm).length, unit: "รายการ" },
-    { key: "paid" as Filter, icon: BadgeCheckIcon, tone: "emerald" as const, label: "รับเงินแล้วเดือนนี้", value: fmtMoney(rows.flatMap((r) => r.inv.payments).filter((p) => p.confirmedBy && p.recordedAt.slice(0, 7) === month).reduce((a, p) => a + p.amount, 0)), unit: "" },
+    { key: "paid" as Filter, icon: BadgeCheckIcon, tone: "emerald" as const, label: "รับเงินแล้วเดือนนี้", value: kpiMoney(rows.flatMap((r) => r.inv.payments).filter((p) => p.confirmedBy && p.recordedAt.slice(0, 7) === month).reduce((a, p) => a + p.amount, 0)), unit: "" },
   ]
 
   const voidCount = rows.filter((r) => r.inv.status === "void").length
@@ -148,7 +147,7 @@ function BillingPage() {
     { id: "number", label: "เลขที่", width: "130px", sort: "number", required: true, className: "font-medium tabular-nums", cell: ({ inv, group, member }) => (
       <span className="flex items-center gap-1">
         <span className="min-w-0 flex-1">{inv.number ? <MidText text={inv.number} head={3} tail={10} /> : <span className="text-muted-foreground">—</span>}</span>
-        {group ? <span className="shrink-0 rounded-full bg-primary/10 px-2 py-0.5 text-[11px] font-semibold text-primary">{group.length} ใบ</span>
+        {group ? <span className="shrink-0 rounded-full bg-primary/10 px-2 py-0.5 text-2xs font-semibold text-primary">{group.length} ใบ</span>
           : !member && inv.bundleId && bundles.get(inv.bundleId) && <BundleChip inv={inv} members={bundles.get(inv.bundleId)!} students={students} />}
       </span>
     ) },
@@ -203,21 +202,17 @@ function BillingPage() {
         ))}
       </KpiRow>
 
-      <div className="flex flex-wrap items-center gap-2">
+      <FilterBar search={<SearchBox value={q} onChange={setQ} placeholder="ค้นหาเลขที่ / ชื่อนักเรียน" />}>
         {/* owner 2026-10-07: All / Pending, and Done / Void as show-hide toggles (the cards above still filter one status) */}
         <Segmented label="สถานะ" value={filter} onChange={(v) => setFilter(v)}
           options={[{ value: "all" as Filter, label: "All" }, { value: "pending" as Filter, label: <>Pending{pendingCount > 0 && <span className="rounded-full bg-amber-100 px-1.5 text-xs text-amber-800 tabular-nums">{pendingCount}</span>}</> }]} />
         <span className="h-5 w-px bg-border" />
         <ShowChip label="Done" on={showDone === "1"} count={doneCount} onChange={(v) => setShowDone(v ? "1" : "0")} />
         <ShowChip label="Void" on={showVoid === "1"} count={voidCount} onChange={(v) => setShowVoid(v ? "1" : "0")} />
-        <div className="relative ml-auto w-full sm:w-56">
-          <SearchIcon className="absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" />
-          <Input className="pl-8" placeholder="ค้นหาเลขที่ / ชื่อนักเรียน" value={q} onChange={(e) => setQ(e.target.value)} />
-        </div>
         <ColumnsMenu id="billing-v2" columns={columns} />
         {/* owner 2026-10-09: branch chip always last in the row */}
         {scope.select}
-      </div>
+      </FilterBar>
 
       {/* owner 2026-10-07: a real table — number, date, student, grade, amounts and status each in their own column;
           scrolls inside the card on phones (BL-23) · owner 2026-10-12: columns arranged per person (DataTable) */}
@@ -267,7 +262,7 @@ function BundleChip({ inv, members, students }: { inv: Invoice; members: Invoice
   const others = members.filter((x) => x.id !== inv.id)
   return (
     <HoverCard>
-      <HoverCardTrigger render={<span className={cn("inline-flex shrink-0 items-center gap-0.5 rounded-full px-1.5 py-0.5 text-[11px] font-semibold", bundleTone(inv.bundleId!))} aria-label="เชื่อมกับใบอื่น" />}><Link2Icon className="size-3" />{members.length}</HoverCardTrigger>
+      <HoverCardTrigger render={<span className={cn("inline-flex shrink-0 items-center gap-0.5 rounded-full px-1.5 py-0.5 text-2xs font-semibold", bundleTone(inv.bundleId!))} aria-label="เชื่อมกับใบอื่น" />}><Link2Icon className="size-3" />{members.length}</HoverCardTrigger>
       <HoverCardContent side="right" className="w-auto max-w-72 text-xs">
         <p className="mb-1 font-medium">เชื่อมไว้ — ส่งผู้ปกครองทีเดียวกับ</p>
         {others.map((x) => <p key={x.id} className="flex gap-2"><span className="font-mono">{x.number ?? "ร่าง"}</span><span>{students.find((s) => s.id === x.studentId)?.nickname}</span><span className="text-muted-foreground">{Bill.INVOICE_STATUS_LABEL[x.status]}</span></p>)}

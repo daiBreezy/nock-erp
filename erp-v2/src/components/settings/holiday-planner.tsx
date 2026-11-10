@@ -147,7 +147,7 @@ export function HolidayPlanner({ branch }: { branch?: Branch }) {
                     <span className={cn("h-8 w-1 shrink-0 rounded-full", SCOPE_BAR[sc])} />
                     <span className="w-12 shrink-0 text-xs text-muted-foreground tabular-nums"><span className="block">{weekdayShort(weekdayOf(h.date))}</span><span className="block text-sm font-semibold text-foreground">{d.getDate()}</span></span>
                     <span className={cn("min-w-0 flex-1 truncate text-sm font-medium", !isClosed && "line-through")} title={h.name}>{h.name}{h.seriesId && <RepeatIcon className="ml-1 inline size-3 text-muted-foreground" aria-label={tx("ทุกปี")} />}</span>
-                    {brandsOf(h).length > 0 && <span className="flex shrink-0 gap-1">{brandsOf(h).map((b) => <span key={b} className={cn("rounded px-1.5 py-0.5 text-[10px] font-semibold", BRAND_CHIP[b])}>{BRAND_LABEL[b]}</span>)}</span>}
+                    {brandsOf(h).length > 0 && <span className="flex shrink-0 gap-1">{brandsOf(h).map((b) => <span key={b} className={cn("rounded px-1.5 py-0.5 text-2xs font-semibold", BRAND_CHIP[b])}>{BRAND_LABEL[b]}</span>)}</span>}
                     {isBranch && h.branchId === null ? (
                       manageBranch ? (
                         <span className="flex shrink-0 items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
@@ -202,14 +202,14 @@ export function HolidayPlanner({ branch }: { branch?: Branch }) {
                 {sp && <span className="absolute inset-x-0 top-0 h-1 bg-amber-400" />}
                 <div className="flex items-center justify-between">
                   <span className={cn("text-xs", shut && cn("font-semibold", SCOPE_TEXT[sc]))}>{parseDate(d).getDate()}</span>
-                  {n > 0 && inMonth && <span className="text-[10px] text-muted-foreground">{n}  {tx("คาบ")}</span>}
+                  {n > 0 && inMonth && <span className="text-2xs text-muted-foreground">{n}  {tx("คาบ")}</span>}
                 </div>
-                {sp && inMonth && (d === sp.from || parseDate(d).getDate() === 1 || weekdayOf(d) === 1) && <p className="truncate text-[10px] font-medium text-amber-700">☀ {sp.name}</p>}
+                {sp && inMonth && (d === sp.from || parseDate(d).getDate() === 1 || weekdayOf(d) === 1) && <p className="truncate text-2xs font-medium text-amber-700">☀ {sp.name}</p>}
                 {hs.map((h) => (
-                  <p key={h.id} className={cn("mt-0.5 truncate text-[11px]", closed(h) ? SCOPE_TEXT[scopeOf(h)] : "text-muted-foreground line-through")} title={`${h.name} · ${tx(HOLIDAY_CATEGORY_LABEL[h.category])}`}>{h.name}</p>
+                  <p key={h.id} className={cn("mt-0.5 truncate text-2xs", closed(h) ? SCOPE_TEXT[scopeOf(h)] : "text-muted-foreground line-through")} title={`${h.name} · ${tx(HOLIDAY_CATEGORY_LABEL[h.category])}`}>{h.name}</p>
                 ))}
                 {canAdd && (
-                  <button onClick={() => openAdd(d)} className="absolute inset-x-1.5 bottom-1.5 hidden items-center justify-center gap-1 rounded-lg border border-dashed border-primary/40 py-0.5 text-[11px] text-primary group-hover:flex">
+                  <button onClick={() => openAdd(d)} className="absolute inset-x-1.5 bottom-1.5 hidden items-center justify-center gap-1 rounded-lg border border-dashed border-primary/40 py-0.5 text-2xs text-primary group-hover:flex">
                     <PlusIcon className="size-3" />  {tx("เพิ่ม")}
                   </button>
                 )}
@@ -217,7 +217,7 @@ export function HolidayPlanner({ branch }: { branch?: Branch }) {
             )
           })}
         </div>
-        <p className="mt-2 flex flex-wrap gap-3 text-[11px] text-muted-foreground">
+        <p className="mt-2 flex flex-wrap gap-3 text-2xs text-muted-foreground">
           {!isBranch && <>
             <span className="flex items-center gap-1"><span className="size-2.5 rounded-sm bg-sky-200" />{BRAND_LABEL.nockacademy}</span>
             <span className="flex items-center gap-1"><span className="size-2.5 rounded-sm bg-violet-200" />{BRAND_LABEL.liclass}</span>

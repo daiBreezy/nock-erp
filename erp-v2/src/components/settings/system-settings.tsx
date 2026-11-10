@@ -161,7 +161,7 @@ function LossReasons() {
           <thead className="text-xs text-muted-foreground"><tr><th className="text-left font-normal">{tx("ไทย *")}</th><th className="text-left font-normal">English</th><th className="text-left font-normal">日本語</th><th className="text-left font-normal">{tx("ใช้กับ")}</th><th className="font-normal">{tx("ใช้งาน")}</th></tr></thead>
           <tbody>{list.map((r) => (
             <tr key={r.id} className={cn("border-t", !r.active && "opacity-50")}>
-              <td className="py-1 pr-1"><Input className="h-8" value={r.label} onChange={(e) => put(r.id, { label: e.target.value })} placeholder={tx("ชื่อเหตุผล")} />{r.contactOnly && <span className="text-[10px] text-muted-foreground">{tx("ใช้เมื่อยังติดต่อไม่ได้")}</span>}</td>
+              <td className="py-1 pr-1"><Input className="h-8" value={r.label} onChange={(e) => put(r.id, { label: e.target.value })} placeholder={tx("ชื่อเหตุผล")} />{r.contactOnly && <span className="text-2xs text-muted-foreground">{tx("ใช้เมื่อยังติดต่อไม่ได้")}</span>}</td>
               <td className="py-1 pr-1"><Input className="h-8" value={r.en ?? ""} onChange={(e) => put(r.id, { en: e.target.value })} /></td>
               <td className="py-1 pr-1"><Input className="h-8" value={r.ja ?? ""} onChange={(e) => put(r.id, { ja: e.target.value })} /></td>
               <td className="py-1 pr-1"><NativeSelect className="h-8 w-40" value={r.for} onChange={(e) => put(r.id, { for: e.target.value as LossReason["for"] })} options={FOR} /></td>

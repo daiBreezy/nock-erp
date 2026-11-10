@@ -316,7 +316,7 @@ function SpecialPeriodEditor({ p, normal, today, startOpen, classCount, onChange
             {WEEK.map((d) => (
               <div key={d} className="flex flex-wrap items-center gap-2">
                 <HoursRow day={weekdayLong(d)} h={p.hours[d]} onChange={(h) => onChange({ hours: { ...p.hours, [d]: h } })} />
-                {fmt(p.hours[d]) !== fmt(normal[d]) && <span className="text-[11px] text-muted-foreground">{tx("ปกติ")} {fmt(normal[d])}</span>}
+                {fmt(p.hours[d]) !== fmt(normal[d]) && <span className="text-2xs text-muted-foreground">{tx("ปกติ")} {fmt(normal[d])}</span>}
               </div>
             ))}
           </div>

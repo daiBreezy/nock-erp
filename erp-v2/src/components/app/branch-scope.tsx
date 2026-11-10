@@ -72,7 +72,7 @@ export function BranchChip({ value, onChange, options, active, className }: { va
 
 /** small branch code chip for rows when several branches are listed */
 export function BranchCode({ code }: { code: string }) {
-  return <span className="rounded bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">{code}</span>
+  return <span className="rounded bg-muted px-1.5 py-0.5 text-2xs font-medium text-muted-foreground">{code}</span>
 }
 
 /** owner 2026-10-15: several branches in a cell — the first 2 codes, then "8+"; hover it for the rest (by name) */
@@ -86,7 +86,7 @@ export function BranchCodes({ ids, max = 2 }: { ids: ID[]; max?: number }) {
       {shown.map((id) => <BranchCode key={id} code={of(id)?.code ?? ""} />)}
       {rest.length > 0 && (
         <HoverCard>
-          <HoverCardTrigger render={<span className="inline-flex cursor-default items-center rounded bg-muted px-1.5 py-0.5 text-[10px] font-semibold text-foreground tabular-nums" />}>{rest.length}+</HoverCardTrigger>
+          <HoverCardTrigger render={<span className="inline-flex cursor-default items-center rounded bg-muted px-1.5 py-0.5 text-2xs font-semibold text-foreground tabular-nums" />}>{rest.length}+</HoverCardTrigger>
           <HoverCardContent side="bottom" align="start" className="flex flex-col gap-1">
             {rest.map((id) => <span key={id} className="flex items-center gap-2"><BranchCode code={of(id)?.code ?? ""} />{nm(of(id)?.name ?? "")}</span>)}
           </HoverCardContent>

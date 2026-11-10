@@ -43,7 +43,7 @@ export function RichMenuCard({ branch }: { branch: Branch }) {
         </ol>
         {/* suggested layout */}
         <div className="overflow-hidden rounded-2xl border bg-muted/40 text-center text-xs">
-          <p className="border-b bg-background py-1.5 text-[11px] text-muted-foreground">{tx("ตัวอย่างเมนู")}</p>
+          <p className="border-b bg-background py-1.5 text-2xs text-muted-foreground">{tx("ตัวอย่างเมนู")}</p>
           <div className="grid grid-cols-2 gap-px bg-border">
             <span className="flex flex-col items-center gap-1 bg-primary py-4 font-medium text-primary-foreground"><UserPlusIcon className="size-5" />{tx("สมัครเรียน")}</span>
             <span className="flex flex-col items-center gap-1 bg-background py-4"><ClipboardListIcon className="size-5 text-primary" />{tx("นัดสอบ / ทดลองเรียน")}</span>

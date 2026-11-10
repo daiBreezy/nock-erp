@@ -61,7 +61,7 @@ export function StartDatePicker({ value, onChange, today, closed, className }: {
       }} />
   )
   const legend = (
-    <div className="space-y-1 border-t px-3 py-2 text-[11px] text-muted-foreground">
+    <div className="space-y-1 border-t px-3 py-2 text-2xs text-muted-foreground">
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
         <span className="flex items-center gap-1"><i className="size-3 rounded-full ring-2 ring-primary ring-inset" />{tx("วันนี้")}</span>
         <span className="flex items-center gap-1"><b className="w-3 text-center text-orange-600">1</b>{tx("ผ่านไปแล้ว — เลือกได้ แต่ต้องใส่เหตุผล")}</span>

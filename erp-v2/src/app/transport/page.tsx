@@ -137,7 +137,7 @@ export default function TransportPage() {
             {view === "week" && <Segmented label="มุมมอง" value={mode} onChange={setMode} options={[{ value: "table", label: "ตาราง", icon: TableIcon }, { value: "calendar", label: "ปฏิทิน", icon: CalendarDaysIcon }]} />}
             <span className="text-sm font-medium text-muted-foreground">{`${monthShort(Number(monday.slice(5, 7)) - 1)} ${yearOf(Number(monday.slice(0, 4)))}`}</span>
           </Toolbar>
-          <FilterBar search={<SearchBox value={q} onChange={setQ} placeholder="ชื่อเด็ก / คนขับ / ชั้น / รถ" />}>
+          <FilterBar search={<SearchBox value={q} onChange={setQ} placeholder="ค้นหาชื่อเด็ก / คนขับ / ชั้น / รถ" />}>
             {zonesAll.length > 0 && <NativeSelect className="h-9 w-32" value={fZone} placeholder="ทุกโซน" onChange={(e) => setFZone(e.target.value)} options={zonesAll.map(({ z }) => ({ value: z.id, label: z.name }))} />}
             <NativeSelect className="h-9 w-40" value={fType} placeholder="ทุกประเภทเที่ยว" onChange={(e) => setFType(e.target.value)} options={(["pickup", "dropoff", "both"] as const).map((x) => ({ value: x, label: KIND_LABEL[x] }))} />
             <NativeSelect className="h-9 w-40" value={fBus} placeholder="ทุกคัน" onChange={(e) => setFBus(e.target.value)} options={vansAll.map(({ v, b }) => ({ value: v.id, label: scope.length > 1 ? `${v.name} · ${nm(b.name)}` : v.name }))} />

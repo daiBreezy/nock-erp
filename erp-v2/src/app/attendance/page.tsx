@@ -113,7 +113,7 @@ export default function AttendancePage() {
         <Kpi icon={CalendarDaysIcon} label="คาบที่เรียนไปแล้ว" value={inRange.length} />
         <Kpi icon={UserCheckIcon} label="มาเรียน" value={count("present")} tone="emerald" sub={marked ? `${Math.round((count("present") / marked) * 100)}% ของที่เช็คชื่อแล้ว` : undefined} />
         <Kpi icon={UserXIcon} label="ขาด / ลา" value={<><span className="text-red-700">{count("absent")}</span> <span className="text-base text-muted-foreground">/</span> <span className="text-amber-700">{count("leave")}</span></>} tone="red" />
-        <Kpi icon={ClipboardCheckIcon} label="ยังไม่เช็คชื่อ" value={notMarked} tone="amber" valueClassName={notMarked ? "text-red-700" : undefined} />
+        <Kpi icon={ClipboardCheckIcon} label="ยังไม่เช็คชื่อ" value={notMarked} tone="amber" emphasis={!!(notMarked)} />
       </KpiRow>
       <div className="space-y-3">
         <Toolbar end={<Segmented label="มุมมอง" value={view} onChange={setView} options={[{ value: "day", label: "รายวัน" }, { value: "student", label: "รายนักเรียน" }]} />}>

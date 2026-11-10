@@ -83,7 +83,7 @@ export function DevTicketsView({ creating, onCreated }: { creating: boolean; onC
   return (
     <>
       <KpiRow>
-        <Kpi icon={CircleDotIcon} label="ใหม่ (ยังไม่มีคนรับ)" value={count(["new"])} tone="red" valueClassName={count(["new"]) ? "text-red-700" : undefined} onClick={() => setStatus(status === "new" ? "" : "new")} active={status === "new"} />
+        <Kpi icon={CircleDotIcon} label="ใหม่ (ยังไม่มีคนรับ)" value={count(["new"])} tone="red" emphasis={!!(count(["new"]))} onClick={() => setStatus(status === "new" ? "" : "new")} active={status === "new"} />
         <Kpi icon={LoaderIcon} label="กำลังทำ" value={count(["in_progress"])} tone="sky" onClick={() => setStatus(status === "in_progress" ? "" : "in_progress")} active={status === "in_progress"} />
         <Kpi icon={ArchiveIcon} label="เก็บไว้ก่อน" value={count(["on_hold"])} tone="amber" onClick={() => setStatus(status === "on_hold" ? "" : "on_hold")} active={status === "on_hold"} />
         <Kpi icon={CheckCircle2Icon} label="เสร็จแล้ว" value={count(["done"])} tone="emerald" sub={count(["wont_do"]) ? `ไม่ทำ ${count(["wont_do"])} เรื่อง` : undefined} onClick={() => setStatus(status === "done" ? "" : "done")} active={status === "done"} />

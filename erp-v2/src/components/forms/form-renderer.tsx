@@ -204,7 +204,7 @@ function FieldInput({ f, v, set, invalid }: { f: FormField; v: FormAnswer; set: 
           <div className="h-52 overflow-hidden rounded-2xl border" onClick={(e) => e.stopPropagation()}>
             <MapPin value={a.lat !== undefined && a.lng !== undefined ? { lat: a.lat, lng: a.lng } : undefined} onChange={(ll) => set({ ...a, lat: ll.lat, lng: ll.lng })} locateLabel={tx("ใช้ตำแหน่งปัจจุบัน")} />
           </div>
-          <p className="text-[11px] text-muted-foreground">{a.lat !== undefined ? tx("ปักหมุดแล้ว — ลากหมุดเพื่อปรับได้") : tx("แตะบนแผนที่เพื่อปักหมุดบ้าน (ไม่บังคับ)")}</p>
+          <p className="text-2xs text-muted-foreground">{a.lat !== undefined ? tx("ปักหมุดแล้ว — ลากหมุดเพื่อปรับได้") : tx("แตะบนแผนที่เพื่อปักหมุดบ้าน (ไม่บังคับ)")}</p>
         </div>
       )
     }
@@ -246,7 +246,7 @@ function FieldInput({ f, v, set, invalid }: { f: FormField; v: FormAnswer; set: 
             <button key={i} type="button" onClick={() => set(v === i ? null : i)}
               className={cn("aspect-square rounded-lg border text-sm tabular-nums", v === i ? "border-primary bg-primary text-primary-foreground" : "bg-background hover:bg-muted")}>{i}</button>
           ))}</div>
-          <div className="mt-1 flex justify-between text-[11px] text-muted-foreground"><span>{tx("ไม่แนะนำเลย")}</span><span>{tx("แนะนำแน่นอน")}</span></div>
+          <div className="mt-1 flex justify-between text-2xs text-muted-foreground"><span>{tx("ไม่แนะนำเลย")}</span><span>{tx("แนะนำแน่นอน")}</span></div>
         </div>
       )
     case "scale5":
@@ -254,7 +254,7 @@ function FieldInput({ f, v, set, invalid }: { f: FormField; v: FormAnswer; set: 
         <div className="grid grid-cols-5 gap-1.5">{SCALE5_LABEL.map((label, i) => (
           <button key={i} type="button" onClick={() => set(v === i + 1 ? null : i + 1)}
             className={cn("flex flex-col items-center gap-0.5 rounded-xl border px-1 py-2 text-center", v === i + 1 ? "border-primary bg-primary text-primary-foreground" : "bg-background hover:bg-muted")}>
-            <span className="text-base font-semibold tabular-nums">{i + 1}</span><span className="text-[10px] leading-tight">{tx(label)}</span>
+            <span className="text-base font-semibold tabular-nums">{i + 1}</span><span className="text-2xs leading-tight">{tx(label)}</span>
           </button>
         ))}</div>
       )

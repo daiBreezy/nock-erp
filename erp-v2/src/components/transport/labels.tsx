@@ -68,7 +68,7 @@ export function DriverCell({ d, changed }: { d: DriverInfo | null; changed?: boo
     <span className="flex min-w-0 items-center gap-2">
       {d.photo ? <img src={d.photo} alt="" className="size-8 shrink-0 rounded-full object-cover" /> : <span className="grid size-8 shrink-0 place-items-center rounded-full bg-lime-100 text-xs font-semibold text-lime-800">{d.nickname.replace(/^(พี่|น้า|ลุง)/, "").slice(0, 1)}</span>}
       <span className="min-w-0">
-        <span className="flex items-center gap-1 truncate text-sm font-medium">{d.nickname}{d.vendor && <span className="rounded-full bg-muted px-1.5 text-[10px] font-normal text-muted-foreground">Outsource</span>}{changed && <span className="rounded-full bg-amber-100 px-1.5 text-[10px] font-normal text-amber-800">แทนวันนี้</span>}</span>
+        <span className="flex items-center gap-1 truncate text-sm font-medium">{d.nickname}{d.vendor && <span className="rounded-full bg-muted px-1.5 text-2xs font-normal text-muted-foreground">Outsource</span>}{changed && <span className="rounded-full bg-amber-100 px-1.5 text-2xs font-normal text-amber-800">แทนวันนี้</span>}</span>
         <span className="block truncate text-xs text-muted-foreground">{d.name}</span>
       </span>
     </span>

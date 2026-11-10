@@ -222,7 +222,7 @@ export function InvoiceEditor({ invoice, defaultStudentId, renewEntitlementId, o
           {student ? (
             <div className="flex items-center gap-2 rounded-xl border px-3 py-1.5 text-sm">
               <span className="font-medium">{student.nickname}</span><span className="text-xs text-muted-foreground">{student.grade} · {student.name}</span>
-              {student.imported && <span className="rounded-full bg-sky-100 px-2 py-0.5 text-[11px] text-sky-800 dark:bg-sky-950 dark:text-sky-200">นักเรียนเก่า</span>}
+              {student.imported && <span className="rounded-full bg-sky-100 px-2 py-0.5 text-2xs text-sky-800 dark:bg-sky-950 dark:text-sky-200">นักเรียนเก่า</span>}
               {!invoice && <button type="button" className="ml-auto text-xs text-primary underline" onClick={() => setPicking(true)}>เปลี่ยน</button>}
             </div>
           ) : (
@@ -725,8 +725,8 @@ function BusDistance({ km, zone, feeId, onUse }: { km: number | null; zone: Retu
 
 /** One ride's bus run next to its tick: the run time + seats taken, red when full, grey when there's no run. */
 function RoundChip({ check, on }: { check: RoundCheck; on: boolean }) {
-  if (!check.round) return <span className={cn("rounded-full px-1.5 py-0.5 text-[11px]", on ? "bg-red-100 font-medium text-red-800 dark:bg-red-950/40 dark:text-red-200" : "bg-muted text-muted-foreground")}>ไม่มีรอบ</span>
+  if (!check.round) return <span className={cn("rounded-full px-1.5 py-0.5 text-2xs", on ? "bg-red-100 font-medium text-red-800 dark:bg-red-950/40 dark:text-red-200" : "bg-muted text-muted-foreground")}>ไม่มีรอบ</span>
   const r = check.round
   const label = check.full ? `${r.time} เต็ม ${check.taken}/${r.seats}` : `${r.time} · ${check.taken}/${r.seats}`
-  return <span title={r.name} className={cn("rounded-full px-1.5 py-0.5 text-[11px] whitespace-nowrap tabular-nums", check.full ? (on ? "bg-red-100 font-medium text-red-800 dark:bg-red-950/40 dark:text-red-200" : "bg-red-50 text-red-700") : "bg-emerald-50 text-emerald-800 dark:bg-emerald-950/30 dark:text-emerald-200")}>{label}</span>
+  return <span title={r.name} className={cn("rounded-full px-1.5 py-0.5 text-2xs whitespace-nowrap tabular-nums", check.full ? (on ? "bg-red-100 font-medium text-red-800 dark:bg-red-950/40 dark:text-red-200" : "bg-red-50 text-red-700") : "bg-emerald-50 text-emerald-800 dark:bg-emerald-950/30 dark:text-emerald-200")}>{label}</span>
 }

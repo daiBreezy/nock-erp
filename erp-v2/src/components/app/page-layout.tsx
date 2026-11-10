@@ -27,22 +27,64 @@ export function PageHeader({ title, description, actions }: { title: React.React
   )
 }
 
-/** owner 2026-11-04: 2 columns on phones · 3 across on tablet (no icon, less wasted space) · up to 4 on desktop */
-export function KpiRow({ children, className }: { children: React.ReactNode; className?: string }) {
-  // owner 2026-11-06: on desktop the KPI cards sit in ONE row — 5 or 6 cards no longer wrap under the first four
+/**
+ * Design System › Kpi (2026-11-10): the columns follow the card count so a row never ends with a lone card.
+ *   2 → 2 · 3 → 3 · 4 → 2+2 then 4 on desktop · 6 → 2 / 3+3 / 6.  Only 2, 3, 4 or 6 cards are allowed;
+ *   5 still renders (2 / 3 / 5) but warns in development — trim to 4 or add a 6th.
+ */
+export function KpiRow({ children }: { children: React.ReactNode }) {
   const n = Children.toArray(children).length
-  return <div className={cn("grid grid-cols-2 gap-3 sm:grid-cols-3", n >= 6 ? "lg:grid-cols-6" : n === 5 ? "lg:grid-cols-5" : "lg:grid-cols-4", className)}>{children}</div>
+  if (process.env.NODE_ENV !== "production" && ![0, 2, 3, 4, 6].includes(n)) console.warn(`KpiRow: ${n} cards — the Design System allows 2, 3, 4 or 6`)
+  const cols = n === 2 ? "grid-cols-2" : n === 3 ? "grid-cols-3" : n === 4 ? "grid-cols-2 lg:grid-cols-4" : n === 6 ? "grid-cols-2 sm:grid-cols-3 lg:grid-cols-6" : "grid-cols-2 sm:grid-cols-3 lg:grid-cols-5"
+  return <div className={cn("grid gap-3", cols)}>{children}</div>
 }
 
 /** filters on the left (branch chip first), `end` on the right */
-/** The one search box for list pages (owner 2026-10-13: Sessions · Attendance · Summaries got one too) — h-9 like every toolbar control */
-export function SearchBox({ value, onChange, placeholder, className }: { value: string; onChange: (v: string) => void; placeholder: string; className?: string }) {
+/** The one search box for list pages (owner 2026-10-13: Sessions · Attendance · Summaries got one too) — h-9 like every toolbar control.
+ *  Design System (2026-11-10): full width on phones · 260–400px from 640 up · 16px text on phones so iPhone Safari
+ *  doesn't zoom in on focus. No className — the width belongs to the system, not the page. */
+export function SearchBox({ value, onChange, placeholder, block, autoFocus }: {
+  value: string; onChange: (v: string) => void; placeholder: string
+  /** inside a picker / dialog: always the full width of its box (list pages leave this off: 260–400px) */
+  block?: boolean
+  autoFocus?: boolean
+}) {
   return (
-    <div className={cn("relative w-full sm:min-w-56 sm:flex-1", className)}>
+    <div className={cn("relative w-full", !block && "sm:w-auto sm:max-w-100 sm:min-w-65 sm:flex-1")}>
       <SearchIcon className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" />
-      <input type="search" value={value} onChange={(e) => onChange(e.target.value)} placeholder={placeholder}
-        className="h-9 w-full min-w-0 rounded-3xl border border-transparent bg-input/50 pr-3 pl-8 text-sm outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/30" />
+      <input type="search" value={value} onChange={(e) => onChange(e.target.value)} placeholder={placeholder} autoFocus={autoFocus}
+        className="h-9 w-full min-w-0 rounded-3xl border border-transparent bg-input/50 pr-3 pl-8 text-base outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/30 sm:text-sm" />
     </div>
+  )
+}
+
+/**
+ * Design System › ListPage (2026-11-10): the one formula for list pages. The page hands over its parts; order,
+ * spacing and responsive behaviour live here, so every list page looks the same and one change reaches them all.
+ *   header (title · description · actions) → KPI row (2, 3, 4 or 6) → search + filters → the list (children)
+ * Need something the formula can't do? Add it here, or mark the page `// ds-exception: <why>` (rule of three).
+ */
+export function ListPage({ title, description, actions, kpis, search, filters, children }: {
+  title: React.ReactNode
+  description?: React.ReactNode
+  /** the page's main button(s) — one `default` button, others `outline` */
+  actions?: React.ReactNode
+  /** <Kpi> cards — 2, 3, 4 or 6 */
+  kpis?: React.ReactNode
+  /** a <SearchBox> */
+  search?: React.ReactNode
+  /** NativeSelect / Segmented / ShowChip / ColumnsMenu / branch chip (last) */
+  filters?: React.ReactNode
+  /** the table / cards, pager, and the page's panels */
+  children: React.ReactNode
+}) {
+  return (
+    <Page>
+      <PageHeader title={title} description={description} actions={actions} />
+      {kpis && <KpiRow>{kpis}</KpiRow>}
+      {(search || filters) && <FilterBar search={search}>{filters}</FilterBar>}
+      {children}
+    </Page>
   )
 }
 
@@ -52,7 +94,7 @@ export function FilterBar({ search, children }: { search: React.ReactNode; child
   return (
     <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
       {search}
-      {children && <div className="grid grid-cols-2 gap-2 *:min-w-0 sm:flex sm:flex-none sm:flex-wrap sm:items-center sm:justify-end">{children}</div>}
+      {children && <div className="grid grid-cols-2 gap-2 *:min-w-0 sm:ml-auto sm:flex sm:flex-none sm:flex-wrap sm:items-center sm:justify-end">{children}</div>}
     </div>
   )
 }

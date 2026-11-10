@@ -165,12 +165,12 @@ export function LeadLostDialog({ lead, onClose }: { lead: Lead; onClose: () => v
           <div className="space-y-1">
             <Label>ติดต่ออีกครั้งวันที่</Label>
             <Input type="date" min={today} value={followUpOn} onChange={(e) => setFollowUpOn(e.target.value)} />
-            <div className="flex gap-1">{[30, 90, 180].map((d) => <button key={d} type="button" className="rounded-full border px-2 text-[11px] hover:bg-muted" onClick={() => setFollowUpOn(addDays(today, d))}>{d === 30 ? "1 เดือน" : d === 90 ? "3 เดือน" : "6 เดือน"}</button>)}</div>
+            <div className="flex gap-1">{[30, 90, 180].map((d) => <button key={d} type="button" className="rounded-full border px-2 text-2xs hover:bg-muted" onClick={() => setFollowUpOn(addDays(today, d))}>{d === 30 ? "1 เดือน" : d === 90 ? "3 เดือน" : "6 เดือน"}</button>)}</div>
           </div>
           <div className="space-y-1">
             <Label>หมายเหตุ{reasonId === "lr_other" ? " *" : ""}</Label>
             <Input value={note} onChange={(e) => setNote(e.target.value)} placeholder="รายละเอียดสั้นๆ" />
-            {followUpOn && <p className="text-[11px] text-muted-foreground">วันที่ {fmtDate(followUpOn)} จะขึ้นใน Need Attention ให้ติดต่อใหม่</p>}
+            {followUpOn && <p className="text-2xs text-muted-foreground">วันที่ {fmtDate(followUpOn)} จะขึ้นใน Need Attention ให้ติดต่อใหม่</p>}
           </div>
         </div>
         {err && reasonId && <p className="text-xs text-red-700">{err}</p>}

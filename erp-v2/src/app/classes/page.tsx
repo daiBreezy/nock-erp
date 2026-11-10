@@ -1,9 +1,9 @@
 "use client"
 
-import { Page, PageHeader, KpiRow, Toolbar } from "@/components/app/page-layout"
+import { ListPage, Page, PageHeader, KpiRow, FilterBar, SearchBox } from "@/components/app/page-layout"
 import { BranchCode, useBranchScope } from "@/components/app/branch-scope"
 import { useState } from "react"
-import { BookOpenIcon, CalendarIcon, ClockIcon, DoorOpenIcon, PlusIcon, RefreshCwIcon, SearchIcon, UserRoundIcon, UsersIcon } from "lucide-react"
+import { BookOpenIcon, CalendarIcon, ClockIcon, DoorOpenIcon, PlusIcon, RefreshCwIcon, UserRoundIcon, UsersIcon } from "lucide-react"
 import { ClassSheet } from "@/components/app/class-sheet"
 import { Pager, usePage, useSort } from "@/components/app/data-table"
 import { ColumnsMenu, DataTable, type Column } from "@/components/app/data-grid"
@@ -11,7 +11,6 @@ import { Kpi } from "@/components/app/kpi"
 import { NativeSelect } from "@/components/app/native-select"
 import { avatarTone, gradeTone, initial, subjectColor } from "@/components/app/subject-color"
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
 import { endTime, fmtDate, TH_DAYS_FULL, toDateStr } from "@/domain/dates"
 import { CAPACITY, subjectsOf } from "@/domain/rules/scheduling"
 import * as Att from "@/domain/rules/attendance"
@@ -118,18 +117,16 @@ export default function ClassesPage() {
   ]
 
   return (
-    <Page>
-      <PageHeader title="คลาส" description="คลาสประจำ ครู ห้อง และนักเรียนในแต่ละคลาส"
-        actions={<Button onClick={() => setOpenId("new")}><PlusIcon /> สร้างคลาส</Button>} />
-
-      <KpiRow>
+    <ListPage title="คลาส" description="คลาสประจำ ครู ห้อง และนักเรียนในแต่ละคลาส"
+        actions={<Button onClick={() => setOpenId("new")}><PlusIcon /> สร้างคลาส</Button>}
+      kpis={<>
         <Kpi icon={BookOpenIcon} label="คลาสที่เปิดอยู่" value={active.length} />
         <Kpi icon={UsersIcon} label="นักเรียน" value={kpiStudents.size} />
         <Kpi icon={UserRoundIcon} label="ครู" value={kpiTeachers.size} />
-        <Kpi icon={RefreshCwIcon} label="ใกล้หมดแพ็กเกจ (ต่อคอร์ส)" value={renewal} valueClassName={renewal ? "text-amber-700" : undefined} />
-      </KpiRow>
-
-      <Toolbar end={<>
+        <Kpi icon={RefreshCwIcon} label="ใกล้หมดแพ็กเกจ (ต่อคอร์ส)" value={renewal} emphasis={!!(renewal)} />
+      </>}
+      search={<SearchBox value={q} onChange={setQ} placeholder="ค้นหาครู / ชั้น / วิชา / ห้อง" />}
+      filters={<>
         <NativeSelect className="h-9 w-28" value={subjectF} onChange={(e) => setSubjectF(e.target.value)} placeholder="ทุกวิชา" options={[...new Set(classes.flatMap((c) => subjectsOf(c)))].map((x) => ({ value: x, label: x }))} />
         <NativeSelect className="h-9 w-32" value={kindF} onChange={(e) => setKindF(e.target.value)} placeholder="ประเภทคอร์ส" options={[{ value: "single", label: "Single" }, { value: "bundle", label: "Bundle" }]} />
         <NativeSelect className="h-9 w-32" value={unitF} onChange={(e) => setUnitF(e.target.value)} placeholder="แพ็กเกจ" options={(["hour", "week", "month"] as PriceUnit[]).map((u) => ({ value: u, label: PRICE_UNIT_LABEL[u] }))} />
@@ -137,19 +134,13 @@ export default function ClassesPage() {
         {/* owner 2026-10-09: branch chip always last in the row */}
         {scope.select}
       </>}>
-        <div className="relative">
-          <SearchIcon className="absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
-          <Input className="w-60 pl-9" placeholder="เช่น ชื่อครู, ชั้น, วิชา, ห้อง" value={q} onChange={(e) => setQ(e.target.value)} />
-        </div>
-      </Toolbar>
-
       {/* owner 2026-10-12: subject and class name in their own columns · teacher by nickname only · branch as its code ·
           columns arranged per person (DataTable) */}
       <DataTable id="classes" columns={columns} rows={pg.rows} rowKey={(c) => c.id} onRowClick={(c) => setOpenId(c.id)}
         rowProps={(c) => ({ "data-focus": focusKeys(c) })} rowClassName={(c) => !c.active && "opacity-45"} sort={sort} onSort={toggle} minWidth={1200} empty="ไม่มีคลาสตามเงื่อนไข" />
       <Pager {...pg} unit="คลาส" />
       <ClassSheet key={openId ?? "none"} id={openId} onClose={() => setOpenId(null)} />
-    </Page>
+    </ListPage>
   )
 }
 

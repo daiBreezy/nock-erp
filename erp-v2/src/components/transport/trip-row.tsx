@@ -35,7 +35,7 @@ export function tripColumns(isOpen: (id: string) => boolean): Column<TripRowData
       const late = t.late && t.late > 0 ? t.late : null
       return (
         <span className="block">
-          <span className="block font-medium tabular-nums">{`${t.depart} → ${t.finish}`}{t.departFixed && <span className="ml-1 text-[10px] font-normal text-primary">ตั้งเอง</span>}</span>
+          <span className="block font-medium tabular-nums">{`${t.depart} → ${t.finish}`}{t.departFixed && <span className="ml-1 text-2xs font-normal text-primary">ตั้งเอง</span>}</span>
           {t.startedAt && <span className="block text-xs text-emerald-700 tabular-nums">{`ออกจริง ${t.startedAt}${t.finishedAt ? ` · จบ ${t.finishedAt}` : ""}`}</span>}
           <span className="block text-xs text-muted-foreground">{`${t.minutes} นาที`}{late && <span className="font-medium text-red-600">{` +${late}`}</span>}{t.round.name ? ` · ${t.round.name}` : ""}{t.extra ? " · เที่ยวพิเศษ" : ""}{t.timeChanged ? " · เวลาเปลี่ยนวันนี้" : ""}</span>
         </span>
@@ -134,7 +134,7 @@ export function TripDetail({ r }: { r: TripRowData }) {
                   <td className={STOP_TD}>
                     <span className="flex items-center gap-2">
                       <span className="grid size-8 shrink-0 place-items-center rounded-full bg-muted text-xs font-semibold">{x.rider.nickname.slice(0, 1)}</span>
-                      <span className="min-w-0"><span className="flex items-center gap-1.5 font-medium whitespace-nowrap">{x.rider.nickname}{x.rider.adult && <span className="inline-flex items-center gap-0.5 rounded-full bg-red-50 px-1.5 py-0.5 text-[11px] font-medium text-red-700"><UserIcon className="size-3" />+ผู้ปกครอง</span>}</span><span className="block text-xs whitespace-nowrap text-muted-foreground">{x.rider.name}</span></span>
+                      <span className="min-w-0"><span className="flex items-center gap-1.5 font-medium whitespace-nowrap">{x.rider.nickname}{x.rider.adult && <span className="inline-flex items-center gap-0.5 rounded-full bg-red-50 px-1.5 py-0.5 text-2xs font-medium text-red-700"><UserIcon className="size-3" />+ผู้ปกครอง</span>}</span><span className="block text-xs whitespace-nowrap text-muted-foreground">{x.rider.name}</span></span>
                     </span>
                   </td>
                   <td className={cn(STOP_TD, "text-center")}><span className={cn("rounded-full px-2 py-0.5 text-xs font-medium whitespace-nowrap", gradeTone(x.rider.grade))}>{x.rider.grade}</span></td>
@@ -145,7 +145,7 @@ export function TripDetail({ r }: { r: TripRowData }) {
                   <td className={STOP_TD}><TripTypeChip kind={x.rider.leg} short /></td>
                   <td className={cn(STOP_TD, "tabular-nums")}>
                     <EditCell kind="time" value={x.etaFixed ? x.eta ?? "" : ""} placeholder="—"
-                      display={<span className="flex items-center gap-1"><ClockIcon className="size-3 text-muted-foreground" />{x.eta ?? "—"}{x.etaFixed && <span title="Admin ตั้งเวลาเอง — ลบเวลาออกเพื่อให้ระบบคำนวณใหม่" className="rounded-full bg-primary/10 px-1.5 text-[10px] font-medium text-primary">ตั้งเอง</span>}</span>}
+                      display={<span className="flex items-center gap-1"><ClockIcon className="size-3 text-muted-foreground" />{x.eta ?? "—"}{x.etaFixed && <span title="Admin ตั้งเวลาเอง — ลบเวลาออกเพื่อให้ระบบคำนวณใหม่" className="rounded-full bg-primary/10 px-1.5 text-2xs font-medium text-primary">ตั้งเอง</span>}</span>}
                       onSave={(v) => report(s.setStopTime(t.round.id, t.date, x.key, v || null), v ? `ตั้งเวลา${x.rider.nickname} ${v} — จุดถัดไปคำนวณต่อจากนี้` : "ให้ระบบคำนวณเวลาให้แล้ว")} />
                   </td>
                   <td className={cn(STOP_TD, "tabular-nums")}>
@@ -155,7 +155,7 @@ export function TripDetail({ r }: { r: TripRowData }) {
                   </td>
                   <td className={cn(STOP_TD, "tabular-nums")}>
                     <EditCell kind="time" value={x.checkOut ?? ""} placeholder="—"
-                      display={x.checkOut ? <span className={cn("font-medium", x.status === "noshow" ? "text-muted-foreground line-through" : "text-emerald-700")}>{x.checkOut}{x.manual && <span title="Admin ใส่เวลาเอง" className="ml-1 text-[10px] font-normal text-muted-foreground">(แอดมิน)</span>}</span> : undefined}
+                      display={x.checkOut ? <span className={cn("font-medium", x.status === "noshow" ? "text-muted-foreground line-through" : "text-emerald-700")}>{x.checkOut}{x.manual && <span title="Admin ใส่เวลาเอง" className="ml-1 text-2xs font-normal text-muted-foreground">(แอดมิน)</span>}</span> : undefined}
                       onSave={(v) => report(s.setTripActual(t.round.id, t.date, { field: "out", stopKey: x.key }, v || null), v ? `${x.rider.nickname} · ${x.rider.leg === "pickup" ? "รับแล้ว" : "ส่งแล้ว"} ${v}` : "ล้างเวลาแล้ว")} />
                   </td>
                   <td className={cn(STOP_TD, "text-right")}><StopStatusChip s={x.status} /></td>
@@ -233,7 +233,7 @@ function TripTimes({ t }: { t: TripPlan }) {
         <span className="text-xs text-muted-foreground">ออกรถ</span>
         <span className="flex items-center gap-1 text-xs text-muted-foreground">ประมาณ
           <EditCell kind="time" className="w-24 font-medium text-foreground tabular-nums" value={t.departFixed ? t.depart : ""} placeholder={t.depart}
-            display={<span className="flex items-center gap-1">{t.depart}{t.departFixed && <span title="Admin ตั้งเวลาเอง — ลบเวลาออกเพื่อให้ระบบคำนวณใหม่" className="rounded-full bg-primary/10 px-1.5 text-[10px] font-medium text-primary">ตั้งเอง</span>}</span>}
+            display={<span className="flex items-center gap-1">{t.depart}{t.departFixed && <span title="Admin ตั้งเวลาเอง — ลบเวลาออกเพื่อให้ระบบคำนวณใหม่" className="rounded-full bg-primary/10 px-1.5 text-2xs font-medium text-primary">ตั้งเอง</span>}</span>}
             onSave={(v) => report(s.setTripDepart(t.round.id, t.date, v || null), v ? `ออกรถ ${v} — เวลาแต่ละจุดคำนวณใหม่` : "ให้ระบบคำนวณเวลาออกรถแล้ว")} />
         </span>
         <span className="flex items-center gap-1 text-xs text-muted-foreground">จริง

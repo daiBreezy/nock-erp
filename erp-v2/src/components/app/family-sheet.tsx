@@ -103,7 +103,7 @@ export function FamilySheet({ id: target, onClose }: { id: ID | "new" | null; on
                       <li key={s.id}>
                         <button onClick={() => setStudentOpen(s.id)} className="flex w-full items-center gap-2 p-2.5 text-left text-sm hover:bg-muted/40">
                           <span className="font-medium">{s.nickname}</span>
-                          <span className={cn("rounded px-1 text-[10px]", gradeTone(s.grade))}>{s.grade}</span>
+                          <span className={cn("rounded px-1 text-2xs", gradeTone(s.grade))}>{s.grade}</span>
                           <span className="truncate text-xs text-muted-foreground">{s.name}</span>
                         </button>
                       </li>

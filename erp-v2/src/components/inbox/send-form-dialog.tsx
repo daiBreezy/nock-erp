@@ -249,7 +249,7 @@ export function SendFormDialog({
 function StepTitle({ n, title, hint }: { n: number; title: string; hint?: string }) {
   return (
     <div className="flex items-baseline gap-2">
-      <span className="grid size-5 place-items-center self-center rounded-full bg-muted text-[11px] font-semibold">{n}</span>
+      <span className="grid size-5 place-items-center self-center rounded-full bg-muted text-2xs font-semibold">{n}</span>
       <p className="font-medium">{title}</p>
       {hint && <p className="text-xs text-muted-foreground">{hint}</p>}
     </div>
@@ -308,7 +308,7 @@ export function SlotDays({ title, color, items, picked, onToggle, empty, tall }:
                       className={cn("relative flex h-11 flex-col justify-center rounded-xl border px-2.5 text-left text-xs tabular-nums transition-colors",
                         on ? "border-foreground bg-foreground text-background" : it.kind === "class" ? "border-violet-200 bg-violet-50/60 hover:bg-violet-50 dark:border-violet-900 dark:bg-violet-950/40" : "bg-background hover:bg-muted")}>
                       <span className="block font-medium">{it.start}–{it.end}</span>
-                      {it.label ? <span className={cn("block truncate text-[10px]", on ? "text-background/75" : "text-violet-700 dark:text-violet-300")}>{it.label}</span> : <span className={cn("block text-[10px]", on ? "text-background/75" : "text-muted-foreground")}>ว่าง</span>}
+                      {it.label ? <span className={cn("block truncate text-2xs", on ? "text-background/75" : "text-violet-700 dark:text-violet-300")}>{it.label}</span> : <span className={cn("block text-2xs", on ? "text-background/75" : "text-muted-foreground")}>ว่าง</span>}
                       {on && <CheckIcon className="absolute right-1.5 top-1.5 size-3" />}
                     </button>
                   )

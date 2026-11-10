@@ -363,7 +363,7 @@ function TimeGutter() {
   return (
     <div className="relative w-12 shrink-0" style={{ height: ((DAY_END - DAY_START) / 60) * HOUR_PX }}>
       {Array.from({ length: (DAY_END - DAY_START) / 60 }, (_, i) => (
-        <div key={i} className="absolute right-2 -translate-y-1/2 text-[11px] text-muted-foreground tabular-nums" style={{ top: i * HOUR_PX }}>
+        <div key={i} className="absolute right-2 -translate-y-1/2 text-2xs text-muted-foreground tabular-nums" style={{ top: i * HOUR_PX }}>
           {i === 0 ? "" : fromMinutes(DAY_START + i * 60)}
         </div>
       ))}
@@ -413,7 +413,7 @@ function Column({ date, sessions, ctx, onSlot, maxCols = 3, onMore }: { date: Da
           <div className="absolute inset-x-0 bottom-0 bg-muted/60" style={{ top: ((toMinutes(hours.close) - DAY_START) / 60) * HOUR_PX }} />
         </>
       )}
-      {holiday && <div className="absolute inset-x-1 top-1 rounded bg-amber-100 px-1 text-[11px] text-amber-900">{holiday.name}</div>}
+      {holiday && <div className="absolute inset-x-1 top-1 rounded bg-amber-100 px-1 text-2xs text-amber-900">{holiday.name}</div>}
       {sessions.map((s) => {
         const p = pos.get(s.id)!
         const top = ((toMinutes(s.start) - DAY_START) / 60) * HOUR_PX
@@ -421,7 +421,7 @@ function Column({ date, sessions, ctx, onSlot, maxCols = 3, onMore }: { date: Da
         if (p.col >= maxCols) {
           if (p.col === maxCols)
             return (
-              <button key={s.id} onClick={(e) => { e.stopPropagation(); onMore?.() }} className="absolute right-0.5 z-10 rounded bg-red-600 px-1 text-[10px] font-semibold text-white" style={{ top }}>
+              <button key={s.id} onClick={(e) => { e.stopPropagation(); onMore?.() }} className="absolute right-0.5 z-10 rounded bg-red-600 px-1 text-2xs font-semibold text-white" style={{ top }}>
                 +{p.cols - maxCols}
               </button>
             )
@@ -492,13 +492,13 @@ function MonthView({ from, month, sessions, onDay, today, conflictIds }: { from:
               <div className="flex items-center gap-1 text-xs">
                 <span className={cn("grid size-5 place-items-center rounded-full", d === today && "bg-primary text-primary-foreground")}>{parseDate(d).getDate()}</span>
                 {conflict && <span className="size-2 rounded-full bg-red-500" title="มีคาบชนกัน" />}
-                {hol && <span className="truncate text-[10px] text-amber-800">{hol.name}</span>}
+                {hol && <span className="truncate text-2xs text-amber-800">{hol.name}</span>}
               </div>
               <div className="mt-1 space-y-0.5">
                 {list.slice(0, 3).map((s) => (
-                  <div key={s.id} className={cn("truncate rounded bg-sky-50 px-1 text-[11px] dark:bg-sky-950/40", !s.teacherId && "bg-amber-100 dark:bg-amber-950/40")}>{s.start} {s.subject}</div>
+                  <div key={s.id} className={cn("truncate rounded bg-sky-50 px-1 text-2xs dark:bg-sky-950/40", !s.teacherId && "bg-amber-100 dark:bg-amber-950/40")}>{s.start} {s.subject}</div>
                 ))}
-                {list.length > 3 && <div className="text-[11px] text-muted-foreground">+{list.length - 3} คาบ</div>}
+                {list.length > 3 && <div className="text-2xs text-muted-foreground">+{list.length - 3} คาบ</div>}
               </div>
             </button>
           )

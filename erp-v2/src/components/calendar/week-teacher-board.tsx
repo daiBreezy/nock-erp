@@ -156,7 +156,7 @@ export function WeekTeacherBoard({ from, sessions, onOpen, onSlot, canCreate, da
             <div className="min-w-fit">
               <div className={cn("flex items-center gap-2 px-4 py-2 text-sm font-semibold", dayTone(date, today))}>
                 <span>{DAY_FULL[weekdayOf(date)]} {fmtDate(date, { year: true })}{date === today ? " · วันนี้" : date < today ? " · ผ่านไปแล้ว" : ""}{holiday ? " · วันหยุด" : closed ? " · สาขาปิด" : ""}</span>
-                {periodsOn(branch, date)[0] && <span className="rounded-full bg-violet-100 px-2 py-0.5 text-[11px] font-medium text-violet-900 dark:bg-violet-950 dark:text-violet-200">ช่วง {periodsOn(branch, date)[0].name}</span>}
+                {periodsOn(branch, date)[0] && <span className="rounded-full bg-violet-100 px-2 py-0.5 text-2xs font-medium text-violet-900 dark:bg-violet-950 dark:text-violet-200">ช่วง {periodsOn(branch, date)[0].name}</span>}
               </div>
               {rows.length === 0 || teacherIds.length === 0 ? (
                 <p className="p-6 text-center text-sm text-muted-foreground">{closed || holiday ? "ไม่มีคลาส" : "ยังไม่มีคลาสวันนี้"}</p>
@@ -184,7 +184,7 @@ export function WeekTeacherBoard({ from, sessions, onOpen, onSlot, canCreate, da
                           <p className="truncate text-xs text-muted-foreground" title={t?.subjects.join(" · ")}>{t?.subjects.map((x) => subjectAbbr(x, subjectNames)).join(" · ") || "—"}</p>
                         </div>
                         {away.length > 0 && (
-                          <span className="shrink-0 rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-medium text-amber-900 dark:bg-amber-950 dark:text-amber-200"
+                          <span className="shrink-0 rounded-full bg-amber-100 px-2 py-0.5 text-2xs font-medium text-amber-900 dark:bg-amber-950 dark:text-amber-200"
                             title={away.map((x) => `${x.start} ${x.subject}: ${x.teacherLeave!.substituteId ? `${L.teacher(x.teacherLeave!.substituteId).label} สอนแทน` : "ยกเลิก"}`).join("\n")}>
                             {away.every((x) => !x.teacherLeave!.substituteId) ? "ลา · ยกเลิกคลาส" : "ลา · เปลี่ยนครู"}
                           </span>
@@ -410,7 +410,7 @@ function RoomLine({ sessions, classes, clash, onResolve, inCell }: { sessions: S
           <div key={s.id} className="flex items-center gap-2.5 text-xs text-muted-foreground">
             {clash.includes(s.id) && (
               <button type="button" disabled={!onResolve} onClick={() => onResolve?.(clash)} title="คาบชน · กดเพื่อแก้ปัญหา"
-                className="flex shrink-0 items-center gap-1 rounded-full bg-red-100 px-1.5 py-0.5 text-[11px] font-medium text-red-700 hover:bg-red-200 dark:bg-red-950 dark:text-red-300">
+                className="flex shrink-0 items-center gap-1 rounded-full bg-red-100 px-1.5 py-0.5 text-2xs font-medium text-red-700 hover:bg-red-200 dark:bg-red-950 dark:text-red-300">
                 <AlertTriangleIcon className="size-3" /><span className="hidden @[15rem]:inline">แก้ปัญหา</span>
               </button>
             )}
@@ -465,9 +465,9 @@ function SessionBlock({ s, room, state, ended, dayDate, canEdit, onOpen, klass, 
         <button type="button" onClick={() => onOpen(s.id)} className="min-w-0 truncate text-left text-sm font-semibold text-foreground hover:underline">
           {subjectsOf(s).join(" + ")}
         </button>
-        {klass?.periodId && <span className="shrink-0 rounded-full bg-violet-100 px-1.5 text-[10px] font-medium text-violet-900 dark:bg-violet-950 dark:text-violet-200" title="คลาสพิเศษของช่วงนี้">{periodName(klass.periodId)}</span>}
+        {klass?.periodId && <span className="shrink-0 rounded-full bg-violet-100 px-1.5 text-2xs font-medium text-violet-900 dark:bg-violet-950 dark:text-violet-200" title="คลาสพิเศษของช่วงนี้">{periodName(klass.periodId)}</span>}
         {s.teacherLeave?.substituteId && (
-          <span className="flex shrink-0 items-center gap-0.5 text-[11px] text-amber-700" title={`สอนแทน${L.teacher(s.teacherLeave.teacherId).label} · ${s.teacherLeave.reason}`}>
+          <span className="flex shrink-0 items-center gap-0.5 text-2xs text-amber-700" title={`สอนแทน${L.teacher(s.teacherLeave.teacherId).label} · ${s.teacherLeave.reason}`}>
             <ArrowLeftRightIcon className="size-3" />แทน{L.teacher(s.teacherLeave.teacherId).label}
           </span>
         )}
@@ -551,7 +551,7 @@ function StudentLine({ drag, nickname, grade, avatarKey, notes, time, result, mo
   return (
     <div className="group/line min-w-0">
       <div className="flex items-center gap-2">
-        <span className={cn("grid size-6 shrink-0 place-items-center rounded-full text-[11px] font-semibold", avatarTone(avatarKey))}>{initial(nickname)}</span>
+        <span className={cn("grid size-6 shrink-0 place-items-center rounded-full text-2xs font-semibold", avatarTone(avatarKey))}>{initial(nickname)}</span>
         <button type="button" onClick={onOpen} draggable={!!drag} onDragStart={(e) => { if (drag) { e.dataTransfer.setData("application/x-student", drag); e.dataTransfer.effectAllowed = "move" } }}
           title={drag ? "ลากไปวางที่คาบอื่นเพื่อย้าย" : undefined} className={cn("shrink-0 truncate text-left font-medium hover:underline", drag && "cursor-grab active:cursor-grabbing")}>{nickname}</button>
         {canEdit && !adding ? (
@@ -596,7 +596,7 @@ function StudentLine({ drag, nickname, grade, avatarKey, notes, time, result, mo
           )}
         </div>
       ))}
-      {movedFrom && <p className={cn("pl-8 text-[11px]", inverted ? "text-white/80" : "text-sky-700")}>↩ {movedFrom}</p>}
+      {movedFrom && <p className={cn("pl-8 text-2xs", inverted ? "text-white/80" : "text-sky-700")}>↩ {movedFrom}</p>}
     </div>
   )
 }

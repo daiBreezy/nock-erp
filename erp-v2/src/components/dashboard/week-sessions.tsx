@@ -31,11 +31,11 @@ export function WeekSessions({ sessions, weekStart, today, markedCount }: { sess
               <Link key={date} href={`/calendar?view=day&date=${date}`}
                 className={cn("flex min-h-28 flex-col rounded-xl p-2 transition-colors hover:ring-2 hover:ring-primary/30",
                   isToday ? "bg-red-50 dark:bg-red-950/50" : "bg-muted/40")}>
-                <div className={cn("mb-1.5 text-center text-[11px] font-medium", isToday ? "text-red-700 dark:text-red-300" : "text-muted-foreground")}>
+                <div className={cn("mb-1.5 text-center text-2xs font-medium", isToday ? "text-red-700 dark:text-red-300" : "text-muted-foreground")}>
                   {fmtDate(date, { weekday: true })}{isToday && ` · ${tx("วันนี้")}`}
                 </div>
                 {of.length === 0 ? (
-                  <div className="flex flex-1 items-center justify-center text-[11px] text-muted-foreground">—</div>
+                  <div className="flex flex-1 items-center justify-center text-2xs text-muted-foreground">—</div>
                 ) : (
                   <>
                     <div className="flex flex-1 flex-col gap-1">

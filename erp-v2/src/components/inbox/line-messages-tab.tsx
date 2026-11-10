@@ -21,7 +21,7 @@ function Bubble({ title, hint, text, draft }: Item) {
   return (
     <div className="min-w-0 space-y-2">
       <div>
-        <p className="text-sm font-semibold leading-tight">{title}{draft && <span className="ml-2 rounded-full border border-dashed px-2 py-0.5 align-middle text-[11px] font-normal text-muted-foreground">ร่าง — ยังไม่ส่งอัตโนมัติ</span>}</p>
+        <p className="text-sm font-semibold leading-tight">{title}{draft && <span className="ml-2 rounded-full border border-dashed px-2 py-0.5 align-middle text-2xs font-normal text-muted-foreground">ร่าง — ยังไม่ส่งอัตโนมัติ</span>}</p>
         <p className="text-xs text-muted-foreground">{hint}</p>
       </div>
       <div className="rounded-3xl bg-[#8CABD9]/25 p-4">

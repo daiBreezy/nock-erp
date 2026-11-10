@@ -29,7 +29,7 @@ export function Pulse({ data }: { data: PulseData }) {
   const attTotal = attendance.present + attendance.leave + attendance.absent
   return (
     <section className="border-t pt-3">
-      <p className="mb-2 px-0.5 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">{tx("ภาพรวมสาขา · จังหวะของสาขา")}</p>
+      <p className="mb-2 px-0.5 text-2xs font-medium uppercase tracking-wide text-muted-foreground">{tx("ภาพรวมสาขา · จังหวะของสาขา")}</p>
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <DashCard>
           <CardHeader className="pb-2"><CardTitle className="flex items-baseline justify-between text-sm font-medium">{tx("รายรับ · {0}", [periodLabel])}<span className="flex items-center gap-1 text-xs text-muted-foreground"><Delta value={revDelta} /></span></CardTitle></CardHeader>
@@ -80,7 +80,7 @@ function RevBars({ rows, today }: { rows: { d: string; label: string; total: num
           </div>
         ))}
       </div>
-      <div className="mt-1 flex gap-1 text-[10px] text-muted-foreground">
+      <div className="mt-1 flex gap-1 text-2xs text-muted-foreground">
         {rows.map((r) => <span key={r.d} className="min-w-0 flex-1 truncate text-center">{r.label}</span>)}
       </div>
     </>

@@ -5,17 +5,16 @@ import { AlertTriangleIcon, ChevronRightIcon } from "lucide-react"
 import { Kpi } from "@/components/app/kpi"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import type { AttentionItem } from "@/domain/rules/reports"
-import { cn } from "@/lib/utils"
 import { tx } from "@/lib/i18n"
 
 export const GROUP_LABEL: Record<AttentionItem["group"], string> = { trend: "ยอดและแนวโน้ม", money: "เงินค้าง", students: "นักเรียนเสี่ยงหลุด", teaching: "ครูและการสอน", sales: "ขาย (CRM)" }
 
 /** The red "Need Attention" KPI button (owner 2026-10-01, shared with Dashboard from 2026-10-06) — opens AttentionDialog. */
-export function AttentionButton({ count, onClick, className }: { count: number; onClick: () => void; className?: string }) {
-  // the standard KPI card (owner 2026-10-09) — red while there is something to look at
+export function AttentionButton({ count, onClick }: { count: number; onClick: () => void }) {
+  // the standard KPI card (owner 2026-10-09) — red number while there is something to look at
+  // (Design System 2026-11-10: no tinted card any more — every KPI has one look; `emphasis` colours the number)
   return (
-    <Kpi icon={AlertTriangleIcon} tone={count ? "red" : "primary"} label="Need Attention" value={count} sub={count ? tx("กดเพื่อดูรายการ") : tx("ไม่มีเรื่องต้องดู")} onClick={onClick}
-      className={cn(count && "bg-red-50 ring-red-300 hover:ring-red-400 dark:bg-red-950/40 dark:ring-red-800", className)} />
+    <Kpi icon={AlertTriangleIcon} tone={count ? "red" : "primary"} label="Need Attention" value={count} emphasis={!!count} sub={count ? tx("กดเพื่อดูรายการ") : tx("ไม่มีเรื่องต้องดู")} onClick={onClick} />
   )
 }
 

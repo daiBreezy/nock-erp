@@ -9,7 +9,7 @@ export function Section({ n, title, hint, summary, open, onToggle, children }: {
   return (
     <section className="border-b last:border-b-0">
       <button type="button" aria-expanded={open} onClick={onToggle} className="flex w-full items-center gap-2 py-3 text-left">
-        <span className="grid size-5 shrink-0 place-items-center rounded-full bg-foreground text-[11px] text-background">{n}</span>
+        <span className="grid size-5 shrink-0 place-items-center rounded-full bg-foreground text-2xs text-background">{n}</span>
         <span className="text-sm font-semibold">{title}</span>
         {hint && <span className="text-xs text-muted-foreground">· {hint}</span>}
         {!open && <span className="ml-auto truncate text-xs text-muted-foreground tabular-nums">{summary}</span>}

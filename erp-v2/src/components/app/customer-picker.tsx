@@ -1,10 +1,9 @@
 "use client"
 
 import { useMemo, useState } from "react"
-import { CheckIcon, SearchIcon, UserRoundIcon, UsersIcon } from "lucide-react"
+import { CheckIcon, UserRoundIcon, UsersIcon } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
-import { Input } from "@/components/ui/input"
 import { CUSTOMER_KIND_LABEL, customerRows, filterCustomers, type CustomerKind, type CustomerRow, type CustomerSort } from "@/domain/rules/customers"
 import type { ID } from "@/domain/types"
 import { useBranch } from "@/lib/hooks"
@@ -14,6 +13,7 @@ import { Pill } from "./badges"
 import { Pager, usePage } from "./data-table"
 import { NativeSelect } from "./native-select"
 import { avatarTone, gradeTone, initial } from "./subject-color"
+import { SearchBox } from "./page-layout"
 
 /**
  * "Select Customer" (owner design): search + type/grade filter chips + sort + paged radio list + Confirm.
@@ -55,10 +55,7 @@ export function CustomerPicker({
           <UserRoundIcon className="size-5" />
           <DialogTitle>{title}</DialogTitle>
         </DialogHeader>
-        <div className="relative">
-          <SearchIcon className="absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
-          <Input autoFocus className="h-10 pl-9" value={q} onChange={(e) => { setQ(e.target.value); page.setPage(0) }} placeholder="ชื่อ / ชื่อเล่น / ครอบครัว / เบอร์โทร" />
-        </div>
+        <SearchBox value={q} onChange={(v) => { setQ(v); page.setPage(0) }} placeholder="ค้นหาชื่อ / ชื่อเล่น / ครอบครัว / เบอร์" block autoFocus />
         <div className="flex flex-wrap items-center gap-1.5">
           {kinds.length > 1 && kinds.map((k) => (
             <button key={k} type="button" onClick={() => { toggle(k); page.setPage(0) }}

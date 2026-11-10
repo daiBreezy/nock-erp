@@ -66,7 +66,7 @@ export function DateRangePicker({ from, to, min, max, active, onChange, classNam
       <PopoverTrigger render={<button type="button" aria-pressed={!!active} className={triggerClass} />}>{triggerInner}</PopoverTrigger>
       <PopoverContent align="end" className="w-auto p-0">
         <Calendar mode="range" numberOfMonths={2} locale={LOCALES[lang]} defaultMonth={parseDate(from)} selected={selected} disabled={disabled} onSelect={() => {}} onDayClick={onDayClick} />
-        <p className="border-t px-3 py-2 text-[11px] text-muted-foreground">{draft?.from ? tx("เลือกวันสุดท้าย") : tx("เลือกวันแรก แล้วเลือกวันสุดท้าย · เทียบกับช่วงก่อนหน้าที่ยาวเท่ากัน")}</p>
+        <p className="border-t px-3 py-2 text-2xs text-muted-foreground">{draft?.from ? tx("เลือกวันสุดท้าย") : tx("เลือกวันแรก แล้วเลือกวันสุดท้าย · เทียบกับช่วงก่อนหน้าที่ยาวเท่ากัน")}</p>
       </PopoverContent>
     </Popover>
   )

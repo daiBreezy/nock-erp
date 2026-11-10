@@ -38,7 +38,7 @@ export function DriversCard({ branch }: { branch: Branch }) {
         {drivers.map((d) => draft?.id === d.id ? null : (
           <div key={d.id} className="flex flex-wrap items-center gap-3 rounded-xl border px-3 py-2 text-sm">
             <span className="min-w-0 flex-1">
-              <span className="flex items-center gap-1.5 font-medium">{d.nickname}{d.vendor && <span className="rounded-full bg-muted px-1.5 text-[10px] font-normal text-muted-foreground">Outsource</span>}{!d.active && <span className="rounded-full bg-muted px-1.5 text-[10px] font-normal text-muted-foreground">ปิดใช้งาน</span>}</span>
+              <span className="flex items-center gap-1.5 font-medium">{d.nickname}{d.vendor && <span className="rounded-full bg-muted px-1.5 text-2xs font-normal text-muted-foreground">Outsource</span>}{!d.active && <span className="rounded-full bg-muted px-1.5 text-2xs font-normal text-muted-foreground">ปิดใช้งาน</span>}</span>
               <span className="block text-xs text-muted-foreground">{[d.name, d.phone].filter(Boolean).join(" · ")}</span>
             </span>
             <Button size="sm" variant="outline" onClick={() => copy(d)}><CopyIcon /> ลิงก์แอปคนขับ</Button>

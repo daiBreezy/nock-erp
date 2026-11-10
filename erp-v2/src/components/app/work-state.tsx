@@ -53,7 +53,7 @@ export function workDetail(w: WorkInfo, students: number) {
 export function WorkChip({ w, className }: { w: WorkInfo; students?: number; className?: string }) {
   const Icon = WORK_ICON[w.state]
   return (
-    <span className={cn("inline-flex shrink-0 items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold whitespace-nowrap", WORK_CHIP[w.state], className)}>
+    <span className={cn("inline-flex shrink-0 items-center gap-1 rounded-full px-2 py-0.5 text-2xs font-semibold whitespace-nowrap", WORK_CHIP[w.state], className)}>
       <Icon className={cn("size-3", w.state === "live" && "animate-pulse")} />
       {WORK_LABEL[w.state]}
     </span>

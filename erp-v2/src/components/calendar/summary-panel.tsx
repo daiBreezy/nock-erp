@@ -62,7 +62,7 @@ export function SummaryPanel({ open, onClose, title, sessions, conflicts, now, o
             <div className="grid grid-cols-3 divide-x rounded-2xl bg-muted/50 py-2 sm:grid-cols-5">
               {([["คลาส", sum.classes], ["คาบ", sum.sessions], ["ครู", sum.teachers], ["นักเรียน", sum.students], ["ชั่วโมงสอน", fmtHours(sum.minutes)]] as const).map(([l, v]) => (
                 <div key={l} className="px-2 text-center">
-                  <p className="text-[11px] text-muted-foreground">{l}</p>
+                  <p className="text-2xs text-muted-foreground">{l}</p>
                   <p className="text-lg font-semibold tabular-nums">{v}</p>
                 </div>
               ))}

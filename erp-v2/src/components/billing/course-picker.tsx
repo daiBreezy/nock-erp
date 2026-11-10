@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { AlertTriangleIcon, CheckIcon, LayersIcon, PlusIcon, SearchIcon } from "lucide-react"
+import { AlertTriangleIcon, CheckIcon, LayersIcon, PlusIcon } from "lucide-react"
 import { GradeChips } from "@/components/app/grade-chips"
 import { NativeSelect } from "@/components/app/native-select"
 import { PackageBadge } from "@/components/app/package-badge"
@@ -9,7 +9,6 @@ import { initial, subjectColor } from "@/components/app/subject-color"
 import { CourseDialog, emptyCourse } from "@/components/courses/course-dialog"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
-import { Input } from "@/components/ui/input"
 import { fmtDate, fmtMoney } from "@/domain/dates"
 import { COURSE_FORMAT_LABEL, courseSeats, filterCourses, packageLabel, packKey, priceUnitSuffix, type CourseFilter } from "@/domain/rules/course"
 import { can } from "@/domain/rules/permissions"
@@ -18,6 +17,7 @@ import type { Branch, Course, ID } from "@/domain/types"
 import { cn } from "@/lib/utils"
 import { HEAD } from "@/components/app/data-table"
 import { useStore } from "@/store/store"
+import { SearchBox } from "@/components/app/page-layout"
 
 const PAGE = 24
 
@@ -67,10 +67,7 @@ export function CoursePicker({ branch, today, studentGrade, studentId, onInvoice
             <NativeSelect value={f.subject} onChange={(e) => { setF({ ...f, subject: e.target.value }); setLimit(PAGE) }} placeholder="ทุกวิชา" options={branch.subjects.map((s) => ({ value: s, label: s }))} />
             <NativeSelect value={f.format} onChange={(e) => { setF({ ...f, format: e.target.value as CourseFilter["format"] }); setLimit(PAGE) }} placeholder="เดี่ยว + กลุ่ม" options={[{ value: "group", label: "กลุ่ม" }, { value: "single", label: "เดี่ยว" }]} />
             <NativeSelect value={f.pack} onChange={(e) => { setF({ ...f, pack: e.target.value }); setLimit(PAGE) }} placeholder="ทุกแพ็กเกจ" options={packs} />
-            <div className="relative">
-              <SearchIcon className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
-              <Input className="pl-9" value={f.q} onChange={(e) => { setF({ ...f, q: e.target.value }); setLimit(PAGE) }} placeholder="ค้นหาชื่อคอร์ส / วิชา / ชั้น" />
-            </div>
+            <SearchBox value={f.q} onChange={(v) => { setF({ ...f, q: v }); setLimit(PAGE) }} placeholder="ค้นหาชื่อคอร์ส / วิชา / ชั้น" block />
           </div>
 
           {/* owner 2026-10-13: a table, not cards — scan many courses at once */}

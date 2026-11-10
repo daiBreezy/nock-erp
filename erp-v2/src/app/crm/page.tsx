@@ -1,9 +1,9 @@
 "use client"
 
-import { Page, PageHeader, KpiRow, ShowChip, Segmented } from "@/components/app/page-layout"
+import { ListPage, FilterBar, Page, PageHeader, KpiRow, ShowChip, Segmented, SearchBox } from "@/components/app/page-layout"
 import { BranchCode, useBranchScope } from "@/components/app/branch-scope"
 import { useEffect, useState } from "react"
-import { BellRingIcon, CalendarClockIcon, ChevronRightIcon, LayoutGridIcon, PlusIcon, RotateCcwIcon, SearchIcon, TableIcon, TrendingUpIcon, UserCheckIcon, UserSearchIcon, UsersIcon } from "lucide-react"
+import { BellRingIcon, CalendarClockIcon, ChevronRightIcon, LayoutGridIcon, PlusIcon, RotateCcwIcon, TableIcon, TrendingUpIcon, UserCheckIcon, UserSearchIcon, UsersIcon } from "lucide-react"
 import { Pill } from "@/components/app/badges"
 import { GradeCell, gradeCompare, Pager, usePage, useSort } from "@/components/app/data-table"
 import { ColumnsMenu, DataTable, type Column } from "@/components/app/data-grid"
@@ -14,7 +14,6 @@ import { LeadSheet } from "@/components/crm/lead-sheet"
 import { EnrollInbox } from "@/components/crm/enroll-review"
 import { SurveyCalls } from "@/components/crm/survey-calls"
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { InfoTip } from "@/components/reports/charts"
 import * as Survey from "@/domain/rules/survey"
@@ -138,37 +137,31 @@ export default function CrmPage() {
   ]
 
   return (
-    <Page>
-      <PageHeader title="CRM" description={`${leads.length} Lead ทั้งหมด · ${activeCount} รายกำลังตาม`}
-        actions={canManage && <Button onClick={() => setOpenLead("new")}><PlusIcon /> เพิ่ม Lead</Button>} />
-
-      <KpiRow className={canManage ? "lg:grid-cols-5" : undefined}>
+    <ListPage title="CRM" description={`${leads.length} Lead ทั้งหมด · ${activeCount} รายกำลังตาม`}
+        actions={canManage && <Button onClick={() => setOpenLead("new")}><PlusIcon /> เพิ่ม Lead</Button>}
+      kpis={<>
         <Kpi icon={UsersIcon} label="Lead ทั้งหมด" value={kpis.total} sub={`${kpis.active} รายกำลังตาม`} />
         <Kpi icon={UserSearchIcon} label="กำลังตาม" value={kpis.active} tone="sky" sub={activeCount ? "ยังไม่ปิดการขาย" : "เคลียร์หมดแล้ว"} />
         <Kpi
           icon={CalendarClockIcon} label="นัดสอบ/ทดลองต้องดูแล" value={kpis.dueSoon + kpis.overdue} tone={kpis.overdue ? "red" : "amber"}
-          valueClassName={kpis.overdue ? "text-red-700 dark:text-red-400" : undefined}
+          emphasis={!!kpis.overdue}
           sub={kpis.overdue ? `เลยนัดแล้ว ${kpis.overdue} ราย` : kpis.dueSoon ? "วันนี้ / พรุ่งนี้" : "ไม่มีนัดใกล้ถึง"}
         />
         <Kpi icon={TrendingUpIcon} label="อัตราปิดการขาย" value={`${kpis.conversionRate}%`} tone="emerald" sub={`ลงทะเบียนแล้ว ${kpis.enrolled} จาก ${kpis.total} ราย`} />
         {/* owner 2026-10-09: work waiting for the admin is a KPI card — open it to handle in a popup, the page stays tidy */}
         {canManage && (
           <Kpi icon={BellRingIcon} label="ต้องจัดการ" value={todo.enroll + todo.calls} tone={todo.enroll + todo.calls ? "red" : "primary"}
-            valueClassName={todo.enroll + todo.calls ? "text-red-700" : undefined}
+            emphasis={!!(todo.enroll + todo.calls)}
             sub={todo.enroll + todo.calls ? `ใบสมัคร ${todo.enroll} · โทรผู้ปกครอง ${todo.calls}` : "ไม่มีงานค้าง"} onClick={() => setWorkOpen(true)} />
         )}
-      </KpiRow>
-
-      <div className="flex flex-wrap items-center gap-2">
-        <div className="relative w-56">
-          <SearchIcon className="absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" />
-          <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="ค้นหาชื่อ / วิชา" className="pl-8" />
-        </div>
+      </>}
+      search={<SearchBox value={search} onChange={setSearch} placeholder="ค้นหาชื่อ / วิชา" />}
+      filters={<>
         <NativeSelect value={assigneeFilter} onChange={(e) => setAssigneeFilter(e.target.value)} className="w-44"
           options={[{ value: "all", label: `ผู้ดูแลทั้งหมด (${assigneeScope.length})` }, ...assignees.map((s) => ({ value: s.id, label: `${s.nickname} (${assigneeScope.filter((l) => l.assigneeId === s.id).length})` }))]} />
         {/* same show / hide chip as Billing (owner 2026-10-09) — closed = became students or archived */}
         <ShowChip label="ที่ปิดแล้ว" on={showArchived} onChange={setShowArchived} />
-        <div className="ml-auto flex items-center gap-2">
+        <div className="flex items-center gap-2">
           {/* owner 2026-10-12: the toolbar keeps one line when switching view — the count lives in the pager below */}
           {view === "kanban" && <InfoTip text="ลากการ์ดไปคอลัมน์อื่นเพื่อย้ายขั้นตอน · ที่ปิดแล้ว = เป็นนักเรียนแล้ว หรือเก็บเข้าคลัง" />}
           {/* owner 2026-10-12: in front of the view switch, so the switch never moves when this appears */}
@@ -178,8 +171,7 @@ export default function CrmPage() {
         </div>
         {/* owner 2026-10-09: branch chip always last in the row */}
         {scope.select}
-      </div>
-
+      </>}>
       <Dialog open={workOpen} onOpenChange={setWorkOpen}>
         <DialogContent className="max-h-[85vh] overflow-y-auto lg:max-w-3xl">
           <DialogHeader>
@@ -247,7 +239,7 @@ export default function CrmPage() {
       )}
 
       <LeadSheet key={openLead ?? "none"} leadId={openLead} onClose={() => setOpenLead(null)} />
-    </Page>
+    </ListPage>
   )
 }
 
@@ -269,15 +261,15 @@ function LeadCard({ lead, now, staff, draggable, onOpen, onRestore, branchCode }
     >
       <div className="flex items-start justify-between gap-2">
         <span className="flex min-w-0 items-center gap-1.5">
-          <span className={cn("grid size-6 shrink-0 place-items-center rounded-full text-[11px] font-semibold", avatarTone(lead.id))}>{initial(lead.name)}</span>
+          <span className={cn("grid size-6 shrink-0 place-items-center rounded-full text-2xs font-semibold", avatarTone(lead.id))}>{initial(lead.name)}</span>
           <span className="truncate text-sm font-medium">{lead.name}</span>
           {branchCode && <BranchCode code={branchCode} />}
         </span>
-        <span className={cn("shrink-0 rounded px-1.5 py-0.5 text-[10px] font-semibold", gradeTone(lead.childGrade))}>{lead.childGrade}</span>
+        <span className={cn("shrink-0 rounded px-1.5 py-0.5 text-2xs font-semibold", gradeTone(lead.childGrade))}>{lead.childGrade}</span>
       </div>
 
       <div className="mt-2 flex items-center justify-between gap-2">
-        <span className="flex min-w-0 flex-wrap gap-1">{leadSubjects(lead).map((x) => <span key={x} className={cn("shrink-0 rounded-full px-2 py-0.5 text-[11px] font-medium", subjectColor(x).chip)}>{x}</span>)}</span>
+        <span className="flex min-w-0 flex-wrap gap-1">{leadSubjects(lead).map((x) => <span key={x} className={cn("shrink-0 rounded-full px-2 py-0.5 text-2xs font-medium", subjectColor(x).chip)}>{x}</span>)}</span>
         {lead.direct && lead.stage !== "enrolled" ? (
           <Pill tone="green">สมัครตรง</Pill>
         ) : lead.stage === "new" || lead.stage === "contacting" ? (
@@ -291,7 +283,7 @@ function LeadCard({ lead, now, staff, draggable, onOpen, onRestore, branchCode }
 
       <div className="mt-2 flex items-center justify-between gap-2 border-t pt-1.5">
         <span className="flex min-w-0 items-center gap-1.5 text-xs text-muted-foreground">
-          <span className={cn("grid size-5 shrink-0 place-items-center rounded-full text-[9px] font-semibold", assignee ? avatarTone(assignee.id) : "bg-muted")}>{assignee ? initial(assignee.nickname) : "?"}</span>
+          <span className={cn("grid size-5 shrink-0 place-items-center rounded-full text-2xs font-semibold", assignee ? avatarTone(assignee.id) : "bg-muted")}>{assignee ? initial(assignee.nickname) : "?"}</span>
           <span className="truncate">{assignee?.nickname ?? "ยังไม่มอบหมาย"}</span>
         </span>
         {lead.stage === "archived" && onRestore ? (

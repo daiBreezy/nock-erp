@@ -1,9 +1,8 @@
 "use client"
 
 import { useState } from "react"
-import { CalendarDaysIcon, ClockIcon, GraduationCapIcon, PlusIcon, SearchIcon, UsersIcon } from "lucide-react"
-import { Input } from "@/components/ui/input"
-import { Page, PageHeader, KpiRow, Toolbar } from "@/components/app/page-layout"
+import { CalendarDaysIcon, ClockIcon, GraduationCapIcon, PlusIcon, UsersIcon } from "lucide-react"
+import { ListPage, Page, PageHeader, KpiRow, FilterBar, SearchBox } from "@/components/app/page-layout"
 import { Kpi } from "@/components/app/kpi"
 import { ROLE_TONE } from "@/components/app/badges"
 import { useSort } from "@/components/app/data-table"
@@ -90,7 +89,7 @@ export default function StaffPage() {
     // owner 2026-10-15: every list shows which branch each row comes from
     // owner 2026-10-15: Super Admin / Director / Developer work across the whole company — just "All"
     { id: "branch", label: "สาขา", width: "100px", cell: (x) => x.s.roles.some((r) => r === "super_admin" || r === "director" || r === "developer")
-      ? <span title="ทุกสาขา" className="inline-flex items-center rounded-full bg-primary/10 px-2 py-0.5 text-[11px] font-semibold text-primary">All</span> : <BranchCodes ids={x.s.branchIds} /> },
+      ? <span title="ทุกสาขา" className="inline-flex items-center rounded-full bg-primary/10 px-2 py-0.5 text-2xs font-semibold text-primary">All</span> : <BranchCodes ids={x.s.branchIds} /> },
     { id: "name", label: "ชื่อ-นามสกุล", width: "160px", sort: "name", className: "text-muted-foreground", cell: (x) => <EditCell value={x.s.name} disabled={ro(x)} onSave={(v) => edit(x.s, { name: v })} /> },
     // owner 2026-10-12: Part-time / Full-time both chips, each its own colour
     { id: "type", label: "ประเภท", width: "110px", sort: "type", cell: (x) => (
@@ -105,7 +104,7 @@ export default function StaffPage() {
       <div className="flex gap-1">{x.subjects.length ? x.subjects.map((v) => <span key={v} className={cn(CHIP, subjectColor(v).chip)}>{v}</span>) : <span className="text-muted-foreground">—</span>}</div>
     ) },
     { id: "email", label: "อีเมล", width: "220px", defaultHidden: true, className: "text-muted-foreground", cell: (x) => (
-      <span className="flex items-center gap-1.5"><EditCell kind="email" value={x.s.email ?? ""} disabled={ro(x)} placeholder={x.s.canLogin ? "ใส่อีเมล" : "ไม่บังคับ"} className="flex-1" onSave={(v) => edit(x.s, { email: v })} />{!x.s.canLogin && <span className="shrink-0 rounded-full bg-muted px-1.5 text-[10px]">ไม่ล็อกอิน</span>}</span>
+      <span className="flex items-center gap-1.5"><EditCell kind="email" value={x.s.email ?? ""} disabled={ro(x)} placeholder={x.s.canLogin ? "ใส่อีเมล" : "ไม่บังคับ"} className="flex-1" onSave={(v) => edit(x.s, { email: v })} />{!x.s.canLogin && <span className="shrink-0 rounded-full bg-muted px-1.5 text-2xs">ไม่ล็อกอิน</span>}</span>
     ) },
     // owner 2026-10-15: "Session / Week", numbers only — 6 (5.8hr.)
     { id: "week", label: "คาบ / สัปดาห์", width: "120px", sort: "week", align: "right", className: "tabular-nums text-muted-foreground", cell: (x) => (
@@ -124,27 +123,24 @@ export default function StaffPage() {
   ]
 
   return (
-    <Page>
-      <PageHeader title="บุคลากร" description="บทบาท วิชาที่สอน และวันทำงานแต่ละสาขา · กดที่แถวเพื่อดูข้อมูล / แก้ไข"
-        actions={manage && <Button onClick={() => setOpen("new")}><PlusIcon /> เพิ่มบุคลากร</Button>} />
-      <KpiRow>
+    <ListPage title="บุคลากร" description="บทบาท วิชาที่สอน และวันทำงานแต่ละสาขา · กดที่แถวเพื่อดูข้อมูล / แก้ไข"
+        actions={manage && <Button onClick={() => setOpen("new")}><PlusIcon /> เพิ่มบุคลากร</Button>}
+      kpis={<>
         <Kpi icon={UsersIcon} label="บุคลากร" value={kpi.staff} onClick={() => setKind("")} />
         <Kpi icon={GraduationCapIcon} label="ครู" value={kpi.teachers} tone="sky" onClick={() => setKind(kind === "teacher" ? "" : "teacher")} active={kind === "teacher"} />
         <Kpi icon={ClockIcon} label="Part-time" value={kpi.part} tone="amber" onClick={() => setKind(kind === "part" ? "" : "part")} active={kind === "part"} />
         <Kpi icon={CalendarDaysIcon} label="คาบสอนสัปดาห์นี้" value={kpi.week} tone="emerald" />
-      </KpiRow>
-      <Toolbar end={<><span className="text-xs text-muted-foreground">{list.filter((x) => x.s.active).length} คน</span><ColumnsMenu id="staff-v2" columns={columns} />{scope.select}</>}>
-        <div className="relative w-full sm:w-72">
-          <SearchIcon className="absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" />
-          <Input className="pl-8" placeholder="ชื่อ / ชื่อเล่น / อีเมล / วิชา" value={q} onChange={(e) => setQ(e.target.value)} />
-        </div>
-      </Toolbar>
+      </>}
+      search={<SearchBox value={q} onChange={setQ} placeholder="ค้นหาชื่อ / ชื่อเล่น / อีเมล / วิชา" />}
+      filters={<>
+        <span className="text-xs text-muted-foreground">{list.filter((x) => x.s.active).length} คน</span><ColumnsMenu id="staff-v2" columns={columns} />{scope.select}
+      </>}>
       {/* owner 2026-10-12: columns arranged per person (DataTable) · ประเภท right after the real name, both as chips */}
       {/* owner 2026-10-15: email + Class / Month + Student / Month start hidden — turn them on from the column menu (new layout key, so the default applies) */}
       <DataTable id="staff-v2" columns={columns} rows={list} rowKey={(x) => x.s.id} onRowClick={(x) => setOpen(x.s.id)}
         rowClassName={(x) => !x.s.active && "opacity-50"} sort={sort} onSort={toggle} minWidth={1200} empty="ไม่พบบุคลากร" />
       <StaffPanel key={String(open)} target={open} onClose={() => setOpen(null)} />
-    </Page>
+    </ListPage>
   )
 }
 

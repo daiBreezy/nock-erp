@@ -1,13 +1,12 @@
 "use client"
 
 import { useMemo, useState } from "react"
-import { CopyPlusIcon, SearchIcon } from "lucide-react"
+import { CopyPlusIcon } from "lucide-react"
 import { GradeCell } from "@/components/app/data-table"
 import { gradeTone } from "@/components/app/subject-color"
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
-import { Input } from "@/components/ui/input"
 import { addDays, fmtDate, toDateStr } from "@/domain/dates"
 import { renewalCandidates } from "@/domain/rules/billing"
 import type { ID } from "@/domain/types"
@@ -15,6 +14,7 @@ import { report } from "@/lib/feedback"
 import { useNow } from "@/lib/hooks"
 import { cn } from "@/lib/utils"
 import { useStore } from "@/store/store"
+import { SearchBox } from "@/components/app/page-layout"
 
 /**
  * Renewal for many students at once (owner 2026-11-05): the admin talks to the parents in the Inbox; for everyone who
@@ -55,7 +55,7 @@ export function RenewalDraftsDialog({ branchIds, onClose, onCreated }: { branchI
           <DialogDescription>เลือกนักเรียนที่ผู้ปกครองต้องการต่อคอร์ส — ระบบสร้าง Draft จากใบล่าสุดของแต่ละคน (คอร์ส คลาส จำนวนงวด ข้อความเดิม) เริ่มวันถัดจากที่คอร์สเดิมจบ ให้แอดมินแก้ต่อได้</DialogDescription>
         </DialogHeader>
         <div className="flex items-center gap-2">
-          <div className="relative flex-1"><SearchIcon className="absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" /><Input className="pl-8" placeholder="ค้นหาชื่อนักเรียน / เลขที่ใบ" value={q} onChange={(e) => setQ(e.target.value)} /></div>
+          <div className="flex-1"><SearchBox block value={q} onChange={setQ} placeholder="ค้นหาชื่อนักเรียน / เลขที่ใบ" /></div>
           <label className="flex shrink-0 items-center gap-2 text-sm"><Checkbox checked={allOn} onCheckedChange={(v) => setPicked(v ? [...new Set([...picked, ...shown.map((r) => r.inv.id)])] : picked.filter((id) => !shown.some((r) => r.inv.id === id)))} /> เลือกทั้งหมด</label>
         </div>
         <div className="min-h-0 flex-1 divide-y overflow-y-auto rounded-lg border">

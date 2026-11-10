@@ -1,10 +1,10 @@
 "use client"
 
 import { familyShortName } from "@/domain/rules/people"
-import { Page, PageHeader, KpiRow, Toolbar } from "@/components/app/page-layout"
+import { ListPage, Page, PageHeader, KpiRow, FilterBar, SearchBox } from "@/components/app/page-layout"
 import { Kpi } from "@/components/app/kpi"
 import { useState } from "react"
-import { DownloadIcon, GraduationCapIcon, LogOutIcon, PlusIcon, RefreshCwIcon, SearchIcon, SparklesIcon, UnlinkIcon } from "lucide-react"
+import { DownloadIcon, GraduationCapIcon, LogOutIcon, PlusIcon, RefreshCwIcon, SparklesIcon, UnlinkIcon } from "lucide-react"
 import { GenderIcon, Pill } from "@/components/app/badges"
 import { NativeSelect } from "@/components/app/native-select"
 import { StudentSheet } from "@/components/app/student-sheet"
@@ -15,7 +15,6 @@ import { PhotoCell } from "@/components/app/photo-cell"
 import { useFocusFirst } from "@/components/app/focus-banner"
 import { gradeTone } from "@/components/app/subject-color"
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
 import { addDays, fmtDate, toDateStr } from "@/domain/dates"
 import * as Att from "@/domain/rules/attendance"
 import { can } from "@/domain/rules/permissions"
@@ -160,28 +159,24 @@ export default function StudentsPage() {
   ]
 
   return (
-    <Page>
-      <PageHeader title="นักเรียน" description="นักเรียนทั้งหมด คอร์สที่เรียนอยู่ และวันจบแพ็กเกจ"
+    <ListPage title="นักเรียน" description="นักเรียนทั้งหมด คอร์สที่เรียนอยู่ และวันจบแพ็กเกจ"
         actions={<>
           {can(me, "student.export") && <Button variant="outline" onClick={exportCsv}><DownloadIcon /> ส่งออก</Button>}
           {can(me, "student.manage") && <Button onClick={() => setOpenId("new")}><PlusIcon /> เพิ่มนักเรียน</Button>}
-        </>} />
-      <KpiRow className="lg:grid-cols-5">
+        </>}
+      kpis={<>
         <Kpi icon={GraduationCapIcon} label="กำลังเรียน" value={kpi.active} tone="emerald" onClick={() => pick("active")} active={status === "active"} />
-        <Kpi icon={RefreshCwIcon} label="รอต่อคอร์ส" value={kpi.renewal} tone="amber" valueClassName={kpi.renewal ? "text-amber-700" : undefined} onClick={() => pick("renewal")} active={status === "renewal"} />
+        <Kpi icon={RefreshCwIcon} label="รอต่อคอร์ส" value={kpi.renewal} tone="amber" emphasis={!!(kpi.renewal)} onClick={() => pick("renewal")} active={status === "renewal"} />
         <Kpi icon={SparklesIcon} label="นักเรียนใหม่เดือนนี้" value={kpi.fresh} tone="sky" />
-        <Kpi icon={LogOutIcon} label="แจ้งออก (รอปิดเรื่อง)" value={kpi.exiting} tone="red" valueClassName={kpi.exiting ? "text-red-700" : undefined} onClick={() => pick("exiting")} active={status === "exiting"} />
-        <Kpi icon={UnlinkIcon} label="ยังไม่ผูกครอบครัว" value={kpi.noFamily} tone="red" valueClassName={kpi.noFamily ? "text-red-700" : undefined} onClick={() => setNoFamily(noFamily ? "" : "none")} active={noFamily === "none"} />
-      </KpiRow>
-      <Toolbar end={<><span className="text-xs text-muted-foreground">{shown.length} คน</span><ColumnsMenu id="students" columns={columns} />{scope.select}</>}>
-        <div className="relative w-full sm:w-72">
-          <SearchIcon className="absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" />
-          <Input className="pl-8" placeholder="ชื่อ / ชื่อเล่น / ครอบครัว / เบอร์" value={q} onChange={(e) => setQ(e.target.value)} />
-        </div>
+        <Kpi icon={LogOutIcon} label="แจ้งออก (รอปิดเรื่อง)" value={kpi.exiting} tone="red" emphasis={!!(kpi.exiting)} onClick={() => pick("exiting")} active={status === "exiting"} />
+        <Kpi icon={UnlinkIcon} label="ยังไม่ผูกครอบครัว" value={kpi.noFamily} tone="red" emphasis={!!(kpi.noFamily)} onClick={() => setNoFamily(noFamily ? "" : "none")} active={noFamily === "none"} />
+      </>}
+      search={<SearchBox value={q} onChange={setQ} placeholder="ค้นหาชื่อ / ชื่อเล่น / ครอบครัว / เบอร์" />}
+      filters={<>
         <NativeSelect className="h-9 w-28" value={grade} onChange={(e) => setGrade(e.target.value)} placeholder="ทุกชั้น" options={branch.grades.map((g) => ({ value: g, label: g }))} />
         <NativeSelect className="h-9 w-40" value={status} onChange={(e) => setStatus(e.target.value)} placeholder="ทุกสถานะ" options={[...Object.entries(STATUS_PILL).map(([k, v]) => ({ value: k, label: v.label })), { value: "exiting", label: "แจ้งออก" }]} />
-      </Toolbar>
-
+        <span className="text-xs text-muted-foreground">{shown.length} คน</span><ColumnsMenu id="students" columns={columns} />{scope.select}
+      </>}>
       {/* owner 2026-10-07: one fact per column (grade sortable on its own); Course + Enroll / End date instead of
           classes, school only in the student panel. Name / nickname / grade edit in place — click the other cells to
           open. owner 2026-10-12: each person arranges the columns (drag · lock · show / hide) — DataTable */}
@@ -189,7 +184,7 @@ export default function StudentsPage() {
         rowProps={(r) => ({ "data-focus": focusKeys(r) })} rowClassName={(r) => !!r.ex && "bg-red-50/60 dark:bg-red-950/20"} sort={sort} onSort={toggle} minWidth={1300} empty="ไม่พบนักเรียน" />
       <Pager {...pg} unit="คน" />
       <StudentSheet studentId={openId} onClose={() => setOpenId(null)} />
-    </Page>
+    </ListPage>
   )
 }
 

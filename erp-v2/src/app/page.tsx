@@ -287,7 +287,7 @@ function ActivityButton({ items, today }: { items: Activity[]; today: string }) 
       <HoverCard>
         <HoverCardTrigger render={<Button variant="outline" size="icon-sm" className="relative" aria-label={tx("กิจกรรมล่าสุด")} onClick={() => setOpen(true)} />}>
           <HistoryIcon />
-          {todayCount > 0 && <span className="absolute -top-1.5 -right-1.5 min-w-4 rounded-full bg-primary px-1 text-[10px] leading-4 font-semibold text-primary-foreground tabular-nums">{todayCount}</span>}
+          {todayCount > 0 && <span className="absolute -top-1.5 -right-1.5 min-w-4 rounded-full bg-primary px-1 text-2xs leading-4 font-semibold text-primary-foreground tabular-nums">{todayCount}</span>}
         </HoverCardTrigger>
         <HoverCardContent>{tx("กิจกรรมล่าสุด")}</HoverCardContent>
       </HoverCard>

@@ -36,7 +36,7 @@ export function FixSuggestions({ sessionId }: { sessionId: ID }) {
             <div className="min-w-0 flex-1">
               <div className="text-sm font-medium text-foreground">
                 {f.label}
-                {f.clearsAll && <span className="ml-1.5 rounded-full bg-emerald-100 px-1.5 py-px text-[10px] font-semibold text-emerald-800">แก้ได้หมด</span>}
+                {f.clearsAll && <span className="ml-1.5 rounded-full bg-emerald-100 px-1.5 py-px text-2xs font-semibold text-emerald-800">แก้ได้หมด</span>}
               </div>
               <div className="truncate text-xs text-muted-foreground">{f.detail}</div>
             </div>
@@ -44,7 +44,7 @@ export function FixSuggestions({ sessionId }: { sessionId: ID }) {
           </div>
         )
       })}
-      <p className="text-[11px] text-muted-foreground">มีผลเฉพาะคาบนี้ · ถ้าต้องการเปลี่ยนทุกสัปดาห์ ให้ลากการ์ดแล้วเลือก &quot;คาบนี้และคาบถัดไป&quot;</p>
+      <p className="text-2xs text-muted-foreground">มีผลเฉพาะคาบนี้ · ถ้าต้องการเปลี่ยนทุกสัปดาห์ ให้ลากการ์ดแล้วเลือก &quot;คาบนี้และคาบถัดไป&quot;</p>
     </div>
   )
 }

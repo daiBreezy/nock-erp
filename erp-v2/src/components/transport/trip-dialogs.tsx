@@ -3,7 +3,6 @@
 // Owner 2026-10-19 ("จะต้องสามารถ สร้าง แก้ไข ลบ ปรับเปลี่ยน ยกเลิก ได้ด้วย"): the day's changes to a trip — another time,
 // cancel, add a child, a one-off run — each a small dialog; nothing here changes the weekly runs.
 import { useMemo, useState } from "react"
-import { SearchIcon } from "lucide-react"
 import { NativeSelect } from "@/components/app/native-select"
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
@@ -18,6 +17,7 @@ import type { Branch, BusTrip, DateStr } from "@/domain/types"
 import { report } from "@/lib/feedback"
 import { useStore } from "@/store/store"
 import { KIND_LABEL } from "./labels"
+import { SearchBox } from "@/components/app/page-layout"
 
 const REASONS = ["รถเสีย", "วันหยุด / ปิดเรียน", "คนขับลา", "ไม่มีเด็กนั่ง"]
 
@@ -89,10 +89,7 @@ export function AddRiderDialog({ t, branch, onClose }: { t: TripPlan; branch: Br
           <DialogTitle>{`เพิ่มเด็กเข้า${KIND_LABEL[t.round.kind]} ${t.round.time}`}</DialogTitle>
           <DialogDescription>{`${fmtDate(t.date, { weekday: true })} เท่านั้น · ถ้าเด็กยังไม่ได้ซื้อรอบนี้ = รอบรถเพิ่ม เก็บในรายชื่อนักเรียน คิดในใบแจ้งหนี้รอบถัดไป`}</DialogDescription>
         </DialogHeader>
-        <div className="relative">
-          <SearchIcon className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
-          <Input autoFocus className="pl-9" value={q} onChange={(e) => setQ(e.target.value)} placeholder="ชื่อเล่น / ชื่อ / ชั้น" />
-        </div>
+        <SearchBox value={q} onChange={setQ} placeholder="ค้นหาชื่อเล่น / ชื่อ / ชั้น" block autoFocus />
         <ul className="max-h-60 divide-y overflow-y-auto rounded-2xl border text-sm">
           {list.map((s) => (
             <li key={s.id}><button type="button" onClick={() => setPick(s.id)} className={pick === s.id ? "flex w-full items-center gap-2 bg-primary/10 px-3 py-2 text-left" : "flex w-full items-center gap-2 px-3 py-2 text-left hover:bg-muted/50"}>

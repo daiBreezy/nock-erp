@@ -110,14 +110,14 @@ function Reports() {
           <DropdownMenu>
             <DropdownMenuTrigger render={<Button variant="outline" className="print:hidden" />}><DownloadIcon /> {tx("ดาวน์โหลด")} <ChevronDownIcon className="text-muted-foreground" /></DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-52">
-              <DropdownMenuItem onClick={() => window.print()}><PrinterIcon /> .PDF <span className="ml-auto text-[11px] text-muted-foreground">{tx("หน้าที่เปิดอยู่")}</span></DropdownMenuItem>
-              <DropdownMenuItem onClick={exportXlsx}><FileSpreadsheetIcon /> .xlsx <span className="ml-auto text-[11px] text-muted-foreground">{tx("ทุกแท็บ")}</span></DropdownMenuItem>
+              <DropdownMenuItem onClick={() => window.print()}><PrinterIcon /> .PDF <span className="ml-auto text-2xs text-muted-foreground">{tx("หน้าที่เปิดอยู่")}</span></DropdownMenuItem>
+              <DropdownMenuItem onClick={exportXlsx}><FileSpreadsheetIcon /> .xlsx <span className="ml-auto text-2xs text-muted-foreground">{tx("ทุกแท็บ")}</span></DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
         </>} />
 
       {/* headline numbers */}
-      <KpiRow className="md:grid-cols-3 lg:grid-cols-5">
+      <KpiRow>
         <Kpi icon={BanknoteIcon} label={tx("รายได้ · {0}", [periodLabel])} value={fmtNum(d.kpi.revenue)} sub={<><Delta value={d.kpi.revenueChange} /> <span>{tx(COMPARE_LABEL[period])}</span></>} />
         <Kpi icon={UsersIcon} label={tx("นักเรียน Active")} value={fmtNum(d.kpi.active)} sub={<><Delta value={d.kpi.activeChange} /> <span>{tx("vs ต้นช่วง · Pause")} {d.kpi.paused}</span></>} />
         <Kpi icon={CalendarDaysIcon} label={tx("คาบสัปดาห์นี้")} value={fmtNum(d.kpi.weekSessions)} sub={<span>{tx("ไม่นับคาบที่ยกเลิก")}</span>} />
@@ -129,7 +129,7 @@ function Reports() {
       <div className="sticky top-14 z-10 -mx-3 flex flex-col gap-3 border-b border-transparent bg-background/95 px-3 py-2 backdrop-blur md:-mx-6 md:px-6 print:hidden">
         {/* owner 2026-10-09: underline = which topic · grey boxes = which period */}
         <Tabs value={tab} onChange={setTab}
-          options={TABS.map((t) => ({ value: t.id, icon: t.id === "summary" ? AiSparkles : undefined, label: <>{tx(t.label)}{t.soon && <span className="ml-1 text-[10px] text-muted-foreground">{t.soon}</span>}</> }))} />
+          options={TABS.map((t) => ({ value: t.id, icon: t.id === "summary" ? AiSparkles : undefined, label: <>{tx(t.label)}{t.soon && <span className="ml-1 text-2xs text-muted-foreground">{t.soon}</span>}</> }))} />
         {/* periods: rolling · to-date · complete-period comparisons · custom dates — not on Satisfaction, which is one
             survey round a year (owner 2026-10-09: a year switch AND a period made no sense together) */}
         {tab === "satisfaction" ? <SatisfactionFilters d={d} f={sat} onChange={setSat} /> : <div className="flex flex-wrap items-center gap-2">
@@ -270,7 +270,7 @@ function StockSection({ stats, flow, unit, periodLabel }: { stats: Figure[]; flo
       <p className="text-xs text-muted-foreground">{title}</p>
       {/* owner 2026-10-21: the number sits on the outer edge — left of its words on the left, after them on the right */}
       <p className={cn("mt-0.5 flex items-baseline gap-1.5", right && "flex-row-reverse")}><span className="text-2xl font-semibold tabular-nums">{fmtNum(value)}</span><span className="text-sm text-muted-foreground">{label}</span></p>
-      <p className={cn("flex items-center gap-2 text-[11px] text-muted-foreground tabular-nums", right && "justify-end")}>{sub}</p>
+      <p className={cn("flex items-center gap-2 text-2xs text-muted-foreground tabular-nums", right && "justify-end")}>{sub}</p>
     </div>
   )
   return (
@@ -360,7 +360,7 @@ function LeadOverview({ d }: { d: ReportData }) {
           {/* the same words as the boxes under it */}
           <span className="truncate text-sm text-muted-foreground">{tx(f[i].key === "came" ? "มาตามนัด" : f[i].label)}</span>
         </p>
-        <p className={cn("flex items-center gap-2 text-[11px] text-muted-foreground tabular-nums", last && "justify-end")}>
+        <p className={cn("flex items-center gap-2 text-2xs text-muted-foreground tabular-nums", last && "justify-end")}>
           {i ? tx("{0} จากขั้นก่อน", [fmtPct(f[i].ofPrev)]) : deltaSub(pctDelta(l.total, l.prev.total, ok))}
           {extra}
         </p>
@@ -435,7 +435,7 @@ function MembersConversion({ d }: { d: ReportData }) {
                   <tbody>{part.map((m, i) => (
                     <tr key={m.staffId ?? "none"} className="border-t">
                       <td className="py-1.5"><span className="flex items-center gap-2"><Rank n={c * half + i + 1} />{m.staff ? <span className="truncate font-medium">{m.staff.nickname}</span> : <span className="truncate text-muted-foreground">{tx("ยังไม่มีผู้ดูแล")}</span>}</span></td>
-                      <td className="py-1.5"><span className="flex flex-wrap gap-1">{(m.staff?.roles ?? []).filter((r) => r !== "developer" && r !== "driver").map((r) => <RoleChip key={r} role={r as keyof typeof ROLE_TONE} className="text-[11px]" />)}</span></td>
+                      <td className="py-1.5"><span className="flex flex-wrap gap-1">{(m.staff?.roles ?? []).filter((r) => r !== "developer" && r !== "driver").map((r) => <RoleChip key={r} role={r as keyof typeof ROLE_TONE} className="text-2xs" />)}</span></td>
                       <td className="text-right tabular-nums">{m.leads}</td>
                       <td className="text-right text-emerald-600 tabular-nums">{m.enrolled}</td>
                       <td className="pl-4"><span className="flex items-center gap-2"><ShareBar value={m.conversion ?? 0} color="#be123c" /><span className="w-10 shrink-0 text-right tabular-nums">{fmtPct(m.conversion)}</span></span></td>
@@ -518,7 +518,7 @@ function Stat({ label, value, tone, sub, info, card, className }: { label: strin
     <div className={cn("flex h-full flex-col justify-center rounded-2xl p-3", card ? "bg-card ring-1 ring-foreground/10" : "bg-muted/50", className)}>
       <p className="flex items-center gap-1 text-xs text-muted-foreground">{label}{info && <InfoTip text={info} />}</p>
       <p className={cn("font-semibold tabular-nums", card ? "text-lg" : "text-2xl", tone)}>{value}</p>
-      {sub && <p className={cn("flex flex-wrap items-center gap-1 text-muted-foreground", card ? "text-[10px]" : "text-[11px]")}>{sub}</p>}
+      {sub && <p className={cn("flex flex-wrap items-center gap-1 text-muted-foreground", card ? "text-2xs" : "text-2xs")}>{sub}</p>}
     </div>
   )
 }
@@ -683,8 +683,8 @@ function RevenueTab({ d, compare, period, periodLabel }: { d: ReportData; compar
           <div key={p.key} className={cn("rounded-2xl bg-card p-3 ring-1 ring-foreground/10", p.key === period && "ring-2 ring-primary")}>
             <p className="text-xs text-muted-foreground">{tx(p.label)}</p>
             <p className="text-lg font-semibold tabular-nums">{fmtNum(p.value)}</p>
-            <p className="flex flex-wrap items-center gap-1 text-[10px] text-muted-foreground"><Delta value={p.change} /> {tx(p.vs)}</p>
-            <p className="text-[10px] text-muted-foreground">{fmtDate(p.range.from)} – {fmtDate(p.range.to)}</p>
+            <p className="flex flex-wrap items-center gap-1 text-2xs text-muted-foreground"><Delta value={p.change} /> {tx(p.vs)}</p>
+            <p className="text-2xs text-muted-foreground">{fmtDate(p.range.from)} – {fmtDate(p.range.to)}</p>
           </div>
         ))}
       </div>
@@ -809,7 +809,7 @@ function SchoolWhere({ row, branches }: { row: SchoolRow; branches: Branch[] }) 
   return (
     <HoverCard>
       <HoverCardTrigger render={<span className="block cursor-default truncate" />}>
-        {row.regions.map((r) => <span key={r} className="mr-1 rounded bg-sky-100 px-1 text-[10px] font-semibold text-sky-800 dark:bg-sky-950 dark:text-sky-200">{r}</span>)}
+        {row.regions.map((r) => <span key={r} className="mr-1 rounded bg-sky-100 px-1 text-2xs font-semibold text-sky-800 dark:bg-sky-950 dark:text-sky-200">{r}</span>)}
         {list.map((b, i) => <span key={b.id}>{i > 0 && " · "}{b.br?.code ?? "?"} <span className="tabular-nums">{b.count}</span></span>)}
       </HoverCardTrigger>
       <HoverCardContent side="bottom" align="start" className="p-2.5">
@@ -950,7 +950,7 @@ function MovementBars({ months, current }: { months: ReportData["movementMonthly
             <div className="flex flex-1 flex-col">
               {x && <><div style={{ height: h(x.lost), background: MOVE_COLORS[3] }} className={cn(!x.pauses && "rounded-b-sm")} /><div className="rounded-b-sm" style={{ height: h(x.pauses), background: MOVE_COLORS[2] }} /></>}
             </div>
-            <p className={cn("mt-1 text-center text-[11px] text-muted-foreground", i === current && "font-semibold text-foreground")}>{monthShort(i)}</p>
+            <p className={cn("mt-1 text-center text-2xs text-muted-foreground", i === current && "font-semibold text-foreground")}>{monthShort(i)}</p>
           </div>
         ))}
       </div>
@@ -999,7 +999,7 @@ function RateRows({ rows, plain }: { rows: { key: string; label: React.ReactNode
       {rows.map((r) => (
         <li key={r.key} className="grid grid-cols-[minmax(0,10rem)_1fr_3rem] items-center gap-3">
           <span className="truncate">{r.label}</span>
-          <span className="flex items-center gap-2"><ShareBar value={r.rate ?? 0} color={r.tone ?? (plain ? undefined : r.rate !== null && r.rate < 0.8 ? "#dc2626" : "#10b981")} />{r.sub && <span className="shrink-0 text-[11px] text-muted-foreground tabular-nums">{r.sub}</span>}</span>
+          <span className="flex items-center gap-2"><ShareBar value={r.rate ?? 0} color={r.tone ?? (plain ? undefined : r.rate !== null && r.rate < 0.8 ? "#dc2626" : "#10b981")} />{r.sub && <span className="shrink-0 text-2xs text-muted-foreground tabular-nums">{r.sub}</span>}</span>
           <span className={cn("text-right tabular-nums", !plain && r.rate !== null && r.rate < 0.8 && "font-medium text-red-600")}>{fmtPct(r.rate)}</span>
         </li>
       ))}
@@ -1099,7 +1099,7 @@ function OperationsTab({ d, compare }: { d: ReportData; compare: boolean }) {
               </thead>
               <tbody>{teachers.map((t) => (
                 <tr key={t.teacherId} className="border-t">
-                  <td className="py-1.5"><span className="flex items-center gap-1.5">{nm(t.staff?.nickname ?? "—")}{t.staff?.partTime && <span className="rounded-full bg-violet-100 px-1.5 text-[10px] text-violet-800 dark:bg-violet-950 dark:text-violet-200">Part-time</span>}{t.staff && !t.staff.active && <span className="text-[10px] text-muted-foreground">{tx("(ออกแล้ว)")}</span>}</span></td>
+                  <td className="py-1.5"><span className="flex items-center gap-1.5">{nm(t.staff?.nickname ?? "—")}{t.staff?.partTime && <span className="rounded-full bg-violet-100 px-1.5 text-2xs text-violet-800 dark:bg-violet-950 dark:text-violet-200">Part-time</span>}{t.staff && !t.staff.active && <span className="text-2xs text-muted-foreground">{tx("(ออกแล้ว)")}</span>}</span></td>
                   {compare && <td className="text-muted-foreground">{(t.staff?.branchIds ?? []).map(branchOf).filter(Boolean).join(", ") || "—"}</td>}
                   <td className="text-right tabular-nums">{t.sessions}</td>
                   <td className="text-right font-medium tabular-nums">{hrs(t.minutes)}</td>
@@ -1128,7 +1128,7 @@ function OperationsTab({ d, compare }: { d: ReportData; compare: boolean }) {
             key: c.id, label: <span title={nm(c.name)}>{nm(c.name)}{compare && <span className="text-xs text-muted-foreground"> · {branchOf(c.branchId)}</span>}</span>,
             rate: Math.min(1, c.fill), sub: `${c.students}/${c.capacity}`, tone: c.fill > 1 ? "#dc2626" : c.students <= 1 ? "#f59e0b" : undefined,
           }))} />
-          <p className="mt-2 text-[11px] text-muted-foreground"><span className="text-amber-600">■</span>  {tx("คนน้อย (≤ 1 คน) ·")} <span className="text-red-600">■</span>  {tx("เกินขนาดแนะนำ (แสดงบนสุด)")}</p>
+          <p className="mt-2 text-2xs text-muted-foreground"><span className="text-amber-600">■</span>  {tx("คนน้อย (≤ 1 คน) ·")} <span className="text-red-600">■</span>  {tx("เกินขนาดแนะนำ (แสดงบนสุด)")}</p>
         </Panel>
       </div>
     </div>
@@ -1190,7 +1190,7 @@ function ExitPanelReport({ d }: { d: ReportData }) {
             </li>
           ))}</ul>
         ) : <Empty>{tx("ยังไม่มีนักเรียนที่ปิดการออกในช่วงนี้")}</Empty>}
-        {e.reasons.length > 0 && <p className="mt-2 text-[11px] text-muted-foreground">{tx("สีเข้ม = เหตุผลหลัก · สีอ่อน = เหตุผลอื่นที่เลือกด้วย")}</p>}
+        {e.reasons.length > 0 && <p className="mt-2 text-2xs text-muted-foreground">{tx("สีเข้ม = เหตุผลหลัก · สีอ่อน = เหตุผลอื่นที่เลือกด้วย")}</p>}
       </Panel>
       {/* owner 2026-10-07: the headline only — NPS + will they come back; the rest opens in a popup */}
       <Panel title={tx("คะแนนจากผู้ปกครองที่ออก")} hint={tx("เฉลี่ย 1–5 · NPS = % แนะนำ (9–10) − % ไม่แนะนำ (0–6)")} fill
@@ -1498,7 +1498,7 @@ function SatisfactionTab({ d, compare, f }: { d: ReportData; compare: boolean; f
       {compare && !group && (
         <Panel title={tx("NPS ตามสาขา")} hint={tx("ตัวเลขเล็ก = ปีก่อน · (ตอบ/ส่ง)")} fill>
           <SplitRanks rows={[...curAll.byBranch].sort((a, b) => (b.nps ?? -999) - (a.nps ?? -999))} cols={[
-            { label: "NPS", cell: (b) => <span className={cn("font-medium", b.nps !== null && b.nps < 0 && "text-red-600")}>{b.nps === null ? "—" : `${b.nps > 0 ? "+" : ""}${b.nps}`}<span className="ml-1 text-[11px] font-normal text-muted-foreground">{prevAll.byBranch.find((x) => x.id === b.id)?.nps ?? "—"}</span></span> },
+            { label: "NPS", cell: (b) => <span className={cn("font-medium", b.nps !== null && b.nps < 0 && "text-red-600")}>{b.nps === null ? "—" : `${b.nps > 0 ? "+" : ""}${b.nps}`}<span className="ml-1 text-2xs font-normal text-muted-foreground">{prevAll.byBranch.find((x) => x.id === b.id)?.nps ?? "—"}</span></span> },
             { label: tx("ตอบ"), cell: (b) => <span className="text-xs text-muted-foreground">{b.n}/{b.sent}</span> },
           ]} />
         </Panel>

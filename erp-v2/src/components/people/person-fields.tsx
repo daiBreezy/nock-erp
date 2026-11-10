@@ -97,7 +97,7 @@ export function ParentFields({ t, value: p, onChange, linked, errors = {} }: { t
           {p.phones.map((ph, k) => (
             <div key={k} className="flex items-center gap-1.5">
               <Input inputMode="tel" value={ph} placeholder="0812345678" onChange={(e) => onChange({ phones: p.phones.map((x, j) => (j === k ? e.target.value : x)) })} />
-              {k === 0 ? <span className="shrink-0 rounded-full bg-primary/10 px-2 py-1 text-[11px] text-primary">{t.defaultTag}</span> : (
+              {k === 0 ? <span className="shrink-0 rounded-full bg-primary/10 px-2 py-1 text-2xs text-primary">{t.defaultTag}</span> : (
                 <>
                   <Button size="xs" variant="ghost" className="shrink-0" onClick={() => onChange({ phones: [ph, ...p.phones.filter((_, j) => j !== k)] })}>{t.makeDefault}</Button>
                   <Button size="icon-xs" variant="ghost" className="shrink-0 text-red-600" aria-label={t.remove} onClick={() => onChange({ phones: p.phones.filter((_, j) => j !== k) })}><TrashIcon /></Button>

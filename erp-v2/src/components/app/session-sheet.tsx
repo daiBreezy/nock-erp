@@ -268,7 +268,7 @@ function Body({ id, onClose }: { id: ID; onClose: () => void }) {
                 </dl>
               )
             })()}
-            <p className="text-[11px] text-muted-foreground">รหัสคาบ {s.id}</p>
+            <p className="text-2xs text-muted-foreground">รหัสคาบ {s.id}</p>
           </div>
         )}
       </div>
@@ -397,7 +397,7 @@ function StudentRow({ s, sid, viewOnly, canManage, mine, text, setText, selectab
           <span className="flex min-w-0 items-center gap-1.5">
             <button type="button" onClick={() => setOpen("student")} className="truncate text-left text-base font-semibold hover:text-primary hover:underline">{stu?.nickname}</button>
             {/* grade sits next to the name so the right side carries only the ⋮ (owner 2026-11-02) */}
-            {stu?.grade && <span className={cn("shrink-0 rounded-full px-1.5 py-px text-[11px] font-semibold", gradeTone(stu.grade))}>{stu.grade}</span>}
+            {stu?.grade && <span className={cn("shrink-0 rounded-full px-1.5 py-px text-2xs font-semibold", gradeTone(stu.grade))}>{stu.grade}</span>}
             {isNew && <Pill tone="red" className="shrink-0" title="เด็กใหม่ — คาบนี้เป็นคาบแรกที่มาเรียนกับเรา (ยังไม่เคยมีการเช็คชื่อมาก่อน) · ครูควรทำความรู้จัก/ประเมินระดับ"><FlameIcon className="size-3" /> ใหม่</Pill>}
             {onLongLeave && <Pill tone="violet" className="shrink-0" title={`${fmtDate(onLongLeave.from)} – ${fmtDate(onLongLeave.to, { year: true })} · ${onLongLeave.reason}`}>ลาพักยาว</Pill>}
             {/* tap to change which hours this student attends — works before attendance (parent called ahead) */}
@@ -724,7 +724,7 @@ function MovedOutRow({ s, studentId, toSessionId, canManage }: { s: Session; stu
       {to && (
         <button type="button" onClick={() => setOpen(true)} className="shrink-0 text-right text-xs text-amber-700 hover:underline" title="เปิดคาบที่ย้ายไป">
           <span className="flex items-center justify-end gap-1 font-medium"><CalendarClockIcon className="size-4" /> ย้ายไป</span>
-          <span className="text-[11px]">{fmtDate(to.date, { weekday: true })} · {to.start}–{endTime(to.start, to.minutes)}{toClass ? ` · ${toClass.name}` : ""}</span>
+          <span className="text-2xs">{fmtDate(to.date, { weekday: true })} · {to.start}–{endTime(to.start, to.minutes)}{toClass ? ` · ${toClass.name}` : ""}</span>
         </button>
       )}
       {canManage ? (
@@ -831,7 +831,7 @@ export function RescheduleDialog({ from, studentId, onClose, initialMode = "once
           <NativeSelect className="h-9 w-32" value={subject} onChange={(e) => { setSubject(e.target.value); setPick(null) }} placeholder="ทุกวิชา" options={branch.subjects.map((x) => ({ value: x, label: x }))} />
           <div className="ml-auto flex items-center gap-1 rounded-full bg-muted px-1 py-1">
             <Button size="icon-sm" variant="ghost" aria-label="วันก่อน" disabled={day <= monday} onClick={() => { setDay(addDays(day, -1)); setPick(null) }}><ChevronLeftIcon /></Button>
-            <span className="min-w-28 text-center text-sm font-medium">{fmtDate(day, { weekday: true })}{day === from.date && <span className="block text-[10px] font-normal text-muted-foreground">วันเดิม</span>}</span>
+            <span className="min-w-28 text-center text-sm font-medium">{fmtDate(day, { weekday: true })}{day === from.date && <span className="block text-2xs font-normal text-muted-foreground">วันเดิม</span>}</span>
             <Button size="icon-sm" variant="ghost" aria-label="วันถัดไป" disabled={day >= lastDay} onClick={() => { setDay(addDays(day, 1)); setPick(null) }}><ChevronRightIcon /></Button>
           </div>
         </div>
@@ -1082,7 +1082,7 @@ function SummaryInline({ session, sessionId, studentId, summary, viewOnly, text,
           <Pill tone={tone}>{status ? SUMMARY_STATUS_LABEL[status] : "ยังไม่เขียน"}</Pill>
         </div>
         {/* owner 2026-11-04: editor stamp first, the send-deadline LAST — so the deadline's colour/width never shifts the stamp out of line */}
-        <div className="flex flex-wrap items-center gap-x-2 text-[11px] text-muted-foreground">
+        <div className="flex flex-wrap items-center gap-x-2 text-2xs text-muted-foreground">
           {summary && <span>{who(summary.lastEditorId)} · {fmtDateTime(summary.history[summary.history.length - 1]?.at ?? new Date().toISOString())}</span>}
           {status !== "sent" && (
             <span className={cn(due.overdue ? "font-medium text-red-700" : due.daysLeft <= 2 && "text-amber-700")}>
@@ -1112,7 +1112,7 @@ function SummaryInline({ session, sessionId, studentId, summary, viewOnly, text,
           )}
           <Textarea style={{ fontSize: "0.875rem" }} className="rounded-2xl border-transparent bg-input/50" value={text} onChange={(e) => setText(e.target.value)} placeholder="Feedback Summary · พัฒนาการ / สิ่งที่ทำได้ดี / สิ่งที่ต้องฝึกเพิ่ม" rows={3} aria-label="Feedback Summary" />
           {/* owner 2026-11-02: the 1–5 "understanding" picker removed from the quick inline summary */}
-          {!hasEnded(session, now) && <p className="text-[11px] text-muted-foreground">ส่งอนุมัติได้หลังคาบเรียนจบ — ระหว่างนี้บันทึกร่างไว้ก่อนได้</p>}
+          {!hasEnded(session, now) && <p className="text-2xs text-muted-foreground">ส่งอนุมัติได้หลังคาบเรียนจบ — ระหว่างนี้บันทึกร่างไว้ก่อนได้</p>}
         </div>
       ) : (
         <div className="space-y-0.5 text-sm">
@@ -1327,7 +1327,7 @@ function AddStudentDialog({ id, onClose }: { id: ID; onClose: () => void }) {
           preferGrades={klass?.grades}
           onPick={(x) => { if (s.studentIds.length < cap && report(add(id, x.id, scope), (v) => `เพิ่ม ${x.nickname} แล้ว ${v.changed} คาบ`)) onClose() }}
           renderMeta={(x) => (
-            <span className="shrink-0 text-[11px] text-amber-700">
+            <span className="shrink-0 text-2xs text-amber-700">
               {!s.trial && !Att.coveringEntitlement(x.id, s, entitlements) ? "ยังไม่จ่ายค่าเรียน" : ""}
             </span>
           )}
