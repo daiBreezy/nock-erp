@@ -39,6 +39,7 @@ import { NotiToaster } from "@/components/app/noti"
 import { ExitAlert, NoteAlert, ParentRequestWatcher } from "@/components/app/exit-alert"
 import { startScreenTranslation } from "@/lib/screen-translate"
 import { ThemeTuner } from "./theme-tuner"
+import { ThemeChip } from "./theme-settings"
 import { FocusBanner } from "./focus-banner"
 
 const noopSubscribe = () => () => {}
@@ -192,6 +193,8 @@ function Shell({ children }: { children: ReactNode }) {
             {/* branch + its switcher live in the drawer's user card on phones — here only from md up */}
             <span className="hidden items-center gap-1 rounded-full bg-primary/10 px-2.5 py-1 text-xs font-medium text-primary lg:flex"><MapPinIcon className="size-3.5" />{branchShort(branch)}</span>
             <LanguageChip />
+            {/* Design System › ThemeSettings: this person's mode · density · size · colour · tint */}
+            <ThemeChip />
           </div>
         </header>
         {/* keyed on the language: switching it re-renders every page so all t() calls pick it up */}

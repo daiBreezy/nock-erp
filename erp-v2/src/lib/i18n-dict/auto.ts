@@ -3,6 +3,26 @@ import type { Entry } from "./index"
 // owner 2026-10-14 ("แปลภาษาทุกหน้า"): every Thai phrase in the staff UI, translated — read by the screen
 // translator (lib/screen-translate.ts) and tx(). Curated per-page files override these.
 export const AUTO: Record<string, Entry> = {
+  // Design System (2026-11-10): search placeholders + ThemeSettings
+  "ค้นหาครู / ชั้น / วิชา / ห้อง": { en: "Search teacher / grade / subject / room", ja: "講師・学年・科目・教室を検索" },
+  "ค้นหาคอร์ส / วิชา / ระดับชั้น": { en: "Search course / subject / grade", ja: "コース・科目・学年を検索" },
+  "ค้นหาครอบครัว / ผู้ปกครอง / เบอร์ / ชื่อลูก": { en: "Search family / parent / phone / child", ja: "家族・保護者・電話・子どもの名前を検索" },
+  "ค้นหาชื่อ / ชื่อเล่น / ครอบครัว / เบอร์": { en: "Search name / nickname / family / phone", ja: "名前・ニックネーム・家族・電話を検索" },
+  "ค้นหาชื่อเด็ก / คนขับ / ชั้น / รถ": { en: "Search child / driver / grade / vehicle", ja: "子ども・運転手・学年・車両を検索" },
+  "ค้นหาชื่อเล่น / ชื่อ / ชั้น": { en: "Search nickname / name / grade", ja: "ニックネーム・名前・学年を検索" },
+  "ค้นหาชื่อ / ชื่อเล่น / อีเมล / วิชา": { en: "Search name / nickname / email / subject", ja: "名前・ニックネーム・メール・科目を検索" },
+  "ธีม": { en: "Theme", ja: "テーマ" },
+  "โหมด": { en: "Mode", ja: "モード" },
+  "ความแน่น": { en: "Density", ja: "表示密度" },
+  "สบายตา": { en: "Comfortable", ja: "ゆったり" },
+  "กระชับ": { en: "Compact", ja: "コンパクト" },
+  "ขนาด": { en: "Size", ja: "サイズ" },
+  "ใหญ่": { en: "Large", ja: "大" },
+  "สีหลักของฉัน": { en: "My main colour", ja: "マイメインカラー" },
+  "กลับไปใช้สีแบรนด์": { en: "Back to the brand colour", ja: "ブランドカラーに戻す" },
+  "เลือกสีเอง": { en: "Pick a colour", ja: "色を選ぶ" },
+  "สีสถานะ (เขียว · เหลือง · แดง) ไม่เปลี่ยนตาม": { en: "Status colours (green · amber · red) stay the same", ja: "ステータス色（緑・黄・赤）は変わりません" },
+  "พื้นหลังอมสี": { en: "Tinted background", ja: "背景に色を付ける" },
   // owner 2026-11-02: session panel + attendance/summary timing
   "ผู้ช่วย": { en: "Assistant", ja: "アシスタント" },
   "ฉัน": { en: "Me", ja: "自分" },

@@ -2,7 +2,7 @@
 
 import { useState } from "react"
 import { CalendarDaysIcon, ClockIcon, GraduationCapIcon, PlusIcon, UsersIcon } from "lucide-react"
-import { ListPage, Page, PageHeader, KpiRow, FilterBar, SearchBox } from "@/components/app/page-layout"
+import { ListPage, SearchBox } from "@/components/app/page-layout"
 import { Kpi } from "@/components/app/kpi"
 import { ROLE_TONE } from "@/components/app/badges"
 import { useSort } from "@/components/app/data-table"

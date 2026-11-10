@@ -1,7 +1,7 @@
 "use client"
 
 import { familyShortName } from "@/domain/rules/people"
-import { ListPage, Page, PageHeader, KpiRow, FilterBar, SearchBox } from "@/components/app/page-layout"
+import { ListPage, SearchBox } from "@/components/app/page-layout"
 import { Kpi } from "@/components/app/kpi"
 import { useState } from "react"
 import { DownloadIcon, GraduationCapIcon, LogOutIcon, PlusIcon, RefreshCwIcon, SparklesIcon, UnlinkIcon } from "lucide-react"

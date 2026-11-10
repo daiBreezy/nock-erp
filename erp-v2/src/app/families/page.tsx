@@ -3,7 +3,7 @@
 import { familyShortName, PARENT_RELATIONS } from "@/domain/rules/people"
 import { useMemo, useState } from "react"
 import { MapPinOffIcon, MessageCircleIcon, PlusIcon, UnlinkIcon, UsersIcon, UsersRoundIcon } from "lucide-react"
-import { ListPage, Page, PageHeader, KpiRow, ShowChip, FilterBar, SearchBox } from "@/components/app/page-layout"
+import { ListPage, ShowChip, SearchBox } from "@/components/app/page-layout"
 import { Kpi } from "@/components/app/kpi"
 import { BranchCodes, useBranchScope } from "@/components/app/branch-scope"
 import { Pill } from "@/components/app/badges"

@@ -73,6 +73,9 @@ function load(): ThemeSettings | null {
 
 function apply(t: ThemeSettings | null) {
   const root = document.documentElement
+  // Design System (2026-11-10): nothing tuned and nothing applied before → leave <html> alone, so the person's own
+  // colour from ThemeSettings (theme-settings.tsx) isn't wiped on load
+  if (!t && !root.hasAttribute("data-theme-tuned")) return
   for (const k of Object.keys(themeVars({ ...DEFAULTS, primary: "#000" }))) root.style.removeProperty(k)
   if (t) for (const [k, v] of Object.entries(themeVars(t))) root.style.setProperty(k, v)
   // the ring override only switches on once something was tuned
