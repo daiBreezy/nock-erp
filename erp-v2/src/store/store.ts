@@ -105,6 +105,7 @@ type Store = DB & UIState & {
   addStaffNote: (staffId: ID, text: string) => Result
   saveCourse: (c: Course) => Result<Course>
   duplicateCourse: (id: ID) => Result<Course>
+  deleteCourse: (id: ID) => Result<Course>
   saveBranch: (b: Branch) => Result
   addBranch: (input: { name: string; code: string; brand: Branch["brand"]; province: string }) => Result<Branch>
   setBranchActive: (id: ID, active: boolean) => Result
@@ -1159,6 +1160,19 @@ export const useStore = create<Store>()(
         const copy: Course = { ...src, id: uid("co"), name: `${src.name} (สำเนา)` }
         set({ courses: [...s.courses, copy] })
         return { ok: true, value: copy }
+      },
+
+      // owner 2026-11-10 (sheet row 22): delete a course added by mistake — only when nothing has ever used it
+      deleteCourse: (id) => {
+        const s = get()
+        const perm = requirePerm(s.me(), "course.manage")
+        if (!perm.ok) return perm
+        const course = s.courses.find((c) => c.id === id)
+        if (!course) return fail("ไม่พบคอร์ส")
+        const blocked = CourseR.canDeleteCourse(course, { entitlements: s.entitlements, invoices: s.invoices, classes: s.classes })
+        if (blocked) return fail(blocked)
+        set({ courses: s.courses.filter((c) => c.id !== id) })
+        return { ok: true, value: course }
       },
 
       saveBranch: (b) => {

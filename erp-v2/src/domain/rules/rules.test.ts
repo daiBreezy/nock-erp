@@ -5,7 +5,7 @@ import { applyClassEdit, applyToSessions, canChangeTeachers, canMoveToClass, can
 import { activeLeave, nextClassDates, teacherLeaveCancels, leaveRunSessions, balance, studentState, leaveLedger, packageCovers, canMark, canSaveLeave, coveringEntitlement, effectiveTo, leavesUsed, lowBalanceAlert, removeFromClass, renewalFollowUpDue, resolveEntitlements } from "./attendance"
 import { bestPromotion, duplicateBusDay, billedOn, busAddOnAmount, pendingBusAddOns, validateBusAddOn, carriedMinutes, weekKey, classOptionsFor, defaultAdvance, entryFeeWaiver, invoiceSessionDates, invoiceTotals, validateInvoiceDraft, canApprove, canConfirmPayment, canForceApprove, canForceConfirmPayment, canSend, canVoid, isBackdated, defaultBusLegs, setAllBusLegs, usesNoBus, busTotal, nextInvoiceNumber, quoteCourse, roundUpTo, familyPromotion, receiptNumberOf, lastNoteFor, renumberDocuments, renewalCandidates, renewalDraft, bestBonusHours, FAMILY_PROMO_TIERS } from "./billing"
 import { can } from "./permissions"
-import { chartPrice, defaultCourseName, filterCourses, validateCourse } from "./course"
+import { canDeleteCourse, chartPrice, defaultCourseName, filterCourses, validateCourse } from "./course"
 import { brandPriceUnits, brandUsesBus, busRate, copyHours, gradeLabel, subjectLabel, priceOf, priceRange, setPrice, validateBranchInfo, validateDurations, validateHoliday, THAI_HOLIDAYS_FIXED, THAI_HOLIDAYS_MOVING, validatePromotion, validateSpecialPeriods, everyDay, subjectAbbr } from "./settings"
 import { forceAudience, isUnread, messageAudience, noteRecipients, notify, validateMessage, visibleTo } from "./notifications"
 import * as Sum from "./summaries"
@@ -769,6 +769,18 @@ describe("course (mirrors staging Create Course, 2026-09-28)", () => {
   })
   it("default name from subjects + grades", () => {
     expect(defaultCourseName(["คณิต", "อังกฤษ"], ["ป.6", "ป.5"])).toBe("คณิต + อังกฤษ ป.5–ป.6")
+  })
+  it("delete a course only when nothing has ever used it (sheet row 22)", () => {
+    const empty = { entitlements: [], invoices: [], classes: [] }
+    expect(canDeleteCourse({ id: "c1" }, empty)).toBeNull()
+    // a student bought it → blocked (keep ปิดขาย)
+    expect(canDeleteCourse({ id: "c1" }, { ...empty, entitlements: [{ courseId: "c1" }] })).toMatch(/ซื้อ/)
+    // on an invoice → blocked
+    expect(canDeleteCourse({ id: "c1" }, { ...empty, invoices: [{ lines: [{ courseId: "c1" }] }] })).toMatch(/ใบแจ้งหนี้/)
+    // a class is linked → blocked
+    expect(canDeleteCourse({ id: "c1" }, { ...empty, classes: [{ courseId: "c1" }] })).toMatch(/คลาส/)
+    // references to a DIFFERENT course don't block
+    expect(canDeleteCourse({ id: "c1" }, { entitlements: [{ courseId: "c2" }], invoices: [{ lines: [{ courseId: "c2" }] }], classes: [{ courseId: "c2" }] })).toBeNull()
   })
 })
 

@@ -1,7 +1,7 @@
 // Course rules — mirrors staging's Create Course: Single/Bundle · subjects · grades · package type + duration ·
 // price pre-filled from the branch chart (reason required when it differs) · course fee · optional window · Active.
 
-import type { Branch, Course, DateStr, Entitlement, ID, PriceUnit } from "../types"
+import type { Branch, Course, CourseLine, DateStr, Entitlement, ID, Klass, PriceUnit } from "../types"
 import { durationLabel, durationsOf, priceOf, sortGrades } from "./settings"
 
 /** "[Subject + Grade] default name" used when the name is left blank. */
@@ -97,4 +97,24 @@ export function courseSeats(course: Pick<Course, "id" | "maxStudents">, ents: Pi
   const max = course.maxStudents && course.maxStudents > 0 ? course.maxStudents : null
   const already = !!studentId && holders.has(studentId)
   return { enrolled: holders.size, max, left: max === null ? null : Math.max(0, max - holders.size), full: max !== null && holders.size >= max && !already, already }
+}
+
+/**
+ * Owner 2026-11-10 (sheet row 22): a course may be DELETED only when nothing has ever used it — no student
+ * has bought it (no entitlement), it is on no invoice, and no class is linked to it. A course anyone has
+ * bought keeps the active/inactive toggle (ปิดขาย) instead, so no record is left pointing at a gone course.
+ * Returns the blocking reason, or null when the course is safe to delete.
+ */
+export function canDeleteCourse(
+  course: Pick<Course, "id">,
+  refs: {
+    entitlements: Pick<Entitlement, "courseId">[]
+    invoices: { lines: Pick<CourseLine, "courseId">[] }[]
+    classes: Pick<Klass, "courseId">[]
+  },
+): string | null {
+  if (refs.entitlements.some((e) => e.courseId === course.id)) return "มีนักเรียนซื้อคอร์สนี้ไปแล้ว — ลบไม่ได้ ปิดขายแทนได้"
+  if (refs.invoices.some((inv) => inv.lines.some((l) => l.courseId === course.id))) return "คอร์สนี้อยู่ในใบแจ้งหนี้แล้ว — ลบไม่ได้ ปิดขายแทนได้"
+  if (refs.classes.some((k) => k.courseId === course.id)) return "มีคลาสผูกกับคอร์สนี้อยู่ — ลบไม่ได้ ปิดขายแทนได้"
+  return null
 }

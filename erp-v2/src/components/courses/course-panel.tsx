@@ -3,7 +3,7 @@
 // Course side panel (owner 2026-10-09): click a course → its information; แก้ไข switches the same panel to the form;
 // สร้างคอร์ส opens it empty and turns into the information view once saved. Header · Body · Bottom like every panel.
 import { useState } from "react"
-import { CalendarIcon, ClockIcon, CopyIcon, DoorOpenIcon, LayersIcon, PencilIcon, PowerIcon } from "lucide-react"
+import { CalendarIcon, ClockIcon, CopyIcon, DoorOpenIcon, LayersIcon, PencilIcon, PowerIcon, Trash2Icon } from "lucide-react"
 import { Pill } from "@/components/app/badges"
 import { InfoTip } from "@/components/app/info-tip"
 import { EntityPanel, PanelBody, PanelFooter, PanelForm, PanelMore } from "@/components/app/form-shell"
@@ -12,7 +12,7 @@ import { gradeTone, subjectColor } from "@/components/app/subject-color"
 import { Button } from "@/components/ui/button"
 import { SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet"
 import { endTime, fmtDate, fmtMoney, TH_DAYS_FULL } from "@/domain/dates"
-import { priceUnitSuffix } from "@/domain/rules/course"
+import { canDeleteCourse, priceUnitSuffix } from "@/domain/rules/course"
 import { can } from "@/domain/rules/permissions"
 import { gradeRanges } from "@/domain/rules/settings"
 import type { Course, ID } from "@/domain/types"
@@ -42,7 +42,7 @@ export function CoursePanel({ target, stats, onClose }: { target: ID | Course | 
             onClose={() => (course ? setEditing(false) : onClose())}
             onSaved={(c) => { if (isNew) setCreatedId(c.id); setEditing(false) }} />
         </PanelForm>
-      ) : course ? <CourseView c={course} st={stats(course.id)} onEdit={() => setEditing(true)} /> : null}
+      ) : course ? <CourseView c={course} st={stats(course.id)} onEdit={() => setEditing(true)} onClose={onClose} /> : null}
     </EntityPanel>
   )
 }
@@ -56,16 +56,20 @@ function Row({ label, children }: { label: string; children: React.ReactNode }) 
   )
 }
 
-function CourseView({ c, st, onEdit }: { c: Course; st?: CourseStats; onEdit: () => void }) {
+function CourseView({ c, st, onEdit, onClose }: { c: Course; st?: CourseStats; onEdit: () => void; onClose: () => void }) {
   const me = useStore((s) => s.me())
   const classes = useStore((s) => s.classes)
+  const entitlements = useStore((s) => s.entitlements)
+  const invoices = useStore((s) => s.invoices)
   const branches = useStore((s) => s.branches)
   const save = useStore((s) => s.saveCourse)
   const duplicate = useStore((s) => s.duplicateCourse)
+  const del = useStore((s) => s.deleteCourse)
   const L = useLookup()
   const manage = can(me, "course.manage")
   const br = branches.find((b) => b.id === c.branchId)
   const linked = classes.filter((k) => k.courseId === c.id)
+  const delBlock = canDeleteCourse(c, { entitlements, invoices, classes })
   const col = subjectColor(c.subjects[0] ?? "")
   return (
     <>
@@ -119,7 +123,11 @@ function CourseView({ c, st, onEdit }: { c: Course; st?: CourseStats; onEdit: ()
       {manage && (
         <PanelFooter>
           {/* owner 2026-10-12: negative actions behind ⋯ */}
-          <PanelMore items={[{ label: c.active ? "ปิดขาย" : "เปิดขายอีกครั้ง", icon: PowerIcon, destructive: c.active, onClick: () => report(save({ ...c, active: !c.active }), c.active ? "ปิดขายคอร์สแล้ว" : "เปิดขายคอร์สแล้ว") }]} />
+          <PanelMore items={[
+            { label: c.active ? "ปิดขาย" : "เปิดขายอีกครั้ง", icon: PowerIcon, destructive: c.active, onClick: () => report(save({ ...c, active: !c.active }), c.active ? "ปิดขายคอร์สแล้ว" : "เปิดขายคอร์สแล้ว") },
+            // owner 2026-11-10 (sheet row 22): ลบคอร์สที่เพิ่มผิด — เปิดได้เฉพาะคอร์สที่ไม่เคยมีใครซื้อ/ไม่อยู่ในใบแจ้งหนี้/ไม่มีคลาสผูก
+            { label: "ลบคอร์ส", icon: Trash2Icon, destructive: true, disabled: !!delBlock, title: delBlock ?? undefined, onClick: () => { if (confirm(`ลบคอร์ส “${c.name}”? การลบนี้ย้อนกลับไม่ได้`)) { if (report(del(c.id), "ลบคอร์สแล้ว")) onClose() } } },
+          ]} />
           <Button variant="outline" className="ml-auto" onClick={() => report(duplicate(c.id), "ทำสำเนาคอร์สแล้ว — แก้ชื่อ/ระดับชั้นต่อได้")}><CopyIcon /> ทำสำเนา</Button>
           <Button variant="outline" onClick={onEdit}><PencilIcon /> แก้ไข</Button>
         </PanelFooter>
