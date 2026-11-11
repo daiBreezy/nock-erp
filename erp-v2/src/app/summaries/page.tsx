@@ -279,7 +279,7 @@ function CourseSummaryTab() {
       </FilterBar>
 
       <DataTable id="course-summaries" columns={columns} rows={rows} rowKey={(r) => r.representativeId} onRowClick={(r) => setOpenId(r.representativeId)}
-        empty={<p className="p-10 text-center text-sm text-muted-foreground">ไม่มีรายการในหมวดนี้</p>} />
+        empty="ไม่มีรายการในหมวดนี้" />
       <CourseSummaryPanel round={dueRounds.find((r) => r.representativeId === openId) ?? null} onClose={() => setOpenId(null)} />
     </div>
   )

@@ -10,6 +10,7 @@ import { cn } from "@/lib/utils"
 import { useStore } from "@/store/store"
 import { HEAD, ROW, type SortState } from "./data-table"
 import { Button } from "@/components/ui/button"
+import { Empty } from "./empty"
 import { Checkbox } from "@/components/ui/checkbox"
 
 /**
@@ -271,7 +272,7 @@ export function DataTable<R>({ id, columns, rows, rowKey, onRowClick, rowClassNa
                 </Fragment>
               )
             })}
-            {rows.length === 0 && <tr><td colSpan={cols.length} className="p-10 text-center text-muted-foreground">{empty ?? "ไม่มีข้อมูล"}</td></tr>}
+            {rows.length === 0 && <tr><td colSpan={cols.length} className="p-4"><Empty>{empty ?? "ไม่มีข้อมูล"}</Empty></td></tr>}
           </tbody>
         </table>
       </div>

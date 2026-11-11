@@ -107,7 +107,7 @@ md→sm · xl→lg · max-md→max-sm · ⚠ reports/page ที่ xl→lg อ�
 | ใช้ `Page` + `PageHeader` | billing (ใช้อยู่แล้ว ผ่าน alias `PageShell`) · calendar (รอบ 14b — `<Page className="max-w-none">` คงความกว้างเต็มจอของบอร์ด) | ✅ |
 | layout เฉพาะ (ตั้งใจ) | inbox (แชท) · calendar (บอร์ด) · `/liff/*` (ฟอร์มผู้ปกครอง ใช้ "มาตรฐานฟอร์ม" ใน CLAUDE.md) · print | ตรวจกับมาตรฐานของตัวเอง |
 | ว่าง (Coming soon) | logs · tasks | ไม่ต้องทำ |
-| `Empty` ใช้จริง | ทุกหน้า/แผงที่แสดงสถานะว่างเป็นกล่องเส้นประ (รอบ 14a) · ตาราง `DataTable` ยังใช้ข้อความในเซลล์ (`empty=`) | ✅ เหลือ `inbox/cards` Outcome (ไม่ใช่สถานะว่าง) · parent-app ย่อหน้าเล็ก |
+| `Empty` ใช้จริง | ทุกหน้า/แผงที่แสดงสถานะว่างเป็นกล่องเส้นประ (รอบ 14a) · `DataTable` (รอบ 14c) | ✅ เหลือ `inbox/cards` Outcome (ไม่ใช่สถานะว่าง) · parent-app ย่อหน้าเล็ก |
 
 ### เจ้าของตัดสินแล้ว / ยังรอ
 1. ✅ **เพิ่ม token `special` (ม่วง) — ตัดสินแล้ว 2026-11-11 (รอบ 11)** ดูหัวข้อ "รอบ 11" ด้านล่าง
@@ -122,6 +122,10 @@ md→sm · xl→lg · max-md→max-sm · ⚠ reports/page ที่ xl→lg อ�
 ## รอบ 14b — billing/calendar ใช้ `Page` (2026-11-11)
 
 - ตรวจแล้ว **billing ใช้ `Page` อยู่แล้ว** (import เป็น `PageShell` เพราะชื่อ `Page` ชนกับ default export) — ตารางสถานะในเอกสารล้าสมัย · calendar เปลี่ยน `div.space-y-4` → `Page` + `className="max-w-none"` (บอร์ดต้องเต็มความกว้าง ตามข้อ "layout เฉพาะ") · ระยะห่างเท่าเดิม (`space-y-4`)
+
+## รอบ 14c — `DataTable` แสดงว่างด้วย `Empty` (2026-11-11)
+
+- แถวว่างของ `DataTable` (`empty=` หรือ "ไม่มีข้อมูล") ห่อด้วย `<Empty>` ใน cell → ทุกตารางหน้าตาเดียวกับกล่องว่างอื่น · `summaries` เลิกส่ง `<p>` เอง ส่งข้อความล้วน
 
 ## รอบ 13 — รวมปุ่ม ghost เข้า variant กลาง (2026-11-11) — **ทำบางส่วน**
 
