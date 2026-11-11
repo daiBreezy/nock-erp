@@ -118,7 +118,7 @@ export function BranchInfoTab({ branch, onJump }: { branch: Branch; onJump: (tab
         </div>
       </SettingsCard>
 
-      <div className="grid gap-4 md:grid-cols-2">
+      <div className="grid gap-4 sm:grid-cols-2">
         <SettingsCard title={tx("บัญชีธนาคาร")} action={edit("bank")}>
           <div className="grid grid-cols-2 gap-3">
             <InfoRow label={tx("ธนาคาร")}>{[b.bankAccount.bank, b.bankAccount.branchName].filter(Boolean).join(" · ")}</InfoRow>

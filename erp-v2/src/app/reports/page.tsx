@@ -126,7 +126,7 @@ function Reports() {
       </KpiRow>
 
       {/* owner 2026-10-07: tabs + periods stick under the top bar while scrolling — always one tap away */}
-      <div className="sticky top-14 z-10 -mx-3 flex flex-col gap-3 border-b border-transparent bg-background/95 px-3 py-2 backdrop-blur md:-mx-6 md:px-6 print:hidden">
+      <div className="sticky top-14 z-10 -mx-3 flex flex-col gap-3 border-b border-transparent bg-background/95 px-3 py-2 backdrop-blur sm:-mx-6 sm:px-6 print:hidden">
         {/* owner 2026-10-09: underline = which topic · grey boxes = which period */}
         <Tabs value={tab} onChange={setTab}
           options={TABS.map((t) => ({ value: t.id, icon: t.id === "summary" ? AiSparkles : undefined, label: <>{tx(t.label)}{t.soon && <span className="ml-1 text-2xs text-muted-foreground">{t.soon}</span>}</> }))} />
@@ -168,7 +168,7 @@ function Overview({ d, compare, periodLabel, onAllRevenue, onAllStudents }: { d:
   return (
     <div className="space-y-4">
       {/* owner 2026-10-21: students | courses side by side — the same questions, per student and per course */}
-      <div className="grid gap-4 xl:grid-cols-2">
+      <div className="grid gap-4 lg:grid-cols-2">
         <Panel fill title={tx("นักเรียน")} hint={tx("ตอนนี้ = วันนี้ · ในช่วงนี้ = {0} — ชี้ ⓘ ที่แต่ละช่องเพื่อดูว่านับอย่างไร", [periodLabel])}
           action={<button type="button" className="text-xs text-primary" onClick={onAllStudents}>{tx("ดูทั้งหมด ›")}</button>}>
           <StudentOverview d={d} periodLabel={periodLabel} />
@@ -184,7 +184,7 @@ function Overview({ d, compare, periodLabel, onAllRevenue, onAllStudents }: { d:
       </Panel>
 
       {/* owner 2026-10-21: revenue by type lives on the Revenue tab · monthly revenue | Subject Engine side by side */}
-      <div className="grid gap-4 xl:grid-cols-2">
+      <div className="grid gap-4 lg:grid-cols-2">
         <Panel title={tx("รายได้รายเดือน")} hint={tx("ปี {0} เทียบปีที่แล้ว · ลายทาง = คาดการณ์ (ต่อคอร์ส {1} + ใบที่รอจ่าย)", [yearOf(d.monthly.year), fmtPct(d.forecast.renewal)])}>
           <MonthBars thisYear={d.monthly.thisYear} lastYear={d.monthly.lastYear} current={Number(d.today.slice(5, 7)) - 1} forecast={d.forecast.byMonth.map((x) => x?.total ?? null)}
             currentLastYearToDate={d.monthly.lastYearToDate} todayLabel={`${Number(d.today.slice(8)) === 1 ? "" : "1–"}${Number(d.today.slice(8))} ${fmtDate(d.today).split(" ")[1] ?? ""}`} />
@@ -224,7 +224,7 @@ function StudentStats({ d }: { d: ReportData }) {
   const f = d.studentFlow
   const net = f.newCount + f.returning - f.lost
   return (
-    <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 xl:grid-cols-7">
+    <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-7">
       <Stat label={tx("Active วันนี้")} value={fmtNum(d.kpi.active)} />
       <Stat label={tx("Pause (ลาพักยาว)")} value={fmtNum(d.kpi.paused)} tone="text-warning" />
       <Stat label={tx("ใหม่")} value={`+${f.newCount}`} tone="text-success" sub={<Delta value={d.comparable && f.newPrev ? Math.round(((f.newCount - f.newPrev) / f.newPrev) * 1000) / 10 : null} />} />
@@ -493,10 +493,10 @@ function SplitRanks<T extends { id: string; name: string }>({ rows, cols }: { ro
   const half = rows.length > 5 ? Math.ceil(rows.length / 2) : rows.length
   const parts = rows.length > 5 ? [rows.slice(0, half), rows.slice(half)] : [rows]
   return (
-    <div className={cn("grid", parts.length > 1 && "md:grid-cols-2 md:divide-x")}>
+    <div className={cn("grid", parts.length > 1 && "sm:grid-cols-2 sm:divide-x")}>
       {parts.map((list, c) => (
-        <div key={c} className={cn(parts.length > 1 && (c ? "md:pl-6" : "md:pr-6"))}><table className="w-full text-sm">
-          <thead className={cn("text-xs text-muted-foreground", c > 0 && "max-md:hidden")}>
+        <div key={c} className={cn(parts.length > 1 && (c ? "sm:pl-6" : "sm:pr-6"))}><table className="w-full text-sm">
+          <thead className={cn("text-xs text-muted-foreground", c > 0 && "max-sm:hidden")}>
             <tr><th className="text-left font-normal">{tx("สาขา")}</th>{cols.map((x) => <th key={x.label} className="text-right font-normal">{x.label}</th>)}</tr>
           </thead>
           <tbody>{list.map((r, i) => (
@@ -529,10 +529,10 @@ function BranchRevenue({ rows }: { rows: ReportData["byBranch"] }) {
   const half = rows.length > 5 ? Math.ceil(rows.length / 2) : rows.length
   const cols = rows.length > 5 ? [rows.slice(0, half), rows.slice(half)] : [rows]
   return (
-    <div className={cn("grid", cols.length > 1 && "md:grid-cols-2 md:divide-x")}>
+    <div className={cn("grid", cols.length > 1 && "sm:grid-cols-2 sm:divide-x")}>
       {cols.map((list, c) => (
-        <div key={c} className={cn(cols.length > 1 && (c ? "md:pl-6" : "md:pr-6"))}><table className="w-full text-sm">
-          <thead className={cn("text-xs text-muted-foreground", c > 0 && "max-md:hidden")}><tr><th className="text-left font-normal">{tx("สาขา")}</th><th /><th className="text-right font-normal">{tx("ยอด")}</th><th className="text-right font-normal">%</th></tr></thead>
+        <div key={c} className={cn(cols.length > 1 && (c ? "sm:pl-6" : "sm:pr-6"))}><table className="w-full text-sm">
+          <thead className={cn("text-xs text-muted-foreground", c > 0 && "max-sm:hidden")}><tr><th className="text-left font-normal">{tx("สาขา")}</th><th /><th className="text-right font-normal">{tx("ยอด")}</th><th className="text-right font-normal">%</th></tr></thead>
           <tbody>{list.map((b, i) => (
             <tr key={b.id} className="border-t">
               <td className="py-2"><span className="flex items-center gap-2"><Rank n={c * half + i + 1} /><span className="truncate">{nm(b.name)}</span></span></td>
@@ -678,7 +678,7 @@ function RevenueTab({ d, compare, period, periodLabel }: { d: ReportData; compar
   return (
     <div className="space-y-4">
       {/* each period with its own comparison — not "MoM" everywhere (owner 2026-10-21: on the Revenue tab, was on the Overview) */}
-      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 xl:grid-cols-7">
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-7">
         {d.strip.map((p) => (
           <div key={p.key} className={cn("rounded-2xl bg-card p-3 ring-1 ring-foreground/10", p.key === period && "ring-2 ring-primary")}>
             <p className="text-xs text-muted-foreground">{tx(p.label)}</p>
@@ -695,7 +695,7 @@ function RevenueTab({ d, compare, period, periodLabel }: { d: ReportData; compar
         <Stat label={tx("นักเรียนที่จ่าย")} value={fmtNum(d.rev.students)} />
         <Stat label={tx("เฉลี่ยต่อใบ")} value={fmtShort(d.rev.invoices ? d.rev.total / d.rev.invoices : 0)} />
       </div>
-      <div className="grid gap-4 xl:grid-cols-2">
+      <div className="grid gap-4 lg:grid-cols-2">
         <ForecastPanel d={d} />
         <Panel title={tx("รายได้รายเดือน")} hint={tx("ปี {0} เทียบปีที่แล้ว", [yearOf(d.monthly.year)])} fill>
           <div className="overflow-x-auto">
@@ -748,7 +748,7 @@ function StudentsTab({ d, compare, onOpen }: { d: ReportData; compare: boolean; 
     <div className="space-y-4">
       <StudentStats d={d} />
       {/* owner 2026-10-07: what moved, not just how many — monthly in / out + the share of each in the period */}
-      <div className="grid gap-4 xl:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
+      <div className="grid gap-4 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
         <Panel title={tx("ความเคลื่อนไหวรายเดือน")} hint={tx("ปี {0} · เหนือเส้น = เข้า (ใหม่ + กลับมาเรียน) · ใต้เส้น = ออก (Lost + Pause) · ชี้ที่เดือนเพื่อดูตัวเลข", [yearOf(d.monthly.year)])} fill>
           <MovementBars months={d.movementMonthly} current={Number(d.today.slice(5, 7)) - 1} />
         </Panel>
@@ -781,9 +781,9 @@ function StudentsTab({ d, compare, onOpen }: { d: ReportData; compare: boolean; 
       <Dialog open={listOpen} onOpenChange={setListOpen}>
         <DialogContent className="max-h-[85vh] overflow-y-auto lg:max-w-4xl">
           <DialogHeader><DialogTitle>{tx("ความเคลื่อนไหวนักเรียน")}</DialogTitle><DialogDescription>{tx("{0} รายการในช่วงนี้ · ล่าสุดอยู่บน · กดชื่อเพื่อเปิดข้อมูลนักเรียน", [events.length])}</DialogDescription></DialogHeader>
-          <div className="grid gap-6 md:grid-cols-3 md:gap-0 md:divide-x">
+          <div className="grid gap-6 sm:grid-cols-3 sm:gap-0 sm:divide-x">
             {(["new", "returning", "lost"] as const).map((kind, c) => (
-              <div key={kind} className={cn(c > 0 && "md:pl-6", c < 2 && "md:pr-6")}>
+              <div key={kind} className={cn(c > 0 && "sm:pl-6", c < 2 && "sm:pr-6")}>
                 <MoveList title={kind === "new" ? tx("ใหม่") : kind === "returning" ? tx("กลับมาซื้อใหม่") : "Lost"} tone={kind === "lost" ? "text-danger" : "text-success"}
                   rows={events.filter((e) => e.kind === kind).map((e) => ({ id: e.studentId, date: e.date, name: nm(name(e.studentId)?.nickname ?? "—"), grade: name(e.studentId)?.grade ?? "" }))} onOpen={(id) => { setListOpen(false); onOpen(id) }} />
               </div>
@@ -863,9 +863,9 @@ function SchoolsPanel({ d }: { d: ReportData }) {
           )}
           {use === "branch" && <SchoolsByBranch groups={byBranch} branches={branches} />}
           {use === "region" && (
-            <div className={cn("grid gap-6", byRegion.length > 1 && "md:grid-cols-2 md:gap-0 md:divide-x")}>
+            <div className={cn("grid gap-6", byRegion.length > 1 && "sm:grid-cols-2 sm:gap-0 sm:divide-x")}>
               {byRegion.map((g, i) => (
-                <div key={g.key} className={cn("min-w-0", byRegion.length > 1 && (i === 0 ? "md:pr-6" : "md:pl-6"))}>
+                <div key={g.key} className={cn("min-w-0", byRegion.length > 1 && (i === 0 ? "sm:pr-6" : "sm:pl-6"))}>
                   <div className="mb-3 flex flex-wrap items-baseline gap-x-3 gap-y-1">
                     <span className="rounded bg-info-soft px-1.5 text-xs font-semibold text-info-ink">{g.key}</span>
                     <span className="text-sm">{tx("{0} คน · {1} โรงเรียน", [fmtNum(g.students), fmtNum(g.rows.length)])}</span>
@@ -1014,7 +1014,7 @@ function AttendanceTab({ d, compare, onOpen }: { d: ReportData; compare: boolean
   return (
     <div className="space-y-4">
       <p className="text-xs text-muted-foreground">{tx("ข้อมูลการเข้าเรียนเริ่ม")} {fmtDate(a.since, { year: true })}  {tx("(คาบแรกในระบบ) · อัตรา = มา ÷ (มา + ลา) · เขียว = 80% ขึ้นไป · แดง = ต่ำกว่า 80%")}</p>
-      <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-6">
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6">
         <Stat label={tx("อัตราเข้าเรียน")} value={fmtPct(a.total.rate)} tone={a.total.rate !== null && a.total.rate < 0.8 ? "text-danger" : undefined} />
         <Stat label={tx("มา")} value={fmtNum(a.total.present)} tone="text-success" />
         <Stat label={tx("ลา")} value={fmtNum(a.total.leave)} tone="text-warning" sub={<span>{tx("ไม่หักโควตา")} {a.noQuota}</span>} />
@@ -1476,7 +1476,7 @@ function SatisfactionTab({ d, compare, f }: { d: ReportData; compare: boolean; f
   const dNps = s.nps !== null && p.nps !== null ? s.nps - p.nps : null
   return (
     <div className="space-y-4">
-      <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-5">
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
         <Stat label="NPS" value={s.nps === null ? "—" : `${s.nps > 0 ? "+" : ""}${s.nps}`} tone={s.nps !== null && s.nps < 0 ? "text-danger" : "text-success"} sub={dNps === null ? <span>{tx("ปีก่อน —")}</span> : <span className={dNps >= 0 ? "text-success" : "text-danger"}>{dNps >= 0 ? "▲" : "▼"} {Math.abs(dNps)}  {tx("จากปีก่อน (")}{p.nps})</span>} />
         <Stat label={tx("ตอบแล้ว")} value={group ? String(s.responses) : `${s.responses}/${s.sent}`} sub={s.rate !== null ? <span>{fmtPct(s.rate)}</span> : undefined} />
         <Stat label={tx("พอใจเฉลี่ย 5 ด้าน")} value={s.overall === null ? "—" : s.overall.toFixed(1)} sub={<span>{tx("ปีก่อน")} {p.overall === null ? "—" : p.overall.toFixed(1)}</span>} />

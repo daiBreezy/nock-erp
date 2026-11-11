@@ -395,7 +395,7 @@ export default function InboxPage() {
             </div>
 
             <div className="flex min-h-0 flex-1 flex-col">
-              <div ref={scroller} onScroll={(e) => { const el = e.currentTarget; atBottom.current = el.scrollHeight - el.scrollTop - el.clientHeight < 80 }} className="flex-1 overflow-y-auto px-6 py-8 [mask-image:linear-gradient(to_bottom,transparent,black_2rem,black_calc(100%-2rem),transparent)] md:px-10">
+              <div ref={scroller} onScroll={(e) => { const el = e.currentTarget; atBottom.current = el.scrollHeight - el.scrollTop - el.clientHeight < 80 }} className="flex-1 overflow-y-auto px-6 py-8 [mask-image:linear-gradient(to_bottom,transparent,black_2rem,black_calc(100%-2rem),transparent)] sm:px-10">
                 {/* one centred column (max ~768 px) so long chats don't stretch across a wide screen */}
                 <div className="mx-auto w-full max-w-3xl space-y-6">
                 {thread.length === 0 && <p className="py-8 text-center text-sm text-muted-foreground">เริ่มบทสนทนา</p>}
@@ -419,7 +419,7 @@ export default function InboxPage() {
                 <div ref={threadEnd} />
                 </div>
               </div>
-              <div className="mx-auto w-full max-w-3xl space-y-1.5 px-6 pb-4 md:px-10">
+              <div className="mx-auto w-full max-w-3xl space-y-1.5 px-6 pb-4 sm:px-10">
                 {/* AI Elements "Suggestion": one-click replies — fill the box, staff still press send */}
                 {!draft && (
                   <div className="flex gap-1.5 overflow-x-auto pb-0.5 [scrollbar-width:none]">

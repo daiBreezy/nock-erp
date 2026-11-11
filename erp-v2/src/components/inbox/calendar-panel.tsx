@@ -45,7 +45,7 @@ export function CalendarPanel({ branchId, subject: initialSubject, onInsert, onC
 
   // wide screens: beside the chat · narrower: over the chat's right side so the chat never gets crushed
   return (
-    <aside className="absolute inset-y-0 right-0 z-20 flex w-[25rem] max-w-full shrink-0 flex-col border-l bg-background shadow-xl xl:static xl:shadow-none">
+    <aside className="absolute inset-y-0 right-0 z-20 flex w-[25rem] max-w-full shrink-0 flex-col border-l bg-background shadow-xl lg:static lg:shadow-none">
       <div className="flex items-center gap-2 border-b px-3 py-2.5">
         <div className="flex rounded-full bg-muted p-0.5 text-sm">
           {([["free", "หาเวลาว่าง"], ["week", "ตารางสัปดาห์"]] as const).map(([v, label]) => (

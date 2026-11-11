@@ -4,14 +4,14 @@
 > **รอบนี้ = ไล่โค้ดเก่าให้เข้า DS จริง** จนกฎ eslint ทุกข้อเหลือ 0 แล้วเลื่อนจาก `warn` → `error` (ล็อกถาวร)
 > วิธีดูเลขสด: `npx eslint src` · ไฟล์นี้อัปเดตทุกครั้งที่ปิดรอบย่อย
 
-## ภาพรวม — มี **4 เรื่อง** รวม **~1,097 จุด** (ทำไปแล้ว 694 · เหลือ 403)
+## ภาพรวม — มี **4 เรื่อง** รวม **~1,097 จุด** (ทำไปแล้ว 767 · เหลือ 329 (เรื่อง 2))
 
 | เรื่อง | กฎ eslint | จุดทั้งหมด | เหลือ | สถานะ |
 |---|---|---:|---:|---|
 | 1. สีสถานะ → token | no-hardcoded-status-color | 694 | **0** | ✅ ครบ 2026-11-11 (กฎยังเป็น `warn` — ดูหมายเหตุท้ายเรื่องที่ 1) |
 | 2. controls ดิบ → Button/Input/NativeSelect | no-raw-controls | 329 | 329 | ⬜ ยังไม่เริ่ม |
-| 3. px → text token / spacing scale | no-px-text | 44 | 44 | ⬜ ยังไม่เริ่ม |
-| 4. breakpoint `md:`/`xl:` → base/sm/lg | no-adhoc-breakpoints | 29 | 29 | ⬜ ยังไม่เริ่ม |
+| 3. px → text token / spacing scale | no-px-text | 44 | **0** | ✅ ครบ 2026-11-11 |
+| 4. breakpoint `md:`/`xl:` → base/sm/lg | no-adhoc-breakpoints | 29 | **0** | ✅ ครบ 2026-11-11 (md→sm · xl→lg) |
 
 > ทำ **เรื่องละรอบ ไล่ตามลำดับ** (สีสถานะก่อน เพราะเห็นผลชัดสุด) · เรื่องใหญ่แบ่งเป็นรอบย่อยตาม "พื้นที่ของแอป" รอบละ ~60–80 จุด จะได้รีวิวทีละหน้าจอทัน
 
@@ -49,12 +49,16 @@
 
 > หมายเหตุ: หลายไฟล์ซ้ำกับเรื่องที่ 1 (session-sheet, invoice-editor, reports, parent-app, driver-app) — ถ้าอยากรีวิว "ทีละหน้าจนจบ" แทนที่จะ "ทีละเรื่อง" บอกได้ จะสลับไปทำครบทุกกฎในไฟล์เดียวต่อรอบ
 
-## เรื่องที่ 3 — px → text token (44)
+## เรื่องที่ 3 — px → text token (44) ✅ เสร็จ
+
+ส่วนใหญ่เป็นขนาด layout/radius ไม่ใช่ตัวอักษร → แปลงเป็น spacing scale (n×4px เช่น `min-w-190`) · `rounded-lg/xl/2xl/3xl` (ผูก --radius) · `text-xl/2xl`
 
 `text-[13px]` ฯลฯ → `text-2xs` / `text-xs` / `text-sm` + spacing scale
 หนาสุด: parent-app (21) · ที่เหลือกระจาย 1–3 จุดต่อไฟล์ → จบได้ใน 1–2 รอบ
 
-## เรื่องที่ 4 — breakpoint `md:`/`xl:` → base/sm/lg (29)
+## เรื่องที่ 4 — breakpoint `md:`/`xl:` → base/sm/lg (29) ✅ เสร็จ
+
+md→sm · xl→lg · max-md→max-sm · ⚠ reports/page ที่ xl→lg อาจแน่นที่ 1024px — ถ้าเห็นให้ปรับคอลัมน์
 
 เหลือ 3 ระดับตาม RESPONSIVE.md
 หนาสุด: reports/page (21) · ที่เหลือ app-shell, inbox, form-builder, branch-basic → จบได้ใน 1 รอบ

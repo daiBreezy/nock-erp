@@ -167,8 +167,8 @@ export function FormBuilder({ form }: { form: FormDef }) {
       </div>
 
       {/* bottom bar: negative actions in ⋯, save on the right (panel standard) */}
-      <div className="fixed inset-x-0 bottom-0 z-20 border-t bg-background/95 backdrop-blur md:left-[var(--sidebar-width,0px)]">
-        <div className="mx-auto flex max-w-7xl flex-wrap items-center gap-2 px-4 py-3 md:px-6">
+      <div className="fixed inset-x-0 bottom-0 z-20 border-t bg-background/95 backdrop-blur sm:left-[var(--sidebar-width,0px)]">
+        <div className="mx-auto flex max-w-7xl flex-wrap items-center gap-2 px-4 py-3 sm:px-6">
           <PanelMore items={[
             { label: tx("ทำสำเนาเป็นฟอร์มใหม่"), icon: CopyIcon, onClick: () => { const r = duplicateForm(d.id); if (report(r, tx("ทำสำเนาแล้ว"))) router.push(`/settings/forms/${r.value.id}`) } },
             // NEGATIVE-ACTIONS.md §1: hard delete passes the math gate instead of a plain confirm()
