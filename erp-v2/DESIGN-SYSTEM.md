@@ -35,7 +35,7 @@
 | 6.8 | ผู้ปกครอง / LIFF ฟอร์ม | parent-app (17), liff/form (13), liff/exit (11), liff/survey (9), catalog, form-renderer, form-builder, person-fields, parent-requests | 76 | ✅ เสร็จ |
 | 6.9 | ตั้งค่า / Nock / Inbox / แอปเชลล์ + เก็บตก | holiday-planner (16), nock/page (14), nock-widget, app-shell, ai, confirmation, day/week-sessions + ไฟล์ปลีกย่อย | 107 | ✅ เสร็จ |
 
-**หมายเหตุ — ทำไมยังไม่เลื่อนเป็น `error`:** guard rail ทั้ง 5 ข้อนั่งอยู่ใน `no-restricted-syntax` ตัวเดียว ใช้ severity ร่วมกัน → เลื่อนเฉพาะสีสถานะไม่ได้ ต้องรอเรื่อง 2–4 เหลือ 0 ด้วย (หรือแยก selector สีสถานะออกเป็นกฎคนละตัว) · ระหว่างนี้ **ห้ามปล่อยให้ตัวเลขกลับขึ้นจาก 0** — เช็คด้วย `npx eslint src` ก่อน commit
+**ล็อกแล้ว (2026-11-11):** แยก no-raw-controls ไปเป็น `react/forbid-elements` (ยัง `warn`) → `no-restricted-syntax` (สีสถานะ · px · breakpoint · search icon) เป็น **`error`** ถาวร — เช็ค `npx eslint src` ก่อน commit
 **ข้อที่ใช้ token `info` แทน AI_TONE (เพราะสีเดียวกัน = sky):** กล่องคำตอบ Nock (`nock/page`, `nock-widget`), การ์ดตัวอย่าง AI ใน `theme-tuner` — ถ้าวันหนึ่ง AI เปลี่ยนสีให้ย้าย 3 จุดนี้ไป `AI_TONE`
 **"วันนี้" ในปฏิทินสัปดาห์** (`week-sessions`) ใช้ token `today-soft` ที่รอบ 1 เตรียมไว้
 
