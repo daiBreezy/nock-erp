@@ -109,10 +109,21 @@ md→sm · xl→lg · max-md→max-sm · ⚠ reports/page ที่ xl→lg อ�
 | ว่าง (Coming soon) | logs · tasks | ไม่ต้องทำ |
 | `Empty` ใช้จริง | reports (18) · settings/forms (2) — หน้าอื่น 0 | 🟡 หลายหน้าแสดงว่างด้วยข้อความเอง |
 
-### ต้องให้เจ้าของตัดสิน (รอบ 12)
-1. **เพิ่ม token `special` (ม่วง) สำหรับ เครดิต/โน้ต/คาบพิเศษ/รอดำเนินการ ไหม** หรืออยากแยกเป็นหลายสี
+### เจ้าของตัดสินแล้ว / ยังรอ
+1. ✅ **เพิ่ม token `special` (ม่วง) — ตัดสินแล้ว 2026-11-11 (รอบ 11)** ดูหัวข้อ "รอบ 11" ด้านล่าง
 2. **สีบทบาทพนักงาน** (`tags.ts` `role`): admin amber · driver lime · director rose ใกล้สีระบบ — เลือกสีใหม่
 3. **`customer-picker` เลือกแล้วเป็นม่วง** → เปลี่ยนเป็น primary (ตามกฎ "ตัวเลือกที่เลือก") โอเคไหม
+
+## รอบ 11 — token `special` (2026-11-11)
+
+- `globals.css`: `--special` / `--special-soft` / `--special-ink` (ม่วง) + `bg-/text-/border-special…` ใน `@theme` · light `#ede9fe`/`#5b21b6` · dark `#2e1065`/`#ddd6fe` (ตรวจ computed style ทั้งสองธีมแล้ว)
+- ความหมาย = **เครดิต/ส่วนลด · โน้ต/ประเมิน · คาบพิเศษ/สอบวัดระดับ/ลาพักยาว · รอดำเนินการ/รอยืนยัน · Bundle/แพ็กพิเศษ · ถึงแล้ว (คนขับ)**
+- ย้ายเข้า token แล้ว: `Pill`/`Kpi` tone `violet` → **`special`** (เปลี่ยนชื่อที่ผู้เรียก 22 ไฟล์) · noti (โน้ต) · assessment-note · blocks-dialog · session-meta · session-sheet · class-card · invoice-editor/sheet · credit-notes · summaries · notifications · reports · dev-tickets · driver-app/labels (ถึงแล้ว) · ป้ายผู้ปกครองนั่งไปด้วยใน parent-requests → `busLeg.adult`
+- **ยังคง violet ตั้งใจ (identity):** `tags.ts` · `subject-color.ts` · `week-teacher-board` DAY_TONE · `holiday-planner` · `labels` VAN_TONES · `billing/page` BUNDLE_TONES · `zone-map` · `send-form-dialog` (คลาสจริง) · `customer-picker` (รอเจ้าของตัดสินข้อ 3)
+- **ยังไม่ขยายกฎ eslint** (จะทำรอบ 12 พร้อม palette อื่น เพราะต้องใส่ `ds-exception` ให้กลุ่ม identity ก่อน)
+
+### ข้อค้นพบใหม่ (ยังไม่แก้)
+`Pill` / `KPI_TONE` / `HUE.*.chip` สำหรับ **แดง/เหลือง/เขียว/ฟ้า ยังใช้สี Tailwind ตรงๆ** (`bg-red-100 text-red-800` …) ไม่ได้ดึงจาก token `danger-soft` / `warning-soft` / `success-soft` / `info-soft` — ต่างจาก `special` ที่ผูก token แล้ว ผลคือถ้าแก้สีสถานะใน `globals.css` ป้าย Pill และ KPI จะไม่เปลี่ยนตาม → ควรให้ `Pill`/`KPI_TONE` derive จาก token (รอบ 12)
 
 ## เจ้าของตัดสินแล้ว (2026-11-11) — ปิดข้อ F ทั้ง 3
 

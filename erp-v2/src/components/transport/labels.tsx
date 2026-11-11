@@ -37,7 +37,7 @@ export function StopStatusChip({ s }: { s: StopStatus }) {
     done: { l: "เสร็จ", tone: "text-success", Icon: CheckCheckIcon },
     otw: { l: "กำลังไป", tone: "bg-danger text-white" },
     next: { l: "ถัดไป", tone: "bg-info-soft text-info-ink" },
-    here: { l: "ถึงแล้ว", tone: "bg-violet-100 text-violet-800", Icon: MapPinCheckIcon },
+    here: { l: "ถึงแล้ว", tone: "bg-special-soft text-special-ink", Icon: MapPinCheckIcon },
     noshow: { l: "ไม่มา", tone: "bg-muted text-muted-foreground", Icon: UserXIcon },
     cancel: { l: "ยกเลิก", tone: "text-danger ring-1 ring-danger/40", Icon: BanIcon },
   }

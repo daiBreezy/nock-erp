@@ -80,7 +80,7 @@ function BillingPage() {
   const cards = [
     { key: "pending_approval" as Filter, icon: FileClockIcon, tone: "amber" as const, label: "รออนุมัติ PDF", value: rows.filter((r) => r.inv.status === "pending_approval").length, unit: "ใบ" },
     { key: "awaiting_payment" as Filter, icon: HourglassIcon, tone: "sky" as const, label: "รอชำระ", value: kpiMoney(rows.filter((r) => ["approved", "sent"].includes(r.inv.status)).reduce((a, r) => a + r.total - r.paid, 0)), unit: "" },
-    { key: "to_confirm" as Filter, icon: WalletIcon, tone: "violet" as const, label: "รอยืนยันยอดเงิน", value: rows.filter((r) => r.toConfirm).length, unit: "รายการ" },
+    { key: "to_confirm" as Filter, icon: WalletIcon, tone: "special" as const, label: "รอยืนยันยอดเงิน", value: rows.filter((r) => r.toConfirm).length, unit: "รายการ" },
     { key: "paid" as Filter, icon: BadgeCheckIcon, tone: "emerald" as const, label: "รับเงินแล้วเดือนนี้", value: kpiMoney(rows.flatMap((r) => r.inv.payments).filter((p) => p.confirmedBy && p.recordedAt.slice(0, 7) === month).reduce((a, p) => a + p.amount, 0)), unit: "" },
   ]
 
@@ -168,7 +168,7 @@ function BillingPage() {
       // Delivery / confirm problems only matter until the invoice is paid.
       const open = inv.status !== "paid" && inv.status !== "void"
       const issue = !open ? null
-        : toConfirm ? { text: "รอยืนยันเงิน", tone: "violet" as const, why: "บันทึกรับเงินแล้ว รออีกคนตรวจยืนยัน" }
+        : toConfirm ? { text: "รอยืนยันเงิน", tone: "special" as const, why: "บันทึกรับเงินแล้ว รออีกคนตรวจยืนยัน" }
           : inv.delivery === "no_line" ? { text: "ไม่ถึงผู้ปกครอง", tone: "amber" as const, why: "ครอบครัวยังไม่ผูก LINE ต้องส่งใบเอง" }
             : inv.delivery === "failed" ? { text: "ส่ง LINE ไม่สำเร็จ", tone: "red" as const, why: "เช่น ผู้ปกครอง block OA" } : null
       const label = inv.pdf === "generating" ? "กำลังสร้าง PDF" : inv.pdf === "failed" ? "PDF ไม่สำเร็จ" : Bill.INVOICE_STATUS_LABEL[inv.status]

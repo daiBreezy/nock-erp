@@ -66,7 +66,7 @@ function BadgesDemo() {
         {BADGE_VARIANTS.map((v) => <Badge key={v} variant={v}>{v}</Badge>)}
       </Demo>
       <Demo label="Pill (badges.tsx) — โทนสถานะกลาง">
-        {(["gray", "blue", "green", "amber", "red", "violet"] as const).map((t) => <Pill key={t} tone={t}>{t}</Pill>)}
+        {(["gray", "blue", "green", "amber", "red", "special"] as const).map((t) => <Pill key={t} tone={t}>{t}</Pill>)}
       </Demo>
     </div>
   )
@@ -133,7 +133,7 @@ function KpiDemo() {
     <KpiRow>
       <Kpi icon={BookOpenIcon} label="คลาสที่เปิดอยู่" value={128} tone="primary" />
       <Kpi icon={UsersIcon} label="นักเรียน" value={"1,240"} tone="emerald" />
-      <Kpi icon={UserRoundIcon} label="ครู" value={36} tone="violet" />
+      <Kpi icon={UserRoundIcon} label="ครู" value={36} tone="special" />
       <Kpi icon={RefreshCwIcon} label="ใกล้หมดแพ็กเกจ (ต่อคอร์ส)" value={9} tone="amber" emphasis />
     </KpiRow>
   )

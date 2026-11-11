@@ -24,7 +24,7 @@ export function StudentsMeta({ n, className }: { n: number; className?: string }
 
 // owner 2026-10-15: on the card's top line, coloured, the meaning on hover (test no longer shares the check-in icon)
 export const KIND_ICON = {
-  test: { icon: ListChecksIcon, label: "สอบวัดระดับ", tone: "bg-violet-100 text-violet-700 dark:bg-violet-950 dark:text-violet-300" },
+  test: { icon: ListChecksIcon, label: "สอบวัดระดับ", tone: "bg-special-soft text-special-ink" },
   trial: { icon: FlaskConicalIcon, label: "ทดลองเรียน", tone: "bg-info-soft text-info-ink" },
   interview: { icon: MessagesSquareIcon, label: "สัมภาษณ์", tone: "bg-warning-soft text-warning-ink" },
   other: { icon: ShapesIcon, label: "อื่นๆ", tone: "bg-slate-200 text-slate-700 dark:bg-slate-800 dark:text-slate-300" },

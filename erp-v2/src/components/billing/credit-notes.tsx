@@ -59,7 +59,7 @@ function NoteCard({ n, who, manage }: { n: CreditNote; who: (id?: string) => str
     <div className="space-y-2 rounded-lg border p-3 text-sm">
       <div className="flex flex-wrap items-center gap-2">
         <span className="font-medium tabular-nums">{n.number}</span>
-        <Pill tone={n.mode === "refund" ? "blue" : "violet"}>{n.mode === "refund" ? <WalletIcon className="size-3" /> : <ReceiptIcon className="size-3" />}{Refund.CREDIT_MODE_LABEL[n.mode]}</Pill>
+        <Pill tone={n.mode === "refund" ? "blue" : "special"}>{n.mode === "refund" ? <WalletIcon className="size-3" /> : <ReceiptIcon className="size-3" />}{Refund.CREDIT_MODE_LABEL[n.mode]}</Pill>
         <Pill tone={n.status === "approved" ? "green" : n.status === "void" ? "gray" : "amber"}>{Refund.CREDIT_STATUS_LABEL[n.status]}</Pill>
         <span className="ml-auto font-semibold tabular-nums">{fmtMoney(Refund.creditNoteTotal(n))}</span>
         {n.status === "approved" && <a href={`/print/credit-note/${n.id}`} target="_blank" rel="noreferrer" className="text-xs text-primary underline">PDF</a>}
@@ -70,7 +70,7 @@ function NoteCard({ n, who, manage }: { n: CreditNote; who: (id?: string) => str
       <p className="text-xs">เหตุผล: {[...n.reasons, n.remark].filter(Boolean).join(" · ")}{n.stopFrom && ` · หยุดเรียนตั้งแต่ ${fmtDate(n.stopFrom, { weekday: true })}`}</p>
       <p className="text-xs text-muted-foreground">สร้างโดย {who(n.createdBy)} · {fmtDateTime(n.createdAt)}{n.approvedBy && ` · ${n.forced ? "Force " : ""}อนุมัติโดย ${who(n.approvedBy)}`}</p>
       {n.status === "void" && <p className="text-xs text-muted-foreground">ยกเลิก: {n.voidReason}</p>}
-      {n.mode === "credit" && n.status === "approved" && <p className="text-xs text-violet-800 dark:text-violet-200">เครดิตผูกกับนักเรียน + คอร์สนี้ — ใบแจ้งหนี้ถัดไปของคอร์สเดียวกันหักให้อัตโนมัติ</p>}
+      {n.mode === "credit" && n.status === "approved" && <p className="text-xs text-special-ink">เครดิตผูกกับนักเรียน + คอร์สนี้ — ใบแจ้งหนี้ถัดไปของคอร์สเดียวกันหักให้อัตโนมัติ</p>}
 
       {n.status === "pending_approval" && (
         <div className="flex flex-wrap items-center gap-2 border-t pt-2">

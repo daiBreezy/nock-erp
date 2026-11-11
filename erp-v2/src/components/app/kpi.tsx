@@ -7,7 +7,7 @@ export const KPI_TONE = {
   emerald: "bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300",
   red: "bg-red-100 text-red-700 dark:bg-red-950 dark:text-red-300",
   amber: "bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-300",
-  violet: "bg-violet-100 text-violet-700 dark:bg-violet-950 dark:text-violet-300",
+  special: "bg-special-soft text-special-ink",
   sky: "bg-sky-100 text-sky-700 dark:bg-sky-950 dark:text-sky-300",
 } as const
 export type KpiTone = keyof typeof KPI_TONE
@@ -18,7 +18,7 @@ const KPI_INK: Record<KpiTone, string> = {
   emerald: "text-emerald-700 dark:text-emerald-300",
   red: "text-red-700 dark:text-red-300",
   amber: "text-amber-700 dark:text-amber-300",
-  violet: "text-violet-700 dark:text-violet-300",
+  special: "text-special-ink",
   sky: "text-sky-700 dark:text-sky-300",
 }
 

@@ -27,6 +27,10 @@
   --color-info: var(--info);
   --color-info-soft: var(--info-soft);
   --color-info-ink: var(--info-ink);
+  /* special — credit / note / assessment / pending-for-you: the one non-status accent (owner 2026-11-11) */
+  --color-special: var(--special);
+  --color-special-soft: var(--special-soft);
+  --color-special-ink: var(--special-ink);
   --color-today-soft: var(--today-soft);
   --color-brand: var(--brand);
   --color-package-hour: var(--package-hour);
@@ -111,6 +115,7 @@
   --warning: #f59e0b; --warning-soft: #fef3c7; --warning-ink: #78350f;
   --danger: #ef4444;  --danger-soft: #fee2e2;  --danger-ink: #991b1b;
   --info: #0ea5e9;    --info-soft: #e0f2fe;    --info-ink: #075985;
+  --special: #8b5cf6; --special-soft: #ede9fe; --special-ink: #5b21b6;
   --today-soft: #fef2f2;
   /* package type circles (PackageBadge) */
   --package-hour: #d9a13a; --package-week: #ec6ba0; --package-month: #58b6b4;
@@ -154,6 +159,7 @@
   --warning-soft: #451a03; --warning-ink: #fde68a;
   --danger-soft: #450a0a;  --danger-ink: #fecaca;
   --info-soft: #082f49;    --info-ink: #bae6fd;
+  --special-soft: #2e1065; --special-ink: #ddd6fe;
   --today-soft: #450a0a;
 }
 

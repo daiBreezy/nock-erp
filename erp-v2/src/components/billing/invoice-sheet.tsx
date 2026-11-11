@@ -337,7 +337,7 @@ function Body({ id, slipMediaId, onEdit, onDuplicated, tabs }: { id: ID; slipMed
             <table className="w-full text-sm tabular-nums"><tbody className="divide-y">
               {totals.lines.filter((l) => l.promotion > 0).map((l) => <tr key={l.line.id} className="text-success"><td className="py-1">{l.course?.name} · {l.promotionName}</td><td className="py-1 text-right">−{fmtMoney(l.promotion)}</td></tr>)}
               {totals.lines.filter((l) => l.bonusMinutes > 0).map((l) => <tr key={`b${l.line.id}`} className="text-success"><td className="py-1" colSpan={2}>{l.course?.name} · {l.bonusName} — แถมเวลาเรียนเพิ่ม {l.bonusMinutes / 60} ชม. (ไม่เพิ่มราคา)</td></tr>)}
-              {totals.credit > 0 && <tr className="text-violet-700"><td className="py-1">หักเครดิตคอร์ส</td><td className="py-1 text-right">−{fmtMoney(totals.credit)}</td></tr>}
+              {totals.credit > 0 && <tr className="text-special-ink"><td className="py-1">หักเครดิตคอร์ส</td><td className="py-1 text-right">−{fmtMoney(totals.credit)}</td></tr>}
               {totals.concession > 0 && <tr className="text-success"><td className="py-1">ส่วนลดพิเศษ · {inv.concession?.remark}</td><td className="py-1 text-right">−{fmtMoney(totals.concession)}</td></tr>}
             </tbody></table>
             {totals.promotion + totals.credit + totals.concession === 0 && !totals.lines.some((l) => l.bonusMinutes > 0) && <p className="text-xs text-muted-foreground">ไม่มีส่วนลด / โปรโมชันในใบนี้</p>}

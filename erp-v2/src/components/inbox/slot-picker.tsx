@@ -76,7 +76,7 @@ export function SlotPicker({
                   >
                     {slot.start}
                     {slot.source === "class" ? (
-                      <Pill tone={slot.teacherId ? "violet" : "amber"} className="px-1.5 py-0 text-2xs">
+                      <Pill tone={slot.teacherId ? "special" : "amber"} className="px-1.5 py-0 text-2xs">
                         {classes.find((k) => k.id === slot.classId)?.name ?? "คลาสเดิม"} · {staff.find((t) => t.id === slot.teacherId)?.nickname ?? "ยังไม่มีครู"}
                       </Pill>
                     ) : (

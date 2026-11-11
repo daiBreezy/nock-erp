@@ -109,7 +109,7 @@ export function ClassCard({ s, d }: { s: Session; d: CardData }) {
                   {a?.status === "present" && <CheckIcon className={cn("size-3 shrink-0", live ? "text-white" : "text-success")} />}
                   {a?.status === "absent" && <XIcon className="size-3 shrink-0 text-danger" />}
                   {a?.status === "leave" && <span className="shrink-0 text-2xs font-semibold text-warning">ลา</span>}
-                  {onLeave && <span className="shrink-0 text-2xs font-semibold text-violet-600">ลาพักยาว</span>}
+                  {onLeave && <span className="shrink-0 text-2xs font-semibold text-special-ink">ลาพักยาว</span>}
                   {wrote && <NotebookPenIcon className={cn("size-3 shrink-0", live ? "text-white" : "text-info")} />}
                   <span className={cn("shrink-0 rounded px-1 text-2xs font-semibold", gradeTone(stu?.grade ?? ""))}>{stu?.grade}</span>
                 </li>

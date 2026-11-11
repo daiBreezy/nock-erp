@@ -1085,7 +1085,7 @@ function OperationsTab({ d, compare }: { d: ReportData; compare: boolean }) {
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
         <Stat label={tx("ครูที่สอนในช่วงนี้")} value={fmtNum(o.teachers.filter((t) => t.sessions).length)} />
         <Stat label={tx("ชั่วโมงสอนรวม")} value={hrs(o.teachers.reduce((a, t) => a + t.minutes, 0))} />
-        <Stat label={tx("ชั่วโมง Part-time")} value={hrs(partTimeMin)} tone="text-violet-600" />
+        <Stat label={tx("ชั่วโมง Part-time")} value={hrs(partTimeMin)} tone="text-special-ink" />
         <Stat label={tx("งานค้างของครู")} value={fmtNum(o.teachers.reduce((a, t) => a + t.unmarked + t.summariesPending, 0))} sub={<span>{tx("เช็คชื่อ + สรุปการเรียน")}</span>} />
       </div>
       {/* owner 2026-10-21: moved here from the overview's lead section */}
@@ -1100,7 +1100,7 @@ function OperationsTab({ d, compare }: { d: ReportData; compare: boolean }) {
               </thead>
               <tbody>{teachers.map((t) => (
                 <tr key={t.teacherId} className="border-t">
-                  <td className="py-1.5"><span className="flex items-center gap-1.5">{nm(t.staff?.nickname ?? "—")}{t.staff?.partTime && <span className="rounded-full bg-violet-100 px-1.5 text-2xs text-violet-800 dark:bg-violet-950 dark:text-violet-200">Part-time</span>}{t.staff && !t.staff.active && <span className="text-2xs text-muted-foreground">{tx("(ออกแล้ว)")}</span>}</span></td>
+                  <td className="py-1.5"><span className="flex items-center gap-1.5">{nm(t.staff?.nickname ?? "—")}{t.staff?.partTime && <span className="rounded-full bg-special-soft px-1.5 text-2xs text-special-ink">Part-time</span>}{t.staff && !t.staff.active && <span className="text-2xs text-muted-foreground">{tx("(ออกแล้ว)")}</span>}</span></td>
                   {compare && <td className="text-muted-foreground">{(t.staff?.branchIds ?? []).map(branchOf).filter(Boolean).join(", ") || "—"}</td>}
                   <td className="text-right tabular-nums">{t.sessions}</td>
                   <td className="text-right font-medium tabular-nums">{hrs(t.minutes)}</td>

@@ -140,7 +140,7 @@ function Body({ round }: { round: Sum.EntitlementRound }) {
             </SheetTitle>
             <p className="truncate text-sm text-muted-foreground">{mode === "edit" ? "เขียน Course Summary · " : "Course Summary · "}{course?.name ?? "คอร์ส"}</p>
           </div>
-          <Pill tone={status === "sent" ? "green" : status === "approved" ? "blue" : status === "submitted" ? "amber" : status === "draft" ? "violet" : "red"}>
+          <Pill tone={status === "sent" ? "green" : status === "approved" ? "blue" : status === "submitted" ? "amber" : status === "draft" ? "special" : "red"}>
             {status ? SUMMARY_STATUS_LABEL[status] : "ยังไม่เขียน"}
           </Pill>
         </div>
@@ -149,7 +149,7 @@ function Body({ round }: { round: Sum.EntitlementRound }) {
       <PanelBody>
         <MetaGrid rows={[
           ["นักเรียน", <>{student.name}{family && <Link href="/families" className="text-xs text-primary underline">{family.name}</Link>}</>],
-          ["คอร์ส", <>{course?.name}{bundle && <Pill tone="violet"><LayersIcon className="size-3" /> Bundle</Pill>}{course?.subjects.map((x) => <span key={x} className={cn("rounded-full px-1.5 py-0.5 text-2xs", subjectColor(x).chip)}>{x}</span>)}</>],
+          ["คอร์ส", <>{course?.name}{bundle && <Pill tone="special"><LayersIcon className="size-3" /> Bundle</Pill>}{course?.subjects.map((x) => <span key={x} className={cn("rounded-full px-1.5 py-0.5 text-2xs", subjectColor(x).chip)}>{x}</span>)}</>],
           ["ช่วงเรียน", <>{fmtDate(round.from)} – {fmtDate(round.to, { year: true })}{round.entitlementIds.length > 1 && <span className="text-muted-foreground">({round.entitlementIds.length} รอบต่อเนื่อง)</span>}<span className="text-muted-foreground">· {branch?.name}</span></>],
           ...(status === "sent" ? [] : [["กำหนดส่ง", <span key="d" className={cn(due.overdue || due.daysLeft <= 2 ? "font-medium text-danger" : "")}>{fmtDate(due.deadline, { weekday: true })} · {due.overdue ? `เลย ${-due.daysLeft} วัน` : `อีก ${due.daysLeft} วัน`}</span>] as [string, React.ReactNode]]),
           ...(cs ? [["เขียนโดย", L.teacher(cs.authorId).label] as [string, React.ReactNode]] : []),

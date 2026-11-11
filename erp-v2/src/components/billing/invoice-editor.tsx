@@ -305,7 +305,7 @@ export function InvoiceEditor({ invoice, defaultStudentId, renewEntitlementId, o
         )}
 
         {credits.length > 0 && (
-          <div className="space-y-1.5 rounded-lg border border-violet-200 bg-violet-50/60 p-3 dark:border-violet-900 dark:bg-violet-950/30">
+          <div className="space-y-1.5 rounded-lg border border-special/30 bg-special-soft/50 p-3">
             <p className="flex items-center gap-1 text-sm font-medium">เครดิตคอร์ส (จากใบลดหนี้) — หักให้อัตโนมัติ <InfoTip text="ติ๊กออกถ้ายังไม่ใช้เครดิตในใบนี้" /></p>
             {[...new Set(credits.map((c) => c.courseId))].map((cid) => {
               const amount = credits.filter((c) => c.courseId === cid).reduce((a, c) => a + c.amount, 0)
@@ -314,7 +314,7 @@ export function InvoiceEditor({ invoice, defaultStudentId, renewEntitlementId, o
                 <label key={cid} className="flex items-center gap-2 text-sm">
                   <Checkbox checked={on} onCheckedChange={(v) => setCreditSkip(v ? creditSkip.filter((x) => x !== cid) : [...creditSkip, cid])} />
                   {courses.find((c) => c.id === cid)?.name}
-                  <span className="ml-auto tabular-nums text-violet-800 dark:text-violet-200">−{fmtMoney(amount)}</span>
+                  <span className="ml-auto tabular-nums text-special-ink">−{fmtMoney(amount)}</span>
                 </label>
               )
             })}
@@ -483,7 +483,7 @@ export function InvoiceEditor({ invoice, defaultStudentId, renewEntitlementId, o
           ))}
           {totals.promotion > 0 && <div className="flex justify-between text-success"><span>โปรโมชัน</span><span>−{fmtMoney(totals.promotion)}</span></div>}
           {totals.rounding > 0 && <div className="flex justify-between text-muted-foreground"><span>ปัดเศษ (Liclass ปัดขึ้นหลักสิบ)</span><span>+{fmtMoney(totals.rounding)}</span></div>}
-          {totals.credit > 0 && <div className="flex justify-between text-violet-700"><span>หักเครดิตคอร์ส</span><span>−{fmtMoney(totals.credit)}</span></div>}
+          {totals.credit > 0 && <div className="flex justify-between text-special-ink"><span>หักเครดิตคอร์ส</span><span>−{fmtMoney(totals.credit)}</span></div>}
           {totals.concession > 0 && <div className="flex justify-between text-success"><span>ส่วนลดพิเศษ</span><span>−{fmtMoney(totals.concession)}</span></div>}
           <div className={cn("flex justify-between border-t pt-1 text-base font-semibold", totals.total < 0 && "text-danger")}><span>ยอดรวม</span><span>{fmtMoney(totals.total)}</span></div>
         </div>
@@ -581,7 +581,7 @@ function LineCard({ index, draft, quote, studentId, studentGrade, choices, overl
                   <div className="flex flex-wrap items-center gap-2 pl-3 text-xs">
                     <span className="text-muted-foreground">เวลาเรียน</span>
                     <SeatHours className="basis-full" classMinutes={k.minutes} start={k.start} value={draft.seats?.[k.id]} onChange={(v) => { const rest = { ...draft.seats }; if (v) rest[k.id] = v; else delete rest[k.id]; onChange({ seats: rest }) }} />
-                    {isPartial(seat, k.minutes) && <span className="text-violet-700">ราคาคอร์สเท่าเดิม · แพ็กชั่วโมงนับคาบตามเวลาที่เรียน</span>}
+                    {isPartial(seat, k.minutes) && <span className="text-special-ink">ราคาคอร์สเท่าเดิม · แพ็กชั่วโมงนับคาบตามเวลาที่เรียน</span>}
                   </div>
                 )}
               </div>

@@ -113,14 +113,14 @@ export function DevTicketsView({ creating, onCreated }: { creating: boolean; onC
   )
 }
 
-const KIND_TONE: Record<DevTicketKind, Tone> = { bug: "red", help: "amber", idea: "violet", question: "blue" }
+const KIND_TONE: Record<DevTicketKind, Tone> = { bug: "red", help: "amber", idea: "special", question: "blue" }
 /** the kind of ticket as a coloured chip with its icon */
 export function KindChip({ kind }: { kind: DevTicketKind }) {
   const Icon = DEV_KIND_ICON[kind]
   return <Pill tone={KIND_TONE[kind]}><Icon className="size-3" />{DEV_KIND_LABEL[kind]}</Pill>
 }
 
-const KIND_ICON_TONE: Record<DevTicketKind, string> = { bug: "bg-danger-soft text-danger-ink", help: "bg-warning-soft text-warning-ink", idea: "bg-violet-100 text-violet-700", question: "bg-info-soft text-info-ink" }
+const KIND_ICON_TONE: Record<DevTicketKind, string> = { bug: "bg-danger-soft text-danger-ink", help: "bg-warning-soft text-warning-ink", idea: "bg-special-soft text-special-ink", question: "bg-info-soft text-info-ink" }
 /** the kind as a small coloured icon (hover = its name) */
 function KindIcon({ kind }: { kind: DevTicketKind }) {
   const Icon = DEV_KIND_ICON[kind]

@@ -130,7 +130,7 @@ export default function FamiliesPage() {
         actions={<Button onClick={() => setOpenId("new")}><PlusIcon /> เพิ่มครอบครัว</Button>}
       kpis={<>
         <Kpi icon={UsersIcon} label="ครอบครัวทั้งหมด" value={kpi.all} onClick={() => { setLineF(""); setNoAddr(false); setMulti(false) }} />
-        <Kpi icon={UsersRoundIcon} label="มีลูกหลายคน" value={kpi.multi} tone="violet" onClick={() => setMulti(!multi)} active={multi} />
+        <Kpi icon={UsersRoundIcon} label="มีลูกหลายคน" value={kpi.multi} tone="special" onClick={() => setMulti(!multi)} active={multi} />
         <Kpi icon={MessageCircleIcon} label="ผูก LINE ครบ" value={kpi.linked} tone="emerald" onClick={() => setLineF(lineF === "linked" ? "" : "linked")} active={lineF === "linked"} />
         <Kpi icon={UnlinkIcon} label="ยังผูก LINE ไม่ครบ" value={kpi.missing} tone="amber" emphasis={!!(kpi.missing)} onClick={() => setLineF(lineF === "missing" ? "" : "missing")} active={lineF === "missing"} />
         <Kpi icon={MapPinOffIcon} label="ยังไม่มีที่อยู่" value={kpi.noAddr} tone="red" emphasis={!!(kpi.noAddr)} onClick={() => setNoAddr(!noAddr)} active={noAddr} />

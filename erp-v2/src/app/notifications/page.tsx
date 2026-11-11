@@ -79,7 +79,7 @@ export default function NotificationsPage() {
     const inv = s.invoices.filter((i) => i.branchId === branch.id && canApprove(i, me).ok)
     if (inv.length) alerts.push({ topic: "approval", key: "inv", icon: ReceiptIcon, tone: "text-info", title: `ใบแจ้งหนี้รออนุมัติ ${inv.length} ใบ`, detail: inv.map((i) => i.number).join(", "), href: "/billing" })
     const pay = s.invoices.filter((i) => i.branchId === branch.id && i.payments.some((p) => !p.confirmedBy && p.recordedBy !== me.id))
-    if (pay.length) alerts.push({ topic: "approval", key: "pay", icon: WalletIcon, tone: "text-violet-600", title: `ยอดเงินรอยืนยัน ${pay.length} ใบ`, detail: "คนบันทึกยืนยันเองไม่ได้", href: "/billing" })
+    if (pay.length) alerts.push({ topic: "approval", key: "pay", icon: WalletIcon, tone: "text-special-ink", title: `ยอดเงินรอยืนยัน ${pay.length} ใบ`, detail: "คนบันทึกยืนยันเองไม่ได้", href: "/billing" })
   }
   if (!mineOnly) {
     const noTeacher = s.sessions.filter((x) => x.branchId === branch.id && !x.cancelled && x.date >= today && x.date <= addDays(today, 7) && !s.staff.find((t) => t.id === x.teacherId)?.active)

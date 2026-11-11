@@ -2,6 +2,7 @@
 
 // แจ้งลา / แจ้งลาออก from parents in LINE (owner 2026-10-14) — the office team handles each one here and the parent
 // is told on LINE: a leave is recorded on the classes (หักโควตา or not), a notice to stop makes the student แจ้งออก.
+import { tagChip } from "@/components/app/tags"
 import { useState } from "react"
 import dynamic from "next/dynamic"
 import { BusIcon, MapPinHouseIcon, UserIcon, CalendarOffIcon, CheckIcon, DoorOpenIcon, EllipsisIcon, RotateCcwIcon, XIcon } from "lucide-react"
@@ -198,7 +199,7 @@ export function RequestCard({ r, preview }: { r: ParentRequest; preview?: boolea
                     })}
                     {/* owner 2026-10-19: a parent riding along — one more seat on each leg the child rides, no charge */}
                     {withAdult.filter((l) => l.date === x.date).map((l) => (
-                      <span key="adult" className="flex items-center gap-1 rounded-full bg-violet-50 px-2 py-0.5 font-medium text-violet-800">
+                      <span key="adult" className={cn("flex items-center gap-1 rounded-full px-2 py-0.5 font-medium", tagChip("busLeg", "adult"))}>
                         <UserIcon className="size-3" />{`ผู้ปกครองไปด้วย ${[l.pickup && "รับ", l.dropoff && "ส่ง"].filter(Boolean).join("+")}`}
                         {(["pickup", "dropoff"] as const).filter((leg) => l[leg] && x[leg] !== "add").map((leg) => <Seats key={leg} leg={leg} date={x.date} need={2} />)}
                       </span>

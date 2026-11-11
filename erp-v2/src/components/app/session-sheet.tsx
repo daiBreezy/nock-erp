@@ -399,13 +399,13 @@ function StudentRow({ s, sid, viewOnly, canManage, mine, text, setText, selectab
             {/* grade sits next to the name so the right side carries only the ⋮ (owner 2026-11-02) */}
             {stu?.grade && <span className={cn("shrink-0 rounded-full px-1.5 py-px text-2xs font-semibold", gradeTone(stu.grade))}>{stu.grade}</span>}
             {isNew && <Pill tone="red" className="shrink-0" title="เด็กใหม่ — คาบนี้เป็นคาบแรกที่มาเรียนกับเรา (ยังไม่เคยมีการเช็คชื่อมาก่อน) · ครูควรทำความรู้จัก/ประเมินระดับ"><FlameIcon className="size-3" /> ใหม่</Pill>}
-            {onLongLeave && <Pill tone="violet" className="shrink-0" title={`${fmtDate(onLongLeave.from)} – ${fmtDate(onLongLeave.to, { year: true })} · ${onLongLeave.reason}`}>ลาพักยาว</Pill>}
+            {onLongLeave && <Pill tone="special" className="shrink-0" title={`${fmtDate(onLongLeave.from)} – ${fmtDate(onLongLeave.to, { year: true })} · ${onLongLeave.reason}`}>ลาพักยาว</Pill>}
             {/* tap to change which hours this student attends — works before attendance (parent called ahead) */}
             {/* default = the whole class (owner 2026-09-30); tap to set a part of it */}
             {(partial || (canManage && !locked && !s.cancelled)) && (
               <Button variant="ghost" size="inline" type="button" disabled={!canManage || locked || s.cancelled} onClick={() => setOpen("seat")}
                 title={partial ? `เรียนเฉพาะ ${Seats.seatTime(s.start, seat)}${s.seats?.[sid] ? " (คาบนี้)" : " (ทุกคาบ)"} · กดเพื่อเปลี่ยน` : "กดเพื่อตั้งให้เรียนแค่บางชั่วโมง"}
-                className={cn("shrink-0 rounded-full px-2 py-0.5 text-xs font-medium", partial ? "bg-violet-100 text-violet-800 dark:bg-violet-950 dark:text-violet-200" : "border border-dashed text-muted-foreground hover:bg-muted")}>
+                className={cn("shrink-0 rounded-full px-2 py-0.5 text-xs font-medium", partial ? "bg-special-soft text-special-ink" : "border border-dashed text-muted-foreground hover:bg-muted")}>
                 {Seats.seatLabel(seat, s.minutes)}
               </Button>
             )}

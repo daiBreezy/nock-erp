@@ -573,7 +573,7 @@ function ClassCard({ dayText, isToday, c, first, child, t, hasBus, tag, onReques
                     </Chip>
                   )
                 })}
-                {booked.adult ? <Pill tone="violet">{t.adultGo}</Pill> : (
+                {booked.adult ? <Pill tone="special">{t.adultGo}</Pill> : (
                   <Chip on={!!ride.adult && canAdult} disabled={!canAdult} onClick={() => setRide((r) => ({ ...r, adult: !r.adult }))}><UserIcon className="size-4" />{ride.adult && canAdult ? `+ ${t.adult}` : t.adult}</Chip>
                 )}
               </div>
@@ -598,7 +598,7 @@ function BusChips({ bus, t }: { bus: { pickup: boolean; dropoff: boolean; adult?
     <span className="flex flex-wrap gap-1.5">
       {bus.pickup && <Pill tone="amber"><BusIcon className="size-3" />{t.pickup}</Pill>}
       {bus.dropoff && <Pill tone="amber"><BusIcon className="size-3" />{t.dropoff}</Pill>}
-      {bus.adult && <Pill tone="violet"><UserIcon className="size-3" />{t.adultGo}</Pill>}
+      {bus.adult && <Pill tone="special"><UserIcon className="size-3" />{t.adultGo}</Pill>}
     </span>
   )
 }

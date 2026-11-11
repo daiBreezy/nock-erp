@@ -26,7 +26,7 @@ export default function FormPage() {
     <Page className="space-y-4">
       <title>{`${form.name} · NockERP`}</title>
       <Link href="/settings?view=system&sys=forms" className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"><ChevronLeftIcon className="size-4" />{tx("ฟอร์มทั้งหมด")}</Link>
-      <PageHeader title={<span className="inline-flex flex-wrap items-center gap-2">{form.name || tx("ฟอร์มใหม่")}{custom ? <Pill tone="violet">{tx("สร้างเอง")}</Pill> : <Pill tone="blue"><LockIcon className="size-3" />{tx("ระบบ")}</Pill>}</span>}
+      <PageHeader title={<span className="inline-flex flex-wrap items-center gap-2">{form.name || tx("ฟอร์มใหม่")}{custom ? <Pill tone="special">{tx("สร้างเอง")}</Pill> : <Pill tone="blue"><LockIcon className="size-3" />{tx("ระบบ")}</Pill>}</span>}
         description={form.description || undefined} />
       {custom && <Tabs value={tab} onChange={setTab} options={[{ value: "design", label: tx("ออกแบบ"), icon: PencilRulerIcon }, { value: "answers", label: `${tx("คำตอบ")} (${count})`, icon: MessageSquareTextIcon }]} />}
       {/* keyed by the saved version so "ยกเลิกการแก้" / another tab's save start from the stored form */}

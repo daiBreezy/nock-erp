@@ -193,7 +193,7 @@ function TripView({ t, events, busy, onBack, onTap, speed }: { t: Trip; events: 
       : !p.started ? { left: { label: "กลับ", icon: ArrowLeftIcon, onClick: onBack, tone: "neutral" }, right: { label: t.kind === "pickup" ? "เริ่มวิ่ง" : `เริ่มวิ่ง — ออกจาก${t.branchName}`, icon: PlayIcon, onClick: () => onTap("start"), tone: "bg-primary text-primary-foreground" } }
         : cur ? { left: { label: "ไม่มา", icon: UserXIcon, onClick: () => onTap("noshow", cur.key), tone: "danger" }, right: curIn
           ? { label: `${verb(cur)}${cur.nickname}แล้ว`, icon: CheckIcon, onClick: () => onTap("done", cur.key), tone: "bg-success text-white" }
-          : { label: `ถึงบ้าน${cur.nickname}แล้ว`, icon: MapPinCheckIcon, onClick: () => onTap("arrive", cur.key), tone: "bg-violet-600 text-white" } }
+          : { label: `ถึงบ้าน${cur.nickname}แล้ว`, icon: MapPinCheckIcon, onClick: () => onTap("arrive", cur.key), tone: "bg-special text-white" } }
           : { left: { label: "แก้ล่าสุด", icon: RotateCcwIcon, onClick: () => p.lastMarked && onTap("undo", p.lastMarked), tone: "neutral" }, right: { label: t.kind === "pickup" ? `ถึง${t.branchName}แล้ว — จบเที่ยว` : `กลับถึง${t.branchName} — คืนกุญแจ`, icon: FlagIcon, onClick: () => onTap("finish"), tone: "bg-primary text-primary-foreground" } }
   const navAll = t.stops.filter((s) => s.loc)
   return (
@@ -263,7 +263,7 @@ function TripView({ t, events, busy, onBack, onTap, speed }: { t: Trip; events: 
                   </div>
                   <div className="mt-2 ml-11 grid grid-cols-3 divide-x text-center">
                     <TimeCell label="ประมาณ" value={s.eta ?? "—"} />
-                    <TimeCell label="Check in" value={inn ? hhmm(inn.at) : "—"} tone={inn ? "bg-violet-600 text-white" : undefined} />
+                    <TimeCell label="Check in" value={inn ? hhmm(inn.at) : "—"} tone={inn ? "bg-special text-white" : undefined} />
                     <TimeCell label={out?.type === "noshow" ? "ไม่มา" : "Check out"} value={out ? hhmm(out.at) : "—"} tone={out ? (out.type === "noshow" ? "bg-danger text-white" : "bg-success text-white") : undefined} />
                   </div>
                 </li>
@@ -313,7 +313,7 @@ function EndRow({ icon, title, label, time, done }: { icon: React.ReactNode; tit
 function TimeCell({ label, value, tone }: { label: string; value: string; tone?: string }) {
   // owner 2026-11-06: no boxes — plain text with a divider between; a time that's in takes the colour of its meaning
   // tones are DS tokens now (bg-danger / bg-success) — match on the token name, not the old Tailwind hue
-  const color = tone?.includes("violet") ? "text-violet-700" : tone?.includes("danger") ? "text-danger" : tone?.includes("success") ? "text-success" : ""
+  const color = tone?.includes("special") ? "text-special-ink" : tone?.includes("danger") ? "text-danger" : tone?.includes("success") ? "text-success" : ""
   return (
     <span className="px-1 py-0.5">
       <span className="block text-2xs font-medium text-foreground/60">{label}</span>

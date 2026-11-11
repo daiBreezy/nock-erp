@@ -35,7 +35,7 @@ import { useStore } from "@/store/store"
 type Bucket = "to_write" | "draft" | "submitted" | "approved" | "sent" | "changes"
 const BUCKETS: { key: Bucket; label: string; tone: string }[] = [
   { key: "to_write", label: "ยังไม่ได้เขียน", tone: "text-danger" },
-  { key: "draft", label: "เขียนแล้ว Draft ไว้", tone: "text-violet-700" },
+  { key: "draft", label: "เขียนแล้ว Draft ไว้", tone: "text-special-ink" },
   { key: "submitted", label: "รอส่งไป Approve", tone: "text-warning" },
   { key: "approved", label: "ได้ Approve แล้ว กำลังรอส่ง", tone: "text-info" },
   { key: "sent", label: "ส่งแล้ว", tone: "text-success" },
@@ -43,8 +43,8 @@ const BUCKETS: { key: Bucket; label: string; tone: string }[] = [
 ]
 
 const BUCKET_ICON: Record<Bucket, LucideIcon> = { to_write: PenLineIcon, draft: FilePenIcon, submitted: HourglassIcon, approved: BadgeCheckIcon, sent: SendIcon, changes: Undo2Icon }
-const PILL_TONE: Record<Bucket, Tone> = { to_write: "red", draft: "violet", submitted: "amber", approved: "blue", sent: "green", changes: "red" }
-const BUCKET_TONE: Record<Bucket, KpiTone> = { to_write: "red", draft: "violet", submitted: "amber", approved: "sky", sent: "emerald", changes: "red" }
+const PILL_TONE: Record<Bucket, Tone> = { to_write: "red", draft: "special", submitted: "amber", approved: "blue", sent: "green", changes: "red" }
+const BUCKET_TONE: Record<Bucket, KpiTone> = { to_write: "red", draft: "special", submitted: "amber", approved: "sky", sent: "emerald", changes: "red" }
 const bucketOf = (status: SummaryStatus | undefined): Bucket => (!status ? "to_write" : status === "changes_requested" ? "changes" : status)
 
 /** the 6 stages as KPI cards — click one to list it (standard page: KPI row above the toolbar) */
@@ -251,7 +251,7 @@ function CourseSummaryTab() {
     { id: "grade", label: "ชั้น", cell: (r) => { const g = L.student(r.studentId)?.grade; return g ? <span className={cn("rounded-full px-2 py-0.5 text-xs font-medium", gradeTone(g))}>{g}</span> : "—" } },
     { id: "course", label: "คอร์ส", cell: (r) => <span className="truncate">{courses.find((x) => x.id === r.courseId)?.name ?? "คอร์ส"}</span> },
     { id: "type", label: "ประเภทคอร์ส", cell: (r) => courses.find((x) => x.id === r.courseId)?.kind === "bundle"
-      ? <Pill tone="violet"><LayersIcon className="size-3" /> Bundle</Pill> : <Pill>Single</Pill> },
+      ? <Pill tone="special"><LayersIcon className="size-3" /> Bundle</Pill> : <Pill>Single</Pill> },
     { id: "subjects", label: "วิชา", cell: (r) => <ChipOverflow items={courses.find((x) => x.id === r.courseId)?.subjects ?? []} label={(x) => x} render={(x) => <span className={cn("rounded-full px-2 py-0.5 text-xs", subjectColor(x).chip)}>{x}</span>} /> },
     { id: "teacher", label: "ครู", cell: (r) => { const t = teacherOf(r); return t ? L.teacher(t).label : <span className="text-muted-foreground">—</span> } },
     { id: "due", label: "กำหนดส่ง", info: "ต้องส่งสรุปภายในกี่วันหลังคอร์สจบ", cell: (r) => {

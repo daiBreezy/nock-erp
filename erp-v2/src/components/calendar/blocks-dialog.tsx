@@ -74,7 +74,7 @@ export function BlocksDialog({ branch, date, onClose, scope: initialScope = "day
           <DialogDescription>วัน{DAY_FULL[wd]} {fmtDate(date, { year: true })} · {branch.name} · แถวของตารางครูและช่วงที่เลือกได้ตอนสร้างคลาส</DialogDescription>
         </DialogHeader>
         {period && (
-          <p className="flex items-center gap-1.5 rounded-xl bg-violet-50 p-2 text-xs text-violet-900 dark:bg-violet-950/40 dark:text-violet-100">
+          <p className="flex items-center gap-1.5 rounded-xl bg-special-soft/50 p-2 text-xs text-special-ink">
             <SparklesIcon className="size-4 shrink-0" /> วันนี้อยู่ในช่วงพิเศษ &quot;{period.name}&quot; ({fmtDate(period.from)}–{fmtDate(period.to)}) — แก้แล้วมีผลเฉพาะในช่วงนี้ วันปกติไม่เปลี่ยน
           </p>
         )}

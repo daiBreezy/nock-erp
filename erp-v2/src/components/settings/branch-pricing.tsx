@@ -99,7 +99,7 @@ export function PromotionsTab({ branch }: { branch: Branch }) {
           <div key={p.id} className="flex flex-wrap items-center gap-2 p-3 text-sm">
             <TagIcon className="size-4 text-muted-foreground" />
             <span className="font-medium">{p.name}</span>
-            <Pill tone="violet">{p.type === "bonus_hours" ? `${tx("แถม")} ${p.value} ${tx("ชม.")}` : <>{tx("ลด")} {p.type === "pct" ? `${p.value}%` : fmtMoney(p.value)}</>}</Pill>
+            <Pill tone="special">{p.type === "bonus_hours" ? `${tx("แถม")} ${p.value} ${tx("ชม.")}` : <>{tx("ลด")} {p.type === "pct" ? `${p.value}%` : fmtMoney(p.value)}</>}</Pill>
             <span className="text-xs text-muted-foreground">{tx(PRICE_UNIT_LABEL[p.unit])}  {tx("· ขั้นต่ำ")} {durationText(p.unit, p.minDuration)}{p.from || p.to ? ` · ${p.from ? fmtDate(p.from) : "…"} → ${p.to ? fmtDate(p.to) : tx("ไม่มีวันสิ้นสุด")}` : ""}</span>
             <span className="ml-auto flex items-center gap-2">
               <Switch checked={p.active} onCheckedChange={(v) => upsert({ ...p, active: v })} aria-label={tx("เปิดใช้")} />

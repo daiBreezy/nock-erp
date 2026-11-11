@@ -13,7 +13,7 @@ export const TONE = {
   green: HUE.emerald.chip,
   amber: HUE.amber.chip,
   red: HUE.red.chip,
-  violet: HUE.violet.chip,
+  special: "bg-special-soft text-special-ink",
 } as const
 export type Tone = keyof typeof TONE
 
@@ -21,7 +21,7 @@ export function Pill({ tone = "gray", children, className, title }: { tone?: Ton
   return <span title={title} className={cn("inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium whitespace-nowrap", TONE[tone], className)}>{children}</span>
 }
 
-const TONE_OF_HUE: Partial<Record<keyof typeof HUE, Tone>> = { gray: "gray", sky: "blue", emerald: "green", amber: "amber", red: "red", violet: "violet" }
+const TONE_OF_HUE: Partial<Record<keyof typeof HUE, Tone>> = { gray: "gray", sky: "blue", emerald: "green", amber: "amber", red: "red", violet: "special" }
 const STATE_TONE = Object.fromEntries(Object.entries(TAG_HUE.sessionState).map(([k, h]) => [k, TONE_OF_HUE[h] ?? "gray"])) as Record<SessionState, Tone>
 
 export function SessionStateBadge({ state }: { state: SessionState }) {

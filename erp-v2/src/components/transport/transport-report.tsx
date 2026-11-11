@@ -62,7 +62,7 @@ export function TransportReportKpis({ rows }: { rows: WeekRow[] }) {
     <KpiRow>
       <Kpi icon={UsersIcon} label="ผู้โดยสารรวม" value={pax} sub={`${rows.length} เที่ยว · เฉลี่ย ${rows.length ? (pax / rows.length).toFixed(1) : 0} คน/เที่ยว`} tone="sky" />
       <Kpi icon={GaugeIcon} label="ที่นั่งใช้" value={`${pct(pax, seats)}%`} sub={`${pax} จาก ${seats} ที่นั่ง`} tone="amber" />
-      <Kpi icon={BusIcon} label="เวลาต่อเที่ยว" value={`${minutes} นาที`} sub="เฉลี่ยตามแผน" tone="violet" />
+      <Kpi icon={BusIcon} label="เวลาต่อเที่ยว" value={`${minutes} นาที`} sub="เฉลี่ยตามแผน" tone="special" />
       <Kpi icon={ClockIcon} label="ตรงเวลา" value={ran.length ? `${pct(ran.length - late.length, ran.length)}%` : "—"} sub={ran.length ? `วิ่งแล้ว ${ran.length} · สาย ${late.length}` : "ยังไม่มีเที่ยวที่วิ่งผ่านแอปคนขับ"} tone="emerald" />
     </KpiRow>
   )

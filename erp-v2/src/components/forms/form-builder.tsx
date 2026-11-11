@@ -66,7 +66,7 @@ export function FormsList() {
             return (
               <tr key={f.id} className={ROW} onClick={() => router.push(`/settings/forms/${f.id}`)}>
                 <td className="max-w-80"><p className="truncate font-medium">{f.name}</p>{f.description && <p className="truncate text-xs text-muted-foreground">{f.description}</p>}</td>
-                <td>{f.kind === "system" ? <Pill tone="blue"><LockIcon className="size-3" />{tx("ระบบ")}</Pill> : <Pill tone="violet">{tx("สร้างเอง")}</Pill>}</td>
+                <td>{f.kind === "system" ? <Pill tone="blue"><LockIcon className="size-3" />{tx("ระบบ")}</Pill> : <Pill tone="special">{tx("สร้างเอง")}</Pill>}</td>
                 <td className="text-right tabular-nums">{n}</td>
                 <td className="text-right tabular-nums">{answers ?? <span className="text-muted-foreground">—</span>}</td>
                 <td className="whitespace-nowrap text-muted-foreground">{fmtDate(f.updatedAt.slice(0, 10))}</td>

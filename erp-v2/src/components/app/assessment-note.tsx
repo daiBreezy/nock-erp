@@ -21,10 +21,10 @@ export function AssessmentNote({ a, editable, showWhen = false, className }: { a
   const [note, setNote] = useState(a.note ?? "")
   const dirty = result !== (a.result ?? "") || note !== (a.note ?? "")
   return (
-    <div className={cn("space-y-1.5 rounded-2xl bg-violet-50/60 p-2.5 text-sm dark:bg-violet-950/30", className)}>
+    <div className={cn("space-y-1.5 rounded-2xl bg-special-soft/50 p-2.5 text-sm", className)}>
       <div className="flex flex-wrap items-center gap-1.5 text-xs">
-        <ClipboardCheckIcon className="size-3.5 text-violet-700" />
-        <Pill tone="violet">{FORM_TYPE_LABEL[a.type]}</Pill>
+        <ClipboardCheckIcon className="size-3.5 text-special-ink" />
+        <Pill tone="special">{FORM_TYPE_LABEL[a.type]}</Pill>
         <span className="text-muted-foreground">{a.subject}{showWhen && ` · ${fmtDate(a.date, { weekday: true })} ${a.start}`}</span>
         {a.notedAt && <span className="ml-auto text-muted-foreground">บันทึกโดย {who ?? "—"} · {fmtDateTime(a.notedAt)}</span>}
       </div>

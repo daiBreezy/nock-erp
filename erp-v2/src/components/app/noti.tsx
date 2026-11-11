@@ -22,7 +22,7 @@ const KIND: Record<NotiKind, { icon: typeof BellIcon; tone: string; card: string
   home: { icon: MapPinHouseIcon, tone: "bg-info-soft text-info-ink", card: "border-info/40 border-l-4 border-l-info bg-info-soft/60" },
   return: { icon: UndoDotIcon, tone: "bg-success-soft text-success-ink", card: "border-success/40 border-l-4 border-l-success bg-success-soft/60" },
   message: { icon: MessageCircleIcon, tone: "bg-indigo-100 text-indigo-800 dark:bg-indigo-950 dark:text-indigo-300", card: "border-indigo-300 border-l-4 border-l-indigo-500 bg-indigo-50 dark:border-indigo-900/60 dark:border-l-indigo-500 dark:bg-indigo-950/50" },
-  note: { icon: StickyNoteIcon, tone: "bg-violet-100 text-violet-800 dark:bg-violet-950 dark:text-violet-300", card: "border-violet-300 border-l-4 border-l-violet-500 bg-violet-50 dark:border-violet-900/60 dark:border-l-violet-500 dark:bg-violet-950/50" },
+  note: { icon: StickyNoteIcon, tone: "bg-special-soft text-special-ink", card: "border-special/30 border-l-4 border-l-special bg-special-soft/50" },
   info: { icon: BellIcon, tone: "bg-primary/10 text-primary", card: "border-primary/40 border-l-4 border-l-primary bg-primary/5 dark:bg-primary/10" },
 }
 interface NotiData { kind: NotiKind; at: number }

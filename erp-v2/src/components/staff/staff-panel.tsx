@@ -93,7 +93,7 @@ function StaffView({ s, onEdit }: { s: Staff; onEdit: () => void }) {
           </div>
         </div>
         <div className="flex flex-wrap items-center gap-1">
-          {roles.map((r) => <Pill key={r} tone={r === "teacher" ? "blue" : "violet"}>{ROLE_LABEL[r]}</Pill>)}
+          {roles.map((r) => <Pill key={r} tone={r === "teacher" ? "blue" : "special"}>{ROLE_LABEL[r]}</Pill>)}
           {s.partTime && <Pill tone="amber">Part-time</Pill>}
           {!s.canLogin && <Pill>ไม่ล็อกอิน</Pill>}
         </div>
@@ -234,7 +234,7 @@ function InfoTab({ s, week, onTab }: { s: Staff; week: string; onTab: (t: Tab) =
           <div key={b.id} className="rounded-2xl border p-3 text-sm">
             <div className="flex flex-wrap items-center gap-1.5">
               <span className="font-medium">{b.name}</span>
-              {a!.roles.map((r) => <Pill key={r} tone={r === "teacher" ? "blue" : "violet"}>{ROLE_LABEL[r]}</Pill>)}
+              {a!.roles.map((r) => <Pill key={r} tone={r === "teacher" ? "blue" : "special"}>{ROLE_LABEL[r]}</Pill>)}
             </div>
             {a!.subjects.length > 0 && <p className="mt-1 text-muted-foreground">วิชา: {a!.subjects.join(", ")}</p>}
             <p className="mt-1 flex flex-wrap gap-1">

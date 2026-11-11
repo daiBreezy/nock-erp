@@ -202,7 +202,7 @@ const rawTo = useStore((s) => s.entitlements.find((x) => x.id === e.id)?.to)
           <p className="flex flex-wrap items-center gap-1 text-xs text-muted-foreground">
             <CalendarIcon className="size-3" /> {fmtDate(e.from)} → {fmtDate(e.to, { year: true })}
             <span className="tabular-nums">· {p.label}</span>
-            {extended && <Pill tone="violet" title={`เดิมจบ ${fmtDate(rawTo!, { year: true })}`}>เลื่อนวันจบจากการลา</Pill>}
+            {extended && <Pill tone="special" title={`เดิมจบ ${fmtDate(rawTo!, { year: true })}`}>เลื่อนวันจบจากการลา</Pill>}
           </p>
         </div>
         {/* owner 2026-11-05: no progress bar; slots badge · ต่ออายุ · status — status is always last and hugs its text */}
@@ -313,7 +313,7 @@ function Overview({ stu, ents, today, status, onNotRenewing, onHistory, onEditLe
               <li key={l.id} className="flex items-center gap-2 p-2.5 text-sm">
                 <span className="font-medium">{fmtDate(l.from)} – {fmtDate(l.to, { year: true })}</span>
                 <span className="truncate text-muted-foreground">{l.reason}</span>
-                {l.from <= today && today <= l.to && <Pill tone="violet">กำลังลา</Pill>}
+                {l.from <= today && today <= l.to && <Pill tone="special">กำลังลา</Pill>}
                 {can(me, "attendance.leave_override") && <Button size="xs" variant="ghost" className="ml-auto" onClick={() => onEditLeave(l)}>แก้ไข</Button>}
               </li>
             ))}
@@ -429,7 +429,7 @@ function SessionList({ stu, ents }: { stu: Student; ents: Entitlement[] }) {
               // "ขาด" (absent) dropped — the check-in only offers มา / ลา, so an Absent count is always 0 and just confuses.
               const total = sessions.filter((s) => Att.packageCovers(e, s) && s.studentIds.includes(stu.id) && !s.cancelled).length
               return (
-                <Kpi key={e.id} icon={GraduationCapIcon} tone={e.to < today ? "violet" : "sky"} label={course?.name ?? "—"} value={`${marks.length}/${total}`}
+                <Kpi key={e.id} icon={GraduationCapIcon} tone={e.to < today ? "special" : "sky"} label={course?.name ?? "—"} value={`${marks.length}/${total}`}
                   sub={`${fmtDate(e.from)} → ${fmtDate(e.to, { year: true })}`}>
                   <div className="flex flex-wrap gap-1.5 text-xs">
                     <Pill tone="green">{`มา ${n("present")}`}</Pill>

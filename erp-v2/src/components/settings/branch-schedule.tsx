@@ -63,7 +63,7 @@ function OperatingHours({ branch }: { branch: Branch }) {
           <Input type="date" className="w-44" value={preview} onChange={(e) => setPreview(e.target.value || today)} />
           <span>{fmtDate(preview, { weekday: true, year: true })}</span>
           {phHoliday ? <Pill tone="red">{tx("วันหยุด:")} {phHoliday.name}</Pill> : ph ? <Pill tone="green">{tx("เปิด")} {ph.open}–{ph.close}</Pill> : <Pill>{tx("ปิด")}</Pill>}
-          {phSpecial && !phHoliday && <Pill tone="violet">{tx("ช่วงพิเศษ:")} {phSpecial.name}</Pill>}
+          {phSpecial && !phHoliday && <Pill tone="special">{tx("ช่วงพิเศษ:")} {phSpecial.name}</Pill>}
         </div>
       </SettingsCard>
 

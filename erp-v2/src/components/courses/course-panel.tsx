@@ -87,7 +87,7 @@ function CourseView({ c, st, onEdit, onClose }: { c: Course; st?: CourseStats; o
           </div>
         </div>
         <div className="flex flex-wrap items-center gap-1">
-          <Pill tone={c.kind === "bundle" ? "violet" : "gray"}>{c.kind === "bundle" ? <><LayersIcon className="size-3" /> Bundle</> : "Single"}</Pill>
+          <Pill tone={c.kind === "bundle" ? "special" : "gray"}>{c.kind === "bundle" ? <><LayersIcon className="size-3" /> Bundle</> : "Single"}</Pill>
           <Pill tone={c.active ? "green" : "gray"}>{c.active ? "เปิดขาย" : "เก็บเข้าคลัง"}</Pill>
           <PackageBadge course={c} />
         </div>

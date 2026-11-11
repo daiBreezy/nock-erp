@@ -104,7 +104,7 @@ export default function CoursesPage() {
       <span className="flex items-center gap-1.5"><span className="font-medium">{c.name}</span>{c.archived && <Pill tone="gray">เก็บเข้าคลัง</Pill>}</span>
     ) },
     { id: "grades", label: "ระดับชั้น", width: "110px", cell: (c) => <div className="flex gap-1" title={c.grades.join(", ")}>{gradeRanges(c.grades).map((g) => <span key={g} className={cn("rounded-md px-1.5 py-0.5 text-xs font-semibold", gradeTone(g))}>{g}</span>)}</div> },
-    { id: "kind", label: "ประเภท", width: "100px", sort: "kind", cell: (c) => <Pill tone={c.kind === "bundle" ? "violet" : "gray"}>{c.kind === "bundle" ? <><LayersIcon className="size-3" /> Bundle</> : "Single"}</Pill> },
+    { id: "kind", label: "ประเภท", width: "100px", sort: "kind", cell: (c) => <Pill tone={c.kind === "bundle" ? "special" : "gray"}>{c.kind === "bundle" ? <><LayersIcon className="size-3" /> Bundle</> : "Single"}</Pill> },
     { id: "package", label: "Package", width: "96px", sort: "package", info: PACKAGE_LEGEND, cell: (c) => <PackageBadge course={c} /> },
     { id: "price", label: "ราคา", width: "110px", sort: "price", align: "right", className: "tabular-nums", cell: (c) => <span className="font-medium" title={c.courseFee > 0 ? `+ Course fee ${fmtMoney(c.courseFee)}` : undefined}>{fmtMoney(c.price)}</span> },
     // owner 2026-10-12: counts centred, start date right-aligned
@@ -127,7 +127,7 @@ export default function CoursesPage() {
         actions={manage && <Button onClick={() => setPanel(emptyCourse(branch))}><PlusIcon /> สร้างคอร์ส</Button>}
       kpis={<>
         <Kpi icon={BookOpenIcon} label="คอร์สทั้งหมด" value={kpi.total} />
-        <Kpi icon={StarIcon} label="Single / Bundle" value={<>{kpi.single} <span className="text-base text-muted-foreground">/</span> {kpi.bundle}</>} sub="คอร์สวิชาเดียว / หลายวิชา" tone="violet" />
+        <Kpi icon={StarIcon} label="Single / Bundle" value={<>{kpi.single} <span className="text-base text-muted-foreground">/</span> {kpi.bundle}</>} sub="คอร์สวิชาเดียว / หลายวิชา" tone="special" />
         <Kpi icon={UsersIcon} label="นักเรียนที่ลงเรียน" value={kpi.students} />
         <Kpi icon={WalletIcon} label="รายได้จากคอร์ส (ชำระแล้ว)" value={kpiMoney(kpi.revenue)} />
       </>}

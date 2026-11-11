@@ -103,7 +103,7 @@ export function BusAddOns({ stu }: { stu: Student }) {
                   <td className="text-xs">{a.cancel ? "ยกเลิก " : a.companion ? "ผู้ปกครองไปด้วย · " : ""}{[a.pickup && "รับ", a.dropoff && "ส่ง"].filter(Boolean).join(" + ")}{a.note && ` · ${a.note}`}</td>
                   <td className="text-right tabular-nums">{a.cancel || a.companion ? "—" : fmtMoney(a.amount)}</td>
                   {/* owner 2026-10-19: a ride the parent cancelled — the bus doesn't come, nothing to charge or refund */}
-                  <td className="pl-2 text-right">{a.cancel ? <Pill tone="gray">ยกเลิกรอบ</Pill> : a.companion ? <Pill tone="violet">ไม่คิดเงิน</Pill> : inv ? <span className="text-xs">ใบ {inv.number ?? "—"}</span> : <Pill tone="amber">รอเรียกเก็บ</Pill>}</td>
+                  <td className="pl-2 text-right">{a.cancel ? <Pill tone="gray">ยกเลิกรอบ</Pill> : a.companion ? <Pill tone="special">ไม่คิดเงิน</Pill> : inv ? <span className="text-xs">ใบ {inv.number ?? "—"}</span> : <Pill tone="amber">รอเรียกเก็บ</Pill>}</td>
                   <td className="w-7 text-right">{manage && !inv && <Button size="icon-xs" variant="ghost" aria-label="ลบ" onClick={() => report(remove(a.id), "ลบรอบรถเพิ่มแล้ว")}><TrashIcon /></Button>}</td>
                 </tr>
               )
