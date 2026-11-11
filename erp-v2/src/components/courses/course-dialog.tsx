@@ -73,7 +73,7 @@ export function CourseDialog({ branch, initial, onClose, onSaved }: { branch: Br
             <MapPinIcon className="size-4 text-primary" />
             <span className="font-medium">สาขา{branch.name}</span>
             <InfoTip text="คอร์ส คลาส และคาบเรียนจะอยู่ในสาขานี้" />
-            <Button variant="ghost" size="inline" type="button" onClick={() => setShowPlans(!showPlans)} className="ml-auto flex items-center gap-1 rounded-full border bg-background px-2.5 py-1 text-xs">
+            <Button variant="outline" size="inline" type="button" onClick={() => setShowPlans(!showPlans)} className="ml-auto flex items-center gap-1 rounded-full border bg-background px-2.5 py-1 text-xs">
               <TagIcon className="size-3.5 text-primary" />
               <b>{UNITS.reduce((n, u) => n + durationsOf(branch, u).length, 0)}</b> แพ็กเกจ
               <ChevronDownIcon className={cn("size-3.5 transition-transform", showPlans && "rotate-180")} />
@@ -145,7 +145,7 @@ export function CourseDialog({ branch, initial, onClose, onSaved }: { branch: Br
                 <div key={g.name}>
                   <div className="mb-1 flex items-center gap-2 text-xs text-muted-foreground">
                     {g.name}
-                    <Button variant="ghost" size="inline" type="button" className="text-primary underline" onClick={() => set({ grades: sortGrades([...new Set([...c.grades, ...g.grades])]) })}>เลือกทั้งหมด</Button>
+                    <Button variant="link" size="inline" type="button" className="text-primary underline" onClick={() => set({ grades: sortGrades([...new Set([...c.grades, ...g.grades])]) })}>เลือกทั้งหมด</Button>
                   </div>
                   <div className="flex flex-wrap gap-1.5">
                     {g.grades.map((gr) => {
@@ -194,7 +194,7 @@ export function CourseDialog({ branch, initial, onClose, onSaved }: { branch: Br
                   {chart.price !== null && (
                     c.price === chart.price
                       ? null
-                      : <Button variant="ghost" size="inline" type="button" className="text-xs text-primary underline" onClick={() => { setPriceTouched(false); setC({ ...c, price: chart.price! }) }}>ใช้ราคาตาราง {fmtMoney(chart.price)}</Button>
+                      : <Button variant="link" size="inline" type="button" className="text-xs text-primary underline" onClick={() => { setPriceTouched(false); setC({ ...c, price: chart.price! }) }}>ใช้ราคาตาราง {fmtMoney(chart.price)}</Button>
                   )}
                 </div>
                 {reasonNeeded && (

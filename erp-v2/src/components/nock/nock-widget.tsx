@@ -384,7 +384,7 @@ function Exchange({ q, onRate, onLink, onDev }: { q: NockQuestion; onRate: (help
         <div className="ml-8 space-y-1.5 rounded-2xl bg-muted/50 p-3 text-sm">
           <div className="flex items-center justify-between gap-2">
             <p className="text-xs font-medium text-muted-foreground">คำตอบใกล้เคียงจากคลังความรู้</p>
-            <Button variant="ghost" size="inline" type="button" aria-label="ปิด" onClick={() => setOpen(null)} className="text-muted-foreground hover:text-foreground"><XIcon className="size-3.5" /></Button>
+            <Button variant="link" size="inline" type="button" aria-label="ปิด" onClick={() => setOpen(null)} className="text-muted-foreground hover:text-foreground"><XIcon className="size-3.5" /></Button>
           </div>
           {similar.length ? similar.map(({ item, answer }) => (
             <details key={item.id} className="rounded-xl bg-background px-2.5 py-1.5">

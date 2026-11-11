@@ -108,7 +108,7 @@ export function CatalogApp({ token, preview, embedded, onDetail }: { token: stri
     <main className={cn("mx-auto max-w-md bg-background", embedded ? "pb-4" : "min-h-dvh pb-10")}>
       {open ? (
         <div className="space-y-4 px-4 pt-4">
-          {!(embedded && onDetail) && <Button variant="ghost" size="inline" type="button" onClick={() => setOpenId(null)} className="flex items-center gap-1 text-sm text-muted-foreground"><ArrowLeftIcon className="size-4" />{tx("กลับ")}</Button>}
+          {!(embedded && onDetail) && <Button variant="link" size="inline" type="button" onClick={() => setOpenId(null)} className="flex items-center gap-1 text-sm text-muted-foreground"><ArrowLeftIcon className="size-4" />{tx("กลับ")}</Button>}
           <div className="relative overflow-hidden rounded-2xl">
             {cover(open, "aspect-[16/9]")}
             {fav(open.id, "absolute top-2 right-2")}

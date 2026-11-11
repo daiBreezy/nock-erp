@@ -241,7 +241,7 @@ function SmartSearch() {
   }, [])
   return (
     <>
-      <Button variant="ghost" size="inline" type="button" onClick={() => setOpen(true)} title={`${t("ค้นหา")} (⌘K)`}
+      <Button variant="outline" size="inline" type="button" onClick={() => setOpen(true)} title={`${t("ค้นหา")} (⌘K)`}
         className="flex h-9 w-full items-center gap-2 rounded-full border bg-card px-3 text-sm text-muted-foreground shadow-xs hover:bg-muted group-data-[collapsible=icon]:size-8 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-0">
         <SearchIcon className="size-4 shrink-0" />
         <span className="truncate group-data-[collapsible=icon]:hidden">{t("ค้นหานักเรียน / ครอบครัว / Lead")}</span>
@@ -383,7 +383,7 @@ function LanguageChip() {
   const cur = UI_LANGS.find((l) => l.key === lang)!
   return (
     <DropdownMenu>
-      <DropdownMenuTrigger render={<Button variant="ghost" size="inline" type="button" aria-label={t("ภาษา")} className="flex items-center gap-1 rounded-full border bg-background px-2.5 py-1 text-xs font-medium hover:bg-muted" />}>
+      <DropdownMenuTrigger render={<Button variant="outline" size="inline" type="button" aria-label={t("ภาษา")} className="flex items-center gap-1 rounded-full border bg-background px-2.5 py-1 text-xs font-medium hover:bg-muted" />}>
         <GlobeIcon className="size-3.5 text-muted-foreground" />{cur.short}<ChevronDownIcon className="size-3 text-muted-foreground" />
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-40">

@@ -260,7 +260,7 @@ function TripView({ t, events, busy, onBack, onTap, speed }: { t: Trip; events: 
                       </span>
                       <Address className="text-sm text-foreground/75" text={[s.addressNote, s.address].filter(Boolean).join(" · ")} />
                     </span>
-                    {out && p.started && !p.finished && <Button variant="ghost" size="inline" type="button" disabled={busy} onClick={() => onTap("undo", s.key)} className="flex h-8 shrink-0 items-center gap-1 rounded-full border px-2.5 text-xs text-muted-foreground"><RotateCcwIcon className="size-3" />แก้</Button>}
+                    {out && p.started && !p.finished && <Button variant="outline" size="inline" type="button" disabled={busy} onClick={() => onTap("undo", s.key)} className="flex h-8 shrink-0 items-center gap-1 rounded-full border px-2.5 text-xs text-muted-foreground"><RotateCcwIcon className="size-3" />แก้</Button>}
                   </div>
                   <div className="mt-2 ml-11 grid grid-cols-3 divide-x text-center">
                     <TimeCell label="ประมาณ" value={s.eta ?? "—"} />
@@ -333,7 +333,7 @@ function Address({ text, className }: { text: string; className?: string }) {
   return (
     <span className={cn("block", className)}>
       <span ref={ref} className={cn("block", !open && "line-clamp-2")}>{text}</span>
-      {(long || open) && <Button variant="ghost" size="inline" type="button" onClick={(e) => { e.stopPropagation(); setOpen(!open) }} className="mt-0.5 text-sm font-medium text-primary">{open ? "แสดงน้อยลง" : "แสดงเพิ่มเติม"}</Button>}
+      {(long || open) && <Button variant="link" size="inline" type="button" onClick={(e) => { e.stopPropagation(); setOpen(!open) }} className="mt-0.5 text-sm font-medium text-primary">{open ? "แสดงน้อยลง" : "แสดงเพิ่มเติม"}</Button>}
     </span>
   )
 }

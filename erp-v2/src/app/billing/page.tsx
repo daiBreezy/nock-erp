@@ -237,7 +237,7 @@ function AddPdfTile({ inv }: { inv: Invoice }) {
   const gen = useStore((s) => s.generatePdf)
   const busy = inv.pdf === "generating"
   return (
-    <Button variant="ghost" size="inline" type="button" disabled={busy} aria-label={busy ? "กำลังสร้าง PDF" : inv.pdf === "failed" ? "ลองสร้าง PDF อีกครั้ง" : "สร้าง PDF"} title={busy ? "กำลังสร้าง PDF…" : "สร้าง PDF"}
+    <Button variant="dashed" size="inline" type="button" disabled={busy} aria-label={busy ? "กำลังสร้าง PDF" : inv.pdf === "failed" ? "ลองสร้าง PDF อีกครั้ง" : "สร้าง PDF"} title={busy ? "กำลังสร้าง PDF…" : "สร้าง PDF"}
       onClick={(e) => { e.stopPropagation(); report(gen(inv.id), (v) => `กำลังสร้าง PDF · เลขที่ ${v.number}`) }}
       className="grid shrink-0 place-items-center rounded-md border border-dashed text-muted-foreground hover:bg-muted hover:text-foreground disabled:opacity-60" style={{ width: THUMB, height: THUMB }}>
       {busy ? <Loader2Icon className="size-4 animate-spin" /> : <PlusIcon className="size-5" />}

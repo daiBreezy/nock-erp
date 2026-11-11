@@ -520,7 +520,7 @@ function SessionBlock({ s, room, state, ended, dayDate, canEdit, onOpen, klass, 
           </Button>
         )
       })}
-      {s.studentIds.length === 0 && <Button variant="ghost" size="inline" type="button" onClick={() => onOpen(s.id)} className="text-xs text-muted-foreground hover:underline">ยังไม่มีนักเรียน · เปิดคาบ</Button>}
+      {s.studentIds.length === 0 && <Button variant="link" size="inline" type="button" onClick={() => onOpen(s.id)} className="text-xs text-muted-foreground hover:underline">ยังไม่มีนักเรียน · เปิดคาบ</Button>}
     </div>
   )
 }

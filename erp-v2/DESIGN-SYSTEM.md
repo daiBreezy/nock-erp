@@ -114,6 +114,12 @@ md→sm · xl→lg · max-md→max-sm · ⚠ reports/page ที่ xl→lg อ�
 2. **สีบทบาทพนักงาน** (`tags.ts` `role`): admin amber · driver lime · director rose ใกล้สีระบบ — เลือกสีใหม่
 3. **`customer-picker` เลือกแล้วเป็นม่วง** → เปลี่ยนเป็น primary (ตามกฎ "ตัวเลือกที่เลือก") โอเคไหม
 
+## รอบ 13 — รวมปุ่ม ghost เข้า variant กลาง (2026-11-11) — **ทำบางส่วน**
+
+- เพิ่ม `Button variant="dashed"` (ปุ่ม "เพิ่ม/ใหม่" เส้นประ) · ย้ายปุ่มที่เคยเป็น `ghost`+`inline` เข้า variant กลางตามรูปแบบ: ลิงก์ข้อความ → `link` (37) · เส้นประ → `dashed` (8) · ปุ่มพิลเส้นขอบ (ไม่ใช่ตัวเลือก) → `outline` (11)
+- **ตัวเลขตอนนี้:** `chip` 30 · `row` 56 · `link` 50 · `dashed` 8 · `outline+inline` 11 · **`ghost+inline` ที่ยังตกแต่งเองเหลือ 141** (ไอคอนล้วน ~47 · พิลที่ไม่มี `aria-pressed` ~50 · ปุ่มเฉพาะกิจ: หัวใจ/สวอตช์สี/บล็อกในปฏิทิน/trigger ของ popover ~44)
+- **เหตุที่ยังไม่หมด:** `ghost+inline` ตรวจด้วย eslint ไม่ได้ (เป็นแค่ className ของ `Button`) การแปลงต้องดูทีละจุดว่าเป็นตัวเลือก/ไอคอน/ปุ่มเฉพาะ — ยังเหลือทำ: ไอคอนล้วน → `size="icon-*"` · พิลตัวเลือกที่ขาด `aria-pressed` → `chip`
+
 ## รอบ 12 — Pill/KPI ผูก token สถานะ + กฎ no-raw-palette (2026-11-11)
 
 - `HUE.red/amber/emerald.chip` (tags.ts → `Pill` + แท็กทั้งหมด) และ `KPI_TONE` (red/amber/emerald/sky) **ดึงจาก token** `danger-/warning-/success-/info-soft/-ink` แล้ว → แก้สีสถานะที่ `globals.css` ที่เดียว ป้ายและ KPI ตามทั้งแอป (ส่วน `hex` ของกราฟยังเป็นสีตรง — ค้างไว้)

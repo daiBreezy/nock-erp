@@ -58,7 +58,7 @@ export function CatalogCombo({ label, items, value, onChange, onCreate, disabled
           </ul>
           {similar.length > 0 && (
             <div className="rounded-lg bg-warning-soft/60 p-2 text-xs text-warning-ink">
-              ใช่อันนี้ไหม? {similar.map((x) => <Button variant="ghost" size="inline" key={x.id} type="button" className="mr-1 font-semibold underline" onClick={() => pick(x.id)}>{x.name}</Button>)}
+              ใช่อันนี้ไหม? {similar.map((x) => <Button variant="link" size="inline" key={x.id} type="button" className="mr-1 font-semibold underline" onClick={() => pick(x.id)}>{x.name}</Button>)}
             </div>
           )}
           {q.trim() && !same && (
@@ -107,7 +107,7 @@ export function CatalogManager({ kind, items, onClose }: { kind: "book" | "topic
                 <div className="flex flex-wrap gap-1.5 rounded-lg bg-muted/50 p-2 text-xs">
                   <span className="w-full text-muted-foreground">ย้ายทุกสรุปของ &quot;{x.name}&quot; ไปที่ แล้วลบอันนี้:</span>
                   {items.filter((y) => y.id !== x.id).map((y) => (
-                    <Button variant="ghost" size="inline" key={y.id} type="button" className="rounded-full border bg-background px-2.5 py-1 hover:border-primary"
+                    <Button variant="outline" size="inline" key={y.id} type="button" className="rounded-full border bg-background px-2.5 py-1 hover:border-primary"
                       onClick={() => report(merge(kind, x.id, y.id), (v) => `รวมแล้ว · ย้าย ${v.moved} สรุป`) && setMerging(null)}>{y.name}</Button>
                   ))}
                 </div>

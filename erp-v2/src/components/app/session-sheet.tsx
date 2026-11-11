@@ -395,7 +395,7 @@ function StudentRow({ s, sid, viewOnly, canManage, mine, text, setText, selectab
         </span>
         <div className="min-w-0 flex-1">
           <span className="flex min-w-0 items-center gap-1.5">
-            <Button variant="ghost" size="inline" type="button" onClick={() => setOpen("student")} className="truncate text-left text-base font-semibold hover:text-primary hover:underline">{stu?.nickname}</Button>
+            <Button variant="link" size="inline" type="button" onClick={() => setOpen("student")} className="truncate text-left text-base font-semibold hover:text-primary hover:underline">{stu?.nickname}</Button>
             {/* grade sits next to the name so the right side carries only the ⋮ (owner 2026-11-02) */}
             {stu?.grade && <span className={cn("shrink-0 rounded-full px-1.5 py-px text-2xs font-semibold", gradeTone(stu.grade))}>{stu.grade}</span>}
             {isNew && <Pill tone="red" className="shrink-0" title="เด็กใหม่ — คาบนี้เป็นคาบแรกที่มาเรียนกับเรา (ยังไม่เคยมีการเช็คชื่อมาก่อน) · ครูควรทำความรู้จัก/ประเมินระดับ"><FlameIcon className="size-3" /> ใหม่</Pill>}
@@ -413,7 +413,7 @@ function StudentRow({ s, sid, viewOnly, canManage, mine, text, setText, selectab
           <p className="truncate text-xs text-muted-foreground">
             {asm ? `${FORM_TYPE_LABEL[asm.type]} (ไม่ใช้แพ็กเกจ)`
               : s.trial ? "ทดลองเรียน (ไม่ใช้แพ็กเกจ)"
-              : !ent ? <span className="text-warning">ยังไม่ได้จ่ายค่าเรียน{can(me, "billing.manage") && <Button variant="ghost" size="inline" type="button" onClick={() => setInvoice("new")} className="ml-1 underline">ออกใบแจ้งหนี้</Button>}{invoice && <InvoiceSheet id={invoice} defaultStudentId={sid} onClose={() => setInvoice(null)} />}</span>
+              : !ent ? <span className="text-warning">ยังไม่ได้จ่ายค่าเรียน{can(me, "billing.manage") && <Button variant="link" size="inline" type="button" onClick={() => setInvoice("new")} className="ml-1 underline">ออกใบแจ้งหนี้</Button>}{invoice && <InvoiceSheet id={invoice} defaultStudentId={sid} onClose={() => setInvoice(null)} />}</span>
               : (() => {
                 const course = courses.find((c) => c.id === ent.courseId)
                 return <span title={`${course?.name ?? ""} · ถึง ${fmtDate(ent.to, { year: true })}${progress?.of ? ` · คาบที่ ${progress.n} จาก ${progress.of}` : ""}`}>
@@ -463,12 +463,12 @@ function StudentRow({ s, sid, viewOnly, canManage, mine, text, setText, selectab
       {classMove && (
         <p className={cn(indent, "flex flex-wrap items-center gap-x-2 text-xs text-info")}>
           ย้ายคลาสถาวรมาจาก {classes.find((k) => k.id === classMove.fromClassId)?.name ?? "คลาสเดิม"} · {fmtDateTime(classMove.at)}
-          {canMove && canUndoClassMove(classMove, attendance).ok && <Button variant="ghost" size="inline" type="button" className="underline" onClick={() => report(undoClassMove(classMove.id), "ย้อนกลับแล้ว — กลับไปคลาสเดิม")}>ย้อนกลับ</Button>}
+          {canMove && canUndoClassMove(classMove, attendance).ok && <Button variant="link" size="inline" type="button" className="underline" onClick={() => report(undoClassMove(classMove.id), "ย้อนกลับแล้ว — กลับไปคลาสเดิม")}>ย้อนกลับ</Button>}
         </p>
       )}
       {movedFrom && (
         <p className={cn(indent, "text-xs text-info")}>
-          ย้ายมาจาก <Button variant="ghost" size="inline" type="button" className="underline" onClick={() => setOtherSession(movedFrom.id)}>{fmtDate(movedFrom.date, { weekday: true })} {movedFrom.start}–{endTime(movedFrom.start, movedFrom.minutes)}{classes.find((k) => k.id === movedFrom.classId) ? ` · ${classes.find((k) => k.id === movedFrom.classId)!.name}` : ""}</Button>
+          ย้ายมาจาก <Button variant="link" size="inline" type="button" className="underline" onClick={() => setOtherSession(movedFrom.id)}>{fmtDate(movedFrom.date, { weekday: true })} {movedFrom.start}–{endTime(movedFrom.start, movedFrom.minutes)}{classes.find((k) => k.id === movedFrom.classId) ? ` · ${classes.find((k) => k.id === movedFrom.classId)!.name}` : ""}</Button>
         </p>
       )}
       {a?.status === "leave" && raw && (
@@ -722,7 +722,7 @@ function MovedOutRow({ s, studentId, toSessionId, canManage }: { s: Session; stu
       </div>
       <span className={cn("shrink-0 rounded-full px-2 py-0.5 text-xs font-medium", gradeTone(stu?.grade ?? ""))}>{stu?.grade}</span>
       {to && (
-        <Button variant="ghost" size="inline" type="button" onClick={() => setOpen(true)} className="shrink-0 text-right text-xs text-warning hover:underline" title="เปิดคาบที่ย้ายไป">
+        <Button variant="link" size="inline" type="button" onClick={() => setOpen(true)} className="shrink-0 text-right text-xs text-warning hover:underline" title="เปิดคาบที่ย้ายไป">
           <span className="flex items-center justify-end gap-1 font-medium"><CalendarClockIcon className="size-4" /> ย้ายไป</span>
           <span className="text-2xs">{fmtDate(to.date, { weekday: true })} · {to.start}–{endTime(to.start, to.minutes)}{toClass ? ` · ${toClass.name}` : ""}</span>
         </Button>
@@ -1105,7 +1105,7 @@ function SummaryInline({ session, sessionId, studentId, summary, viewOnly, text,
           <Input style={{ fontSize: "0.875rem" }} className="h-9 rounded-3xl border-transparent bg-input/50" value={lesson.detail ?? ""} onChange={(e) => setLesson((l) => ({ ...l, detail: e.target.value }))} placeholder="Lesson Detail · เช่น หน้า 12–15 แบบฝึกหัด 2.1" aria-label="Lesson Detail" />
           {/* same lesson for the whole class in one tap — anyone different is edited on their own row (owner 2026-09-30) */}
           {others > 0 && (lesson.bookId || lesson.topicId || lesson.detail?.trim()) && (
-            <Button variant="ghost" size="inline" type="button" className="text-xs text-primary underline"
+            <Button variant="link" size="inline" type="button" className="text-xs text-primary underline"
               onClick={() => report(applyLesson(sessionId, lesson), (v) => `ใช้หนังสือ/บทเรียนนี้กับ ${v.count} คนที่มาเรียนแล้ว — แก้รายคนได้`)}>
               ใช้หนังสือ / บทเรียน / รายละเอียดนี้กับทุกคนที่มาเรียน ({others + 1} คน)
             </Button>

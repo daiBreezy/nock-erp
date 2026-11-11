@@ -53,7 +53,7 @@ export function MapPin({ value, onChange, locateLabel }: { value?: LatLng; onCha
     <div className="space-y-1.5">
       <div ref={box} className="z-0 h-56 w-full overflow-hidden rounded-2xl ring-1 ring-foreground/10" />
       <div className="flex items-center justify-between text-xs text-muted-foreground">
-        <Button variant="ghost" size="inline" type="button" onClick={locate} className="rounded-full border px-2.5 py-1 font-medium text-foreground hover:bg-muted">📍 {locateLabel}</Button>
+        <Button variant="outline" size="inline" type="button" onClick={locate} className="rounded-full border px-2.5 py-1 font-medium text-foreground hover:bg-muted">📍 {locateLabel}</Button>
         {value && <span className="tabular-nums">{value.lat.toFixed(5)}, {value.lng.toFixed(5)}</span>}
       </div>
     </div>

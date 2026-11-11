@@ -19,6 +19,8 @@ const buttonVariants = cva(
         link: "rounded-sm text-primary underline-offset-4 hover:underline",
         // Selectable pill (filters, options, toggles) — selected state comes from aria-pressed / aria-checked, one look app-wide.
         chip: "rounded-full border-border bg-card text-muted-foreground hover:bg-muted aria-checked:border-primary aria-checked:bg-primary/10 aria-checked:font-medium aria-checked:text-primary aria-pressed:border-primary aria-pressed:bg-primary/10 aria-pressed:font-medium aria-pressed:text-primary",
+        // "Add / new" slot — dashed outline, quiet until hovered
+        dashed: "rounded-xl border-border border-dashed text-muted-foreground hover:bg-muted/50 hover:text-foreground",
         // Whole-row / card button (lists, option cards) — left aligned, wraps; selected = soft primary tint.
         row: "justify-start rounded-lg text-left text-foreground hover:bg-muted/50 aria-checked:bg-primary/10 aria-pressed:bg-primary/10",
       },

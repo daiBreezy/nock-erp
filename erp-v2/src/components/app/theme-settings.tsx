@@ -137,7 +137,7 @@ export function ThemeChip() {
   useApplyPrefs(prefs)
   return (
     <Popover>
-      <PopoverTrigger render={<Button variant="ghost" size="inline" type="button" aria-label="ธีม" className="flex items-center gap-1 rounded-full border bg-background px-2.5 py-1 text-xs font-medium hover:bg-muted" />}>
+      <PopoverTrigger render={<Button variant="outline" size="inline" type="button" aria-label="ธีม" className="flex items-center gap-1 rounded-full border bg-background px-2.5 py-1 text-xs font-medium hover:bg-muted" />}>
         <PaletteIcon className="size-3.5 text-muted-foreground" />ธีม
       </PopoverTrigger>
       <PopoverContent align="end" className="w-80 gap-4">
@@ -155,7 +155,7 @@ export function ThemeChip() {
           <div className="flex items-center justify-between">
             <span className="text-sm font-medium">สีหลักของฉัน</span>
             {prefs.primary && (
-              <Button variant="ghost" size="inline" type="button" onClick={() => set({ primary: "" })} className="flex items-center gap-1 text-xs text-primary hover:underline">
+              <Button variant="link" size="inline" type="button" onClick={() => set({ primary: "" })} className="flex items-center gap-1 text-xs text-primary hover:underline">
                 <RotateCcwIcon className="size-3" />กลับไปใช้สีแบรนด์
               </Button>
             )}

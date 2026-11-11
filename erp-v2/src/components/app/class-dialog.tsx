@@ -197,7 +197,7 @@ export function ClassDialog({ prefill, onClose }: { prefill: ClassPrefill; onClo
         </div>
 
         {layout === "subject" && (
-        <Field label="ระดับชั้น" action={grades.length > 0 ? <Button variant="ghost" size="inline" type="button" className="text-xs text-primary underline" onClick={() => setGrades([])}>ล้างทั้งหมด</Button> : undefined}>
+        <Field label="ระดับชั้น" action={grades.length > 0 ? <Button variant="link" size="inline" type="button" className="text-xs text-primary underline" onClick={() => setGrades([])}>ล้างทั้งหมด</Button> : undefined}>
           <div className="flex flex-wrap gap-1.5">
             {sortGrades(branch.grades).map((g) => {
               const on = grades.includes(g)
@@ -275,7 +275,7 @@ export function ClassDialog({ prefill, onClose }: { prefill: ClassPrefill; onClo
               </div>
             )
           })}
-          <Button variant="ghost" size="inline" type="button" onClick={addRow} className="flex w-full items-center justify-center gap-1.5 rounded-2xl border border-dashed py-2.5 text-sm text-primary hover:bg-primary/5">
+          <Button variant="dashed" size="inline" type="button" onClick={addRow} className="flex w-full items-center justify-center gap-1.5 rounded-2xl border border-dashed py-2.5 text-sm text-primary hover:bg-primary/5">
             <PlusIcon className="size-4" /> เพิ่มวัน/เวลา
           </Button>
         </div>
@@ -298,7 +298,7 @@ export function ClassDialog({ prefill, onClose }: { prefill: ClassPrefill; onClo
               </div>
             )}
             {studentIds.length < courseCap && (
-              <Button variant="ghost" size="inline" type="button" onClick={() => setPickingStudent(true)} className="flex w-full items-center justify-center gap-1.5 rounded-2xl border border-dashed py-2 text-sm text-primary hover:bg-primary/5">
+              <Button variant="dashed" size="inline" type="button" onClick={() => setPickingStudent(true)} className="flex w-full items-center justify-center gap-1.5 rounded-2xl border border-dashed py-2 text-sm text-primary hover:bg-primary/5">
                 <PlusIcon className="size-4" /> เพิ่มนักเรียน
               </Button>
             )}

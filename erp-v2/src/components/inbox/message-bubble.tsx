@@ -36,7 +36,7 @@ export function MessageBubble({ message, conversation, staff, onUseAsSlip }: { m
               {/* eslint-disable-next-line @next/next/no-img-element -- parent's LINE photo served by our own route */}
               <img src={`/api/line/media/${(message.meta as { mediaId: string }).mediaId}`} alt={isStaff ? "รูปที่ส่ง" : "รูปจากผู้ปกครอง"} className="max-h-72 rounded-2xl" />
               {onUseAsSlip && !isStaff && (
-                <Button variant="ghost" size="inline" type="button" onClick={() => onUseAsSlip((message.meta as { mediaId: string }).mediaId)} className="mt-1.5 inline-flex items-center gap-1 rounded-full border bg-background px-2.5 py-1 text-xs font-medium text-primary hover:bg-primary/10">
+                <Button variant="outline" size="inline" type="button" onClick={() => onUseAsSlip((message.meta as { mediaId: string }).mediaId)} className="mt-1.5 inline-flex items-center gap-1 rounded-full border bg-background px-2.5 py-1 text-xs font-medium text-primary hover:bg-primary/10">
                   🧾 ใช้เป็นสลิป → บันทึกรับเงิน
                 </Button>
               )}

@@ -245,7 +245,7 @@ function CalendarView() {
           <ul className="mt-1 list-disc pl-5">
             {conflicts.map((c, i) => {
               const s = branchSessions.find((x) => x.id === c.sessionIds[0])!
-              return <li key={i}><Button variant="ghost" size="inline" className="underline" onClick={() => openDay(s.date)}>{fmtDate(s.date, { weekday: true })}</Button> · {c.message}</li>
+              return <li key={i}><Button variant="link" size="inline" className="underline" onClick={() => openDay(s.date)}>{fmtDate(s.date, { weekday: true })}</Button> · {c.message}</li>
             })}
           </ul>
         </details>

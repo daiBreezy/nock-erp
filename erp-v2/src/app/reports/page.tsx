@@ -171,7 +171,7 @@ function Overview({ d, compare, periodLabel, onAllRevenue, onAllStudents }: { d:
       {/* owner 2026-10-21: students | courses side by side — the same questions, per student and per course */}
       <div className="grid gap-4 lg:grid-cols-2">
         <Panel fill title={tx("นักเรียน")} hint={tx("ตอนนี้ = วันนี้ · ในช่วงนี้ = {0} — ชี้ ⓘ ที่แต่ละช่องเพื่อดูว่านับอย่างไร", [periodLabel])}
-          action={<Button variant="ghost" size="inline" type="button" className="text-xs text-primary" onClick={onAllStudents}>{tx("ดูทั้งหมด ›")}</Button>}>
+          action={<Button variant="link" size="inline" type="button" className="text-xs text-primary" onClick={onAllStudents}>{tx("ดูทั้งหมด ›")}</Button>}>
           <StudentOverview d={d} periodLabel={periodLabel} />
         </Panel>
         <Panel fill title={tx("คอร์ส")} hint={tx("ตอนนี้ = วันนี้ · ในช่วงนี้ = {0} — นับทีละคอร์สที่นักเรียนถือ · ชี้ ⓘ ที่แต่ละช่องเพื่อดูว่านับอย่างไร", [periodLabel])}>
@@ -193,7 +193,7 @@ function Overview({ d, compare, periodLabel, onAllRevenue, onAllStudents }: { d:
         <Panel title="Subject Engine" hint={tx("รายได้ค่าเรียนแยกวิชา · คอร์สหลายวิชาแบ่งเท่าๆ กัน")} center><SubjectEngine d={d} /></Panel>
       </div>
       {compare && (
-        <Panel title={tx("รายได้ตามสาขา")} hint={`Top 10 · ${periodLabel}`} action={<Button variant="ghost" size="inline" type="button" className="text-xs text-primary" onClick={onAllRevenue}>{tx("ดูทั้งหมด ›")}</Button>}>
+        <Panel title={tx("รายได้ตามสาขา")} hint={`Top 10 · ${periodLabel}`} action={<Button variant="link" size="inline" type="button" className="text-xs text-primary" onClick={onAllRevenue}>{tx("ดูทั้งหมด ›")}</Button>}>
           <BranchRevenue rows={d.byBranch.slice(0, 10)} />
         </Panel>
       )}
@@ -448,7 +448,7 @@ function MembersConversion({ d }: { d: ReportData }) {
           </div>
         )}
         {l.members.length > 10 && (
-          <Button variant="ghost" size="inline" type="button" onClick={() => setAll(!all)} className="mt-1 text-xs text-primary hover:underline">
+          <Button variant="link" size="inline" type="button" onClick={() => setAll(!all)} className="mt-1 text-xs text-primary hover:underline">
             {all ? tx("แสดงน้อยลง") : tx("แสดงทั้งหมด ({0} คน)", [l.members.length])}
           </Button>
         )}
@@ -612,7 +612,7 @@ function Families({ rows, split }: { rows: ReportData["families"]; split?: boole
           </div>
         ))}
       </div>
-      {split && rows.length > 20 && <Button variant="ghost" size="inline" type="button" onClick={() => setOpen((o) => !o)} className="mt-3 text-xs text-primary hover:underline">{open ? tx("ย่อเหลือ 20 อันดับ") : tx("ดูทั้งหมด {0} ครอบครัว", [rows.length])}</Button>}
+      {split && rows.length > 20 && <Button variant="link" size="inline" type="button" onClick={() => setOpen((o) => !o)} className="mt-3 text-xs text-primary hover:underline">{open ? tx("ย่อเหลือ 20 อันดับ") : tx("ดูทั้งหมด {0} ครอบครัว", [rows.length])}</Button>}
     </div>
   )
 }
@@ -754,7 +754,7 @@ function StudentsTab({ d, compare, onOpen }: { d: ReportData; compare: boolean; 
           <MovementBars months={d.movementMonthly} current={Number(d.today.slice(5, 7)) - 1} />
         </Panel>
         <Panel title={tx("สัดส่วนในช่วงนี้")} hint={periodLabelOf(d)} fill
-          action={events.length > 0 && <Button variant="ghost" size="inline" type="button" className="text-xs text-primary hover:underline" onClick={() => setListOpen(true)}>{tx("ดูรายชื่อ ›")}</Button>}>
+          action={events.length > 0 && <Button variant="link" size="inline" type="button" className="text-xs text-primary hover:underline" onClick={() => setListOpen(true)}>{tx("ดูรายชื่อ ›")}</Button>}>
           <div className="flex flex-1 flex-col justify-center">
             <DonutLegend keepOrder stack title="" colors={MOVE_COLORS} center={`${net > 0 ? "+" : ""}${net}`} sub={tx("สุทธิ")}
               parts={[{ label: tx("ใหม่"), value: f.newCount }, { label: tx("กลับมาซื้อใหม่"), value: f.returning }, { label: "Pause", value: f.pauses }, { label: "Lost", value: f.lost }]} />
@@ -980,12 +980,12 @@ function MoveList({ title, tone, rows, onOpen }: { title: string; tone: string; 
         <ul className="divide-y text-sm">{list.map((r, i) => (
           <li key={`${r.id}-${i}`} className="grid grid-cols-[4.5rem_minmax(0,1fr)_3rem] items-center gap-3 py-1.5">
             <span className="text-xs text-muted-foreground">{fmtDate(r.date)}</span>
-            <Button variant="ghost" size="inline" type="button" className="truncate text-left hover:underline" onClick={() => onOpen(r.id)}>{nm(r.name)}</Button>
+            <Button variant="link" size="inline" type="button" className="truncate text-left hover:underline" onClick={() => onOpen(r.id)}>{nm(r.name)}</Button>
             <span className="text-right text-xs text-muted-foreground">{nm(r.grade)}</span>
           </li>
         ))}</ul>
       ) : <p className="text-xs text-muted-foreground">{tx("ไม่มี")}</p>}
-      {rows.length > 10 && <Button variant="ghost" size="inline" type="button" onClick={() => setOpen((o) => !o)} className="mt-2 text-xs text-primary hover:underline">{open ? tx("ย่อเหลือ 10 รายการ") : tx("ดูทั้งหมด {0} รายการ", [rows.length])}</Button>}
+      {rows.length > 10 && <Button variant="link" size="inline" type="button" onClick={() => setOpen((o) => !o)} className="mt-2 text-xs text-primary hover:underline">{open ? tx("ย่อเหลือ 10 รายการ") : tx("ดูทั้งหมด {0} รายการ", [rows.length])}</Button>}
     </div>
   )
 }
@@ -1050,7 +1050,7 @@ function AttendanceTab({ d, compare, onOpen }: { d: ReportData; compare: boolean
               <thead className="text-xs text-muted-foreground"><tr><th className="text-left font-normal">{tx("นักเรียน")}</th><th className="text-left font-normal">{tx("ชั้น")}</th><th className="text-right font-normal">{tx("มา")}</th><th className="text-right font-normal">{tx("ลา")}</th><th className="text-right font-normal">{tx("ไม่หักโควตา")}</th><th className="text-right font-normal">{tx("อัตรา")}</th></tr></thead>
               <tbody>{a.leavers.slice(0, 10).map((x) => (
                 <tr key={x.studentId} className="border-t">
-                  <td className="py-1.5"><Button variant="ghost" size="inline" type="button" className="hover:underline" onClick={() => onOpen(x.studentId)}>{nm(name(x.studentId)?.nickname ?? "—")}</Button></td>
+                  <td className="py-1.5"><Button variant="link" size="inline" type="button" className="hover:underline" onClick={() => onOpen(x.studentId)}>{nm(name(x.studentId)?.nickname ?? "—")}</Button></td>
                   <td className="text-muted-foreground">{nm(name(x.studentId)?.grade)}</td>
                   <td className="text-right tabular-nums">{x.present}</td>
                   <td className="text-right text-warning tabular-nums">{x.leave}</td>
@@ -1195,7 +1195,7 @@ function ExitPanelReport({ d }: { d: ReportData }) {
       </Panel>
       {/* owner 2026-10-07: the headline only — NPS + will they come back; the rest opens in a popup */}
       <Panel title={tx("คะแนนจากผู้ปกครองที่ออก")} hint={tx("เฉลี่ย 1–5 · NPS = % แนะนำ (9–10) − % ไม่แนะนำ (0–6)")} fill
-        action={e.answered > 0 && <Button variant="ghost" size="inline" type="button" className="text-xs text-primary hover:underline" onClick={() => setOpen(true)}>{tx("ดูรายละเอียด ›")}</Button>}>
+        action={e.answered > 0 && <Button variant="link" size="inline" type="button" className="text-xs text-primary hover:underline" onClick={() => setOpen(true)}>{tx("ดูรายละเอียด ›")}</Button>}>
         {e.answered ? (
           <Button variant="row" size="inline" type="button" onClick={() => setOpen(true)} className="flex flex-1 flex-col justify-center gap-5 rounded-2xl text-left hover:bg-muted/40">
             <div className="flex items-end gap-6 px-2">
@@ -1247,7 +1247,7 @@ function CohortPanel({ d, compare }: { d: ReportData; compare: boolean }) {
   return (
     <Panel title="Cohort Retention" hint={drill ? tx("{0} · แยกตามเดือนที่สมัคร", [branchName(drill)]) : compare ? tx("% นักเรียนที่ยังเรียนอยู่ N เดือนหลังสมัคร · สาขา × ปีที่สมัคร · กดสาขาเพื่อดูรายเดือน") : tx("% นักเรียนที่ยังเรียนอยู่ N เดือนหลังสมัคร · แยกตามเดือนที่สมัคร")}
       action={<span className="flex items-center gap-2">
-        {drill && <Button variant="ghost" size="inline" type="button" className="text-xs text-primary" onClick={() => setDrill(null)}>{tx("‹ ทุกสาขา")}</Button>}
+        {drill && <Button variant="link" size="inline" type="button" className="text-xs text-primary" onClick={() => setDrill(null)}>{tx("‹ ทุกสาขา")}</Button>}
         <span className="inline-flex rounded-full bg-muted p-0.5 text-xs">{([12, 24] as const).map((n) => <Button variant="ghost" size="inline" key={n} type="button" onClick={() => setSpan(n)} className={cn("rounded-full px-3 py-0.5", span === n ? "bg-background font-medium shadow-sm" : "text-muted-foreground")}>{n}M</Button>)}</span>
       </span>}>
       {rows.length ? (
@@ -1264,7 +1264,7 @@ function CohortPanel({ d, compare }: { d: ReportData; compare: boolean }) {
                     {r.branch ? <>
                       {first && (
                         <td rowSpan={group} className="w-px px-1 pr-3 align-top whitespace-nowrap">
-                          <Button variant="ghost" size="inline" type="button" className="h-7 text-left text-sm hover:underline" onClick={() => setDrill(r.branch)}>{r.label}</Button>
+                          <Button variant="link" size="inline" type="button" className="h-7 text-left text-sm hover:underline" onClick={() => setDrill(r.branch)}>{r.label}</Button>
                         </td>
                       )}
                       <td className="w-px px-1 text-left text-muted-foreground tabular-nums">{r.sub}</td>
@@ -1530,7 +1530,7 @@ function SatisfactionTab({ d, compare, f }: { d: ReportData; compare: boolean; f
                 )
               })}</tbody>
             </table>
-            {unhappy.length > 10 && <Button variant="ghost" size="inline" type="button" onClick={() => setShowAllCalls((o) => !o)} className="mt-2 text-xs text-primary hover:underline">{showAllCalls ? tx("ย่อเหลือ 10 รายการ") : tx("ดูทั้งหมด {0} รายการ", [unhappy.length])}</Button>}
+            {unhappy.length > 10 && <Button variant="link" size="inline" type="button" onClick={() => setShowAllCalls((o) => !o)} className="mt-2 text-xs text-primary hover:underline">{showAllCalls ? tx("ย่อเหลือ 10 รายการ") : tx("ดูทั้งหมด {0} รายการ", [unhappy.length])}</Button>}
           </div>
         ) : <Empty>{tx("ไม่มีผู้ปกครองที่ไม่พอใจในปีนี้")}</Empty>}
       </Panel>

@@ -165,7 +165,7 @@ export function LeadLostDialog({ lead, onClose }: { lead: Lead; onClose: () => v
           <div className="space-y-1">
             <Label>ติดต่ออีกครั้งวันที่</Label>
             <Input type="date" min={today} value={followUpOn} onChange={(e) => setFollowUpOn(e.target.value)} />
-            <div className="flex gap-1">{[30, 90, 180].map((d) => <Button variant="ghost" size="inline" key={d} type="button" className="rounded-full border px-2 text-2xs hover:bg-muted" onClick={() => setFollowUpOn(addDays(today, d))}>{d === 30 ? "1 เดือน" : d === 90 ? "3 เดือน" : "6 เดือน"}</Button>)}</div>
+            <div className="flex gap-1">{[30, 90, 180].map((d) => <Button variant="outline" size="inline" key={d} type="button" className="rounded-full border px-2 text-2xs hover:bg-muted" onClick={() => setFollowUpOn(addDays(today, d))}>{d === 30 ? "1 เดือน" : d === 90 ? "3 เดือน" : "6 เดือน"}</Button>)}</div>
           </div>
           <div className="space-y-1">
             <Label>หมายเหตุ{reasonId === "lr_other" ? " *" : ""}</Label>

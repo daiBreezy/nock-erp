@@ -223,7 +223,7 @@ export function InvoiceEditor({ invoice, defaultStudentId, renewEntitlementId, o
             <div className="flex items-center gap-2 rounded-xl border px-3 py-1.5 text-sm">
               <span className="font-medium">{student.nickname}</span><span className="text-xs text-muted-foreground">{student.grade} · {student.name}</span>
               {student.imported && <span className="rounded-full bg-info-soft px-2 py-0.5 text-2xs text-info-ink">นักเรียนเก่า</span>}
-              {!invoice && <Button variant="ghost" size="inline" type="button" className="ml-auto text-xs text-primary underline" onClick={() => setPicking(true)}>เปลี่ยน</Button>}
+              {!invoice && <Button variant="link" size="inline" type="button" className="ml-auto text-xs text-primary underline" onClick={() => setPicking(true)}>เปลี่ยน</Button>}
             </div>
           ) : (
             <Button type="button" variant="outline" className="w-full justify-start" onClick={() => setPicking(true)}><UserRoundSearchIcon /> เลือกนักเรียน / Lead</Button>
@@ -355,7 +355,7 @@ export function InvoiceEditor({ invoice, defaultStudentId, renewEntitlementId, o
             </div>
           )}
           {lines.length === 0 && (
-            <Button variant="ghost" size="inline" type="button" onClick={() => setPickingCourses(true)} className="w-full rounded-xl border border-dashed p-4 text-center text-sm text-muted-foreground hover:bg-muted/40">
+            <Button variant="dashed" size="inline" type="button" onClick={() => setPickingCourses(true)} className="w-full rounded-xl border border-dashed p-4 text-center text-sm text-muted-foreground hover:bg-muted/40">
               ยังไม่มีคอร์ส — กดเพื่อเลือก (เลือกได้หลายคอร์ส) · หรือเว้นไว้ถ้าเก็บเฉพาะค่าอื่นๆ
             </Button>
           )}
@@ -591,7 +591,7 @@ function LineCard({ index, draft, quote, studentId, studentGrade, choices, overl
       </div>
 
       {picking && choices.length > fits.length && (
-        <Button variant="ghost" size="inline" type="button" className="text-xs text-primary underline" onClick={() => setShowAll((v) => !v)}>
+        <Button variant="link" size="inline" type="button" className="text-xs text-primary underline" onClick={() => setShowAll((v) => !v)}>
           {showAll ? "ซ่อนคลาสที่ไม่ตรง" : `แสดงคลาสอื่น (${choices.length - fits.length}) — เลือกได้แต่ไม่ตรงวิชา/ระดับ/รูปแบบ`}
         </Button>
       )}
@@ -655,7 +655,7 @@ function LineCard({ index, draft, quote, studentId, studentGrade, choices, overl
                   <td className="px-3 py-1.5 text-xs text-muted-foreground">
                     {p.sessions.length === 0 ? "—" : (
                       <HoverCard>
-                        <HoverCardTrigger render={<Button variant="ghost" size="inline" type="button" className="cursor-default underline decoration-dotted underline-offset-4" />}>
+                        <HoverCardTrigger render={<Button variant="link" size="inline" type="button" className="cursor-default underline decoration-dotted underline-offset-4" />}>
                           {course.unit === "month" ? `${fmtDate(p.sessions[0])} → ${fmtDate(p.sessions[p.sessions.length - 1])} · ${p.sessions.length} คาบ` : `ดูวันเรียนทั้ง ${p.sessions.length} คาบ`}
                         </HoverCardTrigger>
                         <HoverCardContent align="start" className="max-h-72 w-52 overflow-y-auto">

@@ -45,7 +45,7 @@ export function GradesTab({ branch }: { branch: Branch }) {
           <div key={g.name}>
             <div className="mb-1.5 flex items-center gap-2">
               <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">{tx(g.name)}</p>
-              <Button variant="ghost" size="inline" className="text-xs text-primary underline" onClick={() => setB({ ...b, grades: sortGrades([...new Set([...b.grades, ...g.grades])]) })}>{tx("เลือกทั้งหมด")}</Button>
+              <Button variant="link" size="inline" className="text-xs text-primary underline" onClick={() => setB({ ...b, grades: sortGrades([...new Set([...b.grades, ...g.grades])]) })}>{tx("เลือกทั้งหมด")}</Button>
             </div>
             <div className="flex flex-wrap gap-2">
               {g.grades.map((gr) => <Chip key={gr} on={b.grades.includes(gr)} onClick={() => setB({ ...b, grades: sortGrades(toggle(b.grades, gr)) })}>{gr}</Chip>)}

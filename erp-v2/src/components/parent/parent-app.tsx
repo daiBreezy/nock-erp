@@ -341,7 +341,7 @@ function CourseRows({ pkgs, t, lang, onPick }: { child?: ParentChild; pkgs: Pare
                 <span className="block truncate text-base font-semibold">{p.course}</span>
                 <span className="block truncate text-xs text-muted-foreground">{fmtDay(p.from, lang)} → {fmtDay(p.until, lang)}</span>
               </span>
-              {onPick && <Button variant="ghost" size="inline" type="button" onClick={() => onPick(p.courseId)} className="flex shrink-0 items-center gap-0.5 text-xs text-primary">{t.openSchedule}<ChevronRightIcon className="size-3.5" /></Button>}
+              {onPick && <Button variant="link" size="inline" type="button" onClick={() => onPick(p.courseId)} className="flex shrink-0 items-center gap-0.5 text-xs text-primary">{t.openSchedule}<ChevronRightIcon className="size-3.5" /></Button>}
             </div>
             <div className="grid grid-cols-4 divide-x rounded-lg border bg-background/70 py-2 text-center">
               {stats.map(([label, value]) => (

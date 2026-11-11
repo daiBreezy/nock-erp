@@ -215,7 +215,7 @@ export default function CrmPage() {
                   {groupLeads.length === 0 && <p className="px-1 py-3 text-center text-xs text-muted-foreground">ไม่มี</p>}
                 </div>
                 {canManage && group.key !== "archived" && (
-                  <Button variant="ghost" size="inline"
+                  <Button variant="dashed" size="inline"
                     onClick={() => setOpenLead("new")}
                     className="mt-2 flex shrink-0 items-center justify-center gap-1 rounded-lg border border-dashed py-1.5 text-xs text-muted-foreground opacity-0 transition-opacity group-hover/col:opacity-100 hover:bg-muted focus-visible:opacity-100"
                   >

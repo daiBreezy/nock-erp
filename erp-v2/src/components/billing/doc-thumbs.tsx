@@ -63,7 +63,7 @@ export function DocThumbs({ docs, onAdd, addLabel }: { docs: DocItem[]; /** not 
       </HoverCard>}
       {onAdd && (
         <HoverCard>
-          <HoverCardTrigger render={<Button variant="ghost" size="inline" type="button" onClick={onAdd} aria-label={addLabel} className="grid shrink-0 place-items-center rounded-md border border-dashed text-muted-foreground hover:bg-muted/50 hover:text-foreground" style={{ width: W, height: W }} />}>
+          <HoverCardTrigger render={<Button variant="dashed" size="inline" type="button" onClick={onAdd} aria-label={addLabel} className="grid shrink-0 place-items-center rounded-md border border-dashed text-muted-foreground hover:bg-muted/50 hover:text-foreground" style={{ width: W, height: W }} />}>
             <PlusIcon className="size-5" />
           </HoverCardTrigger>
           <HoverCardContent side="left" className="w-auto text-xs">{addLabel}</HoverCardContent>

@@ -200,7 +200,7 @@ function ColorRow({ label, value, onChange, optional, placeholder = "ไม่�
       <span className="w-24 shrink-0 text-xs">{label}</span>
       <Input type="color" value={value || "#ffffff"} onChange={(e) => onChange(e.target.value)} className={cn("h-7 w-9 cursor-pointer rounded-md border bg-transparent p-0.5", !value && "opacity-40")} />
       <Input value={value} onChange={(e) => onChange(e.target.value)} placeholder={placeholder} className="h-7 min-w-0 flex-1 rounded-lg bg-background px-2 font-mono text-xs uppercase outline-none" />
-      {optional && value && <Button variant="ghost" size="inline" type="button" onClick={() => onChange("")} className="text-xs text-muted-foreground underline">ล้าง</Button>}
+      {optional && value && <Button variant="link" size="inline" type="button" onClick={() => onChange("")} className="text-xs text-muted-foreground underline">ล้าง</Button>}
     </label>
   )
 }

@@ -500,7 +500,7 @@ export default function InboxPage() {
                   {isLive(selected.id) ? (
                     <span className="inline-flex items-center gap-1 text-info"><RadioIcon className="size-3" /> ข้อความไหลจาก LINE จริง — sync ทุก 4 วิ</span>
                   ) : (
-                    <Button variant="ghost" size="inline" className="inline-flex items-center gap-1 hover:text-foreground hover:underline" onClick={() => { if (report(simulateReply(selected.id), "จำลองข้อความตอบกลับแล้ว")) openConversation(selected.id) }}>
+                    <Button variant="link" size="inline" className="inline-flex items-center gap-1 hover:text-foreground hover:underline" onClick={() => { if (report(simulateReply(selected.id), "จำลองข้อความตอบกลับแล้ว")) openConversation(selected.id) }}>
                       <SparklesIcon className="size-3" /> จำลองข้อความจากผู้ปกครอง
                     </Button>
                   )}
