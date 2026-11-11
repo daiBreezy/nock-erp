@@ -30,6 +30,7 @@ import { useBranch, useNow, useQueryState } from "@/lib/hooks"
 import { cn } from "@/lib/utils"
 import { tagChip, type TAG_HUE } from "@/components/app/tags"
 import { useStore } from "@/store/store"
+import { Empty } from "@/components/app/empty"
 
 type ViewMode = "kanban" | "table"
 type LeadSort = "name" | "grade" | "subject" | "source" | "stage" | "assignee" | "created"
@@ -180,7 +181,7 @@ export default function CrmPage() {
           <div className="space-y-4">
             <EnrollInbox branchId={branch.id} />
             <SurveyCalls branchId={branch.id} />
-            {todo.enroll + todo.calls === 0 && <p className="rounded-2xl border border-dashed p-8 text-center text-sm text-muted-foreground">ไม่มีงานค้าง</p>}
+            {todo.enroll + todo.calls === 0 && <Empty>ไม่มีงานค้าง</Empty>}
           </div>
         </DialogContent>
       </Dialog>

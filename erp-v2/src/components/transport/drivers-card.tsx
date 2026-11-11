@@ -2,8 +2,9 @@
 
 // Drivers (owner 2026-10-19: "ใช่เข้าระบบ แต่ก็มีสิทธิ์ว่าจะหา Outsource ในบางครั้ง"): staff with the Driver role — the
 // school's own, or an outsource driver (with the company) hired for a day. Each gets their own app link (no login).
+import { Empty } from "@/components/app/empty"
 import { useState } from "react"
-import { CopyIcon, PlusIcon, SaveIcon, UserRoundIcon, XIcon } from "lucide-react"
+import { CopyIcon, PlusIcon, SaveIcon, XIcon } from "lucide-react"
 import { SettingsCard } from "@/components/settings/common"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -34,7 +35,7 @@ export function DriversCard({ branch }: { branch: Branch }) {
     <SettingsCard title={`คนขับ (${drivers.length})`} hint="คนขับของโรงเรียน หรือ Outsource ที่จ้างเป็นครั้งคราว — แต่ละคนมีลิงก์แอปคนขับของตัวเอง (ไม่ต้องล็อกอิน) · เปลี่ยนคนขับเฉพาะวันได้ที่แถวเที่ยวรถ"
       action={<Button size="xs" variant="outline" onClick={add}><PlusIcon /> เพิ่มคนขับ</Button>}>
       <div className="space-y-1.5">
-        {drivers.length === 0 && !draft && <p className="flex items-center justify-center gap-2 rounded-xl border border-dashed p-5 text-sm text-muted-foreground"><UserRoundIcon className="size-4" /> ยังไม่มีคนขับ</p>}
+        {drivers.length === 0 && !draft && <Empty>ยังไม่มีคนขับ</Empty>}
         {drivers.map((d) => draft?.id === d.id ? null : (
           <div key={d.id} className="flex flex-wrap items-center gap-3 rounded-xl border px-3 py-2 text-sm">
             <span className="min-w-0 flex-1">

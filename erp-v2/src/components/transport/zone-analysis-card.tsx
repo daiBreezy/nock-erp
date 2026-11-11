@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button"
 import type { Hotspot, ZoneOption } from "@/domain/rules/zone-analysis"
 import { cn } from "@/lib/utils"
 import { ZONE_DOT } from "./zone-map"
+import { Empty } from "@/components/app/empty"
 
 export function ZoneAnalysisCard({ homes, kids, pinned, spots, options, current, onApply }: {
   homes: number; kids: number; pinned: number; spots: Hotspot[]; options: ZoneOption[]
@@ -28,7 +29,7 @@ export function ZoneAnalysisCard({ homes, kids, pinned, spots, options, current,
       <div className="grid gap-4 lg:grid-cols-[1fr_1.6fr]">
         <div className="space-y-1.5">
           <p className="text-xs font-medium text-muted-foreground">จุดที่บ้านหนาแน่น (บ้านห่างกันไม่เกิน 1 กม.)</p>
-          {spots.length === 0 ? <p className="rounded-2xl border border-dashed p-3 text-center text-xs text-muted-foreground">บ้านยังกระจายกัน ไม่มีจุดที่รวมกันหลายบ้าน</p> : (
+          {spots.length === 0 ? <Empty>บ้านยังกระจายกัน ไม่มีจุดที่รวมกันหลายบ้าน</Empty> : (
             <ol className="space-y-1">
               {spots.slice(0, 5).map((s, i) => (
                 <li key={i} className="flex items-center gap-2 rounded-xl bg-muted/50 px-3 py-1.5 text-sm">
@@ -43,7 +44,7 @@ export function ZoneAnalysisCard({ homes, kids, pinned, spots, options, current,
 
         <div className="space-y-1.5">
           <p className="text-xs font-medium text-muted-foreground">แบบการแบ่งโซน — รถออกพร้อมกัน 1 โซนต่อรถ 1 คัน · เวลา = รถวิ่งจากบ้านไกลสุดเข้าสาขา</p>
-          {options.length === 0 ? <p className="rounded-2xl border border-dashed p-3 text-center text-xs text-muted-foreground">ยังไม่มีบ้านที่ปักหมุด</p> : options.map((o) => (
+          {options.length === 0 ? <Empty>ยังไม่มีบ้านที่ปักหมุด</Empty> : options.map((o) => (
             <div key={o.count} className={cn("space-y-1.5 rounded-2xl p-3 ring-1", o.recommended ? "bg-primary/5 ring-primary/30" : "ring-foreground/10")}>
               <div className="flex flex-wrap items-center gap-2">
                 <span className="font-medium">{o.count === 1 ? "ไม่แบ่ง (1 โซน)" : `${o.count} โซน`}</span>

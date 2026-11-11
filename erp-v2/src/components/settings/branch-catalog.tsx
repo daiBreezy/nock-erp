@@ -11,6 +11,7 @@ import { cn } from "@/lib/utils"
 import { useStore } from "@/store/store"
 import { SaveRow, SettingsCard, useBranchDraft } from "./common"
 import { durationText, tx } from "@/lib/i18n"
+import { Empty } from "@/components/app/empty"
 
 function Chip({ on, children, onClick }: { on: boolean; children: React.ReactNode; onClick: () => void }) {
   return (
@@ -142,7 +143,7 @@ export function PackagesTab({ branch }: { branch: Branch }) {
       </div>
 
       {b.subjects.length === 0 ? (
-        <p className="rounded-xl border border-dashed p-6 text-center text-sm text-muted-foreground">{tx("เลือกวิชาที่แท็บ Subjects ก่อน")}</p>
+        <Empty>{tx("เลือกวิชาที่แท็บ Subjects ก่อน")}</Empty>
       ) : (
         <>
           <div className="mb-2 flex flex-wrap gap-1.5">

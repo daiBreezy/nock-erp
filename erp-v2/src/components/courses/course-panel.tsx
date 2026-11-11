@@ -23,6 +23,7 @@ import { useLookup } from "@/lib/hooks"
 import { cn } from "@/lib/utils"
 import { useStore } from "@/store/store"
 import { CourseDialog } from "./course-dialog"
+import { Empty } from "@/components/app/empty"
 
 export type CourseStats = { students: number; revenue: number; classes: number }
 
@@ -109,7 +110,7 @@ function CourseView({ c, st, onEdit, onClose }: { c: Course; st?: CourseStats; o
         </section>
         <section className="space-y-2">
           <h3 className="text-sm font-semibold">คลาสที่ผูกกับคอร์สนี้</h3>
-          {linked.length === 0 ? <p className="rounded-2xl border border-dashed p-4 text-center text-xs text-muted-foreground">ยังไม่มีคลาสผูก — เลือกคอร์สได้ตอนสร้างคลาส</p> : (
+          {linked.length === 0 ? <Empty>ยังไม่มีคลาสผูก — เลือกคอร์สได้ตอนสร้างคลาส</Empty> : (
             <ul className="divide-y rounded-2xl border">
               {linked.map((k) => (
                 <li key={k.id} className="flex flex-wrap items-center gap-x-3 gap-y-1 p-2.5 text-sm">

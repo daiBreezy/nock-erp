@@ -1,5 +1,6 @@
 "use client"
 
+import { Empty } from "@/components/app/empty"
 import { useState } from "react"
 import { BusIcon, ClipboardCheckIcon, PencilIcon, PlusIcon, TagIcon, TicketIcon, TrashIcon } from "lucide-react"
 import { Pill } from "@/components/app/badges"
@@ -47,7 +48,7 @@ export function FeesTab({ branch }: { branch: Branch }) {
           <SettingsCard key={kind} title={tx(FEE_KIND_LABEL[kind].title)} hint={tx(FEE_KIND_LABEL[kind].hint)}
             action={<Button size="xs" variant="outline" onClick={() => { setAdding(kind); setForm({ name: "", price: "" }) }}><PlusIcon />  {tx("เพิ่มประเภท")}</Button>}>
             {list.length === 0 && adding !== kind && (
-              <p className="flex items-center justify-center gap-2 rounded-xl border border-dashed p-5 text-sm text-muted-foreground"><Icon className="size-4" />  {tx("ยังไม่มีประเภท")}</p>
+              <Empty>{tx("ยังไม่มีประเภท")}</Empty>
             )}
             <div className="space-y-1.5">
               {list.map((f) => (
@@ -93,7 +94,7 @@ export function PromotionsTab({ branch }: { branch: Branch }) {
   return (
     <SettingsCard title={tx("โปรโมชัน ({0})", [b.promotions.length])} hint={tx("ส่วนลดตามระยะเวลาแพ็กเกจที่ซื้อ — ใบแจ้งหนี้เลือกโปรที่ลดได้มากที่สุดให้อัตโนมัติ")}
       action={<Button size="xs" variant="outline" onClick={() => setEditing(emptyPromo("hour", durationsOf(b, "hour")[0] ?? 1))}><PlusIcon />  {tx("เพิ่มโปรโมชัน")}</Button>}>
-      {b.promotions.length === 0 && <p className="flex items-center justify-center gap-2 rounded-xl border border-dashed p-6 text-sm text-muted-foreground"><TagIcon className="size-4" />  {tx("ยังไม่มีโปรโมชัน")}</p>}
+      {b.promotions.length === 0 && <Empty>{tx("ยังไม่มีโปรโมชัน")}</Empty>}
       <div className="divide-y rounded-2xl border empty:hidden">
         {b.promotions.map((p) => (
           <div key={p.id} className="flex flex-wrap items-center gap-2 p-3 text-sm">
@@ -183,7 +184,7 @@ function BusSetup({ b, setB }: { b: Branch; setB: (b: Branch) => void }) {
       </SettingsCard>
       <SettingsCard title={tx("รอบรถ ({0})", [rounds.length])} hint={tx("รอบรับก่อนเรียน / ส่งหลังเรียน ต่อวัน พร้อมจำนวนที่นั่ง — ใบแจ้งหนี้บอกได้ว่าวันที่เรียนมีรอบไหม เต็มหรือยัง")}
         action={<span className="flex gap-1.5"><Button size="xs" variant="outline" onClick={() => add("pickup")}><PlusIcon /> {tx("รอบรับ")}</Button><Button size="xs" variant="outline" onClick={() => add("dropoff")}><PlusIcon /> {tx("รอบส่ง")}</Button></span>}>
-        {rounds.length === 0 && <p className="flex items-center justify-center gap-2 rounded-xl border border-dashed p-5 text-sm text-muted-foreground"><BusIcon className="size-4" /> {tx("ยังไม่มีรอบรถ")}</p>}
+        {rounds.length === 0 && <Empty>{tx("ยังไม่มีรอบรถ")}</Empty>}
         <div className="space-y-1.5">
           {sorted.map((r) => (
             <div key={r.id} className="flex flex-wrap items-center gap-2 rounded-xl border px-2 py-1.5">

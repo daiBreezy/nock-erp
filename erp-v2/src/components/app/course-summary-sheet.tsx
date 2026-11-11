@@ -29,6 +29,7 @@ import { CourseProgress } from "./course-progress"
 import { cn } from "@/lib/utils"
 import { useStore } from "@/store/store"
 import { toast } from "@/lib/toast"
+import { Empty } from "@/components/app/empty"
 
 const FIELD_MAX = 250
 type Draft = { overallProgress: string; toImprove: string; strengths: string }
@@ -189,7 +190,7 @@ function Body({ round }: { round: Sum.EntitlementRound }) {
             <p className="text-sm font-semibold">{only ? `สรุปวิชา${only}` : "สรุปทั้งคอร์ส"}</p>
             {FIELDS.some((f) => stored[f.key].split("\n").some((l) => l.trim() && (!only || l.trim().startsWith(`${only}:`))))
               ? FIELDS.map((f) => <SummaryField key={f.key} label={f.label} value={stored[f.key]} subjects={allSubjects} only={only} />)
-              : <p className="rounded-2xl border border-dashed p-4 text-center text-sm text-muted-foreground">{only && FIELDS.some((f) => stored[f.key].trim()) ? `ยังไม่มีส่วนของวิชา${only} — แก้ไขแล้วขึ้นบรรทัดด้วย "${only}: …"` : "ยังไม่ได้เขียน"}</p>}
+              : <Empty>{only && FIELDS.some((f) => stored[f.key].trim()) ? `ยังไม่มีส่วนของวิชา${only} — แก้ไขแล้วขึ้นบรรทัดด้วย "${only}: …"` : "ยังไม่ได้เขียน"}</Empty>}
           </section>
         )}
 

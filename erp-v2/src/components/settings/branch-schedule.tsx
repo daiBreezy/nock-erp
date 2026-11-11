@@ -26,6 +26,7 @@ import { SaveRow, SettingsCard, useBranchDraft } from "./common"
 import { HolidayPlanner } from "./holiday-planner"
 import { tx } from "@/lib/i18n"
 import { NativeSelect } from "@/components/app/native-select"
+import { Empty } from "@/components/app/empty"
 
 const WEEK: Weekday[] = [1, 2, 3, 4, 5, 6, 0]
 
@@ -192,7 +193,7 @@ function SpecialPeriodsCard({ branch }: { branch: Branch }) {
     <SettingsCard title={tx("ช่วงเวลาพิเศษ ({0})", [b.specialPeriods.length])}
       hint={tx("ช่วงวันที่ที่โรงเรียนเปิด-ปิดไม่เหมือนปกติ เช่น Summer เปิด 08:00–22:00 ทุกวัน — ระหว่างช่วงนี้ระบบใช้เวลาของช่วงแทนเวลาปกติ (ตอนสร้างคลาส/ย้ายคาบ/ฟอร์ม Trial) · วันปิดทั้งวันใส่ที่แท็บวันหยุด")}
       action={<Button size="xs" variant="outline" onClick={add}><PlusIcon />  {tx("เพิ่มช่วง")}</Button>}>
-      {list.length === 0 && <p className="rounded-xl border border-dashed p-6 text-center text-sm text-muted-foreground">{tx("ยังไม่มีช่วงเวลาพิเศษ")}</p>}
+      {list.length === 0 && <Empty>{tx("ยังไม่มีช่วงเวลาพิเศษ")}</Empty>}
       <div className="space-y-3">
         {list.map((p) => (
           <SpecialPeriodEditor key={p.id} p={p} normal={b.hours} today={today} startOpen={!branch.specialPeriods.some((x) => x.id === p.id)}

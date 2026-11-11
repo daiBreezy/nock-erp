@@ -22,6 +22,7 @@ import { useBranch, useEntitlements, useNow, useQueryState } from "@/lib/hooks"
 import { cn } from "@/lib/utils"
 import { useStore } from "@/store/store"
 import { renewHref, studentLabel } from "@/domain/rules/people"
+import { Empty } from "@/components/app/empty"
 
 /** filter chips (owner 2026-10-07): one topic per kind of notification, for both the to-do list and the history */
 type Topic = "requests" | "teaching" | "approval" | "renewal" | "schedule" | "forms" | "message" | "other"
@@ -127,7 +128,7 @@ export default function NotificationsPage() {
 
       <section>
         <h2 className="mb-2 font-semibold">ต้องจัดการ ({shownAlerts.length})</h2>
-        {shownAlerts.length === 0 && <p className="rounded-xl border border-dashed p-8 text-center text-sm text-muted-foreground">ไม่มีงานค้าง</p>}
+        {shownAlerts.length === 0 && <Empty>ไม่มีงานค้าง</Empty>}
         <div className="divide-y overflow-hidden rounded-3xl bg-card shadow-sm ring-1 ring-foreground/5">
           {shownAlerts.map((a) => (
             <Link key={a.key} href={a.href} className="flex items-start gap-3 p-3 hover:bg-muted/40">
@@ -146,7 +147,7 @@ export default function NotificationsPage() {
           <h2 className="font-semibold">ประวัติแจ้งเตือน</h2>
           {unread.length > 0 && <Button size="sm" variant="ghost" className="ml-auto" onClick={() => s.markNotificationsRead(unread.map((n) => n.id))}><CheckCheckIcon /> อ่านทั้งหมด</Button>}
         </div>
-        {history.length === 0 && <p className="rounded-xl border border-dashed p-8 text-center text-sm text-muted-foreground">{topic === "all" ? "ยังไม่มีแจ้งเตือน" : "ไม่มีแจ้งเตือนในหัวข้อนี้"}</p>}
+        {history.length === 0 && <Empty>{topic === "all" ? "ยังไม่มีแจ้งเตือน" : "ไม่มีแจ้งเตือนในหัวข้อนี้"}</Empty>}
         <div className="divide-y overflow-hidden rounded-3xl bg-card shadow-sm ring-1 ring-foreground/5">
           {history.map((n) => {
             const unreadForMe = isUnread(n, me)

@@ -20,6 +20,7 @@ import { joinName } from "@/domain/rules/people"
 import { DICT, fmtBirth, fmtFormDate } from "./i18n"
 import { classTimeLabel, courseLine, ENROLL_DICT, EnrollFields, enrollValid, timeLabel, type EnrollFieldsValue } from "./enroll"
 import { enrollClassValid } from "@/domain/rules/forms"
+import { Empty } from "@/components/app/empty"
 
 type Phase = "init" | "invalid" | "ready" | "submitting" | "done"
 type Step = "parent" | "student" | "summary"
@@ -463,7 +464,7 @@ function StudentCard({ t, lang, names, n, formType, student: s, grades, offers, 
             <p className="text-sm font-semibold">{t.schedule(formType)} *</p>
             <p className="text-xs text-muted-foreground">{t.commonTimes(s.activeSubjects.length)}</p>
           </div>
-          {times.length === 0 && <p className="rounded-2xl border border-dashed p-3 text-center text-xs text-muted-foreground">{t.noCommon}</p>}
+          {times.length === 0 && <Empty>{t.noCommon}</Empty>}
           <div className="space-y-1">
             {times.map((x) => {
               const active = picked?.date === x.date && picked.start === x.start

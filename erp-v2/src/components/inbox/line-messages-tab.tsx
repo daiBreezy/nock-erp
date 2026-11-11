@@ -3,6 +3,7 @@
 // owner 2026-11-09: "ฉันจะดูตัวอย่างข้อความ LINE ได้จากไหน" — EVERY text the system sends to parents, built by the SAME
 // functions the store / forms / API use (domain/rules/messages.ts), from a real invoice of the demo data.
 // Nothing is sent from here. Language by brand: Liclass = Japanese + English, NockAcademy = Thai + English.
+import { Empty } from "@/components/app/empty"
 import { useMemo, useState } from "react"
 import { Segmented } from "@/components/app/page-layout"
 import { addDays, toDateStr } from "@/domain/dates"
@@ -132,7 +133,7 @@ export function LineMessagesTab() {
         <p className="text-sm text-muted-foreground">ข้อความจริงที่ระบบส่งให้ผู้ปกครอง · Liclass = ญี่ปุ่น + อังกฤษ · NockAcademy = ไทย + อังกฤษ — ดูอย่างเดียว ไม่ส่งจริง</p>
       </div>
       {!sample ? (
-        <p className="rounded-2xl border border-dashed p-4 text-sm text-muted-foreground">ยังไม่มีใบแจ้งหนี้ของแบรนด์นี้ให้ทำตัวอย่าง</p>
+        <Empty>ยังไม่มีใบแจ้งหนี้ของแบรนด์นี้ให้ทำตัวอย่าง</Empty>
       ) : groups.map((g) => <Group key={g.title} {...g} />)}
     </div>
   )

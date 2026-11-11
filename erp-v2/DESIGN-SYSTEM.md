@@ -107,12 +107,17 @@ md→sm · xl→lg · max-md→max-sm · ⚠ reports/page ที่ xl→lg อ�
 | ใช้ `PageHeader` แต่ไม่ใช้ `Page` | billing · calendar | 🟡 เช็คว่าตรงมาตรฐานไหม |
 | layout เฉพาะ (ตั้งใจ) | inbox (แชท) · calendar (บอร์ด) · `/liff/*` (ฟอร์มผู้ปกครอง ใช้ "มาตรฐานฟอร์ม" ใน CLAUDE.md) · print | ตรวจกับมาตรฐานของตัวเอง |
 | ว่าง (Coming soon) | logs · tasks | ไม่ต้องทำ |
-| `Empty` ใช้จริง | reports (18) · settings/forms (2) — หน้าอื่น 0 | 🟡 หลายหน้าแสดงว่างด้วยข้อความเอง |
+| `Empty` ใช้จริง | ทุกหน้า/แผงที่แสดงสถานะว่างเป็นกล่องเส้นประ (รอบ 14a) · ตาราง `DataTable` ยังใช้ข้อความในเซลล์ (`empty=`) | ✅ เหลือ `inbox/cards` Outcome (ไม่ใช่สถานะว่าง) · parent-app ย่อหน้าเล็ก |
 
 ### เจ้าของตัดสินแล้ว / ยังรอ
 1. ✅ **เพิ่ม token `special` (ม่วง) — ตัดสินแล้ว 2026-11-11 (รอบ 11)** ดูหัวข้อ "รอบ 11" ด้านล่าง
 2. **สีบทบาทพนักงาน** (`tags.ts` `role`): admin amber · driver lime · director rose ใกล้สีระบบ — เลือกสีใหม่
 3. **`customer-picker` เลือกแล้วเป็นม่วง** → เปลี่ยนเป็น primary (ตามกฎ "ตัวเลือกที่เลือก") โอเคไหม
+
+## รอบ 14a — สถานะว่างกลาง `Empty` (2026-11-11)
+
+- ย้ายกล่องเส้นประ `<p className="… border-dashed … text-center">` ที่เขียนเองทุกหน้า (~35 จุด: attendance · sessions · summaries · notifications · crm · transport · settings · calendar summary · session/student sheet · liff ฯลฯ) เป็น `<Empty>` เดียว → ระยะ/ขอบ/สีตัวอักษรเหมือนกันทั้งแอป · ตัดไอคอนเล็กในกล่องว่างของ settings/transport ออก
+- ยังไม่แตะ: `DataTable empty=` (อยู่ในเซลล์ตาราง) · `Outcome` ใน inbox/cards (ไม่ใช่สถานะว่าง) · ข้อความว่างบรรทัดเดียวไม่มีกล่อง (เช่น `py-6 text-center`)
 
 ## รอบ 13 — รวมปุ่ม ghost เข้า variant กลาง (2026-11-11) — **ทำบางส่วน**
 

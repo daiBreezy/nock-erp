@@ -9,6 +9,7 @@ import type { CatalogCourse, CatalogToken, EnrollClassOffer, ID } from "@/domain
 import { tx, useUiLang } from "@/lib/i18n"
 import { subjectColor } from "@/components/app/subject-color"
 import { cn } from "@/lib/utils"
+import { Empty } from "@/components/app/empty"
 
 /**
  * The course catalog a parent opens from LINE (owner 2026-10-22) — the admin sends it, or it sits on the Rich Menu.
@@ -190,7 +191,7 @@ export function CatalogApp({ token, preview, embedded, onDetail }: { token: stri
                 </div>
               ))}
             </div>
-            {!courses.length && <p className="rounded-2xl border border-dashed p-8 text-center text-sm text-muted-foreground">{tx("ยังไม่มีคอร์สสำหรับตัวเลือกนี้ — ลองเปลี่ยนระดับชั้น / วิชา")}</p>}
+            {!courses.length && <Empty>{tx("ยังไม่มีคอร์สสำหรับตัวเลือกนี้ — ลองเปลี่ยนระดับชั้น / วิชา")}</Empty>}
           </div>
         </>
       )}

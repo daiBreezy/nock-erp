@@ -27,6 +27,7 @@ import { tx } from "@/lib/i18n"
 import { Textarea } from "@/components/ui/textarea"
 import { broadcastText, broadcastTexts, familyChatsOf, holidayParentText } from "@/lib/forms"
 import { toast } from "@/lib/toast"
+import { Empty } from "@/components/app/empty"
 
 const TH_MONTH = ["มกราคม", "กุมภาพันธ์", "มีนาคม", "เมษายน", "พฤษภาคม", "มิถุนายน", "กรกฎาคม", "สิงหาคม", "กันยายน", "ตุลาคม", "พฤศจิกายน", "ธันวาคม"]
 const DOW = ["จ.", "อ.", "พ.", "พฤ.", "ศ.", "ส.", "อา."]
@@ -132,7 +133,7 @@ export function HolidayPlanner({ branch }: { branch?: Branch }) {
         <NativeSelect className="h-9 w-44" value={scope} onChange={(e) => setScope(e.target.value as "year" | "month")}
           options={[{ value: "year", label: tx("ทั้งปี {0}", [yearOf(Number(year))]) }, { value: "month", label: tx("เฉพาะ{0}", [tx(TH_MONTH[first.getMonth()])]) }]} />
         <div ref={listRef} className={cn("-m-1 space-y-1.5 overflow-y-auto p-1", isBranch ? "max-h-[32rem]" : "min-h-0 flex-1")}>
-          {listed.length === 0 && <p className="rounded-xl border border-dashed p-6 text-center text-sm text-muted-foreground">{tx("ไม่มีวันหยุดในช่วงนี้")}</p>}
+          {listed.length === 0 && <Empty>{tx("ไม่มีวันหยุดในช่วงนี้")}</Empty>}
           {months.map(([month, items]) => (
             <div key={month} data-month={month} className="space-y-1">
               <div className="flex items-baseline gap-2 px-1 pt-2">

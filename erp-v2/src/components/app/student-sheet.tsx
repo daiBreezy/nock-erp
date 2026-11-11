@@ -43,6 +43,7 @@ import { avatarTone, gradeTone, initial, subjectColor } from "./subject-color"
 import { InfoTip } from "./info-tip"
 import { Textarea } from "@/components/ui/textarea"
 import { Checkbox } from "@/components/ui/checkbox"
+import { Empty } from "@/components/app/empty"
 
 export { STATUS_PILL } from "./student-status"
 
@@ -569,7 +570,7 @@ function NoteSeg({ stu }: { stu: Student }) {
         </section>
       )}
       <div className="flex-1 space-y-3">
-        {notes.length === 0 && <p className="rounded-xl border border-dashed p-8 text-center text-sm text-muted-foreground">ยังไม่มีโน้ต — ใช้จดเรื่องที่ทีมควรรู้เกี่ยวกับนักเรียนคนนี้</p>}
+        {notes.length === 0 && <Empty>ยังไม่มีโน้ต — ใช้จดเรื่องที่ทีมควรรู้เกี่ยวกับนักเรียนคนนี้</Empty>}
         {notes.map((n) => {
           const by = staff.find((x) => x.id === n.by)
           const mineN = n.by === userId

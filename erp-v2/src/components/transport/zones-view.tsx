@@ -27,6 +27,7 @@ import { nameArg, notice } from "@/domain/rules/messages"
 import { useStore } from "@/store/store"
 import { ZoneAnalysisCard } from "./zone-analysis-card"
 import { ZONE_DOT, ZoneMap } from "./zone-map"
+import { Empty } from "@/components/app/empty"
 
 interface Home { fam: Family; kids: Student[]; zone: BusZone | null; byHand: boolean; km: number | null }
 
@@ -87,7 +88,7 @@ export function ZonesView({ branch }: { branch: Branch }) {
     report(saveZones(branch.id, rest.map((x) => (prev && x.id === prev.id ? { ...x, to: z.to } : x))), `ลบโซน ${z.name} แล้ว`)
   }
 
-  if (!branch.location) return <p className="rounded-3xl border border-dashed p-10 text-center text-sm text-muted-foreground">ปักหมุดสาขาก่อน (ตั้งค่าสาขา › ค่าธรรมเนียม) — โซนวัดจากทิศของบ้านเทียบกับสาขา</p>
+  if (!branch.location) return <Empty>ปักหมุดสาขาก่อน (ตั้งค่าสาขา › ค่าธรรมเนียม) — โซนวัดจากทิศของบ้านเทียบกับสาขา</Empty>
   return (
     <div className="space-y-4">
       <ZoneAnalysisCard homes={homes.length} kids={homes.reduce((a, h) => a + h.kids.length, 0)} pinned={pinned.length} spots={spots} options={options} current={zones.length || 1} onApply={apply} />
@@ -106,7 +107,7 @@ export function ZonesView({ branch }: { branch: Branch }) {
           zones={zones} hotspots={spots.map((x) => ({ center: x.center, homes: x.homes, label: `${x.direction} · ${x.km} กม. · ${x.homes} บ้าน` }))} homes={pinned.map((h) => ({ loc: h.fam.location!, color: h.zone?.color ?? "slate", label: `${h.kids.map((k) => k.nickname).join(", ")} · ${h.zone?.name ?? "ไม่มีโซน"}` }))} />
 
         <div className="space-y-3">
-          {zones.length === 0 && <p className="rounded-3xl border border-dashed p-6 text-center text-sm text-muted-foreground">ยังไม่มีโซน — กด &quot;แบ่งโซนอัตโนมัติ&quot; ระบบแบ่งตามกลุ่มบ้านให้ หนึ่งโซนต่อรถหนึ่งคัน</p>}
+          {zones.length === 0 && <Empty>ยังไม่มีโซน — กด &quot;แบ่งโซนอัตโนมัติ&quot; ระบบแบ่งตามกลุ่มบ้านให้ หนึ่งโซนต่อรถหนึ่งคัน</Empty>}
           {zones.map((z) => {
             const members = homes.filter((h) => h.zone?.id === z.id)
             return (

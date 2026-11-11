@@ -7,11 +7,12 @@ import { cn } from "@/lib/utils"
 import type { WeekRow } from "@/app/transport/page"
 import { TripTypeChip, vanTone } from "./labels"
 import { Button } from "@/components/ui/button"
+import { Empty } from "@/components/app/empty"
 
 const HOUR_PX = 80
 
 export function TransportCalendar({ rows, days, today, onPick }: { rows: WeekRow[]; days: string[]; today: string; onPick: (tripId: string) => void }) {
-  if (!rows.length) return <p className="rounded-3xl border border-dashed p-10 text-center text-sm text-muted-foreground">สัปดาห์นี้ไม่มีเที่ยวรถตามตัวกรอง</p>
+  if (!rows.length) return <Empty>สัปดาห์นี้ไม่มีเที่ยวรถตามตัวกรอง</Empty>
   const span = (r: WeekRow) => { const a = toMinutes(r.trip.depart), b = Math.max(toMinutes(r.trip.finish), a + 20); return [a, b] as const }
   const from = Math.floor(Math.min(...rows.map((r) => span(r)[0])) / 60) * 60
   const to = Math.ceil(Math.max(...rows.map((r) => span(r)[1])) / 60) * 60

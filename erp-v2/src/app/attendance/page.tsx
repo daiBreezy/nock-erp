@@ -21,6 +21,7 @@ import { GradeCell, gradeCompare, Pager, usePage, useSort } from "@/components/a
 import { ColumnsMenu, DataTable, type Column } from "@/components/app/data-grid"
 import { cn } from "@/lib/utils"
 import { useStore } from "@/store/store"
+import { Empty } from "@/components/app/empty"
 
 
 /** Attendance report — every number is limited to the chosen period (C8) and real subjects (C9). */
@@ -152,7 +153,7 @@ function ByDay({ sessions, attendance, multi, code, onOpen }: { sessions: Sessio
   const L = useLookup()
   const sorted = [...sessions].sort((a, b) => (a.date + a.start).localeCompare(b.date + b.start))
   const days = [...new Set(sorted.map((s) => s.date))]
-  if (!days.length) return <p className="rounded-3xl border border-dashed p-10 text-center text-sm text-muted-foreground">ไม่มีคาบที่เรียนไปแล้วในช่วงนี้</p>
+  if (!days.length) return <Empty>ไม่มีคาบที่เรียนไปแล้วในช่วงนี้</Empty>
   const n = (sid: ID, st: Attendance["status"]) => attendance.filter((a) => a.sessionId === sid && a.status === st).length
   return (
     <>

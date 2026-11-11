@@ -2,8 +2,9 @@
 
 // Set once (owner 2026-10-19, Transport): the vans with their drivers, the runs each van does, and whether trips go
 // to the driver by themselves. Home pins, the branch pin and fee distances stay in Settings › Branch › Fees.
+import { Empty } from "@/components/app/empty"
 import Link from "next/link"
-import { BusIcon, PlusIcon, TrashIcon } from "lucide-react"
+import { PlusIcon, TrashIcon } from "lucide-react"
 import { Pill } from "@/components/app/badges"
 import { NativeSelect } from "@/components/app/native-select"
 import { SaveRow, SettingsCard, useBranchDraft } from "@/components/settings/common"
@@ -42,7 +43,7 @@ export function TransportSettings({ branch }: { branch: Branch }) {
     <div className="space-y-4">
       <SettingsCard title={`รถ (${vehicles.length})`} hint="รถแต่ละคันกับคนขับ — ใบงานรายวันส่งถึงคนขับคันนั้น · รถเสียวันไหนเลือกรถแทนได้ที่การ์ดเที่ยวรถ"
         action={<Button size="xs" variant="outline" onClick={addV}><PlusIcon /> เพิ่มรถ</Button>}>
-        {vehicles.length === 0 && <p className="flex items-center justify-center gap-2 rounded-xl border border-dashed p-5 text-sm text-muted-foreground"><BusIcon className="size-4" /> ยังไม่มีรถ</p>}
+        {vehicles.length === 0 && <Empty>ยังไม่มีรถ</Empty>}
         <div className="space-y-1.5">
           {vehicles.map((v) => (
             <div key={v.id} className="grid items-center gap-2 rounded-xl border px-2 py-1.5 sm:grid-cols-[1fr_7rem_5rem_1.2fr_auto_auto]">

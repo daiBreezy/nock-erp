@@ -56,6 +56,7 @@ import { avatarTone, gradeTone, initial } from "./subject-color"
 import { TeacherPicker } from "./teacher-picker"
 import { type MoveScope } from "@/domain/rules/scheduling"
 import { InfoTip } from "./info-tip"
+import { Empty } from "@/components/app/empty"
 
 /** 1–5 understanding (owner 2026-10-14) */
 const LEVEL_LABEL = Sum.LEVEL_LABEL
@@ -221,7 +222,7 @@ function Body({ id, onClose }: { id: ID; onClose: () => void }) {
                 </span>
               </div>
             )}
-            {s.studentIds.length === 0 && !s.rescheduledOut?.length && <p className="rounded-2xl border border-dashed p-6 text-center text-sm text-muted-foreground">ยังไม่มีนักเรียนในคาบนี้</p>}
+            {s.studentIds.length === 0 && !s.rescheduledOut?.length && <Empty>ยังไม่มีนักเรียนในคาบนี้</Empty>}
             <ul className="divide-y">
               {s.studentIds.map((sid) => (
                 <StudentRow key={sid} s={s} sid={sid} viewOnly={viewOnly} canManage={canManage} mine={mine}
@@ -836,7 +837,7 @@ export function RescheduleDialog({ from, studentId, onClose, initialMode = "once
           </div>
         </div>
         <div className="min-h-0 flex-1 space-y-3 overflow-y-auto px-0.5 py-1">
-          {options.length === 0 && <p className="rounded-2xl border border-dashed p-4 text-center text-sm text-muted-foreground">วันนี้ไม่มีคาบ{subject && `วิชา${subject}`} — ลองวันอื่น หรือสร้างคาบใหม่ด้านล่าง</p>}
+          {options.length === 0 && <Empty>วันนี้ไม่มีคาบ{subject && `วิชา${subject}`} — ลองวันอื่น หรือสร้างคาบใหม่ด้านล่าง</Empty>}
           {byTeacher.map((tid) => (
             <section key={tid || "none"} className="space-y-1.5">
               <p className="flex items-center gap-2 text-sm font-medium">
@@ -935,7 +936,7 @@ function ClassMovePicker({ from, studentId, value, onChange, entitlementTo }: { 
       </div>
       {/* px/py so a selected card's ring-2 isn't clipped by the scroll container */}
       <div className="min-h-0 flex-1 space-y-2 overflow-y-auto px-0.5 py-1">
-      {options.length === 0 && <p className="rounded-2xl border border-dashed p-4 text-center text-sm text-muted-foreground">ไม่พบคลาส — ลองปรับตัวกรอง หรือสร้างคลาสใหม่ที่หน้า คลาส</p>}
+      {options.length === 0 && <Empty>ไม่พบคลาส — ลองปรับตัวกรอง หรือสร้างคลาสใหม่ที่หน้า คลาส</Empty>}
       {options.map((k) => {
         const check = canMoveToClass(from, k, studentId, now, L.student(studentId)?.grade)
         const cap = classCapacity(k)

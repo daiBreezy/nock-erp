@@ -19,6 +19,7 @@ import { useBranch, useLookup, useNow, useQueryState } from "@/lib/hooks"
 import { cn } from "@/lib/utils"
 import { useStore } from "@/store/store"
 import { removedWithClass } from "@/domain/rules/scheduling"
+import { Empty } from "@/components/app/empty"
 
 
 /** Session list for daily operations: what needs attendance / summaries right now. */
@@ -88,7 +89,7 @@ export default function SessionsPage() {
         {scope.select}
       </FilterBar>
 
-      {shown.length === 0 && <p className="rounded-xl border border-dashed p-10 text-center text-sm text-muted-foreground">ไม่มีคาบในช่วงนี้</p>}
+      {shown.length === 0 && <Empty>ไม่มีคาบในช่วงนี้</Empty>}
       {dates.map((d) => (
         <section key={d}>
           {period.mode !== "day" && <h3 className="mb-1 text-sm font-semibold">{fmtDate(d, { weekday: true })}</h3>}

@@ -17,6 +17,7 @@ import { DateRangePicker } from "@/components/app/date-range-picker"
 import { subjectHex } from "@/components/app/subject-color"
 import { uid } from "@/data/seed"
 import { Button } from "@/components/ui/button"
+import { Empty } from "@/components/app/empty"
 
 const TYPES: FormType[] = ["test", "trial"]
 
@@ -184,7 +185,7 @@ export function SendFormDialog({
                   <DateRangePicker className="ml-auto" plain from={from} to={to} min={toDateStr(now)} onChange={(r) => { setFrom(r.from); setTo(r.to) }} />
                 </div>
                 <Legend />
-                {!subjects.length ? <p className="rounded-2xl border border-dashed p-6 text-center text-sm text-muted-foreground">เลือกวิชาก่อน</p>
+                {!subjects.length ? <Empty>เลือกวิชาก่อน</Empty>
                   : oneVisit ? (
                     <SlotDays
                       title={`${subjects.join(" + ")} · มาวันเดียว 2 ชม.`}

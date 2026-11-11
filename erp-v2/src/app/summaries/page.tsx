@@ -30,6 +30,7 @@ import { SessionLine } from "@/components/app/session-line"
 import { report } from "@/lib/feedback"
 import { useLookup, useNow, useQueryState } from "@/lib/hooks"
 import { useStore } from "@/store/store"
+import { Empty } from "@/components/app/empty"
 
 // owner 2026-10-13: six statuses, in the order the work moves — "not written" and "draft" are no longer one pile
 type Bucket = "to_write" | "draft" | "submitted" | "approved" | "sent" | "changes"
@@ -147,7 +148,7 @@ function SessionSummaryTab() {
       </FilterBar>
 
       {/* owner 2026-10-09: one section per day, like Sessions — easier to see what each day still needs */}
-      {shown.length === 0 && <p className="rounded-3xl border border-dashed p-10 text-center text-sm text-muted-foreground">ไม่มีรายการในหมวดนี้</p>}
+      {shown.length === 0 && <Empty>ไม่มีรายการในหมวดนี้</Empty>}
       {[...new Set(shown.map((r) => r.s.date))].map((day) => (
         <section key={day}>
           <h3 className="mb-1 text-sm font-semibold">{fmtDate(day, { weekday: true })}</h3>

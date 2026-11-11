@@ -14,6 +14,7 @@ import { useBranch, useLookup } from "@/lib/hooks"
 import { cn } from "@/lib/utils"
 import { useStore } from "@/store/store"
 import { Button } from "@/components/ui/button"
+import { Empty } from "@/components/app/empty"
 
 const fmtHours = (min: number) => `${Math.round((min / 60) * 10) / 10} ชม.`
 
@@ -98,7 +99,7 @@ export function SummaryPanel({ open, onClose, title, sessions, conflicts, now, o
                   ))}
                 </div>
               </div>
-              {groups.length === 0 && <p className="rounded-2xl border border-dashed p-6 text-center text-sm text-muted-foreground">ไม่มีคาบในช่วงนี้</p>}
+              {groups.length === 0 && <Empty>ไม่มีคาบในช่วงนี้</Empty>}
               {groups.map((g) => {
                 const color = by === "subject" ? subjectColor(g.key) : null
                 const total = g.rows.reduce((n, r) => n + r.sessions, 0)

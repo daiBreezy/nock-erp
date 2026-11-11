@@ -8,6 +8,7 @@ import { KpiRow } from "@/components/app/page-layout"
 import { nm } from "@/lib/i18n"
 import { cn } from "@/lib/utils"
 import type { WeekRow } from "@/app/transport/page"
+import { Empty } from "@/components/app/empty"
 
 /** a trip counts as late when the driver's app shows it more than this behind */
 const LATE_MIN = 5
@@ -69,7 +70,7 @@ export function TransportReportKpis({ rows }: { rows: WeekRow[] }) {
 }
 
 export function TransportReport({ rows }: { rows: WeekRow[] }) {
-  if (!rows.length) return <p className="rounded-3xl border border-dashed p-10 text-center text-sm text-muted-foreground">สัปดาห์นี้ยังไม่มีเที่ยวรถ</p>
+  if (!rows.length) return <Empty>สัปดาห์นี้ยังไม่มีเที่ยวรถ</Empty>
   const multi = new Set(rows.map((r) => r.branch.id)).size > 1
   return (
     <div className="grid gap-4 lg:grid-cols-2">

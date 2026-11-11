@@ -30,6 +30,7 @@ import { useBranch, useNow, useQueryState } from "@/lib/hooks"
 import { nm } from "@/lib/i18n"
 import { cn } from "@/lib/utils"
 import { useStore } from "@/store/store"
+import { Empty } from "@/components/app/empty"
 
 type View = "week" | "report" | "vehicles" | "zones"
 export interface WeekRow { branch: Branch; plan: DayPlan; trip: TripPlan }
@@ -118,10 +119,9 @@ export default function TransportPage() {
       {view === "vehicles" ? <TransportSettings key={branch.id} branch={branch} />
         : view === "zones" ? <ZonesView branch={branch} />
         : !hasBus ? (
-          <div className="rounded-3xl border border-dashed p-10 text-center text-sm text-muted-foreground">
-            <BusIcon className="mx-auto mb-2 size-8" />
+          <Empty>
             {`สาขา${nm(branch.name)}ยังไม่มีรอบรถ — `}<Button variant="link" size="inline" type="button" className="text-primary underline" onClick={() => setView("vehicles")}>เพิ่มรถและรอบรถ</Button>
-          </div>
+          </Empty>
         ) : <>
           {view === "report" ? <TransportReportKpis rows={live} /> : <KpiRow>
             <Kpi icon={RouteIcon} label={range === "day" ? "เที่ยวในวัน" : "เที่ยวสัปดาห์นี้"} value={live.length} sub={`ระยะทางรวม ${kmAll} กม.${all.length > live.length ? ` · ยกเลิก / ว่าง ${all.length - live.length}` : ""}`} />
@@ -184,15 +184,15 @@ export default function TransportPage() {
                         expanded={(r) => (open.has(r.trip.id) ? <TripDetail r={r} /> : null)} />
                     )}
                     {!rows.length && !issues.length && (
-                      <p className="rounded-2xl border border-dashed p-4 text-center text-sm text-muted-foreground">
+                      <Empty>
                         ไม่มีเที่ยวรถวันนี้
                         {nextDay && <> · <Button variant="link" size="inline" type="button" className="text-primary underline" onClick={() => setDate(nextDay)}>{`ไปวันที่มีเที่ยวถัดไป ${fmtDate(nextDay, { weekday: true })}`}</Button></>}
-                      </p>
+                      </Empty>
                     )}
                   </section>
                 )
               })}
-              {!all.length && range === "week" && <p className="rounded-3xl border border-dashed p-10 text-center text-sm text-muted-foreground">สัปดาห์นี้ไม่มีเที่ยวรถตามตัวกรอง</p>}
+              {!all.length && range === "week" && <Empty>สัปดาห์นี้ไม่มีเที่ยวรถตามตัวกรอง</Empty>}
             </div>
           )}
         </>}
