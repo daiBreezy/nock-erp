@@ -240,7 +240,7 @@ function CalendarView() {
       {periodsIn(branch, range.from, range.to).map((p) => <PeriodBanner key={p.id} period={p} />)}
 
       {conflicts.length > 0 && (
-        <details data-focus="conflict" className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-900 dark:border-red-900 dark:bg-red-950/40 dark:text-red-200">
+        <details data-focus="conflict" className="rounded-lg border border-danger/30 bg-danger-soft/60 px-3 py-2 text-sm text-danger-ink">
           <summary className="cursor-pointer font-medium">พบคาบที่ชนกัน {conflicts.length} จุด — กดเพื่อดู</summary>
           <ul className="mt-1 list-disc pl-5">
             {conflicts.map((c, i) => {
@@ -305,8 +305,8 @@ function SessionCard({ s, conflictIds, now, onOpen, classes, compact, canMove, d
         "relative h-full w-full overflow-hidden rounded-md border px-1.5 py-1 pl-2.5 text-left text-xs shadow-sm transition hover:shadow-md",
         live ? c.strong : c.soft,
         w.state === "done" && "opacity-60 saturate-50",
-        w.state === "needs_attendance" && "ring-2 ring-red-500",
-        w.state === "needs_summary" && "ring-2 ring-amber-400",
+        w.state === "needs_attendance" && "ring-2 ring-danger",
+        w.state === "needs_summary" && "ring-2 ring-warning",
         s.cancelled && "line-through opacity-50 grayscale",
         conflict && "outline-2 outline-red-600 outline-dashed",
         dim?.(s) && "opacity-25",
@@ -315,7 +315,7 @@ function SessionCard({ s, conflictIds, now, onOpen, classes, compact, canMove, d
     >
       {!live && <span className={cn("absolute inset-y-0 left-0 w-1", c.bar)} />}
       <div className={cn("flex items-center gap-1 font-semibold", !live && c.text)}>
-        {conflict && <AlertTriangleIcon className="size-3 shrink-0 text-red-600" />}
+        {conflict && <AlertTriangleIcon className="size-3 shrink-0 text-danger" />}
         <span className="truncate">{name}</span>
         {/* owner 2026-10-15: the same icons as the teacher board — state top-right, room / students as icons */}
         {w.state !== "scheduled" && <WorkIcon w={w} students={s.studentIds.length} className={cn("ml-auto", live && "[&_svg]:text-white")} />}
@@ -325,7 +325,7 @@ function SessionCard({ s, conflictIds, now, onOpen, classes, compact, canMove, d
       {!compact && (
         <>
           <div className={cn("flex min-w-0 items-center gap-1.5", live ? "text-white/80" : "text-muted-foreground")}>
-            <span className={cn("truncate", t.missing && !live && "font-medium text-amber-700")}>{t.label}</span><RoomMeta roomId={s.roomId} />
+            <span className={cn("truncate", t.missing && !live && "font-medium text-warning")}>{t.label}</span><RoomMeta roomId={s.roomId} />
           </div>
         </>
       )}
@@ -413,7 +413,7 @@ function Column({ date, sessions, ctx, onSlot, maxCols = 3, onMore }: { date: Da
           <div className="absolute inset-x-0 bottom-0 bg-muted/60" style={{ top: ((toMinutes(hours.close) - DAY_START) / 60) * HOUR_PX }} />
         </>
       )}
-      {holiday && <div className="absolute inset-x-1 top-1 rounded bg-amber-100 px-1 text-2xs text-amber-900">{holiday.name}</div>}
+      {holiday && <div className="absolute inset-x-1 top-1 rounded bg-warning-soft px-1 text-2xs text-warning-ink">{holiday.name}</div>}
       {sessions.map((s) => {
         const p = pos.get(s.id)!
         const top = ((toMinutes(s.start) - DAY_START) / 60) * HOUR_PX
@@ -421,7 +421,7 @@ function Column({ date, sessions, ctx, onSlot, maxCols = 3, onMore }: { date: Da
         if (p.col >= maxCols) {
           if (p.col === maxCols)
             return (
-              <button key={s.id} onClick={(e) => { e.stopPropagation(); onMore?.() }} className="absolute right-0.5 z-10 rounded bg-red-600 px-1 text-2xs font-semibold text-white" style={{ top }}>
+              <button key={s.id} onClick={(e) => { e.stopPropagation(); onMore?.() }} className="absolute right-0.5 z-10 rounded bg-danger px-1 text-2xs font-semibold text-white" style={{ top }}>
                 +{p.cols - maxCols}
               </button>
             )
@@ -488,15 +488,15 @@ function MonthView({ from, month, sessions, onDay, today, conflictIds }: { from:
           const hol = isHoliday(d, branch.id, holidays)
           const conflict = list.some((s) => conflictIds.has(s.id))
           return (
-            <button key={d} onClick={() => onDay(d)} className={cn("flex min-h-24 flex-col justify-start border-t border-l p-1.5 text-left hover:bg-muted/60", d.slice(0, 7) !== month && "bg-muted/30 text-muted-foreground", hol && "bg-amber-50 dark:bg-amber-950/30")}>
+            <button key={d} onClick={() => onDay(d)} className={cn("flex min-h-24 flex-col justify-start border-t border-l p-1.5 text-left hover:bg-muted/60", d.slice(0, 7) !== month && "bg-muted/30 text-muted-foreground", hol && "bg-warning-soft/50")}>
               <div className="flex items-center gap-1 text-xs">
                 <span className={cn("grid size-5 place-items-center rounded-full", d === today && "bg-primary text-primary-foreground")}>{parseDate(d).getDate()}</span>
-                {conflict && <span className="size-2 rounded-full bg-red-500" title="มีคาบชนกัน" />}
-                {hol && <span className="truncate text-2xs text-amber-800">{hol.name}</span>}
+                {conflict && <span className="size-2 rounded-full bg-danger" title="มีคาบชนกัน" />}
+                {hol && <span className="truncate text-2xs text-warning-ink">{hol.name}</span>}
               </div>
               <div className="mt-1 space-y-0.5">
                 {list.slice(0, 3).map((s) => (
-                  <div key={s.id} className={cn("truncate rounded bg-sky-50 px-1 text-2xs dark:bg-sky-950/40", !s.teacherId && "bg-amber-100 dark:bg-amber-950/40")}>{s.start} {s.subject}</div>
+                  <div key={s.id} className={cn("truncate rounded bg-info-soft/50 px-1 text-2xs", !s.teacherId && "bg-warning-soft")}>{s.start} {s.subject}</div>
                 ))}
                 {list.length > 3 && <div className="text-2xs text-muted-foreground">+{list.length - 3} คาบ</div>}
               </div>

@@ -17,8 +17,8 @@ import { useStore } from "@/store/store"
 const fmtHours = (min: number) => `${Math.round((min / 60) * 10) / 10} ชม.`
 
 const LEVEL = {
-  red: { icon: OctagonAlertIcon, box: "border-red-200 bg-red-50 text-red-900 dark:border-red-900 dark:bg-red-950/40 dark:text-red-200", dot: "bg-red-500" },
-  amber: { icon: AlertTriangleIcon, box: "border-amber-200 bg-amber-50 text-amber-900 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-200", dot: "bg-amber-500" },
+  red: { icon: OctagonAlertIcon, box: "border-danger/30 bg-danger-soft/60 text-danger-ink", dot: "bg-danger" },
+  amber: { icon: AlertTriangleIcon, box: "border-warning/30 bg-warning-soft/60 text-warning-ink", dot: "bg-warning" },
   info: { icon: InfoIcon, box: "border-border bg-muted/40 text-foreground", dot: "bg-muted-foreground" },
 } as const
 
@@ -72,11 +72,11 @@ export function SummaryPanel({ open, onClose, title, sessions, conflicts, now, o
             <section className="space-y-2">
               <div className="flex items-center gap-2">
                 <h3 className="text-sm font-semibold">ต้องจัดการ</h3>
-                {red > 0 && <span className="rounded-full bg-red-100 px-2 text-xs font-medium text-red-700 dark:bg-red-950 dark:text-red-300">ด่วน {red}</span>}
-                {amber > 0 && <span className="rounded-full bg-amber-100 px-2 text-xs font-medium text-amber-800 dark:bg-amber-950 dark:text-amber-300">ควรดู {amber}</span>}
+                {red > 0 && <span className="rounded-full bg-danger-soft px-2 text-xs font-medium text-danger-ink">ด่วน {red}</span>}
+                {amber > 0 && <span className="rounded-full bg-warning-soft px-2 text-xs font-medium text-warning-ink">ควรดู {amber}</span>}
               </div>
               {sum.issues.length === 0 ? (
-                <p className="flex items-center gap-2 rounded-2xl border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-800 dark:border-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-200">
+                <p className="flex items-center gap-2 rounded-2xl border border-success/30 bg-success-soft/60 p-3 text-sm text-success-ink">
                   <CheckCircle2Icon className="size-4" /> ไม่มีปัญหาในช่วงนี้
                 </p>
               ) : (
@@ -106,7 +106,7 @@ export function SummaryPanel({ open, onClose, title, sessions, conflicts, now, o
                   <div key={g.key || "none"} className="overflow-hidden rounded-2xl border">
                     <div className="flex items-center gap-2 bg-muted/40 px-3 py-2 text-sm">
                       {color && <span className={cn("size-2.5 rounded-full", color.bar)} />}
-                      <span className={cn("font-medium", by === "teacher" && !g.key && "text-red-700")}>{by === "teacher" ? look.teacher(g.key || null).label : g.key}</span>
+                      <span className={cn("font-medium", by === "teacher" && !g.key && "text-danger")}>{by === "teacher" ? look.teacher(g.key || null).label : g.key}</span>
                       <span className="ml-auto text-xs text-muted-foreground">{g.rows.length} คลาส · {total} คาบ</span>
                     </div>
                     <table className="w-full table-fixed text-sm">
@@ -125,7 +125,7 @@ export function SummaryPanel({ open, onClose, title, sessions, conflicts, now, o
                             <td className="w-20 p-2 text-right text-xs tabular-nums">
                               <p>{r.students} คน</p>
                               <p className="text-muted-foreground">{r.sessions} คาบ</p>
-                              {r.problems > 0 && <p className={cn("font-medium", r.urgent ? "text-red-700" : "text-amber-700")} title="คาบที่ต้องจัดการ">⚠ {r.problems}</p>}
+                              {r.problems > 0 && <p className={cn("font-medium", r.urgent ? "text-danger" : "text-warning")} title="คาบที่ต้องจัดการ">⚠ {r.problems}</p>}
                             </td>
                           </tr>
                         ))}

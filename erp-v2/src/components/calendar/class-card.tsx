@@ -50,8 +50,8 @@ export function ClassCard({ s, d }: { s: Session; d: CardData }) {
         live ? c.strong : c.soft,
         w.state === "done" && "opacity-60 saturate-50",
         w.state === "cancelled" && "opacity-50 grayscale",
-        w.state === "needs_attendance" && "ring-2 ring-red-500",
-        w.state === "needs_summary" && "ring-2 ring-amber-400",
+        w.state === "needs_attendance" && "ring-2 ring-danger",
+        w.state === "needs_summary" && "ring-2 ring-warning",
         conflicts && "outline-2 outline-offset-1 outline-red-600 outline-dashed",
         d.dim(s) && "opacity-25",
         canDrag && "active:cursor-grabbing",
@@ -76,8 +76,8 @@ export function ClassCard({ s, d }: { s: Session; d: CardData }) {
 
         <div className={cn("mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs", live ? "text-white/85" : "text-muted-foreground")}>
           <span className="inline-flex items-center gap-1"><DoorOpenIcon className="size-3.5" />{L.room(s.roomId)}</span>
-          <span className={cn("inline-flex items-center gap-1", s.studentIds.length > cap && "font-semibold text-red-600")}><UsersIcon className="size-3.5" />{s.studentIds.length}/{cap}</span>
-          {teachers.length === 0 && <span className="font-medium text-amber-700">ยังไม่มีครู</span>}
+          <span className={cn("inline-flex items-center gap-1", s.studentIds.length > cap && "font-semibold text-danger")}><UsersIcon className="size-3.5" />{s.studentIds.length}/{cap}</span>
+          {teachers.length === 0 && <span className="font-medium text-warning">ยังไม่มีครู</span>}
           {teachers.map((t, i) => (
             <span key={t} className="inline-flex items-center gap-0.5">
               {i === 0 && <StarIcon className="size-3 fill-current" />}
@@ -87,7 +87,7 @@ export function ClassCard({ s, d }: { s: Session; d: CardData }) {
         </div>
 
         {conflicts && (
-          <ul className="mt-1.5 space-y-0.5 rounded-md bg-red-600 px-1.5 py-1 text-2xs font-medium text-white">
+          <ul className="mt-1.5 space-y-0.5 rounded-md bg-danger px-1.5 py-1 text-2xs font-medium text-white">
             {conflicts.map((m) => (
               <li key={m} className="flex items-center gap-1"><AlertTriangleIcon className="size-3 shrink-0" />{m}</li>
             ))}
@@ -106,11 +106,11 @@ export function ClassCard({ s, d }: { s: Session; d: CardData }) {
                 <li key={sid} className={cn("flex min-w-0 items-center gap-1.5", onLeave && "opacity-50")} title={onLeave ? `${stu?.name} · ลาพักยาว: ${onLeave.reason}` : stu?.name}>
                   <span className={cn("grid size-5 shrink-0 place-items-center rounded-full text-2xs font-semibold", avatarTone(sid))}>{initial(stu?.nickname ?? "?")}</span>
                   <span className={cn("min-w-0 flex-1 truncate text-xs", a?.status === "absent" && "line-through opacity-60")}>{stu?.nickname}</span>
-                  {a?.status === "present" && <CheckIcon className={cn("size-3 shrink-0", live ? "text-white" : "text-emerald-600")} />}
-                  {a?.status === "absent" && <XIcon className="size-3 shrink-0 text-red-600" />}
-                  {a?.status === "leave" && <span className="shrink-0 text-2xs font-semibold text-amber-600">ลา</span>}
+                  {a?.status === "present" && <CheckIcon className={cn("size-3 shrink-0", live ? "text-white" : "text-success")} />}
+                  {a?.status === "absent" && <XIcon className="size-3 shrink-0 text-danger" />}
+                  {a?.status === "leave" && <span className="shrink-0 text-2xs font-semibold text-warning">ลา</span>}
                   {onLeave && <span className="shrink-0 text-2xs font-semibold text-violet-600">ลาพักยาว</span>}
-                  {wrote && <NotebookPenIcon className={cn("size-3 shrink-0", live ? "text-white" : "text-sky-600")} />}
+                  {wrote && <NotebookPenIcon className={cn("size-3 shrink-0", live ? "text-white" : "text-info")} />}
                   <span className={cn("shrink-0 rounded px-1 text-2xs font-semibold", gradeTone(stu?.grade ?? ""))}>{stu?.grade}</span>
                 </li>
               )

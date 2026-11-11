@@ -33,6 +33,7 @@ import { unseenChange, useStore } from "@/store/store"
 const DAY_FULL = ["อาทิตย์", "จันทร์", "อังคาร", "พุธ", "พฤหัสบดี", "ศุกร์", "เสาร์"]
 /** Thai day colours (อา. แดง · จ. เหลือง · อ. ชมพู · พ. เขียว · พฤ. ส้ม · ศ. ฟ้า · ส. ม่วง) — light normally, strong for
  *  today, lighter still once the day has passed (owner 2026-09-30). Full class strings so Tailwind keeps them. */
+/* eslint-disable no-restricted-syntax -- ds-exception: Thai weekday colours (อา.แดง จ.เหลือง …), an identity palette, not status */
 const DAY_TONE: { soft: string; strong: string; faded: string }[] = [
   { soft: "bg-red-100 text-red-900", strong: "bg-red-600 text-white", faded: "bg-red-50 text-red-900/50" },
   { soft: "bg-yellow-100 text-yellow-900", strong: "bg-yellow-500 text-yellow-950", faded: "bg-yellow-50 text-yellow-900/50" },
@@ -42,10 +43,11 @@ const DAY_TONE: { soft: string; strong: string; faded: string }[] = [
   { soft: "bg-sky-100 text-sky-900", strong: "bg-sky-600 text-white", faded: "bg-sky-50 text-sky-900/50" },
   { soft: "bg-purple-100 text-purple-900", strong: "bg-purple-600 text-white", faded: "bg-purple-50 text-purple-900/50" },
 ]
+/* eslint-enable no-restricted-syntax */
 const dayTone = (date: DateStr, today: DateStr) => { const t = DAY_TONE[weekdayOf(date)]; return date === today ? t.strong : date < today ? t.faded : t.soft }
 
 const MARK_TEXT = { present: "มา", absent: "ขาด", leave: "ลา" } as const
-const MARK_TONE = { present: "text-emerald-600", absent: "text-red-600", leave: "text-sky-600" } as const
+const MARK_TONE = { present: "text-success", absent: "text-danger", leave: "text-info" } as const
 // owner 2026-10-15: the check-in result as an icon that tells the story — the word stays as its tooltip
 const MARK_ICON = { present: CircleCheckIcon, absent: CircleXIcon, leave: CalendarOffIcon } as const
 // owner 2026-10-15: the same state icons as the Week and List views (components/app/work-state.tsx)
@@ -184,7 +186,7 @@ export function WeekTeacherBoard({ from, sessions, onOpen, onSlot, canCreate, da
                           <p className="truncate text-xs text-muted-foreground" title={t?.subjects.join(" · ")}>{t?.subjects.map((x) => subjectAbbr(x, subjectNames)).join(" · ") || "—"}</p>
                         </div>
                         {away.length > 0 && (
-                          <span className="shrink-0 rounded-full bg-amber-100 px-2 py-0.5 text-2xs font-medium text-amber-900 dark:bg-amber-950 dark:text-amber-200"
+                          <span className="shrink-0 rounded-full bg-warning-soft px-2 py-0.5 text-2xs font-medium text-warning-ink"
                             title={away.map((x) => `${x.start} ${x.subject}: ${x.teacherLeave!.substituteId ? `${L.teacher(x.teacherLeave!.substituteId).label} สอนแทน` : "ยกเลิก"}`).join("\n")}>
                             {away.every((x) => !x.teacherLeave!.substituteId) ? "ลา · ยกเลิกคลาส" : "ลา · เปลี่ยนครู"}
                           </span>
@@ -250,7 +252,7 @@ export function WeekTeacherBoard({ from, sessions, onOpen, onSlot, canCreate, da
                               hasStudents ? "bg-card" : cell.length ? "bg-zinc-100 dark:bg-zinc-800/60" : "",
                               past && cell.length > 0 && "opacity-75",
                               liveHere && "shadow-[inset_3px_0_0_0_var(--color-primary)]",
-                              cell.some((x) => clashIds.has(x.id)) && "ring-2 ring-red-400 ring-inset")}>
+                              cell.some((x) => clashIds.has(x.id)) && "ring-2 ring-danger ring-inset")}>
                               {cell.map((s) => (
                                 // one wrapper per session, so the cell's dividers fall between sessions — not under the room line
                                 // owner 2026-10-15: the whole card opens the session — not just the class name (buttons inside keep their own job)
@@ -273,7 +275,7 @@ export function WeekTeacherBoard({ from, sessions, onOpen, onSlot, canCreate, da
                                   <PlusIcon className="size-4" /> สร้างคลาส
                                 </button>
                               )}
-                              {nowHere && <span className="pointer-events-none absolute inset-x-0 z-10 h-px bg-red-500" style={{ top: `${nowPct(row)}%` }} />}
+                              {nowHere && <span className="pointer-events-none absolute inset-x-0 z-10 h-px bg-danger" style={{ top: `${nowPct(row)}%` }} />}
                             </div>
                           )
                         })}
@@ -326,7 +328,7 @@ function TeacherDayDialog({ mode, teacherId, date, onClose }: { mode: "substitut
           <NativeSelect value={subId} onChange={(e) => setSubId(e.target.value)} placeholder="เลือกครูสอนแทน"
             options={[...teachers.filter(fits), ...teachers.filter((t) => !fits(t))].map((t) => ({ value: t.id, label: `${t.nickname}${t.partTime ? " · Part-time" : ""}${fits(t) ? "" : " (สอนไม่ครบทุกวิชาของวันนี้)"}` }))} />
         ) : (
-          <p className="rounded-xl bg-red-50 p-2.5 text-xs text-red-900 dark:bg-red-950/40 dark:text-red-200">ทุกคาบของ{L.teacher(teacherId).label}วันนี้จะถูกยกเลิก · วันเรียนจบของนักเรียนทุกคนเลื่อนออกไป 1 คาบ · แจ้งเตือนทีมแล้ว</p>
+          <p className="rounded-xl bg-danger-soft/60 p-2.5 text-xs text-danger-ink">ทุกคาบของ{L.teacher(teacherId).label}วันนี้จะถูกยกเลิก · วันเรียนจบของนักเรียนทุกคนเลื่อนออกไป 1 คาบ · แจ้งเตือนทีมแล้ว</p>
         )}
         <DialogFooter>
           <Button variant="ghost" onClick={onClose}>ปิด</Button>
@@ -377,7 +379,7 @@ function MoveStudentDialog({ from, studentId, to, onClose }: { from: string; stu
           {kind === "count" && <label className="flex items-center gap-2 text-sm">จำนวน <Input type="number" min={1} className="h-9 w-20" value={nText} onChange={(e) => setNText(e.target.value)} /> คาบ</label>}
         </div>
         {(subjectOff || (k && b.studentIds.length >= classCapacity(k))) && (
-          <p className="rounded-xl bg-amber-50 p-2 text-xs text-amber-900 dark:bg-amber-950/40 dark:text-amber-200">
+          <p className="rounded-xl bg-warning-soft/60 p-2 text-xs text-warning-ink">
             {subjectOff && "⚠ วิชาไม่ตรงกับคาบเดิม — เช็คแพ็กเกจของนักเรียน "}{k && b.studentIds.length >= classCapacity(k) && `⚠ คาบปลายทางมี ${b.studentIds.length} คนแล้ว (แนะนำไม่เกิน ${classCapacity(k)})`}
           </p>
         )}
@@ -410,7 +412,7 @@ function RoomLine({ sessions, classes, clash, onResolve, inCell }: { sessions: S
           <div key={s.id} className="flex items-center gap-2.5 text-xs text-muted-foreground">
             {clash.includes(s.id) && (
               <button type="button" disabled={!onResolve} onClick={() => onResolve?.(clash)} title="คาบชน · กดเพื่อแก้ปัญหา"
-                className="flex shrink-0 items-center gap-1 rounded-full bg-red-100 px-1.5 py-0.5 text-2xs font-medium text-red-700 hover:bg-red-200 dark:bg-red-950 dark:text-red-300">
+                className="flex shrink-0 items-center gap-1 rounded-full bg-danger-soft px-1.5 py-0.5 text-2xs font-medium text-danger-ink hover:opacity-80">
                 <AlertTriangleIcon className="size-3" /><span className="hidden @[15rem]:inline">แก้ปัญหา</span>
               </button>
             )}
@@ -459,7 +461,7 @@ function SessionBlock({ s, room, state, ended, dayDate, canEdit, onOpen, klass, 
       onDragLeave={() => setOver(false)}
       onDrop={(e) => { setOver(false); const raw = e.dataTransfer.getData("application/x-student"); if (raw) { const d = JSON.parse(raw) as { from: string; studentId: string }; onDropStudent(d.from, d.studentId) } }}>
       {/* someone changed this session — only its own teachers see it, until they open it */}
-      {dot && <span className="absolute top-2 right-2 size-2.5 rounded-full bg-red-500 ring-2 ring-card" title={`${s.changed!.what} · เปิดคาบเพื่อดู`} />}
+      {dot && <span className="absolute top-2 right-2 size-2.5 rounded-full bg-danger ring-2 ring-card" title={`${s.changed!.what} · เปิดคาบเพื่อดู`} />}
       <div className="flex items-center gap-2">
         <span className={cn("size-2 shrink-0 rounded-full", c.bar)} />
         <button type="button" onClick={() => onOpen(s.id)} className="min-w-0 truncate text-left text-sm font-semibold text-foreground hover:underline">
@@ -467,7 +469,7 @@ function SessionBlock({ s, room, state, ended, dayDate, canEdit, onOpen, klass, 
         </button>
         {klass?.periodId && <span className="shrink-0 rounded-full bg-violet-100 px-1.5 text-2xs font-medium text-violet-900 dark:bg-violet-950 dark:text-violet-200" title="คลาสพิเศษของช่วงนี้">{periodName(klass.periodId)}</span>}
         {s.teacherLeave?.substituteId && (
-          <span className="flex shrink-0 items-center gap-0.5 text-2xs text-amber-700" title={`สอนแทน${L.teacher(s.teacherLeave.teacherId).label} · ${s.teacherLeave.reason}`}>
+          <span className="flex shrink-0 items-center gap-0.5 text-2xs text-warning" title={`สอนแทน${L.teacher(s.teacherLeave.teacherId).label} · ${s.teacherLeave.reason}`}>
             <ArrowLeftRightIcon className="size-3" />แทน{L.teacher(s.teacherLeave.teacherId).label}
           </span>
         )}
@@ -496,7 +498,7 @@ function SessionBlock({ s, room, state, ended, dayDate, canEdit, onOpen, klass, 
         const seat = Seats.seatOf(s, sid, klass)
         const a = attendance.find((x) => x.sessionId === s.id && x.studentId === sid)
         const moved = s.rescheduledIn?.includes(sid) ? allSessions.find((x) => x.rescheduledOut?.some((m) => m.studentId === sid && m.toSessionId === s.id)) : undefined
-        const result = a ? { text: MARK_TEXT[a.status], tone: MARK_TONE[a.status], icon: MARK_ICON[a.status] } : ended && !s.trial ? { text: "ยังไม่เช็ค", tone: "text-amber-500", icon: CircleDashedIcon } : null
+        const result = a ? { text: MARK_TEXT[a.status], tone: MARK_TONE[a.status], icon: MARK_ICON[a.status] } : ended && !s.trial ? { text: "ยังไม่เช็ค", tone: "text-warning", icon: CircleDashedIcon } : null
         return (
           <StudentLine key={sid} drag={canDrag && !ended && !a ? JSON.stringify({ from: s.id, studentId: sid }) : undefined} nickname={L.student(sid)?.nickname ?? "?"} grade={L.student(sid)?.grade ?? ""} avatarKey={sid}
             notes={calendarNotesFor(s, sid, allNotes).map((n) => ({ id: n.id, text: n.text, kind: n.kind, when: noteWhen(n.at, now) }))}
@@ -596,7 +598,7 @@ function StudentLine({ drag, nickname, grade, avatarKey, notes, time, result, mo
           )}
         </div>
       ))}
-      {movedFrom && <p className={cn("pl-8 text-2xs", inverted ? "text-white/80" : "text-sky-700")}>↩ {movedFrom}</p>}
+      {movedFrom && <p className={cn("pl-8 text-2xs", inverted ? "text-white/80" : "text-info")}>↩ {movedFrom}</p>}
     </div>
   )
 }

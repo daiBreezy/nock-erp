@@ -8,7 +8,7 @@
 
 | เรื่อง | กฎ eslint | จุดทั้งหมด | เหลือ | สถานะ |
 |---|---|---:|---:|---|
-| 1. สีสถานะ → token | no-hardcoded-status-color | 694 | **572** | 🟡 กำลังทำ (ทำไป 122) |
+| 1. สีสถานะ → token | no-hardcoded-status-color | 694 | **509** | 🟡 กำลังทำ (ทำไป 185) |
 | 2. controls ดิบ → Button/Input/NativeSelect | no-raw-controls | 329 | 329 | ⬜ ยังไม่เริ่ม |
 | 3. px → text token / spacing scale | no-px-text | 44 | 44 | ⬜ ยังไม่เริ่ม |
 | 4. breakpoint `md:`/`xl:` → base/sm/lg | no-adhoc-breakpoints | 29 | 29 | ⬜ ยังไม่เริ่ม |
@@ -27,7 +27,7 @@
 |---|---|---|---:|---|
 | 6.1 | Dashboard + เข้าเรียน + แจ้งเตือน | attendance, course-progress, noti, notifications, work-boxes, stat-card | 61 | ✅ เสร็จ (86e9496) |
 | 6.2 | ใบแจ้งหนี้ / ใบเสร็จ | invoice-editor (34), invoice-sheet (12), renewal-drafts, bundle, course-picker, credit-notes, sales-tax | 61 | ✅ เสร็จ |
-| 6.3 | ปฏิทิน | week-teacher-board (25), calendar/page (12), summary-panel (10), class-card (9), move/blocks/meta | ~63 | ⬜ |
+| 6.3 | ปฏิทิน | week-teacher-board (25), calendar/page (12), summary-panel (10), class-card (9), move/blocks/meta | 63 | ✅ เสร็จ |
 | 6.4 | คาบ / เช็คชื่อ / สรุป | session-sheet (30), work-state, class-dialog, summaries, force-approve, period-banner | ~68 | ⬜ |
 | 6.5 | Reports | reports/page (66), summary-tab, charts, attention-dialog | ~82 | ⬜ |
 | 6.6 | รถรับส่ง / คนขับ | driver-app (32), labels (18), trip-row (13), zone-analysis, zone-map, trip-sheet | ~79 | ⬜ |
@@ -56,6 +56,10 @@
 หนาสุด: reports/page (21) · ที่เหลือ app-shell, inbox, form-builder, branch-basic → จบได้ใน 1 รอบ
 
 ---
+
+## ข้อยกเว้นที่ตั้งใจ (ds-exception — ไม่ใช่สถานะ)
+
+- **สีประจำวันของไทย** (`week-teacher-board.tsx` `DAY_TONE`: อา.แดง จ.เหลือง อ.ชมพู พ.เขียว พฤ.ส้ม ศ.ฟ้า ส.ม่วง) — เป็นจานสี identity ไม่ใช่ success/danger → ครอบด้วย `/* eslint-disable … ds-exception */` คงสีเดิมไว้ (รอบ 6.3)
 
 ## ค้างให้เจ้าของตัดสิน
 

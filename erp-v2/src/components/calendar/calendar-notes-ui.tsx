@@ -37,7 +37,7 @@ export function NoteEditor({ text: initialText = "", kind: initialKind, canPerma
         <PinIcon className="size-3.5" />
       </button>
       <button type="button" onClick={() => { done.current = true; (onDelete ?? (() => onDone("", kind)))() }} aria-label="ลบ Note" title={onDelete ? "ลบ Note" : "ไม่บันทึก"}
-        className="grid size-7 shrink-0 place-items-center rounded-full text-muted-foreground hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-950"><Trash2Icon className="size-3.5" /></button>
+        className="grid size-7 shrink-0 place-items-center rounded-full text-muted-foreground hover:bg-danger-soft/60 hover:text-danger"><Trash2Icon className="size-3.5" /></button>
       <button type="button" onClick={() => finish(text)} aria-label="บันทึก Note" className="grid size-7 shrink-0 place-items-center rounded-full bg-primary text-primary-foreground hover:bg-primary/90"><CheckIcon className="size-3.5" /></button>
       </div>
     </div>

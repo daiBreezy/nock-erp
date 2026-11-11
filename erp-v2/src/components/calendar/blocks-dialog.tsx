@@ -94,7 +94,7 @@ export function BlocksDialog({ branch, date, onClose, scope: initialScope = "day
             <Button size="xs" variant="outline" onClick={add}><PlusIcon /> เพิ่มช่วง</Button>
             {blocks.length > 0 && branch.hours[wd] && <Button size="xs" variant="ghost" onClick={fill}>เติมต่อกันจนปิดสาขา ({branch.hours[wd]!.close})</Button>}
           </div>
-          {error && <p className="text-xs text-red-700">{error}</p>}
+          {error && <p className="text-xs text-danger">{error}</p>}
         </div>
 
         <div className="space-y-1.5">
@@ -114,7 +114,7 @@ export function BlocksDialog({ branch, date, onClose, scope: initialScope = "day
         </div>
 
         {toShift.length > 0 && (
-          <div className="space-y-1.5 rounded-xl bg-amber-50 p-2.5 text-sm text-amber-950 dark:bg-amber-950/40 dark:text-amber-100">
+          <div className="space-y-1.5 rounded-xl bg-warning-soft/60 p-2.5 text-sm text-warning-ink">
             <p>มี <b>{toShift.length} คาบ</b> ที่อยู่ในช่วงที่เปลี่ยนเวลา — เลื่อนตามช่วงใหม่ไหม?</p>
             <div className="grid gap-1.5 sm:grid-cols-2">
               <Choice on={shift} onClick={() => setShift(true)} title="เลื่อนตามไปทั้งหมด" detail="คาบที่จะชนกับคาบอื่นอยู่เวลาเดิม" />

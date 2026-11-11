@@ -76,9 +76,9 @@ export function MoveDialog({ sessionId, target, onClose }: { sessionId: string; 
           )}
         </div>
 
-        {clash.length > 0 && <p className="rounded-md bg-red-50 p-2 text-sm text-red-800">ย้ายไม่ได้ — จะเกิดปัญหาใหม่: {[...new Set(clash.map((c) => c.message))].join(" · ")}</p>}
+        {clash.length > 0 && <p className="rounded-md bg-danger-soft/60 p-2 text-sm text-danger-ink">ย้ายไม่ได้ — จะเกิดปัญหาใหม่: {[...new Set(clash.map((c) => c.message))].join(" · ")}</p>}
         {clash.length === 0 && remaining.length > 0 && (
-          <p className="rounded-md bg-amber-50 p-2 text-sm text-amber-900">ย้ายได้ แต่ยังมีปัญหาเดิมที่ต้องแก้ต่อ: {[...new Set(remaining.map((c) => c.message))].join(" · ")}</p>
+          <p className="rounded-md bg-warning-soft/60 p-2 text-sm text-warning-ink">ย้ายได้ แต่ยังมีปัญหาเดิมที่ต้องแก้ต่อ: {[...new Set(remaining.map((c) => c.message))].join(" · ")}</p>
         )}
 
         <DialogFooter>
