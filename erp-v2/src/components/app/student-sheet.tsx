@@ -626,7 +626,7 @@ function TimelineSeg({ stu }: { stu: Student }) {
       <div className="flex flex-wrap items-center gap-2">
         <div className="flex flex-wrap gap-1">
           {(["", "profile", "class", "attendance", "billing", "note"] as const).map((c) => (
-            <Button variant="ghost" size="inline" key={c || "all"} onClick={() => setCat(c)} className={cn("rounded-full border px-3 py-1 text-xs", cat === c ? "border-primary bg-primary/10 text-primary" : "hover:bg-muted")}>{c ? CAT_LABEL[c] : "ทั้งหมด"}</Button>
+            <Button variant="chip" size="inline" key={c || "all"} aria-pressed={cat === c} onClick={() => setCat(c)} className="px-3 py-1 text-xs">{c ? CAT_LABEL[c] : "ทั้งหมด"}</Button>
           ))}
         </div>
         <SearchBox value={q} onChange={setQ} placeholder="ค้นหาใน Log" />

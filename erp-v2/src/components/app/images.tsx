@@ -28,7 +28,7 @@ export function ImageAttach({ value, onChange, className }: { value: string[]; o
           <span key={i} className="group relative">
             {/* eslint-disable-next-line @next/next/no-img-element -- data URL */}
             <img src={src} alt={`รูป ${i + 1}`} className="size-20 rounded-xl object-cover ring-1 ring-foreground/10" />
-            <Button variant="ghost" size="inline" type="button" aria-label="เอารูปออก" onClick={() => onChange(value.filter((_, j) => j !== i))} className="absolute -top-1.5 -right-1.5 grid size-5 place-items-center rounded-full bg-foreground text-background shadow"><XIcon className="size-3" /></Button>
+            <Button variant="ghost" size="icon-2xs" type="button" aria-label="เอารูปออก" onClick={() => onChange(value.filter((_, j) => j !== i))} className="absolute -top-1.5 -right-1.5 rounded-full bg-foreground text-background shadow"><XIcon className="size-3" /></Button>
           </span>
         ))}
         {value.length < MAX && (

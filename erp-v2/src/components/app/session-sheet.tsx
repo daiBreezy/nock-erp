@@ -819,8 +819,8 @@ export function RescheduleDialog({ from, studentId, onClose, initialMode = "once
           <div className="shrink-0 space-y-2 rounded-2xl bg-muted/50 p-3">
             <p className="text-sm font-medium">ย้ายกี่คาบ?</p>
             <div className="flex flex-wrap items-center gap-2">
-              <Button variant="ghost" size="inline" type="button" onClick={() => setMoveAll(true)} className={cn("h-9 rounded-full px-3.5 text-sm ring-1 ring-foreground/10", moveAll ? "bg-primary/10 font-medium text-primary ring-primary/40" : "hover:bg-muted")}>{`ทุกคาบที่เหลือ (${oldRemaining})`}</Button>
-              <Button variant="ghost" size="inline" type="button" onClick={() => setMoveAll(false)} className={cn("h-9 rounded-full px-3.5 text-sm ring-1 ring-foreground/10", !moveAll ? "bg-primary/10 font-medium text-primary ring-primary/40" : "hover:bg-muted")}>เลือกจำนวน</Button>
+              <Button variant="chip" size="inline" type="button" aria-pressed={moveAll} onClick={() => setMoveAll(true)} className="h-9 px-3.5 text-sm">{`ทุกคาบที่เหลือ (${oldRemaining})`}</Button>
+              <Button variant="chip" size="inline" type="button" aria-pressed={!moveAll} onClick={() => setMoveAll(false)} className="h-9 px-3.5 text-sm">เลือกจำนวน</Button>
               {!moveAll && <Input type="number" min={1} max={oldRemaining - 1} value={moveN} onChange={(e) => setMoveN(Math.max(1, Math.min(oldRemaining - 1, Number(e.target.value) || 1)))} className="h-9 w-20 text-center" aria-label="จำนวนคาบที่จะย้าย" />}
               {!moveAll && <span className="text-sm text-muted-foreground">/ {oldRemaining} คาบ</span>}
             </div>

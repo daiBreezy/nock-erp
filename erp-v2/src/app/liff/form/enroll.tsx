@@ -114,7 +114,7 @@ export function EnrollFields({ t, lang, grade, subjects, subjectLabel, courses, 
             {v.bus && (
               <div className="flex flex-wrap gap-1.5 pl-6">
                 {(["both", "pickup", "dropoff"] as const).map((k) => (
-                  <Button variant="ghost" size="inline" key={k} type="button" onClick={() => onChange({ busLeg: k })} className={cn("rounded-full border px-3 py-1.5 text-xs", (v.busLeg ?? "both") === k ? "border-primary bg-primary/10 font-medium text-primary" : "hover:bg-muted")}>{t.busLegs[k]}</Button>
+                  <Button variant="chip" size="inline" key={k} type="button" aria-pressed={(v.busLeg ?? "both") === k} onClick={() => onChange({ busLeg: k })} className="px-3 py-1.5 text-xs">{t.busLegs[k]}</Button>
                 ))}
               </div>
             )}

@@ -40,7 +40,7 @@ export function NoteEditor({ text: initialText = "", kind: initialKind, canPerma
       </Button>
       <Button variant="ghost" size="inline" type="button" onClick={() => { done.current = true; (onDelete ?? (() => onDone("", kind)))() }} aria-label="ลบ Note" title={onDelete ? "ลบ Note" : "ไม่บันทึก"}
         className="grid size-7 shrink-0 place-items-center rounded-full text-muted-foreground hover:bg-danger-soft/60 hover:text-danger"><Trash2Icon className="size-3.5" /></Button>
-      <Button variant="ghost" size="inline" type="button" onClick={() => finish(text)} aria-label="บันทึก Note" className="grid size-7 shrink-0 place-items-center rounded-full bg-primary text-primary-foreground hover:bg-primary/90"><CheckIcon className="size-3.5" /></Button>
+      <Button variant="ghost" size="icon-md" type="button" onClick={() => finish(text)} aria-label="บันทึก Note" className="shrink-0 rounded-full bg-primary text-primary-foreground hover:bg-primary/90"><CheckIcon className="size-3.5" /></Button>
       </div>
     </div>
   )
@@ -67,7 +67,7 @@ export function CalendarNotes({ s, studentId, canEdit }: { s: Session; studentId
           <Button variant="row" size="inline" type="button" disabled={!canEdit} onClick={() => setEditing(n.id)} title={`Note ${NOTE_KIND_LABEL[n.kind]} · ${n.text}`} className={cn("min-w-0 truncate text-left", canEdit && "hover:underline")}>{n.text}</Button>
           {canEdit && (
             <DropdownMenu>
-              <DropdownMenuTrigger render={<Button variant="ghost" size="inline" type="button" aria-label="จัดการ Note" className="grid size-5 shrink-0 place-items-center rounded-full text-muted-foreground opacity-0 group-hover/note:opacity-100 hover:bg-muted focus-visible:opacity-100 data-[popup-open]:opacity-100" />}>
+              <DropdownMenuTrigger render={<Button variant="ghost" size="icon-2xs" type="button" aria-label="จัดการ Note" className="shrink-0 rounded-full text-muted-foreground opacity-0 group-hover/note:opacity-100 hover:bg-muted focus-visible:opacity-100 data-[popup-open]:opacity-100" />}>
                 <EllipsisIcon className="size-3.5" />
               </DropdownMenuTrigger>
               <DropdownMenuContent align="start" className="w-44">

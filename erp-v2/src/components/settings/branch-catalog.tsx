@@ -1,5 +1,6 @@
 "use client"
 
+import { Segmented } from "@/components/app/page-layout"
 import Link from "next/link"
 import { useState } from "react"
 import { CheckIcon, PlusIcon, XIcon } from "lucide-react"
@@ -7,7 +8,6 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { defaultLeaveQuota, durationsOf, GRADE_GROUPS, LEAVE_EVERY_SESSIONS, HOURS_PER_SESSION, setLeaveQuota, PRICE_UNIT_LABEL, brandPriceUnits, priceOf, setPrice, sortGrades } from "@/domain/rules/settings"
 import type { Branch, PriceUnit } from "@/domain/types"
-import { cn } from "@/lib/utils"
 import { useStore } from "@/store/store"
 import { SaveRow, SettingsCard, useBranchDraft } from "./common"
 import { durationText, tx } from "@/lib/i18n"
@@ -15,7 +15,7 @@ import { Empty } from "@/components/app/empty"
 
 function Chip({ on, children, onClick }: { on: boolean; children: React.ReactNode; onClick: () => void }) {
   return (
-    <Button variant="ghost" size="inline" type="button" onClick={onClick} className={cn("flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-sm transition-colors", on ? "border-primary bg-primary/10 text-primary" : "hover:bg-muted")}>
+    <Button variant="chip" size="inline" type="button" aria-pressed={on} onClick={onClick} className="flex items-center gap-1.5 px-3 py-1.5 text-sm">
       {on && <CheckIcon className="size-3.5" />}{children}
     </Button>
   )
@@ -90,11 +90,7 @@ export function PackagesTab({ branch }: { branch: Branch }) {
 
   return (
     <SettingsCard title={tx("แพ็กเกจ & ตารางราคา (Packages)")} hint={tx("ราคาแนะนำต่อ วิชา × ระดับชั้น × ระยะเวลา — ใช้เติมราคาอัตโนมัติตอนสร้างคอร์ส (แก้ราคาจริงที่คอร์สได้)")}>
-      <div className="mb-3 inline-flex rounded-full bg-muted p-1">
-        {brandPriceUnits(b.brand).map((u) => (
-          <Button variant="ghost" size="inline" key={u} onClick={() => setUnit(u)} className={cn("rounded-full px-4 py-1 text-sm", unit === u ? "bg-background font-medium shadow-sm" : "text-muted-foreground")}>{tx(PRICE_UNIT_LABEL[u])}</Button>
-        ))}
-      </div>
+      <Segmented className="mb-3" value={unit} onChange={setUnit} options={brandPriceUnits(b.brand).map((u) => ({ value: u, label: tx(PRICE_UNIT_LABEL[u]) }))} />
 
       {unit !== "month" && (
         <div className="mb-4 flex flex-wrap items-center gap-2">

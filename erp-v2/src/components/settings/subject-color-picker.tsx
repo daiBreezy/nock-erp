@@ -13,7 +13,7 @@ export function SubjectColorPicker({ value, onChange, label }: { value: string; 
   const cur = SUBJECT_PALETTE[value] ?? SUBJECT_PALETTE.slate
   return (
     <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger render={<Button variant="ghost" size="inline" type="button" aria-label={`สีของ ${label}`} title="เปลี่ยนสี" className={cn("grid size-8 shrink-0 place-items-center rounded-full ring-1 ring-foreground/10 hover:ring-2 hover:ring-ring/40", cur.chip)} />}>
+      <PopoverTrigger render={<Button variant="ghost" size="icon-sm" type="button" aria-label={`สีของ ${label}`} title="เปลี่ยนสี" className={cn("shrink-0 rounded-full ring-1 ring-foreground/10 hover:ring-2 hover:ring-ring/40", cur.chip)} />}>
         <span className={cn("size-3.5 rounded-full", cur.swatch)} />
       </PopoverTrigger>
       <PopoverContent align="start" className="w-auto p-2">

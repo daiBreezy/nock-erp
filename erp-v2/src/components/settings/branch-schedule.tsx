@@ -1,5 +1,6 @@
 "use client"
 
+import { Segmented } from "@/components/app/page-layout"
 import { useState } from "react"
 import { ChevronDownIcon, ChevronsDownIcon, ChevronsUpIcon, ChevronUpIcon, PencilIcon, PlusIcon, TrashIcon } from "lucide-react"
 import { Pill } from "@/components/app/badges"
@@ -104,11 +105,7 @@ export function SchedulingTab({ branch, holidaysOnly = false }: { branch: Branch
     : [{ id: "operating", label: tx("เวลาปกติ") }, { id: "special", label: tx("ช่วงเวลาพิเศษ") }, { id: "holidays", label: tx("วันหยุด") }]
   return (
     <div className="space-y-4">
-      <div className="inline-flex rounded-full bg-muted p-1">
-        {tabs.map((t) => (
-          <Button variant="ghost" size="inline" key={t.id} onClick={() => setSub(t.id)} className={cn("rounded-full px-4 py-1 text-sm", sub === t.id ? "bg-background font-medium shadow-sm" : "text-muted-foreground")}>{t.label}</Button>
-        ))}
-      </div>
+      <Segmented value={sub} onChange={setSub} options={tabs.map((t) => ({ value: t.id, label: t.label }))} />
       {sub === "operating" && <OperatingHours branch={branch} />}
       {sub === "operating" && <ClassBlocksCard branch={branch} />}
       {sub === "special" && <SpecialPeriodsCard branch={branch} />}

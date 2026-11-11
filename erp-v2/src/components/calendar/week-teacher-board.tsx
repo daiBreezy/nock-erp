@@ -587,7 +587,7 @@ function StudentLine({ drag, nickname, grade, avatarKey, notes, time, result, mo
           </Button>
           {canEdit && (
             <DropdownMenu>
-              <DropdownMenuTrigger render={<Button variant="ghost" size="inline" type="button" aria-label="จัดการ Note" className={cn("ml-auto grid size-5 shrink-0 place-items-center rounded-full opacity-0 group-hover/note:opacity-100 hover:bg-muted focus-visible:opacity-100 data-[popup-open]:opacity-100", muted)} />}>
+              <DropdownMenuTrigger render={<Button variant="ghost" size="icon-2xs" type="button" aria-label="จัดการ Note" className={cn("ml-auto shrink-0 rounded-full opacity-0 group-hover/note:opacity-100 hover:bg-muted focus-visible:opacity-100 data-[popup-open]:opacity-100", muted)} />}>
                 <EllipsisIcon className="size-3.5" />
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-44">

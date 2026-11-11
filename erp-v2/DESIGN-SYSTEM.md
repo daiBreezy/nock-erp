@@ -126,7 +126,8 @@ md→sm · xl→lg · max-md→max-sm · ⚠ reports/page ที่ xl→lg อ�
 ## รอบ 15 — ปุ่มไอคอนล้วน → `size="icon-*"` (2026-11-11) — **ทำบางส่วน**
 
 - แปลง 8 จุดที่ขนาดตรงกับ token ปุ่ม: ย้อนกลับ driver-app (`icon-lg`) · ตอบตรง/ไม่ตรง/เพิ่มเติม ใน nock-widget (`icon-xs`) · จัดการคอลัมน์ data-grid · เลื่อนรูป images ×2 · ปุ่มสนใจใน liff/catalog (`icon`) — ตัด `grid size-N place-items-center` ออกจาก className
-- **ยังเหลือ** (ขนาดไม่มี token เช่น size-5/7 หรือเป็นปุ่มทึบ): ปุ่มปิด/ลบ X ขนาดเล็กราว 15 จุด · ถ้าจะรวมต้องเพิ่ม size ใหม่ (เช่น `icon-2xs` 20px, `icon-md` 28px) ให้เจ้าของตัดสินก่อน
+- **รอบ 15b (ต่อทันที):** เพิ่ม size `icon-2xs` (20px) และ `icon-md` (28px) ใน `Button` แล้วแปลงปุ่มไอคอนล้วน size-5/7/8 อีก 8 จุด (โน้ตในปฏิทิน ×2 · ลบรูป · ปิด focus-banner · ย้อนกลับ parent-app ×2 · สีวิชา) · กลุ่มสลับแท็บแบบแคปซูลที่เขียนเอง 6 จุด (branch-catalog ราคา · branch-schedule · calendar summary · inbox calendar-panel · reports ×2) → `Segmented` · ชิปตัวเลือก 5 จุด (enroll · branch-catalog · student-sheet · session-sheet ×2) → `Button variant="chip"` + `aria-pressed`
+- **ตั้งใจคงไว้:** ปุ่ม X เล็กในชิป (`p-0.5` ใน class-dialog/student-search) · การ์ดเลือกได้ (send-form-dialog, session-sheet ฯลฯ) · แท็บขีดเส้นใต้ · ปุ่มสีทึบเฉพาะกิจ (ปุ่มบันทึก Note, สวอตช์สี, อวาตาร์)
 
 ## รอบ 14c — `DataTable` แสดงว่างด้วย `Empty` (2026-11-11)
 

@@ -84,7 +84,7 @@ export function FocusBanner() {
         {text && <span className="text-muted-foreground"> · {tx(text.hint)}</span>}
         {found !== null && found > 0 && <span className="text-muted-foreground"> · {tx("ไฮไลต์ไว้ {0} จุด", [found])}</span>}
       </span>
-      <Button variant="ghost" size="inline" type="button" onClick={close} aria-label={tx("ปิด")} className="grid size-7 place-items-center rounded-lg text-muted-foreground hover:bg-primary/10 hover:text-foreground"><XIcon className="size-4" /></Button>
+      <Button variant="ghost" size="icon-md" type="button" onClick={close} aria-label={tx("ปิด")} className="rounded-lg text-muted-foreground hover:bg-primary/10 hover:text-foreground"><XIcon className="size-4" /></Button>
     </div>
   )
 }

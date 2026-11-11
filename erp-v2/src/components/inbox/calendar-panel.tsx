@@ -1,5 +1,6 @@
 "use client"
 
+import { Segmented } from "@/components/app/page-layout"
 import { useMemo, useState } from "react"
 import { ChevronLeftIcon, ChevronRightIcon, CornerDownLeftIcon, XIcon } from "lucide-react"
 import { Button } from "@/components/ui/button"
@@ -47,11 +48,7 @@ export function CalendarPanel({ branchId, subject: initialSubject, onInsert, onC
   return (
     <aside className="absolute inset-y-0 right-0 z-20 flex w-[25rem] max-w-full shrink-0 flex-col border-l bg-background shadow-xl lg:static lg:shadow-none">
       <div className="flex items-center gap-2 border-b px-3 py-2.5">
-        <div className="flex rounded-full bg-muted p-0.5 text-sm">
-          {([["free", "หาเวลาว่าง"], ["week", "ตารางสัปดาห์"]] as const).map(([v, label]) => (
-            <Button variant="ghost" size="inline" key={v} type="button" onClick={() => setTab(v)} className={cn("rounded-full px-3 py-1", tab === v ? "bg-background font-medium shadow-sm" : "text-muted-foreground")}>{label}</Button>
-          ))}
-        </div>
+        <Segmented value={tab} onChange={setTab} options={[{ value: "free", label: "หาเวลาว่าง" }, { value: "week", label: "ตารางสัปดาห์" }]} />
         <Button size="icon-sm" variant="ghost" className="ml-auto" aria-label="ปิด" onClick={onClose}><XIcon /></Button>
       </div>
 

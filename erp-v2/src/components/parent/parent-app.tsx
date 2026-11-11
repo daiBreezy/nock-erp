@@ -211,14 +211,14 @@ export function ParentApp({ view, lang: initialLang, today, framed, openCourseSu
         <div ref={bigRef} className="px-4 pb-2.5 pt-4">
           {summaryKid ? (
             <div className="flex items-center gap-1.5">
-              <Button variant="ghost" size="inline" type="button" aria-label={t.back} onClick={() => setCsId(null)} className="-ml-1.5 grid size-7 shrink-0 place-items-center rounded-full text-muted-foreground hover:bg-muted"><ArrowLeftIcon className="size-5" /></Button>
+              <Button variant="ghost" size="icon-md" type="button" aria-label={t.back} onClick={() => setCsId(null)} className="-ml-1.5 shrink-0 rounded-full text-muted-foreground hover:bg-muted"><ArrowLeftIcon className="size-5" /></Button>
               {/* the child's name, then the family — small and light (owner 2026-11-09) */}
               <p className="min-w-0 flex-1 truncate"><span className="text-lg font-semibold">{nick(summaryKid)}</span><span className="ml-2 text-xs text-muted-foreground/70">{family}</span></p>
               <Pill tone="blue">{summaryKid.grade}</Pill>
             </div>
           ) : catalogOpen ? (
             <div className="flex items-center gap-1.5">
-              <Button variant="ghost" size="inline" type="button" aria-label={t.back} onClick={catalogOpen.back} className="-ml-1.5 grid size-7 shrink-0 place-items-center rounded-full text-muted-foreground hover:bg-muted"><ArrowLeftIcon className="size-5" /></Button>
+              <Button variant="ghost" size="icon-md" type="button" aria-label={t.back} onClick={catalogOpen.back} className="-ml-1.5 shrink-0 rounded-full text-muted-foreground hover:bg-muted"><ArrowLeftIcon className="size-5" /></Button>
               <p className="min-w-0 flex-1 truncate text-lg font-semibold">{family}</p>
             </div>
           ) : <p className="truncate text-lg font-semibold">{family}</p>}

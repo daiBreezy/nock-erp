@@ -2,6 +2,7 @@
 
 // Calendar › Summary (owner 2026-10-09): side panel with the whole picture of the range on screen — numbers, every
 // problem the admin has to handle (click → open the session), and the classes grouped by teacher or by subject.
+import { Segmented } from "@/components/app/page-layout"
 import { useMemo, useState } from "react"
 import { AlertTriangleIcon, CheckCircle2Icon, ChevronDownIcon, InfoIcon, OctagonAlertIcon } from "lucide-react"
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet"
@@ -91,13 +92,7 @@ export function SummaryPanel({ open, onClose, title, sessions, conflicts, now, o
             <section className="space-y-2">
               <div className="flex items-center gap-2">
                 <h3 className="text-sm font-semibold">คลาสทั้งหมด</h3>
-                <div className="ml-auto inline-flex rounded-full bg-muted p-1">
-                  {(["teacher", "subject"] as const).map((x) => (
-                    <Button variant="ghost" size="inline" key={x} onClick={() => setBy(x)} className={cn("rounded-full px-3 py-0.5 text-xs", by === x ? "bg-background font-medium shadow-sm" : "text-muted-foreground")}>
-                      {x === "teacher" ? "ตามครู" : "ตามวิชา"}
-                    </Button>
-                  ))}
-                </div>
+                <Segmented className="ml-auto" value={by} onChange={setBy} options={[{ value: "teacher", label: "ตามครู" }, { value: "subject", label: "ตามวิชา" }]} />
               </div>
               {groups.length === 0 && <Empty>ไม่มีคาบในช่วงนี้</Empty>}
               {groups.map((g) => {

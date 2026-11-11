@@ -850,7 +850,7 @@ function SchoolsPanel({ d }: { d: ReportData }) {
   const pct = (n: number) => (known ? Math.round((n / known) * 100) : 0)
   return (
     <Panel title={tx("โรงเรียนของนักเรียน")} hint={tx("นักเรียน Active ตอนนี้ ตามสาขาที่เลือก · ไม่ขึ้นกับช่วงเวลา · แก้ชื่อโรงเรียนได้ที่ข้อมูลนักเรียน")}
-      action={views.length > 1 ? <span className="inline-flex rounded-full bg-muted p-0.5 text-xs">{views.map((v) => <Button variant="ghost" size="inline" key={v.key} type="button" onClick={() => setView(v.key)} className={cn("rounded-full px-3 py-1", use === v.key ? "bg-background font-medium shadow-sm" : "text-muted-foreground")}>{tx(v.label)}</Button>)}</span> : undefined}>
+      action={views.length > 1 ? <Segmented value={use} onChange={setView} options={views.map((v) => ({ value: v.key, label: tx(v.label) }))} /> : undefined}>
       <div className="grid gap-6 lg:grid-cols-[14rem_1fr] lg:gap-0 lg:divide-x">
         <div className="grid grid-cols-3 gap-4 lg:grid-cols-1 lg:content-center lg:pr-6">
           <div><p className="text-xs text-muted-foreground">{tx("จำนวนโรงเรียน")}</p><p className="text-2xl font-semibold tabular-nums">{fmtNum(x.schools)}</p></div>
@@ -1248,7 +1248,7 @@ function CohortPanel({ d, compare }: { d: ReportData; compare: boolean }) {
     <Panel title="Cohort Retention" hint={drill ? tx("{0} · แยกตามเดือนที่สมัคร", [branchName(drill)]) : compare ? tx("% นักเรียนที่ยังเรียนอยู่ N เดือนหลังสมัคร · สาขา × ปีที่สมัคร · กดสาขาเพื่อดูรายเดือน") : tx("% นักเรียนที่ยังเรียนอยู่ N เดือนหลังสมัคร · แยกตามเดือนที่สมัคร")}
       action={<span className="flex items-center gap-2">
         {drill && <Button variant="link" size="inline" type="button" className="text-xs text-primary" onClick={() => setDrill(null)}>{tx("‹ ทุกสาขา")}</Button>}
-        <span className="inline-flex rounded-full bg-muted p-0.5 text-xs">{([12, 24] as const).map((n) => <Button variant="ghost" size="inline" key={n} type="button" onClick={() => setSpan(n)} className={cn("rounded-full px-3 py-0.5", span === n ? "bg-background font-medium shadow-sm" : "text-muted-foreground")}>{n}M</Button>)}</span>
+        <Segmented value={String(span) as "12" | "24"} onChange={(v) => setSpan(Number(v) as 12 | 24)} options={[{ value: "12", label: "12M" }, { value: "24", label: "24M" }]} />
       </span>}>
       {rows.length ? (
         <div className="overflow-x-auto">
