@@ -80,6 +80,40 @@ md→sm · xl→lg · max-md→max-sm · ⚠ reports/page ที่ xl→lg อ�
 - **สีแบรนด์ที่วันหยุดปิด** (`holiday-planner.tsx` `SCOPE_TEXT/BG/BAR` + legend = tag `holidayBrand` na ฟ้า · li ม่วง · both ชมพู) → ds-exception (รอบ 6.9)
 - **AI_TONE ทั้งไฟล์** (`components/app/ai.tsx`) — AI = ฟ้า ตามกฎเจ้าของ เป็น identity palette → ds-exception ระดับไฟล์ (รอบ 6.9)
 
+## รอบ 10 — ผลสำรวจ (2026-11-11) — ยังไม่แก้โค้ด
+
+**หลักการ (เจ้าของยืนยัน):** ทุกหน้าต้องเรียก component กลางจาก DS เพื่อให้แก้ที่ DS ที่เดียวแล้วทั้งแอปเปลี่ยนตาม — ไม่เขียนสี/ปุ่ม/ระยะห่างเองในหน้า
+
+### B. สีนอกชุดสถานะ — ~295 จุด
+
+| กลุ่ม | จุด | ไฟล์หลัก | แนวทาง |
+|---|---:|---|---|
+| **มีที่รวมศูนย์แล้ว (ปล่อย)** | ~100 | `subject-color.ts` (71) · `tags.ts` (28) | เป็นจานสี identity ที่ตั้งใจ |
+| **identity ที่ตั้ง `ds-exception` แล้ว** | ~65 | `week-teacher-board` DAY_TONE (33) · `holiday-planner` (12) · `transport/labels` VAN_TONES (9) · `billing/page` BUNDLE_TONES · `zone-map` | คงไว้ — รอบ 16 ทบทวนว่าย้ายเข้า `tags.ts` ได้ไหม |
+| **กระดาษพิมพ์/กรอบเครื่อง (ปล่อย)** | ~25 | `print-document` · `print/bundle` · `preview-layout` (กรอบมือถือ) · `doc-thumbs` | พื้นขาว/เทากลาง ไม่ผูกธีม |
+| **หลุดมาเอง ต้องแปลงเป็น token** | ~100 | ดูหัวข้อถัดไป | รอบ 12 |
+
+**ข้อสังเกตสำคัญ:** `violet` ถูกใช้เป็น "สีที่ห้าไม่เป็นทางการ" ในความหมายเดียวกันหลายที่ — **เครดิต/ส่วนลด** (`invoice-editor` · `invoice-sheet` · `credit-notes`) · **โน้ต/ประเมิน** (`noti` note · `assessment-note` · `blocks-dialog`) · **คาบพิเศษ/สอบวัดระดับ** (`session-meta` test · `session-sheet` partial · `class-card` ลาพักยาว) · **รอดำเนินการ/รอยืนยัน** (`summaries` draft · `notifications` pay · `reports` part-time · `kpi`) · **ตัวเลือกที่เลือกในตัวเลือกลูกค้า** (`customer-picker` — ควรเป็น `primary` ตามกฎ "ตัวเลือกที่เลือก")
+→ เสนอ: เพิ่ม semantic token `special-soft/-ink` (ม่วง) ใน `globals.css` แล้วย้ายความหมายพวกนี้เข้า token เดียว
+
+อีกกลุ่ม: `work-state` · `badges` (super_admin) ใช้ `slate` = สถานะกลาง/ยกเลิก → ควรเป็น `muted`/token เป็นกลาง · `dev-tickets-view` ฟ้า/teal = ฝั่ง Dev/ฝั่งเรา · `send-form-dialog` ม่วง = "คลาสจริง" vs slot ว่าง (identity)
+
+### E. หน้าที่ใช้ layout กลาง (นับคร่าวๆ จากโค้ด)
+
+| กลุ่ม | หน้า | สถานะ |
+|---|---|---|
+| ใช้ `ListPage` | students · classes · courses · families · staff · crm | ✅ |
+| ใช้ `Page`/`PageHeader`/`KpiRow` | attendance · sessions · summaries · transport · reports · nock · notifications · dashboard · settings | ✅ ต้องไล่ดู KPI/toolbar/empty ว่าตรงมาตรฐาน |
+| ใช้ `PageHeader` แต่ไม่ใช้ `Page` | billing · calendar | 🟡 เช็คว่าตรงมาตรฐานไหม |
+| layout เฉพาะ (ตั้งใจ) | inbox (แชท) · calendar (บอร์ด) · `/liff/*` (ฟอร์มผู้ปกครอง ใช้ "มาตรฐานฟอร์ม" ใน CLAUDE.md) · print | ตรวจกับมาตรฐานของตัวเอง |
+| ว่าง (Coming soon) | logs · tasks | ไม่ต้องทำ |
+| `Empty` ใช้จริง | reports (18) · settings/forms (2) — หน้าอื่น 0 | 🟡 หลายหน้าแสดงว่างด้วยข้อความเอง |
+
+### ต้องให้เจ้าของตัดสิน (รอบ 12)
+1. **เพิ่ม token `special` (ม่วง) สำหรับ เครดิต/โน้ต/คาบพิเศษ/รอดำเนินการ ไหม** หรืออยากแยกเป็นหลายสี
+2. **สีบทบาทพนักงาน** (`tags.ts` `role`): admin amber · driver lime · director rose ใกล้สีระบบ — เลือกสีใหม่
+3. **`customer-picker` เลือกแล้วเป็นม่วง** → เปลี่ยนเป็น primary (ตามกฎ "ตัวเลือกที่เลือก") โอเคไหม
+
 ## เจ้าของตัดสินแล้ว (2026-11-11) — ปิดข้อ F ทั้ง 3
 
 - **F1 สีวันหยุดบริษัท = เหลือง (`warning`) ทั้งแอป** — `start-date-picker` เปลี่ยนจากแดงเป็นเหลือง ตรงกับปฏิทิน
