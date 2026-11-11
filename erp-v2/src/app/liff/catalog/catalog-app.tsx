@@ -118,7 +118,7 @@ export function CatalogApp({ token, preview, embedded, onDetail }: { token: stri
             <p className="text-xs text-muted-foreground">{meta(open)}</p>
             <p className="text-sm font-medium">{price(open)}</p>
           </div>
-          {note && <p className="rounded-2xl bg-amber-50 px-3 py-2 text-sm text-amber-900 dark:bg-amber-950/40 dark:text-amber-200">{note}</p>}
+          {note && <p className="rounded-2xl bg-warning-soft/60 px-3 py-2 text-sm text-warning-ink">{note}</p>}
           <div className="divide-y overflow-hidden rounded-2xl border bg-card">
             {(() => {
               const classes = open.classIds.map(classOf).filter((k): k is EnrollClassOffer => !!k).filter((k) => !grade || k.grades.includes(grade))
@@ -129,10 +129,10 @@ export function CatalogApp({ token, preview, embedded, onDetail }: { token: stri
                     <div className="flex items-start gap-2 text-sm">
                       <CalendarCheckIcon className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
                       <span className="min-w-0 flex-1"><span className="block font-medium">{when(k)}</span><span className="block text-xs break-words text-muted-foreground">{k.name}{k.teacher && ` · ${tx("ครู")}${lang === "th" ? "" : " "}${k.teacher.replace(/^ครู/, "")}`}</span></span>
-                      <span className={cn("shrink-0 rounded-full px-2 py-0.5 text-xs", full ? "bg-muted text-muted-foreground" : "bg-emerald-50 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-200")}>{full ? tx("เต็ม") : tx("เหลือ {0} ที่", [k.seatsLeft])}</span>
+                      <span className={cn("shrink-0 rounded-full px-2 py-0.5 text-xs", full ? "bg-muted text-muted-foreground" : "bg-success-soft text-success-ink")}>{full ? tx("เต็ม") : tx("เหลือ {0} ที่", [k.seatsLeft])}</span>
                     </div>
                     {done ? (
-                      <p className="flex items-center gap-1.5 text-xs text-emerald-700 dark:text-emerald-300"><CheckIcon className="size-3.5" />{done === "trial" ? tx("ส่งคำขอทดลองเรียนแล้ว — แอดมินจะติดต่อกลับในแชท") : tx("ส่งถึงแอดมินแล้ว — แอดมินจะติดต่อกลับในแชท")}</p>
+                      <p className="flex items-center gap-1.5 text-xs text-success"><CheckIcon className="size-3.5" />{done === "trial" ? tx("ส่งคำขอทดลองเรียนแล้ว — แอดมินจะติดต่อกลับในแชท") : tx("ส่งถึงแอดมินแล้ว — แอดมินจะติดต่อกลับในแชท")}</p>
                     ) : (
                       <div className="grid grid-cols-3 gap-1.5">
                         <Button size="sm" variant="outline" disabled={!!busy} onClick={() => ask("interest", open.id, k)}><HeartIcon /> {tx("สนใจ")}</Button>
@@ -145,7 +145,7 @@ export function CatalogApp({ token, preview, embedded, onDetail }: { token: stri
               }) : (
                 <div className="flex items-center gap-2 px-3 py-3 text-sm">
                   <p className="min-w-0 flex-1 text-xs text-muted-foreground">{tx("ยังไม่มีรอบเรียน — กดสนใจ แอดมินจะหาเวลาที่สะดวกให้")}</p>
-                  {sent[`${open.id}|`] ? <span className="flex items-center gap-1 text-xs text-emerald-700 dark:text-emerald-300"><CheckIcon className="size-3.5" />{tx("ส่งแล้ว")}</span>
+                  {sent[`${open.id}|`] ? <span className="flex items-center gap-1 text-xs text-success"><CheckIcon className="size-3.5" />{tx("ส่งแล้ว")}</span>
                     : <Button size="sm" variant="outline" disabled={!!busy} onClick={() => ask("interest", open.id)}><HeartIcon /> {tx("สนใจ")}</Button>}
                 </div>
               )
@@ -175,7 +175,7 @@ export function CatalogApp({ token, preview, embedded, onDetail }: { token: stri
 
           <div className="space-y-3 px-4 pt-1">
             <p className="text-xs text-muted-foreground">{tx("{0} คอร์ส", [courses.length])}</p>
-            {note && <p className="rounded-2xl bg-amber-50 px-3 py-2 text-sm text-amber-900 dark:bg-amber-950/40 dark:text-amber-200">{note}</p>}
+            {note && <p className="rounded-2xl bg-warning-soft/60 px-3 py-2 text-sm text-warning-ink">{note}</p>}
             <div className="grid grid-cols-2 gap-3">
               {courses.map((c) => (
                 <div key={c.id} role="button" tabIndex={0} onClick={() => { setNote(""); setOpenId(c.id) }} onKeyDown={(e) => { if (e.key === "Enter") setOpenId(c.id) }}

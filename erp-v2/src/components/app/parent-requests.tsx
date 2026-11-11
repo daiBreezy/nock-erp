@@ -159,9 +159,9 @@ export function RequestCard({ r, preview }: { r: ParentRequest; preview?: boolea
   const Seats = ({ leg, date, need }: { leg: "pickup" | "dropoff"; date: string; need: number }) => {
     if (!(branch?.busRounds ?? []).length) return null
     const chk = checkRide(leg, date, rideTimes(classes, myClassIds, date), branch?.busRounds ?? [], busCtx, r.studentId)
-    if (!chk.round) return <span className="ml-1 font-medium text-red-700">· ไม่มีรอบ</span>
+    if (!chk.round) return <span className="ml-1 font-medium text-danger">· ไม่มีรอบ</span>
     const free = chk.round.seats - chk.taken
-    return <span className={cn("ml-1", free < need ? "font-medium text-red-700" : "text-muted-foreground")}>{free < need ? `· ${chk.round.time} ที่ไม่พอ (ว่าง ${Math.max(0, free)})` : `· ${chk.round.time} ว่าง ${free}`}</span>
+    return <span className={cn("ml-1", free < need ? "font-medium text-danger" : "text-muted-foreground")}>{free < need ? `· ${chk.round.time} ที่ไม่พอ (ว่าง ${Math.max(0, free)})` : `· ${chk.round.time} ว่าง ${free}`}</span>
   }
   const Icon = r.kind === "leave" ? CalendarOffIcon : r.kind === "return" ? RotateCcwIcon : r.kind === "bus" ? BusIcon : r.kind === "home" ? MapPinHouseIcon : DoorOpenIcon
   const title = r.kind === "leave" ? "แจ้งลาหยุด" : r.kind === "return" ? "อยากกลับมาเรียน" : r.kind === "bus" ? "ขอ / ยกเลิกรอบรถ" : r.kind === "home" ? "ปักหมุดบ้าน (รถรับส่ง)" : "แจ้งลาออก"
@@ -190,7 +190,7 @@ export function RequestCard({ r, preview }: { r: ParentRequest; preview?: boolea
                     {(["pickup", "dropoff"] as const).filter((leg) => x[leg]).map((leg) => {
                       const add = x[leg] === "add"
                       return (
-                        <span key={leg} className={cn("rounded-full px-2 py-0.5 font-medium", add ? "bg-emerald-50 text-emerald-800" : "bg-red-50 text-red-700")}>
+                        <span key={leg} className={cn("rounded-full px-2 py-0.5 font-medium", add ? "bg-success-soft/60 text-success-ink" : "bg-danger-soft/60 text-danger")}>
                           {`${add ? "+" : "✕"} ${leg === "pickup" ? "รับ" : "ส่ง"}`}
                           {add && <Seats leg={leg} date={x.date} need={1 + Number(!!x.adult)} />}
                         </span>

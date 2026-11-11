@@ -263,7 +263,7 @@ export function LiffForm() {
 
   if (catalogToken) return <CatalogApp token={catalogToken} />
   if (phase === "init") return <Centered><Spinner /><p className="mt-3 text-sm text-muted-foreground">{t.opening}</p></Centered>
-  if (phase === "invalid") return <Centered><XCircleIcon className="size-10 text-red-500" /><p className="mt-3 text-center text-sm text-muted-foreground">{error}</p></Centered>
+  if (phase === "invalid") return <Centered><XCircleIcon className="size-10 text-danger" /><p className="mt-3 text-center text-sm text-muted-foreground">{error}</p></Centered>
 
   const stepIndex = STEP_KEYS.indexOf(step)
   const summary = (
@@ -275,7 +275,7 @@ export function LiffForm() {
     <div className="min-h-screen bg-background pb-28">
       <div className="mx-auto max-w-lg space-y-4 p-4">
         <ShrinkHeader className="-mx-4 -mt-4" title={enroll ? te.title : t.formTitle(formType)} subtitle={`${brandName}${branchName ? ` · ${branchName}` : ""}`} lang={lang} onLang={preview ? undefined : setLang} />
-        {phase === "done" && <p className="flex items-center gap-2 rounded-2xl bg-emerald-100 px-3 py-2.5 text-sm text-emerald-900"><CheckCircle2Icon className="size-4 shrink-0" />{enroll ? `${te.sent} · ${te.sentSub}` : `${t.sent(formType)} · ${t.sentSub}`}</p>}
+        {phase === "done" && <p className="flex items-center gap-2 rounded-2xl bg-success-soft px-3 py-2.5 text-sm text-success-ink"><CheckCircle2Icon className="size-4 shrink-0" />{enroll ? `${te.sent} · ${te.sentSub}` : `${t.sent(formType)} · ${t.sentSub}`}</p>}
 
         {displayName && phase !== "done" && <p className="text-sm text-muted-foreground">{t.hello(displayName)}</p>}
 
@@ -302,7 +302,7 @@ export function LiffForm() {
                 <div className="flex items-center justify-between">
                   <p className="text-sm font-semibold">{t.parentN(i + 1)}</p>
                   <span className="flex items-center gap-2">
-                    {parents.length > 1 && <Button size="icon-xs" variant="ghost" className="text-red-600" aria-label={t.remove} onClick={() => { setParents((ps) => ps.filter((_, j) => j !== i)); setPrimaryIdx(0) }}><TrashIcon /></Button>}
+                    {parents.length > 1 && <Button size="icon-xs" variant="ghost" className="text-danger" aria-label={t.remove} onClick={() => { setParents((ps) => ps.filter((_, j) => j !== i)); setPrimaryIdx(0) }}><TrashIcon /></Button>}
                     {known && <Button size="xs" variant="outline" disabled={!p.first.trim() || !p.phones[0]?.trim()} onClick={() => setParent(i, { editing: false })}><CheckIcon /> {t.done}</Button>}
                   </span>
                 </div>
@@ -331,11 +331,11 @@ export function LiffForm() {
           <section className="space-y-3">
             <SectionHead icon={ClipboardCheckIcon} title={t.summaryTitle} sub={t.summarySub} />
             {summary}
-            {enroll && <label className={cn("flex items-start gap-2 rounded-2xl bg-card p-3 text-sm ring-1", terms ? "ring-foreground/5" : "ring-amber-300")}><Checkbox className="mt-0.5" checked={terms} onCheckedChange={(v) => setTerms(!!v)} />{te.terms}</label>}
+            {enroll && <label className={cn("flex items-start gap-2 rounded-2xl bg-card p-3 text-sm ring-1", terms ? "ring-foreground/5" : "ring-warning/40")}><Checkbox className="mt-0.5" checked={terms} onCheckedChange={(v) => setTerms(!!v)} />{te.terms}</label>}
           </section>
         )}
 
-        {error && <p className="text-sm text-red-600">{error}</p>}
+        {error && <p className="text-sm text-danger">{error}</p>}
       </div>
 
       {phase !== "done" && (
@@ -371,7 +371,7 @@ function ParentCard({ t, lang, p, primary, linked, onEdit }: { t: T; lang: FormL
       </div>
       <div className="grid gap-1.5 text-sm sm:grid-cols-2">
         {p.phones.filter(Boolean).map((ph, k) => <Line key={k} icon={PhoneIcon}>{ph}{k === 0 && p.phones.length > 1 && <span className="ml-1 text-xs text-muted-foreground">({t.defaultTag})</span>}</Line>)}
-        {linked && <Line icon={MessageCircleIcon}><span className="text-emerald-700">{t.lineLinked(linked)}</span></Line>}
+        {linked && <Line icon={MessageCircleIcon}><span className="text-success">{t.lineLinked(linked)}</span></Line>}
         {p.email && <Line icon={MailIcon}>{p.email}</Line>}
         {p.birthDate && <Line icon={CakeIcon}>{fmtBirth(p.birthDate, lang)}</Line>}
       </div>
@@ -398,7 +398,7 @@ function StudentCard({ t, lang, names, n, formType, student: s, grades, offers, 
           <div className="flex items-center justify-between">
             <p className="text-sm font-semibold">{t.studentN(n)}</p>
             <span className="flex items-center gap-2">
-              {onRemove && <Button size="icon-xs" variant="ghost" className="text-red-600" aria-label={t.remove} onClick={onRemove}><TrashIcon /></Button>}
+              {onRemove && <Button size="icon-xs" variant="ghost" className="text-danger" aria-label={t.remove} onClick={onRemove}><TrashIcon /></Button>}
             </span>
           </div>
           <StudentFields t={t} value={s} onChange={onChange} grades={grades} gradeLabel={names.grade} />
@@ -408,7 +408,7 @@ function StudentCard({ t, lang, names, n, formType, student: s, grades, offers, 
           <div className="flex items-center gap-2">
             <span className="grid size-10 place-items-center rounded-full bg-primary/10 font-semibold text-primary">{(s.nickname || s.first).slice(0, 1)}</span>
             <p className="min-w-0 flex-1 truncate font-semibold">{fullName(s)}{s.nickname && <span className="font-normal text-muted-foreground"> ({s.nickname})</span>}</p>
-            <span className="rounded-full bg-sky-100 px-2 py-0.5 text-xs font-semibold text-sky-800">{names.grade(s.grade)}</span>
+            <span className="rounded-full bg-info-soft px-2 py-0.5 text-xs font-semibold text-info-ink">{names.grade(s.grade)}</span>
             <Button size="icon-sm" variant="outline" aria-label={t.edit} onClick={() => onChange({ editing: true })}><PencilIcon /></Button>
           </div>
           {s.birthDate && <Line icon={CakeIcon}>{fmtBirth(s.birthDate, lang)}{age !== null && ` · ${t.age(age)}`}</Line>}
@@ -508,14 +508,14 @@ function Summary({ t, lang, names, parents, primaryIdx, fam, linked, students, o
             <p className="font-medium">{fullName(p)} <span className="font-normal text-muted-foreground">{[p.rel ? t.rel[p.rel] : "", i === primaryIdx && parents.length > 1 ? t.primaryParent : ""].filter(Boolean).join(" · ")}</span></p>
             <div className="grid gap-1 sm:grid-cols-2">
               {p.phones.filter(Boolean).map((ph, k) => <Line key={k} icon={PhoneIcon}>{ph}{k === 0 && p.phones.filter(Boolean).length > 1 && <span className="ml-1 text-xs text-muted-foreground">({t.defaultTag})</span>}</Line>)}
-              {i === 0 && linked && <Line icon={MessageCircleIcon}><span className="text-emerald-700">{t.lineLinked(linked)}</span></Line>}
+              {i === 0 && linked && <Line icon={MessageCircleIcon}><span className="text-success">{t.lineLinked(linked)}</span></Line>}
               {p.email && <Line icon={MailIcon}>{p.email}</Line>}
             </div>
           </div>
         ))}
         {(address || province || postcode || pinned) && (
           <div className="space-y-1 border-t pt-2">
-            <Line icon={MapPinIcon}>{[address, province, postcode].filter(Boolean).join(" ")}{pinned && <span className="ml-1 text-xs text-emerald-700">· 📍</span>}</Line>
+            <Line icon={MapPinIcon}>{[address, province, postcode].filter(Boolean).join(" ")}{pinned && <span className="ml-1 text-xs text-success">· 📍</span>}</Line>
             {addressNote && <Line icon={StickyNoteIcon}>{addressNote}</Line>}
           </div>
         )}
@@ -531,7 +531,7 @@ function Summary({ t, lang, names, parents, primaryIdx, fam, linked, students, o
             <div className="flex items-center gap-2">
               <span className="grid size-10 place-items-center rounded-full bg-primary/10 font-semibold text-primary">{(s.nickname || s.first).slice(0, 1)}</span>
               <p className="min-w-0 flex-1 truncate font-semibold">{fullName(s)}{s.nickname && <span className="font-normal text-muted-foreground"> ({s.nickname})</span>}</p>
-              <span className="rounded-full bg-sky-100 px-2 py-0.5 text-xs font-semibold text-sky-800">{names.grade(s.grade)}</span>
+              <span className="rounded-full bg-info-soft px-2 py-0.5 text-xs font-semibold text-info-ink">{names.grade(s.grade)}</span>
               {onEdit && <Button size="icon-sm" variant="outline" aria-label={t.edit} onClick={() => onEdit("student")}><PencilIcon /></Button>}
             </div>
             {s.birthDate && <Line icon={CakeIcon}>{fmtBirth(s.birthDate, lang)}{age !== null && ` · ${t.age(age)}`}</Line>}
@@ -551,7 +551,7 @@ function Summary({ t, lang, names, parents, primaryIdx, fam, linked, students, o
             )}
             {separate && Object.entries(s.chosen).map(([subject, x]) => (
               <div key={subject} className="flex flex-wrap items-center gap-2 text-sm">
-                <HeartIcon className="size-4 fill-red-500 text-red-500" /> <span className="font-medium">{names.subject(subject)}</span>
+                <HeartIcon className="size-4 fill-red-500 text-danger" /> <span className="font-medium">{names.subject(subject)}</span>
                 <span className="mx-1 h-px min-w-6 flex-1 border-t border-dashed" />
                 <CalendarClockIcon className="size-4 text-primary" />
                 <span className="rounded-full border px-2 py-0.5 text-xs">{fmtFormDate(x.date, lang)}</span>
@@ -560,7 +560,7 @@ function Summary({ t, lang, names, parents, primaryIdx, fam, linked, students, o
             ))}
             {!separate && visitOf(s) && (
               <div className="flex flex-wrap items-center gap-2 text-sm">
-                <HeartIcon className="size-4 fill-red-500 text-red-500" /> <span className="font-medium">{Object.keys(s.chosen).map(names.subject).join(" + ")}</span>
+                <HeartIcon className="size-4 fill-red-500 text-danger" /> <span className="font-medium">{Object.keys(s.chosen).map(names.subject).join(" + ")}</span>
                 <span className="mx-1 h-px min-w-6 flex-1 border-t border-dashed" />
                 <CalendarClockIcon className="size-4 text-primary" />
                 <span className="rounded-full border px-2 py-0.5 text-xs">{fmtFormDate(visitOf(s)!.date, lang)}</span>

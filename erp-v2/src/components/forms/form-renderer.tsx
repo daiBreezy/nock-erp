@@ -92,7 +92,7 @@ export function FormRenderer({ form, answers, onChange, onSubmit, submitting, hi
       ) : pages[step]?.items.map((it) => (
         <Item key={it.kind === "field" ? it.field.id : it.section.id} it={it} answers={answers} set={set} errors={errors} highlight={highlight} onPick={onPick} count={count} />
       ))}
-      {errCount > 0 && <p className="text-center text-xs text-red-600">{tx("ยังตอบไม่ครบ {0} ข้อ", [errCount])}</p>}
+      {errCount > 0 && <p className="text-center text-xs text-danger">{tx("ยังตอบไม่ครบ {0} ข้อ", [errCount])}</p>}
       {sticky ? <div className="fixed inset-x-0 bottom-0 z-10 border-t bg-background/95 px-4 py-3 backdrop-blur"><div className="mx-auto max-w-lg">{buttons}</div></div> : buttons}
     </div>
   )
@@ -133,7 +133,7 @@ function Item({ it, answers, set, errors, highlight, onPick, count }: {
             ))}
           </div>
         ))}
-        {errors[g.id] && <p data-form-error className="text-xs text-red-600">{tx(errors[g.id])}</p>}
+        {errors[g.id] && <p data-form-error className="text-xs text-danger">{tx(errors[g.id])}</p>}
         {list.length < max && (
           <Button variant="outline" className="w-full border-dashed" onClick={(e) => { e.stopPropagation(); set(g.id, [...list, {}]) }}><PlusIcon /> {g.repeat?.add || tx("เพิ่มอีกชุด")}</Button>
         )}
@@ -156,12 +156,12 @@ function Question({ f, no, v, set, error }: { f: FormField; no: number; v: FormA
     <div className="space-y-2" data-form-error={error ? "" : undefined}>
       {f.type !== "consent" && (
         <div>
-          <p className="text-sm font-semibold">{no}. {f.label || tx("คำถาม")}{f.required && <span className="text-red-600"> *</span>}</p>
+          <p className="text-sm font-semibold">{no}. {f.label || tx("คำถาม")}{f.required && <span className="text-danger"> *</span>}</p>
           {f.help && <p className="text-xs text-muted-foreground">{f.help}</p>}
         </div>
       )}
       <FieldInput f={f} v={v} set={set} invalid={!!error} />
-      {error && <p className="text-xs text-red-600">{tx(error)}</p>}
+      {error && <p className="text-xs text-danger">{tx(error)}</p>}
     </div>
   )
 }
@@ -261,7 +261,7 @@ function FieldInput({ f, v, set, invalid }: { f: FormField; v: FormAnswer; set: 
     case "file": case "image": {
       const Icon = f.type === "image" ? ImageIcon : PaperclipIcon
       return (
-        <label className={cn("flex cursor-pointer items-center gap-2 rounded-xl border border-dashed px-3 py-3 text-sm hover:bg-muted", invalid && "border-red-500")}>
+        <label className={cn("flex cursor-pointer items-center gap-2 rounded-xl border border-dashed px-3 py-3 text-sm hover:bg-muted", invalid && "border-danger")}>
           <Icon className="size-4 text-muted-foreground" />
           <span className={v ? "font-medium" : "text-muted-foreground"}>{v ? String(v) : f.type === "image" ? tx("แตะเพื่อแนบรูป") : tx("แตะเพื่อแนบไฟล์")}</span>
           <input type="file" className="sr-only" accept={f.type === "image" ? "image/*" : undefined} onChange={(e) => set(e.target.files?.[0]?.name ?? null)} />
@@ -272,7 +272,7 @@ function FieldInput({ f, v, set, invalid }: { f: FormField; v: FormAnswer; set: 
       return (
         <label className="flex items-start gap-2 text-sm">
           <Checkbox checked={v === true} onCheckedChange={(c) => set(c ? true : null)} aria-invalid={invalid} className="mt-0.5" />
-          <span>{f.label || tx("ยอมรับเงื่อนไข")}{f.required && <span className="text-red-600"> *</span>}{f.help && <span className="block text-xs text-muted-foreground">{f.help}</span>}</span>
+          <span>{f.label || tx("ยอมรับเงื่อนไข")}{f.required && <span className="text-danger"> *</span>}{f.help && <span className="block text-xs text-muted-foreground">{f.help}</span>}</span>
         </label>
       )
     default:

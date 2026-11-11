@@ -100,7 +100,7 @@ export function EnrollFields({ t, lang, grade, subjects, subjectLabel, courses, 
                     <span className="block font-medium">{classTimeLabel(o, t)}</span>
                     <span className="block truncate text-xs text-muted-foreground">{o.subjects.map(subjectLabel).join(" + ")}{o.teacher ? ` · ${o.teacher}` : ""}</span>
                   </span>
-                  <span className={cn("shrink-0 text-xs", o.seatsLeft === 0 ? "text-red-600" : "text-muted-foreground")}>{o.seatsLeft === 0 ? t.full : `${t.seats} ${o.seatsLeft}`}</span>
+                  <span className={cn("shrink-0 text-xs", o.seatsLeft === 0 ? "text-danger" : "text-muted-foreground")}>{o.seatsLeft === 0 ? t.full : `${t.seats} ${o.seatsLeft}`}</span>
                 </button>
               )
             })}

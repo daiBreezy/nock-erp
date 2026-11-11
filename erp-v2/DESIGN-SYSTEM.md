@@ -8,7 +8,7 @@
 
 | เรื่อง | กฎ eslint | จุดทั้งหมด | เหลือ | สถานะ |
 |---|---|---:|---:|---|
-| 1. สีสถานะ → token | no-hardcoded-status-color | 694 | **262** | 🟡 กำลังทำ (ทำไป 432) |
+| 1. สีสถานะ → token | no-hardcoded-status-color | 694 | **186** | 🟡 กำลังทำ (ทำไป 508) |
 | 2. controls ดิบ → Button/Input/NativeSelect | no-raw-controls | 329 | 329 | ⬜ ยังไม่เริ่ม |
 | 3. px → text token / spacing scale | no-px-text | 44 | 44 | ⬜ ยังไม่เริ่ม |
 | 4. breakpoint `md:`/`xl:` → base/sm/lg | no-adhoc-breakpoints | 29 | 29 | ⬜ ยังไม่เริ่ม |
@@ -32,7 +32,7 @@
 | 6.5 | Reports | reports/page (66), summary-tab, charts, attention-dialog | 82 | ✅ เสร็จ |
 | 6.6 | รถรับส่ง / คนขับ | driver-app (32), labels (18), trip-row (13), zone-analysis, zone-map, trip-sheet | ~79 | ⬜ (ข้ามไว้) |
 | 6.7 | CRM / นักเรียน / บุคลากร | staff-panel (18), lead-sheet (10), student-exit, renewal-followup, lead-followups, survey-calls, student-sheet + ปลีกย่อย | 97 | ✅ เสร็จ |
-| 6.8 | ผู้ปกครอง / LIFF ฟอร์ม | parent-app (17), liff/form (13), liff/exit (11), liff/survey (9), form-renderer, form-builder, person-fields | ~76 | ⬜ |
+| 6.8 | ผู้ปกครอง / LIFF ฟอร์ม | parent-app (17), liff/form (13), liff/exit (11), liff/survey (9), catalog, form-renderer, form-builder, person-fields, parent-requests | 76 | ✅ เสร็จ |
 | 6.9 | ตั้งค่า / Nock / Inbox / แอปเชลล์ + เก็บตก | holiday-planner (16), nock/page (14), nock-widget, app-shell, ai, confirmation, day/week-sessions + ไฟล์ปลีกย่อย | ~124 | ⬜ |
 
 ---
@@ -60,6 +60,7 @@
 ## ข้อยกเว้นที่ตั้งใจ (ds-exception — ไม่ใช่สถานะ)
 
 - **สีประจำวันของไทย** (`week-teacher-board.tsx` `DAY_TONE`: อา.แดง จ.เหลือง อ.ชมพู พ.เขียว พฤ.ส้ม ศ.ฟ้า ส.ม่วง) — เป็นจานสี identity ไม่ใช่ success/danger → ครอบด้วย `/* eslint-disable … ds-exception */` คงสีเดิมไว้ (รอบ 6.3)
+- **ไอคอนหัวใจวิชาโปรด** (`form-app.tsx`) — เก็บ `fill-red-500` (fill ไม่โดนกฎ หัวใจคงแดงเสมอ) · ส่วน `text-*` ใช้ danger · สเกลหน้า NPS/ความพอใจ (แดง/ส้ม/เขียว) map danger/·/success, ส้มกลางสเกลคงไว้ (รอบ 6.8)
 - **แท็กสายรถ P/D/B** (`student-sheet.tsx` `BUS_TAG`: รับ ฟ้า · ส่ง ม่วง · ทั้งคู่ เขียว) — identity ของประเภทรับส่ง ไม่ใช่สถานะ → ds-exception (รอบ 6.7)
 
 ## ค้างให้เจ้าของตัดสิน

@@ -90,7 +90,7 @@ export function ParentFields({ t, value: p, onChange, linked, errors = {} }: { t
       </Group>
       <Group title={t.grpContact}>
         {/* LINE is linked by opening the form in LINE (or from the Inbox) — nobody types a LINE ID (owner 2026-10-15) */}
-        {linked && <p className="flex items-center gap-1.5 rounded-3xl bg-emerald-50 px-3 py-2 text-sm text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300"><CheckIcon className="size-4" />{t.lineLinked(linked)}</p>}
+        {linked && <p className="flex items-center gap-1.5 rounded-3xl bg-success-soft/60 px-3 py-2 text-sm text-success-ink"><CheckIcon className="size-4" />{t.lineLinked(linked)}</p>}
         <F label={t.email}><Input type="email" value={p.email} onChange={(e) => onChange({ email: e.target.value })} /></F>
         <div className="min-w-0 space-y-1.5">
           <Label className="text-xs">{t.phone} *</Label>
@@ -100,12 +100,12 @@ export function ParentFields({ t, value: p, onChange, linked, errors = {} }: { t
               {k === 0 ? <span className="shrink-0 rounded-full bg-primary/10 px-2 py-1 text-2xs text-primary">{t.defaultTag}</span> : (
                 <>
                   <Button size="xs" variant="ghost" className="shrink-0" onClick={() => onChange({ phones: [ph, ...p.phones.filter((_, j) => j !== k)] })}>{t.makeDefault}</Button>
-                  <Button size="icon-xs" variant="ghost" className="shrink-0 text-red-600" aria-label={t.remove} onClick={() => onChange({ phones: p.phones.filter((_, j) => j !== k) })}><TrashIcon /></Button>
+                  <Button size="icon-xs" variant="ghost" className="shrink-0 text-danger" aria-label={t.remove} onClick={() => onChange({ phones: p.phones.filter((_, j) => j !== k) })}><TrashIcon /></Button>
                 </>
               )}
             </div>
           ))}
-          {errors.phone && <p className="text-xs text-red-700">{errors.phone}</p>}
+          {errors.phone && <p className="text-xs text-danger">{errors.phone}</p>}
           <Button size="xs" variant="secondary" onClick={() => onChange({ phones: [...p.phones, ""] })}><PlusIcon /> {t.addPhone}</Button>
         </div>
       </Group>
@@ -223,7 +223,7 @@ function F({ label, hint, error, className, children }: { label: string; hint?: 
       {/* owner 2026-10-13: no grey helper lines under fields — the explanation sits behind an ⓘ */}
       <Label className="text-xs">{label}{hint && <InfoTip text={hint} className="-my-1" />}</Label>
       {children}
-      {error && <p className="text-xs text-red-700">{error}</p>}
+      {error && <p className="text-xs text-danger">{error}</p>}
     </div>
   )
 }

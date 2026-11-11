@@ -135,7 +135,7 @@ function Survey() {
 
   if (phase === "init") return <Centered><LoaderCircleIcon className="size-6 animate-spin text-muted-foreground" /></Centered>
   if (phase === "invalid") return <Centered><XCircleIcon className="size-10 text-muted-foreground" /><p className="text-center text-sm">{t.invalid[error]}</p></Centered>
-  if (phase === "done") return <Centered><CheckCircle2Icon className="size-12 text-emerald-600" /><p className="text-lg font-semibold">{t.done}</p><p className="max-w-xs text-center text-sm text-muted-foreground">{t.doneSub}</p></Centered>
+  if (phase === "done") return <Centered><CheckCircle2Icon className="size-12 text-success" /><p className="text-lg font-semibold">{t.done}</p><p className="max-w-xs text-center text-sm text-muted-foreground">{t.doneSub}</p></Centered>
   const token = tk!
   const chip = (on: boolean) => cn("min-h-12 rounded-2xl border px-4 py-3 text-left text-base leading-snug", on ? "border-primary bg-primary text-primary-foreground" : "bg-background")
   return (
@@ -188,7 +188,7 @@ function Survey() {
       </main>
       <div className="fixed inset-x-0 bottom-0 border-t bg-background/95 p-3 backdrop-blur">
         <div className="mx-auto max-w-lg">
-          {tried && Object.values(missing).some(Boolean) && <p className="mb-2 text-center text-xs text-red-600">{t.need}</p>}
+          {tried && Object.values(missing).some(Boolean) && <p className="mb-2 text-center text-xs text-danger">{t.need}</p>}
           <Button className="h-12 w-full text-base" disabled={phase === "sending"} onClick={submit}><SendIcon /> {phase === "sending" ? t.sending : t.submit}</Button>
         </div>
       </div>
@@ -198,17 +198,17 @@ function Survey() {
 
 // owner 2026-11-06: three choices instead of 0–10 — stored as a representative NPS score (detractor 0–6 → 3, passive 7–8 → 8, promoter 9–10 → 10)
 const NPS_CHOICES = [
-  { value: 3, Face: FrownIcon, on: "border-red-500 bg-red-500 text-white" },
-  { value: 8, Face: MehIcon, on: "border-amber-500 bg-amber-500 text-white" },
-  { value: 10, Face: LaughIcon, on: "border-emerald-600 bg-emerald-600 text-white" },
+  { value: 3, Face: FrownIcon, on: "border-danger bg-danger text-white" },
+  { value: 8, Face: MehIcon, on: "border-warning bg-warning text-white" },
+  { value: 10, Face: LaughIcon, on: "border-success bg-success text-white" },
 ]
 const npsBucket = (n: number) => (n <= 6 ? 0 : n <= 8 ? 1 : 2)
 const FACES: Record<number, typeof SmileIcon> = { 5: LaughIcon, 4: SmileIcon, 3: MehIcon, 2: FrownIcon, 1: AngryIcon }
-const FACE_ON = (n: number) => (n <= 2 ? "border-red-500 bg-red-500 text-white" : n === 3 ? "border-amber-500 bg-amber-500 text-white" : "border-emerald-600 bg-emerald-600 text-white")
+const FACE_ON = (n: number) => (n <= 2 ? "border-danger bg-danger text-white" : n === 3 ? "border-warning bg-warning text-white" : "border-success bg-success text-white")
 
 function Card({ title, sub, error, children }: { title?: string; sub?: string; error?: boolean; children: React.ReactNode }) {
   return (
-    <section className={cn("space-y-3 border-t pt-4 first:border-t-0 first:pt-0", error && "rounded-2xl p-3 ring-2 ring-red-400")}>
+    <section className={cn("space-y-3 border-t pt-4 first:border-t-0 first:pt-0", error && "rounded-2xl p-3 ring-2 ring-danger")}>
       {title && <div><p className="text-sm font-semibold">{title}</p>{sub && <p className="text-xs text-muted-foreground">{sub}</p>}</div>}
       {children}
     </section>

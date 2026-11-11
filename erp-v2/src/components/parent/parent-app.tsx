@@ -240,7 +240,7 @@ export function ParentApp({ view, lang: initialLang, today, framed, openCourseSu
       <main className={cn("flex-1 space-y-4 p-3", framed ? "pb-3" : "pb-24")}>
         {/* owner 2026-10-19: a family on the bus without a home pin is asked for it, wherever they are in the app */}
         {paid && usesBus && !view.home && !(cur === "request" && ask === "home") && (
-          <button type="button" onClick={() => { setAsk("home"); setTab("request") }} className="flex w-full items-center gap-3 rounded-[8px] bg-amber-50 p-3 text-left text-sm text-amber-900 ring-1 ring-amber-200">
+          <button type="button" onClick={() => { setAsk("home"); setTab("request") }} className="flex w-full items-center gap-3 rounded-[8px] bg-warning-soft/60 p-3 text-left text-sm text-warning-ink ring-1 ring-warning/30">
             <MapPinHouseIcon className="size-5 shrink-0" /><span className="min-w-0 flex-1">{t.homeBanner}</span>
             <span className="shrink-0 rounded-full bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground">{t.homeBannerBtn}</span>
           </button>
@@ -272,7 +272,7 @@ function Chip({ on, onClick, children, disabled, state }: { on?: boolean; onClic
   return (
     <button type="button" aria-pressed={!!on} disabled={disabled} onClick={onClick}
       className={cn("inline-flex h-9 items-center gap-1.5 rounded-3xl border px-3 text-sm whitespace-nowrap transition-colors disabled:opacity-40",
-        state === "add" ? "border-emerald-400 bg-emerald-100 font-medium text-emerald-800" : state === "cancel" ? "border-red-300 bg-red-50 text-red-700 line-through" : state === "booked" ? "border-sky-300 bg-sky-100 text-sky-800"
+        state === "add" ? "border-success/50 bg-success-soft font-medium text-success-ink" : state === "cancel" ? "border-danger/40 bg-danger-soft/50 text-danger line-through" : state === "booked" ? "border-info/40 bg-info-soft text-info-ink"
           : on ? "border-primary bg-primary/10 font-medium text-primary" : "text-muted-foreground hover:bg-muted/50")}>
       {children}
     </button>
@@ -299,7 +299,7 @@ function Overview({ view, t, lang, today, dayLabel, nick, onDrill }: { view: Par
               <div className="overflow-hidden rounded-[8px] bg-card text-sm ring-1 ring-foreground/5">
                 {next.map((x) => (
                   <button key={x.sessionId} type="button" onClick={() => onDrill(c.id, x.courseId)} className="flex w-full items-center gap-2 px-3 py-1.5 text-left">
-                    <span className={cn("w-14 shrink-0 text-xs", x.date === today ? "font-medium text-red-600 dark:text-red-400" : "text-muted-foreground")}>{dayLabel(x.date)}</span>
+                    <span className={cn("w-14 shrink-0 text-xs", x.date === today ? "font-medium text-danger" : "text-muted-foreground")}>{dayLabel(x.date)}</span>
                     <span className="shrink-0 font-semibold tabular-nums">{x.start}</span>
                     <span className="min-w-0 flex-1 truncate">{x.subjects.join(" + ")}</span>
                   </button>
@@ -522,13 +522,13 @@ function ClassCard({ dayText, isToday, c, first, child, t, hasBus, tag, onReques
       {/* owner 2026-11-06: day over time on the left (fixed column) · subject (may wrap to 2 lines) with who / which course under it · the card grows with long text */}
       <button type="button" aria-expanded={open} onClick={() => { setOpen(!open); setMsg(null) }} className="flex w-full items-start gap-3 px-3 py-2.5 text-left">
         <span className="w-24 shrink-0">
-          <span className={cn("block truncate text-sm font-semibold", isToday && "text-red-600 dark:text-red-400")}>{dayText}</span>
+          <span className={cn("block truncate text-sm font-semibold", isToday && "text-danger")}>{dayText}</span>
           <span className="block whitespace-nowrap text-xs tabular-nums text-muted-foreground">{c.start}–{c.end}</span>
         </span>
         <span className="min-w-0 flex-1">
           <span className={cn("line-clamp-2 text-sm font-medium break-words", c.cancelled && "line-through")}>{c.subjects.join(" + ")}</span>
           {tag && <span className="block truncate text-xs text-muted-foreground">{tag}</span>}
-          {c.cancelled && <span className="block text-xs font-medium text-red-700">{t.cancelled}{c.cancelReason ? ` · ${c.cancelReason}` : ""}</span>}
+          {c.cancelled && <span className="block text-xs font-medium text-danger">{t.cancelled}{c.cancelReason ? ` · ${c.cancelReason}` : ""}</span>}
           {leaveWaiting || busWaiting ? (
             <span className="mt-1 flex flex-wrap gap-1">
               {leaveWaiting && <Pill tone="amber">{t.leaveSent} · {t.waiting}</Pill>}
@@ -538,7 +538,7 @@ function ClassCard({ dayText, isToday, c, first, child, t, hasBus, tag, onReques
         </span>
         <ChevronDownIcon className={cn("size-4 shrink-0 self-center text-muted-foreground transition-transform", open && "rotate-180")} />
       </button>
-      {msg && <p className={cn("mx-3 mb-2 rounded-[8px] p-2 text-xs", msg.ok ? "bg-emerald-50 text-emerald-800" : "bg-red-50 text-red-800")}>{msg.text}</p>}
+      {msg && <p className={cn("mx-3 mb-2 rounded-[8px] p-2 text-xs", msg.ok ? "bg-success-soft/60 text-success-ink" : "bg-danger-soft/60 text-danger-ink")}>{msg.text}</p>}
       {open && (
         <div className="space-y-2.5 border-t px-3 pt-2.5 pb-3">
           <div className="flex flex-wrap items-center justify-between gap-1.5">
@@ -645,8 +645,8 @@ function CourseEnd({ cs, t, lang }: { cs: ParentCourseSummary; t: T; lang: FormL
           <ClampedParagraphs className="px-3 pb-3" paras={lines(cs.overallProgress)} showSubject={!only} readAll={t.readAll} less={t.lessText} />
         )}
       </section>
-      {block(t.strengths, cs.strengths, ThumbsUpIcon, "bg-emerald-100 text-emerald-700", "text-emerald-800", "bg-emerald-50 ring-1 ring-emerald-200")}
-      {block(t.improve, cs.toImprove, TargetIcon, "bg-amber-100 text-amber-700", "text-amber-800", "bg-amber-50 ring-1 ring-amber-200")}
+      {block(t.strengths, cs.strengths, ThumbsUpIcon, "bg-success-soft text-success-ink", "text-success-ink", "bg-success-soft/60 ring-1 ring-success/30")}
+      {block(t.improve, cs.toImprove, TargetIcon, "bg-warning-soft text-warning-ink", "text-warning-ink", "bg-warning-soft/60 ring-1 ring-warning/30")}
       {/* owner 2026-11-09: attendance is a plain row of numbers at the very bottom */}
       <section className="space-y-2.5 rounded-[16px] bg-muted/60 px-3 pb-3 pt-3 ring-1 ring-foreground/5">
         <SectionHead icon={CalendarCheckIcon} tone="bg-background text-muted-foreground" text="text-foreground" label={t.attendanceLabel} />
@@ -793,7 +793,7 @@ function RequestTab({ paid, setLang, updatedAt, view, child, t, lang, today, onR
   const ready = mode === "exit" ? !!lastDate : mode === "home" ? !!homeLoc : mode === "return"
   return (
     <div className="space-y-3">
-      {msg && <p className={cn("rounded-[8px] p-3 text-sm", msg.ok ? "bg-emerald-50 text-emerald-800" : "bg-red-50 text-red-800")}>{msg.text}</p>}
+      {msg && <p className={cn("rounded-[8px] p-3 text-sm", msg.ok ? "bg-success-soft/60 text-success-ink" : "bg-danger-soft/60 text-danger-ink")}>{msg.text}</p>}
       {/* owner 2026-11-06: อื่นๆ is a LIST of what you can do — language (dropdown at the right) for everyone; the rest once the family has paid */}
       {!mode && (
         <div className="divide-y overflow-hidden rounded-[8px] bg-card ring-1 ring-foreground/5">

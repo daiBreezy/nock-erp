@@ -116,7 +116,7 @@ function ExitForm() {
 
   if (phase === "init") return <Centered><LoaderCircleIcon className="size-6 animate-spin text-muted-foreground" /></Centered>
   if (phase === "invalid") return <Centered><XCircleIcon className="size-10 text-muted-foreground" /><p className="text-center text-sm">{t.invalid[error]}</p></Centered>
-  if (phase === "done") return <Centered><CheckCircle2Icon className="size-12 text-emerald-600" /><p className="text-lg font-semibold">{t.done}</p><p className="max-w-xs text-center text-sm text-muted-foreground">{t.doneSub}</p></Centered>
+  if (phase === "done") return <Centered><CheckCircle2Icon className="size-12 text-success" /><p className="text-lg font-semibold">{t.done}</p><p className="max-w-xs text-center text-sm text-muted-foreground">{t.doneSub}</p></Centered>
   const tk = tok!
   return (
     <div className="mx-auto min-h-dvh max-w-lg bg-background pb-28">
@@ -149,9 +149,9 @@ function ExitForm() {
         </Card>
         <Card title={t.comeBack} error={tried && !comeBack ? " " : undefined}>
           <IconChoices cols={3} onPick={(v) => setComeBack(v as ExitAnswers["comeBack"])} choices={[
-            { key: "no", label: t.cb.no, icon: FrownIcon, active: comeBack === "no", on: "border-red-500 bg-red-500 text-white" },
-            { key: "maybe", label: t.cb.maybe, icon: MehIcon, active: comeBack === "maybe", on: "border-amber-500 bg-amber-500 text-white" },
-            { key: "yes", label: t.cb.yes, icon: LaughIcon, active: comeBack === "yes", on: "border-emerald-600 bg-emerald-600 text-white" },
+            { key: "no", label: t.cb.no, icon: FrownIcon, active: comeBack === "no", on: "border-danger bg-danger text-white" },
+            { key: "maybe", label: t.cb.maybe, icon: MehIcon, active: comeBack === "maybe", on: "border-warning bg-warning text-white" },
+            { key: "yes", label: t.cb.yes, icon: LaughIcon, active: comeBack === "yes", on: "border-success bg-success text-white" },
           ]} />
           {comeBack && comeBack !== "no" && (
             <div className="mt-3"><p className="mb-1.5 text-sm text-muted-foreground">{t.when}</p>
@@ -160,9 +160,9 @@ function ExitForm() {
         </Card>
         <Card title={t.nps}>
           <IconChoices cols={3} onPick={(v) => setNps(nps === Number(v) ? null : Number(v))} choices={[
-            { key: "3", label: t.npsOpts[0], icon: FrownIcon, active: nps !== null && nps <= 6, on: "border-red-500 bg-red-500 text-white" },
-            { key: "8", label: t.npsOpts[1], icon: MehIcon, active: nps !== null && nps >= 7 && nps <= 8, on: "border-amber-500 bg-amber-500 text-white" },
-            { key: "10", label: t.npsOpts[2], icon: LaughIcon, active: nps !== null && nps >= 9, on: "border-emerald-600 bg-emerald-600 text-white" },
+            { key: "3", label: t.npsOpts[0], icon: FrownIcon, active: nps !== null && nps <= 6, on: "border-danger bg-danger text-white" },
+            { key: "8", label: t.npsOpts[1], icon: MehIcon, active: nps !== null && nps >= 7 && nps <= 8, on: "border-warning bg-warning text-white" },
+            { key: "10", label: t.npsOpts[2], icon: LaughIcon, active: nps !== null && nps >= 9, on: "border-success bg-success text-white" },
           ]} />
         </Card>
         <Card title={t.comment}><Textarea rows={5} className="text-base" value={comment} onChange={(e) => setComment(e.target.value)} placeholder={t.commentPh} /></Card>
@@ -170,7 +170,7 @@ function ExitForm() {
       </main>
       <div className="fixed inset-x-0 bottom-0 border-t bg-background/95 p-3 backdrop-blur">
         <div className="mx-auto max-w-lg">
-          {tried && (!reasonId || !comeBack) && <p className="mb-2 text-center text-xs text-red-600">{!reasonId ? t.needReason : t.comeBack}</p>}
+          {tried && (!reasonId || !comeBack) && <p className="mb-2 text-center text-xs text-danger">{!reasonId ? t.needReason : t.comeBack}</p>}
           <Button className="h-12 w-full text-base" disabled={phase === "sending"} onClick={submit}><SendIcon /> {phase === "sending" ? t.sending : t.submit}</Button>
         </div>
       </div>
@@ -179,11 +179,11 @@ function ExitForm() {
 }
 
 // the stars share one colour, by the score given (owner 2026-11-06): 1 red · 2–3 orange · 4–5 green
-const STAR_TONE = (n: number) => (n <= 1 ? "border-red-500 bg-red-500 text-white" : n <= 3 ? "border-orange-500 bg-orange-500 text-white" : "border-emerald-600 bg-emerald-600 text-white")
+const STAR_TONE = (n: number) => (n <= 1 ? "border-danger bg-danger text-white" : n <= 3 ? "border-orange-500 bg-orange-500 text-white" : "border-success bg-success text-white") // orange = mid star (identity scale)
 
 function Card({ title, sub, error, children }: { title?: string; sub?: string; error?: string; children: React.ReactNode }) {
   return (
-    <section className={cn("space-y-3 border-t pt-4 first:border-t-0 first:pt-0", error && "rounded-2xl p-3 ring-2 ring-red-400")}>
+    <section className={cn("space-y-3 border-t pt-4 first:border-t-0 first:pt-0", error && "rounded-2xl p-3 ring-2 ring-danger")}>
       {title && <div><p className="text-sm font-semibold">{title}</p>{sub && <p className="text-xs text-muted-foreground">{sub}</p>}</div>}
       {children}
     </section>

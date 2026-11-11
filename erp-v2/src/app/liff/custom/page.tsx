@@ -58,7 +58,7 @@ function CustomForm() {
       )}
       {phase === "done" && (
         <div className="grid place-items-center gap-2 py-24 text-center">
-          <CheckCircle2Icon className="size-12 text-emerald-600" />
+          <CheckCircle2Icon className="size-12 text-success" />
           <p className="text-lg font-semibold">{tx("ได้รับคำตอบแล้ว")}</p>
           <p className="text-sm text-muted-foreground">{tx("ขอบคุณมากค่ะ 🙏")}</p>
         </div>

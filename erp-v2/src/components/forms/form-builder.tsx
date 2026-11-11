@@ -176,7 +176,7 @@ export function FormBuilder({ form }: { form: FormDef }) {
           ]} />
           <MathGate open={deleting} title={tx("ลบฟอร์ม “{0}”", [d.name])} warning={tx("การลบนี้ย้อนกลับไม่ได้ — คำตอบที่เคยได้ยังดูได้ที่หน้าครอบครัว แต่ตัวฟอร์มจะหายถาวร")}
             onConfirm={() => { if (report(deleteForm(d.id), tx("ลบฟอร์มแล้ว"))) router.push("/settings?view=system&sys=forms") }} onClose={() => setDeleting(false)} />
-          <p className={cn("text-sm", errs.length ? "text-red-600" : "text-muted-foreground")}>
+          <p className={cn("text-sm", errs.length ? "text-danger" : "text-muted-foreground")}>
             {errs.length ? tx("ต้องแก้ {0} จุดก่อนบันทึก — {1}", [errs.length, tx(errs[0].message)]) : dirty ? tx("ยังไม่ได้บันทึก") : tx("บันทึกแล้ว")}
           </p>
           <div className="ml-auto flex gap-2">
@@ -226,14 +226,14 @@ function FieldCard({ f, open, error, before, inGroup, dragging, dropHere, dropBe
   return (
     <li draggable={handle} onDragStart={(e) => { e.dataTransfer.effectAllowed = "move"; onDragStart() }} onDragEnd={() => { setHandle(false); onDragEnd() }}
       onDragEnter={onDragEnter} onDragOver={(e) => e.preventDefault()} onDrop={(e) => { e.preventDefault(); setHandle(false); onDrop() }}
-      className={cn("relative rounded-2xl bg-card ring-1 ring-foreground/10 transition-shadow", f.type === "page" && "bg-muted/60", inGroup && "ml-6", open && "shadow-md ring-foreground/25", error && "ring-red-400", f.hidden && "opacity-60", dragging && "opacity-40")}>
+      className={cn("relative rounded-2xl bg-card ring-1 ring-foreground/10 transition-shadow", f.type === "page" && "bg-muted/60", inGroup && "ml-6", open && "shadow-md ring-foreground/25", error && "ring-danger", f.hidden && "opacity-60", dragging && "opacity-40")}>
       {dropHere && <span className={cn("absolute inset-x-2 h-0.5 rounded-full bg-foreground/60", dropBelow ? "-bottom-1.5" : "-top-1.5")} />}
       <div className="flex items-center gap-2 px-2 py-2.5">
         <span onMouseDown={() => setHandle(true)} onMouseUp={() => setHandle(false)} className="grid h-8 w-5 shrink-0 cursor-grab place-items-center rounded-md text-muted-foreground/60 hover:bg-muted hover:text-muted-foreground active:cursor-grabbing" aria-label={tx("ลากเพื่อจัดลำดับ")}><GripVerticalIcon className="size-4" /></span>
         <button type="button" onClick={onOpen} className="flex min-w-0 flex-1 items-center gap-2.5 text-left">
           <span className="grid size-8 shrink-0 place-items-center rounded-lg bg-muted text-muted-foreground"><Icon className="size-4" /></span>
           <span className="min-w-0">
-            <span className={cn("block truncate text-sm", f.type === "section" || f.type === "page" ? "font-semibold" : "font-medium", !f.label && "text-muted-foreground")}>{f.label || tx(f.type === "section" || f.type === "page" ? "หัวข้อ (ยังไม่ใส่)" : "คำถาม (ยังไม่ใส่)")}{f.required && FB.answerable(f) && <span className="text-red-600"> *</span>}</span>
+            <span className={cn("block truncate text-sm", f.type === "section" || f.type === "page" ? "font-semibold" : "font-medium", !f.label && "text-muted-foreground")}>{f.label || tx(f.type === "section" || f.type === "page" ? "หัวข้อ (ยังไม่ใส่)" : "คำถาม (ยังไม่ใส่)")}{f.required && FB.answerable(f) && <span className="text-danger"> *</span>}</span>
             <span className="flex flex-wrap items-center gap-x-1.5 text-xs text-muted-foreground">{tx(FB.typeInfo(f.type).label)}
               {f.repeat && <span className="inline-flex items-center gap-0.5"><RepeatIcon className="size-3" />{tx("เพิ่มได้ {0} ชุด", [f.repeat.max])}</span>}
               {f.bind && <span className="inline-flex items-center gap-0.5"><LinkIcon className="size-3" />{tx(FB.BINDS.find((b) => b.key === f.bind)?.label ?? "")}</span>}
@@ -241,7 +241,7 @@ function FieldCard({ f, open, error, before, inGroup, dragging, dropHere, dropBe
               {f.showIf && <span className="inline-flex items-center gap-0.5"><EyeIcon className="size-3" />{tx("แสดงเมื่อ “{0}”", [f.showIf.value])}</span>}
               {f.lock === "core" && <span className="inline-flex items-center gap-0.5"><LockIcon className="size-3" />{tx("ระบบต้องใช้")}</span>}
               {f.lock === "optional" && <span>· {f.hidden ? tx("ซ่อนอยู่") : tx("ช่องเสริมของระบบ")}</span>}
-              {error && <span className="text-red-600">· {tx(error)}</span>}
+              {error && <span className="text-danger">· {tx(error)}</span>}
             </span>
           </span>
         </button>
@@ -263,7 +263,7 @@ function FieldCard({ f, open, error, before, inGroup, dragging, dropHere, dropBe
             {(f.type === "single" || f.type === "multi") && <label className="flex items-center gap-2"><Switch checked={!!f.allowOther} onCheckedChange={(v) => onChange({ allowOther: v || undefined })} />{tx("มีช่อง “อื่นๆ”")}</label>}
             <div className="ml-auto flex gap-1">
               <Button size="sm" variant="ghost" onClick={onCopy}><CopyIcon /> {tx("ทำซ้ำ")}</Button>
-              {FB.canRemove(f) && <Button size="sm" variant="ghost" className="text-red-600 hover:text-red-700" onClick={onRemove}><Trash2Icon /> {tx("ลบ")}</Button>}
+              {FB.canRemove(f) && <Button size="sm" variant="ghost" className="text-danger hover:text-danger" onClick={onRemove}><Trash2Icon /> {tx("ลบ")}</Button>}
             </div>
           </div>
         </div>
