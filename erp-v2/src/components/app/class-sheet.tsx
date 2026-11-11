@@ -83,7 +83,7 @@ function ClassView({ id, onEdit, onClose }: { id: ID; onEdit: () => void; onClos
         <section className="divide-y rounded-2xl border px-3">
           <Row label="วัน · เวลา">{TH_DAYS_FULL[k.weekday]} {k.start}–{endTime(k.start, k.minutes)} <span className="text-xs text-muted-foreground">({k.minutes} นาที)</span></Row>
           <Row label="ห้อง">{L.room(k.roomId)}</Row>
-          <Row label="ครู">{[k.teacherId, ...k.coTeacherIds].filter(Boolean).map((t, i) => <span key={t}>{i > 0 && ", "}{i === 0 && "★ "}{L.teacher(t).label}</span>)}{!k.teacherId && <span className="text-red-700">ยังไม่มีครู</span>}</Row>
+          <Row label="ครู">{[k.teacherId, ...k.coTeacherIds].filter(Boolean).map((t, i) => <span key={t}>{i > 0 && ", "}{i === 0 && "★ "}{L.teacher(t).label}</span>)}{!k.teacherId && <span className="text-danger">ยังไม่มีครู</span>}</Row>
           <Row label="สาขา">{branch.name}</Row>
         </section>
         <section>
@@ -112,7 +112,7 @@ function ClassView({ id, onEdit, onClose }: { id: ID; onEdit: () => void; onClos
           </ul>
         </section>
         {closing && (
-          <section className="space-y-2 rounded-2xl border border-red-200 p-3">
+          <section className="space-y-2 rounded-2xl border border-danger/30 p-3">
             {/* NEGATIVE-ACTIONS.md: archive, never hard-delete — upcoming sessions are soft-cancelled, history stays */}
             <p className="text-sm">เก็บคลาสเข้าคลังจะ <b>ยกเลิก {future.length} คาบที่ยังไม่เริ่ม</b> และคลาสนี้จะไม่ถูกเสนอให้ย้ายเรียนชดเชยอีก · ประวัติที่เรียนไปแล้วยังอยู่ · เอากลับมาได้</p>
             <Textarea rows={2} placeholder="เหตุผล (จำเป็น)" value={reason} onChange={(e) => setReason(e.target.value)} />

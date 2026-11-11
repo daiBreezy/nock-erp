@@ -151,12 +151,12 @@ function Body({ round }: { round: Sum.EntitlementRound }) {
           ["นักเรียน", <>{student.name}{family && <Link href="/families" className="text-xs text-primary underline">{family.name}</Link>}</>],
           ["คอร์ส", <>{course?.name}{bundle && <Pill tone="violet"><LayersIcon className="size-3" /> Bundle</Pill>}{course?.subjects.map((x) => <span key={x} className={cn("rounded-full px-1.5 py-0.5 text-2xs", subjectColor(x).chip)}>{x}</span>)}</>],
           ["ช่วงเรียน", <>{fmtDate(round.from)} – {fmtDate(round.to, { year: true })}{round.entitlementIds.length > 1 && <span className="text-muted-foreground">({round.entitlementIds.length} รอบต่อเนื่อง)</span>}<span className="text-muted-foreground">· {branch?.name}</span></>],
-          ...(status === "sent" ? [] : [["กำหนดส่ง", <span key="d" className={cn(due.overdue || due.daysLeft <= 2 ? "font-medium text-red-700" : "")}>{fmtDate(due.deadline, { weekday: true })} · {due.overdue ? `เลย ${-due.daysLeft} วัน` : `อีก ${due.daysLeft} วัน`}</span>] as [string, React.ReactNode]]),
+          ...(status === "sent" ? [] : [["กำหนดส่ง", <span key="d" className={cn(due.overdue || due.daysLeft <= 2 ? "font-medium text-danger" : "")}>{fmtDate(due.deadline, { weekday: true })} · {due.overdue ? `เลย ${-due.daysLeft} วัน` : `อีก ${due.daysLeft} วัน`}</span>] as [string, React.ReactNode]]),
           ...(cs ? [["เขียนโดย", L.teacher(cs.authorId).label] as [string, React.ReactNode]] : []),
           ...(approved ? [["อนุมัติโดย", `${L.teacher(approved.by).label} · ${fmtDateTime(approved.at)}`] as [string, React.ReactNode]] : []),
         ]} />
 
-        {recalled && <p className="rounded-2xl bg-red-50 px-3 py-2 text-sm text-red-800 dark:bg-red-950/40 dark:text-red-200"><b>ขอแก้ไข</b> · {L.teacher(recalled.by).label}: {recalled.note}</p>}
+        {recalled && <p className="rounded-2xl bg-danger-soft/60 px-3 py-2 text-sm text-danger-ink"><b>ขอแก้ไข</b> · {L.teacher(recalled.by).label}: {recalled.note}</p>}
 
         {(mode === "recall" || mode === "force") && (
           <section className="space-y-1.5 rounded-2xl bg-muted/40 p-3">

@@ -77,14 +77,14 @@ export function ConflictResolver({ sessionIds, onClose, onOpen }: { sessionIds: 
     <Dialog open onOpenChange={(o) => !o && onClose()}>
       <DialogContent className="max-h-[90vh] overflow-y-auto lg:max-w-xl">
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2"><AlertTriangleIcon className="size-5 text-red-600" /> แก้คาบชน</DialogTitle>
+          <DialogTitle className="flex items-center gap-2"><AlertTriangleIcon className="size-5 text-danger" /> แก้คาบชน</DialogTitle>
           <DialogDescription>{conflicts.length ? `${conflicts.length} จุด · เลือกวิธีแก้ของแต่ละจุด แล้วแก้ทีละจุดหรือทั้งหมด` : "ไม่มีคาบชนที่ต้องแก้แล้ว"}</DialogDescription>
         </DialogHeader>
         {all.map(({ c, i, opts }) => {
           const involved = c.sessionIds.map((id) => sessions.find((x) => x.id === id)!).filter(Boolean)
           return (
             <section key={i} className="space-y-2 rounded-2xl border p-3">
-              <p className="text-sm font-medium text-red-700">{fmtDate(involved[0].date, { weekday: true })} · {c.message}</p>
+              <p className="text-sm font-medium text-danger">{fmtDate(involved[0].date, { weekday: true })} · {c.message}</p>
               <ul className="space-y-1 text-xs text-muted-foreground">
                 {involved.map((x) => (
                   <li key={x.id} className="flex items-center gap-2">

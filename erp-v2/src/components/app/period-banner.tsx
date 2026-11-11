@@ -16,11 +16,11 @@ export function periodHours(p: SpecialPeriod) {
  *  so staff always see which period they are scheduling in. */
 export function PeriodBanner({ period, className }: { period: SpecialPeriod; className?: string }) {
   return (
-    <div className={cn("flex flex-wrap items-center gap-x-2 gap-y-0.5 rounded-xl bg-amber-50 px-3 py-1.5 text-xs text-amber-900 ring-1 ring-amber-200", className)}>
-      <SunIcon className="size-3.5 shrink-0 text-amber-600" />
+    <div className={cn("flex flex-wrap items-center gap-x-2 gap-y-0.5 rounded-xl bg-warning-soft/60 px-3 py-1.5 text-xs text-warning-ink ring-1 ring-warning/30", className)}>
+      <SunIcon className="size-3.5 shrink-0 text-warning" />
       <b>ช่วง {period.name}</b>
       <span>{fmtDate(period.from, { year: true })} – {fmtDate(period.to, { year: true })}</span>
-      <span className="text-amber-700">· เวลาเปิด {periodHours(period)}</span>
+      <span className="text-warning">· เวลาเปิด {periodHours(period)}</span>
     </div>
   )
 }

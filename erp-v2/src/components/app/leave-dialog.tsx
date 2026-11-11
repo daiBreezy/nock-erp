@@ -101,7 +101,7 @@ export function LongLeaveFields({ studentId, from, to, reason, onChange, error }
       <Field label="หมายเหตุ (บังคับ) *">
         <Textarea rows={2} value={reason} onChange={(e) => onChange({ reason: e.target.value })} placeholder="เช่น ไปต่างประเทศ 2 สัปดาห์" />
       </Field>
-      {error && <p className="text-xs text-red-700">{error}</p>}
+      {error && <p className="text-xs text-danger">{error}</p>}
     </div>
   )
 }
@@ -113,7 +113,7 @@ function SessionList({ sessions, more, empty }: { sessions: Session[]; more?: st
     <div className="rounded-xl bg-muted/40 p-2 text-xs">
       <p className="mb-1 font-medium">หยุด {sessions.length} คาบ · {fmtDate(sessions[0].date, { weekday: true })} – {fmtDate(sessions.at(-1)!.date, { weekday: true, year: true })}</p>
       <ul className="max-h-40 space-y-1 overflow-y-auto">
-        {sessions.map((x) => <li key={x.id} className="flex justify-between"><span>{fmtDate(x.date, { weekday: true })} {x.start}–{endTime(x.start, x.minutes)} · {x.subject}</span><span className="text-emerald-700">ยืดวันจบ</span></li>)}
+        {sessions.map((x) => <li key={x.id} className="flex justify-between"><span>{fmtDate(x.date, { weekday: true })} {x.start}–{endTime(x.start, x.minutes)} · {x.subject}</span><span className="text-success">ยืดวันจบ</span></li>)}
         {more && <li className="text-muted-foreground">{more}</li>}
       </ul>
     </div>

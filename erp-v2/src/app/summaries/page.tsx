@@ -34,12 +34,12 @@ import { useStore } from "@/store/store"
 // owner 2026-10-13: six statuses, in the order the work moves — "not written" and "draft" are no longer one pile
 type Bucket = "to_write" | "draft" | "submitted" | "approved" | "sent" | "changes"
 const BUCKETS: { key: Bucket; label: string; tone: string }[] = [
-  { key: "to_write", label: "ยังไม่ได้เขียน", tone: "text-red-700" },
+  { key: "to_write", label: "ยังไม่ได้เขียน", tone: "text-danger" },
   { key: "draft", label: "เขียนแล้ว Draft ไว้", tone: "text-violet-700" },
-  { key: "submitted", label: "รอส่งไป Approve", tone: "text-amber-700" },
-  { key: "approved", label: "ได้ Approve แล้ว กำลังรอส่ง", tone: "text-sky-700" },
-  { key: "sent", label: "ส่งแล้ว", tone: "text-emerald-700" },
-  { key: "changes", label: "ขอแก้ไข", tone: "text-red-700" },
+  { key: "submitted", label: "รอส่งไป Approve", tone: "text-warning" },
+  { key: "approved", label: "ได้ Approve แล้ว กำลังรอส่ง", tone: "text-info" },
+  { key: "sent", label: "ส่งแล้ว", tone: "text-success" },
+  { key: "changes", label: "ขอแก้ไข", tone: "text-danger" },
 ]
 
 const BUCKET_ICON: Record<Bucket, LucideIcon> = { to_write: PenLineIcon, draft: FilePenIcon, submitted: HourglassIcon, approved: BadgeCheckIcon, sent: SendIcon, changes: Undo2Icon }
@@ -64,7 +64,7 @@ function BucketRow({ active, onPick, count, focus }: { active: Bucket | "all"; o
 type Show = "all" | "pending" | "done"
 const showOptions = (pending: number) => [
   { value: "all" as const, label: "All" },
-  { value: "pending" as const, label: <>Pending{pending > 0 && <span className="rounded-full bg-red-100 px-1.5 text-xs text-red-800 tabular-nums">{pending}</span>}</> },
+  { value: "pending" as const, label: <>Pending{pending > 0 && <span className="rounded-full bg-danger-soft px-1.5 text-xs text-danger-ink tabular-nums">{pending}</span>}</> },
   { value: "done" as const, label: "Done" },
 ]
 const inShow = (show: Show, b: Bucket) => show === "all" || (show === "done" ? b === "sent" : b !== "sent")
@@ -168,7 +168,7 @@ function SessionSummaryTab() {
                   </>}
                   status={<Pill tone={PILL_TONE[b]} title={b === "submitted" && approveCheck && !approveCheck.ok ? approveCheck.error : undefined}>{BUCKETS.find((x) => x.key === b)!.label}</Pill>}>
                   {sm?.text && <span className="mt-1 line-clamp-2 block text-sm">{sm.text}</span>}
-                  {sm?.status === "changes_requested" && <span className="mt-1 block text-xs text-red-700">ขอแก้: {sm.history.findLast((h) => h.action === "request_changes")?.note}</span>}
+                  {sm?.status === "changes_requested" && <span className="mt-1 block text-xs text-danger">ขอแก้: {sm.history.findLast((h) => h.action === "request_changes")?.note}</span>}
                 </SessionLine>
               )
             })}
@@ -257,7 +257,7 @@ function CourseSummaryTab() {
     { id: "due", label: "กำหนดส่ง", info: "ต้องส่งสรุปภายในกี่วันหลังคอร์สจบ", cell: (r) => {
       if (bucket(r) === "sent") return <span className="text-muted-foreground">—</span>
       const d = Sum.courseSummaryDeadline(r, now)
-      return <span className={cn("whitespace-nowrap", d.overdue || d.daysLeft <= 2 ? "font-medium text-red-700" : "")}>{fmtDate(d.deadline)} · {d.overdue ? `เลย ${-d.daysLeft} วัน` : `อีก ${d.daysLeft} วัน`}</span>
+      return <span className={cn("whitespace-nowrap", d.overdue || d.daysLeft <= 2 ? "font-medium text-danger" : "")}>{fmtDate(d.deadline)} · {d.overdue ? `เลย ${-d.daysLeft} วัน` : `อีก ${d.daysLeft} วัน`}</span>
     } },
     { id: "status", label: "สถานะ", align: "right", required: true, cell: (r) => <Pill tone={PILL_TONE[bucket(r)]}>{BUCKETS.find((x) => x.key === bucket(r))!.label}</Pill> },
   ]

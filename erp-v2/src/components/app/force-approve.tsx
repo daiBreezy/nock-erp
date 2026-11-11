@@ -17,14 +17,14 @@ export function ForceApprove({ label = "Force Approve", onForce, success }: { la
 
   if (!open)
     return (
-      <Button size="xs" variant="outline" className="border-amber-300 text-amber-800 hover:bg-amber-50" onClick={() => setOpen(true)}>
+      <Button size="xs" variant="outline" className="border-warning/40 text-warning-ink hover:bg-warning-soft/40" onClick={() => setOpen(true)}>
         <ShieldAlertIcon /> {label}
       </Button>
     )
 
   return (
-    <div className="w-full space-y-2 rounded-lg border border-amber-300 bg-amber-50 p-2.5 text-left">
-      <p className="text-xs text-amber-900">ข้ามผู้ตรวจ — ระบบจะแจ้งเตือน<b>ทุกคนในสาขา</b>และ <b>Director</b> พร้อมเหตุผลนี้</p>
+    <div className="w-full space-y-2 rounded-lg border border-warning/40 bg-warning-soft/60 p-2.5 text-left">
+      <p className="text-xs text-warning-ink">ข้ามผู้ตรวจ — ระบบจะแจ้งเตือน<b>ทุกคนในสาขา</b>และ <b>Director</b> พร้อมเหตุผลนี้</p>
       <Textarea autoFocus rows={2} value={remark} onChange={(e) => setRemark(e.target.value)} placeholder="เหตุผลที่ต้อง Force (จำเป็น) เช่น วันนี้อยู่สาขาคนเดียว ผู้ปกครองรอชำระหน้าเคาน์เตอร์" />
       <div className="flex justify-end gap-2">
         <Button size="sm" variant="ghost" onClick={() => { setOpen(false); setRemark("") }}>ยกเลิก</Button>

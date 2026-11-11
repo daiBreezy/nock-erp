@@ -12,8 +12,8 @@ export const WORK_ICON: Record<WorkState, typeof RadioIcon> = {
   cancelled: BanIcon,
 }
 export const WORK_ICON_TONE: Record<WorkState, string> = {
-  scheduled: "text-muted-foreground", live: "text-primary", needs_attendance: "text-red-600",
-  needs_summary: "text-amber-600", done: "text-emerald-600", cancelled: "text-muted-foreground",
+  scheduled: "text-muted-foreground", live: "text-primary", needs_attendance: "text-danger",
+  needs_summary: "text-warning", done: "text-success", cancelled: "text-muted-foreground",
 }
 /** the state as one icon; the words (and what is left to do) on hover */
 export function WorkIcon({ w, students, className }: { w: WorkInfo; students: number; className?: string }) {
@@ -25,10 +25,10 @@ export function WorkIcon({ w, students, className }: { w: WorkInfo; students: nu
 
 export const WORK_CHIP: Record<WorkState, string> = {
   scheduled: "bg-white/80 text-slate-700 ring-1 ring-slate-200",
-  live: "bg-white text-emerald-700",
-  needs_attendance: "bg-red-600 text-white",
-  needs_summary: "bg-amber-400 text-amber-950",
-  done: "bg-emerald-600 text-white",
+  live: "bg-white text-success",
+  needs_attendance: "bg-danger text-white",
+  needs_summary: "bg-warning text-warning-ink",
+  done: "bg-success text-white",
   cancelled: "bg-slate-200 text-slate-600",
 }
 
@@ -75,7 +75,7 @@ export function WorkLegend({ counts, active, onToggle }: { counts: Partial<Recor
             className={cn(
               "inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium transition",
               WORK_CHIP[s],
-              s === "live" && "bg-emerald-600 text-white",
+              s === "live" && "bg-success text-white",
               active && active !== s && "opacity-40",
               active === s && "ring-2 ring-foreground/40",
               n === 0 && !active && "opacity-50",

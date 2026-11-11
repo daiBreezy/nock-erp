@@ -138,7 +138,7 @@ export function ClassDialog({ prefill, onClose }: { prefill: ClassPrefill; onClo
     <FormShell className="max-h-[92vh] sm:max-w-2xl" onClose={onClose} title={`สร้างคลาส · สาขา${branch.name}`}
       description="ตั้งวิชา ครู ระดับชั้นครั้งเดียว แล้วเพิ่มได้หลายวัน/เวลา — ได้ 1 คลาสต่อ 1 แถว · ระบบเช็คชนให้ทุกแถวก่อนสร้าง"
       footer={<>
-        {!ok && <span className="mr-auto text-xs text-red-700">{blocked ? "แก้รายการสีแดงก่อน" : "ใส่เหตุผลเพื่อยืนยัน"}</span>}
+        {!ok && <span className="mr-auto text-xs text-danger">{blocked ? "แก้รายการสีแดงก่อน" : "ใส่เหตุผลเพื่อยืนยัน"}</span>}
         <Button variant="ghost" onClick={onClose}>ยกเลิก</Button>
         <Button disabled={!ok} onClick={submit}>สร้าง {rows.length > 1 ? `${rows.length} คลาส` : "คลาส"}</Button>
       </>}>
@@ -242,7 +242,7 @@ export function ClassDialog({ prefill, onClose }: { prefill: ClassPrefill; onClo
             const mine = own(rowIssues[i] ?? [])
             const clashWith = selfClash.filter(([a, b]) => a === i || b === i).map(([a, b]) => (a === i ? b : a) + 1)
             return (
-              <div key={r.key} className={cn("rounded-2xl border p-2.5", (mine.some((x) => x.level === "block") || clashWith.length) && "border-red-300 bg-red-50/40")}>
+              <div key={r.key} className={cn("rounded-2xl border p-2.5", (mine.some((x) => x.level === "block") || clashWith.length) && "border-danger/40 bg-danger-soft/30")}>
                 <div className="flex flex-wrap items-end gap-2">
                   <Field label="วัน">
                     <NativeSelect className="h-9 w-32" value={String(r.weekday)} onChange={(e) => setRow(r.key, { weekday: Number(e.target.value) as Weekday })}
@@ -251,7 +251,7 @@ export function ClassDialog({ prefill, onClose }: { prefill: ClassPrefill; onClo
                   <Field label="เวลาเริ่ม"><Input className="h-9 w-28" type="time" step={300} value={r.start} onChange={(e) => setRow(r.key, { start: e.target.value, end: fromMinutes(toMinutes(e.target.value) + Math.max(mins, 5)) })} /></Field>
                   <span className="pb-2 text-muted-foreground">–</span>
                   <Field label="เวลาจบ"><Input className="h-9 w-28" type="time" step={300} value={r.end} onChange={(e) => setRow(r.key, { end: e.target.value })} /></Field>
-                  <span className={cn("pb-2 text-xs", mins >= 5 && mins % 5 === 0 ? "text-muted-foreground" : "text-red-700")}>{mins > 0 ? `${mins} นาที` : "เวลาจบต้องหลังเวลาเริ่ม"}</span>
+                  <span className={cn("pb-2 text-xs", mins >= 5 && mins % 5 === 0 ? "text-muted-foreground" : "text-danger")}>{mins > 0 ? `${mins} นาที` : "เวลาจบต้องหลังเวลาเริ่ม"}</span>
                   <span className="pb-2 text-xs text-muted-foreground">· {occurrences(r)} คาบ</span>
                   {/* the branch's standard blocks for that day (Settings → เวลาเปิด-ปิด) */}
                   {blocksOn(branch, nextWeekday(startDate, r.weekday)).length > 0 && (
@@ -267,11 +267,11 @@ export function ClassDialog({ prefill, onClose }: { prefill: ClassPrefill; onClo
                 </div>
                 {(mine.length > 0 || clashWith.length > 0) && (
                   <ul className="mt-2 space-y-1 text-xs">
-                    {clashWith.map((n) => <IssueRow key={`self${n}`} icon={<BanIcon />} tone="text-red-700" text={`ทับกับแถว ${n} (วันเดียวกัน เวลาซ้อน)`} />)}
+                    {clashWith.map((n) => <IssueRow key={`self${n}`} icon={<BanIcon />} tone="text-danger" text={`ทับกับแถว ${n} (วันเดียวกัน เวลาซ้อน)`} />)}
                     {mine.map((x) => <IssueLine key={x.message} issue={x} />)}
                   </ul>
                 )}
-                {mine.length === 0 && clashWith.length === 0 && <p className="mt-1.5 flex items-center gap-1 text-xs text-emerald-700"><CheckIcon className="size-3.5" /> ไม่ชนกับคลาสที่มีอยู่</p>}
+                {mine.length === 0 && clashWith.length === 0 && <p className="mt-1.5 flex items-center gap-1 text-xs text-success"><CheckIcon className="size-3.5" /> ไม่ชนกับคลาสที่มีอยู่</p>}
               </div>
             )
           })}
@@ -334,14 +334,14 @@ function Field({ label, hint, children, className, issue, action }: { label: str
     <div className={cn("space-y-1", className)}>
       <div className="flex items-center gap-1"><Label className="text-xs">{label}</Label>{hint && <InfoTip text={hint} />}{action && <span className="ml-auto">{action}</span>}</div>
       {children}
-      {issue && <p className="text-xs text-red-700">{issue}</p>}
+      {issue && <p className="text-xs text-danger">{issue}</p>}
     </div>
   )
 }
 
 /** block = red ban · override = amber triangle · warn = grey info, or red / amber triangle when the rule gives it a tone */
 function IssueLine({ issue: i }: { issue: Issue }) {
-  const tone = i.level === "block" || i.tone === "red" ? "text-red-700" : i.level === "override" || i.tone === "amber" ? "text-amber-700" : "text-muted-foreground"
+  const tone = i.level === "block" || i.tone === "red" ? "text-danger" : i.level === "override" || i.tone === "amber" ? "text-warning" : "text-muted-foreground"
   return <IssueRow icon={i.level === "block" ? <BanIcon /> : i.level === "override" || i.tone ? <AlertTriangleIcon /> : <InfoIcon />} tone={tone} text={i.message} />
 }
 

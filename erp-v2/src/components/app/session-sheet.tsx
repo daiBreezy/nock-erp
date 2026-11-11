@@ -157,7 +157,7 @@ function Body({ id, onClose }: { id: ID; onClose: () => void }) {
             </div>
             <div className="flex flex-wrap items-center gap-1.5">
               <span className="inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground"><DoorOpenIcon className="size-3" />{L.room(s.roomId)}</span>
-              <span className={cn("inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium", teacher.missing ? "bg-amber-100 text-amber-800" : "bg-muted text-muted-foreground")}><StarIcon className="size-3" />{teacher.label}</span>
+              <span className={cn("inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium", teacher.missing ? "bg-warning-soft text-warning-ink" : "bg-muted text-muted-foreground")}><StarIcon className="size-3" />{teacher.label}</span>
               {s.coTeacherIds.length > 0 && <span className="inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">ผู้ช่วย {s.coTeacherIds.map((t) => L.teacher(t).label).join(", ")}</span>}
               <GradeChips max={8} grades={s.studentIds.map((sid) => L.student(sid)?.grade ?? "")} planned={klass?.grades} />
               <SessionStateBadge state={state} />
@@ -168,9 +168,9 @@ function Body({ id, onClose }: { id: ID; onClose: () => void }) {
             </div>
           </div>
         </div>
-        {s.cancelled && <p className="text-sm text-red-700">ยกเลิกแล้ว: {s.cancelReason}</p>}
+        {s.cancelled && <p className="text-sm text-danger">ยกเลิกแล้ว: {s.cancelReason}</p>}
         {s.teacherLeave && (
-          <p className="flex flex-wrap items-center gap-2 text-sm text-amber-800 dark:text-amber-300">
+          <p className="flex flex-wrap items-center gap-2 text-sm text-warning-ink">
             <span>{L.teacher(s.teacherLeave.teacherId).label}ลา ({s.teacherLeave.reason}){s.teacherLeave.substituteId ? ` · ${L.teacher(s.teacherLeave.substituteId).label} สอนแทน` : " · เลื่อนวันจบคอร์สให้นักเรียนแล้ว"}</span>
             {/* owner 2026-10-12: a teacher leave can be taken back while the class hasn't closed */}
             {canManage && state !== "closed" && (
@@ -203,14 +203,14 @@ function Body({ id, onClose }: { id: ID; onClose: () => void }) {
         {tab === "students" ? (
           <>
             {s.studentIds.length > cap && !capHidden && (
-              <div className="flex items-center gap-2 rounded-2xl bg-amber-50 px-3 py-2.5 text-sm text-amber-800 dark:bg-amber-950/40 dark:text-amber-200">
+              <div className="flex items-center gap-2 rounded-2xl bg-warning-soft/60 px-3 py-2.5 text-sm text-warning-ink">
                 <AlertTriangleIcon className="size-4 shrink-0" /> ไม่ควรเกิน {cap} คน/คลาส (ตอนนี้ {s.studentIds.length} คน)
                 <button type="button" className="ml-auto" aria-label="ปิด" onClick={() => setCapHidden(true)}><XIcon className="size-4" /></button>
               </div>
             )}
             {viewOnly && <p className="text-xs text-muted-foreground">ดูอย่างเดียว — ไม่ใช่คาบที่คุณสอน</p>}
             {state === "upcoming" && <p className="text-xs text-muted-foreground">ยังไม่ถึงเวลาเรียน — เช็คชื่อ เขียนสรุป ลา หรือย้ายคาบ เตรียมไว้ล่วงหน้าได้เลย</p>}
-            {locked && <p className="text-xs text-amber-700">ส่งสรุปถึงผู้ปกครองแล้ว — คาบนี้ถูกล็อก แก้ไขไม่ได้</p>}
+            {locked && <p className="text-xs text-warning">ส่งสรุปถึงผู้ปกครองแล้ว — คาบนี้ถูกล็อก แก้ไขไม่ได้</p>}
             {selectable.length > 0 && (
               <div className="sticky top-0 z-10 flex flex-wrap items-center gap-2 rounded-2xl border bg-background/95 px-3 py-2 text-sm backdrop-blur">
                 <Checkbox checked={sel.length === selectable.length} onCheckedChange={(v) => setPicked(v ? new Set(selectable) : new Set())} />
@@ -391,7 +391,7 @@ function StudentRow({ s, sid, viewOnly, canManage, mine, text, setText, selectab
         {selectable && <Checkbox checked={picked} onCheckedChange={onPick} aria-label={`เลือก ${stu?.nickname}`} />}
         <span className="relative shrink-0">
           <span className={cn("grid size-11 place-items-center rounded-full text-base font-semibold", avatarTone(sid))}>{initial(stu?.nickname ?? "?")}</span>
-          {movedFrom && <span className="absolute -right-1 -bottom-1 grid size-5 place-items-center rounded-full bg-sky-100 text-sky-700 ring-2 ring-background" title="ย้ายมาจากคาบอื่น"><CalendarClockIcon className="size-3" /></span>}
+          {movedFrom && <span className="absolute -right-1 -bottom-1 grid size-5 place-items-center rounded-full bg-info-soft text-info-ink ring-2 ring-background" title="ย้ายมาจากคาบอื่น"><CalendarClockIcon className="size-3" /></span>}
         </span>
         <div className="min-w-0 flex-1">
           <span className="flex min-w-0 items-center gap-1.5">
@@ -413,7 +413,7 @@ function StudentRow({ s, sid, viewOnly, canManage, mine, text, setText, selectab
           <p className="truncate text-xs text-muted-foreground">
             {asm ? `${FORM_TYPE_LABEL[asm.type]} (ไม่ใช้แพ็กเกจ)`
               : s.trial ? "ทดลองเรียน (ไม่ใช้แพ็กเกจ)"
-              : !ent ? <span className="text-amber-700">ยังไม่ได้จ่ายค่าเรียน{can(me, "billing.manage") && <button type="button" onClick={() => setInvoice("new")} className="ml-1 underline">ออกใบแจ้งหนี้</button>}{invoice && <InvoiceSheet id={invoice} defaultStudentId={sid} onClose={() => setInvoice(null)} />}</span>
+              : !ent ? <span className="text-warning">ยังไม่ได้จ่ายค่าเรียน{can(me, "billing.manage") && <button type="button" onClick={() => setInvoice("new")} className="ml-1 underline">ออกใบแจ้งหนี้</button>}{invoice && <InvoiceSheet id={invoice} defaultStudentId={sid} onClose={() => setInvoice(null)} />}</span>
               : (() => {
                 const course = courses.find((c) => c.id === ent.courseId)
                 return <span title={`${course?.name ?? ""} · ถึง ${fmtDate(ent.to, { year: true })}${progress?.of ? ` · คาบที่ ${progress.n} จาก ${progress.of}` : ""}`}>
@@ -426,9 +426,9 @@ function StudentRow({ s, sid, viewOnly, canManage, mine, text, setText, selectab
             phones: wraps to its own full-width row (order-last) so the buttons never run off the edge */}
         <span className="order-last flex w-full shrink-0 overflow-hidden rounded-full border sm:order-none sm:w-auto">
           <button type="button" data-on={a?.status === "present"} disabled={!canMarkHere || !Att.canMark(s, "present", now).ok} onClick={() => markAs("present")}
-            className={pill + " data-[on=true]:bg-emerald-600 data-[on=true]:text-white"}>มา</button>
+            className={pill + " data-[on=true]:bg-success data-[on=true]:text-white"}>มา</button>
           <button type="button" data-on={a?.status === "leave"} disabled={!canMarkHere || !Att.canMark(s, "leave", now).ok} onClick={() => setOpen("leave")}
-            title="ลา — เลือกหักโควตา / ไม่หักโควตา และจำนวนคาบ" className={pill + " data-[on=true]:bg-amber-500 data-[on=true]:text-white"}>{a?.status === "leave" && a.noQuota ? "ลา*" : "ลา"}</button>
+            title="ลา — เลือกหักโควตา / ไม่หักโควตา และจำนวนคาบ" className={pill + " data-[on=true]:bg-warning data-[on=true]:text-white"}>{a?.status === "leave" && a.noQuota ? "ลา*" : "ลา"}</button>
           <button type="button" disabled={!canMove || locked || !!a || s.cancelled} onClick={() => setOpen("reschedule")}
             title="ย้ายวัน — ครั้งนี้ครั้งเดียว (สัปดาห์นี้ / หน้า) หรือย้ายคลาสถาวร" className={pill}>ย้ายวัน</button>
         </span>
@@ -461,18 +461,18 @@ function StudentRow({ s, sid, viewOnly, canManage, mine, text, setText, selectab
       <div className={cn(indent, "pt-1")}><CalendarNotes s={s} studentId={sid} canEdit={canManage || mine} /></div>
 
       {classMove && (
-        <p className={cn(indent, "flex flex-wrap items-center gap-x-2 text-xs text-sky-700")}>
+        <p className={cn(indent, "flex flex-wrap items-center gap-x-2 text-xs text-info")}>
           ย้ายคลาสถาวรมาจาก {classes.find((k) => k.id === classMove.fromClassId)?.name ?? "คลาสเดิม"} · {fmtDateTime(classMove.at)}
           {canMove && canUndoClassMove(classMove, attendance).ok && <button type="button" className="underline" onClick={() => report(undoClassMove(classMove.id), "ย้อนกลับแล้ว — กลับไปคลาสเดิม")}>ย้อนกลับ</button>}
         </p>
       )}
       {movedFrom && (
-        <p className={cn(indent, "text-xs text-sky-700")}>
+        <p className={cn(indent, "text-xs text-info")}>
           ย้ายมาจาก <button type="button" className="underline" onClick={() => setOtherSession(movedFrom.id)}>{fmtDate(movedFrom.date, { weekday: true })} {movedFrom.start}–{endTime(movedFrom.start, movedFrom.minutes)}{classes.find((k) => k.id === movedFrom.classId) ? ` · ${classes.find((k) => k.id === movedFrom.classId)!.name}` : ""}</button>
         </p>
       )}
       {a?.status === "leave" && raw && (
-        <p className={cn(indent, "text-xs", thisLeave?.quota || thisLeave?.noQuota ? "text-emerald-700" : "text-muted-foreground")}>
+        <p className={cn(indent, "text-xs", thisLeave?.quota || thisLeave?.noQuota ? "text-success" : "text-muted-foreground")}>
           {a.leaveGroup && (() => { const n = attendance.filter((x) => x.studentId === sid && x.leaveGroup === a.leaveGroup).length; return n > 1 ? `ลาชุด ${n} คาบ · ` : "" })()}
           {thisLeave?.noQuota ? `ลาไม่หักโควตา · ยืดให้อีก 1 คาบ → เรียนจบ ${fmtDate(ent?.to ?? raw.to, { weekday: true, year: true })}` : thisLeave?.quota ? `ใช้โควตาลา ${usedQuota}/${quota} · ยืดให้อีก 1 คาบ → เรียนจบ ${fmtDate(ent?.to ?? raw.to, { weekday: true, year: true })}` : `โควตาลาหมดแล้ว (${quota}/${quota}) — ไม่ชดเชยคาบนี้ · เรียนจบ ${fmtDate(ent?.to ?? raw.to, { weekday: true, year: true })} เหมือนเดิม`}
         </p>
@@ -621,7 +621,7 @@ function LeaveDialog({ s, studentId, onClose }: { s: Session; studentId: ID; onC
         <div className="grid grid-cols-2 gap-2">
           {([[false, "ลา · หักโควตา", ent ? `เหลือโควตา ${left}/${quota} · ยืดวันจบตามโควตา` : "ไม่มีแพ็กเกจที่ใช้คาบนี้"], [true, "ลาพักยาว · ไม่หักโควตา", "ทุกวิชาในช่วงนี้ · ยืดวันจบทุกคอร์ส · ดูได้ที่หน้านักเรียน"]] as const).map(([k, label, hint]) => (
             <button key={label} type="button" aria-pressed={noQuota === k} onClick={() => setNoQuota(k)}
-              className={cn("rounded-xl border p-2.5 text-left", noQuota === k ? "border-amber-500 bg-amber-50 dark:bg-amber-950/30" : "hover:bg-muted/50")}>
+              className={cn("rounded-xl border p-2.5 text-left", noQuota === k ? "border-warning bg-warning-soft/40" : "hover:bg-muted/50")}>
               <p className="flex items-center gap-1 text-sm font-medium">{label}<InfoTip text={hint} /></p>
             </button>
           ))}
@@ -640,14 +640,14 @@ function LeaveDialog({ s, studentId, onClose }: { s: Session; studentId: ID; onC
             {run.map((x, i) => (
               <li key={x.id} className="flex justify-between">
                 <span>{fmtDate(x.date, { weekday: true })} {x.start} · {x.subject}</span>
-                <span className={noQuota || i < left ? "text-emerald-700" : "text-muted-foreground"}>{noQuota ? "ยืดวันจบ" : i < left ? "ใช้โควตา · ยืดวันจบ" : "เกินโควตา · ไม่ชดเชย"}</span>
+                <span className={noQuota || i < left ? "text-success" : "text-muted-foreground"}>{noQuota ? "ยืดวันจบ" : i < left ? "ใช้โควตา · ยืดวันจบ" : "เกินโควตา · ไม่ชดเชย"}</span>
               </li>
             ))}
             {ok && run.length < count && <li className="text-muted-foreground">มีคาบให้ลาแค่ {run.length} คาบในตาราง</li>}
           </ul>
         )}
         <DialogFooter className="items-center">
-          {group.length > 0 && <Button variant="ghost" className="mr-auto text-red-700" onClick={() => save(0)}>ยกเลิกการลา (มาเรียน)</Button>}
+          {group.length > 0 && <Button variant="ghost" className="mr-auto text-danger" onClick={() => save(0)}>ยกเลิกการลา (มาเรียน)</Button>}
           <Button variant="ghost" onClick={onClose}>ยกเลิก</Button>
           <Button disabled={noQuota ? !longOk.ok : !ok} title={noQuota && !longOk.ok ? longOk.error : undefined} onClick={() => save(noQuota ? 1 : count)}>บันทึก</Button>
         </DialogFooter>
@@ -714,7 +714,7 @@ function MovedOutRow({ s, studentId, toSessionId, canManage }: { s: Session; stu
       <span className="w-4 shrink-0" />
       <span className="relative shrink-0">
         <span className={cn("grid size-11 place-items-center rounded-full text-base font-semibold opacity-60", avatarTone(studentId))}>{initial(stu?.nickname ?? "?")}</span>
-        <span className="absolute -right-1 -bottom-1 grid size-5 place-items-center rounded-full bg-amber-100 text-amber-700 ring-2 ring-background"><LogOutIcon className="size-3" /></span>
+        <span className="absolute -right-1 -bottom-1 grid size-5 place-items-center rounded-full bg-warning-soft text-warning-ink ring-2 ring-background"><LogOutIcon className="size-3" /></span>
       </span>
       <div className="min-w-0 flex-1">
         <p className="truncate text-sm font-medium text-muted-foreground">{stu?.name} ({stu?.nickname})</p>
@@ -722,7 +722,7 @@ function MovedOutRow({ s, studentId, toSessionId, canManage }: { s: Session; stu
       </div>
       <span className={cn("shrink-0 rounded-full px-2 py-0.5 text-xs font-medium", gradeTone(stu?.grade ?? ""))}>{stu?.grade}</span>
       {to && (
-        <button type="button" onClick={() => setOpen(true)} className="shrink-0 text-right text-xs text-amber-700 hover:underline" title="เปิดคาบที่ย้ายไป">
+        <button type="button" onClick={() => setOpen(true)} className="shrink-0 text-right text-xs text-warning hover:underline" title="เปิดคาบที่ย้ายไป">
           <span className="flex items-center justify-end gap-1 font-medium"><CalendarClockIcon className="size-4" /> ย้ายไป</span>
           <span className="text-2xs">{fmtDate(to.date, { weekday: true })} · {to.start}–{endTime(to.start, to.minutes)}{toClass ? ` · ${toClass.name}` : ""}</span>
         </button>
@@ -804,7 +804,7 @@ export function RescheduleDialog({ from, studentId, onClose, initialMode = "once
           <InfoTip text={mode === "once" ? `ย้ายเฉพาะคาบ ${fmtDate(from.date, { weekday: true })} ไปคาบอื่นวิชาเดียวกัน ภายในสัปดาห์นี้และสัปดาห์หน้า (${fmtDate(monday)} – ${fmtDate(lastDay, { year: true })}) · ไกลกว่านั้นให้บันทึกเป็นการลา` : "ย้ายไปอยู่อีกคลาสถาวร ตั้งแต่คาบนี้ · แพ็กเกจจบวันเดิม คลาสใหม่ได้เท่าที่มีคาบก่อนวันจบ"} />
           {history.length > 0 && (
             <details className="ml-auto text-xs">
-              <summary className={cn("cursor-pointer rounded-full px-2.5 py-1 font-medium", history.length >= 3 ? "bg-amber-100 text-amber-900" : "bg-muted text-muted-foreground")}>ย้ายมาแล้ว {history.filter((h) => h.action !== MOVE_UNDO_ACTION).length} ครั้ง</summary>
+              <summary className={cn("cursor-pointer rounded-full px-2.5 py-1 font-medium", history.length >= 3 ? "bg-warning-soft text-warning-ink" : "bg-muted text-muted-foreground")}>ย้ายมาแล้ว {history.filter((h) => h.action !== MOVE_UNDO_ACTION).length} ครั้ง</summary>
               <ul className="absolute right-6 z-10 mt-1 max-h-60 w-[min(26rem,80vw)] space-y-1 overflow-y-auto rounded-2xl bg-popover p-2 shadow-lg ring-1 ring-foreground/10">
                 {history.map((h) => <li key={h.id} className="rounded-xl px-2 py-1 hover:bg-muted/50"><span className="font-medium">{h.action}</span> · {fmtDateTime(h.at)} · {L.teacher(h.by).label}<span className="block text-muted-foreground">{h.detail}</span></li>)}
               </ul>
@@ -849,7 +849,7 @@ export function RescheduleDialog({ from, studentId, onClose, initialMode = "once
                 const check = canRescheduleStudent(from, x, studentId, now, cap)
                 return (
                   <button key={x.id} type="button" disabled={!check.ok} onClick={() => setPick(x.id)} title={check.ok ? undefined : check.error}
-                    className={cn("flex w-full items-center gap-3 rounded-2xl p-3 text-left transition", pick === x.id ? "bg-rose-100 ring-2 ring-primary dark:bg-rose-950" : "bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/40", !check.ok && "cursor-not-allowed opacity-50")}>
+                    className={cn("flex w-full items-center gap-3 rounded-2xl p-3 text-left transition", pick === x.id ? "bg-primary/10 ring-2 ring-primary" : "bg-primary/5 hover:bg-primary/10", !check.ok && "cursor-not-allowed opacity-50")}>
                     <span className={cn("grid size-5 shrink-0 place-items-center rounded-full border-2", pick === x.id ? "border-primary" : "border-muted-foreground/50")}>{pick === x.id && <span className="size-2.5 rounded-full bg-primary" />}</span>
                     <span className="min-w-0 flex-1">
                       <span className="block text-sm font-medium">{k?.name ?? subjectsOf(x).join(" + ")}</span>
@@ -941,7 +941,7 @@ function ClassMovePicker({ from, studentId, value, onChange, entitlementTo }: { 
         const cap = classCapacity(k)
         return (
           <button key={k.id} type="button" disabled={!check.ok} onClick={() => onChange(k.id)} title={check.ok ? undefined : check.error}
-            className={cn("flex w-full items-center gap-3 rounded-2xl p-3 text-left transition", value === k.id ? "bg-rose-100 ring-2 ring-primary dark:bg-rose-950" : "bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/40", !check.ok && "cursor-not-allowed opacity-50")}>
+            className={cn("flex w-full items-center gap-3 rounded-2xl p-3 text-left transition", value === k.id ? "bg-primary/10 ring-2 ring-primary" : "bg-primary/5 hover:bg-primary/10", !check.ok && "cursor-not-allowed opacity-50")}>
             <span className={cn("grid size-5 shrink-0 place-items-center rounded-full border-2", value === k.id ? "border-primary" : "border-muted-foreground/50")}>{value === k.id && <span className="size-2.5 rounded-full bg-primary" />}</span>
             <span className="min-w-0 flex-1">
               <span className="block text-sm font-medium">{k.name}</span>
@@ -952,7 +952,7 @@ function ClassMovePicker({ from, studentId, value, onChange, entitlementTo }: { 
         )
       })}
       {picked && (
-        <p className="rounded-2xl bg-sky-50 p-3 text-sm text-sky-900 dark:bg-sky-950/40 dark:text-sky-100">
+        <p className="rounded-2xl bg-info-soft/60 p-3 text-sm text-info-ink">
           มีผลตั้งแต่ <b>{fmtDate(from.date, { weekday: true })}</b> — ออกจากคาบที่ยังไม่เริ่มของคลาสเดิม แล้วเข้าทุกคาบของ <b>{picked.name}</b>
           {entitlementTo ? <> · แพ็กเกจจบ <b>{fmtDate(entitlementTo, { year: true })}</b> เหมือนเดิม — คลาสใหม่มี <b>{ahead(picked.id)} คาบ</b> ก่อนวันจบ</> : null}
           <span className="mt-1 block text-xs opacity-80">บันทึกลง Log ทุกครั้ง: ใครย้าย · เมื่อไร · จากไหน ไปไหน</span>
@@ -1015,7 +1015,7 @@ function DeleteDialog({ s, canCancel, onClose, onDone }: { s: Session; canCancel
             <b>ยกเลิกคาบนี้</b> · {fmtDate(s.date, { weekday: true })} {s.start} · นักเรียน {s.studentIds.length} คน{!canCancel && " (คาบเริ่มไปแล้ว)"}
           </button>
           {klass?.active && (
-            <button type="button" onClick={() => setWhat("class")} className={cn("rounded-2xl border p-3 text-left text-sm", what === "class" && "border-red-500 bg-red-50 ring-1 ring-red-500 dark:bg-red-950/30")}>
+            <button type="button" onClick={() => setWhat("class")} className={cn("rounded-2xl border p-3 text-left text-sm", what === "class" && "border-danger bg-danger-soft/40 ring-1 ring-danger")}>
               <b>ลบทั้งคลาส {klass.name}</b> · ยกเลิกทุกคาบที่ยังไม่เริ่ม
             </button>
           )}
@@ -1085,13 +1085,13 @@ function SummaryInline({ session, sessionId, studentId, summary, viewOnly, text,
         <div className="flex flex-wrap items-center gap-x-2 text-2xs text-muted-foreground">
           {summary && <span>{who(summary.lastEditorId)} · {fmtDateTime(summary.history[summary.history.length - 1]?.at ?? new Date().toISOString())}</span>}
           {status !== "sent" && (
-            <span className={cn(due.overdue ? "font-medium text-red-700" : due.daysLeft <= 2 && "text-amber-700")}>
+            <span className={cn(due.overdue ? "font-medium text-danger" : due.daysLeft <= 2 && "text-warning")}>
               {due.overdue ? `เลยกำหนดส่ง ${-due.daysLeft} วัน` : `ส่งภายใน ${fmtDate(due.deadline, { weekday: true })}`}
             </span>
           )}
         </div>
       </div>
-      {status === "changes_requested" && lastChange?.note && <p className="mb-1.5 rounded-md bg-red-50 p-2 text-xs text-red-800">ขอแก้: {lastChange.note}</p>}
+      {status === "changes_requested" && lastChange?.note && <p className="mb-1.5 rounded-md bg-danger-soft/60 p-2 text-xs text-danger-ink">ขอแก้: {lastChange.note}</p>}
       {editable ? (
         <div className="space-y-2 pt-1">
           <div className="grid gap-2 sm:grid-cols-2">
@@ -1197,7 +1197,7 @@ function TeacherLeaveDialog({ s, onClose }: { s: Session; onClose: () => void })
         <div className="grid gap-2">
           {([["sub", "มีครูสอนแทน", "นักเรียนเรียนตามปกติ"], ["cancel", "ไม่มีครูสอนแทน — ยกเลิกคาบ", "วันเรียนจบของนักเรียนทุกคนเลื่อนออกไป 1 คาบ"]] as const).map(([k, label, hint]) => (
             <button key={k} type="button" aria-pressed={mode === k} onClick={() => setMode(k)}
-              className={cn("rounded-xl border p-3 text-left", mode === k ? (k === "cancel" ? "border-red-400 bg-red-50 dark:bg-red-950/30" : "border-primary bg-primary/5") : "hover:bg-muted/50")}>
+              className={cn("rounded-xl border p-3 text-left", mode === k ? (k === "cancel" ? "border-danger bg-danger-soft/40" : "border-primary bg-primary/5") : "hover:bg-muted/50")}>
               <p className="flex items-center gap-1 text-sm font-medium">{label}<InfoTip text={hint} /></p>
             </button>
           ))}
@@ -1327,12 +1327,12 @@ function AddStudentDialog({ id, onClose }: { id: ID; onClose: () => void }) {
           preferGrades={klass?.grades}
           onPick={(x) => { if (s.studentIds.length < cap && report(add(id, x.id, scope), (v) => `เพิ่ม ${x.nickname} แล้ว ${v.changed} คาบ`)) onClose() }}
           renderMeta={(x) => (
-            <span className="shrink-0 text-2xs text-amber-700">
+            <span className="shrink-0 text-2xs text-warning">
               {!s.trial && !Att.coveringEntitlement(x.id, s, entitlements) ? "ยังไม่จ่ายค่าเรียน" : ""}
             </span>
           )}
         />
-        {s.studentIds.length >= cap && <p className="text-xs text-red-700">คาบนี้เต็มแล้ว ({cap} คน)</p>}
+        {s.studentIds.length >= cap && <p className="text-xs text-danger">คาบนี้เต็มแล้ว ({cap} คน)</p>}
       </DialogContent>
     </Dialog>
   )
