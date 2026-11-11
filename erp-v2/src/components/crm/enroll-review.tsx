@@ -28,8 +28,8 @@ export function EnrollInbox({ branchId }: { branchId: ID }) {
   const pending = subs.filter((x) => x.status === "pending" && x.branchId === branchId).sort((a, b) => a.submittedAt.localeCompare(b.submittedAt))
   if (!pending.length) return null
   return (
-    <section className="rounded-3xl bg-emerald-50 p-4 ring-1 ring-emerald-200 dark:bg-emerald-950/30 dark:ring-emerald-900">
-      <p className="mb-2 flex items-center gap-2 font-semibold text-emerald-900 dark:text-emerald-100"><UserPlusIcon className="size-5" /> ใบสมัครเรียนรอจัดคลาส ({pending.length})</p>
+    <section className="rounded-3xl bg-success-soft/50 p-4 ring-1 ring-success/30">
+      <p className="mb-2 flex items-center gap-2 font-semibold text-success-ink"><UserPlusIcon className="size-5" /> ใบสมัครเรียนรอจัดคลาส ({pending.length})</p>
       <ul className="space-y-1.5">
         {pending.map((x) => {
           const p = x.parents.find((y) => y.primary) ?? x.parents[0]
@@ -95,7 +95,7 @@ export function EnrollReviewDialog({ sub, onClose, onDone }: { sub: EnrollSubmis
               {c.subjects.length > 0 && <p>อยากเรียน: <span className="text-foreground">{c.subjects.join(", ")}</span>{c.pkg !== "unsure" ? ` · ${PKG[c.pkg]}` : ""}</p>}
               {c.times.length > 0 && <p>สะดวก: <span className="text-foreground">{c.times.map(timeLabel).join(", ")}</span></p>}
               <p>อยากเริ่ม: <span className="text-foreground">{fmtDate(c.startDate, { weekday: true })}</span>{c.bus ? ` · รถรับส่ง${c.busLeg === "pickup" ? " ขาไป" : c.busLeg === "dropoff" ? " ขากลับ" : " ไป-กลับ"}` : ""}</p>
-              {c.placement && <p className="text-amber-700">ขอให้ครูประเมินระดับในคาบแรก (จะบันทึกในโน้ตนักเรียน)</p>}
+              {c.placement && <p className="text-warning">ขอให้ครูประเมินระดับในคาบแรก (จะบันทึกในโน้ตนักเรียน)</p>}
               {c.note && <p>โน้ต: {c.note}</p>}
             </div>
           </section>

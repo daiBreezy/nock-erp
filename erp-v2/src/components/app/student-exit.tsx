@@ -111,11 +111,11 @@ export function ExitAnswersView({ answers }: { answers: NonNullable<Student["exi
       {answers.otherReasonIds.length > 0 && <Row label="เหตุผลอื่น">{answers.otherReasonIds.map((x) => Loss.reasonLabel(x, system.lossReasons)).join(", ")}</Row>}
       <Row label="คะแนน">
         <span className="block space-y-0.5">{(Object.keys(SCORE_LABEL) as (keyof typeof SCORE_LABEL)[]).map((k) => (
-          <span key={k} className="flex items-center gap-1.5"><span className="w-24 shrink-0 text-muted-foreground">{SCORE_LABEL[k]}</span>{answers.scores[k] ?? "—"}{answers.scores[k] ? <StarIcon className="size-3 fill-amber-400 text-amber-400" /> : null}</span>
+          <span key={k} className="flex items-center gap-1.5"><span className="w-24 shrink-0 text-muted-foreground">{SCORE_LABEL[k]}</span>{answers.scores[k] ?? "—"}{answers.scores[k] ? <StarIcon className="size-3 fill-warning text-warning" /> : null}</span>
         ))}</span>
       </Row>
       <Row label="จะกลับมาไหม">{COME_BACK[answers.comeBack]}{answers.comeBackMonth ? ` · ราว ${fmtDate(`${answers.comeBackMonth}-01`, { year: true }).split(" ").slice(1).join(" ")}` : ""}</Row>
-      <Row label="แนะนำเพื่อน"><span className={cn(answers.nps !== null && answers.nps <= 6 && "text-red-700")}>{answers.nps ?? "—"} / 10</span></Row>
+      <Row label="แนะนำเพื่อน"><span className={cn(answers.nps !== null && answers.nps <= 6 && "text-danger")}>{answers.nps ?? "—"} / 10</span></Row>
       {answers.comment && <Row label="ความเห็น">“{answers.comment}”</Row>}
       <Row label="ติดต่อกลับได้">{answers.contactOk ? "ได้" : "ไม่ต้องการ"} · ตอบเป็นภาษา {answers.lang.toUpperCase()}</Row>
     </dl>
@@ -175,10 +175,10 @@ export function ExitPanel({ stu, bare, preview }: { stu: Student; bare?: boolean
   }
   const link = token ? `${typeof window !== "undefined" ? window.location.origin : ""}/liff/exit?token=${token}` : ""
   return (
-    <section className={bare ? "space-y-2" : "space-y-2 rounded-2xl border border-amber-300 bg-amber-50 p-3 dark:border-amber-800 dark:bg-amber-950/30"}>
+    <section className={bare ? "space-y-2" : "space-y-2 rounded-2xl border border-warning/40 bg-warning-soft/60 p-3"}>
       <div className="space-y-1.5">
-        <p className="flex items-center gap-2 text-sm font-medium">{!bare && <DoorOpenIcon className="size-4 text-amber-700" />}แจ้งออก · เรียนวันสุดท้าย {fmtDate(ex.lastDate, { weekday: true })}</p>
-        <span className={cn("inline-block rounded-full px-2 py-0.5 text-xs", resp ? "bg-emerald-100 text-emerald-800" : "bg-amber-100 text-amber-900")}>{resp ? `ผู้ปกครองตอบแล้ว ${fmtDateTime(resp.submittedAt)}` : ex.fromParentRequest ? `ผู้ปกครองแจ้งทาง LINE ${fmtDateTime(ex.sentAt)}` : token ? `ส่งฟอร์มแล้ว ${fmtDateTime(ex.sentAt)} · รอคำตอบ` : "ยังไม่ได้ส่งฟอร์ม"}</span>
+        <p className="flex items-center gap-2 text-sm font-medium">{!bare && <DoorOpenIcon className="size-4 text-warning" />}แจ้งออก · เรียนวันสุดท้าย {fmtDate(ex.lastDate, { weekday: true })}</p>
+        <span className={cn("inline-block rounded-full px-2 py-0.5 text-xs", resp ? "bg-success-soft text-success-ink" : "bg-warning-soft text-warning-ink")}>{resp ? `ผู้ปกครองตอบแล้ว ${fmtDateTime(resp.submittedAt)}` : ex.fromParentRequest ? `ผู้ปกครองแจ้งทาง LINE ${fmtDateTime(ex.sentAt)}` : token ? `ส่งฟอร์มแล้ว ${fmtDateTime(ex.sentAt)} · รอคำตอบ` : "ยังไม่ได้ส่งฟอร์ม"}</span>
       </div>
       {/* owner 2026-10-14: the parent told us from LINE — their reasons are already here, no form needed */}
       {ex.fromParentRequest && !resp && (ex.reasonId || ex.note) && <ReasonLine reasonId={ex.reasonId} note={ex.note} />}
@@ -239,8 +239,8 @@ export function CloseExitDialog({ stu, response, onClose }: { stu: Student; resp
           <div className="flex flex-wrap gap-1.5">{([["none", "ไม่มี / ใช้หมดแล้ว"], ["refund", "คืนเงิน"], ["credit", "เก็บเป็นเครดิต"]] as const).map(([k, l]) => <Chip key={k} on={money === k} onClick={() => setMoney(k)}>{l}</Chip>)}</div>
 </div>
         <div className="space-y-1"><Label>หมายเหตุ{reasonId === "lr_other" && !a?.comment ? " *" : ""}</Label><Input value={note} onChange={(e) => setNote(e.target.value)} placeholder="เช่น คุยทางโทรศัพท์ คุณแม่บอกว่า…" /></div>
-        {a && a.comeBack !== "no" && a.contactOk && <p className="rounded-lg bg-emerald-50 p-2 text-xs text-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-100">ผู้ปกครองบอกว่า{COME_BACK[a.comeBack]}{a.comeBackMonth ? ` ราว ${fmtDate(`${a.comeBackMonth}-01`, { year: true }).split(" ").slice(1).join(" ")}` : ""} → จะสร้าง Lead ไว้โทรหาอีกครั้ง (ขึ้นใน Need Attention ตามวันนั้น)</p>}
-        {err && reasonId && <p className="text-xs text-red-700">{err}</p>}
+        {a && a.comeBack !== "no" && a.contactOk && <p className="rounded-lg bg-success-soft/60 p-2 text-xs text-success-ink">ผู้ปกครองบอกว่า{COME_BACK[a.comeBack]}{a.comeBackMonth ? ` ราว ${fmtDate(`${a.comeBackMonth}-01`, { year: true }).split(" ").slice(1).join(" ")}` : ""} → จะสร้าง Lead ไว้โทรหาอีกครั้ง (ขึ้นใน Need Attention ตามวันนั้น)</p>}
+        {err && reasonId && <p className="text-xs text-danger">{err}</p>}
         <DialogFooter>
           <Button variant="ghost" onClick={onClose}>ยกเลิก</Button>
           <Button variant="destructive" disabled={!!err} onClick={() => report(close(stu.id, input), `${stu.nickname} ออกแล้ว`) && onClose()}><DoorOpenIcon /> ปิดการออก</Button>

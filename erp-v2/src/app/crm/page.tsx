@@ -37,9 +37,9 @@ type LeadSort = "name" | "grade" | "subject" | "source" | "stage" | "assignee" |
 /** Maps the domain layer's plain severity (`LeadDetail.level`, no UI knowledge per rule #1) to how it reads on screen. */
 const DETAIL_TONE: Record<LeadDetail["level"], string> = {
   muted: "text-muted-foreground",
-  info: "text-sky-700 dark:text-sky-400",
-  warn: "text-amber-700 dark:text-amber-400",
-  danger: "font-semibold text-red-700 dark:text-red-400",
+  info: "text-info",
+  warn: "text-warning",
+  danger: "font-semibold text-danger",
 }
 
 /** owner 2026-10-12: stage tags in their own colours — contact → test → trial → closing → enrolled / archived
@@ -256,7 +256,7 @@ function LeadCard({ lead, now, staff, draggable, onOpen, onRestore, branchCode }
       onClick={onOpen}
       onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onOpen() } }}
       data-focus={leadFlags(lead, now, toDateStr(now)).join(" ") || undefined}
-      className={cn("w-full rounded-xl border bg-background p-2.5 text-left shadow-sm outline-none hover:border-primary/50 focus-visible:border-primary", draggable && "cursor-grab active:cursor-grabbing", lead.stage === "enrolled" && "border-emerald-300 bg-emerald-50 dark:bg-emerald-950/30", lead.stage === "archived" && "opacity-80")}
+      className={cn("w-full rounded-xl border bg-background p-2.5 text-left shadow-sm outline-none hover:border-primary/50 focus-visible:border-primary", draggable && "cursor-grab active:cursor-grabbing", lead.stage === "enrolled" && "border-success/30 bg-success-soft/50", lead.stage === "archived" && "opacity-80")}
     >
       <div className="flex items-start justify-between gap-2">
         <span className="flex min-w-0 items-center gap-1.5">

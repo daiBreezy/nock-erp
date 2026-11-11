@@ -23,7 +23,7 @@ const RESULTS_FOR: Record<ContactChannel, ContactResult[]> = {
 function Chip({ on, onClick, children, tone }: { on: boolean; onClick: () => void; children: React.ReactNode; tone?: "red" | "green" }) {
   return (
     <button type="button" aria-pressed={on} onClick={onClick}
-      className={cn("rounded-full border px-2.5 py-1 text-xs", on ? (tone === "red" ? "border-red-500 bg-red-50 font-medium text-red-700 dark:bg-red-950/40" : tone === "green" ? "border-emerald-500 bg-emerald-50 font-medium text-emerald-700 dark:bg-emerald-950/40" : "border-primary bg-primary/10 font-medium text-primary") : "hover:bg-muted")}>
+      className={cn("rounded-full border px-2.5 py-1 text-xs", on ? (tone === "red" ? "border-danger bg-danger-soft/40 font-medium text-danger" : tone === "green" ? "border-success bg-success-soft/40 font-medium text-success" : "border-primary bg-primary/10 font-medium text-primary") : "hover:bg-muted")}>
       {children}
     </button>
   )
@@ -59,7 +59,7 @@ export function RenewalFollowUpSection({ stu, canManage, onNotRenewing }: { stu:
       {lastUp ? (
         <p className="text-xs text-muted-foreground">
           
-          {tx("ติดต่อ")} {list.length}  {tx("ครั้ง · ล่าสุด")} <span className={cn("font-medium", Loss.REACHED.includes(lastUp.result) ? "text-emerald-700" : "text-red-700")}>{tx(Loss.CHANNEL_LABEL[lastUp.channel])} · {tx(Loss.RESULT_LABEL[lastUp.result])}</span> {fmtDateTime(lastUp.at)}
+          {tx("ติดต่อ")} {list.length}  {tx("ครั้ง · ล่าสุด")} <span className={cn("font-medium", Loss.REACHED.includes(lastUp.result) ? "text-success" : "text-danger")}>{tx(Loss.CHANNEL_LABEL[lastUp.channel])} · {tx(Loss.RESULT_LABEL[lastUp.result])}</span> {fmtDateTime(lastUp.at)}
           {lastUp.nextTryOn && <>  {tx("· นัดติดต่ออีกครั้ง")} {fmtDate(lastUp.nextTryOn, { weekday: true })}</>}
         </p>
       ) : <p className="text-xs text-muted-foreground">{tx("ยังไม่มีบันทึกการติดตาม")}</p>}
@@ -93,7 +93,7 @@ export function RenewalFollowUpSection({ stu, canManage, onNotRenewing }: { stu:
         <ol className="space-y-1 border-t pt-2">
           {list.slice(1).map((f) => (
             <li key={f.id} className="flex items-start gap-2 text-xs">
-              <span className={cn("shrink-0 font-medium", Loss.REACHED.includes(f.result) ? "text-emerald-700" : "text-red-700")}>{tx(Loss.CHANNEL_LABEL[f.channel])} · {tx(Loss.RESULT_LABEL[f.result])}</span>
+              <span className={cn("shrink-0 font-medium", Loss.REACHED.includes(f.result) ? "text-success" : "text-danger")}>{tx(Loss.CHANNEL_LABEL[f.channel])} · {tx(Loss.RESULT_LABEL[f.result])}</span>
               <span className="min-w-0 flex-1 text-muted-foreground">{f.note}</span>
               <span className="shrink-0 text-muted-foreground">{fmtDate(f.at.slice(0, 10))}</span>
             </li>

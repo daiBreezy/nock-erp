@@ -265,7 +265,7 @@ function Overview({ stu, ents, today, status, onNotRenewing, onHistory, onEditLe
           <span className={cn("grid size-14 shrink-0 place-items-center rounded-full text-xl font-semibold", avatarTone(stu.id))}>{initial(stu.nickname)}</span>
           <div className="min-w-0 flex-1">
             <p className="text-lg font-semibold">{stu.name} <span className="font-normal text-muted-foreground">({stu.nickname})</span></p>
-            {fam ? <Link href="/families" className="inline-flex items-center gap-1 text-sm text-primary underline"><UsersIcon className="size-3.5" />{fam.name}</Link> : <p className="text-sm text-amber-700">ยังไม่ผูกครอบครัว — ส่งใบแจ้งหนี้/สรุปทาง LINE ไม่ได้</p>}
+            {fam ? <Link href="/families" className="inline-flex items-center gap-1 text-sm text-primary underline"><UsersIcon className="size-3.5" />{fam.name}</Link> : <p className="text-sm text-warning">ยังไม่ผูกครอบครัว — ส่งใบแจ้งหนี้/สรุปทาง LINE ไม่ได้</p>}
           </div>
           <span className={cn("rounded-full px-2.5 py-0.5 text-sm font-medium", gradeTone(stu.grade))}>{stu.grade}</span>
         </div>
@@ -276,7 +276,7 @@ function Overview({ stu, ents, today, status, onNotRenewing, onHistory, onEditLe
           <p className="flex items-center gap-2"><CalendarDaysIcon className="size-4 text-muted-foreground" />สร้างเมื่อ {fmtDate(stu.createdAt.slice(0, 10), { year: true })}</p>
           {stu.usesBus && <p className="flex items-center gap-2"><BusIcon className="size-4 text-muted-foreground" />ใช้รถรับส่ง</p>}
         </div>
-        {stu.note && <p className="mt-3 flex items-start gap-2 rounded-lg bg-amber-50 p-2.5 text-sm text-amber-900"><StickyNoteIcon className="mt-0.5 size-4 shrink-0" />{stu.note}</p>}
+        {stu.note && <p className="mt-3 flex items-start gap-2 rounded-lg bg-warning-soft/60 p-2.5 text-sm text-warning-ink"><StickyNoteIcon className="mt-0.5 size-4 shrink-0" />{stu.note}</p>}
 
         <div className="mt-3 border-t pt-1">
           <p className="pt-2 text-xs font-semibold tracking-wide text-muted-foreground uppercase">คอร์สที่ลงเรียน</p>
@@ -455,6 +455,7 @@ function SessionList({ stu, ents }: { stu: Student; ents: Entitlement[] }) {
   )
 }
 
+// eslint-disable-next-line no-restricted-syntax -- ds-exception: bus-leg identity tags (P=รับ ฟ้า · D=ส่ง ม่วง · B=ทั้งคู่ เขียว), not status
 const BUS_TAG = { P: "bg-sky-100 text-sky-800 dark:bg-sky-950 dark:text-sky-200", D: "bg-violet-100 text-violet-800 dark:bg-violet-950 dark:text-violet-200", B: "bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-200" } as const
 
 /** P = pickup · D = drop · B = both (owner 2026-10-29) — click to change that day's rides: added legs are charged on the
@@ -504,7 +505,7 @@ function BillingSeg({ stu }: { stu: Student }) {
   const subjectsOfInv = (i: Invoice) => [...new Set(i.lines.flatMap((l) => courses.find((x) => x.id === l.courseId)?.subjects ?? []))]
   const invoiceCols: Column<Invoice>[] = [
     { id: "number", label: "เลขที่", required: true, className: "tabular-nums", cell: (i) => i.number ?? "—" },
-    { id: "items", label: "รายการ", cell: (i) => { const subjects = subjectsOfInv(i); return <span className="flex items-center gap-1">{subjects.length ? subjects.map((x) => <span key={x} className={cn("rounded-full px-2 py-0.5 text-xs", subjectColor(x).chip)}>{x}</span>) : <span className="text-xs text-muted-foreground">{i.busExtras?.length ? "ค่ารถเพิ่ม" : "ค่าอื่นๆ"}</span>}{i.status === "paid" && subjects.length > 0 && <span className="text-2xs text-emerald-700">✓ เข้าคลาสแล้ว</span>}</span> } },
+    { id: "items", label: "รายการ", cell: (i) => { const subjects = subjectsOfInv(i); return <span className="flex items-center gap-1">{subjects.length ? subjects.map((x) => <span key={x} className={cn("rounded-full px-2 py-0.5 text-xs", subjectColor(x).chip)}>{x}</span>) : <span className="text-xs text-muted-foreground">{i.busExtras?.length ? "ค่ารถเพิ่ม" : "ค่าอื่นๆ"}</span>}{i.status === "paid" && subjects.length > 0 && <span className="text-2xs text-success">✓ เข้าคลาสแล้ว</span>}</span> } },
     { id: "date", label: "วันที่", cell: (i) => fmtDate(i.createdAt.slice(0, 10), { year: true }) },
     { id: "total", label: "ยอด", align: "right", className: "tabular-nums", cell: (i) => fmtMoney(invoiceTotals(i, { branch: branches.find((b) => b.id === i.branchId)!, courses, classes, holidays }).total) },
     { id: "status", label: "สถานะ", align: "right", cell: (i) => <Pill tone={i.status === "paid" ? "green" : i.status === "void" ? "gray" : i.status === "draft" ? "gray" : "amber"}>{INVOICE_STATUS_LABEL[i.status]}</Pill> },

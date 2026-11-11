@@ -28,7 +28,7 @@ const RESULTS_FOR: Record<ContactChannel, ContactResult[]> = {
 function Chip({ on, onClick, children, tone }: { on: boolean; onClick: () => void; children: React.ReactNode; tone?: "red" | "green" }) {
   return (
     <button type="button" aria-pressed={on} onClick={onClick}
-      className={cn("rounded-full border px-2.5 py-1 text-xs", on ? (tone === "red" ? "border-red-500 bg-red-50 font-medium text-red-700 dark:bg-red-950/40" : tone === "green" ? "border-emerald-500 bg-emerald-50 font-medium text-emerald-700 dark:bg-emerald-950/40" : "border-primary bg-primary/10 font-medium text-primary") : "hover:bg-muted")}>
+      className={cn("rounded-full border px-2.5 py-1 text-xs", on ? (tone === "red" ? "border-danger bg-danger-soft/40 font-medium text-danger" : tone === "green" ? "border-success bg-success-soft/40 font-medium text-success" : "border-primary bg-primary/10 font-medium text-primary") : "hover:bg-muted")}>
       {children}
     </button>
   )
@@ -52,7 +52,7 @@ export function FollowUpSection({ lead, canManage, onClose }: { lead: Lead; canM
   return (
     <div className="space-y-2">
       {open && (
-        <div className={cn("flex flex-wrap items-center gap-2 rounded-lg p-2 text-xs", st.suggestClose ? "bg-amber-50 text-amber-900 dark:bg-amber-950/40 dark:text-amber-100" : "bg-muted/50 text-muted-foreground")}>
+        <div className={cn("flex flex-wrap items-center gap-2 rounded-lg p-2 text-xs", st.suggestClose ? "bg-warning-soft/60 text-warning-ink" : "bg-muted/50 text-muted-foreground")}>
           <span>{st.lastReach ? `ตอบล่าสุด ${st.silentDays} วันก่อน` : `ยังไม่เคยติดต่อได้ · เข้ามา ${st.silentDays} วันแล้ว`}</span>
           {st.tries > 0 && <span>· ติดต่อไม่ได้ติดกัน {st.tries} ครั้ง</span>}
           {st.suggestClose && canManage && (
@@ -84,7 +84,7 @@ export function FollowUpSection({ lead, canManage, onClose }: { lead: Lead; canM
           {list.map((f) => { const Icon = CHANNEL_ICON[f.channel]; return (
             <li key={f.id} className="flex items-start gap-2 text-xs">
               <Icon className="mt-0.5 size-3.5 shrink-0 text-muted-foreground" />
-              <span className={cn("shrink-0 font-medium", Loss.REACHED.includes(f.result) ? "text-emerald-700" : "text-red-700")}>{Loss.RESULT_LABEL[f.result]}</span>
+              <span className={cn("shrink-0 font-medium", Loss.REACHED.includes(f.result) ? "text-success" : "text-danger")}>{Loss.RESULT_LABEL[f.result]}</span>
               <span className="min-w-0 flex-1 text-muted-foreground">{f.note}</span>
               <span className="shrink-0 text-muted-foreground">{staff.find((s) => s.id === f.by)?.nickname} · {fmtDateTime(f.at)}</span>
             </li>
@@ -173,7 +173,7 @@ export function LeadLostDialog({ lead, onClose }: { lead: Lead; onClose: () => v
             {followUpOn && <p className="text-2xs text-muted-foreground">วันที่ {fmtDate(followUpOn)} จะขึ้นใน Need Attention ให้ติดต่อใหม่</p>}
           </div>
         </div>
-        {err && reasonId && <p className="text-xs text-red-700">{err}</p>}
+        {err && reasonId && <p className="text-xs text-danger">{err}</p>}
         <DialogFooter>
           <Button variant="ghost" onClick={onClose}>ยกเลิก</Button>
           <Button variant="destructive" disabled={!!err} onClick={() => report(archive(lead.id, input), "ปิด Lead แล้ว") && onClose()}><ArchiveIcon /> ปิด Lead</Button>

@@ -28,8 +28,8 @@ export function SurveyCalls({ branchId }: { branchId: ID }) {
   const list = Survey.toCall(responses.filter((r) => r.branchId === branchId), today)
   if (!list.length) return null
   return (
-    <section data-focus="survey_call" className="rounded-3xl bg-red-50 p-4 ring-1 ring-red-200 dark:bg-red-950/30 dark:ring-red-900">
-      <p className="mb-2 flex items-center gap-2 font-semibold text-red-900 dark:text-red-100"><PhoneIcon className="size-5" /> ผู้ปกครองไม่พอใจ — โทรคุยภายใน {Survey.CALL_WITHIN_DAYS} วัน ({list.length})</p>
+    <section data-focus="survey_call" className="rounded-3xl bg-danger-soft/50 p-4 ring-1 ring-danger/30">
+      <p className="mb-2 flex items-center gap-2 font-semibold text-danger-ink"><PhoneIcon className="size-5" /> ผู้ปกครองไม่พอใจ — โทรคุยภายใน {Survey.CALL_WITHIN_DAYS} วัน ({list.length})</p>
       <ul className="space-y-1.5">
         {list.map(({ r, due, overdue }) => {
           const fam = families.find((f) => f.id === r.familyId)
@@ -37,11 +37,11 @@ export function SurveyCalls({ branchId }: { branchId: ID }) {
           return (
             <li key={r.id} className="flex flex-wrap items-center gap-2 rounded-2xl bg-background px-3 py-2 text-sm">
               <span className="font-medium">{fam?.name ?? "ครอบครัว"}</span>
-              {parent && <a href={`tel:${parent.phone.replace(/\D/g, "")}`} className="text-xs text-sky-700 hover:underline">{parent.name} · {parent.phone}</a>}
-              <span className="text-xs text-red-700">แนะนำเพื่อน {r.answers.nps ?? "—"}/10</span>
+              {parent && <a href={`tel:${parent.phone.replace(/\D/g, "")}`} className="text-xs text-info hover:underline">{parent.name} · {parent.phone}</a>}
+              <span className="text-xs text-danger">แนะนำเพื่อน {r.answers.nps ?? "—"}/10</span>
               {r.answers.improve && <span className="text-xs text-muted-foreground">อยากให้ปรับปรุง: {r.answers.improve === "other" ? r.answers.improveOther : Survey.IMPROVE_LABEL[r.answers.improve]}</span>}
               {r.answers.message && <span className="text-xs text-muted-foreground">“{r.answers.message}”</span>}
-              <span className={cn("text-xs", overdue ? "font-medium text-red-700" : "text-muted-foreground")}>{overdue ? `เกินกำหนด (${fmtDate(due)})` : `โทรภายใน ${fmtDate(due)}`}</span>
+              <span className={cn("text-xs", overdue ? "font-medium text-danger" : "text-muted-foreground")}>{overdue ? `เกินกำหนด (${fmtDate(due)})` : `โทรภายใน ${fmtDate(due)}`}</span>
               <span className="ml-auto flex min-w-64 flex-1 gap-1 sm:flex-none">
                 <Input className="h-8 text-xs" placeholder="โทรแล้วได้อะไร" value={notes[r.id] ?? ""} onChange={(e) => setNotes((n) => ({ ...n, [r.id]: e.target.value }))} />
                 <Button size="sm" disabled={!notes[r.id]?.trim()} onClick={() => report(followUp(r.id, notes[r.id] ?? ""), "บันทึกการโทรแล้ว")}>บันทึก</Button>

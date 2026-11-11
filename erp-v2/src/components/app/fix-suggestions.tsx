@@ -22,7 +22,7 @@ export function FixSuggestions({ sessionId }: { sessionId: ID }) {
   const fixes = suggestFixes(sessionId, { sessions, branch, staff, holidays, now, attendance })
 
   if (!fixes.length)
-    return <p className="text-xs text-red-800">ไม่พบทางแก้อัตโนมัติ — ลองเพิ่มห้อง/ครู หรือยกเลิกคาบ</p>
+    return <p className="text-xs text-danger">ไม่พบทางแก้อัตโนมัติ — ลองเพิ่มห้อง/ครู หรือยกเลิกคาบ</p>
   return (
     <div className="space-y-1.5">
       <div className="flex items-center gap-1.5 text-xs font-semibold text-foreground">
@@ -36,7 +36,7 @@ export function FixSuggestions({ sessionId }: { sessionId: ID }) {
             <div className="min-w-0 flex-1">
               <div className="text-sm font-medium text-foreground">
                 {f.label}
-                {f.clearsAll && <span className="ml-1.5 rounded-full bg-emerald-100 px-1.5 py-px text-2xs font-semibold text-emerald-800">แก้ได้หมด</span>}
+                {f.clearsAll && <span className="ml-1.5 rounded-full bg-success-soft px-1.5 py-px text-2xs font-semibold text-success-ink">แก้ได้หมด</span>}
               </div>
               <div className="truncate text-xs text-muted-foreground">{f.detail}</div>
             </div>

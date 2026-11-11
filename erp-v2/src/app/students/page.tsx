@@ -138,7 +138,7 @@ export default function StudentsPage() {
     { id: "name", label: "ชื่อ-นามสกุล", width: "170px", sort: "name", className: "text-muted-foreground", cell: ({ s }) => <EditCell value={s.name} disabled={!manage} onSave={(v) => edit(s, { name: v })} /> },
     { id: "grade", label: "ชั้น", width: "76px", sort: "grade", cell: ({ s }) => <EditCell kind="select" value={s.grade} disabled={!manage} display={<GradeCell grade={s.grade} tone={gradeTone(s.grade)} />} options={branch.grades.map((g) => ({ value: g, label: g }))} onSave={(v) => edit(s, { grade: v })} /> },
     { id: "family", label: "ครอบครัว", width: "130px", sort: "family", className: "text-muted-foreground", cell: ({ fam }) => (
-      fam ? <>{familyShortName(fam.name)}{!fam.parents.some((p) => p.lineLinked) && <NoLine />}</> : <span className="text-amber-700">ยังไม่ผูกครอบครัว</span>
+      fam ? <>{familyShortName(fam.name)}{!fam.parents.some((p) => p.lineLinked) && <NoLine />}</> : <span className="text-warning">ยังไม่ผูกครอบครัว</span>
     ) },
     { id: "course", label: "Course", width: "180px", sort: "course", cell: (r) => (
       r.mainCourse ? (
@@ -150,9 +150,9 @@ export default function StudentsPage() {
     ) },
     { id: "enroll", label: "Enroll date", width: "100px", sort: "enroll", className: "text-muted-foreground tabular-nums", cell: ({ main }) => (main ? fmtDate(main.from) : "—") },
     { id: "end", label: "End date", width: "100px", sort: "end", cell: ({ main }) => (main ? fmtDate(main.to) : "—"),
-      className: (r) => cn("tabular-nums", ended(r) ? "text-muted-foreground" : r.main && r.main.to <= addDays(today, 7) ? "font-medium text-amber-700" : "text-muted-foreground") },
+      className: (r) => cn("tabular-nums", ended(r) ? "text-muted-foreground" : r.main && r.main.to <= addDays(today, 7) ? "font-medium text-warning" : "text-muted-foreground") },
     // owner 2026-11-04: "เหลือ" (sessions left) counts only session-based packs — monthly / flat-rate show — (unlimited)
-    { id: "left", label: "เหลือ", width: "80px", sort: "left", align: "right", info: "คาบคงเหลือ — เฉพาะแพ็กเกจแบบนับคาบ · รายเดือน/เหมาจ่าย = ไม่จำกัด (—)", className: (r) => cn("tabular-nums", left(r) <= 2 && "font-semibold text-red-700"),
+    { id: "left", label: "เหลือ", width: "80px", sort: "left", align: "right", info: "คาบคงเหลือ — เฉพาะแพ็กเกจแบบนับคาบ · รายเดือน/เหมาจ่าย = ไม่จำกัด (—)", className: (r) => cn("tabular-nums", left(r) <= 2 && "font-semibold text-danger"),
       cell: (r) => { const n = left(r); return Number.isFinite(n) ? `${n} คาบ` : <span className="text-muted-foreground">—</span> } },
     // owner 2026-11-04: keep the status pill short — the date / details live in the tooltip, not the chip
     { id: "status", label: "สถานะ", width: "112px", sort: "status", align: "right", cell: ({ st, ex }) => ex
@@ -184,7 +184,7 @@ export default function StudentsPage() {
           classes, school only in the student panel. Name / nickname / grade edit in place — click the other cells to
           open. owner 2026-10-12: each person arranges the columns (drag · lock · show / hide) — DataTable */}
       <DataTable id="students" columns={columns} rows={pg.rows} rowKey={(r) => r.s.id} onRowClick={(r) => setOpenId(r.s.id)}
-        rowProps={(r) => ({ "data-focus": focusKeys(r) })} rowClassName={(r) => !!r.ex && "bg-red-50/60 dark:bg-red-950/20"} sort={sort} onSort={toggle} minWidth={1300} empty="ไม่พบนักเรียน" />
+        rowProps={(r) => ({ "data-focus": focusKeys(r) })} rowClassName={(r) => !!r.ex && "bg-danger-soft/40"} sort={sort} onSort={toggle} minWidth={1300} empty="ไม่พบนักเรียน" />
       <Pager {...pg} unit="คน" />
       <StudentSheet studentId={openId} onClose={() => setOpenId(null)} />
     </ListPage>
@@ -193,5 +193,5 @@ export default function StudentsPage() {
 
 /** owner 2026-10-12: "no LINE" as an icon (hover explains) instead of text */
 function NoLine() {
-  return <UnlinkIcon role="img" aria-label="ไม่มี LINE" className="ml-1.5 inline size-3.5 align-[-2px] text-amber-600"><title>ไม่มีผู้ปกครองที่ผูก LINE — ส่งใบแจ้งหนี้/สรุปทาง LINE ไม่ได้</title></UnlinkIcon>
+  return <UnlinkIcon role="img" aria-label="ไม่มี LINE" className="ml-1.5 inline size-3.5 align-[-2px] text-warning"><title>ไม่มีผู้ปกครองที่ผูก LINE — ส่งใบแจ้งหนี้/สรุปทาง LINE ไม่ได้</title></UnlinkIcon>
 }

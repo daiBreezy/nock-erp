@@ -161,7 +161,7 @@ function Body({ id, onEdit }: { id: ID; onEdit: () => void }) {
           </span>
         </div>
         {canManage && isOpen && quiet.suggestClose && (
-          <div className="flex items-center gap-2 rounded-xl bg-amber-50 px-3 py-1.5 text-xs text-amber-900 dark:bg-amber-950/40 dark:text-amber-100">
+          <div className="flex items-center gap-2 rounded-xl bg-warning-soft/60 px-3 py-1.5 text-xs text-warning-ink">
             <span className="flex-1">{quiet.lastReach ? `ตอบล่าสุด ${quiet.silentDays} วันก่อน` : "ยังติดต่อไม่ได้"} · ติดต่อไม่ได้ติดกัน {quiet.tries} ครั้ง</span>
             <Button size="xs" variant="outline" onClick={() => setArchiving(true)}><ArchiveIcon /> ปิด Lead?</Button>
           </div>
@@ -172,7 +172,7 @@ function Body({ id, onEdit }: { id: ID; onEdit: () => void }) {
         {/* contact always first (owner 2026-10-05) */}
         <Section title="ติดต่อ">
           <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-            {lead.phone && <a href={`tel:${lead.phone.replace(/\D/g, "")}`} className="inline-flex items-center gap-1 text-sky-700 hover:underline"><PhoneIcon className="size-3.5" />{lead.phone}</a>}
+            {lead.phone && <a href={`tel:${lead.phone.replace(/\D/g, "")}`} className="inline-flex items-center gap-1 text-info hover:underline"><PhoneIcon className="size-3.5" />{lead.phone}</a>}
             {lead.lineId && <span className="text-muted-foreground">LINE {lead.lineId}</span>}
             {!lead.phone && !lead.lineId && <span className="text-muted-foreground">ยังไม่มีช่องทางติดต่อ</span>}
           </div>
@@ -181,7 +181,7 @@ function Body({ id, onEdit }: { id: ID; onEdit: () => void }) {
               <p className="text-xs font-medium">{linkedFamily.name}</p>
               {linkedFamily.parents.map((p) => (
                 <div key={p.name} className="flex flex-wrap items-center gap-1.5 text-xs">
-                  <a href={`tel:${p.phone.replace(/\D/g, "")}`} className="text-sky-700 hover:underline">{p.name} · {p.phone}</a>
+                  <a href={`tel:${p.phone.replace(/\D/g, "")}`} className="text-info hover:underline">{p.name} · {p.phone}</a>
                   <Pill tone={p.lineLinked ? "green" : "amber"}>{p.lineLinked ? "LINE แล้ว" : "ยังไม่ผูก LINE"}</Pill>
                 </div>
               ))}
@@ -227,7 +227,7 @@ function Body({ id, onEdit }: { id: ID; onEdit: () => void }) {
                     {x.kind === "note" ? <StickyNoteIcon className="size-3.5" /> : x.f.channel === "call" ? <PhoneIcon className="size-3.5" /> : <MessageCircleIcon className="size-3.5" />}
                   </span>
                   <div className="min-w-0 flex-1">
-                    {x.kind === "fu" && <span className={cn("mr-1.5 font-medium", REACHED.includes(x.f.result) ? "text-emerald-700" : "text-red-700")}>{CHANNEL_LABEL[x.f.channel]} · {RESULT_LABEL[x.f.result]}</span>}
+                    {x.kind === "fu" && <span className={cn("mr-1.5 font-medium", REACHED.includes(x.f.result) ? "text-success" : "text-danger")}>{CHANNEL_LABEL[x.f.channel]} · {RESULT_LABEL[x.f.result]}</span>}
                     {x.text && <span>{x.text}</span>}
                     <p className="text-xs text-muted-foreground">{staff.find((st) => st.id === x.by)?.nickname ?? "—"} · {fmtDateTime(x.at)}</p>
                   </div>
@@ -366,7 +366,7 @@ function LeadSteps({ lead, assessments, canManage, now }: { lead: Lead; assessme
     if (key === "contact") {
       body = ups.length || lastNote ? (
         <div className="space-y-0.5">
-          {ups.length > 0 && <p>ติดต่อ {ups.length} ครั้ง · ล่าสุด <span className={cn("font-medium", REACHED.includes(lastUp!.result) ? "text-emerald-700" : "text-red-700")}>{CHANNEL_LABEL[lastUp!.channel]} · {RESULT_LABEL[lastUp!.result]}</span> <span className="text-xs text-muted-foreground">{fmtDateTime(lastUp!.at)}</span></p>}
+          {ups.length > 0 && <p>ติดต่อ {ups.length} ครั้ง · ล่าสุด <span className={cn("font-medium", REACHED.includes(lastUp!.result) ? "text-success" : "text-danger")}>{CHANNEL_LABEL[lastUp!.channel]} · {RESULT_LABEL[lastUp!.result]}</span> <span className="text-xs text-muted-foreground">{fmtDateTime(lastUp!.at)}</span></p>}
           {(lastUp?.note || lastNote) && <p className="text-muted-foreground">“{lastUp?.note || lastNote!.text}”</p>}
         </div>
       ) : <p className="text-muted-foreground">ยังไม่มีบันทึกการติดต่อ</p>
@@ -382,16 +382,16 @@ function LeadSteps({ lead, assessments, canManage, now }: { lead: Lead; assessme
         ))}</div>
       ) : current && lead.scheduledAt ? (() => {
         const due = scheduleInfo(lead.scheduledAt, now)
-        return <p className={cn(due.overdue ? "font-medium text-red-700" : "")}>นัด {fmtDateTime(lead.scheduledAt)} · {due.overdue ? `เลยนัด ${-due.daysLeft} วัน` : due.daysLeft === 0 ? "วันนี้" : due.daysLeft === 1 ? "พรุ่งนี้" : `อีก ${due.daysLeft} วัน`}</p>
+        return <p className={cn(due.overdue ? "font-medium text-danger" : "")}>นัด {fmtDateTime(lead.scheduledAt)} · {due.overdue ? `เลยนัด ${-due.daysLeft} วัน` : due.daysLeft === 0 ? "วันนี้" : due.daysLeft === 1 ? "พรุ่งนี้" : `อีก ${due.daysLeft} วัน`}</p>
       })() : <p className="text-muted-foreground">{lead.direct ? "สมัครตรง — ไม่ได้" + (key === "test" ? "สอบ" : "ทดลองเรียน") : current ? "ยังไม่ได้นัด — ส่งฟอร์มจากเมนู ⋯" : `ไม่ได้${key === "test" ? "สอบวัดระดับ" : "ทดลองเรียน"} (ข้ามขั้นนี้)`}</p>
     } else {
-      body = inv ? <p>ใบแจ้งหนี้ {inv.number ?? "ร่าง"} · <span className={cn("font-medium", inv.status === "paid" ? "text-emerald-700" : "")}>{INV_STATUS[inv.status]}</span></p>
+      body = inv ? <p>ใบแจ้งหนี้ {inv.number ?? "ร่าง"} · <span className={cn("font-medium", inv.status === "paid" ? "text-success" : "")}>{INV_STATUS[inv.status]}</span></p>
         : <p className="text-muted-foreground">ยังไม่ออกใบแจ้งหนี้</p>
     }
     return (
       <li key={key} className="relative flex gap-3 pb-3 last:pb-0">
         {i < upTo && <span className="absolute top-6 left-[11px] h-[calc(100%-1.25rem)] w-px bg-border" />}
-        <span className={cn("z-10 grid size-6 shrink-0 place-items-center rounded-full text-2xs font-semibold", current ? "bg-primary text-primary-foreground" : "bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-200")}>{current ? i + 1 : "✓"}</span>
+        <span className={cn("z-10 grid size-6 shrink-0 place-items-center rounded-full text-2xs font-semibold", current ? "bg-primary text-primary-foreground" : "bg-success-soft text-success-ink")}>{current ? i + 1 : "✓"}</span>
         <div className="min-w-0 flex-1 space-y-1">
           <p className={cn("text-sm font-medium", !current && "text-muted-foreground")}>{label}{current && <span className="ml-1.5 text-xs font-normal text-primary">ขั้นปัจจุบัน</span>}</p>
           {body}

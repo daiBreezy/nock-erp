@@ -33,7 +33,7 @@ export function DeactivateDialog({ s, onClose }: { s: Staff; onClose: () => void
           <div className="space-y-2 text-sm">
             <p>ยังมี <b>{future.length} คาบ</b> ตั้งแต่ {fmtDate(future.map((x) => x.date).sort()[0])} ที่ {s.nickname} สอนอยู่ — เลือกครูที่จะรับแทน</p>
             <NativeSelect value={replacement} onChange={(e) => setReplacement(e.target.value)} placeholder="ยังไม่มีครู (ไปจัดทีหลัง)" options={candidates.map((t) => ({ value: t.id, label: `${t.nickname}${t.subjects.length ? ` · ${t.subjects.join(", ")}` : ""}` }))} />
-            {!replacement && <p className="text-xs text-amber-700">คาบเหล่านี้จะไปอยู่ช่อง &quot;ยังไม่มีครู&quot; ในปฏิทิน</p>}
+            {!replacement && <p className="text-xs text-warning">คาบเหล่านี้จะไปอยู่ช่อง &quot;ยังไม่มีครู&quot; ในปฏิทิน</p>}
           </div>
         ) : <p className="text-sm text-muted-foreground">ไม่มีคาบในอนาคต</p>}
         <DialogFooter>

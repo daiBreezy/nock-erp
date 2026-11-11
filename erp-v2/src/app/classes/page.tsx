@@ -97,7 +97,7 @@ export default function ClassesPage() {
     { id: "grade", label: "ชั้น", width: "100px", sort: "grade", cell: (c) => <div className="flex gap-1" title={c.grades.join(", ")}>{gradeRanges(c.grades).map((g) => <span key={g} className={cn("rounded-md px-1.5 py-0.5 text-xs font-semibold", gradeTone(g))}>{g}</span>)}</div> },
     { id: "students", label: "นักเรียน", width: "90px", sort: "students", className: "tabular-nums", cell: (c) => {
       const cap = CAPACITY[c.type]
-      return <span title={`รับได้ ${cap} คน`} className={cn("flex items-center gap-1", c.studentIds.length >= cap && "font-semibold text-amber-700")}><UsersIcon className="size-3.5 shrink-0 text-muted-foreground" />{c.studentIds.length}</span>
+      return <span title={`รับได้ ${cap} คน`} className={cn("flex items-center gap-1", c.studentIds.length >= cap && "font-semibold text-warning")}><UsersIcon className="size-3.5 shrink-0 text-muted-foreground" />{c.studentIds.length}</span>
     } },
     { id: "teacher", label: "ครู", width: "140px", sort: "teacher", cell: (c) => {
       const t = teacherOf(c.teacherId)
@@ -105,7 +105,7 @@ export default function ClassesPage() {
       return (
         <div className="flex items-center gap-2">
           <span className={cn("grid size-8 shrink-0 place-items-center rounded-full text-xs font-semibold", t ? avatarTone(t.id) : "bg-muted text-muted-foreground")}>{t ? initial(t.nickname) : "?"}</span>
-          <span className={cn("text-sm", L.teacher(c.teacherId).missing && "text-amber-700")}>{L.teacher(c.teacherId).label}</span>
+          <span className={cn("text-sm", L.teacher(c.teacherId).missing && "text-warning")}>{L.teacher(c.teacherId).label}</span>
           {co.length > 0 && <span className="text-xs text-muted-foreground" title={`ครูร่วม: ${co.join(", ")}`}>+{co.length}</span>}
         </div>
       )
@@ -113,7 +113,7 @@ export default function ClassesPage() {
     { id: "room", label: "ห้อง", width: "100px", sort: "room", cell: (c) => <span className="flex items-center gap-1.5 text-xs"><DoorOpenIcon className="size-4 shrink-0 text-muted-foreground" />{L.room(c.roomId)}</span> },
     { id: "branch", label: "สาขา", width: "72px", cell: (c) => <BranchCode code={scope.code(c.branchId)} /> },
     // owner 2026-10-12: status right-aligned
-    { id: "status", label: "สถานะ", width: "100px", sort: "status", align: "right", cell: (c) => (c.active ? <span className="text-sm font-medium text-emerald-700">เปิดอยู่</span> : <span className="text-sm text-muted-foreground">ปิดแล้ว</span>) },
+    { id: "status", label: "สถานะ", width: "100px", sort: "status", align: "right", cell: (c) => (c.active ? <span className="text-sm font-medium text-success">เปิดอยู่</span> : <span className="text-sm text-muted-foreground">ปิดแล้ว</span>) },
   ]
 
   return (

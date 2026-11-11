@@ -103,7 +103,7 @@ export function FamilyForm({ family, initialName, initialParent, onClose, onSave
               <p className="text-xs font-medium text-muted-foreground">{t.parentN(i + 1)}</p>
               <div className="flex items-center gap-2">
                 {rows.length > 1 && <label className="flex items-center gap-1.5 text-xs"><Checkbox checked={primaryIdx === i} onCheckedChange={() => setPrimaryIdx(i)} /> {t.primaryParent}</label>}
-                <Button size="icon-xs" variant="ghost" className="text-red-600" disabled={rows.length === 1} aria-label={t.remove}
+                <Button size="icon-xs" variant="ghost" className="text-danger" disabled={rows.length === 1} aria-label={t.remove}
                   onClick={() => { setRows((rs) => rs.filter((_, j) => j !== i)); setPrimaryIdx((p) => (p === i ? 0 : p > i ? p - 1 : p)) }}><TrashIcon /></Button>
               </div>
             </div>
@@ -111,7 +111,7 @@ export function FamilyForm({ family, initialName, initialParent, onClose, onSave
               errors={{ name: err(`parent${i}.name`), phone: err(`parent${i}.phone`) }} />
           </div>
         ))}
-        {err("parents") && <p className="text-xs text-red-700">{err("parents")}</p>}
+        {err("parents") && <p className="text-xs text-danger">{err("parents")}</p>}
       </section>
 
       <section className="space-y-2">

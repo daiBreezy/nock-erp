@@ -86,7 +86,7 @@ export function FamilySheet({ id: target, onClose }: { id: ID | "new" | null; on
                   ) : !f.parents.every((p) => p.lineLinked) && (
                     code ? (
                       <div className="flex flex-wrap items-center gap-2 rounded-lg bg-muted/60 p-2 text-sm">
-                        <MessageCircleIcon className="size-4 text-emerald-600" />
+                        <MessageCircleIcon className="size-4 text-success" />
                         โค้ดผูก LINE: <b className="font-mono tracking-widest">{code.code}</b>
                         <span className="text-xs text-muted-foreground">หมดอายุ {fmtDateTime(code.expiresAt)}</span>
                         <Button size="icon-xs" variant="ghost" aria-label="คัดลอก" onClick={() => { navigator.clipboard?.writeText(`แอด LINE ${branch.lineOa.botBasicId || "@nockacademy"} แล้วพิมพ์โค้ด ${code.code}`); toast.success("คัดลอกข้อความสำหรับส่งผู้ปกครองแล้ว") }}><CopyIcon /></Button>

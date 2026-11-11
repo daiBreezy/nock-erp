@@ -8,7 +8,7 @@
 
 | เรื่อง | กฎ eslint | จุดทั้งหมด | เหลือ | สถานะ |
 |---|---|---:|---:|---|
-| 1. สีสถานะ → token | no-hardcoded-status-color | 694 | **359** | 🟡 กำลังทำ (ทำไป 335 · เกินครึ่ง) |
+| 1. สีสถานะ → token | no-hardcoded-status-color | 694 | **262** | 🟡 กำลังทำ (ทำไป 432) |
 | 2. controls ดิบ → Button/Input/NativeSelect | no-raw-controls | 329 | 329 | ⬜ ยังไม่เริ่ม |
 | 3. px → text token / spacing scale | no-px-text | 44 | 44 | ⬜ ยังไม่เริ่ม |
 | 4. breakpoint `md:`/`xl:` → base/sm/lg | no-adhoc-breakpoints | 29 | 29 | ⬜ ยังไม่เริ่ม |
@@ -30,8 +30,8 @@
 | 6.3 | ปฏิทิน | week-teacher-board (25), calendar/page (12), summary-panel (10), class-card (9), move/blocks/meta | 63 | ✅ เสร็จ |
 | 6.4 | คาบ / เช็คชื่อ / สรุป | session-sheet (30), work-state, class-dialog, summaries, force-approve, period-banner | 68 | ✅ เสร็จ |
 | 6.5 | Reports | reports/page (66), summary-tab, charts, attention-dialog | 82 | ✅ เสร็จ |
-| 6.6 | รถรับส่ง / คนขับ | driver-app (32), labels (18), trip-row (13), zone-analysis, zone-map, trip-sheet | ~79 | ⬜ |
-| 6.7 | CRM / นักเรียน / บุคลากร | staff-panel (18), lead-sheet (10), student-exit, renewal-followup, lead-followups, survey-calls, student-sheet | ~80 | ⬜ |
+| 6.6 | รถรับส่ง / คนขับ | driver-app (32), labels (18), trip-row (13), zone-analysis, zone-map, trip-sheet | ~79 | ⬜ (ข้ามไว้) |
+| 6.7 | CRM / นักเรียน / บุคลากร | staff-panel (18), lead-sheet (10), student-exit, renewal-followup, lead-followups, survey-calls, student-sheet + ปลีกย่อย | 97 | ✅ เสร็จ |
 | 6.8 | ผู้ปกครอง / LIFF ฟอร์ม | parent-app (17), liff/form (13), liff/exit (11), liff/survey (9), form-renderer, form-builder, person-fields | ~76 | ⬜ |
 | 6.9 | ตั้งค่า / Nock / Inbox / แอปเชลล์ + เก็บตก | holiday-planner (16), nock/page (14), nock-widget, app-shell, ai, confirmation, day/week-sessions + ไฟล์ปลีกย่อย | ~124 | ⬜ |
 
@@ -60,8 +60,10 @@
 ## ข้อยกเว้นที่ตั้งใจ (ds-exception — ไม่ใช่สถานะ)
 
 - **สีประจำวันของไทย** (`week-teacher-board.tsx` `DAY_TONE`: อา.แดง จ.เหลือง อ.ชมพู พ.เขียว พฤ.ส้ม ศ.ฟ้า ส.ม่วง) — เป็นจานสี identity ไม่ใช่ success/danger → ครอบด้วย `/* eslint-disable … ds-exception */` คงสีเดิมไว้ (รอบ 6.3)
+- **แท็กสายรถ P/D/B** (`student-sheet.tsx` `BUS_TAG`: รับ ฟ้า · ส่ง ม่วง · ทั้งคู่ เขียว) — identity ของประเภทรับส่ง ไม่ใช่สถานะ → ds-exception (รอบ 6.7)
 
 ## ค้างให้เจ้าของตัดสิน
 
 - **การ์ดเลือกย้ายคาบ (session-sheet 6.4):** เดิมพื้น `rose` (ชมพู hardcode) → เปลี่ยนเป็น `bg-primary/5` + `ring-primary` ตามคอนเวนชัน "ตัวเลือกที่เลือก" ของแอป → ตามสีแบรนด์ (NA ชมพู / Liclass ฟ้า) ไม่ fix ชมพูตายตัว
+- **สีวันหยุดบริษัท:** calendar ใช้เหลือง (warning) · start-date-picker เดิมใช้ rose → รอบ 6.7 ทำเป็น danger (คงโทนแดง) · ยังไม่ตรงกันทั้งแอป — ควรเลือกสีเดียว
 - **สีลา (attendance.leave):** `tags.ts` กำหนด `sky` (ฟ้า) แต่ทุกหน้าจริงใช้ **เหลือง** มาตลอด → รอบ 6.1 คงเหลือง (`warning`) ไว้ ไม่แอบเปลี่ยน · ถ้าจะให้ตรง tags.ts ต้องเปลี่ยนเป็นฟ้าทั้งแอป

@@ -94,7 +94,7 @@ export default function StaffPage() {
     // owner 2026-10-12: Part-time / Full-time both chips, each its own colour
     { id: "type", label: "ประเภท", width: "110px", sort: "type", cell: (x) => (
       <EditCell kind="select" value={x.s.partTime ? "part" : "full"} disabled={ro(x)}
-        display={<span className={cn(CHIP, x.s.partTime ? "bg-amber-100 text-amber-900" : "bg-emerald-100 text-emerald-800")}>{x.s.partTime ? "Part-time" : "Full-time"}</span>}
+        display={<span className={cn(CHIP, x.s.partTime ? "bg-warning-soft text-warning-ink" : "bg-success-soft text-success-ink")}>{x.s.partTime ? "Part-time" : "Full-time"}</span>}
         options={[{ value: "full", label: "Full-time" }, { value: "part", label: "Part-time" }]} onSave={(v) => edit(x.s, { partTime: v === "part" })} />
     ) },
     { id: "role", label: scope.multi ? "ตำแหน่ง" : "ตำแหน่ง (สาขานี้)", width: "150px", sort: "role", cell: (x) => (

@@ -41,7 +41,7 @@ export function PhotoCell({ person, disabled, onSave }: { person: Person; disabl
             {person.photo ? <><RefreshCwIcon className="size-4" />เปลี่ยนรูป</> : <><ImagePlusIcon className="size-4" />อัปโหลดรูป</>}
           </button>
           {person.photo && (
-            <button type="button" className={cn(item, "text-red-700")} onClick={() => setPhoto(undefined, "เอารูปออกแล้ว")}><Trash2Icon className="size-4" />เอารูปออก</button>
+            <button type="button" className={cn(item, "text-danger")} onClick={() => setPhoto(undefined, "เอารูปออกแล้ว")}><Trash2Icon className="size-4" />เอารูปออก</button>
           )}
           <input ref={file} type="file" accept="image/*" hidden onChange={async (e) => {
             const f = e.target.files?.[0]

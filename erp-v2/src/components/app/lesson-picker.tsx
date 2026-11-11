@@ -57,7 +57,7 @@ export function CatalogCombo({ label, items, value, onChange, onCreate, disabled
             {!list.length && !q && <li className="px-2 py-1.5 text-xs text-muted-foreground">ยังไม่มีรายการ — พิมพ์ชื่อเพื่อสร้าง</li>}
           </ul>
           {similar.length > 0 && (
-            <div className="rounded-lg bg-amber-50 p-2 text-xs text-amber-900 dark:bg-amber-950/40 dark:text-amber-100">
+            <div className="rounded-lg bg-warning-soft/60 p-2 text-xs text-warning-ink">
               ใช่อันนี้ไหม? {similar.map((x) => <button key={x.id} type="button" className="mr-1 font-semibold underline" onClick={() => pick(x.id)}>{x.name}</button>)}
             </div>
           )}

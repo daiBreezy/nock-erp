@@ -111,7 +111,7 @@ export default function CoursesPage() {
     { id: "students", label: "นักเรียน", width: "96px", sort: "students", align: "center", className: "tabular-nums", cell: (c) => {
       // owner 2026-10-13: with a Max Student the cell reads enrolled / max (red when full)
       const n = stats.get(c.id)!.students
-      if (c.maxStudents) return <span className={cn(n >= c.maxStudents && "font-medium text-red-700")} title={n >= c.maxStudents ? "คอร์สเต็ม" : `รับได้อีก ${c.maxStudents - n} คน`}>{n}/{c.maxStudents}</span>
+      if (c.maxStudents) return <span className={cn(n >= c.maxStudents && "font-medium text-danger")} title={n >= c.maxStudents ? "คอร์สเต็ม" : `รับได้อีก ${c.maxStudents - n} คน`}>{n}/{c.maxStudents}</span>
       return n || <span className="text-muted-foreground">—</span>
     } },
     { id: "classes", label: "คลาสที่ผูก", width: "100px", sort: "classes", align: "center", className: "tabular-nums", cell: (c) => stats.get(c.id)!.classes || <span className="text-muted-foreground">—</span> },

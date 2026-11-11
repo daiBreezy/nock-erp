@@ -186,18 +186,18 @@ function InfoTab({ s, week, onTab }: { s: Staff; week: string; onTab: (t: Tab) =
               <p className="text-xs text-muted-foreground">คาบสอนสัปดาห์นี้</p>
               <p className="text-2xl font-semibold tabular-nums">{w.sessions.total} <span className="text-sm font-normal text-muted-foreground">คาบ · {Math.round(w.minutes / 6) / 10} ชม.</span></p>
               <Progress done={w.sessions.done} total={w.sessions.total} />
-              <p className="mt-1 text-xs"><span className="text-emerald-700">เสร็จ {w.sessions.done}</span> · <span className={w.sessions.left ? "text-amber-700" : "text-muted-foreground"}>เหลือ {w.sessions.left}</span></p>
+              <p className="mt-1 text-xs"><span className="text-success">เสร็จ {w.sessions.done}</span> · <span className={w.sessions.left ? "text-warning" : "text-muted-foreground"}>เหลือ {w.sessions.left}</span></p>
             </button>
             <button type="button" onClick={() => onTab("summaries")} className="rounded-2xl border p-3 text-left hover:bg-muted/40">
               <p className="text-xs text-muted-foreground">สรุปการเรียนสัปดาห์นี้</p>
               <p className="text-2xl font-semibold tabular-nums">{w.summaries.total} <span className="text-sm font-normal text-muted-foreground">ฉบับ</span></p>
               <Progress done={w.summaries.written} total={w.summaries.total} />
-              <p className="mt-1 text-xs"><span className="text-emerald-700">เขียนแล้ว {w.summaries.written}</span> · <span className={w.summaries.left ? "text-amber-700" : "text-muted-foreground"}>เหลือ {w.summaries.left}</span></p>
+              <p className="mt-1 text-xs"><span className="text-success">เขียนแล้ว {w.summaries.written}</span> · <span className={w.summaries.left ? "text-warning" : "text-muted-foreground"}>เหลือ {w.summaries.left}</span></p>
             </button>
           </div>
           <div className="flex divide-x rounded-2xl bg-muted/50 py-2">
             <Stat label="นักเรียนในมือ" value={mine.length} sub="คน" />
-            <Stat label="ต้องต่อคอร์ส" value={renew.length} sub="คน" tone={renew.length ? "text-amber-700" : undefined} />
+            <Stat label="ต้องต่อคอร์ส" value={renew.length} sub="คน" tone={renew.length ? "text-warning" : undefined} />
           </div>
           {renew.length > 0 && (
             <section className="space-y-1.5">
@@ -208,7 +208,7 @@ function InfoTab({ s, week, onTab }: { s: Staff; week: string; onTab: (t: Tab) =
                   return (
                     <li key={x.id} className="flex items-center gap-2 p-2.5 text-sm">
                       <span className="font-medium">{x.nickname}</span><span className="text-xs text-muted-foreground">{x.grade}</span>
-                      {end && <span className="ml-auto text-xs text-amber-700">แพ็กหมด {fmtDate(end)}</span>}
+                      {end && <span className="ml-auto text-xs text-warning">แพ็กหมด {fmtDate(end)}</span>}
                     </li>
                   )
                 })}
@@ -251,7 +251,7 @@ function InfoTab({ s, week, onTab }: { s: Staff; week: string; onTab: (t: Tab) =
 function Progress({ done, total }: { done: number; total: number }) {
   return (
     <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-muted">
-      <div className="h-full rounded-full bg-emerald-500 transition-all" style={{ width: `${total ? Math.round((done / total) * 100) : 0}%` }} />
+      <div className="h-full rounded-full bg-success transition-all" style={{ width: `${total ? Math.round((done / total) * 100) : 0}%` }} />
     </div>
   )
 }
@@ -274,8 +274,8 @@ function SessionsTab({ s, week, onOpen }: { s: Staff; week: string; onOpen: (id:
       <div className="flex divide-x rounded-2xl bg-muted/50 py-2">
         <Stat label="คาบสัปดาห์นี้" value={w.sessions.total} />
         <Stat label="ชั่วโมง" value={Math.round(w.minutes / 6) / 10} />
-        <Stat label="เสร็จแล้ว" value={w.sessions.done} tone="text-emerald-700" />
-        <Stat label="เหลือ" value={w.sessions.left} tone={w.sessions.left ? "text-amber-700" : undefined} />
+        <Stat label="เสร็จแล้ว" value={w.sessions.done} tone="text-success" />
+        <Stat label="เหลือ" value={w.sessions.left} tone={w.sessions.left ? "text-warning" : undefined} />
       </div>
       {/* one column grid for every row: time · class · students · status — the status column is fixed so they line up */}
       <div className="space-y-4 pt-1">
@@ -317,14 +317,14 @@ function SummariesTab({ s, week, onOpen }: { s: Staff; week: string; onOpen: (id
     <>
       <div className="flex divide-x rounded-2xl bg-muted/50 py-2">
         <Stat label="สรุปสัปดาห์นี้" value={w.summaries.total} />
-        <Stat label="เขียนแล้ว" value={w.summaries.written} tone="text-emerald-700" />
-        <Stat label="ยังไม่ได้เขียน" value={w.summaries.left} tone={w.summaries.left ? "text-amber-700" : undefined} />
+        <Stat label="เขียนแล้ว" value={w.summaries.written} tone="text-success" />
+        <Stat label="ยังไม่ได้เขียน" value={w.summaries.left} tone={w.summaries.left ? "text-warning" : undefined} />
       </div>
       {w.rows.length === 0 ? <Empty text="ไม่มีคาบในสัปดาห์นี้" /> : (
         <ul className="divide-y overflow-hidden rounded-2xl border">
           {w.rows.map((r) => {
             const all = r.needed > 0 && r.written >= r.needed
-            const state = !started(r.session) ? { t: "ยังไม่ถึงคาบ", c: "bg-muted text-muted-foreground" } : all ? { t: "เขียนครบ", c: "bg-emerald-100 text-emerald-800" } : r.needed === 0 ? { t: "ไม่มีนักเรียนมาเรียน", c: "bg-muted text-muted-foreground" } : { t: "ยังไม่ได้เขียน", c: "bg-amber-100 text-amber-900" }
+            const state = !started(r.session) ? { t: "ยังไม่ถึงคาบ", c: "bg-muted text-muted-foreground" } : all ? { t: "เขียนครบ", c: "bg-success-soft text-success-ink" } : r.needed === 0 ? { t: "ไม่มีนักเรียนมาเรียน", c: "bg-muted text-muted-foreground" } : { t: "ยังไม่ได้เขียน", c: "bg-warning-soft text-warning-ink" }
             return (
               <li key={r.session.id}>
                 <button type="button" onClick={() => onOpen(r.session.id)} className="grid w-full grid-cols-[8rem_1fr_2.5rem_7.5rem] items-center gap-3 px-3 py-2.5 text-left text-sm hover:bg-muted/40">
@@ -435,10 +435,10 @@ function StaffEdit({ staff: initial, onCancel, onSaved }: { staff?: Staff; onCan
         </Field>
         {/* owner 2026-10-09: an Area / Region Manager looks after chosen branches only */}
         {f.roles.includes("area_manager") && !allBranches(f) && (
-          <div className={cn("space-y-1 rounded-2xl border p-3", err("area") && "border-red-300")}>
+          <div className={cn("space-y-1 rounded-2xl border p-3", err("area") && "border-danger/40")}>
             <Chips label="สาขาที่ดูแล (Area Manager)" items={branches.filter((b) => b.active !== false).map((b) => ({ key: b.id, label: b.name }))}
               on={(k) => !!f.areaBranchIds?.includes(k)} toggle={(k) => setF({ ...f, areaBranchIds: toggle(f.areaBranchIds ?? [], k) })} />
-            {err("area") && <p className="text-xs text-red-700">{err("area")}</p>}
+            {err("area") && <p className="text-xs text-danger">{err("area")}</p>}
           </div>
         )}
 
@@ -451,12 +451,12 @@ function StaffEdit({ staff: initial, onCancel, onSaved }: { staff?: Staff; onCan
                 options={free.map((b) => ({ value: b.id, label: b.name }))} />
             )}
           </div>
-          {(err("roles") || err("branchIds")) && <p className="text-xs text-red-700">{err("roles") || err("branchIds")}</p>}
+          {(err("roles") || err("branchIds")) && <p className="text-xs text-danger">{err("roles") || err("branchIds")}</p>}
           {rows.map((r, i) => {
             const b = branches.find((x) => x.id === r.branchId)
             const e = err(`branch:${r.branchId}`)
             return (
-              <div key={r.branchId} className={cn("space-y-2 rounded-2xl border p-3", e && "border-red-300")}>
+              <div key={r.branchId} className={cn("space-y-2 rounded-2xl border p-3", e && "border-danger/40")}>
                 <div className="flex items-center gap-2">
                   <span className="font-medium">{b?.name ?? r.branchId}</span>
                   <Button size="icon-sm" variant="ghost" className="ml-auto" aria-label="เอาสาขานี้ออก" onClick={() => setRows(rows.filter((_, j) => j !== i))}><TrashIcon /></Button>
@@ -466,7 +466,7 @@ function StaffEdit({ staff: initial, onCancel, onSaved }: { staff?: Staff; onCan
                   <Chips label="วิชาที่สอน" items={(b?.subjects ?? []).map((x) => ({ key: x, label: x }))} on={(k) => r.subjects.includes(k)} toggle={(k) => setRow(i, { subjects: toggle(r.subjects, k) })} />
                 )}
                 <Chips label="วันทำงาน (ไม่เลือก = ทุกวัน)" items={WEEK.map((d) => ({ key: String(d), label: dayShort(d) }))} on={(k) => r.weekdays.includes(Number(k) as Weekday)} toggle={(k) => setRow(i, { weekdays: toggle(r.weekdays, Number(k) as Weekday) })} />
-                {e && <p className="text-xs text-red-700">{e}</p>}
+                {e && <p className="text-xs text-danger">{e}</p>}
               </div>
             )
           })}

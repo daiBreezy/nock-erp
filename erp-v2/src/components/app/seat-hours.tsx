@@ -70,7 +70,7 @@ export function SeatHours({ classMinutes, start, value, onChange, onError, class
             </div>
           ))}
           <Button size="xs" variant="outline" onClick={() => setRows([...rows, { from: fromMinutes(toMinutes(start) + classMinutes - 30), mins: "30" }])}><PlusIcon /> เพิ่มช่วง</Button>
-          {error && <p className="text-xs text-red-700">{error}</p>}
+          {error && <p className="text-xs text-danger">{error}</p>}
         </div>
       )}
       {!error && <p className="text-xs text-muted-foreground">เรียน {fmtLen(seatTotal(seat))} · {seatTime(start, seat)}</p>}

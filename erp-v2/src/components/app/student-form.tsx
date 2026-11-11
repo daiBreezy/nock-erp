@@ -159,7 +159,7 @@ export function Field({ label, hint, error, className, children }: { label: Reac
     <div className={className}>
       <Label className="mb-1 text-xs">{label}{hint && <InfoTip text={hint} className="-my-1" />}</Label>
       {children}
-      {error && <p className="mt-0.5 text-xs text-red-700">{error}</p>}
+      {error && <p className="mt-0.5 text-xs text-danger">{error}</p>}
     </div>
   )
 }
@@ -183,7 +183,7 @@ export function ClassPicker({ classes, grade, picked, onToggle, teacherName, has
               className={cn("flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-sm", on ? "bg-primary/10 ring-1 ring-primary ring-inset" : "hover:bg-muted", !fits(k) && !on && "opacity-60", disabled && "cursor-not-allowed opacity-40")}>
               <span className="flex gap-1">{subjectsOf(k).map((x) => <span key={x} className={cn("rounded-full px-1.5 text-2xs font-medium", subjectColor(x).chip)}>{x}</span>)}</span>
               <span className="min-w-0 flex-1 truncate font-medium">{k.name}</span>
-              {already && <span className="shrink-0 text-xs font-medium text-emerald-700">อยู่แล้ว</span>}
+              {already && <span className="shrink-0 text-xs font-medium text-success">อยู่แล้ว</span>}
               <span className="shrink-0 text-xs text-muted-foreground tabular-nums">{TH_DAYS_FULL[k.weekday]} {k.start}–{endTime(k.start, k.minutes)} · {teacherName(k.teacherId)} · {k.studentIds.length} คน</span>
             </button>
           </li>
